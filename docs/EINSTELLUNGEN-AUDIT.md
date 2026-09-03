@@ -42,14 +42,14 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 13 | ❌ | niedrig | Zwei Einträge in `GS_KEEP_ON_LOGOUT` zeigen ins Leere: ein Schlüssel, den es nicht gibt, und ein „Schalter" oh |
 | 14 | ❌ | niedrig | Die Artenzahl wird an zwei Elemente geschrieben, die es nicht gibt — und der Kommentar daneben führt beide als |
 | 15 | ⚪ | niedrig | Der orange Farbpunkt in „App-Farbe" zeigt eine Farbe, die das Thema seit v31.32 nicht mehr benutzt. |
-| 16 | 🔴 | hoch | gsPrefsPull ERSETZT den kompletten gs_prefs-Blob durch die Serverzeile, statt zu mergen — jede Einstellung, di |
-| 17 | 🔴 | hoch | Kompakt- und Senioren-Modus loesen ueberhaupt keinen Push aus — sie stehen in keinem der beiden Sync-Wege |
-| 18 | 🔴 | hoch | Was der Pull zurueckholt, WIRKT nicht — gsPrefsPull schreibt nur Speicher und Variable, ruft aber keine apply* |
+| 16 | ✅ | hoch | gsPrefsPull ERSETZT den kompletten gs_prefs-Blob durch die Serverzeile, statt zu mergen — jede Einstellung, di |
+| 17 | ✅ | hoch | Kompakt- und Senioren-Modus loesen ueberhaupt keinen Push aus — sie stehen in keinem der beiden Sync-Wege |
+| 18 | ✅ | hoch | Was der Pull zurueckholt, WIRKT nicht — gsPrefsPull schreibt nur Speicher und Variable, ruft aber keine apply* |
 | 19 | ❌ | mittel | Der Rueckweg des Nachtmodus ist einseitig: „dunkel an" reist, „dunkel aus" nicht |
-| 20 | 🔴 | mittel | Nachtmodus und Sprache planen beim Umschalten keinen Push — der Auto-Track ueber STATE_KEYS ist tot, und an di |
+| 20 | ✅ | mittel | Nachtmodus und Sprache planen beim Umschalten keinen Push — der Auto-Track ueber STATE_KEYS ist tot, und an di |
 | 21 | ❌ | mittel | gs_dark, gs_theme_color und gs_lang sind im Code ausdruecklich als GERAETE-Eigenschaft deklariert und werden t |
 | 22 | ⚪ | mittel | Der Schalter „Standort immer neu bestaetigen" leert den Standort des KONTOS, nicht nur den des Geraets |
-| 23 | ⚪ | niedrig | Die prefs-Verschachtelung waechst mit jeder Rundreise um eine Ebene — gsPrefsPull entfernt das jsonb-Unterobje |
+| 23 | ✅ | niedrig | Die prefs-Verschachtelung waechst mit jeder Rundreise um eine Ebene — gsPrefsPull entfernt das jsonb-Unterobje |
 | 24 | ✅ | hoch | Inhalt einer Karte, der nicht in einer `.settings-row` steht, wird von der Suche NIE ausgeblendet — er bleibt  |
 | 25 | ✅ | hoch | 18 Bedienelemente im Smart-Push-Panel liegen ausserhalb jeder `.settings-row` und sind damit ueberhaupt nicht  |
 | 26 | ✅ | mittel | `#settings-search-none` („Keine Einstellung gefunden.") erscheint gleichzeitig mit sichtbaren Einstellungen —  |
@@ -70,7 +70,7 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 41 | ✅ | mittel | Ein </div> zu früh in der Kopfzeile: Untertitel und Versionsnummer stehen NEBEN dem Titel statt darunter |
 | 42 | ✅ | mittel | Bei 320 px Breite ragt die Versionsnummer 13 px über den Bildrand und wird von overflow-x:hidden abgeschnitten |
 | 43 | ✅ | mittel | Knopf „🔔 Aktiv": weisse Schrift auf --g-main — im Dunkelmodus 2,36:1 statt der geforderten 4,5:1 |
-| 44 | ⚪ | mittel | --accent ist in der ganzen Datei nie definiert; „12 h" fällt deshalb immer auf das feste #2e7d32 zurück und st |
+| 44 | ✅ | mittel | --accent ist in der ganzen Datei nie definiert; „12 h" fällt deshalb immer auf das feste #2e7d32 zurück und st |
 | 45 | ⚪ | mittel | Die E-Mail-Adresse im Impressum löst beim Antippen ZWEI Dinge gleichzeitig aus und ist nur 103,6×14 px gross |
 | 46 | ⚪ | niedrig | Der Regler „Wetter-Vorlauf" ist 342×16 px — 16 px hoch statt der geforderten 24 |
 | 47 | ⚪ | niedrig | Die Versionszeile im Kopfbereich steht im Hellmodus bei 3,19:1 — Deckkraft auf TEXT senkt den Kontrast blind |
@@ -597,7 +597,7 @@ Der Kommentar über der Tabelle (51045–51048) nennt den Grund: „green main w
 
 ## Cloud-Sync der Einstellungen
 
-### 🔴 [16] gsPrefsPull ERSETZT den kompletten gs_prefs-Blob durch die Serverzeile, statt zu mergen — jede Einstellung, die nie gepusht wurde, ist nach dem naechsten Pull weg
+### ✅ [16] gsPrefsPull ERSETZT den kompletten gs_prefs-Blob durch die Serverzeile, statt zu mergen — jede Einstellung, die nie gepusht wurde, ist nach dem naechsten Pull weg
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 81765
 - **Folge:** Kompakt-Modus und Senioren-Modus (Barrierefreiheit!) fallen spaetestens zwei Minuten nach dem Einschalten auf den Standard zurueck, sobald der Nutzer die Einstellungen das naechste Mal oeffnet (initSettingsScreen ruft loadPrefs, 51409). Kein Fehler, keine Meldung — der Schalter steht einfach wieder auf aus. Betroffen ist alles, was nicht ueber savePref() laeuft.
@@ -656,7 +656,7 @@ Nutzerwirkung: Kompakt-Ansicht und Senioren-Modus (Barrierefreiheit) fallen spae
 
 </details>
 
-### 🔴 [17] Kompakt- und Senioren-Modus loesen ueberhaupt keinen Push aus — sie stehen in keinem der beiden Sync-Wege
+### ✅ [17] Kompakt- und Senioren-Modus loesen ueberhaupt keinen Push aus — sie stehen in keinem der beiden Sync-Wege
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 51347
 - **Folge:** Wer auf dem Telefon nur den Senioren- oder Kompakt-Modus einschaltet und sonst nichts aendert, findet auf dem Tablet nichts davon. Zusammen mit Befund 1 ist es schlimmer als „kommt nicht an": der naechste Pull loescht die Einstellung auch auf dem Geraet, auf dem sie gesetzt wurde.
@@ -714,7 +714,7 @@ Nicht widerlegbar — bestaetigt durch Quelltext UND zwei Browser-Laeufe. (Nur d
 
 </details>
 
-### 🔴 [18] Was der Pull zurueckholt, WIRKT nicht — gsPrefsPull schreibt nur Speicher und Variable, ruft aber keine apply*-Funktion und aktualisiert kein Bedienelement
+### ✅ [18] Was der Pull zurueckholt, WIRKT nicht — gsPrefsPull schreibt nur Speicher und Variable, ruft aber keine apply*-Funktion und aktualisiert kein Bedienelement
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 81769
 - **Folge:** Aendert der Nutzer auf Geraet B den Nachtmodus, die Masseinheiten, das Mondwidget oder die Sprache, sieht Geraet A davon nichts, bis die App neu geladen wird. Schlimmer: der Speicher sagt inzwischen etwas anderes als der Bildschirm — beim naechsten loadPrefs() springt die Oberflaeche ohne erkennbaren Anlass um.
@@ -798,7 +798,7 @@ GEMESSEN:
 
 </details>
 
-### 🔴 [20] Nachtmodus und Sprache planen beim Umschalten keinen Push — der Auto-Track ueber STATE_KEYS ist tot, und an diesen Stellen fehlt das ersetzende markDirty('state')
+### ✅ [20] Nachtmodus und Sprache planen beim Umschalten keinen Push — der Auto-Track ueber STATE_KEYS ist tot, und an diesen Stellen fehlt das ersetzende markDirty('state')
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 51257
 - **Folge:** Nachtmodus und Sprachwahl erreichen das Konto nur zufaellig — naemlich dann, wenn spaeter eine unbeteiligte Aktion (Favorit, Scan, Quiz) den state-Bereich als dirty markiert und ein Flush den Blob neu baut (79043). Wer die Sprache umstellt und die App schliesst, hat sie moeglicherweise nie hochgeladen.
@@ -917,7 +917,7 @@ Der Schalter selbst (gs_gps_always_ask) ist korrekt geraetelokal — er steht in
 
 </details>
 
-### ⚪ [23] Die prefs-Verschachtelung waechst mit jeder Rundreise um eine Ebene — gsPrefsPull entfernt das jsonb-Unterobjekt nicht, bevor es den Blob speichert
+### ✅ [23] Die prefs-Verschachtelung waechst mit jeder Rundreise um eine Ebene — gsPrefsPull entfernt das jsonb-Unterobjekt nicht, bevor es den Blob speichert
 
 - **Schwere:** niedrig  ·  **Zeile (v32.31):** 81762
 - **Folge:** Bei jedem Login/Pull-Push-Zyklus kommt eine tote Verschachtelungsebene dazu, die mitgespeichert und mituebertragen wird. Heute nur Ballast; sobald jemand die Toggles einmal aus 'prefs' statt flach liest, liest er die falsche Ebene.
@@ -1865,7 +1865,7 @@ EINE UEBERTREIBUNG IM BEFUND: "sieht leer aus" / "praktisch nicht" ist zu stark 
 
 </details>
 
-### ⚪ [44] --accent ist in der ganzen Datei nie definiert; „12 h" fällt deshalb immer auf das feste #2e7d32 zurück und steht im Dunkelmodus mit 2,44:1 auf --surface2
+### ✅ [44] --accent ist in der ganzen Datei nie definiert; „12 h" fällt deshalb immer auf das feste #2e7d32 zurück und steht im Dunkelmodus mit 2,44:1 auf --surface2
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 6284
 - **Folge:** Im Nachtmodus ist die Zahl neben „🌦️ Wetter-Vorlauf" — der einzige Ort, der zeigt, auf wie viele Stunden der Regler steht — dunkelgrün auf dunkelgrün. Man schiebt und sieht nicht, wohin.
