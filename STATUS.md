@@ -4,13 +4,90 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.41` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.42` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ee) — v32.42: `send-receipt` stillgelegt (erste eigene Auslieferung)
+
+Fernando: *„Mach du das für mich!"* — ausdrücklich auf den `send-receipt`-Punkt
+bezogen. Damit ist die Grenze aus `docs/FUER-FERNANDO.md` für genau diesen
+Punkt aufgehoben, und ich habe ihn ausgeliefert.
+
+**Das ist die erste Änderung dieser Sitzung an der laufenden Auslieferung
+ausserhalb des Frontends.** Entsprechend sorgfältig protokolliert.
+
+#### Was das Problem war
+
+Die Funktion lief seit dem 10.04.2026, wurde von niemandem aufgerufen, und
+verschickte E-Mails von `info@greenscan.ch`:
+
+```ts
+const { type, email, name, amount, currency, date,
+        transactionId, charityName, isSubscription } = await req.json()
+…
+to: [email]
+```
+
+Keine Prüfung gegen Stripe. Keine Prüfung, ob die aufrufende Person mit der
+Zahlung zu tun hat. Keine Prüfung, ob ihr die Empfängeradresse gehört.
+`verify_jwt: true` verlangte lediglich **irgendein** GreenScan-Konto.
+
+#### Vor dem Deploy geprüft
+
+| Prüfung | Ergebnis |
+|---|---|
+| Aufrufe in `index.html` | 0 |
+| Aufrufe in anderen Edge-Functions und Migrationen | 0 |
+| Ist die ausgelieferte Fassung noch die des Befunds vom 02.09.? | ja — v3, `ezbr_sha256` `54412e83…`, unverändert |
+
+Die dritte Zeile war die wichtigste. **Wer eine fremde Auslieferung ersetzt,
+prüft zuerst, ob sie noch die ist, die er gelesen hat** — sonst überschreibt
+er blind die Arbeit von jemand anderem.
+
+#### Ausgeliefert und nachgemessen
+
+410-Stub nach Hausform (wie v30.88 und v30.95), `verify_jwt` bewusst weiter
+auf `true`: **ein stillgelegter Endpunkt soll nicht offener sein als vorher.**
+
+Nach dem Deploy den Quelltext **wieder ausgelesen** und bestätigt, dass dort
+der Stub steht — am Inhalt, nicht am Zeitstempel. Genau dieser Fehler ist
+einer früheren Sitzung schon unterlaufen (`FUER-FERNANDO.md`: „Am Zeitstempel
+allein erkennt man es nicht").
+
+```
+vorher   v3 · ezbr_sha256 54412e83…
+nachher  v4 · ezbr_sha256 55e089b4… · ACTIVE · verify_jwt true
+```
+
+Der Stub beantwortet ausserdem den Preflight, damit ein Aufrufer die 410 auch
+LESEN kann statt nur einen CORS-Fehler zu sehen. **Eine Absage muss sagen,
+dass sie eine Absage ist.**
+
+#### Eine Anweisung, die ins Leere gelaufen wäre
+
+In die Doku hatte ich zuerst `git show v32.41:supabase/functions/…`
+geschrieben — als Weg zurück zur alten Fassung. **Dieses Repo vergibt seit
+v26.5 keine Tags mehr** (vier Tags insgesamt, alle aus dem Frühjahr). Der
+Befehl hätte nicht funktioniert.
+
+Jetzt steht dort der Commit-Hash, und ich habe den Befehl laufen lassen: 173
+Zeilen, die alte Fassung ist vollständig da.
+
+> **Auch eine Anweisung in einer Doku ist ein Versprechen.** Wer eine
+> hinschreibt, führt sie einmal aus.
+
+#### Doku
+
+`BEFUND.md` und `docs/FUER-FERNANDO.md` sind fortgeschrieben: der Befund
+bleibt als Begründung stehen, darüber steht, was geschehen ist, und daneben
+der Weg zurück. Punkt 1 in `FUER-FERNANDO.md` ist abgehakt — drei bleiben.
+
+---
 
 ### 2026-09-03 (ed) — v32.41: die Falschmeldung, die man zu überspringen gelernt hat
 
@@ -8167,7 +8244,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.41` (Client) · SW-Cache `gs-v32.41` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.42` (Client) · SW-Cache `gs-v32.42` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -8180,7 +8257,6 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
-| **`send-receipt` stilllegen** | Ausgeliefert, von niemandem aufgerufen, verschickt E-Mails von `info@greenscan.ch` mit Empfänger/Betrag/Text aus dem Anfrage-Rumpf. Jede angemeldete Person kann eine erfundene Quittung an jede Adresse schicken. | `supabase/functions/send-receipt/BEFUND.md` · (df) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. | (2026-08-31 y) |
 | `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
