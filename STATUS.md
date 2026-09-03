@@ -47,6 +47,13 @@ Stufe 0 — **ohne ein einziges Stück Hardware**, und genau das ist der Punkt.
 Werte verworfen → rot („250 % wurde verworfen — ein kaputter Sensor ist eine
 Information"); Regel ohne Werte auf „erfüllt" → rot.
 
+Zwei Nachträge aus den Läufen: die **Achse des Verlaufs** folgt nur noch
+plausiblen Werten (ein 250-%-Wert zog sie auf 272 und drückte die Linie auf
+einen Strich; jetzt am Rand markiert, `data-vmax` im Prüfstand) — und
+`contrast_check` fand im Dunkelmodus den Knopf „📊 Messwerte" im Kalender mit
+**1,35:1** (Schwarz auf dunkler Karte, weil `.gs-dp-kal` keine `color`
+setzte). Ein Knopf trägt seine Textfarbe selbst; nachgemessen 14,5:1.
+
 **Offen (Stufe 1):** `device-ingest` (Edge, Geräte-Token), Cron
 `device-alerts`, Push `sensor_alert`, Wetter als virtuelles Gerät,
 Bestätigung erledigter Aufgaben durch Messwerte — braucht ein Gerät zum
