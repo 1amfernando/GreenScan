@@ -4,13 +4,79 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.44` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.45` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (eh) — v32.45: die Vorsichts-Regel, gegnerisch geprüft — und dreimal korrigiert
+
+Der Arten-Daten-Workflow (sechs Blickwinkel, drei Gegenprüfungen, dann war
+das Kontingent der Umgebung erschöpft) hat die Regel aus v32.43 an zwei
+Stellen widerlegt, und beim Reparieren fand ich eine dritte. Alle drei
+verbindet dasselbe: **richtige Zahlen, falsche Folgerung.**
+
+#### 1 · Eine Unterart ist nicht die Art
+
+`_gsNormLat` streicht var./ssp./f. — damit stand `PI427 Kleiner Perlpilz`
+(*Amanita rubescens* f. *annulosulphurea*, **tox 4**) in der Gruppe des
+Perlpilzes (tox 0–2) und gewann jeden Perlpilz-Scan. Sein eigenes
+`lookalike`-Feld grenzt ihn vom Perlpilz ab. Umgekehrt landete „Broccoli /
+Brassica oleracea var. italica" bei `FD0778 Kohl`, einem Einlese-Rumpf ohne
+Text. **`_gsArtGruppe(sp, abfrageLat)` gruppiert jetzt auf der Stufe der
+Anfrage** — ohne Qualifier zählen nur Einträge ohne Qualifier, mit
+Qualifier zuerst der exakte Treffer.
+
+#### 2 · Ein Platzhalter ist keine Vorsicht
+
+Einlese-Rümpfe tragen `edible:false` ohne Warnung und ohne Verwechslung.
+„Nicht essbar zuerst" hielt sie für vorsichtiger: **94 Namens-Abfragen
+gepflegter Einträge landeten auf einem Rumpf, 82 davon auf einer anderen
+Art**, dazu 12 gepflegte Gemüse-Einträge — das Prüfwerk meldete „nur als
+ungeprüfter Einlese-Eintrag vorhanden" für Broccoli und Mangold. Bei
+gleicher Giftstufe gewinnt jetzt der Eintrag **mit** `warning`/`lookalike`;
+`edible` zählt erst danach. Gemessen: 0 von 2'954.
+
+#### 3 · Vier Sekunden nach dem Start sah jeder Rumpf bearbeitet aus
+
+Der Fall blieb rot, obwohl die Regel stimmte — und die Ursache war eine
+Zeitfrage: `gsAutoFillDBGaps` und `gsAutoFillLookalikes` schreiben ~4 s nach
+dem Laden **Vorlagen-Text** („Ähnliche Arten in der Region …") in
+`lookalike`, `warning` und `uses` jedes Eintrags, der leer ist. Danach hat
+jeder Rumpf ein `lookalike`. Die Vorlagen sind jetzt markiert
+(`_lookalike_tpl` …) und zählen nicht als Bearbeitung.
+
+> **Eine Probe, die sofort nach dem Laden misst, misst einen anderen
+> Zustand als der Prüfstand, der 4 s wartet.** Meine Einzel-Probe war grün,
+> der Prüfstand rot — beide richtig. Wer widersprechende Messungen hat,
+> misst beide Stände mit demselben Werkzeug (CLAUDE.md §7.1, v32.07).
+
+Und dabei gefunden: beide Routinen laufen nur **einmal je Gerät**
+(`gs_db_filled_v3`, `gs_lookalike_filled`). Dieselbe Artenkarte zeigt je nach
+Gerät einen Vorlagen-Satz oder nichts — bewusst offen gelassen, Entscheidung
+für Fernando (`docs/ARTEN-DATEN.md` §7).
+
+#### Dazu vier Stellen aus dem Blickwinkel „Verbraucher"
+
+`gsGetCompleteness` kannte `alt` nicht (fehlende Höhe kostete 0 %) ·
+„Gut belegt" verschwieg die Regeln, die nichts sagen konnten · der
+Blühkalender zeigte `🎨 –` als Wert · die Artenkarte las die Höhe nicht aus
+dem Lebensraum-Text, das Prüfwerk schon (26 Arten). Alle vier behoben.
+
+#### Korrekturen an meinen eigenen Aussagen
+
+Die Wacholder-Anekdote aus (ef) war falsch gemessen (v32.42 traf T018,
+nicht FD0660). „Pilze/Moose haben die beste Abdeckung" war falsch (Gemüse
+100 %). „Paketregister umgehen den Proxy über NO_PROXY" war falsch (es ist
+ein Gateway mit Freigabeliste). Alles in `docs/ARTEN-DATEN.md` §6 mit dem
+Vermerk, was hielt und was nicht.
+
+Prüfstände: `scan_check` 55 Fälle grün (2 neu, je mit Gegenprobe: Regel
+ausgebaut → rot), `speicher_check` 10/10, `render_check` 0/0/0,
+`contrast_check` 0/0, `a11y_check` 0, `wiring_check` 0.
 
 ### 2026-09-03 (eg) — v32.44: die Welle aus (bc), zwei Tage später geschlossen
 
@@ -83,12 +149,10 @@ Jede Nachschlagung in `gsMatchScanToDb` war ein `DB.find(…)` — der erste
 Treffer in Dateireihenfolge. Für „Holunder" war das `W036`, tox 0.
 
 Und ein zweiter, der erst beim Reparieren sichtbar wurde: der **deutsche
-Name wurde vor dem lateinischen gesucht.** „Wacholder / *Juniperus
-communis*" traf `FD0660 Wacholder` — dessen Latein ist *Juniperus nana*, eine
-andere Art, tox 0. Die vier Einträge zur gelieferten Art (drei davon tox 2)
-kamen nie zum Zug. Das war die eine Gruppe von 107, die nach dem ersten
-Umbau noch falsch lag; ich habe sie mir angesehen, statt sie stehen zu
-lassen.
+Name wurde vor dem lateinischen gesucht.** *(Korrigiert in (eh): die
+Wacholder-Anekdote, die hier stand — „traf FD0660 Juniperus nana" — war
+falsch gemessen; sie beschrieb einen Zwischenstand meines Umbaus, nicht
+v32.42. Die Selbstabfrage unten ist die Messung, die trägt.)*
 
 **Und die Gegenprobe dazu hat die grössere Zahl geliefert.** Jeder Eintrag
 mit seinem EIGENEN Namen und Binomen abgefragt — die Frage eines korrekten
@@ -8386,7 +8450,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.44` (Client) · SW-Cache `gs-v32.44` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.45` (Client) · SW-Cache `gs-v32.45` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

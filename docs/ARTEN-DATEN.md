@@ -55,9 +55,12 @@ entscheidend sind:
   (index.html ~Z. 30806) tut das heute schon beim Lesen.
 - **Die Lücke folgt der Import-Charge, nicht der Kategorie.** Man könnte
   vermuten, `color` fehle vor allem bei Pilzen und Moosen, wo „Blütenfarbe"
-  keinen Sinn ergibt. Gemessen ist es umgekehrt: Pilze, Moose, Flechten und
-  Algen haben mit 37–49 % die **beste** Abdeckung; 2'025 der 3'375 Lücken
-  (60 %) sind `wildpflanze` — die ID-Präfixe `FD` (1'435) und `W` (617).
+  keinen Sinn ergibt. Gemessen ist das falsch: die blütenlosen Gruppen sind
+  **nicht schlechter** abgedeckt als die blühenden (Pilze 37 %, Kräuter
+  39 %, Gemüse 100 %); 2'025 der 3'375 Lücken (60 %) sind `wildpflanze` —
+  die ID-Präfixe `FD` (1'435) und `W` (617), je Präfix 0 % oder 100 %.
+  (Die erste Fassung hier nannte Pilze/Moose „die beste Abdeckung" — die
+  Gegenprüfung hat es korrigiert: Gemüse ist besser, Kräuter liegen gleich.)
 
 ## 2 · Woher die Liste kommt
 
@@ -91,8 +94,12 @@ api.inaturalist.org     CONNECT 403
 
 Der Proxy-Status nennt es `connect_rejected · policy denial`. Offen sind
 nur die Paketregister (`registry.npmjs.org`, `pypi.org`,
-`raw.githubusercontent.com` — sie stehen in `NO_PROXY`). Ein Agent des
-Gegenprüfungs-Workflows hat dort gesucht und **nichts Passendes** gefunden:
+`raw.githubusercontent.com`). **Nicht** weil sie in `NO_PROXY` stünden —
+das hat die Gegenprüfung widerlegt: vor jeder Verbindung sitzt ein
+transparentes, TLS-terminierendes Gateway mit Freigabeliste (`jsr.io`
+steht in `NO_PROXY` und antwortet trotzdem `403 x-deny-reason:
+host_not_allowed`). Die Register sind offen, weil sie auf dieser Liste
+stehen. Ein Agent hat dort gesucht und **nichts Passendes** gefunden:
 was sich herunterladen liess, war das falsche Reich, nur Namen ohne
 Merkmale, oder Merkmale ohne Artnamen. Die Aussage „von hier aus geht
 nichts" ist damit **präzisiert**, nicht widerlegt: erreichbar ist etwas,
@@ -116,8 +123,34 @@ einlesen, prüfen und abgleichen — nicht beschaffen.
 Die Tabelle hat **weniger** Zeilen als die Datei und nennt die Datei als
 Quelle. Sie wurde aus der App befüllt, nicht umgekehrt. Was dort steht,
 weiss die App schon — bis auf fünf Arten, deren Farbe nur in der Datenbank
-steht (vermutlich aus den 39 `seed`-Zeilen). Fünf von 3'375: das ist keine
-Quelle, das ist ein Rest.
+steht (aus den 39 `seed`-Zeilen der Migration `v24_30_flowers_seed_v3`,
+ohne Buchbeleg). Fünf von 3'375: das ist keine Quelle, das ist ein Rest.
+
+**Aber der Schluss war zu eng gefasst** — die Gegenprüfung hat vier
+NEBENtabellen gefunden, die Farbe und Höhe tragen, je Zeile mit Quelle:
+
+| Tabelle | Zeilen | Farbe | Höhe | Quelle (Spalte) | im Repo? |
+|---|---|---|---|---|---|
+| `alpine_garden_plants` | 60 | 60 | 60 | Pro Natura/SAC (48), Pro Natura (11), Pro Specie Rara | **nein — nur live** |
+| `water_features` | 60 | 34 | — | Pro Natura (55), Pro Specie Rara, Bioterra | **nein — nur live** |
+| `mushroom_register` | 272 | 272 | 87 | VAPKO, SwissFungi, Wikipedia … | ja (§3.3) |
+| `tree_planting_specs` | 76 | — | 76 | BAFU, Flora Helvetica, tox.ch | ja (§3.3) |
+
+Über das normalisierte Binomen gegen die Datei gehalten: **114 Arten**
+(156 Einträge) hätten Farbe (93 Arten) oder Höhe (51 Arten) aus der
+Datenbank. Zwei Dinge dazu, beide gemessen:
+
+- **Zwei der vier Tabellen existieren in keiner Repo-Migration** — die App
+  liest sie (`index.html` ~Z. 50118 und ~50156), aber wer sie angelegt hat
+  und woher die Zeilen kommen, steht nirgends. Ein weiterer Fall von
+  „Arbeit, die getan wurde und dann verstummt ist".
+- **`alpine_garden_plants` widerspricht sich selbst:** neun Namen stehen
+  mehrfach drin, alle neun mit abweichenden Werten (Rhododendron ferrugineum
+  dreimal: 1600–2800 karminrot · 1500–2500 rosa-pink · 1400–2800 karminrot
+  bis magenta). Auch dort wurde also keine einzelne Quelle abgeschrieben.
+
+Die Regel aus §3.3 gilt deshalb auch hier: belegte Zeilen, aber ohne
+benannte Konvention — **nicht übernommen**, bis jemand sie entscheidet.
 
 ### 3.3 · Repo — zwei belegte Datensätze, und warum sie nicht einfach
 übernommen werden dürfen
@@ -193,10 +226,12 @@ zufällig weiter oben stand. Für „Holunder" war das der eine mit tox 0.
 
 Dazu ein zweiter Fehler, der erst beim Reparieren sichtbar wurde — und
 der sich als der grössere herausstellte: der deutsche Name wurde **vor**
-dem lateinischen gesucht. „Wacholder / *Juniperus communis*" traf über den
-deutschen Namen `FD0660 Wacholder` — dessen Latein ist *Juniperus nana*,
-eine andere Art, tox 0. Die vier Einträge zur gelieferten Art (drei davon
-tox 2) kamen nie zum Zug.
+dem lateinischen gesucht. (Die erste Fassung dieses Absatzes behauptete,
+„Wacholder / *Juniperus communis*" habe in v32.42 `FD0660 Juniperus nana`
+getroffen. **Das war falsch gemessen** — v32.42 traf T018, *Juniperus
+communis*, tox 0; die Anekdote beschrieb einen Zwischenstand meines eigenen
+Umbaus. Die Gegenprüfung hat es gefunden. Der echte Defekt war tox 0 statt
+Gruppenmaximum 2. Die Zahl, die trägt, steht in der Tabelle darunter.)
 
 Wie gross das ist, zeigte erst die Gegenprobe: **jeder Eintrag mit seinem
 eigenen Namen und Binomen abgefragt** — die Frage, die ein korrekter Scan
@@ -260,6 +295,28 @@ Spanne), damit jemand mit einer Flora sie entscheiden kann — welcher
 Eintrag bleibt, welche zusammengelegt werden. Bis dahin sorgt die Regel nur
 dafür, dass sie nicht mehr in die gefährliche Richtung ausschlagen.
 
+### v32.45 — die Regel hat zwei Dinge gleich behandelt, die es nicht sind
+
+Die gegnerische Prüfung (§6) hat an der Regel selbst zwei Fehler gefunden,
+beide mit Zahlen:
+
+| Fehler | Wirkung in v32.43/44 | Korrektur |
+|---|---|---|
+| **Eine Unterart entschied über die Art.** `_gsNormLat` streicht var./ssp./f. — `PI427 „Kleiner Perlpilz"` (*Amanita rubescens* f. *annulosulphurea*, tox 4) stand in der Gruppe des Perlpilzes (tox 0–2) | jeder „Perlpilz / Amanita rubescens"-Scan zeigte **Stufe 4**, obwohl der Eintrag sich in seinem eigenen `lookalike` vom Perlpilz abgrenzt. Umgekehrt landete „Broccoli / Brassica oleracea var. italica" bei `FD0778 Kohl` | `_gsArtGruppe(sp, abfrageLat)` gruppiert auf der **Stufe der Anfrage**: ohne Qualifier zählen nur Einträge ohne Qualifier; mit Qualifier zuerst der exakte Treffer. Perlpilz → tox 2, die Forma → sie selbst, Broccoli → G023 |
+| **Ein Platzhalter galt als Vorsicht.** Einlese-Rümpfe tragen `edible:false` ohne Warnung und ohne Text; „nicht essbar zuerst" hielt sie für vorsichtiger | **94** Namens-Abfragen gepflegter Einträge landeten auf einem Rumpf, **82 davon auf einer anderen Art**; 12 gepflegte Gemüse-Einträge dazu — das Prüfwerk meldete „nur als ungeprüfter Einlese-Eintrag vorhanden" für Broccoli und Mangold | bei gleicher Giftstufe gewinnt der Eintrag **mit** `warning`/`lookalike` (dieselben Felder, an denen v31.90 die Bearbeitung erkennt); `edible` zählt erst danach. Gemessen: 0 von 2'954 |
+
+Und ein dritter Fund beim Reparieren: **zwei Routinen füllen ~4 Sekunden
+nach dem Start Vorlagen-Text in `lookalike`, `warning` und `uses`**
+(`gsAutoFillDBGaps`, `gsAutoFillLookalikes` — „Ähnliche Arten in der Region.
+Merkmale sorgfältig prüfen."). Damit sah jeder Rumpf nach vier Sekunden wie
+ein bearbeiteter Eintrag aus, und die Korrektur oben griff nur in den ersten
+Sekunden. Die Vorlagen sind jetzt markiert (`_lookalike_tpl`, `_warning_tpl`,
+`_uses_tpl`) und zählen nicht als Bearbeitung. Beide Routinen laufen
+ausserdem nur **einmal je Gerät** (`gs_db_filled_v3`, `gs_lookalike_filled`
+im localStorage) — beim ersten Start füllen sie, bei jedem weiteren nicht.
+Dieselbe Karte zeigt also je nach Gerät einen Vorlagen-Satz oder nichts.
+Das ist ein eigener Punkt (§7).
+
 ### Und eine Ausschluss-Zahl, die zwei Dinge in einen Topf warf
 
 Ebenfalls vom Workflow gefunden: die Offline-Eingrenzung (`gsEingrenzen`)
@@ -310,7 +367,31 @@ Stufe 2 die Ergebnisse von Stufe 1 verschluckt, ist derselbe Fehler wie
 ein `catch {}`); der zweite Durchlauf läuft mit einem sechsten Blickwinkel
 auf §4. Sein Ergebnis wird hier nachgetragen.
 
-_(wird nach Abschluss des Workflows ergänzt)_
+Der zweite Durchlauf hat sechs Befunde geliefert und drei davon
+gegengeprüft, bevor das Kontingent der Umgebung erschöpft war (die drei
+übrigen Gegenprüfungen — Repo-Datensätze, Dubletten, Datenbank — sind
+damit **ungeprüft**, nicht bestätigt). Alle drei Urteile lauteten
+**„hält nicht stand"** — und in allen drei Fällen hielten die *Zahlen*, aber
+nicht die *Folgerung*. Das ist die häufigste Fehlerart in diesem Repo, und
+sie hat mich hier dreimal erwischt:
+
+| Befund | Was hielt | Was nicht hielt | Folge |
+|---|---|---|---|
+| Form der vorhandenen Werte | alle Zahlen (967, 333 Werte, 877 im Format `A–Bm`, Präfix-Muster) | „Pilze/Moose haben die beste Abdeckung" (Gemüse 100 %, Kräuter gleichauf); „der Blühkalender rendert 20 Arten mit `🎨 –`" (Pilze erreichen die Funktion nie, und `showMax = 25` zeigt die übrigen nur im Oktober) | §1 korrigiert |
+| Verbraucher der Felder | alle neun Lesestellen, alle Messungen | „ohne dass ein Wort davon auf dem Bildschirm steht" — v32.43 hatte den Satz zwischen Befund und Prüfung eingebaut | Befunde 2b, 3b, 5, 6 waren neu und sind in v32.45 behoben (Vollständigkeit zählt `alt`; „Gut belegt" nennt die Unbekannten; kein `🎨 –`; Höhe aus dem Lebensraum-Text auf der Karte) |
+| Netz | alle vier Hosts gesperrt, Register offen, nichts Passendes dort | „Paketregister umgehen den Proxy über `NO_PROXY`" — es ist ein Gateway mit Freigabeliste | §3.1 korrigiert |
+
+Zwei weitere Befunde kamen ohne Gegenprüfung an und stehen hier mit dem
+Vermerk **ungeprüft**: der Datenbank-Befund (§3.2, vier Nebentabellen) und
+der Dubletten-Befund (§4, die zwei Korrekturen). Den zweiten habe ich selbst
+nachgemessen und beide Korrekturen in `scan_check` mit Gegenprobe abgelegt
+(Regel ausgebaut → rot); den ersten habe ich für die Zahlen der
+Nebentabellen übernommen, ohne sie ein zweites Mal zu zählen.
+
+Die Lehre, die über dieses Dokument hinausgeht: **ein Befund mit richtigen
+Zahlen und falscher Folgerung ist gefährlicher als ein falscher Befund** —
+er überzeugt. Die Zahlen sind das Erste, was man nachrechnet, und wenn sie
+stimmen, hört man auf zu lesen.
 
 ## 7 · Was ich Fernando vorschlage
 
@@ -335,3 +416,13 @@ _(wird nach Abschluss des Workflows ergänzt)_
    liefern, und `_gsFarbWorte` würde es lesen, und der Scanner würde damit
    Arten ausschliessen. Es wäre die Sorte Daten, gegen die diese App seit
    v31.99 gebaut ist: eine Behauptung ohne Herkunft.
+5. **Die zwei Nur-live-Tabellen ins Repo holen** (`alpine_garden_plants`,
+   `water_features`): einmal `select` ziehen, als Snapshot-Migration
+   ablegen wie beim Pilz-Register — sonst ist es Arbeit, die beim nächsten
+   Projekt-Umzug verschwindet. Nur lesend, kein Eingriff; ich kann das
+   vorbereiten.
+6. **Entscheiden, ob Vorlagen-Text auf Artenkarten bleiben soll.** Zwei
+   Routinen schreiben „Ähnliche Arten in der Region …" in `lookalike` und
+   `warning` — beim ersten Start eines Geräts, danach nie wieder. Entweder
+   bei jedem Start (dann sagt die Karte, dass es eine Vorlage ist) oder gar
+   nicht. Der jetzige Zustand ist das Schlechteste von beidem.

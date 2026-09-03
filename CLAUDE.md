@@ -806,12 +806,26 @@ entschied, welche Giftstufe der Scan zeigte. Seither:
   (`_gsArtGruppe` sammelt nach der Identifikation alle Eintraege derselben
   Art ein — „Holunder" trifft ueber den deutschen Namen genau EINEN Eintrag,
   tox 0; die Art hat neun).
-- **Das Binomen wird VOR dem deutschen Namen gesucht.** „Wacholder /
-  Juniperus communis" traf sonst `FD0660 Wacholder` = *Juniperus nana*, eine
-  andere Art. Ein Trivialname ist mehrdeutig, ein Binomen nicht. Gemessen
-  mit der Selbstabfrage (jeder Eintrag mit eigenem name+lat): v32.42
-  landeten **1'194 von 4'311** auf einer anderen Art, seither 0. Der Fall
-  bleibt im Pruefstand — wer die Reihenfolge je wieder umdreht, sieht ihn.
+- **Das Binomen wird VOR dem deutschen Namen gesucht.** Ein Trivialname
+  ist mehrdeutig, ein Binomen nicht. Gemessen mit der Selbstabfrage (jeder
+  Eintrag mit eigenem name+lat): v32.42 landeten **1'194 von 4'311** auf
+  einer anderen Art („Brennnessel / Urtica pilulifera" → Urtica dioica),
+  seither 0. Der Fall bleibt im Pruefstand — wer die Reihenfolge je wieder
+  umdreht, sieht ihn. (Die erste Begruendung in v32.43 — „Wacholder trifft
+  Juniperus nana" — war falsch gemessen; sie beschrieb einen Zwischenstand
+  des Umbaus. Die gegnerische Pruefung hat es gefunden.)
+- **Seit v32.45 zwei Korrekturen an der Regel, beide aus der Gegenpruefung:**
+  (1) **Eine Unterart ist nicht die Art.** `_gsNormLat` streicht var./ssp./f.;
+  damit gewann `PI427 Kleiner Perlpilz` (Amanita rubescens f.
+  annulosulphurea, tox 4) jeden Perlpilz-Scan. `_gsArtGruppe(sp, abfrageLat)`
+  gruppiert jetzt auf der STUFE der Anfrage: ohne Qualifier zaehlen nur
+  Eintraege ohne Qualifier, mit Qualifier zuerst der exakte Treffer.
+  (2) **Ein Platzhalter ist keine Vorsicht.** Einlese-Ruempfe tragen
+  `edible:false` ohne Warnung und ohne Verwechslungshinweis; „nicht essbar
+  zuerst" zog 94 Namens-Abfragen (82 auf eine ANDERE Art) und 12 gepflegte
+  Gemuese-Eintraege auf solche Ruempfe. Bei gleicher Giftstufe gewinnt jetzt
+  der Eintrag MIT `warning`/`lookalike` (dieselben zwei Felder, an denen
+  v31.90 die Bearbeitung erkennt); `edible` zaehlt erst danach.
 
 Der Fall prueft alle drei Teile GETRENNT, weil jeder fuer sich unbemerkt
 zurueckfallen kann; Gegenprobe je Teil gemacht. Wer `gsMatchScanToDb` eine
