@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.26.20260903">
+<meta name="app-version" content="32.27.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29819,6 +29819,97 @@ function gsReportScanMistake() {
   openModal('detail-modal');
 }
 
+// ═══ v32.27 · ARTEN-KORREKTUREN WIRKLICH ZUSTELLEN ═══════════════════════
+//
+// Vier Fehler in einer Ecke, drei davon still:
+//
+//  1. `gsSubmitScanMistake` schickte fire-and-forget (`await sbFetch(...)`
+//     ohne Blick auf die Antwort) und dankte danach BEDINGUNGSLOS. Wurde der
+//     Schreibvorgang abgewiesen, lag die Korrektur nur in
+//     `gs_scan_corrections` — einer Liste, die NIEMAND sendet.
+//  2. Der Offline-Zweig von `gsScanCorrect` schrieb `correct_name`. Diese
+//     Spalte gibt es nicht (`scan_corrections` hat `user_name`). Der Kommentar
+//     bei v29.07 sagt es selbst — nur wurde damals der ONLINE-Zweig repariert
+//     und der andere nicht. Dieselbe Klasse wie der Tagebuch-Reiter in v32.26:
+//     zwei Stellen, eine repariert.
+//  3. `gs_scan_corrections_queue` versprach „Wird beim naechsten Login
+//     synchronisiert" — und wurde nie gesendet. Es gab keinen Flush.
+//  4. `.then()` auf `sbFetch` ist KEINE Erfolgspruefung: sbFetch wirft nicht,
+//     es liefert `{data, error}`. Der Erfolgs-Toast lief also auch dann, wenn
+//     der Server abgelehnt hatte — die v31.95-Klasse.
+//
+// Ab hier gibt es genau EINEN Sender, EINE Warteschlange und EINE Wahrheit.
+
+// Was die Tabelle `scan_corrections` wirklich hat (nachgesehen, nicht geraten):
+// user_id · ai_name · ai_latin · ai_confidence · user_name (NOT NULL) ·
+// user_latin · note · context (jsonb) · reported_at
+function _gsKorrekturSatz(o){
+  return {
+    ai_name:       o.ai_name || null,
+    ai_latin:      o.ai_latin || null,
+    ai_confidence: (typeof o.ai_confidence === 'number') ? o.ai_confidence : null,
+    user_name:     String(o.user_name || '').trim(),
+    user_latin:    o.user_latin || null,
+    note:          o.note || null,
+    context:       o.context || {},
+    reported_at:   o.reported_at || new Date().toISOString(),
+  };
+}
+function _gsKorrekturEinreihen(satz){
+  try {
+    var q = JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]');
+    if (!Array.isArray(q)) q = [];
+    q.push(satz);
+    if (q.length > 100) q = q.slice(-100);
+    return localStorage.setItem('gs_scan_corrections_queue', JSON.stringify(q)) !== false;
+  } catch(_){ return false; }
+}
+// Sendet EINEN Satz. Liefert 'ok' | 'abgelehnt' | 'kein-netz'.
+// Geprueft wird `error` UND ein leeres Ergebnis — PostgREST liefert bei einer
+// von RLS abgewiesenen Zeile 0 Datensaetze und KEINEN Fehler.
+async function _gsKorrekturSenden(satz){
+  if (typeof sbFetch !== 'function') return 'kein-netz';
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return 'kein-netz';
+  var uid = null;
+  try { uid = gsStore.get('gs_sb_uid', null); } catch(_){}
+  try {
+    var r = await sbFetch('/rest/v1/scan_corrections', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Prefer':'return=representation' },
+      body: JSON.stringify(Object.assign({ user_id: uid }, satz)),
+    });
+    if (r && r.error) return 'abgelehnt';
+    if (r && Array.isArray(r.data) && r.data.length === 0) return 'abgelehnt';
+    return 'ok';
+  } catch(_){ return 'kein-netz'; }
+}
+// Der Flush, den es nie gab. Laeuft beim Anmelden und beim Wiederverbinden.
+// Was abgelehnt wird, BLEIBT liegen — nur Zugestelltes verschwindet.
+window.gsFlushKorrekturen = async function(){
+  if (window._gsKorrFlush) return 0;
+  window._gsKorrFlush = true;
+  var raus = 0;
+  try {
+    var q = [];
+    try { q = JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]') || []; } catch(_){}
+    if (!Array.isArray(q) || !q.length) return 0;
+    var bleibt = [];
+    for (var i = 0; i < q.length; i++) {
+      var st = await _gsKorrekturSenden(_gsKorrekturSatz(q[i]));
+      if (st === 'ok') raus++;
+      else bleibt.push(q[i]);
+      if (st === 'kein-netz') { bleibt = bleibt.concat(q.slice(i+1)); break; }
+    }
+    try { localStorage.setItem('gs_scan_corrections_queue', JSON.stringify(bleibt)); } catch(_){}
+    if (raus && typeof showProfileToast === 'function') {
+      showProfileToast({ type:'success', icon:'🙏', title: raus + ' Korrektur' + (raus===1?'':'en') + ' übermittelt',
+                         body:'Danke — die KI lernt daraus.', duration:4000 });
+    }
+  } catch(e){ console.warn('[gsFlushKorrekturen]', e); }
+  finally { window._gsKorrFlush = false; }
+  return raus;
+};
+
 async function gsSubmitScanMistake() {
   var orig = _lastScanResult;
   if (!orig) return;
@@ -29843,19 +29934,20 @@ async function gsSubmitScanMistake() {
     if (queue.length > 200) queue = queue.slice(0,200);
     localStorage.setItem('gs_scan_corrections', JSON.stringify(queue));
   } catch(e){}
-  // Supabase
-  try {
-    if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      var uid = gsStore.get('gs_sb_uid', null) || null;
-      await sbFetch('/rest/v1/scan_corrections', {
-        method:'POST',
-        headers:{'Prefer':'return=minimal'},
-        body: JSON.stringify(Object.assign({user_id: uid}, payload))
-      });
-    }
-  } catch(e){}
+  // v32.27: Antwort ansehen statt danken und hoffen.
+  var _st = await _gsKorrekturSenden(_gsKorrekturSatz(payload));
   try { closeModal('detail-modal'); } catch(e){}
-  showProfileToast('🙏 Danke für die Korrektur! Hilft der KI besser zu werden.');
+  if (_st === 'ok') {
+    showProfileToast('🙏 Danke für die Korrektur! Hilft der KI besser zu werden.');
+  } else if (_gsKorrekturEinreihen(payload)) {
+    showProfileToast({ type:'info', icon:'💾', title:'Korrektur gespeichert',
+      body: _st === 'kein-netz' ? 'Wird übertragen, sobald du online und angemeldet bist.'
+                                : 'Der Server hat sie nicht angenommen — sie wird später erneut versucht.',
+      duration:5000 });
+  } else {
+    showProfileToast({ type:'warn', icon:'⚠️', title:'Korrektur konnte nicht gespeichert werden',
+      body:'Der Speicher des Geräts ist voll.', duration:5000 });
+  }
 }
 
 // Setzt Scanner zurück für nächste Aufnahme. v23.71: Kamera wird beim Analyse-Start gestoppt,
@@ -32230,40 +32322,30 @@ window.gsScanHistoryReportWrong = async function(idx) {
     ? await gsPromptModal({title:_t('prompt_scan_correct_title','Korrektur melden'), message:_scMsg})
     : prompt(_scMsg);
   if (!correctName || !correctName.trim()) return;
-  if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-    var uid = gsStore.get('gs_sb_uid', null);
-    sbFetch('/rest/v1/scan_corrections', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
-      // v29.07 (Bug-Sweep): 'correct_name'/'scan_ts' existieren NICHT; user_name ist NOT NULL.
-      // Korrektur ging sonst IMMER verloren (trotz 'Danke'-Toast). Reale Spalten + scan_ts in context.
-      body: JSON.stringify({
-        user_id: uid,
-        ai_name: e.name,
-        ai_latin: e.latin || null,
-        user_name: correctName.trim(),
-        ai_confidence: e.conf || null,
-        context: e.ts ? { scan_ts: new Date(e.ts).toISOString() } : {}
-      })
-    }).then(function(){
-      if (typeof showProfileToast === 'function') {
-        showProfileToast({type:'success', icon:'🙏', title:'Danke für die Korrektur!', body:'KI lernt aus deinem Feedback.', duration:4500});
-      }
-    }).catch(function(err){
-      if (typeof showProfileToast === 'function') {
-        showProfileToast({type:'warn', icon:'⚠️', title:'Korrektur fehlgeschlagen', body:String(err && err.message || ''), duration:4000});
-      }
-    });
+  // v32.27: derselbe Satz, derselbe Sender, dieselbe Warteschlange wie in
+  // gsSubmitScanMistake. Vorher standen hier ZWEI Fassungen nebeneinander —
+  // der Offline-Zweig schrieb `correct_name`, eine Spalte, die es nicht gibt.
+  // Der Kommentar bei v29.07 hat genau diesen Fehler schon einmal behoben,
+  // aber nur im Online-Zweig.
+  var _satz = _gsKorrekturSatz({
+    ai_name: e.name,
+    ai_latin: e.latin || null,
+    ai_confidence: (typeof e.conf === 'number') ? e.conf : null,
+    user_name: correctName.trim(),
+    context: e.ts ? { scan_ts: new Date(e.ts).toISOString() } : {},
+  });
+  var _st = await _gsKorrekturSenden(_satz);
+  if (typeof showProfileToast !== 'function') return;
+  if (_st === 'ok') {
+    showProfileToast({type:'success', icon:'🙏', title:'Danke für die Korrektur!', body:'KI lernt aus deinem Feedback.', duration:4500});
+  } else if (_gsKorrekturEinreihen(_satz)) {
+    showProfileToast({type:'info', icon:'💾', title:'Korrektur gespeichert',
+      body: _st === 'kein-netz' ? 'Wird übertragen, sobald du online und angemeldet bist.'
+                                : 'Der Server hat sie nicht angenommen — sie wird später erneut versucht.',
+      duration:5000});
   } else {
-    // Lokal queuen
-    try {
-      var q = JSON.parse(localStorage.getItem('gs_scan_corrections_queue')||'[]');
-      q.push({ai_name:e.name, ai_latin:e.latin||'', correct_name:correctName.trim(), ts:Date.now()});
-      localStorage.setItem('gs_scan_corrections_queue', JSON.stringify(q));
-      if (typeof showProfileToast === 'function') {
-        showProfileToast({type:'info', icon:'💾', title:'Korrektur lokal gespeichert', body:'Wird beim nächsten Login synchronisiert.', duration:4000});
-      }
-    } catch(_){}
+    showProfileToast({type:'warn', icon:'⚠️', title:'Korrektur konnte nicht gespeichert werden',
+      body:'Der Speicher des Geräts ist voll.', duration:5000});
   }
 };
 
@@ -71331,6 +71413,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.27', date: '03.09.2026',
+    headline: '\ud83d\ude4f Gemeldete Arten-Korrekturen kommen jetzt wirklich an',
+    summary: 'Wer dem Scanner einen Fehler meldete, bekam „Danke für die Korrektur!" \u2014 unabh\u00e4ngig davon, ob sie ankam. Wurde sie abgelehnt, landete sie in einer Liste, die niemand verschickt. Und die Offline-Warteschlange versprach „wird beim n\u00e4chsten Login synchronisiert", obwohl es diesen Vorgang gar nicht gab.',
+    user_summary: '\ud83d\ude4f Wenn du dem Scanner einen Fehler meldest, kommt die Korrektur jetzt wirklich an \u2014 und wenn nicht, sagt dir die App die Wahrheit statt zu danken.',
+    user_items: [
+      {emoji:'\ud83d\ude4f', bold:'Was los war:', text:' Der Dank kam bedingungslos. Ob der Server die Korrektur angenommen hat, hat niemand nachgesehen \u2014 und bei Ablehnung lag sie in einer Liste, die kein Vorgang je verschickt hat.'},
+      {emoji:'\ud83d\udce4', bold:'Was jetzt passiert:', text:' Die App sieht die Antwort an. Kommt die Korrektur an, dankt sie. Kommt sie nicht an, sagt sie das \u2014 und legt sie in eine Warteschlange, die beim n\u00e4chsten Start und beim Wiederverbinden wirklich abgearbeitet wird.'},
+      {emoji:'\ud83d\udd0d', bold:'Und ein alter Fehler zum zweiten Mal:', text:' Die Offline-Warteschlange schrieb eine Spalte, die es in der Datenbank nicht gibt. Genau das wurde v29.07 schon einmal behoben \u2014 damals aber nur an einer von zwei Stellen.'},
+    ],
+  },
+  {
     v: 'v32.26', date: '03.09.2026',
     headline: '\ud83c\udfa8 Die letzten schwach lesbaren Stellen \u2014 mit einer einzigen Rechnung behoben',
     summary: 'v32.25 hat den Pr\u00fcfstand in alle vierzig Fenster schauen lassen und hundert zu schwache Textstellen gefunden; 26 blieben \u00fcbrig. Die waren alle vom selben Typ: eine Fl\u00e4che, die f\u00fcr weisse Schrift ein bisschen zu hell ist. Eine Rechnung, dreizehn Stellen, fertig.',
@@ -71806,7 +71899,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.26';
+var GS_VERSION = 'v32.27';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74605,6 +74698,7 @@ function gsRegisterServiceWorker() {
     _gsConnBanner('pending');
     setTimeout(function(){ window.gsFlushOfflineQueue && window.gsFlushOfflineQueue(); }, 800);
     setTimeout(function(){ window.gsFlushPhotoQueue && window.gsFlushPhotoQueue(); }, 1400); // v31.06
+    setTimeout(function(){ window.gsFlushKorrekturen && window.gsFlushKorrekturen(); }, 2000); // v32.27
     // Toast
     try {
       window.gsCountOfflineQueue && window.gsCountOfflineQueue().then(function(n){
@@ -74627,6 +74721,7 @@ function gsRegisterServiceWorker() {
   if (navigator.onLine) {
     setTimeout(function(){ window.gsFlushOfflineQueue && window.gsFlushOfflineQueue(); }, 3500);
     setTimeout(function(){ window.gsFlushPhotoQueue && window.gsFlushPhotoQueue(); }, 4200); // v31.06
+    setTimeout(function(){ window.gsFlushKorrekturen && window.gsFlushKorrekturen(); }, 4800); // v32.27
   }
 })();
 
