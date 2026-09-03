@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.35.20260903">
+<meta name="app-version" content="32.36.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13971,6 +13971,15 @@ window.gsI18n = (function(){
     if (SUPPORTED.indexOf(lang) < 0) return false;
     current = lang;
     try { localStorage.setItem('gs_lang', lang); } catch(_){}
+    // v32.36: Die Sprachwahl erreichte das Konto nur zufällig. `gs_lang` steht
+    // zwar in STATE_KEYS, aber der Auto-Track dort ist wirkungslos (er patcht
+    // `Storage.prototype.setItem`, das von einer eigenen Eigenschaft am
+    // localStorage-Objekt verdeckt wird). Wer die Sprache umstellte und die
+    // App schloss, hatte sie unter Umständen nie hochgeladen — und die Spalte
+    // `user_preferences.language` blieb ebenfalls stehen, weil hier auch kein
+    // `savePref('language', …)` lief.
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){}
+    try { if (typeof _gsPrefNachschieben === 'function') _gsPrefNachschieben('language', lang); } catch(_){}
     applyToDOM();
     if (typeof showProfileToast === 'function') {
       // v26.65: en + es Cases, gsw raus.
@@ -51347,6 +51356,18 @@ function _gsApplyPref(key, val) {
 }
 
 // v23.78: zentrale Setter — saves + applies + emits + supabase-sync
+// v32.36: Drei Schalter schrieben nur den localStorage und meldeten sich nie
+// beim Server. Statt den Push an drei Stellen zu kopieren, steht er einmal
+// hier — die nächste `apply*`-Funktion, die nicht über `savePref()` läuft,
+// braucht dann nur diese eine Zeile.
+function _gsPrefNachschieben(key, val) {
+  try {
+    if (typeof gsPrefsPush === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      gsPrefsPush({ [key]: val });
+    }
+  } catch(_){}
+}
+
 function savePref(key, val) {
   userPrefs[key] = val;
   savePrefs();
@@ -51354,11 +51375,7 @@ function savePref(key, val) {
   // Event-Bus + Cross-Tab
   try { window._gsSettingsBus.emit(key, val); } catch(_){}
   // Server-Sync (debounced)
-  try {
-    if (typeof gsPrefsPush === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      gsPrefsPush({[key]: val});
-    }
-  } catch(_){}
+  _gsPrefNachschieben(key, val);
 }
 
 // v26.95: Achievements-Community-Feed Opt-In. PATCHt profiles.opt_in_achievement_feed
@@ -51389,6 +51406,16 @@ function applyDarkMode(isDark, save = true) {
     userPrefs.darkMode = isDark;
     savePrefs();
     try { localStorage.setItem('gs_dark', isDark ? '1' : '0'); } catch(_){}
+    // v32.36: `gs_dark` steht in STATE_KEYS, aber der Auto-Track dort ist
+    // WIRKUNGSLOS: er patcht `Storage.prototype.setItem`, während dieses Repo
+    // seit v30.98 eine EIGENE `localStorage.setItem`-Eigenschaft hat, die den
+    // Prototyp vollständig verdeckt. Zwanzig andere Stellen rufen deshalb
+    // `markDirty('state')` ausdrücklich auf — diese hier nicht. Der
+    // Nachtmodus erreichte das Konto damit nur zufällig: dann nämlich, wenn
+    // später eine unbeteiligte Aktion den state-Bereich als schmutzig
+    // markierte.
+    _gsPrefNachschieben('darkMode', isDark);
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){}
   }
   // Sync ALL toggle elements (settings + anywhere else)
   document.querySelectorAll('#toggle-dark').forEach(t => t.checked = isDark);
@@ -51492,6 +51519,13 @@ function applyCompact(isCompact, save = true) {
   if (save) {
     userPrefs.compact = isCompact;
     savePrefs();
+    // v32.36: `savePrefs()` schreibt NUR den localStorage. Der einzige
+    // Server-Weg für `gs_prefs` ist `savePref()` → `gsPrefsPush`. Kompakt-
+    // und Senioren-Modus liefen an ihm vorbei und reisten nur als
+    // Nebenwirkung mit, wenn zufällig eine andere Einstellung gespeichert
+    // wurde. Wer auf dem Telefon nur den Senioren-Modus einschaltet, fand
+    // auf dem Tablet nichts davon.
+    _gsPrefNachschieben('compact', isCompact);
   }
   const toggle = document.getElementById('toggle-compact');
   if (toggle) toggle.checked = isCompact;
@@ -51503,6 +51537,7 @@ function applySenior(isSenior, save = true) {
   if (save) {
     userPrefs.senior = !!isSenior;
     savePrefs();
+    _gsPrefNachschieben('senior', !!isSenior);   // siehe applyCompact
   }
   const toggle = document.getElementById('toggle-senior');
   if (toggle) toggle.checked = !!isSenior;
@@ -71942,6 +71977,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.36', date: '03.09.2026',
+    headline: '\u2601\ufe0f Deine Einstellungen bleiben jetzt wirklich, wo du sie hingestellt hast',
+    summary: 'Der Abgleich mit der Cloud hatte drei zusammenh\u00e4ngende Fehler: er ERSETZTE den lokalen Einstellungs-Block durch die Serverzeile (die nur kennt, was je hochgeladen wurde), was er zur\u00fcckholte wirkte nicht, und drei Schalter luden nie etwas hoch. Zusammen hiess das: Kompakt- und Senioren-Modus fielen sp\u00e4testens zwei Minuten nach dem Einschalten auf den Standard zur\u00fcck.',
+    user_summary: '\u2601\ufe0f Kompakt-Modus, Senioren-Modus, Nachtmodus und Sprache bleiben eingeschaltet \u2014 und kommen jetzt auch auf deinen anderen Ger\u00e4ten an.',
+    user_items: [
+      {emoji:'\ud83d\udd12', bold:'Nichts geht mehr verloren:', text:' Der Abgleich mischt die Cloud-Werte in deine Einstellungen ein, statt sie zu ersetzen. Vorher blieben von 19 Einstellungen sechs \u00fcbrig \u2014 alles, was nie hochgeladen worden war, verschwand beim n\u00e4chsten Abgleich (und der l\u00e4uft alle zwei Minuten).'},
+      {emoji:'\u267f', bold:'Besonders schlimm beim Senioren-Modus:', text:' Er lud sich nie hoch UND wurde beim n\u00e4chsten Abgleich gel\u00f6scht. Wer ihn brauchte, musste ihn immer wieder neu einschalten. Dasselbe beim Kompakt-Modus.'},
+      {emoji:'\ud83d\udd04', bold:'Und was ankommt, wirkt auch:', text:' \u00c4nderst du auf einem Ger\u00e4t den Nachtmodus, die Masseinheiten oder das Mondwidget, siehst du es auf dem anderen jetzt sofort \u2014 vorher erst nach einem Neustart der App.'},
+      {emoji:'\ud83c\udf0d', bold:'Sprachwahl kommt an:', text:' Wer die Sprache umgestellt und die App geschlossen hat, hatte sie unter Umst\u00e4nden nie hochgeladen.'},
+    ],
+  },
+  {
     v: 'v32.35', date: '03.09.2026',
     headline: '\ud83d\udd0e Die Einstellungs-Suche findet endlich, was auf dem Bildschirm steht',
     summary: 'Die Suche kannte nur Eintr\u00e4ge einer bestimmten Bauart. Alles andere war f\u00fcr sie nicht vorhanden \u2014 die 18 Bedienelemente der Push-Einstellungen waren gar nicht auffindbar, und die Info-Karte blieb umgekehrt bei jedem Suchbegriff stehen. Dazu: alle Schalter haben jetzt einen Namen, die Kopfzeile stimmt wieder, und die Suche klebt tats\u00e4chlich oben.',
@@ -72520,7 +72567,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.35';
+var GS_VERSION = 'v32.36';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -82161,10 +82208,25 @@ async function gsPrefsPull(){
       var row = r.data[0];
       // v26.69: prefs jsonb in gs_prefs-Blob mergen — Frontend-Code liest weiterhin flach
       // (z.B. userPrefs.homeWeather). Strukturierte Felder bleiben ebenfalls flach.
-      var merged = Object.assign({}, row, (row.prefs && typeof row.prefs === 'object') ? row.prefs : {});
+      // v32.36: Der lokale Blob ist die BASIS, die Serverzeile legt sich
+      // darüber. Bis hierher wurde er ERSETZT — und die Serverzeile kennt nur
+      // die Spalten, die je gepusht wurden. Gemessen: aus 19 lokalen
+      // Einstellungen wurden nach einem Pull sechs; Kompakt- und
+      // Senioren-Modus (Barrierefreiheit!) standen wieder auf aus.
+      // Und `gsPrefsPull` läuft nicht nur beim Anmelden: `gsSyncPullNow`
+      // feuert bei `visibilitychange`, `focus`, `online` und alle 120 s.
+      //
+      // **Ein Pull, der ersetzt statt zu mergen, ist kein Abgleich, sondern
+      // ein Rückschnitt auf das, was der Server zufällig kennt.**
+      var lokal = {};
+      try { lokal = JSON.parse(gsStore.get('gs_prefs', '{}')) || {}; } catch(_){}
+      var merged = Object.assign({}, lokal, row, (row.prefs && typeof row.prefs === 'object') ? row.prefs : {});
       delete merged.user_id;
       delete merged.created_at;
       delete merged.updated_at;
+      // Das jsonb-Unterobjekt ist oben schon flach eingemischt. Bliebe es
+      // stehen, wüchse die Verschachtelung mit jeder Rundreise um eine Ebene.
+      delete merged.prefs;
       try { gsStore.set('gs_prefs', JSON.stringify(merged)); } catch(_){}
       // Globale userPrefs-Variable refreshen für aktuell sichtbare Settings-Toggles
       try {
@@ -82172,6 +82234,17 @@ async function gsPrefsPull(){
           Object.assign(userPrefs, merged);
         }
       } catch(_){}
+      // v32.36: …und WIRKEN lassen. Bis hierher schrieb der Pull nur Speicher
+      // und Variable: `body.classList` blieb unverändert, das Mondwidget
+      // sichtbar, die Schalter auf dem alten Stand. Der Bildschirm sagte
+      // etwas anderes als der Speicher — und beim nächsten `loadPrefs()`
+      // sprang die Oberfläche ohne erkennbaren Anlass um.
+      //
+      // `applyAllPrefs()` ist genau dafür da (Boot, Backup-Rückspielung) und
+      // ruft jede `apply*`-Funktion mit `save = false` auf — es schreibt also
+      // nichts zurück und kann keine Schleife auslösen.
+      try { if (typeof applyAllPrefs === 'function') applyAllPrefs(); } catch(_){}
+      try { if (typeof updateSettingsUI === 'function') updateSettingsUI(); } catch(_){}
       return merged;
     }
   } catch(e){ console.warn('[gsPrefsPull]', e); }

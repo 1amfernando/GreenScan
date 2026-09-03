@@ -4,13 +4,75 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.35` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.36` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dy) — v32.36: drei Fehler, die einander verstärkt haben
+
+Dritte Welle aus dem Einstellungs-Audit. Der Cloud-Abgleich der Einstellungen
+hatte drei Fehler, und zusammen ergaben sie mehr als ihre Summe:
+
+| | |
+|---|---|
+| **Der Pull ERSETZTE** | `gsPrefsPull` schrieb die Serverzeile als neuen `gs_prefs`-Block. Die Serverzeile kennt aber nur die Spalten, die je gepusht wurden. Gemessen: **aus 19 Einstellungen wurden 6.** |
+| **Drei Schalter pushten nie** | `applyCompact`, `applySenior` und `applyDarkMode` rufen `savePrefs()` — das schreibt NUR den localStorage. Der einzige Server-Weg ist `savePref()`. |
+| **Der Pull wirkte nicht** | Er schrieb Speicher und Variable und rief keine einzige `apply*`-Funktion. `body.classList` blieb, das Mondwidget blieb sichtbar, die Schalter standen auf dem alten Stand. |
+
+Die Verstärkung: Kompakt- und Senioren-Modus wurden **nie hochgeladen** UND
+beim nächsten Pull **gelöscht** — auch auf dem Gerät, auf dem sie gesetzt
+wurden. Und `gsPrefsPull` läuft nicht nur beim Anmelden: `gsSyncPullNow`
+feuert bei `visibilitychange`, `focus`, `online` und **alle 120 Sekunden.**
+Wer den Senioren-Modus braucht (Barrierefreiheit), musste ihn alle paar
+Minuten neu einschalten.
+
+> **Ein Pull, der ersetzt statt zu mergen, ist kein Abgleich, sondern ein
+> Rückschnitt auf das, was der Server zufällig kennt.**
+
+#### Der tote Auto-Track
+
+`gs_dark` und `gs_lang` stehen in `STATE_KEYS` und sollten damit automatisch
+als schmutzig markiert werden. Der Mechanismus patcht `Storage.prototype
+.setItem` — dieses Repo hat aber seit v30.98 eine **eigene**
+`localStorage.setItem`-Eigenschaft, die den Prototyp vollständig verdeckt.
+Zwanzig andere Stellen rufen deshalb `markDirty('state')` ausdrücklich auf,
+mit Kommentaren wie „Auto-Track ist geshadowed". Genau der Nachtmodus und die
+Sprachwahl nicht.
+
+> **Ein Automatismus, den zwanzig Stellen von Hand umgehen, ist keiner mehr —
+> er ist eine Falle für die einundzwanzigste.**
+
+#### Der Rest
+
+`gsPrefsPull` löscht jetzt auch das `prefs`-Unterobjekt, nachdem es flach
+eingemischt wurde — sonst wuchs die Verschachtelung mit jeder Rundreise um
+eine Ebene (Befund 23, war ohne Urteil, beim Nachmessen bestätigt). Und der
+Push steht einmal in `_gsPrefNachschieben` statt viermal kopiert.
+
+#### Prüfstand
+
+`einstellungen_check` 13 → 16 Fragen, alle drei gegengeprüft:
+
+- Pull ersetzt wieder → „6 Einstellungen, compact/senior weg, verschachtelt"
+- `applyAllPrefs` entfernt → „Mondwidget bleibt sichtbar"
+- Die vier Nachschieber entfernt → „gepusht: []"
+
+Und eine Falle beim Bau, die ich schon kannte: die neue Frage legte ihr
+Ergebnis unter `aus.push` ab — den Namen benutzte Frage 1 bereits. Die
+**erste** Frage wurde dadurch rot, obwohl an ihr nichts falsch war. Ein
+Ergebnisobjekt mit flachen Namen braucht dieselbe Sorgfalt wie ein globaler
+Namensraum.
+
+#### Stand des Audits
+
+**24 bestätigt · 20 behoben · 4 offen · 12 ohne Urteil** (Befund 23 und 44
+sind beim Nachmessen mitbehoben worden).
+
+---
 
 ### 2026-09-03 (dx) — v32.35: die Suche fand nur, was die richtige Klasse trug
 
@@ -7758,7 +7820,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.35` (Client) · SW-Cache `gs-v32.35` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.36` (Client) · SW-Cache `gs-v32.36` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

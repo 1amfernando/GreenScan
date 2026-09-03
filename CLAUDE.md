@@ -1270,6 +1270,30 @@ Dazu zwei Fundstuecke, die ueber die Einstellungen hinausgehen:
   feste Farbe mit Tarnkappe: sie kippt nicht mit dem Modus und faellt keinem
   auf, der nach Farbnamen sucht.
 
+**v32.36 kam der Cloud-Abgleich der Einstellungen dazu** (16 Fragen). Drei
+Fehler, die einander verstaerkt haben — und zwei Regeln daraus:
+
+> **Ein Pull, der ERSETZT statt zu mergen, ist kein Abgleich, sondern ein
+> Rueckschnitt auf das, was der Server zufaellig kennt.** `gsPrefsPull`
+> schrieb die Serverzeile als neuen `gs_prefs`-Block; gemessen wurden aus 19
+> Einstellungen sechs. Zusammen mit „drei Schalter pushen nie" heisst das:
+> Kompakt- und Senioren-Modus wurden nie hochgeladen UND beim naechsten Pull
+> geloescht — auch auf dem Geraet, auf dem sie gesetzt wurden. Und der Pull
+> laeuft alle 120 Sekunden.
+
+> **Ein Automatismus, den zwanzig Stellen von Hand umgehen, ist keiner mehr.**
+> Der Auto-Track fuer `STATE_KEYS` patcht `Storage.prototype.setItem` — dieses
+> Repo hat seit v30.98 eine EIGENE `localStorage.setItem`-Eigenschaft, die den
+> Prototyp vollstaendig verdeckt. Zwanzig Stellen rufen `markDirty('state')`
+> deshalb ausdruecklich auf, mit Kommentaren wie „Auto-Track ist geshadowed".
+> Wer eine neue Stelle baut, die einen STATE_KEY schreibt, ruft ihn ebenso —
+> sonst reist der Wert nur zufaellig.
+
+Dazu ein drittes Muster: **ein Pull muss WIRKEN, nicht nur schreiben.**
+`gsPrefsPull` schrieb Speicher und Variable und rief keine `apply*`-Funktion;
+der Bildschirm sagte danach etwas anderes als der Speicher, und beim naechsten
+`loadPrefs()` sprang die Oberflaeche ohne erkennbaren Anlass um.
+
 **Und eine Frage, die es ohne v32.34 nicht gaebe:** geht die Kamera-Anfrage
 bei AUSGESCHALTETEM Schalter unveraendert durch? Das Tor lief als
 `async function`, also mit einem `await` vor dem Durchreichen. Gemessen wird

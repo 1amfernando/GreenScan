@@ -238,6 +238,58 @@ const melde = (frage, ok, wie) => {
                             aria: t.getAttribute('aria-expanded') } : null;
     gsSettingsSearch('');
 
+    // ── 9 · Der Abgleich mit der Cloud ──────────────────────────────────
+    //
+    // Der Pull holt eine Zeile, die NUR die Spalten kennt, die je gepusht
+    // wurden. Bis v32.35 ersetzte er damit den ganzen lokalen Block.
+    localStorage.setItem('gs_prefs', JSON.stringify({
+      theme: 'green', darkMode: true, compact: true, senior: true,
+      units: 'metric', showMoon: true, homeWeather: true, scanHistory: true,
+    }));
+    try { loadPrefs(); } catch (_) {}
+    window.sbIsLoggedIn = () => true;
+    window.gsStore.get = (k, d) => (k === 'gs_sb_uid' ? 'u-test'
+                                 : k === 'gs_prefs' ? (localStorage.getItem('gs_prefs') || '{}') : d);
+    window.gsStore.set = (k, v) => { localStorage.setItem(k, v); return true; };
+    window.sbFetch = async () => ({ data: [{
+      user_id: 'u-test', created_at: 'x', updated_at: 'y',
+      language: 'de', units: 'imperial',
+      prefs: { showMoon: false, homeWeather: true, scanHistory: true },
+    }], error: null });
+    document.body.classList.add('compact', 'senior');
+    await gsPrefsPull();
+    var nach = {};
+    try { nach = JSON.parse(localStorage.getItem('gs_prefs') || '{}'); } catch (_) {}
+    aus.pull = {
+      schluessel: Object.keys(nach).length,
+      compact: nach.compact, senior: nach.senior, theme: nach.theme,
+      units: nach.units,                       // Server gewinnt, wo er etwas sagt
+      showMoon: nach.showMoon,
+      verschachtelt: Object.prototype.hasOwnProperty.call(nach, 'prefs'),
+      // Und WIRKT es? Der Server sagte showMoon:false — das Widget muss weg,
+      // und `compact`/`senior` müssen am body bleiben, weil der Server sie
+      // gar nicht kennt.
+      moonWeg: (function () {
+        var m = document.getElementById('moon-widget');
+        return m ? m.style.display === 'none' : null;
+      })(),
+      bodyCompact: document.body.classList.contains('compact'),
+    };
+
+    // ── 10 · Melden sich die drei stillen Schalter beim Server? ──────────
+    var gepusht = [];
+    window.gsPrefsPush = (o) => { gepusht.push(Object.keys(o)[0]); };
+    var schmutzig = [];
+    window.gsCloudSync = window.gsCloudSync || {};
+    var _md = window.gsCloudSync.markDirty;
+    window.gsCloudSync.markDirty = (b) => { schmutzig.push(b); if (_md) try { _md(b); } catch (_) {} };
+    applyCompact(true);
+    applySenior(true);
+    applyDarkMode(true);
+    try { if (window.gsI18n && gsI18n.setLang) gsI18n.setLang('fr'); } catch (_) {}
+    aus.stillePush = { gepusht: gepusht.slice(), schmutzig: schmutzig.slice() };
+    try { if (window.gsI18n && gsI18n.setLang) gsI18n.setLang('de'); } catch (_) {}
+
     aus.reloads = window.__reloads;
     return aus;
   });
@@ -424,8 +476,33 @@ const melde = (frage, ok, wie) => {
       : JSON.stringify(T) + ' — der Pfeil zeigte „zugeklappt" über einer sichtbaren '
         + 'Treffer-Zeile, und ein Screenreader meldete den Abschnitt als eingeklappt');
 
+  const PU = r.pull;
+  const pullOk = PU && PU.compact === true && PU.senior === true && PU.theme === 'green'
+    && PU.units === 'imperial' && PU.showMoon === false && PU.verschachtelt === false
+    && PU.schluessel >= 8;
+  melde('Der Pull mischt die Serverzeile ein, statt den Block zu ersetzen', pullOk,
+    pullOk ? PU.schluessel + ' Einstellungen behalten · Server gewinnt wo er etwas sagt (units→imperial, '
+      + 'showMoon→false) · was er nicht kennt bleibt (compact, senior, theme) · keine Verschachtelung'
+      : JSON.stringify(PU) + ' — die Serverzeile kennt nur die Spalten, die je gepusht wurden; '
+        + 'ein Pull, der ersetzt, ist ein Rückschnitt auf das, was der Server zufällig kennt');
+
+  const wirktOk = PU && PU.moonWeg === true && PU.bodyCompact === true;
+  melde('Was der Pull zurückholt, wirkt auch auf dem Bildschirm', wirktOk,
+    wirktOk ? 'Server sagte showMoon:false → Mondwidget weg · compact bleibt am body (Server kennt es nicht)'
+      : JSON.stringify({ moonWeg: PU && PU.moonWeg, bodyCompact: PU && PU.bodyCompact })
+        + ' — der Pull schrieb nur Speicher und Variable; der Bildschirm sagte etwas anderes als der '
+        + 'Speicher, und beim nächsten loadPrefs() sprang die Oberfläche ohne Anlass um');
+
+  const PP = r.stillePush;
+  const stillOk = PP && ['compact', 'senior', 'darkMode', 'language'].every(k => PP.gepusht.indexOf(k) >= 0)
+    && PP.schmutzig.indexOf('state') >= 0;
+  melde('Kompakt, Senior, Nachtmodus und Sprache melden sich beim Server', stillOk,
+    stillOk ? 'gepusht: ' + PP.gepusht.join(', ') + ' · state als schmutzig markiert'
+      : JSON.stringify(PP) + ' — `savePrefs()` schreibt nur den localStorage, und der Auto-Track über '
+        + 'STATE_KEYS ist wirkungslos (er patcht `Storage.prototype`, das eine eigene Eigenschaft verdeckt)');
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 13 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 16 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 4).join(' | ') : 'keine'));
   console.log('  Gestellte Sperren: Notification.requestPermission → granted · location.reload → gezählt ('
     + r.reloads + ')');
