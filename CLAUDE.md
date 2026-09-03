@@ -511,6 +511,7 @@ node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteh
 node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18)
 node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
 node scripts/sync_check.js       # kommt zurueck, was hochgeladen wird? (seit v32.23)
+node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft hat? (seit v32.28)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -519,7 +520,7 @@ node scripts/sync_check.js       # kommt zurueck, was hochgeladen wird? (seit v3
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
 
-Elf der fünfzehn JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+Elf der sechzehn JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
 Quelltext und braucht keine.
 
@@ -1063,6 +1064,52 @@ Zugang haette. Nachmessen: ja, jederzeit, nur lesend. Anwenden: nein.
 veraltet auch. Eine der fuenf Zeilen stand seit zwei Tagen auf „offen",
 obwohl der Trigger laengst da war. Wer so eine Liste liest, misst sie besser
 nach, statt sie zu glauben.
+
+**`versprechen_check.js` (seit v32.28) stellt `save_check`s Frage STATISCH
+ueber alle.** `save_check` faehrt einzelne Wege wirklich zu Ende — genauer,
+aber Handarbeit je Weg (7 Eintraege). Die App hat **103 Schreibvorgaenge**.
+
+Und er stellt sie schaerfer, denn **nicht jeder fehlende Blick ist ein
+Fehler**: ein stiller Hintergrund-Schreibvorgang darf scheitern, er verspricht
+ja nichts. Zum Fehler wird es erst, wenn die App dem Nutzer sagt
+„gespeichert", ohne nachgesehen zu haben. Drei Klassen: **rot** (Versprechen
+ohne Pruefung) · **gruen** (Antwort angesehen) · **still** (kein Versprechen,
+wird nur gezaehlt).
+
+Erster Lauf: **vier rot, alle vier echt.** Doktor-Rueckmeldung,
+Schaedling-Eintrag, Duengungs-Eintrag und die Bio-Auszeichnung eines Inserats
+— Letztere nannte „🌱 Bio" in der Bestaetigung, auch wenn genau der PATCH,
+der dieses Feld schreibt, abgelehnt worden war.
+
+**Die Regel dahinter, und sie gilt fuer jeden Schreibvorgang:** `sbFetch`
+WIRFT NICHT. Ein `try/catch` faengt nur Netz- und JS-Fehler; eine Ablehnung
+laeuft mitten hindurch. Und PostgREST liefert bei einer von RLS abgewiesenen
+Zeile **0 Datensaetze und keinen Fehler**. Seit v32.28 gibt es dafuer
+`_gsSchreibOk(r)` — beides in einer Zeile, damit die naechste Stelle es nicht
+wieder einzeln macht. Wer `Prefer: return=minimal` schickt, macht die
+Ablehnung uebrigens UNSICHTBAR; fuer geprueftes Schreiben gehoert dort
+`return=representation` hin.
+
+Drei Fallen aus dem Bau, alle allgemein:
+
+- **Eine Absage ist kein Versprechen.** Nach der Reparatur meldete der
+  Pruefstand meine eigenen Fehlermeldungen — „Eintrag NICHT gespeichert"
+  enthaelt „gespeichert". Wer nach Wortstaemmen sucht, braucht die
+  Verneinung.
+- **Ein Zeichen, das zwei Dinge bedeuten kann, taugt nicht als Merkmal.** 🚫
+  stand in meiner Absage-Liste und heisst in dieser App „Pestizid-frei" — es
+  hat den einen echten Fund verschluckt.
+- **Reparatur und Pruefung brauchen dieselbe Regel** (schon v32.16): der neue
+  Helfer `_gsSchreibOk` musste in die Erkennung, sonst meldet der Pruefstand
+  jede Stelle rot, die ihn benutzt.
+
+`--alle` zeigt auch gruen und still. **Ein Pruefstand, der nur Fehler druckt,
+laesst offen, WARUM eine Stelle nicht auffaellt** — daran habe ich beim Bau
+zweimal falsch geraten.
+
+**Grenze:** rein statisch. Wer die Antwort in einem HELFER prueft, den die
+Funktion aufruft, wird rot gemeldet. Ein Treffer ist ein Verdacht, kein
+Urteil — wie bei `field_check.py`.
 
 **`sync_check.js` (seit v32.23) fragt die Umkehrung zu `save_check`:** dieser
 prueft, ob das Gespeicherte im Geraet ankommt — jener, ob es aus der Cloud
