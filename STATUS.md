@@ -4,13 +4,60 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.47` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.48` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ek) — v32.48: die Person ist das erste Gerät — Messwerte, Stufe 0
+
+Fernandos Auftrag: *„Ein Dashboard, das die Werte der Sensoren trackt, so
+aufgebaut, dass weitere Systeme gekoppelt werden können; die App muss für
+das Ökosystem vorbereitet sein."* Entwurf `docs/OEKOSYSTEM-V1.md` (Stand
+v32.45), Schema als Migration (nicht angewandt), jetzt das Frontend von
+Stufe 0 — **ohne ein einziges Stück Hardware**, und genau das ist der Punkt.
+
+#### Gebaut
+
+- **Katalog** `gsMetricKatalog()` — elf Messgrössen mit Einheit, Bereich,
+  Aggregation; eingebauter Startbestand, ersetzt durch den Cache der Tabelle,
+  sobald es sie gibt. Nirgends ein `if (metric === …)`.
+- **Geräte** (`gsGeraetAnlegen`, Art `manual`) — „wartet auf den ersten
+  Wert", dann `active`. Verbunden heisst erst nach dem ersten Wert.
+- **Messwerte** (`gsMesswertEintragen`) — Katalogprüfung, `quality` 2/1, nie
+  verworfen; bei vollem Speicher `ok:false` mit Grund (nicht „gespeichert").
+- **Regeln** (`gsRegelnPruefen`) — unter/über/schweigt, drei Zustände, jede
+  mit Grund („zuletzt 31,5 % um 12:00, Schwelle 40").
+- **Dashboard** `gsMesswerteOeffnen()` — Kacheln, Verlauf (`_gsVerlauf`,
+  Canvas, ~40 Zeilen, keine 200 KB), Markierungen „💧" aus dem Tagebuch der
+  verknüpften Pflanze, Regeln, Formulare. Zugänge: Menü-Suche, Kalender.
+- **Kalender**: Messwerte als `messung` (ein Ereignis je Gerät und Tag),
+  verletzte Regeln als `alarm` am heutigen Tag. `GS_NOTIF_ZIELE.sensor_alert`
+  → Dashboard (Stufe 1 schreibt die Art).
+- Speicherlisten, `state`-Blob, `stateMap`, `STATE_KEYS` nachgezogen.
+
+#### Der Prüfstand kam zuerst
+
+`sensor_check.js` (8 Fälle) wurde gegen den Vertrag in `OEKOSYSTEM-V1.md`
+§9a geschrieben, BEVOR eine Zeile Code stand — erster Lauf: acht rote Fälle
+(„gsMetricKatalog fehlt"). Nach dem Bau: acht grüne. Gegenprobe: unplausible
+Werte verworfen → rot („250 % wurde verworfen — ein kaputter Sensor ist eine
+Information"); Regel ohne Werte auf „erfüllt" → rot.
+
+Zwei Nachträge aus den Läufen: die **Achse des Verlaufs** folgt nur noch
+plausiblen Werten (ein 250-%-Wert zog sie auf 272 und drückte die Linie auf
+einen Strich; jetzt am Rand markiert, `data-vmax` im Prüfstand) — und
+`contrast_check` fand im Dunkelmodus den Knopf „📊 Messwerte" im Kalender mit
+**1,35:1** (Schwarz auf dunkler Karte, weil `.gs-dp-kal` keine `color`
+setzte). Ein Knopf trägt seine Textfarbe selbst; nachgemessen 14,5:1.
+
+**Offen (Stufe 1):** `device-ingest` (Edge, Geräte-Token), Cron
+`device-alerts`, Push `sensor_alert`, Wetter als virtuelles Gerät,
+Bestätigung erledigter Aufgaben durch Messwerte — braucht ein Gerät zum
+Testen und die Migration.
 
 ### 2026-09-03 (ej) — v32.47: Garten-Pflanzungen bekommen Pflege — Kalender Stufe 2
 
@@ -8540,7 +8587,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.47` (Client) · SW-Cache `gs-v32.47` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.48` (Client) · SW-Cache `gs-v32.48` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

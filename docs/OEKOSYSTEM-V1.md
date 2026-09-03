@@ -312,7 +312,7 @@ Software, die Messwerte hat.
 
 | Stufe | Inhalt | Hardware nötig |
 |---|---|---|
-| **0** | Migrationen im Repo (`metric_catalog`, `devices`, `device_readings`, `device_rules`, `device_commands`, `v_device_daily`, RLS) — **nicht angewandt**, wie alle DDL · `manual`-Gerät · Dashboard mit Verlauf · Regeln clientseitig ausgewertet · Kalender-Ereignisse `messung`/`alarm` · `sensor_check.js` mit simuliertem Gerät und 7 Tagen Werten | nein |
+| **0** | Migrationen im Repo (`metric_catalog`, `devices`, `device_readings`, `device_rules`, `device_commands`, `v_device_daily`, RLS) — **nicht angewandt**, wie alle DDL · `manual`-Gerät · Dashboard mit Verlauf (`_gsVerlauf`, Canvas, ohne Paket) · Regeln clientseitig mit drei Zuständen · Kalender-Ereignisse `messung`/`alarm` · `sensor_check.js` (8 Fälle, test-first) — **v32.48 gebaut** | nein |
 | **1** | `device-ingest` (Edge) · Token-Pairing per QR · Cron `device-alerts` · Push `sensor_alert` · Wetter als virtuelles Gerät · Bestätigung erledigter Aufgaben (§6) | ein Gerät zum Testen |
 | **2** | BLE-Pairing im Browser (`Permissions-Policy` erweitern, `wiring_check`/`kamera_check`-artiger Prüfstand mit gestellter BLE-API) · Firmware-Vertrag als `docs/GERAETE-VERTRAG.md` (das JSON aus §3.1, versioniert) · MQTT-Bridge | ja |
 | **3** | Aktoren (Ventil, Pumpe, Licht) über `device_commands` · Automationen `op = 'expr'` · Export/Import | ja |

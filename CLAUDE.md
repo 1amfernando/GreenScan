@@ -530,6 +530,7 @@ node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera be
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
 node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46)
+node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -785,6 +786,21 @@ liest Gartentagebuch UND Pflanzentagebuecher (`p.diary`) zusammen — bis
 v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
+
+**`sensor_check.js` (seit v32.48) ist der Pruefstand fuer `docs/OEKOSYSTEM-V1.md`
+Stufe 0** — und er wurde VOR dem Code geschrieben (erster Lauf rot, acht
+Faelle, dann gruen). Vier Regeln, die er festhaelt und die fuer jedes Geraet
+gelten, das je kommt: **kein Messwert wird verworfen** (unplausibel ist
+`quality 1`, nicht weg); **eine Regel hat drei Zustaende** (ohne plausiblen
+Wert „nicht pruefbar", Stille ist kein „erfuellt"); **kein `if (metric ===
+…)`** — alles aus `gsMetricKatalog()`, der nie leer ist (eingebauter
+Startbestand, elf Groessen); **bei vollem Speicher sagt es die Funktion**
+(`ok:false` mit Grund, CLAUDE.md §3.5). Die Person ist das erste Geraet
+(`kind = 'manual'`): derselbe Weg vom Wert bis ins Dashboard und in den
+Kalender (`messung`/`alarm`), den spaeter ein Sensor nimmt. Neue Schluessel
+`gs_geraete`/`gs_geraete_regeln`/`gs_messwerte` stehen in `GS_USER_KEYS`,
+`gs_metric_catalog` in `GS_KEEP_ON_LOGOUT`; Geraete und Regeln reisen im
+`state`-Blob, Messwerte nicht (dafuer ist die Tabelle da — Stufe 1).
 
 **Seit v32.47 gilt fuer BEIDE Pflanzenlisten dasselbe:** `ps_myplants` und
 `gs_plantings` tragen `tasks`; wer eine Pflanze zum Erledigen, Verschieben

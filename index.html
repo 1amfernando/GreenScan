@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.47.20260903">
+<meta name="app-version" content="32.48.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5688,8 +5688,12 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-eg-mehr{font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:10px;}
 /* v32.46 — Kalender (docs/KALENDER-V1.md). Nur Merkmale, keine festen
    Farben auf Themenflaechen; die Punkte tragen die Ereignisart. */
-.gs-dp-kal{margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);padding:4px 8px;font-size:var(--fs-md);cursor:pointer;line-height:1;}
+.gs-dp-kal{margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);padding:4px 8px;font-size:var(--fs-md);cursor:pointer;line-height:1;color:var(--text);font-family:inherit;}
+/* ^ v32.48: ohne `color` erbte der Knopf im Kalender Schwarz — auf der dunklen
+   Karte 1,35:1 (contrast_check, Dunkelmodus). Ein Knopf traegt seine Textfarbe
+   selbst, nicht die Hoffnung auf den Vorfahren. */
 .gs-kal-kopf{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 8px;}
+.gs-kal-werkzeuge{display:flex;justify-content:flex-end;margin:-4px 0 8px;}
 .gs-kal-titel{font-size:var(--fs-lg);font-weight:900;color:var(--text);}
 .gs-kal-nav{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:var(--fs-xl);cursor:pointer;line-height:1;}
 .gs-kal-wt{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-align:center;margin-bottom:4px;}
@@ -5717,6 +5721,41 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-pfl-ok{width:30px;height:30px;border-radius:50%;border:2px solid var(--g-main);background:transparent;color:var(--g-dark);font-weight:900;cursor:pointer;flex-shrink:0;font-family:inherit;}
 .gs-kal-p-erinnerung{background:var(--c-warn-d,#bf360c);opacity:.55;}
 .gs-kal-p-wetter{background:#5c6bc0;}
+.gs-kal-p-messung{background:#00838f;}
+.gs-kal-p-alarm{background:var(--c-danger,#e53935);}
+.gs-kal-zeile.gs-kal-alarm{border-left:4px solid var(--c-danger,#e53935);}
+/* v32.48 — Messwerte-Dashboard (OEKOSYSTEM-V1.md §5). Nur Merkmale. */
+.gs-mw-kachel{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:12px;}
+.gs-mw-kopf{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.gs-mw-art{font-size:22px;flex-shrink:0;}
+.gs-mw-name{flex:1;min-width:0;display:flex;flex-direction:column;}
+.gs-mw-name b{font-size:var(--fs-md);font-weight:900;color:var(--text);}
+.gs-mw-name i{font-size:var(--fs-xs);color:var(--muted);font-style:normal;}
+.gs-mw-x{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;flex-shrink:0;font-size:var(--fs-md);line-height:1;}
+.gs-mw-wert{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);}
+.gs-mw-ico{width:24px;text-align:center;font-size:18px;flex-shrink:0;}
+.gs-mw-txt{display:flex;flex-direction:column;min-width:0;}
+.gs-mw-txt b{font-size:var(--fs-sm);font-weight:800;color:var(--text);}
+.gs-mw-txt i{font-size:var(--fs-xs);color:var(--muted);font-style:normal;}
+.gs-mw-unplausibel{color:var(--c-danger-d,#b71c1c);font-weight:700;}
+.gs-mw-verlauf{display:block;width:100%;margin:8px 0 4px;}
+.gs-mw-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;}
+.gs-mw-tab{padding:5px 9px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-xs);font-weight:800;cursor:pointer;font-family:inherit;}
+.gs-mw-tab.on{background:var(--fill-brand);color:#fff;border-color:var(--fill-brand);}
+.gs-mw-regeln{margin-top:6px;display:flex;flex-direction:column;gap:5px;}
+.gs-mw-regel{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--r-sm);background:var(--surface2);border-left:4px solid var(--border);}
+.gs-mw-regel.gs-mw-verletzt{border-left-color:var(--c-danger,#e53935);}
+.gs-mw-regel.gs-mw-erfuellt{border-left-color:var(--g-main);}
+.gs-mw-regel b{font-size:var(--fs-sm);font-weight:800;color:var(--text);flex:1;min-width:0;}
+.gs-mw-regel i{font-size:var(--fs-xs);color:var(--muted);font-style:normal;flex:2;min-width:0;}
+.gs-mw-form{margin-top:8px;font-size:var(--fs-sm);}
+.gs-mw-form summary{cursor:pointer;font-weight:800;color:var(--g-dark);padding:4px 0;}
+.gs-mw-zeile{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+.gs-mw-zeile select,.gs-mw-zeile input{padding:9px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);color:var(--text);font-size:var(--fs-sm);font-family:inherit;min-width:0;}
+.gs-mw-zeile button{grid-column:1 / -1;padding:10px;border:none;border-radius:var(--r-sm);background:var(--fill-brand);color:#fff;font-weight:800;font-family:inherit;cursor:pointer;}
+.gs-mw-hinweis{font-size:var(--fs-xs);color:var(--muted);margin-top:6px;line-height:1.5;}
+.gs-mw-eintrag{background:var(--surface2);border-radius:var(--r-md);padding:12px;margin:4px 0 12px;}
+.gs-mw-leer{font-size:var(--fs-xs);color:var(--muted);padding:6px 0;}
 .gs-kal-tag.gewaehlt .gs-kal-p{background:#fff;}
 .gs-kal-legende{display:flex;gap:12px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--muted);margin:8px 0 12px;}
 .gs-kal-legende span{display:inline-flex;align-items:center;gap:5px;}
@@ -14211,6 +14250,30 @@ window.GS_I18N_JS_STRINGS = {
   'kal_heute': 'Heute',
   'kal_offen_1': 'offene Aufgabe bis heute',
   'kal_offen_n': 'offene Aufgaben bis heute',
+  // ── v32.48 · Messwerte ───────────────────────────────────────────────
+  'mw_titel': 'Messwerte',
+  'mw_untertitel': 'Deine Geräte und was sie messen — und bis der erste Sensor da ist, bist du das Gerät. Jeder Wert trägt Gerät, Zeit, Einheit und ob er plausibel war.',
+  'mw_leer': 'Noch kein Gerät. Lege eines an — „von Hand" heisst: du misst und trägst ein. Dashboard, Regeln und Kalender sind dieselben, die später ein Sensor benutzt.',
+  'mw_wartet': 'wartet auf den ersten Wert',
+  'mw_verloren': 'seit längerem kein Signal',
+  'mw_zuletzt': 'zuletzt',
+  'mw_kein_plausibler': 'kein plausibler Wert',
+  'mw_ausserhalb': 'ausserhalb des Messbereichs',
+  'mw_verletzt': 'verletzt',
+  'mw_erfuellt': 'erfüllt',
+  'mw_nicht_pruefbar': 'nicht prüfbar',
+  'mw_noch_keine': 'Noch keine Werte — trage unten den ersten ein.',
+  'mw_verlauf': 'Verlauf',
+  'mw_regel_neu': '＋ Regel',
+  'mw_unter': 'unter',
+  'mw_ueber': 'über',
+  'mw_anlegen': 'Anlegen',
+  'mw_eintragen': '📝 Messwert eintragen',
+  'mw_speichern': 'Speichern',
+  'mw_hinweis': 'Unplausible Werte werden angenommen und markiert — ein kaputter Sensor ist eine Information.',
+  'mw_geraet_neu': '＋ Gerät anlegen',
+  'mw_name_bsp': 'z.B. Hochbeet Nord',
+  'mw_neu_hinweis': 'Art: von Hand. Echte Geräte melden sich mit einem Token (Stufe 1) — ihr Eintrag hier ist derselbe.',
   // ── v32.39 · Die App-Tour war deutsch ────────────────────────────────
   // Sechs Karten, zwölf Texte, kein einziger Schluessel — in einer App mit
   // fuenf Sprachen. Nachgeschlagen wird ueber die DEUTSCHE Phrase
@@ -26116,6 +26179,7 @@ var GS_NOTIF_ZIELE = {
   abo:                { fn: 'gsShowAboScreen' },
   system:             { fn: 'gsOpenNotifCenter' },
   info:               { fn: 'gsOpenNotifCenter' },
+  sensor_alert:       { fn: 'gsMesswerteOeffnen' },   // v32.48: OEKOSYSTEM-V1.md §3.4 — Stufe 1 schreibt diese Art
 };
 function _gsNotifZiel(kind) {
   var z = GS_NOTIF_ZIELE[String(kind || '').toLowerCase()];
@@ -26403,6 +26467,321 @@ function gsGetDueTasks(){
 }
 
 
+// ═══ v32.48 · MESSWERTE — OEKOSYSTEM V1, STUFE 0 (docs/OEKOSYSTEM-V1.md) ═══
+//
+// Ein Geraet ist ein Datensatz, kein Sonderfall. Eine neue Sensorart ist eine
+// Zeile im Katalog. Kein `if (metric === …)` — alles aus dem Katalog. Und die
+// Person ist das erste Geraet (§4): sie misst von Hand, und der Weg vom Wert
+// bis ins Dashboard und in den Kalender ist derselbe, den spaeter der Sensor
+// nimmt. Kein Messwert wird verworfen; unplausibel ist eine Qualitaet.
+
+// Startbestand des Katalogs — physikalische Groessen, keine Botanik. Die
+// Tabelle `metric_catalog` (Migration 20260903_oekosystem_v1_geraete.sql)
+// traegt dieselben Zeilen; ist sie da, ersetzt ihr Cache diese Liste.
+var GS_METRIC_KATALOG_START = [
+  { key:'soil_moisture', unit:'%',     min_valid:0,   max_valid:100,    label_de:'Bodenfeuchte',    icon:'💧', aggregation:'avg',  decimals:0, sort:10 },
+  { key:'soil_temp',     unit:'°C',    min_valid:-20, max_valid:60,     label_de:'Bodentemperatur', icon:'🌡️', aggregation:'avg',  decimals:1, sort:20 },
+  { key:'air_temp',      unit:'°C',    min_valid:-40, max_valid:60,     label_de:'Lufttemperatur',  icon:'🌡️', aggregation:'avg',  decimals:1, sort:30 },
+  { key:'air_humidity',  unit:'%',     min_valid:0,   max_valid:100,    label_de:'Luftfeuchte',     icon:'💨', aggregation:'avg',  decimals:0, sort:40 },
+  { key:'light',         unit:'lux',   min_valid:0,   max_valid:200000, label_de:'Licht',           icon:'☀️', aggregation:'avg',  decimals:0, sort:50 },
+  { key:'rain',          unit:'mm',    min_valid:0,   max_valid:500,    label_de:'Niederschlag',    icon:'🌧️', aggregation:'sum',  decimals:1, sort:60 },
+  { key:'water_level',   unit:'%',     min_valid:0,   max_valid:100,    label_de:'Wasserstand',     icon:'🪣', aggregation:'last', decimals:0, sort:70 },
+  { key:'tank_temp',     unit:'°C',    min_valid:-10, max_valid:60,     label_de:'Tanktemperatur',  icon:'🌡️', aggregation:'avg',  decimals:1, sort:80 },
+  { key:'ec',            unit:'mS/cm', min_valid:0,   max_valid:20,     label_de:'Leitfähigkeit',   icon:'⚡', aggregation:'avg',  decimals:2, sort:90 },
+  { key:'ph',            unit:'pH',    min_valid:0,   max_valid:14,     label_de:'pH-Wert',         icon:'🧪', aggregation:'avg',  decimals:1, sort:100 },
+  { key:'battery',       unit:'%',     min_valid:0,   max_valid:100,    label_de:'Batterie',        icon:'🔋', aggregation:'last', decimals:0, sort:900 },
+];
+function gsMetricKatalog() {
+  try {
+    var c = safeGetItem('gs_metric_catalog', null);
+    if (Array.isArray(c) && c.length >= 3 && c.every(function (m) { return m && m.key && m.unit; })) return c;
+  } catch (_) {}
+  return GS_METRIC_KATALOG_START;
+}
+function _gsMetric(key) { var k = gsMetricKatalog(); for (var i = 0; i < k.length; i++) if (k[i].key === key) return k[i]; return null; }
+window.gsMetricKatalog = gsMetricKatalog;
+
+var GS_GERAET_ARTEN = { manual: { icon:'🧑‍🌾', label:'Von Hand' }, weather: { icon:'🌦️', label:'Wetterdienst' }, third_party: { icon:'📡', label:'Fremdgerät' } };
+function _gsGeraetArt(g) { var k = String((g && g.kind) || 'manual'); return GS_GERAET_ARTEN[k] || (k.indexOf('gs_') === 0 ? { icon:'📟', label:'GreenScan-Sensor' } : GS_GERAET_ARTEN.manual); }
+
+function gsGeraete() { try { var a = safeGetItem('gs_geraete', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+function _gsGeraeteSchreiben(arr) {
+  var ok = localStorage.setItem('gs_geraete', JSON.stringify(arr)) !== false;   // der Wrapper wirft nie (CLAUDE.md §3.5)
+  if (ok) { try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {} }
+  return ok;
+}
+function gsGeraetAnlegen(o) {
+  try {
+    o = o || {};
+    var name = String(o.name || '').trim().slice(0, 60);
+    if (!name) { if (typeof gsToast === 'function') gsToast('Bitte einen Namen für das Gerät angeben.', 'warn'); return false; }
+    var g = { id: 'ger_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7), kind: String(o.kind || 'manual'), name: name,
+      garden_id: o.garden_id || null, plant_id: o.plant_id || null, capabilities: { metrics: [], interval_s: null, commands: [] },
+      status: 'wartet', last_seen_at: null, paired_at: null, created_at: new Date().toISOString() };
+    var arr = gsGeraete(); arr.push(g);
+    if (!_gsGeraeteSchreiben(arr)) { if (typeof gsToast === 'function') gsToast('Speicher voll — das Gerät konnte nicht gesichert werden.', 'warn', 5000); return false; }
+    return g;
+  } catch (_) { return false; }
+}
+function gsGeraetLoeschen(id) {
+  try {
+    var arr = gsGeraete().filter(function (g) { return g && g.id !== id; });
+    if (!_gsGeraeteSchreiben(arr)) return false;
+    var mw = _gsMesswerteAlle().filter(function (m) { return m.geraet_id !== id; });
+    localStorage.setItem('gs_messwerte', JSON.stringify(mw));
+    var rg = gsRegeln().filter(function (r) { return r.geraet_id !== id; });
+    localStorage.setItem('gs_geraete_regeln', JSON.stringify(rg));
+    return true;
+  } catch (_) { return false; }
+}
+window.gsGeraete = gsGeraete; window.gsGeraetAnlegen = gsGeraetAnlegen; window.gsGeraetLoeschen = gsGeraetLoeschen;
+
+function _gsMesswerteAlle() { try { var a = safeGetItem('gs_messwerte', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+function gsMesswerte(geraetId, metric, von, bis) {
+  var out = _gsMesswerteAlle().filter(function (m) {
+    if (!m || (geraetId && m.geraet_id !== geraetId) || (metric && m.metric !== metric)) return false;
+    if (von && m.ts < von) return false; if (bis && m.ts > bis) return false; return true;
+  });
+  out.sort(function (a, b) { return String(a.ts).localeCompare(String(b.ts)); });
+  return out;
+}
+// Der eine Weg hinein (Stufe 0 von Hand; Stufe 1 kommt derselbe Satz vom
+// Server). Katalog pruefen, Qualitaet setzen, anhaengen, Geraet als gesehen
+// markieren. `ok:false` heisst: NICHT gespeichert — und der Grund sagt warum.
+function gsMesswertEintragen(geraetId, metric, wert, ts) {
+  try {
+    var g = gsGeraete().find(function (x) { return x && x.id === geraetId; });
+    if (!g) return { ok: false, quality: null, grund: 'Unbekanntes Gerät.' };
+    var k = _gsMetric(metric);
+    if (!k) return { ok: false, quality: null, grund: 'Die Messgrösse „' + metric + '" steht nicht im Katalog — ein neuer Sensor ist eine Zeile dort, kein Sonderfall.' };
+    var v = Number(wert);
+    if (!isFinite(v)) return { ok: false, quality: null, grund: 'Kein Zahlenwert.' };
+    var q = 2;
+    if ((typeof k.min_valid === 'number' && v < k.min_valid) || (typeof k.max_valid === 'number' && v > k.max_valid)) q = 1;
+    var zeit = ts ? new Date(ts).toISOString() : new Date().toISOString();
+    var arr = _gsMesswerteAlle();
+    arr.push({ geraet_id: geraetId, metric: metric, ts: zeit, wert: v, quality: q, quelle: g.kind === 'manual' ? 'hand' : 'geraet', pending: true });
+    arr = gsCapWithArchive('gs_messwerte', arr, 2000, 'tail');
+    if (localStorage.setItem('gs_messwerte', JSON.stringify(arr)) === false) {
+      if (typeof gsToast === 'function') gsToast('Speicher voll — der Messwert wurde nicht gesichert.', 'warn', 5000);
+      return { ok: false, quality: q, grund: 'Speicher voll — der Messwert wurde nicht gesichert.' };
+    }
+    // Geraet: gesehen, verbunden erst nach dem ersten Wert (§3.2)
+    var alle = gsGeraete();
+    alle.forEach(function (x) { if (x && x.id === geraetId) { x.last_seen_at = zeit; if (!x.paired_at) x.paired_at = zeit; if (x.status !== 'paused') x.status = 'active'; if (x.capabilities && x.capabilities.metrics.indexOf(metric) < 0) x.capabilities.metrics.push(metric); } });
+    _gsGeraeteSchreiben(alle);
+    return { ok: true, quality: q, grund: q === 2 ? 'plausibel (' + k.min_valid + '–' + k.max_valid + ' ' + k.unit + ')' : 'ausserhalb des Messbereichs ' + k.min_valid + '–' + k.max_valid + ' ' + k.unit + ' — angenommen, aber markiert' };
+  } catch (_) { return { ok: false, quality: null, grund: 'Fehler beim Eintragen.' }; }
+}
+window.gsMesswerte = gsMesswerte; window.gsMesswertEintragen = gsMesswertEintragen;
+
+function gsRegeln() { try { var a = safeGetItem('gs_geraete_regeln', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+function gsRegelAnlegen(o) {
+  try {
+    o = o || {};
+    if (!o.geraet_id || !o.metric && o.op !== 'stale') return false;
+    if (o.metric && !_gsMetric(o.metric)) return false;
+    var r = { id: 'reg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6), geraet_id: o.geraet_id, metric: o.metric || null,
+      op: (o.op === 'above' || o.op === 'stale') ? o.op : 'below', threshold: (o.threshold == null ? null : Number(o.threshold)),
+      for_minutes: parseInt(o.for_minutes, 10) || 0, action: o.action || 'notify', cooldown_minutes: parseInt(o.cooldown_minutes, 10) || 720, enabled: true, created_at: new Date().toISOString() };
+    var arr = gsRegeln(); arr.push(r);
+    if (localStorage.setItem('gs_geraete_regeln', JSON.stringify(arr)) === false) { if (typeof gsToast === 'function') gsToast('Speicher voll — die Regel wurde nicht gesichert.', 'warn', 5000); return false; }
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
+    return r;
+  } catch (_) { return false; }
+}
+function gsRegelLoeschen(id) { try { var arr = gsRegeln().filter(function (r) { return r && r.id !== id; }); return localStorage.setItem('gs_geraete_regeln', JSON.stringify(arr)) !== false; } catch (_) { return false; } }
+// Drei Zustaende, nie zwei: erfuellt · verletzt · nicht_pruefbar. Ohne
+// plausiblen Wert ist eine Regel nicht pruefbar — Stille ist kein „erfuellt".
+function gsRegelnPruefen(geraetId) {
+  var out = [];
+  try {
+    var g = gsGeraete().find(function (x) { return x && x.id === geraetId; });
+    gsRegeln().filter(function (r) { return r && r.enabled !== false && r.geraet_id === geraetId; }).forEach(function (r) {
+      var k = r.metric ? _gsMetric(r.metric) : null;
+      var e = { regel_id: r.id, metric: r.metric, op: r.op, threshold: r.threshold, zustand: 'nicht_pruefbar', grund: '', text: '' };
+      if (r.op === 'stale') {
+        var iv = g && g.capabilities && g.capabilities.interval_s;
+        if (!iv) { e.grund = 'kein Meldeintervall bekannt (Gerät von Hand)'; }
+        else if (!g.last_seen_at) { e.grund = 'noch nie ein Wert'; }
+        else { var alt = Date.now() - new Date(g.last_seen_at).getTime(); e.zustand = alt > 3 * iv * 1000 ? 'verletzt' : 'erfuellt'; e.grund = 'zuletzt vor ' + Math.round(alt / 60000) + ' Min, Intervall ' + iv + ' s'; }
+        e.text = 'Meldet sich'; out.push(e); return;
+      }
+      var werte = gsMesswerte(geraetId, r.metric).filter(function (m) { return m.quality === 2; });
+      e.text = (k ? k.label_de : r.metric) + ' ' + (r.op === 'below' ? 'unter' : 'über') + ' ' + r.threshold + (k ? ' ' + k.unit : '');
+      if (!werte.length) { e.grund = 'keine plausiblen Werte für ' + (k ? k.label_de : r.metric); out.push(e); return; }
+      var letzter = werte[werte.length - 1];
+      var verletzt = r.op === 'below' ? letzter.wert < r.threshold : letzter.wert > r.threshold;
+      if (verletzt && r.for_minutes > 0) {
+        var seit = werte.slice().reverse();
+        var start = null;
+        for (var i = 0; i < seit.length; i++) { var vv = r.op === 'below' ? seit[i].wert < r.threshold : seit[i].wert > r.threshold; if (!vv) break; start = seit[i].ts; }
+        var dauer = start ? (new Date(letzter.ts).getTime() - new Date(start).getTime()) / 60000 : 0;
+        if (dauer < r.for_minutes) { e.zustand = 'nicht_pruefbar'; e.grund = 'erst seit ' + Math.round(dauer) + ' Min unter der Schwelle — Regel verlangt ' + r.for_minutes; out.push(e); return; }
+      }
+      e.zustand = verletzt ? 'verletzt' : 'erfuellt';
+      e.grund = 'zuletzt ' + letzter.wert + (k ? ' ' + k.unit : '') + ' um ' + (_gsKalZeit(letzter.ts) || _gsKalDatumKurz(letzter.ts)) + ', Schwelle ' + r.threshold;
+      out.push(e);
+    });
+  } catch (_) {}
+  return out;
+}
+window.gsRegeln = gsRegeln; window.gsRegelAnlegen = gsRegelAnlegen; window.gsRegelLoeschen = gsRegelLoeschen; window.gsRegelnPruefen = gsRegelnPruefen;
+
+// ── Verlauf ohne Paket: Linien, Schwelle, Markierungen aus dem Kalender ─────
+function _gsVerlauf(canvas, reihen, opt) {
+  try {
+    opt = opt || {};
+    var dpr = window.devicePixelRatio || 1;
+    var W = Math.max(200, canvas.clientWidth || opt.breite || 320), H = opt.hoehe || 120;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); canvas.style.height = H + 'px';
+    var c = canvas.getContext('2d'); c.scale(dpr, dpr);
+    var cs = getComputedStyle(document.body);
+    var fg = cs.getPropertyValue('--text').trim() || '#222', mu = cs.getPropertyValue('--muted').trim() || '#888', bd = cs.getPropertyValue('--border').trim() || '#ddd';
+    c.clearRect(0, 0, W, H);
+    var pad = { l: 34, r: 8, t: 10, b: 18 };
+    var alle = []; reihen.forEach(function (r) { (r.punkte || []).forEach(function (p) { alle.push(p); }); });
+    if (!alle.length) { c.fillStyle = mu; c.font = '12px system-ui, sans-serif'; c.fillText(opt.leer || 'Noch keine Werte', pad.l, H / 2); return; }
+    var t0 = Math.min.apply(null, alle.map(function (p) { return p.t; })), t1 = Math.max.apply(null, alle.map(function (p) { return p.t; }));
+    if (t1 === t0) t1 = t0 + 3600000;
+    var plaus = alle.filter(function (p) { return p.q === 2; }); if (!plaus.length) plaus = alle;
+    var v0 = Math.min.apply(null, plaus.map(function (p) { return p.v; })), v1 = Math.max.apply(null, plaus.map(function (p) { return p.v; }));
+    if (opt.schwelle != null) { v0 = Math.min(v0, opt.schwelle); v1 = Math.max(v1, opt.schwelle); }
+    canvas.dataset.vmin = String(Math.round(v0 * 10) / 10); canvas.dataset.vmax = String(Math.round(v1 * 10) / 10);
+    if (v1 === v0) { v0 -= 1; v1 += 1; }
+    var sp = (v1 - v0) * 0.1; v0 -= sp; v1 += sp;
+    var X = function (t) { return pad.l + (t - t0) / (t1 - t0) * (W - pad.l - pad.r); };
+    var Y = function (v) { var y = pad.t + (1 - (v - v0) / (v1 - v0)) * (H - pad.t - pad.b); return Math.max(pad.t, Math.min(H - pad.b, y)); };   // unplausibel: am Rand, nicht draussen
+    c.strokeStyle = bd; c.lineWidth = 1; c.beginPath(); c.moveTo(pad.l, pad.t); c.lineTo(pad.l, H - pad.b); c.lineTo(W - pad.r, H - pad.b); c.stroke();
+    c.fillStyle = mu; c.font = '10px system-ui, sans-serif'; c.textAlign = 'right';
+    c.fillText(String(Math.round(v1 * 10) / 10), pad.l - 4, pad.t + 8); c.fillText(String(Math.round(v0 * 10) / 10), pad.l - 4, H - pad.b);
+    c.textAlign = 'left'; c.fillText(_gsKalDatumKurz(t0), pad.l, H - 4); c.textAlign = 'right'; c.fillText(_gsKalDatumKurz(t1), W - pad.r, H - 4);
+    if (opt.schwelle != null) { c.setLineDash([4, 3]); c.strokeStyle = opt.schwellenFarbe || '#b26500'; c.beginPath(); c.moveTo(pad.l, Y(opt.schwelle)); c.lineTo(W - pad.r, Y(opt.schwelle)); c.stroke(); c.setLineDash([]); }
+    (opt.marken || []).forEach(function (m) { if (m.t < t0 || m.t > t1) return; c.strokeStyle = '#1565c0'; c.lineWidth = 1; c.beginPath(); c.moveTo(X(m.t), pad.t); c.lineTo(X(m.t), H - pad.b); c.stroke(); c.fillStyle = '#1565c0'; c.font = '11px system-ui, sans-serif'; c.textAlign = 'left'; c.fillText(m.label || '', Math.min(X(m.t) + 3, W - 40), pad.t + 10); });
+    reihen.forEach(function (r) {
+      var pts = (r.punkte || []).slice().sort(function (a, b) { return a.t - b.t; });
+      c.strokeStyle = r.farbe || '#2e7d32'; c.lineWidth = 2; c.beginPath();
+      pts.forEach(function (p, i) { if (i === 0) c.moveTo(X(p.t), Y(p.v)); else c.lineTo(X(p.t), Y(p.v)); }); c.stroke();
+      pts.forEach(function (p) { c.fillStyle = p.q === 2 ? (r.farbe || '#2e7d32') : '#e53935'; c.beginPath(); c.arc(X(p.t), Y(p.v), p.q === 2 ? 2.5 : 4, 0, Math.PI * 2); c.fill(); });
+    });
+  } catch (_) {}
+}
+window._gsVerlauf = _gsVerlauf;
+
+// ── Das Dashboard ─────────────────────────────────────────────────────────
+function gsMesswerteOeffnen() {
+  try {
+    if (typeof gsHaptic === 'function') gsHaptic('light');
+    var mc = document.getElementById('modal-content'); if (!mc) return;
+    _gsMwRender();
+    if (typeof openModal === 'function') openModal('detail-modal');
+  } catch (_) {}
+}
+window.gsMesswerteOeffnen = gsMesswerteOeffnen;
+function _gsMwFmt(v, k) { var d = (k && typeof k.decimals === 'number') ? k.decimals : 1; return (Math.round(Number(v) * Math.pow(10, d)) / Math.pow(10, d)).toString().replace('.', ',') + (k ? ' ' + k.unit : ''); }
+function _gsMwRender() {
+  var mc = document.getElementById('modal-content'); if (!mc) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  var kat = gsMetricKatalog().slice().sort(function (a, b) { return (a.sort || 100) - (b.sort || 100); });
+  var ger = gsGeraete();
+  var alleMw = _gsMesswerteAlle();
+  var optionenKat = kat.map(function (k) { return '<option value="' + esc(k.key) + '">' + esc(k.icon || '') + ' ' + esc(k.label_de) + ' (' + esc(k.unit) + ')</option>'; }).join('');
+  var gartenOpt = '<option value="">—</option>' + ((typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens.map(function (g) { return '<option value="' + esc(g.id) + '">' + esc(g.name || '') + '</option>'; }).join('') : '');
+  var pflanzenOpt = '<option value="">—</option>' + ((typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name || '') + '</option>'; }).join('') : '') + ((typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name || '') + ' (Garten)</option>'; }).join('') : '');
+
+  var kacheln = ger.map(function (g) {
+    var art = _gsGeraetArt(g);
+    var status = g.status === 'wartet' ? _t('mw_wartet', 'wartet auf den ersten Wert') : g.status === 'lost' ? _t('mw_verloren', 'seit längerem kein Signal') : (_t('mw_zuletzt', 'zuletzt') + ' ' + (g.last_seen_at ? _gsKalDatumKurz(g.last_seen_at) + ' ' + (_gsKalZeit(g.last_seen_at) || '') : '—'));
+    var metrics = kat.filter(function (k) { return alleMw.some(function (m) { return m.geraet_id === g.id && m.metric === k.key; }); });
+    var werte = metrics.map(function (k) {
+      var w = gsMesswerte(g.id, k.key); var letzter = w[w.length - 1];
+      var plaus = w.filter(function (m) { return m.quality === 2; }); var lp = plaus[plaus.length - 1];
+      return '<div class="gs-mw-wert"><span class="gs-mw-ico" aria-hidden="true">' + esc(k.icon || '') + '</span><div class="gs-mw-txt"><b>' + esc(k.label_de) + '</b>' +
+        '<i>' + (lp ? esc(_gsMwFmt(lp.wert, k)) + ' · ' + esc(_gsKalDatumKurz(lp.ts) + ' ' + (_gsKalZeit(lp.ts) || '')) : _t('mw_kein_plausibler', 'kein plausibler Wert')) +
+        (letzter && letzter.quality !== 2 ? ' · <span class="gs-mw-unplausibel">' + esc(_gsMwFmt(letzter.wert, k)) + ' ' + _t('mw_ausserhalb', 'ausserhalb des Messbereichs') + '</span>' : '') + '</i></div></div>';
+    }).join('');
+    var regeln = gsRegelnPruefen(g.id).map(function (r) {
+      var z = r.zustand === 'verletzt' ? '⚠️ ' + _t('mw_verletzt', 'verletzt') : r.zustand === 'erfuellt' ? '✓ ' + _t('mw_erfuellt', 'erfüllt') : '– ' + _t('mw_nicht_pruefbar', 'nicht prüfbar');
+      return '<div class="gs-mw-regel gs-mw-' + r.zustand + '"><b>' + esc(r.text) + '</b><i>' + esc(z) + ' · ' + esc(r.grund) + '</i><button type="button" class="gs-mw-x" aria-label="Regel löschen" onclick="gsRegelLoeschen(\'' + esc(r.regel_id) + '\');_gsMwRender()">×</button></div>';
+    }).join('');
+    var erste = metrics[0];
+    return '<div class="gs-mw-kachel" data-geraet="' + esc(g.id) + '">' +
+      '<div class="gs-mw-kopf"><span class="gs-mw-art" aria-hidden="true">' + esc(art.icon) + '</span><div class="gs-mw-name"><b>' + esc(g.name) + '</b><i>' + esc(art.label) + ' · ' + esc(status) + '</i></div>' +
+        '<button type="button" class="gs-mw-x" aria-label="Gerät entfernen" onclick="if(typeof gsConfirmModal===\'function\'){gsConfirmModal({title:\'Gerät entfernen?\',body:\'Alle Messwerte dieses Geräts werden mitgelöscht.\',kind:\'danger\',ok:\'Entfernen\'}).then(function(j){ if(j){ gsGeraetLoeschen(\'' + esc(g.id) + '\'); _gsMwRender(); } });}else if(confirm(\'Gerät und Messwerte entfernen?\')){gsGeraetLoeschen(\'' + esc(g.id) + '\');_gsMwRender();}">×</button></div>' +
+      (werte || '<div class="gs-mw-leer">' + _t('mw_noch_keine', 'Noch keine Werte — trage unten den ersten ein.') + '</div>') +
+      (erste ? '<canvas class="gs-mw-verlauf" data-geraet="' + esc(g.id) + '" data-metric="' + esc(erste.key) + '" role="img" aria-label="' + esc(_t('mw_verlauf', 'Verlauf') + ' ' + erste.label_de + ' · ' + g.name) + '"></canvas>' +
+        (metrics.length > 1 ? '<div class="gs-mw-tabs">' + metrics.map(function (k) { return '<button type="button" class="gs-mw-tab' + (k.key === erste.key ? ' on' : '') + '" onclick="_gsMwVerlaufZeigen(this,\'' + esc(g.id) + '\',\'' + esc(k.key) + '\')">' + esc(k.icon || '') + ' ' + esc(k.label_de) + '</button>'; }).join('') + '</div>' : '') : '') +
+      (regeln ? '<div class="gs-mw-regeln">' + regeln + '</div>' : '') +
+      '<details class="gs-mw-form"><summary>' + _t('mw_regel_neu', '＋ Regel') + '</summary><div class="gs-mw-zeile">' +
+        '<select id="mw-regel-metric-' + esc(g.id) + '" aria-label="Messgrösse">' + optionenKat + '</select>' +
+        '<select id="mw-regel-op-' + esc(g.id) + '" aria-label="Bedingung"><option value="below">' + _t('mw_unter', 'unter') + '</option><option value="above">' + _t('mw_ueber', 'über') + '</option></select>' +
+        '<input id="mw-regel-wert-' + esc(g.id) + '" type="number" inputmode="decimal" step="any" aria-label="Schwelle" placeholder="Schwelle">' +
+        '<button type="button" onclick="_gsMwRegelAusFormular(\'' + esc(g.id) + '\')">' + _t('mw_anlegen', 'Anlegen') + '</button></div></details>' +
+    '</div>';
+  }).join('');
+
+  var eintrag = ger.length ? '<div class="gs-mw-eintrag"><div class="gs-eg-kopf" style="font-size:var(--fs-md);">' + _t('mw_eintragen', '📝 Messwert eintragen') + '</div><div class="gs-mw-zeile">' +
+      '<select id="mw-geraet" aria-label="Gerät">' + ger.map(function (g) { return '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>'; }).join('') + '</select>' +
+      '<select id="mw-metric" aria-label="Messgrösse">' + optionenKat + '</select>' +
+      '<input id="mw-wert" type="number" inputmode="decimal" step="any" aria-label="Wert" placeholder="Wert">' +
+      '<button type="button" onclick="_gsMwEintragAusFormular()">' + _t('mw_speichern', 'Speichern') + '</button></div>' +
+      '<div class="gs-mw-hinweis">' + _t('mw_hinweis', 'Unplausible Werte werden angenommen und markiert — ein kaputter Sensor ist eine Information.') + '</div></div>' : '';
+
+  mc.innerHTML = '<div class="gs-mw" style="padding:16px;">' +
+    '<div class="gs-eg-kopf">📊 ' + _t('mw_titel', 'Messwerte') + '</div>' +
+    '<div class="gs-eg-unter">' + _t('mw_untertitel', 'Deine Geräte und was sie messen — und bis der erste Sensor da ist, bist du das Gerät. Jeder Wert trägt Gerät, Zeit, Einheit und ob er plausibel war.') + '</div>' +
+    (ger.length ? kacheln : '<div class="gs-eg-leer">' + _t('mw_leer', 'Noch kein Gerät. Lege eines an — „von Hand" heisst: du misst und trägst ein. Dashboard, Regeln und Kalender sind dieselben, die später ein Sensor benutzt.') + '</div>') +
+    eintrag +
+    '<details class="gs-mw-form gs-mw-neu"' + (ger.length ? '' : ' open') + '><summary>' + _t('mw_geraet_neu', '＋ Gerät anlegen') + '</summary><div class="gs-mw-zeile">' +
+      '<input id="mw-neu-name" type="text" maxlength="60" aria-label="Name des Geräts" placeholder="' + _t('mw_name_bsp', 'z.B. Hochbeet Nord') + '">' +
+      '<select id="mw-neu-garten" aria-label="Garten">' + gartenOpt + '</select>' +
+      '<select id="mw-neu-pflanze" aria-label="Pflanze">' + pflanzenOpt + '</select>' +
+      '<button type="button" onclick="_gsMwGeraetAusFormular()">' + _t('mw_anlegen', 'Anlegen') + '</button></div>' +
+      '<div class="gs-mw-hinweis">' + _t('mw_neu_hinweis', 'Art: von Hand. Echte Geräte melden sich mit einem Token (Stufe 1) — ihr Eintrag hier ist derselbe.') + '</div></details>' +
+  '</div>';
+  // Verlaeufe zeichnen — nach dem Einhaengen, weil die Breite erst dann bekannt ist
+  Array.prototype.forEach.call(mc.querySelectorAll('canvas.gs-mw-verlauf'), function (cv) { _gsMwVerlaufMalen(cv, cv.dataset.geraet, cv.dataset.metric); });
+}
+function _gsMwVerlaufMalen(cv, geraetId, metric) {
+  try {
+    var k = _gsMetric(metric); var g = gsGeraete().find(function (x) { return x.id === geraetId; });
+    var w = gsMesswerte(geraetId, metric);
+    var regel = gsRegeln().find(function (r) { return r.geraet_id === geraetId && r.metric === metric && r.threshold != null; });
+    // Markierungen aus dem Kalender: Abhaken der verknuepften Pflanze (💧 gegossen)
+    var marken = [];
+    try {
+      if (g && g.plant_id && typeof gsTagebuchAlle === 'function') gsTagebuchAlle().forEach(function (e) { if (e.pflanze_id === g.plant_id && e.cat === 'water') marken.push({ t: new Date(e.ts).getTime(), label: '💧' }); });
+    } catch (_) {}
+    _gsVerlauf(cv, [{ punkte: w.map(function (m) { return { t: new Date(m.ts).getTime(), v: m.wert, q: m.quality }; }), farbe: '#2e7d32' }], { schwelle: regel ? regel.threshold : null, marken: marken, hoehe: 120 });
+    cv.setAttribute('aria-label', (k ? k.label_de : metric) + ' · ' + (g ? g.name : '') + ' · ' + w.length + ' Werte');
+  } catch (_) {}
+}
+window._gsMwVerlaufZeigen = function (btn, geraetId, metric) {
+  try {
+    var kachel = btn.closest('.gs-mw-kachel'); if (!kachel) return;
+    Array.prototype.forEach.call(kachel.querySelectorAll('.gs-mw-tab'), function (b) { b.classList.toggle('on', b === btn); });
+    var cv = kachel.querySelector('canvas.gs-mw-verlauf'); if (cv) { cv.dataset.metric = metric; _gsMwVerlaufMalen(cv, geraetId, metric); }
+  } catch (_) {}
+};
+window._gsMwEintragAusFormular = function () {
+  var g = (document.getElementById('mw-geraet') || {}).value, m = (document.getElementById('mw-metric') || {}).value, v = (document.getElementById('mw-wert') || {}).value;
+  var r = gsMesswertEintragen(g, m, v);
+  if (typeof gsToast === 'function') gsToast(r.ok ? ('✓ ' + r.grund) : ('✗ ' + r.grund), r.ok ? (r.quality === 2 ? 'success' : 'warn') : 'warn', 4000);
+  if (r.ok) _gsMwRender();
+};
+window._gsMwGeraetAusFormular = function () {
+  var n = (document.getElementById('mw-neu-name') || {}).value, ga = (document.getElementById('mw-neu-garten') || {}).value, pf = (document.getElementById('mw-neu-pflanze') || {}).value;
+  var g = gsGeraetAnlegen({ kind: 'manual', name: n, garden_id: ga || null, plant_id: pf || null });
+  if (g) _gsMwRender();
+};
+window._gsMwRegelAusFormular = function (geraetId) {
+  var m = (document.getElementById('mw-regel-metric-' + geraetId) || {}).value, op = (document.getElementById('mw-regel-op-' + geraetId) || {}).value, w = (document.getElementById('mw-regel-wert-' + geraetId) || {}).value;
+  if (w === '' || !isFinite(Number(w))) { if (typeof gsToast === 'function') gsToast('Bitte eine Schwelle angeben.', 'warn'); return; }
+  var r = gsRegelAnlegen({ geraet_id: geraetId, metric: m, op: op, threshold: Number(w), action: 'notify' });
+  if (r) _gsMwRender();
+};
+
 // ═══ v32.46 · KALENDER — EINE EREIGNIS-SCHICHT (docs/KALENDER-V1.md) ══════
 //
 // Es gibt EINE Frage — „was ist an diesem Tag?" — und EINE Funktion, die sie
@@ -26609,6 +26988,31 @@ function gsKalenderEreignisse(von, bis) {
         pflanze: null, garten_id: null, quelle: 'wetter', status: 'info', faellig_seit: null, verweis: null, grund: 'Open-Meteo, Stundenwerte bis zur aktuellen Stunde' });
     }
   } catch (_) {}
+  // 6 · Messwerte (Stufe 0 von Hand) — je Geraet und Tag EIN Ereignis — und
+  //     verletzte Regeln als Alarm am heutigen Tag (OEKOSYSTEM-V1.md §6)
+  try {
+    if (typeof gsGeraete === 'function') {
+      var proGT = {};
+      _gsMesswerteAlle().forEach(function (m) { var tag = _gsKalTag(m.ts); if (!im(tag)) return; var kk = m.geraet_id + '|' + tag; (proGT[kk] = proGT[kk] || []).push(m); });
+      var gerMap = {}; gsGeraete().forEach(function (g) { gerMap[g.id] = g; });
+      Object.keys(proGT).forEach(function (kk) {
+        var l = proGT[kk], g = gerMap[l[0].geraet_id]; if (!g) return;
+        var tag = kk.split('|')[1];
+        var arten = []; l.forEach(function (m) { var k = _gsMetric(m.metric); var nm = k ? k.label_de : m.metric; if (arten.indexOf(nm) < 0) arten.push(nm); });
+        out.push({ id: 'messung:' + kk, art: 'messung', datum: tag, zeit: _gsKalZeit(l[l.length - 1].ts), ts: l[l.length - 1].ts, titel: g.name + ': ' + l.length + ' Messwert' + (l.length === 1 ? '' : 'e'), emoji: '📊',
+          pflanze: g.plant_id ? { id: g.plant_id, name: '' } : null, garten_id: g.garden_id || null, quelle: g.kind === 'manual' ? 'hand' : 'sensor', status: 'info', faellig_seit: null,
+          verweis: { fn: 'gsMesswerteOeffnen', args: [] }, grund: arten.join(', ') + ' — Gerät „' + g.name + '"' + (g.kind === 'manual' ? ', von Hand eingetragen' : '') });
+      });
+      if (im(heute)) gsGeraete().forEach(function (g) {
+        gsRegelnPruefen(g.id).forEach(function (r) {
+          if (r.zustand !== 'verletzt') return;
+          out.push({ id: 'alarm:' + r.regel_id, art: 'alarm', datum: heute, zeit: null, ts: null, titel: g.name + ': ' + r.text, emoji: '⚠️',
+            pflanze: g.plant_id ? { id: g.plant_id, name: '' } : null, garten_id: g.garden_id || null, quelle: 'sensor', status: 'offen', faellig_seit: 0,
+            verweis: { fn: 'gsMesswerteOeffnen', args: [] }, grund: r.grund });
+        });
+      });
+    }
+  } catch (_) {}
   var rang = { aufgabe: 0, alarm: 1, erinnerung: 2, tagebuch: 3, gepflanzt: 4, aussaat: 5, ernte: 6, messung: 7, wetter: 8 };
   out.sort(function (a, b) {
     if (a.datum !== b.datum) return a.datum < b.datum ? -1 : 1;
@@ -26680,7 +27084,8 @@ function _gsKalRender() {
   var kopf = '<div class="gs-kal-kopf">' +
     '<button type="button" class="gs-kal-nav" onclick="gsKalMonat(-1)" aria-label="' + _t('kal_vor', 'Voriger Monat') + '">‹</button>' +
     '<div class="gs-kal-titel">' + _GS_KAL_MON[m - 1] + ' ' + y + '</div>' +
-    '<button type="button" class="gs-kal-nav" onclick="gsKalMonat(1)" aria-label="' + _t('kal_nach', 'Nächster Monat') + '">›</button></div>';
+    '<button type="button" class="gs-kal-nav" onclick="gsKalMonat(1)" aria-label="' + _t('kal_nach', 'Nächster Monat') + '">›</button></div>' +
+    '<div class="gs-kal-werkzeuge"><button type="button" class="gs-dp-kal" onclick="gsMesswerteOeffnen()" aria-label="Messwerte öffnen">📊 ' + _t('mw_titel', 'Messwerte') + '</button></div>';
   var raster = '<div class="gs-kal-wt" aria-hidden="true">' + ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(function (w) { return '<span>' + w + '</span>'; }).join('') + '</div>' +
     '<div class="gs-kal-raster" role="grid" aria-label="' + _GS_KAL_MON[m - 1] + ' ' + y + '">';
   for (var i = 0; i < start; i++) raster += '<span class="gs-kal-leer" aria-hidden="true"></span>';
@@ -26711,7 +27116,7 @@ function _gsKalRender() {
       '<div class="gs-kal-txt"><b>' + esc(e.titel) + '</b><i>' + esc(sub) + '</i><small class="gs-kal-grund" hidden>' + esc(e.grund || '') + '</small></div>' + kasten + '</div>';
   }).join('') : '<div class="gs-kal-leerzeile">' + _t('kal_nichts', 'Nichts an diesem Tag.') + '</div>';
 
-  var legende = '<div class="gs-kal-legende">' + ['aufgabe', 'tagebuch', 'gepflanzt', 'ernte'].map(function (a) { return '<span><i class="gs-kal-p gs-kal-p-' + a + '"></i>' + (_GS_KAL_ART[a] || a) + '</span>'; }).join('') + '</div>';
+  var legende = '<div class="gs-kal-legende">' + ['aufgabe', 'tagebuch', 'gepflanzt', 'ernte', 'messung', 'alarm'].map(function (a) { return '<span><i class="gs-kal-p gs-kal-p-' + a + '"></i>' + (_GS_KAL_ART[a] || a) + '</span>'; }).join('') + '</div>';
   var nOffen = ev.filter(function (e) { return e.art === 'aufgabe' && e.datum <= heute; }).length;
 
   mc.innerHTML = '<div class="gs-kal" style="padding:16px;">' +
@@ -53045,6 +53450,7 @@ const MENU_ITEMS = [
   {label:'🏆 Achievements', sub:'Meilensteine & Garten-Score', action:"openAchievementsModal()", tags:['achievement','achievements','erfolge','meilenstein','score','abzeichen','trophäe','trophae','fortschritt']},
   {label:'📖 Garten-Bibliothek', sub:'10 Grundlagen-Artikel', action:"gsOpenGardenLibrary()", tags:['bibliothek','artikel','grundlagen','lesen','wissen','garten','ratgeber']},
   {label:'📅 Kalender', sub:'Aufgaben, Tagebuch und Pflanzungen nach Tag', action:"gsKalenderOeffnen()", tags:['kalender','aufgaben','tagebuch','heute','termine','faellig']},
+  {label:'📊 Messwerte', sub:'Geräte, Sensoren und Werte von Hand — mit Verlauf und Regeln', action:"gsMesswerteOeffnen()", tags:['messwerte','sensor','geraet','bodenfeuchte','dashboard','werte']},
   {label:'🧭 Ohne Netz eingrenzen', sub:'Was hier und jetzt in Frage kommt — ohne Internet', action:"gsEingrenzenOeffnen()", tags:['offline','ohne netz','eingrenzen','wald','empfang','monat','höhe','hoehe','farbe','saison','bestimmen','filter','kein internet']},
   {label:'📊 Garten-Insights', sub:'Score + Risiken', action:"gsInsightsOpen()", tags:['insights','statistik','score','risiko','auswertung','analyse','garten']},
   {label:'🥕 Erntekalender', sub:'Jahres-Statistik deiner Ernten', action:"openHarvestStatsModal()", tags:['ernte','erntekalender','statistik','kilo','jahr','bilanz']},
@@ -73001,6 +73407,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.48', date: '03.09.2026',
+    headline: '\ud83d\udcca Messwerte: das Dashboard f\u00fcr Sensoren \u2014 und bis dahin bist du das Ger\u00e4t',
+    summary: 'Neuer Bildschirm \u201eMesswerte\u201c (Men\u00fc-Suche, Kalender): Ger\u00e4te anlegen, Werte eintragen, Verlauf mit Schwellen und Giess-Markierungen, Regeln mit drei Zust\u00e4nden (verletzt \u00b7 erf\u00fcllt \u00b7 nicht pr\u00fcfbar). Elf Messgr\u00f6ssen aus einem Katalog; unplausible Werte werden angenommen und markiert, nie verworfen. Messwerte und Alarme stehen im Kalender. Der Weg ist derselbe, den sp\u00e4ter ein GreenScan-Sensor nimmt \u2014 das Schema daf\u00fcr liegt als Migration bereit.',
+    user_summary: '\ud83d\udcca Ein neuer Bildschirm \u201eMesswerte\u201c: trage Bodenfeuchte, Temperatur und mehr von Hand ein, sieh den Verlauf und lass dich warnen, wenn ein Wert unter deine Schwelle f\u00e4llt. Sensoren docken sp\u00e4ter am selben Ort an.',
+    user_items: [
+      {emoji:'\ud83e\uddd1\u200d\ud83c\udf3e', bold:'Du bist das erste Ger\u00e4t:', text:' Lege ein Ger\u00e4t \u201evon Hand\u201c an und trage Werte ein \u2014 Dashboard, Regeln und Kalender sind dieselben, die sp\u00e4ter ein Sensor benutzt.'},
+      {emoji:'\ud83d\udcc8', bold:'Verlauf mit Schwelle:', text:' Die Linie zeigt deine Werte, die gestrichelte Linie deine Schwelle, ein Tropfen markiert, wann du gegossen hast.'},
+      {emoji:'\u26a0\ufe0f', bold:'Regeln sagen, was sie wissen:', text:' \u201everletzt\u201c, \u201eerf\u00fcllt\u201c oder \u201enicht pr\u00fcfbar\u201c \u2014 ohne Werte behauptet keine Regel, alles sei in Ordnung.'},
+      {emoji:'\ud83d\udcc5', bold:'Im Kalender:', text:' Messwerte stehen am Tag, an dem sie gemessen wurden; ein verletzter Grenzwert erscheint als Alarm.'},
+    ],
+  },
+  {
     v: 'v32.47', date: '03.09.2026',
     headline: '\ud83c\udf31 Garten-Pflanzungen bekommen Pflege \u2014 Kalender Stufe 2',
     summary: 'Pflanzungen im Garten hatten keine Pflege-Aufgaben; \u201eHeute zu tun\u201c kannte nur Zimmerpflanzen. Jetzt bekommen sie Giessen, D\u00fcngen und Pr\u00fcfen mit Vorgaben je Gartenart (Balkon, Beet, Gew\u00e4chshaus \u2026), die das Pflanzungs-Detail als Vorgabe benennt. Dazu: Ernte-Sch\u00e4tzung und Regen im Kalender, ein Datum im Tagebuch-Formular (Zukunft = Erinnerung), und der Eintrag merkt sich die Pflanze.',
@@ -73718,7 +74136,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.47';
+var GS_VERSION = 'v32.48';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80029,6 +80447,7 @@ var GS_KEEP_ON_LOGOUT = [
   'gs_prefs',           // Settings-Toggles (Re-Login ueberschreibt via gsPrefsPull)
   'gs_consent',         // revDSG-Consent — Re-Login soll ihn nicht zuruecksetzen
   'gs_auto_collections',// Sammlungen automatisch anlegen (Schalter)
+  'gs_metric_catalog',  // v32.48: oeffentlicher Katalog der Messgroessen — kein Personenbezug
   'gs_claude_model',    // per Fallback-Kette ermitteltes Modell (Geraete-Eigenschaft)
 
   // Verbindung zum Backend — oeffentlich by design (Anon-Key, RLS schuetzt)
@@ -80086,6 +80505,7 @@ var GS_USER_KEYS = [
   'gs_user_role','gs_is_admin', // v30.35 SECURITY: Rollen-Cache pro User (Stale-Role-Leak auf geteiltem Gerät)
   'gs_garden_plans','gs_garden_plan_current','gs_gardens','gs_plantings',
   'ps_myplants','gs_gartentagebuch','gs_ernte_log','gs_harvest_log',
+  'gs_geraete','gs_geraete_regeln','gs_messwerte',   // v32.48: Geraete, Regeln, Messwerte — Personendaten
   'gs_doctor_history','gs_seed_inventory','gs_chat_history','gs_ki_analyses',
   'gs_scan_history','gs_scan_count','gs_scan_corrections','ps_feedback','ps_votes',
   'gs_achievements','gs_favorites','ps_favs','gs_confirmed_species',
@@ -80344,6 +80764,7 @@ async function gsSyncUserDataOnLogin(){
             'gs_ki_analyses': sd.ki_analyses,
             'gs_dq_archive': sd.dq_archive, 'gs_dq_stats': sd.dq_stats, 'gs_quiz_streak': sd.quiz_streak,
             'gs_recipe_favs': sd.recipe_favs, 'gs_recent_searches': sd.recent_searches,
+            'gs_geraete': sd.geraete, 'gs_geraete_regeln': sd.geraete_regeln,   // v32.48
             'ps_favs': sd.favs, 'ps_votes': sd.votes,
             // v26.66 BUG-FIX: alte Backups (vor v26.66) konnten {} statt [] enthalten.
             // → forcen auf Array damit confirmed.find() im Scan-Code nicht crashed.
@@ -80990,6 +81411,7 @@ window.gsCloudSync = (function(){
         'gs_chat_history':'state','gs_doctor_history':'state','gs_ki_analyses':'state',
         'gs_dq_archive':'state','gs_dq_stats':'state','gs_quiz_streak':'state',
         'gs_recipe_favs':'state','gs_recent_searches':'state','gs_wissen_read':'state',
+        'gs_geraete':'state','gs_geraete_regeln':'state',   // v32.48
         'ps_favs':'state','ps_votes':'state','gs_confirmed_species':'state',
         'gs_dark':'state','gs_theme_color':'state','gs_lang':'state',
         'gs_achievements':'state',
@@ -81208,6 +81630,8 @@ function gsSnapshotBuildState(){
     // Geraeten wiederhergestellt, wo `gsphoto://…` ins Leere zeigt.
     plants:              _gsStripSnapPhotoRefs(_j('ps_myplants','[]')),
     diary:               _j('gs_gartentagebuch','[]'),
+    geraete:             _j('gs_geraete','[]'),          // v32.48: Geraete-Register (klein); Messwerte NICHT — dafuer ist die Tabelle da
+    geraete_regeln:      _j('gs_geraete_regeln','[]'),
     ernte:               _j('gs_ernte_log','[]'),
     dead_plants:         _j('gs_dead_plants','[]'),
     seed_inventory:      _j('gs_seed_inventory','[]'),
