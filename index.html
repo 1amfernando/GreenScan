@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.23.20260903">
+<meta name="app-version" content="32.24.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25387,7 +25387,15 @@ function gsCollectNotifs(){
           var _sm = {garten:'garden',garden:'garden',scanner:'scanner',quiz:'home',wissen:'wissen',knowledge:'wissen',home:'home',map:'map',search:'search',favs:'favs',recipes:'recipes',remedies:'remedies',social:'social',market:'market',season:'season'};
           var _scr = ''; try { _scr = (link.split('screen=')[1] || '').split('&')[0].split('#')[0]; } catch(_e){}
           var _tab = (_sm[_scr] || _scr || 'home').replace(/[^a-z]/gi,'');
-          action = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('" + _tab + "');},250);";
+          // v32.24: der Anker wurde hier bis v32.23 mit `.split('#')[0]`
+          // ABGESCHNITTEN und danach vergessen. Genau er sagt aber, WORUM es
+          // ging: `❤️ Anna gefaellt dein Beitrag` fuehrte auf den Community-
+          // Reiter und liess den Nutzer suchen, welcher Beitrag gemeint war.
+          var _ank = ''; try { _ank = (link.indexOf('#') >= 0 ? link.slice(link.indexOf('#')) : ''); } catch(_e){}
+          _ank = _ank.replace(/[^A-Za-z0-9_#-]/g, '');
+          action = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('" + _tab + "');"
+                 + (_ank ? "if(typeof gsAnkerAnspringen==='function')gsAnkerAnspringen('" + _ank + "');" : '')
+                 + "},250);";
         } else if (link) {
           action = "closeMainMenu();setTimeout(function(){location.href='" + link.replace(/'/g,'') + "';},250);";
         } else {
@@ -37113,7 +37121,11 @@ function renderSocialFeed() {
     var plant = p.plant_name || p.plant || '';
     var text  = escHtml(p.content || p.text || '');
 
-    out += '<div class="post-card">';
+    // v32.24: DER ANKER. Drei Stellen erzeugen seit jeher Links der Form
+    // `/?screen=social#post-<id>` — der Teilen-Knopf (gsSharePost) und die
+    // beiden Like-Trigger in der Datenbank. Ein Element mit dieser id gab es
+    // nie. Der Link fuehrte also bestenfalls an den Anfang des Feeds.
+    out += '<div class="post-card" id="post-' + pid.replace(/[^A-Za-z0-9_-]/g, '') + '">';
     // Header
     out += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
     // v28.34 B-021: Avatar klickbar → Profil öffnen (nur user_id im onclick = Hard-Lesson #12-sicher)
@@ -37257,6 +37269,15 @@ function loadSocialPosts(reset) {
   }
   var limit = 20, offset = _communityPage * limit;
   var filter = currentSocialFilter === 'all' ? '' : ('&category=eq.' + currentSocialFilter);
+  // v32.24: beim Anhaengen nach id entdoppeln. Noetig, seit gsAnkerAnspringen
+  // einen verlinkten Beitrag einzeln nachladen und vorne einfuegen kann — die
+  // Seite, auf der er ohnehin gekommen waere, brachte ihn sonst ein zweites Mal.
+  function _gsFeedAnhaengen(data, ersetzen){
+    if (ersetzen) { socialPosts = data; return; }
+    var da = {};
+    socialPosts.forEach(function(p){ if (p && p.id) da[p.id] = true; });
+    socialPosts = socialPosts.concat(data.filter(function(p){ return !(p && p.id && da[p.id]); }));
+  }
   // v25.29: View statt Tabelle — bringt verification_count + is_expert_verified mit
   sbFetch('/rest/v1/v_social_posts_with_verifications?select=*&order=created_at.desc&limit=' + limit + '&offset=' + offset + filter, {method:'GET'})
     .then(function(res) {
@@ -37273,13 +37294,13 @@ function loadSocialPosts(reset) {
                 lr.data.forEach(function(l){ likedSet[l.post_id] = true; });
                 data.forEach(function(p){ p.liked = !!likedSet[p.id]; });
               }
-              if (reset) socialPosts = data; else socialPosts = socialPosts.concat(data);
+              _gsFeedAnhaengen(data, reset);
               _communityPage++;
               _communityLoading = false;
               renderSocialFeed();
             }).catch(function(){ _communityLoading = false; renderSocialFeed(); });
         } else {
-          if (reset) socialPosts = data; else socialPosts = socialPosts.concat(data);
+          _gsFeedAnhaengen(data, reset);
           _communityPage++;
           _communityLoading = false;
           renderSocialFeed();
@@ -71306,6 +71327,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.24', date: '03.09.2026',
+    headline: '\ud83d\udd17 „Anna gef\u00e4llt dein Beitrag" f\u00fchrt jetzt zu DEM Beitrag',
+    summary: 'Drei Stellen verschicken seit jeher Links auf einen bestimmten Beitrag \u2014 der Teilen-Knopf und die beiden Herz-Meldungen. Gelesen hat den Ankerteil niemand: der Benachrichtigungs-Router schnitt ihn sogar ausdr\u00fccklich ab, und ein Element, auf das er h\u00e4tte zeigen k\u00f6nnen, gab es gar nicht. Jeder dieser Links endete oben im Feed.',
+    user_summary: '\ud83d\udd17 Tippst du auf „jemandem gef\u00e4llt dein Beitrag", landest du jetzt bei DIESEM Beitrag \u2014 hervorgehoben, statt irgendwo oben im Feed.',
+    user_items: [
+      {emoji:'\u2764\ufe0f', bold:'Benachrichtigungen f\u00fchren ans Ziel:', text:' Herz-Meldungen und geteilte Links springen den Beitrag an und heben ihn kurz hervor. Ist er \u00e4lter als die geladenen zwanzig, wird er einzeln nachgeladen.'},
+      {emoji:'\ud83d\udcac', bold:'Auch geteilte Kommentare:', text:' Ein Kommentar-Link wusste nur seine eigene Nummer, nicht zu welchem Beitrag er geh\u00f6rt. Die App schl\u00e4gt das jetzt nach, springt den Beitrag an und \u00f6ffnet die Kommentare.'},
+      {emoji:'\ud83d\udde3\ufe0f', bold:'Und wenn es den Beitrag nicht mehr gibt:', text:' sagt sie das. Vorher blieb sie einfach oben stehen \u2014 und ein Link, der nichts tut, sieht aus wie ein Fingertipp, der danebenging.'},
+    ],
+  },
+  {
     v: 'v32.23', date: '03.09.2026',
     headline: '\ud83d\udd15 Abgeschaltete Erinnerungen bleiben abgeschaltet \u2014 auf jedem Ger\u00e4t',
     summary: 'Die App schiebt 47 Speicherpl\u00e4tze in die Cloud und holt sie wieder. Nachgez\u00e4hlt: 46 kamen zur\u00fcck. Der eine, der fehlte, war ausgerechnet die Liste der abgeschalteten Pflanzen-Erinnerungen \u2014 sie war serverseitig wirksam, aber nur auf EINEM Ger\u00e4t bekannt, und das zweite \u00fcberschrieb sie mit einer leeren Liste.',
@@ -71748,7 +71780,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.23';
+var GS_VERSION = 'v32.24';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76212,6 +76244,133 @@ window.gsShowExportModal = function(){
   conn.addEventListener && conn.addEventListener('change', evaluate);
 })();
 
+// ═══ v32.24 · ANKER IN EINEM DEEP-LINK WIRKLICH ANSPRINGEN ════════════════
+//
+// Drei Stellen erzeugen seit jeher Links mit einem Anker:
+//
+//   gsSharePost()          `https://green-scan.ch/?screen=social#post-<id>`
+//   fn_notify_post_like    dasselbe, als Ziel der ❤️-Meldung
+//   fn_notify_comment_like dasselbe
+//
+// Gelesen hat ihn niemand. `gsHandleShortcutUrl` sah nur `?screen=`, und der
+// Benachrichtigungs-Router schnitt den Anker mit `.split('#')[0]` sogar
+// ausdruecklich ab. Ergebnis: „❤️ Anna gefaellt dein Beitrag" landete oben im
+// Feed, und WELCHER Beitrag gemeint war, erfuhr niemand. Bei einem geteilten
+// Link dasselbe — der Empfaenger sah irgendeinen Feed.
+//
+// Zwei Dinge muessen dafuer stimmen, und beide fehlten:
+//   1. Es muss ein Element mit dieser id GEBEN (jetzt an der Beitragskarte).
+//   2. Jemand muss den Anker LESEN (diese Funktion).
+//
+// Der Feed laedt seitenweise zu 20. Ein verlinkter Beitrag von vor drei
+// Monaten ist also gar nicht da — dann wird er EINZELN nachgeladen und vorne
+// eingefuegt. Findet auch das nichts (geloescht, nicht sichtbar), sagt die App
+// das, statt kommentarlos oben stehen zu bleiben.
+// Welche Anker-Arten dieser Leser kennt — als DATEN, nicht als Verhalten.
+// `scripts/wiring_check.js` haelt diese Liste gegen die Arten, die im Repo
+// wirklich ERZEUGT werden. Eine Messung „hat der Leser gewartet?" waere eine
+// Zeitmessung und damit ein Zufall; eine Liste ist eine Aussage.
+window.GS_ANKER_ARTEN = ['post', 'comment'];
+// Und die Gegenliste: Arten, die erzeugt, aber bewusst NICHT angesprungen
+// werden — mit Grund. Ohne sie stuende `task` dauerhaft als Fehler im
+// Bericht, obwohl die Entscheidung getroffen ist.
+window.GS_ANKER_OHNE_ZIEL = {
+  task: 'Der Cron verlinkt eine Zeile aus `garden_tasks`. Die App zeigt ihre ' +
+        'Aufgaben aus `myPlants`, nicht aus dieser Tabelle — es gibt also gar ' +
+        'kein Element, auf das der Anker zeigen koennte. Der Reiter „Garten" ' +
+        'ist das richtige Ziel, und die Meldung nennt die Aufgabe im Text.',
+};
+
+function _gsAnkerElement(id){
+  try { return document.getElementById(id); } catch(_){ return null; }
+}
+function _gsAnkerHervorheben(el){
+  try {
+    el.scrollIntoView({ behavior: (typeof gsScrollBehavior === 'function' ? gsScrollBehavior() : 'smooth'), block: 'center' });
+    el.classList.add('gs-anker-treffer');
+    setTimeout(function(){ try { el.classList.remove('gs-anker-treffer'); } catch(_){} }, 2600);
+  } catch(_){}
+}
+// Wartet, bis das Element da ist — der Feed rendert asynchron. Bewusst mit
+// Deckel: eine Endlosschleife waere schlimmer als eine ehrliche Absage.
+function _gsAnkerWarten(id, msMax){
+  return new Promise(function(fertig){
+    var bis = Date.now() + (msMax || 4000);
+    (function schauen(){
+      var el = _gsAnkerElement(id);
+      if (el) return fertig(el);
+      if (Date.now() > bis) return fertig(null);
+      setTimeout(schauen, 150);
+    })();
+  });
+}
+// Einen einzelnen Beitrag nachladen, der nicht in den geladenen Seiten steht.
+async function _gsBeitragNachladen(postId){
+  try {
+    if (typeof sbFetch !== 'function' || typeof socialPosts === 'undefined') return false;
+    var r = await sbFetch('/rest/v1/v_social_posts_with_verifications?select=*&id=eq.' +
+                          encodeURIComponent(postId) + '&limit=1', { method: 'GET' });
+    if (!r || r.error || !Array.isArray(r.data) || !r.data.length) return false;
+    var p = r.data[0];
+    p.liked = false; p.type = p.category || 'fund'; p.comments = [];
+    if (!socialPosts.some(function(x){ return x && x.id === p.id; })) socialPosts.unshift(p);
+    if (typeof renderSocialFeed === 'function') renderSocialFeed();
+    return true;
+  } catch(_){ return false; }
+}
+window.gsAnkerAnspringen = async function(hash){
+  var roh = String(hash || '').replace(/^#/, '');
+  if (!roh) return false;
+  // Nur bekannte Anker-Arten. Was hier nicht steht, ist kein Anker, sondern
+  // z.B. der Rueckgabe-Hash eines Magic-Links — davon bleiben die Finger weg.
+  // `#comment-<id>` zuerst aufloesen: der geteilte Link kennt nur den
+  // Kommentar, nicht den Beitrag. Ein Blick in die Datenbank sagt, wozu er
+  // gehoert — danach ist es derselbe Fall wie `#post-<id>`, plus das
+  // Kommentar-Blatt.
+  var kom = roh.match(/^comment-([A-Za-z0-9_-]{1,64})$/);
+  var komId = null;
+  if (kom) {
+    komId = kom[1];
+    var postId = null;
+    try {
+      if (typeof sbFetch === 'function') {
+        var rk = await sbFetch('/rest/v1/post_comments?select=post_id&id=eq.' +
+                               encodeURIComponent(komId) + '&limit=1', { method: 'GET' });
+        if (rk && !rk.error && Array.isArray(rk.data) && rk.data[0]) postId = rk.data[0].post_id;
+      }
+    } catch(_){}
+    if (!postId) {
+      if (typeof gsToast === 'function') {
+        gsToast('Dieser Kommentar ist nicht mehr verfügbar.', 'info', 4500);
+      }
+      return false;
+    }
+    roh = 'post-' + String(postId);
+  }
+  var m = roh.match(/^post-([A-Za-z0-9_-]{1,64})$/);
+  if (!m) return false;
+  var id = 'post-' + m[1];
+  var el = await _gsAnkerWarten(id, 4000);
+  if (!el) {
+    // Nicht in den geladenen 20 — einzeln holen.
+    var da = await _gsBeitragNachladen(m[1]);
+    if (da) el = await _gsAnkerWarten(id, 2000);
+  }
+  if (el) {
+    _gsAnkerHervorheben(el);
+    // Kam der Link von einem Kommentar, ist der Beitrag nur die halbe
+    // Antwort — das Kommentar-Blatt gehoert dazu.
+    if (komId && typeof openComments === 'function') {
+      setTimeout(function(){ try { openComments(m[1]); } catch(_){} }, 500);
+    }
+    return true;
+  }
+  if (typeof gsToast === 'function') {
+    gsToast('Dieser Beitrag ist nicht mehr verfügbar — vielleicht wurde er gelöscht.', 'info', 4500);
+  }
+  return false;
+};
+
 // v23.58: Shortcut-URLs verarbeiten (?screen=scanner etc.)
 // v24.42 BUGFIX: navTo/showScreen existieren nicht → switchTab + manifest-Mapping
 function gsHandleShortcutUrl() {
@@ -76235,9 +76394,16 @@ function gsHandleShortcutUrl() {
         'remedies':  'remedies'
       };
       var tab = SCREEN_MAP[screen] || screen;
+      // v32.24: den Anker VOR dem Aufraeumen sichern. Die Bereinigung unten
+      // schreibt `location.pathname` ohne Hash zurueck — bis v32.23 war er
+      // danach weg, und zwar bevor ihn jemand gelesen hatte.
+      var _anker = location.hash || '';
       setTimeout(function(){
         try {
           if (typeof switchTab === 'function') switchTab(tab);
+          if (_anker && typeof gsAnkerAnspringen === 'function') {
+            try { gsAnkerAnspringen(_anker); } catch(_a){}
+          }
           // Quiz-Auto-Open wenn Shortcut „quiz" angefordert wurde
           if (screen === 'quiz') {
             setTimeout(function(){
@@ -84588,6 +84754,25 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   border: 1px solid var(--border);
   box-shadow:var(--elev-1);
   -webkit-tap-highlight-color: transparent;
+}
+/* v32.24: der angesprungene Beitrag. Er wird HERVORGEHOBEN, nicht ein- oder
+   ausgeblendet — Inhalt, auf den es ankommt, wird nie nach unsichtbar
+   animiert (die Regel aus v32.11). Der Ring nimmt ab, die Karte bleibt von
+   der ersten Millisekunde an voll lesbar.
+   --g-main ist der Markenton, der in BEIDEN Modi traegt; --g-dark/--g-light
+   kippen im Dunkelmodus und waeren hier die falsche Wahl. */
+.post-card.gs-anker-treffer {
+  outline: 3px solid var(--g-main);
+  outline-offset: 2px;
+  animation: gsAnkerRing 2.6s ease-out both;
+}
+@keyframes gsAnkerRing {
+  0%   { box-shadow: 0 0 0 6px rgba(46,125,50,.30), var(--elev-1); }
+  70%  { box-shadow: 0 0 0 6px rgba(46,125,50,.12), var(--elev-1); }
+  100% { box-shadow: var(--elev-1); outline-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .post-card.gs-anker-treffer { animation: none; }
 }
 .post-header {
   display: flex;

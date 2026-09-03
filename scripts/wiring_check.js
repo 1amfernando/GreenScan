@@ -457,6 +457,124 @@ const IGNORIEREN = new Set([
               .map(([id, v]) => id + (v.length > 1 ? '×' + v.length : '')).join(' '));
   }
 
+  // ── Richtung 5 (v32.24): Deep-Links — fuehrt der Anker irgendwohin? ──────
+  //
+  // Drei Erzeuger schicken Links mit einem Anker: der Teilen-Knopf im Client
+  // und zwei Trigger in der Datenbank. Bis v32.23 las ihn NIEMAND — der
+  // Benachrichtigungs-Router schnitt ihn mit `.split('#')[0]` sogar
+  // ausdruecklich ab, und ein Element mit dieser id gab es ohnehin nicht.
+  // Ein Deep-Link, der oben auf der Seite endet, sieht aus wie ein Link, der
+  // funktioniert hat. Genau deshalb faellt er niemandem auf.
+  //
+  // Geprueft wird BEIDES: welche Anker-Arten erzeugt werden (Quelltext +
+  // Migrationen + Edge-Functions) und ob der Leser sie wirklich anspringt
+  // (lebend, im Browser).
+  let ankerUngelesen = 0;
+  const ankerArten = new Map();      // art -> [Fundstellen]
+  const fs = require('fs');
+  const wurzel = path.join(__dirname, '..');
+  function ankerSammeln(text, wo) {
+    const re = /#(post|task|kommentar|comment|plant|garden)-['"]?\s*(?:\+|\|\|)/g;
+    let m;
+    while ((m = re.exec(text))) {
+      if (!ankerArten.has(m[1])) ankerArten.set(m[1], []);
+      if (!ankerArten.get(m[1]).includes(wo)) ankerArten.get(m[1]).push(wo);
+    }
+  }
+  ankerSammeln(quelle, 'index.html');
+  for (const ordner of ['supabase/migrations', 'supabase/functions']) {
+    const voll = path.join(wurzel, ordner);
+    if (!fs.existsSync(voll)) continue;
+    const stapel = [voll];
+    while (stapel.length) {
+      const d = stapel.pop();
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const f = path.join(d, e.name);
+        if (e.isDirectory()) { stapel.push(f); continue; }
+        if (!/\.(sql|ts|js)$/.test(e.name)) continue;
+        ankerSammeln(fs.readFileSync(f, 'utf8'), path.relative(wurzel, f));
+      }
+    }
+  }
+
+  const anker = await page.evaluate(async () => {
+    const erg = { leser: typeof window.gsAnkerAnspringen === 'function', treffer: null, daneben: null, kennt: [] };
+    if (!erg.leser) return erg;
+    try {
+      // Einen Beitrag echt in den Feed legen und wirklich anspringen.
+      // OHNE `window.`: `socialPosts` ist ein `let` im Skript-Bereich und
+      // steht NICHT auf `window` — eine Zuweisung an `window.socialPosts`
+      // legt eine zweite, unbenutzte Eigenschaft an, und renderSocialFeed
+      // meldet danach „Noch keine Posts". (Genau daran hat der erste Bau
+      // dieses Falls eine halbe Stunde gehangen.)
+      document.documentElement.classList.remove('gs-preauth');
+      if (typeof switchTab === 'function') switchTab('social');
+      await new Promise(r => setTimeout(r, 400));
+      socialPosts = [{
+        id: 'pruef-anker-1', user_id: 'u1', content: 'Prüfbeitrag',
+        category: 'fund', type: 'fund', created_at: new Date().toISOString(),
+        author_name: 'Prüfstand', comments: [], liked: false,
+      }];
+      currentSocialFilter = 'all';
+      if (typeof renderSocialFeed === 'function') renderSocialFeed();
+      const ok = await window.gsAnkerAnspringen('#post-pruef-anker-1');
+      const el = document.getElementById('post-pruef-anker-1');
+      erg.treffer = { gemeldet: ok === true, da: !!el, markiert: !!(el && el.classList.contains('gs-anker-treffer')) };
+
+      // Gegenprobe: ein Anker auf einen Beitrag, den es nicht gibt. sbFetch
+      // liefert nichts — der Leser MUSS false melden statt Erfolg zu behaupten.
+      const echt = window.sbFetch;
+      window.sbFetch = async () => ({ data: [], error: null });
+      const ok2 = await window.gsAnkerAnspringen('#post-gibtesnicht');
+      window.sbFetch = echt;
+      erg.daneben = { gemeldet: ok2 === true };
+
+      // Welche Arten kennt der Leser? Als DATEN gelesen, nicht an seiner
+      // Laufzeit gemessen: der erste Bau prüfte „hat er länger als 300 ms
+      // gewartet?" — das ist eine Zeitmessung und damit ein Zufall. `comment`
+      // fiel prompt durch, weil sein Datenbank-Blick ohne Netz sofort
+      // zurückkam.
+      erg.kennt = Array.isArray(window.GS_ANKER_ARTEN) ? window.GS_ANKER_ARTEN.slice() : [];
+      erg.ohneZiel = (window.GS_ANKER_OHNE_ZIEL && typeof window.GS_ANKER_OHNE_ZIEL === 'object')
+        ? Object.keys(window.GS_ANKER_OHNE_ZIEL).reduce(function(o,k){ o[k] = window.GS_ANKER_OHNE_ZIEL[k]; return o; }, {})
+        : {};
+    } catch (e) { erg.fehler = String(e).slice(0, 120); }
+    return erg;
+  });
+
+  console.log('  ---');
+  if (!anker.leser) {
+    console.log('  Deep-Link-Anker: gsAnkerAnspringen fehlt — jeder Anker endet oben auf der Seite');
+  } else {
+    const t = anker.treffer || {};
+    const lebend = t.gemeldet && t.da && t.markiert;
+    console.log('  Deep-Link-Anker: springt an: ' + (lebend ? 'ja' : 'NEIN') +
+                ' · meldet Fehlschlag ehrlich: ' + (anker.daneben && anker.daneben.gemeldet === false ? 'ja' : 'NEIN'));
+    if (!lebend) {
+      console.log('    !! #post-<id> wurde nicht angesprungen (gemeldet=' + t.gemeldet +
+                  ', Element=' + t.da + ', markiert=' + t.markiert + ')');
+    }
+    // Drei Klassen, nicht zwei — sonst steht eine getroffene Entscheidung
+    // dauerhaft als Fehler im Bericht (dieselbe Regel wie in backend_check).
+    const ohneZiel = anker.ohneZiel || {};
+    const alle = [...ankerArten.keys()];
+    const ungelesen = alle.filter(a => !anker.kennt.includes(a) && !(a in ohneZiel));
+    const begruendet = alle.filter(a => !anker.kennt.includes(a) && (a in ohneZiel));
+    console.log('  erzeugte Anker-Arten: ' + (alle.join(', ') || 'keine') +
+                ' · gelesen: ' + (anker.kennt.join(', ') || 'keine') +
+                ' · bewusst ohne Ziel: ' + (begruendet.join(', ') || 'keine'));
+    begruendet.forEach(a => console.log('    –  #' + a + '-…  kein Ziel, mit Grund: ' +
+                String(ohneZiel[a]).slice(0, 150)));
+    ungelesen.forEach(a => console.log('    !! #' + a + '-…  wird erzeugt in ' +
+                ankerArten.get(a).join(', ') + ', aber von keinem Leser angesprungen und nirgends begründet'));
+    ankerUngelesen = ungelesen.length;
+    if (anker.fehler) console.log('    (Fehler beim Pruefen: ' + anker.fehler + ')');
+  }
+  const ankerKaputt = ankerUngelesen + (anker.leser
+    ? ((anker.treffer && anker.treffer.gemeldet && anker.treffer.da && anker.treffer.markiert) &&
+       (anker.daneben && anker.daneben.gemeldet === false) ? 0 : 1)
+    : 1);
+
   await browser.close();
-  process.exit((kaputt.length + ungesichert.length + klassenKette.length + oeffnerKaputt.length + (menue ? menue.kaputt.length : 0)) ? 1 : 0);
+  process.exit((kaputt.length + ungesichert.length + klassenKette.length + oeffnerKaputt.length + ankerKaputt + (menue ? menue.kaputt.length : 0)) ? 1 : 0);
 })();

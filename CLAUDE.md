@@ -635,6 +635,39 @@ Richtungen, und die zweite ist die teurere:
    muss sie hier eintragen** — was nur als Datenstruktur existiert, entzieht
    sich jeder Prüfung, die bloss das Dokument ansieht.
 
+**Richtung 5 (seit v32.24): fuehrt ein DEEP-LINK irgendwohin?** Fuenf Stellen
+erzeugen Links mit einem Anker (`gsSharePost`, `gsShareComment`, zwei
+Like-Trigger in der DB, der Aufgaben-Cron). **Gelesen hat ihn bis v32.23
+niemand** — `gsHandleShortcutUrl` schrieb `location.pathname` ohne Hash
+zurueck, der Benachrichtigungs-Router schnitt ihn mit `.split('#')[0]`
+ausdruecklich ab, und ein Element mit dieser id gab es ohnehin nicht.
+„❤️ Anna gefaellt dein Beitrag" landete oben im Feed. **Ein Link, der oben auf
+der Seite endet, sieht aus wie ein Link, der funktioniert hat.**
+
+Der Pruefstand sammelt die erzeugten Anker-Arten aus `index.html`, den
+Migrationen und den Edge-Functions und haelt sie gegen `GS_ANKER_ARTEN` —
+**drei Klassen** wie in `backend_check`: gelesen · bewusst ohne Ziel (mit Grund
+in `GS_ANKER_OHNE_ZIEL`) · unbegruendet ungelesen. Dazu ein lebender Fall, der
+einen Beitrag wirklich in den Feed legt und die Markierung am Element prueft.
+
+Zwei Regeln daraus:
+
+- **Eine Zeitmessung ist keine Aussage.** Der erste Bau erkannte „kennt der
+  Leser diese Art?" daran, ob er laenger als 300 ms wartete — `comment` fiel
+  prompt durch, weil sein Datenbank-Blick ohne Netz sofort zurueckkam. Was
+  geprueft werden soll, wird DEKLARIERT (wie `GS_NOTIF_ZIELE` seit v31.81),
+  nicht am Laufzeitverhalten abgelesen.
+- **Eine Gegenprobe, deren Aufbau still fehlschlaegt, sieht aus wie eine
+  bestandene Gegenprobe.** Meine erste meldete gruen, weil das Skript, das die
+  Anker-id entfernen sollte, nichts geaendert hatte. Nach jeder Gegenprobe
+  nachsehen, ob der Zustand wirklich hergestellt wurde.
+
+Und eine Falle aus derselben Sitzung, die jeden Pruefstand betrifft, der
+Zustand im Browser setzt: **`socialPosts` ist ein `let` im Skript-Bereich und
+steht NICHT auf `window`.** `window.socialPosts = […]` legt eine zweite,
+unbenutzte Eigenschaft an; `renderSocialFeed` meldet danach „Noch keine Posts".
+In `page.evaluate` ohne `window.` zuweisen.
+
 **Richtung 3 (seit v31.98): geht das Fenster ueberhaupt auf?** Alle 43
 Oeffner ohne Parameter (`open…` / `gsOpen…` / `show…` mit `openModal(` im
 Rumpf) werden **wirklich aufgerufen**. Zwei Regeln stecken drin, beide im
