@@ -1383,6 +1383,25 @@ Dazu, aus derselben Stelle: **ein Pruefstand, der abstuerzt, hat nichts
 gemessen.** Eine Frage muss auch dann MELDEN, wenn die Funktion dahinter
 kaputt ist — sonst ist die Gegenprobe weder rot noch gruen.
 
+**v32.40 hat die elf ungeprueften Meldungen des Audits selbst nachgemessen**
+(29 Fragen; zehn bestaetigt und behoben, eine nicht nachstellbar). Vier
+Messfallen dabei, alle vier haben ZUERST FALSCH gemeldet — und alle vier
+gelten fuer jeden Pruefstand mit mehreren Fragen in EINEM Lauf:
+
+- **Eine Frage, die nach einer Loeschung misst, misst die Loeschung.** Eine
+  fruehere Frage faehrt `clearAllData()`; die spaeteren massen „Regler 0 px"
+  und „Backup liefert immer null".
+- **Wer einen Zustand braucht, stellt ihn HER — er schaltet ihn nicht um.**
+  `gsSettingsToggleAll()` kippt; nach vorherigen Fragen war der Zustand
+  unbekannt.
+- **Eine Attrappe, die mehr ersetzt als noetig, misst die Attrappe.** Ein
+  `gsStore.get`-Stub, der fuer alles ausser einem Schluessel den Vorgabewert
+  zurueckgibt, hungert jede Funktion aus, die den Speicher liest.
+- **Eine Zaehlung im Quelltext zaehlt auch Kommentare und Aufraeumlisten.**
+  Die Frage nach `gs_perm_geolocation` meldete rot fuer eine Reparatur, die
+  schon da war. Gezaehlt wird der SCHREIBER (`setItem('…')`), nicht die
+  Erwaehnung.
+
 **Und eine Frage, die es ohne v32.34 nicht gaebe:** geht die Kamera-Anfrage
 bei AUSGESCHALTETEM Schalter unveraendert durch? Das Tor lief als
 `async function`, also mit einem `await` vor dem Durchreichen. Gemessen wird
