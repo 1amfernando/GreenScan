@@ -512,6 +512,7 @@ node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gib
 node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
 node scripts/sync_check.js       # kommt zurueck, was hochgeladen wird? (seit v32.23)
 node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft hat? (seit v32.28)
+node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -520,7 +521,7 @@ node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft h
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
 
-Elf der sechzehn JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+Elf der siebzehn JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
 Quelltext und braucht keine.
 
@@ -1064,6 +1065,47 @@ Zugang haette. Nachmessen: ja, jederzeit, nur lesend. Anwenden: nein.
 veraltet auch. Eine der fuenf Zeilen stand seit zwei Tagen auf „offen",
 obwohl der Trigger laengst da war. Wer so eine Liste liest, misst sie besser
 nach, statt sie zu glauben.
+
+**`kamera_check.js` (seit v32.29) prueft die Rechnung hinter dem Sucherbild.**
+Anlass war Fernandos Satz „immer wenn ich ein Scan machen moechte ist die
+Kamera in einem Zoom". **Sie war es nie.** Zwei Ursachen, beide im Code:
+
+1. Angefordert wurde **1920x1080 — Querformat** — und gezeigt mit
+   `object-fit: cover` in einem hochkanten Streifen. Nachgerechnet fuer ein
+   uebliches Telefon (412x750 sichtbar): das Bild wird auf 1333x750 skaliert,
+   sichtbar bleiben 412 — **69 % des Bildwinkels liegen ausserhalb.** Das
+   sieht aus wie ein Zoom und ist ein Zuschnitt; kein Zoom-Knopf holt es
+   zurueck. `_gsKamMasse()` fordert jetzt das Verhaeltnis des BEHAELTERS an.
+2. `gsSetZoom` klemmte auf eine **geratene** Spanne 1,0–5,0. Auf Telefonen,
+   deren Weitwinkel bei `zoom.min = 0.5` beginnt, war der weiteste Bildwinkel
+   damit unerreichbar. Die Spanne kommt jetzt aus
+   `track.getCapabilities().zoom`.
+
+**Die Regel, die daraus folgt:** eine Spanne, die man nicht beim Geraet
+erfragt hat, ist geraten — und Geraeteklassen unterscheiden sich hier
+tatsaechlich. Dasselbe gilt fuer den Faktor: die Anzeige nennt `zoom / min`
+DIESER Linse. Ein linsenuebergreifendes „0,5x" waere erfunden, denn keine
+Schnittstelle sagt, wie weit die Linsen zueinander stehen.
+
+Neun Fragen, alle mit gestellten Faehigkeiten: Seitenverhaeltnis folgt dem
+Behaelter · Spanne kommt vom Geraet · weitester Punkt erreichbar · am oberen
+und am unteren Anschlag uebernimmt die Nachbarlinse · ohne Zoom-Faehigkeit
+sind die Linsen die Stufen (iOS) · bei Ablehnung aendert sich die Anzeige
+nicht · ist keine Linse mehr da, sagt die App das · die Objektivnamen kommen
+aus der Beschriftung, sonst eine Nummer.
+
+**Zwei Fallen beim Bau, beide schon bekannt und trotzdem wieder eingetreten:**
+
+- **Der Fall muss hergestellt UND nachgewiesen werden.** `.scan-wrap` haengt
+  unter `#screen-scanner`, das ausserhalb eines laufenden Scans auf
+  `display:none` steht — ein verborgener Vorfahre macht jede Groesse zu 0,
+  auch bei `position:fixed`. Beide Messungen lieferten deshalb den
+  FENSTER-Rueckfall, also denselben Wert, und der Fall waere gruen gewesen,
+  ohne etwas zu zeigen. Er misst jetzt die hergestellte Groesse mit und faellt
+  durch, wenn sie 0 ist.
+- **Eine Attrappe ist kein MediaStream.** `video.srcObject = …` wirft bei
+  einem gestellten Objekt; der Linsenwechsel schlug daran fehl, nicht am
+  Code. Im Pruefstand wird `srcObject` deshalb entschaerft.
 
 **`versprechen_check.js` (seit v32.28) stellt `save_check`s Frage STATISCH
 ueber alle.** `save_check` faehrt einzelne Wege wirklich zu Ende — genauer,

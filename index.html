@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.28.20260903">
+<meta name="app-version" content="32.29.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -756,6 +756,47 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   transition: background var(--dur-fast);
 }
 .scan-zoom-btn:active { background: rgba(255, 255, 255, 0.2); }
+/* v32.29: Objektiv-Wahl. Waagerecht unter der Zoom-Pille, damit sie mit dem
+   Daumen erreichbar ist und die Pille nicht in die Länge zieht. */
+.scan-linsen {
+  position: absolute;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border-radius: var(--r-pill);
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  max-width: calc(100% - 28px);
+  overflow-x: auto;
+}
+.scan-linse {
+  min-width: 46px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.82);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+/* Weiss auf diesem Grün: 5,4:1. Die Leiste liegt auf dem Kamerabild, also
+   braucht der aktive Zustand eine eigene Fläche statt nur mehr Deckkraft —
+   Deckkraft senkt den Kontrast blind (v32.25). */
+.scan-linse.an { background: var(--fill-brand); color: #fff; }
+.scan-linse:active { background: rgba(255, 255, 255, 0.18); }
+
 .scan-zoom-label {
   color: #fff;
   font-size: var(--fs-sm);
@@ -3119,6 +3160,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <div id="gs-zoom-label" class="scan-zoom-label">1.0×</div>
         <button onclick="gsZoomOut()" class="scan-zoom-btn" aria-label="Rauszoomen">−</button>
       </div>
+
+      <!-- v32.29: Objektive. Erscheint nur, wenn das Gerät mehr als eines hat —
+           die Namen kommen aus der Geräte-Beschriftung, nicht aus einer
+           Annahme. Was sich nicht erkennen lässt, heisst „Linse 2". -->
+      <div id="gs-linsen" class="scan-linsen" style="display:none;" role="group" aria-label="Objektiv wählen"></div>
 
       <!-- Tipp-Hinweis (fade-in/out) · v23.67: kein "Scan"-Jargon -->
       <div id="scan-tip" class="scan-tip">
@@ -18134,23 +18180,195 @@ function gsUpdateGardenBadge() {
 var _gsZoomLevel = 1.0;
 var _gsZoomTrack = null;
 
-function gsSetZoom(level) {
-  _gsZoomLevel = Math.max(1.0, Math.min(5.0, level));
-  if (!stream) return;
-  var track = stream.getVideoTracks()[0];
-  if (!track) return;
-  var caps = track.getCapabilities ? track.getCapabilities() : {};
-  if (caps.zoom) {
-    track.applyConstraints({ advanced: [{ zoom: _gsZoomLevel }] }).catch(function(){});
+// ═══ v32.29 · ZOOM UND LINSEN — mit den ECHTEN Werten des Geraets ════════
+//
+// Was vorher stand und warum es Fernandos Beschwerde miterzeugt hat:
+//
+//   _gsZoomLevel = Math.max(1.0, Math.min(5.0, level));
+//
+// Eine feste Spanne 1,0–5,0, geraten statt gefragt. Auf Telefonen, deren
+// Weitwinkel bei `zoom.min = 0.5` beginnt, war der weiteste Bildwinkel damit
+// UNERREICHBAR — die Klemme schob jeden Versuch auf 1,0 zurueck. Und
+// `.catch(function(){})` schluckte die Ablehnung: die Anzeige zeigte den
+// neuen Wert auch dann, wenn die Kamera ihn nie uebernommen hat.
+//
+// Jetzt: Spanne aus `track.getCapabilities().zoom`, Anzeige erst nach dem
+// bestaetigten Anwenden — und am oberen bzw. unteren Ende der Spanne wechselt
+// die App auf die naechste bzw. vorige LINSE, statt stehen zu bleiben.
+//
+// Auf iOS gibt es die Zoom-Faehigkeit nicht. Dort sind die Linsen selbst die
+// Zoomstufen — dieselben Knoepfe tun dann genau das, und zwar ohne dass
+// irgendwo eine Zahl behauptet wird, die niemand gemessen hat.
+window.gsKam = (function(){
+  var linsen = [];        // [{deviceId, label, kurz}] — nur Rueckkameras
+  var idx = 0;            // welche Linse gerade laeuft
+  var geladen = false;
+
+  function _track(){
+    try { return (typeof stream !== 'undefined' && stream && stream.getVideoTracks) ? stream.getVideoTracks()[0] : null; }
+    catch(_){ return null; }
   }
-  var el = document.getElementById('gs-zoom-label');
-  if (el) el.textContent = _gsZoomLevel.toFixed(1) + 'x';
+  // Die Spanne dieser Linse — oder null, wenn das Geraet keinen Zoom meldet.
+  // null ist NICHT dasselbe wie „kein Zoom moeglich": es heisst „nicht
+  // steuerbar", und dann uebernehmen die Linsen die Aufgabe.
+  function spanne(){
+    var t = _track();
+    var c = (t && t.getCapabilities) ? t.getCapabilities() : null;
+    var z = c && c.zoom;
+    if (!z || typeof z.min !== 'number' || typeof z.max !== 'number' || z.max <= z.min) return null;
+    return { min: z.min, max: z.max, step: (typeof z.step === 'number' && z.step > 0) ? z.step : (z.max - z.min) / 20 };
+  }
+  function wert(){
+    var t = _track();
+    try { var st = (t && t.getSettings) ? t.getSettings() : {}; if (typeof st.zoom === 'number') return st.zoom; } catch(_){}
+    var sp = spanne();
+    return sp ? sp.min : 1;
+  }
+  // Kurzname aus der Geraete-Beschriftung. Was sich nicht erkennen laesst,
+  // bekommt eine NUMMER — kein erfundenes „0.5x".
+  function kurz(label, i, n){
+    var l = String(label || '').toLowerCase();
+    if (/ultra|ultrawide|ultra-wide|weitwinkel|wide angle|0\.5/.test(l)) return 'Weit';
+    if (/tele|zoom|telephoto/.test(l)) return 'Tele';
+    if (/haupt|main|back camera$|rueck|rück/.test(l)) return 'Haupt';
+    return (n > 1) ? ('Linse ' + (i + 1)) : 'Kamera';
+  }
+  async function finden(){
+    if (geladen) return linsen;
+    geladen = true;
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return linsen;
+      var alle = await navigator.mediaDevices.enumerateDevices();
+      var vid = alle.filter(function(d){ return d.kind === 'videoinput'; });
+      // Vorderkameras heraus. Wo die Beschriftung nichts sagt (vor der
+      // Freigabe ist sie leer), bleibt alles drin — lieber eine Linse zu viel
+      // anbieten als die richtige verschweigen.
+      var hinten = vid.filter(function(d){ return !/front|user|face|vorder|selfie/i.test(d.label || ''); });
+      linsen = (hinten.length ? hinten : vid).map(function(d, i, arr){
+        return { deviceId: d.deviceId, label: d.label || '', kurz: kurz(d.label, i, arr.length) };
+      });
+      // Aktuelle Linse bestimmen
+      var t = _track();
+      var sid = null; try { sid = t && t.getSettings ? t.getSettings().deviceId : null; } catch(_){}
+      var pos = linsen.findIndex(function(l){ return l.deviceId && l.deviceId === sid; });
+      if (pos >= 0) idx = pos;
+    } catch(e){ console.warn('[gsKam] enumerateDevices', e); }
+    return linsen;
+  }
+  // Auf eine andere Linse umschalten. Liefert true nur, wenn wirklich ein
+  // neuer Stream laeuft.
+  async function linse(neu){
+    await finden();
+    if (neu < 0 || neu >= linsen.length || neu === idx) return false;
+    var alt = (typeof stream !== 'undefined') ? stream : null;
+    try {
+      var ns = await navigator.mediaDevices.getUserMedia({
+        video: Object.assign({ deviceId: { exact: linsen[neu].deviceId } }, _gsKamMasse()),
+        audio: false,
+      });
+      try { if (alt && alt.getTracks) alt.getTracks().forEach(function(t){ try { t.stop(); } catch(_){} }); } catch(_){}
+      stream = ns;
+      try { window._gsSharedCameraStream = ns; } catch(_){}
+      var v = document.getElementById('video');
+      if (v) { v.srcObject = ns; try { await v.play(); } catch(_){} }
+      idx = neu;
+      try { if (typeof window._gsCheckTorchAvailable === 'function') window._gsCheckTorchAvailable(); } catch(_){}
+      anzeigen();
+      return true;
+    } catch(e){
+      console.warn('[gsKam] Linsenwechsel', e);
+      return false;
+    }
+  }
+  // Zoom setzen. Gibt zurueck, was WIRKLICH passiert ist.
+  async function setzen(z){
+    var sp = spanne();
+    var t  = _track();
+    if (!sp || !t || !t.applyConstraints) return { ok:false, grund:'kein-zoom' };
+    var ziel = Math.max(sp.min, Math.min(sp.max, z));
+    try {
+      await t.applyConstraints({ advanced: [{ zoom: ziel }] });
+      anzeigen();
+      return { ok:true, wert: ziel };
+    } catch(e){
+      return { ok:false, grund:'abgelehnt' };
+    }
+  }
+  // Ein Schritt in eine Richtung (+1 / -1). Am Ende der Spanne: Linse wechseln.
+  async function schritt(richtung){
+    await finden();
+    var sp = spanne();
+    if (!sp) {
+      // Kein steuerbarer Zoom (iOS): die Linsen SIND die Stufen.
+      var z = await linse(idx + richtung);
+      if (!z && typeof showProfileToast === 'function') {
+        showProfileToast(richtung > 0 ? 'Keine stärkere Linse vorhanden.' : 'Keine weitere Linse vorhanden.', 'info');
+      }
+      return z;
+    }
+    var jetzt = wert();
+    var w = Math.max(sp.step, (sp.max - sp.min) / 8);   // spürbarer Schritt
+    var ziel = jetzt + richtung * w;
+    var randOben  = jetzt >= sp.max - sp.step / 2;
+    var randUnten = jetzt <= sp.min + sp.step / 2;
+    if ((richtung > 0 && randOben) || (richtung < 0 && randUnten)) {
+      // Am Anschlag: die naechste Linse uebernimmt.
+      if (await linse(idx + richtung)) {
+        var sp2 = spanne();
+        if (sp2) await setzen(richtung > 0 ? sp2.min : sp2.max);
+        return true;
+      }
+      if (typeof showProfileToast === 'function') {
+        showProfileToast(richtung > 0 ? 'Weiter zoomt diese Kamera nicht.' : 'Weiter geht der Bildwinkel nicht auf.', 'info');
+      }
+      return false;
+    }
+    var r = await setzen(ziel);
+    return r.ok;
+  }
+  // Anzeige. Nennt, was tatsaechlich eingestellt IST — nicht, was angefragt war.
+  function anzeigen(){
+    try {
+      var el = document.getElementById('gs-zoom-label');
+      var sp = spanne();
+      if (el) {
+        if (sp) {
+          // Faktor RELATIV zum weitesten Punkt dieser Linse. Ein
+          // linsenuebergreifendes „0.5x" waere geraten — die Kamera sagt
+          // nirgends, wie weit ihre Linsen zueinander stehen.
+          el.textContent = (wert() / sp.min).toFixed(1) + '×';
+        } else {
+          el.textContent = linsen.length ? (linsen[idx] ? linsen[idx].kurz : 'Kamera') : '—';
+        }
+      }
+      var reihe = document.getElementById('gs-linsen');
+      if (reihe) {
+        if (linsen.length < 2) { reihe.style.display = 'none'; reihe.innerHTML = ''; }
+        else {
+          reihe.style.display = '';
+          reihe.innerHTML = linsen.map(function(l, i){
+            return '<button class="scan-linse' + (i === idx ? ' an' : '') + '" onclick="gsKam.linse(' + i + ')" ' +
+                   'aria-label="Objektiv ' + (i + 1) + ': ' + (l.kurz || '') + '">' + (l.kurz || ('Linse ' + (i + 1))) + '</button>';
+          }).join('');
+        }
+      }
+    } catch(_){}
+  }
+  return { finden: finden, linse: linse, setzen: setzen, schritt: schritt, anzeigen: anzeigen,
+           spanne: spanne, wert: wert, kurz: kurz,
+           _linsen: function(){ return linsen; }, _idx: function(){ return idx; },
+           _setLinsen: function(l, i){ linsen = l; idx = i || 0; geladen = true; } };
+})();
+
+// Die drei oeffentlichen Namen bleiben — die Knoepfe im Dokument rufen sie.
+function gsSetZoom(level) { return gsKam.setzen(level); }
+function gsZoomIn()  { gsHaptic('tap'); return gsKam.schritt(+1); }
+function gsZoomOut() { gsHaptic('tap'); return gsKam.schritt(-1); }
+function gsResetZoom() {
+  var sp = gsKam.spanne();
+  if (sp) gsKam.setzen(sp.min);
+  gsKam.anzeigen();
 }
-
-function gsZoomIn()  { gsSetZoom(_gsZoomLevel + 0.5); gsHaptic('tap'); }
-function gsZoomOut() { gsSetZoom(_gsZoomLevel - 0.5); gsHaptic('tap'); }
-
-function gsResetZoom() { _gsZoomLevel = 1.0; gsSetZoom(1.0); }
 
 // ═══ v23.70: TORCH (BLITZLICHT-TOGGLE) ═══════════════════════
 window._gsTorchOn = false;
@@ -27554,6 +27772,35 @@ function initScanner(){
   tryStartCamera();
 }
 
+// ═══ v32.29 · WARUM DIE KAMERA „IMMER IM ZOOM" WAR ═══════════════════════
+//
+// Sie war es nie. Die App forderte 1920x1080 an — QUERFORMAT — und zeigte es
+// mit `object-fit: cover` in einem hochkanten Streifen. Nachgerechnet für ein
+// typisches Telefon (412x750 sichtbar):
+//
+//   Videobild gerendert: 1333 x 750 px
+//   sichtbar davon:       412 x 750 px
+//   waagerecht abgeschnitten: 69 % des Bildwinkels
+//
+// Zwei Drittel des Bildes lagen ausserhalb. Das sieht aus wie ein Zoom, ist
+// aber ein Zuschnitt — und kein Zoom-Knopf der Welt holt es zurueck.
+//
+// Deshalb wird jetzt ein Seitenverhaeltnis angefordert, das zum Behaelter
+// passt. `cover` schneidet dann fast nichts mehr weg.
+function _gsKamMasse(){
+  var r = null;
+  try { var w = document.querySelector('.scan-wrap'); if (w) r = w.getBoundingClientRect(); } catch(_){}
+  var bw = (r && r.width)  ? r.width  : (window.innerWidth  || 412);
+  var bh = (r && r.height) ? r.height : (window.innerHeight || 750);
+  var q  = bw / bh;
+  var hochkant = q < 1;
+  // `ideal`, nie `exact`: eine Kamera, die dieses Verhaeltnis nicht kann, soll
+  // ihr bestes liefern statt gar nichts.
+  return hochkant
+    ? { aspectRatio: { ideal: q }, width: { ideal: 1080 }, height: { ideal: Math.round(1080 / q) } }
+    : { aspectRatio: { ideal: q }, width: { ideal: Math.round(1080 * q) }, height: { ideal: 1080 } };
+}
+
 async function tryStartCamera(){
   // v23.65: Loading-Overlay zeigen — präziser Text für echten Kamera-Start
   _gsSrLoadingShow('Kamera wird gestartet…', 'Browser fragt gleich nach Kamera-Zugriff.');
@@ -27575,7 +27822,7 @@ async function tryStartCamera(){
     // v23.78: Permission-Cache nutzen + Shared-Stream wiederverwenden
     if (typeof gsRequestCamera === 'function') {
       try {
-        stream = await gsRequestCamera({video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}, audio:false});
+        stream = await gsRequestCamera({video: Object.assign({facingMode:{ideal:'environment'}}, _gsKamMasse()), audio:false});
       } catch(e1) {
         try { stream = await gsRequestCamera({video:true, audio:false}); }
         catch(e2) { throw e1; }
@@ -27583,7 +27830,7 @@ async function tryStartCamera(){
     } else {
       // Legacy-Fallback (sollte nie mehr triggern)
       try {
-        stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}});
+        stream = await navigator.mediaDevices.getUserMedia({video: Object.assign({facingMode:{ideal:'environment'}}, _gsKamMasse())});
       } catch(e1){ stream = await navigator.mediaDevices.getUserMedia({video:true}); }
     }
     // Permission merken — kein erneutes Prompt bei nächstem Öffnen
@@ -27595,6 +27842,9 @@ async function tryStartCamera(){
     }
     // v23.70: Torch-Button anzeigen wenn das Gerät es unterstützt
     try { setTimeout(function(){ if (typeof window._gsCheckTorchAvailable === 'function') window._gsCheckTorchAvailable(); }, 400); } catch(_){}
+    // v32.29: Objektive erst NACH der Freigabe suchen — vorher liefert
+    // enumerateDevices leere Beschriftungen und man koennte sie nicht benennen.
+    try { setTimeout(function(){ if (window.gsKam) gsKam.finden().then(function(){ gsKam.anzeigen(); }); }, 500); } catch(_){}
     var camSec = document.getElementById('cam-section');
     var upSec  = document.getElementById('upload-section');
     if (camSec) camSec.style.display = 'flex';
@@ -28252,12 +28502,15 @@ async function gsToggleCamera(){
     var newStream;
     try {
       newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: newFacing }, width: {ideal:1920}, height: {ideal:1080} }
+        video: Object.assign({ facingMode: { ideal: newFacing } }, _gsKamMasse())
       });
     } catch(e1){
       newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacing } });
     }
     stream = newStream;
+    // v32.29: sonst haelt gsRequestCamera den GESTOPPTEN Stream fest und gibt
+    // ihn beim naechsten Oeffnen zurueck — schwarzes Bild ohne Fehlermeldung.
+    try { window._gsSharedCameraStream = newStream; } catch(_){}
     window._gsCamFacing = newFacing;
     var v = document.getElementById('video');
     if (v) { v.srcObject = stream; try { await v.play(); } catch(_){} }
@@ -71454,6 +71707,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.29', date: '03.09.2026',
+    headline: '\ud83d\udcf7 Die Kamera war nie im Zoom \u2014 zwei Drittel des Bildes lagen ausserhalb',
+    summary: 'Die App forderte ein Querformat-Bild an und zeigte es in einem hochkanten Streifen: 69 % des Bildwinkels wurden weggeschnitten. Das sieht aus wie ein Zoom, ist aber ein Zuschnitt. Dazu klemmte der Zoom auf eine geratene Spanne 1,0\u20135,0 \u2014 auf Telefonen mit Weitwinkel ab 0,5\u00d7 war der weiteste Bildwinkel damit gar nicht erreichbar.',
+    user_summary: '\ud83d\udcf7 Der Scanner zeigt jetzt das ganze Bild statt eines Ausschnitts \u2014 und du bestimmst den Zoom selbst, \u00fcber alle Objektive deines Telefons hinweg.',
+    user_items: [
+      {emoji:'\ud83d\uddbc\ufe0f', bold:'Das war der eigentliche Fehler:', text:' Angefordert wurde 1920\u00d71080 im Querformat, angezeigt in einem hochkanten Streifen. Auf einem \u00fcblichen Telefon blieben von der Breite 412 von 1333 Bildpunkten \u00fcbrig \u2014 69 % des Bildwinkels waren weg. Jetzt wird ein Bild in der Form angefordert, in der es auch gezeigt wird.'},
+      {emoji:'\ud83d\udd0d', bold:'Zoom mit den ECHTEN Werten:', text:' Die Spanne kommt jetzt vom Ger\u00e4t statt aus einer Annahme. Auf Telefonen, deren Weitwinkel bei 0,5\u00d7 beginnt, l\u00e4sst er sich endlich ganz \u00f6ffnen.'},
+      {emoji:'\ud83d\udd04', bold:'Und das Objektiv wechselt mit:', text:' Ist eine Linse am Anschlag, \u00fcbernimmt die n\u00e4chste \u2014 in beide Richtungen. Hat dein Telefon mehrere R\u00fcckkameras, kannst du sie auch direkt antippen. Auf iPhones, wo sich der Zoom nicht steuern l\u00e4sst, sind die Objektive selbst die Stufen.'},
+    ],
+  },
+  {
     v: 'v32.28', date: '03.09.2026',
     headline: '\u2705 „Gespeichert" hei\u00dft ab jetzt: nachgesehen, dass es gespeichert ist',
     summary: 'Vier Stellen sagten „gespeichert" oder „Danke", ohne die Antwort des Servers anzusehen \u2014 Doktor-R\u00fcckmeldung, Sch\u00e4dling im Tagebuch, D\u00fcngung im Tagebuch und die Bio-Auszeichnung eines Inserats. Ein neuer, 17. Pr\u00fcfstand h\u00e4lt jede Erfolgsmeldung gegen die Frage, ob jemand nachgesehen hat.',
@@ -71951,7 +72215,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.28';
+var GS_VERSION = 'v32.29';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
