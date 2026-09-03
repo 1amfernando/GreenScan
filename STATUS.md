@@ -4,13 +4,91 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.23` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.24` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dn) — v32.24: drei Erzeuger, null Leser — Deep-Links endeten immer oben
+
+Fernandos vierter Punkt: **Verdrahtung**. `wiring_check` meldete an allen vier
+bestehenden Richtungen null; die 46 „abgesicherten Nachschlagungen" aus v31.46
+sind abgearbeitet. Also die Frage gestellt, die kein Prüfstand stellte:
+**führt ein Deep-Link irgendwohin?**
+
+Drei Stellen erzeugen seit jeher Links mit einem Anker:
+
+| Erzeuger | Link |
+|---|---|
+| `gsSharePost()` (Teilen-Knopf) | `https://green-scan.ch/?screen=social#post-<id>` |
+| `fn_notify_post_like` (DB-Trigger) | `/?screen=social#post-<id>` |
+| `fn_notify_comment_like` (DB-Trigger) | dasselbe |
+| `gsShareComment()` | `…#comment-<id>` |
+| Aufgaben-Cron | `/?screen=garden#task-<id>` |
+
+**Gelesen hat den Anker niemand.** Und zwar an zwei Stellen zugleich:
+
+- `gsHandleShortcutUrl` sah nur `?screen=` und schrieb danach `location.pathname`
+  **ohne Hash** zurück — der Anker war weg, bevor ihn jemand gelesen hatte.
+- Der Benachrichtigungs-Router schnitt ihn mit `.split('#')[0]` **ausdrücklich
+  ab** und vergaß ihn.
+- Und selbst wenn jemand gelesen hätte: **es gab kein Element mit dieser id.**
+  Keine Beitragskarte trug `id="post-<id>"`.
+
+Ergebnis: „❤️ Anna gefällt dein Beitrag" antippen → Community-Reiter, oben.
+*Welcher* Beitrag gemeint war, erfuhr niemand. Bei einem geteilten Link
+dasselbe. **Ein Link, der oben auf der Seite endet, sieht aus wie ein Link, der
+funktioniert hat — genau deshalb fällt er niemandem auf.**
+
+#### Was jetzt passiert
+
+- Die Beitragskarte trägt ihren Anker.
+- `gsAnkerAnspringen(hash)` wartet (gedeckelt) auf das Element, scrollt hin und
+  hebt es 2,6 s hervor. Der Feed lädt seitenweise zu 20 — ist der Beitrag
+  älter, wird er **einzeln nachgeladen** und vorne eingefügt (das Anhängen
+  entdoppelt seither nach id, sonst käme er mit seiner Seite ein zweites Mal).
+- `#comment-<id>` kennt nur sich selbst, nicht seinen Beitrag. Die App schlägt
+  `post_comments.post_id` nach, springt den Beitrag an und öffnet die
+  Kommentare.
+- Findet sich nichts, **sagt sie das**. Vorher blieb sie stumm oben stehen.
+- Hervorgehoben wird mit einem abklingenden Ring — **nie mit einer Animation
+  nach unsichtbar** (die Regel aus v32.11). `--g-main` statt `--g-dark`, weil
+  Letzteres im Dunkelmodus kippt.
+
+#### `wiring_check` Richtung 5
+
+Sammelt die erzeugten Anker-Arten aus `index.html`, den Migrationen und den
+Edge-Functions, und hält sie gegen das, was der Leser kennt. **Drei Klassen,
+nicht zwei** (dieselbe Regel wie in `backend_check`): gelesen · bewusst ohne
+Ziel, mit Grund · unbegründet ungelesen. Ohne die mittlere stünde `#task-`
+dauerhaft als Fehler im Bericht, obwohl die Entscheidung getroffen ist: der
+Cron verlinkt eine Zeile aus `garden_tasks`, und die App zeigt ihre Aufgaben
+aus `myPlants` — es gibt schlicht kein Element, auf das der Anker zeigen
+könnte.
+
+Dazu ein **lebender** Fall: ein Beitrag wird wirklich in den Feed gelegt,
+`gsAnkerAnspringen` wirklich aufgerufen, und geprüft wird die Markierung am
+Element — nicht der Rückgabewert allein.
+
+#### Drei Dinge aus dem Bau, alle allgemein
+
+- **Eine Zeitmessung ist keine Aussage.** Der erste Bau erkannte „kennt der
+  Leser diese Art?" daran, ob er länger als 300 ms wartete. `comment` fiel
+  prompt durch — sein Datenbank-Blick kam ohne Netz sofort zurück. Jetzt
+  deklariert der Leser seine Arten als Daten (`GS_ANKER_ARTEN`), wie
+  `GS_NOTIF_ZIELE` es seit v31.81 tut.
+- **`socialPosts` ist ein `let`, kein `window.`-Feld.** `window.socialPosts = […]`
+  legt eine zweite, unbenutzte Eigenschaft an; `renderSocialFeed` meldet
+  danach „Noch keine Posts". Eine halbe Stunde.
+- **Eine Gegenprobe, deren Aufbau still fehlschlägt, sieht aus wie eine
+  bestandene Gegenprobe.** Meine erste (Anker-id entfernen) meldete grün —
+  weil das Skript, das die Zeile entfernen sollte, nichts geändert hatte.
+  Erst der zweite, sauber gebaute Anlauf zeigte den Unterschied.
+
+---
 
 ### 2026-09-03 (dm) — v32.23: 46 von 47 Feldern kommen zurück. Das eine war der Ausschalter.
 
@@ -6879,7 +6957,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.23` (Client) · SW-Cache `gs-v32.23` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.24` (Client) · SW-Cache `gs-v32.24` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
