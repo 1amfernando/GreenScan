@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.30` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.31` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
@@ -66,14 +66,35 @@ dem Behälter?") prüfte ab sofort das **Falsche** und ist ersetzt durch zwei:
 **Beide gegengeprüft:** das Seitenverhältnis wieder angefordert → gemeldet;
 `cover` wieder gesetzt → gemeldet.
 
-#### Offen, und Fernandos Entscheidung
+#### v32.31: der Rahmen folgt dem Bild
 
-`contain` zeigt alles, lässt aber auf einem hochkanten Telefon oben und unten
-dunkle Ränder — ein 4:3-Bild in einem sehr hohen Rahmen füllt nur die Mitte.
-Die Alternative wäre, den **Vorschau-Rahmen** auf das Bildformat zu setzen,
-statt das Bild in einen zu hohen Rahmen zu legen: dann ist das Bild so gross
-wie möglich BEI vollem Bildwinkel, und der Platz darunter trägt die
-Bedienelemente. Das ist ein Layout-Eingriff und wartet auf seine Zustimmung.
+`contain` zeigte alles, liess aber auf einem hochkanten Telefon grosse dunkle
+Ränder — ein 4:3-Bild in einem bildschirmhohen Rahmen füllt nur die Mitte.
+Fernando: *„mache nach deiner Priorität weiter"* — also entschieden statt
+gefragt.
+
+Der Vorschau-Rahmen nimmt jetzt das Format des **tatsächlichen** Streams an
+(`--gs-cam-ar` aus `videoWidth/videoHeight`, gesetzt bei `loadedmetadata` und
+bei `resize`, also auch nach einem Objektivwechsel). Gemessen:
+
+| Stand | Rahmen | Ergebnis |
+|---|---|---|
+| bis v32.28 | 412×750, `cover` | 69 % des Bildwinkels abgeschnitten |
+| v32.29 | Sensor auf 0.549 gezwungen | 31 % Restwinkel, auch im Foto |
+| v32.30 | 412×750, `contain` | alles sichtbar, 220 px Schwarz oben und unten |
+| **v32.31** | **412×309** | **randlos, voller Bildwinkel** |
+
+Der Auslöser sitzt ausserhalb des Rahmens (`#cam-section` → `.scan-ctrls`),
+deshalb ist das ein reiner Gewinn: was im Rahmen liegt (Kopfleiste, Zoom-Pille,
+Objektiv-Leiste, Hinweis), sitzt jetzt auf dem Bild statt daneben.
+
+`object-fit: contain` bleibt als **Zusicherung**: sollte der Rahmen einmal
+nicht passen, wird trotzdem nie beschnitten.
+
+`kamera_check` 10 → 11 Fragen; die neue misst ZWEI Verhältnisse (4:3 und 16:9),
+denn mit nur einem wäre ein fest verdrahteter Wert nicht von einem folgenden zu
+unterscheiden. **Gegenprobe:** den alten bildschirmhohen Rahmen
+wiederhergestellt → beide Messungen liefern 0.518, gemeldet.
 
 ---
 
@@ -7391,7 +7412,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.30` (Client) · SW-Cache `gs-v32.30` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.31` (Client) · SW-Cache `gs-v32.31` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

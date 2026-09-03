@@ -116,6 +116,28 @@ const melde = (frage, ok, wie) => {
     const vid = document.getElementById('video');
     aus.anzeige = vid ? getComputedStyle(vid).objectFit : '(kein Video-Element)';
 
+    // ── 1c · Nimmt der Rahmen das Format des Bildes an? ──────────────────
+    //
+    // `contain` allein zeigt zwar alles, lässt in einem bildschirmhohen Rahmen
+    // aber grosse dunkle Ränder. Der Rahmen soll deshalb dem ECHTEN Stream
+    // folgen (`--gs-cam-ar` aus videoWidth/videoHeight). Zwei Verhältnisse
+    // messen — mit nur einem wäre ein fest verdrahteter Wert nicht von einem
+    // folgenden zu unterscheiden.
+    const camSec2 = document.getElementById('cam-section');
+    if (camSec2) camSec2.style.setProperty('display', 'flex', 'important');
+    const wrap2 = document.querySelector('.scan-wrap');
+    const miss = (ar) => {
+      wrap2.style.setProperty('--gs-cam-ar', ar);
+      const rc = wrap2.getBoundingClientRect();
+      const cc = camSec2.getBoundingClientRect();
+      return { q: rc.height ? +(rc.width / rc.height).toFixed(3) : 0,
+               box: [Math.round(rc.width), Math.round(rc.height)],
+               passt: rc.height <= cc.height + 1 };
+    };
+    aus.rahmen43 = miss('1920 / 1440');
+    aus.rahmen169 = miss('1920 / 1080');
+    wrap2.style.removeProperty('--gs-cam-ar');
+
     // ── 2/3 · Spanne vom Gerät, weitester Punkt erreichbar ───────────────
     const t1 = machTrack({ zoom: { min: 0.5, max: 8, step: 0.1 }, _id: 'weit' }, 1);
     setzeStream(t1);
@@ -205,6 +227,13 @@ const melde = (frage, ok, wie) => {
       : 'angefordert wird ' + JSON.stringify(M) + ' — ein vorgegebenes Seitenverhältnis ist ein '
         + 'Zuschnitt-Auftrag an den Sensor und nimmt Bildwinkel WEG (v32.29-Fehler)');
 
+  const R4 = r.rahmen43, R16 = r.rahmen169;
+  const folgt = R4 && R16 && Math.abs(R4.q - 4 / 3) < 0.02 && Math.abs(R16.q - 16 / 9) < 0.03 && R4.passt && R16.passt;
+  melde('Der Vorschau-Rahmen nimmt das Format des Bildes an', folgt,
+    folgt ? '4:3 → ' + R4.box.join('×') + ' (' + R4.q + ') · 16:9 → ' + R16.box.join('×') + ' (' + R16.q + ') · beide passen in den Abschnitt'
+      : 'gemessen 4:3 → ' + JSON.stringify(R4) + ' · 16:9 → ' + JSON.stringify(R16)
+        + ' — ein Rahmen, der dem Bild nicht folgt, lässt entweder dunkle Ränder oder beschneidet');
+
   const ganz = r.anzeige === 'contain';
   melde('Die Vorschau zeigt das ganze Bild, statt es zu beschneiden', ganz,
     ganz ? 'object-fit: contain — dunkle Ränder statt fehlendem Bildwinkel'
@@ -250,7 +279,7 @@ const melde = (frage, ok, wie) => {
     namenOk ? 'Weit · Tele · ohne Beschriftung „Linse 2" · einzelne „Kamera"' : JSON.stringify(n));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 10 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 11 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   console.log('  Nicht prüfbar von hier: wie breit der Bildwinkel einer ECHTEN');
   console.log('  Kamera ausfällt. Geprüft ist, dass die App ihn nirgends WEGNIMMT');
