@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.48.20260903">
+<meta name="app-version" content="32.49.20260904">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1232,6 +1232,8 @@ details > summary::marker { content: ''; }
    leichte Neigung, Klebestreifen oben) statt als weiterer runder Button. */
 #gs-task-note{position:fixed;right:1px;top:38%;z-index:var(--z-sticky,100);display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 9px 11px;border:none;border-right:none;border-radius:var(--r-md) 0 0 var(--r-md);background:linear-gradient(160deg,#fff8d6,#ffeeb0);color:#6d4c41;box-shadow:var(--elev-2);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:transform var(--dur) ease,box-shadow var(--dur) ease;transform:rotate(-1.5deg);}
 #gs-task-note:active{transform:rotate(-1.5deg) scale(.94);}
+/* v32.49: Platz fuer den Zettel — nur solange er da ist (gsRenderTaskNote setzt die Klasse) */
+body.gs-zettel-da #screen-favs .plant-card-head{padding-right:56px;}
 #gs-task-note.gs-note-open{box-shadow:var(--elev-1);}
 body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color:#f5e6a8;}
 .gs-task-note-clip{width:22px;height:5px;border-radius:var(--r-xs);background:rgba(0,0,0,.14);margin-bottom:2px;}
@@ -10046,6 +10048,8 @@ function openGartenTagebuch() {
   // v23.55: immer frisch aus localStorage lesen — keine stale Cache-Probleme
   // v32.46: EINE Lesefunktion ueber beide Tagebuecher (KALENDER-V1.md §3.3) —
   // bis dahin fehlte hier jedes Abhaken (das steht in p.diary).
+  // v32.49: …und ueber das Cloud-Tagebuch; sein Spiegel wird im Hintergrund aufgefrischt.
+  try { if (!window._gsCloudTbLaeuft) { window._gsCloudTbLaeuft = true; gsCloudTagebuchLaden().then(function (n) { window._gsCloudTbLaeuft = false; }).catch(function () { window._gsCloudTbLaeuft = false; }); } } catch (_) {}
   var entries = (typeof gsTagebuchAlle === 'function') ? gsTagebuchAlle() : gsTagebuchLoad(true);
   var filter = localStorage.getItem('gs_tb_filter') || 'all';
   var searchQ = (localStorage.getItem('gs_tb_search') || '').toLowerCase();
@@ -11691,6 +11695,22 @@ function gsTagebuchAdd(text, emoji, cat, plant) {
   return true;
 }
 function gsTagebuchDelete(id) {
+  // v32.49: Cloud-Eintraege ('cd:<id>') werden in garden_diary geloescht —
+  // und nur bei bestaetigter Loeschung aus dem Spiegel genommen.
+  if (typeof id === 'string' && id.indexOf('cd:') === 0) {
+    var cid = id.slice(3);
+    (async function () {
+      try {
+        var r = await sbFetch('/rest/v1/garden_diary?id=eq.' + encodeURIComponent(cid), { method: 'DELETE', headers: { 'Prefer': 'return=representation' } });
+        var ok = (typeof _gsSchreibOk === 'function') ? _gsSchreibOk(r) : !!(r && !r.error && Array.isArray(r.data) && r.data.length);
+        if (!ok) { if (typeof gsToast === 'function') gsToast('Der Cloud-Eintrag konnte nicht gelöscht werden.', 'warn'); return; }
+        var c = gsCloudTagebuchCache().filter(function (d) { return String(d.id) !== String(cid); });
+        localStorage.setItem('gs_garden_diary_cache', JSON.stringify(c));
+        try { if (typeof openGartenTagebuch === 'function' && document.getElementById('modal-content') && /Tagebuch/.test(document.getElementById('modal-content').textContent || '')) openGartenTagebuch(); } catch (_) {}
+      } catch (_) {}
+    })();
+    return;
+  }
   // v32.46: Eintraege aus dem Pflanzentagebuch tragen in der gemeinsamen Sicht
   // (gsTagebuchAlle) die Id 'pd:<pflanze>:<ts>' — geloescht wird dort.
   if (typeof id === 'string' && id.indexOf('pd:') === 0) {
@@ -24257,6 +24277,7 @@ async function gsMergeCommunitySpecies(){
   } catch(_) { return 0; }
 }
 setTimeout(function(){ try { gsMergeCommunitySpecies(); } catch(_){} }, 3500);
+setTimeout(function(){ try { if (typeof gsCloudTagebuchLaden === 'function') gsCloudTagebuchLaden(); } catch(_){} }, 6000);   // v32.49: Cloud-Tagebuch spiegeln
 
 (function deduplicateDB() {
   if (!DB || !Array.isArray(DB)) return;
@@ -26876,6 +26897,39 @@ window._gsPflanzungenNachruesten = _gsPflanzungenNachruesten;
 // Alle Tagebuch-Eintraege, EINE Lesefunktion (§3.3): das Gartentagebuch
 // (gs_gartentagebuch, Pflanze als Name) und die Pflanzentagebuecher (p.diary,
 // dort landet jedes Abhaken). Bis v32.45 wusste keins vom anderen.
+// v32.49: Das dritte Tagebuch — das Cloud-Formular (gsDiarySubmitEntry →
+// garden_diary) schrieb nur in die Datenbank; lokal wusste niemand davon.
+// Ein Spiegel in gs_garden_diary_cache (500 neueste, beim Oeffnen und beim
+// Start aufgefrischt) macht es in gsTagebuchAlle sichtbar — ohne Netz der
+// letzte Stand, mit dem Vermerk „aus der Cloud".
+var _GS_CLOUD_TB_EMOJI = { water:'💧', fertilize:'🌱', harvest:'🌾', pest:'🐛', disease:'🦠', weather:'🌦️', general:'📝', photo:'📸', observation:'👀', planting:'🌱', pruning:'✂️', sowing:'🌱', note:'📝' };
+function gsCloudTagebuchCache() { try { var a = safeGetItem('gs_garden_diary_cache', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+async function gsCloudTagebuchLaden() {
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return null;
+    var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
+    if (!uid) return null;
+    var r = await sbFetch('/rest/v1/garden_diary?user_id=eq.' + encodeURIComponent(uid) + '&select=id,entry_type,title,text,species_lat,harvest_kg,photo_url,created_at&order=created_at.desc&limit=500', { method: 'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : null);
+    if (!rows) return null;
+    var schlank = rows.map(function (d) { return { id: d.id, entry_type: d.entry_type || 'general', title: d.title || '', text: d.text || '', species_lat: d.species_lat || '', harvest_kg: d.harvest_kg || null, photo_url: d.photo_url || null, created_at: d.created_at }; });
+    if (localStorage.setItem('gs_garden_diary_cache', JSON.stringify(schlank)) === false) return null;   // voller Speicher: der alte Stand bleibt
+    return schlank.length;
+  } catch (_) { return null; }
+}
+window.gsCloudTagebuchLaden = gsCloudTagebuchLaden;
+// Eine Pflanze aus dem lateinischen Namen des Cloud-Eintrags — nur wenn eindeutig.
+function _gsPflanzeAusLatein(lat) {
+  try {
+    if (!lat || typeof _gsNormLat !== 'function') return null;
+    var n = _gsNormLat(lat); if (!n) return null;
+    var tr = [];
+    var pruef = function (p) { if (!p) return; var l = _gsNormLat(p.species || p.lat || p.latin || ''); if (l && l === n) tr.push(p); };
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(pruef);
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(pruef);
+    return tr.length === 1 ? tr[0] : null;
+  } catch (_) { return null; }
+}
 function gsTagebuchAlle() {
   var out = [];
   try {
@@ -26906,6 +26960,16 @@ function gsTagebuchAlle() {
           cat: e.action || 'note', plant: p.name || '', pflanze_id: p.id, photo: e.photo || null, weather: '',
           date: new Date(e.ts).toLocaleDateString('de-CH'), herkunft: 'pflanze', quelle: e.source === 'quick_done' ? 'regel' : 'hand' });
       });
+    });
+  } catch (_) {}
+  try {
+    gsCloudTagebuchCache().forEach(function (d) {
+      if (!d || !d.created_at) return;
+      var pf = _gsPflanzeAusLatein(d.species_lat);
+      var em = _GS_CLOUD_TB_EMOJI[d.entry_type] || '📝';
+      out.push({ id: 'cd:' + d.id, ts: d.created_at, datum: _gsKalTag(d.created_at), text: d.title || d.text || (em + ' Eintrag'), note: d.title ? (d.text || '') : '', emoji: em,
+        cat: d.entry_type || 'general', plant: pf ? (pf.name || '') : (d.species_lat || ''), pflanze_id: pf ? pf.id : null, photo: d.photo_url || null, weather: '',
+        date: new Date(d.created_at).toLocaleDateString('de-CH'), herkunft: 'cloud', quelle: 'hand' });
     });
   } catch (_) {}
   out.sort(function (a, b) { return (new Date(b.ts).getTime() || 0) - (new Date(a.ts).getTime() || 0); });
@@ -27293,6 +27357,13 @@ function gsRenderTaskNote(){
   } catch(_){}
   var tasks = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : [];
   var due = tasks.filter(function(t){ return t.days <= 0; });
+  // v32.49: solange der Zettel sichtbar ist, bekommen die Pflanzenkarten
+  // rechts Luft — gemessen (412 px): bei 1 und 3 faelligen Aufgaben lag der
+  // Zettel (x ab 367) genau ueber dem Pfeil der ersten Karte (x bis 381).
+  // Der Zettel wandert mit der Liste (position:fixed in einem animierten
+  // Vorfahren wirkt wie absolute), also hilft kein anderer top-Wert — die
+  // Karte muss dem Zettel Platz lassen, nicht umgekehrt.
+  try { document.body.classList.toggle('gs-zettel-da', !!(onFavs && due.length)); } catch(_){}
   if (!onFavs || !due.length) {
     note.style.display = 'none';
     if (pop) { pop.style.display = 'none'; pop.innerHTML = ''; }
@@ -73407,6 +73478,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.49', date: '04.09.2026',
+    headline: '\ud83d\udcd3 Das dritte Tagebuch kommt in die gemeinsame Sicht \u2014 und der Notizzettel l\u00e4sst den Karten Platz',
+    summary: 'Das Cloud-Formular (Typwahl, Foto, Erntemenge) schrieb nur in die Datenbank; lokal wusste niemand davon. Jetzt spiegelt die App die 500 neuesten Cloud-Eintr\u00e4ge (beim \u00d6ffnen und beim Start), zeigt sie im Gartentagebuch und im Kalender, ordnet sie \u00fcber den lateinischen Namen der eigenen Pflanze zu und l\u00f6scht sie nur bei best\u00e4tigter L\u00f6schung aus dem Spiegel. Ohne Netz bleibt der letzte Stand. Dazu: der Aufgaben-Notizzettel verdeckte bei ein bis drei f\u00e4lligen Aufgaben den Pfeil der ersten Pflanzenkarte \u2014 die Karten lassen ihm jetzt Platz, solange er da ist.',
+    user_summary: '\ud83d\udcd3 Eintr\u00e4ge aus dem grossen Tagebuch-Formular stehen jetzt auch im Gartentagebuch und im Kalender \u2014 und der Notizzettel verdeckt keine Pflanzenkarte mehr.',
+    user_items: [
+      {emoji:'\u2601\ufe0f', bold:'Cloud-Tagebuch sichtbar:', text:' Was du \u00fcber das Formular mit Foto und Erntemenge eingetragen hast, war bisher nur in der Datenbank. Jetzt steht es im Gartentagebuch und im Kalender, mit der passenden Pflanze.'},
+      {emoji:'\ud83d\udcf5', bold:'Ohne Netz bleibt der letzte Stand:', text:' Die App merkt sich die 500 neuesten Cloud-Eintr\u00e4ge auf dem Ger\u00e4t.'},
+      {emoji:'\ud83d\udccb', bold:'Notizzettel:', text:' Er sass bei wenigen f\u00e4lligen Aufgaben genau \u00fcber dem Pfeil der ersten Pflanzenkarte. Die Karten lassen ihm jetzt Platz.'},
+    ],
+  },
+  {
     v: 'v32.48', date: '03.09.2026',
     headline: '\ud83d\udcca Messwerte: das Dashboard f\u00fcr Sensoren \u2014 und bis dahin bist du das Ger\u00e4t',
     summary: 'Neuer Bildschirm \u201eMesswerte\u201c (Men\u00fc-Suche, Kalender): Ger\u00e4te anlegen, Werte eintragen, Verlauf mit Schwellen und Giess-Markierungen, Regeln mit drei Zust\u00e4nden (verletzt \u00b7 erf\u00fcllt \u00b7 nicht pr\u00fcfbar). Elf Messgr\u00f6ssen aus einem Katalog; unplausible Werte werden angenommen und markiert, nie verworfen. Messwerte und Alarme stehen im Kalender. Der Weg ist derselbe, den sp\u00e4ter ein GreenScan-Sensor nimmt \u2014 das Schema daf\u00fcr liegt als Migration bereit.',
@@ -74136,7 +74218,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.48';
+var GS_VERSION = 'v32.49';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80506,6 +80588,7 @@ var GS_USER_KEYS = [
   'gs_garden_plans','gs_garden_plan_current','gs_gardens','gs_plantings',
   'ps_myplants','gs_gartentagebuch','gs_ernte_log','gs_harvest_log',
   'gs_geraete','gs_geraete_regeln','gs_messwerte',   // v32.48: Geraete, Regeln, Messwerte — Personendaten
+  'gs_garden_diary_cache',                           // v32.49: Spiegel des Cloud-Tagebuchs
   'gs_doctor_history','gs_seed_inventory','gs_chat_history','gs_ki_analyses',
   'gs_scan_history','gs_scan_count','gs_scan_corrections','ps_feedback','ps_votes',
   'gs_achievements','gs_favorites','ps_favs','gs_confirmed_species',
