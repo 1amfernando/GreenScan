@@ -4,13 +4,54 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.49` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.50` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-04 (em) — v32.50: drei Aussagen widerlegt, drei behoben
+
+Die gegnerische Prüfung von `docs/MEINE-PFLANZEN-AUDIT.md` (drei Prüfer,
+Auftrag: widerlegen, am Code v32.49) hat die elf Befunde bestätigt und
+**drei Aussagen des Textes** gekippt. Alle drei behoben, je mit Fall und
+Gegenprobe in `kalender_check` (jetzt 15 Fälle).
+
+- **„Alle erledigt ✓" hatte keine Rückfrage** — der Text behauptete eine
+  („geprüft, nicht angenommen"), die Prüfung zählte 0 Aufrufe von
+  `gsConfirmModal`. Und der Knopf lief nur über `myPlants`: `Zucchini:water`
+  blieb nach dem Tipp fällig. Jetzt: Rückfrage mit Aufgabenliste
+  (Pflanze · Aufgabe, bis sechs, dann „… +n"); Fälligkeit aus
+  `gsGetDueTasks` (KALENDER-V1: eine Rechnung, beide Listen); Zugehörigkeit
+  über die Referenz, Speichern je Liste (`savePlantsToStorage` /
+  `saveGardenData`); Glocke, Zettel, Tagesplan ziehen mit. Sechs neue
+  i18n-Schlüssel.
+- **Die Kopfzahlen zählten verschiedene Listen** — „Pflanzen" nur
+  `myPlants`, „fällig"/„versorgt" seit v32.47 beide: „3 · 4 · 1". Ohne
+  Zimmerpflanzen stand „Noch keine Pflanzen" neben einer Kopfzahl 1. Jetzt
+  zählt die Summe `_alleMitAufgaben`; der 🏠-Reiter sagt bei reinen
+  Garten-Pflanzungen „Keine Zimmerpflanzen — deine Pflanzen stehen im
+  Garten" und führt per Knopf zum 🌳-Reiter; „Alles erledigt für heute"
+  erscheint auch ohne Zimmerpflanzen. Der Fall hält
+  `versorgt + Pflanzen mit Aufgaben = Pflanzen` fest.
+- **Befund 7 war halb behoben** — die Pfeile frei, aber bei 3 und 8
+  fälligen Aufgaben lag der Zettel auf den ⏰-Knöpfen der Fällig-Liste
+  (19 %/39 % bzw. 40 %/17 %). Der Prüfstand kannte nur den Pfeil. Jetzt
+  `body.gs-zettel-da … .due-card{padding-right:44px}`, und der Fall prüft
+  **jedes** Bedienelement unter dem Zettel: schmale (≤ 120 px) ganz frei,
+  breite zu zwei Dritteln. Gegenprobe: „due-card-btn 19 %, due-card-btn
+  39 %" — dieselben Zahlen wie in der Prüfung.
+
+**Die Lehre steht schon dreimal in CLAUDE.md und traf trotzdem mich:** ein
+Satz wie „geprüft, nicht angenommen" ist erst dann einer, wenn der Aufruf
+gezählt wurde. Und: **eine Frage, die nur EIN Ziel kennt, meldet nur
+dieses** — der Pfeil-Fall war grün, während daneben zwei Knöpfe verdeckt
+waren.
+
+Regression: siehe Prüfstand-Zeile unten im Eintrag (el) — dieselben
+Prüfstände, dieselben Nullen.
 
 ### 2026-09-04 (el) — v32.49: das dritte Tagebuch, und ein Zettel, der Platz bekommt
 
@@ -56,7 +97,8 @@ hinzufügt, muss jeden Fall nachziehen, der „keine Quelle" herstellt.**
 
 `kalender_check` 13 Fälle grün. Die gegnerische Prüfung der drei Entwürfe
 (Audit, Kalender V1, Ökosystem V1) ist am 03.09. um 21:30 UTC am
-Kontingent gescheitert und läuft seit 02:00 UTC erneut.
+Kontingent gescheitert und lief am 04.09. erneut — Ergebnis in (em) und in
+`docs/MEINE-PFLANZEN-AUDIT.md`, Abschnitt „Gegnerische Prüfung".
 
 ### 2026-09-03 (ek) — v32.48: die Person ist das erste Gerät — Messwerte, Stufe 0
 
@@ -8633,7 +8675,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.49` (Client) · SW-Cache `gs-v32.49` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.50` (Client) · SW-Cache `gs-v32.50` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

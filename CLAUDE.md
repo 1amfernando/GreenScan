@@ -787,6 +787,21 @@ v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
 
+**Seit v32.50 haelt er drei Aussagen fest, die eine gegnerische Pruefung
+am Text des Audits widerlegt hat** (`docs/MEINE-PFLANZEN-AUDIT.md`,
+„Gegnerische Pruefung"): „Alle erledigt ✓" fragt ZUERST und erledigt ueber
+`gsGetDueTasks` in BEIDEN Listen (bis v32.49: keine Rueckfrage, nur
+`myPlants`); die drei Kopfzahlen zaehlen dieselben Listen
+(`versorgt + mit Aufgaben = Pflanzen`); und unter dem Notizzettel liegt KEIN
+Bedienelement — nicht nur kein Pfeil. Zwei Regeln daraus: **„geprueft,
+nicht angenommen" ist erst dann ein Satz, wenn der Aufruf gezaehlt wurde**
+(ich hatte eine Rueckfrage behauptet, die 0 Aufrufe hatte). Und **eine
+Frage, die nur EIN Ziel kennt, meldet nur dieses** — der Pfeil-Fall war
+gruen, waehrend daneben zwei ⏰-Knoepfe zu 19 % und 39 % verdeckt waren.
+Der Fall zaehlt jetzt alle Ziele im Bildschirm (`button`, `[role=button]`,
+`a[href]`, `[onclick]`, `[data-action]`); schmale (≤ 120 px) muessen ganz
+frei sein, breite (Karten) zu zwei Dritteln.
+
 **`sensor_check.js` (seit v32.48) ist der Pruefstand fuer `docs/OEKOSYSTEM-V1.md`
 Stufe 0** — und er wurde VOR dem Code geschrieben (erster Lauf rot, acht
 Faelle, dann gruen). Vier Regeln, die er festhaelt und die fuer jedes Geraet
