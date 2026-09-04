@@ -174,7 +174,12 @@ GreenScan/
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
 `callVisionAI(b64, mediaType, prompt, extraImages, opts)` gehen.
 - `opts.brain = 'gaertner' | 'phytopathologe' | 'mykologe' | 'botaniker' | 'dendrologe' | 'herbalist' | 'generalist'`
-  → injectet automatisch Persona + User-Kontext.
+  ~~→ injectet automatisch Persona + User-Kontext.~~ **Stimmt nicht (geprüft
+  04.09.2026):** `brain` wird in `callAI` **nur als Log-Beschriftung** an
+  `_gsLogAiUsage` gereicht — es gibt keine Persona-Tabelle und keine
+  Prompt-Ergänzung. Wer Kontext will, baut ihn in den `systemPrompt`
+  (Lina: `gsLinaContext()`), nicht in ein Feld, das niemand liest.
+  `brain` bleibt als Kennung für die Nutzungsstatistik sinnvoll.
 - Direkte `fetch('https://api.anthropic.com/...')` Calls nur in `gsTestApiKey()`
   (Key-Validierung).
 
@@ -786,6 +791,25 @@ liest Gartentagebuch UND Pflanzentagebuecher (`p.diary`) zusammen — bis
 v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
+
+**Seit v32.51 kennt der Regen-Fall auch die Bejahung.** Bis dahin prüfte
+„Ernte und Regen" nur „ohne Wetter kein Hinweis" — und der Draht aus v31.84
+war seit jeher tot: `gsPflanzeDraussen` las `p.location`, ein Feld, das KEINE
+Speicherstelle schreibt (das Formular leitet „draussen" in den Garten um).
+Der Regen-Hinweis erschien für keine einzige Pflanze, in 66 Versionen, ohne
+dass etwas rot war. **Eine Frage, die nur die Verneinung kennt, ist auch
+dann grün, wenn die Funktion nichts mehr tut.** Jetzt beantwortet die
+Gartenart die Frage (`GS_GARTEN_ARTEN.unter_glas` — dieselbe Angabe, die
+der Planer liest), und der Fall stellt 8 mm in den Zwischenspeicher: Zucchini
+(Balkon) trägt den Hinweis, Basilikum (Küchenfenster) nicht, der Tagesplan
+zeigt „8 mm Regen heute" im HTML. `sensor_check` hat seither zwei Fälle mehr
+(10): das **Backup** nimmt Geräte, Regeln und Messwerte mit (Version 16) und
+nennt bei vollem Speicher, was nicht gesichert wurde; der **Deckel** der
+Messwerte wirft zuerst weg, was hochgeladen ist — eine Handmessung ohne
+Kopie bleibt. Beide Reparaturen einzeln zurückgebaut → rot mit den echten
+Zahlen. Die Ideen für die Sensoren, jede mit Anknüpfung, Stufe, Prüfbarkeit
+und Falle, stehen in `docs/OEKOSYSTEM-V1.md` §11 (25 Ideen, 35 Behauptungen
+nachgeprüft).
 
 **Seit v32.50 haelt er drei Aussagen fest, die eine gegnerische Pruefung
 am Text des Audits widerlegt hat** (`docs/MEINE-PFLANZEN-AUDIT.md`,

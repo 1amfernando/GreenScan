@@ -155,6 +155,78 @@ const FAELLE = [
       return { ok: true, info: 'drei Nutzer-Schlüssel, ein bleibender' };
     },
   },
+  {
+    // v32.51: Das Backup (exportUserData, Version 16) nimmt die Messwerte-
+    // Schicht mit. Bis v32.50 fehlte sie — die einzige Kopie einer
+    // Handmessung ist das Geraet. Muster save_check: exportieren → Speicher
+    // leeren → einspielen → Feld fuer Feld vergleichen; zweimal einspielen
+    // erzeugt kein Doppel; bei vollem Speicher SAGT es die Funktion.
+    name: 'Backup · Geräte, Regeln und Messwerte reisen mit — und kommen Feld für Feld zurück',
+    lauf: () => {
+      if (typeof _gsBackupDaten !== 'function' || typeof _gsBackupEinspielen !== 'function') return { ok: false, warum: '_gsBackupDaten/_gsBackupEinspielen fehlen — das Backup kennt die Messwerte nicht' };
+      const g = gsGeraetAnlegen({ kind: 'manual', name: 'Backup-Probe', garden_id: 'g1' });
+      if (!g || !g.id) return { ok: false, warum: 'Gerät nicht angelegt' };
+      const e = gsMesswertEintragen(g.id, 'soil_moisture', 37.5);
+      if (!e || !e.ok) return { ok: false, warum: 'Messwert nicht eingetragen: ' + (e && e.grund) };
+      gsRegelAnlegen({ geraet_id: g.id, metric: 'soil_moisture', op: 'below', threshold: 20, action: 'notify' });
+      const vorher = { geraete: gsGeraete().length, regeln: gsRegeln().length, werte: _gsMesswerteAlle().length };
+      const b = _gsBackupDaten();
+      if (!(b.version >= 16)) return { ok: false, warum: 'Backup-Version ' + b.version + ' — die Messwerte-Schicht kam mit 16' };
+      const fehlt = ['geraete', 'geraeteRegeln', 'messwerte'].filter(k => !Array.isArray(b[k]));
+      if (fehlt.length) return { ok: false, warum: 'im Backup fehlen: ' + fehlt.join(', ') };
+      const zaehlt = { geraete: b.geraete.length, regeln: b.geraeteRegeln.length, werte: b.messwerte.length };
+      if (JSON.stringify(zaehlt) !== JSON.stringify(vorher)) return { ok: false, warum: 'Backup zählt anders als der Speicher: ' + JSON.stringify(zaehlt) + ' vs ' + JSON.stringify(vorher) };
+      ['gs_geraete', 'gs_geraete_regeln', 'gs_messwerte'].forEach(k => localStorage.removeItem(k));
+      if (_gsMesswerteAlle().length !== 0 || gsGeraete().length !== 0) return { ok: false, warum: 'Speicher nicht geleert — der Fall stellt den Zustand nicht her' };
+      const erg = _gsBackupEinspielen(JSON.parse(JSON.stringify(b)));
+      if (!erg || !erg.ok) return { ok: false, warum: 'Einspielen meldet ' + JSON.stringify(erg) };
+      _gsBackupEinspielen(JSON.parse(JSON.stringify(b)));   // zweimal = kein Doppel
+      const nachher = { geraete: gsGeraete().length, regeln: gsRegeln().length, werte: _gsMesswerteAlle().length };
+      if (JSON.stringify(nachher) !== JSON.stringify(vorher)) return { ok: false, warum: 'nach dem Einspielen ' + JSON.stringify(nachher) + ', vorher ' + JSON.stringify(vorher) };
+      const w = gsMesswerte(g.id, 'soil_moisture')[0];
+      const orig = b.messwerte.find(m => m.geraet_id === g.id);
+      const felder = ['geraet_id', 'metric', 'ts', 'wert', 'quality', 'quelle', 'pending'];
+      const diff = felder.filter(f => !w || JSON.stringify(w[f]) !== JSON.stringify(orig[f]));
+      if (diff.length) return { ok: false, warum: 'Felder nach dem Einspielen verändert: ' + diff.join(', ') };
+      const echt = localStorage.setItem;
+      localStorage.setItem = function () { return false; };
+      let voll; try { voll = _gsBackupEinspielen(JSON.parse(JSON.stringify(b))); } finally { localStorage.setItem = echt; }
+      if (!voll || voll.ok || voll.nicht_gesichert.indexOf('gs_messwerte') < 0) return { ok: false, warum: 'bei vollem Speicher meldet das Einspielen ' + JSON.stringify(voll) + ' — es müsste gs_messwerte als nicht gesichert nennen' };
+      return { ok: true, info: nachher.geraete + ' Geräte · ' + nachher.regeln + ' Regeln · ' + nachher.werte + ' Werte, Feld für Feld gleich · voll → „nicht gesichert" genannt' };
+    },
+  },
+  {
+    // v32.51: Der Deckel (2'000) nahm blind die aeltesten — in Stufe 0 also
+    // Handmessungen, von denen es keine Kopie gibt. Jetzt gehen zuerst die
+    // hochgeladenen (pending !== true). Der Fall stellt 2'010 Werte her:
+    // die 10 aeltesten ohne Kopie, dann 20 hochgeladene, der Rest ohne Kopie.
+    name: 'Deckel · wirft zuerst weg, was hochgeladen ist — eine Handmessung ohne Kopie bleibt',
+    lauf: () => {
+      const alt = _gsMesswerteAlle();
+      const g = gsGeraetAnlegen({ kind: 'manual', name: 'Deckel-Probe', garden_id: 'g1' });
+      const t0 = Date.now() - 3000 * 60000;
+      const arr = [];
+      for (let i = 0; i < 2010; i++) arr.push({ geraet_id: g.id, metric: 'soil_moisture', ts: new Date(t0 + i * 60000).toISOString(), wert: i, quality: 2, quelle: 'hand', pending: !(i >= 10 && i < 30) });
+      try {
+        localStorage.setItem('gs_messwerte', JSON.stringify(arr));
+        if (_gsMesswerteAlle().length !== 2010) return { ok: false, warum: 'Grundlage nicht hergestellt (' + _gsMesswerteAlle().length + ' statt 2010)' };
+        const e = gsMesswertEintragen(g.id, 'soil_moisture', 50);
+        if (!e || !e.ok) return { ok: false, warum: 'Eintragen scheiterte: ' + (e && e.grund) };
+        const nach = _gsMesswerteAlle();
+        if (nach.length !== 2000) return { ok: false, warum: 'Deckel hält nicht: ' + nach.length + ' Werte' };
+        const aelteste = nach.filter(m => m.geraet_id === g.id && m.wert < 10).length;
+        const hochgeladen = nach.filter(m => m.pending === false).length;
+        if (aelteste !== 10) return { ok: false, warum: 'von den 10 ältesten Handmessungen ohne Kopie sind noch ' + aelteste + ' da — der Deckel nimmt blind die ältesten' };
+        if (hochgeladen !== 9) return { ok: false, warum: 'hochgeladene Werte übrig: ' + hochgeladen + ' (erwartet 9 = 20 − 11)' };
+        const ts = nach.map(m => m.ts);
+        if (JSON.stringify(ts) !== JSON.stringify(ts.slice().sort())) return { ok: false, warum: 'Reihenfolge nicht mehr chronologisch' };
+        if (!nach.some(m => m.wert === 50)) return { ok: false, warum: 'der neue Wert fehlt' };
+        return { ok: true, info: '2011 → 2000: 11 hochgeladene weg, alle 10 ältesten Handmessungen da, Reihenfolge erhalten' };
+      } finally {
+        localStorage.setItem('gs_messwerte', JSON.stringify(alt));
+      }
+    },
+  },
 ];
 
 (async () => {

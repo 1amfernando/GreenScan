@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.50.20260904">
+<meta name="app-version" content="32.51.20260904">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26226,7 +26226,6 @@ var GS_NOTIF_ZIELE = {
   weather:            { tab: 'garden' },
   frost:              { tab: 'garden' },
   weather_alert:      { tab: 'garden' },
-  sensor_alert:       { tab: 'garden' },
   harvest:            { tab: 'garden' },
   garden:             { tab: 'garden' },
   plant:              { tab: 'favs' },
@@ -26478,6 +26477,19 @@ var _GS_DRINNEN  = ['zimmer', 'wohn', 'kueche', 'küche', 'fenster', 'bad', 'bue
                     'gewaechshaus', 'gewächshaus', 'treibhaus', 'wintergarten', 'folientunnel'];
 function gsPflanzeDraussen(p) {
   try {
+    // v32.51: Eine Pflanzung steht in einem Garten — und dessen Art weiss,
+    // ob es dort regnet (GS_GARTEN_ARTEN.unter_glas: dieselbe Angabe, die
+    // der Planer liest). Bis v32.50 fragte diese Funktion nur p.location —
+    // ein Feld, das KEINE Speicherstelle je schreibt (das Formular leitet
+    // „draussen" in den Garten um). Der Regen-Hinweis aus v31.84 war damit
+    // fuer jede Pflanze null: ein toter Draht, den kalender_check nicht sah,
+    // weil der Fall nur „ohne Wetter kein Hinweis" kannte. Unbekannte
+    // Gartenart → weiter unten, notfalls null — nie geraten.
+    if (p && p.gardenId && typeof gardens !== 'undefined' && Array.isArray(gardens)) {
+      var g = gardens.find(function (x) { return x && x.id === p.gardenId; });
+      var art = (g && g.kind && typeof GS_GARTEN_ARTEN !== 'undefined') ? GS_GARTEN_ARTEN[g.kind] : null;
+      if (art && typeof art.unter_glas === 'boolean') return !art.unter_glas;
+    }
     var s = String((p && (p.location || p.standort || p.place)) || '').toLowerCase();
     if (!s) return null;
     for (var i = 0; i < _GS_DRINNEN.length; i++) if (s.indexOf(_GS_DRINNEN[i]) >= 0) return false;
@@ -26601,6 +26613,23 @@ function gsMesswerte(geraetId, metric, von, bis) {
   out.sort(function (a, b) { return String(a.ts).localeCompare(String(b.ts)); });
   return out;
 }
+// v32.51: Der Deckel (2'000 Werte) nahm bis v32.50 blind die aeltesten —
+// auch eine Handmessung, die noch nirgends sonst liegt (`pending:true`, in
+// Stufe 0 also jede). Jetzt gehen zuerst die Werte, die schon hochgeladen
+// sind; erst wenn das nicht reicht, greift der alte Deckel — mit Archiv
+// (dropped_entries) und Hinweis, wie bisher. Die Reihenfolge bleibt
+// chronologisch. Regel: der Deckel darf nur wegwerfen, wovon es eine Kopie gibt.
+function _gsMesswerteDeckel(arr, cap) {
+  if (!Array.isArray(arr) || arr.length <= cap) return arr;
+  var ueber = arr.length - cap, weg = [], rest = [];
+  for (var i = 0; i < arr.length; i++) {
+    if (ueber > 0 && arr[i] && arr[i].pending !== true) { weg.push(arr[i]); ueber--; } else rest.push(arr[i]);
+  }
+  if (weg.length) { try { if (typeof window.gsArchiveDropped === 'function') window.gsArchiveDropped('gs_messwerte', weg); } catch (_) {} }
+  return gsCapWithArchive('gs_messwerte', rest, cap, 'tail');
+}
+window._gsMesswerteDeckel = _gsMesswerteDeckel;
+
 // Der eine Weg hinein (Stufe 0 von Hand; Stufe 1 kommt derselbe Satz vom
 // Server). Katalog pruefen, Qualitaet setzen, anhaengen, Geraet als gesehen
 // markieren. `ok:false` heisst: NICHT gespeichert — und der Grund sagt warum.
@@ -26617,7 +26646,7 @@ function gsMesswertEintragen(geraetId, metric, wert, ts) {
     var zeit = ts ? new Date(ts).toISOString() : new Date().toISOString();
     var arr = _gsMesswerteAlle();
     arr.push({ geraet_id: geraetId, metric: metric, ts: zeit, wert: v, quality: q, quelle: g.kind === 'manual' ? 'hand' : 'geraet', pending: true });
-    arr = gsCapWithArchive('gs_messwerte', arr, 2000, 'tail');
+    arr = _gsMesswerteDeckel(arr, 2000);   // v32.51: hochgeladene zuerst, dann der alte Deckel
     if (localStorage.setItem('gs_messwerte', JSON.stringify(arr)) === false) {
       if (typeof gsToast === 'function') gsToast('Speicher voll — der Messwert wurde nicht gesichert.', 'warn', 5000);
       return { ok: false, quality: q, grund: 'Speicher voll — der Messwert wurde nicht gesichert.' };
@@ -53211,9 +53240,15 @@ async function requestNotificationPermission() {
 }
 
 // ── Data Export / Import ──────────────────────────────────
-function exportUserData() {
-  const data = {
-    version: 15,
+// v32.51: Das Backup als Objekt — getrennt vom Herunterladen, damit ein
+// Pruefstand es lesen und wieder einspielen kann (sensor_check). Version 16:
+// die Messwerte-Schicht (gs_geraete · gs_geraete_regeln · gs_messwerte,
+// OEKOSYSTEM-V1 Stufe 0) reist mit. Bis v32.50 fehlte sie — und die einzige
+// Kopie einer Handmessung ist das Geraet.
+function _gsBackupDaten() {
+  var lies = function (k) { try { var a = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; } };
+  return {
+    version: 16,
     exportDate: new Date().toISOString(),
     gardens,
     plantings,
@@ -53225,8 +53260,38 @@ function exportUserData() {
     socialPosts,
     prefs: userPrefs,
     location: userLocation,
-    feedback: JSON.parse(localStorage.getItem('ps_feedback') || '[]'),
+    feedback: lies('ps_feedback'),
+    geraete: lies('gs_geraete'),
+    geraeteRegeln: lies('gs_geraete_regeln'),
+    messwerte: lies('gs_messwerte'),
   };
+}
+window._gsBackupDaten = _gsBackupDaten;
+// Spielt ein Backup ein und sagt, was NICHT gesichert wurde (voller Speicher:
+// der Wrapper wirft nie, er gibt false zurueck — CLAUDE.md §3.5). Kein
+// Neuladen hier; das entscheidet der Aufrufer.
+function _gsBackupEinspielen(data) {
+  var nicht = [];
+  if (data.gardens) { gardens = data.gardens; }
+  if (data.plantings) { plantings = data.plantings; }
+  if (data.myPlants) { myPlants = data.myPlants; }
+  if (data.deadPlants) { deadPlants = data.deadPlants; }
+  if (data.prefs) { userPrefs = data.prefs; applyAllPrefs(); }
+  if (data.location) { userLocation = data.location; }
+  saveGardenData();
+  savePlantsToStorage();
+  savePrefs();
+  var paare = [['geraete', 'gs_geraete'], ['geraeteRegeln', 'gs_geraete_regeln'], ['messwerte', 'gs_messwerte']];
+  paare.forEach(function (pa) {
+    if (!Array.isArray(data[pa[0]])) return;
+    if (localStorage.setItem(pa[1], JSON.stringify(data[pa[0]])) === false) nicht.push(pa[1]);
+  });
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
+  return { ok: !nicht.length, nicht_gesichert: nicht };
+}
+window._gsBackupEinspielen = _gsBackupEinspielen;
+function exportUserData() {
+  const data = _gsBackupDaten();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -53254,17 +53319,14 @@ function importUserData() {
             _impOk = confirm('Backup vom ' + new Date(data.exportDate).toLocaleDateString('de-CH') + ' importieren?\n\nAlle aktuellen Daten werden überschrieben!');
           }
           if (_impOk) {
-            if (data.gardens) { gardens = data.gardens; }
-            if (data.plantings) { plantings = data.plantings; }
-            if (data.myPlants) { myPlants = data.myPlants; }
-            if (data.deadPlants) { deadPlants = data.deadPlants; }
-            if (data.prefs) { userPrefs = data.prefs; applyAllPrefs(); }
-            if (data.location) { userLocation = data.location; }
-            saveGardenData();
-            savePlantsToStorage();
-            savePrefs();
-            showMarketNotif('Backup erfolgreich importiert!', '📥', '#1565c0');
-            location.reload();
+            var _erg = _gsBackupEinspielen(data);   // v32.51: ein Weg, mit Rueckmeldung
+            if (_erg.ok) {
+              showMarketNotif('Backup erfolgreich importiert!', '📥', '#1565c0');
+              location.reload();
+            } else {
+              // Kein Neuladen: die Meldung muss ankommen, sonst sieht es aus wie Erfolg.
+              gsToast('Backup eingespielt — aber der Speicher ist voll, nicht gesichert: ' + _erg.nicht_gesichert.join(', ') + '. Platz schaffen und noch einmal importieren.', 'warn', 8000);
+            }
           }
         } else { gsToast('Ungültiges Backup-Format.', 'error'); }
       } catch(e) { gsToast('Fehler beim Lesen: ' + e.message, 'error'); }
@@ -73532,6 +73594,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.51', date: '04.09.2026',
+    headline: '🌧️ Regen zählt jetzt wirklich — und das Backup kennt die Messwerte',
+    summary: 'Vier Reparaturen aus der Vorbereitung auf die Sensoren (docs/OEKOSYSTEM-V1.md §11): Der Hinweis „Regen heute — Giessen kann warten" (v31.84) erschien für keine einzige Pflanze, weil er ein Feld las, das die App nie schreibt; jetzt beantwortet die Gartenart die Frage (Freiland, Hochbeet, Balkon: draussen — unter Glas nicht). Das Backup nimmt Geräte, Regeln und Messwerte mit und sagt beim Einspielen, was bei vollem Speicher nicht gesichert wurde. Der Deckel der Messwerte wirft zuerst weg, was schon hochgeladen ist. Und die Benachrichtigungsart sensor_alert stand zweimal in der Ziel-Tabelle. Drei neue Prüfstand-Fälle, jeder mit Gegenprobe; der Entwurf für das Ökosystem hat ein Ideen-Kapitel mit Prioritäten.',
+    user_summary: '🌧️ Hat es heute genug geregnet, sagt es die App bei den Garten-Pflanzen jetzt wirklich beim Giessen. Und dein Backup enthält neu auch Geräte, Regeln und Messwerte.',
+    user_items: [
+      {emoji:'🌧️', bold:'Regen und Giessen:', text:' Bei Pflanzen im Freiland, Hochbeet oder auf dem Balkon steht bei fälligem Giessen, wie viel es heute geregnet hat — die Aufgabe bleibt, du entscheidest. Der Hinweis gab es seit dem Frühling, er erschien nur nie.'},
+      {emoji:'📤', bold:'Backup:', text:' Geräte, Regeln und Messwerte aus „Messwerte" reisen mit dem Backup mit — und beim Einspielen sagt die App, falls der Speicher voll war.'},
+      {emoji:'📦', bold:'Messwerte-Speicher:', text:' Wird es eng, gehen zuerst die Werte, die schon in der Cloud sind. Eine Handmessung, von der es keine Kopie gibt, bleibt.'},
+    ],
+  },
+  {
     v: 'v32.50', date: '04.09.2026',
     headline: '✅ „Alle erledigt" fragt jetzt — und zählt den Garten mit',
     summary: 'Drei Aussagen der Bestandsaufnahme „Meine Pflanzen" hielten der gegnerischen Prüfung nicht stand, alle drei sind behoben: Der Knopf „Alle erledigt ✓" schrieb ohne Rückfrage „gegossen" in jedes Tagebuch und lief nur über die Zimmerpflanzen — Garten-Pflanzungen blieben fällig. Er fragt jetzt zuerst, nennt die Aufgaben und erledigt in beiden Listen. Die Kopfzahl „Pflanzen" zählte nur die Zimmerpflanzen, während „fällig" und „versorgt" beide Listen zählten; ohne Zimmerpflanzen stand „Noch keine Pflanzen" neben einer Kopfzahl 1. Und der Notizzettel lag bei drei und acht fälligen Aufgaben auf den Verschieben-Knöpfen der Aufgabenliste.',
@@ -74283,7 +74356,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.50';
+var GS_VERSION = 'v32.51';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

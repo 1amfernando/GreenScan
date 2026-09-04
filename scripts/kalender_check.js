@@ -203,7 +203,37 @@ const FAELLE = [
       // Regen: ohne Wetter-Zwischenspeicher KEIN Ereignis
       localStorage.removeItem('gs_weather_cache');
       if (gsKalenderEreignisse(gsHeuteTag(), gsHeuteTag()).some(x => x.art === 'wetter')) return { ok: false, warum: 'Regen-Ereignis ohne Messwert' };
-      return { ok: true, info: 'Ernte am ' + tag + ' als Info · ohne Wetterdaten kein Regen' };
+      // v32.51: und MIT Messwert der Hinweis an der Giess-Aufgabe. Bis v32.50
+      // kannte dieser Fall nur die Verneinung — und der Draht war seit v31.84
+      // tot: gsPflanzeDraussen las p.location, ein Feld, das nie jemand
+      // schreibt. Jetzt beantwortet die Gartenart die Frage (unter_glas).
+      // Eine Frage, die nur den schlechten Fall kennt, ist auch dann gruen,
+      // wenn die Funktion nichts mehr tut.
+      const heute = gsHeuteTag();
+      const zeiten = [], regen = [];
+      for (let h = 0; h < 24; h++) { zeiten.push(heute + 'T' + String(h).padStart(2, '0') + ':00'); regen.push(h === 6 ? 3 : h === 9 ? 5 : 0); }
+      const zucP = plantings.find(x => x && x.id === 'plant_seed_1');
+      const merk = zucP && zucP.tasks && zucP.tasks.water ? zucP.tasks.water.lastDone : undefined;
+      try {
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { hourly: { time: zeiten, precipitation: regen } } }));
+        if (zucP && zucP.tasks && zucP.tasks.water) zucP.tasks.water.lastDone = new Date(Date.now() - 3 * 864e5).toISOString();
+        const faellig = gsGetDueTasks();
+        const zuc = faellig.find(x => x.plant && x.plant.id === 'plant_seed_1' && x.key === 'water');
+        const bas = faellig.find(x => x.plant && x.plant.id === 'p1' && x.key === 'water');
+        if (!zuc) return { ok: false, warum: 'Zucchini (Balkon-Garten) hat keine fällige Giess-Aufgabe — Grundlage fehlt' };
+        if (!zuc.regen || zuc.regen.mm !== 8) return { ok: false, warum: 'Zucchini steht im Balkon-Garten (unter_glas:false), 8 mm Regen im Zwischenspeicher — der Eintrag trägt ' + JSON.stringify(zuc.regen || null) + ' (toter Draht?)' };
+        if (bas && bas.regen) return { ok: false, warum: 'Basilikum (Küchenfenster, drinnen) bekommt einen Regen-Hinweis' };
+        if (gsPflanzeDraussen({ gardenId: 'g_nicht_da' }) !== null) return { ok: false, warum: 'unbekannter Garten muss null ergeben, nicht ' + gsPflanzeDraussen({ gardenId: 'g_nicht_da' }) };
+        if (gsPflanzeDraussen({ gardenId: 'g1', location: 'Wohnzimmer' }) !== true) return { ok: false, warum: 'Pflanzung im Balkon-Garten: die Gartenart muss vor dem Freitext gelten' };
+        gsRenderDayPlan();
+        const dp = document.getElementById('home-dayplan');
+        if (!dp || !/8 mm Regen heute/.test(dp.textContent)) return { ok: false, warum: '„Nächste Schritte" zeigt „8 mm Regen heute" nicht (aus dem HTML gelesen)' };
+        if (!gsKalenderEreignisse(heute, heute).some(x => x.art === 'wetter' && /8 mm/.test(x.titel))) return { ok: false, warum: 'kein Wetter-Ereignis „8 mm" im Kalender' };
+      } finally {
+        localStorage.removeItem('gs_weather_cache');
+        if (zucP && zucP.tasks && zucP.tasks.water) { zucP.tasks.water.lastDone = merk; try { saveGardenData(); } catch (_) {} }
+      }
+      return { ok: true, info: 'Ernte am ' + tag + ' als Info · ohne Wetter kein Regen · mit 8 mm: Zucchini (Balkon) ja, Basilikum (Fenster) nein, Tagesplan zeigt es' };
     },
   },
   {
