@@ -36,16 +36,21 @@ Gemessen am 03.09.2026 (Grep über `index.html`, `supabase/`, `docs/`,
 
 | Was | Stand |
 |---|---|
-| Tabellen für Geräte oder Messwerte | **keine** |
-| Edge-Function für Messwerte | **keine** |
+| Tabellen für Geräte oder Messwerte | ~~**keine**~~ — **falsch, korrigiert 04.09.2026 (§11.0):** live existieren `sensor_devices` · `sensor_readings` · `sensor_alerts` (`backend-inventar.json` Z. 131–133; STATUS v30.96: „sensor_devices = 1, sensor_readings = 0"), ohne Migration im Repo. Dazu eine BLE-Schicht (`_gsDev`, v23.52, Xiaomi Flower Care) und ein ESP32-Assistent, der das **Sitzungs-Token** in die Firmware kopieren lässt. Das Schema dieses Entwurfs ist damit das **zweite** — Idee 1 in §11 führt beide zusammen |
+| Edge-Function für Messwerte | **keine** (ein `ingest_sensor_reading`-RPC steht nur in einer Release-Notiz, nicht im Live-Inventar) |
 | Diagramm-Routine im Frontend | **keine** (kein Chart-Paket; Three.js und Leaflet werden nur bei Bedarf geladen) |
 | Schwellwerte in den Artendaten | `care` / `lightMin` / `lightOptimal` / `lightMax` / `waterFrequency` bei **40 von 4'342** Arten |
 | Web-Bluetooth / Web-Serial / WebUSB in der `Permissions-Policy` | `_headers` Z. 9: `usb=()` ist **gesperrt**, `bluetooth` und `serial` sind **nicht genannt** (gelten damit als `self`). Für Stufe 2 wird `usb` bewusst freigegeben oder bewusst gesperrt gelassen — mit Begründung in `_headers`, wie bei `camera=(self)` |
 | Andockstellen, die es schon gibt | `gsCloudSync`/`markDirty` (Sync), RLS-own-only-Muster in den Migrationen, `GS_NOTIF_ZIELE` (31 Benachrichtigungsarten mit Ziel), der tägliche Cron (`daily-push`), die IndexedDB-Ablagen (`STORES`), `_gsAufFarbe` (Kontrast für Farben aus Daten) — und seit v32.46 die Ereignis-Schicht `gsKalenderEreignisse` (`KALENDER-V1.md`), in der die Arten `messung` und `alarm` schon vorgesehen sind |
 
-Es existiert also **nichts** für Geräte — und genau deshalb lohnt sich der
-Entwurf jetzt: nichts muss umgebaut werden, und die Konventionen des Repos
-(Sync, RLS, Benachrichtigungen, Prüfstände) sind schon da.
+~~Es existiert also **nichts** für Geräte~~ — **das war die falsche
+Schlussfolgerung aus einem unvollständigen Grep** (der Prüfer vom 04.09.
+hat es an sechs Stellen belegt, §11.0). Was stimmt: nichts davon ist mit dem
+Kalender, dem Katalog oder den Prüfständen verdrahtet, und die Konventionen
+des Repos (Sync, RLS, Benachrichtigungen, Prüfstände) tragen den Entwurf.
+Der Preis des Irrtums: **Idee 1 (§11) ist keine Idee, sondern die
+Voraussetzung** — zwei Geräteschichten sind „zwei Speicher für dieselbe
+Frage".
 
 ## 2 · Das Modell — fünf Tabellen, keine mehr
 
@@ -112,8 +117,12 @@ daraus. Kein `if (metric === 'soil_moisture')` irgendwo im Frontend.
 
 **Nur anhängen.** Kein UPDATE, kein DELETE durch die App — nur durch die
 Kontolöschung (revDSG). Aufbewahrung: Rohwerte 400 Tage, Tagesaggregate
-(§5) unbegrenzt. Eine spätere Partitionierung nach Monat ist vorbereitet,
-weil `ts` im Primärschlüssel steht.
+(§5) ~~unbegrenzt~~ — **das hält das Schema nicht** (gefunden 04.09.2026):
+`v_device_daily` ist eine **View über `device_readings`**, und
+`fn_device_readings_prune` löscht die Rohwerte nach 400 Tagen — das Aggregat
+verschwindet mit. Eine Tabelle `device_daily`, vom Cron **vor** dem Prune
+gefüllt, ist Idee 17 in §11. Eine spätere Partitionierung nach Monat ist
+vorbereitet, weil `ts` im Primärschlüssel steht.
 
 ### 2.4 · `device_rules` — Schwellwerte
 
@@ -317,6 +326,11 @@ Software, die Messwerte hat.
 | **2** | BLE-Pairing im Browser (`Permissions-Policy` erweitern, `wiring_check`/`kamera_check`-artiger Prüfstand mit gestellter BLE-API) · Firmware-Vertrag als `docs/GERAETE-VERTRAG.md` (das JSON aus §3.1, versioniert) · MQTT-Bridge | ja |
 | **3** | Aktoren (Ventil, Pumpe, Licht) über `device_commands` · Automationen `op = 'expr'` · Export/Import | ja |
 
+**Nachtrag 04.09.2026 (§11):** „Wetter als virtuelles Gerät" gehört nach
+**Stufe 0**, nicht 1 — es braucht weder Gerät noch Server, nur den
+Zwischenspeicher von Open-Meteo (Idee 3). Und der Regen-Draht aus v31.84, an
+dem §6 hängt, war bis v32.50 tot (11.3).
+
 **Was in Stufe 0 bewusst NICHT gebaut wird:** BLE, Firmware, Cloud-Ingest.
 Nicht, weil es unwichtig wäre — weil es ohne Gerät nicht prüfbar ist, und
 dieses Repo baut nichts, das es nicht auslösen kann. Das Schema und der
@@ -369,3 +383,770 @@ Art `alarm` (`KALENDER-V1.md` §3.4).
   Grund, warum das Dashboard am ersten Tag funktioniert.
 - **Retention:** 400 Tage Rohwerte sind ein Vorschlag. Länger kostet
   Speicher, kürzer kostet den Jahresvergleich.
+- **Fünf weitere Fragen** stehen in §11.4 — Uhr im Gerät, Verpackung,
+  Alt-Tabellen, erster Gerätetyp, Provisioning.
+
+## 11 · Ideen für die Zeit mit Sensoren (04.09.2026)
+
+> Fernando: *„Bringe Ideen die auch mit den zukünftigen Sensoren eine Rolle
+> spielen könnte. Es soll perfekt alles vorbereitet werden damit die Sensoren
+> dann auf Anhieb funktionieren. […] Nichts darf fehlen."*
+
+**Wie dieses Kapitel entstanden ist.** Drei Berichte aus drei Blickwinkeln
+— Hardware und Anbindung · Nutzung im Alltag · Daten und Modell — gegen den
+Code v32.49/v32.50. Danach wurde **jede Behauptung einzeln** von einem Prüfer
+mit dem Auftrag „widerlegen" gegen das Repo gehalten — **35 Behauptungen:
+30 bestätigt, 4 präzisiert, 1 widerlegt.** Ehrlich dazu: die Prüfer-Flotte
+(39 Agenten) ist nach zwei Urteilen am Monatslimit der Organisation
+ausgefallen; die übrigen 33 Behauptungen habe ich **von Hand** nachgezählt
+(grep, `node -e`, jede mit Datei:Zeile), die drei Gegenleser für den Diff von
+v32.51 und der Lücken-Prüfer liefen nicht — für den Diff gelten die 16
+Prüfstände und die drei Gegenproben (11.3), die Lücken (Ideen 21–25) habe ich
+selbst gesucht. Was hier steht, ist belegt oder ausdrücklich als
+**Vermutung** markiert; drei Dinge bleiben **ungeprüft**, weil sie die lebende
+Datenbank brauchen: ob `sensor_readings` Zeilen enthält, ob der Server die
+Spalte `sensor_devices.device_token` wirklich ausliefert, und was der
+CSV-Export heute enthält. Jede Idee trägt
+dieselben sechs Angaben: *Nutzen · Daten und Anknüpfung · Stufe · prüfbar
+ohne Hardware · die Falle · Aufwand.*
+
+Die eine Regel aus §0 gilt weiter: **ein Gerät ist ein Datensatz, kein
+Sonderfall.** Und eine zweite kommt dazu, weil sie in fast jeder Idee
+auftaucht: **Messen ist kein Erledigen.** Kein Messwert setzt je ein
+`lastDone`, kein Sensor hakt eine Aufgabe ab — er sagt, was er gesehen hat,
+und die Person entscheidet.
+
+### 11.0 · Zuerst die Korrektur: §1 war falsch
+
+§1 sagte „Tabellen für Geräte oder Messwerte: **keine**". Das stimmt nicht,
+und die Prüfung hat es an sechs Stellen belegt (§1 ist jetzt korrigiert):
+
+| Was es schon gibt | Wo | Was daraus folgt |
+|---|---|---|
+| Drei **Live-Tabellen** `sensor_devices` · `sensor_readings` · `sensor_alerts` | `docs/backend-inventar.json` Z. 131–133; STATUS v30.96: „sensor_devices = 1, sensor_readings = 0" | Ein zweites Schema, das nie mit dem Entwurf abgeglichen wurde |
+| **Drei Oberflächen** in der Menü-Suche mit denselben Tags | `MENU_ITEMS`: „📊 Messwerte" (`gsMesswerteOeffnen`, v32.48), „🏠 Sensor-Dashboard" (`gsShOpen`, v24.06), „📶 Sensoren & Geräte" (`openDevicesModal`, Web-Bluetooth + ESP32-Assistent) | Wer „Sensor" sucht, bekommt drei Antworten |
+| Der alte **ESP32-Assistent** lässt den Nutzer sein **Sitzungs-Token** (`gs_sb_token`) in die Firmware kopieren und postet direkt in `/rest/v1/sensor_readings` | `index.html` ~Z. 70730–70736 (`USER_TOKEN = "PASTE-USER-JWT-HERE"`) | Vollzugriff aufs Konto auf einem Chip — und das Token läuft ab, das Gerät verstummt still |
+| Ein `ingest_sensor_reading`-RPC steht in den Release-Notizen, **nicht** im Live-Inventar | `GS_RELEASES` (Notiz v23.5x) vs. `backend-inventar.json` | Die Notiz beschreibt etwas, das es nicht gibt |
+| `gs_metric_catalog` wird **gelesen, nie geschrieben** | `index.html` Z. 26552 (Leser), Z. 80597 (Keep-Liste) — kein `setItem` | „Eine neue Sensorart ist eine Zeile" gilt nur in der Datenbank; die App sieht die Zeile nie |
+| `GS_NOTIF_ZIELE.sensor_alert` stand **zweimal** im Objekt (der zweite gewann) | `index.html` Z. 26229 / 26238 | behoben v32.51 |
+
+Deshalb ist Idee 1 keine Idee, sondern die **Voraussetzung**: solange es zwei
+Geräteschichten gibt, bringt das erste GreenScan-Gerät den Fehler „zwei
+Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
+
+### 11.1 · Die Ideen — nach Stufe, innerhalb der Stufe nach Nutzen
+
+| # | Idee | Stufe | Aufwand | Voraussetzung |
+|---|---|---|---|---|
+| 1 | Eine Geräteschicht, nicht zwei | 0 | mittel | Entscheid Fernando (11.4) |
+| 2 | Katalog wirklich laden, Modell-Katalog | 0 → 1 | klein–mittel | — |
+| 3 | Wetter als virtuelles Gerät | 0 | mittel | 11 |
+| 4 | Giessen bestätigt sich selbst — als Aussage; Regel-Aktion verdrahten | 0 | mittel | 3 |
+| 5 | Schwellwert-Vorlagen nur, wo eine Zahl steht | 0 | klein | — |
+| 6 | Lina kennt die Zahlen | 0 | klein–mittel | CLAUDE.md §3.4 (korrigiert) |
+| 7 | Ein Meldungs-Budget gegen Alarm-Müdigkeit | 0 | klein | — |
+| 8 | Wochenrückblick statt „N Aufgaben" | 0 | mittel | — |
+| 9 | Zwei Standorte nebeneinander | 0 | klein | — |
+| 10 | Frostnacht am eigenen Beet | 0 / 1 | klein / mittel | 3 |
+| 11 | Server-taugliche Identität und Idempotenz lokal | 0 | klein | — |
+| 12 | Export, Import, Löschung — die neuen Schlüssel sind sichtbar | 0 | klein | v32.51 (Backup ✓) |
+| 13 | Urlaub: Giess-Zettel jetzt, Stellvertreter später | 0 / 2 | mittel / gross | — |
+| 14 | Firmware-Vertrag als geteilte Regeldatei (Uhr, Batch, Antwort) | 1 | mittel | — |
+| 15 | Geräte-Identität ab Werk und Claim-Code-Pairing | 1 | mittel–gross | Entscheid Fernando |
+| 16 | Stille und Batterie: Vorgaberegeln und Cron `device-alerts` | 1 | mittel | Migration |
+| 17 | Tagesaggregat als Tabelle — sonst gibt es keinen Jahresvergleich | 1 | klein (SQL) / mittel | Migration |
+| 18 | Firmware-Kanal | 2 | mittel | Gerät |
+| 19 | Transport-Entscheid gegen `_headers` | 2 | Entscheid klein, Bau gross | Gerät |
+| 20 | Befehle mit Ablauf und Sicherheitsgrenze | 3 | mittel | Aktor |
+| 21 | Ein Gerät in den Beispieldaten — sonst vermisst jeder Prüfstand ein leeres Dashboard | 0 | klein | — |
+| 22 | Katalog-Labels in vier Sprachen — die Tabelle hat sie, die App liest nur Deutsch | 0 | klein | — |
+| 23 | Kalibrierung als Daten — Offset und Faktor je Gerät und Messgrösse | 1 | klein–mittel | Migration |
+| 24 | Planer rechnet mit gemessenem Regen, nicht nur mit der Prognose | 0 / 1 | mittel | 3 |
+| 25 | Vom Scan zum Gerät: `gsTwinAdopt` bietet die Verknüpfung an | 1 | klein | Gerät |
+
+---
+
+#### 1 · Eine Geräteschicht, nicht zwei
+
+**Nutzen.** Wer heute den Flower-Care-Weg oder den ESP32-Assistenten benutzt,
+landet später im selben Dashboard — nicht in einem zweiten. Und kein
+Sitzungs-Token liegt mehr auf einem Chip.
+
+**Daten und Anknüpfung.** Alt: `_gsDev`/`gs_devices` (BLE, v23.52),
+`openDevicesModal`, `gsShOpen`, `sensor_readings` mit den Namen
+`illuminance` · `temperature` · `soilMoisture` und der Spalte `value_num`.
+Neu: `gsGeraete`, `gsMesswertEintragen`, `gsMetricKatalog()`. Fehlt: eine
+**Übersetzungstabelle** `illuminance → light`, `temperature → air_temp`,
+`soilMoisture → soil_moisture` — als Daten, nicht als `if` (§9 Regel 1); die
+Umleitung der zwei Alt-Einträge in `MENU_ITEMS` auf „Messwerte"; das
+Entfernen der JWT-Anleitung; und ein Entscheid über die Live-Tabellen
+(Altdaten per Migration nach `device_readings` kopieren, Alt-Tabellen lesbar
+lassen — **umleiten, nicht löschen**).
+
+**Stufe** 0 → 1. **Prüfbar ohne Hardware:** ein Fall in `sensor_check`, der
+zählt, dass es genau **einen** Öffner für Messwerte gibt und die zwei alten
+dorthin führen; ein Grep-Fall: kein `gs_sb_token` in Code, der als
+Gerätebeispiel angezeigt wird; jede Altbezeichnung gegen `gsMetricKatalog()`.
+
+**Die Falle.** „Beim Aufräumen löschen" ist die schnelle und die falsche
+Antwort: die eine Zeile in `sensor_devices` gehört jemandem. Die Prüfung
+konnte nicht sehen, ob `sensor_readings` live Zeilen enthält (kein
+Datenbankzugriff von hier) — vor dem Umzug nachzählen. Und ein Detail, das
+der Prüfer korrigiert hat: der alte Assistent **fordert**
+`sensor_devices.device_token` ausdrücklich vom Server an
+(`select=id,name,kind,device_token,…`), zeigt ihn aber nirgends — das Feld
+wird geholt und weggeworfen; ob der Server die Spalte ausliefert, steht in
+keiner Migration im Repo.
+
+**Aufwand** mittel.
+
+#### 2 · Katalog wirklich laden, und ein Modell-Katalog daneben
+
+**Nutzen.** „Eine neue Sensorart ist eine Zeile" wird wahr — auch in der App.
+
+**Daten und Anknüpfung.** `metric_catalog` (Migration, 11 Zeilen, öffentlich
+lesbar) → `gs_metric_catalog` (Keep-Liste, nie geschrieben). Fehlt: der
+Leser, der die Tabelle beim Start holt und nur bei Erfolg den Zwischenspeicher
+ersetzt; sonst bleibt der eingebaute Startbestand (§9 Regel „nie leer").
+Dazu ein **Modell-Katalog** `device_models` (`gs_soil_v1`: Messgrössen,
+Standard-Intervall, `commands`, Batterietyp, Ikone), damit
+`devices.capabilities` gegen etwas **geprüft** wird statt geglaubt.
+Gerätetypen, die das Modell heute trägt: Bodenstab (`soil_moisture` ·
+`soil_temp` · `ec` · `battery`), Wetterstation (`air_*` · `rain` · `light`,
+netzbetrieben, kleines Intervall), Ventil (`commands: ["valve"]`). **Eine
+Kamerafalle passt nicht ins Modell** — ein Bild ist kein `numeric`; der Weg
+wäre Storage-Bucket (Muster `gsUploadImage`) plus Messwert mit `raw.url`, oder
+bewusst eine spätere Stufe.
+
+**Stufe** 0 → 1. **Prüfbar ohne Hardware:** `sensor_check` mit gestelltem
+`sbFetch` — Tabelle liefert 12 Grössen → das Dashboard zeigt die zwölfte;
+Tabelle leer oder Fehler → Startbestand, nie leer.
+
+**Die Falle.** Katalog-Drift: ein Wert, den der Server annimmt und den der
+Client nicht anzeigen kann. Deshalb ersetzt der Leser nur bei Erfolg und
+merkt sich das Datum der Momentaufnahme (wie `backend_check`).
+
+**Aufwand** klein (Leser) / mittel (Modell-Katalog).
+
+#### 3 · Wetter als virtuelles Gerät — Stufe 0, nicht 1
+
+**Nutzen.** Regen und Lufttemperatur stehen **neben** der Bodenfeuchte im
+selben Diagramm, bevor ein einziger Sensor existiert. Die Regel „kein Regen
+in 24 h" (§6) wird prüfbar. Und wer später einen Bodenstab kauft, sieht am
+ersten Tag den Zusammenhang, nicht eine leere Kurve.
+
+**Daten und Anknüpfung.** `gs_weather_cache` (Open-Meteo, stündlich
+`temperature_2m` · `precipitation`, 30-min-TTL), die Stunden-Logik aus
+`gsRegenGefallen` (zählt **nur bis jetzt**), `GS_GERAET_ARTEN.weather` (der
+Eintrag ist da), Katalog `air_temp` · `air_humidity` · `rain`,
+`weather_log_per_garden` als Tagesarchiv. §8 führt das in Stufe 1 — es
+braucht aber **kein** Gerät und keinen Server; es ist ein Abgleich vom
+Zwischenspeicher in `gs_messwerte`.
+
+**Stufe** 0. **Prüfbar ohne Hardware:** gestellter Zwischenspeicher mit drei
+Regenstunden, Abgleich **zweimal** → die `rain`-Summe bleibt gleich (das ist
+der Dubletten-Fall, Idee 11); Zukunftsstunden → kein Eintrag.
+
+**Die Falle.** **Eine Vorhersage ist kein Messwert.** Open-Meteo ist ein
+Modell, kein Sensor — und `quality` (0/1/2) hat keinen Platz für
+„modelliert". Statt eine vierte Stufe zu erfinden: `raw.source = 'open-meteo'`
+und die Kachelart „Wetterdienst" sagen es. Und `rain` ist eine **Summe** —
+eine Dublette verdoppelt den Regen. Idee 11 zuerst.
+
+**Aufwand** mittel.
+
+#### 4 · Giessen bestätigt sich selbst — als Aussage, nicht als Haken
+
+**Situation.** „Ich habe um 7 gegossen und abgehakt. Um 8 sagt die App: der
+Sensor im Hochbeet hat davon nichts gemerkt."
+
+**Nutzen.** Die App sieht, ob das Giessen angekommen ist — und sagt bei 61 %
+Feuchte „kann warten". Die Aufgabe bleibt stehen (dieselbe Regel wie beim
+Regen, v31.84).
+
+**Daten und Anknüpfung.** `gsQuickDone` → `p.diary {ts, action:'water'}`;
+`gsTagebuchAlle` (`cat:'water'`); `_gsMwVerlaufMalen` zeichnet die
+Giess-Marken schon — aber nur über `g.plant_id`; `gsMesswerte(id, metric,
+von, bis)`. **Fehlt:** `_gsGeraeteFuerPflanze(p)` (Geräte mit `plant_id` ∪
+Geräte mit `garden_id == p.gardenId`; `bed_id` steht im Schema und wird im
+Client nie gesetzt). Und: `device_rules.action` (`notify` · `task:water` ·
+`calendar`) wird **von niemandem gelesen** ausser beim Anlegen —
+`gsRegelnPruefen` liefert Zustände, verletzte Regeln werden nur
+`alarm`-Ereignisse. Die Zeile aus §6 „Regel `task:water` → Aufgabe heute"
+gibt es im Code noch nicht. Dazu braucht `getDaysUntilDue` ein Feld, das eine
+Aufgabe **früher** fällig macht — es kennt nur `lastDone + intervalDays` und
+`snoozedUntil` (nur nach hinten). Vorschlag `t.vorgezogenAuf`, in
+`v_plant_tasks_due` mitgezogen — sonst rechnen Server und App verschieden
+(KALENDER-V1 §1.2, dieselbe Falle wie bei `snoozedUntil`).
+
+**Stufe** 0 — die Bestätigungslogik aus §6 (+10 Punkte innert 60 Minuten) ist
+reine Rechnung und läuft mit Werten von Hand. **Prüfbar ohne Hardware:**
+Handwerte 21 % um 09:50 und 48 % um 10:40, Abhaken um 10:12 → „bestätigt";
+ohne Wert danach → „nicht prüfbar"; ohne Gerät am Beet → „nicht prüfbar";
+Regel `task:water` verletzt → Zeile in „Heute zu tun" mit `quelle:'sensor'`,
+aus dem HTML gelesen.
+
+**Die Falle.** Ein Feuchte-Sprung ist kein Beweis fürs Giessen — Regen,
+Nachbarin, Sensor gewackelt. Drei Zustände, immer mit Zahl: **bestätigt**
+(Δ ≥ 10) · **nicht gemerkt** · **nicht prüfbar** (kein Gerät, kein Wert
+innert 60 Minuten, Qualität < 2). „≥ 10 Punkte" ist **gesetzt, nicht
+gemessen** — eine benannte Konstante mit Begründung, nach den ersten Geräten
+nachkalibrieren. Mehrere Geräte am selben Beet: **nicht mitteln**, das
+vorsichtigste nehmen (bei `below` das tiefste) und das Gerät nennen —
+dieselbe Regel wie `_gsVorsichtigste` beim Scanner.
+
+**Aufwand** mittel.
+
+#### 5 · Schwellwert-Vorlagen nur, wo eine Zahl steht
+
+**Situation.** „Ich hänge den Sensor an die Monstera, und die App schlägt
+vor: Licht unter 200 lux melden — Quelle: Artenliste."
+
+**Daten und Anknüpfung.** `lightMin` / `lightOptimal` / `lightMax` /
+`waterFrequency` / `care` stehen bei **40 von 4'342** Arten — alle
+Hauspflanzen (`bookRef HP.*`); `care` ist Fliesstext (rund 38 nennen °C,
+nicht parsebar). Zweite Quelle `PLANT_DB` (41 Kulturen): `bodentemp` bei 39
+als Zahl in °C → `soil_temp below` („zu kalt zum Säen"); `water` ist
+`low/medium/high` — **kein** Prozentwert. Dritte: `garden_crop_agronomy.soil_ph`
+als Text „6.0-7.0" → `ph`, nur wenn als „a-b" parsebar. Für **Bodenfeuchte**
+trägt keine der drei Quellen eine Zahl.
+
+**Stufe** 0. **Prüfbar ohne Hardware:** Monstera → `light below 200` mit
+`grund: 'Artenliste HP…'`; Bärlauch → „keine Empfehlung hinterlegt"; ein
+Gemüse mit `water:'high'` → **keine** Feuchte-Schwelle.
+
+**Die Falle.** Ein Feuchte-Prozentwert ist **sensorabhängig** (kapazitiv vs.
+resistiv, Substrat) — **nie eine globale Schwelle ausliefern.** Feuchte kann
+nur aus den eigenen Sprüngen kommen: nach 14 Tagen Werten das beobachtete
+Minimum und Maximum als **Angebot** („unter deinem 14-Tage-Tief melden?").
+Ehrlich bleibt die Zahl: rund 80 von 4'342 Arten tragen eine Empfehlung — sie
+steht in der Anzeige. Ein Vorschlag wird **nie automatisch** angelegt; die
+Person bestätigt.
+
+**Aufwand** klein.
+
+#### 6 · Lina kennt die Zahlen
+
+**Situation.** „Warum hängt mein Basilikum?" — „Dein Gerät ‚Balkon Süd'
+meldete seit Dienstag 14–19 % Feuchte, Giessen war drei Tage überfällig,
+Freitag 31 °C."
+
+**Daten und Anknüpfung.** `gsLinaContext()` liefert heute Pflanzenzahl,
+Region und Jahreszeit. Fehlt ein Block von höchstens ~600 Zeichen: fällige
+Aufgaben, Alarme mit Grund, je Gerät der letzte **plausible** Wert mit Zeit,
+Anzahl Werte und Lücken, und die „nicht prüfbar"-Gründe. Alles aus
+`gsKalenderEreignisse(heute − 7, heute)` und `gsRegelnPruefen`.
+
+**Und die Vorbedingung, die erst diese Prüfung gefunden hat:** CLAUDE.md
+§3.4 behauptete, `opts.brain` injiziere „automatisch Persona + User-Kontext".
+Im Code wird `brain` **nur als Log-Beschriftung** verwendet (`_gsLogAiUsage`);
+eine Persona-Tabelle oder eine Prompt-Ergänzung gibt es nicht. §3.4 ist
+korrigiert. Wer Lina Kontext geben will, baut ihn in `gsLinaContext()` — nicht
+in ein Feld, das niemand liest.
+
+**Stufe** 0 — funktioniert mit Werten von Hand ab dem ersten Tag. **Prüfbar
+ohne Hardware:** ein Prüfstand nach dem Muster von `scan_check`, der den
+gebauten Kontext gegen die App-Daten hält: jede Zahl im Kontext muss aus
+einem Datensatz stammen.
+
+**Die Falle.** Lina interpoliert („drei Tage unter 20 %" aus zwei Messungen).
+Gegenmittel: Anzahl und Lücken **im Kontext**, die Anweisung „nur aus dem
+Kontext zitieren, sonst sagen, dass kein Wert da ist" — und weil ein Prompt
+keine Garantie ist (§4a.2 in CLAUDE.md), der Prüfstand.
+
+**Aufwand** klein–mittel.
+
+#### 7 · Ein Meldungs-Budget gegen Alarm-Müdigkeit
+
+**Situation.** „Ich bekomme **eine** Garten-Meldung am Tag — Frost und ein
+verstummtes Gerät dürfen extra."
+
+**Daten und Anknüpfung.** Serverseitig gibt es die Disziplin schon: eine
+Meldung je Kategorie und Tag, Stille-Zeit 22–7 Uhr (`weather-alert-checker`,
+`daily-push-checker`). **Lokal nicht:** `gsNotif` kennt keine Stille-Zeit,
+`scheduleAllNotifications` plant eine Meldung **je** fälliger Aufgabe und
+liest **nur `myPlants`** — die Garten-Pflanzungen, die seit v32.47 Aufgaben
+haben, melden sich lokal nie.
+
+**Was zu tun ist.** (a) `gsNotif.show` bekommt die Stille-Zeit aus
+`gs_push_settings`; (b) lokale Aufgaben-Meldungen bündeln wie der Server
+(ein Push, drei Namen) und `plantings` mitnehmen — über `gsGetDueTasks`, die
+eine Rechnung; (c) Sensor-Alarme in **eine** Tageskategorie `sensor_alert`,
+`stale` und `critical` ausgenommen; (d) Stummschalten je Gerät wie
+`gs_reminder_prefs.disabled` je Pflanze; (e) ein Zähler „diese Woche 9
+Meldungen" in den Einstellungen, aus `push_send_log`.
+
+**Stufe** 0. **Prüfbar ohne Hardware:** `einstellungen_check` mit gestellter
+Uhr: um 23:00 keine lokale Meldung; drei fällige Aufgaben → **eine**
+Meldung; eine fällige Garten-Pflanzung → sie steht drin.
+
+**Die Falle.** Stille ist gefährlich (§9 Regel 4) — `stale` also nie ganz
+weg, aber nach dem ersten Mal Inbox statt Push. **Vermutung:** mehr als zwei
+Pushes am Tag werden abgeschaltet; messbar erst mit dem Zähler.
+
+**Aufwand** klein.
+
+#### 8 · Wochenrückblick statt „N Aufgaben"
+
+**Situation.** „Sonntagmorgen: 5 von 7 Aufgaben erledigt, 9 mm Regen, zwei
+Frostnächte, das Hochbeet nie unter 25 %, ‚Balkon Nord' schwieg zwei Tage."
+
+**Daten und Anknüpfung.** `gsTagebuchAlle`, Messwerte als Tagesaggregat nach
+`aggregation` aus dem Katalog, `weather_log_per_garden` (schreibt täglich
+min/max/Niederschlag/Frost). Anzeige als Startseiten-Karte; der bestehende
+`weekly_summary`-Push (sonntags, `daily-push-checker`) bekommt **Inhalt statt
+einer Zahl** — kein neuer Push-Kanal.
+
+**Stufe** 0. **Prüfbar ohne Hardware:** sieben Tage Werte von Hand und zwei
+Tagebuch-Einträge → die Karte nennt alle vier Zahlen, aus dem HTML gelesen;
+ein Tag ohne Werte → „keine Daten", nicht 0.
+
+**Die Falle.** Keine Note, kein Score, kein Vergleich mit anderen. Tage ohne
+Werte sind „keine Daten". Und das Wetter aus dem Zwischenspeicher ist der
+**Nutzer-Standort**, nicht das Beet — die Quelle steht dabei.
+
+**Aufwand** mittel.
+
+#### 9 · Zwei Standorte nebeneinander
+
+**Situation.** „Balkon Süd gegen Balkon Nord: dieselbe Grösse, zwei Linien,
+sieben Tage."
+
+**Daten und Anknüpfung.** `_gsVerlauf` nimmt bereits mehrere `reihen`. Fehlt
+nur die Auswahl zweier Geräte mit derselben `metric`. Mit zwei
+„von Hand"-Geräten sofort nutzbar.
+
+**Stufe** 0. **Prüfbar ohne Hardware:** zwei Geräte, je drei Werte → zwei
+Linien im Canvas (Pixelprobe), Legende nennt beide Namen.
+
+**Die Falle.** Verschiedene Sensoren → **Trends** vergleichen, nie
+Absolutwerte (Idee 5, dieselbe Sensorabhängigkeit). Nur gleiche Messgrösse;
+Zeitlücken sichtbar lassen, nicht interpolieren.
+
+**Aufwand** klein.
+
+#### 10 · Frostnacht am eigenen Beet, nicht am Gitterpunkt
+
+**Situation.** „Um 21 Uhr sehe ich: Prognose 1,5 °C, mein Balkon-Sensor liegt
+seit einer Stunde 2 K darunter — ich hole die Tomaten rein."
+
+**Daten und Anknüpfung.** `gs_weather_cache` hat `hourly.temperature_2m`;
+der Server-Push bei ≤ 2 °C existiert (`weather-alert-checker`, Kategorie
+`frost`). **Im Kalender fehlt es:** ein `wetter`-Ereignis „Frost möglich, min
+1,2 °C um 05:00 — Open-Meteo" für morgen, **offline aus dem
+Zwischenspeicher**. Mit Gerät (Stufe 1): Regel `air_temp below 2,
+for_minutes 30` plus die Abweichung Sensor − Prognose als Zahl („dein
+Standort liegt 2,3 K unter der Prognose").
+
+**Stufe** 0 (Ereignis) / 1 (Sensor). **Prüfbar ohne Hardware:** gestellter
+Zwischenspeicher mit 1,2 °C um 05:00 morgen → Ereignis im Kalender; ohne
+Stundenwerte → keins.
+
+**Die Falle.** Ein Luftsensor in 1 m Höhe misst nicht die Blattoberfläche;
+Reif entsteht bei +2 °C Luft. **Nie „kein Frost" aus dem eigenen Sensor** —
+nur „Prognose sagt X, dein Sensor sagt Y". Und dieselbe Push-Kategorie
+`frost` benutzen (Dedup je Tag), sonst kommen zwei Frost-Pushes.
+**Vermutung:** in Schweizer Tallagen und auf Balkonen ist die Abweichung oft
+grösser als die Unsicherheit der Prognose — genau das kann nur ein eigener
+Sensor zeigen.
+
+**Aufwand** klein / mittel.
+
+#### 11 · Server-taugliche Identität und Idempotenz — lokal, jetzt
+
+**Nutzen.** Handmessungen von heute kommen in Stufe 1 **ohne Umbenennung** in
+der Cloud an.
+
+**Daten und Anknüpfung.** Lokal: Geräte-Id `ger_<base36>` (Server: `uuid`);
+Felder `wert` / `geraet_id` (Server: `value` / `device_id`); **keine
+Dublettensperre** — `gsMesswertEintragen` hängt an, ohne nachzusehen. Fehlt:
+`crypto.randomUUID()` statt `ger_…`, ein lokales `received_at`, ein
+Dedup-Schlüssel `(geraet_id, metric, ts)` — derselbe wie der Primärschlüssel
+auf dem Server.
+
+**Stufe** 0. **Prüfbar ohne Hardware:** denselben Wert zweimal eintragen → 1
+Datensatz; die zweite Antwort sagt „schon da", nicht „gespeichert".
+
+**Die Falle.** Bestandsdaten mit `ger_`-Ids: **nicht umbenennen**, sondern
+beim ersten Hochladen abbilden (`raw.local_id`). Und der Deckel: seit v32.51
+gehen zuerst die hochgeladenen Werte, dann erst — mit Archiv — die anderen
+(11.3).
+
+**Aufwand** klein.
+
+#### 12 · Export, Import, Löschung — die neuen Schlüssel sind sichtbar
+
+**Nutzen.** revDSG-Auskunft und Gerätewechsel ohne Verlust.
+
+**Daten und Anknüpfung.** `exportUserData()` / `importUserData()` — **seit
+v32.51 mit** `gs_geraete` · `gs_geraete_regeln` · `gs_messwerte`
+(Backup-Version 16; bis v32.50 fehlten sie: die einzige Kopie einer
+Handmessung war das Gerät). Noch offen: der **CSV-Export** (`gsShowExportModal`)
+kennt die Messwerte nicht; und `supabase/functions/delete-user` führt die
+Alt-Tabellen in seiner Liste, **nicht** die fünf neuen — `on delete cascade`
+greift, aber die Liste ist die Doku.
+
+**Stufe** 0. **Prüfbar ohne Hardware:** `sensor_check` „Backup": exportieren
+→ Speicher leeren → einspielen → Feld für Feld gleich; zweimal einspielen →
+kein Doppel; voller Speicher → „nicht gesichert" genannt (**gebaut v32.51**).
+
+**Die Falle.** Die Einheit gehört **in** die CSV-Datei (`ts, metric, value,
+unit, quality, device`) — sonst bedeutet „31.5" nichts mehr, sobald sich der
+Katalog ändert.
+
+**Aufwand** klein.
+
+#### 13 · Urlaub: Giess-Zettel jetzt, Stellvertreter später
+
+**Situation.** „Ich bin zwei Wochen weg, gebe der Nachbarin einen Zettel — und
+sehe bei der Rückkehr, ob das Hochbeet je unter 25 % fiel."
+
+**Daten und Anknüpfung.** Datumsbereich „abwesend" → Pushes pausieren (eine
+Kategorie, Idee 7), Aufgaben nicht als überfällig anmahnen; ein druckbarer
+Zettel aus `gsGetDueTasks` (Pflanze, Ort, Intervall, zuletzt). Die
+Rückkehr-Bilanz aus Messwerten gibt es **nur mit Gerät** — sonst „nicht
+prüfbar". Ein echter Stellvertreter-Zugang braucht Share-Token und RLS;
+`garden_members` **existiert nicht** (nur eine Erwähnung im Changelog v23.74).
+
+**Stufe** 0 (Zettel, Pause) / 2 (Stellvertreter). **Prüfbar ohne Hardware:**
+Abwesenheit gesetzt → `gsGetDueTasks` liefert weiter, die Glocke schweigt,
+der Zettel nennt alle fälligen Pflanzen beider Listen.
+
+**Die Falle.** Was die Nachbarin giesst, steht nicht in der App → `lastDone`
+bleibt alt. Deshalb **pausieren statt fälschen** (KALENDER-V1 §7 Regel 7).
+
+**Aufwand** mittel / gross.
+
+#### 14 · Der Firmware-Vertrag als geteilte Regeldatei
+
+**Nutzen.** Ein Gerät nach drei Tagen Funkloch liefert nach — ohne Dubletten,
+ohne Alarm über die Vergangenheit, und mit einer Uhr, die es nicht hat.
+
+**Daten und Anknüpfung.** `docs/GERAETE-VERTRAG.md` gibt es noch nicht; das
+JSON aus §3.1 ist die einzige Fassung. Drei Ergänzungen, alle aus dem Schema
+ableitbar:
+
+- **Die Uhr.** Primärschlüssel `(device_id, metric, ts)` plus
+  `on conflict do nothing` heisst: ein ESP32 ohne NTP schickt `ts = 1970`, die
+  **erste** Zeile überlebt, alle weiteren werden **lautlos verworfen** —
+  §9 Regel 2 („nie verwerfen"), gebrochen vom eigenen Primärschlüssel. Vertrag:
+  das Gerät sendet `ts` **oder** `age_s` (Alter relativ zum Senden) und eine
+  Laufnummer `seq`; der Server prüft Plausibilität (vor 2024 oder mehr als
+  5 Minuten in der Zukunft → `ts = received_at − age_s`, das Original nach
+  `raw.device_ts`, `raw.clock = 'untrusted'`), und **jede Antwort trägt
+  `server_time`** — ein Arme-Leute-NTP, das für Batteriegeräte genügt.
+- **Batch und Idempotenz.** Bis N Werte je Aufruf; Dubletten fängt der
+  Primärschlüssel; die Antwort nennt `accepted` und `duplicates` **getrennt**
+  (§3.1 kennt heute `accepted` · `rejected` · `commands`) und `next_contact_s` (Idee 16).
+  Rate-Limit **je Aufruf, nicht je Wert** — 300 gepufferte Werte sind ein
+  Aufruf.
+- **Signatur.** Über TLS reicht das Bearer-Token; HMAC mit Nonce scheitert
+  genau an der falschen Uhr. HMAC erst für MQTT oder unverschlüsselte
+  Bridges (Vorbild: `stripe-webhook`, Konstantzeit-Vergleich, 5-Minuten-
+  Fenster).
+
+Und der Alarm-Cron filtert nach `received_at`, nicht `ts` — sonst feuert eine
+Nachlieferung, und `cooldown` verschluckt danach den echten Alarm.
+
+**Stufe** 1. **Prüfbar ohne Hardware — mit einem Kunstgriff:** Deno ist in
+dieser Umgebung **nicht** installiert, die Edge-Function selbst läuft hier
+nicht. Die Regeln (Validierung, Uhr, Qualität, Befehle) gehören deshalb in
+ein ESM-Modul `supabase/functions/_shared/ingest_regeln.js`, das Deno **und**
+`node scripts/ingest_check.js` importieren — je Fall ein guter und ein
+schlechter Batch, wie `planer_check`: Batch mit `ts = 1970` → angenommen,
+`raw.clock = 'untrusted'`; Batch zweimal → `accepted` einmal, `duplicates`
+einmal; nachgelieferte alte Stunde unter der Schwelle → **kein** Alarm.
+`verify_jwt = false` mit eigener Geheimnis-Prüfung hat Vorbilder
+(`key-health-check` dokumentiert es im Kopf, `engagement-push-checker` prüft
+denselben `x-cron-secret`); `fn_check_rate_limit` liegt im Repo
+(`v29_34_rate_limit_wiring_and_orphan_gc.sql`, für `service_role` freigegeben
+in `v29_36`) — der Bericht hatte das umgekehrt behauptet.
+
+**Die Falle.** Replay ist durch den Primärschlüssel harmlos. **Die falsche Uhr
+ist der echte Datenverlust** — und sie fällt nicht auf, weil `do nothing`
+keine Fehlermeldung erzeugt. **Vermutung** (Hardware unbekannt):
+Batteriegeräte ohne RTC senden `ts` relativ oder ab 1970; ob Fernandos erstes
+Gerät eine Uhr hat, ist Frage 11.4.
+
+**Aufwand** mittel.
+
+#### 15 · Geräte-Identität ab Werk und Claim-Code-Pairing
+
+**Nutzen.** Ein verkauftes Gerät hat eine Identität, **bevor** es ein Konto
+hat; das Konto kommt durch einen kurzen Code dazu — nicht durch ein
+32-Byte-Token, das jemand abtippt.
+
+**Daten und Anknüpfung.** §3.2 lässt die **App** das Token erzeugen und ans
+Gerät übergeben — richtig für ein DIY-ESP32, falsch für ein gefertigtes
+Produkt ohne Kamera und ohne Bluetooth auf iOS. Vorschlag: **zwei
+Geheimnisse.** (a) Ein Werksgeheimnis je Gerät im Flash, der Hash serverseitig
+in `device_identities` (`serial`, `model`, `hw_rev`, `secret_hash`,
+`claimed_by`). (b) Beim ersten Kontakt tauscht das Gerät (a) gegen ein
+**rotierbares** Token (`devices.token_hash`, wie heute). QR auf Gerät **und**
+Verpackung: `web+greenscan://pair/<serial>/<claim>` — der Protokoll-Handler
+steht im Manifest (`/?action=%s`), aber **niemand liest `action`**
+(`gsHandleShortcutUrl` kennt nur `screen` und `signup`). Claim nur
+angemeldet; „verbunden" erst nach dem ersten Batch (§3.2 Regel 3 bleibt).
+**Verkauf und Übergabe:** „Gerät freigeben" setzt `user_id = null`, rotiert
+das Token, lässt die Messwerte beim Altbesitzer (revDSG); neuer Claim mit
+demselben Werksgeheimnis. **Fehlt in der Migration:** `serial`, `model`,
+`claim_code`, `token_rotated_at`, `released_at`; `kind` ist ohne CHECK.
+
+**Stufe** 1. **Prüfbar ohne Hardware:** Playwright mit gestelltem `sbFetch`
+(Muster `save_check` SERVER_WEGE): Claim abgelehnt / leer / bestätigt;
+Freigabe → Token-Hash geändert, Messwerte bleiben. Deep-Link-Fall in
+`wiring_check` Richtung 5 (`action` wird gelesen).
+
+**Die Falle.** Steht das Token auf der Verpackung, hat der Ladenmitarbeiter
+den Garten. Steht nur der Claim-Code darauf, muss ein Claim **zusätzlich**
+den Erstkontakt des Geräts verlangen — **Vermutung:** beides zusammen reicht
+gegen Verpackungs-Fotos; ein Sicherheits-Review vor dem Verkauf ist Pflicht.
+
+**Aufwand** mittel–gross.
+
+#### 16 · Stille und Batterie: Vorgaberegeln und der Cron `device-alerts`
+
+**Nutzen.** Batterie leer heisst nicht mehr „dem Garten geht es gut".
+
+**Daten und Anknüpfung.** Vorhanden: `fn_devices_mark_lost()` — definiert,
+**von keinem Cron aufgerufen** (geplant ist nur `device-readings-prune`); die
+`stale`-Regel clientseitig; `notifications(kind, link, dedup_key)` und
+`GS_NOTIF_ZIELE.sensor_alert`. **Fehlt:** der Cron, `notify_sensor` in
+`push_subscriptions` (Muster `notify_frost`), Vorgaberegeln beim Pairing
+(`stale`, `battery below 15`) — und `expected_by = received_at +
+3 · next_contact_s` statt einem festen `interval_s`: ein Gerät, das nachts
+oder bei schwacher Batterie länger schläft, wäre sonst jede Nacht
+„verloren".
+
+**Stufe** 1. **Prüfbar ohne Hardware:** das Frontend mit gestellter Uhr
+(`page.clock`, wie `kalender_check`); die SQL-Seite ist hier nicht fahrbar
+(kein Postgres) — ehrlich als Handgriff für Fernando benannt:
+`select fn_devices_mark_lost();` einmal von Hand.
+
+**Die Falle.** Ein Cron, der `interval_s` liest, während das Gerät nach
+`next_contact_s` schläft, erzeugt Falschalarme — und Falschalarme werden
+abgeschaltet (Idee 7).
+
+**Aufwand** mittel.
+
+#### 17 · Tagesaggregat als Tabelle — sonst gibt es keinen Jahresvergleich
+
+**Nutzen.** „Juli 2027 gegen Juli 2028."
+
+**Der Fund.** `v_device_daily` ist eine **View über `device_readings`**;
+`fn_device_readings_prune` löscht Rohwerte nach 400 Tagen — **das Aggregat
+verschwindet mit.** §2.3 sagte „Tagesaggregate unbegrenzt"; das Schema hält
+es nicht (jetzt in §2.3 vermerkt).
+
+**Daten und Anknüpfung.** Tabelle `device_daily` (`device_id`, `metric`,
+`tag`, `min`, `max`, `avg`, `sum`, `n`, `quality_min`), `on conflict
+(device_id, metric, tag) do update`, vom Cron **vor** dem Prune gefüllt;
+Vorbild `weather_log_per_garden` (UNIQUE `user_id, date`).
+
+**Stufe** 1 (Schema jetzt, in dieselbe Migration). **Prüfbar ohne Hardware:**
+als SQL — zweimal aggregieren ergibt dieselbe Zeile; im Client mit gestellten
+Tagesreihen in „Mein Naturjahr".
+
+**Die Falle.** `n` und `quality_min` je Tag mitführen — ein Mittel aus 2
+Werten ist nicht eines aus 48. Bis zwei Jahre da sind, zeigt die Ansicht
+„ab 2028 vergleichbar", keine leere Kurve.
+
+**Aufwand** klein (SQL) / mittel (Ansicht).
+
+#### 18 · Firmware-Kanal
+
+**Daten und Anknüpfung.** `devices.firmware` ist ein Textfeld; es gibt keine
+`firmware_releases` (`model`, `version`, `channel stable/beta`, `url`,
+`sha256`, `min_from`), keinen Ort für Binaries (nicht ins Git; ein
+Storage-Bucket — `/assets/*` ist `immutable` gecacht) und keine Antwortzeile
+`firmware: {version, url, sha256}` im Ingest. Das Gerät meldet seine Version
+bei jedem Kontakt, der Server schreibt sie — nie umgekehrt.
+
+**Stufe** 2. **Prüfbar ohne Hardware:** das Regel-Modul aus Idee 14 — die
+Antwort enthält ein Update nur bei `version < latest` im Kanal des Geräts.
+
+**Die Falle.** Unsigniertes OTA ist fremder Code im Garten. Die
+Signaturprüfung gehört in die Firmware; der Server liefert nur Hash und
+Signatur.
+
+**Aufwand** mittel.
+
+#### 19 · Der Transport-Entscheid gegen `_headers`
+
+**Daten und Anknüpfung.** `bluetooth` und `serial` fehlen in der
+`Permissions-Policy` → Standard `self`, Web Bluetooth ist **erlaubt**;
+`usb=()` ist gesperrt. Aber: **iOS hat kein Web Bluetooth** (das alte Modal
+verweist selbst auf „Chrome/Edge auf Android oder Desktop"), und die CSP (`connect-src` ohne `http://`-Eintrag,
+`upgrade-insecure-requests`) macht ein SoftAP-Captive-Portal
+(`http://192.168.4.1`) **aus der PWA heraus unmöglich**. Folge: das
+Provisioning geschieht **ausserhalb** der PWA — ein Portal im Browser-Tab,
+oder BLE nur auf Android/Desktop. **Vermutung:** der Improv-Wi-Fi-Standard ist
+der einfachste bewährte Weg für ESP32. Deshalb gehört der Claim-Code (Idee
+15) auf den Server, nicht in den Transport. Eine **MQTT-Bridge nur
+serverseitig** (Broker → `device-ingest`), nie im Browser (`wss://` nur
+`*.supabase.co`).
+
+**Stufe** 2 — der Entscheid ist klein, der Bau gross. **Prüfbar ohne
+Hardware:** `navigator.bluetooth` stellen wie `getUserMedia` in
+`kamera_check`; Fall „iOS → sagt es und zeigt den Portal-Weg".
+
+**Die Falle.** `_headers` gilt auf **beiden** Hostern (CLAUDE.md §2.1); eine
+Freigabe von `usb` oder ein `http://`-Eintrag in `connect-src` braucht eine
+Begründung in der Datei, wie bei `camera=(self)`.
+
+#### 20 · Befehle mit Ablauf und Sicherheitsgrenze
+
+**Daten und Anknüpfung.** `device_commands` hat `attempts`, aber kein
+`expires_at` und keine Idempotenz je Befehl: ein „Ventil auf" von gestern
+darf nicht heute ausgeführt werden. Antwort-`commands` tragen `id` und
+`expires_at`; das Ack nennt dieselbe `id`. Ein Ventil braucht `max_on_s` und
+ein Fail-safe-Zu **in der Firmware**, nicht im Server.
+
+**Stufe** 3. **Prüfbar ohne Hardware:** das Regel-Modul — abgelaufen →
+`failed`, nie gesendet.
+
+**Die Falle.** Wasser läuft, weil ein Befehl im Funkloch hing.
+
+**Aufwand** mittel.
+
+#### 21 · Ein Gerät in den Beispieldaten
+
+**Der Fund.** `scripts/_seed.js` kennt weder `gs_geraete` noch
+`gs_messwerte`. Damit vermisst **jeder** Prüfstand ausser `sensor_check` ein
+leeres Dashboard — `contrast_check` öffnet „Messwerte" über den Öffner und
+misst den Leerzustand, `a11y_check` sieht keine Kachel, `render_check` keinen
+Verlauf. Dieselbe Falle wie v31.46 (leere Pflanzenliste) und v32.46
+(Pflanzen ohne Aufgaben): **falsche Beispieldaten verdecken echte Fehler und
+melden dabei grün.**
+
+**Was zu tun ist.** Ein Gerät `kind:'manual'` mit sieben Tagen
+`soil_moisture` und `air_temp`, eine Regel (verletzt), ein Wert mit
+`quality 1` — im Seed, nicht in den einzelnen Prüfständen. Dazu ein
+Textersatz für den Canvas: `role="img"` und `aria-label` sind da, aber das
+Label nennt nur „Verlauf Bodenfeuchte · Gerät", nicht Minimum, Maximum und
+letzten Wert — für einen Screenreader ist das Diagramm damit ein Bild ohne
+Inhalt.
+
+**Stufe** 0. **Prüfbar:** die Zahl der vermessenen Elemente im Fenster
+„Messwerte" steigt (die Bezugsgrösse, CLAUDE.md §7.1 zu v32.21). **Aufwand**
+klein.
+
+#### 22 · Katalog-Labels in vier Sprachen
+
+**Der Fund.** `metric_catalog` hat `label_de` · `label_fr` · `label_en` (und
+Platz für `label_it`); die App liest an 24 Stellen **nur `label_de`**. Und
+weil der Katalog eine Datenliste ist, sieht `i18n_check` ihn nicht — dieselbe
+Antwort wie bei `MENU_ITEMS` und den Tour-Karten: **Datenlisten werden dort
+ausdrücklich eingetragen.**
+
+**Was zu tun ist.** `_gsMetricLabel(k)` liest `label_<lang>` mit Rückfall
+auf Deutsch (eine Funktion, kein `if` je Sprache), und `i18n_check` bekommt
+den Katalog in seine Liste. Das Gleiche für die Gerätearten
+(`GS_GERAET_ARTEN.label`).
+
+**Stufe** 0. **Prüfbar:** `i18n_check` mit untergeschobenem Sprachpaket →
+die Kachel zeigt das französische Label; ohne → das deutsche, nie den
+Schlüssel. **Aufwand** klein.
+
+#### 23 · Kalibrierung als Daten
+
+**Der Fund.** Die alte Schicht kannte je Sensor eine „Kalibration"
+(Release-Notiz v23.5x), und die App hat für Licht eine Mehrpunkt-Kalibrierung
+(v24.x, `Lichtmessung 2.0`). Das neue Schema hat **nichts** davon — kein
+Offset, kein Faktor, kein Datum. Ein kapazitiver Feuchtesensor liefert aber
+Rohwerte, die erst mit „trocken = 3200, nass = 1400" zu Prozent werden — und
+diese zwei Zahlen sind je Gerät verschieden (Idee 5).
+
+**Was zu tun ist.** `devices.capabilities.calibration[metric] = {offset,
+scale, at}` — im Client angewandt **beim Anzeigen**, nie beim Speichern
+(§9 Regel 2: der Rohwert bleibt; `raw` trägt ihn ohnehin). Zwei-Punkt-Assistent
+im Dashboard („Sensor in Wasser halten — jetzt in trockene Erde"). Drift wird
+sichtbar, wenn der Rohwert eines Geräts über Wochen aus dem kalibrierten
+Bereich wandert — eine Regel wie jede andere (`op:'below'` auf den Rohwert).
+
+**Stufe** 1 (Schema in dieselbe Migration, Anzeige jetzt). **Prüfbar ohne
+Hardware:** ein Gerät mit `scale 0.5` → die Kachel zeigt die Hälfte, der
+gespeicherte Wert bleibt. **Aufwand** klein–mittel.
+
+#### 24 · Der Planer rechnet mit gemessenem Regen
+
+**Der Fund.** `_gsPlanWasser` (Planer V3, Wasserbilanz über 14 Tage) liest
+`_gsPP.weather` — die **Prognose**. Mit Idee 3 gibt es gemessenen Regen als
+`rain`-Werte des Wetter-Geräts und mit einem Bodenstab die Feuchte selbst.
+
+**Was zu tun ist.** Die Bilanz nimmt für die Vergangenheit die Messung, für
+die Zukunft die Prognose — und **sagt es** („7 mm gemessen, 12 mm
+angekündigt"). Mit Bodenfeuchte wird aus der Bilanz eine Beobachtung: „das
+Beet war nie unter 30 %, die Bilanz hat recht".
+
+**Stufe** 0 (Regen aus dem Zwischenspeicher) / 1 (Feuchte). **Prüfbar:**
+`planer_check` mit gestellten `rain`-Werten → die Anzeige nennt beide
+Zahlen mit Quelle. **Aufwand** mittel.
+
+#### 25 · Vom Scan zum Gerät
+
+**Der Fund.** `gsTwinAdopt` übernimmt gescannte Pflanzen in `myPlants` mit
+vollem Aufgabenplan; `devices.plant_id` verknüpft ein Gerät mit einer
+Pflanze. Zwischen beiden gibt es keinen Weg: wer eine Pflanze scannt und
+einen Bodenstab daneben steckt, verknüpft sie von Hand im Dashboard.
+
+**Was zu tun ist.** Beim Übernehmen (und in der Pflanzenkarte) ein Angebot
+„Gerät zuordnen" mit der Liste der Geräte **ohne** `plant_id` im selben
+Garten; Idee 5 liefert im selben Schritt die Schwellen-Vorlage, wenn die
+Art eine trägt.
+
+**Stufe** 1 (braucht ein Gerät, das nicht die Person ist). **Prüfbar ohne
+Hardware:** Übernahme mit einem `manual`-Gerät ohne Pflanze → das Angebot
+erscheint; mit zugeordnetem Gerät → nicht. **Aufwand** klein.
+
+### 11.2 · Regeln, die aus den Ideen folgen (Fortsetzung von §9)
+
+11. **Messen ist kein Erledigen.** Kein Messwert setzt `lastDone`; ein Sensor
+    liefert eine Aussage mit drei Zuständen und einer Zahl.
+12. **Eine Vorhersage ist kein Messwert.** Zukunftsstunden werden nie
+    eingetragen; modellierte Werte tragen ihre Quelle in `raw.source`.
+13. **Der Deckel darf nur wegwerfen, wovon es eine Kopie gibt.** Hochgeladene
+    Werte zuerst; der Rest nur mit Archiv und Hinweis (v32.51).
+14. **Eine Uhr, die niemand prüft, ist geraten.** Gerätezeit und Serverzeit
+    beide speichern (§9 Regel 8) — und ein Primärschlüssel darf die Regel
+    „nie verwerfen" nicht unterlaufen.
+15. **Nie eine globale Feuchte-Schwelle.** Prozentwerte sind sensorabhängig;
+    Schwellen kommen aus den Artendaten (Licht, Bodentemperatur, pH) oder aus
+    den eigenen Sprüngen.
+16. **Mehrere Geräte am selben Ort: nicht mitteln.** Das vorsichtigste
+    Gerät entscheidet und wird genannt (`_gsVorsichtigste`).
+17. **Eine Meldung je Kategorie und Tag** — lokal wie auf dem Server. Was
+    öfter kommt, wird abgeschaltet, und Abgeschaltetes ist Stille.
+18. **Ein Feld, das niemand liest, ist keine Vorbereitung.**
+    `device_rules.action`, `gs_metric_catalog`, der `action`-Parameter des
+    Protokoll-Handlers, `opts.brain` — vier Stellen, die etwas versprachen.
+    Jede neue Vorbereitung braucht den Leser **im selben Commit** oder einen
+    Prüfstand-Fall, der ihn anmahnt.
+
+### 11.3 · Was v32.51 davon schon getan hat
+
+| Reparatur | Idee | Prüfstand |
+|---|---|---|
+| Der Regen-Hinweis aus v31.84 erschien für **keine** Pflanze: `gsPflanzeDraussen` las `p.location`, ein Feld, das nie jemand schreibt. Jetzt beantwortet die Gartenart die Frage (`GS_GARTEN_ARTEN.unter_glas`) | 3, 4 | `kalender_check` „Ernte und Regen": mit 8 mm im Zwischenspeicher trägt die Zucchini (Balkon) den Hinweis, das Basilikum (Küchenfenster) nicht, der Tagesplan zeigt „8 mm Regen heute" |
+| `GS_NOTIF_ZIELE.sensor_alert` stand zweimal im Objekt | 16 | `wiring_check` |
+| Das Backup nimmt `gs_geraete` · `gs_geraete_regeln` · `gs_messwerte` mit (Version 16) und sagt bei vollem Speicher, was nicht gesichert wurde | 12 | `sensor_check` „Backup" |
+| Der Deckel der Messwerte wirft zuerst weg, was hochgeladen ist | 11 | `sensor_check` „Deckel": 2'011 → 2'000, alle zehn ältesten Handmessungen ohne Kopie bleiben |
+
+Gegenprobe je Reparatur: zurückgebaut → der Fall rot, mit den echten Zahlen
+(„der Eintrag trägt null", „noch 0 da", „im Backup fehlen: geraete,
+geraeteRegeln, messwerte").
+
+### 11.4 · Fragen an Fernando (Ergänzung zu §10)
+
+- **Hat das erste Gerät eine Uhr** (RTC oder NTP)? Davon hängt ab, ob
+  `age_s` + `seq` im Vertrag Pflicht werden (Idee 14).
+- **Was steht auf der Verpackung** — Seriennummer, Claim-Code, beides? Und
+  gibt es einen QR-Code auf dem Gerät selbst (Idee 15)?
+- **Die Alt-Tabellen** `sensor_devices` / `sensor_readings` / `sensor_alerts`
+  und der Flower-Care-Weg: gibt es Nutzer, die sie brauchen? Sonst
+  umleiten und einfrieren (Idee 1). Bitte einmal `select count(*)` je Tabelle.
+- **Welche Gerätetypen zuerst** — Bodenstab, Wetterstation, Ventil? Der
+  Modell-Katalog (Idee 2) beginnt mit dem ersten.
+- **Provisioning:** SoftAP-Portal im Browser-Tab, BLE (nur Android/Desktop),
+  oder Werks-WLAN-Konfiguration über eine Begleit-App? Die PWA kann das erste
+  nicht aus sich heraus (Idee 19).

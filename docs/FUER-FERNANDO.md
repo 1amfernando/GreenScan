@@ -277,6 +277,24 @@ Migration legt fünf Tabellen und zwei Sichten an (`metric_catalog`,
 Messwerte. Sobald sie drin ist, sage ich dir, was als Nächstes kommt
 (Stufe 1: der Empfänger für echte Geräte, `docs/OEKOSYSTEM-V1.md` §8).
 
+**Nachtrag 04.09.2026 — fünf Fragen, bevor Stufe 1 gebaut wird**
+(`docs/OEKOSYSTEM-V1.md` §11.4, alle mit Begründung dort):
+
+1. Hat das erste Gerät eine **Uhr** (RTC oder NTP)?
+2. Was steht auf der **Verpackung** — Seriennummer, Claim-Code, beides?
+3. Die **Alt-Tabellen** `sensor_devices` / `sensor_readings` /
+   `sensor_alerts` und der Flower-Care-Weg: braucht die noch jemand? Einmal
+   `select count(*)` je Tabelle im Supabase-Dashboard genügt mir.
+4. Welcher **Gerätetyp** kommt zuerst — Bodenstab, Wetterstation, Ventil?
+5. Wie kommt das Gerät ins **WLAN** — Portal im Browser-Tab, Bluetooth (nur
+   Android/Desktop), Begleit-App? Die PWA kann das erste nicht selbst.
+
+Und eine Sache, die ich **nicht** angefasst habe, weil sie eine Entscheidung
+ist: der alte ESP32-Assistent („📶 Sensoren & Geräte") lässt Nutzer ihr
+**Sitzungs-Token** in die Firmware kopieren. Das ist Vollzugriff aufs Konto
+auf einem Chip, und es läuft nach einer Stunde ab. Idee 1 in §11 schlägt
+vor, ihn auf „Messwerte" umzuleiten — sag Ja, dann mache ich es.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

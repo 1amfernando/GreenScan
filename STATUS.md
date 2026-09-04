@@ -4,13 +4,60 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.50` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.51` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-04 (en) — v32.51: Ideen für die Sensoren (§11), vier Stufe-0-Reparaturen
+
+Fernandos Auftrag „Bringe Ideen die auch mit den zukünftigen Sensoren eine
+Rolle spielen könnte […] Nichts darf fehlen" — beantwortet in
+`docs/OEKOSYSTEM-V1.md` **§11**: 25 Ideen, jede mit Nutzen · Daten und
+Anknüpfung im Repo · Stufe · prüfbar ohne Hardware · Falle · Aufwand;
+Vermutungen als solche markiert. Drei Berichte aus drei Blickwinkeln
+(Hardware/Anbindung · Alltag · Daten/Modell), danach **35 Behauptungen
+einzeln nachgeprüft** — 30 bestätigt, 4 präzisiert, 1 widerlegt. Ehrlich
+dazu: die Prüfer-Flotte (39 Agenten) fiel nach zwei Urteilen am
+Monatslimit der Organisation aus; 33 Behauptungen von Hand nachgezählt, die
+drei Diff-Gegenleser und der Lücken-Prüfer liefen nicht (Lücken selbst
+gesucht: Ideen 21–25). Drei Dinge bleiben ungeprüft, weil sie die lebende
+Datenbank brauchen (in §11 benannt).
+
+**Der wichtigste Befund korrigiert den Entwurf selbst:** §1 sagte
+„Tabellen für Geräte: keine" — live existieren `sensor_devices` ·
+`sensor_readings` · `sensor_alerts`, dazu eine BLE-Schicht und ein
+ESP32-Assistent, der das **Sitzungs-Token** in die Firmware kopieren lässt.
+Zwei Geräteschichten sind „zwei Speicher für dieselbe Frage"; Idee 1 ist
+deshalb die Voraussetzung, kein Wunsch. Weitere Korrekturen: §2.3
+(„Tagesaggregate unbegrenzt" hält das Schema nicht — die View stirbt mit
+dem Prune), CLAUDE.md §3.4 (`opts.brain` injiziert **keine** Persona, nur
+ein Log-Label).
+
+**v32.51 — vier Reparaturen, die schon Stufe 0 sind:**
+
+- **Der Regen-Draht aus v31.84 war tot.** `gsPflanzeDraussen` las
+  `p.location` — ein Feld, das keine Speicherstelle schreibt. Der Hinweis
+  „Regen heute — Giessen kann warten" erschien in 66 Versionen für keine
+  Pflanze; `kalender_check` kannte nur „ohne Wetter kein Hinweis". Jetzt
+  beantwortet die Gartenart die Frage (`GS_GARTEN_ARTEN.unter_glas`), und
+  der Fall stellt 8 mm her: Zucchini (Balkon) ja, Basilikum (Küchenfenster)
+  nein, Tagesplan zeigt „8 mm Regen heute".
+- **Das Backup kannte die Messwerte nicht** (`gs_geraete` ·
+  `gs_geraete_regeln` · `gs_messwerte`). Version 16; `_gsBackupDaten()` /
+  `_gsBackupEinspielen()` als prüfbare Funktionen; bei vollem Speicher sagt
+  das Einspielen, was nicht gesichert wurde, und lädt nicht neu.
+- **Der Deckel der Messwerte nahm blind die ältesten** — in Stufe 0 also
+  Handmessungen ohne Kopie. `_gsMesswerteDeckel`: hochgeladene zuerst, dann
+  der alte Deckel mit Archiv.
+- `GS_NOTIF_ZIELE.sensor_alert` stand zweimal im Objekt.
+
+`sensor_check` 10 Fälle, `kalender_check` 15 (Regen-Fall erweitert). Drei
+Gegenproben, alle rot mit den echten Zahlen. Regression: 16 Prüfstände
+grün, Layout-Vergleich 0 Änderungen, Kontrast 0/0.
 
 ### 2026-09-04 (em) — v32.50: drei Aussagen widerlegt, drei behoben
 
@@ -8675,7 +8722,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.50` (Client) · SW-Cache `gs-v32.50` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.51` (Client) · SW-Cache `gs-v32.51` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
