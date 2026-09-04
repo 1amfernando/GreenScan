@@ -167,12 +167,13 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 
 ---
 
-### Seit dem 03.09.2026 (v32.43 – v32.46)
+### Seit dem 03.09.2026 (v32.43 – v32.49)
 
 - **Scanner-Zuordnung**: Binomen vor deutschem Namen (1'194 von 4'311 Einträgen landeten auf einer anderen Art → 0); bei Dubletten gewinnt die vorsichtigere Angabe, Unterarten und Einlese-Rümpfe entscheiden nicht mit (`scan_check` 55 Fälle).
 - **Voller Speicher**: alle 13 Rettungswege am Rückgabewert, `speicher_check` (Prüfstand 22).
-- **Kalender V1 Stufe 1** (`docs/KALENDER-V1.md`): eine Ereignis-Schicht für Aufgaben, Tagebuch, Pflanzungen; Verschieben fälscht nichts mehr; beide Tagebücher zusammen gelesen; `kalender_check` (Prüfstand 23). **Stufe 2 offen:** Aufgaben für Garten-Pflanzungen, Aussaat-/Erntefenster, Regen.
+- **Kalender V1 Stufen 1+2** (`docs/KALENDER-V1.md`, v32.46–v32.47): eine Ereignis-Schicht für Aufgaben, Tagebuch, Pflanzungen, Ernte-Schätzung, Regen, Erinnerungen; Verschieben fälscht nichts mehr; Garten-Pflanzungen haben Pflege; `kalender_check` (13 Fälle). **Stufe 3** kommt mit den Sensoren (`messung`/`alarm`).
 - **Ökosystem V1 Stufe 0** (`docs/OEKOSYSTEM-V1.md`): Schema im Repo (nicht angewandt), Messwerte von Hand, Dashboard mit Verlauf und Regeln, Kalender-Anschluss, `sensor_check` (Prüfstand 24, test-first). **Stufe 1 offen:** `device-ingest`, Token-Pairing, Cron, Push — braucht ein Gerät.
+- **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 
 ## 🔥 P0 — Blocker
 

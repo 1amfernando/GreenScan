@@ -539,7 +539,7 @@ node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor e
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
 
-Sechzehn der einundzwanzig JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+Siebzehn der zweiundzwanzig JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
 Quelltext und braucht keine.
 
