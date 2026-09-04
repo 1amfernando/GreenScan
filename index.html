@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.49.20260904">
+<meta name="app-version" content="32.50.20260904">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1234,6 +1234,7 @@ details > summary::marker { content: ''; }
 #gs-task-note:active{transform:rotate(-1.5deg) scale(.94);}
 /* v32.49: Platz fuer den Zettel — nur solange er da ist (gsRenderTaskNote setzt die Klasse) */
 body.gs-zettel-da #screen-favs .plant-card-head{padding-right:56px;}
+body.gs-zettel-da #screen-favs .due-card{padding-right:44px;}   /* v32.50: bei 3 und 8 faelligen Aufgaben lag der Zettel auf den ⏰-Knoepfen der Faellig-Liste (19–40 % verdeckt). 44 px, nicht 56 wie am Kartenkopf: der Zettel beginnt bei x=367, der Knopf endet dann bei 352 — und die Aufgabenzeile behaelt 12 px mehr Text */
 #gs-task-note.gs-note-open{box-shadow:var(--elev-1);}
 body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color:#f5e6a8;}
 .gs-task-note-clip{width:22px;height:5px;border-radius:var(--r-xs);background:rgba(0,0,0,.14);margin-bottom:2px;}
@@ -9899,34 +9900,57 @@ function gsSnoozeTask(plantId, taskKey, days) {
 window.gsSnoozeTask = gsSnoozeTask;
 
 // Alle fälligen auf einmal erledigen
+// v32.50 — zwei Befunde der gegnerischen Pruefung (04.09.), beide bestaetigt:
+//  (1) Der Knopf FRAGTE NICHT. Die Doku behauptete seit v30.76 eine Rueckfrage,
+//      die es nie gab — und er schreibt in jedes Tagebuch, das er trifft,
+//      „gegossen", auch wenn drei von fuenf Pflanzen trocken blieben.
+//  (2) Er lief nur ueber myPlants: nach dem Tipp stand Zucchini:water
+//      (Garten-Pflanzung) weiter faellig — und die Kopfzahl „heute faellig"
+//      zaehlte sie mit. Die Faelligkeit kommt jetzt aus gsGetDueTasks
+//      (docs/KALENDER-V1.md: EINE Rechnung), nicht aus einer eigenen Schleife.
 function gsDoneAllDue() {
   gsHaptic('medium');
-  var count = 0;
-  var nowIso = new Date().toISOString();
-  myPlants.forEach(function(p) {
-    if (!p.tasks) return;
-    Object.keys(p.tasks).forEach(function(k) {
-      var t = p.tasks[k];
-      if (t && t.active && getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil) <= 0) {
-        t.lastDone = nowIso; delete t.snoozedUntil;
-        try { if (typeof gsRpcTaskDone === 'function') gsRpcTaskDone(p.id, k); } catch(_){} // v30.76: Server-Sync (sonst Re-Push erledigter Tasks)
-        count++;
-        // v26.51: Done-Verlauf persistent (Bulk)
-        try {
-          var defB = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[k]) ? TASK_DEFS[k] : {icon:'', name:k};
-          if (!Array.isArray(p.diary)) p.diary = [];
-          p.diary.unshift({ ts: nowIso, action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k) + ' (Bulk)', source: 'done_all_due' });
-          p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
-        } catch(_){}
-      }
-    });
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  var faellig = ((typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : []).filter(function(x){ return x && x.plant && x.days <= 0; });
+  if (!faellig.length) { showProfileToast(_t('tasks_none_due','Nichts fällig — nichts zu erledigen.'), 'info'); return; }
+  var namen = faellig.slice(0, 6).map(function(x){ return (x.plant.emoji || '🌿') + ' ' + (x.plant.name || '?') + ' · ' + ((x.def && x.def.name) || x.key); });
+  if (faellig.length > 6) namen.push('… +' + (faellig.length - 6));
+  var body = faellig.length + ' ' + (faellig.length === 1 ? _t('task_unit_one','Aufgabe') : _t('task_unit_many','Aufgaben')) + ':\n' + namen.join('\n') + '\n\n' + _t('tasks_done_all_body','Jede davon steht danach als heute erledigt im Tagebuch — bestätige nur, was du wirklich gemacht hast.');
+  var frage = (typeof gsConfirmModal === 'function')
+    ? gsConfirmModal({ title: _t('tasks_done_all_title','Alle als erledigt eintragen?'), message: body, ok: _t('btn_done_all','Alle erledigt'), cancel: _t('btn_cancel_generic','Abbrechen') })
+    : Promise.resolve(window.confirm(_t('tasks_done_all_title','Alle als erledigt eintragen?')));
+  Promise.resolve(frage).then(function(ja){ if (ja) _gsDoneAllDueAusfuehren(faellig); }).catch(function(){});
+}
+window.gsDoneAllDue = gsDoneAllDue;
+
+function _gsDoneAllDueAusfuehren(faellig) {
+  var count = 0, nowIso = new Date().toISOString(), listen = {};
+  faellig.forEach(function(x) {
+    var p = x.plant, k = x.key, t = p && p.tasks && p.tasks[k];
+    if (!t) return;
+    t.lastDone = nowIso; delete t.snoozedUntil;
+    try { if (typeof gsRpcTaskDone === 'function') gsRpcTaskDone(p.id, k); } catch(_){} // v30.76: Server-Sync (sonst Re-Push erledigter Tasks)
+    try { if (typeof gsMarkPlantReminderRead === 'function') gsMarkPlantReminderRead(p.id, k); } catch(_){}
+    count++;
+    // v26.51: Done-Verlauf persistent (Bulk)
+    try {
+      var defB = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[k]) ? TASK_DEFS[k] : {icon:'', name:k};
+      if (!Array.isArray(p.diary)) p.diary = [];
+      p.diary.unshift({ ts: nowIso, action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k) + ' (Bulk)', source: 'done_all_due' });
+      p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
+    } catch(_){}
+    // Zugehoerigkeit ueber die REFERENZ, nicht ueber die Id — zwei Listen, zwei Speicherwege
+    listen[(Array.isArray(myPlants) && myPlants.indexOf(p) >= 0) ? 'myPlants' : 'plantings'] = true;
   });
-  if (count > 0) {
-    savePlantsToStorage();
-    try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){}
-    showProfileToast(count + ' Aufgabe' + (count>1?'n':'') + ' als erledigt markiert! 🎉', 'success');
-    setTimeout(renderMyPlants, 300);
-  }
+  if (!count) return;
+  if (listen.myPlants) savePlantsToStorage();
+  if (listen.plantings) { try { saveGardenData(); } catch(_){} }
+  try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){}
+  showProfileToast(count + ' Aufgabe' + (count>1?'n':'') + ' als erledigt markiert! 🎉', 'success');
+  try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
+  try { if (typeof gsRenderTaskNote === 'function') gsRenderTaskNote(); } catch(_){}
+  try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch(_){}
+  setTimeout(renderMyPlants, 300);
 }
 
 // Alle fälligen zeigen (Scroll)
@@ -14546,6 +14570,17 @@ window.GS_I18N_JS_STRINGS = {
   'task_never_done':           'Noch nie erledigt',
   'mp_notif_enable':           '🔔 Erinnerungen aktivieren — nie eine Pflege vergessen',
   'mp_empty_title':            'Noch keine Pflanzen',
+  // v32.50: Leerzustand des 🏠-Reiters, wenn es nur Garten-Pflanzungen gibt
+  'mp_empty_indoor_title':     'Keine Zimmerpflanzen',
+  'mp_empty_indoor_sub':       'Deine Pflanzen stehen im Garten — im Reiter 🌳 findest du sie mit ihren Aufgaben.',
+  'btn_to_garden_plants':      'Zum Garten',
+  // v32.50: Rueckfrage von „Alle erledigt ✓"
+  'tasks_none_due':            'Nichts fällig — nichts zu erledigen.',
+  'task_unit_one':             'Aufgabe',
+  'task_unit_many':            'Aufgaben',
+  'tasks_done_all_title':      'Alle als erledigt eintragen?',
+  'tasks_done_all_body':       'Jede davon steht danach als heute erledigt im Tagebuch — bestätige nur, was du wirklich gemacht hast.',
+  'btn_done_all':              'Alle erledigt',
   'mp_empty_sub':              'Füge deine erste Pflanze hinzu — am einfachsten per Foto-Scan. Wir merken uns Bestimmung, Foto und Pflege.',
   'btn_scan_plant':            'Pflanze scannen',
   'badge_recommended':         'empfohlen',
@@ -35203,7 +35238,10 @@ function renderMyPlants() {
   var totalEl = document.getElementById('plants-stat-total');
   var dueEl   = document.getElementById('plants-due-count');
   var okEl    = document.getElementById('plants-ok-count');
-  if (totalEl) totalEl.querySelector('div').textContent = myPlants.length;
+  // v32.50: die Summe zaehlt BEIDE Listen — faellig/versorgt taten es seit v32.47,
+  // die Summe nicht: „3 · 4 · 1" (gegnerische Pruefung 04.09.). Die Reiter-Zahlen
+  // (🏠 3 · 🌳 1) bleiben getrennt; hier steht, was sie zusammen ergeben.
+  if (totalEl) totalEl.querySelector('div').textContent = _alleMitAufgaben.length;
   if (dueEl) dueEl.textContent = allDue.length;
   if (okEl) okEl.textContent = okCount;
   // v26.90: Sub-Tab-Badge-Counts mitziehen
@@ -35242,7 +35280,7 @@ function renderMyPlants() {
           '<button class="due-card-btn" title="' + _t('btn_snooze','Verschieben') + '" onclick="event.stopPropagation();gsSnoozeTask(\''+p.id+'\',\''+k+'\',1)" style="background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:7px 9px;">⏰</button>' +
         '</div>';
       }).join('');
-    } else if (myPlants.length > 0) {
+    } else if (_alleMitAufgaben.length > 0) {   // v32.50: auch bei nur Garten-Pflanzungen
       // v30.76: schöner "alles erledigt"-Zustand statt die Sektion ganz auszublenden
       var heading2 = document.getElementById('plants-due-heading');
       if (heading2) heading2.textContent = '📋 ' + _t('tasks_heading','Aufgaben');
@@ -35274,6 +35312,22 @@ function renderMyPlants() {
   }
 
   if (!myPlants.length) {
+    // v32.50: „Noch keine Pflanzen" war falsch, sobald Garten-Pflanzungen
+    // existieren — die Kopfzahl daneben sagte 1, der Text sagte keine
+    // (gegnerische Pruefung 04.09.). Dieser Reiter zeigt die Zimmerpflanzen;
+    // der Leerzustand sagt jetzt, WO die Pflanzen stehen, und fuehrt hin.
+    var _nPl = 0; try { if (typeof plantings !== 'undefined' && Array.isArray(plantings)) _nPl = plantings.length; } catch(_){}
+    if (_nPl > 0) {
+      list.innerHTML = '<div class="gs-empty" style="padding:28px 20px;">' +
+        '<div class="gs-empty-icon" style="font-size:54px;">🌳</div>' +
+        '<div class="gs-empty-title" style="font-size:var(--fs-xl);font-weight:900;margin-bottom:6px;">' + _t('mp_empty_indoor_title','Keine Zimmerpflanzen') + '</div>' +
+        '<div class="gs-empty-sub" style="font-size:var(--fs-md);line-height:1.5;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">' + _t('mp_empty_indoor_sub','Deine Pflanzen stehen im Garten — im Reiter 🌳 findest du sie mit ihren Aufgaben.') + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto;">' +
+          '<button onclick="if(typeof gsFavsSwitchSub===\'function\')gsFavsSwitchSub(\'outdoor\',document.getElementById(\'favs-sub-outdoor\'));" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:linear-gradient(135deg,#1f6b2f,#1a6a1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);"><span style="font-size:var(--fs-2xl);">🌳</span> ' + _t('btn_to_garden_plants','Zum Garten') + ' (' + _nPl + ')</button>' +
+          '<button onclick="openAddPlant()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:700;cursor:pointer;font-family:inherit;"><span style="font-size:var(--fs-2xl);">✍️</span> ' + _t('btn_add_manual','Manuell hinzufügen') + '</button>' +
+        '</div></div>';
+      return;
+    }
     // v26.86: Empty-State mit zwei Wegen — Scannen (empfohlen, schnell) oder Manuell.
     // Klarer Senior-Friendly-Text + grössere Buttons (Min-Touch 48px).
     list.innerHTML = '<div class="gs-empty" style="padding:32px 20px;">' +
@@ -73478,6 +73532,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.50', date: '04.09.2026',
+    headline: '✅ „Alle erledigt" fragt jetzt — und zählt den Garten mit',
+    summary: 'Drei Aussagen der Bestandsaufnahme „Meine Pflanzen" hielten der gegnerischen Prüfung nicht stand, alle drei sind behoben: Der Knopf „Alle erledigt ✓" schrieb ohne Rückfrage „gegossen" in jedes Tagebuch und lief nur über die Zimmerpflanzen — Garten-Pflanzungen blieben fällig. Er fragt jetzt zuerst, nennt die Aufgaben und erledigt in beiden Listen. Die Kopfzahl „Pflanzen" zählte nur die Zimmerpflanzen, während „fällig" und „versorgt" beide Listen zählten; ohne Zimmerpflanzen stand „Noch keine Pflanzen" neben einer Kopfzahl 1. Und der Notizzettel lag bei drei und acht fälligen Aufgaben auf den Verschieben-Knöpfen der Aufgabenliste.',
+    user_summary: '✅ „Alle erledigt" fragt jetzt nach und erledigt auch die Garten-Pflanzen. Die Zahlen oben auf „Meine Pflanzen" zählen alle Pflanzen, und der Notizzettel verdeckt keinen Knopf mehr.',
+    user_items: [
+      {emoji:'✅', bold:'Alle erledigt ✓:', text:' Der Knopf zeigt zuerst, welche Aufgaben er einträgt, und wartet auf dein Ja — damit im Tagebuch nur steht, was du wirklich gemacht hast. Und er erledigt jetzt auch die Aufgaben deiner Garten-Pflanzen.'},
+      {emoji:'🔢', bold:'Kopfzahlen:', text:' „Pflanzen" zählt Zimmer- und Gartenpflanzen zusammen — wie „fällig" und „gut versorgt" es schon taten. Hast du nur Gartenpflanzen, sagt der Reiter 🏠 jetzt, wo sie stehen, statt „Noch keine Pflanzen".'},
+      {emoji:'📋', bold:'Notizzettel:', text:' Er lag bei mehreren fälligen Aufgaben auf den ⏰-Knöpfen der Aufgabenliste. Die Liste lässt ihm jetzt Platz, wie die Pflanzenkarten.'},
+    ],
+  },
+  {
     v: 'v32.49', date: '04.09.2026',
     headline: '\ud83d\udcd3 Das dritte Tagebuch kommt in die gemeinsame Sicht \u2014 und der Notizzettel l\u00e4sst den Karten Platz',
     summary: 'Das Cloud-Formular (Typwahl, Foto, Erntemenge) schrieb nur in die Datenbank; lokal wusste niemand davon. Jetzt spiegelt die App die 500 neuesten Cloud-Eintr\u00e4ge (beim \u00d6ffnen und beim Start), zeigt sie im Gartentagebuch und im Kalender, ordnet sie \u00fcber den lateinischen Namen der eigenen Pflanze zu und l\u00f6scht sie nur bei best\u00e4tigter L\u00f6schung aus dem Spiegel. Ohne Netz bleibt der letzte Stand. Dazu: der Aufgaben-Notizzettel verdeckte bei ein bis drei f\u00e4lligen Aufgaben den Pfeil der ersten Pflanzenkarte \u2014 die Karten lassen ihm jetzt Platz, solange er da ist.',
@@ -74218,7 +74283,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.49';
+var GS_VERSION = 'v32.50';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

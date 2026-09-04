@@ -270,9 +270,91 @@ const FAELLE = [
     },
   },
   {
+    // v32.50 (gegnerische Pruefung 04.09.): „Drei Kopfzahlen … aus denselben Daten"
+    // stimmte nicht — total = myPlants.length, faellig/versorgt ueber beide Listen:
+    // „3 · 4 · 1". Und mit myPlants = [] und einer Pflanzung: „0 · 1 · 0", darunter
+    // „Noch keine Pflanzen".
+    name: 'Kopfzahlen · alle drei zählen dieselben Listen, und ohne Zimmerpflanzen sagt der Reiter, wo die Pflanzen stehen',
+    lauf: () => {
+      try { switchTab('favs'); } catch (_) {}
+      const sichern = myPlants;
+      const pl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings : [];
+      const z = pl.find(x => x && x.id === 'plant_seed_1');
+      if (!z) return { ok: false, warum: 'Probe-Pflanzung plant_seed_1 fehlt' };
+      const zVorher = (z.tasks && z.tasks.water) ? z.tasks.water.lastDone : null;
+      const lesen = () => ({ total: +document.querySelector('#plants-stat-total div').textContent, due: +document.getElementById('plants-due-count').textContent, ok: +document.getElementById('plants-ok-count').textContent });
+      try {
+        renderMyPlants();
+        const a = lesen();
+        if (a.total !== myPlants.length + pl.length) return { ok: false, warum: 'Kopfzahl „Pflanzen" = ' + a.total + ', es sind ' + myPlants.length + ' + ' + pl.length + ' — „fällig" und „versorgt" zählen beide Listen, die Summe nur eine' };
+        const mitAufgaben = new Set(gsGetDueTasks().map(t => t.plant.id)).size;
+        if (a.ok + mitAufgaben !== a.total) return { ok: false, warum: '„gut versorgt" ' + a.ok + ' + Pflanzen mit Aufgaben ' + mitAufgaben + ' ≠ „Pflanzen" ' + a.total + ' — nicht aus denselben Daten' };
+        // Ohne Zimmerpflanzen, mit einer faelligen Garten-Pflanzung
+        if (!z.tasks || !z.tasks.water) return { ok: false, warum: 'die Pflanzung hat keine Giess-Aufgabe (Nachruestung fehlt)' };
+        myPlants = [];
+        z.tasks.water.lastDone = new Date(Date.now() - 30 * 86400000).toISOString(); delete z.tasks.water.snoozedUntil;
+        renderMyPlants();
+        const b = lesen();
+        const txt = (document.getElementById('mp-list') || {}).textContent || '';
+        if (b.total !== pl.length) return { ok: false, warum: 'ohne Zimmerpflanzen: Kopfzahl ' + b.total + ' statt ' + pl.length };
+        if (/Noch keine Pflanzen/.test(txt)) return { ok: false, warum: 'ohne Zimmerpflanzen, mit ' + pl.length + ' Pflanzung: „Noch keine Pflanzen" — daneben die Kopfzahl ' + b.total };
+        if (!/Garten/.test(txt)) return { ok: false, warum: 'der Leerzustand sagt nicht, wo die Pflanzen stehen' };
+        const sec = document.getElementById('plants-due-section');
+        if (!sec || getComputedStyle(sec).display === 'none') return { ok: false, warum: 'die Aufgaben-Sektion ist ausgeblendet, obwohl die Pflanzung fällig ist' };
+        if (b.due < 1) return { ok: false, warum: '„heute fällig" = ' + b.due + ' trotz fälliger Pflanzung' };
+        return { ok: true, info: 'mit Zimmerpflanzen ' + a.total + ' · ' + a.due + ' · ' + a.ok + ' (' + mitAufgaben + ' mit Aufgaben) · ohne: ' + b.total + ' · ' + b.due + ' · ' + b.ok + ', Leerzustand führt zum Garten' };
+      } finally {
+        myPlants = sichern;
+        if (z.tasks && z.tasks.water && zVorher) z.tasks.water.lastDone = zVorher;
+        renderMyPlants();
+      }
+    },
+  },
+  {
+    // v32.50 (gegnerische Pruefung 04.09.): „Er bleibt, weil er eine Rueckfrage hat —
+    // geprueft, nicht angenommen." Es gab keine (0 Aufrufe von gsConfirmModal), und
+    // der Knopf lief nur ueber myPlants: Zucchini:water blieb nach dem Tipp faellig.
+    name: 'Alle erledigt ✓ · fragt zuerst, nennt die Aufgaben, und erledigt in BEIDEN Listen',
+    lauf: () => {
+      const heute = Date.now();
+      const pl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings : [];
+      myPlants.concat(pl).forEach(p => Object.keys((p && p.tasks) || {}).forEach(k => { p.tasks[k].lastDone = new Date(heute).toISOString(); delete p.tasks[k].snoozedUntil; }));
+      const p1 = myPlants.find(x => x && x.id === 'p1'), z = pl.find(x => x && x.id === 'plant_seed_1');
+      if (!p1 || !p1.tasks || !p1.tasks.water || !z || !z.tasks || !z.tasks.water) return { ok: false, warum: 'Probe-Pflanzen p1 / plant_seed_1 mit Giess-Aufgabe fehlen' };
+      p1.tasks.water.lastDone = new Date(heute - 30 * 86400000).toISOString();
+      z.tasks.water.lastDone = new Date(heute - 30 * 86400000).toISOString();
+      const faellig = () => gsGetDueTasks().filter(t => t.days <= 0);
+      if (faellig().length !== 2) return { ok: false, warum: faellig().length + ' fällig statt 2 — Fall nicht hergestellt' };
+      const orig = window.gsConfirmModal; let fragen = 0, frage = null;
+      const warte = () => new Promise(res => setTimeout(res, 80));
+      window.gsConfirmModal = o => { fragen++; frage = o; return Promise.resolve(false); };
+      gsDoneAllDue();
+      return warte().then(() => {
+        if (!fragen) { window.gsConfirmModal = orig; return { ok: false, warum: '„Alle erledigt ✓" fragt nicht — bis v32.49 schrieb der Knopf ohne Rückfrage in jedes Tagebuch' }; }
+        if (faellig().length !== 2) { window.gsConfirmModal = orig; return { ok: false, warum: 'nach „Abbrechen" wurde trotzdem erledigt (' + faellig().length + ' statt 2 fällig)' }; }
+        const text = String((frage && (frage.message || frage.text)) || '');
+        if (!/Basilikum/.test(text) || !/Zucchini/.test(text)) { window.gsConfirmModal = orig; return { ok: false, warum: 'die Rückfrage nennt nicht, was sie erledigt: „' + text.slice(0, 80) + '"' }; }
+        window.gsConfirmModal = o => { fragen++; return Promise.resolve(true); };
+        gsDoneAllDue();
+        return warte().then(() => {
+          window.gsConfirmModal = orig;
+          const rest = faellig();
+          if (rest.length) return { ok: false, warum: rest.map(t => t.plant.name + ':' + t.key).join(', ') + ' weiter fällig — der Knopf lief nur über myPlants' };
+          let gesp = null; try { gesp = (JSON.parse(localStorage.getItem('gs_plantings') || '[]') || []).find(x => x && x.id === 'plant_seed_1'); } catch (_) {}
+          if (!gesp || !gesp.tasks || !gesp.tasks.water || gesp.tasks.water.lastDone !== z.tasks.water.lastDone) return { ok: false, warum: 'die Garten-Pflanzung wurde erledigt, aber nicht gespeichert (saveGardenData fehlt)' };
+          let gespP = null; try { gespP = (JSON.parse(localStorage.getItem('ps_myplants') || '[]') || []).find(x => x && x.id === 'p1'); } catch (_) {}
+          if (!gespP || !gespP.tasks || !gespP.tasks.water || gespP.tasks.water.lastDone !== p1.tasks.water.lastDone) return { ok: false, warum: 'die Zimmerpflanze wurde erledigt, aber nicht gespeichert' };
+          const tb = gsTagebuchAlle().filter(e => e.datum === gsHeuteTag() && (e.pflanze_id === 'p1' || e.pflanze_id === 'plant_seed_1'));
+          if (tb.length < 2) return { ok: false, warum: 'nur ' + tb.length + ' Tagebuch-Einträge für zwei erledigte Aufgaben' };
+          return { ok: true, info: 'nein → 2 bleiben fällig · ja → 0 fällig, beide Listen gespeichert, 2 Tagebuch-Einträge · die Frage nennt Basilikum und Zucchini (' + fragen + ' Rückfragen)' };
+        });
+      });
+    },
+  },
+  {
     // v32.49 (Audit-Befund 7): der Notizzettel klebte bei 1–3 faelligen Aufgaben
     // genau ueber dem Pfeil der ersten Pflanzenkarte. Gemessen bei 412 px.
-    name: 'Notizzettel · verdeckt bei 0, 1, 3 und 8 fälligen Aufgaben keinen Karten-Pfeil',
+    name: 'Notizzettel · verdeckt bei 0, 1, 3 und 8 fälligen Aufgaben weder Pfeil noch Knopf',
     lauf: () => {
       try { switchTab('favs'); } catch (_) {}
       const heute = Date.now(); const bsp = [];
@@ -288,7 +370,25 @@ const FAELLE = [
         const chevs = Array.from(document.querySelectorAll('[id^="chev-"]')).map(el => el.getBoundingClientRect());
         const ueber = sichtbar ? chevs.filter(c => c.bottom > nr.top && c.top < nr.bottom && c.right > nr.left) : [];
         if (ueber.length) return { ok: false, warum: 'bei ' + n + ' fälligen Aufgaben verdeckt der Zettel ' + ueber.length + ' Karten-Pfeil(e)' };
-        bsp.push(n + ':' + (sichtbar ? 'frei' : '–'));
+        // v32.50: nicht nur der Pfeil — KEIN Bedienelement darf unter dem Zettel liegen.
+        // Die gegnerische Pruefung (04.09.) fand die ⏰-Knoepfe der Faellig-Liste zu
+        // 19–40 % verdeckt, waehrend der Pfeil-Fall gruen war: eine Frage, die nur
+        // EIN Ziel kennt, meldet nur dieses. Schmale Ziele (≤ 120 px) muessen ganz
+        // frei sein; breite (Karten, Zeilen) bleiben erreichbar, solange weniger als
+        // ein Drittel verdeckt ist — dort landet der Daumen ohnehin links.
+        if (sichtbar) {
+          const bedien = Array.from(document.querySelectorAll('#screen-favs button, #screen-favs [role="button"], #screen-favs a[href], #screen-favs [onclick], #screen-favs [data-action]'))
+            .filter(el => el.id !== 'gs-task-note' && !el.closest('#gs-task-note') && !el.closest('#gs-task-note-pop'))
+            .map(el => ({ el, r: el.getBoundingClientRect() }))
+            .filter(x => x.r.width > 0 && x.r.height > 0 && x.r.bottom > 0 && x.r.top < innerHeight);
+          const verdeckt = bedien.map(x => {
+            const w = Math.max(0, Math.min(x.r.right, nr.right) - Math.max(x.r.left, nr.left));
+            const h = Math.max(0, Math.min(x.r.bottom, nr.bottom) - Math.max(x.r.top, nr.top));
+            return { x, anteil: (w * h) / (x.r.width * x.r.height) };
+          }).filter(v => v.anteil > (v.x.r.width <= 120 ? 0.02 : 0.34));
+          if (verdeckt.length) return { ok: false, warum: 'bei ' + n + ' fälligen Aufgaben verdeckt der Zettel ' + verdeckt.length + ' Bedienelement(e): ' + verdeckt.slice(0, 3).map(v => String(v.x.el.className || v.x.el.tagName).split(' ')[0] + ' ' + Math.round(v.anteil * 100) + ' %').join(', ') };
+          bsp.push(n + ':' + bedien.length + ' Ziele frei');
+        } else bsp.push(n + ':–');
       }
       return { ok: true, info: bsp.join(' · ') };
     },
