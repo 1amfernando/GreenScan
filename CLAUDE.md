@@ -802,6 +802,16 @@ Kalender (`messung`/`alarm`), den spaeter ein Sensor nimmt. Neue Schluessel
 `gs_metric_catalog` in `GS_KEEP_ON_LOGOUT`; Geraete und Regeln reisen im
 `state`-Blob, Messwerte nicht (dafuer ist die Tabelle da — Stufe 1).
 
+**Seit v32.49 liest `gsTagebuchAlle()` DREI Quellen** — Gartentagebuch,
+Pflanzentagebuecher und den Spiegel des Cloud-Tagebuchs
+(`gs_garden_diary_cache`, 500 neueste `garden_diary`-Zeilen, in
+`GS_USER_KEYS`). Wer eine vierte Quelle anlegt, zieht den Fall „ohne Daten"
+in `kalender_check` nach: er stellt jede Quelle leer, und eine, die er
+stehen laesst, macht ihn rot („1 Ereignis ohne Datengrundlage") — genau so
+ist es beim Spiegel passiert. Und: Cloud-Eintraege tragen die Id `cd:<uuid>`;
+Loeschen geht durch `gsTagebuchDelete`, das `DELETE … return=representation`
+mit `_gsSchreibOk` prueft und den Spiegel erst danach bereinigt.
+
 **Seit v32.47 gilt fuer BEIDE Pflanzenlisten dasselbe:** `ps_myplants` und
 `gs_plantings` tragen `tasks`; wer eine Pflanze zum Erledigen, Verschieben
 oder Lesen sucht, ruft `_gsPflanzeFinden(id)` — es sagt, in welcher Liste sie

@@ -4,13 +4,59 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.48` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.49` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-04 (el) — v32.49: das dritte Tagebuch, und ein Zettel, der Platz bekommt
+
+Zwei offene Befunde aus `docs/MEINE-PFLANZEN-AUDIT.md` (3 und 7), beide
+mit Prüfstand-Fall und Gegenprobe.
+
+#### Das Cloud-Tagebuch (Befund 3, Rest)
+
+`gsDiarySubmitEntry` (das Formular mit Typwahl, Foto, Erntemenge,
+Schädling) schrieb nur in `garden_diary` — lokal wusste niemand davon; das
+Gartentagebuch und der Kalender sahen es nie. Jetzt:
+
+- **Spiegel** `gs_garden_diary_cache` (500 neueste Zeilen, schlank: id,
+  Typ, Titel, Text, Latein, Erntemenge, Foto-URL, Zeit), aufgefrischt beim
+  Öffnen des Gartentagebuchs und 6 s nach dem Start. Bei vollem Speicher
+  bleibt der alte Stand (`setItem === false`, CLAUDE.md §3.5).
+- `gsTagebuchAlle()` liest jetzt **drei** Quellen; Cloud-Einträge tragen
+  `herkunft: 'cloud'` und die Id `cd:<uuid>`. Die Pflanze wird über den
+  lateinischen Namen zugeordnet — **nur wenn er in beiden Listen genau eine
+  trifft** (`_gsPflanzeAusLatein`), sonst bleibt der Name stehen.
+- Löschen aus der gemeinsamen Sicht: `DELETE` mit `return=representation`,
+  geprüft mit `_gsSchreibOk`; aus dem Spiegel fliegt der Eintrag erst nach
+  bestätigter Löschung.
+- Ohne Netz: der Spiegel bleibt, mit Vermerk „aus der Cloud".
+  `GS_USER_KEYS` kennt den Schlüssel — er geht beim Abmelden weg.
+
+#### Der Notizzettel (Befund 7)
+
+Gemessen bei 0, 1, 3 und 8 fälligen Aufgaben (412 px): bei 1 und 3 lag der
+Zettel (x ab 367) genau über dem Pfeil der ersten Pflanzenkarte (x bis
+381). Er wandert mit der Liste — `position:fixed` in einem animierten
+Vorfahren wirkt wie `absolute` — also hilft kein anderer `top`. Die Karten
+lassen ihm jetzt Platz (`body.gs-zettel-da` → `padding-right:56px` am
+Kartenkopf), und nur solange er sichtbar ist; `gsRenderTaskNote` setzt die
+Klasse. `kalender_check` misst alle vier Stände.
+
+#### Und eine Falle im eigenen Prüfstand
+
+Der Fall „ohne Daten" leerte Pflanzen und Gartentagebuch — und liess den
+neuen Cloud-Spiegel stehen. Er wurde rot („1 Ereignis ohne
+Datengrundlage"), sobald der Spiegel existierte. **Wer eine Quelle
+hinzufügt, muss jeden Fall nachziehen, der „keine Quelle" herstellt.**
+
+`kalender_check` 13 Fälle grün. Die gegnerische Prüfung der drei Entwürfe
+(Audit, Kalender V1, Ökosystem V1) ist am 03.09. um 21:30 UTC am
+Kontingent gescheitert und läuft seit 02:00 UTC erneut.
 
 ### 2026-09-03 (ek) — v32.48: die Person ist das erste Gerät — Messwerte, Stufe 0
 
@@ -8587,7 +8633,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.48` (Client) · SW-Cache `gs-v32.48` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.49` (Client) · SW-Cache `gs-v32.49` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

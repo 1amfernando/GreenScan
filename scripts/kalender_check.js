@@ -237,12 +237,73 @@ const FAELLE = [
     },
   },
   {
+    // v32.49: das dritte Tagebuch (Cloud-Formular → garden_diary) in der
+    // gemeinsamen Sicht — ueber einen Spiegel, der ohne Netz stehen bleibt.
+    name: 'Cloud-Tagebuch · steht in der gemeinsamen Sicht, mit Pflanze, im Kalender — und ohne Netz bleibt der Spiegel',
+    lauf: async () => {
+      if (typeof gsCloudTagebuchLaden !== 'function') return { ok: false, warum: 'gsCloudTagebuchLaden fehlt' };
+      const heute = gsHeuteTag(); const vorgestern = _gsKalTagPlus(heute, -2);
+      localStorage.setItem('gs_sb_uid', 'pruef-uid');
+      window.sbIsLoggedIn = () => true;
+      window.sbFetch = async (pfad) => { window.__PFAD = pfad; return { data: [
+        { id: 'c1', entry_type: 'pest', title: 'Blattläuse an der Tomate', text: 'wenige, abgestreift', species_lat: 'Solanum lycopersicum', created_at: new Date(vorgestern + 'T09:30:00').toISOString() },
+        { id: 'c2', entry_type: 'general', title: '', text: 'Kompost umgesetzt', species_lat: '', created_at: new Date(heute + 'T07:00:00').toISOString() } ] }; };
+      const n = await gsCloudTagebuchLaden();
+      if (n !== 2) return { ok: false, warum: 'Loader liefert ' + n + ' statt 2' };
+      if (!/garden_diary/.test(window.__PFAD) || !/user_id=eq\.pruef-uid/.test(window.__PFAD)) return { ok: false, warum: 'liest nicht die eigenen Zeilen aus garden_diary: ' + window.__PFAD };
+      const alle = gsTagebuchAlle();
+      const a = alle.find(e => e.id === 'cd:c1'), b = alle.find(e => e.id === 'cd:c2');
+      if (!a || !b) return { ok: false, warum: 'Cloud-Einträge fehlen in gsTagebuchAlle' };
+      if (a.pflanze_id !== 'p3') return { ok: false, warum: 'Solanum lycopersicum wird nicht der Tomate (p3) zugeordnet: ' + a.pflanze_id };
+      if (a.herkunft !== 'cloud') return { ok: false, warum: 'herkunft ' + a.herkunft };
+      const ev = gsKalenderEreignisse(vorgestern, vorgestern).find(e => e.id === 'tagebuch:cd:c1');
+      if (!ev) return { ok: false, warum: 'der Cloud-Eintrag steht nicht an seinem Tag im Kalender' };
+      // ohne Netz: der Spiegel bleibt
+      window.sbFetch = async () => { throw new Error('offline'); };
+      const m = await gsCloudTagebuchLaden();
+      if (m !== null) return { ok: false, warum: 'ohne Netz liefert der Loader ' + m + ' statt null' };
+      if (!gsTagebuchAlle().some(e => e.id === 'cd:c1')) return { ok: false, warum: 'ohne Netz ist der Spiegel weg' };
+      openGartenTagebuch();
+      const t = (document.getElementById('modal-content') || {}).textContent || '';
+      if (!/Blattläuse/.test(t)) return { ok: false, warum: 'das Gartentagebuch zeigt den Cloud-Eintrag nicht' };
+      return { ok: true, info: '2 Cloud-Einträge · Tomate → p3 · im Kalender · Spiegel überlebt Offline · Gartentagebuch zeigt ihn' };
+    },
+  },
+  {
+    // v32.49 (Audit-Befund 7): der Notizzettel klebte bei 1–3 faelligen Aufgaben
+    // genau ueber dem Pfeil der ersten Pflanzenkarte. Gemessen bei 412 px.
+    name: 'Notizzettel · verdeckt bei 0, 1, 3 und 8 fälligen Aufgaben keinen Karten-Pfeil',
+    lauf: () => {
+      try { switchTab('favs'); } catch (_) {}
+      const heute = Date.now(); const bsp = [];
+      for (const n of [0, 1, 3, 8]) {
+        let k = 0;
+        myPlants.forEach(p => Object.keys(p.tasks || {}).forEach(key => { p.tasks[key].lastDone = new Date(heute).toISOString(); delete p.tasks[key].snoozedUntil; }));
+        myPlants.forEach(p => Object.keys(p.tasks || {}).forEach(key => { if (k < n) { p.tasks[key].lastDone = new Date(heute - 30 * 86400000).toISOString(); k++; } }));
+        if (n >= 8) myPlants.forEach(p => ['repot', 'rotate', 'mist', 'dust', 'prune'].forEach(key => { if (k < n) { p.tasks[key] = { active: true, intervalDays: 7, lastDone: new Date(heute - 30 * 86400000).toISOString() }; k++; } }));
+        renderMyPlants(); try { gsRenderTaskNote(); } catch (_) {}
+        const note = document.getElementById('gs-task-note'); const nr = note ? note.getBoundingClientRect() : null;
+        const sichtbar = nr && getComputedStyle(note).display !== 'none' && nr.width > 0;
+        if (n > 0 && !sichtbar) return { ok: false, warum: 'bei ' + n + ' fälligen Aufgaben ist der Zettel nicht sichtbar — Fall nicht hergestellt' };
+        const chevs = Array.from(document.querySelectorAll('[id^="chev-"]')).map(el => el.getBoundingClientRect());
+        const ueber = sichtbar ? chevs.filter(c => c.bottom > nr.top && c.top < nr.bottom && c.right > nr.left) : [];
+        if (ueber.length) return { ok: false, warum: 'bei ' + n + ' fälligen Aufgaben verdeckt der Zettel ' + ueber.length + ' Karten-Pfeil(e)' };
+        bsp.push(n + ':' + (sichtbar ? 'frei' : '–'));
+      }
+      return { ok: true, info: bsp.join(' · ') };
+    },
+  },
+  {
     name: 'Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt',
     lauf: () => {
-      const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch') };
+      // v32.49: das Cloud-Tagebuch ist die dritte Quelle — ein „ohne Daten",
+      // das sie stehen laesst, prueft nicht „ohne Daten" (der Fall wurde rot,
+      // sobald der Spiegel existierte: „1 Ereignis ohne Datengrundlage").
+      const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch'), cloud: localStorage.getItem('gs_garden_diary_cache') };
       try {
         myPlants = []; if (typeof plantings !== 'undefined') plantings = [];
         localStorage.setItem('gs_gartentagebuch', '[]'); gsTagebuchLoad(true);
+        localStorage.removeItem('gs_garden_diary_cache');
         const ev = gsKalenderEreignisse(gsHeuteTag(), _gsKalTagPlus(gsHeuteTag(), 30));
         if (ev.length) return { ok: false, warum: ev.length + ' Ereignisse ohne jede Datengrundlage' };
         gsKalenderOeffnen();
@@ -252,6 +313,7 @@ const FAELLE = [
       } finally {
         myPlants = sichern.mp; if (sichern.pl) plantings = sichern.pl;
         if (sichern.tb != null) localStorage.setItem('gs_gartentagebuch', sichern.tb); gsTagebuchLoad(true);
+        if (sichern.cloud != null) localStorage.setItem('gs_garden_diary_cache', sichern.cloud);
       }
     },
   },
