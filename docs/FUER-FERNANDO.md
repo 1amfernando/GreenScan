@@ -264,6 +264,19 @@ Seiten auf dieselbe Regel (Kalendertag statt Sekunde, Europe/Zurich).
 Idempotent, nur eine Sicht (`CREATE OR REPLACE VIEW`), keine Daten. Sag
 Bescheid, dann messe ich nach.
 
+## 6 · Migration `20260903_oekosystem_v1_geraete.sql` — das Schema für Geräte und Messwerte
+
+Seit v32.48 gibt es das Messwerte-Dashboard mit der Person als erstem Gerät
+(`kind = 'manual'`); die Daten liegen bisher nur auf dem Gerät. Die
+Migration legt fünf Tabellen und zwei Sichten an (`metric_catalog`,
+`devices`, `device_readings`, `device_rules`, `device_commands`,
+`v_device_latest`, `v_device_daily`), alle own-only per RLS, der Katalog
+öffentlich lesbar. Idempotent, keine bestehende Tabelle wird angefasst.
+
+**Ohne sie funktioniert alles weiter** — nur ohne Cloud-Abgleich der
+Messwerte. Sobald sie drin ist, sage ich dir, was als Nächstes kommt
+(Stufe 1: der Empfänger für echte Geräte, `docs/OEKOSYSTEM-V1.md` §8).
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier
