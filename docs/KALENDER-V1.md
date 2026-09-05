@@ -42,6 +42,15 @@ Bereichs und sie steht nicht in der Oberfläche, sondern im Datenmodell.
 
 ### 1.2 · Die Aufgaben-Rechnung — solide, an einer Stelle
 
+> **Nachtrag v32.53:** die eine Rechnung hat einen vierten Parameter.
+> `getDaysUntilDue(lastDone, intervalDays, snoozedUntil, vorgezogenAuf)` —
+> eine verletzte Sensor-Regel `task:<key>` zieht auf `vorgezogenAuf` vor
+> (nur nach `lastDone`), die Verschiebung der Person gewinnt:
+> `fällig = max(min(lastDone + Intervall, vorgezogenAuf), snoozedUntil)`.
+> Alle neun Aufrufer geben ihn weiter; `_gsTaskDays(t)` ist der Weg für
+> neuen Code. Die Server-Sicht kennt ihn mit
+> `20260904_plant_tasks_due_vorgezogen.sql` (`docs/OEKOSYSTEM-V1.md` §11.3b).
+
 `getDaysUntilDue(lastDone, intervalDays)` (~Z. 34167) rechnet datumsbasiert
 (Mitternacht, v24.25) und fällt bei fehlendem `lastDone` auf „sofort
 fällig". `gsGetDueTasks()` (~Z. 26265) sammelt alles mit `days ≤ 2`, bringt

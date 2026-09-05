@@ -356,6 +356,115 @@ const FAELLE = [
       }
     },
   },
+  {
+    // v32.53: Regel-Aktion task:water → Aufgabe (OEKOSYSTEM-V1.md §6, §11 Idee 4).
+    // Die eine Stelle, die device_rules.action liest. Drei Zustaende: ohne
+    // plausible Werte passiert NICHTS; verletzt zieht auf heute vor (Tagesplan,
+    // Kalender, Glocke nennen Geraet und Messwert); erfuellt gibt frei. Die
+    // Verschiebung der Person gewinnt. Erledigen hebt auf. Und ein Geraet am
+    // GARTEN trifft die Pflanzungen — gespeichert in gs_plantings, nicht ps_myplants.
+    name: 'Regel → Aufgabe · „unter 30 → Giessen" zieht vor, gibt frei, und die Verschiebung der Person gewinnt',
+    lauf: () => {
+      const p2 = myPlants.find(x => x && x.id === 'p2'); const zuc = plantings.find(x => x && x.id === 'plant_seed_1');
+      if (!p2 || !zuc) return { ok: false, warum: 'Beispieldaten fehlen (p2 / plant_seed_1)' };
+      const merk = JSON.stringify(p2.tasks.water), merkZ = JSON.stringify(zuc.tasks.water), merkDiary = JSON.stringify(p2.diary || []);
+      const g = gsGeraetAnlegen({ kind: 'manual', name: 'Monstera-Stab', plant_id: 'p2' });
+      const gg = gsGeraetAnlegen({ kind: 'manual', name: 'Hochbeet-Stab', garden_id: 'g1' });
+      let r2 = null;
+      try {
+        if (gsGetDueTasks().some(x => x.plant.id === 'p2' && x.key === 'water')) return { ok: false, warum: 'Grundlage: Monstera-Giessen ist schon fällig' };
+        const r = gsRegelAnlegen({ geraet_id: g.id, metric: 'soil_moisture', op: 'below', threshold: 30, action: 'task:water' });
+        r2 = gsRegelAnlegen({ geraet_id: gg.id, metric: 'soil_moisture', op: 'below', threshold: 30, action: 'task:water' });
+        if (!r || !r2 || r.action !== 'task:water') return { ok: false, warum: 'Regel mit Aktion nicht angelegt' };
+        gsSensorAufgabenAbgleich();
+        if (p2.tasks.water.vorgezogenAuf) return { ok: false, warum: 'ohne Werte (nicht prüfbar) wurde vorgezogen' };
+        gsMesswertEintragen(g.id, 'soil_moisture', 22);
+        const e = gsGetDueTasks().find(x => x.plant.id === 'p2' && x.key === 'water');
+        if (!e || e.days > 0) return { ok: false, warum: 'Monstera-Giessen ist nach 22 % nicht fällig (days ' + (e && e.days) + ')' };
+        if (!e.sensor || !/22/.test(e.sensor) || !/Monstera-Stab/.test(e.sensor)) return { ok: false, warum: 'der Eintrag nennt Gerät und Messwert nicht: ' + e.sensor };
+        const kal = gsKalenderEreignisse(gsHeuteTag(), gsHeuteTag()).find(x => x.art === 'aufgabe' && x.pflanze && x.pflanze.id === 'p2' && x.key === 'water');
+        if (!kal || kal.quelle !== 'sensor' || !/vorgezogen/.test(kal.grund)) return { ok: false, warum: 'der Kalender führt die Aufgabe nicht mit Quelle sensor: ' + JSON.stringify(kal && [kal.quelle, kal.grund]) };
+        gsRenderDayPlan();
+        if (!/Monstera-Stab/.test((document.getElementById('home-dayplan') || {}).textContent || '')) return { ok: false, warum: '„Nächste Schritte" nennt den Sensor-Grund nicht (aus dem HTML gelesen)' };
+        // Die Pflanzung bekam ihre Aufgaben erst beim Laden (lastDone = jetzt) — und
+        // „heute erledigt" darf ein Sensor am selben Tag nicht wieder faellig machen.
+        // Eine echte Pflanzung wurde gestern gegossen: das stellt der Fall her.
+        zuc.tasks.water.lastDone = new Date(Date.now() - 864e5).toISOString(); saveGardenData();
+        gsMesswertEintragen(gg.id, 'soil_moisture', 18);
+        const z = gsGetDueTasks().find(x => x.plant.id === 'plant_seed_1' && x.key === 'water');
+        if (!z || z.days > 0 || !z.sensor) return { ok: false, warum: 'die Pflanzung im Garten des Geräts wurde nicht vorgezogen' };
+        const gesp = (JSON.parse(localStorage.getItem('gs_plantings') || '[]')).find(x => x.id === 'plant_seed_1');
+        if (!gesp || !gesp.tasks.water.vorgezogenAuf) return { ok: false, warum: 'vorgezogenAuf steht nicht in gs_plantings — falsche Liste gespeichert' };
+        gsSnoozeTask('p2', 'water', 2);
+        const sn = gsGetDueTasks().find(x => x.plant.id === 'p2' && x.key === 'water');
+        if (sn && sn.days <= 0) return { ok: false, warum: 'die Verschiebung der Person wurde vom Sensor überstimmt' };
+        delete p2.tasks.water.snoozedUntil; savePlantsToStorage();
+        gsQuickDone('p2', 'water');
+        if (p2.tasks.water.vorgezogenAuf) return { ok: false, warum: 'Erledigen hebt das Vorziehen nicht auf' };
+        gsMesswertEintragen(g.id, 'soil_moisture', 21, new Date(Date.now() + 1000).toISOString());
+        const nach = gsGetDueTasks().find(x => x.plant.id === 'p2' && x.key === 'water');
+        if (nach && nach.days <= 0) return { ok: false, warum: 'heute gegossen, Sensor noch trocken — darf nicht schon wieder fällig sein' };
+        gsMesswertEintragen(gg.id, 'soil_moisture', 48, new Date(Date.now() + 2000).toISOString());
+        if (zuc.tasks.water.vorgezogenAuf) return { ok: false, warum: 'die erfüllte Regel gibt die Aufgabe nicht frei' };
+        gsMesswertEintragen(gg.id, 'soil_moisture', 15, new Date(Date.now() + 3000).toISOString());
+        if (!zuc.tasks.water.vorgezogenAuf) return { ok: false, warum: 'erneut verletzt, nicht vorgezogen' };
+        gsRegelLoeschen(r2.id); r2 = null; gsSensorAufgabenAbgleich();
+        if (zuc.tasks.water.vorgezogenAuf) return { ok: false, warum: 'die gelöschte Regel lässt das Vorziehen stehen' };
+        return { ok: true, info: 'nicht prüfbar → nichts · 22 % → Monstera heute, Tagesplan nennt Gerät · Garten-Gerät → Zucchini in gs_plantings · Verschiebung gewinnt · Erledigen hebt auf · 48 % gibt frei · Regel weg gibt frei' };
+      } finally {
+        gsGeraetLoeschen(g.id); gsGeraetLoeschen(gg.id);
+        p2.tasks.water = JSON.parse(merk); p2.diary = JSON.parse(merkDiary); zuc.tasks.water = JSON.parse(merkZ);
+        savePlantsToStorage(); saveGardenData();
+      }
+    },
+  },
+  {
+    // v32.53: Giessen bestaetigt sich am Sensor — Aussage mit Zahl, nie Haken (§6).
+    // +10 Punkte innert 60 Minuten = bestaetigt; weniger = nicht gemerkt; kein
+    // Wert davor/danach oder kein Geraet = nicht pruefbar. Kein Messwert
+    // veraendert die Aufgabe. Sichtbar im Kalender und im Pflanzentagebuch —
+    // und dort parst der Loesch-Knopf (bis v32.52 stand der ISO-Zeitstempel
+    // unzitiert im onclick: Syntaxfehler, toter Knopf).
+    name: 'Giess-Bestätigung · bestätigt, nicht gemerkt, nicht prüfbar — mit Zahlen, im Kalender und Tagebuch, ohne Haken',
+    lauf: () => {
+      const p2 = myPlants.find(x => x && x.id === 'p2'), p3 = myPlants.find(x => x && x.id === 'p3');
+      const merk = JSON.stringify(p2.tasks.water), merkDiary = JSON.stringify(p2.diary || []);
+      const g = gsGeraetAnlegen({ kind: 'manual', name: 'Monstera-Stab', plant_id: 'p2' });
+      try {
+        const jetzt = Date.now();
+        const o = gsGiessBestaetigung(p3, new Date(jetzt).toISOString());
+        if (!o || o.zustand !== 'nicht_pruefbar' || !o.ohne_geraet) return { ok: false, warum: 'ohne Gerät: ' + JSON.stringify(o) };
+        gsMesswertEintragen(g.id, 'soil_moisture', 21, new Date(jetzt - 22 * 60000).toISOString());
+        gsMesswertEintragen(g.id, 'soil_moisture', 48, new Date(jetzt + 28 * 60000).toISOString());
+        const b = gsGiessBestaetigung(p2, new Date(jetzt).toISOString());
+        if (!b || b.zustand !== 'bestaetigt' || b.delta !== 27 || !/21 → 48/.test(b.text)) return { ok: false, warum: 'bestätigt: ' + JSON.stringify(b) };
+        const t2 = jetzt + 3 * 3600000;
+        gsMesswertEintragen(g.id, 'soil_moisture', 30, new Date(t2 - 10 * 60000).toISOString());
+        gsMesswertEintragen(g.id, 'soil_moisture', 33, new Date(t2 + 20 * 60000).toISOString());
+        const n = gsGiessBestaetigung(p2, new Date(t2).toISOString());
+        if (!n || n.zustand !== 'nicht_gemerkt' || n.delta !== 3) return { ok: false, warum: 'nicht gemerkt: ' + JSON.stringify(n) };
+        const t3 = jetzt + 6 * 3600000;
+        gsMesswertEintragen(g.id, 'soil_moisture', 25, new Date(t3 - 5 * 60000).toISOString());
+        const u = gsGiessBestaetigung(p2, new Date(t3).toISOString());
+        if (!u || u.zustand !== 'nicht_pruefbar' || u.ohne_geraet || !/danach/.test(u.text)) return { ok: false, warum: 'nicht prüfbar: ' + JSON.stringify(u) };
+        if (JSON.stringify(p2.tasks.water) !== merk) return { ok: false, warum: 'ein Messwert hat die Aufgabe verändert — Messen ist kein Erledigen' };
+        gsQuickDone('p2', 'water');
+        const ev = gsKalenderEreignisse(gsHeuteTag(), gsHeuteTag()).find(x => x.art === 'tagebuch' && x.pflanze && x.pflanze.id === 'p2' && /Giessen/.test(x.titel));
+        if (!ev || !ev.sensor || ev.sensor.zustand !== 'bestaetigt' || !/bestätigt/.test(ev.grund)) return { ok: false, warum: 'Kalender-Eintrag ohne Bestätigung: ' + JSON.stringify(ev && [ev.grund, ev.sensor]) };
+        openPlantDiary('p2');
+        const m = document.getElementById('plant-diary-modal'); const t = m ? m.textContent : '';
+        if (!/Sensor: bestätigt/.test(t)) return { ok: false, warum: 'das Pflanzentagebuch zeigt die Bestätigung nicht (aus dem HTML gelesen)' };
+        const btn = Array.from(m.querySelectorAll('button')).find(b2 => /gsDeleteDiaryEntry/.test(b2.getAttribute('onclick') || ''));
+        if (!btn) return { ok: false, warum: 'kein Lösch-Knopf im Tagebuch' };
+        try { new Function(btn.getAttribute('onclick')); } catch (e2) { return { ok: false, warum: 'der Lösch-Knopf ist ein Syntaxfehler: ' + btn.getAttribute('onclick').slice(0, 90) }; }
+        const zeiten = Array.from(m.querySelectorAll('.gs-tb-sensor, [style*="font-weight:700"]')).length;
+        return { ok: true, info: 'ohne Gerät → nicht prüfbar · 21→48 (+27) bestätigt · 30→33 (+3) nicht gemerkt · ohne Wert danach nicht prüfbar · Aufgabe unverändert · Kalender + Tagebuch zeigen es · Lösch-Knopf parst' };
+      } finally {
+        gsGeraetLoeschen(g.id); p2.tasks.water = JSON.parse(merk); p2.diary = JSON.parse(merkDiary); savePlantsToStorage();
+        const mm = document.getElementById('plant-diary-modal'); if (mm) mm.remove();
+      }
+    },
+  },
 ];
 
 (async () => {

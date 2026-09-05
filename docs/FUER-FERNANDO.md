@@ -264,6 +264,13 @@ Seiten auf dieselbe Regel (Kalendertag statt Sekunde, Europe/Zurich).
 Idempotent, nur eine Sicht (`CREATE OR REPLACE VIEW`), keine Daten. Sag
 Bescheid, dann messe ich nach.
 
+**Nachtrag v32.53:** es gibt eine Nachfolgerin,
+`20260904_plant_tasks_due_vorgezogen.sql` — sie enthält alles aus dieser
+Migration **und** das Vorziehen durch Sensor-Regeln (`vorgezogenAuf`,
+`docs/OEKOSYSTEM-V1.md` §11.3b). Wende nur die neue an; beide nacheinander
+ist auch richtig. Ohne sie hält der Push-Cron eine vom Sensor vorgezogene
+Aufgabe erst am regulären Tag für fällig.
+
 ## 6 · Migration `20260903_oekosystem_v1_geraete.sql` — das Schema für Geräte und Messwerte
 
 Seit v32.48 gibt es das Messwerte-Dashboard mit der Person als erstem Gerät

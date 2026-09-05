@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.52.20260904">
+<meta name="app-version" content="32.53.20260904">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5757,6 +5757,9 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-mw-zeile select,.gs-mw-zeile input{padding:9px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);color:var(--text);font-size:var(--fs-sm);font-family:inherit;min-width:0;}
 .gs-mw-zeile button{grid-column:1 / -1;padding:10px;border:none;border-radius:var(--r-sm);background:var(--fill-brand);color:#fff;font-weight:800;font-family:inherit;cursor:pointer;}
 .gs-mw-hinweis{font-size:var(--fs-xs);color:var(--muted);margin-top:6px;line-height:1.5;}
+.gs-tb-sensor{font-size:var(--fs-xs);margin-top:6px;line-height:1.5;color:var(--muted);}
+.gs-tb-sensor.gs-tb-bestaetigt{color:var(--c-success-d);}
+.gs-tb-sensor.gs-tb-nicht_gemerkt{color:var(--c-warn-d);}
 .gs-mw-link{display:inline-block;min-height:28px;padding:4px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-size:var(--fs-xs);font-weight:700;cursor:pointer;}
 .gs-mw-eintrag{background:var(--surface2);border-radius:var(--r-md);padding:12px;margin:4px 0 12px;}
 .gs-mw-leer{font-size:var(--fs-xs);color:var(--muted);padding:6px 0;}
@@ -9166,7 +9169,7 @@ function gsGetMostUrgentTask(p) {
   Object.keys(p.tasks).forEach(function(k) {
     var t = p.tasks[k];
     if (!t || !t.active) return;
-    var days = getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil);
+    var days = getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil, t.vorgezogenAuf);
     if (days < bestDays) { bestDays = days; best = {key:k, days:days}; }
   });
   return best;
@@ -9202,7 +9205,7 @@ function gsNewPlantCard(p) {
     Object.keys(p.tasks).forEach(function(k) {
       var t = p.tasks[k];
       if (!t || !t.active || !TASK_DEFS[k]) return;
-      taskList.push({key:k, days:getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil), def:TASK_DEFS[k]});
+      taskList.push({key:k, days:getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil, t.vorgezogenAuf), def:TASK_DEFS[k]});
     });
     taskList.sort(function(a,b){ return a.days-b.days; });
     taskBtns = taskList.slice(0,4).map(function(t) {
@@ -9829,6 +9832,7 @@ function gsQuickDone(plantId, taskKey) {
   var nowIso = new Date().toISOString();
   p.tasks[taskKey].lastDone = nowIso;
   delete p.tasks[taskKey].snoozedUntil;   // v32.46: erledigt hebt die Verschiebung auf
+  delete p.tasks[taskKey].vorgezogenAuf; delete p.tasks[taskKey].vorgezogenGrund;   // v32.53: … und das Vorziehen durch einen Sensor
   gsRpcTaskDone(plantId, taskKey);
   // v26.51: Done-History persistent — pro Pflanze in p.diary[] + global gs_gartentagebuch
   // damit "keine Daten verloren gehen" gilt auch für Quick-Done.
@@ -9929,7 +9933,7 @@ function _gsDoneAllDueAusfuehren(faellig) {
   faellig.forEach(function(x) {
     var p = x.plant, k = x.key, t = p && p.tasks && p.tasks[k];
     if (!t) return;
-    t.lastDone = nowIso; delete t.snoozedUntil;
+    t.lastDone = nowIso; delete t.snoozedUntil; delete t.vorgezogenAuf; delete t.vorgezogenGrund;
     try { if (typeof gsRpcTaskDone === 'function') gsRpcTaskDone(p.id, k); } catch(_){} // v30.76: Server-Sync (sonst Re-Push erledigter Tasks)
     try { if (typeof gsMarkPlantReminderRead === 'function') gsMarkPlantReminderRead(p.id, k); } catch(_){}
     count++;
@@ -14581,6 +14585,9 @@ window.GS_I18N_JS_STRINGS = {
   'tasks_none_due':            'Nichts fällig — nichts zu erledigen.',
   'mw_wetter_aus':             'Der Wetterdienst wird nicht mehr als Gerät geführt.',
   'mw_wetter_ein':             'Wieder als Gerät führen',
+  'mw_akt_melden':             'melden',
+  'mw_akt_giessen':            'Giessen fällig machen',
+  'mw_akt_kontrolle':          'Kontrolle fällig machen',
   'task_unit_one':             'Aufgabe',
   'task_unit_many':            'Aufgaben',
   'tasks_done_all_title':      'Alle als erledigt eintragen?',
@@ -26522,9 +26529,12 @@ function gsGetDueTasks(){
       Object.keys(p.tasks).forEach(function(k){
         var t = p.tasks[k];
         if (!t || !t.active || !TASK_DEFS[k]) return;
-        var d = getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil);
+        var d = getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil, t.vorgezogenAuf);
         if (d > 2) return;
         var eintrag = { plant:p, key:k, days:d, def:TASK_DEFS[k] };
+        // v32.53: Hat ein Sensor die Aufgabe vorgezogen, steht der Grund am
+        // Eintrag — mit Geraet und Messwert (OEKOSYSTEM-V1.md §6).
+        if (t.vorgezogenAuf && t.vorgezogenGrund && (!t.lastDone || String(t.lastDone) < String(t.vorgezogenAuf))) eintrag.sensor = t.vorgezogenGrund;
         // v31.84: Giessen und Regen zusammenbringen. Nur beim Giessen, nur
         // draussen, nur mit gemessenem Wert — und die Aufgabe bleibt stehen.
         if (k === 'water' && gsPflanzeDraussen(p) === true) {
@@ -26720,6 +26730,7 @@ function _gsMesswerteAnhaengen(g, liste) {
       if (x.capabilities && Array.isArray(x.capabilities.metrics)) neueMetrics.forEach(function (m) { if (x.capabilities.metrics.indexOf(m) < 0) x.capabilities.metrics.push(m); });
     });
     _gsGeraeteSchreiben(alle);
+    try { if (typeof gsSensorAufgabenAbgleich === 'function') gsSensorAufgabenAbgleich(); } catch (_) {}   // v32.53: Regel task:* → Aufgabe
     out.quality = letzte.q;
     out.grund = letzte.q === 2 ? 'plausibel (' + letzte.k.min_valid + '–' + letzte.k.max_valid + ' ' + letzte.k.unit + ')' : 'ausserhalb des Messbereichs ' + letzte.k.min_valid + '–' + letzte.k.max_valid + ' ' + letzte.k.unit + ' — angenommen, aber markiert';
     return out;
@@ -26853,7 +26864,8 @@ function gsRegelnPruefen(geraetId) {
         e.text = 'Meldet sich'; out.push(e); return;
       }
       var werte = gsMesswerte(geraetId, r.metric).filter(function (m) { return m.quality === 2; });
-      e.text = (k ? k.label_de : r.metric) + ' ' + (r.op === 'below' ? 'unter' : 'über') + ' ' + r.threshold + (k ? ' ' + k.unit : '');
+      e.text = (k ? k.label_de : r.metric) + ' ' + (r.op === 'below' ? 'unter' : 'über') + ' ' + r.threshold + (k ? ' ' + k.unit : '') + (r.action === 'task:water' ? ' → Giessen' : r.action === 'task:check' ? ' → Kontrolle' : '');
+      e.action = r.action || 'notify';
       if (!werte.length) { e.grund = 'keine plausiblen Werte für ' + (k ? k.label_de : r.metric); out.push(e); return; }
       var letzter = werte[werte.length - 1];
       var verletzt = r.op === 'below' ? letzter.wert < r.threshold : letzter.wert > r.threshold;
@@ -26872,6 +26884,131 @@ function gsRegelnPruefen(geraetId) {
   return out;
 }
 window.gsRegeln = gsRegeln; window.gsRegelAnlegen = gsRegelAnlegen; window.gsRegelLoeschen = gsRegelLoeschen; window.gsRegelnPruefen = gsRegelnPruefen;
+
+// ── v32.53 · SENSOR → AUFGABE (OEKOSYSTEM-V1.md §6, §11 Idee 4) ─────────────
+// Welche Pflanzen haengen an einem Geraet? plant_id zuerst (genau eine), sonst
+// alle Pflanzungen im selben Garten. Und umgekehrt: welche Geraete an einer
+// Pflanze — ohne den Wetterdienst, der misst den Ort, nicht das Beet.
+function _gsGeraetePflanzen(g) {
+  var out = [];
+  try {
+    if (!g) return out;
+    if (g.plant_id) { var f = _gsPflanzeFinden(g.plant_id); if (f && f.p) out.push({ p: f.p, liste: f.liste }); return out; }
+    if (g.garden_id && typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { if (p && p.gardenId === g.garden_id) out.push({ p: p, liste: 'plantings' }); });
+  } catch (_) {}
+  return out;
+}
+function _gsPflanzeGeraete(p) {
+  try {
+    if (!p) return [];
+    return gsGeraete().filter(function (g) { return g && g.kind !== 'weather' && ((g.plant_id && g.plant_id === p.id) || (!g.plant_id && g.garden_id && p.gardenId && g.garden_id === p.gardenId)); });
+  } catch (_) { return []; }
+}
+// Die eine Stelle, die `device_rules.action` liest. Je Pflanze und Aufgabe
+// werden ALLE Regeln `task:<key>` an ihren Geraeten zusammengenommen:
+//   · eine verletzt        → vorgezogen auf heute, Grund = Regel + Messwert + Geraet
+//   · keine verletzt, alle erfuellt → das Vorziehen wird aufgehoben
+//   · nur „nicht pruefbar" → nichts aendern (drei Zustaende, Stille ist kein Urteil)
+// Laeuft nach jedem Eintrag (auch dem Wetterabgleich), beim Oeffnen des
+// Dashboards und wenn eine Regel entsteht oder geht. Schreibt nur, wenn sich
+// etwas aendert — und dann in die richtige Liste (_gsPflanzeFinden).
+function gsSensorAufgabenAbgleich() {
+  var erg = { vorgezogen: [], freigegeben: [] };
+  try {
+    if (typeof TASK_DEFS === 'undefined') return erg;
+    // Mitternacht HEUTE in lokaler Zeit, als ISO — ein nacktes 'YYYY-MM-DD'
+    // wuerde als UTC gelesen und in einer anderen Zeitzone den Tag verfehlen.
+    var tp = gsHeuteTag().split('-'), heute = new Date(+tp[0], +tp[1] - 1, +tp[2], 0, 0, 0, 0).toISOString(), sammel = {};
+    gsGeraete().forEach(function (g) {
+      if (!g || g.kind === 'weather') return;
+      var regeln = gsRegeln().filter(function (r) { return r && r.enabled !== false && r.geraet_id === g.id && /^task:/.test(String(r.action || '')); });
+      if (!regeln.length) return;
+      var zust = gsRegelnPruefen(g.id);
+      var pflanzen = _gsGeraetePflanzen(g);
+      regeln.forEach(function (r) {
+        var key = String(r.action).slice(5); if (!TASK_DEFS[key]) return;
+        var z = null; for (var i = 0; i < zust.length; i++) if (zust[i].regel_id === r.id) z = zust[i];
+        if (!z) return;
+        pflanzen.forEach(function (x) {
+          var t = x.p && x.p.tasks && x.p.tasks[key]; if (!t || !t.active) return;
+          var sk = x.p.id + '|' + key;
+          var e = sammel[sk] || (sammel[sk] = { x: x, t: t, verletzt: null, erfuellt: 0, offen: 0 });
+          if (z.zustand === 'verletzt') { if (!e.verletzt) e.verletzt = z.text + ' — ' + z.grund + ' (Gerät „' + g.name + '")'; }
+          else if (z.zustand === 'erfuellt') e.erfuellt++;
+          else e.offen++;
+        });
+      });
+    });
+    var speichern = { myPlants: false, plantings: false };
+    Object.keys(sammel).forEach(function (sk) {
+      var e = sammel[sk], t = e.t, key = sk.split('|')[1];
+      if (e.verletzt) {
+        if (t.vorgezogenAuf !== heute || t.vorgezogenGrund !== e.verletzt) { t.vorgezogenAuf = heute; t.vorgezogenGrund = e.verletzt; speichern[e.x.liste] = true; erg.vorgezogen.push({ pflanze: e.x.p.name, key: key, grund: e.verletzt }); }
+      } else if (e.erfuellt && !e.offen) {
+        if (t.vorgezogenAuf) { delete t.vorgezogenAuf; delete t.vorgezogenGrund; speichern[e.x.liste] = true; erg.freigegeben.push({ pflanze: e.x.p.name, key: key }); }
+      }
+    });
+    // Vorgezogene Aufgaben, deren Geraete keine task-Regel mehr haben (Regel geloescht, Geraet weg): freigeben
+    var alle = [];
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) { alle.push({ p: p, liste: 'myPlants' }); });
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { alle.push({ p: p, liste: 'plantings' }); });
+    alle.forEach(function (x) {
+      if (!x.p || !x.p.tasks) return;
+      Object.keys(x.p.tasks).forEach(function (key) {
+        var t = x.p.tasks[key]; if (!t || !t.vorgezogenAuf || sammel[x.p.id + '|' + key]) return;
+        delete t.vorgezogenAuf; delete t.vorgezogenGrund; speichern[x.liste] = true; erg.freigegeben.push({ pflanze: x.p.name, key: key });
+      });
+    });
+    if (speichern.myPlants) { try { savePlantsToStorage(); } catch (_) {} }
+    if (speichern.plantings) { try { saveGardenData(); } catch (_) {} }
+    if (speichern.myPlants || speichern.plantings) {
+      try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch (_) {}
+      try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch (_) {}
+      try { if (typeof gsRenderTaskNote === 'function') gsRenderTaskNote(); } catch (_) {}
+      try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch (_) {}
+    }
+  } catch (_) {}
+  return erg;
+}
+window.gsSensorAufgabenAbgleich = gsSensorAufgabenAbgleich;
+
+// ── v32.53 · GIESSEN BESTAETIGT SICH SELBST — als Aussage, nie als Haken ────
+// §6: +10 Punkte Bodenfeuchte innert 60 Minuten nach dem Abhaken heisst
+// „angekommen". Drei Zustaende, immer mit Zahl: bestaetigt · nicht gemerkt ·
+// nicht pruefbar (kein Geraet, kein plausibler Wert davor/danach). Mehrere
+// Geraete: nicht mitteln — das vorsichtigste Urteil zaehlt und wird genannt.
+// GS_GIESS_DELTA ist GESETZT, nicht gemessen (§11 Idee 4): nach den ersten
+// echten Geraeten nachkalibrieren. Kein Messwert setzt je ein lastDone.
+var GS_GIESS_DELTA = 10, GS_GIESS_NACH_MIN = 60, GS_GIESS_VOR_MIN = 120;
+function gsGiessBestaetigung(p, ts) {
+  try {
+    var ger = _gsPflanzeGeraete(p);
+    if (!ger.length) return { zustand: 'nicht_pruefbar', ohne_geraet: true, text: 'nicht prüfbar (kein Gerät an dieser Pflanze)', delta: null, geraet: null };
+    var t0 = new Date(ts).getTime();
+    if (!isFinite(t0)) return { zustand: 'nicht_pruefbar', ohne_geraet: false, text: 'nicht prüfbar (kein Zeitpunkt)', delta: null, geraet: null };
+    var urteile = [];
+    ger.forEach(function (g) {
+      var w = gsMesswerte(g.id, 'soil_moisture').filter(function (m) { return m.quality === 2; });
+      var vorher = null, nachher = null;
+      w.forEach(function (m) {
+        var tm = new Date(m.ts).getTime();
+        if (tm <= t0 && tm >= t0 - GS_GIESS_VOR_MIN * 60000) vorher = m;
+        if (!nachher && tm > t0 && tm <= t0 + GS_GIESS_NACH_MIN * 60000) nachher = m;
+      });
+      if (!w.length) return;   // Geraet ohne Feuchte-Werte zaehlt nicht mit
+      if (!vorher || !nachher) { urteile.push({ zustand: 'nicht_pruefbar', text: 'nicht prüfbar (' + (!vorher ? 'kein plausibler Wert bis 2 h vor dem Giessen' : 'kein plausibler Wert innert 60 Min danach') + ', Gerät „' + g.name + '")', delta: null, geraet: g.name }); return; }
+      var delta = Math.round((nachher.wert - vorher.wert) * 10) / 10;
+      var ok = delta >= GS_GIESS_DELTA;
+      urteile.push({ zustand: ok ? 'bestaetigt' : 'nicht_gemerkt', delta: delta, geraet: g.name,
+        text: (ok ? 'bestätigt' : 'nicht gemerkt') + ' — Bodenfeuchte ' + vorher.wert + ' → ' + nachher.wert + ' % (' + (delta >= 0 ? '+' : '') + delta + ') innert ' + Math.round((new Date(nachher.ts).getTime() - t0) / 60000) + ' Min, Gerät „' + g.name + '"' });
+    });
+    if (!urteile.length) return { zustand: 'nicht_pruefbar', ohne_geraet: true, text: 'nicht prüfbar (kein Feuchte-Sensor an dieser Pflanze)', delta: null, geraet: null };
+    var rang = { nicht_gemerkt: 0, nicht_pruefbar: 1, bestaetigt: 2 };
+    urteile.sort(function (a, b) { return rang[a.zustand] - rang[b.zustand]; });
+    var u = urteile[0]; u.ohne_geraet = false; return u;
+  } catch (_) { return { zustand: 'nicht_pruefbar', ohne_geraet: false, text: 'nicht prüfbar (Fehler)', delta: null, geraet: null }; }
+}
+window.gsGiessBestaetigung = gsGiessBestaetigung;
 
 // ── Verlauf ohne Paket: Linien, Schwelle, Markierungen aus dem Kalender ─────
 function _gsVerlauf(canvas, reihen, opt) {
@@ -26919,6 +27056,7 @@ function gsMesswerteOeffnen() {
     if (typeof gsHaptic === 'function') gsHaptic('light');
     var mc = document.getElementById('modal-content'); if (!mc) return;
     try { gsWetterGeraetAbgleich(); } catch (_) {}   // v32.52: Wetter als Geraet, aus dem Zwischenspeicher
+    try { gsSensorAufgabenAbgleich(); } catch (_) {}   // v32.53: Regel task:* → Aufgabe
     _gsMwRender();
     if (typeof openModal === 'function') openModal('detail-modal');
   } catch (_) {}
@@ -26949,7 +27087,7 @@ function _gsMwRender() {
     }).join('');
     var regeln = gsRegelnPruefen(g.id).map(function (r) {
       var z = r.zustand === 'verletzt' ? '⚠️ ' + _t('mw_verletzt', 'verletzt') : r.zustand === 'erfuellt' ? '✓ ' + _t('mw_erfuellt', 'erfüllt') : '– ' + _t('mw_nicht_pruefbar', 'nicht prüfbar');
-      return '<div class="gs-mw-regel gs-mw-' + r.zustand + '"><b>' + esc(r.text) + '</b><i>' + esc(z) + ' · ' + esc(r.grund) + '</i><button type="button" class="gs-mw-x" aria-label="Regel löschen" onclick="gsRegelLoeschen(\'' + esc(r.regel_id) + '\');_gsMwRender()">×</button></div>';
+      return '<div class="gs-mw-regel gs-mw-' + r.zustand + '"><b>' + esc(r.text) + '</b><i>' + esc(z) + ' · ' + esc(r.grund) + '</i><button type="button" class="gs-mw-x" aria-label="Regel löschen" onclick="gsRegelLoeschen(\'' + esc(r.regel_id) + '\');if(typeof gsSensorAufgabenAbgleich===\'function\')gsSensorAufgabenAbgleich();_gsMwRender()">×</button></div>';
     }).join('');
     var erste = metrics[0];
     return '<div class="gs-mw-kachel" data-geraet="' + esc(g.id) + '">' +
@@ -26963,6 +27101,7 @@ function _gsMwRender() {
         '<select id="mw-regel-metric-' + esc(g.id) + '" aria-label="Messgrösse">' + optionenKat + '</select>' +
         '<select id="mw-regel-op-' + esc(g.id) + '" aria-label="Bedingung"><option value="below">' + _t('mw_unter', 'unter') + '</option><option value="above">' + _t('mw_ueber', 'über') + '</option></select>' +
         '<input id="mw-regel-wert-' + esc(g.id) + '" type="number" inputmode="decimal" step="any" aria-label="Schwelle" placeholder="Schwelle">' +
+        '<select id="mw-regel-aktion-' + esc(g.id) + '" aria-label="Aktion"><option value="notify">' + _t('mw_akt_melden', 'melden') + '</option><option value="task:water">' + _t('mw_akt_giessen', 'Giessen fällig machen') + '</option><option value="task:check">' + _t('mw_akt_kontrolle', 'Kontrolle fällig machen') + '</option></select>' +
         '<button type="button" onclick="_gsMwRegelAusFormular(\'' + esc(g.id) + '\')">' + _t('mw_anlegen', 'Anlegen') + '</button></div></details>' +
     '</div>';
   }).join('');
@@ -27030,8 +27169,9 @@ window._gsMwGeraetAusFormular = function () {
 window._gsMwRegelAusFormular = function (geraetId) {
   var m = (document.getElementById('mw-regel-metric-' + geraetId) || {}).value, op = (document.getElementById('mw-regel-op-' + geraetId) || {}).value, w = (document.getElementById('mw-regel-wert-' + geraetId) || {}).value;
   if (w === '' || !isFinite(Number(w))) { if (typeof gsToast === 'function') gsToast('Bitte eine Schwelle angeben.', 'warn'); return; }
-  var r = gsRegelAnlegen({ geraet_id: geraetId, metric: m, op: op, threshold: Number(w), action: 'notify' });
-  if (r) _gsMwRender();
+  var akt = (document.getElementById('mw-regel-aktion-' + geraetId) || {}).value || 'notify';
+  var r = gsRegelAnlegen({ geraet_id: geraetId, metric: m, op: op, threshold: Number(w), action: akt });
+  if (r) { try { gsSensorAufgabenAbgleich(); } catch (_) {} _gsMwRender(); }
 };
 
 // ═══ v32.46 · KALENDER — EINE EREIGNIS-SCHICHT (docs/KALENDER-V1.md) ══════
@@ -27060,7 +27200,7 @@ var _GS_KAL_ART = { aufgabe: 'Aufgabe', tagebuch: 'Tagebuch', gepflanzt: 'Gepfla
 var _GS_TB_EMOJI = { note: '📝', water: '💧', fertilize: '🌱', harvest: '🌾', plant: '🌱', pest: '🐛', weather: '🌦️', photo: '📸', repot: '🪴', prune: '✂️', check: '👀', mist: '💨', dust: '🧹', rotate: '🔄', observation: '👀' };
 
 // Tage bis faellig — mit Verschiebung. Wer eine Faelligkeit braucht, ruft das.
-function _gsTaskDays(t) { return getDaysUntilDue(t && t.lastDone, t && t.intervalDays, t && t.snoozedUntil); }
+function _gsTaskDays(t) { return getDaysUntilDue(t && t.lastDone, t && t.intervalDays, t && t.snoozedUntil, t && t.vorgezogenAuf); }
 
 // v32.47: Eine Pflanze steht in EINER von zwei Listen — „Meine Pflanzen"
 // (ps_myplants) oder Garten-Pflanzungen (gs_plantings). Wer erledigt,
@@ -27227,12 +27367,13 @@ function gsKalenderEreignisse(von, bis) {
         if (!im(tag)) return;
         var def = TASK_DEFS[k];
         var verschoben = !!(t.snoozedUntil && new Date(t.snoozedUntil).getTime() > Date.now());
+        var sensor = (t.vorgezogenAuf && t.vorgezogenGrund && (!t.lastDone || String(t.lastDone) < String(t.vorgezogenAuf))) ? t.vorgezogenGrund : null;   // v32.53
         out.push({ id: 'aufgabe:' + p.id + ':' + k + ':' + tag, art: 'aufgabe', datum: tag, zeit: null, ts: null,
           titel: (p.name || '') + ' ' + ((typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[k]) || String(def.name || k).toLowerCase()),
           emoji: def.icon || '', pflanze: { id: p.id, name: p.name, liste: x.liste }, garten_id: p.gardenId || null,
-          quelle: 'regel', status: verschoben ? 'verschoben' : 'offen', faellig_seit: d, key: k,
+          quelle: sensor ? 'sensor' : 'regel', status: verschoben ? 'verschoben' : 'offen', faellig_seit: d, key: k,
           verweis: { fn: 'gsQuickDone', args: [p.id, k] },
-          grund: 'Intervall ' + (parseInt(t.intervalDays, 10) || 7) + ' Tage' + (t.lastDone ? ', zuletzt ' + _gsKalDatumKurz(t.lastDone) : ', noch nie erledigt') + (verschoben ? ' · verschoben bis ' + _gsKalDatumKurz(t.snoozedUntil) : '') });
+          grund: 'Intervall ' + (parseInt(t.intervalDays, 10) || 7) + ' Tage' + (t.lastDone ? ', zuletzt ' + _gsKalDatumKurz(t.lastDone) : ', noch nie erledigt') + (verschoben ? ' · verschoben bis ' + _gsKalDatumKurz(t.snoozedUntil) : '') + (sensor ? ' · vorgezogen: ' + sensor : '') });
       });
     });
   } catch (_) {}
@@ -27241,10 +27382,14 @@ function gsKalenderEreignisse(von, bis) {
     gsTagebuchAlle().forEach(function (e) {
       if (!im(e.datum)) return;
       var zukunft = e.ts && new Date(e.ts).getTime() > Date.now();
+      // v32.53: Giessen bestaetigt sich am Sensor — als Aussage mit Zahl, nie als Haken (§6)
+      var best = null;
+      try { if (!zukunft && e.cat === 'water' && e.pflanze_id && typeof gsGiessBestaetigung === 'function') { var bf = _gsPflanzeFinden(e.pflanze_id); if (bf && bf.p) { best = gsGiessBestaetigung(bf.p, e.ts); if (best && best.ohne_geraet) best = null; } } } catch (_) { best = null; }
       out.push({ id: 'tagebuch:' + e.id, art: zukunft ? 'erinnerung' : 'tagebuch', datum: e.datum, zeit: _gsKalZeit(e.ts), ts: e.ts, titel: e.text, emoji: zukunft ? '⏰' : e.emoji,
         pflanze: e.pflanze_id ? { id: e.pflanze_id, name: e.plant } : null, garten_id: null, quelle: e.quelle, status: 'info', faellig_seit: null,
         verweis: (e.pflanze_id && e.herkunft === 'pflanze') ? { fn: 'openPlantDiary', args: [e.pflanze_id] } : { fn: 'openGartenTagebuch', args: [] },
-        grund: e.herkunft === 'pflanze' ? 'aus dem Pflanzentagebuch' + (e.quelle === 'regel' ? ' (abgehakt)' : '') : 'aus dem Gartentagebuch' });
+        sensor: best,
+        grund: (e.herkunft === 'pflanze' ? 'aus dem Pflanzentagebuch' + (e.quelle === 'regel' ? ' (abgehakt)' : '') : 'aus dem Gartentagebuch') + (best ? ' · Sensor: ' + best.text : '') });
     });
   } catch (_) {}
   // 3 · Gepflanzt / aufgenommen
@@ -27520,7 +27665,8 @@ window.gsRenderDayPlan = function(){
             // v31.84: Auch hier — „Nächste Schritte" ist die Stelle, an der
             // die meisten Menschen ihre Aufgaben sehen. Ein Hinweis nur im
             // Benachrichtigungs-Fenster waere die halbe Verdrahtung.
-            (t.regen ? ' \u00b7 \ud83c\udf27\ufe0f ' + t.regen.mm + ' mm Regen heute' : '') + '</div>' +
+            (t.regen ? ' \u00b7 \ud83c\udf27\ufe0f ' + t.regen.mm + ' mm Regen heute' : '') +
+            (t.sensor ? ' \u00b7 \ud83d\udcf6 ' + esc(t.sensor) : '') + '</div>' +
         '</div>' +
         '<button type="button" class="gs-dp-box" onclick="' + call + '"' +
           ' aria-label="' + title + ' erledigt"></button>' +
@@ -27898,7 +28044,8 @@ function gsNcRender(){
               // v31.84: Wenn es geregnet hat, steht die gemessene Menge hier.
               // Die Aufgabe bleibt — entschieden wird nicht fuer den Menschen.
               (t.regen ? '<span class="gs-nc-regen">\ud83c\udf27\ufe0f ' + t.regen.mm +
-                ' mm Regen heute \u2014 kann warten</span>' : '') + '</div>' +
+                ' mm Regen heute \u2014 kann warten</span>' : '') +
+              (t.sensor ? '<span class="gs-nc-regen">\ud83d\udcf6 ' + (typeof gsEscHtml === 'function' ? gsEscHtml(t.sensor) : t.sensor) + '</span>' : '') + '</div>' +
           '</div>' +
           '<button type="button" class="gs-nc-ghost" title="1 Tag verschieben" onclick="event.stopPropagation();gsSnoozeTask(\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\',1);setTimeout(gsNcRender,400);">⏰</button>' +
         '</div>';
@@ -35314,7 +35461,12 @@ function savePlantsToStorage(){
 // FAELSCHTE gsSnoozeTask das `lastDone`, damit die Aufgabe spaeter faellig
 // wurde — und das Tagebuch behauptete danach ein Giessen, das nie war.
 // Faellig ist jetzt max(lastDone + Intervall, snoozedUntil).
-function getDaysUntilDue(lastDone, intervalDays, snoozedUntil){
+// v32.53: vierter Parameter `vorgezogenAuf` (OEKOSYSTEM-V1.md §6/§11 Idee 4):
+// eine verletzte Regel `task:<key>` zieht die Aufgabe auf diesen Tag VOR —
+// nur, wenn seither nicht erledigt wurde (lastDone < vorgezogenAuf). Eine
+// Verschiebung durch die Person (snoozedUntil) gewinnt trotzdem: der Sensor
+// ist ein Hinweis, entschieden wird nicht fuer den Menschen.
+function getDaysUntilDue(lastDone, intervalDays, snoozedUntil, vorgezogenAuf){
   // v24.25: Datums-basiert statt time-of-day-Drift. „Vor 1.6 Tagen gegossen + Intervall 2"
   // = 0 Tage übrig (rounding 0.4 → 0) hat falsch ausgelöst „jetzt fällig". Jetzt:
   // exaktes Mitternachts-Vergleich der Due-Date — egal welche Uhrzeit der User schaut.
@@ -35325,6 +35477,7 @@ function getDaysUntilDue(lastDone, intervalDays, snoozedUntil){
   var n = parseInt(intervalDays, 10);
   if (!Number.isFinite(n) || n <= 0) n = 7;
   var dueTs = lastTs + n * 86400000;
+  if (vorgezogenAuf) { try { var vz = new Date(vorgezogenAuf).getTime(); if (Number.isFinite(vz) && vz > lastTs && vz < dueTs) dueTs = vz; } catch(_){} }
   if (snoozedUntil) { try { var sn = new Date(snoozedUntil).getTime(); if (Number.isFinite(sn) && sn > dueTs) dueTs = sn; } catch(_){} }
   var dueDate = new Date(dueTs); dueDate.setHours(0,0,0,0);
   var today = new Date(); today.setHours(0,0,0,0);
@@ -35345,7 +35498,7 @@ function countOverdueTasks(){
   myPlants.forEach(p => {
     if(!p.tasks) return;
     Object.entries(p.tasks).forEach(([k, t]) => {
-      if(t.active && getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil) <= 0) n++;
+      if(t.active && getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil, t.vorgezogenAuf) <= 0) n++;
     });
   });
   return n;
@@ -35421,7 +35574,7 @@ function renderMyPlants() {
       Object.keys(p.tasks).forEach(function(k){
         var t = p.tasks[k];
         if (!t || !t.active || !TASK_DEFS[k]) return;
-        var d = getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil);
+        var d = getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil, t.vorgezogenAuf);
         if (d <= 2) { allDue.push({ plant:p, key:k, days:d }); anyDue = true; }
       });
     }
@@ -36076,7 +36229,8 @@ function openPlantDiary(plantId) {
   if (!Array.isArray(p.diary)) p.diary = [];
   var existing = document.getElementById('plant-diary-modal');
   if (existing) existing.remove();
-  var entries = p.diary.slice().sort(function(a,b){ return (b.ts||0) - (a.ts||0); });
+  // v32.53: `ts` ist seit v26.51 ein ISO-String (gsQuickDone) — die Differenz zweier Strings ist NaN, die Liste war unsortiert.
+  var entries = p.diary.slice().sort(function(a,b){ return (new Date(b.ts||0).getTime()||0) - (new Date(a.ts||0).getTime()||0); });
 
   var entriesHtml = entries.length ? entries.map(function(e){
     var dt = new Date(e.ts || Date.now());
@@ -36089,9 +36243,11 @@ function openPlantDiary(plantId) {
           '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">'+(e.title || actionEmoji+' Eintrag')+'</div>'+
           '<div style="font-size:var(--fs-xs);color:var(--muted);">'+dateStr+'</div>'+
         '</div>'+
-        '<button onclick="gsDeleteDiaryEntry(\''+plantId+'\','+e.ts+')" style="background:none;border:none;font-size:var(--fs-md);color:var(--muted);cursor:pointer;padding:4px 8px;">🗑</button>'+
+        '<button onclick="gsDeleteDiaryEntry(\''+plantId+'\',\''+String(e.ts).replace(/[^0-9A-Za-z:.\-]/g,'')+'\')" style="background:none;border:none;font-size:var(--fs-md);color:var(--muted);cursor:pointer;padding:4px 8px;">🗑</button>'+
       '</div>'+
       (e.note ? '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.55;margin-top:4px;white-space:pre-wrap;">'+(typeof escHtml==='function'?escHtml(e.note):e.note)+'</div>' : '')+
+      // v32.53: Giessen bestaetigt sich am Sensor — nur, wenn es ein Geraet gibt
+      (function(){ try { if (e.action !== 'water' || typeof gsGiessBestaetigung !== 'function') return ''; var b = gsGiessBestaetigung(p, e.ts); if (!b || b.ohne_geraet) return ''; return '<div class="gs-tb-sensor gs-tb-' + b.zustand + '">\ud83d\udcf6 Sensor: ' + (typeof escHtml==='function'?escHtml(b.text):b.text) + '</div>'; } catch(_) { return ''; } })()+
       (e.photo ? '<img src="'+e.photo+'" alt="Tagebuch-Foto" style="margin-top:8px;width:100%;max-height:200px;object-fit:cover;border-radius:var(--r-sm);">' : '')+
     '</div>';
   }).join('') : '<div style="text-align:center;padding:32px 20px;color:var(--muted);font-size:var(--fs-md);">📓 Noch kein Eintrag.<br>Dokumentiere die Entwicklung deiner Pflanze über die Zeit.</div>';
@@ -36214,7 +36370,7 @@ async function gsDeleteDiaryEntry(plantId, ts) {
   // v26.63: iOS-PWA-safe — gsConfirmModal statt bare confirm() (Hard-Lesson #2)
   var ok = await gsConfirmModal({title:'Tagebuch-Eintrag löschen?', message:'Diese Aktion kann nicht rückgängig gemacht werden.', ok:'Löschen', cancel:'Abbrechen', kind:'warn'});
   if (!ok) return;
-  p.diary = p.diary.filter(function(e){ return e.ts !== ts; });
+  p.diary = p.diary.filter(function(e){ return String(e.ts) !== String(ts); });   // v32.53: ISO-String oder Zahl — beides
   savePlantsToStorage();
   var pdm = document.getElementById('plant-diary-modal');
   if (pdm) pdm.remove();
@@ -36233,7 +36389,7 @@ async function deletePlant(id){
 // ─── Aufgabe erledigt markieren ───────────────────────────
 function doneTask(plantId, taskKey){
   // v32.46: erledigt hebt eine Verschiebung auf (siehe gsQuickDone)
-  try { var _pS = myPlants.find(function(x){ return x && x.id === plantId; }); if (_pS && _pS.tasks && _pS.tasks[taskKey]) delete _pS.tasks[taskKey].snoozedUntil; } catch(_){}
+  try { var _pS = myPlants.find(function(x){ return x && x.id === plantId; }); if (_pS && _pS.tasks && _pS.tasks[taskKey]) { delete _pS.tasks[taskKey].snoozedUntil; delete _pS.tasks[taskKey].vorgezogenAuf; delete _pS.tasks[taskKey].vorgezogenGrund; } } catch(_){}
   const p = myPlants.find(x => x.id === plantId);
   if(!p || !p.tasks[taskKey]) return;
   p.tasks[taskKey].lastDone = new Date().toISOString();
@@ -36266,7 +36422,7 @@ function openTaskManager(plantId){
     const opts = def.intervals.map(o =>
       '<option value="' + o.v + '"' + (o.v===iv?' selected':'') + '>' + o.l + '</option>'
     ).join('');
-    const daysLeft = task.lastDone ? getDaysUntilDue(task.lastDone, iv, task.snoozedUntil) : 0;
+    const daysLeft = task.lastDone ? getDaysUntilDue(task.lastDone, iv, task.snoozedUntil, task.vorgezogenAuf) : 0;
     const due = task.lastDone ? getDueLabel(daysLeft) : {text:_t('task_never_done','Noch nie erledigt'), cls:'overdue'};
     html += '<div class="dsec" style="margin-bottom:8px;opacity:' + (active?'1':'.55') + '">' +
       '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;">' +
@@ -36371,7 +36527,7 @@ function scheduleAllNotifications(){
     Object.entries(plant.tasks).forEach(function(entry){
       var key = entry[0], task = entry[1];
       if (!task.active) return;
-      var daysLeft = getDaysUntilDue(task.lastDone, task.intervalDays, task.snoozedUntil);
+      var daysLeft = getDaysUntilDue(task.lastDone, task.intervalDays, task.snoozedUntil, task.vorgezogenAuf);
       var msUntil = Math.max(0, daysLeft) * 86400000;
       if (msUntil > MAX_AHEAD) return; // > 24h → wird beim nächsten Tab-Open re-scheduled
       var def = TASK_DEFS[key];
@@ -73761,6 +73917,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.53', date: '04.09.2026',
+    headline: '📶 Ein Sensor macht Giessen fällig — und das Abhaken bestätigt sich am Sensor',
+    summary: 'Die Verbindung aus dem Ökosystem-Entwurf §6 (docs/OEKOSYSTEM-V1.md, §11 Idee 4): Eine Regel kann jetzt eine Aktion haben — „melden", „Giessen fällig machen" oder „Kontrolle fällig machen". Ist sie verletzt (Bodenfeuchte unter 30 %), zieht sie die Aufgabe der verknüpften Pflanze auf heute vor; „Heute zu tun", Kalender, Glocke und Notizzettel zeigen sie mit Gerät und Messwert. Ist die Regel wieder erfüllt, wird das Vorziehen aufgehoben; ohne plausible Werte ändert sich nichts (drei Zustände). Eine Verschiebung durch dich gewinnt immer — der Sensor ist ein Hinweis. Und nach dem Abhaken einer Giess-Aufgabe sagt das Tagebuch, ob der Sensor davon etwas gemerkt hat: bestätigt (+10 Punkte innert 60 Minuten), nicht gemerkt, oder nicht prüfbar — mit Zahlen, nie als Haken; kein Messwert setzt je ein „erledigt". Die Server-Sicht v_plant_tasks_due bekommt dieselbe Regel (Migration bereit). Nebenbei: der Lösch-Knopf im Pflanzentagebuch war für alle Abhak-Einträge tot (Zeitstempel ohne Anführungszeichen im onclick), und die Liste war unsortiert.',
+    user_summary: '📶 Regeln im Messwerte-Dashboard können jetzt eine Aufgabe fällig machen — „Bodenfeuchte unter 30 → Giessen". Und nach dem Giessen sagt das Tagebuch, ob dein Sensor es gemerkt hat.',
+    user_items: [
+      {emoji:'📶', bold:'Regel → Aufgabe:', text:' Beim Anlegen einer Regel wählst du, was passiert: melden, Giessen fällig machen oder Kontrolle fällig machen. Die Aufgabe steht dann in „Heute zu tun" mit Gerät und Messwert. Verschiebst du sie, bleibt sie verschoben — du entscheidest.'},
+      {emoji:'💧', bold:'Giessen bestätigt:', text:' Nach dem Abhaken steht im Tagebuch, ob die Bodenfeuchte innert einer Stunde um mindestens 10 Punkte gestiegen ist — bestätigt, nicht gemerkt, oder nicht prüfbar. Immer mit den Zahlen.'},
+      {emoji:'🗑️', bold:'Pflanzentagebuch:', text:' Der Lösch-Knopf funktioniert wieder für alle Einträge, und die Liste ist nach Datum sortiert.'},
+    ],
+  },
+  {
     v: 'v32.52', date: '04.09.2026',
     headline: '🌦️ Der Wetterdienst ist dein erstes Gerät — und kein Messwert wird doppelt gespeichert',
     summary: 'Vier Schritte aus dem Ideen-Kapitel für die Sensoren (docs/OEKOSYSTEM-V1.md §11, Ideen 2 · 3 · 11 · 21): Der Open-Meteo-Zwischenspeicher wird zu einem Gerät „Wetterdienst" im Messwerte-Dashboard — Lufttemperatur und Niederschlag je Stunde, nur bis jetzt (eine Vorhersage ist kein Messwert), sieben Tage lokal, zweimal abgleichen ergibt einmal. Alle Messwerte gehen jetzt durch EINEN Weg mit Dublettensperre auf Gerät, Messgrösse und Zeit — derselbe Schlüssel wie später auf dem Server; neue Geräte und Regeln bekommen eine UUID. Der Katalog der Messgrössen wird vom Server geladen und nur bei Erfolg ersetzt. Und die Beispieldaten der Prüfstände haben endlich ein Gerät mit Werten und einer Regel — bis dahin vermass jeder Prüfstand ausser sensor_check ein leeres Dashboard. Drei neue Prüfstand-Fälle mit Gegenprobe.',
@@ -74534,7 +74701,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.52';
+var GS_VERSION = 'v32.53';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -78372,7 +78539,7 @@ window.gsBuildSmartReminder = function(){
     var w = p.tasks.water;
     if (!w || !w.active) return false;
     if (typeof getDaysUntilDue !== 'function') return false;
-    return getDaysUntilDue(w.lastDone, w.intervalDays, w.snoozedUntil) <= 0;
+    return getDaysUntilDue(w.lastDone, w.intervalDays, w.snoozedUntil, w.vorgezogenAuf) <= 0;
   }).length;
 
   // Reminder-Logik (Priority order)

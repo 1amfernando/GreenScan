@@ -794,6 +794,24 @@ v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
 
+**Seit v32.53 hat die eine Aufgaben-Rechnung einen vierten Parameter.**
+`getDaysUntilDue(lastDone, intervalDays, snoozedUntil, vorgezogenAuf)` —
+eine verletzte Sensor-Regel `task:<key>` zieht auf `vorgezogenAuf` vor,
+die Verschiebung der Person gewinnt (`fällig = max(min(lastDone +
+Intervall, vorgezogenAuf), snoozedUntil)`). Neun Aufrufer; wer eine
+Fälligkeit braucht, ruft `_gsTaskDays(t)` oder `gsGetDueTasks()`, nie die
+Rohfunktion mit drei Argumenten — sonst rechnet die neue Stelle ohne den
+Sensor. `device_rules.action` liest genau EINE Stelle
+(`gsSensorAufgabenAbgleich`); wer eine neue Aktion erfindet, trägt sie dort
+ein und im Regel-Formular. Und ein Nebenfund, der über das Tagebuch
+hinausgeht: **ein dynamischer Wert in einem `onclick` ist eine
+Zeichenkette, die geparst wird.** `gsDeleteDiaryEntry('p2',' + e.ts + ')`
+war mit numerischen `ts` richtig und mit ISO-Strings ein Syntaxfehler —
+seit v26.51 schreibt `gsQuickDone` Strings, seither war der Lösch-Knopf für
+jeden Abhak-Eintrag tot. `wiring_check` sieht so etwas nicht (er prüft, ob
+die FUNKTION existiert, nicht ob das Attribut parst); `sensor_check`
+„Giess-Bestätigung" hält es jetzt mit `new Function(onclick)` fest.
+
 **Seit v32.52 haben die Beispieldaten ein Gerät** („Balkon Süd · Erde",
 sieben Tage Bodenfeuchte und Lufttemperatur, ein unplausibler Wert, eine
 verletzte Regel). Bis dahin vermass jeder Prüfstand ausser `sensor_check`
