@@ -538,6 +538,37 @@ const FAELLE = [
       }
     },
   },
+  {
+    // v32.56: Lina kennt die Zahlen (§11 Idee 6). Ein Prompt ist keine Garantie
+    // (§4a.2) — geprueft wird der KONTEXT: jede Prozentzahl darin ist ein
+    // gespeicherter plausibler Wert, Luecken und Anzahl stehen dabei, und ohne
+    // Daten sagt er „keine" statt zu schweigen.
+    name: 'Lina · jede Zahl im Kontext stammt aus einem Datensatz; Lücken werden genannt; ohne Daten steht „keine"',
+    lauf: () => {
+      const ctx = gsLinaContext();
+      if (!/REGEL: Zahlen, Daten und Gerätenamen nur aus diesem KONTEXT/.test(ctx)) return { ok: false, warum: 'die Anweisung „nur aus dem Kontext zitieren" fehlt' };
+      if (!/Balkon Süd · Erde \[Von Hand\]/.test(ctx)) return { ok: false, warum: 'das Beispielgerät steht nicht im Kontext: ' + ctx.slice(0, 200) };
+      if (!/Bodenfeuchte 22 %/.test(ctx)) return { ok: false, warum: 'der letzte plausible Wert (22 %) fehlt' };
+      // Sieben Seed-Werte, der aelteste 7 Tage und 4 Stunden alt — im 7-Tage-Fenster sind es sechs.
+      if (!/Bodenfeuchte 22 % \(31\.08\. 08:00; 6 Werte in 7 Tagen; letzter Wert vor 28 h\)/.test(ctx)) return { ok: false, warum: 'Wert, Zeit, Anzahl oder Lücke stimmen nicht: ' + (ctx.match(/Messwerte:.*/) || [''])[0].slice(0, 220) };
+      if (!/letzter Wert vor \d+ h/.test(ctx)) return { ok: false, warum: 'die Lücke seit dem letzten Wert fehlt' };
+      if (!/Alarme: Balkon Süd · Erde: Bodenfeuchte unter 25 %/.test(ctx)) return { ok: false, warum: 'die verletzte Regel fehlt: ' + (ctx.match(/Alarme:.*/) || [''])[0] };
+      if (!/Fällig: .*Basilikum giessen \(seit 1 Tag\)/.test(ctx)) return { ok: false, warum: 'die fällige Aufgabe fehlt: ' + (ctx.match(/Fällig:.*/) || [''])[0] };
+      const werte = new Set(_gsMesswerteAlle().filter(m => m.quality === 2).map(m => String(m.wert)));
+      const zeile = (ctx.match(/Messwerte:.*/) || [''])[0];
+      const zahlen = Array.from(zeile.matchAll(/(\d+(?:\.\d+)?) (?:%|°C)/g)).map(m => m[1]);
+      const fremd = zahlen.filter(z => !werte.has(z) && !werte.has(String(Number(z))));
+      if (!zahlen.length || fremd.length) return { ok: false, warum: 'Zahlen im Kontext ohne Datensatz: ' + JSON.stringify(fremd) + ' von ' + JSON.stringify(zahlen) };
+      if (ctx.length > 1100) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen — das ist ein Datenexport, kein Kontext' };
+      const sichern = { g: localStorage.getItem('gs_geraete'), mp: myPlants, pl: plantings };
+      try {
+        localStorage.setItem('gs_geraete', '[]'); myPlants = []; plantings = [];
+        const leer = gsLinaContext();
+        if (!/Fällig: keine Aufgaben heute/.test(leer) || !/Geräte: keine/.test(leer)) return { ok: false, warum: 'ohne Daten schweigt der Kontext statt „keine" zu sagen: ' + leer };
+      } finally { if (sichern.g != null) localStorage.setItem('gs_geraete', sichern.g); myPlants = sichern.mp; plantings = sichern.pl; }
+      return { ok: true, info: ctx.length + ' Zeichen · ' + zahlen.length + ' Zahlen, alle aus Datensätzen · Alarm, Fälligkeit, Anzahl und Lücke genannt · ohne Daten „keine"' };
+    },
+  },
 ];
 
 (async () => {

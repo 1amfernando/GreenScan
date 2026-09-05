@@ -443,11 +443,11 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 3 | Wetter als virtuelles Gerät | 0 | mittel | **gebaut v32.52** (`gsWetterGeraetAbgleich`, 7 Tage, nur Vergangenheit) |
 | 4 | Giessen bestätigt sich selbst — als Aussage; Regel-Aktion verdrahten | 0 | mittel | **gebaut v32.53** (`gsSensorAufgabenAbgleich`, `gsGiessBestaetigung`, `vorgezogenAuf`) |
 | 5 | Schwellwert-Vorlagen nur, wo eine Zahl steht | 0 | klein | **gebaut v32.55** (`gsSchwellwertVorlagen`: Artenliste, Kulturdaten, eigener Verlauf) |
-| 6 | Lina kennt die Zahlen | 0 | klein–mittel | CLAUDE.md §3.4 (korrigiert) |
+| 6 | Lina kennt die Zahlen | 0 | klein–mittel | **gebaut v32.56** (`gsLinaZahlen` im Kontext, Prüfstand hält jede Zahl gegen einen Datensatz) |
 | 7 | Ein Meldungs-Budget gegen Alarm-Müdigkeit | 0 | klein | **gebaut v32.54** (`gsNotif.stille`, `showKategorie`, `gsSensorAlarmeMelden`) |
 | 8 | Wochenrückblick statt „N Aufgaben" | 0 | mittel | — |
 | 9 | Zwei Standorte nebeneinander | 0 | klein | — |
-| 10 | Frostnacht am eigenen Beet | 0 / 1 | klein / mittel | 3 |
+| 10 | Frostnacht am eigenen Beet | 0 / 1 | klein / mittel | **Stufe 0 gebaut v32.56** (Frost-Ereignis aus der Vorhersage im Kalender); Stufe 1 (Sensor gegen Prognose) braucht ein Gerät |
 | 11 | Server-taugliche Identität und Idempotenz lokal | 0 | klein | **gebaut v32.52** (UUID, `_gsMesswerteAnhaengen` mit Dublettensperre) |
 | 12 | Export, Import, Löschung — die neuen Schlüssel sind sichtbar | 0 | klein | v32.51 (Backup ✓) |
 | 13 | Urlaub: Giess-Zettel jetzt, Stellvertreter später | 0 / 2 | mittel / gross | — |
@@ -1176,6 +1176,13 @@ Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
 |---|---|
 | **Vorlagen nur, wo eine Zahl steht.** `gsSchwellwertVorlagen(g)` sammelt für die Pflanzen des Geräts (`_gsGeraetePflanzen`, höchstens drei) aus drei Quellen, jede mit Namen im Grund: Artenliste (`lightMin` / `lightMax`, Treffer über `_gsNormLat` auf `species`), Kulturdaten (`PLANT_DB.bodentemp`, Treffer über Name, Name ± „n", `latName`), eigener Verlauf (Spanne seit dem ersten plausiblen Wert ≥ 14 Tage, mindestens 10 Werte im Fenster → Tief und Hoch; nie für `sum`-Grössen und Batterie). **Nie Bodenfeuchte aus Artendaten.** Im Regel-Formular als Knöpfe mit Quelle im `title`; Antippen füllt Messgrösse, Bedingung, Schwelle — angelegt wird von Hand. Ohne Zahl: „keine Empfehlung hinterlegt — nach 14 Tagen Werten schlägt die App dein Tief und Hoch vor" | Monstera: Licht unter 200 / über 2000 (HP001) · Zucchini: Bodentemperatur unter 12 (Kulturdaten) · Bärlauch: nichts · 15 Tage Werte → 14-Tage-Tief 21 (als Zahl) · 7 Tage → nichts · Antippen füllt, legt nicht an · „keine Empfehlung" im HTML. Gegenproben: Vorlage legt selbst an → rot; Spanne auf 7 Tage → „7-Tage-Tief 28" rot |
 | **Eine Funktion für den Namen einer Messgrösse.** `_gsMetricLabel(k)`: `label_<lang>` aus der Tabelle, sonst `_t('metric_<key>', label_de)` aus der Sprachschicht (elf Schlüssel in `GS_I18N_JS_STRINGS`), sonst Deutsch — an allen acht Lesestellen (Dashboard, Kacheln, Reiter, Canvas-`aria-label`, Regeltext, Kalender). `_gsGeraetArt` gibt übersetzbare Labels (`mw_art_<kind>`). `i18n_check` kennt `GS_METRIC_KATALOG_START` als Datenliste mit Präfix `metric_` | de: Bodenfeuchte · fr aus der Tabelle: Humidité du sol · fr aus der Sprachschicht: Température de l'air · Rückfall: Licht · im Dashboard. Gegenprobe: Spalte ignoriert → „Bodenfeuchte" statt „Humidité du sol" |
+
+### 11.3e · Was v32.56 gebaut hat (Ideen 6 und 10)
+
+| Gebaut | Was der Prüfstand festhält |
+|---|---|
+| **Lina kennt die Zahlen.** `gsLinaZahlen()` baut den Block für `gsLinaContext()`: fällige Aufgaben (mit „seit N Tagen", `[Sensor]`), verletzte Regeln (höchstens drei, mit Grund), je Gerät (höchstens vier, drei Grössen) der letzte **plausible** Wert als **Rohwert** mit Zeit, Anzahl der Werte in sieben Tagen und Lücke seit dem letzten; unplausible letzte Werte werden als solche genannt; ohne Daten steht „keine" statt Stille. Deckel 700 Zeichen. Dazu die Anweisung: nur aus dem Kontext zitieren, fehlende Werte nennen, nichts schätzen | `sensor_check` „Lina": Gerät, Wert (22 %), Zeit, „6 Werte in 7 Tagen", „letzter Wert vor 28 h", Alarm, Fälligkeit im Kontext; **jede** Prozent-/Grad-Zahl der Messwert-Zeile ist ein gespeicherter plausibler Wert; ohne Daten „keine". Gegenprobe: Block entfernt → rot. Eine Falle beim Bau: die gerundete Anzeige (`_gsMwFmt`: 31.5 → 32) stand im Kontext — der Prüfstand hat sie als Zahl ohne Datensatz gemeldet; jetzt Rohwerte |
+| **Frost aus der Vorhersage.** Abschnitt 5b in `gsKalenderEreignisse`: Tagesminimum ≤ 2 °C (`GS_FROST_GRENZE_C`, dieselbe Grenze wie der Frost-Tipp der Startseite und der Server-Push) aus `gs_weather_cache.daily` → Ereignis `wetter` „❄️ Frost möglich — Tiefstwert 1.2 °C" für heute und die nächsten Tage, `status: 'info'`, Grund mit Quelle, Standort, Alter der Vorhersage und „kein Messwert". Nie für vergangene Tage | `kalender_check` „Frost": morgen 1.2 °C → ein Ereignis mit Quelle und „Stand vor 2 h", im Tagesblatt; 5 °C → keins; gestern 0 °C → keins; ohne Tageswerte → keins. Gegenprobe: Vergangenheits-Schranke entfernt → zwei Ereignisse |
 
 Eine Falle beim Bau: der erste Verlaufs-Filter verlangte, dass der älteste
 Wert **im** 14-Tage-Fenster 14 Tage alt sei — das ist nie der Fall, und die

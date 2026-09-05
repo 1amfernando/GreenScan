@@ -794,6 +794,17 @@ v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
 
+**Seit v32.56 trägt Linas Kontext Zahlen — und der Prüfstand hält jede
+gegen einen Datensatz.** `gsLinaZahlen()` schreibt **Rohwerte**, nie die
+gerundete Anzeige: `_gsMwFmt` macht aus 31.5 % eine 32 %, und eine Zahl,
+die in keinem Datensatz steht, ist im KI-Kontext eine Erfindung mit
+Dezimalstelle. Wer Lina weitere Daten gibt, nimmt den Fall „Lina" in
+`sensor_check` mit (jede Prozent-/Grad-Zahl der Messwert-Zeile muss
+gespeichert sein) und den Deckel (`GS_LINA_ZAHLEN_MAX`, 700 Zeichen —
+Kontext, kein Datenexport). Und eine Vorhersage bleibt eine Vorhersage: das
+Frost-Ereignis im Kalender (`GS_FROST_GRENZE_C`) sagt Quelle, Standort und
+Alter und gilt nur für heute und später.
+
 **Seit v32.55 hat der Name einer Messgrösse EINE Funktion: `_gsMetricLabel(k)`.**
 Wer `k.label_de` schreibt, zeigt Deutsch in vier Sprachen. Die Funktion
 liest die Tabellenspalte (`label_fr/it/en`), dann `_t('metric_<key>', …)`,
