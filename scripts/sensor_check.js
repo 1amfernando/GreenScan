@@ -632,6 +632,51 @@ const FAELLE = [
       } finally { HTMLAnchorElement.prototype.click = echtClick; }
     },
   },
+  {
+    // v32.58: „Deine Woche" (§11 Idee 8) — Zahlen mit Quelle, keine Note. Der
+    // Fall liest die Karte aus dem HTML, stellt einen Wetterdienst mit 10 mm
+    // Regen und einer Frostnacht, ein Geraet, das vier Tage schwieg — und
+    // raeumt alles weg, um „ohne Daten" zu sehen.
+    name: 'Deine Woche · Aufgaben, Regen, Frostnächte, Feuchte-Tief und Stille — mit Quelle, ohne Note; ohne Daten sagt es die Karte',
+    lauf: () => {
+      const sichern = { g: localStorage.getItem('gs_geraete'), mw: localStorage.getItem('gs_messwerte'), mp: myPlants, pl: plantings, tb: localStorage.getItem('gs_gartentagebuch'), cloud: localStorage.getItem('gs_garden_diary_cache') };
+      const zeilen = () => Array.from(document.querySelectorAll('#woche-zeilen > div')).map(d => d.textContent);
+      try {
+        gsRenderWochenrueckblick();
+        let z = zeilen();
+        if (!z.some(t => /^✅ \d+ Aufgaben? erledigt · \d+ heute offen$/.test(t))) return { ok: false, warum: 'Aufgaben-Zeile fehlt oder hat kein Format: ' + JSON.stringify(z) };
+        if (!z.some(t => /kein Wetterdienst als Gerät/.test(t))) return { ok: false, warum: 'ohne Wetterdienst muss die Karte „kein Regen- und Frostwert" sagen: ' + JSON.stringify(z) };
+        if (!z.some(t => /Balkon Süd · Erde: nie unter 22 % \(6 Werte\)/.test(t))) return { ok: false, warum: 'Feuchte-Tief des Seed-Geräts fehlt: ' + JSON.stringify(z) };
+        if (z.some(t => /Note|Score|Punkte/.test(t))) return { ok: false, warum: 'die Karte vergibt eine Note' };
+        // Wetterdienst mit 10 mm Regen und einer Frostnacht (gemessen)
+        const heute = gsHeuteTag(), gestern = _gsKalTagPlus(heute, -1);
+        const time = [], temp = [], rain = [];
+        [gestern, heute].forEach(tag => { for (let h = 0; h < 24; h++) { time.push(tag + 'T' + String(h).padStart(2, '0') + ':00'); temp.push(tag === gestern && h === 5 ? 1 : 12); rain.push(tag === gestern && h === 14 ? 10 : 0); } });
+        localStorage.removeItem('gs_wetter_geraet_aus');
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { hourly: { time, temperature_2m: temp, precipitation: rain } } }));
+        const r = gsWetterGeraetAbgleich(); if (!r.ok) return { ok: false, warum: 'Wetterabgleich: ' + JSON.stringify(r) };
+        const still = gsGeraetAnlegen({ kind: 'manual', name: 'Balkon Nord · Erde', garden_id: 'g1' });
+        gsMesswertEintragen(still.id, 'soil_moisture', 35, new Date(Date.now() - 4 * 864e5).toISOString());
+        gsRenderWochenrueckblick(); z = zeilen();
+        if (!z.some(t => /^🌧️ 10 mm Regen · 1 Frostnacht \(Wetterdienst.*gemessen\)$/.test(t))) return { ok: false, warum: 'Regen/Frost-Zeile: ' + JSON.stringify(z) };
+        if (!z.some(t => /Balkon Nord · Erde schwieg 4 Tage/.test(t))) return { ok: false, warum: 'das schweigende Gerät fehlt: ' + JSON.stringify(z) };
+        // ohne Daten
+        localStorage.setItem('gs_geraete', '[]'); localStorage.setItem('gs_messwerte', '[]'); myPlants = []; plantings = [];
+        localStorage.setItem('gs_gartentagebuch', '[]'); gsTagebuchLoad(true); localStorage.removeItem('gs_garden_diary_cache');
+        gsRenderWochenrueckblick();
+        const titel = (document.getElementById('woche-titel') || {}).textContent || '';
+        if (!/Noch keine Woche mit Daten/.test(titel) || zeilen().length !== 1) return { ok: false, warum: 'ohne Daten: „' + titel + '" · ' + JSON.stringify(zeilen()) };
+        return { ok: true, info: 'Aufgaben-Zeile · ohne Wetterdienst „kein Wert" · Süd: nie unter 22 % (6) · mit Wetterdienst: 10 mm, 1 Frostnacht, gemessen · Nord schwieg 4 Tage · ohne Daten sagt es die Karte' };
+      } finally {
+        if (sichern.g != null) localStorage.setItem('gs_geraete', sichern.g); if (sichern.mw != null) localStorage.setItem('gs_messwerte', sichern.mw);
+        myPlants = sichern.mp; plantings = sichern.pl;
+        if (sichern.tb != null) localStorage.setItem('gs_gartentagebuch', sichern.tb); gsTagebuchLoad(true);
+        if (sichern.cloud != null) localStorage.setItem('gs_garden_diary_cache', sichern.cloud);
+        localStorage.removeItem('gs_weather_cache'); localStorage.removeItem('gs_wetter_geraet_aus');
+        gsRenderWochenrueckblick();
+      }
+    },
+  },
 ];
 
 (async () => {

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.57.20260905">
+<meta name="app-version" content="32.58.20260905">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3055,6 +3055,14 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
 
     <!-- Saison-Tipp des Tages -->
+    <!-- v32.58 · Wochenrueckblick (OEKOSYSTEM-V1.md §11 Idee 8): keine Note, kein Score — Zahlen mit Quelle, und „keine Daten" bleibt „keine Daten" -->
+    <div id="woche-card" style="background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden;margin-bottom:12px;">
+      <div style="padding:14px 15px 12px;">
+        <div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.6px;opacity:.65;margin-bottom:3px;">📅 Deine Woche</div>
+        <div id="woche-titel" style="font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;color:var(--g-dark);line-height:1.3;">Die letzten sieben Tage</div>
+        <div id="woche-zeilen" style="font-size:var(--fs-sm);color:var(--text2);margin-top:6px;line-height:1.6;"></div>
+      </div>
+    </div>
     <div id="season-tip-card" style="background:linear-gradient(135deg,var(--g-main),#558b2f);border-radius:var(--r-lg);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;display:flex;gap:12px;align-items:center;" onclick="menuNav('season')">
       <span id="season-tip-emoji" style="font-size:36px;flex-shrink:0;"></span>
       <div>
@@ -12618,7 +12626,8 @@ function _gsWStackGo(idx, smooth){
 window.gsBuildWidgetStack = function(){
   try {
     if (window._gsWStackBuilt) return;
-    var ids = ['daily-card','season-tip-card','card-wusstest','wisdom-card'];
+    try { if (typeof gsRenderWochenrueckblick === 'function') gsRenderWochenrueckblick(); } catch(_){}   // v32.58
+    var ids = ['daily-card','woche-card','season-tip-card','card-wusstest','wisdom-card'];
     var cards = ids.map(function(id){ return document.getElementById(id); }).filter(Boolean);
     if (cards.length < 2) return;
     var parent = cards[0].parentNode; if (!parent) return;
@@ -26846,6 +26855,7 @@ function _gsMesswerteAnhaengen(g, liste) {
     _gsGeraeteSchreiben(alle);
     try { if (typeof gsSensorAufgabenAbgleich === 'function') gsSensorAufgabenAbgleich(); } catch (_) {}   // v32.53: Regel task:* → Aufgabe
     try { if (typeof gsSensorAlarmeMelden === 'function') gsSensorAlarmeMelden(); } catch (_) {}   // v32.54: Regel notify → eine Meldung am Tag
+    try { if (typeof gsRenderWochenrueckblick === 'function') gsRenderWochenrueckblick(); } catch (_) {}   // v32.58
     out.quality = letzte.q;
     out.grund = letzte.q === 2 ? 'plausibel (' + letzte.k.min_valid + '–' + letzte.k.max_valid + ' ' + letzte.k.unit + ')' : 'ausserhalb des Messbereichs ' + letzte.k.min_valid + '–' + letzte.k.max_valid + ' ' + letzte.k.unit + ' — angenommen, aber markiert';
     return out;
@@ -27916,9 +27926,68 @@ window.gsDayPlanCheck = function(btn, plantId, taskKey){
   }, 340);
 };
 
+// ── v32.58 · WOCHENRUECKBLICK (OEKOSYSTEM-V1.md §11 Idee 8) ──────────────────
+// Sonntagmorgen: „5 Aufgaben erledigt, 9 mm Regen, 2 Frostnaechte, das Hochbeet
+// nie unter 25 %, Balkon Nord schwieg 2 Tage." Aus den Daten, die es schon
+// gibt: gsTagebuchAlle (beide Listen + Cloud-Spiegel), gsGetDueTasks, die
+// Messwerte des Wetterdiensts (gemessen, nicht Vorhersage) und der Geraete.
+// Keine Note, kein Score, kein Vergleich mit anderen. Was fehlt, heisst
+// „kein Wert" — nicht 0. Jede Zahl traegt ihre Quelle.
+var GS_WOCHE_TAGE = 7, GS_GERAET_STILL_TAGE = 2;
+window.gsWochenrueckblick = function(){
+  var out = { zeilen: [], leer: true };
+  try {
+    var jetzt = Date.now(), von = jetzt - GS_WOCHE_TAGE * 864e5;
+    var tb = (typeof gsTagebuchAlle === 'function') ? gsTagebuchAlle().filter(function(e){ var t = e && e.ts ? new Date(e.ts).getTime() : NaN; return isFinite(t) && t >= von && t <= jetzt; }) : [];
+    var erledigt = tb.filter(function(e){ return e.quelle === 'regel' || (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[e.cat]); }).length;
+    var offen = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().filter(function(x){ return x && x.days <= 0; }).length : 0;
+    var pflanzen = ((typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.length : 0) + ((typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.length : 0);
+    if (pflanzen) { out.zeilen.push('✅ ' + erledigt + ' Aufgabe' + (erledigt === 1 ? '' : 'n') + ' erledigt · ' + (offen ? offen + ' heute offen' : 'heute nichts offen')); out.leer = false; }
+    var notizen = tb.length - erledigt;
+    if (notizen > 0) { out.zeilen.push('📝 ' + notizen + ' Tagebuch-Eintr' + (notizen === 1 ? 'ag' : 'äge')); out.leer = false; }
+    var ger = (typeof gsGeraete === 'function') ? gsGeraete() : [];
+    var wetter = ger.filter(function(g){ return g && g.kind === 'weather'; });
+    if (wetter.length) {
+      var regen = 0, hatRegen = false, frost = {};
+      wetter.forEach(function(g){
+        gsMesswerte(g.id, 'rain').forEach(function(m){ var t = new Date(m.ts).getTime(); if (t >= von && t <= jetzt && m.quality === 2) { regen += m.wert; hatRegen = true; } });
+        gsMesswerte(g.id, 'air_temp').forEach(function(m){ var t = new Date(m.ts).getTime(); if (t >= von && t <= jetzt && m.quality === 2 && m.wert <= GS_FROST_GRENZE_C) frost[_gsKalTag(m.ts)] = true; });
+      });
+      var nf = Object.keys(frost).length;
+      out.zeilen.push('🌧️ ' + (hatRegen ? (Math.round(regen * 10) / 10) + ' mm Regen' : 'kein Regenwert') + ' · ' + (nf ? nf + ' Frostnacht' + (nf === 1 ? '' : 'nächte') : 'keine Frostnacht') + ' (' + wetter[0].name + ', gemessen)');
+      out.leer = false;
+    } else if (ger.length || pflanzen) out.zeilen.push('🌧️ kein Wetterdienst als Gerät — kein Regen- und Frostwert');
+    var boden = ger.filter(function(g){ return g && g.kind !== 'weather'; }).map(function(g){
+      var w = gsMesswerte(g.id, 'soil_moisture').filter(function(m){ var t = new Date(m.ts).getTime(); return m.quality === 2 && t >= von && t <= jetzt; });
+      if (!w.length) return null;
+      var min = Math.min.apply(null, w.map(function(m){ return m.wert; }));
+      return g.name + ': nie unter ' + min + ' % (' + (w.length === 1 ? '1 Wert' : w.length + ' Werte') + ')';
+    }).filter(Boolean).slice(0, 2);
+    if (boden.length) { out.zeilen.push('💧 ' + boden.join(' · ')); out.leer = false; }
+    var still = ger.filter(function(g){ return g && g.kind !== 'weather' && g.last_seen_at && (jetzt - new Date(g.last_seen_at).getTime()) > GS_GERAET_STILL_TAGE * 864e5; })
+      .map(function(g){ return g.name + ' schwieg ' + Math.round((jetzt - new Date(g.last_seen_at).getTime()) / 864e5) + ' Tage'; }).slice(0, 2);
+    if (still.length) { out.zeilen.push('📶 ' + still.join(' · ')); out.leer = false; }
+  } catch(_){}
+  return out;
+};
+window.gsRenderWochenrueckblick = function(){
+  try {
+    var el = document.getElementById('woche-zeilen'), titel = document.getElementById('woche-titel'); if (!el || !titel) return;
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function(x){ return String(x == null ? '' : x); };
+    var w = gsWochenrueckblick();
+    if (w.leer) {
+      titel.textContent = 'Noch keine Woche mit Daten';
+      el.innerHTML = '<div>' + esc('Scanne eine Pflanze oder trage einen Messwert ein — ab dann steht hier, was die Woche gebracht hat.') + '</div>';
+      return;
+    }
+    titel.textContent = 'Die letzten sieben Tage';
+    el.innerHTML = w.zeilen.map(function(z){ return '<div>' + esc(z) + '</div>'; }).join('');
+  } catch(_){}
+};
 window.gsRenderDayPlan = function(){
   var el = document.getElementById('home-dayplan');
   if (!el) return;
+  try { gsRenderWochenrueckblick(); } catch(_){}   // v32.58: haengt an denselben Daten
   var esc = (typeof gsEscHtml === 'function') ? gsEscHtml
           : (typeof escHtml === 'function') ? escHtml
           : function(x){ return String(x == null ? '' : x); };
@@ -74235,6 +74304,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.58', date: '05.09.2026',
+    headline: '📅 „Deine Woche" auf der Startseite — Zahlen mit Quelle, keine Note',
+    summary: 'Idee 8 aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11). Eine neue Karte im Startseiten-Stapel fasst die letzten sieben Tage zusammen: erledigte und heute offene Aufgaben (aus dem gemeinsamen Tagebuch beider Pflanzenlisten), Tagebuch-Einträge, Regen und Frostnächte aus den GEMESSENEN Werten des Wetterdiensts, das Feuchte-Tief je Gerät mit der Zahl der Werte, und Geräte, die länger als zwei Tage schwiegen. Keine Note, kein Score, kein Vergleich mit anderen; was fehlt, heisst „kein Wert" und nicht 0; ohne Daten sagt die Karte, wie sie zu Daten kommt.',
+    user_summary: '📅 Auf der Startseite steht neu „Deine Woche": erledigte Aufgaben, Regen, Frostnächte, das Feuchte-Tief deiner Geräte — mit Quelle, ohne Note.',
+    user_items: [
+      {emoji:'📅', bold:'Deine Woche:', text:' Eine Karte im Stapel neben der Tageskarte. Was die Woche gebracht hat, mit Zahlen aus deinen eigenen Daten — und „kein Wert", wo keiner ist.'},
+    ],
+  },
+  {
     v: 'v32.57', date: '05.09.2026',
     headline: '📈 Zwei Standorte im selben Diagramm — und die Messwerte als CSV mit Einheit',
     summary: 'Zwei Ideen aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11, Ideen 9 und 12). Im Messwerte-Dashboard gibt es einen Vergleich: eine Messgrösse, zwei Geräte, zwei Linien mit Legende — nur Messgrössen, die beide Geräte haben, mit dem Hinweis, den Verlauf zu vergleichen und nicht die Zahl (verschiedene Sensoren messen Prozent verschieden). Und „Daten exportieren" kennt die Messwerte: eine Zeile je Wert mit Zeitpunkt, Gerät, Messgrösse, Wert, Einheit, Qualität und Quelle — die Einheit steht in der Datei, damit „31.5" auch dann noch etwas bedeutet, wenn sich der Katalog ändert.',
@@ -75061,7 +75139,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.57';
+var GS_VERSION = 'v32.58';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
