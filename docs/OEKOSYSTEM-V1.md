@@ -322,7 +322,7 @@ Software, die Messwerte hat.
 | Stufe | Inhalt | Hardware nötig |
 |---|---|---|
 | **0** | Migrationen im Repo (`metric_catalog`, `devices`, `device_readings`, `device_rules`, `device_commands`, `v_device_daily`, RLS) — **nicht angewandt**, wie alle DDL · `manual`-Gerät · Dashboard mit Verlauf (`_gsVerlauf`, Canvas, ohne Paket) · Regeln clientseitig mit drei Zuständen · Kalender-Ereignisse `messung`/`alarm` · `sensor_check.js` (8 Fälle, test-first) — **v32.48 gebaut** | nein |
-| **1** | `device-ingest` (Edge) · Token-Pairing per QR · Cron `device-alerts` · Push `sensor_alert` · Wetter als virtuelles Gerät · Bestätigung erledigter Aufgaben (§6) | ein Gerät zum Testen |
+| **1** | `device-ingest` (Edge) · Token-Pairing per QR · Cron `device-alerts` · Push `sensor_alert` · Wetter als virtuelles Gerät · Bestätigung erledigter Aufgaben (§6) — **Stand 05.09.2026:** Wetter-Gerät und Bestätigung sind Stufe 0 geworden (v32.52, v32.53); `device-ingest` steht als Skelett mit geprüftem Regel-Modul (`ingest_check`, 11 Fälle), Vertrag in `docs/GERAETE-VERTRAG.md`, Cron und Tagesaggregat als Migrationen bereit (§11.3j) — **nicht ausgeführt, nicht angewandt**: es fehlt das Gerät | ein Gerät zum Testen |
 | **2** | BLE-Pairing im Browser (`Permissions-Policy` erweitern, `wiring_check`/`kamera_check`-artiger Prüfstand mit gestellter BLE-API) · Firmware-Vertrag als `docs/GERAETE-VERTRAG.md` (das JSON aus §3.1, versioniert) · MQTT-Bridge | ja |
 | **3** | Aktoren (Ventil, Pumpe, Licht) über `device_commands` · Automationen `op = 'expr'` · Export/Import | ja |
 
@@ -451,13 +451,13 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 11 | Server-taugliche Identität und Idempotenz lokal | 0 | klein | **gebaut v32.52** (UUID, `_gsMesswerteAnhaengen` mit Dublettensperre) |
 | 12 | Export, Import, Löschung — die neuen Schlüssel sind sichtbar | 0 | klein | v32.51 (Backup ✓) · **v32.57 (CSV ✓**, `gsExportMesswerteCSV`); `delete-user`-Liste offen |
 | 13 | Urlaub: Giess-Zettel jetzt, Stellvertreter später | 0 / 2 | mittel / gross | **Stufe 0 gebaut v32.59** (`gsGiessZettel`, Druckansicht; die Pause gab es schon); Stellvertreter braucht `garden_members` (Stufe 2) |
-| 14 | Firmware-Vertrag als geteilte Regeldatei (Uhr, Batch, Antwort) | 1 | mittel | — |
+| 14 | Firmware-Vertrag als geteilte Regeldatei (Uhr, Batch, Antwort) | 1 | mittel | **vorbereitet 05.09.** (`GERAETE-VERTRAG.md`, `ingest_regeln.mjs`, `ingest_check`, `device-ingest`-Skelett) — Ausführung braucht Deno und ein Gerät |
 | 15 | Geräte-Identität ab Werk und Claim-Code-Pairing | 1 | mittel–gross | Entscheid Fernando |
-| 16 | Stille und Batterie: Vorgaberegeln und Cron `device-alerts` | 1 | mittel | Migration |
-| 17 | Tagesaggregat als Tabelle — sonst gibt es keinen Jahresvergleich | 1 | klein (SQL) / mittel | Migration |
+| 16 | Stille und Batterie: Vorgaberegeln und Cron `device-alerts` | 1 | mittel | **Migration bereit 05.09.** (`20260905_device_alerts_cron.sql`: `expected_by`, `notify_sensor`, Meldung je Tag, `for_minutes`, `cooldown`); Vorgaberegeln beim Pairing offen |
+| 17 | Tagesaggregat als Tabelle — sonst gibt es keinen Jahresvergleich | 1 | klein (SQL) / mittel | **Migration bereit 05.09.** (`20260905_device_daily.sql`: Tabelle, Aggregat-Funktion, Cron vor dem Prune); Ansicht „Mein Naturjahr" offen |
 | 18 | Firmware-Kanal | 2 | mittel | Gerät |
 | 19 | Transport-Entscheid gegen `_headers` | 2 | Entscheid klein, Bau gross | Gerät |
-| 20 | Befehle mit Ablauf und Sicherheitsgrenze | 3 | mittel | Aktor |
+| 20 | Befehle mit Ablauf und Sicherheitsgrenze | 3 | mittel | Vertrag und Rechnung stehen (`befehleAufbereiten`, `acksAuswerten`, 05.09.); Aktor fehlt |
 | 21 | Ein Gerät in den Beispieldaten — sonst vermisst jeder Prüfstand ein leeres Dashboard | 0 | klein | **gebaut v32.52** (`_seed.js`: Gerät, 15 Werte, 1 Regel); Textersatz fürs Diagramm **v32.60** |
 | 22 | Katalog-Labels in vier Sprachen — die Tabelle hat sie, die App liest nur Deutsch | 0 | klein | **gebaut v32.55** (`_gsMetricLabel`, `metric_<key>` in der Sprachschicht, `i18n_check` kennt die Liste) |
 | 23 | Kalibrierung als Daten — Offset und Faktor je Gerät und Messgrösse | 1 | klein–mittel | Migration |
@@ -1209,6 +1209,33 @@ Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
 |---|---|
 | **Vorhersage und Messung getrennt.** Der Fund beim Bau: `totalPrecip14` kommt aus `forecast_days=14` — eine **Vorhersage**, die die Wasserbilanz des Planers bis v32.59 „gemessener Regen" nannte. `_gsPlanWasser` rechnet jetzt mit der Prognose der nächsten 7 Tage (`daily.precip`, beginnt heute; 1 mm auf 1 m² = 1 l) und nennt daneben die Messung der letzten 7 Tage aus dem Wetterdienst-Gerät (`rain`, nur Stunden bis jetzt, plausibel). Ohne Gerät: „Kein gemessener Wert — kein Wetterdienst als Gerät", nicht 0. Ohne Vorhersage: keine Bilanz (`zusatz: null`, Zustand „–"), aber die Messung. `plan._wasser` trägt `prognose`, `gemessen`, `zusatz`; `regen`/`mm` bleiben für Altleser | `planer_check` „R10": Prognose 12 mm → 144 l aus 7 Tagen (nicht 72/2 aus 14) · ohne Gerät „Kein gemessener Wert" · mit Gerät 7 mm → 84 l, ein 9 Tage alter Wert zählt nicht · guter Plan (20 l) „das reicht", schlechter (200 l) „56 l bleiben an dir" · ohne Vorhersage „Keine Vorhersage im Zwischenspeicher", Messung bleibt. Gegenprobe: „kein Wert" durch „0 mm" ersetzt → rot |
 | **Das Diagramm sagt, was es zeigt.** `_gsMwVerlaufMalen` schreibt Tief, Hoch und letzten Wert mit Datum in das `aria-label` des Canvas (plausible Werte; ohne: „kein plausibler Wert"); der Vergleich nennt je Reihe Anzahl, Tief und Hoch | `sensor_check` „Diagramm-Text": „Bodenfeuchte · Balkon Süd · Erde · 8 Werte · Tief 22 % · Hoch 52 % · zuletzt 22 % am 31.08." · Vergleich „(7 Werte, Tief 22, Hoch 52) und (2 Werte, Tief 40, Hoch 45)". Gegenprobe: Zusatz entfernt → rot |
+
+### 11.3j · Stufe 1 vorbereitet, ohne Gerät (05.09.2026 — Ideen 14, 16, 17, Vertrag für 20)
+
+Alles, was sich ohne Gerät **rechnen** und damit prüfen lässt, liegt im Repo.
+Was nicht geprüft ist, steht dabei — dieselbe Ehrlichkeit wie beim Rest.
+
+| Gebaut | Geprüft | Nicht geprüft (braucht Deno, Datenbank oder Gerät) |
+|---|---|---|
+| **`docs/GERAETE-VERTRAG.md`** — Vertrag v1: Anfrage, Felder (`age_s` für Geräte ohne Uhr, `ts` nur mit Uhr, `seq`, `error`), Grenzen (500 je Aufruf, `interval_s / 2`), Antwort (`accepted` und `duplicates` getrennt, `clock`, `server_time`, `next_contact_s`, `commands`, `firmware: null`), Fehlertabelle, Sicherheit, Befehle mit Ablauf, ESP32-Pseudocode | — (Text) | ob eine Firmware ihn so umsetzt |
+| **`supabase/functions/_shared/ingest_regeln.mjs`** — die Rechnung des Empfängers als reines ESM-Modul: `pruefeBatch` (Version, Pause, Grenze, Katalog, Zahl, **Uhr**: `age_s` → `server_time − age_s`, `ts` vor 2024 oder > 5 Min voraus → `received_at`, Original in `raw.device_ts`, `clock: untrusted`; **Qualität** 2/1/0, nie verwerfen; Dubletten im Batch), `rateLimit` (je Aufruf), `naechsterKontaktS`, `erwartetBis` (3 Kontakte), `befehleAufbereiten` (abgelaufen → failed, nie gesendet; 3 Versuche), `acksAuswerten`, `antwort` | **`node scripts/ingest_check.js`** — 11 Fälle, jede Regel mit gutem und schlechtem Batch. Drei Gegenproben rot: Uhr nicht ersetzt → „1970 wird eingefügt"; Dubletten nicht gezählt → „rows 3, dupl 0"; abgelaufene Befehle gesendet → c2 in `senden` | — |
+| **`supabase/functions/device-ingest/index.ts`** — der Empfänger (Deno): Token-Hash → Gerät, Rate-Limit, Katalog, `pruefeBatch`, Insert mit `ignoreDuplicates` (der Primärschlüssel hält die Idempotenz), `paired_at` beim ersten Wert, `capabilities.expected_by`, Firmware-Feld, Acks und Befehle, Antwort aus dem Modul | die Rechnung (oben) | **die ganze Funktion** — Deno fehlt hier; Deploy mit `--no-verify-jwt`, dann ein Batch mit `curl` (Vertrag §1) |
+| **`supabase/migrations/20260905_device_daily.sql`** — Tabelle `device_daily` (PK Gerät · Messgrösse · Tag, `n`, `quality_min`, `min/max`), `fn_device_daily_aggregate(seit)` idempotent, Cron täglich (3 Tage nach, wegen Nachlieferungen) und montags **vor** dem Prune (alles seit 401 Tagen); RLS nur lesen | — | **die SQL** (kein Postgres hier) — nach dem Anwenden: `select public.fn_device_daily_aggregate(null);` zweimal, Zeilenzahl gleich |
+| **`supabase/migrations/20260905_device_alerts_cron.sql`** — `notify_sensor` in `push_subscriptions` (nur wenn die Live-Tabelle da ist), `fn_devices_mark_lost` liest `expected_by` (sonst 3 × `interval_s`) und liefert die Ids, `fn_device_alerts()` alle 15 Min: verstummt → `lost` + Meldung `sensor_alert` einmal je Tag; verletzte `notify`-Regeln → Meldung mit `for_minutes`, `cooldown_minutes` (`last_fired_at`), `dedup_key` je Tag, Link `#geraet-<id>` | **der Anker** — v32.61: `geraet` in `GS_ANKER_ARTEN`, `gsAnkerAnspringen` öffnet das Messwerte-Dashboard, wartet auf `id="geraet-<id>"`, hebt die Kachel hervor; entferntes Gerät → Toast + `false` (`sensor_check` „Deep-Link", `wiring_check` Richtung 5) | **die SQL**; und dass `daily-push-checker` die Art `sensor_alert` an `notify_sensor` bindet (eine Zeile dort, nach dem Anwenden) |
+
+Der Anker war beim ersten Bau **ungelesen**: die Migration schrieb
+`#geraet-<id>`, die App kannte nur `post` und `comment`, und `wiring_check`
+Richtung 5 sah die Art nicht, weil sein Muster sie nicht enthielt — ein Link,
+der oben auf der Seite endet, sieht aus wie einer, der funktioniert hat
+(dieselbe Klasse wie v32.24). Wer eine neue Anker-Art in einer Migration
+oder Edge-Function erzeugt, trägt sie in `GS_ANKER_ARTEN` **und** in das
+Muster des Prüfstands ein. Und `_gsAnkerWarten` zählt seit v32.61 Versuche
+statt `Date.now()` — mit gestellter Uhr lief die Frist sonst nie ab.
+
+Was der Cron bewusst **nicht** tut: `task:water` und `calendar` — das rechnet
+der Client aus denselben Daten (v32.53), und die Server-Sicht kennt das
+Vorziehen seit `20260904_plant_tasks_due_vorgezogen.sql`. Zwei Regeln für
+eine Frage wären der Fehler aus KALENDER-V1 §1.2.
 
 Nicht gebaut aus Idee 24: Bodenfeuchte in der Bilanz („das Beet war nie
 unter 30 %, die Bilanz hat recht") — das braucht einen Bodenstab (Stufe 1).

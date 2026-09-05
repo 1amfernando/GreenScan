@@ -4,13 +4,48 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-05 · **Branch**: `main` · **Version**: `v32.60` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-05 · **Branch**: `main` · **Version**: `v32.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-05 (ex) — v32.61: Stufe 1 vorbereitet, ohne Gerät; `#geraet-<id>` führt zur Kachel
+
+`docs/OEKOSYSTEM-V1.md` §11.3j, Ideen 14, 16, 17 (Vertrag auch für 20):
+
+- **`docs/GERAETE-VERTRAG.md`** — Vertrag v1 für die Firmware (Anfrage,
+  `age_s` für Geräte ohne Uhr, Grenzen, Antwort mit `accepted`/`duplicates`
+  getrennt, `server_time`, `next_contact_s`, Befehle mit Ablauf, Fehler,
+  Sicherheit, ESP32-Pseudocode).
+- **`supabase/functions/_shared/ingest_regeln.mjs`** — die Rechnung des
+  Empfängers als reines ESM-Modul; **`scripts/ingest_check.js`** (Prüfstand
+  25): 11 Fälle, guter und schlechter Batch je Regel, drei Gegenproben rot.
+- **`supabase/functions/device-ingest/index.ts`** — der Empfänger (Deno),
+  **nicht ausgeführt** (kein Deno hier).
+- **Migrationen, nicht angewandt:** `20260905_device_daily.sql`
+  (Tagesaggregat als Tabelle, Cron vor dem Prune) und
+  `20260905_device_alerts_cron.sql` (`fn_device_alerts` alle 15 Min,
+  `expected_by`, `notify_sensor`, Meldung je Tag mit cooldown/for_minutes).
+
+- **App v32.61 (drei Zeilen Client, ein Prüfstands-Fall):** der Cron
+  schreibt `/?screen=garden#geraet-<id>` in seine Meldungen — und **niemand
+  las diesen Anker** (dieselbe Klasse wie v32.24: ein Link, der oben auf der
+  Seite endet, sieht aus wie ein Link, der funktioniert hat). `wiring_check`
+  Richtung 5 kannte die Art nicht, weil das Muster sie nicht enthielt.
+  Jetzt: `geraet` in `GS_ANKER_ARTEN`, `gsAnkerAnspringen` öffnet das
+  Messwerte-Dashboard, wartet auf die Kachel (`id="geraet-<id>"`) und hebt
+  sie hervor; ein entferntes Gerät wird genannt (Toast), Rückgabe `false`.
+  `sensor_check` 23 Fälle (+„Deep-Link"), `wiring_check` meldet `geraet`
+  unter „gelesen".
+- **Nebenfund, teuer:** `_gsAnkerWarten` rechnete die Frist mit
+  `Date.now() > bis`. Mit gestellter Uhr (`page.clock.setFixedTime`, alle
+  17 Seed-Prüfstände) lief die Schleife für ein Element, das nie kommt,
+  **endlos** — `sensor_check` hing 23 Minuten. Die Frist zählt jetzt
+  VERSUCHE (`msMax / 150`), nicht die Uhr. Eine Frist, die die Uhr fragt,
+  ist eine Annahme darüber, dass die Uhr läuft.
 
 ### 2026-09-05 (ew) — v32.60: der Planer nennt Vorhersage und Messung getrennt; Diagramm-Text
 
@@ -8880,7 +8915,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.60` (Client) · SW-Cache `gs-v32.60` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.61` (Client) · SW-Cache `gs-v32.61` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -8898,6 +8933,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
 | Leaked-Password-Protection | Ein Dashboard-Klick. | (2026-08-31 y) |
 | **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). | `docs/FUER-FERNANDO.md` §5 · (ei) |
+| Migration `20260905_device_daily.sql` | Tagesaggregat als Tabelle (§11 Idee 17) — sonst verschwindet das Aggregat mit dem Prune nach 400 Tagen. Nach `20260903_oekosystem_v1_geraete.sql`. | `docs/FUER-FERNANDO.md` §6 · (ex) |
+| Migration `20260905_device_alerts_cron.sql` | Cron `device-alerts` alle 15 Min (§11 Idee 16): verstummte Geräte, verletzte Regeln → `notifications`. Nach `20260903_oekosystem_v1_geraete.sql`. Erst sinnvoll mit dem ersten Gerät. | `docs/FUER-FERNANDO.md` §6 · (ex) |
+| Edge-Function `device-ingest` | Der Empfänger für Geräte — im Repo, nicht ausgeliefert (`supabase functions deploy device-ingest --no-verify-jwt`). Erst mit dem ersten Gerät. | `docs/GERAETE-VERTRAG.md` · (ex) |
 | **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. | `docs/FUER-FERNANDO.md` §5 · (ep) |
 | Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
 

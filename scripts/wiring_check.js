@@ -474,7 +474,7 @@ const IGNORIEREN = new Set([
   const fs = require('fs');
   const wurzel = path.join(__dirname, '..');
   function ankerSammeln(text, wo) {
-    const re = /#(post|task|kommentar|comment|plant|garden)-['"]?\s*(?:\+|\|\|)/g;
+    const re = /#(post|task|kommentar|comment|plant|garden|geraet)-['"]?\s*(?:\+|\|\|)/g;   // v32.61: geraet (device-alerts)
     let m;
     while ((m = re.exec(text))) {
       if (!ankerArten.has(m[1])) ankerArten.set(m[1], []);

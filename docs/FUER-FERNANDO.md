@@ -296,6 +296,21 @@ Messwerte. Sobald sie drin ist, sage ich dir, was als Nächstes kommt
 5. Wie kommt das Gerät ins **WLAN** — Portal im Browser-Tab, Bluetooth (nur
    Android/Desktop), Begleit-App? Die PWA kann das erste nicht selbst.
 
+**Nachtrag 05.09.2026 — Stufe 1 liegt bereit, braucht aber deine Hand und ein
+Gerät.** Drei Dinge, in dieser Reihenfolge, wenn das erste Gerät da ist:
+
+1. Migrationen anwenden: `20260903_oekosystem_v1_geraete.sql`, dann
+   `20260905_device_daily.sql` und `20260905_device_alerts_cron.sql` (alle
+   idempotent, keine bestehende Tabelle wird angefasst).
+2. Den Empfänger ausliefern: `supabase functions deploy device-ingest
+   --no-verify-jwt` — das Gerät hat kein Nutzerkonto, das Geräte-Token ist die
+   Sicherheit. Die Funktion ist hier **nie gelaufen** (kein Deno); ihre
+   Rechnung ist geprüft (`node scripts/ingest_check.js`), der Rand nicht.
+3. Einen Batch von Hand schicken, nach `docs/GERAETE-VERTRAG.md` §1 — mit
+   `curl` und einem Token, dessen SHA-256 in `devices.token_hash` steht.
+   Erwartet: `accepted`, `server_time`, `next_contact_s`. Sag mir, was
+   zurückkam, dann baue ich das Pairing in der App (Token einmal anzeigen).
+
 Und eine Sache, die ich **nicht** angefasst habe, weil sie eine Entscheidung
 ist: der alte ESP32-Assistent („📶 Sensoren & Geräte") lässt Nutzer ihr
 **Sitzungs-Token** in die Firmware kopieren. Das ist Vollzugriff aufs Konto
