@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.54.20260904">
+<meta name="app-version" content="32.55.20260904">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5757,6 +5757,7 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-mw-zeile select,.gs-mw-zeile input{padding:9px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);color:var(--text);font-size:var(--fs-sm);font-family:inherit;min-width:0;}
 .gs-mw-zeile button{grid-column:1 / -1;padding:10px;border:none;border-radius:var(--r-sm);background:var(--fill-brand);color:#fff;font-weight:800;font-family:inherit;cursor:pointer;}
 .gs-mw-hinweis{font-size:var(--fs-xs);color:var(--muted);margin-top:6px;line-height:1.5;}
+.gs-mw-vorlagen{font-size:var(--fs-xs);color:var(--muted);line-height:1.8;margin:6px 0 4px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;}
 .gs-tb-sensor{font-size:var(--fs-xs);margin-top:6px;line-height:1.5;color:var(--muted);}
 .gs-tb-sensor.gs-tb-bestaetigt{color:var(--c-success-d);}
 .gs-tb-sensor.gs-tb-nicht_gemerkt{color:var(--c-warn-d);}
@@ -14589,6 +14590,24 @@ window.GS_I18N_JS_STRINGS = {
   'mw_akt_melden':             'melden',
   'mw_akt_giessen':            'Giessen fällig machen',
   'mw_akt_kontrolle':          'Kontrolle fällig machen',
+  'metric_soil_moisture':      'Bodenfeuchte',
+  'metric_soil_temp':          'Bodentemperatur',
+  'metric_air_temp':           'Lufttemperatur',
+  'metric_air_humidity':       'Luftfeuchte',
+  'metric_light':              'Licht',
+  'metric_rain':               'Niederschlag',
+  'metric_water_level':        'Wasserstand',
+  'metric_tank_temp':          'Tanktemperatur',
+  'metric_ec':                 'Leitfähigkeit',
+  'metric_ph':                 'pH-Wert',
+  'metric_battery':            'Batterie',
+  'mw_art_manual':             'Von Hand',
+  'mw_art_weather':            'Wetterdienst',
+  'mw_art_third_party':        'Fremdgerät',
+  'mw_art_gs':                 'GreenScan-Sensor',
+  'mw_vorlagen':               'Vorlagen',
+  'mw_vorlage_keine':          'keine Empfehlung hinterlegt — nach 14 Tagen Werten schlägt die App dein Tief und Hoch vor',
+  'mw_vorlage_uebernommen':    'Vorlage übernommen — prüfe die Schwelle und lege die Regel an.',
   'task_unit_one':             'Aufgabe',
   'task_unit_many':            'Aufgaben',
   'tasks_done_all_title':      'Alle als erledigt eintragen?',
@@ -26646,10 +26665,33 @@ function gsMetricKatalog() {
   return GS_METRIC_KATALOG_START;
 }
 function _gsMetric(key) { var k = gsMetricKatalog(); for (var i = 0; i < k.length; i++) if (k[i].key === key) return k[i]; return null; }
+// v32.55 (OEKOSYSTEM-V1.md §11 Idee 22): EINE Funktion fuer den Namen einer
+// Messgroesse. Zuerst die Spalte der Tabelle (label_fr/it/en, vom Server),
+// sonst die Sprachschicht (Schluessel metric_<key>, damit der Startbestand
+// ohne Server uebersetzbar ist — i18n_check kennt die Liste), sonst Deutsch.
+// Kein `if (metric === …)`: der Schluessel kommt aus dem Katalog.
+function _gsMetricLabel(k) {
+  try {
+    if (!k) return '';
+    var lang = (window.gsI18n && typeof gsI18n.getLang === 'function') ? gsI18n.getLang() : 'de';
+    if (lang && lang !== 'de' && k['label_' + lang]) return k['label_' + lang];
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (a, f) { return f; };
+    var schl = 'metric_' + k.key;   // berechneter Schluessel — i18n_check kennt die Liste (GS_METRIC_KATALOG_START, Praefix metric_)
+    return _t(schl, k.label_de || k.key);
+  } catch (_) { return (k && k.label_de) || ''; }
+}
+window._gsMetricLabel = _gsMetricLabel;
 window.gsMetricKatalog = gsMetricKatalog;
 
 var GS_GERAET_ARTEN = { manual: { icon:'🧑‍🌾', label:'Von Hand' }, weather: { icon:'🌦️', label:'Wetterdienst' }, third_party: { icon:'📡', label:'Fremdgerät' } };
-function _gsGeraetArt(g) { var k = String((g && g.kind) || 'manual'); return GS_GERAET_ARTEN[k] || (k.indexOf('gs_') === 0 ? { icon:'📟', label:'GreenScan-Sensor' } : GS_GERAET_ARTEN.manual); }
+function _gsGeraetArt(g) {
+  var k = String((g && g.kind) || 'manual');
+  var base = GS_GERAET_ARTEN[k] || (k.indexOf('gs_') === 0 ? { icon:'📟', label:'GreenScan-Sensor' } : GS_GERAET_ARTEN.manual);
+  var key = GS_GERAET_ARTEN[k] ? k : (k.indexOf('gs_') === 0 ? 'gs' : 'manual');
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (a, f) { return f; };
+  var schl = 'mw_art_' + key;   // vier Schluessel in GS_I18N_JS_STRINGS: manual · weather · third_party · gs
+  return { icon: base.icon, label: _t(schl, base.label) };   // v32.55: uebersetzbar (Idee 22)
+}
 
 function gsGeraete() { try { var a = safeGetItem('gs_geraete', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
 function _gsGeraeteSchreiben(arr) {
@@ -26929,9 +26971,9 @@ function gsRegelnPruefen(geraetId) {
         e.text = 'Meldet sich'; out.push(e); return;
       }
       var werte = gsMesswerte(geraetId, r.metric).filter(function (m) { return m.quality === 2; });
-      e.text = (k ? k.label_de : r.metric) + ' ' + (r.op === 'below' ? 'unter' : 'über') + ' ' + r.threshold + (k ? ' ' + k.unit : '') + (r.action === 'task:water' ? ' → Giessen' : r.action === 'task:check' ? ' → Kontrolle' : '');
+      e.text = (k ? _gsMetricLabel(k) : r.metric) + ' ' + (r.op === 'below' ? 'unter' : 'über') + ' ' + r.threshold + (k ? ' ' + k.unit : '') + (r.action === 'task:water' ? ' → Giessen' : r.action === 'task:check' ? ' → Kontrolle' : '');
       e.action = r.action || 'notify';
-      if (!werte.length) { e.grund = 'keine plausiblen Werte für ' + (k ? k.label_de : r.metric); out.push(e); return; }
+      if (!werte.length) { e.grund = 'keine plausiblen Werte für ' + (k ? _gsMetricLabel(k) : r.metric); out.push(e); return; }
       var letzter = werte[werte.length - 1];
       var verletzt = r.op === 'below' ? letzter.wert < r.threshold : letzter.wert > r.threshold;
       if (verletzt && r.for_minutes > 0) {
@@ -27071,6 +27113,81 @@ function gsSensorAlarmeMelden() {
 }
 window.gsSensorAlarmeMelden = gsSensorAlarmeMelden;
 
+// ── v32.55 · SCHWELLWERT-VORLAGEN — NUR, WO EINE ZAHL STEHT (§11 Idee 5) ─────
+// Drei Quellen, jede mit Namen im Grund: die Artenliste (lightMin/lightMax bei
+// 40 Hauspflanzen), die Kulturdaten (PLANT_DB.bodentemp bei 39 Kulturen) und
+// der eigene Verlauf (14 Tage plausibler Werte → Tief und Hoch). NIE eine
+// Feuchte-Schwelle aus Artendaten — ein Prozentwert ist sensorabhaengig
+// (§9 Regel 6). Eine Vorlage wird nie automatisch angelegt: sie fuellt das
+// Formular, die Person legt an. Ohne Zahl: „keine Empfehlung hinterlegt".
+var GS_VORLAGE_TAGE = 14, GS_VORLAGE_MIN_WERTE = 10;
+function _gsArtZuPflanze(p) {
+  try {
+    if (!p || typeof DB === 'undefined' || !Array.isArray(DB)) return null;
+    var lat = _gsNormLat(p.species || p.latin || p.lat || '');
+    if (lat) { for (var i = 0; i < DB.length; i++) { var e = DB[i]; if (e && _gsNormLat(e.lat || '') === lat) return e; } }
+    return null;
+  } catch (_) { return null; }
+}
+function _gsKulturZuPflanze(p) {
+  try {
+    if (!p || typeof PLANT_DB === 'undefined') return null;
+    var n = String(p.name || '').trim(); if (!n) return null;
+    var keys = Object.keys(PLANT_DB), lower = n.toLowerCase();
+    for (var i = 0; i < keys.length; i++) { var k = keys[i].toLowerCase(); if (k === lower || k === lower + 'n' || k + 'n' === lower) return { name: keys[i], k: PLANT_DB[keys[i]] }; }
+    var lat = _gsNormLat(p.species || ''); if (!lat) return null;
+    for (var j = 0; j < keys.length; j++) { var e = PLANT_DB[keys[j]]; if (e && e.latName && _gsNormLat(e.latName) === lat) return { name: keys[j], k: e }; }
+    return null;
+  } catch (_) { return null; }
+}
+function gsSchwellwertVorlagen(g) {
+  var out = [];
+  try {
+    if (!g) return out;
+    var pflanzen = _gsGeraetePflanzen(g).slice(0, 3), gesehen = {};
+    var add = function (v) { var sk = v.metric + '|' + v.op + '|' + v.threshold; if (gesehen[sk] || !_gsMetric(v.metric)) return; gesehen[sk] = true; out.push(v); };
+    pflanzen.forEach(function (x) {
+      var p = x.p, art = _gsArtZuPflanze(p);
+      if (art && typeof art.lightMin === 'number') add({ metric: 'light', op: 'below', threshold: art.lightMin, quelle: 'artenliste', grund: 'Artenliste ' + (art.id || '') + ' (' + (art.name || p.name) + '): mindestens ' + art.lightMin + ' lux' });
+      if (art && typeof art.lightMax === 'number') add({ metric: 'light', op: 'above', threshold: art.lightMax, quelle: 'artenliste', grund: 'Artenliste ' + (art.id || '') + ' (' + (art.name || p.name) + '): höchstens ' + art.lightMax + ' lux' });
+      var kul = _gsKulturZuPflanze(p);
+      if (kul && typeof kul.k.bodentemp === 'number') add({ metric: 'soil_temp', op: 'below', threshold: kul.k.bodentemp, quelle: 'kulturdaten', grund: 'Kulturdaten (' + kul.name + '): Keimung ab ' + kul.k.bodentemp + ' °C' });
+    });
+    // Eigener Verlauf: 14 Tage, mindestens 10 plausible Werte je Groesse
+    var grenze = Date.now() - GS_VORLAGE_TAGE * 864e5;
+    gsMetricKatalog().forEach(function (k) {
+      if (k.aggregation === 'sum' || k.key === 'battery') return;
+      // „Nach 14 Tagen Werten": die Spanne seit dem ERSTEN plausiblen Wert des
+      // Geraets muss 14 Tage erreichen; Tief und Hoch kommen aus dem Fenster.
+      // (Der aelteste Wert IM Fenster ist nie 14 Tage alt — der erste Bau
+      // verlangte genau das und fand nie eine Vorlage.)
+      var alle = gsMesswerte(g.id, k.key).filter(function (m) { return m.quality === 2; });
+      if (!alle.length) return;
+      var tage = Math.round((Date.now() - new Date(alle[0].ts).getTime()) / 864e5);
+      if (tage < GS_VORLAGE_TAGE) return;
+      var w = alle.filter(function (m) { return new Date(m.ts).getTime() >= grenze; });
+      if (w.length < GS_VORLAGE_MIN_WERTE) return;
+      var min = Infinity, max = -Infinity; w.forEach(function (m) { if (m.wert < min) min = m.wert; if (m.wert > max) max = m.wert; });
+      var d = (typeof k.decimals === 'number') ? k.decimals : 1, f = Math.pow(10, d);
+      add({ metric: k.key, op: 'below', threshold: Math.round(min * f) / f, quelle: 'verlauf', grund: 'dein ' + GS_VORLAGE_TAGE + '-Tage-Tief (' + w.length + ' Werte)' });
+      add({ metric: k.key, op: 'above', threshold: Math.round(max * f) / f, quelle: 'verlauf', grund: 'dein ' + GS_VORLAGE_TAGE + '-Tage-Hoch (' + w.length + ' Werte)' });
+    });
+  } catch (_) {}
+  return out;
+}
+window.gsSchwellwertVorlagen = gsSchwellwertVorlagen;
+window._gsMwVorlageUebernehmen = function (geraetId, idx) {
+  try {
+    var g = gsGeraete().find(function (x) { return x && x.id === geraetId; });
+    var v = gsSchwellwertVorlagen(g)[idx]; if (!v) return;
+    var m = document.getElementById('mw-regel-metric-' + geraetId), op = document.getElementById('mw-regel-op-' + geraetId), w = document.getElementById('mw-regel-wert-' + geraetId);
+    if (m) m.value = v.metric; if (op) op.value = v.op; if (w) w.value = String(v.threshold);
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (a, f) { return f; };
+    if (typeof gsToast === 'function') gsToast('💡 ' + _t('mw_vorlage_uebernommen', 'Vorlage übernommen — prüfe die Schwelle und lege die Regel an.'), 'info', 3500);
+    if (w) { try { w.focus(); } catch (_) {} }
+  } catch (_) {}
+};
+
 // ── v32.53 · GIESSEN BESTAETIGT SICH SELBST — als Aussage, nie als Haken ────
 // §6: +10 Punkte Bodenfeuchte innert 60 Minuten nach dem Abhaken heisst
 // „angekommen". Drei Zustaende, immer mit Zahl: bestaetigt · nicht gemerkt ·
@@ -27169,7 +27286,7 @@ function _gsMwRender() {
   var kat = gsMetricKatalog().slice().sort(function (a, b) { return (a.sort || 100) - (b.sort || 100); });
   var ger = gsGeraete();
   var alleMw = _gsMesswerteAlle();
-  var optionenKat = kat.map(function (k) { return '<option value="' + esc(k.key) + '">' + esc(k.icon || '') + ' ' + esc(k.label_de) + ' (' + esc(k.unit) + ')</option>'; }).join('');
+  var optionenKat = kat.map(function (k) { return '<option value="' + esc(k.key) + '">' + esc(k.icon || '') + ' ' + esc(_gsMetricLabel(k)) + ' (' + esc(k.unit) + ')</option>'; }).join('');
   var gartenOpt = '<option value="">—</option>' + ((typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens.map(function (g) { return '<option value="' + esc(g.id) + '">' + esc(g.name || '') + '</option>'; }).join('') : '');
   var pflanzenOpt = '<option value="">—</option>' + ((typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name || '') + '</option>'; }).join('') : '') + ((typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name || '') + ' (Garten)</option>'; }).join('') : '');
 
@@ -27180,7 +27297,7 @@ function _gsMwRender() {
     var werte = metrics.map(function (k) {
       var w = gsMesswerte(g.id, k.key); var letzter = w[w.length - 1];
       var plaus = w.filter(function (m) { return m.quality === 2; }); var lp = plaus[plaus.length - 1];
-      return '<div class="gs-mw-wert"><span class="gs-mw-ico" aria-hidden="true">' + esc(k.icon || '') + '</span><div class="gs-mw-txt"><b>' + esc(k.label_de) + '</b>' +
+      return '<div class="gs-mw-wert"><span class="gs-mw-ico" aria-hidden="true">' + esc(k.icon || '') + '</span><div class="gs-mw-txt"><b>' + esc(_gsMetricLabel(k)) + '</b>' +
         '<i>' + (lp ? esc(_gsMwFmt(lp.wert, k)) + ' · ' + esc(_gsKalDatumKurz(lp.ts) + ' ' + (_gsKalZeit(lp.ts) || '')) : _t('mw_kein_plausibler', 'kein plausibler Wert')) +
         (letzter && letzter.quality !== 2 ? ' · <span class="gs-mw-unplausibel">' + esc(_gsMwFmt(letzter.wert, k)) + ' ' + _t('mw_ausserhalb', 'ausserhalb des Messbereichs') + '</span>' : '') + '</i></div></div>';
     }).join('');
@@ -27193,10 +27310,15 @@ function _gsMwRender() {
       '<div class="gs-mw-kopf"><span class="gs-mw-art" aria-hidden="true">' + esc(art.icon) + '</span><div class="gs-mw-name"><b>' + esc(g.name) + '</b><i>' + esc(art.label) + ' · ' + esc(status) + '</i></div>' +
         '<button type="button" class="gs-mw-x" aria-label="Gerät entfernen" onclick="if(typeof gsConfirmModal===\'function\'){gsConfirmModal({title:\'Gerät entfernen?\',body:\'Alle Messwerte dieses Geräts werden mitgelöscht.\',kind:\'danger\',ok:\'Entfernen\'}).then(function(j){ if(j){ gsGeraetLoeschen(\'' + esc(g.id) + '\'); _gsMwRender(); } });}else if(confirm(\'Gerät und Messwerte entfernen?\')){gsGeraetLoeschen(\'' + esc(g.id) + '\');_gsMwRender();}">×</button></div>' +
       (werte || '<div class="gs-mw-leer">' + _t('mw_noch_keine', 'Noch keine Werte — trage unten den ersten ein.') + '</div>') +
-      (erste ? '<canvas class="gs-mw-verlauf" data-geraet="' + esc(g.id) + '" data-metric="' + esc(erste.key) + '" role="img" aria-label="' + esc(_t('mw_verlauf', 'Verlauf') + ' ' + erste.label_de + ' · ' + g.name) + '"></canvas>' +
-        (metrics.length > 1 ? '<div class="gs-mw-tabs">' + metrics.map(function (k) { return '<button type="button" class="gs-mw-tab' + (k.key === erste.key ? ' on' : '') + '" onclick="_gsMwVerlaufZeigen(this,\'' + esc(g.id) + '\',\'' + esc(k.key) + '\')">' + esc(k.icon || '') + ' ' + esc(k.label_de) + '</button>'; }).join('') + '</div>' : '') : '') +
+      (erste ? '<canvas class="gs-mw-verlauf" data-geraet="' + esc(g.id) + '" data-metric="' + esc(erste.key) + '" role="img" aria-label="' + esc(_t('mw_verlauf', 'Verlauf') + ' ' + _gsMetricLabel(erste) + ' · ' + g.name) + '"></canvas>' +
+        (metrics.length > 1 ? '<div class="gs-mw-tabs">' + metrics.map(function (k) { return '<button type="button" class="gs-mw-tab' + (k.key === erste.key ? ' on' : '') + '" onclick="_gsMwVerlaufZeigen(this,\'' + esc(g.id) + '\',\'' + esc(k.key) + '\')">' + esc(k.icon || '') + ' ' + esc(_gsMetricLabel(k)) + '</button>'; }).join('') + '</div>' : '') : '') +
       (regeln ? '<div class="gs-mw-regeln">' + regeln + '</div>' : '') +
-      '<details class="gs-mw-form"><summary>' + _t('mw_regel_neu', '＋ Regel') + '</summary><div class="gs-mw-zeile">' +
+      '<details class="gs-mw-form"><summary>' + _t('mw_regel_neu', '＋ Regel') + '</summary>' +
+        // v32.55: Vorlagen — nur, wo eine Zahl steht; sie fuellen das Formular, angelegt wird von Hand
+        (function () { var vl = gsSchwellwertVorlagen(g); return '<div class="gs-mw-vorlagen">💡 <b>' + _t('mw_vorlagen', 'Vorlagen') + ':</b> ' +
+          (vl.length ? vl.map(function (v, i) { var kk = _gsMetric(v.metric); return '<button type="button" class="gs-mw-link" title="' + esc(v.grund) + '" onclick="_gsMwVorlageUebernehmen(\'' + esc(g.id) + '\',' + i + ')">' + esc((kk ? _gsMetricLabel(kk) : v.metric) + ' ' + (v.op === 'below' ? _t('mw_unter', 'unter') : _t('mw_ueber', 'über')) + ' ' + v.threshold + (kk ? ' ' + kk.unit : '')) + '</button>'; }).join(' ')
+                    : '<i>' + _t('mw_vorlage_keine', 'keine Empfehlung hinterlegt — nach 14 Tagen Werten schlägt die App dein Tief und Hoch vor') + '</i>') + '</div>'; })() +
+        '<div class="gs-mw-zeile">' +
         '<select id="mw-regel-metric-' + esc(g.id) + '" aria-label="Messgrösse">' + optionenKat + '</select>' +
         '<select id="mw-regel-op-' + esc(g.id) + '" aria-label="Bedingung"><option value="below">' + _t('mw_unter', 'unter') + '</option><option value="above">' + _t('mw_ueber', 'über') + '</option></select>' +
         '<input id="mw-regel-wert-' + esc(g.id) + '" type="number" inputmode="decimal" step="any" aria-label="Schwelle" placeholder="Schwelle">' +
@@ -27244,7 +27366,7 @@ function _gsMwVerlaufMalen(cv, geraetId, metric) {
       if (g && g.plant_id && typeof gsTagebuchAlle === 'function') gsTagebuchAlle().forEach(function (e) { if (e.pflanze_id === g.plant_id && e.cat === 'water') marken.push({ t: new Date(e.ts).getTime(), label: '💧' }); });
     } catch (_) {}
     _gsVerlauf(cv, [{ punkte: w.map(function (m) { return { t: new Date(m.ts).getTime(), v: m.wert, q: m.quality }; }), farbe: '#2e7d32' }], { schwelle: regel ? regel.threshold : null, marken: marken, hoehe: 120 });
-    cv.setAttribute('aria-label', (k ? k.label_de : metric) + ' · ' + (g ? g.name : '') + ' · ' + w.length + ' Werte');
+    cv.setAttribute('aria-label', (k ? _gsMetricLabel(k) : metric) + ' · ' + (g ? g.name : '') + ' · ' + w.length + ' Werte');
   } catch (_) {}
 }
 window._gsMwVerlaufZeigen = function (btn, geraetId, metric) {
@@ -27537,7 +27659,7 @@ function gsKalenderEreignisse(von, bis) {
       Object.keys(proGT).forEach(function (kk) {
         var l = proGT[kk], g = gerMap[l[0].geraet_id]; if (!g || g.kind === 'weather') return;   // v32.52: Wetterwerte sind kein Tages-Ereignis (Regen hat seines, Nr. 5)
         var tag = kk.split('|')[1];
-        var arten = []; l.forEach(function (m) { var k = _gsMetric(m.metric); var nm = k ? k.label_de : m.metric; if (arten.indexOf(nm) < 0) arten.push(nm); });
+        var arten = []; l.forEach(function (m) { var k = _gsMetric(m.metric); var nm = k ? _gsMetricLabel(k) : m.metric; if (arten.indexOf(nm) < 0) arten.push(nm); });
         out.push({ id: 'messung:' + kk, art: 'messung', datum: tag, zeit: _gsKalZeit(l[l.length - 1].ts), ts: l[l.length - 1].ts, titel: g.name + ': ' + l.length + ' Messwert' + (l.length === 1 ? '' : 'e'), emoji: '📊',
           pflanze: g.plant_id ? { id: g.plant_id, name: '' } : null, garten_id: g.garden_id || null, quelle: g.kind === 'manual' ? 'hand' : 'sensor', status: 'info', faellig_seit: null,
           verweis: { fn: 'gsMesswerteOeffnen', args: [] }, grund: arten.join(', ') + ' — Gerät „' + g.name + '"' + (g.kind === 'manual' ? ', von Hand eingetragen' : '') });
@@ -74032,6 +74154,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.55', date: '04.09.2026',
+    headline: '💡 Regel-Vorlagen nur, wo eine Zahl steht — und Messgrössen in vier Sprachen',
+    summary: 'Zwei Ideen aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11, Ideen 5 und 22). Beim Anlegen einer Regel schlägt das Dashboard Schwellen vor — aber nur aus Quellen mit einer echten Zahl: die Artenliste (Licht bei 40 Hauspflanzen, z.B. Monstera unter 200 lux), die Kulturdaten (Bodentemperatur für die Keimung bei 39 Kulturen) und der eigene Verlauf (nach 14 Tagen das Tief und Hoch). Nie eine Feuchte-Schwelle aus Artendaten, ein Prozentwert ist sensorabhängig. Eine Vorlage füllt das Formular, angelegt wird von Hand; ohne Zahl steht „keine Empfehlung hinterlegt". Und die Namen der Messgrössen gehen durch EINE Funktion: Spalte aus der Server-Tabelle (fr/it/en), sonst die Sprachschicht, sonst Deutsch — bis dahin las die App an 24 Stellen nur label_de.',
+    user_summary: '💡 Beim Anlegen einer Regel schlägt die App Schwellen vor — nur, wo es eine belegte Zahl gibt. Und die Messgrössen heissen auch auf Französisch, Italienisch und Englisch richtig.',
+    user_items: [
+      {emoji:'💡', bold:'Vorlagen:', text:' Unter „＋ Regel" stehen Vorschläge mit Quelle — Licht aus der Artenliste, Bodentemperatur aus den Kulturdaten, oder dein eigenes 14-Tage-Tief und -Hoch. Antippen füllt das Formular; anlegen tust du.'},
+      {emoji:'🚫', bold:'Keine erfundene Feuchte-Schwelle:', text:' Für Bodenfeuchte gibt es keine Vorlage aus Artendaten — jeder Sensor misst Prozent anders. Nach 14 Tagen Werten schlägt die App dein eigenes Tief vor.'},
+      {emoji:'🌍', bold:'Vier Sprachen:', text:' Bodenfeuchte, Lufttemperatur und die anderen Messgrössen heissen jetzt in jeder App-Sprache richtig.'},
+    ],
+  },
+  {
     v: 'v32.54', date: '04.09.2026',
     headline: '🔕 Eine Meldung am Tag — die Stille-Zeit gilt jetzt auch auf dem Gerät',
     summary: 'Das Meldungs-Budget aus dem Ideen-Kapitel (docs/OEKOSYSTEM-V1.md §11 Idee 7). Die Erinnerungen, die das Gerät selbst zeigt, kannten weder Stille-Zeit noch Urlaubs-Pause, planten eine Meldung je fälliger Aufgabe und sahen nur die Zimmerpflanzen. Jetzt gilt lokal dieselbe Regel wie auf dem Server: Stille-Zeit und Pause aus den Push-Einstellungen (eine Meldung wandert ans Ende der Stille, statt zu verschwinden), EINE gebündelte Aufgaben-Meldung je Tag aus beiden Pflanzenlisten (stummgeschaltete Pflanzen ausgenommen), Sensor-Alarme als eigene Tageskategorie mit Abkühlzeit je Regel (das Feld cooldown_minutes las bis dahin niemand). In den Push-Einstellungen steht, wie viele lokale Meldungen es diese Woche waren. Drei neue Fragen im Einstellungs-Prüfstand mit Gegenprobe.',
@@ -74827,7 +74960,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.54';
+var GS_VERSION = 'v32.55';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

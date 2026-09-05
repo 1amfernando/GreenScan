@@ -442,7 +442,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 2 | Katalog wirklich laden, Modell-Katalog | 0 → 1 | klein–mittel | **Leser gebaut v32.52** (`gsMetricKatalogLaden`); Modell-Katalog offen |
 | 3 | Wetter als virtuelles Gerät | 0 | mittel | **gebaut v32.52** (`gsWetterGeraetAbgleich`, 7 Tage, nur Vergangenheit) |
 | 4 | Giessen bestätigt sich selbst — als Aussage; Regel-Aktion verdrahten | 0 | mittel | **gebaut v32.53** (`gsSensorAufgabenAbgleich`, `gsGiessBestaetigung`, `vorgezogenAuf`) |
-| 5 | Schwellwert-Vorlagen nur, wo eine Zahl steht | 0 | klein | — |
+| 5 | Schwellwert-Vorlagen nur, wo eine Zahl steht | 0 | klein | **gebaut v32.55** (`gsSchwellwertVorlagen`: Artenliste, Kulturdaten, eigener Verlauf) |
 | 6 | Lina kennt die Zahlen | 0 | klein–mittel | CLAUDE.md §3.4 (korrigiert) |
 | 7 | Ein Meldungs-Budget gegen Alarm-Müdigkeit | 0 | klein | **gebaut v32.54** (`gsNotif.stille`, `showKategorie`, `gsSensorAlarmeMelden`) |
 | 8 | Wochenrückblick statt „N Aufgaben" | 0 | mittel | — |
@@ -459,7 +459,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 19 | Transport-Entscheid gegen `_headers` | 2 | Entscheid klein, Bau gross | Gerät |
 | 20 | Befehle mit Ablauf und Sicherheitsgrenze | 3 | mittel | Aktor |
 | 21 | Ein Gerät in den Beispieldaten — sonst vermisst jeder Prüfstand ein leeres Dashboard | 0 | klein | **gebaut v32.52** (`_seed.js`: Gerät, 15 Werte, 1 Regel) |
-| 22 | Katalog-Labels in vier Sprachen — die Tabelle hat sie, die App liest nur Deutsch | 0 | klein | — |
+| 22 | Katalog-Labels in vier Sprachen — die Tabelle hat sie, die App liest nur Deutsch | 0 | klein | **gebaut v32.55** (`_gsMetricLabel`, `metric_<key>` in der Sprachschicht, `i18n_check` kennt die Liste) |
 | 23 | Kalibrierung als Daten — Offset und Faktor je Gerät und Messgrösse | 1 | klein–mittel | Migration |
 | 24 | Planer rechnet mit gemessenem Regen, nicht nur mit der Prognose | 0 / 1 | mittel | 3 |
 | 25 | Vom Scan zum Gerät: `gsTwinAdopt` bietet die Verknüpfung an | 1 | klein | Gerät |
@@ -1169,6 +1169,19 @@ Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
 | **Eine Aufgaben-Meldung je Tag.** `scheduleAllNotifications` liest `gsGetDueTasks()` (beide Listen, Regen, Sensor), lässt Pflanzen mit `gs_reminder_prefs.disabled` aus, bündelt „🌱 N Aufgaben fällig · Basilikum giessen · Zucchini giessen 📶" und plant sie über `showKategorie('plant_tasks')` — eine je Tag; fällt der Zeitpunkt in die Stille, wandert er an deren Ende (`stille().bis`) statt zu verschwinden | „🌱 2 Aufgaben fällig": Basilikum · Zucchini, Tomate (stumm) fehlt · zweiter Aufruf: keine (kategorie) · in der Stille: Verzögerung 42 Min, nichts sofort. Gegenprobe: Stummschaltung ignoriert → „3 Aufgaben … Tomate giessen" |
 | **Sensor-Alarme als Tageskategorie mit Abkühlzeit.** `gsSensorAlarmeMelden()` nach jedem Eintrag: verletzte `notify`-Regeln → eine Meldung `sensor_alert` am Tag; je Regel gilt `cooldown_minutes` (720, seit v32.48 in jeder Regel, bis v32.53 von niemandem gelesen) über `zuletzt_gemeldet` | 22 % → eine · 20 % → keine (Tag) · Kategorie gelöscht, 19 % → keine (Abkühlzeit) · 13 h später → zweite. Gegenprobe: Abkühlzeit entfernt → zweite Meldung am selben Tag |
 | **Wochenzähler** in den Push-Einstellungen (`#push-wochenzaehler`) aus `gs_notif_log` — was **dieses Gerät** gezeigt hat; der Server-Zähler (`push_send_log`) bleibt Idee 7 (e) | „Diese Woche: 4 lokale Meldungen auf diesem Gerät." |
+
+### 11.3d · Was v32.55 gebaut hat (Ideen 5 und 22)
+
+| Gebaut | Was der Prüfstand festhält (`sensor_check`) |
+|---|---|
+| **Vorlagen nur, wo eine Zahl steht.** `gsSchwellwertVorlagen(g)` sammelt für die Pflanzen des Geräts (`_gsGeraetePflanzen`, höchstens drei) aus drei Quellen, jede mit Namen im Grund: Artenliste (`lightMin` / `lightMax`, Treffer über `_gsNormLat` auf `species`), Kulturdaten (`PLANT_DB.bodentemp`, Treffer über Name, Name ± „n", `latName`), eigener Verlauf (Spanne seit dem ersten plausiblen Wert ≥ 14 Tage, mindestens 10 Werte im Fenster → Tief und Hoch; nie für `sum`-Grössen und Batterie). **Nie Bodenfeuchte aus Artendaten.** Im Regel-Formular als Knöpfe mit Quelle im `title`; Antippen füllt Messgrösse, Bedingung, Schwelle — angelegt wird von Hand. Ohne Zahl: „keine Empfehlung hinterlegt — nach 14 Tagen Werten schlägt die App dein Tief und Hoch vor" | Monstera: Licht unter 200 / über 2000 (HP001) · Zucchini: Bodentemperatur unter 12 (Kulturdaten) · Bärlauch: nichts · 15 Tage Werte → 14-Tage-Tief 21 (als Zahl) · 7 Tage → nichts · Antippen füllt, legt nicht an · „keine Empfehlung" im HTML. Gegenproben: Vorlage legt selbst an → rot; Spanne auf 7 Tage → „7-Tage-Tief 28" rot |
+| **Eine Funktion für den Namen einer Messgrösse.** `_gsMetricLabel(k)`: `label_<lang>` aus der Tabelle, sonst `_t('metric_<key>', label_de)` aus der Sprachschicht (elf Schlüssel in `GS_I18N_JS_STRINGS`), sonst Deutsch — an allen acht Lesestellen (Dashboard, Kacheln, Reiter, Canvas-`aria-label`, Regeltext, Kalender). `_gsGeraetArt` gibt übersetzbare Labels (`mw_art_<kind>`). `i18n_check` kennt `GS_METRIC_KATALOG_START` als Datenliste mit Präfix `metric_` | de: Bodenfeuchte · fr aus der Tabelle: Humidité du sol · fr aus der Sprachschicht: Température de l'air · Rückfall: Licht · im Dashboard. Gegenprobe: Spalte ignoriert → „Bodenfeuchte" statt „Humidité du sol" |
+
+Eine Falle beim Bau: der erste Verlaufs-Filter verlangte, dass der älteste
+Wert **im** 14-Tage-Fenster 14 Tage alt sei — das ist nie der Fall, und die
+Funktion fand nie eine Vorlage. Der Prüfstand hat es beim ersten Lauf
+gemeldet. Nicht gebaut aus Idee 5: `soil_ph` aus `garden_crop_agronomy` (die
+Tabelle liegt auf dem Server, nicht im Repo).
 
 Nicht gebaut: `stale` als dringende Ausnahme — in Stufe 0 gibt es keine
 Regel, die ohne Meldeintervall prüfbar wäre (Idee 16); und der

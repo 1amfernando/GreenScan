@@ -465,6 +465,79 @@ const FAELLE = [
       }
     },
   },
+  {
+    // v32.55: Schwellwert-Vorlagen NUR, wo eine Zahl steht (§11 Idee 5).
+    // Artenliste (Licht bei 40 Hauspflanzen), Kulturdaten (Bodentemperatur),
+    // eigener Verlauf (14 Tage) — nie Feuchte aus Artendaten, nie automatisch
+    // angelegt, ohne Zahl „keine Empfehlung hinterlegt".
+    name: 'Vorlagen · nur, wo eine Zahl steht — Artenliste, Kulturdaten, eigener Verlauf; nie Feuchte aus Artendaten; angelegt wird von Hand',
+    lauf: () => {
+      const geraete = [];
+      const anlegen = o => { const g = gsGeraetAnlegen(o); if (g) geraete.push(g.id); return g; };
+      let pbDa = false;
+      try {
+        const g = anlegen({ kind: 'manual', name: 'Vorlagen-Probe', plant_id: 'p2' });   // Monstera deliciosa → HP001
+        const vl = gsSchwellwertVorlagen(g);
+        const licht = vl.find(v => v.metric === 'light' && v.op === 'below');
+        if (!licht || licht.threshold !== 200 || !/HP001/.test(licht.grund)) return { ok: false, warum: 'Monstera: keine Licht-Vorlage „unter 200" mit Quelle HP001: ' + JSON.stringify(vl) };
+        if (!vl.find(v => v.metric === 'light' && v.op === 'above' && v.threshold === 2000)) return { ok: false, warum: 'Monstera: „Licht über 2000" fehlt' };
+        if (vl.some(v => v.metric === 'soil_moisture' && v.quelle !== 'verlauf')) return { ok: false, warum: 'eine Feuchte-Schwelle aus Artendaten — Prozent ist sensorabhängig' };
+        const gg = anlegen({ kind: 'manual', name: 'Beet-Probe', garden_id: 'g1' });   // Garten → Zucchini (Kulturdaten bodentemp 12)
+        const vz = gsSchwellwertVorlagen(gg); const bt = vz.find(v => v.metric === 'soil_temp');
+        if (!bt || bt.threshold !== 12 || !/Zucchini/.test(bt.grund)) return { ok: false, warum: 'Zucchini: keine Bodentemperatur-Vorlage 12 °C aus den Kulturdaten: ' + JSON.stringify(vz) };
+        myPlants.push({ id: 'pb', name: 'Bärlauch', species: 'Allium ursinum', tasks: {} }); pbDa = true;
+        const gb = anlegen({ kind: 'manual', name: 'Bärlauch-Probe', plant_id: 'pb' });
+        if (gsSchwellwertVorlagen(gb).length) return { ok: false, warum: 'Bärlauch hat keine Zahl — und trotzdem eine Vorlage: ' + JSON.stringify(gsSchwellwertVorlagen(gb)) };
+        for (let i = 0; i < 15; i++) gsMesswertEintragen(gb.id, 'soil_moisture', 20 + i, new Date(Date.now() - (14 - i) * 864e5 - 3600000).toISOString());
+        const vv = gsSchwellwertVorlagen(gb); const tief = vv.find(v => v.metric === 'soil_moisture' && v.op === 'below');
+        // Der erste Wert liegt 14 Tage + 1 h zurueck — ausserhalb des Fensters; im Fenster ist das Tief 21.
+        if (!tief || tief.threshold !== 21 || typeof tief.threshold !== 'number' || tief.quelle !== 'verlauf' || !/14-Tage-Tief \(14 Werte\)/.test(tief.grund)) return { ok: false, warum: 'nach 15 Tagen Werten kein „14-Tage-Tief 21" als Zahl: ' + JSON.stringify(vv) };
+        const seed = gsGeraete().find(x => x.id === 'ger_seed_1');
+        if (seed && gsSchwellwertVorlagen(seed).some(v => v.quelle === 'verlauf')) return { ok: false, warum: 'sieben Tage Werte reichen für eine Verlaufs-Vorlage — verlangt sind 14' };
+        const leer = anlegen({ kind: 'manual', name: 'Leer-Probe' });
+        gsMesswerteOeffnen();
+        const mc = document.getElementById('modal-content');
+        const btn = Array.from(mc.querySelectorAll('.gs-mw-vorlagen button')).find(b => /Licht unter 200/.test(b.textContent));
+        if (!btn) return { ok: false, warum: 'die Vorlage „Licht unter 200 lux" steht nicht im Dashboard (aus dem HTML gelesen)' };
+        const vorher = gsRegeln().length;
+        btn.click();
+        const m = document.getElementById('mw-regel-metric-' + g.id), op = document.getElementById('mw-regel-op-' + g.id), w = document.getElementById('mw-regel-wert-' + g.id);
+        if (!m || m.value !== 'light' || !op || op.value !== 'below' || !w || w.value !== '200') return { ok: false, warum: 'Antippen füllt das Formular nicht: ' + JSON.stringify([m && m.value, op && op.value, w && w.value]) };
+        if (gsRegeln().length !== vorher) return { ok: false, warum: 'die Vorlage hat die Regel selbst angelegt — angelegt wird von Hand' };
+        const kachelLeer = mc.querySelector('.gs-mw-kachel[data-geraet="' + leer.id + '"]');
+        if (!kachelLeer || !/keine Empfehlung hinterlegt/.test(kachelLeer.textContent)) return { ok: false, warum: 'ohne Zahl steht nicht „keine Empfehlung hinterlegt"' };
+        return { ok: true, info: 'Monstera: Licht unter 200 / über 2000 (HP001) · Zucchini: Bodentemperatur unter 12 (Kulturdaten) · Bärlauch: nichts · 15 Tage Werte → 14-Tage-Tief 21 · 7 Tage → nichts · Antippen füllt, legt nicht an · „keine Empfehlung" steht da' };
+      } finally {
+        geraete.forEach(id => gsGeraetLoeschen(id));
+        if (pbDa) { myPlants = myPlants.filter(x => x && x.id !== 'pb'); savePlantsToStorage(); }
+      }
+    },
+  },
+  {
+    // v32.55: Namen der Messgroessen durch EINE Funktion (§11 Idee 22): Spalte
+    // der Tabelle zuerst, dann die Sprachschicht (metric_<key>), sonst Deutsch.
+    name: 'Labels · Messgrössen heissen in der Sprache der App — Tabelle zuerst, dann Sprachschicht, sonst Deutsch',
+    lauf: () => {
+      const echtLang = gsI18n.getLang, echtT = gsI18n.t;
+      try {
+        if (_gsMetricLabel(_gsMetric('soil_moisture')) !== 'Bodenfeuchte') return { ok: false, warum: 'deutsch: ' + _gsMetricLabel(_gsMetric('soil_moisture')) };
+        const kat = gsMetricKatalog().map(x => Object.assign({}, x)); kat.find(x => x.key === 'soil_moisture').label_fr = 'Humidité du sol';
+        localStorage.setItem('gs_metric_catalog', JSON.stringify(kat));
+        gsI18n.getLang = () => 'fr';
+        if (_gsMetricLabel(_gsMetric('soil_moisture')) !== 'Humidité du sol') return { ok: false, warum: 'Spalte label_fr wird nicht gelesen: ' + _gsMetricLabel(_gsMetric('soil_moisture')) };
+        gsI18n.t = (key, f) => key === 'metric_air_temp' ? 'Température de l’air' : f;
+        if (_gsMetricLabel(_gsMetric('air_temp')) !== 'Température de l’air') return { ok: false, warum: 'ohne Spalte greift die Sprachschicht nicht: ' + _gsMetricLabel(_gsMetric('air_temp')) };
+        if (_gsMetricLabel(_gsMetric('light')) !== 'Licht') return { ok: false, warum: 'ohne beides kein deutscher Rückfall: ' + _gsMetricLabel(_gsMetric('light')) };
+        gsMesswerteOeffnen();
+        const t = document.getElementById('modal-content').textContent;
+        if (!/Humidité du sol/.test(t)) return { ok: false, warum: 'das Dashboard zeigt den französischen Namen nicht (aus dem HTML gelesen)' };
+        if (/label_de|undefined/.test(t)) return { ok: false, warum: 'Platzhalter im Dashboard' };
+        return { ok: true, info: 'de: Bodenfeuchte · fr aus der Tabelle: Humidité du sol · fr aus der Sprachschicht: Température de l’air · Rückfall: Licht · im Dashboard' };
+      } finally {
+        gsI18n.getLang = echtLang; gsI18n.t = echtT; localStorage.removeItem('gs_metric_catalog');
+      }
+    },
+  },
 ];
 
 (async () => {
