@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.59.20260905">
+<meta name="app-version" content="32.60.20260905">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27445,7 +27445,7 @@ window._gsMwVergleichMalen = function () {
     var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
     var leg = document.getElementById('mw-vgl-legende');
     if (leg) leg.innerHTML = reihen.map(function (r) { return '<span class="gs-mw-vgl-farbe" style="background:' + r.farbe + '" aria-hidden="true"></span>' + esc(r.name) + ' (' + r.punkte.length + ')'; }).join(' &nbsp;·&nbsp; ') + ' — ' + esc(_gsMetricLabel(k)) + ' ' + esc(k.unit);
-    cv.setAttribute('aria-label', reihen.map(function (r) { return r.name; }).join(' und ') + ' · ' + _gsMetricLabel(k));
+    cv.setAttribute('aria-label', reihen.map(function (r) { var vs = r.punkte.map(function (p) { return p.v; }); return r.name + ' (' + r.punkte.length + ' Werte' + (vs.length ? ', Tief ' + Math.min.apply(null, vs) + ', Hoch ' + Math.max.apply(null, vs) : '') + ')'; }).join(' und ') + ' · ' + _gsMetricLabel(k) + ' ' + k.unit);
   } catch (_) {}
 };
 function _gsMwVerlaufMalen(cv, geraetId, metric) {
@@ -27459,7 +27459,15 @@ function _gsMwVerlaufMalen(cv, geraetId, metric) {
       if (g && g.plant_id && typeof gsTagebuchAlle === 'function') gsTagebuchAlle().forEach(function (e) { if (e.pflanze_id === g.plant_id && e.cat === 'water') marken.push({ t: new Date(e.ts).getTime(), label: '💧' }); });
     } catch (_) {}
     _gsVerlauf(cv, [{ punkte: w.map(function (m) { return { t: new Date(m.ts).getTime(), v: m.wert, q: m.quality }; }), farbe: '#2e7d32' }], { schwelle: regel ? regel.threshold : null, marken: marken, hoehe: 120 });
-    cv.setAttribute('aria-label', (k ? _gsMetricLabel(k) : metric) + ' · ' + (g ? g.name : '') + ' · ' + w.length + ' Werte');
+    // v32.60 (§11 Idee 21b): das Bild sagt, was es zeigt — Tief, Hoch, letzter Wert (plausible Werte)
+    var pl = w.filter(function (m) { return m.quality === 2; });
+    var beschr = (k ? _gsMetricLabel(k) : metric) + ' · ' + (g ? g.name : '') + ' · ' + w.length + ' Werte';
+    if (pl.length) {
+      var mn = Infinity, mx = -Infinity; pl.forEach(function (m) { if (m.wert < mn) mn = m.wert; if (m.wert > mx) mx = m.wert; });
+      var lz = pl[pl.length - 1];
+      beschr += ' · Tief ' + mn + (k ? ' ' + k.unit : '') + ' · Hoch ' + mx + (k ? ' ' + k.unit : '') + ' · zuletzt ' + lz.wert + (k ? ' ' + k.unit : '') + ' am ' + _gsKalDatumKurz(lz.ts);
+    } else beschr += ' · kein plausibler Wert';
+    cv.setAttribute('aria-label', beschr);
   } catch (_) {}
 }
 window._gsMwVerlaufZeigen = function (btn, geraetId, metric) {
@@ -62385,10 +62393,12 @@ function gsPPrenderPlan(plan, data) {
 
     // R6 Wasserbilanz
     if (plan._wasser) {
-      zeile('\ud83d\udca7', 'Wasser', plan._wasser.zusatz > 0 ? 'warn' : 'ok',
-        'Der Plan braucht ' + plan._wasser.bedarf + ' l/Woche. Der gemessene Regen (' + plan._wasser.mm +
-        ' mm in 14 Tagen auf ' + plan._wasser.flaeche + ' m\u00b2) liefert rund ' + plan._wasser.regen + ' l \u2014 ' +
-        (plan._wasser.zusatz > 0 ? plan._wasser.zusatz + ' l bleiben an dir.' : 'das reicht.'));
+      // v32.60: Vorhersage und Messung getrennt benannt — bis v32.59 hiess die Vorhersage „gemessener Regen"
+      var wz = plan._wasser, wt = 'Der Plan braucht ' + wz.bedarf + ' l/Woche. ';
+      if (wz.prognose) wt += 'Die Vorhersage f\u00fcr die n\u00e4chsten ' + wz.prognose.tage + ' Tage (' + wz.prognose.mm + ' mm auf ' + wz.flaeche + ' m\u00b2) liefert rund ' + wz.prognose.l + ' l \u2014 ' + (wz.zusatz > 0 ? wz.zusatz + ' l bleiben an dir.' : 'das reicht.');
+      else wt += 'Keine Vorhersage im Zwischenspeicher.';
+      wt += wz.gemessen ? ' Gemessen in den letzten 7 Tagen: ' + wz.gemessen.mm + ' mm (' + esc(wz.gemessen.geraet) + ').' : ' Kein gemessener Wert \u2014 kein Wetterdienst als Ger\u00e4t.';
+      zeile('\ud83d\udca7', 'Wasser', wz.zusatz === null ? 'na' : (wz.zusatz > 0 ? 'warn' : 'ok'), wt);
     }
 
     // R7 Frost — die Eisheiligen als Faustregel, wie im Mittelland ueblich
@@ -63773,17 +63783,42 @@ function _gsPlanWasser(plan, data) {
       var l = parseFloat(p.water_l_per_week);
       if (isFinite(l) && l > 0) { bedarf += l; gezaehlt++; }
     });
+    // v32.60 (OEKOSYSTEM-V1.md §11 Idee 24): `totalPrecip14` stammt aus
+    // `forecast_days=14` — eine VORHERSAGE, die die Anzeige bis v32.59
+    // „gemessener Regen" nannte. Jetzt zweierlei, beides benannt: die Prognose
+    // fuer die naechsten 7 Tage (daily.precip beginnt heute) und die Messung
+    // der letzten 7 Tage aus dem Wetterdienst-Geraet (nur Stunden bis jetzt).
+    // Die Bilanz rechnet mit dem, was KOMMT; die Messung sagt, was zuletzt
+    // kam. Ohne Wetterdienst-Geraet: „kein gemessener Wert" — nicht 0.
     var w = (window._gsPP && _gsPP.weather) || null;
-    var mm = w && isFinite(parseFloat(w.totalPrecip14)) ? parseFloat(w.totalPrecip14) : null;
+    var prog = null;
+    if (w && w.daily && Array.isArray(w.daily.precip) && w.daily.precip.length) {
+      var p7 = w.daily.precip.slice(0, 7).reduce(function (a, b) { return a + (+b || 0); }, 0);
+      prog = { mm: Math.round(p7 * 10) / 10, tage: Math.min(7, w.daily.precip.length) };
+    } else if (w && isFinite(parseFloat(w.totalPrecip14))) prog = { mm: Math.round(parseFloat(w.totalPrecip14) / 2 * 10) / 10, tage: 7 };
+    var gem = null;
+    try {
+      var wetter = (typeof gsGeraete === 'function') ? gsGeraete().filter(function (g) { return g && g.kind === 'weather'; }) : [];
+      if (wetter.length) {
+        var gmm = 0, gn = 0, jetzt = Date.now(), grenze = jetzt - 7 * 864e5;
+        wetter.forEach(function (g) { gsMesswerte(g.id, 'rain').forEach(function (m) { var t = new Date(m.ts).getTime(); if (m.quality === 2 && t >= grenze && t <= jetzt) { gmm += m.wert; gn++; } }); });
+        if (gn) gem = { mm: Math.round(gmm * 10) / 10, stunden: gn, geraet: wetter[0].name };
+      }
+    } catch (_) { gem = null; }
     var flaeche = (plan.bed && plan.bed.width_m && plan.bed.length_m)
       ? plan.bed.width_m * plan.bed.length_m
       : ((data && data.area) || 0);
-    if (!gezaehlt || mm === null || !flaeche) { plan._wasser = null; return; }
-    var regen = Math.round((mm / 2) * flaeche);              // 14 Tage → 1 Woche
+    if (!gezaehlt || !flaeche || (!prog && !gem)) { plan._wasser = null; return; }
+    flaeche = Math.round(flaeche * 10) / 10;
+    var lProg = prog ? Math.round(prog.mm * flaeche) : null;   // 1 mm auf 1 m² = 1 l
+    var lGem = gem ? Math.round(gem.mm * flaeche) : null;
     plan._wasser = {
-      bedarf: Math.round(bedarf), regen: regen,
-      zusatz: Math.max(0, Math.round(bedarf - regen)),
-      mm: Math.round(mm * 10) / 10, flaeche: Math.round(flaeche * 10) / 10, gezaehlt: gezaehlt
+      bedarf: Math.round(bedarf), flaeche: flaeche, gezaehlt: gezaehlt,
+      prognose: prog ? { mm: prog.mm, l: lProg, tage: prog.tage } : null,
+      gemessen: gem ? { mm: gem.mm, l: lGem, geraet: gem.geraet, stunden: gem.stunden } : null,
+      zusatz: lProg != null ? Math.max(0, Math.round(bedarf - lProg)) : null,
+      // Rueckwaerts-kompatibel: regen/mm wie bisher (aus der Prognose, sonst der Messung)
+      regen: lProg != null ? lProg : lGem, mm: prog ? prog.mm : gem.mm
     };
   } catch (_) { if (plan) plan._wasser = null; }
 }
@@ -74409,6 +74444,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.60', date: '05.09.2026',
+    headline: '💧 Der Planer nennt Vorhersage und Messung getrennt — und das Diagramm sagt, was es zeigt',
+    summary: 'Zwei Ideen aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11, Ideen 24 und 21b). Die Wasserbilanz des Planers nannte den Regen „gemessen" — die Zahl kam aus der 14-Tage-VORHERSAGE. Jetzt rechnet die Bilanz mit der Vorhersage für die nächsten sieben Tage und nennt daneben, was der Wetterdienst in den letzten sieben Tagen wirklich gemessen hat; ohne Wetterdienst als Gerät steht „kein gemessener Wert", nicht 0. Und die Verlaufsdiagramme im Messwerte-Dashboard tragen für Screenreader Tief, Hoch und letzten Wert in ihrer Beschriftung — bis dahin war das Bild ein Bild ohne Inhalt.',
+    user_summary: '💧 Die Wasserbilanz im Planer sagt jetzt ehrlich: das ist die Vorhersage, das ist gemessen. Und die Diagramme sind für Screenreader lesbar.',
+    user_items: [
+      {emoji:'💧', bold:'Wasserbilanz:', text:' „Die Vorhersage für die nächsten 7 Tage liefert rund 144 l — gemessen in den letzten 7 Tagen: 7 mm (Wetterdienst)." Vorher hiess die Vorhersage „gemessener Regen".'},
+      {emoji:'♿', bold:'Diagramme lesbar:', text:' Jeder Verlauf im Messwerte-Dashboard nennt Tief, Hoch und letzten Wert — auch ohne Augen.'},
+    ],
+  },
+  {
     v: 'v32.59', date: '05.09.2026',
     headline: '🧾 Der Giess-Zettel für die Abwesenheit — zum Drucken für die Nachbarin',
     summary: 'Idee 13 aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11), der Teil ohne Gerät. Unter „Stille Tage" in den Push-Einstellungen und in der Menü-Suche gibt es den Giess-Zettel: jede Fälligkeit im Abwesenheitsfenster (die Stillen Tage, sonst 14 Tage) aus beiden Pflanzenlisten — Tag, Pflanze, Ort, Aufgabe, Intervall, schon fällige zuerst — aus derselben Rechnung wie „Heute zu tun", Intervall für Intervall weiter. Mit Druckansicht und Abhak-Kästchen. Was die Nachbarin giesst, steht nicht in der App: die Aufgaben bleiben stehen, die Pause schweigt, nichts wird gefälscht.',
@@ -75253,7 +75298,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.59';
+var GS_VERSION = 'v32.60';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

@@ -490,6 +490,57 @@ const FAELLE = [
         : { ok: true, info: muessenNull.join(', ') + ' alle null' };
     },
   },
+
+  // ── R10 · Wasser (v32.60, OEKOSYSTEM-V1.md §11 Idee 24) ─────────────────
+  // `totalPrecip14` ist eine VORHERSAGE (forecast_days=14) — die Anzeige nannte
+  // sie bis v32.59 „gemessener Regen". Jetzt: Prognose fuer die naechsten
+  // 7 Tage UND Messung aus dem Wetterdienst-Geraet, beides benannt; ohne
+  // Geraet „kein gemessener Wert"; ohne Vorhersage keine Bilanz, aber die
+  // Messung. Guter Fall (reicht) und schlechter (bleibt an dir).
+  {
+    name: 'R10 · Wasser: Vorhersage (7 Tage) und Messung (Wetterdienst) getrennt benannt — ohne Gerät „kein gemessener Wert"',
+    lauf: () => {
+      window._gsPP = window._gsPP || {};
+      const echtWeather = _gsPP.weather;
+      const geraete = [];
+      try {
+        _gsPP.weather = { daily: { precip: [2, 0, 4, 0, 0, 6, 0, 10, 10, 10, 10, 10, 10, 10] }, totalPrecip14: 72 };
+        const plan = _pfPlan([{ name: 'Tomate', w_m: 0.6, h_m: 0.6, x_m: 0.1, y_m: 1.0 }], true);
+        plan.plants[0].water_l_per_week = 20;
+        _gsPlanWasser(plan, { width: 4, length: 3 });   // Beet 4 × 3 = 12 m²
+        const w = plan._wasser;
+        if (!w || !w.prognose || w.prognose.mm !== 12 || w.prognose.l !== 144 || w.prognose.tage !== 7) return { ok: false, warum: 'Prognose: ' + JSON.stringify(w && w.prognose) + ' (erwartet 12 mm → 144 l, 7 Tage — NICHT 72/2 aus 14 Tagen)' };
+        if (w.gemessen !== null) return { ok: false, warum: 'ohne Wetterdienst-Gerät steht ein gemessener Wert: ' + JSON.stringify(w.gemessen) };
+        if (w.zusatz !== 0) return { ok: false, warum: '20 l Bedarf gegen 144 l Regen → zusatz ' + w.zusatz };
+        const d = document.createElement('div'); d.innerHTML = gsPPrenderPlan(plan, { width: 4, length: 3 });
+        let t = d.textContent;
+        if (!/Vorhersage f\u00fcr die n\u00e4chsten 7 Tage \(12 mm auf 12 m/.test(t)) return { ok: false, warum: 'die Anzeige nennt die Vorhersage nicht: ' + (t.match(/Wasser.{0,200}/) || [''])[0] };
+        if (!/Kein gemessener Wert/.test(t)) return { ok: false, warum: 'ohne Gerät fehlt „Kein gemessener Wert": ' + (t.match(/Wasser.{0,200}/) || [''])[0] };
+        if (/gemessene Regen \(/.test(t)) return { ok: false, warum: 'die Vorhersage heisst noch „gemessener Regen"' };
+        // Wetterdienst-Geraet mit 7 mm in den letzten 7 Tagen
+        const g = gsGeraetAnlegen({ kind: 'weather', name: 'Wetterdienst · Prüfstand' }); geraete.push(g.id);
+        [3, 4].forEach((mm, i) => gsMesswertEintragen(g.id, 'rain', mm, new Date(Date.now() - (2 + i) * 864e5).toISOString()));
+        gsMesswertEintragen(g.id, 'rain', 50, new Date(Date.now() - 9 * 864e5).toISOString());   // aelter als 7 Tage: zaehlt nicht
+        plan.plants[0].water_l_per_week = 200;   // schlechter Fall: 200 l Bedarf
+        _gsPlanWasser(plan, { width: 4, length: 3 });
+        const w2 = plan._wasser;
+        if (!w2.gemessen || w2.gemessen.mm !== 7 || w2.gemessen.l !== 84 || !/Prüfstand/.test(w2.gemessen.geraet)) return { ok: false, warum: 'gemessen: ' + JSON.stringify(w2.gemessen) + ' (erwartet 7 mm → 84 l, ohne den 9 Tage alten Wert)' };
+        if (w2.zusatz !== 56) return { ok: false, warum: '200 − 144 = 56 l bleiben an dir, gerechnet: ' + w2.zusatz };
+        d.innerHTML = gsPPrenderPlan(plan, { width: 4, length: 3 }); t = d.textContent;
+        if (!/56 l bleiben an dir/.test(t) || !/Gemessen in den letzten 7 Tagen: 7 mm \(Wetterdienst/.test(t)) return { ok: false, warum: 'Anzeige schlechter Fall: ' + (t.match(/Wasser.{0,260}/) || [''])[0] };
+        // ohne Vorhersage, mit Messung: keine Bilanz, aber die Messung
+        _gsPP.weather = null; _gsPlanWasser(plan, { width: 4, length: 3 });
+        const w3 = plan._wasser;
+        if (!w3 || w3.prognose !== null || w3.zusatz !== null || !w3.gemessen) return { ok: false, warum: 'ohne Vorhersage: ' + JSON.stringify(w3) };
+        d.innerHTML = gsPPrenderPlan(plan, { width: 4, length: 3 }); t = d.textContent;
+        if (!/Keine Vorhersage im Zwischenspeicher/.test(t)) return { ok: false, warum: 'ohne Vorhersage fehlt der Hinweis' };
+        return { ok: true, info: 'Prognose 12 mm → 144 l (7 Tage, nicht 72/2) · ohne Gerät „kein gemessener Wert" · mit Gerät 7 mm → 84 l, 9 Tage alter Wert zählt nicht · 200 l Bedarf → 56 l bleiben · ohne Vorhersage keine Bilanz, Messung bleibt' };
+      } finally {
+        _gsPP.weather = echtWeather;
+        geraete.forEach(id => gsGeraetLoeschen(id));
+      }
+    },
+  },
 ];
 
 (async () => {
