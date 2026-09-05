@@ -4,13 +4,42 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.52` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.53` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-04 (ep) — v32.53: ein Sensor macht Giessen fällig, das Abhaken bestätigt sich am Sensor
+
+Die Verbindung aus `docs/OEKOSYSTEM-V1.md` §6 (§11 Idee 4) — der Teil, der
+aus einem Sensor ein Werkzeug macht:
+
+- **Regel → Aufgabe.** `gsSensorAufgabenAbgleich()` ist die eine Stelle,
+  die `device_rules.action` liest (bis v32.52 las es niemand). Je Pflanze und
+  Aufgabe alle `task:<key>`-Regeln an ihren Geräten (`plant_id` zuerst,
+  sonst der Garten): verletzt → `vorgezogenAuf` heute + Grund; erfüllt →
+  aufgehoben; nur „nicht prüfbar" → nichts. `getDaysUntilDue` hat den
+  vierten Parameter an allen neun Aufrufern; die Verschiebung der Person
+  gewinnt; Erledigen hebt auf. Tagesplan, Glocke, Kalender (`quelle:
+  'sensor'`) nennen Gerät und Messwert. Regel-Formular mit Aktion. Server:
+  `20260904_plant_tasks_due_vorgezogen.sql` (nicht angewandt).
+- **Giess-Bestätigung.** `gsGiessBestaetigung(p, ts)`: Δ ≥ 10 Punkte innert
+  60 Min → bestätigt · sonst nicht gemerkt · ohne Wert/Gerät nicht prüfbar;
+  vorsichtigstes Gerät zählt; im Kalender und im Pflanzentagebuch. Kein
+  Messwert setzt ein `lastDone`.
+- **Nebenfund:** der Lösch-Knopf im Pflanzentagebuch war für alle
+  Abhak-Einträge tot (`gsDeleteDiaryEntry('p2',2025-09-01T12:00:00.000Z)` —
+  Zeitstempel unzitiert im `onclick`), die Liste unsortiert (String minus
+  String). Beides behoben.
+
+`sensor_check` 15 Fälle (+Regel → Aufgabe, +Giess-Bestätigung). Vier
+Gegenproben rot mit echten Zahlen. Eine Falle beim Bau: Pflanzungen bekommen
+ihre Aufgaben beim Laden mit `lastDone = jetzt` — „heute erledigt" darf ein
+Sensor am selben Tag nicht wieder fällig machen; der Fall stellt „gestern
+gegossen" her.
 
 ### 2026-09-04 (eo) — v32.52: der Wetterdienst ist das erste Gerät; ein Weg hinein mit Dublettensperre
 
@@ -8749,7 +8778,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.52` (Client) · SW-Cache `gs-v32.52` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.53` (Client) · SW-Cache `gs-v32.53` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -8767,6 +8796,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
 | Leaked-Password-Protection | Ein Dashboard-Klick. | (2026-08-31 y) |
 | **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). | `docs/FUER-FERNANDO.md` §5 · (ei) |
+| **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. | `docs/FUER-FERNANDO.md` §5 · (ep) |
 | Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
 
 ### Braucht eine Entscheidung oder eine Quelle

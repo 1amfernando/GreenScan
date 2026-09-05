@@ -282,7 +282,7 @@ alle über die Ereignis-Schicht aus `KALENDER-V1.md`:
 
 | Von | Nach | Was passiert |
 |---|---|---|
-| Regel `task:water` | Aufgabe heute | „Giessen — Bodenfeuchte seit 2 h unter 25 %" mit Quelle `sensor`; sie steht in „Heute zu tun" wie jede andere |
+| Regel `task:water` | Aufgabe heute | „Giessen — Bodenfeuchte seit 2 h unter 25 %" mit Quelle `sensor`; sie steht in „Heute zu tun" wie jede andere — **gebaut v32.53** (`vorgezogenAuf`, §11.3b) |
 | Aufgabe erledigt | Tagebuch + Diagramm | der Eintrag „gegossen 10:12" wird zur Markierung im Verlauf |
 | Messwert nach Aufgabe | **Bestätigung** | steigt die Feuchte innert 60 Min nach „gegossen" um ≥ 10 Punkte, steht am Tagebucheintrag „✓ vom Sensor bestätigt (21 → 48 %)". Steigt sie nicht: „⚠️ der Sensor hat davon nichts gemerkt" — falscher Sensor, falsches Beet, oder zu wenig Wasser. |
 
@@ -441,7 +441,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 1 | Eine Geräteschicht, nicht zwei | 0 | mittel | Entscheid Fernando (11.4) |
 | 2 | Katalog wirklich laden, Modell-Katalog | 0 → 1 | klein–mittel | **Leser gebaut v32.52** (`gsMetricKatalogLaden`); Modell-Katalog offen |
 | 3 | Wetter als virtuelles Gerät | 0 | mittel | **gebaut v32.52** (`gsWetterGeraetAbgleich`, 7 Tage, nur Vergangenheit) |
-| 4 | Giessen bestätigt sich selbst — als Aussage; Regel-Aktion verdrahten | 0 | mittel | 3 |
+| 4 | Giessen bestätigt sich selbst — als Aussage; Regel-Aktion verdrahten | 0 | mittel | **gebaut v32.53** (`gsSensorAufgabenAbgleich`, `gsGiessBestaetigung`, `vorgezogenAuf`) |
 | 5 | Schwellwert-Vorlagen nur, wo eine Zahl steht | 0 | klein | — |
 | 6 | Lina kennt die Zahlen | 0 | klein–mittel | CLAUDE.md §3.4 (korrigiert) |
 | 7 | Ein Meldungs-Budget gegen Alarm-Müdigkeit | 0 | klein | — |
@@ -1144,6 +1144,22 @@ geraeteRegeln, messwerte").
 | **Wetter als Gerät** — `gsWetterGeraetAbgleich()` macht aus dem Open-Meteo-Zwischenspeicher ein Gerät `kind:'weather'` („Wetterdienst · Ort") mit `air_temp` und `rain` je Stunde, **nur bis jetzt**, sieben Tage lokal (`GS_WETTER_GERAET_TAGE`; ältere Wetterwerte werden gelöscht — abgeleitet, nicht erhoben, das Tagesarchiv ist `weather_log_per_garden`), läuft nach jedem Wetterabruf und beim Öffnen von „Messwerte". Der Wetterdienst steht nicht im Eintrags-Formular und erzeugt kein Tages-Ereignis `messung` (der Regen hat seines). Wer das Gerät entfernt, will es nicht (`gs_wetter_geraet_aus`); ein Schalter im Dashboard holt es zurück | 3 | `sensor_check` „Wetter als Gerät": 48 + 24 Stunden gestellt → 74 Werte aus 37 Stunden, 11 Zukunftsstunden übersprungen, zweimal = 74 doppelt, Regen-Summe 10 mm, nichts älter als sieben Tage, Kachel im HTML, nicht im Formular, kein `messung`-Ereignis, Schalter funktioniert |
 | **Katalog vom Server** — `gsMetricKatalogLaden()` holt `metric_catalog` (sechs Sekunden nach dem Start, angemeldet) und ersetzt `gs_metric_catalog` **nur** bei mindestens drei vollständigen Zeilen; Fehler, leere oder unvollständige Antworten lassen stehen, was da ist. Das Datum steht in `gs_metric_catalog_at` | 2 | `sensor_check` „Katalog": 404 → 11 bleiben, 12 Zeilen → 12 (im Dashboard, Wert angenommen), leer/unvollständig → bleibt |
 | **Gerät in den Beispieldaten** — `_seed.js` trägt „Balkon Süd · Erde" mit sieben Tagen Bodenfeuchte (fallend, Regel „unter 25" verletzt), sieben Tagen Lufttemperatur und einem unplausiblen Wert. Jeder Prüfstand vermisst jetzt ein **gefülltes** Dashboard | 21 | `kalender_check` „Ohne Daten" räumt seither auch die Geräte-Schicht — stehen gelassen: „1 Ereignis ohne jede Datengrundlage" |
+
+### 11.3b · Was v32.53 gebaut hat (Idee 4 — die Verbindung aus §6)
+
+| Gebaut | Was der Prüfstand festhält |
+|---|---|
+| **Regel → Aufgabe.** `gsSensorAufgabenAbgleich()` ist die eine Stelle, die `device_rules.action` liest. Je Pflanze und Aufgabe werden alle Regeln `task:<key>` an ihren Geräten zusammengenommen (`_gsGeraetePflanzen`: `plant_id` zuerst, sonst alle Pflanzungen im Garten): eine verletzt → `tasks.<key>.vorgezogenAuf` (Mitternacht heute, ISO) und `vorgezogenGrund` (Regel, Messwert, Gerät); keine verletzt und alle erfüllt → aufgehoben; nur „nicht prüfbar" → nichts. Läuft nach jedem Eintrag, beim Öffnen des Dashboards, beim Anlegen und Löschen einer Regel. `getDaysUntilDue` hat den vierten Parameter an allen neun Aufrufern: `fällig = max(min(lastDone + Intervall, vorgezogenAuf), snoozedUntil)`, vorgezogen zählt nur nach `lastDone`. **Die Verschiebung der Person gewinnt.** Erledigen hebt auf. Der Eintrag in „Heute zu tun", der Tagesplan, die Glocke und der Kalender (`quelle: 'sensor'`) nennen Gerät und Messwert. Die Server-Sicht bekommt dieselbe Regel: `20260904_plant_tasks_due_vorgezogen.sql` (ersetzt die Sicht aus v32.46, nicht angewandt) | `sensor_check` „Regel → Aufgabe": ohne Werte nichts · 22 % → Monstera heute, Tagesplan nennt Gerät · Garten-Gerät → Zucchini in `gs_plantings` · Verschiebung gewinnt · Erledigen hebt auf · 48 % gibt frei · Regel weg gibt frei. Gegenproben: Vorziehen aus der Rechnung entfernt → „days undefined"; Reihenfolge getauscht → „Verschiebung überstimmt" |
+| **Giessen bestätigt sich am Sensor.** `gsGiessBestaetigung(p, ts)`: letzter plausibler Feuchtewert bis 2 h vor dem Abhaken, erster innert 60 Min danach; Δ ≥ 10 → bestätigt, sonst nicht gemerkt; ohne Wert davor/danach oder ohne Gerät → nicht prüfbar (ohne Gerät wird nichts angezeigt — es gibt nichts zu sagen). Mehrere Geräte: das vorsichtigste Urteil zählt und wird genannt. `GS_GIESS_DELTA = 10` ist gesetzt, nicht gemessen. Sichtbar im Kalender (Tagebuch-Ereignis, `sensor` + Grund) und im Pflanzentagebuch. **Kein Messwert verändert eine Aufgabe** | `sensor_check` „Giess-Bestätigung": 21 → 48 (+27) bestätigt · 30 → 33 (+3) nicht gemerkt · ohne Wert danach nicht prüfbar · ohne Gerät nicht prüfbar · Aufgabe unverändert · Kalender und Tagebuch zeigen es. Gegenprobe: Schwelle auf 2 → „+3 bestätigt" |
+| **Regel-Formular mit Aktion** — melden · Giessen fällig machen · Kontrolle fällig machen; der Regeltext nennt die Aktion („→ Giessen") | Formular im Dashboard-HTML |
+| **Nebenfund im Pflanzentagebuch:** der Lösch-Knopf setzte den Zeitstempel unzitiert in den `onclick` — für ISO-Strings (alle Abhak-Einträge seit v26.51) ein Syntaxfehler, der Knopf war tot; und die Liste sortierte Strings per Subtraktion (NaN). Beides behoben | Gegenprobe: `gsDeleteDiaryEntry('p2',2025-09-01T12:00:00.000Z)` |
+
+Eine Falle beim Bau: Garten-Pflanzungen bekommen ihre Aufgaben beim ersten
+Laden mit `lastDone = jetzt` — und „heute erledigt" darf ein Sensor am
+selben Tag nicht wieder fällig machen. Der Fall stellt deshalb „gestern
+gegossen" her. Was **nicht** gebaut ist: die Zeile „Aufgabe erledigt →
+Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
+(Idee 4, `_gsMwVerlaufMalen`); Geräte am Garten bekommen die Marke noch nicht.
 
 Nicht gebaut aus Idee 3: `air_humidity` (der Deckel: zwei Grössen × 24 Stunden
 × 7 Tage sind 336 Werte neben den Handmessungen — eine dritte Grösse wäre
