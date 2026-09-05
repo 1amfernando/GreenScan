@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.51.20260904">
+<meta name="app-version" content="32.52.20260904">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5757,6 +5757,7 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-mw-zeile select,.gs-mw-zeile input{padding:9px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);color:var(--text);font-size:var(--fs-sm);font-family:inherit;min-width:0;}
 .gs-mw-zeile button{grid-column:1 / -1;padding:10px;border:none;border-radius:var(--r-sm);background:var(--fill-brand);color:#fff;font-weight:800;font-family:inherit;cursor:pointer;}
 .gs-mw-hinweis{font-size:var(--fs-xs);color:var(--muted);margin-top:6px;line-height:1.5;}
+.gs-mw-link{display:inline-block;min-height:28px;padding:4px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-size:var(--fs-xs);font-weight:700;cursor:pointer;}
 .gs-mw-eintrag{background:var(--surface2);border-radius:var(--r-md);padding:12px;margin:4px 0 12px;}
 .gs-mw-leer{font-size:var(--fs-xs);color:var(--muted);padding:6px 0;}
 .gs-kal-tag.gewaehlt .gs-kal-p{background:#fff;}
@@ -11918,6 +11919,8 @@ async function loadGardenWeather(forceReload) {
         ts: Date.now(), data: data, lat: lat, lon: lon
       }));
     } catch(_){}
+    // v32.52: Wetter als virtuelles Geraet (OEKOSYSTEM-V1.md §11 Idee 3) — nur Stunden bis jetzt
+    try { if (typeof gsWetterGeraetAbgleich === 'function') gsWetterGeraetAbgleich(); } catch(_){}
     // v26.61: weather_log_per_garden UPSERT (1× pro Tag pro User, dedup'd via uniq user_id+date)
     try {
       var todayKey = 'gs_weather_logged_' + new Date().toISOString().slice(0,10);
@@ -14576,6 +14579,8 @@ window.GS_I18N_JS_STRINGS = {
   'btn_to_garden_plants':      'Zum Garten',
   // v32.50: Rueckfrage von „Alle erledigt ✓"
   'tasks_none_due':            'Nichts fällig — nichts zu erledigen.',
+  'mw_wetter_aus':             'Der Wetterdienst wird nicht mehr als Gerät geführt.',
+  'mw_wetter_ein':             'Wieder als Gerät führen',
   'task_unit_one':             'Aufgabe',
   'task_unit_many':            'Aufgaben',
   'tasks_done_all_title':      'Alle als erledigt eintragen?',
@@ -26578,13 +26583,28 @@ function _gsGeraeteSchreiben(arr) {
   if (ok) { try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {} }
   return ok;
 }
+// v32.52: Server-taugliche Identitaet (OEKOSYSTEM-V1.md §11 Idee 11) — eine
+// UUID, wie der Primaerschluessel in `devices`. Bestandsdaten mit `ger_…` /
+// `reg_…` bleiben gueltig und werden NICHT umbenannt; sie bekommen beim
+// ersten Hochladen ihre Abbildung (raw.local_id). Ohne crypto (alte WebViews)
+// der bisherige Rueckfall.
+function _gsNeueId(praefix) {
+  try { if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID(); } catch (_) {}
+  return praefix + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+}
 function gsGeraetAnlegen(o) {
   try {
     o = o || {};
     var name = String(o.name || '').trim().slice(0, 60);
     if (!name) { if (typeof gsToast === 'function') gsToast('Bitte einen Namen für das Gerät angeben.', 'warn'); return false; }
-    var g = { id: 'ger_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7), kind: String(o.kind || 'manual'), name: name,
-      garden_id: o.garden_id || null, plant_id: o.plant_id || null, capabilities: { metrics: [], interval_s: null, commands: [] },
+    var cap = { metrics: [], interval_s: null, commands: [] };
+    if (o.capabilities && typeof o.capabilities === 'object') {
+      if (Array.isArray(o.capabilities.metrics)) cap.metrics = o.capabilities.metrics.slice();
+      if (typeof o.capabilities.interval_s === 'number') cap.interval_s = o.capabilities.interval_s;
+      if (Array.isArray(o.capabilities.commands)) cap.commands = o.capabilities.commands.slice();
+    }
+    var g = { id: _gsNeueId('ger_'), kind: String(o.kind || 'manual'), name: name,
+      garden_id: o.garden_id || null, plant_id: o.plant_id || null, capabilities: cap,
       status: 'wartet', last_seen_at: null, paired_at: null, created_at: new Date().toISOString() };
     var arr = gsGeraete(); arr.push(g);
     if (!_gsGeraeteSchreiben(arr)) { if (typeof gsToast === 'function') gsToast('Speicher voll — das Gerät konnte nicht gesichert werden.', 'warn', 5000); return false; }
@@ -26593,8 +26613,12 @@ function gsGeraetAnlegen(o) {
 }
 function gsGeraetLoeschen(id) {
   try {
+    var weg = gsGeraete().find(function (g) { return g && g.id === id; });
     var arr = gsGeraete().filter(function (g) { return g && g.id !== id; });
     if (!_gsGeraeteSchreiben(arr)) return false;
+    // v32.52: Das Wetter-Geraet kaeme beim naechsten Wetterabruf sonst wieder —
+    // wer es entfernt, will es nicht. Ein Schalter im Dashboard holt es zurueck.
+    if (weg && weg.kind === 'weather') { try { localStorage.setItem('gs_wetter_geraet_aus', '1'); } catch (_) {} }
     var mw = _gsMesswerteAlle().filter(function (m) { return m.geraet_id !== id; });
     localStorage.setItem('gs_messwerte', JSON.stringify(mw));
     var rg = gsRegeln().filter(function (r) { return r.geraet_id !== id; });
@@ -26633,31 +26657,167 @@ window._gsMesswerteDeckel = _gsMesswerteDeckel;
 // Der eine Weg hinein (Stufe 0 von Hand; Stufe 1 kommt derselbe Satz vom
 // Server). Katalog pruefen, Qualitaet setzen, anhaengen, Geraet als gesehen
 // markieren. `ok:false` heisst: NICHT gespeichert — und der Grund sagt warum.
+// v32.52: EIN Weg hinein — fuer einen Wert wie fuer hundert (Wetterabgleich
+// heute, der Server-Batch in Stufe 1). Dublettensperre auf
+// (geraet_id, metric, ts): derselbe Schluessel wie der Primaerschluessel in
+// `device_readings` (OEKOSYSTEM-V1.md §11 Idee 11). Ein doppelter Wert ist
+// kein Fehler und kein zweiter Datensatz — er zaehlt als `doppelt`, und die
+// Antwort sagt es. Gelesen und geschrieben wird EINMAL, nicht je Wert; die
+// Liste bleibt nach `ts` sortiert, damit der Deckel wirklich die aeltesten
+// nimmt (eine Nachlieferung alter Stunden stuende sonst am Ende).
+function _gsMesswerteAnhaengen(g, liste) {
+  var out = { ok: true, neu: 0, doppelt: 0, abgelehnt: [], quality: null, grund: '' };
+  try {
+    if (!g || !g.id) return { ok: false, neu: 0, doppelt: 0, abgelehnt: [], quality: null, grund: 'Unbekanntes Gerät.' };
+    var arr = _gsMesswerteAlle();
+    var da = {};
+    arr.forEach(function (m) { if (m) da[m.geraet_id + '|' + m.metric + '|' + m.ts] = true; });
+    var jetzt = new Date().toISOString(), letzte = null, zuletztZeit = null, neueMetrics = [];
+    (Array.isArray(liste) ? liste : []).forEach(function (e) {
+      if (!e) return;
+      var k = _gsMetric(e.metric);
+      if (!k) { out.abgelehnt.push({ metric: e.metric, grund: 'Die Messgrösse „' + e.metric + '" steht nicht im Katalog — ein neuer Sensor ist eine Zeile dort, kein Sonderfall.' }); return; }
+      var v = Number(e.wert);
+      if (!isFinite(v)) { out.abgelehnt.push({ metric: e.metric, grund: 'Kein Zahlenwert.' }); return; }
+      var d = e.ts ? new Date(e.ts) : null;
+      if (d && isNaN(d.getTime())) { out.abgelehnt.push({ metric: e.metric, grund: 'Kein gültiger Zeitpunkt.' }); return; }
+      // Ein Wert OHNE Zeitangabe ist eine Messung von jetzt — und die ist immer
+      // neu: faellt „jetzt" auf einen belegten Schluessel (gestellte Uhr im
+      // Pruefstand, zwei Eintraege in derselben Millisekunde), rueckt er eine
+      // Millisekunde weiter. Die Dublettensperre gilt fuer AUSDRUECKLICHE
+      // Zeitpunkte: Wetterstunden, Nachlieferungen, den Server-Batch.
+      var zeit = d ? d.toISOString() : jetzt;
+      if (!d) { var ms = new Date(jetzt).getTime(); while (da[g.id + '|' + e.metric + '|' + zeit]) { ms++; zeit = new Date(ms).toISOString(); } }
+      var schl = g.id + '|' + e.metric + '|' + zeit;
+      if (da[schl]) { out.doppelt++; return; }
+      da[schl] = true;
+      var q = 2;
+      if ((typeof k.min_valid === 'number' && v < k.min_valid) || (typeof k.max_valid === 'number' && v > k.max_valid)) q = 1;
+      arr.push({ geraet_id: g.id, metric: e.metric, ts: zeit, wert: v, quality: q, quelle: g.kind === 'manual' ? 'hand' : (g.kind === 'weather' ? 'wetterdienst' : 'geraet'), pending: true });
+      out.neu++; letzte = { k: k, q: q };
+      if (!zuletztZeit || zeit > zuletztZeit) zuletztZeit = zeit;
+      if (neueMetrics.indexOf(e.metric) < 0) neueMetrics.push(e.metric);
+    });
+    if (!out.neu) {
+      if (out.doppelt) return { ok: true, neu: 0, doppelt: out.doppelt, abgelehnt: out.abgelehnt, quality: null, grund: 'Schon vorhanden — derselbe Wert zur selben Zeit wurde nicht doppelt gespeichert.' };
+      return { ok: false, neu: 0, doppelt: 0, abgelehnt: out.abgelehnt, quality: null, grund: out.abgelehnt.length ? out.abgelehnt[0].grund : 'Nichts einzutragen.' };
+    }
+    arr.sort(function (a, b) { return String(a.ts).localeCompare(String(b.ts)); });
+    arr = _gsMesswerteDeckel(arr, 2000);   // v32.51: hochgeladene zuerst, dann der alte Deckel
+    if (localStorage.setItem('gs_messwerte', JSON.stringify(arr)) === false) {
+      if (typeof gsToast === 'function') gsToast('Speicher voll — der Messwert wurde nicht gesichert.', 'warn', 5000);
+      return { ok: false, neu: 0, doppelt: out.doppelt, abgelehnt: out.abgelehnt, quality: letzte.q, grund: 'Speicher voll — der Messwert wurde nicht gesichert.' };
+    }
+    // Geraet: gesehen, verbunden erst nach dem ersten Wert (§3.2). `last_seen_at`
+    // ist der juengste eingetragene Zeitpunkt — eine Nachlieferung alter Stunden
+    // laesst ihn stehen.
+    var alle = gsGeraete();
+    alle.forEach(function (x) {
+      if (!x || x.id !== g.id) return;
+      if (!x.last_seen_at || zuletztZeit > x.last_seen_at) x.last_seen_at = zuletztZeit;
+      if (!x.paired_at) x.paired_at = zuletztZeit;
+      if (x.status !== 'paused') x.status = 'active';
+      if (x.capabilities && Array.isArray(x.capabilities.metrics)) neueMetrics.forEach(function (m) { if (x.capabilities.metrics.indexOf(m) < 0) x.capabilities.metrics.push(m); });
+    });
+    _gsGeraeteSchreiben(alle);
+    out.quality = letzte.q;
+    out.grund = letzte.q === 2 ? 'plausibel (' + letzte.k.min_valid + '–' + letzte.k.max_valid + ' ' + letzte.k.unit + ')' : 'ausserhalb des Messbereichs ' + letzte.k.min_valid + '–' + letzte.k.max_valid + ' ' + letzte.k.unit + ' — angenommen, aber markiert';
+    return out;
+  } catch (_) { return { ok: false, neu: 0, doppelt: 0, abgelehnt: [], quality: null, grund: 'Fehler beim Eintragen.' }; }
+}
+// Der eine Wert von Hand — derselbe Weg, ein Element in der Liste.
 function gsMesswertEintragen(geraetId, metric, wert, ts) {
   try {
     var g = gsGeraete().find(function (x) { return x && x.id === geraetId; });
     if (!g) return { ok: false, quality: null, grund: 'Unbekanntes Gerät.' };
-    var k = _gsMetric(metric);
-    if (!k) return { ok: false, quality: null, grund: 'Die Messgrösse „' + metric + '" steht nicht im Katalog — ein neuer Sensor ist eine Zeile dort, kein Sonderfall.' };
-    var v = Number(wert);
-    if (!isFinite(v)) return { ok: false, quality: null, grund: 'Kein Zahlenwert.' };
-    var q = 2;
-    if ((typeof k.min_valid === 'number' && v < k.min_valid) || (typeof k.max_valid === 'number' && v > k.max_valid)) q = 1;
-    var zeit = ts ? new Date(ts).toISOString() : new Date().toISOString();
-    var arr = _gsMesswerteAlle();
-    arr.push({ geraet_id: geraetId, metric: metric, ts: zeit, wert: v, quality: q, quelle: g.kind === 'manual' ? 'hand' : 'geraet', pending: true });
-    arr = _gsMesswerteDeckel(arr, 2000);   // v32.51: hochgeladene zuerst, dann der alte Deckel
-    if (localStorage.setItem('gs_messwerte', JSON.stringify(arr)) === false) {
-      if (typeof gsToast === 'function') gsToast('Speicher voll — der Messwert wurde nicht gesichert.', 'warn', 5000);
-      return { ok: false, quality: q, grund: 'Speicher voll — der Messwert wurde nicht gesichert.' };
-    }
-    // Geraet: gesehen, verbunden erst nach dem ersten Wert (§3.2)
-    var alle = gsGeraete();
-    alle.forEach(function (x) { if (x && x.id === geraetId) { x.last_seen_at = zeit; if (!x.paired_at) x.paired_at = zeit; if (x.status !== 'paused') x.status = 'active'; if (x.capabilities && x.capabilities.metrics.indexOf(metric) < 0) x.capabilities.metrics.push(metric); } });
-    _gsGeraeteSchreiben(alle);
-    return { ok: true, quality: q, grund: q === 2 ? 'plausibel (' + k.min_valid + '–' + k.max_valid + ' ' + k.unit + ')' : 'ausserhalb des Messbereichs ' + k.min_valid + '–' + k.max_valid + ' ' + k.unit + ' — angenommen, aber markiert' };
+    var r = _gsMesswerteAnhaengen(g, [{ metric: metric, wert: wert, ts: ts }]);
+    if (r.ok && !r.neu && r.doppelt) return { ok: true, doppelt: true, quality: null, grund: r.grund };
+    return { ok: r.ok, quality: r.quality, grund: r.grund };
   } catch (_) { return { ok: false, quality: null, grund: 'Fehler beim Eintragen.' }; }
 }
+window._gsMesswerteAnhaengen = _gsMesswerteAnhaengen;
+
+// ── v32.52 · WETTER ALS VIRTUELLES GERAET (OEKOSYSTEM-V1.md §11 Idee 3) ──────
+// Regen und Lufttemperatur stehen NEBEN der Bodenfeuchte im selben Diagramm,
+// bevor ein einziger Sensor existiert — aus dem Open-Meteo-Zwischenspeicher,
+// den die App ohnehin holt. Drei Regeln, alle im Pruefstand:
+//   · Eine Vorhersage ist kein Messwert: nur Stunden bis JETZT, nie die Zukunft.
+//   · Idempotent: zweimal abgleichen = einmal (Dublettensperre nach ts).
+//   · Abgeleitet, nicht erhoben: 7 Tage lokal (GS_WETTER_GERAET_TAGE), aeltere
+//     Wetterwerte werden geloescht — das ist kein Verwerfen einer Messung, der
+//     Wetterdienst hat sie noch, und das Tagesarchiv ist weather_log_per_garden.
+//     Ohne den Deckel wuerden 2 × 24 Werte je Tag die 2'000 Handmessungen
+//     verdraengen (der Deckel aus v32.51 nimmt die aeltesten).
+// Wer das Geraet entfernt, will es nicht (gs_wetter_geraet_aus); der Schalter
+// im Dashboard holt es zurueck.
+var GS_WETTER_GERAET_TAGE = 7;
+var GS_WETTER_GERAET_PAARE = [['temperature_2m', 'air_temp'], ['precipitation', 'rain']];
+function gsWetterGeraetAbgleich() {
+  try {
+    if (localStorage.getItem('gs_wetter_geraet_aus') === '1') return { ok: false, grund: 'abgeschaltet' };
+    var c = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
+    var h = c && c.data && c.data.hourly;
+    if (!h || !Array.isArray(h.time)) return { ok: false, grund: 'kein Wetter-Zwischenspeicher' };
+    var ger = gsGeraete().find(function (g) { return g && g.kind === 'weather'; });
+    if (!ger) {
+      var ort = '';
+      try { var l = JSON.parse(localStorage.getItem('gs_user_location') || localStorage.getItem('gs_home_weather_loc') || 'null'); if (l && l.name) ort = String(l.name).slice(0, 40); } catch (_) {}
+      ger = gsGeraetAnlegen({ kind: 'weather', name: 'Wetterdienst' + (ort ? ' · ' + ort : ''), capabilities: { metrics: GS_WETTER_GERAET_PAARE.map(function (p) { return p[1]; }), interval_s: 3600, commands: [] } });
+      if (!ger) return { ok: false, grund: 'Gerät konnte nicht angelegt werden' };
+    }
+    var jetzt = Date.now(), grenze = jetzt - GS_WETTER_GERAET_TAGE * 864e5, liste = [], zukunft = 0;
+    for (var i = 0; i < h.time.length; i++) {
+      var t = new Date(h.time[i]).getTime();
+      if (!isFinite(t)) continue;
+      if (t > jetzt) { zukunft++; continue; }
+      if (t < grenze) continue;
+      GS_WETTER_GERAET_PAARE.forEach(function (p) {
+        var v = Array.isArray(h[p[0]]) ? h[p[0]][i] : null;
+        if (v == null || !isFinite(Number(v))) return;
+        liste.push({ metric: p[1], wert: Number(v), ts: h.time[i] });
+      });
+    }
+    var r = liste.length ? _gsMesswerteAnhaengen(ger, liste) : { ok: true, neu: 0, doppelt: 0, abgelehnt: [], grund: 'keine Stunden bis jetzt' };
+    if (!r.ok) return { ok: false, grund: r.grund, geraet: ger.id };
+    // Deckel fuer abgeleitete Werte: aelter als 7 Tage → weg (nur dieses Geraet)
+    var alt = _gsMesswerteAlle(), rest = alt.filter(function (m) { return !(m && m.geraet_id === ger.id && new Date(m.ts).getTime() < grenze); });
+    if (rest.length !== alt.length) localStorage.setItem('gs_messwerte', JSON.stringify(rest));
+    return { ok: true, neu: r.neu, doppelt: r.doppelt, zukunft: zukunft, geloescht: alt.length - rest.length, geraet: ger.id };
+  } catch (e) { return { ok: false, grund: 'Fehler: ' + (e && e.message) }; }
+}
+window.gsWetterGeraetAbgleich = gsWetterGeraetAbgleich;
+window._gsMwWetterEin = function () {
+  try { localStorage.removeItem('gs_wetter_geraet_aus'); } catch (_) {}
+  var r = gsWetterGeraetAbgleich();
+  if (typeof gsToast === 'function') gsToast(r.ok ? ('🌦️ Wetterdienst wieder als Gerät geführt — ' + r.neu + ' Werte übernommen.') : ('Wetterdienst: ' + r.grund), r.ok ? 'success' : 'warn', 4000);
+  if (typeof _gsMwRender === 'function') _gsMwRender();
+};
+
+// ── v32.52 · KATALOG WIRKLICH LADEN (OEKOSYSTEM-V1.md §11 Idee 2) ────────────
+// Bis v32.51 wurde gs_metric_catalog gelesen und nie geschrieben — „eine neue
+// Sensorart ist eine Zeile" galt nur in der Datenbank. Jetzt holt die App die
+// Tabelle und ersetzt den Zwischenspeicher NUR bei Erfolg (mindestens drei
+// vollstaendige Zeilen); sonst bleibt, was da ist — notfalls der Startbestand,
+// der Katalog ist nie leer (§9). Das Datum der Momentaufnahme steht daneben.
+// Solange die Migration nicht angewandt ist, antwortet der Server mit einem
+// Fehler — und genau dann passiert nichts (backend_check: „offen").
+function gsMetricKatalogLaden() {
+  try {
+    if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return Promise.resolve({ ok: false, grund: 'nicht angemeldet' });
+    return sbFetch('/rest/v1/metric_catalog?select=key,unit,min_valid,max_valid,label_de,label_fr,label_it,label_en,icon,aggregation,decimals,sort&order=sort.asc', { method: 'GET' }).then(function (r) {
+      var rows = r && r.data;
+      if (!r || r.error || !Array.isArray(rows) || rows.length < 3 || !rows.every(function (m) { return m && m.key && m.unit && m.label_de; })) {
+        return { ok: false, grund: (r && r.error && r.error.message) || 'leer oder unvollständig' };
+      }
+      if (localStorage.setItem('gs_metric_catalog', JSON.stringify(rows)) === false) return { ok: false, grund: 'Speicher voll' };
+      try { localStorage.setItem('gs_metric_catalog_at', new Date().toISOString()); } catch (_) {}
+      return { ok: true, n: rows.length };
+    }).catch(function (e) { return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
+  } catch (e) { return Promise.resolve({ ok: false, grund: 'Fehler: ' + (e && e.message) }); }
+}
+window.gsMetricKatalogLaden = gsMetricKatalogLaden;
+// Beim Start, wenn die Oberflaeche steht — kein Aufruf im kritischen Pfad.
+try { setTimeout(function () { try { gsMetricKatalogLaden(); } catch (_) {} }, 6000); } catch (_) {}
 window.gsMesswerte = gsMesswerte; window.gsMesswertEintragen = gsMesswertEintragen;
 
 function gsRegeln() { try { var a = safeGetItem('gs_geraete_regeln', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
@@ -26666,7 +26826,7 @@ function gsRegelAnlegen(o) {
     o = o || {};
     if (!o.geraet_id || !o.metric && o.op !== 'stale') return false;
     if (o.metric && !_gsMetric(o.metric)) return false;
-    var r = { id: 'reg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6), geraet_id: o.geraet_id, metric: o.metric || null,
+    var r = { id: _gsNeueId('reg_'), geraet_id: o.geraet_id, metric: o.metric || null,
       op: (o.op === 'above' || o.op === 'stale') ? o.op : 'below', threshold: (o.threshold == null ? null : Number(o.threshold)),
       for_minutes: parseInt(o.for_minutes, 10) || 0, action: o.action || 'notify', cooldown_minutes: parseInt(o.cooldown_minutes, 10) || 720, enabled: true, created_at: new Date().toISOString() };
     var arr = gsRegeln(); arr.push(r);
@@ -26758,6 +26918,7 @@ function gsMesswerteOeffnen() {
   try {
     if (typeof gsHaptic === 'function') gsHaptic('light');
     var mc = document.getElementById('modal-content'); if (!mc) return;
+    try { gsWetterGeraetAbgleich(); } catch (_) {}   // v32.52: Wetter als Geraet, aus dem Zwischenspeicher
     _gsMwRender();
     if (typeof openModal === 'function') openModal('detail-modal');
   } catch (_) {}
@@ -26806,8 +26967,13 @@ function _gsMwRender() {
     '</div>';
   }).join('');
 
-  var eintrag = ger.length ? '<div class="gs-mw-eintrag"><div class="gs-eg-kopf" style="font-size:var(--fs-md);">' + _t('mw_eintragen', '📝 Messwert eintragen') + '</div><div class="gs-mw-zeile">' +
-      '<select id="mw-geraet" aria-label="Gerät">' + ger.map(function (g) { return '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>'; }).join('') + '</select>' +
+  // v32.52: Der Wetterdienst misst selbst — er steht nicht im Eintrags-Formular.
+  var gerHand = ger.filter(function (g) { return g && g.kind !== 'weather'; });
+  var wetterAus = (localStorage.getItem('gs_wetter_geraet_aus') === '1') && !ger.some(function (g) { return g && g.kind === 'weather'; });
+  var wetterSchalter = wetterAus ? '<div class="gs-mw-hinweis" style="margin:8px 0 12px;">🌦️ ' + _t('mw_wetter_aus', 'Der Wetterdienst wird nicht mehr als Gerät geführt.') +
+      ' <button type="button" class="gs-mw-link" onclick="_gsMwWetterEin()">' + _t('mw_wetter_ein', 'Wieder als Gerät führen') + '</button></div>' : '';
+  var eintrag = gerHand.length ? '<div class="gs-mw-eintrag"><div class="gs-eg-kopf" style="font-size:var(--fs-md);">' + _t('mw_eintragen', '📝 Messwert eintragen') + '</div><div class="gs-mw-zeile">' +
+      '<select id="mw-geraet" aria-label="Gerät">' + gerHand.map(function (g) { return '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>'; }).join('') + '</select>' +
       '<select id="mw-metric" aria-label="Messgrösse">' + optionenKat + '</select>' +
       '<input id="mw-wert" type="number" inputmode="decimal" step="any" aria-label="Wert" placeholder="Wert">' +
       '<button type="button" onclick="_gsMwEintragAusFormular()">' + _t('mw_speichern', 'Speichern') + '</button></div>' +
@@ -26816,6 +26982,7 @@ function _gsMwRender() {
   mc.innerHTML = '<div class="gs-mw" style="padding:16px;">' +
     '<div class="gs-eg-kopf">📊 ' + _t('mw_titel', 'Messwerte') + '</div>' +
     '<div class="gs-eg-unter">' + _t('mw_untertitel', 'Deine Geräte und was sie messen — und bis der erste Sensor da ist, bist du das Gerät. Jeder Wert trägt Gerät, Zeit, Einheit und ob er plausibel war.') + '</div>' +
+    wetterSchalter +
     (ger.length ? kacheln : '<div class="gs-eg-leer">' + _t('mw_leer', 'Noch kein Gerät. Lege eines an — „von Hand" heisst: du misst und trägst ein. Dashboard, Regeln und Kalender sind dieselben, die später ein Sensor benutzt.') + '</div>') +
     eintrag +
     '<details class="gs-mw-form gs-mw-neu"' + (ger.length ? '' : ' open') + '><summary>' + _t('mw_geraet_neu', '＋ Gerät anlegen') + '</summary><div class="gs-mw-zeile">' +
@@ -27124,7 +27291,7 @@ function gsKalenderEreignisse(von, bis) {
       _gsMesswerteAlle().forEach(function (m) { var tag = _gsKalTag(m.ts); if (!im(tag)) return; var kk = m.geraet_id + '|' + tag; (proGT[kk] = proGT[kk] || []).push(m); });
       var gerMap = {}; gsGeraete().forEach(function (g) { gerMap[g.id] = g; });
       Object.keys(proGT).forEach(function (kk) {
-        var l = proGT[kk], g = gerMap[l[0].geraet_id]; if (!g) return;
+        var l = proGT[kk], g = gerMap[l[0].geraet_id]; if (!g || g.kind === 'weather') return;   // v32.52: Wetterwerte sind kein Tages-Ereignis (Regen hat seines, Nr. 5)
         var tag = kk.split('|')[1];
         var arten = []; l.forEach(function (m) { var k = _gsMetric(m.metric); var nm = k ? k.label_de : m.metric; if (arten.indexOf(nm) < 0) arten.push(nm); });
         out.push({ id: 'messung:' + kk, art: 'messung', datum: tag, zeit: _gsKalZeit(l[l.length - 1].ts), ts: l[l.length - 1].ts, titel: g.name + ': ' + l.length + ' Messwert' + (l.length === 1 ? '' : 'e'), emoji: '📊',
@@ -73594,6 +73761,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.52', date: '04.09.2026',
+    headline: '🌦️ Der Wetterdienst ist dein erstes Gerät — und kein Messwert wird doppelt gespeichert',
+    summary: 'Vier Schritte aus dem Ideen-Kapitel für die Sensoren (docs/OEKOSYSTEM-V1.md §11, Ideen 2 · 3 · 11 · 21): Der Open-Meteo-Zwischenspeicher wird zu einem Gerät „Wetterdienst" im Messwerte-Dashboard — Lufttemperatur und Niederschlag je Stunde, nur bis jetzt (eine Vorhersage ist kein Messwert), sieben Tage lokal, zweimal abgleichen ergibt einmal. Alle Messwerte gehen jetzt durch EINEN Weg mit Dublettensperre auf Gerät, Messgrösse und Zeit — derselbe Schlüssel wie später auf dem Server; neue Geräte und Regeln bekommen eine UUID. Der Katalog der Messgrössen wird vom Server geladen und nur bei Erfolg ersetzt. Und die Beispieldaten der Prüfstände haben endlich ein Gerät mit Werten und einer Regel — bis dahin vermass jeder Prüfstand ausser sensor_check ein leeres Dashboard. Drei neue Prüfstand-Fälle mit Gegenprobe.',
+    user_summary: '🌦️ Im Messwerte-Dashboard steht neu der Wetterdienst als Gerät: Temperatur und Regen der letzten sieben Tage, Stunde für Stunde — neben deinen eigenen Werten.',
+    user_items: [
+      {emoji:'🌦️', bold:'Wetterdienst als Gerät:', text:' Regen und Lufttemperatur der letzten sieben Tage stehen im Messwerte-Dashboard — nur, was schon war; eine Vorhersage ist kein Messwert. Willst du das nicht, entferne das Gerät; ein Schalter holt es zurück.'},
+      {emoji:'🔁', bold:'Keine Dubletten:', text:' Ein Wert, der für dasselbe Gerät zur selben Zeit schon da ist, wird nicht ein zweites Mal gespeichert — die App sagt es dir.'},
+      {emoji:'📚', bold:'Katalog vom Server:', text:' Neue Messgrössen kommen künftig als Zeile vom Server in die App, ohne Update.'},
+    ],
+  },
+  {
     v: 'v32.51', date: '04.09.2026',
     headline: '🌧️ Regen zählt jetzt wirklich — und das Backup kennt die Messwerte',
     summary: 'Vier Reparaturen aus der Vorbereitung auf die Sensoren (docs/OEKOSYSTEM-V1.md §11): Der Hinweis „Regen heute — Giessen kann warten" (v31.84) erschien für keine einzige Pflanze, weil er ein Feld las, das die App nie schreibt; jetzt beantwortet die Gartenart die Frage (Freiland, Hochbeet, Balkon: draussen — unter Glas nicht). Das Backup nimmt Geräte, Regeln und Messwerte mit und sagt beim Einspielen, was bei vollem Speicher nicht gesichert wurde. Der Deckel der Messwerte wirft zuerst weg, was schon hochgeladen ist. Und die Benachrichtigungsart sensor_alert stand zweimal in der Ziel-Tabelle. Drei neue Prüfstand-Fälle, jeder mit Gegenprobe; der Entwurf für das Ökosystem hat ein Ideen-Kapitel mit Prioritäten.',
@@ -74356,7 +74534,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.51';
+var GS_VERSION = 'v32.52';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80668,6 +80846,7 @@ var GS_KEEP_ON_LOGOUT = [
   'gs_consent',         // revDSG-Consent — Re-Login soll ihn nicht zuruecksetzen
   'gs_auto_collections',// Sammlungen automatisch anlegen (Schalter)
   'gs_metric_catalog',  // v32.48: oeffentlicher Katalog der Messgroessen — kein Personenbezug
+  'gs_metric_catalog_at', // v32.52: Datum der Momentaufnahme des Katalogs
   'gs_claude_model',    // per Fallback-Kette ermitteltes Modell (Geraete-Eigenschaft)
 
   // Verbindung zum Backend — oeffentlich by design (Anon-Key, RLS schuetzt)
@@ -80726,6 +80905,7 @@ var GS_USER_KEYS = [
   'gs_garden_plans','gs_garden_plan_current','gs_gardens','gs_plantings',
   'ps_myplants','gs_gartentagebuch','gs_ernte_log','gs_harvest_log',
   'gs_geraete','gs_geraete_regeln','gs_messwerte',   // v32.48: Geraete, Regeln, Messwerte — Personendaten
+  'gs_wetter_geraet_aus',   // v32.52: „Wetterdienst nicht als Geraet fuehren" — eine Wahl der Person
   'gs_garden_diary_cache',                           // v32.49: Spiegel des Cloud-Tagebuchs
   'gs_doctor_history','gs_seed_inventory','gs_chat_history','gs_ki_analyses',
   'gs_scan_history','gs_scan_count','gs_scan_corrections','ps_feedback','ps_votes',
