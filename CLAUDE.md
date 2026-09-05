@@ -538,6 +538,7 @@ node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Daten
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
 node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46)
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
+node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -793,6 +794,32 @@ liest Gartentagebuch UND Pflanzentagebuecher (`p.diary`) zusammen — bis
 v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
+
+**`ingest_check.js` (seit 05.09.2026) prüft die RECHNUNG des Empfängers
+`device-ingest`, ohne Deno und ohne Datenbank.** Deno ist in dieser Umgebung
+nicht installiert, die Edge-Function selbst läuft hier nicht. Deshalb steht
+alles, was sich rechnen lässt, in `supabase/functions/_shared/ingest_regeln.mjs`
+(reines ESM, von Deno und Node importierbar), und `device-ingest/index.ts`
+ist nur der dünne Rand darum (Token, Insert, Antwort). Wer eine Regel des
+Vertrags (`docs/GERAETE-VERTRAG.md`) ändert, ändert das Modul und den Fall —
+nie nur die Edge-Function. Drei Regeln, die das Modul hält und die der
+Primärschlüssel allein nicht hält: **eine falsche Uhr ist kein Grund zum
+Verwerfen** (`age_s`, `raw.device_ts`, `clock: untrusted` — mit `on conflict
+do nothing` überlebte von `ts=1970` nur die erste Zeile), **ein Zeitstempel
+in der Zukunft ist eine falsche Uhr**, und **abgelaufene Befehle werden nie
+gesendet**. Die Edge-Function und die zwei Migrationen vom 05.09.
+(`device_daily`, `device_alerts_cron`) sind **nicht ausgeführt** — wer das
+schreibt, sagt es dazu.
+
+**Und eine Falle aus derselben Sitzung (v32.61), die jeden Prüfstand mit
+gestellter Uhr betrifft:** `_gsAnkerWarten` rechnete seine Frist mit
+`Date.now() > bis`. Unter `page.clock.setFixedTime` steht `Date.now()`
+still, und für ein Element, das nie kommt (der Fall „entferntes Gerät"),
+lief die 150-ms-Schleife **endlos** — `sensor_check` hing 23 Minuten, ohne
+rot zu werden. Die Frist zählt jetzt Versuche. **Eine Frist, die die Uhr
+fragt, ist eine Annahme darüber, dass die Uhr läuft** — in jedem Seed-
+Prüfstand tut sie das nicht. Wer eine Wartefunktion baut, zählt Versuche
+oder nimmt `performance.now()`, das die Prüfstände nicht stellen.
 
 **Seit v32.56 trägt Linas Kontext Zahlen — und der Prüfstand hält jede
 gegen einen Datensatz.** `gsLinaZahlen()` schreibt **Rohwerte**, nie die

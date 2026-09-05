@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.60.20260905">
+<meta name="app-version" content="32.61.20260905">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27345,7 +27345,7 @@ function _gsMwRender() {
       return '<div class="gs-mw-regel gs-mw-' + r.zustand + '"><b>' + esc(r.text) + '</b><i>' + esc(z) + ' · ' + esc(r.grund) + '</i><button type="button" class="gs-mw-x" aria-label="Regel löschen" onclick="gsRegelLoeschen(\'' + esc(r.regel_id) + '\');if(typeof gsSensorAufgabenAbgleich===\'function\')gsSensorAufgabenAbgleich();_gsMwRender()">×</button></div>';
     }).join('');
     var erste = metrics[0];
-    return '<div class="gs-mw-kachel" data-geraet="' + esc(g.id) + '">' +
+    return '<div class="gs-mw-kachel" id="geraet-' + esc(g.id) + '" data-geraet="' + esc(g.id) + '">' +
       '<div class="gs-mw-kopf"><span class="gs-mw-art" aria-hidden="true">' + esc(art.icon) + '</span><div class="gs-mw-name"><b>' + esc(g.name) + '</b><i>' + esc(art.label) + ' · ' + esc(status) + '</i></div>' +
         '<button type="button" class="gs-mw-x" aria-label="Gerät entfernen" onclick="if(typeof gsConfirmModal===\'function\'){gsConfirmModal({title:\'Gerät entfernen?\',body:\'Alle Messwerte dieses Geräts werden mitgelöscht.\',kind:\'danger\',ok:\'Entfernen\'}).then(function(j){ if(j){ gsGeraetLoeschen(\'' + esc(g.id) + '\'); _gsMwRender(); } });}else if(confirm(\'Gerät und Messwerte entfernen?\')){gsGeraetLoeschen(\'' + esc(g.id) + '\');_gsMwRender();}">×</button></div>' +
       (werte || '<div class="gs-mw-leer">' + _t('mw_noch_keine', 'Noch keine Werte — trage unten den ersten ein.') + '</div>') +
@@ -74444,6 +74444,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.61', date: '05.09.2026',
+    headline: '📶 Stufe 1 vorbereitet — Vertrag, Empfänger, Prüfstand, und ein Link, der zum Gerät führt',
+    summary: 'Alles, was sich für echte Geräte ohne Gerät bauen und prüfen lässt, liegt jetzt im Repo (docs/OEKOSYSTEM-V1.md §11.3j): der Geräte-Vertrag v1 (docs/GERAETE-VERTRAG.md — auch für Geräte ohne Uhr), die Rechnung des Empfängers als geprüftes Modul mit eigenem Prüfstand (11 Fälle, drei Gegenproben), der Empfänger device-ingest als Skelett, und zwei Migrationen: das Tagesaggregat als dauerhafte Tabelle und der Alarm-Cron, der verstummte Geräte und verletzte Regeln meldet. In der App: der Link #geraet-<id>, den der Cron in seine Meldungen schreibt, öffnet das Messwerte-Dashboard und hebt die Kachel hervor; gibt es das Gerät nicht mehr, sagt die App das. Nichts davon ist ausgeführt oder angewandt — es fehlt das Gerät; der Prüfstand hält die Rechnung.',
+    user_summary: '📶 Für die kommenden Geräte ist der Empfang vorbereitet: Vertrag, Empfänger, Prüfstand. Und ein Alarm-Link führt jetzt direkt zur Gerätekachel.',
+    user_items: [
+      {emoji:'🔗', bold:'Link zum Gerät:', text:' Eine Sensor-Meldung führt direkt zur Kachel des Geräts im Messwerte-Dashboard — und sagt es, wenn das Gerät nicht mehr da ist.'},
+    ],
+  },
+  {
     v: 'v32.60', date: '05.09.2026',
     headline: '💧 Der Planer nennt Vorhersage und Messung getrennt — und das Diagramm sagt, was es zeigt',
     summary: 'Zwei Ideen aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11, Ideen 24 und 21b). Die Wasserbilanz des Planers nannte den Regen „gemessen" — die Zahl kam aus der 14-Tage-VORHERSAGE. Jetzt rechnet die Bilanz mit der Vorhersage für die nächsten sieben Tage und nennt daneben, was der Wetterdienst in den letzten sieben Tagen wirklich gemessen hat; ohne Wetterdienst als Gerät steht „kein gemessener Wert", nicht 0. Und die Verlaufsdiagramme im Messwerte-Dashboard tragen für Screenreader Tief, Hoch und letzten Wert in ihrer Beschriftung — bis dahin war das Bild ein Bild ohne Inhalt.',
@@ -75298,7 +75307,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.60';
+var GS_VERSION = 'v32.61';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79933,7 +79942,7 @@ window.gsShowExportModal = function(){
 // `scripts/wiring_check.js` haelt diese Liste gegen die Arten, die im Repo
 // wirklich ERZEUGT werden. Eine Messung „hat der Leser gewartet?" waere eine
 // Zeitmessung und damit ein Zufall; eine Liste ist eine Aussage.
-window.GS_ANKER_ARTEN = ['post', 'comment'];
+window.GS_ANKER_ARTEN = ['post', 'comment', 'geraet'];   // v32.61: #geraet-<id> — der Cron device-alerts verlinkt so (§3.4)
 // Und die Gegenliste: Arten, die erzeugt, aber bewusst NICHT angesprungen
 // werden — mit Grund. Ohne sie stuende `task` dauerhaft als Fehler im
 // Bericht, obwohl die Entscheidung getroffen ist.
@@ -79957,12 +79966,15 @@ function _gsAnkerHervorheben(el){
 // Wartet, bis das Element da ist — der Feed rendert asynchron. Bewusst mit
 // Deckel: eine Endlosschleife waere schlimmer als eine ehrliche Absage.
 function _gsAnkerWarten(id, msMax){
+  // v32.61: die Frist zaehlt VERSUCHE, nicht die Uhr. Mit `Date.now() > bis`
+  // lief die Schleife bei gestellter Uhr (Pruefstaende: page.clock.setFixedTime)
+  // fuer ein Element, das nie kommt, endlos — sensor_check hing 23 Minuten.
   return new Promise(function(fertig){
-    var bis = Date.now() + (msMax || 4000);
+    var uebrig = Math.ceil((msMax || 4000) / 150);
     (function schauen(){
       var el = _gsAnkerElement(id);
       if (el) return fertig(el);
-      if (Date.now() > bis) return fertig(null);
+      if (--uebrig < 0) return fertig(null);
       setTimeout(schauen, 150);
     })();
   });
@@ -80009,6 +80021,18 @@ window.gsAnkerAnspringen = async function(hash){
       return false;
     }
     roh = 'post-' + String(postId);
+  }
+  // v32.61: `#geraet-<id>` — der Cron device-alerts (20260905_device_alerts_cron.sql)
+  // und die Benachrichtigung `sensor_alert` zeigen auf eine Geraetekachel im
+  // Messwerte-Dashboard. Oeffnen, warten, hervorheben; gibt es das Geraet
+  // nicht mehr, sagt die App das.
+  var ger = roh.match(/^geraet-([A-Za-z0-9_-]{1,64})$/);
+  if (ger) {
+    try { if (typeof gsMesswerteOeffnen === 'function') gsMesswerteOeffnen(); } catch(_){}
+    var gel = await _gsAnkerWarten('geraet-' + ger[1], 3000);
+    if (gel) { _gsAnkerHervorheben(gel); return true; }
+    if (typeof gsToast === 'function') gsToast('Dieses Gerät gibt es nicht mehr — vielleicht wurde es entfernt.', 'info', 4500);
+    return false;
   }
   var m = roh.match(/^post-([A-Za-z0-9_-]{1,64})$/);
   if (!m) return false;

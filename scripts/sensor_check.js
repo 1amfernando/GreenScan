@@ -705,6 +705,27 @@ const FAELLE = [
       } finally { gsGeraetLoeschen(gB.id); }
     },
   },
+  {
+    // v32.61: der Anker #geraet-<id>, den der Cron device-alerts in seine
+    // Meldungen schreibt (20260905_device_alerts_cron.sql), fuehrt zur Kachel —
+    // ein Link, der oben auf der Seite endet, saehe aus wie ein Link, der
+    // funktioniert hat (CLAUDE.md §7.1, Richtung 5).
+    name: 'Deep-Link · #geraet-<id> öffnet Messwerte und hebt die Kachel hervor; ein entferntes Gerät wird genannt',
+    lauf: async () => {
+      const toasts = []; const echtToast = window.gsToast; window.gsToast = (m) => toasts.push(String(m));
+      try {
+        if (!Array.isArray(GS_ANKER_ARTEN) || GS_ANKER_ARTEN.indexOf('geraet') < 0) return { ok: false, warum: 'geraet steht nicht in GS_ANKER_ARTEN' };
+        const ok = await gsAnkerAnspringen('#geraet-ger_seed_1');
+        const el = document.getElementById('geraet-ger_seed_1');
+        if (!ok || !el || !el.classList.contains('gs-anker-treffer')) return { ok: false, warum: 'Anker nicht angesprungen: ' + JSON.stringify({ ok, da: !!el, klasse: el && el.className }) };
+        const modal = document.getElementById('detail-modal');
+        if (!modal || getComputedStyle(modal).display === 'none') return { ok: false, warum: 'das Messwerte-Fenster ist nicht offen' };
+        const nein = await gsAnkerAnspringen('#geraet-gibt-es-nicht');
+        if (nein !== false || !toasts.some(t => /nicht mehr/.test(t))) return { ok: false, warum: 'unbekanntes Gerät: ' + JSON.stringify({ nein, toasts }) };
+        return { ok: true, info: 'ger_seed_1 → Fenster offen, Kachel hervorgehoben · unbekannte Id → false + „gibt es nicht mehr"' };
+      } finally { window.gsToast = echtToast; }
+    },
+  },
 ];
 
 (async () => {
