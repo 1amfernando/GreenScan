@@ -444,7 +444,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 4 | Giessen bestätigt sich selbst — als Aussage; Regel-Aktion verdrahten | 0 | mittel | **gebaut v32.53** (`gsSensorAufgabenAbgleich`, `gsGiessBestaetigung`, `vorgezogenAuf`) |
 | 5 | Schwellwert-Vorlagen nur, wo eine Zahl steht | 0 | klein | — |
 | 6 | Lina kennt die Zahlen | 0 | klein–mittel | CLAUDE.md §3.4 (korrigiert) |
-| 7 | Ein Meldungs-Budget gegen Alarm-Müdigkeit | 0 | klein | — |
+| 7 | Ein Meldungs-Budget gegen Alarm-Müdigkeit | 0 | klein | **gebaut v32.54** (`gsNotif.stille`, `showKategorie`, `gsSensorAlarmeMelden`) |
 | 8 | Wochenrückblick statt „N Aufgaben" | 0 | mittel | — |
 | 9 | Zwei Standorte nebeneinander | 0 | klein | — |
 | 10 | Frostnacht am eigenen Beet | 0 / 1 | klein / mittel | 3 |
@@ -1160,6 +1160,20 @@ selben Tag nicht wieder fällig machen. Der Fall stellt deshalb „gestern
 gegossen" her. Was **nicht** gebaut ist: die Zeile „Aufgabe erledigt →
 Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
 (Idee 4, `_gsMwVerlaufMalen`); Geräte am Garten bekommen die Marke noch nicht.
+
+### 11.3c · Was v32.54 gebaut hat (Idee 7 — das Meldungs-Budget, lokal)
+
+| Gebaut | Was der Prüfstand festhält (`einstellungen_check`, Fragen 30–33) |
+|---|---|
+| **Stille-Zeit und Urlaubs-Pause gelten lokal.** `gsNotif.stille(wann)` liest `quietStart` / `quietEnd` / `pauseUntil` aus `gs_push_settings` — dieselbe Regel und dieselben Vorgaben (22–7 Uhr) wie `weather-alert-checker` und `daily-push-checker`. `gsNotif.show` schweigt in der Stille (`letzterGrund()` sagt warum), ausser `dringend` | in der Stille → keine Meldung („stille") · Pause → „pause" · sonst → Meldung. Gegenprobe: Prüfung entfernt → 3 Meldungen statt 1 |
+| **Eine Aufgaben-Meldung je Tag.** `scheduleAllNotifications` liest `gsGetDueTasks()` (beide Listen, Regen, Sensor), lässt Pflanzen mit `gs_reminder_prefs.disabled` aus, bündelt „🌱 N Aufgaben fällig · Basilikum giessen · Zucchini giessen 📶" und plant sie über `showKategorie('plant_tasks')` — eine je Tag; fällt der Zeitpunkt in die Stille, wandert er an deren Ende (`stille().bis`) statt zu verschwinden | „🌱 2 Aufgaben fällig": Basilikum · Zucchini, Tomate (stumm) fehlt · zweiter Aufruf: keine (kategorie) · in der Stille: Verzögerung 42 Min, nichts sofort. Gegenprobe: Stummschaltung ignoriert → „3 Aufgaben … Tomate giessen" |
+| **Sensor-Alarme als Tageskategorie mit Abkühlzeit.** `gsSensorAlarmeMelden()` nach jedem Eintrag: verletzte `notify`-Regeln → eine Meldung `sensor_alert` am Tag; je Regel gilt `cooldown_minutes` (720, seit v32.48 in jeder Regel, bis v32.53 von niemandem gelesen) über `zuletzt_gemeldet` | 22 % → eine · 20 % → keine (Tag) · Kategorie gelöscht, 19 % → keine (Abkühlzeit) · 13 h später → zweite. Gegenprobe: Abkühlzeit entfernt → zweite Meldung am selben Tag |
+| **Wochenzähler** in den Push-Einstellungen (`#push-wochenzaehler`) aus `gs_notif_log` — was **dieses Gerät** gezeigt hat; der Server-Zähler (`push_send_log`) bleibt Idee 7 (e) | „Diese Woche: 4 lokale Meldungen auf diesem Gerät." |
+
+Nicht gebaut: `stale` als dringende Ausnahme — in Stufe 0 gibt es keine
+Regel, die ohne Meldeintervall prüfbar wäre (Idee 16); und der
+Server-Zähler aus `push_send_log`. Neue Schlüssel `gs_notif_log`,
+`gs_notif_kat` in `GS_USER_KEYS`.
 
 Nicht gebaut aus Idee 3: `air_humidity` (der Deckel: zwei Grössen × 24 Stunden
 × 7 Tage sind 336 Werte neben den Handmessungen — eine dritte Grösse wäre

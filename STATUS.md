@@ -4,13 +4,34 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.53` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.54` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-04 (eq) — v32.54: das Meldungs-Budget — eine Meldung am Tag, Stille-Zeit auch lokal
+
+`docs/OEKOSYSTEM-V1.md` §11 Idee 7. Die Erinnerungen, die das Gerät selbst
+zeigt (`gsNotif`, `scheduleAllNotifications`), kannten weder Stille-Zeit
+noch Pause, planten eine Meldung je Aufgabe und lasen nur `myPlants` —
+Garten-Pflanzungen mit Aufgaben (seit v32.47) meldeten sich lokal nie.
+
+- `gsNotif.stille()` — dieselbe Regel wie der Server (`gs_push_settings`:
+  22–7 Uhr, `pauseUntil`); `show` schweigt in der Stille und sagt warum;
+  `showKategorie` — eine je Kategorie und Tag; Protokoll `gs_notif_log`.
+- `scheduleAllNotifications` bündelt aus `gsGetDueTasks()` (beide Listen,
+  Sensor-Grund als 📶), lässt `gs_reminder_prefs.disabled` aus, verschiebt
+  in der Stille ans Ende statt zu verwerfen.
+- `gsSensorAlarmeMelden()` — verletzte `notify`-Regeln, eine Meldung am
+  Tag, `cooldown_minutes` je Regel (seit v32.48 im Datensatz, nie gelesen).
+- Wochenzähler in den Push-Einstellungen.
+
+`einstellungen_check` 33 Fragen (+4). Drei Gegenproben rot mit echten
+Zahlen („3 Meldungen statt 1", „Tomate giessen" trotz Stummschaltung,
+zweite Alarm-Meldung am selben Tag).
 
 ### 2026-09-04 (ep) — v32.53: ein Sensor macht Giessen fällig, das Abhaken bestätigt sich am Sensor
 
@@ -8778,7 +8799,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.53` (Client) · SW-Cache `gs-v32.53` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.54` (Client) · SW-Cache `gs-v32.54` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

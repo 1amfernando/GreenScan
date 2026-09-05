@@ -794,6 +794,21 @@ v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
 
+**Seit v32.54 gehen lokale Meldungen durch `gsNotif.show` / `showKategorie`
+— und die kennen die Stille-Zeit.** `gs_push_settings` (`quietStart`,
+`quietEnd`, `pauseUntil`) galt bis dahin nur für den Server; `gsNotif.stille()`
+rechnet dieselbe Regel lokal. Wer eine Meldung plant, fragt `stille(wann).bis`
+und verschiebt dorthin, statt zu verwerfen. `showKategorie(kat, opts)` ist
+„eine je Kategorie und Tag" (Kategorien heute: `plant_tasks`, `sensor_alert`);
+`opts.dringend` umgeht beides — bewusst sparsam. Aufgaben-Erinnerungen kommen
+aus `gsGetDueTasks()` (beide Listen), nie aus einer eigenen Schleife über
+`myPlants`, und lassen `gs_reminder_prefs.disabled` aus. Ein Feld, das
+niemand las: `cooldown_minutes` stand seit v32.48 in jeder Regel —
+`gsSensorAlarmeMelden` liest es jetzt (§11.2 Regel 18). Der
+Einstellungs-Prüfstand stellt die Stille-Zeit über die EINSTELLUNGEN her
+(die Uhr läuft dort echt) und fängt `setTimeout` ab, weil ein Timer sonst
+nichts sagt.
+
 **Seit v32.53 hat die eine Aufgaben-Rechnung einen vierten Parameter.**
 `getDaysUntilDue(lastDone, intervalDays, snoozedUntil, vorgezogenAuf)` —
 eine verletzte Sensor-Regel `task:<key>` zieht auf `vorgezogenAuf` vor,

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.53.20260904">
+<meta name="app-version" content="32.54.20260904">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6482,7 +6482,8 @@ html, body{ scroll-behavior: smooth; }
             <option value="5">5:00</option><option value="6">6:00</option><option value="7" selected>7:00</option><option value="8">8:00</option><option value="9">9:00</option>
           </select>
         </div>
-        <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:10px;line-height:1.5;">Push-Empfang nur ausserhalb der Stille-Zeit. Backend prüft cron 07:00 + 19:00 UTC.</div>
+        <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:10px;line-height:1.5;">Push-Empfang nur ausserhalb der Stille-Zeit — seit v32.54 auch für die Erinnerungen, die dieses Gerät selbst zeigt. Backend prüft cron 07:00 + 19:00 UTC.</div>
+        <div id="push-wochenzaehler" style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;line-height:1.5;">Diese Woche: 0 lokale Meldungen auf diesem Gerät.</div>
         <!-- v28.11 B-011: Stille Tage / Urlaubs-Pause — pausiert ALLE Pushes vorübergehend -->
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
           <div style="font-size:var(--fs-sm);font-weight:800;color:var(--text);margin-bottom:2px;">🔕 Stille Tage (Urlaub)</div>
@@ -16218,12 +16219,60 @@ window.gsNotif = (function(){
     return perm;
   }
 
+  // v32.54: Stille-Zeit und Urlaubs-Pause gelten auch LOKAL (OEKOSYSTEM-V1.md
+  // §11 Idee 7). Bis dahin kannte nur der Server (weather-alert-checker,
+  // daily-push-checker) die Stunden aus gs_push_settings — dieselbe Regel,
+  // dieselben Vorgaben (22–7 Uhr). `bis` ist das Ende der Stille: dorthin
+  // verschiebt der Planer eine Meldung, statt sie zu verwerfen.
+  function stille(wann){
+    var s = {};
+    try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
+    var d = wann ? new Date(wann) : new Date();
+    try { var pu = s.pauseUntil && new Date(s.pauseUntil); if (pu && !isNaN(pu.getTime()) && pu > d) return { aktiv: true, grund: 'pause', bis: pu }; } catch(_){}
+    var qs = (typeof s.quietStart === 'number') ? s.quietStart : 22, qe = (typeof s.quietEnd === 'number') ? s.quietEnd : 7;
+    var h = d.getHours();
+    var drin = qs > qe ? (h >= qs || h < qe) : (h >= qs && h < qe);
+    if (!drin) return { aktiv: false, grund: null, bis: null };
+    var bis = new Date(d); bis.setHours(qe, 0, 0, 0); if (bis <= d) bis.setDate(bis.getDate() + 1);
+    return { aktiv: true, grund: 'stille', bis: bis };
+  }
+  var letzterGrund = null;
+  function _protokoll(kat){
+    try {
+      var log = JSON.parse(localStorage.getItem('gs_notif_log') || '[]'); if (!Array.isArray(log)) log = [];
+      var grenze = Date.now() - 7 * 86400000;
+      log = log.filter(function(e){ return e && e.ts > grenze; });
+      log.push({ ts: Date.now(), kat: kat || 'sonst' });
+      localStorage.setItem('gs_notif_log', JSON.stringify(log.slice(-200)));
+      if (typeof gsRenderNotifWochenzaehler === 'function') gsRenderNotifWochenzaehler();
+    } catch(_){}
+  }
+  // Wie viele lokale Meldungen in den letzten sieben Tagen?
+  function wochenzahl(){
+    try { var log = JSON.parse(localStorage.getItem('gs_notif_log') || '[]'); var g = Date.now() - 7 * 86400000; return Array.isArray(log) ? log.filter(function(e){ return e && e.ts > g; }).length : 0; } catch(_){ return 0; }
+  }
+  // Eine Meldung je Kategorie und Tag — wie der Server (alreadySentToday).
+  // `dringend` (z.B. ein verstummtes Geraet) darf trotzdem.
+  function showKategorie(kat, opts){
+    opts = opts || {};
+    var heute = new Date().toISOString().slice(0, 10), m = {};
+    try { m = JSON.parse(localStorage.getItem('gs_notif_kat') || '{}') || {}; } catch(_){}
+    if (!opts.dringend && m[kat] === heute) { letzterGrund = 'kategorie'; return false; }
+    var ok = show(Object.assign({}, opts, { kat: kat }));
+    if (ok) { m[kat] = heute; try { localStorage.setItem('gs_notif_kat', JSON.stringify(m)); } catch(_){} }
+    return ok;
+  }
+
   // Native Notification anzeigen — zentralisiert mit Default-Icon und Tag.
   // Bei iOS PWA-installed kommt's via SW; sonst Browser-Native.
   function show(opts){
-    if (!isEnabled()) return false;
+    letzterGrund = null;
+    if (!isEnabled()) { letzterGrund = 'aus'; return false; }
     opts = opts || {};
+    var st = stille();
+    if (st.aktiv && !opts.dringend) { letzterGrund = st.grund; return false; }
     try {
+      _protokoll(opts.kat);
       new Notification(opts.title || '🌿 GreenScan', {
         body: opts.body || '',
         icon: opts.icon || ICON,
@@ -16250,9 +16299,24 @@ window.gsNotif = (function(){
     isEnabled:   isEnabled,
     setEnabled:  setEnabled,
     request:     request,
-    show:        show
+    show:        show,
+    showKategorie: showKategorie,
+    stille:      stille,
+    wochenzahl:  wochenzahl,
+    letzterGrund: function(){ return letzterGrund; }
   };
 })();
+// v32.54: der Zaehler in den Einstellungen — „diese Woche N lokale Meldungen".
+// Der Server-Zaehler (push_send_log) braucht Netz; dieser hier zaehlt, was
+// dieses Geraet gezeigt hat. Beides steht dabei.
+function gsRenderNotifWochenzaehler(){
+  try {
+    var el = document.getElementById('push-wochenzaehler'); if (!el) return;
+    var n = (typeof gsNotif !== 'undefined' && gsNotif.wochenzahl) ? gsNotif.wochenzahl() : 0;
+    el.textContent = 'Diese Woche: ' + n + ' lokale Meldung' + (n === 1 ? '' : 'en') + ' auf diesem Gerät.';
+  } catch(_){}
+}
+window.gsRenderNotifWochenzaehler = gsRenderNotifWochenzaehler;
 
 // ── Smart Saison-Tipp (1× pro Woche, opt-in via gsNotif.isEnabled) ──
 function gsInitSmartNotifications() {
@@ -26731,6 +26795,7 @@ function _gsMesswerteAnhaengen(g, liste) {
     });
     _gsGeraeteSchreiben(alle);
     try { if (typeof gsSensorAufgabenAbgleich === 'function') gsSensorAufgabenAbgleich(); } catch (_) {}   // v32.53: Regel task:* → Aufgabe
+    try { if (typeof gsSensorAlarmeMelden === 'function') gsSensorAlarmeMelden(); } catch (_) {}   // v32.54: Regel notify → eine Meldung am Tag
     out.quality = letzte.q;
     out.grund = letzte.q === 2 ? 'plausibel (' + letzte.k.min_valid + '–' + letzte.k.max_valid + ' ' + letzte.k.unit + ')' : 'ausserhalb des Messbereichs ' + letzte.k.min_valid + '–' + letzte.k.max_valid + ' ' + letzte.k.unit + ' — angenommen, aber markiert';
     return out;
@@ -26971,6 +27036,40 @@ function gsSensorAufgabenAbgleich() {
   return erg;
 }
 window.gsSensorAufgabenAbgleich = gsSensorAufgabenAbgleich;
+
+// ── v32.54 · SENSOR-ALARME ALS MELDUNG (§11 Idee 7) ─────────────────────────
+// Regeln mit Aktion `notify`, die verletzt sind, werden EINE lokale Meldung
+// am Tag (Kategorie sensor_alert) — und je Regel gilt ihre Abkuehlzeit
+// (`cooldown_minutes`, Vorgabe 720; bis v32.53 las das Feld niemand).
+// `stale` (ein verstummtes Geraet) waere dringend — es gibt in Stufe 0 noch
+// keine Regel dafuer, die ohne Meldeintervall pruefbar waere.
+function gsSensorAlarmeMelden() {
+  var erg = { gemeldet: [], uebersprungen: 0 };
+  try {
+    if (typeof gsNotif === 'undefined' || !gsNotif.isEnabled()) return erg;
+    var jetzt = Date.now(), regeln = gsRegeln(), texte = [], ids = [];
+    gsGeraete().forEach(function (g) {
+      if (!g) return;
+      gsRegelnPruefen(g.id).forEach(function (z) {
+        if (z.zustand !== 'verletzt' || (z.action && z.action !== 'notify')) return;
+        var r = null; for (var i = 0; i < regeln.length; i++) if (regeln[i] && regeln[i].id === z.regel_id) r = regeln[i];
+        if (!r) return;
+        var cd = (parseInt(r.cooldown_minutes, 10) || 720) * 60000;
+        if (r.zuletzt_gemeldet && jetzt - new Date(r.zuletzt_gemeldet).getTime() < cd) { erg.uebersprungen++; return; }
+        texte.push(g.name + ': ' + z.text + ' (' + z.grund + ')'); ids.push(r.id);
+      });
+    });
+    if (!texte.length) return erg;
+    var ok = gsNotif.showKategorie('sensor_alert', { title: '\ud83d\udcf6 Sensor-Alarm', body: texte.slice(0, 3).join(' \u00b7 ') + (texte.length > 3 ? ' \u00b7 +' + (texte.length - 3) : ''), tag: 'gs-sensor-alert' });
+    if (ok) {
+      regeln.forEach(function (r) { if (r && ids.indexOf(r.id) >= 0) r.zuletzt_gemeldet = new Date(jetzt).toISOString(); });
+      try { localStorage.setItem('gs_geraete_regeln', JSON.stringify(regeln)); } catch (_) {}
+      erg.gemeldet = ids;
+    }
+  } catch (_) {}
+  return erg;
+}
+window.gsSensorAlarmeMelden = gsSensorAlarmeMelden;
 
 // ── v32.53 · GIESSEN BESTAETIGT SICH SELBST — als Aussage, nie als Haken ────
 // §6: +10 Punkte Bodenfeuchte innert 60 Minuten nach dem Abhaken heisst
@@ -36522,25 +36621,41 @@ function scheduleAllNotifications(){
 
   var MAX_AHEAD = 24 * 60 * 60 * 1000; // 24h Limit
 
-  myPlants.forEach(function(plant){
-    if (!plant.tasks) return;
-    Object.entries(plant.tasks).forEach(function(entry){
-      var key = entry[0], task = entry[1];
-      if (!task.active) return;
-      var daysLeft = getDaysUntilDue(task.lastDone, task.intervalDays, task.snoozedUntil, task.vorgezogenAuf);
-      var msUntil = Math.max(0, daysLeft) * 86400000;
-      if (msUntil > MAX_AHEAD) return; // > 24h → wird beim nächsten Tab-Open re-scheduled
-      var def = TASK_DEFS[key];
-      var t = setTimeout(function(){
-        gsNotif.show({
-          title: '🌱 ' + plant.name,
-          body:  def.icon + ' ' + def.name + ' ist fällig!',
-          tag:   plant.id + '_' + key
-        });
-      }, msUntil);
-      window._notifTimeouts.push(t);
-    });
-  });
+  // v32.54 (OEKOSYSTEM-V1.md §11 Idee 7): EINE Meldung je Tag statt einer je
+  // Aufgabe — wie der Server (plant_tasks: ein Push, drei Namen). Aus der
+  // einen Rechnung (gsGetDueTasks: beide Listen, Regen, Sensor), ohne die
+  // Pflanzen, die per Glocke stummgeschaltet sind (gs_reminder_prefs.disabled,
+  // dieselbe Wahl, die der Server-Cron liest). Faellt der Zeitpunkt in die
+  // Stille-Zeit, wandert die Meldung an deren Ende, statt zu verschwinden.
+  var disabled = {};
+  try { var rp = JSON.parse(localStorage.getItem('gs_reminder_prefs') || '{}'); disabled = (rp && rp.disabled) || {}; } catch(_){}
+  var alle = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : [];
+  alle = alle.filter(function(x){ return x && x.plant && !disabled[x.plant.id]; });
+  var heute = alle.filter(function(x){ return x.days <= 0; }), morgen = alle.filter(function(x){ return x.days === 1; });
+  function _text(liste){
+    var namen = liste.slice(0, 4).map(function(x){ return (x.plant.name || '?') + ' ' + ((typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase()) + (x.sensor ? ' \ud83d\udcf6' : ''); });
+    if (liste.length > 4) namen.push('+' + (liste.length - 4) + ' weitere');
+    return namen.join(' \u00b7 ');
+  }
+  function _titel(liste, wann){
+    if (liste.length === 1) return '\ud83c\udf31 ' + (liste[0].plant.name || 'Pflanze') + ' \u2014 ' + ((liste[0].def && liste[0].def.icon) || '') + ' ' + ((liste[0].def && liste[0].def.name) || liste[0].key) + (wann === 'morgen' ? ' morgen' : ' f\u00e4llig');
+    return '\ud83c\udf31 ' + liste.length + ' Aufgaben ' + (wann === 'morgen' ? 'morgen' : 'f\u00e4llig');
+  }
+  function _zeitpunkt(ms){
+    var st = gsNotif.stille(Date.now() + ms);
+    return (st.aktiv && st.bis) ? Math.max(0, st.bis.getTime() - Date.now()) : ms;
+  }
+  function _planen(liste, wann, ms){
+    if (!liste.length) return;
+    var warten = _zeitpunkt(ms);
+    if (warten > MAX_AHEAD + 12 * 3600000) return; // ausserhalb des Fensters: beim naechsten Oeffnen neu
+    var t = setTimeout(function(){
+      gsNotif.showKategorie('plant_tasks', { title: _titel(liste, wann), body: _text(liste), tag: 'gs-tasks-' + wann });
+    }, warten);
+    window._notifTimeouts.push(t);
+  }
+  _planen(heute, 'heute', 0);
+  _planen(morgen, 'morgen', MAX_AHEAD);
 }
 
 // ─── Init: Benachrichtigungen beim Start prüfen ───────────
@@ -73917,6 +74032,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.54', date: '04.09.2026',
+    headline: '🔕 Eine Meldung am Tag — die Stille-Zeit gilt jetzt auch auf dem Gerät',
+    summary: 'Das Meldungs-Budget aus dem Ideen-Kapitel (docs/OEKOSYSTEM-V1.md §11 Idee 7). Die Erinnerungen, die das Gerät selbst zeigt, kannten weder Stille-Zeit noch Urlaubs-Pause, planten eine Meldung je fälliger Aufgabe und sahen nur die Zimmerpflanzen. Jetzt gilt lokal dieselbe Regel wie auf dem Server: Stille-Zeit und Pause aus den Push-Einstellungen (eine Meldung wandert ans Ende der Stille, statt zu verschwinden), EINE gebündelte Aufgaben-Meldung je Tag aus beiden Pflanzenlisten (stummgeschaltete Pflanzen ausgenommen), Sensor-Alarme als eigene Tageskategorie mit Abkühlzeit je Regel (das Feld cooldown_minutes las bis dahin niemand). In den Push-Einstellungen steht, wie viele lokale Meldungen es diese Woche waren. Drei neue Fragen im Einstellungs-Prüfstand mit Gegenprobe.',
+    user_summary: '🔕 Erinnerungen vom Gerät selbst halten sich jetzt an deine Stille-Zeit, kommen gebündelt einmal am Tag und lassen stummgeschaltete Pflanzen aus.',
+    user_items: [
+      {emoji:'🌙', bold:'Stille-Zeit überall:', text:' Was du unter Push-Einstellungen als Stille-Zeit oder Urlaubs-Pause festlegst, gilt jetzt auch für die Erinnerungen, die dein Gerät selbst zeigt. Eine Meldung, die in die Stille fiele, kommt danach.'},
+      {emoji:'📋', bold:'Eine Meldung am Tag:', text:' Statt einer Meldung je Aufgabe kommt eine mit allen — Zimmer- und Gartenpflanzen. Pflanzen, deren Glocke du aus hast, bleiben still.'},
+      {emoji:'📶', bold:'Sensor-Alarme:', text:' Verletzte Regeln melden sich einmal am Tag, je Regel frühestens nach ihrer Abkühlzeit (12 Stunden). Der Wochenzähler in den Einstellungen zeigt, wie viel es war.'},
+    ],
+  },
+  {
     v: 'v32.53', date: '04.09.2026',
     headline: '📶 Ein Sensor macht Giessen fällig — und das Abhaken bestätigt sich am Sensor',
     summary: 'Die Verbindung aus dem Ökosystem-Entwurf §6 (docs/OEKOSYSTEM-V1.md, §11 Idee 4): Eine Regel kann jetzt eine Aktion haben — „melden", „Giessen fällig machen" oder „Kontrolle fällig machen". Ist sie verletzt (Bodenfeuchte unter 30 %), zieht sie die Aufgabe der verknüpften Pflanze auf heute vor; „Heute zu tun", Kalender, Glocke und Notizzettel zeigen sie mit Gerät und Messwert. Ist die Regel wieder erfüllt, wird das Vorziehen aufgehoben; ohne plausible Werte ändert sich nichts (drei Zustände). Eine Verschiebung durch dich gewinnt immer — der Sensor ist ein Hinweis. Und nach dem Abhaken einer Giess-Aufgabe sagt das Tagebuch, ob der Sensor davon etwas gemerkt hat: bestätigt (+10 Punkte innert 60 Minuten), nicht gemerkt, oder nicht prüfbar — mit Zahlen, nie als Haken; kein Messwert setzt je ein „erledigt". Die Server-Sicht v_plant_tasks_due bekommt dieselbe Regel (Migration bereit). Nebenbei: der Lösch-Knopf im Pflanzentagebuch war für alle Abhak-Einträge tot (Zeitstempel ohne Anführungszeichen im onclick), und die Liste war unsortiert.',
@@ -74701,7 +74827,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.53';
+var GS_VERSION = 'v32.54';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -81073,6 +81199,7 @@ var GS_USER_KEYS = [
   'ps_myplants','gs_gartentagebuch','gs_ernte_log','gs_harvest_log',
   'gs_geraete','gs_geraete_regeln','gs_messwerte',   // v32.48: Geraete, Regeln, Messwerte — Personendaten
   'gs_wetter_geraet_aus',   // v32.52: „Wetterdienst nicht als Geraet fuehren" — eine Wahl der Person
+  'gs_notif_log','gs_notif_kat',   // v32.54: lokale Meldungen — Wochenzaehler und „eine je Kategorie und Tag"
   'gs_garden_diary_cache',                           // v32.49: Spiegel des Cloud-Tagebuchs
   'gs_doctor_history','gs_seed_inventory','gs_chat_history','gs_ki_analyses',
   'gs_scan_history','gs_scan_count','gs_scan_corrections','ps_feedback','ps_votes',
@@ -84173,6 +84300,7 @@ async function gsPushSettingsRefresh(){
   });
   var qs = document.getElementById('push-quiet-start');
   var qe = document.getElementById('push-quiet-end');
+  try { gsRenderNotifWochenzaehler(); } catch(_){}   // v32.54
   if (qs) qs.value = String(typeof s.quietStart === 'number' ? s.quietStart : 22);
   if (qe) qe.value = String(typeof s.quietEnd   === 'number' ? s.quietEnd   : 7);
   // v28.11 B-011: Stille-Tage-Status spiegeln
