@@ -860,8 +860,89 @@ const melde = (frage, ok, wie) => {
       : 'opacity ' + R2.version + ' — Deckkraft auf TEXT senkt den Kontrast blind, sie fragt nicht, '
         + 'worauf der Text steht (CLAUDE.md §7.1)');
 
+  // ── v32.54 · Das Meldungs-Budget (OEKOSYSTEM-V1.md §11 Idee 7) ─────────────
+  // Die lokalen Erinnerungen kannten weder Stille-Zeit noch Pause, planten
+  // eine Meldung je Aufgabe und lasen nur myPlants. Drei Fragen, jede stellt
+  // ihren Zustand HER: ein aufzeichnender Notification-Ersatz, die Stille-Zeit
+  // ueber die Einstellungen (nicht ueber die Uhr — die laeuft hier echt), und
+  // abgefangene setTimeout-Verzoegerungen, weil ein Timer sonst nichts sagt.
+  const N = await page.evaluate(async () => {
+    window.__nots = [];
+    window.Notification = class { constructor(t, o) { window.__nots.push({ t, o }); } static get permission() { return 'granted'; } static requestPermission() { return Promise.resolve('granted'); } };
+    localStorage.setItem('gs_notif_enabled', '1');
+    const h = new Date().getHours();
+    const r = {};
+    // [30] Stille-Zeit deckt JETZT ab → keine Meldung, Grund „stille"; Pause → „pause"; sonst → Meldung
+    localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: h, quietEnd: (h + 1) % 24 }));
+    r.inStille = gsNotif.show({ title: 'Probe', body: 'x' }); r.grundStille = gsNotif.letzterGrund(); r.notsStille = window.__nots.length;
+    localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: (h + 2) % 24, quietEnd: (h + 3) % 24, pauseUntil: new Date(Date.now() + 864e5).toISOString() }));
+    r.inPause = gsNotif.show({ title: 'Probe', body: 'x' }); r.grundPause = gsNotif.letzterGrund();
+    localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: (h + 2) % 24, quietEnd: (h + 3) % 24 }));
+    r.frei = gsNotif.show({ title: 'Probe', body: 'x' }); r.notsFrei = window.__nots.length;
+    r.bisStille = (function(){ localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: h, quietEnd: (h + 1) % 24 })); const st = gsNotif.stille(); const bis = st.bis && st.bis.getHours(); localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: (h + 2) % 24, quietEnd: (h + 3) % 24 })); return { aktiv: st.aktiv, bis }; })();
+    window.__nots = [];
+    // [31] EINE Meldung fuer beide Listen, stummgeschaltete Pflanze fehlt, zweimal am Tag = einmal
+    const D = 864e5, iso = ms => new Date(Date.now() - ms).toISOString();
+    try { myPlants = [
+      { id: 'p1', name: 'Basilikum', tasks: { water: { active: true, intervalDays: 3, lastDone: iso(4 * D) } } },
+      { id: 'p3', name: 'Tomate',    tasks: { water: { active: true, intervalDays: 2, lastDone: iso(3 * D) } } } ]; } catch (_) {}
+    try { plantings = [ { id: 'z1', gardenId: 'g9', name: 'Zucchini', tasks: { water: { active: true, intervalDays: 2, lastDone: iso(3 * D) } } } ]; } catch (_) {}
+    localStorage.setItem('gs_reminder_prefs', JSON.stringify({ disabled: { p3: true } }));
+    localStorage.removeItem('gs_notif_kat');
+    const delays = []; const echtT = window.setTimeout;
+    window.setTimeout = function (fn, ms) { delays.push(ms); return echtT(fn, ms); };
+    try { scheduleAllNotifications(); } finally { window.setTimeout = echtT; }
+    await new Promise(w => echtT(w, 120));
+    r.delays = delays.slice(); r.b1 = window.__nots.map(n => ({ t: n.t, body: n.o && n.o.body }));
+    r.faellig = gsGetDueTasks().map(x => x.plant.name + ':' + x.days);
+    scheduleAllNotifications(); await new Promise(w => echtT(w, 120));
+    r.b2 = window.__nots.length; r.grund2 = gsNotif.letzterGrund();
+    // In der Stille geplant: der Timer wandert ans Ende der Stille (Verzoegerung > 0), nichts erscheint sofort
+    localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: h, quietEnd: (h + 1) % 24 }));
+    localStorage.removeItem('gs_notif_kat'); window.__nots = [];
+    const d2 = []; window.setTimeout = function (fn, ms) { d2.push(ms); return echtT(fn, ms); };
+    try { scheduleAllNotifications(); } finally { window.setTimeout = echtT; }
+    await new Promise(w => echtT(w, 120));
+    r.stilleDelays = d2.slice(); r.stilleSofort = window.__nots.length;
+    localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: (h + 2) % 24, quietEnd: (h + 3) % 24 }));
+    // [32] Sensor-Alarm: eine Tageskategorie, Abkuehlzeit je Regel
+    window.__nots = []; localStorage.removeItem('gs_notif_kat');
+    const g = gsGeraetAnlegen({ kind: 'manual', name: 'Alarm-Probe', garden_id: 'g9' });
+    const rg = gsRegelAnlegen({ geraet_id: g.id, metric: 'soil_moisture', op: 'below', threshold: 30, action: 'notify' });
+    gsMesswertEintragen(g.id, 'soil_moisture', 22);
+    r.a1 = window.__nots.map(n => ({ t: n.t, body: n.o && n.o.body }));
+    gsMesswertEintragen(g.id, 'soil_moisture', 20, new Date(Date.now() + 1000).toISOString());
+    r.a2 = window.__nots.length;
+    localStorage.removeItem('gs_notif_kat');
+    gsMesswertEintragen(g.id, 'soil_moisture', 19, new Date(Date.now() + 2000).toISOString());
+    r.a3 = window.__nots.length;
+    const regeln = gsRegeln(); regeln.forEach(x => { if (x.id === rg.id) x.zuletzt_gemeldet = new Date(Date.now() - 13 * 3600000).toISOString(); }); localStorage.setItem('gs_geraete_regeln', JSON.stringify(regeln));
+    gsMesswertEintragen(g.id, 'soil_moisture', 18, new Date(Date.now() + 3000).toISOString());
+    r.a4 = window.__nots.length;
+    gsGeraetLoeschen(g.id); localStorage.removeItem('gs_reminder_prefs');
+    try { if (typeof switchTab === 'function') switchTab('settings'); } catch (_) {}
+    try { gsRenderNotifWochenzaehler(); } catch (_) {}
+    r.zaehler = (document.getElementById('push-wochenzaehler') || {}).textContent || '';
+    return r;
+  });
+  const stilleOk = N.inStille === false && N.grundStille === 'stille' && N.notsStille === 0 && N.inPause === false && N.grundPause === 'pause' && N.frei === true && N.notsFrei === 1 && N.bisStille.aktiv === true;
+  melde('Die Stille-Zeit und die Urlaubs-Pause gelten auch für die Erinnerungen vom Gerät', stilleOk,
+    stilleOk ? 'in der Stille → keine Meldung („stille") · Pause → „pause" · sonst → Meldung; Ende der Stille um ' + N.bisStille.bis + ':00'
+      : JSON.stringify({ inStille: N.inStille, grundStille: N.grundStille, inPause: N.inPause, grundPause: N.grundPause, frei: N.frei, nots: N.notsFrei }) + ' — bis v32.53 kannte gsNotif.show keine Stille-Zeit; nur der Server las gs_push_settings');
+  const b1 = N.b1 || [];
+  const buendelOk = b1.length === 1 && /2 Aufgaben/.test(b1[0].t) && /Basilikum/.test(b1[0].body) && /Zucchini/.test(b1[0].body) && !/Tomate/.test(b1[0].body) && N.b2 === 1 && N.grund2 === 'kategorie' && N.stilleSofort === 0 && (N.stilleDelays || []).length && N.stilleDelays.every(ms => ms > 1000);
+  melde('EINE Aufgaben-Meldung je Tag, aus beiden Listen, ohne stummgeschaltete Pflanzen, verschoben ans Ende der Stille', buendelOk,
+    buendelOk ? '„' + b1[0].t + '": ' + b1[0].body + ' · zweiter Aufruf: keine (kategorie) · in der Stille: Verzögerung ' + Math.round(N.stilleDelays[0] / 60000) + ' Min, nichts sofort'
+      : JSON.stringify({ meldungen: b1, faellig: N.faellig, delays: N.delays, zweite: N.b2, grund2: N.grund2, stilleDelays: N.stilleDelays, stilleSofort: N.stilleSofort }) + ' — bis v32.53: eine Meldung je Aufgabe, nur myPlants, keine Stummschaltung, keine Stille-Zeit');
+  const a1 = N.a1 || [];
+  const alarmOk = a1.length === 1 && /Sensor-Alarm/.test(a1[0].t) && /Alarm-Probe/.test(a1[0].body) && /22/.test(a1[0].body) && N.a2 === 1 && N.a3 === 1 && N.a4 === 2;
+  melde('Sensor-Alarme kommen einmal am Tag, je Regel frühestens nach ihrer Abkühlzeit', alarmOk,
+    alarmOk ? '22 % → eine Meldung („' + a1[0].body.slice(0, 60) + '…") · 20 % → keine (Tageskategorie) · Kategorie gelöscht, 19 % → keine (Abkühlzeit 720 Min) · 13 h später, 18 % → zweite'
+      : JSON.stringify({ a1, a2: N.a2, a3: N.a3, a4: N.a4 }) + ' — cooldown_minutes stand seit v32.48 in jeder Regel und wurde nie gelesen');
+  melde('Der Wochenzähler in den Push-Einstellungen zählt die lokalen Meldungen', /Diese Woche: [1-9]\d* lokale Meldung/.test(N.zaehler), N.zaehler || 'kein #push-wochenzaehler');
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 29 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 33 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 4).join(' | ') : 'keine'));
   console.log('  Gestellte Sperren: Notification.requestPermission → granted · setTimeout beim');
   console.log('  Löschen abgefangen (`location.reload` lässt sich nicht zuverlässig ersetzen —');
