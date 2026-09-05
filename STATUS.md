@@ -4,13 +4,32 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.54` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.55` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-04 (er) — v32.55: Regel-Vorlagen nur, wo eine Zahl steht; Messgrössen in vier Sprachen
+
+`docs/OEKOSYSTEM-V1.md` §11 Ideen 5 und 22.
+
+- **Vorlagen.** `gsSchwellwertVorlagen(g)` aus drei Quellen mit Namen im
+  Grund: Artenliste (Licht bei 40 Hauspflanzen), Kulturdaten
+  (`PLANT_DB.bodentemp`), eigener Verlauf (14 Tage → Tief und Hoch). Nie
+  Bodenfeuchte aus Artendaten (Prozent ist sensorabhängig). Im
+  Regel-Formular als Knöpfe; Antippen füllt, angelegt wird von Hand; ohne
+  Zahl „keine Empfehlung hinterlegt".
+- **Labels.** `_gsMetricLabel(k)` an allen acht Stellen statt `label_de`:
+  Tabellenspalte (`label_fr/it/en`), dann Sprachschicht (`metric_<key>`,
+  elf neue Schlüssel), dann Deutsch. `_gsGeraetArt` übersetzbar.
+  `i18n_check` kennt den Katalog als Datenliste (Präfix).
+
+`sensor_check` 17 Fälle (+2). Drei Gegenproben rot. Eine Falle beim Bau:
+der erste Verlaufs-Filter konnte nie eine Vorlage finden (der älteste
+Wert im Fenster ist nie 14 Tage alt) — der Prüfstand hat es gemeldet.
 
 ### 2026-09-04 (eq) — v32.54: das Meldungs-Budget — eine Meldung am Tag, Stille-Zeit auch lokal
 
@@ -8799,7 +8818,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.54` (Client) · SW-Cache `gs-v32.54` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.55` (Client) · SW-Cache `gs-v32.55` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

@@ -794,6 +794,16 @@ v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
 
+**Seit v32.55 hat der Name einer Messgrösse EINE Funktion: `_gsMetricLabel(k)`.**
+Wer `k.label_de` schreibt, zeigt Deutsch in vier Sprachen. Die Funktion
+liest die Tabellenspalte (`label_fr/it/en`), dann `_t('metric_<key>', …)`,
+dann Deutsch; `i18n_check` kennt `GS_METRIC_KATALOG_START` als Datenliste
+mit Präfix — eine neue Grösse im Startbestand braucht ihren Eintrag
+`metric_<key>` in `GS_I18N_JS_STRINGS`, sonst meldet er sie. Und
+Schwellwert-Vorlagen (`gsSchwellwertVorlagen`) kommen nur aus Quellen mit
+einer belegten Zahl (Artenliste, Kulturdaten, eigener Verlauf) — **nie
+Bodenfeuchte aus Artendaten**, und eine Vorlage legt nie selbst an.
+
 **Seit v32.54 gehen lokale Meldungen durch `gsNotif.show` / `showKategorie`
 — und die kennen die Stille-Zeit.** `gs_push_settings` (`quietStart`,
 `quietEnd`, `pauseUntil`) galt bis dahin nur für den Server; `gsNotif.stille()`

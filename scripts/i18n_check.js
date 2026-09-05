@@ -92,6 +92,9 @@ function aufrufe() {
   // Wer eine weitere solche Liste baut, trägt sie ebenso ein.
   const DATENLISTEN = [
     { name: '_GS_TUT_STEPS', feld: 't', endungen: ['_title', '_body'] },
+    // v32.55: der Startbestand des Messgroessen-Katalogs — `_gsMetricLabel` baut
+    // daraus `metric_<key>` (OEKOSYSTEM-V1.md §11 Idee 22). Praefix statt Endung.
+    { name: 'GS_METRIC_KATALOG_START', feld: 'key', endungen: [''], praefix: 'metric_' },
   ];
   const listenLuecken = [];
   let listenSchluessel = 0;
@@ -102,7 +105,7 @@ function aufrufe() {
     for (const m of blk.matchAll(new RegExp("\\b" + L.feld + ":\\s*'([^']+)'", 'g'))) {
       for (const e of L.endungen) {
         listenSchluessel++;
-        if (!tab.has(m[1] + e)) listenLuecken.push(m[1] + e);
+        if (!tab.has((L.praefix || '') + m[1] + e)) listenLuecken.push((L.praefix || '') + m[1] + e);
       }
     }
   }
