@@ -4,13 +4,24 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-05 · **Branch**: `main` · **Version**: `v32.59` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-05 · **Branch**: `main` · **Version**: `v32.60` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-05 (ew) — v32.60: der Planer nennt Vorhersage und Messung getrennt; Diagramm-Text
+
+`docs/OEKOSYSTEM-V1.md` §11 Ideen 24 (Stufe 0) und 21b. **Fund:** die
+Wasserbilanz des Planers nannte den Regen „gemessen" — die Zahl war die
+14-Tage-**Vorhersage** (`forecast_days=14`). Jetzt: Prognose der nächsten
+7 Tage für die Bilanz, daneben die Messung der letzten 7 Tage aus dem
+Wetterdienst-Gerät; ohne Gerät „kein gemessener Wert", nicht 0; ohne
+Vorhersage keine Bilanz, aber die Messung. Und die Verlaufsdiagramme
+tragen Tief, Hoch und letzten Wert im `aria-label` (Vergleich: je Reihe).
+`planer_check` 23 Fälle (+R10), `sensor_check` 22. Zwei Gegenproben rot.
 
 ### 2026-09-05 (ev) — v32.59: der Giess-Zettel für die Abwesenheit
 
@@ -8869,7 +8880,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.59` (Client) · SW-Cache `gs-v32.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.60` (Client) · SW-Cache `gs-v32.60` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

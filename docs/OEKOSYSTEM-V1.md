@@ -458,10 +458,10 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 18 | Firmware-Kanal | 2 | mittel | Gerät |
 | 19 | Transport-Entscheid gegen `_headers` | 2 | Entscheid klein, Bau gross | Gerät |
 | 20 | Befehle mit Ablauf und Sicherheitsgrenze | 3 | mittel | Aktor |
-| 21 | Ein Gerät in den Beispieldaten — sonst vermisst jeder Prüfstand ein leeres Dashboard | 0 | klein | **gebaut v32.52** (`_seed.js`: Gerät, 15 Werte, 1 Regel) |
+| 21 | Ein Gerät in den Beispieldaten — sonst vermisst jeder Prüfstand ein leeres Dashboard | 0 | klein | **gebaut v32.52** (`_seed.js`: Gerät, 15 Werte, 1 Regel); Textersatz fürs Diagramm **v32.60** |
 | 22 | Katalog-Labels in vier Sprachen — die Tabelle hat sie, die App liest nur Deutsch | 0 | klein | **gebaut v32.55** (`_gsMetricLabel`, `metric_<key>` in der Sprachschicht, `i18n_check` kennt die Liste) |
 | 23 | Kalibrierung als Daten — Offset und Faktor je Gerät und Messgrösse | 1 | klein–mittel | Migration |
-| 24 | Planer rechnet mit gemessenem Regen, nicht nur mit der Prognose | 0 / 1 | mittel | 3 |
+| 24 | Planer rechnet mit gemessenem Regen, nicht nur mit der Prognose | 0 / 1 | mittel | **Stufe 0 gebaut v32.60** (Vorhersage und Messung getrennt benannt); Bodenfeuchte in der Bilanz braucht ein Gerät |
 | 25 | Vom Scan zum Gerät: `gsTwinAdopt` bietet die Verknüpfung an | 1 | klein | Gerät |
 
 ---
@@ -1202,6 +1202,16 @@ Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
 | Gebaut | Was der Prüfstand festhält (`kalender_check` „Giess-Zettel") |
 |---|---|
 | **Der Giess-Zettel.** `gsGiessZettel(von, bis)` listet jede Fälligkeit im Fenster aus **beiden** Pflanzenlisten — aus derselben Rechnung wie „Heute zu tun" (`_gsTaskDays`), dann Intervall für Intervall weiter; überfällige Aufgaben stehen am ersten Tag und heissen „schon fällig". Das Fenster (`gsGiessZettelFenster`) sind die Stillen Tage (`gs_push_settings.pauseUntil`, die es seit v28.11 gibt und die seit v32.54 auch lokal schweigen), sonst 14 Tage — und der Zettel sagt, woher sein Fenster kommt. Ort: Standort der Zimmerpflanze, Gartenname der Pflanzung. Fenster mit Tabelle (`gsGiessZettelOeffnen`), Druckansicht mit Abhak-Kästchen in einem eigenen Fenster (`gsGiessZettelDrucken`, liefert das HTML zurück). Zugänge: Knopf in „Stille Tage" (Push-Einstellungen) und die Menü-Suche („Giess-Zettel", Tags urlaub · ferien · abwesend · nachbar). **Was die Nachbarin giesst, steht nicht in der App** — `lastDone` bleibt, die Pause schweigt, nichts wird gefälscht | 24 Einträge in 10 Tagen · Basilikum an Tag 0/3/6/9, der erste „schon fällig" · Tomate sechsmal · Zucchini aus dem Garten mit „Balkon Süd" als Ort · Küchenfenster als Ort der Zimmerpflanze · sortiert · Fenster zeigt alle 24 · Druck 24 Zeilen (gestelltes `window.open`) · ohne Pause 14 Tage. Gegenproben: nur `myPlants` → „Zucchini fehlt"; keine Wiederholung → nur ein Basilikum-Termin |
+
+### 11.3i · Was v32.60 gebaut hat (Ideen 24 und 21b)
+
+| Gebaut | Was der Prüfstand festhält |
+|---|---|
+| **Vorhersage und Messung getrennt.** Der Fund beim Bau: `totalPrecip14` kommt aus `forecast_days=14` — eine **Vorhersage**, die die Wasserbilanz des Planers bis v32.59 „gemessener Regen" nannte. `_gsPlanWasser` rechnet jetzt mit der Prognose der nächsten 7 Tage (`daily.precip`, beginnt heute; 1 mm auf 1 m² = 1 l) und nennt daneben die Messung der letzten 7 Tage aus dem Wetterdienst-Gerät (`rain`, nur Stunden bis jetzt, plausibel). Ohne Gerät: „Kein gemessener Wert — kein Wetterdienst als Gerät", nicht 0. Ohne Vorhersage: keine Bilanz (`zusatz: null`, Zustand „–"), aber die Messung. `plan._wasser` trägt `prognose`, `gemessen`, `zusatz`; `regen`/`mm` bleiben für Altleser | `planer_check` „R10": Prognose 12 mm → 144 l aus 7 Tagen (nicht 72/2 aus 14) · ohne Gerät „Kein gemessener Wert" · mit Gerät 7 mm → 84 l, ein 9 Tage alter Wert zählt nicht · guter Plan (20 l) „das reicht", schlechter (200 l) „56 l bleiben an dir" · ohne Vorhersage „Keine Vorhersage im Zwischenspeicher", Messung bleibt. Gegenprobe: „kein Wert" durch „0 mm" ersetzt → rot |
+| **Das Diagramm sagt, was es zeigt.** `_gsMwVerlaufMalen` schreibt Tief, Hoch und letzten Wert mit Datum in das `aria-label` des Canvas (plausible Werte; ohne: „kein plausibler Wert"); der Vergleich nennt je Reihe Anzahl, Tief und Hoch | `sensor_check` „Diagramm-Text": „Bodenfeuchte · Balkon Süd · Erde · 8 Werte · Tief 22 % · Hoch 52 % · zuletzt 22 % am 31.08." · Vergleich „(7 Werte, Tief 22, Hoch 52) und (2 Werte, Tief 40, Hoch 45)". Gegenprobe: Zusatz entfernt → rot |
+
+Nicht gebaut aus Idee 24: Bodenfeuchte in der Bilanz („das Beet war nie
+unter 30 %, die Bilanz hat recht") — das braucht einen Bodenstab (Stufe 1).
 
 Nicht gebaut aus Idee 13: die Rückkehr-Bilanz („fiel das Hochbeet je unter
 25 %?") — das leistet seit v32.58 die Karte „Deine Woche" für sieben Tage;

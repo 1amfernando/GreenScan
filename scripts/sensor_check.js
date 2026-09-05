@@ -600,7 +600,7 @@ const FAELLE = [
         for (let i = 0; i < px.length; i += 4) { if (px[i + 3] > 0) { if (px[i + 2] > 150 && px[i] < 80) blau++; else if (px[i + 1] > 100 && px[i] < 80 && px[i + 2] < 80) gruen++; } }
         if (gruen < 20 || blau < 20) return { ok: false, warum: 'zwei Linien versprochen, gezeichnet: grün ' + gruen + ' px, blau ' + blau + ' px' };
         if (!/vergleiche den Verlauf, nicht die Zahl/.test(mc.textContent)) return { ok: false, warum: 'der Hinweis „Verlauf, nicht Zahl" fehlt' };
-        if (!cv.getAttribute('aria-label') || !/Balkon Süd · Erde und Balkon Nord · Erde/.test(cv.getAttribute('aria-label'))) return { ok: false, warum: 'aria-label nennt die Geräte nicht: ' + cv.getAttribute('aria-label') };
+        if (!cv.getAttribute('aria-label') || !/Balkon Süd · Erde \(.*\) und Balkon Nord · Erde \(/.test(cv.getAttribute('aria-label'))) return { ok: false, warum: 'aria-label nennt die Geräte nicht: ' + cv.getAttribute('aria-label') };
         return { ok: true, info: 'Bodenfeuchte wählbar, Licht (nur ein Gerät) nicht · 2 Reihen · Legende: Süd (7) · Nord (5) · grün ' + gruen + ' px, blau ' + blau + ' px · Hinweis da' };
       } finally { gsGeraetLoeschen(gB.id); gsGeraetLoeschen(gC.id); }
     },
@@ -675,6 +675,34 @@ const FAELLE = [
         localStorage.removeItem('gs_weather_cache'); localStorage.removeItem('gs_wetter_geraet_aus');
         gsRenderWochenrueckblick();
       }
+    },
+  },
+  {
+    // v32.60 (§11 Idee 21b): das Diagramm sagt, was es zeigt. `role="img"` und
+    // ein Name waren da — aber „Verlauf Bodenfeuchte · Gerät" ist ein Bild
+    // ohne Inhalt. Jetzt Tief, Hoch, letzter Wert mit Datum; im Vergleich je
+    // Reihe Anzahl, Tief und Hoch.
+    name: 'Diagramm-Text · das Canvas nennt Tief, Hoch und letzten Wert — auch der Vergleich je Reihe',
+    lauf: () => {
+      gsMesswerteOeffnen();
+      const mc = document.getElementById('modal-content');
+      const cv = mc.querySelector('canvas.gs-mw-verlauf[data-geraet="ger_seed_1"]');
+      if (!cv) return { ok: false, warum: 'kein Verlaufs-Canvas des Beispielgeräts' };
+      const a = cv.getAttribute('aria-label') || '';
+      if (!/Bodenfeuchte · Balkon Süd · Erde · 8 Werte · Tief 22 % · Hoch 52 % · zuletzt 22 % am 31\.08\./.test(a)) return { ok: false, warum: 'aria-label: ' + a };
+      const gB = gsGeraetAnlegen({ kind: 'manual', name: 'Vergleichs-Probe', garden_id: 'g1' });
+      try {
+        gsMesswertEintragen(gB.id, 'soil_moisture', 40, new Date(Date.now() - 2 * 864e5).toISOString());
+        gsMesswertEintragen(gB.id, 'soil_moisture', 45, new Date(Date.now() - 864e5).toISOString());
+        gsMesswerteOeffnen();
+        const mc2 = document.getElementById('modal-content');
+        const selA = mc2.querySelector('#mw-vgl-a'), selB = mc2.querySelector('#mw-vgl-b');
+        if (!selA || !selB) return { ok: false, warum: 'kein Vergleich' };
+        selA.value = 'ger_seed_1'; selB.value = gB.id; _gsMwVergleichMalen();
+        const v = mc2.querySelector('#mw-vgl-canvas').getAttribute('aria-label') || '';
+        if (!/Balkon Süd · Erde \(7 Werte, Tief 22, Hoch 52\) und Vergleichs-Probe \(2 Werte, Tief 40, Hoch 45\) · Bodenfeuchte %/.test(v)) return { ok: false, warum: 'Vergleich aria-label: ' + v };
+        return { ok: true, info: 'Verlauf: „' + a.slice(0, 90) + '…" · Vergleich nennt je Reihe Anzahl, Tief, Hoch' };
+      } finally { gsGeraetLoeschen(gB.id); }
     },
   },
 ];
