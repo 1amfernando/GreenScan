@@ -450,7 +450,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 10 | Frostnacht am eigenen Beet | 0 / 1 | klein / mittel | **Stufe 0 gebaut v32.56** (Frost-Ereignis aus der Vorhersage im Kalender); Stufe 1 (Sensor gegen Prognose) braucht ein Gerät |
 | 11 | Server-taugliche Identität und Idempotenz lokal | 0 | klein | **gebaut v32.52** (UUID, `_gsMesswerteAnhaengen` mit Dublettensperre) |
 | 12 | Export, Import, Löschung — die neuen Schlüssel sind sichtbar | 0 | klein | v32.51 (Backup ✓) · **v32.57 (CSV ✓**, `gsExportMesswerteCSV`); `delete-user`-Liste offen |
-| 13 | Urlaub: Giess-Zettel jetzt, Stellvertreter später | 0 / 2 | mittel / gross | — |
+| 13 | Urlaub: Giess-Zettel jetzt, Stellvertreter später | 0 / 2 | mittel / gross | **Stufe 0 gebaut v32.59** (`gsGiessZettel`, Druckansicht; die Pause gab es schon); Stellvertreter braucht `garden_members` (Stufe 2) |
 | 14 | Firmware-Vertrag als geteilte Regeldatei (Uhr, Batch, Antwort) | 1 | mittel | — |
 | 15 | Geräte-Identität ab Werk und Claim-Code-Pairing | 1 | mittel–gross | Entscheid Fernando |
 | 16 | Stille und Batterie: Vorgaberegeln und Cron `device-alerts` | 1 | mittel | Migration |
@@ -1196,6 +1196,17 @@ Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
 | Gebaut | Was der Prüfstand festhält (`sensor_check` „Deine Woche") |
 |---|---|
 | **Karte „Deine Woche"** im Startseiten-Stapel (zweite Karte, `#woche-card`). `gsWochenrueckblick()` liefert Zeilen aus den Daten, die es schon gibt: erledigte Aufgaben der letzten sieben Tage (`gsTagebuchAlle`, beide Listen und Cloud-Spiegel) und heute offene (`gsGetDueTasks`); Tagebuch-Einträge; Regen und Frostnächte aus den **gemessenen** Werten des Wetterdiensts (Quelle steht dabei, „gemessen"); Feuchte-Tief je Gerät mit Zahl der Werte (zwei Geräte); Geräte, die länger als zwei Tage schwiegen. Keine Note, kein Score, kein Vergleich. Ohne Wetterdienst steht „kein Regen- und Frostwert", nicht 0; ohne jede Daten sagt die Karte, wie sie zu Daten kommt. Rendert beim Bau des Stapels, nach jedem Tagesplan und nach jedem Messwert | Aufgaben-Zeile im Format „N erledigt · M heute offen" · ohne Wetterdienst „kein Wert" · Süd: nie unter 22 % (6 Werte) · mit gestelltem Wetterdienst „10 mm Regen · 1 Frostnacht (Wetterdienst · Zürich, gemessen)" · „Balkon Nord · Erde schwieg 4 Tage" · ohne Daten „Noch keine Woche mit Daten" mit einer Zeile. Gegenprobe: „kein Wetterdienst" durch „0 mm Regen" ersetzt → rot |
+
+### 11.3h · Was v32.59 gebaut hat (Idee 13, Stufe 0)
+
+| Gebaut | Was der Prüfstand festhält (`kalender_check` „Giess-Zettel") |
+|---|---|
+| **Der Giess-Zettel.** `gsGiessZettel(von, bis)` listet jede Fälligkeit im Fenster aus **beiden** Pflanzenlisten — aus derselben Rechnung wie „Heute zu tun" (`_gsTaskDays`), dann Intervall für Intervall weiter; überfällige Aufgaben stehen am ersten Tag und heissen „schon fällig". Das Fenster (`gsGiessZettelFenster`) sind die Stillen Tage (`gs_push_settings.pauseUntil`, die es seit v28.11 gibt und die seit v32.54 auch lokal schweigen), sonst 14 Tage — und der Zettel sagt, woher sein Fenster kommt. Ort: Standort der Zimmerpflanze, Gartenname der Pflanzung. Fenster mit Tabelle (`gsGiessZettelOeffnen`), Druckansicht mit Abhak-Kästchen in einem eigenen Fenster (`gsGiessZettelDrucken`, liefert das HTML zurück). Zugänge: Knopf in „Stille Tage" (Push-Einstellungen) und die Menü-Suche („Giess-Zettel", Tags urlaub · ferien · abwesend · nachbar). **Was die Nachbarin giesst, steht nicht in der App** — `lastDone` bleibt, die Pause schweigt, nichts wird gefälscht | 24 Einträge in 10 Tagen · Basilikum an Tag 0/3/6/9, der erste „schon fällig" · Tomate sechsmal · Zucchini aus dem Garten mit „Balkon Süd" als Ort · Küchenfenster als Ort der Zimmerpflanze · sortiert · Fenster zeigt alle 24 · Druck 24 Zeilen (gestelltes `window.open`) · ohne Pause 14 Tage. Gegenproben: nur `myPlants` → „Zucchini fehlt"; keine Wiederholung → nur ein Basilikum-Termin |
+
+Nicht gebaut aus Idee 13: die Rückkehr-Bilanz („fiel das Hochbeet je unter
+25 %?") — das leistet seit v32.58 die Karte „Deine Woche" für sieben Tage;
+ein längeres Fenster braucht die Tagesaggregate (Idee 17). Und der
+Stellvertreter-Zugang: `garden_members` existiert nicht (Stufe 2).
 
 Nicht gebaut aus Idee 8: der `weekly_summary`-Push des Servers bekommt
 weiterhin nur eine Zahl — die Karte rechnet lokal, der Cron hat diese

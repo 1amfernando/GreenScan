@@ -447,6 +447,57 @@ const FAELLE = [
     },
   },
   {
+    // v32.59: der Giess-Zettel (§11 Idee 13) — jede Faelligkeit im Fenster aus
+    // BEIDEN Listen, aus derselben Rechnung wie „Heute zu tun", Intervall fuer
+    // Intervall weiter; das Fenster sind die Stillen Tage, sonst 14 Tage; mit
+    // Ort und Intervall; druckbar (das Druckfenster wird gestellt).
+    name: 'Giess-Zettel · jede Fälligkeit im Abwesenheitsfenster, beide Listen, Ort und Intervall — Stille Tage als Fenster, druckbar',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('gs_push_settings');
+      const echtOpen = window.open; let gedruckt = '';
+      try {
+        localStorage.setItem('gs_push_settings', JSON.stringify({ pauseUntil: new Date(Date.now() + 10 * 864e5).toISOString() }));
+        const f = gsGiessZettelFenster();
+        if (f.quelle !== 'pause' || f.von !== heute || f.bis !== _gsKalTagPlus(heute, 10)) return { ok: false, warum: 'Fenster aus der Pause: ' + JSON.stringify(f) };
+        const z = gsGiessZettel();
+        const von = (name, key) => z.filter(x => x.pflanze === name && x.key === key).map(x => x.datum);
+        // Basilikum: alle 3 Tage, seit gestern faellig → heute, +3, +6, +9
+        const bas = von('Basilikum', 'water');
+        if (JSON.stringify(bas) !== JSON.stringify([0, 3, 6, 9].map(d => _gsKalTagPlus(heute, d)))) return { ok: false, warum: 'Basilikum giessen: ' + JSON.stringify(bas) };
+        if (!z.find(x => x.pflanze === 'Basilikum' && x.key === 'water' && x.datum === heute && x.ueberfaellig)) return { ok: false, warum: 'die überfällige Aufgabe ist nicht als „schon fällig" markiert' };
+        // Tomate: alle 2 Tage, heute faellig → 0,2,4,6,8,10
+        const tom = von('Tomate', 'water');
+        if (tom.length !== 6 || tom[0] !== heute || tom[5] !== _gsKalTagPlus(heute, 10)) return { ok: false, warum: 'Tomate giessen: ' + JSON.stringify(tom) };
+        // Zucchini (Pflanzung, Balkon-Garten, alle 2 Tage ab Nachruestung): dabei, mit dem Gartennamen als Ort
+        const zuc = z.filter(x => x.pflanze === 'Zucchini' && x.key === 'water');
+        if (!zuc.length || zuc.some(x => x.ort !== 'Balkon Süd' || x.liste !== 'plantings')) return { ok: false, warum: 'Zucchini fehlt oder ohne Gartennamen als Ort: ' + JSON.stringify(zuc.slice(0, 2)) };
+        if (!z.find(x => x.pflanze === 'Basilikum' && x.ort === 'Küchenfenster')) return { ok: false, warum: 'der Ort der Zimmerpflanze fehlt' };
+        const daten = z.map(x => x.datum);
+        if (JSON.stringify(daten) !== JSON.stringify(daten.slice().sort())) return { ok: false, warum: 'nicht nach Datum sortiert' };
+        if (z.some(x => x.datum < heute || x.datum > f.bis)) return { ok: false, warum: 'Einträge ausserhalb des Fensters' };
+        if (z.some(x => !x.intervall || !x.aufgabe)) return { ok: false, warum: 'Zeile ohne Intervall oder Aufgabe' };
+        gsGiessZettelOeffnen();
+        const mc = document.getElementById('modal-content'); const t = mc.textContent;
+        const zeilen = mc.querySelectorAll('#gs-zettel-tab tbody tr').length;
+        if (zeilen !== z.length) return { ok: false, warum: zeilen + ' Zeilen im Fenster, ' + z.length + ' berechnet' };
+        if (!/10 Tage, aus den Stillen Tagen/.test(t) || !/Küchenfenster/.test(t) || !/Balkon Süd/.test(t) || !/schon fällig/.test(t)) return { ok: false, warum: 'Fenstertext unvollständig: ' + t.slice(0, 200) };
+        window.open = () => ({ document: { write: h => { gedruckt = h; }, close(){} }, focus(){}, print(){} });
+        const html = gsGiessZettelDrucken();
+        if (!gedruckt || gedruckt !== html) return { ok: false, warum: 'das Druckfenster bekam nichts' };
+        if ((html.match(/<tr>/g) || []).length - 1 !== z.length || !/Giess-Zettel/.test(html) || !/Küchenfenster/.test(html)) return { ok: false, warum: 'Druckansicht: ' + ((html.match(/<tr>/g) || []).length - 1) + ' Zeilen' };
+        // ohne Pause: 14 Tage Vorgabe
+        localStorage.setItem('gs_push_settings', '{}');
+        const f2 = gsGiessZettelFenster();
+        if (f2.quelle !== 'vorgabe' || f2.bis !== _gsKalTagPlus(heute, 14)) return { ok: false, warum: 'ohne Pause kein 14-Tage-Fenster: ' + JSON.stringify(f2) };
+        return { ok: true, info: z.length + ' Einträge in 10 Tagen · Basilikum 0/3/6/9 (schon fällig) · Tomate 6× · Zucchini aus dem Garten · sortiert · Fenster zeigt alle · Druck ' + z.length + ' Zeilen · ohne Pause 14 Tage' };
+      } finally {
+        window.open = echtOpen;
+        if (alt != null) localStorage.setItem('gs_push_settings', alt); else localStorage.removeItem('gs_push_settings');
+      }
+    },
+  },
+  {
     name: 'Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt',
     lauf: () => {
       // v32.49: das Cloud-Tagebuch ist die dritte Quelle — ein „ohne Daten",

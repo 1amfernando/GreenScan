@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.58.20260905">
+<meta name="app-version" content="32.59.20260905">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5766,6 +5766,11 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-mw-zeile button{grid-column:1 / -1;padding:10px;border:none;border-radius:var(--r-sm);background:var(--fill-brand);color:#fff;font-weight:800;font-family:inherit;cursor:pointer;}
 .gs-mw-hinweis{font-size:var(--fs-xs);color:var(--muted);margin-top:6px;line-height:1.5;}
 .gs-mw-vorlagen{font-size:var(--fs-xs);color:var(--muted);line-height:1.8;margin:6px 0 4px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;}
+.gs-zettel-tab{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
+.gs-zettel-tab th{text-align:left;padding:6px 6px;border-bottom:2px solid var(--border);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}
+.gs-zettel-tab td{padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text);}
+.gs-zettel-tab td i{color:var(--muted);font-style:normal;font-size:var(--fs-xs);}
+.gs-zettel-ueberfaellig td:first-child{font-weight:800;color:var(--c-warn-d);}
 .gs-mw-vgl{margin:4px 0 12px;}
 .gs-mw-vgl canvas{width:100%;margin-top:8px;}
 .gs-mw-vgl-farbe{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle;margin-right:5px;}
@@ -6504,6 +6509,7 @@ html, body{ scroll-behavior: smooth; }
             <button onclick="gsPushPause(3)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">3 Tage</button>
             <button onclick="gsPushPause(7)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">7 Tage</button>
             <button onclick="gsPushPause(14)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">14 Tage</button>
+            <button type="button" onclick="gsGiessZettelOeffnen()" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">🧾 Giess-Zettel</button>
             <button onclick="gsPushPause(0)" style="flex:1;min-width:64px;padding:8px;background:var(--fill-brand,#1f6b2f);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:#fff;font-family:inherit;">🔔 Aktiv</button>
           </div>
         </div>
@@ -14622,6 +14628,20 @@ window.GS_I18N_JS_STRINGS = {
   'mw_vorlage_uebernommen':    'Vorlage übernommen — prüfe die Schwelle und lege die Regel an.',
   'mw_vergleich':              'Vergleich',
   'mw_vgl_hinweis':            'Verschiedene Sensoren messen verschieden — vergleiche den Verlauf, nicht die Zahl.',
+  'zettel_titel':              'Giess-Zettel',
+  'zettel_aus_pause':          'aus den Stillen Tagen',
+  'zettel_vorgabe':            'Vorgabe — setze in den Push-Einstellungen Stille Tage, dann gilt deren Datum',
+  'zettel_tag':                'Tag',
+  'zettel_pflanze':            'Pflanze',
+  'zettel_ort':                'Ort',
+  'zettel_aufgabe':            'Aufgabe',
+  'zettel_alle':               'alle',
+  'zettel_tage':               'Tage',
+  'zettel_ueberfaellig':       'schon fällig',
+  'zettel_leer':               'In diesem Fenster ist keine Aufgabe fällig.',
+  'zettel_hinweis':            'Für die Person, die in deiner Abwesenheit giesst. Was sie giesst, steht nicht in der App — die Aufgaben bleiben stehen, bis du zurück bist und abhakst.',
+  'zettel_drucken':            'Drucken',
+  'zettel_eintraege':          'Einträge',
   'task_unit_one':             'Aufgabe',
   'task_unit_many':            'Aufgaben',
   'tasks_done_all_title':      'Alle als erledigt eintragen?',
@@ -27983,6 +28003,90 @@ window.gsRenderWochenrueckblick = function(){
     titel.textContent = 'Die letzten sieben Tage';
     el.innerHTML = w.zeilen.map(function(z){ return '<div>' + esc(z) + '</div>'; }).join('');
   } catch(_){}
+};
+// ── v32.59 · GIESS-ZETTEL FUER DIE ABWESENHEIT (OEKOSYSTEM-V1.md §11 Idee 13) ──
+// „Ich bin zwei Wochen weg und gebe der Nachbarin einen Zettel." Jede
+// Faelligkeit im Fenster, aus BEIDEN Pflanzenlisten, mit Ort, Aufgabe und
+// Intervall — aus derselben Rechnung wie „Heute zu tun" (_gsTaskDays, dann
+// Intervall fuer Intervall weiter). Das Fenster ist die Stille-Pause
+// (gs_push_settings.pauseUntil), sonst 14 Tage. Was die Nachbarin giesst,
+// steht nicht in der App: lastDone bleibt, die Pause schweigt (KALENDER-V1
+// §7 Regel 7 — pausieren statt faelschen).
+var GS_ZETTEL_TAGE = 14;
+window.gsGiessZettelFenster = function(){
+  var s = {};
+  try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}') || {}; } catch(_){}
+  var heute = gsHeuteTag(), pu = s.pauseUntil ? _gsKalTag(s.pauseUntil) : null;
+  if (pu && pu > heute) return { von: heute, bis: pu, quelle: 'pause' };
+  return { von: heute, bis: _gsKalTagPlus(heute, GS_ZETTEL_TAGE), quelle: 'vorgabe' };
+};
+window.gsGiessZettel = function(von, bis){
+  var out = [];
+  try {
+    var f = gsGiessZettelFenster(); von = von || f.von; bis = bis || f.bis;
+    var listen = [];
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function(p){ listen.push({ p: p, liste: 'myPlants' }); });
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) { try { _gsPflanzungenNachruesten(); } catch(_){} plantings.forEach(function(p){ listen.push({ p: p, liste: 'plantings' }); }); }
+    listen.forEach(function(x){
+      var p = x.p; if (!p || !p.tasks || typeof TASK_DEFS === 'undefined') return;
+      var ort = '';
+      if (x.liste === 'plantings') { var g = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens.find(function(y){ return y && y.id === p.gardenId; }) : null; ort = (g && g.name) || 'Garten'; }
+      else ort = p.location || p.nick || p.standort || '';
+      Object.keys(p.tasks).forEach(function(k){
+        var t = p.tasks[k], def = TASK_DEFS[k]; if (!t || !t.active || !def) return;
+        var iv = parseInt(t.intervalDays, 10); if (!isFinite(iv) || iv <= 0) iv = 7;
+        var d = _gsTaskDays(t); var tag = _gsKalTagPlus(von, Math.max(0, d));
+        var n = 0;
+        while (tag <= bis && n < 60) {
+          if (tag >= von) out.push({ datum: tag, pflanze: p.name || '?', pflanze_id: p.id, liste: x.liste, ort: ort, key: k, aufgabe: (def.icon || '') + ' ' + (def.name || k), intervall: iv, ueberfaellig: n === 0 && d < 0 });
+          tag = _gsKalTagPlus(tag, iv); n++;
+        }
+      });
+    });
+    out.sort(function(a, b){ return a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : String(a.pflanze).localeCompare(String(b.pflanze)); });
+  } catch(_){}
+  return out;
+};
+function _gsZettelWochentag(tag){ try { var p = String(tag).split('-'); return ['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(+p[0], +p[1]-1, +p[2]).getDay()]; } catch(_){ return ''; } }
+function _gsZettelDatum(tag){ try { var p = String(tag).split('-'); return p[2] + '.' + p[1] + '.'; } catch(_){ return String(tag); } }
+window.gsGiessZettelOeffnen = function(){
+  try {
+    var mc = document.getElementById('modal-content'); if (!mc) return;
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function(x){ return String(x == null ? '' : x); };
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+    var f = gsGiessZettelFenster(), zeilen = gsGiessZettel(f.von, f.bis);
+    var tage = Math.round((new Date(f.bis).getTime() - new Date(f.von).getTime()) / 864e5);
+    var kopf = _gsZettelDatum(f.von) + ' – ' + _gsZettelDatum(f.bis) + ' (' + tage + ' Tage' + (f.quelle === 'pause' ? ', ' + _t('zettel_aus_pause', 'aus den Stillen Tagen') : ', ' + _t('zettel_vorgabe', 'Vorgabe — setze in den Push-Einstellungen Stille Tage, dann gilt deren Datum')) + ')';
+    var tabelle = zeilen.length ? '<table class="gs-zettel-tab" id="gs-zettel-tab"><thead><tr><th>' + _t('zettel_tag', 'Tag') + '</th><th>' + _t('zettel_pflanze', 'Pflanze') + '</th><th>' + _t('zettel_ort', 'Ort') + '</th><th>' + _t('zettel_aufgabe', 'Aufgabe') + '</th></tr></thead><tbody>' +
+      zeilen.map(function(z){ return '<tr' + (z.ueberfaellig ? ' class="gs-zettel-ueberfaellig"' : '') + '><td>' + esc(_gsZettelWochentag(z.datum) + ' ' + _gsZettelDatum(z.datum)) + '</td><td>' + esc(z.pflanze) + '</td><td>' + esc(z.ort || '—') + '</td><td>' + esc(z.aufgabe) + ' <i>' + esc(_t('zettel_alle', 'alle') + ' ' + z.intervall + ' ' + _t('zettel_tage', 'Tage')) + (z.ueberfaellig ? ' · ' + _t('zettel_ueberfaellig', 'schon fällig') : '') + '</i></td></tr>'; }).join('') +
+      '</tbody></table>' : '<div class="gs-eg-leer">' + _t('zettel_leer', 'In diesem Fenster ist keine Aufgabe fällig.') + '</div>';
+    mc.innerHTML = '<div class="gs-zettel" id="gs-zettel" style="padding:16px;">' +
+      '<div class="gs-eg-kopf">🧾 ' + _t('zettel_titel', 'Giess-Zettel') + '</div>' +
+      '<div class="gs-eg-unter">' + esc(kopf) + '</div>' +
+      '<div class="gs-mw-hinweis" style="margin:6px 0 10px;">' + _t('zettel_hinweis', 'Für die Person, die in deiner Abwesenheit giesst. Was sie giesst, steht nicht in der App — die Aufgaben bleiben stehen, bis du zurück bist und abhakst.') + '</div>' +
+      tabelle +
+      '<div class="gs-mw-zeile" style="margin-top:12px;"><button type="button" class="gs-mw-link" onclick="gsGiessZettelDrucken()">🖨️ ' + _t('zettel_drucken', 'Drucken') + '</button>' +
+      '<span class="gs-mw-hinweis" style="margin:0;">' + zeilen.length + ' ' + _t('zettel_eintraege', 'Einträge') + '</span></div>' +
+    '</div>';
+    if (typeof openModal === 'function') openModal('detail-modal');
+  } catch(_){}
+};
+window.gsGiessZettelDrucken = function(){
+  try {
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function(x){ return String(x == null ? '' : x); };
+    var f = gsGiessZettelFenster(), zeilen = gsGiessZettel(f.von, f.bis);
+    var html = '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>GreenScan Giess-Zettel</title><style>' +
+      'body{font-family:system-ui,sans-serif;padding:18px;color:#222;} h1{font-size:20px;margin:0 0 4px;} .meta{color:#666;font-size:13px;margin-bottom:12px;} table{width:100%;border-collapse:collapse;font-size:13px;} th{text-align:left;border-bottom:2px solid #2e7d32;padding:6px 8px;} td{padding:6px 8px;border-bottom:1px solid #ddd;vertical-align:top;} .ok{width:22px;height:22px;border:1.5px solid #555;border-radius:4px;display:inline-block;} @media print{button{display:none;}}' +
+      '</style></head><body><button onclick="window.print()" style="float:right;padding:8px 14px;">Drucken</button>' +
+      '<h1>🌿 Giess-Zettel</h1><div class="meta">' + esc(_gsZettelDatum(f.von) + ' – ' + _gsZettelDatum(f.bis)) + ' · erstellt ' + new Date().toLocaleDateString('de-CH') + ' · ' + zeilen.length + ' Einträge</div>' +
+      '<table><thead><tr><th>Tag</th><th>Pflanze</th><th>Ort</th><th>Aufgabe</th><th>Erledigt</th></tr></thead><tbody>' +
+      zeilen.map(function(z){ return '<tr><td>' + esc(_gsZettelWochentag(z.datum) + ' ' + _gsZettelDatum(z.datum)) + '</td><td>' + esc(z.pflanze) + '</td><td>' + esc(z.ort || '—') + '</td><td>' + esc(z.aufgabe + ' (alle ' + z.intervall + ' Tage)') + '</td><td><span class="ok"></span></td></tr>'; }).join('') +
+      '</tbody></table></body></html>';
+    var pw = null; try { pw = window.open('', '_blank'); } catch(_){ pw = null; }
+    if (pw && pw.document) { pw.document.write(html); pw.document.close(); try { pw.focus(); } catch(_){} setTimeout(function(){ try { pw.print(); } catch(_){} }, 300); }
+    else if (typeof gsToast === 'function') gsToast('Das Druckfenster wurde blockiert — bitte Pop-ups für green-scan.ch erlauben.', 'warn', 5000);
+    return html;
+  } catch(_){ return ''; }
 };
 window.gsRenderDayPlan = function(){
   var el = document.getElementById('home-dayplan');
@@ -54348,6 +54452,7 @@ const MENU_ITEMS = [
   {label:'📖 Garten-Bibliothek', sub:'10 Grundlagen-Artikel', action:"gsOpenGardenLibrary()", tags:['bibliothek','artikel','grundlagen','lesen','wissen','garten','ratgeber']},
   {label:'📅 Kalender', sub:'Aufgaben, Tagebuch und Pflanzungen nach Tag', action:"gsKalenderOeffnen()", tags:['kalender','aufgaben','tagebuch','heute','termine','faellig']},
   {label:'📊 Messwerte', sub:'Geräte, Sensoren und Werte von Hand — mit Verlauf und Regeln', action:"gsMesswerteOeffnen()", tags:['messwerte','sensor','geraet','bodenfeuchte','dashboard','werte']},
+  {label:'🧾 Giess-Zettel', sub:'Jede Fälligkeit während deiner Abwesenheit — zum Drucken für die Nachbarin', action:"gsGiessZettelOeffnen()", tags:['zettel','urlaub','ferien','abwesend','nachbar','giessen','drucken']},
   {label:'🧭 Ohne Netz eingrenzen', sub:'Was hier und jetzt in Frage kommt — ohne Internet', action:"gsEingrenzenOeffnen()", tags:['offline','ohne netz','eingrenzen','wald','empfang','monat','höhe','hoehe','farbe','saison','bestimmen','filter','kein internet']},
   {label:'📊 Garten-Insights', sub:'Score + Risiken', action:"gsInsightsOpen()", tags:['insights','statistik','score','risiko','auswertung','analyse','garten']},
   {label:'🥕 Erntekalender', sub:'Jahres-Statistik deiner Ernten', action:"openHarvestStatsModal()", tags:['ernte','erntekalender','statistik','kilo','jahr','bilanz']},
@@ -74304,6 +74409,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.59', date: '05.09.2026',
+    headline: '🧾 Der Giess-Zettel für die Abwesenheit — zum Drucken für die Nachbarin',
+    summary: 'Idee 13 aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11), der Teil ohne Gerät. Unter „Stille Tage" in den Push-Einstellungen und in der Menü-Suche gibt es den Giess-Zettel: jede Fälligkeit im Abwesenheitsfenster (die Stillen Tage, sonst 14 Tage) aus beiden Pflanzenlisten — Tag, Pflanze, Ort, Aufgabe, Intervall, schon fällige zuerst — aus derselben Rechnung wie „Heute zu tun", Intervall für Intervall weiter. Mit Druckansicht und Abhak-Kästchen. Was die Nachbarin giesst, steht nicht in der App: die Aufgaben bleiben stehen, die Pause schweigt, nichts wird gefälscht.',
+    user_summary: '🧾 Unter „Stille Tage" gibt es jetzt den Giess-Zettel: jede Aufgabe während deiner Abwesenheit, mit Ort und Intervall, zum Drucken.',
+    user_items: [
+      {emoji:'🧾', bold:'Giess-Zettel:', text:' Setze Stille Tage, öffne den Zettel — er listet Tag für Tag, was in deiner Abwesenheit fällig ist, aus Zimmer- und Gartenpflanzen. Drucken, an den Kühlschrank, fertig.'},
+    ],
+  },
+  {
     v: 'v32.58', date: '05.09.2026',
     headline: '📅 „Deine Woche" auf der Startseite — Zahlen mit Quelle, keine Note',
     summary: 'Idee 8 aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11). Eine neue Karte im Startseiten-Stapel fasst die letzten sieben Tage zusammen: erledigte und heute offene Aufgaben (aus dem gemeinsamen Tagebuch beider Pflanzenlisten), Tagebuch-Einträge, Regen und Frostnächte aus den GEMESSENEN Werten des Wetterdiensts, das Feuchte-Tief je Gerät mit der Zahl der Werte, und Geräte, die länger als zwei Tage schwiegen. Keine Note, kein Score, kein Vergleich mit anderen; was fehlt, heisst „kein Wert" und nicht 0; ohne Daten sagt die Karte, wie sie zu Daten kommt.',
@@ -75139,7 +75253,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.58';
+var GS_VERSION = 'v32.59';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
