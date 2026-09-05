@@ -4,13 +4,40 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.51` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.52` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-04 (eo) — v32.52: der Wetterdienst ist das erste Gerät; ein Weg hinein mit Dublettensperre
+
+Vier Schritte aus `docs/OEKOSYSTEM-V1.md` §11 (Ideen 2 · 3 · 11 · 21), alle
+Stufe 0, alle ohne Fernandos Entscheid möglich (Idee 1 wartet darauf):
+
+- **Ein Weg hinein.** `_gsMesswerteAnhaengen(g, liste)` — ein Wert wie
+  hundert, einmal lesen, einmal schreiben, nach `ts` sortiert, Dublettensperre
+  auf `(geraet_id, metric, ts)` wie der Primärschlüssel in `device_readings`.
+  Ein Wert ohne Zeitangabe ist immer neu (bei gestellter Uhr rückt er eine
+  Millisekunde weiter — der Prüfstand hat es gefunden: zwei Handmessungen in
+  derselben Millisekunde galten als Dublette). Ids sind UUIDs.
+- **Wetter als Gerät.** `gsWetterGeraetAbgleich()`: Open-Meteo-Stunden →
+  Gerät „Wetterdienst · Ort" mit `air_temp` und `rain`, nur bis jetzt, sieben
+  Tage lokal, idempotent; nach jedem Wetterabruf und beim Öffnen von
+  „Messwerte". Nicht im Eintrags-Formular, kein Tages-Ereignis; entfernen
+  merkt sich die App (`gs_wetter_geraet_aus`), ein Schalter holt es zurück.
+- **Katalog vom Server.** `gsMetricKatalogLaden()` ersetzt `gs_metric_catalog`
+  nur bei Erfolg (≥ 3 vollständige Zeilen); bis die Migration angewandt ist,
+  passiert nichts — genau richtig.
+- **Gerät in den Beispieldaten.** `_seed.js` hat ein Gerät, 15 Werte, eine
+  verletzte Regel; jeder Prüfstand vermisst jetzt ein gefülltes Dashboard.
+
+`sensor_check` 13 Fälle (+Dublette, +Wetter, +Katalog), `kalender_check`
+„Ohne Daten" räumt auch die Geräte. Vier Gegenproben rot mit echten Zahlen
+(„zweiter Abgleich neu 74 statt doppelt 74", „96 statt 74 Werte", „eine leere
+Antwort ersetzt den Katalog", „1 Ereignis ohne Datengrundlage").
 
 ### 2026-09-04 (en) — v32.51: Ideen für die Sensoren (§11), vier Stufe-0-Reparaturen
 
@@ -8722,7 +8749,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.51` (Client) · SW-Cache `gs-v32.51` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.52` (Client) · SW-Cache `gs-v32.52` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

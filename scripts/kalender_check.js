@@ -429,11 +429,16 @@ const FAELLE = [
       // v32.49: das Cloud-Tagebuch ist die dritte Quelle — ein „ohne Daten",
       // das sie stehen laesst, prueft nicht „ohne Daten" (der Fall wurde rot,
       // sobald der Spiegel existierte: „1 Ereignis ohne Datengrundlage").
-      const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch'), cloud: localStorage.getItem('gs_garden_diary_cache') };
+      // v32.52: die vierte Quelle sind die Geraete (messung/alarm) — seit die
+      // Beispieldaten ein Geraet tragen, macht eine stehen gelassene Quelle den
+      // Fall rot (CLAUDE.md §7.1: „eine, die er stehen laesst, macht ihn rot").
+      const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch'), cloud: localStorage.getItem('gs_garden_diary_cache'),
+        ger: localStorage.getItem('gs_geraete'), mw: localStorage.getItem('gs_messwerte'), rg: localStorage.getItem('gs_geraete_regeln') };
       try {
         myPlants = []; if (typeof plantings !== 'undefined') plantings = [];
         localStorage.setItem('gs_gartentagebuch', '[]'); gsTagebuchLoad(true);
         localStorage.removeItem('gs_garden_diary_cache');
+        ['gs_geraete', 'gs_messwerte', 'gs_geraete_regeln'].forEach(k => localStorage.removeItem(k));
         const ev = gsKalenderEreignisse(gsHeuteTag(), _gsKalTagPlus(gsHeuteTag(), 30));
         if (ev.length) return { ok: false, warum: ev.length + ' Ereignisse ohne jede Datengrundlage' };
         gsKalenderOeffnen();
@@ -444,6 +449,9 @@ const FAELLE = [
         myPlants = sichern.mp; if (sichern.pl) plantings = sichern.pl;
         if (sichern.tb != null) localStorage.setItem('gs_gartentagebuch', sichern.tb); gsTagebuchLoad(true);
         if (sichern.cloud != null) localStorage.setItem('gs_garden_diary_cache', sichern.cloud);
+        if (sichern.ger != null) localStorage.setItem('gs_geraete', sichern.ger);
+        if (sichern.mw != null) localStorage.setItem('gs_messwerte', sichern.mw);
+        if (sichern.rg != null) localStorage.setItem('gs_geraete_regeln', sichern.rg);
       }
     },
   },

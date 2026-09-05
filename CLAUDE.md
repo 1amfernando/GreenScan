@@ -169,6 +169,8 @@ GreenScan/
 | Lina-Gedächtnis | Supabase `coach_conversations` / `coach_messages` | (gsBrain/`gs_brain_memory` ENTFERNT — siehe §4) |
 | Garten-Zwilling | `localStorage.gs_garden_twin` (über `gsTwinGet`/`gsTwinSave`) | nie direkt parsen — `gsTwinNormalize` klemmt und verwirft |
 | Mischkultur | Supabase `plant_companion_matrix` / `v_companion_lookup` | **keine** Nachbarschaftstabelle im Code anlegen |
+| Messwerte | `localStorage.gs_messwerte`, **nur** über `_gsMesswerteAnhaengen` / `gsMesswertEintragen` (seit v32.52: ein Weg, Dublettensperre auf Gerät · Messgrösse · Zeit) | nie direkt `push`en — der Deckel und die Sortierung nach `ts` hängen daran |
+| Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -791,6 +793,26 @@ liest Gartentagebuch UND Pflanzentagebuecher (`p.diary`) zusammen — bis
 v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
+
+**Seit v32.52 haben die Beispieldaten ein Gerät** („Balkon Süd · Erde",
+sieben Tage Bodenfeuchte und Lufttemperatur, ein unplausibler Wert, eine
+verletzte Regel). Bis dahin vermass jeder Prüfstand ausser `sensor_check`
+ein LEERES Messwerte-Dashboard — `contrast_check` öffnete es über den Öffner
+und mass den Leerzustand. Dieselbe Falle wie v31.46 und v32.46, zum dritten
+Mal. **Wer eine vierte Datenquelle für den Kalender anlegt, zieht den Fall
+„Ohne Daten" in `kalender_check` nach** — er räumt seit v32.52 auch
+`gs_geraete` / `gs_messwerte` / `gs_geraete_regeln`; stehen gelassen meldet
+er „1 Ereignis ohne jede Datengrundlage". Und drei Regeln aus derselben
+Version, alle in `sensor_check`: **Messwerte gehen nur durch
+`_gsMesswerteAnhaengen`** (Dublettensperre auf Gerät · Messgrösse · Zeit, die
+Liste bleibt nach `ts` sortiert — ein `push` daneben umgeht beides); **eine
+Vorhersage ist kein Messwert** (`gsWetterGeraetAbgleich` nimmt nur Stunden
+bis jetzt, und der Fall zählt die übersprungenen: 11); **der Katalog wird nur
+bei Erfolg ersetzt** (404, leer, unvollständig → der Startbestand bleibt).
+Eine Messfalle daraus: bei **gestellter Uhr** fallen zwei Handmessungen in
+dieselbe Millisekunde — die zweite galt als Dublette, und zwei Fälle wurden
+rot, die nichts mit der Sperre zu tun hatten. Ein Wert ohne Zeitangabe rückt
+jetzt eine Millisekunde weiter; die Sperre gilt für ausdrückliche Zeitpunkte.
 
 **Seit v32.51 kennt der Regen-Fall auch die Bejahung.** Bis dahin prüfte
 „Ernte und Regen" nur „ohne Wetter kein Hinweis" — und der Draht aus v31.84

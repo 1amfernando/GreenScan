@@ -439,8 +439,8 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | # | Idee | Stufe | Aufwand | Voraussetzung |
 |---|---|---|---|---|
 | 1 | Eine Geräteschicht, nicht zwei | 0 | mittel | Entscheid Fernando (11.4) |
-| 2 | Katalog wirklich laden, Modell-Katalog | 0 → 1 | klein–mittel | — |
-| 3 | Wetter als virtuelles Gerät | 0 | mittel | 11 |
+| 2 | Katalog wirklich laden, Modell-Katalog | 0 → 1 | klein–mittel | **Leser gebaut v32.52** (`gsMetricKatalogLaden`); Modell-Katalog offen |
+| 3 | Wetter als virtuelles Gerät | 0 | mittel | **gebaut v32.52** (`gsWetterGeraetAbgleich`, 7 Tage, nur Vergangenheit) |
 | 4 | Giessen bestätigt sich selbst — als Aussage; Regel-Aktion verdrahten | 0 | mittel | 3 |
 | 5 | Schwellwert-Vorlagen nur, wo eine Zahl steht | 0 | klein | — |
 | 6 | Lina kennt die Zahlen | 0 | klein–mittel | CLAUDE.md §3.4 (korrigiert) |
@@ -448,7 +448,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 8 | Wochenrückblick statt „N Aufgaben" | 0 | mittel | — |
 | 9 | Zwei Standorte nebeneinander | 0 | klein | — |
 | 10 | Frostnacht am eigenen Beet | 0 / 1 | klein / mittel | 3 |
-| 11 | Server-taugliche Identität und Idempotenz lokal | 0 | klein | — |
+| 11 | Server-taugliche Identität und Idempotenz lokal | 0 | klein | **gebaut v32.52** (UUID, `_gsMesswerteAnhaengen` mit Dublettensperre) |
 | 12 | Export, Import, Löschung — die neuen Schlüssel sind sichtbar | 0 | klein | v32.51 (Backup ✓) |
 | 13 | Urlaub: Giess-Zettel jetzt, Stellvertreter später | 0 / 2 | mittel / gross | — |
 | 14 | Firmware-Vertrag als geteilte Regeldatei (Uhr, Batch, Antwort) | 1 | mittel | — |
@@ -458,7 +458,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 18 | Firmware-Kanal | 2 | mittel | Gerät |
 | 19 | Transport-Entscheid gegen `_headers` | 2 | Entscheid klein, Bau gross | Gerät |
 | 20 | Befehle mit Ablauf und Sicherheitsgrenze | 3 | mittel | Aktor |
-| 21 | Ein Gerät in den Beispieldaten — sonst vermisst jeder Prüfstand ein leeres Dashboard | 0 | klein | — |
+| 21 | Ein Gerät in den Beispieldaten — sonst vermisst jeder Prüfstand ein leeres Dashboard | 0 | klein | **gebaut v32.52** (`_seed.js`: Gerät, 15 Werte, 1 Regel) |
 | 22 | Katalog-Labels in vier Sprachen — die Tabelle hat sie, die App liest nur Deutsch | 0 | klein | — |
 | 23 | Kalibrierung als Daten — Offset und Faktor je Gerät und Messgrösse | 1 | klein–mittel | Migration |
 | 24 | Planer rechnet mit gemessenem Regen, nicht nur mit der Prognose | 0 / 1 | mittel | 3 |
@@ -1135,6 +1135,21 @@ erscheint; mit zugeordnetem Gerät → nicht. **Aufwand** klein.
 Gegenprobe je Reparatur: zurückgebaut → der Fall rot, mit den echten Zahlen
 („der Eintrag trägt null", „noch 0 da", „im Backup fehlen: geraete,
 geraeteRegeln, messwerte").
+
+### 11.3a · Was v32.52 gebaut hat (Ideen 2 · 3 · 11 · 21)
+
+| Gebaut | Idee | Was der Prüfstand festhält |
+|---|---|---|
+| **Ein Weg hinein** — `_gsMesswerteAnhaengen(g, liste)` nimmt einen Wert wie hundert, liest und schreibt **einmal**, hält die Liste nach `ts` sortiert (sonst nähme der Deckel eine Nachlieferung für den jüngsten Wert) und sperrt Dubletten auf `(geraet_id, metric, ts)` — derselbe Schlüssel wie der Primärschlüssel in `device_readings`. Ein Wert **ohne** Zeitangabe ist eine Messung von jetzt und immer neu; kollidiert „jetzt" (gestellte Uhr), rückt er eine Millisekunde weiter. Neue Geräte und Regeln bekommen eine UUID (`_gsNeueId`); `ger_…`-Bestände bleiben | 11 | `sensor_check` „Dublette": zweimal → 1 Datensatz, die Antwort sagt „doppelt", anderer Zeitpunkt → 2, Liste chronologisch, Ids UUID |
+| **Wetter als Gerät** — `gsWetterGeraetAbgleich()` macht aus dem Open-Meteo-Zwischenspeicher ein Gerät `kind:'weather'` („Wetterdienst · Ort") mit `air_temp` und `rain` je Stunde, **nur bis jetzt**, sieben Tage lokal (`GS_WETTER_GERAET_TAGE`; ältere Wetterwerte werden gelöscht — abgeleitet, nicht erhoben, das Tagesarchiv ist `weather_log_per_garden`), läuft nach jedem Wetterabruf und beim Öffnen von „Messwerte". Der Wetterdienst steht nicht im Eintrags-Formular und erzeugt kein Tages-Ereignis `messung` (der Regen hat seines). Wer das Gerät entfernt, will es nicht (`gs_wetter_geraet_aus`); ein Schalter im Dashboard holt es zurück | 3 | `sensor_check` „Wetter als Gerät": 48 + 24 Stunden gestellt → 74 Werte aus 37 Stunden, 11 Zukunftsstunden übersprungen, zweimal = 74 doppelt, Regen-Summe 10 mm, nichts älter als sieben Tage, Kachel im HTML, nicht im Formular, kein `messung`-Ereignis, Schalter funktioniert |
+| **Katalog vom Server** — `gsMetricKatalogLaden()` holt `metric_catalog` (sechs Sekunden nach dem Start, angemeldet) und ersetzt `gs_metric_catalog` **nur** bei mindestens drei vollständigen Zeilen; Fehler, leere oder unvollständige Antworten lassen stehen, was da ist. Das Datum steht in `gs_metric_catalog_at` | 2 | `sensor_check` „Katalog": 404 → 11 bleiben, 12 Zeilen → 12 (im Dashboard, Wert angenommen), leer/unvollständig → bleibt |
+| **Gerät in den Beispieldaten** — `_seed.js` trägt „Balkon Süd · Erde" mit sieben Tagen Bodenfeuchte (fallend, Regel „unter 25" verletzt), sieben Tagen Lufttemperatur und einem unplausiblen Wert. Jeder Prüfstand vermisst jetzt ein **gefülltes** Dashboard | 21 | `kalender_check` „Ohne Daten" räumt seither auch die Geräte-Schicht — stehen gelassen: „1 Ereignis ohne jede Datengrundlage" |
+
+Nicht gebaut aus Idee 3: `air_humidity` (der Deckel: zwei Grössen × 24 Stunden
+× 7 Tage sind 336 Werte neben den Handmessungen — eine dritte Grösse wäre
+Platz, den der erste Bodenstab braucht) und der Server-Weg aus
+`weather_forecast_cache` (Stufe 1). Aus Idee 2 fehlt der Modell-Katalog
+`device_models` — er braucht das erste Gerät (11.4).
 
 ### 11.4 · Fragen an Fernando (Ergänzung zu §10)
 

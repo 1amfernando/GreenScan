@@ -137,7 +137,7 @@ const FAELLE = [
       const ev = gsKalenderEreignisse(heute, heute);
       const m = ev.filter(e => e.art === 'messung');
       if (!m.length) return { ok: false, warum: 'kein Ereignis der Art messung am heutigen Tag' };
-      if (!m[0].grund || !/Hochbeet Nord/.test(m[0].grund + ' ' + m[0].titel)) return { ok: false, warum: 'das Messung-Ereignis nennt das Gerät nicht' };
+      if (!m.some(e => /Hochbeet Nord/.test((e.grund || '') + ' ' + (e.titel || '')))) return { ok: false, warum: 'das Messung-Ereignis nennt das Gerät nicht' };
       const a = ev.find(e => e.art === 'alarm');
       if (!a) return { ok: false, warum: 'die verletzte Regel erscheint nicht als Alarm' };
       if (a.status === 'info') return { ok: false, warum: 'ein Alarm ist keine Info' };
@@ -224,6 +224,135 @@ const FAELLE = [
         return { ok: true, info: '2011 → 2000: 11 hochgeladene weg, alle 10 ältesten Handmessungen da, Reihenfolge erhalten' };
       } finally {
         localStorage.setItem('gs_messwerte', JSON.stringify(alt));
+      }
+    },
+  },
+  {
+    // v32.52: Dublettensperre auf (geraet_id, metric, ts) — derselbe Schluessel
+    // wie der Primaerschluessel in device_readings. Zweimal derselbe Wert zur
+    // selben Zeit = EIN Datensatz, und die Antwort sagt es. Und neue Ids sind
+    // UUIDs (Idee 11) — die alten `ger_…` bleiben gueltig.
+    name: 'Dublette · derselbe Wert zur selben Zeit wird nicht doppelt gespeichert — und die Antwort sagt es',
+    lauf: () => {
+      const g = gsGeraetAnlegen({ kind: 'manual', name: 'Dubletten-Probe', garden_id: 'g1' });
+      if (!g || !g.id) return { ok: false, warum: 'Gerät nicht angelegt' };
+      const hatUuid = !!(window.crypto && typeof crypto.randomUUID === 'function');
+      if (hatUuid && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(g.id)) return { ok: false, warum: 'die Geräte-Id ist keine UUID: ' + g.id };
+      const ts = '2025-08-30T10:00:00.000Z';
+      const a = gsMesswertEintragen(g.id, 'soil_moisture', 33, ts);
+      const b = gsMesswertEintragen(g.id, 'soil_moisture', 33, ts);
+      if (!a || !a.ok || a.doppelt) return { ok: false, warum: 'der erste Eintrag: ' + JSON.stringify(a) };
+      if (!b || !b.ok || !b.doppelt) return { ok: false, warum: 'der zweite Eintrag sagt nicht „doppelt": ' + JSON.stringify(b) };
+      if (!/nicht doppelt/.test(b.grund)) return { ok: false, warum: 'der Grund erklärt es nicht: ' + b.grund };
+      const n1 = gsMesswerte(g.id, 'soil_moisture').length;
+      if (n1 !== 1) return { ok: false, warum: 'zweimal eingetragen → ' + n1 + ' Datensätze statt 1' };
+      const c = gsMesswertEintragen(g.id, 'soil_moisture', 34, '2025-08-30T10:05:00.000Z');
+      if (!c.ok || c.doppelt) return { ok: false, warum: 'ein anderer Zeitpunkt gilt als Dublette' };
+      if (gsMesswerte(g.id, 'soil_moisture').length !== 2) return { ok: false, warum: 'der zweite Zeitpunkt wurde nicht gespeichert' };
+      const alle = _gsMesswerteAlle().map(m => m.ts);
+      if (JSON.stringify(alle) !== JSON.stringify(alle.slice().sort())) return { ok: false, warum: 'die Liste ist nach dem Nachtragen alter Zeitpunkte nicht mehr chronologisch' };
+      const r = gsRegelAnlegen({ geraet_id: g.id, metric: 'soil_moisture', op: 'below', threshold: 10 });
+      if (hatUuid && !/^[0-9a-f-]{36}$/.test(r.id)) return { ok: false, warum: 'die Regel-Id ist keine UUID: ' + r.id };
+      gsGeraetLoeschen(g.id);
+      return { ok: true, info: 'zweimal → 1 · Antwort „doppelt" · anderer Zeitpunkt → 2 · chronologisch · Ids ' + (hatUuid ? 'UUID' : 'Rückfall (kein crypto)') };
+    },
+  },
+  {
+    // v32.52: Wetter als virtuelles Geraet (Idee 3). Der Fall STELLT den
+    // Zwischenspeicher: gestern 24 Stunden, heute 24 Stunden (Uhr steht auf
+    // 12:00), dazu ein Tag vor zehn Tagen. Erwartet: nur Stunden bis jetzt
+    // (37 = 24 + 13), zwei Groessen (74 Werte), zweimal = einmal, Regen-Summe
+    // 10 mm, nichts aelter als sieben Tage, kein Tages-Ereignis im Kalender,
+    // aber die Kachel im Dashboard — und der Schalter nach dem Entfernen.
+    name: 'Wetter als Gerät · nur Vergangenheit, zweimal = einmal, sieben Tage, Kachel ohne Eintrags-Formular',
+    lauf: () => {
+      const heute = gsHeuteTag(), gestern = _gsKalTagPlus(heute, -1), alt = _gsKalTagPlus(heute, -10);
+      const time = [], temp = [], rain = [];
+      [alt, gestern, heute].forEach(tag => { for (let h = 0; h < 24; h++) {
+        time.push(tag + 'T' + String(h).padStart(2, '0') + ':00'); temp.push(10 + h / 2);
+        rain.push((tag === heute && h === 6) ? 3 : (tag === heute && h === 9) ? 5 : (tag === gestern && h === 14) ? 2 : 0);
+      } });
+      const vorher = gsGeraete().length;
+      try {
+        localStorage.removeItem('gs_wetter_geraet_aus');
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { hourly: { time, temperature_2m: temp, precipitation: rain } } }));
+        const r1 = gsWetterGeraetAbgleich();
+        if (!r1 || !r1.ok) return { ok: false, warum: 'Abgleich: ' + JSON.stringify(r1) };
+        const dev = gsGeraete().find(g => g.kind === 'weather');
+        if (!dev) return { ok: false, warum: 'kein Gerät der Art weather' };
+        if (!/Wetterdienst/.test(dev.name)) return { ok: false, warum: 'das Gerät heisst ' + dev.name };
+        if (r1.neu !== 74) return { ok: false, warum: r1.neu + ' Werte übernommen (erwartet 74 = 37 Stunden × 2) — Zukunft: ' + r1.zukunft };
+        if (r1.zukunft !== 11) return { ok: false, warum: 'Zukunftsstunden übersprungen: ' + r1.zukunft + ' (erwartet 11)' };
+        const r2 = gsWetterGeraetAbgleich();
+        if (!r2.ok || r2.neu !== 0 || r2.doppelt !== 74) return { ok: false, warum: 'zweiter Abgleich: ' + JSON.stringify(r2) + ' — zweimal muss einmal sein' };
+        const regen = gsMesswerte(dev.id, 'rain'); const summe = regen.reduce((a, m) => a + m.wert, 0);
+        if (Math.abs(summe - 10) > 1e-9) return { ok: false, warum: 'Regen-Summe ' + summe + ' mm statt 10' };
+        const jetzt = Date.now();
+        if (gsMesswerte(dev.id).some(m => new Date(m.ts).getTime() > jetzt)) return { ok: false, warum: 'ein Wert liegt in der Zukunft — eine Vorhersage ist kein Messwert' };
+        if (gsMesswerte(dev.id).some(m => new Date(m.ts).getTime() < jetzt - 7 * 864e5)) return { ok: false, warum: 'Wetterwerte älter als sieben Tage blieben stehen' };
+        if (gsMesswerte(dev.id).some(m => m.quelle !== 'wetterdienst')) return { ok: false, warum: 'die Quelle heisst nicht wetterdienst' };
+        const ev = gsKalenderEreignisse(heute, heute);
+        if (ev.some(e => e.art === 'messung' && /Wetterdienst/.test(e.titel))) return { ok: false, warum: 'der Wetterdienst erzeugt ein Tages-Ereignis „messung" — 48 Werte am Tag sind kein Ereignis' };
+        if (!ev.some(e => e.art === 'wetter' && /8 mm/.test(e.titel))) return { ok: false, warum: 'das Regen-Ereignis (8 mm bis jetzt) fehlt' };
+        gsMesswerteOeffnen();
+        const mc = document.getElementById('modal-content'); const t = mc.textContent;
+        if (!/Wetterdienst/.test(t) || !/Lufttemperatur/.test(t) || !/Niederschlag/.test(t)) return { ok: false, warum: 'die Kachel des Wetterdiensts fehlt im Dashboard oder nennt die Grössen nicht' };
+        const sel = mc.querySelector('#mw-geraet');
+        if (sel && Array.from(sel.options).some(o => o.value === dev.id)) return { ok: false, warum: 'der Wetterdienst steht im Eintrags-Formular — er misst selbst' };
+        gsGeraetLoeschen(dev.id);
+        if (localStorage.getItem('gs_wetter_geraet_aus') !== '1') return { ok: false, warum: 'nach dem Entfernen merkt sich die App die Wahl nicht' };
+        const r3 = gsWetterGeraetAbgleich();
+        if (r3.ok || gsGeraete().some(g => g.kind === 'weather')) return { ok: false, warum: 'entfernt — und der nächste Abgleich legt es wieder an' };
+        _gsMwRender();
+        const knopf = Array.from(document.getElementById('modal-content').querySelectorAll('button')).find(b => /Wieder als Gerät/.test(b.textContent));
+        if (!knopf) return { ok: false, warum: 'kein Schalter „Wieder als Gerät führen" im Dashboard' };
+        knopf.click();
+        if (!gsGeraete().some(g => g.kind === 'weather')) return { ok: false, warum: 'der Schalter holt das Gerät nicht zurück' };
+        return { ok: true, info: '74 Werte aus 37 Stunden · 11 Zukunftsstunden übersprungen · zweimal = 74 doppelt · 10 mm · Kachel da, nicht im Formular · Schalter funktioniert' };
+      } finally {
+        localStorage.removeItem('gs_weather_cache');
+        gsGeraete().filter(g => g.kind === 'weather').forEach(g => gsGeraetLoeschen(g.id));
+        localStorage.removeItem('gs_wetter_geraet_aus');
+        if (gsGeraete().length !== vorher) console.warn('Wetter-Fall: Gerätezahl ' + gsGeraete().length + ' statt ' + vorher);
+      }
+    },
+  },
+  {
+    // v32.52: Der Katalog kommt vom Server (Idee 2) — ersetzt wird NUR bei
+    // Erfolg; ein Fehler (Migration nicht angewandt), eine leere oder eine
+    // unvollstaendige Antwort lassen stehen, was da ist. Gestellter sbFetch.
+    name: 'Katalog · vom Server geladen, nur bei Erfolg ersetzt — ohne Server bleibt der Startbestand',
+    lauf: async () => {
+      const echtFetch = window.sbFetch, echtLogin = window.sbIsLoggedIn;
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: null, error: { message: 'relation "public.metric_catalog" does not exist', status: 404 } });
+        const r1 = await gsMetricKatalogLaden();
+        if (!r1 || r1.ok) return { ok: false, warum: 'ein 404 gilt als Erfolg: ' + JSON.stringify(r1) };
+        if (gsMetricKatalog().length !== 11) return { ok: false, warum: 'nach dem Fehler ' + gsMetricKatalog().length + ' Grössen statt 11' };
+        const zwoelf = GS_METRIC_KATALOG_START.map(k => Object.assign({ label_fr: null, label_it: null, label_en: null }, k))
+          .concat([{ key: 'co2', unit: 'ppm', min_valid: 0, max_valid: 5000, label_de: 'CO₂', label_fr: 'CO₂', label_it: 'CO₂', label_en: 'CO₂', icon: '🫧', aggregation: 'avg', decimals: 0, sort: 55 }]);
+        window.sbFetch = async () => ({ data: zwoelf, error: null });
+        const r2 = await gsMetricKatalogLaden();
+        if (!r2 || !r2.ok || r2.n !== 12) return { ok: false, warum: 'Laden: ' + JSON.stringify(r2) };
+        if (gsMetricKatalog().length !== 12 || !_gsMetric('co2')) return { ok: false, warum: 'die zwölfte Grösse kommt nicht an' };
+        if (!localStorage.getItem('gs_metric_catalog_at')) return { ok: false, warum: 'das Datum der Momentaufnahme fehlt' };
+        gsMesswerteOeffnen();
+        const t = document.getElementById('modal-content').textContent;
+        if (!/CO₂/.test(t)) return { ok: false, warum: 'das Dashboard bietet die zwölfte Grösse nicht an (aus dem HTML gelesen)' };
+        const e = gsMesswertEintragen(gsGeraete()[0].id, 'co2', 640);
+        if (!e.ok) return { ok: false, warum: 'ein Wert der neuen Grösse wird abgelehnt: ' + e.grund };
+        window.sbFetch = async () => ({ data: [], error: null });
+        const r3 = await gsMetricKatalogLaden();
+        if (r3.ok || gsMetricKatalog().length !== 12) return { ok: false, warum: 'eine leere Antwort ersetzt den Katalog' };
+        window.sbFetch = async () => ({ data: [{ key: 'x' }, { key: 'y' }, { key: 'z' }], error: null });
+        const r4 = await gsMetricKatalogLaden();
+        if (r4.ok || gsMetricKatalog().length !== 12) return { ok: false, warum: 'unvollständige Zeilen ersetzen den Katalog' };
+        return { ok: true, info: '404 → 11 bleiben · 12 Zeilen → 12, im Dashboard, Wert angenommen · leer/unvollständig → bleibt' };
+      } finally {
+        window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin;
+        localStorage.removeItem('gs_metric_catalog'); localStorage.removeItem('gs_metric_catalog_at');
+        localStorage.setItem('gs_messwerte', JSON.stringify(_gsMesswerteAlle().filter(m => m.metric !== 'co2')));
       }
     },
   },

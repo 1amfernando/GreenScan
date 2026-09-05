@@ -69,6 +69,28 @@ module.exports = () => { try {
   set('gs_confirmed_species', ['Taraxacum officinale','Boletus edulis']);
   set('gs_wissen_read', ['alpen-1','voegel-2']);
   set('gs_last_active_day_iso', new Date(now).toISOString().slice(0,10));
+  // v32.52: EIN Geraet in den Beispieldaten (docs/OEKOSYSTEM-V1.md §11 Idee 21).
+  // Bis dahin vermass jeder Pruefstand ausser sensor_check ein LEERES Dashboard —
+  // contrast_check oeffnete „Messwerte" und mass den Leerzustand. Felder gegen
+  // index.html geprueft (gsGeraetAnlegen · _gsMesswerteAnhaengen · gsRegelAnlegen),
+  // nicht gegen Namen (v31.46-, v32.46-Lehre). Sieben Tage Bodenfeuchte (fallend,
+  // die Regel „unter 25" ist am Ende VERLETZT), sieben Tage Lufttemperatur, ein
+  // unplausibler Wert (250, quality 1) — alles GESTERN und frueher, damit
+  // sensor_check am heutigen Tag seine eigenen Werte vorfindet.
+  set('gs_geraete', [{ id:'ger_seed_1', kind:'manual', name:'Balkon Süd · Erde', garden_id:'g1', plant_id:null,
+    capabilities:{ metrics:['soil_moisture','air_temp'], interval_s:null, commands:[] }, status:'active',
+    last_seen_at:iso(now-1*D+8*3600000), paired_at:iso(now-7*D+8*3600000), created_at:iso(now-8*D) }]);
+  var mw = [];
+  [52,47,41,36,30,26,22].forEach(function (v, i) {
+    var t = now-(7-i)*D+8*3600000;
+    mw.push({ geraet_id:'ger_seed_1', metric:'soil_moisture', ts:iso(t), wert:v, quality:2, quelle:'hand', pending:true });
+    mw.push({ geraet_id:'ger_seed_1', metric:'air_temp', ts:iso(t), wert:17+i, quality:2, quelle:'hand', pending:true });
+  });
+  mw.push({ geraet_id:'ger_seed_1', metric:'soil_moisture', ts:iso(now-4*D+12*3600000), wert:250, quality:1, quelle:'hand', pending:true });
+  mw.sort(function (a, b) { return a.ts.localeCompare(b.ts); });
+  set('gs_messwerte', mw);
+  set('gs_geraete_regeln', [{ id:'reg_seed_1', geraet_id:'ger_seed_1', metric:'soil_moisture', op:'below', threshold:25,
+    for_minutes:0, action:'notify', cooldown_minutes:720, enabled:true, created_at:iso(now-6*D) }]);
 } catch(e){} };
 
 // ── v31.77: ein Musterplan fuer den KI-Planer ────────────────────────────
