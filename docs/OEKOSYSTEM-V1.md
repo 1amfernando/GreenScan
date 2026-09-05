@@ -446,10 +446,10 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 6 | Lina kennt die Zahlen | 0 | klein–mittel | **gebaut v32.56** (`gsLinaZahlen` im Kontext, Prüfstand hält jede Zahl gegen einen Datensatz) |
 | 7 | Ein Meldungs-Budget gegen Alarm-Müdigkeit | 0 | klein | **gebaut v32.54** (`gsNotif.stille`, `showKategorie`, `gsSensorAlarmeMelden`) |
 | 8 | Wochenrückblick statt „N Aufgaben" | 0 | mittel | — |
-| 9 | Zwei Standorte nebeneinander | 0 | klein | — |
+| 9 | Zwei Standorte nebeneinander | 0 | klein | **gebaut v32.57** (Vergleich im Dashboard, `_gsMwVergleichMalen`) |
 | 10 | Frostnacht am eigenen Beet | 0 / 1 | klein / mittel | **Stufe 0 gebaut v32.56** (Frost-Ereignis aus der Vorhersage im Kalender); Stufe 1 (Sensor gegen Prognose) braucht ein Gerät |
 | 11 | Server-taugliche Identität und Idempotenz lokal | 0 | klein | **gebaut v32.52** (UUID, `_gsMesswerteAnhaengen` mit Dublettensperre) |
-| 12 | Export, Import, Löschung — die neuen Schlüssel sind sichtbar | 0 | klein | v32.51 (Backup ✓) |
+| 12 | Export, Import, Löschung — die neuen Schlüssel sind sichtbar | 0 | klein | v32.51 (Backup ✓) · **v32.57 (CSV ✓**, `gsExportMesswerteCSV`); `delete-user`-Liste offen |
 | 13 | Urlaub: Giess-Zettel jetzt, Stellvertreter später | 0 / 2 | mittel / gross | — |
 | 14 | Firmware-Vertrag als geteilte Regeldatei (Uhr, Batch, Antwort) | 1 | mittel | — |
 | 15 | Geräte-Identität ab Werk und Claim-Code-Pairing | 1 | mittel–gross | Entscheid Fernando |
@@ -1183,6 +1183,17 @@ Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
 |---|---|
 | **Lina kennt die Zahlen.** `gsLinaZahlen()` baut den Block für `gsLinaContext()`: fällige Aufgaben (mit „seit N Tagen", `[Sensor]`), verletzte Regeln (höchstens drei, mit Grund), je Gerät (höchstens vier, drei Grössen) der letzte **plausible** Wert als **Rohwert** mit Zeit, Anzahl der Werte in sieben Tagen und Lücke seit dem letzten; unplausible letzte Werte werden als solche genannt; ohne Daten steht „keine" statt Stille. Deckel 700 Zeichen. Dazu die Anweisung: nur aus dem Kontext zitieren, fehlende Werte nennen, nichts schätzen | `sensor_check` „Lina": Gerät, Wert (22 %), Zeit, „6 Werte in 7 Tagen", „letzter Wert vor 28 h", Alarm, Fälligkeit im Kontext; **jede** Prozent-/Grad-Zahl der Messwert-Zeile ist ein gespeicherter plausibler Wert; ohne Daten „keine". Gegenprobe: Block entfernt → rot. Eine Falle beim Bau: die gerundete Anzeige (`_gsMwFmt`: 31.5 → 32) stand im Kontext — der Prüfstand hat sie als Zahl ohne Datensatz gemeldet; jetzt Rohwerte |
 | **Frost aus der Vorhersage.** Abschnitt 5b in `gsKalenderEreignisse`: Tagesminimum ≤ 2 °C (`GS_FROST_GRENZE_C`, dieselbe Grenze wie der Frost-Tipp der Startseite und der Server-Push) aus `gs_weather_cache.daily` → Ereignis `wetter` „❄️ Frost möglich — Tiefstwert 1.2 °C" für heute und die nächsten Tage, `status: 'info'`, Grund mit Quelle, Standort, Alter der Vorhersage und „kein Messwert". Nie für vergangene Tage | `kalender_check` „Frost": morgen 1.2 °C → ein Ereignis mit Quelle und „Stand vor 2 h", im Tagesblatt; 5 °C → keins; gestern 0 °C → keins; ohne Tageswerte → keins. Gegenprobe: Vergangenheits-Schranke entfernt → zwei Ereignisse |
+
+### 11.3f · Was v32.57 gebaut hat (Ideen 9 und 12)
+
+| Gebaut | Was der Prüfstand festhält (`sensor_check`) |
+|---|---|
+| **Zwei Standorte nebeneinander.** Im Dashboard ein Abschnitt „📈 Vergleich": Messgrösse, Gerät A, Gerät B → zwei Linien über `_gsVerlauf` (grün/blau), Legende mit Namen und Zahl der plausiblen Werte, `aria-label` nennt beide Geräte. Zur Wahl stehen **nur** Messgrössen, die mindestens zwei Geräte mit plausiblen Werten haben (`_gsMwVergleichGroessen`). Der Hinweis dazu: „Verschiedene Sensoren messen verschieden — vergleiche den Verlauf, nicht die Zahl." `_gsVerlauf` schreibt `data-reihen` | Bodenfeuchte wählbar, Licht (nur ein Gerät) nicht · 2 Reihen · Legende Süd (7) · Nord (5) · 1105 grüne und 714 blaue Pixel im Canvas · Hinweis da. Gegenprobe: Schwelle auf ein Gerät → „Licht steht zur Auswahl" |
+| **Messwerte als CSV.** `gsExportMesswerteCSV()` — Zeitpunkt, Gerät, Gerät-Id, Messgrösse, Schlüssel, Wert, **Einheit**, Qualität (plausibel · ausserhalb des Messbereichs · Gerätefehler), Quelle; chronologisch; dritter Knopf in „Daten exportieren" mit Zahl der Werte und Geräte; liefert den Text zurück, damit der Prüfstand ihn liest | 18 Zeilen für 18 Werte · Kopf mit Einheit · „Balkon Süd · Erde", 22, %, plausibel, hand · 250 als „ausserhalb des Messbereichs" · chronologisch · genau ein Download. Gegenprobe: Einheit leer → rot |
+
+Nicht gebaut aus Idee 12: die `delete-user`-Liste kennt die fünf neuen
+Tabellen weiterhin nicht (Edge-Function, Fernandos Handgriff beim nächsten
+Deploy) — `on delete cascade` greift, aber die Liste ist die Doku.
 
 Eine Falle beim Bau: der erste Verlaufs-Filter verlangte, dass der älteste
 Wert **im** 14-Tage-Fenster 14 Tage alt sei — das ist nie der Fall, und die

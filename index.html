@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.56.20260904">
+<meta name="app-version" content="32.57.20260905">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5758,6 +5758,9 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-mw-zeile button{grid-column:1 / -1;padding:10px;border:none;border-radius:var(--r-sm);background:var(--fill-brand);color:#fff;font-weight:800;font-family:inherit;cursor:pointer;}
 .gs-mw-hinweis{font-size:var(--fs-xs);color:var(--muted);margin-top:6px;line-height:1.5;}
 .gs-mw-vorlagen{font-size:var(--fs-xs);color:var(--muted);line-height:1.8;margin:6px 0 4px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;}
+.gs-mw-vgl{margin:4px 0 12px;}
+.gs-mw-vgl canvas{width:100%;margin-top:8px;}
+.gs-mw-vgl-farbe{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle;margin-right:5px;}
 .gs-tb-sensor{font-size:var(--fs-xs);margin-top:6px;line-height:1.5;color:var(--muted);}
 .gs-tb-sensor.gs-tb-bestaetigt{color:var(--c-success-d);}
 .gs-tb-sensor.gs-tb-nicht_gemerkt{color:var(--c-warn-d);}
@@ -14608,6 +14611,8 @@ window.GS_I18N_JS_STRINGS = {
   'mw_vorlagen':               'Vorlagen',
   'mw_vorlage_keine':          'keine Empfehlung hinterlegt — nach 14 Tagen Werten schlägt die App dein Tief und Hoch vor',
   'mw_vorlage_uebernommen':    'Vorlage übernommen — prüfe die Schwelle und lege die Regel an.',
+  'mw_vergleich':              'Vergleich',
+  'mw_vgl_hinweis':            'Verschiedene Sensoren messen verschieden — vergleiche den Verlauf, nicht die Zahl.',
   'task_unit_one':             'Aufgabe',
   'task_unit_many':            'Aufgaben',
   'tasks_done_all_title':      'Alle als erledigt eintragen?',
@@ -27249,6 +27254,7 @@ function _gsVerlauf(canvas, reihen, opt) {
     var v0 = Math.min.apply(null, plaus.map(function (p) { return p.v; })), v1 = Math.max.apply(null, plaus.map(function (p) { return p.v; }));
     if (opt.schwelle != null) { v0 = Math.min(v0, opt.schwelle); v1 = Math.max(v1, opt.schwelle); }
     canvas.dataset.vmin = String(Math.round(v0 * 10) / 10); canvas.dataset.vmax = String(Math.round(v1 * 10) / 10);
+    canvas.dataset.reihen = String(reihen.length);   // v32.57: wie viele Linien wirklich gezeichnet wurden
     if (v1 === v0) { v0 -= 1; v1 += 1; }
     var sp = (v1 - v0) * 0.1; v0 -= sp; v1 += sp;
     var X = function (t) { return pad.l + (t - t0) / (t1 - t0) * (W - pad.l - pad.r); };
@@ -27335,6 +27341,10 @@ function _gsMwRender() {
   var wetterAus = (localStorage.getItem('gs_wetter_geraet_aus') === '1') && !ger.some(function (g) { return g && g.kind === 'weather'; });
   var wetterSchalter = wetterAus ? '<div class="gs-mw-hinweis" style="margin:8px 0 12px;">🌦️ ' + _t('mw_wetter_aus', 'Der Wetterdienst wird nicht mehr als Gerät geführt.') +
       ' <button type="button" class="gs-mw-link" onclick="_gsMwWetterEin()">' + _t('mw_wetter_ein', 'Wieder als Gerät führen') + '</button></div>' : '';
+  // v32.57 (§11 Idee 9): Zwei Geraete, dieselbe Groesse, zwei Linien. Nur
+  // Messgroessen, die BEIDE Geraete haben; Trends vergleichen, nie
+  // Absolutwerte (verschiedene Sensoren messen Prozent verschieden, Idee 5).
+  var vergleich = _gsMwVergleichHtml(ger, kat, esc, _t);
   var eintrag = gerHand.length ? '<div class="gs-mw-eintrag"><div class="gs-eg-kopf" style="font-size:var(--fs-md);">' + _t('mw_eintragen', '📝 Messwert eintragen') + '</div><div class="gs-mw-zeile">' +
       '<select id="mw-geraet" aria-label="Gerät">' + gerHand.map(function (g) { return '<option value="' + esc(g.id) + '">' + esc(g.name) + '</option>'; }).join('') + '</select>' +
       '<select id="mw-metric" aria-label="Messgrösse">' + optionenKat + '</select>' +
@@ -27346,6 +27356,7 @@ function _gsMwRender() {
     '<div class="gs-eg-kopf">📊 ' + _t('mw_titel', 'Messwerte') + '</div>' +
     '<div class="gs-eg-unter">' + _t('mw_untertitel', 'Deine Geräte und was sie messen — und bis der erste Sensor da ist, bist du das Gerät. Jeder Wert trägt Gerät, Zeit, Einheit und ob er plausibel war.') + '</div>' +
     wetterSchalter +
+    vergleich +
     (ger.length ? kacheln : '<div class="gs-eg-leer">' + _t('mw_leer', 'Noch kein Gerät. Lege eines an — „von Hand" heisst: du misst und trägst ein. Dashboard, Regeln und Kalender sind dieselben, die später ein Sensor benutzt.') + '</div>') +
     eintrag +
     '<details class="gs-mw-form gs-mw-neu"' + (ger.length ? '' : ' open') + '><summary>' + _t('mw_geraet_neu', '＋ Gerät anlegen') + '</summary><div class="gs-mw-zeile">' +
@@ -27357,7 +27368,56 @@ function _gsMwRender() {
   '</div>';
   // Verlaeufe zeichnen — nach dem Einhaengen, weil die Breite erst dann bekannt ist
   Array.prototype.forEach.call(mc.querySelectorAll('canvas.gs-mw-verlauf'), function (cv) { _gsMwVerlaufMalen(cv, cv.dataset.geraet, cv.dataset.metric); });
+  try { _gsMwVergleichMalen(); } catch (_) {}
 }
+// Welche Messgroessen haben mindestens zwei Geraete mit plausiblen Werten?
+function _gsMwVergleichGroessen(ger, kat) {
+  var alle = _gsMesswerteAlle();
+  return kat.filter(function (k) {
+    var mit = {};
+    alle.forEach(function (m) { if (m && m.metric === k.key && m.quality === 2) mit[m.geraet_id] = true; });
+    return ger.filter(function (g) { return g && mit[g.id]; }).length >= 2;
+  });
+}
+function _gsMwVergleichHtml(ger, kat, esc, _t) {
+  var gross = _gsMwVergleichGroessen(ger, kat);
+  if (!gross.length) return '';
+  var alle = _gsMesswerteAlle();
+  var wahl = (document.getElementById('mw-vgl-metric') || {}).value;
+  var k = gross.find(function (x) { return x.key === wahl; }) || gross[0];
+  var geraete = ger.filter(function (g) { return alle.some(function (m) { return m && m.geraet_id === g.id && m.metric === k.key && m.quality === 2; }); });
+  var a = (document.getElementById('mw-vgl-a') || {}).value, b = (document.getElementById('mw-vgl-b') || {}).value;
+  if (!geraete.some(function (g) { return g.id === a; })) a = geraete[0].id;
+  if (!geraete.some(function (g) { return g.id === b; }) || b === a) b = (geraete.find(function (g) { return g.id !== a; }) || geraete[1]).id;
+  var opt = function (id, sel) { return geraete.map(function (g) { return '<option value="' + esc(g.id) + '"' + (g.id === sel ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join(''); };
+  return '<details class="gs-mw-form gs-mw-vgl" open><summary>📈 ' + _t('mw_vergleich', 'Vergleich') + '</summary>' +
+    '<div class="gs-mw-zeile">' +
+      '<select id="mw-vgl-metric" aria-label="Messgrösse" onchange="_gsMwRender()">' + gross.map(function (x) { return '<option value="' + esc(x.key) + '"' + (x.key === k.key ? ' selected' : '') + '>' + esc((x.icon || '') + ' ' + _gsMetricLabel(x) + ' (' + x.unit + ')') + '</option>'; }).join('') + '</select>' +
+      '<select id="mw-vgl-a" aria-label="Gerät A" onchange="_gsMwVergleichMalen()">' + opt('a', a) + '</select>' +
+      '<select id="mw-vgl-b" aria-label="Gerät B" onchange="_gsMwVergleichMalen()">' + opt('b', b) + '</select>' +
+    '</div>' +
+    '<canvas id="mw-vgl-canvas" class="gs-mw-verlauf" role="img" aria-label="' + esc(_t('mw_vergleich', 'Vergleich') + ' ' + _gsMetricLabel(k)) + '"></canvas>' +
+    '<div id="mw-vgl-legende" class="gs-mw-hinweis"></div>' +
+    '<div class="gs-mw-hinweis">' + _t('mw_vgl_hinweis', 'Verschiedene Sensoren messen verschieden — vergleiche den Verlauf, nicht die Zahl.') + '</div>' +
+  '</details>';
+}
+window._gsMwVergleichMalen = function () {
+  try {
+    var cv = document.getElementById('mw-vgl-canvas'); if (!cv) return;
+    var mk = (document.getElementById('mw-vgl-metric') || {}).value, a = (document.getElementById('mw-vgl-a') || {}).value, b = (document.getElementById('mw-vgl-b') || {}).value;
+    var k = _gsMetric(mk); if (!k) return;
+    var ger = gsGeraete(), gA = ger.find(function (g) { return g.id === a; }), gB = ger.find(function (g) { return g.id === b; });
+    var punkte = function (id) { return gsMesswerte(id, mk).filter(function (m) { return m.quality === 2; }).map(function (m) { return { t: new Date(m.ts).getTime(), v: m.wert, q: m.quality }; }); };
+    var reihen = [];
+    if (gA) reihen.push({ punkte: punkte(a), farbe: '#2e7d32', name: gA.name });
+    if (gB && b !== a) reihen.push({ punkte: punkte(b), farbe: '#1565c0', name: gB.name });
+    _gsVerlauf(cv, reihen, { hoehe: 140 });
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+    var leg = document.getElementById('mw-vgl-legende');
+    if (leg) leg.innerHTML = reihen.map(function (r) { return '<span class="gs-mw-vgl-farbe" style="background:' + r.farbe + '" aria-hidden="true"></span>' + esc(r.name) + ' (' + r.punkte.length + ')'; }).join(' &nbsp;·&nbsp; ') + ' — ' + esc(_gsMetricLabel(k)) + ' ' + esc(k.unit);
+    cv.setAttribute('aria-label', reihen.map(function (r) { return r.name; }).join(' und ') + ' · ' + _gsMetricLabel(k));
+  } catch (_) {}
+};
 function _gsMwVerlaufMalen(cv, geraetId, metric) {
   try {
     var k = _gsMetric(metric); var g = gsGeraete().find(function (x) { return x.id === geraetId; });
@@ -74175,6 +74235,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.57', date: '05.09.2026',
+    headline: '📈 Zwei Standorte im selben Diagramm — und die Messwerte als CSV mit Einheit',
+    summary: 'Zwei Ideen aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11, Ideen 9 und 12). Im Messwerte-Dashboard gibt es einen Vergleich: eine Messgrösse, zwei Geräte, zwei Linien mit Legende — nur Messgrössen, die beide Geräte haben, mit dem Hinweis, den Verlauf zu vergleichen und nicht die Zahl (verschiedene Sensoren messen Prozent verschieden). Und „Daten exportieren" kennt die Messwerte: eine Zeile je Wert mit Zeitpunkt, Gerät, Messgrösse, Wert, Einheit, Qualität und Quelle — die Einheit steht in der Datei, damit „31.5" auch dann noch etwas bedeutet, wenn sich der Katalog ändert.',
+    user_summary: '📈 Im Messwerte-Dashboard kannst du zwei Geräte nebeneinander vergleichen, und unter „Daten exportieren" gibt es die Messwerte als CSV.',
+    user_items: [
+      {emoji:'📈', bold:'Vergleich:', text:' Balkon Süd gegen Balkon Nord — dieselbe Messgrösse, zwei Linien, mit Legende. Wähle Messgrösse und Geräte; verglichen wird der Verlauf, nicht die Zahl.'},
+      {emoji:'📊', bold:'Messwerte als CSV:', text:' Ein Wert je Zeile, mit Gerät, Einheit, Qualität und Quelle — für Excel, Numbers oder Sheets, und als Auskunft nach revDSG.'},
+    ],
+  },
+  {
     v: 'v32.56', date: '04.09.2026',
     headline: '🌿 Lina kennt deine Zahlen — und der Kalender sagt, wenn Frost kommt',
     summary: 'Zwei Ideen aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11, Ideen 6 und 10). Lina bekommt jetzt die Zahlen in ihren Kontext: fällige Aufgaben (mit „seit N Tagen" und Sensor-Grund), verletzte Regeln, und je Gerät der letzte plausible Messwert mit Zeit, Anzahl der Werte in sieben Tagen und Lücke seit dem letzten — mit der Anweisung, nur daraus zu zitieren und bei fehlenden Werten das zu sagen. Bis dahin wusste sie Pflanzenzahl, Region und Jahreszeit. Ein Prüfstand hält fest, dass jede Zahl im Kontext aus einem Datensatz stammt. Und der Kalender zeigt „Frost möglich — Tiefstwert 1.2 °C" aus der Open-Meteo-Tagesvorhersage im Zwischenspeicher, offline, mit Quelle, Standort und Alter im Grund — eine Vorhersage, kein Messwert.',
@@ -74991,7 +75061,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.56';
+var GS_VERSION = 'v32.57';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79456,10 +79526,50 @@ window.gsExportDiaryCSV = function(){
 };
 
 // v24.38: Combined Export-Modal (Settings → Daten exportieren)
+// v32.57 (§11 Idee 12): Messwerte als CSV — die EINHEIT steht in der Datei,
+// sonst bedeutet „31.5" nichts mehr, sobald sich der Katalog aendert. Ein
+// Wert je Zeile, mit Geraet, Qualitaet und Quelle. Liefert den Text zurueck,
+// damit ein Pruefstand ihn liest, ohne den Download zu stellen.
+window.gsExportMesswerteCSV = function(){
+  try {
+    var werte = (typeof _gsMesswerteAlle === 'function') ? _gsMesswerteAlle() : [];
+    if (!werte.length) {
+      if (typeof showProfileToast === 'function') showProfileToast({type:'warn', icon:'📊', title:'Keine Messwerte', body:'Es liegen noch keine Messwerte vor.', duration:3500});
+      return '';
+    }
+    var gerMap = {}; (typeof gsGeraete === 'function' ? gsGeraete() : []).forEach(function(g){ if (g) gerMap[g.id] = g; });
+    function esc(s){ s = (s == null ? '' : String(s)).replace(/"/g, '""'); return '"' + s + '"'; }
+    var csv = 'Zeitpunkt,Gerät,Gerät-Id,Messgrösse,Messgrösse-Schlüssel,Wert,Einheit,Qualität,Quelle\r\n';
+    werte.slice().sort(function(a, b){ return String(a.ts).localeCompare(String(b.ts)); }).forEach(function(m){
+      if (!m) return;
+      var k = (typeof _gsMetric === 'function') ? _gsMetric(m.metric) : null, g = gerMap[m.geraet_id];
+      csv += [esc(m.ts), esc(g ? g.name : ''), esc(m.geraet_id), esc(k ? _gsMetricLabel(k) : m.metric), esc(m.metric), (typeof m.wert === 'number' ? m.wert : esc(m.wert)), esc(k ? k.unit : ''),
+        esc(m.quality === 2 ? 'plausibel' : m.quality === 1 ? 'ausserhalb des Messbereichs' : 'Gerätefehler'), esc(m.quelle || '')].join(',') + '\r\n';
+    });
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var dateStr = new Date().toISOString().slice(0, 10);
+    var filename = 'greenscan-messwerte-' + dateStr + '.csv';
+    // Der Download-Helfer der beiden aelteren Exporte ist dort LOKAL — hier ein eigener.
+    var herunterladen = function(u, name){ var a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); };
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'text/csv' })] })) {
+      var file = new File([blob], filename, { type: 'text/csv' });
+      navigator.share({ files: [file], title: 'Meine GreenScan-Messwerte', text: 'Export von ' + werte.length + ' Messwerten am ' + dateStr })
+        .catch(function(){ herunterladen(url, filename); }).finally(function(){ setTimeout(function(){ URL.revokeObjectURL(url); }, 1500); });
+    } else {
+      herunterladen(url, filename);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+    }
+    if (typeof showProfileToast === 'function') showProfileToast({type:'success', icon:'📊', title:'Export erstellt', body:werte.length + ' Messwerte als CSV', duration:3000});
+    return csv;
+  } catch(e) { if (typeof gsToast === 'function') gsToast('Export fehlgeschlagen: ' + e.message, 'error'); return ''; }
+};
 window.gsShowExportModal = function(){
   var existing = document.getElementById('gs-export-modal'); if (existing) existing.remove();
   var plants = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
   var diaryCount = plants.reduce(function(a, p){ return a + ((p.diary && p.diary.length) || 0); }, 0);
+  var mwCount = (typeof _gsMesswerteAlle === 'function') ? _gsMesswerteAlle().length : 0;   // v32.57
+  var gerCount = (typeof gsGeraete === 'function') ? gsGeraete().length : 0;
   var m = document.createElement('div');
   m.id = 'gs-export-modal';
   m.style.cssText = 'position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.55);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:18px;';
@@ -79481,6 +79591,11 @@ window.gsShowExportModal = function(){
           'style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-md);cursor:pointer;font-family:inherit;text-align:left;">' +
           '<div style="font-size:var(--fs-3xl);">📔</div>' +
           '<div style="flex:1;"><div style="font-weight:800;font-size:var(--fs-md);color:var(--text);">Garten-Tagebuch</div><div style="font-size:var(--fs-sm);color:var(--text2);">' + diaryCount + ' Einträge (giessen, düngen, Notizen)</div></div>' +
+        '</button>' +
+        '<button onclick="window.gsExportMesswerteCSV();document.getElementById(\'gs-export-modal\').remove();" ' +
+          'style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-md);cursor:pointer;font-family:inherit;text-align:left;">' +
+          '<div style="font-size:var(--fs-3xl);">📊</div>' +
+          '<div style="flex:1;"><div style="font-weight:800;font-size:var(--fs-md);color:var(--text);">Messwerte</div><div style="font-size:var(--fs-sm);color:var(--text2);">' + mwCount + ' Werte von ' + gerCount + ' Gerät' + (gerCount === 1 ? '' : 'en') + ' — mit Einheit, Qualität und Quelle</div></div>' +
         '</button>' +
         '<button onclick="document.getElementById(\'gs-export-modal\').remove();" style="margin-top:6px;padding:10px;background:transparent;color:var(--muted);border:none;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">Schliessen</button>' +
       '</div>' +
