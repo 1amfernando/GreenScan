@@ -445,7 +445,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 5 | Schwellwert-Vorlagen nur, wo eine Zahl steht | 0 | klein | **gebaut v32.55** (`gsSchwellwertVorlagen`: Artenliste, Kulturdaten, eigener Verlauf) |
 | 6 | Lina kennt die Zahlen | 0 | klein–mittel | **gebaut v32.56** (`gsLinaZahlen` im Kontext, Prüfstand hält jede Zahl gegen einen Datensatz) |
 | 7 | Ein Meldungs-Budget gegen Alarm-Müdigkeit | 0 | klein | **gebaut v32.54** (`gsNotif.stille`, `showKategorie`, `gsSensorAlarmeMelden`) |
-| 8 | Wochenrückblick statt „N Aufgaben" | 0 | mittel | — |
+| 8 | Wochenrückblick statt „N Aufgaben" | 0 | mittel | **gebaut v32.58** (Karte „Deine Woche", `gsWochenrueckblick`); der `weekly_summary`-Push bleibt bei einer Zahl (Server) |
 | 9 | Zwei Standorte nebeneinander | 0 | klein | **gebaut v32.57** (Vergleich im Dashboard, `_gsMwVergleichMalen`) |
 | 10 | Frostnacht am eigenen Beet | 0 / 1 | klein / mittel | **Stufe 0 gebaut v32.56** (Frost-Ereignis aus der Vorhersage im Kalender); Stufe 1 (Sensor gegen Prognose) braucht ein Gerät |
 | 11 | Server-taugliche Identität und Idempotenz lokal | 0 | klein | **gebaut v32.52** (UUID, `_gsMesswerteAnhaengen` mit Dublettensperre) |
@@ -1190,6 +1190,16 @@ Markierung im Diagramm" aus §6 gibt es seit v32.48 nur über `plant_id`
 |---|---|
 | **Zwei Standorte nebeneinander.** Im Dashboard ein Abschnitt „📈 Vergleich": Messgrösse, Gerät A, Gerät B → zwei Linien über `_gsVerlauf` (grün/blau), Legende mit Namen und Zahl der plausiblen Werte, `aria-label` nennt beide Geräte. Zur Wahl stehen **nur** Messgrössen, die mindestens zwei Geräte mit plausiblen Werten haben (`_gsMwVergleichGroessen`). Der Hinweis dazu: „Verschiedene Sensoren messen verschieden — vergleiche den Verlauf, nicht die Zahl." `_gsVerlauf` schreibt `data-reihen` | Bodenfeuchte wählbar, Licht (nur ein Gerät) nicht · 2 Reihen · Legende Süd (7) · Nord (5) · 1105 grüne und 714 blaue Pixel im Canvas · Hinweis da. Gegenprobe: Schwelle auf ein Gerät → „Licht steht zur Auswahl" |
 | **Messwerte als CSV.** `gsExportMesswerteCSV()` — Zeitpunkt, Gerät, Gerät-Id, Messgrösse, Schlüssel, Wert, **Einheit**, Qualität (plausibel · ausserhalb des Messbereichs · Gerätefehler), Quelle; chronologisch; dritter Knopf in „Daten exportieren" mit Zahl der Werte und Geräte; liefert den Text zurück, damit der Prüfstand ihn liest | 18 Zeilen für 18 Werte · Kopf mit Einheit · „Balkon Süd · Erde", 22, %, plausibel, hand · 250 als „ausserhalb des Messbereichs" · chronologisch · genau ein Download. Gegenprobe: Einheit leer → rot |
+
+### 11.3g · Was v32.58 gebaut hat (Idee 8)
+
+| Gebaut | Was der Prüfstand festhält (`sensor_check` „Deine Woche") |
+|---|---|
+| **Karte „Deine Woche"** im Startseiten-Stapel (zweite Karte, `#woche-card`). `gsWochenrueckblick()` liefert Zeilen aus den Daten, die es schon gibt: erledigte Aufgaben der letzten sieben Tage (`gsTagebuchAlle`, beide Listen und Cloud-Spiegel) und heute offene (`gsGetDueTasks`); Tagebuch-Einträge; Regen und Frostnächte aus den **gemessenen** Werten des Wetterdiensts (Quelle steht dabei, „gemessen"); Feuchte-Tief je Gerät mit Zahl der Werte (zwei Geräte); Geräte, die länger als zwei Tage schwiegen. Keine Note, kein Score, kein Vergleich. Ohne Wetterdienst steht „kein Regen- und Frostwert", nicht 0; ohne jede Daten sagt die Karte, wie sie zu Daten kommt. Rendert beim Bau des Stapels, nach jedem Tagesplan und nach jedem Messwert | Aufgaben-Zeile im Format „N erledigt · M heute offen" · ohne Wetterdienst „kein Wert" · Süd: nie unter 22 % (6 Werte) · mit gestelltem Wetterdienst „10 mm Regen · 1 Frostnacht (Wetterdienst · Zürich, gemessen)" · „Balkon Nord · Erde schwieg 4 Tage" · ohne Daten „Noch keine Woche mit Daten" mit einer Zeile. Gegenprobe: „kein Wetterdienst" durch „0 mm Regen" ersetzt → rot |
+
+Nicht gebaut aus Idee 8: der `weekly_summary`-Push des Servers bekommt
+weiterhin nur eine Zahl — die Karte rechnet lokal, der Cron hat diese
+Daten nicht (Messwerte liegen in Stufe 0 nur auf dem Gerät).
 
 Nicht gebaut aus Idee 12: die `delete-user`-Liste kennt die fünf neuen
 Tabellen weiterhin nicht (Edge-Function, Fernandos Handgriff beim nächsten
