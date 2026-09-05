@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.55.20260904">
+<meta name="app-version" content="32.56.20260904">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26598,6 +26598,9 @@ window.gsPflanzeDraussen = gsPflanzeDraussen;
 // entspricht rund 6 Litern je Quadratmeter und durchfeuchtet die oberen
 // Zentimeter zuverlaessig. Darunter wird nichts behauptet.
 var GS_REGEN_REICHT_MM = 6;
+// v32.56: ab welchem Tagesminimum der Kalender „Frost möglich" sagt — dieselbe
+// Grenze wie gsCheckFrostWarning (Startseite) und der Server-Push.
+var GS_FROST_GRENZE_C = 2;
 
 function gsGetDueTasks(){
   var out = [];
@@ -27647,6 +27650,24 @@ function gsKalenderEreignisse(von, bis) {
       var r = gsRegenGefallen();
       if (r && r.mm > 0) out.push({ id: 'wetter:' + heute, art: 'wetter', datum: heute, zeit: null, ts: null, titel: r.mm + ' mm Regen bis jetzt', emoji: '🌧️',
         pflanze: null, garten_id: null, quelle: 'wetter', status: 'info', faellig_seit: null, verweis: null, grund: 'Open-Meteo, Stundenwerte bis zur aktuellen Stunde' });
+    }
+  } catch (_) {}
+  // 5b · Frost aus der VORHERSAGE (Open-Meteo, Tagesminimum im Zwischenspeicher)
+  //      — v32.56, §11 Idee 10 Stufe 0. Ein Info-Ereignis, kein Messwert: der
+  //      Grund sagt Quelle, Standort und Alter. Dieselbe Grenze wie der
+  //      Frost-Tipp auf der Startseite und der Server-Push (2 °C).
+  try {
+    var c5 = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
+    var dly = c5 && c5.data && c5.data.daily;
+    if (dly && Array.isArray(dly.time) && Array.isArray(dly.temperature_2m_min)) {
+      var alterH = c5.ts ? Math.round((Date.now() - c5.ts) / 3600000) : null;
+      for (var fi = 0; fi < dly.time.length && fi < 7; fi++) {
+        var ftag = String(dly.time[fi]).slice(0, 10), fmin = Number(dly.temperature_2m_min[fi]);
+        if (!im(ftag) || ftag < heute || !isFinite(fmin) || fmin > GS_FROST_GRENZE_C) continue;
+        out.push({ id: 'frost:' + ftag, art: 'wetter', datum: ftag, zeit: null, ts: null, titel: 'Frost möglich — Tiefstwert ' + (Math.round(fmin * 10) / 10) + ' °C', emoji: '❄️',
+          pflanze: null, garten_id: null, quelle: 'wetter', status: 'info', faellig_seit: null, verweis: null,
+          grund: 'Vorhersage Open-Meteo für den Nutzer-Standort (Tagesminimum, kein Messwert)' + (alterH != null ? ', Stand vor ' + alterH + ' h' : '') + ' — Reif bildet sich schon bei +2 °C Lufttemperatur' });
+      }
     }
   } catch (_) {}
   // 6 · Messwerte (Stufe 0 von Hand) — je Geraet und Tag EIN Ereignis — und
@@ -74154,6 +74175,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.56', date: '04.09.2026',
+    headline: '🌿 Lina kennt deine Zahlen — und der Kalender sagt, wenn Frost kommt',
+    summary: 'Zwei Ideen aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11, Ideen 6 und 10). Lina bekommt jetzt die Zahlen in ihren Kontext: fällige Aufgaben (mit „seit N Tagen" und Sensor-Grund), verletzte Regeln, und je Gerät der letzte plausible Messwert mit Zeit, Anzahl der Werte in sieben Tagen und Lücke seit dem letzten — mit der Anweisung, nur daraus zu zitieren und bei fehlenden Werten das zu sagen. Bis dahin wusste sie Pflanzenzahl, Region und Jahreszeit. Ein Prüfstand hält fest, dass jede Zahl im Kontext aus einem Datensatz stammt. Und der Kalender zeigt „Frost möglich — Tiefstwert 1.2 °C" aus der Open-Meteo-Tagesvorhersage im Zwischenspeicher, offline, mit Quelle, Standort und Alter im Grund — eine Vorhersage, kein Messwert.',
+    user_summary: '🌿 Lina weiss jetzt, was bei dir fällig ist und was deine Geräte zuletzt gemessen haben — und sagt ehrlich, wenn ein Wert fehlt. Der Kalender warnt vor Frostnächten aus der Vorhersage.',
+    user_items: [
+      {emoji:'🌿', bold:'Lina kennt die Zahlen:', text:' Fällige Aufgaben, verletzte Regeln und die letzten Messwerte deiner Geräte stehen in ihrem Kontext — mit Zeit und Anzahl. Fehlt ein Wert, sagt sie es, statt zu raten.'},
+      {emoji:'❄️', bold:'Frost im Kalender:', text:' Liegt das Tagesminimum der Vorhersage bei 2 °C oder darunter, steht „Frost möglich" am Tag — mit Quelle und Alter der Vorhersage. Auch ohne Netz, aus dem letzten Abruf.'},
+    ],
+  },
+  {
     v: 'v32.55', date: '04.09.2026',
     headline: '💡 Regel-Vorlagen nur, wo eine Zahl steht — und Messgrössen in vier Sprachen',
     summary: 'Zwei Ideen aus dem Sensoren-Kapitel (docs/OEKOSYSTEM-V1.md §11, Ideen 5 und 22). Beim Anlegen einer Regel schlägt das Dashboard Schwellen vor — aber nur aus Quellen mit einer echten Zahl: die Artenliste (Licht bei 40 Hauspflanzen, z.B. Monstera unter 200 lux), die Kulturdaten (Bodentemperatur für die Keimung bei 39 Kulturen) und der eigene Verlauf (nach 14 Tagen das Tief und Hoch). Nie eine Feuchte-Schwelle aus Artendaten, ein Prozentwert ist sensorabhängig. Eine Vorlage füllt das Formular, angelegt wird von Hand; ohne Zahl steht „keine Empfehlung hinterlegt". Und die Namen der Messgrössen gehen durch EINE Funktion: Spalte aus der Server-Tabelle (fr/it/en), sonst die Sprachschicht, sonst Deutsch — bis dahin las die App an 24 Stellen nur label_de.',
@@ -74960,7 +74991,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.55';
+var GS_VERSION = 'v32.56';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -83789,15 +83820,66 @@ var LINA_SYSTEM =
   '• propose_reminder {"task":"...","plantName":"...","intervalDays":N} — richtet eine Pflege-Erinnerung für eine VORHANDENE Pflanze ein. Erlaubte task: water, fertilize, repot, rotate, mist, dust, prune, check.\n' +
   'REGELN: Erfinde keine anderen Tools, keine anderen screens/tasks. Schreib-Aktionen (Pflanze/Erinnerung) zeigt die App dem Nutzer zur Bestätigung — du fügst nie heimlich etwas hinzu. Erinnerungen gehen nur auf Pflanzen, die der Nutzer schon in „Meine Pflanzen" hat (sonst schlage zuerst propose_add_plant vor). Wenn keine Aktion nötig ist, hänge KEINE Zeile an. Du kannst niemals Daten löschen, Einstellungen/Rollen/Zahlungen ändern oder Admin-Dinge tun.';
 
+// v32.56: Lina kennt die Zahlen (OEKOSYSTEM-V1.md §11 Idee 6). Bis v32.55 wusste
+// sie Pflanzenzahl, Region und Jahreszeit — und `opts.brain` injizierte
+// nichts (CLAUDE.md §3.4). Jetzt stehen faellige Aufgaben, verletzte Regeln
+// und je Geraet der letzte PLAUSIBLE Wert mit Zeit, Anzahl und Luecke im
+// Kontext — und die Anweisung, nur daraus zu zitieren. Ein Prompt ist keine
+// Garantie (§4a.2); sensor_check haelt fest, dass jede Zahl im Kontext aus
+// einem Datensatz stammt. Deckel ~700 Zeichen: Kontext, kein Datenexport.
+var GS_LINA_ZAHLEN_MAX = 700;
+function gsLinaZahlen(){
+  try {
+    var teile = [];
+    var faellig = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().filter(function(x){ return x && x.plant && x.days <= 0; }) : [];
+    if (faellig.length) {
+      teile.push('Fällig: ' + faellig.slice(0, 5).map(function(x){
+        var verb = (typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase();
+        return (x.plant.name || '?') + ' ' + verb + (x.days < 0 ? ' (seit ' + (-x.days) + ' Tag' + (x.days === -1 ? '' : 'en') + ')' : ' (heute)') + (x.sensor ? ' [Sensor]' : '');
+      }).join('; ') + (faellig.length > 5 ? '; +' + (faellig.length - 5) + ' weitere' : '') + '.');
+    } else teile.push('Fällig: keine Aufgaben heute.');
+    var ger = (typeof gsGeraete === 'function') ? gsGeraete() : [];
+    if (!ger.length) teile.push('Geräte: keine — es liegen keine Messwerte vor.');
+    else {
+      var alarme = [], zeilen = [], jetzt = Date.now();
+      ger.slice(0, 4).forEach(function(g){
+        gsRegelnPruefen(g.id).forEach(function(z){ if (z.zustand === 'verletzt' && alarme.length < 3) alarme.push(g.name + ': ' + z.text + ' — ' + z.grund); });
+        var metrics = (g.capabilities && Array.isArray(g.capabilities.metrics)) ? g.capabilities.metrics.slice(0, 3) : [];
+        var st = metrics.map(function(mk){
+          var k = _gsMetric(mk); if (!k) return null;
+          var w = gsMesswerte(g.id, mk), plaus = w.filter(function(m){ return m.quality === 2; }), lp = plaus[plaus.length - 1], letzter = w[w.length - 1];
+          // Rohwerte, nicht die gerundete Anzeige: 31.5 % darf im Kontext nicht zu 32 % werden.
+          if (!lp) return _gsMetricLabel(k) + ': kein plausibler Wert' + (letzter ? ' (letzter ' + letzter.wert + ' ' + k.unit + ' unplausibel)' : '');
+          var n7 = plaus.filter(function(m){ return jetzt - new Date(m.ts).getTime() <= 7 * 864e5; }).length;
+          var luecke = Math.round((jetzt - new Date(lp.ts).getTime()) / 3600000);
+          return _gsMetricLabel(k) + ' ' + lp.wert + ' ' + k.unit + ' (' + _gsKalDatumKurz(lp.ts) + ' ' + (_gsKalZeit(lp.ts) || '') + '; ' + n7 + ' Werte in 7 Tagen; letzter Wert vor ' + luecke + ' h)';
+        }).filter(Boolean);
+        if (st.length) zeilen.push(g.name + ' [' + _gsGeraetArt(g).label + ']: ' + st.join(' · '));
+        else zeilen.push(g.name + ': noch keine Werte');
+      });
+      if (alarme.length) teile.push('Alarme: ' + alarme.join('; ') + '.'); else teile.push('Alarme: keine verletzte Regel.');
+      teile.push('Messwerte: ' + zeilen.join(' | ') + '.');
+    }
+    var txt = teile.join('\n');
+    if (txt.length > GS_LINA_ZAHLEN_MAX) txt = txt.slice(0, GS_LINA_ZAHLEN_MAX - 1) + '…';
+    return txt;
+  } catch(_){ return ''; }
+}
+window.gsLinaZahlen = gsLinaZahlen;
 function gsLinaContext(){
   try {
     var ctx = '';
     var plants = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.length : 0;
-    if (plants) ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich): Die Person hat ' + plants + ' Pflanze(n) in GreenScan.';
+    var pflanzungen = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.length : 0;
+    if (plants || pflanzungen) ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich): Die Person hat ' + plants + ' Pflanze(n)' + (pflanzungen ? ' und ' + pflanzungen + ' Garten-Pflanzung(en)' : '') + ' in GreenScan.';
+    else ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich):';
     var loc = localStorage.getItem('gs_user_location');
     if (loc) { try { var l = JSON.parse(loc); if (l && l.name) ctx += ' Region: ' + l.name + '.'; } catch(_){} }
     var mon = new Date().getMonth() + 1;
     ctx += ' Jahreszeit: ' + ((mon>=3&&mon<=5)?'Frühling':(mon>=6&&mon<=8)?'Sommer':(mon>=9&&mon<=11)?'Herbst':'Winter') + '.';
+    var zahlen = gsLinaZahlen();
+    if (zahlen) ctx += '\n' + zahlen;
+    ctx += '\nREGEL: Zahlen, Daten und Gerätenamen nur aus diesem KONTEXT zitieren. Fehlt ein Wert, sag, dass keiner vorliegt — nichts schätzen, nichts interpolieren.';
     return ctx;
   } catch(_){ return ''; }
 }

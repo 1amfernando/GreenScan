@@ -424,6 +424,29 @@ const FAELLE = [
     },
   },
   {
+    // v32.56: Frost aus der VORHERSAGE (§11 Idee 10, Stufe 0) — ein Info-Ereignis
+    // mit Quelle, Standort und Alter; nur heute und spaeter; 2 °C ist die Grenze
+    // (dieselbe wie Startseite und Server-Push); ohne Tageswerte nichts.
+    name: 'Frost · aus der Vorhersage: morgen 1.2 °C → Ereignis mit Quelle und Alter, 5 °C → keins, gestern → keins, ohne Tageswerte → keins',
+    lauf: () => {
+      const heute = gsHeuteTag(), morgen = _gsKalTagPlus(heute, 1), gestern = _gsKalTagPlus(heute, -1);
+      const frost = (von, bis) => gsKalenderEreignisse(von, bis).filter(e => e.art === 'wetter' && /Frost/.test(e.titel));
+      try {
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 2 * 3600000, data: { daily: { time: [gestern, heute, morgen], temperature_2m_min: [0, 6.5, 1.2] } } }));
+        const ev = frost(gestern, morgen);
+        if (ev.length !== 1 || ev[0].datum !== morgen) return { ok: false, warum: ev.length + ' Frost-Ereignisse (erwartet 1, morgen): ' + JSON.stringify(ev.map(e => e.datum)) + ' — gestern (0 °C) darf keins erzeugen' };
+        if (!/1\.2 °C/.test(ev[0].titel) || ev[0].status !== 'info' || !/Vorhersage/.test(ev[0].grund) || !/vor 2 h/.test(ev[0].grund) || !/kein Messwert/.test(ev[0].grund)) return { ok: false, warum: 'Titel/Grund: ' + ev[0].titel + ' — ' + ev[0].grund };
+        gsKalenderOeffnenAm(morgen);
+        if (!/Frost möglich/.test((document.getElementById('modal-content') || {}).textContent || '')) return { ok: false, warum: 'das Tagesblatt zeigt das Frost-Ereignis nicht (aus dem HTML gelesen)' };
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { daily: { time: [heute, morgen], temperature_2m_min: [6.5, 5] } } }));
+        if (frost(heute, morgen).length) return { ok: false, warum: '5 °C erzeugt ein Frost-Ereignis' };
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { hourly: { time: [heute + 'T06:00'], precipitation: [0] } } }));
+        if (frost(heute, morgen).length) return { ok: false, warum: 'ohne Tageswerte ein Frost-Ereignis' };
+        return { ok: true, info: 'morgen 1.2 °C → „Frost möglich" mit Vorhersage-Quelle, Stand vor 2 h, im Tagesblatt · 5 °C → keins · gestern → keins · ohne Tageswerte → keins' };
+      } finally { localStorage.removeItem('gs_weather_cache'); }
+    },
+  },
+  {
     name: 'Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt',
     lauf: () => {
       // v32.49: das Cloud-Tagebuch ist die dritte Quelle — ein „ohne Daten",
