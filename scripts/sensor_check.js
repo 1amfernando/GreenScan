@@ -569,6 +569,69 @@ const FAELLE = [
       return { ok: true, info: ctx.length + ' Zeichen · ' + zahlen.length + ' Zahlen, alle aus Datensätzen · Alarm, Fälligkeit, Anzahl und Lücke genannt · ohne Daten „keine"' };
     },
   },
+  {
+    // v32.57: Zwei Geraete, dieselbe Groesse, zwei Linien (§11 Idee 9). Nur
+    // Messgroessen, die BEIDE haben; die Legende nennt beide; die Zahl der
+    // gezeichneten Reihen steht am Canvas; ein Geraet ohne die Groesse fehlt
+    // in der Auswahl.
+    name: 'Vergleich · zwei Geräte, dieselbe Grösse, zwei Linien mit Legende — nur Grössen, die beide haben',
+    lauf: () => {
+      const gB = gsGeraetAnlegen({ kind: 'manual', name: 'Balkon Nord · Erde', garden_id: 'g1' });
+      const gC = gsGeraetAnlegen({ kind: 'manual', name: 'Licht-Probe', garden_id: 'g1' });
+      try {
+        for (let i = 0; i < 5; i++) gsMesswertEintragen(gB.id, 'soil_moisture', 40 + i, new Date(Date.now() - (5 - i) * 864e5).toISOString());
+        gsMesswertEintragen(gC.id, 'light', 800, new Date(Date.now() - 3600000).toISOString());   // nur EIN Geraet hat Licht
+        gsMesswerteOeffnen();
+        const mc = document.getElementById('modal-content');
+        const sel = mc.querySelector('#mw-vgl-metric'); if (!sel) return { ok: false, warum: 'kein Vergleich im Dashboard, obwohl zwei Geräte Bodenfeuchte haben' };
+        const groessen = Array.from(sel.options).map(o => o.value);
+        if (groessen.indexOf('soil_moisture') < 0) return { ok: false, warum: 'Bodenfeuchte fehlt in der Auswahl' };
+        if (groessen.indexOf('light') >= 0) return { ok: false, warum: 'Licht steht zur Auswahl, obwohl nur ein Gerät es misst' };
+        const a = mc.querySelector('#mw-vgl-a'), b = mc.querySelector('#mw-vgl-b');
+        const seed = gsGeraete().find(g => g.id === 'ger_seed_1');
+        a.value = seed.id; b.value = gB.id; _gsMwVergleichMalen();
+        const cv = mc.querySelector('#mw-vgl-canvas');
+        if (!cv || cv.width < 100) return { ok: false, warum: 'Vergleichs-Diagramm nicht gezeichnet' };
+        if (cv.dataset.reihen !== '2') return { ok: false, warum: 'gezeichnete Reihen: ' + cv.dataset.reihen + ' (erwartet 2)' };
+        const leg = (mc.querySelector('#mw-vgl-legende') || {}).textContent || '';
+        if (!/Balkon Süd · Erde/.test(leg) || !/Balkon Nord · Erde/.test(leg) || !/Bodenfeuchte/.test(leg)) return { ok: false, warum: 'die Legende nennt nicht beide Geräte und die Grösse: ' + leg };
+        if (!/\(7\)/.test(leg) || !/\(5\)/.test(leg)) return { ok: false, warum: 'die Legende nennt die Zahl der plausiblen Werte nicht (7 und 5): ' + leg };
+        const px = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let gruen = 0, blau = 0;
+        for (let i = 0; i < px.length; i += 4) { if (px[i + 3] > 0) { if (px[i + 2] > 150 && px[i] < 80) blau++; else if (px[i + 1] > 100 && px[i] < 80 && px[i + 2] < 80) gruen++; } }
+        if (gruen < 20 || blau < 20) return { ok: false, warum: 'zwei Linien versprochen, gezeichnet: grün ' + gruen + ' px, blau ' + blau + ' px' };
+        if (!/vergleiche den Verlauf, nicht die Zahl/.test(mc.textContent)) return { ok: false, warum: 'der Hinweis „Verlauf, nicht Zahl" fehlt' };
+        if (!cv.getAttribute('aria-label') || !/Balkon Süd · Erde und Balkon Nord · Erde/.test(cv.getAttribute('aria-label'))) return { ok: false, warum: 'aria-label nennt die Geräte nicht: ' + cv.getAttribute('aria-label') };
+        return { ok: true, info: 'Bodenfeuchte wählbar, Licht (nur ein Gerät) nicht · 2 Reihen · Legende: Süd (7) · Nord (5) · grün ' + gruen + ' px, blau ' + blau + ' px · Hinweis da' };
+      } finally { gsGeraetLoeschen(gB.id); gsGeraetLoeschen(gC.id); }
+    },
+  },
+  {
+    // v32.57: CSV-Export der Messwerte (§11 Idee 12) — die Einheit steht IN der
+    // Datei, ein Wert je Zeile, Geraet, Qualitaet und Quelle dabei. Die
+    // Funktion liefert den Text zurueck; der Download wird nicht gestellt.
+    name: 'CSV · der Messwerte-Export trägt Einheit, Gerät, Qualität und Quelle — ein Wert je Zeile',
+    lauf: () => {
+      const echtClick = HTMLAnchorElement.prototype.click; let klicks = 0;
+      HTMLAnchorElement.prototype.click = function () { klicks++; };
+      try {
+        const csv = gsExportMesswerteCSV();
+        const zeilen = csv.split('\r\n').filter(Boolean);
+        if (!zeilen.length) return { ok: false, warum: 'leerer Export' };
+        if (!/^Zeitpunkt,Gerät,Gerät-Id,Messgrösse,Messgrösse-Schlüssel,Wert,Einheit,Qualität,Quelle$/.test(zeilen[0])) return { ok: false, warum: 'Kopfzeile: ' + zeilen[0] };
+        const n = _gsMesswerteAlle().length;
+        if (zeilen.length - 1 !== n) return { ok: false, warum: (zeilen.length - 1) + ' Zeilen für ' + n + ' Werte' };
+        const seedZeile = zeilen.find(z => /"Balkon Süd · Erde"/.test(z) && /"soil_moisture"/.test(z) && /,22,/.test(z));
+        if (!seedZeile) return { ok: false, warum: 'die Zeile für Balkon Süd · Erde, Bodenfeuchte 22 fehlt' };
+        if (!/"%"/.test(seedZeile) || !/"plausibel"/.test(seedZeile) || !/"hand"/.test(seedZeile) || !/"Bodenfeuchte"/.test(seedZeile)) return { ok: false, warum: 'Einheit, Qualität, Quelle oder Name fehlen: ' + seedZeile };
+        const unpl = zeilen.find(z => /,250,/.test(z));
+        if (!unpl || !/ausserhalb des Messbereichs/.test(unpl)) return { ok: false, warum: 'der unplausible Wert (250) ist nicht als solcher markiert: ' + unpl };
+        const ts = zeilen.slice(1).map(z => z.split(',')[0]);
+        if (JSON.stringify(ts) !== JSON.stringify(ts.slice().sort())) return { ok: false, warum: 'die Zeilen sind nicht chronologisch' };
+        if (klicks !== 1) return { ok: false, warum: 'Download-Klicks: ' + klicks + ' (erwartet 1)' };
+        return { ok: true, info: zeilen.length - 1 + ' Zeilen · Kopf mit Einheit · 22 % plausibel/hand · 250 ausserhalb · chronologisch · 1 Download' };
+      } finally { HTMLAnchorElement.prototype.click = echtClick; }
+    },
+  },
 ];
 
 (async () => {

@@ -4,13 +4,29 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-04 · **Branch**: `main` · **Version**: `v32.56` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-05 · **Branch**: `main` · **Version**: `v32.57` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-05 (et) — v32.57: zwei Standorte im selben Diagramm; Messwerte als CSV mit Einheit
+
+`docs/OEKOSYSTEM-V1.md` §11 Ideen 9 und 12.
+
+- **Vergleich** im Messwerte-Dashboard: Messgrösse, Gerät A, Gerät B, zwei
+  Linien mit Legende und Wertezahl; nur Messgrössen, die mindestens zwei
+  Geräte haben; Hinweis „Verlauf, nicht Zahl". `_gsVerlauf` schreibt
+  `data-reihen`.
+- **CSV-Export der Messwerte** (`gsExportMesswerteCSV`): Zeitpunkt, Gerät,
+  Messgrösse, Wert, **Einheit**, Qualität, Quelle — ein Wert je Zeile,
+  chronologisch; dritter Knopf in „Daten exportieren". Der alte
+  Download-Helfer ist lokal in `gsExportPlantsCSV` — der neue Export hat
+  seinen eigenen.
+
+`sensor_check` 20 Fälle (+2). Zwei Gegenproben rot.
 
 ### 2026-09-04 (es) — v32.56: Lina kennt die Zahlen; Frost aus der Vorhersage im Kalender
 
@@ -8834,7 +8850,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.56` (Client) · SW-Cache `gs-v32.56` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.57` (Client) · SW-Cache `gs-v32.57` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
