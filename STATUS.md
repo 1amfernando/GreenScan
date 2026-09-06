@@ -4,13 +4,43 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-05 · **Branch**: `main` · **Version**: `v32.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-06 · **Branch**: `main` · **Version**: `v32.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-06 (ey) — Sensor-Alarme werden zum Push (kein App-Bump)
+
+`docs/OEKOSYSTEM-V1.md` §11.3k, Idee 16 zweite Hälfte. **Fund gegen den
+eigenen Text vom Vortag:** der Cron `device-alerts` schreibt `sensor_alert`
+in `notifications` — und niemand pusht Inbox-Zeilen; die Brücke (v30.80)
+läuft nur push_send_log → notifications. Nachgemessen im Repo (`grep`: ein
+Leser von `notifications`, `stripe-webhook`) und live, nur lesend
+(`cron.job`; Spalten von `notifications`, `push_send_log`,
+`push_subscriptions` — keine `pushed_at`, kein `notify_sensor`, keine
+Gerätetabellen: alles wie erwartet, nichts angewandt).
+
+- **`supabase/functions/_shared/sensor_push_regeln.mjs`** +
+  **`scripts/sensor_push_check.js`** (Prüfstand 26): 9 Fälle, fünf
+  Gegenproben rot. Regeln: Fenster 24 h, je Meldung und Abonnement ein
+  Versuch (Marker im Protokoll), `notify_sensor`, Pause, Stille wie
+  daily-push-checker, stumm protokolliert und nicht nachgeholt, Tag je
+  Gerät, Link mit `#geraet-<id>`.
+- **`supabase/functions/sensor-push/index.ts`** — Deno, **nicht ausgeführt**.
+- **`supabase/migrations/20260906_sensor_push.sql`, nicht angewandt:** die
+  Brücke spiegelt Zeilen mit `notification_id` nicht mehr (sonst jeder Alarm
+  zweimal in der Inbox); Cron `device-alerts` ruft `sensor-push` nur bei
+  lost + rules > 0. Dafür zählt `fn_device_alerts` (20260905, korrigiert)
+  neue Zeilen (`row_count`), nicht Schleifendurchläufe.
+- **`delete-user`**: die fünf Gerätetabellen in `USER_TABLES` (wirksam nach
+  den Migrationen; vorher ein „error: relation …" im Zähler, sonst nichts).
+
+App-Version bleibt v32.61 — kein Client-Code geändert. Prüfstände:
+sensor_push_check 9/9, ingest_check 11/11, backend_check und wiring_check
+unverändert grün.
 
 ### 2026-09-05 (ex) — v32.61: Stufe 1 vorbereitet, ohne Gerät; `#geraet-<id>` führt zur Kachel
 
@@ -8936,6 +8966,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Migration `20260905_device_daily.sql` | Tagesaggregat als Tabelle (§11 Idee 17) — sonst verschwindet das Aggregat mit dem Prune nach 400 Tagen. Nach `20260903_oekosystem_v1_geraete.sql`. | `docs/FUER-FERNANDO.md` §6 · (ex) |
 | Migration `20260905_device_alerts_cron.sql` | Cron `device-alerts` alle 15 Min (§11 Idee 16): verstummte Geräte, verletzte Regeln → `notifications`. Nach `20260903_oekosystem_v1_geraete.sql`. Erst sinnvoll mit dem ersten Gerät. | `docs/FUER-FERNANDO.md` §6 · (ex) |
 | Edge-Function `device-ingest` | Der Empfänger für Geräte — im Repo, nicht ausgeliefert (`supabase functions deploy device-ingest --no-verify-jwt`). Erst mit dem ersten Gerät. | `docs/GERAETE-VERTRAG.md` · (ex) |
+| Migration `20260906_sensor_push.sql` | Brücken-Sperre (`payload_meta.notification_id`) + Cron `device-alerts` ruft `sensor-push` nur bei etwas Neuem (§11.3k). Nach `20260905_device_alerts_cron.sql`. | `docs/FUER-FERNANDO.md` §6 · (ey) |
+| Edge-Function `sensor-push` | Pusht `sensor_alert`-Inbox-Zeilen (VAPID, Stille, Pause, `notify_sensor`) — im Repo, nicht ausgeliefert (`supabase functions deploy sensor-push`). Ohne ihn landet ein Sensor-Alarm nur in der Inbox. | §11.3k · (ey) |
+| Edge-Function `delete-user` | Neu ausliefern: `USER_TABLES` kennt jetzt die fünf Gerätetabellen. | (ey) |
 | **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. | `docs/FUER-FERNANDO.md` §5 · (ep) |
 | Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
 

@@ -539,6 +539,7 @@ node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher vol
 node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46)
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
+node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -820,6 +821,25 @@ rot zu werden. Die Frist zählt jetzt Versuche. **Eine Frist, die die Uhr
 fragt, ist eine Annahme darüber, dass die Uhr läuft** — in jedem Seed-
 Prüfstand tut sie das nicht. Wer eine Wartefunktion baut, zählt Versuche
 oder nimmt `performance.now()`, das die Prüfstände nicht stellen.
+
+**`sensor_push_check.js` (seit 06.09.2026) prüft den zweiten Empfänger-Rand:
+`sensor-push`.** Anlass: die Brücke `push_send_log → notifications` (v30.80)
+läuft in EINE Richtung — eine Inbox-Zeile wird nie zum Push, und §11.3j
+hatte am Vortag das Gegenteil behauptet (nachgemessen: ein `grep` über alle
+Edge-Functions, ein Leser, `stripe-webhook`). Dieselbe Bauform wie
+`ingest_check`: die Rechnung in
+`supabase/functions/_shared/sensor_push_regeln.mjs`, die Edge-Function ist
+der Rand. Drei Regeln, die das Modul hält: **je Meldung und Abonnement
+höchstens ein Versuch** (der Marker ist das Protokoll,
+`payload_meta.notification_id` + `subscription_id`), **stumm wird
+protokolliert und nicht nachgeholt**, und **eine Inbox-Zeile bleibt eine** —
+die Brücke prüft denselben Schlüssel (`BRIDGE_MARKER`), und Fall 8 liest die
+Migration, damit Reparatur und Prüfung dieselbe Regel haben (v32.16). Wer
+eine weitere Push-Quelle baut, die schon eine Inbox-Zeile hat, setzt diesen
+Marker — sonst steht die Meldung zweimal in der Inbox. Und wer eine
+Behauptung über einen Server-Weg schreibt, misst ihn (`grep`, `cron.job`,
+nur lesend) — der Satz vom 05.09. klang richtig, weil die Brücke existiert,
+nur in der anderen Richtung.
 
 **Seit v32.56 trägt Linas Kontext Zahlen — und der Prüfstand hält jede
 gegen einen Datensatz.** `gsLinaZahlen()` schreibt **Rohwerte**, nie die

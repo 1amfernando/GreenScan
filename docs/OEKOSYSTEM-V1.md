@@ -219,8 +219,15 @@ prüfen, dann `action` ausführen:
   **heute**, mit Quelle `sensor` (§6).
 - `calendar` → ein Ereignis der Art `alarm` im Kalender.
 
-Und `stale` für jedes Gerät ohne Regel. Push kommt über denselben Weg wie
-heute (`daily-push`-Muster); kein zweiter Push-Kanal.
+Und `stale` für jedes Gerät ohne Regel. **Push (korrigiert 06.09.2026):**
+eine Zeile in `notifications` ist nur die Inbox — die Brücke aus
+`20260826_push_to_inbox_bridge.sql` läuft push_send_log → notifications,
+nie umgekehrt. Deshalb ruft der Cron die Edge-Function `sensor-push`
+(`20260906_sensor_push.sql`), sobald er etwas Neues gemeldet hat; sie pusht
+über das daily-push-Muster (VAPID, Stille, Pause, `notify_sensor`,
+`push_send_log`) und markiert ihre Protokollzeile mit `notification_id`,
+damit die Brücke keine zweite Inbox-Zeile erzeugt. Kein zweiter Push-Kanal —
+nur eine zweite Quelle (§11.3k).
 
 ## 4 · Die Person als erstes Gerät
 
@@ -453,7 +460,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 13 | Urlaub: Giess-Zettel jetzt, Stellvertreter später | 0 / 2 | mittel / gross | **Stufe 0 gebaut v32.59** (`gsGiessZettel`, Druckansicht; die Pause gab es schon); Stellvertreter braucht `garden_members` (Stufe 2) |
 | 14 | Firmware-Vertrag als geteilte Regeldatei (Uhr, Batch, Antwort) | 1 | mittel | **vorbereitet 05.09.** (`GERAETE-VERTRAG.md`, `ingest_regeln.mjs`, `ingest_check`, `device-ingest`-Skelett) — Ausführung braucht Deno und ein Gerät |
 | 15 | Geräte-Identität ab Werk und Claim-Code-Pairing | 1 | mittel–gross | Entscheid Fernando |
-| 16 | Stille und Batterie: Vorgaberegeln und Cron `device-alerts` | 1 | mittel | **Migration bereit 05.09.** (`20260905_device_alerts_cron.sql`: `expected_by`, `notify_sensor`, Meldung je Tag, `for_minutes`, `cooldown`); Vorgaberegeln beim Pairing offen |
+| 16 | Stille und Batterie: Vorgaberegeln und Cron `device-alerts` | 1 | mittel | **Migration bereit 05.09.** (`20260905_device_alerts_cron.sql`: `expected_by`, `notify_sensor`, Meldung je Tag, `for_minutes`, `cooldown`); **Push-Weg 06.09.** (`sensor-push`, `20260906_sensor_push.sql`, §11.3k); Vorgaberegeln beim Pairing offen |
 | 17 | Tagesaggregat als Tabelle — sonst gibt es keinen Jahresvergleich | 1 | klein (SQL) / mittel | **Migration bereit 05.09.** (`20260905_device_daily.sql`: Tabelle, Aggregat-Funktion, Cron vor dem Prune); Ansicht „Mein Naturjahr" offen |
 | 18 | Firmware-Kanal | 2 | mittel | Gerät |
 | 19 | Transport-Entscheid gegen `_headers` | 2 | Entscheid klein, Bau gross | Gerät |
@@ -1221,7 +1228,7 @@ Was nicht geprüft ist, steht dabei — dieselbe Ehrlichkeit wie beim Rest.
 | **`supabase/functions/_shared/ingest_regeln.mjs`** — die Rechnung des Empfängers als reines ESM-Modul: `pruefeBatch` (Version, Pause, Grenze, Katalog, Zahl, **Uhr**: `age_s` → `server_time − age_s`, `ts` vor 2024 oder > 5 Min voraus → `received_at`, Original in `raw.device_ts`, `clock: untrusted`; **Qualität** 2/1/0, nie verwerfen; Dubletten im Batch), `rateLimit` (je Aufruf), `naechsterKontaktS`, `erwartetBis` (3 Kontakte), `befehleAufbereiten` (abgelaufen → failed, nie gesendet; 3 Versuche), `acksAuswerten`, `antwort` | **`node scripts/ingest_check.js`** — 11 Fälle, jede Regel mit gutem und schlechtem Batch. Drei Gegenproben rot: Uhr nicht ersetzt → „1970 wird eingefügt"; Dubletten nicht gezählt → „rows 3, dupl 0"; abgelaufene Befehle gesendet → c2 in `senden` | — |
 | **`supabase/functions/device-ingest/index.ts`** — der Empfänger (Deno): Token-Hash → Gerät, Rate-Limit, Katalog, `pruefeBatch`, Insert mit `ignoreDuplicates` (der Primärschlüssel hält die Idempotenz), `paired_at` beim ersten Wert, `capabilities.expected_by`, Firmware-Feld, Acks und Befehle, Antwort aus dem Modul | die Rechnung (oben) | **die ganze Funktion** — Deno fehlt hier; Deploy mit `--no-verify-jwt`, dann ein Batch mit `curl` (Vertrag §1) |
 | **`supabase/migrations/20260905_device_daily.sql`** — Tabelle `device_daily` (PK Gerät · Messgrösse · Tag, `n`, `quality_min`, `min/max`), `fn_device_daily_aggregate(seit)` idempotent, Cron täglich (3 Tage nach, wegen Nachlieferungen) und montags **vor** dem Prune (alles seit 401 Tagen); RLS nur lesen | — | **die SQL** (kein Postgres hier) — nach dem Anwenden: `select public.fn_device_daily_aggregate(null);` zweimal, Zeilenzahl gleich |
-| **`supabase/migrations/20260905_device_alerts_cron.sql`** — `notify_sensor` in `push_subscriptions` (nur wenn die Live-Tabelle da ist), `fn_devices_mark_lost` liest `expected_by` (sonst 3 × `interval_s`) und liefert die Ids, `fn_device_alerts()` alle 15 Min: verstummt → `lost` + Meldung `sensor_alert` einmal je Tag; verletzte `notify`-Regeln → Meldung mit `for_minutes`, `cooldown_minutes` (`last_fired_at`), `dedup_key` je Tag, Link `#geraet-<id>` | **der Anker** — v32.61: `geraet` in `GS_ANKER_ARTEN`, `gsAnkerAnspringen` öffnet das Messwerte-Dashboard, wartet auf `id="geraet-<id>"`, hebt die Kachel hervor; entferntes Gerät → Toast + `false` (`sensor_check` „Deep-Link", `wiring_check` Richtung 5) | **die SQL**; und dass `daily-push-checker` die Art `sensor_alert` an `notify_sensor` bindet (eine Zeile dort, nach dem Anwenden) |
+| **`supabase/migrations/20260905_device_alerts_cron.sql`** — `notify_sensor` in `push_subscriptions` (nur wenn die Live-Tabelle da ist), `fn_devices_mark_lost` liest `expected_by` (sonst 3 × `interval_s`) und liefert die Ids, `fn_device_alerts()` alle 15 Min: verstummt → `lost` + Meldung `sensor_alert` einmal je Tag; verletzte `notify`-Regeln → Meldung mit `for_minutes`, `cooldown_minutes` (`last_fired_at`), `dedup_key` je Tag, Link `#geraet-<id>` | **der Anker** — v32.61: `geraet` in `GS_ANKER_ARTEN`, `gsAnkerAnspringen` öffnet das Messwerte-Dashboard, wartet auf `id="geraet-<id>"`, hebt die Kachel hervor; entferntes Gerät → Toast + `false` (`sensor_check` „Deep-Link", `wiring_check` Richtung 5) | **die SQL**; der Push dazu: §11.3k (`sensor-push`) — die Annahme vom 05.09., `daily-push-checker` lese `notifications`, war falsch |
 
 Der Anker war beim ersten Bau **ungelesen**: die Migration schrieb
 `#geraet-<id>`, die App kannte nur `post` und `comment`, und `wiring_check`
@@ -1269,6 +1276,49 @@ Nicht gebaut aus Idee 3: `air_humidity` (der Deckel: zwei Grössen × 24 Stunden
 Platz, den der erste Bodenstab braucht) und der Server-Weg aus
 `weather_forecast_cache` (Stufe 1). Aus Idee 2 fehlt der Modell-Katalog
 `device_models` — er braucht das erste Gerät (11.4).
+
+### 11.3k · Der Push zum Alarm (06.09.2026 — Idee 16, zweite Hälfte)
+
+**Der Fund, gegen den eigenen Text vom Vortag:** §11.3j schrieb, der Push
+komme über `daily-push-checker`, der `notifications` lese. Nachgemessen im
+Repo (`grep` über alle Edge-Functions: ein Leser von `notifications`,
+`stripe-webhook`) und live, nur lesend (`cron.job`, Spalten von
+`notifications` / `push_send_log` / `push_subscriptions`): kein Checker liest
+die Inbox. Die Brücke aus v30.80 spiegelt push_send_log → notifications; die
+Gegenrichtung gibt es nicht. Ein `sensor_alert` des Crons wäre in der Inbox
+gelandet und nie auf dem Telefon — genau der Fall, für den man einen Sensor
+kauft: das Beet trocknet aus, während niemand hinsieht.
+
+| Gebaut | Geprüft | Nicht geprüft |
+|---|---|---|
+| **`supabase/functions/_shared/sensor_push_regeln.mjs`** — `planen` (Fenster 24 h, nur `sensor_alert`, je Meldung und Abonnement höchstens EIN Versuch — der Marker ist das Protokoll, `notify_sensor`, fünf Fehlschläge, Pause, Stille-Zeit mit derselben Rechnung wie daily-push-checker), `nutzlast` (Link mit Anker `#geraet-<id>`, Tag je Gerät), `protokollZeile` / `stummZeile` mit `payload_meta.notification_id` | **`node scripts/sensor_push_check.js`** — 9 Fälle, gut und schlecht je Regel; fünf Gegenproben rot (Dublettensperre, Marker, Brücken-Sperre, Stille-Vorgabe, Cron-Bedingung) | — |
+| **`supabase/functions/sensor-push/index.ts`** — der dünne Rand: Inbox-Zeilen der letzten 24 h, Protokoll, Abonnements, `planen`, senden, protokollieren; 410/404 räumt das Abonnement | die Rechnung (oben) | **die Funktion** — kein Deno hier; Deploy `supabase functions deploy sensor-push`, dann `?dry_run=1` mit dem x-cron-secret |
+| **`supabase/migrations/20260906_sensor_push.sql`** — die Brücke spiegelt Protokollzeilen mit `notification_id` NICHT (sonst stünde jeder Alarm zweimal in der Inbox); der Cron `device-alerts` ruft `sensor-push` nur, wenn `fn_device_alerts()` etwas NEUES gemeldet hat — die Zähler dort sind seit heute `row_count`, nicht Schleifendurchläufe (20260905 korrigiert) | Sperre und Bedingung stehen im Text — Fall 8 liest die SQL, damit Reparatur und Prüfung dieselbe Regel haben | **die SQL**; nach dem Anwenden: `select count(*) from notifications where kind = 'sensor_alert' and dedup_key like 'pushlog_%'` muss 0 bleiben |
+| `delete-user`: die fünf Gerätetabellen in `USER_TABLES` | — | erst nach den Migrationen wirksam; vorher steht „error: relation … does not exist" im Zähler, sonst passiert nichts |
+
+Drei Regeln, die daraus folgen:
+
+- **Stumm ist nicht weg, und stumm wird nicht nachgeholt.** In der Stille-Zeit
+  oder Pause wird protokolliert (`suppressed_quiet` / `suppressed_paused`) —
+  die Inbox hat die Zeile längst. Ein Alarm von 23:30 um 07:00 als Push wäre
+  eine Nachricht über gestern.
+- **Ein Push ist ein Ereignis am Abonnement, nicht an der Meldung.** Der
+  Marker liegt in `push_send_log` (Meldung + Abonnement), nicht in einer
+  neuen Spalte von `notifications` — die Live-Tabelle hat keine, und zwei
+  Telefone desselben Kontos bekommen je ihren Push.
+- **Ein Cron, der einen HTTP-Aufruf macht, macht ihn nur, wenn es etwas zu
+  sagen gibt.** 96 Aufrufe am Tag ins Leere wären der falsche Preis für
+  einen Alarm, der meist nicht kommt.
+
+Und die Lehre über den Fund hinaus: **eine Behauptung über einen Weg, den
+niemand gegangen ist, braucht die Messung, nicht die Erinnerung.** Der Satz
+vom 05.09. klang richtig, weil die Brücke existiert — nur in der anderen
+Richtung.
+
+Was für die App-Seite folgt (Stufe 1, nächste Ausgabe): für Geräte, die in
+der Cloud liegen, ist der Server die Instanz für Alarme — der lokale
+`gsSensorAlarmeMelden` (v32.54) darf dann nur noch `manual` / `weather`
+melden, sonst kommt derselbe Alarm zweimal.
 
 ### 11.4 · Fragen an Fernando (Ergänzung zu §10)
 

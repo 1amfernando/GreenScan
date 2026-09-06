@@ -300,12 +300,20 @@ Messwerte. Sobald sie drin ist, sage ich dir, was als Nächstes kommt
 Gerät.** Drei Dinge, in dieser Reihenfolge, wenn das erste Gerät da ist:
 
 1. Migrationen anwenden: `20260903_oekosystem_v1_geraete.sql`, dann
-   `20260905_device_daily.sql` und `20260905_device_alerts_cron.sql` (alle
-   idempotent, keine bestehende Tabelle wird angefasst).
+   `20260905_device_daily.sql`, `20260905_device_alerts_cron.sql` und
+   `20260906_sensor_push.sql` (alle idempotent; die letzte ersetzt die
+   Brücken-Funktion aus v30.80 wortgleich plus eine Sperrzeile und plant den
+   Cron `device-alerts` neu).
 2. Den Empfänger ausliefern: `supabase functions deploy device-ingest
    --no-verify-jwt` — das Gerät hat kein Nutzerkonto, das Geräte-Token ist die
    Sicherheit. Die Funktion ist hier **nie gelaufen** (kein Deno); ihre
    Rechnung ist geprüft (`node scripts/ingest_check.js`), der Rand nicht.
+   Dazu den Pusher: `supabase functions deploy sensor-push` (verify_jwt
+   bleibt an; der Cron schickt das x-cron-secret wie bei daily-push). Ohne
+   ihn landet ein Sensor-Alarm nur in der Inbox, nie auf dem Telefon —
+   das habe ich am 06.09. gegen meinen eigenen Text vom Vortag nachgemessen
+   (§11.3k). Und `delete-user` neu ausliefern: die Liste kennt jetzt die
+   Gerätetabellen.
 3. Einen Batch von Hand schicken, nach `docs/GERAETE-VERTRAG.md` §1 — mit
    `curl` und einem Token, dessen SHA-256 in `devices.token_hash` steht.
    Erwartet: `accepted`, `server_time`, `next_contact_s`. Sag mir, was
