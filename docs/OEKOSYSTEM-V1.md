@@ -464,7 +464,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 | 17 | Tagesaggregat als Tabelle — sonst gibt es keinen Jahresvergleich | 1 | klein (SQL) / mittel | **Migration bereit 05.09.** (`20260905_device_daily.sql`: Tabelle, Aggregat-Funktion, Cron vor dem Prune); Ansicht „Mein Naturjahr" offen |
 | 18 | Firmware-Kanal | 2 | mittel | Gerät |
 | 19 | Transport-Entscheid gegen `_headers` | 2 | Entscheid klein, Bau gross | Gerät |
-| 20 | Befehle mit Ablauf und Sicherheitsgrenze | 3 | mittel | Vertrag und Rechnung stehen (`befehleAufbereiten`, `acksAuswerten`, 05.09.); Aktor fehlt |
+| 20 | Befehle mit Ablauf und Sicherheitsgrenze | 3 | mittel | Vertrag und Rechnung stehen (`befehleAufbereiten`, `acksAuswerten`, 05.09.); **`expires_at` fehlte in der Tabelle** — `naht_check` 06.09., Migration `20260906_device_commands_expires_at.sql`; Aktor fehlt |
 | 21 | Ein Gerät in den Beispieldaten — sonst vermisst jeder Prüfstand ein leeres Dashboard | 0 | klein | **gebaut v32.52** (`_seed.js`: Gerät, 15 Werte, 1 Regel); Textersatz fürs Diagramm **v32.60** |
 | 22 | Katalog-Labels in vier Sprachen — die Tabelle hat sie, die App liest nur Deutsch | 0 | klein | **gebaut v32.55** (`_gsMetricLabel`, `metric_<key>` in der Sprachschicht, `i18n_check` kennt die Liste) |
 | 23 | Kalibrierung als Daten — Offset und Faktor je Gerät und Messgrösse | 1 | klein–mittel | Migration |
@@ -1393,6 +1393,53 @@ Nicht gebaut: Regeln, die der Server ändert (`last_fired_at`, `enabled`),
 kommen nicht zurück — der Abgleich liest `devices` und `device_readings`,
 nicht `device_rules`. Für Stufe 1 reicht die eine Richtung: die Person
 schreibt Regeln in der App, der Server führt sie aus.
+
+### 11.3n · Die Naht — passen App, Empfänger, Cron und Pusher zusammen? (06.09.2026)
+
+Vier Teile, die einander nie sehen: die App schreibt `devices` und
+`device_rules` und liest `device_readings`; der Empfänger schreibt
+`device_readings` und aktualisiert `devices`; der Cron (SQL) liest Regeln und
+Werte und schreibt `notifications`; der Pusher liest `notifications` und
+`push_subscriptions` und schreibt `push_send_log`. Jeder nennt Spalten und
+Schlüssel der anderen — und bis heute prüfte nichts, ob sie übereinstimmen.
+Eine falsche Spalte fällt in dieser Kette nicht auf: PostgREST antwortet mit
+einem Fehler, der Empfänger gibt 500, das Gerät puffert und versucht es beim
+nächsten Kontakt wieder. Für immer.
+
+**`node scripts/naht_check.js`** (Prüfstand 27, 12 Nähte) liest die
+Spaltenlisten aus den Migrationen (alles, was ein Repo-Skript anlegt) und aus
+einer **datierten** Momentaufnahme (`docs/naht-spalten.json`, nur die drei
+Live-Tabellen, die kein Skript hier anlegt) und hält dagegen, was jeder Teil im
+Quelltext benutzt — Koppel-Satz, Regel-Satz, die select-Listen des Abgleichs,
+die Batch-Zeilen des Empfängers (wirklich gerechnet, nicht gelesen), Patch
+und Selects des Empfängers, die Inserts und Reads des Crons, das Aggregat,
+die Protokollzeile des Pushers, `delete-user`. Dazu eine Rechnung über die
+Naht: das Token, das die App erzeugt, gehasht von der App **und** vom
+Empfänger **und** von Node — dreimal derselbe Hex-String.
+
+**Erster Lauf: vier rot, einer echt.** Der Vertrag (§4) verspricht „ein
+Befehl mit `expires_at` in der Vergangenheit wird nie gesendet", das
+Regel-Modul liest `c.expires_at`, der Empfänger selektiert die Spalte — und
+`device_commands` aus 20260903 **hat sie nicht**. Drei Stellen nannten eine
+Spalte, die keine Migration anlegt, und alle drei sind gegengeprüft
+(`ingest_check` rechnet mit Attrappen, in denen die Spalte natürlich steht).
+Behoben mit `20260906_device_commands_expires_at.sql` (guarded, idempotent);
+der Prüfstand führt die Spalte jetzt als „per Migration vorbereitet" — die
+mittlere Klasse, wie bei `backend_check`.
+
+Die anderen drei waren Parser-Fehler des neuen Prüfstands — `null` aus einem
+Ternär als Schlüssel gelesen, ein verschachteltes `{ fehler: … }` als Spalte,
+ein `.in("key", …)` an `app_settings` dem Abonnement zugerechnet, und das
+Anker-Muster der App enthielt eine Klammer, an der der Suchausdruck des
+Prüfstands endete. **Ein Prüfstand, der beim ersten Lauf nur rot meldet, hat
+noch nichts bewiesen** — erst die Trennung in echt und Artefakt macht ihn
+brauchbar; die Gegenrichtung (eine erfundene Spalte, die gemeldet werden
+muss) steht als eigener Fall drin.
+
+Grenze, ehrlich: Spalten und Schlüssel, nicht Typen und nicht RLS. Ob eine
+Zeile **angenommen** wird, sagt nur der lebende Server. Und die drei
+Live-Tabellen veralten mit der Momentaufnahme — deshalb steht ihr Datum in
+jedem Bericht.
 
 ### 11.4 · Fragen an Fernando (Ergänzung zu §10)
 

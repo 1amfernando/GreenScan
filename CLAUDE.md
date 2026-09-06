@@ -541,6 +541,7 @@ node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie �
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
+node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -867,6 +868,23 @@ aus, wenn `r.cloud_ok === true`** — sonst meldet sie weiter selbst. Wer
 eine Zuständigkeit an den Server abgibt, hängt das Auslassen an den
 Nachweis, nie an die Absicht; und ein Fall, der nur „meldet nicht" kennt,
 braucht die Gegenrichtung „meldet doch, wenn der andere es nicht kann".
+
+**`naht_check.js` (seit 06.09.2026) fragt, ob die vier Teile der
+Sensor-Kette dieselben Spalten meinen.** App, Empfänger (`device-ingest`),
+Cron (`fn_device_alerts`, SQL) und Pusher (`sensor-push`) nennen einander
+Spalten und Schlüssel, und keiner sieht den anderen. Der Prüfstand liest die
+Spaltenlisten aus den Migrationen und aus `docs/naht-spalten.json` (datierte
+Momentaufnahme der drei Live-Tabellen, nur lesend gemessen) und hält
+dagegen, was jeder Teil im Quelltext benutzt; das Token hasht er dreimal
+(App, Empfänger, Node) und vergleicht. Drei Klassen wie bei `backend_check`:
+vorhanden · per Migration vorbereitet · fehlt. **Erster Lauf: `expires_at`
+stand im Vertrag, im Regel-Modul und im Empfänger — und in keiner Tabelle**
+(`20260906_device_commands_expires_at.sql`). Wer eine Tabelle der Kette
+ändert oder eine neue Live-Tabelle anspricht, zieht die Momentaufnahme nach
+(`information_schema.columns`, nur lesend) und trägt das Datum ein. Und wer
+einen Prüfstand baut, der Quelltext parst, rechnet mit Artefakten: drei der
+vier ersten Funde waren der Parser, einer die Sache — die Gegenrichtung
+(eine erfundene Spalte muss rot werden) gehört als Fall hinein.
 
 **Seit v32.56 trägt Linas Kontext Zahlen — und der Prüfstand hält jede
 gegen einen Datensatz.** `gsLinaZahlen()` schreibt **Rohwerte**, nie die

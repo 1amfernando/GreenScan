@@ -12,6 +12,24 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-06 (fb) — naht_check: passen App, Empfänger, Cron und Pusher zusammen? (kein App-Bump)
+
+`docs/OEKOSYSTEM-V1.md` §11.3n. **Prüfstand 27**, `scripts/naht_check.js`,
+12 Nähte: Spalten aus den Migrationen und aus `docs/naht-spalten.json`
+(datierte Live-Momentaufnahme von `notifications`, `push_send_log`,
+`push_subscriptions`, nur lesend) gegen das, was App, `device-ingest`,
+`fn_device_alerts`, `fn_device_daily_aggregate`, `sensor-push` und
+`delete-user` benutzen; Token dreimal gehasht (App = Empfänger = Node);
+Batch-Zeilen wirklich gerechnet. Drei Klassen: vorhanden · per Migration
+vorbereitet · fehlt.
+
+- **Fund (erster Lauf):** `expires_at` stand im Vertrag §4, im Regel-Modul
+  und im Empfänger — und `device_commands` hat die Spalte nicht.
+  **`20260906_device_commands_expires_at.sql`** (guarded, nicht angewandt).
+- Drei weitere Rote waren der Parser (Ternär-`null`, verschachteltes
+  Literal, `app_settings`-Filter, Klammer im Anker-Muster) — behoben, die
+  Gegenrichtung (erfundene Spalte → rot) steht als Fall drin.
+
 ### 2026-09-06 (fa) — v32.63: Regeln reisen mit — die Lücke aus v32.62 geschlossen
 
 `docs/OEKOSYSTEM-V1.md` §11.3m. **Fund beim Schreiben der eigenen Doku:**
@@ -9016,6 +9034,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Migration `20260906_sensor_push.sql` | Brücken-Sperre (`payload_meta.notification_id`) + Cron `device-alerts` ruft `sensor-push` nur bei etwas Neuem (§11.3k). Nach `20260905_device_alerts_cron.sql`. | `docs/FUER-FERNANDO.md` §6 · (ey) |
 | Edge-Function `sensor-push` | Pusht `sensor_alert`-Inbox-Zeilen (VAPID, Stille, Pause, `notify_sensor`) — im Repo, nicht ausgeliefert (`supabase functions deploy sensor-push`). Ohne ihn landet ein Sensor-Alarm nur in der Inbox. | §11.3k · (ey) |
 | Edge-Function `delete-user` | Neu ausliefern: `USER_TABLES` kennt jetzt die fünf Gerätetabellen. | (ey) |
+| Migration `20260906_device_commands_expires_at.sql` | `device_commands.expires_at` — Vertrag §4, Regel-Modul und Empfänger nennen die Spalte, die Tabelle hatte sie nicht (`naht_check`). Nach `20260903_oekosystem_v1_geraete.sql`. | §11.3n · (fb) |
 | **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. | `docs/FUER-FERNANDO.md` §5 · (ep) |
 | Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
 

@@ -301,7 +301,8 @@ Gerät.** Drei Dinge, in dieser Reihenfolge, wenn das erste Gerät da ist:
 
 1. Migrationen anwenden: `20260903_oekosystem_v1_geraete.sql`, dann
    `20260905_device_daily.sql`, `20260905_device_alerts_cron.sql` und
-   `20260906_sensor_push.sql` (alle idempotent; die letzte ersetzt die
+   `20260906_sensor_push.sql` und `20260906_device_commands_expires_at.sql`
+   (alle idempotent; die vorletzte ersetzt die
    Brücken-Funktion aus v30.80 wortgleich plus eine Sperrzeile und plant den
    Cron `device-alerts` neu).
 2. Den Empfänger ausliefern: `supabase functions deploy device-ingest
