@@ -24,6 +24,14 @@ const USER_TABLES = [
   "abo_events",
   "ai_queries",
   "book_ingest_jobs",
+  // 06.09.2026: Ökosystem V1 (docs/OEKOSYSTEM-V1.md) — die fünf Tabellen gibt es erst
+  // nach 20260903_oekosystem_v1_geraete.sql / 20260905_device_daily.sql; bis dahin
+  // steht hier "error: relation … does not exist" im Zähler, sonst passiert nichts.
+  "device_commands",
+  "device_daily",
+  "device_readings",
+  "device_rules",
+  "devices",
   "feedback_items",
   "friendships",
   "garden_diary",

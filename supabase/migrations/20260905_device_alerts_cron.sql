@@ -22,8 +22,15 @@
 --   Was er NICHT tut: `task:water` und `calendar` — die rechnet der Client
 --   (gsSensorAufgabenAbgleich, v32.53) aus denselben Daten; die Server-Sicht
 --   v_plant_tasks_due kennt das Vorziehen seit 20260904_plant_tasks_due_vorgezogen.sql.
---   Der Push selbst kommt über daily-push-checker (liest `notifications`),
---   gebremst durch `push_subscriptions.notify_sensor` — kein zweiter Push-Kanal.
+--   Der Push: eine Zeile in `notifications` ist NUR die Inbox — die Brücke
+--   (20260826) läuft push_send_log → notifications, nie umgekehrt; niemand
+--   pusht Inbox-Zeilen. Deshalb ruft der Cron seit 20260906_sensor_push.sql
+--   die Edge-Function `sensor-push`, sobald diese Funktion etwas NEUES
+--   gemeldet hat (lost + rules > 0). Sie pusht über das daily-push-Muster
+--   (VAPID, Stille, Pause, `notify_sensor`) und protokolliert mit
+--   `payload_meta.notification_id`, damit die Brücke keine zweite Inbox-Zeile
+--   erzeugt. Die Zähler unten sind deshalb NEUE Zeilen (row_count), nicht
+--   Schleifendurchläufe — sonst riefe der Cron den Pusher für nichts.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ── 1 · Schalter je Abonnement (Muster notify_frost) — nur, wenn die Live-Tabelle da ist ──
@@ -72,6 +79,7 @@ declare
   letzter record;
   verletzt boolean;
   seit timestamptz;
+  n_neu integer;
 begin
   -- 1 · verstummte Geräte: markieren und EINMAL je Tag melden
   for d in
@@ -84,7 +92,8 @@ begin
             'Seit mehr als drei Meldeintervallen kein Wert — Batterie, WLAN oder Standort prüfen. Stille ist kein „alles in Ordnung".',
             'device_lost:' || d.id || ':' || heute, '/?screen=garden#geraet-' || d.id, now())
     on conflict (dedup_key) do nothing;
-    n_lost := n_lost + 1;
+    get diagnostics n_neu = row_count;
+    n_lost := n_lost + n_neu;
   end loop;
 
   -- 2 · verletzte notify-Regeln: letzter plausibler Wert, for_minutes, cooldown, ein dedup_key je Tag
@@ -124,11 +133,12 @@ begin
             'Zuletzt ' || letzter.value || coalesce(' ' || r.unit, '') || ' um ' || to_char(letzter.ts at time zone 'Europe/Zurich', 'HH24:MI') || ' — Schwelle ' || r.threshold || '.',
             'rule:' || r.id || ':' || heute, '/?screen=garden#geraet-' || r.device_id, now())
     on conflict (dedup_key) do nothing;
+    get diagnostics n_neu = row_count;
     update public.device_rules set last_fired_at = now(), updated_at = now() where id = r.id;
-    n_rules := n_rules + 1;
+    n_rules := n_rules + n_neu;
   end loop;
 
-  return jsonb_build_object('lost', n_lost, 'rules', n_rules, 'at', now());
+  return jsonb_build_object('lost', n_lost, 'rules', n_rules, 'at', now());   -- NEUE Zeilen; 20260906 ruft sensor-push nur, wenn > 0
 end;
 $$;
 revoke execute on function public.fn_device_alerts() from public, anon, authenticated;
