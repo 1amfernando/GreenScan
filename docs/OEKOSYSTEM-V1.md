@@ -329,7 +329,7 @@ Software, die Messwerte hat.
 | Stufe | Inhalt | Hardware nötig |
 |---|---|---|
 | **0** | Migrationen im Repo (`metric_catalog`, `devices`, `device_readings`, `device_rules`, `device_commands`, `v_device_daily`, RLS) — **nicht angewandt**, wie alle DDL · `manual`-Gerät · Dashboard mit Verlauf (`_gsVerlauf`, Canvas, ohne Paket) · Regeln clientseitig mit drei Zuständen · Kalender-Ereignisse `messung`/`alarm` · `sensor_check.js` (8 Fälle, test-first) — **v32.48 gebaut** | nein |
-| **1** | `device-ingest` (Edge) · Token-Pairing per QR · Cron `device-alerts` · Push `sensor_alert` · Wetter als virtuelles Gerät · Bestätigung erledigter Aufgaben (§6) — **Stand 05.09.2026:** Wetter-Gerät und Bestätigung sind Stufe 0 geworden (v32.52, v32.53); `device-ingest` steht als Skelett mit geprüftem Regel-Modul (`ingest_check`, 11 Fälle), Vertrag in `docs/GERAETE-VERTRAG.md`, Cron und Tagesaggregat als Migrationen bereit (§11.3j) — **nicht ausgeführt, nicht angewandt**: es fehlt das Gerät; **App-Seite gebaut v32.62** (§11.3l): Koppeln, Cloud-Abgleich, eine Alarm-Instanz | ein Gerät zum Testen |
+| **1** | `device-ingest` (Edge) · Token-Pairing per QR · Cron `device-alerts` · Push `sensor_alert` · Wetter als virtuelles Gerät · Bestätigung erledigter Aufgaben (§6) — **Stand 05.09.2026:** Wetter-Gerät und Bestätigung sind Stufe 0 geworden (v32.52, v32.53); `device-ingest` steht als Skelett mit geprüftem Regel-Modul (`ingest_check`, 11 Fälle), Vertrag in `docs/GERAETE-VERTRAG.md`, Cron und Tagesaggregat als Migrationen bereit (§11.3j) — **nicht ausgeführt, nicht angewandt**: es fehlt das Gerät; **App-Seite gebaut v32.62/v32.63** (§11.3l, §11.3m): Koppeln, Cloud-Abgleich, Regeln auf den Server, eine Alarm-Instanz je Regel | ein Gerät zum Testen |
 | **2** | BLE-Pairing im Browser (`Permissions-Policy` erweitern, `wiring_check`/`kamera_check`-artiger Prüfstand mit gestellter BLE-API) · Firmware-Vertrag als `docs/GERAETE-VERTRAG.md` (das JSON aus §3.1, versioniert) · MQTT-Bridge | ja |
 | **3** | Aktoren (Ventil, Pumpe, Licht) über `device_commands` · Automationen `op = 'expr'` · Export/Import | ja |
 
@@ -1360,9 +1360,39 @@ Was fehlt, ehrlich: kein QR-Code (die App hat keinen Erzeuger; das Token
 wird kopiert oder abgetippt — für Stufe 1 mit einem Bastelgerät reicht das,
 Idee 15 für gefertigte Geräte bleibt Fernandos Entscheid), keine
 Pausieren-Schaltfläche (der Zustand wird angezeigt, gesetzt wird er noch
-nirgends), und `device_rules` liegen weiterhin nur lokal — der Server-Cron
-sieht Regeln erst, wenn sie hochgeladen sind (nächste Ausgabe, mit
-demselben Muster: `_gsSchreibOk`, drei Server-Antworten im Prüfstand).
+nirgends). `device_rules` lagen bei v32.62 noch nur lokal — **behoben in
+v32.63 (§11.3m)**, und zwar, weil das eine Lücke war, keine Ergänzung.
+
+### 11.3m · Regeln reisen mit (v32.63, 06.09.2026)
+
+**Die Lücke, die v32.62 aufgerissen hat — gefunden beim Schreiben von
+§11.3l, nicht vom Prüfstand:** die App meldet Alarme gekoppelter Geräte
+nicht mehr selbst, weil der Server das tut. Aber der Server liest
+`device_rules`, und die Regeln lagen nur in `gs_geraete_regeln`. Ein
+gekoppeltes Gerät mit einer Regel hätte also **nirgends** gemeldet — nicht in
+der App (ausgelassen), nicht auf dem Server (unbekannt). Der Fall
+„Alarm-Instanz" war grün, weil er nur die eine Richtung kannte: „die App
+meldet nicht". **Eine Frage, die nur die Verneinung kennt, ist auch dann
+grün, wenn niemand meldet** (dieselbe Lehre wie beim Regen-Draht, v32.51).
+
+| Gebaut | Geprüft (`sensor_check` „Regeln in der Cloud", „Alarm-Instanz"; `save_check` SERVER_WEGE) |
+|---|---|
+| `_gsRegelHochladen(r)`: Upsert in `device_rules` mit **derselben Id**, den zehn Spalten der Tabelle (`id`, `user_id`, `device_id` = `cloud_id`, `metric`, `op`, `threshold`, `for_minutes`, `action`, `cooldown_minutes`, `enabled`), `return=representation`; `cloud_ok` true nur nach `_gsSchreibOk`, sonst false plus Toast „gilt vorerst nur in der App — die App meldet solange selbst" | Satz mit genau diesen Spalten, keine unbekannte; Ablehnung · 0 Zeilen · Bestätigung |
+| Aufrufer: `gsRegelAnlegen` (sofort, nur bei gekoppeltem Gerät), `gsGeraetKoppeln` (zieht bestehende Regeln nach), `gsGeraeteCloudAbgleich` (zieht offene nach, nur bei Geräten, die der Server kennt) | ungekoppelt: kein Aufruf; Koppeln zieht nach; neue Regel sofort; Absage → Abgleich zieht nach |
+| `gsRegelLoeschen` löscht auf dem Server mit (`DELETE ?id=eq.`, geprüft); `gsGeraetLoeschen` entfernt ein gekoppeltes Gerät auch in der Cloud (cascade: Werte, Regeln, Befehle) — sonst meldete der Cron weiter | DELETE-Pfade mit Id |
+| **Alarm-Instanz je REGEL:** `gsSensorAlarmeMelden` lässt eine Regel nur aus, wenn `g.cloud_id && r.cloud_ok === true` — sonst meldet die App weiter selbst | Regel auf dem Server → keine lokale Meldung; abgewiesene Regel am selben Gerät → lokal gemeldet |
+| Kachel: je Regel „☁️" oder „nur in der App" | aus dem HTML gelesen |
+
+Die Regel dahinter, und sie ist allgemeiner als die Sensoren: **wer eine
+Zuständigkeit abgibt, prüft, dass der andere sie hat.** „Der Server meldet"
+war in v32.62 eine Annahme über einen Server, der die Regel nie gesehen
+hatte. Jetzt hängt das Auslassen am Nachweis (`cloud_ok`), nicht an der
+Absicht.
+
+Nicht gebaut: Regeln, die der Server ändert (`last_fired_at`, `enabled`),
+kommen nicht zurück — der Abgleich liest `devices` und `device_readings`,
+nicht `device_rules`. Für Stufe 1 reicht die eine Richtung: die Person
+schreibt Regeln in der App, der Server führt sie aus.
 
 ### 11.4 · Fragen an Fernando (Ergänzung zu §10)
 

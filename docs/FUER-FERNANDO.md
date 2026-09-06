@@ -319,9 +319,10 @@ Gerät.** Drei Dinge, in dieser Reihenfolge, wenn das erste Gerät da ist:
    Kopieren. Damit einen Batch schicken, nach `docs/GERAETE-VERTRAG.md` §1
    (`curl`, `Authorization: Bearer <Token>`). Erwartet: `accepted`,
    `server_time`, `next_contact_s` — und in der App beim nächsten Öffnen des
-   Dashboards die Werte und „☁️ gekoppelt · zuletzt …". Sag mir, was
-   zurückkam; die nächste Ausgabe lädt dann die Regeln hoch, damit der
-   Alarm-Cron sie sieht.
+   Dashboards die Werte und „☁️ gekoppelt · zuletzt …". Eine Regel am
+   gekoppelten Gerät geht seit v32.63 von selbst auf den Server (in der
+   Kachel steht dann ☁️; steht „nur in der App", hat der Server sie nicht
+   angenommen — dann meldet die App weiter selbst). Sag mir, was zurückkam.
 
 Und eine Sache, die ich **nicht** angefasst habe, weil sie eine Entscheidung
 ist: der alte ESP32-Assistent („📶 Sensoren & Geräte") lässt Nutzer ihr

@@ -857,6 +857,17 @@ Die drei Fälle in `sensor_check` (Koppeln · Cloud-Abgleich · Alarm-Instanz)
 stellen den Server (`sbFetch`) mit Ja, Leer und Nein — ein Fall, der nur das
 Ja kennt, prüft nicht, was bei Nein passiert.
 
+**Und die Lücke, die v32.62 dabei aufgerissen hat (v32.63, §11.3m):** die App
+liess Alarme gekoppelter Geräte aus, „weil der Server meldet" — der Server
+kannte die Regeln aber nicht (sie lagen nur in `gs_geraete_regeln`). Nirgends
+gemeldet, Fall grün. Seither geht eine Regel am gekoppelten Gerät auf den
+Server (`_gsRegelHochladen`, Upsert `device_rules` mit derselben Id,
+`cloud_ok` nur nach `_gsSchreibOk`), und **die App lässt eine Regel nur
+aus, wenn `r.cloud_ok === true`** — sonst meldet sie weiter selbst. Wer
+eine Zuständigkeit an den Server abgibt, hängt das Auslassen an den
+Nachweis, nie an die Absicht; und ein Fall, der nur „meldet nicht" kennt,
+braucht die Gegenrichtung „meldet doch, wenn der andere es nicht kann".
+
 **Seit v32.56 trägt Linas Kontext Zahlen — und der Prüfstand hält jede
 gegen einen Datensatz.** `gsLinaZahlen()` schreibt **Rohwerte**, nie die
 gerundete Anzeige: `_gsMwFmt` macht aus 31.5 % eine 32 %, und eine Zahl,
