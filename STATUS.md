@@ -4,13 +4,31 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-06 · **Branch**: `main` · **Version**: `v32.63` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-06 · **Branch**: `main` · **Version**: `v32.64` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-06 (fc) — v32.64: Pausieren vom Telefon aus, und die Rückrichtung der Regeln
+
+`docs/OEKOSYSTEM-V1.md` §11.3o. Der Zustand liegt beim Server, die App
+stellt lokal erst nach der Bestätigung um.
+
+- **`gsGeraetPausieren`**: `PATCH devices?id=eq.<cloud_id>` `{status}`,
+  `return=representation`, `_gsSchreibOk`; Kachel „⏸ Pausieren" /
+  „▶️ Fortsetzen" bei gekoppelten Geräten; 0 Zeilen → alter Zustand, gesagt.
+- **Rückrichtung im Abgleich:** `device_rules` (`id, device_id, enabled,
+  last_fired_at`) → `cloud_ok`, `server_zuletzt`, `enabled` zurück; dort
+  gelöscht → `cloud_geloescht`, die App meldet wieder selbst und lädt nicht
+  neu hoch. Kachel „☁️ zuletzt gemeldet …" / „auf dem Server gelöscht —
+  nur in der App". Vier neue `_t`-Schlüssel.
+
+Prüfstände: sensor_check 28 (+Pausieren; „Regeln in der Cloud" kennt die
+Rückrichtung), save_check 17 (SERVER_WEGE +1), naht_check 12 (select-Liste
+und PATCH geprüft); Gegenproben und Regression: siehe PR.
 
 ### 2026-09-06 (fb) — naht_check: passen App, Empfänger, Cron und Pusher zusammen? (kein App-Bump)
 
@@ -9010,7 +9028,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.63` (Client) · SW-Cache `gs-v32.63` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.64` (Client) · SW-Cache `gs-v32.64` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

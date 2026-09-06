@@ -148,7 +148,16 @@ const FAELLE = [
       const gelesen = eindeutig((INDEX.match(/\(je\[z\.device_id\][\s\S]{0,200}?\}\)/) || [''])[0].match(/z\.([a-z_]+)/g) || []).map((x) => x.slice(2));
       const nicht = gelesen.filter((g) => selectListe(b[1]).indexOf(g) < 0);
       if (!gelesen.length || nicht.length) return { ok: false, warum: 'gelesen, aber nicht angefordert: ' + z(nicht) + ' (gelesen: ' + z(gelesen) + ')' };
-      return { ok: true, info: 'devices ' + r1.n + ' · device_readings ' + r2.n + ' · gelesen ' + gelesen.join(',') };
+      // v32.64: die Rueckrichtung der Regeln und der PATCH beim Pausieren
+      const c = /\/rest\/v1\/device_rules\?select=([a-z_,]+)&device_id=/.exec(INDEX);
+      if (!c) return { ok: false, warum: 'device_rules-Select des Abgleichs nicht gefunden' };
+      const r3 = pruefe(selectListe(c[1]), 'device_rules'); if (!r3.ok) return bericht(r3, 'device_rules');
+      const gelesenR = eindeutig((INDEX.match(/\bsv\.([a-z_]+)/g) || []).map((x) => x.slice(3)));
+      const nichtR = gelesenR.filter((g) => selectListe(c[1]).indexOf(g) < 0);
+      if (!gelesenR.length || nichtR.length) return { ok: false, warum: 'aus device_rules gelesen, aber nicht angefordert: ' + z(nichtR) };
+      const patch = objektSchluessel(INDEX, "body: JSON.stringify({ status: ziel", '})');
+      const r4 = pruefe(['status'].concat(patch || []), 'devices'); if (!r4.ok) return bericht(r4, 'Pausieren-PATCH');
+      return { ok: true, info: 'devices ' + r1.n + ' · device_readings ' + r2.n + ' · gelesen ' + gelesen.join(',') + ' · device_rules ' + r3.n + ' (gelesen ' + gelesenR.join(',') + ') · PATCH status' };
     },
   },
   {

@@ -953,6 +953,22 @@ const FAELLE = [
         await gsGeraeteCloudAbgleich({ erzwingen: true });
         await warte(60);
         if (gsRegeln().find(x => x.id === r2.id).cloud_ok !== true) return { ok: false, warum: 'der Abgleich zieht die offene Regel nicht nach' };
+        // v32.64 Rueckrichtung: der Server nennt last_fired_at und enabled; eine dort GELOESCHTE Regel
+        // meldet die App wieder selbst und wird NICHT neu hochgeladen
+        const gemeldetAm = new Date(Date.now() - 3600000).toISOString();
+        rufe.length = 0;
+        window.sbFetch = async (path, opts) => { rufe.push({ path, opts }); if (opts && opts.method === 'POST') return { data: [{ id: JSON.parse(opts.body).id }], error: null }; if (/\/devices\?/.test(path)) return { data: [{ id: k.cloud_id, status: 'active', paired_at: new Date().toISOString() }], error: null }; if (/\/device_rules\?select/.test(path)) return { data: [{ id: r0.id, device_id: k.cloud_id, enabled: true, last_fired_at: gemeldetAm }, { id: r1.id, device_id: k.cloud_id, enabled: false, last_fired_at: null }], error: null }; return { data: [], error: null }; };
+        await gsGeraeteCloudAbgleich({ erzwingen: true });
+        await warte(60);
+        const s0 = gsRegeln().find(x => x.id === r0.id), s1 = gsRegeln().find(x => x.id === r1.id), s2 = gsRegeln().find(x => x.id === r2.id);
+        if (s0.server_zuletzt !== gemeldetAm || s0.cloud_ok !== true) return { ok: false, warum: 'last_fired_at kommt nicht zurück: ' + JSON.stringify(s0) };
+        if (s1.enabled !== false) return { ok: false, warum: 'enabled vom Server kommt nicht zurück: ' + JSON.stringify(s1) };
+        if (s2.cloud_ok !== false || s2.cloud_geloescht !== true) return { ok: false, warum: 'eine auf dem Server gelöschte Regel: ' + JSON.stringify(s2) };
+        if (rufe.some(x => x.opts && x.opts.method === 'POST' && /device_rules$/.test(x.path) && JSON.parse(x.opts.body).id === r2.id)) return { ok: false, warum: 'die gelöschte Regel wird wieder hochgeladen' };
+        gsMesswerteOeffnen();
+        const kt = document.getElementById('geraet-' + g.id).textContent;
+        if (!/zuletzt gemeldet/.test(kt) || !/auf dem Server gelöscht/.test(kt)) return { ok: false, warum: 'Kachel: ' + kt.slice(0, 300) };
+        gsRegeln().forEach(x => { if (x.id === r1.id) x.enabled = true; }); localStorage.setItem('gs_geraete_regeln', JSON.stringify(gsRegeln().map(x => x.id === r1.id ? Object.assign(x, { enabled: true }) : x)));
         // Loeschen loescht auf dem Server mit
         rufe.length = 0; window.sbFetch = ja;
         gsRegelLoeschen(r1.id);
@@ -965,7 +981,42 @@ const FAELLE = [
         await warte(40);
         const delG = rufe.find(x => x.opts && x.opts.method === 'DELETE' && /\/devices\?id=eq\./.test(x.path));
         if (!delG || delG.path.indexOf(k.cloud_id) < 0) return { ok: false, warum: 'das gekoppelte Gerät bleibt in der Cloud: ' + JSON.stringify(rufe.map(x => x.path)) };
-        return { ok: true, info: 'ungekoppelt: kein Aufruf · Koppeln zieht nach (Satz mit ' + spalten.length + ' Spalten, geprüfter Upsert) · neue Regel sofort · Absage → cloud_ok false, Toast, Kachel „nur in der App" · Abgleich zieht nach · Löschen → DELETE id=eq. · Gerät weg → DELETE devices' };
+        return { ok: true, info: 'ungekoppelt: kein Aufruf · Koppeln zieht nach (Satz mit ' + spalten.length + ' Spalten, geprüfter Upsert) · neue Regel sofort · Absage → cloud_ok false, Toast, Kachel „nur in der App" · Abgleich zieht nach · Rückrichtung: last_fired_at + enabled zurück, dort gelöscht → nur in der App, nicht neu hoch · Löschen → DELETE id=eq. · Gerät weg → DELETE devices' };
+      } finally { gsGeraetLoeschen(g && g.id); window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; window.gsToast = echtToast; if (echtGet) gsStore.get = echtGet; }
+    },
+  },
+  {
+    // v32.64: Pausieren — der Zustand liegt beim Server; lokal erst nach Bestaetigung.
+    name: 'Pausieren · gekoppeltes Gerät: PATCH status auf dem Server, lokal erst nach Bestätigung; eine Absage lässt den alten Zustand; ungekoppelt geht es nicht',
+    lauf: async () => {
+      const echtFetch = window.sbFetch, echtLogin = window.sbIsLoggedIn, echtGet = window.gsStore && gsStore.get, echtToast = window.gsToast;
+      const rufe = [], toasts = [];
+      window.sbIsLoggedIn = () => true; window.gsStore = window.gsStore || {}; gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet(k, d) : d));
+      window.gsToast = (m) => toasts.push(String(m));
+      const g = gsGeraetAnlegen({ kind: 'gs_sensor', name: 'Pause Test' });
+      try {
+        const r0 = await gsGeraetPausieren(g.id, true);
+        if (!r0 || r0.ok) return { ok: false, warum: 'ungekoppelt liess sich pausieren' };
+        window.sbFetch = async (path, opts) => { rufe.push({ path, opts }); if (opts && opts.method === 'POST') return { data: [{ id: JSON.parse(opts.body).id }], error: null }; if (opts && opts.method === 'PATCH') return { data: [Object.assign({ id: 'x' }, JSON.parse(opts.body))], error: null }; return { data: [], error: null }; };
+        const k = await gsGeraetKoppeln(g.id); if (!k.ok) return { ok: false, warum: 'Koppeln: ' + JSON.stringify(k) };
+        _gsMwTokenFertig(g.id);
+        const r1 = await gsGeraetPausieren(g.id, true);
+        const p = rufe.find(x => x.opts && x.opts.method === 'PATCH');
+        if (!r1.ok || !p || p.path.indexOf('/rest/v1/devices?id=eq.' + k.cloud_id) < 0 || JSON.parse(p.opts.body).status !== 'paused' || !/return=representation/.test(p.opts.headers.Prefer)) return { ok: false, warum: 'PATCH: ' + JSON.stringify({ r1, p: p && p.path, body: p && p.opts.body }) };
+        if (gsGeraete().find(x => x.id === g.id).status !== 'paused') return { ok: false, warum: 'lokal nicht pausiert' };
+        gsMesswerteOeffnen();
+        let tx = document.getElementById('geraet-' + g.id).textContent;
+        if (!/pausiert/.test(tx) || !/Fortsetzen/.test(tx)) return { ok: false, warum: 'Kachel: ' + tx.slice(0, 200) };
+        window.sbFetch = async () => ({ data: [], error: null });
+        toasts.length = 0;
+        const r2 = await gsGeraetPausieren(g.id, false);
+        if (r2.ok || gsGeraete().find(x => x.id === g.id).status !== 'paused' || !toasts.some(x => /Nicht fortgesetzt/.test(x))) return { ok: false, warum: 'Absage: ' + JSON.stringify({ r2, status: gsGeraete().find(x => x.id === g.id).status, toasts }) };
+        window.sbFetch = async (path, opts) => (opts && opts.method === 'PATCH') ? { data: [Object.assign({ id: 'x' }, JSON.parse(opts.body))], error: null } : { data: [], error: null };
+        const r3 = await gsGeraetPausieren(g.id, false);
+        if (!r3.ok || gsGeraete().find(x => x.id === g.id).status !== 'wartet') return { ok: false, warum: 'Fortsetzen ohne paired_at muss „wartet" ergeben: ' + JSON.stringify({ r3, status: gsGeraete().find(x => x.id === g.id).status }) };
+        gsMesswerteOeffnen(); tx = document.getElementById('geraet-' + g.id).textContent;
+        if (!/Pausieren/.test(tx)) return { ok: false, warum: 'kein Pausieren-Knopf nach dem Fortsetzen' };
+        return { ok: true, info: 'ungekoppelt → nein · PATCH status=paused, geprüft → lokal paused, Kachel „pausiert · Fortsetzen" · 0 Zeilen → bleibt paused, gesagt · Fortsetzen → wartet (kein paired_at)' };
       } finally { gsGeraetLoeschen(g && g.id); window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; window.gsToast = echtToast; if (echtGet) gsStore.get = echtGet; }
     },
   },
