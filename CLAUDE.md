@@ -868,6 +868,12 @@ aus, wenn `r.cloud_ok === true`** — sonst meldet sie weiter selbst. Wer
 eine Zuständigkeit an den Server abgibt, hängt das Auslassen an den
 Nachweis, nie an die Absicht; und ein Fall, der nur „meldet nicht" kennt,
 braucht die Gegenrichtung „meldet doch, wenn der andere es nicht kann".
+Seit v32.64 kommt die Rückrichtung dazu: der Abgleich liest `device_rules`
+zurück (`last_fired_at`, `enabled`), und eine Regel, die dort war und weg
+ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
+der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
+Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
+erst nach der Bestätigung umgestellt.
 
 **`naht_check.js` (seit 06.09.2026) fragt, ob die vier Teile der
 Sensor-Kette dieselben Spalten meinen.** App, Empfänger (`device-ingest`),

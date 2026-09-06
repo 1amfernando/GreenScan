@@ -148,6 +148,39 @@ const WEGE = [
 // Fehler — wer nur auf `error` prueft, meldet dann Erfolg fuer nichts.
 const SERVER_WEGE = [
   {
+    // v32.64: Pausieren — der Zustand liegt beim Server; 0 Zeilen sind kein Pausieren.
+    name: 'Gerät pausieren (gsGeraetPausieren → devices PATCH)',
+    lauf: async () => {
+      const erg = { rufe: [], meldungen: [] };
+      const echtToast = window.gsToast, echtGet = window.gsStore && gsStore.get, echtLogin = window.sbIsLoggedIn, echtFetch = window.sbFetch;
+      window.gsToast = m => erg.meldungen.push(String(m));
+      window.gsStore = window.gsStore || {}; gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet(k, d) : d));
+      window.sbIsLoggedIn = () => true;
+      if (typeof gsGeraetPausieren !== 'function') return { ok: false, warum: 'gsGeraetPausieren fehlt' };
+      const g = gsGeraetAnlegen({ kind: 'gs_sensor', name: 'Prüfstand Pause' });
+      if (!g) return { ok: false, warum: 'Gerät nicht angelegt' };
+      try {
+        window.sbFetch = async (path, opts) => ({ data: [{ id: opts && opts.body ? JSON.parse(opts.body).id : 'x' }], error: null });
+        const k = await gsGeraetKoppeln(g.id); if (!k.ok) return { ok: false, warum: 'Koppeln: ' + JSON.stringify(k) };
+        _gsMwTokenFertig(g.id);
+        // Fall 1: Ablehnung → nicht pausiert, gesagt
+        window.sbFetch = async (path) => { erg.rufe.push(path); return { data: null, error: { message: 'permission denied' } }; };
+        let a = await gsGeraetPausieren(g.id, true);
+        if (!erg.rufe.some(p => /\/devices\?id=eq\./.test(p))) return { ok: false, warum: 'ruft devices gar nicht auf' };
+        if (a.ok || gsGeraete().find(x => x.id === g.id).status === 'paused' || !erg.meldungen.some(m => /Nicht pausiert/.test(m))) return { ok: false, warum: 'Ablehnung: ' + JSON.stringify({ a, meldungen: erg.meldungen }) };
+        // Fall 2: leer (RLS still) → ebenso
+        erg.meldungen.length = 0; window.sbFetch = async () => ({ data: [], error: null });
+        a = await gsGeraetPausieren(g.id, true);
+        if (a.ok || gsGeraete().find(x => x.id === g.id).status === 'paused' || !erg.meldungen.some(m => /Nicht pausiert/.test(m))) return { ok: false, warum: '0 Zeilen gelten als pausiert: ' + JSON.stringify(a) };
+        // Fall 3: bestaetigt → paused, still
+        erg.meldungen.length = 0; window.sbFetch = async (path, opts) => ({ data: [{ id: 'x', status: JSON.parse(opts.body).status }], error: null });
+        a = await gsGeraetPausieren(g.id, true);
+        if (!a.ok || gsGeraete().find(x => x.id === g.id).status !== 'paused' || erg.meldungen.length) return { ok: false, warum: 'Bestätigung: ' + JSON.stringify({ a, meldungen: erg.meldungen }) };
+        return { ok: true, info: 'Ablehnung → nicht pausiert, gesagt · 0 Zeilen → ebenso · Bestätigung → paused, still' };
+      } finally { gsGeraetLoeschen(g.id); window.gsToast = echtToast; if (echtGet) gsStore.get = echtGet; window.sbIsLoggedIn = echtLogin; window.sbFetch = echtFetch; }
+    },
+  },
+  {
     // v32.63: Regel eines gekoppelten Geraets auf den Server — 0 Zeilen sind keine Regel dort,
     // und die App sagt es (und meldet solange selbst).
     name: 'Regel hochladen (_gsRegelHochladen → device_rules)',

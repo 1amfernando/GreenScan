@@ -1360,7 +1360,7 @@ Was fehlt, ehrlich: kein QR-Code (die App hat keinen Erzeuger; das Token
 wird kopiert oder abgetippt — für Stufe 1 mit einem Bastelgerät reicht das,
 Idee 15 für gefertigte Geräte bleibt Fernandos Entscheid), keine
 Pausieren-Schaltfläche (der Zustand wird angezeigt, gesetzt wird er noch
-nirgends). `device_rules` lagen bei v32.62 noch nur lokal — **behoben in
+nirgends — **Pausieren gebaut in v32.64, §11.3o**). `device_rules` lagen bei v32.62 noch nur lokal — **behoben in
 v32.63 (§11.3m)**, und zwar, weil das eine Lücke war, keine Ergänzung.
 
 ### 11.3m · Regeln reisen mit (v32.63, 06.09.2026)
@@ -1389,10 +1389,36 @@ war in v32.62 eine Annahme über einen Server, der die Regel nie gesehen
 hatte. Jetzt hängt das Auslassen am Nachweis (`cloud_ok`), nicht an der
 Absicht.
 
-Nicht gebaut: Regeln, die der Server ändert (`last_fired_at`, `enabled`),
-kommen nicht zurück — der Abgleich liest `devices` und `device_readings`,
-nicht `device_rules`. Für Stufe 1 reicht die eine Richtung: die Person
-schreibt Regeln in der App, der Server führt sie aus.
+Regeln, die der Server ändert (`last_fired_at`, `enabled`), kamen in v32.63
+noch nicht zurück — **gebaut in v32.64 (§11.3o)**.
+
+### 11.3o · Pausieren, und die Rückrichtung der Regeln (v32.64, 06.09.2026)
+
+Zwei Lücken aus §11.3l/m, beide klein, beide mit derselben Regel: **der
+Zustand liegt beim Server, die App zeigt ihn — und stellt lokal erst um,
+wenn der Server bestätigt hat.**
+
+| Gebaut | Geprüft (`sensor_check` „Pausieren", „Regeln in der Cloud"; `save_check` SERVER_WEGE; `naht_check`) |
+|---|---|
+| `gsGeraetPausieren(id, pausiert)`: `PATCH devices?id=eq.<cloud_id>` mit `{status}`, `return=representation`, `_gsSchreibOk`; lokal `paused` bzw. `active` / `wartet` (ohne `paired_at`) erst danach; Kachel „⏸ Pausieren" / „▶️ Fortsetzen" nur bei gekoppelten Geräten. Der Empfänger antwortet dem Gerät dann 409 (Vertrag §2), das Gerät puffert | ungekoppelt → nein; PATCH mit Id und Status, geprüft; 0 Zeilen → alter Zustand bleibt, gesagt („Nicht fortgesetzt"); Fortsetzen ohne `paired_at` → „wartet"; Kachel liest den Knopf aus dem HTML. `naht_check`: `status` ist eine Spalte von `devices` |
+| Rückrichtung im Abgleich: `device_rules?select=id,device_id,enabled,last_fired_at` für die bekannten Geräte → `cloud_ok`, `server_zuletzt`, `enabled` zurück in die lokale Regel; eine Regel, die dort **war** und weg ist → `cloud_ok false`, `cloud_geloescht true` — die App meldet wieder selbst und lädt sie **nicht** neu hoch (`_gsRegelnNachziehen` lässt `cloud_geloescht` aus; ein neuer Upload setzt es zurück). Kachel: „☁️ zuletzt gemeldet dd.mm hh:mm" · „auf dem Server gelöscht — nur in der App" | `last_fired_at` und `enabled` kommen zurück; gelöschte Regel → nur in der App, kein POST; beides aus dem HTML gelesen. `naht_check`: die select-Liste steht in `device_rules`, und was der Abgleich liest (`sv.last_fired_at`, `sv.enabled`) steht in der select-Liste |
+
+Zwei Entscheidungen:
+
+- **Gelöscht ist gelöscht.** Ohne `cloud_geloescht` hätte der Nachzieh-Schritt
+  jede vom Server entfernte Regel beim nächsten Abgleich wieder angelegt —
+  ein Löschen, das sich alle fünf Minuten selbst rückgängig macht. Die
+  App behält die Regel lokal (sie ist die Absicht der Person) und sagt in
+  der Kachel, wo sie noch gilt.
+- **`enabled` kommt vom Server zurück, aber die App hat keinen Schalter
+  dafür.** Das ist bewusst: `gsRegelnPruefen` respektiert `enabled` seit
+  je, ein Schalter in der App wäre eine dritte Schreibstelle. Er kommt,
+  wenn jemand ihn braucht — dann mit demselben Muster (`_gsSchreibOk`,
+  drei Server-Antworten).
+
+Nicht gebaut: „Mein Naturjahr" auf `device_daily` — die Ansicht braucht
+Daten, die es erst mit dem ersten Gerät gibt. Der Fall dafür lässt sich
+stellen; ich ziehe es vor, ihn gegen echte Zeilen zu bauen.
 
 ### 11.3n · Die Naht — passen App, Empfänger, Cron und Pusher zusammen? (06.09.2026)
 

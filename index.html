@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.63.20260906">
+<meta name="app-version" content="32.64.20260906">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14344,6 +14344,10 @@ window.GS_I18N_JS_STRINGS = {
   'mw_noch_keine_cloud': 'Noch keine Werte — das Gerät hat sich noch nicht gemeldet.',
   'mw_art_wahl': 'Art',
   'mw_regel_nur_app': 'nur in der App',   // v32.63
+  'mw_pausieren': 'Pausieren',   // v32.64
+  'mw_fortsetzen': 'Fortsetzen',
+  'mw_regel_zuletzt': 'zuletzt gemeldet',
+  'mw_regel_geloescht': 'auf dem Server gelöscht — nur in der App',
   'mw_verloren': 'seit längerem kein Signal',
   'mw_zuletzt': 'zuletzt',
   'mw_kein_plausibler': 'kein plausibler Wert',
@@ -27141,9 +27145,30 @@ function gsGeraeteCloudAbgleich(opts) {
       var alle2 = gsGeraete();
       alle2.forEach(function (g) { if (g && bisJe[g.id] && (!g.cloud_bis || bisJe[g.id] > g.cloud_bis)) g.cloud_bis = bisJe[g.id]; });
       _gsGeraeteSchreiben(alle2);
-      // v32.63: Regeln, die der Server noch nicht hat, nachziehen (nur bei Geraeten, die er kennt)
-      alle2.forEach(function (g) { if (g && g.cloud_id && !(g.cloud && g.cloud.fehlt)) { try { _gsRegelnNachziehen(g.id); } catch (_) {} } });
-      return erg;
+      var bekannt = {}; alle2.forEach(function (g) { if (g && g.cloud_id && !(g.cloud && g.cloud.fehlt)) bekannt[g.id] = true; });
+      // v32.64: die Rueckrichtung der Regeln — liegt sie dort, wann hat der Server sie
+      // zuletzt gemeldet, ist sie eingeschaltet? Eine Regel, die dort WAR und weg ist,
+      // meldet die App wieder selbst und laedt sie NICHT neu hoch (geloescht ist geloescht).
+      return sbFetch('/rest/v1/device_rules?select=id,device_id,enabled,last_fired_at&device_id=' + inListe, { method: 'GET' }).then(function (rr) {
+        if (rr && !rr.error && Array.isArray(rr.data)) {
+          var vom = {}; rr.data.forEach(function (x) { if (x && x.id) vom[x.id] = x; });
+          var regeln = gsRegeln(), geaendert = false;
+          regeln.forEach(function (r) {
+            if (!r || !bekannt[r.geraet_id]) return;
+            var sv = vom[r.id];
+            if (sv) {
+              r.cloud_ok = true; r.cloud_geloescht = false; geaendert = true;
+              if (sv.last_fired_at) r.server_zuletzt = sv.last_fired_at;
+              if (typeof sv.enabled === 'boolean') r.enabled = sv.enabled;
+            } else if (r.cloud_ok === true) { r.cloud_ok = false; r.cloud_geloescht = true; geaendert = true; }
+          });
+          if (geaendert) { try { localStorage.setItem('gs_geraete_regeln', JSON.stringify(regeln)); } catch (_) {} }
+          erg.regeln = rr.data.length;
+        }
+        // v32.63: Regeln, die der Server noch nicht hat, nachziehen (nur bei Geraeten, die er kennt)
+        Object.keys(bekannt).forEach(function (id) { try { _gsRegelnNachziehen(id); } catch (_) {} });
+        return erg;
+      });
     }).catch(function (e) { return leer('Fehler: ' + (e && e.message)); });
   } catch (e) { return Promise.resolve(leer('Fehler: ' + (e && e.message))); }
 }
@@ -27185,7 +27210,7 @@ function _gsRegelHochladen(r) {
           try { if (typeof gsToast === 'function') gsToast('Die Regel gilt vorerst nur in der App — der Server hat sie nicht angenommen' + (a && a.error && a.error.message ? ' (' + String(a.error.message).slice(0, 80) + ')' : '') + '. Die App meldet solange selbst.', 'warn', 6000); } catch (_) {}
           return { ok: false, grund: (a && a.error && a.error.message) || 'vom Server abgewiesen' };
         }
-        _gsRegelMerken(r.id, { cloud_ok: true, cloud_am: new Date().toISOString() });
+        _gsRegelMerken(r.id, { cloud_ok: true, cloud_am: new Date().toISOString(), cloud_geloescht: false });
         return { ok: true };
       }).catch(function (e) { _gsRegelMerken(r.id, { cloud_ok: false }); return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
   } catch (e) { return still('Fehler: ' + (e && e.message)); }
@@ -27211,10 +27236,39 @@ function _gsGeraetServerLoeschen(g) {
 }
 // Alle Regeln eines Geraets, die noch nicht auf dem Server liegen — nachziehen.
 function _gsRegelnNachziehen(geraetId) {
-  var offen = gsRegeln().filter(function (r) { return r && r.geraet_id === geraetId && r.cloud_ok !== true; });
+  var offen = gsRegeln().filter(function (r) { return r && r.geraet_id === geraetId && r.cloud_ok !== true && !r.cloud_geloescht; });   // v32.64: dort geloescht bleibt geloescht
   return Promise.all(offen.map(function (r) { return _gsRegelHochladen(r); })).then(function (erg) { return { versucht: erg.length, ok: erg.filter(function (e) { return e && e.ok; }).length }; });
 }
 window._gsRegelHochladen = _gsRegelHochladen; window._gsRegelnNachziehen = _gsRegelnNachziehen;
+
+// ── v32.64 · PAUSIEREN — der Zustand liegt beim Server ─────────────────────
+// Ein gekoppeltes Geraet pausiert man in der App; der Server traegt den
+// Zustand (`devices.status`) und sagt dem Geraet beim naechsten Kontakt, dass
+// es schweigen soll (Vertrag §2: 409 paused). Lokal wird erst nach der
+// Bestaetigung umgestellt — 0 Zeilen (RLS) sind kein Pausieren.
+function gsGeraetPausieren(geraetId, pausiert) {
+  var toast = function (m, art) { try { if (typeof gsToast === 'function') gsToast(m, art || 'info', 5000); } catch (_) {} };
+  try {
+    var g = gsGeraete().find(function (x) { return x && x.id === geraetId; });
+    if (!g) return Promise.resolve({ ok: false, grund: 'Unbekanntes Gerät.' });
+    if (!g.cloud_id) return Promise.resolve({ ok: false, grund: 'Nur ein gekoppeltes Gerät lässt sich pausieren — der Server sagt ihm dann, dass es schweigen soll.' });
+    if (!_gsCloudBereit()) { toast('Bitte anmelden — der Zustand liegt beim Server.', 'warn'); return Promise.resolve({ ok: false, grund: 'nicht angemeldet' }); }
+    var ziel = pausiert ? 'paused' : 'active';
+    return sbFetch('/rest/v1/devices?id=eq.' + encodeURIComponent(g.cloud_id), { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify({ status: ziel }) })
+      .then(function (r) {
+        if (!_gsSchreibOk(r)) {
+          toast((pausiert ? 'Nicht pausiert' : 'Nicht fortgesetzt') + ' — der Server hat es nicht angenommen' + (r && r.error && r.error.message ? ' (' + String(r.error.message).slice(0, 80) + ')' : '') + '.', 'warn');
+          return { ok: false, grund: (r && r.error && r.error.message) || 'vom Server abgewiesen' };
+        }
+        var alle = gsGeraete();
+        alle.forEach(function (x) { if (x && x.id === g.id) x.status = pausiert ? 'paused' : (x.paired_at ? 'active' : 'wartet'); });
+        _gsGeraeteSchreiben(alle);
+        return { ok: true, status: ziel };
+      }).catch(function (e) { toast((pausiert ? 'Nicht pausiert' : 'Nicht fortgesetzt') + ' — ' + ((e && e.message) || 'Netzfehler') + '.', 'warn'); return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
+  } catch (e) { return Promise.resolve({ ok: false, grund: 'Fehler: ' + (e && e.message) }); }
+}
+window.gsGeraetPausieren = gsGeraetPausieren;
+window._gsMwPausieren = function (id, p) { gsGeraetPausieren(id, p).then(function () { try { _gsMwRender(); } catch (_) {} }); };
 
 function gsRegeln() { try { var a = safeGetItem('gs_geraete_regeln', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
 function gsRegelAnlegen(o) {
@@ -27597,7 +27651,9 @@ function _gsMwRender() {
         '<button type="button" onclick="_gsMwTokenKopieren(\'' + esc(g.id) + '\')">' + _t('mw_kopieren', 'Kopieren') + '</button>' +
         '<button type="button" onclick="_gsMwTokenFertig(\'' + esc(g.id) + '\')">' + _t('mw_fertig', 'Fertig') + '</button></div></div>' : '';
     var koppelKnopf = (_gsGeraetIstCloud(g) && !_gsMwTokenEinmal[g.id]) ? '<div class="gs-mw-koppeln"><button type="button" class="gs-mw-link" onclick="_gsMwKoppeln(\'' + esc(g.id) + '\')">' +
-        (g.cloud_id ? '🔑 ' + _t('mw_token_neu', 'Token neu erzeugen') : '🔗 ' + _t('mw_koppeln', 'Koppeln')) + '</button></div>' : '';
+        (g.cloud_id ? '🔑 ' + _t('mw_token_neu', 'Token neu erzeugen') : '🔗 ' + _t('mw_koppeln', 'Koppeln')) + '</button>' +
+        (g.cloud_id ? '<button type="button" class="gs-mw-link" onclick="_gsMwPausieren(\'' + esc(g.id) + '\', ' + (g.status === 'paused' ? 'false' : 'true') + ')">' + (g.status === 'paused' ? '▶️ ' + _t('mw_fortsetzen', 'Fortsetzen') : '⏸ ' + _t('mw_pausieren', 'Pausieren')) + '</button>' : '') +   // v32.64
+        '</div>' : '';
     var metrics = kat.filter(function (k) { return alleMw.some(function (m) { return m.geraet_id === g.id && m.metric === k.key; }); });
     var werte = metrics.map(function (k) {
       var w = gsMesswerte(g.id, k.key); var letzter = w[w.length - 1];
@@ -27608,7 +27664,9 @@ function _gsMwRender() {
     }).join('');
     var regeln = gsRegelnPruefen(g.id).map(function (r) {
       var z = r.zustand === 'verletzt' ? '⚠️ ' + _t('mw_verletzt', 'verletzt') : r.zustand === 'erfuellt' ? '✓ ' + _t('mw_erfuellt', 'erfüllt') : '– ' + _t('mw_nicht_pruefbar', 'nicht prüfbar');
-      return '<div class="gs-mw-regel gs-mw-' + r.zustand + '"><b>' + esc(r.text) + '</b><i>' + esc(z) + ' · ' + esc(r.grund) + (function () { if (!g.cloud_id) return ''; var raw = null; gsRegeln().forEach(function (x) { if (x && x.id === r.regel_id) raw = x; }); return raw && raw.cloud_ok === true ? ' · ☁️' : ' · ' + esc(_t('mw_regel_nur_app', 'nur in der App')); })() + '</i><button type="button" class="gs-mw-x" aria-label="Regel löschen" onclick="gsRegelLoeschen(\'' + esc(r.regel_id) + '\');if(typeof gsSensorAufgabenAbgleich===\'function\')gsSensorAufgabenAbgleich();_gsMwRender()">×</button></div>';
+      return '<div class="gs-mw-regel gs-mw-' + r.zustand + '"><b>' + esc(r.text) + '</b><i>' + esc(z) + ' · ' + esc(r.grund) + (function () { if (!g.cloud_id) return ''; var raw = null; gsRegeln().forEach(function (x) { if (x && x.id === r.regel_id) raw = x; }); if (raw && raw.cloud_ok === true) return ' · ☁️' + (raw.server_zuletzt ? ' ' + esc(_t('mw_regel_zuletzt', 'zuletzt gemeldet') + ' ' + _gsKalDatumKurz(raw.server_zuletzt) + ' ' + (_gsKalZeit(raw.server_zuletzt) || '')) : '');
+        if (raw && raw.cloud_geloescht) return ' · ' + esc(_t('mw_regel_geloescht', 'auf dem Server gelöscht — nur in der App'));
+        return ' · ' + esc(_t('mw_regel_nur_app', 'nur in der App')); })() + '</i><button type="button" class="gs-mw-x" aria-label="Regel löschen" onclick="gsRegelLoeschen(\'' + esc(r.regel_id) + '\');if(typeof gsSensorAufgabenAbgleich===\'function\')gsSensorAufgabenAbgleich();_gsMwRender()">×</button></div>';
     }).join('');
     var erste = metrics[0];
     return '<div class="gs-mw-kachel" id="geraet-' + esc(g.id) + '" data-geraet="' + esc(g.id) + '">' +
@@ -74713,6 +74771,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.64', date: '06.09.2026',
+    headline: '⏸ Pausieren vom Telefon aus — und der Server sagt, wann er zuletzt gemeldet hat',
+    summary: 'Ein gekoppeltes Gerät lässt sich jetzt aus der App pausieren und fortsetzen — der Zustand liegt beim Server, der dem Gerät beim nächsten Kontakt sagt, dass es schweigen soll; lokal wird erst nach der Bestätigung umgestellt. Und die Regeln kommen zurück: der Abgleich liest, ob eine Regel auf dem Server liegt, wann er sie zuletzt gemeldet hat und ob sie eingeschaltet ist. Eine Regel, die dort gelöscht wurde, meldet die App wieder selbst und sagt es in der Kachel — neu hochgeladen wird sie nicht. Ohne Gerät gebaut, mit gestelltem Server geprüft (docs/OEKOSYSTEM-V1.md §11.3o).',
+    user_summary: '⏸ Gekoppelte Sensoren lassen sich pausieren, und hinter jeder Regel steht, wann der Server zuletzt gemeldet hat.',
+    user_items: [
+      {emoji:'⏸', bold:'Pausieren:', text:' Bei einem gekoppelten Gerät auf „Pausieren" — es schweigt, bis du fortsetzt.'},
+      {emoji:'📏', bold:'Regel-Status:', text:' Hinter jeder Regel steht ☁️ mit „zuletzt gemeldet …", oder „nur in der App".'},
+    ],
+  },
+  {
     v: 'v32.63', date: '06.09.2026',
     headline: '☁️ Regeln reisen mit — eine Instanz je Alarm heisst: die, die die Regel hat',
     summary: 'Seit v32.62 meldet die App Alarme gekoppelter Geräte nicht mehr selbst, weil der Server das tut — aber der Server kannte die Regeln nicht, sie lagen nur in der App. Jetzt geht eine Regel an einem gekoppelten Gerät auf den Server (device_rules, dieselbe Kennung): beim Anlegen, beim Koppeln und beim Abgleich; Löschen löscht dort mit, und ein gekoppeltes Gerät zu entfernen entfernt es auch in der Cloud. Die App lässt eine Regel nur dann aus, wenn sie nachweislich auf dem Server liegt — sonst meldet sie weiter selbst. In der Kachel steht ☁️ oder „nur in der App".',
@@ -75595,7 +75663,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.63';
+var GS_VERSION = 'v32.64';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
