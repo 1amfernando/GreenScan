@@ -12,6 +12,31 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-06 (fd) — Bestandsaufnahme: was noch nicht professionell ist (nur Liste, kein Umbau)
+
+Auf Fernandos Frage „finde weitere Sachen, die noch nicht professionell
+gemacht sind": **`docs/PROFESSIONALITAET-AUDIT-2026-09-06.md`** — vier
+Suchdurchgänge (Sicherheit · Robustheit · Code-Hygiene · Nutzersicht),
+jede Behauptung nachgemessen, mit Zeilennummern, Zählungen und einem
+lesenden Blick in die Live-Datenbank. Die schwersten:
+
+- **A1** `fn_get_global_api_key` gibt den echten Anthropic-Schlüssel an
+  jeden angemeldeten Nutzer; die App ruft Anthropic direkt aus dem Browser,
+  der `ai-proxy` ist hinter einem Flag mit Vorgabe „aus".
+- **A2/A3** Stored XSS im Community-Feed (`social_posts.type` roh in ein
+  Attribut) und `escHtml` ohne `'` in einfach zitierten `onclick`-Strings.
+- **B1** `sbFetch` ohne zweites Argument stürzt vor dem `try` ab —
+  Wetterwarnungen-Panel und Marktplatz-Verkäuferstatus sind seit jeher tot.
+- **B2** Garten-Scan: 60 s Client-Timeout gegen 14'000 Tokens auf dem
+  Server, der den Plan trotzdem speichert — doppelte Pläne, doppelte Kosten.
+- **D1/D2** `github/` ohne Punkt (122 Branches, Workflow nie gelaufen),
+  27 Prüfstände ohne CI, Playwright über einen festen Cloud-Pfad.
+- **E1–E3** 351 Toasts, 6 übersetzt; Lina antwortet immer Deutsch und nennt
+  Tabs, die es nicht gibt; Menü-Zähler um das Vier- bis Zehnfache daneben.
+
+Kein Loch (nachgemessen): `v_admin_users` hat `security_invoker=on`.
+Reihenfolge für den Umbau steht in §G des Dokuments. **Nichts repariert.**
+
 ### 2026-09-06 (fc) — v32.64: Pausieren vom Telefon aus, und die Rückrichtung der Regeln
 
 `docs/OEKOSYSTEM-V1.md` §11.3o. Der Zustand liegt beim Server, die App
