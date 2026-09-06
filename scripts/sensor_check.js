@@ -726,6 +726,174 @@ const FAELLE = [
       } finally { window.gsToast = echtToast; }
     },
   },
+  {
+    // v32.62: Koppeln — das Token entsteht in der App, zum Server geht nur der
+    // SHA-256, angezeigt wird es genau einmal, gespeichert nie. Eine Absage
+    // (Fehler ODER 0 Zeilen, RLS) ist keine Kopplung — und wird gesagt.
+    name: 'Koppeln · Token nur einmal sichtbar, zum Server geht allein der SHA-256, eine Absage ist keine Kopplung, „von Hand" braucht kein Token',
+    lauf: async () => {
+      const echtFetch = window.sbFetch, echtLogin = window.sbIsLoggedIn, echtGet = window.gsStore && gsStore.get, echtToast = window.gsToast;
+      const rufe = [], toasts = [];
+      window.sbIsLoggedIn = () => true;
+      window.gsStore = window.gsStore || {}; gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet(k, d) : d));
+      window.gsToast = (m) => toasts.push(String(m));
+      const g = gsGeraetAnlegen({ kind: 'gs_sensor', name: 'Bodenstab Test' });
+      let g2 = null;
+      try {
+        if (!g) return { ok: false, warum: 'Gerät nicht angelegt' };
+        window.sbFetch = async (path, opts) => { rufe.push({ path, opts }); return (opts && opts.method === 'POST') ? { data: [{ id: JSON.parse(opts.body).id }], error: null } : { data: [], error: null }; };
+        const r1 = await gsGeraetKoppeln(g.id);
+        if (!r1 || !r1.ok || !r1.token) return { ok: false, warum: 'Koppeln: ' + JSON.stringify(r1) };
+        if (!/^[A-Za-z0-9_-]{43}$/.test(r1.token)) return { ok: false, warum: 'Token-Form: ' + r1.token };
+        const ruf = rufe.find(x => /\/rest\/v1\/devices$/.test(x.path));
+        if (!ruf || ruf.opts.method !== 'POST' || !/merge-duplicates/.test(ruf.opts.headers.Prefer) || !/return=representation/.test(ruf.opts.headers.Prefer)) return { ok: false, warum: 'Aufruf: ' + JSON.stringify(ruf && ruf.opts.headers) };
+        const body = JSON.parse(ruf.opts.body);
+        if (body.token || JSON.stringify(body).indexOf(r1.token) >= 0) return { ok: false, warum: 'das Token selbst geht zum Server' };
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(r1.token));
+        const hex = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');
+        if (body.token_hash !== hex) return { ok: false, warum: 'token_hash ist nicht der SHA-256 des Tokens: ' + body.token_hash };
+        if (body.user_id !== '00000000-0000-0000-0000-000000000001' || body.kind !== 'gs_sensor' || body.id !== r1.cloud_id || !/^[0-9a-f-]{36}$/.test(body.id)) return { ok: false, warum: 'Satz: ' + JSON.stringify(body) };
+        const gl = gsGeraete().find(x => x.id === g.id);
+        if (!gl.cloud_id || gl.status !== 'wartet') return { ok: false, warum: 'lokal: ' + JSON.stringify({ cloud_id: gl.cloud_id, status: gl.status }) };
+        gsMesswerteOeffnen();
+        const html1 = document.getElementById('modal-content').innerHTML;
+        if (html1.indexOf(r1.token) < 0) return { ok: false, warum: 'das Token wird nicht angezeigt' };
+        const kachel = document.getElementById('geraet-' + g.id).textContent;
+        if (!/gekoppelt/.test(kachel) || !/wartet/.test(kachel)) return { ok: false, warum: 'Kachel: ' + kachel.slice(0, 160) };
+        _gsMwTokenFertig(g.id);
+        if (document.getElementById('modal-content').innerHTML.indexOf(r1.token) >= 0) return { ok: false, warum: 'das Token bleibt nach „Fertig" sichtbar' };
+        if (JSON.stringify(localStorage).indexOf(r1.token) >= 0) return { ok: false, warum: 'das Token liegt im Speicher' };
+        const sel = document.getElementById('mw-geraet');
+        if (sel && Array.from(sel.options).some(o => o.value === g.id)) return { ok: false, warum: 'ein gekoppeltes Gerät steht im Formular „von Hand"' };
+        if (!/Token neu erzeugen/.test(document.getElementById('geraet-' + g.id).textContent)) return { ok: false, warum: 'kein Knopf zum Neu-Erzeugen' };
+        // 0 Zeilen (RLS still) und Ablehnung → nicht gekoppelt, gesagt
+        g2 = gsGeraetAnlegen({ kind: 'third_party', name: 'Fremd Test' });
+        window.sbFetch = async () => ({ data: [], error: null });
+        toasts.length = 0;
+        const r2 = await gsGeraetKoppeln(g2.id);
+        const gl2 = gsGeraete().find(x => x.id === g2.id);
+        if (!r2 || r2.ok || gl2.cloud_id || !toasts.some(t => /Nicht gekoppelt/.test(t))) return { ok: false, warum: '0 Zeilen: ' + JSON.stringify({ r2, cloud_id: gl2.cloud_id, toasts }) };
+        window.sbFetch = async () => ({ data: null, error: { message: 'permission denied' } });
+        const r3 = await gsGeraetKoppeln(g2.id);
+        if (!r3 || r3.ok || gsGeraete().find(x => x.id === g2.id).cloud_id) return { ok: false, warum: 'Ablehnung: ' + JSON.stringify(r3) };
+        gsMesswerteOeffnen();
+        if (!/noch nicht gekoppelt/.test(document.getElementById('geraet-' + g2.id).textContent)) return { ok: false, warum: 'ein ungekoppeltes Gerät sagt es nicht' };
+        // von Hand braucht kein Token
+        const hand = gsGeraete().find(x => x.kind === 'manual');
+        const r4 = await gsGeraetKoppeln(hand.id);
+        if (!r4 || r4.ok || !/von Hand/.test(r4.grund)) return { ok: false, warum: 'von Hand: ' + JSON.stringify(r4) };
+        // ohne Anmeldung: nichts geht hinaus
+        window.sbIsLoggedIn = () => false; rufe.length = 0;
+        const r5 = await gsGeraetKoppeln(g2.id);
+        if (!r5 || r5.ok || rufe.length) return { ok: false, warum: 'ohne Anmeldung: ' + JSON.stringify({ r5, rufe: rufe.length }) };
+        return { ok: true, info: 'Token 43 Zeichen, einmal gezeigt, nicht im Speicher · Satz: token_hash = SHA-256, kein Token, user_id, UUID · 0 Zeilen → nicht gekoppelt, gesagt · Ablehnung → nicht gekoppelt · von Hand → kein Token · abgemeldet → kein Aufruf' };
+      } finally {
+        gsGeraetLoeschen(g && g.id); if (g2) gsGeraetLoeschen(g2.id);
+        window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; window.gsToast = echtToast; if (echtGet) gsStore.get = echtGet;
+      }
+    },
+  },
+  {
+    // v32.62: der Rueckweg — Status vom Server, Werte durch denselben einen Weg
+    // (quelle cloud, pending false, Qualitaet vom Server), zweimal = einmal,
+    // inkrementell ab dem letzten Zeitpunkt, Drossel, lost/paused/fehlend.
+    name: 'Cloud-Abgleich · Status vom Server, Werte kommen als „cloud" ohne pending zurück, zweimal = einmal, verstummt/pausiert/fehlend sichtbar, Ablehnung ändert nichts',
+    lauf: async () => {
+      const echtFetch = window.sbFetch, echtLogin = window.sbIsLoggedIn, echtGet = window.gsStore && gsStore.get;
+      window.sbIsLoggedIn = () => true; window.gsStore = window.gsStore || {}; gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet(k, d) : d));
+      const g = gsGeraetAnlegen({ kind: 'gs_sensor', name: 'Bodenstab Cloud' });
+      try {
+        window.sbFetch = async (path, opts) => (opts && opts.method === 'POST') ? { data: [{ id: JSON.parse(opts.body).id }], error: null } : { data: [], error: null };
+        const k = await gsGeraetKoppeln(g.id); if (!k.ok) return { ok: false, warum: 'Koppeln: ' + JSON.stringify(k) };
+        _gsMwTokenFertig(g.id);
+        const cid = k.cloud_id, T = Date.now();
+        const zeilen = [
+          { device_id: cid, metric: 'soil_moisture', ts: new Date(T - 3 * 3600000).toISOString(), value: 41, quality: 2 },
+          { device_id: cid, metric: 'soil_moisture', ts: new Date(T - 2 * 3600000).toISOString(), value: 250, quality: 1 },
+          { device_id: cid, metric: 'battery', ts: new Date(T - 1 * 3600000).toISOString(), value: 50, quality: 0 } ];
+        let server = { id: cid, kind: 'gs_sensor', name: 'Bodenstab Cloud', status: 'active', last_seen_at: zeilen[2].ts, paired_at: zeilen[0].ts, capabilities: { metrics: ['soil_moisture', 'battery'], interval_s: 1800 }, firmware: 'gs-soil-1.0.3' };
+        const pfade = [];
+        window.sbFetch = async (path) => { pfade.push(path); if (/\/devices\?/.test(path)) return { data: [server], error: null }; if (/\/device_readings\?/.test(path)) return { data: zeilen.filter(z => path.indexOf('device_id=eq.' + z.device_id) >= 0), error: null }; return { data: [], error: null }; };
+        const a1 = await gsGeraeteCloudAbgleich({ erzwingen: true });
+        if (!a1.ok || a1.geraete !== 1 || a1.neu !== 3 || a1.doppelt !== 0) return { ok: false, warum: 'Abgleich 1: ' + JSON.stringify(a1) };
+        const pr = pfade.find(p => /device_readings/.test(p));
+        if (!pr || pr.indexOf('device_id=eq.' + cid) < 0 || !/ts=gt\./.test(pr) || !/order=ts\.asc/.test(pr)) return { ok: false, warum: 'Lese-Pfad: ' + pr };
+        const mw = gsMesswerte(g.id);
+        if (mw.length !== 3 || mw.some(m => m.pending !== false || m.quelle !== 'cloud')) return { ok: false, warum: 'Messwerte: ' + JSON.stringify(mw.map(m => [m.metric, m.pending, m.quelle])) };
+        if (mw.map(m => m.quality).join(',') !== '2,1,0') return { ok: false, warum: 'Qualität vom Server nicht übernommen: ' + mw.map(m => m.quality).join(',') };
+        const gl = gsGeraete().find(x => x.id === g.id);
+        if (gl.status !== 'active' || gl.paired_at !== zeilen[0].ts || gl.firmware !== 'gs-soil-1.0.3' || gl.cloud_bis !== zeilen[2].ts || gl.capabilities.interval_s !== 1800) return { ok: false, warum: 'Gerät: ' + JSON.stringify({ status: gl.status, paired_at: gl.paired_at, firmware: gl.firmware, cloud_bis: gl.cloud_bis, iv: gl.capabilities.interval_s }) };
+        const a2 = await gsGeraeteCloudAbgleich({ erzwingen: true });
+        if (!a2.ok || a2.neu !== 0 || a2.doppelt !== 3 || gsMesswerte(g.id).length !== 3) return { ok: false, warum: 'Abgleich 2: ' + JSON.stringify(a2) };
+        const p2 = pfade.filter(p => /device_readings/.test(p) && p.indexOf(cid) >= 0).pop();
+        if (p2.indexOf('ts=gt.' + encodeURIComponent(zeilen[2].ts)) < 0) return { ok: false, warum: 'der zweite Lauf liest nicht ab dem letzten Zeitpunkt: ' + p2 };
+        // Ein ZWEITES, neu gekoppeltes Geraet mit AELTEREN Werten: es liest ab seinem eigenen Zeiger (7 Tage), nicht ab dem des ersten
+        const g3 = gsGeraetAnlegen({ kind: 'third_party', name: 'Fremd Cloud' });
+        window.sbFetch = async (path, opts) => (opts && opts.method === 'POST') ? { data: [{ id: JSON.parse(opts.body).id }], error: null } : { data: [], error: null };
+        const k3 = await gsGeraetKoppeln(g3.id); if (!k3.ok) return { ok: false, warum: 'Koppeln 2: ' + JSON.stringify(k3) };
+        _gsMwTokenFertig(g3.id);
+        zeilen.push({ device_id: k3.cloud_id, metric: 'air_temp', ts: new Date(T - 5 * 864e5).toISOString(), value: 17, quality: 2 },
+                    { device_id: k3.cloud_id, metric: 'air_temp', ts: new Date(T - 4 * 864e5).toISOString(), value: 19, quality: 2 });
+        const server3 = { id: k3.cloud_id, kind: 'third_party', name: 'Fremd Cloud', status: 'active', last_seen_at: zeilen[4].ts, paired_at: zeilen[3].ts, capabilities: { metrics: ['air_temp'] } };
+        pfade.length = 0;
+        window.sbFetch = async (path) => { pfade.push(path); if (/\/devices\?/.test(path)) return { data: [server, server3], error: null }; if (/\/device_readings\?/.test(path)) return { data: zeilen.filter(z => path.indexOf('device_id=eq.' + z.device_id) >= 0), error: null }; return { data: [], error: null }; };
+        const a6 = await gsGeraeteCloudAbgleich({ erzwingen: true });
+        if (!a6.ok || a6.geraete !== 2 || a6.neu !== 2 || a6.doppelt !== 3) return { ok: false, warum: 'zwei Geräte: ' + JSON.stringify(a6) };
+        const p3 = pfade.find(p => /device_readings/.test(p) && p.indexOf(k3.cloud_id) >= 0);
+        if (!p3 || p3.indexOf('ts=gt.' + encodeURIComponent(zeilen[2].ts)) >= 0) return { ok: false, warum: 'das zweite Gerät liest ab dem Zeiger des ersten: ' + p3 };
+        if (gsMesswerte(g3.id).length !== 2 || gsGeraete().find(x => x.id === g3.id).cloud_bis !== zeilen[4].ts) return { ok: false, warum: 'zweites Gerät: ' + JSON.stringify({ n: gsMesswerte(g3.id).length, bis: gsGeraete().find(x => x.id === g3.id).cloud_bis }) };
+        gsGeraetLoeschen(g3.id);
+        window.sbFetch = async (path) => { pfade.push(path); if (/\/devices\?/.test(path)) return { data: [server], error: null }; if (/\/device_readings\?/.test(path)) return { data: zeilen.filter(z => path.indexOf('device_id=eq.' + z.device_id) >= 0), error: null }; return { data: [], error: null }; };
+        gsMesswerteOeffnen();
+        let t = document.getElementById('geraet-' + g.id).textContent;
+        if (!/gekoppelt/.test(t) || !/41/.test(t) || !/ausserhalb/.test(t)) return { ok: false, warum: 'Kachel: ' + t.slice(0, 220) };
+        const a3 = await gsGeraeteCloudAbgleich();
+        if (a3.ok || !/gerade erst/.test(a3.grund)) return { ok: false, warum: 'Drossel: ' + JSON.stringify(a3) };
+        server = Object.assign({}, server, { status: 'lost' });
+        await gsGeraeteCloudAbgleich({ erzwingen: true }); gsMesswerteOeffnen(); t = document.getElementById('geraet-' + g.id).textContent;
+        if (gsGeraete().find(x => x.id === g.id).status !== 'lost' || !/kein Signal/.test(t)) return { ok: false, warum: 'verstummt: ' + t.slice(0, 160) };
+        server = Object.assign({}, server, { status: 'paused' });
+        await gsGeraeteCloudAbgleich({ erzwingen: true }); gsMesswerteOeffnen(); t = document.getElementById('geraet-' + g.id).textContent;
+        if (!/pausiert/.test(t)) return { ok: false, warum: 'pausiert: ' + t.slice(0, 160) };
+        window.sbFetch = async () => ({ data: [], error: null });
+        await gsGeraeteCloudAbgleich({ erzwingen: true }); gsMesswerteOeffnen(); t = document.getElementById('geraet-' + g.id).textContent;
+        if (!/nicht gefunden/.test(t)) return { ok: false, warum: 'fehlend: ' + t.slice(0, 160) };
+        window.sbFetch = async () => ({ data: null, error: { message: 'permission denied', status: 401 } });
+        const a5 = await gsGeraeteCloudAbgleich({ erzwingen: true });
+        if (a5.ok || gsMesswerte(g.id).length !== 3 || !/permission/.test(a5.grund)) return { ok: false, warum: 'Ablehnung: ' + JSON.stringify(a5) };
+        return { ok: true, info: '3 Werte cloud/pending:false, Qualität 2,1,0 · Status, paired_at, Firmware, interval_s vom Server · zweimal = 3 doppelt, ab letztem Zeitpunkt · zweites Gerät liest ab eigenem Zeiger (2 ältere Werte) · Drossel · lost/paused/fehlend sichtbar · Ablehnung ändert nichts' };
+      } finally { gsGeraetLoeschen(g && g.id); window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; if (echtGet) gsStore.get = echtGet; }
+    },
+  },
+  {
+    // v32.62: EINE Instanz je Alarm. Gekoppelt → der Server meldet (sensor-push),
+    // die App nicht — dieselbe Regel am Handgeraet meldet lokal.
+    name: 'Alarm-Instanz · für ein gekoppeltes Gerät meldet der Server, nicht die App — dieselbe Regel am Handgerät meldet lokal',
+    lauf: async () => {
+      const echtFetch = window.sbFetch, echtLogin = window.sbIsLoggedIn, echtGet = window.gsStore && gsStore.get;
+      const echtEnabled = gsNotif.isEnabled, echtKat = gsNotif.showKategorie, rufe = [];
+      window.sbIsLoggedIn = () => true; window.gsStore = window.gsStore || {}; gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet(k, d) : d));
+      gsNotif.isEnabled = () => true; gsNotif.showKategorie = (kat, o) => { rufe.push(o); return true; };
+      const gc = gsGeraetAnlegen({ kind: 'gs_sensor', name: 'Cloud Alarm' }), gh = gsGeraetAnlegen({ kind: 'manual', name: 'Hand Alarm' });
+      try {
+        window.sbFetch = async (path, opts) => (opts && opts.method === 'POST') ? { data: [{ id: JSON.parse(opts.body).id }], error: null } : { data: [], error: null };
+        const k = await gsGeraetKoppeln(gc.id); if (!k.ok) return { ok: false, warum: 'Koppeln: ' + JSON.stringify(k) };
+        _gsMwTokenFertig(gc.id);
+        const ts = new Date(Date.now() - 600000).toISOString();
+        _gsMesswerteAnhaengen(gsGeraete().find(x => x.id === gc.id), [{ metric: 'soil_moisture', wert: 12, ts }], { quelle: 'cloud', pending: false, status_belassen: true });
+        const rc = gsRegelAnlegen({ geraet_id: gc.id, metric: 'soil_moisture', op: 'below', threshold: 25, action: 'notify' });
+        if (gsRegelnPruefen(gc.id)[0].zustand !== 'verletzt') return { ok: false, warum: 'die Regel ist nicht verletzt — der Fall prüft nichts' };
+        const e1 = gsSensorAlarmeMelden();
+        if (e1.gemeldet.indexOf(rc.id) >= 0 || rufe.some(o => /Cloud Alarm/.test((o && o.body) || ''))) return { ok: false, warum: 'die App meldet den Alarm eines gekoppelten Geräts selbst: ' + JSON.stringify(e1) };
+        gsMesswertEintragen(gh.id, 'soil_moisture', 12);
+        const rh = gsRegelAnlegen({ geraet_id: gh.id, metric: 'soil_moisture', op: 'below', threshold: 25, action: 'notify' });
+        const e2 = gsSensorAlarmeMelden();
+        if (e2.gemeldet.indexOf(rh.id) < 0 || e2.gemeldet.indexOf(rc.id) >= 0) return { ok: false, warum: 'Handgerät: ' + JSON.stringify(e2) };
+        if (!rufe.some(o => /Hand Alarm/.test((o && o.body) || ''))) return { ok: false, warum: 'die Meldung nennt das Handgerät nicht: ' + JSON.stringify(rufe.map(o => o && o.body)) };
+        return { ok: true, info: 'Cloud-Gerät verletzt → keine lokale Meldung · Handgerät verletzt → gemeldet, mit Namen' };
+      } finally { gsGeraetLoeschen(gc && gc.id); gsGeraetLoeschen(gh && gh.id); window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; if (echtGet) gsStore.get = echtGet; gsNotif.isEnabled = echtEnabled; gsNotif.showKategorie = echtKat; }
+    },
+  },
 ];
 
 (async () => {

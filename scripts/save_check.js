@@ -148,6 +148,43 @@ const WEGE = [
 // Fehler — wer nur auf `error` prueft, meldet dann Erfolg fuer nichts.
 const SERVER_WEGE = [
   {
+    // v32.62: Koppeln — der Server legt die Geraetezeile an (upsert). 0 Zeilen
+    // (RLS still) sind keine Kopplung; das Token darf nie in den Speicher.
+    name: 'Gerät koppeln (gsGeraetKoppeln → devices)',
+    lauf: async () => {
+      const erg = { rufe: [], meldungen: [] };
+      const echtToast = window.gsToast, echtGet = window.gsStore && gsStore.get, echtLogin = window.sbIsLoggedIn, echtFetch = window.sbFetch;
+      window.gsToast = m => erg.meldungen.push(String(m));
+      window.gsStore = window.gsStore || {}; gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet(k, d) : d));
+      window.sbIsLoggedIn = () => true;
+      if (typeof gsGeraetKoppeln !== 'function') return { ok: false, warum: 'gsGeraetKoppeln fehlt' };
+      const g = gsGeraetAnlegen({ kind: 'gs_sensor', name: 'Prüfstand Sensor' });
+      if (!g) return { ok: false, warum: 'Gerät nicht angelegt' };
+      try {
+        // Fall 1: Server lehnt ab → nicht gekoppelt, gesagt
+        window.sbFetch = async (path) => { erg.rufe.push(path); return { data: null, error: { message: 'permission denied' } }; };
+        let r = await gsGeraetKoppeln(g.id);
+        if (!erg.rufe.some(p => /\/devices$/.test(p))) return { ok: false, warum: 'ruft devices gar nicht auf' };
+        if (r.ok || gsGeraete().find(x => x.id === g.id).cloud_id) return { ok: false, warum: 'Ablehnung gilt als Kopplung' };
+        if (!erg.meldungen.some(m => /Nicht gekoppelt/.test(m))) return { ok: false, warum: 'Ablehnung ohne Wort: ' + JSON.stringify(erg.meldungen) };
+        // Fall 2: Server antwortet LEER (RLS still) → ebenso
+        erg.meldungen.length = 0;
+        window.sbFetch = async () => ({ data: [], error: null });
+        r = await gsGeraetKoppeln(g.id);
+        if (r.ok || gsGeraete().find(x => x.id === g.id).cloud_id || !erg.meldungen.some(m => /Nicht gekoppelt/.test(m))) return { ok: false, warum: '0 Zeilen gelten als Kopplung: ' + JSON.stringify(r) };
+        // Fall 3: Server bestaetigt → gekoppelt, Token in der Antwort, nicht im Speicher
+        erg.meldungen.length = 0;
+        window.sbFetch = async (path, opts) => ({ data: [{ id: JSON.parse(opts.body).id }], error: null });
+        r = await gsGeraetKoppeln(g.id);
+        const gl = gsGeraete().find(x => x.id === g.id);
+        if (!r.ok || !r.token || !gl.cloud_id) return { ok: false, warum: 'Bestätigung: ' + JSON.stringify(r) };
+        if (erg.meldungen.some(m => /Nicht gekoppelt/.test(m))) return { ok: false, warum: 'Absage trotz Bestätigung' };
+        if (JSON.stringify(localStorage).indexOf(r.token) >= 0) return { ok: false, warum: 'das Token liegt im Speicher' };
+        return { ok: true, info: 'Ablehnung → nicht gekoppelt, gesagt · 0 Zeilen → nicht gekoppelt · Bestätigung → gekoppelt, Token nur in der Antwort' };
+      } finally { gsGeraetLoeschen(g.id); window.gsToast = echtToast; if (echtGet) gsStore.get = echtGet; window.sbIsLoggedIn = echtLogin; window.sbFetch = echtFetch; }
+    },
+  },
+  {
     // v32.27: Der teuerste Fund dieser Ecke. Die Korrektur ging fire-and-forget
     // hinaus, danach kam BEDINGUNGSLOS „🙏 Danke für die Korrektur!". Wurde sie
     // abgewiesen, lag sie in einer Liste, die niemand sendet — und die

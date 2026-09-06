@@ -329,7 +329,7 @@ Software, die Messwerte hat.
 | Stufe | Inhalt | Hardware nötig |
 |---|---|---|
 | **0** | Migrationen im Repo (`metric_catalog`, `devices`, `device_readings`, `device_rules`, `device_commands`, `v_device_daily`, RLS) — **nicht angewandt**, wie alle DDL · `manual`-Gerät · Dashboard mit Verlauf (`_gsVerlauf`, Canvas, ohne Paket) · Regeln clientseitig mit drei Zuständen · Kalender-Ereignisse `messung`/`alarm` · `sensor_check.js` (8 Fälle, test-first) — **v32.48 gebaut** | nein |
-| **1** | `device-ingest` (Edge) · Token-Pairing per QR · Cron `device-alerts` · Push `sensor_alert` · Wetter als virtuelles Gerät · Bestätigung erledigter Aufgaben (§6) — **Stand 05.09.2026:** Wetter-Gerät und Bestätigung sind Stufe 0 geworden (v32.52, v32.53); `device-ingest` steht als Skelett mit geprüftem Regel-Modul (`ingest_check`, 11 Fälle), Vertrag in `docs/GERAETE-VERTRAG.md`, Cron und Tagesaggregat als Migrationen bereit (§11.3j) — **nicht ausgeführt, nicht angewandt**: es fehlt das Gerät | ein Gerät zum Testen |
+| **1** | `device-ingest` (Edge) · Token-Pairing per QR · Cron `device-alerts` · Push `sensor_alert` · Wetter als virtuelles Gerät · Bestätigung erledigter Aufgaben (§6) — **Stand 05.09.2026:** Wetter-Gerät und Bestätigung sind Stufe 0 geworden (v32.52, v32.53); `device-ingest` steht als Skelett mit geprüftem Regel-Modul (`ingest_check`, 11 Fälle), Vertrag in `docs/GERAETE-VERTRAG.md`, Cron und Tagesaggregat als Migrationen bereit (§11.3j) — **nicht ausgeführt, nicht angewandt**: es fehlt das Gerät; **App-Seite gebaut v32.62** (§11.3l): Koppeln, Cloud-Abgleich, eine Alarm-Instanz | ein Gerät zum Testen |
 | **2** | BLE-Pairing im Browser (`Permissions-Policy` erweitern, `wiring_check`/`kamera_check`-artiger Prüfstand mit gestellter BLE-API) · Firmware-Vertrag als `docs/GERAETE-VERTRAG.md` (das JSON aus §3.1, versioniert) · MQTT-Bridge | ja |
 | **3** | Aktoren (Ventil, Pumpe, Licht) über `device_commands` · Automationen `op = 'expr'` · Export/Import | ja |
 
@@ -1318,7 +1318,51 @@ Richtung.
 Was für die App-Seite folgt (Stufe 1, nächste Ausgabe): für Geräte, die in
 der Cloud liegen, ist der Server die Instanz für Alarme — der lokale
 `gsSensorAlarmeMelden` (v32.54) darf dann nur noch `manual` / `weather`
-melden, sonst kommt derselbe Alarm zweimal.
+melden, sonst kommt derselbe Alarm zweimal. **Gebaut in v32.62 (§11.3l).**
+
+### 11.3l · Stufe 1 in der App — koppeln und abgleichen (v32.62, 06.09.2026)
+
+Ohne Gerät gebaut, mit gestelltem Server geprüft. Was am Tag des ersten
+Geräts noch zu tun ist, steht in `docs/FUER-FERNANDO.md` §6 — die App ist
+bereit.
+
+| Gebaut | Geprüft (`sensor_check`, `save_check`) | Nicht geprüft |
+|---|---|---|
+| **Koppeln** (`gsGeraetKoppeln`): Art `gs_sensor` / `third_party` im Formular; die App erzeugt das Token (32 Byte aus `crypto.getRandomValues`, base64url) und schickt per Upsert in `devices` nur `token_hash` (SHA-256) — mit `user_id`, `kind`, `name`, `capabilities`; das Token steht EINMAL in der Kachel (Kopieren · Fertig), nur im Arbeitsspeicher; „Token neu erzeugen" macht das alte ungültig | Fall „Koppeln": Token 43 Zeichen, der Satz trägt den SHA-256 und nie das Token, `user_id`, UUID; einmal gezeigt, nach „Fertig" weg, nicht im localStorage; 0 Zeilen (RLS) und Ablehnung → nicht gekoppelt, gesagt; „von Hand" → kein Token; abgemeldet → kein Aufruf. `save_check` SERVER_WEGE: Ablehnung · leer · Bestätigung | ob RLS die Zeile annimmt (`own_devices_insert`, `token_hash` schreibbar) — braucht die angewandte Migration |
+| **Cloud-Abgleich** (`gsGeraeteCloudAbgleich`): `devices` (Status, `last_seen_at`, `paired_at`, Firmware, `capabilities`) und `device_readings` je Gerät ab SEINEM letzten gelesenen Zeitpunkt (`cloud_bis`, sonst 7 Tage, höchstens 1000 Zeilen) → `_gsMesswerteAnhaengen(g, liste, {quelle:'cloud', pending:false, status_belassen:true})`; die Qualität vom Server bleibt (Gerätefehler 0); höchstens alle 5 Minuten, beim Öffnen des Dashboards und 8 s nach dem Start | Fall „Cloud-Abgleich": 3 Werte als `cloud` / `pending:false`, Qualität 2,1,0; Status, `paired_at`, Firmware, `interval_s` vom Server; zweimal = 3 doppelt, der zweite Lauf liest `ts=gt.<letzter>`; ein zweites, neu gekoppeltes Gerät liest ab seinem eigenen Zeiger und bekommt seine älteren Werte; Drossel; lost / paused / fehlend in der Kachel; Ablehnung ändert nichts | die echten Spaltennamen gegen die angewandte Tabelle |
+| **Eine Instanz je Alarm**: `gsSensorAlarmeMelden` lässt Geräte mit `cloud_id` aus — der Server meldet (`sensor-push`, §11.3k) | Fall „Alarm-Instanz": Cloud-Gerät verletzt → keine lokale Meldung; Handgerät verletzt → gemeldet, mit Namen | — |
+| Kachel: „☁️ gekoppelt · …", „🔑 noch nicht gekoppelt", „⏸ pausiert", „in der Cloud nicht gefunden"; gekoppelte Geräte stehen nicht im Formular „von Hand"; der Anker `#geraet-<cloud_id>` findet die lokale Kachel | in den drei Fällen aus dem HTML gelesen | — |
+
+Drei Entscheidungen, jede mit Grund:
+
+- **Das Token entsteht in der App, nicht auf dem Server.** §3.2 sagt es so,
+  und es braucht keine RPC: `crypto.getRandomValues` ist so gut wie
+  `gen_random_bytes`, und der Server sieht das Klartext-Token so nie — auch
+  nicht im Log einer Funktion. Der Vertrag (§3) ist entsprechend korrigiert.
+- **„Gekoppelt" ist die `cloud_id`, „verbunden" ist `paired_at` vom Server.**
+  Die App zeigt „wartet auf den ersten Wert", bis der Server den ersten
+  Batch gesehen hat — nie „verbunden" aus einer lokalen Vermutung (§3.2
+  Punkt 3). Und `status_belassen` sorgt dafür, dass eine Nachlieferung
+  alter Werte ein `lost` vom Server nicht in ein `active` verwandelt.
+- **Werte aus der Cloud sind `pending:false`.** Der Deckel (v32.51) wirft
+  zuerst weg, wovon es eine Kopie gibt — und die liegt in `device_readings`.
+  Eine Handmessung ohne Kopie bleibt weiterhin.
+
+Eine Falle beim Bau, gefunden beim Lesen des eigenen Diffs, nicht vom
+Prüfstand: der erste Abgleich las alle Geräte mit EINEM Zeiger (dem
+kleinsten `cloud_bis`). Ein zweites, neu gekoppeltes Gerät hätte seine
+älteren Werte damit nie gesehen — der Zeiger des ersten stand davor. Jetzt
+liest jedes Gerät ab seinem eigenen Zeitpunkt (ein Aufruf je Gerät), und
+der Fall „Cloud-Abgleich" stellt zwei Geräte, das zweite mit älteren Werten.
+**Ein Fall mit einem Gerät prüft keinen Zeiger.**
+
+Was fehlt, ehrlich: kein QR-Code (die App hat keinen Erzeuger; das Token
+wird kopiert oder abgetippt — für Stufe 1 mit einem Bastelgerät reicht das,
+Idee 15 für gefertigte Geräte bleibt Fernandos Entscheid), keine
+Pausieren-Schaltfläche (der Zustand wird angezeigt, gesetzt wird er noch
+nirgends), und `device_rules` liegen weiterhin nur lokal — der Server-Cron
+sieht Regeln erst, wenn sie hochgeladen sind (nächste Ausgabe, mit
+demselben Muster: `_gsSchreibOk`, drei Server-Antworten im Prüfstand).
 
 ### 11.4 · Fragen an Fernando (Ergänzung zu §10)
 

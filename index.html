@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.61.20260905">
+<meta name="app-version" content="32.62.20260906">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5780,6 +5780,10 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-mw-link{display:inline-block;min-height:28px;padding:4px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-size:var(--fs-xs);font-weight:700;cursor:pointer;}
 .gs-mw-eintrag{background:var(--surface2);border-radius:var(--r-md);padding:12px;margin:4px 0 12px;}
 .gs-mw-leer{font-size:var(--fs-xs);color:var(--muted);padding:6px 0;}
+.gs-mw-token{margin:8px 0;padding:10px;border:1px dashed var(--border);border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--text);}
+.gs-mw-token code{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-sm);word-break:break-all;padding:8px 0;color:var(--text);}
+.gs-mw-token i{display:block;color:var(--muted);line-height:1.5;margin-bottom:6px;}
+.gs-mw-koppeln{margin:4px 0 8px;}
 .gs-kal-tag.gewaehlt .gs-kal-p{background:#fff;}
 .gs-kal-legende{display:flex;gap:12px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--muted);margin:8px 0 12px;}
 .gs-kal-legende span{display:inline-flex;align-items:center;gap:5px;}
@@ -14326,6 +14330,19 @@ window.GS_I18N_JS_STRINGS = {
   'mw_untertitel': 'Deine Geräte und was sie messen — und bis der erste Sensor da ist, bist du das Gerät. Jeder Wert trägt Gerät, Zeit, Einheit und ob er plausibel war.',
   'mw_leer': 'Noch kein Gerät. Lege eines an — „von Hand" heisst: du misst und trägst ein. Dashboard, Regeln und Kalender sind dieselben, die später ein Sensor benutzt.',
   'mw_wartet': 'wartet auf den ersten Wert',
+  // v32.62 · Koppeln (Stufe 1 in der App)
+  'mw_nicht_gekoppelt': 'noch nicht gekoppelt',
+  'mw_cloud_fehlt': 'in der Cloud nicht gefunden',
+  'mw_gekoppelt': 'gekoppelt',
+  'mw_pausiert': 'pausiert',
+  'mw_token_titel': 'Geräte-Token — wird nur jetzt angezeigt',
+  'mw_token_hinweis': 'Ins Gerät eintragen (Bearer-Token). Verloren? Neu erzeugen — das alte gilt dann nicht mehr.',
+  'mw_kopieren': 'Kopieren',
+  'mw_fertig': 'Fertig',
+  'mw_token_neu': 'Token neu erzeugen',
+  'mw_koppeln': 'Koppeln',
+  'mw_noch_keine_cloud': 'Noch keine Werte — das Gerät hat sich noch nicht gemeldet.',
+  'mw_art_wahl': 'Art',
   'mw_verloren': 'seit längerem kein Signal',
   'mw_zuletzt': 'zuletzt',
   'mw_kein_plausibler': 'kein plausibler Wert',
@@ -14344,7 +14361,7 @@ window.GS_I18N_JS_STRINGS = {
   'mw_hinweis': 'Unplausible Werte werden angenommen und markiert — ein kaputter Sensor ist eine Information.',
   'mw_geraet_neu': '＋ Gerät anlegen',
   'mw_name_bsp': 'z.B. Hochbeet Nord',
-  'mw_neu_hinweis': 'Art: von Hand. Echte Geräte melden sich mit einem Token (Stufe 1) — ihr Eintrag hier ist derselbe.',
+  'mw_neu_hinweis': 'Von Hand: du misst und trägst ein. GreenScan-Sensor und Fremdgerät: nach dem Anlegen „Koppeln" — das Token kommt ins Gerät, die Werte kommen von selbst.',
   // ── v32.39 · Die App-Tour war deutsch ────────────────────────────────
   // Sechs Karten, zwölf Texte, kein einziger Schluessel — in einer App mit
   // fuenf Sprachen. Nachgeschlagen wird ueber die DEUTSCHE Phrase
@@ -26767,6 +26784,7 @@ function gsGeraetAnlegen(o) {
 function gsGeraetLoeschen(id) {
   try {
     var weg = gsGeraete().find(function (g) { return g && g.id === id; });
+    try { if (typeof _gsMwTokenEinmal === 'object') delete _gsMwTokenEinmal[id]; } catch (_) {}   // v32.62
     var arr = gsGeraete().filter(function (g) { return g && g.id !== id; });
     if (!_gsGeraeteSchreiben(arr)) return false;
     // v32.52: Das Wetter-Geraet kaeme beim naechsten Wetterabruf sonst wieder —
@@ -26818,10 +26836,14 @@ window._gsMesswerteDeckel = _gsMesswerteDeckel;
 // Antwort sagt es. Gelesen und geschrieben wird EINMAL, nicht je Wert; die
 // Liste bleibt nach `ts` sortiert, damit der Deckel wirklich die aeltesten
 // nimmt (eine Nachlieferung alter Stunden stuende sonst am Ende).
-function _gsMesswerteAnhaengen(g, liste) {
+function _gsMesswerteAnhaengen(g, liste, opts) {
   var out = { ok: true, neu: 0, doppelt: 0, abgelehnt: [], quality: null, grund: '' };
   try {
     if (!g || !g.id) return { ok: false, neu: 0, doppelt: 0, abgelehnt: [], quality: null, grund: 'Unbekanntes Gerät.' };
+    // v32.62: derselbe Weg fuer Werte aus der Cloud — Quelle `cloud`, `pending:false`
+    // (die Kopie liegt schon dort), und der Server hat die Qualitaet schon beurteilt.
+    var quelleVorgabe = (opts && opts.quelle) || (g.kind === 'manual' ? 'hand' : (g.kind === 'weather' ? 'wetterdienst' : 'geraet'));
+    var pendingVorgabe = !(opts && opts.pending === false);
     var arr = _gsMesswerteAlle();
     var da = {};
     arr.forEach(function (m) { if (m) da[m.geraet_id + '|' + m.metric + '|' + m.ts] = true; });
@@ -26846,7 +26868,8 @@ function _gsMesswerteAnhaengen(g, liste) {
       da[schl] = true;
       var q = 2;
       if ((typeof k.min_valid === 'number' && v < k.min_valid) || (typeof k.max_valid === 'number' && v > k.max_valid)) q = 1;
-      arr.push({ geraet_id: g.id, metric: e.metric, ts: zeit, wert: v, quality: q, quelle: g.kind === 'manual' ? 'hand' : (g.kind === 'weather' ? 'wetterdienst' : 'geraet'), pending: true });
+      if (typeof e.quality === 'number' && e.quality >= 0 && e.quality <= 2) q = e.quality;   // v32.62: der Server hat schon geurteilt (Geraetefehler = 0)
+      arr.push({ geraet_id: g.id, metric: e.metric, ts: zeit, wert: v, quality: q, quelle: quelleVorgabe, pending: pendingVorgabe });
       out.neu++; letzte = { k: k, q: q };
       if (!zuletztZeit || zeit > zuletztZeit) zuletztZeit = zeit;
       if (neueMetrics.indexOf(e.metric) < 0) neueMetrics.push(e.metric);
@@ -26869,7 +26892,7 @@ function _gsMesswerteAnhaengen(g, liste) {
       if (!x || x.id !== g.id) return;
       if (!x.last_seen_at || zuletztZeit > x.last_seen_at) x.last_seen_at = zuletztZeit;
       if (!x.paired_at) x.paired_at = zuletztZeit;
-      if (x.status !== 'paused') x.status = 'active';
+      if (x.status !== 'paused' && !(opts && opts.status_belassen)) x.status = 'active';   // v32.62: der Server-Status (lost/paused) bleibt
       if (x.capabilities && Array.isArray(x.capabilities.metrics)) neueMetrics.forEach(function (m) { if (x.capabilities.metrics.indexOf(m) < 0) x.capabilities.metrics.push(m); });
     });
     _gsGeraeteSchreiben(alle);
@@ -26975,6 +26998,153 @@ window.gsMetricKatalogLaden = gsMetricKatalogLaden;
 // Beim Start, wenn die Oberflaeche steht — kein Aufruf im kritischen Pfad.
 try { setTimeout(function () { try { gsMetricKatalogLaden(); } catch (_) {} }, 6000); } catch (_) {}
 window.gsMesswerte = gsMesswerte; window.gsMesswertEintragen = gsMesswertEintragen;
+
+// ═══ v32.62 · STUFE 1 IN DER APP — KOPPELN UND CLOUD-ABGLEICH (OEKOSYSTEM-V1.md §3.2, §11.3l) ═══
+// Ein echtes Geraet lebt in `devices` (Supabase). Die App legt die Zeile an,
+// erzeugt das Token (32 Byte aus crypto.getRandomValues) und schickt NUR den
+// SHA-256 (`token_hash`). Das Klartext-Token wird EINMAL angezeigt und nirgends
+// gespeichert (nur im Arbeitsspeicher bis „Fertig") — verloren heisst neu
+// erzeugen, das alte gilt dann nicht mehr (§3.2 Punkt 4). Messwerte eines
+// gekoppelten Geraets kommen vom Server (`device_readings`) und gehen durch
+// denselben einen Weg (_gsMesswerteAnhaengen) — als `quelle: 'cloud'`,
+// `pending: false`. Der Status (wartet · aktiv · verstummt · pausiert) kommt
+// vom Server, nie aus einer lokalen Vermutung. Und fuer gekoppelte Geraete
+// meldet der SERVER die Alarme (sensor-push) — gsSensorAlarmeMelden laesst sie
+// aus, sonst kaeme derselbe Alarm zweimal.
+var GS_CLOUD_ABGLEICH_MIN_MS = 5 * 60000, GS_CLOUD_ABGLEICH_TAGE = 7, GS_CLOUD_LESEN_MAX = 1000;
+var _gsCloudAbgleichZuletzt = 0, _gsMwTokenEinmal = {};
+function _gsGeraetIstCloud(g) { return !!(g && g.kind && g.kind !== 'manual' && g.kind !== 'weather'); }
+function _gsIstUuid(x) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(x || '')); }
+function _gsCloudBereit() {
+  try {
+    if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
+    var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+    return uid || null;
+  } catch (_) { return null; }
+}
+function _gsTokenErzeugen() {
+  var b = new Uint8Array(32); crypto.getRandomValues(b);
+  var str = ''; for (var i = 0; i < b.length; i++) str += String.fromCharCode(b[i]);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');   // base64url, 43 Zeichen
+}
+function _gsSha256Hex(text) {
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) {
+    return Array.prototype.map.call(new Uint8Array(buf), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+  });
+}
+function gsGeraetKoppeln(geraetId) {
+  var toast = function (m, art, ms) { try { if (typeof gsToast === 'function') gsToast(m, art || 'info', ms || 4500); } catch (_) {} };
+  try {
+    var g = gsGeraete().find(function (x) { return x && x.id === geraetId; });
+    if (!g) return Promise.resolve({ ok: false, grund: 'Unbekanntes Gerät.' });
+    if (!_gsGeraetIstCloud(g)) return Promise.resolve({ ok: false, grund: g.kind === 'weather' ? 'Der Wetterdienst braucht kein Token — er misst selbst.' : 'Ein Gerät „von Hand" braucht kein Token — du bist das Gerät.' });
+    var uid = _gsCloudBereit();
+    if (!uid) { toast('Bitte anmelden — ein Gerät wird an dein Konto gekoppelt.', 'warn'); return Promise.resolve({ ok: false, grund: 'nicht angemeldet' }); }
+    if (!window.crypto || !crypto.subtle || typeof crypto.getRandomValues !== 'function') { toast('Dieses Gerät kann kein sicheres Token erzeugen (kein WebCrypto).', 'warn'); return Promise.resolve({ ok: false, grund: 'kein WebCrypto' }); }
+    var token = _gsTokenErzeugen();
+    var cloudId = g.cloud_id || (_gsIstUuid(g.id) ? g.id : _gsNeueId('ger_'));
+    if (!_gsIstUuid(cloudId)) { toast('Dieses Gerät hat keine gültige Kennung für die Cloud.', 'warn'); return Promise.resolve({ ok: false, grund: 'keine UUID' }); }
+    return _gsSha256Hex(token).then(function (hash) {
+      var satz = { id: cloudId, user_id: uid, kind: g.kind, name: g.name, garden_id: g.garden_id || null, plant_id: g.plant_id || null,
+        capabilities: g.capabilities || { metrics: [], interval_s: null, commands: [] }, status: 'active', token_hash: hash, schema_version: 1 };
+      return sbFetch('/rest/v1/devices', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(satz) });
+    }).then(function (r) {
+      if (!_gsSchreibOk(r)) {   // Ablehnung ODER 0 Zeilen (RLS still): NICHT gekoppelt — und wir sagen es
+        toast('Nicht gekoppelt — der Server hat das Gerät nicht angenommen' + (r && r.error && r.error.message ? ' (' + String(r.error.message).slice(0, 80) + ')' : '') + '.', 'warn', 6000);
+        return { ok: false, grund: (r && r.error && r.error.message) || 'vom Server abgewiesen' };
+      }
+      var alle = gsGeraete(), gefunden = false;
+      alle.forEach(function (x) {
+        if (!x || x.id !== g.id) return;
+        gefunden = true;
+        x.cloud_id = cloudId; if (!x.paired_at) x.status = 'wartet';
+        x.cloud = Object.assign({}, x.cloud || {}, { gekoppelt_am: new Date().toISOString(), fehlt: false });
+      });
+      if (!gefunden || !_gsGeraeteSchreiben(alle)) { toast('Gekoppelt, aber der Speicher ist voll — die App merkt sich die Kopplung nicht.', 'warn', 6000); return { ok: false, grund: 'Speicher voll', token: token }; }
+      _gsMwTokenEinmal[g.id] = token;   // nur im Arbeitsspeicher, nur bis „Fertig"
+      return { ok: true, token: token, cloud_id: cloudId };
+    }).catch(function (e) { toast('Nicht gekoppelt — ' + ((e && e.message) || 'Netzfehler') + '.', 'warn', 6000); return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
+  } catch (e) { return Promise.resolve({ ok: false, grund: 'Fehler: ' + (e && e.message) }); }
+}
+window.gsGeraetKoppeln = gsGeraetKoppeln;
+window._gsMwKoppeln = function (id) { gsGeraetKoppeln(id).then(function () { try { _gsMwRender(); } catch (_) {} }); };
+window._gsMwTokenFertig = function (id) { delete _gsMwTokenEinmal[id]; try { _gsMwRender(); } catch (_) {} };
+window._gsMwTokenKopieren = function (id) {
+  var t = _gsMwTokenEinmal[id]; if (!t) return;
+  try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { if (typeof gsToast === 'function') gsToast('Token kopiert.', 'success', 2500); }); } catch (_) {}
+};
+// Der Rueckweg: Status und Messwerte gekoppelter Geraete aus der Cloud. Zwei
+// Aufrufe (devices, device_readings), inkrementell ab dem letzten gelesenen
+// Zeitpunkt je Geraet (`cloud_bis`); hoechstens alle fuenf Minuten, ausser
+// `erzwingen`. Eine Ablehnung aendert nichts und wird genannt.
+function gsGeraeteCloudAbgleich(opts) {
+  opts = opts || {};
+  var leer = function (grund) { return { ok: false, geraete: 0, neu: 0, doppelt: 0, grund: grund }; };
+  try {
+    var uid = _gsCloudBereit();
+    if (!uid) return Promise.resolve(leer('nicht angemeldet'));
+    var cloud = gsGeraete().filter(function (g) { return g && g.cloud_id; });
+    if (!cloud.length) return Promise.resolve(leer('keine gekoppelten Geräte'));
+    var jetzt = Date.now();
+    if (!opts.erzwingen && jetzt - _gsCloudAbgleichZuletzt < GS_CLOUD_ABGLEICH_MIN_MS) return Promise.resolve(leer('gerade erst abgeglichen'));
+    _gsCloudAbgleichZuletzt = jetzt;
+    var ids = cloud.map(function (g) { return g.cloud_id; });
+    var inListe = 'in.(' + ids.map(encodeURIComponent).join(',') + ')';
+    var erg = { ok: true, geraete: 0, neu: 0, doppelt: 0, grund: '' };
+    return sbFetch('/rest/v1/devices?select=id,kind,name,status,last_seen_at,paired_at,capabilities,firmware&id=' + inListe, { method: 'GET' }).then(function (r) {
+      if (!r || r.error || !Array.isArray(r.data)) { erg.ok = false; erg.grund = (r && r.error && r.error.message) || 'keine Antwort'; return null; }
+      var vom = {}; r.data.forEach(function (d) { if (d && d.id) vom[d.id] = d; });
+      var alle = gsGeraete();
+      alle.forEach(function (g) {
+        if (!g || !g.cloud_id) return;
+        var d = vom[g.cloud_id];
+        g.cloud = Object.assign({}, g.cloud || {}, { abgeglichen_am: new Date(jetzt).toISOString() });
+        if (!d) { g.cloud.fehlt = true; return; }
+        g.cloud.fehlt = false; erg.geraete++;
+        if (d.last_seen_at) g.last_seen_at = d.last_seen_at;
+        if (d.paired_at) g.paired_at = d.paired_at;
+        if (typeof d.firmware === 'string') g.firmware = d.firmware;
+        if (d.capabilities && typeof d.capabilities === 'object') {
+          g.capabilities = g.capabilities || { metrics: [], interval_s: null, commands: [] };
+          if (!Array.isArray(g.capabilities.metrics)) g.capabilities.metrics = [];
+          (Array.isArray(d.capabilities.metrics) ? d.capabilities.metrics : []).forEach(function (m) { if (g.capabilities.metrics.indexOf(m) < 0) g.capabilities.metrics.push(m); });
+          if (typeof d.capabilities.interval_s === 'number') g.capabilities.interval_s = d.capabilities.interval_s;
+        }
+        g.status = d.status === 'lost' ? 'lost' : d.status === 'paused' ? 'paused' : (d.paired_at ? 'active' : 'wartet');
+      });
+      _gsGeraeteSchreiben(alle);
+      // Je Geraet ab SEINEM letzten Zeitpunkt — ein gemeinsamer Zeiger liesse ein
+      // neu gekoppeltes Geraet seine aelteren Werte nie sehen.
+      return Promise.all(cloud.map(function (g) {
+        var seit = g.cloud_bis || new Date(jetzt - GS_CLOUD_ABGLEICH_TAGE * 864e5).toISOString();
+        return sbFetch('/rest/v1/device_readings?select=device_id,metric,ts,value,quality&device_id=eq.' + encodeURIComponent(g.cloud_id) + '&ts=gt.' + encodeURIComponent(seit) + '&order=ts.asc&limit=' + GS_CLOUD_LESEN_MAX, { method: 'GET' });
+      }));
+    }).then(function (antworten) {
+      if (!antworten) return erg;
+      var je = {};
+      antworten.forEach(function (r) {
+        if (!r || r.error || !Array.isArray(r.data)) { erg.ok = false; erg.grund = (r && r.error && r.error.message) || 'keine Antwort'; return; }
+        r.data.forEach(function (z) { if (!z || !z.device_id) return; (je[z.device_id] = je[z.device_id] || []).push({ metric: z.metric, wert: z.value, ts: z.ts, quality: z.quality }); });
+      });
+      var bisJe = {};
+      gsGeraete().forEach(function (g) {
+        if (!g || !g.cloud_id || !je[g.cloud_id]) return;
+        var liste = je[g.cloud_id];
+        var a = _gsMesswerteAnhaengen(g, liste, { quelle: 'cloud', pending: false, status_belassen: true });
+        erg.neu += a.neu || 0; erg.doppelt += a.doppelt || 0;
+        var max = null; liste.forEach(function (e) { if (e.ts && (!max || e.ts > max)) max = e.ts; });
+        if (max && (a.neu || a.doppelt)) bisJe[g.id] = max;   // Zeiger nur, wenn gespeichert (oder schon da) — sonst laege er vor Werten, die nie ankamen
+      });
+      var alle2 = gsGeraete();
+      alle2.forEach(function (g) { if (g && bisJe[g.id] && (!g.cloud_bis || bisJe[g.id] > g.cloud_bis)) g.cloud_bis = bisJe[g.id]; });
+      _gsGeraeteSchreiben(alle2);
+      return erg;
+    }).catch(function (e) { return leer('Fehler: ' + (e && e.message)); });
+  } catch (e) { return Promise.resolve(leer('Fehler: ' + (e && e.message))); }
+}
+window.gsGeraeteCloudAbgleich = gsGeraeteCloudAbgleich;
+// Beim Start, wenn die Oberflaeche steht — kein Aufruf im kritischen Pfad.
+try { setTimeout(function () { try { gsGeraeteCloudAbgleich(); } catch (_) {} }, 8000); } catch (_) {}
 
 function gsRegeln() { try { var a = safeGetItem('gs_geraete_regeln', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
 function gsRegelAnlegen(o) {
@@ -27130,6 +27300,7 @@ function gsSensorAlarmeMelden() {
     var jetzt = Date.now(), regeln = gsRegeln(), texte = [], ids = [];
     gsGeraete().forEach(function (g) {
       if (!g) return;
+      if (g.cloud_id) return;   // v32.62: gekoppelt → der SERVER meldet (sensor-push), nicht die App — sonst zweimal
       gsRegelnPruefen(g.id).forEach(function (z) {
         if (z.zustand !== 'verletzt' || (z.action && z.action !== 'notify')) return;
         var r = null; for (var i = 0; i < regeln.length; i++) if (regeln[i] && regeln[i].id === z.regel_id) r = regeln[i];
@@ -27314,6 +27485,8 @@ function gsMesswerteOeffnen() {
     try { gsSensorAufgabenAbgleich(); } catch (_) {}   // v32.53: Regel task:* → Aufgabe
     _gsMwRender();
     if (typeof openModal === 'function') openModal('detail-modal');
+    // v32.62: Status und Werte gekoppelter Geraete aus der Cloud — und neu zeichnen, wenn etwas kam
+    try { gsGeraeteCloudAbgleich().then(function (r) { if (r && r.ok && (r.neu || r.geraete)) { try { if (document.querySelector('#modal-content .gs-mw')) _gsMwRender(); } catch (_) {} } }); } catch (_) {}
   } catch (_) {}
 }
 window.gsMesswerteOeffnen = gsMesswerteOeffnen;
@@ -27332,6 +27505,18 @@ function _gsMwRender() {
   var kacheln = ger.map(function (g) {
     var art = _gsGeraetArt(g);
     var status = g.status === 'wartet' ? _t('mw_wartet', 'wartet auf den ersten Wert') : g.status === 'lost' ? _t('mw_verloren', 'seit längerem kein Signal') : (_t('mw_zuletzt', 'zuletzt') + ' ' + (g.last_seen_at ? _gsKalDatumKurz(g.last_seen_at) + ' ' + (_gsKalZeit(g.last_seen_at) || '') : '—'));
+    if (_gsGeraetIstCloud(g)) {   // v32.62: der Zustand eines echten Geraets kommt vom Server
+      if (!g.cloud_id) status = '🔑 ' + _t('mw_nicht_gekoppelt', 'noch nicht gekoppelt');
+      else if (g.cloud && g.cloud.fehlt) status = '☁️ ' + _t('mw_cloud_fehlt', 'in der Cloud nicht gefunden');
+      else if (g.status === 'paused') status = '☁️ ' + _t('mw_gekoppelt', 'gekoppelt') + ' · ⏸ ' + _t('mw_pausiert', 'pausiert');
+      else status = '☁️ ' + _t('mw_gekoppelt', 'gekoppelt') + ' · ' + status;
+    }
+    var tokenBox = _gsMwTokenEinmal[g.id] ? '<div class="gs-mw-token"><b>🔑 ' + _t('mw_token_titel', 'Geräte-Token — wird nur jetzt angezeigt') + '</b><code>' + esc(_gsMwTokenEinmal[g.id]) + '</code><i>' +
+        _t('mw_token_hinweis', 'Ins Gerät eintragen (Bearer-Token). Verloren? Neu erzeugen — das alte gilt dann nicht mehr.') + '</i><div class="gs-mw-zeile">' +
+        '<button type="button" onclick="_gsMwTokenKopieren(\'' + esc(g.id) + '\')">' + _t('mw_kopieren', 'Kopieren') + '</button>' +
+        '<button type="button" onclick="_gsMwTokenFertig(\'' + esc(g.id) + '\')">' + _t('mw_fertig', 'Fertig') + '</button></div></div>' : '';
+    var koppelKnopf = (_gsGeraetIstCloud(g) && !_gsMwTokenEinmal[g.id]) ? '<div class="gs-mw-koppeln"><button type="button" class="gs-mw-link" onclick="_gsMwKoppeln(\'' + esc(g.id) + '\')">' +
+        (g.cloud_id ? '🔑 ' + _t('mw_token_neu', 'Token neu erzeugen') : '🔗 ' + _t('mw_koppeln', 'Koppeln')) + '</button></div>' : '';
     var metrics = kat.filter(function (k) { return alleMw.some(function (m) { return m.geraet_id === g.id && m.metric === k.key; }); });
     var werte = metrics.map(function (k) {
       var w = gsMesswerte(g.id, k.key); var letzter = w[w.length - 1];
@@ -27348,7 +27533,8 @@ function _gsMwRender() {
     return '<div class="gs-mw-kachel" id="geraet-' + esc(g.id) + '" data-geraet="' + esc(g.id) + '">' +
       '<div class="gs-mw-kopf"><span class="gs-mw-art" aria-hidden="true">' + esc(art.icon) + '</span><div class="gs-mw-name"><b>' + esc(g.name) + '</b><i>' + esc(art.label) + ' · ' + esc(status) + '</i></div>' +
         '<button type="button" class="gs-mw-x" aria-label="Gerät entfernen" onclick="if(typeof gsConfirmModal===\'function\'){gsConfirmModal({title:\'Gerät entfernen?\',body:\'Alle Messwerte dieses Geräts werden mitgelöscht.\',kind:\'danger\',ok:\'Entfernen\'}).then(function(j){ if(j){ gsGeraetLoeschen(\'' + esc(g.id) + '\'); _gsMwRender(); } });}else if(confirm(\'Gerät und Messwerte entfernen?\')){gsGeraetLoeschen(\'' + esc(g.id) + '\');_gsMwRender();}">×</button></div>' +
-      (werte || '<div class="gs-mw-leer">' + _t('mw_noch_keine', 'Noch keine Werte — trage unten den ersten ein.') + '</div>') +
+      tokenBox + koppelKnopf +
+      (werte || '<div class="gs-mw-leer">' + (_gsGeraetIstCloud(g) ? _t('mw_noch_keine_cloud', 'Noch keine Werte — das Gerät hat sich noch nicht gemeldet.') : _t('mw_noch_keine', 'Noch keine Werte — trage unten den ersten ein.')) + '</div>') +
       (erste ? '<canvas class="gs-mw-verlauf" data-geraet="' + esc(g.id) + '" data-metric="' + esc(erste.key) + '" role="img" aria-label="' + esc(_t('mw_verlauf', 'Verlauf') + ' ' + _gsMetricLabel(erste) + ' · ' + g.name) + '"></canvas>' +
         (metrics.length > 1 ? '<div class="gs-mw-tabs">' + metrics.map(function (k) { return '<button type="button" class="gs-mw-tab' + (k.key === erste.key ? ' on' : '') + '" onclick="_gsMwVerlaufZeigen(this,\'' + esc(g.id) + '\',\'' + esc(k.key) + '\')">' + esc(k.icon || '') + ' ' + esc(_gsMetricLabel(k)) + '</button>'; }).join('') + '</div>' : '') : '') +
       (regeln ? '<div class="gs-mw-regeln">' + regeln + '</div>' : '') +
@@ -27367,7 +27553,7 @@ function _gsMwRender() {
   }).join('');
 
   // v32.52: Der Wetterdienst misst selbst — er steht nicht im Eintrags-Formular.
-  var gerHand = ger.filter(function (g) { return g && g.kind !== 'weather'; });
+  var gerHand = ger.filter(function (g) { return g && g.kind !== 'weather' && !g.cloud_id; });   // v32.62: gekoppelte Geraete messen selbst
   var wetterAus = (localStorage.getItem('gs_wetter_geraet_aus') === '1') && !ger.some(function (g) { return g && g.kind === 'weather'; });
   var wetterSchalter = wetterAus ? '<div class="gs-mw-hinweis" style="margin:8px 0 12px;">🌦️ ' + _t('mw_wetter_aus', 'Der Wetterdienst wird nicht mehr als Gerät geführt.') +
       ' <button type="button" class="gs-mw-link" onclick="_gsMwWetterEin()">' + _t('mw_wetter_ein', 'Wieder als Gerät führen') + '</button></div>' : '';
@@ -27391,10 +27577,11 @@ function _gsMwRender() {
     eintrag +
     '<details class="gs-mw-form gs-mw-neu"' + (ger.length ? '' : ' open') + '><summary>' + _t('mw_geraet_neu', '＋ Gerät anlegen') + '</summary><div class="gs-mw-zeile">' +
       '<input id="mw-neu-name" type="text" maxlength="60" aria-label="Name des Geräts" placeholder="' + _t('mw_name_bsp', 'z.B. Hochbeet Nord') + '">' +
+      '<select id="mw-neu-art" aria-label="' + esc(_t('mw_art_wahl', 'Art')) + '"><option value="manual">' + esc(_gsGeraetArt({ kind: 'manual' }).label) + '</option><option value="gs_sensor">' + esc(_gsGeraetArt({ kind: 'gs_sensor' }).label) + '</option><option value="third_party">' + esc(_gsGeraetArt({ kind: 'third_party' }).label) + '</option></select>' +
       '<select id="mw-neu-garten" aria-label="Garten">' + gartenOpt + '</select>' +
       '<select id="mw-neu-pflanze" aria-label="Pflanze">' + pflanzenOpt + '</select>' +
       '<button type="button" onclick="_gsMwGeraetAusFormular()">' + _t('mw_anlegen', 'Anlegen') + '</button></div>' +
-      '<div class="gs-mw-hinweis">' + _t('mw_neu_hinweis', 'Art: von Hand. Echte Geräte melden sich mit einem Token (Stufe 1) — ihr Eintrag hier ist derselbe.') + '</div></details>' +
+      '<div class="gs-mw-hinweis">' + _t('mw_neu_hinweis', 'Von Hand: du misst und trägst ein. GreenScan-Sensor und Fremdgerät: nach dem Anlegen „Koppeln" — das Token kommt ins Gerät, die Werte kommen von selbst.') + '</div></details>' +
   '</div>';
   // Verlaeufe zeichnen — nach dem Einhaengen, weil die Breite erst dann bekannt ist
   Array.prototype.forEach.call(mc.querySelectorAll('canvas.gs-mw-verlauf'), function (cv) { _gsMwVerlaufMalen(cv, cv.dataset.geraet, cv.dataset.metric); });
@@ -27485,7 +27672,8 @@ window._gsMwEintragAusFormular = function () {
 };
 window._gsMwGeraetAusFormular = function () {
   var n = (document.getElementById('mw-neu-name') || {}).value, ga = (document.getElementById('mw-neu-garten') || {}).value, pf = (document.getElementById('mw-neu-pflanze') || {}).value;
-  var g = gsGeraetAnlegen({ kind: 'manual', name: n, garden_id: ga || null, plant_id: pf || null });
+  var art = (document.getElementById('mw-neu-art') || {}).value;   // v32.62: Art waehlbar
+  var g = gsGeraetAnlegen({ kind: (art === 'gs_sensor' || art === 'third_party') ? art : 'manual', name: n, garden_id: ga || null, plant_id: pf || null });
   if (g) _gsMwRender();
 };
 window._gsMwRegelAusFormular = function (geraetId) {
@@ -74444,6 +74632,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.62', date: '06.09.2026',
+    headline: '☁️ Stufe 1 in der App — Geräte koppeln, Messwerte aus der Cloud',
+    summary: 'Ein echtes Gerät (GreenScan-Sensor oder Fremdgerät) lässt sich jetzt koppeln: die App legt es in der Cloud an, erzeugt ein Token (32 Byte Zufall) und schickt nur dessen SHA-256 — das Token selbst wird genau einmal angezeigt und nirgends gespeichert; verloren heisst neu erzeugen, das alte gilt dann nicht mehr. Messwerte gekoppelter Geräte kommen vom Server ins Dashboard (derselbe eine Weg, Dublettensperre, Quelle „cloud"), der Zustand (wartet · aktiv · verstummt · pausiert) kommt vom Server. Für gekoppelte Geräte meldet der Server die Alarme (sensor-push), nicht die App — sonst käme jeder Alarm zweimal. Alles ohne Gerät geprüft, mit gestelltem Server (docs/OEKOSYSTEM-V1.md §11.3l).',
+    user_summary: '☁️ Echte Sensoren lassen sich jetzt koppeln: Gerät anlegen, „Koppeln" tippen, Token ins Gerät — die Werte kommen dann von selbst.',
+    user_items: [
+      {emoji:'🔗', bold:'Koppeln:', text:' Beim Gerät auf „Koppeln" — das Token wird genau einmal angezeigt.'},
+      {emoji:'📊', bold:'Werte von selbst:', text:' Gekoppelte Geräte schicken ihre Messwerte in die Cloud, das Dashboard holt sie.'},
+    ],
+  },
+  {
     v: 'v32.61', date: '05.09.2026',
     headline: '📶 Stufe 1 vorbereitet — Vertrag, Empfänger, Prüfstand, und ein Link, der zum Gerät führt',
     summary: 'Alles, was sich für echte Geräte ohne Gerät bauen und prüfen lässt, liegt jetzt im Repo (docs/OEKOSYSTEM-V1.md §11.3j): der Geräte-Vertrag v1 (docs/GERAETE-VERTRAG.md — auch für Geräte ohne Uhr), die Rechnung des Empfängers als geprüftes Modul mit eigenem Prüfstand (11 Fälle, drei Gegenproben), der Empfänger device-ingest als Skelett, und zwei Migrationen: das Tagesaggregat als dauerhafte Tabelle und der Alarm-Cron, der verstummte Geräte und verletzte Regeln meldet. In der App: der Link #geraet-<id>, den der Cron in seine Meldungen schreibt, öffnet das Messwerte-Dashboard und hebt die Kachel hervor; gibt es das Gerät nicht mehr, sagt die App das. Nichts davon ist ausgeführt oder angewandt — es fehlt das Gerät; der Prüfstand hält die Rechnung.',
@@ -75307,7 +75505,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.61';
+var GS_VERSION = 'v32.62';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80029,7 +80227,9 @@ window.gsAnkerAnspringen = async function(hash){
   var ger = roh.match(/^geraet-([A-Za-z0-9_-]{1,64})$/);
   if (ger) {
     try { if (typeof gsMesswerteOeffnen === 'function') gsMesswerteOeffnen(); } catch(_){}
-    var gel = await _gsAnkerWarten('geraet-' + ger[1], 3000);
+    var zielId = ger[1];   // v32.62: der Cron nennt die Cloud-Id; die Kachel traegt die lokale
+    try { var lok = gsGeraete().find(function (g) { return g && g.cloud_id === ger[1]; }); if (lok) zielId = lok.id; } catch (_) {}
+    var gel = await _gsAnkerWarten('geraet-' + zielId, 3000);
     if (gel) { _gsAnkerHervorheben(gel); return true; }
     if (typeof gsToast === 'function') gsToast('Dieses Gerät gibt es nicht mehr — vielleicht wurde es entfernt.', 'info', 4500);
     return false;

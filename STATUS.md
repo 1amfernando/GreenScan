@@ -4,13 +4,39 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-06 · **Branch**: `main` · **Version**: `v32.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-06 · **Branch**: `main` · **Version**: `v32.62` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-06 (ez) — v32.62: Stufe 1 in der App — koppeln, Cloud-Abgleich, eine Alarm-Instanz
+
+`docs/OEKOSYSTEM-V1.md` §11.3l. Ohne Gerät gebaut, mit gestelltem Server
+(`sbFetch`: Ja · Leer · Nein) geprüft.
+
+- **Koppeln** (`gsGeraetKoppeln`): Art `gs_sensor` / `third_party` im
+  Formular (`mw-neu-art`); das Token entsteht in der App (32 Byte,
+  base64url), zum Server geht per Upsert in `devices` nur der SHA-256;
+  das Token steht einmal in der Kachel (Kopieren · Fertig), nur im
+  Arbeitsspeicher; 0 Zeilen (RLS) sind keine Kopplung — gesagt.
+- **Cloud-Abgleich** (`gsGeraeteCloudAbgleich`): Status, `paired_at`,
+  Firmware, `capabilities` aus `devices`; Werte aus `device_readings` ab
+  `cloud_bis` je Gerät durch `_gsMesswerteAnhaengen` — neue Optionen
+  `quelle` / `pending` / `status_belassen`, Qualität vom Server bleibt;
+  höchstens alle 5 Min, beim Öffnen und 8 s nach dem Start.
+- **Eine Instanz je Alarm:** `gsSensorAlarmeMelden` lässt gekoppelte
+  Geräte aus (der Server meldet, §11.3k). Kachel: „☁️ gekoppelt", „🔑 noch
+  nicht gekoppelt", „⏸ pausiert", „in der Cloud nicht gefunden"; der Anker
+  `#geraet-<cloud_id>` findet die lokale Kachel.
+- Vertrag §3 korrigiert (Token von der App erzeugt). 13 neue
+  `_t`-Schlüssel, `mw_neu_hinweis` neu formuliert (Tabelle und Aufrufort).
+
+Prüfstände: sensor_check 26 (+Koppeln, Cloud-Abgleich, Alarm-Instanz),
+save_check 15 (SERVER_WEGE +1: Ablehnung · leer · Bestätigung); drei
+Gegenproben rot; Regression 20 Prüfstände.
 
 ### 2026-09-06 (ey) — Sensor-Alarme werden zum Push (kein App-Bump)
 
@@ -8945,7 +8971,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.61` (Client) · SW-Cache `gs-v32.61` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.62` (Client) · SW-Cache `gs-v32.62` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
