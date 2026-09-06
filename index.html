@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.62.20260906">
+<meta name="app-version" content="32.63.20260906">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14343,6 +14343,7 @@ window.GS_I18N_JS_STRINGS = {
   'mw_koppeln': 'Koppeln',
   'mw_noch_keine_cloud': 'Noch keine Werte — das Gerät hat sich noch nicht gemeldet.',
   'mw_art_wahl': 'Art',
+  'mw_regel_nur_app': 'nur in der App',   // v32.63
   'mw_verloren': 'seit längerem kein Signal',
   'mw_zuletzt': 'zuletzt',
   'mw_kein_plausibler': 'kein plausibler Wert',
@@ -26785,6 +26786,7 @@ function gsGeraetLoeschen(id) {
   try {
     var weg = gsGeraete().find(function (g) { return g && g.id === id; });
     try { if (typeof _gsMwTokenEinmal === 'object') delete _gsMwTokenEinmal[id]; } catch (_) {}   // v32.62
+    if (weg && weg.cloud_id) { try { _gsGeraetServerLoeschen(weg); } catch (_) {} }   // v32.63: sonst meldet der Cron weiter
     var arr = gsGeraete().filter(function (g) { return g && g.id !== id; });
     if (!_gsGeraeteSchreiben(arr)) return false;
     // v32.52: Das Wetter-Geraet kaeme beim naechsten Wetterabruf sonst wieder —
@@ -27062,6 +27064,7 @@ function gsGeraetKoppeln(geraetId) {
       });
       if (!gefunden || !_gsGeraeteSchreiben(alle)) { toast('Gekoppelt, aber der Speicher ist voll — die App merkt sich die Kopplung nicht.', 'warn', 6000); return { ok: false, grund: 'Speicher voll', token: token }; }
       _gsMwTokenEinmal[g.id] = token;   // nur im Arbeitsspeicher, nur bis „Fertig"
+      try { _gsRegelnNachziehen(g.id); } catch (_) {}   // v32.63: bestehende Regeln mit auf den Server
       return { ok: true, token: token, cloud_id: cloudId };
     }).catch(function (e) { toast('Nicht gekoppelt — ' + ((e && e.message) || 'Netzfehler') + '.', 'warn', 6000); return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
   } catch (e) { return Promise.resolve({ ok: false, grund: 'Fehler: ' + (e && e.message) }); }
@@ -27138,6 +27141,8 @@ function gsGeraeteCloudAbgleich(opts) {
       var alle2 = gsGeraete();
       alle2.forEach(function (g) { if (g && bisJe[g.id] && (!g.cloud_bis || bisJe[g.id] > g.cloud_bis)) g.cloud_bis = bisJe[g.id]; });
       _gsGeraeteSchreiben(alle2);
+      // v32.63: Regeln, die der Server noch nicht hat, nachziehen (nur bei Geraeten, die er kennt)
+      alle2.forEach(function (g) { if (g && g.cloud_id && !(g.cloud && g.cloud.fehlt)) { try { _gsRegelnNachziehen(g.id); } catch (_) {} } });
       return erg;
     }).catch(function (e) { return leer('Fehler: ' + (e && e.message)); });
   } catch (e) { return Promise.resolve(leer('Fehler: ' + (e && e.message))); }
@@ -27145,6 +27150,71 @@ function gsGeraeteCloudAbgleich(opts) {
 window.gsGeraeteCloudAbgleich = gsGeraeteCloudAbgleich;
 // Beim Start, wenn die Oberflaeche steht — kein Aufruf im kritischen Pfad.
 try { setTimeout(function () { try { gsGeraeteCloudAbgleich(); } catch (_) {} }, 8000); } catch (_) {}
+
+// ── v32.63 · REGELN AUF DEN SERVER (OEKOSYSTEM-V1.md §11.3m) ────────────────
+// Der Cron device-alerts liest `device_rules`. Eine Regel, die nur in der App
+// liegt, sieht er nie — und seit v32.62 meldet die App fuer gekoppelte Geraete
+// nicht mehr selbst. Also: eine Regel an einem gekoppelten Geraet geht auf den
+// Server (Upsert, dieselbe Id) — beim Anlegen, beim Koppeln, beim Abgleich;
+// `cloud_ok` sagt, ob sie dort angekommen ist. Und die App laesst eine Regel
+// lokal NUR dann aus, wenn sie nachweislich auf dem Server liegt (cloud_ok ===
+// true) — sonst meldet sie weiter selbst. Eine Instanz je Alarm heisst: die,
+// die die Regel hat. Loeschen loescht dort mit; ein gekoppeltes Geraet zu
+// entfernen entfernt es auch in der Cloud (cascade), sonst meldete der Cron weiter.
+function _gsRegelSatz(r, g, uid) {
+  return { id: r.id, user_id: uid, device_id: g.cloud_id, metric: r.metric || null, op: r.op, threshold: (r.threshold == null ? null : Number(r.threshold)),
+    for_minutes: parseInt(r.for_minutes, 10) || 0, action: r.action || 'notify', cooldown_minutes: parseInt(r.cooldown_minutes, 10) || 720, enabled: r.enabled !== false };
+}
+function _gsRegelMerken(id, felder) {
+  var arr = gsRegeln(); arr.forEach(function (x) { if (x && x.id === id) Object.assign(x, felder); });
+  try { localStorage.setItem('gs_geraete_regeln', JSON.stringify(arr)); } catch (_) {}
+}
+function _gsRegelHochladen(r) {
+  var still = function (grund) { return Promise.resolve({ ok: false, grund: grund }); };
+  try {
+    if (!r || !r.id) return still('keine Regel');
+    var g = gsGeraete().find(function (x) { return x && x.id === r.geraet_id; });
+    if (!g || !g.cloud_id) return still('kein gekoppeltes Gerät');   // lokale Regel: bleibt lokal, meldet lokal
+    if (!_gsIstUuid(r.id)) { _gsRegelMerken(r.id, { cloud_ok: false }); return still('keine UUID'); }
+    var uid = _gsCloudBereit();
+    if (!uid) { _gsRegelMerken(r.id, { cloud_ok: false }); return still('nicht angemeldet'); }
+    return sbFetch('/rest/v1/device_rules', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(_gsRegelSatz(r, g, uid)) })
+      .then(function (a) {
+        if (!_gsSchreibOk(a)) {   // Ablehnung ODER 0 Zeilen: die Regel liegt NICHT dort — die App meldet solange selbst
+          _gsRegelMerken(r.id, { cloud_ok: false });
+          try { if (typeof gsToast === 'function') gsToast('Die Regel gilt vorerst nur in der App — der Server hat sie nicht angenommen' + (a && a.error && a.error.message ? ' (' + String(a.error.message).slice(0, 80) + ')' : '') + '. Die App meldet solange selbst.', 'warn', 6000); } catch (_) {}
+          return { ok: false, grund: (a && a.error && a.error.message) || 'vom Server abgewiesen' };
+        }
+        _gsRegelMerken(r.id, { cloud_ok: true, cloud_am: new Date().toISOString() });
+        return { ok: true };
+      }).catch(function (e) { _gsRegelMerken(r.id, { cloud_ok: false }); return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
+  } catch (e) { return still('Fehler: ' + (e && e.message)); }
+}
+function _gsRegelServerLoeschen(r) {
+  try {
+    if (!r || !_gsIstUuid(r.id) || !_gsCloudBereit()) return Promise.resolve({ ok: false, grund: 'nicht angemeldet' });
+    return sbFetch('/rest/v1/device_rules?id=eq.' + encodeURIComponent(r.id), { method: 'DELETE', headers: { 'Prefer': 'return=representation' } })
+      .then(function (a) { return _gsSchreibOk(a) ? { ok: true } : { ok: false, grund: (a && a.error && a.error.message) || 'nicht gelöscht' }; })
+      .catch(function (e) { return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
+  } catch (e) { return Promise.resolve({ ok: false, grund: 'Fehler: ' + (e && e.message) }); }
+}
+function _gsGeraetServerLoeschen(g) {
+  try {
+    if (!g || !g.cloud_id || !_gsCloudBereit()) return Promise.resolve({ ok: false, grund: 'nicht angemeldet' });
+    return sbFetch('/rest/v1/devices?id=eq.' + encodeURIComponent(g.cloud_id), { method: 'DELETE', headers: { 'Prefer': 'return=representation' } })
+      .then(function (a) {
+        if (_gsSchreibOk(a)) return { ok: true };
+        try { if (typeof gsToast === 'function') gsToast('Das Gerät ist in der App weg, in der Cloud aber nicht entfernt' + (a && a.error && a.error.message ? ' (' + String(a.error.message).slice(0, 80) + ')' : '') + '.', 'warn', 6000); } catch (_) {}
+        return { ok: false, grund: (a && a.error && a.error.message) || 'nicht gelöscht' };
+      }).catch(function (e) { return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
+  } catch (e) { return Promise.resolve({ ok: false, grund: 'Fehler: ' + (e && e.message) }); }
+}
+// Alle Regeln eines Geraets, die noch nicht auf dem Server liegen — nachziehen.
+function _gsRegelnNachziehen(geraetId) {
+  var offen = gsRegeln().filter(function (r) { return r && r.geraet_id === geraetId && r.cloud_ok !== true; });
+  return Promise.all(offen.map(function (r) { return _gsRegelHochladen(r); })).then(function (erg) { return { versucht: erg.length, ok: erg.filter(function (e) { return e && e.ok; }).length }; });
+}
+window._gsRegelHochladen = _gsRegelHochladen; window._gsRegelnNachziehen = _gsRegelnNachziehen;
 
 function gsRegeln() { try { var a = safeGetItem('gs_geraete_regeln', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
 function gsRegelAnlegen(o) {
@@ -27158,10 +27228,19 @@ function gsRegelAnlegen(o) {
     var arr = gsRegeln(); arr.push(r);
     if (localStorage.setItem('gs_geraete_regeln', JSON.stringify(arr)) === false) { if (typeof gsToast === 'function') gsToast('Speicher voll — die Regel wurde nicht gesichert.', 'warn', 5000); return false; }
     try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
+    try { _gsRegelHochladen(r); } catch (_) {}   // v32.63: gekoppeltes Geraet → Regel auch auf den Server (asynchron; cloud_ok sagt, ob sie dort ist)
     return r;
   } catch (_) { return false; }
 }
-function gsRegelLoeschen(id) { try { var arr = gsRegeln().filter(function (r) { return r && r.id !== id; }); return localStorage.setItem('gs_geraete_regeln', JSON.stringify(arr)) !== false; } catch (_) { return false; } }
+function gsRegelLoeschen(id) {
+  try {
+    var weg = gsRegeln().find(function (r) { return r && r.id === id; });
+    var arr = gsRegeln().filter(function (r) { return r && r.id !== id; });
+    if (localStorage.setItem('gs_geraete_regeln', JSON.stringify(arr)) === false) return false;
+    if (weg && weg.cloud_ok === true) { try { _gsRegelServerLoeschen(weg); } catch (_) {} }   // v32.63: dort mit loeschen
+    return true;
+  } catch (_) { return false; }
+}
 // Drei Zustaende, nie zwei: erfuellt · verletzt · nicht_pruefbar. Ohne
 // plausiblen Wert ist eine Regel nicht pruefbar — Stille ist kein „erfuellt".
 function gsRegelnPruefen(geraetId) {
@@ -27300,11 +27379,13 @@ function gsSensorAlarmeMelden() {
     var jetzt = Date.now(), regeln = gsRegeln(), texte = [], ids = [];
     gsGeraete().forEach(function (g) {
       if (!g) return;
-      if (g.cloud_id) return;   // v32.62: gekoppelt → der SERVER meldet (sensor-push), nicht die App — sonst zweimal
       gsRegelnPruefen(g.id).forEach(function (z) {
         if (z.zustand !== 'verletzt' || (z.action && z.action !== 'notify')) return;
         var r = null; for (var i = 0; i < regeln.length; i++) if (regeln[i] && regeln[i].id === z.regel_id) r = regeln[i];
         if (!r) return;
+        // v32.62/63: liegt die Regel auf dem Server (gekoppeltes Geraet, cloud_ok), meldet ER
+        // (sensor-push) — sonst die App. Eine Instanz je Alarm heisst: die, die die Regel hat.
+        if (g.cloud_id && r.cloud_ok === true) { erg.uebersprungen++; return; }
         var cd = (parseInt(r.cooldown_minutes, 10) || 720) * 60000;
         if (r.zuletzt_gemeldet && jetzt - new Date(r.zuletzt_gemeldet).getTime() < cd) { erg.uebersprungen++; return; }
         texte.push(g.name + ': ' + z.text + ' (' + z.grund + ')'); ids.push(r.id);
@@ -27527,7 +27608,7 @@ function _gsMwRender() {
     }).join('');
     var regeln = gsRegelnPruefen(g.id).map(function (r) {
       var z = r.zustand === 'verletzt' ? '⚠️ ' + _t('mw_verletzt', 'verletzt') : r.zustand === 'erfuellt' ? '✓ ' + _t('mw_erfuellt', 'erfüllt') : '– ' + _t('mw_nicht_pruefbar', 'nicht prüfbar');
-      return '<div class="gs-mw-regel gs-mw-' + r.zustand + '"><b>' + esc(r.text) + '</b><i>' + esc(z) + ' · ' + esc(r.grund) + '</i><button type="button" class="gs-mw-x" aria-label="Regel löschen" onclick="gsRegelLoeschen(\'' + esc(r.regel_id) + '\');if(typeof gsSensorAufgabenAbgleich===\'function\')gsSensorAufgabenAbgleich();_gsMwRender()">×</button></div>';
+      return '<div class="gs-mw-regel gs-mw-' + r.zustand + '"><b>' + esc(r.text) + '</b><i>' + esc(z) + ' · ' + esc(r.grund) + (function () { if (!g.cloud_id) return ''; var raw = null; gsRegeln().forEach(function (x) { if (x && x.id === r.regel_id) raw = x; }); return raw && raw.cloud_ok === true ? ' · ☁️' : ' · ' + esc(_t('mw_regel_nur_app', 'nur in der App')); })() + '</i><button type="button" class="gs-mw-x" aria-label="Regel löschen" onclick="gsRegelLoeschen(\'' + esc(r.regel_id) + '\');if(typeof gsSensorAufgabenAbgleich===\'function\')gsSensorAufgabenAbgleich();_gsMwRender()">×</button></div>';
     }).join('');
     var erste = metrics[0];
     return '<div class="gs-mw-kachel" id="geraet-' + esc(g.id) + '" data-geraet="' + esc(g.id) + '">' +
@@ -74632,6 +74713,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.63', date: '06.09.2026',
+    headline: '☁️ Regeln reisen mit — eine Instanz je Alarm heisst: die, die die Regel hat',
+    summary: 'Seit v32.62 meldet die App Alarme gekoppelter Geräte nicht mehr selbst, weil der Server das tut — aber der Server kannte die Regeln nicht, sie lagen nur in der App. Jetzt geht eine Regel an einem gekoppelten Gerät auf den Server (device_rules, dieselbe Kennung): beim Anlegen, beim Koppeln und beim Abgleich; Löschen löscht dort mit, und ein gekoppeltes Gerät zu entfernen entfernt es auch in der Cloud. Die App lässt eine Regel nur dann aus, wenn sie nachweislich auf dem Server liegt — sonst meldet sie weiter selbst. In der Kachel steht ☁️ oder „nur in der App".',
+    user_summary: '☁️ Regeln für gekoppelte Sensoren gelten jetzt auch auf dem Server — und die App sagt, wo eine Regel gilt.',
+    user_items: [
+      {emoji:'📏', bold:'Regel wandert mit:', text:' Beim gekoppelten Gerät zeigt die Regel ☁️, sobald der Server sie hat — sonst „nur in der App", und die App meldet selbst.'},
+    ],
+  },
+  {
     v: 'v32.62', date: '06.09.2026',
     headline: '☁️ Stufe 1 in der App — Geräte koppeln, Messwerte aus der Cloud',
     summary: 'Ein echtes Gerät (GreenScan-Sensor oder Fremdgerät) lässt sich jetzt koppeln: die App legt es in der Cloud an, erzeugt ein Token (32 Byte Zufall) und schickt nur dessen SHA-256 — das Token selbst wird genau einmal angezeigt und nirgends gespeichert; verloren heisst neu erzeugen, das alte gilt dann nicht mehr. Messwerte gekoppelter Geräte kommen vom Server ins Dashboard (derselbe eine Weg, Dublettensperre, Quelle „cloud"), der Zustand (wartet · aktiv · verstummt · pausiert) kommt vom Server. Für gekoppelte Geräte meldet der Server die Alarme (sensor-push), nicht die App — sonst käme jeder Alarm zweimal. Alles ohne Gerät geprüft, mit gestelltem Server (docs/OEKOSYSTEM-V1.md §11.3l).',
@@ -75505,7 +75595,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.62';
+var GS_VERSION = 'v32.63';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

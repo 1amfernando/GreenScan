@@ -4,13 +4,34 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-06 · **Branch**: `main` · **Version**: `v32.62` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-06 · **Branch**: `main` · **Version**: `v32.63` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-06 (fa) — v32.63: Regeln reisen mit — die Lücke aus v32.62 geschlossen
+
+`docs/OEKOSYSTEM-V1.md` §11.3m. **Fund beim Schreiben der eigenen Doku:**
+v32.62 liess Alarme gekoppelter Geräte lokal aus („der Server meldet"), der
+Server-Cron liest aber `device_rules` — und die Regeln lagen nur in der App.
+Nirgends gemeldet, Prüfstand grün (er kannte nur „meldet nicht").
+
+- `_gsRegelHochladen`: Upsert in `device_rules` mit derselben Id und den
+  zehn Spalten der Tabelle; `cloud_ok` nur nach `_gsSchreibOk`, sonst Toast
+  „gilt vorerst nur in der App". Aufrufer: `gsRegelAnlegen`,
+  `gsGeraetKoppeln` (zieht nach), `gsGeraeteCloudAbgleich` (zieht offene nach).
+- `gsRegelLoeschen` löscht auf dem Server mit; `gsGeraetLoeschen` entfernt
+  ein gekoppeltes Gerät auch in der Cloud (cascade) — sonst meldete der Cron
+  weiter.
+- `gsSensorAlarmeMelden` lässt eine Regel nur aus, wenn `cloud_ok === true`;
+  Kachel je Regel „☁️" oder „nur in der App" (`mw_regel_nur_app`).
+
+Prüfstände: sensor_check 27 (+„Regeln in der Cloud"; „Alarm-Instanz" kennt
+jetzt beide Richtungen), save_check 16 (SERVER_WEGE +1); Gegenproben und
+Regression: siehe PR.
 
 ### 2026-09-06 (ez) — v32.62: Stufe 1 in der App — koppeln, Cloud-Abgleich, eine Alarm-Instanz
 
@@ -8971,7 +8992,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.62` (Client) · SW-Cache `gs-v32.62` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.63` (Client) · SW-Cache `gs-v32.63` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

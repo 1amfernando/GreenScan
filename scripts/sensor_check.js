@@ -882,16 +882,91 @@ const FAELLE = [
         const ts = new Date(Date.now() - 600000).toISOString();
         _gsMesswerteAnhaengen(gsGeraete().find(x => x.id === gc.id), [{ metric: 'soil_moisture', wert: 12, ts }], { quelle: 'cloud', pending: false, status_belassen: true });
         const rc = gsRegelAnlegen({ geraet_id: gc.id, metric: 'soil_moisture', op: 'below', threshold: 25, action: 'notify' });
+        await new Promise(res => setTimeout(res, 60));
+        if (gsRegeln().find(x => x.id === rc.id).cloud_ok !== true) return { ok: false, warum: 'die Regel ist nicht auf dem Server angekommen (cloud_ok): ' + JSON.stringify(gsRegeln().find(x => x.id === rc.id)) };
         if (gsRegelnPruefen(gc.id)[0].zustand !== 'verletzt') return { ok: false, warum: 'die Regel ist nicht verletzt — der Fall prüft nichts' };
         const e1 = gsSensorAlarmeMelden();
         if (e1.gemeldet.indexOf(rc.id) >= 0 || rufe.some(o => /Cloud Alarm/.test((o && o.body) || ''))) return { ok: false, warum: 'die App meldet den Alarm eines gekoppelten Geräts selbst: ' + JSON.stringify(e1) };
+        // v32.63: eine Regel, die der Server NICHT hat (cloud_ok false), meldet die App weiter selbst
+        window.sbFetch = async () => ({ data: [], error: null });
+        const rc2 = gsRegelAnlegen({ geraet_id: gc.id, metric: 'soil_moisture', op: 'below', threshold: 20, action: 'notify' });
+        await new Promise(res => setTimeout(res, 60));
+        if (gsRegeln().find(x => x.id === rc2.id).cloud_ok !== false) return { ok: false, warum: 'eine abgewiesene Regel muss cloud_ok false tragen' };
+        const e1b = gsSensorAlarmeMelden();
+        if (e1b.gemeldet.indexOf(rc2.id) < 0 || e1b.gemeldet.indexOf(rc.id) >= 0 || !rufe.some(o => /Cloud Alarm/.test((o && o.body) || ''))) return { ok: false, warum: 'Regel nur in der App muss lokal melden: ' + JSON.stringify(e1b) };
+        rufe.length = 0;
         gsMesswertEintragen(gh.id, 'soil_moisture', 12);
         const rh = gsRegelAnlegen({ geraet_id: gh.id, metric: 'soil_moisture', op: 'below', threshold: 25, action: 'notify' });
         const e2 = gsSensorAlarmeMelden();
         if (e2.gemeldet.indexOf(rh.id) < 0 || e2.gemeldet.indexOf(rc.id) >= 0) return { ok: false, warum: 'Handgerät: ' + JSON.stringify(e2) };
         if (!rufe.some(o => /Hand Alarm/.test((o && o.body) || ''))) return { ok: false, warum: 'die Meldung nennt das Handgerät nicht: ' + JSON.stringify(rufe.map(o => o && o.body)) };
-        return { ok: true, info: 'Cloud-Gerät verletzt → keine lokale Meldung · Handgerät verletzt → gemeldet, mit Namen' };
+        return { ok: true, info: 'Regel auf dem Server → keine lokale Meldung · Regel nur in der App (abgewiesen) → lokal gemeldet · Handgerät → gemeldet, mit Namen' };
       } finally { gsGeraetLoeschen(gc && gc.id); gsGeraetLoeschen(gh && gh.id); window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; if (echtGet) gsStore.get = echtGet; gsNotif.isEnabled = echtEnabled; gsNotif.showKategorie = echtKat; }
+    },
+  },
+  {
+    // v32.63: der Server liest device_rules — eine Regel, die nur in der App
+    // liegt, sieht er nie. Also geht sie hoch (Anlegen, Koppeln, Abgleich),
+    // Loeschen loescht dort mit, und ein gekoppeltes Geraet zu entfernen
+    // entfernt es auch in der Cloud.
+    name: 'Regeln in der Cloud · am gekoppelten Gerät geht die Regel auf den Server (dieselbe Id, die Spalten der Tabelle), Koppeln und Abgleich ziehen nach, Löschen löscht dort mit, eine Absage heisst „nur in der App"',
+    lauf: async () => {
+      const echtFetch = window.sbFetch, echtLogin = window.sbIsLoggedIn, echtGet = window.gsStore && gsStore.get, echtToast = window.gsToast;
+      const rufe = [], toasts = [], warte = (ms) => new Promise(res => setTimeout(res, ms));
+      window.sbIsLoggedIn = () => true; window.gsStore = window.gsStore || {}; gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet(k, d) : d));
+      window.gsToast = (m) => toasts.push(String(m));
+      const ja = async (path, opts) => { rufe.push({ path, opts }); return (opts && (opts.method === 'POST' || opts.method === 'DELETE')) ? { data: [{ id: opts.body ? JSON.parse(opts.body).id : 'x' }], error: null } : { data: [], error: null }; };
+      const g = gsGeraetAnlegen({ kind: 'gs_sensor', name: 'Regel Cloud' });
+      try {
+        window.sbFetch = ja;
+        const r0 = gsRegelAnlegen({ geraet_id: g.id, metric: 'soil_moisture', op: 'below', threshold: 30, action: 'notify' });
+        await warte(40);
+        if (rufe.some(x => /device_rules/.test(x.path))) return { ok: false, warum: 'eine Regel am ungekoppelten Gerät geht zum Server' };
+        const k = await gsGeraetKoppeln(g.id); if (!k.ok) return { ok: false, warum: 'Koppeln: ' + JSON.stringify(k) };
+        _gsMwTokenFertig(g.id);
+        await warte(60);
+        const up = rufe.find(x => /\/rest\/v1\/device_rules$/.test(x.path) && x.opts.method === 'POST');
+        if (!up) return { ok: false, warum: 'Koppeln zieht die bestehende Regel nicht nach' };
+        const b = JSON.parse(up.opts.body);
+        const spalten = ['id', 'user_id', 'device_id', 'metric', 'op', 'threshold', 'for_minutes', 'action', 'cooldown_minutes', 'enabled'];
+        if (b.id !== r0.id || b.device_id !== k.cloud_id || b.user_id !== '00000000-0000-0000-0000-000000000001' || b.metric !== 'soil_moisture' || b.op !== 'below' || b.threshold !== 30 || b.action !== 'notify' || b.cooldown_minutes !== 720 || b.for_minutes !== 0 || b.enabled !== true) return { ok: false, warum: 'Satz: ' + JSON.stringify(b) };
+        if (Object.keys(b).some(kk => spalten.indexOf(kk) < 0)) return { ok: false, warum: 'unbekannte Spalte im Satz: ' + Object.keys(b).join(',') };
+        if (!/merge-duplicates/.test(up.opts.headers.Prefer) || !/return=representation/.test(up.opts.headers.Prefer)) return { ok: false, warum: 'kein geprüfter Upsert: ' + up.opts.headers.Prefer };
+        if (gsRegeln().find(x => x.id === r0.id).cloud_ok !== true) return { ok: false, warum: 'cloud_ok fehlt nach Bestätigung' };
+        gsMesswerteOeffnen();
+        if (!/☁️/.test(document.getElementById('geraet-' + g.id).querySelector('.gs-mw-regel').textContent)) return { ok: false, warum: 'die Kachel zeigt die Regel nicht als „in der Cloud"' };
+        rufe.length = 0;
+        const r1 = gsRegelAnlegen({ geraet_id: g.id, metric: 'battery', op: 'below', threshold: 20, action: 'notify' });
+        await warte(60);
+        if (!rufe.some(x => /device_rules$/.test(x.path) && x.opts.method === 'POST' && JSON.parse(x.opts.body).id === r1.id)) return { ok: false, warum: 'eine neue Regel geht nicht sofort hoch' };
+        // Absage → nur in der App, gesagt, und die Kachel sagt es
+        window.sbFetch = async (path, opts) => { rufe.push({ path, opts }); return { data: [], error: null }; };
+        toasts.length = 0;
+        const r2 = gsRegelAnlegen({ geraet_id: g.id, metric: 'air_temp', op: 'above', threshold: 35, action: 'notify' });
+        await warte(60);
+        const raw2 = gsRegeln().find(x => x.id === r2.id);
+        if (raw2.cloud_ok !== false || !toasts.some(t => /nur in der App/.test(t))) return { ok: false, warum: 'Absage: ' + JSON.stringify({ cloud_ok: raw2.cloud_ok, toasts }) };
+        gsMesswerteOeffnen();
+        if (!/nur in der App/.test(document.getElementById('geraet-' + g.id).textContent)) return { ok: false, warum: 'die Kachel sagt nicht „nur in der App"' };
+        // Abgleich zieht nach, sobald der Server ja sagt
+        window.sbFetch = async (path, opts) => { rufe.push({ path, opts }); if (opts && opts.method === 'POST') return { data: [{ id: JSON.parse(opts.body).id }], error: null }; if (/\/devices\?/.test(path)) return { data: [{ id: k.cloud_id, status: 'active', paired_at: new Date().toISOString() }], error: null }; return { data: [], error: null }; };
+        await gsGeraeteCloudAbgleich({ erzwingen: true });
+        await warte(60);
+        if (gsRegeln().find(x => x.id === r2.id).cloud_ok !== true) return { ok: false, warum: 'der Abgleich zieht die offene Regel nicht nach' };
+        // Loeschen loescht auf dem Server mit
+        rufe.length = 0; window.sbFetch = ja;
+        gsRegelLoeschen(r1.id);
+        await warte(40);
+        const del = rufe.find(x => x.opts && x.opts.method === 'DELETE');
+        if (!del || del.path.indexOf('device_rules?id=eq.' + r1.id) < 0 || !/return=representation/.test(del.opts.headers.Prefer)) return { ok: false, warum: 'Löschen erreicht den Server nicht: ' + JSON.stringify(rufe.map(x => x.path)) };
+        // Geraet entfernen → auch in der Cloud (cascade)
+        rufe.length = 0;
+        gsGeraetLoeschen(g.id);
+        await warte(40);
+        const delG = rufe.find(x => x.opts && x.opts.method === 'DELETE' && /\/devices\?id=eq\./.test(x.path));
+        if (!delG || delG.path.indexOf(k.cloud_id) < 0) return { ok: false, warum: 'das gekoppelte Gerät bleibt in der Cloud: ' + JSON.stringify(rufe.map(x => x.path)) };
+        return { ok: true, info: 'ungekoppelt: kein Aufruf · Koppeln zieht nach (Satz mit ' + spalten.length + ' Spalten, geprüfter Upsert) · neue Regel sofort · Absage → cloud_ok false, Toast, Kachel „nur in der App" · Abgleich zieht nach · Löschen → DELETE id=eq. · Gerät weg → DELETE devices' };
+      } finally { gsGeraetLoeschen(g && g.id); window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; window.gsToast = echtToast; if (echtGet) gsStore.get = echtGet; }
     },
   },
 ];

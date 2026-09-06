@@ -148,6 +148,46 @@ const WEGE = [
 // Fehler — wer nur auf `error` prueft, meldet dann Erfolg fuer nichts.
 const SERVER_WEGE = [
   {
+    // v32.63: Regel eines gekoppelten Geraets auf den Server — 0 Zeilen sind keine Regel dort,
+    // und die App sagt es (und meldet solange selbst).
+    name: 'Regel hochladen (_gsRegelHochladen → device_rules)',
+    lauf: async () => {
+      const erg = { rufe: [], meldungen: [] };
+      const echtToast = window.gsToast, echtGet = window.gsStore && gsStore.get, echtLogin = window.sbIsLoggedIn, echtFetch = window.sbFetch;
+      window.gsToast = m => erg.meldungen.push(String(m));
+      window.gsStore = window.gsStore || {}; gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet(k, d) : d));
+      window.sbIsLoggedIn = () => true;
+      if (typeof _gsRegelHochladen !== 'function') return { ok: false, warum: '_gsRegelHochladen fehlt' };
+      const g = gsGeraetAnlegen({ kind: 'gs_sensor', name: 'Prüfstand Regel' });
+      if (!g) return { ok: false, warum: 'Gerät nicht angelegt' };
+      try {
+        window.sbFetch = async (path, opts) => ({ data: [{ id: JSON.parse(opts.body).id }], error: null });
+        const k = await gsGeraetKoppeln(g.id); if (!k.ok) return { ok: false, warum: 'Koppeln: ' + JSON.stringify(k) };
+        _gsMwTokenFertig(g.id);
+        window.sbFetch = async () => ({ data: [], error: null });
+        const r = gsRegelAnlegen({ geraet_id: g.id, metric: 'soil_moisture', op: 'below', threshold: 30 });
+        await new Promise(res => setTimeout(res, 40));
+        // Fall 1: Server lehnt ab → nur in der App, gesagt
+        erg.meldungen.length = 0;
+        window.sbFetch = async (path) => { erg.rufe.push(path); return { data: null, error: { message: 'permission denied' } }; };
+        let a = await _gsRegelHochladen(r);
+        if (!erg.rufe.some(p => /device_rules$/.test(p))) return { ok: false, warum: 'ruft device_rules gar nicht auf' };
+        if (a.ok || gsRegeln().find(x => x.id === r.id).cloud_ok !== false || !erg.meldungen.some(m => /nur in der App/.test(m))) return { ok: false, warum: 'Ablehnung: ' + JSON.stringify({ a, meldungen: erg.meldungen }) };
+        // Fall 2: Server antwortet LEER (RLS still) → ebenso
+        erg.meldungen.length = 0;
+        window.sbFetch = async () => ({ data: [], error: null });
+        a = await _gsRegelHochladen(r);
+        if (a.ok || gsRegeln().find(x => x.id === r.id).cloud_ok !== false || !erg.meldungen.some(m => /nur in der App/.test(m))) return { ok: false, warum: '0 Zeilen gelten als Regel auf dem Server: ' + JSON.stringify(a) };
+        // Fall 3: Server bestaetigt → cloud_ok, still
+        erg.meldungen.length = 0;
+        window.sbFetch = async (path, opts) => ({ data: [{ id: JSON.parse(opts.body).id }], error: null });
+        a = await _gsRegelHochladen(r);
+        if (!a.ok || gsRegeln().find(x => x.id === r.id).cloud_ok !== true || erg.meldungen.length) return { ok: false, warum: 'Bestätigung: ' + JSON.stringify({ a, meldungen: erg.meldungen }) };
+        return { ok: true, info: 'Ablehnung → nur in der App, gesagt · 0 Zeilen → ebenso · Bestätigung → cloud_ok, still' };
+      } finally { gsGeraetLoeschen(g.id); window.gsToast = echtToast; if (echtGet) gsStore.get = echtGet; window.sbIsLoggedIn = echtLogin; window.sbFetch = echtFetch; }
+    },
+  },
+  {
     // v32.62: Koppeln — der Server legt die Geraetezeile an (upsert). 0 Zeilen
     // (RLS still) sind keine Kopplung; das Token darf nie in den Speicher.
     name: 'Gerät koppeln (gsGeraetKoppeln → devices)',
