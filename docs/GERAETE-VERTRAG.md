@@ -83,8 +83,9 @@ Uhr braucht sie, um `age_s` beim nächsten Mal richtig zu rechnen.
 
 ## 3 · Sicherheit
 
-- **Das Token ist das Geheimnis.** 32 Byte, zufällig, vom Server erzeugt; nur
-  der SHA-256-Hash liegt in `devices.token_hash`. Verloren = neu erzeugen, das
+- **Das Token ist das Geheimnis.** 32 Byte, zufällig, **von der App erzeugt**
+  (`crypto.getRandomValues`, v32.62) — der Server bekommt nur den SHA-256-Hash
+  (`devices.token_hash`) und sieht das Klartext-Token nie. Verloren = neu erzeugen, das
   alte ist damit ungültig (§3.2 im Entwurf). Ein rotierbares Token je Gerät,
   nie das Konto der Person.
 - **Nur TLS.** Kein `http://`. Über TLS reicht das Bearer-Token; eine
@@ -115,7 +116,7 @@ Kontakt in `acks`. Regeln, die der Server hält:
 ## 5 · Was das Gerät sonst wissen muss
 
 - **Verstummt** heisst: 3 × `next_contact_s` ohne Kontakt (`capabilities.expected_by`). Ein Gerät, das nachts länger schläft, meldet ein grösseres `interval_s` — dann erwartet der Server es auch später.
-- **Pairing** (Stufe 1): die App legt das Gerät an und zeigt das Token einmal; das Gerät bekommt es beim Einrichten. „Verbunden" zeigt die App erst nach dem **ersten Batch**. Für ein gefertigtes Produkt ohne Kamera und BLE auf iOS steht in §11 Idee 15 ein Claim-Code-Weg — Entscheid bei Fernando.
+- **Pairing** (Stufe 1, **gebaut v32.62**): Messwerte → Gerät anlegen (Art „GreenScan-Sensor" oder „Fremdgerät") → „Koppeln" → das Token wird einmal angezeigt (Kopieren); das Gerät bekommt es beim Einrichten. „Verbunden" zeigt die App erst nach dem **ersten Batch**. Für ein gefertigtes Produkt ohne Kamera und BLE auf iOS steht in §11 Idee 15 ein Claim-Code-Weg — Entscheid bei Fernando.
 - **Firmware** (Stufe 2): das Gerät meldet seine Version im Feld `firmware`; ein Update kommt später in der Antwort — signiert, Prüfung in der Firmware.
 
 ## 6 · Beispiel: ESP32 ohne Uhr, Puffer nach Funkloch (Pseudocode)

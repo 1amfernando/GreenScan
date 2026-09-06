@@ -169,6 +169,7 @@ GreenScan/
 | Lina-Gedächtnis | Supabase `coach_conversations` / `coach_messages` | (gsBrain/`gs_brain_memory` ENTFERNT — siehe §4) |
 | Garten-Zwilling | `localStorage.gs_garden_twin` (über `gsTwinGet`/`gsTwinSave`) | nie direkt parsen — `gsTwinNormalize` klemmt und verwirft |
 | Mischkultur | Supabase `plant_companion_matrix` / `v_companion_lookup` | **keine** Nachbarschaftstabelle im Code anlegen |
+| Geräte | `localStorage.gs_geraete` (`gsGeraete` / `_gsGeraeteSchreiben`); für **gekoppelte** Geräte (`cloud_id`) ist Supabase `devices` die Instanz für Status, `paired_at`, Firmware (`gsGeraeteCloudAbgleich`, seit v32.62) und der Server meldet die Alarme | nie den Status eines gekoppelten Geräts lokal raten; `cloud_id` nur nach `_gsSchreibOk` setzen; das Token nie speichern |
 | Messwerte | `localStorage.gs_messwerte`, **nur** über `_gsMesswerteAnhaengen` / `gsMesswertEintragen` (seit v32.52: ein Weg, Dublettensperre auf Gerät · Messgrösse · Zeit) | nie direkt `push`en — der Deckel und die Sortierung nach `ts` hängen daran |
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
 
@@ -840,6 +841,21 @@ Marker — sonst steht die Meldung zweimal in der Inbox. Und wer eine
 Behauptung über einen Server-Weg schreibt, misst ihn (`grep`, `cron.job`,
 nur lesend) — der Satz vom 05.09. klang richtig, weil die Brücke existiert,
 nur in der anderen Richtung.
+
+**Seit v32.62 ist Stufe 1 auch in der App: Koppeln und Cloud-Abgleich.**
+`gsGeraetKoppeln` erzeugt das Token in der App und schickt NUR den SHA-256
+(`token_hash`) per Upsert in `devices`; das Token steht einmal in der Kachel
+und nirgends sonst (`_gsMwTokenEinmal`, Arbeitsspeicher). Eine Antwort mit
+0 Zeilen ist keine Kopplung (`_gsSchreibOk`). `gsGeraeteCloudAbgleich` holt
+Status und `device_readings` und gibt sie durch denselben einen Weg —
+`_gsMesswerteAnhaengen(g, liste, {quelle:'cloud', pending:false,
+status_belassen:true})`; wer einen weiteren Server-Weg baut, nimmt dieselben
+Optionen (sonst zählt der Deckel eine Cloud-Kopie als unersetzlich, oder eine
+Nachlieferung macht aus `lost` ein `active`). Und **eine Instanz je Alarm:**
+`gsSensorAlarmeMelden` lässt Geräte mit `cloud_id` aus, der Server meldet.
+Die drei Fälle in `sensor_check` (Koppeln · Cloud-Abgleich · Alarm-Instanz)
+stellen den Server (`sbFetch`) mit Ja, Leer und Nein — ein Fall, der nur das
+Ja kennt, prüft nicht, was bei Nein passiert.
 
 **Seit v32.56 trägt Linas Kontext Zahlen — und der Prüfstand hält jede
 gegen einen Datensatz.** `gsLinaZahlen()` schreibt **Rohwerte**, nie die

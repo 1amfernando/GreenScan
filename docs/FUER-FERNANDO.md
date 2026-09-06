@@ -314,10 +314,14 @@ Gerät.** Drei Dinge, in dieser Reihenfolge, wenn das erste Gerät da ist:
    das habe ich am 06.09. gegen meinen eigenen Text vom Vortag nachgemessen
    (§11.3k). Und `delete-user` neu ausliefern: die Liste kennt jetzt die
    Gerätetabellen.
-3. Einen Batch von Hand schicken, nach `docs/GERAETE-VERTRAG.md` §1 — mit
-   `curl` und einem Token, dessen SHA-256 in `devices.token_hash` steht.
-   Erwartet: `accepted`, `server_time`, `next_contact_s`. Sag mir, was
-   zurückkam, dann baue ich das Pairing in der App (Token einmal anzeigen).
+3. Das Pairing ist seit v32.62 in der App: Messwerte → „Gerät anlegen" mit
+   Art „GreenScan-Sensor" → „Koppeln" → das Token wird einmal angezeigt,
+   Kopieren. Damit einen Batch schicken, nach `docs/GERAETE-VERTRAG.md` §1
+   (`curl`, `Authorization: Bearer <Token>`). Erwartet: `accepted`,
+   `server_time`, `next_contact_s` — und in der App beim nächsten Öffnen des
+   Dashboards die Werte und „☁️ gekoppelt · zuletzt …". Sag mir, was
+   zurückkam; die nächste Ausgabe lädt dann die Regeln hoch, damit der
+   Alarm-Cron sie sieht.
 
 Und eine Sache, die ich **nicht** angefasst habe, weil sie eine Entscheidung
 ist: der alte ESP32-Assistent („📶 Sensoren & Geräte") lässt Nutzer ihr
