@@ -48,7 +48,7 @@
   und gerechnet (Modul in Node). Die fünf Functions stehen bereits in
   FUER-FERNANDO §9 zum Ausliefern; C4 ändert die Liste nicht, nur den Inhalt.
 
-Regression v32.74 → v32.75: (folgt)
+Regression v32.74 → v32.75: 30 Prüfstände grün, 0 nicht prüfbar (lokales Postgres lief), Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (fn) — v32.74: Admin-Modus fragt den Server, alter Sensor-Assistent ohne Sitzungs-Token — Audit A5, A6
 
