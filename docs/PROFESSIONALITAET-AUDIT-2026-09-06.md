@@ -40,7 +40,13 @@
 | E4 · „Was ist neu" verschluckt die fetten Labels | ✅ v32.70 — Dialog und Über-Liste rendern `bold` + `text` | `nutzersicht_check` Fall 2 |
 | E5 · Entwickler-Jargon auf Nutzerseiten | ✅ v32.70 — „Cowork pg_cron", „Super-Agent", „24h-Lock", „Supabase nicht verfügbar" (×8), „gequeued", „anfaellig fuer" raus | `nutzersicht_check` Fall 4 |
 | E8 · Kompakt + Senioren gleichzeitig; Menü-Emojis ohne `aria-hidden` | ✅ v32.70 (beides) · Einheiten-Abstand und „—"-Leerzustände offen | `nutzersicht_check` Fall 5 |
-| A5–A9, B2, B7–B9, C, E1, E6, E7 | offen | §G |
+| A8 · CSP mit `unsafe-eval`, `worker-src` blockiert pdf.js-Worker, `frame-ancestors 'self'` | ✅ v32.71 — ohne `unsafe-eval`, cdnjs in `worker-src`, `'none'` + `X-Frame-Options: DENY` · pdf.js selbst hosten offen (kein Netz von hier) | `robust_check` Fall 5 |
+| A9 · `ipapi.co` ohne Zustimmung, `client_errors` mit `user_id`, Analytics-Guard verkehrt, kein Consent-Dialog | ✅ v32.71 — IP-Ortung gestrichen; Fehlerberichte und Messung nur mit `_gsAnalyticsErlaubt()`; Über-Liste ehrlich · Consent-Dialog selbst offen (Entscheidung) | `robust_check` Fall 6 |
+| B7 · Toasts ohne Live-Region | ✅ v32.71 (`role=status`, `aria-live=polite`) · Fokus in dynamischen Dialogen offen | `robust_check` Fall 7 |
+| B9 · `gsRequireOnline` tot, 4'342er-Schleife ohne Leser | ✅ v32.71 · `type=number` ohne `max`, `plan-iterate`-Fehlerform, `plants.v1.js` im `<head>` offen | `robust_check` Fall 8 |
+| C1 · `_gsNorm` und `gsIsAdmin` doppelt | ✅ v32.71 | `robust_check` Fall 8 |
+| E7 · `install.html`-Versprechen | ✅ v32.71 | — |
+| A5–A7, A10-Server, B2, B8, C2–C5, E1, E6 | offen | §G |
 
 ## Zahlen zuerst
 
