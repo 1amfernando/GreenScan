@@ -117,22 +117,25 @@ Deno.serve(async (req) => {
     uid = payload.sub || null;
   } catch { /* ignore */ }
 
-  // Admin-Check: Email in Whitelist ODER profiles.is_expert=true
+  // Admin-Check: Email in Whitelist ODER profiles.is_admin=true.
+  // v32.72 (Audit A10): vorher genuegte `is_expert` — jeder Experte konnte die
+  // KI-Triage ueber alle Feedbacks ausloesen (KI-Kosten + fremde Inhalte).
   let isAdmin = email && ADMIN_EMAILS.has(email);
-  if (!isAdmin && uid) {
-    const pr = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=is_expert&id=eq.${uid}`, {
+  if (!isAdmin && uid && /^[0-9a-f-]{36}$/i.test(uid)) {
+    const pr = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=is_admin&id=eq.${uid}`, {
       headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
     });
     if (pr.ok) {
       const rows = await pr.json();
-      if (Array.isArray(rows) && rows[0]?.is_expert === true) isAdmin = true;
+      if (Array.isArray(rows) && rows[0]?.is_admin === true) isAdmin = true;
     }
   }
   if (!isAdmin) return j({ error: "admin-only" }, 403);
 
   const body = await req.json().catch(() => ({}));
   const limit = Math.max(1, Math.min(50, Number(body.limit) || 10));
-  const onlyId: string | null = body.id || null;
+  // v32.72 (Audit A10): `body.id` ging roh in einen PostgREST-Filter — nur eine UUID darf hinein.
+  const onlyId: string | null = (typeof body.id === "string" && /^[0-9a-f-]{36}$/i.test(body.id)) ? body.id : null;
 
   // Hole Items die noch keine Analyse haben (oder ein konkretes ID)
   let url = `${SUPABASE_URL}/rest/v1/feedback_items?select=id,content,kind,app_version&order=created_at.desc&limit=${limit}`;

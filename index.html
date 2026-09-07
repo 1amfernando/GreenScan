@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.71.20260907">
+<meta name="app-version" content="32.72.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66928,16 +66928,16 @@ async function gsRunGardenScan(photos, metadata, opts) {
         'apikey': apikey
       },
       body: JSON.stringify(body)
-    }, 60000);
+    }, 120000);   // v32.72 (Audit B2): so lange wie der Server (110 s Abbruch dort)
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok) {
-      return { ok: false, error: data.error || { code: 'http_' + resp.status, message: 'Server-Fehler ' + resp.status } };
+      return { ok: false, error: _gsEdgeFehler(data, resp.status) };
     }
     // v28.40 FIX-7: KI-Plan sanitisieren (Pflanzen in Grenzen + Fläche ≤100%) bevor Render/Save.
     try { if (data && data.analysis) data.analysis = _gsSanitizeGardenPlan(data.analysis); } catch(_){}
     return data;
   } catch(e) {
-    return { ok: false, error: { code: 'network', message: (e && e.message) || 'Netzwerk-Fehler' } };
+    return { ok: false, error: _gsEdgeAusnahme(e) };
   }
 }
 
@@ -69155,17 +69155,36 @@ async function gsIteratePlan(planId, message) {
         'apikey': apikey
       },
       body: JSON.stringify({ plan_id: planId, user_message: String(message).trim() })
-    }, 30000);
+    }, 120000);   // v32.72 (Audit B2): 30 s waren gegen 8'000 Tokens auf dem Server chancenlos
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok) {
-      return { ok: false, error: data.error || { code: 'http_' + resp.status, message: 'Server-Fehler ' + resp.status + (data.error && data.error.message ? ': ' + data.error.message : '') } };
+      return { ok: false, error: _gsEdgeFehler(data, resp.status) };
     }
     return data;
   } catch(e) {
-    return { ok: false, error: { code: 'network', message: (e && e.message) || 'Netzwerk-Fehler' } };
+    return { ok: false, error: _gsEdgeAusnahme(e) };
   }
 }
 
+// v32.72 (Audit B2/B9): EINE Lesart fuer Fehler aus Edge-Functions. plan-iterate
+// liefert `error` als STRING („Not authenticated"), garden-scan-analyze als
+// Objekt — der Aufrufer las `error.message` und zeigte bei einem String immer
+// „Unbekannter Fehler". Und ein Timeout (408/504, AbortError) heisst nicht
+// „Netzwerk-Fehler", sondern: der Server rechnet vielleicht noch.
+function _gsEdgeFehler(data, status){
+  var e = data && data.error;
+  if (typeof e === 'string') e = { code: 'server', message: e };
+  if (!e || typeof e !== 'object') e = { code: 'http_' + status, message: 'Server-Fehler ' + status };
+  if (!e.message) e.message = 'Server-Fehler ' + status;
+  if (status === 504 || e.code === 'timeout') e.message = '⏱️ ' + e.message;
+  return e;
+}
+function _gsEdgeAusnahme(e){
+  var zuLang = e && (e.status === 408 || e.name === 'AbortError' || e.name === 'TimeoutError' || /Zeitüberschreitung|timeout/i.test(e.message || ''));
+  if (zuLang) return { code: 'timeout', message: '⏱️ Der Server hat nicht innert 2 Minuten geantwortet. Er rechnet vielleicht noch — bitte in 1–2 Minuten unter „Gespeicherte Pläne" nachsehen, bevor du es erneut startest.' };
+  return { code: 'network', message: (e && e.message) || 'Netzwerk-Fehler' };
+}
+window._gsEdgeFehler = _gsEdgeFehler; window._gsEdgeAusnahme = _gsEdgeAusnahme;
 // Chat-Send-Handler — wird aus dem Chat-Input gerufen.
 async function gsGardenScanChatSend() {
   var s = window._gsGardenScan;
@@ -74997,6 +75016,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.72', date: '07.09.2026',
+    headline: '🪶 Service Worker 413 KB leichter, Schlüsselvergleich in einem Modul, Timeouts abgestimmt',
+    summary: 'Audit C3, A10 (Server) und B2. Der Service Worker trug 342 Changelog-Zeilen als Kommentar — 413 KB, die jedes Gerät bei jedem Update lud; sie liegen jetzt in docs/_archiv/SW-CHANGELOG.md. Fünf Cron-Empfänger prüften den Service-Schlüssel mit includes(); jetzt vergleichen alle konstantzeitig über ein gemeinsames Modul, feedback-triage ist nur noch für Admins, ai-proxy erlaubt nur die eigenen Preview-Adressen. Garten-Scan und Plan-Chat: der Server bricht nach 110 s ab und speichert dann nichts, der Client wartet 120 s statt 60/30 und sagt bei einem Timeout, dass der Plan vielleicht noch fertig wird — statt „Netzwerk-Fehler". Ein Fehler-String vom Server ist kein „Unbekannter Fehler" mehr. Die Edge-Functions muss Fernando ausliefern (docs/FUER-FERNANDO.md §9).',
+    user_summary: '🪶 Updates laden 413 KB weniger; beim KI-Gartenplaner sagt die App ehrlich, wenn der Server noch rechnet.',
+    user_items: [
+      {emoji:'🪶', bold:'Leichter:', text:' Der Service Worker ist 413 KB kleiner — jedes Update lädt schneller.'},
+      {emoji:'⏱️', bold:'Gartenplaner:', text:' Dauert es länger als zwei Minuten, sagt die App, dass der Plan vielleicht noch fertig wird — kein doppelter Start mehr nötig.'},
+    ],
+  },
+  {
     v: 'v32.71', date: '07.09.2026',
     headline: '🔒 Keine Ortung über die IP-Adresse mehr, Fehlerberichte nur mit Zustimmung, strengere CSP',
     summary: 'Audit A8, A9, B7, C1, B9, E7. Wer den Standort verweigerte, wurde bisher über ipapi.co per IP-Adresse geortet — ohne Zustimmung an einen Dritten; gestrichen, ipapi.co ist auch aus der CSP raus. Fehlerberichte mit Konto-Bezug gehen nur noch mit derselben Zustimmung wie die Nutzungsmessung, deren Guard verkehrt herum stand; die Über-Liste sagt jetzt ehrlich, dass es keinen Zustimmungs-Dialog gibt. CSP ohne unsafe-eval (kein eval im Code), pdf.js-Worker erlaubt, frame-ancestors none. Toasts sind eine Live-Region für Screenreader. install.html verspricht keinen iCloud-Sync, keine „1000 %" und keine vier Sprachen mit Mundart mehr. Doppelte _gsNorm und gsIsAdmin-Stub, toter Offline-Guard und eine Start-Schleife über 4342 Arten ohne Leser: weg. Vier neue Fälle in robust_check.',
@@ -75960,7 +75989,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.71';
+var GS_VERSION = 'v32.72';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

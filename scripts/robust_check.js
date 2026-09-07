@@ -176,6 +176,82 @@ const FAELLE = [
     },
   },
   {
+    name: 'C3 · sw.js ohne Changelog-Ballast: unter 60 KB, keine vXX.YY-Eintraege im Kopf, das Archiv existiert und traegt sie',
+    lauf: async () => {
+      const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+      const kb = Math.round(sw.length / 1024);
+      const kopf = sw.slice(0, sw.indexOf('*/'));
+      const eintraege = (kopf.match(/^\s+v\d+\.\d+ — /gm) || []).length;
+      let archiv = 0; try { archiv = (fs.readFileSync(path.join(__dirname, '..', 'docs', '_archiv', 'SW-CHANGELOG.md'), 'utf8').match(/^- v\d+\.\d+ — /gm) || []).length; } catch (_) {}
+      if (kb > 60) return { ok: false, warum: 'sw.js ist ' + kb + ' KB' };
+      if (eintraege) return { ok: false, warum: eintraege + ' Changelog-Zeilen im Kopf' };
+      if (archiv < 300) return { ok: false, warum: 'Archiv hat ' + archiv + ' Eintraege (erwartet > 300)' };
+      return { ok: true, info: 'sw.js ' + kb + ' KB · 0 Eintraege im Kopf · Archiv ' + archiv + ' Eintraege' };
+    },
+  },
+  {
+    name: 'A10 (Server) · Geheimnisse konstantzeitig ueber EIN Modul: Rechnung geprueft, fuenf Cron-Empfaenger benutzen es und kein includes() mehr; feedback-triage nur is_admin + UUID; ai-proxy nur eigene Previews',
+    lauf: async () => {
+      const M = await import(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'auth_vergleich.mjs'));
+      const f = [];
+      if (M.constantTimeEquals('abc', 'abc') !== true) f.push('gleich → false');
+      if (M.constantTimeEquals('abc', 'abd') !== false) f.push('ungleich → true');
+      if (M.constantTimeEquals('abc', 'ab') !== false) f.push('Laenge → true');
+      if (M.constantTimeEquals('', '') !== false) f.push('leer/leer → true (ein fehlender Key bestaetigt einen fehlenden Header)');
+      if (M.constantTimeEquals(null, undefined) !== false) f.push('null/undefined → true');
+      if (M.hatServiceRole('Bearer sk-1', 'sk-1') !== true) f.push('Bearer sk-1 → false');
+      if (M.hatServiceRole('Bearer sk-1x', 'sk-1') !== false) f.push('Praefix-Treffer → true');
+      if (M.hatServiceRole('Bearer other sk-1', 'sk-1') !== false) f.push('Teilstring → true (das war der includes-Fehler)');
+      if (M.hatServiceRole('Bearer sk-1', '') !== false) f.push('ohne Key → true');
+      const req = (h) => ({ headers: { get: (k) => h[k.toLowerCase()] || null } });
+      if (M.cronOderService(req({ 'x-cron-secret': 'geheim' }), 'geheim', 'sk') !== true) f.push('Cron richtig → false');
+      if (M.cronOderService(req({ 'x-cron-secret': 'falsch' }), 'geheim', 'sk') !== false) f.push('Cron falsch → true');
+      if (M.cronOderService(req({ 'x-cron-secret': '' }), '', 'sk') !== false) f.push('Cron leer/leer → true');
+      if (M.cronOderService(req({ 'authorization': 'Bearer sk' }), 'geheim', 'sk') !== true) f.push('Service-Role → false');
+      const fn = ['daily-push-checker', 'engagement-push-checker', 'key-health-check', 'sensor-push', 'weather-alert-checker'];
+      fn.forEach(n => { const t = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', n, 'index.ts'), 'utf8').replace(/^\s*\/\/.*$/gm, '').replace(/\/\/ v32\.72.*$/gm, '');
+        if (!/auth_vergleich\.mjs/.test(t)) f.push(n + ' importiert das Modul nicht');
+        if (/\.includes\((SERVICE_ROLE|serviceKey)\)/.test(t)) f.push(n + ' vergleicht noch mit includes()'); });
+      const tri = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'feedback-triage', 'index.ts'), 'utf8');
+      if (/is_expert/.test(tri.replace(/\/\/.*$/gm, ''))) f.push('feedback-triage laesst is_expert durch');
+      if (!/\^\[0-9a-f-\]\{36\}\$/.test(tri)) f.push('feedback-triage prueft body.id nicht als UUID');
+      const px = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'ai-proxy', 'index.ts'), 'utf8');
+      if (/\/\\\.pages\\\.dev\$\//.test(px)) f.push('ai-proxy erlaubt jede *.pages.dev');
+      if (!/greenscan-app\\\.pages\\\.dev/.test(px)) f.push('ai-proxy kennt die eigene Preview-Domain nicht');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '13 Rechnungen richtig · 5 Empfaenger importieren, 0× includes · triage is_admin + UUID · ai-proxy nur greenscan-app.pages.dev' };
+    },
+  },
+  {
+    name: 'B2 · Timeouts abgestimmt: Server bricht bei 110 s ab (AbortSignal.timeout) und speichert nichts, Client wartet 120 s; ein Timeout heisst „rechnet vielleicht noch", ein error-String wird zu {message}',
+    lauf: async () => {
+      const f = [];
+      ['garden-scan-analyze', 'plan-iterate'].forEach(n => { const t = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', n, 'index.ts'), 'utf8');
+        if (!/signal: AbortSignal\.timeout\(110_000\)/.test(t)) f.push(n + ' ohne AbortSignal 110 s');
+        if (!/status: zuLang \? 504 : 502/.test(t)) f.push(n + ' ohne 504 bei Timeout'); });
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      if (!/functions\/v1\/garden-scan-analyze'[\s\S]{0,400}\}, 120000\)/.test(idx)) f.push('Client Garten-Scan wartet nicht 120 s');
+      if (!/functions\/v1\/plan-iterate'[\s\S]{0,400}\}, 120000\)/.test(idx)) f.push('Client Plan-Chat wartet nicht 120 s');
+      const r = await __seite.evaluate(() => {
+        const a = _gsEdgeFehler({ error: 'Not authenticated' }, 401);
+        const b = _gsEdgeFehler({ error: { code: 'timeout', message: 'zu lang' } }, 504);
+        const c = _gsEdgeFehler({}, 500);
+        const d = _gsEdgeAusnahme(Object.assign(new Error('Zeitüberschreitung — bitte Internetverbindung prüfen.'), { status: 408 }));
+        const e = _gsEdgeAusnahme(Object.assign(new Error('x'), { name: 'AbortError' }));
+        const g = _gsEdgeAusnahme(new Error('Failed to fetch'));
+        return { a, b, c, d, e, g };
+      });
+      if (r.a.message !== 'Not authenticated' || r.a.code !== 'server') f.push('error-String: ' + JSON.stringify(r.a));
+      if (!/^⏱️ zu lang/.test(r.b.message)) f.push('504: ' + JSON.stringify(r.b));
+      if (!/Server-Fehler 500/.test(r.c.message)) f.push('leer: ' + JSON.stringify(r.c));
+      if (r.d.code !== 'timeout' || !/rechnet vielleicht noch/.test(r.d.message)) f.push('408: ' + JSON.stringify(r.d));
+      if (r.e.code !== 'timeout') f.push('AbortError: ' + JSON.stringify(r.e));
+      if (r.g.code !== 'network' || r.g.message !== 'Failed to fetch') f.push('Netz: ' + JSON.stringify(r.g));
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Server 110 s + 504 · Client 120 s ×2 · String → {message} · 504 → ⏱️ · 408/AbortError → „rechnet vielleicht noch" · Netz bleibt Netz' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');

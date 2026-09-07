@@ -103,7 +103,7 @@ diese Sperre.
 GreenScan/
 ├── index.html           # ~82k Zeilen Monolith (HTML + CSS + JS) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'342 Arten) — separat gecacht
-├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push)
+├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push) — 21 KB seit v32.72; sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # ~30 Edge-Functions (Scan/Pilz/Schädling/Stripe/Push/i18n …)
 ├── supabase/migrations/ # 214 SQL-Migrationen (alle idempotent)
 ├── manifest.json        # PWA-Manifest (share_target, file_handlers, etc.)
@@ -980,6 +980,17 @@ ausgeliefert und nie benutzt. Deshalb ist der Direktweg im Übergang ein
 Rückfall und keine Option: erst wenn `select count(*) from ai_usage` nach
 einem echten Aufruf wächst, wird die Migration angewandt (FUER-FERNANDO §8).
 **Ein Umschalter, den niemand je umgelegt hat, ist kein Sicherheitsnetz.**
+
+**Seit v32.72 gilt für Geheimnisse in Edge-Functions EINE Regel:**
+`supabase/functions/_shared/auth_vergleich.mjs` (`constantTimeEquals`,
+`hatServiceRole`, `cronOderService`). Ein Service-Key oder Cron-Secret wird
+nie mit `===`, `includes` oder `startsWith` verglichen — `includes` nahm ein
+„Bearer <key>" ebenso an wie den Key irgendwo im Header, und die Laufzeit
+hing vom Inhalt ab. Wer einen neuen Empfänger baut, importiert das Modul;
+`robust_check` zählt die Importe und meldet jedes `includes(SERVICE_ROLE)`.
+Und für Anfragen an Edge-Functions aus der App: `_gsEdgeFehler(data, status)`
+und `_gsEdgeAusnahme(e)` sind die eine Lesart — `error` kommt mal als String,
+mal als Objekt, und ein Timeout ist kein Netzfehler.
 
 **`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
 Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf

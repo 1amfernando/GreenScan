@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { cronOderService } from "../_shared/auth_vergleich.mjs";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
@@ -301,9 +302,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const settings = await loadSettings();
-    const cronSecret = req.headers.get("x-cron-secret");
-    const authHdr = req.headers.get("authorization") || "";
-    const okAuth = (settings.cronSecret && cronSecret === settings.cronSecret) || authHdr.includes(SERVICE_ROLE);
+    // v32.72 (Audit A10): konstantzeitig, ein Modul fuer alle Empfaenger — vorher `authHdr.includes(SERVICE_ROLE)`.
+    const okAuth = cronOderService(req, settings.cronSecret, SERVICE_ROLE);
     if (!okAuth) {
       return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
     }
