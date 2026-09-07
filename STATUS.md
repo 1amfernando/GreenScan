@@ -4,13 +4,51 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.70` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.71` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fk) — v32.71: keine IP-Ortung, Fehlerberichte nur mit Zustimmung, strengere CSP — Audit A8, A9, B7, C1, B9, E7
+
+- **A9** Wer den Standort verweigerte, wurde über `ipapi.co` per IP-Adresse
+  geortet („Stufe 2: kostenlos, ohne Permission“) — ohne Zustimmung an einen
+  Dritten. Ersatzlos gestrichen: Zürich mit Hinweis, Ort in den
+  Einstellungen von Hand. `ipapi.co` aus `connect-src` raus.
+  Fehlerberichte (`client_errors`, mit `user_id`, Meldung, Stack) gehen nur
+  noch mit derselben Zustimmung wie die Nutzungsmessung:
+  `_gsAnalyticsErlaubt()` = `gs_consent.analytics === true` ODER
+  `gs_prefs.privacy.analytics === true` (CLAUDE.md §3.7). Der Guard in
+  `gsTrackEvent` stand verkehrt herum (`=== false` → alles ausser einem
+  ausdrücklichen Nein war erlaubt). Es gibt keinen Zustimmungs-Dialog — die
+  Über-Liste behauptete einen; sie sagt jetzt „Nutzungsmessung: aus“.
+- **A8** CSP: `'unsafe-eval'` raus (0 `eval`/`new Function` im App-Code,
+  nachgezählt), `worker-src` kennt `cdnjs` (der pdf.js-Worker fiel still
+  auf den Hauptthread), `frame-ancestors 'none'` + `X-Frame-Options: DENY`.
+  pdf.js bleibt vorerst auf cdnjs — von hier nicht ladbar (`CONNECT 403`),
+  selbst hosten braucht jemanden mit Netz.
+- **B7** `_gsToastEl` trägt `role="status"` und `aria-live="polite"` — 352
+  Meldungen, die für Screenreader stumm waren.
+- **C1** zweite `_gsNorm` (Pilz-Register, ö→o, ohne Leerzeichen — seit dem
+  Planer-Einbau ohnehin überschrieben) und der `gsIsAdmin`-Stub gestrichen.
+- **B9** `gsRequireOnline` (null Aufrufer) und die Start-Schleife über 4'342
+  Arten, deren `hasDupes` niemand las, gestrichen.
+- **E7** `install.html`: kein „Sync mit iCloud“, kein „1000 % flüssiger“,
+  kein „100 % Offline-fähig“, „Vier Sprachen inkl. Schweizerdeutsch“ → fünf
+  ohne Mundart, `kontakt@` → `info@greenscan.ch`.
+
+`robust_check` +4 (CSP statisch + eval-Zählung; Zustimmung: ohne → 0
+Fehlerbericht, 0 Messung, mit → 1 + 1, `prefs.privacy.analytics` beide
+Richtungen; Toast-Live-Region; Einmal-Definitionen und tote Helfer), 8/8.
+Regression v32.70 → v32.71: 30 Prüfstände grün, Layout 0 Änderungen, Kontrast 0/0.
+
+Nicht angefasst (Server oder Entscheidung): A5 (alter Sensor-Assistent,
+Idee 1), A6 (Admin-Hash im HTML), A7 (`species-search`), A10-Server, B2
+(Timeouts der Edge-Functions), B8 (rohe Serverfehler — teils schon
+verpackt), C2–C5, E1 (Toasts in vier Sprachen), E6 (Impressum).
 
 ### 2026-09-07 (fj) — v32.70: Lina in der App-Sprache, Menü-Zahlen aus der Artenliste, fette Labels — Audit E2–E5, E8
 
@@ -9401,7 +9439,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.70` (Client) · SW-Cache `gs-v32.70` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.71` (Client) · SW-Cache `gs-v32.71` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **93'037 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

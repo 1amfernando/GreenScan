@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.70.20260907">
+<meta name="app-version" content="32.71.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2522,6 +2522,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       var key = String(entry.msg || '').slice(0, 100);
       if (!key || _reported[key]) return;
       if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+      // v32.71 (Audit A9): ein Fehlerbericht traegt user_id, Meldung und Stack —
+      // Personendaten. Nur mit derselben Zustimmung wie die Nutzungsmessung
+      // (gs_consent.analytics oder gs_prefs.privacy.analytics === true, CLAUDE.md §3.7).
+      if (typeof _gsAnalyticsErlaubt === 'function' && !_gsAnalyticsErlaubt()) return;
       var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
       if (!uid) return;
       _reported[key] = 1; _reportCount++;
@@ -7494,7 +7498,7 @@ html, body{ scroll-behavior: smooth; }
           <li>⚙️ <b>User-Preferences:</b> Theme/Locale/Notifications/Privacy in user_preferences · gsPrefsPush/Pull</li>
           <li>🎟️ <b>Vouchers + Referrals:</b> Gutschein-Codes mit Plan-Restriction · Einladungs-Code-System mit Reward-XP</li>
           <li>🤝 <b>Social Graph:</b> friendships (Follow/Pending/Blocked) — User können sich vernetzen</li>
-          <li>📊 <b>Analytics (opt-in):</b> anonymisierte Feature-Usage-Events — nur wenn User im Consent zugestimmt</li>
+          <li>📊 <b>Nutzungsmessung: aus.</b> Ohne ausdrückliche Zustimmung wird nichts gemessen und kein Fehlerbericht mit Konto-Bezug gesendet — einen Zustimmungs-Dialog gibt es derzeit nicht, also gilt für alle „nein".</li>
           <li>🛡️ <b>Audit-Log:</b> kritische Admin-Aktionen werden revisionssicher geloggt</li>
           <li>🗂️ <b>Migrations-SQL auf 44 Tabellen, 5 Views, 7 Functions, 106 RLS-Policies, 73 Indexes</b> erweitert</li>
           <li>📘 <b>Client-Mapping-Dokumentation:</b> im SQL ist pro Tabelle dokumentiert welche Client-Funktion &amp; welcher localStorage-Key zugeordnet sind — klarer Entwickler-Pfad</li>
@@ -17254,12 +17258,8 @@ function gsToast(msg, type, duration){
   try { alert((msg && typeof msg === 'object') ? ((msg.title ? msg.title + ' · ' : '') + (msg.body || msg.message || '')) : msg); } catch(__){}
 }
 window.gsToast = gsToast;
-// v30.24: zentraler Offline-Guard — true wenn online, sonst Toast + false. Für Netz-Pflicht-Features (Scanner/Lina/Community/Marktplatz) statt 45s-Timeout.
-window.gsRequireOnline = function(feature){
-  if (typeof navigator === 'undefined' || navigator.onLine) return true;
-  try { if (typeof gsToast === 'function') gsToast('📡 ' + (feature || 'Diese Funktion') + ' braucht eine Internet-Verbindung.', 'warning'); } catch(_){}
-  return false;
-};
+// v32.71 (Audit B9): hier stand `gsRequireOnline`, der „zentrale Offline-Guard"
+// aus v30.24 — mit null Aufrufern. Ein Helfer, den niemand ruft, ist kein Guard.
 
 // v26.57: gsAsyncLock — Double-Submit-Prävention für Async-Buttons
 // Usage: am Anfang der Submit-Function:  if (gsAsyncLock('myKey', 800)) return;
@@ -23136,12 +23136,10 @@ window.gsAttachMushroomLiveCounter = gsAttachMushroomLiveCounter;
 window._gsChRegionMushCache = null; // { key, html, ts }
 var GS_CHREGION_TTL_MS = 6 * 60 * 60 * 1000;
 
-function _gsNorm(s){
-  return String(s||'').toLowerCase()
-    .replace(/\([^)]*\)/g,'')      // Klammer-Zusätze raus
-    .replace(/[\s\-\/.]/g,'')       // Spaces, Bindestriche, Slash, Punkt raus
-    .replace(/ö/g,'o').replace(/ä/g,'a').replace(/ü/g,'u').replace(/ß/g,'ss');
-}
+// v32.71 (Audit C1): hier stand eine ZWEITE `_gsNorm` (Leerzeichen raus, ö→o).
+// Im selben Skript gewinnt die spaetere Definition (Planer, ö→oe, Leerzeichen
+// bleiben) — diese hier lief seit dem Planer-Einbau nie. Gestrichen, damit
+// niemand mehr gegen eine Rechnung schreibt, die nicht gilt.
 
 async function gsResolveChRegions() {
   if (typeof sbFetch !== 'function') return null;
@@ -24117,22 +24115,12 @@ async function loadHomeWeather() {
     } catch(gpsErr) {
       console.log('[loadHomeWeather] GPS unavailable:', gpsErr.message);
     }
-    // Stufe 2: IP-Geolocation (kostenlos, ohne Permission)
-    if (!locResolved) {
-      try {
-        const ipRes = await (window._gsFetch || fetch)('https://ipapi.co/json/', { cache: 'no-store' }, 8000);
-        if (ipRes.ok) {
-          const ipData = await ipRes.json();
-          if (ipData && ipData.latitude && ipData.longitude) {
-            lat = ipData.latitude;
-            lon = ipData.longitude;
-            locName = ipData.city ? (ipData.city + (ipData.country_code ? ', ' + ipData.country_code : '')) : 'Mein Standort (IP)';
-            locResolved = true;
-            console.log('[loadHomeWeather] IP-Geo:', locName);
-          }
-        }
-      } catch(ipErr) { console.log('[loadHomeWeather] IP-Geo failed:', ipErr.message); }
-    }
+    // v32.71 (Audit A9): hier stand „Stufe 2: IP-Geolocation (kostenlos, ohne
+    // Permission)" — ein Aufruf an ipapi.co mit der IP-Adresse der Person, genau
+    // dann, wenn sie den Standort VERWEIGERT hatte. Ohne Zustimmung an einen
+    // Dritten (revDSG, CLAUDE.md §3.7). Ersatzlos gestrichen: wer den Standort
+    // nicht freigibt, bekommt Zürich mit dem Hinweis darunter — und kann den Ort
+    // in den Einstellungen von Hand setzen. ipapi.co ist auch aus der CSP raus.
     // Stufe 3: Default Zürich (nur als letzter Ausweg, klar markiert)
     if (!locResolved) {
       lat = 47.3769; lon = 8.5417; locName = (window.gsI18n && gsI18n.t) ? gsI18n.t('loc_default_zurich','Zürich (Standard — bitte Standort erlauben)') : 'Zürich (Standard — bitte Standort erlauben)';
@@ -55173,16 +55161,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ── Duplikat-Badge im Menü anzeigen ─────────────────────
   try {
-    var stats = window.GS_DEDUP_STATS;
-    // Run a quick name+lat scan to check for remaining dupes
-    var seen = {};
-    var hasDupes = false;
-    for (var i = 0; i < DB.length; i++) {
-      var s = DB[i];
-      var k = ((s.name||'').trim().toLowerCase()) + '|||' + ((s.lat||'').trim().toLowerCase());
-      if (seen[k]) { hasDupes = true; break; }
-      seen[k] = true;
-    }
+    // v32.71 (Audit B9): hier lief beim Start eine Schleife ueber alle 4'342
+    // Arten, deren Ergebnis (`hasDupes`) seit v31.53 niemand mehr las.
     // v31.53: hier wurde #dedup-badge eingeblendet — ein Menue-Abzeichen aus
     // derselben frueheren Fassung. Die Duplikat-Pruefung selbst laeuft weiter
     // beim Start (deduplicateDB) und raeumt selbstaendig auf; sie braucht
@@ -75017,6 +74997,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.71', date: '07.09.2026',
+    headline: '🔒 Keine Ortung über die IP-Adresse mehr, Fehlerberichte nur mit Zustimmung, strengere CSP',
+    summary: 'Audit A8, A9, B7, C1, B9, E7. Wer den Standort verweigerte, wurde bisher über ipapi.co per IP-Adresse geortet — ohne Zustimmung an einen Dritten; gestrichen, ipapi.co ist auch aus der CSP raus. Fehlerberichte mit Konto-Bezug gehen nur noch mit derselben Zustimmung wie die Nutzungsmessung, deren Guard verkehrt herum stand; die Über-Liste sagt jetzt ehrlich, dass es keinen Zustimmungs-Dialog gibt. CSP ohne unsafe-eval (kein eval im Code), pdf.js-Worker erlaubt, frame-ancestors none. Toasts sind eine Live-Region für Screenreader. install.html verspricht keinen iCloud-Sync, keine „1000 %" und keine vier Sprachen mit Mundart mehr. Doppelte _gsNorm und gsIsAdmin-Stub, toter Offline-Guard und eine Start-Schleife über 4342 Arten ohne Leser: weg. Vier neue Fälle in robust_check.',
+    user_summary: '🔒 Datenschutz: keine Ortung über die IP-Adresse mehr; Fehlerberichte nur mit deiner Zustimmung. Meldungen werden vom Screenreader vorgelesen.',
+    user_items: [
+      {emoji:'📍', bold:'Standort:', text:' Ohne Freigabe zeigt die App Zürich und sagt es — statt dich heimlich über die IP-Adresse zu orten.'},
+      {emoji:'🔊', bold:'Screenreader:', text:' Kurze Meldungen (Toasts) werden jetzt vorgelesen.'},
+    ],
+  },
+  {
     v: 'v32.70', date: '07.09.2026',
     headline: '🗣️ Lina spricht deine Sprache und kennt die Tabs — Menü-Zahlen stimmen, „Was ist neu" zeigt die fetten Labels',
     summary: 'Audit E2–E5 und E8. Lina antwortete immer auf Deutsch und verwies auf Tabs „Garten", „Saison", „Suche", „Karte", „Marktplatz", die es in der Leiste nicht gibt — jetzt antwortet sie in der App-Sprache und beschreibt den Weg über „Mehr". Die Menü-Liste nannte „252 Arten" bei 2\'226 Wildpflanzen (und ähnlich bei Pilzen, Kräutern, Bäumen, Hauspflanzen); die Zahlen kommen jetzt aus der Artenliste. Der „Was ist neu"-Dialog verschluckte die fetten Labels, sobald ein Text da war. Entwickler-Jargon raus („Cowork pg_cron", „Super-Agent", „24h-Lock", „Supabase nicht verfügbar", „gequeued"). Menü-Emojis sind für Screenreader stumm, Kompakt-Ansicht und Senioren-Modus schliessen sich aus. Prüfstand nutzersicht_check.',
@@ -75970,7 +75960,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.70';
+var GS_VERSION = 'v32.71';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76052,9 +76042,9 @@ var GS_EXPERT_LEVELS = {
 
 // v24.46: Diese ältere Email-Whitelist-Definition wurde mit der späteren
 // Role-basierten Definition (Z.51137 Region) zur Single-Source-of-Truth fusioniert.
-// Stub bleibt nur als Forward-Declaration falls Aufrufe vor der Hoisting-Reihenfolge
-// kommen — die echte Definition unten überschreibt diesen Stub.
-function gsIsAdmin(email){ return false; /* siehe v24.46 konsolidierte Definition unten */ }
+// v32.71 (Audit C1): hier stand ein Stub `gsIsAdmin(){ return false; }` als
+// „Forward-Declaration". Funktionsdeklarationen werden gehoben — die echte
+// Definition weiter unten gilt ohnehin von Anfang an. Gestrichen.
 
 // ── v31.95: der Haken hing an einer Spalte, die es nicht gibt ─────────────
 //
@@ -77947,6 +77937,10 @@ function _gsToastShowNow(msg, type, duration) {
   if (!_gsToastEl) {
     _gsToastEl = document.createElement('div');
     _gsToastEl.className = 'gs-toast';
+    // v32.71 (Audit B7): 352 Meldungen waren fuer Screenreader stumm — eine
+    // Live-Region liest sie vor, ohne den Fokus zu bewegen.
+    _gsToastEl.setAttribute('role', 'status');
+    _gsToastEl.setAttribute('aria-live', 'polite');
     // Swipe-to-dismiss (Touch + Pointer)
     var startY = 0, curY = 0, dragging = false;
     var onStart = function(e){
@@ -85946,12 +85940,24 @@ async function gsAddGardenTask(task){
 }
 
 // ── ANALYTICS (anonymisiert, nur bei User-Consent) ──────────────────────────
+// v32.71 (Audit A9): EINE Regel fuer „darf gemessen werden?" — CLAUDE.md §3.7:
+// gs_consent.analytics === true ODER gs_prefs.privacy.analytics === true. Der
+// Guard in gsTrackEvent stand verkehrt herum (`=== false` → alles ausser einem
+// ausdruecklichen Nein war erlaubt); gs_consent las niemand. Es gibt keinen
+// Consent-Dialog — also ist die Antwort heute fuer alle „nein", und das ist
+// die richtige Vorgabe, bis ein Dialog die Frage stellt.
+function _gsAnalyticsErlaubt(){
+  try {
+    var c = JSON.parse(localStorage.getItem('gs_consent') || 'null');
+    if (c && c.analytics === true) return true;
+    var prefs = JSON.parse((typeof gsStore !== 'undefined' && gsStore.get) ? (gsStore.get('gs_prefs', null) || '{}') : (localStorage.getItem('gs_prefs') || '{}'));
+    return !!(prefs && prefs.privacy && prefs.privacy.analytics === true);
+  } catch(_) { return false; }
+}
+window._gsAnalyticsErlaubt = _gsAnalyticsErlaubt;
 window.gsTrackEvent = function(event, props){
   try {
-    // Nur tracken wenn Consent vorhanden (user_preferences.analytics === true)
-    var prefs = {};
-    try { prefs = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
-    if (prefs && prefs.privacy && prefs.privacy.analytics === false) return;
+    if (!_gsAnalyticsErlaubt()) return;   // v32.71: Opt-in, nicht Opt-out
     if (typeof sbFetch !== 'function') return;
     var uid = gsStore.get('gs_sb_uid', null) || null;
     sbFetch('/rest/v1/analytics_events', {
