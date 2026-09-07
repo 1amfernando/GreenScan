@@ -4,13 +4,50 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.66` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.67` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fg) — v32.67: vier kleine Versprechen — Audit B1, B3, B5, B6
+
+§G Punkt 4 aus `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md`. Klein im Code,
+jedes ein Nutzer-Erlebnis:
+
+- **B1** `sbFetch(path)` ohne zweites Argument las `opts.headers` VOR dem
+  `try` — das Wetterwarnungen-Panel sagte immer „Konnte Warnungen nicht
+  laden", ein verbundener Stripe-Verkäufer sah immer „Verkäufer-Konto
+  verbinden". Beide Aufrufer schluckten den Fehler. Jetzt `opts = opts || {}`.
+- **B5** `gsToast(msg, type, dauer)`: 126 Aufrufer geben eine Dauer mit, die
+  verworfen wurde (jede Meldung 3,5 s, auch die mit 230 Zeichen). Die Dauer
+  reist jetzt durch `showProfileToast`, die Warteschlange (`nxt[3]`) und
+  `_gsToastShowNow`; die Objekt-Form (`duration`) hat Vorrang.
+- **B6** Escape schloss ALLE offenen Fenster — das `return` in der
+  `forEach` verliess nur den Callback. Jetzt nur das oberste: zuletzt
+  geöffnet (`_gsLastOpenModal`), sonst höchster z-index, sonst letztes im
+  DOM; Body-Scroll wird erst frei, wenn keins mehr offen ist.
+- **B3** `sw.js` rief `skipWaiting()` im Install: der neue Worker aktivierte
+  sich selbst, löschte im `activate` die alten Caches unter der LAUFENDEN
+  Seite, und der Update-Banner fragte danach um Erlaubnis für etwas, das
+  schon passiert war. Jetzt wartet er auf `SKIP_WAITING` vom Banner
+  (message-Handler, unverändert); der Rückfall-Reload des Banners steht auf
+  4 s statt 1,5 s, weil der Worker nach dem Befehl einen Moment braucht.
+  Beim ersten Install gibt es keinen Vorgänger — `offline_check` unberührt.
+
+**Prüfstand 30: `scripts/robust_check.js`** — vier Fälle: `sbFetch(path)`
+mit gestelltem Netz liefert Daten, Verkäufer-Status kommt an, das Panel
+zeigt „Sturmwarnung Test"; 600 ms Toast ist nach 1,4 s weg, die Vorgabe
+steht noch, Objekt-Form 500 ms weg (echte Uhr); zwei Fenster wirklich
+geöffnet → Escape → `true,false` → Escape → `false,false`, overflow frei;
+`sw.js`: kein `skipWaiting` im Install, `SKIP_WAITING` im message-Handler,
+der Banner schickt ihn. **Gegen v32.66: 4 von 4 rot.** Regression v32.66 →
+v32.67: 24 Prüfstände grün, Layout 0, Kontrast 0/0.
+
+Eine Regel: **ein `return` in einer `forEach` ist ein `continue`.** Wer
+„nur eines" will, sucht das eine vorher aus und ruft es dann.
 
 ### 2026-09-07 (ff) — v32.66: Fremder Text bleibt Text — Audit A2–A4 und der HTML-Teil von A10
 
@@ -9194,11 +9231,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.66` (Client) · SW-Cache `gs-v32.66` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.67` (Client) · SW-Cache `gs-v32.67` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **93'037 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **214 Migrationen** (8 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
-- **Prüfstände:** **28** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten.
+- **Prüfstände:** **29** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6).
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte

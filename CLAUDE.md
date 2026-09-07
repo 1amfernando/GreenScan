@@ -558,6 +558,7 @@ node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nu
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
+node scripts/robust_check.js     # vier kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -890,6 +891,17 @@ ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
 der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
 Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
 erst nach der Bestätigung umgestellt.
+
+**`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
+Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf
+vor dem `try`, zwei Wege seit jeher tot), die Toast-Dauer (126 Aufrufer, alle
+verworfen), Escape (schloss den ganzen Stapel — ein `return` in einer
+`forEach` ist ein `continue`) und der Service Worker, der sich selbst
+aktivierte und danach fragte. Jeder Fall stellt den Zustand her — gestelltes
+Netz, echte Uhr, zwei wirklich geöffnete Fenster, Quelltext des Workers —
+und war gegen v32.66 rot. Wer `gsToast` ruft, darf die Dauer jetzt mitgeben;
+wer einen Service-Worker-Wechsel braucht, schickt `SKIP_WAITING` (der Banner
+tut es) — ein `skipWaiting()` im Install kommt nicht wieder hinein.
 
 **`escape_check.js` (seit v32.66) fragt, ob Fremdtext als TEXT ankommt oder
 als CODE.** Erste Reparatur-Welle aus `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md`
