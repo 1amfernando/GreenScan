@@ -41,7 +41,7 @@
 - **Deploy:** `species-search` kommt zu den Functions in FUER-FERNANDO §9
   (jetzt zehn). Bis dahin läuft live die alte Fassung.
 
-Regression v32.75 → v32.76: (folgt)
+Regression v32.75 → v32.76: 30 Prüfstände grün, 0 nicht prüfbar, Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (fo) — v32.75: vier Push-Sender teilen ein Helfer-Modul, feedback-triage fragt den Server — Audit C4
 
