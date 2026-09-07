@@ -53,7 +53,7 @@
   zusammengesetzt wird. Wer so etwas baut (`window['gs' + x]`), trägt die
   Zielfunktionen in `BEWUSST` ein — sonst löscht die nächste Welle sie.
 
-Regression v32.76 → v32.77: (folgt)
+Regression v32.76 → v32.77: 30 Prüfstände grün (darunter `wiring_check`: 51 Menüeinträge, 31 Benachrichtigungs-Ziele, 0 kaputt), 0 nicht prüfbar, Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (fp) — v32.76: species-search verlangt einen echten Nutzer — Audit A7
 
