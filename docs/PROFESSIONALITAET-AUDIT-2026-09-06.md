@@ -51,7 +51,9 @@
 | B9 · `plan-iterate` liefert `error` als String → „Unbekannter Fehler" | ✅ v32.72 — `_gsEdgeFehler` normalisiert | `robust_check` Fall 7 |
 | C3 · 431 KB Changelog im Service Worker | ✅ v32.72 — `docs/_archiv/SW-CHANGELOG.md`, `sw.js` 21 KB · 0,8 MB Kommentare im Haupt-Script offen | `robust_check` Fall 5 |
 | B8 · rohe Server-Fehler an Nutzer (`error.message` von PostgREST wörtlich, eigene Toasts mit 80 Zeichen Serverfehler) | ✅ v32.73 — `_gsFehlerText` an 39 Anzeige-Zeilen, `sbFetch` mit `status`, Profil-Anmeldung über `gsTranslateAuthError` | `robust_check` Fall 11 |
-| A5–A7, C2, C4, C5, E1, E6 | offen | §G |
+| A5 · alter Sensor-Assistent zeigt das Sitzungs-Token, rät zum Service-Role-Key | ✅ v32.74 — Wegweiser zu Messwerte, Alt-Geräte nur löschbar, Smart-Home-Dashboard aus dem Menü (live: 1 Alt-Gerät, 0 Messwerte) | `robust_check` Fall 12 |
+| A6 · Admin-Passwort-Hash im öffentlichen HTML | ✅ v32.74 — `doAdminLogin` fragt `is_admin_user()`; Hash, Seed und `GS_ADMINS` (zwei private Adressen) weg; Spiegel `gs_is_admin` aus derselben RPC | `robust_check` Fall 13 |
+| A7, C2, C4, C5, E1, E6 | offen | §G |
 
 ## Zahlen zuerst
 

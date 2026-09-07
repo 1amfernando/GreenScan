@@ -322,6 +322,92 @@ const FAELLE = [
     },
   },
   {
+    name: 'A5 · der alte Cloud-Sensor-Assistent zeigt kein Sitzungs-Token mehr: Wegweiser zu Messwerte, Alt-Geraete nur noch loeschbar, kein Code-Beispiel, kein Menueeintrag zum Smart-Home-Dashboard',
+    lauf: async () => {
+      const f = [];
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      ['gsDevShowSensorCode', 'gsDevAddCloudSensor', 'USER_TOK', 'curlExample', 'espExample', 'action:"gsShOpen()"'].forEach(t => { if (idx.includes(t)) f.push('Quelltext traegt noch ' + t); });
+      // Release-Notizen zitieren, was raus ist (dieselbe Falle wie in nutzersicht_check) — der GS_RELEASES-Block bleibt aussen vor
+      const relA = idx.indexOf('window.GS_RELEASES = ['), relB = relA < 0 ? -1 : idx.indexOf('\n];', relA);
+      const ohneRel = relA < 0 ? idx : idx.slice(0, relA) + idx.slice(relB);
+      if (/Service-Role/.test(ohneRel.replace(/^\s*\/\/.*$/gm, ''))) f.push('„Service-Role" steht noch ausserhalb von Kommentaren und Release-Notizen');
+      const r = await __seite.evaluate(async () => {
+        const echtSb = window.sbFetch, echtLogin = window.sbIsLoggedIn;
+        const sichtbar = el => !!(el && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden');
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async (url) => /sensor_devices/.test(String(url)) ? { data: [{ id: 'alt-1', name: 'Tomatenbeet ESP32', kind: 'multi', last_seen_at: null }], error: null } : { data: [], error: null };
+        try {
+          openDevicesModal(); await new Promise(res => setTimeout(res, 500));
+          const wiz = document.getElementById('gs-cloud-sensor-wizard');
+          const txt = wiz ? wiz.textContent : '', html = wiz ? wiz.innerHTML : '';
+          const knopf = document.getElementById('gs-dev-zu-messwerte');
+          const o = { da: !!wiz, weg: /Messwerte/.test(txt), alt: /Tomatenbeet ESP32/.test(txt), code: /Code|curl|Bearer|anlegen/.test(txt), loeschen: /gsDevDeleteCloudSensor/.test(html), knopf: !!knopf, devicesOffen: sichtbar(document.getElementById('modal-devices')) };
+          if (knopf) { knopf.click(); await new Promise(res => setTimeout(res, 600)); }
+          o.messwerteOffen = sichtbar(document.getElementById('detail-modal')) && /Messwerte/.test((document.getElementById('modal-content') || {}).textContent || '');
+          o.devicesZu = !sichtbar(document.getElementById('modal-devices'));
+          try { closeModal('detail-modal'); } catch (_) {}
+          try { closeModal('modal-devices'); } catch (_) {}
+          if (wiz) wiz.remove();
+          return o;
+        } finally { window.sbFetch = echtSb; window.sbIsLoggedIn = echtLogin; }
+      });
+      if (!r.da || !r.devicesOffen) f.push('Wegweiser nicht gerendert: ' + JSON.stringify(r));
+      if (!r.weg || !r.knopf) f.push('kein Weg zu Messwerte: ' + JSON.stringify(r));
+      if (!r.alt || !r.loeschen) f.push('Alt-Geraet nicht gelistet/loeschbar: ' + JSON.stringify(r));
+      if (r.code) f.push('Code-Beispiel oder „anlegen" noch da: ' + JSON.stringify(r));
+      if (!r.messwerteOffen || !r.devicesZu) f.push('Knopf fuehrt nicht zu Messwerte: ' + JSON.stringify(r));
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'kein Token-Code im Quelltext · Wegweiser da · Alt-Geraet gelistet, nur loeschbar · Knopf oeffnet Messwerte und schliesst Geraete · Smart-Home nicht im Menue' };
+    },
+  },
+  {
+    name: 'A6 · Admin-Modus fragt den Server: kein Passwort-Hash, keine Admin-E-Mails im HTML; Server „nein" → kein Admin, Fehler → Satz, Server „ja" → an; ein Speicher-„ja" ohne Server-Spiegel zaehlt nicht, eine fremde Adresse bekommt keine Auskunft',
+    lauf: async () => {
+      const f = [];
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      ['GS_ADMIN_PW_SEED', 'GS_ADMINS', 'gsHashPw', 'admin-pw-input', 'fernando.rankwiler1997@gmail.com'].forEach(t => { if (idx.includes(t)) f.push('Quelltext traegt noch ' + t); });
+      const ab = idx.indexOf('GREENSCAN EMBEDDED ADMIN');
+      if (ab < 0 || /[0-9a-f]{64}/.test(idx.slice(ab, ab + 4000))) f.push('64-hex-Konstante im Admin-Block (oder Block fehlt)');
+      const r = await __seite.evaluate(async () => {
+        const echtSb = window.sbFetch, echtLogin = window.sbIsLoggedIn, echtST = window.setTimeout, echtMail = localStorage.getItem('gs_sb_email');
+        const merk = {}, rufe = []; let reloads = 0;
+        const setz = (antwort) => { window.sbFetch = async (url) => { rufe.push(String(url)); return antwort; }; };
+        window.setTimeout = function (fn) { if (typeof fn === 'function' && /location\.reload/.test(String(fn))) { reloads++; return 0; } return echtST.apply(window, arguments); };
+        window.sbIsLoggedIn = () => true;
+        localStorage.setItem('gs_sb_email', 'p@r.ch');
+        const err = () => { const e = document.getElementById('admin-login-error'); return e ? e.textContent : ''; };
+        try {
+          localStorage.setItem('gs_admin', 'true'); localStorage.setItem('gs_is_admin', '0'); localStorage.setItem('gs_user_role', 'user');
+          merk.ohneSpiegel = gsIsActuallyAdmin();
+          merk.fremd = gsIsAdmin('jemand@example.com');
+          merk.profilJa = gsIsAdmin({ is_admin: true }); merk.profilNein = gsIsAdmin({ is_admin: false, role: 'user' });
+          localStorage.removeItem('gs_admin');
+          setz({ data: false, error: null }); openAdminLogin();
+          merk.nein = { rueck: await doAdminLogin(), flag: localStorage.getItem('gs_admin'), text: err(), reloads };
+          setz({ data: null, error: { message: 'JWT expired', status: 401 } });
+          merk.fehler = { rueck: await doAdminLogin(), flag: localStorage.getItem('gs_admin'), text: err() };
+          setz({ data: true, error: null });
+          merk.ja = { rueck: await doAdminLogin(), flag: localStorage.getItem('gs_admin'), spiegel: localStorage.getItem('gs_is_admin'), reloads, rpc: rufe.filter(u => /rpc\/is_admin_user/.test(u)).length };
+          merk.jetztAdmin = gsIsActuallyAdmin();
+          return merk;
+        } finally {
+          window.sbFetch = echtSb; window.sbIsLoggedIn = echtLogin; window.setTimeout = echtST;
+          try { closeAdminLogin(); } catch (_) {}
+          try { localStorage.removeItem('gs_admin'); localStorage.removeItem('gs_is_admin'); localStorage.removeItem('gs_user_role'); if (echtMail === null) localStorage.removeItem('gs_sb_email'); else localStorage.setItem('gs_sb_email', echtMail); } catch (_) {}
+        }
+      });
+      if (r.ohneSpiegel !== false) f.push('Speicher-„ja" ohne Server-Spiegel gilt als Admin');
+      if (r.fremd !== false) f.push('fremde Adresse bekommt Auskunft: ' + r.fremd);
+      if (r.profilJa !== true || r.profilNein !== false) f.push('Profil-Urteil: ' + JSON.stringify({ ja: r.profilJa, nein: r.profilNein }));
+      if (!r.nein || r.nein.rueck !== false || r.nein.flag !== null || !/kein Admin/.test(r.nein.text) || r.nein.reloads !== 0) f.push('Server nein: ' + JSON.stringify(r.nein));
+      if (!r.fehler || r.fehler.rueck !== false || r.fehler.flag !== null || !/Sitzung/.test(r.fehler.text) || /JWT/.test(r.fehler.text)) f.push('Server-Fehler: ' + JSON.stringify(r.fehler));
+      if (!r.ja || r.ja.rueck !== true || r.ja.flag !== 'true' || r.ja.spiegel !== '1' || r.ja.reloads !== 1 || r.ja.rpc !== 3) f.push('Server ja: ' + JSON.stringify(r.ja));
+      if (r.jetztAdmin !== true) f.push('nach dem Server-Ja kein Admin');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'kein Hash, keine Liste im HTML · Speicher-„ja" allein zaehlt nicht · fremde Adresse: nein · Server nein → „kein Admin", kein Neustart · 401 → „Sitzung" · Server ja → Flag + Spiegel + ein Neustart · 3 RPC-Aufrufe' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');

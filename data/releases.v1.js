@@ -4916,7 +4916,7 @@ window.GS_RELEASES_ARCHIVE = [
     user_items: [
       { emoji: '📅', text: 'Heute-Tab: pro Edge-Fn Calls + Tokens In/Out + geschätzte CHF-Kosten' },
       { emoji: '📈', text: '7-Tage-Trend mit Mini-Bar-Chart und Durchschnitts-Tageskosten' },
-      { emoji: '🔒', text: 'Nur sichtbar für Admin-Emails (greenscan + fernando.rankwiler1997)' },
+      { emoji: '🔒', text: 'Nur sichtbar für die zwei Admin-Adressen' },
       { emoji: '💰', text: 'Kosten geschätzt mit Anthropic Haiku 4.5: $1/Mio In · $5/Mio Out (USD→CHF)' },
     ],
     items: [
