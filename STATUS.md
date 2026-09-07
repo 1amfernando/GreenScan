@@ -4,13 +4,74 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.65` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.66` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (ff) — v32.66: Fremder Text bleibt Text — Audit A2–A4 und der HTML-Teil von A10
+
+Erste Reparatur-Welle aus `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md`
+(§G Punkt 2). Vier Helfer, dreizehn Stellen, ein Prüfstand; die Tabelle
+„Stand der Umsetzung" steht jetzt oben im Audit-Dokument.
+
+- **`escHtml` kennt das Apostroph** (`'` → `&#39;`), wie `gsSanitize` seit je.
+- **`_gsOcStr(s)`** für einen Wert in einem einfach zitierten JS-String in
+  einem `onclick`-Attribut: erst JS (`\`, `'`, Zeilenumbruch), dann HTML
+  (`&`, `"`, `<`, `>`). `escHtml` allein liess ein `'` den String beenden;
+  `_gsOcArg` allein liess ein `&#39;` im Wert vom HTML-Parser zu `'` werden.
+  Vier Stellen umgestellt (Artendetail: KI-Knopf und Teilen; Zutaten-
+  Auswahl; Zutaten-Karte).
+- **Artendetail** escaped `warning` (3×), `lat`, `fam`, `habitat`, `season`,
+  `uses`, `medicinalUse`, `care`, `waterFrequency`. Die Artenliste trägt kein
+  Markup (0 Tags in `plants.v1.js`, nachgezählt); Community-Arten kommen aus
+  `species` per `gsMergeCommunitySpecies` und rendern in dieselbe Ansicht.
+- **Feed** (A2): `type` im `title`-Attribut escaped, Bild-Adresse durch
+  `_gsSafeUrl`. **Karte „Meine Funde"**: Foto-Adresse durch `_gsSafeUrl`.
+- **`_gsSafeLink(l)`** (A4): Mitteilungs-Links nur gleicher Ursprung (`/`,
+  `?`, `#`) oder http(s); `"'<>\` und Leerraum raus, weil der Wert in ein
+  onclick-Attribut kommt. `gsCollectNotifs` liest `link` nur noch dadurch;
+  der Tab-Anker filtert auf `[a-z_-]`.
+- **`swSafeUrl(u)`** in `sw.js` (A4): `notificationclick` navigiert nur noch
+  auf den eigenen Ursprung; `javascript:`, `https://fremd`, `//fremd` → `/`.
+- **`gsSanitizeHtml(html)`** (A10): Allowlist in einem `<template>` — b strong
+  i em u s br p div ul ol li span small code a; Attribute class title style
+  href; `on*` weg; script/style/iframe/object/embed/svg/math/img/video/audio/
+  form-Elemente mit Inhalt weg; unbekannte Tags ausgepackt; href nur
+  http(s)/mailto/eigener Ursprung (`rel=noopener`); style ohne `url(` /
+  `expression(`. An drei Stellen: `data-i18n-html` (Übersetzungen aus der
+  Datenbank; ohne Sanitizer nur Text), Scan-Chat `isHtml` (der Startsatz
+  escaped Name und Latein aus dem Scan), Admin-Triage escaped alle fünf
+  KI-Felder.
+- Nebenfund: `_communityPage` war nie deklariert — implizite Globale, die der
+  Feed-Lader anlegte; `renderSocialFeed` ohne vorherigen Ladevorgang warf
+  `ReferenceError`. Jetzt `var`.
+
+**Prüfstand 29: `scripts/escape_check.js`** — sieben Fälle, jeder RENDERT
+wirklich mit `<img src=x onerror="window.__pwned=1">`, `' );alert(1);//`
+oder `javascript:` und misst zwei Dinge: `__pwned` unberührt UND der Wert
+steht als Text da. Beide Richtungen: das https-Bild bleibt, `<b>` im Chat
+bleibt, `/?screen=garden#geraet-abc` springt an, der KI-Knopf übergibt
+„Bär's Lauch <img …>" exakt, `tox null` bleibt `null`. `_gsOcStr` mit sieben
+Werten in der Rundreise durch beide Parser, Gegenprobe im Fall (escHtml
+allein → Parser-Fehler). **Gegen v32.65: 7 von 7 rot.** Regression v32.65 →
+v32.66: 21 Prüfstände + quiz_check grün, `GROESSE geaendert: 0`, Kontrast 0/0.
+
+Drei Regeln (CLAUDE.md §3.6, als Tabelle):
+
+- **Ein Wert in einem onclick-String durchläuft zwei Parser** — `_gsOcStr`,
+  nie `escHtml` allein.
+- **Ein Fragment, das Auszeichnung tragen darf, geht durch `gsSanitizeHtml`;
+  eines, das keine braucht, durch `escHtml`.** `innerHTML = fremd` gibt es
+  nicht mehr.
+- **Eine Adresse aus fremder Hand geht durch `_gsSafeUrl` (Bilder),
+  `_gsSafeLink` (Navigation) oder `swSafeUrl` (Service Worker).**
+
+Offen aus A: A1 (Schlüssel hinter den Proxy — als Nächstes), A5 (Entscheid
+Idee 1), A6–A9, Server-Teil von A10.
 
 ### 2026-09-07 (fe) — v32.65: Quiz-Rangliste — der Server kannte nur eines von drei Frageformaten
 
@@ -9133,11 +9194,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.65` (Client) · SW-Cache `gs-v32.65` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.66` (Client) · SW-Cache `gs-v32.66` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **93'037 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **214 Migrationen** (8 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
-- **Prüfstände:** **27** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`).
+- **Prüfstände:** **28** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten.
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte

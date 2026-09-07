@@ -16,6 +16,17 @@
 > **Nichts davon ist repariert.** Das ist die Liste, nicht der Umbau.
 > §G nennt die Reihenfolge, in der ich ihn angehen würde.
 
+## Stand der Umsetzung (nachgeführt)
+
+| Punkt | Stand | Wo |
+|---|---|---|
+| A2 · `social_posts.type` roh im `title`-Attribut | ✅ v32.66 — `escHtml`, Bild-Adresse durch `_gsSafeUrl` | `escape_check` Fall 1 |
+| A3 · `escHtml` ohne `'` in `onclick`-Strings; Artendetail rendert `warning`/`lat`/`uses`/… roh | ✅ v32.66 — `escHtml` kennt `'`; `_gsOcStr` an den vier Stellen; zehn Felder im Artendetail escaped | `escape_check` Fälle 2–3 |
+| A4 · Mitteilungs-Link ungeprüft in `location.href`/`window.open`; `sw.js` navigiert auf `data.url` | ✅ v32.66 — `_gsSafeLink` (eigener Ursprung oder https), `swSafeUrl` (nur eigener Ursprung) | `escape_check` Fälle 4–5 |
+| A10 · HTML-Teil: KI-Ausgabe roh (Scan-Chat, Admin-Triage), `data-i18n-html`, Bild-URLs ohne Schema-Prüfung | ✅ v32.66 — `gsSanitizeHtml` (Allowlist), Triage escaped, `_gsSafeUrl` in Feed und „Meine Funde" | `escape_check` Fälle 6–7 |
+| A10 · Server-Teil (fünf `includes()`-Vergleiche, `feedback-triage`, `ai-proxy`-CORS) | offen | §G 12 |
+| A1, A5–A9, B–E | offen | §G |
+
 ## Zahlen zuerst
 
 | Messgrösse | Wert |

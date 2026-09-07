@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.65.20260907">
+<meta name="app-version" content="32.66.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14298,7 +14298,9 @@ window.gsI18n = (function(){
         var key = el.getAttribute('data-i18n');
         var fallback = el.getAttribute('data-i18n-fallback') || el.textContent;
         var translated = t(key, fallback);
-        if (el.hasAttribute('data-i18n-html')) el.innerHTML = translated;
+        // v32.66 (Audit A10): eine Übersetzung kommt aus der Datenbank. Sie darf
+        // <br> und <span style> tragen — nicht mehr. Ohne Sanitizer: nur Text.
+        if (el.hasAttribute('data-i18n-html')) { if (typeof gsSanitizeHtml === 'function') el.innerHTML = gsSanitizeHtml(translated); else el.textContent = translated; }
         else el.textContent = translated;
       });
     } catch(_){}
@@ -24983,6 +24985,18 @@ function _gsSafeUrl(u) {
   return s.replace(/[<>"']/g, function(c){ return {'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
 }
 window._gsSafeUrl = _gsSafeUrl;
+// v32.66 (Audit A4): ein Link aus einer Mitteilung ist Fremdtext — drei
+// SECURITY-DEFINER-Trigger schreiben `link` für ANDERE Nutzer. Erlaubt ist
+// derselbe Ursprung (Pfad ab /, ? oder #) oder http(s); `javascript:` und
+// alles Übrige wird ''. Anführungszeichen, Spitzklammern, Backslash und
+// Leerraum fliegen raus, weil der Wert in ein onclick-Attribut kommt.
+function _gsSafeLink(l) {
+  var s = String(l == null ? '' : l).trim();
+  if (!s) return '';
+  if (/^(\/(?!\/)|\?|#)/.test(s) || /^https?:\/\//i.test(s)) return s.replace(/["'<>\\\s]/g, '');
+  return '';
+}
+window._gsSafeLink = _gsSafeLink;
 function _catEmoji(c) { return {produkte:'🍅',samen:'🌰',zubehor:'🔧',dienst:'🤝',tausch:'🔄'}[c] || '🌿'; }
 function _catLabel(c) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -26566,14 +26580,14 @@ function gsCollectNotifs(){
         var _k = n.kind || '';
         var kindAction = _gsNotifZiel(_k);
         // v24.26: link → Deep-Link-Routing
-        var link = n.link || n.action_url || '';
+        var link = _gsSafeLink(n.link || n.action_url || '');   // v32.66 (Audit A4): Allowlist — kein javascript:, kein fremdes Schema
         var action;
         if (kindAction) {
           action = kindAction;
         } else if (link.startsWith('#')) {
           // Tab-Anker: #favs / #garden / #scanner / #search
           var tab = link.slice(1);
-          action = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('" + tab.replace(/'/g,'') + "');},250);";
+          action = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('" + tab.replace(/[^a-z_-]/gi,'') + "');},250);";
         } else if (link.startsWith('http')) {
           action = "closeMainMenu();setTimeout(function(){window.open('" + link.replace(/'/g,'') + "','_blank');},250);";
         } else if (link.indexOf('screen=') >= 0) {
@@ -34724,7 +34738,7 @@ function openScanChat() {
   
   // Erster KI-Satz: Kontext setzen
   var initMsg = r && r.name
-    ? 'Ich habe soeben <strong>' + r.name + '</strong>' + (r.latin?' (<em>'+r.latin+'</em>)':'') + ' identifiziert (Sicherheit: ' + (r.confidence||0) + '%). Was möchtest du wissen?'
+    ? 'Ich habe soeben <strong>' + escHtml(r.name) + '</strong>' + (r.latin?' (<em>'+escHtml(r.latin)+'</em>)':'') + ' identifiziert (Sicherheit: ' + (r.confidence||0) + '%). Was möchtest du wissen?'
     : 'Was hast du fotografiert? Ich helfe dir bei der Bestimmung.';
   
   addScanChatMsg('assistant', initMsg, true);
@@ -34760,7 +34774,7 @@ function addScanChatMsg(role, text, isHtml) {
   var avatarEmoji = isUser ? '👤' : (_lastScanResult && _lastScanResult.emoji ? (_lastScanResult.emoji||'🌿') : '🌿');
   div.innerHTML = '<div style="font-size:var(--fs-xl);flex-shrink:0;margin-top:2px;">' + avatarEmoji + '</div>' +
     '<div style="background:' + (isUser?'var(--g-main)':'var(--surface2)') + ';color:' + (isUser?'#fff':'var(--text)') + ';border-radius:var(--r-md);padding:9px 13px;max-width:82%;font-size:var(--fs-md);line-height:1.55;">' +
-    (isHtml ? text : text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')) + '</div>';
+    (isHtml ? gsSanitizeHtml(text) : text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')) + '</div>';   // v32.66 (Audit A10): HTML nur durch die Allowlist
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
 }
@@ -35910,8 +35924,8 @@ function openDetail(id){
   // Warnbox
   let wH = '';
   if(sp.warning && sp.warning !== 'Keine bekannte Heilwirkung') wH = sp.tox>=4
-    ? '<div class="danger-box" style="margin-bottom:9px;border-radius:var(--r-md);display:flex;gap:8px;align-items:flex-start"><span style="font-size:var(--fs-xl);flex-shrink:0">☠️</span><div>'+sp.warning+'</div></div>'
-    : '<div class="warn-box" style="margin-bottom:9px;border-radius:var(--r-md);display:flex;gap:8px;align-items:flex-start"><span style="font-size:var(--fs-xl);flex-shrink:0">⚠️</span><div>'+sp.warning+'</div></div>';
+    ? '<div class="danger-box" style="margin-bottom:9px;border-radius:var(--r-md);display:flex;gap:8px;align-items:flex-start"><span style="font-size:var(--fs-xl);flex-shrink:0">☠️</span><div>'+escHtml(sp.warning)+'</div></div>'
+    : '<div class="warn-box" style="margin-bottom:9px;border-radius:var(--r-md);display:flex;gap:8px;align-items:flex-start"><span style="font-size:var(--fs-xl);flex-shrink:0">⚠️</span><div>'+escHtml(sp.warning)+'</div></div>';
 
   // Tags
   const tags = [];
@@ -35950,8 +35964,8 @@ function openDetail(id){
     try { var _hbK = (typeof _gsHoehenband === 'function') ? _gsHoehenband(sp) : null;
           if (_hbK) ecoItems.push({icon:'⛰️',label:_t('eco_alt','Höhenverbreitung'),val:_hbK.von + '–' + _hbK.bis + ' m (aus dem Lebensraum-Text)'}); } catch(_){}
   }
-  if(sp.habitat && sp.habitat!=='–') ecoItems.push({icon:'🗺️',label:_t('eco_habitat','Lebensraum'),val:sp.habitat});
-  if(sp.season && sp.season!=='–') ecoItems.push({icon:'📅',label:_t('eco_season','Saison/Blüte'),val:sp.season});
+  if(sp.habitat && sp.habitat!=='–') ecoItems.push({icon:'🗺️',label:_t('eco_habitat','Lebensraum'),val:escHtml(sp.habitat)});
+  if(sp.season && sp.season!=='–') ecoItems.push({icon:'📅',label:_t('eco_season','Saison/Blüte'),val:escHtml(sp.season)});
   if(ecoItems.length){
     ecoHtml = '<div class="dgrid" style="margin-bottom:9px;">' +
       ecoItems.map(e=>'<div class="di"><div class="dil">'+e.icon+' '+e.label+'</div><div class="div2">'+e.val+'</div></div>').join('') +
@@ -35961,8 +35975,8 @@ function openDetail(id){
   // Klassifikation
   const classItems = [];
   if(sp.cat) classItems.push({icon:'📂',label:_t('class_category','Kategorie'),val:getCatLabel(sp.cat)});
-  if(sp.fam && sp.fam!=='–') classItems.push({icon:'🧬',label:_t('class_family','Familie'),val:sp.fam});
-  if(sp.lat && sp.lat!=='–') classItems.push({icon:'🔬',label:_t('class_latin','Lateinisch'),val:'<em>'+sp.lat+'</em>'});
+  if(sp.fam && sp.fam!=='–') classItems.push({icon:'🧬',label:_t('class_family','Familie'),val:escHtml(sp.fam)});
+  if(sp.lat && sp.lat!=='–') classItems.push({icon:'🔬',label:_t('class_latin','Lateinisch'),val:'<em>'+escHtml(sp.lat)+'</em>'});
   const classHtml = classItems.length ? '<div class="dgrid" style="margin-bottom:9px;">' +
     classItems.map(e=>'<div class="di"><div class="dil">'+e.icon+' '+e.label+'</div><div class="div2">'+e.val+'</div></div>').join('') + '</div>' : '';
 
@@ -36028,15 +36042,15 @@ function openDetail(id){
         '<div class="tox-scale">'+dots+'</div>',
       '</div>',
       // Verwendung in der Küche
-      sp.uses && sp.uses!=='–' && sp.uses!=='Keine Nutzung bekannt' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_uses','🍽️ Verwendung (Küche & Alltag)') + '</h3><p>'+(sp.uses)+'</p></div>' : '',
+      sp.uses && sp.uses!=='–' && sp.uses!=='Keine Nutzung bekannt' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_uses','🍽️ Verwendung (Küche & Alltag)') + '</h3><p>'+escHtml(sp.uses)+'</p></div>' : '',
       // Heilwirkung
-      sp.medicinalUse && sp.medicinalUse!=='–' && sp.medicinalUse!=='Keine bekannte Heilwirkung' && sp.medicinalUse!=='Keine – giftig' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_medicinal','💊 Heilwirkung & Medizin') + '</h3><p>'+sp.medicinalUse+'</p></div>' : '',
+      sp.medicinalUse && sp.medicinalUse!=='–' && sp.medicinalUse!=='Keine bekannte Heilwirkung' && sp.medicinalUse!=='Keine – giftig' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_medicinal','💊 Heilwirkung & Medizin') + '</h3><p>'+escHtml(sp.medicinalUse)+'</p></div>' : '',
       // Licht (Hauspflanzen)
       lightHtml,
       // Giessintervall
-      sp.waterFrequency ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_watering','💧 Giessintervall') + '</h3><p>' + _t('water_every','Alle') + ' <strong>'+sp.waterFrequency+' ' + _t('unit_days','Tage') + '</strong> ' + _t('water_dry_hint','giessen. Erde leicht antrocknen lassen.') + '</p></div>' : '',
+      sp.waterFrequency ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_watering','💧 Giessintervall') + '</h3><p>' + _t('water_every','Alle') + ' <strong>'+escHtml(sp.waterFrequency)+' ' + _t('unit_days','Tage') + '</strong> ' + _t('water_dry_hint','giessen. Erde leicht antrocknen lassen.') + '</p></div>' : '',
       // Pflege
-      sp.care ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_care','🪴 Pflege & Standort') + '</h3><p>'+sp.care+'</p></div>' : '',
+      sp.care ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_care','🪴 Pflege & Standort') + '</h3><p>'+escHtml(sp.care)+'</p></div>' : '',
       // Giftwarnung
       (function(){
         if(sp.tox < 3) return '';
@@ -36044,7 +36058,7 @@ function openDetail(id){
         return '<div style="background:'+(isFatal?'#ffebee':'#fff8e1')+';border:2px solid '+(isFatal?'#ef9a9a':'#ffe082')+';border-radius:var(--r-md);padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
           '<span style="font-size:var(--fs-xl);flex-shrink:0;">'+(isFatal?'☠️':'⚠️')+'</span>' +
           '<div><div style="font-size:var(--fs-md);font-weight:800;color:'+(isFatal?'#c62828':'#e65100')+';margin-bottom:2px;">'+(isFatal?_t('tox_strong','STARK GIFTIG'):_t('tox_caution','VORSICHT: GIFTIG'))+'</div>' +
-          '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">'+(sp.warning&&sp.warning!=='–'?sp.warning:_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
+          '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">'+(sp.warning&&sp.warning!=='–'?escHtml(sp.warning):_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
           '</div></div>';
       })(),
       // Vollständigkeits-Indikator
@@ -36075,7 +36089,7 @@ function openDetail(id){
       // Favoriten-Button
       // KI-Fragen Button
       '<button onclick="gsAddSpeciesToGarden(\'' + id + '\')" style="width:100%;padding:11px;background:var(--bg-success-soft);color:var(--c-success-d);border:1.5px solid var(--g-light);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>🌱</span> <span>' + _t('btn_add_to_garden','Zu meinem Garten hinzufügen') + '</span></button>',
-      '<button onclick="openDetailChat(\''+id+'\',\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>' + _t('ai_ask_pre','KI über') + ' '+escHtml(sp.name)+' ' + _t('ai_ask_post','befragen') + '</span></button>',
+      '<button onclick="openDetailChat(\''+_gsOcStr(id)+'\',\''+_gsOcStr(sp.name)+'\',\''+_gsOcStr(sp.lat||'')+'\','+(sp.tox==null?'null':(Number(sp.tox)||0))+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>' + _t('ai_ask_pre','KI über') + ' '+escHtml(sp.name)+' ' + _t('ai_ask_post','befragen') + '</span></button>',
       // v28.25: Art zu Sammlung hinzufügen (Wrapper, nur ID im onclick = Hard-Lesson #12)
       '<button onclick="if(typeof gsAddSpeciesToCollection===\'function\')gsAddSpeciesToCollection(\''+id+'\')" style="width:100%;padding:11px;background:var(--bg-violet-soft);color:var(--c-violet);border:1.5px solid #b39ddb;border-radius:var(--r-md);font-weight:800;font-size:var(--fs-md);cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>📁</span> <span>' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '</span></button>',
       // Rezept-Link wenn vorhanden
@@ -36090,7 +36104,7 @@ function openDetail(id){
         return btns ? '<div style="display:flex;gap:6px;margin-bottom:6px;">' + btns + '</div>' : '';
       })(),
       '<div style="display:flex;gap:6px;">',
-        '<button onclick="gsShareSpecies(\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:var(--fs-lg);">↑</span>' + _t('btn_share','Teilen') + '</button>',
+        '<button onclick="gsShareSpecies(\''+_gsOcStr(sp.name)+'\',\''+_gsOcStr(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:var(--fs-lg);">↑</span>' + _t('btn_share','Teilen') + '</button>',
         '<button class="fav-btn'+(isFav?' added':'')+'" id="fav-btn" onclick="toggleFav(this.dataset.fid)" data-fid="'+id+'" style="flex:1;">',
           isFav?_t('fav_remove','⭐ Entfernen'):_t('fav_add','☆ Favorit'),
         '</button>',
@@ -36575,11 +36589,22 @@ function renderMyPlants() {
 }
 
 // v32.47: `buildPlantCard` (60 Zeilen, nie aufgerufen — gsNewPlantCard rendert seit v26.x) ersatzlos entfernt.
-function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }   // v32.66: auch ' (Audit A3)
 // v27.03 Hard-Lesson #9: gsHTMLEscape war als „Kurz-Alias" dokumentiert, aber NIE definiert
 // → alle `typeof gsHTMLEscape==='function' ? gsHTMLEscape(x) : fallback`-Sites (8+) nahmen
 // immer den Fallback. Jetzt definiert (voller Escaper inkl. Single-Quote) → konsistentes Escaping.
 window._gsOcArg = function(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,"\\'"); };  // v30.13 HL#12: sicheres Onclick-Arg-Escape (Backslash, "->&quot;, '->\')
+// v32.66 (Audit A3): EIN Wert in einem einfach zitierten JS-String in einem
+// onclick-Attribut durchläuft ZWEI Parser — erst HTML (löst &…; auf), dann JS.
+// escHtml allein reicht nicht (ein ' beendet den JS-String), _gsOcArg allein
+// auch nicht (ein &#39; im Wert wird vom HTML-Parser zu ' und beendet ihn
+// ebenso). Reihenfolge: zuerst JS (\\, ', Zeilenumbruch), dann HTML (& " < >).
+function _gsOcStr(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n')
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+window._gsOcStr = _gsOcStr;
 window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
 
 function togglePlantCard(id){
@@ -40238,6 +40263,10 @@ const DEFAULT_POSTS = [];
 let socialPosts = [];
 let currentSocialFilter = 'all';
 let currentCommentPostId = null;
+// v32.66: _communityPage war nie deklariert — eine implizite Globale, die erst
+// der Feed-Lader anlegte. renderSocialFeed liest sie (Seiten-Ende) und warf
+// ohne vorherigen Ladevorgang ReferenceError; gefunden von escape_check.
+var _communityPage = 0;
 let socialUserName = localStorage.getItem('gs_social_name') || '';
 
 // COMMUNITY — Fehlende Funktionen
@@ -40312,13 +40341,13 @@ function renderSocialFeed() {
     out += '<div style="font-weight:800;font-size:var(--fs-md);color:var(--text);">' + nameHtml + exp + vBadge + '</div>';
     out += '<div style="font-size:var(--fs-sm);color:var(--muted);">' + dt + (plant ? ' · 🌿 ' + escHtml(plant) : '') + '</div>';
     out += '</div>';
-    out += '<span style="font-size:var(--fs-lg);" title="' + (p.type||p.category||'fund') + '">' + emoji + '</span>';
+    out += '<span style="font-size:var(--fs-lg);" title="' + escHtml(p.type||p.category||'fund') + '">' + emoji + '</span>';   // v32.66 (Audit A2): type kommt aus social_posts, roh war es ein Attribut-Ausbruch
     out += '</div>';
     // v23.74: Foto (von Storage oder optimistic-base64)
-    var photo = p.photo_url || p.image || null;
+    var photo = _gsSafeUrl(p.photo_url || p.image || null);   // v32.66 (Audit A10): nur https/data:image, kein javascript:
     if (photo) {
       out += '<div style="margin:0 -2px 12px;border-radius:var(--r-md);overflow:hidden;background:#000;">';
-      out += '<img loading="lazy" src="' + photo.replace(/"/g,'&quot;') + '" alt="" style="width:100%;display:block;max-height:520px;object-fit:cover;' + (p._pending ? 'opacity:.7;' : '') + '">';
+      out += '<img loading="lazy" src="' + photo + '" alt="" style="width:100%;display:block;max-height:520px;object-fit:cover;' + (p._pending ? 'opacity:.7;' : '') + '">';
       out += '</div>';
     }
     // Inhalt
@@ -44750,7 +44779,7 @@ function igSearchPlant(query) {
   const q = query.toLowerCase();
   const matches = DB.filter(s => !q || s.name.toLowerCase().includes(q) || (s.lat && s.lat.toLowerCase().includes(q))).slice(0, 20);
   results.innerHTML = matches.map(s =>
-    '<div onclick="selectIgPlant(\'' + escHtml(s.name) + '\',\'' + escHtml(s.emoji || '🌿') + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;">' +
+    '<div onclick="selectIgPlant(\'' + _gsOcStr(s.name) + '\',\'' + _gsOcStr(s.emoji || '🌿') + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;">' +
       '<span style="font-size:var(--fs-2xl);">' + (s.emoji || '🌿') + '</span>' +
       '<div><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + escHtml(s.name) + '</div>' +
       '<div style="font-size:var(--fs-sm);color:var(--muted);">' + escHtml(s.lat || '') + '</div></div>' +
@@ -51280,7 +51309,7 @@ function openRecipeDetail(id) {
     for (var k in GS_ING_LINK_MAP) {
       if (name.toLowerCase().indexOf(k.toLowerCase()) >= 0) {
         var pid = GS_ING_LINK_MAP[k];
-        return '<span onclick="_gsOpenIngCard(\''+pid+'\',\''+escHtml(r.id)+'\')" style="color:#1f6b2f;font-weight:800;text-decoration:underline dotted;cursor:pointer;" title="'+_t('ing_card_tooltip','Infokarte:')+' '+escHtml(k)+'">'+escHtml(name)+'</span>';
+        return '<span onclick="_gsOpenIngCard(\''+_gsOcStr(pid)+'\',\''+_gsOcStr(r.id)+'\')" style="color:#1f6b2f;font-weight:800;text-decoration:underline dotted;cursor:pointer;" title="'+_t('ing_card_tooltip','Infokarte:')+' '+escHtml(k)+'">'+escHtml(name)+'</span>';
       }
     }
     return escHtml(name);
@@ -55837,8 +55866,9 @@ async function gsOpenMyFinds(){
       var d = new Date(f.found_at || f.created_at || Date.now());
       var emo = catEmoji[f.category] || '📍';
       var pub = (f.is_private === false);
-      var thumb = f.photo_url
-        ? '<img src="' + f.photo_url + '" style="width:46px;height:46px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--border);cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')" loading="lazy" alt="">'
+      var _pu = _gsSafeUrl(f.photo_url);   // v32.66 (Audit A10)
+      var thumb = _pu
+        ? '<img src="' + _pu + '" style="width:46px;height:46px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--border);cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')" loading="lazy" alt="">'
         : '<div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--surface2);font-size:var(--fs-2xl);cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')">' + emo + '</div>';
       var photoBtn = f.photo_url
         ? ''
@@ -74311,15 +74341,16 @@ async function gsRunServerTriage() {
       var items = Array.isArray(data.items) ? data.items : [];
       // Nach Priorität sortieren
       items.sort(function(a,b){ return (b.priority||0) - (a.priority||0); });
-      var html = '<div style="font-size:var(--fs-md);margin-bottom:10px;"><b>' + data.analyzed + '</b> neue Items bewertet:</div>';
+      var html = '<div style="font-size:var(--fs-md);margin-bottom:10px;"><b>' + escHtml(data.analyzed) + '</b> neue Items bewertet:</div>';
       items.forEach(function(it){
         var pColor = (it.priority||0) >= 4 ? '#c62828' : (it.priority||0) >= 3 ? '#ef6c00' : '#2e7d32';
         var effIcon = {trivial:'🟢', low:'🟢', medium:'🟡', high:'🟠', huge:'🔴'}[it.implementation_effort] || '⚪';
         html += '<div style="background:var(--surface2);border-left:3px solid ' + pColor + ';border-radius:var(--r-sm);padding:9px 12px;margin-bottom:8px;font-size:var(--fs-sm);">' +
-          '<div style="font-weight:800;color:' + pColor + ';margin-bottom:3px;">P' + (it.priority||'?') + ' · ' + (it.category||'?') + ' · ' + effIcon + ' ' + (it.implementation_effort||'?') + '</div>' +
-          '<div style="color:var(--text);margin-bottom:4px;"><b>' + (it.summary || '') + '</b></div>' +
-          (it.rationale ? '<div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.4;margin-bottom:4px;">' + it.rationale + '</div>' : '') +
-          (it.actionable && it.suggested_action ? '<div style="padding:6px 8px;background:rgba(45,138,45,.1);border-radius:var(--r-xs);font-size:var(--fs-sm);color:var(--g-dark);"><b>→</b> ' + it.suggested_action + '</div>' : '') +
+          // v32.66 (Audit A10): alles hier ist KI-Ausgabe aus feedback-triage — escapen.
+          '<div style="font-weight:800;color:' + pColor + ';margin-bottom:3px;">P' + escHtml(it.priority||'?') + ' · ' + escHtml(it.category||'?') + ' · ' + effIcon + ' ' + escHtml(it.implementation_effort||'?') + '</div>' +
+          '<div style="color:var(--text);margin-bottom:4px;"><b>' + escHtml(it.summary || '') + '</b></div>' +
+          (it.rationale ? '<div style="color:var(--muted);font-size:var(--fs-sm);line-height:1.4;margin-bottom:4px;">' + escHtml(it.rationale) + '</div>' : '') +
+          (it.actionable && it.suggested_action ? '<div style="padding:6px 8px;background:rgba(45,138,45,.1);border-radius:var(--r-xs);font-size:var(--fs-sm);color:var(--g-dark);"><b>→</b> ' + escHtml(it.suggested_action) + '</div>' : '') +
         '</div>';
       });
       if (result) { result.innerHTML = html; result.style.display = 'block'; }
@@ -74832,6 +74863,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v32.66', date: '07.09.2026',
+    headline: '🔒 Fremder Text bleibt Text — vier Escape-Lücken aus dem Audit geschlossen',
+    summary: 'Community-Beiträge, Arten aus der Gemeinschaft, Links aus Mitteilungen, Push-Nutzlasten, Übersetzungen und KI-Ausgaben wurden an einigen Stellen ungeprüft in HTML, in onclick-Attribute oder in eine Navigation eingesetzt (docs/PROFESSIONALITAET-AUDIT-2026-09-06.md A2–A4, A10). Jetzt: escHtml kennt das Apostroph, _gsOcStr escaped für beide Parser, _gsSafeLink und swSafeUrl lassen nur den eigenen Ursprung oder https durch, gsSanitizeHtml hält eine Allowlist für Fragmente, die Auszeichnung tragen dürfen. Bild-Adressen im Feed und in „Meine Funde" gehen durch _gsSafeUrl. Neuer Prüfstand escape_check rendert jede Stelle mit einem feindlichen Wert und misst, dass nichts läuft und alles als Text dasteht.',
+    user_summary: '🔒 Sicherheit: Text von anderen Nutzern kann in der App keinen Code mehr ausführen — an vier weiteren Stellen geprüft.',
+    user_items: [
+      {emoji:'🔒', bold:'Sicherheit:', text:' Beiträge, Arten-Vorschläge, Mitteilungen und Übersetzungen werden überall als Text behandelt.'},
+      {emoji:'🔗', bold:'Links:', text:' Ein Link aus einer Mitteilung führt nur noch in die App oder auf eine https-Seite.'},
+    ],
+  },
   {
     v: 'v32.65', date: '07.09.2026',
     headline: '🏆 Quiz-Rangliste zählt wieder — der Server kannte nur eines von drei Frageformaten',
@@ -75735,7 +75776,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.65';
+var GS_VERSION = 'v32.66';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -87091,6 +87132,49 @@ function gsRateCheck(key, maxPerMinute) {
 }
 
 // Input-Sanitizer: verhindert XSS in Benutzereingaben
+// v32.66 (Audit A10): HTML-Fragment durch eine ALLOWLIST — für Text, der
+// Auszeichnung TRAGEN darf (Übersetzungen mit <br>, Chat-Zeilen mit <strong>).
+// gsSanitize escaped alles und wäre hier falsch. Erlaubt: b strong i em u s br
+// p div ul ol li span small code a. Attribute: class title style href; on*
+// und alles andere fallen weg. script/style/iframe/object/embed/svg/math/img/
+// video/audio/form-Elemente verschwinden MIT Inhalt, unbekannte Elemente
+// werden ausgepackt (der Text bleibt). href nur http(s)/mailto/gleicher
+// Ursprung, mit rel=noopener. style ohne url( / expression( / @import.
+// Geparst wird in einem <template> — dort führt ein onerror nichts aus.
+function gsSanitizeHtml(html) {
+  var tpl = document.createElement('template');
+  tpl.innerHTML = String(html == null ? '' : html);
+  var OK  = {B:1,STRONG:1,I:1,EM:1,U:1,S:1,BR:1,P:1,DIV:1,UL:1,OL:1,LI:1,SPAN:1,SMALL:1,CODE:1,A:1};
+  var WEG = {SCRIPT:1,STYLE:1,IFRAME:1,OBJECT:1,EMBED:1,SVG:1,MATH:1,IMG:1,VIDEO:1,AUDIO:1,LINK:1,META:1,BASE:1,FORM:1,INPUT:1,BUTTON:1,TEXTAREA:1,SELECT:1,TEMPLATE:1};
+  var ATTR = {'class':1,'title':1,'style':1,'href':1};
+  (function walk(node) {
+    Array.prototype.slice.call(node.childNodes).forEach(function (k) {
+      if (k.nodeType === 3) return;                       // Text bleibt
+      if (k.nodeType !== 1) { node.removeChild(k); return; } // Kommentare u.ä. raus
+      var tag = k.tagName.toUpperCase();
+      if (WEG[tag]) { node.removeChild(k); return; }
+      if (!OK[tag]) {                                      // auspacken — erst die Kinder säubern, dann hochziehen
+        walk(k);
+        while (k.firstChild) node.insertBefore(k.firstChild, k);
+        node.removeChild(k);
+        return;
+      }
+      Array.prototype.slice.call(k.attributes).forEach(function (a) {
+        var nm = a.name.toLowerCase(), v = String(a.value || '');
+        if (!ATTR[nm]) { k.removeAttribute(a.name); return; }
+        if (nm === 'style' && /url\s*\(|expression\s*\(|@import|behavior\s*:|javascript:/i.test(v)) k.removeAttribute(a.name);
+        if (nm === 'href') {
+          if (!/^(https?:\/\/|mailto:|\/(?!\/)|#|\?)/i.test(v.trim())) { k.removeAttribute('href'); }
+          else if (/^https?:/i.test(v.trim())) { k.setAttribute('target', '_blank'); k.setAttribute('rel', 'noopener noreferrer'); }
+        }
+      });
+      walk(k);
+    });
+  })(tpl.content);
+  return tpl.innerHTML;
+}
+window.gsSanitizeHtml = gsSanitizeHtml;
+
 function gsSanitize(input, maxLen) {
   if (!input) return '';
   var s = String(input).trim();
