@@ -12,6 +12,70 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-07 (fh) — v32.68: der KI-Schlüssel bleibt auf dem Server — Audit A1
+
+Der schwerste Punkt des Audits. Live gelesen: `fn_get_global_api_key` gab
+den echten `sk-ant-`-Schlüssel an **jeden** angemeldeten, nicht gesperrten
+Nutzer; die App schrieb ihn nach `localStorage.gs_global_api_key` und rief
+`api.anthropic.com` direkt aus dem Browser. Der Proxy `ai-proxy` (verify_jwt,
+Tier-Quota, Schlüssel aus `app_settings` per service_role) ist seit Juni
+ausgeliefert (v2) — und **wurde nie benutzt: `ai_usage` hat 0 Zeilen.** Das
+Frontend hielt ihn hinter `gs_feat_aiproxy` mit Vorgabe „aus“.
+
+Deshalb kein blindes Umschalten, sondern ein Übergang in drei Schritten
+(`docs/FUER-FERNANDO.md` §8):
+
+- **App (v32.68, dieser Stand):** `_gsAiTarget` liefert für den globalen
+  Schlüssel den Proxy als Normalfall (Bearer, kein `x-api-key`);
+  `getApiConfig` kennt `source: 'global'` auch **ohne** Schlüssel
+  (`gs_global_api_mode = 'proxy'`); `gsPullGlobalApiKey` legt nichts mehr auf
+  die Platte — ein Schlüssel, den der Server noch schickt, bleibt in
+  `window._gsGlobalKeyMem` und räumt den Altbestand in `localStorage`;
+  Fingerabdruck (letzte 6 Zeichen) statt Schlüssel für den 6-Monats-Check.
+  `_gsAiAnfrage` ist die eine Anfrage-Funktion: schweigt der Proxy (Netz,
+  404, 5xx — nicht 429/401/400) und liegt ein Schlüssel im Speicher, geht
+  dieselbe Anfrage einmal direkt, mit Vermerk `gs_ai_proxy_down_ts`; ohne
+  Schlüssel ein ehrlicher Fehler. `_gsAiQuotaFehler`: das 429 des Proxys wird
+  `free_quota_reached` mit dem Text des Servers, nicht „Anbieter überlastet“.
+  Notschalter `gs_feat_aiproxy = '0'` (Direktweg, nur mit Schlüssel) bleibt
+  bis Schritt 3. Logout und Nutzerwechsel räumen den Speicher;
+  `gs_global_api_mode`, `gs_global_api_key_fp`, `gs_ai_proxy_down_ts` in
+  `GS_USER_KEYS`. Admin-Panel (Health-Check, Schlüssel setzen, Anzeige)
+  liest Speicher statt Platte.
+- **Server (Fernando):** 1) nach v32.68 einmal eine KI-Funktion nutzen und
+  `select count(*) from ai_usage` — muss > 0 werden, sonst ist der Proxy
+  still ausgefallen; 2) `deploy ai-proxy` (Modell-Liste kennt jetzt
+  `claude-sonnet-4-6`, das erste Modell der App-Kette — vorher stufte der
+  Proxy still auf 4-5 zurück); 3) **`20260907_global_api_key_nur_proxy.sql`**:
+  Nutzer bekommen `mode: proxy` ohne Schlüssel, Admins (`is_admin_user()`)
+  weiter mit; `anon` darf die Funktion nicht rufen. Rückweg im Dateikopf.
+
+**Prüfstand 31: `scripts/schluessel_check.js`** — SQL (lokales Postgres,
+Fixture mit `auth.uid()`/`auth.jwt()` aus Sitzungsvariablen): Nutzer ohne
+Schlüssel, beide Admin-Wege mit, banned/not_authenticated/not_configured,
+Rechte, Idempotenz. App (gestelltes `fetch`): Proxy zuerst (Header, Body,
+nichts auf der Platte), ohne Schlüssel (callAI + Vision mit Bildblock), Pull
+(alter Server → Speicher + Altbestand geräumt; neuer Server → nur mode; aus →
+nichts), Rückfall (Netz/503 → einmal direkt mit `x-api-key`; ohne Schlüssel
+→ „KI-Server“, 0× direkt; 429 → Tageslimit, 0× direkt), persönlicher
+Schlüssel direkt, abgemeldet 0 Aufrufe, Notschalter, Logout. **10/10; gegen
+v32.67: 6 von 6 App-Fällen rot.** Regression v32.67 → v32.68: 25 Prüfstände grün, Layout 0 Änderungen, Kontrast 0/0.
+
+Zwei Regeln:
+
+- **Ein Umschalter, den niemand je umgelegt hat, ist kein Sicherheitsnetz.**
+  Der Proxy stand drei Monate „bereit“ — mit 0 Aufrufen. Ein Weg gilt erst
+  als vorhanden, wenn ihn einer gegangen ist; deshalb ist Schritt 1 in §8
+  eine Zählung, kein Häkchen.
+- **Was der Server entscheiden kann, entscheidet nicht der Browser.** Die
+  Quota lag zweimal vor (Client `gsAboCanUse`, Proxy `TIER_LIMITS`) — mit
+  dem Proxy zählt die Server-Seite, und die App gibt ihre Antwort wörtlich
+  weiter statt sie zu übersetzen.
+
+Nicht angefasst: `gsEnrichSpeciesViaAI` liest `gs_anthropic_key` (Alt-Schlüssel,
+Admin-Werkzeug) — kein Nutzerweg. A5 (alter Sensor-Assistent) wartet auf den
+Entscheid zu Idee 1.
+
 ### 2026-09-07 (fg) — v32.67: vier kleine Versprechen — Audit B1, B3, B5, B6
 
 §G Punkt 4 aus `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md`. Klein im Code,
