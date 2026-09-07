@@ -78,6 +78,11 @@
   ist. Der Fall lässt den `GS_RELEASES`-Block jetzt aussen vor (direkt danach
   14/14 grün).
 
+Regression v32.73 → v32.74: 30 Prüfstände, 29 grün im Sammellauf (`robust_check`
+rot nur durch die eigene Release-Notiz, siehe oben; danach 14/14 grün), 0 nicht
+prüfbar (lokales Postgres lief), Layout 0 Änderungen, Kontrast 0/0, Antippflächen
+0, verdächtige Textstellen 0.
+
 ### 2026-09-07 (fm) — v32.73: Serverfehler in verständlichen Sätzen — Audit B8
 
 - **B8** `_gsFehlerText(err)` (direkt vor `_gsSchreibOk`) ist die EINE
