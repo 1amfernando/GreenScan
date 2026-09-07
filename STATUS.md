@@ -4,13 +4,56 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.69` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.70` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fj) — v32.70: Lina in der App-Sprache, Menü-Zahlen aus der Artenliste, fette Labels — Audit E2–E5, E8
+
+Nutzersicht-Punkte, die nicht kaputt AUSSEHEN:
+
+- **E3** `MENU_ITEMS` nannte „252 Arten“ Wildpflanzen (2'226), Pilze 205
+  (636 zur Laufzeit), Kräuter 184 (388), Bäume 159 (431), Hauspflanzen 70
+  (286). Jetzt trägt der Eintrag `cat`, und `_gsMenuSub(item)` zählt beim
+  Rendern aus `DB`; `sub` bleibt der Rückfall.
+- **E4** „Was ist neu“ rendert `bold` UND `text` — `_e(it.text || (it.bold
+  ? …))` liess das Label weg, sobald ein Text da war, und der war immer da.
+  Dasselbe in der Über-Liste. `gsShowWhatsNew` ist jetzt nach aussen
+  sichtbar (Sperren unverändert).
+- **E2** Lina: `gsLinaContext()` stellt `SPRACHE: Antworte auf <Sprache>`
+  aus `gsI18n.getLang()` voran (de/fr/it/en/es); der feste Prompt sagt
+  nicht mehr „auf Deutsch“. Und er nennt die Leiste, wie sie ist (Scanner ·
+  Pflanzen · Home · Community · Mehr) — „Tab „Garten““, „Saison“, „Suche“,
+  „Karte“, „Marktplatz“, „Einstellungen“ heissen jetzt „Mehr → …“.
+- **E5** Jargon raus: „Cowork pg_cron erweitert die DB taeglich“ (2×),
+  „Daten via Cowork pg_cron“, „Super-Agent aktiv“ / „Super-Agent mit
+  Ernte-Prognose“, „24h-Lock“, „Supabase nicht verfügbar“ (×9 inkl. der
+  Fehlertexte), „anfaellig fuer“, `offline.html` „gequeued“.
+- **E8** Kompakt-Ansicht und Senioren-Modus schliessen sich aus (Klasse,
+  Vorgabe, Häkchen, beide Richtungen); Menü-Emojis in der Menü-Suche tragen
+  `aria-hidden` (Screenreader las „stethoscope Pflanzendoktor“).
+
+**Prüfstand 32: `scripts/nutzersicht_check.js`** — fünf Fälle, alle mit
+Gegenrichtung: fünf Kategorien gleich der Zählung + Rückfall ohne `cat`;
+Dialog und Über-Liste mit `<b>Fettes Label:</b>`; fünf Sprachen im
+Kontext, 0 Phantom-Tabs, 5 echte Tabs genannt; sechs Jargon-Muster im
+Quelltext ohne Kommentare und ohne `GS_RELEASES`; Senioren an → Kompakt aus
+(und umgekehrt), 9/9 Emojis stumm. **5/5; gegen v32.69: 5/5 rot.**
+Regression v32.69 → v32.70: 30 Prüfstände grün (einstellungen_check erwartet bei „beide gespeichert“ jetzt Senioren am body, Kompakt aus), Layout 0 Änderungen, Kontrast 0/0.
+
+Zwei Fallen: der „Was ist neu“-Dialog stempelt beim ERSTEN Start nur und
+zeigt nichts — der Prüfstand stellt `gs_seen_version` auf eine ältere
+Version, statt sie zu löschen. Und eine Jargon-Suche findet ihre eigenen
+Release-Notizen (dort steht der Jargon als Zitat) — `GS_RELEASES` ist
+ausgenommen, Kommentare am Zeilenende ebenso.
+
+Offen aus E: E1 (351 Toasts, 6 übersetzt — die grosse Baustelle), E6
+(Impressum, braucht Fernandos Angaben), E7 (`install.html`-Versprechen),
+E8-Rest (Einheiten-Abstand, „—“-Leerzustände).
 
 ### 2026-09-07 (fi) — v32.69: sieben ehrliche Meldungen, und die Prüfstände laufen auf jedem PR — Audit B4, D1–D4
 
@@ -9358,11 +9401,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.69` (Client) · SW-Cache `gs-v32.69` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.70` (Client) · SW-Cache `gs-v32.70` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **93'037 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
-- **Prüfstände:** **30** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
