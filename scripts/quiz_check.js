@@ -282,7 +282,8 @@ const K = [
       const b = await spiel({ data: [{ is_correct: false }], error: null }, 'richtig');
       if (!b.text || !/als falsch/.test(b.text) || !b.sichtbar || b.heute !== 'falsch') return { ok: false, warum: 'Widerspruch nicht sichtbar: ' + JSON.stringify(b) };
       const c = await spiel({ data: null, error: { message: 'permission denied for table quiz_answers', status: 403 } }, 'richtig');
-      if (!c.text || !/nicht beim Server/.test(c.text) || !/permission denied/.test(c.text) || c.heute !== 'nicht_angekommen') return { ok: false, warum: 'nicht angekommen nicht gesagt: ' + JSON.stringify(c) };
+      // v32.73 (Audit B8): der Grund steht als SATZ da (_gsFehlerText), nicht als PostgREST-Zeile
+      if (!c.text || !/nicht beim Server/.test(c.text) || !/abgelehnt/.test(c.text) || /permission denied/.test(c.text) || c.heute !== 'nicht_angekommen') return { ok: false, warum: 'nicht angekommen nicht gesagt: ' + JSON.stringify(c) };
       const d = await spiel({ data: [], error: null }, 'richtig');
       if (d.text !== null || d.heute !== null) return { ok: false, warum: 'Dublette zeigt etwas: ' + JSON.stringify(d) };
       const e = await spiel({ data: [{ is_correct: true }], error: null }, 'falsch');

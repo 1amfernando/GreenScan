@@ -50,7 +50,8 @@
 | B2 · 60/30 s Client gegen 14'000/8'000 Tokens Server, Plan trotzdem gespeichert | ✅ v32.72 (Repo) — Server 110 s Abbruch + 504 ohne Insert, Client 120 s + ehrliche Timeout-Meldung · ⏳ Deploy (§9) | `robust_check` Fall 7 |
 | B9 · `plan-iterate` liefert `error` als String → „Unbekannter Fehler" | ✅ v32.72 — `_gsEdgeFehler` normalisiert | `robust_check` Fall 7 |
 | C3 · 431 KB Changelog im Service Worker | ✅ v32.72 — `docs/_archiv/SW-CHANGELOG.md`, `sw.js` 21 KB · 0,8 MB Kommentare im Haupt-Script offen | `robust_check` Fall 5 |
-| A5–A7, B8, C2, C4, C5, E1, E6 | offen | §G |
+| B8 · rohe Server-Fehler an Nutzer (`error.message` von PostgREST wörtlich, eigene Toasts mit 80 Zeichen Serverfehler) | ✅ v32.73 — `_gsFehlerText` an 39 Anzeige-Zeilen, `sbFetch` mit `status`, Profil-Anmeldung über `gsTranslateAuthError` | `robust_check` Fall 11 |
+| A5–A7, C2, C4, C5, E1, E6 | offen | §G |
 
 ## Zahlen zuerst
 
