@@ -225,6 +225,86 @@ function aufrufe() {
             : 'liefert „' + schicht.ohne + '" statt des deutschen Rückfalls');
   }
 
+
+  // ── v32.78 (Audit E1): kommen Rückmeldungen, placeholder, aria-label, Menü-Labels
+  // und Datumsformate in der Sprache der Person an? gsI18n.tText (v30.18) übersetzt
+  // per Phrase — aber nur, was auch im Paket steht. Der Sammler liest die Phrasen
+  // jetzt aus dem eigenen Quelltext; hier wird (a) der Extraktor gegen die Datei
+  // gerechnet und (b) mit einem gestellten Phrasen-Paket in fr gemessen, was die
+  // App RENDERT. Deutsch bleibt unberührt (tText gibt bei 'de' das Original zurück).
+  const quelle = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const toLocRest = (quelle.match(/toLocale(?:Date|Time|)String\('de-CH'/g) || []).length;
+  melde(toLocRest === 0, 'Kein toLocale*String mit festem de-CH mehr — gsLocale() entscheidet',
+        toLocRest === 0 ? 'gsLocale() ' + (quelle.match(/gsLocale\(\)/g) || []).length + '× · Definition ' + (quelle.match(/^function gsLocale\(\)/gm) || []).length + '×'
+          : toLocRest + ' Stellen mit \'de-CH\'');
+  const br3 = await chromium.launch();
+  const ctx3 = await br3.newContext({ viewport: { width: 412, height: 915 } });
+  const p3 = await ctx3.newPage();
+  const errs3 = [];
+  p3.on('pageerror', e => errs3.push(e.message.split('\n')[0]));
+  await p3.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  await p3.addInitScript(SEED);
+  await p3.addInitScript(() => {
+    try {
+      localStorage.setItem('gs_lang', 'fr');
+      localStorage.setItem('gs_i18n_bundles', JSON.stringify({ bundles: { fr: { settings_plan_word: 'PRUEFSTAND-FR' } }, ts: { fr: Date.now() } }));
+      localStorage.setItem('gs_i18n_srcmaps', JSON.stringify({ fr: {
+        'Bild konnte nicht gelesen werden.': 'PRUEFSTAND: image illisible.',
+        'Pflanze suchen…': 'PRUEFSTAND: chercher une plante…',
+        'Schliessen': 'PRUEFSTAND-Fermer',
+        'Messwerte': 'PRUEFSTAND-Mesures',
+      } }));
+    } catch (e) {}
+  });
+  await p3.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await p3.waitForTimeout(3500);
+  const e1 = await p3.evaluate(async (quelltext) => {
+    const r = {};
+    try { document.documentElement.classList.remove('gs-preauth'); } catch (_) {}
+    // (a) Extraktor — reine Funktion, gegen den Dateiinhalt
+    const ex = window.gsI18nMeldungenAusQuelltext ? window.gsI18nMeldungenAusQuelltext(quelltext) : null;
+    const vals = ex ? Object.values(ex) : [];
+    r.extraktor = { n: vals.length, bild: vals.includes('Bild konnte nicht gelesen werden.'), kurz: vals.filter(v => v.length < 2).length, lang: vals.filter(v => v.length >= 120).length };
+    const dok = window.gsI18nDokumentPhrasen ? Object.values(window.gsI18nDokumentPhrasen()) : [];
+    r.dokument = { n: dok.length, placeholder: dok.includes('Pflanze suchen…'), aria: dok.includes('Schliessen'), menue: dok.includes('Messwerte') };
+    // (b) gerendert in fr
+    r.lang = window.gsI18n && gsI18n.getLang();
+    r.locale = typeof gsLocale === 'function' ? gsLocale() : null;
+    r.datum = new Date(2026, 0, 5).toLocaleDateString(r.locale || 'de-CH');
+    // Beim Start steht schon ein Toast in der Warteschlange („Sprache: Französisch") — der eigene kommt danach; warten, bis er dran ist
+    try { showProfileToast('Bild konnte nicht gelesen werden.'); } catch (_) {}
+    r.toast = '';
+    for (let i = 0; i < 40; i++) { await new Promise(res => setTimeout(res, 200)); const tb = document.querySelector('.gs-toast .gs-toast-body'); r.toast = tb ? tb.textContent : ''; if (/illisible|Bild konnte/.test(r.toast)) break; }
+    const ps = document.getElementById('plants-search'); r.placeholder = ps ? ps.getAttribute('placeholder') : null; r.placeholderOrig = ps ? ps.getAttribute('data-i18n-orig-placeholder') : null;
+    r.ariaFermer = document.querySelectorAll('[aria-label="PRUEFSTAND-Fermer"]').length; r.ariaSchliessen = document.querySelectorAll('[aria-label="Schliessen"]').length;
+    try { searchMenu('mesures'); } catch (e) { r.menuFehler = e.message; }
+    const mr = document.getElementById('menu-search-results'); r.menue = mr ? mr.textContent : '';
+    try { clearMenuSearch(); } catch (_) {}
+    // zurück nach Deutsch: das Original steht wieder da
+    try { gsI18n.setLang('de'); gsI18n.applyToDOM(); } catch (_) {}
+    r.placeholderDe = ps ? ps.getAttribute('placeholder') : null;
+    return r;
+  }, quelle);
+  await br3.close();
+  melde(e1.extraktor.n >= 500 && e1.extraktor.bild && e1.extraktor.kurz === 0 && e1.extraktor.lang === 0,
+        'Der Sammler liest die Rückmeldungen aus dem eigenen Quelltext (≥ 500 Phrasen, 2–119 Zeichen)',
+        e1.extraktor.n + ' Phrasen · Bild-Satz ' + (e1.extraktor.bild ? 'dabei' : 'FEHLT') + ' · zu kurz ' + e1.extraktor.kurz + ' · zu lang ' + e1.extraktor.lang);
+  melde(e1.dokument.placeholder && e1.dokument.aria && e1.dokument.menue,
+        'Der Sammler nimmt placeholder, aria-label und Menü-Labels mit',
+        e1.dokument.n + ' Dokument-Phrasen · placeholder ' + e1.dokument.placeholder + ' · aria ' + e1.dokument.aria + ' · Menü ' + e1.dokument.menue);
+  melde(/PRUEFSTAND: image illisible/.test(e1.toast), 'Ein Toast erscheint in der Sprache der Person (Phrase im Paket)', 'Toast: „' + String(e1.toast).slice(0, 60) + '"');
+  melde(e1.placeholder === 'PRUEFSTAND: chercher une plante…' && e1.placeholderOrig === 'Pflanze suchen…' && e1.placeholderDe === 'Pflanze suchen…',
+        'placeholder wird per Phrase übersetzt — und findet nach Deutsch zurück',
+        'fr „' + e1.placeholder + '" · Original „' + e1.placeholderOrig + '" · de „' + e1.placeholderDe + '"');
+  melde(e1.ariaFermer > 0 && e1.ariaSchliessen === 0, 'aria-label wird per Phrase übersetzt (alle Schliessen-Knöpfe)', e1.ariaFermer + '× Fermer · ' + e1.ariaSchliessen + '× Schliessen übrig');
+  melde(/PRUEFSTAND-Mesures/.test(e1.menue), 'Die Menü-Suche findet und zeigt das übersetzte Label', e1.menuFehler ? 'Fehler: ' + e1.menuFehler : 'Suche „mesures" → ' + (/PRUEFSTAND-Mesures/.test(e1.menue) ? 'Mesures' : String(e1.menue).slice(0, 60)));
+  melde(e1.locale === 'fr-CH' && /^05\.01\.2026$/.test(e1.datum), 'gsLocale() folgt der Sprache, das Datum auch', 'Sprache ' + e1.lang + ' → ' + e1.locale + ' · 5. Januar 2026 → „' + e1.datum + '"');
+  // Der Admin-Knopf: i18n-translate lässt nur Admins zu, und beim Sprachwechsel läuft gsBuildI18n
+  // nur bei fehlendem oder altem Paket — neue Phrasen in einem vorhandenen Paket bestellt sonst niemand.
+  const knopf = /onclick="gsAdminBuildI18n\(\)"/.test(quelle) && /^async function gsAdminBuildI18n\(\)/m.test(quelle) && /gsCollectI18nMeldungen\(\)/.test(quelle.slice(quelle.indexOf('async function gsBuildI18n('), quelle.indexOf('async function gsBuildI18n(') + 1200));
+  melde(knopf, 'Der Admin-Knopf bestellt die neuen Phrasen (gsAdminBuildI18n → gsBuildI18n → Sammler mit Quelltext)', knopf ? 'Knopf, Funktion und Sammel-Aufruf im Quelltext' : 'fehlt: ' + [/onclick="gsAdminBuildI18n\(\)"/.test(quelle) ? '' : 'Knopf', /^async function gsAdminBuildI18n\(\)/m.test(quelle) ? '' : 'Funktion'].filter(Boolean).join(', '));
+  if (errs3.length) melde(false, 'Keine JS-Fehler im fr-Lauf', errs3.slice(0, 2).join(' | '));
+
   console.log('  ---');
   console.log('  Schlüssel: ' + tab.size + ' Einträge · ' + alle.size + ' verwendet');
   console.log('  Nicht geprüft (braucht Netz und Sprachkenntnis): ob die Übersetzung in der');

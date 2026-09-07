@@ -528,6 +528,31 @@ vom 07.09.2026.
    trotzdem. Der Wegweiser aus A5 zeigt also auf einen Weg, der erst mit §6
    ganz zu Ende geht.
 
+## 11 · Übersetzungen für die neuen Phrasen erzeugen (Audit E1, v32.78)
+
+Seit v32.78 nimmt der Sammler auch Toasts, Rückfragen, `placeholder`,
+`aria-label` und die Menü-Labels mit — rund 800 Phrasen mehr. Übersetzt
+werden sie erst, wenn du sie bestellst: **Admin-Panel → Karte „🌍
+i18n-Bundles" → Knopf „Übersetzungen erzeugen (fr, it, en, es)"**
+(`gsAdminBuildI18n`). Warum ein Knopf: `i18n-translate` lässt nur Admin-
+oder Service-Token zu (regulären Nutzern antwortet sie 403, die lesen nur
+aus `i18n_translations`), und beim Sprachwechsel läuft `gsBuildI18n` nur,
+wenn das Paket fehlt oder älter als 24 h ist — neue Phrasen in einem
+vorhandenen Paket hätte sonst niemand je bestellt. Die App holt dafür ihre
+eigene `index.html`, schickt die Liste an die Function, und die übersetzt
+nur, was noch nicht in `i18n_translations` liegt (Hash-Cache). Rechne mit
+ein paar Minuten und ein paar Rappen Haiku-Kosten je Sprache; der Toast am
+Ende nennt „neu übersetzt" und „schon vorhanden". Danach zeigt ein Nutzer
+mit `fr`/`it`/`en`/`es` beim nächsten Paket-Abruf (24 h, oder
+Sprachwechsel) die Sätze in seiner Sprache. Vorher: alles wie bisher
+Deutsch, nichts kaputt.
+
+Nachmessen (nur lesend):
+
+```sql
+select target_lang, count(*) from i18n_translations where source_lang = 'de' group by 1;
+```
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

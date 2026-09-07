@@ -56,7 +56,8 @@
 | C4 · vier Push-Checker, zwölf Kopien derselben drei Helfer, `corsHeaders` achtmal | ✅ v32.75 — `_shared/push_helfer.mjs` (Client und web-push als Parameter), Adapter in vier Sendern, VAPID-Rückfall `info@greenscan.ch`; `feedback-triage` fragt `is_admin_user` statt E-Mail-Liste + `atob` · `corsHeaders`/README/`book-ingest` offen | `robust_check` Fall 14 |
 | A7 · `species-search` ohne Authentifizierung, mit Service-Role, mit Schreibzugriff, CORS `*`, rohe Fehlertexte | ✅ v32.76 (Repo) — Bearer Pflicht + GoTrue-Prüfung, RPC mit Nutzer-Token, Cache nur nach gültiger Suche, Allowlist, `search_failed` statt Rohtext, q/lim gedeckelt · ⏳ Deploy (§9) | `robust_check` Fall 15 |
 | C2 · 66 Funktionen ohne Aufrufer (nachgezählt: 105) | ✅ v32.77 — 114 entfernt (1790 Zeilen) mit Parser-Grenzen; `closeAbout` bleibt (dynamischer Name); der Scan ist jetzt ein Prüfstand-Deckel | `robust_check` Fall 16 |
-| C5, E1, E6 | offen | §G |
+| E1 · Rückmeldungen nur Deutsch (351 `gsToast`, 56 `gsConfirmModal`, 133 `placeholder`, 95 `aria-label`, 52 `MENU_ITEMS`, 56× `de-CH`) | ✅ v32.78 Welle 1 — Phrasen aus dem Quelltext an den Übersetzer, `placeholder`/`aria-label`/Menü per `tText`, `gsLocale()` statt 133× `de-CH` · Welle 2 offen: zusammengesetzte Meldungen, Monatsnamen-Listen, `toFixed()` · ⏳ Admin-Knopf (§11) | `i18n_check` Fragen 9–16 |
+| C5, E6 | offen | §G |
 
 ## Zahlen zuerst
 

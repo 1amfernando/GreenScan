@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.77.20260907">
+<meta name="app-version" content="32.78.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8024,6 +8024,17 @@ if (typeof NATURE_FACTS === 'undefined') var NATURE_FACTS = [];
 // öffentlich lesbar) und darunter ein unsalted SHA-256 eines Passworts, gegen
 // das der Client verglich. Beides ist weg: was der Server entscheidet, fragt
 // die App den Server — und zeigt nur, was er gesagt hat.
+// v32.78 (Audit E1): EIN Ort für die Gebietsschema-Frage. 125 Stellen riefen
+// toLocaleDateString(gsLocale()) — ein französischer Nutzer sah „5. Januar" — und
+// drei bauten sich dieselbe Tabelle jeweils selbst. Die Spracherkennung
+// (gsVoice*, 'de-CH' als Erkennungssprache) ist bewusst NICHT umgestellt.
+function gsLocale() {
+  try {
+    var l = (window.gsI18n && gsI18n.getLang) ? gsI18n.getLang() : ((typeof localStorage !== 'undefined' && localStorage.getItem('gs_lang')) || 'de');
+    return ({ de: 'de-CH', en: 'en-GB', es: 'es-ES', fr: 'fr-CH', it: 'it-CH' })[l] || 'de-CH';
+  } catch (_) { return 'de-CH'; }
+}
+window.gsLocale = gsLocale;
 function _gsServerSagtAdmin() {
   try { return localStorage.getItem('gs_is_admin') === '1' || localStorage.getItem('gs_user_role') === 'admin'; } catch(_) { return false; }
 }
@@ -9007,7 +9018,7 @@ function gsUpdateGartenWidgets() {
     var tb = document.getElementById('widget-tb-subline');
     if (tb) {
       var entries = (typeof gsTagebuchLoad === 'function') ? gsTagebuchLoad(true) : [];
-      var todayStr = now.toLocaleDateString('de-CH');
+      var todayStr = now.toLocaleDateString(gsLocale());
       var heute = entries.filter(function(e){ return e.date === todayStr; }).length;
       var thisMonth = entries.filter(function(e) {
         if (!e.ts) return false;
@@ -9272,7 +9283,7 @@ function gsNewPlantCard(p) {
         '</div>' +
         '<div class="plant-expand-stat">' +
           '<div class="stat-icon">📅</div>' +
-          '<div class="stat-val">' + (p.added ? new Date(p.added).toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'2-digit'}) : '–') + '</div>' +
+          '<div class="stat-val">' + (p.added ? new Date(p.added).toLocaleDateString(gsLocale(),{day:'numeric',month:'short',year:'2-digit'}) : '–') + '</div>' +
           '<div class="stat-lbl">' + _t('stat_added','Hinzugefügt') + '</div>' +
         '</div>' +
       '</div>' +
@@ -10271,7 +10282,7 @@ function gsTbQuick(cat, txt) {
   gsTagebuchLoad(true);
   _gsTagebuch.unshift({
     id: Date.now(), cat: cat, plant: '', text: txt,
-    date: new Date().toLocaleDateString('de-CH'),
+    date: new Date().toLocaleDateString(gsLocale()),
     weather: (window._gsWeatherData && _gsWeatherData.current_weather) ? Math.round(_gsWeatherData.current_weather.temperature) + '°C' : '',
     ts: new Date().toISOString()
   });
@@ -10339,7 +10350,7 @@ function gsTbAdd() {
     plant: _pname,
     pflanze_id: _pid,
     text: input.value.trim().slice(0,500),
-    date: _wann.toLocaleDateString('de-CH'),
+    date: _wann.toLocaleDateString(gsLocale()),
     weather: weather,
     ts: _wann.toISOString(),
     zukunft: _wann.getTime() > Date.now() + 60000
@@ -10385,7 +10396,7 @@ function gsUpdateTagebuchWidget() {
     if (el) {
       if (!entries.length) el.textContent = 'Aktivitäten notieren';
       else {
-        var today = new Date().toLocaleDateString('de-CH');
+        var today = new Date().toLocaleDateString(gsLocale());
         var heute = entries.filter(function(e){ return e.date === today; }).length;
         if (heute) el.textContent = heute + ' heute · ' + entries.length + ' gesamt';
         else el.textContent = entries.length + ' Einträge';
@@ -10648,7 +10659,7 @@ function gsSaeLogAsSowed(name) {
     cat: 'sowed',
     plant: name,
     text: name + ' gesät',
-    date: new Date().toLocaleDateString('de-CH'),
+    date: new Date().toLocaleDateString(gsLocale()),
     weather: '',
     ts: new Date().toISOString()
   });
@@ -11671,8 +11682,8 @@ function gsTagebuchLoad(forceReload) {
         if (!e.cat) e.cat = 'note';
         if (!e.ts) e.ts = (e.date ? null : new Date().toISOString());
         if (!e.date) {
-          try { e.date = (e.ts ? new Date(e.ts) : new Date()).toLocaleDateString('de-CH'); }
-          catch(_) { e.date = new Date().toLocaleDateString('de-CH'); }
+          try { e.date = (e.ts ? new Date(e.ts) : new Date()).toLocaleDateString(gsLocale()); }
+          catch(_) { e.date = new Date().toLocaleDateString(gsLocale()); }
         }
         if (typeof e.text !== 'string') e.text = String(e.text || '');
         return e;
@@ -12227,7 +12238,7 @@ function gsRenderWeatherDetail(data) {
 
   // ── 7-TAGE FORECAST ──────────────────────────────────────
   // v29.06: Wochentage über echte Locale statt fixem DE-Array (kein Seed nötig, 100% korrekt).
-  var _wxloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[(window.gsI18n&&gsI18n.getLang&&gsI18n.getLang())||'de'] || 'de-CH';
+  var _wxloc = gsLocale();
   var dailyEl = document.getElementById('wd-daily');
   if (dailyEl && daily.time) {
     dailyEl.innerHTML = daily.time.slice(0,7).map(function(d, i) {
@@ -12979,7 +12990,7 @@ function _openDailyQuizLocal() {
   if (stEl) {
     stEl.innerHTML = stats.streak > 0
       ? '🔥 ' + stats.streak + ' Tage Streak · ' + stats.points + ' Punkte'
-      : '🎯 ' + new Date().toLocaleDateString('de-CH', {day:'numeric',month:'long'});
+      : '🎯 ' + new Date().toLocaleDateString(gsLocale(), {day:'numeric',month:'long'});
   }
 
   // Antwort-Buttons: alle 4 gemischt, deterministisch
@@ -13265,7 +13276,7 @@ function openDailyQuizFromSupa(quiz) {
   if (stEl) {
     stEl.innerHTML = stats.streak > 0
       ? '🔥 ' + stats.streak + ' Tage Streak · ' + stats.points + ' Punkte'
-      : '🎯 ' + new Date().toLocaleDateString('de-CH', {day:'numeric',month:'long'});
+      : '🎯 ' + new Date().toLocaleDateString(gsLocale(), {day:'numeric',month:'long'});
   }
 
   // v30.95: DB-Index auf jede Option stempeln, BEVOR gemischt wird. Der Server
@@ -14222,6 +14233,20 @@ window.gsI18n = (function(){
         // <br> und <span style> tragen — nicht mehr. Ohne Sanitizer: nur Text.
         if (el.hasAttribute('data-i18n-html')) { if (typeof gsSanitizeHtml === 'function') el.innerHTML = gsSanitizeHtml(translated); else el.textContent = translated; }
         else el.textContent = translated;
+      });
+    } catch(_){}
+    // v32.78 (Audit E1): placeholder und aria-label per Phrase (tText). Das
+    // Original bleibt im data-Attribut, damit ein Sprachwechsel zurück
+    // nach Deutsch — und jeder weitere — vom Original ausgeht.
+    try {
+      root.querySelectorAll('[placeholder],[aria-label]').forEach(function(el){
+        ['placeholder', 'aria-label'].forEach(function(a){
+          if (!el.hasAttribute(a)) return;
+          var orig = el.getAttribute('data-i18n-orig-' + a);
+          if (orig == null) { orig = el.getAttribute(a); el.setAttribute('data-i18n-orig-' + a, orig); }
+          var neu = tText(orig);
+          if (el.getAttribute(a) !== neu) el.setAttribute(a, neu);
+        });
       });
     } catch(_){}
     // v26.65: documentElement.lang nutzt jetzt SUPPORTED 1:1 (gsw raus).
@@ -16006,6 +16031,65 @@ window.GS_I18N_JS_STRINGS = {
     tp_u_year1: '1. Jahr',
 };
 
+// v32.78 (Audit E1): 582 Toast-Literale, 19 Rückfragen, 167 placeholder, 222
+// aria-label und die Menü-Labels standen nie in der Liste, die an den
+// Übersetzer geht — gsI18n.tText (v30.18) hätte sie übersetzt, hatte aber nie
+// eine Übersetzung. Der Sammler liest sie jetzt aus dem EIGENEN QUELLTEXT
+// (die App holt ihre index.html) und aus dem Dokument; die Liste speist sich
+// aus dem Code, niemand pflegt sie von Hand. Reine Funktion, damit i18n_check
+// sie mit dem Dateiinhalt rechnen kann.
+function gsI18nMeldungenAusQuelltext(quelltext) {
+  var out = {};
+  var txt = String(quelltext || '');
+  var entkomm = function (lit) { return lit.replace(/\\'/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\'); };
+  var hash = function (str) { var h = 5381; for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  var nimm = function (lit) {
+    var t = entkomm(lit).trim();
+    if (t.length < 2 || t.length >= 120) return;
+    if (!/[A-Za-zÄÖÜäöüß]{2,}/.test(t)) return;          // nur Emoji oder Zahlen: nichts zu übersetzen
+    if (/^[a-z_][\w.-]*$/.test(t)) return;                // ein Schlüssel, kein Satz
+    out['msg_' + hash(t)] = t;
+  };
+  // a) erstes Argument als Literal — aber nicht, wenn danach mit + weitergebaut wird
+  var re1 = /(?:gsToast|showProfileToast|gsConfirmModal)\(\s*'((?:[^'\\]|\\.)*)'\s*([,)+])/g, m;
+  while ((m = re1.exec(txt))) { if (m[2] !== '+') nimm(m[1]); }
+  // b) Objekt-Form: title/body/message/okText/cancelText/placeholder als Literal
+  var re2 = /(?:gsToast|showProfileToast|gsConfirmModal|gsPromptModal)\(\s*\{/g;
+  while ((m = re2.exec(txt))) {
+    var ende = txt.indexOf('})', m.index); if (ende < 0 || ende - m.index > 1200) continue;
+    var blk = txt.slice(m.index, ende);
+    var re3 = /(?:title|body|message|okText|cancelText|placeholder)\s*:\s*'((?:[^'\\]|\\.)*)'\s*([,}+])/g, k;
+    while ((k = re3.exec(blk))) { if (k[2] !== '+') nimm(k[1]); }
+  }
+  return out;
+}
+window.gsI18nMeldungenAusQuelltext = gsI18nMeldungenAusQuelltext;
+
+// Was im Dokument steht (placeholder, aria-label) und was das Menü zeigt
+function gsI18nDokumentPhrasen() {
+  var out = {};
+  var hash = function (str) { var h = 5381; for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  var nimm = function (t) { t = String(t || '').trim(); if (t.length >= 2 && t.length < 120 && /[A-Za-zÄÖÜäöüß]{2,}/.test(t)) out['msg_' + hash(t)] = t; };
+  try {
+    document.querySelectorAll('[placeholder],[aria-label]').forEach(function (el) {
+      ['placeholder', 'aria-label'].forEach(function (a) { if (el.hasAttribute(a)) nimm(el.getAttribute('data-i18n-orig-' + a) || el.getAttribute(a)); });
+    });
+  } catch (_) {}
+  try { if (typeof window._gsMenuItemsFuerI18n === 'function') window._gsMenuItemsFuerI18n().forEach(function (i) { nimm(i.label); nimm(i.sub); }); } catch (_) {}
+  return out;
+}
+
+// Holt den eigenen Quelltext und mischt alles zusammen — nur für den Admin-Knopf
+async function gsCollectI18nMeldungen() {
+  var out = gsI18nDokumentPhrasen();
+  try {
+    var pfad = (location.pathname && !/\/$/.test(location.pathname)) ? location.pathname : 'index.html';
+    var r = await fetch(pfad, { cache: 'no-cache' });
+    if (r && r.ok) Object.assign(out, gsI18nMeldungenAusQuelltext(await r.text()));
+  } catch (_) {}
+  return out;
+}
+
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
 function gsCollectI18nStrings(){
   var out = {};
@@ -16025,6 +16109,8 @@ function gsCollectI18nStrings(){
 async function gsBuildI18n(targetLangs){
   targetLangs = targetLangs || ['fr','it'];
   var strings = gsCollectI18nStrings();
+  // v32.78 (Audit E1): Toasts, Rückfragen, placeholder, aria-label, Menü-Labels
+  try { Object.assign(strings, await gsCollectI18nMeldungen()); } catch (_) {}
   var keys = Object.keys(strings);
   if (!keys.length) return { ok: false, msg: 'Keine Strings gefunden' };
   if (typeof SB_URL === 'undefined' || typeof SB_KEY === 'undefined') {
@@ -17628,7 +17714,7 @@ window._gsAchRenderFeed = async function() {
   feed.forEach(function(f){
     var meta = rar[f.rarity] || rar.common;
     var when = '';
-    try { when = new Date(f.unlocked_at).toLocaleDateString('de-CH'); } catch(_){}
+    try { when = new Date(f.unlocked_at).toLocaleDateString(gsLocale()); } catch(_){}
     html += '<div style="margin:0 18px 8px;border:1px solid var(--border);border-left:3px solid '+meta.c+';border-radius:var(--r-md);padding:9px 12px;display:flex;align-items:center;gap:10px;">' +
       '<div style="font-size:var(--fs-2xl);">'+esc(f.avatar_emoji||'🌿')+'</div>' + /* v29.09 SECURITY: XSS avatar_emoji */
       '<div style="flex:1;min-width:0;">' +
@@ -18194,7 +18280,7 @@ function gsRenderSubInfo(sub) {
 
   var statusIcon, statusText, accent;
   if (isLifetime) { statusIcon = '🏆'; statusText = 'Lifetime aktiv'; accent = '#2e7d32'; }
-  else if (isCanceled) { statusIcon = '🟡'; statusText = endDate ? ('Endet am ' + endDate.toLocaleDateString('de-CH')) : 'Gekündigt'; accent = '#f57c00'; }
+  else if (isCanceled) { statusIcon = '🟡'; statusText = endDate ? ('Endet am ' + endDate.toLocaleDateString(gsLocale())) : 'Gekündigt'; accent = '#f57c00'; }
   else if (isPastDue) { statusIcon = '⚠️'; statusText = 'Zahlung ausstehend (7-Tage Grace)'; accent = '#d32f2f'; }
   else if (isTrial) { statusIcon = '🆓'; statusText = 'Aktiv (Trial)'; accent = '#1a237e'; }
   else { statusIcon = '✅'; statusText = 'Aktiv'; accent = '#1b5e20'; }
@@ -18210,7 +18296,7 @@ function gsRenderSubInfo(sub) {
 
   if (daysLeft !== null && !isLifetime) {
     html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:4px;">📅 Verbleibend: <strong style="color:var(--text);">' + daysLeft + ' Tag' + (daysLeft === 1 ? '' : 'e') + '</strong>' +
-      (endDate ? ' (bis ' + endDate.toLocaleDateString('de-CH') + ')' : '') + '</div>';
+      (endDate ? ' (bis ' + endDate.toLocaleDateString(gsLocale()) + ')' : '') + '</div>';
   }
 
   if (sub.stripe_prices && !isLifetime && !isCanceled) {
@@ -19807,7 +19893,7 @@ function renderScanHistFull() {
     if (item.time) {
       try {
         var d = new Date(item.time);
-        timeStr = d.toLocaleDateString('de-CH', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+        timeStr = d.toLocaleDateString(gsLocale(), {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
       } catch(e){}
     }
     var hasConf = (typeof item.conf === 'number' && item.conf > 0);
@@ -19913,8 +19999,8 @@ function gsScanHistoryOpen(uidOrIdx) {
   if (item.time) {
     try {
       var d = new Date(item.time);
-      timeStr = d.toLocaleDateString('de-CH',{day:'numeric',month:'long',year:'numeric'}) + ' · ' +
-                d.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+      timeStr = d.toLocaleDateString(gsLocale(),{day:'numeric',month:'long',year:'numeric'}) + ' · ' +
+                d.toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'});
     } catch(_){}
   }
   var hasConf = (typeof item.conf === 'number' && item.conf > 0);
@@ -20121,8 +20207,8 @@ function _gsGalRenderSpeciesView(grid, items, _t, esc){
     var rng='';
     try{
       if(g.oldest&&g.newest&&g.newest!==g.oldest){
-        rng=new Date(g.oldest).toLocaleDateString('de-CH',{month:'short',year:'2-digit'})+' – '+new Date(g.newest).toLocaleDateString('de-CH',{month:'short',year:'2-digit'});
-      } else if(g.newest){ rng=new Date(g.newest).toLocaleDateString('de-CH',{day:'numeric',month:'short'}); }
+        rng=new Date(g.oldest).toLocaleDateString(gsLocale(),{month:'short',year:'2-digit'})+' – '+new Date(g.newest).toLocaleDateString(gsLocale(),{month:'short',year:'2-digit'});
+      } else if(g.newest){ rng=new Date(g.newest).toLocaleDateString(gsLocale(),{day:'numeric',month:'short'}); }
     }catch(_){}
     var multi=g.photos.length>1;
     return '<button onclick="gsGalOpenSpecies('+JSON.stringify(g.name).replace(/"/g,'&quot;')+')" '
@@ -20146,7 +20232,7 @@ function gsGalOpenSpecies(name){
   if(!ov){ ov=document.createElement('div'); ov.id='gs-gal-species-ov'; ov.style.cssText='position:fixed;inset:0;z-index:5950;background:var(--g-bg,#eef7ee);display:flex;flex-direction:column;'; document.body.appendChild(ov); }
   var canCompare=ph.length>1 && (typeof callVisionAI==='function');
   var strip=ph.map(function(x,i){
-    var d=''; try{ if(x.ts) d=new Date(x.ts).toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'2-digit'}); }catch(_){}
+    var d=''; try{ if(x.ts) d=new Date(x.ts).toLocaleDateString(gsLocale(),{day:'numeric',month:'short',year:'2-digit'}); }catch(_){}
     return '<div style="flex:0 0 auto;width:150px;">'
       +'<button onclick="if(typeof openScanHistoryDetail===\'function\')openScanHistoryDetail('+x.idx+')" style="border:none;padding:0;background:none;cursor:pointer;width:100%;">'
       +'<img src="'+esc(x.img)+'" loading="lazy" style="width:150px;height:150px;object-fit:cover;border-radius:var(--r-md);display:block;background:var(--surface2);"></button>'
@@ -20184,7 +20270,7 @@ async function gsGalCompareGrowth(){
     if(typeof _gsPhotoToB64!=='function'||typeof callVisionAI!=='function') throw new Error('KI hier nicht verfügbar');
     var iA=await _gsPhotoToB64(a.img), iB=await _gsPhotoToB64(b.img);
     if(!iA||!iB) throw new Error(_t('gal_img_fail','Fotos konnten nicht geladen werden.'));
-    var dA=a.ts?new Date(a.ts).toLocaleDateString('de-CH'):'?', dB=b.ts?new Date(b.ts).toLocaleDateString('de-CH'):'?';
+    var dA=a.ts?new Date(a.ts).toLocaleDateString(gsLocale()):'?', dB=b.ts?new Date(b.ts).toLocaleDateString(gsLocale()):'?';
     var days=(a.ts&&b.ts)?Math.max(0,Math.round((b.ts-a.ts)/86400000)):null;
     var prompt='Du bist ein erfahrener Pflanzen-Experte. Vergleiche zwei Fotos derselben Art ('+(s.name||'Pflanze')+'). '
       +'Foto 1 (Vorher) am '+dA+', Foto 2 (Nachher) am '+dB+(days!=null?' ('+days+' Tage später)':'')+'. '
@@ -21015,7 +21101,7 @@ function gsAnimateCounter(el, targetNum, duration) {
     // Ease-out cubic
     var ease = 1 - Math.pow(1 - progress, 3);
     var current = Math.round(ease * target);
-    el.textContent = current.toLocaleString('de-CH');
+    el.textContent = current.toLocaleString(gsLocale());
     if (progress < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
@@ -23873,7 +23959,7 @@ function initHomeBoard() {
     var datumEl = document.getElementById('daily-datum');
     if (datumEl) {
       var _dl = (window.gsI18n && gsI18n.getLang) ? gsI18n.getLang() : 'de';
-      var _dloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[_dl] || 'de-CH';
+      var _dloc = gsLocale();
       try {
         datumEl.textContent = now.toLocaleDateString(_dloc, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
       } catch(_) {
@@ -24519,7 +24605,7 @@ function _timeAgo(ts) {
   if (h < 24) return _t('time_vor','vor') + ' ' + h + ' ' + _t('time_std_short','Std.');
   var d = Math.floor(h/24);
   if (d < 30) return _t('time_vor','vor') + ' ' + d + ' ' + (d>1 ? _t('time_tage','Tagen') : _t('time_tag','Tag'));
-  return new Date(ts).toLocaleDateString('de-CH');
+  return new Date(ts).toLocaleDateString(gsLocale());
 }
 
 // ── FILTER & SUCHE ───────────────────────────────────────────────
@@ -25896,7 +25982,7 @@ function gsRelTime(ts){
   if (d < 3600000) return Math.floor(d/60000) + ' Min';
   if (d < 86400000) return Math.floor(d/3600000) + ' Std';
   if (d < 2592000000) return Math.floor(d/86400000) + ' Tage';
-  return new Date(ts).toLocaleDateString('de-CH', {day:'2-digit',month:'short'});
+  return new Date(ts).toLocaleDateString(gsLocale(), {day:'2-digit',month:'short'});
 }
 
 // Sammelt alle ungelesenen Events aus den verschiedenen Quellen
@@ -27521,7 +27607,7 @@ function gsTagebuchAlle() {
       if (!pid && e.pflanze_id) pid = e.pflanze_id;
       out.push({ id: e.id, ts: ts, datum: _gsKalTag(ts), text: e.text || '', note: '', emoji: e.emoji || _GS_TB_EMOJI[e.cat] || '📝',
         cat: e.cat || 'note', plant: e.plant || '', pflanze_id: pid, photo: e.photo || null, weather: e.weather || '',
-        date: e.date || (ts ? new Date(ts).toLocaleDateString('de-CH') : ''), herkunft: 'garten', quelle: e.quelle || 'hand' });
+        date: e.date || (ts ? new Date(ts).toLocaleDateString(gsLocale()) : ''), herkunft: 'garten', quelle: e.quelle || 'hand' });
     });
   } catch (_) {}
   try {
@@ -27535,7 +27621,7 @@ function gsTagebuchAlle() {
         var em = _GS_TB_EMOJI[e.action] || '📝';
         out.push({ id: 'pd:' + p.id + ':' + e.ts, ts: e.ts, datum: _gsKalTag(e.ts), text: e.title || (em + ' Eintrag'), note: e.note || '', emoji: em,
           cat: e.action || 'note', plant: p.name || '', pflanze_id: p.id, photo: e.photo || null, weather: '',
-          date: new Date(e.ts).toLocaleDateString('de-CH'), herkunft: 'pflanze', quelle: e.source === 'quick_done' ? 'regel' : 'hand' });
+          date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: e.source === 'quick_done' ? 'regel' : 'hand' });
       });
     });
   } catch (_) {}
@@ -27546,7 +27632,7 @@ function gsTagebuchAlle() {
       var em = _GS_CLOUD_TB_EMOJI[d.entry_type] || '📝';
       out.push({ id: 'cd:' + d.id, ts: d.created_at, datum: _gsKalTag(d.created_at), text: d.title || d.text || (em + ' Eintrag'), note: d.title ? (d.text || '') : '', emoji: em,
         cat: d.entry_type || 'general', plant: pf ? (pf.name || '') : (d.species_lat || ''), pflanze_id: pf ? pf.id : null, photo: d.photo_url || null, weather: '',
-        date: new Date(d.created_at).toLocaleDateString('de-CH'), herkunft: 'cloud', quelle: 'hand' });
+        date: new Date(d.created_at).toLocaleDateString(gsLocale()), herkunft: 'cloud', quelle: 'hand' });
     });
   } catch (_) {}
   out.sort(function (a, b) { return (new Date(b.ts).getTime() || 0) - (new Date(a.ts).getTime() || 0); });
@@ -27970,7 +28056,7 @@ window.gsGiessZettelDrucken = function(){
     var html = '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>GreenScan Giess-Zettel</title><style>' +
       'body{font-family:system-ui,sans-serif;padding:18px;color:#222;} h1{font-size:20px;margin:0 0 4px;} .meta{color:#666;font-size:13px;margin-bottom:12px;} table{width:100%;border-collapse:collapse;font-size:13px;} th{text-align:left;border-bottom:2px solid #2e7d32;padding:6px 8px;} td{padding:6px 8px;border-bottom:1px solid #ddd;vertical-align:top;} .ok{width:22px;height:22px;border:1.5px solid #555;border-radius:4px;display:inline-block;} @media print{button{display:none;}}' +
       '</style></head><body><button onclick="window.print()" style="float:right;padding:8px 14px;">Drucken</button>' +
-      '<h1>🌿 Giess-Zettel</h1><div class="meta">' + esc(_gsZettelDatum(f.von) + ' – ' + _gsZettelDatum(f.bis)) + ' · erstellt ' + new Date().toLocaleDateString('de-CH') + ' · ' + zeilen.length + ' Einträge</div>' +
+      '<h1>🌿 Giess-Zettel</h1><div class="meta">' + esc(_gsZettelDatum(f.von) + ' – ' + _gsZettelDatum(f.bis)) + ' · erstellt ' + new Date().toLocaleDateString(gsLocale()) + ' · ' + zeilen.length + ' Einträge</div>' +
       '<table><thead><tr><th>Tag</th><th>Pflanze</th><th>Ort</th><th>Aufgabe</th><th>Erledigt</th></tr></thead><tbody>' +
       zeilen.map(function(z){ return '<tr><td>' + esc(_gsZettelWochentag(z.datum) + ' ' + _gsZettelDatum(z.datum)) + '</td><td>' + esc(z.pflanze) + '</td><td>' + esc(z.ort || '—') + '</td><td>' + esc(z.aufgabe + ' (alle ' + z.intervall + ' Tage)') + '</td><td><span class="ok"></span></td></tr>'; }).join('') +
       '</tbody></table></body></html>';
@@ -28194,7 +28280,7 @@ function gsRelDay(ts){
   if (diff <= 0) return 'Heute';
   if (diff === 1) return 'Gestern';
   if (diff < 7) return 'Diese Woche';
-  return new Date(ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short'});
+  return new Date(ts).toLocaleDateString(gsLocale(), {day:'2-digit', month:'short'});
 }
 
 // Eine Mitteilung abhaken/archivieren (Server: is_read; lokal: Watermark).
@@ -31805,7 +31891,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     var curModel = (typeof window._gsClaudeModel !== 'undefined') ? window._gsClaudeModel : '(unbekannt)';
     var diagLine = '<div style="margin-top:10px;padding:8px 10px;background:rgba(0,0,0,.04);border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--muted);font-family:monospace;text-align:left;max-width:300px;margin-left:auto;margin-right:auto;">'+
       '<div><b>Modell:</b> '+escHtml(curModel)+'</div>'+
-      '<div><b>Zeit:</b> '+new Date().toLocaleTimeString('de-CH')+'</div>'+
+      '<div><b>Zeit:</b> '+new Date().toLocaleTimeString(gsLocale())+'</div>'+
       '</div>';
     // v23.65: Professionelles Fail-Screen mit hero API-Key-CTA bei Key-Fehler
     // v30.92: auch hier rollenbewusst — der frühere Einzel-Knopf "Jetzt API-Key einrichten"
@@ -34610,7 +34696,7 @@ function openScanHistoryDetail(idx) {
         || (s.lat||'').toLowerCase()  === (e.latin||'').toLowerCase();
   }) : null;
   var dt = new Date(e.ts || Date.now());
-  var dtStr = dt.toLocaleDateString('de-CH',{day:'2-digit',month:'long',year:'numeric'}) + ' · ' + dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+  var dtStr = dt.toLocaleDateString(gsLocale(),{day:'2-digit',month:'long',year:'numeric'}) + ' · ' + dt.toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'});
   var confCol = e.conf>=80 ? 'var(--c-success)' : e.conf>=55 ? 'var(--c-warn)' : 'var(--c-danger)';
   var toxLabel = e.tox>=3 ? _t('tox_strong_short','☠️ Stark giftig') : e.tox===2 ? _t('tox_mid_short','⚠️ Giftig') : e.tox===1 ? _t('tox_light','🟡 Leicht giftig') : '';
   var ctx = e.context || {};
@@ -35282,7 +35368,7 @@ function openDetail(id){
       var fit = gsLuxFitScore(lastLux, lightRange);
       if (fit) {
         fitHtml = '<div style="margin-top:6px;padding:7px 10px;background:' + fit.color + '22;border-left:3px solid ' + fit.color + ';border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--text);">' +
-          '<b style="color:' + fit.color + ';">' + fit.icon + ' ' + fit.label + '</b> · ' + _t('light_last_measure','Deine letzte Messung:') + ' ' + lastLux.toLocaleString('de-CH') + ' lx' +
+          '<b style="color:' + fit.color + ';">' + fit.icon + ' ' + fit.label + '</b> · ' + _t('light_last_measure','Deine letzte Messung:') + ' ' + lastLux.toLocaleString(gsLocale()) + ' lx' +
         '</div>';
       }
     }
@@ -35576,7 +35662,7 @@ function gsFavsRenderOutdoor(){
         var info = (typeof getPlantInfo === 'function') ? getPlantInfo(p.name) : null;
         var emoji = (info && info.emoji) ? info.emoji : '🌱';
         var dStr = '';
-        try { if (p.date) dStr = new Date(p.date).toLocaleDateString('de-CH'); } catch(_){}
+        try { if (p.date) dStr = new Date(p.date).toLocaleDateString(gsLocale()); } catch(_){}
         // v32.47: die dringendste Pflege-Aufgabe der Pflanzung — dieselbe Rechnung wie in „Wohnung"
         var _u = (typeof gsGetMostUrgentTask === 'function') ? gsGetMostUrgentTask(p) : null;
         var _uTxt = (_u && typeof TASK_DEFS !== 'undefined' && TASK_DEFS[_u.key]) ? ' · ' + TASK_DEFS[_u.key].icon + ' ' + TASK_DEFS[_u.key].name + ' ' + (typeof getDueLabel === 'function' ? getDueLabel(_u.days).text : '') : '';
@@ -36412,7 +36498,7 @@ function openPlantDiary(plantId) {
 
   var entriesHtml = entries.length ? entries.map(function(e){
     var dt = new Date(e.ts || Date.now());
-    var dateStr = dt.toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'numeric'}) + ' · ' + dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+    var dateStr = dt.toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'numeric'}) + ' · ' + dt.toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'});
     var actionEmoji = {water:'💧', fertilize:'🌱', repot:'🪴', prune:'✂️', check:'👀', mist:'💨', dust:'🧹', rotate:'🔄', note:'📝', photo:'📸'}[e.action] || '📝';
     return '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:8px;">'+
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'+
@@ -36613,7 +36699,7 @@ function openTaskManager(plantId){
         '</label>' +
       '</div>' +
       '<select class="mp-select" onchange="setTaskInterval(\'' + plantId + '\',\'' + key + '\',this.value)" ' + (!active?'disabled':'') + ' style="font-size:var(--fs-sm);padding:7px 10px;">' + opts + '</select>' +
-      (task.lastDone ? '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:5px;">' + _t('tm_last','Zuletzt:') + ' ' + new Date(task.lastDone).toLocaleDateString('de-CH') + '</div>' : '') +
+      (task.lastDone ? '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:5px;">' + _t('tm_last','Zuletzt:') + ' ' + new Date(task.lastDone).toLocaleDateString(gsLocale()) + '</div>' : '') +
       '<button style="margin-top:7px;padding:7px;width:100%;border:1.5px solid var(--g-light);border-radius:var(--r-sm);background:transparent;font-size:var(--fs-sm);font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;" onclick="doneTask(\'' + plantId + '\',\'' + key + '\');document.getElementById(\x27modal-plant-detail\x27).querySelector(\x27.mbody\x27).innerHTML=\x27\';">' + _t('btn_done_now','✓ Jetzt erledigt') + '</button>' +
     '</div>';
   });
@@ -37036,7 +37122,7 @@ function gsBuildMyPlantLuxMatchHtml(lux) {
     var fit = gsLuxFitScore(lux, resolved.range);
     var emoji = resolved.species && resolved.species.emoji ? resolved.species.emoji : '🪴';
     var rng = resolved.range;
-    var rngStr = rng.min.toLocaleString('de-CH') + '–' + rng.max.toLocaleString('de-CH') + ' lx';
+    var rngStr = rng.min.toLocaleString(gsLocale()) + '–' + rng.max.toLocaleString(gsLocale()) + ' lx';
     return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--border);">' +
       '<span style="font-size:var(--fs-xl);">' + emoji + '</span>' +
       '<div style="flex:1;min-width:0;">' +
@@ -37061,7 +37147,7 @@ function displayLuxResult(lux, warnText) {
   if (!result) return;
   
   result.style.display = 'block';
-  if (valEl) valEl.textContent = lux.toLocaleString('de-CH');
+  if (valEl) valEl.textContent = lux.toLocaleString(gsLocale());
   
   var cat, bg, pc;
   if (lux < 100) { cat = '🌑 Dunkel'; bg = '#e3f2fd'; pc = '#1565c0'; }
@@ -37232,7 +37318,7 @@ function gsLuxCalibrate() {
 
   // Befülle das Modal
   var curEl = document.getElementById('lux-calib-current');
-  if (curEl) curEl.textContent = currentLux.toLocaleString('de-CH') + ' Lux';
+  if (curEl) curEl.textContent = currentLux.toLocaleString(gsLocale()) + ' Lux';
 
   // Sonnenstand-Schätzung einblenden, wenn GPS vorhanden
   var sunBox = document.getElementById('lux-calib-sun');
@@ -37246,7 +37332,7 @@ function gsLuxCalibrate() {
           sunBox.innerHTML =
             '<div style="font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">☀️ Astronomische Referenz</div>' +
             '<div style="font-size:var(--fs-sm);color:var(--text);line-height:1.5;">' +
-              'Bei klarem Himmel draussen erwartete Helligkeit: <b>' + sun.lux.toLocaleString('de-CH') + ' Lux</b>' +
+              'Bei klarem Himmel draussen erwartete Helligkeit: <b>' + sun.lux.toLocaleString(gsLocale()) + ' Lux</b>' +
               ' <span style="color:var(--muted);">(Sonnenhöhe ' + sun.altitude.toFixed(1) + '°)</span>' +
             '</div>' +
             '<button onclick="gsLuxAddCalibPoint(' + rawLux + ',' + sun.lux + ',\'sun\')\" style="margin-top:6px;width:100%;padding:9px;background:linear-gradient(135deg,#fbc02d,#f57f17);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">Mit Sonnen-Referenz kalibrieren</button>';
@@ -37272,7 +37358,7 @@ function gsLuxCalibrate() {
         var src = p.source === 'sun' ? '☀️' : (p.source === 'manual' ? '✋' : '📱');
         return '<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:5px;font-size:var(--fs-sm);">' +
           '<span>' + src + '</span>' +
-          '<span style="flex:1;">' + Math.round(p.raw).toLocaleString('de-CH') + ' → <b>' + p.target.toLocaleString('de-CH') + ' Lux</b></span>' +
+          '<span style="flex:1;">' + Math.round(p.raw).toLocaleString(gsLocale()) + ' → <b>' + p.target.toLocaleString(gsLocale()) + ' Lux</b></span>' +
           '<button onclick="gsLuxRemoveCalibPoint(' + idx + ')" aria-label="Löschen" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:var(--fs-md);padding:0;">×</button>' +
         '</div>';
       }).join('');
@@ -37330,7 +37416,7 @@ function gsLuxAddCalibPoint(rawLux, targetLux, source, label) {
   // Wendet neue Kalibrierung auf aktuellen Wert an und schliesst Modal
   var valEl = document.getElementById('lux-value');
   var newLux = gsLuxApplyCalibration(rawLux);
-  if (valEl) valEl.textContent = newLux.toLocaleString('de-CH');
+  if (valEl) valEl.textContent = newLux.toLocaleString(gsLocale());
   // Refresh Modal-Liste
   gsLuxCalibrate();
 }
@@ -37724,7 +37810,7 @@ function gsLightPro10Render() {
     if (hintEl)  hintEl.textContent  = stp.hint;
     if (inputEl) {
       var last = _p10.points[_p10.step - 1];
-      var lastTxt = last ? ('Gemessen: ' + last.lux.toLocaleString('de-CH') + ' Lux · ') : '';
+      var lastTxt = last ? ('Gemessen: ' + last.lux.toLocaleString(gsLocale()) + ' Lux · ') : '';
       inputEl.innerHTML =
         '<button onclick="gsLightPro10Measure()" style="width:100%;padding:14px;background:linear-gradient(135deg,#6a1b9a,#283593);border:none;border-radius:var(--r-md);color:#fff;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-3);">📸 Messen (' + _p10.step + '/10)</button>' +
         '<div id="p10-measure-status" style="margin-top:8px;font-size:var(--fs-sm);color:var(--muted);text-align:center;">' + lastTxt + 'Positioniere das Gerät und drücke Messen</div>';
@@ -37753,7 +37839,7 @@ function gsLightPro10Render() {
           return '<div style="display:flex;align-items:center;gap:7px;padding:5px 9px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:4px;font-size:var(--fs-sm);">' +
             '<span style="font-size:var(--fs-lg);">'+s.emoji+'</span>' +
             '<span style="flex:1;color:var(--text);">'+s.name+'</span>' +
-            '<b style="color:var(--g-dark);">'+(p.lux||0).toLocaleString('de-CH')+' lx</b>' +
+            '<b style="color:var(--g-dark);">'+(p.lux||0).toLocaleString(gsLocale())+' lx</b>' +
           '</div>';
         }).join('');
     }
@@ -37845,7 +37931,7 @@ async function gsLightPro10Measure() {
     _p10.points[_p10.step - 1] = { pos: P10_STEPS[_p10.step - 1].key, lux: Math.round(calLux), raw: rawLux, ts: Date.now() };
     try { stream.getTracks().forEach(function(t){t.stop();}); } catch(e){}
     lightStream = null;
-    if (statusEl) statusEl.innerHTML = '<b style="color:var(--g-main);">✓ Gemessen: ' + calLux.toLocaleString('de-CH') + ' Lux</b>';
+    if (statusEl) statusEl.innerHTML = '<b style="color:var(--g-main);">✓ Gemessen: ' + calLux.toLocaleString(gsLocale()) + ' Lux</b>';
     if (typeof gsHaptic === 'function') gsHaptic('tick');
     gsLightPro10Render();
   } catch(err) {
@@ -37901,7 +37987,7 @@ function gsLightPro10ComputeResult() {
   var resEl = document.getElementById('p10-result');
   if (!resEl) return;
   resEl.style.display = 'block';
-  var fmt = function(n){ return n.toLocaleString('de-CH'); };
+  var fmt = function(n){ return n.toLocaleString(gsLocale()); };
   resEl.innerHTML =
     '<div style="background:linear-gradient(135deg,rgba(106,27,154,.1),rgba(40,53,147,.04));border:1.5px solid rgba(106,27,154,.3);border-radius:var(--r-lg);padding:14px;">'
     + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">'
@@ -39325,7 +39411,7 @@ function renderCemetery() {
         '<span style="font-size:var(--fs-3xl);">' + (p.emoji || '🌿') + '</span>' +
         '<div style="flex:1;">' +
           '<div class="cemetery-name">' + escHtml(p.name) + ' ' + rarityBadge + '</div>' +
-          '<div class="cemetery-date">✝ ' + (p.diedAt ? new Date(p.diedAt).toLocaleDateString('de-CH') : _t('cemetery_unknown_date','Unbekannt')) + (p.nick ? ' · ' + escHtml(p.nick) : '') + '</div>' +
+          '<div class="cemetery-date">✝ ' + (p.diedAt ? new Date(p.diedAt).toLocaleDateString(gsLocale()) : _t('cemetery_unknown_date','Unbekannt')) + (p.nick ? ' · ' + escHtml(p.nick) : '') + '</div>' +
           '<div class="cemetery-cause">' + escHtml(p.deathCause || _t('cemetery_unknown_cause','Unbekannte Ursache')) + '</div>' +
         '</div>' +
       '</div>' +
@@ -42134,7 +42220,7 @@ async function gsRenderRegionalMushrooms(zone) {
 
     var reg = await gsLoadMushRegistry();
     // v29.70 i18n: kurze Monatsnamen in der aktiven Sprache
-    var _mloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[(window.gsI18n && gsI18n.getLang && gsI18n.getLang()) || 'de'] || 'de-CH';
+    var _mloc = gsLocale();
     var monthNamesDe = (function(){ var a=[]; for (var _i=0;_i<12;_i++){ try { a.push(new Date(2001,_i,1).toLocaleString(_mloc,{month:'short'})); } catch(_){ a.push(['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][_i]); } } return a; })();
     var curIdx = new Date().getMonth();
     var EDI = { speisepilz:{e:'🍽️',l:'Speisepilz'}, speisepilz_jung:{e:'🍽️',l:'Speisepilz (jung)'}, bedingt_essbar:{e:'⚠️',l:'bedingt essbar'} };
@@ -44242,7 +44328,7 @@ async function openComments(postId) {
       // pro Kommentar einzeln, sonst waeren es bei 30 Kommentaren 30 Anfragen.
       var _rx = await _gsLoadCommentReactions(res.data.map(function(c){ return c.id; }).filter(Boolean));
       list.innerHTML = res.data.map(function(c) {
-        var dt = new Date(c.created_at).toLocaleDateString('de-CH',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        var dt = new Date(c.created_at).toLocaleDateString(gsLocale(),{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
         return '<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">' +
           '<span ' + (c.user_id ? 'onclick="event.stopPropagation();if(typeof gsOpenProfile===\'function\')gsOpenProfile(\'' + c.user_id + '\')" role="button" tabindex="0" title="Profil ansehen" style="cursor:pointer;" ' : '') + 'style="font-size:var(--fs-2xl);flex-shrink:0;">'+escHtml(c.author_avatar||'🌿')+'</span>' + /* v29.09 SECURITY: Stored-XSS author_avatar (P1) */
           '<div style="flex:1;min-width:0;">' +
@@ -45004,7 +45090,7 @@ function _gsRenderRealChat(rows, scrollDown){
   var me = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
   msgs.innerHTML = rows.map(function(m){
     var isMe = (m.sender_id === me);
-    var t = new Date(m.created_at).toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+    var t = new Date(m.created_at).toLocaleTimeString(gsLocale(), {hour:'2-digit', minute:'2-digit'});
     return '<div class="mkt-chat-msg ' + (isMe?'me':'them') + '">' +
       escHtml(m.message) +
       '<div class="mkt-chat-msg-time">' + t + '</div>' +
@@ -45202,7 +45288,7 @@ function renderChatMessages(lid) {
   const myName = socialUserName || 'Ich';
   msgs.innerHTML = chat.map(msg => {
     const isMe = msg.isMe;
-    const timeStr = new Date(msg.ts).toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+    const timeStr = new Date(msg.ts).toLocaleTimeString(gsLocale(), {hour:'2-digit', minute:'2-digit'});
     return '<div class="mkt-chat-msg ' + (isMe?'me':'them') + '">' +
       (!isMe ? '<div class="mkt-chat-msg-name">' + escHtml(msg.author||'') + '</div>' : '') +
       escHtml(msg.text) +
@@ -50955,7 +51041,7 @@ function gsRenderWissenHero() {
              Zeile. Die Chips selbst bleiben einzeilig (nowrap, unten). */
             + '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">'+season.ico+' '+season.n+'</span>'
             + (moonStr ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌙 '+moonStr+'</span>' : '')
-            + (dbTotal ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌿 '+dbTotal.toLocaleString('de-CH')+' Arten</span>' : '')
+            + (dbTotal ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌿 '+dbTotal.toLocaleString(gsLocale())+' Arten</span>' : '')
           + '</div>'
         + '</div>'
         // Progress ring
@@ -53568,7 +53654,7 @@ function initSettingsScreen() {
   // v26.65: Dynamische Arten-Zahl auch im About-Card-Grid + Settings-Header
   try {
     var artenCount = (DB && DB.length) ? DB.length : 0;
-    var artenStr = artenCount ? artenCount.toLocaleString('de-CH') : '–';
+    var artenStr = artenCount ? artenCount.toLocaleString(gsLocale()) : '–';
     var dbTotalEl = document.getElementById('settings-db-total');
     if (dbTotalEl) dbTotalEl.textContent = artenStr;
     ['settings-arten-count','about-arten-count','modal-about-arten','search-header-count'].forEach(function(id){
@@ -53581,7 +53667,7 @@ function initSettingsScreen() {
   const verEl = document.getElementById('about-version');
   if (verEl) verEl.textContent = 'Version ' + GS_VERSION + ' · ' + new Date().getFullYear();
   const vEl2 = document.getElementById('settings-version');
-  if (vEl2) vEl2.textContent = GS_VERSION + ' · ' + new Date().toLocaleDateString('de-CH');
+  if (vEl2) vEl2.textContent = GS_VERSION + ' · ' + new Date().toLocaleDateString(gsLocale());
 
   // v26.65: AI-Quota-Row sichtbar machen + befüllen (Free-User sehen X/15, Paid sehen "Unlimited")
   try {
@@ -53688,9 +53774,9 @@ function importUserData() {
           // v28.67 HL#2: bare confirm() → gsConfirmModal (iOS-PWA-safe). Tolerante Helper-API.
           var _impOk;
           if (typeof gsConfirmModal === 'function') {
-            _impOk = await gsConfirmModal({ title: 'Backup importieren?', message: 'Backup vom ' + new Date(data.exportDate).toLocaleDateString('de-CH') + ' importieren? Alle aktuellen Daten werden überschrieben!', ok: '📥 Importieren', cancel: 'Abbrechen', kind: 'danger' });
+            _impOk = await gsConfirmModal({ title: 'Backup importieren?', message: 'Backup vom ' + new Date(data.exportDate).toLocaleDateString(gsLocale()) + ' importieren? Alle aktuellen Daten werden überschrieben!', ok: '📥 Importieren', cancel: 'Abbrechen', kind: 'danger' });
           } else {
-            _impOk = confirm('Backup vom ' + new Date(data.exportDate).toLocaleDateString('de-CH') + ' importieren?\n\nAlle aktuellen Daten werden überschrieben!');
+            _impOk = confirm('Backup vom ' + new Date(data.exportDate).toLocaleDateString(gsLocale()) + ' importieren?\n\nAlle aktuellen Daten werden überschrieben!');
           }
           if (_impOk) {
             var _erg = _gsBackupEinspielen(data);   // v32.51: ein Weg, mit Rueckmeldung
@@ -54008,7 +54094,7 @@ function _gsMenuSub(item){
   try {
     if (item && item.cat && typeof DB !== 'undefined' && Array.isArray(DB)) {
       var n = 0; for (var i = 0; i < DB.length; i++) if (DB[i] && DB[i].cat === item.cat) n++;
-      if (n) return n.toLocaleString('de-CH') + ' Arten';
+      if (n) return n.toLocaleString(gsLocale()) + ' Arten';
     }
   } catch(_){}
   return (item && item.sub) || '';
@@ -54090,6 +54176,8 @@ const MENU_ITEMS = [
   {label:'🔒 Premium freischalten', sub:'TWINT · Karte · IBAN', action:"if(typeof gsShowAboScreen==='function')gsShowAboScreen();else menuNav('settings')", tags:['premium','abo','abonnement','stripe','twint','sepa','iban','karte','bezahlen','pro','plus']},
   {label:'📊 Mein Profil', sub:'Stats · Streak · Punkte', action:"if(typeof openUserProfile==='function')openUserProfile();else menuNav('settings')", tags:['profil','stats','punkte','streak','level','rang','achievement']},
 ];
+// v32.78 (Audit E1): der Übersetzungs-Sammler bekommt die Labels (MENU_ITEMS ist Skript-Bereich, nicht window)
+window._gsMenuItemsFuerI18n = function(){ return MENU_ITEMS.map(function(i){ return { label: i.label.substring(i.label.indexOf(' ')+1), sub: i.sub }; }); };
 
 function searchMenu(query) {
   const resultsEl = document.getElementById('menu-search-results');
@@ -54107,11 +54195,14 @@ function searchMenu(query) {
   normalContent.style.display = 'none';
   resultsEl.style.display = 'block';
   
+  // v32.78 (Audit E1): Labels per Phrase übersetzt (gsI18n.tText); gesucht wird in beiden Fassungen
+  const _tx = (window.gsI18n && typeof gsI18n.tText === 'function') ? gsI18n.tText : function(x){ return x; };
   // Score each menu item
   const scored = MENU_ITEMS.map(item => {
     var score = 0;
-    const label = item.label.toLowerCase();
-    const sub = item.sub.toLowerCase();
+    const _labelOhneEmoji = item.label.substring(item.label.indexOf(' ')+1);
+    const label = (item.label + ' ' + _tx(_labelOhneEmoji)).toLowerCase();
+    const sub = (item.sub + ' ' + _tx(item.sub)).toLowerCase();
     const tags = item.tags || [];
     
     if (label.includes(q)) score += 10;
@@ -54139,8 +54230,8 @@ function searchMenu(query) {
   scored.slice(0, 6).forEach(({item}) => {
     html += '<div class="menu-search-result" onclick="' + escAttr(item.action) + ';clearMenuSearch()">' +
       '<span style="font-size:var(--fs-xl);" aria-hidden="true">' + item.label.split(' ')[0] + '</span>' +   // v32.70 (Audit E8): Emoji ist Schmuck, kein Text
-      '<div><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + item.label.substring(item.label.indexOf(' ')+1) + '</div>' +
-      '<div style="font-size:var(--fs-sm);color:var(--muted);">' + _gsMenuSub(item) + '</div></div></div>';
+      '<div><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + escHtml(_tx(item.label.substring(item.label.indexOf(' ')+1))) + '</div>' +
+      '<div style="font-size:var(--fs-sm);color:var(--muted);">' + (item.cat ? _gsMenuSub(item) : escHtml(_tx(_gsMenuSub(item)))) + '</div></div></div>';
   });
   
   // DB results
@@ -54712,7 +54803,7 @@ function _gsBuildFindPopup(catMeta, name, note, dateObj, photoUrl){
     '<b style="color:var(--g-dark);">' + catMeta.emoji + ' ' + escHtml(name || '') + '</b>' +
     '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:var(--r-sm);font-size:var(--fs-xs);background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
     (note ? '<br><span style="color:#666;font-size:var(--fs-sm);">' + escHtml(note) + '</span>' : '') +
-    '<br><span style="color:#999;font-size:var(--fs-sm);">' + (dateObj || new Date()).toLocaleDateString('de-CH') + '</span>' +
+    '<br><span style="color:#999;font-size:var(--fs-sm);">' + (dateObj || new Date()).toLocaleDateString(gsLocale()) + '</span>' +
   '</div>';
 }
 
@@ -54769,7 +54860,7 @@ async function gsLoadMarkersFromCloud() {
         '<b style="color:var(--g-dark);">' + catMeta.emoji + ' ' + escHtml(row.species_name || '') + '</b>' +
         '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:var(--r-sm);font-size:var(--fs-xs);background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
         (row.note ? '<br><span style="color:#666;font-size:var(--fs-sm);">' + escHtml(row.note) + '</span>' : '') +
-        '<br><span style="color:#999;font-size:var(--fs-sm);">☁️ ' + d.toLocaleDateString('de-CH') + (row.is_private===false ? ' · 🌍 Community' : '') + '</span>' +
+        '<br><span style="color:#999;font-size:var(--fs-sm);">☁️ ' + d.toLocaleDateString(gsLocale()) + (row.is_private===false ? ' · 🌍 Community' : '') + '</span>' +
         '</div>'
       );
       try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers.push({ cat: markerCat, layer: marker, cloud_id: row.id }); } catch(_){}
@@ -55026,7 +55117,7 @@ async function gsOpenMyFinds(){
         thumb +
         '<div style="flex:1;min-width:0;cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')">' +
           '<div style="font-size:var(--fs-md);font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(f.species_name||'Unbenannt') + localBadge + '</div>' +
-          '<div style="font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + d.toLocaleDateString('de-CH') + (f.note ? ' · ' + escHtml(String(f.note).slice(0,40)) : '') + '</div>' +
+          '<div style="font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + d.toLocaleDateString(gsLocale()) + (f.note ? ' · ' + escHtml(String(f.note).slice(0,40)) : '') + '</div>' +
         '</div>' +
         photoBtn +
         '<button onclick="gsAddFindToCollection(' + i + ')" title="Zu Sammlung hinzufügen" style="padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface2);font-size:var(--fs-md);cursor:pointer;-webkit-tap-highlight-color:transparent;">📁</button>' +
@@ -55831,8 +55922,8 @@ function gsTrackOpenList() {
   var rows = filtered.map(function(e){
     var t = e.t, s = e.s, realIdx = e.idx;
     var distStr = s.distM >= 1000 ? (s.distM/1000).toFixed(2) + ' km' : Math.round(s.distM) + ' m';
-    var dateStr = new Date(t.ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'numeric'});
-    var timeStr = new Date(t.ts).toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+    var dateStr = new Date(t.ts).toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'numeric'});
+    var timeStr = new Date(t.ts).toLocaleTimeString(gsLocale(), {hour:'2-digit', minute:'2-digit'});
     var dur = Math.max(0, Math.round(s.durMin));
     var avgSpeed = s.avgKmh > 0 ? s.avgKmh.toFixed(1) : '-';
     return '<div style="background:var(--card);border-radius:var(--r-md);padding:11px 13px;margin-bottom:8px;border-left:3px solid var(--g-main);">' +
@@ -55886,7 +55977,7 @@ function gsTrackOpenList() {
       });
     });
     var fmtPace = function(p){ var m=Math.floor(p), s=Math.round((p-m)*60); return m+':'+String(s).padStart(2,'0'); };
-    var fmtDate = function(ts){ return new Date(ts).toLocaleDateString('de-CH', {day:'2-digit',month:'short'}); };
+    var fmtDate = function(ts){ return new Date(ts).toLocaleDateString(gsLocale(), {day:'2-digit',month:'short'}); };
     if (maxDistTrack.s.distM >= 100 || maxGainTrack.s.gainM >= 10 || bestSplit) {
       prCard = '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:11px 13px;margin-bottom:12px;">' +
         '<div style="font-size:var(--fs-sm);color:var(--muted);font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">🏆 Persönliche Bestleistungen</div>' +
@@ -56635,8 +56726,8 @@ function gsTrackOpenDetail(idx) {
     return;
   }
   var s = gsTrackComputeStats(track);
-  var dateStr = new Date(track.ts).toLocaleDateString('de-CH', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-  var timeStr = new Date(track.ts).toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+  var dateStr = new Date(track.ts).toLocaleDateString(gsLocale(), {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  var timeStr = new Date(track.ts).toLocaleTimeString(gsLocale(), {hour:'2-digit', minute:'2-digit'});
   var distStr = s.distM >= 1000 ? (s.distM/1000).toFixed(2) + ' km' : Math.round(s.distM) + ' m';
   var fmtDur = function(min){
     var h = Math.floor(min/60), m = Math.round(min%60);
@@ -59234,7 +59325,7 @@ function saveGardenFromAI(planText) {
   const l = parseFloat(document.getElementById('gs-length')?.value) || null;
   const newGarden = {
     id: 'gard_ai_' + Date.now(),
-    name: 'KI-Garten ' + new Date().toLocaleDateString('de-CH'),
+    name: 'KI-Garten ' + new Date().toLocaleDateString(gsLocale()),
     location: '',
     size: w && l && w*l > 100 ? 'large' : w && l && w*l > 20 ? 'medium' : 'small',
     light: 'part_sun', soil: 'loam',
@@ -59335,7 +59426,7 @@ function openGardenAI() {
       var txt = document.getElementById('pp-lux-text');
       if (txt) {
         var cat = lastLux < 500 ? 'Schatten' : lastLux < 5000 ? 'Halbschatten' : 'Vollsonne';
-        txt.innerHTML = '📏 Letzte Messung: <b>' + Math.round(lastLux).toLocaleString('de-CH') + ' lx</b> (' + cat + ')';
+        txt.innerHTML = '📏 Letzte Messung: <b>' + Math.round(lastLux).toLocaleString(gsLocale()) + ' lx</b> (' + cat + ')';
         var lightSel = document.getElementById('pp-light');
         if (lightSel) lightSel.value = lastLux < 500 ? 'shade' : lastLux < 5000 ? 'part_sun' : 'full_sun';
       }
@@ -60363,7 +60454,7 @@ window.gsLuxApplyToPlanner = function(luxVal){
     setTimeout(function(){
       try { if (typeof gsPPgoStep === 'function') gsPPgoStep(3); } catch(_){}
       try { if (typeof gsPPloadLastLux === 'function') gsPPloadLastLux(); } catch(_){}
-      if (typeof showProfileToast === 'function' && luxVal) showProfileToast('☀️ Lichtmessung übernommen: ' + Math.round(luxVal).toLocaleString('de-CH') + ' lx');
+      if (typeof showProfileToast === 'function' && luxVal) showProfileToast('☀️ Lichtmessung übernommen: ' + Math.round(luxVal).toLocaleString(gsLocale()) + ' lx');
     }, 220);
   }, 220);
 };
@@ -60439,10 +60530,10 @@ async function gsPPmeasureLuxInline() {
 
     // UI Update
     var cat = lux < 500 ? 'Schatten' : lux < 5000 ? 'Halbschatten' : 'Vollsonne';
-    if (txt) txt.innerHTML = '✅ Gemessen: <b>' + lux.toLocaleString('de-CH') + ' lx</b> (' + cat + ')';
+    if (txt) txt.innerHTML = '✅ Gemessen: <b>' + lux.toLocaleString(gsLocale()) + ' lx</b> (' + cat + ')';
     var lightSel = document.getElementById('pp-light');
     if (lightSel) lightSel.value = lux < 500 ? 'shade' : lux < 5000 ? 'part_sun' : 'full_sun';
-    if (typeof showProfileToast === 'function') showProfileToast('☀️ Lichtmessung übernommen: ' + lux.toLocaleString('de-CH') + ' lx');
+    if (typeof showProfileToast === 'function') showProfileToast('☀️ Lichtmessung übernommen: ' + lux.toLocaleString(gsLocale()) + ' lx');
   } catch(e) {
     try { if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); } catch(_){}
     if (txt) txt.innerHTML = '❌ Messung fehlgeschlagen: ' + (e.message || 'Kamera-Zugriff verweigert');
@@ -60485,7 +60576,7 @@ function gsPPloadLastLux() {
         else if (ageMin < 1440) ageStr = ' · vor ' + Math.round(ageMin / 60) + ' h';
         else ageStr = ' · vor ' + Math.round(ageMin / 1440) + ' Tagen';
       }
-      txt.innerHTML = '📏 ' + (source || 'Letzte Messung') + ': <b>' + Math.round(lux).toLocaleString('de-CH') + ' lx</b> (' + cat + ')' + confidence + ageStr;
+      txt.innerHTML = '📏 ' + (source || 'Letzte Messung') + ': <b>' + Math.round(lux).toLocaleString(gsLocale()) + ' lx</b> (' + cat + ')' + confidence + ageStr;
       var lightSel = document.getElementById('pp-light');
       if (lightSel) lightSel.value = lux < 500 ? 'shade' : lux < 5000 ? 'part_sun' : 'full_sun';
       // v24.24: Lux-Wert als data-Attribut für späteren Zugriff im Prompt (numerisch)
@@ -60888,7 +60979,7 @@ async function gsPPrun(opts) {
     'Erstelle einen KOMPAKTEN Bepflanzungsplan für:\n' +
     '📐 ' + data.area + ' m² (' + data.width + '×' + data.length + 'm, Form: ' + data.shape + ')\n' +
     '🌱 Boden: ' + soilLabel[data.soil.type] + ' · ' + moistLabel[data.soil.moisture] + ' · pH ' + phLabel[data.soil.ph] + '\n' +
-    '☀️ Licht: ' + lightLabel[data.light] + (data.luxNum ? ' (gemessen: ' + data.luxNum.toLocaleString('de-CH') + ' lx)' : '') + '\n' +
+    '☀️ Licht: ' + lightLabel[data.light] + (data.luxNum ? ' (gemessen: ' + data.luxNum.toLocaleString(gsLocale()) + ' lx)' : '') + '\n' +
     '📅 ' + seasonLabel[data.season] + ' · 💪 ' + levelLabel[data.level] +
     (data.greenhouse ? ' · 🪟 Gewächshaus' : '') +
     (data.location ? ' · 📍 ' + data.location : '') +
@@ -60919,7 +61010,7 @@ async function gsPPrun(opts) {
     '📐 FLÄCHE: ' + data.area + ' m² (' + data.width + '×' + data.length + 'm)\n' +
     '🔷 FORM (PFLICHT BEACHTEN bei x/y/w/h-Layout): ' + data.shape + '\n' +
     '🌱 BODEN: ' + soilLabel[data.soil.type] + ', ' + moistLabel[data.soil.moisture] + ', pH ' + phLabel[data.soil.ph] + '\n' +
-    '☀️ LICHT: ' + lightLabel[data.light] + (data.luxNum ? ' — GEMESSEN ' + data.luxNum.toLocaleString('de-CH') + ' lx (sehr präzise! nutze diesen Wert für Sortenwahl, nicht nur die Kategorie)' : ' (geschätzt, keine Messung vorhanden)') + '\n' +
+    '☀️ LICHT: ' + lightLabel[data.light] + (data.luxNum ? ' — GEMESSEN ' + data.luxNum.toLocaleString(gsLocale()) + ' lx (sehr präzise! nutze diesen Wert für Sortenwahl, nicht nur die Kategorie)' : ' (geschätzt, keine Messung vorhanden)') + '\n' +
     '🌤️ WETTER: ' + weatherSum + '\n' +
     '🪟 GEWÄCHSHAUS: ' + (data.greenhouse ? 'JA — wähle Gewächshaus-taugliche Sorten, verlängere Saison' : 'Nein, Freiland') + '\n' +
     (data.gartenArt ? '🏡 ART DES GARTENS: ' + data.gartenArt + ' — Sortenwahl und Pflanztiefe darauf abstimmen (Hochbeet erwärmt sich früher, Balkon braucht Topfkultur, unter Glas gelten andere Aussaatfenster)\n' : '') +
@@ -65430,7 +65521,7 @@ async function gsPPsavePlan() {
   var planEntry = {
     id: planId,
     created: new Date().toISOString(),
-    title: 'Plan vom ' + new Date().toLocaleDateString('de-CH') + ' · ' + planTitle.slice(0,40),
+    title: 'Plan vom ' + new Date().toLocaleDateString(gsLocale()) + ' · ' + planTitle.slice(0,40),
     plan: _gsPP.plan,
     data: (window._gsPP && window._gsPP.data) || null
   };
@@ -65612,7 +65703,7 @@ async function gsRunGardenScan(photos, metadata, opts) {
     photos: (photos || []).filter(Boolean),
     metadata: metadata || {},
     save_as_plan: opts.save_as_plan !== false,   // default: speichern
-    plan_title: opts.plan_title || ('KI-Plan ' + new Date().toLocaleDateString('de-CH'))
+    plan_title: opts.plan_title || ('KI-Plan ' + new Date().toLocaleDateString(gsLocale()))
   };
   if (!body.photos.length) {
     return { ok: false, error: { code: 'no_photos', message: 'Mindestens 1 Foto nötig.' } };
@@ -66264,7 +66355,7 @@ async function gsTokenCostLoad7d() {
     dates.forEach(function(d){
       var c = perDay[d].chf;
       var pct = Math.max(2, Math.round((c / maxCost) * 100));
-      var dateLbl = new Date(d).toLocaleDateString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var dateLbl = new Date(d).toLocaleDateString(gsLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
       html += '<div style="margin-bottom:7px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;font-size:var(--fs-sm);color:var(--text);margin-bottom:3px;">' +
           '<span style="font-weight:700;">' + ed(dateLbl) + '</span>' +
@@ -68144,7 +68235,7 @@ function gsGardenScanExportPDF() {
     '@media print { body{padding:8px;} h1{page-break-after:avoid;} h2{page-break-after:avoid;} svg{max-width:100%;height:auto;page-break-inside:avoid;} }' +
     '</style></head><body>' +
     '<h1>🌱 GreenScan — KI-Garten-Plan</h1>' +
-    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString('de-CH') + ' · ' + (sa.size_m2?sa.size_m2+' m²':'') + (sa.shape?' · '+sa.shape:'') + (sa.light&&sa.light.level?' · '+sa.light.level:'') + (s.plan_id?' · ID: '+String(s.plan_id).slice(0,8):'') + '</div>' +
+    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString(gsLocale()) + ' · ' + (sa.size_m2?sa.size_m2+' m²':'') + (sa.shape?' · '+sa.shape:'') + (sa.light&&sa.light.level?' · '+sa.light.level:'') + (s.plan_id?' · ID: '+String(s.plan_id).slice(0,8):'') + '</div>' +
     (svgBlock ? '<h2>📐 Plan-Skizze</h2>' + svgBlock.replace(/onclick="[^"]*"/g, '') : '') +
     '<h2>🌿 Empfohlene Pflanzen (' + rp.length + ')</h2><ol>' + plantsList + '</ol>' +
     (calRows ? '<h2>📅 Monatskalender</h2><table>' + calRows + '</table>' : '') +
@@ -68857,7 +68948,7 @@ function gsBuildInsightsModal(data) {
   // DB-Stats (footer)
   var dbStatsBlock = '<div style="background:linear-gradient(135deg,#f5f5f5,#fafafa);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;font-size:var(--fs-sm);color:var(--muted);line-height:1.6;text-align:center;">' +
     '<strong style="color:var(--text);">📚 Knowledge-DB:</strong><br>' +
-    c.species.toLocaleString('de-CH') + ' Pflanzenarten · ' +
+    c.species.toLocaleString(gsLocale()) + ' Pflanzenarten · ' +
     c.pollinators + ' Bestäuber · ' +
     c.diseases + ' Krankheiten · ' +
     c.tasks + ' Saison-Tasks' +
@@ -69179,11 +69270,11 @@ function gsBuildPhotoTimelineContent() {
     var last = photos[bi];
     var dateFmt = function(ts) {
       if (!ts) return '?';
-      try { return new Date(ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'numeric'}); } catch(_) { return '?'; }
+      try { return new Date(ts).toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'numeric'}); } catch(_) { return '?'; }
     };
     var optsFor = function(sel) {
       return photos.map(function(ph, i){
-        var lbl = (ph.ts ? new Date(ph.ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'2-digit'}) : ('Foto ' + (i+1)));
+        var lbl = (ph.ts ? new Date(ph.ts).toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'2-digit'}) : ('Foto ' + (i+1)));
         return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + gsEscHtml(lbl) + '</option>';
       }).join('');
     };
@@ -69213,9 +69304,9 @@ function gsBuildPhotoTimelineContent() {
   } else {
     // Single + Slider
     var cur = photos[idx];
-    var ts = cur && cur.ts ? new Date(cur.ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'numeric'}) : '';
-    var labelLeft = photos[0] && photos[0].ts ? new Date(photos[0].ts).toLocaleDateString('de-CH', {month:'short', year:'2-digit'}) : '';
-    var labelRight = photos[photos.length-1] && photos[photos.length-1].ts ? new Date(photos[photos.length-1].ts).toLocaleDateString('de-CH', {month:'short', year:'2-digit'}) : 'jetzt';
+    var ts = cur && cur.ts ? new Date(cur.ts).toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'numeric'}) : '';
+    var labelLeft = photos[0] && photos[0].ts ? new Date(photos[0].ts).toLocaleDateString(gsLocale(), {month:'short', year:'2-digit'}) : '';
+    var labelRight = photos[photos.length-1] && photos[photos.length-1].ts ? new Date(photos[photos.length-1].ts).toLocaleDateString(gsLocale(), {month:'short', year:'2-digit'}) : 'jetzt';
     content =
       '<div style="background:#000;border-radius:var(--r-md);overflow:hidden;aspect-ratio:1;max-height:65vh;">' +
         '<img src="' + (cur ? cur.photo : '') + '" alt="Verlauf" style="width:100%;height:100%;object-fit:contain;display:block;background:#000;">' +
@@ -69404,7 +69495,7 @@ async function gsPhotoDiffLoadHistory(plantId) {
 }
 function _gsPhotoDiffHistoryHtml(rows) {
   if (!rows || !rows.length) return '';  // kein Verlauf → nichts anzeigen
-  var fmt = function(t){ try { return t ? new Date(t).toLocaleDateString('de-CH',{day:'2-digit',month:'short',year:'2-digit'}) : '?'; } catch(_){ return '?'; } };
+  var fmt = function(t){ try { return t ? new Date(t).toLocaleDateString(gsLocale(),{day:'2-digit',month:'short',year:'2-digit'}) : '?'; } catch(_){ return '?'; } };
   var items = rows.slice(0,10).map(function(row){
     var an = row.analysis || {};
     var gp = (typeof an.growth_pct === 'number' && isFinite(an.growth_pct)) ? Math.round(an.growth_pct) : null;
@@ -69450,8 +69541,8 @@ async function gsPhotoDiffAnalyze() {
     if (!imgA || !imgB) throw new Error('Fotos konnten nicht geladen werden.');
     var p = (typeof myPlants !== 'undefined') ? myPlants.find(function(x){ return x.id === s.plantId; }) : null;
     var plantName = (p && p.name) ? p.name : 'Pflanze';
-    var dA = pa.ts ? new Date(pa.ts).toLocaleDateString('de-CH') : '?';
-    var dB = pb.ts ? new Date(pb.ts).toLocaleDateString('de-CH') : '?';
+    var dA = pa.ts ? new Date(pa.ts).toLocaleDateString(gsLocale()) : '?';
+    var dB = pb.ts ? new Date(pb.ts).toLocaleDateString(gsLocale()) : '?';
     var days = (pa.ts && pb.ts) ? Math.max(0, Math.round((pb.ts - pa.ts) / 86400000)) : null;
     var prompt = 'Du bist ein erfahrener Pflanzen-Experte. Vergleiche zwei Fotos derselben Pflanze (' + plantName + '). ' +
       'Foto 1 (Vorher) aufgenommen am ' + dA + ', Foto 2 (Nachher) am ' + dB + (days != null ? ' (' + days + ' Tage später)' : '') + '. ' +
@@ -69768,7 +69859,7 @@ async function gsPPopenSavedPlans() {
           return {
             id: 'gp_' + r.id,
             created: r.created_at,
-            title: r.title || ('KI-Plan vom ' + new Date(r.created_at).toLocaleDateString('de-CH')),
+            title: r.title || ('KI-Plan vom ' + new Date(r.created_at).toLocaleDateString(gsLocale())),
             plan: {
               summary: sa.summary || an.summary || '',
               plants: an.recommended_plants || [],
@@ -69804,7 +69895,7 @@ async function gsPPopenSavedPlans() {
     ? saved.map(function(p, idx){
         var pl = p.plan || {};
         var d = new Date(p.created || Date.now());
-        var dateStr = d.toLocaleDateString('de-CH', {day:'numeric', month:'short', year:'numeric'}) + ' · ' + d.toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+        var dateStr = d.toLocaleDateString(gsLocale(), {day:'numeric', month:'short', year:'numeric'}) + ' · ' + d.toLocaleTimeString(gsLocale(), {hour:'2-digit', minute:'2-digit'});
         var nPlants = (pl.plants || []).length;
         var bedW = (pl.bed && pl.bed.width_m) || 0;
         var bedL = (pl.bed && pl.bed.length_m) || 0;
@@ -70279,7 +70370,7 @@ async function gsPPexportPDF() {
   // Spalte 4: Maßstab + Datum
   svg += '<text x="' + (col4 + 10) + '" y="' + tbRow1 + '" font-size="10" font-weight="800" fill="#777">MASSSTAB</text>';
   svg += '<text x="' + (col4 + 10) + '" y="' + tbRow2 + '" font-size="14" font-weight="900" fill="#222">' + scaleLabel + '</text>';
-  svg += '<text x="' + (col4 + 10) + '" y="' + tbRow3 + '" font-size="9" fill="#666">' + new Date().toLocaleDateString('de-CH') + '</text>';
+  svg += '<text x="' + (col4 + 10) + '" y="' + tbRow3 + '" font-size="9" fill="#666">' + new Date().toLocaleDateString(gsLocale()) + '</text>';
 
   svg += '</svg>';
 
@@ -70327,7 +70418,7 @@ async function gsPPexportPDF() {
     '</style></head><body>' +
     '<button onclick="window.print()" style="float:right;padding:10px 18px;background:#2e7d32;color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-md);font-weight:700;cursor:pointer;">📄 Als PDF speichern</button>' +
     '<h1>🌿 GreenScan Garten-Plan</h1>' +
-    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString('de-CH') + ' · Klimazone: ' + esc(plan.climateZone||'CH-Mittelland') + '</div>' +
+    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString(gsLocale()) + ' · Klimazone: ' + esc(plan.climateZone||'CH-Mittelland') + '</div>' +
     (plan.summary ? '<div class="box"><b>🎯 Strategie:</b><br>' + esc(plan.summary) + '</div>' : '') +
     '<h2>🗺️ Beet-Skizze (Aufsicht, massstabsgetreu)</h2>' + svg +
     '<h2>🌱 Pflanzenliste mit allen Daten</h2>' +
@@ -70716,7 +70807,7 @@ function gsAgentShowStatus() {
   var pending = queue.filter(function(q){return !q.shown;}).length;
   var done = queue.filter(function(q){return q.shown;}).length;
   var refs = (store.refinements || []).length;
-  var created = store.created ? new Date(store.created).toLocaleDateString('de-CH') : '—';
+  var created = store.created ? new Date(store.created).toLocaleDateString(gsLocale()) : '—';
   var notifyOn = (typeof gsNotif !== 'undefined') ? gsNotif.isEnabled() : (localStorage.getItem('gs_agent_notify') === '1');
   var nPlants = (store.plan && store.plan.plants) ? store.plan.plants.length : 0;
   var harvest = store.plan && store.plan.harvest ? (store.plan.harvest.est_kg_total || store.plan.harvest.est_kg || '?') : '?';
@@ -70742,7 +70833,7 @@ function gsAgentShowStatus() {
     var last = store.refinements[store.refinements.length - 1];
     refinementHtml = '<div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:var(--r-md);font-size:var(--fs-sm);color:var(--text2);line-height:1.55;">' +
       '<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px;">📝 Letzte Anpassung</div>' +
-      '<div style="font-weight:700;color:var(--text);margin-bottom:3px;">' + new Date(last.ts).toLocaleDateString('de-CH') + '</div>' +
+      '<div style="font-weight:700;color:var(--text);margin-bottom:3px;">' + new Date(last.ts).toLocaleDateString(gsLocale()) + '</div>' +
       ((last.adjustments && last.adjustments.length) ? last.adjustments.slice(0,2).map(function(a){return '• ' + String(a).slice(0,80).replace(/</g,'&lt;');}).join('<br>') : '') +
     '</div>';
   }
@@ -70856,7 +70947,7 @@ async function gsDevRenderCloudWizard() {
     devices.forEach(function(d){
       html += '<div style="background:var(--card);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:center;">' +
         '<div style="flex:1;min-width:0;font-size:var(--fs-sm);font-weight:700;color:var(--text);">' + escHtml(d.name || '') +
-          ' <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:400;">' + escHtml(d.kind || '') + (d.last_seen_at ? ' · zuletzt ' + new Date(d.last_seen_at).toLocaleDateString('de-CH') : '') + '</span></div>' +
+          ' <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:400;">' + escHtml(d.kind || '') + (d.last_seen_at ? ' · zuletzt ' + new Date(d.last_seen_at).toLocaleDateString(gsLocale()) : '') + '</span></div>' +
         '<button type="button" onclick="gsDevDeleteCloudSensor(\'' + _gsOcStr(d.id) + '\')" title="Entfernen" aria-label="Entfernen" style="background:none;border:none;font-size:var(--fs-md);cursor:pointer;color:var(--c-danger);min-width:32px;min-height:32px;">🗑️</button>' +
       '</div>';
     });
@@ -70903,7 +70994,7 @@ function gsDevRenderList() {
     var summary = [];
     if (typeof last.temperature === 'number') summary.push('🌡️ ' + last.temperature.toFixed(1) + '°C');
     if (typeof last.humidity === 'number') summary.push('💧 ' + last.humidity.toFixed(0) + '%');
-    if (typeof last.illuminance === 'number') summary.push('☀️ ' + Math.round(last.illuminance).toLocaleString('de-CH') + ' lx');
+    if (typeof last.illuminance === 'number') summary.push('☀️ ' + Math.round(last.illuminance).toLocaleString(gsLocale()) + ' lx');
     if (typeof last.soilMoisture === 'number') summary.push('🌱 ' + last.soilMoisture.toFixed(0) + '%');
     if (typeof last.battery === 'number') summary.push('🔋 ' + last.battery + '%');
     html += '<div class="gs-dev-card ' + (connected ? 'connected' : '') + '">' +
@@ -71090,7 +71181,7 @@ function gsDevShowReadings(id) {
   if (typeof r.temperature === 'number') tiles.push({ lbl:'Temperatur', val: r.temperature.toFixed(1) + '°C', icon:'🌡️' });
   if (typeof r.humidity === 'number') tiles.push({ lbl:'Luftfeuchte', val: r.humidity.toFixed(0) + '%', icon:'💧' });
   if (typeof r.soilMoisture === 'number') tiles.push({ lbl:'Bodenfeuchte', val: r.soilMoisture.toFixed(0) + '%', icon:'🌱' });
-  if (typeof r.illuminance === 'number') tiles.push({ lbl:'Licht', val: Math.round(r.illuminance).toLocaleString('de-CH') + ' lx', icon:'☀️' });
+  if (typeof r.illuminance === 'number') tiles.push({ lbl:'Licht', val: Math.round(r.illuminance).toLocaleString(gsLocale()) + ' lx', icon:'☀️' });
   if (typeof r.fertility === 'number') tiles.push({ lbl:'Düngung (EC)', val: r.fertility + ' µS/cm', icon:'🧪' });
   if (typeof r.battery === 'number') tiles.push({ lbl:'Batterie', val: r.battery + '%', icon:'🔋' });
   if (!tiles.length) { wrap.style.display = 'none'; return; }
@@ -71128,7 +71219,7 @@ async function gsPPtryBluetooth() {
           rows.forEach(function(r){ if (!byMetric[r.metric]) byMetric[r.metric] = r.value_num; });
           if (Object.keys(byMetric).length) {
             var msg = '☁️ Cloud-Sensor-Daten übernommen:\n';
-            if (byMetric.illuminance != null) msg += '☀️ ' + Math.round(byMetric.illuminance).toLocaleString('de-CH') + ' lx\n';
+            if (byMetric.illuminance != null) msg += '☀️ ' + Math.round(byMetric.illuminance).toLocaleString(gsLocale()) + ' lx\n';
             if (byMetric.temperature != null) msg += '🌡️ ' + byMetric.temperature.toFixed(1) + '°C\n';
             if (byMetric.soil_moisture != null) msg += '🌱 ' + byMetric.soil_moisture.toFixed(0) + '% Bodenfeuchte\n';
             gsToast(msg, 'info');
@@ -71137,7 +71228,7 @@ async function gsPPtryBluetooth() {
               var txtC = document.getElementById('pp-lux-text');
               if (txtC) {
                 var catC = byMetric.illuminance < 500 ? 'Schatten' : byMetric.illuminance < 5000 ? 'Halbschatten' : 'Vollsonne';
-                txtC.innerHTML = '☁️ Cloud-Sensor: <b>' + Math.round(byMetric.illuminance).toLocaleString('de-CH') + ' lx</b> (' + catC + ')';
+                txtC.innerHTML = '☁️ Cloud-Sensor: <b>' + Math.round(byMetric.illuminance).toLocaleString(gsLocale()) + ' lx</b> (' + catC + ')';
                 var selC = document.getElementById('pp-light');
                 if (selC) selC.value = byMetric.illuminance < 500 ? 'shade' : byMetric.illuminance < 5000 ? 'part_sun' : 'full_sun';
               }
@@ -71183,7 +71274,7 @@ async function gsPPtryBluetooth() {
   var r = gsDevGetLatestReadings();
   if (r.illuminance !== null || r.soilMoisture !== null || r.temperature !== null) {
     var msg = '📡 Sensor-Daten übernommen:\n';
-    if (r.illuminance !== null) msg += '☀️ ' + Math.round(r.illuminance).toLocaleString('de-CH') + ' lx\n';
+    if (r.illuminance !== null) msg += '☀️ ' + Math.round(r.illuminance).toLocaleString(gsLocale()) + ' lx\n';
     if (r.temperature !== null) msg += '🌡️ ' + r.temperature.toFixed(1) + '°C\n';
     if (r.soilMoisture !== null) msg += '🌱 ' + r.soilMoisture.toFixed(0) + '% Bodenfeuchte\n';
     if (r.humidity !== null) msg += '💧 ' + r.humidity.toFixed(0) + '% Luftfeuchte\n';
@@ -71195,7 +71286,7 @@ async function gsPPtryBluetooth() {
         var txt = document.getElementById('pp-lux-text');
         if (txt) {
           var cat = r.illuminance < 500 ? 'Schatten' : r.illuminance < 5000 ? 'Halbschatten' : 'Vollsonne';
-          txt.innerHTML = '📡 Sensor: <b>' + Math.round(r.illuminance).toLocaleString('de-CH') + ' lx</b> (' + cat + ')';
+          txt.innerHTML = '📡 Sensor: <b>' + Math.round(r.illuminance).toLocaleString(gsLocale()) + ' lx</b> (' + cat + ')';
           var sel = document.getElementById('pp-light');
           if (sel) sel.value = r.illuminance < 500 ? 'shade' : r.illuminance < 5000 ? 'part_sun' : 'full_sun';
         }
@@ -71633,7 +71724,7 @@ async function renderGarden() {
         html += '<div class="planting-emoji">' + info.emoji + '</div>';
         html += '<div class="planting-info">';
         html += '<div class="planting-name">' + escHtml(p.name) + (p.variety?' <span style="font-size:var(--fs-xs);color:var(--muted)">(' + escHtml(p.variety) + ')</span>':'') + '</div>';
-        html += '<div class="planting-meta">' + _t('planting_date_label','Gepflanzt:') + ' ' + new Date(p.date).toLocaleDateString('de-CH') + ' · ' + p.count + 'x</div>';
+        html += '<div class="planting-meta">' + _t('planting_date_label','Gepflanzt:') + ' ' + new Date(p.date).toLocaleDateString(gsLocale()) + ' · ' + p.count + 'x</div>';
         html += '</div>';
         html += '<span class="planting-status ' + statusCls + '">' + statusTxt + '</span>';
         html += '</div>';
@@ -71704,7 +71795,7 @@ async function refreshGardenWeather(gardenId) {
     return '<div class="planting-row" onclick="openPlantingDetail(\'' + p.id + '\')">' +
       '<div class="planting-emoji">' + info.emoji + '</div>' +
       '<div class="planting-info"><div class="planting-name">' + escHtml(p.name) + '</div>' +
-      '<div class="planting-meta">Gepflanzt: ' + new Date(p.date).toLocaleDateString('de-CH') + '</div></div>' +
+      '<div class="planting-meta">Gepflanzt: ' + new Date(p.date).toLocaleDateString(gsLocale()) + '</div></div>' +
       '<span class="planting-status ' + statusCls + '">' + statusTxt + '</span></div>';
   }).join('');
 
@@ -72002,7 +72093,7 @@ function openMoonCalendar() {
 
   // Heute
   calHtml += '<div style="background:linear-gradient(135deg,#0d1b2a,#1a237e);border-radius:var(--r-md);padding:14px;color:#fff;margin-bottom:12px;">' +
-    '<div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;opacity:.75;margin-bottom:4px;">' + _t('moon_today_cal','Heute ·') + ' ' + today.toLocaleDateString('de-CH',{weekday:'long',day:'numeric',month:'long'}) + '</div>' +
+    '<div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;opacity:.75;margin-bottom:4px;">' + _t('moon_today_cal','Heute ·') + ' ' + today.toLocaleDateString(gsLocale(),{weekday:'long',day:'numeric',month:'long'}) + '</div>' +
     '<div style="display:flex;align-items:center;gap:10px;">' +
       '<span style="font-size:44px;">' + moon.icon + '</span>' +
       '<div>' +
@@ -72031,7 +72122,7 @@ function openMoonCalendar() {
     calHtml += '<div style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:var(--r-sm);background:' + (isToday ? 'var(--g-light)' : 'var(--card)') + ';box-shadow:' + (isToday?'0 0 0 2px var(--g-main)':'var(--shadow-sm)') + ';">' +
       '<div style="font-size:var(--fs-2xl);flex-shrink:0;">' + m.icon + '</div>' +
       '<div style="min-width:80px;">' +
-        '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);">' + d.toLocaleDateString('de-CH',{weekday:'short',day:'numeric',month:'numeric'}) + (isToday?' ' + _t('moon_today_marker','← heute'):'') + '</div>' +
+        '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);">' + d.toLocaleDateString(gsLocale(),{weekday:'short',day:'numeric',month:'numeric'}) + (isToday?' ' + _t('moon_today_marker','← heute'):'') + '</div>' +
         '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);">' + m.phase + '</div>' +
       '</div>' +
       '<div style="flex:1;font-size:var(--fs-xs);color:' + ti.color + ';background:' + ti.bg + ';padding:3px 8px;border-radius:var(--r-sm);font-weight:700;">' + ti.label + '</div>' +
@@ -72069,7 +72160,7 @@ function openPlantingDetail(plantingId) {
   document.getElementById('pd2-name').textContent = p.name + (p.variety ? ' (' + p.variety + ')' : '');
   document.getElementById('pd2-sub').textContent = (garden ? garden.name : '') + ' · ' + p.count + ' ' + _t('unit_plants','Pflanzen');
 
-  const harvestDateStr = harv.harvestDate.toLocaleDateString('de-CH', {day:'numeric', month:'long', year:'numeric'});
+  const harvestDateStr = harv.harvestDate.toLocaleDateString(gsLocale(), {day:'numeric', month:'long', year:'numeric'});
   const sunLabel = {full_sun:_t('pd_sun_full','☀️ Vollsonne'), part_sun:_t('pd_sun_part','⛅ Halbschatten'), shade:_t('pd_sun_shade','🌑 Schatten')};
   const waterLabel = {high:_t('pd_water_high','💧💧💧 Viel'), medium:_t('pd_water_mid','💧💧 Mittel'), low:_t('pd_water_low','💧 Wenig')};
   const mondLabel = {frucht:_t('moon_fruit','🍎 Fruchttag'), blatt:_t('moon_leaf','🥬 Blatttag'), wurzel:_t('moon_root','🥕 Wurzeltag'), blüte:_t('moon_flower','🌸 Blütentag')};
@@ -72160,7 +72251,7 @@ function openPlantingDetail(plantingId) {
         '<div style="height:100%;width:' + harv.progress + '%;background:linear-gradient(90deg,#4caf50,#8bc34a);border-radius:var(--r-xs);"></div>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between;margin-top:5px;">' +
-        '<span style="font-size:var(--fs-sm);color:var(--muted);">' + _t('planting_date_label','Gepflanzt:') + ' ' + new Date(p.date).toLocaleDateString('de-CH') + '</span>' +
+        '<span style="font-size:var(--fs-sm);color:var(--muted);">' + _t('planting_date_label','Gepflanzt:') + ' ' + new Date(p.date).toLocaleDateString(gsLocale()) + '</span>' +
         '<span style="font-size:var(--fs-sm);font-weight:700;color:' + (harv.daysLeft===0?'#2e7d32':'var(--muted)') + ';">' + (harv.daysLeft===0?_t('pd_harvest_ready','🌟 Erntebereit!'):_t('pd_harvest','Ernte:') + ' ' + harvestDateStr) + '</span>' +
       '</div>' +
     '</div>' +
@@ -73557,6 +73648,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.78', date: '07.09.2026',
+    headline: '🌍 Rückmeldungen, Felder, Menü und Datum in der Sprache der Person — Audit E1, Welle 1',
+    summary: 'Audit E1. Die Übersetzungsschicht für Toasts gab es seit v30.18 (per Phrase) — aber die Phrasen kamen nie beim Übersetzer an: der Sammler kannte nur data-i18n und die Schlüsseltabelle. Jetzt liest er 571 Toast- und Rückfrage-Sätze aus dem eigenen Quelltext und 239 Phrasen aus dem Dokument (placeholder, aria-label, Menü-Labels); applyToDOM übersetzt placeholder und aria-label per Phrase (das Original bleibt im data-Attribut), die Menü-Suche zeigt und findet übersetzte Labels, und gsLocale() ersetzt 133 feste de-CH in Datumsformaten. Ein Admin-Knopf bestellt die neuen Übersetzungen (i18n-translate ist admin-only). i18n_check hat acht Fragen mehr, gerendert in fr. Bis der Knopf gedrückt ist, bleibt alles wie bisher Deutsch.',
+    user_summary: '🌍 Hinweise, Suchfelder, Menü und Datumsangaben folgen deiner Sprache — sobald die Übersetzungen dafür erzeugt sind.',
+    user_items: [
+      {emoji:'🌍', bold:'Vier Sprachen:', text:' Hinweise, Suchfelder, Schaltflächen-Namen und Menü erscheinen in Französisch, Italienisch, Englisch und Spanisch, sobald die Übersetzungen erzeugt sind.'},
+      {emoji:'📅', bold:'Datum:', text:' Datumsangaben folgen jetzt der gewählten Sprache statt immer dem deutschen Format.'},
+    ],
+  },
+  {
     v: 'v32.77', date: '07.09.2026',
     headline: '🧹 114 Funktionen ohne Aufrufer entfernt — Audit C2',
     summary: 'Audit C2. Nachgezählt über das ganze Repo: 2430 Definitionen, 105 ohne eine zweite Nennung — kein Aufruf, keine onclick-Zeichenkette, kein Menü-, Benachrichtigungs- oder Prüfstand-Eintrag; nach der ersten Welle noch zehn, deren einzige Aufrufer gerade gegangen waren. 114 Funktionen, 1790 Zeilen, entfernt mit exakten Parser-Grenzen (acorn) statt einer Klammer-Heuristik — neun davon standen in einer IIFE. Eine bleibt mit Grund: closeAbout wird aus der Modal-Id gebildet. robust_check Fall 16 rechnet den Scan bei jedem Lauf und meldet jede Definition ohne zweite Nennung, die nicht namentlich begründet ist.',
@@ -74577,7 +74678,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.77';
+var GS_VERSION = 'v32.78';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74849,7 +74950,7 @@ function gsOpenExpertApplication() {
     '<div style="padding:16px;">' +
     (_ea.status === 'submitted' && _ea.ts
       ? '<div style="background:var(--bg-warn-soft);border-radius:var(--r-md);padding:12px;margin-bottom:14px;font-size:var(--fs-sm);color:var(--c-warn-d);">' +
-        '⏳ Du hast am ' + escHtml(new Date(_ea.ts).toLocaleDateString('de-CH')) + ' schon einen Antrag übermittelt. ' +
+        '⏳ Du hast am ' + escHtml(new Date(_ea.ts).toLocaleDateString(gsLocale())) + ' schon einen Antrag übermittelt. ' +
         'Ein neuer ersetzt ihn nicht, sondern kommt dazu.</div>'
       : '') +
     '<div style="background:var(--bg-success-soft);border-radius:var(--r-md);padding:12px;margin-bottom:14px;">' +
@@ -77469,7 +77570,7 @@ function gsRegisterServiceWorker() {
       if (conn.saveData) connInfo += '<div style="font-size:var(--fs-sm);color:var(--muted);padding:4px 0;">Datensparmodus aktiv</div>';
     }
     var lastSync = localStorage.getItem('gs_last_sync_ts');
-    var lastSyncTxt = lastSync ? new Date(parseInt(lastSync,10)).toLocaleString('de-CH') : '—';
+    var lastSyncTxt = lastSync ? new Date(parseInt(lastSync,10)).toLocaleString(gsLocale()) : '—';
     var swStatus = ('serviceWorker' in navigator && navigator.serviceWorker.controller) ? '✅ aktiv' : '⚠️ nicht aktiv';
     var m = document.createElement('div');
     m.id = 'gs-conn-detail';
@@ -78256,7 +78357,7 @@ window.gsRenderGardenStats = function(){
     if (diff < 3600000) return 'gerade eben';
     if (diff < 86400000) return Math.floor(diff/3600000) + ' h';
     if (diff < 7*86400000) return Math.floor(diff/86400000) + ' Tage';
-    return new Date(s.lastActivity).toLocaleDateString('de-CH');
+    return new Date(s.lastActivity).toLocaleDateString(gsLocale());
   })() : '—';
   var catEmojis = { wildpflanze:'🌸', pilz:'🍄', baum:'🌳', kraut:'🌿', hauspflanze:'🪴', moos:'🌱', flechte:'🪨', alge:'💧', blume:'🌷', strauch:'🌳' };
   var catRows = Object.entries(s.byCat).sort(function(a,b){ return b[1] - a[1]; }).slice(0, 4).map(function(e){
@@ -78700,10 +78801,10 @@ window.gsExportPlantsCSV = function(){
     var csv = 'Name,Lateinisch,Familie,Kategorie,Hinzugefügt,Anzahl Tagebuch-Einträge,Letzter Eintrag,Notizen\r\n';
     plants.forEach(function(p){
       var diary = Array.isArray(p.diary) ? p.diary : [];
-      var lastEntry = diary.length ? new Date(Math.max.apply(null, diary.map(function(d){ return d.ts || 0; }))).toLocaleDateString('de-CH') : '—';
+      var lastEntry = diary.length ? new Date(Math.max.apply(null, diary.map(function(d){ return d.ts || 0; }))).toLocaleDateString(gsLocale()) : '—';
       // v24.41 BUGFIX: p.added ist ISO-string, nicht p.addedTs
       var added = '—';
-      if (p.added) { try { added = new Date(p.added).toLocaleDateString('de-CH'); } catch(e){} }
+      if (p.added) { try { added = new Date(p.added).toLocaleDateString(gsLocale()); } catch(e){} }
       function esc(s){ s = (s == null ? '' : String(s)).replace(/"/g, '""'); return '"' + s + '"'; }
       csv += [
         esc(p.name || ''),
@@ -78764,7 +78865,7 @@ window.gsExportDiaryCSV = function(){
     rows.forEach(function(r){
       function esc(s){ s = (s == null ? '' : String(s)).replace(/"/g, '""'); return '"' + s + '"'; }
       csv += [
-        esc(r.ts ? new Date(r.ts).toLocaleString('de-CH') : ''),
+        esc(r.ts ? new Date(r.ts).toLocaleString(gsLocale()) : ''),
         esc(r.plant), esc(r.plantLat), esc(r.action), esc(r.title),
         esc((r.note || '').replace(/[\r\n]+/g, ' ')),
         r.hasPhoto ? 'ja' : 'nein'
@@ -81133,7 +81234,7 @@ async function gsSyncUserDataOnLogin(){
             local.unshift({
               id: row.id, ts: row.ts, cat: row.tag || 'note', plant: '',
               text: row.text || row.title || '',
-              date: row.ts ? new Date(row.ts).toLocaleDateString('de-CH') : '',
+              date: row.ts ? new Date(row.ts).toLocaleDateString(gsLocale()) : '',
               weather: '', emoji: row.emoji || ''
             });
           }
@@ -83833,7 +83934,7 @@ async function gsSavePushSettings(partial){
 async function gsPushPause(days){
   var iso = (days > 0) ? new Date(Date.now() + days*86400000).toISOString() : null;
   try { await gsSavePushSettings({ pauseUntil: iso }); } catch(_){}
-  try { var st = document.getElementById('push-pause-status'); if (st) st.textContent = iso ? ('· pausiert bis ' + new Date(iso).toLocaleDateString('de-CH')) : ''; } catch(_){}
+  try { var st = document.getElementById('push-pause-status'); if (st) st.textContent = iso ? ('· pausiert bis ' + new Date(iso).toLocaleDateString(gsLocale())) : ''; } catch(_){}
   if (typeof gsHaptic === 'function') { try { gsHaptic('tap'); } catch(_){} }
   if (typeof gsToast === 'function') gsToast(iso ? ('🔕 Benachrichtigungen für ' + days + ' Tage pausiert') : '🔔 Benachrichtigungen wieder aktiv', 'success');
 }
@@ -83888,7 +83989,7 @@ async function gsPushSettingsRefresh(){
   // v28.11 B-011: Stille-Tage-Status spiegeln
   try {
     var pst = document.getElementById('push-pause-status');
-    if (pst) { var pu = s.pauseUntil && new Date(s.pauseUntil); pst.textContent = (pu && pu > new Date()) ? ('· pausiert bis ' + pu.toLocaleDateString('de-CH')) : ''; }
+    if (pst) { var pu = s.pauseUntil && new Date(s.pauseUntil); pst.textContent = (pu && pu > new Date()) ? ('· pausiert bis ' + pu.toLocaleDateString(gsLocale())) : ''; }
   } catch(_){}
   // v27.00: Wetter-Vorlauf-Slider spiegeln
   var lead = (typeof s.leadHours === 'number') ? Math.max(2, Math.min(48, s.leadHours)) : 12;
@@ -84568,8 +84669,34 @@ function _gsAdminI18nHtml() {
     }).join('');
     return '<div style="margin-top:10px;padding:11px 13px;background:var(--bg-success-soft);border-radius:var(--r-sm);font-size:var(--fs-sm);">' +
       '<div style="font-weight:800;margin-bottom:4px;">🌍 i18n-Bundles (dieses Gerät · erwartet ' + (c.expected||0) + ' Keys)</div>' + langs +
+      '<div style="margin-top:8px;"><button type="button" id="gs-adm-i18n-build" onclick="gsAdminBuildI18n()" style="padding:8px 12px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">🌍 Übersetzungen erzeugen (fr, it, en, es)</button></div>' +
       '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px;">Bundle lädt pro Sprache beim Sprachwechsel/Boot (24h-Cache) — 0% heisst nur: auf diesem Gerät noch nicht geladen.</div></div>';
   } catch(_) { return ''; }
+}
+
+// v32.78 (Audit E1): der Sammler kennt jetzt Toasts, Rückfragen, placeholder,
+// aria-label und Menü-Labels — aber `gsBuildI18n` läuft beim Sprachwechsel nur,
+// wenn das Paket fehlt oder älter als 24 h ist. Neue Phrasen in einem
+// vorhandenen Paket hätte sonst niemand je bestellt. Der Knopf bestellt sie:
+// alle vier Sprachen, nur was noch nicht in i18n_translations liegt (Hash-Cache
+// in der Function). i18n-translate lässt nur Admin- oder Service-Token zu.
+async function gsAdminBuildI18n() {
+  if (typeof gsIsAdmin !== 'function' || !gsIsAdmin()) return;
+  var kn = document.getElementById('gs-adm-i18n-build');
+  if (kn) { kn.disabled = true; kn.textContent = '⏳ Übersetzer läuft …'; }
+  var summe = { cached: 0, fetched: 0, fehler: [] };
+  var sprachen = ['fr', 'it', 'en', 'es'];
+  for (var i = 0; i < sprachen.length; i++) {
+    try {
+      var r = await gsBuildI18n([sprachen[i]]);
+      if (r && r.ok) { summe.cached += (r.cached || 0); summe.fetched += (r.fetched || 0); }
+      else summe.fehler.push(sprachen[i] + ': ' + ((r && r.msg) || 'unbekannt'));
+    } catch (e) { summe.fehler.push(sprachen[i] + ': ' + ((e && e.message) || 'Ausnahme')); }
+  }
+  if (kn) { kn.disabled = false; kn.textContent = '🌍 Übersetzungen erzeugen (fr, it, en, es)'; }
+  var text = summe.fetched + ' neu übersetzt, ' + summe.cached + ' schon vorhanden' + (summe.fehler.length ? ' — Fehler: ' + summe.fehler.join(' · ') : '');
+  if (typeof gsToast === 'function') gsToast((summe.fehler.length ? '⚠️ ' : '✅ ') + text, summe.fehler.length ? 'warning' : 'success', 7000);
+  try { var cur = gsI18n.getLang(); if (cur !== 'de') { await gsI18n.loadFromDb(cur); gsI18n.applyToDOM(); } } catch (_) {}
 }
 
 // v28.99 Admin-Ausbau Schritt 2: Push-Broadcast an ALLE Subscriber.
@@ -84626,7 +84753,7 @@ function _gsAdminRelTime(ts){
     if (diff < 3600) return 'vor ' + Math.floor(diff/60) + ' Min';
     if (diff < 86400) return 'vor ' + Math.floor(diff/3600) + ' Std';
     if (diff < 604800) return 'vor ' + Math.floor(diff/86400) + ' Tg';
-    return d.toLocaleDateString('de-CH', {day:'2-digit',month:'2-digit',year:'numeric'});
+    return d.toLocaleDateString(gsLocale(), {day:'2-digit',month:'2-digit',year:'numeric'});
   } catch(_){ return ''; }
 }
 // v29.15: Audit-Log lesbar — Action-Code → DE-Text + relative Zeit + sprechende Zusammenfassung
@@ -84678,7 +84805,7 @@ async function gsAdminFetchClientErrors() {
 function _gsAdminClientErrorsHtml(errs) {
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
   var rows = (errs && errs.length) ? errs.map(function(e){
-    var last = e.last_seen ? new Date(e.last_seen).toLocaleString('de-CH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    var last = e.last_seen ? new Date(e.last_seen).toLocaleString(gsLocale(), {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
     return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:var(--fs-sm);">' +
       '<div style="color:var(--c-danger);font-weight:700;">' + esc(String(e.message||'').slice(0,90)) + '</div>' +
       '<div style="color:var(--muted);">' + (e.n||0) + '× · ' + (e.users||0) + ' Nutzer · ' + esc(e.app_version||'?') + ' · ' + esc(e.err_type||'') + ' · zuletzt ' + last + (e.last_context ? ' · ' + esc(String(e.last_context).slice(0,50)) : '') + '</div>' +
@@ -84705,7 +84832,7 @@ function _gsAdminModerationHtml(feed) {
     // (sonst würde Admin-„Einblenden" ein vom Nutzer bewusst archiviertes/verkauftes Inserat republishen).
     var hidden = (it.status === 'hidden');
     var lifecycle = (it.kind === 'listing' && (it.status === 'archived' || it.status === 'sold' || it.status === 'reserved')) ? it.status : '';
-    var when = it.created_at ? new Date(it.created_at).toLocaleString('de-CH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    var when = it.created_at ? new Date(it.created_at).toLocaleString(gsLocale(), {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
     var badge = hidden
       ? '<span style="background:#ffcdd2;color:var(--c-danger-d);font-size:var(--fs-xs);font-weight:800;padding:1px 5px;border-radius:var(--r-xs);">VERSTECKT</span>'
       : (lifecycle ? '<span style="background:#e0e0e0;color:#424242;font-size:var(--fs-xs);font-weight:800;padding:1px 5px;border-radius:var(--r-xs);">' + ({archived:'ARCHIVIERT',sold:'VERKAUFT',reserved:'RESERVIERT'}[lifecycle] || '') + '</span>' : '');
@@ -84771,7 +84898,7 @@ async function gsAdminOpenUserDetail(userId) {
   if (!d || d.error) { if (typeof gsToast==='function') gsToast('⚠️ ' + ((d && d.error) || 'Fehler'), 'error'); return; }
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
   var p = d.profile || {}, s = d.subscription || null, c = d.counts || {};
-  var fmt = function(x){ try { return x ? new Date(x).toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—'; } catch(_){ return '—'; } };
+  var fmt = function(x){ try { return x ? new Date(x).toLocaleDateString(gsLocale(),{day:'2-digit',month:'2-digit',year:'numeric'}) : '—'; } catch(_){ return '—'; } };
   var tierBadge = { free:'🌱 Free', pro:'💎 Pro', lifetime:'♾️ Lifetime' }[p.tier] || esc(p.tier||'?');
   var subTxt = s ? (esc(s.status||'?') + (s.tier?(' · '+esc(s.tier)):'') + (s.current_period_end?(' · bis '+fmt(s.current_period_end)):'') + (s.cancel_at_period_end?' · kündigt z. Periodenende':'') + (s.trial_end?(' · Trial bis '+fmt(s.trial_end)):'')) : '— kein Stripe-Abo';
   var row = function(label, val){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:var(--fs-sm);"><span style="color:var(--muted);">' + label + '</span><span style="color:var(--text);font-weight:600;text-align:right;">' + val + '</span></div>'; };
@@ -84829,7 +84956,7 @@ function _gsAdminVouchersHtml(vouchers) {
   var rows = (vouchers && vouchers.length) ? vouchers.map(function(v){
     var rew = (v.reward && v.reward.tier) ? ({pro:'💎 Pro',lifetime:'♾️ Lifetime'}[v.reward.tier] || esc(v.reward.tier)) : '—';
     var uses = (v.used_count||0) + (v.max_uses ? ('/' + v.max_uses) : '/∞');
-    var until = v.valid_until ? new Date(v.valid_until).toLocaleDateString('de-CH') : '∞';
+    var until = v.valid_until ? new Date(v.valid_until).toLocaleDateString(gsLocale()) : '∞';
     var active = !!v.is_active;
     return '<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:var(--fs-sm);">' +
       '<div style="flex:1;min-width:0;"><b style="font-family:monospace;">' + esc(v.code) + '</b> · ' + rew + ' · ' + uses + ' · bis ' + until +
@@ -84991,7 +85118,7 @@ function _gsAdminMetricsHtml(m) {
   }
   var whColor = n('webhook_errors_7d') === 0 ? '#2e7d32' : '#c62828';
   var ts = '';
-  try { ts = m.generated_at ? new Date(m.generated_at).toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
+  try { ts = m.generated_at ? new Date(m.generated_at).toLocaleTimeString(gsLocale(), {hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
   return '<div style="margin-bottom:14px;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
       '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">📊 Live-Metriken</div>' +
@@ -85054,12 +85181,12 @@ function _gsAdminStripeHtml(s) {
       recent.slice(0,8).map(function(w){
         var ok = w.error ? '❌' : (w.processed ? '✅' : '⏳');
         var t = '';
-        try { t = w.created_at ? new Date(w.created_at).toLocaleString('de-CH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
+        try { t = w.created_at ? new Date(w.created_at).toLocaleString(gsLocale(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
         return '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:2px;">' + ok + ' ' + (typeof escHtml==='function'?escHtml(w.type||'?'):(w.type||'?')) + ' · ' + t + '</div>';
       }).join('');
   }
   var ts = '';
-  try { ts = s.generated_at ? new Date(s.generated_at).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
+  try { ts = s.generated_at ? new Date(s.generated_at).toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
   var mrr = n('mrr_cents');
   return '<div style="margin-bottom:14px;">' +
     '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);margin-bottom:8px;">💳 Stripe-Übersicht <span style="font-size:var(--fs-xs);font-weight:600;color:var(--muted);">· internes Monitoring</span></div>' +
@@ -85272,7 +85399,7 @@ function _gsAdminReportsHtml(list){
   var _e = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
   var typeLabel = { user:'👤 Nutzer', listing:'🛒 Inserat', post:'📝 Beitrag', comment:'💬 Kommentar' };
   var items = list.map(function(r){
-    var dt = ''; try { dt = r.created_at ? new Date(r.created_at).toLocaleDateString('de-CH') : ''; } catch(_){}
+    var dt = ''; try { dt = r.created_at ? new Date(r.created_at).toLocaleDateString(gsLocale()) : ''; } catch(_){}
     return '<div style="display:flex;gap:9px;align-items:center;padding:8px;background:var(--card);border-radius:var(--r-sm);margin-bottom:6px;">' +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);">' + (typeLabel[r.target_type] || _e(r.target_type)) + '</div>' +
@@ -86300,7 +86427,7 @@ function gsOpenSeedInventory(){
         var exp = i.expires ? new Date(i.expires) : null;
         var warn = exp && (exp - Date.now())/(1000*60*60*24) < 180;
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:' + (warn?'#ffebee':'#fff3e0') + ';border-radius:var(--r-sm);margin-bottom:5px;">' +
-          '<div><b>' + escHtml(i.name||'?') + '</b> · ' + escHtml(i.qty||'') + (exp?' · <span style="font-size:var(--fs-sm);color:' + (warn?'#c62828':'#888') + ';">📅 ' + exp.toLocaleDateString('de-CH') + (warn?' ⚠️':'') + '</span>':'') + '</div>' +
+          '<div><b>' + escHtml(i.name||'?') + '</b> · ' + escHtml(i.qty||'') + (exp?' · <span style="font-size:var(--fs-sm);color:' + (warn?'#c62828':'#888') + ';">📅 ' + exp.toLocaleDateString(gsLocale()) + (warn?' ⚠️':'') + '</span>':'') + '</div>' +
           '<button onclick="gsSeedDel(' + realIdx + ')" style="background:none;border:none;color:var(--c-danger);cursor:pointer;font-size:var(--fs-lg);">🗑️</button>' +
           '</div>';
       }).join('') : '<div style="padding:20px;text-align:center;color:#888;">Erfasse deine Sämereien — ich warne vor Ablaufdatum.</div>') +
@@ -89587,7 +89714,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       var d = await supaGet('garden_diary', 'select=*&order=ts.desc&limit=500');
       if (d && d.data && d.data.length) {
         var remoteDiary = d.data.map(function(r){
-          return { id: r.id, ts: r.ts, text: r.text, emoji: r.emoji || '🌱', date: new Date(r.ts).toLocaleDateString('de-CH'), title: r.title, tag: r.tag, garden_id: r.garden_id, photo_url: r.photo_url };
+          return { id: r.id, ts: r.ts, text: r.text, emoji: r.emoji || '🌱', date: new Date(r.ts).toLocaleDateString(gsLocale()), title: r.title, tag: r.tag, garden_id: r.garden_id, photo_url: r.photo_url };
         });
         var mergedDiary = _gsMergeById(_gsReadArr('gs_gartentagebuch'), remoteDiary, 500);
         try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(mergedDiary)); } catch(e){}
@@ -90459,7 +90586,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);margin-bottom:6px;">🔔 Letzte Alerts</div>';
       SH.alerts.slice(0,3).forEach(function(a){
         var when = a.triggered_at || a.created_at;
-        var dt = when ? new Date(when).toLocaleString('de-CH', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+        var dt = when ? new Date(when).toLocaleString(gsLocale(), {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
         var dirSym = a.direction === 'below' ? '↓' : a.direction === 'above' ? '↑' : '·';
         var line = a.message || (escHtml(a.metric || '?') + ' ' + dirSym + ' ' + (a.threshold != null ? a.threshold : '?'));
         html += '<div style="font-size:var(--fs-sm);color:var(--text2);padding:4px 0;border-top:1px solid var(--c-warn);">' +
@@ -90786,7 +90913,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     }
     var html = '<button onclick="gsShRender()" style="background:transparent;border:none;color:var(--c-info);font-size:var(--fs-md);font-weight:700;cursor:pointer;margin-bottom:10px;font-family:inherit;">‹ Zurück</button>';
     SH.alerts.forEach(function(a){
-      var dt = a.created_at ? new Date(a.created_at).toLocaleString('de-CH') : '';
+      var dt = a.created_at ? new Date(a.created_at).toLocaleString(gsLocale()) : '';
       html += '<div style="background:var(--bg-warn-soft);border-left:4px solid var(--c-warn);border-radius:var(--r-md);padding:11px 12px;margin-bottom:8px;">' +
         '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);margin-bottom:3px;">🔔 ' + escHtml(a.kind || 'Alert') + '</div>' +
         '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.55;">' + escHtml(a.message || '') + '</div>' +
@@ -90983,7 +91110,7 @@ window.gsPlansOpen = async function(filterType){
   var ICON = { tree:'🌳', garden:'🥕', forest:'🌲', balcony:'🪴' };
   body.innerHTML = items.map(function(p){
     var d = '';
-    try { d = new Date(p.created).toLocaleDateString('de-CH',{day:'2-digit',month:'short',year:'numeric'}); } catch(_){}
+    try { d = new Date(p.created).toLocaleDateString(gsLocale(),{day:'2-digit',month:'short',year:'numeric'}); } catch(_){}
     return '<div style="background:var(--card);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;">'
       + '<div onclick="window._gsPlansLoad(\''+ed(p.id)+'\')" style="font-size:var(--fs-3xl);flex-shrink:0;cursor:pointer;">'+(ICON[p.type]||'📋')+'</div>'
       + '<div onclick="window._gsPlansLoad(\''+ed(p.id)+'\')" style="flex:1;min-width:0;cursor:pointer;">'

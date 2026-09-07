@@ -4,13 +4,67 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.77` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.78` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fr) — v32.78: Rückmeldungen, Felder, Menü und Datum in der Sprache der Person — Audit E1, Welle 1
+
+- **Der Befund hinter E1 war ein anderer als der Satz im Audit.** „351
+  `gsToast`, 6 über die Sprachschicht" stimmte — aber die Schicht für Toasts
+  gab es längst: `gsI18n.tText` (v30.18) übersetzt per **Phrase**
+  (`source_text` → `translated_text`), und `showProfileToast`,
+  `gsConfirmModal`, `gsPromptModal` rufen es. Was fehlte: **die Phrasen kamen
+  nie beim Übersetzer an.** `gsCollectI18nStrings` schickte nur `data-i18n`
+  und `GS_I18N_JS_STRINGS` an `i18n-translate`; die 571 Toast- und
+  Rückfrage-Literale, 167 `placeholder`, 222 `aria-label` und die
+  Menü-Labels standen in keiner Liste. Eine Übersetzung, die niemand
+  bestellt, kommt nicht.
+- **Der Sammler speist sich jetzt aus dem Code** (dieselbe Regel wie in
+  `sync_check` seit v32.23): `gsI18nMeldungenAusQuelltext(quelltext)` — reine
+  Funktion — zieht aus `gsToast(`, `showProfileToast(`, `gsConfirmModal(`
+  (erstes Argument, sofern nicht mit `+` weitergebaut) und aus der
+  Objekt-Form (`title`, `body`, `message`, `okText`, `cancelText`,
+  `placeholder`) jedes Literal von 2–119 Zeichen mit Buchstaben; die App
+  holt dafür beim Admin-Knopf ihre **eigene `index.html`** (`fetch`, kein
+  Cache). `gsI18nDokumentPhrasen()` nimmt `placeholder`, `aria-label` und die
+  Menü-Labels aus dem Dokument. `gsBuildI18n` mischt beides in die Liste.
+  571 Phrasen aus dem Quelltext, 239 aus dem Dokument.
+- **`applyToDOM` übersetzt `placeholder` und `aria-label` per Phrase.** Das
+  Original bleibt in `data-i18n-orig-<attr>`, damit jeder Sprachwechsel vom
+  Original ausgeht — auch zurück nach Deutsch. 67 „Schliessen"-Knöpfe werden
+  in fr zu „Fermer", wenn die Phrase im Paket steht.
+- **Menü-Suche:** Label und Untertitel gehen durch `tText`; gesucht wird in
+  beiden Fassungen („mesures" findet „Messwerte"); die Zahlen-Untertitel aus
+  E3 (`cat`) bleiben, wie sie sind. `window._gsMenuItemsFuerI18n()` reicht
+  die Labels an den Sammler — `MENU_ITEMS` ist Skript-Bereich.
+- **`gsLocale()`** ersetzt 133 `toLocale*String('de-CH')` und die drei
+  handgebauten Tabellen (`{de:'de-CH', …}`): `de-CH` / `fr-CH` / `it-CH` /
+  `en-GB` / `es-ES` nach `gsI18n.getLang()`. Ein französischer Nutzer sah
+  bis v32.77 „5. Januar 2026" in jeder Datumszeile. Die Spracherkennung
+  (`gsVoice*`, `'de-CH'` als Erkennungssprache) ist bewusst nicht
+  umgestellt.
+- **`i18n_check` hat acht Fragen mehr**, alle gerendert in einem dritten
+  Lauf mit `gs_lang = fr` und gestelltem Phrasen-Paket
+  (`gs_i18n_srcmaps`): der Extraktor gegen den Dateiinhalt (≥ 500, 2–119
+  Zeichen, der Bild-Satz dabei), Dokument-Phrasen (placeholder, aria, Menü),
+  ein echter Toast in fr, `#plants-search` in fr und nach `setLang('de')`
+  wieder Deutsch, 67× „Fermer" und 0× „Schliessen", die Menü-Suche mit
+  „mesures" → „Mesures", `gsLocale()` → `fr-CH` und `05.01.2026`, statisch
+  kein `'de-CH'` in `toLocale*` mehr. Gegenprobe gegen v32.77: sieben von
+  acht rot — die Toast-Frage bleibt grün, und das ist richtig: den
+  Mechanismus gab es, die Phrasen nicht.
+- **Was diese Welle NICHT tut:** zusammengesetzte Meldungen (`'Fehler: ' +
+  x`) bleiben Deutsch — eine Phrase, die zur Laufzeit entsteht, steht in
+  keiner Liste; 25 feste Monatsnamen-Listen und `['Mo','Di',…]`, `toFixed()`
+  ohne Dezimaltrenner nach Sprache (Welle 2). Und: **übersetzt wird erst,
+  wenn Fernando den Admin-Knopf drückt** — FUER-FERNANDO §11.
+
+Regression v32.77 → v32.78: (folgt)
 
 ### 2026-09-07 (fq) — v32.77: 114 Funktionen ohne Aufrufer entfernt — Audit C2
 
@@ -9704,9 +9758,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.77` (Client) · SW-Cache `gs-v32.77` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.78` (Client) · SW-Cache `gs-v32.78` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'560 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'687 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
