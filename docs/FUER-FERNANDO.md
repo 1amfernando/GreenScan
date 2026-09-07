@@ -381,6 +381,44 @@ Und dann einmal das Quiz spielen: unter dem Ergebnis darf **nichts** Orangefarbe
 stehen. Steht dort „Der Server wertet diese Antwort als falsch", ist die
 Migration noch nicht drin — genau dafür ist die Zeile da.
 
+## 8 · Der KI-Schlüssel bleibt auf dem Server — drei Schritte, in dieser Reihenfolge
+
+Bis v32.67 bekam **jeder angemeldete Nutzer** den echten Anthropic-Schlüssel
+in den Browser (`fn_get_global_api_key`), und die App rief Anthropic direkt.
+Der Proxy `ai-proxy` ist seit Juni ausgeliefert — und wurde nie benutzt:
+`ai_usage` hat 0 Zeilen (nachgesehen 07.09.). Audit A1.
+
+Seit v32.68 ruft die App den Proxy **zuerst**, legt den Schlüssel nicht mehr
+auf die Platte und fällt nur dann auf den Direktweg zurück, wenn der Proxy
+schweigt (Netzfehler, 5xx) **und** der Server ihr noch einen Schlüssel
+gegeben hat. Das ist der Übergang — er endet mit Schritt 3.
+
+1. **Prüfen, dass der Proxy produktiv funktioniert.** Sobald v32.68 live
+   ist: einmal eine KI-Funktion benutzen (Lina, Scanner) und im SQL Editor
+   ```sql
+   select count(*), max(created_at) from public.ai_usage;   -- muss > 0 werden
+   ```
+   Bleibt es 0, hat der Proxy nicht geantwortet und die App ist still auf den
+   Direktweg zurückgefallen (in der Konsole: „ai-proxy Ausfall → Direktweg").
+   Dann sag es mir, **bevor** du Schritt 3 machst — nach Schritt 3 gibt es
+   keinen Rückfall mehr.
+2. **`supabase functions deploy ai-proxy`** — die Modell-Liste kennt jetzt
+   `claude-sonnet-4-6` (das erste Modell der App-Kette); vorher stufte der
+   Proxy still auf 4-5 zurück. Nicht dringend, aber vor Schritt 3 sinnvoll.
+3. **Migration `20260907_global_api_key_nur_proxy.sql`** anwenden. Danach
+   bekommen Nutzer nur noch „mode: proxy" und keinen Schlüssel; **du als
+   Admin bekommst ihn weiter** (Schlüssel-Test und Health-Check im
+   Admin-Panel laufen wie bisher). Rückweg steht im Kopf der Datei.
+
+**Danach prüfen:** `select count(*) from public.ai_usage` wächst weiter;
+in einem Nicht-Admin-Konto zeigt die Konsole nach
+`localStorage.getItem('gs_global_api_key')` → `null` und
+`localStorage.getItem('gs_global_api_mode')` → `"proxy"`.
+
+**Notschalter im Übergang** (nur bis Schritt 3 wirksam):
+`localStorage.setItem('gs_feat_aiproxy','0')` in der Konsole schickt dieses
+Gerät wieder direkt an Anthropic. Danach entferne ich Schalter und Rückfall.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

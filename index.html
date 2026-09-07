@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.67.20260907">
+<meta name="app-version" content="32.68.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29535,7 +29535,15 @@ function getApiConfig(){
     }
   } catch(_){}
   // v24.18: Provider ist IMMER 'anthropic'. NVIDIA-Pfad entfernt.
-  var globalKey = localStorage.getItem('gs_global_api_key') || '';
+  // v32.68 (Audit A1): der globale Schluessel liegt nie mehr auf der Platte —
+  // nur im Arbeitsspeicher (_gsGlobalKeyMem), und nur solange der Server ihn
+  // noch schickt. localStorage wird nur noch als Altbestand gelesen (Geraete
+  // von vor v32.68); der naechste Pull raeumt ihn. `gs_global_api_mode = proxy`
+  // heisst: die KI ist da, ohne dass ein Schluessel im Browser liegt — die
+  // Aufrufe gehen an die Edge-Function ai-proxy.
+  var globalKey = (window._gsGlobalKeyMem || '') || localStorage.getItem('gs_global_api_key') || '';
+  var globalProxy = false;
+  try { globalProxy = localStorage.getItem('gs_global_api_mode') === 'proxy'; } catch(_){}
   var personalKey = localStorage.getItem('ps_api_key') || '';
   // v24.22: nvapi-Reste aus altem NVIDIA-Pfad rausfiltern
   if (personalKey && personalKey.startsWith('nvapi-')) personalKey = '';
@@ -29550,10 +29558,12 @@ function getApiConfig(){
     key = personalKey; source = 'personal';
   } else if (globalKey && globalKey.startsWith('sk-ant-') && globalKey.length >= 80) {
     key = globalKey; source = 'global';
+  } else if (globalProxy) {
+    key = ''; source = 'global';   // v32.68: KI ueber den Proxy, kein Schluessel im Browser
   } else {
     key = ''; source = 'none';
   }
-  return { provider: 'anthropic', key: key, source: source };
+  return { provider: 'anthropic', key: key, source: source, proxy: source === 'global' };
 }
 
 // v25.37 Scanner-Key-Robustheit: Personal-Key entfernen
@@ -29869,28 +29879,42 @@ async function gsPullGlobalApiKey(){
       if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
       var r = await sbFetch('/rest/v1/rpc/fn_get_global_api_key', {method:'POST', body:'{}'});
       var d = (r && r.data) ? r.data : (r && r.enabled !== undefined ? r : null);
-      if (d && d.enabled && d.key) {
+      if (d && d.enabled) {
         try {
-          var prevKey = localStorage.getItem('gs_global_api_key') || '';
-          localStorage.setItem('gs_global_api_key', d.key);
+          // v32.68 (Audit A1): NICHTS mehr auf die Platte. Der Server sagt „proxy";
+          // einen Schluessel schickt er nur noch Admins (nach der Migration
+          // 20260907_global_api_key_nur_proxy.sql) bzw. allen (davor) — der bleibt
+          // im Arbeitsspeicher und traegt den Uebergang (Rueckfall auf den
+          // Direktweg, wenn der Proxy schweigt). Ein Altbestand in localStorage
+          // wird hier geraeumt.
+          localStorage.setItem('gs_global_api_mode', d.mode || 'proxy');
+          var neuerKey = (d.key && String(d.key).startsWith('sk-ant-')) ? String(d.key) : '';
+          window._gsGlobalKeyMem = neuerKey;
+          try { localStorage.removeItem('gs_global_api_key'); } catch(_){}
           if (d.provider) localStorage.setItem('gs_global_api_provider', d.provider);
-          // v24.19: Set-Timestamp NUR wenn der Key wirklich neu/anders ist (für 6-Monats-Check)
-          if (prevKey !== d.key) {
-            localStorage.setItem('gs_global_api_key_set_ts', String(Date.now()));
-          } else if (!localStorage.getItem('gs_global_api_key_set_ts')) {
-            // erstmal-Setzung wenn vorher nie gesetzt
-            localStorage.setItem('gs_global_api_key_set_ts', String(Date.now()));
+          // v24.19: Set-Timestamp NUR wenn der Key wirklich neu/anders ist (6-Monats-Check,
+          // Admin). Verglichen wird ein Fingerabdruck (letzte 6 Zeichen), nicht der Schluessel.
+          if (neuerKey) {
+            var fp = neuerKey.slice(-6), prevFp = localStorage.getItem('gs_global_api_key_fp') || '';
+            if (prevFp !== fp) {
+              localStorage.setItem('gs_global_api_key_fp', fp);
+              localStorage.setItem('gs_global_api_key_set_ts', String(Date.now()));
+            } else if (!localStorage.getItem('gs_global_api_key_set_ts')) {
+              localStorage.setItem('gs_global_api_key_set_ts', String(Date.now()));
+            }
           }
         } catch(_){}
         // v24.19: Admin-spezifischer Age-Check 5s nach Pull
         try { if (typeof gsCheckKeyAge === 'function') setTimeout(gsCheckKeyAge, 5000); } catch(_){}
         // v24.20: Daily-Health-Check 8s nach Pull (Admin only)
         try { if (typeof gsDailyKeyHealthCheck === 'function') setTimeout(gsDailyKeyHealthCheck, 8000); } catch(_){}
-        return d.key;
+        return window._gsGlobalKeyMem || 'proxy';
       } else if (d && !d.enabled) {
-        // Service deaktiviert → globalen Cache löschen
+        // Service deaktiviert → alles weg (Speicher, Modus, Altbestand)
         try { localStorage.removeItem('gs_global_api_key'); } catch(_){}
         try { localStorage.removeItem('gs_global_api_key_set_ts'); } catch(_){}
+        try { localStorage.removeItem('gs_global_api_mode'); } catch(_){}
+        window._gsGlobalKeyMem = '';
       }
     } catch(e) { console.warn('[gsPullGlobalApiKey]', e); }
     return null;
@@ -30124,23 +30148,73 @@ function _gsLogAiUsage(edgeFn, usage, model){
 }
 window._gsLogAiUsage = _gsLogAiUsage;
 
-// v30.37: AI-Call-Ziel — Proxy (Edge-Fn ai-proxy, hält den Anthropic-Key server-seitig + erzwingt Quota)
-// NUR wenn Feature-Flag gs_feat_aiproxy='1' + globaler Key + eingeloggt; sonst direkt an Anthropic (bisher).
-// Flag DEFAULT AUS → null Verhaltensänderung, bis nach Preview-Test geflippt. Schliesst dann den Roh-Key-
-// Kosten-Leak (Audit task_bb4fd480). Der Proxy gibt die Anthropic-Antwort 1:1 zurück → Parsing unverändert.
+// v30.37: AI-Call-Ziel — Proxy (Edge-Fn ai-proxy, hält den Anthropic-Key server-seitig + erzwingt Quota).
+// v32.68 (Audit A1): der Proxy ist jetzt der NORMALFALL fuer den globalen
+// Schluessel — nicht mehr hinter einem Flag mit Vorgabe „aus". `gs_feat_aiproxy = '0'`
+// ist ein Notschalter fuer den Uebergang (Direktweg, nur mit Schluessel im
+// Arbeitsspeicher) und wird mit dem Rueckfall zusammen wieder entfernt.
+// Ohne Proxy-Weg UND ohne Schluessel gibt es kein Ziel → null (Aufrufer sagt es).
 function _gsAiTarget(key, source){
   try {
-    if (source === 'global' && localStorage.getItem('gs_feat_aiproxy') === '1'
+    if (source === 'global' && localStorage.getItem('gs_feat_aiproxy') !== '0'
         && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
       var tok = (window.gsStore && gsStore.get) ? gsStore.get('gs_sb_token', null) : null;
       if (tok) {
-        var base = String(window.SB_URL || window.SB_URL_DEFAULT || '').replace(/\/$/, '');
-        return { url: base + '/functions/v1/ai-proxy', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + tok } };
+        var base = String((typeof SB_URL === 'string' && SB_URL) || window.SB_URL || window.SB_URL_DEFAULT || '').replace(/\/$/, '');
+        return { url: base + '/functions/v1/ai-proxy', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + tok }, proxy: true };
       }
     }
   } catch(_){}
-  return { url: 'https://api.anthropic.com/v1/messages', headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'} };
+  if (!key) return null;
+  return _gsAiDirekt(key);
 }
+function _gsAiDirekt(key){
+  return { url: 'https://api.anthropic.com/v1/messages', headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'}, proxy: false };
+}
+// v32.68: EINE Anfrage an das Ziel — mit dem Uebergangs-Rueckfall. Schweigt der
+// Proxy (Netzfehler, 404 = nicht ausgeliefert, 5xx = Server-Fehler; NICHT 429
+// Quota, NICHT 401/400) und liegt noch ein Schluessel im Arbeitsspeicher, geht
+// dieselbe Anfrage einmal direkt an Anthropic — und der Ausfall wird vermerkt
+// (gs_ai_proxy_down_ts, fuer das Admin-Panel). Ohne Schluessel wird der Fehler
+// ehrlich gemeldet. Nach der Migration hat kein Nutzer mehr einen Schluessel;
+// der Rueckfall verschwindet damit von selbst.
+async function _gsAiAnfrage(tgt, body, key, fopts){
+  var resp = null, fehler = null;
+  try { resp = await _gsApiFetch(tgt.url, { method:'POST', headers: tgt.headers, body: body }, fopts); }
+  catch(e) { fehler = e; }
+  var ausfall = !!fehler || (resp && (resp.status === 404 || resp.status === 500 || resp.status === 502 || resp.status === 503 || resp.status === 504));
+  if (tgt.proxy && ausfall) {
+    _gsProxyAusfall(fehler ? (fehler.message || 'Netzfehler') : ('HTTP ' + resp.status));
+    if (key) {
+      var d = _gsAiDirekt(key);
+      return _gsApiFetch(d.url, { method:'POST', headers: d.headers, body: body }, fopts);
+    }
+    if (fehler) {
+      var e2 = new Error('🛠️ Der KI-Server antwortet nicht (' + String(fehler.message || '').slice(0, 60) + '). Bitte später erneut versuchen.');
+      e2.status = fehler.status || 0;
+      throw e2;
+    }
+    return resp;   // 5xx/404 ohne Schluessel: die Schleife oben macht eine Meldung daraus
+  }
+  if (fehler) throw fehler;
+  return resp;
+}
+function _gsProxyAusfall(grund){
+  try { window._gsProxyDownTs = Date.now(); localStorage.setItem('gs_ai_proxy_down_ts', String(Date.now())); } catch(_){}
+  try { console.warn('[GS] ai-proxy Ausfall → Direktweg:', grund); } catch(_){}
+}
+// Der Proxy meldet das Tageslimit als { error: { type:'quota_exceeded', … } } mit 429 —
+// dieselbe Sprache wie die App-eigene Quota (code free_quota_reached), nicht „Anbieter ueberlastet".
+function _gsAiQuotaFehler(data){
+  if (data && data.error && data.error.type === 'quota_exceeded') {
+    var e = new Error('🚫 ' + (data.error.message || 'Tageslimit erreicht.'));
+    e.code = 'free_quota_reached';
+    e.quota = { used: data.error.used, limit: data.error.limit, tier: data.error.tier };
+    return e;
+  }
+  return null;
+}
+window._gsAiTarget = _gsAiTarget; window._gsAiAnfrage = _gsAiAnfrage;
 async function callAI(messages, systemPrompt, maxTokens, opts){
   // v23.97: opts.timeout konfigurierbar — komplexe Aufgaben (Plan-Generation) brauchen mehr Zeit
   opts = opts || {};
@@ -30150,16 +30224,18 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
   // v24.22: Wenn kein Key da ist aber User eingeloggt → on-demand Pull versuchen
   // (Verhindert Race beim Boot wenn callAI VOR sync abläuft)
   // v26.82: Bis zu 3 Retry-Versuche mit short-backoff (statt nur 1) — bei Race-Conditions oder kurzem Token-Drop
-  if (!cfg.key && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof gsPullGlobalApiKey === 'function') {
+  // v32.68: nachladen nur, wenn weder Schluessel noch Proxy-Modus bekannt sind.
+  if (!cfg.key && cfg.source !== 'global' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof gsPullGlobalApiKey === 'function') {
     for (var tryI = 0; tryI < 3; tryI++) {
       try { await gsPullGlobalApiKey(); cfg = getApiConfig(); } catch(_){}
-      if (cfg.key) break;
+      if (cfg.key || cfg.source === 'global') break;
       await new Promise(function(r){ setTimeout(r, 350 * (tryI + 1)); });
     }
   }
   var provider = cfg.provider, key = cfg.key, source = cfg.source;
   // v26.82: Klarere Fehler-Meldung — Personal-Key admin-only (v26.67), Global-Key wird via Login geholt.
-  if(!key) {
+  // v32.68: kein Schluessel ist kein Hindernis mehr, solange der Proxy-Weg offen ist.
+  if(!key && !_gsAiTarget(key, source)) {
     var loggedIn = (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn());
     throw new Error(loggedIn
       ? '🔑 KI temporär nicht verfügbar — bitte kurz aus- und wieder einloggen (lädt den Key neu) oder in 1-2 Min nochmal versuchen.'
@@ -30193,18 +30269,15 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
     // Anthropic — mit Auto-Modell-Fallback (v23.64)
     var tryModel = window._gsPickClaudeModel();
     for (var attempts = 0; attempts < 4; attempts++){
-      var _tgt = _gsAiTarget(key, source); // v30.37: Proxy (Flag) oder direkt an Anthropic
-      var resp = await _gsApiFetch(_tgt.url,{
-        method:'POST',
-        headers: _tgt.headers,
-        body: JSON.stringify({
+      var _tgt = _gsAiTarget(key, source); // v32.68: Proxy zuerst, Direktweg nur als Rueckfall
+      var resp = await _gsAiAnfrage(_tgt, JSON.stringify({
           model: tryModel,
           max_tokens: maxTokens||1200,
           system: systemPrompt||'',
           messages: messages
-        })
-      }, { timeout: timeoutMs, retries: retries });
+        }), key, { timeout: timeoutMs, retries: retries });
       var data = await resp.json().catch(()=>({error:{message:'Ungültige Server-Antwort'}}));
+      var _qf = _gsAiQuotaFehler(data); if (_qf) throw _qf;
       if (resp.ok) {
         try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
         window._gsClaudeModel = tryModel;
@@ -30236,14 +30309,14 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
   //   Scanner nutzt das; alle anderen Aufrufer lassen opts weg → unverändertes Verhalten.
   var cfg = getApiConfig();
   // v24.22+v24.33: on-demand Pull mit Retry — bis zu 2x falls eingeloggt + Key noch nicht da
-  if (!cfg.key && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof gsPullGlobalApiKey === 'function') {
-    for (var retry = 0; retry < 2 && !cfg.key; retry++) {
+  if (!cfg.key && cfg.source !== 'global' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof gsPullGlobalApiKey === 'function') {
+    for (var retry = 0; retry < 2 && !cfg.key && cfg.source !== 'global'; retry++) {
       try { await gsPullGlobalApiKey(); cfg = getApiConfig(); } catch(_){}
-      if (!cfg.key) await new Promise(function(r){ setTimeout(r, 800); });
+      if (!cfg.key && cfg.source !== 'global') await new Promise(function(r){ setTimeout(r, 800); });
     }
   }
   var provider = cfg.provider, key = cfg.key, source = cfg.source;
-  if(!key) {
+  if(!key && !_gsAiTarget(key, source)) {   // v32.68: der Proxy-Weg braucht keinen Schluessel im Browser
     // v24.33: Differenzierte Fehlermeldung — Auth-Status berücksichtigen
     var loggedIn = (typeof sbIsLoggedIn === 'function') && sbIsLoggedIn();
     if (!loggedIn) {
@@ -30305,13 +30378,10 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
     for (var attempts = 0; attempts < 4; attempts++){
       var _reqBody = { model: tryModel, max_tokens: (opts && opts.maxTokens) || 2500, messages:[{ role:'user', content:content }] }; // v30.47: pro-Call überschreibbar (Scan nutzt 900 → kürzere Generierung)
       if (_sysPrompt) _reqBody.system = [{ type:'text', text:_sysPrompt, cache_control:{ type:'ephemeral' } }];
-      var _tgtV = _gsAiTarget(key, source); // v30.37: Proxy (Flag) oder direkt an Anthropic
-      var resp = await _gsApiFetch(_tgtV.url,{
-        method:'POST',
-        headers: _tgtV.headers,
-        body: JSON.stringify(_reqBody)
-      }, { timeout: 60000, retries: 1 });
+      var _tgtV = _gsAiTarget(key, source); // v32.68: Proxy zuerst, Direktweg nur als Rueckfall
+      var resp = await _gsAiAnfrage(_tgtV, JSON.stringify(_reqBody), key, { timeout: 60000, retries: 1 });
       var data = await resp.json().catch(()=>({error:{message:'Ungültige Server-Antwort'}}));
+      var _qfV = _gsAiQuotaFehler(data); if (_qfV) throw _qfV;
       if (resp.ok) {
         try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
         window._gsClaudeModel = tryModel;
@@ -74593,7 +74663,7 @@ async function _gsKeyHealthWalker(key, opts) {
 
 // v24.19: Health-Check des globalen Keys — nutzt jetzt den Walker (v24.22)
 async function gsHealthCheckGlobalKey() {
-  var key = localStorage.getItem('gs_global_api_key') || '';
+  var key = window._gsGlobalKeyMem || localStorage.getItem('gs_global_api_key') || '';   // v32.68: Arbeitsspeicher zuerst
   return _gsKeyHealthWalker(key);
 }
 
@@ -74677,7 +74747,7 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
     });
     if (r && !r.error) {
       // Lokalen Cache + Set-Timestamp setzen
-      localStorage.setItem('gs_global_api_key', newKey);
+      window._gsGlobalKeyMem = newKey; try { localStorage.removeItem('gs_global_api_key'); } catch(_){}   // v32.68: nie mehr auf die Platte
       localStorage.setItem('gs_global_api_provider', providerArg || 'anthropic');
       localStorage.setItem('gs_global_api_key_set_ts', String(Date.now()));
       // Sofort Health-Check
@@ -74710,7 +74780,7 @@ window.gsOpenGlobalKeyAdmin = async function() {
     showProfileToast && showProfileToast('⛔ Nur Admins'); return;
   }
   // Aktuellen Status berechnen
-  var key = localStorage.getItem('gs_global_api_key') || '';
+  var key = window._gsGlobalKeyMem || localStorage.getItem('gs_global_api_key') || '';   // v32.68
   var ts = parseInt(localStorage.getItem('gs_global_api_key_set_ts') || '0', 10);
   var ageDays = ts ? Math.floor((Date.now() - ts) / (24*60*60*1000)) : null;
   var ageBadge, ageColor;
@@ -74831,6 +74901,7 @@ window.gsGlobalKeyToggleService = async function() {
     if (r && !r.error) {
       localStorage.removeItem('gs_global_api_key');
       localStorage.removeItem('gs_global_api_key_set_ts');
+      window._gsGlobalKeyMem = '';   // v32.68
       showProfileToast && showProfileToast('🔌 Service deaktiviert');
       var m = document.getElementById('gs-global-key-admin'); if (m) m.remove();
     } else {
@@ -74873,6 +74944,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v32.68', date: '07.09.2026',
+    headline: '🔐 Der KI-Schlüssel bleibt auf dem Server — die App ruft den Proxy',
+    summary: 'Bis jetzt bekam jeder angemeldete Nutzer den echten Anthropic-Schlüssel in den Browser, und die App rief Anthropic direkt (Audit A1). Der Server-Proxy ai-proxy war seit Juni ausgeliefert und nie benutzt. Jetzt geht jeder KI-Aufruf mit globalem Schlüssel zuerst an den Proxy; der Schlüssel liegt nie mehr auf der Platte, nur noch im Arbeitsspeicher und nur solange der Server ihn schickt. Fällt der Proxy aus (Netz, 5xx), geht die Anfrage einmal direkt — ein Übergang, der mit der Migration 20260907_global_api_key_nur_proxy.sql von selbst endet: danach bekommt kein Nutzer mehr einen Schlüssel, nur Admins. Das Tageslimit des Proxys erscheint als Tageslimit, nicht als „Anbieter überlastet". Prüfstand schluessel_check (SQL + App).',
+    user_summary: '🔐 Sicherheit: der KI-Schlüssel verlässt den Server nicht mehr — für dich ändert sich nichts, die KI läuft wie bisher.',
+    user_items: [
+      {emoji:'🔐', bold:'Schlüssel:', text:' liegt nicht mehr im Browser; die App spricht mit dem GreenScan-Server, der mit der KI spricht.'},
+      {emoji:'🚫', bold:'Tageslimit:', text:' Wenn es erreicht ist, sagt die App es so — nicht als „Anbieter überlastet".'},
+    ],
+  },
   {
     v: 'v32.67', date: '07.09.2026',
     headline: '🧰 Vier kleine Reparaturen: Wetterwarnungen und Verkäufer-Status laden wieder, die Toast-Dauer gilt, Escape schliesst nur das oberste Fenster, Updates fragen zuerst',
@@ -75797,7 +75878,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.67';
+var GS_VERSION = 'v32.68';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -82078,6 +82159,9 @@ function gsOnLogout() {
   // v31.01: Wachposten loeschen, sonst laeuft der Login-Uebergang beim naechsten
   // Anmelden (auch mit demselben Konto) nicht mehr.
   try { window._gsLoginDoneForUid = null; } catch(_){}
+  // v32.68 (Audit A1): der globale Schluessel lebt nur im Arbeitsspeicher — und
+  // stirbt mit der Sitzung. gs_global_api_mode steht in GS_USER_KEYS.
+  try { window._gsGlobalKeyMem = ''; } catch(_){}
 
   // ═══ v31.04 KRITISCH: Empty-Clobber-Guard wieder scharf stellen ═══════════
   // Der Guard (v27.01) verhindert, dass ein leerer Blob die Cloud ueberschreibt,
@@ -82280,6 +82364,7 @@ var GS_USER_KEYS = [
   // Schluessel des Vorgaengers bezahlte die Scans des Nachfolgers.
   'ps_api_key','ps_api_provider','gs_anthropic_key','anthropic_key',
   'gs_global_api_key','gs_global_api_provider','gs_global_api_key_set_ts',
+  'gs_global_api_mode','gs_global_api_key_fp','gs_ai_proxy_down_ts',   // v32.68
   'gs_global_api_key_last_alert','gs_global_api_key_last_health','gs_global_api_key_last_warn',
   // ANMELDUNG. gs_auth_db traegt E-Mail-Adressen, gs_sb_user das ganze
   // Nutzerobjekt — sbClearSession() raeumte beide nicht.
@@ -82361,6 +82446,7 @@ async function gsSyncUserDataOnLogin(){
   // PRIVACY: User-ID-Switch erkennen → Cache des vorigen Users löschen
   var lastUid = localStorage.getItem('gs_last_active_uid');
   if (lastUid && lastUid !== uid) {
+    try { window._gsGlobalKeyMem = ''; } catch(_){}   // v32.68: ein anderes Konto erbt keinen Schluessel
     console.log('[gsSync] User changed:', lastUid, '→', uid, '— clearing previous user data');
     window._gsInitialSyncDone = false; // v29.45: Boot-Race-Empty-Guard für den NEUEN User re-armen
     if (typeof gsClearUserDataKeys === 'function') gsClearUserDataKeys();

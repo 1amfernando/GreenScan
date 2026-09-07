@@ -45,6 +45,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
 
 // Whitelist erlaubte Modelle. Verhindert, dass Clients teure Modelle erzwingen.
 const ALLOWED_MODELS = new Set([
+  "claude-sonnet-4-6",          // v32.68: erstes Modell der Frontend-Kette (_gsClaudeFallbacks) — fehlte, der Proxy stufte still auf 4-5 zurueck
   "claude-sonnet-4-5",
   "claude-sonnet-4-5-20250929",
   "claude-sonnet-4-20250514",

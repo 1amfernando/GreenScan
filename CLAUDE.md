@@ -185,6 +185,18 @@ GreenScan/
   `brain` bleibt als Kennung für die Nutzungsstatistik sinnvoll.
 - Direkte `fetch('https://api.anthropic.com/...')` Calls nur in `gsTestApiKey()`
   (Key-Validierung).
+- **Seit v32.68 (Audit A1) geht der globale Schlüssel durch den Proxy.**
+  `_gsAiTarget(key, source)` liefert für `source === 'global'` die
+  Edge-Function `ai-proxy` (Bearer-Token, kein `x-api-key`); der Schlüssel
+  liegt nie mehr in `localStorage`, nur in `window._gsGlobalKeyMem` — und
+  nur solange der Server ihn schickt (nach der Migration
+  `20260907_global_api_key_nur_proxy.sql` nur noch Admins). `_gsAiAnfrage`
+  ist die eine Anfrage-Funktion mit dem Übergangs-Rückfall (Proxy schweigt
+  + Schlüssel da → einmal direkt); `_gsAiQuotaFehler` macht aus dem 429 des
+  Proxys ein `free_quota_reached`. Wer einen neuen KI-Weg baut, geht über
+  `callAI`/`callVisionAI` — ein `fetch('https://api.anthropic.com/…')` mit
+  `getApiConfig().key` funktioniert für Nutzer nicht mehr (kein Schlüssel).
+  Prüfstand: `schluessel_check`.
 
 ### 3.5 · Daten-Speicherung
 - Lokal: `localStorage` mit `safeGetItem(key, fallback)` Wrapper benutzen.
@@ -559,6 +571,7 @@ node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusam
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 node scripts/robust_check.js     # vier kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67)
+node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -891,6 +904,25 @@ ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
 der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
 Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
 erst nach der Bestätigung umgestellt.
+
+**`schluessel_check.js` (seit v32.68) fragt, ob der Anthropic-Schlüssel den
+Server verlässt** (Audit A1). Zwei Hälften: SQL im lokalen Postgres —
+`fn_get_global_api_key` nach der Migration gibt Nutzern `mode: proxy` ohne
+Schlüssel, Admins (`profiles.is_admin` UND `admin_emails`) den Schlüssel,
+Gesperrten/Anonymen/nicht Konfigurierten `enabled: false` mit Grund; `anon`
+darf sie nicht rufen. App mit gestelltem `fetch`: wohin geht `callAI`
+(Proxy, Bearer, kein `x-api-key`), was liegt danach im Speicher (nichts auf
+der Platte, Altbestand geräumt), was passiert, wenn der Proxy schweigt
+(einmal direkt — nur mit Schlüssel; ohne Schlüssel ein ehrlicher Fehler; bei
+429 NIE), persönlicher Schlüssel direkt, abgemeldet kein Aufruf, Notschalter,
+Abmelden räumt den Speicher. Gegen v32.67: rot.
+
+Was er NICHT prüft, und das steht auch im Bericht: ob der echte Proxy
+antwortet. `ai_usage` hatte am 07.09. null Zeilen — der Proxy war seit Juni
+ausgeliefert und nie benutzt. Deshalb ist der Direktweg im Übergang ein
+Rückfall und keine Option: erst wenn `select count(*) from ai_usage` nach
+einem echten Aufruf wächst, wird die Migration angewandt (FUER-FERNANDO §8).
+**Ein Umschalter, den niemand je umgelegt hat, ist kein Sicherheitsnetz.**
 
 **`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
 Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf

@@ -29,7 +29,8 @@
 | B5 · `gsToast` verwirft die Dauer (126 Aufrufer) | ✅ v32.67 — Dauer reist durch `showProfileToast` und die Warteschlange | `robust_check` Fall 2 |
 | B6 · Escape schliesst alle Fenster | ✅ v32.67 — nur das oberste (zuletzt geöffnet, sonst höchster z-index) | `robust_check` Fall 3 |
 | B3 · Service Worker aktiviert sich selbst (`skipWaiting` im Install) | ✅ v32.67 — wartet auf `SKIP_WAITING` vom Banner; Rückfall-Reload 4 s | `robust_check` Fall 4 · `offline_check` |
-| A1, A5–A9, B2, B4, B7–B9, C–E | offen | §G |
+| A1 · globaler Anthropic-Schlüssel im Browser jedes Nutzers | ✅ v32.68 (App) — Proxy zuerst, Schlüssel nie mehr auf der Platte, Übergangs-Rückfall; ⏳ Migration `20260907_global_api_key_nur_proxy.sql` + `deploy ai-proxy` (Fernando, §8) | `schluessel_check` 10 Fälle |
+| A5–A9, B2, B4, B7–B9, C–E | offen | §G |
 
 ## Zahlen zuerst
 
