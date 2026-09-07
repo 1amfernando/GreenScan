@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.64.20260906">
+<meta name="app-version" content="32.65.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13481,9 +13481,15 @@ async function answerSupaDailyQuiz(btn) {
           // als nicht ueberpruefbar und zaehlt nicht (bewusst: im Zweifel nicht anrechnen).
           sbFetch('/rest/v1/quiz_answers', {
             method:'POST',
-            headers:{'Content-Type':'application/json','Prefer':'return=minimal,resolution=ignore-duplicates'},
+            // v32.65: return=representation statt minimal. Seit v30.95 entscheidet
+            // der SERVER ueber is_correct — und die App las sein Urteil nie. So
+            // blieb vom 01. bis 07.09.2026 unbemerkt, dass der Trigger nur eines
+            // von drei Frageformaten kannte und in 198 von 203 Fragen JEDE Antwort
+            // verwarf. Jetzt wird die Antwort gelesen (_dqServerUrteil).
+            headers:{'Content-Type':'application/json','Prefer':'return=representation,resolution=ignore-duplicates'},
             body: JSON.stringify({ user_id: uid, quiz_id: window._dqSupaQuizId, is_correct: isCorrect, selected_option: _dqSelIdx })
-          }).then(function(){
+          }).then(function(r){
+            try { _dqServerUrteil(r, isCorrect); } catch(_){}
             try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(dqGetStats()); } catch(_){}
             try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch(_){}
           }).catch(function(e){ console.log('[GS] quiz_answers insert:', e && e.message); });
@@ -13514,6 +13520,50 @@ function closeDailyQuiz() {
 }
 
 // ═══ QUIZ v3 (v23.50): Post-Answer Actions — KI, Rangliste, Schließen ═══
+// v32.65: Das Urteil des Servers zur eigenen Antwort. Seit v30.95 entscheidet
+// der Server ueber is_correct (Trigger auf quiz_answers); der Client zeigt
+// „Richtig!" aus seinem eigenen Wissen. Weichen die beiden ab, sagt es diese
+// Zeile — in der Rangliste zaehlt nur der Server. Drei Zustaende: bestaetigt
+// (nichts zu sagen) · widersprochen · nicht angekommen. Eine Dublette
+// (schon gespielt, Server liefert 0 Zeilen) ist keiner davon.
+// Anlass: 01.–07.09.2026 verwarf der Trigger jede Antwort in 198 von 203
+// Fragen, und die App meldete weiter „Richtig!" — sie hatte die Antwort mit
+// `return=minimal` nie gelesen. Ein Widerspruch, den man SIEHT, waere am
+// ersten Tag aufgefallen.
+function _dqServerUrteil(r, clientCorrect) {
+  var res = document.getElementById('dq-result');
+  var alt = document.getElementById('dq-server-urteil');
+  if (alt) alt.remove();
+  var urteil = null, text = null;
+  if (!r || r.error) {
+    urteil = 'nicht_angekommen';
+    text = '📵 Die Antwort ist nicht beim Server angekommen' +
+      (r && r.error && r.error.message ? ' (' + String(r.error.message).slice(0, 80) + ')' : '') +
+      ' — in der Rangliste zaehlt sie deshalb nicht.';
+  } else if (Array.isArray(r.data) && r.data.length && typeof r.data[0].is_correct === 'boolean') {
+    urteil = r.data[0].is_correct ? 'richtig' : 'falsch';
+    if (r.data[0].is_correct !== !!clientCorrect) {
+      text = '⚠️ Der Server wertet diese Antwort als ' + urteil + ' — in der Rangliste zaehlt sein Urteil, nicht die Anzeige hier.';
+    }
+  }
+  // Fuers Wiederoeffnen merken (showDqResult). Kein Rettungsweg noetig: eine
+  // verlorene Notiz ist kein Datenverlust.
+  try {
+    var heute = dqGetToday();
+    if (heute) { heute.serverUrteil = urteil; localStorage.setItem(dqTodayKey(), JSON.stringify(heute)); }
+  } catch(_){}
+  if (!text) return;
+  console.warn('[GS] Quiz-Urteil:', text);
+  if (!res) return;
+  var el = document.createElement('div');
+  el.id = 'dq-server-urteil';
+  el.setAttribute('role', 'status');
+  el.style.cssText = 'margin-top:8px;font-size:var(--fs-sm);line-height:1.4;color:#ffcc80;';
+  el.textContent = text;
+  res.appendChild(el);
+}
+window._dqServerUrteil = _dqServerUrteil;
+
 function dqShowPostAnswerActions(prefilledExpl) {
   var container = document.getElementById('dq-post-actions');
   if (!container) {
@@ -13652,6 +13702,12 @@ function showDqResult(data) {
       lines.push('<div style="font-size:var(--fs-md);color:rgba(255,255,255,.85);">Richtige Antwort: <b>' + String(data.correctAnswer).replace(/</g,'&lt;') + '</b></div>');
     }
     lines.push('<div style="font-size:var(--fs-md);color:rgba(255,255,255,.75);margin-top:4px;">Nächste Frage morgen um Mitternacht 🌙</div>');
+    // v32.65: das Urteil des Servers (siehe _dqServerUrteil) auch beim Wiederoeffnen.
+    if (data.serverUrteil === 'nicht_angekommen') {
+      lines.push('<div id="dq-server-urteil" role="status" style="font-size:var(--fs-sm);color:#ffcc80;margin-top:6px;line-height:1.4;">📵 Die Antwort ist nicht beim Server angekommen — in der Rangliste zählt sie nicht.</div>');
+    } else if ((data.serverUrteil === 'richtig' || data.serverUrteil === 'falsch') && (data.serverUrteil === 'richtig') !== !!data.correct) {
+      lines.push('<div id="dq-server-urteil" role="status" style="font-size:var(--fs-sm);color:#ffcc80;margin-top:6px;line-height:1.4;">⚠️ Der Server wertet diese Antwort als ' + data.serverUrteil + ' — in der Rangliste zählt sein Urteil.</div>');
+    }
     lines.push('<div style="font-size:var(--fs-md);margin-top:8px;font-weight:800;color:rgba(255,255,255,.9);">Gesamt: ' + stats.points + ' Punkte · 🔥 ' + stats.streak + ' Tage</div>');
     res.innerHTML = '<div style="text-align:center;padding:8px;">' + lines.join('') + '</div>';
     // Alte getrennte Rangliste-Button ausblenden — wir haben jetzt dqShowPostAnswerActions
@@ -73081,9 +73137,15 @@ function getMoonPhase(date) {
 }
 
 // Mondtyp → welcher Tag für welche Pflanzen
+// v32.65: `color` steht auf einer FESTEN hellen Flaeche (`bg`), also eine
+// feste dunkle Schrift (CLAUDE.md §7.1). Im Dunkelmodus wird die Flaeche
+// gedimmt (gemessen: #fff3e0 → rgb(222,211,195)); #bf360c kam dort auf
+// 3,79:1 und #2e7d32 auf 3,4:1 — beide unter AA. Welcher Typ heute dran
+// ist, haengt vom Mond ab, deshalb sah contrast_check nur den einen.
+// Jetzt: frucht 7,0:1 hell / 5,3:1 dunkel · blatt 7,0:1 / 5,2:1.
 const MOON_TYPES = {
-  frucht: { label:'Fruchttag 🍎', desc:'Günstig für: Tomaten, Gurken, Bohnen, Kürbis, Paprika, Zucchini, Erbsen', color:'#bf360c', bg:'#fff3e0' },
-  blatt:  { label:'Blatttag 🥬', desc:'Günstig für: Salat, Spinat, Kohl, Kräuter, Lauch, Schnittlauch', color:'#2e7d32', bg:'#e8f5e9' },
+  frucht: { label:'Fruchttag 🍎', desc:'Günstig für: Tomaten, Gurken, Bohnen, Kürbis, Paprika, Zucchini, Erbsen', color:'#9a2b09', bg:'#fff3e0' },
+  blatt:  { label:'Blatttag 🥬', desc:'Günstig für: Salat, Spinat, Kohl, Kräuter, Lauch, Schnittlauch', color:'#1b5e20', bg:'#e8f5e9' },
   wurzel: { label:'Wurzeltag 🥕', desc:'Günstig für: Karotten, Kartoffeln, Zwiebeln, Rüebli, Knoblauch, Randen', color:'#5d4037', bg:'#efebe9' },
   blüte:  { label:'Blütentag 🌸', desc:'Günstig für: Blumenkohl, Brokkoli, Artischocken, Blumen, Kräuter ernten', color:'#6a1b9a', bg:'#f3e5f5' },
 };
@@ -74771,6 +74833,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.65', date: '07.09.2026',
+    headline: '🏆 Quiz-Rangliste zählt wieder — der Server kannte nur eines von drei Frageformaten',
+    summary: 'Seit dem 1. September entscheidet der Server, ob eine Quiz-Antwort richtig ist — und er kannte nur ein Frageformat. Bei 198 von 203 Fragen galt deshalb jede Antwort als falsch, während die App „Richtig!" zeigte; die Rangliste stand still. Eine Migration lehrt den Server alle drei Formate, rechnet die Antworten seit dem 1. September nach und zieht die Rangliste nach (die Anwendung macht Fernando, docs/FUER-FERNANDO.md §7). Die App liest seither das Urteil des Servers zurück: widerspricht er der Anzeige oder kommt die Antwort nicht an, steht es unter dem Ergebnis. Neuer Prüfstand quiz_check spielt die Geschichte in einem lokalen Postgres nach — erst der Fehler, dann die Reparatur.',
+    user_summary: '🏆 Die Quiz-Rangliste zählt richtige Antworten wieder — und sagt dir, wenn der Server anders wertet als die App.',
+    user_items: [
+      {emoji:'🏆', bold:'Rangliste:', text:' Richtige Antworten seit dem 1. September werden nachgerechnet, sobald die Datenbank aktualisiert ist.'},
+      {emoji:'⚠️', bold:'Ehrlich:', text:' Wertet der Server deine Antwort anders oder kommt sie nicht an, steht es unter dem Ergebnis.'},
+    ],
+  },
+  {
     v: 'v32.64', date: '06.09.2026',
     headline: '⏸ Pausieren vom Telefon aus — und der Server sagt, wann er zuletzt gemeldet hat',
     summary: 'Ein gekoppeltes Gerät lässt sich jetzt aus der App pausieren und fortsetzen — der Zustand liegt beim Server, der dem Gerät beim nächsten Kontakt sagt, dass es schweigen soll; lokal wird erst nach der Bestätigung umgestellt. Und die Regeln kommen zurück: der Abgleich liest, ob eine Regel auf dem Server liegt, wann er sie zuletzt gemeldet hat und ob sie eingeschaltet ist. Eine Regel, die dort gelöscht wurde, meldet die App wieder selbst und sagt es in der Kachel — neu hochgeladen wird sie nicht. Ohne Gerät gebaut, mit gestelltem Server geprüft (docs/OEKOSYSTEM-V1.md §11.3o).',
@@ -75663,7 +75735,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.64';
+var GS_VERSION = 'v32.65';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
