@@ -4,13 +4,51 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.74` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.75` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fo) — v32.75: vier Push-Sender teilen ein Helfer-Modul, feedback-triage fragt den Server — Audit C4
+
+- **C4** `loadSettings`, `zurichHour` und `sendPush` standen als **zwölf
+  Kopien** in `daily-push-checker`, `engagement-push-checker`,
+  `weather-alert-checker` und `sensor-push` — in drei Varianten
+  auseinandergelaufen (Fehlertexte, Signatur von `sendPush`, `tag`-Rückfall)
+  und in jeder Kopie **Fernandos private Adresse** als VAPID-Rückfall. Die
+  Functions liegen im Web-Root; die Adresse war damit über
+  `green-scan.ch/supabase/functions/…/index.ts` lesbar. Jetzt:
+  `supabase/functions/_shared/push_helfer.mjs` (reines ESM wie
+  `ingest_regeln.mjs`; Supabase-Client und web-push kommen als Parameter,
+  damit der Prüfstand die Rechnung ohne Netz misst). Die vier Sender
+  importieren es und behalten je einen zweizeiligen Adapter, damit die 14
+  Aufrufer unverändert bleiben. VAPID-Rückfall ist `mailto:info@greenscan.ch`
+  (die offizielle Adresse, `GS_SUPPORT_EMAIL`).
+- **feedback-triage** entschied „Admin?" aus einer E-Mail-Liste (dieselben
+  zwei Adressen) und einem **selbst dekodierten Token-Inhalt** (`atob` ohne
+  Signaturprüfung — der Kommentar sagte „Supabase hat verify_jwt an", was von
+  hier nicht messbar ist). Jetzt fragt sie `POST /rest/v1/rpc/is_admin_user`
+  mit dem Bearer der Person: PostgREST prüft die Signatur, die Funktion ist
+  dieselbe, die jede Admin-RPC und seit v32.74 die App benutzt. Liste und
+  `atob` sind weg.
+- `robust_check` Fall 14: die vier Sender importieren, keine eigene Kopie,
+  keine private Adresse in allen 39 Functions; das Modul ist rein (kein
+  `import`) und lädt in Node; `zurichHour` 10:30Z Sommer → 12, 23:30Z Winter
+  → 0; `loadSettings` mit gestelltem Client (Werte, Rückfall
+  `info@greenscan.ch`, fehlender Schlüssel → Ausnahme, Ladefehler →
+  Ausnahme mit Text); `sendPush` mit gestelltem web-push (Abo-Schlüssel, TTL
+  3600, Nutzlast mit icon/badge/tag/data.url, `tag`-Rückfall `gs-<ts>`, 410 →
+  `ok:false` mit Status); `feedback-triage` ohne `ADMIN_EMAILS`, ohne `atob`,
+  mit `rpc/is_admin_user`. Gegenprobe gegen v32.74: rot (drei Kopien, fünf
+  Adressen, Modul fehlt).
+- **Deno hat hier niemand** — die Functions sind nicht ausgeführt, nur gelesen
+  und gerechnet (Modul in Node). Die fünf Functions stehen bereits in
+  FUER-FERNANDO §9 zum Ausliefern; C4 ändert die Liste nicht, nur den Inhalt.
+
+Regression v32.74 → v32.75: 30 Prüfstände grün, 0 nicht prüfbar (lokales Postgres lief), Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (fn) — v32.74: Admin-Modus fragt den Server, alter Sensor-Assistent ohne Sitzungs-Token — Audit A5, A6
 
@@ -9592,9 +9630,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.74` (Client) · SW-Cache `gs-v32.74` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.75` (Client) · SW-Cache `gs-v32.75` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'322 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **93'331 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

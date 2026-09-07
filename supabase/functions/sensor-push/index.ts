@@ -16,6 +16,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { cronOderService } from "../_shared/auth_vergleich.mjs";
+import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden } from "../_shared/push_helfer.mjs";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { KATEGORIE, FENSTER_MS, FEHLSCHLAEGE_MAX, planen, nutzlast, protokollZeile, stummZeile } from "../_shared/sensor_push_regeln.mjs";
@@ -24,42 +25,13 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
 
-async function loadSettings() {
-  const { data, error } = await sb.from("app_settings").select("key,value")
-    .in("key", ["vapid_public_key", "vapid_private_key", "vapid_subject", "push_cron_secret"]);
-  if (error) throw new Error("settings load: " + error.message);
-  const m: Record<string, string> = {};
-  for (const r of data || []) m[r.key] = r.value;
-  if (!m.vapid_public_key || !m.vapid_private_key) throw new Error("VAPID-Keys fehlen");
-  return {
-    vapid: { publicKey: m.vapid_public_key, privateKey: m.vapid_private_key, subject: m.vapid_subject || "mailto:fernando.rankwiler1997@gmail.com" },
-    cronSecret: m.push_cron_secret || null,
-  };
-}
+// v32.75 (Audit C4): die drei Helfer kommen aus _shared/push_helfer.mjs.
+const loadSettings = () => _pushSettings(sb);
+const sendPush = (abo: any, n: { title: string; body: string; url: string; tag: string }, vapid: any) =>
+  _pushSenden(webpush, abo, n, vapid);
 
-function zurichHour(): number {
-  try {
-    return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "Europe/Zurich" }).format(new Date())) % 24;
-  } catch (_) { return new Date().getUTCHours(); }
-}
 
-async function sendPush(abo: any, n: { title: string; body: string; url: string; tag: string }, vapid: any) {
-  try {
-    webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
-    const pushSub = { endpoint: abo.endpoint, keys: { p256dh: abo.p256dh, auth: abo.auth_secret } };
-    const payload = JSON.stringify({
-      title: n.title, body: n.body, url: n.url,
-      icon: "https://green-scan.ch/icons/icon-192.png",
-      badge: "https://green-scan.ch/icons/icon-96.png",
-      tag: n.tag,
-      data: { url: n.url },
-    });
-    const res = await webpush.sendNotification(pushSub, payload, { TTL: 3600 });
-    return { ok: true, status: res.statusCode };
-  } catch (e: any) {
-    return { ok: false, status: e?.statusCode, error: String(e?.message || e) };
-  }
-}
+
 
 Deno.serve(async (req: Request) => {
   const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-cron-secret, content-type", "Content-Type": "application/json" };

@@ -460,6 +460,15 @@ ist unverändert); im Admin-Panel „KI-Triage" läuft für dich weiter; ein
 Garten-Scan mit drei Fotos und Horizont 3 Jahre kommt in unter zwei Minuten
 zurück oder sagt sauber „Timeout".
 
+**Nachtrag v32.75 (Audit C4):** dieselben fünf Functions haben sich noch
+einmal geändert — `daily-push-checker`, `engagement-push-checker`,
+`weather-alert-checker` und `sensor-push` importieren jetzt
+`_shared/push_helfer.mjs` (beim Ausliefern wird `_shared/` mitgenommen, wie
+schon bei `auth_vergleich.mjs`), und `feedback-triage` fragt
+`is_admin_user` mit dem Token der Person; sie liest dafür
+`SUPABASE_ANON_KEY` aus der Umgebung (Standard in jeder Edge-Function,
+Rückfall Service-Key als `apikey`). Die Liste in §9 bleibt dieselbe.
+
 ## 10 · Drei Dinge aus Audit A5/A6 (v32.74), die nur du entscheiden oder anwenden kannst
 
 **Nur gelesen, nichts geändert** — die Zahlen stammen aus lesenden Abfragen

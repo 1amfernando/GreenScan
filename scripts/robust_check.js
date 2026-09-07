@@ -408,6 +408,57 @@ const FAELLE = [
     },
   },
   {
+    name: 'C4 · vier Push-Sender teilen EIN Helfer-Modul (_shared/push_helfer.mjs): keine Kopie von loadSettings/zurichHour/sendPush mehr, keine private Adresse als VAPID-Rueckfall; Rechnung des Moduls mit gestelltem Client und gestelltem web-push',
+    lauf: async () => {
+      const f = [];
+      const fnRoot = path.join(__dirname, '..', 'supabase', 'functions');
+      const sender = ['daily-push-checker', 'engagement-push-checker', 'weather-alert-checker', 'sensor-push'];
+      sender.forEach(n => {
+        const t = fs.readFileSync(path.join(fnRoot, n, 'index.ts'), 'utf8');
+        if (!/from "\.\.\/_shared\/push_helfer\.mjs"/.test(t)) f.push(n + ' importiert das Modul nicht');
+        if (/^async function loadSettings\(|^function zurichHour\(|^async function sendPush\(/m.test(t)) f.push(n + ' traegt noch eine eigene Kopie');
+      });
+      const alle = fs.readdirSync(fnRoot).filter(d => fs.existsSync(path.join(fnRoot, d, 'index.ts')));
+      alle.forEach(d => { if (/rankwiler/.test(fs.readFileSync(path.join(fnRoot, d, 'index.ts'), 'utf8'))) f.push(d + ' traegt eine private Adresse'); });
+      const modPfad = path.join(fnRoot, '_shared', 'push_helfer.mjs');
+      if (!fs.existsSync(modPfad)) return { ok: false, warum: '_shared/push_helfer.mjs fehlt · ' + f.join(' · ') };
+      if (/^import /m.test(fs.readFileSync(modPfad, 'utf8'))) f.push('Modul ist nicht rein (import)');
+      // feedback-triage: kein Admin-Urteil aus einer E-Mail-Liste und keinem unverifizierten Token-Inhalt — der Server sagt es (is_admin_user mit dem Token der Person)
+      const triage = fs.readFileSync(path.join(fnRoot, 'feedback-triage', 'index.ts'), 'utf8');
+      if (/ADMIN_EMAILS/.test(triage)) f.push('feedback-triage traegt noch eine E-Mail-Liste');
+      if (!/rpc\/is_admin_user/.test(triage)) f.push('feedback-triage fragt nicht is_admin_user');
+      if (/atob\(/.test(triage.replace(/^\s*\/\/.*$/gm, ''))) f.push('feedback-triage liest den Token-Inhalt selbst (atob)');
+      let M;
+      try { M = await import('file://' + modPfad); } catch (e) { return { ok: false, warum: 'Modul laedt nicht: ' + e.message }; }
+      // zurichHour: Sommer 10:30Z → 12, Winter 23:30Z → 0
+      if (M.zurichHour('2026-07-01T10:30:00Z') !== 12) f.push('zurichHour Sommer: ' + M.zurichHour('2026-07-01T10:30:00Z'));
+      if (M.zurichHour('2026-01-01T23:30:00Z') !== 0) f.push('zurichHour Winter: ' + M.zurichHour('2026-01-01T23:30:00Z'));
+      if (typeof M.zurichHour() !== 'number') f.push('zurichHour() ohne Argument');
+      // loadSettings mit gestelltem Client
+      const sbMit = (rows, error) => ({ from: () => ({ select: () => ({ in: async () => ({ data: rows, error: error || null }) }) }) });
+      let s1; try { s1 = await M.loadSettings(sbMit([{ key: 'vapid_public_key', value: 'PUB' }, { key: 'vapid_private_key', value: 'PRIV' }, { key: 'push_cron_secret', value: 'S' }])); } catch (e) { f.push('loadSettings wirft: ' + e.message); }
+      if (s1 && (s1.vapid.publicKey !== 'PUB' || s1.vapid.privateKey !== 'PRIV' || s1.cronSecret !== 'S')) f.push('loadSettings Werte: ' + JSON.stringify(s1));
+      if (s1 && s1.vapid.subject !== 'mailto:info@greenscan.ch') f.push('VAPID-Rueckfall ist ' + (s1 && s1.vapid.subject));
+      let s2 = null; try { s2 = await M.loadSettings(sbMit([{ key: 'vapid_public_key', value: 'PUB' }])); f.push('ohne privaten Schluessel keine Ausnahme'); } catch (e) { if (!/VAPID/.test(e.message)) f.push('falsche Ausnahme: ' + e.message); }
+      try { await M.loadSettings(sbMit(null, { message: 'kaputt' })); f.push('Ladefehler ohne Ausnahme'); } catch (e) { if (!/settings load: kaputt/.test(e.message)) f.push('Ladefehler-Text: ' + e.message); }
+      // sendPush mit gestelltem web-push
+      const rufe = [];
+      const wp = { setVapidDetails: (...a) => rufe.push(['vapid', a]), sendNotification: async (sub, payload, opts) => { rufe.push(['send', sub, JSON.parse(payload), opts]); return { statusCode: 201 }; } };
+      const r1 = await M.sendPush(wp, { endpoint: 'https://push.example/x', p256dh: 'P', auth_secret: 'A' }, { title: 'T', body: 'B', url: '/?screen=garden', tag: 'gs-t' }, { subject: 'mailto:info@greenscan.ch', publicKey: 'PUB', privateKey: 'PRIV' });
+      const send = rufe.find(x => x[0] === 'send');
+      if (!r1.ok || r1.status !== 201) f.push('sendPush ok: ' + JSON.stringify(r1));
+      if (!send || send[1].keys.p256dh !== 'P' || send[1].keys.auth !== 'A' || send[3].TTL !== 3600) f.push('sendPush Abo/TTL: ' + JSON.stringify(send && [send[1], send[3]]));
+      if (!send || send[2].title !== 'T' || send[2].url !== '/?screen=garden' || send[2].data.url !== '/?screen=garden' || send[2].tag !== 'gs-t' || !/icon-192/.test(send[2].icon) || !/icon-96/.test(send[2].badge)) f.push('Nutzlast: ' + JSON.stringify(send && send[2]));
+      const p2 = M.pushPayload({ title: 'x', body: 'y', url: '/' });
+      if (!/^gs-\d+$/.test(p2.tag)) f.push('tag-Rueckfall: ' + p2.tag);
+      const wpWeg = { setVapidDetails: () => {}, sendNotification: async () => { const e = new Error('Gone'); e.statusCode = 410; throw e; } };
+      const r2 = await M.sendPush(wpWeg, { endpoint: 'e', p256dh: 'P', auth_secret: 'A' }, { title: 't', body: 'b', url: '/' }, { subject: 's', publicKey: 'p', privateKey: 'k' });
+      if (r2.ok || r2.status !== 410 || !/Gone/.test(r2.error)) f.push('sendPush 410: ' + JSON.stringify(r2));
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '4 Sender importieren, 0 Kopien, 0 private Adressen in ' + alle.length + ' Functions · Zuerich 12/0 · Settings PUB/PRIV/S, Rueckfall info@greenscan.ch, fehlend → Ausnahme · Push 201, TTL 3600, Nutzlast vollstaendig · 410 → ok:false' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');

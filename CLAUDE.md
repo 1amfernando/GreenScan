@@ -585,7 +585,7 @@ node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nu
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
-node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent
+node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
@@ -1019,6 +1019,17 @@ Messwerte → Gerät koppeln (`gsGeraetKoppeln`). Der alte Assistent unter
 (`gsShOpen`, Demo-Werte) hängt an keinem Menüeintrag mehr; wer die
 Alt-Tabellen `sensor_devices` / `sensor_readings` anfasst, liest zuerst
 OEKOSYSTEM-V1 §11 Idee 1 (live 1 / 0 / 0 Zeilen, 07.09.2026).
+
+**Seit v32.75 haben die Push-Sender EIN Helfer-Modul:**
+`supabase/functions/_shared/push_helfer.mjs` (`loadSettings(sb)`,
+`zurichHour(now)`, `pushPayload(n)`, `sendPush(webpush, sub, n, vapid)`).
+Wer einen neuen Push-Weg baut, importiert es — keine Kopie von `sendPush`
+mehr, und der VAPID-Rückfall ist `mailto:info@greenscan.ch`, nie eine
+private Adresse (die Functions liegen im Web-Root und sind lesbar). Und für
+Edge-Functions gilt: **kein `atob` auf den Token, keine E-Mail-Liste** — wer
+wissen will, ob der Aufrufer Admin ist, ruft `rpc/is_admin_user` mit dessen
+Bearer (PostgREST prüft die Signatur); `feedback-triage` ist die Vorlage.
+`robust_check` Fall 14 rechnet das Modul in Node und meldet jede Kopie.
 
 **`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
 Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf
