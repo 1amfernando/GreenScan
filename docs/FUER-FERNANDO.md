@@ -460,6 +460,13 @@ ist unverändert); im Admin-Panel „KI-Triage" läuft für dich weiter; ein
 Garten-Scan mit drei Fotos und Horizont 3 Jahre kommt in unter zwei Minuten
 zurück oder sagt sauber „Timeout".
 
+**Nachtrag v32.76 (Audit A7):** dazu kommt `species-search` — sie verlangt
+jetzt einen angemeldeten Nutzer (GoTrue prüft das Token), sucht mit dessen
+Token statt mit dem Service-Key und erlaubt nur die eigenen Origins. Sie
+liest `SUPABASE_ANON_KEY` aus der Umgebung (Standard). Ausliefern wie die
+anderen: `supabase functions deploy species-search`. Die Liste in §9 sind
+damit **zehn** Functions.
+
 **Nachtrag v32.75 (Audit C4):** dieselben fünf Functions haben sich noch
 einmal geändert — `daily-push-checker`, `engagement-push-checker`,
 `weather-alert-checker` und `sensor-push` importieren jetzt

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.75.20260907">
+<meta name="app-version" content="32.76.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74923,6 +74923,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.76', date: '07.09.2026',
+    headline: '🔎 Die Artensuche auf dem Server verlangt einen angemeldeten Nutzer — Audit A7',
+    summary: 'Audit A7. Die Edge-Function species-search lief für jede Anfrage aus dem Internet ohne Anmeldung mit dem Service-Role-Key, schrieb in ihren Cache und gab rohe Datenbank-Fehlertexte zurück; CORS stand auf *. Jetzt: nur eigene Origins, ein Bearer ist Pflicht und wird von GoTrue geprüft (Anon-Key allein: 401), die Suche läuft mit dem Token der Person, der Service-Key nur noch für den Cache nach einer gültigen Suche, Fehler ohne Rohtext, q auf 80 Zeichen und lim auf 25 begrenzt. Die App fällt ohne Anmeldung wie bisher auf die lokale Artenliste zurück. robust_check Fall 15 (Quelltext, kein Deno hier). Deploy: FUER-FERNANDO §9, jetzt zehn Functions.',
+    user_summary: '🔎 Die Online-Artensuche ist jetzt nur noch für angemeldete Nutzer erreichbar — die Suche in der App funktioniert wie gewohnt.',
+    user_items: [
+      {emoji:'🔎', bold:'Artensuche:', text:' Der Server-Teil der Suche verlangt jetzt dein Konto; ohne Anmeldung sucht die App wie bisher in der eingebauten Artenliste.'},
+    ],
+  },
+  {
     v: 'v32.75', date: '07.09.2026',
     headline: '🧩 Vier Push-Sender teilen ein Helfer-Modul, feedback-triage fragt den Server — Audit C4',
     summary: 'Audit C4. loadSettings, zurichHour und sendPush standen als zwölf Kopien in vier Edge-Functions, in drei Varianten auseinandergelaufen — und jede Kopie trug eine private E-Mail-Adresse als VAPID-Rückfall, lesbar über den Web-Root. Jetzt: supabase/functions/_shared/push_helfer.mjs (reines ESM; Supabase-Client und web-push kommen als Parameter), zweizeilige Adapter in den vier Sendern, Rückfall info@greenscan.ch. feedback-triage entschied „Admin?“ aus einer E-Mail-Liste und einem selbst dekodierten Token; jetzt fragt sie is_admin_user mit dem Token der Person, PostgREST prüft die Signatur. robust_check Fall 14 rechnet das Modul in Node. Nicht ausgeführt: Deno gibt es hier nicht — die fünf Functions stehen in FUER-FERNANDO §9.',
@@ -75925,7 +75934,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.75';
+var GS_VERSION = 'v32.76';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

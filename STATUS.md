@@ -4,13 +4,44 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.75` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.76` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fp) — v32.76: species-search verlangt einen echten Nutzer — Audit A7
+
+- **A7** `supabase/functions/species-search` lief für **jede** Anfrage aus dem
+  Internet ohne Anmeldung mit dem Service-Role-Key, schrieb in
+  `species_search_cache` und gab rohe PostgREST-Fehlertexte an anonyme
+  Aufrufer; CORS stand auf `*`. Live nachgemessen (nur lesend):
+  `fn_species_search` ist für `authenticated` UND `anon` ausführbar (kein
+  SECURITY DEFINER), `species_search_cache` hat RLS ohne Policies (nur der
+  Service-Key kommt hinein) und **0 Zeilen** — der Cache hat also nie
+  gehalten oder wurde nie gebraucht. Jetzt: CORS-Allowlist wie `ai-proxy`;
+  ein Bearer ist Pflicht und muss ein echter Nutzer sein — `GET
+  /auth/v1/user` prüft die Signatur, der Anon-Key allein bekommt 401; die
+  Suche selbst läuft mit dem Token der Person (PostgREST prüft es erneut),
+  der Service-Key nur noch für den Cache und nur NACH einer gültigen Suche;
+  Fehler gehen als `search_failed` hinaus, Details bleiben im Log; `q` ≤ 80
+  Zeichen, `lim` 1–25. Die App schickt über `sbFetch` das Sitzungs-Token
+  und fällt ohne Server auf die lokale Artenliste zurück — das tat
+  `_gsRemoteSpecies` schon immer (`return null` → lokale Suche).
+- `robust_check` Fall 15 — **eine Quelltext-Frage, ehrlich benannt** (Deno
+  gibt es hier nicht): kein `*`, Allowlist, `auth/v1/user`, 401 ohne Token,
+  RPC mit `Bearer ${token}` statt Service-Key, Reihenfolge Auth → Suche →
+  Cache, kein `detail`/`String(e)` nach aussen, `Q_MAX = 80`, `lim ≤ 25`,
+  und der Rückfall in der App. Gegenprobe gegen v32.75: rot mit neun
+  Gründen. Und eine Messfalle aus dem Bau: die Allowlist-Regex im TypeScript
+  maskiert ihre Punkte (`greenscan-app\.pages\.dev`) — eine Suche nach dem
+  Klartext findet sie nicht.
+- **Deploy:** `species-search` kommt zu den Functions in FUER-FERNANDO §9
+  (jetzt zehn). Bis dahin läuft live die alte Fassung.
+
+Regression v32.75 → v32.76: 30 Prüfstände grün, 0 nicht prüfbar, Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (fo) — v32.75: vier Push-Sender teilen ein Helfer-Modul, feedback-triage fragt den Server — Audit C4
 
@@ -9630,9 +9661,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.75` (Client) · SW-Cache `gs-v32.75` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.76` (Client) · SW-Cache `gs-v32.76` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'331 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **93'340 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
