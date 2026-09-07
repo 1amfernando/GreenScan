@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.64.20260906">
+<meta name="app-version" content="32.65.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36019,7 +36019,7 @@ function openDetail(id){
       // Favoriten-Button
       // KI-Fragen Button
       '<button onclick="gsAddSpeciesToGarden(\'' + id + '\')" style="width:100%;padding:11px;background:var(--bg-success-soft);color:var(--c-success-d);border:1.5px solid var(--g-light);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>🌱</span> <span>' + _t('btn_add_to_garden','Zu meinem Garten hinzufügen') + '</span></button>',
-      '<button onclick="openDetailChat(\''+id+'\',\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>' + _t('ai_ask_pre','KI über') + ' '+escHtml(sp.name)+' ' + _t('ai_ask_post','befragen') + '</span></button>',
+      '<button onclick="openDetailChat(\''+id+'\',\''+_gsOcArg(sp.name)+'\',\''+_gsOcArg(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>' + _t('ai_ask_pre','KI über') + ' '+escHtml(sp.name)+' ' + _t('ai_ask_post','befragen') + '</span></button>',
       // v28.25: Art zu Sammlung hinzufügen (Wrapper, nur ID im onclick = Hard-Lesson #12)
       '<button onclick="if(typeof gsAddSpeciesToCollection===\'function\')gsAddSpeciesToCollection(\''+id+'\')" style="width:100%;padding:11px;background:var(--bg-violet-soft);color:var(--c-violet);border:1.5px solid #b39ddb;border-radius:var(--r-md);font-weight:800;font-size:var(--fs-md);cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>📁</span> <span>' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '</span></button>',
       // Rezept-Link wenn vorhanden
@@ -36034,7 +36034,7 @@ function openDetail(id){
         return btns ? '<div style="display:flex;gap:6px;margin-bottom:6px;">' + btns + '</div>' : '';
       })(),
       '<div style="display:flex;gap:6px;">',
-        '<button onclick="gsShareSpecies(\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:var(--fs-lg);">↑</span>' + _t('btn_share','Teilen') + '</button>',
+        '<button onclick="gsShareSpecies(\''+_gsOcArg(sp.name)+'\',\''+_gsOcArg(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:var(--r-md);font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:var(--fs-lg);">↑</span>' + _t('btn_share','Teilen') + '</button>',
         '<button class="fav-btn'+(isFav?' added':'')+'" id="fav-btn" onclick="toggleFav(this.dataset.fid)" data-fid="'+id+'" style="flex:1;">',
           isFav?_t('fav_remove','⭐ Entfernen'):_t('fav_add','☆ Favorit'),
         '</button>',
@@ -44694,7 +44694,7 @@ function igSearchPlant(query) {
   const q = query.toLowerCase();
   const matches = DB.filter(s => !q || s.name.toLowerCase().includes(q) || (s.lat && s.lat.toLowerCase().includes(q))).slice(0, 20);
   results.innerHTML = matches.map(s =>
-    '<div onclick="selectIgPlant(\'' + escHtml(s.name) + '\',\'' + escHtml(s.emoji || '🌿') + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;">' +
+    '<div onclick="selectIgPlant(\'' + _gsOcArg(s.name) + '\',\'' + _gsOcArg(s.emoji || '🌿') + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;">' +
       '<span style="font-size:var(--fs-2xl);">' + (s.emoji || '🌿') + '</span>' +
       '<div><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + escHtml(s.name) + '</div>' +
       '<div style="font-size:var(--fs-sm);color:var(--muted);">' + escHtml(s.lat || '') + '</div></div>' +
@@ -51224,7 +51224,7 @@ function openRecipeDetail(id) {
     for (var k in GS_ING_LINK_MAP) {
       if (name.toLowerCase().indexOf(k.toLowerCase()) >= 0) {
         var pid = GS_ING_LINK_MAP[k];
-        return '<span onclick="_gsOpenIngCard(\''+pid+'\',\''+escHtml(r.id)+'\')" style="color:#1f6b2f;font-weight:800;text-decoration:underline dotted;cursor:pointer;" title="'+_t('ing_card_tooltip','Infokarte:')+' '+escHtml(k)+'">'+escHtml(name)+'</span>';
+        return '<span onclick="_gsOpenIngCard(\''+pid+'\',\''+_gsOcArg(r.id)+'\')" style="color:#1f6b2f;font-weight:800;text-decoration:underline dotted;cursor:pointer;" title="'+_t('ing_card_tooltip','Infokarte:')+' '+escHtml(k)+'">'+escHtml(name)+'</span>';
       }
     }
     return escHtml(name);
@@ -74771,6 +74771,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.65', date: '07.09.2026',
+    headline: '🔧 Zwei Funde aus der Bestandsaufnahme behoben: Wetterwarnungen, Marktplatz-Status, sichere Namen im Klick',
+    summary: 'docs/PROFESSIONALITAET-AUDIT-2026-09-06.md hatte zwei Funde ohne eigene Entwurfsentscheidung: sbFetch griff ohne zweites Argument vor dem try auf opts.headers zu und liess Wetterwarnungen-Panel und Marktplatz-Verkäuferstatus seit jeher scheitern (B1) — behoben mit einem Vorgabewert. Und vier Stellen setzten Art-Namen mit escHtml (das kein Apostroph escaped) in einfach zitierte onclick-Strings statt mit dem dafür gebauten _gsOcArg (A3) — ein Name mit Apostroph, etwa aus einer Community-Art, hätte den String beendet und eigenen Code einschleusen können. render_check und wiring_check bestätigen: keine Layout-Änderung, keine kaputte Verdrahtung.',
+    user_summary: '🔧 Zwei stille Fehler behoben: das Wetterwarnungen-Panel und der Marktplatz-Verkäuferstatus laden jetzt wirklich.',
+    user_items: [
+      {emoji:'🌦️', bold:'Wetterwarnungen:', text:' Das Panel lädt jetzt statt immer „Konnte Warnungen nicht laden" zu zeigen.'},
+      {emoji:'🔒', bold:'Sicherheit:', text:' Art-Namen in Klick-Buttons werden jetzt korrekt escaped.'},
+    ],
+  },
+  {
     v: 'v32.64', date: '06.09.2026',
     headline: '⏸ Pausieren vom Telefon aus — und der Server sagt, wann er zuletzt gemeldet hat',
     summary: 'Ein gekoppeltes Gerät lässt sich jetzt aus der App pausieren und fortsetzen — der Zustand liegt beim Server, der dem Gerät beim nächsten Kontakt sagt, dass es schweigen soll; lokal wird erst nach der Bestätigung umgestellt. Und die Regeln kommen zurück: der Abgleich liest, ob eine Regel auf dem Server liegt, wann er sie zuletzt gemeldet hat und ob sie eingeschaltet ist. Eine Regel, die dort gelöscht wurde, meldet die App wieder selbst und sagt es in der Kachel — neu hochgeladen wird sie nicht. Ohne Gerät gebaut, mit gestelltem Server geprüft (docs/OEKOSYSTEM-V1.md §11.3o).',
@@ -75663,7 +75673,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.64';
+var GS_VERSION = 'v32.65';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76177,6 +76187,7 @@ function sbGetConfig() {
 
 // ── Supabase REST fetch (ohne SDK, 0KB overhead) ──────────────
 async function sbFetch(path, opts) {
+  opts = opts || {}; // v32.65 HL: opts.headers wurde vor dem try gelesen — Aufruf mit nur `path` liess den Aufruf sofort werfen (Wetterwarnungen, Marktplatz-Status)
   if (!sbGetConfig()) return {error:{message:'Supabase nicht konfiguriert'}};
   var token = gsStore.get('gs_sb_token', null) || '';
   var expires = parseInt(localStorage.getItem('gs_sb_expires') || '0');
