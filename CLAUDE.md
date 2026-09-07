@@ -585,7 +585,7 @@ node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nu
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
-node scripts/robust_check.js     # vier kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67)
+node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText)
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
@@ -991,6 +991,20 @@ hing vom Inhalt ab. Wer einen neuen Empfänger baut, importiert das Modul;
 Und für Anfragen an Edge-Functions aus der App: `_gsEdgeFehler(data, status)`
 und `_gsEdgeAusnahme(e)` sind die eine Lesart — `error` kommt mal als String,
 mal als Objekt, und ein Timeout ist kein Netzfehler.
+
+**Seit v32.73 hat ein Server- oder Netzfehler in der ANZEIGE eine
+Übersetzung: `_gsFehlerText(err)`** (Audit B8). Wer `r.error.message` in
+einen Toast, ein `innerHTML` oder ein `textContent` schreibt, zeigt die
+PostgREST-Zeile („new row violates row-level security policy for table …“)
+wörtlich — die Funktion macht daraus einen Satz (Ablehnung, Sitzung, Netz,
+Dublette, Datenstruktur, zu viele Anfragen, Serverproblem), lässt kurze
+eigene Sätze durch und kürzt lange. Das Rohe bleibt in `err.message` für
+Log und Schlüsselwort-Prüfungen (`duplicate`, `42P01`, `slug_taken`);
+`sbFetch` trägt den HTTP-Status als `err.status` mit. Für die
+Anmelde-Endpunkte gilt weiter `gsTranslateAuthError`. `robust_check`
+Fall 11 findet jede Anzeige-Zeile mit rohem `.error.message` — und misst
+zusätzlich einen echten Toast, weil die Suche eine Variable, die erst zwei
+Zeilen später angezeigt wird, nicht sieht.
 
 **`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
 Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf

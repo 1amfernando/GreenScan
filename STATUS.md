@@ -4,13 +4,57 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.72` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.73` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fm) — v32.73: Serverfehler in verständlichen Sätzen — Audit B8
+
+- **B8** `_gsFehlerText(err)` (direkt vor `_gsSchreibOk`) ist die EINE
+  Übersetzung eines Server- oder Netzfehlers in einen Satz: RLS / 403 →
+  „Der Server hat das abgelehnt …“, JWT / 401 → „Deine Sitzung ist
+  abgelaufen …“, `Failed to fetch` / Timeout / 408 → „Keine Verbindung zum
+  Server …“, `duplicate key` / 23505 → „Das gibt es schon.“, 42P01 / 42703 /
+  PGRST / `schema cache` → „Serverfehler in der Datenstruktur …“, 429 → „Zu
+  viele Anfragen …“, 5xx → „Der Server hat gerade ein Problem …“. Kurze
+  eigene Sätze („Du kannst dich nicht selbst melden.“) bleiben, lange werden
+  auf 120 Zeichen gekürzt, `null` → „Unbekannter Fehler“. **39 Anzeige-Zeilen**
+  (Toast, `showProfileToast`, `innerHTML`, `textContent`, Quiz-Urteil,
+  Geräte-Kopplung, Feed-Fehlerbild, drei Post-Wege, drei Edge-Function-Wege,
+  Rezept-Meldung, Experten-Antrag, Konto-Löschen) nehmen sie;
+  Schlüsselwort-Prüfungen (`duplicate`, `invalid_grant`, `42P01`,
+  `slug_taken`) und `console.*` lesen weiter das Rohe. `sbFetch` trägt seit
+  dieser Version den HTTP-Status im Fehler (`{message, status}`), auch im
+  `catch` (`e.status`, 408 aus `_gsFetch`).
+- Profil-Anmeldung, -Registrierung und Passwortänderung gehen durch
+  `gsTranslateAuthError` — denselben Übersetzer wie das Onboarding; er hängt
+  kein zweites „⚠️“ vor eine Meldung, die schon ein Symbol trägt (`sbLogin`
+  liefert „⏱️ …“, „🌐 …“).
+- `robust_check` Fall 11: zwölf Klassen je mit einem Rohwert, kurz bleibt,
+  lang gekürzt, `sbFetch` → `status 403`, ein ECHTER Toast
+  (`gsFriendsSendRequest`, Server lehnt per RLS ab → „Der Server hat das
+  abgelehnt …“, kein „row-level“), das Quiz-Urteil bei abgelaufener Sitzung
+  (aus `#dq-server-urteil` gelesen — `_dqServerUrteil` gibt nichts zurück,
+  es RENDERT; der erste Anlauf las einen Rückgabewert und mass „“), und
+  statisch: keine Anzeige-Zeile mit rohem `.error.message`. Gegenprobe
+  zweimal: gegen v32.72 („_gsFehlerText fehlt“) und mit EINER
+  zurückgebauten Stelle — statisch `29142: … r.error.message …` UND der
+  Toast zeigt „new row violates row-level security policy …“.
+- Grenze, ehrlich: die statische Suche sieht nur Zeilen, die den Fehler in
+  derselben Zeile anzeigen; eine Variable, die zwei Zeilen später in den
+  Toast geht, sieht sie nicht. Deshalb ist der gerenderte Toast die Messung,
+  nicht die Suche.
+- `quiz_check` „Urteil des Servers" erwartete im Text „permission denied" —
+  den Rohtext, den B8 gerade abschafft. Erwartung gedreht: der Satz
+  („abgelehnt") muss da sein, die PostgREST-Zeile darf es NICHT.
+
+Regression v32.72 → v32.73: 30 Prüfstände grün (`quiz_check` und
+`schluessel_check` mit lokalem Postgres nachgefahren, 13/13 und 10/10),
+Layout 0 Änderungen, Kontrast 0/0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (fl) — v32.72: Service Worker 413 KB leichter, Schlüsselvergleich in einem Modul, Timeouts abgestimmt — Audit C3, A10 (Server), B2
 
@@ -9477,9 +9521,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.72` (Client) · SW-Cache `gs-v32.72` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.73` (Client) · SW-Cache `gs-v32.73` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'037 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **93'428 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

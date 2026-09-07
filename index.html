@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.72.20260907">
+<meta name="app-version" content="32.73.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9655,7 +9655,7 @@ window.gsCollectionDelete = async function(id){
     var _rc = await sbFetch('/rest/v1/user_collections?id=eq.'+encodeURIComponent(id), {method:'DELETE'});
     if (typeof gsToast === 'function') {
       if (_gsSchreibOk(_rc)) gsToast(_gsCollT('coll_deleted','🗑 Sammlung gelöscht'), 'info');
-      else gsToast('⚠️ ' + _gsCollT('coll_delete_failed','Sammlung nicht gelöscht') + ': ' + ((_rc && _rc.error && _rc.error.message) || _gsCollT('coll_server_no','Server hat nicht bestätigt')), 'error', 6000);
+      else gsToast('⚠️ ' + _gsCollT('coll_delete_failed','Sammlung nicht gelöscht') + ': ' + ((_rc && _rc.error && _gsFehlerText(_rc.error)) || _gsCollT('coll_server_no','Server hat nicht bestätigt')), 'error', 6000);
     }
     gsCollectionsRefresh();
   } catch(_){}
@@ -13550,7 +13550,7 @@ function _dqServerUrteil(r, clientCorrect) {
   if (!r || r.error) {
     urteil = 'nicht_angekommen';
     text = '📵 Die Antwort ist nicht beim Server angekommen' +
-      (r && r.error && r.error.message ? ' (' + String(r.error.message).slice(0, 80) + ')' : '') +
+      (r && r.error ? ' (' + _gsFehlerText(r.error) + ')' : '') +
       ' — in der Rangliste zaehlt sie deshalb nicht.';
   } else if (Array.isArray(r.data) && r.data.length && typeof r.data[0].is_correct === 'boolean') {
     urteil = r.data[0].is_correct ? 'richtig' : 'falsch';
@@ -18832,7 +18832,7 @@ async function mktDelete(id) {
   if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
     var _rd = await sbFetch('/rest/v1/marketplace_listings?id=eq.'+encodeURIComponent(id), {method:'DELETE'});
     if (_rd && _rd.error) {
-      showProfileToast({ title: 'Inserat NICHT gelöscht', body: (_rd.error.message || 'Der Server hat das Löschen abgelehnt.') + ' Bitte später erneut versuchen.', kind: 'error', duration: 7000 });
+      showProfileToast({ title: 'Inserat NICHT gelöscht', body: (_gsFehlerText(_rd.error) || 'Der Server hat das Löschen abgelehnt.') + ' Bitte später erneut versuchen.', kind: 'error', duration: 7000 });
       return;
     }
   }
@@ -27140,7 +27140,7 @@ function gsGeraetKoppeln(geraetId) {
       return sbFetch('/rest/v1/devices', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(satz) });
     }).then(function (r) {
       if (!_gsSchreibOk(r)) {   // Ablehnung ODER 0 Zeilen (RLS still): NICHT gekoppelt — und wir sagen es
-        toast('Nicht gekoppelt — der Server hat das Gerät nicht angenommen' + (r && r.error && r.error.message ? ' (' + String(r.error.message).slice(0, 80) + ')' : '') + '.', 'warn', 6000);
+        toast('Nicht gekoppelt — der Server hat das Gerät nicht angenommen' + (r && r.error ? ' (' + _gsFehlerText(r.error) + ')' : '') + '.', 'warn', 6000);
         return { ok: false, grund: (r && r.error && r.error.message) || 'vom Server abgewiesen' };
       }
       var alle = gsGeraete(), gefunden = false;
@@ -27291,7 +27291,7 @@ function _gsRegelHochladen(r) {
       .then(function (a) {
         if (!_gsSchreibOk(a)) {   // Ablehnung ODER 0 Zeilen: die Regel liegt NICHT dort — die App meldet solange selbst
           _gsRegelMerken(r.id, { cloud_ok: false });
-          try { if (typeof gsToast === 'function') gsToast('Die Regel gilt vorerst nur in der App — der Server hat sie nicht angenommen' + (a && a.error && a.error.message ? ' (' + String(a.error.message).slice(0, 80) + ')' : '') + '. Die App meldet solange selbst.', 'warn', 6000); } catch (_) {}
+          try { if (typeof gsToast === 'function') gsToast('Die Regel gilt vorerst nur in der App — der Server hat sie nicht angenommen' + (a && a.error && _gsFehlerText(a.error) ? ' (' + String(_gsFehlerText(a.error)).slice(0, 80) + ')' : '') + '. Die App meldet solange selbst.', 'warn', 6000); } catch (_) {}
           return { ok: false, grund: (a && a.error && a.error.message) || 'vom Server abgewiesen' };
         }
         _gsRegelMerken(r.id, { cloud_ok: true, cloud_am: new Date().toISOString(), cloud_geloescht: false });
@@ -27313,7 +27313,7 @@ function _gsGeraetServerLoeschen(g) {
     return sbFetch('/rest/v1/devices?id=eq.' + encodeURIComponent(g.cloud_id), { method: 'DELETE', headers: { 'Prefer': 'return=representation' } })
       .then(function (a) {
         if (_gsSchreibOk(a)) return { ok: true };
-        try { if (typeof gsToast === 'function') gsToast('Das Gerät ist in der App weg, in der Cloud aber nicht entfernt' + (a && a.error && a.error.message ? ' (' + String(a.error.message).slice(0, 80) + ')' : '') + '.', 'warn', 6000); } catch (_) {}
+        try { if (typeof gsToast === 'function') gsToast('Das Gerät ist in der App weg, in der Cloud aber nicht entfernt' + (a && a.error && _gsFehlerText(a.error) ? ' (' + String(_gsFehlerText(a.error)).slice(0, 80) + ')' : '') + '.', 'warn', 6000); } catch (_) {}
         return { ok: false, grund: (a && a.error && a.error.message) || 'nicht gelöscht' };
       }).catch(function (e) { return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
   } catch (e) { return Promise.resolve({ ok: false, grund: 'Fehler: ' + (e && e.message) }); }
@@ -27341,7 +27341,7 @@ function gsGeraetPausieren(geraetId, pausiert) {
     return sbFetch('/rest/v1/devices?id=eq.' + encodeURIComponent(g.cloud_id), { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify({ status: ziel }) })
       .then(function (r) {
         if (!_gsSchreibOk(r)) {
-          toast((pausiert ? 'Nicht pausiert' : 'Nicht fortgesetzt') + ' — der Server hat es nicht angenommen' + (r && r.error && r.error.message ? ' (' + String(r.error.message).slice(0, 80) + ')' : '') + '.', 'warn');
+          toast((pausiert ? 'Nicht pausiert' : 'Nicht fortgesetzt') + ' — der Server hat es nicht angenommen' + (r && r.error ? ' (' + _gsFehlerText(r.error) + ')' : '') + '.', 'warn');
           return { ok: false, grund: (r && r.error && r.error.message) || 'vom Server abgewiesen' };
         }
         var alle = gsGeraete();
@@ -29139,7 +29139,7 @@ async function gsFriendsSendRequest(targetUid) {
       showProfileToast && showProfileToast('ℹ️ Anfrage existiert bereits');
       return true;
     }
-    showProfileToast && showProfileToast('❌ ' + (r.error.message||'Fehler'));
+    showProfileToast && showProfileToast('❌ ' + (_gsFehlerText(r.error)||'Fehler'));
   } catch(e) { showProfileToast && showProfileToast('❌ ' + e.message); }
   return false;
 }
@@ -29156,7 +29156,7 @@ async function gsFriendsAccept(friendshipId) {
       showProfileToast && showProfileToast('✅ Verbunden!');
       return true;
     }
-    showProfileToast && showProfileToast('❌ ' + (r.error.message||'Fehler'));
+    showProfileToast && showProfileToast('❌ ' + (_gsFehlerText(r.error)||'Fehler'));
   } catch(e) { showProfileToast && showProfileToast('❌ ' + e.message); }
   return false;
 }
@@ -29167,7 +29167,7 @@ async function gsFriendsRemove(friendshipId) {
   try {
     var r = await sbFetch('/rest/v1/friendships?id=eq.' + friendshipId, {method:'DELETE'});
     if (!r.error) { showProfileToast && showProfileToast('🗑 Entfernt'); return true; }
-    showProfileToast && showProfileToast('❌ ' + (r.error.message||'Fehler'));
+    showProfileToast && showProfileToast('❌ ' + (_gsFehlerText(r.error)||'Fehler'));
   } catch(e) { showProfileToast && showProfileToast('❌ ' + e.message); }
   return false;
 }
@@ -32782,7 +32782,7 @@ function gsSaveConfirmedScan(r) {
         confidence:r.confidence, context:{description:r.description||''}})
     }).then(function(_rs){
       if (_gsSchreibOk(_rs)) showProfileToast('✅ ' + r.name + ' ('+r.confidence+'%) gespeichert!');
-      else showProfileToast({ title: 'Lokal gespeichert — nicht in der Cloud', body: ((_rs && _rs.error && _rs.error.message) || 'Der Server hat den Scan nicht angenommen.') + ' Er bleibt auf diesem Gerät.', kind: 'warn', duration: 7000 });
+      else showProfileToast({ title: 'Lokal gespeichert — nicht in der Cloud', body: ((_rs && _rs.error && _gsFehlerText(_rs.error)) || 'Der Server hat den Scan nicht angenommen.') + ' Er bleibt auf diesem Gerät.', kind: 'warn', duration: 7000 });
     }).catch(function(){});
   } else {
     showProfileToast('✅ ' + r.name + ' ('+r.confidence+'%) gespeichert (nur dieses Gerät)');
@@ -32929,6 +32929,27 @@ function gsReportScanMistake() {
 //
 // Beides in EINER Zeile, damit die naechste Stelle es nicht wieder einzeln
 // macht. `scripts/versprechen_check.js` haelt jede Erfolgsmeldung dagegen.
+// v32.73 (Audit B8): rohe Serverfehler — „new row violates row-level security
+// policy for table …", „Failed to fetch", „JWT expired" — standen an 27 Stellen
+// wörtlich in Meldungen. Hier wird daraus ein Satz, den eine Person versteht.
+// Das Rohe bleibt in err.message (Log, Prüfungen auf Schlüsselwörter wie
+// „duplicate", „42P01", „slug_taken"); die Anzeige nimmt _gsFehlerText(err).
+function _gsFehlerText(err){
+  var m = String((err && (typeof err === 'string' ? err : err.message)) || '').trim();
+  var st = (err && typeof err === 'object' && err.status) || 0;
+  if (!m && !st) return 'Unbekannter Fehler';
+  var l = m.toLowerCase();
+  if (/row-level security|permission denied|42501|forbidden/.test(l) || st === 403) return 'Der Server hat das abgelehnt — bitte neu anmelden oder später erneut versuchen.';
+  if (/\bjwt\b|invalid token|invalid_grant|not_authenticated|not authenticated|sitzung abgelaufen/.test(l) || st === 401) return 'Deine Sitzung ist abgelaufen — bitte neu anmelden.';
+  if (/failed to fetch|networkerror|load failed|network request failed|zeitüberschreitung|timeout|abgebrochen|econn/.test(l) || st === 408) return 'Keine Verbindung zum Server — bitte Internet prüfen und erneut versuchen.';
+  if (/duplicate key|23505|already exists|slug_taken/.test(l)) return 'Das gibt es schon.';
+  if (/does not exist|42p01|42703|pgrst[12]\d\d|schema cache/.test(l)) return 'Serverfehler in der Datenstruktur — bitte melden, wir kümmern uns darum.';
+  if (/rate limit|too many|quota/.test(l) || st === 429) return 'Zu viele Anfragen — bitte kurz warten.';
+  if (st >= 500 || /^fehler 5\d\d$/.test(l)) return 'Der Server hat gerade ein Problem — bitte später erneut versuchen.';
+  if (/^fehler \d{3}$/.test(l)) return 'Der Server hat abgelehnt (' + m + ').';
+  return m.length > 120 ? m.slice(0, 117) + '…' : m;
+}
+window._gsFehlerText = _gsFehlerText;
 function _gsSchreibOk(r){
   if (!r) return false;
   if (r.error) return false;
@@ -35950,7 +35971,7 @@ async function gsKorrekturSenden(spId) {
   // Datensätze und keinen Fehler.
   if (!res || res.error || !Array.isArray(res.data) || res.data.length !== 1) {
     showProfileToast({ title: 'Nicht übermittelt',
-      body: (res && res.error && res.error.message) || 'Der Server hat die Meldung nicht angenommen. Bitte später nochmals versuchen — dein Text ist nicht verloren.',
+      body: (res && res.error && _gsFehlerText(res.error)) || 'Der Server hat die Meldung nicht angenommen. Bitte später nochmals versuchen — dein Text ist nicht verloren.',
       kind: 'error', duration: 8000 });
     return;
   }
@@ -39675,7 +39696,7 @@ window.gsFbMarkDone = async function(id){
       }).then(function(_rp){
         if (typeof showProfileToast !== 'function') return;
         if (_gsSchreibOk(_rp)) showProfileToast('✅ Abgehakt · Erklärung: ' + note.slice(0,60));
-        else showProfileToast({ title: 'Lokal abgehakt — Server nicht aktualisiert', body: (_rp && _rp.error && _rp.error.message) || 'Der Server hat die Änderung nicht bestätigt.', kind: 'warn', duration: 7000 });
+        else showProfileToast({ title: 'Lokal abgehakt — Server nicht aktualisiert', body: (_rp && _rp.error && _gsFehlerText(_rp.error)) || 'Der Server hat die Änderung nicht bestätigt.', kind: 'warn', duration: 7000 });
       }).catch(function(e){ console.warn('[fb-done] sb patch:', e); });
     }
   } catch(_){}
@@ -40607,7 +40628,7 @@ function loadSocialPosts(reset) {
         _communityLoading = false;
         var fe = document.getElementById('social-feed');
         if (fe && reset) {
-          var msg = (res && res.error && res.error.message) || 'Verbindung fehlgeschlagen';
+          var msg = (res && res.error && _gsFehlerText(res.error)) || 'Verbindung fehlgeschlagen';
           fe.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
             '<div style="font-size:48px;margin-bottom:12px;">⚠️</div>' +
             '<p style="margin-bottom:14px;">' + escHtml(msg) + '</p>' +
@@ -40738,7 +40759,7 @@ async function gsSubmitVerification(postId) {
       if (msg.indexOf('duplicate') >= 0 || msg.indexOf('unique') >= 0) {
         if (typeof showProfileToast === 'function') showProfileToast('Bereits verifiziert', 'info');
       } else {
-        if (typeof showProfileToast === 'function') showProfileToast({title:'Verifikation fehlgeschlagen', body: res.error.message || 'Unbekannter Fehler', type:'error'});
+        if (typeof showProfileToast === 'function') showProfileToast({title:'Verifikation fehlgeschlagen', body: _gsFehlerText(res.error) || 'Unbekannter Fehler', type:'error'});
       }
     } else {
       if (typeof gsHaptic === 'function') gsHaptic('success');
@@ -44599,7 +44620,7 @@ async function addComment() {
     try { var _pp = (typeof socialPosts!=='undefined') && socialPosts.find(function(p){ return String(p.id) === String(currentCommentPostId); }); if (_pp) { _pp.comments_count = (_pp.comments_count || 0) + 1; if (typeof renderSocialFeed==='function') renderSocialFeed(); } } catch(_){}
     openComments(currentCommentPostId);
     showProfileToast('✅ Kommentar gepostet!');
-  } else { showProfileToast('❌ '+(res.error.message||'Fehler')); }
+  } else { showProfileToast('❌ '+(_gsFehlerText(res.error)||'Fehler')); }
 }
 
 // v30.94: Entwurf eines Community-Posts zurueckholen. `reopen=true` oeffnet das Formular
@@ -44728,7 +44749,7 @@ async function submitPost() {
       socialPosts = socialPosts.filter(function(p){ return p.id !== tempId; });
       try { renderSocialFeed && renderSocialFeed(); } catch(_){}
     }
-    var errMsg = (res.error && res.error.message) || 'Unbekannter Fehler';
+    var errMsg = (res.error && _gsFehlerText(res.error)) || 'Unbekannter Fehler';
     console.error('[submitPost] failed:', res.error, 'payload:', {user_id:uid,category:cat,len:text.length});
     // v30.94: Der Entwurf bleibt in gs_social_draft liegen UND kommt sofort zurueck ins
     // Formular — der Nutzer muss nichts neu tippen und kann direkt nochmal senden.
@@ -44987,7 +45008,7 @@ async function submitIgPost() {
       // Rollback
       socialPosts = socialPosts.filter(p => p.id !== tempId);
       try { renderSocialFeed && renderSocialFeed(); } catch(_){}
-      const errMsg = (res.error && res.error.message) || 'Unbekannter Fehler';
+      const errMsg = (res.error && _gsFehlerText(res.error)) || 'Unbekannter Fehler';
       console.error('[submitIgPost] failed:', res.error);
       showProfileToast && showProfileToast('❌ Post nicht gespeichert: ' + errMsg.slice(0,80), 'error');
     }
@@ -45400,7 +45421,7 @@ async function gsMktSetStatus(lid, status) {
     });
     var res = r && r.data ? r.data : null;
     if (!res || res.ok !== true) {
-      var err = res && res.error ? res.error : (r && r.error ? r.error.message : _t('err_generic','Fehler'));
+      var err = res && res.error ? res.error : (r && r.error ? _gsFehlerText(r.error) : _t('err_generic','Fehler'));
       if (typeof gsToast === 'function') gsToast('⚠️ ' + (err === 'forbidden' ? _t('err_own_listings_only','Nur eigene Inserate') : err), 'error');
       return;
     }
@@ -54205,7 +54226,7 @@ window.gsToggleAchFeed = function(checked) {
           if (_gsSchreibOk(_rf)) { if (typeof gsToast === 'function') gsToast(checked ? '🏆 Feed-Anzeige aktiviert' : '🔒 Aus Feed entfernt', 'success'); return; }
           userPrefs.achFeed = !checked; savePrefs();
           try { var cb = document.getElementById('toggle-ach-feed'); if (cb) cb.checked = !checked; } catch(_){}
-          if (typeof gsToast === 'function') gsToast('⚠️ Einstellung nicht gespeichert: ' + ((_rf && _rf.error && _rf.error.message) || 'Server hat nicht bestätigt'), 'error', 6000);
+          if (typeof gsToast === 'function') gsToast('⚠️ Einstellung nicht gespeichert: ' + ((_rf && _rf.error && _gsFehlerText(_rf.error)) || 'Server hat nicht bestätigt'), 'error', 6000);
         }).catch(function(){});
       }
     }
@@ -54953,7 +54974,7 @@ async function submitInlinePost() {
       // Rollback
       socialPosts = socialPosts.filter(p => p.id !== tempId);
       try { renderSocialFeed(); } catch(_){}
-      const errMsg = (res.error && res.error.message) || 'Unbekannter Fehler';
+      const errMsg = (res.error && _gsFehlerText(res.error)) || 'Unbekannter Fehler';
       console.error('[submitInlinePost] failed:', res.error);
       showProfileToast && showProfileToast('❌ Post nicht gespeichert: ' + errMsg.slice(0,80), 'error');
     }
@@ -67583,7 +67604,7 @@ async function gsGardenScanSubmit() {
   var res = await gsRunGardenScan(photoB64s, s.metadata, { save_as_plan: true });
   s.busy = false;
   if (!res || !res.ok) {
-    var em = res && res.error ? (res.error.message || res.error.code || 'Unbekannter Fehler') : 'Keine Antwort vom Server';
+    var em = res && res.error ? (res.error.message ? _gsFehlerText(res.error) : (res.error.code || 'Unbekannter Fehler')) : 'Keine Antwort vom Server';
     _gsGardenScanRefresh();
     if (typeof gsToast === 'function') gsToast({title:'KI-Scan fehlgeschlagen', body: em, type:'error', duration: 6500});
     return;
@@ -69111,7 +69132,7 @@ async function gsGardenScanWhatIfRun(){
   var res = await gsRunGardenScan(photoB64s, s.metadata, { save_as_plan: false, planning_horizon_years: s.planning_horizon_years || 1, climate_scenario: climate, simulation_mode: sim, constraints: c });
   s.whatIfBusy = false;
   if (!res || !res.ok){
-    var em = res && res.error ? (res.error.message || res.error.code || 'Fehler') : 'Keine Antwort';
+    var em = res && res.error ? (res.error.message ? _gsFehlerText(res.error) : (res.error.code || 'Fehler')) : 'Keine Antwort';
     _gsRenderYearsTab();
     if (typeof gsToast === 'function') gsToast({title:'Was-Wenn fehlgeschlagen', body: em, type:'error', duration: 6000});
     return;
@@ -69203,7 +69224,7 @@ async function gsGardenScanChatSend() {
   var res = await gsIteratePlan(s.plan_id, msg);
   s.busy = false;
   if (!res || !res.ok) {
-    var em = res && res.error ? (res.error.message || res.error.code || 'Unbekannter Fehler') : 'Keine Antwort';
+    var em = res && res.error ? (res.error.message ? _gsFehlerText(res.error) : (res.error.code || 'Unbekannter Fehler')) : 'Keine Antwort';
     if (statusEl) statusEl.textContent = '⚠️ ' + em;
     if (inp) { inp.disabled = false; }
     if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '✨ Senden'; }
@@ -72187,7 +72208,7 @@ async function gsDevAddCloudSensor() {
       // Code direkt anzeigen
       setTimeout(function(){ gsDevShowSensorCode(r.data[0].id); }, 200);
     } else {
-      showProfileToast && showProfileToast('❌ ' + ((r && r.error && r.error.message) || 'Fehler'));
+      showProfileToast && showProfileToast('❌ ' + ((r && r.error && _gsFehlerText(r.error)) || 'Fehler'));
     }
   } catch(e){
     showProfileToast && showProfileToast('❌ ' + e.message);
@@ -72250,7 +72271,7 @@ async function gsDevDeleteCloudSensor(deviceId) {
       if (old) old.remove();
       gsDevRenderCloudWizard();
     } else {
-      showProfileToast && showProfileToast('❌ ' + (r.error.message || 'Fehler'));
+      showProfileToast && showProfileToast('❌ ' + (_gsFehlerText(r.error) || 'Fehler'));
     }
   } catch(e) {
     showProfileToast && showProfileToast('❌ ' + e.message);
@@ -74835,7 +74856,7 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
       } catch(_){}
       return true;
     }
-    showProfileToast && showProfileToast('❌ ' + ((r && r.error && r.error.message) || 'RPC-Fehler'));
+    showProfileToast && showProfileToast('❌ ' + ((r && r.error && _gsFehlerText(r.error)) || 'RPC-Fehler'));
     return false;
   } catch(e) {
     showProfileToast && showProfileToast('❌ ' + e.message);
@@ -74976,7 +74997,7 @@ window.gsGlobalKeyToggleService = async function() {
       showProfileToast && showProfileToast('🔌 Service deaktiviert');
       var m = document.getElementById('gs-global-key-admin'); if (m) m.remove();
     } else {
-      showProfileToast && showProfileToast('❌ Fehler: ' + ((r && r.error && r.error.message) || 'unbekannt'));
+      showProfileToast && showProfileToast('❌ Fehler: ' + ((r && r.error && _gsFehlerText(r.error)) || 'unbekannt'));
     }
   } catch(e) { showProfileToast && showProfileToast('❌ ' + e.message); }
 };
@@ -75015,6 +75036,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v32.73', date: '07.09.2026',
+    headline: '💬 Serverfehler in verständlichen Sätzen — Audit B8',
+    summary: 'Audit B8. An rund vierzig Anzeige-Stellen stand die Zeile aus PostgREST wörtlich in der Meldung — „new row violates row-level security policy for table …“, „JWT expired“, „Failed to fetch“. Jetzt geht jede Anzeige durch EINE Übersetzung (_gsFehlerText): Ablehnung, abgelaufene Sitzung, keine Verbindung, „gibt es schon“, Datenstruktur, zu viele Anfragen, Serverproblem — kurze eigene Sätze bleiben, lange werden gekürzt, das Rohe bleibt im Log und in den Schlüsselwort-Prüfungen. sbFetch trägt den HTTP-Status im Fehler mit. Anmelden, Registrieren und Passwortänderung im Profil nutzen denselben Übersetzer wie das Onboarding (gsTranslateAuthError, ohne doppeltes Symbol). robust_check Fall 11 misst zwölf Fehlerklassen, den Status, einen echten Toast (Freundschaftsanfrage per RLS abgelehnt) und das Quiz-Urteil — und findet statisch jede Anzeige-Zeile mit rohem error.message.',
+    user_summary: '💬 Wenn etwas schiefgeht, sagt die App es in einem Satz, den man versteht — statt einer Datenbank-Zeile.',
+    user_items: [
+      {emoji:'💬', bold:'Fehlermeldungen:', text:' „Der Server hat das abgelehnt“, „Deine Sitzung ist abgelaufen“, „Keine Verbindung zum Server“ — statt englischer Datenbank-Meldungen.'},
+      {emoji:'🔑', bold:'Anmelden:', text:' Falsches Passwort, unbestätigte E-Mail oder ein Verbindungsfehler werden auch im Profil-Fenster verständlich erklärt.'},
+    ],
+  },
   {
     v: 'v32.72', date: '07.09.2026',
     headline: '🪶 Service Worker 413 KB leichter, Schlüsselvergleich in einem Modul, Timeouts abgestimmt',
@@ -75989,7 +76020,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.72';
+var GS_VERSION = 'v32.73';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76268,7 +76299,7 @@ async function gsAdminBanUser(targetEmail) {
 async function _gsAdminUidZu(email) {
   try {
     var f = await sbFetch('/rest/v1/profiles?select=id,role&limit=2&email=eq.' + encodeURIComponent(email), { method: 'GET' });
-    if (f && f.error) { showProfileToast({title:'Nicht gefunden', body:'Profil konnte nicht gelesen werden: ' + (f.error.message||''), kind:'error', duration:6000}); return null; }
+    if (f && f.error) { showProfileToast({title:'Nicht gefunden', body:'Profil konnte nicht gelesen werden: ' + (_gsFehlerText(f.error)||''), kind:'error', duration:6000}); return null; }
     var rows = (f && Array.isArray(f.data)) ? f.data : [];
     if (!rows.length) { showProfileToast({title:'Kein Profil', body:'Zu ' + email + ' gibt es kein Profil.', kind:'error'}); return null; }
     if (rows.length > 1) { showProfileToast({title:'Mehrdeutig', body:'Zu dieser Adresse gibt es mehrere Profile — bitte im Dashboard prüfen.', kind:'error', duration:7000}); return null; }
@@ -76422,7 +76453,7 @@ async function gsSubmitExpertApplication() {
   if (btn) { btn.disabled = false; btn.textContent = '📤 Antrag einreichen'; }
   if (!ok) {
     showProfileToast({ title:'Antrag NICHT übermittelt',
-      body:(res && res.error && res.error.message) || 'Der Server hat den Antrag nicht angenommen. Bitte später nochmals versuchen — es ist nichts verloren gegangen.',
+      body:(res && res.error && _gsFehlerText(res.error)) || 'Der Server hat den Antrag nicht angenommen. Bitte später nochmals versuchen — es ist nichts verloren gegangen.',
       kind:'error', duration:8000 });
     return;
   }
@@ -76524,10 +76555,10 @@ async function sbFetch(path, opts) {
     // v24.46: _gsFetch mit 20s Timeout — alle Supabase-REST-Calls geschützt vor 4G-Edge-Freezes
     var resp = await (window._gsFetch || fetch)(SB_URL + path, Object.assign({}, opts, {headers: headers}), 20000);
     var data = await resp.json().catch(function(){ return {}; });
-    if (!resp.ok) return {error: {message: (data.error_description || data.message || 'Fehler ' + resp.status)}};
+    if (!resp.ok) return {error: {message: (data.error_description || data.message || 'Fehler ' + resp.status), status: resp.status}};
     return {data: data, error: null};
   } catch(e) {
-    return {error: {message: e.message}};
+    return {error: {message: e.message, status: (e && e.status) || 0}};
   }
 }
 
@@ -76676,7 +76707,7 @@ async function gsHandleAuthRedirect(){
                   sbClearSession();
                   history.replaceState(null, '', location.pathname);
                 } else {
-                  gsToast('⚠️ Fehler: ' + (r && r.error && r.error.message || 'unbekannt'), 'error');
+                  gsToast('⚠️ Fehler: ' + (r && r.error && _gsFehlerText(r.error) || 'unbekannt'), 'error');
                 }
               });
             } else if (newPw != null && newPw !== false) {
@@ -77646,8 +77677,10 @@ function gsTranslateAuthError(msg) {
   if (/network|fetch|failed to/.test(s)) return '📡 Verbindungsfehler. Prüfe deine Internetverbindung.';
   if (/email.*invalid|not a valid email/.test(s)) return '📧 Bitte gib eine gültige E-Mail-Adresse ein.';
   if (/captcha/.test(s)) return '🤖 Captcha erforderlich. Bitte versuche es erneut.';
-  // Original-Message mit Emoji als Fallback
-  return '⚠️ ' + (msg || 'Unbekannter Fehler');
+  // Original-Message mit Emoji als Fallback — ausser sie traegt schon eines
+  // (sbLogin liefert „⏱️ Zeitüberschreitung…“, „🌐 Netzwerkfehler…“; v32.73)
+  var roh = String(msg || 'Unbekannter Fehler');
+  return /^[A-Za-z0-9]/.test(roh) ? '⚠️ ' + roh : roh;
 }
 
 // ── Profil-Operationen ────────────────────────────────────────
@@ -81016,7 +81049,7 @@ async function profileDoLogin() {
   var res = await sbLogin(email, pw);
   if (btn) { btn.textContent = _t('btn_login','🔑 Anmelden'); btn.disabled = false; }
   if (res.error) {
-    if (errEl) { errEl.textContent = res.error.message; errEl.style.display = 'block'; }
+    if (errEl) { errEl.textContent = gsTranslateAuthError(res.error.message); errEl.style.display = 'block'; }
     return;
   }
   await sbLoadProfile();
@@ -81043,7 +81076,7 @@ async function profileDoRegister() {
   var res = await sbRegister(email, pw, name || email.split('@')[0]);
   if (btn) { btn.textContent = _t('btn_register','✨ Registrieren'); btn.disabled = false; }
   if (res.error) {
-    if (errEl) { errEl.textContent = res.error.message; errEl.style.display = 'block'; }
+    if (errEl) { errEl.textContent = gsTranslateAuthError(res.error.message); errEl.style.display = 'block'; }
     // Duplikat → automatisch zu Login wechseln mit Hinweis
     if (res.error.isDuplicate) {
       setTimeout(function() {
@@ -81128,7 +81161,7 @@ async function profForgotPw() {
     showProfileToast(_t('toast_pw_reset_sending','⏳ Passwort-Reset-E-Mail wird gesendet…'));
     var res = await sbResetPassword(email);
     if (res.error) {
-      showProfileToast({type:'error', icon:'❌', title:_t('reset_failed','Reset fehlgeschlagen'), body: res.error.message});
+      showProfileToast({type:'error', icon:'❌', title:_t('reset_failed','Reset fehlgeschlagen'), body: _gsFehlerText(res.error)});
     } else {
       showProfileToast({type:'success', icon:'📧', title:_t('email_sent','E-Mail gesendet'), body:_t('check_email_pre','Bitte') + ' ' + email + ' ' + _t('check_email_post','prüfen — auch Spam-Ordner.'), duration:5000});
     }
@@ -81436,7 +81469,7 @@ async function doChangePassword() {
   if (btn) btn.textContent = '⏳ Ändere…';
   var res = await sbChangePassword(pw1);
   if (res.error) {
-    showErr(res.error.message || 'Update fehlgeschlagen.');
+    showErr(gsTranslateAuthError(res.error.message || 'Update fehlgeschlagen.'));
     if (btn) { btn.textContent = '🔒 Passwort speichern'; btn.disabled = false; }
     return;
   }
@@ -81543,7 +81576,7 @@ async function gsExecuteDeleteAccount() {
 
   var ok = !!(resp && resp.data && resp.data.ok === true);
   if (!ok) {
-    var msg = (resp && resp.error && resp.error.message)
+    var msg = (resp && resp.error && _gsFehlerText(resp.error))
               || (resp && resp.data && (resp.data.error || resp.data.auth_error))
               || 'Unbekannter Fehler';
     if (typeof showProfileToast==='function') showProfileToast({title:'❌ Konto-Löschen fehlgeschlagen', body:msg, kind:'error', duration:5000});
@@ -84658,7 +84691,7 @@ async function gsOrgSubmitEdit(orgId){
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_org_update', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id:orgId, p_name:name, p_bio:bio, p_logo_url:logo, p_website:web, p_primary_color:color })});
     if (r && !r.error && r.data && r.data.ok) { if(typeof gsToast==='function') gsToast(_gsOrgT('org_updated','Organisation aktualisiert.'),'success'); gsOpenOrgDetail(orgId); }
-    else { var m=(r&&r.error&&r.error.message)||_gsOrgT('org_save_fail','Speichern fehlgeschlagen.'); if(typeof gsToast==='function') gsToast(m,'warning'); }
+    else { var m=(r&&r.error&&_gsFehlerText(r.error))||_gsOrgT('org_save_fail','Speichern fehlgeschlagen.'); if(typeof gsToast==='function') gsToast(m,'warning'); }
   } catch(_){ if(typeof gsToast==='function') gsToast(_gsOrgT('cls_net_err','Netzwerkfehler.'),'warning'); }
 }
 window.gsOrgSubmitEdit = gsOrgSubmitEdit;
@@ -84738,7 +84771,7 @@ async function gsClassDoJoin(){
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_class_join', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_join_code: code })});
     if (r && !r.error && r.data && r.data.joined) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_joined','Beigetreten:')+' '+(r.data.name||_gsClsT('cls_default_name','Klasse')),'success'); gsOpenClasses(); }
-    else { var m=(r&&r.error&&r.error.message)||_gsClsT('cls_join_fail','Beitritt fehlgeschlagen.'); if(typeof gsToast==='function') gsToast(m,'warning'); }
+    else { var m=(r&&r.error&&_gsFehlerText(r.error))||_gsClsT('cls_join_fail','Beitritt fehlgeschlagen.'); if(typeof gsToast==='function') gsToast(m,'warning'); }
   } catch(_){ if(typeof gsToast==='function') gsToast(_gsClsT('cls_net_err','Netzwerkfehler.'),'warning'); }
 }
 window.gsClassDoJoin = gsClassDoJoin;
@@ -84774,7 +84807,7 @@ async function gsClassDoCreate(){
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_class_create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: orgId, p_name: name, p_description: desc||null })});
     if (r && !r.error && r.data && r.data.id) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_created','Klasse erstellt! Code:')+' '+(r.data.join_code||''),'success'); gsOpenClasses(); }
-    else { var m=(r&&r.error&&r.error.message)||_gsClsT('cls_create_fail','Erstellen nicht möglich (Lehrkraft-Rolle nötig).'); if(typeof gsToast==='function') gsToast(m,'warning'); }
+    else { var m=(r&&r.error&&_gsFehlerText(r.error))||_gsClsT('cls_create_fail','Erstellen nicht möglich (Lehrkraft-Rolle nötig).'); if(typeof gsToast==='function') gsToast(m,'warning'); }
   } catch(_){ if(typeof gsToast==='function') gsToast(_gsClsT('cls_net_err','Netzwerkfehler.'),'warning'); }
 }
 window.gsClassDoCreate = gsClassDoCreate;
@@ -84854,7 +84887,7 @@ async function gsClassDoAssignmentCreate(classId){
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_class_assignment_create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_class_id:classId, p_title:title, p_description:null, p_task_type:type, p_target_count:(target>0?target:1), p_target_ref:null, p_due_at:null })});
     if (r && !r.error && r.data) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_task_created','Aufgabe erstellt.'),'success'); gsOpenClassDetail(classId); }
-    else { var m=(r&&r.error&&r.error.message)||_gsClsT('cls_failed','Fehlgeschlagen.'); if(typeof gsToast==='function') gsToast(m,'warning'); }
+    else { var m=(r&&r.error&&_gsFehlerText(r.error))||_gsClsT('cls_failed','Fehlgeschlagen.'); if(typeof gsToast==='function') gsToast(m,'warning'); }
   } catch(_){ if(typeof gsToast==='function') gsToast(_gsClsT('cls_net_err','Netzwerkfehler.'),'warning'); }
 }
 window.gsClassDoAssignmentCreate = gsClassDoAssignmentCreate;
@@ -85517,7 +85550,7 @@ async function gsUnsubscribeWebPush(){
           // v32.69 (Audit B4): eine Ablehnung heisst, der Server pusht weiter — das gehört gesagt.
           // 0 Zeilen sind hier in Ordnung (Eintrag war schon weg).
           if (_rdel && _rdel.error) {
-            if (typeof showProfileToast === 'function') showProfileToast({ title: 'Push auf diesem Gerät aus — Server-Eintrag blieb', body: (_rdel.error.message || 'Der Server hat das Löschen abgelehnt.') + ' Bitte später in den Einstellungen erneut deaktivieren.', kind: 'warn', duration: 8000 });
+            if (typeof showProfileToast === 'function') showProfileToast({ title: 'Push auf diesem Gerät aus — Server-Eintrag blieb', body: (_gsFehlerText(_rdel.error) || 'Der Server hat das Löschen abgelehnt.') + ' Bitte später in den Einstellungen erneut deaktivieren.', kind: 'warn', duration: 8000 });
             return;
           }
         }
@@ -86170,7 +86203,7 @@ async function gsAdminAssignRole(userId, role, note, opts) {
       showProfileToast && showProfileToast('✅ Rolle zugewiesen: ' + role);
       return r.data;
     }
-    showProfileToast && showProfileToast('❌ ' + ((r.error && r.error.message) || 'Fehler'));
+    showProfileToast && showProfileToast('❌ ' + ((r.error && _gsFehlerText(r.error)) || 'Fehler'));
   } catch(e) {
     showProfileToast && showProfileToast('❌ ' + e.message);
   }

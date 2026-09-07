@@ -252,6 +252,76 @@ const FAELLE = [
     },
   },
   {
+    name: 'B8 · rohe Serverfehler werden zu Saetzen: _gsFehlerText kennt RLS, Sitzung, Netz, Dublette, Datenstruktur, 429, 5xx; sbFetch gibt den Status mit; ein echter Toast und das Quiz-Urteil zeigen den Satz, nicht die Zeile aus PostgREST',
+    lauf: async () => {
+      const f = [];
+      // 1 · Statisch: keine Anzeige-Zeile mehr mit rohem .error.message (Schluesselwort-Pruefungen und Logs sind keine Anzeige)
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const roh = [];
+      idx.split('\n').forEach((z, i) => {
+        if (!/\.error\.message/.test(z) || /^\s*\/\//.test(z)) return;
+        if (!/gsToast|showProfileToast|showErr\(|toast\(|innerHTML|textContent|_onbShowErr|\bbody\s*:/.test(z)) return;
+        if (/_gsFehlerText\(|gsTranslateAuthError\(|\.includes\(|indexOf\(|\.test\(|toLowerCase\(\)|console\./.test(z)) return;
+        roh.push((i + 1) + ': ' + z.trim().slice(0, 80));
+      });
+      if (roh.length) f.push('roh angezeigt (' + roh.length + '): ' + roh.slice(0, 3).join(' | '));
+      // 2 · Die Uebersetzung selbst, je Klasse ein Rohwert — und was NICHT uebersetzt werden darf
+      const r = await __seite.evaluate(async () => {
+        const t = window._gsFehlerText; if (typeof t !== 'function') return { fehlt: true };
+        const o = {
+          rls: t({ message: 'new row violates row-level security policy for table "user_scans"', status: 403 }),
+          rls2: t({ message: 'permission denied for table profiles' }),
+          jwt: t({ message: 'JWT expired', status: 401 }),
+          netz: t(new TypeError('Failed to fetch')),
+          zeit: t({ message: 'Zeitüberschreitung — bitte Internetverbindung prüfen.', status: 408 }),
+          dup: t({ message: 'duplicate key value violates unique constraint "friendships_pkey"' }),
+          tab: t({ message: 'relation "public.foo" does not exist', status: 404 }),
+          cache: t({ message: 'Could not find the function public.fn_x in the schema cache' }),
+          rate: t({ message: 'x', status: 429 }),
+          s503: t({ message: 'Fehler 503', status: 503 }),
+          kurz: t({ message: 'Du kannst dich nicht selbst melden.' }),
+          lang: t({ message: 'A'.repeat(200) }),
+          leer: t(null),
+          str: t('Supabase nicht konfiguriert'),
+        };
+        // 3 · sbFetch traegt den Status in den Fehler
+        const echtFetch = window._gsFetch, echtCfg = window.sbGetConfig, echtLogin = window.sbIsLoggedIn;
+        window.sbGetConfig = () => true; window.sbIsLoggedIn = () => true;
+        window._gsFetch = async () => ({ ok: false, status: 403, json: async () => ({ code: '42501', message: 'new row violates row-level security policy for table "user_scans"' }) });
+        let sb;
+        try { sb = await sbFetch('/rest/v1/user_scans', { method: 'POST', body: '{}' }); }
+        finally { window._gsFetch = echtFetch; window.sbGetConfig = echtCfg; window.sbIsLoggedIn = echtLogin; }
+        o.sbStatus = sb && sb.error && sb.error.status; o.sbText = sb && sb.error ? t(sb.error) : null;
+        // 4 · Ein echter Weg bis in den Toast: Freundschaftsanfrage, Server lehnt per RLS ab
+        const echtSb = window.sbFetch, echtUid = localStorage.getItem('gs_sb_uid');
+        window.sbIsLoggedIn = () => true; localStorage.setItem('gs_sb_uid', 'u-pruef');
+        window.sbFetch = async () => ({ data: null, error: { message: 'new row violates row-level security policy for table "friendships"', status: 403 } });
+        try { await gsFriendsSendRequest('u-anders'); await new Promise(res => setTimeout(res, 250)); }
+        finally { window.sbFetch = echtSb; window.sbIsLoggedIn = echtLogin; if (echtUid === null) localStorage.removeItem('gs_sb_uid'); else localStorage.setItem('gs_sb_uid', echtUid); }
+        const tEl = document.querySelector('.gs-toast .gs-toast-body');
+        o.toast = tEl ? tEl.textContent : '';
+        // 5 · Quiz-Urteil bei abgelaufener Sitzung
+        // _dqServerUrteil RENDERT (in #dq-result), es gibt nichts zurueck — gemessen wird das Element
+        const dqRes = document.createElement('div'); dqRes.id = 'dq-result'; document.body.appendChild(dqRes);
+        try { window._dqServerUrteil({ error: { message: 'JWT expired', status: 401 } }, true); const u = document.getElementById('dq-server-urteil'); o.quiz = u ? u.textContent : ''; }
+        finally { dqRes.remove(); }
+        return o;
+      });
+      if (r.fehlt) return { ok: false, warum: '_gsFehlerText fehlt' };
+      const muss = [['rls', /abgelehnt/], ['rls2', /abgelehnt/], ['jwt', /Sitzung/], ['netz', /Verbindung/], ['zeit', /Verbindung/], ['dup', /gibt es schon/], ['tab', /Datenstruktur/], ['cache', /Datenstruktur/], ['rate', /Zu viele/], ['s503', /Problem/], ['leer', /^Unbekannter Fehler$/], ['str', /^Supabase nicht konfiguriert$/]];
+      muss.forEach(([k, re]) => { if (!re.test(String(r[k]))) f.push(k + ' → ' + JSON.stringify(r[k])); });
+      if (r.kurz !== 'Du kannst dich nicht selbst melden.') f.push('kurze Meldung veraendert: ' + JSON.stringify(r.kurz));
+      if (!(r.lang.length <= 120 && /…$/.test(r.lang))) f.push('lange Meldung nicht gekuerzt: ' + r.lang.length);
+      ['rls', 'jwt', 'tab', 'dup'].forEach(k => { if (/row-level|jwt|does not exist|duplicate key/i.test(String(r[k]))) f.push(k + ' traegt noch das Rohe'); });
+      if (r.sbStatus !== 403) f.push('sbFetch ohne status: ' + JSON.stringify(r.sbStatus));
+      if (!/abgelehnt/.test(String(r.sbText))) f.push('sbFetch-Fehler nicht uebersetzt: ' + JSON.stringify(r.sbText));
+      if (!/abgelehnt/.test(r.toast) || /row-level/.test(r.toast)) f.push('Toast: ' + JSON.stringify(r.toast));
+      if (!/Sitzung/.test(r.quiz) || /JWT/.test(r.quiz)) f.push('Quiz-Urteil: ' + JSON.stringify(r.quiz));
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '12 Klassen · kurz bleibt · lang gekuerzt · sbFetch status 403 · Toast „' + r.toast.slice(0, 40) + '…" · Quiz „' + r.quiz.slice(0, 40) + '…" · statisch 0 rohe Anzeige-Zeilen' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
@@ -293,6 +363,6 @@ const FAELLE = [
   console.log('  ---');
   console.log('  Faelle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
-  console.log('  Grenze: B3 ist eine Quelltext-Frage — den ersten Install misst offline_check.');
+  console.log('  Grenze: B3 ist eine Quelltext-Frage — den ersten Install misst offline_check. B8 statisch: eine Zeile, die den Fehler erst spaeter anzeigt, sieht die Suche nicht — der gerenderte Toast und das Quiz-Urteil sind die Messung.');
   process.exitCode = kaputt ? 1 : 0;
 })();
