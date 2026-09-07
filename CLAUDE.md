@@ -262,7 +262,8 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
 - **innerHTML mit User-Input**: NIEMALS ungeprüft. Nutze `gsEscHtml(s)` zum
-  HTML-Escapen einzelner Werte, `gsSanitize(s)` für ganze Fragmente:
+  HTML-Escapen einzelner Werte, `gsSanitizeHtml(html)` für ganze Fragmente
+  (das ältere `gsSanitize` hatte keinen Aufrufer und ist seit v32.77 weg):
   ```js
   el.innerHTML = '<div>' + gsEscHtml(userName) + ' sagt: ' + gsEscHtml(msg) + '</div>';
   ```
@@ -585,7 +586,7 @@ node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nu
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
-node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext)
+node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
@@ -1030,6 +1031,18 @@ Edge-Functions gilt: **kein `atob` auf den Token, keine E-Mail-Liste** — wer
 wissen will, ob der Aufrufer Admin ist, ruft `rpc/is_admin_user` mit dessen
 Bearer (PostgREST prüft die Signatur); `feedback-triage` ist die Vorlage.
 `robust_check` Fall 14 rechnet das Modul in Node und meldet jede Kopie.
+
+**Seit v32.77 gibt es einen Deckel gegen Funktionen ohne Aufrufer** (Audit
+C2). `robust_check` Fall 16 zählt jede Definition (`function X`,
+`window.X = function`) gegen ihre Nennungen im ganzen Repo — Quelltext,
+`sw.js`, Prüfstände, Migrationen, Edge-Functions, ganze Kommentarzeilen
+abgezogen — und meldet jede ohne zweite Nennung, die nicht namentlich mit
+Grund in `BEWUSST` steht. Wer eine Funktion baut, die nur über einen
+zusammengesetzten Namen erreicht wird (`window['close' + id]`), trägt sie
+dort ein; wer eine Funktion baut, die niemand ruft, sieht sie beim nächsten
+Lauf. Entfernt wird mit dem Parser (`acorn`, exakte Grenzen), nie mit einer
+Zeilensuche nach `^function` — neun der 104 Kandidaten von v32.77 standen in
+einer IIFE.
 
 **`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
 Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf

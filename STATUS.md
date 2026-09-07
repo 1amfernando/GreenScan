@@ -4,13 +4,56 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.76` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.77` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fq) — v32.77: 114 Funktionen ohne Aufrufer entfernt — Audit C2
+
+- **C2** Das Audit nannte 66; nachgezählt am 07.09.2026 mit einem
+  tokenisierten Scan über das GANZE Repo (`index.html`, `sw.js`,
+  `install.html`, `offline.html`, alle Prüfstände, alle Migrationen, alle
+  Edge-Functions; nur ganze Kommentarzeilen abgezogen): **2'430
+  Definitionen, 105 ohne eine zweite Nennung** — nicht als Aufruf, nicht als
+  `onclick`-Zeichenkette, nicht in `MENU_ITEMS`, nicht in `GS_NOTIF_ZIELE`,
+  nicht in einem Prüfstand. Darunter ganze Wege (`sbSendMagicLink` +
+  `gsHandleMagicLinkCallback`, `gsPPshowVisual` mit 128 Zeilen,
+  `openIgPost`, `gsLikePost`, `dqShowResult`, `gsRequestLocation`) und die
+  Reste entfernter Oberflächen (`gsActivateGuestMode`, `showTab`,
+  `switchCamera`, `openGardenScanner`). Nach der ersten Welle blieben
+  **zehn** übrig, deren einziger Aufrufer gerade gegangen war
+  (`startCamera`, `gsAdminBanUser`, `checkAdminMode`, `toggleFaq` …) —
+  Welle zwei; Welle drei fand nichts mehr. Zusammen 114 Funktionen.
+- **Eine bleibt, mit Grund:** `closeAbout` — `window['close' + modalId]`
+  (Z. ~19597) bildet den Namen aus der Modal-Id; ein Zähler sieht das nicht.
+  Die fünf Stellen, die Namen dynamisch bilden, sind alle angesehen:
+  `close*` (Modal-Id), `window[k]` (Three.js-Szenen, keine Funktionen),
+  `gsKalHin(fn)` (Strings im Quelltext, gezählt), der Notif-Router
+  (`GS_NOTIF_ZIELE`, gezählt).
+- **Entfernt mit dem Parser, nicht mit einer Klammer-Heuristik.** `acorn`
+  (aus dem eslint-Paket unter `/opt/node22`) liefert exakte Grenzen je
+  `function X` und `window.X = function` — neun der Kandidaten stehen
+  INNERHALB einer IIFE (Badge, Haptik, Konsole) und wären mit einer
+  Zeilensuche nach `^function` nie gefunden worden; der `<script
+  type="module">`-Block (pdf.js, top-level `await`) braucht
+  `sourceType: 'module'`. 114 Funktionen, 1790 Zeilen.
+- **Der Prüfstand ist der Deckel:** `robust_check` Fall 16 rechnet
+  denselben Scan (0,7 s) und meldet jede Definition ohne zweite Nennung,
+  die nicht namentlich mit Grund in `BEWUSST` steht — und umgekehrt jeden
+  Eintrag dort, den es nicht mehr gibt. Gegenprobe gegen v32.76: rot mit
+  „104 ohne zweite Nennung".
+- `CLAUDE.md` §3.6 nannte `gsSanitize(s)` als Helfer für ganze Fragmente —
+  eine Funktion ohne einen einzigen Aufrufer; seit v32.66 ist
+  `gsSanitizeHtml(html)` der Weg. Text angeglichen.
+- Grenze, ehrlich: der Scan kennt keinen Namen, der erst zur Laufzeit
+  zusammengesetzt wird. Wer so etwas baut (`window['gs' + x]`), trägt die
+  Zielfunktionen in `BEWUSST` ein — sonst löscht die nächste Welle sie.
+
+Regression v32.76 → v32.77: (folgt)
 
 ### 2026-09-07 (fp) — v32.76: species-search verlangt einen echten Nutzer — Audit A7
 
@@ -9661,9 +9704,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.76` (Client) · SW-Cache `gs-v32.76` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.77` (Client) · SW-Cache `gs-v32.77` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'340 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'560 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

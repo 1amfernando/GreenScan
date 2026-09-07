@@ -487,6 +487,40 @@ const FAELLE = [
     },
   },
   {
+    name: 'C2 · keine Funktion ohne zweite Nennung im Repo (Quelltext, Skripte, Migrationen, Functions — ganze Kommentarzeilen abgezogen); was bewusst bleibt, steht namentlich in der Liste (dynamisch gebildete Namen)',
+    lauf: async () => {
+      // Dieselbe Rechnung wie das Werkzeug, das die 104 Funktionen in v32.77 entfernt hat:
+      // jede Definition (function X / window.X = function) braucht irgendwo im Repo eine
+      // zweite Nennung — als Aufruf, als onclick-Zeichenkette, in MENU_ITEMS, in GS_NOTIF_ZIELE,
+      // in einem Pruefstand. Ein `/*` in einer Zeichenkette (accept="image/*") wuerde einen
+      // Block-Kommentar-Streicher den halben Rest verschlucken lassen — deshalb werden NUR
+      // ganze Kommentarzeilen entfernt (wiring_check hat dieselbe Lehre, CLAUDE.md §7.1).
+      const BEWUSST = { closeAbout: "window['close' + modalId] bildet den Namen dynamisch (Z. ~19597)" };
+      const wurzel = path.join(__dirname, '..');
+      const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');
+      const defs = new Set();
+      for (const m of idx.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)) defs.add(m[1]);
+      for (const m of idx.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function/g)) defs.add(m[1]);
+      const dateien = ['sw.js', 'install.html', 'offline.html'];
+      const sammle = (d, re) => { try { fs.readdirSync(path.join(wurzel, d)).filter(f => re.test(f)).forEach(f => dateien.push(path.join(d, f))); } catch (_) {} };
+      sammle('scripts', /\.(js|py)$/); sammle('supabase/migrations', /\.sql$/);
+      try { fs.readdirSync(path.join(wurzel, 'supabase', 'functions')).forEach(f => { const p = path.join('supabase', 'functions', f, 'index.ts'); if (fs.existsSync(path.join(wurzel, p))) dateien.push(p); }); } catch (_) {}
+      let korpus = idx;
+      for (const f of dateien) { try { korpus += '\n' + fs.readFileSync(path.join(wurzel, f), 'utf8'); } catch (_) {} }
+      korpus = korpus.replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\*.*$/gm, '');
+      const zaehl = new Map();
+      for (const m of korpus.matchAll(/[A-Za-z_$][\w$]*/g)) zaehl.set(m[0], (zaehl.get(m[0]) || 0) + 1);
+      const tot = [...defs].filter(d => (zaehl.get(d) || 0) <= 1).sort();
+      const unbegruendet = tot.filter(d => !BEWUSST[d]);
+      const fehltInListe = Object.keys(BEWUSST).filter(d => !defs.has(d));
+      const f = [];
+      if (unbegruendet.length) f.push(unbegruendet.length + ' ohne zweite Nennung: ' + unbegruendet.slice(0, 12).join(' ') + (unbegruendet.length > 12 ? ' …' : ''));
+      if (fehltInListe.length) f.push('in BEWUSST, aber nicht mehr definiert: ' + fehltInListe.join(' '));
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: defs.size + ' Definitionen · ' + tot.length + ' ohne zweite Nennung, alle begruendet (' + tot.join(', ') + ') · Korpus ' + (dateien.length + 1) + ' Dateien' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
