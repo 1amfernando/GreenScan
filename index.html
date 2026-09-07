@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.76.20260907">
+<meta name="app-version" content="32.77.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2487,15 +2487,6 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       console.info = function(){};
       console.warn = function(){};   // v29.32: warn auch still — versteckt internen Flow ([gsSync]…). error bleibt aktiv.
       // Helper: console.gsRestore() um wieder einzuschalten ohne Reload
-      window.gsConsoleRestore = function(){
-        console.log = window._gsConsoleOrig.log;
-        console.debug = window._gsConsoleOrig.debug;
-        console.info = window._gsConsoleOrig.info;
-        if (window._gsConsoleOrig.warn) console.warn = window._gsConsoleOrig.warn;
-        try { localStorage.setItem('gs_debug','1'); } catch(_){}
-        window._gsDevMode = true;
-        console.warn('[gs] Dev-Mode aktiviert — console restored. Reload um persistent zu machen.');
-      };
     } else {
       // Dev: leichter Banner-Hint in der Console
       try {
@@ -2571,9 +2562,6 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   window.gsGetErrorLog = function() {
     try { return JSON.parse(localStorage.getItem('gs_error_log') || '[]'); }
     catch(_) { return []; }
-  };
-  window.gsClearErrorLog = function() {
-    try { localStorage.removeItem('gs_error_log'); return true; } catch(_) { return false; }
   };
   // v31.03: Rettungsversuch fuer abgeschnittenes JSON. Bricht ein Schreibvorgang
   // an der Quota mittendrin ab, steht in localStorage ein Prefix eines gueltigen
@@ -7903,11 +7891,6 @@ html, body{ scroll-behavior: smooth; }
 // v24.44: Cloudflare email-decode.min.js entfernt — keine `__cf_email__`-Tags mehr im DOM,
 // Skript ist deshalb funktionslos und blockiert nur die CSP `script-src 'self' 'unsafe-inline'`-Policy.
 // Email-Validierung
-function gsIsValidEmail(email) {
-  if (!email || typeof email !== 'string') return false;
-  // RFC 5322 vereinfachte Version
-  return /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(email.trim());
-}
 
 // v31.08: Deckeln MIT Archiv statt lautlos wegwerfen.
 // Die Deckel selbst bleiben — sie schuetzen die 5 MB. Aber der herausfallende
@@ -9377,10 +9360,6 @@ function _gsCollReady(){ try { return (typeof sbFetch==='function' && typeof sbI
 function _gsCollEsc(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(s) : String(s==null?'':s); }
 window._gsCollList = [];
 // Plant-Wrapper: Namen NICHT in onclick einbetten (Hard-Lesson #12) — nur die saubere Pflanzen-ID.
-window.gsAddPlantToCollection = function(plantId){
-  var p = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(x){ return x.id === plantId; });
-  if (p) gsAddToCollection('plant', p.id, p.name || '', p.emoji || '🌿');
-};
 // v28.25: Arten-Wrapper — schlägt Emoji nach Giftigkeit/Essbarkeit vor (intelligenter Touch).
 window.gsAddSpeciesToCollection = function(speciesId){
   var sp = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.find(function(s){ return s && s.id === String(speciesId); }) : null;
@@ -9807,24 +9786,6 @@ window.gsSnoozePlantReminder = async function(dedupKey, days) {
 };
 
 // v24.26: Per-Pflanzen-Reminder-Toggle (in user_app_state.data.reminder_prefs.disabled[plantId])
-window.gsToggleReminderForPlant = function(plantId, enabled) {
-  try {
-    var raw = localStorage.getItem('gs_reminder_prefs') || '{}';
-    var prefs = JSON.parse(raw);
-    if (!prefs.disabled) prefs.disabled = {};
-    if (enabled) {
-      delete prefs.disabled[plantId];
-    } else {
-      prefs.disabled[plantId] = true;
-    }
-    // user_app_state schreibt nicht direkt diesen key — wir packen in das eigene state-key
-    // damit es im _buildStateBlob gepickt wird (siehe v24.24-Pfad)
-    localStorage.setItem('gs_reminder_prefs', JSON.stringify(prefs));
-    if (typeof showProfileToast === 'function') {
-      showProfileToast({type:'info', icon: enabled?'🔔':'🔕', title: enabled ? 'Reminder aktiviert' : 'Reminder deaktiviert', body: 'Für diese Pflanze.'});
-    }
-  } catch(_){}
-};
 
 // v24.25: Server-Cron-Reminder als gelesen markieren wenn der User die Aufgabe erledigt
 // (sonst bleibt der Reminder im Notif-Center stehen obwohl die Aufgabe gemacht ist).
@@ -11745,23 +11706,6 @@ function gsTagebuchSave() {
   if (voll && typeof gsToast === 'function') gsToast('Speicher voll — der Tagebuch-Eintrag konnte nicht gesichert werden.', 'warn', 5000);
   return !voll;
 }
-function gsTagebuchAdd(text, emoji, cat, plant) {
-  if (!text || !text.trim()) return false;
-  gsTagebuchLoad(true);
-  _gsTagebuch.unshift({
-    id: Date.now(),
-    ts: new Date().toISOString(),
-    text: text.trim().slice(0,500),
-    emoji: emoji || '🌱',
-    cat: cat || 'note',
-    plant: plant || '',
-    date: new Date().toLocaleDateString('de-CH')
-  });
-  gsTagebuchSave();
-  // v23.56: Aktivität als Streak-Trigger — Tagebuch-Eintrag zählt als Kernaktivität
-  try { if (typeof gsTouchStreak === 'function') gsTouchStreak(); } catch(e){}
-  return true;
-}
 function gsTagebuchDelete(id) {
   // v32.49: Cloud-Eintraege ('cd:<id>') werden in garden_diary geloescht —
   // und nur bei bestaetigter Loeschung aus dem Spiegel genommen.
@@ -12716,46 +12660,6 @@ window.gsBuildWidgetStack = function(){
 try { window.addEventListener('load', function(){ setTimeout(function(){ try { if (typeof gsBuildWidgetStack==='function') gsBuildWidgetStack(); } catch(_){} }, 700); }); } catch(_){}
 
 // v27.04: „nicht interessiert" — Pick merken (LS) + Liste neu rendern (Rotation)
-window.gsHomeDismissPick = function(idx){
-  var s = (window._gsHomeTopPicks || [])[idx];
-  if (!s || !s.name) return;
-  try {
-    var list = JSON.parse(localStorage.getItem('gs_home_dismissed_picks')||'[]'); if (!Array.isArray(list)) list = [];
-    if (list.indexOf(s.name) < 0) list.push(s.name);
-    localStorage.setItem('gs_home_dismissed_picks', JSON.stringify(list.slice(-100)));
-  } catch(_){}
-  if (typeof gsHaptic === 'function') { try { gsHaptic('light'); } catch(_){} }
-  if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks();
-};
-window.gsHomeOpenAddFromPick = function(idx){
-  var s = (window._gsHomeTopPicks || [])[idx];
-  if (!s) return;
-  if (typeof openAddPlant === 'function') openAddPlant();
-  setTimeout(function(){
-    var n = document.getElementById('mp-name');
-    var e = document.getElementById('mp-emoji');
-    if (n) n.value = s.name || '';
-    if (e && s.emoji) e.value = s.emoji;
-    var wrap = n && n.parentElement;
-    if (wrap) { wrap.setAttribute('data-picked-lat', s.lat || ''); wrap.setAttribute('data-picked-cat', s.cat || ''); }
-    if (typeof gsCompanionLiveCheck === 'function') { try { gsCompanionLiveCheck(); } catch(_){} }
-    // Garten-Default für Outdoor-Kategorien, sonst Wohnung
-    var isGarden = /^(gemuese|kraut|frucht|beere|baum|strauch|wildpflanze|blume)$/i.test(s.cat || '');
-    var rad = document.querySelector('input[name="mp-location"][value="' + (isGarden ? 'outdoor' : 'indoor') + '"]');
-    if (rad) { rad.checked = true; try { rad.dispatchEvent(new Event('change', {bubbles:true})); } catch(_){} }
-    // Pick-Tracking (fire-and-forget, nur eingeloggt + nur DB-Treffer; 2-arg-Signatur p_q/p_species_id)
-    try {
-      if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && s.id) {
-        sbFetch('/rest/v1/rpc/fn_species_log_pick', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ p_q: (s.name || ''), p_species_id: String(s.id) })
-        });
-      }
-    } catch(_){}
-    if (typeof gsHaptic === 'function') gsHaptic('select');
-  }, 200);
-};
 
 // 7 Fragetypen
 // v23.50: Smarter Distractor-Generation — Antworten dürfen NIE zu ähnlich sein
@@ -16726,12 +16630,6 @@ function gsInitLazyList(containerId) {
   if (loadBtn) _lazyListObserver.observe(loadBtn);
 }
 
-function gsDestroyLazyList() {
-  if (_lazyListObserver) {
-    _lazyListObserver.disconnect();
-    _lazyListObserver = null;
-  }
-}
 
 // ══ PREMIUM / ABO SYSTEM ═════════════════════════════════════
 // Tiers (2026-04): free · plus (3.90/Mt, 39/Jahr) · pro (7.90/Mt, 79/Jahr) · lifetime (45.60 einmalig)
@@ -16785,13 +16683,6 @@ function gsAboCanUse(feature) {
   return true; // Meiste Features gratis
 }
 
-function gsAboTrackScan() {
-  if (gsIsPaid()) return;
-  var today = new Date().toDateString();
-  var key = 'gs_scans_' + today;
-  var used = parseInt(localStorage.getItem(key) || '0');
-  localStorage.setItem(key, String(used + 1));
-}
 
 // v24.22: Tracker für globale-Key AI-Aufrufe (Scan, Chat, Plan, Pflegeberatung, etc.)
 // Wird von callAI/callVisionAI aufgerufen NACH erfolgreichem Call. Nur bei free-Plan + global Key.
@@ -18799,31 +18690,6 @@ function gsAutoFillDBGaps() {
 }
 
 // ══ MARKTPLATZ FUNKTIONEN ════════════════════════════════════
-function mktLike(id) {
-  gsHaptic('light');
-  var listings = [];
-  try { listings = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
-  var l = listings.find(function(x){ return x.id === id; });
-  if (!l) return;
-  l.liked = !l.liked;
-  l.likes = Math.max(0, (l.likes||0) + (l.liked?1:-1));
-  try { gsStore.set('gs_market_listings', JSON.stringify(listings)); } catch(e){}
-  // Optimistic UI
-  var btn = document.querySelector('[data-mkt-like="'+id+'"]');
-  if (btn) {
-    btn.textContent = (l.liked?'❤️':'🤍') + ' ' + l.likes;
-    btn.style.color = l.liked ? '#e53935' : 'var(--muted)';
-  }
-  // Supabase sync (v25.3: encodeURIComponent-Restore — war in v24.13 gefixt,
-  // durch UPDATE.command-Sync verloren gegangen. Schützt vor String-Concat-
-  // Injection wenn id einen unerwarteten Wert hat.)
-  if (typeof sbFetch === 'function') {
-    sbFetch('/rest/v1/marketplace_listings?id=eq.'+encodeURIComponent(id), {
-      method: 'PATCH',
-      body: JSON.stringify({likes: l.likes})
-    }).catch(function(){});
-  }
-}
 
 async function mktDelete(id) {
   gsHaptic('medium');
@@ -18895,31 +18761,6 @@ function gsFindSimilar(sp, count) {
 }
 
 // ══ KONFIDENZ-RING (SVG animiert) ════════════════════════════
-function gsBuildConfRing(conf) {
-  var cc = conf >= 80 ? '#27ae60' : conf >= 55 ? '#f9a825' : '#ef5350';
-  var label = conf >= 80 ? 'Sehr sicher' : conf >= 55 ? 'Wahrscheinlich' : 'Unsicher';
-  var r = 34, circ = 2 * Math.PI * r;
-  var dash = (conf / 100) * circ;
-  return '<div style="display:flex;align-items:center;justify-content:center;margin:12px 0 8px;">' +
-    '<div style="position:relative;width:90px;height:90px;">' +
-      '<svg width="90" height="90" style="transform:rotate(-90deg);">' +
-        '<circle cx="45" cy="45" r="' + r + '" fill="none" stroke="var(--border)" stroke-width="7"/>' +
-        '<circle cx="45" cy="45" r="' + r + '" fill="none" stroke="' + cc + '" stroke-width="7"' +
-          ' stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '"' +
-          ' stroke-linecap="round"' +
-          ' style="transition:stroke-dasharray var(--dur-slow) cubic-bezier(.34,1.56,.64,1);"/>' +
-      '</svg>' +
-      '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
-        '<div style="font-size:var(--fs-xl);font-weight:900;color:' + cc + ';line-height:1;">' + conf + '</div>' +
-        '<div style="font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">%</div>' +
-      '</div>' +
-    '</div>' +
-    '<div style="margin-left:16px;">' +
-      '<div style="font-size:var(--fs-md);font-weight:800;color:' + cc + ';">' + label + '</div>' +
-      '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px;">Erkennungssicherheit</div>' +
-    '</div>' +
-  '</div>';
-}
 
 var GS_WISSEN = [
   {id:'w1',cat:'sicherheit',icon:'⚠️',title:'Verwechslungen erkennen',text:'Die grösste Gefahr beim Sammeln ist die Verwechslung ähnlicher Arten. Wichtige Regeln: Immer alle Merkmale prüfen (Geruch, Farbe, Standort, Jahreszeit). Im Zweifel nicht essen. Bei Vergiftungsverdacht sofort: Tox Info Suisse 145. Pilze immer mit Fachbuch bestimmen.'},
@@ -18970,36 +18811,6 @@ function gsOpenWissen(id) {
 
 // ══ SAISON-KALENDER ══════════════════════════════════════════
 
-function gsShowSeasonMonth(monthIdx) {
-  if (!DB) return;
-  var months = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-  var monthShort = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  var inSeason = DB.filter(function(sp) {
-    if (!sp.season) return false;
-    var sl = sp.season.toLowerCase();
-    return sl.indexOf(monthShort[monthIdx].toLowerCase()) >= 0 ||
-           sl.indexOf(months[monthIdx].toLowerCase()) >= 0 ||
-           sl.indexOf('ganzjährig') >= 0;
-  });
-  var mc = document.getElementById('modal-content');
-  if (!mc) return;
-  gsHaptic('light');
-  mc.innerHTML =
-    '<div style="padding:16px;">' +
-      '<div style="font-size:var(--fs-xl);font-weight:900;color:var(--text);margin-bottom:12px;">' +
-        '📅 ' + months[monthIdx] + ' — ' + inSeason.length + ' Arten in Saison' +
-      '</div>' +
-      inSeason.slice(0,30).map(function(sp) {
-        return '<div onclick="closeModal(\'detail-modal\');setTimeout(function(){openDetail(\''+sp.id+'\')},100)" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">' +
-          '<span style="font-size:var(--fs-2xl);">' + (typeof getEmoji==='function'?getEmoji(sp):sp.emoji||'🌿') + '</span>' +
-          '<div><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + sp.name + '</div>' +
-          '<div style="font-size:var(--fs-sm);color:var(--muted);font-style:italic;">' + (sp.lat||'') + '</div></div>' +
-          '</div>';
-      }).join('') +
-      (inSeason.length > 30 ? '<div style="padding:8px 0;font-size:var(--fs-sm);color:var(--muted);">+ '+(inSeason.length-30)+' weitere…</div>' : '') +
-    '</div>';
-  openModal('detail-modal');
-}
 
 // ══ MARKTPLATZ SUPABASE ══════════════════════════════════════
 // v25.30: Reads aus v_marketplace_listings View (kommt mit seller_name +
@@ -19635,12 +19446,6 @@ function gsUpdateHomeScanStat() {
 
 // ══ DEBOUNCE SUCHE ════════════════════════════════════════════
 var _gsSearchDebounce = null;
-function gsDebounceSearch(query) {
-  clearTimeout(_gsSearchDebounce);
-  _gsSearchDebounce = setTimeout(function() {
-    if (typeof doSearch === 'function') doSearch(query);
-  }, 120); // 120ms Verzögerung — reaktiv aber nicht überlastend
-}
 
 // ══ WETTER WIDGET ════════════════════════════════════════════
 
@@ -19697,15 +19502,6 @@ function gsAddScanToGarden(preferOutdoor){
 }
 window.gsAddScanToGarden = gsAddScanToGarden;
 
-function favSearchFilter(q) {
-  var items = document.querySelectorAll('#mp-list [data-pid], #mp-list .plant-card, #mp-list > div');
-  if (!q) { items.forEach(function(el){ el.style.display=''; }); return; }
-  q = q.toLowerCase();
-  items.forEach(function(el) {
-    var text = el.textContent.toLowerCase();
-    el.style.display = text.indexOf(q) >= 0 ? '' : 'none';
-  });
-}
 
 // ══ SUCH-HIGHLIGHTING ════════════════════════════════════════
 function gsHighlight(text, query) {
@@ -19880,52 +19676,7 @@ function gsUpdateMoreStats() {
 
 // ══ SOCIAL FEED ENHANCEMENTS ═════════════════════════════════
 
-function gsLikePost(postId, btn) {
-  if (!btn) return;
-  gsHaptic('light');
-  var liked = btn.dataset.liked === '1';
-  var countEl = btn.querySelector('.like-count');
-  var count = parseInt((countEl ? countEl.textContent : '0') || '0');
 
-  // Optimistisch updaten
-  if (liked) {
-    btn.dataset.liked = '0';
-    btn.style.color = 'var(--muted)';
-    if (countEl) countEl.textContent = Math.max(0, count - 1);
-  } else {
-    btn.dataset.liked = '1';
-    btn.style.color = '#e53935';
-    if (countEl) countEl.textContent = count + 1;
-    // Herz-Animation
-    btn.style.transform = 'scale(1.35)';
-    setTimeout(function(){ btn.style.transform = 'scale(1)'; btn.style.transition='transform .2s cubic-bezier(.34,1.56,.64,1)'; }, 150);
-  }
-
-  // Supabase sync
-  var uid = gsStore.get('gs_sb_uid', null);
-  if (uid && typeof sbFetch === 'function') {
-    if (!liked) {
-      sbFetch('/rest/v1/post_likes', {method:'POST',
-        headers:{'Prefer':'return=minimal'},
-        body:JSON.stringify({user_id:uid, post_id:postId})
-      }).catch(function(){});
-    } else {
-      sbFetch('/rest/v1/post_likes?user_id=eq.'+uid+'&post_id=eq.'+postId, {method:'DELETE'}).catch(function(){});
-    }
-  }
-}
-
-function gsFormatPostTime(ts) {
-  if (!ts) return '';
-  var d = new Date(ts);
-  var now = new Date();
-  var diff = (now - d) / 1000;
-  if (diff < 60) return 'gerade';
-  if (diff < 3600) return Math.floor(diff/60) + ' Min.';
-  if (diff < 86400) return Math.floor(diff/3600) + ' Std.';
-  if (diff < 604800) return Math.floor(diff/86400) + ' Tage';
-  return d.toLocaleDateString('de-CH');
-}
 
 // ══ SCAN HISTORY SCREEN ══════════════════════════════════════
 
@@ -20860,12 +20611,6 @@ function gsAddToScanHistory(r) {
   } catch(e){}
 })();
 
-function gsCheckFirstRun(){
-  if(localStorage.getItem('gs_first_run_done')) return;
-  localStorage.setItem('gs_first_run_done','1');
-  setTimeout(function(){showProfileToast('Willkommen bei GreenScan! Tippe auf Scannen.');},2200);
-  setTimeout(function(){showProfileToast('Tipp: Lange auf eine Art drücken → Quick-Menü','info');},7000);
-}
 
 // v30.80 BUG-FIX: dqPushToSupabase schrieb via window.supabase (existiert nicht,
 // kein supabase-js — vgl. Z.80347) in die tote quiz_ranking-Tabelle → returnte
@@ -20880,7 +20625,6 @@ async function dqPushToSupabase(pts,correct,timeMs){
 }
 // @deprecated v30.80: quiz_ranking-Tabelle ist tot (v26.80). Nutze
 // dqLoadLeaderboardTop (fn_quiz_leaderboard_top). Kein Caller mehr.
-async function dqLoadSupabaseRanking(){ return null; }
 
 var _dynF=[],_dynFi=0;
 function gsInitDynamicFacts(){
@@ -21081,40 +20825,6 @@ function toggleRecipeFav(id,ev){
   } catch(e){}
 }
 
-function gsShowQuickActions(id, name, lat, x, y) {
-  var ex = document.getElementById('gs-quick-actions');
-  if (ex) ex.remove();
-  var isFav = typeof favs !== 'undefined' && Array.isArray(favs) && favs.indexOf(id) >= 0;
-  var el = document.createElement('div');
-  el.id = 'gs-quick-actions';
-  el.style.cssText = 'position:fixed;z-index:9500;background:var(--card);border-radius:var(--r-lg);box-shadow:var(--elev-4);padding:6px;min-width:185px;animation:scaleIn .15s cubic-bezier(.34,1.56,.64,1) both;';
-  var vy = y > window.innerHeight/2 ? (y-155) : y;
-  el.style.left = Math.min(Math.max(x-92,8), window.innerWidth-200)+'px';
-  el.style.top = Math.max(8, vy)+'px';
-  el._qid = id; el._qname = name; el._qlat = lat||'';
-  el.innerHTML = '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--muted);padding:5px 10px 7px;border-bottom:1px solid var(--border);">' + name + '</div>' +
-    ['open','fav','share'].map(function(act) {
-      var label = act==='open'?'Art oeffnen':act==='fav'?(isFav?'Aus Favoriten':'Zu Favoriten'):'Teilen';
-      var icon = act==='open'?'🔍':act==='fav'?(isFav?'⭐':'☆'):'↑';
-      return '<button data-qa="' + act + '" style="display:flex;align-items:center;gap:9px;width:100%;padding:10px 12px;background:none;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-weight:600;color:var(--text);font-family:inherit;">' + icon + ' ' + label + '</button>';
-    }).join('');
-  el.addEventListener('click', function(e) {
-    var btn = e.target.closest('[data-qa]');
-    if (!btn) return;
-    var act = btn.dataset.qa;
-    if (act==='open') openDetail(el._qid);
-    else if (act==='fav') { if(typeof toggleFav==='function') toggleFav(el._qid); gsHaptic('success'); }
-    else if (act==='share') { if(typeof gsShareSpecies==='function') gsShareSpecies(el._qname, el._qlat); }
-    el.remove();
-  });
-  document.body.appendChild(el);
-  setTimeout(function() {
-    var d = function(e){ if(el.parentNode&&!el.contains(e.target)){el.remove();} };
-    document.addEventListener('touchstart', d, {once:true});
-    document.addEventListener('mousedown', d, {once:true});
-  }, 50);
-  setTimeout(function(){ if(el.parentNode) el.remove(); }, 4000);
-}
 
 // ══ PFLANZE DES TAGES ════════════════════════════════════════
 // Deterministisch: gleicher Tag = gleiche Art, immer.
@@ -21133,71 +20843,8 @@ var _dqTimerInt = null;       // setInterval handle
 
 // Punkte-Formel: Basis 100pt + Geschwindigkeitsbonus (max 50pt) + Streak-Bonus
 
-function dqShowResult(correct, timeUsed, pts, fromCache) {
-  var t = timeUsed || 20;
-  var stats = dqGetStats();
-
-  if (!fromCache) {
-    // Nur live aktualisieren, nicht wenn von Cache (bereits gespielt)
-    if (correct) {
-      stats.correct++;
-      stats.streak++;
-      stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
-    } else {
-      stats.streak = 0;
-    }
-    stats.total++;
-    // v31.15: hier stand zusätzlich stats.yearCorrect++ / stats.yearTotal++ auf
-    // Feldern, die dqGetStats gar nicht anlegt — `undefined++` ergibt NaN, und
-    // JSON.stringify macht daraus null. Die Funktion hat zwar keine Aufrufstelle
-    // (nachgezählt), aber sie soll keine Falle sein, falls sie je verdrahtet wird.
-    if (pts) stats.points = (stats.points||0) + pts;
-
-    // Heute speichern
-    dqSaveToday({ answered: true, correct: correct, points: pts||0, timeMs: Math.round(t*1000) });
-    dqSaveStats(stats);
-
-    // Supabase Ranking
-    if (typeof dqPushToSupabase === 'function') {
-      setTimeout(function(){ dqPushToSupabase(pts||0, correct, Math.round(t*1000)); }, 500);
-    }
-  }
-
-  // XP vergeben
-  if (!fromCache && correct && pts && typeof gsAddXP === 'function') {
-    gsAddXP(Math.round(pts / 10)); // 10–20 XP
-  }
-  // v23.56: Quiz-Abschluss ist Kernaktivität → Tages-Streak ticken
-  if (!fromCache) {
-    try { if (typeof gsTouchStreak === 'function') gsTouchStreak(); } catch(e){}
-  }
-}
 
 // ── RANKING SYSTEM ─────────────────────────────────────────
-function dqUpdateRanking(totalPoints, todayPts, correct) {
-  // Lokales Ranking (alle User auf diesem Gerät = Test, für Supabase-User)
-  var name = '';
-  try {
-    name = localStorage.getItem('gs_sb_display_name') || localStorage.getItem('gs_social_name') || (gsStore.get('gs_sb_email', null) || '').split('@')[0] || 'Anonym'; // v28.82: gs_profile tot → kanonisch
-  } catch(e) { name = 'Anonym'; }
-
-  var key = 'gs_dq_ranking_v1';
-  var ranking = [];
-  try { ranking = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e){}
-
-  var today = new Date().toISOString().slice(0,10);
-  var existing = ranking.find(function(r){ return r.id === 'self'; });
-  if (existing) {
-    existing.points = totalPoints;
-    existing.name = name;
-    existing.lastDate = today;
-    existing.correct = (existing.correct || 0) + (correct ? 1 : 0);
-    existing.total = (existing.total || 0) + 1;
-  } else {
-    ranking.push({ id:'self', name:name, points:totalPoints, lastDate:today, correct:correct?1:0, total:1 });
-  }
-  try { localStorage.setItem(key, JSON.stringify(ranking)); } catch(e){}
-}
 
 async function openDqRanking() {
   var modal = document.getElementById('modal-dq-ranking');
@@ -21349,35 +20996,9 @@ function gsScrollToTop() {
   if (screen) screen.scrollTo({ top: 0, behavior: gsScrollBehavior() });
 }
 
-function gsInitBackToTop() {
-  var btn = document.getElementById('gs-back-to-top');
-  if (!btn) return;
-  document.addEventListener('scroll', function(e) {
-    var screen = e.target;
-    if (!screen || !screen.classList || !screen.classList.contains('screen')) return;
-    var showBtn = screen.scrollTop > 350;
-    btn.style.display = showBtn ? 'flex' : 'none';
-    btn.style.opacity = showBtn ? '1' : '0';
-  }, true);
-}
 
 // ══ SUCHE KATEGORIE CHIPS ═══════════════════════════════════
 var _gsSearchCat = '';
-function gsSetSearchCat(cat, btn) {
-  _gsSearchCat = cat;
-  gsHaptic('tap');
-  document.querySelectorAll('#search-cat-chips button').forEach(function(b) {
-    b.style.background = 'var(--surface2)';
-    b.style.color = 'var(--text)';
-  });
-  if (btn) { btn.style.background = 'var(--g-main)'; btn.style.color = '#fff'; }
-  // currentFilter global setzen
-  currentFilter = cat || '';
-  searchText = '';
-  var sinp = document.getElementById('search-input');
-  if (sinp) sinp.value = '';
-  if (typeof renderList === 'function') renderList();
-}
 
 // ══ ANIMIERTE COUNTER ══════════════════════════════════════
 function gsAnimateCounter(el, targetNum, duration) {
@@ -21437,28 +21058,6 @@ function gsSameTabAction(t) {
 
 // ── OFFLINE DETECTION ───────────────────────────────────────
 var _gsWasOffline = false;
-function gsInitOfflineDetection() {
-  function updateBanner() {
-    var isOnline = navigator.onLine;
-    var banner = document.getElementById('gs-offline-banner');
-    if (!banner) return;
-    if (!isOnline) {
-      banner.style.display = 'flex';
-      _gsWasOffline = true;
-    } else if (_gsWasOffline) {
-      banner.innerHTML = '✅ Wieder online';
-      banner.style.background = '#2e7d32';
-      banner.style.display = 'flex';
-      setTimeout(function() { banner.style.display = 'none'; banner.innerHTML = '⚡ Offline'; banner.style.background = '#b71c1c'; }, 2500);
-      _gsWasOffline = false;
-    } else {
-      banner.style.display = 'none';
-    }
-  }
-  window.addEventListener('online', updateBanner);
-  window.addEventListener('offline', updateBanner);
-  updateBanner();
-}
 
 // ── NATIVE SHARE API ────────────────────────────────────────
 function gsShareSpecies(name, latin) {
@@ -21526,14 +21125,6 @@ function gsInitPullToRefresh(screenId, onRefresh) {
 var _gsRecentSearches = [];
 try { _gsRecentSearches = JSON.parse(localStorage.getItem('gs_recent_searches')||'[]'); } catch(e){}
 
-function gsAddRecentSearch(term) {
-  if (!term || term.length < 2) return;
-  _gsRecentSearches = _gsRecentSearches.filter(function(s){ return s !== term; });
-  _gsRecentSearches.unshift(term);
-  _gsRecentSearches = _gsRecentSearches.slice(0, 8);
-  try { localStorage.setItem('gs_recent_searches', JSON.stringify(_gsRecentSearches)); } catch(e){}
-  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.47: HL#32 — „zuletzt gesucht" cross-device
-}
 
 function gsRenderRecentSearches() {
   var el = document.getElementById('recent-searches');
@@ -21552,15 +21143,6 @@ function gsRenderRecentSearches() {
 
 // ── FAVS SORT ────────────────────────────────────────────────
 var _favsSortMode = 'alpha';
-function favsSortBy(mode, btn) {
-  _favsSortMode = mode;
-  gsHaptic('tap');
-  document.querySelectorAll('[id^="favs-sort-"]').forEach(function(b) {
-    b.style.background = 'var(--surface2)'; b.style.color = 'var(--text)';
-  });
-  if (btn) { btn.style.background = 'var(--g-main)'; btn.style.color = '#fff'; }
-  if (typeof renderFavs === 'function') renderFavs();
-}
 
 // ── Sicheres JSON-Parsing (verhindert Crash bei korrupten Daten) ──
 function safeJsonParse(str, fallback) {
@@ -21633,39 +21215,6 @@ function gsGetXPProgress() {
 // v28.78 FIX-6b Phase B: gsLevelName (tote 5. Namens-Leiter, 0 Aufrufer) entfernt —
 // kanonische Level-Namen kommen aus GS_LEVELS / PROFILE_LEVEL_NAMES (Single-Source).
 
-function gsCheckAchievement() {
-  // Simple achievement-check placeholder — erweiterbar
-  try {
-    // v28.82 FIX: tote Keys gs_scan_count/gs_favorites (0 Writes) → kanonische Quellen
-    // gs_scan_history (SCAN_HISTORY_KEY) + ps_favs. Vorher zeigten Achievement-Hints immer 0.
-    var scans = (function(){ try { return JSON.parse(localStorage.getItem('gs_scan_history')||'[]').length; } catch(_){ return 0; } })();
-    var favs = (function(){ try { return JSON.parse(localStorage.getItem('ps_favs')||'[]').length; } catch(_){ return 0; } })();
-    // v28.39 FIX-6: war 'gs_xp_total' (wird NIE geschrieben) → xp_100/xp_500-Achievements triggerten nie.
-    // Korrekt: gsGetXP() liest den echten Key GS_XP_KEY ('gs_xp').
-    var xp = (typeof gsGetXP === 'function') ? gsGetXP() : parseInt(localStorage.getItem(GS_XP_KEY) || '0');
-    
-    var unlocked = [];
-    try { unlocked = JSON.parse(localStorage.getItem('gs_achievements') || '[]'); } catch(e) {}
-    
-    var ach = [
-      {id:'first_scan', cond: scans >= 1, label:'🎯 Erster Scan', msg:'Erste Art gescannt!'},
-      {id:'scan_10', cond: scans >= 10, label:'📸 10 Scans', msg:'10 Arten erkundet!'},
-      {id:'scan_50', cond: scans >= 50, label:'🔬 50 Scans', msg:'50 Arten gescannt!'},
-      {id:'first_fav', cond: favs >= 1, label:'⭐ Erster Favorit', msg:'Erste Lieblingspflanze!'},
-      {id:'fav_10', cond: favs >= 10, label:'💚 10 Favoriten', msg:'10 Favoriten gespeichert!'},
-      {id:'xp_100', cond: xp >= 100, label:'🏅 100 XP', msg:'100 Punkte erreicht!'},
-      {id:'xp_500', cond: xp >= 500, label:'🥇 500 XP', msg:'500 Punkte — Meister!'}
-    ];
-    
-    ach.forEach(function(a) {
-      if (a.cond && unlocked.indexOf(a.id) < 0) {
-        unlocked.push(a.id);
-        if (typeof showProfileToast === 'function') showProfileToast(a.label + ' freigeschaltet! ' + a.msg, 'success');
-      }
-    });
-    try { localStorage.setItem('gs_achievements', JSON.stringify(unlocked)); } catch(e) {}
-  } catch(e) {}
-}
 
 
 function gsAddXP(amount, reason) {
@@ -22700,15 +22249,6 @@ const WEEKLY_SEASONAL_FACTS = [
 ];
 
 function gsGetKW(){var n=new Date(),s=new Date(n.getFullYear(),0,1),d=n-s;return Math.max(1,Math.ceil(d/(7*24*60*60*1000)));}
-function gsGetWeekFacts(kw){
-  if(typeof WEEKLY_SEASONAL_FACTS==='undefined')return[];
-  var wf=WEEKLY_SEASONAL_FACTS.filter(function(f){return f.kw===kw;});
-  if(!wf.length){for(var d=1;d<=5;d++){wf=WEEKLY_SEASONAL_FACTS.filter(function(f){return f.kw===kw-d||f.kw===kw+d;});if(wf.length)break;}}
-  if(!wf.length)wf=WEEKLY_SEASONAL_FACTS.slice(0,10);
-  var arr=wf.slice(),s=kw*1337;
-  for(var i=arr.length-1;i>0;i--){s=(s*1103515245+12345)&0x7fffffff;var j=s%(i+1);var t=arr[i];arr[i]=arr[j];arr[j]=t;}
-  return arr.slice(0,10);
-}
 function gsInitWeekFacts() {
   try {
     var facts = (typeof WEEKLY_SEASONAL_FACTS !== 'undefined' && WEEKLY_SEASONAL_FACTS.length) ? WEEKLY_SEASONAL_FACTS : (window.WEEKLY_SEASONAL_FACTS || []);
@@ -23738,19 +23278,7 @@ function shuffleArray(arr) {
 let _shuffledFacts = [];
 let _factPointer = 0;
 
-function getNextFact() {
-  if (!_shuffledFacts.length || _factPointer >= _shuffledFacts.length) {
-    _shuffledFacts = (typeof WEEKLY_SEASONAL_FACTS !== 'undefined' && window._dynF) ? window._dynF : [];
-    _factPointer = 0;
-  }
-  return _shuffledFacts[_factPointer++];
-}
 
-function nextFact() {
-  factIndex = (_factPointer); // keep in sync
-  const el = document.getElementById('fact-text');
-  if (el) el.textContent = getNextFact();
-}
 
 // ── Pflanze des Tages ──────────────────────────────────────
 
@@ -23888,19 +23416,6 @@ function answerQuiz(btn) {
 }
 
 // Öffne Quiz als vollständiges Modal
-function openQuizModal() {
-  var modal = document.getElementById('quiz-modal-full');
-  if (!modal) return;
-  modal.classList.add('open');
-  // Quiz neu initialisieren für Modal
-  setTimeout(function(){
-    var qEl  = document.getElementById('quiz-modal-question');
-    var opEl = document.getElementById('quiz-modal-options');
-    var resEl = document.getElementById('quiz-modal-result');
-    if (!qEl || !opEl) { initQuizModal(); return; }
-  }, 100);
-  initQuizModal();
-}
 
 function closeQuizModal() {
   var modal = document.getElementById('quiz-modal-full');
@@ -24477,10 +23992,6 @@ function initHomeBoard() {
   }
 }
 
-function showCurrentFact() {
-  const el = document.getElementById('fact-text');
-  if (el && typeof gsInitWeekFacts === 'function') gsInitWeekFacts();
-}
 // nextFact is replaced by the shuffle version above
 
 // v25.10 Thema 3: Inline-DB extrahiert nach data/plants.v1.js (Sync mit v24.03 wiederhergestellt).
@@ -24617,38 +24128,8 @@ function gsAddSpecies(speciesArray) {
 }
 
 // Validierungsfunktion für neue Arten (für Entwickler)
-function gsValidateSpecies(entry) {
-  const required = ['id','name','lat','cat','emoji','season','habitat','desc','uses','medicinalUse','warning','lookalike'];
-  const missing = required.filter(f => !(f in entry) || entry[f] === undefined);
-  const idValid = entry.id && /^[A-Z]+\d+$/.test(entry.id);
-  const idExists = DB && DB.some(s => s.id === entry.id);
-  const hasApostrophe = Object.values(entry).some(v => typeof v === 'string' && v.includes("'") && !v.includes("\\'"));
-  return {
-    valid: missing.length === 0 && idValid && !idExists && !hasApostrophe,
-    missing,
-    idValid,
-    idDuplicate: idExists,
-    hasApostrophe,
-    suggestions: [
-      missing.length > 0 ? 'Fehlende Felder: ' + missing.join(', ') : null,
-      !idValid ? 'ID muss Format XNN haben (z.B. W001, K042)' : null,
-      idExists ? 'ID bereits vorhanden! Nächste freie ID verwenden.' : null,
-      hasApostrophe ? 'Apostrophe in Feldwerten escapen mit Backslash' : null,
-    ].filter(Boolean)
-  };
-}
 
 // Hilfsfunktion: Nächste freie ID für eine Kategorie
-function gsNextId(prefix) {
-  if (!DB) return prefix + '001';
-  const existing = DB
-    .map(s => s.id)
-    .filter(id => id && id.startsWith(prefix))
-    .map(id => parseInt(id.replace(prefix, '')) || 0);
-  const maxNum = existing.length > 0 ? Math.max(...existing) : 0;
-  const next = maxNum + 1;
-  return prefix + (next < 10 ? '00' : next < 100 ? '0' : '') + next;
-}
 // ══ Ende Validierung ═════════════════════════════════════════
 
 // ═══ STATE ═══════════════════════════════════════════
@@ -25634,18 +25115,6 @@ async function reportListing(id) {
 }
 
 // ── LÖSCHEN / BEARBEITEN ─────────────────────────────────────────
-async function deleteListing(id) {
-  if (!(await gsConfirmModal('Angebot endgültig löschen?'))) return;
-  var listings = gsMarketLoad();
-  var l = listings.find(function(x) { return x.id === id; });
-  if (!l) return;
-  l.status = 'deleted';
-  gsMarketSave();
-  gsHaptic('tap');
-  if (typeof showProfileToast === 'function') showProfileToast('Gelöscht', 'success');
-  closeModal('detail-modal');
-  renderMarket();
-}
 
 function editListing(id) {
   // Einfach: bestehendes Listing als neues Modal laden
@@ -28578,27 +28047,6 @@ window.gsRenderDayPlan = function(){
     '</div>';
 };
 
-function gsCountUnreadNotifs(){
-  // v30.81: Badge = echte Neuigkeiten seit der letzten Sichtung (badgeAckTs)
-  // + heute fällige Aufgaben (zählen bis zum ersten Menü-Blick des Tages).
-  // Eigene Aktionen (Scans, Level-Ups) zählen weiterhin nicht (v30.80).
-  try {
-    var state = gsGetNotifState();
-    var ack = state.badgeAckTs;
-    if (!ack) {
-      // Migration von den alten seen-Timestamps — kein Badge-Berg beim Update
-      ack = Math.max(state.seenScansTs||0, state.seenFbTs||0, state.seenServerTs||0, state.seenApiErrTs||0);
-    }
-    var n = gsCollectNotifs().filter(function(x){
-      return x.type !== 'scan' && x.type !== 'level' && (x.ts||0) > ack;
-    }).length;
-    var todayStart = new Date(); todayStart.setHours(0,0,0,0);
-    if (ack < todayStart.getTime()) {
-      n += gsGetDueTasks().filter(function(t){ return t.days <= 0; }).length;
-    }
-    return n;
-  } catch(_){ return 0; }
-}
 
 // v30.81: Badge quittieren (User hat die Benachrichtigungen GESEHEN) —
 // archiviert NICHTS; die Einträge bleiben unter "Neu" bis zum Abhaken.
@@ -28725,49 +28173,6 @@ function gsRenderNotifBadge(){
 // v30.81: Semantik geschärft — das hier ist "Alle abhaken/archivieren"
 // (Button "Alle ✓"). Die Badge-Quittierung beim Menü-Schliessen macht
 // gsNotifAckBadge und lässt die Einträge stehen.
-function gsMarkAllNotifsSeen(){
-  var state = gsGetNotifState();
-  var now = Date.now();
-  state.badgeAckTs = now;
-  state.seenScansTs = now;
-  state.seenFbTs = now;
-  state.seenServerTs = now;  // v23.94: auch Server-Notifs marken
-  try {
-    var lvl = (typeof gsGetLevel === 'function') ? gsGetLevel() : null;
-    if (lvl) state.seenLevel = lvl.lvl;
-  } catch(_){}
-  state.seenApiErrTs = now;
-  gsSetNotifState(state);
-  // v23.94: Server-seitig als gelesen markieren (best-effort)
-  // v30.80: Batch-PATCH statt N Einzel-Requests (vorher 1 Request pro Notif).
-  try {
-    var srv = window._gsServerNotifs;
-    if (Array.isArray(srv) && srv.length) {
-      var unread = srv.filter(function(n){ return n && !n.is_read && n.id; });
-      var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
-      if (unread.length && uid && typeof sbFetch === 'function' &&
-          typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-        sbFetch('/rest/v1/notifications?user_id=eq.' + uid + '&is_read=eq.false', {
-          method:'PATCH',
-          headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
-          body: JSON.stringify({is_read: true, read_at: new Date().toISOString()})
-        }).catch(function(){});
-        unread.forEach(function(n){ n.is_read = true; });
-      } else if (unread.length && typeof gsNotifMarkRead === 'function') {
-        unread.forEach(function(n){ gsNotifMarkRead(n.id); n.is_read = true; });
-      }
-    }
-  } catch(_){}
-  gsRenderNotifBadge();
-  // v31.01: Das Menue-Panel gibt es nicht mehr — nur noch das Benachrichtigungs-Center
-  // nachziehen, falls es gerade offen ist.
-  setTimeout(function(){
-    try {
-      var m = document.getElementById('modal-notif-center');
-      if (m && m.classList.contains('open') && typeof gsNcRender === 'function') gsNcRender();
-    } catch(_){}
-  }, 350);
-}
 
 // v31.01: gsRenderNotifPanelInMenu (68 Zeilen) ersatzlos entfernt. Das
 // Menue-Panel war der zweite Ort fuer Benachrichtigungen und Aufgaben —
@@ -29177,17 +28582,6 @@ async function gsFriendsRemove(friendshipId) {
 }
 
 // Block/Ban
-async function gsFriendsBlock(friendshipId) {
-  if (!(await gsConfirmModal('Diesen User blockieren?'))) return false;
-  try {
-    var r = await sbFetch('/rest/v1/friendships?id=eq.' + friendshipId, {
-      method: 'PATCH', headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
-      body: JSON.stringify({status: 'blocked'})
-    });
-    if (!r.error) { showProfileToast && showProfileToast('🚫 Blockiert'); return true; }
-  } catch(e) { showProfileToast && showProfileToast('❌ ' + e.message); }
-  return false;
-}
 
 // UI: Friends-Modal öffnen (Tabs: Freunde / Anfragen / Suchen)
 async function gsFriendsOpenModal() {
@@ -29468,44 +28862,6 @@ async function gsRequestCamera(constraints){
 }
 
 // Smart-Wrapper: Standort. Cache 30 Min.
-async function gsRequestLocation(opts){
-  opts = opts || {timeout: 8000, maximumAge: 1800000, enableHighAccuracy: false};
-  var cached = gsGetCachedPermission('geolocation');
-  if (cached === 'denied') {
-    throw new Error('Standort wurde abgelehnt.');
-  }
-  // Cache check (max 30 min alt)
-  try {
-    var c = JSON.parse(localStorage.getItem('userLocation') || 'null');
-    if (c && c.ts && (Date.now() - c.ts) < opts.maximumAge) {
-      return {coords: {latitude: c.lat, longitude: c.lng, accuracy: c.acc}, _cached: true};
-    }
-  } catch(_){}
-  return new Promise(function(resolve, reject){
-    if (!navigator.geolocation) { reject(new Error('Geolocation nicht verfügbar')); return; }
-    navigator.geolocation.getCurrentPosition(
-      function(pos){
-        try {
-          localStorage.setItem('userLocation', JSON.stringify({
-            lat: pos.coords.latitude, lng: pos.coords.longitude,
-            acc: pos.coords.accuracy, ts: Date.now()
-          }));
-          localStorage.setItem('gs_perm_location', 'granted');
-          window.gsPermState.location = 'granted';
-        } catch(_){}
-        resolve(pos);
-      },
-      function(err){
-        if (err.code === 1) {
-          try { localStorage.setItem('gs_perm_location', 'denied'); } catch(_){}
-          window.gsPermState.location = 'denied';
-        }
-        reject(err);
-      },
-      opts
-    );
-  });
-}
 
 // Bei Boot: Permissions einmal proaktiv abfragen damit gsGetCached* sofort den Stand kennt
 (function(){
@@ -30809,12 +30165,6 @@ function stopCamera(){
   } catch(e){}
 }
 
-function switchCamera(){
-  // Kein Kamera-Wechsel – nur Hinterkamera aktiv
-  return;
-  cameraFacing = cameraFacing==='environment'?'user':'environment';
-  stopCamera(); tryStartCamera();
-}
 
 function uploadImage(){
   document.getElementById('file-input').click();
@@ -30852,20 +30202,6 @@ async function handleUpload(e){
   reader.readAsDataURL(file);
 }
 
-async function captureAndAnalyze(){
-  const video = document.getElementById('video');
-  if(!video.srcObject){ uploadImage(); return; }
-  // v30.47 Scanner-Speed: maxDim 1280 + q0.8 (wie _gsGrabFrame) — kein Qualitätsverlust, schnellerer Upload.
-  var _vw = video.videoWidth||1280, _vh = video.videoHeight||720;
-  var _ratio = Math.min(1280/_vw, 1280/_vh, 1);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(_vw*_ratio));
-  canvas.height = Math.max(1, Math.round(_vh*_ratio));
-  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
-  // Kein organContext mehr — KI erkennt selbst
-  if(typeof gsStartScanStatus==='function') gsStartScanStatus();
-  await analyzeImage(canvas.toDataURL('image/jpeg',.8).split(',')[1], 'image/jpeg', '');
-}
 
 // Shutter: Foto schiessen + sofort scannen mit visueller Animation
 // v23.60: Sicherstellen, dass das Video-Element echte Frames liefert BEVOR wir capturen.
@@ -31179,18 +30515,6 @@ function gsScannerQualityCheck(video){
 
 // Scanner-Modus (Pflanze/Pilz/Baum/Detail) — steuert Prompt-Bias
 window._gsScanMode = window._gsScanMode || 'auto';
-function gsSetScanMode(mode){
-  window._gsScanMode = mode;
-  try { localStorage.setItem('gs_scan_mode', mode); } catch(e){}
-  var badges = document.querySelectorAll('[data-scan-mode]');
-  badges.forEach(function(b){
-    b.classList.toggle('active', b.getAttribute('data-scan-mode') === mode);
-  });
-  if (typeof showProfileToast === 'function') {
-    var labels = { auto:'🤖 Auto', plant:'🌿 Pflanze', fungus:'🍄 Pilz', tree:'🌳 Baum', detail:'🔍 Detail' };
-    showProfileToast('Modus: ' + (labels[mode] || mode));
-  }
-}
 (function(){ try { var m = localStorage.getItem('gs_scan_mode'); if (m) window._gsScanMode = m; } catch(e){} })();
 
 // Tap-to-focus (wo unterstützt)
@@ -31373,10 +30697,6 @@ function gsRelabelMultiShot(idx) {
   document.body.appendChild(m);
 }
 
-function gsClearMultiShots() {
-  window._gsMultiShots = [];
-  gsRenderMultiShotBar();
-}
 
 function gsRenderMultiShotBar() {
   var bar = document.getElementById('gs-multishot-bar');
@@ -32794,35 +32114,6 @@ function gsSaveConfirmedScan(r) {
 }
 
 // Bestätigte Scans anzeigen (Infokarten aus Scanner)
-function gsShowConfirmedScans() {
-  var KEY = 'gs_confirmed_species';
-  // v26.66: Defensive Guards (siehe Hinweis bei addToConfirmed).
-  var confirmed = [];
-  try {
-    var _raw = JSON.parse(localStorage.getItem(KEY) || '[]');
-    confirmed = Array.isArray(_raw) ? _raw : [];
-  } catch(_) { confirmed = []; }
-  if (!confirmed.length) {
-    showProfileToast('Noch keine 95%+ Scans gespeichert.');
-    return;
-  }
-  var body = '<div style="padding:16px;">' +
-    '<div style="font-size:var(--fs-md);color:var(--muted);margin-bottom:12px;">Scans mit ≥95% Sicherheit:</div>' +
-    confirmed.map(function(s) {
-      return '<div onclick="openDetail(\''+s.id+'\')" style="background:var(--surface2);border-radius:var(--r-md);padding:10px 12px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px;">' +
-        '<span style="font-size:var(--fs-2xl);">🔬</span>' +
-        '<div style="flex:1;">' +
-          '<div style="font-weight:700;color:var(--text);">' + escHtml(s.name) + '</div>' +
-          '<div style="font-size:var(--fs-sm);color:var(--muted);">' + escHtml(s.lat) + ' · ' + s.confidence + '% · ' + new Date(s.scannedAt).toLocaleDateString('de-CH') + '</div>' +
-        '</div>' +
-        (s.inMainDB ? '<span style="color:var(--g-main);font-size:var(--fs-sm);font-weight:700;">In DB</span>' : '<span style="color:var(--c-warn-d);font-size:var(--fs-sm);">Neu</span>') +
-      '</div>';
-    }).join('') +
-    '</div>';
-  document.getElementById('recipe-detail-body').innerHTML = body;
-  gsSetModalTitel('modal-recipe-detail', '🔬 Bestätigte Scans');
-  openModal('modal-recipe-detail');
-}
 
 // Alternative auswählen → Scan-Result mit dem alternativen Kandidaten neu bauen
 function gsPickAlternative(altKey) {
@@ -34758,79 +34049,8 @@ function setFilter(f,el){currentFilter=f;document.querySelectorAll('.chip').forE
 
 // ══ SMART OFFLINE-SUCHE ══════════════════════════════════════
 // Wenn kein API-Key: intelligente fuzzy Suche + Symptom-basierte Erkennung
-function smartOfflineSearch(query) {
-  if (!DB || !query) return [];
-  var q = query.toLowerCase().trim();
-  var results = [];
-  
-  // Scoring-System
-  DB.filter(function(sp){ return sp && sp.id; }).forEach(function(sp) {
-    var score = 0;
-    var nm = (sp.name||'').toLowerCase();
-    var lt = (sp.lat||'').toLowerCase();
-    var desc = (sp.desc||'').toLowerCase();
-    var hab = (sp.habitat||'').toLowerCase();
-    var uses = (sp.uses||'').toLowerCase();
-    var col = (sp.color||'').toLowerCase();
-    
-    // Exakter Name-Match: höchste Priorität
-    if (nm === q) score += 100;
-    else if (nm.startsWith(q)) score += 60;
-    else if (nm.includes(q)) score += 40;
-    
-    // Lat. Name
-    if (lt.includes(q)) score += 30;
-    
-    // Farb-Erkennung (oft gesucht)
-    if (col.includes(q)) score += 25;
-    
-    // Habitat
-    if (hab.includes(q)) score += 20;
-    
-    // Verwendung
-    if (uses.includes(q)) score += 15;
-    
-    // Beschreibung
-    if (desc.includes(q)) score += 10;
-    
-    // Symptom-Suche (medizinisch)
-    var med = (sp.medicinalUse||'').toLowerCase();
-    if (med.includes(q)) score += 20;
-    
-    // Teilwort-Matching (Wortteile)
-    var words = q.split(/\s+/);
-    words.forEach(function(w){
-      if (w.length >= 3) {
-        if (nm.includes(w)) score += 15;
-        if (lt.includes(w)) score += 10;
-        if (desc.includes(w)) score += 5;
-      }
-    });
-    
-    if (score > 0) results.push({sp: sp, score: score});
-  });
-  
-  return results.sort(function(a,b){return b.score-a.score;}).slice(0,10).map(function(r){return r.sp;});
-}
 
 // Quick-Answer aus DB-Daten
-function getSmartOfflineAnswer(query) {
-  var q = query.toLowerCase();
-  var results = smartOfflineSearch(q);
-  if (!results.length) return null;
-  var sp = results[0];
-  var t = toxInfo(sp.tox);
-  var ans = '🌿 **' + sp.name + '**';
-  if (sp.lat) ans += ' (*' + sp.lat + '*)';
-  ans += '\n\n';
-  if (sp.desc) ans += sp.desc + '\n\n';
-  if (sp.tox >= 3) ans += '⚠️ **Achtung: ' + t.label + '** ' + (sp.warning||'') + '\n\n';
-  if (sp.edible && !sp.toxic) ans += '✅ Essbar. ';
-  if (sp.uses) ans += sp.uses + '\n\n';
-  if (sp.habitat) ans += '📍 ' + sp.habitat + '\n';
-  if (sp.season) ans += '📅 ' + sp.season;
-  return {text: ans, species: sp, alternatives: results.slice(1,4)};
-}
 
 // ══ DETAIL-CHAT: KI über bestimmte Art befragen ═════════════
 function openDetailChat(spId, spName, spLatin, spTox) {
@@ -35249,55 +34469,6 @@ async function gsProposeNewSpeciesFromScan(result, imageB64thumb) {
 }
 
 // KI-Anreicherung: Claude generiert einen vollständigen Species-Record
-async function gsEnrichSpeciesViaAI(p) {
-  var key = localStorage.getItem('gs_anthropic_key') || localStorage.getItem('anthropic_key');
-  if (!key) return null;
-  var systemPrompt =
-    'Du bist Botanik/Mykologie-Datenbank-Assistent bei GreenScan (Schweizer Flora). ' +
-    'Du erhältst eine User-Scan-Erkennung einer potenziell neuen Art. ' +
-    'Erstelle einen JSON-Eintrag mit folgenden Feldern (alle Werte in deutsch, außer "lat"): ' +
-    '{"name":"","lat":"","cat":"wildpflanze|kraut|baum|pilz|hauspflanze|moos|flechte|alge",' +
-    '"emoji":"","habitat":"","season":"","height":"","edibility":"essbar|bedingt essbar|ungenießbar|giftig|tödlich",' +
-    '"tox":0-4,"warning":"","uses":"","lookalikes":"","medicinal":"","lightMin":N,"lightOptimal":N,"lightMax":N}. ' +
-    'Wenn unsicher: Felder leer lassen statt raten. Antworte NUR mit dem JSON, ohne Markdown-Code-Block.';
-  var userMsg = 'Scan-Erkennung:\n' +
-    'Name: ' + p.name + '\n' +
-    'Latein: ' + (p.latin || '?') + '\n' +
-    'Konfidenz: ' + p.conf + '%\n' +
-    'Kategorie (Hinweis): ' + (p.scan_context.category || '?') + '\n' +
-    'Habitat (Hinweis): ' + (p.scan_context.habitat || '?') + '\n' +
-    'Saison: ' + (p.scan_context.season || '?') + '\n' +
-    'Merkmale: ' + (Array.isArray(p.scan_context.diagnostic_features) ? p.scan_context.diagnostic_features.join(', ') : '?') + '\n\n' +
-    'Bitte einen GreenScan-DB-Eintrag für diese Art vorbereiten.';
-  var resp;
-  try {
-    var fetchFn = (typeof _gsApiFetch === 'function') ? _gsApiFetch : fetch;
-    resp = await fetchFn('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers: {
-        'Content-Type':'application/json',
-        'x-api-key': key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body: JSON.stringify({
-        model: (window._gsClaudeModel || 'claude-sonnet-4-5'),
-        max_tokens: 700,
-        system: systemPrompt,
-        messages: [{role:'user', content: userMsg}]
-      })
-    }, { timeout: 30000, retries: 1 });
-  } catch(e) { return null; }
-  if (!resp.ok) return null;
-  try {
-    var data = await resp.json();
-    var txt = (data.content && data.content[0] && data.content[0].text) || '';
-    // JSON-Cleanup (nur das {…}-Teil extrahieren)
-    var m = txt.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    return JSON.parse(m[0]);
-  } catch(e) { return null; }
-}
 
 function getScanHistory() {
   try { return JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]'); } catch(e) { return []; }
@@ -37505,20 +36676,12 @@ async function aiAnalyzePlant(plantId){
 
 // ─── Browser-Benachrichtigungen ───────────────────────────
 // v23.94: Wrapper auf zentralen gsNotif-Helper (ehemals dupliziert)
-function requestNotifPerm(){
-  if (typeof gsNotif !== 'undefined') return gsNotif.request();
-}
 
 function updatePlantStat(){
   const el = document.getElementById('stat-favs');
   if(el) el.textContent = myPlants.length;
 }
 
-function doneTaskFromManager(btn, plantId, taskKey){
-  doneTask(plantId, taskKey);
-  // refresh task manager
-  openTaskManager(plantId);
-}
 function scheduleAllNotifications(){
   // v23.94: ROBUST. setTimeout-Scheduling > 24h ist UNZUVERLÄSSIG (Browser killt Tab).
   // Nur Notifs für die nächsten 24h schedulen — der Rest läuft via gsAgentCheckQueue
@@ -38824,12 +37987,6 @@ function gsChatSaveHistory(){
   try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
 }
 
-function gsChatClearHistory(){
-  aiHistory = [];
-  try { localStorage.removeItem('gs_chat_history'); } catch(e){}
-  var box = document.getElementById('ai-messages');
-  if (box) box.innerHTML = '<div class="ai-msg bot">👋 Verlauf gelöscht. Frag mich alles über Schweizer Pflanzen, Pilze &amp; Kräuter!</div>';
-}
 
 // Baut den Live-Kontext, der vor jeder KI-Anfrage in den Prompt injiziert wird.
 function gsChatBuildContext(){
@@ -40556,9 +39713,6 @@ async function deletePost(postId) {
   }
 }
 
-function saveSocialPosts() {
-  // Cloud-basiert — kein localStorage nötig
-}
 
 function loadSocialPosts(reset) {
   if (!window.sbFetch) { renderSocialFeed(); return; }
@@ -40663,26 +39817,6 @@ function loadSocialPosts(reset) {
 // User-Expert-Status (1h-Cache). Laedt profiles.is_expert beim ersten Call.
 window._gsExpertStatusCache = window._gsExpertStatusCache || { ts: 0, value: null };
 
-async function gsLoadUserExpertStatus() {
-  var ttl = 60 * 60 * 1000;
-  if (window._gsExpertStatusCache.value !== null && (Date.now() - window._gsExpertStatusCache.ts) < ttl) {
-    return window._gsExpertStatusCache.value;
-  }
-  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') {
-    return false;
-  }
-  var uid = gsStore.get('gs_sb_uid', null);
-  if (!uid) return false;
-  try {
-    var res = await sbFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(uid) + '&select=is_expert', { method: 'GET' });
-    var rows = (res && res.data) || [];
-    var v = !!(rows[0] && rows[0].is_expert);
-    window._gsExpertStatusCache = { ts: Date.now(), value: v };
-    return v;
-  } catch(e) {
-    return false;
-  }
-}
 
 // v28.72 B1 (Block-G): tote gsIsExpert-Cache-Version entfernt (war via Hoisting von der
 // rollenbasierten gsIsExpert @~68614 [gsRoleAtLeast('expert')] geshadowt = nie aktiv).
@@ -44767,60 +43901,6 @@ let igPostType = 'showcase';
 let igPhotoData = null;
 let igTaggedPlant = null;
 
-function openIgPost() {
-  // Reset form
-  igPostType = 'showcase';
-  igPhotoData = null;
-  igTaggedPlant = null;
-
-  const authorEl = document.getElementById('ig-author');
-  if (authorEl) authorEl.value = socialUserName || '';
-
-  const textEl = document.getElementById('ig-text');
-  if (textEl) textEl.value = '';
-  updateIgCharCount(textEl);
-
-  // Reset photo zone
-  const photoZone = document.getElementById('ig-photo-zone');
-  if (photoZone) {
-    photoZone.innerHTML = '<span style="font-size:36px;">📷</span>' +
-      '<span style="font-size:var(--fs-md);color:var(--muted);font-weight:600;">Foto hinzufügen (optional)</span>' +
-      '<span style="font-size:var(--fs-sm);color:var(--muted);">Tippe zum Aufnehmen oder aus Galerie wählen</span>';
-    photoZone.onclick = () => document.getElementById('ig-file-input')?.click();
-  }
-  const photoBtns = document.getElementById('ig-photo-btns');
-  if (photoBtns) photoBtns.style.display = 'none';
-
-  // Reset plant tag
-  const plantTag = document.getElementById('ig-plant-tag-display');
-  if (plantTag) plantTag.textContent = 'Pflanze wählen (optional)';
-
-  // Location
-  const locCheck = document.getElementById('ig-add-location');
-  if (locCheck) locCheck.checked = false;
-  const locText = document.getElementById('ig-loc-text');
-  if (locText) locText.style.color = 'var(--muted)';
-  if (locText) locText.textContent = 'Standort hinzufügen (optional)';
-
-  // Reset type pills
-  document.querySelectorAll('.ig-type-pill').forEach(p => {
-    p.classList.toggle('active', p.dataset.type === 'showcase');
-  });
-
-  // Avatar random
-  const avatars = ['🌱','🌿','🍀','🌺','🌸','🌼','🌻','🌾','🍃','🌵','🎋','🪴'];
-  const avEl = document.getElementById('ig-avatar-icon');
-  if (avEl) avEl.textContent = avatars[Math.floor(Math.random() * avatars.length)];
-
-  // Show screen
-  const screen = document.getElementById('ig-post-screen');
-  if (screen) {
-    screen.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    // Focus text
-    setTimeout(() => { document.getElementById('ig-text')?.focus(); }, 300);
-  }
-}
 
 function closeIgPost() {
   const screen = document.getElementById('ig-post-screen');
@@ -45229,9 +44309,6 @@ function initSocialFeed() {
 }
 
 // COMMUNITY – POST PICKER
-function openPostPicker() {
-  openModal('modal-post-picker');
-}
 
 function openPostWithType(type) {
   closeModal('modal-post-picker');
@@ -51354,18 +50431,6 @@ function renderRecipes() {
 }
 
 // Legacy-API beibehalten — falls noch irgendwo gerufen, einfach alles laden
-function gsRecipesShowAll() {
-  var state = _gsRecipesState;
-  if (!state.filtered.length) { renderRecipes(); return; }
-  var list = document.getElementById('recipes-list');
-  if (!list) return;
-  var sentinel = document.getElementById('recipes-sentinel'); if (sentinel) sentinel.remove();
-  var rest = state.filtered.slice(state.shown).map(function(r){ return buildRecipeCard(r, false); }).join('');
-  list.insertAdjacentHTML('beforeend', rest);
-  state.shown = state.filtered.length;
-  if (state.observer) { try { state.observer.disconnect(); } catch(_){} state.observer = null; }
-  if (typeof gsHaptic === 'function') gsHaptic('tap');
-}
 
 function renderRemedies() {
   const list = document.getElementById('remedies-list');
@@ -54053,50 +53118,6 @@ let userPrefs = {};
 
 // v23.91: Globale Format-Helper für Masseinheiten — werden überall in der App genutzt
 // wo Werte angezeigt werden. Liest userPrefs.units bei jedem Aufruf — reaktiv.
-window.gsFmtTemp = function(celsius, opts) {
-  opts = opts || {};
-  if (celsius == null || isNaN(celsius)) return '–°';
-  var unit = (typeof userPrefs !== 'undefined' && userPrefs.units) || 'metric';
-  var noUnit = opts.noUnit;
-  if (unit === 'imperial') {
-    var f = Math.round(celsius * 9 / 5 + 32);
-    return noUnit ? String(f) : (f + '°F');
-  }
-  return noUnit ? String(Math.round(celsius)) : (Math.round(celsius) + '°C');
-};
-window.gsFmtDistance = function(meters, opts) {
-  opts = opts || {};
-  if (meters == null || isNaN(meters)) return '–';
-  var unit = (typeof userPrefs !== 'undefined' && userPrefs.units) || 'metric';
-  if (unit === 'imperial') {
-    if (meters < 1609) return Math.round(meters * 3.28084) + ' ft';
-    return (meters / 1609.344).toFixed(1) + ' mi';
-  }
-  if (meters < 1000) return Math.round(meters) + ' m';
-  return (meters / 1000).toFixed(1) + ' km';
-};
-window.gsFmtWeight = function(grams) {
-  if (grams == null || isNaN(grams)) return '–';
-  var unit = (typeof userPrefs !== 'undefined' && userPrefs.units) || 'metric';
-  if (unit === 'imperial') {
-    var oz = grams * 0.035274;
-    if (oz < 16) return oz.toFixed(1) + ' oz';
-    return (grams * 0.00220462).toFixed(2) + ' lb';
-  }
-  if (grams < 1000) return Math.round(grams) + ' g';
-  return (grams / 1000).toFixed(2) + ' kg';
-};
-window.gsFmtSize = function(cm) {
-  if (cm == null || isNaN(cm)) return '–';
-  var unit = (typeof userPrefs !== 'undefined' && userPrefs.units) || 'metric';
-  if (unit === 'imperial') {
-    var inches = cm * 0.393701;
-    if (inches < 12) return inches.toFixed(1) + '"';
-    return Math.floor(inches/12) + "' " + Math.round(inches%12) + '"';
-  }
-  if (cm < 100) return Math.round(cm) + ' cm';
-  return (cm / 100).toFixed(2) + ' m';
-};
 
 function loadPrefs() {
   try {
@@ -54591,17 +53612,6 @@ function initSettingsScreen() {
 }
 
 // v23.94: Wrapper auf zentralen gsNotif-Helper (alert() durch Toast ersetzt)
-async function requestNotificationPermission() {
-  if (typeof gsNotif === 'undefined') return;
-  var result = await gsNotif.request();
-  // UI-Status in Settings updaten (wenn vorhanden)
-  var notifEl = document.getElementById('notif-perm-status');
-  if (notifEl) {
-    if (result === 'granted')      { notifEl.textContent = '✅ Erlaubt';   notifEl.style.color = '#2e7d32'; }
-    else if (result === 'denied')  { notifEl.textContent = '❌ Verweigert'; notifEl.style.color = '#c62828'; }
-    else                            { notifEl.textContent = 'Nicht aktiv'; notifEl.style.color = '#e65100'; }
-  }
-}
 
 // ── Data Export / Import ──────────────────────────────────
 // v32.51: Das Backup als Objekt — getrennt vom Herunterladen, damit ein
@@ -57984,17 +56994,6 @@ function getOfflineAnswer(question) {
 // Use offline when no API key
 // Offline-fallback for callAI (wraps original)
 const _callAI_original = (typeof callAI === 'function') ? callAI : null;
-async function callAIWithOffline(messages, systemPrompt, maxTokens) {
-  const key = localStorage.getItem('ps_api_key') || '';
-  if (!key || key.length < 10) {
-    // Offline mode
-    const lastMsg = messages[messages.length-1];
-    const q = typeof lastMsg?.content === 'string' ? lastMsg.content : 
-               (Array.isArray(lastMsg?.content) ? lastMsg.content.find(c=>c.type==='text')?.text : '') || '';
-    return getOfflineAnswer(q);
-  }
-  return _callAI_original ? _callAI_original(messages, systemPrompt, maxTokens) : getOfflineAnswer(q);
-}
 
 // ERWEITERTE OFFLINE-KI mit Gartenwissen
 function getSmartAnswer(question) {
@@ -58074,20 +57073,6 @@ function getSmartAnswer(question) {
 }
 
 // Override callAI to use smart offline when no internet/key
-async function callAIWithOfflineFallback(messages, systemPrompt, maxTokens) {
-  // Try online AI first
-  try {
-    const result = await callAI(messages, systemPrompt, maxTokens);
-    if (result) return result;
-  } catch(e) {
-    // Fall through to offline
-  }
-  // Offline fallback
-  const lastMsg = messages[messages.length-1];
-  const q = typeof lastMsg?.content === 'string' ? lastMsg.content :
-    (Array.isArray(lastMsg?.content) ? (lastMsg.content.find(c=>c.type==='text')?.text||'') : '');
-  return getSmartAnswer(q);
-}
 
 // ═══ KI SELBST-VERBESSERUNG ══════════════════════════════
 // v23.60: Sofort-Popup + robuste Null-Checks (fällt nie stumm aus)
@@ -59019,14 +58004,6 @@ const GARDEN_KNOWLEDGE = {
 };
 
 // Schädlings-Schnellsuche
-function searchSchaedling(name) {
-  const items = GARDEN_KNOWLEDGE.schaedlinge.items;
-  const lower = name.toLowerCase();
-  return items.filter(i => 
-    i.name.toLowerCase().includes(lower) || 
-    (i.betroffene || []).some(b => b.toLowerCase().includes(lower))
-  );
-}
 
 // BODENTYPEN & BODENANALYSE
 
@@ -60129,20 +59106,6 @@ const _origRenderGarden = renderGarden;
 // ── GARDEN SCANNER ─────────────────────────────────────────
 let gardenScanStream = null;
 
-function openGardenScanner() {
-  document.getElementById('gs-scan-video').style.display = 'none';
-  document.getElementById('gs-scan-canvas').style.display = 'none';
-  document.getElementById('gs-scan-placeholder').style.display = 'flex';
-  document.getElementById('gs-scan-guide').style.display = 'none';
-  document.getElementById('gs-live-measure').style.display = 'none';
-  document.getElementById('gs-capture-btn').disabled = true;
-  document.getElementById('gs-capture-btn').style.opacity = '.5';
-  document.getElementById('gs-result').style.display = 'none';
-  document.getElementById('gs-area-display').textContent = '';
-  document.getElementById('gs-width').value = '';
-  document.getElementById('gs-length').value = '';
-  openModal('modal-garden-scanner');
-}
 
 async function openGardenScanCamera() {
   if (!cameraPermGranted) {
@@ -63456,255 +62419,10 @@ function gsPPrenderPlan(plan, data) {
   return html;
 }
 
-function gsPPbuildSvg(plan, data) {
-  var bedW = Math.max(1, plan.bed.width_m || data.width || 5);
-  var bedL = Math.max(1, plan.bed.length_m || data.length || 5);
-  // SVG size
-  var svgW = 300;
-  var svgH = Math.min(260, Math.round(svgW * bedL / bedW));
-  var scale = svgW / bedW;
-  var esc = function(s) { return String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
-  var svg = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:var(--bg-lime-soft);border:1.5px solid #2e7d32;border-radius:var(--r-md);">';
-  // Grid (je 1m)
-  svg += '<defs><pattern id="ppGrid" width="' + scale + '" height="' + scale + '" patternUnits="userSpaceOnUse"><path d="M ' + scale + ' 0 L 0 0 0 ' + scale + '" fill="none" stroke="rgba(46,125,50,.22)" stroke-width="1"/></pattern></defs>';
-  svg += '<rect width="' + svgW + '" height="' + svgH + '" fill="url(#ppGrid)"/>';
-
-  // Ränder-Dimensionen
-  svg += '<text x="' + (svgW / 2) + '" y="12" fill="#1b5e20" font-size="10" font-weight="800" text-anchor="middle">' + bedW.toFixed(1) + ' m</text>';
-  svg += '<text x="8" y="' + (svgH / 2) + '" fill="#1b5e20" font-size="10" font-weight="800" text-anchor="middle" transform="rotate(-90 8 ' + (svgH / 2) + ')">' + bedL.toFixed(1) + ' m</text>';
-
-  (plan.plants || []).forEach(function(p, idx) {
-    var x = (p.x_m || 0) * scale;
-    var y = (p.y_m || 0) * (svgH / bedL);
-    var w = Math.max(24, (p.w_m || 1) * scale);
-    var h = Math.max(24, (p.h_m || 1) * (svgH / bedL));
-    var col = (p.color || '66bb6a').replace(/[^0-9a-fA-F]/g,'').slice(0,6) || '66bb6a';
-    // Clamp
-    if (x + w > svgW) w = svgW - x - 2;
-    if (y + h > svgH) h = svgH - y - 2;
-    if (w < 20 || h < 20) { w = Math.max(w, 20); h = Math.max(h, 20); }
-
-    svg += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="#' + col + '" fill-opacity=".35" stroke="#' + col + '" stroke-width="2" rx="4"/>';
-    svg += '<text x="' + (x + w / 2) + '" y="' + (y + h / 2 - 2) + '" font-size="' + Math.min(18, Math.max(10, Math.round(w / 5))) + '" text-anchor="middle" dominant-baseline="middle">' + esc(p.icon || '🌱') + '</text>';
-    svg += '<text x="' + (x + w / 2) + '" y="' + (y + h / 2 + 14) + '" font-size="8" font-weight="700" fill="#1b5e20" text-anchor="middle">' + esc((p.name || '').slice(0, 14)) + '</text>';
-  });
-  svg += '</svg>';
-  return svg;
-}
 
 // v23.77: Detail-Anleitung — alle Daten in lesbarer Form
-function gsPPshowDetailedGuide(){
-  if (!_gsPP.plan) { showProfileToast && showProfileToast('Kein Plan vorhanden'); return; }
-  var plan = _gsPP.plan;
-  var esc = function(s){return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
-  var sections = '';
-
-  if (plan.climateZone) {
-    sections += '<div style="background:var(--bg-yellow-soft);padding:10px 12px;border-radius:var(--r-sm);margin-bottom:8px;font-size:var(--fs-sm);"><b>🌍 Klimazone:</b> ' + esc(plan.climateZone) + '</div>';
-  }
-
-  // Care-Schedule
-  if (plan.careSchedule && plan.careSchedule.length) {
-    sections += '<h3 style="font-size:var(--fs-md);color:var(--g-dark);margin:14px 0 6px;">🔄 Pflege-Kalender</h3>';
-    sections += '<div style="display:grid;grid-template-columns:90px 1fr 70px;gap:6px;font-size:var(--fs-sm);">';
-    sections += '<b>Frequenz</b><b>Aufgabe</b><b>Monate</b>';
-    plan.careSchedule.forEach(function(c){
-      sections += '<div style="padding:6px 8px;background:var(--bg);border-radius:var(--r-sm);">' + esc(c.freq||'-') + '</div>';
-      sections += '<div style="padding:6px 8px;background:var(--bg);border-radius:var(--r-sm);">' + esc(c.task||'-') + '</div>';
-      sections += '<div style="padding:6px 8px;background:var(--bg);border-radius:var(--r-sm);font-weight:700;">' + esc(c.months||'-') + '</div>';
-    });
-    sections += '</div>';
-  }
-
-  // Timeline
-  if (plan.timeline && plan.timeline.length) {
-    sections += '<h3 style="font-size:var(--fs-md);color:var(--g-dark);margin:14px 0 6px;">📅 Wochen-Timeline</h3>';
-    sections += '<div style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-sm);">';
-    plan.timeline.forEach(function(t){
-      var moonColor = t.moon_phase === 'günstig' ? '#2e7d32' : t.moon_phase === 'meiden' ? '#c62828' : '#888';
-      sections += '<div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:var(--fs-sm);">' +
-        '<div style="background:#1b5e20;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:var(--fs-sm);">W' + (t.week||'?') + '</div>' +
-        '<div style="flex:1;"><b>' + esc(t.action||'-') + '</b><br><span style="color:var(--muted);font-size:var(--fs-sm);">' + esc(t.who||'') + '</span></div>' +
-        '<span style="color:' + moonColor + ';font-size:var(--fs-xs);font-weight:700;">🌙 ' + esc(t.moon_phase||'') + '</span>' +
-      '</div>';
-    });
-    sections += '</div>';
-  }
-
-  // Tips
-  if (plan.tips && plan.tips.length) {
-    sections += '<h3 style="font-size:var(--fs-md);color:var(--g-dark);margin:14px 0 6px;">💡 Profi-Tipps</h3>';
-    sections += '<ul style="padding-left:20px;font-size:var(--fs-sm);line-height:1.7;color:var(--text2);">';
-    plan.tips.forEach(function(t){ sections += '<li style="margin-bottom:4px;">' + esc(t) + '</li>'; });
-    sections += '</ul>';
-  }
-
-  // Pitfalls
-  if (plan.pitfalls && plan.pitfalls.length) {
-    sections += '<h3 style="font-size:var(--fs-md);color:var(--c-danger);margin:14px 0 6px;">⚠️ Häufige Fehler</h3>';
-    sections += '<ul style="padding-left:20px;font-size:var(--fs-sm);line-height:1.7;color:var(--text2);">';
-    plan.pitfalls.forEach(function(p){ sections += '<li style="margin-bottom:4px;">' + esc(p) + '</li>'; });
-    sections += '</ul>';
-  }
-
-  // Harvest
-  if (plan.harvest) {
-    var h = plan.harvest;
-    sections += '<div style="margin-top:14px;background:linear-gradient(135deg,#fff3e0,#fce4ec);padding:14px;border-radius:var(--r-md);text-align:center;">' +
-      '<div style="font-size:var(--fs-md);font-weight:800;color:#5d4037;margin-bottom:6px;">🧺 Ernte-Prognose</div>' +
-      (h.first_date ? '<div style="font-size:var(--fs-sm);color:#5d4037;">Erste Ernte: <b>' + esc(h.first_date) + '</b></div>' : '') +
-      (h.peak_window ? '<div style="font-size:var(--fs-sm);color:#5d4037;">Peak: <b>' + esc(h.peak_window) + '</b></div>' : '') +
-      (h.est_kg_total ? '<div style="font-size:var(--fs-xl);color:var(--c-success);font-weight:800;margin-top:6px;">~' + h.est_kg_total + ' kg</div>' : '') +
-      (h.est_value_chf ? '<div style="font-size:var(--fs-sm);color:var(--muted);">≈ CHF ' + h.est_value_chf + ' Markt-Wert</div>' : '') +
-    '</div>';
-  }
-
-  var existing = document.getElementById('modal-plan-detailed');
-  if (existing) existing.remove();
-  var m = document.createElement('div');
-  m.id = 'modal-plan-detailed';
-  m.className = 'modal-overlay';
-  m.style.display = 'flex';
-  m.style.zIndex = '99999';
-  m.onclick = function(e){ if (e.target === m) m.remove(); };
-  m.innerHTML = '<div class="modal" style="max-width:680px;max-height:94vh;overflow-y:auto;">' +
-    '<button class="modal-close-btn" onclick="document.getElementById(\'modal-plan-detailed\').remove()">&#x2715;</button>' +
-    '<div class="modal-content">' +
-      '<h2 style="margin:0 0 12px;font-size:var(--fs-xl);color:var(--g-dark);">📖 Detail-Anleitung</h2>' +
-      sections +
-    '</div></div>';
-  document.body.appendChild(m);
-}
 
 // v23.77: Vollbild-Visualisierung des Plans · Fullscreen-SVG mit Beschriftung
-function gsPPshowVisual() {
-  if (!_gsPP.plan) { showProfileToast && showProfileToast('Kein Plan vorhanden'); return; }
-  var plan = _gsPP.plan;
-  var data = (window._gsPP && window._gsPP.data) || {};
-
-  // Grosse SVG mit Massstab + Beschriftungen
-  var bedW = Math.max(1, plan.bed && plan.bed.width_m || data.width || 5);
-  var bedL = Math.max(1, plan.bed && plan.bed.length_m || data.length || 5);
-  var svgW = 700;
-  var svgH = Math.min(560, Math.round(svgW * bedL / bedW));
-  var scale = svgW / bedW;
-  var esc = function(s){return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
-
-  var svg = '<svg viewBox="0 0 ' + svgW + ' ' + (svgH+50) + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:linear-gradient(135deg,#f1f8e9,#e8f5e9);border:2px solid #2e7d32;border-radius:var(--r-md);display:block;">' +
-    '<defs>' +
-      '<pattern id="ppGridBig" width="' + scale + '" height="' + scale + '" patternUnits="userSpaceOnUse">' +
-        '<path d="M ' + scale + ' 0 L 0 0 0 ' + scale + '" fill="none" stroke="rgba(46,125,50,.15)" stroke-width="1"/>' +
-      '</pattern>' +
-      '<pattern id="ppGridBig5" width="' + (scale*5) + '" height="' + (scale*5) + '" patternUnits="userSpaceOnUse">' +
-        '<path d="M ' + (scale*5) + ' 0 L 0 0 0 ' + (scale*5) + '" fill="none" stroke="rgba(46,125,50,.45)" stroke-width="1.4"/>' +
-      '</pattern>' +
-    '</defs>' +
-    '<rect x="0" y="20" width="' + svgW + '" height="' + svgH + '" fill="url(#ppGridBig)"/>' +
-    '<rect x="0" y="20" width="' + svgW + '" height="' + svgH + '" fill="url(#ppGridBig5)"/>' +
-    // Massstabs-Achsen
-    '<text x="' + (svgW/2) + '" y="14" fill="#1b5e20" font-size="14" font-weight="800" text-anchor="middle">Beet · ' + bedW.toFixed(1) + ' m × ' + bedL.toFixed(1) + ' m  ·  ' + (bedW*bedL).toFixed(1) + ' m²</text>';
-
-  // 1m-Markierungen Achse
-  for (var i=1; i<bedW; i++) {
-    svg += '<text x="' + (i*scale) + '" y="' + (svgH+34) + '" font-size="10" fill="#558b2f" text-anchor="middle">' + i + 'm</text>';
-  }
-  for (var j=1; j<bedL; j++) {
-    svg += '<text x="' + (svgW-12) + '" y="' + (20 + j*(svgH/bedL)+4) + '" font-size="10" fill="#558b2f" text-anchor="end">' + j + 'm</text>';
-  }
-
-  // Pflanzen-Rechtecke
-  (plan.plants || []).forEach(function(p, idx){
-    var x = (p.x_m || 0) * scale;
-    var y = 20 + (p.y_m || 0) * (svgH/bedL);
-    var w = Math.max(40, (p.w_m || 1) * scale);
-    var h = Math.max(40, (p.h_m || 1) * (svgH/bedL));
-    var col = (p.color || '66bb6a').replace(/[^0-9a-fA-F]/g,'').slice(0,6) || '66bb6a';
-    if (x + w > svgW) w = svgW - x - 2;
-    if (y + h > svgH+20) h = svgH+20 - y - 2;
-    svg += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="#' + col + '" fill-opacity=".30" stroke="#' + col + '" stroke-width="2.5" rx="6"/>';
-    var iconSize = Math.min(36, Math.max(18, Math.round(Math.min(w,h)/3)));
-    svg += '<text x="' + (x+w/2) + '" y="' + (y+h/2-2) + '" font-size="' + iconSize + '" text-anchor="middle" dominant-baseline="middle">' + esc(p.icon||'🌱') + '</text>';
-    svg += '<text x="' + (x+w/2) + '" y="' + (y+h/2+iconSize/2+10) + '" font-size="11" font-weight="800" fill="#1b5e20" text-anchor="middle">' + esc((p.name||'').slice(0,18)) + (p.count ? ' ×'+p.count : '') + '</text>';
-    if (p.spacing_cm) {
-      svg += '<text x="' + (x+w/2) + '" y="' + (y+h/2+iconSize/2+22) + '" font-size="9" fill="#33691e" text-anchor="middle">📏 ' + esc(p.spacing_cm) + ' cm</text>';
-    }
-  });
-  svg += '</svg>';
-
-  // Aufbau-Text mit Schritt-für-Schritt
-  var steps = [];
-  steps.push('<b>1. Boden vorbereiten:</b> Beet (' + bedW.toFixed(1) + '×' + bedL.toFixed(1) + 'm) umgraben, Steine entfernen, ggf. Kompost einarbeiten (3-5 cm dick).');
-  if (plan.fertilizer && plan.fertilizer.length) {
-    var f = plan.fertilizer[0];
-    steps.push('<b>2. Düngung:</b> ' + esc(f.type || 'Kompost') + ' · ' + esc(f.amount_per_m2 || '2 kg/m²') + (f.n_p_k ? ' · NPK ' + esc(f.n_p_k) : ''));
-  }
-  if (plan.plants) {
-    plan.plants.forEach(function(p, idx){
-      var step = '<b>' + (idx+3) + '. ' + esc(p.name||'') + ':</b> ' +
-        (p.count ? p.count + ' Stück · ' : '') +
-        (p.sow_date ? 'Aussaat ' + esc(p.sow_date.slice(0,10)) + ' · ' : '') +
-        (p.depth_cm ? 'Tiefe ' + p.depth_cm + ' cm · ' : '') +
-        (p.spacing_cm ? 'Abstand ' + p.spacing_cm + ' cm · ' : '') +
-        (p.water_l_per_week ? 'Wasser ' + p.water_l_per_week + ' L/Woche' : '');
-      if (p.note) step += '<br><span style="color:var(--c-lime-d);font-size:var(--fs-sm);">💡 ' + esc(p.note) + '</span>';
-      if (p.harvest_from) step += '<br><span style="color:var(--c-lime-d);font-size:var(--fs-sm);">🧺 Ernte ab ' + esc(p.harvest_from.slice(0,10)) + (p.yield_kg ? ' (~' + p.yield_kg + ' ' + esc(p.yield_unit||'kg') + ')' : '') + '</span>';
-      steps.push(step);
-    });
-  }
-
-  var rotation = '';
-  if (plan.cropRotation) {
-    rotation = '<div style="background:var(--bg-warn-soft);border-left:3px solid #ff9800;padding:10px 12px;margin:8px 0;border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:var(--fs-sm);color:#5d4037;line-height:1.55;"><b>♻️ Fruchtfolge nächstes Jahr:</b><br>' +
-      (plan.cropRotation.after && plan.cropRotation.after.length ? '<b>Nach Ernte hier:</b> ' + plan.cropRotation.after.map(esc).join(', ') + '<br>' : '') +
-      (plan.cropRotation.avoid_next_year && plan.cropRotation.avoid_next_year.length ? '<b>Meiden nächste Saison:</b> ' + plan.cropRotation.avoid_next_year.map(esc).join(', ') + '<br>' : '') +
-      (plan.cropRotation.note ? '<i>' + esc(plan.cropRotation.note) + '</i>' : '') +
-      '</div>';
-  }
-
-  var water = '';
-  if (plan.waterPlan) {
-    water = '<div style="background:#e1f5fe;border-left:3px solid #0288d1;padding:10px 12px;margin:8px 0;border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:var(--fs-sm);color:#01579b;line-height:1.55;"><b>💧 Bewässerungsplan:</b><br>' +
-      'Gesamt: <b>' + esc(plan.waterPlan.total_l_per_week || '?') + ' L/Woche</b><br>' +
-      'Beste Zeit: ' + esc(plan.waterPlan.best_time || 'morgens 6-8h') + '<br>' +
-      (plan.waterPlan.kc_note ? '<i>' + esc(plan.waterPlan.kc_note) + '</i>' : '') +
-      '</div>';
-  }
-
-  var biodiv = '';
-  if (plan.biodiversity) {
-    var bd = plan.biodiversity;
-    biodiv = '<div style="background:var(--bg-pink-soft);border-left:3px solid #c2185b;padding:10px 12px;margin:8px 0;border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:var(--fs-sm);color:var(--c-pink);line-height:1.55;"><b>🐝 Biodiversität: ' + (bd.score||'?') + '/100</b><br>' +
-      esc(bd.hint || '') +
-      (bd.pollinators && bd.pollinators.length ? '<br><b>Bienenfreunde:</b> ' + bd.pollinators.map(esc).join(', ') : '') +
-      '</div>';
-  }
-
-  var existing = document.getElementById('modal-plan-visual');
-  if (existing) existing.remove();
-  var m = document.createElement('div');
-  m.id = 'modal-plan-visual';
-  m.className = 'modal-overlay';
-  m.style.display = 'flex';
-  m.style.zIndex = '99999';
-  m.onclick = function(e){ if (e.target === m) m.remove(); };
-  m.innerHTML = '<div class="modal" style="max-width:780px;max-height:94vh;overflow-y:auto;">' +
-    '<button class="modal-close-btn" onclick="document.getElementById(\'modal-plan-visual\').remove()">&#x2715;</button>' +
-    '<div class="modal-content">' +
-      '<h2 style="margin:0 0 6px;font-size:var(--fs-xl);color:var(--g-dark);">🗺️ Garten-Plan · Visualisierung</h2>' +
-      '<p style="margin:0 0 12px;font-size:var(--fs-sm);color:var(--muted);">Massstab 1:' + Math.round(bedW*100/svgW*100) + ' · 1m-Raster, 5m-Hauptlinien</p>' +
-      svg +
-      '<button onclick="gsPPshow3DCad()" style="width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);">📐 In 3D-CAD anschauen</button>' +
-      '<h3 style="font-size:var(--fs-lg);color:var(--g-dark);margin:14px 0 8px;">📋 Schritt-für-Schritt-Anleitung</h3>' +
-      '<ol style="padding-left:0;list-style:none;margin:0;">' +
-        steps.map(function(s){ return '<li style="background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:6px;font-size:var(--fs-md);line-height:1.55;">' + s + '</li>'; }).join('') +
-      '</ol>' +
-      water +
-      rotation +
-      biodiv +
-      '<button onclick="gsPPdownloadPlan()" style="margin-top:12px;width:100%;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">💾 Plan als JSON speichern</button>' +
-    '</div></div>';
-  document.body.appendChild(m);
-}
 
 // ═══════════════════════════════════════════════════════════
 // v23.96: 3D CAD-Visualisierung des KI-Plans
@@ -64080,10 +62798,6 @@ function _gsPD(s) {
   return isNaN(d.getTime()) ? null : d;
 }
 function _gsTage(a, b) { return Math.round((b - a) / 86400000); }
-function _gsPlusTage(d, n) { var x = new Date(d.getTime()); x.setDate(x.getDate() + n); return x; }
-function _gsISO(d) {
-  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
-}
 function _gsDatKurz(d) { return d.getDate() + '. ' + GS_MON[d.getMonth()]; }
 // Beim Saatgut zaehlt das Jahr: „1. Mär" sagt nicht, ob die Tuete 2024
 // abgelaufen ist oder 2027 ablaeuft.
@@ -71764,29 +70478,8 @@ async function gsPPexportPDF() {
   }
 }
 
-function gsPPdownloadPlan() {
-  if (!_gsPP.plan) return;
-  var txt = JSON.stringify(_gsPP.plan, null, 2);
-  var blob = new Blob([txt], { type: 'application/json' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'greenscan-garten-plan-' + new Date().toISOString().slice(0,10) + '.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-
-  // Optional: in gardens[] speichern
-  try {
-    var now = new Date().toISOString();
-    var saved = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
-    saved.unshift({ ts: now, plan: _gsPP.plan });
-    while (saved.length > 20) saved.pop();
-    localStorage.setItem('gs_garden_plans', JSON.stringify(saved));
-  } catch(e) {}
-}
 
 // Legacy-Alias (alte Modals, die evtl. noch runGardenAI aufrufen)
-function runGardenAI() { if (typeof gsPPrun === 'function') gsPPrun(); }
 
 // ══════════════════════════════════════════════════════════════
 // KI-GARTEN-AGENT (v23.53, Task #43) — Super-Agent-Modus
@@ -73637,29 +72330,6 @@ async function doAdminLogin() {
 }
 
 
-function checkAdminMode() {
-  if (!IS_ADMIN) return;
-  // Admin: max farm resources
-  farmState.coins = Math.max(farmState.coins, 99999);
-  farmState.xp = Math.max(farmState.xp, 4001); // Level 10
-  farmState.resources.water = Math.max(farmState.resources.water, 999);
-  farmState.resources.fertilizer = Math.max(farmState.resources.fertilizer, 999);
-  farmState.resources.seeds = Math.max(farmState.resources.seeds, 999);
-  farmState.resources.tools = Math.max(farmState.resources.tools, 999);
-  // Unlock all buildings
-  Object.keys(FARM_BUILDINGS).forEach(k => {
-    if (!farmState.buildings[k]) farmState.buildings[k] = {level: 3};
-  });
-  // Unlock all animals
-  Object.keys(FARM_ANIMALS).forEach(k => {
-    if (!farmState.animals[k]) farmState.animals[k] = {lastCollect: null, level: 1};
-  });
-  // Max plots
-  while (farmState.plots.length < 12) {
-    farmState.plots.push({id:'plot_admin_'+farmState.plots.length, crop:null, plantedAt:null, status:'empty'});
-  }
-  saveFarmState();
-}
 
 // v29.45 P1-Resilienz: korruptes gs_farm darf NICHT JSON.parse auf Modul-Ebene werfen
 // (sonst stirbt das ganze Haupt-<script> → App tot). Safe-Parse mit Default-Fallback.
@@ -74131,19 +72801,6 @@ if (window._gsFarmTickInterval) clearInterval(window._gsFarmTickInterval);
 window._gsFarmTickInterval = setInterval(refreshFarmTick, 30000);
 
 // ── Init Farm ──────────────────────────────────────────────
-function initFarm() {
-  // Give starting plot if none
-  if (!farmState.plots.length) {
-    farmState.plots.push({id:'plot_start', crop:null, plantedAt:null, status:'empty'});
-    saveFarmState();
-  }
-  if (IS_ADMIN) checkAdminMode();
-  updateFarmHUD();
-  renderFarmGrid();
-  renderFarmAnimals();
-  renderFarmBuildings();
-  renderFarmQuests();
-}
 
 // v23.92: Live-Validation für Feedback-Form (nur Visual — Button bleibt IMMER klickbar)
 function gsFbValidate() {
@@ -74422,30 +73079,7 @@ async function gsRunServerTriage() {
 }
 
 // ═══ SUPPORT ═══════════════════════════════════════
-function renderSupport(){
-  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-  const faqs = [
-    {q:_t('support_faq1_q','Wie funktioniert der KI-Scanner?'),a:_t('support_faq1_a','Lade ein Foto oder nimm eines auf. Der Scanner schickt es an die Anthropic-Claude-KI, die das Bild analysiert und die Pflanze/den Pilz bestimmt. Ein API Key ist nötig (🔑 oben rechts) — oder der Admin hinterlegt einen für alle.')},
-    {q:_t('support_faq2_q','Warum öffnet sich die Kamera nicht?'),a:_t('support_faq2_a','Browser erlauben Kamerazugriff nur über HTTPS oder localhost. Wenn du die Datei lokal öffnest (file://), verwende bitte die Galerie-Funktion. Auf iPhone: Safari verwenden.')},
-    {q:_t('support_faq3_q','Was bedeuten die Toxizitätsstufen?'),a:_t('support_faq3_a','✅ Ungiftig · 🟡 Leicht giftig · 🟠 Mässig giftig · ⚠️ Giftig · 🔴 Stark giftig · ☠️ Tödlich. Bei Vergiftung: Sofort Tox Info Suisse 145 anrufen!')},
-    {q:_t('support_faq4_q','Wie bekomme ich einen API Key?'),a:_t('support_faq4_a','Anthropic: console.anthropic.com → API Keys. Tipp: meist hat der App-Admin bereits einen globalen Key hinterlegt — dann brauchst du keinen eigenen.')},
-    {q:_t('support_faq5_q','Kann ich die App ohne Internet nutzen?'),a:_t('support_faq5_a','Die Datenbank mit über 4\'300 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.')},
-    {q:_t('support_faq6_q','Wie melde ich einen Datenfehler?'),a:_t('support_faq6_a','Tippe auf "Feedback" und wähle "Datenfehler". Beschreibe was falsch ist (Pflanzname, fehlerhafte Info etc.).')},
-  ];
-  document.getElementById('support-content').innerHTML =
-    '<div style="padding:0 0 20px;">' +
-    faqs.map((faq,i)=>'<div class="sup-q" id="faq-'+i+'" onclick="toggleFaq('+i+')"><div class="sup-q-title">'+faq.q+'</div><div class="sup-q-ans">'+faq.a+'</div></div>').join('') +
-    '<div style="margin-top:16px;"><div style="font-size:var(--fs-md);font-weight:700;color:var(--g-dark);margin-bottom:10px;">'+_t('support_emergency','📞 Notfall-Kontakte')+'</div>' +
-    '<button class="contact-btn">'+_t('support_call_144','🚨 Notruf Schweiz — 144')+'</button>' +
-    '<button class="contact-btn">'+_t('support_call_145','☠️ Tox Info Suisse — 145')+'</button>' +
-    '<button class="contact-btn">'+_t('support_call_112','🇪🇺 EU-Notruf — 112')+'</button>' +
-    '</div></div>';
-}
 
-function toggleFaq(i){
-  const el = document.getElementById('faq-'+i);
-  if(el) el.classList.toggle('open');
-}
 
 // ═══ API KEY VERWALTUNG ═══════════════════════════
 function updateApiBanner(){
@@ -74922,6 +73556,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v32.77', date: '07.09.2026',
+    headline: '🧹 114 Funktionen ohne Aufrufer entfernt — Audit C2',
+    summary: 'Audit C2. Nachgezählt über das ganze Repo: 2430 Definitionen, 105 ohne eine zweite Nennung — kein Aufruf, keine onclick-Zeichenkette, kein Menü-, Benachrichtigungs- oder Prüfstand-Eintrag; nach der ersten Welle noch zehn, deren einzige Aufrufer gerade gegangen waren. 114 Funktionen, 1790 Zeilen, entfernt mit exakten Parser-Grenzen (acorn) statt einer Klammer-Heuristik — neun davon standen in einer IIFE. Eine bleibt mit Grund: closeAbout wird aus der Modal-Id gebildet. robust_check Fall 16 rechnet den Scan bei jedem Lauf und meldet jede Definition ohne zweite Nennung, die nicht namentlich begründet ist.',
+    user_summary: '🧹 Aufgeräumt: 1790 Zeilen Code, die nie liefen, sind raus — ein bisschen weniger zu laden, sonst ändert sich nichts.',
+    user_items: [
+      {emoji:'🧹', bold:'Leichter:', text:' 114 Funktionen, die nichts mehr aufrief, sind entfernt — weniger Code zum Laden, nichts Neues zu lernen.'},
+    ],
+  },
   {
     v: 'v32.76', date: '07.09.2026',
     headline: '🔎 Die Artensuche auf dem Server verlangt einen angemeldeten Nutzer — Audit A7',
@@ -75934,7 +74577,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.76';
+var GS_VERSION = 'v32.77';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75977,12 +74620,6 @@ window.__DEV__ = (function(){
 // Production-Console-Shim noop't bereits console.log/info/debug, aber gsLog()
 // macht den Dev-Intent im Code lesbar und ist garantiert auch dann no-op,
 // falls der Shim in Tests umgangen wird (z.B. ?dev=0 force).
-window.gsLog = function(){
-  try { if (window.__DEV__) (window._origConsole && window._origConsole.log ? window._origConsole.log : console.log).apply(null, arguments); } catch(_){}
-};
-window.gsWarn = function(){
-  try { if (window.__DEV__) (window._origConsole && window._origConsole.warn ? window._origConsole.warn : console.warn).apply(null, arguments); } catch(_){}
-};
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
@@ -76054,59 +74691,6 @@ function gsGetExpertInfo(profile) {
 }
 
 // Admin-Panel öffnen (nur für Admins sichtbar)
-function openAdminActions(targetEmail) {
-  if (!gsIsAdmin()) { showProfileToast('⛔ Kein Zugriff.'); return; }
-  // v31.95: angeboten wird, was `profiles.role` per CHECK-Constraint
-  // annimmt — admin|staff|expert|user|banned. Vorher standen hier die sechs
-  // Eintraege aus GS_EXPERT_LEVELS; vier davon (enthusiast, explorer,
-  // specialist, master) haben serverseitig keine Entsprechung. Ein Menue,
-  // das Werte anbietet, die die Datenbank zurueckweist, ist ein Versprechen
-  // auf einen Fehlschlag.
-  var opts = GS_ROLE_HIERARCHY.slice().reverse().map(function (r) {
-    var b = GS_ROLE_BADGES[r] || {};
-    return '<option value="' + r + '">' + (b.icon ? b.icon + ' ' : '') + (b.label || r) + '</option>';
-  }).join('');
-
-  // Admin-Log anzeigen
-  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-  var recentLog = log.filter(function(e){ return e.target === targetEmail; }).slice(0,3);
-  var logHtml = recentLog.length ? recentLog.map(function(e){
-    return '<div style="font-size:var(--fs-sm);color:#666;padding:4px 0;border-bottom:1px solid #eee;">' +
-      new Date(e.ts).toLocaleDateString('de-CH') + ' – ' + escHtml(e.action) + ': ' +
-      escHtml(((GS_ROLE_BADGES[e.level]||{}).label) || e.level) +
-      (e.note ? ' · <em>' + escHtml(e.note.slice(0,40)) + '</em>' : '') + '</div>';
-  }).join('') : '<div style="font-size:var(--fs-sm);color:#aaa;">Kein Verlauf</div>';
-
-  var panelHtml =
-    '<div style="padding:16px;">' +
-    '<div style="background:var(--bg-warn-soft);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);">🛡️ ADMIN-PANEL · Nur für ' + (gsIsAdmin() ? 'Admins' : '—') + ' sichtbar</div>' +
-    '<p style="font-size:var(--fs-md);color:var(--text2);margin:0 0 14px;">Nutzer: <strong>' + escHtml(targetEmail||'?') + '</strong></p>' +
-
-    '<div style="margin-bottom:12px;">' +
-    '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px;">🎓 Experten-Level vergeben:</label>' +
-    '<select id="admin-expert-select" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1.5px solid #c8e6c9;font-size:var(--fs-md);font-family:inherit;">' +
-    opts + '</select></div>' +
-
-    '<div style="margin-bottom:12px;">' +
-    '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px;">📝 Admin-Notiz (Qualifikation):</label>' +
-    '<textarea id="admin-expert-reason" rows="2" style="width:100%;padding:8px;border-radius:var(--r-sm);border:1.5px solid #c8e6c9;font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;" placeholder="z.B. Dipl. Botanikerin, Uni Bern 2019"></textarea>' +
-    '</div>' +
-
-    '<div style="display:flex;gap:8px;margin-bottom:14px;">' +
-    '<button onclick="gsAdminSetExpertLevel(\'' + targetEmail + '\')" style="flex:1;padding:11px;background:#1f6b2f;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">✅ Level vergeben</button>' +
-    '<button onclick="gsAdminBanUser(\'' + targetEmail + '\')" style="flex:1;padding:11px;background:var(--bg-danger-soft);color:var(--c-danger);border:1.5px solid #ffcdd2;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">🚫 Sperren</button>' +
-    '</div>' +
-
-    '<div style="margin-bottom:8px;">' +
-    '<div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:#999;margin-bottom:6px;">Admin-Verlauf für diesen Nutzer</div>' +
-    logHtml + '</div>' +
-
-    '</div>';
-
-  document.getElementById('recipe-detail-body').innerHTML = panelHtml;
-  gsSetModalTitel('modal-recipe-detail', '🛡️ Admin-Panel');
-  openModal('modal-recipe-detail');
-}
 
 // Admin bannt einen Nutzer (lokaler Log + Supabase)
 // Opens a plant info card from recipe ingredient (remembers recipe ID to return)
@@ -76161,21 +74745,6 @@ function _gsOpenIngCard(plantId, recipeId) {
 // Notiz auf dem eigenen Telefon. `role='banned'` ist dafuer da; die
 // Rollen-Hierarchie behandelt es bereits ueberall als Sperre
 // (`gsRoleAtLeast` gibt fuer 'banned' immer false zurueck).
-async function gsAdminBanUser(targetEmail) {
-  if (!gsIsAdmin()) return;
-  if (!(await gsConfirmModal('Nutzer ' + targetEmail + ' wirklich sperren? Die Rolle wird auf „Gesperrt" gesetzt.'))) return;
-  if (typeof sbFetch !== 'function') { showProfileToast('Keine Verbindung zum Server.'); return; }
-  var uid = await _gsAdminUidZu(targetEmail);
-  if (!uid) return;
-  // Diese Stelle hat oben schon gefragt (mit der E-Mail im Text) — nicht zweimal.
-  var r = await gsAdminAssignRole(uid, 'banned', 'Gesperrt durch Admin', {bestaetigt:true});
-  if (!r) return;
-  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-  log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
-    target: targetEmail, action: 'ban', level: 'banned', note: 'Gesperrt durch Admin' });
-  gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
-  closeModal('modal-recipe-detail');
-}
 
 // ── v31.95: „vergeben" hiess bisher „in mein eigenes Geraet geschrieben" ──
 //
@@ -76246,19 +74815,8 @@ async function gsAdminSetExpertLevel(targetEmail) {
 }
 
 // Experten-Badge im Profil anzeigen
-function gsRenderExpertBadge(profile) {
-  var info = gsGetExpertInfo(profile);
-  if (!info || info.rank === 0) return '';
-  return '<span style="display:inline-flex;align-items:center;gap:4px;background:' + info.color + '22;color:' + info.color + ';' +
-    'border:1.5px solid ' + info.color + '44;border-radius:var(--r-md);padding:2px 8px;font-size:var(--fs-sm);font-weight:700;">' +
-    info.icon + ' ' + info.label + '</span>';
-}
 
 // Prüft ob Nutzer seine Biografie ausgefüllt hat (Voraussetzung für Experten-Antrag)
-function gsHasBiography(profile) {
-  return !!(profile && profile.biography && profile.biography.length > 20
-            && profile.diplomas && profile.diplomas.trim().length > 5);
-}
 
 // Experten-Antrag stellen
 // v31.95: Ein Helfer statt vier gleichlautender ungesicherter Ketten.
@@ -76398,36 +74956,10 @@ async function gsSubmitExpertApplication() {
 //    (Für professionellen Versand via Gmail SMTP)
 
 // E-Mail Support-Funktion
-function openSupportEmail(subject, body) {
-  var mailtoUrl = 'mailto:' + GS_SUPPORT_EMAIL +
-    '?subject=' + encodeURIComponent('[GreenScan] ' + (subject || 'Anfrage')) +
-    (body ? '&body=' + encodeURIComponent(body) : '');
-  window.open(mailtoUrl, '_blank');
-}
 
 // Feedback via E-Mail senden
-function sendFeedbackEmail(type, text) {
-  var subjects = {
-    bug: 'Fehler gefunden',
-    idea: 'Idee / Verbesserung',
-    data: 'Datenfehler',
-    ui: 'UI/Design Feedback'
-  };
-  var subject = subjects[type] || 'Feedback';
-  var body = 'Hallo GreenScan-Team,\n\n' + text + 
-    '\n\n---\nApp: GreenScan ' + GS_VERSION + 
-    '\nDatum: ' + new Date().toLocaleDateString('de-CH');
-  openSupportEmail(subject, body);
-}
 
 // Notfall-Kontakt E-Mail
-function contactEmergencySupport(plantName) {
-  var body = 'DRINGEND: Mögliche Vergiftung mit ' + (plantName || 'unbekannter Pflanze/Pilz') +
-    '\n\nBei NOTFALL sofort Tox Info Suisse anrufen: 145\n' +
-    'Oder Notruf: 144\n\n' +
-    'App: GreenScan ' + GS_VERSION;
-  openSupportEmail('NOTFALL — Vergiftungsverdacht', body);
-}
 var SB_URL = SB_URL_DEFAULT;
 var SB_KEY = SB_KEY_DEFAULT;
 var _sbClient = null;
@@ -77208,36 +75740,6 @@ function sbIsLoggedIn() {
 
 // MAGIC LINK — Einmaliger Login-Link per E-Mail
 
-async function sbSendMagicLink(email) {
-  if (!sbGetConfig()) return {error:{message:'App-Konfiguration fehlt.'}};
-  var res;
-  try {
-    // v24.46: _gsFetch mit 15s Timeout
-    res = await (window._gsFetch || fetch)(SB_URL + '/auth/v1/otp', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SB_KEY,
-        'Authorization': 'Bearer ' + SB_KEY
-      },
-      body: JSON.stringify({
-        email: email,
-        create_user: true,
-        options: { shouldCreateUser: true }
-      })
-    }, 15000);
-  } catch(e) {
-    return {error:{message: e && e.code === 'TIMEOUT' ? '⏱️ Zeitüberschreitung — bitte erneut versuchen.' : '🌐 Netzwerkfehler — Internetverbindung prüfen.'}};
-  }
-  // Status 200/204 = Erfolg (Supabase gibt kein JSON zurück bei OTP)
-  if (res.status === 200 || res.status === 201 || res.status === 204) {
-    return {data: {}, error: null};
-  }
-  var parsed = await sbParseResponse(res);
-  if (parsed.error) return {error:{message: parsed.error}};
-  var d = parsed.data || {};
-  return {error:{message: d.error_description || d.message || 'Magic Link konnte nicht gesendet werden ('+res.status+')'}};
-}
 
 // Magic Link anfordern (UI-Handler)
 /* v31.50 — profileRequestMagicLink entfernt. Ich wollte den passwortlosen
@@ -77247,50 +75749,6 @@ async function sbSendMagicLink(email) {
    Zweitfassung fuers Profil, ohne Aufrufer und ohne ihre drei Elemente. */
 
 // Supabase Magic Link Session verarbeiten (URL-Hash nach Redirect)
-function gsHandleMagicLinkCallback() {
-  var hash = window.location.hash;
-  if (!hash || !hash.includes('access_token')) return;
-
-  // Parse hash params
-  var params = {};
-  hash.replace(/^#/, '').split('&').forEach(function(part) {
-    var kv = part.split('=');
-    params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
-  });
-
-  if (params.access_token) {
-    var sessionData = {
-      access_token:  params.access_token,
-      refresh_token: params.refresh_token || '',
-      expires_in:    parseInt(params.expires_in || '3600'),
-      user: { id: params.user_id || '', email: params.email || '' }
-    };
-
-    // Versuche User-Daten aus Supabase zu laden
-    sbFetch('/auth/v1/user', {method:'GET', headers:{'Authorization':'Bearer '+params.access_token}})
-      .then(function(r) {
-        if (r.data) {
-          sessionData.user = r.data;
-        }
-        sbSaveSession(sessionData);
-        // Hash entfernen ohne Seitenreload
-        history.replaceState(null, '', window.location.pathname);
-        if (typeof gsOnLoginSuccess === 'function') gsOnLoginSuccess();
-        if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar();
-        showProfileToast('✅ Magic Link — Du bist eingeloggt!');
-        setTimeout(function() {
-          if (typeof openUserProfile === 'function') openUserProfile();
-        }, 800);
-      })
-      .catch(function() {
-        sbSaveSession(sessionData);
-        history.replaceState(null, '', window.location.pathname);
-        if (typeof gsOnLoginSuccess === 'function') gsOnLoginSuccess();
-        if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar();
-        showProfileToast('✅ Magic Link — Du bist eingeloggt!');
-      });
-  }
-}
 
 // ── Supabase Auth-Helper: Response sicher als JSON parsen ─────
 async function sbParseResponse(res) {
@@ -77673,15 +76131,6 @@ async function sbSaveProfile(updates) {
   return res;
 }
 
-async function sbIncrementStat(key, delta) {
-  var profile = _sbProfile || await sbLoadProfile();
-  if (!profile) return;
-  var stats = profile.stats || {};
-  stats[key] = (stats[key] || 0) + (delta || 1);
-  // Milestone-Check
-  checkMilestones(stats);
-  await sbSaveProfile({stats: stats});
-}
 
 // ── Level & XP System (Natur-Profil, getrennt vom Farm-System) ─
 // v28.78 FIX-6b Phase B: aus der kanonischen GS_LEVELS-Leiter abgeleitet (Single-Source).
@@ -78052,22 +76501,6 @@ async function sbInit() {
 }
 
 // ── Supabase Setup Checker ─────────────────────────────────
-async function checkSupabaseReady() {
-  if (!sbGetConfig()) return {ok: false, reason: 'not_configured'};
-  // Teste ob profiles-Tabelle existiert
-  try {
-    var res = await sbFetch('/rest/v1/profiles?limit=1', {method:'GET'});
-    if (res.error) {
-      if (res.error.message && res.error.message.includes('42P01')) {
-        return {ok: false, reason: 'no_table'};
-      }
-      return {ok: false, reason: res.error.message};
-    }
-    return {ok: true};
-  } catch(e) {
-    return {ok: false, reason: e.message};
-  }
-}
 
 // ── PWA Manifest & Asset-Pfade ─────────────────────────────
 // GreenScan V18 — Pfade für Deployment
@@ -79014,9 +77447,6 @@ function gsRegisterServiceWorker() {
     b.innerHTML = '<span style="font-size:var(--fs-md);line-height:1;">' + icon + '</span><span>' + txt + '</span>';
   }
   // Public APIs
-  window.gsBadgeSetState = function(state){ _state = state; render(); };
-  window.gsBadgeSetSyncing = function(s){ _syncing = !!s; render(); };
-  window.gsBadgeSetPending = function(n){ _pending = parseInt(n,10) || 0; render(); };
   window.gsBadgeRefresh = async function(){
     _state = navigator.onLine ? 'online' : 'offline';
     if (typeof window.gsCountOfflineQueue === 'function') {
@@ -79115,8 +77545,6 @@ function gsRegisterServiceWorker() {
   };
   // Standard-Patterns
   window.gsVibSuccess = function(){ window.gsVibrate([60]); };
-  window.gsVibError   = function(){ window.gsVibrate([80, 60, 80]); };
-  window.gsVibTap     = function(){ window.gsVibrate(20); };
 })();
 
 // v24.36: ═══ SHARE-TARGET HANDLER ═══════════════════════════════════════
@@ -79440,17 +77868,6 @@ function gsRegisterServiceWorker() {
   };
 
   // Cache-Stats für Storage-Modal
-  window.gsKnowledgeStats = async function(){
-    try {
-      var stats = {};
-      var stores = ['species','recipes','remedies','folk_lore','garden_techniques'];
-      for (var i = 0; i < stores.length; i++) {
-        var items = await window.gsKnowledgeGetAll(stores[i]);
-        stats[stores[i]] = items.length;
-      }
-      return stats;
-    } catch(e){ return {}; }
-  };
 
   // Pull beim Boot (nach 5s — non-blocking) + bei jedem Login
   document.addEventListener('DOMContentLoaded', function(){
@@ -79486,23 +77903,6 @@ function gsRegisterServiceWorker() {
     document.head.appendChild(s);
   }
   // Helper: Skeleton-HTML für Cards/List-Items
-  window.gsSkeletonCard = function(rows){
-    rows = rows || 3;
-    var inner = '';
-    for (var i = 0; i < rows; i++) {
-      inner += '<div class="gs-skeleton" style="height:14px;width:' + (60 + Math.random() * 35) + '%;margin-bottom:8px;"></div>';
-    }
-    return '<div style="padding:14px;background:var(--card);border-radius:var(--r-md);border:1px solid var(--border);">' +
-      '<div class="gs-skeleton" style="height:18px;width:60%;margin-bottom:10px;"></div>' +
-      inner +
-    '</div>';
-  };
-  window.gsSkeletonList = function(count){
-    count = count || 3;
-    var html = '';
-    for (var i = 0; i < count; i++) html += '<div style="margin-bottom:10px;">' + window.gsSkeletonCard(2) + '</div>';
-    return html;
-  };
 })();
 
 // v24.40: ═══ UNIVERSAL-SUCHE mit Hotkey ═══════════════════════════════════
@@ -79712,20 +78112,6 @@ function gsRegisterServiceWorker() {
 })();
 
 // v24.40: ═══ EMPTY-STATE HELPERS ════════════════════════════════════════
-window.gsEmptyState = function(opts){
-  opts = opts || {};
-  var icon = opts.icon || '🌿';
-  var title = opts.title || 'Noch nichts hier';
-  var body = opts.body || '';
-  var ctaLabel = opts.cta || '';
-  var ctaAction = opts.onCta || '';
-  return '<div style="padding:40px 24px;text-align:center;">' +
-    '<div style="font-size:54px;margin-bottom:10px;opacity:.85;animation:gsEmptyPulse 2.4s ease-in-out infinite;">' + icon + '</div>' +
-    '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:800;color:var(--text);margin-bottom:6px;">' + title + '</div>' +
-    (body ? '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.45;max-width:280px;margin:0 auto 14px;">' + body + '</div>' : '') +
-    (ctaLabel && ctaAction ? '<button onclick="' + ctaAction + '" style="background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);padding:10px 22px;font-weight:800;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">' + ctaLabel + '</button>' : '') +
-  '</div>';
-};
 // CSS-Pulse für Empty-State-Icon
 (function(){
   if (document.getElementById('gs-empty-css')) return;
@@ -79824,20 +78210,6 @@ window.gsBuildSmartReminder = function(){
 };
 
 // Render-Helper: smarter Reminder als Card-HTML
-window.gsRenderSmartReminder = function(){
-  var r = window.gsBuildSmartReminder();
-  if (!r) return '';
-  var bg = r.level === 'urgent' ? 'linear-gradient(135deg,#c62828,#ef5350)' :
-           r.level === 'tip' ? 'linear-gradient(135deg,#2e7d32,#66bb6a)' :
-           'linear-gradient(135deg,#1565c0,#42a5f5)';
-  return '<div style="background:' + bg + ';color:#fff;border-radius:var(--r-lg);padding:14px 16px;margin:10px 0;display:flex;gap:12px;align-items:flex-start;box-shadow:var(--elev-2);">' +
-    '<div style="font-size:var(--fs-3xl);flex-shrink:0;line-height:1;">' + r.icon + '</div>' +
-    '<div style="flex:1;min-width:0;">' +
-      '<div style="font-weight:800;font-size:var(--fs-md);margin-bottom:2px;">' + r.title + '</div>' +
-      '<div style="font-size:var(--fs-sm);opacity:.93;line-height:1.4;">' + r.body + '</div>' +
-    '</div>' +
-  '</div>';
-};
 
 // v24.39: ═══ GARTEN-STATISTIK-DASHBOARD ════════════════════════════════
 window.gsBuildGardenStats = function(){
@@ -81046,10 +79418,6 @@ async function profileDoRegister() {
   ].join('');
 }
 
-function profSwitchTabModal(tab) {
-  var mc = document.getElementById('profile-modal-content');
-  if (mc) { renderProfileLogin(mc); profSwitchTab(tab); }
-}
 
 async function profForgotPw() {
   // v23.72: Robuster Reset-Flow mit User-Feedback
@@ -81522,10 +79890,6 @@ async function gsExecuteDeleteAccount() {
 }
 
 // ── Setup-Modus (kein Supabase konfiguriert) ──────────────────
-function renderProfileSetup(mc) {
-  // Supabase ist jetzt automatisch konfiguriert — direkt zu Login
-  renderProfileLogin(mc);
-}
 
 /* v31.50 — profSaveSupabaseConfig entfernt. Sie liess URL und Schluessel
    einer BELIEBIGEN Supabase-Instanz eintragen und schrieb sie nach
@@ -81645,24 +80009,10 @@ function gsCheckOnboarding() {
 }
 
 // Registrieren-Button
-function gsOnboardingRegister() {
-  if (typeof GS_GUEST_MODE_KEY !== 'undefined') localStorage.removeItem(GS_GUEST_MODE_KEY);
-  if (typeof onbShowRegister === 'function') onbShowRegister();
-}
 
 // Einloggen-Button
-function gsOnboardingLogin() {
-  // Neu: Inline-Login-View zeigen (kein Modal mehr)
-  if (typeof GS_GUEST_MODE_KEY !== 'undefined') localStorage.removeItem(GS_GUEST_MODE_KEY);
-  if (typeof onbShowLogin === 'function') onbShowLogin();
-}
 
 // Als Gast fortfahren
-function gsOnboardingGuest() {
-  // v25.33 Fernando-Bug-Fix: Demo-Modus deaktiviert — Function leer return.
-  // Falls re-enable nötig: alte Logik via git log v25.32^..main wiederherstellen.
-  return;
-}
 
 // Onboarding-Screen schliessen
 
@@ -82090,9 +80440,6 @@ function gsOnboardingDone(showBanner) {
 }
 
 // Gast-Modus aktivieren — v25.33 Fernando-Bug-Fix: deaktiviert (no-op).
-function gsActivateGuestMode(showBanner) {
-  return;
-}
 
 // Nach erfolgreichem Login: Onboarding-Status setzen + Gast-Modus beenden
 // ═══ v31.01: Login-UEBERGANG und UI-Abgleich sauber getrennt ═══════════════
@@ -85182,33 +83529,6 @@ async function gsSensorSync(){
 }
 
 // Neues Gerät registrieren (z.B. nach Bluetooth-Pairing)
-async function gsRegisterSensorDevice(device){
-  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return {error:'not_logged_in'};
-  var uid = gsStore.get('gs_sb_uid', null);
-  if (!uid || typeof sbFetch !== 'function') return {error:'no_sb'};
-  var payload = Object.assign({
-    user_id: uid,
-    name: device.name || 'Unbenannter Sensor',
-    device_type: device.type || 'generic',
-    mac: device.mac || null,
-    serial: device.serial || null,
-    firmware_version: device.firmware || null,
-    config: device.config || {},
-    last_seen: new Date().toISOString()
-  }, device.extra || {});
-  try {
-    var r = await sbFetch('/rest/v1/sensor_devices', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Prefer':'return=representation'},
-      body: JSON.stringify(payload)
-    });
-    if (r && !r.error) {
-      await gsSensorSync();
-      return {ok:true, device: Array.isArray(r.data) ? r.data[0] : r.data};
-    }
-    return {error: r && r.error && r.error.message || 'insert_failed'};
-  } catch(e){ return {error: e.message}; }
-}
 
 // Messwert hochladen (für BLE-Sensoren die im Client gelesen werden)
 // v30.96 FIX: Die Spalte heisst `value_num`, nicht `value`.
@@ -87340,19 +85660,6 @@ function gsRequire(action, message) {
 
 // Rate-Limiting: verhindert Spam/Brute-Force
 var _gsRateLimit = {};
-function gsRateCheck(key, maxPerMinute) {
-  var now = Date.now();
-  if (!_gsRateLimit[key]) _gsRateLimit[key] = [];
-  // Alte Einträge entfernen (älter als 1 Minute)
-  _gsRateLimit[key] = _gsRateLimit[key].filter(function(t){ return now - t < 60000; });
-  if (_gsRateLimit[key].length >= maxPerMinute) {
-    if (typeof showProfileToast === 'function')
-      showProfileToast('⏳ Zu viele Versuche. Bitte 1 Minute warten.');
-    return false;
-  }
-  _gsRateLimit[key].push(now);
-  return true;
-}
 
 // Input-Sanitizer: verhindert XSS in Benutzereingaben
 // v32.66 (Audit A10): HTML-Fragment durch eine ALLOWLIST — für Text, der
@@ -87398,16 +85705,6 @@ function gsSanitizeHtml(html) {
 }
 window.gsSanitizeHtml = gsSanitizeHtml;
 
-function gsSanitize(input, maxLen) {
-  if (!input) return '';
-  var s = String(input).trim();
-  // Maximale Länge
-  if (maxLen) s = s.slice(0, maxLen);
-  // HTML-Entities
-  s = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-       .replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
-  return s;
-}
 
 // Verhindert Admin-Zugriff über URL-Manipulation
 (function gsSecurityInit() {
@@ -87732,50 +86029,9 @@ function showLegalTab(tab) {
 }
 
 // ── Einmaliger Sicherheitshinweis vor erstem Scan ──────────────
-function checkShowScanWarning(callback) {
-  var shown = localStorage.getItem('gs_scan_warning_shown');
-  if (shown) { if(callback) callback(); return; }
-  
-  var overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:8000;display:flex;align-items:center;justify-content:center;padding:20px;';
-  overlay.innerHTML = '<div style="background:var(--card);border-radius:var(--r-lg);padding:24px;max-width:400px;width:100%;">' +
-    '<div style="text-align:center;font-size:42px;margin-bottom:12px;">&#x26A0;&#xFE0F;</div>' +
-    '<h3 style="color:var(--c-danger);margin:0 0 10px;font-size:var(--fs-lg);text-align:center;">WICHTIGER SICHERHEITSHINWEIS</h3>' +
-    '<p style="font-size:var(--fs-md);color:var(--text2);line-height:1.65;margin-bottom:14px;">' +
-    'Die KI-Bestimmung ist eine <strong>automatisch generierte Schätzung \u2014 keine gesicherte Bestimmung.</strong><br><br>' +
-    '&#x1F534; <strong>Verwechslungsgefahr:</strong> Giftige Pilze und Pflanzen sehen essbaren Arten sehr \u00e4hnlich.<br><br>' +
-    '&#x274C; Verwenden Sie dieses Ergebnis <strong>NIEMALS als alleinige Grundlage</strong> f\u00fcr den Verzehr.</p>' +
-    '<div style="background:var(--bg-danger-soft);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:16px;font-size:var(--fs-md);color:var(--c-danger);font-weight:700;">&#x2620;&#xFE0F; Vergiftung? Sofort: Tox Info Suisse 145 \u00b7 Notruf 144</div>' +
-    '<label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-md);color:var(--text2);margin-bottom:16px;cursor:pointer;">' +
-    '<input type="checkbox" id="scan-warn-cb" style="width:18px;height:18px;cursor:pointer;">' +
-    '<span>Ich habe diesen Hinweis gelesen und verstanden</span></label>' +
-    '<button onclick="gsConfirmScanWarning()" style="width:100%;padding:12px;background:#1f6b2f;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">&#x2705; Verstanden \u2014 Scanner \u00f6ffnen</button>' +
-    '</div>';
-  
-  window._scanWarnCallback = callback;
-  document.body.appendChild(overlay);
-}
 
-function gsConfirmScanWarning() {
-  var cb = document.getElementById('scan-warn-cb');
-  if (!cb || !cb.checked) { showProfileToast('Bitte bestätige zuerst den Hinweis.'); return; }
-  localStorage.setItem('gs_scan_warning_shown','1');
-  var overlays = document.querySelectorAll('[style*="z-index:8000"]');
-  overlays.forEach(function(el){ el.remove(); });
-  if (typeof window._scanWarnCallback === 'function') window._scanWarnCallback();
-}
 
 // ── Admin-Einstellungen im Profil (nur für gsIsAdmin) ─────────
-function renderAdminSettingsSection() {
-  if (typeof gsIsAdmin !== 'function' || !gsIsAdmin()) return '';
-  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-  return '<div style="background:var(--bg-danger-soft);border-radius:var(--r-md);padding:14px;margin-top:12px;">' +
-    '<div style="font-size:var(--fs-md);font-weight:800;color:var(--c-danger);margin-bottom:10px;">🛡️ Admin-Bereich</div>' +
-    '<button onclick="closeModal(\'modal-profile\');openLegalModal(\'agb\')" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:var(--r-sm);margin-bottom:6px;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">📜 AGB / Rechtliches</button>' +
-    '<button onclick="showProfileToast(\'Admin-Log: ' + log.length + ' Einträge\')" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:var(--r-sm);margin-bottom:6px;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">📋 Admin-Log (' + log.length + ' Einträge)</button>' +
-    '<button onclick="gsOpenExpertApplication()" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:var(--r-sm);font-size:var(--fs-md);cursor:pointer;font-family:inherit;">🎓 Experten-Antrag prüfen</button>' +
-    '</div>';
-}
 
 // ── Back-Navigation: Rezept ID merken ──────────────────────────
 // _currentOpenRecipeId wird in openRecipeDetail gesetzt (bereits vorhanden)
@@ -87789,14 +86045,6 @@ if (typeof openRecipeDetail === 'function') {
   };
 }
 
-function gsFlipCamera() {
-  if (typeof _gsVideoStream !== 'undefined' && _gsVideoStream) {
-    try { _gsVideoStream.getTracks().forEach(function(t){t.stop();}); } catch(e) {}
-  }
-  window._gsCameraFacing = (window._gsCameraFacing === 'user') ? 'environment' : 'user';
-  if (typeof startCamera === 'function') startCamera();
-  if (typeof gsHaptic === 'function') gsHaptic('tap');
-}
 
 
 // Alias für showSpecies → openDetail (verwendet im Blühkalender)
@@ -87897,36 +86145,8 @@ function gsClearPostImage() {
 }
 
 // showTab → switchTab Alias
-function showTab(tab, el) {
-  if (typeof switchTab === 'function') return switchTab(tab, el);
-}
 
 // startCamera — Stub falls die Original-Funktion gsCameraStart/initCamera heisst
-function startCamera() {
-  // v24.36: Wake-Lock + Scanner-Active-Flag
-  try {
-    window._gsScannerActive = true;
-    window.gsWakeLockAcquire && window.gsWakeLockAcquire();
-  } catch(e){}
-  if (typeof tryStartCamera === 'function') return tryStartCamera();
-  // v29.18 DUP-03: tote Phantom-Fallbacks (initCameraStream/gsStartCamera/initCamera, alle DEF=0) entfernt —
-  // tryStartCamera oben returnt; darunter folgt der echte getUserMedia-Direkt-Fallback.
-  // Fallback: Direkt getUserMedia aufrufen
-  var vid = document.getElementById('video');
-  if (!vid) return;
-  var facing = window._gsCameraFacing || 'environment';
-  try {
-    navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: facing, width:{ideal:1920}, height:{ideal:1080} } 
-    }).then(function(stream) {
-      window._gsVideoStream = stream;
-      vid.srcObject = stream;
-      vid.play && vid.play();
-    }).catch(function(err) {
-      console.log('Camera error:', err.message);
-    });
-  } catch(e) { console.log('Camera not available:', e.message); }
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // v23.57: NEXT-LEVEL TOOLS — Pflanzendoktor, Ernte, Saatgut,
