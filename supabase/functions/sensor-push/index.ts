@@ -15,6 +15,7 @@
 // Cron schickt das x-cron-secret wie bei daily-push-checker).
 // ═══════════════════════════════════════════════════════════════════════════
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { cronOderService } from "../_shared/auth_vergleich.mjs";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { KATEGORIE, FENSTER_MS, FEHLSCHLAEGE_MAX, planen, nutzlast, protokollZeile, stummZeile } from "../_shared/sensor_push_regeln.mjs";
@@ -66,9 +67,7 @@ Deno.serve(async (req: Request) => {
   const dryRun = new URL(req.url).searchParams.get("dry_run") === "1";
   try {
     const settings = await loadSettings();
-    const cronSecret = req.headers.get("x-cron-secret");
-    const authHdr = req.headers.get("authorization") || "";
-    const okAuth = (settings.cronSecret && cronSecret === settings.cronSecret) || authHdr.includes(SERVICE_ROLE);
+    const okAuth = cronOderService(req, settings.cronSecret, SERVICE_ROLE);   // v32.72 (Audit A10): konstantzeitig, ein Modul
     if (!okAuth) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
 
     const now = Date.now();

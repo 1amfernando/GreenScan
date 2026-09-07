@@ -28,7 +28,8 @@ const ALLOWED_ORIGINS = [
 function corsHeaders(origin: string | null): Record<string, string> {
   let allowed = "https://green-scan.ch"; // default = kanonische Domain
   if (origin) {
-    if (ALLOWED_ORIGINS.includes(origin) || /\.pages\.dev$/.test(origin) ||
+    // v32.72 (Audit A10): nicht JEDE *.pages.dev-Seite, nur die eigenen Previews.
+    if (ALLOWED_ORIGINS.includes(origin) || /^https:\/\/[a-z0-9-]+\.greenscan-app\.pages\.dev$/i.test(origin) ||
         /^http:\/\/localhost(:\d+)?$/.test(origin) ||
         /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
       allowed = origin;

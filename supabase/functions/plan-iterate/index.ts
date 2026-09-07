@@ -99,8 +99,15 @@ Deno.serve(async (req) => {
       },
     ];
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    // v32.72 (Audit B2): der Client wartete 60 s (Garten-Scan) bzw. 30 s (Plan-Chat), der
+    // Server rechnete bis 8000 Tokens ohne Abbruch weiter und speicherte den Plan trotzdem —
+    // der Nutzer sah „Zeitueberschreitung", startete neu, zahlte doppelt und hatte zwei Plaene.
+    // Jetzt bricht der Server nach 110 s ab (Edge-Function-Limit 150 s), der Client wartet 120 s.
+    let anthropicRes: Response;
+    try {
+      anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: AbortSignal.timeout(110_000),
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
@@ -113,6 +120,12 @@ Deno.serve(async (req) => {
         messages,
       }),
     });
+    } catch (e) {
+      const zuLang = e && (e.name === "TimeoutError" || e.name === "AbortError");
+      return new Response(JSON.stringify({ error: { code: zuLang ? "timeout" : "upstream", message: zuLang
+        ? "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — bitte mit weniger Fotos oder kuerzerem Horizont erneut versuchen."
+        : ("Verbindung zur KI fehlgeschlagen: " + String((e && e.message) || e).slice(0, 120)) } }), { status: zuLang ? 504 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.text();

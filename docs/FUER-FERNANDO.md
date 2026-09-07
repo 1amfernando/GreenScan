@@ -419,6 +419,47 @@ in einem Nicht-Admin-Konto zeigt die Konsole nach
 `localStorage.setItem('gs_feat_aiproxy','0')` in der Konsole schickt dieses
 Gerät wieder direkt an Anthropic. Danach entferne ich Schalter und Rückfall.
 
+## 9 · Neun Edge-Functions neu ausliefern (Audit A10, B2 — v32.72)
+
+Alles im Repo, nichts davon läuft, bis du es auslieferst. Ein Aufruf je Zeile,
+Reihenfolge egal; die geteilte Datei `_shared/auth_vergleich.mjs` bündelt die
+CLI automatisch mit.
+
+```bash
+supabase functions deploy daily-push-checker
+supabase functions deploy engagement-push-checker
+supabase functions deploy key-health-check
+supabase functions deploy sensor-push
+supabase functions deploy weather-alert-checker
+supabase functions deploy feedback-triage
+supabase functions deploy ai-proxy
+supabase functions deploy garden-scan-analyze
+supabase functions deploy plan-iterate
+```
+
+**Was sich ändert:**
+
+- Die fünf Cron-Empfänger prüfen den Service-Schlüssel konstantzeitig über
+  ein gemeinsames Modul — vorher `includes()`, ein Teilstring-Vergleich, den
+  `send-push` seit v30.87 richtig hatte, als Kopie, die die anderen nie bekamen.
+  Für die Crons ändert sich nichts: `x-cron-secret` wie bisher.
+- `feedback-triage` lässt nur noch Admins (`profiles.is_admin` oder die
+  E-Mail-Liste) die KI-Triage starten — vorher genügte `is_expert`.
+- `ai-proxy` erlaubt als Herkunft nur noch `green-scan.ch`, `greenscan.ch`,
+  `*.greenscan-app.pages.dev` und localhost — vorher jede `*.pages.dev`.
+  Und die Modell-Liste kennt `claude-sonnet-4-6` (§8).
+- `garden-scan-analyze` und `plan-iterate` brechen die KI-Anfrage nach
+  110 Sekunden ab (Antwort 504, nichts gespeichert). Die App wartet seit
+  v32.72 120 Sekunden und sagt bei einem Timeout, dass der Plan vielleicht
+  noch fertig wird. Vorher: Client 60 bzw. 30 Sekunden, Server rechnete bis
+  14'000 Tokens weiter und speicherte den Plan trotzdem — zwei Pläne, doppelte
+  Kosten.
+
+**Danach prüfen:** ein Push-Test aus den Einstellungen kommt an (`send-push`
+ist unverändert); im Admin-Panel „KI-Triage" läuft für dich weiter; ein
+Garten-Scan mit drei Fotos und Horizont 3 Jahre kommt in unter zwei Minuten
+zurück oder sagt sauber „Timeout".
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

@@ -13,6 +13,7 @@
 // verify_jwt=false; Custom-Auth via x-cron-secret (app_settings.push_cron_secret) ODER service-role.
 // Prüft den globalen Key gegen Anthropic /v1/models und schreibt Status in app_status.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { cronOderService } from "../_shared/auth_vergleich.mjs";
 
 Deno.serve(async (req: Request) => {
   const json = (o: unknown, status = 200) =>
@@ -25,10 +26,8 @@ Deno.serve(async (req: Request) => {
     // ── Auth: x-cron-secret ODER service-role-Bearer ──
     const { data: secretRow } = await sb.from('app_settings').select('value').eq('key', 'push_cron_secret').maybeSingle();
     const expected = (secretRow?.value || '').trim();
-    const gotSecret = (req.headers.get('x-cron-secret') || '').trim();
-    const auth = req.headers.get('Authorization') || '';
-    const isServiceRole = !!serviceKey && auth.includes(serviceKey);
-    if (!isServiceRole && (!expected || gotSecret !== expected)) {
+    // v32.72 (Audit A10): konstantzeitig, ein Modul — vorher `auth.includes(serviceKey)` und `!==` fuer das Cron-Geheimnis.
+    if (!cronOderService(req, expected, serviceKey)) {
       return json({ error: 'forbidden' }, 403);
     }
 

@@ -4,13 +4,51 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.71` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.72` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fl) — v32.72: Service Worker 413 KB leichter, Schlüsselvergleich in einem Modul, Timeouts abgestimmt — Audit C3, A10 (Server), B2
+
+- **C3** `sw.js` trug 342 Changelog-Zeilen als Kopfkommentar — **413 KB**, ein
+  drittes Changelog neben `GS_RELEASES` und `data/releases.v1.js`, das jedes
+  Gerät bei jedem Update lud. Jetzt `docs/_archiv/SW-CHANGELOG.md`; `sw.js`
+  ist 21 KB. Der Kopf behält Name, Strategien und den Verweis.
+- **A10 (Server)** `supabase/functions/_shared/auth_vergleich.mjs`
+  (`constantTimeEquals`, `bearerToken`, `hatServiceRole`, `cronOderService`)
+  — reines ESM wie `ingest_regeln.mjs`, von Deno und Node ladbar. Die fünf
+  Cron-Empfänger (`daily-push-checker`, `engagement-push-checker`,
+  `key-health-check`, `sensor-push`, `weather-alert-checker`) prüfen den
+  Service-Schlüssel damit statt mit `authHdr.includes(SERVICE_ROLE)` — ein
+  Teilstring-Vergleich, den `send-push` seit v30.87 richtig hatte, als Kopie,
+  die die anderen nie bekamen. `feedback-triage`: `is_expert` → `is_admin`,
+  `body.id` nur als UUID in den Filter. `ai-proxy`: CORS nur noch
+  `*.greenscan-app.pages.dev` statt jeder `*.pages.dev`.
+- **B2** `garden-scan-analyze` und `plan-iterate`: `AbortSignal.timeout(110_000)`
+  am Anthropic-Aufruf, bei Abbruch 504 `{code:'timeout'}` und kein Insert —
+  vorher rechnete der Server bis 14'000/8'000 Tokens weiter und speicherte den
+  Plan, während der Client nach 60/30 s „Zeitüberschreitung" zeigte (zwei
+  Pläne, doppelte Kosten). Client wartet 120 s; `_gsEdgeFehler` /
+  `_gsEdgeAusnahme` sind die eine Lesart für Fehler aus Edge-Functions: ein
+  `error`-String wird `{message}` (B9 — vorher „Unbekannter Fehler"), ein
+  Timeout heisst „Der Server rechnet vielleicht noch — bitte unter
+  „Gespeicherte Pläne" nachsehen, bevor du es erneut startest".
+
+`robust_check` +3 (sw.js < 60 KB ohne Einträge, Archiv > 300; 13 Rechnungen
+des Vergleichsmoduls inkl. Teilstring-, Präfix- und leer/leer-Fall, fünf
+Importe, 0× `includes`, Triage `is_admin` + UUID, Proxy-CORS; Server 110 s +
+504, Client 120 s ×2, sechs Fehlerformen), 11/11. Regression v32.71 →
+v32.72: siehe PR. **Nicht ausgeliefert:** neun Edge-Functions —
+`docs/FUER-FERNANDO.md` §9.
+
+Eine Regel: **eine richtige Lösung, die als Kopie existiert, ist an jeder
+anderen Stelle noch falsch.** `send-push` hatte den Vergleich seit Juni;
+vier Schwestern nicht. Was mehr als einmal gebraucht wird, liegt in
+`_shared/` — und der Prüfstand zählt die Importe.
 
 ### 2026-09-07 (fk) — v32.71: keine IP-Ortung, Fehlerberichte nur mit Zustimmung, strengere CSP — Audit A8, A9, B7, C1, B9, E7
 
@@ -9439,7 +9477,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.71` (Client) · SW-Cache `gs-v32.71` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.72` (Client) · SW-Cache `gs-v32.72` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **93'037 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
@@ -9452,6 +9490,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **Neun Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `key-health-check`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `ai-proxy`, `garden-scan-analyze`, `plan-iterate`) | Audit A10/B2: konstantzeitiger Schlüsselvergleich über `_shared/auth_vergleich.mjs`, Triage nur Admins, CORS eng, 110-s-Abbruch. Im Repo, nicht ausgeliefert. | `docs/FUER-FERNANDO.md` §9 · (fl) |
 | **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
