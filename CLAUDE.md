@@ -105,7 +105,7 @@ GreenScan/
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'342 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push)
 ├── supabase/functions/  # ~30 Edge-Functions (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-├── supabase/migrations/ # 195 SQL-Migrationen (alle idempotent)
+├── supabase/migrations/ # 214 SQL-Migrationen (alle idempotent)
 ├── manifest.json        # PWA-Manifest (share_target, file_handlers, etc.)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -542,6 +542,7 @@ node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor e
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
+node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -874,6 +875,52 @@ ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
 der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
 Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
 erst nach der Bestätigung umgestellt.
+
+**`quiz_check.js` (seit v32.65) ist der erste Prüfstand, der SQL wirklich
+AUSFÜHRT.** Anlass war Fernandos Satz „die Rangliste sieht aus wie die
+letzten Tage, obwohl ich die Antwort mehrmals richtig hatte". Live gemessen:
+seit v30.95 entscheidet ein Trigger auf `quiz_answers` über `is_correct` —
+und er las `options -> idx ->> 'is_correct'`, das Array-Format, **5 von 203
+Fragen**. 138 Fragen sind `{answers, correct}` (so schreibt sie
+`knowledge-bulk-gen`), 60 `{choices, correct}`; dort galt vom 01. bis 07.09.
+JEDE Antwort als falsch, während der Client „Richtig!" zeigte — er kennt alle
+drei Formate seit v30.32 (`_gsQuizToSupaShape`). **Zwei Regeln für dieselbe
+Frage, fünf Tage auseinander gebaut, und nur eine hatte die Formate
+gelernt.** `naht_check` fragt Spalten; was IN einer jsonb-Spalte steht, fragt
+niemand — jetzt fragt es dieser.
+
+Er braucht ein lokales Postgres (`bash scripts/_pg_local.sh start`, Wegwerf-
+Cluster unter `/var/lib/postgresql`, Port 54329, nur 127.0.0.1) und spielt
+die Geschichte nach: Fixture → `20260826` (v30.80, Rangliste aus
+`quiz_answers`) → `20260831` (v30.95, der Fehler) → **Reproduktion** (die
+richtige Antwort im Generator-Format MUSS falsch sein, sonst misst der Rest
+nichts) → `20260907_quiz_antwort_formate.sql` → Nachrechnen, Rangliste,
+drei Formate, „nicht prüfbar" wird gesagt (`system_events`), CHECK weist ein
+viertes Format ab, Idempotenz, Jahres-Ranking, **Gegenprobe** (alte Regel
+wieder eingespielt → rot, Reparatur erneut → grün). Ohne Postgres meldet er
+die SQL-Hälfte als **nicht prüfbar** (Exit 2) — nie grün. Die App-Hälfte
+(Playwright) prüft, dass der DB-Index der Option vor dem Mischen gestempelt
+wird und mitreist, und dass die App seit v32.65 das Urteil des Servers
+LIEST (`return=representation`, `_dqServerUrteil`): Widerspruch und
+Nicht-Ankommen stehen sichtbar unter dem Ergebnis, Bestätigung und Dublette
+bleiben still.
+
+Drei Regeln daraus:
+
+- **Wer den Server entscheiden lässt, liest die Entscheidung.**
+  `Prefer: return=minimal` machte fünf Tage lang unsichtbar, dass der Server
+  jede Antwort verwarf — dieselbe Klasse wie in `versprechen_check` (v32.28),
+  nur dass hier nicht ein Fehler, sondern ein URTEIL verschluckt wurde.
+- **Eine SQL-Regel, die man nicht ausführt, hat man nicht geprüft.** v30.95
+  kam mit `node --check` für die Inline-Skripte und „Signaturen gegen die
+  Live-DB geprüft" — die Rechnung selbst lief nie gegen eine Zeile im
+  Generator-Format. Postgres ist hier installiert; wer eine Migration mit
+  Rechnung schreibt, lässt sie in `quiz_check` (oder einem Geschwister) laufen.
+- **`bool::text` ist `true`, `bool` allein ist `t`.** Drei SQL-Fälle waren im
+  ersten Lauf rot, weil `is_correct||'|'||…` anders aussieht als
+  `select is_correct` — Prüfstand-Artefakt, nicht die Sache. Und
+  `closeDailyQuiz` blendet 200 ms VERZÖGERT aus: wer sofort wieder öffnet,
+  misst ein Fenster, das gleich wieder verschwindet (`getClientRects` leer).
 
 **`naht_check.js` (seit 06.09.2026) fragt, ob die vier Teile der
 Sensor-Kette dieselben Spalten meinen.** App, Empfänger (`device-ingest`),

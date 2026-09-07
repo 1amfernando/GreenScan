@@ -331,6 +331,56 @@ ist: der alte ESP32-Assistent („📶 Sensoren & Geräte") lässt Nutzer ihr
 auf einem Chip, und es läuft nach einer Stunde ab. Idee 1 in §11 schlägt
 vor, ihn auf „Messwerte" umzuleiten — sag Ja, dann mache ich es.
 
+## 7 · Migration `20260907_quiz_antwort_formate.sql` — die Quiz-Rangliste zählt wieder
+
+Deine Meldung vom 07.09.: „Die Rangliste aktualisiert nicht, obwohl ich die
+Antwort mehrmals richtig hatte." Stimmt, und zwar für alle. Seit du am
+01.09. die Migration v30.95 eingespielt hast, entscheidet der Server, ob eine
+Antwort richtig ist — und er kannte **nur eines von drei Frageformaten**
+(5 von 203 Fragen). Bei den anderen 198 galt seither jede Antwort als
+falsch, auch deine richtigen vom 04.09. (Schlehe) und 05.09. (Pestwurz).
+Die App zeigte trotzdem „Richtig!", weil sie alle drei Formate kennt und
+das Urteil des Servers nie las. Alles nachgemessen, nur lesend, in
+`STATUS.md` (fe).
+
+**Was die Migration tut** (idempotent, zwei Transaktionen):
+
+1. Eine Funktion `fn_quiz_option_correct`, die alle drei Formate liest.
+   Trigger und Jahres-Ranking (das 1 Jahr Pro für die Top 3) rufen sie.
+2. Alle Antworten mit Index werden nachgerechnet. Erwartung aus meiner
+   Lese-Messung: **5 Zeilen kippen auf richtig** — 2 bei dir, 1 bei „fra",
+   2 bei „Jasmin" — keine auf falsch. Die 24 Altzeilen ohne Index bleiben.
+3. Die Rangliste wird nachgezogen: du 6 → **8** richtig, „fra" 5 → 6,
+   „Jasmin" bleibt 4 (ihre Zeile trägt noch alte Client-Zahlen, die höher
+   sind als die Zählung — die Regel „kein Rückschritt" gilt weiter).
+4. Zweiter Block: ein CHECK auf `daily_quizzes`, dass jede neue Frage in
+   einem lesbaren Format steht. Alle 203 bestehenden erfüllen ihn. Scheitert
+   dieser Block trotzdem, bleibt Teil 1–3 angewandt.
+
+Geprüft in einem lokalen Postgres 16 (`node scripts/quiz_check.js`, 13
+Fälle): erst der Fehler nachgespielt, dann die Reparatur, dann die alte
+Regel wieder eingespielt — rot. **Nicht** geprüft: RLS und Rollen der
+Live-DB; die Migration fasst beides nicht an.
+
+**So geht es:** Supabase → SQL Editor → Datei einfügen → Run. Oder in
+`scripts/apply_pending_v30_87.sh` aufnehmen. Kein Frontend-Deploy nötig
+davor; v32.65 (die App liest das Server-Urteil zurück) kann vorher oder
+nachher live gehen.
+
+**Danach prüfen** (nur lesend):
+
+```sql
+select user_id, total_correct, total_attempts, updated_at
+  from public.quiz_leaderboard order by total_correct desc;        -- du: 8/18
+select count(*) filter (where is_correct), count(*)
+  from public.quiz_answers where created_at >= '2026-09-02';        -- 3 von 7 (vorher 0 von 7)
+select * from public.system_events where source = 'quiz';           -- leer, solange kein viertes Format kommt
+```
+
+Und dann einmal das Quiz spielen: unter dem Ergebnis darf **nichts** Orangefarbenes
+stehen. Steht dort „Der Server wertet diese Antwort als falsch", ist die
+Migration noch nicht drin — genau dafür ist die Zeile da.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

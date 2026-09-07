@@ -4,13 +4,93 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-06 · **Branch**: `main` · **Version**: `v32.64` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.65` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fe) — v32.65: Quiz-Rangliste — der Server kannte nur eines von drei Frageformaten
+
+Fernandos Meldung: „Die Rangliste des täglichen Quiz aktualisiert nicht,
+obwohl ich die Antwort mehrmals richtig hatte." Live gemessen, nur lesend:
+
+- `fn_quiz_answers_verify` (v30.95, angewandt am 01.09. zwischen 07:13 und
+  18:48 UTC — die letzte richtige Antwort davor, die erste falsche danach)
+  liest `options -> idx ->> 'is_correct'`: das Array-Format, **5 von 203
+  Fragen**. 138 sind `{answers, correct}` (so schreibt es
+  `knowledge-bulk-gen`), 60 `{choices, correct}`. Bei einem Objekt liefert
+  `-> <int>` NULL, COALESCE macht daraus false.
+- Seit dem 02.09. **jede** Antwort aller Nutzer false (7 von 7). Am 04.09.
+  wählten drei Personen bei „Schlehe" dieselbe Option 1 = `correct` 1 —
+  alle drei stehen als falsch. Fernandos richtige Antworten vom 04. und
+  05.09. ebenso; seine Zeile: 6/18 statt 8/18.
+- Der Client zeigte „🎉 Richtig!" — er kennt alle drei Formate seit v30.32
+  (`_gsQuizToSupaShape`) und las mit `Prefer: return=minimal` nie, was der
+  Server daraus machte. **Zwei Regeln für dieselbe Frage, fünf Tage
+  auseinander gebaut, nur eine hatte die Formate gelernt.**
+- `fn_grant_quiz_top3_pro` (1 Jahr Pro, Cron 31.12.) zählt mit derselben
+  Ableitung — hätte mit 5 von 203 Fragen gerankt.
+
+Repariert — die Migration ist **nicht angewandt** (Fernando,
+`docs/FUER-FERNANDO.md` §7):
+
+- **`20260907_quiz_antwort_formate.sql`**: `fn_quiz_option_correct(options,
+  idx)` → true / false / NULL (nicht prüfbar), kennt alle drei Formate,
+  IMMUTABLE, wirft nie (`is_correct:"ja"` → false). Trigger und Jahres-
+  Ranking rufen sie. Nicht prüfbar → false **und** eine Zeile
+  `system_events(quiz / antwort_nicht_pruefbar)` — die Zeile, die den
+  Fehler am 02.09. statt am 07.09. gemeldet hätte. UPDATE datiert
+  `answered_on` nicht mehr um (vorher: jedes Nachrechnen hätte alles auf
+  heute gesetzt). Nachrechnen aller Antworten mit Index — Lese-Messung:
+  **5 Zeilen kippen auf richtig** (2 · 1 · 2), keine auf falsch, 0 nicht
+  prüfbar; die 24 Altzeilen ohne Index bleiben. Rangliste GREATEST (kein
+  Rückschritt, wie v26.72/v30.80). Zweiter Block, eigene Transaktion:
+  CHECK `daily_quizzes_options_format_chk` — alle 203 erfüllen ihn; ein
+  viertes Format scheitert künftig LAUT beim Einfügen.
+- **App (v32.65)**: `quiz_answers`-Insert mit `return=representation`;
+  `_dqServerUrteil(r, clientCorrect)` — drei Zustände: bestätigt (still),
+  widersprochen („⚠️ Der Server wertet diese Antwort als falsch — in der
+  Rangliste zählt sein Urteil, nicht die Anzeige hier"), nicht angekommen
+  („📵 … zählt sie deshalb nicht", mit Fehlertext). Dublette (0 Zeilen)
+  ist keiner davon. `serverUrteil` im Tages-Cache, `showDqResult` zeigt es
+  beim Wiederöffnen.
+- **Prüfstand 28: `scripts/quiz_check.js`** + `scripts/_pg_local.sh`
+  (Wegwerf-Postgres 16, Port 54329, nur 127.0.0.1). Spielt v30.80 → v30.95
+  → 20260907 nach: **Reproduktion** (richtige Antwort im Generator- und
+  Altbestand-Format false, Rangliste 2/4 — das Bild vom 04.09.), dann
+  Nachrechnen (true, xp, `answered_on` bleibt 04.09., Altzeile bleibt),
+  Rangliste 3/4 · 1/1 · 0/1, drei Formate neu, Index 9 → false + 1
+  system_event, 17 Funktionswerte, CHECK (`{"foo"}`, `correct:"1"`, `[]`
+  abgewiesen; A/B/C angenommen), Jahres-Ranking U1 3 · U3 2 · U2 1 →
+  granted 3, Idempotenz, **Gegenprobe** (alte Regel → false = rot, Reparatur
+  → true). App: DB-Index reist mit (gemischt `1230`, gesendet der DB-Index),
+  Urteil sichtbar / still / Dublette / Gegenrichtung, Wiederöffnen, Refresh
+  3× + Upsert-Push. **13/13.** Ohne Postgres: „nicht prüfbar", Exit 2.
+
+Zwei Regeln (auch in CLAUDE.md §7.1):
+
+- **Wer den Server entscheiden lässt, liest die Entscheidung.** Ein
+  `return=minimal` auf einem Weg, dessen Ergebnis der Server bestimmt, ist
+  ein verschlucktes Urteil.
+- **Eine SQL-Regel, die man nicht ausführt, hat man nicht geprüft.**
+  v30.95 wurde mit `node --check` und Signaturvergleich geliefert; die
+  Rechnung lief nie gegen eine Zeile im Generator-Format. Postgres ist in
+  der Umgebung installiert — seither gibt es den Prüfstand dafür.
+
+Nicht geändert: die 198 Fragen bleiben in ihrem Format (Client, View und
+Generator kennen alle drei); kanonisch wäre `{answers, correct}`.
+
+Nebenfund der Regression: `contrast_check` meldete im Mondkalender
+„Fruchttag" mit 3,79:1 im Dunkelmodus — `#bf360c` auf einer festen hellen
+Fläche, die im Dunkelmodus gedimmt wird (`#fff3e0` → `rgb(222,211,195)`).
+Welcher Mondtyp dran ist, hängt vom Datum ab; deshalb war die Stelle
+bisher nie im Bild (und „Blatttag" mit 3,4:1 auch heute nicht). Beide auf
+feste dunkle Schrift: frucht `#9a2b09`, blatt `#1b5e20` (7,0:1 hell, 5,3
+bzw. 5,2:1 dunkel, gerechnet). Regression v32.64 → v32.65: 21 Prüfstände
+grün, `GROESSE geaendert: 0`, Kontrast 0/0.
 
 ### 2026-09-06 (fd) — Bestandsaufnahme: was noch nicht professionell ist (nur Liste, kein Umbau)
 
@@ -9053,11 +9133,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.64` (Client) · SW-Cache `gs-v32.64` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.65` (Client) · SW-Cache `gs-v32.65` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
-- **Prüfstände:** **21** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.33: `einstellungen_check.js` (hält der Schalter, was er verspricht?) und seit v32.39 `tour_check.js` (zeigt die App-Tour auf etwas?).
+- **Frontend:** `index.html` **93'037 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **214 Migrationen** (8 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
+- **Prüfstände:** **27** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`).
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -9066,6 +9146,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. | (2026-08-31 y) |
 | `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
