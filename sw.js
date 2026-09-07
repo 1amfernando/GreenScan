@@ -344,7 +344,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v32.65';
+const VERSION = 'gs-v32.66';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -750,9 +750,18 @@ self.addEventListener('push', (event) => {
 });
 
 // ─── NOTIFICATION-CLICK ──────────────────────────────────────
+// v32.66 (Audit A4): die URL kommt aus der Push-Nutzlast. Wer pushen kann,
+// darf den vertrauten App-Tab nicht auf eine fremde Seite lenken — nur der
+// eigene Ursprung, alles andere (javascript:, https://fremd, //fremd) wird '/'.
+function swSafeUrl(u) {
+  try {
+    const x = new URL(String(u == null ? '/' : u), self.location.origin);
+    return x.origin === self.location.origin ? (x.pathname + x.search + x.hash) : '/';
+  } catch (_) { return '/'; }
+}
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/';
+  const url = swSafeUrl(event.notification.data && event.notification.data.url);
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {

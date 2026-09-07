@@ -247,6 +247,20 @@ GreenScan/
   ```
   Für reine Text-Inserts `textContent` bevorzugen. Für KI-Plan-Objekte:
   `gsSanitizeGardenPlan` / `gsSanitizePlannerPlan`.
+- **Seit v32.66 gibt es vier Helfer, und jeder hat GENAU einen Kontext**
+  (Audit A2–A4/A10, Prüfstand `escape_check`):
+  | Kontext | Helfer | Warum nicht der andere |
+  |---|---|---|
+  | Text oder Attributwert in HTML | `escHtml(s)` (kennt seit v32.66 auch `'`) | — |
+  | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
+  | Fragment, das Auszeichnung TRAGEN darf (Übersetzung mit `<br>`, Chat-Zeile mit `<strong>`) | `gsSanitizeHtml(html)` — Allowlist in einem `<template>` | `escHtml` zerstört die Auszeichnung, `innerHTML = fremd` führt sie aus |
+  | Adresse aus fremder Hand | `_gsSafeUrl(u)` für Bilder (https/data:image), `_gsSafeLink(l)` für Navigation (eigener Ursprung oder https), `swSafeUrl` im Service Worker (nur eigener Ursprung) | `javascript:` ist eine gültige URL |
+  `innerHTML = <etwas Fremdes>` ohne einen davon gibt es nicht mehr. Wer eine
+  neue Stelle baut, an der Text von ANDEREN ankommt (Community, `species`,
+  Mitteilungen aus SECURITY-DEFINER-Triggern, Übersetzungen, KI-Ausgaben,
+  Push-Nutzlasten), rendert sie einmal mit
+  `<img src=x onerror="window.__pwned=1">` in `escape_check` — der Fall ist
+  die Vorlage.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.
@@ -543,6 +557,7 @@ node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
+node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -875,6 +890,34 @@ ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
 der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
 Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
 erst nach der Bestätigung umgestellt.
+
+**`escape_check.js` (seit v32.66) fragt, ob Fremdtext als TEXT ankommt oder
+als CODE.** Erste Reparatur-Welle aus `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md`
+(§G Punkt 2: A2–A4 und der HTML-Teil von A10). Sieben Fälle, und jeder RENDERT
+wirklich — Feed, Artendetail einer Community-Art, Mitteilungs-Router,
+Service-Worker-Klick, Sanitizer an drei Stellen, Karte „Meine Funde" — mit
+einem Wert, der bei roher Einsetzung Code ausführen würde
+(`<img src=x onerror="window.__pwned=1">`, `' );alert(1);//`, `javascript:`).
+Gemessen werden ZWEI Dinge: `window.__pwned` bleibt unberührt, UND der Wert
+steht als sichtbarer Text da. Das Zweite ist das wichtigere: ein Escaper, der
+den Text verschluckt, wäre auch „sicher".
+
+Drei Dinge aus dem Bau:
+
+- **Die Gegenprobe gehört in den Fall.** `_gsOcStr` läuft mit sieben Werten
+  durch beide Parser (Apostroph, Anführungszeichen, Backslash, `&#39;`, Tag,
+  Zeilenumbruch, `&amp;`) — und derselbe Fall baut den Knopf einmal mit
+  `escHtml` allein und erwartet den Parser-Fehler. Bleibt der aus, misst der
+  Fall nichts. Gegen v32.65 als Ganzes: der Prüfstand wird rot, siehe STATUS (ff).
+- **`onerror` feuert nur, wenn das Bild wirklich fehlschlägt.** Die Prüfstände
+  brechen jede Nicht-`file:`-Anfrage ab; `src=x` löst zu `file:///…/x` auf und
+  scheitert — deshalb steht nach dem Rendern ein `setTimeout(…, 300)` VOR der
+  Messung von `__pwned`. Ohne das Warten wäre auch eine rohe Einsetzung grün.
+- **Ein Nebenfund, den nur ein Aufruf ohne Vorspiel findet:** `_communityPage`
+  war nie deklariert — eine implizite Globale, die der Feed-Lader anlegte.
+  `renderSocialFeed` direkt aufgerufen warf `ReferenceError`. Wer eine
+  Renderfunktion in einem Prüfstand ruft, ruft sie ohne den Weg, den die App
+  sonst davor geht — und sieht, was dieser Weg stillschweigend herstellt.
 
 **`quiz_check.js` (seit v32.65) ist der erste Prüfstand, der SQL wirklich
 AUSFÜHRT.** Anlass war Fernandos Satz „die Rangliste sieht aus wie die
