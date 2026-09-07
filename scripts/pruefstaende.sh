@@ -45,6 +45,7 @@ run escape       node scripts/escape_check.js
 run robust       node scripts/robust_check.js
 run quiz         node scripts/quiz_check.js
 run schluessel   node scripts/schluessel_check.js
+run nutzersicht  node scripts/nutzersicht_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js
   TAILN=14 run einstellungen node scripts/einstellungen_check.js

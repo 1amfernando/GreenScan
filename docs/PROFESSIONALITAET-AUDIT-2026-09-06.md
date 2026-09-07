@@ -35,7 +35,12 @@
 | D2 · 28 Prüfstände ohne CI, Playwright über Cloud-Pfad | ✅ v32.69 — `scripts/package.json`, `scripts/pruefstaende.sh`, `.github/workflows/pruefstaende.yml` (Postgres-Service) | erster Lauf auf dem nächsten PR |
 | D3 · Web-Root ist das Repo, 53 interne Dateien, kein `X-Robots-Tag` | ✅ v32.69 — 49 Dateien nach `docs/_archiv/`, `X-Robots-Tag: noindex` + `robots.txt` für docs/supabase/scripts/store; 404 ist auf Cloudflare Pages nicht erzwingbar | `_headers`, `robots.txt` |
 | D4 · drei Versionsnummern (install/offline/App), Sitemap ohne lastmod | ✅ v32.69 (Versionsnummern raus aus install/offline) · lastmod offen (eine gepflegte Zahl wäre falsch, eine ungepflegte auch) | — |
-| A5–A9, B2, B7–B9, C, E | offen | §G |
+| E2 · Lina antwortet immer Deutsch, nennt Tabs, die es nicht gibt | ✅ v32.70 — Sprache aus `gsI18n.getLang()` im Kontext; Wege über „Mehr" | `nutzersicht_check` Fall 3 |
+| E3 · Menü-Zahlen um das Vier- bis Zehnfache daneben | ✅ v32.70 — aus der Artenliste gezählt (`_gsMenuSub`) | `nutzersicht_check` Fall 1 |
+| E4 · „Was ist neu" verschluckt die fetten Labels | ✅ v32.70 — Dialog und Über-Liste rendern `bold` + `text` | `nutzersicht_check` Fall 2 |
+| E5 · Entwickler-Jargon auf Nutzerseiten | ✅ v32.70 — „Cowork pg_cron", „Super-Agent", „24h-Lock", „Supabase nicht verfügbar" (×8), „gequeued", „anfaellig fuer" raus | `nutzersicht_check` Fall 4 |
+| E8 · Kompakt + Senioren gleichzeitig; Menü-Emojis ohne `aria-hidden` | ✅ v32.70 (beides) · Einheiten-Abstand und „—"-Leerzustände offen | `nutzersicht_check` Fall 5 |
+| A5–A9, B2, B7–B9, C, E1, E6, E7 | offen | §G |
 
 ## Zahlen zuerst
 

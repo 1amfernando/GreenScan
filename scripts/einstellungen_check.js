@@ -281,13 +281,16 @@ const melde = (frage, ok, wie) => {
       showMoon: nach.showMoon,
       verschachtelt: Object.prototype.hasOwnProperty.call(nach, 'prefs'),
       // Und WIRKT es? Der Server sagte showMoon:false — das Widget muss weg,
-      // und `compact`/`senior` müssen am body bleiben, weil der Server sie
-      // gar nicht kennt.
+      // und was der Server nicht kennt, bleibt: seit v32.70 (Audit E8)
+      // schliessen sich Kompakt und Senioren aus — bei beiden gespeichert
+      // gewinnt Senioren am body, Kompakt geht aus. Vorher stand hier
+      // „compact bleibt", was mit beiden Klassen zugleich gar nicht mehr geht.
       moonWeg: (function () {
         var m = document.getElementById('moon-widget');
         return m ? m.style.display === 'none' : null;
       })(),
       bodyCompact: document.body.classList.contains('compact'),
+      bodySenior: document.body.classList.contains('senior'),
     };
 
     // ── 10 · Melden sich die drei stillen Schalter beim Server? ──────────
@@ -742,10 +745,10 @@ const melde = (frage, ok, wie) => {
       : JSON.stringify(PU) + ' — die Serverzeile kennt nur die Spalten, die je gepusht wurden; '
         + 'ein Pull, der ersetzt, ist ein Rückschnitt auf das, was der Server zufällig kennt');
 
-  const wirktOk = PU && PU.moonWeg === true && PU.bodyCompact === true;
+  const wirktOk = PU && PU.moonWeg === true && PU.bodySenior === true && PU.bodyCompact === false;
   melde('Was der Pull zurückholt, wirkt auch auf dem Bildschirm', wirktOk,
-    wirktOk ? 'Server sagte showMoon:false → Mondwidget weg · compact bleibt am body (Server kennt es nicht)'
-      : JSON.stringify({ moonWeg: PU && PU.moonWeg, bodyCompact: PU && PU.bodyCompact })
+    wirktOk ? 'Server sagte showMoon:false → Mondwidget weg · senior bleibt am body (Server kennt es nicht), compact geht aus (schliessen sich seit v32.70 aus)'
+      : JSON.stringify({ moonWeg: PU && PU.moonWeg, bodySenior: PU && PU.bodySenior, bodyCompact: PU && PU.bodyCompact })
         + ' — der Pull schrieb nur Speicher und Variable; der Bildschirm sagte etwas anderes als der '
         + 'Speicher, und beim nächsten loadPrefs() sprang die Oberfläche ohne Anlass um');
 

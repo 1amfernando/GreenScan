@@ -581,6 +581,7 @@ node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig ha
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 node scripts/robust_check.js     # vier kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67)
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
+node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Genau das faehrt .github/workflows/pruefstaende.yml auf jedem PR — Playwright aus
 #   scripts/package.json (GS_PW), Postgres 16 als Service (GS_PG_URL). Ohne Postgres
@@ -917,6 +918,27 @@ ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
 der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
 Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
 erst nach der Bestätigung umgestellt.
+
+**`nutzersicht_check.js` (seit v32.70) fragt, was kein anderer fragt: sagt die
+App, was STIMMT, in der Sprache der Person?** (Audit E2–E5, E8.) Fünf Fälle,
+alle mit beiden Richtungen: die Menü-Zahlen kommen aus der Artenliste
+(`_gsMenuSub`, Eintrag mit `cat`; ohne `cat` bleibt der feste Text — vorher
+stand „252 Arten" bei 2'226); „Was ist neu" rendert `bold` UND `text` (der
+Dialog verschluckte das Label, sobald ein Text da war — und der war immer
+da; `gsShowWhatsNew` ist dafür nach aussen sichtbar, die Sperren bleiben);
+Lina bekommt die App-Sprache im Kontext (`SPRACHE: Antworte auf …`, aus
+`gsI18n.getLang()`, nicht im festen Prompt) und nennt keine Tabs, die es
+nicht gibt (die Leiste hat Scanner · Pflanzen · Home · Community · Mehr —
+alles andere ist „Mehr → …"); kein Entwickler-Jargon auf Nutzerseiten
+(Quelltext ohne Kommentare und ohne `GS_RELEASES`, sechs Muster); Kompakt
+und Senioren schliessen sich aus, Menü-Emojis tragen `aria-hidden`.
+
+Zwei Fallen aus dem Bau: **ein Dialog, der beim ersten Start nur stempelt**,
+zeigt im Prüfstand nichts — `gs_seen_version` muss auf eine ÄLTERE Version
+gestellt werden, nicht gelöscht. Und **eine Jargon-Suche findet ihre eigenen
+Release-Notizen**: dort steht der Jargon als Zitat dessen, was raus ist —
+der Block `GS_RELEASES` ist deshalb ausgenommen, Kommentare am Zeilenende
+ebenso.
 
 **Seit v32.69 kennt `versprechen_check` drei Dinge mehr** (Audit B4): die
 Stämme „gelöscht / entfernt / deaktiviert / umbenannt" (das Gegenteil eines

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.69.20260907">
+<meta name="app-version" content="32.70.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42282,7 +42282,7 @@ async function gsRunSoilRecommend() {
   if (box) box.innerHTML = '<div style="margin-top:14px;padding:14px;text-align:center;color:var(--muted);font-size:var(--fs-md);">⏳ Berechne Top-Empfehlungen…</div>';
 
   try {
-    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    if (typeof sbFetch !== 'function') throw new Error('Keine Verbindung zum Server');
     var r = await sbFetch('/rest/v1/soil_amendments?select=*&limit=50', { method: 'GET' });
     var rows = (r && Array.isArray(r.data)) ? r.data : [];
     if (!rows.length) {
@@ -43736,7 +43736,7 @@ async function gsForestLoad() {
   var fresh = window._gsForestCache && (now - window._gsForestCache.ts) < GS_FOREST_TTL_MS;
   if (!fresh) {
     if (typeof sbFetch !== 'function') {
-      listEl.innerHTML = '<div style="padding:24px;color:#bf360c;text-align:center;">Supabase nicht verfügbar.</div>';
+      listEl.innerHTML = '<div style="padding:24px;color:#bf360c;text-align:center;">Keine Verbindung zum Server.</div>';
       return;
     }
     try {
@@ -52154,7 +52154,7 @@ window.gsRenderBibliothek = async function() {
             || document.querySelector('.kb-loading');
   if (loadEl) loadEl.textContent = '📚 Lade Buch-Wissen aus der Cloud…';
   try {
-    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    if (typeof sbFetch !== 'function') throw new Error('Keine Verbindung zum Server');
     // Hole alle Buch-Imports + Stats parallel
     var p1 = sbFetch('/rest/v1/species?data->>source=eq.book_ingest&select=id,name,lat,fam,cat,emoji,description,habitat,season,uses,edible,tox,medicinal,warning,sources,data&order=name.asc&limit=500', {method:'GET'});
     var p2 = sbFetch('/rest/v1/v_species_stats?source=eq.book_ingest&select=*', {method:'GET'});
@@ -52382,7 +52382,7 @@ window.gsKnowledgeGlobalSearch = async function(query) {
   resEl.style.display = 'block';
   resEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:var(--fs-sm);">⏳ Suche läuft…</div>';
   try {
-    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    if (typeof sbFetch !== 'function') throw new Error('Keine Verbindung zum Server');
     // v26.94: bookmark-aware search2. Offline-Hook keyt auf Substring 'fn_knowledge_search' → Fallback bleibt aktiv.
     var r = await sbFetch('/rest/v1/rpc/fn_knowledge_search2', {
       method: 'POST',
@@ -52408,7 +52408,7 @@ window.gsKnRenderDiscover = async function(){
   resEl.style.display = 'block';
   resEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:var(--fs-sm);">⏳ Lädt…</div>';
   try {
-    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    if (typeof sbFetch !== 'function') throw new Error('Keine Verbindung zum Server');
     var r = await sbFetch('/rest/v1/rpc/fn_knowledge_recent', { method: 'POST', body: JSON.stringify({ p_limit: 8 }) });
     var rows = (r && r.data) || (Array.isArray(r) ? r : []);
     if (!Array.isArray(rows)) rows = [];
@@ -52428,7 +52428,7 @@ window.gsKnShowBookmarks = async function(){
   resEl.style.display = 'block';
   resEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:var(--fs-sm);">⏳ Lädt…</div>';
   try {
-    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    if (typeof sbFetch !== 'function') throw new Error('Keine Verbindung zum Server');
     var r = await sbFetch('/rest/v1/rpc/fn_knowledge_bookmarks_list', { method: 'POST', body: JSON.stringify({ p_limit: 50, p_offset: 0 }) });
     var rows = (r && r.data) || (Array.isArray(r) ? r : []);
     if (!Array.isArray(rows)) rows = [];
@@ -52655,7 +52655,7 @@ window.gsRenderWissenWave9 = async function(section) {
     if (cached && (Date.now() - cached.fetchedAt) < 10 * 60 * 1000) {
       rows = cached.rows;
     } else {
-      if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+      if (typeof sbFetch !== 'function') throw new Error('Keine Verbindung zum Server');
       var url = '/rest/v1/' + cfg.table + '?select=*&order=' + cfg.order + '&limit=200';
       var r = await sbFetch(url, { method: 'GET' });
       rows = (r && Array.isArray(r.data)) ? r.data : [];
@@ -53641,7 +53641,7 @@ window.gsRenderKnowledge = async function(section) {
   var cfg = configs[section];
   if (!cfg) { el.innerHTML = introHtml; return; }
   try {
-    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    if (typeof sbFetch !== 'function') throw new Error('Keine Verbindung zum Server');
     var url = '/rest/v1/' + cfg.table + '?' + cfg.filter + '&select=*&order=' + cfg.titleField + '.asc&limit=500';
     var r = await sbFetch(url, {method:'GET'});
     var rows = (r && r.data) || (Array.isArray(r) ? r : []);
@@ -54352,7 +54352,11 @@ function applyThemeColors(themeName, isDark) {
 
 // ── Compact Mode ──────────────────────────────────────────
 function applyCompact(isCompact, save = true) {
-  document.body.classList.toggle('compact', isCompact);
+  // v32.70 (Audit E8): Kompakt (kleiner) und Senioren (grösser) widersprechen
+  // sich — beides an ergab die Kompakt-Abstände mit Senioren-Schrift. Wer das
+  // eine einschaltet, schaltet das andere aus; die Vorgabe wird mitgezogen.
+  if (isCompact && (userPrefs.senior || document.body.classList.contains('senior'))) applySenior(false, save);
+  document.body.classList.toggle('compact', !!isCompact);
   if (save) {
     userPrefs.compact = isCompact;
     savePrefs();
@@ -54370,6 +54374,7 @@ function applyCompact(isCompact, save = true) {
 
 // v28.19: Senior-Modus (Accessibility — grössere Schrift/Targets/Kontrast)
 function applySenior(isSenior, save = true) {
+  if (isSenior && (userPrefs.compact || document.body.classList.contains('compact'))) applyCompact(false, save);   // v32.70 (Audit E8)
   document.body.classList.toggle('senior', !!isSenior);
   if (save) {
     userPrefs.senior = !!isSenior;
@@ -54973,6 +54978,21 @@ async function submitInlinePost() {
 }
 
 // MENÜ-SUCHE (Intelligent, keine KI nötig)
+// v32.70 (Audit E3): die Zahlen in der Menü-Liste standen fest im Code —
+// „252 Arten" bei 2'226 Wildpflanzen, Pilze 205 bei 641, Kräuter 184 bei 388,
+// Bäume 159 bei 431, Hauspflanzen 70 bei 286 (Faktor vier bis zehn daneben).
+// Jetzt trägt der Eintrag die Kategorie (`cat`) und die Zahl wird beim Rendern
+// aus der Artenliste gezählt. `sub` bleibt der Rückfall, falls DB fehlt.
+function _gsMenuSub(item){
+  try {
+    if (item && item.cat && typeof DB !== 'undefined' && Array.isArray(DB)) {
+      var n = 0; for (var i = 0; i < DB.length; i++) if (DB[i] && DB[i].cat === item.cat) n++;
+      if (n) return n.toLocaleString('de-CH') + ' Arten';
+    }
+  } catch(_){}
+  return (item && item.sub) || '';
+}
+window._gsMenuSub = _gsMenuSub;
 const MENU_ITEMS = [
   // Navigation
   // v31.70: Die sieben Eintraege der Gruppe „Wissen & Werkzeuge" aus
@@ -55018,18 +55038,18 @@ const MENU_ITEMS = [
   {label:'🌙 Nachtmodus', sub:'Hell/Dunkel umschalten', action:"toggleDark()", tags:['dunkel','hell','dark mode','nacht','night']},
   {label:'📤 Daten exportieren', sub:'Backup erstellen', action:"exportUserData()", tags:['backup','export','sichern','daten']},
   // Plant categories
-  {label:'🌸 Wildpflanzen', sub:'252 Arten', action:"menuNav('search');setFilter('wildpflanze',null)", tags:['wildpflanze','wild','unkraut','wiesenblume']},
-  {label:'🍄 Pilze', sub:'205 Arten', action:"menuNav('search');setFilter('pilz',null)", tags:['pilz','fungi','champignon','steinpilz']},
-  {label:'🌿 Kräuter', sub:'184 Arten', action:"menuNav('search');setFilter('kraut',null)", tags:['kraut','kräuter','gewürz','würzen','basilikum']},
-  {label:'🌲 Bäume', sub:'159 Arten', action:"menuNav('search');setFilter('baum',null)", tags:['baum','strauch','wald','holz','bäume']},
-  {label:'🪴 Hauspflanzen', sub:'70 Arten', action:"menuNav('search');setFilter('hauspflanze',null)", tags:['hauspflanze','zimmer','topf','indoor','zimmerpflanze']},
+  {label:'🌸 Wildpflanzen', cat:'wildpflanze', sub:'Arten', action:"menuNav('search');setFilter('wildpflanze',null)", tags:['wildpflanze','wild','unkraut','wiesenblume']},
+  {label:'🍄 Pilze', cat:'pilz', sub:'Arten', action:"menuNav('search');setFilter('pilz',null)", tags:['pilz','fungi','champignon','steinpilz']},
+  {label:'🌿 Kräuter', cat:'kraut', sub:'Arten', action:"menuNav('search');setFilter('kraut',null)", tags:['kraut','kräuter','gewürz','würzen','basilikum']},
+  {label:'🌲 Bäume', cat:'baum', sub:'Arten', action:"menuNav('search');setFilter('baum',null)", tags:['baum','strauch','wald','holz','bäume']},
+  {label:'🪴 Hauspflanzen', cat:'hauspflanze', sub:'Arten', action:"menuNav('search');setFilter('hauspflanze',null)", tags:['hauspflanze','zimmer','topf','indoor','zimmerpflanze']},
   // Specific topics
   {label:'⚠️ Giftige Pflanzen', sub:'Gefährliche Arten', action:"menuNav('search');document.getElementById('search-input').value='giftig';doSearch()", tags:['giftig','gefährlich','vergiftung','toxic']},
   {label:'🍽️ Essbare Pflanzen', sub:'Essbare Wildpflanzen', action:"menuNav('search');document.getElementById('search-input').value='essbar';doSearch()", tags:['essbar','essen','speisepilz','wildgemüse','sammeln']},
   {label:'💊 Heilpflanzen', sub:'Medizinische Arten', action:"menuNav('search');document.getElementById('search-input').value='heilpflanze';doSearch()", tags:['heilpflanze','medizin','tee','naturheilkunde','heilmittel']},
 
   // ── v23.53: neue Einträge + Feature-Discovery ──────────────────
-  {label:'🤖 KI-Gartenplaner PRO', sub:'Super-Agent mit Ernte-Prognose', action:"openGardenAI()", tags:['ki','agent','planer','garten','bepflanzung','plan','mischkultur','ernte','prognose','skizze','fläche']},
+  {label:'🤖 KI-Gartenplaner PRO', sub:'Bepflanzungsplan mit Ernte-Prognose', action:"openGardenAI()", tags:['ki','agent','planer','garten','bepflanzung','plan','mischkultur','ernte','prognose','skizze','fläche']},
   {label:'🌙 Mondkalender', sub:'Gartenarbeiten nach Mondphase', action:"openMoonCalendar()", tags:['mond','mondkalender','phase','säen','pflanzen','aussaat','vollmond','neumond']},
   // v31.48: sprang auf die Startseite und scrollte zu #bluehkalender-widget —
   // dieses Element gibt es nicht. Der Blühkalender liegt als Kachel „🌻 Blumen"
@@ -55039,7 +55059,7 @@ const MENU_ITEMS = [
   // v31.48: sprang auf „Meine Pflanzen" und tippte auf #tab-scans — den Reiter
   // gibt es dort nicht. Die Historie ist ein eigenes Fenster.
   {label:'📜 Scan-Historie', sub:'Deine letzten Scans', action:"openScanHistory()", tags:['historie','verlauf','letzte scans','history','archiv']},
-  {label:'🧠 Tages-Quiz', sub:'24h-Lock · täglich neu', action:"openDailyQuiz()", tags:['quiz','lernen','täglich','daily','challenge','wissen','punkte']},
+  {label:'🧠 Tages-Quiz', sub:'Eine Frage pro Tag', action:"openDailyQuiz()", tags:['quiz','lernen','täglich','daily','challenge','wissen','punkte']},
   {label:'💬 Feedback & Ideen', sub:'Uns helfen GreenScan zu verbessern', action:"menuNav('more')", tags:['feedback','idee','vorschlag','bug','melden','verbesserung','hilfe']},
   {label:'📚 Buch hochladen', sub:'Wissen aus Büchern einlesen (Experten)', action:"if(typeof openBookIngest==='function')openBookIngest();else gsToast('Buch-Upload nur für Experten-Accounts freigeschaltet.', 'info')", tags:['buch','pdf','scan','wissen','ocr','extrahieren','upload','bibliothek']},
   // v31.48: oeffnete den Lichtmesser und tippte nach 400ms auf
@@ -55098,9 +55118,9 @@ function searchMenu(query) {
   // Menu results
   scored.slice(0, 6).forEach(({item}) => {
     html += '<div class="menu-search-result" onclick="' + escAttr(item.action) + ';clearMenuSearch()">' +
-      '<span style="font-size:var(--fs-xl);">' + item.label.split(' ')[0] + '</span>' +
+      '<span style="font-size:var(--fs-xl);" aria-hidden="true">' + item.label.split(' ')[0] + '</span>' +   // v32.70 (Audit E8): Emoji ist Schmuck, kein Text
       '<div><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + item.label.substring(item.label.indexOf(' ')+1) + '</div>' +
-      '<div style="font-size:var(--fs-sm);color:var(--muted);">' + item.sub + '</div></div></div>';
+      '<div style="font-size:var(--fs-sm);color:var(--muted);">' + _gsMenuSub(item) + '</div></div></div>';
   });
   
   // DB results
@@ -55108,7 +55128,7 @@ function searchMenu(query) {
     html += '<div style="font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;color:var(--muted);padding:8px 10px 4px;letter-spacing:.4px;">🌿 Arten</div>';
     dbResults.filter(s=>s&&s.id).forEach(s => {
       html += '<div class="menu-search-result" onclick="closeMainMenu();openDetail(\'' + s.id + '\')">' +
-        '<span style="font-size:var(--fs-xl);">' + (s.emoji||'🌿') + '</span>' +
+        '<span style="font-size:var(--fs-xl);" aria-hidden="true">' + (s.emoji||'🌿') + '</span>' +
         '<div><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + escHtml(s.name) + '</div>' +
         '<div style="font-size:var(--fs-sm);color:var(--muted);">' + escHtml(s.lat||'') + ' · ' + escHtml(s.habitat||'') + '</div></div></div>';
     });
@@ -63423,7 +63443,7 @@ function gsPPrenderPlan(plan, data) {
 
   // Agent-Actions
   html += '<div class="pp-planbox" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border-left:3px solid #fff;">' +
-    '<h4 style="color:#fff;">🤖 Super-Agent aktiv</h4>' +
+    '<h4 style="color:#fff;">🤖 KI-Planer arbeitet</h4>' +
     '<div style="font-size:var(--fs-sm);opacity:.95;line-height:1.6;margin-bottom:10px;">Der KI-Agent verfolgt deinen Plan automatisch — er vergleicht Wetter + Sensor-Daten, schlägt Anpassungen vor und erinnert dich an wichtige Aufgaben.</div>' +
     '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
     '<button onclick="gsAgentRefinePlan()" style="padding:8px 12px;background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.5);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;">🔄 Plan anpassen</button>' +
@@ -67405,7 +67425,7 @@ async function gsTokenCostLoadToday() {
   if (!box) return;
   box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-size:var(--fs-md);">⏳ Lade heute…</div>';
   if (typeof sbFetch !== 'function') {
-    box.innerHTML = '<div style="padding:20px;color:#bf360c;text-align:center;">Supabase nicht verfügbar.</div>';
+    box.innerHTML = '<div style="padding:20px;color:#bf360c;text-align:center;">Keine Verbindung zum Server.</div>';
     return;
   }
   try {
@@ -69574,7 +69594,7 @@ function gsBuildBeeFriendlyModal(rows) {
       topPlantsHtml +
       '<div style="font-size:var(--fs-md);font-weight:900;color:var(--text);margin-bottom:8px;">🦋 Bestäuber im Detail</div>' +
       insectsList +
-      '<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:10px;line-height:1.5;">Daten via Cowork pg_cron · Wildbienen-Förderung in der Schweiz · revDSG-konform</div>' +
+      '<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:10px;line-height:1.5;">Daten werden täglich ergänzt · Wildbienen-Förderung in der Schweiz · revDSG-konform</div>' +
     '</div>' +
   '</div>';
 }
@@ -69724,7 +69744,7 @@ function gsBuildDiseaseModal(rows, query) {
     '<div style="padding:14px 16px 18px;">' +
       resultStatus +
       (rows.length ? cards : '<div style="text-align:center;padding:24px;color:var(--muted);font-size:var(--fs-sm);">Keine Treffer · alle ' + allCount + ' Krankheiten anzeigen?<br><button onclick="document.getElementById(\'disease-search-input\').value=\'\';gsDiseaseDoSearch()" style="margin-top:10px;padding:8px 16px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">Alle anzeigen</button></div>') +
-      '<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:14px;line-height:1.5;">Bei akuten Schäden: Foto-Pflanzendoktor öffnen für KI-Diagnose · Cowork pg_cron erweitert die DB taeglich</div>' +
+      '<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:14px;line-height:1.5;">Bei akuten Schäden: Foto-Pflanzendoktor öffnen für KI-Diagnose · Die Liste wird täglich ergänzt</div>' +
     '</div>' +
   '</div>';
 }
@@ -70070,7 +70090,7 @@ function gsBuildInsightsModal(data) {
   if (risk.plants_count > 0) {
     var issuesHtml = (risk.issues || []).slice(0, 5).map(function(r){
       var sevColor = (r.severity === 'high' || r.severity === 'hoch') ? '#d32f2f' : '#f57c00';
-      return '<li><strong>' + gsEscHtml(r.plant) + '</strong> — anfaellig fuer <span style="color:' + sevColor + ';font-weight:700;">' + gsEscHtml(r.disease) + '</span></li>';
+      return '<li><strong>' + gsEscHtml(r.plant) + '</strong> — anfällig für <span style="color:' + sevColor + ';font-weight:700;">' + gsEscHtml(r.disease) + '</span></li>';
     }).join('');
     riskBlock = '<div style="background:var(--bg-warn-soft);border:1.5px solid #f57c00;border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px;">' +
       '<div style="font-size:var(--fs-md);font-weight:900;color:#bf360c;margin-bottom:6px;">🦠 Mögliche Krankheits-Risiken</div>' +
@@ -70106,7 +70126,7 @@ function gsBuildInsightsModal(data) {
     c.pollinators + ' Bestäuber · ' +
     c.diseases + ' Krankheiten · ' +
     c.tasks + ' Saison-Tasks' +
-    '<br><span style="font-size:var(--fs-xs);">Cowork pg_cron erweitert die DB taeglich</span>' +
+    '<br><span style="font-size:var(--fs-xs);">Die Liste wird täglich ergänzt</span>' +
   '</div>';
 
   return '<div style="padding:0;">' +
@@ -74997,6 +75017,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.70', date: '07.09.2026',
+    headline: '🗣️ Lina spricht deine Sprache und kennt die Tabs — Menü-Zahlen stimmen, „Was ist neu" zeigt die fetten Labels',
+    summary: 'Audit E2–E5 und E8. Lina antwortete immer auf Deutsch und verwies auf Tabs „Garten", „Saison", „Suche", „Karte", „Marktplatz", die es in der Leiste nicht gibt — jetzt antwortet sie in der App-Sprache und beschreibt den Weg über „Mehr". Die Menü-Liste nannte „252 Arten" bei 2\'226 Wildpflanzen (und ähnlich bei Pilzen, Kräutern, Bäumen, Hauspflanzen); die Zahlen kommen jetzt aus der Artenliste. Der „Was ist neu"-Dialog verschluckte die fetten Labels, sobald ein Text da war. Entwickler-Jargon raus („Cowork pg_cron", „Super-Agent", „24h-Lock", „Supabase nicht verfügbar", „gequeued"). Menü-Emojis sind für Screenreader stumm, Kompakt-Ansicht und Senioren-Modus schliessen sich aus. Prüfstand nutzersicht_check.',
+    user_summary: '🗣️ Lina antwortet in deiner App-Sprache und kennt die Wege in der App; die Artenzahlen im Menü stimmen.',
+    user_items: [
+      {emoji:'🗣️', bold:'Lina:', text:' antwortet auf Französisch, Italienisch, Englisch oder Spanisch, wenn die App so eingestellt ist — und sagt „Mehr → Garten" statt „Tab Garten".'},
+      {emoji:'🔢', bold:'Menü:', text:' Wildpflanzen, Pilze, Kräuter, Bäume und Hauspflanzen nennen die echte Anzahl Arten.'},
+      {emoji:'👓', bold:'Ansicht:', text:' Kompakt-Ansicht und Senioren-Modus lassen sich nicht mehr gleichzeitig einschalten.'},
+    ],
+  },
+  {
     v: 'v32.69', date: '07.09.2026',
     headline: '🧾 Sieben Meldungen sagen jetzt, was der Server bestätigt hat — und die Prüfstände laufen auf jedem PR',
     summary: 'Audit B4 und D1–D4. „Inserat gelöscht", „Plan gelöscht", „Plan umbenannt", „gespeichert!", „Abgehakt", „Feed-Anzeige aktiviert" und „Push deaktiviert" standen vor oder neben Server-Aufrufen, deren Antwort niemand ansah; jetzt kommt die Meldung nach der Antwort und sagt „nur lokal", wenn der Server nicht bestätigt hat. Der Prüfstand versprechen_check kennt die Stämme gelöscht/entfernt/deaktiviert/umbenannt, findet Versprechen VOR dem Schreiben und die richtige umschliessende Funktion. Repo: github/ heisst jetzt .github/ (der Aufräum-Workflow lief nie), ein Workflow fährt alle Prüfstände auf jedem PR (scripts/package.json, Postgres als Service), 49 historische Dateien aus dem Wurzelverzeichnis liegen in docs/_archiv/, interne Pfade tragen X-Robots-Tag: noindex und stehen in robots.txt, install.html und offline.html nennen keine veraltete Versionsnummer mehr.',
@@ -75887,8 +75918,8 @@ function gsRenderAboutChangelog(){
       var techItems = Array.isArray(rel.items) ? rel.items : [];
       var hasTech = techItems.length > 0;
       var userListHtml = userItems.length
-        ? userItems.map(function(it){ return '<li>' + _e(it.emoji || '') + ' ' + _e(it.text || '') + '</li>'; }).join('')
-        : techItems.slice(0, 3).map(function(it){ return '<li>' + _e(it.emoji || '') + ' ' + _e(it.text || '') + '</li>'; }).join('');
+        ? userItems.map(function(it){ return '<li>' + _e(it.emoji || '') + ' ' + (it.bold ? '<b>' + _e(it.bold) + '</b>' : '') + _e(it.text || '') + '</li>'; }).join('')
+        : techItems.slice(0, 3).map(function(it){ return '<li>' + _e(it.emoji || '') + ' ' + (it.bold ? '<b>' + _e(it.bold) + '</b>' : '') + _e(it.text || '') + '</li>'; }).join('');   // v32.70 (Audit E4)
       var techListHtml = techItems.map(function(it){
         return '<li>' + _e(it.emoji || '') + ' <b>' + _e(it.bold || '') + '</b>' + _e(it.text || '') + '</li>';
       }).join('');
@@ -75939,7 +75970,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.69';
+var GS_VERSION = 'v32.70';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79927,6 +79958,9 @@ window.gsRenderGardenStats = function(){
 // Zeigt Release-Notes der aktuellen Version automatisch beim ersten Boot
 // nach einem Version-Bump. localStorage gs_seen_version verhindert Re-Show.
 (function _gsWhatsNewInit(){
+  // v32.70: nach aussen sichtbar — fuer den Pruefstand (nutzersicht_check, E4) und
+  // fuer ein spaeteres „Was ist neu" im Ueber-Dialog. Die Sperren bleiben drin.
+  window.gsShowWhatsNew = showWhatsNew;
   function showWhatsNew(){
     if (!Array.isArray(window.GS_RELEASES) || !window.GS_RELEASES.length) return;
     var release = window.GS_RELEASES[0];
@@ -79981,7 +80015,7 @@ window.gsRenderGardenStats = function(){
     var itemsHtml = displayItems.slice(0, 6).map(function(it){
       return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start;">' +
         '<div style="font-size:var(--fs-2xl);flex-shrink:0;line-height:1;">' + _e(it.emoji || '✨') + '</div>' +
-        '<div style="flex:1;font-size:var(--fs-md);line-height:1.5;color:var(--text);">' + _e(it.text || (it.bold ? (it.bold + ' ') : '')) + '</div>' +
+        '<div style="flex:1;font-size:var(--fs-md);line-height:1.5;color:var(--text);">' + (it.bold ? '<b>' + _e(it.bold) + '</b>' : '') + _e(it.text || '') + '</div>' +   // v32.70 (Audit E4): bold fiel weg, sobald text da war — und das war immer
       '</div>';
     }).join('');
     var techHtml = techItems.map(function(it){
@@ -84807,27 +84841,27 @@ window.gsClassDoAssignmentCreate = gsClassDoAssignmentCreate;
 // in callAI verdrahtet). System-Prompt verbietet jeglichen Verkaufsdruck explizit.
 var LINA_SYSTEM =
   'Du bist Lina — die herzliche Garten- und Natur-Coachin von GreenScan. Du hilfst Menschen, eine echte Verbindung zur Natur aufzubauen: Pflanzen pflegen, den Garten gestalten, Wildpflanzen, Kräuter & Pilze entdecken, Saisonales verstehen.\n\n' +
-  'DEIN WESEN: warm, ermutigend, geduldig, neugierig. Du antwortest auf Deutsch (Schweizer Kontext) in kurzen, klaren, freundlichen Absätzen. Du freust dich über jede Frage und urteilst nie.\n\n' +
+  'DEIN WESEN: warm, ermutigend, geduldig, neugierig. Du antwortest in der Sprache, die unter SPRACHE steht (Schweizer Kontext), in kurzen, klaren, freundlichen Absätzen. Du freust dich über jede Frage und urteilst nie.\n\n' +
   'DEINE MISSION (GreenScan-Grundwert): „Mensch und Natur verbinden — nicht geldgierig sein." Du bist für ALLE komplett KOSTENLOS da. Du fragst NIEMALS nach Geld, bewirbst KEIN Abo, nennst KEINE Preise und erwähnst Pro/Lifetime NICHT von dir aus. Du drängst zu gar nichts. Falls jemand nach Kosten fragt: sag einfach freundlich, dass du gratis bist, und komm sanft zur Natur-Frage zurück. Keine Werbung, kein Verkaufsdruck, keine künstliche Dringlichkeit.\n\n' +
   'FACHLICH: Botanik, Gartenbau, Kräuterkunde, Mykologie, Permakultur, Schweizer Standortkunde. Bei Giftigkeit/Essbarkeit bist du IMMER vorsichtig: weise auf sichere Bestimmung hin (im Zweifel nicht verzehren), nenne gefährliche Verwechslungsarten. Gib praktische, umsetzbare Tipps. Wenn du etwas nicht sicher weisst, sag es ehrlich.\n\n' +
   'STIL: kurze Absätze, gerne 1–3 konkrete Schritte, hier und da ein passendes 🌿 (nicht übertreiben). Stelle bei Bedarf EINE kurze Rückfrage, um besser helfen zu können.\n\n' +
   // v30.62: Lina kennt jetzt die App wie eine Coworkerin — App-Map aus den realen Navigations-Zielen.
   'ALS COWORKERIN: Du kennst GreenScan in- und auswendig und hilfst wie eine erfahrene Kollegin. Wenn jemand fragt WO etwas ist oder WIE etwas geht, erklärst du konkret den Weg in der App (welcher Tab / welcher Knopf) und gibst den passenden fachlichen Tipp dazu. Erfinde NIE einen Weg — wenn du einen genauen Knopf-Namen nicht sicher weisst, beschreibe grob den Bereich und sag, dass es dort zu finden ist.\n\n' +
-  'WAS GREENSCAN KANN (so findet man es):\n' +
+  'WAS GREENSCAN KANN (so findet man es): Die Leiste unten hat fünf Tabs — Scanner, Pflanzen, Home, Community, Mehr. Alles andere liegt hinter „Mehr" (unten rechts).\n' +
   '• Bestimmen (Pflanze/Pilz/Baum/Kraut per Foto): Tab „Scanner" (Kamera-Knopf unten). Pilze werden im selben Scanner erkannt.\n' +
   '• Meine Pflanzen (sammeln, Pflege, Giess-Erinnerungen, Tagebuch): Tab „Pflanzen".\n' +
   '• Scan-Historie früherer Bestimmungen: in „Pflanzen" der Unter-Tab „Scans".\n' +
-  '• Mein Garten (Beete, Ernte, Wetter, Frostwarnung): Tab „Garten".\n' +
+  '• Mein Garten (Beete, Ernte, Wetter, Frostwarnung): „Mehr" → „Garten".\n' +
   '• KI-Gartenplaner (Bepflanzungsplan, Ernte-Prognose): Knopf „KI-Gartenplaner" im Garten-Bereich.\n' +
-  '• Saisonkalender (was wann säen/ernten) + Saison-Pilze der Region: Tab „Saison" bzw. die Pilz-Karte auf der Startseite.\n' +
-  '• Arten-Suche (über 4300 Arten, Filter giftig/essbar/Heilpflanze): Tab „Suche".\n' +
-  '• Schweizer Karte, eigene Funde & Wanderungen: Tab „Karte".\n' +
+  '• Saisonkalender (was wann säen/ernten) + Saison-Pilze der Region: „Mehr" → „Saison" bzw. die Pilz-Karte auf der Startseite.\n' +
+  '• Arten-Suche (über 4300 Arten, Filter giftig/essbar/Heilpflanze): „Mehr" → „Suche" oder das Suchfeld im Menü.\n' +
+  '• Schweizer Karte, eigene Funde & Wanderungen: „Mehr" → „Karte".\n' +
   '• Tages-Quiz & Quiz-Battles: über die „Quiz"-Karte auf der Startseite.\n' +
   '• Community, Profile & Freunde: Tab „Community".\n' +
-  '• Marktplatz (Pflanzen tauschen/kaufen/verkaufen): Tab „Marktplatz".\n' +
+  '• Marktplatz (Pflanzen tauschen/kaufen/verkaufen): „Mehr" → „Marktplatz".\n' +
   '• Rezepte & Heilmittel aus Pflanzen: eigene Bereiche „Rezepte" und „Heilmittel".\n' +
   '• Gartenwissen & Lexikon zum Nachlesen: Bereich „Wissen".\n' +
-  '• Einstellungen (Sprache, Dark-Mode, Standort, Cloud-Backup, Meine Sammlungen, Speicher, Verbindung, Daten-Export): Tab „Einstellungen".\n' +
+  '• Einstellungen (Sprache, Dark-Mode, Standort, Cloud-Backup, Meine Sammlungen, Speicher, Verbindung, Daten-Export): „Mehr" → „Einstellungen".\n' +
   '• Lichtmessung für Standorte: Menü (⋯) → „Licht".\n\n' +
   'Pro & Lifetime existieren, aber du bewirbst sie NIE und bringst sie nur zur Sprache, wenn jemand ausdrücklich danach fragt — dann nennst du nüchtern die Fakten und kommst freundlich zur Natur zurück.\n\n' +
   // v30.69: Lina kann handeln (sicher per Whitelist + Nutzer-Bestätigung). Sie schlägt vor — der Nutzer bestätigt.
@@ -84890,6 +84924,13 @@ window.gsLinaZahlen = gsLinaZahlen;
 function gsLinaContext(){
   try {
     var ctx = '';
+    // v32.70 (Audit E2): Lina antwortete immer auf Deutsch — für jede App-Sprache.
+    // Die Sprache steht hier, nicht im festen Prompt, weil sie sich ändern kann.
+    try {
+      var _lg = (window.gsI18n && gsI18n.getLang) ? gsI18n.getLang() : 'de';
+      var _ln = ({de:'Deutsch', fr:'Französisch', it:'Italienisch', en:'Englisch', es:'Spanisch', gsw:'Deutsch'})[_lg] || 'Deutsch';
+      ctx += '\n\nSPRACHE: Antworte auf ' + _ln + '.';
+    } catch(_){}
     var plants = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.length : 0;
     var pflanzungen = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.length : 0;
     if (plants || pflanzungen) ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich): Die Person hat ' + plants + ' Pflanze(n)' + (pflanzungen ? ' und ' + pflanzungen + ' Garten-Pflanzung(en)' : '') + ' in GreenScan.';

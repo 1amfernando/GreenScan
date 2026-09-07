@@ -1,0 +1,161 @@
+#!/usr/bin/env node
+// nutzersicht_check.js — sagt die App, was stimmt, in der Sprache der Person?
+//
+//   node scripts/nutzersicht_check.js
+//
+// Anlass: docs/PROFESSIONALITAET-AUDIT-2026-09-06.md §E — Dinge, die kein
+// anderer Pruefstand fragt, weil sie nicht kaputt AUSSEHEN: eine Zahl im
+// Menue, die um das Neunfache daneben liegt (E3); ein Dialog, der die fetten
+// Labels verschluckt (E4); Entwickler-Jargon auf Nutzerseiten (E5); Lina, die
+// in jeder App-Sprache Deutsch antwortet und auf Tabs zeigt, die es nicht
+// gibt (E2); ein Emoji, das der Screenreader vorliest, und zwei Ansichten,
+// die sich widersprechen und trotzdem beide an sind (E8).
+// Jeder Fall rendert wirklich oder liest den Quelltext, und jeder hat beide
+// Richtungen: die richtige Zahl UND der Rueckfall, das Label UND der Text.
+'use strict';
+const path = require('path');
+const fs = require('fs');
+const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
+const SEED = require('./_seed.js');
+
+let __seite = null;
+const FAELLE = [
+  {
+    name: 'E3 · Menue-Zahlen kommen aus der Artenliste: fuenf Kategorien, jede gleich der Zaehlung; ohne Kategorie bleibt der feste Text',
+    lauf: async () => __seite.evaluate(() => {
+      const mit = MENU_ITEMS.filter(i => i.cat);
+      if (mit.length !== 5) return { ok: false, warum: mit.length + ' Eintraege mit cat (erwartet 5)' };
+      const falsch = [];
+      mit.forEach(i => {
+        const n = DB.filter(s => s && s.cat === i.cat).length;
+        const soll = n.toLocaleString('de-CH') + ' Arten';
+        if (_gsMenuSub(i) !== soll || n < 50) falsch.push(i.cat + ': ' + _gsMenuSub(i) + ' (gezaehlt ' + n + ')');
+      });
+      if (falsch.length) return { ok: false, warum: falsch.join(' · ') };
+      const ohne = MENU_ITEMS.find(i => !i.cat && i.sub);
+      if (_gsMenuSub(ohne) !== ohne.sub) return { ok: false, warum: 'ohne cat: ' + _gsMenuSub(ohne) + ' statt ' + ohne.sub };
+      // gerendert: die Menue-Suche nach „Pilze" zeigt die gezaehlte Zahl
+      const inp = document.getElementById('menu-search-input') || document.querySelector('#gs-menu-search, input[oninput*="enuSearch"]');
+      let gerendert = null;
+      try {
+        const fn = Object.keys(window).map(k => window[k]).find(f => typeof f === 'function' && /scored = MENU_ITEMS\.map/.test(String(f)));
+        if (fn) { fn('pilz'); const box = document.querySelector('.menu-search-result'); gerendert = box ? box.textContent : null; }
+      } catch (_) {}
+      const pilze = DB.filter(s => s && s.cat === 'pilz').length.toLocaleString('de-CH');
+      return { ok: true, info: mit.map(i => i.cat + ' ' + _gsMenuSub(i)).join(' · ') + (gerendert ? ' · gerendert: ' + (gerendert.indexOf(pilze) >= 0 ? 'Pilze ' + pilze + ' sichtbar' : 'ohne Zahl?') : '') };
+    }),
+  },
+  {
+    name: 'E4 · „Was ist neu" zeigt das fette Label UND den Text — in beiden Listen (Dialog und Ueber-Liste)',
+    lauf: async () => __seite.evaluate(() => {
+      const echt = window.GS_RELEASES;
+      try {
+        window.GS_RELEASES = [{ v: GS_VERSION, date: '07.09.2026', headline: 'Pruefstand', summary: 's', user_summary: 'u',
+          user_items: [{ emoji: '🧪', bold: 'Fettes Label:', text: ' und der Text dahinter' }] }];
+        const quellen = [];
+        // 1) Dialog-Renderer: die Funktion, die itemsHtml aus release.user_items baut
+        const fns = Object.keys(window).map(k => [k, window[k]]).filter(([, f]) => typeof f === 'function');
+        const dlg = fns.find(([, f]) => /user_items/.test(String(f)) && /techToggleHtml|gs-wn-tech-toggle/.test(String(f)));
+        // Erster Start stempelt nur und zeigt nichts — also eine AELTERE gesehene Version stellen, dann kommt der Dialog.
+        if (dlg) { try { localStorage.setItem('gs_seen_version', 'v0.0'); dlg[1](); } catch (e) { quellen.push('Dialog wirft: ' + e.message); } }
+        const el = Array.from(document.querySelectorAll('b')).find(b => b.textContent === 'Fettes Label:');
+        const dialogOk = !!(el && el.parentNode && /Fettes Label:\s*und der Text dahinter/.test(el.parentNode.textContent));
+        // 2) Ueber-Liste
+        const ueber = fns.find(([, f]) => /rel-tech-/.test(String(f)) && /gsAutoUserItems/.test(String(f)));
+        let listeOk = null;
+        if (ueber) { try { ueber[1](); const b2 = Array.from(document.querySelectorAll('li b')).find(b => b.textContent === 'Fettes Label:'); listeOk = !!(b2 && /und der Text dahinter/.test(b2.parentNode.textContent)); } catch (e) { quellen.push('Liste wirft: ' + e.message); } }
+        if (!dlg) return { ok: false, warum: 'Dialog-Renderer nicht gefunden' };
+        if (!dialogOk) return { ok: false, warum: 'Dialog: Label nicht fett oder Text fehlt (' + (el ? el.parentNode.textContent.slice(0, 60) : 'kein <b>') + ') ' + quellen.join(' ') };
+        if (listeOk === false) return { ok: false, warum: 'Ueber-Liste ohne fettes Label ' + quellen.join(' ') };
+        return { ok: true, info: 'Dialog: <b>Fettes Label:</b> und der Text dahinter · Ueber-Liste: ' + (listeOk === null ? 'nicht gefunden' : 'ebenso') };
+      } finally { window.GS_RELEASES = echt; try { document.querySelectorAll('#gs-whats-new-modal').forEach(e => e.remove()); localStorage.removeItem('gs_seen_version'); } catch (_) {} }
+    }),
+  },
+  {
+    name: 'E2 · Lina: Sprache der App im Kontext (de/fr/it/en/es), keine Tabs, die es nicht gibt, die fuenf echten benannt',
+    lauf: async () => __seite.evaluate(() => {
+      const echt = gsI18n.getLang;
+      try {
+        const erw = { de: 'Deutsch', fr: 'Französisch', it: 'Italienisch', en: 'Englisch', es: 'Spanisch' };
+        const falsch = [];
+        Object.keys(erw).forEach(l => { gsI18n.getLang = () => l; const c = gsLinaContext(); if (c.indexOf('SPRACHE: Antworte auf ' + erw[l] + '.') < 0) falsch.push(l + ' → ' + (c.match(/SPRACHE: [^\n]*/) || ['fehlt'])[0]); });
+        if (falsch.length) return { ok: false, warum: falsch.join(' · ') };
+        const p = LINA_SYSTEM;
+        const phantom = ['Tab „Garten"', 'Tab „Saison"', 'Tab „Suche"', 'Tab „Karte"', 'Tab „Marktplatz"', 'Tab „Einstellungen"', 'antwortest auf Deutsch'].filter(t => p.indexOf(t) >= 0);
+        if (phantom.length) return { ok: false, warum: 'noch im Prompt: ' + phantom.join(', ') };
+        const echte = ['Scanner', 'Pflanzen', 'Home', 'Community', 'Mehr'].filter(t => p.indexOf(t) < 0);
+        if (echte.length) return { ok: false, warum: 'Tab-Leiste nicht genannt: ' + echte.join(', ') };
+        if (!/„Mehr" → „Garten"/.test(p)) return { ok: false, warum: 'Weg zum Garten fehlt' };
+        return { ok: true, info: '5 Sprachen im Kontext · 0 Phantom-Tabs · Leiste Scanner/Pflanzen/Home/Community/Mehr genannt · „Mehr" → „Garten"' };
+      } finally { gsI18n.getLang = echt; }
+    }),
+  },
+  {
+    name: 'E5 · kein Entwickler-Jargon auf Nutzerseiten (Quelltext ohne Kommentare): Cowork pg_cron, Super-Agent aktiv, 24h-Lock, Supabase nicht verfuegbar, anfaellig fuer, gequeued',
+    lauf: async () => {
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').split('\n');
+      const off = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8').split('\n');
+      const muster = [/Cowork pg_cron/, /Super-Agent (aktiv|mit)/, /24h-Lock/, /Supabase nicht verf[uü]gbar/, /anfaellig fuer/, /gequeued/];
+      const treffer = [];
+      // Kommentare zaehlen nicht (auch nicht am Zeilenende), und die Release-Notizen
+      // (GS_RELEASES) sind Geschichte — dort steht der Jargon als Zitat dessen, was raus ist.
+      const relStart = idx.findIndex(z => /^window\.GS_RELEASES = \[/.test(z));
+      const relEnde = relStart >= 0 ? idx.findIndex((z, i) => i > relStart && /^\];/.test(z)) : -1;
+      const ohneKommentar = (z) => z.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/, '').replace(/([^:'"])\/\/.*$/, '$1');
+      const pruefe = (zeilen, datei) => zeilen.forEach((z, i) => {
+        if (datei === 'index.html' && relStart >= 0 && i >= relStart && i <= relEnde) return;
+        const t = ohneKommentar(z).trim(); if (!t || /^\*|^<!--/.test(t)) return;
+        muster.forEach(m => { if (m.test(t)) treffer.push(datei + ':' + (i + 1) + ' ' + m.source); }); });
+      pruefe(idx, 'index.html'); pruefe(off, 'offline.html');
+      if (treffer.length) return { ok: false, warum: treffer.slice(0, 6).join(' · ') };
+      return { ok: true, info: '6 Muster, 0 Treffer ausserhalb von Kommentaren' };
+    },
+  },
+  {
+    name: 'E8 · Kompakt und Senioren schliessen sich aus (in beide Richtungen, Vorgabe und Haekchen ziehen mit); Menue-Emojis sind fuer den Screenreader stumm',
+    lauf: async () => __seite.evaluate(async () => {
+      const echtSave = window.savePrefs, echtNach = window._gsPrefNachschieben; window.savePrefs = () => {}; window._gsPrefNachschieben = () => {};
+      try {
+        applyCompact(true); applySenior(true);
+        const a = { compact: document.body.classList.contains('compact'), senior: document.body.classList.contains('senior'), pc: !!userPrefs.compact, ps: !!userPrefs.senior, tc: document.getElementById('toggle-compact').checked, ts: document.getElementById('toggle-senior').checked };
+        applyCompact(true);
+        const b = { compact: document.body.classList.contains('compact'), senior: document.body.classList.contains('senior'), pc: !!userPrefs.compact, ps: !!userPrefs.senior };
+        applyCompact(false); applySenior(false);
+        if (a.compact || !a.senior || a.pc || !a.ps || a.tc || !a.ts) return { ok: false, warum: 'Senioren an → Kompakt bleibt: ' + JSON.stringify(a) };
+        if (!b.compact || b.senior || !b.pc || b.ps) return { ok: false, warum: 'Kompakt an → Senioren bleibt: ' + JSON.stringify(b) };
+        const fn = Object.keys(window).map(k => window[k]).find(f => typeof f === 'function' && /scored = MENU_ITEMS\.map/.test(String(f)));
+        let emoji = null;
+        if (fn) { fn('pilz'); const spans = Array.from(document.querySelectorAll('.menu-search-result > span')); emoji = { n: spans.length, stumm: spans.filter(s => s.getAttribute('aria-hidden') === 'true').length }; }
+        if (emoji && emoji.n && emoji.stumm !== emoji.n) return { ok: false, warum: 'Menue-Emojis ohne aria-hidden: ' + JSON.stringify(emoji) };
+        return { ok: true, info: 'Senioren an → Kompakt aus (Klasse, Vorgabe, Haekchen) · Kompakt an → Senioren aus' + (emoji ? ' · Emojis ' + emoji.stumm + '/' + emoji.n + ' stumm' : '') };
+      } finally { window.savePrefs = echtSave; window._gsPrefNachschieben = echtNach; }
+    }),
+  },
+];
+
+(async () => {
+  const br = await chromium.launch();
+  const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
+  const p = await ctx.newPage(); __seite = p;
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
+  await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  await p.addInitScript(SEED);
+  await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await p.waitForTimeout(4000);
+  await p.evaluate(() => { document.documentElement.classList.remove('gs-preauth'); window.gsRequire = () => true; window.gsToast = () => {}; window.showProfileToast = () => {}; window.gsHaptic = () => {}; });
+  console.log('\n=== nutzersicht_check — sagt die App, was stimmt, in der Sprache der Person?');
+  let kaputt = 0;
+  for (const f of FAELLE) {
+    let r;
+    try { r = await f.lauf(); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
+    if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
+    else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
+  }
+  await br.close();
+  console.log('  ---');
+  console.log('  Faelle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
+  console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
+  console.log('  Grenze: ob ein Text VERSTAENDLICH ist, misst niemand — geprueft ist, was sich zaehlen laesst.');
+  process.exitCode = kaputt ? 1 : 0;
+})();
