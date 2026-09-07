@@ -3,7 +3,7 @@
 > **Priorisierung**: P0 = Blocker · P1 = große Wirkung kurzfristig ·
 > P2 = Wettbewerbsvorteil · P3 = nice to have.
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
-> `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
+> `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
 **Stand:** v32.20 · App **live** auf green-scan.ch · released seit v26.0.
 **Zuletzt gegen die Produktionsdatenbank geprüft:** 02.09.2026 (P0-1, P1-1, P1-2 — siehe unten).
@@ -229,13 +229,13 @@ hat ihn keine automatische Prüfung gefunden.
 | P2-1 | **DB-Waves fortsetzen** — neue Knowledge-Domänen sofern sinnvoll (DB-Wave-15+) | Breitere Abdeckung |
 | P2-2 | **Verbleibende `alert()` → `gsToast`** in nicht-kritischen Flows | iOS-PWA-Standalone-Sicherheit |
 | P2-3 | **Lighthouse-Pass** sobald Chrome-MCP/Browser-Smoke verfügbar | Performance-/A11y-Score |
-| P2-4 | **App-Store-Präsenz** — TWA (Google Play) / Capacitor (Apple), siehe `STORE_SUBMISSION_GUIDE.md` | Sichtbarkeit |
+| P2-4 | **App-Store-Präsenz** — TWA (Google Play) / Capacitor (Apple), siehe `docs/_archiv/STORE_SUBMISSION_GUIDE.md` | Sichtbarkeit |
 
 ---
 
 ## 🌟 P3 — Zukunft
 
-- AR-Pflanzenmarkierung (MVP-Auftrag existiert: `AUFTRAG_CODE_v26.18_AR_VIEW_MVP.md`).
+- AR-Pflanzenmarkierung (MVP-Auftrag existiert: `docs/_archiv/AUFTRAG_CODE_v26.18_AR_VIEW_MVP.md`).
 - Weitere Sprachen (EN/ES sind bereits live — nächste Kandidaten: PT, NL).
 - **Schweizerdeutsch (GSW)** — Nice-to-have mit Marketing-Wert, aber kein
   Nutzen-Blocker: DE deckt die Deutschschweiz vollständig ab. Voraussetzung

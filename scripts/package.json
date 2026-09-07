@@ -1,0 +1,14 @@
+{
+  "name": "greenscan-pruefstaende",
+  "private": true,
+  "description": "Werkzeuge für die Prüfstände in scripts/ — NICHT im Wurzelverzeichnis (dort würde Cloudflare Pages einen Build starten, .gitignore /package.json).",
+  "license": "UNLICENSED",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "check": "bash pruefstaende.sh",
+    "pg": "bash _pg_local.sh start"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

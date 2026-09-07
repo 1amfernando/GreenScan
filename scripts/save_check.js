@@ -148,6 +148,67 @@ const WEGE = [
 // Fehler — wer nur auf `error` prueft, meldet dann Erfolg fuer nichts.
 const SERVER_WEGE = [
   {
+    // v32.69 (Audit B4): „Inserat gelöscht" stand VOR einem nicht abgewarteten DELETE.
+    // Jetzt: Ablehnung → bleibt lokal, gesagt · 0 Zeilen → nichts auf dem Server, lokal weg · bestätigt → weg.
+    name: 'Inserat löschen (mktDelete → marketplace_listings DELETE)',
+    lauf: async () => {
+      const erg = { meldungen: [] };
+      const echtToast = window.showProfileToast, echtConfirm = window.gsConfirmModal, echtLogin = window.sbIsLoggedIn, echtFetch = window.sbFetch, echtRender = window.renderMarket, echtClose = window.closeModal;
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body)));
+      window.gsConfirmModal = async () => true; window.sbIsLoggedIn = () => true; window.renderMarket = () => {}; window.closeModal = () => {};
+      if (typeof mktDelete !== 'function') return { ok: false, warum: 'mktDelete fehlt' };
+      const setz = () => gsStore.set('gs_market_listings', JSON.stringify([{ id: 'L1', title: 'Prüfstand' }]));
+      const da = () => { try { return JSON.parse(gsStore.get('gs_market_listings', null) || '[]').some(x => x.id === 'L1'); } catch (_) { return false; } };
+      try {
+        setz(); window.sbFetch = async () => ({ data: null, error: { message: 'permission denied' } });
+        await mktDelete('L1');
+        if (!da() || !erg.meldungen.some(m => /NICHT gelöscht/.test(m))) return { ok: false, warum: 'Ablehnung: ' + JSON.stringify({ da: da(), meldungen: erg.meldungen }) };
+        erg.meldungen.length = 0; setz(); window.sbFetch = async () => ({ data: [], error: null });
+        await mktDelete('L1');
+        if (da() || !erg.meldungen.some(m => /^Inserat gelöscht/.test(m))) return { ok: false, warum: '0 Zeilen: ' + JSON.stringify({ da: da(), meldungen: erg.meldungen }) };
+        erg.meldungen.length = 0; setz(); window.sbFetch = async () => ({ data: [{ id: 'L1' }], error: null });
+        await mktDelete('L1');
+        if (da() || !erg.meldungen.some(m => /^Inserat gelöscht/.test(m))) return { ok: false, warum: 'Bestätigung: ' + JSON.stringify({ da: da(), meldungen: erg.meldungen }) };
+        return { ok: true, info: 'Ablehnung → bleibt, „NICHT gelöscht" · 0 Zeilen → lokal weg · Bestätigung → weg' };
+      } finally { try { gsStore.remove('gs_market_listings'); } catch (_) {} window.showProfileToast = echtToast; window.gsConfirmModal = echtConfirm; window.sbIsLoggedIn = echtLogin; window.sbFetch = echtFetch; window.renderMarket = echtRender; window.closeModal = echtClose; }
+    },
+  },
+  {
+    // v32.69 (Audit B4): der Dialog verspricht „auf allen deinen Geräten entfernt" — drei ungeprüfte Aufrufe, dann „Plan gelöscht".
+    // Jetzt: jede Antwort gesehen; Ablehnung, 0 Zeilen oder leerer Blob → „nur lokal gelöscht"; beides bestätigt → „Plan gelöscht".
+    name: 'Plan löschen (gsPPdeletePlan → garden_plans DELETE + user_gardens POST)',
+    lauf: async () => {
+      const erg = { meldungen: [], rufe: [] };
+      const echtToast = window.showProfileToast, echtConfirm = window.gsConfirmModal, echtLogin = window.sbIsLoggedIn, echtFetch = window.sbFetch, echtGet = gsStore.get, echtOpen = window.gsPPopenSavedPlans, echtVac = window.gsCollectionsAutoVacuumDebounced;
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body)));
+      window.gsConfirmModal = async () => true; window.sbIsLoggedIn = () => true; window.gsPPopenSavedPlans = () => {}; window.gsCollectionsAutoVacuumDebounced = () => {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : echtGet.call(gsStore, k, d));
+      if (typeof gsPPdeletePlan !== 'function') return { ok: false, warum: 'gsPPdeletePlan fehlt' };
+      const setz = () => localStorage.setItem('gs_garden_plans', JSON.stringify([{ id: 'gp_abc', title: 'Prüfstand' }]));
+      const server = (del, post) => async (path, opts) => { erg.rufe.push(((opts && opts.method) || 'GET') + ' ' + path);
+        if (/garden_plans\?/.test(path)) return del;
+        if (/user_gardens\?user_id/.test(path)) return { data: [{ data: { plans: [{ id: 'gp_abc' }] } }], error: null };
+        if (/user_gardens\?on_conflict/.test(path)) return post;
+        return { data: [], error: null }; };
+      try {
+        setz(); window.sbFetch = server({ data: null, error: { message: 'permission denied' } }, { data: [{ user_id: 'x' }], error: null });
+        await gsPPdeletePlan('gp_abc');
+        if (!erg.meldungen.some(m => /nur lokal gelöscht/.test(m))) return { ok: false, warum: 'Ablehnung: ' + JSON.stringify(erg.meldungen) };
+        erg.meldungen.length = 0; setz(); window.sbFetch = server({ data: [], error: null }, { data: [{ user_id: 'x' }], error: null });
+        await gsPPdeletePlan('gp_abc');
+        if (!erg.meldungen.some(m => /nur lokal gelöscht/.test(m))) return { ok: false, warum: '0 Zeilen gelten als gelöscht: ' + JSON.stringify(erg.meldungen) };
+        erg.meldungen.length = 0; setz(); window.sbFetch = server({ data: [{ id: 'abc' }], error: null }, { data: [], error: null });
+        await gsPPdeletePlan('gp_abc');
+        if (!erg.meldungen.some(m => /nur lokal gelöscht/.test(m))) return { ok: false, warum: 'leerer Blob-POST gilt als gelöscht: ' + JSON.stringify(erg.meldungen) };
+        erg.meldungen.length = 0; setz(); window.sbFetch = server({ data: [{ id: 'abc' }], error: null }, { data: [{ user_id: 'x' }], error: null });
+        await gsPPdeletePlan('gp_abc');
+        if (!erg.meldungen.some(m => /^🗑 Plan gelöscht$/.test(m))) return { ok: false, warum: 'Bestätigung: ' + JSON.stringify(erg.meldungen) };
+        if (!erg.rufe.some(r => /^DELETE .*garden_plans/.test(r)) || !erg.rufe.some(r => /^POST .*on_conflict/.test(r))) return { ok: false, warum: 'Aufrufe: ' + erg.rufe.join(' | ') };
+        return { ok: true, info: 'Ablehnung → „nur lokal" · 0 Zeilen → „nur lokal" · Blob-POST leer → „nur lokal" · beides bestätigt → „Plan gelöscht"' };
+      } finally { localStorage.removeItem('gs_garden_plans'); window.showProfileToast = echtToast; window.gsConfirmModal = echtConfirm; window.sbIsLoggedIn = echtLogin; window.sbFetch = echtFetch; gsStore.get = echtGet; window.gsPPopenSavedPlans = echtOpen; window.gsCollectionsAutoVacuumDebounced = echtVac; }
+    },
+  },
+  {
     // v32.64: Pausieren — der Zustand liegt beim Server; 0 Zeilen sind kein Pausieren.
     name: 'Gerät pausieren (gsGeraetPausieren → devices PATCH)',
     lauf: async () => {

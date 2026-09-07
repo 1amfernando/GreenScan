@@ -374,20 +374,20 @@ Nicht widerlegbar — statisch und im Browser bestätigt. Die Zeilennummern stim
 BELEGE:
 1) Zeile 6453 (nicht 6438): `<div class="settings-row" id="settings-weatherloc-row" style="cursor:pointer;" onclick="if(typeof gsOpenWeatherLocPicker==='function')gsOpenWeatherLocPicker()">`, Untertitel „Automatisch · Mein Garten · Manuell". Im Lauf sichtbar (display:flex, 63 px hoch nach Aufklappen).
 
-2) `gsGetLocationFor` steht bei 56316 (Definition) und 56334 (`window.gsGetLocationFor = …`). Ein repo-weites, case-insensitives grep nach „locationfor" über index.html, sw.js, scripts/, data/, supabase/ liefert GENAU diese zwei Codezeilen; sonst nur Prosa in sw.js:251 (Changelog), FULL_APP_AUDIT_v28.03.md, data/releases.v1.js:4085, V28_FULL_AUDIT_FINDINGS.md:304. Keine dynamische Auflösung (`window['gsGet…']`) vorhanden.
+2) `gsGetLocationFor` steht bei 56316 (Definition) und 56334 (`window.gsGetLocationFor = …`). Ein repo-weites, case-insensitives grep nach „locationfor" über index.html, sw.js, scripts/, data/, supabase/ liefert GENAU diese zwei Codezeilen; sonst nur Prosa in sw.js:251 (Changelog), _archiv/FULL_APP_AUDIT_v28.03.md, data/releases.v1.js:4085, _archiv/V28_FULL_AUDIT_FINDINGS.md:304. Keine dynamische Auflösung (`window['gsGet…']`) vorhanden.
 
 3) Alle FÜNF Wetter-Verbraucher lösen selbst auf, keiner liest den Modus: gsGetWeatherLocation (11534, benutzt von loadGardenWeather 11571) → userLocation/gs_user_location; loadHomeWeather (23084) → gs_user_location > gs_home_weather_loc > GPS > IP > Zürich; gsAttachMushroomForecast (22485) → gs_user_location; fetchWeather (69453) → getippter Ort; gsOpenWeatherWarn (84125, DIE Frostwarnung) → userLocation, Fallback 47.37/8.55.
 
 4) Browser-Lauf (file://, _seed.js, Garten in Sion 46.2276/7.3589, Profil Zürich): gsGetLocationFor('weather') liefert korrekt {lat:46.2276, lng:7.3589, source:"garden"} — der Helfer funktioniert. Zeile antippen → Picker öffnet (gs-nl-modal), „🌳 Mein Garten" klicken → gs_weather_loc_mode="garden", ✓ wandert zur Option. Danach gsGetWeatherLocation() + loadHomeWeather() + loadGardenWeather(true): _gsWeatherLat/Lon/City = 47.3769 / 8.5417 / "Zürich", UNVERÄNDERT. Instrumentierter Zähler auf gsGetLocationFor: 0 Aufrufe.
 
-5) gs_weather_loc_manual: kein setItem/gsStore.set irgendwo im Repo (einziger Texttreffer ist V28_FULL_AUDIT_FINDINGS.md:306 — dort in einem VORGESCHLAGENEN Fix, nicht im Code). Nach dem Lauf: null.
+5) gs_weather_loc_manual: kein setItem/gsStore.set irgendwo im Repo (einziger Texttreffer ist _archiv/V28_FULL_AUDIT_FINDINGS.md:306 — dort in einem VORGESCHLAGENEN Fix, nicht im Code). Nach dem Lauf: null.
 
 WIDERLEGUNGSVERSUCHE, DIE FEHLSCHLUGEN:
 - Tabelle/generische Schleife? Nein. gs_weather_loc_mode kommt nur 4× vor: Lesen 56327, Schreiben 56338, Häkchen-Lesen 56348, sowie 78484 in einer Schlüsselliste fürs Abmelden/Nutzerwechsel (ohne Verhaltenswirkung).
-- Absicht/begründet? Nein. V28_FULL_AUDIT_FINDINGS.md:303–306 führt NUR den engeren Teilfall („Toter LS-Key gs_weather_loc_manual") als [MEDIUM DEC] und schlägt einen Fix vor — also als Bug dokumentiert, nicht als Entscheidung. Der grössere Defekt (der Helfer wird gar nie aufgerufen, „Mein Garten" ist ebenso wirkungslos) steht nirgends. sw.js:251 und data/releases.v1.js:4085 bewerben das Feature als ausgeliefert.
+- Absicht/begründet? Nein. _archiv/V28_FULL_AUDIT_FINDINGS.md:303–306 führt NUR den engeren Teilfall („Toter LS-Key gs_weather_loc_manual") als [MEDIUM DEC] und schlägt einen Fix vor — also als Bug dokumentiert, nicht als Entscheidung. Der grössere Defekt (der Helfer wird gar nie aufgerufen, „Mein Garten" ist ebenso wirkungslos) steht nirgends. sw.js:251 und data/releases.v1.js:4085 bewerben das Feature als ausgeliefert.
 - Nur theoretisch? Nein. Der Picker bestätigt mit ✓ und Toast; gsOpenWeatherWarn (Frostwarnung) liest userLocation — ein Zürcher Profil mit Walliser Garten bekommt die Zürcher Frostwarnung.
 
-KORREKTUREN AM BEFUND: Zeilennummern 6438→6453, 56278→56316, 56296→56334, 56298→56336. Und der „Manuell"-Teil war seit v28.03 bereits als Bug protokolliert (V28_FULL_AUDIT_FINDINGS.md:303–306) — was ihn nicht entkräftet, aber der Befund sollte es erwähnen.
+KORREKTUREN AM BEFUND: Zeilennummern 6438→6453, 56278→56316, 56296→56334, 56298→56336. Und der „Manuell"-Teil war seit v28.03 bereits als Bug protokolliert (_archiv/V28_FULL_AUDIT_FINDINGS.md:303–306) — was ihn nicht entkräftet, aber der Befund sollte es erwähnen.
 ```
 
 </details>
@@ -471,7 +471,7 @@ if (prefs && prefs.privacy && prefs.privacy.analytics === false) return;
 1. `prefs.privacy` wird nirgends geschrieben. `grep -n privacy index.html` liefert im JS-Teil GENAU diese eine Zeile (81855); die übrigen Treffer sind Beschriftungen (6623 „Datenschutz / nDSG Datenschutzerklärung", 14816, 77005). Es gibt kein `privacy`-Feld in `DEFAULT_PREFS` (51058) und keine Oberfläche, die eines setzt. Der Riegel ist also ein Opt-OUT ohne Ausstieg — er greift nur bei explizitem `false`, und `false` kann niemand erzeugen.
 2. `grep -c gsTrackEvent index.html` → **1**. Nur die Definition, keine einzige Aufrufstelle. Es wird heute also gar nichts gesendet.
 3. `grep -n gs_consent index.html` → **eine einzige Zeile**, 78410: `'gs_consent',         // revDSG-Consent — Re-Login soll ihn nicht zuruecksetzen` in `GS_KEEP_ON_LOGOUT`. Kein Schreiber, kein Leser. `grep -n consent index.html` (klein wie gross) → ebenfalls nur diese eine Zeile: **es gibt kein Consent-Banner.**
-Dem stehen zwei Behauptungen gegenüber: CLAUDE.md §3.7 („Analytics ist Opt-In (Consent-Banner beim ersten Launch) … Check via: `gs_consent.analytics === true` ODER `gs_prefs.privacy.analytics === true`") und SETTINGS_AUDIT_v27.03.md:32 („Analytics-Consent (revDSG) | gs_consent.analytics | Consent-Banner | ✅ separat"). `scripts/_seed.js:21` setzt `gs_consent` sogar brav — für einen Schlüssel, den die App nicht kennt.
+Dem stehen zwei Behauptungen gegenüber: CLAUDE.md §3.7 („Analytics ist Opt-In (Consent-Banner beim ersten Launch) … Check via: `gs_consent.analytics === true` ODER `gs_prefs.privacy.analytics === true`") und _archiv/SETTINGS_AUDIT_v27.03.md:32 („Analytics-Consent (revDSG) | gs_consent.analytics | Consent-Banner | ✅ separat"). `scripts/_seed.js:21` setzt `gs_consent` sogar brav — für einen Schlüssel, den die App nicht kennt.
 ```
 
 </details>
@@ -500,7 +500,7 @@ Kein `setItem('gs_theme_color', …)` existiert. `grep -n gs_theme_color index.h
 · 79837 `_gsRestoreKey('gs_theme_color', st.ui.theme_color)`
 · 79374 / 79451 — Scope-Zuordnung und Snapshot-Liste
 Browser-Lauf: vor dem Wechsel `gs_theme_color = null`; nach `applyTheme('purple', null)` steht `gs_prefs.theme === "purple"` und `gs_theme_color` ist **weiterhin `null`**.
-SETTINGS_AUDIT_v27.03.md:17 führt genau diesen Weg als erledigt: „Theme-Color | gs_theme_color | user_app_state.ui.theme_color | applyAllPrefs | ✅" — `applyAllPrefs` (51370–51389) fasst den Schlüssel nirgends an.
+_archiv/SETTINGS_AUDIT_v27.03.md:17 führt genau diesen Weg als erledigt: „Theme-Color | gs_theme_color | user_app_state.ui.theme_color | applyAllPrefs | ✅" — `applyAllPrefs` (51370–51389) fasst den Schlüssel nirgends an.
 ```
 
 </details>
@@ -520,7 +520,7 @@ Nicht widerlegbar — statisch, dynamisch und historisch bestaetigt.
 
 5) HISTORISCH. `git log --all -S"setItem('gs_theme_color'"` liefert nur den Restore-Pfad, zurueck bis zur Einfuehrung in v24.50 (d83b8c5). Es gab NIE einen Schreiber — also tragen auch Bestandsgeraete keinen Wert. Damit ist auch 78884 (`if (sd.ui.theme_color)`) dauerhaft unerreichbar.
 
-6) KEINE ABSICHT dokumentiert. `SETTINGS_AUDIT_v27.03.md:17` steht wortgleich wie zitiert: „Theme-Color | gs_theme_color | user_app_state.ui.theme_color | applyAllPrefs | ✅".
+6) KEINE ABSICHT dokumentiert. `_archiv/SETTINGS_AUDIT_v27.03.md:17` steht wortgleich wie zitiert: „Theme-Color | gs_theme_color | user_app_state.ui.theme_color | applyAllPrefs | ✅".
 
 DER BEFUND UNTERTREIBT SOGAR: beim Konto-Loeschen (77658-77665) lautet der Kommentar „Theme/Sprache als App-Default behalten", `keepKeys = ['gs_dark','gs_theme_color','gs_lang']`, danach `localStorage.clear()`. `gs_prefs` steht NICHT in `keepKeys` — die gewaehlte App-Farbe wird also real auf Gruen zurueckgesetzt, waehrend der Dunkelmodus ueberlebt (`gs_dark` wird von `applyDarkMode` echt geschrieben). Das ist ein kleiner, aber echter Nutzer-Effekt und kein bloss theoretischer.
 
