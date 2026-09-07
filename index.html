@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.66.20260907">
+<meta name="app-version" content="32.67.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17235,10 +17235,12 @@ async function gsCheckLaunchAvailable() {
 // einen System-Alert-Dialog der teils das ganze Webview blockiert →
 // Conversion-Killer im Stripe-Flow. Diese Helpers sind drop-in-Replacements
 // die sich an showProfileToast bzw. ein In-App-Modal anlehnen.
-function gsToast(msg, type){
+function gsToast(msg, type, duration){
   // Idempotent — nutzt showProfileToast wenn vorhanden, sonst native alert.
+  // v32.67 (Audit B5): 126 Aufrufer geben eine Dauer mit — sie wurde verworfen,
+  // jede Meldung dauerte 3,5 s, auch die mit 230 Zeichen. Jetzt reist sie durch.
   try {
-    if (typeof showProfileToast === 'function') return showProfileToast(msg, type || 'info');
+    if (typeof showProfileToast === 'function') return showProfileToast(msg, type || 'info', duration);
   } catch(_){}
   // v29.29 (Audit-P3): Objekt-Form im alert-Fallback in Text wandeln (sonst "[object Object]").
   try { alert((msg && typeof msg === 'object') ? ((msg.title ? msg.title + ' · ' : '') + (msg.body || msg.message || '')) : msg); } catch(__){}
@@ -25904,11 +25906,19 @@ window.gsDismissOrphanOverlays = gsDismissOrphanOverlays;
 document.addEventListener('keydown', e => {
   if(e.key==='Escape'){
     try { gsDismissOrphanOverlays(); } catch(_){}
-    // v29.35: über closeModal schliessen → smoothe Fade-out statt abruptem display:none.
-    document.querySelectorAll('.modal-overlay.open,.overlay-modal.open').forEach(m => {
-      if (m.id && typeof closeModal === 'function') { try { closeModal(m.id); return; } catch(_){} }
-      m.classList.remove('open'); m.style.display='none';
-    });
+    // v32.67 (Audit B6): NUR das oberste Fenster. Vorher lief die Schleife über
+    // ALLE offenen Modale — das `return` verliess nur den Callback, nicht die
+    // Schleife. openModal stapelt ausdrücklich (z-index +1); Escape nimmt den
+    // Stapel von oben ab: zuletzt geöffnet, sonst höchster z-index, sonst das
+    // letzte im DOM. v29.35: über closeModal → sanftes Ausblenden.
+    var offen = Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.open,.overlay-modal.open'));
+    if (offen.length) {
+      var top = null, topZ = -1;
+      if (window._gsLastOpenModal) top = offen.filter(function(m){ return m.id === window._gsLastOpenModal; })[0] || null;
+      if (!top) offen.forEach(function(m){ var z = parseInt(getComputedStyle(m).zIndex, 10) || 0; if (z >= topZ) { top = m; topZ = z; } });
+      if (top.id && typeof closeModal === 'function') { try { closeModal(top.id); } catch(_){ top.classList.remove('open'); top.style.display='none'; } }
+      else { top.classList.remove('open'); top.style.display='none'; }
+    }
     if(!document.querySelector('.modal-overlay.open, .overlay-modal.open')) document.body.style.overflow='';
   }
 });
@@ -74864,6 +74874,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.67', date: '07.09.2026',
+    headline: '🧰 Vier kleine Reparaturen: Wetterwarnungen und Verkäufer-Status laden wieder, die Toast-Dauer gilt, Escape schliesst nur das oberste Fenster, Updates fragen zuerst',
+    summary: 'Aus docs/PROFESSIONALITAET-AUDIT-2026-09-06.md (B1, B3, B5, B6). Das Wetterwarnungen-Panel und der Verkäufer-Status im Marktplatz riefen sbFetch ohne zweites Argument und stürzten vor dem try ab — beide Wege waren seit jeher tot. 126 Toast-Aufrufe geben eine Dauer mit, die verworfen wurde; jetzt gilt sie. Escape schloss alle offenen Fenster statt des obersten. Und der Service Worker aktivierte sich beim Install selbst und löschte die alten Caches unter der laufenden Seite — der Update-Banner fragte nach etwas, das schon passiert war; jetzt wartet der neue Worker, bis du „Neu laden" tippst. Prüfstand robust_check fährt alle vier durch.',
+    user_summary: '🧰 Wetterwarnungen und Verkäufer-Status laden wieder; Escape schliesst nur das oberste Fenster; ein Update wartet, bis du „Neu laden" tippst.',
+    user_items: [
+      {emoji:'🌦️', bold:'Wetterwarnungen:', text:' Das Panel zeigte immer „Konnte Warnungen nicht laden" — jetzt lädt es.'},
+      {emoji:'⌨️', bold:'Escape:', text:' schliesst nur das oberste Fenster, nicht alle auf einmal.'},
+      {emoji:'🆕', bold:'Updates:', text:' Die neue Version wartet, bis du im Banner „Neu laden" tippst.'},
+    ],
+  },
+  {
     v: 'v32.66', date: '07.09.2026',
     headline: '🔒 Fremder Text bleibt Text — vier Escape-Lücken aus dem Audit geschlossen',
     summary: 'Community-Beiträge, Arten aus der Gemeinschaft, Links aus Mitteilungen, Push-Nutzlasten, Übersetzungen und KI-Ausgaben wurden an einigen Stellen ungeprüft in HTML, in onclick-Attribute oder in eine Navigation eingesetzt (docs/PROFESSIONALITAET-AUDIT-2026-09-06.md A2–A4, A10). Jetzt: escHtml kennt das Apostroph, _gsOcStr escaped für beide Parser, _gsSafeLink und swSafeUrl lassen nur den eigenen Ursprung oder https durch, gsSanitizeHtml hält eine Allowlist für Fragmente, die Auszeichnung tragen dürfen. Bild-Adressen im Feed und in „Meine Funde" gehen durch _gsSafeUrl. Neuer Prüfstand escape_check rendert jede Stelle mit einem feindlichen Wert und misst, dass nichts läuft und alles als Text dasteht.',
@@ -75776,7 +75797,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.66';
+var GS_VERSION = 'v32.67';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76290,6 +76311,10 @@ function sbGetConfig() {
 
 // ── Supabase REST fetch (ohne SDK, 0KB overhead) ──────────────
 async function sbFetch(path, opts) {
+  // v32.67 (Audit B1): zwei Aufrufer kamen ohne `opts` (Wetterwarnungen-Panel,
+  // Verkäufer-Status im Marktplatz). `opts.headers` unten warf VOR dem try —
+  // beide Wege waren seit jeher tot, und beide Aufrufer schluckten den Fehler.
+  opts = opts || {};
   if (!sbGetConfig()) return {error:{message:'Supabase nicht konfiguriert'}};
   var token = gsStore.get('gs_sb_token', null) || '';
   var expires = parseInt(localStorage.getItem('gs_sb_expires') || '0');
@@ -77665,13 +77690,13 @@ var _gsToastEl = null;
 var _gsToastQueue = [];
 var _gsToastActive = false;
 var _gsToastCurKey = '';
-function showProfileToast(msg, type) {
+function showProfileToast(msg, type, duration) {   // v32.67: dritter Parameter = Dauer in ms (Audit B5)
   var _key = (msg && typeof msg === 'object') ? ((msg.title||'') + '|' + (msg.body||'')) : String(msg || '');
   if (_gsToastActive) {
     if (_key && _key === _gsToastCurKey) return;   // identisch zum sichtbaren → skip
     var _last = _gsToastQueue[_gsToastQueue.length - 1];
     if (!(_last && _last[2] === _key) && _gsToastQueue.length < 3) {
-      _gsToastQueue.push([msg, type, _key]);
+      _gsToastQueue.push([msg, type, _key, duration]);
     }
     // Sichtbaren Toast beschleunigt ausblenden, damit die Queue nicht träge wirkt
     if (_gsToastTimer) {
@@ -77685,7 +77710,7 @@ function showProfileToast(msg, type) {
   }
   _gsToastActive = true;
   _gsToastCurKey = _key;
-  _gsToastShowNow(msg, type);
+  _gsToastShowNow(msg, type, duration);
 }
 function _gsToastNext(){
   _gsToastActive = false;
@@ -77694,13 +77719,13 @@ function _gsToastNext(){
   if (nxt) {
     _gsToastActive = true;
     _gsToastCurKey = nxt[2] || '';
-    setTimeout(function(){ try { _gsToastShowNow(nxt[0], nxt[1]); } catch(_){ _gsToastNext(); } }, 250);
+    setTimeout(function(){ try { _gsToastShowNow(nxt[0], nxt[1], nxt[3]); } catch(_){ _gsToastNext(); } }, 250);
   }
 }
 // v23.70: iOS-Style Toast — Top-Banner mit Icon/Title/Body, Swipe-to-dismiss
 // Kompatibel mit allen Legacy-Aufrufen showProfileToast('Text') + showProfileToast('Text','success')
 // Neue Signatur (optional): showProfileToast({icon, title, body, type, duration})
-function _gsToastShowNow(msg, type) {
+function _gsToastShowNow(msg, type, duration) {
   // Object-Signatur unterstützen
   var opts = (typeof msg === 'object' && msg) ? msg : null;
   var raw = opts ? (opts.body || opts.title || '') : String(msg || '');
@@ -77708,7 +77733,7 @@ function _gsToastShowNow(msg, type) {
   var title = opts ? opts.title : null;
   var body = opts ? opts.body : raw;
   var toastType = opts ? opts.type : type;
-  var dur = opts && opts.duration ? opts.duration : 3500;
+  var dur = (opts && opts.duration) ? opts.duration : ((isFinite(+duration) && +duration > 0) ? +duration : 3500);   // v32.67 (Audit B5)
 
   // v30.18: Anzeige-Texte by-source-text in die aktuelle Sprache übersetzen (Toasts). DE/unbekannt/kein Treffer → unverändert.
   var rawOrig = raw;
@@ -77993,8 +78018,10 @@ function gsRegisterServiceWorker() {
               navigator.serviceWorker.addEventListener('controllerchange', function(){
                 window.location.reload();
               }, { once: true });
-              // Fallback: Hard-Reload nach 1.5s
-              setTimeout(function(){ window.location.reload(); }, 1500);
+              // Fallback: Hard-Reload nach 4 s. v32.67 (Audit B3): der neue Worker
+              // aktiviert sich nicht mehr selbst — er wartet auf dieses SKIP_WAITING
+              // und braucht danach einen Moment (alte Caches löschen, claim).
+              setTimeout(function(){ window.location.reload(); }, 4000);
             };
             // v27.01: VOR dem Update den kompletten User-State als Pre-Migration-Snapshot
             // in die Cloud sichern (Sicherheitsnetz gegen Datenverlust). Reload nie länger

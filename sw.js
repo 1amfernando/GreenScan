@@ -344,7 +344,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v32.66';
+const VERSION = 'gs-v32.67';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -524,7 +524,14 @@ self.addEventListener('install', (event) => {
           )
         );
       })
-      .then(() => self.skipWaiting()) // Aktiviere SW sofort, ohne reload zu warten
+      // v32.67 (Audit B3): KEIN skipWaiting mehr beim Install. Der neue Worker
+      // wartet, bis die App per SKIP_WAITING zustimmt (Update-Banner, Knopf
+      // „Neu laden" → message-Handler unten). Vorher aktivierte er sich selbst,
+      // löschte im activate die alten Caches unter der LAUFENDEN Seite (jede
+      // spätere Nachladung ging ins Netz und scheiterte offline), und der
+      // Banner fragte nach etwas, das schon passiert war. Beim ersten Install
+      // gibt es keinen Vorgänger, also nichts zu warten — offline_check bleibt
+      // unberührt.
       .catch((err) => console.warn('[SW] Install error:', err))
   );
 });

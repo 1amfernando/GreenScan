@@ -25,7 +25,11 @@
 | A4 · Mitteilungs-Link ungeprüft in `location.href`/`window.open`; `sw.js` navigiert auf `data.url` | ✅ v32.66 — `_gsSafeLink` (eigener Ursprung oder https), `swSafeUrl` (nur eigener Ursprung) | `escape_check` Fälle 4–5 |
 | A10 · HTML-Teil: KI-Ausgabe roh (Scan-Chat, Admin-Triage), `data-i18n-html`, Bild-URLs ohne Schema-Prüfung | ✅ v32.66 — `gsSanitizeHtml` (Allowlist), Triage escaped, `_gsSafeUrl` in Feed und „Meine Funde" | `escape_check` Fälle 6–7 |
 | A10 · Server-Teil (fünf `includes()`-Vergleiche, `feedback-triage`, `ai-proxy`-CORS) | offen | §G 12 |
-| A1, A5–A9, B–E | offen | §G |
+| B1 · `sbFetch` ohne zweites Argument stürzt vor dem `try` ab (Wetterwarnungen, Verkäufer-Status tot) | ✅ v32.67 — `opts = opts || {}` | `robust_check` Fall 1 |
+| B5 · `gsToast` verwirft die Dauer (126 Aufrufer) | ✅ v32.67 — Dauer reist durch `showProfileToast` und die Warteschlange | `robust_check` Fall 2 |
+| B6 · Escape schliesst alle Fenster | ✅ v32.67 — nur das oberste (zuletzt geöffnet, sonst höchster z-index) | `robust_check` Fall 3 |
+| B3 · Service Worker aktiviert sich selbst (`skipWaiting` im Install) | ✅ v32.67 — wartet auf `SKIP_WAITING` vom Banner; Rückfall-Reload 4 s | `robust_check` Fall 4 · `offline_check` |
+| A1, A5–A9, B2, B4, B7–B9, C–E | offen | §G |
 
 ## Zahlen zuerst
 
