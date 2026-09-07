@@ -459,6 +459,34 @@ const FAELLE = [
     },
   },
   {
+    name: 'A7 · species-search verlangt einen echten Nutzer (GoTrue prueft), CORS nur eigene Origins, Suche mit dem Token der Person statt Service-Key, keine rohen Fehlertexte, q und lim gedeckelt — Quelltext-Frage, kein Deno hier',
+    lauf: async () => {
+      const f = [];
+      const t = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'species-search', 'index.ts'), 'utf8');
+      const code = t.replace(/^\s*\/\/.*$/gm, '');
+      if (/Allow-Origin":\s*"\*"/.test(code)) f.push('CORS steht auf *');
+      if (!/greenscan-app\\?\.pages\\?\.dev/.test(code) || !/"https:\/\/green-scan\.ch"/.test(code)) f.push('keine Origin-Allowlist');   // im Quelltext stehen die Punkte maskiert
+      if (!/auth\/v1\/user/.test(code)) f.push('kein Blick zu GoTrue (auth/v1/user)');
+      if (!/auth_required/.test(code) || !/, 401\)/.test(code)) f.push('ohne Token keine 401');
+      // Die Suche laeuft mit dem Token der Person: im RPC-Aufruf steht `Bearer ${token}`, nicht der Service-Key
+      const rpc = code.slice(code.indexOf('rpc/fn_species_search'), code.indexOf('rpc/fn_species_search') + 400);
+      if (!/Bearer \$\{token\}/.test(rpc) || /Bearer \$\{SVC_KEY\}/.test(rpc)) f.push('RPC laeuft nicht mit dem Token der Person');
+      if (/detail:\s*t\.slice|detail:/.test(code)) f.push('roher Fehlertext (detail) geht hinaus');
+      if (/error:\s*String\(e\)/.test(code)) f.push('Ausnahme-Text geht hinaus');
+      if (!/Q_MAX\s*=\s*80/.test(code) || !/\.slice\(0, Q_MAX\)/.test(code)) f.push('q nicht auf 80 Zeichen gedeckelt');
+      if (!/if \(lim > 25\) lim = 25;/.test(code)) f.push('lim nicht gedeckelt');
+      // Der Cache-Weg bleibt der einzige Service-Key-Weg — und er kommt erst NACH der Suche
+      const iAuth = code.indexOf('auth/v1/user'), iRpc = code.indexOf('rpc/fn_species_search'), iCache = code.indexOf('species_search_cache?on_conflict');
+      if (!(iAuth > 0 && iAuth < iRpc && iRpc < iCache)) f.push('Reihenfolge Auth → Suche → Cache stimmt nicht: ' + [iAuth, iRpc, iCache].join('/'));
+      // Und die App faellt ohne Server auf die lokale Liste zurueck (der Aufrufer prueft `resp.data.results`, sonst null)
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const iCall = idx.indexOf("sbFetch('/functions/v1/species-search'");
+      if (iCall < 0 || !/return null;/.test(idx.slice(iCall, iCall + 400))) f.push('App ohne Rueckfall auf die lokale Liste');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Allowlist statt * · Bearer Pflicht, GoTrue prueft, sonst 401 · RPC mit Nutzer-Token · Cache (Service-Key) erst nach der Suche · kein detail/String(e) · q ≤ 80, lim ≤ 25 · App faellt lokal zurueck' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
