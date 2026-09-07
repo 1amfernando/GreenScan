@@ -68,24 +68,39 @@ function ohneKommentare(s) {
 const Q = ohneKommentare(QUELLE);
 
 function funktionUm(pos) {
-  let start = -1;
-  for (let i = pos; i > 0 && i > pos - 30000; i--) {
-    if (Q.startsWith('function', i) && /[\s=(]/.test(Q[i - 1] || ' ')) { start = i; break; }
+  // v32.69: die NAECHSTE `function` rueckwaerts ist oft ein Callback davor
+  // (`listings.filter(function(x){…})`), dessen Rumpf VOR dem Aufruf endet.
+  // Bis dahin landeten solche Aufrufe als „(keine Funktion)" in still —
+  // darunter mktDelete und addToConfirmed, die das Audit (B4) nennt. Jetzt
+  // wird weiter zurueckgesucht, bis ein Rumpf den Aufruf wirklich enthaelt.
+  let von = pos;
+  for (let runde = 0; runde < 40; runde++) {
+    let start = -1;
+    for (let i = von; i > 0 && i > pos - 60000; i--) {
+      if (Q.startsWith('function', i) && /[\s=(:,]/.test(Q[i - 1] || ' ')) { start = i; break; }
+    }
+    if (start < 0) return null;
+    let i = Q.indexOf('{', start), d = 0, ende = -1;
+    if (i < 0) return null;
+    for (; i < Q.length && i < start + 120000; i++) {
+      if (Q[i] === '{') d++;
+      else if (Q[i] === '}') { d--; if (d === 0) { ende = i; break; } }
+    }
+    if (ende >= pos) {
+      const kopf = Q.slice(start, Q.indexOf('(', start));
+      return { start, ende, name: (kopf.match(/function\s+([A-Za-z0-9_$]+)/) || [, '(anonym)'])[1] };
+    }
+    von = start - 1;   // dieser Rumpf endet vor dem Aufruf → weiter zurueck
   }
-  if (start < 0) return null;
-  let i = Q.indexOf('{', start), d = 0, ende = -1;
-  if (i < 0) return null;
-  for (; i < Q.length && i < start + 60000; i++) {
-    if (Q[i] === '{') d++;
-    else if (Q[i] === '}') { d--; if (d === 0) { ende = i; break; } }
-  }
-  if (ende < 0 || ende < pos) return null;
-  const kopf = Q.slice(start, Q.indexOf('(', start));
-  return { start, ende, name: (kopf.match(/function\s+([A-Za-z0-9_$]+)/) || [, '(anonym)'])[1] };
+  return null;
 }
 
 const MELDER  = /(showProfileToast|gsToast)\s*\(/g;
-const POSITIV = /(gespeichert|gesendet|übermittelt|uebermittelt|Danke|erfolgreich|angelegt|hinzugefügt|hinzugefuegt|aktualisiert|✅|🙏|angenommen|eingetragen|erstellt|festgehalten|Live im)/i;
+// v32.69 (Audit B4): auch das Gegenteil eines Anlegens ist ein Versprechen —
+// „gelöscht", „entfernt", „deaktiviert", „umbenannt". Ohne diese Stämme meldete
+// der Prüfstand 0 rot, während „🗑 Plan gelöscht" nach drei ungeprüften Aufrufen
+// stand und „Inserat gelöscht" VOR einem nicht abgewarteten DELETE.
+const POSITIV = /(gespeichert|gesendet|übermittelt|uebermittelt|Danke|erfolgreich|angelegt|hinzugefügt|hinzugefuegt|aktualisiert|✅|🙏|angenommen|eingetragen|erstellt|festgehalten|Live im|gelöscht|geloescht|entfernt|deaktiviert|umbenannt|aktiviert|verschoben|abgemeldet)/i;
 // Eine ABSAGE ist kein Versprechen. Ohne diese Zeile meldet der Prüfstand die
 // Reparatur als den Fehler: „Eintrag NICHT gespeichert" enthält „gespeichert".
 // (Beim ersten Lauf nach dem Fix prompt passiert — ein Prüfstand, der die
@@ -130,7 +145,27 @@ while ((m = re.exec(Q))) {
     const arg = danach.slice(mm.index, schluss < 0 ? mm.index + 260 : schluss + 1);
     if (POSITIV.test(arg) && !ABSAGE.test(arg)) { meldung = arg.slice(0, 100).replace(/\s+/g, ' '); break; }
   }
-  if (!meldung) { still.push({ zeile, name: f.name }); continue; }
+  if (!meldung) {
+    // v32.69 (Audit B4): ein Versprechen VOR dem Schreiben — die Meldung steht
+    // im selben Rumpf oberhalb des Aufrufs, und der Aufruf wird nicht abgewartet
+    // (kein `await`, typisch `.catch(function(){})`). „Inserat gelöscht" stand
+    // so VOR dem DELETE, „gespeichert!" VOR dem user_scans-POST. Wer so schreibt,
+    // kann die Antwort gar nicht mehr ansehen — die Meldung ist schon draussen.
+    const vorher = Q.slice(f.start, m.index);
+    const abgewartet = /await\s*$/.test(Q.slice(Math.max(0, m.index - 16), m.index));
+    if (!abgewartet) {
+      MELDER.lastIndex = 0;
+      let mv;
+      while ((mv = MELDER.exec(vorher))) {
+        let j = mv.index + mv[0].length, t = 1, schluss = -1;
+        while (j < vorher.length && j < mv.index + 1200) { const c = vorher[j]; if (c === '(') t++; else if (c === ')') { t--; if (!t) { schluss = j; break; } } j++; }
+        const arg = vorher.slice(mv.index, schluss < 0 ? mv.index + 260 : schluss + 1);
+        if (POSITIV.test(arg) && !ABSAGE.test(arg)) { meldung = 'VOR dem Schreiben: ' + arg.slice(0, 90).replace(/\s+/g, ' '); break; }
+      }
+      if (meldung) { rot.push({ zeile, name: f.name, meldung }); continue; }
+    }
+    still.push({ zeile, name: f.name }); continue;
+  }
   (GEPRUEFT.test(danach.slice(0, 1200)) ? gruen : rot).push({ zeile, name: f.name, meldung });
 }
 

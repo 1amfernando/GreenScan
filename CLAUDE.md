@@ -113,10 +113,19 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
+├── scripts/             # 30 Prüfstände (§7.1) + pruefstaende.sh (alle) + package.json (Playwright, NICHT im Root)
+├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
+├── docs/                # lebende Doku · docs/_archiv/ = 49 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
 ```
+
+Der Web-Root IST das Repo (kein Build): `docs/`, `supabase/`, `scripts/`
+werden von beiden Hostern ausgeliefert. Seit v32.69 tragen diese Pfade
+`X-Robots-Tag: noindex` (`_headers`) und stehen in `robots.txt` — ein 404
+lässt sich auf Cloudflare Pages per `_redirects` nicht erzwingen. Neue
+interne Dateien gehören nach `docs/`, nie in den Root.
 
 ## 3 · Konventionen
 
@@ -572,6 +581,10 @@ node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig ha
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 node scripts/robust_check.js     # vier kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67)
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
+bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+#   Genau das faehrt .github/workflows/pruefstaende.yml auf jedem PR — Playwright aus
+#   scripts/package.json (GS_PW), Postgres 16 als Service (GS_PG_URL). Ohne Postgres
+#   melden quiz_check und schluessel_check „nicht pruefbar" (Exit 2), nicht rot.
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -904,6 +917,22 @@ ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
 der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
 Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
 erst nach der Bestätigung umgestellt.
+
+**Seit v32.69 kennt `versprechen_check` drei Dinge mehr** (Audit B4): die
+Stämme „gelöscht / entfernt / deaktiviert / umbenannt" (das Gegenteil eines
+Anlegens ist auch ein Versprechen — vorher 0 rot, während „🗑 Plan gelöscht"
+nach drei ungeprüften Aufrufen stand); ein Versprechen VOR dem Schreiben
+(Meldung oberhalb eines nicht abgewarteten Aufrufs — „Inserat gelöscht"
+stand vor dem DELETE, „gespeichert!" vor dem `user_scans`-POST); und die
+richtige umschliessende Funktion (die NÄCHSTE `function` rückwärts war oft
+ein Callback davor, dessen Rumpf vor dem Aufruf endete — solche Aufrufe
+landeten als „(keine Funktion)" in still). Erster Lauf danach: **7 rot**,
+genau die Liste aus dem Audit plus eine (Feedback abhaken). Alle sieben
+repariert nach derselben Regel: **die Meldung kommt NACH der Antwort und
+sagt „nur lokal", wenn der Server nicht bestätigt hat** — Ablehnung ist rot,
+0 Zeilen sind „nicht bestätigt" (Ausnahme DELETE: 0 Zeilen heisst „war schon
+weg", nur `error` zählt). `save_check` fährt zwei davon zu Ende
+(`mktDelete`, `gsPPdeletePlan`).
 
 **`schluessel_check.js` (seit v32.68) fragt, ob der Anthropic-Schlüssel den
 Server verlässt** (Audit A1). Zwei Hälften: SQL im lokalen Postgres —

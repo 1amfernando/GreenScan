@@ -41,9 +41,9 @@ Marketplace, mehrsprachig.
   KI-Call-Wrapper, RLS-Regeln, Multi-Agent-Sync).
 - 📊 [`STATUS.md`](./STATUS.md) — Operativer Snapshot + tägliche Routine-Einträge.
 - 🗺️ [`ROADMAP.md`](./ROADMAP.md) — Priorisierte Meilensteine.
-- 🧭 [`BACKEND_FRONTEND_MAP_v26.76.md`](./BACKEND_FRONTEND_MAP_v26.76.md) —
+- 🧭 [`docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md`](./BACKEND_FRONTEND_MAP_v26.76.md) —
   Architektur-Detailkarte (Tabellen, Edge-Fns, Advisor-Stand).
-- 🚀 Deploy/Betrieb: `AI_PROXY_ACTIVATION_RUNBOOK.md`, `STORE_SUBMISSION_GUIDE.md`,
+- 🚀 Deploy/Betrieb: `docs/_archiv/AI_PROXY_ACTIVATION_RUNBOOK.md`, `docs/_archiv/STORE_SUBMISSION_GUIDE.md`,
   aktuelle `FULL_STACK_AUDIT_v30.*.md`.
 
 ## Quick-Start (Entwickler)

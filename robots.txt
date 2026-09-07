@@ -76,9 +76,17 @@ Disallow: /
 User-agent: DataForSeoBot
 Disallow: /
 
-# Default für alle anderen
+# v32.69 (Audit D3): interne Dateien sind erreichbar, aber nicht fuer den Index —
+# Doku, Migrationen, Pruefstaende, Store-Material und die Markdown-Dateien im Root.
+# _headers setzt fuer dieselben Pfade X-Robots-Tag: noindex.
 User-agent: *
 Allow: /
+Disallow: /docs/
+Disallow: /supabase/
+Disallow: /scripts/
+Disallow: /store/
+Disallow: /*.md$
+Disallow: /*.sql$
 Crawl-delay: 10
 
 Sitemap: https://green-scan.ch/sitemap.xml

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.68.20260907">
+<meta name="app-version" content="32.69.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9646,7 +9646,15 @@ window.gsCollectionDelete = async function(id){
   if (!id) return;
   var ok = (typeof gsConfirmModal==='function') ? await gsConfirmModal({title:_gsCollT('coll_delete_title','Sammlung löschen?'), text:_gsCollT('coll_delete_body','Die Sammlung wird entfernt (die Pflanzen/Arten selbst bleiben erhalten).'), okText:_gsCollT('btn_delete','Löschen'), cancelText:_gsCollT('btn_cancel_generic','Abbrechen'), danger:true}) : confirm('Sammlung löschen?');
   if (!ok) return;
-  try { await sbFetch('/rest/v1/user_collections?id=eq.'+encodeURIComponent(id), {method:'DELETE'}); gsCollectionsRefresh(); } catch(_){}
+  // v32.69 (Audit B4): vorher ohne jede Rückmeldung — eine Ablehnung sah niemand, die Liste blieb einfach stehen.
+  try {
+    var _rc = await sbFetch('/rest/v1/user_collections?id=eq.'+encodeURIComponent(id), {method:'DELETE'});
+    if (typeof gsToast === 'function') {
+      if (_gsSchreibOk(_rc)) gsToast(_gsCollT('coll_deleted','🗑 Sammlung gelöscht'), 'info');
+      else gsToast('⚠️ ' + _gsCollT('coll_delete_failed','Sammlung nicht gelöscht') + ': ' + ((_rc && _rc.error && _rc.error.message) || _gsCollT('coll_server_no','Server hat nicht bestätigt')), 'error', 6000);
+    }
+    gsCollectionsRefresh();
+  } catch(_){}
 };
 window.gsOpenCollectionItems = async function(id){
   var body = document.getElementById('gs-coll-body'); if (!body) return;
@@ -18816,6 +18824,18 @@ function mktLike(id) {
 async function mktDelete(id) {
   gsHaptic('medium');
   if (!(await gsConfirmModal('Inserat löschen?'))) return;
+  // v32.69 (Audit B4): ZUERST der Server, DANN die Meldung. Vorher stand
+  // „Inserat gelöscht" vor einem nicht abgewarteten DELETE — eine Ablehnung
+  // (RLS, Netz) sah niemand, und das Inserat kam beim nächsten Laden zurück.
+  // Eine Antwort mit 0 Zeilen ist hier kein Fehler: dann gab es auf dem Server
+  // nichts zu löschen (nur lokal, oder schon weg) — lokal wird trotzdem geräumt.
+  if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+    var _rd = await sbFetch('/rest/v1/marketplace_listings?id=eq.'+encodeURIComponent(id), {method:'DELETE'});
+    if (_rd && _rd.error) {
+      showProfileToast({ title: 'Inserat NICHT gelöscht', body: (_rd.error.message || 'Der Server hat das Löschen abgelehnt.') + ' Bitte später erneut versuchen.', kind: 'error', duration: 7000 });
+      return;
+    }
+  }
   var listings = [];
   try { listings = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
   listings = listings.filter(function(x){ return x.id !== id; });
@@ -18823,10 +18843,6 @@ async function mktDelete(id) {
   closeModal('modal-listing-detail');
   renderMarket();
   showProfileToast('Inserat gelöscht', 'info');
-  // v25.3: encodeURIComponent-Restore (war v24.13 gefixt, durch Sync verloren)
-  if (typeof sbFetch === 'function') {
-    sbFetch('/rest/v1/marketplace_listings?id=eq.'+encodeURIComponent(id), {method:'DELETE'}).catch(function(){});
-  }
 }
 
 // ══ BEWÄSSERUNGS-ERINNERUNG ═══════════════════════════════════
@@ -32763,18 +32779,25 @@ function gsSaveConfirmedScan(r) {
     DB.push(newSpecies);
   }
 
-  showProfileToast('✅ ' + r.name + ' ('+r.confidence+'%) gespeichert!');
   // In Supabase user_scans speichern
   var uid = gsStore.get('gs_sb_uid', null);
   if (uid && typeof sbFetch === 'function') {
     // v29.07 (Bug-Sweep): 'description' + 'scanned_at' existieren NICHT in user_scans → PostgREST 400
     // (PGRST204) → bestätigte Scans landeten NIE in der Cloud. Reale Spalten + description in context (jsonb),
     // created_at hat now()-Default. Konsistent zu gsScanPersistToCloud.
+    // v32.69 (Audit B4): „gespeichert!" stand VOR diesem Aufruf, mit return=minimal —
+    // genau der Aufruf, der einmal eine ganze Versionsreihe lang still scheiterte.
+    // Jetzt: die Meldung kommt NACH der Antwort und sagt, was wirklich gespeichert ist.
     sbFetch('/rest/v1/user_scans', {method:'POST',
-      headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+      headers:{'Content-Type':'application/json','Prefer':'return=representation'},
       body:JSON.stringify({user_id:uid, species_name:r.name, species_latin:r.latin||'',
         confidence:r.confidence, context:{description:r.description||''}})
+    }).then(function(_rs){
+      if (_gsSchreibOk(_rs)) showProfileToast('✅ ' + r.name + ' ('+r.confidence+'%) gespeichert!');
+      else showProfileToast({ title: 'Lokal gespeichert — nicht in der Cloud', body: ((_rs && _rs.error && _rs.error.message) || 'Der Server hat den Scan nicht angenommen.') + ' Er bleibt auf diesem Gerät.', kind: 'warn', duration: 7000 });
     }).catch(function(){});
+  } else {
+    showProfileToast('✅ ' + r.name + ' ('+r.confidence+'%) gespeichert (nur dieses Gerät)');
   }
 }
 
@@ -39647,21 +39670,28 @@ window.gsFbMarkDone = async function(id){
   fb.done_version = (typeof GS_VERSION !== 'undefined') ? GS_VERSION : '';
   try { localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems)); } catch(_){}
   renderFeedback();
-  if (typeof showProfileToast === 'function') showProfileToast('✅ Abgehakt · Erklärung: ' + note.slice(0,60));
-  // Supabase mirror (wenn sb_id vorhanden)
+  // v32.69 (Audit B4): die Meldung kommt NACH der Antwort des Servers — vorher stand
+  // „Abgehakt" vor einem PATCH mit return=minimal, der still scheitern konnte.
+  var _fbGesagt = false;
   try {
     if (fb.sb_id && typeof sbFetch === 'function' && sbGetConfig()){
+      _fbGesagt = true;
       sbFetch('/rest/v1/feedback_items?id=eq.' + encodeURIComponent(fb.sb_id), {
         method:'PATCH',
-        headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+        headers:{'Content-Type':'application/json','Prefer':'return=representation'},
         body: JSON.stringify({
           ki_status:'implemented',
           ki_action: note,
           ki_rationale: 'Als erledigt markiert in ' + (fb.done_version||'')
         })
+      }).then(function(_rp){
+        if (typeof showProfileToast !== 'function') return;
+        if (_gsSchreibOk(_rp)) showProfileToast('✅ Abgehakt · Erklärung: ' + note.slice(0,60));
+        else showProfileToast({ title: 'Lokal abgehakt — Server nicht aktualisiert', body: (_rp && _rp.error && _rp.error.message) || 'Der Server hat die Änderung nicht bestätigt.', kind: 'warn', duration: 7000 });
       }).catch(function(e){ console.warn('[fb-done] sb patch:', e); });
     }
   } catch(_){}
+  if (!_fbGesagt && typeof showProfileToast === 'function') showProfileToast('✅ Abgehakt (nur lokal) · Erklärung: ' + note.slice(0,60));
 };
 
 // v23.65: Auto-Poll alle 30s wenn Feedback-Screen sichtbar ist
@@ -54180,10 +54210,14 @@ window.gsToggleAchFeed = function(checked) {
       if (uid) {
         sbFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(uid), {
           method:'PATCH',
-          headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+          headers:{'Content-Type':'application/json','Prefer':'return=representation'},
           body: JSON.stringify({ opt_in_achievement_feed: !!checked })
-        }).then(function(){
-          if (typeof gsToast === 'function') gsToast(checked ? '🏆 Feed-Anzeige aktiviert' : '🔒 Aus Feed entfernt', 'success');
+        }).then(function(_rf){
+          // v32.69 (Audit B4): das Häkchen gilt erst, wenn der Server es hat — sonst zurück.
+          if (_gsSchreibOk(_rf)) { if (typeof gsToast === 'function') gsToast(checked ? '🏆 Feed-Anzeige aktiviert' : '🔒 Aus Feed entfernt', 'success'); return; }
+          userPrefs.achFeed = !checked; savePrefs();
+          try { var cb = document.getElementById('toggle-ach-feed'); if (cb) cb.checked = !checked; } catch(_){}
+          if (typeof gsToast === 'function') gsToast('⚠️ Einstellung nicht gespeichert: ' + ((_rf && _rf.error && _rf.error.message) || 'Server hat nicht bestätigt'), 'error', 6000);
         }).catch(function(){});
       }
     }
@@ -71116,14 +71150,19 @@ async function gsPPdeletePlan(id) {
     localStorage.setItem('gs_garden_plans', JSON.stringify(saved));
   } catch(_){}
   // Cloud (user_gardens.data.plans + garden_plans falls source='garden_plans')
+  // v32.69 (Audit B4): der Dialog verspricht „auf allen deinen Geräten entfernt" —
+  // jede Server-Antwort wird angesehen, und die Meldung sagt, was wirklich gilt.
+  var _cloud = null;   // null = kein Cloud-Weg (abgemeldet) · true = bestätigt · false = nicht bestätigt
   try {
     if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
       var uid = gsStore.get('gs_sb_uid', null);
       if (uid) {
+        _cloud = true;
         // (a) garden_plans Tabelle: nur wenn id mit 'gp_' prefixed
         if (typeof id === 'string' && id.indexOf('gp_') === 0) {
           var realId = id.slice(3);
-          await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(realId) + '&user_id=eq.' + uid, {method:'DELETE'});
+          var _rgp = await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(realId) + '&user_id=eq.' + uid, {method:'DELETE'});
+          if (!_gsSchreibOk(_rgp)) _cloud = false;
         }
         // (b) user_gardens.data.plans Array — Re-Pull, Filter, Re-Post
         var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data&limit=1', {method:'GET'});
@@ -71131,18 +71170,23 @@ async function gsPPdeletePlan(id) {
         if (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)) {
           var data = ugRows[0].data;
           data.plans = data.plans.filter(function(p){ return p.id !== id; });
-          await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {  // v29.51 P0-SYNC-FIX (on_conflict)
+          var _rug = await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {  // v29.51 P0-SYNC-FIX (on_conflict)
             method: 'POST',
-            headers: {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+            headers: {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'},
             body: JSON.stringify({user_id: uid, data: data, updated_at: new Date().toISOString()})
           });
-        }
+          if (!_gsSchreibOk(_rug)) _cloud = false;
+        } else if (ug && ug.error) { _cloud = false; }
       }
     }
-  } catch(e) { console.warn('[gsPPdeletePlan] cloud-delete:', e); }
+  } catch(e) { console.warn('[gsPPdeletePlan] cloud-delete:', e); _cloud = false; }
   // v28.66 Block F.3: gelöschten Plan auch aus System-Sammlung „Garten-Pläne" räumen.
   try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
-  if (typeof showProfileToast === 'function') showProfileToast('🗑 Plan gelöscht');
+  if (typeof showProfileToast === 'function') {
+    if (_cloud === true) showProfileToast('🗑 Plan gelöscht');
+    else if (_cloud === null) showProfileToast('🗑 Plan gelöscht (nur dieses Gerät — nicht angemeldet)');
+    else showProfileToast({ title: 'Plan nur lokal gelöscht', body: 'Der Server hat das Löschen nicht bestätigt — auf anderen Geräten kann er wieder auftauchen. Bitte später erneut versuchen.', kind: 'warn', duration: 8000 });
+  }
   gsPPopenSavedPlans(); // re-render
 }
 
@@ -71158,26 +71202,34 @@ async function gsPPrenamePlan(id){
   if (!name || name === oldTitle) return;
   // LS
   try { var s = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); s.forEach(function(p){ if(p&&p.id===id) p.title=name; }); localStorage.setItem('gs_garden_plans', JSON.stringify(s)); } catch(_){}
-  // Cloud
+  // Cloud — v32.69 (Audit B4): jede Antwort wird angesehen, die Meldung sagt, was gilt.
+  var _cloudR = null;   // null = abgemeldet · true = bestätigt · false = nicht bestätigt
   try {
     if (typeof sbIsLoggedIn==='function' && sbIsLoggedIn() && typeof sbFetch==='function'){
       var uid = gsStore.get('gs_sb_uid', null);
       if (uid){
+        _cloudR = true;
         if (typeof id==='string' && id.indexOf('gp_')===0){
-          await sbFetch('/rest/v1/garden_plans?id=eq.'+encodeURIComponent(id.slice(3))+'&user_id=eq.'+uid, {method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({title:name})});
+          var _rgp2 = await sbFetch('/rest/v1/garden_plans?id=eq.'+encodeURIComponent(id.slice(3))+'&user_id=eq.'+uid, {method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({title:name})});
+          if (!_gsSchreibOk(_rgp2)) _cloudR = false;
         }
         var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.'+uid+'&select=data&limit=1', {method:'GET'});
         var ugRows=(ug&&ug.data&&Array.isArray(ug.data))?ug.data:[];
         if (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)){
           var data=ugRows[0].data; var hit=false;
           data.plans.forEach(function(p){ if(p&&p.id===id){ p.title=name; hit=true; } });
-          if (hit) await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id:uid, data:data, updated_at:new Date().toISOString()})});
-        }
+          if (hit) { var _rug2 = await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'}, body: JSON.stringify({user_id:uid, data:data, updated_at:new Date().toISOString()})});
+            if (!_gsSchreibOk(_rug2)) _cloudR = false; }
+        } else if (ug && ug.error) { _cloudR = false; }
       }
     }
-  } catch(e){ console.warn('[gsPPrenamePlan] cloud:', e); }
+  } catch(e){ console.warn('[gsPPrenamePlan] cloud:', e); _cloudR = false; }
   try { if (typeof gsCollectionsAutoVacuumDebounced==='function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
-  if (typeof showProfileToast==='function') showProfileToast('✏️ Plan umbenannt');
+  if (typeof showProfileToast==='function') {
+    if (_cloudR === true) showProfileToast('✏️ Plan umbenannt');
+    else if (_cloudR === null) showProfileToast('✏️ Plan umbenannt (nur dieses Gerät — nicht angemeldet)');
+    else showProfileToast({ title: 'Plan nur lokal umbenannt', body: 'Der Server hat die Änderung nicht bestätigt — auf anderen Geräten bleibt der alte Name.', kind: 'warn', duration: 7000 });
+  }
   gsPPopenSavedPlans();
 }
 window.gsPPrenamePlan = gsPPrenamePlan;
@@ -74945,6 +74997,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.69', date: '07.09.2026',
+    headline: '🧾 Sieben Meldungen sagen jetzt, was der Server bestätigt hat — und die Prüfstände laufen auf jedem PR',
+    summary: 'Audit B4 und D1–D4. „Inserat gelöscht", „Plan gelöscht", „Plan umbenannt", „gespeichert!", „Abgehakt", „Feed-Anzeige aktiviert" und „Push deaktiviert" standen vor oder neben Server-Aufrufen, deren Antwort niemand ansah; jetzt kommt die Meldung nach der Antwort und sagt „nur lokal", wenn der Server nicht bestätigt hat. Der Prüfstand versprechen_check kennt die Stämme gelöscht/entfernt/deaktiviert/umbenannt, findet Versprechen VOR dem Schreiben und die richtige umschliessende Funktion. Repo: github/ heisst jetzt .github/ (der Aufräum-Workflow lief nie), ein Workflow fährt alle Prüfstände auf jedem PR (scripts/package.json, Postgres als Service), 49 historische Dateien aus dem Wurzelverzeichnis liegen in docs/_archiv/, interne Pfade tragen X-Robots-Tag: noindex und stehen in robots.txt, install.html und offline.html nennen keine veraltete Versionsnummer mehr.',
+    user_summary: '🧾 Wenn etwas nur auf diesem Gerät gelöscht oder gespeichert wurde, sagt die App es jetzt — statt „gelöscht", wenn der Server nicht mitgemacht hat.',
+    user_items: [
+      {emoji:'🧾', bold:'Ehrliche Meldungen:', text:' Inserat, Plan, Scan, Push, Sammlung — die Meldung kommt erst, wenn der Server geantwortet hat.'},
+    ],
+  },
+  {
     v: 'v32.68', date: '07.09.2026',
     headline: '🔐 Der KI-Schlüssel bleibt auf dem Server — die App ruft den Proxy',
     summary: 'Bis jetzt bekam jeder angemeldete Nutzer den echten Anthropic-Schlüssel in den Browser, und die App rief Anthropic direkt (Audit A1). Der Server-Proxy ai-proxy war seit Juni ausgeliefert und nie benutzt. Jetzt geht jeder KI-Aufruf mit globalem Schlüssel zuerst an den Proxy; der Schlüssel liegt nie mehr auf der Platte, nur noch im Arbeitsspeicher und nur solange der Server ihn schickt. Fällt der Proxy aus (Netz, 5xx), geht die Anfrage einmal direkt — ein Übergang, der mit der Migration 20260907_global_api_key_nur_proxy.sql von selbst endet: danach bekommt kein Nutzer mehr einen Schlüssel, nur Admins. Das Tageslimit des Proxys erscheint als Tageslimit, nicht als „Anbieter überlastet". Prüfstand schluessel_check (SQL + App).',
@@ -75878,7 +75939,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.68';
+var GS_VERSION = 'v32.69';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -84922,6 +84983,18 @@ window.gsLinaRender = gsLinaRender;
 function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLinaRender(false); }
 window.gsLinaNew = gsLinaNew;
 
+// v32.69 (Audit B4): Linas Nachrichten gingen ohne Blick auf die Antwort in die
+// Cloud. Ein Verlauf, der nur lokal liegt, ist auf dem zweiten Gerät weg — das
+// wird EINMAL je Sitzung gesagt (nicht bei jeder Zeile), sobald der Server ablehnt.
+function _gsLinaSpeicherPruefen(r){
+  try {
+    if (_gsSchreibOk(r) || window._gsLinaSpeicherGesagt) return;
+    window._gsLinaSpeicherGesagt = true;
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
+    if (typeof gsToast === 'function') gsToast(_t('lina_local_only','Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).'), 'info', 3500);
+    console.warn('[Lina] Nachricht nicht gespeichert:', r && r.error && r.error.message);
+  } catch(_){}
+}
 async function gsLinaSend(){
   if (window._gsLinaSending) return; // v29.48: Doppel-Send-Guard — sonst 2 parallele callAI → doppelter Quota-Abzug
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -84945,7 +85018,7 @@ async function gsLinaSend(){
       else if (typeof gsToast === 'function') gsToast(_t('lina_local_only','Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).'), 'info', 3500); // v29.48: Conv-Anlage fehlgeschlagen → Nutzer dezent informieren
     }
     if (window._gsLinaConvId) {
-      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })});
+      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })}).then(_gsLinaSpeicherPruefen);
     }
     var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
     var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(), 900, { quotaFeature:'lina', timeout:45000 });
@@ -84958,7 +85031,7 @@ async function gsLinaSend(){
     window._gsLinaMsgs.push({ role:'assistant', content:reply });
     gsLinaRender(false);
     if (window._gsLinaConvId) {
-      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'assistant', content:reply })});
+      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'assistant', content:reply })}).then(_gsLinaSpeicherPruefen);
       sbFetch('/rest/v1/coach_conversations?id=eq.'+window._gsLinaConvId, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ updated_at: new Date().toISOString() })});
     }
   } catch(err){
@@ -85375,8 +85448,14 @@ async function gsUnsubscribeWebPush(){
       if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
         var uid = gsStore.get('gs_sb_uid', null);
         if (uid && typeof sbFetch === 'function') {
-          await sbFetch('/rest/v1/push_subscriptions?user_id=eq.' + encodeURIComponent(uid) +
+          var _rdel = await sbFetch('/rest/v1/push_subscriptions?user_id=eq.' + encodeURIComponent(uid) +
             '&endpoint=eq.' + encodeURIComponent(ep), { method: 'DELETE' });
+          // v32.69 (Audit B4): eine Ablehnung heisst, der Server pusht weiter — das gehört gesagt.
+          // 0 Zeilen sind hier in Ordnung (Eintrag war schon weg).
+          if (_rdel && _rdel.error) {
+            if (typeof showProfileToast === 'function') showProfileToast({ title: 'Push auf diesem Gerät aus — Server-Eintrag blieb', body: (_rdel.error.message || 'Der Server hat das Löschen abgelehnt.') + ' Bitte später in den Einstellungen erneut deaktivieren.', kind: 'warn', duration: 8000 });
+            return;
+          }
         }
       }
     }

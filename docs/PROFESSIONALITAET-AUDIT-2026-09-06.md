@@ -30,7 +30,12 @@
 | B6 · Escape schliesst alle Fenster | ✅ v32.67 — nur das oberste (zuletzt geöffnet, sonst höchster z-index) | `robust_check` Fall 3 |
 | B3 · Service Worker aktiviert sich selbst (`skipWaiting` im Install) | ✅ v32.67 — wartet auf `SKIP_WAITING` vom Banner; Rückfall-Reload 4 s | `robust_check` Fall 4 · `offline_check` |
 | A1 · globaler Anthropic-Schlüssel im Browser jedes Nutzers | ✅ v32.68 (App) — Proxy zuerst, Schlüssel nie mehr auf der Platte, Übergangs-Rückfall; ⏳ Migration `20260907_global_api_key_nur_proxy.sql` + `deploy ai-proxy` (Fernando, §8) | `schluessel_check` 10 Fälle |
-| A5–A9, B2, B4, B7–B9, C–E | offen | §G |
+| B4 · Versprechen ohne Prüfung (Plan löschen/umbenennen, Inserat, Scan, Feed-Opt-In, Push aus, Sammlungen, Lina) + `versprechen_check` blind für „gelöscht" | ✅ v32.69 — Meldung nach der Antwort, „nur lokal" bei Ablehnung; Prüfstand kennt die Stämme, Versprechen VOR dem Schreiben und die richtige Funktion (0 → 7 → 0 rot) | `versprechen_check`, `save_check` +2 |
+| D1 · `github/` ohne Punkt | ✅ v32.69 — `.github/` | Workflow läuft ab jetzt |
+| D2 · 28 Prüfstände ohne CI, Playwright über Cloud-Pfad | ✅ v32.69 — `scripts/package.json`, `scripts/pruefstaende.sh`, `.github/workflows/pruefstaende.yml` (Postgres-Service) | erster Lauf auf dem nächsten PR |
+| D3 · Web-Root ist das Repo, 53 interne Dateien, kein `X-Robots-Tag` | ✅ v32.69 — 49 Dateien nach `docs/_archiv/`, `X-Robots-Tag: noindex` + `robots.txt` für docs/supabase/scripts/store; 404 ist auf Cloudflare Pages nicht erzwingbar | `_headers`, `robots.txt` |
+| D4 · drei Versionsnummern (install/offline/App), Sitemap ohne lastmod | ✅ v32.69 (Versionsnummern raus aus install/offline) · lastmod offen (eine gepflegte Zahl wäre falsch, eine ungepflegte auch) | — |
+| A5–A9, B2, B7–B9, C, E | offen | §G |
 
 ## Zahlen zuerst
 
@@ -267,7 +272,7 @@ Cloud-Umgebung. `.gitignore:33` verbietet `package.json` im Root bewusst
 (Cloudflare würde bauen) — in `scripts/` wäre eines möglich.
 
 **D3 · Der Web-Root ist das Repo.** 53 interne Audit- und
-Auftragsdateien, `AUFTRAG_v25.33_FERNANDO_BUGS.md.bak`, `supabase/`
+Auftragsdateien, `_archiv/AUFTRAG_v25.33_FERNANDO_BUGS.md.bak`, `supabase/`
 (8.5 MB), `scripts/`, `docs/`, `store/` werden von Cloudflare und Netlify
 ausgeliefert; `robots.txt` erlaubt Google alles, `_headers` setzt kein
 `X-Robots-Tag`. Ob Google sie indexiert hat, ist von hier nicht messbar.
