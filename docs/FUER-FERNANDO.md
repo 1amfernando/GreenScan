@@ -460,6 +460,58 @@ ist unverändert); im Admin-Panel „KI-Triage" läuft für dich weiter; ein
 Garten-Scan mit drei Fotos und Horizont 3 Jahre kommt in unter zwei Minuten
 zurück oder sagt sauber „Timeout".
 
+## 10 · Drei Dinge aus Audit A5/A6 (v32.74), die nur du entscheiden oder anwenden kannst
+
+**Nur gelesen, nichts geändert** — die Zahlen stammen aus lesenden Abfragen
+vom 07.09.2026.
+
+1. **`profiles` — ein Loch, das die Guard-Trigger nicht deckt.**
+   `trg_profiles_guard_protected` verhindert, dass ein Nicht-Admin seine
+   eigenen Spalten `is_admin`, `role`, `tier`, `is_expert` … per UPDATE
+   ändert. Die Regel `profiles_insert_self` erlaubt aber das Anlegen der
+   eigenen Zeile **ohne `WITH CHECK`** auf diese Spalten. Im Normalfall ist
+   das harmlos, weil `fn_handle_new_user` die Zeile beim Registrieren
+   anlegt und ein zweites INSERT am Primärschlüssel scheitert. Fehlt die
+   Zeile aber einmal (gelöscht, Import, Wiederherstellung), könnte ein Konto
+   sich mit `is_admin = true` selbst anlegen — und `is_admin_user()` sagt
+   danach „ja". Vorschlag (DDL, deshalb bei dir):
+
+   ```sql
+   -- profiles: beim Anlegen der eigenen Zeile keine Rechte mitbringen
+   drop policy if exists profiles_insert_self on public.profiles;
+   create policy profiles_insert_self on public.profiles
+     for insert to authenticated
+     with check (
+       (select auth.uid()) = id
+       and coalesce(is_admin, false) = false
+       and coalesce(role, 'user') = 'user'
+       and coalesce(is_expert, false) = false
+       and tier is null
+     );
+   ```
+
+   Vorher einmal `select count(*) from profiles where is_admin` — das
+   sollten weiterhin 2 sein. Wenn `tier` bei neuen Zeilen einen Vorgabewert
+   hat, die letzte Bedingung anpassen (`\d profiles` zeigt es).
+
+2. **Die Alt-Tabellen `sensor_devices` / `sensor_readings` / `sensor_alerts`.**
+   Live: 1 Gerät (deins, 09.06.2026), 0 Messwerte, 0 Alarme. Die App legt
+   dort seit v32.74 nichts mehr an; das eine Gerät kannst du unter
+   „Sensoren & Geräte" mit 🗑️ entfernen. Die Tabellen selbst dürfen
+   bleiben — oder weg, wenn du magst (`drop table` in dieser Reihenfolge:
+   `sensor_alerts`, `sensor_readings`, `sensor_thresholds`,
+   `sensor_devices`). Nichts in der App liest sie mehr ausser dem
+   Wegweiser und dem Login-Sync `gsSensorSync` (Aufräumen folgt mit
+   Audit C2).
+
+3. **„Messwerte → Gerät koppeln" braucht §6.** Die neuen Tabellen
+   `devices`, `device_readings`, `device_rules`, `device_commands` gibt es
+   live noch **nicht** (0 von 4 am 07.09.2026). Bis die Migration aus §6
+   angewandt ist, sagt das Koppeln in der App ehrlich „Nicht gekoppelt — der
+   Server hat das Gerät nicht angenommen"; Messwerte von Hand funktionieren
+   trotzdem. Der Wegweiser aus A5 zeigt also auf einen Weg, der erst mit §6
+   ganz zu Ende geht.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

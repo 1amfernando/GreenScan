@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.73.20260907">
+<meta name="app-version" content="32.74.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8032,19 +8032,23 @@ window.gsScrollBehavior = function(){
 // NATURE_FACTS-Kompatibilitäts-Shim (falls alte Funktionen es noch nutzen)
 if (typeof NATURE_FACTS === 'undefined') var NATURE_FACTS = [];
 
-// v23.90 SECURITY-FIX: Admin-Modus erfordert BEIDE Bedingungen:
-//   (1) localStorage 'gs_admin' = 'true' (= aktiver Login)
-//   (2) Aktuelle User-Email in GS_ADMINS-Whitelist
-// Vorher konnte 'gs_admin' im localStorage stehen bleiben wenn User Account gewechselt hat
-// → Test-Account sah Admin-Modus. Jetzt strikt geprüft.
+// v32.74 (Audit A6): Admin-Modus erfordert BEIDE Bedingungen:
+//   (1) localStorage 'gs_admin' = 'true' (= die Person hat ihn eingeschaltet)
+//   (2) der SERVER kennt dieses Konto als Admin — `gs_is_admin` ist der Spiegel
+//       von `is_admin_user()` (gsSyncUserRole nach jedem Login, doAdminLogin
+//       beim Einschalten).
+// Bis v32.73 stand hier eine E-Mail-Liste im HTML (zwei private Adressen,
+// öffentlich lesbar) und darunter ein unsalted SHA-256 eines Passworts, gegen
+// das der Client verglich. Beides ist weg: was der Server entscheidet, fragt
+// die App den Server — und zeigt nur, was er gesagt hat.
+function _gsServerSagtAdmin() {
+  try { return localStorage.getItem('gs_is_admin') === '1' || localStorage.getItem('gs_user_role') === 'admin'; } catch(_) { return false; }
+}
 function gsIsActuallyAdmin() {
   try {
     if (localStorage.getItem('gs_admin') !== 'true') return false;
-    var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
-    if (!email) return false;
-    // GS_ADMINS-Liste muss zum Zeitpunkt der Prüfung existieren
-    if (typeof GS_ADMINS === 'undefined' || !Array.isArray(GS_ADMINS)) return false;
-    return GS_ADMINS.includes(email);
+    if (!gsStore.get('gs_sb_email', null)) return false;
+    return _gsServerSagtAdmin();
   } catch(_) { return false; }
 }
 // IS_ADMIN ist jetzt eine Variable die bei Login/Logout neu evaluiert wird.
@@ -8053,7 +8057,7 @@ var IS_ADMIN = gsIsActuallyAdmin();
 // Bei jedem Account-Wechsel/Auth-Event: IS_ADMIN re-evaluieren und gs_admin löschen falls User kein Admin
 window.gsRefreshAdminFlag = function() {
   var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
-  var isWhitelisted = typeof GS_ADMINS !== 'undefined' && Array.isArray(GS_ADMINS) && GS_ADMINS.includes(email);
+  var isWhitelisted = _gsServerSagtAdmin();   // v32.74: der Server-Spiegel, keine Liste im HTML
   // v30.40 FIX (Admin-Flicker): IS_ADMIN konstant für ECHTE Admins. Vorher nur gsIsActuallyAdmin() (= gs_admin-
   // Passwort-Flag, das beim normalen Login NIE gesetzt ist) → IS_ADMIN wurde bei JEDEM Token-Refresh
   // (sbSaveSession→gsRefreshAdminFlag, ~stündlich) auf false zurückgesetzt = "Admin-Modus schaltet sich aus".
@@ -54421,9 +54425,7 @@ function applyAllPrefs() {
 function initSettingsScreen() {
   // Admin-only Elemente zeigen/verstecken
   var isA = gsIsAdmin ? gsIsAdmin() : false;
-  var isAdminEmail = typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() &&
-    (GS_ADMINS || []).includes((gsStore.get('gs_sb_email', null)||'').toLowerCase());
-  var showAdmin = isA || isAdminEmail;
+  var showAdmin = isA;   // v32.74 (Audit A6): nur der Server-Spiegel, keine E-Mail-Liste
   document.querySelectorAll('.admin-only-row').forEach(function(el) {
     el.style.display = showAdmin ? '' : 'none';
   });
@@ -55014,14 +55016,13 @@ const MENU_ITEMS = [
   {label:'🏆 Achievements', sub:'Meilensteine & Garten-Score', action:"openAchievementsModal()", tags:['achievement','achievements','erfolge','meilenstein','score','abzeichen','trophäe','trophae','fortschritt']},
   {label:'📖 Garten-Bibliothek', sub:'10 Grundlagen-Artikel', action:"gsOpenGardenLibrary()", tags:['bibliothek','artikel','grundlagen','lesen','wissen','garten','ratgeber']},
   {label:'📅 Kalender', sub:'Aufgaben, Tagebuch und Pflanzungen nach Tag', action:"gsKalenderOeffnen()", tags:['kalender','aufgaben','tagebuch','heute','termine','faellig']},
-  {label:'📊 Messwerte', sub:'Geräte, Sensoren und Werte von Hand — mit Verlauf und Regeln', action:"gsMesswerteOeffnen()", tags:['messwerte','sensor','geraet','bodenfeuchte','dashboard','werte']},
+  {label:'📊 Messwerte', sub:'Geräte, Sensoren und Werte von Hand — mit Verlauf und Regeln', action:"gsMesswerteOeffnen()", tags:['messwerte','sensor','geraet','bodenfeuchte','dashboard','werte','smarthome','smart','home','feuchtigkeit','messung','cloud','esp32']},
   {label:'🧾 Giess-Zettel', sub:'Jede Fälligkeit während deiner Abwesenheit — zum Drucken für die Nachbarin', action:"gsGiessZettelOeffnen()", tags:['zettel','urlaub','ferien','abwesend','nachbar','giessen','drucken']},
   {label:'🧭 Ohne Netz eingrenzen', sub:'Was hier und jetzt in Frage kommt — ohne Internet', action:"gsEingrenzenOeffnen()", tags:['offline','ohne netz','eingrenzen','wald','empfang','monat','höhe','hoehe','farbe','saison','bestimmen','filter','kein internet']},
   {label:'📊 Garten-Insights', sub:'Score + Risiken', action:"gsInsightsOpen()", tags:['insights','statistik','score','risiko','auswertung','analyse','garten']},
   {label:'🥕 Erntekalender', sub:'Jahres-Statistik deiner Ernten', action:"openHarvestStatsModal()", tags:['ernte','erntekalender','statistik','kilo','jahr','bilanz']},
   {label:'📔 Tagebuch-Eintrag', sub:'11 Typen + Saison-Statistik', action:"openDiaryEntryModal()", tags:['tagebuch','eintrag','notiz','journal','saison','protokoll']},
   {label:'🎙️ Hey GreenScan', sub:'Voice-Mode — per Sprache steuern', action:"gsVoiceOpen()", tags:['voice','sprache','sprachsteuerung','mikrofon','diktat','hey']},
-  {label:'🏠 Sensor-Dashboard', sub:'Smart-Home Sensoren', action:"gsShOpen()", tags:['sensor','smarthome','smart','home','feuchtigkeit','messung','dashboard']},
   {label:'🏠 Home', sub:'Startseite', action:"menuNav('home')", tags:['home','start','hauptseite']},
   {label:'🎓 Lernen', sub:'Pilze & Garten — Anfänger-Lektionen', action:"gsOpenLearnHub()", tags:['lernen','lektion','lektionen','wissen','pilze','garten','anfänger','anfaenger','sammeln','kurs','tutorial','vapko','mischkultur']},
   {label:'📷 Scanner', sub:'Pflanze/Pilz scannen', action:"menuNav('scanner')", tags:['scan','kamera','foto','bestimmen','erkennen','pilz','pflanze']},
@@ -72130,135 +72131,45 @@ function openDevicesModal() {
   openModal('modal-devices');
 }
 
-// v23.74: HTTP-Webhook-Setup-Wizard für ESP32/Pi/iOS-Hardware
+// v32.74 (Audit A5): der alte Cloud-Sensor-Assistent ist ersetzt. Er legte
+// Geräte in `sensor_devices` an (Alt-Schema; live am 07.09.2026: 1 Zeile vom
+// 09.06.2026, 0 Messwerte, 0 Alarme) und zeigte danach curl- und Arduino-
+// Beispiele mit dem SITZUNGS-TOKEN der Person und dem Rat, den Service-Role-
+// Key zu benutzen. Seit v32.62 gibt es den richtigen Weg: Messwerte → Gerät
+// koppeln — das Gerät bekommt ein eigenes Token, der Server kennt nur den
+// Hash. Hier steht deshalb nur noch der Wegweiser; vorhandene Alt-Geräte
+// werden gelistet und lassen sich löschen, neue entstehen hier nicht mehr
+// (OEKOSYSTEM-V1 §11 Idee 1: „umleiten und einfrieren").
 async function gsDevRenderCloudWizard() {
   var anchor = document.getElementById('gs-bt-support-warn') || document.getElementById('gs-dev-list');
   if (!anchor) return;
   if (document.getElementById('gs-cloud-sensor-wizard')) return; // schon da
-
-  // Existing devices laden
   var devices = [];
   try {
     if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      var r = await sbFetch('/rest/v1/sensor_devices?select=id,name,kind,device_token,is_online,last_seen_at&order=created_at.desc', {method:'GET'});
+      var r = await sbFetch('/rest/v1/sensor_devices?select=id,name,kind,last_seen_at&order=created_at.desc', {method:'GET'});
       if (r && !r.error && Array.isArray(r.data)) devices = r.data;
     }
   } catch(_){}
-
   var wiz = document.createElement('div');
   wiz.id = 'gs-cloud-sensor-wizard';
   wiz.style.cssText = 'margin-top:14px;padding:14px;background:var(--bg-info-soft);border:1.5px solid #90caf9;border-radius:var(--r-md);';
   var html = '<div style="font-size:var(--fs-md);font-weight:800;color:var(--c-info-d);margin-bottom:8px;display:flex;align-items:center;gap:8px;">' +
-    '<span style="font-size:var(--fs-xl);">☁️</span> Cloud-Sensor (ESP32 / Pi / Arduino)' +
-    '</div>' +
-    '<div style="font-size:var(--fs-sm);color:var(--c-info);line-height:1.55;margin-bottom:10px;">Funktioniert auf <b>jedem</b> Gerät — auch iOS. Sensor sendet Werte per HTTP-POST.</div>';
-
-  // Liste vorhandene Cloud-Devices
+    '<span style="font-size:var(--fs-xl);" aria-hidden="true">☁️</span> Cloud-Sensoren (ESP32 / Pi / Arduino)</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--c-info);line-height:1.55;margin-bottom:10px;">Eigene Geräte werden jetzt unter <b>Messwerte</b> gekoppelt: Das Gerät bekommt ein eigenes Zugangs-Token, das nur einmal angezeigt wird — dein Konto-Login bleibt auf deinem Telefon.</div>' +
+    '<button type="button" id="gs-dev-zu-messwerte" onclick="closeModal(\'modal-devices\');gsMesswerteOeffnen()" style="width:100%;padding:10px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">📊 Zu Messwerte — Gerät koppeln</button>';
   if (devices.length) {
-    html += '<div style="margin-bottom:10px;">';
+    html += '<div style="margin-top:12px;font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px;">Alte Cloud-Sensoren (werden nicht mehr befüllt):</div>';
     devices.forEach(function(d){
-      var online = d.is_online ? '<span style="color:var(--c-success);font-weight:800;">● online</span>' : '<span style="color:#999;">○ offline</span>';
-      html += '<div style="background:#fff;border-radius:var(--r-sm);padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:center;">' +
-        '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--c-info-d);">' + escHtml(d.name) + ' <span style="font-size:var(--fs-xs);color:var(--muted);">' + escHtml(d.kind || 'generic') + '</span></div>' +
-          '<div style="font-size:var(--fs-xs);color:var(--muted);">' + online + (d.last_seen_at ? ' · zuletzt: ' + new Date(d.last_seen_at).toLocaleDateString('de-CH') : '') + '</div>' +
-        '</div>' +
-        '<button onclick="gsDevShowSensorCode(\'' + d.id + '\')" style="background:#0277bd;color:#fff;border:none;padding:5px 9px;border-radius:var(--r-sm);font-size:var(--fs-xs);cursor:pointer;font-family:inherit;">📋 Code</button>' +
-        '<button onclick="gsDevDeleteCloudSensor(\'' + d.id + '\')" title="Entfernen" style="background:none;border:none;font-size:var(--fs-md);cursor:pointer;color:var(--c-danger);">🗑️</button>' +
+      html += '<div style="background:var(--card);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:center;">' +
+        '<div style="flex:1;min-width:0;font-size:var(--fs-sm);font-weight:700;color:var(--text);">' + escHtml(d.name || '') +
+          ' <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:400;">' + escHtml(d.kind || '') + (d.last_seen_at ? ' · zuletzt ' + new Date(d.last_seen_at).toLocaleDateString('de-CH') : '') + '</span></div>' +
+        '<button type="button" onclick="gsDevDeleteCloudSensor(\'' + _gsOcStr(d.id) + '\')" title="Entfernen" aria-label="Entfernen" style="background:none;border:none;font-size:var(--fs-md);cursor:pointer;color:var(--c-danger);min-width:32px;min-height:32px;">🗑️</button>' +
       '</div>';
     });
-    html += '</div>';
-  } else {
-    html += '<div style="text-align:center;color:var(--c-info);font-size:var(--fs-sm);padding:6px 0 12px;">Noch kein Cloud-Sensor angelegt.</div>';
   }
-
-  // Add-Button
-  html += '<button onclick="gsDevAddCloudSensor()" style="width:100%;padding:10px;background:#0277bd;color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">+ Neuen Cloud-Sensor anlegen</button>';
   wiz.innerHTML = html;
   anchor.parentNode.insertBefore(wiz, anchor.nextSibling);
-}
-
-async function gsDevAddCloudSensor() {
-  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
-    showProfileToast && showProfileToast('🔐 Bitte einloggen'); return;
-  }
-  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal.
-  var name = (typeof gsPromptModal === 'function')
-    ? await gsPromptModal({title:'Sensor hinzufügen', message:'Wie heißt der Sensor?', placeholder:'z.B. Tomatenbeet ESP32'})
-    : prompt('Wie heißt der Sensor? (z.B. "Tomatenbeet ESP32")');
-  if (!name) return;
-  var kindOpts = 'soil, light, temp, humidity, generic, multi';
-  var kind = (typeof gsPromptModal === 'function')
-    ? await gsPromptModal({title:'Sensor-Typ', message:'Sensor-Typ?\n(' + kindOpts + ')', value:'multi'})
-    : prompt('Sensor-Typ?\n(' + kindOpts + ')', 'multi');
-  if (!kind) kind = 'generic';
-  var uid = gsStore.get('gs_sb_uid', null);
-  try {
-    var r = await sbFetch('/rest/v1/sensor_devices', {
-      method:'POST',
-      headers:{'Prefer':'return=representation'},
-      body: JSON.stringify({user_id: uid, name: name, kind: kind})
-    });
-    if (r && !r.error && r.data && r.data[0]) {
-      showProfileToast && showProfileToast('✅ Sensor angelegt');
-      // Reload Wizard
-      var old = document.getElementById('gs-cloud-sensor-wizard');
-      if (old) old.remove();
-      gsDevRenderCloudWizard();
-      // Code direkt anzeigen
-      setTimeout(function(){ gsDevShowSensorCode(r.data[0].id); }, 200);
-    } else {
-      showProfileToast && showProfileToast('❌ ' + ((r && r.error && _gsFehlerText(r.error)) || 'Fehler'));
-    }
-  } catch(e){
-    showProfileToast && showProfileToast('❌ ' + e.message);
-  }
-}
-
-async function gsDevShowSensorCode(deviceId) {
-  try {
-    var r = await sbFetch('/rest/v1/sensor_devices?id=eq.' + deviceId + '&select=*', {method:'GET'});
-    var dev = (r && !r.error && Array.isArray(r.data) && r.data[0]) ? r.data[0] : null;
-    if (!dev) { showProfileToast && showProfileToast('❌ Sensor nicht gefunden'); return; }
-    var sbUrl = window.SB_URL || window.SB_URL_DEFAULT;
-    var sbKey = window.SB_KEY || window.SB_KEY_DEFAULT;
-    var endpoint = sbUrl + '/rest/v1/sensor_readings';
-    var uid = gsStore.get('gs_sb_uid', null);
-    var token = gsStore.get('gs_sb_token', null) || '';
-    var curlExample = 'curl -X POST "' + endpoint + '" \\\n' +
-      '  -H "apikey: ' + sbKey + '" \\\n' +
-      '  -H "Authorization: Bearer ' + token + '" \\\n' +
-      '  -H "Content-Type: application/json" \\\n' +
-      '  -d \'{"device_id":"' + dev.id + '","user_id":"' + uid + '","metric":"soil_moisture","value_num":42.5,"unit":"%"}\'';
-    var espExample = '#include <WiFi.h>\n#include <HTTPClient.h>\n\nconst char* SB_URL = "' + sbUrl + '/rest/v1/sensor_readings";\nconst char* SB_KEY = "' + sbKey + '";\nconst char* USER_TOKEN = "PASTE-USER-JWT-HERE"; // aus localStorage gs_sb_token\nconst char* DEVICE_ID = "' + dev.id + '";\nconst char* USER_ID  = "' + uid + '";\n\nvoid sendReading(const char* metric, float value, const char* unit) {\n  HTTPClient http;\n  http.begin(SB_URL);\n  http.addHeader("apikey", SB_KEY);\n  http.addHeader("Authorization", String("Bearer ") + USER_TOKEN);\n  http.addHeader("Content-Type", "application/json");\n  String body = "{\\"device_id\\":\\"" + String(DEVICE_ID) + "\\",\\"user_id\\":\\"" + String(USER_ID) + "\\",\\"metric\\":\\"" + metric + "\\",\\"value_num\\":" + String(value, 2) + ",\\"unit\\":\\"" + unit + "\\"}";\n  http.POST(body);\n  http.end();\n}\n\n// Aufruf: sendReading("soil_moisture", 42.5, "%");';
-
-    var html = '<div style="background:#1a1a1a;color:#69f0ae;font-family:monospace;font-size:var(--fs-xs);padding:12px;border-radius:var(--r-sm);overflow-x:auto;white-space:pre-wrap;line-height:1.5;margin-bottom:12px;">' + escHtml(curlExample) + '</div>' +
-      '<button onclick="navigator.clipboard.writeText(this.previousSibling.textContent).then(function(){gsToast(\'curl-Beispiel kopiert ✓\', \'success\');})" style="width:100%;padding:8px;background:#0277bd;color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px;">📋 curl kopieren</button>' +
-      '<details><summary style="cursor:pointer;font-size:var(--fs-sm);font-weight:700;color:var(--text);margin-bottom:8px;">⚡ ESP32 / Arduino-Code anzeigen</summary>' +
-      '<div style="background:#1a1a1a;color:#69f0ae;font-family:monospace;font-size:var(--fs-xs);padding:12px;border-radius:var(--r-sm);overflow-x:auto;white-space:pre-wrap;line-height:1.5;margin-top:8px;">' + escHtml(espExample) + '</div>' +
-      '<button onclick="navigator.clipboard.writeText(this.previousSibling.textContent).then(function(){gsToast(\'ESP32-Code kopiert ✓\', \'success\');})" style="width:100%;padding:8px;background:#0277bd;color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;">📋 ESP32-Code kopieren</button></details>' +
-      '<div style="margin-top:12px;padding:8px;background:var(--bg-yellow-soft);border-left:3px solid #ffa000;font-size:var(--fs-sm);color:var(--c-brown);line-height:1.5;border-radius:0 var(--r-sm) var(--r-sm) 0;">⚠️ <b>JWT-Token läuft ab</b> (1h). Für Hardware-Sensoren nutze die Service-Role-Key oder generiere ein langlebiges API-Token (Premium). Test-Daten kannst du auch direkt im Supabase SQL-Editor inserten.</div>';
-
-    // Modal mit dem Code anzeigen
-    var existing = document.getElementById('modal-sensor-code');
-    if (existing) existing.remove();
-    var m = document.createElement('div');
-    m.id = 'modal-sensor-code';
-    m.className = 'modal-overlay';
-    m.style.display = 'flex';
-    m.style.zIndex = '99999';
-    m.onclick = function(e){ if (e.target === m) m.remove(); };
-    m.innerHTML = '<div class="modal" style="max-width:600px;max-height:88vh;overflow-y:auto;">' +
-      '<button class="modal-close-btn" onclick="document.getElementById(\'modal-sensor-code\').remove()">&#x2715;</button>' +
-      '<div class="modal-content">' +
-        '<h3 style="margin:0 0 12px;font-size:var(--fs-lg);color:var(--g-dark);">📡 Sensor-Code: ' + escHtml(dev.name) + '</h3>' +
-        '<div style="background:var(--bg-success-soft);padding:8px 10px;border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--g-dark);margin-bottom:12px;">device_id: <code style="user-select:all;">' + dev.id + '</code></div>' +
-        html +
-      '</div></div>';
-    document.body.appendChild(m);
-  } catch(e) {
-    showProfileToast && showProfileToast('❌ ' + e.message);
-  }
 }
 
 async function gsDevDeleteCloudSensor(deviceId) {
@@ -73658,28 +73569,16 @@ function _farmLevelName(level){ return _farmT('farm_level_'+level, LEVEL_NAMES[l
 // ═══ ADMIN MODE ══════════════════════════════════════════════
 // IS_ADMIN moved to top of script
 
-//  GREENSCAN EMBEDDED ADMIN — Passwort-geschützt
-var GS_ADMIN_PW_KEY = 'gs_admin_pw_hash';
-// Admin-Passwort nie im Klartext im Code — nur SHA-256 Hash gespeichert
-// Beim ersten Start wird der Hash automatisch gesetzt
-var GS_ADMIN_PW_SEED = 'abe0aa2033b9caf8d1cbd586662ecd2ea6af7e9b9f76a0faf6795f1363da0363';
-
-async function gsHashPw(pw) {
-  try {
-    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-    return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-  } catch(e) {
-    // Fallback für ältere Browser: einfacher Hash
-    var h = 0;
-    for (var i = 0; i < pw.length; i++) h = ((h << 5) - h) + pw.charCodeAt(i);
-    return String(h >>> 0);
-  }
-}
+//  GREENSCAN EMBEDDED ADMIN
+// v32.74 (Audit A6): Passwort-Hash (`gs_admin_pw_hash`), Seed und die
+// Hash-Funktion sind weg — der Admin-Modus fragt den Server (`doAdminLogin`). Altbestand auf
+// Geräten wird geräumt, damit kein toter Schlüssel liegen bleibt.
+try { localStorage.removeItem('gs_admin_pw_hash'); } catch(_){}
 
 function toggleAdminMode() {
   // v23.90 SECURITY: Email-Whitelist VOR Login-Dialog prüfen
   var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
-  var isWhitelisted = typeof GS_ADMINS !== 'undefined' && Array.isArray(GS_ADMINS) && GS_ADMINS.includes(email);
+  var isWhitelisted = _gsServerSagtAdmin();   // v32.74: der Server-Spiegel, keine Liste im HTML
   if (!isWhitelisted) {
     // Stummer No-Op — Non-Admins sollten den Button gar nicht sehen, aber Defense-in-Depth
     if (typeof showProfileToast === 'function') showProfileToast('⛔ Kein Admin-Zugriff', 'error');
@@ -73702,8 +73601,8 @@ function openAdminLogin() {
   var modal = document.getElementById('admin-login-modal');
   if (modal) {
     modal.style.cssText = 'display:flex!important;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:var(--z-toast,9999);';
-    var inp = document.getElementById('admin-pw-input');
-    if (inp) { inp.value=''; setTimeout(function(){inp.focus();},200); }
+    var kn = document.getElementById('admin-login-btn');
+    if (kn) setTimeout(function(){ kn.focus(); }, 200);
     document.getElementById('admin-login-error').style.display='none';
   }
 }
@@ -73714,40 +73613,27 @@ function closeAdminLogin() {
 }
 
 async function doAdminLogin() {
-  // v23.90 SECURITY: Doppel-Check — Email muss in GS_ADMINS sein
-  var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
-  var isWhitelisted = typeof GS_ADMINS !== 'undefined' && Array.isArray(GS_ADMINS) && GS_ADMINS.includes(email);
-  if (!isWhitelisted) {
-    var errEl0 = document.getElementById('admin-login-error');
-    if (errEl0) { errEl0.textContent = '⛔ Dieser Account ist kein Admin'; errEl0.style.display = 'block'; }
-    return;
+  // v32.74 (Audit A6): kein Passwort mehr — der Server sagt, ob dieses Konto
+  // Admin ist (`is_admin_user()`: SECURITY DEFINER, nur für Angemeldete,
+  // liest profiles.is_admin und app_settings.admin_emails). Der Client
+  // vergleicht nichts; ein „Ja" aus dem eigenen Speicher reicht nicht.
+  var errEl = document.getElementById('admin-login-error');
+  var sag = function (t) { if (errEl) { errEl.textContent = t; errEl.style.display = 'block'; } };
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { sag('🔐 Bitte zuerst anmelden.'); return false; }
+  var btn = document.getElementById('admin-login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Server fragt …'; }
+  var r = await sbFetch('/rest/v1/rpc/is_admin_user', { method: 'POST', body: '{}' });
+  if (btn) { btn.disabled = false; btn.textContent = '🔐 Admin-Modus einschalten'; }
+  if (!r || r.error) { sag('⚠️ ' + (r && r.error ? _gsFehlerText(r.error) : 'Keine Antwort vom Server.')); return false; }
+  if (r.data !== true) {
+    sag('⛔ Dieser Account ist kein Admin');
+    try { localStorage.removeItem('gs_admin'); localStorage.setItem('gs_is_admin', '0'); } catch(_){}
+    return false;
   }
-  var pw = document.getElementById('admin-pw-input').value;
-  if (!pw) return;
-  var hash = await gsHashPw(pw);
-  var stored = localStorage.getItem(GS_ADMIN_PW_KEY);
-  if (!stored) {
-    // Ersten Start: Hash aus GS_ADMIN_PW_SEED setzen (kein Klartext-PW im Code)
-    if (typeof GS_ADMIN_PW_SEED !== 'undefined' && GS_ADMIN_PW_SEED) {
-      localStorage.setItem(GS_ADMIN_PW_KEY, GS_ADMIN_PW_SEED);
-      stored = GS_ADMIN_PW_SEED;
-    } else {
-      var errEl2 = document.getElementById('admin-login-error');
-      if (errEl2) { errEl2.textContent = '⚠️ Admin nicht konfiguriert.'; errEl2.style.display = 'block'; }
-      return;
-    }
-  }
-  if (hash === stored) {
-    localStorage.setItem('gs_admin', 'true');
-    closeAdminLogin();
-    location.reload();
-  } else {
-    var errEl = document.getElementById('admin-login-error');
-    errEl.textContent = '❌ Falsches Passwort';
-    errEl.style.display = 'block';
-    document.getElementById('admin-pw-input').value = '';
-    setTimeout(function(){ errEl.style.display='none'; }, 3000);
-  }
+  try { localStorage.setItem('gs_is_admin', '1'); localStorage.setItem('gs_admin', 'true'); } catch(_){}
+  closeAdminLogin();
+  setTimeout(function () { location.reload(); }, 150);
+  return true;
 }
 
 
@@ -75037,6 +74923,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.74', date: '07.09.2026',
+    headline: '🔐 Admin-Modus fragt den Server, alter Sensor-Assistent ohne Sitzungs-Token — Audit A5, A6',
+    summary: 'Audit A5 und A6. Der alte Cloud-Sensor-Assistent (Sensoren & Geräte) legte Geräte im Alt-Schema an und zeigte danach curl- und Arduino-Beispiele mit dem Sitzungs-Token der Person und dem Rat, den Service-Role-Key zu benutzen — live: 1 Alt-Gerät, 0 Messwerte. Jetzt steht dort ein Wegweiser zu Messwerte (Gerät koppeln mit eigenem Token, seit v32.62); Alt-Geräte lassen sich nur noch löschen, das Smart-Home-Dashboard mit Demo-Werten ist aus dem Menü. Der Admin-Modus verglich ein Passwort gegen einen unsalted SHA-256 im öffentlichen HTML und kannte zwei private E-Mail-Adressen als Liste — beides ist weg: doAdminLogin fragt is_admin_user() auf dem Server, gsIsAdmin liest nur den Server-Spiegel (gs_is_admin, jetzt aus derselben Funktion), fremde Adressen bekommen keine Auskunft. robust_check Fälle 12 und 13.',
+    user_summary: '🔐 Sicherer: kein Admin-Passwort und keine Adressen mehr im App-Code, und der alte Sensor-Assistent zeigt dein Login-Token nicht mehr.',
+    user_items: [
+      {emoji:'🔐', bold:'Admin-Modus:', text:' Ob ein Konto Admin ist, entscheidet nur noch der Server — es gibt kein zweites Passwort mehr.'},
+      {emoji:'📊', bold:'Sensoren:', text:' Eigene Geräte werden unter Messwerte gekoppelt; der alte Assistent führt dorthin, statt dein Login-Token in Code-Beispiele zu schreiben.'},
+    ],
+  },
+  {
     v: 'v32.73', date: '07.09.2026',
     headline: '💬 Serverfehler in verständlichen Sätzen — Audit B8',
     summary: 'Audit B8. An rund vierzig Anzeige-Stellen stand die Zeile aus PostgREST wörtlich in der Meldung — „new row violates row-level security policy for table …“, „JWT expired“, „Failed to fetch“. Jetzt geht jede Anzeige durch EINE Übersetzung (_gsFehlerText): Ablehnung, abgelaufene Sitzung, keine Verbindung, „gibt es schon“, Datenstruktur, zu viele Anfragen, Serverproblem — kurze eigene Sätze bleiben, lange werden gekürzt, das Rohe bleibt im Log und in den Schlüsselwort-Prüfungen. sbFetch trägt den HTTP-Status im Fehler mit. Anmelden, Registrieren und Passwortänderung im Profil nutzen denselben Übersetzer wie das Onboarding (gsTranslateAuthError, ohne doppeltes Symbol). robust_check Fall 11 misst zwölf Fehlerklassen, den Status, einen echten Toast (Freundschaftsanfrage per RLS abgelehnt) und das Quiz-Urteil — und findet statisch jede Anzeige-Zeile mit rohem error.message.',
@@ -76020,7 +75916,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.73';
+var GS_VERSION = 'v32.74';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76084,12 +75980,9 @@ var GS_EMAIL_DRAFTS = {
 // Experten: von Admins ernannt, zeigen grünen Haken ✅
 // Hierarchie-Status: sichtbar im Profil, aber kein Team-Beitritt möglich
 
-var // Admin-E-Mails — diese Nutzer haben vollen Zugriff auf alle Admin-Funktionen
-// Hier kannst du weitere E-Mails hinzufügen
-GS_ADMINS = [
-  'www.greenscan@gmail.com',
-  'fernando.rankwiler1997@gmail.com'
-];
+// v32.74 (Audit A6): die Admin-Liste steht nicht mehr im HTML. Wer Admin ist,
+// sagt der Server (`profiles.is_admin` / `app_settings.admin_emails`, gelesen
+// über `is_admin_user()`); die App spiegelt die Antwort in `gs_is_admin`.
 
 var GS_EXPERT_LEVELS = {
   user:        { label: 'Nutzer',           icon: '',    color: '#666666', rank: 0 },
@@ -76136,7 +76029,7 @@ function gsIsVerifiedExpert(profile) {
 // Experten-Level-Info für Profil-Anzeige
 function gsGetExpertInfo(profile) {
   if (!profile) return GS_EXPERT_LEVELS.user;
-  if (gsIsAdmin(profile.email || gsStore.get('gs_sb_email', null))) {
+  if (gsIsAdmin(profile) || gsIsAdmin(profile.email || gsStore.get('gs_sb_email', null))) {
     return { label: 'GreenScan Admin', icon: '🛡️', color: '#c62828', rank: 99, isAdmin: true };
   }
   return GS_EXPERT_LEVELS[_gsLevelVon(profile)] || GS_EXPERT_LEVELS.user;
@@ -77538,7 +77431,7 @@ async function sbLogin(email, password) {
   // Admin-only Settings Rows aktualisieren
   // v29.15: Single-Source gsIsAdmin() (Rolle ODER E-Mail) statt nur E-Mail-Whitelist — sonst sah ein
   // per Server-Rolle befoerderter Admin das Panel nie + Race mit initSettingsScreen (B-ADM-1).
-  var isAdminNow = (typeof gsIsAdmin==='function') ? gsIsAdmin() : (GS_ADMINS||[]).includes((data.user&&data.user.email||'').toLowerCase());
+  var isAdminNow = gsIsAdmin();   // v32.74 (Audit A6)
   document.querySelectorAll('.admin-only-row').forEach(function(el){
     el.style.display = isAdminNow ? '' : 'none';
   });
@@ -82274,7 +82167,7 @@ function gsOnLoginSuccess() {
   // Admin-Status sofort anwenden
   // v29.15: Single-Source gsIsAdmin() (Rolle ODER E-Mail) — konsistent mit Settings/Login-Pfad-1 (B-ADM-1).
   var email = (gsStore.get('gs_sb_email', null)||'').toLowerCase();
-  var isAdmin = (typeof gsIsAdmin==='function') ? gsIsAdmin() : GS_ADMINS.includes(email);
+  var isAdmin = gsIsAdmin();   // v32.74 (Audit A6)
   document.querySelectorAll('.admin-only-row').forEach(function(el) {
     el.style.display = isAdmin ? '' : 'none';
   });
@@ -86119,16 +86012,21 @@ function gsRoleAtLeast(required) {
 }
 
 // v24.46: Konsolidiert mit der älteren Email-basierten gsIsAdmin (Z.45963).
-// Beide-Wege-Check: server-role 'admin' ODER E-Mail in GS_ADMINS-Whitelist.
-// Optional `email`-Argument bleibt rückwärtskompatibel (Email-Whitelist-Check ohne Server-Role).
-function gsIsAdmin(email) {
+// v32.74 (Audit A6): keine E-Mail-Liste mehr im HTML. Für das eigene Konto
+// gilt der Server-Spiegel (gs_is_admin / gs_user_role aus gsSyncUserRole);
+// für ein fremdes Profil zählt, was der Server IM PROFIL sagt (is_admin /
+// role). Eine fremde E-Mail-Adresse allein sagt nichts — der Client kennt
+// keine Admins mehr, die der Server ihm nicht genannt hat.
+function gsIsAdmin(profilOderEmail) {
   try {
-    if (email) {
-      return Array.isArray(window.GS_ADMINS) && GS_ADMINS.includes((email||'').toLowerCase());
+    if (profilOderEmail && typeof profilOderEmail === 'object') {
+      return profilOderEmail.is_admin === true || profilOderEmail.role === 'admin';
     }
-    if (gsGetUserRole() === 'admin') return true;
-    var em = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
-    return Array.isArray(window.GS_ADMINS) && em && GS_ADMINS.includes(em);
+    if (typeof profilOderEmail === 'string' && profilOderEmail) {
+      var mine = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
+      if (profilOderEmail.toLowerCase() !== mine) return false;
+    }
+    return _gsServerSagtAdmin();
   } catch(_){ return false; }
 }
 function gsIsStaff() { return gsRoleAtLeast('staff'); }
@@ -86155,10 +86053,16 @@ async function gsSyncUserRole() {
     var rows = (r && r.data && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
     var role = (rows[0] && rows[0].role) ? rows[0].role : 'user';
     localStorage.setItem('gs_user_role', role);
-    // is_admin/is_expert für Backwards-Compat
-    if (rows[0]) {
-      try { window.IS_ADMIN = !!rows[0].is_admin; } catch(_){}
-      try { localStorage.setItem('gs_is_admin', rows[0].is_admin ? '1' : '0'); } catch(_){}
+    // v32.74 (Audit A6): `gs_is_admin` ist der Spiegel von is_admin_user() —
+    // dieselbe Funktion, die jede Admin-RPC prüft (profiles.is_admin ODER
+    // app_settings.admin_emails). Die eigene Profilzeile allein kennt die
+    // zweite Quelle nicht. Antwortet der Server nicht, bleibt der alte Spiegel.
+    var adm = null;
+    try { var ra = await sbFetch('/rest/v1/rpc/is_admin_user', { method: 'POST', body: '{}' }); if (ra && !ra.error && typeof ra.data === 'boolean') adm = ra.data; } catch(_){}
+    if (adm === null && rows[0]) adm = !!rows[0].is_admin;
+    if (adm !== null) {
+      try { window.IS_ADMIN = adm; } catch(_){}
+      try { localStorage.setItem('gs_is_admin', adm ? '1' : '0'); } catch(_){}
     }
     // UI refresh wenn nötig
     try { if (typeof gsUpdateAdminUIVisibility === 'function') gsUpdateAdminUIVisibility(); } catch(_){}
@@ -87495,10 +87399,10 @@ function gsSanitize(input, maxLen) {
   // Wir überschreiben setItem NICHT (würde Safari brechen)
   // Stattdessen: kritische Werte beim Start validieren
   setTimeout(function() {
-    // gs_admin darf nur gesetzt sein wenn echter Hash vorhanden
+    // v32.74 (Audit A6): gs_admin gilt nur mit dem Server-Spiegel (gs_is_admin);
+    // einen Hash gibt es nicht mehr.
     var isAdminClaimed = localStorage.getItem('gs_admin') === 'true';
-    var hasHash = !!localStorage.getItem('gs_admin_pw_hash');
-    if (isAdminClaimed && !hasHash) {
+    if (isAdminClaimed && !_gsServerSagtAdmin()) {
       localStorage.removeItem('gs_admin');
     }
     // Token-Struktur validieren (JWT hat 3 Teile getrennt durch '.')
@@ -88355,27 +88259,21 @@ async function gsOpenWeatherWarn(){
 <!-- GREENSCAN EMBEDDED ADMIN — Login Modal                      -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <div id="admin-login-modal" style="display:none;">
-  <div style="background:#111c11;border:1px solid #2a3f2a;border-radius:var(--r-xl);width:340px;padding:36px 30px;box-shadow:var(--elev-4);">
+  <div style="background:#111c11;border:1px solid #2a3f2a;border-radius:var(--r-xl);width:340px;padding:36px 30px;box-shadow:var(--elev-4);" role="dialog" aria-labelledby="admin-login-title">
     <div style="text-align:center;margin-bottom:20px;">
-      <div style="font-size:36px;margin-bottom:8px;">🌿</div>
-      <div style="font-size:var(--fs-xl);font-weight:800;color:var(--c-success-l);margin-bottom:3px;">GreenScan Admin</div>
-      <div style="font-size:var(--fs-sm);color:#5a8a5a;">Passwort eingeben</div>
+      <div style="font-size:36px;margin-bottom:8px;" aria-hidden="true">🌿</div>
+      <div id="admin-login-title" style="font-size:var(--fs-xl);font-weight:800;color:var(--c-success-l);margin-bottom:3px;">GreenScan Admin</div>
+      <div style="font-size:var(--fs-sm);color:#8fbf8f;line-height:1.5;">Der Server prüft, ob dieses Konto Admin ist. Es gibt kein zweites Passwort — Admin ist, wen der Server so kennt.</div>
     </div>
-    <input id="admin-pw-input" type="password" placeholder="Passwort…"
-      onkeydown="if(event.key==='Enter')doAdminLogin()"
-      style="width:100%;padding:13px 16px;background:#1e2e1e;border:1.5px solid #2a3f2a;border-radius:var(--r-md);color:#e2f0e2;font-size:var(--fs-lg);font-family:monospace;outline:none;margin-bottom:12px;box-sizing:border-box;">
-    <div id="admin-login-error" style="display:none;padding:8px 12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:var(--r-sm);font-size:var(--fs-sm);color:#fca5a5;margin-bottom:10px;text-align:center;"></div>
-    <button onclick="doAdminLogin()"
+    <div id="admin-login-error" style="display:none;padding:8px 12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:var(--r-sm);font-size:var(--fs-sm);color:#fca5a5;margin-bottom:12px;" role="alert"></div>
+    <button id="admin-login-btn" onclick="doAdminLogin()"
       style="width:100%;padding:13px;background:#1f6b2f;border:none;border-radius:var(--r-md);color:#fff;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">
-      🔐 Anmelden
+      🔐 Admin-Modus einschalten
     </button>
     <button onclick="closeAdminLogin()"
-      style="width:100%;padding:10px;background:none;border:1.5px solid #2a3f2a;border-radius:var(--r-md);color:#5a8a5a;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">
+      style="width:100%;padding:10px;background:none;border:1.5px solid #2a3f2a;border-radius:var(--r-md);color:#8fbf8f;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">
       Abbrechen
     </button>
-    <div style="margin-top:14px;font-size:var(--fs-sm);color:#3a5a3a;text-align:center;">
-      Standard-Passwort: Admin wurde informiert
-    </div>
   </div>
 </div>
 
@@ -92630,14 +92528,9 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       }
       return;
     }
-    if (typeof gsDevAddCloudSensor === 'function') {
-      gsShClose();
-      setTimeout(function(){
-        // v24.09: korrekter Funktionsname (vorher openMyDevices — undefined)
-        if (typeof openDevicesModal === 'function') openDevicesModal();
-        setTimeout(gsDevAddCloudSensor, 400);
-      }, 200);
-    }
+    // v32.74 (Audit A5): Cloud-Sensoren werden unter Messwerte gekoppelt
+    gsShClose();
+    setTimeout(function(){ if (typeof gsMesswerteOeffnen === 'function') gsMesswerteOeffnen(); }, 200);
   };
 
   // ── Alerts-View ──────────────────────────────────────────────

@@ -445,7 +445,7 @@ Speicher für dieselbe Frage" (CLAUDE.md, `einstellungen_check`) fertig mit.
 
 | # | Idee | Stufe | Aufwand | Voraussetzung |
 |---|---|---|---|---|
-| 1 | Eine Geräteschicht, nicht zwei | 0 | mittel | Entscheid Fernando (11.4) |
+| 1 | Eine Geräteschicht, nicht zwei | 0 | mittel | **umgeleitet und eingefroren v32.74** (Audit A5): der Alt-Assistent ist ein Wegweiser zu Messwerte, das Smart-Home-Dashboard hängt an keinem Menüeintrag mehr, Alt-Geräte nur noch löschbar; live 07.09.2026: `sensor_devices` 1 / `sensor_readings` 0 / `sensor_alerts` 0. Tabellen löschen: Fernando (FUER-FERNANDO §10) |
 | 2 | Katalog wirklich laden, Modell-Katalog | 0 → 1 | klein–mittel | **Leser gebaut v32.52** (`gsMetricKatalogLaden`); Modell-Katalog offen |
 | 3 | Wetter als virtuelles Gerät | 0 | mittel | **gebaut v32.52** (`gsWetterGeraetAbgleich`, 7 Tage, nur Vergangenheit) |
 | 4 | Giessen bestätigt sich selbst — als Aussage; Regel-Aktion verdrahten | 0 | mittel | **gebaut v32.53** (`gsSensorAufgabenAbgleich`, `gsGiessBestaetigung`, `vorgezogenAuf`) |

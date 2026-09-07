@@ -4,13 +4,79 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.73` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.74` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fn) — v32.74: Admin-Modus fragt den Server, alter Sensor-Assistent ohne Sitzungs-Token — Audit A5, A6
+
+- **A5** Der alte Cloud-Sensor-Assistent (`Sensoren & Geräte` →
+  `gsDevRenderCloudWizard`) legte Geräte im Alt-Schema `sensor_devices` an
+  und zeigte danach `curl`- und Arduino-Beispiele mit `Authorization: Bearer
+  <Sitzungs-Token der Person>`, dem Anon-Key im Quelltext und dem Rat, den
+  Service-Role-Key zu benutzen (`gsDevShowSensorCode`, automatisch nach dem
+  Anlegen). **Live nachgemessen (nur lesend, 07.09.2026):** `sensor_devices`
+  1 Zeile (09.06.2026, ein Nutzer), `sensor_readings` 0, `sensor_alerts` 0 —
+  niemand braucht den Weg. Deshalb OEKOSYSTEM-V1 §11 Idee 1 „umleiten und
+  einfrieren": der Assistent ist ein Wegweiser zu **Messwerte → Gerät
+  koppeln** (v32.62, Gerät mit eigenem Token, Server kennt nur den Hash);
+  Alt-Geräte werden gelistet und lassen sich löschen, neue entstehen dort
+  nicht mehr. `gsDevShowSensorCode` und `gsDevAddCloudSensor` sind weg. Das
+  **Smart-Home-Dashboard** (`gsShOpen`, Demo-Werte, Alt-Tabellen) ist aus dem
+  Menü; seine Suchwörter gehen an „📊 Messwerte", sein „Sensor hinzufügen"
+  führt zu Messwerte. Der Bluetooth-Teil (Flower Care) bleibt.
+- **A6** Der Admin-Modus verglich ein Passwort gegen einen **unsalted
+  SHA-256 im öffentlichen HTML** (`GS_ADMIN_PW_SEED`) und kannte zwei
+  **private E-Mail-Adressen** als Liste (`GS_ADMINS`). Beides ist weg.
+  `doAdminLogin` fragt `POST /rest/v1/rpc/is_admin_user` — **live geprüft:**
+  SECURITY DEFINER, `authenticated` darf, `anon` nicht; liest
+  `profiles.is_admin` ODER `app_settings.admin_emails`; beide Admin-Konten
+  tragen `is_admin = true` und `role = admin`. Server „nein" → `gs_admin`
+  weg, „⛔ Dieser Account ist kein Admin"; Fehler → Satz (`_gsFehlerText`);
+  „ja" → `gs_admin` + `gs_is_admin` und ein Neustart. `_gsServerSagtAdmin()`
+  ist der eine Leser des Spiegels (`gs_is_admin` / `gs_user_role`);
+  `gsSyncUserRole` füllt `gs_is_admin` jetzt aus derselben RPC statt nur aus
+  der eigenen Profilzeile (die kennt `admin_emails` nicht). `gsIsAdmin(x)`
+  nimmt ein Profil (`is_admin` / `role`) oder die eigene Adresse; eine
+  **fremde** Adresse bekommt keine Auskunft mehr — der Client kennt keine
+  Admins, die der Server ihm nicht genannt hat. Preis, ehrlich: das
+  Abzeichen „GreenScan Admin" an Fernandos Beiträgen sahen andere nur über
+  die Liste; `profiles_select_own` lässt sie seine Zeile nicht lesen, also
+  ist es für Fremde weg. Das Fenster hat kein Passwortfeld mehr, nur den
+  Knopf „Admin-Modus einschalten"; `gsSecurityInit` räumt `gs_admin` ohne
+  Server-Spiegel. `gs_admin_pw_hash` wird beim Start entfernt.
+- Dazu aus dem öffentlichen Changelog-Archiv (`data/releases.v1.js`, v2x)
+  die private Adresse gestrichen — „Nur sichtbar für die zwei Admin-Adressen".
+  Im Repo steht sie noch in zwei alten Migrationen (RLS-Policies von v26.91 /
+  v28.18, längst durch `is_admin_user()` ersetzt) und in fünf Edge-Functions
+  (VAPID-Rückfall, `ADMIN_EMAILS` in `feedback-triage`) — die Functions
+  liegen im Web-Root und sind damit lesbar; das ist Audit C4 (nächste
+  Version).
+- **Nebenfund Server (nur gelesen, nichts geändert):**
+  `trg_profiles_guard_protected` schützt `is_admin` / `role` / `tier` … vor
+  Nicht-Admins — aber nur bei UPDATE. `profiles_insert_self` hat keinen
+  `WITH CHECK` auf diese Spalten; die Zeile entsteht sonst durch
+  `fn_handle_new_user`. Fehlt sie einmal (gelöscht, Import), könnte ein
+  Konto sich selbst mit `is_admin = true` anlegen. FUER-FERNANDO §10.
+- `robust_check` Fälle 12 (A5) und 13 (A6): Quelltext ohne
+  `gsDevShowSensorCode` / `USER_TOK` / `curlExample` / `gsShOpen`-Menüeintrag
+  / `GS_ADMIN_PW_SEED` / `GS_ADMINS` / 64-hex-Konstante / private Adresse;
+  gerendert: der Wegweiser mit gestelltem Alt-Gerät (gelistet, nur
+  löschbar, kein „Code", kein „anlegen"), der Knopf öffnet Messwerte und
+  schliesst Geräte; Admin: Speicher-„ja" ohne Spiegel zählt nicht, fremde
+  Adresse nein, Profil-Urteil, Server nein/401/ja mit abgefangenem
+  Neustart-Timer (`location.reload` lässt sich nicht stellen — der TIMER
+  schon, wie in `einstellungen_check`), 3 RPC-Aufrufe. Gegenprobe gegen
+  v32.73: beide rot mit allen Gründen.
+- Und die Falle aus `nutzersicht_check`, zum zweiten Mal getreten: die
+  Jargon-Suche des A5-Falls („Service-Role" ausserhalb von Kommentaren) fand
+  im Sammellauf die EIGENE Release-Notiz von v32.74, die zitiert, was raus
+  ist. Der Fall lässt den `GS_RELEASES`-Block jetzt aussen vor (direkt danach
+  14/14 grün).
 
 ### 2026-09-07 (fm) — v32.73: Serverfehler in verständlichen Sätzen — Audit B8
 
@@ -9521,9 +9587,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.73` (Client) · SW-Cache `gs-v32.73` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.74` (Client) · SW-Cache `gs-v32.74` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'428 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **93'322 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
