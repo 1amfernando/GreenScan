@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { cronOderService } from "../_shared/auth_vergleich.mjs";
+import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden } from "../_shared/push_helfer.mjs";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
@@ -20,24 +21,12 @@ const sb = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false }
 });
 
-async function loadSettings() {
-  const { data, error } = await sb
-    .from("app_settings")
-    .select("key,value")
-    .in("key", ["vapid_public_key", "vapid_private_key", "vapid_subject", "push_cron_secret"]);
-  if (error) throw new Error("settings load: " + error.message);
-  const m: Record<string, string> = {};
-  for (const r of data || []) m[r.key] = r.value;
-  if (!m.vapid_public_key || !m.vapid_private_key) throw new Error("VAPID-Keys fehlen");
-  return {
-    vapid: {
-      publicKey: m.vapid_public_key,
-      privateKey: m.vapid_private_key,
-      subject: m.vapid_subject || "mailto:fernando.rankwiler1997@gmail.com"
-    },
-    cronSecret: m.push_cron_secret || null
-  };
-}
+// v32.75 (Audit C4): die drei Helfer kommen aus _shared/push_helfer.mjs — hier nur
+// die Anpassung an die alte Aufruf-Form, damit die Aufrufer unveraendert bleiben.
+const loadSettings = () => _pushSettings(sb);
+const sendPush = (sub: any, title: string, body: string, url: string, vapid: any, tag?: string) =>
+  _pushSenden(webpush, sub, { title, body, url, tag }, vapid);
+
 
 function inQuietHours(hour: number, qs: number, qe: number) {
   if (qs === qe) return false;
@@ -45,13 +34,6 @@ function inQuietHours(hour: number, qs: number, qe: number) {
   return hour >= qs || hour < qe;
 }
 
-function zurichHour(): number {
-  try {
-    return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "Europe/Zurich" }).format(new Date())) % 24;
-  } catch (_) {
-    return new Date().getUTCHours();
-  }
-}
 
 async function checkFrost(lat: number, lng: number) {
   try {
@@ -83,23 +65,6 @@ async function logSend(
   });
 }
 
-async function sendPush(sub: any, title: string, body: string, url: string, vapid: any, tag?: string) {
-  try {
-    webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
-    const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_secret } };
-    const payload = JSON.stringify({
-      title, body, url,
-      icon: "https://green-scan.ch/icons/icon-192.png",
-      badge: "https://green-scan.ch/icons/icon-96.png",
-      tag: tag || ("gs-" + Date.now()),
-      data: { url }
-    });
-    const res = await webpush.sendNotification(pushSub, payload, { TTL: 3600 });
-    return { ok: true, status: res.statusCode };
-  } catch (e: any) {
-    return { ok: false, status: e?.statusCode, error: String(e?.message || e) };
-  }
-}
 
 async function deleteIfGone(sub: any, status?: number) {
   if (status === 410 || status === 404) {

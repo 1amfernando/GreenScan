@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.74.20260907">
+<meta name="app-version" content="32.75.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74923,6 +74923,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.75', date: '07.09.2026',
+    headline: '🧩 Vier Push-Sender teilen ein Helfer-Modul, feedback-triage fragt den Server — Audit C4',
+    summary: 'Audit C4. loadSettings, zurichHour und sendPush standen als zwölf Kopien in vier Edge-Functions, in drei Varianten auseinandergelaufen — und jede Kopie trug eine private E-Mail-Adresse als VAPID-Rückfall, lesbar über den Web-Root. Jetzt: supabase/functions/_shared/push_helfer.mjs (reines ESM; Supabase-Client und web-push kommen als Parameter), zweizeilige Adapter in den vier Sendern, Rückfall info@greenscan.ch. feedback-triage entschied „Admin?“ aus einer E-Mail-Liste und einem selbst dekodierten Token; jetzt fragt sie is_admin_user mit dem Token der Person, PostgREST prüft die Signatur. robust_check Fall 14 rechnet das Modul in Node. Nicht ausgeführt: Deno gibt es hier nicht — die fünf Functions stehen in FUER-FERNANDO §9.',
+    user_summary: '🧩 Aufgeräumt auf dem Server: die Push-Benachrichtigungen gehen durch einen gemeinsamen Baustein — nichts Neues zu sehen, weniger Stellen, an denen etwas schiefgehen kann.',
+    user_items: [
+      {emoji:'🧩', bold:'Server:', text:' Vier Push-Programme benutzen denselben Baustein statt vier Kopien — Wartung an einer Stelle.'},
+    ],
+  },
+  {
     v: 'v32.74', date: '07.09.2026',
     headline: '🔐 Admin-Modus fragt den Server, alter Sensor-Assistent ohne Sitzungs-Token — Audit A5, A6',
     summary: 'Audit A5 und A6. Der alte Cloud-Sensor-Assistent (Sensoren & Geräte) legte Geräte im Alt-Schema an und zeigte danach curl- und Arduino-Beispiele mit dem Sitzungs-Token der Person und dem Rat, den Service-Role-Key zu benutzen — live: 1 Alt-Gerät, 0 Messwerte. Jetzt steht dort ein Wegweiser zu Messwerte (Gerät koppeln mit eigenem Token, seit v32.62); Alt-Geräte lassen sich nur noch löschen, das Smart-Home-Dashboard mit Demo-Werten ist aus dem Menü. Der Admin-Modus verglich ein Passwort gegen einen unsalted SHA-256 im öffentlichen HTML und kannte zwei private E-Mail-Adressen als Liste — beides ist weg: doAdminLogin fragt is_admin_user() auf dem Server, gsIsAdmin liest nur den Server-Spiegel (gs_is_admin, jetzt aus derselben Funktion), fremde Adressen bekommen keine Auskunft. robust_check Fälle 12 und 13.',
@@ -75916,7 +75925,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.74';
+var GS_VERSION = 'v32.75';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

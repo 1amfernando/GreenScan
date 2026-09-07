@@ -30,11 +30,6 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const ADMIN_EMAILS = new Set([
-  "fernando.rankwiler1997@gmail.com",
-  "www.greenscan@gmail.com",
-]);
-
 function j(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
@@ -102,34 +97,24 @@ Deno.serve(async (req) => {
   if (!SUPABASE_URL || !SERVICE_KEY) return j({ error: "missing SUPABASE env" }, 500);
   if (!ANTHROPIC_KEY) return j({ error: "ANTHROPIC_API_KEY not set" }, 500);
 
-  // Auth: JWT-Email extrahieren
+  // Auth (v32.75, Audit C4): keine E-Mail-Liste und kein eigener Blick in den
+  // Token-Inhalt mehr. Der Server sagt, ob dieses Konto Admin ist — dieselbe
+  // Funktion, die jede Admin-RPC prueft (is_admin_user: profiles.is_admin ODER
+  // app_settings.admin_emails); PostgREST prueft dabei die Signatur des Tokens.
+  // (v32.72, Audit A10: vorher genuegte `is_expert` — jeder Experte konnte die
+  // KI-Triage ueber alle Feedbacks ausloesen.)
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token) return j({ error: "no auth" }, 401);
-
-  // JWT payload decoden (ohne Signatur-Check, Supabase hat verify_jwt an)
-  let email: string | null = null;
-  let uid: string | null = null;
+  let isAdmin = false;
   try {
-    const parts = token.split(".");
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-    email = payload.email || null;
-    uid = payload.sub || null;
-  } catch { /* ignore */ }
-
-  // Admin-Check: Email in Whitelist ODER profiles.is_admin=true.
-  // v32.72 (Audit A10): vorher genuegte `is_expert` — jeder Experte konnte die
-  // KI-Triage ueber alle Feedbacks ausloesen (KI-Kosten + fremde Inhalte).
-  let isAdmin = email && ADMIN_EMAILS.has(email);
-  if (!isAdmin && uid && /^[0-9a-f-]{36}$/i.test(uid)) {
-    const pr = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=is_admin&id=eq.${uid}`, {
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+    const ar = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_admin_user`, {
+      method: "POST",
+      headers: { apikey: Deno.env.get("SUPABASE_ANON_KEY") || SERVICE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: "{}",
     });
-    if (pr.ok) {
-      const rows = await pr.json();
-      if (Array.isArray(rows) && rows[0]?.is_admin === true) isAdmin = true;
-    }
-  }
+    if (ar.ok) isAdmin = (await ar.json()) === true;
+  } catch { /* bleibt false */ }
   if (!isAdmin) return j({ error: "admin-only" }, 403);
 
   const body = await req.json().catch(() => ({}));
