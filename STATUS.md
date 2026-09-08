@@ -50,6 +50,14 @@
 - Damit ist §G des Audits abgearbeitet, soweit es von hier geht. Offen
   bleibt nur, was Serverzugriff oder eine Entscheidung braucht:
   FUER-FERNANDO §6–§12.
+- **`ROADMAP.md` stand auf „Stand: v32.20"** — sechzig Versionen daneben, bei
+  der Datei, die den Überblick geben soll. Dieselbe Klasse wie diese Sektion
+  am 02.09. (dort 140 Versionen). Nachgezogen: Kopfzeile, ein Abschnitt
+  „Seit dem 07.09.2026 (v32.65 – v32.80)" mit dem abgearbeiteten Audit, und
+  der Hinweis, dass eine Überblicks-Datei ihr Datum zuerst preisgeben muss.
+  Die Zahlen in Sektion 1 hier sind ebenfalls nachgezählt (31 Prüfstände,
+  215 Migrationen, 40 Edge-Verzeichnisse + `_shared`, index.html 91'748
+  Zeilen) — sie stimmen.
 
 Regression v32.79 → v32.80: (folgt)
 
