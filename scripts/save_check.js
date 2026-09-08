@@ -423,48 +423,80 @@ const SERVER_WEGE = [
     },
   },
   {
-    name: 'Rolle vergeben (gsAdminSetExpertLevel → RPC fn_assign_role)',
+    name: 'Rolle vergeben — durch das ECHTE Nutzer-Detail (gsAdminOpenUserDetail → gsAdminRolleSetzen → RPC fn_assign_role)',
     lauf: async () => {
+      // v32.84: Dieser Fall hat sich sein `<select id="admin-expert-select">`
+      // frueher SELBST in die Seite gelegt und dann `gsAdminSetExpertLevel`
+      // gerufen — und war gruen, waehrend die App dieses Element NIRGENDS
+      // rendert und die Funktion keinen einzigen Aufrufer hatte. Ein
+      // Pruefstand, der den Zustand herstellt, den die App schuldig bleibt,
+      // misst sich selbst. Jetzt wird das Fenster wirklich geoeffnet und der
+      // Knopf wirklich gedrueckt.
       const erg = { rufe: [], meldungen: [] };
       window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : (m && (m.title + ' ' + (m.body || ''))));
+      window.gsToast = m => erg.meldungen.push(typeof m === 'string' ? m : '');
       window.closeModal = () => {};
+      window.openAdminPanel = () => {};
       window.gsConfirmModal = async () => true;
       window.gsIsAdmin = () => true;
       window.gsStore = window.gsStore || {};
-      gsStore.get = (k, d) => (k === 'gs_sb_token' ? 'tok' : (k === 'gs_sb_uid' ? 'admin-uid' : (k === 'gs_admin_log' ? null : d)));
+      gsStore.get = (k, d) => (k === 'gs_sb_token' ? 'tok' : (k === 'gs_sb_uid' ? 'admin-uid' : d));
       gsStore.set = () => {};
-      const sel = document.createElement('select'); sel.id = 'admin-expert-select';
-      sel.innerHTML = '<option value="expert">x</option>'; sel.value = 'expert';
-      const ta = document.createElement('textarea'); ta.id = 'admin-expert-reason'; ta.value = 'Dipl. Botanikerin';
-      document.body.appendChild(sel); document.body.appendChild(ta);
+      const detail = { profile: { id: 'u1', email: 'a@b.ch', role: 'user', tier: 'free' }, subscription: null, counts: {} };
 
       // Fall 1: die RPC lehnt ab (so meldet sie „Only admins can assign roles").
       window.sbFetch = async (path, opts) => {
         erg.rufe.push((opts && opts.method || 'GET') + ' ' + path);
         if (/rpc\/fn_assign_role/.test(path)) return { data: null, error: { message: 'Only admins can assign roles' } };
-        return { data: [{ id: 'u1', role: 'user' }], error: null };
+        return { data: detail, error: null };
       };
-      await gsAdminSetExpertLevel('a@b.ch');
+      await gsAdminOpenUserDetail('u1');
+      const sel = document.getElementById('admin-role-select');
+      if (!sel) return { ok: false, warum: 'das Nutzer-Detail rendert keine Rollen-Auswahl — Experte/Mitarbeiter/Admin waeren nicht vergebbar' };
+      const opts = Array.from(sel.options).map(o => o.value);
+      if (!['user', 'expert', 'staff', 'admin'].every(r => opts.includes(r)))
+        return { ok: false, warum: 'Rollen fehlen in der Auswahl: ' + JSON.stringify(opts) };
+      if (opts.includes('banned'))
+        return { ok: false, warum: 'Sperren gehoert zum eigenen Knopf, nicht zusaetzlich in die Auswahl (zwei Wege zum selben Zustand)' };
+      if (sel.value !== 'user') return { ok: false, warum: 'die aktuelle Rolle ist nicht vorausgewaehlt: ' + sel.value };
+      sel.value = 'expert';
+      const notiz = document.getElementById('admin-role-note');
+      if (!notiz) return { ok: false, warum: 'kein Begruendungs-Feld' };
+      notiz.value = 'Dipl. Botanikerin';
+      await gsAdminRolleSetzen('u1');
       if (!erg.rufe.some(r => /rpc\/fn_assign_role/.test(r)))
-        return { ok: false, warum: 'geht nicht über fn_assign_role — ein direkter PATCH umgeht Audit-Log, Benachrichtigung und die Letzter-Admin-Sperre' };
+        return { ok: false, warum: 'geht nicht ueber fn_assign_role — ein direkter PATCH umgeht Audit-Log, Benachrichtigung und die Letzter-Admin-Sperre' };
       if (erg.meldungen.some(m => /^✅/.test(m || ''))) return { ok: false, warum: 'meldet Erfolg, obwohl die RPC ablehnt' };
 
-      // Fall 2: die RPC bestaetigt.
+      // Fall 2: die RPC bestaetigt — id, Rolle UND Begruendung muessen ankommen.
       erg.meldungen.length = 0; erg.rufe.length = 0;
+      let gesendet = null;
       window.sbFetch = async (path, opts) => {
         erg.rufe.push((opts && opts.method || 'GET') + ' ' + path);
         if (/rpc\/fn_assign_role/.test(path)) {
-          const b = JSON.parse(opts.body || '{}');
-          if (b._user_id !== 'u1') return { data: null, error: { message: 'falsche id: ' + b._user_id } };
-          if (b._role !== 'expert') return { data: null, error: { message: 'falsche Rolle: ' + b._role } };
-          return { data: { ok: true, new_role: 'expert' }, error: null };
+          gesendet = JSON.parse(opts.body || '{}');
+          if (gesendet._user_id !== 'u1') return { data: null, error: { message: 'falsche id: ' + gesendet._user_id } };
+          if (gesendet._role !== 'expert') return { data: null, error: { message: 'falsche Rolle: ' + gesendet._role } };
+          return { data: { ok: true, old_role: 'user', new_role: 'expert' }, error: null };
         }
-        return { data: [{ id: 'u1', role: 'user' }], error: null };
+        return { data: detail, error: null };
       };
-      await gsAdminSetExpertLevel('a@b.ch');
+      await gsAdminOpenUserDetail('u1');
+      const sel2 = document.getElementById('admin-role-select');
+      sel2.value = 'expert';
+      document.getElementById('admin-role-note').value = 'Dipl. Botanikerin';
+      await gsAdminRolleSetzen('u1');
       if (!erg.meldungen.some(m => /^✅/.test(m || ''))) return { ok: false, warum: 'meldet keinen Erfolg: ' + erg.meldungen.join(' | ') };
-      sel.remove(); ta.remove();
-      return { ok: true, info: 'Ablehnung gemeldet, Erfolg über die RPC' };
+      if (!gesendet || gesendet._note !== 'Dipl. Botanikerin')
+        return { ok: false, warum: 'die Begruendung kommt nicht am Server an: ' + JSON.stringify(gesendet && gesendet._note) };
+
+      // Fall 3: ein gesperrter Nutzer bekommt KEINE Rollen-Auswahl (Entsperren zuerst).
+      detail.profile.role = 'banned';
+      await gsAdminOpenUserDetail('u1');
+      if (document.getElementById('admin-role-select'))
+        return { ok: false, warum: 'gesperrter Nutzer zeigt trotzdem eine Rollen-Auswahl' };
+      detail.profile.role = 'user';
+      return { ok: true, info: 'Auswahl im echten Fenster (user/expert/staff/admin, ohne banned) · Ablehnung gemeldet · Erfolg mit Begruendung ueber die RPC · gesperrt → keine Auswahl' };
     },
   },
   {

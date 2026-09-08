@@ -4,13 +4,63 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.83` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.84` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (fx) - v32.84: Rollen vergeben war in der App gar nicht erreichbar
+
+- CLAUDE.md §7.1 sagt ueber die abgesicherten Nachschlagungen in
+  `wiring_check`: *„Abgesichert heisst nur, dass nichts abstuerzt; es heisst
+  NICHT, dass nichts fehlt. Jede Zeile einzeln pruefen."* Heute die Liste
+  durchgegangen - sie stand auf **zwei**: `admin-expert-select` und
+  `admin-expert-reason`.
+- Dahinter lag `gsAdminSetExpertLevel` mit **null Aufrufern**. Sein
+  `<select id="admin-expert-select">` wurde nirgends mehr gerendert; die
+  Funktion stieg bei `if (!sel) return;` still aus. Erreichbar war im
+  Admin-Bereich nur **Sperren und Entsperren** - jemanden zum verifizierten
+  **Experten, Mitarbeiter oder Admin** zu machen ging ueberhaupt nicht.
+  Dieselbe Klasse wie der Pflanzenfriedhof in v31.46, und wieder aus
+  derselben Liste.
+- **Der Pruefstand hat mitgeholfen, es zu verdecken.** Der `save_check`-Fall
+  „Rolle vergeben" legte sich das `<select>` **selbst** in die Seite und rief
+  dann die Funktion - und war gruen, waehrend kein Nutzer diesen Weg gehen
+  konnte. *Ein Pruefstand, der den Zustand herstellt, den die App schuldig
+  bleibt, misst sich selbst.* Er oeffnet jetzt das echte Fenster
+  (`gsAdminOpenUserDetail`) und drueckt den echten Knopf.
+- Jetzt steht im Nutzer-Detail eine **Rollen-Auswahl mit Begruendungsfeld**,
+  und sie geht denselben Weg wie der Sperr-Knopf daneben:
+  `gsAdminRolleSetzen` → `gsAdminAssignRole` → RPC `fn_assign_role`. Der
+  Server prueft dort die Admin-Rolle, verhindert dass sich der letzte Admin
+  selbst degradiert, schreibt ins `audit_log` und **benachrichtigt die
+  betroffene Person** - die Begruendung ist der Text dieser Mitteilung
+  (`COALESCE(_note,'')`, live nachgelesen 08.09.2026, nur lesend). Deshalb
+  sagt das Feld auch, dass sie mitgelesen wird.
+- **Sperren bleibt beim eigenen Knopf**, `banned` steht nicht in der Auswahl:
+  zwei Wege zum selben Zustand sind keine Wahlfreiheit (v32.32). Und bei
+  einem gesperrten Nutzer erscheint gar keine Auswahl - erst entsperren.
+- Weg sind `gsAdminSetExpertLevel` (26 Zeilen) und `_gsAdminUidZu` (11), das
+  nur dafuer existierte. Der Umweg ueber die **Adresse** war ohnehin der
+  falsche: im Nutzer-Detail liegt die id bereits vor, und eine Bedingung auf
+  einer Adresse trifft im Zweifel mehrere Zeilen.
+- **Eine Grenze, die dabei sichtbar wurde:** `robust_check` Fall 16 (C2)
+  haette `_gsAdminUidZu` **nicht** gemeldet - es wird in `STATUS.md` erwaehnt,
+  und der Deckel zaehlt Nennungen im ganzen Repo. Wer eine Funktion in einem
+  Sitzungsbericht nennt, macht sie fuer diesen Deckel unsichtbar. Das ist der
+  Preis dafuer, dass dynamisch gebildete Namen nicht faelschlich rot werden -
+  aber man sollte ihn kennen.
+- `save_check` prueft drei Lagen: Auswahl im echten Fenster
+  (user/expert/staff/admin, **ohne** banned, aktuelle Rolle vorausgewaehlt) ·
+  Ablehnung der RPC wird gemeldet und nicht als Erfolg verkauft · Erfolg mit
+  Begruendung, die wirklich am Server ankommt · gesperrt → keine Auswahl.
+  Gegen v32.83: rot („das Nutzer-Detail rendert keine Rollen-Auswahl").
+  `wiring_check`: **0 nie erzeugte Nachschlagungen** (vorher 2).
+
+Regression v32.83 → v32.84: alle **30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0). `render_check` gegen v32.83: 3'097 vergleichbare Elemente, **0 Änderungen** an Layout und Farbe — die Rollen-Auswahl steht in einem Fenster, das der Vergleich nicht öffnet, und ändert an den elf Tabs erwartungsgemäss nichts. `wiring_check`: **0 nie erzeugte Nachschlagungen** (vorher 2), `save_check` 9 Wege grün.
 
 ### 2026-09-08 (fw) - v32.83: 69 Rueckmeldungen waren unuebersetzbar GEBAUT - Audit E1, Welle 3
 
@@ -10000,9 +10050,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.83` (Client) · SW-Cache `gs-v32.83` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.84` (Client) · SW-Cache `gs-v32.84` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'898 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'912 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
