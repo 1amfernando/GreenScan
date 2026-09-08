@@ -27,7 +27,12 @@ const path = require('path');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const SEED = require('./_seed.js');
 
-const HEUTE_MS = 1756684800000 + 12 * 3600 * 1000;   // `now` aus _seed.js + 12 h (2025-09-01 12:00 UTC)
+// Fester Zeitpunkt (2025-09-01 12:00 UTC). Seit v33.02 ankert _seed.js auf
+// Mitternacht von `Date.now()` — und weil setFixedTime VOR addInitScript
+// laeuft, ist das hier genau diese Konstante. Die Beispieldaten sehen fuer
+// diesen Pruefstand also unveraendert aus; fuer die 29 anderen, die die Uhr
+// laufen lassen, waren sie bis v33.01 ueber ein Jahr alt.
+const HEUTE_MS = 1756684800000 + 12 * 3600 * 1000;
 
 const FAELLE = [
   {

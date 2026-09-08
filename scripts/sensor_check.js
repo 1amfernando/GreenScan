@@ -21,7 +21,9 @@ const path = require('path');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const SEED = require('./_seed.js');
 
-const HEUTE_MS = 1756684800000 + 12 * 3600 * 1000;   // wie kalender_check: `now` aus _seed.js + 12 h
+// wie kalender_check: fester Zeitpunkt, auf den _seed.js seit v33.02 selbst
+// ankert (setFixedTime laeuft vor addInitScript)
+const HEUTE_MS = 1756684800000 + 12 * 3600 * 1000;
 
 const FAELLE = [
   {
