@@ -4,13 +4,104 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.85` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.86` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (ga) - v32.86: „Essbar" wurde aus „nicht giftig" gerechnet
+
+- **Wie es gefunden wurde:** die Gegenrichtung zu v32.85. Dort war es ein
+  Nutzer mit zwei Jahren Daten — hier der **allererste Start, ohne jede
+  Daten**. Alle 30 Pruefstaende laden `_seed.js`; was jemand sieht, der sich
+  gerade registriert hat, hatte noch nie jemand vermessen. Das Ergebnis war
+  ueberwiegend erfreulich (ueberall echte Erklaertexte statt leerer Listen,
+  keine JS-Fehler, kein `undefined`) — bis auf die Zahlen auf der Startseite.
+- **Der erste Verdacht war MEIN Messfehler, und der gehoert hierher.** Die
+  Kachel zeigte „3'476 Arten", das Wissen-Kapitel „4'337". `gsAnimateCounter`
+  laeuft 1400 ms, gemessen hatte ich nach 900 — ein Zwischenbild. Dieselbe
+  Falle wie v32.32 und v32.39. **Erst nachrechnen, dann behaupten.**
+- **Der zweite Verdacht war echt.** Die Kachel **„✅ Essbar"** zaehlte
+  `tox === 0 && (wildpflanze | kraut)` — **2'329 Arten, davon 1'803 mit
+  `edible: false`**. Darunter Edelweiss, Frühlings-Enzian, Gelber Enzian,
+  Goldrute. Die App sagt an anderer Stelle **selbst**, was diese Kombination
+  bedeutet (Quiz-Antwort, Z. 12866):
+  `sp.edible ? 'Essbar ✅' : (sp.tox > 0 ? 'Giftig ☠️' : 'Nicht essbar ❌')`.
+  Und der Filter „✅ Essbar" prueft `sp.edible` — **1'228**. Zwei Regeln fuer
+  dieselbe Frage, und die sichtbarere war die falsche.
+- **Und dieselbe Verwechslung stand an zwei Stellen, die etwas EMPFEHLEN** —
+  das ist schwerer als ein Zaehler:
+  - **„🌿 Saison-Tipp · JETZT SAMMELN"**: ueber alle 12 Monate und 31 Tage
+    nachgerechnet, **115 von 310** Empfehlungen betrafen eine Art mit
+    `edible: false` — Zunderschwamm, Birkenporling, Weihnachtskaktus,
+    Einjaehriges Rispengras, Schwarz-Erle. **Keine davon giftig** (nachgezaehlt:
+    0) — aber sammeln kann man keine davon.
+  - **Die Fakten-Zeile mit dem Besteck-Symbol**: **2'501 von 3'654**. Das
+    Beispiel, das alles sagt: **„🍴 Edelweiss: Nur fotografieren, nicht
+    pfluecken"**. Und „🍴 Fruehlings-Enzian: Keine bekannte kulinarische
+    Verwendung".
+- **Die Reparatur ist EINE Funktion**, `gsIstEssbar(sp)` — dasselbe Praedikat
+  wie der Filter. Vier Aufrufer: Startkarte, Splash-Zeile, Saison-Tipp,
+  Fakten. Der Saison-Kopf ist jetzt eine Aussage statt einer Ueberschrift: er
+  sagt „Jetzt sammeln" nur, wenn die Auswahl aus essbaren Arten kam, sonst
+  „Jetzt in der Natur". (Der Rueckfall greift nie — jeder Monat hat essbare
+  Arten in Saison, im Minimum 14 im Dezember. Er steht da fuer den Tag, an dem
+  sich die Artenliste aendert.)
+- **Und die Kachel fuehrt jetzt dorthin, wovon sie spricht.** Sie hing an
+  `filterCat('wildpflanze')`: die Zahl sprach von essbar, die Liste danach
+  zeigte Wildpflanzen. `gsZeigeEssbare()` drueckt den **echten** Filterknopf —
+  keine zweite Filterregel, und die Leiste zeigt, was die Liste tut. Gemessen:
+  „1228 Treffer · essbar", dieselbe Zahl wie auf der Kachel.
+
+#### Die gefaehrliche Gegenrichtung ist sauber — nachgemessen
+
+Ein Zaehler, der zu VIEL als essbar ausweist, ist das eine. Schlimmer waere
+eine Art, die als essbar gefuehrt wird und giftig ist. Gemessen:
+
+- **Keine einzige Art ist `edible` und `tox >= 3`.**
+- 75 essbare Arten tragen Stufe 1 oder 2 — Schwarzer Holunder, Echte Morchel,
+  Spitzmorchel, Perlpilz, Vogelbeere. Das ist botanisch **richtig** (roh
+  giftig, gekocht essbar), und **alle 75 tragen einen `warning`-Text**
+  (nachgezaehlt: 0 ohne). Sie gehoeren in die Liste, mit ihrer Warnung.
+
+Die Reparatur versteckt also nichts, was sichtbar sein muss — sie hoert auf,
+etwas zu zeigen, was nicht da ist.
+
+#### Vier Pruefstandsfaelle — und zwei Lehren aus ihrem Bau
+
+`scan_check` (E1, E1b, E2, E3). Beide Richtungen gefahren; gegen v32.85 sind
+alle vier rot, mit den echten Zahlen: *„nennt die UNGIFTIGEN: 2329 statt
+1228"*, *„47 von 120 zum Sammeln empfohlen, ohne essbar zu sein"*, *„19 von 51
+Besteck-Zeilen vor einer nicht essbaren Art: Rentierflechte,
+Goldschild-Flechte, Landkartenflechte"*.
+
+Bis dahin waren es drei Anlaeufe, und beide Fehler gelten allgemein:
+
+1. **Ein Fall darf nicht mit der Funktion messen, die er pruefen soll.** E1b
+   und E3 riefen `gsIstEssbar` — gegen v32.85 fielen sie mit
+   „is not defined" durch und hatten die falsche ZAHL nie gesehen. Sie haben
+   jetzt ihren **eigenen** Massstab (`!!sp.edible`).
+2. **Eine Gegenprobe, die gruen bleibt, ist der Beweis, dass die Frage nichts
+   misst** (v32.35, hier wieder). E2 las die Ueberschrift aus
+   `#season-tip-kopf` — eine id, die es erst seit dieser Version gibt. Gegen
+   v32.85 kam ein leerer String zurueck, „sammeln" stand nicht drin, jeder Tag
+   wurde uebersprungen: **gruen, ohne einen einzigen Tag geprueft zu haben.**
+   Er liest jetzt die KARTE.
+
+Dazu ein dritter Fund, den erst die Gegenprobe zeigen konnte: in E2 stand `tt`
+in einer Fehlermeldung, obwohl die Variable nur in der IIFE lebt, die die Uhr
+stellt. Im gruenen Lauf laeuft dieser Zweig nie. **Ein Fehlerpfad, der nie
+ausgeloest wird, ist ungeprueft — auch im Pruefstand selbst.**
+
+Und der Pruefstand hat sofort einen eigenen Fehler von mir gefangen: der neue
+Kopftext rief `_t(...)`, und **`_t` ist keine globale Funktion** (CLAUDE.md
+§7.1) — ohne den lokalen Alias haette `gsInitSmartSeasonTip` geworfen und die
+Saison-Karte waere still leer geblieben.
+
+Regression v32.85 → v32.86: **erster Lauf 2 rot**, beide Folgen dieser Änderung und beide vom Prüfstand gefunden — `i18n_check` (die zwei neuen `_t`-Schlüssel fehlten in `GS_I18N_JS_STRINGS`) und `robust_check` C2 (`filterCat` hatte durch die Umverdrahtung der Kachel seinen letzten Aufrufer verloren; im ganzen Repo blieben nur die Definition und ein Kommentar — ersatzlos entfernt). Nach der Korrektur beide einzeln grün, `scan_check` 59 Fälle / 0 kaputt, `wiring_check` 0. `render_check` gegen v32.85: **3'089 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen. Der vollständige zweite Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
 
 ### 2026-09-08 (fz) - v32.85: „Heute zu tun" zaehlte drei Tage
 
@@ -10145,9 +10236,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.85` (Client) · SW-Cache `gs-v32.85` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.86` (Client) · SW-Cache `gs-v32.86` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'933 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'980 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
