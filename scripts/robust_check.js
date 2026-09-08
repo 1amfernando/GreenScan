@@ -510,7 +510,6 @@ const FAELLE = [
         gsDoctorHistoryLoad:   'Doktor-Verlauf je Pflanze — kein Aufrufer, also keine Anzeige.',
         gsAROpen:              'AR-Ansicht einer Art — kein Aufrufer, kein Knopf.',
         gsShowNextWisdom:      'Weiterblaettern in der Weisheits-Karte (#wisdom-card wird gerendert) — es gibt keinen Knopf dafuer.',
-        gsBattleClose:         'Aufraeumen des Battle-Timers — kein Aufrufer; solange gsBattle* laeuft, wird das Intervall nie geloescht.',
       };
       const wurzel = path.join(__dirname, '..');
       const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');
@@ -775,6 +774,71 @@ const FAELLE = [
       }
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: '0× rohes `grund` · TypeError/ReferenceError → Satz · Netz bleibt Netz · eigener Satz durch · Toast: „' + r.toast.slice(0, 60) + '…"' };
+    },
+  },
+  {
+    // v32.97 — der erste Fall aus der Klasse OHNE_EINSTIEG (v32.96), der sich
+    // als echter Defekt herausgestellt hat. `gsBattleClose` gab es seit jeher,
+    // gerufen hat es niemand. Gemessen wird die WIRKUNG, nicht der Aufruf:
+    // laeuft der Zaehler nach dem Schliessen weiter, dann antwortet er fuer
+    // den Spieler (Zeitablauf = falsch), reisst das Fenster wieder auf und
+    // schickt die Runde am Ende als verloren an den Server.
+    name: 'B10 · Ein geschlossenes Battle antwortet nicht mehr für den Spieler — und reisst das Fenster nicht wieder auf',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        if (typeof gsBattleStartPlay !== 'function') return { fehlt: 'gsBattleStartPlay' };
+        const gesendet = [];
+        const eSb = window.sbFetch;
+        // setInterval abfangen: der Rueckruf wird von Hand gefeuert, damit der
+        // Fall nicht an der Uhr haengt (v32.61: eine Frist, die die Uhr fragt,
+        // ist eine Annahme darueber, dass die Uhr laeuft).
+        const eInt = window.setInterval, eClear = window.clearInterval;
+        let cb = null, id = 0, lebt = {};
+        window.setInterval = function (fn) { cb = fn; id++; lebt[id] = true; return id; };
+        window.clearInterval = function (i) { if (lebt[i]) delete lebt[i]; if (!Object.keys(lebt).length) cb = null; };
+        try {
+          window.sbFetch = async function (pfad, opts) { gesendet.push(String(pfad)); return { data: [{}] }; };
+          const fragen = [1, 2, 3].map(n => ({ q: 'Frage ' + n, options: ['a', 'b', 'c', 'd'], correct_idx: 0 }));
+          gsBattleStartPlay('b-test', 'challenger', fragen);
+          // gsBattleStartPlay zeigt nur das Intro; den Zaehler startet erst der
+          // Knopf „▶ Los geht's" (onclick=gsBattleRenderRound). Ohne diesen
+          // Schritt misst der Fall eine Runde, die nie begonnen hat.
+          gsBattleRenderRound();
+          const m = document.getElementById('gs-nl-modal');
+          const aufNachStart = !!(m && m.classList.contains('open'));
+          const zaehlerLaeuft = typeof cb === 'function';
+
+          // Der Spieler schliesst das Fenster.
+          closeModal('gs-nl-modal');
+          const zuNachSchliessen = !(m && m.classList.contains('open'));
+
+          // 31 Sekunden vergehen lassen — mehr als die 30-s-Frist einer Runde,
+          // und das dreimal, damit auch die Folgefragen durchlaufen wuerden.
+          const vorher = gesendet.length;
+          for (let i = 0; i < 100 && cb; i++) { try { cb(); } catch (_) {} }
+
+          const wiederAuf = !!(m && m.classList.contains('open'));
+          const abgeschickt = gesendet.slice(vorher).filter(x => /quiz_battle_submit/.test(x));
+          const antworten = (window._gsBattle && window._gsBattle.answers) ? window._gsBattle.answers.length : 0;
+          return { aufNachStart, zaehlerLaeuft, zuNachSchliessen, wiederAuf,
+                   abgeschickt: abgeschickt.length, antworten, zustandWeg: !window._gsBattle };
+        } finally {
+          window.sbFetch = eSb; window.setInterval = eInt; window.clearInterval = eClear;
+          window._gsBattle = null;
+          try { closeModal('gs-nl-modal'); } catch (_) {}
+        }
+      });
+      if (r.fehlt) return { ok: false, warum: r.fehlt + ' fehlt' };
+      // Zuerst: hat der Fall ueberhaupt etwas hergestellt?
+      if (!r.aufNachStart) return { ok: false, warum: 'das Battle-Fenster ging gar nicht auf — der Fall misst nichts' };
+      if (!r.zaehlerLaeuft) return { ok: false, warum: 'kein Zaehler gestartet — der Fall misst nichts' };
+      if (!r.zuNachSchliessen) return { ok: false, warum: 'closeModal hat das Fenster nicht geschlossen — der Fall misst nichts' };
+      const f = [];
+      if (r.wiederAuf) f.push('das geschlossene Fenster ging von selbst wieder auf');
+      if (r.antworten) f.push(r.antworten + ' Antwort(en) fuer den Spieler eingetragen, nachdem er zu hatte');
+      if (r.abgeschickt) f.push(r.abgeschickt + '× an fn_quiz_battle_submit geschickt');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Fenster bleibt zu · 0 Antworten fuer den Spieler · 0 Uebertragungen · Zustand ' + (r.zustandWeg ? 'geraeumt' : 'steht noch') };
     },
   },
   {

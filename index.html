@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.96.20260908">
+<meta name="app-version" content="32.97.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25594,6 +25594,19 @@ function gsDispose3DScenes(){
 window.gsDispose3DScenes = gsDispose3DScenes;
 
 function closeModal(id){
+  // v32.97: Wer das Battle-Fenster schliesst, hat das Battle verlassen — und
+  // muss es nicht verlieren. Ohne diese Zeile lief der 30-Sekunden-Zaehler
+  // weiter: bei 0 antwortete `gsBattleAnswer(-1)` (Zeitablauf = falsch), und
+  // `gsBattleRenderRound` rief `_gsNlOpen` → `openModal` — das eben
+  // geschlossene Fenster ging von selbst wieder auf, mit der naechsten Frage.
+  // Bis zur letzten Frage, dann `gsBattleSubmit` an den Server. Eine Runde
+  // verlassen hiess: verlieren, und die App springt einem dabei ins Gesicht.
+  // `gsBattleClose` gab es seit jeher — es rief nur niemand (v32.96,
+  // Klasse OHNE_EINSTIEG). Ein Tor an der EINEN Stelle, durch die alle
+  // Schliesswege muessen (X, Klick daneben, Escape), statt drei Pflaster.
+  if (id === 'gs-nl-modal' && window._gsBattle && typeof gsBattleClose === 'function') {
+    try { gsBattleClose(); } catch(_){}
+  }
   const m = document.getElementById(id);
   if(!m){
     // Defensiv: Body-Overflow trotzdem zurücksetzen, falls ein Modal schon weg ist
@@ -74033,6 +74046,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.97', date: '08.09.2026',
+      headline: 'Ein Battle zu verlassen hiess, es zu verlieren',
+      summary: 'Der 30-Sekunden-Zähler lief weiter und riss das Fenster von selbst wieder auf.',
+      user_summary: 'Wer ein Battle-Fenster schliesst, hat das Battle verlassen — die App spielt es nicht mehr ohne dich zu Ende.',
+      user_items: [
+        'Bisher lief nach dem Schliessen der Zähler weiter: bei 0 wurde die Frage als „nicht beantwortet" gewertet, das Fenster ging von selbst wieder auf, und das ging so bis zur letzten Frage.',
+        'Am Ende wurde die Runde als verloren an den Server geschickt — ohne dass du noch etwas davon mitbekommen hast.',
+        'Jetzt beendet das Schliessen die Runde: kein Zähler, keine Antwort in deinem Namen, keine Übertragung.'
+      ],
+    },
+    {
     v: 'v32.96', date: '08.09.2026',
       headline: 'Fünf Stellen sprachen über Giftigkeit, ohne die Art zu fragen',
       summary: 'Im Lexikon fehlten die tödlichen Arten im Zähler „Giftig".',
@@ -75251,7 +75275,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.96';
+var GS_VERSION = 'v32.97';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

@@ -4,13 +4,58 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.96` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.97` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (go) - v32.97: ein Battle zu verlassen hiess, es zu verlieren
+
+- **Der erste der sieben Faelle aus (gl), der sich als echter Defekt erwiesen
+  hat.** `gsBattleClose` gab es seit jeher — gerufen hat es niemand. Sichtbar
+  wurde das erst, als `robust_check` C2 die eigene Ausfuhr nicht mehr als
+  Nennung zaehlte.
+- **Was passierte, wenn jemand das Battle-Fenster schloss** (X, Klick daneben
+  oder Escape):
+
+  1. Der 30-Sekunden-Zaehler lief weiter — niemand hielt ihn an.
+  2. Bei 0 rief er `gsBattleAnswer(-1)`: Zeitablauf, also **falsch**.
+  3. `gsBattleRenderRound` rief `_gsNlOpen` → `openModal` — **das eben
+     geschlossene Fenster ging von selbst wieder auf**, mit der naechsten
+     Frage und einem frischen Zaehler.
+  4. So bis zur letzten Frage, dann `gsBattleSubmit` an
+     `fn_quiz_battle_submit`: **die Runde als verloren an den Server.**
+
+  Eine Runde zu verlassen hiess also: verlieren — und die App springt einem
+  dabei ins Gesicht.
+- **Ein Tor an der EINEN Stelle, durch die alle Schliesswege muessen**
+  (`closeModal`), statt drei Pflaster — dieselbe Entscheidung wie bei der
+  Tastatur (v32.16) und beim Kamera-Riegel (v32.33). Geprueft, dass `openModal`
+  **nicht** ueber `closeModal` geht: sonst haette das Tor bei jeder neuen Runde
+  die laufende Runde abgeraeumt.
+
+#### Der Pruefstand: `robust_check` B10 (jetzt 22 Faelle)
+
+Er misst die **Wirkung**, nicht den Aufruf: Battle starten, Fenster schliessen,
+den Zaehler-Rueckruf 100-mal von Hand feuern (nicht die Uhr stellen — v32.61)
+und nachsehen, ob das Fenster wiederkommt, ob Antworten eingetragen werden und
+ob etwas an den Server geht.
+
+- gruen: *Fenster bleibt zu · 0 Antworten fuer den Spieler · 0 Uebertragungen*
+- Gegenprobe (Tor entfernt): *das geschlossene Fenster ging von selbst wieder
+  auf · **3 Antwort(en) fuer den Spieler eingetragen**, nachdem er zu hatte ·
+  **1× an fn_quiz_battle_submit geschickt***
+
+**Und der Fall hat sich beim Bauen selbst gefangen.** Der erste Anlauf meldete
+„kein Zaehler gestartet — der Fall misst nichts": `gsBattleStartPlay` zeigt nur
+das Intro, den Zaehler startet erst der Knopf „▶ Los geht's". Die Schutzfragen
+am Anfang (ging das Fenster auf? laeuft ein Zaehler? hat `closeModal` wirklich
+geschlossen?) haben genau das getan, wofuer sie da sind.
+
+`gsBattleClose` ist damit aus `OHNE_EINSTIEG` raus — **sechs** bleiben.
 
 ### 2026-09-08 (gn) - „4'337 Arten" sind 3'136 Arten — gemessen, nicht entschieden
 
@@ -10890,7 +10935,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.96` (Client) · SW-Cache `gs-v32.96` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.97` (Client) · SW-Cache `gs-v32.97` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **92'227 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
@@ -10927,7 +10972,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 |---|---|
 | **„4'337 Arten" sind 3'136 Arten** | Gemessen am 08.09.2026 (gn): die Liste hat 4'337 **Einträge**, aber nur **3'136 Arten** — jede Zeile trägt einen deutschen Namen, `allium ursinum` steht viermal drin. An zwölf Stellen nennt die App die Zahl „Arten", in drei verschiedenen festen Werten; die `meta`-Beschreibungen und `install.html` tragen weiter die alte `4342`, die kein Runtime-Wert überschreibt. Drei ehrliche Wege (Wort ändern / Zahl ändern / beides) stehen mit Vorschlag in `docs/FUER-FERNANDO.md` §14, die Messung in `docs/ARTEN-DATEN.md` §8. **Bewusst nicht selbst geändert** — es ist die Aussage des Produkts nach aussen. Die `4342` auf `4337` nachzuziehen kommt nicht in Frage: frische Zahl, unwahre Aussage. |
 | **Arten-Daten vervollständigen** | 78 % der 4'342 Arten haben keine verwertbare Farb- oder Höhenangabe. Drei Wege abgegangen (`docs/ARTEN-DATEN.md`): keine Quelle von hier aus; vier Nebentabellen in der Datenbank (114 Arten, zwei Tabellen nur live); **167 Dubletten-Gruppen mit widersprüchlicher Giftstufe** in `docs/arten-widersprueche.csv` — brauchen eine Flora, keinen Code. Seit v32.43 gewinnt bei Widerspruch die vorsichtigere Angabe (v32.45 korrigiert: Unterarten, Platzhalter). |
-| **Sieben Oberflächen ohne Einstieg** | `robust_check` C2 nennt sie seit v32.96 namentlich (Klasse `OHNE_EINSTIEG`) — sie waren vorher unsichtbar, weil ihre eigene Ausfuhr (`window.X = X`) als zweite Nennung zählte. Jede braucht eine eigene Entscheidung, **verdrahten oder entfernen**, und keine davon ist von hier aus zu treffen: `gsSafetyDefaults` (Sicherheitsnetz aus v23.45 — generische Warnung für Arten mit leerem `warning`; Verdrahten ändert den Text auf vielen Detailseiten), `openHarvestAddModal` + `gsHarvestLoadForPlant` (Reste der v28.15-Konsolidierung — die lebende Oberfläche ist `openErnteTracking`), `gsDoctorHistoryLoad`, `gsAROpen`, `gsShowNextWisdom` (die Weisheits-Karte wird gerendert, es gibt nur keinen Weiter-Knopf), `gsBattleClose` (räumt den Battle-Timer auf, wird nie gerufen). Bewusst **nicht** entfernt: in v31.46 verbarg sich in genau so einer Liste der Pflanzenfriedhof — eine Funktion ohne Anzeige, keine tote Zeile. |
+| **Sechs Oberflächen ohne Einstieg** | *(waren sieben — `gsBattleClose` ist seit v32.97 verdrahtet, siehe (go); es war kein Entscheid, sondern ein Defekt.)* `robust_check` C2 nennt sie seit v32.96 namentlich (Klasse `OHNE_EINSTIEG`) — sie waren vorher unsichtbar, weil ihre eigene Ausfuhr (`window.X = X`) als zweite Nennung zählte. Jede braucht eine eigene Entscheidung, **verdrahten oder entfernen**, und keine davon ist von hier aus zu treffen: `gsSafetyDefaults` (Sicherheitsnetz aus v23.45 — generische Warnung für Arten mit leerem `warning`; Verdrahten ändert den Text auf vielen Detailseiten), `openHarvestAddModal` + `gsHarvestLoadForPlant` (Reste der v28.15-Konsolidierung — die lebende Oberfläche ist `openErnteTracking`), `gsDoctorHistoryLoad`, `gsAROpen`, `gsShowNextWisdom` (die Weisheits-Karte wird gerendert, es gibt nur keinen Weiter-Knopf), Bewusst **nicht** entfernt: in v31.46 verbarg sich in genau so einer Liste der Pflanzenfriedhof — eine Funktion ohne Anzeige, keine tote Zeile. |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
 | Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
 

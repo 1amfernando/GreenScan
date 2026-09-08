@@ -1153,6 +1153,20 @@ prompt „0 ohne zweite Nennung": der Korpus liest `scripts/*.js` und damit
 > Quelltext durchsucht, nimmt die eigene Datei aus dem Korpus — und macht die
 > Gegenprobe mit einem frischen Fall, nicht mit einem eingetragenen.
 
+> **Und eine davon war kein Entscheid, sondern ein Defekt** (v32.97).
+> `gsBattleClose` haelt den 30-Sekunden-Zaehler einer Battle-Runde an — und
+> niemand rief es. Wer das Fenster schloss, liess den Zaehler laufen: bei 0
+> antwortete `gsBattleAnswer(-1)` (Zeitablauf = falsch), `gsBattleRenderRound`
+> rief `_gsNlOpen` → `openModal`, **das geschlossene Fenster ging von selbst
+> wieder auf**, und am Ende ging die Runde als verloren an den Server. Das Tor
+> sitzt an der EINEN Stelle, durch die X, Klick daneben und Escape muessen
+> (`closeModal`) — und vorher wurde geprueft, dass `openModal` NICHT ueber
+> `closeModal` geht, sonst raeumt das Tor bei jeder neuen Runde die laufende
+> ab. **Wer die Liste durchgeht, prueft jeden Eintrag auf seine WIRKUNG** —
+> „kein Aufrufer" kann Aufraeumen ohne Folgen heissen oder ein Spiel, das ohne
+> den Spieler weiterspielt. Pruefstand: `robust_check` B10, Gegenprobe „3
+> Antworten fuer den Spieler eingetragen · 1× an den Server".
+
 Und es gibt jetzt eine **dritte Klasse** (Vorbild `backend_check`):
 `OHNE_EINSTIEG` — eine Oberflaeche, zu der keine Anzeige hinfuehrt, ist kein
 dynamisch gebildeter Name und kein Fehler im Code, sondern eine **Entscheidung,
