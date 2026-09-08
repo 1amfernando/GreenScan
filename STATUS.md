@@ -47,7 +47,7 @@ ein Trennzeichen darf zusammengesetzt bleiben.
 (Plural, Katalog, Intervall, Artenliste, Zeitachse, Planer, Teilen) kommen beim
 Sammler an; er liefert jetzt **670 Saetze** statt 633.
 
-Regression v32.89 → v32.90: `render_check` gegen v32.89 **3'095 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen. Sammler 670 Sätze (vorher 633), acht Stichproben einzeln nachgewiesen. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
+Regression v32.89 → v32.90: `render_check` gegen v32.89 **3'095 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen. Sammler 670 Sätze (vorher 633), acht Stichproben einzeln nachgewiesen. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt).
 
 ### 2026-09-08 (gd) - v32.89: ein Programmierfehler reiste ueber ein FELD auf den Bildschirm
 
