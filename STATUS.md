@@ -4,13 +4,53 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.93` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.94` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gj) - v32.94: `gsMonate` stuerzte ab, wenn der Browser keine Monatsnamen kennt
+
+- **Der neu aufgenommene `perf_check` (gi) hat den Hinweis geliefert:** er
+  nennt `gsMonate(:8077)` als groessten App-Posten beim Kaltstart. Beim
+  Nachsehen war die Laufzeit harmlos (die Funktion ist gecacht) — daneben stand
+  aber:
+
+  ```js
+  if (!aus) aus = kurz ? gsMonate(true) : gsMonate();
+  ```
+
+  Ein Aufruf **mit denselben Argumenten**, bei noch leerem Cache: dieselbe
+  Zeile laeuft wieder in denselben Zweig. **Endlosrekursion.** Hergestellt
+  (`Intl.DateTimeFormat` liefert Zahlen) und gemessen: *Maximum call stack size
+  exceeded* — beim START.
+- **Der Kommentar daneben sagte, was gemeint war:** „manche Sprachen liefern
+  Zahlen — dann lieber Deutsch". Die Schwesterfunktion `gsWochentage` macht
+  genau das, eine Zeile tiefer, mit einer woertlichen Liste. `gsMonate` hat sie
+  jetzt auch.
+- **Kein Randfall.** Browser mit abgespecktem ICU — manche Android-WebViews auf
+  guenstigen Geraeten — liefern numerische Monatsnamen. Also ausgerechnet die
+  Klasse, die `perf_check` als „Einsteiger-Telefon" misst.
+
+#### Und der neue Fall fand sofort einen ZWEITEN Defekt
+
+`gsWochentage` hat die richtige Liste, aber seine **Erkennung** war schwaecher:
+`if (aus.some(x => !x))` prueft nur auf LEER, nicht auf Zahlen. `gsMonate`
+prueft `/^\d+$/`. Mit numerischem Intl kamen die Zahlen also durch — der
+Kalender haette **„1 2 3 4 5 6 7"** statt „So Mo Di …" gezeigt. Beide pruefen
+jetzt dasselbe.
+
+> **Zwei Funktionen, eine Frage — und zwei verschiedene Antworten.** Wer eine
+> Schwesterfunktion als Vorbild nimmt, vergleicht nicht nur den Rueckfall,
+> sondern auch die BEDINGUNG, unter der er greift.
+
+`i18n_check`: ein Fall, der `Intl` Zahlen liefern laesst und beide Funktionen
+prueft. Gegen v32.93 rot: *„gsMonate wirft: Maximum call stack size exceeded"*.
+
+Regression v32.93 → v32.94: `i18n_check` grün (der neue Fall gegen v32.93 rot: „gsMonate wirft: Maximum call stack size exceeded“), `render_check` gegen v32.93 **3'097 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 31 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
 
 ### 2026-09-08 (gi) - Ueberblickszahlen nachgezaehlt · und `pruefstaende.sh` fuhr 30 von 31
 
@@ -10597,9 +10637,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.93` (Client) · SW-Cache `gs-v32.93` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.94` (Client) · SW-Cache `gs-v32.94` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'197 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **92'227 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
