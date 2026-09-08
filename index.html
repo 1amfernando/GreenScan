@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.85.20260908">
+<meta name="app-version" content="32.86.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3040,7 +3040,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <div class="stats-grid">
     <div class="stat-card" onclick="switchTab('search')" style="cursor:pointer;"><div class="sn" id="stat-total">–</div><div class="sl" data-i18n="stat_species" data-i18n-fallback="🌿 Arten">🌿 Arten</div></div>
-    <div class="stat-card" onclick="filterCat('wildpflanze')" style="cursor:pointer;"><div class="sn" id="stat-edible">–</div><div class="sl" data-i18n="stat_edible" data-i18n-fallback="✅ Essbar">✅ Essbar</div></div>
+    <div class="stat-card" onclick="gsZeigeEssbare()" style="cursor:pointer;"><div class="sn" id="stat-edible">–</div><div class="sl" data-i18n="stat_edible" data-i18n-fallback="✅ Essbar">✅ Essbar</div></div>
     <div class="stat-card" onclick="switchTab('favs')" style="cursor:pointer;"><div class="sn" id="stat-favs">0</div><div class="sl" data-i18n="stat_plants" data-i18n-fallback="🌱 Pflanzen">🌱 Pflanzen</div></div>
     <div class="stat-card" onclick="openScanHistoryFull()" style="cursor:pointer;"><div class="sn" id="stat-scans">0</div><div class="sl" data-i18n="stat_scans" data-i18n-fallback="📷 Scans">📷 Scans</div></div>
   </div>
@@ -3071,7 +3071,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div id="season-tip-card" style="background:linear-gradient(135deg,var(--g-main),#558b2f);border-radius:var(--r-lg);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;display:flex;gap:12px;align-items:center;" onclick="menuNav('season')">
       <span id="season-tip-emoji" style="font-size:36px;flex-shrink:0;"></span>
       <div>
-        <div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin-bottom:2px;">🌿 Saison-Tipp · Jetzt sammeln</div>
+        <div id="season-tip-kopf" style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin-bottom:2px;">🌿 Saison-Tipp · Jetzt sammeln</div>
         <div style="font-family:'Playfair Display',serif;font-size:var(--fs-md);font-weight:800;" id="season-tip-name"></div>
         <div style="font-size:var(--fs-sm);opacity:.88;margin-top:3px;" id="season-tip-text"></div>
       </div>
@@ -9168,6 +9168,23 @@ function gsUpdateGartenWidgets() {
 }
 
 // ══ FILTER TOGGLE + RESET ════════════════════════════════════
+// v32.86: Die Startkarte „✅ Essbar" fuehrte auf `filterCat('wildpflanze')` —
+// die Zahl sprach von essbar, die Liste danach zeigte Wildpflanzen (essbare
+// Baeume und Pilze fehlten, nicht essbare Wildpflanzen standen drin).
+// Gedrueckt wird der ECHTE Filterknopf, damit es KEINE zweite Filterregel gibt
+// und der sichtbare Zustand der Leiste zur Liste passt.
+function gsZeigeEssbare() {
+  try { switchTab('search', document.querySelectorAll('.tab')[2]); } catch (_) {}
+  var row = document.getElementById('sf-props-row');
+  if (row && row.style.display === 'none') { try { gsTogglePropFilter(); } catch (_) {} }
+  var btn = document.querySelector('.sf-btn.sf-prop[onclick*="\'essbar\'"]');
+  if (btn) { btn.click(); return; }
+  // Ohne den Knopf bleibt der Weg ueber den Filterwert — dieselbe Regel
+  // (_gsPassCat kennt 'essbar'), nur ohne sichtbare Markierung.
+  try { gsFilter('essbar', null); } catch (_) {}
+}
+window.gsZeigeEssbare = gsZeigeEssbare;
+
 function gsTogglePropFilter() {
   var row = document.getElementById('sf-props-row');
   var btn = document.getElementById('sf-toggle-btn');
@@ -15117,6 +15134,8 @@ window.GS_I18N_JS_STRINGS = {
   'season_msg_autumn':'Pilze · Nüsse · Hagebutten · Wurzeln',
   'quiz_pts':'Pkt',
   'quiz_days':'Tage',
+  'season_tip_collect':'🌿 Saison-Tipp · Jetzt sammeln',
+  'season_tip_nature':'🌿 Saison-Tipp · Jetzt in der Natur',
   'season_tip_default':'Jetzt ist die beste Zeit zum Sammeln!',
   'season_tip_prompt':'Was hat gerade Saison in der Schweiz?',
   // v29.02 — Daily-Card-Fallback (HOME-12)
@@ -16694,6 +16713,18 @@ function _gsArtGruppe(sp, abfrageLat) {
     return reine.length ? reine : g;                 // ohne Qualifier: Unterarten entscheiden nicht mit
   } catch (_) { return [sp]; }
 }
+// v32.86 — „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig".
+// Die App sagt es an anderer Stelle selbst (Quiz-Antwort): tox === 0 ohne
+// `edible` heisst woertlich „Nicht essbar ❌". Trotzdem haben drei Anzeigen
+// aus `tox === 0` auf essbar geschlossen — die Startkarte („2'329 ✅ Essbar",
+// davon 1'803 mit edible:false), der Saison-Tipp („JETZT SAMMELN": 115 von
+// 310 Tagen eine nicht essbare Art) und die Fakten-Zeile (Besteck-Symbol vor
+// „Edelweiss: Nur fotografieren, nicht pfluecken").
+// Wer nach essbar fragt, fragt hier — und nirgends mit einer eigenen Regel.
+// Dasselbe Praedikat wie der Filter „✅ Essbar" (_gsPassCat: `!sp.edible`).
+function gsIstEssbar(sp) { return !!(sp && sp.edible); }
+window.gsIstEssbar = gsIstEssbar;
+
 function _gsVorsichtigste(treffer) {
   if (!treffer || !treffer.length) return null;
   if (treffer.length === 1) return treffer[0];
@@ -19722,9 +19753,18 @@ function gsInitSmartSeasonTip() {
            sp.season.toLowerCase().indexOf(monthNow.slice(0,3).toLowerCase()) >= 0;
   });
 
-  // Wähle eine zufällige interessante Art
-  var edible = inSeason.filter(function(s){ return s.tox === 0 && (s.uses || s.desc); });
-  var pool = edible.length > 0 ? edible : inSeason;
+  // Wähle eine zufällige interessante Art.
+  // v32.86: fragte bis hierher `tox === 0` — an einer Karte, deren Kopf
+  // „JETZT SAMMELN" sagt. Gemessen ueber alle 12 Monate und 31 Tage: 115 von
+  // 310 Empfehlungen waren `edible:false` — Zunderschwamm, Birkenporling,
+  // Weihnachtskaktus, Rispengras, Schwarz-Erle. Keine davon giftig, aber zum
+  // Sammeln ist keine davon da.
+  var essbar = inSeason.filter(function(s){ return gsIstEssbar(s) && (s.uses || s.desc); });
+  var pool = essbar.length > 0 ? essbar : inSeason;
+  // Jeder Monat hat essbare Arten in Saison (Minimum: Dezember, 14). Der
+  // Rueckfall greift also nur, wenn sich die Artenliste aendert — und dann
+  // sagt der Kopf nicht mehr „sammeln", sondern was er zeigen kann.
+  var darfSammeln = essbar.length > 0;
   if (!pool.length) return; // Fallback auf Standard
 
   var h = new Date().getDate() * 13;
@@ -19742,6 +19782,13 @@ function gsInitSmartSeasonTip() {
   }
 
   // Card clickbar machen
+  var kopfEl = document.getElementById('season-tip-kopf');
+  // `_t` ist KEINE globale Funktion — jede Funktion legt sich ihren eigenen
+  // Alias an (CLAUDE.md §7.1). Ohne diese Zeile wirft der Aufruf.
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  if (kopfEl) kopfEl.textContent = darfSammeln
+    ? _t('season_tip_collect', '🌿 Saison-Tipp · Jetzt sammeln')
+    : _t('season_tip_nature',  '🌿 Saison-Tipp · Jetzt in der Natur');
   var card = document.getElementById('season-tip-card');
   if (card) {
     card.onclick = function() { openDetail(pick.id); };
@@ -20825,7 +20872,10 @@ function gsInitDynamicFacts(){
   var h=new Date().getDate()*7+new Date().getMonth();
   _dynF=pool.slice().sort(function(a,b){return((a.id.charCodeAt(0)*h)%97)-((b.id.charCodeAt(0)*h)%97);}).slice(0,60).map(function(s){
     if(s.tox>=4) return '&#9888;&#65039; <strong>'+s.name+'</strong> ist stark giftig (Stufe '+s.tox+').';
-    if(s.tox===0&&s.uses) return '&#127860;&#65039; <strong>'+s.name+'</strong>: '+s.uses.split('.')[0]+'.';
+    // v32.86: das Besteck-Symbol stand bei `tox===0 && uses` — 2'501 von
+    // 3'654 Zeilen betrafen eine nicht essbare Art, darunter woertlich
+    // „🍴 Edelweiss: Nur fotografieren, nicht pfluecken".
+    if(gsIstEssbar(s)&&s.uses) return '&#127860;&#65039; <strong>'+s.name+'</strong>: '+s.uses.split('.')[0]+'.';
     return '&#127807; <strong>'+s.name+'</strong>: '+(s.desc||s.uses||'').split('.')[0]+'.';
   });
   gsShowNextDynFact();
@@ -24174,9 +24224,11 @@ function initHomeBoard() {
         if (totalEl && DB && typeof gsAnimateCounter === 'function')
           gsAnimateCounter(totalEl, DB.length, 1400);
         if (edibleEl && DB && typeof gsAnimateCounter === 'function')
-          gsAnimateCounter(edibleEl, DB.filter(function(s){
-            return s.tox === 0 && (s.cat === 'wildpflanze' || s.cat === 'kraut');
-          }).length, 1200);
+          // v32.86: zaehlte bis hierher `tox === 0 && (wildpflanze|kraut)` —
+          // 2'329 Arten, davon 1'803 mit `edible:false` (Edelweiss, Enzian,
+          // Goldrute). Unter der Beschriftung „✅ Essbar". Jetzt dieselbe
+          // Frage wie der Filter und wie die Zeile in gsRunSplash: 1'228.
+          gsAnimateCounter(edibleEl, DB.filter(gsIstEssbar).length, 1200);
       } catch(e) {}
     }, 200);
   } catch(err) {
@@ -34226,29 +34278,13 @@ function showScanResult(r){
 }
 
 // ═══ SUCHE ════════════════════════════════════════════
-function filterCat(cat){
-  currentFilter = cat; searchText = '';
-  // Chips aktualisieren: aktiven Chip hervorheben
-  document.querySelectorAll('#search-cat-chips button').forEach(function(b){
-    b.style.background='var(--surface2)'; b.style.color='var(--text)';
-  });
-  // Passenden Chip aktivieren
-  var chipMap = {'wildpflanze':'chip-all','':'chip-all'};
-  document.querySelectorAll('#search-cat-chips button').forEach(function(b){
-    var bc = b.getAttribute('onclick');
-    if (bc && bc.includes("'" + cat + "'")) {
-      b.style.background='var(--g-main)'; b.style.color='#fff';
-    }
-  });
-  gsHaptic('tap');
-  switchTab('search', document.querySelectorAll('.tab')[2]);
-  document.getElementById('search-input').value = '';
-  document.querySelectorAll('.chip').forEach(c=>{
-    const map = {wildpflanze:'Wildpflanzen',baum:'Bäume',kraut:'Kräuter',pilz:'Pilze',moos:'Moose',flechte:'Flechten',alge:'Algen',''   :'Alle'};
-    c.classList.toggle('active', c.textContent.trim()===(map[cat]||'Alle'));
-  });
-  renderList();
-}
+// v32.86: `filterCat(cat)` ist hier ersatzlos entfernt. Ihr letzter Aufrufer
+// war die Startkachel „✅ Essbar" mit `filterCat('wildpflanze')` — und genau
+// die ist jetzt auf `gsZeigeEssbare()` umgestellt (die Zahl sprach von essbar,
+// die Liste zeigte Wildpflanzen). Damit hatte sie keinen Aufrufer mehr;
+// `robust_check` Fall 16 hat es im selben Lauf gemeldet. Wer eine Kategorie
+// von aussen setzen will, nimmt `gsFilter(kategorie, knopf)` — den Weg, den
+// die Filterleiste selbst geht.
 function setFilter(f,el){currentFilter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderList();}
 
 // ══ SMART OFFLINE-SUCHE ══════════════════════════════════════
@@ -73803,6 +73839,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.86', date: '08.09.2026',
+      headline: '„Essbar" heisst jetzt essbar',
+      summary: 'Die Startkarte, der Saison-Tipp und die Fakten-Zeile haben „ungiftig" mit „essbar" verwechselt.',
+      user_summary: 'Drei Stellen in der App haben Arten als essbar gezeigt, die nur ungiftig sind. Das ist jetzt getrennt.',
+      user_items: [
+        'Die Kachel „Essbar" auf der Startseite zeigt 1228 statt 2329 Arten — die Zahl der wirklich essbaren. Tippt man sie an, kommt jetzt auch genau diese Liste.',
+        'Der Saison-Tipp „Jetzt sammeln" empfiehlt nur noch Arten, die man wirklich sammeln kann. Vorher standen dort auch Zunderschwamm, Weihnachtskaktus oder Schwarz-Erle.',
+        'Das Besteck-Symbol bei den Kurzinfos steht nur noch vor essbaren Arten — vorher auch vor „Edelweiss: Nur fotografieren, nicht pfluecken".'
+      ],
+    },
+    {
     v: 'v32.85', date: '08.09.2026',
     headline: '📋 „Heute zu tun" zählte drei Tage — die Zahl gehört zum Titel',
     summary: 'gsGetDueTasks liefert bewusst alles bis d <= 2, also drei Tage weit — die Karte nahm davon tasks.length und schrieb es unter den Titel „Heute zu tun". Bei drei Pflanzen mit Fälligkeit heute, morgen und übermorgen stand da „3 Aufgaben", während GENAU EINE heute dran war. Die Zeilen darunter waren immer ehrlich („Heute" / „Morgen" / „In 2 Tagen"), und der Notizzettel filtert an derselben Stelle längst auf days <= 0: zwei Anzeigen mit demselben Titel zählten verschieden. Die Vorschau bleibt — sie ist nützlich —, sie sagt jetzt nur, was sie ist: „1 Aufgabe · 2 in den nächsten Tagen". Gefunden nicht beim Lesen, sondern beim Nachstellen eines Nutzers mit zwei Jahren Daten (60 Pflanzen, 300 Scans, 2000 Messwerte); dabei nebenbei gemessen, dass die App damit gut zurechtkommt: 1,4 MB Speicher, Tab-Wechsel unter 45 ms. kalender_check hat den Fall, gegen v32.84 rot.',
@@ -74901,7 +74948,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.85';
+var GS_VERSION = 'v32.86';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -86277,7 +86324,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     // v31.50: #legal-arten-info gibt es nicht mehr; die Artenzahl steht im
     // Ueber-Fenster und auf dem Startbildschirm.
     var sc=document.getElementById('splash-count'); if(sc) sc.textContent = DB.length + ' Arten';
-    document.getElementById('stat-edible').textContent = DB.filter(s=>s.edible).length;
+    document.getElementById('stat-edible').textContent = DB.filter(gsIstEssbar).length;
     document.getElementById('stat-favs').textContent = myPlants.length;
     ['wildpflanze','baum','kraut','pilz','moos','flechte','alge','hauspflanze'].forEach(c=>{
       const el=document.getElementById('cnt-'+c);

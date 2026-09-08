@@ -1360,6 +1360,18 @@ Modell als „essbar" gemeldet. Die vorsichtigere Angabe MUSS gewinnen, und zwar
 sichtbar. `docs/SCANNER-V3.md` erklaert, warum das der Punkt ist, an dem diese
 App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
 
+> **Und „essbar" ist eine ANGABE, kein Rueckschluss** (v32.86). `tox === 0`
+> heisst **ungiftig**; die App sagt es selbst („Nicht essbar ❌" bei
+> `tox === 0` ohne `edible`). Wer nach essbar fragt, ruft `gsIstEssbar(sp)` —
+> dasselbe Praedikat wie der Filter „✅ Essbar" (`_gsPassCat`). Drei Anzeigen
+> hatten eine eigene Regel: die Startkachel (2'329 statt 1'228, davon 1'803
+> mit `edible:false`), der Saison-Tipp „JETZT SAMMELN" (115 von 310 Tagen eine
+> nicht essbare Art) und die Fakten-Zeile („🍴 Edelweiss: Nur fotografieren,
+> nicht pfluecken"). `scan_check` E1–E3 haelt es fest — **und misst mit dem
+> EIGENEN Massstab (`!!sp.edible`), nicht mit `gsIstEssbar`**: ein Fall, der
+> die zu pruefende Funktion ruft, faellt gegen einen alten Stand nur mit
+> „is not defined" durch und hat die falsche Zahl nie gesehen.
+
 **Seit v32.43 haelt `scan_check` auch die DUBLETTEN-REGEL fest.** Die
 Artenliste fuehrt 657 Arten mehrfach (gleiches Binomen nach `_gsNormLat`),
 167 Gruppen widersprechen sich bei `tox`/`edible`. Bis v32.42 war jede

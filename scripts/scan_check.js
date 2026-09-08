@@ -1354,6 +1354,116 @@ const FAELLE = [
       return { ok: true, info: pw.regeln.length + ' Regeln, alle mit Grund, Stufe „' + (pw.stufe && pw.stufe.label) + '"' };
     },
   },
+  // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
+  // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
+  // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`
+  // auf essbar geschlossen. Alle vier Faelle waren gegen v32.85 rot.
+  {
+    name: 'E1 · Eine Frage, eine Regel: gsIstEssbar und der Filter „✅ Essbar" sind sich einig',
+    lauf: () => {
+      if (typeof gsIstEssbar !== 'function') return { ok: false, warum: 'gsIstEssbar gibt es nicht' };
+      var vorher = (typeof currentFilter !== 'undefined') ? currentFilter : '';
+      var abweichung = null, essbar = 0;
+      try {
+        currentFilter = 'essbar';
+        for (var i = 0; i < DB.length && !abweichung; i++) {
+          var sp = DB[i], a = gsIstEssbar(sp), b = _gsPassCat(sp);
+          if (a) essbar++;
+          if (a !== b) abweichung = sp.name + ' (gsIstEssbar ' + a + ', Filter ' + b + ')';
+        }
+      } finally { currentFilter = vorher; }
+      if (abweichung) return { ok: false, warum: 'zwei Regeln fuer dieselbe Frage: ' + abweichung };
+      // Und die Gegenrichtung: die alte Regel muss eine ANDERE Zahl liefern,
+      // sonst prueft dieser Fall nichts.
+      var alt = DB.filter(function (s) { return s.tox === 0 && (s.cat === 'wildpflanze' || s.cat === 'kraut'); }).length;
+      if (alt === essbar) return { ok: false, warum: 'alte und neue Regel liefern dieselbe Zahl (' + alt + ') — der Fall misst nichts' };
+      return { ok: true, info: 'essbar ' + essbar + ' · „ungiftig & Wildpflanze/Kraut" waeren ' + alt };
+    },
+  },
+  {
+    name: 'E1b · Die Startkarte „✅ Essbar" nennt die essbaren Arten, nicht die ungiftigen',
+    lauf: async () => {
+      switchTab('home');
+      if (typeof initHomeBoard === 'function') initHomeBoard();
+      // gsAnimateCounter laeuft 1200 ms — wer frueher misst, misst ein
+      // Zwischenbild (genau das ist mir beim Suchen einmal passiert).
+      await new Promise(function (r) { setTimeout(r, 2200); });
+      var el = document.getElementById('stat-edible');
+      if (!el) return { ok: false, warum: '#stat-edible gibt es nicht' };
+      var gezeigt = parseInt(String(el.textContent).replace(/[^\d]/g, ''), 10);
+      // Eigener Massstab — NICHT gsIstEssbar. Ein Fall, der mit der Funktion
+      // misst, die er pruefen soll, faellt gegen einen alten Stand nur mit
+      // „is not defined" durch und hat die falsche ZAHL nie gesehen.
+      var essbar = function (sp) { return !!(sp && sp.edible); };
+      var soll = DB.filter(essbar).length;
+      var alt  = DB.filter(function (s) { return s.tox === 0 && (s.cat === 'wildpflanze' || s.cat === 'kraut'); }).length;
+      if (gezeigt === alt && alt !== soll) return { ok: false, warum: 'nennt die UNGIFTIGEN: ' + gezeigt + ' statt ' + soll };
+      if (gezeigt !== soll) return { ok: false, warum: 'zeigt ' + gezeigt + ', essbar sind ' + soll };
+      return { ok: true, info: gezeigt + ' — dieselbe Zahl, die der Filter liefert' };
+    },
+  },
+  {
+    name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — alle 12 Monate',
+    lauf: () => {
+      if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };
+      var echtMonat = Date.prototype.getMonth, echtTag = Date.prototype.getDate;
+      var schlecht = [], geprueft = 0;
+      try {
+        for (var m = 0; m < 12; m++) {
+          for (var t = 1; t <= 28; t += 3) {
+            (function (mm, tt) {
+              Date.prototype.getMonth = function () { return mm; };
+              Date.prototype.getDate  = function () { return tt; };
+            })(m, t);
+            gsInitSmartSeasonTip();
+            // Aus der KARTE lesen, nicht aus einer id: `#season-tip-kopf` gibt
+            // es erst seit v32.86. Wer die id liest, bekommt gegen einen
+            // aelteren Stand einen leeren String — und der enthaelt kein
+            // „sammeln", also faellt jeder Tag durch und der Fall ist gruen,
+            // ohne etwas gemessen zu haben. (Genau so passiert.)
+            var karte = document.getElementById('season-tip-card');
+            var kopf = (karte && karte.textContent) || '';
+            var name = (document.getElementById('season-tip-name') || {}).textContent || '';
+            if (!name) continue;
+            geprueft++;
+            if (!/sammeln/i.test(kopf)) continue;   // sagt nichts vom Sammeln → in Ordnung
+            var teile = name.split(' · ');
+            var treffer = DB.filter(function (s) {
+              return s.name === teile[0] && (teile.length < 2 || s.lat === teile[1]);
+            });
+            if (!treffer.length) { schlecht.push('Monat ' + (m + 1) + ' Tag ' + t + ': „' + name + '" steht in keiner Art'); continue; }
+            if (!treffer.some(function (sp) { return !!(sp && sp.edible); }))
+              schlecht.push('Monat ' + (m + 1) + ' Tag ' + t + ': „' + teile[0] + '" ist nicht essbar');
+          }
+        }
+      } finally { Date.prototype.getMonth = echtMonat; Date.prototype.getDate = echtTag; }
+      if (!geprueft) return { ok: false, warum: 'kein einziger Tipp gerendert — der Fall misst nichts' };
+      if (schlecht.length) return { ok: false, warum: schlecht.length + ' von ' + geprueft + ' zum Sammeln empfohlen, ohne essbar zu sein: ' + schlecht.slice(0, 3).join(' | ') };
+      return { ok: true, info: geprueft + ' Tage geprueft, jeder Sammel-Tipp ist essbar' };
+    },
+  },
+  {
+    name: 'E3 · Das Besteck-Symbol steht nur vor einer essbaren Art',
+    lauf: () => {
+      if (typeof gsInitDynamicFacts !== 'function') return { ok: false, warum: 'gsInitDynamicFacts gibt es nicht' };
+      gsInitDynamicFacts();
+      var zeilen = (typeof _dynF !== 'undefined' && _dynF) ? _dynF : [];
+      if (!zeilen.length) return { ok: false, warum: 'keine Fakten gebaut — der Fall misst nichts' };
+      var besteck = 0, schlecht = [];
+      zeilen.forEach(function (z) {
+        if (String(z).indexOf('&#127860;') !== 0) return;
+        besteck++;
+        var m = String(z).match(/<strong>([^<]+)<\/strong>/);
+        if (!m) { schlecht.push('Zeile ohne Namen'); return; }
+        var treffer = DB.filter(function (s) { return s.name === m[1]; });
+        if (!treffer.some(function (sp) { return !!(sp && sp.edible); })) schlecht.push(m[1]);
+      });
+      if (!besteck) return { ok: false, warum: 'keine einzige Besteck-Zeile — der Fall misst nichts' };
+      if (schlecht.length) return { ok: false, warum: schlecht.length + ' von ' + besteck + ' Besteck-Zeilen vor einer nicht essbaren Art: ' + schlecht.slice(0, 3).join(', ') };
+      return { ok: true, info: besteck + ' Besteck-Zeilen, alle essbar (von ' + zeilen.length + ')' };
+    },
+  },
+
 ];
 
 (async () => {
