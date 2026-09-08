@@ -64,7 +64,7 @@ Giftskala aus dem gerenderten DOM und prueft die Gegenrichtung: eine Art ohne
 Dublette darf keinen Hinweis bekommen. Gegen v32.90 rot: *„die Skala zeigt
 Stufe 0, die Art ist 3 · die Korrektur wird nicht genannt"*.
 
-Regression v32.90 → v32.91: `scan_check` 61 Fälle / 0 kaputt (D1b gegen v32.90 rot), `render_check` gegen v32.90 **3'090 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
+Regression v32.90 → v32.91: `scan_check` 61 Fälle / 0 kaputt (D1b gegen v32.90 rot), `render_check` gegen v32.90 **3'090 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt).
 
 ### 2026-09-08 (ge) - v32.90: die Welle aus v32.88 abgearbeitet — 41 → 4
 
