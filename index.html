@@ -16079,7 +16079,14 @@ function gsI18nDokumentPhrasen() {
   return out;
 }
 
-// Holt den eigenen Quelltext und mischt alles zusammen — nur für den Admin-Knopf
+// Holt den eigenen Quelltext und mischt alles zusammen — NUR für den Admin-Knopf.
+// v32.79: das war zuerst der Normalweg, und damit lud jeder Sprachwechsel (und
+// jeder Start in einer anderen Sprache, wenn der Paket-Abruf scheitert) die
+// ganze index.html ein zweites Mal — 5,7 MB, und der Service Worker legte sie
+// zusätzlich in den Runtime-Cache (offline_check: „/index.html in shell +
+// runtime"). Der Quelltext-Scan ist eine ADMIN-Aufgabe: nur wer Übersetzungen
+// BESTELLT, braucht die Liste aller Sätze. Alle anderen Wege nehmen die
+// Phrasen aus dem Dokument, das ohnehin schon da ist.
 async function gsCollectI18nMeldungen() {
   var out = gsI18nDokumentPhrasen();
   try {
@@ -16106,11 +16113,13 @@ function gsCollectI18nStrings(){
 
 // Holt Übersetzungen vom Backend (Coworks i18n-translate Edge-Fn),
 // cached + setzt Bundles. Liefert {ok, cached, fetched, tokens}.
-async function gsBuildI18n(targetLangs){
+async function gsBuildI18n(targetLangs, opts){
   targetLangs = targetLangs || ['fr','it'];
   var strings = gsCollectI18nStrings();
-  // v32.78 (Audit E1): Toasts, Rückfragen, placeholder, aria-label, Menü-Labels
-  try { Object.assign(strings, await gsCollectI18nMeldungen()); } catch (_) {}
+  // v32.78 (Audit E1): Toasts, Rückfragen, placeholder, aria-label, Menü-Labels.
+  // v32.79: den QUELLTEXT holt nur der Admin-Knopf (opts.ausQuelltext) — sonst
+  // lädt ein Sprachwechsel die ganze Datei erneut; das Dokument reicht hier.
+  try { Object.assign(strings, (opts && opts.ausQuelltext) ? await gsCollectI18nMeldungen() : gsI18nDokumentPhrasen()); } catch (_) {}
   var keys = Object.keys(strings);
   if (!keys.length) return { ok: false, msg: 'Keine Strings gefunden' };
   if (typeof SB_URL === 'undefined' || typeof SB_KEY === 'undefined') {
@@ -84688,7 +84697,7 @@ async function gsAdminBuildI18n() {
   var sprachen = ['fr', 'it', 'en', 'es'];
   for (var i = 0; i < sprachen.length; i++) {
     try {
-      var r = await gsBuildI18n([sprachen[i]]);
+      var r = await gsBuildI18n([sprachen[i]], { ausQuelltext: true });
       if (r && r.ok) { summe.cached += (r.cached || 0); summe.fetched += (r.fetched || 0); }
       else summe.fehler.push(sprachen[i] + ': ' + ((r && r.msg) || 'unbekannt'));
     } catch (e) { summe.fehler.push(sprachen[i] + ': ' + ((e && e.message) || 'Ausnahme')); }

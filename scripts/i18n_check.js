@@ -280,6 +280,18 @@ function aufrufe() {
     try { searchMenu('mesures'); } catch (e) { r.menuFehler = e.message; }
     const mr = document.getElementById('menu-search-results'); r.menue = mr ? mr.textContent : '';
     try { clearMenuSearch(); } catch (_) {}
+    // v32.79: der Quelltext-Scan gehoert an den Admin-Knopf. Ein Sprachwechsel darf
+    // die eigene index.html NICHT erneut holen (5,7 MB, und der Service Worker legt
+    // sie ein zweites Mal ab — offline_check „in zwei Caches gleichzeitig").
+    const echtFetch = window.fetch, echtGsFetch = window._gsFetch, geholt = [];
+    const stub = function (u) { geholt.push(String(u)); return Promise.resolve({ ok: false, status: 599, json: async () => ({}), text: async () => '' }); };
+    window.fetch = stub; window._gsFetch = stub;
+    try { await gsBuildI18n(['fr']); } catch (_) {}
+    r.ohneOpts = geholt.filter(u => /index\.html/.test(u)).length;
+    geholt.length = 0;
+    try { await gsBuildI18n(['fr'], { ausQuelltext: true }); } catch (_) {}
+    r.mitOpts = geholt.filter(u => /index\.html/.test(u)).length;
+    window.fetch = echtFetch; window._gsFetch = echtGsFetch;
     // zurück nach Deutsch: das Original steht wieder da
     try { gsI18n.setLang('de'); gsI18n.applyToDOM(); } catch (_) {}
     r.placeholderDe = ps ? ps.getAttribute('placeholder') : null;
@@ -301,8 +313,10 @@ function aufrufe() {
   melde(e1.locale === 'fr-CH' && /^05\.01\.2026$/.test(e1.datum), 'gsLocale() folgt der Sprache, das Datum auch', 'Sprache ' + e1.lang + ' → ' + e1.locale + ' · 5. Januar 2026 → „' + e1.datum + '"');
   // Der Admin-Knopf: i18n-translate lässt nur Admins zu, und beim Sprachwechsel läuft gsBuildI18n
   // nur bei fehlendem oder altem Paket — neue Phrasen in einem vorhandenen Paket bestellt sonst niemand.
-  const knopf = /onclick="gsAdminBuildI18n\(\)"/.test(quelle) && /^async function gsAdminBuildI18n\(\)/m.test(quelle) && /gsCollectI18nMeldungen\(\)/.test(quelle.slice(quelle.indexOf('async function gsBuildI18n('), quelle.indexOf('async function gsBuildI18n(') + 1200));
-  melde(knopf, 'Der Admin-Knopf bestellt die neuen Phrasen (gsAdminBuildI18n → gsBuildI18n → Sammler mit Quelltext)', knopf ? 'Knopf, Funktion und Sammel-Aufruf im Quelltext' : 'fehlt: ' + [/onclick="gsAdminBuildI18n\(\)"/.test(quelle) ? '' : 'Knopf', /^async function gsAdminBuildI18n\(\)/m.test(quelle) ? '' : 'Funktion'].filter(Boolean).join(', '));
+  const knopf = /onclick="gsAdminBuildI18n\(\)"/.test(quelle) && /^async function gsAdminBuildI18n\(\)/m.test(quelle) && /gsBuildI18n\(\[sprachen\[i\]\], \{ ausQuelltext: true \}\)/.test(quelle);
+  melde(knopf && e1.ohneOpts === 0 && e1.mitOpts === 1,
+        'Nur der Admin-Knopf liest den Quelltext — ein Sprachwechsel holt die eigene index.html NICHT erneut',
+        (knopf ? 'Knopf + Funktion + ausQuelltext-Flag' : 'Knopf/Funktion/Flag fehlt') + ' · Sprachwechsel ' + e1.ohneOpts + '× index.html · Admin-Weg ' + e1.mitOpts + '×');
   if (errs3.length) melde(false, 'Keine JS-Fehler im fr-Lauf', errs3.slice(0, 2).join(' | '));
 
   console.log('  ---');

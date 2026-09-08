@@ -58,6 +58,19 @@
   kein `'de-CH'` in `toLocale*` mehr. Gegenprobe gegen v32.77: sieben von
   acht rot — die Toast-Frage bleibt grün, und das ist richtig: den
   Mechanismus gab es, die Phrasen nicht.
+- **Und der Fehler, den erst die volle Regression gefunden hat:** der Sammler
+  holte die eigene `index.html` — und zwar auf JEDEM Weg, nicht nur am
+  Admin-Knopf. Ein Start in einer anderen Sprache (Paket-Abruf scheitert →
+  `gsBuildI18n`) und jeder Sprachwechsel luden damit 5,7 MB ein zweites Mal,
+  und der Service Worker legte sie in den Runtime-Cache: `offline_check`
+  meldete „/index.html in gs-v32.78-shell + gs-v32.78-runtime". Gemessen,
+  nicht geraten — dieselbe Frage mit v32.77 daneben war grün. Seit v32.79
+  liest nur `gsBuildI18n(langs, { ausQuelltext: true })` den Quelltext; alle
+  anderen Wege nehmen `gsI18nDokumentPhrasen()`, das ohnehin schon da ist.
+  Die Prüfstands-Frage misst das jetzt statt es zu behaupten: mit gestelltem
+  `fetch` holt der Sprachwechsel **0×** die eigene Datei, der Admin-Weg
+  **1×**. *Ein neuer Weg, der etwas holt, ist eine Entscheidung darüber, was
+  jeder Start mitträgt — nicht nur eine Zeile.*
 - **Was diese Welle NICHT tut:** zusammengesetzte Meldungen (`'Fehler: ' +
   x`) bleiben Deutsch — eine Phrase, die zur Laufzeit entsteht, steht in
   keiner Liste; 25 feste Monatsnamen-Listen und `['Mo','Di',…]`, `toFixed()`
