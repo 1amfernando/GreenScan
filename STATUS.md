@@ -59,7 +59,7 @@
   215 Migrationen, 40 Edge-Verzeichnisse + `_shared`, index.html 91'748
   Zeilen) — sie stimmen.
 
-Regression v32.79 → v32.80: (folgt)
+Regression v32.79 → v32.80: 30 Prüfstände grün, 0 nicht prüfbar, Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (fs) — v32.79: pdf.js nur bei Bedarf, Rechtstexte sagen, was stimmt — A8-Rest, Audit E6 (Client)
 
