@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.82` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.83` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (fw) - v32.83: 69 Rueckmeldungen waren unuebersetzbar GEBAUT - Audit E1, Welle 3
+
+- `showProfileToast` uebersetzt seit v30.18 mit `gsI18n.tText(raw)`. Bei **69
+  Meldungen war `raw` der ZUSAMMENGESETZTE String** - `'Kamera nicht
+  verfuegbar: ' + e.message`. Ein Nachschlag am ganzen Satz kann darin nie
+  treffen, und `gsI18nMeldungenAusQuelltext` ueberspringt ein Literal mit
+  folgendem `+` **ausdruecklich**: ein Fragment ist kein Satz.
+- **Beide Seiten waren fuer sich richtig, und zusammen ergaben sie nichts.**
+  Ein franzoesischer Nutzer las diese 69 Meldungen immer auf Deutsch, waehrend
+  daneben alles andere seiner Sprache folgte - und kein Pruefstand war rot:
+  die Uebersetzungsschicht funktionierte ja, sie bekam nur nie einen Satz zu
+  sehen. Das ist dieselbe Klasse wie „abgefragt, geliefert, weggeworfen"
+  (v31.99), nur eine Ebene frueher: **hier wurde gar nicht erst gefragt.**
+- `_gsSatz(vorlage, …werte)` uebersetzt die **VORLAGE** und setzt die Werte
+  **danach** ein. Das ist die Reihenfolge, auf die es ankommt: `{1}`, `{2}`
+  duerfen in der Uebersetzung die Stellung wechseln - in fr und it ist das
+  regelmaessig noetig (der Pruefstand belegt es mit einer Uebersetzung, die
+  den Wert nach vorne zieht). Ein fehlender Wert wird zu nichts, nie zu
+  „undefined".
+- Umgebaut wurde **mechanisch** (Klammer- und Zeichenketten-Scanner, kein
+  `sed` ueber 5,7 MB - v32.25), mit erwarteter Trefferzahl und Syntaxpruefung.
+  **Zwei Stellen aber von Hand**, weil dort keine Werte standen, sondern
+  Grammatik: `'⏰ Um {1} Tag{2} verschoben'` (Plural-Suffix) und
+  `'🌿 Willkommen zurueck{1}!'` (Name-oder-nichts). Beide sind jetzt **zwei
+  ganze Saetze** - CLAUDE.md §7.1 sagt es seit v32.17: *Einzahl und Mehrzahl
+  brauchen zwei Schluessel.* Ein Platzhalter, aus dem der Uebersetzer ein
+  Wort bauen soll, ist kein Platzhalter.
+- `i18n_check` misst **beide Haelften**: der Quelltext (0 Fragmente, 72×
+  `_gsSatz`) UND was ankommt - Sammler findet die Vorlage, `tText` uebersetzt
+  sie, der Wert wird danach eingesetzt, ohne Paket bleibt es deutsch, und ein
+  **echt gerenderter Toast** in fr zeigt den Satz.
+- Eine Messfalle beim Bau, und es war dieselbe wie so oft: der erste Anlauf
+  stellte `gs_i18n_bundles`, `tText` liest aber `gs_i18n_srcmaps`. Der Fall
+  war rot - und haette bei umgekehrtem Vorzeichen gemessen, dass nichts
+  uebersetzt wird, und das gruen genannt. **Wer einen Zustand stellt, prueft,
+  ob die Funktion ihn ueberhaupt liest.**
+
+Regression v32.82 → v32.83: alle **30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt). `render_check` im Vergleich gegen v32.82: **3'090 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen (das ist hier die wichtige Zahl — ein Platzhalter, den niemand ersetzt, stünde als `{1}` auf dem Bildschirm).
 
 ### 2026-09-08 (fv) — v32.82: Was der Server ablehnt, nimmt die Anzeige zurück — und was er bestätigt, zählt
 
@@ -9961,9 +10000,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.82` (Client) · SW-Cache `gs-v32.82` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.83` (Client) · SW-Cache `gs-v32.83` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'868 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'898 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

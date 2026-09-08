@@ -365,6 +365,95 @@ function aufrufe() {
         'So-first „' + mon.wtSo + '" · Mo-first „' + mon.wtMo + '"');
   if (errs4.length) melde(false, 'Keine JS-Fehler im fr-Kalender', errs4.slice(0, 2).join(' | '));
 
+  // ── v32.83 (Audit E1, Welle 3): zusammengesetzte Meldungen ────────────────
+  // `showProfileToast` uebersetzt seit v30.18 mit `gsI18n.tText(raw)` — aber
+  // `raw` war bei 69 Meldungen der ZUSAMMENGESETZTE String. Ein Nachschlag am
+  // ganzen Satz kann darin nie treffen, und der Sammler ueberspringt ein
+  // Literal mit folgendem `+` ausdruecklich. Beide Haelften werden gemessen:
+  // der Quelltext (keine Fragmente mehr) UND was ein fr-Nutzer wirklich liest.
+  const zeilenQ = quelle.split('\n');
+  const relStart = zeilenQ.findIndex(z => z.indexOf('window.GS_RELEASES = [') >= 0);
+  const relEnde = zeilenQ.findIndex((z, i) => i > relStart && z.indexOf('];') === 0);
+  const fragmente = [];
+  zeilenQ.forEach((z, i) => {
+    if (i >= relStart && i <= relEnde) return;
+    const zz = z.trim();
+    if (zz.startsWith('//') || zz.startsWith('*')) return;
+    [/\b(gsToast|gsConfirmModal|showProfileToast|alert|confirm)\s*\(\s*'([^']{2,70}?)'\s*\+/g,
+     /\b(gsToast|gsConfirmModal|showProfileToast|alert|confirm)\s*\(\s*"([^"]{2,70}?)"\s*\+/g].forEach(re => {
+      let k; while ((k = re.exec(z))) if (/[A-Za-zÄÖÜäöüß]{2,}/.test(k[2])) fragmente.push((i + 1) + ': ' + k[1] + " '" + k[2] + "' + …");
+    });
+  });
+  const satzAufrufe = (quelle.match(/_gsSatz\(/g) || []).length;
+  melde(fragmente.length === 0 && satzAufrufe > 30,
+        'Keine Meldung wird aus einem Fragment zusammengesetzt — _gsSatz() uebersetzt die VORLAGE und setzt danach ein',
+        fragmente.length === 0
+          ? satzAufrufe + '× _gsSatz · 0 Fragmente'
+          : fragmente.length + ' Fragmente, z.B. ' + fragmente.slice(0, 3).join(' | '));
+
+  // Und die andere Haelfte: kennt der SAMMLER die Vorlagen? (Ein Satz, den
+  // niemand einsammelt, ist so unuebersetzbar wie ein Fragment.)
+  const br5 = await chromium.launch();
+  const ctx5 = await br5.newContext({ viewport: { width: 412, height: 915 } });
+  const p5 = await ctx5.newPage();
+  const errs5 = [];
+  p5.on('pageerror', e => errs5.push(e.message.split('\n')[0]));
+  await p5.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  await p5.addInitScript(SEED);
+  // Ein Paket, das GENAU eine Vorlage kennt — mit VERTAUSCHTER Stellung, damit
+  // sichtbar wird, dass {1} nach der Uebersetzung eingesetzt wird und nicht davor.
+  await p5.addInitScript(() => {
+    try {
+      localStorage.setItem('gs_lang', 'fr');
+      // tText liest `gs_i18n_srcmaps` (Phrase → Uebersetzung), NICHT `gs_i18n_bundles`
+      // (das sind die Schluessel-Pakete). Der erste Anlauf hat den falschen
+      // Schluessel gestellt und damit nur gemessen, dass nichts uebersetzt wird.
+      localStorage.setItem('gs_i18n_srcmaps', JSON.stringify({ fr: {
+        'Kamera nicht verfügbar: {1}': 'Appareil photo indisponible ({1})',
+        'Nicht gespeichert: {1}': '{1} — non enregistré'
+      } }));
+    } catch (e) {}
+  });
+  await p5.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await p5.waitForTimeout(3500);
+  const satz = await p5.evaluate(async () => {
+    const o = { lang: window.gsI18n && gsI18n.getLang() };
+    o.gesammelt = (typeof gsI18nMeldungenAusQuelltext === 'function')
+      ? Object.values(gsI18nMeldungenAusQuelltext("gsToast(_gsSatz('Kamera nicht verfügbar: {1}', e.message), 'error');")).length : -1;
+    o.uebersetzt = (typeof _gsSatz === 'function') ? _gsSatz('Kamera nicht verfügbar: {1}', 'NotAllowedError') : null;
+    o.gestellt = (typeof _gsSatz === 'function') ? _gsSatz('Nicht gespeichert: {1}', 'RLS') : null;
+    o.ohne = (typeof _gsSatz === 'function') ? _gsSatz('Diesen Satz kennt das Paket nicht: {1}', 'X') : null;
+    o.leer = (typeof _gsSatz === 'function') ? _gsSatz('Wert fehlt: „{1}"', undefined) : null;
+    // Und einmal wirklich gerendert — was steht im Toast?
+    try {
+      document.documentElement.classList.remove('gs-preauth');
+      gsToast(_gsSatz('Kamera nicht verfügbar: {1}', 'NotAllowedError'), 'error');
+      // Beim Start steht schon ein Toast in der Warteschlange — warten, bis der eigene dran ist
+      o.imToast = '';
+      for (let i = 0; i < 40; i++) {
+        await new Promise(r => setTimeout(r, 200));
+        const tb = document.querySelector('.gs-toast .gs-toast-body');
+        o.imToast = tb ? (tb.textContent || '').trim() : '';
+        if (/Appareil photo|Kamera nicht/.test(o.imToast)) break;
+      }
+    } catch (e) { o.toastFehler = e.message; }
+    return o;
+  });
+  await br5.close();
+  const f5 = [];
+  if (satz.gesammelt !== 1) f5.push('Sammler findet die Vorlage nicht (' + satz.gesammelt + ' statt 1)');
+  if (satz.uebersetzt !== 'Appareil photo indisponible (NotAllowedError)') f5.push('Vorlage nicht uebersetzt: ' + JSON.stringify(satz.uebersetzt));
+  if (satz.gestellt !== 'RLS — non enregistré') f5.push('Stellung nicht uebernommen (der Wert muss NACH der Uebersetzung eingesetzt werden): ' + JSON.stringify(satz.gestellt));
+  if (satz.ohne !== 'Diesen Satz kennt das Paket nicht: X') f5.push('Ohne Uebersetzung kein deutscher Rueckfall: ' + JSON.stringify(satz.ohne));
+  if (satz.leer !== 'Wert fehlt: „"') f5.push('undefined wird sichtbar statt leer: ' + JSON.stringify(satz.leer));
+  if (!/Appareil photo indisponible/.test(satz.imToast || '')) f5.push('Der gerenderte Toast zeigt es nicht: ' + JSON.stringify(satz.imToast));
+  melde(f5.length === 0,
+        'Eine Vorlage kommt beim Sammler an, wird uebersetzt und der Wert danach eingesetzt — auch im echten Toast',
+        f5.length === 0
+          ? '„' + satz.uebersetzt + '" · Stellung getauscht: „' + satz.gestellt + '" · ohne Paket deutsch · undefined → leer · Toast „' + String(satz.imToast).slice(0, 40) + '"'
+          : f5.join(' · '));
+  if (errs5.length) melde(false, 'Keine JS-Fehler im fr-Meldungslauf', errs5.slice(0, 2).join(' | '));
+
   console.log('  ---');
   console.log('  Schlüssel: ' + tab.size + ' Einträge · ' + alle.size + ' verwendet');
   console.log('  Nicht geprüft (braucht Netz und Sprachkenntnis): ob die Übersetzung in der');
