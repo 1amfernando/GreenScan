@@ -574,6 +574,15 @@ v31.44: fünf Kategorien standen in keiner Zuordnungstabelle und der Rückfall
 hatte kein `label`, also stand auf 22 Karten wörtlich „undefined". Diese Zahl
 muss **0** sein.
 
+> **Und BEIDE Dateien muessen im Repo-Verzeichnis liegen** (v32.96). Der
+> Vergleich laedt sie mit `file://` an ihrem Ort; ausserhalb loest
+> `data/plants.v1.js` nicht auf, und die Artenliste ist LEER. Ich habe den
+> alten Stand nach `/tmp` gelegt und gegen `index.html` verglichen — der
+> Bericht meldete sechs Layout-Aenderungen im Wissen-Kopf, die es nicht gibt.
+> **Das Warnzeichen steht im Bericht selbst:** die Zahl der vermessenen
+> Elemente fiel von 3'095 auf 2'447. Der richtige Weg ist
+> `git show HEAD:index.html > _vorher.html` IM Repo (und danach loeschen).
+
 **Grenze:** der Vergleich paart Elemente über einen Schlüssel aus DOM-Pfad, id,
 Klasse und Text. Wer Bausteine **umordnet**, ändert genau diesen Pfad — dann
 paart das Werkzeug zwangsläufig falsch und meldet Änderungen, die es nicht gibt.
@@ -1120,6 +1129,26 @@ Lauf. Entfernt wird mit dem Parser (`acorn`, exakte Grenzen), nie mit einer
 Zeilensuche nach `^function` — neun der 104 Kandidaten von v32.77 standen in
 einer IIFE.
 
+**Seit v32.96 hat der Fall zwei Loecher weniger, und beide sind lehrreich.**
+(1) `window.X = X;` nennt den Namen ZWEIMAL — eine Funktion, die sonst niemand
+ruft, kam damit auf drei und fiel durch das Raster; **sieben** lagen so
+unbemerkt. (2) Beim Eintragen dieser sieben in die Liste meldete der Fall
+prompt „0 ohne zweite Nennung": der Korpus liest `scripts/*.js` und damit
+**sich selbst**, die Deklaration war ihre eigene zweite Nennung.
+
+> **Ein Pruefstand, der durch das Eintragen still wird, misst nur noch sich
+> selbst.** Wer eine Deklarationsliste in einen Pruefstand schreibt, der den
+> Quelltext durchsucht, nimmt die eigene Datei aus dem Korpus — und macht die
+> Gegenprobe mit einem frischen Fall, nicht mit einem eingetragenen.
+
+Und es gibt jetzt eine **dritte Klasse** (Vorbild `backend_check`):
+`OHNE_EINSTIEG` — eine Oberflaeche, zu der keine Anzeige hinfuehrt, ist kein
+dynamisch gebildeter Name und kein Fehler im Code, sondern eine **Entscheidung,
+die aussteht**. Sie wird namentlich genannt und nie stillschweigend
+durchgewunken; die sieben stehen mit Grund in STATUS §2. **Nicht ungeprueft
+entfernen** — in v31.46 verbarg sich in genau so einer Liste der
+Pflanzenfriedhof, eine Funktion ohne Anzeige statt einer toten Zeile.
+
 **`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
 Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf
 vor dem `try`, zwei Wege seit jeher tot), die Toast-Dauer (126 Aufrufer, alle
@@ -1485,7 +1514,23 @@ neue Strategie hinzufuegt, gibt ihr Ergebnis durch
 > KI-Kontext des Quiz (`dqAskKIExplain`, `art_tox`): seit v32.93 wertet das
 > Quiz nach der Art, die Erklaerung erklaerte weiter den Eintrag. **Was etwas
 > WERTET oder EINORDNET, geht durch `_gsArtAnzeige` — nicht nur, was etwas
-> anzeigt.** Prueftstand: `scan_check` D1f faengt den Schreibvorgang des
+> anzeigt.** Und eine ZAHL ist auch eine Aussage (v32.96): der Lexikon-Zaehler
+> „Giftig" fragte `tox === 2 || tox === 3` und liess damit **131 Eintraege der
+> Stufen 4 und 5** aus — die Untergrenze war Absicht, die Obergrenze nicht.
+> Dazu vier Stellen, die den Eintrag lasen: das **Symbol in der Sammlung**
+> (`_gsSmartSpeciesEmoji`, 134 Eintraege — Christrose 🌿 statt ☠️), die
+> **Wissens-Zeile** (`gsInitDynamicFacts`, 22), der **Offline-Chat**
+> (`getSmartAnswer`, 269 — dort kommt der Treffer aus einem NAMENS-Vergleich
+> und traf bei mehrfach gefuehrten Arten irgendeinen Eintrag: „giftig" statt
+> „TÖDLICH"). Wer eine neue Stelle baut, die `tox`/`edible` LIEST, findet die
+> vorhandenen mit einer Zaehlung nach umschliessender Funktion — 150 Lesungen,
+> die allermeisten in `_gsArtAnzeige`/`_gsVorsichtigste` selbst oder im
+> Scanner-Weg. Zwei Verdachtsfaelle haben sich beim Nachmessen aufgeloest und
+> bleiben unangetastet: der **Planer-Pool** filtert mit `s.tox === 'hoch'` auf
+> einer ZAHL (toter Zweig — aber `s.toxic === true` faengt sie: 0 von 1'295
+> Pflanzen im Pool haben Stufe ≥ 3), und der **Plan/Tier des Kontos**
+> entscheidet der Server (`v_user_entitlements` liefert immer eine Zeile,
+> Rueckfall `free`). Pruefstaende: `scan_check` D1g–D1i. Prueftstand: `scan_check` D1f faengt den Schreibvorgang des
 > Vacuums ab; eine Messung der Datenlage („wie viele Eintraege widersprechen
 > sich?") haette dieselbe Zahl geliefert, wenn die Sammlung laengst richtig
 > waere. Die Dubletten selbst

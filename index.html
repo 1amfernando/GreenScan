@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.95.20260908">
+<meta name="app-version" content="32.96.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9493,8 +9493,9 @@ window._gsCollList = [];
 window.gsAddSpeciesToCollection = function(speciesId){
   var sp = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.find(function(s){ return s && s.id === String(speciesId); }) : null;
   if (!sp) { if (typeof gsToast === 'function') gsToast('Art nicht gefunden', 'warn'); return; }
-  var emoji = (sp.tox >= 4) ? '☠️' : (sp.edible ? '🍽️' : (sp.medicinal ? '💊' : '🌿'));
-  gsAddToCollection('species', sp.id, sp.name || sp.lat || '', emoji);
+  // v32.96: dieselbe Rechnung stand hier ein zweites Mal (ohne 🍄/🌳) und las
+  // den Eintrag statt der Art. Eine Funktion, ein Symbol.
+  gsAddToCollection('species', sp.id, sp.name || sp.lat || '', _gsSmartSpeciesEmoji(sp));
 };
 
 // v28.27: Karten-Fund zu Sammlung — nur Cloud-Funde (echte UUID), local_-Funde erst syncen
@@ -9524,7 +9525,12 @@ window.gsAddListingToCollection = function(lid){
 // Block C) ersetzt und entfernt. Diese zwei Helfer bleiben — sie speisen den Gather.
 function _gsSmartSpeciesEmoji(sp){
   if (!sp) return '🌿';
-  return (sp.tox >= 4) ? '☠️' : (sp.edible ? '🍽️' : (sp.medicinal ? '💊' : (sp.cat==='pilz' ? '🍄' : (sp.cat==='baum' ? '🌳' : '🌿'))));
+  // v32.96: das Symbol ist die Beschriftung des Eintrags in der Sammlung — es
+  // muss von der ART kommen, nicht vom einzelnen Datenbank-Eintrag. Gemessen:
+  // 134 Eintraege bekamen ein anderes Symbol, darunter die Christrose mit 🌿
+  // statt ☠️ (Eintrag tox 3, Art tox 5).
+  var a = (typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(sp) : sp;
+  return (a.tox >= 4) ? '☠️' : (a.edible ? '🍽️' : (a.medicinal ? '💊' : (a.cat==='pilz' ? '🍄' : (a.cat==='baum' ? '🌳' : '🌿'))));
 }
 function _gsSmartMatchDB(name){
   if (!name || typeof DB === 'undefined' || !Array.isArray(DB)) return null;
@@ -20956,11 +20962,15 @@ function gsInitDynamicFacts(){
   var pool=DB.filter(function(s){return s.name&&(s.uses||s.desc);});
   var h=new Date().getDate()*7+new Date().getMonth();
   _dynF=pool.slice().sort(function(a,b){return((a.id.charCodeAt(0)*h)%97)-((b.id.charCodeAt(0)*h)%97);}).slice(0,60).map(function(s){
-    if(s.tox>=4) return '&#9888;&#65039; <strong>'+s.name+'</strong> ist stark giftig (Stufe '+s.tox+').';
+    // v32.96: die Giftstufe und die Essbarkeit kommen von der ART, nicht vom
+    // Eintrag — sonst faellt der Warnsatz bei 22 Eintraegen aus, deren Art
+    // Stufe 4 oder 5 hat (Christrose 3→5, Kahler Krempling 3→4).
+    var a2=(typeof _gsArtAnzeige==='function')?_gsArtAnzeige(s):s;
+    if(a2.tox>=4) return '&#9888;&#65039; <strong>'+s.name+'</strong> ist stark giftig (Stufe '+a2.tox+').';
     // v32.86: das Besteck-Symbol stand bei `tox===0 && uses` — 2'501 von
     // 3'654 Zeilen betrafen eine nicht essbare Art, darunter woertlich
     // „🍴 Edelweiss: Nur fotografieren, nicht pfluecken".
-    if(gsIstEssbar(s)&&s.uses) return '&#127860;&#65039; <strong>'+s.name+'</strong>: '+s.uses.split('.')[0]+'.';
+    if(gsIstEssbar(a2)&&s.uses) return '&#127860;&#65039; <strong>'+s.name+'</strong>: '+s.uses.split('.')[0]+'.';
     return '&#127807; <strong>'+s.name+'</strong>: '+(s.desc||s.uses||'').split('.')[0]+'.';
   });
   gsShowNextDynFact();
@@ -51484,8 +51494,14 @@ function renderLexikon() {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // DB-Live-Stats als Intro-Bar
   var dbTotal = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.length : 0;
-  var edibleCount = gsWissenDBCount(function(s){ return s && s.edible === true; });
-  var toxicCount  = gsWissenDBCount(function(s){ return s && (s.tox === 2 || s.tox === 3); });
+  // v32.96: der Zaehler „Giftig" fragte `tox === 2 || tox === 3` und liess damit
+  // die 131 Eintraege mit Stufe 4 und 5 aus — genau die stark giftigen und die
+  // toedlichen. Die Untergrenze war Absicht („gering" zaehlt nicht mit), die
+  // Obergrenze war keine. Und beide Zahlen gehen durch _gsArtAnzeige, damit der
+  // Zaehler dasselbe sagt wie die Karte, die Liste und die Sammlung (v32.91-95).
+  var _art = function (s) { return (typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(s) : s; };
+  var edibleCount = gsWissenDBCount(function(s){ return s && _art(s).edible === true; });
+  var toxicCount  = gsWissenDBCount(function(s){ return s && (_art(s).tox|0) >= 2; });
   var medCount    = gsWissenDBCount(function(s){ return s && s.medicinal === true; });
   var lexStats = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">'
     + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid var(--g-main);"><div style="font-size:var(--fs-xl);font-weight:800;color:var(--g-dark);">'+dbTotal+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('unit_species','Arten') + '</div></div>'
@@ -57464,15 +57480,20 @@ function getSmartAnswer(question) {
   
   if (matchedPlants.length > 0) {
     const p = matchedPlants[0];
+    // v32.96: der Treffer kommt aus einem NAMENS-Vergleich — „Holunder" trifft
+    // einen von neun Eintraegen derselben Art. Essbarkeit und Giftstufe kommen
+    // deshalb von der Art (269 Eintraege wichen ab), Name und Text vom Eintrag,
+    // den die Frage getroffen hat. Dieselbe Regel wie in Liste und Detail.
+    const pa = (typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(p) : p;
     var resp = '🌿 **' + p.name + '**';
     if (p.lat) resp += ' (' + p.lat + ')';
     resp += '\n\n' + (p.desc || '');
-    if (p.edible) resp += '\n\n✅ **Essbar**';
-    if (p.tox > 0) resp += '\n\n⚠️ **Giftigkeitsstufe:** ' + ['harmlos','gering','mässig','giftig','stark giftig','TÖDLICH'][p.tox];
+    if (pa.edible) resp += '\n\n✅ **Essbar**';
+    if (pa.tox > 0) resp += '\n\n⚠️ **Giftigkeitsstufe:** ' + ['harmlos','gering','mässig','giftig','stark giftig','TÖDLICH'][pa.tox];
     if (p.uses && p.uses !== 'Keine' && p.uses !== 'Keine bekannte kulinarische Verwendung') resp += '\n🍽️ **Verwendung:** ' + p.uses;
     if (p.medicinalUse && p.medicinalUse !== 'Keine' && p.medicinalUse !== 'Keine bekannte Heilwirkung') resp += '\n💊 **Heilwirkung:** ' + p.medicinalUse;
-    if (p.warning && p.warning !== 'Keine' && p.warning !== 'Keine bekannten Risiken') resp += '\n⚠️ **Achtung:** ' + p.warning;
-    if (p.lookalike && p.lookalike !== 'Keine' && p.lookalike !== 'Keine (Hauspflanze)') resp += '\n👁️ **Verwechslung:** ' + p.lookalike;
+    if (pa.warning && pa.warning !== 'Keine' && pa.warning !== 'Keine bekannten Risiken') resp += '\n⚠️ **Achtung:** ' + pa.warning;
+    if (pa.lookalike && pa.lookalike !== 'Keine' && pa.lookalike !== 'Keine (Hauspflanze)') resp += '\n👁️ **Verwechslung:** ' + pa.lookalike;
     if (p.season) resp += '\n📅 **Saison:** ' + p.season;
     if (p.habitat) resp += '\n🗺️ **Habitat:** ' + p.habitat;
     return resp;
@@ -74012,6 +74033,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.96', date: '08.09.2026',
+      headline: 'Fünf Stellen sprachen über Giftigkeit, ohne die Art zu fragen',
+      summary: 'Im Lexikon fehlten die tödlichen Arten im Zähler „Giftig".',
+      user_summary: 'Wo die App etwas über Giftigkeit sagt, fragt sie jetzt überall dieselbe Quelle.',
+      user_items: [
+        'Die Zahl unter „Giftig" im Lexikon liess 131 Einträge der Stufen 4 und 5 aus — also gerade die stark giftigen und die tödlichen. Sie zeigt jetzt 598 statt 417.',
+        'Das Symbol in deinen Sammlungen kommt von der Art: die Christrose stand dort mit 🌿 statt ☠️.',
+        'Die Wissens-Zeile auf der Startseite und die Antwort im Chat nennen dieselbe Giftstufe wie die Artenseite — vorher hiess die Christrose dort „giftig" statt „TÖDLICH".'
+      ],
+    },
+    {
     v: 'v32.95', date: '08.09.2026',
       headline: 'Die Sammlung „Giftige" war unvollständig',
       summary: '16 Arten fehlten dort — darunter Kahler Krempling und Frühlingslorchel.',
@@ -75219,7 +75251,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.95';
+var GS_VERSION = 'v32.96';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

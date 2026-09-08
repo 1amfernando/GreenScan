@@ -4,13 +4,102 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.95` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.96` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gl) - v32.96: fuenf Stellen sprachen ueber Giftigkeit, ohne die Art zu fragen
+
+- **Die Zahl unter „Giftig" im Lexikon liess die toedlichen aus.** Der Zaehler
+  fragte woertlich `tox === 2 || tox === 3`. Die UNTERgrenze war Absicht
+  („gering" zaehlt nicht mit), die OBERgrenze war keine:
+
+  | Stufe | 0 | 1 | 2 | 3 | **4** | **5** |
+  |---|---|---|---|---|---|---|
+  | Eintraege | 3'658 | 136 | 257 | 160 | **59** | **72** |
+
+  **131 Eintraege — die stark giftigen und die toedlichen — waren nicht
+  mitgezaehlt.** Die Kachel zeigt jetzt 598 statt 417 (Untergrenze 2 bleibt,
+  und beide Zahlen gehen durch `_gsArtAnzeige`).
+- **Vier weitere Stellen lasen den EINTRAG statt der ART** — dieselbe Klasse
+  wie (gg)–(gk), gefunden mit einer Zaehlung aller 150 `.tox`/`.edible`-Lesungen
+  nach umschliessender Funktion:
+  - **Das Symbol in der Sammlung** (`_gsSmartSpeciesEmoji`): 134 Eintraege
+    bekamen ein anderes — die **Christrose stand mit 🌿 statt ☠️** in der
+    Sammlung. `gsAddSpeciesToCollection` trug dieselbe Rechnung ein zweites
+    Mal (ohne 🍄/🌳) und ruft jetzt den einen Helfer.
+  - **Die Wissens-Zeile auf der Startseite** (`gsInitDynamicFacts`): der Satz
+    „ist stark giftig" fiel bei 22 Eintraegen aus.
+  - **Der Offline-Chat** (`getSmartAnswer`): 269 Eintraege wichen ab. Der
+    Treffer kommt dort aus einem NAMENS-Vergleich — bei einer mehrfach
+    gefuehrten Art trifft er irgendeinen Eintrag. Fuer die Christrose sagte
+    der Chat **„giftig" statt „TÖDLICH"**.
+
+#### Der Pruefstand: drei Faelle in `scan_check` (jetzt 68)
+
+D1g liest die **gerenderte** Zahl, D1h faengt das Symbol beim Eintragen ab,
+D1i prueft Chat und Fakten-Zeile zusammen. Gegenprobe je Fall, alle drei rot
+mit echten Zahlen — D1i: *„Chat nennt nicht ‚TÖDLICH' (Art 5), sondern:
+giftig · 2 Fakten-Zeile(n) ohne Warnung"*.
+
+**Und D1g war im ersten Anlauf falsch gebaut.** `renderLexikon` GIBT sein HTML
+ZURUECK, es haengt es nicht ein; meine Suche lief ueber das Dokument und traf
+eine fremde Plakette „Giftig". Der Fall waere gruen gewesen, sobald die Zahl
+dort zufaellig gepasst haette. Er parst jetzt den Rueckgabewert.
+
+#### Der Pruefstand hat sich selbst stillgelegt
+
+`robust_check` C2 zaehlt jede Funktion ohne zweite Nennung im Repo. **Eine
+Funktion, deren einzige weitere Nennung ihre EIGENE Ausfuhr ist
+(`window.X = X;` — der Name steht dort zweimal), kam auf drei und fiel durch
+das Raster.** Sieben lagen so unbemerkt. Und beim Eintragen der sieben in die
+Liste meldete der Fall prompt „0 ohne zweite Nennung": der Pruefstand liest
+`scripts/*.js` und damit **sich selbst** — eine Deklaration war ihre eigene
+zweite Nennung.
+
+> **Ein Pruefstand, der durch das Eintragen still wird, misst nur noch sich
+> selbst.** Beide Loecher sind zu; Gegenprobe mit einer frischen Funktion samt
+> eigener Ausfuhr: rot.
+
+**Die sieben werden NAMENTLICH gemeldet, in einer dritten Klasse
+`OHNE_EINSTIEG`** (nach dem Vorbild von `backend_check`): kein dynamisch
+gebildeter Name, kein Fehler im Code — eine **Entscheidung, die aussteht**.
+Bewusst NICHT entfernt, siehe „Known issues".
+
+#### Zwei Messfallen aus dieser Sitzung
+
+- **`render_check` vergleicht zwei Dateien — beide muessen im Repo liegen.**
+  Meine erste Messung stellte den alten Stand nach `/tmp`; dort loest
+  `data/plants.v1.js` nicht auf, die Artenliste war LEER (2'447 statt 3'095
+  vermessene Elemente) und der Bericht meldete sechs Layout-Aenderungen im
+  Wissen-Kopf, die es nicht gibt. Gegen den echten Stand aus `git show`:
+  **0 Aenderungen** an Radius, Schriftgroesse, GROESSE und Farbe.
+- **Vor dem „das ist langsam" die Zahl holen.** `renderLexikon` ruft
+  `_gsArtAnzeige` jetzt 4'337-mal; ich hielt das fuer den Grund der
+  Verschiebung. Gemessen: **31 ms → 40 ms** beim ersten Aufruf, 1 ms beim
+  zweiten (memoisiert). Kein Grund, nichts umzubauen.
+
+#### Zwei Verdachtsfaelle, die sich beim Nachmessen aufgeloest haben
+
+- **Der Planer-Pool** (`gsPPbuildDBContext`) filtert mit
+  `s.tox === 'hoch' || String(s.tox).indexOf('hoch') >= 0` — `tox` ist eine
+  ZAHL, dieser Zweig ist tot. Nachgerechnet: von 1'295 Pflanzen im Pool haben
+  **0** eine Stufe ≥ 3 (`s.toxic === true` faengt sie, 618 Eintraege). Sieht
+  aus wie ein Loch, ist keines. Nicht angefasst.
+- **Der Plan/Tier des Kontos** entscheidet der Server
+  (`v_user_entitlements`, `security_invoker`); die View liefert IMMER eine
+  Zeile mit `tier = 'free'` als Rueckfall, der Cache `gs_abo_plan` steht in
+  `GS_USER_KEYS`, und `gsLoadEntitlements` laeuft beim Start und nach dem
+  Anmelden. Geprueft, nichts zu tun.
+
+#### Optik
+
+`render_check` v32.95 → v32.96: **3'095 vergleichbare Elemente, 0 Aenderungen**.
+Alle 31 Pruefstaende gruen.
 
 ### 2026-09-08 (gk) - v32.95: die Sammlung „Giftige" war unvollstaendig
 
@@ -10697,7 +10786,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.94` (Client) · SW-Cache `gs-v32.94` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.96` (Client) · SW-Cache `gs-v32.96` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **92'227 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
@@ -10733,6 +10822,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Punkt | Was fehlt |
 |---|---|
 | **Arten-Daten vervollständigen** | 78 % der 4'342 Arten haben keine verwertbare Farb- oder Höhenangabe. Drei Wege abgegangen (`docs/ARTEN-DATEN.md`): keine Quelle von hier aus; vier Nebentabellen in der Datenbank (114 Arten, zwei Tabellen nur live); **167 Dubletten-Gruppen mit widersprüchlicher Giftstufe** in `docs/arten-widersprueche.csv` — brauchen eine Flora, keinen Code. Seit v32.43 gewinnt bei Widerspruch die vorsichtigere Angabe (v32.45 korrigiert: Unterarten, Platzhalter). |
+| **Sieben Oberflächen ohne Einstieg** | `robust_check` C2 nennt sie seit v32.96 namentlich (Klasse `OHNE_EINSTIEG`) — sie waren vorher unsichtbar, weil ihre eigene Ausfuhr (`window.X = X`) als zweite Nennung zählte. Jede braucht eine eigene Entscheidung, **verdrahten oder entfernen**, und keine davon ist von hier aus zu treffen: `gsSafetyDefaults` (Sicherheitsnetz aus v23.45 — generische Warnung für Arten mit leerem `warning`; Verdrahten ändert den Text auf vielen Detailseiten), `openHarvestAddModal` + `gsHarvestLoadForPlant` (Reste der v28.15-Konsolidierung — die lebende Oberfläche ist `openErnteTracking`), `gsDoctorHistoryLoad`, `gsAROpen`, `gsShowNextWisdom` (die Weisheits-Karte wird gerendert, es gibt nur keinen Weiter-Knopf), `gsBattleClose` (räumt den Battle-Timer auf, wird nie gerufen). Bewusst **nicht** entfernt: in v31.46 verbarg sich in genau so einer Liste der Pflanzenfriedhof — eine Funktion ohne Anzeige, keine tote Zeile. |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
 | Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
 
