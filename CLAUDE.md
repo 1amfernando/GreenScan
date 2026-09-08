@@ -1445,7 +1445,14 @@ neue Strategie hinzufuegt, gibt ihr Ergebnis durch
 > als ERSTE Zeile: beim ersten Anlauf stand sie nach `toxInfo` und den
 > Plaketten, der Rand wurde orange und das gruene „✅ Essbar" blieb stehen.
 > **Eine Reparatur an einer Anzeige ist erst fertig, wenn ALLE Teile dieser
-> Anzeige sie sehen.** `openDetail(id)` machte `DB.find(id)` und zeigte die Angaben genau
+> Anzeige sie sehen.** Und die Klasse war mit Liste und Detail nicht
+> geschlossen (v32.93): sechs Anzeigen lesen `tox`/`edible` aus einem
+> Eintrag. Dazu gehoert das **Quiz**, und dort ist es keine Anzeige, sondern
+> eine **gewertete Antwort** — 269 Arten haetten die Zahl des Eintrags als
+> „richtig" gehabt, 7 davon eine harmlose Stufe fuer eine Art der Stufe 3.
+> Bewusst NICHT umgestellt: die Buch-Einlese-Vorschlaege (Importkandidaten
+> ohne Artengruppe) und das Admin-Bildwerkzeug (wer kuratiert, sieht seinen
+> Eintrag). `openDetail(id)` machte `DB.find(id)` und zeigte die Angaben genau
 > des angetippten Eintrags: **186 Eintraege mit einer niedrigeren Giftstufe**
 > als ihre Art (nie umgekehrt), 98 mit „essbar" gegen die Art. Uebernommen
 > werden nur die SICHERHEITSANGABEN — Name, Beschreibung und Verwendung
