@@ -614,6 +614,63 @@ vielleicht schon gehört hast:
    höhere. Auch behoben; die Artenliste selbst (657 mehrfach geführte Arten)
    bleibt unverändert, dafür braucht es eine Flora, keinen Code.
 
+## 14 · Eine Entscheidung: „4'337 Arten" sind 3'136 Arten
+
+**Nur eine Entscheidung, keine Arbeit für dich — und nichts davon ist kaputt.**
+Ich habe heute nachgezählt und die Zahl stimmt nicht mit dem Wort zusammen,
+das danebensteht.
+
+| | |
+|---|---|
+| Einträge in der Artenliste | **4'337** |
+| verschiedene Arten darin | **3'136** |
+
+Der Grund ist harmlos und war so gebaut: **jede Zeile trägt EINEN deutschen
+Namen.** Der Bärlauch steht viermal drin — als „Bärlauch", „Echter Bärlauch",
+„Bärlauch-Pesto" und „Echter Bärlauch (Wald)". Alle vier sind *Allium
+ursinum*. 644 Arten haben so mehr als eine Zeile; 1'142 Zeilen sind
+Zweit- und Drittnamen.
+
+Nur: **„Art" heisst Art.** „4'337 Arten" zählt den Bärlauch viermal — auf der
+Startseite, in den Einstellungen, im Über-Fenster, im Onboarding, in den
+Seitenbeschreibungen für Google und in `install.html`.
+
+### Drei Wege, alle ehrlich — such dir einen aus
+
+1. **Wort ändern, Zahl behalten** — „4'337 **Einträge**", und im Über-Fenster
+   ein Satz dazu: „zu 3'136 Arten". *Kostet dich keine einzige beworbene
+   Zahl und ist wahr.* Das wäre mein Vorschlag.
+2. **Zahl ändern** — „3'136 Arten". Am klarsten, aber deine Schlagzeile
+   schrumpft um gut ein Viertel.
+3. **Beides** — „3'136 Arten · 4'337 Namen". Am ehrlichsten, am längsten.
+
+**Was ich NICHT gemacht habe und bewusst nicht mache:** in den
+Seitenbeschreibungen steht noch die alte `4342`. Die auf `4337` nachzuziehen
+wäre falsch — dann wäre die Zahl frisch und die Aussage immer noch nicht
+wahr. Deshalb liegt dort weiterhin die alte Zahl, bis du dich entschieden
+hast.
+
+Sag mir einfach welchen Weg, dann setze ich ihn in einem Rutsch um (zwölf
+Stellen in `index.html`, dazu `install.html`, dazu die vier Sprachen).
+
+### Ein Nebenfund aus derselben Zählung
+
+Die Mehrfach-Zeilen einer Art **widersprechen sich bei der Giftigkeit**:
+
+```
+„Wiesenkerbel"        tox 2 · nicht essbar
+„Echter Wiesenkerbel" tox 1 · essbar          (dieselbe Pflanze)
+```
+
+Das ist derselbe Bestand wie die 167 widersprüchlichen Gruppen aus
+`docs/arten-widersprueche.csv`. Seit v32.92 zeigt die App überall die
+**vorsichtigere** Angabe, die Anzeigen sind also sicher — aber die Daten
+selbst bleiben uneins, und das kann nur jemand mit einer Flora auflösen.
+Und Zeilen wie „Bärlauch-Pesto" sind gar keine Arten; wie viele davon in der
+Liste stehen, kann ich von hier aus nicht sagen.
+
+Alles nachgemessen und ausführlich in `docs/ARTEN-DATEN.md` §8.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier
