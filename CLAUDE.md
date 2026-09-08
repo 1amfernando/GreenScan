@@ -2419,6 +2419,18 @@ zweimal falsch geraten.
 Funktion aufruft, wird rot gemeldet. Ein Treffer ist ein Verdacht, kein
 Urteil — wie bei `field_check.py`.
 
+> **Und die Grenze hat eine zweite Haelfte, die teurer ist** (v33.03): er sucht
+> eine Meldung neben einem **`sbFetch`-Aufruf**. Geht der Aufruf ueber einen
+> HELFER (`sbSaveProfile`), sieht er ihn nicht — und gilt der Schreibvorgang
+> gar nicht dem Server, sondern dem **Geraetespeicher**, stellt er die Frage
+> ueberhaupt nicht. Gemessen am 08.09.2026: drei Stellen sagten „gespeichert",
+> ohne nachzusehen — `toggleRecipeFav` (Meldung VOR dem Schreiben, Rueckgabe in
+> einem toten `catch`), `profEditName` (zwei ungeprueffte Schreibvorgaenge
+> hintereinander) und `profSetAvatar` (Meldung vor dem Serveraufruf, Antwort
+> nie angesehen). **Eine Frage, die nur eine Bauform kennt, ist blind fuer
+> dieselbe Sache in einer anderen.** Die vier Faelle dazu stehen in
+> `speicher_check` (voller Speicher) und `save_check` SERVER_WEGE.
+
 **`sync_check.js` (seit v32.23) fragt die Umkehrung zu `save_check`:** dieser
 prueft, ob das Gespeicherte im Geraet ankommt — jener, ob es aus der Cloud
 auch **zurueckkommt**.

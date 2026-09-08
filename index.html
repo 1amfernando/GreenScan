@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.02.20260908">
+<meta name="app-version" content="33.03.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21141,9 +21141,25 @@ function isRecipeFav(id){return _recipeFavs.indexOf(id)>=0;}
 function toggleRecipeFav(id,ev){
   if(ev)ev.stopPropagation();
   gsHaptic('tap');
-  if(isRecipeFav(id)){_recipeFavs=_recipeFavs.filter(function(f){return f!==id;});showProfileToast('Rezept entfernt','info');}
-  else{_recipeFavs.push(id);showProfileToast('Rezept gespeichert!');if(typeof gsTrackAction==='function')gsTrackAction('recipe');}
-  try{localStorage.setItem('gs_recipe_favs',JSON.stringify(_recipeFavs));}catch(e){}
+  // v33.03: die Meldung stand VOR dem Schreiben, und der Rueckgabewert lag in
+  // einem toten catch — setItem wirft nie, es gibt false zurueck (CLAUDE.md §3.5).
+  // Bei vollem Geraet stand „Rezept gespeichert!" da, und nach dem Neuladen war
+  // es weg. Erst schreiben, dann sagen; bei Nein die Liste zurueck (v32.82:
+  // eine Kopie, keine Referenz).
+  var _rfVorher = _recipeFavs.slice();
+  var _rfWeg = isRecipeFav(id);
+  if(_rfWeg){_recipeFavs=_recipeFavs.filter(function(f){return f!==id;});}
+  else{_recipeFavs.push(id);}
+  if(localStorage.setItem('gs_recipe_favs',JSON.stringify(_recipeFavs)) === false){
+    _recipeFavs = _rfVorher;
+    showProfileToast(_rfWeg ? 'Rezept nicht entfernt — der Gerätespeicher ist voll.'
+                            : 'Rezept nicht gespeichert — der Gerätespeicher ist voll.', 'warn');
+  } else if(_rfWeg){
+    showProfileToast('Rezept entfernt','info');
+  } else {
+    showProfileToast('Rezept gespeichert!');
+    if(typeof gsTrackAction==='function')gsTrackAction('recipe');
+  }
   try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){} // v30.35 HL#32: expliziter markDirty (Auto-Track ist geshadowed)
   // v23.56: Alle Hearts mit diesem data-rfav aktualisieren (Karten + Detail-Modal)
   document.querySelectorAll('[data-rfav="'+id+'"]').forEach(function(b){
@@ -74095,6 +74111,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.03', date: '08.09.2026',
+      headline: 'Drei Stellen sagten „gespeichert", ohne nachzusehen',
+      summary: 'Rezept-Favorit, Namensaenderung und Avatar-Wechsel meldeten Erfolg, ohne die Antwort von Geraet oder Server anzusehen. versprechen_check kennt nur sbFetch — diese drei gingen durch Helfer bzw. an den Geraetespeicher.',
+      user_summary: 'Wenn etwas nicht gespeichert werden kann, steht das jetzt da — statt eines Hakens fuer nichts.',
+      user_items: [
+        {emoji:'💾', text:'Ein Rezept als Favorit zu merken meldete „Rezept gespeichert!", bevor ueberhaupt geschrieben wurde. War das Geraet voll, war das Rezept nach dem naechsten Start wieder weg — ohne dass es jemand gesagt haette.'},
+        {emoji:'✏️', text:'Dasselbe beim Namen und beim Avatar: beide meldeten Erfolg, ohne die Antwort des Servers anzusehen. Lehnte der ab, stand trotzdem ein Haken da — und beim naechsten Laden war die Aenderung weg.'},
+        {emoji:'↩️', text:'Der Avatar wechselt weiterhin sofort, das fuehlt sich schneller an. Sagt der Server aber Nein, springt er jetzt zurueck und die App sagt, woran es lag.'}
+      ],
+      items: [
+        {emoji:'🧾', bold:'toggleRecipeFav:', text:' die Meldung stand VOR dem Schreiben, und der Rueckgabewert lag in einem toten catch — localStorage.setItem wirft nie, es gibt false zurueck (CLAUDE.md §3.5). Jetzt: erst schreiben, bei false die Liste auf den Stand davor zurueck (Kopie, keine Referenz) und ein Satz dazu.'},
+        {emoji:'🧾', bold:'profEditName:', text:' zwei ungeprueffte Schreibvorgaenge hintereinander — sbSaveProfile (gibt {data,error}, wirft nie) und setItem. Jetzt _gsSchreibOk fuer den Server (Ablehnung UND 0 Zeilen), und die lokale Haelfte sagt „geaendert, aber auf diesem Geraet nicht gemerkt", statt einen Haken zu zeigen.'},
+        {emoji:'🧾', bold:'profSetAvatar:', text:' „✅ Avatar gespeichert!" stand vor dem Serveraufruf, und das .catch() daran war von Bauart tot. Optimistisch bleibt es — mit der Regel aus v32.82: Zustand davor merken, bei Nein zuruecknehmen, einen Satz sagen.'},
+        {emoji:'🔍', bold:'Warum kein Pruefstand das sah:', text:' versprechen_check sucht Meldungen neben einem sbFetch-Aufruf. Hier ging der eine ueber den HELFER sbSaveProfile, und beim Rezept ging es gar nicht an den Server, sondern an den Geraetespeicher — eine Frage, die dieser Pruefstand nicht stellt. Vier neue Faelle: speicher_check (voller Speicher) und save_check SERVER_WEGE (Ablehnung · 0 Zeilen · Bestaetigung).'},
+        {emoji:'🧪', bold:'Gegenprobe:', text:' jede der drei Reparaturen einzeln zurueckgebaut — dreimal rot, mit dem echten Beleg daneben („permission denied" vom Server, und die App meldete ✅ Name aktualisiert!).'}
+      ],
+    },
+  {
     v: 'v33.02', date: '08.09.2026',
       headline: 'Die Beispieldaten der Pruefstaende waren ueber ein Jahr alt',
       summary: 'Der Zeit-Anker in scripts/_seed.js stand als feste Zahl auf dem 1. September 2025. 29 der 31 Pruefstaende vermassen die App damit in einem Zustand, den kein Mensch hat.',
@@ -74466,7 +74500,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.02';
+var GS_VERSION = 'v33.03';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79458,26 +79492,36 @@ function profOpenAvatarPicker() {
 
 async function profSetAvatar(avatar, popupEl) {
   if (popupEl) popupEl.remove();
-  // Sofort lokal setzen — UI reagiert sofort
-  if (_sbProfile) _sbProfile.avatar_emoji = avatar;
-  // Menu-Bar sofort aktualisieren
+  // v33.03: „✅ Avatar gespeichert!" stand VOR dem Serveraufruf, und dessen
+  // Antwort sah niemand an — das .catch() war zudem von Bauart tot, weil
+  // sbFetch nie wirft (CLAUDE.md §3.5, robust_check Fall 20). Ein abgelehnter
+  // Wechsel meldete Erfolg und war beim naechsten Laden wieder weg.
+  // Optimistisch anzeigen bleibt richtig (es fuehlt sich schnell an) — aber
+  // dann gilt die Regel aus v32.82: den Zustand DAVOR merken, bei einem Nein
+  // zuruecknehmen und einen Satz dazu sagen.
   var avatarEl = document.getElementById('menu-avatar-display');
-  if (avatarEl) avatarEl.textContent = avatar;
-  // Profil-Modal Avatar aktualisieren
   var bigAvatar = document.querySelector('[title="Avatar ändern"]');
+  var _avVorher    = _sbProfile ? _sbProfile.avatar_emoji : null;
+  var _avVorherMen = avatarEl ? avatarEl.textContent : null;
+  var _avVorherGro = bigAvatar ? bigAvatar.textContent : null;
+  if (_sbProfile) _sbProfile.avatar_emoji = avatar;
+  if (avatarEl) avatarEl.textContent = avatar;
   if (bigAvatar) bigAvatar.textContent = avatar;
+
+  var _avRes = (typeof sbSaveProfile === 'function') ? await sbSaveProfile({avatar_emoji: avatar}) : null;
+  if (!_gsSchreibOk(_avRes)) {
+    if (_sbProfile) _sbProfile.avatar_emoji = _avVorher;
+    if (avatarEl && _avVorherMen !== null) avatarEl.textContent = _avVorherMen;
+    if (bigAvatar && _avVorherGro !== null) bigAvatar.textContent = _avVorherGro;
+    showProfileToast(_gsSatz('Avatar nicht gespeichert: {1}',
+      (_avRes && _avRes.error) ? _gsFehlerText(_avRes.error)
+                               : 'Der Server hat die Änderung abgelehnt — bist du noch angemeldet?'), 'warn', 5000);
+    return;
+  }
   showProfileToast('✅ Avatar gespeichert!');
-  // Im Hintergrund zu Supabase speichern
-  if (typeof sbSaveProfile === 'function') {
-    sbSaveProfile({avatar_emoji: avatar}).then(function() {
-      // Profil neu laden
-      var mc = document.getElementById('profile-modal-content');
-      if (mc && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-        renderProfileLoggedIn(mc);
-      }
-    }).catch(function(e) {
-      console.warn('Avatar Supabase save failed:', e);
-    });
+  var mc = document.getElementById('profile-modal-content');
+  if (mc && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+    renderProfileLoggedIn(mc);
   }
 }
 
@@ -79492,12 +79536,24 @@ async function profEditName() {
     : prompt(_nMsg, current);
   if (newName === null) return;
   if (!newName.trim()) { showProfileToast(_t('prompt_name_empty','❌ Name darf nicht leer sein')); return; }
-  await sbSaveProfile({display_name: newName.trim()});
-  localStorage.setItem('gs_sb_display_name', newName.trim());
+  // v33.03: hier wurden ZWEI Schreibvorgaenge nicht angesehen — die Antwort des
+  // Servers (sbSaveProfile gibt {data,error} zurueck, wirft nie) und der
+  // Rueckgabewert von setItem. Danach stand „✅ Name aktualisiert!" da, auch
+  // wenn RLS die Zeile abgewiesen hatte oder das Geraet voll war.
+  var _nRes = await sbSaveProfile({display_name: newName.trim()});
+  if (!_gsSchreibOk(_nRes)) {
+    showProfileToast(_gsSatz('Name nicht gespeichert: {1}',
+      (_nRes && _nRes.error) ? _gsFehlerText(_nRes.error)
+                             : 'Der Server hat die Änderung abgelehnt — bist du noch angemeldet?'), 'warn', 5000);
+    return;
+  }
+  var _nLokal = localStorage.setItem('gs_sb_display_name', newName.trim());
   var mc = document.getElementById('profile-modal-content');
   if (mc) renderProfileLoggedIn(mc);
   updateMenuProfileBar();
-  showProfileToast('✅ Name aktualisiert!');
+  showProfileToast(_nLokal === false
+    ? 'Name geändert — auf diesem Gerät konnte er nicht gemerkt werden (Speicher voll).'
+    : '✅ Name aktualisiert!', _nLokal === false ? 'warn' : undefined);
 }
 
 async function profChangePassword() {

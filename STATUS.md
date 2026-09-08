@@ -4,13 +4,67 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v33.02` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v33.03` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gv) - v33.03: drei Stellen sagten „gespeichert", ohne nachzusehen
+
+**Gefunden beim Weiterfuehren derselben Frage wie (gt) und (gu): welche Regel
+hat keinen Ausloeser?** `versprechen_check` stellt seit v32.28 die Frage „wer
+verspricht etwas, das niemand geprueft hat" — aber nur fuer `sbFetch`. Fuer
+den GERAETESPEICHER stellt sie niemand.
+
+Gemessen (Meldung mit Erfolgs-Stamm im selben Rumpf wie ein `setItem`, dessen
+Rueckgabe niemand ansieht): **5 Verdachtsfaelle, 3 davon echt** — die anderen
+zwei waren meine groben Funktionsgrenzen, die Meldung stand in einer anderen
+Funktion.
+
+| Stelle | sagte | war |
+|---|---|---|
+| `toggleRecipeFav` | „Rezept gespeichert!" **vor** dem Schreiben | Rueckgabe in einem toten `catch`; bei vollem Geraet nach dem Neuladen weg |
+| `profEditName` | „✅ Name aktualisiert!" | ZWEI ungeprueffte Schreibvorgaenge — `sbSaveProfile` und `setItem` |
+| `profSetAvatar` | „✅ Avatar gespeichert!" **vor** dem Serveraufruf | `.then` rendert nur, `.catch` ist tot (sbFetch wirft nie) |
+
+- **Repariert nach den Regeln, die es schon gibt:** erst schreiben, dann sagen
+  (§3.5); `_gsSchreibOk` fuer den Server (Ablehnung UND 0 Zeilen); und beim
+  Avatar die Regel aus v32.82 — optimistisch anzeigen bleibt richtig, aber der
+  Zustand DAVOR wird gemerkt, bei einem Nein zurueckgenommen und ein Satz
+  dazu gesagt (eine **Kopie**, keine Referenz).
+- **Vier neue Faelle:** `speicher_check` (voller Speicher: Rezept-Favorit,
+  Namensaenderung) und `save_check` SERVER_WEGE (Ablehnung · 0 Zeilen ·
+  Bestaetigung: Name, Avatar).
+
+#### Warum kein Pruefstand das gesehen hat
+
+`versprechen_check` sucht eine Meldung neben einem **`sbFetch`-Aufruf**. Beim
+Namen und beim Avatar ging der Aufruf ueber den Helfer `sbSaveProfile`; beim
+Rezept ging er gar nicht an den Server, sondern an den Geraetespeicher.
+
+> **Eine Frage, die nur eine Bauform kennt, ist blind fuer dieselbe Sache in
+> einer anderen.** Die Klasse ist dieselbe wie 2026-09-06 (§G B4): eine Zusage
+> an die Person ohne Blick auf die Antwort — nur eine Schicht tiefer.
+
+#### Gegenprobe
+
+Jede der drei Reparaturen einzeln zurueckgebaut, **dreimal rot**, jede mit dem
+echten Beleg daneben. Der lehrreichste:
+
+> `Ablehnung: {"lokal":"Neuer Prüfname","meldungen":["✅ Name aktualisiert!"]}`
+
+Der Server sagte `permission denied for table profiles`, und die App zeigte
+einen Haken.
+
+**Und ein Fall, der sich selbst gefangen hat:** der Speicher-Fall zur
+Namensaenderung meldete zuerst *„kein Schreibversuch auf gs_sb_display_name —
+Fall nicht hergestellt"*. `sbSaveProfile` steigt ohne `gs_sb_uid` sofort aus;
+ohne die Zeile haette der Fall eine Funktion vermessen, die gar nicht bis zum
+Speichern kommt. **Genau dafuer ist diese Wache seit v32.44 in jedem Fall
+dieses Pruefstands.**
 
 ### 2026-09-08 (gu) - v33.02: die Beispieldaten der Pruefstaende waren ueber ein Jahr alt
 

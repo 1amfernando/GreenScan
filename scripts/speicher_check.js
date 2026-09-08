@@ -174,6 +174,55 @@ const FAELLE = [
       return { ok: true, info: '„' + ok.slice(0, 90) + '…"' };
     },
   },
+  {
+    // v33.03: „Rezept gespeichert!" stand VOR dem Schreiben, und der
+    // Rueckgabewert lag in einem toten catch (setItem wirft nie, §3.5).
+    name: 'Rezept-Favorit · bei vollem Speicher bleibt die Liste, wie sie war — und sagt es',
+    lauf: () => {
+      if (typeof toggleRecipeFav !== 'function') return { ok: false, warum: 'toggleRecipeFav fehlt' };
+      localStorage.setItem('gs_recipe_favs', JSON.stringify([]));
+      __voll(true); toggleRecipeFav('r-pruef'); __voll(false);
+      if (!__VOLL_LOG.some(k => k === 'gs_recipe_favs')) return { ok: false, warum: 'kein Schreibversuch auf gs_recipe_favs — Fall nicht hergestellt' };
+      if (typeof isRecipeFav === 'function' && isRecipeFav('r-pruef')) return { ok: false, warum: 'die Liste behielt das Rezept, obwohl nichts geschrieben wurde — beim naechsten Laden waere es weg' };
+      if (__TOASTS.some(t => /^Rezept gespeichert/.test(t))) return { ok: false, warum: 'meldet „Rezept gespeichert!" fuer nichts: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+      if (!__TOASTS.some(t => /nicht gespeichert/.test(t))) return { ok: false, warum: 'still verloren, keine Meldung: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+      // Gegenrichtung: mit Platz muss es normal durchgehen.
+      toggleRecipeFav('r-pruef');
+      const drin = (typeof isRecipeFav === 'function') && isRecipeFav('r-pruef');
+      try { localStorage.removeItem('gs_recipe_favs'); } catch (_) {}
+      if (!drin) return { ok: false, warum: 'mit Platz kam der Favorit nicht an — die Reparatur blockiert den Normalfall' };
+      return { ok: true, info: 'voll → Liste unveraendert + „' + (__TOASTS.find(t => /nicht gespeichert/.test(t)) || '').slice(0, 46) + '" · mit Platz → normal gespeichert' };
+    },
+  },
+  {
+    // v33.03: zwei ungeprueffte Schreibvorgaenge hintereinander — Server und Geraet.
+    // Hier die lokale Haelfte: der Server sagt Ja, das Geraet ist voll.
+    name: 'Name aendern · Server sagt Ja, Geraet ist voll → „geaendert, aber nicht gemerkt" statt „aktualisiert"',
+    lauf: async () => {
+      if (typeof profEditName !== 'function') return { ok: false, warum: 'profEditName fehlt' };
+      const echtPrompt = window.gsPromptModal, echtFetch = window.sbFetch, echtRender = window.renderProfileLoggedIn, echtBar = window.updateMenuProfileBar;
+      window.gsPromptModal = async () => 'Neuer Prüfname';
+      window.sbFetch = async () => ({ data: [{ id: 'u1', display_name: 'Neuer Prüfname' }], error: null });
+      window.renderProfileLoggedIn = () => {}; window.updateMenuProfileBar = () => {};
+      // sbSaveProfile steigt ohne gs_sb_uid sofort mit {error} aus — ohne diese
+      // Zeile misst der Fall eine Funktion, die gar nicht bis zum Speichern kommt.
+      const echtUid = gsStore.get('gs_sb_uid', null);
+      gsStore.set('gs_sb_uid', '00000000-0000-0000-0000-000000000001');
+      try {
+        __voll(true); await profEditName(); __voll(false);
+        if (!__VOLL_LOG.some(k => k === 'gs_sb_display_name')) return { ok: false, warum: 'kein Schreibversuch auf gs_sb_display_name — Fall nicht hergestellt' };
+        if (__TOASTS.some(t => /Name aktualisiert/.test(t))) return { ok: false, warum: 'meldet „✅ Name aktualisiert!", obwohl das Geraet nichts gespeichert hat' };
+        if (!__TOASTS.some(t => /nicht gemerkt/.test(t))) return { ok: false, warum: 'keine ehrliche Meldung: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+        return { ok: true, info: '„' + (__TOASTS.find(t => /nicht gemerkt/.test(t)) || '').slice(0, 60) + '"' };
+      } finally {
+        __voll(false);
+        window.gsPromptModal = echtPrompt; window.sbFetch = echtFetch;
+        window.renderProfileLoggedIn = echtRender; window.updateMenuProfileBar = echtBar;
+        try { if (echtUid == null) gsStore.remove('gs_sb_uid'); else gsStore.set('gs_sb_uid', echtUid); } catch (_) {}
+        try { localStorage.removeItem('gs_sb_display_name'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {

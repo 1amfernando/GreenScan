@@ -610,6 +610,85 @@ const SERVER_WEGE = [
       return { ok: true, info: 'user=nein, expert=ja (' + info.label + '), admin=ja' };
     },
   },
+  {
+    // v33.03: `await sbSaveProfile(...)` ohne Blick auf die Antwort, danach
+    // „✅ Name aktualisiert!" — bei einer von RLS abgewiesenen Zeile (0 Daten,
+    // KEIN Fehler) hiess das: Erfolg fuer nichts.
+    name: 'Name aendern (profEditName → profiles POST)',
+    lauf: async () => {
+      const erg = { meldungen: [] };
+      const echtToast = window.showProfileToast, echtPrompt = window.gsPromptModal, echtFetch = window.sbFetch,
+            echtRender = window.renderProfileLoggedIn, echtBar = window.updateMenuProfileBar, echtGet = gsStore.get;
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body)));
+      window.gsPromptModal = async () => 'Neuer Prüfname';
+      window.renderProfileLoggedIn = () => {}; window.updateMenuProfileBar = () => {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : echtGet.call(gsStore, k, d));
+      if (typeof profEditName !== 'function') return { ok: false, warum: 'profEditName fehlt' };
+      const lokal = () => localStorage.getItem('gs_sb_display_name');
+      try {
+        localStorage.removeItem('gs_sb_display_name');
+        window.sbFetch = async () => ({ data: null, error: { message: 'permission denied for table profiles' } });
+        await profEditName();
+        if (lokal() || !erg.meldungen.some(m => /Name nicht gespeichert/.test(m))) return { ok: false, warum: 'Ablehnung: ' + JSON.stringify({ lokal: lokal(), meldungen: erg.meldungen }) };
+
+        erg.meldungen.length = 0; localStorage.removeItem('gs_sb_display_name');
+        window.sbFetch = async () => ({ data: [], error: null });   // RLS: 0 Zeilen, kein Fehler
+        await profEditName();
+        if (lokal() || !erg.meldungen.some(m => /Name nicht gespeichert/.test(m))) return { ok: false, warum: '0 Zeilen: ' + JSON.stringify({ lokal: lokal(), meldungen: erg.meldungen }) };
+
+        erg.meldungen.length = 0; localStorage.removeItem('gs_sb_display_name');
+        window.sbFetch = async () => ({ data: [{ id: 'u1', display_name: 'Neuer Prüfname' }], error: null });
+        await profEditName();
+        if (lokal() !== 'Neuer Prüfname' || !erg.meldungen.some(m => /Name aktualisiert/.test(m))) return { ok: false, warum: 'Bestaetigung: ' + JSON.stringify({ lokal: lokal(), meldungen: erg.meldungen }) };
+        return { ok: true, info: 'Ablehnung → nichts lokal, „Name nicht gespeichert" · 0 Zeilen → ebenso · Bestaetigung → lokal + „aktualisiert"' };
+      } finally {
+        try { localStorage.removeItem('gs_sb_display_name'); } catch (_) {}
+        gsStore.get = echtGet; window.showProfileToast = echtToast; window.gsPromptModal = echtPrompt;
+        window.sbFetch = echtFetch; window.renderProfileLoggedIn = echtRender; window.updateMenuProfileBar = echtBar;
+      }
+    },
+  },
+  {
+    // v33.03: „✅ Avatar gespeichert!" stand VOR dem Serveraufruf; das .catch()
+    // daran war tot (sbFetch wirft nie). Optimistisch anzeigen bleibt richtig —
+    // aber der Zustand DAVOR muss zurueckkommen, wenn der Server Nein sagt (v32.82).
+    name: 'Avatar wechseln (profSetAvatar → profiles POST, optimistisch mit Ruecknahme)',
+    lauf: async () => {
+      const erg = { meldungen: [] };
+      const echtToast = window.showProfileToast, echtFetch = window.sbFetch, echtRender = window.renderProfileLoggedIn,
+            echtLogin = window.sbIsLoggedIn, echtGet = gsStore.get;
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body)));
+      window.renderProfileLoggedIn = () => {}; window.sbIsLoggedIn = () => true;
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : echtGet.call(gsStore, k, d));
+      if (typeof profSetAvatar !== 'function') return { ok: false, warum: 'profSetAvatar fehlt' };
+      // Die Anzeige, die zurueckgenommen werden muss, muss es auch geben.
+      let el = document.getElementById('menu-avatar-display');
+      const selbstGebaut = !el;
+      if (selbstGebaut) { el = document.createElement('div'); el.id = 'menu-avatar-display'; document.body.appendChild(el); }
+      const vorher = '🌱';
+      try {
+        window._sbProfile = window._sbProfile || {};
+        const setz = () => { el.textContent = vorher; try { _sbProfile.avatar_emoji = vorher; } catch (_) {} };
+
+        setz(); window.sbFetch = async () => ({ data: null, error: { message: 'permission denied for table profiles' } });
+        await profSetAvatar('🍄');
+        if (el.textContent !== vorher || !erg.meldungen.some(m => /Avatar nicht gespeichert/.test(m))) return { ok: false, warum: 'Ablehnung: ' + JSON.stringify({ zeigt: el.textContent, meldungen: erg.meldungen }) };
+
+        erg.meldungen.length = 0; setz(); window.sbFetch = async () => ({ data: [], error: null });
+        await profSetAvatar('🍄');
+        if (el.textContent !== vorher || !erg.meldungen.some(m => /Avatar nicht gespeichert/.test(m))) return { ok: false, warum: '0 Zeilen: ' + JSON.stringify({ zeigt: el.textContent, meldungen: erg.meldungen }) };
+
+        erg.meldungen.length = 0; setz(); window.sbFetch = async () => ({ data: [{ id: 'u1', avatar_emoji: '🍄' }], error: null });
+        await profSetAvatar('🍄');
+        if (el.textContent !== '🍄' || !erg.meldungen.some(m => /Avatar gespeichert/.test(m))) return { ok: false, warum: 'Bestaetigung: ' + JSON.stringify({ zeigt: el.textContent, meldungen: erg.meldungen }) };
+        return { ok: true, info: 'Ablehnung → zurueck auf ' + vorher + ' + Satz · 0 Zeilen → ebenso · Bestaetigung → 🍄 bleibt' };
+      } finally {
+        if (selbstGebaut && el && el.parentNode) el.parentNode.removeChild(el);
+        gsStore.get = echtGet; window.showProfileToast = echtToast; window.sbFetch = echtFetch;
+        window.renderProfileLoggedIn = echtRender; window.sbIsLoggedIn = echtLogin;
+      }
+    },
+  },
 ];
 
 (async () => {
