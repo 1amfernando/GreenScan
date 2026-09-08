@@ -4,13 +4,61 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.92` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.93` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gh) - v32.93: die Klasse zu Ende gesucht — sechs Anzeigen statt drei
+
+- **Die Regel aus v32.87 auf mich selbst angewandt:** *eine Fehlerklasse ist
+  erst geschlossen, wenn man sie GESUCHT hat.* v32.91/92 haben Detail und
+  Liste umgestellt; ich habe danach **gezaehlt**, wie viele Stellen eine
+  Giftstufe oder Essbarkeit aus einem DB-Eintrag anzeigen. Es waren **15
+  Fundstellen, davon sechs echte Anzeigen** — drei repariert, drei offen.
+- **Die schwerste ist keine Anzeige, sondern eine gewertete PRUEFUNGSFRAGE.**
+  Das Quiz fragt „Wie giftig ist X?" und nimmt `correct.tox` als richtige
+  Antwort. Gemessen:
+  - **269 Arten**, bei denen die Zahl des Eintrags als „richtig" gegolten
+    haette,
+  - davon **7 gefaehrliche**: eine harmlose Stufe fuer eine Art der Stufe 3
+    (Beinwell, Nebelkappe, Birken-Reizker, Violetter Schleierling, Echte
+    Rauschbeere).
+
+  **Wer die richtige Antwort gab, bekam einen Fehler angerechnet** — und das
+  Quiz zaehlt in die Rangliste.
+- **Bluehkalender:** 94 Arten bekamen KEIN „☠️ giftig", obwohl die Art giftig
+  ist. Der Kommentar an der Funktion sagte seit v32.45 selbst, dass ein
+  fehlendes Warnzeichen schlimmer ist als eine fehlende Zierde.
+- **Eingrenzen-Bildschirm** („Ohne Netz eingrenzen"): dieselbe Umstellung.
+- **Zwei Stellen bleiben bewusst, mit Grund:** die Buch-Einlese-Vorschlaege
+  (Importkandidaten, es gibt keine Artengruppe) und das Admin-Bildwerkzeug
+  (wer Eintraege kuratiert, muss den Wert SEINES Eintrags sehen).
+
+#### Zwei Messfehler, beide von der Gegenprobe aufgedeckt
+
+1. **Mein erstes Skript mass die DATENLAGE, nicht die Quiz-Ausgabe.** Es
+   zaehlte, wie viele Arten `_gsArtAnzeige` korrigieren wuerde — und meldete
+   nach der Reparatur dieselbe Zahl wie davor. Es konnte die Reparatur gar
+   nicht sehen.
+2. **Das zweite suchte die richtige Antwort im `onclick`** — sie steht in
+   `data-correct="1"`. `richtig` blieb immer `null`, die Bedingung schlug nie
+   zu: **beide Richtungen meldeten „0 falsch".** Eine Pruefung, die nicht rot
+   werden KANN, ist gruen ohne Aussage.
+
+Der dritte Anlauf misst ueber das **tatsaechlich gewaehlte Objekt** (der
+Helfer wird umhuellt und schreibt mit, welcher Eintrag kam). Ein
+Zwischenbefund davor — „Wacholder: Stufe 0 statt 2" — war ebenfalls ein
+Messfehler: mein Verzeichnis war nach NAMEN geschluesselt, und „Wacholder"
+gibt es mehrfach.
+
+`scan_check` D1d + D1e (jetzt 64). Gegen v32.92: **60 von 60 Giftfragen ohne
+Regel · 94 von 94 ohne ☠️**.
+
+Regression v32.92 → v32.93: `scan_check` 64 Fälle / 0 kaputt (D1d und D1e gegen v32.92 rot mit den echten Zahlen), `render_check` gegen v32.92 **3'090 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
 
 ### 2026-09-08 (gg) - v32.92: die halbe Korrektur — und was sie sichtbar machte
 
@@ -10515,9 +10563,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.92` (Client) · SW-Cache `gs-v32.92` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.93` (Client) · SW-Cache `gs-v32.93` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'173 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **92'197 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

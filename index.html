@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.92.20260908">
+<meta name="app-version" content="32.93.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11385,6 +11385,10 @@ function _gsBlBand(monate, viewMonth) {
 // die Giftiges von Essbarem unterscheidet, ist eine fehlende Warnung
 // schlimmer als eine fehlende Zierde.
 function _gsBlMarken(s) {
+  // v32.93: die Marke folgt der ART, nicht dem Eintrag. Gemessen: 94 Arten
+  // bekamen KEIN „☠️ giftig", obwohl die Art giftig ist — ein fehlendes
+  // Warnzeichen ist schlimmer als eine fehlende Zierde (siehe oben).
+  if (typeof _gsArtAnzeige === 'function') s = _gsArtAnzeige(s);
   var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
   var m = [];
   if (s.toxic || (s.tox && +s.tox > 0)) m.push('<span class="gs-bl-mark gs-bl-gift">☠️ giftig</span>');
@@ -22606,7 +22610,13 @@ function initDailyQuiz() {
   if (pool.length < 4) return;
 
   // Korrekte Art
+  // v32.93: ueber die Vorsichtsregel — das Quiz WERTET seine Antwort. Bei 269
+  // Arten waere die Zahl des Eintrags als „richtig" gezaehlt worden, in 7
+  // Faellen eine niedrige Stufe fuer eine Art der Stufe 3 (Beinwell,
+  // Nebelkappe, Birken-Reizker, Violetter Schleierling, Echte Rauschbeere).
+  // Wer die RICHTIGE Antwort gibt, waere als falsch gewertet worden.
   var correct = pool[seed % pool.length];
+  if (typeof _gsArtAnzeige === 'function') correct = _gsArtAnzeige(correct);
   // 3 falsche Antworten aus anderen Kategorien
   var wrongs = [];
   var used = { [correct.name]: true };
@@ -23599,7 +23609,8 @@ function initQuiz() {
   const qPool = DB.filter(s => s.desc && s.desc.length > 30 && s.fam && s.fam !== '–');
   if (!qPool.length) return;
 
-  const correct = qPool[seed % qPool.length];
+  let correct = qPool[seed % qPool.length];
+  if (typeof _gsArtAnzeige === 'function') correct = _gsArtAnzeige(correct);   // v32.93: das Quiz wertet — die ART entscheidet
 
   // 6 question types – pick by seed
   const qTypes = [
@@ -23734,6 +23745,7 @@ function initQuizModal() {
   // Zufällige Frage aus DB
   var pool = DB.filter(function(s){ return s.desc && s.desc.length > 20 && s.name; });
   var correct = pool[Math.floor(Math.random() * pool.length)];
+  if (typeof _gsArtAnzeige === 'function') correct = _gsArtAnzeige(correct);   // v32.93: das Quiz wertet — die ART entscheidet
 
   // Frage-Typen (mehr als vorher)
   var qTypes = [
@@ -33288,6 +33300,7 @@ function _gsEgRender() {
   } else {
     var zeigen = e.treffer.slice(0, GS_EG_DECKEL);
     liste = '<div class="gs-eg-liste">' + zeigen.map(function (sp) {
+      if (typeof _gsArtAnzeige === 'function') sp = _gsArtAnzeige(sp);   // v32.93
       var t = (typeof toxInfo === 'function') ? toxInfo(sp.tox || 0) : null;
       var em = (typeof getEmoji === 'function') ? getEmoji(sp) : (sp.emoji || '🌿');
       return '<button class="gs-eg-zeile" onclick="openDetail(\'' + esc(String(sp.id || '')) + '\')">' +
@@ -73967,6 +73980,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.93', date: '08.09.2026',
+      headline: 'Das Quiz wertete eine falsche Giftstufe als richtig',
+      summary: 'Die Vorsichtsregel fehlte an fünf weiteren Stellen — auch dort, wo eine Antwort bewertet wird.',
+      user_summary: 'Beim Quiz, im Blühkalender und im Eingrenzen-Bildschirm zählt jetzt dieselbe Einstufung wie überall sonst.',
+      user_items: [
+        'Das Quiz fragt „Wie giftig ist X?" und wertet die Antwort. Bei 269 Arten galt die Zahl eines einzelnen Eintrags als richtig — bei 7 davon eine harmlose Stufe für eine giftige Art. Wer richtig antwortete, bekam einen Fehler angerechnet.',
+        'Im Blühkalender fehlte bei 94 Arten die Markierung „☠️ giftig".',
+        'Auch der Bildschirm „Ohne Netz eingrenzen" zeigt jetzt dieselbe Stufe.'
+      ],
+    },
+    {
     v: 'v32.92', date: '08.09.2026',
       headline: 'Trefferliste und Detail sagen dasselbe',
       summary: 'v32.91 hat das Detail korrigiert, die Liste nicht — ein Pilz stand mit ✅ in der Zeile und mit Stufe 3 im Detail.',
@@ -75141,7 +75165,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.92';
+var GS_VERSION = 'v32.93';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

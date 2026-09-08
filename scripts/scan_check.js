@@ -1475,6 +1475,65 @@ const FAELLE = [
     },
   },
 
+  {
+    // v32.93 — die Klasse zu Ende gesucht statt angenommen. Nach v32.92 nutzten
+    // Liste und Detail die Regel; fuenf weitere Anzeigen nicht. Die schwerste:
+    // das QUIZ wertet seine Antwort — bei 269 Arten waere die Zahl des
+    // Eintrags als „richtig" gezaehlt worden.
+    name: 'D1d · Das Quiz wertet nach der ART: jede Giftfrage geht durch die Vorsichtsregel',
+    lauf: async () => {
+      if (typeof initQuizModal !== 'function') return { ok: false, warum: 'initQuizModal fehlt' };
+      if (typeof _gsArtAnzeige !== 'function') return { ok: false, warum: '_gsArtAnzeige fehlt — die Regel ist gar nicht da' };
+      var gewaehlt = null;
+      var echt = window._gsArtAnzeige;
+      window._gsArtAnzeige = function (sp) { var r = echt(sp); gewaehlt = sp; return r; };
+      var gestellt = 0, ohneHelfer = 0, betroffen = 0, falsch = [];
+      try {
+        for (var i = 0; i < 400; i++) {
+          gewaehlt = null;
+          try { initQuizModal(); } catch (e) { return { ok: false, warum: 'initQuizModal wirft: ' + String(e).slice(0, 90) }; }
+          var q = (document.getElementById('quiz-modal-question') || {}).textContent || '';
+          if (!/^Wie giftig ist /.test(q)) continue;
+          gestellt++;
+          if (!gewaehlt) { ohneHelfer++; continue; }
+          var g = _gsArtGruppe(gewaehlt, gewaehlt.lat);
+          var v = (g && g.length > 1) ? _gsVorsichtigste(g) : null;
+          if (!v || v._unverified || (v.tox || 0) === (gewaehlt.tox || 0)) continue;
+          betroffen++;
+          var el = document.querySelector('#quiz-modal-options [data-correct="1"]');
+          if (!el) return { ok: false, warum: 'keine als richtig markierte Option — der Fall misst nichts' };
+          var richtig = (el.textContent || '').trim();
+          if (richtig.indexOf('Stufe ' + (v.tox || 0)) !== 0)
+            falsch.push(gewaehlt.name + ' (' + gewaehlt.id + '): richtig waere Stufe ' + v.tox + ', gewertet „' + richtig.slice(0, 22) + '"');
+        }
+      } finally { window._gsArtAnzeige = echt; }
+      if (!gestellt) return { ok: false, warum: 'in 400 Laeufen keine einzige Giftfrage — der Fall misst nichts' };
+      if (ohneHelfer) return { ok: false, warum: ohneHelfer + ' von ' + gestellt + ' Giftfragen gehen NICHT durch die Vorsichtsregel' };
+      if (falsch.length) return { ok: false, warum: falsch.length + ' falsch gewertet: ' + falsch.slice(0, 2).join(' | ') };
+      return { ok: true, info: gestellt + ' Giftfragen, alle durch die Regel · ' + betroffen + ' betrafen eine Art mit abweichendem Eintrag, 0 falsch gewertet' };
+    },
+  },
+  {
+    name: 'D1e · Die Bluehkalender-Marke folgt der ART (94 Arten bekamen kein ☠️)',
+    lauf: () => {
+      if (typeof _gsBlMarken !== 'function') return { ok: false, warum: '_gsBlMarken fehlt' };
+      var fehlt = [], geprueft = 0;
+      DB.forEach(function (sp) {
+        if (!sp || !sp.lat) return;
+        var g = _gsArtGruppe(sp, sp.lat); if (!g || g.length < 2) return;
+        var v = _gsVorsichtigste(g); if (!v || v._unverified) return;
+        var sollWarnen = !!(v.toxic || (v.tox && +v.tox > 0));
+        var zeigtSelbst = !!(sp.toxic || (sp.tox && +sp.tox > 0));
+        if (!sollWarnen || zeigtSelbst) return;   // nur die interessanten
+        geprueft++;
+        if (!/gs-bl-gift/.test(String(_gsBlMarken(sp) || ''))) fehlt.push(sp.name + ' (' + sp.id + ')');
+      });
+      if (!geprueft) return { ok: false, warum: 'keine Art, bei der sich die Marke unterscheidet — der Fall misst nichts' };
+      if (fehlt.length) return { ok: false, warum: fehlt.length + ' von ' + geprueft + ' ohne ☠️: ' + fehlt.slice(0, 3).join(', ') };
+      return { ok: true, info: geprueft + ' Arten, deren Eintrag keine Warnung traegt — alle bekommen die Marke der Art' };
+    },
+  },
+
   // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
   // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
   // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`
