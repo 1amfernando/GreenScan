@@ -12,6 +12,57 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-08 (fy) — zwei Messungen statt zwei Reparaturen
+
+Kein Versionssprung: hier wurde nichts geaendert, sondern zwei Fragen
+beantwortet, die sonst die naechste Sitzung noch einmal stellt.
+
+#### 1 · Ist die Klasse aus v32.82 geschlossen?
+
+v32.82 hat drei optimistische Anzeigen repariert (Herz, Vitrinen-Stern,
+Stimme) und den Deckel gegen tote `.catch()` gesetzt. Offen blieb die
+Frage, ob es weitere gibt. **Nachgemessen statt vermutet:** ein Scanner
+ueber alle `sbFetch`-Aufrufe, deren Antwort weder `await` noch `.then`
+ansieht — **zwoelf**, davon zwei Artefakte (die Definition selbst; ein
+Aufruf in einem `Promise.all`-Array, dessen Ergebnis sehr wohl benutzt
+wird). Die zehn echten sind alle Hintergrund-Schreibvorgaenge **ohne
+Zusage an die Person**: Fehlerbericht, Frost- und Wetterprotokoll,
+Scan-Cache, Arten-Statistik, Aufrufzaehler, Analytik, Aufraeum-PATCH,
+Foto-Vergleich, Lina-Verlauf.
+
+Drei davon habe ich einzeln angesehen, weil sie eine sichtbare Wirkung
+haben koennten — und bewusst **nicht** geaendert:
+
+| Stelle | Warum sie bleibt |
+|---|---|
+| `gsNcCleanupTaskRows` (PATCH `notifications`) | setzt danach lokal `is_read` und laesst damit die Glocke sinken. Scheitert der PATCH, stimmt die Zahl bis zum Neuladen nicht. Aber: laeuft hoechstens alle 6 h im Hintergrund, **niemand hat sie ausgeloest**, und ein `await` machte eine Hygiene-Routine langsamer ohne sichtbaren Gewinn. |
+| `gsPhotoDiffPersist` | die Analyse steht schon aus der Antwort auf dem Bildschirm; der Schreibvorgang ist reine Ablage. |
+| Lina (`coach_messages` + `coach_conversations`) | die Antwort ist gerendert, bevor geschrieben wird. Scheitert es, fehlt der Verlauf auf dem naechsten Geraet — CLAUDE.md §4 nennt das Gedaechtnis ausdruecklich geraeteuebergreifend. Das waere eine **Entwurfsfrage** (Warteschlange oder ein Satz im Chat), keine stille Reparatur. Hier notiert, nicht nebenbei entschieden. |
+
+**Die Klasse ist damit geschlossen** — mit drei namentlich begruendeten
+Ausnahmen statt eines Gefuehls.
+
+#### 2 · `toFixed`: warum die naheliegende Reparatur teilweise falsch waere
+
+Seit v32.78 steht in der Liste der offenen Punkte „152 `toFixed`". Der
+naheliegende Schluss — alle auf `Intl.NumberFormat(gsLocale())` umstellen —
+ist **fuer einen Teil davon falsch**. Gemessen: 152 Vorkommen, 67 Zeilen
+mit einem Geometrie- oder CSS-Merkmal, der Rest verteilt auf SVG-Pfade,
+`rgba()`-Deckkraft, Cache-Schluessel, Koordinaten fuer den KI-Kontext,
+`input.value` — und erst danach auf echte Anzeige-Zahlen.
+
+Und bei den Anzeige-Zahlen gilt eine Schweizer Besonderheit: **Betraege
+werden in der Schweiz in allen vier Sprachen mit Punkt geschrieben**
+(CHF 1.50), waehrend andere Dezimalzahlen im Franzoesischen und
+Italienischen ein Komma bekommen. Wer hier pauschal umstellt, macht die
+Preise im Marktplatz falsch — genau die Zahlen, an denen Geld haengt.
+
+Das ist dieselbe Regel wie bei den Farben (v31.77): **erst der Messwert,
+dann die Aenderung.** Wer den Punkt angeht, trennt Betraege von Messwerten
+und nimmt fuer jede Gruppe die Konvention, die dort gilt.
+
+---
+
 ### 2026-09-08 (fx) - v32.84: Rollen vergeben war in der App gar nicht erreichbar
 
 - CLAUDE.md §7.1 sagt ueber die abgesicherten Nachschlagungen in
