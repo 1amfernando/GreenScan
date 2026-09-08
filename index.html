@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.83.20260908">
+<meta name="app-version" content="32.84.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -73791,6 +73791,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.84', date: '08.09.2026',
+    headline: '🛡️ Rollen vergeben war in der App gar nicht erreichbar',
+    summary: 'gsAdminSetExpertLevel hatte NULL Aufrufer, und sein select id="admin-expert-select" wurde nirgends mehr gerendert — die Funktion stieg bei if (!sel) return; still aus. wiring_check führte die zwei Nachschlagungen brav als „abgesichert (still, aber folgenlos)": nichts stürzte ab, und genau deshalb fiel es niemandem auf. Erreichbar war im Admin-Bereich nur Sperren und Entsperren; jemanden zum verifizierten Experten, Mitarbeiter oder Admin zu machen ging überhaupt nicht. Jetzt steht im Nutzer-Detail eine Rollen-Auswahl mit Begründungsfeld, und sie geht denselben Weg wie der Sperr-Knopf: gsAdminAssignRole → RPC fn_assign_role, mit serverseitiger Admin-Prüfung, Letzter-Admin-Sperre, Audit-Log und einer Mitteilung an die Person (deshalb sagt das Feld auch, dass die Begründung mitgelesen wird — live nachgelesen). Sperren bleibt beim eigenen Knopf: zwei Wege zum selben Zustand sind keine Wahlfreiheit. Die tote Funktion und ihr nur dafür gebauter Helfer _gsAdminUidZu sind weg. Und der save_check-Fall, der die Rollenvergabe angeblich prüfte, hatte sich sein select SELBST in die Seite gelegt — er öffnet jetzt das echte Fenster und drückt den echten Knopf. Gegen v32.83: rot.',
+    user_summary: '🛡️ Für Admins: verifizierte Experten, Mitarbeiter und Admins lassen sich wieder ernennen — im Nutzer-Detail, mit Begründung.',
+    user_items: [
+      {emoji:'🛡️', bold:'Rollen:', text:' Im Admin-Bereich gibt es beim Nutzer eine Auswahl für Nutzer / Experte / Mitarbeiter / Admin — vorher liess sich nur sperren und entsperren.'},
+      {emoji:'✉️', bold:'Begründung:', text:' Die eingetragene Begründung wird der Person in ihrer Mitteilung angezeigt, nicht nur intern gespeichert.'},
+    ],
+  },
+  {
     v: 'v32.83', date: '08.09.2026',
     headline: '🗣️ 69 Rückmeldungen waren unübersetzbar gebaut — jetzt nicht mehr',
     summary: 'showProfileToast übersetzt seit v30.18 am ganzen Satz (gsI18n.tText). Bei 69 Meldungen war dieser Satz aber ZUSAMMENGESETZT — „Kamera nicht verfügbar: " + e.message. Ein Nachschlag kann darin nie treffen, und der Sammler überspringt ein Literal mit folgendem + ausdrücklich: ein Fragment ist kein Satz. Ein französischer Nutzer las diese 69 Meldungen deshalb immer auf Deutsch, ohne dass irgendetwas rot war. _gsSatz(vorlage, …werte) übersetzt jetzt die VORLAGE und setzt die Werte DANACH ein — {1}, {2} dürfen in der Übersetzung die Stellung wechseln, was in fr und it regelmässig nötig ist. Zwei Stellen wurden dabei von Hand in ganze Sätze zerlegt statt in Platzhalter gepresst: ein Plural-Suffix („Tag{2}") und ein Name-oder-nichts sind Grammatik, keine Werte. i18n_check misst beide Hälften: 0 Fragmente im Quelltext UND ein echter Toast in fr, mit vertauschter Stellung als Beleg, dass wirklich nach der Übersetzung eingesetzt wird. Gegen v32.82: rot, mit 68 gefundenen Fragmenten.',
@@ -74870,7 +74880,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.83';
+var GS_VERSION = 'v32.84';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75067,45 +75077,12 @@ function _gsOpenIngCard(plantId, recipeId) {
 // Experte"). Der PATCH aus v31.95 konnte nichts davon — er war ehrlich, aber
 // der schlechtere Weg. Beide Funktionen gehen jetzt ueber `gsAdminAssignRole`.
 
-// Adresse → id. Die Rolle wird ueber die id gesetzt, nie ueber die Adresse:
-// eine Bedingung auf einer Adresse trifft im Zweifel mehrere Zeilen.
-async function _gsAdminUidZu(email) {
-  try {
-    var f = await sbFetch('/rest/v1/profiles?select=id,role&limit=2&email=eq.' + encodeURIComponent(email), { method: 'GET' });
-    if (f && f.error) { showProfileToast({title:'Nicht gefunden', body:'Profil konnte nicht gelesen werden: ' + (_gsFehlerText(f.error)||''), kind:'error', duration:6000}); return null; }
-    var rows = (f && Array.isArray(f.data)) ? f.data : [];
-    if (!rows.length) { showProfileToast({title:'Kein Profil', body:'Zu ' + email + ' gibt es kein Profil.', kind:'error'}); return null; }
-    if (rows.length > 1) { showProfileToast({title:'Mehrdeutig', body:'Zu dieser Adresse gibt es mehrere Profile — bitte im Dashboard prüfen.', kind:'error', duration:7000}); return null; }
-    return rows[0].id;
-  } catch (e) { showProfileToast({title:'Fehler', body:(e && e.message) || 'Unbekannt', kind:'error'}); return null; }
-}
-
-async function gsAdminSetExpertLevel(targetEmail) {
-  if (!gsIsAdmin()) return;
-  var sel = document.getElementById('admin-expert-select');
-  var reason = document.getElementById('admin-expert-reason');
-  if (!sel) return;
-  var newLevel = sel.value;
-  var noteText = reason ? reason.value.trim() : '';
-  if (typeof sbFetch !== 'function') { showProfileToast('Keine Verbindung zum Server.'); return; }
-  if (GS_ROLE_HIERARCHY.indexOf(newLevel) < 0) { showProfileToast('Unbekannte Rolle.'); return; }
-  // v32.36b: Diese Stelle fragt seit jeher — aber NUR beim Hochstufen zum
-  // Admin. Für alles andere übernimmt jetzt `gsAdminAssignRole` die Rückfrage;
-  // beim Admin-Fall wird sie hier abgehandelt (mit der E-Mail im Text) und
-  // dort übersprungen, damit nicht zweimal gefragt wird.
-  var _adminFall = (newLevel === 'admin');
-  if (_adminFall &&
-      !(await gsConfirmModal(targetEmail + ' zum ADMIN machen? Damit kann diese Person Rollen aller Nutzer ändern.'))) return;
-  var uid = await _gsAdminUidZu(targetEmail);
-  if (!uid) return;
-  var r = await gsAdminAssignRole(uid, newLevel, noteText || null, _adminFall ? {bestaetigt:true} : undefined);
-  if (!r) return;                                  // gsAdminAssignRole hat schon gemeldet
-  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-  log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
-                target: targetEmail, action: 'set_role', level: newLevel, note: noteText });
-  gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
-  closeModal('modal-recipe-detail');
-}
+// v32.84: Hier stand `gsAdminSetExpertLevel(targetEmail)` — 26 Zeilen mit
+// Rueckfrage, Adress-Aufloesung und Admin-Log, und mit NULL Aufrufern. Sein
+// `<select id="admin-expert-select">` wurde nirgends gerendert; die Funktion
+// stieg bei `if (!sel) return;` still aus. Der Weg ueber die Adresse war
+// ohnehin der Umweg: im Nutzer-Detail liegt die id bereits vor. Wer eine Rolle
+// vergibt, geht jetzt ueber `gsAdminRolleSetzen` → `gsAdminAssignRole`.
 
 // Experten-Badge im Profil anzeigen
 
@@ -84708,6 +84685,26 @@ async function gsSyncUserRole() {
 // dauerhaft false) oder ein verschenktes Lifetime-Abo; beim Tier steht Geld
 // dahinter, und beides ist nur von Hand rückgängig zu machen.
 //
+// v32.84: `gsAdminRolleSetzen` liest die zwei Felder aus dem Nutzer-Detail und
+// geht denselben Weg. Bis dahin gab es in der App GAR KEINEN Weg, jemanden zum
+// Experten, Mitarbeiter oder Admin zu machen: `gsAdminSetExpertLevel` hatte
+// keinen einzigen Aufrufer, und sein `<select id="admin-expert-select">` wurde
+// nirgends mehr gerendert — die Funktion stieg bei `if (!sel) return;` still
+// aus. `wiring_check` fuehrte die zwei Nachschlagungen als „abgesichert (still,
+// aber folgenlos)": nichts stuerzte ab, und genau deshalb fiel es niemandem auf.
+// Erreichbar war nur Sperren und Entsperren.
+async function gsAdminRolleSetzen(userId) {
+  if (!gsIsAdmin()) return;
+  var sel = document.getElementById('admin-role-select');
+  if (!sel) { showProfileToast && showProfileToast('Rollen-Auswahl nicht gefunden.'); return; }
+  var notiz = document.getElementById('admin-role-note');
+  var r = await gsAdminAssignRole(userId, sel.value, (notiz && notiz.value.trim()) || null);
+  if (!r) return;                       // gsAdminAssignRole hat schon gemeldet
+  try { gsAdminOpenUserDetail(userId); } catch (_) {}
+  try { openAdminPanel(); } catch (_) {}
+}
+window.gsAdminRolleSetzen = gsAdminRolleSetzen;
+
 // **Die Rückfrage gehört in die Funktion, nicht an den Aufrufort.** Sonst
 // entscheidet jede neue Aufrufstelle neu — und drei von vier haben sich
 // falsch entschieden. `gsAdminBanUser` fragt schon selbst und reicht deshalb
@@ -85129,6 +85126,23 @@ async function gsAdminOpenUserDetail(userId) {
         ['free','pro','lifetime'].map(function(t){ var lbl={free:'🌱 Free',pro:'💎 Pro',lifetime:'♾️ Lifetime'}[t];
           return '<button onclick="gsAdminSetTier(\'' + p.id + '\',\'' + t + '\').then(function(){gsAdminOpenUserDetail(\'' + p.id + '\');try{openAdminPanel();}catch(_){}})" style="flex:1;padding:8px 4px;border:1.5px solid ' + (p.tier===t?'var(--g-main)':'var(--border)') + ';background:' + (p.tier===t?'var(--g-main)':'var(--card)') + ';color:' + (p.tier===t?'#fff':'var(--text2)') + ';border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + lbl + '</button>'; }).join('') +
       '</div>' +
+      // v32.84: Rolle vergeben. NUR wenn nicht gesperrt — Sperren und Entsperren
+      // haben ihren eigenen Knopf darunter, und zwei Wege zum selben Zustand sind
+      // keine Wahlfreiheit (v32.32). Die Rueckfrage macht `gsAdminAssignRole`.
+      (isBanned ? '' :
+        '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--muted);margin-bottom:5px;">Rolle vergeben</div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:6px;">' +
+          '<select id="admin-role-select" aria-label="Rolle" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;background:var(--card);color:var(--text);">' +
+            [['user','👤 Nutzer'],['expert','✓ Verifizierter Experte'],['staff','🛡️ Mitarbeiter'],['admin','👑 Admin']].map(function(o){
+              return '<option value="' + o[0] + '"' + ((p.role||'user') === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') +
+          '</select>' +
+          '<button onclick="gsAdminRolleSetzen(\'' + p.id + '\')" style="padding:8px 14px;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;background:var(--fill-brand);color:#fff;">Setzen</button>' +
+        '</div>' +
+        // Die Notiz landet in `profiles.role_note` UND als Text in der Mitteilung
+        // an die Person (fn_assign_role, live nachgelesen 08.09.2026) — deshalb
+        // sagt das Feld auch, dass sie mitgelesen wird.
+        '<input id="admin-role-note" type="text" maxlength="200" placeholder="Begründung (die Person liest sie mit) — optional" aria-label="Begründung" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;background:var(--card);color:var(--text);margin-bottom:10px;">'
+      ) +
       '<button onclick="gsAdminAssignRole(\'' + p.id + '\',\'' + (isBanned?'user':'banned') + '\').then(function(){gsAdminOpenUserDetail(\'' + p.id + '\');try{openAdminPanel();}catch(_){}})" style="width:100%;padding:9px;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;background:' + (isBanned?'#2e7d32':'#c62828') + ';color:#fff;">' + (isBanned?'✅ Entsperren':'🚫 Nutzer sperren') + '</button>' +
     '</div></div>';
   document.body.appendChild(m);

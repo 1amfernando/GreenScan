@@ -830,7 +830,10 @@ auch nie abgeschickt, wenn man es doch tat.
   Datei als Kommentar und elf echte Funde verschwanden. Er führt deshalb beim
   Durchgehen Zeichenketten mit.
 
-Die verbleibenden **abgesicherten** Nachschlagungen (46, Stand v31.46) sind
+**Stand v32.84: die Liste ist leer** — der letzte Eintrag
+(`admin-expert-select`) war die Rollenvergabe, die es in der App gar nicht
+mehr gab. Wer sie wieder wachsen sieht, geht sie durch: die verbleibenden
+**abgesicherten** Nachschlagungen (46 waren es in v31.46) sind
 kein Fehler, sondern eine Arbeitsliste — und sie ist es wert, durchgegangen zu
 werden. „Abgesichert" heisst nur, dass nichts abstürzt; es heisst **nicht**,
 dass nichts fehlt. In v31.46 verbarg sich in dieser Liste der Pflanzenfriedhof:

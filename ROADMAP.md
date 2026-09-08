@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v32.83 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v32.84 · App **live** auf green-scan.ch · released seit v26.0.
 **Zuletzt gegen die Produktionsdatenbank geprüft:** 07.09.2026 (nur lesend:
 `is_admin_user`, `profiles`-Policies, die drei Alt-Sensortabellen,
 `fn_species_search` + `species_search_cache`, `ai_usage`) · davor 02.09.2026
@@ -186,7 +186,7 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
-### Seit dem 07.09.2026 (v32.65 – v32.83) — das Professionalitäts-Audit abgearbeitet
+### Seit dem 07.09.2026 (v32.65 – v32.84) — das Professionalitäts-Audit abgearbeitet
 
 `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md` §G, Punkt für Punkt. Jeder mit
 Prüfstand-Fall, Gegenprobe gegen die Vorversion und voller Regression:
@@ -223,6 +223,11 @@ Prüfstand-Fall, Gegenprobe gegen die Vorversion und voller Regression:
   gebaut (`'Fehler: ' + e`) und damit für die Übersetzungsschicht unsichtbar
   — ein französischer Nutzer las sie immer auf Deutsch. `_gsSatz()` übersetzt
   jetzt die Vorlage und setzt die Werte danach ein.
+- **Rollenvergabe** (v32.84): `gsAdminSetExpertLevel` hatte null Aufrufer und
+  sein Bedienelement wurde nirgends gerendert — im Admin-Bereich liess sich
+  nur sperren und entsperren, niemand zum Experten machen. Auswahl mit
+  Begründung ins Nutzer-Detail, tote Funktion raus, `save_check` auf den
+  echten Weg gestellt (er hatte sich sein Element selbst gebaut).
 - **Prüfstände von 22 auf 31** — neu: `quiz_check`, `escape_check`,
   `robust_check`, `schluessel_check`, `nutzersicht_check`; dazu
   `pruefstaende.sh` und `.github/workflows/pruefstaende.yml`, das alle auf
