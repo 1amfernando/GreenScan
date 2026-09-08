@@ -935,6 +935,24 @@ danach meldete den Notizzettel, der 1 px ueber den Rand ragte. Wer
 Beispieldaten anlegt, prueft die FELDER gegen die Lesestellen, nicht nur den
 Schluessel.
 
+> **Und den ZEIT-ANKER** (v33.02). Er stand als feste Zahl in `_seed.js`:
+> `1756684800000` = **1. September 2025**. Gemessen am 08.09.2026 mit laufender
+> Uhr waren damit alle zeitbezogenen Beispieldaten 374 bis 380 Tage alt — kein
+> Messwert der letzten Woche (Diagramme leer), **9 Aufgaben ueberfaellig, 0
+> heute faellig, 0 in Ordnung**, Sitzungs-Token 343 Tage abgelaufen. Die drei
+> Zustaende, fuer die v32.46 die Aufgaben ueberhaupt erst eingebaut hat, kamen
+> in 29 der 31 Pruefstaende nicht mehr vor. Der Anker folgt jetzt dem
+> laufenden Tag; `kalender_check` und `sensor_check` bleiben unberuehrt, weil
+> sie `clock.setFixedTime` VOR `addInitScript` rufen.
+>
+> **Viermal dieselbe Klasse, viermal durch Zufall gefunden** (v31.46, v32.46,
+> v32.52, v33.02). `robust_check` Fall 25 misst deshalb nicht die FORM der
+> Beispieldaten, sondern ihre WIRKUNG — neun Listen muessen in der laufenden
+> App ankommen, und es muss mindestens eine ueberfaellige UND eine heute
+> faellige Aufgabe geben. **Beispieldaten sind die Messgrundlage von allem:
+> sind sie falsch, misst jeder Pruefstand etwas anderes als die Sache und
+> meldet dabei gruen.**
+
 > **Und dieselbe Frage stellt sich an JEDER Anzeige** (v32.87). Nach der
 > Reparatur der Startkarte stand derselbe Fehler noch auf „Meine Pflanzen":
 > die Kachel „HEUTE FÄLLIG" zeigte `allDue.length` (drei Tage, `d <= 2`),

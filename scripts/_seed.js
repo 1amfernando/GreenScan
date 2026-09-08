@@ -14,7 +14,24 @@
 // Also einen Token setzen — dann greift der Guard gar nicht erst. Dazu ein
 // wenig Beispieldaten, sonst zeigen die Tabs nur Leerzustaende.
 module.exports = () => { try {
-  const D = 86400000, now = 1756684800000;   // fest, damit Laeufe vergleichbar bleiben
+  const D = 86400000;
+  // v33.02 — der Anker stand als feste Zahl hier: 1756684800000, also
+  // 2025-09-01. Gemessen am 08.09.2026 waren damit ALLE zeitbezogenen
+  // Beispieldaten 374 bis 380 Tage alt: kein Messwert in den letzten sieben
+  // Tagen (die Diagramme des Dashboards waren leer), keine Aufgabe „heute
+  // faellig" und keine „in Ordnung" — nur 9 ueberfaellige, die aelteste seit
+  // 373 Tagen. Die drei Zustaende, fuer die v32.46 die Aufgaben ueberhaupt
+  // erst eingebaut hat, kamen in 29 der 31 Pruefstaende gar nicht mehr vor.
+  //
+  // Jetzt: Mitternacht des LAUFENDEN Tages. Fuer die zwei Pruefstaende, die
+  // die Uhr stellen (kalender_check, sensor_check), aendert sich nichts —
+  // sie rufen clock.setFixedTime VOR addInitScript, `Date.now()` liefert
+  // hier also ihre gestellte Zeit, und deren Mitternacht ist genau die alte
+  // Konstante. Fuer alle anderen stimmen die Daten wieder.
+  //
+  // Vergleichbar bleiben Laeufe weiterhin: innerhalb eines Tages ist der
+  // Anker identisch, und render_check vergleicht zwei Staende IM SELBEN Lauf.
+  const now = Math.floor(Date.now() / D) * D;
   const set = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
   set('gs_sb_token', 'pruefstand-kein-echter-token');   // nur gegen den Flash-Guard
   set('gs_sb_expires', String(now + 30*D));

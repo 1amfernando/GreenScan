@@ -4,13 +4,70 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v33.01` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v33.02` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gu) - v33.02: die Beispieldaten der Pruefstaende waren ueber ein Jahr alt
+
+**Der Anker in `scripts/_seed.js` stand als feste Zahl da: `1756684800000` —
+das ist der 1. September 2025.** Gemessen heute, mit laufender Uhr:
+
+| | gemessen am 08.09.2026 | gemeint war |
+|---|---|---|
+| Messwerte | 374–380 Tage alt, **0** in den letzten 7 Tagen | sieben Tage Verlauf |
+| Aufgaben | **9 ueberfaellig, 0 heute, 0 in Ordnung** (aelteste 373 Tage) | eine ueberfaellig, eine heute, eine in Ordnung (v32.46) |
+| Scans / Tagebuch | 375–382 bzw. 374–379 Tage alt | Tage |
+| Sitzungs-Token | **343 Tage abgelaufen** | 30 Tage gueltig |
+
+**29 der 31 Pruefstaende** haben die App damit in einem Zustand vermessen, den
+kein Mensch hat: die Diagramme des Messwerte-Dashboards waren leer, und die
+Zustaende „heute faellig" und „in Ordnung" — genau die, um die es in v32.85
+und v32.87 ging — kamen ueberhaupt nicht vor.
+
+- **Der Anker folgt jetzt dem laufenden Tag** (`Math.floor(Date.now()/D)*D`).
+  Jetzt: 1 ueberfaellig, 2 heute, 1 in zwei Tagen; 13 von 15 Messwerten in den
+  letzten sieben Tagen.
+- **Die zwei Pruefstaende mit gestellter Uhr sind Bit fuer Bit unberuehrt:**
+  `kalender_check` und `sensor_check` rufen `clock.setFixedTime` VOR
+  `addInitScript`, `Date.now()` liefert dort ihre Konstante — und deren
+  Mitternacht ist genau der alte Wert. Beide Kommentare sagen das jetzt.
+- **`robust_check` Fall 25** misst nicht die FORM der Beispieldaten, sondern
+  ihre WIRKUNG: neun Listen muessen in der laufenden App ankommen, und es muss
+  mindestens eine ueberfaellige UND eine heute faellige Aufgabe geben.
+  Gegenprobe: alter Anker · falscher Schluessel (`myPlants`, wie v31.46) ·
+  Geraet fehlt (wie v32.52) — dreimal rot, jeder mit eigenem Grund.
+
+#### Warum es einen Fall dafuer braucht
+
+Diese Falle hat **dreimal** zugeschlagen — v31.46 (falscher Schluessel),
+v32.46 (richtiger Schluessel, falsche Felder), v32.52 (Geraet fehlte ganz) —
+und **jedes Mal wurde sie durch Zufall gefunden**, nie durch eine Meldung.
+Ein vierter Fall (der Zeit-Anker) lag ein Jahr lang daneben.
+
+> **Beispieldaten sind die Messgrundlage von allem.** Sind sie falsch, misst
+> jeder Pruefstand etwas anderes als die Sache und meldet dabei gruen.
+
+#### Und ein Messfehler von mir, der genau hierher gehoert
+
+Beim Nachgehen der Frage „warum verliert der Favoriten-Tab 42 Elemente?"
+habe ich eine Sonde gebaut, die den **neuen** Seed einmal mit gestellter und
+einmal mit laufender Uhr rendert — und daraus geschlossen, der Unterschied
+komme nicht vom Anker. Der Vergleich war wertlos: er stellte den alten
+Zustand nie her. Mit dem alten Seed nachgemessen: 213 → 171, reproduzierbar
+in drei Laeufen.
+
+Die Erklaerung ist dann harmlos und richtig: vorher standen dort **zehn**
+Aufgaben „Seit 373 Tagen ueberfaellig", jetzt vier realistische.
+
+> **Eine Sonde, die den fraglichen Zustand nicht herstellt, beweist nichts** —
+> dieselbe Lehre steht seit v32.13 in CLAUDE.md, und ich bin trotzdem
+> hineingelaufen. Ausser den Uhrzeiten gibt es keine weitere Abweichung
+> zwischen den beiden Laeufen aller 31 Pruefstaende.
 
 ### 2026-09-08 (gt) - v33.01: aus den 12 Changelog-Eintraegen waren 100 geworden
 

@@ -982,6 +982,60 @@ const FAELLE = [
       return { ok: true, info: inline.length + ' inline (' + kb + ' KB, Deckel ' + DECKEL + ') · ' + archiv.length + ' im Archiv · ' + alle.length + ' zusammen, keine Dublette · GS_RELEASES[0] = ' + inline[0].v + ' = GS_VERSION · Naht ' + inline[inline.length - 1].v + ' → ' + archiv[0].v };
     },
   },
+  {
+    // v33.02 — die Falle, die DREIMAL zugeschlagen hat und die nie jemand
+    // bewacht hat: v31.46 (Beispieldaten unter 'myPlants', die App liest
+    // 'ps_myplants' — 15 Versionen lang mass JEDER Pruefstand eine leere
+    // Pflanzenliste), v32.46 (richtiger Schluessel, FALSCHE Felder:
+    // lastWatered/waterEvery liest die App nirgends, sie rechnet aus
+    // p.tasks — „Heute zu tun", Faellig-Liste, Notizzettel und Glocke waren
+    // 66 Versionen lang leer) und v32.52 (kein Geraet im Seed — jeder
+    // Pruefstand ausser sensor_check vermass ein leeres Dashboard).
+    //
+    // Alle drei wurden durch ZUFALL gefunden, keiner durch eine Meldung.
+    // Gemessen wird deshalb nicht die FORM der Beispieldaten (ein Feldname
+    // laesst sich auch danebenschreiben), sondern ihre WIRKUNG: kommt in
+    // der laufenden App an, was _seed.js hineinlegt?
+    name: 'Beispieldaten · was _seed.js hineinlegt, kommt in der App an — Pflanzen, faellige Aufgaben, Gaerten, Geraet mit Messwerten, Tagebuch, Scans, Ernte',
+    lauf: async () => {
+      const r = await __seite.evaluate(() => {
+        const z = (x) => Array.isArray(x) ? x.length : 0;
+        const les = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return Array.isArray(v) ? v.length : (v ? 1 : 0); } catch (_) { return 0; } };
+        const faellig = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : null;
+        const geraete = (typeof gsGeraete === 'function') ? gsGeraete() : null;
+        const tagebuch = (typeof gsTagebuchAlle === 'function') ? gsTagebuchAlle() : null;
+        return {
+          // links: was im Speicher liegt · rechts: was die App daraus macht
+          pflanzen:  [les('ps_myplants'), z(window.myPlants)],
+          gaerten:   [les('gs_gardens'),  z(window.gardens)],
+          faellig:   [les('ps_myplants'), faellig === null ? -1 : z(faellig)],
+          geraete:   [les('gs_geraete'),  geraete === null ? -1 : z(geraete)],
+          messwerte: [les('gs_messwerte'), les('gs_messwerte')],
+          regeln:    [les('gs_geraete_regeln'), les('gs_geraete_regeln')],
+          tagebuch:  [les('gs_gartentagebuch'), tagebuch === null ? -1 : z(tagebuch)],
+          scans:     [les('gs_scan_history'), les('gs_scan_history')],
+          ernte:     [les('gs_ernte_log'), les('gs_ernte_log')],
+        };
+      });
+      const leer = [], nichtAngekommen = [];
+      for (const [name, [imSpeicher, inDerApp]] of Object.entries(r)) {
+        if (!imSpeicher) leer.push(name);
+        else if (inDerApp <= 0) nichtAngekommen.push(name + ' (' + imSpeicher + ' im Speicher, ' + (inDerApp < 0 ? 'Funktion fehlt' : '0 in der App') + ')');
+      }
+      // Erst die Grundlage: ein Fall, dessen Beispieldaten fehlen, misst nichts.
+      if (leer.length) return { ok: false, warum: 'im Seed fehlt/leer: ' + leer.join(', ') + ' — jeder Pruefstand vermisst dort einen Leerzustand und meldet gruen' };
+      if (nichtAngekommen.length) return { ok: false, warum: nichtAngekommen.length + ' Liste(n) kommen nicht an: ' + nichtAngekommen.join(' · ') + ' (richtiger Schluessel, falsche Felder? v32.46)' };
+      // Und die Aufgaben-Zustaende, wegen derer v32.46 gebaut wurde: es muss
+      // mindestens eine ueberfaellige UND eine heute faellige geben, sonst
+      // misst „Heute zu tun" wieder nur die eine Haelfte.
+      const t = await __seite.evaluate(() => {
+        const d = gsGetDueTasks() || [];
+        return { ueberfaellig: d.filter(x => (x.days | 0) < 0).length, heute: d.filter(x => (x.days | 0) === 0).length, gesamt: d.length };
+      });
+      if (!t.ueberfaellig || !t.heute) return { ok: false, warum: 'Aufgaben-Zustaende unvollstaendig: ' + t.ueberfaellig + ' ueberfaellig, ' + t.heute + ' heute faellig (beide muessen vorkommen — sonst misst „Heute zu tun" nur die halbe Wahrheit)' };
+      return { ok: true, info: Object.entries(r).map(([k, v]) => k + ' ' + v[1]).join(' · ') + ' · davon ' + t.ueberfaellig + ' ueberfaellig, ' + t.heute + ' heute' };
+    },
+  },
 ];
 
 (async () => {
