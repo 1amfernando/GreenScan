@@ -1164,7 +1164,18 @@ prompt „0 ohne zweite Nennung": der Korpus liest `scripts/*.js` und damit
 > `closeModal` geht, sonst raeumt das Tor bei jeder neuen Runde die laufende
 > ab. **Wer die Liste durchgeht, prueft jeden Eintrag auf seine WIRKUNG** —
 > „kein Aufrufer" kann Aufraeumen ohne Folgen heissen oder ein Spiel, das ohne
-> den Spieler weiterspielt. Pruefstand: `robust_check` B10, Gegenprobe „3
+> den Spieler weiterspielt.
+>
+> **Und daraus wurde eine schaerfere Regel** (nachgemessen an allen sieben):
+> die gefaehrlichen Eintraege einer solchen Liste sind die **Abbauwege**, nicht
+> die Einstiege. `gsBattleClose` war kein Einstieg, sondern ein Teardown — sein
+> Fehlen liess etwas WEITERLAUFEN, das schon lief. Die anderen sechs SIND die
+> Einstiege (zwei Lader, zwei Oeffner, ein Weiter-Knopf, eine reine Funktion);
+> sie nicht zu rufen heisst, dass gar nichts passiert. Gemessen: keiner der
+> sechs startet einen Zaehler oder schreibt etwas — das einzige `setTimeout`
+> (`gsShowNextWisdom`) steht INNERHALB der ungerufenen Funktion. **Wer die
+> Liste durchgeht, sucht zuerst die Teardowns** (`*Close`, `*Stop`, `*Abort`,
+> `clear*`, `*Cleanup`); der Rest ist Abwesenheit, nicht Schaden. Pruefstand: `robust_check` B10, Gegenprobe „3
 > Antworten fuer den Spieler eingetragen · 1× an den Server".
 
 Und es gibt jetzt eine **dritte Klasse** (Vorbild `backend_check`):
