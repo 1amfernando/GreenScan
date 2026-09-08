@@ -353,6 +353,25 @@ function aufrufe() {
     r.kalender = mc ? (mc.textContent || '').slice(0, 400) : '';
     try { gsI18n.setLang('de'); } catch (_) {}
     r.lang_de = (typeof gsMonate === 'function') ? gsMonate()[0] : null;
+
+    // v32.94 — Was passiert, wenn `Intl` gar keine Monatsnamen liefert?
+    // Browser mit abgespecktem ICU (manche Android-WebViews auf guenstigen
+    // Geraeten) geben dort Zahlen zurueck. `gsMonate` hatte fuer diesen Fall
+    // einen Rueckfall, der sich SELBST mit denselben Argumenten rief:
+    // Endlosrekursion, „Maximum call stack size exceeded" — beim START.
+    // Die Schwesterfunktion `gsWochentage` macht es richtig (woertliche
+    // Liste); dieser Fall haelt beide fest.
+    var echtIntl = Intl.DateTimeFormat;
+    try {
+      if (typeof _gsMonCache !== 'undefined') { for (var ck in _gsMonCache) delete _gsMonCache[ck]; }
+      Intl.DateTimeFormat = function () { return { format: function (d) { return String(d.getMonth() + 1); } }; };
+      r.ohneIntl = { lang: gsMonate()[0], kurz: gsMonate(true)[0], wt: gsWochentage()[0] };
+    } catch (e) {
+      r.ohneIntl = { fehler: String(e && e.message || e).slice(0, 80) };
+    } finally {
+      Intl.DateTimeFormat = echtIntl;
+      if (typeof _gsMonCache !== 'undefined') { for (var ck2 in _gsMonCache) delete _gsMonCache[ck2]; }
+    }
     return r;
   });
   await br4.close();
@@ -453,6 +472,22 @@ function aufrufe() {
           ? '„' + satz.uebersetzt + '" · Stellung getauscht: „' + satz.gestellt + '" · ohne Paket deutsch · undefined → leer · Toast „' + String(satz.imToast).slice(0, 40) + '"'
           : f5.join(' · '));
   if (errs5.length) melde(false, 'Keine JS-Fehler im fr-Meldungslauf', errs5.slice(0, 2).join(' | '));
+
+  // v32.94: der Rueckfall ohne Intl — er darf nicht abstuerzen und muss
+  // Deutsch liefern (wie `gsWochentage` seit jeher).
+  var oi = mon.ohneIntl || {};
+  var f6 = [];
+  if (oi.fehler) f6.push('gsMonate wirft: ' + oi.fehler);
+  else {
+    if (oi.lang !== 'Januar') f6.push('lang: „' + oi.lang + '" statt „Januar"');
+    if (oi.kurz !== 'Jan')    f6.push('kurz: „' + oi.kurz + '" statt „Jan"');
+    if (oi.wt !== 'So')       f6.push('Wochentag: „' + oi.wt + '" statt „So"');
+  }
+  melde(f6.length === 0,
+        'Ohne brauchbares Intl faellt die App auf deutsche Monats- und Wochentagsnamen zurück — ohne Absturz',
+        f6.length === 0
+          ? 'Intl liefert Zahlen → „' + oi.lang + '" / „' + oi.kurz + '" / „' + oi.wt + '"'
+          : f6.join(' · '));
 
   console.log('  ---');
   console.log('  Schlüssel: ' + tab.size + ' Einträge · ' + alle.size + ' verwendet');

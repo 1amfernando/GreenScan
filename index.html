@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.93.20260908">
+<meta name="app-version" content="32.94.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8085,7 +8085,21 @@ function gsMonate(kurz) {
     for (var i = 0; i < 12; i++) aus.push(f.format(new Date(2001, i, 15)));
     if (aus.some(function (x) { return !x || /^\d+$/.test(x); })) aus = null;   // manche Sprachen liefern Zahlen — dann lieber Deutsch
   } catch (_) { aus = null; }
-  if (!aus) aus = kurz ? gsMonate(true) : gsMonate();
+  // v32.94: hier stand `aus = kurz ? gsMonate(true) : gsMonate();` — ein Aufruf
+  // MIT DENSELBEN ARGUMENTEN. Der Cache ist an dieser Stelle noch leer, also
+  // laeuft dieselbe Zeile wieder in denselben Zweig: Endlosrekursion,
+  // „Maximum call stack size exceeded" (hergestellt und gemessen, indem
+  // `Intl.DateTimeFormat` Zahlen liefert). Gemeint war, was die
+  // Schwesterfunktion `gsWochentage` eine Zeile tiefer richtig macht: eine
+  // WOERTLICHE deutsche Liste.
+  //
+  // Kein Randfall: Browser mit abgespecktem ICU (manche Android-WebViews auf
+  // guenstigen Geraeten) liefern genau numerische Monatsnamen — also die
+  // Geraeteklasse, die `perf_check` als „Einsteiger-Telefon" misst. Dort waere
+  // die App beim Start abgestuerzt, statt deutsche Monate zu zeigen.
+  if (!aus) aus = kurz
+    ? ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+    : ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
   _gsMonCache[k] = aus;
   return aus;
 }
@@ -8101,7 +8115,12 @@ function gsWochentage(opts) {
     var f = new Intl.DateTimeFormat(loc, { weekday: 'short' });
     aus = [];
     for (var i = 0; i < 7; i++) aus.push(f.format(new Date(2024, 0, 7 + i)));   // 07.01.2024 war ein Sonntag
-    if (aus.some(function (x) { return !x; })) aus = null;
+    // v32.94: prueft jetzt dasselbe wie `gsMonate` — LEER war zu wenig.
+    // Ein Browser mit abgespecktem ICU liefert ZAHLEN, und die kamen hier
+    // durch: der Kalender zeigte „1 2 3 4 5 6 7" statt „So Mo Di …".
+    // Gefunden hat es der neue Fall in `i18n_check`, waehrend er die
+    // Rekursion in `gsMonate` pruefte — zwei Funktionen, eine Frage.
+    if (aus.some(function (x) { return !x || /^\d+$/.test(x); })) aus = null;
   } catch (_) { aus = null; }
   if (!aus) aus = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
   if (abMo) aus = aus.slice(1).concat(aus.slice(0, 1));
@@ -73980,6 +73999,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.94', date: '08.09.2026',
+      headline: 'Absturz beim Start auf einfachen Geräten',
+      summary: 'Liefert der Browser keine Monatsnamen, rief der Rückfall sich selbst — endlos.',
+      user_summary: 'Auf Geräten, deren Browser keine Monatsnamen kennt, konnte die App beim Start hängen bleiben. Jetzt zeigt sie deutsche Namen.',
+      user_items: [
+        'Manche einfachen Android-Browser geben statt „Januar" nur „1" zurück. Der eingebaute Rückfall rief sich in diesem Fall endlos selbst auf — die App blieb hängen.',
+        'Dasselbe bei den Wochentagen: dort wurden Zahlen gar nicht als Fehler erkannt, der Kalender hätte „1 2 3 4 5 6 7" gezeigt.',
+        'Beides fällt jetzt auf deutsche Namen zurück.'
+      ],
+    },
+    {
     v: 'v32.93', date: '08.09.2026',
       headline: 'Das Quiz wertete eine falsche Giftstufe als richtig',
       summary: 'Die Vorsichtsregel fehlte an fünf weiteren Stellen — auch dort, wo eine Antwort bewertet wird.',
@@ -75165,7 +75195,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.93';
+var GS_VERSION = 'v32.94';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

@@ -1761,6 +1761,17 @@ Monats- oder Wochentagsname kommt aus `gsMonate(kurz)` / `gsWochentage()`
 (seit v32.81, aus `Intl` mit `gsLocale()`), nie aus einer Liste im Code —
 `i18n_check` meldet jede.
 
+> **Und beide brauchen einen Rueckfall, der wirklich einer ist** (v32.94).
+> Liefert `Intl` ZAHLEN statt Namen — Browser mit abgespecktem ICU, also
+> guenstige Android-Geraete —, dann rief `gsMonate` sich selbst mit denselben
+> Argumenten und stuerzte mit „Maximum call stack size exceeded" ab, beim
+> START. `gsWochentage` hatte die richtige woertliche Liste, erkannte Zahlen
+> aber gar nicht erst als Fehler (`some(x => !x)` prueft nur auf LEER) — der
+> Kalender haette „1 2 3 4 5 6 7" gezeigt. Beide pruefen jetzt `/^\d+$/` und
+> fallen auf eine deutsche Liste zurueck. **Wer eine Schwesterfunktion als
+> Vorbild nimmt, vergleicht nicht nur den Rueckfall, sondern auch die
+> BEDINGUNG, unter der er greift.**
+
 **Und noch eine Falle, die kein Pruefstand sieht:** `_t` ist KEINE globale
 Funktion. Jede Funktion legt sich einen eigenen Alias an
 (`var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){return f;}`).
