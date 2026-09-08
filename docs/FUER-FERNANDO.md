@@ -1,6 +1,11 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand 03.09.2026 · geschrieben von Seros.
+> Stand **08.09.2026** · geschrieben von Seros.
+>
+> *(Der Kopf stand bis heute auf 03.09., obwohl die Abschnitte 7–12 vom
+> 07./08.09. sind — genau die Art veralteter Ueberschrift, die dieses Repo
+> sonst jagt. Nachgezogen.)*
+>
 > Alles hier greift in die **laufende Auslieferung** ein. Ich fasse das nicht
 > von mir aus an — bei einer Produktivdatenbank mit laufenden Zahlungen
 > gehört der letzte Klick dir.
@@ -530,8 +535,15 @@ vom 07.09.2026.
 
 ## 11 · Übersetzungen für die neuen Phrasen erzeugen (Audit E1, v32.78)
 
+> ⚠️ **Wenn du diesen Knopf schon einmal gedrückt hast: bitte noch einmal.**
+> Am 08.09. sind in v32.83, v32.88 und v32.90 rund hundert weitere Sätze
+> dazugekommen (zusammengesetzte Meldungen, die der Sammler vorher gar nicht
+> sehen konnte). Sie stehen sonst in allen vier Sprachen deutsch da. Der Knopf
+> übersetzt nur, was fehlt — ein zweiter Druck kostet also fast nichts.
+
 Seit v32.78 nimmt der Sammler auch Toasts, Rückfragen, `placeholder`,
-`aria-label` und die Menü-Labels mit — rund 800 Phrasen mehr. Übersetzt
+`aria-label` und die Menü-Labels mit. **Gemessen am 08.09.2026:** 674 Sätze
+aus dem Quelltext + 235 aus dem Dokument, dazu 1'619 Schlüssel-Einträge. Übersetzt
 werden sie erst, wenn du sie bestellst: **Admin-Panel → Karte „🌍
 i18n-Bundles" → Knopf „Übersetzungen erzeugen (fr, it, en, es)"**
 (`gsAdminBuildI18n`). Warum ein Knopf: `i18n-translate` lässt nur Admin-
@@ -577,6 +589,30 @@ select target_lang, count(*) from i18n_translations where source_lang = 'de' gro
    und in `index.html` die zwei Adressen `window._gsPdfjsUrl` /
    `window._gsPdfjsWorkerUrl` auf `assets/pdfjs/…` stellen. Die Dateien
    sind zusammen rund 1,5 MB; das Repo trägt Three.js (603 KB) schon.
+
+## 13 · Was die zwölf Auslieferungen vom 08.09.2026 für dich bedeuten
+
+**Kurz: nichts Neues zu tun — mit einer Ausnahme.** v32.84 bis v32.94 sind
+alle **rein in der App** (kein Schema, keine Edge-Function, keine Migration).
+Deine Liste oben wird dadurch nicht länger.
+
+Die Ausnahme ist **Punkt 11**: es sind rund hundert neue Sätze dazugekommen,
+die übersetzt werden wollen. Wenn du den Knopf schon gedrückt hast, bitte
+noch einmal.
+
+Zwei Dinge daraus solltest du kennen, weil sie Nutzer betreffen, die du
+vielleicht schon gehört hast:
+
+1. **Das Quiz hat richtige Antworten als falsch gewertet** (v32.93). Bei 269
+   Arten galt die Giftstufe eines einzelnen Datenbank-Eintrags als richtige
+   Antwort, obwohl dieselbe Art an anderer Stelle anders geführt ist — in
+   sieben Fällen eine harmlose Stufe für eine giftige Art. Das ist behoben.
+   **Das ist NICHT derselbe Fehler wie die Rangliste** (Punkt 7); der wartet
+   weiter auf deine Migration.
+2. **Das Artendetail zeigte teils eine zu niedrige Giftstufe** (v32.91/92).
+   186 Einträge nannten eine niedrigere Stufe als ihre eigene Art — nie eine
+   höhere. Auch behoben; die Artenliste selbst (657 mehrfach geführte Arten)
+   bleibt unverändert, dafür braucht es eine Flora, keinen Code.
 
 ## Und wenn etwas schiefgeht
 
