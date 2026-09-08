@@ -1472,7 +1472,23 @@ neue Strategie hinzufuegt, gibt ihr Ergebnis durch
 > werden nur die SICHERHEITSANGABEN — Name, Beschreibung und Verwendung
 > bleiben die des angetippten Eintrags, sonst liest jemand einen anderen
 > Eintrag als den, den er geoeffnet hat. Und die Karte sagt, dass korrigiert
-> wurde. Wer eine neue Ansicht einer Art baut, geht denselben Weg. Die Dubletten selbst
+> wurde. Wer eine neue Ansicht einer Art baut, geht denselben Weg.
+>
+> **Und eine SAMMLUNG ist auch eine Aussage** (v32.95). `GS_SYSTEM_COLLECTIONS`
+> filterte mit `rule.test(it.sp, it)` — `it.sp` ist der Eintrag. Ueber die
+> Artenliste gerechnet: **22 Eintraege / 16 Arten** waeren nicht in
+> „☠️ Giftige" gelandet (Kahler Krempling 3 / 4, Fruehlingslorchel 3 / 4,
+> Christrose 3 / 5), **98 Eintraege / 67 Arten** haetten in „🍽️ Essbare"
+> gestanden. „Giftige" ist keine Sortierhilfe, sondern die Liste, in der
+> jemand nachsieht, was er nicht anfassen soll — dort zu fehlen ist nicht
+> „keine Angabe", sondern das Gegenteil der eigenen Datenbank. Ebenso der
+> KI-Kontext des Quiz (`dqAskKIExplain`, `art_tox`): seit v32.93 wertet das
+> Quiz nach der Art, die Erklaerung erklaerte weiter den Eintrag. **Was etwas
+> WERTET oder EINORDNET, geht durch `_gsArtAnzeige` — nicht nur, was etwas
+> anzeigt.** Prueftstand: `scan_check` D1f faengt den Schreibvorgang des
+> Vacuums ab; eine Messung der Datenlage („wie viele Eintraege widersprechen
+> sich?") haette dieselbe Zahl geliefert, wenn die Sammlung laengst richtig
+> waere. Die Dubletten selbst
 stehen in `docs/arten-widersprueche.csv` und brauchen eine Flora, keinen
 Code (`docs/ARTEN-DATEN.md`).
 

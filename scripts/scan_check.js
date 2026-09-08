@@ -1534,6 +1534,64 @@ const FAELLE = [
     },
   },
 
+  {
+    // v32.95 — die automatischen Sammlungen sind auch eine AUSSAGE. „☠️ Giftige"
+    // fasste nach `sp.tox >= 4` des EINTRAGS zusammen: 22 Eintraege / 16 Arten
+    // fehlten, darunter Kahler Krempling und Fruehlingslorchel. Gemessen wird,
+    // was wirklich in die Sammlung GESCHRIEBEN wird — nicht die Datenlage:
+    // „wie viele Eintraege widersprechen sich?" liefert dieselbe Zahl, wenn
+    // die Sammlung laengst richtig einsortiert.
+    name: 'D1f · Die Sammlung „Giftige" nimmt auf, was die ART giftig macht',
+    lauf: async () => {
+      if (typeof gsCollectionsAutoVacuum !== 'function') return { ok: false, warum: 'gsCollectionsAutoVacuum fehlt' };
+      // Eine Art suchen, deren Eintrag unter 4 liegt und deren Art >= 4 ist.
+      var kand = null;
+      DB.forEach(function (sp) {
+        if (kand || !sp || !sp.lat) return;
+        var a = _gsArtAnzeige(sp);
+        if (a !== sp && a._korrigiert && (a.tox || 0) >= 4 && (sp.tox || 0) < 4) kand = sp;
+      });
+      if (!kand) return { ok: false, warum: 'keine Art mit Eintrag < 4 und Art >= 4 — der Fall misst nichts' };
+
+      var geschrieben = [];
+      var eSb = window.sbFetch, eGather = window._gsCollGatherSourceItems,
+          eReady = window._gsCollReady;
+      try {
+        window._gsCollReady = function () { return true; };
+        window._gsCollGatherSourceItems = async function () {
+          return [{ sp: kand, type: 'species', ref: kand.id, label: kand.name, emoji: '🌿' }];
+        };
+        window.sbFetch = async function (pfad, opts) {
+          var m = (opts && opts.method) || 'GET';
+          if (m === 'GET' && /user_collections\?select/.test(pfad)) return { data: [] };
+          if (m === 'POST' && /\/user_collections$/.test(pfad)) {
+            var b = {}; try { b = JSON.parse(opts.body); } catch (_) {}
+            return { data: [{ id: 'col-' + (b.system_key || '?') }] };
+          }
+          if (m === 'GET' && /user_collection_items/.test(pfad)) return { data: [] };
+          if (m === 'POST' && /user_collection_items/.test(pfad)) {
+            var rows = []; try { rows = JSON.parse(opts.body); } catch (_) {}
+            (Array.isArray(rows) ? rows : [rows]).forEach(function (r) { geschrieben.push(r); });
+            return { data: rows };
+          }
+          return { data: [] };
+        };
+        window._gsVacuumRunning = false;
+        await gsCollectionsAutoVacuum();
+      } finally {
+        window.sbFetch = eSb; window._gsCollGatherSourceItems = eGather;
+        window._gsCollReady = eReady; window._gsVacuumRunning = false;
+      }
+      if (!geschrieben.length) return { ok: false, warum: 'die Sammlung hat gar nichts geschrieben — der Fall misst nichts' };
+      var inGift = geschrieben.some(function (r) { return String(r.collection_id) === 'col-sys_giftig' && r.item_ref === kand.id; });
+      if (!inGift) {
+        var wohin = geschrieben.map(function (r) { return String(r.collection_id); }).join(', ');
+        return { ok: false, warum: '„' + kand.name + '" (Eintrag tox ' + kand.tox + ', Art ' + (_gsArtAnzeige(kand).tox) + ') fehlt in „Giftige" — geschrieben nach: ' + wohin };
+      }
+      return { ok: true, info: '„' + kand.name + '" (Eintrag tox ' + kand.tox + ', Art ' + (_gsArtAnzeige(kand).tox) + ') landet in „Giftige" · ' + geschrieben.length + ' Zeile(n) geschrieben' };
+    },
+  },
+
   // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
   // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
   // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`
