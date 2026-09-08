@@ -12,6 +12,64 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-08 (gn) - „4'337 Arten" sind 3'136 Arten — gemessen, nicht entschieden
+
+Kein Anwendungscode, kein Versionssprung. Eine Messung und eine Frage.
+
+- **Die Zahl, die die App am prominentesten nennt, stimmt nicht mit dem Wort
+  daneben zusammen.** Gemessen gegen die geladene `DB`:
+
+  | | |
+  |---|---|
+  | Einträge | **4'337** |
+  | verschiedene lateinische Namen, wörtlich | 3'195 |
+  | verschiedene **Arten** (Binomen) | **3'136** |
+  | Zeilen, die sich einen `lat` teilen | 1'142 (644 Gruppen) |
+  | davon mit identischem deutschen Namen | **0** |
+
+- **Es sind keine Dubletten, es sind Synonym-Zeilen** — eine Zeile je
+  deutschem Namen. `allium ursinum` steht viermal drin: „Bärlauch", „Echter
+  Bärlauch", „Bärlauch-Pesto", „Echter Bärlauch (Wald)". `deduplicateDB`
+  laesst sie zu Recht stehen (es raeumt nur gleiche ID oder Name UND `lat`).
+- **Aber „Art" heisst Art.** 4'337 zaehlt den Baerlauch viermal — an zwoelf
+  Stellen, in drei verschiedenen festen Werten (`4342`, `4330`, dazu die zur
+  Laufzeit gesetzte `4337`). Die In-App-Anzeigen werden aus `DB.length`
+  ueberschrieben; die drei `meta`-Beschreibungen und `install.html` **nicht** —
+  was Google und jede Link-Vorschau sieht, ist die feste `4342`.
+
+#### Warum ich es NICHT selbst geaendert habe
+
+Das ist dieselbe Klasse wie alles heute — eine Aussage, die die eigenen Daten
+nicht tragen. Nur ist es diesmal die **Schlagzeile des Produkts nach aussen**,
+und jeder ehrliche Weg trifft eine Produktentscheidung:
+
+1. Wort aendern, Zahl behalten: „4'337 **Eintraege**" (+ „zu 3'136 Arten").
+2. Zahl aendern: „3'136 Arten" — verkleinert die beworbene Zahl um ein Viertel.
+3. Beides: „3'136 Arten · 4'337 Namen".
+
+**Ausdruecklich nicht in Frage kommt**, die alte `4342` auf `4337`
+nachzuziehen: das machte eine veraltete Zahl frisch, ohne die Aussage wahr zu
+machen. Deshalb steht dort weiter die alte Zahl.
+
+Dieselbe Behandlung wie die sieben Oberflaechen ohne Einstieg eine Stunde
+vorher (gm): **messen, benennen, liegen lassen** — mit den Zahlen daneben, die
+die Entscheidung tragen. `docs/ARTEN-DATEN.md` §8 (ausfuehrlich),
+`docs/FUER-FERNANDO.md` §14 (die Frage, drei Wege, ein Vorschlag).
+
+#### Der Nebenfund ist der schon bekannte
+
+Die Zeilen einer Art widersprechen sich bei der Giftigkeit — „Wiesenkerbel"
+tox 2 / nicht essbar gegen „Echter Wiesenkerbel" tox 1 / essbar, dieselbe
+Pflanze. Das ist derselbe Bestand wie die 167 Gruppen in
+`docs/arten-widersprueche.csv`, und der Grund, warum es `_gsArtAnzeige` gibt.
+**Die Zahl und der Widerspruch haben dieselbe Ursache.** Die Anzeigen sind
+seit v32.92 sicher (die vorsichtigere Angabe gewinnt); die Daten bleiben
+uneins und brauchen eine Flora.
+
+Und ein Eintrag wie „Baerlauch-Pesto" ist gar keine Art. Wie viele solche
+Zeilen es gibt, ist von hier aus nicht feststellbar — das braucht jemanden,
+der die Liste durchsieht.
+
 ### 2026-09-08 (gm) - `field_check.py` starb auf JEDEM PR — und der lokale Bericht sagte gruen
 
 Kein Anwendungscode, kein Versionssprung. Ein Pruefstand, eine Zeile.
@@ -10867,6 +10925,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Was fehlt |
 |---|---|
+| **„4'337 Arten" sind 3'136 Arten** | Gemessen am 08.09.2026 (gn): die Liste hat 4'337 **Einträge**, aber nur **3'136 Arten** — jede Zeile trägt einen deutschen Namen, `allium ursinum` steht viermal drin. An zwölf Stellen nennt die App die Zahl „Arten", in drei verschiedenen festen Werten; die `meta`-Beschreibungen und `install.html` tragen weiter die alte `4342`, die kein Runtime-Wert überschreibt. Drei ehrliche Wege (Wort ändern / Zahl ändern / beides) stehen mit Vorschlag in `docs/FUER-FERNANDO.md` §14, die Messung in `docs/ARTEN-DATEN.md` §8. **Bewusst nicht selbst geändert** — es ist die Aussage des Produkts nach aussen. Die `4342` auf `4337` nachzuziehen kommt nicht in Frage: frische Zahl, unwahre Aussage. |
 | **Arten-Daten vervollständigen** | 78 % der 4'342 Arten haben keine verwertbare Farb- oder Höhenangabe. Drei Wege abgegangen (`docs/ARTEN-DATEN.md`): keine Quelle von hier aus; vier Nebentabellen in der Datenbank (114 Arten, zwei Tabellen nur live); **167 Dubletten-Gruppen mit widersprüchlicher Giftstufe** in `docs/arten-widersprueche.csv` — brauchen eine Flora, keinen Code. Seit v32.43 gewinnt bei Widerspruch die vorsichtigere Angabe (v32.45 korrigiert: Unterarten, Platzhalter). |
 | **Sieben Oberflächen ohne Einstieg** | `robust_check` C2 nennt sie seit v32.96 namentlich (Klasse `OHNE_EINSTIEG`) — sie waren vorher unsichtbar, weil ihre eigene Ausfuhr (`window.X = X`) als zweite Nennung zählte. Jede braucht eine eigene Entscheidung, **verdrahten oder entfernen**, und keine davon ist von hier aus zu treffen: `gsSafetyDefaults` (Sicherheitsnetz aus v23.45 — generische Warnung für Arten mit leerem `warning`; Verdrahten ändert den Text auf vielen Detailseiten), `openHarvestAddModal` + `gsHarvestLoadForPlant` (Reste der v28.15-Konsolidierung — die lebende Oberfläche ist `openErnteTracking`), `gsDoctorHistoryLoad`, `gsAROpen`, `gsShowNextWisdom` (die Weisheits-Karte wird gerendert, es gibt nur keinen Weiter-Knopf), `gsBattleClose` (räumt den Battle-Timer auf, wird nie gerufen). Bewusst **nicht** entfernt: in v31.46 verbarg sich in genau so einer Liste der Pflanzenfriedhof — eine Funktion ohne Anzeige, keine tote Zeile. |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |

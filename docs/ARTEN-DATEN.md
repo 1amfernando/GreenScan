@@ -426,3 +426,81 @@ stimmen, hört man auf zu lesen.
    `warning` — beim ersten Start eines Geräts, danach nie wieder. Entweder
    bei jedem Start (dann sagt die Karte, dass es eine Vorlage ist) oder gar
    nicht. Der jetzige Zustand ist das Schlechteste von beidem.
+
+## 8 · „4'337 Arten" sind 3'136 Arten (gemessen 08.09.2026)
+
+> Dieser Abschnitt kam nach v32.96 dazu. Er beantwortet keine neue Frage — er
+> misst die Zahl nach, die in §4 schon zwischen den Zeilen stand, und die die
+> App an ihrer prominentesten Stelle nennt.
+
+**Die Messung** (im Browser, gegen die geladene `DB` nach `deduplicateDB`):
+
+| | |
+|---|---|
+| Einträge in der Liste | **4'337** |
+| verschiedene lateinische Namen, wörtlich | **3'195** |
+| verschiedene Binomen (ohne var./ssp./f.) | **3'136** |
+| Einträge, die sich einen wörtlich gleichen `lat` teilen | **1'142** |
+| davon echte Unterarten/Sorten (anderer `lat`, gleiches Binomen) | 131 |
+| Gruppen mit mehr als einem Eintrag je `lat` | 644 |
+| davon mit identischem deutschen Namen | **0** |
+
+**Was die Mehrfach-Einträge sind.** Keine Dubletten im Sinne von „zweimal
+dasselbe", sondern **Synonym-Zeilen: ein deutscher Name je Zeile.**
+
+```
+allium ursinum   → „Bärlauch" · „Echter Bärlauch" · „Bärlauch-Pesto" · „Echter Bärlauch (Wald)"
+daucus carota    → „Wilde Möhre" · „Gewöhnliche Möhre"
+```
+
+Deshalb greift `deduplicateDB` nicht: es entfernt nur bei gleicher ID ODER
+gleichem Namen UND gleichem `lat`. Die Regel ist richtig — sie ist nur keine
+Antwort auf diese Frage.
+
+**Warum das mehr ist als eine Zählweise.** Die Zeilen einer Art tragen
+**verschiedene Sicherheitsangaben**:
+
+```
+anthriscus sylvestris  „Wiesenkerbel"        tox 2 · nicht essbar
+                       „Echter Wiesenkerbel" tox 1 · essbar
+angelica archangelica  „Echte Engelwurz"     tox 0 · essbar
+                       „Echter Engelwurz"    tox 1 · nicht essbar
+```
+
+Das ist derselbe Bestand, den §4 als „657 Gruppen, 167 uneins" vermessen hat
+— und der Grund, warum es seit v32.92 `_gsArtAnzeige` gibt. **Die Zahl und
+der Widerspruch haben dieselbe Ursache.**
+
+Und ein Eintrag wie „Bärlauch-Pesto" ist überhaupt keine Art. Wie viele
+solche Zeilen es gibt, ist von hier aus **nicht** feststellbar — das braucht
+jemanden, der die Liste durchsieht, keinen Code.
+
+### Was die App heute sagt
+
+An **zwölf** Stellen steht eine feste Zahl, in **drei** verschiedenen Werten
+(`4342`, `4330`, dazu die zur Laufzeit gesetzte `4337`) — Splash, Einstellungen,
+Über-Fenster, Onboarding, Abo-Karte, die drei `meta`-Beschreibungen in
+`index.html`, zwei weitere in einem eingebetteten Block, und `install.html`
+(Beschreibung, Fliesstext, Kachel „4342 · Arten").
+
+Die In-App-Anzeigen werden zur Laufzeit aus `DB.length` überschrieben
+(v32.94 nachgemessen: Einstellungen und Über-Fenster zeigen 4'337). Die
+`meta`-Beschreibungen und `install.html` **nicht** — was Suchmaschinen und
+Link-Vorschauen sehen, ist die feste `4342`.
+
+### Die Entscheidung, die aussteht
+
+„Art" heisst Art. 4'337 zählt den Bärlauch viermal. Drei Wege, alle ehrlich:
+
+1. **Umbenennen, Zahl behalten:** „4'337 **Einträge**" (und im Über-Fenster
+   „zu 3'136 Arten"). Kostet nichts an Reichweite, ist wahr.
+2. **Zahl korrigieren:** „3'136 Arten". Am klarsten, verkleinert aber die
+   beworbene Zahl um gut ein Viertel.
+3. **Beides nennen:** „3'136 Arten · 4'337 Namen". Am informativsten, am
+   längsten.
+
+**Nicht** in Frage kommt, `4342` auf `4337` nachzuziehen: das machte eine
+veraltete Zahl frisch, ohne die Aussage wahr zu machen.
+
+Das ist eine Aussage über das Produkt nach aussen, und die trifft Fernando —
+nicht diese Sitzung. Gemessen ist sie; entschieden nicht.
