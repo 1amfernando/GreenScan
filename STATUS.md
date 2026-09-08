@@ -64,7 +64,7 @@
   *Eine Regel, die einen Prüfstand hat, muss man nicht im Kopf behalten —
   aber man muss den Sammellauf abwarten, bevor man „fertig" sagt.*
 
-Regression v32.78 → v32.79: (folgt)
+Regression v32.78 → v32.79: 30 Prüfstände grün, 0 nicht prüfbar, Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0. (Erster Lauf: 1 rot — die `de-CH`-Zeile oben; zweiter Lauf nach der Korrektur sauber.)
 
 ### 2026-09-07 (fr) — v32.78: Rückmeldungen, Felder, Menü und Datum in der Sprache der Person — Audit E1, Welle 1
 
