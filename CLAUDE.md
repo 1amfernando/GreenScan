@@ -1175,7 +1175,14 @@ prompt „0 ohne zweite Nennung": der Korpus liest `scripts/*.js` und damit
 > sechs startet einen Zaehler oder schreibt etwas — das einzige `setTimeout`
 > (`gsShowNextWisdom`) steht INNERHALB der ungerufenen Funktion. **Wer die
 > Liste durchgeht, sucht zuerst die Teardowns** (`*Close`, `*Stop`, `*Abort`,
-> `clear*`, `*Cleanup`); der Rest ist Abwesenheit, nicht Schaden. Pruefstand: `robust_check` B10, Gegenprobe „3
+> `clear*`, `*Cleanup`); der Rest ist Abwesenheit, nicht Schaden.
+>
+> **Und die Gegenfrage wurde auch gestellt** (08.09., Fall B11): gilt der
+> Battle-Fehler noch woanders? Alle 34 `setInterval`-Stellen durchgezaehlt —
+> fuenf ohne `clearInterval`, aber alle fuenf Einmal-Waechter fuer die ganze
+> Laufzeit. **Kein zweiter Fall.** Die Regel daraus steht als Fall: ein
+> Intervall muss ENTWEDER abgeraeumt werden koennen ODER gegen Doppelstart
+> gesichert sein — fehlt beides, stapeln sich Kopien bei jedem Oeffnen. Pruefstand: `robust_check` B10, Gegenprobe „3
 > Antworten fuer den Spieler eingetragen · 1× an den Server".
 
 Und es gibt jetzt eine **dritte Klasse** (Vorbild `backend_check`):

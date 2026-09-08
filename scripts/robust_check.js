@@ -842,6 +842,51 @@ const FAELLE = [
     },
   },
   {
+    // v32.98 — Nachtrag zu B10. Nachdem der Battle-Zaehler weiterlief, weil ihn
+    // niemand anhielt: gilt das noch irgendwo? Alle 34 setInterval-Stellen
+    // durchgezaehlt — fuenf haben KEIN clearInterval, aber alle fuenf sind
+    // Einmal-Waechter fuer die ganze Laufzeit (`if (X) return`, `if (!X)`),
+    // also richtig gebaut. Der Fall haelt genau das fest: ein Intervall muss
+    // ENTWEDER abgeraeumt werden koennen ODER gegen Doppelstart gesichert sein.
+    // Sonst stapeln sich Kopien bei jedem Oeffnen — die stille Variante des
+    // Battle-Fehlers.
+    name: 'B11 · Jedes Intervall wird entweder abgeräumt oder ist gegen Doppelstart gesichert',
+    lauf: async () => {
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const zeilen = idx.split('\n');
+      const ohneBeides = [];
+      const gezaehlt = new Set();
+      zeilen.forEach((z, i) => {
+        if (z.trim().startsWith('//')) return;
+        const m = z.match(/([A-Za-z_$][\w$.]*)\s*=\s*setInterval\s*\(/);
+        if (!m) return;
+        const h = m[1];
+        if (gezaehlt.has(h)) return;
+        gezaehlt.add(h);
+        const esc = h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // (a) wird es irgendwo abgeraeumt?
+        const raeumt = new RegExp('clearInterval\\s*\\(\\s*' + esc).test(idx);
+        // (b) steht ueber der Zuweisung ein Einmal-Waechter? (bis 25 Zeilen hoch,
+        //     denn der Waechter sitzt oft am Kopf der umschliessenden Funktion)
+        const oben = zeilen.slice(Math.max(0, i - 25), i).join('\n');
+        const kurz = h.replace(/^window\./, '');
+        const kEsc = kurz.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Ein Waechter ist eine BEDINGUNG, die den Namen prueft — er muss nicht
+        // direkt hinter der Klammer stehen: `if (!window._gsWStackReduce &&
+        // !window._gsWStackTimer)` testet erst etwas anderes. Gesucht wird
+        // deshalb eine `if`-Zeile oberhalb, die den Namen (oder einen
+        // `…Setup`-Merker) nennt.
+        const waechter = oben.split('\n').some(zz => /\bif\s*\(/.test(zz) &&
+          (new RegExp('(window\\.)?' + kEsc + '\\b').test(zz) || /[A-Za-z_$][\w$.]*Setup\b/.test(zz)));
+        if (!raeumt && !waechter) ohneBeides.push((i + 1) + ': ' + h);
+      });
+      if (ohneBeides.length) {
+        return { ok: false, warum: ohneBeides.length + ' Intervall(e) ohne clearInterval UND ohne Doppelstart-Sperre: ' + ohneBeides.slice(0, 5).join(' | ') };
+      }
+      return { ok: true, info: gezaehlt.size + ' benannte Intervalle · jedes abgeräumt oder einmal-gesichert' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
