@@ -254,6 +254,29 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 - Cloud: `sbFetch(path, opts)` — hat Auto-Retry/Backoff für GET, einmaliges
   Retry für POST/PATCH/DELETE bei Netzwerk-Errors. Liefert
   `{data, error: {message, status?}}`.
+  **Es wirft nicht** (kein einziges `throw` im Rumpf, jeder Weg gibt ein Objekt
+  zurück — auch der Netzfehler). Ein `.catch()` daran ist deshalb von Bauart
+  tot; seit v32.82 zählt `robust_check` Fall 20 sie und lässt keine zu.
+  Wer eine Antwort auswerten will, nimmt `.then` oder `await` — und prüft
+  `_gsSchreibOk(r)` (Ablehnung ODER 0 Zeilen), nie nur `r.error`.
+  **Ein Nein ist nicht immer ein Fehler:** `fn_achievements_showcase_set` gibt
+  `boolean` zurück und antwortet bei fehlender Anmeldung mit `false` ohne
+  Fehler (live nachgelesen, 08.09.2026) — wer nur `error` prüft, hält genau
+  diese Ablehnung für einen Erfolg. Bei einer neuen RPC also erst nachsehen,
+  **wie** sie Nein sagt.
+
+> **Und ein Zustand, der auf dem Bildschirm umspringt, ist auch ein
+> Versprechen** (v32.82). `versprechen_check` sucht nach einer MELDUNG ohne
+> Prüfung und sieht so etwas nicht — beim Herz an einem Beitrag, beim Stern
+> der Vitrine und bei der Stimme unter einer Idee gibt es keine Meldung, die
+> Zusage ist das rote Herz selbst. Optimistisch anzeigen bleibt richtig (es
+> fühlt sich schnell an); wer es tut, merkt sich den Zustand **davor**, nimmt
+> ihn bei einer Ablehnung zurück und sagt einen Satz dazu. Und wenn der Server
+> die richtige Zahl mitschickt (`toggle_post_like` → `{liked, likes}`), gewinnt
+> **seine** Zahl gegen die geschätzte — bei zwei gleichzeitigen Likern ist die
+> Schätzung ohnehin falsch. Eine Kopie machen, keine Referenz: `var sc =
+> window._gsAchShowcase || []` ist dasselbe Array, und eine Rücknahme darauf
+> läuft, ohne etwas zu tun.
 
 ### 3.6 · Sicherheit (Pflicht!)
 - **NIE** API-Keys, Secrets, Tokens hardcoden. NVIDIA-Demo-Key war geleakt
@@ -586,7 +609,7 @@ node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nu
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
-node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore()
+node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)

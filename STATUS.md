@@ -4,13 +4,69 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.81` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.82` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (fv) — v32.82: Was der Server ablehnt, nimmt die Anzeige zurück — und was er bestätigt, zählt
+
+- Drei Stellen färbten sich beim Antippen sofort um und warfen die Antwort
+  des Servers weg — `.catch(function(){})` auf `sbFetch`, **das gar nicht
+  wirft** (dieselbe Falle, die `versprechen_check` seit v32.28 zählt): das
+  **Herz** an einem Beitrag, der **Stern** der Achievement-Vitrine und die
+  **Stimme** unter einer Idee.
+- **`versprechen_check` konnte das nicht sehen, und das ist kein Fehler des
+  Prüfstands.** Er sucht nach einer MELDUNG ohne Prüfung; hier gibt es keine
+  Meldung — die Zusage ist das rote Herz selbst. **Ein Zustand, der auf dem
+  Bildschirm umspringt, ist auch ein Versprechen.** Wer ihn setzt, bevor der
+  Server geantwortet hat, muss ihn zurücknehmen können.
+- Was das kostete: eine abgelehnte Anfrage (abgelaufene Sitzung, kein Netz)
+  sah aus wie ein Like und war beim nächsten Laden weg — kommentarlos. Und
+  die Zahl daneben war ohnehin geraten: `+1` auf den lokalen Stand, während
+  jemand anders im selben Moment auch liked.
+- **Die Antwort liegt seit jeher bereit.** `toggle_post_like` gibt
+  `jsonb_build_object('liked', v_liked, 'likes', v_count)` zurück — die echte
+  Zahl aus `post_likes` (live nachgelesen, 08.09.2026, nur lesend). Optimistisch
+  bleiben ist richtig, es fühlt sich schnell an; die Antwort wegzuwerfen nicht.
+  Sie gewinnt jetzt gegen die Schätzung, eine Ablehnung nimmt alles zurück, und
+  daneben steht ein Satz (`_gsFehlerText`, nicht die Zeile aus PostgREST).
+- **Und die Vitrine hatte einen zweiten Fall, den erst das Nachlesen zeigte:**
+  `fn_achievements_showcase_set` gibt `boolean` zurück und antwortet bei
+  fehlender Anmeldung mit **`false` ohne Fehler**. Wer nur `error` prüft, hält
+  genau diese Ablehnung für einen Erfolg — dieselbe Klasse wie die 0 Zeilen
+  von RLS in v32.28, nur mit einem `false` statt einem leeren Array. **Ein Nein
+  ist nicht immer ein Fehler.**
+- Beim Bauen selbst hineingelaufen: `var sc = window._gsAchShowcase || []` ist
+  **dieselbe Referenz**. Ein `vorher` danach war schon der neue Stand, und die
+  Rücknahme setzte auf sich selbst zurück — sie lief, sie tat nur nichts.
+  Gefunden hat es der Prüfstand, nicht das Lesen.
+- **Und dann die ganze Klasse statt der drei Fälle.** `sbFetch` hat **kein
+  einziges `throw`** — jede Zeile `sbFetch(…).catch(…)` ist damit von Bauart
+  tot. Neun gab es noch; **zwei davon trugen ein `console.warn`, das nie
+  erschien** (Arten-Vorschläge aus einem Scan, Aufgaben-Push des Agenten) —
+  wer dort einen Fehler suchte, sah nichts und hielt das für „läuft".
+  Sieben ersatzlos entfernt (es gibt nichts zu fangen), zwei zu `.then` mit
+  `if (r.error)` gemacht, damit die Warnung wirklich kommt. Alle neun sind
+  Hintergrund-Schreibvorgänge ohne Zusage an die Person (Fehlerbericht,
+  Frost- und Wetterprotokoll, Aufräum-PATCH, KI-Nutzung, Aufrufzähler,
+  Analytik) — sie bleiben still, sie lügen nur nicht mehr über einen
+  Rettungsweg, den sie nicht haben.
+- `robust_check` Fall 20 fährt **sechs Lagen** mit gestelltem `sbFetch` durch:
+  Ja mit abweichender Zahl (Server 12 statt geschätzter 8) · Ablehnung · Netz ·
+  Vitrine mit Fehler · Vitrine mit stillem `data:false` · Vitrine mit echtem
+  `data:true`. Der letzte ist die Gegenrichtung: **ein Ja darf nicht
+  zurückgenommen und nicht kommentiert werden** — ohne ihn wäre auch ein Code
+  grün, der jede Antwort verwirft. Gegen v32.81: rot, mit den echten Zahlen
+  (`{"liked":true,"likes":8}` statt 12, kein Toast, Vitrine steht). Dazu der
+  **Deckel**: der Fall zählt `sbFetch(…).catch(` im Quelltext (muss 0 sein)
+  **und** die `throw` in `sbFetch` selbst — findet er dort eines, ist nicht
+  der Code falsch, sondern die Regel.
+
+Regression v32.81 → v32.82: alle **30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL wirklich ausgeführt). `render_check` im Vergleich gegen v32.81: **3'090 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe — 0 verdächtige Textstellen, 0 abgeschnitten, 0 aus dem Bildschirm. Das ist die erwartete Antwort: diese Version ändert Verhalten, kein Layout.
 
 ### 2026-09-08 (fu) — v32.81: Monats- und Wochentagsnamen folgen der Sprache — Audit E1, Welle 2
 
@@ -9905,9 +9961,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.81` (Client) · SW-Cache `gs-v32.81` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.82` (Client) · SW-Cache `gs-v32.82` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'801 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'868 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
