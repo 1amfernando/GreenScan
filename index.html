@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.87.20260908">
+<meta name="app-version" content="32.88.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8667,7 +8667,14 @@ window.gsRenderGardenOverview = function () {
     });
   });
   if (tasks.length > 3) {
-    schritte.push({ icon: '📋', titel: 'Und ' + (tasks.length - 3) + ' weitere fällig',
+    // v32.88: stand hier „Und N weitere fällig" — `tasks` ist das VOLLE
+    // Drei-Tage-Set (`gsGetDueTasks`, `d <= 2`), also war unter den „weiteren"
+    // auch, was erst uebermorgen dran ist. Die drei Zeilen darueber nennen
+    // jeweils ihren echten Tag; nur diese Summenzeile behauptete etwas.
+    // Sie zaehlt jetzt und behauptet nichts — der Weg zur vollen Liste ist
+    // ohnehin ihr Zweck. Und als `_gsSatz`-Vorlage ist sie uebersetzbar
+    // (ein zusammengesetzter Satz ist fuer den Sammler kein Satz, v32.83).
+    schritte.push({ icon: '📋', titel: _gsSatz('Und {1} weitere', tasks.length - 3),
                     unter: 'Alle in „Meine Pflanzen"', aktion: "if(typeof switchTab==='function')switchTab('favs')" });
   }
 
@@ -27890,9 +27897,11 @@ function gsKalenderEreignisse(von, bis) {
       for (var fi = 0; fi < dly.time.length && fi < 7; fi++) {
         var ftag = String(dly.time[fi]).slice(0, 10), fmin = Number(dly.temperature_2m_min[fi]);
         if (!im(ftag) || ftag < heute || !isFinite(fmin) || fmin > GS_FROST_GRENZE_C) continue;
-        out.push({ id: 'frost:' + ftag, art: 'wetter', datum: ftag, zeit: null, ts: null, titel: 'Frost möglich — Tiefstwert ' + (Math.round(fmin * 10) / 10) + ' °C', emoji: '❄️',
+        out.push({ id: 'frost:' + ftag, art: 'wetter', datum: ftag, zeit: null, ts: null, titel: _gsSatz('Frost möglich — Tiefstwert {1} °C', Math.round(fmin * 10) / 10), emoji: '❄️',
           pflanze: null, garten_id: null, quelle: 'wetter', status: 'info', faellig_seit: null, verweis: null,
-          grund: 'Vorhersage Open-Meteo für den Nutzer-Standort (Tagesminimum, kein Messwert)' + (alterH != null ? ', Stand vor ' + alterH + ' h' : '') + ' — Reif bildet sich schon bei +2 °C Lufttemperatur' });
+          grund: (alterH != null
+            ? _gsSatz('Vorhersage Open-Meteo für den Nutzer-Standort (Tagesminimum, kein Messwert), Stand vor {1} h — Reif bildet sich schon bei +2 °C Lufttemperatur', alterH)
+            : _gsSatz('Vorhersage Open-Meteo für den Nutzer-Standort (Tagesminimum, kein Messwert) — Reif bildet sich schon bei +2 °C Lufttemperatur')) });
       }
     }
   } catch (_) {}
@@ -33427,8 +33436,15 @@ function _gsScanPruefwerk(res, qual) {
     p.unbekannt = p.regeln.length - ok - warn;
     // v32.45: auch „Gut belegt" nennt, was nichts sagen konnte — sonst sieht
     // „4 dafür, keine dagegen" bei 7 Regeln aus wie 7 dafür.
-    if (warn === 0 && ok >= 4) p.stufe = { schl: 'stark', label: 'Gut belegt', text: ok + ' unabhängige Prüfungen sprechen dafür, keine dagegen.' + (p.unbekannt ? ' ' + p.unbekannt + ' konnten nichts sagen.' : '') };
-    else if (warn === 0)       p.stufe = { schl: 'mittel', label: 'Nichts spricht dagegen', text: 'Keine Prüfung widerspricht — aber ' + p.unbekannt + ' konnten nichts sagen.' };
+    // v32.88: beide Saetze waren zusammengesetzt und damit fuer den Sammler
+    // kein Satz — sie standen in allen vier Sprachen deutsch da, auf dem
+    // Bildschirm, auf dem jemand ueber Giftigkeit liest.
+    if (warn === 0 && ok >= 4) p.stufe = { schl: 'stark', label: 'Gut belegt',
+      text: p.unbekannt
+        ? _gsSatz('{1} unabhängige Prüfungen sprechen dafür, keine dagegen. {2} konnten nichts sagen.', ok, p.unbekannt)
+        : _gsSatz('{1} unabhängige Prüfungen sprechen dafür, keine dagegen.', ok) };
+    else if (warn === 0)       p.stufe = { schl: 'mittel', label: 'Nichts spricht dagegen',
+      text: _gsSatz('Keine Prüfung widerspricht — aber {1} konnten nichts sagen.', p.unbekannt) };
     else if (warn === 1)       p.stufe = { schl: 'mittel', label: 'Ein Vorbehalt', text: 'Eine Prüfung widerspricht. Sieh sie dir an, bevor du dich darauf verlässt.' };
     else                       p.stufe = { schl: 'schwach', label: warn + ' Vorbehalte', text: 'Mehrere Prüfungen widersprechen. Ein zweites Foto ist hier die schnellste Antwort.' };
   } catch (_) {}
@@ -73854,6 +73870,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.88', date: '08.09.2026',
+      headline: 'Drei Sätze, die keine Übersetzung bekamen',
+      summary: 'Zusammengesetzte Sätze sieht der Übersetzungs-Sammler nicht — sie standen in allen vier Sprachen deutsch da.',
+      user_summary: 'Drei Texte in der App waren immer deutsch, egal welche Sprache eingestellt war. Und einer davon behauptete zusätzlich etwas Falsches.',
+      user_items: [
+        'Im Garten stand unter „Nächste Schritte" etwa „Und 7 weitere fällig" — darunter war aber auch, was erst übermorgen dran ist. Jetzt steht dort „Und 7 weitere", ohne Behauptung.',
+        'Der Frost-Hinweis im Kalender („Frost möglich — Tiefstwert 1,5 °C") und seine Herkunftszeile lassen sich jetzt übersetzen.',
+        'Die Einschätzung unter dem Scan-Ergebnis („4 unabhängige Prüfungen sprechen dafür …") ebenfalls — der Bildschirm, auf dem man über Giftigkeit liest.'
+      ],
+    },
+    {
     v: 'v32.87', date: '08.09.2026',
       headline: '„Heute fällig" zählt jetzt heute',
       summary: 'Auf „Meine Pflanzen" zählte die Kachel drei Tage weit — der Notizzettel daneben zählte richtig.',
@@ -74974,7 +75001,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.87';
+var GS_VERSION = 'v32.88';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

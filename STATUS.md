@@ -4,13 +4,63 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.87` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.88` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gc) - v32.88: drei Saetze, die keine Uebersetzung bekamen — und einer log dabei
+
+- **Wie es gefunden wurde:** aus derselben Zaehl-Tabelle wie v32.87. Zwei
+  Zeilen darin waren noch offen, und die erste hat sich als **mein** Fehler
+  erwiesen: „145" und „144" auf der Startseite sind die **Notrufnummern**
+  (Tox Info Suisse und Notruf) — meine Etikett-Heuristik hatte sie zu einem
+  Zahlenpaar verkoppelt. *Gut, dass ich nachgesehen habe, bevor ich an einer
+  Vergiftungs-Hotline „korrigiere".*
+- **Die zweite war echt, und zwar doppelt.** Im Garten stand unter „Naechste
+  Schritte" **„Und 7 weitere fällig"** — `tasks` ist das volle Drei-Tage-Set
+  (`gsGetDueTasks`, `d <= 2`), unter den „weiteren" war also auch, was erst
+  uebermorgen dran ist. Die drei Zeilen darueber nennen jeweils ihren echten
+  Tag; nur die Summenzeile behauptete etwas. **Dritte Stelle derselben Klasse**
+  nach v32.85 und v32.87. Sie heisst jetzt **„Und 7 weitere"** — die Zeile ist
+  ein Weg zur vollen Liste, keine Aussage ueber Faelligkeit.
+- **Und derselbe Satz war unuebersetzbar.** Der Sammler ueberspringt ein
+  Literal, auf das ein `+` folgt — das ist Absicht (v32.83), heisst aber: ein
+  zusammengesetzter Satz steht in **allen vier Sprachen deutsch** da. Zwei
+  weitere echte Nutzertexte hingen daran:
+  - der **Frost-Hinweis im Kalender** („Frost möglich — Tiefstwert 1,5 °C")
+    samt seiner Herkunftszeile,
+  - die **Einschaetzung unter dem Scan-Ergebnis** („4 unabhaengige Pruefungen
+    sprechen dafuer, keine dagegen." / „Keine Pruefung widerspricht — aber 2
+    konnten nichts sagen.") — ausgerechnet der Bildschirm, auf dem jemand
+    ueber Giftigkeit liest.
+- Alle drei laufen jetzt ueber `_gsSatz` (v32.83) und werden **nachweislich
+  eingesammelt**: der Sammler liefert 633 Saetze, die drei Vorlagen darunter
+  einzeln geprueft.
+
+#### Die Welle dahinter: 41 Stellen — gemessen, nicht gefegt
+
+Beim Zaehlen der Klasse (`titel|text|unter|label|grund|headline|summary:
+'Deutsch…' + …`, Kommentarzeilen abgezogen) kamen **41** Stellen heraus.
+Umgestellt sind **drei**. Die restlichen 38 stehen als benannte Aufgabe, und
+zwar aus einem Grund, der hierher gehoert:
+
+> **Die groesste Gruppe ist gar kein Anzeigetext.** 12× `grund: 'Fehler: ' +
+> (e && e.message)` sind **Rueckgabewerte** (`{ ok:false, grund: … }`) der
+> Sensor- und Katalog-Wege. Ob sie auf den Bildschirm kommen, haengt am
+> Aufrufer — und dort ist `_gsFehlerText` zustaendig (v32.73), **nicht**
+> `_gsSatz` mit interpoliertem Rohtext. Jede Stelle muss einzeln bis zur
+> Anzeige verfolgt werden.
+
+Ein Suchen-und-Ersetzen ueber die 5,7-MB-Datei waere hier ein **Eingriff**,
+kein Aufraeumen (v32.25). Die Gruppen mit Zeilennummern: Zwilling-Labels
+(8763–8776), Planer-Pruefgruende (61719–61742), Teilen-Texte (21317, 79112,
+79194), Foto-Vergleich (20442, 69775), Artenlisten-Herkunft (27303–27325).
+
+Regression v32.87 → v32.88: `render_check` gegen v32.87 **3'087 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen. Der Sammler liefert 633 Sätze, die drei neuen Vorlagen einzeln nachgewiesen. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt).
 
 ### 2026-09-08 (gb) - v32.87: „Heute fällig" zählte drei Tage — derselbe Fehler, ein Bildschirm weiter
 
@@ -10273,9 +10323,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.87` (Client) · SW-Cache `gs-v32.87` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.88` (Client) · SW-Cache `gs-v32.88` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'006 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **92'033 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

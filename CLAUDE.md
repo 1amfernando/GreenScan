@@ -1678,7 +1678,15 @@ bekommt sein Literal als GANZEN Satz (`'Fehler: ' + x` übersetzt niemand);
 wer `placeholder`/`aria-label` liest, liest `data-i18n-orig-<attr>` wenn er
 das Original braucht. Ein zusammengesetzter Satz ist dabei
 **kein** Satz: `'Fehler: ' + x` sieht der Sammler bewusst nicht (er
-ueberspringt jedes Literal mit folgendem `+`). Seit v32.83 gibt es dafuer
+ueberspringt jedes Literal mit folgendem `+`). **Und der Sammler sieht sie NICHT** (v32.88): ein zusammengesetzter Satz an
+einem Anzeige-Schluessel (`titel`, `text`, `unter`, `label`, `grund`) steht in
+allen vier Sprachen deutsch da, ohne dass etwas meldet. Gemessen am
+08.09.2026: **41 solche Stellen**, drei davon umgestellt. Die groesste
+Restgruppe (12× `grund: 'Fehler: ' + e.message`) ist **kein** Fall fuer
+`_gsSatz`, sondern fuer `_gsFehlerText` an der ANZEIGE-Stelle — es sind
+Rueckgabewerte, keine Texte. Wer hier aufraeumt, verfolgt jede Stelle einzeln
+bis zur Anzeige; ein Sweep ueber die 5,7-MB-Datei ist ein Eingriff (v32.25).
+Seit v32.83 gibt es dafuer
 `_gsSatz('… {1} …', wert)` — die **Vorlage** wird uebersetzt, die Werte
 werden **danach** eingesetzt, damit `{1}` in fr und it die Stellung
 wechseln darf; ein fehlender Wert wird zu nichts. Was der Uebersetzer
