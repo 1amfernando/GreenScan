@@ -4,13 +4,60 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.91` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.92` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gg) - v32.92: die halbe Korrektur — und was sie sichtbar machte
+
+- **Meine eigene Aenderung war der Anlass.** v32.91 hat das ARTENDETAIL auf die
+  vorsichtigere Angabe umgestellt. Die naechste Frage lag auf der Hand: **und
+  die Trefferliste?** Gemessen statt vermutet:
+
+  > „Violetter Schleierling" — in der Zeile ein gruenes **✅** mit
+  > durchsichtigem Rand, im Detail **Giftstufe 3**.
+
+  Zwei Anzeigen derselben Art, gegenteilige Aussage. Es gab den Widerspruch
+  vorher schon; v32.91 hat ihn erzeugt **sichtbar** gemacht, indem es nur eine
+  Haelfte korrigierte. **Und die Zeile sieht man ZUERST.**
+- **Die Antwort ist EINE Funktion, nicht drei Kopien der Regel:**
+  `_gsArtAnzeige(sp)` gibt die Sicherheitsangaben der ART zurueck (mit einem
+  `_korrigiert`-Vermerk) und laesst Name, Beschreibung und Verwendung
+  unberuehrt. Drei Aufrufer: die zwei Kartenbauer der Liste und `openDetail`.
+  Der Scanner hatte seinen Weg schon (v32.43); alle geben jetzt dieselbe
+  Antwort. Ein kleines Memo je Eintrag, verworfen sobald sich `DB.length`
+  aendert.
+
+#### Der Fehler beim ersten Anlauf — und warum er auffiel
+
+Der Aufruf stand **nach** `toxInfo(sp.tox)` und den Plaketten. Ergebnis:
+
+```
+Rand:      transparent → #f57f17   ✓ geaendert
+Plakette:  „✅"        → „✅"      ✗ unveraendert
+```
+
+Wer nur das Objekt oder nur die Randfarbe geprueft haette, haette das fuer
+repariert gehalten. Gemessen wurde der **gerenderte Text** — und dort stand
+das gruene Haekchen noch. Der Aufruf steht jetzt als ERSTE Zeile beider
+Kartenbauer, mit dem Grund im Kommentar.
+
+> **Eine Reparatur an einer Anzeige ist erst fertig, wenn ALLE Teile dieser
+> Anzeige sie sehen** — Rand, Symbol und Plakette werden aus derselben Quelle
+> gebaut, aber nicht zur selben Zeit.
+
+`scan_check` D1c (jetzt 62) haelt Zeile und Detail gegeneinander: ab Stufe 2
+kein ✅ und kein durchsichtiger Rand, ab Stufe 3 das Wort „Giftig", und das
+Detail zeigt dieselbe Stufe. Gegen v32.91 rot auf allen drei Pruefungen.
+
+Nebenbei: ein `\` aus einem Kommentar in `scan_check` entfernt, den ich beim
+v32.86-Einbau selbst hineingeschrieben hatte (Rest eines Roh-Strings).
+
+Regression v32.91 → v32.92: `scan_check` 62 Fälle / 0 kaputt (D1c gegen v32.91 rot auf allen drei Prüfungen), `render_check` gegen v32.91 **3'095 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt). `perf_check` unauffällig — das Memo je Eintrag kostet nichts Messbares.
 
 ### 2026-09-08 (gf) - v32.91: das Artendetail umging die Vorsichtsregel
 
@@ -10468,9 +10515,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.91` (Client) · SW-Cache `gs-v32.91` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.92` (Client) · SW-Cache `gs-v32.92` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'146 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **92'173 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
