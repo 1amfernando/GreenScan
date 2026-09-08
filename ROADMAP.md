@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v32.86 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v32.87 · App **live** auf green-scan.ch · released seit v26.0.
 **Zuletzt gegen die Produktionsdatenbank geprüft:** 07.09.2026 (nur lesend:
 `is_admin_user`, `profiles`-Policies, die drei Alt-Sensortabellen,
 `fn_species_search` + `species_search_cache`, `ai_usage`) · davor 02.09.2026

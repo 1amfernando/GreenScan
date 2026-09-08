@@ -578,6 +578,84 @@ const FAELLE = [
     },
   },
   {
+    // v32.87 — dieselbe Frage wie der Fall darueber, einen Bildschirm weiter.
+    // Gefunden beim Durchzaehlen JEDER sichtbaren Zahl mit ihrer Beschriftung:
+    // die Kachel sagte 10, der Notizzettel daneben 9 — auf demselben Schirm,
+    // im selben Moment. `renderMyPlants` schrieb `allDue.length`, und `allDue`
+    // sammelt drei Tage weit.
+    name: 'Meine Pflanzen · „HEUTE FÄLLIG" zählt heute — und sagt dasselbe wie der Notizzettel daneben',
+    lauf: async () => {
+      const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null,
+                        ga: (typeof gardens !== 'undefined') ? gardens : null,
+                        lsP: localStorage.getItem('ps_myplants'), lsG: localStorage.getItem('gs_plantings'),
+                        lsGa: localStorage.getItem('gs_gardens') };
+      const D = 86400000, n = Date.now(), iso = t => new Date(t).toISOString();
+      try {
+        myPlants = [
+          { id: 'f-heute',  name: 'Heutig', emoji: '🌿', tasks: { water: { active: true, intervalDays: 3, lastDone: iso(n - 3 * D) } } },
+          { id: 'f-morgen', name: 'Morgig', emoji: '🌿', tasks: { water: { active: true, intervalDays: 3, lastDone: iso(n - 2 * D) } } },
+          { id: 'f-uebe',   name: 'Uebrig', emoji: '🌿', tasks: { water: { active: true, intervalDays: 3, lastDone: iso(n - 1 * D) } } },
+        ];
+        if (typeof plantings !== 'undefined') plantings = [];
+        if (typeof gardens !== 'undefined') gardens = [];
+        localStorage.setItem('ps_myplants', JSON.stringify(myPlants));
+        localStorage.setItem('gs_plantings', '[]');
+        localStorage.setItem('gs_gardens', '[]');
+        const due = gsGetDueTasks();
+        const tage = due.map(t => t.days).sort((a, b) => a - b);
+        if (JSON.stringify(tage) !== '[0,1,2]')
+          return { ok: false, warum: 'der Fall stellt die Faelligkeit nicht her: ' + JSON.stringify(tage) };
+
+        // Der Bildschirm muss AKTIV sein: der Notizzettel zeigt sich nur dort
+        // (`onFavs`), und ein verborgener Vorfahre macht jede Messung wertlos.
+        switchTab('favs');
+        if (typeof renderMyPlants === 'function') renderMyPlants();
+        let kachel = null;
+        for (let i = 0; i < 40; i++) {
+          await new Promise(r => setTimeout(r, 50));
+          kachel = document.getElementById('plants-due-count');
+          if (kachel && (kachel.textContent || '').trim() !== '0') break;
+        }
+        if (!kachel) return { ok: false, warum: '#plants-due-count gibt es nicht' };
+        const gezeigt = parseInt((kachel.textContent || '').replace(/[^\d]/g, ''), 10);
+        // Die Beschriftung aus dem DOM lesen, nicht annehmen.
+        const kasten = document.getElementById('plants-stat-due');
+        const beschriftung = kasten ? (kasten.textContent || '').replace(kachel.textContent, '').trim() : '';
+        if (!/fällig/i.test(beschriftung))
+          return { ok: false, warum: 'die Beschriftung heisst nicht mehr „fällig": „' + beschriftung + '"' };
+        if (gezeigt === due.length && due.length !== 1)
+          return { ok: false, warum: 'zählt drei Tage unter „' + beschriftung + '": ' + gezeigt + ' statt 1' };
+        if (gezeigt !== 1)
+          return { ok: false, warum: 'zeigt ' + gezeigt + ' unter „' + beschriftung + '", heute fällig ist 1' };
+
+        // Und die zweite Haelfte: der Notizzettel auf DEMSELBEN Bildschirm
+        // beantwortet dieselbe Frage — er darf nicht etwas anderes sagen.
+        if (typeof gsRenderTaskNote === 'function') { try { gsRenderTaskNote(); } catch (_) {} }
+        const zettel = document.getElementById('gs-task-note-cnt');
+        const zZahl = zettel ? parseInt((zettel.textContent || '').replace(/[^\d]/g, ''), 10) : null;
+        if (zZahl === null || isNaN(zZahl))
+          return { ok: false, warum: 'der Notizzettel zeigt keine Zahl — der Fall misst nur die Haelfte' };
+        if (zZahl !== gezeigt)
+          return { ok: false, warum: 'zwei Zahlen auf einem Bildschirm: Kachel ' + gezeigt + ', Notizzettel ' + zZahl };
+
+        // Die bald faelligen sind nicht verschwunden — die Ueberschrift nennt sie.
+        const kopf = document.getElementById('plants-due-heading');
+        const kt = kopf ? (kopf.textContent || '') : '';
+        if (!/\(3\)/.test(kt))
+          return { ok: false, warum: 'die Liste darunter nennt nicht alle drei: „' + kt.trim() + '"' };
+        return { ok: true, info: '„' + beschriftung + '" ' + gezeigt + ' · Notizzettel ' + zZahl + ' · Liste „' + kt.trim() + '"' };
+      } finally {
+        myPlants = sichern.mp;
+        if (sichern.pl && typeof plantings !== 'undefined') plantings = sichern.pl;
+        if (sichern.ga && typeof gardens !== 'undefined') gardens = sichern.ga;
+        if (sichern.lsP === null) localStorage.removeItem('ps_myplants'); else localStorage.setItem('ps_myplants', sichern.lsP);
+        if (sichern.lsG === null) localStorage.removeItem('gs_plantings'); else localStorage.setItem('gs_plantings', sichern.lsG);
+        if (sichern.lsGa === null) localStorage.removeItem('gs_gardens'); else localStorage.setItem('gs_gardens', sichern.lsGa);
+        try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch (_) {}
+      }
+    },
+  },
+  {
     name: 'Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt',
     lauf: () => {
       // v32.49: das Cloud-Tagebuch ist die dritte Quelle — ein „ohne Daten",

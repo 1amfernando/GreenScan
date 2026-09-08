@@ -4,13 +4,50 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.86` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.87` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gb) - v32.87: „Heute fällig" zählte drei Tage — derselbe Fehler, ein Bildschirm weiter
+
+- **Wie es gefunden wurde:** nicht durch Lesen, sondern durch **Zählen**. Die
+  Klasse „eine Zahl sagt etwas anderes, als sie zählt" hatte dreimal geliefert
+  (v32.70 Menue-Zahlen, v32.85 „Heute zu tun", v32.86 „Essbar"), also habe ich
+  ueber alle elf Tabs **jede sichtbare Zahl mit ihrer Beschriftung**
+  eingesammelt — mit Beispieldaten, nach den Animationen gemessen. Eine Zeile
+  stach heraus: „Meine Pflanzen" zeigte **4 Pflanzen** und **10 „Heute
+  fällig"**.
+- `renderMyPlants` sammelt `allDue` mit `d <= 2` — **drei Tage weit**, wie
+  `gsGetDueTasks` — und schrieb `allDue.length` unter die Beschriftung
+  **„HEUTE FÄLLIG"**. Nachgemessen: **10 angezeigt, 9 wirklich heute oder
+  ueberfaellig**, die zehnte in **zwei Tagen**.
+- **Und der Notizzettel auf DEMSELBEN Bildschirm zeigte 9.** Zwei Zahlen fuer
+  dieselbe Frage, gleichzeitig sichtbar, eine davon falsch beschriftet. Genau
+  das Muster aus v32.85 — dort waren es die Karte und derselbe Notizzettel.
+- `overdueCount` stand **eine Zeile weiter oben bereits berechnet**; die
+  Reparatur ist ein Wort. Die bald faelligen verschwinden nicht: sie stehen in
+  der Liste darunter mit ihrem eigenen Tag, in der Ueberschrift
+  „📋 Aufgaben (N)" und seit v32.87 im Vorlese-Text der Kachel
+  („9 heute fällig, 1 in den nächsten Tagen. Antippen zeigt alle.").
+- `kalender_check` hat den Fall (jetzt 19): drei Pflanzen mit Faelligkeit
+  heute / morgen / uebermorgen, gemessen wird die **gerenderte** Kachel samt
+  ihrer **aus dem DOM gelesenen** Beschriftung — und dazu die zweite Haelfte,
+  dass der Notizzettel dieselbe Zahl nennt. Gegen v32.86: rot
+  („zählt drei Tage unter „Heute fällig": 3 statt 1").
+
+**Die Lehre, und sie ist die eigentliche Ausbeute dieser Version:** eine
+Fehlerklasse ist erst geschlossen, wenn man sie **gesucht** hat, nicht wenn man
+einen Fall davon behoben hat. v32.85 hat die Startkarte repariert und dabei
+angenommen, das sei die einzige Stelle. Zwei Releases spaeter stand derselbe
+Fehler noch dort, wo die Beschriftung sogar **expliziter** war. Das Werkzeug
+dafuer war banal — jede Zahl auf dem Bildschirm einmal neben ihre Beschriftung
+schreiben und hinsehen.
+
+Regression v32.86 → v32.87: `kalender_check` 19 Fälle / 0 kaputt (der neue Fall gegen v32.86 rot: „zählt drei Tage unter „Heute fällig": 3 statt 1"), `render_check` gegen v32.86 **3'092 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt), Kontrast 0/0 in beiden Modi, Antippflächen 0.
 
 ### 2026-09-08 (ga) - v32.86: „Essbar" wurde aus „nicht giftig" gerechnet
 
@@ -10236,9 +10273,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.86` (Client) · SW-Cache `gs-v32.86` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.87` (Client) · SW-Cache `gs-v32.87` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'980 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **92'006 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

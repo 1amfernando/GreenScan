@@ -863,6 +863,15 @@ danach meldete den Notizzettel, der 1 px ueber den Rand ragte. Wer
 Beispieldaten anlegt, prueft die FELDER gegen die Lesestellen, nicht nur den
 Schluessel.
 
+> **Und dieselbe Frage stellt sich an JEDER Anzeige** (v32.87). Nach der
+> Reparatur der Startkarte stand derselbe Fehler noch auf „Meine Pflanzen":
+> die Kachel „HEUTE FÄLLIG" zeigte `allDue.length` (drei Tage, `d <= 2`),
+> waehrend der Notizzettel daneben 9 zeigte — zwei Zahlen fuer dieselbe Frage,
+> gleichzeitig sichtbar. Gefunden wurde es, indem ueber alle elf Tabs **jede
+> sichtbare Zahl neben ihre Beschriftung** geschrieben wurde. **Eine
+> Fehlerklasse ist erst geschlossen, wenn man sie GESUCHT hat** — nicht, wenn
+> man einen Fall davon behoben hat.
+
 > **Und die Zahl gehoert zum TITEL** (v32.85). `gsGetDueTasks` liefert
 > bewusst drei Tage weit (`d <= 2`); wer davon `length` unter die Ueberschrift
 > „Heute zu tun" schreibt, sagt etwas Falsches — der Notizzettel filterte an
