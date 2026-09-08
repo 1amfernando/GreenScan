@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.81.20260908">
+<meta name="app-version" content="32.82.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2545,7 +2545,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           app_version: (typeof GS_VERSION !== 'undefined') ? GS_VERSION : null,
           platform: /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'ios' : /Android/.test(navigator.userAgent) ? 'android' : 'web'
         })
-      }).catch(function(){});
+      });
     } catch(_) {}
   }
   function persistError(entry) {
@@ -11693,7 +11693,7 @@ function gsCheckFrostWarning() {
             location_lon: (typeof _gsWeatherLon !== 'undefined') ? _gsWeatherLon : null,
             notes: frostDays.join(' · ')
           })
-        }).catch(function(){});
+        });
         try { localStorage.setItem(dailyKey, '1'); } catch(_){}
       }
     } catch(_){}
@@ -11998,7 +11998,7 @@ async function loadGardenWeather(forceReload) {
               source: 'open-meteo',
               raw_data: { code: data.current_weather.weathercode }
             })
-          }).catch(function(){});
+          });
           try { localStorage.setItem(todayKey, '1'); } catch(_){}
         }
       }
@@ -17634,7 +17634,11 @@ window.gsAchShareIdx = function(i) {
 window.gsAchToggleShowcase = function(i) {
   try {
     var r = (window._gsAchOverview||[])[i]; if (!r || !r.unlocked) return;
-    var sc = window._gsAchShowcase || [];
+    // v32.82: auf einer KOPIE arbeiten. `sc` war dieselbe Referenz wie
+    // `_gsAchShowcase`; ein „vorher" danach war schon der neue Stand, und die
+    // Rücknahme setzte auf sich selbst zurück. Der Prüfstand hat es gefunden.
+    var vorher = (window._gsAchShowcase || []).slice();
+    var sc = vorher.slice();
     var pos = sc.indexOf(r.slug);
     if (pos >= 0) sc.splice(pos,1);
     else {
@@ -17643,8 +17647,23 @@ window.gsAchToggleShowcase = function(i) {
     }
     window._gsAchShowcase = sc;
     window._gsAchRenderMine();
-    if (typeof sbFetch === 'function')
-      sbFetch('/rest/v1/rpc/fn_achievements_showcase_set', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_slugs: sc }) }).catch(function(){});
+    // v32.82: die Vitrine sprang um, ohne dass jemand die Antwort ansah — beim
+    // nächsten Öffnen stand die alte Auswahl da, ohne ein Wort dazu.
+    if (typeof sbFetch === 'function') {
+      sbFetch('/rest/v1/rpc/fn_achievements_showcase_set', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_slugs: sc }) })
+        .then(function (res) {
+          // Die Funktion gibt `boolean` zurueck und antwortet bei fehlender
+          // Anmeldung mit `false` OHNE Fehler (live nachgelesen, 08.09.2026).
+          // Ein Nein ist also nicht immer ein `error` — wer nur den Fehler
+          // prueft, haelt genau diese Ablehnung fuer einen Erfolg.
+          var abgelehnt = (res && res.error) || res.data === false;
+          if (!abgelehnt) return;
+          window._gsAchShowcase = vorher;
+          try { window._gsAchRenderMine(); } catch (_) {}
+          if (typeof gsToast === 'function')
+            gsToast('Vitrine nicht gespeichert: ' + (res.error ? _gsFehlerText(res.error) : 'Der Server hat die Auswahl abgelehnt \u2014 bist du noch angemeldet?'), 'warn', 5000);
+        });
+    }
   } catch(_){}
 };
 
@@ -20539,7 +20558,7 @@ async function gsScanPersistToCloud(r) {
           data: proposalData,
           scan_confidence: conf
         })
-      }).catch(function(e){ console.warn('[gsScanPersistToCloud] proposals:', e); });
+      }).then(function (_r) { if (_r && _r.error) { var e = _r.error; console.warn('[gsScanPersistToCloud] proposals:', e);  } });
     }
     return _scanOk; // v30.30: Flush-Gate — nur true bei erfolgreichem user_scans-Insert
   } catch(e) { console.warn('[gsScanPersistToCloud]', e); return false; }
@@ -28426,7 +28445,7 @@ function gsNcCleanupTaskRows(){
       method:'PATCH',
       headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
       body: JSON.stringify({is_read: true, read_at: new Date().toISOString()})
-    }).catch(function(){});
+    });
     try {
       (window._gsServerNotifs || []).forEach(function(n){
         if (n && !n.is_read && (n.kind === 'plant_task' || n.kind === 'plant_task_pre' || n.kind === 'reminder')) n.is_read = true;
@@ -29659,7 +29678,7 @@ function _gsLogAiUsage(edgeFn, usage, model){
     sbFetch('/rest/v1/rpc/fn_log_ai_usage', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ p_edge_fn: String(edgeFn||'client_ai').slice(0,40), p_tokens_in: tin, p_tokens_out: tout, p_cost_chf: null, p_model: model||null })
-    }).catch(function(){});
+    });
   } catch(_){}
 }
 window._gsLogAiUsage = _gsLogAiUsage;
@@ -38828,14 +38847,26 @@ function vote(id, dir){
         } catch(_){ _vk = window._gsVoterKeyMem || (window._gsVoterKeyMem = 'anon:' + Math.random().toString(36).slice(2,10) + Date.now().toString(36)); }
       }
       var _cur = myVotes[id]; // 'up' | 'down' | undefined (zurückgenommen)
+      // v32.82: die Stimme stand in der Anzeige, bevor jemand wusste, ob der Server
+      // sie annimmt — und niemand sah nach. `prev` (oben) ist der Zustand davor;
+      // bei einer Ablehnung wird genau dorthin zurückgesetzt, mitsamt den Zählern.
+      var _zurueck = function (r) {
+        if (!(r && r.error)) return;
+        if (_cur === 'up' || _cur === 'down') fb.votes[_cur] = Math.max(0, (fb.votes[_cur] || 0) - 1);
+        if (prev) { fb.votes[prev] = (fb.votes[prev] || 0) + 1; myVotes[id] = prev; } else { delete myVotes[id]; }
+        localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems));
+        localStorage.setItem('ps_votes', JSON.stringify(myVotes));
+        try { renderFeedback(); } catch (_) {}
+        if (typeof gsToast === 'function') gsToast('Stimme nicht gespeichert: ' + _gsFehlerText(r.error), 'warn', 5000);
+      };
       if (_cur === 'up' || _cur === 'down') {
         sbFetch('/rest/v1/feedback_votes', {
           method: 'POST',
           headers: { 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
           body: JSON.stringify({ item_id: fb.sb_id, dir: _cur, voter_key: _vk })
-        }).catch(function(){});
+        }).then(_zurueck);
       } else {
-        sbFetch('/rest/v1/feedback_votes?item_id=eq.' + encodeURIComponent(fb.sb_id) + '&voter_key=eq.' + encodeURIComponent(_vk), { method: 'DELETE', headers: { 'Prefer':'return=minimal' } }).catch(function(){});
+        sbFetch('/rest/v1/feedback_votes?item_id=eq.' + encodeURIComponent(fb.sb_id) + '&voter_key=eq.' + encodeURIComponent(_vk), { method: 'DELETE', headers: { 'Prefer':'return=minimal' } }).then(_zurueck);
       }
     }
   } catch(_){}
@@ -43879,16 +43910,37 @@ window.gsHarvestLoadForPlant = gsHarvestLoadForPlant;
 // Ende v25.31 Plant-Doctor + Harvest-Block
 // ═════════════════════════════════════════════════════════════════════
 
-function toggleLike(postId) {
+// v32.82: Das Herz wurde lokal umgefärbt, der Zähler geraten — und die Antwort
+// des Servers landete im Nichts (`.catch()` auf `sbFetch`, das gar nicht wirft).
+// Zwei Folgen, beide sichtbar: eine abgelehnte Anfrage (abgelaufene Sitzung,
+// kein Netz) sah aus wie ein Like und war beim nächsten Laden weg; und bei zwei
+// Likern war die geratene Zahl ohnehin falsch. `toggle_post_like` gibt
+// `{liked, likes}` zurück — die ECHTE Zahl aus `post_likes`. Optimistisch
+// bleiben ist richtig (es fühlt sich schnell an), die Antwort ignorieren nicht:
+// wer den Server entscheiden lässt, liest die Entscheidung (v32.65).
+async function toggleLike(postId) {
   if (!gsRequire('like','Bitte anmelden um zu liken.')) return;
   var post = socialPosts.find(function(p){ return p.id === postId; });
   if (!post) return;
+  var vorherLiked = !!post.liked, vorherZahl = post.likes || 0;
   post.liked = !post.liked;
-  post.likes = Math.max(0, (post.likes||0) + (post.liked ? 1 : -1));
+  post.likes = Math.max(0, vorherZahl + (post.liked ? 1 : -1));
   renderSocialFeed();
   var uid = gsStore.get('gs_sb_uid', null);
-  sbFetch('/rest/v1/rpc/toggle_post_like', {method:'POST', body:JSON.stringify({p_post_id:postId, p_user_id:uid})})
-    .catch(function(){});
+  var r = await sbFetch('/rest/v1/rpc/toggle_post_like', {method:'POST', body:JSON.stringify({p_post_id:postId, p_user_id:uid})});
+  if (r && r.error) {
+    post.liked = vorherLiked; post.likes = vorherZahl;   // zurücknehmen: es ist nicht passiert
+    renderSocialFeed();
+    if (typeof gsToast === 'function') gsToast('Nicht gespeichert: ' + _gsFehlerText(r.error), 'warn', 5000);
+    return;
+  }
+  // Der Server sagt, wie es wirklich steht — auch wenn das von der Schätzung abweicht.
+  var d = r && r.data;
+  if (d && typeof d === 'object') {
+    if (typeof d.liked === 'boolean') post.liked = d.liked;
+    if (typeof d.likes === 'number') post.likes = Math.max(0, d.likes);
+    renderSocialFeed();
+  }
 }
 
 async function addComment() {
@@ -44687,7 +44739,7 @@ function openListingDetail(lid) {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ p_listing_id: lid })
-      }).catch(function(){});
+      });
     }
   } catch(_){}
   // v23.98: Beide Listing-Pools (neu: gsMarketLoad mit Fotos, alt: marketListings) durchsuchen
@@ -70720,8 +70772,12 @@ async function gsAgentScheduleNotifications(plan) {
           method: 'POST',
           headers: {'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=minimal'},
           body: JSON.stringify(tasks)
-        }).catch(function(e){ console.warn('[gsAgentScheduleNotifications] tasks push:', e); });
-        console.log('[GS-Plan] ' + tasks.length + ' garden_tasks zu Supabase synchronisiert');
+        }).then(function (_r) {
+          // v32.82: der Erfolgs-Satz stand frueher UNBEDINGT daneben — er hat
+          // „synchronisiert" auch dann gemeldet, wenn der Server abgelehnt hat.
+          if (_r && _r.error) { console.warn('[gsAgentScheduleNotifications] tasks push:', _r.error); return; }
+          console.log('[GS-Plan] ' + tasks.length + ' garden_tasks zu Supabase synchronisiert');
+        });
       }
     } catch(e) { console.warn('[gsAgentScheduleNotifications] supabase-sync:', e); }
   }
@@ -73714,6 +73770,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.82', date: '08.09.2026',
+    headline: '❤️ Was der Server ablehnt, nimmt die Anzeige zurück — und was er bestätigt, zählt',
+    summary: 'Drei Stellen färbten sich sofort um und warfen die Antwort des Servers weg (.catch() auf sbFetch, das gar nicht wirft): das Herz an einem Beitrag, der Stern der Achievement-Vitrine und die Stimme unter einer Idee. Zwei Folgen, beide sichtbar — eine abgelehnte Anfrage (abgelaufene Sitzung, kein Netz) sah aus wie ein Like und war beim nächsten Laden weg; und die gezählte Zahl war bei zwei gleichzeitigen Likern ohnehin geraten. toggle_post_like gibt {liked, likes} zurück — die echte Zahl aus post_likes; sie gewinnt jetzt gegen die Schätzung. Bei einer Ablehnung geht alles zurück und es steht ein Satz da (_gsFehlerText, nicht die PostgREST-Zeile). Und die Vitrine hat einen zweiten Fall: fn_achievements_showcase_set gibt boolean zurück und antwortet bei fehlender Anmeldung mit false OHNE Fehler — wer nur error prüft, hält genau diese Ablehnung für einen Erfolg. robust_check Fall 20 fährt sechs Lagen durch (Ja mit abweichender Zahl, Ablehnung, Netz, Vitrine mit Fehler, Vitrine mit stillem Nein, Vitrine mit echtem Ja); gegen v32.81 rot.',
+    user_summary: '❤️ Likes, Vitrinen-Sterne und Stimmen zeigen jetzt, was wirklich gespeichert wurde — nicht, was gerade angetippt wurde.',
+    user_items: [
+      {emoji:'❤️', bold:'Likes:', text:' Die Zahl neben dem Herz kommt vom Server — auch wenn jemand anders im selben Moment geliked hat. Klappt es nicht, springt das Herz zurück und sagt warum.'},
+      {emoji:'⭐', bold:'Vitrine:', text:' Ein Stern, den der Server nicht annimmt, bleibt nicht fälschlich stehen — beim nächsten Öffnen gab es sonst kommentarlos die alte Auswahl.'},
+      {emoji:'🗳️', bold:'Ideen-Abstimmung:', text:' Deine Stimme wird zurückgenommen, wenn sie nicht ankommt — statt lokal zu stehen und beim nächsten Gerät zu fehlen.'},
+    ],
+  },
+  {
     v: 'v32.81', date: '08.09.2026',
     headline: '📅 Monats- und Wochentagsnamen folgen der Sprache — Audit E1, Welle 2',
     summary: 'Vierzig Monatslisten und drei Wochentag-Listen standen fest im Quelltext: ein französischer Nutzer las „Januar" im Kalender, im Blühkalender, im Planer und in der Ernte-Übersicht, obwohl seit v32.78 alles andere seiner Sprache folgt. gsMonate() und gsWochentage() rechnen die Namen aus Intl (gsLocale()), einmal je Sprache gemerkt, mit der deutschen Liste als Rückfall. Vor dem Ersetzen geprüft: alle vierzig Listen sind reine Anzeige — das einzige indexOf liegt auf einem Datenfeld, nicht auf Namen. i18n_check misst es in fr am gerenderten Kalender („janvier", „dim."/„lun.") und statisch. Nicht angefasst: 152 toFixed (100 davon in Geometrie/CSS — ein Dezimalkomma dort bricht das Layout) und 78 zusammengesetzte Meldungen.',
@@ -74772,7 +74839,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.81';
+var GS_VERSION = 'v32.82';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -84460,7 +84527,7 @@ window.gsTrackEvent = function(event, props){
         platform: /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'ios' :
                   /Android/.test(navigator.userAgent) ? 'android' : 'web'
       })
-    }).catch(function(){});
+    });
   } catch(_){}
 };
 

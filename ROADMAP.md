@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v32.80 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v32.82 · App **live** auf green-scan.ch · released seit v26.0.
 **Zuletzt gegen die Produktionsdatenbank geprüft:** 07.09.2026 (nur lesend:
 `is_admin_user`, `profiles`-Policies, die drei Alt-Sensortabellen,
 `fn_species_search` + `species_search_cache`, `ai_usage`) · davor 02.09.2026
@@ -186,7 +186,7 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
-### Seit dem 07.09.2026 (v32.65 – v32.80) — das Professionalitäts-Audit abgearbeitet
+### Seit dem 07.09.2026 (v32.65 – v32.82) — das Professionalitäts-Audit abgearbeitet
 
 `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md` §G, Punkt für Punkt. Jeder mit
 Prüfstand-Fall, Gegenprobe gegen die Vorversion und voller Regression:
@@ -213,6 +213,12 @@ Prüfstand-Fall, Gegenprobe gegen die Vorversion und voller Regression:
   Push-Helfer-Modul statt zwölf Kopien (C4), 114 Funktionen ohne Aufrufer
   entfernt mit Parser-Grenzen (C2), pdf.js nur bei Bedarf statt bei jedem
   Start, C5 nachgemessen statt geschätzt.
+- **Optimistische Anzeigen** (v32.82): drei Stellen färbten sich beim
+  Antippen um und warfen die Antwort des Servers weg — Herz, Vitrinen-Stern
+  und Stimme. Jetzt gewinnt die Zahl des Servers gegen die geschätzte, eine
+  Ablehnung wird zurückgenommen und gesagt. Dazu die ganze Klasse: `sbFetch`
+  wirft nicht, also war jedes `.catch()` daran tot — neun gefunden, zwei
+  davon mit einem `console.warn`, das nie erschien.
 - **Prüfstände von 22 auf 31** — neu: `quiz_check`, `escape_check`,
   `robust_check`, `schluessel_check`, `nutzersicht_check`; dazu
   `pruefstaende.sh` und `.github/workflows/pruefstaende.yml`, das alle auf

@@ -586,6 +586,109 @@ const FAELLE = [
     },
   },
   {
+    name: 'Optimistische Anzeige · das Herz nimmt zurück, was der Server ablehnt — und übernimmt SEINE Zahl, wenn er zustimmt (auch wenn sie von der Schätzung abweicht); dasselbe für die Achievement-Vitrine',
+    lauf: async () => {
+      const f = [];
+      const r = await __seite.evaluate(async () => {
+        const o = {};
+        const echtSb = window.sbFetch, echtReq = window.gsRequire, echtToast = window.gsToast;
+        const toasts = [];
+        window.gsRequire = () => true;
+        window.gsToast = (m) => { toasts.push(typeof m === 'string' ? m : (m && (m.body || m.title)) || ''); };
+        // Ein Beitrag im Feed — socialPosts ist ein Skript-Bereichs-Name, NICHT auf window (v32.24)
+        socialPosts = [{ id: 'p-opt-1', author_name: 'Anna', content: 'Test', likes: 7, liked: false, created_at: new Date().toISOString(), type: 'post' }];
+        try { renderSocialFeed(); } catch (_) {}
+        const holen = () => { const p = socialPosts[0]; return { liked: !!p.liked, likes: p.likes }; };
+
+        // (a) Server sagt JA — und nennt eine ANDERE Zahl als die Schätzung (zwei Liker gleichzeitig)
+        window.sbFetch = async () => ({ data: { liked: true, likes: 12 }, error: null });
+        await toggleLike('p-opt-1');
+        o.ja = holen();
+
+        // (b) Server LEHNT AB — der Zustand muss zurück und es muss gesagt werden
+        const vorAblehnung = holen();
+        window.sbFetch = async () => ({ data: null, error: { message: 'new row violates row-level security policy for table "post_likes"', status: 403 } });
+        toasts.length = 0;
+        await toggleLike('p-opt-1');
+        o.nein = holen(); o.neinVorher = vorAblehnung; o.neinToast = toasts.join(' | ');
+
+        // (c) Netzfehler — dasselbe
+        window.sbFetch = async () => ({ data: null, error: { message: 'Failed to fetch', status: 0 } });
+        toasts.length = 0;
+        await toggleLike('p-opt-1');
+        o.netz = holen(); o.netzToast = toasts.join(' | ');
+
+        // (d) Die Achievement-Vitrine: Ablehnung nimmt die Auswahl zurück
+        window._gsAchOverview = [{ slug: 'erste-pflanze', unlocked: true }];
+        window._gsAchShowcase = [];
+        let gezeichnet = 0;
+        window._gsAchRenderMine = function () { gezeichnet++; };
+        window.sbFetch = async () => ({ data: null, error: { message: 'permission denied', status: 403 } });
+        toasts.length = 0;
+        try { window.gsAchToggleShowcase ? window.gsAchToggleShowcase(0) : (window._gsAchShowcaseToggle && window._gsAchShowcaseToggle(0)); } catch (e) { o.vitrineFehler = e.message; }
+        await new Promise(res => setTimeout(res, 150));
+        o.vitrine = { auswahl: (window._gsAchShowcase || []).slice(), toast: toasts.join(' | '), gezeichnet };
+
+        // (e) Die Vitrine sagt Nein OHNE Fehler. `fn_achievements_showcase_set`
+        //     gibt `boolean` zurueck und antwortet bei fehlender Anmeldung mit
+        //     `false` (live nachgelesen, 08.09.2026) — wer nur `error` prueft,
+        //     haelt genau diese Ablehnung fuer einen Erfolg.
+        window._gsAchShowcase = [];
+        window.sbFetch = async () => ({ data: false, error: null });
+        toasts.length = 0;
+        try { window.gsAchToggleShowcase(0); } catch (e) { o.stillFehler = e.message; }
+        await new Promise(res => setTimeout(res, 150));
+        o.vitrineStill = { auswahl: (window._gsAchShowcase || []).slice(), toast: toasts.join(' | ') };
+
+        // (f) Und die Gegenrichtung: ein echtes Ja darf NICHT zurueckgenommen werden.
+        window._gsAchShowcase = [];
+        window.sbFetch = async () => ({ data: true, error: null });
+        toasts.length = 0;
+        try { window.gsAchToggleShowcase(0); } catch (_) {}
+        await new Promise(res => setTimeout(res, 150));
+        o.vitrineJa = { auswahl: (window._gsAchShowcase || []).slice(), toast: toasts.join(' | ') };
+
+        window.sbFetch = echtSb; window.gsRequire = echtReq; window.gsToast = echtToast;
+        return o;
+      });
+      if (!r.ja || r.ja.liked !== true || r.ja.likes !== 12) f.push('Server-Ja: Zahl nicht übernommen — ' + JSON.stringify(r.ja) + ' (erwartet liked=true, likes=12)');
+      if (!r.nein || r.nein.liked !== r.neinVorher.liked || r.nein.likes !== r.neinVorher.likes) f.push('Ablehnung nicht zurückgenommen: ' + JSON.stringify(r.nein) + ' statt ' + JSON.stringify(r.neinVorher));
+      if (!/Nicht gespeichert/.test(r.neinToast || '') || /row-level/.test(r.neinToast || '')) f.push('Ablehnung ohne verständliche Meldung: ' + JSON.stringify(r.neinToast));
+      if (!r.netz || r.netz.liked !== r.neinVorher.liked) f.push('Netzfehler nicht zurückgenommen: ' + JSON.stringify(r.netz));
+      if (!/Verbindung/.test(r.netzToast || '')) f.push('Netzfehler ohne Meldung: ' + JSON.stringify(r.netzToast));
+      if (r.vitrine && (r.vitrine.auswahl.length !== 0 || !/nicht gespeichert/i.test(r.vitrine.toast || ''))) f.push('Vitrine: ' + JSON.stringify(r.vitrine));
+      if (!r.vitrineStill || r.vitrineStill.auswahl.length !== 0 || !/nicht gespeichert/i.test(r.vitrineStill.toast || ''))
+        f.push('Vitrine · Nein ohne Fehler (data:false) durchgewinkt: ' + JSON.stringify(r.vitrineStill));
+      if (!r.vitrineJa || r.vitrineJa.auswahl.length !== 1 || r.vitrineJa.toast)
+        f.push('Vitrine · echtes Ja zurückgenommen oder kommentiert: ' + JSON.stringify(r.vitrineJa));
+      // Und der Deckel dazu, statisch: `sbFetch` hat KEIN `throw` — jede Zeile
+      // `sbFetch(…).catch(…)` ist damit von Bauart tot. Sie liest sich wie ein
+      // Rettungsweg und ist keiner; zwei der neun trugen sogar ein
+      // `console.warn`, das nie erschien.
+      const quelle = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const zu = (t, i) => { let d = 0, j = i, q = null;
+        for (; j < t.length; j++) { const c = t[j];
+          if (q) { if (c === '\\') { j++; continue; } if (c === q) q = null; }
+          else if (c === '"' || c === "'" || c === '`') q = c;
+          else if (c === '(') d++;
+          else if (c === ')') { d--; if (!d) return j; } }
+        return -1; };
+      const tote = [];
+      for (const m of quelle.matchAll(/sbFetch\s*\(/g)) {
+        const e = zu(quelle, m.index + m[0].length - 1);
+        if (e > 0 && /^\s*\.\s*catch\s*\(/.test(quelle.slice(e + 1, e + 40)))
+          tote.push(quelle.slice(0, m.index).split('\n').length);
+      }
+      const sbStart = quelle.indexOf('async function sbFetch(path, opts) {');
+      const sbEnde = quelle.indexOf('\nasync function', sbStart + 10);
+      const wuerfe = (quelle.slice(sbStart, sbEnde > 0 ? sbEnde : sbStart + 4000).match(/\bthrow\b/g) || []).length;
+      if (tote.length) f.push('tote .catch() auf sbFetch (es wirft nicht): Zeile ' + tote.join(', '));
+      if (wuerfe) f.push('sbFetch wirft doch (' + wuerfe + '× throw) — dann ist die Regel falsch, nicht der Code');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Ja → Server-Zahl 12 statt geschätzter 8 · Nein → zurück auf ' + JSON.stringify(r.neinVorher) + ' + „' + String(r.neinToast).slice(0, 40) + '…" · Netz → zurück + Verbindungs-Satz · Vitrine → zurück bei Fehler UND bei data:false, still bei data:true · 0 tote .catch() auf sbFetch (0× throw darin)' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
