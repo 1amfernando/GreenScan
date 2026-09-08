@@ -4,13 +4,57 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.84` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.85` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (fz) - v32.85: „Heute zu tun" zaehlte drei Tage
+
+- **Wie es gefunden wurde:** nicht beim Lesen, sondern beim Nachstellen eines
+  Nutzers mit **zwei Jahren Daten** — 60 Pflanzen mit je 120 Tagebucheintraegen,
+  300 Scans, 2000 Messwerte. Die Frage war eine andere („wird die App langsam?"),
+  und die Antwort darauf ist beruhigend: **1,4 MB** localStorage (von 5 MB),
+  Tab-Wechsel **28-41 ms**, `gsGetDueTasks` unter 1 ms, keine JS-Fehler. Aber
+  daneben standen zwei Zahlen, die nicht zusammenpassten.
+- `gsGetDueTasks` liefert **bewusst** alles bis `d <= 2` — drei Tage weit, als
+  Vorschau. Die Karte nahm davon `tasks.length` und schrieb es unter den Titel
+  **„Heute zu tun"**. Bei drei Pflanzen mit Faelligkeit heute / morgen /
+  uebermorgen stand da „**3 Aufgaben**", waehrend **genau eine** heute dran war.
+- **Die Zeilen darunter waren immer ehrlich** („Heute" / „Morgen" / „In 2
+  Tagen") — nur die Ueberschrift nicht. Und der Notizzettel (`gsNcTaskNote`)
+  filtert an derselben Stelle **laengst** auf `days <= 0`: **zwei Anzeigen mit
+  demselben Titel zaehlten verschieden.** Das ist die Klasse aus v32.70 (die
+  Menue-Zahlen): *eine Zahl muss wahr sein fuer das, was sie benennt.*
+- Die Vorschau bleibt — sie ist nuetzlich. Sie sagt jetzt nur, was sie ist:
+  **„1 Aufgabe · 2 in den naechsten Tagen"**.
+- `kalender_check` hat den Fall: drei Pflanzen mit eindeutiger Faelligkeit, und
+  gemessen wird die **gerenderte Ueberschrift**, nicht das Objekt (v31.90).
+  Dazu die andere Haelfte — der Kalender nennt fuer heute genau dieselbe eine
+  Aufgabe. Gegen v32.84: rot („Heute zu tun3 Aufgaben").
+
+#### Drei Anlaeufe, bis der Fall wirklich etwas gemessen hat
+
+Der Fall war dreimal rot, und **jedes Mal aus einem anderen Grund am
+Pruefstand**, nicht an der App:
+
+1. `myPlants` gesetzt — die Karte liest aber aus dem **Speicher**. Gemessen
+   wurden weiter die Beispieldaten („8 Aufgaben").
+2. Speicher auch gesetzt — `_gsPflanzungenNachruesten` baut die Pflanzungen
+   beim Rendern aus den **Gaerten** neu auf (v32.47). Also „9 Aufgaben".
+3. Gaerten auch geraeumt — und immer noch die alte Zahl, weil
+   `gsBuildWidgetStack` **verzoegert** baut: gemessen wurde der Stand vom
+   Seitenaufbau. Erst mit Warten auf die neue Karte stimmte es.
+
+**Wer einen Zustand stellt, prueft, ob die Anzeige ihn ueberhaupt liest** — und
+**ein Element, das gerade neu gebaut wird, wird erst NACH dem Bauen vermessen**
+(dieselbe Regel wie v32.32 und v32.39). Drei Varianten derselben Falle in einem
+Fall.
+
+Regression v32.84 → v32.85: alle **30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt); `kalender_check` **18 Fälle, 0 kaputt**. `render_check` gegen v32.84: **3'085 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen, 0 abgeschnitten, 0 aus dem Bildschirm. Kontrast 0/0 (43 Fenster automatisch geöffnet), Antippflächen 0 bei 412 px und 320 px.
 
 ### 2026-09-08 (fy) — zwei Messungen statt zwei Reparaturen
 
@@ -10101,9 +10145,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.84` (Client) · SW-Cache `gs-v32.84` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.85` (Client) · SW-Cache `gs-v32.85` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'912 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'933 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
