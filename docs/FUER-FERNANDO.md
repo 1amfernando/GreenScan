@@ -419,11 +419,11 @@ in einem Nicht-Admin-Konto zeigt die Konsole nach
 `localStorage.setItem('gs_feat_aiproxy','0')` in der Konsole schickt dieses
 Gerät wieder direkt an Anthropic. Danach entferne ich Schalter und Rückfall.
 
-## 9 · Neun Edge-Functions neu ausliefern (Audit A10, B2 — v32.72)
+## 9 · Zehn Edge-Functions neu ausliefern (Audit A10, B2, C4, A7 — v32.72 bis v32.76)
 
 Alles im Repo, nichts davon läuft, bis du es auslieferst. Ein Aufruf je Zeile,
-Reihenfolge egal; die geteilte Datei `_shared/auth_vergleich.mjs` bündelt die
-CLI automatisch mit.
+Reihenfolge egal; die geteilten Dateien unter `_shared/` (`auth_vergleich.mjs`,
+seit v32.75 auch `push_helfer.mjs`) bündelt die CLI automatisch mit.
 
 ```bash
 supabase functions deploy daily-push-checker
@@ -435,6 +435,7 @@ supabase functions deploy feedback-triage
 supabase functions deploy ai-proxy
 supabase functions deploy garden-scan-analyze
 supabase functions deploy plan-iterate
+supabase functions deploy species-search
 ```
 
 **Was sich ändert:**
@@ -460,12 +461,11 @@ ist unverändert); im Admin-Panel „KI-Triage" läuft für dich weiter; ein
 Garten-Scan mit drei Fotos und Horizont 3 Jahre kommt in unter zwei Minuten
 zurück oder sagt sauber „Timeout".
 
-**Nachtrag v32.76 (Audit A7):** dazu kommt `species-search` — sie verlangt
-jetzt einen angemeldeten Nutzer (GoTrue prüft das Token), sucht mit dessen
-Token statt mit dem Service-Key und erlaubt nur die eigenen Origins. Sie
-liest `SUPABASE_ANON_KEY` aus der Umgebung (Standard). Ausliefern wie die
-anderen: `supabase functions deploy species-search`. Die Liste in §9 sind
-damit **zehn** Functions.
+**Nachtrag v32.76 (Audit A7):** `species-search` steht seit v32.79 in der
+Liste oben (die zehnte). Sie verlangt jetzt einen angemeldeten Nutzer
+(GoTrue prüft das Token), sucht mit dessen Token statt mit dem Service-Key
+und erlaubt nur die eigenen Origins; sie liest `SUPABASE_ANON_KEY` aus der
+Umgebung (Standard in jeder Edge-Function).
 
 **Nachtrag v32.75 (Audit C4):** dieselben fünf Functions haben sich noch
 einmal geändert — `daily-push-checker`, `engagement-push-checker`,
@@ -552,6 +552,31 @@ Nachmessen (nur lesend):
 ```sql
 select target_lang, count(*) from i18n_translations where source_lang = 'de' group by 1;
 ```
+
+## 12 · Zwei Dinge aus v32.79, die nur du kannst
+
+1. **Impressum (UWG Art. 3 Abs. 1 lit. s).** Für ein Abo-Angebot verlangt das
+   Gesetz klare Angaben zur Identität und eine Kontaktadresse. Die App sagt
+   seit v32.79 im Impressum, dass Rechtsträger, Postadresse und UID-Nummer
+   noch fehlen. Schick mir die drei Angaben (oder trag sie in
+   `index.html` → `showLegalTab` → `impressum` ein, der Hinweis-Absatz
+   darunter fliegt dann raus). Wenn GreenScan als Einzelfirma läuft: dein
+   Name als Inhaber, eine Postadresse (Postfach reicht), die UID (`CHE-…`),
+   falls du eine hast.
+2. **pdf.js selbst hosten** (Audit A8, Rest). Die Cloud-Umgebung kommt nicht
+   an cdnjs heran (`HTTP 000`), deshalb lädt die App pdf.js seit v32.79 nur
+   noch bei Bedarf vom CDN. Wenn du es ins Repo legen willst (dann fällt
+   cdnjs aus der CSP und aus `IMAGE_HOSTS`):
+
+   ```bash
+   mkdir -p assets/pdfjs
+   curl -o assets/pdfjs/pdf.min.mjs https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs
+   curl -o assets/pdfjs/pdf.worker.min.mjs https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs
+   ```
+
+   und in `index.html` die zwei Adressen `window._gsPdfjsUrl` /
+   `window._gsPdfjsWorkerUrl` auf `assets/pdfjs/…` stellen. Die Dateien
+   sind zusammen rund 1,5 MB; das Repo trägt Three.js (603 KB) schon.
 
 ## Und wenn etwas schiefgeht
 

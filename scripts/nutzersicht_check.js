@@ -112,6 +112,31 @@ const FAELLE = [
     },
   },
   {
+    name: 'E6 · Rechtstexte sagen, was stimmt: Stand und Version aus der Release-Liste, Artenzahl aus der Artenliste, du statt Sie, Fotos gehen an Anthropic und liegen im Konto, keine Messung ohne Zustimmung, und das Impressum sagt, was noch fehlt',
+    lauf: async () => __seite.evaluate(async () => {
+      const f = [];
+      try { openLegalModal('agb'); } catch (e) { return { ok: false, warum: 'openLegalModal wirft: ' + e.message }; }
+      const lies = (tab) => { showLegalTab(tab); const el = document.getElementById('legal-content'); return el ? el.textContent : ''; };
+      const agb = lies('agb'), ds = lies('datenschutz'), haft = lies('haftung'), imp = lies('impressum');
+      const alle = agb + ds + haft + imp;
+      const datum = (window.GS_RELEASES && GS_RELEASES[0] && GS_RELEASES[0].date) || '';
+      if (/März 2026/.test(alle)) f.push('„März 2026" steht noch fest im Text');
+      if (!datum || (agb.indexOf('Stand ' + datum) < 0) || (ds.indexOf('Stand ' + datum) < 0)) f.push('Stand nicht aus der Release-Liste (' + datum + ')');
+      if (imp.indexOf(GS_VERSION) < 0 || imp.indexOf(datum) < 0) f.push('Impressum ohne Version/Datum');
+      const arten = Array.isArray(window.DB) ? DB.length.toLocaleString(gsLocale()) : '?';
+      if (imp.indexOf(arten + ' Schweizer Arten') < 0) f.push('Artenzahl nicht aus der Liste (' + arten + ')');
+      if (/\bSie\b|\bIhre\b|\bIhnen\b/.test(haft + ds)) f.push('Rechtstexte siezen noch: ' + ((haft + ds).match(/[^.]*\b(Sie|Ihre|Ihnen)\b[^.]*/) || [''])[0].trim().slice(0, 60));
+      if (/nicht dauerhaft gespeichert/.test(ds)) f.push('Fotos-Satz behauptet noch „nicht dauerhaft gespeichert"');
+      if (!/Anthropic/.test(ds) || !/in deinem Konto gespeichert/.test(ds)) f.push('Fotos-Satz nennt nicht KI-Dienst und Speicherung');
+      if (!/nur mit deiner Zustimmung/.test(ds) || !/nichts gemessen/.test(ds)) f.push('Nutzungsdaten-Satz sagt nicht, dass nichts gemessen wird');
+      if (/E-Mail \(verschlüsselt\)/.test(ds)) f.push('„E-Mail (verschlüsselt)" steht noch da');
+      if (!/Rechtsträger, Postadresse und UID-Nummer/.test(imp)) f.push('Impressum sagt nicht, was fehlt');
+      try { closeModal('modal-rechtlich'); } catch (_) {}
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Stand ' + datum + ' (' + GS_VERSION + ') · ' + arten + ' Arten · du statt Sie · Fotos: Anthropic + Konto · Messung: nur mit Zustimmung · Impressum nennt die Lücke' };
+    }),
+  },
+  {
     name: 'E8 · Kompakt und Senioren schliessen sich aus (in beide Richtungen, Vorgabe und Haekchen ziehen mit); Menue-Emojis sind fuer den Screenreader stumm',
     lauf: async () => __seite.evaluate(async () => {
       const echtSave = window.savePrefs, echtNach = window._gsPrefNachschieben; window.savePrefs = () => {}; window._gsPrefNachschieben = () => {};
