@@ -15,7 +15,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v33.00';
+const VERSION = 'gs-v33.01';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -42,9 +42,10 @@ const SHELL_URLS = [
   // v25.10 Thema 3: PLANT_DB extern (4341 Arten, immutable-cached). Vor-Cachen
   // damit App offline mit voller Pflanzen-DB funktioniert (sonst nur leere DB).
   '/data/plants.v1.js?v=1',
-  // v31.36: Das Release-Archiv (371 aeltere Changelog-Eintraege, 778 KB) wird
-  // hier BEWUSST NICHT vor-gecacht. Vor-cachen hiesse: jeder Nutzer laedt
-  // 778 KB fuer einen Bildschirm, den die meisten nie oeffnen — damit waere
+  // v31.36: Das Release-Archiv (536 aeltere Changelog-Eintraege, gut 1 MB —
+  // Stand v33.01, bei der Auslagerung waren es 371 und 778 KB) wird hier
+  // BEWUSST NICHT vor-gecacht. Vor-cachen hiesse: jeder Nutzer laedt das alles
+  // fuer einen Bildschirm, den die meisten nie oeffnen — damit waere
   // der halbe Gewinn der Auslagerung wieder weg. Es faellt unter die
   // Default-Strategie (networkFirst + RUNTIME_CACHE) und ist damit ab dem
   // ersten Oeffnen des Changelogs auch offline da. Wer offline ist und ihn

@@ -4,13 +4,92 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v33.00` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v33.01` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gt) - v33.01: aus den 12 Changelog-Eintraegen waren 100 geworden
+
+**Gefunden beim Nachsehen, ob der Fehler von heute Morgen noch woanders
+steckt.** Die Form aller 548 Eintraege war in Ordnung (0 Befunde) — dabei fiel
+etwas anderes auf: die **Inline-Liste hatte 100 Eintraege, 138,2 KB**.
+
+`v31.36` hatte GS_RELEASES genau deswegen geteilt: 12 inline (mehr braucht der
+Dialog nicht), der Rest in `data/releases.v1.js`, nachgeladen erst beim Oeffnen
+des Changelogs. In 64 Versionen war der Zustand vollstaendig zurueck.
+
+- **88 Eintraege umgezogen** (v32.88…v32.01) an den Anfang des Archivs.
+  Inline 100 → 12 (138,1 → 9,9 KB), Archiv 448 → 536. Verglichen wurde die
+  Folge aller 548 Versionen vor und nach dem Umzug — identisch, keine
+  Dublette, keine Luecke. `index.html` 5,67 → 5,54 MB, gzip -9 1'590 → 1'548 KB.
+- **`robust_check` Fall 24** deckelt die Inline-Liste bei 20 und prueft dabei
+  drei weitere Dinge, die kein Pruefstand kannte: `GS_RELEASES[0].v ===
+  GS_VERSION` (CLAUDE.md §3.1 nennt es Pflicht — wird es vergessen, bleibt
+  „Was ist neu" bei allen still aus), keine Version doppelt, und die **Form**
+  der `user_items`/`items` ueber alle 549 Eintraege (die Klasse aus v33.00).
+- **Eine falsche Zeile richtiggestellt:** der Kopf von `data/releases.v1.js`
+  behauptete, der Service Worker cache das Archiv ueber `SHELL_URLS` mit. Er
+  tut es bewusst nicht — `sw.js` sagt das an seiner Stelle seit v31.36 auch
+  so. Zwei Dateien, ein Mechanismus, gegensaetzlich beschrieben.
+
+#### Zwei Funde beim Bauen des Falls, die ich nicht gesucht hatte
+
+- **Die Reparatur von heute Morgen stand nur auf der halben Strecke.**
+  `_gsRelItem` normalisierte `user_items`; `items` — die Zeilen unter
+  „Technische Details" — wurden an beiden Render-Stellen weiter ROH gelesen.
+  Heute kein Vorkommen, aber **dieselbe Falle, ein Feld weiter**. Jetzt gehen
+  alle vier Stellen durch den Normalisierer, und Fall 24 zaehlt die rohen.
+- **`nutzersicht_check` E4b waere durch meinen eigenen Umzug still
+  geschrumpft.** Er las `gsAllReleases()` — und das Archiv wird im Pruefstand
+  nie nachgeladen. Vor dem Umzug sah er 20 von 100 Eintraegen, danach 13 von
+  549, ohne dass etwas rot wird. Er holt das Archiv jetzt von der Platte:
+  **549 Releases, 1'812 Zeilen** durch den echten Renderer.
+
+  > **Eine Aenderung an den Daten kann die Abdeckung eines Pruefstands
+  > verkleinern, ohne ihn rot zu machen.** Wer Daten verschiebt, sieht nach,
+  > wer sie misst.
+
+#### Die Messung fiel gegen die Erwartung aus, und das steht auch in der Notiz
+
+Ich habe **5+5 Laeufe** `perf_check` gefahren (4×-Drosselung, Mittelklasse):
+
+| | Lauf 1–5 DCL | Median | Mittel | Streuung |
+|---|---|---|---|---|
+| vorher | 1748 · 1855 · 1555 · 1840 · 1565 | 1'748 ms | 1'713 ms | 300 ms |
+| nachher | 1697 · 1635 · 1704 · 1824 · 1722 | 1'704 ms | 1'716 ms | 190 ms |
+
+**Kein Befund.** Die Mittelwerte sind nicht unterscheidbar, der Median-Abstand
+liegt weit innerhalb der Streuung. Beim Parsen dasselbe (2'838 vs 2'859 ms
+Mittel — nachher nominell *langsamer*).
+
+> **Was sicher ist, ist das Kleinere: 138 KB weniger Datei, 42 KB weniger nach
+> gzip — bei jedem Update, fuer jeden.** Der Umzug bleibt richtig; die
+> Begruendung ist die Uebertragung und die wiederhergestellte Bauform, nicht
+> ein Tempogewinn, den ich nicht belegen kann. Es waere die bequemste Zeile des
+> Tages gewesen, „startet spuerbar schneller" zu schreiben — zehn Messungen
+> sagen etwas anderes.
+
+**Und die Lehre ueber diesen Fall hinaus:** *eine Regel ohne Ausloeser ist eine
+Bitte.* „Wenn die Liste zu lang wird, wandern die aeltesten ins Archiv" stand
+seit v31.36 in einem Kommentar und in CLAUDE.md. Niemand hat sie gebrochen —
+jede Sitzung hat oben brav einen Eintrag angehaengt, achtundachtzig Mal.
+
+**Gegenprobe: sieben hergestellte Zustaende** — Stand vor dem Umzug · Version
+gebumpt, Eintrag vergessen · ein Eintrag doppelt · eine Zeile ohne sichtbaren
+Text · eine Render-Stelle wieder ohne `_gsRelItem` · ein `bold` als Zahl:
+**sechsmal rot, jeder mit eigenem Grund.** Und einer, der GRUEN sein muss: ein
+reiner String geht seit heute Morgen bewusst durch (der Normalisierer macht
+`{text}` daraus) — eine Gegenprobe, die nur Rot erwartet, haette diese
+Absicht nicht von einem Fehler unterscheiden koennen.
+
+Zwei Fixture-Fehler auf dem Weg, beide von mir: die Versions-Mutation hatte
+`v33.00` fest verdrahtet und aenderte nach dem Bump **nichts** — sie sah aus
+wie eine durchgefallene Gegenprobe. Seither prueft der Treiber nach jeder
+Mutation, dass die Datei sich wirklich geaendert hat.
 
 ### 2026-09-08 (gs) - v33.00: Fernando hat fotografiert, was ich sehen haette muessen
 

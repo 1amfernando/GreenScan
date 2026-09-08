@@ -174,7 +174,30 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   - Wird die Inline-Liste zu lang, wandern die ältesten Einträge an den
     **Anfang** von `data/releases.v1.js` — die Reihenfolge ist überall neu → alt.
   - Das Archiv ist bewusst **nicht** in `SHELL_URLS` vor-gecacht: sonst lädt
-    jeder 778 KB für einen Bildschirm, den die meisten nie öffnen.
+    jeder gut 1 MB (536 Einträge, Stand v33.01) für einen Bildschirm, den die
+    meisten nie öffnen. Der Kopf von `data/releases.v1.js` behauptete bis
+    v33.01 das Gegenteil — **zwei Dateien beschrieben denselben Mechanismus
+    gegensätzlich, und die falsche Hälfte klang plausibel.**
+
+> **„Zu lang" braucht einen Auslöser** (v33.01). Aus den 12 waren **100**
+> geworden — 138 KB, bei jedem Kaltstart geparst, also genau der Zustand,
+> gegen den die Teilung gebaut wurde. Niemand hat etwas falsch gemacht: jede
+> Sitzung hat oben brav ihren Eintrag angehängt, und „wenn die Liste zu lang
+> wird" stand nur in einem Kommentar. **Eine Regel ohne Auslöser ist eine
+> Bitte.** `robust_check` Fall 24 deckelt jetzt bei 20 und misst im selben Zug
+> die zweite Pflicht dieses Abschnitts, die bis dahin ebenfalls kein Prüfstand
+> kannte: **`GS_RELEASES[0].v === GS_VERSION`** — wird der Eintrag vergessen,
+> bleibt „Was ist neu" bei *allen* Nutzern still aus (das ist die Sperre aus
+> v31.13, und sie schweigt bewusst).
+>
+> Und die Messung dazu, weil sie gegen die Erwartung ausfiel: **die Startzeit
+> hat sich nicht messbar geändert.** 5+5 Läufe `perf_check` unter 4×-Drosselung,
+> DCL-Median 1'704 vs 1'748 ms, Mittelwerte 1'716 vs 1'713 ms bei einer
+> Streuung von 190 bzw. 300 ms je Gruppe. Sicher ist nur das Kleinere: 138 KB
+> weniger Datei, 42 KB weniger nach gzip — bei jedem Update, für jeden.
+> **Der Umzug bleibt richtig; die Begründung ist die Übertragung und die
+> wiederhergestellte Bauform, nicht ein Tempogewinn, den ich nicht belegen
+> kann.**
 
 ### 3.2 · Branches
 - `main` ist Produktion. NIE direkt darauf pushen.

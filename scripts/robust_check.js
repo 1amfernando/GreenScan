@@ -903,6 +903,85 @@ const FAELLE = [
       return { ok: true, info: 'install ohne skipWaiting · message SKIP_WAITING → skipWaiting · Banner schickt SKIP_WAITING · activate ' + (claim ? 'mit' : 'ohne') + ' claim' };
     },
   },
+  {
+    // v33.01 — die Regel aus v31.36 hatte keinen Ausloeser. GS_RELEASES wurde
+    // damals geteilt (12 inline, der Rest in data/releases.v1.js, erst beim
+    // Oeffnen des Changelogs nachgeladen), weil 383 Eintraege 787 KB gross
+    // waren und bei JEDEM Kaltstart geparst wurden. Aus den 12 waren am
+    // 08.09.2026 wieder 100 geworden — 138,2 KB. Niemand hat etwas falsch
+    // gemacht: jede Sitzung hat brav oben einen Eintrag angehaengt, und
+    // „wenn die Liste zu lang wird" stand nur in einem Kommentar.
+    // Dazu die zweite Pflicht aus CLAUDE.md §3.1, die ebenfalls niemand mass:
+    // GS_RELEASES[0].v MUSS der laufenden GS_VERSION entsprechen — sonst
+    // bleibt „Was ist neu" bei jedem Nutzer aus, still (v31.13).
+    name: 'Changelog · die Inline-Liste bleibt klein (Deckel 20), GS_RELEASES[0] gehoert zur laufenden Version, und kein Eintrag steht doppelt oder ist beim Umzug ins Archiv verlorengegangen',
+    lauf: async () => {
+      const DECKEL = 20;
+      const idx = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+      const arc = fs.readFileSync(path.resolve(__dirname, '..', 'data', 'releases.v1.js'), 'utf8');
+      const holen = (text, marke) => {
+        const i = text.indexOf(marke); if (i < 0) return null;
+        const s = text.indexOf('[', i), rest = text.slice(s), m = rest.match(/\n\];/);
+        return m ? rest.slice(0, m.index + 2) : null;
+      };
+      const roh = holen(idx, 'window.GS_RELEASES = ['), rohA = holen(arc, 'window.GS_RELEASES_ARCHIVE = [');
+      if (!roh) return { ok: false, warum: 'GS_RELEASES-Block in index.html nicht gefunden' };
+      if (!rohA) return { ok: false, warum: 'GS_RELEASES_ARCHIVE-Block in data/releases.v1.js nicht gefunden' };
+      let inline, archiv;
+      try { inline = eval(roh); archiv = eval(rohA); }
+      catch (e) { return { ok: false, warum: 'Liste nicht auswertbar: ' + e.message.split('\n')[0] }; }
+      const kb = (roh.length / 1024).toFixed(1);
+
+      // 1 · Deckel. Der Gewinn der Auslagerung ist der NICHT geparste Teil.
+      if (inline.length > DECKEL) return { ok: false, warum: 'Inline-Liste hat ' + inline.length + ' Eintraege (' + kb + ' KB) — Deckel ist ' + DECKEL + '. Die aeltesten wandern an den ANFANG von data/releases.v1.js (CLAUDE.md §3.1); der Dialog braucht nur GS_RELEASES[0], den Changelog laedt gsLoadReleaseArchive() nach.' };
+
+      // 2 · Der oberste Eintrag gehoert zur laufenden Version.
+      const mv = idx.match(/GS_VERSION\s*=\s*'(v[\d.]+)'/);
+      if (!mv) return { ok: false, warum: 'GS_VERSION nicht gefunden' };
+      if (!inline.length) return { ok: false, warum: 'Inline-Liste ist leer — „Was ist neu" kann nie erscheinen' };
+      if (inline[0].v !== mv[1]) return { ok: false, warum: 'GS_RELEASES[0] ist ' + inline[0].v + ', die App laeuft auf ' + mv[1] + ' — showWhatsNew bricht ab und stempelt gs_seen_version NICHT; kein Nutzer sieht Release-Notizen (v31.13)' };
+
+      // 3 · Nichts doppelt, nichts verloren: die Reihenfolge ist ueberall neu → alt.
+      const alle = inline.concat(archiv), gesehen = new Set(), dub = [];
+      for (const r of alle) { if (gesehen.has(r.v)) dub.push(r.v); gesehen.add(r.v); }
+      if (dub.length) return { ok: false, warum: dub.length + ' Version(en) stehen doppelt (inline UND im Archiv): ' + dub.slice(0, 5).join(', ') };
+      const zahl = v => { const m = String(v || '').match(/^v(\d+)\.(\d+)$/); return m ? (+m[1]) * 1000 + (+m[2]) : NaN; };
+      const letztInline = zahl(inline[inline.length - 1].v), ersteArchiv = zahl(archiv[0] && archiv[0].v);
+      if (!(ersteArchiv < letztInline)) return { ok: false, warum: 'Archiv beginnt bei ' + (archiv[0] && archiv[0].v) + ', inline endet bei ' + inline[inline.length - 1].v + ' — beim Umzug ist die Naht verrutscht (ueberall neu → alt)' };
+
+      // 4 · Die Form, die den Dialog in v33.00 unlesbar gemacht hat — mit der
+      // Korrektur aus derselben Sitzung: ein reiner String ist seit v33.00
+      // (user_items) bzw. v33.01 (items) KEIN Fehler mehr, `_gsRelItem`
+      // normalisiert ihn zu {text}. Gemessen wird deshalb, was nach der
+      // Normalisierung uebrig bleibt: jede Zeile muss sichtbaren Text ergeben,
+      // und ein Feld, das der Renderer als Zeichenkette einsetzt, muss eine
+      // sein. `bold: 42` wuerde „42" zeigen, `bold: {}` „[object Object]".
+      const relItem = it => (typeof it === 'string') ? { text: it }
+        : (it && typeof it === 'object' && !Array.isArray(it)) ? it
+        : { text: String(it == null ? '' : it) };
+      const formFehler = [];
+      for (const r of alle) for (const feld of ['user_items', 'items']) {
+        if (r[feld] == null) continue;
+        if (!Array.isArray(r[feld])) { formFehler.push(r.v + '.' + feld + ' ist ' + typeof r[feld] + ' statt Array'); continue; }
+        r[feld].forEach((roh, n) => {
+          const wo = r.v + ' ' + feld + '#' + (n + 1);
+          if (roh != null && typeof roh !== 'string' && (typeof roh !== 'object' || Array.isArray(roh))) { formFehler.push(wo + ' ist ' + typeof roh); return; }
+          const it = relItem(roh);
+          for (const k of ['bold', 'text', 'emoji']) if (it[k] != null && typeof it[k] !== 'string') formFehler.push(wo + '.' + k + ' ist ' + typeof it[k]);
+          if (!String(it.bold == null ? '' : it.bold).trim() && !String(it.text == null ? '' : it.text).trim()) formFehler.push(wo + ' ergibt keine sichtbare Zeile');
+        });
+      }
+      if (formFehler.length) return { ok: false, warum: formFehler.length + ' Zeile(n) rendern nicht als Text (der Renderer setzt it.emoji/it.bold/it.text direkt ein): ' + formFehler.slice(0, 4).join(' · ') };
+
+      // 5 · …und die Normalisierung muss an ALLEN vier Render-Stellen stehen.
+      // v33.00 hat sie fuer user_items eingebaut, v33.01 fuer items — bis dahin
+      // war „Technische Details" dieselbe Falle, ein Feld weiter.
+      const rohStellen = (idx.match(/Array\.isArray\((?:rel|release)\.(?:user_)?items\)\s*\?\s*(?:rel|release)\.(?:user_)?items\s*:\s*\[\](?!\s*\)?\.map\(_gsRelItem\))/g) || []);
+      if (rohStellen.length) return { ok: false, warum: rohStellen.length + ' Render-Stelle(n) lesen items/user_items ohne _gsRelItem — dort wird ein String wieder zu String.prototype.bold' };
+
+      return { ok: true, info: inline.length + ' inline (' + kb + ' KB, Deckel ' + DECKEL + ') · ' + archiv.length + ' im Archiv · ' + alle.length + ' zusammen, keine Dublette · GS_RELEASES[0] = ' + inline[0].v + ' = GS_VERSION · Naht ' + inline[inline.length - 1].v + ' → ' + archiv[0].v };
+    },
+  },
 ];
 
 (async () => {

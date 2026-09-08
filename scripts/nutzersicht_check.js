@@ -79,11 +79,25 @@ const FAELLE = [
     // `String.prototype.bold`, eine Funktion und damit wahr. Auf dem Telefon
     // stand dreimal „function bold() { [native code] }".
     // Ein Fall, der nur eine Attrappe rendert, prueft die Vorlage, nicht die Ware.
-    name: 'E4b · Die ECHTEN Release-Notizen rendern Text — kein [native code], keine leere Zeile',
-    lauf: async () => __seite.evaluate(() => {
+    // v33.01 — der Fall las `gsAllReleases()` und sah damit nur die INLINE
+    // vorhandenen Eintraege: das Archiv wird erst beim Oeffnen des Changelogs
+    // nachgeladen, und im Pruefstand laedt es nie. Nach dem Umzug von 88
+    // Eintraegen ins Archiv (v33.01) waeren das 13 statt 100 gewesen — die
+    // Abdeckung waere still geschrumpft, ohne dass etwas rot wird. Das Archiv
+    // wird deshalb von der PLATTE geholt und in die Seite gelegt; geprueft
+    // werden ALLE Eintraege, nicht die ersten zwanzig.
+    name: 'E4b · Die ECHTEN Release-Notizen rendern Text — kein [native code], keine leere Zeile (inline UND Archiv)',
+    lauf: async () => {
+      const archivQuelle = fs.readFileSync(path.resolve(__dirname, '..', 'data', 'releases.v1.js'), 'utf8');
+      const r = await __seite.evaluate((quelle) => {
+      const vorher = window.GS_RELEASES_ARCHIVE;
+      let ausArchiv = 0;
+      try { (0, eval)(quelle); ausArchiv = (window.GS_RELEASES_ARCHIVE || []).length; } catch (e) { return { ok: false, warum: 'Archiv nicht auswertbar: ' + e.message.split('\n')[0] }; }
+      try {
       const alle = (typeof gsAllReleases === 'function') ? gsAllReleases() : (window.GS_RELEASES || []);
       if (!alle.length) return { ok: false, warum: 'keine Release-Eintraege — der Fall misst nichts' };
-      const pruefe = alle.slice(0, 20);
+      if (!ausArchiv) return { ok: false, warum: 'das Archiv kam leer an — der Fall wuerde nur die Inline-Liste messen' };
+      const pruefe = alle;
       const kaputt = [], leer = [];
       pruefe.forEach(rel => {
         const items = (typeof gsAutoUserItems === 'function') ? gsAutoUserItems(rel) : (rel.user_items || []);
@@ -102,8 +116,15 @@ const FAELLE = [
       if (kaputt.length) return { ok: false, warum: kaputt.length + ' Eintrag/Eintraege rendern [native code]: ' + kaputt.slice(0, 6).join(' ') };
       if (leer.length) return { ok: false, warum: leer.length + ' Eintrag/Eintraege ohne sichtbaren Text: ' + leer.slice(0, 6).join(' ') };
       const n = pruefe.reduce((a, r) => a + ((typeof gsAutoUserItems === 'function') ? gsAutoUserItems(r) : (r.user_items || [])).length, 0);
-      return { ok: true, info: pruefe.length + ' echte Releases · ' + n + ' Zeilen, alle mit Text' };
-    }),
+      return { ok: true, info: pruefe.length + ' echte Releases (' + (pruefe.length - ausArchiv) + ' inline + ' + ausArchiv + ' aus dem Archiv) · ' + n + ' Zeilen, alle mit Text' };
+      } finally {
+        // Die naechsten Faelle sollen denselben Zustand vorfinden wie ohne E4b.
+        if (vorher === undefined) { try { delete window.GS_RELEASES_ARCHIVE; } catch (_) { window.GS_RELEASES_ARCHIVE = undefined; } }
+        else window.GS_RELEASES_ARCHIVE = vorher;
+      }
+      }, archivQuelle);
+      return r;
+    },
   },
   {
     name: 'E2 · Lina: Sprache der App im Kontext (de/fr/it/en/es), keine Tabs, die es nicht gibt, die fuenf echten benannt',
