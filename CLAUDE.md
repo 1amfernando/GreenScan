@@ -1642,7 +1642,15 @@ eigenen Quelltext (`gsI18nMeldungenAusQuelltext`, reine Funktion) und aus
 dem Dokument (`gsI18nDokumentPhrasen`). Drei Regeln daraus: ein Toast
 bekommt sein Literal als GANZEN Satz (`'Fehler: ' + x` übersetzt niemand);
 wer `placeholder`/`aria-label` liest, liest `data-i18n-orig-<attr>` wenn er
-das Original braucht; und ein Datum formatiert mit `gsLocale()`, nie mit
+das Original braucht. Ein zusammengesetzter Satz ist dabei
+**kein** Satz: `'Fehler: ' + x` sieht der Sammler bewusst nicht (er
+ueberspringt jedes Literal mit folgendem `+`). Seit v32.83 gibt es dafuer
+`_gsSatz('… {1} …', wert)` — die **Vorlage** wird uebersetzt, die Werte
+werden **danach** eingesetzt, damit `{1}` in fr und it die Stellung
+wechseln darf; ein fehlender Wert wird zu nichts. Was der Uebersetzer
+bilden koennen muss (Plural, Anrede), ist Grammatik und gehoert in ZWEI
+ganze Saetze, nicht in einen Platzhalter. Und ein Datum formatiert mit
+`gsLocale()`, nie mit
 `'de-CH'` — `i18n_check` meldet jedes `toLocale*String('de-CH')`. Und ein
 Monats- oder Wochentagsname kommt aus `gsMonate(kurz)` / `gsWochentage()`
 (seit v32.81, aus `Intl` mit `gsLocale()`), nie aus einer Liste im Code —

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.82.20260908">
+<meta name="app-version" content="32.83.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8048,6 +8048,24 @@ function gsLocale() {
   } catch (_) { return 'de-CH'; }
 }
 window.gsLocale = gsLocale;
+// v32.83 (Audit E1, Welle 3): `showProfileToast` uebersetzt seit v30.18 mit
+// `gsI18n.tText(raw)` — aber `raw` war bei 68 Meldungen der ZUSAMMENGESETZTE
+// String („Fehler: " + e.message). Ein Nachschlag am ganzen Satz kann darin nie
+// treffen, und der Sammler (`gsI18nMeldungenAusQuelltext`) ueberspringt ein
+// Literal mit folgendem `+` ausdruecklich — ein Fragment ist kein Satz. Also
+// wird aus dem Fragment ein Satz: die VORLAGE wird uebersetzt, die Werte werden
+// danach eingesetzt. `{1}`, `{2}` … duerfen in der Uebersetzung die Stellung
+// wechseln, was in fr und it regelmaessig noetig ist.
+function _gsSatz(vorlage) {
+  var werte = Array.prototype.slice.call(arguments, 1);
+  var t = vorlage;
+  try { if (window.gsI18n && typeof gsI18n.tText === 'function') t = gsI18n.tText(vorlage); } catch (_) {}
+  return String(t).replace(/\{(\d+)\}/g, function (_treffer, n) {
+    var v = werte[parseInt(n, 10) - 1];
+    return (v === null || v === undefined) ? '' : String(v);
+  });
+}
+window._gsSatz = _gsSatz;
 // v32.81 (Audit E1, Welle 2): 40 Monatslisten und 3 Wochentag-Listen standen
 // fest im Quelltext — ein französischer Nutzer las „Januar" im Kalender, im
 // Blühkalender, im Planer und in der Ernte-Übersicht, obwohl seit v32.78
@@ -8439,7 +8457,7 @@ async function gsTwinRun(b64, mt) {
         if (wieGespeichert === 'ohne_foto') {
           gsToast('🌱 ' + zwilling.plants.length + ' Pflanzen erkannt — das Foto passte nicht mehr in den Speicher, die Liste bleibt.', 'warning', 6000);
         } else {
-          gsToast('🌱 Dein Garten ist digital — ' + zwilling.plants.length + ' Pflanzen erkannt', 'success');
+          gsToast(_gsSatz('🌱 Dein Garten ist digital — {1} Pflanzen erkannt', zwilling.plants.length), 'success');
         }
       }
     } catch (_) {}
@@ -9966,7 +9984,7 @@ function gsSnoozeTask(plantId, taskKey, days) {
     p.tasks[taskKey].snoozedUntil = new Date(Date.now() + d * 86400000).toISOString();
     if (_fs.liste === 'plantings') { try { saveGardenData(); } catch(_){} } else savePlantsToStorage();
     try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){}
-    if (typeof showProfileToast === 'function') showProfileToast('⏰ Um ' + d + ' Tag' + (d > 1 ? 'e' : '') + ' verschoben', 'info');
+    if (typeof showProfileToast === 'function') showProfileToast(d > 1 ? _gsSatz('⏰ Um {1} Tage verschoben', d) : _gsSatz('⏰ Um einen Tag verschoben'), 'info');
     setTimeout(function(){ renderMyPlants(); }, 300);
   } catch(_){}
 }
@@ -11718,7 +11736,7 @@ function gsCheckFrostWarning() {
     }
     // Auch als Toast
     if (frostDays[0].includes('Heute') || frostDays[0].includes('Morgen')) {
-      showProfileToast('❄️ Frost erwartet: ' + frostDays[0], 'info');
+      showProfileToast(_gsSatz('❄️ Frost erwartet: {1}', frostDays[0]), 'info');
     }
   }
 }
@@ -13191,7 +13209,7 @@ function dqYearlyReset(oldStats) {
   dqSaveStats(fresh);
   // Top-3 Belohnung: Supabase
   if (typeof dqPushToSupabase === 'function') setTimeout(function(){ dqPushToSupabase({yearEnd: true, year: year}); }, 1000);
-  showProfileToast('🎊 Neues Jahr! Dein Score: ' + (oldStats.points||0) + ' Punkte', 'success');
+  showProfileToast(_gsSatz('🎊 Neues Jahr! Dein Score: {1} Punkte', (oldStats.points||0)), 'success');
 }
 
 function dqStartTimer() {
@@ -16108,7 +16126,10 @@ function gsI18nMeldungenAusQuelltext(quelltext) {
     out['msg_' + hash(t)] = t;
   };
   // a) erstes Argument als Literal — aber nicht, wenn danach mit + weitergebaut wird
-  var re1 = /(?:gsToast|showProfileToast|gsConfirmModal)\(\s*'((?:[^'\\]|\\.)*)'\s*([,)+])/g, m;
+  // v32.83: `_gsSatz` gehoert dazu. Sein erstes Argument IST der ganze Satz
+  // (mit {1}, {2} …) — genau die 69 Meldungen, die bis dahin als Fragment mit
+  // `+` gebaut waren und deshalb hier absichtlich uebersprungen wurden.
+  var re1 = /(?:gsToast|showProfileToast|gsConfirmModal|_gsSatz)\(\s*'((?:[^'\\]|\\.)*)'\s*([,)+])/g, m;
   while ((m = re1.exec(txt))) { if (m[2] !== '+') nimm(m[1]); }
   // b) Objekt-Form: title/body/message/okText/cancelText/placeholder als Literal
   var re2 = /(?:gsToast|showProfileToast|gsConfirmModal|gsPromptModal)\(\s*\{/g;
@@ -17661,7 +17682,7 @@ window.gsAchToggleShowcase = function(i) {
           window._gsAchShowcase = vorher;
           try { window._gsAchRenderMine(); } catch (_) {}
           if (typeof gsToast === 'function')
-            gsToast('Vitrine nicht gespeichert: ' + (res.error ? _gsFehlerText(res.error) : 'Der Server hat die Auswahl abgelehnt \u2014 bist du noch angemeldet?'), 'warn', 5000);
+            gsToast(_gsSatz('Vitrine nicht gespeichert: {1}', (res.error ? _gsFehlerText(res.error) : 'Der Server hat die Auswahl abgelehnt \u2014 bist du noch angemeldet?')), 'warn', 5000);
         });
     }
   } catch(_){}
@@ -18286,7 +18307,7 @@ async function gsRestorePurchases() {
   try { gsToast('⏳ Wiederherstelle…', 'info', 2500); } catch(_){}
   var row = await gsLoadEntitlements();
   if (row && row.tier && row.tier !== 'free') {
-    gsToast('✅ Wiederhergestellt: ' + String(row.tier).toUpperCase() + '-Plan aktiv.', 'success');
+    gsToast(_gsSatz('✅ Wiederhergestellt: {1}-Plan aktiv.', String(row.tier).toUpperCase()), 'success');
     try { closeModal('detail-modal'); } catch(e){}
     gsShowAboScreen();
   } else {
@@ -19340,7 +19361,7 @@ function gsToggleTorch(){
       if (typeof gsHaptic === 'function') gsHaptic('tap');
     })
     .catch(function(e){
-      if (typeof showProfileToast === 'function') showProfileToast('🔦 Blitz-Fehler: ' + (e.message||''));
+      if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('🔦 Blitz-Fehler: {1}', (e.message||'')));
       window._gsTorchOn = false;
     });
 }
@@ -21239,7 +21260,7 @@ function gsShareSpecies(name, latin) {
     navigator.share({ title: '🌿 ' + name + ' — GreenScan', text: 'Ich habe ' + text + ' mit GreenScan entdeckt!', url: url }).catch(function(){});
   } else if (navigator.clipboard) {
     navigator.clipboard.writeText(text + ' — GreenScan').then(function() {
-      showProfileToast('📋 Kopiert: ' + name);
+      showProfileToast(_gsSatz('📋 Kopiert: {1}', name));
     });
   }
 }
@@ -26935,7 +26956,7 @@ function _gsRegelHochladen(r) {
       .then(function (a) {
         if (!_gsSchreibOk(a)) {   // Ablehnung ODER 0 Zeilen: die Regel liegt NICHT dort — die App meldet solange selbst
           _gsRegelMerken(r.id, { cloud_ok: false });
-          try { if (typeof gsToast === 'function') gsToast('Die Regel gilt vorerst nur in der App — der Server hat sie nicht angenommen' + (a && a.error && _gsFehlerText(a.error) ? ' (' + String(_gsFehlerText(a.error)).slice(0, 80) + ')' : '') + '. Die App meldet solange selbst.', 'warn', 6000); } catch (_) {}
+          try { if (typeof gsToast === 'function') gsToast(_gsSatz('Die Regel gilt vorerst nur in der App — der Server hat sie nicht angenommen{1}. Die App meldet solange selbst.', (a && a.error && _gsFehlerText(a.error) ? ' (' + String(_gsFehlerText(a.error)).slice(0, 80) + ')' : '')), 'warn', 6000); } catch (_) {}
           return { ok: false, grund: (a && a.error && a.error.message) || 'vom Server abgewiesen' };
         }
         _gsRegelMerken(r.id, { cloud_ok: true, cloud_am: new Date().toISOString(), cloud_geloescht: false });
@@ -26957,7 +26978,7 @@ function _gsGeraetServerLoeschen(g) {
     return sbFetch('/rest/v1/devices?id=eq.' + encodeURIComponent(g.cloud_id), { method: 'DELETE', headers: { 'Prefer': 'return=representation' } })
       .then(function (a) {
         if (_gsSchreibOk(a)) return { ok: true };
-        try { if (typeof gsToast === 'function') gsToast('Das Gerät ist in der App weg, in der Cloud aber nicht entfernt' + (a && a.error && _gsFehlerText(a.error) ? ' (' + String(_gsFehlerText(a.error)).slice(0, 80) + ')' : '') + '.', 'warn', 6000); } catch (_) {}
+        try { if (typeof gsToast === 'function') gsToast(_gsSatz('Das Gerät ist in der App weg, in der Cloud aber nicht entfernt{1}.', (a && a.error && _gsFehlerText(a.error) ? ' (' + String(_gsFehlerText(a.error)).slice(0, 80) + ')' : '')), 'warn', 6000); } catch (_) {}
         return { ok: false, grund: (a && a.error && a.error.message) || 'nicht gelöscht' };
       }).catch(function (e) { return { ok: false, grund: 'Fehler: ' + (e && e.message) }; });
   } catch (e) { return Promise.resolve({ ok: false, grund: 'Fehler: ' + (e && e.message) }); }
@@ -32058,7 +32079,7 @@ window.gsTestApiKey = async function(){
     if (typeof _gsNlOpen === 'function') {
       var _e = function(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){ return c==='&'?'&amp;':(c==='<'?'&lt;':'&gt;'); }); };
       _gsNlOpen('<h3 style="margin:0 0 10px;font-size:var(--fs-lg);">API-Key-Test (' + _e(cfg.provider) + ')</h3><pre style="white-space:pre-wrap;font-size:var(--fs-sm);line-height:1.55;margin:0;font-family:inherit;">' + _e(msg) + '</pre>');
-    } else { gsToast('API-Key-Test: ' + (results[0]||'Test abgeschlossen'), 'info'); }
+    } else { gsToast(_gsSatz('API-Key-Test: {1}', (results[0]||'Test abgeschlossen')), 'info'); }
   } catch(_){}
 };
 
@@ -32098,7 +32119,7 @@ async function gsAutoEnrichNewSpecies(r){
     var apiCfg = (typeof getApiConfig === 'function') ? getApiConfig() : {};
     if (!apiCfg.key) return;
 
-    if (typeof showProfileToast === 'function') showProfileToast('🔬 Recherchiere neue Art: ' + r.name + '…');
+    if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('🔬 Recherchiere neue Art: {1}…', r.name));
 
     var prompt = 'Du bist ein Schweizer Botanik-/Mykologie-Experte. Recherchiere ZUVERLÄSSIG (aus deinem Wissen) die folgende Art und liefere ein VOLLSTÄNDIGES JSON-Profil für die Datenbank.\n\n' +
       'ART: ' + r.name + (r.latin ? ' (' + r.latin + ')' : '') + '\n' +
@@ -32193,7 +32214,7 @@ async function gsAutoEnrichNewSpecies(r){
       }
     } catch(_){}
 
-    if (typeof showProfileToast === 'function') showProfileToast('✅ Neue Art in DB: ' + enriched.name);
+    if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('✅ Neue Art in DB: {1}', enriched.name));
 
     // Anzeige aktualisieren — Enrich-Badge in Scan-Result zeigen
     try {
@@ -32336,7 +32357,7 @@ function gsPickAlternative(altKey) {
   })).slice(0,2);
   newRes.alternatives = newAlts;
   showScanResult(newRes);
-  showProfileToast('✓ Bestimmung auf "' + alt.name + '" geändert');
+  showProfileToast(_gsSatz('✓ Bestimmung auf "{1}" geändert', alt.name));
 }
 
 // Feedback-Loop: User korrigiert die Bestimmung → Training-Data für Fine-Tuning
@@ -34474,7 +34495,7 @@ window.gsAddScanToMyPlants = async function(){
     setTimeout(function(){ if (typeof switchTab === 'function') switchTab('favs'); }, 350);
   } catch(e) {
     console.warn('[v26.86] gsAddScanToMyPlants', e && e.message);
-    if (typeof gsToast === 'function') gsToast('Hinzufügen fehlgeschlagen: ' + (e.message || ''), 'error');
+    if (typeof gsToast === 'function') gsToast(_gsSatz('Hinzufügen fehlgeschlagen: {1}', (e.message || '')), 'error');
   }
 };
 
@@ -36963,7 +36984,7 @@ function showCameraPermDialog(actionFn, opts = {}) {
       })
       .catch(function (err) {
         if (typeof showProfileToast === 'function') {
-          showProfileToast('Kamera-Zugriff: ' + (err.name === 'NotAllowedError' ? 'verweigert' : err.message), 'error');
+          showProfileToast(_gsSatz('Kamera-Zugriff: {1}', (err.name === 'NotAllowedError' ? 'verweigert' : err.message)), 'error');
         }
       });
   };
@@ -37497,7 +37518,7 @@ function gsLuxAddCalibPoint(rawLux, targetLux, source, label) {
   // max 12 Punkte behalten (neueste zuerst)
   if (pts.length > 12) pts = pts.sort(function(a,b){ return (b.ts||0)-(a.ts||0); }).slice(0,12);
   gsLuxSaveCalibPoints(pts);
-  if (typeof showProfileToast === 'function') showProfileToast('✅ Kalibrierpunkt gespeichert (' + pts.length + ' total)', 'success');
+  if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('✅ Kalibrierpunkt gespeichert ({1} total)', pts.length), 'success');
   // Wendet neue Kalibrierung auf aktuellen Wert an und schliesst Modal
   var valEl = document.getElementById('lux-value');
   var newLux = gsLuxApplyCalibration(rawLux);
@@ -38795,7 +38816,7 @@ window.gsReanalyzeFeedback = async function(id){
       Object.assign(fb, verdict);
       try { localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems)); } catch(_){}
       renderFeedback();
-      if(typeof showProfileToast==='function') showProfileToast('✓ Neu bewertet: ' + (verdict.ki_status||'?'));
+      if(typeof showProfileToast==='function') showProfileToast(_gsSatz('✓ Neu bewertet: {1}', (verdict.ki_status||'?')));
     } else {
       if(typeof showProfileToast==='function') showProfileToast('⚠️ Neu-Bewertung fehlgeschlagen.');
     }
@@ -38857,7 +38878,7 @@ function vote(id, dir){
         localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems));
         localStorage.setItem('ps_votes', JSON.stringify(myVotes));
         try { renderFeedback(); } catch (_) {}
-        if (typeof gsToast === 'function') gsToast('Stimme nicht gespeichert: ' + _gsFehlerText(r.error), 'warn', 5000);
+        if (typeof gsToast === 'function') gsToast(_gsSatz('Stimme nicht gespeichert: {1}', _gsFehlerText(r.error)), 'warn', 5000);
       };
       if (_cur === 'up' || _cur === 'down') {
         sbFetch('/rest/v1/feedback_votes', {
@@ -38901,7 +38922,7 @@ async function gsRefreshGlobalFeedback(showToast){
       window._gsFbLastFetch = Date.now();
       window._gsFbLastError = (resp && resp.error && resp.error.message) || 'Unbekannter Fehler';
       if (document.getElementById('feedback-list')) renderFeedback();
-      if (showToast && typeof showProfileToast==='function') showProfileToast('⚠️ Feed-Update fehlgeschlagen: ' + window._gsFbLastError);
+      if (showToast && typeof showProfileToast==='function') showProfileToast(_gsSatz('⚠️ Feed-Update fehlgeschlagen: {1}', window._gsFbLastError));
       return;
     }
     var rows = Array.isArray(resp.data) ? resp.data : [];
@@ -38981,7 +39002,7 @@ async function gsRefreshGlobalFeedback(showToast){
     // v23.70: Notification-Badge nach Feedback-Refresh aktualisieren
     try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
     if (showToast && typeof showProfileToast==='function') {
-      showProfileToast('✓ Feed aktualisiert — ' + rows.length + ' Posts');
+      showProfileToast(_gsSatz('✓ Feed aktualisiert — {1} Posts', rows.length));
     }
   } catch(e){
     console.warn('[feedback] global refresh:', e);
@@ -38989,7 +39010,7 @@ async function gsRefreshGlobalFeedback(showToast){
     window._gsFbLastFetch = Date.now();
     window._gsFbLastError = e && e.message || 'Netzwerkfehler';
     if (document.getElementById('feedback-list')) { try { renderFeedback(); } catch(_){} }
-    if (showToast && typeof showProfileToast==='function') showProfileToast('⚠️ Feed-Update: ' + (e.message||''));
+    if (showToast && typeof showProfileToast==='function') showProfileToast(_gsSatz('⚠️ Feed-Update: {1}', (e.message||'')));
   } finally {
     window._gsFbFetching = false;
     if (btn) { btn.disabled = false; btn.textContent = '🔄 Aktualisieren'; }
@@ -39039,12 +39060,12 @@ window.gsFbMarkDone = async function(id){
         })
       }).then(function(_rp){
         if (typeof showProfileToast !== 'function') return;
-        if (_gsSchreibOk(_rp)) showProfileToast('✅ Abgehakt · Erklärung: ' + note.slice(0,60));
+        if (_gsSchreibOk(_rp)) showProfileToast(_gsSatz('✅ Abgehakt · Erklärung: {1}', note.slice(0,60)));
         else showProfileToast({ title: 'Lokal abgehakt — Server nicht aktualisiert', body: (_rp && _rp.error && _gsFehlerText(_rp.error)) || 'Der Server hat die Änderung nicht bestätigt.', kind: 'warn', duration: 7000 });
       }).catch(function(e){ console.warn('[fb-done] sb patch:', e); });
     }
   } catch(_){}
-  if (!_fbGesagt && typeof showProfileToast === 'function') showProfileToast('✅ Abgehakt (nur lokal) · Erklärung: ' + note.slice(0,60));
+  if (!_fbGesagt && typeof showProfileToast === 'function') showProfileToast(_gsSatz('✅ Abgehakt (nur lokal) · Erklärung: {1}', note.slice(0,60)));
 };
 
 // v23.65: Auto-Poll alle 30s wenn Feedback-Screen sichtbar ist
@@ -39570,7 +39591,7 @@ async function openDiagCamera() {
     if (placeholder) placeholder.style.display = 'none';
     if (controls) controls.style.display = 'flex';
   } catch(e) {
-    gsToast('Kamera nicht verfügbar: ' + e.message, 'error');
+    gsToast(_gsSatz('Kamera nicht verfügbar: {1}', e.message), 'error');
   }
 }
 
@@ -42966,10 +42987,10 @@ async function gsDiarySubmitEntry() {
       if (typeof showProfileToast === 'function') showProfileToast('✅ Eintrag gespeichert', 'success');
       if (typeof closeModal === 'function') closeModal('modal-diary-entry');
     } else {
-      if (typeof showProfileToast === 'function') showProfileToast('Fehler: ' + (r && r.error || 'unbekannt'), 'error');
+      if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('Fehler: {1}', (r && r.error || 'unbekannt')), 'error');
     }
   } catch(e) {
-    if (typeof showProfileToast === 'function') showProfileToast('Fehler: ' + String(e && e.message || e), 'error');
+    if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('Fehler: {1}', String(e && e.message || e)), 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💾 Eintrag speichern'; }
   }
@@ -43299,7 +43320,7 @@ window.gsForestAdoptPlan = async function(slug) {
     return;
   }
   if (typeof gsHaptic === 'function') gsHaptic('success');
-  if (typeof showProfileToast === 'function') showProfileToast('✅ Forest-Garden-Plan erstellt (' + allPlants.length + ' Pflanzen) · siehe „Meine Pläne"', 'success');
+  if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('✅ Forest-Garden-Plan erstellt ({1} Pflanzen) · siehe „Meine Pläne"', allPlants.length), 'success');
   if (typeof closeModal === 'function') closeModal('modal-forest-garden');
 };
 
@@ -43931,7 +43952,7 @@ async function toggleLike(postId) {
   if (r && r.error) {
     post.liked = vorherLiked; post.likes = vorherZahl;   // zurücknehmen: es ist nicht passiert
     renderSocialFeed();
-    if (typeof gsToast === 'function') gsToast('Nicht gespeichert: ' + _gsFehlerText(r.error), 'warn', 5000);
+    if (typeof gsToast === 'function') gsToast(_gsSatz('Nicht gespeichert: {1}', _gsFehlerText(r.error)), 'warn', 5000);
     return;
   }
   // Der Server sagt, wie es wirklich steht — auch wenn das von der Schätzung abweicht.
@@ -44096,7 +44117,7 @@ async function submitPost() {
     // v30.94: Der Entwurf bleibt in gs_social_draft liegen UND kommt sofort zurueck ins
     // Formular — der Nutzer muss nichts neu tippen und kann direkt nochmal senden.
     try { _gsRestoreSocialDraft(true); } catch(_){}
-    showProfileToast('❌ Post nicht gespeichert: ' + errMsg.slice(0,80) + ' · Dein Text ist erhalten.', 'error');
+    showProfileToast(_gsSatz('❌ Post nicht gespeichert: {1} · Dein Text ist erhalten.', errMsg.slice(0,80)), 'error');
   }
 }
 
@@ -44298,7 +44319,7 @@ async function submitIgPost() {
       try { renderSocialFeed && renderSocialFeed(); } catch(_){}
       const errMsg = (res.error && _gsFehlerText(res.error)) || 'Unbekannter Fehler';
       console.error('[submitIgPost] failed:', res.error);
-      showProfileToast && showProfileToast('❌ Post nicht gespeichert: ' + errMsg.slice(0,80), 'error');
+      showProfileToast && showProfileToast(_gsSatz('❌ Post nicht gespeichert: {1}', errMsg.slice(0,80)), 'error');
     }
   } catch(e) {
     socialPosts = socialPosts.filter(p => p.id !== tempId);
@@ -50813,7 +50834,7 @@ async function gsRecipePhotoUpload(localId){
         headers:{ 'Authorization':'Bearer '+token, 'apikey':SB_KEY, 'Content-Type': (blob.type||'image/jpeg'), 'x-upsert':'true' },
         body: blob
       }, 60000);
-      if (!up.ok) { if(typeof gsToast==='function') gsToast('⚠️ Upload fehlgeschlagen ('+up.status+')','error'); return; }
+      if (!up.ok) { if(typeof gsToast==='function') gsToast(_gsSatz('⚠️ Upload fehlgeschlagen ({1})', up.status),'error'); return; }
       var url = SB_URL + '/storage/v1/object/public/recipe-photos/' + path;
       var arr = (Array.isArray(r.photo_urls)?r.photo_urls:[]).concat([url]).slice(0,5);
       var pr = await sbFetch('/rest/v1/' + tbl + '?id=eq.' + encodeURIComponent(r._cloud_id), {
@@ -50824,7 +50845,7 @@ async function gsRecipePhotoUpload(localId){
       if (typeof gsHaptic==='function') { try{ gsHaptic('success'); }catch(_){} }
       if (typeof gsToast==='function') gsToast('✅ Foto hinzugefügt','success');
       openRecipeDetail(localId);
-    } catch(e){ if(typeof gsToast==='function') gsToast('Fehler: '+((e&&e.message)||e),'error'); }
+    } catch(e){ if(typeof gsToast==='function') gsToast(_gsSatz('Fehler: {1}', ((e&&e.message)||e)),'error'); }
   };
   input.click();
 }
@@ -53455,7 +53476,7 @@ window.gsToggleAchFeed = function(checked) {
           if (_gsSchreibOk(_rf)) { if (typeof gsToast === 'function') gsToast(checked ? '🏆 Feed-Anzeige aktiviert' : '🔒 Aus Feed entfernt', 'success'); return; }
           userPrefs.achFeed = !checked; savePrefs();
           try { var cb = document.getElementById('toggle-ach-feed'); if (cb) cb.checked = !checked; } catch(_){}
-          if (typeof gsToast === 'function') gsToast('⚠️ Einstellung nicht gespeichert: ' + ((_rf && _rf.error && _gsFehlerText(_rf.error)) || 'Server hat nicht bestätigt'), 'error', 6000);
+          if (typeof gsToast === 'function') gsToast(_gsSatz('⚠️ Einstellung nicht gespeichert: {1}', ((_rf && _rf.error && _gsFehlerText(_rf.error)) || 'Server hat nicht bestätigt')), 'error', 6000);
         }).catch(function(){});
       }
     }
@@ -53894,7 +53915,7 @@ function importUserData() {
           if (typeof gsConfirmModal === 'function') {
             _impOk = await gsConfirmModal({ title: 'Backup importieren?', message: 'Backup vom ' + new Date(data.exportDate).toLocaleDateString(gsLocale()) + ' importieren? Alle aktuellen Daten werden überschrieben!', ok: '📥 Importieren', cancel: 'Abbrechen', kind: 'danger' });
           } else {
-            _impOk = confirm('Backup vom ' + new Date(data.exportDate).toLocaleDateString(gsLocale()) + ' importieren?\n\nAlle aktuellen Daten werden überschrieben!');
+            _impOk = confirm(_gsSatz('Backup vom {1} importieren?\n\nAlle aktuellen Daten werden überschrieben!', new Date(data.exportDate).toLocaleDateString(gsLocale())));
           }
           if (_impOk) {
             var _erg = _gsBackupEinspielen(data);   // v32.51: ein Weg, mit Rueckmeldung
@@ -53903,11 +53924,11 @@ function importUserData() {
               location.reload();
             } else {
               // Kein Neuladen: die Meldung muss ankommen, sonst sieht es aus wie Erfolg.
-              gsToast('Backup eingespielt — aber der Speicher ist voll, nicht gesichert: ' + _erg.nicht_gesichert.join(', ') + '. Platz schaffen und noch einmal importieren.', 'warn', 8000);
+              gsToast(_gsSatz('Backup eingespielt — aber der Speicher ist voll, nicht gesichert: {1}. Platz schaffen und noch einmal importieren.', _erg.nicht_gesichert.join(', ')), 'warn', 8000);
             }
           }
         } else { gsToast('Ungültiges Backup-Format.', 'error'); }
-      } catch(e) { gsToast('Fehler beim Lesen: ' + e.message, 'error'); }
+      } catch(e) { gsToast(_gsSatz('Fehler beim Lesen: {1}', e.message), 'error'); }
     };
     reader.readAsText(file);
   };
@@ -54192,7 +54213,7 @@ async function submitInlinePost() {
       try { renderSocialFeed(); } catch(_){}
       const errMsg = (res.error && _gsFehlerText(res.error)) || 'Unbekannter Fehler';
       console.error('[submitInlinePost] failed:', res.error);
-      showProfileToast && showProfileToast('❌ Post nicht gespeichert: ' + errMsg.slice(0,80), 'error');
+      showProfileToast && showProfileToast(_gsSatz('❌ Post nicht gespeichert: {1}', errMsg.slice(0,80)), 'error');
     }
   } catch(e) {
     socialPosts = socialPosts.filter(p => p.id !== tempId);
@@ -55822,7 +55843,7 @@ function gsTrackStop() {
       // Erst nach erfolgreichem Speichern den Snapshot löschen — sonst wäre
       // der Track bei vollem Speicher restlos verloren.
       try { localStorage.removeItem(_GS_TRACK_LIVE_KEY); } catch(_){}
-      showProfileToast('🎉 Track gespeichert · '+_gsTrack.points.length+' Punkte','success');
+      showProfileToast(_gsSatz('🎉 Track gespeichert · {1} Punkte', _gsTrack.points.length),'success');
       setTimeout(function(){
         if (typeof gsTrackOpenDetail === 'function') gsTrackOpenDetail(newIdx);
       }, 800);
@@ -55937,7 +55958,7 @@ function _gsTrackRecoveryChoice(points, minutes) {
     _gsTrackBegin(data.points, data.start);
     _gsTrack.resumed = true;
     _gsTrackPersistLive(true);
-    if (typeof showProfileToast === 'function') showProfileToast('▶️ Track fortgesetzt · '+data.points.length+' Punkte übernommen','success');
+    if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('▶️ Track fortgesetzt · {1} Punkte übernommen', data.points.length),'success');
   }
 
   function _gsCheckTrackRecovery() {
@@ -56205,7 +56226,7 @@ window.gsTrackToggleHeatmap = function() {
   if (allBounds) gsMap.fitBounds(allBounds, {padding:[30,30]});
   var btnOn = document.getElementById('gs-map-heat-btn');
   if (btnOn) { btnOn.style.background = '#ff5722'; btnOn.style.color = '#fff'; }
-  if (typeof showProfileToast === 'function') showProfileToast('🔥 Heatmap: ' + saved.length + ' Tracks');
+  if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('🔥 Heatmap: {1} Tracks', saved.length));
 };
 
 function gsTrackExportGPX(idx) {
@@ -57075,7 +57096,7 @@ function gsShowMushroomSeason() {
 
 // Alle Funde löschen
 async function gsMapClearAll() {
-  if (!(await gsConfirmModal('Alle ' + gsGetSavedMarkers().length + ' Fundorte löschen?'))) return;
+  if (!(await gsConfirmModal(_gsSatz('Alle {1} Fundorte löschen?', gsGetSavedMarkers().length)))) return;
   localStorage.removeItem('greenscan_markers');
   // Filter-Layer-Array zurücksetzen
   try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers = []; } catch(e){}
@@ -58550,7 +58571,7 @@ function gsBroadcastLocationChange() {
   try { window.dispatchEvent(new CustomEvent('gs-location-changed', {detail: userLocation})); } catch(e){}
   // Toast feedback
   if (typeof showProfileToast === 'function' && userLocation && userLocation.name) {
-    showProfileToast('📍 Standort aktualisiert: ' + userLocation.name, 'success');
+    showProfileToast(_gsSatz('📍 Standort aktualisiert: {1}', userLocation.name), 'success');
   }
 }
 
@@ -58588,7 +58609,7 @@ function gsSetWeatherLocMode(mode){
   try { localStorage.setItem('gs_weather_loc_mode', mode); } catch(_){}
   if (typeof gsHaptic==='function') { try { gsHaptic('light'); } catch(_){} }
   var lbl = mode==='garden' ? 'Mein Garten' : (mode==='manual' ? 'Manuell' : 'Automatisch (Live)');
-  if (typeof gsToast==='function') gsToast('🌦️ Wetter-Standort: ' + lbl, 'success', 2000);
+  if (typeof gsToast==='function') gsToast(_gsSatz('🌦️ Wetter-Standort: {1}', lbl), 'success', 2000);
   try { if (typeof loadHomeWeather === 'function') loadHomeWeather(); } catch(_){}
   // v29.78: gsLoadGardenWeatherAlerts-Call entfernt (Home-Unwetter-Card raus)
 }
@@ -59338,7 +59359,7 @@ async function openGardenScanCamera() {
     const btn = document.getElementById('gs-capture-btn');
     btn.disabled = false; btn.style.opacity = '1';
   } catch(e) {
-    gsToast('Kamera nicht verfügbar: ' + e.message, 'error');
+    gsToast(_gsSatz('Kamera nicht verfügbar: {1}', e.message), 'error');
   }
 }
 
@@ -60572,7 +60593,7 @@ window.gsLuxApplyToPlanner = function(luxVal){
     setTimeout(function(){
       try { if (typeof gsPPgoStep === 'function') gsPPgoStep(3); } catch(_){}
       try { if (typeof gsPPloadLastLux === 'function') gsPPloadLastLux(); } catch(_){}
-      if (typeof showProfileToast === 'function' && luxVal) showProfileToast('☀️ Lichtmessung übernommen: ' + Math.round(luxVal).toLocaleString(gsLocale()) + ' lx');
+      if (typeof showProfileToast === 'function' && luxVal) showProfileToast(_gsSatz('☀️ Lichtmessung übernommen: {1} lx', Math.round(luxVal).toLocaleString(gsLocale())));
     }, 220);
   }, 220);
 };
@@ -60651,11 +60672,11 @@ async function gsPPmeasureLuxInline() {
     if (txt) txt.innerHTML = '✅ Gemessen: <b>' + lux.toLocaleString(gsLocale()) + ' lx</b> (' + cat + ')';
     var lightSel = document.getElementById('pp-light');
     if (lightSel) lightSel.value = lux < 500 ? 'shade' : lux < 5000 ? 'part_sun' : 'full_sun';
-    if (typeof showProfileToast === 'function') showProfileToast('☀️ Lichtmessung übernommen: ' + lux.toLocaleString(gsLocale()) + ' lx');
+    if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('☀️ Lichtmessung übernommen: {1} lx', lux.toLocaleString(gsLocale())));
   } catch(e) {
     try { if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); } catch(_){}
     if (txt) txt.innerHTML = '❌ Messung fehlgeschlagen: ' + (e.message || 'Kamera-Zugriff verweigert');
-    if (typeof showProfileToast === 'function') showProfileToast('❌ Lichtmessung: ' + (e.message || 'Kamera nicht verfügbar'), 'error');
+    if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('❌ Lichtmessung: {1}', (e.message || 'Kamera nicht verfügbar')), 'error');
   }
 }
 
@@ -61810,7 +61831,7 @@ window.gsPPumsetzen = function (idx) {
         }
       } catch (_) {}
       _gsPPumgesetztSetz(planId, idx, null);
-      if (typeof gsToast === 'function') gsToast('Zur\u00fcckgenommen: ' + (p.name || 'Pflanze'), 'info');
+      if (typeof gsToast === 'function') gsToast(_gsSatz('Zur\u00fcckgenommen: {1}', (p.name || 'Pflanze')), 'info');
     } else {
       var gsel = document.getElementById('gs-um-garten');
       var gl = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
@@ -66290,7 +66311,7 @@ window.gsBalconyAdoptTemplate = async function(slug) {
     return;
   }
   if (typeof gsHaptic === 'function') gsHaptic('success');
-  if (typeof showProfileToast === 'function') showProfileToast('✅ Balkon-Vorlage übernommen (' + allPlants.length + ' Pflanzen) · siehe „Meine Pläne"', 'success');
+  if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('✅ Balkon-Vorlage übernommen ({1} Pflanzen) · siehe „Meine Pläne"', allPlants.length), 'success');
   if (typeof closeModal === 'function') closeModal('detail-modal');
 };
 
@@ -70683,7 +70704,7 @@ async function gsPPexportPDF() {
     }
   } catch(e) {
     console.error('[gsPPexportPDF]', e);
-    showProfileToast && showProfileToast('❌ PDF-Export fehlgeschlagen: ' + e.message);
+    showProfileToast && showProfileToast(_gsSatz('❌ PDF-Export fehlgeschlagen: {1}', e.message));
   }
 }
 
@@ -71188,7 +71209,7 @@ async function gsDevConnect(kind) {
     gsDevRenderList();
   } catch(e) {
     if (e && e.name === 'NotFoundError') return;
-    gsToast('Bluetooth-Fehler: ' + (e && e.message ? e.message : e), 'error');
+    gsToast(_gsSatz('Bluetooth-Fehler: {1}', (e && e.message ? e.message : e)), 'error');
   }
 }
 
@@ -71200,7 +71221,7 @@ async function gsDevReconnect(id) {
 }
 
 async function gsDevForget(id) {
-  if (!(await gsConfirmModal('Sensor „' + ((_gsDev.registry[id] || {}).name || id) + '" entfernen?'))) return;
+  if (!(await gsConfirmModal(_gsSatz('Sensor „{1}" entfernen?', ((_gsDev.registry[id] || {}).name || id))))) return;
   try {
     if (_gsDev.connected[id] && _gsDev.connected[id].device && _gsDev.connected[id].device.gatt && _gsDev.connected[id].device.gatt.connected) {
       _gsDev.connected[id].device.gatt.disconnect();
@@ -73730,7 +73751,7 @@ window.gsGlobalKeyToggleService = async function() {
       showProfileToast && showProfileToast('🔌 Service deaktiviert');
       var m = document.getElementById('gs-global-key-admin'); if (m) m.remove();
     } else {
-      showProfileToast && showProfileToast('❌ Fehler: ' + ((r && r.error && _gsFehlerText(r.error)) || 'unbekannt'));
+      showProfileToast && showProfileToast(_gsSatz('❌ Fehler: {1}', ((r && r.error && _gsFehlerText(r.error)) || 'unbekannt')));
     }
   } catch(e) { showProfileToast && showProfileToast('❌ ' + e.message); }
 };
@@ -73769,6 +73790,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v32.83', date: '08.09.2026',
+    headline: '🗣️ 69 Rückmeldungen waren unübersetzbar gebaut — jetzt nicht mehr',
+    summary: 'showProfileToast übersetzt seit v30.18 am ganzen Satz (gsI18n.tText). Bei 69 Meldungen war dieser Satz aber ZUSAMMENGESETZT — „Kamera nicht verfügbar: " + e.message. Ein Nachschlag kann darin nie treffen, und der Sammler überspringt ein Literal mit folgendem + ausdrücklich: ein Fragment ist kein Satz. Ein französischer Nutzer las diese 69 Meldungen deshalb immer auf Deutsch, ohne dass irgendetwas rot war. _gsSatz(vorlage, …werte) übersetzt jetzt die VORLAGE und setzt die Werte DANACH ein — {1}, {2} dürfen in der Übersetzung die Stellung wechseln, was in fr und it regelmässig nötig ist. Zwei Stellen wurden dabei von Hand in ganze Sätze zerlegt statt in Platzhalter gepresst: ein Plural-Suffix („Tag{2}") und ein Name-oder-nichts sind Grammatik, keine Werte. i18n_check misst beide Hälften: 0 Fragmente im Quelltext UND ein echter Toast in fr, mit vertauschter Stellung als Beleg, dass wirklich nach der Übersetzung eingesetzt wird. Gegen v32.82: rot, mit 68 gefundenen Fragmenten.',
+    user_summary: '🗣️ Fast siebzig Meldungen erscheinen jetzt in deiner Sprache — vorher waren sie immer deutsch, egal was eingestellt war.',
+    user_items: [
+      {emoji:'🗣️', bold:'Meldungen:', text:' Hinweise wie „Kamera nicht verfügbar" oder „Nicht gespeichert" folgen jetzt der eingestellten Sprache statt immer Deutsch zu zeigen.'},
+      {emoji:'🇫🇷', bold:'Satzstellung:', text:' Der eingesetzte Wert (Name, Anzahl, Grund) steht dort, wo er in der jeweiligen Sprache hingehört — nicht wo er im Deutschen stünde.'},
+    ],
+  },
   {
     v: 'v32.82', date: '08.09.2026',
     headline: '❤️ Was der Server ablehnt, nimmt die Anzeige zurück — und was er bestätigt, zählt',
@@ -74839,7 +74870,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.82';
+var GS_VERSION = 'v32.83';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75412,7 +75443,7 @@ async function gsHandleAuthRedirect(){
                   sbClearSession();
                   history.replaceState(null, '', location.pathname);
                 } else {
-                  gsToast('⚠️ Fehler: ' + (r && r.error && _gsFehlerText(r.error) || 'unbekannt'), 'error');
+                  gsToast(_gsSatz('⚠️ Fehler: {1}', (r && r.error && _gsFehlerText(r.error) || 'unbekannt')), 'error');
                 }
               });
             } else if (newPw != null && newPw !== false) {
@@ -76465,7 +76496,7 @@ async function checkAndUpdateStreak() {
 
   if (streak > 1) {
     setTimeout(function(){
-      showProfileToast('🔥 Login-Streak: ' + streak + ' Tage! +' + xpBonus + ' XP');
+      showProfileToast(_gsSatz('🔥 Login-Streak: {1} Tage! +{2} XP', streak, xpBonus));
     }, 1500);
   }
 }
@@ -79081,7 +79112,7 @@ window.gsExportMesswerteCSV = function(){
     }
     if (typeof showProfileToast === 'function') showProfileToast({type:'success', icon:'📊', title:'Export erstellt', body:werte.length + ' Messwerte als CSV', duration:3000});
     return csv;
-  } catch(e) { if (typeof gsToast === 'function') gsToast('Export fehlgeschlagen: ' + e.message, 'error'); return ''; }
+  } catch(e) { if (typeof gsToast === 'function') gsToast(_gsSatz('Export fehlgeschlagen: {1}', e.message), 'error'); return ''; }
 };
 window.gsShowExportModal = function(){
   var existing = document.getElementById('gs-export-modal'); if (existing) existing.remove();
@@ -80589,7 +80620,7 @@ async function onbDoLogin() {
                       (gsStore.get('gs_sb_email', '') || '').split('@')[0] || '';
       } catch(_){}
       if (typeof showProfileToast === 'function') {
-        showProfileToast('🌿 Willkommen zurück' + (displayName ? ', ' + displayName : '') + '!', 'success');
+        showProfileToast(displayName ? _gsSatz('🌿 Willkommen zurück, {1}!', displayName) : _gsSatz('🌿 Willkommen zurück!'), 'success');
       }
     }
   } catch(e) {
@@ -82417,8 +82448,7 @@ async function gsSnapshotRestore(){
     }
     if (_st.failed > 0) {
       if (typeof gsToast === 'function') {
-        gsToast('⚠️ Teilweise wiederhergestellt (' + _st.written + ' von ' + (_st.written + _st.failed) + ') — '
-              + 'der Gerätespeicher ist voll. Nach dem Aufräumen bitte nochmal wiederherstellen.', 'warning', 9000);
+        gsToast(_gsSatz('⚠️ Teilweise wiederhergestellt ({1} von {2}) — der Gerätespeicher ist voll. Nach dem Aufräumen bitte nochmal wiederherstellen.', _st.written, (_st.written + _st.failed)), 'warning', 9000);
       }
       return false;
     }
@@ -84237,7 +84267,7 @@ async function gsSendTestPush(){
       if (typeof showProfileToast === 'function') showProfileToast(msg, 'error');
     }
   } catch(e) {
-    if (typeof showProfileToast === 'function') showProfileToast('Test-Push Fehler: ' + ((e && e.message) || 'unbekannt'), 'error');
+    if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('Test-Push Fehler: {1}', ((e && e.message) || 'unbekannt')), 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '📨 Test-Push senden'; }
   }
@@ -84704,7 +84734,7 @@ async function gsAdminAssignRole(userId, role, note, opts) {
       body: JSON.stringify({_user_id: userId, _role: role, _note: note || null})
     });
     if (r && !r.error) {
-      showProfileToast && showProfileToast('✅ Rolle zugewiesen: ' + role);
+      showProfileToast && showProfileToast(_gsSatz('✅ Rolle zugewiesen: {1}', role));
       return r.data;
     }
     showProfileToast && showProfileToast('❌ ' + ((r.error && _gsFehlerText(r.error)) || 'Fehler'));
@@ -84738,9 +84768,9 @@ async function gsAdminSetTier(userId, tier, opts) {
     var r = await sbFetch('/rest/v1/rpc/fn_admin_set_tier', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_user_id: userId, p_tier: tier }) });
     var d = (r && r.data) || {};
     if (d.ok) {
-      if (typeof gsToast === 'function') gsToast('💎 Tier gesetzt: ' + tier + (d.stripe_warning ? ' — ℹ️ User hat bereits ein aktives Stripe-Abo (Comp zusätzlich)' : ' — schaltet beim nächsten Öffnen frei'), d.stripe_warning ? 'info' : 'success', 4000);
+      if (typeof gsToast === 'function') gsToast(_gsSatz('💎 Tier gesetzt: {1}{2}', tier, (d.stripe_warning ? ' — ℹ️ User hat bereits ein aktives Stripe-Abo (Comp zusätzlich)' : ' — schaltet beim nächsten Öffnen frei')), d.stripe_warning ? 'info' : 'success', 4000);
     } else {
-      if (typeof gsToast === 'function') gsToast('Tier-Wechsel fehlgeschlagen: ' + (d.error || 'unbekannt'), 'error');
+      if (typeof gsToast === 'function') gsToast(_gsSatz('Tier-Wechsel fehlgeschlagen: {1}', (d.error || 'unbekannt')), 'error');
     }
   } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
 }
@@ -84764,7 +84794,7 @@ async function gsAdminEditFlag(key, currentValue) {
     var r = await sbFetch('/rest/v1/rpc/fn_admin_flag_set', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_key: key, p_value: String(nv) }) });
     var d = (r && r.data) || {};
     if (d.ok) { if (typeof gsToast === 'function') gsToast('🚩 Flag gespeichert.', 'success'); openAdminPanel(); }
-    else { if (typeof gsToast === 'function') gsToast('Fehler: ' + (d.error || 'unbekannt'), 'error'); }
+    else { if (typeof gsToast === 'function') gsToast(_gsSatz('Fehler: {1}', (d.error || 'unbekannt')), 'error'); }
   } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
 }
 window.gsAdminEditFlag = gsAdminEditFlag;
@@ -84880,10 +84910,10 @@ async function gsAdminSendBroadcast() {
     });
     var d = (r && r.data) || {};
     if (d.sent > 0 || d.ok) {
-      if (typeof gsToast === 'function') gsToast('📣 Gesendet: ' + (d.sent||0) + ' Push(es) an ' + (d.users||0) + ' Nutzer (' + (d.failed||0) + ' fehlgeschlagen).', 'success', 5000);
+      if (typeof gsToast === 'function') gsToast(_gsSatz('📣 Gesendet: {1} Push(es) an {2} Nutzer ({3} fehlgeschlagen).', (d.sent||0), (d.users||0), (d.failed||0)), 'success', 5000);
       if (tEl) tEl.value = ''; if (bEl) bEl.value = '';
     } else {
-      if (typeof gsToast === 'function') gsToast('Broadcast: ' + (d.error || 'keine Empfänger/Fehler'), 'warning', 4000);
+      if (typeof gsToast === 'function') gsToast(_gsSatz('Broadcast: {1}', (d.error || 'keine Empfänger/Fehler')), 'warning', 4000);
     }
   } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
 }
@@ -85146,7 +85176,7 @@ async function gsAdminCreateVoucher() {
     var r = await sbFetch('/rest/v1/rpc/fn_admin_create_voucher', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ p_code: code.trim(), p_reward_tier: tier, p_max_uses: (maxV?parseInt(maxV,10):null), p_valid_days: (days?parseInt(days,10):null), p_description: null }) });
     var res = r && r.data;
-    if (res && res.ok) { if (typeof gsToast==='function') gsToast('✅ Gutschein ' + res.code + ' erstellt', 'success'); }
+    if (res && res.ok) { if (typeof gsToast==='function') gsToast(_gsSatz('✅ Gutschein {1} erstellt', res.code), 'success'); }
     else { var E={code_exists:'Code existiert bereits',invalid_reward:'Ungültige Belohnung',no_code:'Kein Code',forbidden:'Keine Berechtigung'}; if (typeof gsToast==='function') gsToast('⚠️ ' + (E[res&&res.error]||(res&&res.error)||'Fehler'), 'error'); }
   } catch(e){ if (typeof gsToast==='function') gsToast('⚠️ ' + (e&&e.message||'Fehler'), 'error'); }
   await _gsAdminRefreshSection('gs-admin-vouchers-sec', gsAdminFetchVouchers, _gsAdminVouchersHtml);
@@ -90437,7 +90467,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     try {
       await bookIngestCall({ action: 'merge', candidate_id: candidateId, decision: decision });
       await gsBookIngestLoadCandidates();
-    } catch(err) { gsToast('Fehler: ' + err.message, 'error'); }
+    } catch(err) { gsToast(_gsSatz('Fehler: {1}', err.message), 'error'); }
   };
 
   // v24.27: Auto-Approve aller Kandidaten >= confidence_threshold (in einem Batch)
@@ -90455,7 +90485,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       }
       await gsBookIngestLoadCandidates();
     } catch(err) {
-      gsToast('Auto-Approve-Fehler: ' + err.message, 'error');
+      gsToast(_gsSatz('Auto-Approve-Fehler: {1}', err.message), 'error');
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '⚡ Hochwertige Kandidaten auto-approven'; }
     }
