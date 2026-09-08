@@ -41,7 +41,7 @@
   (`'Fehler: ' + x`), die eine Phrasen-Übersetzung grundsätzlich nicht
   erreicht — dort muss der ganze Satz als Literal dastehen.
 
-Regression v32.80 → v32.81: (folgt)
+Regression v32.80 → v32.81: 30 Prüfstände grün, 0 nicht prüfbar, Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (ft) — v32.80: C5 nachgemessen, ein Versprechen im Kommentar eingelöst — Audit C5 (letzter Punkt aus §G)
 
