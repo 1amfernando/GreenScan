@@ -1592,6 +1592,118 @@ const FAELLE = [
     },
   },
 
+  {
+    // v32.96 — die Zahl unter „Giftig" im Lexikon fragte `tox === 2 || tox === 3`.
+    // Die Untergrenze war Absicht („gering" zaehlt nicht), die Obergrenze nicht:
+    // 131 Eintraege mit Stufe 4 und 5 fehlten — genau die stark giftigen und die
+    // toedlichen. Gemessen wird die GERENDERTE Zahl, nicht die Rechnung.
+    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein',
+    lauf: async () => {
+      if (typeof renderLexikon !== 'function') return { ok: false, warum: 'renderLexikon fehlt' };
+      const erwartet = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 2).length;
+      const toedlich = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 4).length;
+      if (!toedlich) return { ok: false, warum: 'keine Art mit Stufe 4+ in der Liste — der Fall misst nichts' };
+      // renderLexikon GIBT das HTML ZURUECK (es haengt es nicht ein) — der erste
+      // Anlauf suchte im Dokument und traf eine fremde Plakette „Giftig"; er
+      // waere gruen gewesen, sobald die Zahl zufaellig gepasst haette.
+      const huelle = document.createElement('div');
+      huelle.innerHTML = String(renderLexikon() || '');
+      const kacheln = [...huelle.querySelectorAll('div')].filter(d => /^(Giftig)$/i.test((d.textContent || '').trim()));
+      if (!kacheln.length) return { ok: false, warum: 'keine Kachel „Giftig" gerendert — der Fall misst nichts' };
+      const eltern = kacheln[0].parentElement;
+      const zahl = parseInt(((eltern && eltern.firstElementChild && eltern.firstElementChild.textContent) || '').replace(/\D/g, ''), 10);
+      if (!zahl) return { ok: false, warum: 'keine Zahl neben „Giftig" gefunden' };
+      if (zahl !== erwartet) {
+        const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
+        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
+      }
+      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 (alte Regel tox 2|3: ' + DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length + ')' };
+    },
+  },
+
+  {
+    // v32.96 — das Symbol IST die Beschriftung des Eintrags in der Sammlung.
+    // 134 Eintraege bekamen ein anderes: die Christrose stand mit 🌿 dort
+    // (Eintrag tox 3), waehrend ihre Art Stufe 5 hat.
+    name: 'D1h · Das Symbol in der Sammlung kommt von der ART',
+    lauf: async () => {
+      if (typeof gsAddSpeciesToCollection !== 'function') return { ok: false, warum: 'gsAddSpeciesToCollection fehlt' };
+      let kand = null;
+      DB.forEach(sp => {
+        if (kand || !sp || !sp.lat) return;
+        const a = _gsArtAnzeige(sp);
+        if (a !== sp && a._korrigiert && (a.tox || 0) >= 4 && (sp.tox || 0) < 4) kand = sp;
+      });
+      if (!kand) return { ok: false, warum: 'keine Art mit Eintrag < 4 und Art >= 4 — der Fall misst nichts' };
+      let gesehen = null;
+      const e = window.gsAddToCollection;
+      try {
+        window.gsAddToCollection = async function (typ, ref, label, emoji) { gesehen = { ref: ref, emoji: emoji }; };
+        gsAddSpeciesToCollection(kand.id);
+      } finally { window.gsAddToCollection = e; }
+      if (!gesehen) return { ok: false, warum: 'gsAddToCollection wurde nicht gerufen — der Fall misst nichts' };
+      if (gesehen.emoji !== '☠️') return { ok: false, warum: '„' + kand.name + '" (Eintrag tox ' + kand.tox + ', Art ' + _gsArtAnzeige(kand).tox + ') bekommt „' + gesehen.emoji + '" statt ☠️' };
+      return { ok: true, info: '„' + kand.name + '" (Eintrag tox ' + kand.tox + ', Art ' + _gsArtAnzeige(kand).tox + ') bekommt ☠️' };
+    },
+  },
+
+  {
+    // v32.96 — zwei Stellen, die einen SATZ ueber die Giftigkeit sagen: die
+    // Fakten-Zeile auf der Startseite und die Antwort des Offline-Chats. Beide
+    // lasen den Eintrag; beim Chat kommt der Treffer aus einem NAMENS-Vergleich,
+    // der bei mehrfach gefuehrten Arten irgendeinen der Eintraege trifft.
+    name: 'D1i · Fakten-Zeile und Offline-Chat nennen die Stufe der ART',
+    lauf: async () => {
+      let kand = null;
+      DB.forEach(sp => {
+        if (kand || !sp || !sp.name) return;
+        const a = _gsArtAnzeige(sp);
+        if (a !== sp && a._korrigiert && (a.tox || 0) >= 4 && (sp.tox || 0) < 4) kand = sp;
+      });
+      if (!kand) return { ok: false, warum: 'keine Art mit Eintrag < 4 und Art >= 4 — der Fall misst nichts' };
+      const artTox = _gsArtAnzeige(kand).tox;
+      const f = [];
+
+      // (a) Offline-Chat
+      if (typeof getSmartAnswer !== 'function') f.push('getSmartAnswer fehlt');
+      else {
+        const antwort = String(getSmartAnswer(kand.name.toLowerCase()) || '');
+        if (!antwort.includes(kand.name)) f.push('der Chat findet „' + kand.name + '" gar nicht — der Fall misst nichts');
+        else {
+          const stufen = ['harmlos', 'gering', 'mässig', 'giftig', 'stark giftig', 'TÖDLICH'];
+          if (!antwort.includes(stufen[artTox])) f.push('Chat nennt nicht „' + stufen[artTox] + '" (Art ' + artTox + '), sondern: ' + (antwort.match(/Giftigkeitsstufe:\*\* ([^\n]+)/) || [, '(gar nichts)'])[1]);
+          if (/✅ \*\*Essbar\*\*/.test(antwort) && !_gsArtAnzeige(kand).edible) f.push('Chat sagt „Essbar", die Art nicht');
+        }
+      }
+
+      // (b) Fakten-Zeile: die 60 gezogenen Zeilen duerfen fuer eine Art mit
+      // Stufe 4+ nie die harmlose Variante zeigen.
+      if (typeof gsInitDynamicFacts !== 'function') f.push('gsInitDynamicFacts fehlt');
+      else {
+        gsInitDynamicFacts();
+        const zeilen = Array.isArray(window._dynF) ? window._dynF : [];
+        if (!zeilen.length) f.push('keine Fakten-Zeilen erzeugt — der Fall misst nichts');
+        else {
+          let falsch = [];
+          zeilen.forEach(z => {
+            const m = String(z).match(/<strong>([^<]+)<\/strong>/);
+            if (!m) return;
+            const treffer = DB.filter(s => s && s.name === m[1]);
+            if (!treffer.length) return;
+            // Zeigt die Zeile die Warnung? Dann ist sie richtig.
+            const warnt = /stark giftig/.test(z);
+            const artStufe = Math.max.apply(null, treffer.map(s => _gsArtAnzeige(s).tox | 0));
+            if (artStufe >= 4 && !warnt) falsch.push(m[1] + ' (Art ' + artStufe + ')');
+          });
+          if (falsch.length) f.push(falsch.length + ' Fakten-Zeile(n) ohne Warnung, obwohl die Art Stufe 4+ hat: ' + falsch.slice(0, 4).join(', '));
+        }
+      }
+
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '„' + kand.name + '" (Eintrag ' + (kand.tox | 0) + ', Art ' + artTox + ') · Chat nennt die Stufe der Art · ' + (window._dynF || []).length + ' Fakten-Zeilen, keine ohne Warnung' };
+    },
+  },
+
   // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
   // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
   // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`

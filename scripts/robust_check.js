@@ -497,6 +497,21 @@ const FAELLE = [
       // Block-Kommentar-Streicher den halben Rest verschlucken lassen — deshalb werden NUR
       // ganze Kommentarzeilen entfernt (wiring_check hat dieselbe Lehre, CLAUDE.md §7.1).
       const BEWUSST = { closeAbout: "window['close' + modalId] bildet den Namen dynamisch (Z. ~19597)" };
+      // v32.96 — DRITTE Klasse, nach dem Vorbild von backend_check: eine Oberflaeche
+      // OHNE EINSTIEG ist kein dynamisch gebildeter Name (BEWUSST) und auch kein
+      // Fehler im Code — sie ist eine ENTSCHEIDUNG, die aussteht: verdrahten oder
+      // entfernen. Sie wird NAMENTLICH genannt, nie stillschweigend durchgewunken.
+      // Alle sieben wurden erst sichtbar, als die eigene Ausfuhr nicht mehr als
+      // Nennung zaehlte; sie lagen vorher unter dem Raster, nicht in dieser Liste.
+      const OHNE_EINSTIEG = {
+        gsSafetyDefaults:      'Sicherheitsnetz aus v23.45 (generische Warnung fuer Arten mit leerem warning/lookalike) — nie verdrahtet. Verdrahten aendert den Text auf vielen Detailseiten: eigene Entscheidung.',
+        openHarvestAddModal:   'Oeffner fuer #modal-harvest-add. Die v28.15-Konsolidierung hat openErnteTracking() zur Oberflaeche gemacht (Menue + zwei Kacheln + Erntekalender); dieser Dialog blieb ohne Einstieg zurueck.',
+        gsHarvestLoadForPlant: 'Ernte-Liste je Pflanze aus garden_harvests — kein Aufrufer, also keine Anzeige auf der Pflanzenkarte.',
+        gsDoctorHistoryLoad:   'Doktor-Verlauf je Pflanze — kein Aufrufer, also keine Anzeige.',
+        gsAROpen:              'AR-Ansicht einer Art — kein Aufrufer, kein Knopf.',
+        gsShowNextWisdom:      'Weiterblaettern in der Weisheits-Karte (#wisdom-card wird gerendert) — es gibt keinen Knopf dafuer.',
+        gsBattleClose:         'Aufraeumen des Battle-Timers — kein Aufrufer; solange gsBattle* laeuft, wird das Intervall nie geloescht.',
+      };
       const wurzel = path.join(__dirname, '..');
       const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');
       const defs = new Set();
@@ -505,20 +520,35 @@ const FAELLE = [
       const dateien = ['sw.js', 'install.html', 'offline.html'];
       const sammle = (d, re) => { try { fs.readdirSync(path.join(wurzel, d)).filter(f => re.test(f)).forEach(f => dateien.push(path.join(d, f))); } catch (_) {} };
       sammle('scripts', /\.(js|py)$/); sammle('supabase/migrations', /\.sql$/);
+      // v32.96: DIESE Datei zaehlt nicht mit. Sie nennt jeden Namen, den sie in
+      // BEWUSST/OHNE_EINSTIEG deklariert — eine Deklaration im Pruefstand waere
+      // damit ihre eigene zweite Nennung, und der Fall meldete brav „0 ohne
+      // zweite Nennung". Ein Pruefstand, der durch das Eintragen still wird,
+      // misst nur noch sich selbst. (Gefunden beim Eintragen der sieben.)
+      const selbst = path.join('scripts', path.basename(__filename));
+      for (let i = dateien.length - 1; i >= 0; i--) if (dateien[i] === selbst) dateien.splice(i, 1);
       try { fs.readdirSync(path.join(wurzel, 'supabase', 'functions')).forEach(f => { const p = path.join('supabase', 'functions', f, 'index.ts'); if (fs.existsSync(path.join(wurzel, p))) dateien.push(p); }); } catch (_) {}
       let korpus = idx;
       for (const f of dateien) { try { korpus += '\n' + fs.readFileSync(path.join(wurzel, f), 'utf8'); } catch (_) {} }
       korpus = korpus.replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\*.*$/gm, '');
+      // v32.96: die eigene Ausfuhr ist keine Nennung. `window.gsSafetyDefaults =
+      // gsSafetyDefaults;` nennt den Namen ZWEIMAL in einer Zeile — eine Funktion,
+      // die sonst niemand ruft, kam damit auf 3 und fiel durch das Raster.
+      // gsSafetyDefaults (86 Zeilen Warntexte) lag so seit v27.x unbemerkt.
+      korpus = korpus.replace(/window\.([A-Za-z_$][\w$]*)\s*=\s*\1\s*;?/g, '');
       const zaehl = new Map();
       for (const m of korpus.matchAll(/[A-Za-z_$][\w$]*/g)) zaehl.set(m[0], (zaehl.get(m[0]) || 0) + 1);
       const tot = [...defs].filter(d => (zaehl.get(d) || 0) <= 1).sort();
-      const unbegruendet = tot.filter(d => !BEWUSST[d]);
-      const fehltInListe = Object.keys(BEWUSST).filter(d => !defs.has(d));
+      const unbegruendet = tot.filter(d => !BEWUSST[d] && !OHNE_EINSTIEG[d]);
+      const ohneEinstieg = tot.filter(d => OHNE_EINSTIEG[d]);
+      const fehltInListe = [...Object.keys(BEWUSST), ...Object.keys(OHNE_EINSTIEG)].filter(d => !defs.has(d));
       const f = [];
       if (unbegruendet.length) f.push(unbegruendet.length + ' ohne zweite Nennung: ' + unbegruendet.slice(0, 12).join(' ') + (unbegruendet.length > 12 ? ' …' : ''));
-      if (fehltInListe.length) f.push('in BEWUSST, aber nicht mehr definiert: ' + fehltInListe.join(' '));
+      if (fehltInListe.length) f.push('in BEWUSST/OHNE_EINSTIEG, aber nicht mehr definiert: ' + fehltInListe.join(' '));
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: defs.size + ' Definitionen · ' + tot.length + ' ohne zweite Nennung, alle begruendet (' + tot.join(', ') + ') · Korpus ' + (dateien.length + 1) + ' Dateien' };
+      return { ok: true, info: defs.size + ' Definitionen · ' + tot.length + ' ohne zweite Nennung, alle begruendet · dynamisch gebildet: ' + Object.keys(BEWUSST).length
+        + ' · OHNE EINSTIEG (Entscheidung offen, keine Anzeige fuehrt hin): ' + ohneEinstieg.length + ' — ' + ohneEinstieg.join(', ')
+        + ' · Korpus ' + (dateien.length + 1) + ' Dateien' };
     },
   },
   {
