@@ -57,6 +57,12 @@
   Gegenprobe gegen v32.78: beide rot. Und die Falle, zum dritten Mal: mein
   eigener Kommentar im Patch enthielt „Stand März 2026" — der Assert des
   Patch-Skripts hat ihn gefunden, bevor der Prüfstand es musste.
+- **Und einmal habe ich die eigene Regel im selben Zug gebrochen:** die neue
+  Artenzahl im Impressum stand als `DB.length.toLocaleString('de-CH')` da —
+  genau das Muster, das `gsLocale()` seit v32.78 ablöst. `i18n_check` hat es
+  im Sammellauf gemeldet („1 Stellen mit 'de-CH'"), nicht ich beim Schreiben.
+  *Eine Regel, die einen Prüfstand hat, muss man nicht im Kopf behalten —
+  aber man muss den Sammellauf abwarten, bevor man „fertig" sagt.*
 
 Regression v32.78 → v32.79: (folgt)
 

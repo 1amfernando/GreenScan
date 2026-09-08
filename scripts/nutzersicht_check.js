@@ -123,7 +123,7 @@ const FAELLE = [
       if (/März 2026/.test(alle)) f.push('„März 2026" steht noch fest im Text');
       if (!datum || (agb.indexOf('Stand ' + datum) < 0) || (ds.indexOf('Stand ' + datum) < 0)) f.push('Stand nicht aus der Release-Liste (' + datum + ')');
       if (imp.indexOf(GS_VERSION) < 0 || imp.indexOf(datum) < 0) f.push('Impressum ohne Version/Datum');
-      const arten = Array.isArray(window.DB) ? DB.length.toLocaleString('de-CH') : '?';
+      const arten = Array.isArray(window.DB) ? DB.length.toLocaleString(gsLocale()) : '?';
       if (imp.indexOf(arten + ' Schweizer Arten') < 0) f.push('Artenzahl nicht aus der Liste (' + arten + ')');
       if (/\bSie\b|\bIhre\b|\bIhnen\b/.test(haft + ds)) f.push('Rechtstexte siezen noch: ' + ((haft + ds).match(/[^.]*\b(Sie|Ihre|Ihnen)\b[^.]*/) || [''])[0].trim().slice(0, 60));
       if (/nicht dauerhaft gespeichert/.test(ds)) f.push('Fotos-Satz behauptet noch „nicht dauerhaft gespeichert"');

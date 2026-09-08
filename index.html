@@ -86109,7 +86109,7 @@ function showLegalTab(tab) {
   // Artenzahl aus der Artenliste; nichts davon pflegt jemand von Hand.
   var _stand = (window.GS_RELEASES && GS_RELEASES[0] && GS_RELEASES[0].date) ? GS_RELEASES[0].date : '';
   var _ver = (typeof GS_VERSION === 'string') ? GS_VERSION : '';
-  var _arten = (Array.isArray(window.DB) && DB.length) ? DB.length.toLocaleString('de-CH') : '4342';
+  var _arten = (Array.isArray(window.DB) && DB.length) ? DB.length.toLocaleString(gsLocale()) : '4342';
   tabs.forEach(function(t) {
     var btn = document.getElementById('legal-tab-'+t);
     if (btn) {
