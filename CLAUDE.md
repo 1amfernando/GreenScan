@@ -1456,6 +1456,15 @@ mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
 > Antwort-Rueckgaben — eine Variable, die gesetzt und nie ausgegeben wird,
 > waere „abgefragt, geliefert, weggeworfen".
 >
+> **Und derselbe Fehler lag drei Sprachen weiter** (v32.99): der Offline-Chat
+> fragt die Sprache nirgends ab, das deutsche Vokabular erkannte **0 von 12**
+> franzoesischen, italienischen und englischen Notfallsaetzen — nicht einmal
+> „empoisonnement", „avvelenamento", „poisoning". Vokabular jetzt viersprachig,
+> Text ueber `_t` mit Schluesseln in `GS_I18N_JS_STRINGS`. **Wer Wortgrenzen
+> ueber mehrere Sprachen zieht, prueft sie an einem Wort mit Akzent:**
+> `/\bcat\b/.test('catégorie')` ist `true`, weil `\b` nur `[A-Za-z0-9_]`
+> kennt — die Grenze sitzt mitten im Wort.
+>
 > **Und ein Fall wandert nicht zwischen Pruefstaenden.** `scan_check` fuehrt
 > seine Faelle IN der Seite aus (`p.evaluate` ueber den Funktionsrumpf),
 > `robust_check` in Node mit Zugriff auf `__seite`. Ein kopierter Fall stirbt

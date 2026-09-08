@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.98.20260908">
+<meta name="app-version" content="32.99.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14599,6 +14599,8 @@ window.GS_I18N_JS_STRINGS = {
   'prof_danger_zone':         '⚠️ Erweitert — Konto dauerhaft löschen',
   'lina_local_only':          'Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).',
   // ── v29.05 Settings: Plan-Karte (dynamisch, Paid) + Sync-Status-Zeile ──
+  'notfall_sofort':            '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\n\nNotruf: **144** | EU: **112**\n\nBeschreibe welche Pflanze/Pilz, wann und wie viel.',
+  'notfall_hinweis':           '⚠️ Wenn jemand etwas gegessen hat und sich unwohl fühlt: **Tox Info Suisse 145** (rund um die Uhr).',
   'settings_plan_word':        'Plan',
   'settings_plan_sub_lifetime':'Lebenslang aktiv · Vielen Dank fürs Unterstützen!',
   'settings_plan_sub_active':  'Aktiv',
@@ -57498,24 +57500,37 @@ function getSmartAnswer(question) {
   // steht in scan_check (N1) und misst beide Richtungen — „kann man Loewenzahn
   // essen?" darf NIE ein Notfall sein.
   var _nfStufe = (function (t) {
-    var AKUT = /vergift|notfall|notruf/;
-    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt/;
-    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht/;
-    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig/;
-    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend/;
-    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete/;
+    // v32.99: vier Sprachen. Der Offline-Chat ist der Rueckfall fuer JEDEN ohne
+    // KI-Schluessel (seit v32.68 bekommt den globalen nur der Admin) — und er
+    // fragt die Sprache nirgends ab. Gemessen mit dem deutschen Vokabular:
+    // 0 von 12 franzoesischen, italienischen und englischen Notfallsaetzen,
+    // nicht einmal „empoisonnement", „avvelenamento", „poisoning".
+    // Die Nummern (145/144/112) gelten ohnehin fuer alle.
+    var AKUT = /vergift|notfall|notruf|empoisonn|intoxicat|avvelenament|poisoning|poisoned|emergency/;
+    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt|mangé|manger|avalé|ingéré|croqué|mangiato|ingerito|inghiottito|\bate\b|eaten|swallow|swallowed|bit into|chewed/;
+    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht|vomi|nausée|diarrhée|mal au ventre|vertige|vomit|nausea|diarrea|mal di pancia|capogir|vomiting|nauseous|diarrhea|stomach ache|dizzy/;
+    // `\bcat\b` allein traefe auch „catégorie": in JS ist „é" KEIN Wortzeichen,
+    // die Grenze sitzt also mitten im Wort. Deshalb die Nachschau.
+    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig|enfant|fille|fils|bébé|chien|chat|accident|bambin|figlia|figlio|cane|gatto|child|daughter|son|dog|\bcat\b(?![a-zà-ÿ])|toddler/;
+    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend|au secours|à l'aide|que faire|aiuto|che fare|help|what (should|do) i do|urgent/;
+    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete|toxique|baie|champignon|plante|feuille|fruit|graine|velenos|tossic|bacca|fungo|pianta|foglia|poison|berry|berries|mushroom|plant|leaf|leaves|seed/;
     if (AKUT.test(t)) return 'dringend';
     if (SYMPTOM.test(t) && KONTEXT.test(t)) return 'dringend';
     if (VERZEHR.test(t) && (BETROFFEN.test(t) || SYMPTOM.test(t) || HILFE.test(t))) return 'dringend';
-    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr/.test(t)) return 'dringend';
+    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr|manger|mangia|\beat\b|\beats\b|eating/.test(t)) return 'dringend';
     if (VERZEHR.test(t)) return 'hinweis';
     return 'keiner';
   })(q);
+  // Der Text geht durch die Sprachschicht (Schluessel in GS_I18N_JS_STRINGS,
+  // sonst wird er nie nachgeschlagen — CLAUDE.md §7.1). Bis der Uebersetzer
+  // gelaufen ist, steht hier Deutsch; die NUMMERN sind in jeder Sprache
+  // dieselben, und die sind der Teil, auf den es ankommt.
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   if (_nfStufe === 'dringend') {
-    return '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\n\nNotruf: **144** | EU: **112**\n\nBeschreibe welche Pflanze/Pilz, wann und wie viel.';
+    return _t('notfall_sofort', '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\n\nNotruf: **144** | EU: **112**\n\nBeschreibe welche Pflanze/Pilz, wann und wie viel.');
   }
   var _nfZeile = (_nfStufe === 'hinweis')
-    ? '⚠️ Wenn jemand etwas gegessen hat und sich unwohl fühlt: **Tox Info Suisse 145** (rund um die Uhr).\n\n'
+    ? _t('notfall_hinweis', '⚠️ Wenn jemand etwas gegessen hat und sich unwohl fühlt: **Tox Info Suisse 145** (rund um die Uhr).') + '\n\n'
     : '';
   
   // 2. Search DB directly
@@ -74080,6 +74095,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.99', date: '08.09.2026',
+      headline: 'Der Notfall-Hinweis gilt jetzt in allen vier Sprachen',
+      summary: 'Auf Französisch, Italienisch und Englisch wurde bisher kein Notfall erkannt.',
+      user_summary: 'Der Chat erkennt einen Vergiftungs-Notfall jetzt auch, wenn du nicht auf Deutsch schreibst.',
+      user_items: [
+        'Der Chat ohne KI-Schlüssel fragt die Sprache nirgends ab — „ma fille a mangé des baies" oder „my son ate a mushroom" wurden bisher gar nicht als Notfall erkannt, nicht einmal das Wort „poisoning".',
+        'Jetzt erkennt er Verzehr, Beschwerden und Hilferufe in Deutsch, Französisch, Italienisch und Englisch.',
+        'Die Nummern sind ohnehin überall dieselben: Tox Info Suisse 145, Notruf 144, EU 112.'
+      ],
+    },
+    {
     v: 'v32.98', date: '08.09.2026',
       headline: 'Der Chat erkennt einen Vergiftungs-Notfall jetzt wirklich',
       summary: 'Vorher griff die Erkennung bei 4 von 17 normalen Formulierungen.',
@@ -75320,7 +75346,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.98';
+var GS_VERSION = 'v32.99';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

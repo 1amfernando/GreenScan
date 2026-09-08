@@ -4,13 +4,62 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.98` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.99` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gr) - v32.99: derselbe Notfall-Fehler, drei Sprachen weiter
+
+- **Die Grenze, die ich in (gq) selbst benannt habe**, war keine Randnotiz.
+  `getSmartAnswer` ist der Rueckfall fuer **jeden ohne KI-Schluessel** — und
+  seit v32.68 bekommt den globalen Schluessel nur noch der Admin, die meisten
+  Nutzer landen also hier. Die Funktion **fragt die Sprache nirgends ab**
+  (zwei Aufrufstellen, beide ohne Sprachpruefung).
+- **Gemessen mit dem deutschen Vokabular von v32.98: 0 von 12.**
+
+  ```
+  NICHTS  [fr] ma fille a mangé des baies
+  NICHTS  [fr] empoisonnement
+  NICHTS  [it] mia figlia ha mangiato delle bacche
+  NICHTS  [it] avvelenamento
+  NICHTS  [en] my daughter ate berries
+  NICHTS  [en] poisoning
+  ```
+
+  Nicht einmal die drei explizitesten Woerter ueberhaupt.
+- **Vokabular auf vier Sprachen**, dieselben zwei Stufen. Die NUMMERN
+  (145 · 144 · 112) sind in jeder Sprache dieselben — das ist der Teil, auf
+  den es ankommt.
+- **Der Text geht jetzt durch die Sprachschicht** (`_t('notfall_sofort', …)`,
+  `_t('notfall_hinweis', …)`), Schluessel in `GS_I18N_JS_STRINGS` eingetragen —
+  ohne Eintrag wuerde er nie nachgeschlagen (CLAUDE.md §7.1). Bis Fernando den
+  Uebersetzer-Knopf drueckt, steht dort Deutsch; die Nummern stehen so oder so.
+
+#### Eine scharfe Kante, die ich fast uebersehen haette
+
+`\bcat\b` fuer das englische „cat" trifft in JavaScript auch **„catégorie"** —
+`é` ist kein Wortzeichen, die Wortgrenze sitzt also mitten im Wort. Nachgemessen
+(`/\bcat\b/.test('catégorie')` → `true`), mit einer Nachschau `(?![a-zà-ÿ])`
+behoben, und „dans quelle catégorie ranger cette plante" steht als Fall in der
+Schweigen-Liste.
+
+> **Wer Wortgrenzen ueber mehrere Sprachen zieht, prueft sie an einem Wort mit
+> Akzent.** `\b` kennt nur `[A-Za-z0-9_]`.
+
+#### Der Pruefstand
+
+`scan_check` N1 deckt jetzt **48 Saetze in vier Sprachen** ab (29 dringend ·
+19 harmlos), weiter in beide Richtungen. Gegenprobe mit dem deutschen
+Vokabular: **„12 von 29 Notfall-Saetzen OHNE die Nummer"** — genau die
+fr/it/en-Haelfte.
+
+**Grenze, unveraendert ehrlich:** das sind Saetze, die ich fuer realistisch
+halte, nicht die Sprache echter Menschen in echter Panik. Und die ANTWORT ist
+bis zum naechsten Uebersetzer-Lauf deutsch — nur die Nummern sind es nicht.
 
 ### 2026-09-08 (gq) - v32.98: der Notfall-Satz, den die App am dringendsten braucht, griff bei 4 von 17
 
@@ -11030,7 +11079,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.98` (Client) · SW-Cache `gs-v32.98` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.99` (Client) · SW-Cache `gs-v32.99` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **92'227 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

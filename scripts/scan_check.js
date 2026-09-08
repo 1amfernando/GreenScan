@@ -1721,12 +1721,22 @@ const FAELLE = [
         'wir haben pilze gegessen und mir ist schlecht', 'meine kleine hat blätter in den mund genommen',
         'baby hat erde und blätter gegessen', 'mir ist übel nach dem pilzessen', 'erbrechen nach beeren',
         'kind hat maiglöckchen gegessen', 'hilfe pflanze gegessen', 'vergiftung', 'notfall',
-        'bauchschmerzen nach dem beeren sammeln', 'was tun wenn man giftige beeren isst'];
+        'bauchschmerzen nach dem beeren sammeln', 'was tun wenn man giftige beeren isst',
+        // v32.99 — der Offline-Chat ist der Rueckfall fuer JEDEN ohne Schluessel
+        // und fragt die Sprache nirgends ab. Mit dem deutschen Vokabular: 0 von 12.
+        'ma fille a mangé des baies', 'mon fils a mangé un champignon',
+        'mon chien a mangé cette plante', 'empoisonnement', 'au secours il a avalé une baie',
+        'mia figlia ha mangiato delle bacche', 'mio figlio ha mangiato un fungo', 'avvelenamento',
+        'my daughter ate berries', 'my son ate a mushroom', 'poisoning', 'my dog ate this plant'];
       const HARMLOS = ['kann man löwenzahn essen', 'ist bärlauch essbar', 'welche pilze sind essbar',
         'darf man brennnessel essen', 'wie schmeckt giersch', 'wann kann ich tomaten ernten',
         'ist die pflanze giftig', 'wie giftig ist der efeu', 'welche beeren sind essbar',
         'rezept mit bärlauch', 'wann blüht der holunder', 'wie pflege ich basilikum',
-        'ist maiglöckchen giftig', 'giftige pflanzen im garten', 'was ist essbar im wald'];
+        'ist maiglöckchen giftig', 'giftige pflanzen im garten', 'was ist essbar im wald',
+        'quand fleurit le sureau', 'quali funghi sono commestibili', 'which berries are edible',
+        // Scharfe Kante: `\bcat\b` traefe auch „catégorie" — in JS ist „é" kein
+        // Wortzeichen, die Grenze sitzt mitten im Wort. Die Nachschau haelt es.
+        'dans quelle catégorie ranger cette plante'];
       // scan_check fuehrt seine Faelle IN der Seite aus (p.evaluate ueber den
       // Funktionsrumpf) — getSmartAnswer ist hier direkt greifbar, ein
       // verschachteltes evaluate waere ein ReferenceError.
