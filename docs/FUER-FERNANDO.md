@@ -553,6 +553,31 @@ Nachmessen (nur lesend):
 select target_lang, count(*) from i18n_translations where source_lang = 'de' group by 1;
 ```
 
+## 12 · Zwei Dinge aus v32.79, die nur du kannst
+
+1. **Impressum (UWG Art. 3 Abs. 1 lit. s).** Für ein Abo-Angebot verlangt das
+   Gesetz klare Angaben zur Identität und eine Kontaktadresse. Die App sagt
+   seit v32.79 im Impressum, dass Rechtsträger, Postadresse und UID-Nummer
+   noch fehlen. Schick mir die drei Angaben (oder trag sie in
+   `index.html` → `showLegalTab` → `impressum` ein, der Hinweis-Absatz
+   darunter fliegt dann raus). Wenn GreenScan als Einzelfirma läuft: dein
+   Name als Inhaber, eine Postadresse (Postfach reicht), die UID (`CHE-…`),
+   falls du eine hast.
+2. **pdf.js selbst hosten** (Audit A8, Rest). Die Cloud-Umgebung kommt nicht
+   an cdnjs heran (`HTTP 000`), deshalb lädt die App pdf.js seit v32.79 nur
+   noch bei Bedarf vom CDN. Wenn du es ins Repo legen willst (dann fällt
+   cdnjs aus der CSP und aus `IMAGE_HOSTS`):
+
+   ```bash
+   mkdir -p assets/pdfjs
+   curl -o assets/pdfjs/pdf.min.mjs https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs
+   curl -o assets/pdfjs/pdf.worker.min.mjs https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs
+   ```
+
+   und in `index.html` die zwei Adressen `window._gsPdfjsUrl` /
+   `window._gsPdfjsWorkerUrl` auf `assets/pdfjs/…` stellen. Die Dateien
+   sind zusammen rund 1,5 MB; das Repo trägt Three.js (603 KB) schon.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

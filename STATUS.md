@@ -4,13 +4,61 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.78` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.79` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (fs) — v32.79: pdf.js nur bei Bedarf, Rechtstexte sagen, was stimmt — A8-Rest, Audit E6 (Client)
+
+- **pdf.js lud jeder Besuch — für ein Werkzeug, das nur der Admin benutzt.**
+  Ein statisches `<script type="module" src="…cdnjs…/pdf.min.mjs">` plus ein
+  Modul-Block mit top-level `await` holten die Bibliothek bei JEDEM Start,
+  und `sw.js` legte sie beim Install in den Shell-Cache (Kommentar dort:
+  1,5 MB). Einziger Nutzer: `extractPdfText` (Book-Ingest, PDF einlesen,
+  Admin). Jetzt holt `_gsPdfjsLaden()` sie beim ersten PDF (dynamischer
+  `import`, Worker-URL gesetzt, ein Lauf für parallele Aufrufer, ehrlicher
+  Fehlertext ohne Netz); `SHELL_URLS` ohne pdf.js, `IMAGE_HOSTS` behält
+  cdnjs für den Runtime-Cache. CSP unverändert (`script-src` kennt cdnjs).
+  **Selbst hosten** (Audit A8) geht von hier nicht — cdnjs antwortet der
+  Cloud-Umgebung mit `HTTP 000` (Proxy-Sperre); FUER-FERNANDO §12.
+  **Was von hier NICHT messbar ist, und das gehört dazu:** `perf_check` lädt
+  `index.html` als lokale Datei ohne Netz — die CDN-Anfrage wird dort ohnehin
+  abgebrochen, die Kaltstart-Zahlen ändern sich also nicht. Belegt ist die
+  Sache trotzdem, nur anders: der Prüfstand zählt die Anfragen an cdnjs und
+  misst gegen v32.78 **1 beim Start**, gegen v32.79 **0** — und beim ersten
+  PDF genau eine. Auf einem echten Gerät sind das eine Verbindung und 1,5 MB
+  weniger bei jedem Start, plus 1,5 MB weniger im Shell-Cache.
+- **E6 (Client-Teil):** die Rechtstexte trugen „Stand März 2026" fest im
+  Text (AGB, Datenschutz, Impressum) — sechs Monate und 130 Versionen lang.
+  Stand und Version kommen jetzt aus `GS_RELEASES[0].date` / `GS_VERSION`,
+  die Artenzahl aus `DB.length`. Die Haftungsseite siezte („Verwenden Sie",
+  „Was Sie tun sollten"), die App duzt — angeglichen. Und die
+  Datenschutzerklärung sagte „Pflanzenfotos: nicht dauerhaft gespeichert" —
+  **falsch**: `gsScanPersistToCloud` lädt das Scan-Foto in den Bucket
+  `scan-images`, Community-Beiträge nach `post-images` (öffentlich),
+  Artenbeiträge nach `species-images`, und jedes Foto geht zur Bestimmung
+  an den KI-Dienst (Anthropic, USA). Jetzt steht es so da. Ebenso:
+  „Nutzungsdaten: App-Statistiken" → nur mit Zustimmung, die es nicht gibt,
+  also nichts (v32.71); „E-Mail (verschlüsselt)" → bei Supabase (EU),
+  Passwort nur als Hash; Standort ohne IP-Ortung. Das Impressum sagt, dass
+  Rechtsträger, Postadresse und UID noch fehlen — statt es zu verschweigen
+  (UWG Art. 3 Abs. 1 lit. s; nur Fernando kann sie liefern, §12).
+- **Prüfstände:** `robust_check` Fall 17 (pdf.js: beim Start 0 Anfragen an
+  cdnjs — gezählt über den Request-Log des Prüfstands —, kein `<script>`,
+  kein Precache, `_gsPdfjsLaden` löst genau eine Anfrage aus und sagt ohne
+  Netz „pdf.js konnte nicht geladen werden …"); `nutzersicht_check` Fall E6
+  (Rechtstexte gerendert: kein fester Monat, Stand = Release-Datum,
+  Artenzahl = Liste, kein „Sie", Fotos-Satz nennt Anthropic und Konto,
+  Nutzungsdaten-Satz sagt „nichts gemessen", Impressum nennt die Lücke).
+  Gegenprobe gegen v32.78: beide rot. Und die Falle, zum dritten Mal: mein
+  eigener Kommentar im Patch enthielt „Stand März 2026" — der Assert des
+  Patch-Skripts hat ihn gefunden, bevor der Prüfstand es musste.
+
+Regression v32.78 → v32.79: (folgt)
 
 ### 2026-09-07 (fr) — v32.78: Rückmeldungen, Felder, Menü und Datum in der Sprache der Person — Audit E1, Welle 1
 
@@ -9771,9 +9819,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.78` (Client) · SW-Cache `gs-v32.78` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.79` (Client) · SW-Cache `gs-v32.79` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'687 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'726 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

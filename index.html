@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.78.20260907">
+<meta name="app-version" content="32.79.20260907">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -73657,6 +73657,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.79', date: '07.09.2026',
+    headline: '📄 pdf.js nur noch bei Bedarf, Rechtstexte sagen was stimmt — A8-Rest, Audit E6',
+    summary: 'Zwei Dinge. (1) Die PDF-Bibliothek (1,5 MB vom CDN) wurde bei JEDEM Start geladen und vom Service Worker vorgehalten — für ein Werkzeug, das nur der Admin benutzt (PDF einlesen). Jetzt holt sie _gsPdfjsLaden beim ersten PDF; der Prüfstand zählt beim Start 0 Anfragen an cdnjs statt 1. (2) Die Rechtstexte trugen „Stand März 2026" fest im Text, siezten auf der Haftungsseite und behaupteten, Pflanzenfotos würden nicht dauerhaft gespeichert — sie gehen an den KI-Dienst und liegen im Konto. Stand, Version und Artenzahl kommen jetzt aus der App selbst, die Texte duzen, und die Datenschutzerklärung sagt, was wirklich passiert. Das Impressum nennt offen, dass Rechtsträger, Postadresse und UID noch fehlen.',
+    user_summary: '📄 Die App startet ohne eine 1,5-MB-Bibliothek, die fast niemand braucht — und die Rechtstexte sagen jetzt, was wirklich mit deinen Daten passiert.',
+    user_items: [
+      {emoji:'📄', bold:'Schnellerer Start:', text:' Die PDF-Bibliothek wird erst geladen, wenn wirklich ein PDF eingelesen wird.'},
+      {emoji:'📋', bold:'Ehrliche Rechtstexte:', text:' Datum und Version stimmen wieder, die Texte duzen wie die App — und die Datenschutzerklärung sagt klar, dass Scan-Fotos an den KI-Dienst gehen und in deinem Konto liegen, bis du sie löschst.'},
+    ],
+  },
+  {
     v: 'v32.78', date: '07.09.2026',
     headline: '🌍 Rückmeldungen, Felder, Menü und Datum in der Sprache der Person — Audit E1, Welle 1',
     summary: 'Audit E1. Die Übersetzungsschicht für Toasts gab es seit v30.18 (per Phrase) — aber die Phrasen kamen nie beim Übersetzer an: der Sammler kannte nur data-i18n und die Schlüsseltabelle. Jetzt liest er 571 Toast- und Rückfrage-Sätze aus dem eigenen Quelltext und 239 Phrasen aus dem Dokument (placeholder, aria-label, Menü-Labels); applyToDOM übersetzt placeholder und aria-label per Phrase (das Original bleibt im data-Attribut), die Menü-Suche zeigt und findet übersetzte Labels, und gsLocale() ersetzt 133 feste de-CH in Datumsformaten. Ein Admin-Knopf bestellt die neuen Übersetzungen (i18n-translate ist admin-only). i18n_check hat acht Fragen mehr, gerendert in fr. Bis der Knopf gedrückt ist, bleibt alles wie bisher Deutsch.',
@@ -74687,7 +74697,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.78';
+var GS_VERSION = 'v32.79';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -86094,6 +86104,12 @@ function showLegalTab(tab) {
   var tabs = ['agb','datenschutz','haftung','impressum'];
   var content = document.getElementById('legal-content');
   if (!content) return;
+  // v32.79 (Audit E6): der Stand war ein fester Monatsname im Text — sechs Monate und
+  // 130 Versionen lang. Datum und Version kommen aus der Release-Liste, die
+  // Artenzahl aus der Artenliste; nichts davon pflegt jemand von Hand.
+  var _stand = (window.GS_RELEASES && GS_RELEASES[0] && GS_RELEASES[0].date) ? GS_RELEASES[0].date : '';
+  var _ver = (typeof GS_VERSION === 'string') ? GS_VERSION : '';
+  var _arten = (Array.isArray(window.DB) && DB.length) ? DB.length.toLocaleString('de-CH') : '4342';
   tabs.forEach(function(t) {
     var btn = document.getElementById('legal-tab-'+t);
     if (btn) {
@@ -86104,7 +86120,7 @@ function showLegalTab(tab) {
   });
   var texts = {
     agb: '<h3 style="color:var(--g-dark);margin:0 0 10px;">Allgemeine Geschäftsbedingungen (AGB)</h3>' +
-      '<p><em>Stand März 2026 · GreenScan App · Schweizer Recht</em></p>' +
+      '<p><em>Stand ' + _stand + ' (' + _ver + ') · GreenScan App · Schweizer Recht</em></p>' +
       '<h4 style="color:var(--g-dark);">1. Geltungsbereich</h4>' +
       '<p>Diese AGB regeln die Nutzung der mobilen Applikation «GreenScan», betrieben von GreenScan (info@greenscan.ch). Mit der Registrierung oder Nutzung der App erklärt sich der Nutzer mit diesen AGB einverstanden.</p>' +
       '<h4 style="color:var(--g-dark);">2. KI-Bestimmung – Wichtiger Hinweis</h4>' +
@@ -86117,15 +86133,16 @@ function showLegalTab(tab) {
       '<p>Die Betreiberin behält sich das Recht vor, diese AGB jederzeit zu ändern. Änderungen werden mindestens 30 Tage vorab angekündigt. Kontakt: <a href="mailto:info@greenscan.ch" style="color:var(--g-main);">info@greenscan.ch</a></p>',
 
     datenschutz: '<h3 style="color:var(--g-dark);margin:0 0 10px;">Datenschutzerklärung</h3>' +
-      '<p><em>Gemäss nDSG (SR 235.1) · Stand März 2026</em></p>' +
+      '<p><em>Gemäss nDSG (SR 235.1) · Stand ' + _stand + ' (' + _ver + ')</em></p>' +
       '<h4 style="color:var(--g-dark);">Verantwortliche Stelle</h4>' +
       '<p>GreenScan · E-Mail: <a href="mailto:info@greenscan.ch" style="color:var(--g-main);">info@greenscan.ch</a><br>Datenschutz-Anfragen: <a href="mailto:info@greenscan.ch" style="color:var(--g-main);">info@greenscan.ch</a></p>' +
       '<h4 style="color:var(--g-dark);">Welche Daten wir bearbeiten</h4>' +
-      '<p><strong>Kontodaten:</strong> Name, E-Mail (verschlüsselt) · Zweck: Kontoverwaltung<br>' +
-      '<strong>Nutzungsdaten:</strong> App-Statistiken, Gerätetyp · Zweck: Betrieb & Verbesserung<br>' +
-      '<strong>Standortdaten:</strong> GPS nur bei expliziter Freigabe · Zweck: lokale Infos<br>' +
-      '<strong>Pflanzenfotos:</strong> Nur für KI-Bestimmung, nicht dauerhaft gespeichert</p>' +
-      '<h4 style="color:var(--g-dark);">Ihre Rechte (Art. 25–29 nDSG)</h4>' +
+      '<p><strong>Kontodaten:</strong> Name, E-Mail · gespeichert bei Supabase (EU-Rechenzentrum), Passwort nur als Hash · Zweck: Kontoverwaltung<br>' +
+      '<strong>Nutzungsdaten:</strong> nur mit deiner Zustimmung — einen Zustimmungsdialog gibt es derzeit nicht, deshalb wird nichts gemessen; Fehlerberichte mit Konto-Bezug gehen ebenfalls nur mit Zustimmung<br>' +
+      '<strong>Standortdaten:</strong> GPS nur bei expliziter Freigabe · Zweck: Wetter, Karte, lokale Hinweise · keine Ortung über die IP-Adresse<br>' +
+      '<strong>Pflanzenfotos:</strong> gehen für die Bestimmung an den KI-Dienst (Anthropic, USA) und werden mit deinem Scan in deinem Konto gespeichert, bis du den Scan löschst; Fotos, die du in der Community oder als Artenbeitrag teilst, sind öffentlich<br>' +
+      '<strong>Pflanzen, Gärten, Tagebuch, Messwerte:</strong> in deinem Konto, nur für dich lesbar (Zeilenschutz in der Datenbank)</p>' +
+      '<h4 style="color:var(--g-dark);">Deine Rechte (Art. 25–29 nDSG)</h4>' +
       '<p>Auskunft, Berichtigung, Löschung, Datenherausgabe · Anfragen innert 30 Tagen kostenlos beantwortet.</p>' +
       '<h4 style="color:var(--g-dark);">Datensicherheit (Art. 8 nDSG)</h4>' +
       '<p>Daten werden verschlüsselt übertragen (HTTPS/TLS). Passwörter werden ausschliesslich als Hash gespeichert. Profildaten in Supabase EU-Rechenzentrum.</p>' +
@@ -86135,26 +86152,27 @@ function showLegalTab(tab) {
     haftung: '<h3 style="color:var(--g-dark);margin:0 0 10px;">Haftungsausschluss & Sicherheitshinweise</h3>' +
       '<div style="background:var(--bg-warn-soft);border-left:4px solid #f57c00;border-radius:0 var(--r-sm) var(--r-sm) 0;padding:12px 14px;margin-bottom:16px;">' +
       '<p style="margin:0;font-size:var(--fs-md);color:#bf5600;font-weight:700;">⚠️ WICHTIGER SICHERHEITSHINWEIS</p>' +
-      '<p style="margin:6px 0 0;font-size:var(--fs-sm);color:#7f4000;line-height:1.6;">Bestimmungsergebnisse sind KI-generierte Schätzungen. VERWECHSLUNGSGEFAHR: Giftige Pilze und Pflanzen sehen essbaren Arten oft täuschend ähnlich. Verwenden Sie diese App NIEMALS als alleinige Grundlage für Verzehrentscheidungen.</p>' +
+      '<p style="margin:6px 0 0;font-size:var(--fs-sm);color:#7f4000;line-height:1.6;">Bestimmungsergebnisse sind KI-generierte Schätzungen. VERWECHSLUNGSGEFAHR: Giftige Pilze und Pflanzen sehen essbaren Arten oft täuschend ähnlich. Verwende diese App NIEMALS als alleinige Grundlage für Verzehrentscheidungen.</p>' +
       '</div>' +
       '<h4 style="color:var(--c-danger);">Bei Vergiftungsverdacht – sofort:</h4>' +
       '<p><strong style="font-size:var(--fs-lg);color:var(--c-danger);">☠️ Tox Info Suisse: 145</strong> (24h, kostenlos)<br>' +
       '<strong>🚑 Notruf: 144 · EU-Notruf: 112</strong></p>' +
-      '<h4 style="color:var(--g-dark);">Was Sie tun sollten</h4>' +
+      '<h4 style="color:var(--g-dark);">Was du tun solltest</h4>' +
       '<p>✅ Pilze immer durch offizielle Pilzkontrollstelle prüfen lassen (VAPKO: <a href="https://vapko.ch" style="color:var(--g-main);">vapko.ch</a>)<br>' +
       '✅ Pflanzen durch Fachperson bestätigen lassen<br>' +
-      '✅ Nie sammeln wenn Sie nicht 100% sicher sind<br>' +
+      '✅ Nie sammeln, wenn du nicht 100 % sicher bist<br>' +
       '✅ Kinder immer aufklären und beaufsichtigen</p>' +
       '<h4 style="color:var(--g-dark);">Gesetzliche Grundlage</h4>' +
       '<p>Haftungsausschluss gemäss Art. 100 OR, Art. 8 PrHG (zwingend), Art. 27 ZGB. Warnhinweise entsprechen Art. 4 PrHG zur Reduktion der berechtigten Sicherheitserwartung.</p>',
 
     impressum: '<h3 style="color:var(--g-dark);margin:0 0 10px;">Impressum</h3>' +
       '<p><strong>GreenScan</strong><br>Schweizer Natur-App<br>Chur, Graubünden, Schweiz</p>' +
+      '<p style="font-size:var(--fs-sm);color:var(--muted);">Rechtsträger, Postadresse und UID-Nummer werden hier ergänzt, sobald sie vorliegen — bis dahin erreichst du uns per E-Mail.</p>' +
       '<p><strong>Kontakt:</strong><br>' +
       'E-Mail: <a href="mailto:info@greenscan.ch" style="color:var(--g-main);">info@greenscan.ch</a><br>' +
       'Support: <a href="mailto:info@greenscan.ch" style="color:var(--g-main);">info@greenscan.ch</a></p>' +
-      '<p><strong>App-Version:</strong> GreenScan · März 2026<br>' +
-      '<strong>Datenbank:</strong> 4342 Schweizer Arten<br>' +
+      '<p><strong>App-Version:</strong> GreenScan ' + _ver + ' · ' + _stand + '<br>' +
+      '<strong>Datenbank:</strong> ' + _arten + ' Schweizer Arten<br>' +
       '<strong>Quellen:</strong> Info Flora, VAPKO, BAFU, Tox Info Suisse</p>' +
       '<p><strong>Notfall:</strong><br>' +
       '☠️ Tox Info Suisse: <strong>145</strong><br>' +
@@ -89501,17 +89519,31 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   </div>
 </div>
 
-<!-- pdf.js CDN (client-side PDF parsing) — v24.44: SRI sha384 aus npm pdfjs-dist@4.0.379 build/ -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs" type="module"
-        integrity="sha384-uwJM5C0hGZH5Ed/vHx4Ht1PUd8ABIDVIcLbHydZOdFL5eTUG8Jdr32xNVIyn0kYH"
-        crossorigin="anonymous"></script>
-<script type="module">
-  // Lazy-load pdfjs worker
-  try {
-    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
-    window._pdfjsLib = pdfjsLib;
-  } catch(e) { console.log('pdf.js load failed:', e.message); }
+<!-- pdf.js — v32.79: NICHT mehr beim Start. Bis v32.78 lud jeder Besuch die
+     CDN-Datei (ein statisches <script type="module"> plus ein Modul-Block mit
+     top-level await), und der Service Worker legte sie beim Install in den
+     Shell-Cache — für ein Werkzeug, das nur der Admin benutzt (Book-Ingest,
+     PDF einlesen). Jetzt holt `_gsPdfjsLaden()` sie beim ersten Bedarf; der
+     Runtime-Cache des Service Workers behält sie danach (IMAGE_HOSTS kennt
+     cdnjs). Selbst hosten geht aus der Cloud-Umgebung nicht (cdnjs ist dort
+     nicht erreichbar) — FUER-FERNANDO. -->
+<script>
+  window._gsPdfjsUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
+  window._gsPdfjsWorkerUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+  window._gsPdfjsLaden = async function () {
+    if (window._pdfjsLib) return window._pdfjsLib;
+    if (!window._gsPdfjsLadenLauf) {
+      window._gsPdfjsLadenLauf = import(window._gsPdfjsUrl).then(function (lib) {
+        lib.GlobalWorkerOptions.workerSrc = window._gsPdfjsWorkerUrl;
+        window._pdfjsLib = lib;
+        return lib;
+      }).catch(function (e) {
+        window._gsPdfjsLadenLauf = null;
+        throw new Error('pdf.js konnte nicht geladen werden (' + ((e && e.message) || 'Netz') + ') — bitte Internet prüfen und erneut versuchen.');
+      });
+    }
+    return window._gsPdfjsLadenLauf;
+  };
 </script>
 
 <script>
@@ -89985,10 +90017,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   };
 
   async function extractPdfText(file, onPage) {
-    if (!window._pdfjsLib) {
-      await new Promise(function(r){ setTimeout(r, 500); });
-      if (!window._pdfjsLib) throw new Error('pdf.js nicht geladen');
-    }
+    // v32.79: pdf.js kommt erst jetzt — beim ersten PDF, nicht beim Start
+    if (!window._pdfjsLib) await window._gsPdfjsLaden();
     var buf = await file.arrayBuffer();
     var pdf = await window._pdfjsLib.getDocument({ data: buf }).promise;
     var pages = [];

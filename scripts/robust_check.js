@@ -21,6 +21,7 @@ const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/
 const SEED = require('./_seed.js');
 
 let __seite = null;
+const __anfragen = [];
 const FAELLE = [
   {
     name: 'B1 · sbFetch ohne zweites Argument stuerzt nicht mehr ab — Verkaeufer-Status und Wetterwarnungen kommen an',
@@ -521,6 +522,39 @@ const FAELLE = [
     },
   },
   {
+    name: 'pdf.js nur bei Bedarf · beim Start keine Anfrage an cdnjs, kein statisches <script> und kein Precache im Service Worker; _gsPdfjsLaden holt es beim ersten PDF genau einmal und sagt ehrlich, wenn es nicht kommt',
+    lauf: async () => {
+      const f = [];
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+      if (/<script[^>]+src="https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/.test(idx)) f.push('statisches <script src=…pdf.min.mjs> beim Start');
+      if (/<script type="module">[\s\S]{0,400}pdf\.min\.mjs/.test(idx)) f.push('Modul-Block importiert pdf.js beim Start');
+      if (!/window\._gsPdfjsLaden = async function/.test(idx)) f.push('_gsPdfjsLaden fehlt');
+      const ext = idx.slice(idx.indexOf('async function extractPdfText('), idx.indexOf('async function extractPdfText(') + 400);
+      if (!/await window\._gsPdfjsLaden\(\)/.test(ext)) f.push('extractPdfText wartet nicht auf _gsPdfjsLaden');
+      const shell = sw.slice(sw.indexOf('SHELL_URLS'), sw.indexOf('];', sw.indexOf('SHELL_URLS')));
+      if (/pdf\.min\.mjs/.test(shell)) f.push('sw.js laedt pdf.js beim Install vor');
+      if (!/'cdnjs\.cloudflare\.com'/.test(sw)) f.push('sw.js kennt cdnjs nicht mehr fuer den Runtime-Cache');
+      // Gemessen: die App ist gebootet (der Pruefstand hat sie geladen) — wie viele Anfragen gingen an cdnjs?
+      const vorher = __anfragen.filter(u => /cdnjs\.cloudflare\.com/.test(u)).length;
+      const r = await __seite.evaluate(async () => {
+        const o = { vorLib: !!window._pdfjsLib };
+        try { await window._gsPdfjsLaden(); o.fehler = null; } catch (e) { o.fehler = String(e && e.message); }
+        try { await window._gsPdfjsLaden(); } catch (_) {}
+        o.nachLib = !!window._pdfjsLib;
+        return o;
+      });
+      const nachher = __anfragen.filter(u => /cdnjs\.cloudflare\.com/.test(u)).length;
+      if (vorher !== 0) f.push('beim Start ' + vorher + ' Anfrage(n) an cdnjs');
+      if (r.vorLib) f.push('_pdfjsLib schon beim Start da');
+      // Der Pruefstand blockt jedes Netz: der Import scheitert — und die Meldung muss das sagen, nicht „nicht geladen" nach 500 ms Warten
+      if (!r.fehler || !/pdf\.js konnte nicht geladen werden/.test(r.fehler)) f.push('Fehlertext: ' + JSON.stringify(r.fehler));
+      if (nachher - vorher < 1) f.push('bei Bedarf keine Anfrage an cdnjs (' + (nachher - vorher) + ')');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Start: 0 Anfragen an cdnjs · kein <script>, kein Precache · bei Bedarf ' + (nachher - vorher) + ' Anfrage(n), ohne Netz ehrlich: „' + r.fehler.slice(0, 40) + '…"' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
@@ -545,7 +579,9 @@ const FAELLE = [
   const p = await ctx.newPage(); __seite = p;
   const errs = [];
   p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
-  await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  // v32.79: mitschreiben, WAS die Seite anfordert — der pdf.js-Fall zaehlt die
+  // Anfragen an cdnjs beim Start (0) und bei Bedarf (1). Abgebrochen wird wie bisher.
+  await p.route('**', r => { __anfragen.push(r.request().url()); return r.request().url().startsWith('file:') ? r.continue() : r.abort(); });
   await p.addInitScript(SEED);
   await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
   await p.waitForTimeout(4000);

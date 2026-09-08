@@ -15,7 +15,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v32.78';
+const VERSION = 'gs-v32.79';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -59,10 +59,10 @@ const SHELL_URLS = [
   '/assets/three.min.js',
   '/assets/leaflet-images/marker-icon.png',
   '/assets/leaflet-images/marker-icon-2x.png',
-  '/assets/leaflet-images/marker-shadow.png',
-  // pdf.js bleibt CDN (1.5MB zu gross fuer das Repo, wird nur fuer PDF-Export
-  // genutzt — nicht kritisch fuer Karte/3D-Render).
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs'
+  '/assets/leaflet-images/marker-shadow.png'
+  // v32.79: pdf.js NICHT mehr vorgeladen — 1,5 MB bei jedem Install für ein
+  // Admin-Werkzeug (Book-Ingest). Die App holt es beim ersten PDF
+  // (_gsPdfjsLaden); IMAGE_HOSTS kennt cdnjs, der Runtime-Cache behält es.
 ];
 
 // v32.13: Dieselbe Liste noch einmal als PFADE — daran erkennt der

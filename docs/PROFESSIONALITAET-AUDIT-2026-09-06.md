@@ -40,7 +40,7 @@
 | E4 · „Was ist neu" verschluckt die fetten Labels | ✅ v32.70 — Dialog und Über-Liste rendern `bold` + `text` | `nutzersicht_check` Fall 2 |
 | E5 · Entwickler-Jargon auf Nutzerseiten | ✅ v32.70 — „Cowork pg_cron", „Super-Agent", „24h-Lock", „Supabase nicht verfügbar" (×8), „gequeued", „anfaellig fuer" raus | `nutzersicht_check` Fall 4 |
 | E8 · Kompakt + Senioren gleichzeitig; Menü-Emojis ohne `aria-hidden` | ✅ v32.70 (beides) · Einheiten-Abstand und „—"-Leerzustände offen | `nutzersicht_check` Fall 5 |
-| A8 · CSP mit `unsafe-eval`, `worker-src` blockiert pdf.js-Worker, `frame-ancestors 'self'` | ✅ v32.71 — ohne `unsafe-eval`, cdnjs in `worker-src`, `'none'` + `X-Frame-Options: DENY` · pdf.js selbst hosten offen (kein Netz von hier) | `robust_check` Fall 5 |
+| A8 · CSP mit `unsafe-eval`, `worker-src` blockiert pdf.js-Worker, `frame-ancestors 'self'` | ✅ v32.71 — ohne `unsafe-eval`, cdnjs in `worker-src`, `'none'` + `X-Frame-Options: DENY` · pdf.js seit v32.79 nur bei Bedarf (kein Boot-Laden, kein Precache); selbst hosten braucht Netz zu cdnjs — von hier nicht möglich (kein Netz von hier) | `robust_check` Fall 5 |
 | A9 · `ipapi.co` ohne Zustimmung, `client_errors` mit `user_id`, Analytics-Guard verkehrt, kein Consent-Dialog | ✅ v32.71 — IP-Ortung gestrichen; Fehlerberichte und Messung nur mit `_gsAnalyticsErlaubt()`; Über-Liste ehrlich · Consent-Dialog selbst offen (Entscheidung) | `robust_check` Fall 6 |
 | B7 · Toasts ohne Live-Region | ✅ v32.71 (`role=status`, `aria-live=polite`) · Fokus in dynamischen Dialogen offen | `robust_check` Fall 7 |
 | B9 · `gsRequireOnline` tot, 4'342er-Schleife ohne Leser | ✅ v32.71 · `type=number` ohne `max`, `plan-iterate`-Fehlerform, `plants.v1.js` im `<head>` offen | `robust_check` Fall 8 |
@@ -57,7 +57,8 @@
 | A7 · `species-search` ohne Authentifizierung, mit Service-Role, mit Schreibzugriff, CORS `*`, rohe Fehlertexte | ✅ v32.76 (Repo) — Bearer Pflicht + GoTrue-Prüfung, RPC mit Nutzer-Token, Cache nur nach gültiger Suche, Allowlist, `search_failed` statt Rohtext, q/lim gedeckelt · ⏳ Deploy (§9) | `robust_check` Fall 15 |
 | C2 · 66 Funktionen ohne Aufrufer (nachgezählt: 105) | ✅ v32.77 — 114 entfernt (1790 Zeilen) mit Parser-Grenzen; `closeAbout` bleibt (dynamischer Name); der Scan ist jetzt ein Prüfstand-Deckel | `robust_check` Fall 16 |
 | E1 · Rückmeldungen nur Deutsch (351 `gsToast`, 56 `gsConfirmModal`, 133 `placeholder`, 95 `aria-label`, 52 `MENU_ITEMS`, 56× `de-CH`) | ✅ v32.78 Welle 1 — Phrasen aus dem Quelltext an den Übersetzer, `placeholder`/`aria-label`/Menü per `tText`, `gsLocale()` statt 133× `de-CH` · Welle 2 offen: zusammengesetzte Meldungen, Monatsnamen-Listen, `toFixed()` · ⏳ Admin-Knopf (§11) | `i18n_check` Fragen 9–16 |
-| C5, E6 | offen | §G |
+| E6 · Impressum ohne Rechtsträger/Adresse/UID, fester Monat als Stand, siezen, „Fotos nicht dauerhaft gespeichert“ | ✅ v32.79 (Client) — Stand/Version/Artenzahl dynamisch, du statt Sie, Fotos-/Nutzungsdaten-/Kontodaten-Sätze stimmen, Impressum nennt die Lücke · ⏳ Rechtsträger, Postadresse, UID: Fernando (§12) | `nutzersicht_check` Fall E6 |
+| C5 | offen | §G |
 
 ## Zahlen zuerst
 
