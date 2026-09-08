@@ -665,9 +665,10 @@ Zwei Regeln, nach denen er gebaut ist, gelten für **jede** neue Prüfung:
 > **Ein gruener Bericht auf der eigenen Maschine ist keine Aussage ueber die
 > Auslieferung** (08.09.2026). `field_check.py` hatte bis dahin den Pfad EINER
 > Umgebung fest verdrahtet (`/home/user/GreenScan/index.html`) und starb auf
-> dem GitHub-Runner mit `FileNotFoundError` — **jeder** Lauf des Workflows war
-> rot, auch der eines reinen Doku-PRs, waehrend der lokale Lauf daneben
-> „rot: 0" meldete. Der Runner hat es korrekt gesagt („rot: 1", Exit 1); es
+> dem GitHub-Runner mit `FileNotFoundError` — nachgezaehlt: **32 von 32
+> abgeschlossenen Laeufen rot, keiner je gruen** (seit dem ersten Lauf am
+> 07.09.2026), auch nicht der eines reinen Doku-PRs, waehrend der lokale Lauf
+> daneben „rot: 0" meldete. Der Runner hat es korrekt gesagt („rot: 1", Exit 1); es
 > hat nur niemand hingesehen. Wer pusht, sieht sich den CI-Lauf an. Und ein
 > Pruefstand loest seine Pfade aus sich selbst auf (`__dirname` / `__file__`),
 > nie aus einer Maschine — der Sinn eines Laufs auf einem ANDEREN Rechner ist

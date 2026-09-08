@@ -17,8 +17,10 @@
 Kein Anwendungscode, kein Versionssprung. Ein Pruefstand, eine Zeile.
 
 - **Der Fund.** Nach dem Merge von v32.96 habe ich zum ersten Mal an diesem Tag
-  die GitHub-Actions-Laeufe angesehen statt nur meinen eigenen. Ergebnis:
-  **jeder einzelne Lauf des Workflows `Prüfstände` ist rot** — auch der eines
+  die GitHub-Actions-Laeufe angesehen statt nur meinen eigenen. Nachgezaehlt
+  ueber die Schnittstelle, nicht geschaetzt: **32 abgeschlossene Laeufe, 32
+  `failure`, 0 `success`** — seit dem allerersten Lauf des Workflows
+  `Prüfstände` am 07.09.2026 war **kein einziger** gruen, auch nicht der eines
   reinen Doku-PRs. Im Protokoll:
 
   ```
