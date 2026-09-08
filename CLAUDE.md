@@ -1434,7 +1434,16 @@ entschied, welche Giftstufe der Scan zeigte. Seither:
 Der Fall prueft alle drei Teile GETRENNT, weil jeder fuer sich unbemerkt
 zurueckfallen kann; Gegenprobe je Teil gemacht. Wer `gsMatchScanToDb` eine
 neue Strategie hinzufuegt, gibt ihr Ergebnis durch
-`_gsVorsichtigste(_gsArtGruppe(hit))` — nie `DB.find`. Die Dubletten selbst
+`_gsVorsichtigste(_gsArtGruppe(hit))` — nie `DB.find`.
+
+> **Und das gilt fuer JEDE Anzeige einer Art, nicht nur fuer den Scanner**
+> (v32.91). `openDetail(id)` machte `DB.find(id)` und zeigte die Angaben genau
+> des angetippten Eintrags: **186 Eintraege mit einer niedrigeren Giftstufe**
+> als ihre Art (nie umgekehrt), 98 mit „essbar" gegen die Art. Uebernommen
+> werden nur die SICHERHEITSANGABEN — Name, Beschreibung und Verwendung
+> bleiben die des angetippten Eintrags, sonst liest jemand einen anderen
+> Eintrag als den, den er geoeffnet hat. Und die Karte sagt, dass korrigiert
+> wurde. Wer eine neue Ansicht einer Art baut, geht denselben Weg. Die Dubletten selbst
 stehen in `docs/arten-widersprueche.csv` und brauchen eine Flora, keinen
 Code (`docs/ARTEN-DATEN.md`).
 

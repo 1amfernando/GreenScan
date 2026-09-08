@@ -4,13 +4,67 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.90` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.91` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gf) - v32.91: das Artendetail umging die Vorsichtsregel
+
+- **Die Frage:** v32.43 hat fuer den Scanner festgelegt, dass bei
+  widerspruechlichen Dubletten die **vorsichtigere** Angabe gewinnt — „die
+  Vorsicht haengt an der ART, nicht an der Suchstrategie". Gilt das auch, wenn
+  jemand die Art ueber die **Suche** oeffnet?
+- **Nein.** `openDetail(id)` machte `DB.find(id)` und zeigte die Angaben GENAU
+  DES EINTRAGS, den jemand angetippt hat. Gemessen ueber alle 4'337 Eintraege:
+  - **1'814** haben Dubletten,
+  - **186** zeigten eine **niedrigere Giftstufe** als die vorsichtige Antwort —
+    **nie die Gegenrichtung (0)**,
+  - **98** sagten „essbar", wo die Art es nicht ist.
+  Christrose 3 statt 5 · Seidelbast 4 statt 5 · Beinwell 1 statt 3 ·
+  Wacholder 0 statt 2 · Schwarzer Holunder 1 statt 2. Und der schlimmste Fall,
+  den der Pruefstand selbst gesucht hat: **Violetter Schleierling — ein
+  Eintrag fuehrt tox 0, die Art ist Stufe 3.** Ein Pilz, der als ungiftig
+  dasteht.
+- **Zwei Dinge vor der Reparatur nachgemessen, statt sie anzunehmen:**
+  1. Die Quellen der Korrektur sind gepflegt — **0** stammen aus einem
+     ungeprueften Eintrag, **0** sind ohne Warntext, **10** heben auf Stufe 5.
+     Ohne diese Zahl haette die „Vorsicht" aus Platzhaltern kommen koennen
+     (v32.45: *ein Platzhalter ist keine Vorsicht*).
+  2. Uebernommen werden **nur die Sicherheitsangaben** (`tox`, `toxic`,
+     `edible`, und ein fehlender Warntext). Name, Beschreibung und Verwendung
+     bleiben die des angetippten Eintrags. Ein stiller Inhaltstausch waere die
+     schlechtere Antwort: jemand tippt einen Eintrag an und liest einen
+     anderen.
+- **Und die Karte sagt es.** „Vorsichtigere Angabe gezeigt — diese Art steht
+  mehrfach in der Liste … Giftstufe 5 statt 3." Eine Korrektur, die niemand
+  sieht, ist keine (v32.56).
+- Der Eingriff ist EINE Stelle: `const sp = …` bekommt den zusammengefuehrten
+  Eintrag. Die 102 `sp.`-Zugriffe der 304 Zeilen langen Funktion bleiben
+  unberuehrt.
+
+#### Und ein Fallname, der eine Pruefung versprach, die er nicht macht
+
+Mein erster Pruefstandsfall hiess *„D1 · kein Eintrag zeigt eine niedrigere
+Giftstufe als seine Art"* — er **misst** aber nur die Datenlage und gibt immer
+`ok` zurueck. Die Zahlen sind eine Eigenschaft der Artenliste, kein Fehler im
+Code; ob die ANZEIGE sie aufloest, prueft D1b. Umbenannt in „Datenlage …
+(Messung)", bevor es jemand liest.
+
+> **Ein Fall, dessen Name mehr verspricht als sein Rumpf haelt, ist dieselbe
+> Klasse wie eine Zahl unter der falschen Ueberschrift** (v32.85/87/88) — nur
+> im Pruefwerk statt in der App.
+
+`scan_check` D1 + D1b (jetzt 61). D1b **sucht sich den gefaehrlichsten Fall
+selbst** (groesster Abstand zwischen Eintrag und Art), liest die
+Giftskala aus dem gerenderten DOM und prueft die Gegenrichtung: eine Art ohne
+Dublette darf keinen Hinweis bekommen. Gegen v32.90 rot: *„die Skala zeigt
+Stufe 0, die Art ist 3 · die Korrektur wird nicht genannt"*.
+
+Regression v32.90 → v32.91: `scan_check` 61 Fälle / 0 kaputt (D1b gegen v32.90 rot), `render_check` gegen v32.90 **3'090 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt).
 
 ### 2026-09-08 (ge) - v32.90: die Welle aus v32.88 abgearbeitet — 41 → 4
 
@@ -10414,9 +10468,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.90` (Client) · SW-Cache `gs-v32.90` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.91` (Client) · SW-Cache `gs-v32.91` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'078 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **92'146 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
