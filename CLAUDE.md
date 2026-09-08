@@ -1609,6 +1609,19 @@ Schluesselnamen wirft, ebenfalls gruen.**
 sie gut ist. Das braucht Netz und Sprachkenntnis. Er prueft, ob eine
 vorhandene Uebersetzung ueberhaupt ankommen KANN.
 
+**Seit v32.78 gibt es ZWEI Wege zur Übersetzung, und beide speisen sich aus
+dem Code** (Audit E1). Der Schlüssel-Weg (`_t(key, 'Deutsch')` +
+`GS_I18N_JS_STRINGS`) für Oberflächentexte — und der **Phrasen-Weg**
+(`gsI18n.tText(s)`, v30.18) für Toasts, Rückfragen, `placeholder`,
+`aria-label` und Menü-Labels: übersetzt wird am deutschen Satz selbst.
+Damit der Übersetzer die Sätze kennt, liest der Sammler sie aus dem
+eigenen Quelltext (`gsI18nMeldungenAusQuelltext`, reine Funktion) und aus
+dem Dokument (`gsI18nDokumentPhrasen`). Drei Regeln daraus: ein Toast
+bekommt sein Literal als GANZEN Satz (`'Fehler: ' + x` übersetzt niemand);
+wer `placeholder`/`aria-label` liest, liest `data-i18n-orig-<attr>` wenn er
+das Original braucht; und ein Datum formatiert mit `gsLocale()`, nie mit
+`'de-CH'` — `i18n_check` meldet jedes `toLocale*String('de-CH')`.
+
 **Und noch eine Falle, die kein Pruefstand sieht:** `_t` ist KEINE globale
 Funktion. Jede Funktion legt sich einen eigenen Alias an
 (`var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){return f;}`).
