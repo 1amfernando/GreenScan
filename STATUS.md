@@ -12,6 +12,42 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-08 (gp) - Gilt der Battle-Fehler noch woanders? Nein — und jetzt bleibt es so
+
+Kein Anwendungscode, kein Versionssprung. Eine Suche mit negativem Ergebnis und
+ein Pruefstand, der es festhaelt.
+
+- **Die Frage kam aus (go).** Der Battle-Zaehler lief weiter, weil ihn niemand
+  anhielt. Gilt das noch irgendwo? Alle **34 `setInterval`-Stellen**
+  durchgezaehlt, 33 mit benanntem Griff.
+- **Fuenf haben KEIN `clearInterval`** — `_gsAgentTimer`,
+  `_gsAutoSyncInterval`, `_gsProactiveRefreshTimer`, `_gsWStackTimer`,
+  `_marketTimer`. **Alle fuenf sind richtig gebaut:** es sind Einmal-Waechter
+  fuer die ganze Laufzeit (`if (_gsAgentTimer) return;`,
+  `if (!window._marketTimer)`, `if (window._gsAutoSyncSetup) return;`). Sie
+  laufen absichtlich bis zum Schliessen des Tabs und koennen sich nicht
+  vervielfachen.
+- **Ergebnis: kein zweiter Fall.** Der Battle-Zaehler war der einzige, der an
+  ein SCHLIESSBARES Fenster gebunden war und trotzdem weiterlief.
+
+#### Der Pruefstand: `robust_check` B11 (jetzt 23 Faelle)
+
+Die Regel, die aus der Suche faellt: **ein Intervall muss ENTWEDER abgeraeumt
+werden koennen ODER gegen Doppelstart gesichert sein.** Fehlt beides, stapeln
+sich Kopien bei jedem Oeffnen — die stille Variante des Battle-Fehlers.
+
+Gegenprobe mit einem frischen, ungesicherten Intervall: rot, mit Zeilennummer.
+
+**Und der Fall war im ersten Anlauf zu streng.** Er verlangte den Namen direkt
+hinter `if (` — `if (!window._gsWStackReduce && !window._gsWStackTimer)` prueft
+aber erst etwas anderes und fiel durch. Gemeldet wurde eine Stelle, die in
+Ordnung ist. Repariert wurde der FALL, nicht die App: gesucht wird jetzt eine
+`if`-Zeile oberhalb, die den Namen nennt.
+
+> **Ein negatives Ergebnis ist eines wert, wenn es gemessen wurde** — und mehr
+> wert, wenn ein Fall es festhaelt. Sonst sucht die naechste Sitzung dasselbe
+> noch einmal.
+
 ### 2026-09-08 (go) - v32.97: ein Battle zu verlassen hiess, es zu verlieren
 
 - **Der erste der sieben Faelle aus (gl), der sich als echter Defekt erwiesen
