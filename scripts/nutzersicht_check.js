@@ -72,6 +72,40 @@ const FAELLE = [
     }),
   },
   {
+    // v33.00 — die Haelfte, die E4 fehlte. E4 ersetzt GS_RELEASES durch eine
+    // EIGENE, korrekt geformte Attrappe und war deshalb gruen, waehrend die
+    // ECHTEN Eintraege seit v32.86 kaputt waren: `user_items` als reine
+    // Zeichenketten, und der Renderer liest `it.bold` — an einem String ist das
+    // `String.prototype.bold`, eine Funktion und damit wahr. Auf dem Telefon
+    // stand dreimal „function bold() { [native code] }".
+    // Ein Fall, der nur eine Attrappe rendert, prueft die Vorlage, nicht die Ware.
+    name: 'E4b · Die ECHTEN Release-Notizen rendern Text — kein [native code], keine leere Zeile',
+    lauf: async () => __seite.evaluate(() => {
+      const alle = (typeof gsAllReleases === 'function') ? gsAllReleases() : (window.GS_RELEASES || []);
+      if (!alle.length) return { ok: false, warum: 'keine Release-Eintraege — der Fall misst nichts' };
+      const pruefe = alle.slice(0, 20);
+      const kaputt = [], leer = [];
+      pruefe.forEach(rel => {
+        const items = (typeof gsAutoUserItems === 'function') ? gsAutoUserItems(rel) : (rel.user_items || []);
+        items.forEach((it, i) => {
+          // Genau messen: der DEFEKT ist ein `bold`, das keine Zeichenkette ist
+          // (dann greift der Renderer `String.prototype.bold` ab). Den Text nach
+          // „[native code]" zu durchsuchen war zu grob — die Release-Notiz zu
+          // v33.00 ZITIERT den Fehlertext und wurde prompt selbst gemeldet.
+          const boldRoh = it && it.bold;
+          const b = (typeof boldRoh === 'string') ? boldRoh : (boldRoh == null ? '' : '[' + typeof boldRoh + ']');
+          const tx = (it && typeof it.text === 'string') ? it.text : '';
+          if (boldRoh != null && typeof boldRoh !== 'string') kaputt.push(rel.v + '#' + (i + 1) + ' (bold ist ' + typeof boldRoh + ')');
+          else if (!(b + tx).trim()) leer.push(rel.v + '#' + (i + 1));
+        });
+      });
+      if (kaputt.length) return { ok: false, warum: kaputt.length + ' Eintrag/Eintraege rendern [native code]: ' + kaputt.slice(0, 6).join(' ') };
+      if (leer.length) return { ok: false, warum: leer.length + ' Eintrag/Eintraege ohne sichtbaren Text: ' + leer.slice(0, 6).join(' ') };
+      const n = pruefe.reduce((a, r) => a + ((typeof gsAutoUserItems === 'function') ? gsAutoUserItems(r) : (r.user_items || [])).length, 0);
+      return { ok: true, info: pruefe.length + ' echte Releases · ' + n + ' Zeilen, alle mit Text' };
+    }),
+  },
+  {
     name: 'E2 · Lina: Sprache der App im Kontext (de/fr/it/en/es), keine Tabs, die es nicht gibt, die fuenf echten benannt',
     lauf: async () => __seite.evaluate(() => {
       const echt = gsI18n.getLang;

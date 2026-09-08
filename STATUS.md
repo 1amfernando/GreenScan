@@ -4,13 +4,71 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.99` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v33.00` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gs) - v33.00: Fernando hat fotografiert, was ich sehen haette muessen
+
+**Der Bildschirm zeigte dreimal `function bold() { [native code] }`** statt der
+Release-Notizen. Auf v32.96, aber betroffen war **jeder Dialog seit v32.86** —
+also jede einzelne Auslieferung dieses Tages, vierzehn Stueck.
+
+- **Die Ursache in einer Zeile:** der Renderer liest `it.bold`. Ich habe
+  `user_items` ab v32.86 als **reine Zeichenketten** geschrieben — und an einem
+  String ist `.bold` die eingebaute `String.prototype.bold`, eine **Funktion**
+  und damit wahr. Also `<b>function bold() { [native code] }</b>`, und
+  `it.text` war `undefined`.
+- **Ein Tor an der einen Stelle:** `gsAutoUserItems` ist der Trichter, durch den
+  beide Renderer gehen (Dialog und Ueber-Liste). Dort normalisiert
+  `_gsRelItem` jede Zeichenkette zu `{text}`. Der Rueckfall im Dialog ebenso.
+- **Die 14 Eintraege in die Hausform** gebracht (`{emoji, text}`).
+
+#### Was mich das ueber meine eigene Arbeit lehrt
+
+**Der Pruefstand dafuer existierte** — `nutzersicht_check` E4, gebaut in v32.70,
+genau fuer „zeigt der Dialog Label UND Text". Er war die ganze Zeit gruen.
+
+Weil er `GS_RELEASES` durch eine **eigene, korrekt geformte Attrappe** ersetzt
+und die echten Daten nie ansieht.
+
+> **Ein Fall, der nur eine Attrappe rendert, prueft die Vorlage — nicht die
+> Ware.** Das ist dieselbe Klasse, die ich heute an fuenf fremden Stellen
+> gefunden und benannt habe (v32.91 bis v32.96: „was etwas WERTET oder
+> EINORDNET, geht durch dieselbe Quelle"). In meinem eigenen Pruefstand habe
+> ich sie nicht gesehen.
+
+**Neu: `nutzersicht_check` E4b** rendert die **echten** zwanzig neuesten
+Eintraege und faellt durch bei `[native code]` oder leerer Zeile. Gegenprobe
+(Normalisierer raus, v32.96 wieder als Strings): *„3 Eintrag/Eintraege rendern
+[native code]: v32.96#1 v32.96#2 v32.96#3"* — genau das Foto.
+
+#### Und ein Fehler beim Reparieren, den ich zurueckgenommen habe
+
+**Drei** Fehler beim Reparieren, alle zurueckgenommen:
+
+1. Beim Umstellen der 14 Eintraege habe ich zuerst **fette Voranstellungen
+erfunden** („In „Giftige" fehlten:") — aus dem Thema der Version geraten, nicht
+aus dem jeweiligen Satz gelesen. Bei v32.96 passte keine einzige. Ein falsches
+Fett-Label ist eine **Behauptung ueber den Satz daneben**; zurueckgenommen und
+nur mit dem Emoji des Release-Themas neu gebaut, das ich belegen kann.
+
+2. **Der neue Fall E4b hat zuerst die eigene Release-Notiz gemeldet.** Er
+   durchsuchte den TEXT nach „[native code]" — und die Notiz zu v33.00 ZITIERT
+   den Fehlertext. Zu grob gemessen: der Defekt ist ein `bold`, das keine
+   Zeichenkette ist. Der Fall prueft jetzt genau das (`typeof`), die Gegenprobe
+   sagt seither „bold ist function".
+
+3. Und ich habe mit einem `git checkout index.html` die halbe Reparatur
+   verworfen, weil ich den Befehl zum Aufraeumen einer Gegenprobe benutzt habe,
+   ohne zu bedenken, dass dieselbe Datei die eigentliche Arbeit traegt. Aus der
+   Sicherung neu aufgebaut und geprueft (`GS_VERSION`, `_gsRelItem`, E4b).
+   **Eine Gegenprobe raeumt man mit der Sicherung auf, die man vorher angelegt
+   hat — nicht mit dem Werkzeug, das alles zurueckdreht.**
 
 ### 2026-09-08 (gr) - v32.99: derselbe Notfall-Fehler, drei Sprachen weiter
 
@@ -11079,7 +11137,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.99` (Client) · SW-Cache `gs-v32.99` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.00` (Client) · SW-Cache `gs-v33.00` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **92'227 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
