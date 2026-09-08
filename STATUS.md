@@ -4,13 +4,67 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.88` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.89` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gd) - v32.89: ein Programmierfehler reiste ueber ein FELD auf den Bildschirm
+
+- **Die Frage** kam aus der Aufgabe, die v32.88 bewusst zurueckgestellt hatte
+  (die 38 zusammengesetzten Anzeigetexte): *kommt eine rohe Fehlermeldung ueber
+  ein `grund`-Feld wirklich auf den Bildschirm?* Nicht erschlossen — **hergestellt**:
+
+  > Wetterdienst: **Fehler: Cannot read properties of undefined (reading 'hourly')**
+
+- **Warum B8 das nicht sehen konnte.** `robust_check` sucht seit v32.73 nach
+  rohen Meldungen in **Anzeige-Zeilen**. Diese hier reist ueber ein Feld
+  **zwei Spruenge weit**: `catch (e) → { grund: 'Fehler: ' + e.message }` →
+  `gsToast('Wetterdienst: ' + r.grund)`. Eine Textsuche kann das nicht sehen,
+  und der Bericht sagte das seit v32.73 auch selbst („eine Zeile, die den
+  Fehler erst spaeter anzeigt, sieht die Suche nicht") — nur hatte niemand die
+  Gegenprobe gemacht.
+
+- **Und mein erster Messversuch hat die ATTRAPPE gemessen.** Ich hatte
+  `gsWetterGeraetAbgleich` selbst durch einen Stub ersetzt, der den alten
+  `catch` nachbaute. Die Messung zeigte danach brav die alte Ausgabe — **auch
+  nach der Reparatur**, weil sie die reparierte Funktion gar nicht mehr rief.
+  Erst als eine **Abhaengigkeit** gebrochen wurde (`gsGeraete` liefert `null`,
+  `.find()` darauf wirft), lief der echte Fehlerpfad. Das steht seit v32.40 in
+  CLAUDE.md, und ich bin voll hineingelaufen.
+
+**Zwei Reparaturen:**
+
+1. `_gsFehlerText` erkennt einen **Programmierfehler** (`TypeError`,
+   `ReferenceError`, `RangeError`, `SyntaxError`, `EvalError`, `URIError`) und
+   sagt einen Satz statt der englischen Zeile; das Rohe geht in die Konsole.
+   Der Rueckfall dieser Funktion war fuer EIGENE kurze Saetze gedacht („Kein
+   Gerät gewählt."), nicht fuer die Meldung einer Ausnahme.
+2. Alle **zwoelf** `grund: 'Fehler: ' + e.message` liefern jetzt
+   `_gsFehlerText(e)`. Vorher nachgezaehlt: **niemand prueft den Inhalt** von
+   `grund` (kein `===`, kein `indexOf`, kein `test`) — die Umstellung bricht
+   also keine Logik.
+
+**Die Reihenfolge der Zweige ist der heikle Teil, und der Fall misst ihn mit:**
+ein Netzfehler IST auch ein `TypeError` (`new TypeError('Failed to fetch')`),
+muss aber weiterhin „Keine Verbindung zum Server" heissen — der neue Zweig
+steht deshalb ganz am Ende, nach allen inhaltlichen Pruefungen.
+
+**Ehrlich benannt:** von den zwoelf Stellen sind heute **drei** wirklich
+sichtbar (`_gsMwWetterEin`, `gsGeraetKoppeln`, `gsGeraetPausieren` — die
+letzten beiden toasteten die rohe Meldung sogar direkt). Die uebrigen neun
+haben Aufrufer, die den `grund` ignorieren. Umgestellt sind trotzdem alle:
+*„wird heute nicht angezeigt" ist eine Eigenschaft der heutigen Aufrufer* —
+genau die Annahme, die zwischen v32.85 und v32.87 zwei Releases gekostet hat.
+
+`robust_check` Fall **B8b** (jetzt 21): statisch 0× rohes `grund`, die
+Uebersetzung je Fehlerart, und der ECHTE Weg bis in den Toast. Gegen v32.88
+rot auf allen vier Pruefungen, mit den echten Werten.
+
+Regression v32.88 → v32.89: `robust_check` 21 Fälle / 0 kaputt (B8b gegen v32.88 rot auf allen vier Prüfungen), `render_check` gegen v32.88 **3'092 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
 
 ### 2026-09-08 (gc) - v32.88: drei Saetze, die keine Uebersetzung bekamen — und einer log dabei
 
@@ -10323,9 +10377,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.88` (Client) · SW-Cache `gs-v32.88` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.89` (Client) · SW-Cache `gs-v32.89` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'033 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **92'055 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
