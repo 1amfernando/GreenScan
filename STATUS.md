@@ -47,7 +47,7 @@ Fehler noch dort, wo die Beschriftung sogar **expliziter** war. Das Werkzeug
 dafuer war banal — jede Zahl auf dem Bildschirm einmal neben ihre Beschriftung
 schreiben und hinsehen.
 
-Regression v32.86 → v32.87: `kalender_check` 19 Fälle / 0 kaputt (der neue Fall gegen v32.86 rot: „zählt drei Tage unter „Heute fällig": 3 statt 1"), `render_check` gegen v32.86 **3'092 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
+Regression v32.86 → v32.87: `kalender_check` 19 Fälle / 0 kaputt (der neue Fall gegen v32.86 rot: „zählt drei Tage unter „Heute fällig": 3 statt 1"), `render_check` gegen v32.86 **3'092 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt), Kontrast 0/0 in beiden Modi, Antippflächen 0.
 
 ### 2026-09-08 (ga) - v32.86: „Essbar" wurde aus „nicht giftig" gerechnet
 
