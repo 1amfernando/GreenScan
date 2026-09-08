@@ -50,7 +50,7 @@ jetzt dasselbe.
 `i18n_check`: ein Fall, der `Intl` Zahlen liefern laesst und beide Funktionen
 prueft. Gegen v32.93 rot: *„gsMonate wirft: Maximum call stack size exceeded"*.
 
-Regression v32.93 → v32.94: `i18n_check` grün (der neue Fall gegen v32.93 rot: „gsMonate wirft: Maximum call stack size exceeded“), `render_check` gegen v32.93 **3'097 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 31 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
+Regression v32.93 → v32.94: `i18n_check` grün (der neue Fall gegen v32.93 rot: „gsMonate wirft: Maximum call stack size exceeded“), `render_check` gegen v32.93 **3'097 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 31 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief; erster Lauf mit `perf_check` im Bericht).
 
 ### 2026-09-08 (gi) - Ueberblickszahlen nachgezaehlt · und `pruefstaende.sh` fuhr 30 von 31
 
