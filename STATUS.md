@@ -64,7 +64,7 @@ genau die Annahme, die zwischen v32.85 und v32.87 zwei Releases gekostet hat.
 Uebersetzung je Fehlerart, und der ECHTE Weg bis in den Toast. Gegen v32.88
 rot auf allen vier Pruefungen, mit den echten Werten.
 
-Regression v32.88 → v32.89: `robust_check` 21 Fälle / 0 kaputt (B8b gegen v32.88 rot auf allen vier Prüfungen), `render_check` gegen v32.88 **3'092 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
+Regression v32.88 → v32.89: `robust_check` 21 Fälle / 0 kaputt (B8b gegen v32.88 rot auf allen vier Prüfungen), `render_check` gegen v32.88 **3'092 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt).
 
 ### 2026-09-08 (gc) - v32.88: drei Saetze, die keine Uebersetzung bekamen — und einer log dabei
 
