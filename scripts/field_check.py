@@ -48,8 +48,16 @@ eigenem Namen wird weiter rot gemeldet, ein totes `tp-gegenprobe` landet
 sichtbar in der mittleren Klasse.
 """
 
-import io, re
-src = io.open('/home/user/GreenScan/index.html', encoding='utf-8').read()
+import io, os, re
+
+# Der Pfad kommt aus dem SKRIPT, nicht aus einer Maschine. Bis heute stand hier
+# '/home/user/GreenScan/index.html' — der Pfad EINER Umgebung. Lokal war der
+# Pruefstand deshalb immer gruen, und auf dem GitHub-Runner
+# (/home/runner/work/GreenScan/GreenScan) starb er bei jedem PR mit
+# FileNotFoundError. `pruefstaende.sh` meldete dort brav „rot: 1", und der
+# lokale Lauf daneben „rot: 0" — dieselbe Frage, zwei Antworten.
+_WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src = io.open(os.path.join(_WURZEL, 'index.html'), encoding='utf-8').read()
 
 felder = {}
 for m in re.finditer(r'<(input|select|textarea)\b([^>]*)>', src, re.I):

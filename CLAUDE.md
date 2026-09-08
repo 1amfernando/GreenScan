@@ -662,6 +662,17 @@ Zwei Regeln, nach denen er gebaut ist, gelten für **jede** neue Prüfung:
   dem Objekt. In v31.90 war ein Anzeige-Block wegen Hoisting tot, ohne dass
   irgendetwas einen Fehler meldete — die Karte sah nur unverändert aus.
 
+> **Ein gruener Bericht auf der eigenen Maschine ist keine Aussage ueber die
+> Auslieferung** (08.09.2026). `field_check.py` hatte bis dahin den Pfad EINER
+> Umgebung fest verdrahtet (`/home/user/GreenScan/index.html`) und starb auf
+> dem GitHub-Runner mit `FileNotFoundError` — **jeder** Lauf des Workflows war
+> rot, auch der eines reinen Doku-PRs, waehrend der lokale Lauf daneben
+> „rot: 0" meldete. Der Runner hat es korrekt gesagt („rot: 1", Exit 1); es
+> hat nur niemand hingesehen. Wer pusht, sieht sich den CI-Lauf an. Und ein
+> Pruefstand loest seine Pfade aus sich selbst auf (`__dirname` / `__file__`),
+> nie aus einer Maschine — der Sinn eines Laufs auf einem ANDEREN Rechner ist
+> gerade, Annahmen ueber den eigenen zu fangen.
+
 `field_check.py` sucht die Umkehrung von `wiring_check`: **Eingabefelder, die
 niemand liest.** Anlass war v31.72 — das Garten-Formular hatte Breite und
 Länge, eine Vorschau rechnete live die Fläche daraus, und `editGarden` LAS

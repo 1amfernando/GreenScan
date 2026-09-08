@@ -12,6 +12,50 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-08 (gm) - `field_check.py` starb auf JEDEM PR — und der lokale Bericht sagte gruen
+
+Kein Anwendungscode, kein Versionssprung. Ein Pruefstand, eine Zeile.
+
+- **Der Fund.** Nach dem Merge von v32.96 habe ich zum ersten Mal an diesem Tag
+  die GitHub-Actions-Laeufe angesehen statt nur meinen eigenen. Ergebnis:
+  **jeder einzelne Lauf des Workflows `Prüfstände` ist rot** — auch der eines
+  reinen Doku-PRs. Im Protokoll:
+
+  ```
+  File ".../scripts/field_check.py", line 52, in <module>
+    src = io.open('/home/user/GreenScan/index.html', encoding='utf-8').read()
+  FileNotFoundError: [Errno 2] No such file or directory
+  EXIT=1  <<< ROT
+  ##### FERTIG — 31 Pruefstaende · rot: 1
+  ```
+
+  `field_check.py` trug den Pfad **EINER Umgebung** fest verdrahtet. Hier
+  stimmt er, auf dem Runner (`/home/runner/work/GreenScan/GreenScan`) nicht.
+  Der Pfad kommt jetzt aus dem Skript selbst (`__file__`); gegengeprueft aus
+  dem Repo UND aus `/tmp` — gleiche Ausgabe, 36 erkannte Praefixe.
+
+- **Es war der einzige.** Alle 30 JS-Pruefstaende loesen ihre Pfade ueber
+  `__dirname` auf; ein `grep` ueber absolute Pfade in `scripts/` findet sonst
+  nur zwei Ausgabedateien in `/tmp` in Helferskripten, die `pruefstaende.sh`
+  gar nicht faehrt.
+
+#### Das eigentliche Versaeumnis war nicht die Zeile
+
+`pruefstaende.sh` hat auf dem Runner korrekt **„rot: 1"** gemeldet und mit 1
+beendet — der Runner hat gesagt, was Sache ist. Ich habe ihn nicht gelesen.
+Zwoelf Auslieferungen lang stand in STATUS und in jedem PR-Text „alle 31
+Pruefstaende gruen"; das war der LOKALE Lauf, und lokal war es auch wahr.
+
+> **Ein gruener Bericht auf der eigenen Maschine ist keine Aussage ueber die
+> Auslieferung.** Der Sinn eines Pruefstands im CI ist gerade, dass er auf
+> einer ANDEREN Maschine laeuft — genau darum faengt er Annahmen ueber die
+> eigene. Wer pusht, sieht sich den Lauf an; „bei mir gruen" ersetzt ihn nicht.
+
+Und dieselbe Klasse wie zwei Faelle in v32.96 an einem Tag: der Pruefstand,
+der sich selbst aus dem Korpus nehmen musste, und `render_check`, das beide
+Dateien im Repo braucht. **Drei Werkzeuge, die etwas ueber ihre eigene
+Umgebung angenommen haben.**
+
 ### 2026-09-08 (gl) - v32.96: fuenf Stellen sprachen ueber Giftigkeit, ohne die Art zu fragen
 
 - **Die Zahl unter „Giftig" im Lexikon liess die toedlichen aus.** Der Zaehler
