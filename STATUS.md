@@ -4,13 +4,50 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.89` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.90` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (ge) - v32.90: die Welle aus v32.88 abgearbeitet — 41 → 4
+
+- v32.88 hat **41** zusammengesetzte Anzeigetexte gemessen und **drei**
+  umgestellt; der Rest stand als benannte Aufgabe. v32.89 hat davon zwoelf
+  erledigt (die `grund: 'Fehler: ' + e.message` — es waren gar keine
+  Anzeigetexte, sondern ein Fall fuer `_gsFehlerText`). Diese Version macht
+  die restlichen **24** und laesst **vier** stehen, jede mit Grund.
+- **Die vier, die bleiben — und warum:**
+  | Stelle | warum kein Nutzertext |
+  |---|---|
+  | `label: 'Nachher (…)'` (2×) | geht in einen **KI-Prompt** (`callVisionAI`), nicht auf den Bildschirm |
+  | `text: 'Foto 1/3 · …'` | ebenso Prompt-Inhalt |
+  | `text: 'Pest identified: ' + slug` | ein **Datenbank-Datensatz** mit Slug; die Anzeige daneben heisst `title: 'Schädling erkannt'` |
+- **Drei davon waeren bei einem Sweep falsch behandelt worden.** Genau deshalb
+  war v32.88s Entscheidung richtig, sie nicht pauschal zu ersetzen: *ein
+  Treffer ist ein Verdacht, kein Urteil* — und jede der 41 Stellen musste
+  einzeln bis zu ihrer Anzeige verfolgt werden.
+
+**Die Plural-Regel, angewandt statt zitiert.** Fuenf Beschriftungen im Garten
+bauten die Mehrzahl mit einem Ternaer: `'Pflanze' + (n === 1 ? '' : 'n') + '
+erkannt'`. Fuer den Sammler ist das kein Satz, und mit einem Platzhalter waere
+es auch nicht besser — **Pluralbildung ist Grammatik, die jede Sprache anders
+macht** (CLAUDE.md seit v32.83). Jetzt zwei ganze Saetze:
+`n === 1 ? _gsSatz('Pflanze erkannt') : _gsSatz('Pflanzen erkannt')`. Die Zahl
+selbst steht ohnehin in einem eigenen Feld.
+
+**Und ein Grund aus vier Teilen ist auch kein Satz.** Die Intervall-Begruendung
+(`'Intervall N Tage' + (zuletzt|nie) + (verschoben) + (vorgezogen)`) ist in
+ganze Saetze zerlegt, verbunden mit „·" — **Zeichensetzung ist keine Sprache**,
+ein Trennzeichen darf zusammengesetzt bleiben.
+
+**Gemessen, nicht angenommen:** acht Stichproben quer durch die neuen Vorlagen
+(Plural, Katalog, Intervall, Artenliste, Zeitachse, Planer, Teilen) kommen beim
+Sammler an; er liefert jetzt **670 Saetze** statt 633.
+
+Regression v32.89 → v32.90: `render_check` gegen v32.89 **3'095 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen. Sammler 670 Sätze (vorher 633), acht Stichproben einzeln nachgewiesen. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt).
 
 ### 2026-09-08 (gd) - v32.89: ein Programmierfehler reiste ueber ein FELD auf den Bildschirm
 
@@ -10377,9 +10414,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.89` (Client) · SW-Cache `gs-v32.89` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.90` (Client) · SW-Cache `gs-v32.90` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'055 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **92'078 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

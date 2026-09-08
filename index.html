@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.89.20260908">
+<meta name="app-version" content="32.90.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8760,9 +8760,9 @@ window.gsRenderGardenOverview = function () {
         '<div class="gs-go-badge"><b>3D-Modell</b><span>Fertig</span></div>' +
       '</div>';
     zahlenBlock = zahlenzeile([
-      { zahl: t.plants.length, label: 'Pflanze' + (t.plants.length === 1 ? '' : 'n') + ' erkannt', aktion: 'gsTwinOpenListe()' },
-      { zahl: t.beds.length,   label: 'Pflegezone' + (t.beds.length === 1 ? '' : 'n'),             aktion: 'gsTwinOpen3D()' },
-      { zahl: t.zones.length,  label: 'Lichtzone' + (t.zones.length === 1 ? '' : 'n'),             aktion: 'gsTwinOpen3D()' },
+      { zahl: t.plants.length, label: t.plants.length === 1 ? _gsSatz('Pflanze erkannt') : _gsSatz('Pflanzen erkannt'), aktion: 'gsTwinOpenListe()' },
+      { zahl: t.beds.length,   label: t.beds.length === 1 ? _gsSatz('Pflegezone') : _gsSatz('Pflegezonen'),             aktion: 'gsTwinOpen3D()' },
+      { zahl: t.zones.length,  label: t.zones.length === 1 ? _gsSatz('Lichtzone') : _gsSatz('Lichtzonen'),             aktion: 'gsTwinOpen3D()' },
     ]);
     kacheln = zahlenBlock + naechsterSchritt();
     cta =
@@ -8772,8 +8772,8 @@ window.gsRenderGardenOverview = function () {
   } else {
     // ── Ohne Zwilling: nur echte Zahlen, plus die Einladung ────────────
     zahlenBlock = zahlenzeile([
-      { zahl: nPlants, label: 'Pflanze' + (nPlants === 1 ? '' : 'n') + ' in Pflege', aktion: "if(typeof switchTab==='function')switchTab('favs')" },
-      { zahl: nBeds,   label: 'Beet' + (nBeds === 1 ? '' : 'e') + ' angelegt',       aktion: "var _l=document.getElementById('garden-list');if(_l)_l.scrollIntoView({behavior:gsScrollBehavior(),block:'start'})" },
+      { zahl: nPlants, label: nPlants === 1 ? _gsSatz('Pflanze in Pflege') : _gsSatz('Pflanzen in Pflege'), aktion: "if(typeof switchTab==='function')switchTab('favs')" },
+      { zahl: nBeds,   label: nBeds === 1 ? _gsSatz('Beet angelegt') : _gsSatz('Beete angelegt'),       aktion: "var _l=document.getElementById('garden-list');if(_l)_l.scrollIntoView({behavior:gsScrollBehavior(),block:'start'})" },
       { zahl: nPlans,  label: (nPlans === 1 ? 'Plan' : 'Pl\u00e4ne') + ' gespeichert', aktion: "(window.gsPlansOpen?gsPlansOpen():(typeof gsPPopenSavedPlans==='function'?gsPPopenSavedPlans():null))" },
     ]);
     kacheln = zahlenBlock + naechsterSchritt();
@@ -9061,7 +9061,7 @@ function gsTwinRename(idx) {
   if (!t || !t.plants[idx]) return;
   var alt = t.plants[idx].name;
   var frage = (typeof gsPromptModal === 'function')
-    ? gsPromptModal({ title: 'Wie heisst sie wirklich?', text: 'Erkannt wurde: ' + alt, placeholder: 'z.B. Basilikum', value: alt })
+    ? gsPromptModal({ title: 'Wie heisst sie wirklich?', text: _gsSatz('Erkannt wurde: {1}', alt), placeholder: 'z.B. Basilikum', value: alt })
     : Promise.resolve(prompt('Wie heisst sie wirklich?', alt));
   frage.then(function (neuName) {
     var n = String(neuName == null ? '' : neuName).replace(/\s+/g, ' ').trim();
@@ -21314,7 +21314,7 @@ function gsShareSpecies(name, latin) {
   var text = name + (latin ? ' (' + latin + ')' : '');
   var url = location.href.split('?')[0];
   if (navigator.share) {
-    navigator.share({ title: '🌿 ' + name + ' — GreenScan', text: 'Ich habe ' + text + ' mit GreenScan entdeckt!', url: url }).catch(function(){});
+    navigator.share({ title: '🌿 ' + name + ' — GreenScan', text: _gsSatz('Ich habe {1} mit GreenScan entdeckt!', text), url: url }).catch(function(){});
   } else if (navigator.clipboard) {
     navigator.clipboard.writeText(text + ' — GreenScan').then(function() {
       showProfileToast(_gsSatz('📋 Kopiert: {1}', name));
@@ -26665,7 +26665,7 @@ function _gsMesswerteAnhaengen(g, liste, opts) {
     (Array.isArray(liste) ? liste : []).forEach(function (e) {
       if (!e) return;
       var k = _gsMetric(e.metric);
-      if (!k) { out.abgelehnt.push({ metric: e.metric, grund: 'Die Messgrösse „' + e.metric + '" steht nicht im Katalog — ein neuer Sensor ist eine Zeile dort, kein Sonderfall.' }); return; }
+      if (!k) { out.abgelehnt.push({ metric: e.metric, grund: _gsSatz('Die Messgrösse „{1}" steht nicht im Katalog — ein neuer Sensor ist eine Zeile dort, kein Sonderfall.', e.metric) }); return; }
       var v = Number(e.wert);
       if (!isFinite(v)) { out.abgelehnt.push({ metric: e.metric, grund: 'Kein Zahlenwert.' }); return; }
       var d = e.ts ? new Date(e.ts) : null;
@@ -27300,10 +27300,10 @@ function gsSchwellwertVorlagen(g) {
     var add = function (v) { var sk = v.metric + '|' + v.op + '|' + v.threshold; if (gesehen[sk] || !_gsMetric(v.metric)) return; gesehen[sk] = true; out.push(v); };
     pflanzen.forEach(function (x) {
       var p = x.p, art = _gsArtZuPflanze(p);
-      if (art && typeof art.lightMin === 'number') add({ metric: 'light', op: 'below', threshold: art.lightMin, quelle: 'artenliste', grund: 'Artenliste ' + (art.id || '') + ' (' + (art.name || p.name) + '): mindestens ' + art.lightMin + ' lux' });
-      if (art && typeof art.lightMax === 'number') add({ metric: 'light', op: 'above', threshold: art.lightMax, quelle: 'artenliste', grund: 'Artenliste ' + (art.id || '') + ' (' + (art.name || p.name) + '): höchstens ' + art.lightMax + ' lux' });
+      if (art && typeof art.lightMin === 'number') add({ metric: 'light', op: 'below', threshold: art.lightMin, quelle: 'artenliste', grund: _gsSatz('Artenliste {1} ({2}): mindestens {3} lux', (art.id || ''), (art.name || p.name), art.lightMin) });
+      if (art && typeof art.lightMax === 'number') add({ metric: 'light', op: 'above', threshold: art.lightMax, quelle: 'artenliste', grund: _gsSatz('Artenliste {1} ({2}): höchstens {3} lux', (art.id || ''), (art.name || p.name), art.lightMax) });
       var kul = _gsKulturZuPflanze(p);
-      if (kul && typeof kul.k.bodentemp === 'number') add({ metric: 'soil_temp', op: 'below', threshold: kul.k.bodentemp, quelle: 'kulturdaten', grund: 'Kulturdaten (' + kul.name + '): Keimung ab ' + kul.k.bodentemp + ' °C' });
+      if (kul && typeof kul.k.bodentemp === 'number') add({ metric: 'soil_temp', op: 'below', threshold: kul.k.bodentemp, quelle: 'kulturdaten', grund: _gsSatz('Kulturdaten ({1}): Keimung ab {2} °C', kul.name, kul.k.bodentemp) });
     });
     // Eigener Verlauf: 14 Tage, mindestens 10 plausible Werte je Groesse
     var grenze = Date.now() - GS_VORLAGE_TAGE * 864e5;
@@ -27321,8 +27321,8 @@ function gsSchwellwertVorlagen(g) {
       if (w.length < GS_VORLAGE_MIN_WERTE) return;
       var min = Infinity, max = -Infinity; w.forEach(function (m) { if (m.wert < min) min = m.wert; if (m.wert > max) max = m.wert; });
       var d = (typeof k.decimals === 'number') ? k.decimals : 1, f = Math.pow(10, d);
-      add({ metric: k.key, op: 'below', threshold: Math.round(min * f) / f, quelle: 'verlauf', grund: 'dein ' + GS_VORLAGE_TAGE + '-Tage-Tief (' + w.length + ' Werte)' });
-      add({ metric: k.key, op: 'above', threshold: Math.round(max * f) / f, quelle: 'verlauf', grund: 'dein ' + GS_VORLAGE_TAGE + '-Tage-Hoch (' + w.length + ' Werte)' });
+      add({ metric: k.key, op: 'below', threshold: Math.round(min * f) / f, quelle: 'verlauf', grund: _gsSatz('dein {1}-Tage-Tief ({2} Werte)', GS_VORLAGE_TAGE, w.length) });
+      add({ metric: k.key, op: 'above', threshold: Math.round(max * f) / f, quelle: 'verlauf', grund: _gsSatz('dein {1}-Tage-Hoch ({2} Werte)', GS_VORLAGE_TAGE, w.length) });
     });
   } catch (_) {}
   return out;
@@ -27364,7 +27364,9 @@ function gsGiessBestaetigung(p, ts) {
         if (!nachher && tm > t0 && tm <= t0 + GS_GIESS_NACH_MIN * 60000) nachher = m;
       });
       if (!w.length) return;   // Geraet ohne Feuchte-Werte zaehlt nicht mit
-      if (!vorher || !nachher) { urteile.push({ zustand: 'nicht_pruefbar', text: 'nicht prüfbar (' + (!vorher ? 'kein plausibler Wert bis 2 h vor dem Giessen' : 'kein plausibler Wert innert 60 Min danach') + ', Gerät „' + g.name + '")', delta: null, geraet: g.name }); return; }
+      if (!vorher || !nachher) { urteile.push({ zustand: 'nicht_pruefbar', text: (!vorher
+        ? _gsSatz('nicht prüfbar (kein plausibler Wert bis 2 h vor dem Giessen, Gerät „{1}")', g.name)
+        : _gsSatz('nicht prüfbar (kein plausibler Wert innert 60 Min danach, Gerät „{1}")', g.name)), delta: null, geraet: g.name }); return; }
       var delta = Math.round((nachher.wert - vorher.wert) * 10) / 10;
       var ok = delta >= GS_GIESS_DELTA;
       urteile.push({ zustand: ok ? 'bestaetigt' : 'nicht_gemerkt', delta: delta, geraet: g.name,
@@ -27825,12 +27827,22 @@ function gsKalenderEreignisse(von, bis) {
         var def = TASK_DEFS[k];
         var verschoben = !!(t.snoozedUntil && new Date(t.snoozedUntil).getTime() > Date.now());
         var sensor = (t.vorgezogenAuf && t.vorgezogenGrund && (!t.lastDone || String(t.lastDone) < String(t.vorgezogenAuf))) ? t.vorgezogenGrund : null;   // v32.53
+        // v32.90: der Grund war eine Kette aus vier Teilen — fuer den
+        // Uebersetzungs-Sammler damit KEIN Satz (er ueberspringt jedes
+        // Literal mit folgendem `+`). Jetzt ganze Saetze, verbunden mit
+        // einem Trennzeichen: „·" ist Zeichensetzung, keine Sprache.
+        var _tage = parseInt(t.intervalDays, 10) || 7;
+        var _grund = t.lastDone
+          ? _gsSatz('Intervall {1} Tage, zuletzt {2}', _tage, _gsKalDatumKurz(t.lastDone))
+          : _gsSatz('Intervall {1} Tage, noch nie erledigt', _tage);
+        if (verschoben) _grund += ' · ' + _gsSatz('verschoben bis {1}', _gsKalDatumKurz(t.snoozedUntil));
+        if (sensor)     _grund += ' · ' + _gsSatz('vorgezogen: {1}', sensor);
         out.push({ id: 'aufgabe:' + p.id + ':' + k + ':' + tag, art: 'aufgabe', datum: tag, zeit: null, ts: null,
           titel: (p.name || '') + ' ' + ((typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[k]) || String(def.name || k).toLowerCase()),
           emoji: def.icon || '', pflanze: { id: p.id, name: p.name, liste: x.liste }, garten_id: p.gardenId || null,
           quelle: sensor ? 'sensor' : 'regel', status: verschoben ? 'verschoben' : 'offen', faellig_seit: d, key: k,
           verweis: { fn: 'gsQuickDone', args: [p.id, k] },
-          grund: 'Intervall ' + (parseInt(t.intervalDays, 10) || 7) + ' Tage' + (t.lastDone ? ', zuletzt ' + _gsKalDatumKurz(t.lastDone) : ', noch nie erledigt') + (verschoben ? ' · verschoben bis ' + _gsKalDatumKurz(t.snoozedUntil) : '') + (sensor ? ' · vorgezogen: ' + sensor : '') });
+          grund: _grund });
       });
     });
   } catch (_) {}
@@ -61727,30 +61739,30 @@ window.gsPPvalidateConstraints = function(plan, data) {
   // 2) shape_handled muss substantiell sein wenn Form != Standard
   if (data.shape && data.shape !== 'Rechteckig' && !/rechteck/i.test(data.shape)) {
     var sh = (ca.shape_handled || '').toString().trim();
-    if (sh.length < 12) issues.push({severity:'low', code:'shape_lippenbekenntnis', text:'Form-Anwendung zu vage: „' + sh + '" — kein konkreter Bezug zum Layout.'});
+    if (sh.length < 12) issues.push({severity:'low', code:'shape_lippenbekenntnis', text:_gsSatz('Form-Anwendung zu vage: „{1}" — kein konkreter Bezug zum Layout.', sh)});
   }
   // 3) wishes_addressed substantiell
   if (data.wishes && data.wishes.length) {
     var wa = (ca.wishes_addressed || '').toString().trim();
-    if (wa.length < 8) issues.push({severity:'low', code:'wishes_lippenbekenntnis', text:'Wünsche-Reflektion fehlt oder ist zu vage: „' + wa + '"'});
+    if (wa.length < 8) issues.push({severity:'low', code:'wishes_lippenbekenntnis', text:_gsSatz('Wünsche-Reflektion fehlt oder ist zu vage: „{1}"', wa)});
   }
   // 4) constraints_addressed substantiell
   if (data.extra && data.extra.length) {
     var co = (ca.constraints_addressed || '').toString().trim();
-    if (co.length < 8) issues.push({severity:'low', code:'constraints_lippenbekenntnis', text:'Anmerkung/Einschränkung-Reflektion fehlt oder ist zu vage: „' + co + '"'});
+    if (co.length < 8) issues.push({severity:'low', code:'constraints_lippenbekenntnis', text:_gsSatz('Anmerkung/Einschränkung-Reflektion fehlt oder ist zu vage: „{1}"', co)});
   }
   // 5) Plant-level matches_wish/matches_constraint mehrheitlich true
   if (Array.isArray(plan.plants) && plan.plants.length) {
     if (data.wishes && data.wishes.length) {
       var matchCount = plan.plants.filter(function(p){ return p && p.matches_wish === true; }).length;
       if (matchCount / plan.plants.length < 0.4) {
-        issues.push({severity:'medium', code:'wishes_not_matched_in_plants', text:'Nur ' + matchCount + '/' + plan.plants.length + ' Pflanzen passen klar zu deinen Wünschen.'});
+        issues.push({severity:'medium', code:'wishes_not_matched_in_plants', text:_gsSatz('Nur {1}/{2} Pflanzen passen klar zu deinen Wünschen.', matchCount, plan.plants.length)});
       }
     }
     if (data.extra && data.extra.length) {
       var violators = plan.plants.filter(function(p){ return p && p.matches_constraint === false; }).map(function(p){ return p.name || '?'; });
       if (violators.length > 0) {
-        issues.push({severity:'high', code:'constraint_violations', text:'Diese Pflanzen verletzen deine Einschränkungen: ' + violators.join(', ')});
+        issues.push({severity:'high', code:'constraint_violations', text:_gsSatz('Diese Pflanzen verletzen deine Einschränkungen: {1}', violators.join(', '))});
       }
     }
   }
@@ -73881,6 +73893,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.90', date: '08.09.2026',
+      headline: '24 Texte, die nur auf Deutsch existierten',
+      summary: 'Zusammengesetzte Sätze erreichen den Übersetzer nicht — die Welle aus v32.88 ist jetzt abgearbeitet.',
+      user_summary: 'Zwei Dutzend Texte in der App waren immer deutsch, egal welche Sprache eingestellt war. Jetzt können sie übersetzt werden.',
+      user_items: [
+        'Im Garten: „3 Pflanzen erkannt", „2 Pflegezonen", „1 Beet angelegt" — bei Ein- und Mehrzahl je ein eigener Satz, damit jede Sprache ihre eigene Regel anwenden kann.',
+        'Bei den Messwerten: die Begründungen zu Schwellwerten und Aufgaben („Intervall 7 Tage, zuletzt …", „Artenliste … : mindestens 800 lux").',
+        'Ausserdem Zeitachse, Export- und Teilen-Texte sowie die Hinweise unter einem KI-Gartenplan.'
+      ],
+    },
+    {
     v: 'v32.89', date: '08.09.2026',
       headline: 'Keine englischen Fehlermeldungen mehr',
       summary: 'Ein Programmierfehler reiste über ein Feld bis in einen Toast und stand dort wörtlich auf Englisch.',
@@ -75023,7 +75046,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.89';
+var GS_VERSION = 'v32.90';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79142,7 +79165,7 @@ window.gsExportPlantsCSV = function(){
       navigator.share({
         files: [file],
         title: 'Meine GreenScan-Pflanzen',
-        text: 'Export von ' + plants.length + ' Pflanzen am ' + dateStr
+        text: _gsSatz('Export von {1} Pflanzen am {2}', plants.length, dateStr)
       }).catch(function(){ _gsDownload(url, filename); }).finally(function(){ setTimeout(function(){ URL.revokeObjectURL(url); }, 1500); });
     } else {
       _gsDownload(url, filename);
@@ -79224,7 +79247,7 @@ window.gsExportMesswerteCSV = function(){
     var herunterladen = function(u, name){ var a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); };
     if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'text/csv' })] })) {
       var file = new File([blob], filename, { type: 'text/csv' });
-      navigator.share({ files: [file], title: 'Meine GreenScan-Messwerte', text: 'Export von ' + werte.length + ' Messwerten am ' + dateStr })
+      navigator.share({ files: [file], title: 'Meine GreenScan-Messwerte', text: _gsSatz('Export von {1} Messwerten am {2}', werte.length, dateStr) })
         .catch(function(){ herunterladen(url, filename); }).finally(function(){ setTimeout(function(){ URL.revokeObjectURL(url); }, 1500); });
     } else {
       herunterladen(url, filename);
@@ -85040,7 +85063,7 @@ async function gsAdminSendBroadcast() {
   var text = bEl ? (bEl.value||'').trim() : '';
   if (!title || !text) { if (typeof gsToast === 'function') gsToast('Titel + Text nötig.', 'warning'); return; }
   var ok = (typeof gsConfirmModal === 'function')
-    ? await gsConfirmModal({ title: '📣 An ALLE senden?', text: 'Push geht an alle Geräte mit aktiven Benachrichtigungen:\n\n„' + title + '“\n' + text, okText: 'Jetzt senden', danger: true })
+    ? await gsConfirmModal({ title: '📣 An ALLE senden?', text: _gsSatz('Push geht an alle Geräte mit aktiven Benachrichtigungen:\n\n„{1}“\n{2}', title, text), okText: 'Jetzt senden', danger: true })
     : confirm('Broadcast an alle senden?');
   if (!ok) return;
   try {
@@ -86891,9 +86914,9 @@ function gsOpenGardenTimeline(){
     var nm = h.pflanze || h.name || '?';
     var mg = (h.menge != null ? h.menge : h.kg);
     var un = h.unit || 'kg';
-    events.push({ type:'harvest', date:(h.ts||h.date||'').slice(0,10) || new Date().toISOString().slice(0,10), label:'🧺 Ernte: ' + nm + ' · ' + (parseFloat(mg)||0) + ' ' + un });
+    events.push({ type:'harvest', date:(h.ts||h.date||'').slice(0,10) || new Date().toISOString().slice(0,10), label:_gsSatz('🧺 Ernte: {1} · {2} {3}', nm, (parseFloat(mg)||0), un) });
   });
-  scans.forEach(function(s){ if(s.ts) events.push({ type:'scan', date:new Date(s.ts).toISOString().slice(0,10), label:'🔬 Scan: ' + (s.name||s.topMatch||'?') }); });
+  scans.forEach(function(s){ if(s.ts) events.push({ type:'scan', date:new Date(s.ts).toISOString().slice(0,10), label:_gsSatz('🔬 Scan: {1}', (s.name||s.topMatch||'?')) }); });
   // Saison-Ereignisse des Jahres
   var y = new Date().getFullYear();
   var seasons = [

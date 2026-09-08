@@ -1708,7 +1708,15 @@ Seit v32.83 gibt es dafuer
 werden **danach** eingesetzt, damit `{1}` in fr und it die Stellung
 wechseln darf; ein fehlender Wert wird zu nichts. Was der Uebersetzer
 bilden koennen muss (Plural, Anrede), ist Grammatik und gehoert in ZWEI
-ganze Saetze, nicht in einen Platzhalter. Und ein Datum formatiert mit
+ganze Saetze, nicht in einen Platzhalter — seit v32.90 auch wirklich so
+gebaut (`n === 1 ? _gsSatz('Pflanze erkannt') : _gsSatz('Pflanzen erkannt')`).
+Ein Grund aus mehreren optionalen Teilen wird ebenso in ganze Saetze zerlegt
+und mit „·" verbunden: **Zeichensetzung ist keine Sprache.** Und die
+Gegenprobe zur Regel: `titel`/`text`/`label`/`grund` mit einem Literal und
+folgendem `+` waren am 08.09.2026 **41** Stellen, heute **vier** — die vier
+gehen in einen KI-Prompt oder in eine Datenbankzeile, nicht auf den
+Bildschirm. Wer die Zahl wachsen sieht, prueft jede Stelle bis zu ihrer
+ANZEIGE; drei der vier waeren bei einem Sweep falsch behandelt worden. Und ein Datum formatiert mit
 `gsLocale()`, nie mit
 `'de-CH'` — `i18n_check` meldet jedes `toLocale*String('de-CH')`. Und ein
 Monats- oder Wochentagsname kommt aus `gsMonate(kurz)` / `gsWochentage()`
