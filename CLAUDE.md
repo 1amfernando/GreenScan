@@ -148,7 +148,21 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   Felder: `v`, `date`, `headline`, `summary`, optional `user_summary` /
   `user_items` (werden bevorzugt gerendert). **Reiner Fliesstext** — die
   Werte werden beim Rendern escaped, Markup in den Strings wirkt nicht.
-- **Seit v31.36 ist die Liste zweigeteilt.** In `index.html` stehen nur noch
+- > **Ein Eintrag in `user_items` ist ein OBJEKT `{emoji, bold, text}`, keine
+> Zeichenkette** (v33.00). Ein roher String kommt im Renderer an, der `it.bold`
+> liest — und an einem String ist das `String.prototype.bold`, eine FUNKTION
+> und damit wahr: auf dem Bildschirm stand dreimal
+> `function bold() { [native code] }`, `it.text` war `undefined`. Vierzehn
+> Auslieferungen lang, bis Fernando es fotografiert hat. `gsAutoUserItems`
+> normalisiert das jetzt (`_gsRelItem`), aber die Hausform bleibt das Objekt.
+>
+> **Und der Pruefstand dafuer war gruen.** `nutzersicht_check` E4 ersetzt
+> `GS_RELEASES` durch eine EIGENE, korrekt geformte Attrappe und sieht die
+> echten Daten nie. **Ein Fall, der nur eine Attrappe rendert, prueft die
+> Vorlage — nicht die Ware.** E4b rendert seit v33.00 die zwanzig neuesten
+> ECHTEN Eintraege.
+
+**Seit v31.36 ist die Liste zweigeteilt.** In `index.html` stehen nur noch
   die **neuesten ~12** Einträge (vorher alle 383 — 787 KB, 14 % der Datei,
   bei jedem Kaltstart geparst). Alles Ältere liegt in
   `data/releases.v1.js` (`window.GS_RELEASES_ARCHIVE`) und wird erst geladen,
