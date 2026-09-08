@@ -319,6 +319,52 @@ function aufrufe() {
         (knopf ? 'Knopf + Funktion + ausQuelltext-Flag' : 'Knopf/Funktion/Flag fehlt') + ' · Sprachwechsel ' + e1.ohneOpts + '× index.html · Admin-Weg ' + e1.mitOpts + '×');
   if (errs3.length) melde(false, 'Keine JS-Fehler im fr-Lauf', errs3.slice(0, 2).join(' | '));
 
+
+  // ── v32.81 (Audit E1, Welle 2): Monats- und Wochentagsnamen. 40 Listen standen
+  // fest im Quelltext; in fr las man „Januar". Gemessen wird beides: der
+  // Quelltext (keine Liste mehr) UND was der Kalender in fr wirklich rendert.
+  const listenLang = (quelle.match(/\['Januar','Februar'/g) || []).length;
+  const listenKurz = (quelle.match(/\['Jan','Feb'/g) || []).length;
+  const listenWt = (quelle.match(/\['(?:Mo','Di|So','Mo)'/g) || []).length;
+  melde(listenLang === 0 && listenKurz === 0 && listenWt === 0,
+        'Keine fest verdrahtete Monats- oder Wochentagsliste mehr — gsMonate()/gsWochentage() rechnen sie aus der Sprache',
+        listenLang + listenKurz + listenWt === 0
+          ? 'gsMonate() ' + (quelle.match(/gsMonate\(/g) || []).length + '× · gsWochentage() ' + (quelle.match(/gsWochentage\(/g) || []).length + '×'
+          : 'noch fest: ' + listenLang + ' lang, ' + listenKurz + ' kurz, ' + listenWt + ' Wochentage');
+  const br4 = await chromium.launch();
+  const ctx4 = await br4.newContext({ viewport: { width: 412, height: 915 } });
+  const p4 = await ctx4.newPage();
+  const errs4 = [];
+  p4.on('pageerror', e => errs4.push(e.message.split('\n')[0]));
+  await p4.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  await p4.addInitScript(SEED);
+  await p4.addInitScript(() => { try { localStorage.setItem('gs_lang', 'fr'); } catch (e) {} });
+  await p4.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await p4.waitForTimeout(3500);
+  const mon = await p4.evaluate(() => {
+    const r = { lang: window.gsI18n && gsI18n.getLang(), locale: typeof gsLocale === 'function' ? gsLocale() : null };
+    r.lang_fr = (typeof gsMonate === 'function') ? gsMonate().slice(0, 2) : null;
+    r.kurz_fr = (typeof gsMonate === 'function') ? gsMonate(true).slice(0, 2) : null;
+    r.wtSo = (typeof gsWochentage === 'function') ? gsWochentage()[0] : null;
+    r.wtMo = (typeof gsWochentage === 'function') ? gsWochentage({ abMontag: true })[0] : null;
+    // Und was der Kalender wirklich zeigt (er baut sein Raster aus denselben Namen)
+    try { document.documentElement.classList.remove('gs-preauth'); gsKalenderOeffnen && gsKalenderOeffnen(); } catch (_) {}
+    const mc = document.getElementById('modal-content');
+    r.kalender = mc ? (mc.textContent || '').slice(0, 400) : '';
+    try { gsI18n.setLang('de'); } catch (_) {}
+    r.lang_de = (typeof gsMonate === 'function') ? gsMonate()[0] : null;
+    return r;
+  });
+  await br4.close();
+  const frOk = Array.isArray(mon.lang_fr) && /janvier/i.test(mon.lang_fr[0] || '') && /f[ée]vrier/i.test(mon.lang_fr[1] || '');
+  melde(frOk && mon.lang_de === 'Januar',
+        'Die Monatsnamen folgen der Sprache — und finden nach Deutsch zurück',
+        'fr → ' + JSON.stringify(mon.lang_fr) + ' / kurz ' + JSON.stringify(mon.kurz_fr) + ' · de → „' + mon.lang_de + '"');
+  melde(!!mon.wtSo && !!mon.wtMo && mon.wtSo !== mon.wtMo,
+        'gsWochentage(): ohne Argument Sonntag zuerst (getDay-Index), mit {abMontag} Montag',
+        'So-first „' + mon.wtSo + '" · Mo-first „' + mon.wtMo + '"');
+  if (errs4.length) melde(false, 'Keine JS-Fehler im fr-Kalender', errs4.slice(0, 2).join(' | '));
+
   console.log('  ---');
   console.log('  Schlüssel: ' + tab.size + ' Einträge · ' + alle.size + ' verwendet');
   console.log('  Nicht geprüft (braucht Netz und Sprachkenntnis): ob die Übersetzung in der');

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.80.20260908">
+<meta name="app-version" content="32.81.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8048,6 +8048,50 @@ function gsLocale() {
   } catch (_) { return 'de-CH'; }
 }
 window.gsLocale = gsLocale;
+// v32.81 (Audit E1, Welle 2): 40 Monatslisten und 3 Wochentag-Listen standen
+// fest im Quelltext — ein französischer Nutzer las „Januar" im Kalender, im
+// Blühkalender, im Planer und in der Ernte-Übersicht, obwohl seit v32.78
+// alles andere seiner Sprache folgt. Die Namen rechnet `Intl` aus, einmal je
+// Sprache gemerkt; ohne `Intl` bleibt die deutsche Liste. Geprüft, bevor
+// ersetzt wurde: ALLE 40 Listen sind reine Anzeige — das einzige `indexOf`
+// liegt auf einem Datenfeld (`s.months` eines Pilzes), nicht auf Namen.
+var _gsMonCache = {};
+function gsMonate(kurz) {
+  var loc = (typeof gsLocale === 'function') ? gsLocale() : 'de-CH';
+  var k = loc + (kurz ? '|s' : '|l');
+  if (_gsMonCache[k]) return _gsMonCache[k];
+  var aus = null;
+  try {
+    var f = new Intl.DateTimeFormat(loc, { month: kurz ? 'short' : 'long' });
+    aus = [];
+    for (var i = 0; i < 12; i++) aus.push(f.format(new Date(2001, i, 15)));
+    if (aus.some(function (x) { return !x || /^\d+$/.test(x); })) aus = null;   // manche Sprachen liefern Zahlen — dann lieber Deutsch
+  } catch (_) { aus = null; }
+  if (!aus) aus = kurz ? gsMonate(true) : gsMonate();
+  _gsMonCache[k] = aus;
+  return aus;
+}
+// Wochentage, kurz. Ohne Argument SONNTAG zuerst (der Index von `getDay()`);
+// `{abMontag:true}` für Kalenderraster, die mit Montag beginnen.
+function gsWochentage(opts) {
+  var loc = (typeof gsLocale === 'function') ? gsLocale() : 'de-CH';
+  var abMo = !!(opts && opts.abMontag);
+  var k = loc + (abMo ? '|mo' : '|so');
+  if (_gsMonCache[k]) return _gsMonCache[k];
+  var aus = null;
+  try {
+    var f = new Intl.DateTimeFormat(loc, { weekday: 'short' });
+    aus = [];
+    for (var i = 0; i < 7; i++) aus.push(f.format(new Date(2024, 0, 7 + i)));   // 07.01.2024 war ein Sonntag
+    if (aus.some(function (x) { return !x; })) aus = null;
+  } catch (_) { aus = null; }
+  if (!aus) aus = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  if (abMo) aus = aus.slice(1).concat(aus.slice(0, 1));
+  _gsMonCache[k] = aus;
+  return aus;
+}
+window.gsMonate = gsMonate;
+window.gsWochentage = gsWochentage;
 function _gsServerSagtAdmin() {
   try { return localStorage.getItem('gs_is_admin') === '1' || localStorage.getItem('gs_user_role') === 'admin'; } catch(_) { return false; }
 }
@@ -10196,7 +10240,7 @@ function openGartenTagebuch() {
   }
   
   // ── Timeline ──
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
   var timelineHtml = '';
   if (Object.keys(groups).length === 0) {
     timelineHtml = entries.length === 0
@@ -10436,7 +10480,7 @@ function openSaekalender() {
   var now = new Date();
   var month = now.getMonth();
   var nextMonth = (month + 1) % 12;
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
   var monthAbbr  = ['J','F','M','A','M','J','J','A','S','O','N','D'];
   
   // Filter state aus localStorage
@@ -10597,7 +10641,7 @@ function gsSaeDetail(el) {
   document.querySelectorAll('.sae-expand').forEach(function(e) { e.remove(); });
   
   var month = new Date().getMonth();
-  var monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var monthNames = gsMonate(true);
   var harvestMonths = (p.harvest || []).map(function(m) { return monthNames[m]; }).join(', ') || '–';
   var indoorMonths  = (p.indoor  || []).map(function(m) { return monthNames[m]; }).join(', ');
   var outdoorMonths = (p.outdoor || []).map(function(m) { return monthNames[m]; }).join(', ');
@@ -10769,8 +10813,8 @@ function openErnteTracking() {
   var stats = yearStats(selectedYear);
   var prevStats = yearStats(selectedYear - 1);
   
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-  var monthShort = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var monthNames = gsMonate();
+  var monthShort = gsMonate(true);
   
   // ── Year-Switcher ──
   var yearSwitcher = '<div style="display:flex;gap:4px;margin-bottom:10px;overflow-x:auto;">';
@@ -11327,9 +11371,9 @@ function openBluehkalender() {
   var tab = localStorage.getItem('gs_bl_tab') || 'all';
   var beeOnly = localStorage.getItem('gs_bl_bee') === '1';
   
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
   var monthAbbr = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-  var monthAbbrLang = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var monthAbbrLang = gsMonate(true);
   
   // Bienenfreundlich-Erkennung
   function isBeeFriendly(s) {
@@ -11625,7 +11669,7 @@ function gsCheckFrostWarning() {
   var minPredicted = null;
   daily.time.slice(0,5).forEach(function(d, i) {
     if (daily.temperature_2m_min[i] < 2) {
-      var days = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+      var days = gsWochentage({abMontag:true});
       var dn = i===0?'Heute':i===1?'Morgen':days[new Date(d).getDay()];
       frostDays.push(dn + ': ' + Math.round(daily.temperature_2m_min[i]) + '°C');
       if (minPredicted === null || daily.temperature_2m_min[i] < minPredicted) {
@@ -16486,8 +16530,8 @@ function gsInitSmartNotifications() {
   var thisWeek = Math.floor(Date.now() / (7 * 86400000));
   if (thisWeek <= lastTip) return;
   if (typeof DB === 'undefined' || !DB.length) return;
-  var months = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-  var ms = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var months = gsMonate();
+  var ms = gsMonate(true);
   var m = new Date().getMonth();
   var seasonal = DB.filter(function(sp){
     return sp.season && sp.season.toLowerCase().indexOf(ms[m].toLowerCase()) >= 0 && sp.edible;
@@ -19463,11 +19507,11 @@ function gsBuildSeasonBar(seasonStr) {
     return '<div style="display:flex;gap:2px;margin:6px 0;">' +
       Array.from({length:12}, function(_,i) {
         return '<div style="flex:1;height:8px;background:#2e7d32;border-radius:var(--r-xs);" title="' + 
-          ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][i] + '"></div>';
+          gsMonate(true)[i] + '"></div>';
       }).join('') + '</div>';
   }
   var months = ['jan','feb','mär','apr','mai','jun','jul','aug','sep','okt','nov','dez'];
-  var monthsFull = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthsFull = gsMonate();
   var active = new Array(12).fill(false);
   var sl = seasonStr.toLowerCase();
   months.forEach(function(m, i) {
@@ -19486,7 +19530,7 @@ function gsBuildSeasonBar(seasonStr) {
       return '<div style="flex:1;height:8px;background:' + 
         (a ? (isCurrent ? '#f57f17' : '#2e7d32') : '#e0e0e0') + 
         ';border-radius:var(--r-xs);' + (isCurrent ? 'outline:2px solid #f57f17;outline-offset:1px;' : '') + '" ' +
-        'title="' + ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][i] + '"></div>';
+        'title="' + gsMonate(true)[i] + '"></div>';
     }).join('') + '</div>';
 }
 
@@ -19628,7 +19672,7 @@ function gsInitSmartSeasonTip() {
   if (typeof DB === 'undefined' || !DB.length) { setTimeout(gsInitSmartSeasonTip, 800); return; }
 
   var month = new Date().getMonth(); // 0-11
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
   var monthNow = monthNames[month];
 
   // Finde Arten die JETZT Saison haben
@@ -20601,7 +20645,7 @@ function gsOpenNaturjahr(){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
   var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
   var YEAR = new Date().getFullYear(), CURM = new Date().getMonth();
-  var monNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var monNames = gsMonate(true);
   var months = [0,0,0,0,0,0,0,0,0,0,0,0];
   function bump(d){ if(d && d.getFullYear()===YEAR) months[d.getMonth()]++; }
 
@@ -22663,7 +22707,7 @@ function gsRenderMushroomSeason(patch, regionName, month) {
   var card = document.getElementById('mushroom-season-card');
   if (!card || !patch) return;
   var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
   var monthName = monthNames[(month||1)-1];
   // Schwierigkeit-Badge
   var diff = String(patch.difficulty_to_find || '');
@@ -23986,7 +24030,7 @@ function initHomeBoard() {
         datumEl.textContent = now.toLocaleDateString(_dloc, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
       } catch(_) {
         var dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-        var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+        var monthNames = gsMonate();
         datumEl.textContent = dayNames[now.getDay()] + ', ' + now.getDate() + '. ' + monthNames[now.getMonth()] + ' ' + now.getFullYear();
       }
     }
@@ -27507,7 +27551,7 @@ function _gsKalTagPlus(tag, n) { var p = String(tag).split('-'); return _gsKalTa
 function gsHeuteTag() { return _gsKalTag(new Date()); }
 function _gsKalZeit(ts) { try { var x = new Date(ts); if (isNaN(x.getTime())) return null; if (x.getHours() === 0 && x.getMinutes() === 0) return null; return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); } catch (_) { return null; } }
 function _gsKalDatumKurz(ts) { try { var x = new Date(ts); return String(x.getDate()).padStart(2, '0') + '.' + String(x.getMonth() + 1).padStart(2, '0') + '.'; } catch (_) { return ''; } }
-var _GS_KAL_MON = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+var _GS_KAL_MON = gsMonate();
 var _GS_KAL_WT  = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 function _gsKalDatumLang(tag) { try { var p = tag.split('-'); var x = new Date(+p[0], +p[1] - 1, +p[2]); return _GS_KAL_WT[(x.getDay() + 6) % 7] + ', ' + x.getDate() + '. ' + _GS_KAL_MON[x.getMonth()]; } catch (_) { return tag; } }
 var _GS_KAL_ART = { aufgabe: 'Aufgabe', tagebuch: 'Tagebuch', gepflanzt: 'Gepflanzt', aussaat: 'Aussaatfenster', ernte: 'Erntefenster', erinnerung: 'Erinnerung', messung: 'Messwert', alarm: 'Alarm', wetter: 'Wetter' };
@@ -27858,7 +27902,7 @@ function _gsKalRender() {
     '<div class="gs-kal-titel">' + _GS_KAL_MON[m - 1] + ' ' + y + '</div>' +
     '<button type="button" class="gs-kal-nav" onclick="gsKalMonat(1)" aria-label="' + _t('kal_nach', 'Nächster Monat') + '">›</button></div>' +
     '<div class="gs-kal-werkzeuge"><button type="button" class="gs-dp-kal" onclick="gsMesswerteOeffnen()" aria-label="Messwerte öffnen">📊 ' + _t('mw_titel', 'Messwerte') + '</button></div>';
-  var raster = '<div class="gs-kal-wt" aria-hidden="true">' + ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(function (w) { return '<span>' + w + '</span>'; }).join('') + '</div>' +
+  var raster = '<div class="gs-kal-wt" aria-hidden="true">' + gsWochentage({abMontag:true}).map(function (w) { return '<span>' + w + '</span>'; }).join('') + '</div>' +
     '<div class="gs-kal-raster" role="grid" aria-label="' + _GS_KAL_MON[m - 1] + ' ' + y + '">';
   for (var i = 0; i < start; i++) raster += '<span class="gs-kal-leer" aria-hidden="true"></span>';
   for (var d = 1; d <= tageImMonat; d++) {
@@ -28047,7 +28091,7 @@ window.gsGiessZettel = function(von, bis){
   } catch(_){}
   return out;
 };
-function _gsZettelWochentag(tag){ try { var p = String(tag).split('-'); return ['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(+p[0], +p[1]-1, +p[2]).getDay()]; } catch(_){ return ''; } }
+function _gsZettelWochentag(tag){ try { var p = String(tag).split('-'); return gsWochentage()[new Date(+p[0], +p[1]-1, +p[2]).getDay()]; } catch(_){ return ''; } }
 function _gsZettelDatum(tag){ try { var p = String(tag).split('-'); return p[2] + '.' + p[1] + '.'; } catch(_){ return String(tag); } }
 window.gsGiessZettelOeffnen = function(){
   try {
@@ -29892,7 +29936,7 @@ function gsBuildScanContext() {
     // 1) Zeit
     var d = (_ex && _ex.datum) ? _ex.datum : new Date();
     var month = d.getMonth() + 1;
-    var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    var monthNames = gsMonate();
     ctx.month = monthNames[month-1];
     ctx.monthNum = month;
     ctx.season = (month>=3&&month<=5)?'Frühling' : (month>=6&&month<=8)?'Sommer' : (month>=9&&month<=11)?'Herbst' : 'Winter';
@@ -33021,7 +33065,7 @@ function _gsEgRender() {
   var s = _gsEgStand();
   var e = gsEingrenzen(s);
   var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
-  var MON = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var MON = gsMonate();
 
   var kopf =
     '<div class="gs-eg-hinweis">' +
@@ -33173,7 +33217,7 @@ function _gsScanPruefwerk(res, qual) {
       regel('saison', 'ok', 'Passt zur Jahreszeit: ' + (db.season || '') + '.');
     } else {
       regel('saison', 'warn', 'Die hinterlegte Zeit ist ' + (db.season || '?') + ' — wir haben aber ' +
-            (['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][mon - 1]) +
+            (gsMonate()[mon - 1]) +
             '. Ausserhalb der Saison ist eine Verwechslung wahrscheinlicher.');
     }
 
@@ -35333,7 +35377,7 @@ function openDetail(id){
   const tagsHtml = tags.map(tg=>'<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;background:'+tg.bg+';color:'+tg.col+';">'+tg.icon+' '+tg.label+'</span>').join(' ');
 
   // Saisonkalender-Streifen
-  const monthNames=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const monthNames=gsMonate(true);
   const curMonth = new Date().getMonth();
   let seasonBar = '';
   if(sp.season && sp.season !== '–'){
@@ -38103,7 +38147,7 @@ function gsChatBuildContext(){
     // 1. Datum & Saison
     var now = new Date();
     var month = now.getMonth() + 1;
-    var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    var monthNames = gsMonate();
     var season = (month>=3&&month<=5)?'Frühling':(month>=6&&month<=8)?'Sommer':(month>=9&&month<=11)?'Herbst':'Winter';
     ctx.push('📅 Datum: ' + now.toISOString().slice(0,10) + ' · ' + monthNames[month-1] + ' · ' + season);
     // 2. Mondphase (Conway-Simple)
@@ -39035,8 +39079,8 @@ window.addEventListener('storage', function(e){
 });
 
 // SAISONKALENDER SCHWEIZ
-const MONTH_NAMES = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-const MONTH_FULL  = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const MONTH_NAMES = gsMonate(true);
+const MONTH_FULL  = gsMonate();
 
 // Felder: name, emoji, cat, sow[0..11], plant[0..11], harvest[0..11], wild[0..11], tip
 const SEASON_DATA = [
@@ -41795,7 +41839,7 @@ async function gsRenderRegionalContent(slug) {
   }
 
   var months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
-  var monthNamesDe = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNamesDe = gsMonate();
   var monthEmoji = ['❄️','❄️','🌱','🌷','🌸','☀️','🌞','🌻','🍂','🍁','🍂','❄️'];
   var curIdx = new Date().getMonth();
 
@@ -41916,7 +41960,7 @@ async function gsOpenSaisonPilze() {
   if (!scr) { scr = document.createElement('div'); scr.id = 'saison-pilze-screen'; document.body.appendChild(scr); }
   scr.style.cssText = 'position:fixed;inset:0;z-index:7000;background:var(--g-bg,#eef7ee);display:flex;flex-direction:column;overflow:hidden;';
   var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||''); };
-  var MONN = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var MONN = gsMonate(true);
   scr.innerHTML = '<div style="background:linear-gradient(135deg,#4a148c,#6a1b9a);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
     + '<button onclick="var s=document.getElementById(\'saison-pilze-screen\');if(s)s.style.display=\'none\';" aria-label="' + ed(_lt('modal_close','Schliessen')) + '" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:var(--r-sm);font-size:var(--fs-xl);cursor:pointer;flex-shrink:0;">‹</button>'
     + '<div style="flex:1;min-width:0;"><div style="font-size:var(--fs-xl);font-weight:900;">🍄 ' + ed(_lt('sp_title','Saison-Pilze in deiner Region')) + '</div><div id="sp-subhdr" style="font-size:var(--fs-sm);opacity:.9;margin-top:2px;"></div></div></div>'
@@ -42243,7 +42287,7 @@ async function gsRenderRegionalMushrooms(zone) {
     var reg = await gsLoadMushRegistry();
     // v29.70 i18n: kurze Monatsnamen in der aktiven Sprache
     var _mloc = gsLocale();
-    var monthNamesDe = (function(){ var a=[]; for (var _i=0;_i<12;_i++){ try { a.push(new Date(2001,_i,1).toLocaleString(_mloc,{month:'short'})); } catch(_){ a.push(['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][_i]); } } return a; })();
+    var monthNamesDe = (function(){ var a=[]; for (var _i=0;_i<12;_i++){ try { a.push(new Date(2001,_i,1).toLocaleString(_mloc,{month:'short'})); } catch(_){ a.push(gsMonate(true)[_i]); } } return a; })();
     var curIdx = new Date().getMonth();
     var EDI = { speisepilz:{e:'🍽️',l:'Speisepilz'}, speisepilz_jung:{e:'🍽️',l:'Speisepilz (jung)'}, bedingt_essbar:{e:'⚠️',l:'bedingt essbar'} };
 
@@ -51027,7 +51071,7 @@ function gsRenderWissenHero() {
   } catch(e){}
   var pct = Math.round(readCount / readKeys.length * 100);
   // v23.63: Premium-Hero mit Saison-Wheel, Mondphase, Fortschritts-Ring und Tipp-Karte
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
   var m = today.getMonth()+1;
   var season = (m>=3&&m<=5)?{n:'Frühling',ico:'🌱',col:'#8bc34a'}:
                (m>=6&&m<=8)?{n:'Sommer',ico:'☀️',col:'#fbc02d'}:
@@ -54515,7 +54559,7 @@ function gsCreateMap() {
     var sh = document.getElementById('gs-map-season-hint');
     if (sh) {
       var m = new Date().getMonth();
-      var mName = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][m];
+      var mName = gsMonate(true)[m];
       sh.textContent = '🍄 Pilz-Saison ' + mName + ' · tippen';
       sh.style.display = 'block';
     }
@@ -56951,7 +56995,7 @@ function gsShowMushroomSeason() {
     11:['Austernpilz','Winterrübling','Samtfussrübling','Judasohr']
   };
   var list = SEASON[m] || [];
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
   var html = '<div style="padding:12px 16px;">'
     + '<div style="font-family:Playfair Display,serif;font-size:var(--fs-xl);font-weight:800;color:var(--g-dark);margin-bottom:4px;">🍄 Pilz-Saison ' + monthNames[m] + '</div>'
     + '<div style="font-size:var(--fs-sm);color:var(--text2);margin-bottom:10px;">Wichtige Arten, die jetzt wachsen könnten. <b>Immer 100% sicher bestimmen!</b></div>'
@@ -57163,7 +57207,7 @@ function getSmartAnswer(question) {
   if (/wann.*pflanzen|wann.*säen|aussaat|pflanzzei/.test(q)) {
     const now = new Date();
     const month = now.getMonth() + 1;
-    const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    const monthNames = gsMonate();
     const tipsByMonth = {
       1:'❄️ Januar: Saatgut bestellen, Planung',
       2:'🌱 Februar: Tomaten, Peperoni vorziehen (innen)',
@@ -62894,7 +62938,7 @@ window._gsPlanNachbarn = _gsPlanNachbarn;
 // Alles in dieser Datei rechnet lokal. Wo die Datengrundlage fehlt, ist das
 // Ergebnis `null` — „nicht geprueft" mit Grund, nie eine erfundene Zusage.
 
-var GS_MON = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+var GS_MON = gsMonate(true);
 // Wann waechst im Mittelland ueberhaupt etwas? Keine Naturkonstante, sondern
 // die Spanne, in der eine Beetluecke ueberhaupt ein Vorwurf ist. Im Januar
 // ist ein leeres Beet richtig.
@@ -67602,7 +67646,7 @@ function _gsPlanFeederIcon(fc){ return ({ stark:'🌾', mittel:'🌿', schwach:'
 function _gsPlanFeederLabel(fc){ return ({ stark:'Starkzehrer', mittel:'Mittelzehrer', schwach:'Schwachzehrer', fixer:'N-Fixierer' })[String(fc||'').toLowerCase()] || ''; }
 function _gsPlanWaterMeta(wz){ return ({ trocken:{c:'#c98a3a',e:'🏜',l:'Trocken'}, mittel:{c:'#2e86c1',e:'💧',l:'Mittel'}, feucht:{c:'#16a085',e:'💦',l:'Feucht'} })[String(wz||'').toLowerCase()] || null; }
 function _gsPlanLunarMeta(ph){ return ({ wurzel:{e:'🥕',l:'Wurzeltag',c:'#a0522d'}, blatt:{e:'🥬',l:'Blatttag',c:'#43a047'}, 'blüte':{e:'🌸',l:'Blütentag',c:'#d81b60'}, frucht:{e:'🍅',l:'Fruchttag',c:'#e64a19'}, alle:{e:'🌗',l:'Alle',c:'#607d8b'} })[String(ph||'').toLowerCase()] || null; }
-var _GS_PLAN_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+var _GS_PLAN_MONTHS = gsMonate(true);
 function _gsPlanFmtDate(d){
   if (!d || d === 'null') return '';
   var m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -68229,7 +68273,7 @@ function gsGardenScanExportPDF() {
   var tools = s.analysis.tools_needed || [];
   var warns = s.analysis.warnings || [];
   var monthNames = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','dez'];
-  var monthLabels = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var monthLabels = gsMonate(true);
   var calRows = monthNames.map(function(m, i){
     var entries = cal[m] || cal[monthLabels[i].toLowerCase()] || [];
     if (!Array.isArray(entries)) entries = [];
@@ -68673,7 +68717,7 @@ async function gsFillSaisonSchritte() {
   var rows = await gsLoadSeasonalTasks();
   if (!rows || !rows.length) return;
   var month = new Date().getMonth() + 1;
-  var monthName = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][month - 1];
+  var monthName = gsMonate()[month - 1];
   var tasks = gsFilterTasksForMonth(rows, month);
   if (!tasks.length) return;
   // Erneut suchen: zwischen await und hier kann die Seite neu gebaut worden
@@ -68726,7 +68770,7 @@ async function gsSeasonalOpen() {
 window.openSeasonalCalendar = gsSeasonalOpen;
 
 function gsBuildSeasonalModal(rows) {
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
   var currentMonth = new Date().getMonth() + 1;
   var monthsHtml = '';
   for (var m = 1; m <= 12; m++) {
@@ -68902,7 +68946,7 @@ function gsBuildInsightsModal(data) {
   var bee = data.bee || {};
   var risk = data.risk || {};
   var season = data.season || {};
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthNames = gsMonate();
 
   // 4 Big-Stat-Boxen (Grid 2×2)
   var bigStats = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">' +
@@ -69806,7 +69850,7 @@ async function gsVoiceProcess(transcript) {
         var tasks = await gsLoadSeasonalTasks();
         var month = new Date().getMonth() + 1;
         var matching = (typeof gsFilterTasksForMonth === 'function') ? gsFilterTasksForMonth(tasks, month) : [];
-        var monthName = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][month-1];
+        var monthName = gsMonate()[month-1];
         if (matching.length) {
           var top = matching.slice(0, 4).map(function(x){ return x.title || x.name || ''; }).filter(Boolean);
           return 'Im ' + monthName + ' sind diese Aufgaben dran: ' + top.join('. ') + '. Schau den Saisonkalender für Details.';
@@ -71623,7 +71667,7 @@ window.gsJetztDranRender = function () {
     var host = document.getElementById('gs-jetzt-dran');
     if (!host) return;
     var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
-    var mon = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    var mon = gsMonate();
     var zeilen = [];
 
     var s = gsSaatgutJetzt();
@@ -73670,6 +73714,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.81', date: '08.09.2026',
+    headline: '📅 Monats- und Wochentagsnamen folgen der Sprache — Audit E1, Welle 2',
+    summary: 'Vierzig Monatslisten und drei Wochentag-Listen standen fest im Quelltext: ein französischer Nutzer las „Januar" im Kalender, im Blühkalender, im Planer und in der Ernte-Übersicht, obwohl seit v32.78 alles andere seiner Sprache folgt. gsMonate() und gsWochentage() rechnen die Namen aus Intl (gsLocale()), einmal je Sprache gemerkt, mit der deutschen Liste als Rückfall. Vor dem Ersetzen geprüft: alle vierzig Listen sind reine Anzeige — das einzige indexOf liegt auf einem Datenfeld, nicht auf Namen. i18n_check misst es in fr am gerenderten Kalender („janvier", „dim."/„lun.") und statisch. Nicht angefasst: 152 toFixed (100 davon in Geometrie/CSS — ein Dezimalkomma dort bricht das Layout) und 78 zusammengesetzte Meldungen.',
+    user_summary: '📅 Monate und Wochentage erscheinen jetzt in deiner Sprache — im Kalender, im Blühkalender und im Gartenplaner.',
+    user_items: [
+      {emoji:'📅', bold:'Kalender:', text:' Monatsnamen und Wochentage folgen der eingestellten Sprache statt immer Deutsch zu zeigen.'},
+    ],
+  },
+  {
     v: 'v32.80', date: '08.09.2026',
     headline: '🧰 Ein Versprechen im Kommentar eingelöst — Audit C5, der letzte Punkt der Liste',
     summary: 'Audit C5 nennt vier Stil-Zahlen. Alle vier heute nachgezählt (leere catch 2159, Inline-Styles 7245, feste Hex-Farben 3859 gegen 118 Variablen, 225 stillgelegte console.warn) — und begründet, warum sie bleiben: defensives try/catch ist Absicht (CLAUDE.md §3.6), eine Suchen-und-Ersetzen-Aktion über 5,7 MB hat in v32.25 schon einmal die Datei beschädigt, und Farbe wird nur mit einem Messwert geändert. Der eine echte Fehler darin: seit v29.32 versprach ein Kommentar den Helfer console.gsRestore() — den gab es nie. Jetzt gibt es ihn, und robust_check misst ihn. Dazu eine veraltete Zeile aus der Audit-Statustabelle entfernt: A10 stand oben als offen, während dieselbe Sache zwölf Zeilen tiefer als erledigt geführt wird.',
@@ -74719,7 +74772,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.80';
+var GS_VERSION = 'v32.81';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
