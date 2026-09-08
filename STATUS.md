@@ -77,7 +77,7 @@
   ohne Dezimaltrenner nach Sprache (Welle 2). Und: **übersetzt wird erst,
   wenn Fernando den Admin-Knopf drückt** — FUER-FERNANDO §11.
 
-Regression v32.77 → v32.78: (folgt)
+Regression v32.77 → v32.78: 30 Prüfstände grün (`quiz_check` 13/13 und `schluessel_check` 10/10 mit lokalem Postgres nachgefahren — im Sammellauf war es ausgegangen), Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0. **Der erste Lauf war rot** — siehe den Doppelspeicher-Absatz oben.
 
 ### 2026-09-07 (fq) — v32.77: 114 Funktionen ohne Aufrufer entfernt — Audit C2
 
