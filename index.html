@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.86.20260908">
+<meta name="app-version" content="32.87.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35994,11 +35994,26 @@ function renderMyPlants() {
   var totalEl = document.getElementById('plants-stat-total');
   var dueEl   = document.getElementById('plants-due-count');
   var okEl    = document.getElementById('plants-ok-count');
+  var dueBoxAria = document.getElementById('plants-stat-due');
   // v32.50: die Summe zaehlt BEIDE Listen — faellig/versorgt taten es seit v32.47,
   // die Summe nicht: „3 · 4 · 1" (gegnerische Pruefung 04.09.). Die Reiter-Zahlen
   // (🏠 3 · 🌳 1) bleiben getrennt; hier steht, was sie zusammen ergeben.
   if (totalEl) totalEl.querySelector('div').textContent = _alleMitAufgaben.length;
-  if (dueEl) dueEl.textContent = allDue.length;
+  // v32.87: stand hier `allDue.length` — und `allDue` sammelt drei Tage weit
+  // (`d <= 2`, eine Zeile weiter oben). Unter der Beschriftung „HEUTE FÄLLIG".
+  // Gemessen mit den Beispieldaten: 10 angezeigt, 9 wirklich heute oder
+  // ueberfaellig, die zehnte in ZWEI Tagen — waehrend der Notizzettel auf
+  // DEMSELBEN Bildschirm 9 zeigte. Dieselbe Klasse wie v32.85 (Startkarte)
+  // und v32.70 (Menue-Zahlen): eine Zahl muss wahr sein fuer das, was sie
+  // benennt. Die bald faelligen bleiben sichtbar — in der Liste darunter mit
+  // ihrem eigenen Tag, in der Ueberschrift „Aufgaben (N)" und hier im
+  // Vorlese-Text.
+  if (dueEl) dueEl.textContent = overdueCount;
+  if (dueBoxAria) {
+    dueBoxAria.setAttribute('aria-label', overdueCount + ' heute fällig'
+      + (soonCount ? ', ' + soonCount + ' in den nächsten Tagen' : '')
+      + '. Antippen zeigt alle.');
+  }
   if (okEl) okEl.textContent = okCount;
   // v26.90: Sub-Tab-Badge-Counts mitziehen
   try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
@@ -73839,6 +73854,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.87', date: '08.09.2026',
+      headline: '„Heute fällig" zählt jetzt heute',
+      summary: 'Auf „Meine Pflanzen" zählte die Kachel drei Tage weit — der Notizzettel daneben zählte richtig.',
+      user_summary: 'Die Kachel „Heute fällig" hat auch Aufgaben mitgezählt, die erst in ein bis zwei Tagen dran sind.',
+      user_items: [
+        'Die Zahl unter „Heute fällig" nennt jetzt genau das: was heute oder überfällig ist. Vorher stand dort auch, was übermorgen ansteht.',
+        'Damit sagen Kachel und Notizzettel auf demselben Bildschirm dasselbe — vorher 10 gegen 9.',
+        'Die bald fälligen Aufgaben bleiben sichtbar: in der Liste darunter mit ihrem eigenen Tag und in der Überschrift „Aufgaben (N)".'
+      ],
+    },
+    {
     v: 'v32.86', date: '08.09.2026',
       headline: '„Essbar" heisst jetzt essbar',
       summary: 'Die Startkarte, der Saison-Tipp und die Fakten-Zeile haben „ungiftig" mit „essbar" verwechselt.',
@@ -74948,7 +74974,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.86';
+var GS_VERSION = 'v32.87';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
