@@ -266,7 +266,11 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   **wie** sie Nein sagt.
 
 > **Und ein Zustand, der auf dem Bildschirm umspringt, ist auch ein
-> Versprechen** (v32.82). `versprechen_check` sucht nach einer MELDUNG ohne
+> Versprechen** (v32.82). *Nachgemessen am 08.09.2026: die Klasse ist
+> geschlossen* — von zehn `sbFetch`-Aufrufen, deren Antwort niemand ansieht,
+> ist keiner mehr eine Zusage an die Person; die drei mit sichtbarer Wirkung
+> (Aufraeum-PATCH der Glocke, Foto-Vergleich, Lina-Verlauf) stehen mit Grund
+> in STATUS (fy). `versprechen_check` sucht nach einer MELDUNG ohne
 > Prüfung und sieht so etwas nicht — beim Herz an einem Beitrag, beim Stern
 > der Vitrine und bei der Stimme unter einer Idee gibt es keine Meldung, die
 > Zusage ist das rote Herz selbst. Optimistisch anzeigen bleibt richtig (es
