@@ -689,6 +689,65 @@ const FAELLE = [
     },
   },
   {
+    // v32.89 — die Luecke, die die STATISCHE Suche von B8 nicht sehen kann:
+    // eine rohe Meldung, die ueber ein FELD (`grund`) zwei Spruenge weit bis
+    // in einen Toast reist. Gefunden, indem der Fall hergestellt wurde.
+    name: 'B8b · ein Programmierfehler reist nicht ueber ein Feld auf den Bildschirm: `grund` ist ein Satz, und _gsFehlerText laesst keinen TypeError durch',
+    lauf: async () => {
+      const f = [];
+      // 1 · Statisch: kein `grund` baut mehr eine Rohmeldung zusammen.
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const roh = [];
+      idx.split('\n').forEach((z, i) => {
+        if (z.trim().startsWith('//')) return;
+        if (/grund:\s*'Fehler:\s*'\s*\+/.test(z)) roh.push((i + 1) + ': ' + z.trim().slice(0, 70));
+      });
+      if (roh.length) f.push(roh.length + '× `grund: \'Fehler: \' + …`: ' + roh.slice(0, 2).join(' | '));
+
+      const r = await __seite.evaluate(async () => {
+        const t = window._gsFehlerText;
+        if (typeof t !== 'function') return { fehlt: true };
+        const o = {};
+        // 2 · Die Uebersetzung: ein Programmierfehler wird ein Satz, aber ein
+        //     Netzfehler bleibt ein Netzfehler (er ist AUCH ein TypeError —
+        //     die Reihenfolge der Zweige entscheidet, und das misst dieser Fall).
+        o.typeError = t(new TypeError("Cannot read properties of null (reading 'find')"));
+        o.refError  = t(new ReferenceError('foo is not defined'));
+        o.netz      = t(new TypeError('Failed to fetch'));
+        o.eigen     = t({ message: 'Kein Gerät gewählt.' });   // eigener Satz darf durch
+        // 3 · Der ECHTE Weg bis in den Toast. Gebrochen wird eine
+        //     ABHAENGIGKEIT, nicht die zu pruefende Funktion — ein Stub, der
+        //     `gsWetterGeraetAbgleich` ersetzt, misst den Stub.
+        const toasts = [];
+        const echtToast = window.gsToast, echtGer = window.gsGeraete, echtRender = window._gsMwRender;
+        window.gsToast = (txt) => { toasts.push(String(txt)); };
+        try {
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ data: { hourly: { time: ['2026-09-08T10:00'], temperature_2m: [17] } } }));
+          localStorage.removeItem('gs_wetter_geraet_aus');
+          window.gsGeraete = () => null;        // .find() darauf wirft
+          window._gsMwRender = () => {};        // haengt an derselben Quelle
+          _gsMwWetterEin();
+        } finally {
+          window.gsToast = echtToast; window.gsGeraete = echtGer; window._gsMwRender = echtRender;
+        }
+        o.toast = toasts.join(' | ');
+        return o;
+      });
+      if (r.fehlt) return { ok: false, warum: '_gsFehlerText fehlt' };
+      if (!/schiefgelaufen/.test(r.typeError)) f.push('TypeError bleibt roh: „' + r.typeError + '"');
+      if (!/schiefgelaufen/.test(r.refError))  f.push('ReferenceError bleibt roh: „' + r.refError + '"');
+      if (!/Verbindung/.test(r.netz))          f.push('ein Netzfehler wurde zum Programmfehler: „' + r.netz + '"');
+      if (r.eigen !== 'Kein Gerät gewählt.')   f.push('ein eigener Satz kommt nicht mehr durch: „' + r.eigen + '"');
+      if (!r.toast)                            f.push('der Weg bis in den Toast wurde nicht ausgeloest — der Fall misst nichts');
+      else {
+        if (/Cannot read|is not defined|undefined \(reading/.test(r.toast)) f.push('roh im Toast: „' + r.toast + '"');
+        if (!/schiefgelaufen/.test(r.toast))                                f.push('der Toast sagt nichts Verstaendliches: „' + r.toast + '"');
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '0× rohes `grund` · TypeError/ReferenceError → Satz · Netz bleibt Netz · eigener Satz durch · Toast: „' + r.toast.slice(0, 60) + '…"' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');

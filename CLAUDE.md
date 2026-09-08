@@ -1052,6 +1052,23 @@ Fall 11 findet jede Anzeige-Zeile mit rohem `.error.message` — und misst
 zusätzlich einen echten Toast, weil die Suche eine Variable, die erst zwei
 Zeilen später angezeigt wird, nicht sieht.
 
+**Seit v32.89 ist ein `grund` ein SATZ, keine Rohmeldung** (Fall B8b). Ein
+`catch (e) → { grund: 'Fehler: ' + e.message }`, dessen Aufrufer den Wert
+anzeigt, setzt die englische Ausnahme auf den Bildschirm — gemessen:
+„Wetterdienst: Fehler: Cannot read properties of undefined". Die **statische**
+Suche von B8 kann das nicht sehen, weil der Wert ueber ein FELD zwei Spruenge
+weit reist. Wer ein Feld baut, das ein Fehlergrund transportiert, fuellt es
+mit `_gsFehlerText(e)`. Und `_gsFehlerText` gibt fuer einen
+Programmierfehler (`TypeError` & Co.) einen Satz zurueck statt der Meldung —
+sein Rueckfall ist fuer EIGENE kurze Saetze gedacht. **Achtung auf die
+Reihenfolge:** ein Netzfehler ist auch ein `TypeError` und muss „Keine
+Verbindung" bleiben; der Programmfehler-Zweig steht deshalb ganz am Ende.
+
+> **Und wer so etwas prueft, bricht eine ABHAENGIGKEIT, nicht die Funktion
+> selbst.** Mein erster Messversuch ersetzte `gsWetterGeraetAbgleich` durch
+> einen Stub mit dem alten `catch` — die Messung zeigte die alte Ausgabe auch
+> NACH der Reparatur, weil sie die reparierte Funktion gar nicht mehr rief.
+
 **Seit v32.74 entscheidet über den Admin-Modus NUR der Server** (Audit A6).
 `doAdminLogin` fragt `POST /rest/v1/rpc/is_admin_user` (SECURITY DEFINER,
 liest `profiles.is_admin` ODER `app_settings.admin_emails`); die Antwort
