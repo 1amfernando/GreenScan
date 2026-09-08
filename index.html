@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.91.20260908">
+<meta name="app-version" content="32.92.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16731,6 +16731,48 @@ function _gsArtGruppe(sp, abfrageLat) {
 // Dasselbe Praedikat wie der Filter „✅ Essbar" (_gsPassCat: `!sp.edible`).
 function gsIstEssbar(sp) { return !!(sp && sp.edible); }
 window.gsIstEssbar = gsIstEssbar;
+
+// v32.92 — Die Sicherheitsangaben, die eine ANZEIGE zeigen darf.
+//
+// v32.91 hat das Artendetail auf die vorsichtigere Angabe umgestellt, die
+// TREFFERLISTE aber nicht — und damit einen Widerspruch sichtbar gemacht, den
+// es vorher schon gab: „Violetter Schleierling" stand in der Liste mit einem
+// gruenen ✅ (der Eintrag fuehrt tox 0) und im Detail mit Giftstufe 3.
+// Zwei Anzeigen derselben Art, gegenteilige Aussage.
+//
+// Diese Funktion ist die eine Antwort fuer beide. Sie gibt eine Kopie mit den
+// Sicherheitsangaben der ART zurueck (`_korrigiert` sagt, ob und wie) —
+// Name, Beschreibung und Verwendung bleiben unberuehrt: wer einen Eintrag
+// oeffnet, soll nicht den Text eines anderen lesen.
+//
+// Wer eine neue Ansicht einer Art baut, ruft sie. Ein `DB.find(id)` mit
+// direkt daraus gelesenem `tox`/`edible` ist der Fehler.
+var _gsAnzeigeMemo = null, _gsAnzeigeMemoN = 0;
+function _gsArtAnzeige(sp) {
+  if (!sp || !sp.id) return sp;
+  try {
+    var n = (typeof DB !== 'undefined' && DB) ? DB.length : 0;
+    if (!_gsAnzeigeMemo || _gsAnzeigeMemoN !== n) { _gsAnzeigeMemo = {}; _gsAnzeigeMemoN = n; }
+    if (Object.prototype.hasOwnProperty.call(_gsAnzeigeMemo, sp.id)) return _gsAnzeigeMemo[sp.id] || sp;
+    var erg = null;
+    if (sp.lat && typeof _gsArtGruppe === 'function' && typeof _gsVorsichtigste === 'function') {
+      var v = _gsVorsichtigste(_gsArtGruppe(sp, sp.lat));
+      if (v && v.id !== sp.id && !v._unverified) {
+        var hoeher = (v.tox || 0) > (sp.tox || 0);
+        var essbarWeg = !!sp.edible && !v.edible;
+        if (hoeher || essbarWeg) erg = Object.assign({}, sp, {
+          tox: v.tox, toxic: v.toxic, edible: v.edible,
+          warning: sp.warning || v.warning,
+          lookalike: sp.lookalike || v.lookalike,
+          _korrigiert: { vonTox: sp.tox, aufTox: v.tox, hoeher: hoeher, essbarWeg: essbarWeg }
+        });
+      }
+    }
+    _gsAnzeigeMemo[sp.id] = erg;
+    return erg || sp;
+  } catch (_) { return sp; }
+}
+window._gsArtAnzeige = _gsArtAnzeige;
 
 function _gsVorsichtigste(treffer) {
   if (!treffer || !treffer.length) return null;
@@ -35214,7 +35256,13 @@ function renderList(){
     return;
   }
   
-  const cards = slice.map(sp=>{
+  const cards = slice.map(_rohSp=>{
+    // v32.92: ZUERST die Sicherheitsangaben der ART holen — `toxInfo` und die
+    // Plaketten darunter lesen `sp.tox`/`sp.edible`. Beim ersten Anlauf stand
+    // dieser Aufruf WEITER UNTEN: der Rand wurde orange, das gruene
+    // „✅ Essbar" blieb stehen. Genau deshalb wird der gerenderte TEXT
+    // gemessen und nicht das Objekt.
+    const sp = _gsArtAnzeige(_rohSp);
     const t = toxInfo(sp.tox);
     // Tags: max 2 anzeigen (Karte bleibt gleich hoch)
     const tags = [];
@@ -35272,7 +35320,13 @@ function loadMoreList() {
   var start = (_listPage - 1) * _LIST_PAGE_SIZE;
   var slice = validRes.slice(start, start + _LIST_PAGE_SIZE);
   if (!slice.length) return;
-  var cards = slice.map(function(sp) {
+  var cards = slice.map(function(_rohSp) {
+    // v32.92: ZUERST die Sicherheitsangaben der ART holen — `toxInfo` und die
+    // Plaketten darunter lesen `sp.tox`/`sp.edible`. Beim ersten Anlauf stand
+    // dieser Aufruf WEITER UNTEN: der Rand wurde orange, das gruene
+    // „✅ Essbar" blieb stehen. Genau deshalb wird der gerenderte TEXT
+    // gemessen und nicht das Objekt.
+    var sp = _gsArtAnzeige(_rohSp);
     var t = toxInfo(sp.tox || 0);
     var tags = [];
     if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' ' + _t('badge_giftig','Giftig') + '</span>');
@@ -35446,46 +35500,9 @@ function openDetail(id){
     showProfileToast(_t('detail_not_found','Art nicht gefunden:') + ' ' + idStr, 'error');
     return;
   }
-  // ── v32.91: die Vorsichtsregel gilt auch hier ────────────────────────────
-  //
-  // v32.43 hat sie fuer den SCANNER gebaut: fuehrt die Liste eine Art
-  // mehrfach und widersprechen sich die Angaben, gewinnt die vorsichtigere
-  // (`_gsVorsichtigste`) — „die Vorsicht haengt an der ART, nicht an der
-  // Suchstrategie". Der Weg Suche → Detail ging daran vorbei: `DB.find(id)`
-  // zeigte die Angaben GENAU DES EINTRAGS, den jemand angetippt hat.
-  //
-  // Gemessen ueber alle 4'337 Eintraege: 1'814 haben Dubletten, und **186
-  // zeigten eine NIEDRIGERE Giftstufe** als die vorsichtige Antwort — nie die
-  // Gegenrichtung (0). Christrose 3 statt 5, Seidelbast 4 statt 5, Beinwell 1
-  // statt 3, Wacholder 0 statt 2, Schwarzer Holunder 1 statt 2. Dazu 98
-  // Eintraege, die „essbar" sagten, wo die Art es nicht ist.
-  //
-  // Die Quellen der Korrektur sind gepflegt (nachgezaehlt): 0 stammen aus
-  // einem ungeprueften Eintrag, 0 sind ohne Warntext, 10 heben auf Stufe 5.
-  //
-  // Uebernommen werden NUR die Sicherheitsangaben — Name, Beschreibung und
-  // Verwendung bleiben die des angetippten Eintrags. Ein stiller Inhalts-
-  // tausch waere die schlechtere Antwort: jemand tippt einen Eintrag an und
-  // liest einen anderen.
-  var _vorsichtig = null;
-  try {
-    if (typeof _gsArtGruppe === 'function' && typeof _gsVorsichtigste === 'function' && _rohEintrag.lat)
-      _vorsichtig = _gsVorsichtigste(_gsArtGruppe(_rohEintrag, _rohEintrag.lat));
-  } catch (_) {}
-  var _korr = null;
-  if (_vorsichtig && _vorsichtig.id !== _rohEintrag.id && !_vorsichtig._unverified) {
-    var _hoeher = (_vorsichtig.tox || 0) > (_rohEintrag.tox || 0);
-    var _essbarWeg = !!_rohEintrag.edible && !_vorsichtig.edible;
-    if (_hoeher || _essbarWeg) _korr = { vonTox: _rohEintrag.tox, aufTox: _vorsichtig.tox,
-                                         hoeher: _hoeher, essbarWeg: _essbarWeg };
-  }
-  const sp = _korr ? Object.assign({}, _rohEintrag, {
-    tox:       _vorsichtig.tox,
-    toxic:     _vorsichtig.toxic,
-    edible:    _vorsichtig.edible,
-    warning:   _rohEintrag.warning   || _vorsichtig.warning,
-    lookalike: _rohEintrag.lookalike || _vorsichtig.lookalike
-  }) : _rohEintrag;
+  // v32.92: dieselbe Funktion wie die Trefferliste — eine Frage, eine Regel.
+  const sp = _gsArtAnzeige(_rohEintrag);
+  const _korr = sp._korrigiert || null;
   // v30.66: nicht-verifizierte Community-Arten (aus Scan-Vorschlägen) haben KEINE geprüfte Tox/Essbarkeit.
   // toxInfo(null) würde sonst GRÜN „Ungiftig" zeigen (HL#24-Falle) → neutrale „nicht geprüft"-Anzeige + Caveat.
   var t = toxInfo(sp.tox);
@@ -73950,6 +73967,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.92', date: '08.09.2026',
+      headline: 'Trefferliste und Detail sagen dasselbe',
+      summary: 'v32.91 hat das Detail korrigiert, die Liste nicht — ein Pilz stand mit ✅ in der Zeile und mit Stufe 3 im Detail.',
+      user_summary: 'Die Warnfarbe und die Plaketten in der Trefferliste zeigen jetzt dieselbe Einstufung wie die geöffnete Art.',
+      user_items: [
+        'Beispiel Violetter Schleierling: in der Liste stand ein grünes ✅, im Detail Giftstufe 3. Jetzt steht in beiden „⚠️ Giftig".',
+        'Dahinter liegt eine einzige Funktion, die jede Anzeige einer Art benutzt — Liste, Detail und Scanner geben damit dieselbe Antwort.'
+      ],
+    },
+    {
     v: 'v32.91', date: '08.09.2026',
       headline: 'Artendetail zeigt jetzt die vorsichtigere Angabe',
       summary: '186 Einträge zeigten eine niedrigere Giftstufe als ihre eigene Art — die Vorsichtsregel galt nur im Scanner.',
@@ -75114,7 +75141,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.91';
+var GS_VERSION = 'v32.92';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

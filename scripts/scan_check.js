@@ -1432,7 +1432,50 @@ const FAELLE = [
     },
   },
 
-  // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig\"
+  {
+    // v32.92 — v32.91 hat das DETAIL korrigiert und die LISTE nicht; damit war
+    // „Violetter Schleierling" in der Zeile ✅ und im Detail Stufe 3. Zwei
+    // Anzeigen derselben Art mit gegenteiliger Aussage.
+    name: 'D1c · Trefferliste und Detail sagen dasselbe ueber dieselbe Art',
+    lauf: async () => {
+      var w = null, d = 0;
+      DB.forEach(function (sp) {
+        if (!sp || !sp.lat) return;
+        var g = _gsArtGruppe(sp, sp.lat); if (!g || g.length < 2) return;
+        var v = _gsVorsichtigste(g); if (!v || v._unverified) return;
+        var dd = (v.tox || 0) - (sp.tox || 0);
+        if (dd > d) { d = dd; w = { sp: sp, v: v }; }
+      });
+      if (!w) return { ok: false, warum: 'kein Eintrag mit niedrigerer Stufe — der Fall misst nichts' };
+      switchTab('search');
+      var inp = document.getElementById('search-input');
+      if (inp) inp.value = w.sp.name;
+      searchText = String(w.sp.name).toLowerCase();
+      if (typeof doSearch === 'function') doSearch(); else renderList();
+      await new Promise(function (r) { setTimeout(r, 900); });
+      var karte = document.querySelector('[data-sid="' + w.sp.id + '"]');
+      if (!karte) return { ok: false, warum: 'die Zeile fuer „' + w.sp.name + '" wird nicht gerendert — der Fall misst nichts' };
+      var txt = (karte.textContent || '');
+      var rand = (karte.getAttribute('style') || '');
+      var f = [];
+      if ((w.v.tox || 0) >= 2) {
+        if (/✅/.test(txt)) f.push('die Zeile zeigt ✅, die Art ist Stufe ' + w.v.tox + ': „' + txt.replace(/\s+/g, ' ').slice(0, 60) + '"');
+        if (/transparent/.test(rand)) f.push('die Zeile hat keinen Warnrand, die Art ist Stufe ' + w.v.tox);
+      }
+      if ((w.v.tox || 0) >= 3 && !/Giftig/.test(txt)) f.push('die Zeile nennt die Art nicht giftig, obwohl Stufe ' + w.v.tox);
+      openDetail(w.sp.id);
+      await new Promise(function (r) { setTimeout(r, 400); });
+      var punkte = document.querySelectorAll('#detail-modal .td, #modal-content .td');
+      var aktiv = 0;
+      Array.prototype.forEach.call(punkte, function (x) { if ((x.getAttribute('style') || '').indexOf('background') >= 0) aktiv++; });
+      if (aktiv && aktiv - 1 !== (w.v.tox || 0)) f.push('das Detail zeigt Stufe ' + (aktiv - 1) + ', die Art ist ' + w.v.tox);
+      try { closeModal('detail-modal'); } catch (_) {}
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: w.sp.name + ' (Eintrag ' + w.sp.tox + ', Art ' + w.v.tox + '): Zeile „' + txt.replace(/\s+/g, ' ').slice(0, 44) + '" · Detail Stufe ' + (aktiv ? aktiv - 1 : '?') };
+    },
+  },
+
+  // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
   // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
   // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`
   // auf essbar geschlossen. Alle vier Faelle waren gegen v32.85 rot.

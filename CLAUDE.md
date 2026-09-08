@@ -1437,7 +1437,15 @@ neue Strategie hinzufuegt, gibt ihr Ergebnis durch
 `_gsVorsichtigste(_gsArtGruppe(hit))` — nie `DB.find`.
 
 > **Und das gilt fuer JEDE Anzeige einer Art, nicht nur fuer den Scanner**
-> (v32.91). `openDetail(id)` machte `DB.find(id)` und zeigte die Angaben genau
+> (v32.91/92). Seit v32.92 gibt es dafuer **eine** Funktion:
+> `_gsArtAnzeige(sp)` — sie liefert die Sicherheitsangaben der ART (mit einem
+> `_korrigiert`-Vermerk) und laesst Name, Beschreibung und Verwendung
+> unberuehrt. Drei Aufrufer: die zwei Kartenbauer der Trefferliste und
+> `openDetail`. Wer eine neue Ansicht einer Art baut, ruft sie — und ruft sie
+> als ERSTE Zeile: beim ersten Anlauf stand sie nach `toxInfo` und den
+> Plaketten, der Rand wurde orange und das gruene „✅ Essbar" blieb stehen.
+> **Eine Reparatur an einer Anzeige ist erst fertig, wenn ALLE Teile dieser
+> Anzeige sie sehen.** `openDetail(id)` machte `DB.find(id)` und zeigte die Angaben genau
 > des angetippten Eintrags: **186 Eintraege mit einer niedrigeren Giftstufe**
 > als ihre Art (nie umgekehrt), 98 mit „essbar" gegen die Art. Uebernommen
 > werden nur die SICHERHEITSANGABEN — Name, Beschreibung und Verwendung
