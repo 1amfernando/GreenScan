@@ -275,7 +275,7 @@ hat ihn keine automatische Prüfung gefunden.
 | # | Punkt | Wirkung |
 |---|---|---|
 | P2-1 | **DB-Waves fortsetzen** — neue Knowledge-Domänen sofern sinnvoll (DB-Wave-15+) | Breitere Abdeckung |
-| P2-2 | **Verbleibende `alert()` → `gsToast`** in nicht-kritischen Flows | iOS-PWA-Standalone-Sicherheit |
+| ~~P2-2~~ | **Erledigt — nachgemessen am 08.09.2026.** 25 echte Aufrufe von `alert`/`confirm`/`prompt` im Quelltext, **alle 25 als Rückfall hinter einer `typeof`-Wache** (`gsConfirmModal`, `gsPromptModal`, `showProfileToast`). Was eine Textsuche zusätzlich findet, sind Kommentare, die die Umstellung dokumentieren (v26.63, v26.64, v28.29, v28.67, v28.90). Mein Zähler lag dabei dreimal daneben — Kommentare mitgezählt, Text in Zeichenketten mitgezählt, `window.gsConfirmModal` nicht erkannt: *ein Treffer ist ein Verdacht, kein Urteil.* | iOS-PWA-Standalone-Sicherheit |
 | P2-3 | **Lighthouse-Pass** sobald Chrome-MCP/Browser-Smoke verfügbar | Performance-/A11y-Score |
 | P2-4 | **App-Store-Präsenz** — TWA (Google Play) / Capacitor (Apple), siehe `docs/_archiv/STORE_SUBMISSION_GUIDE.md` | Sichtbarkeit |
 
