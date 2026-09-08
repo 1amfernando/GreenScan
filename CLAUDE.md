@@ -1620,7 +1620,10 @@ dem Dokument (`gsI18nDokumentPhrasen`). Drei Regeln daraus: ein Toast
 bekommt sein Literal als GANZEN Satz (`'Fehler: ' + x` übersetzt niemand);
 wer `placeholder`/`aria-label` liest, liest `data-i18n-orig-<attr>` wenn er
 das Original braucht; und ein Datum formatiert mit `gsLocale()`, nie mit
-`'de-CH'` — `i18n_check` meldet jedes `toLocale*String('de-CH')`.
+`'de-CH'` — `i18n_check` meldet jedes `toLocale*String('de-CH')`. Und ein
+Monats- oder Wochentagsname kommt aus `gsMonate(kurz)` / `gsWochentage()`
+(seit v32.81, aus `Intl` mit `gsLocale()`), nie aus einer Liste im Code —
+`i18n_check` meldet jede.
 
 **Und noch eine Falle, die kein Pruefstand sieht:** `_t` ist KEINE globale
 Funktion. Jede Funktion legt sich einen eigenen Alias an

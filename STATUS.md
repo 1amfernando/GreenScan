@@ -4,13 +4,44 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.80` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.81` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (fu) — v32.81: Monats- und Wochentagsnamen folgen der Sprache — Audit E1, Welle 2
+
+- v32.78 hat die Rückmeldungen, Suchfelder und Datumsformate übersetzbar
+  gemacht und ausdrücklich festgehalten, was die Welle NICHT tut. Das hier
+  ist der sichere Teil davon: **40 Monatslisten und 3 Wochentag-Listen**
+  standen fest im Quelltext. Ein französischer Nutzer las „Januar" im
+  Kalender, im Blühkalender, im Planer, in der Ernte-Übersicht — an 44
+  Stellen, während daneben alles andere französisch war.
+- `gsMonate(kurz)` und `gsWochentage({abMontag})` rechnen die Namen aus
+  `Intl` mit `gsLocale()`, einmal je Sprache gemerkt; ohne `Intl` (oder wenn
+  eine Sprache Zahlen statt Namen liefert) bleibt die deutsche Liste. Ohne
+  Argument gibt `gsWochentage()` **Sonntag zuerst** — das ist der Index von
+  `getDay()`; das Kalenderraster nimmt `{abMontag:true}`.
+- **Vor dem Ersetzen geprüft, nicht danach:** alle 40 Listen sind reine
+  ANZEIGE. Das einzige `indexOf` auf so einer Variablen liegt auf einem
+  Datenfeld (`s.months` eines Pilzes: Monatszahlen), nicht auf Namen — eine
+  übersetzte Liste hätte dort nichts kaputtgemacht, aber das wusste ich erst
+  nach dem Nachsehen. Jede Ersetzung mit erwarteter Trefferzahl (v32.25).
+- `i18n_check` hat drei Fragen mehr: statisch keine Liste mehr; in fr liefert
+  `gsMonate()` „janvier"/„février" und `gsMonate(true)` „janv."/„févr.",
+  nach `setLang('de')` wieder „Januar"; `gsWochentage()` „dim." gegen
+  „lun." bei `{abMontag}`. Gegenprobe gegen v32.80: alle drei rot.
+- **Was diese Welle NICHT tut, mit Zahl und Grund:** 152 `toFixed(` — davon
+  **100 in Geometrie und CSS** (`width`, `transform`, `stroke`, SVG-Koordinaten).
+  Ein Dezimalkomma bricht dort das Layout, also ist das kein Rundumschlag,
+  sondern eine Einzelfallarbeit; und 78 zusammengesetzte Meldungen
+  (`'Fehler: ' + x`), die eine Phrasen-Übersetzung grundsätzlich nicht
+  erreicht — dort muss der ganze Satz als Literal dastehen.
+
+Regression v32.80 → v32.81: 30 Prüfstände grün, 0 nicht prüfbar, Layout 0 Änderungen, Kontrast 0/0, Antippflächen 0, verdächtige Textstellen 0.
 
 ### 2026-09-07 (ft) — v32.80: C5 nachgemessen, ein Versprechen im Kommentar eingelöst — Audit C5 (letzter Punkt aus §G)
 
@@ -9874,9 +9905,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.80` (Client) · SW-Cache `gs-v32.80` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.81` (Client) · SW-Cache `gs-v32.81` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'748 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'801 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
