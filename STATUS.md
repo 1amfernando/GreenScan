@@ -58,7 +58,7 @@ gibt es mehrfach.
 `scan_check` D1d + D1e (jetzt 64). Gegen v32.92: **60 von 60 Giftfragen ohne
 Regel · 94 von 94 ohne ☠️**.
 
-Regression v32.92 → v32.93: `scan_check` 64 Fälle / 0 kaputt (D1d und D1e gegen v32.92 rot mit den echten Zahlen), `render_check` gegen v32.92 **3'090 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
+Regression v32.92 → v32.93: `scan_check` 64 Fälle / 0 kaputt (D1d und D1e gegen v32.92 rot mit den echten Zahlen), `render_check` gegen v32.92 **3'090 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt).
 
 ### 2026-09-08 (gg) - v32.92: die halbe Korrektur — und was sie sichtbar machte
 
