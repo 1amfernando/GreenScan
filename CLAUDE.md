@@ -863,6 +863,12 @@ danach meldete den Notizzettel, der 1 px ueber den Rand ragte. Wer
 Beispieldaten anlegt, prueft die FELDER gegen die Lesestellen, nicht nur den
 Schluessel.
 
+> **Und die Zahl gehoert zum TITEL** (v32.85). `gsGetDueTasks` liefert
+> bewusst drei Tage weit (`d <= 2`); wer davon `length` unter die Ueberschrift
+> „Heute zu tun" schreibt, sagt etwas Falsches — der Notizzettel filterte an
+> derselben Stelle laengst auf `days <= 0`. Eine Vorschau darf bleiben, sie
+> muss nur sagen, dass sie eine ist.
+
 **`kalender_check.js` (seit v32.46) haelt die eine Regel aus
 `docs/KALENDER-V1.md` fest:** es gibt EINE Frage — „was ist an diesem Tag?" —
 und EINE Funktion (`gsKalenderEreignisse`). Der Kalender, „Heute zu tun",

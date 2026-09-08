@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.84.20260908">
+<meta name="app-version" content="32.85.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28188,9 +28188,20 @@ window.gsRenderDayPlan = function(){
   var nPlants = 0;
   try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) nPlants = myPlants.length; } catch(_){}
 
-  function head(count){
+  // v32.85: Die Zahl gehoert zum TITEL. Sie stand hier auf `tasks.length` —
+  // und `gsGetDueTasks` liefert alles bis `d <= 2`, also drei Tage weit. Bei
+  // drei Pflanzen mit Faelligkeit heute / morgen / uebermorgen stand da
+  // „Heute zu tun · 3 Aufgaben", waehrend GENAU EINE heute dran war. Die
+  // Zeilen darunter waren immer ehrlich („Heute" / „Morgen" / „In 2 Tagen") —
+  // die Ueberschrift war es nicht. Der Notizzettel (gsNcTaskNote) filtert an
+  // derselben Stelle laengst auf `days <= 0`; zwei Anzeigen mit demselben
+  // Titel zaehlten verschieden.
+  function head(count, bald){
+    var txt = count ? (count + ' Aufgabe' + (count === 1 ? '' : 'n')) : '';
+    // Die Vorschau bleibt — sie ist nuetzlich. Sie sagt jetzt nur, was sie ist.
+    if (bald) txt = (txt ? txt + ' · ' : '') + bald + ' in den nächsten Tagen';
     return '<div class="gs-dp-head"><h3>Heute zu tun</h3>' +
-      (count ? '<span class="gs-dp-count">' + count + ' Aufgabe' + (count === 1 ? '' : 'n') + '</span>' : '') +
+      (txt ? '<span class="gs-dp-count">' + txt + '</span>' : '') +
       // v32.46: der Kalender ist dieselbe Antwort, einen Monat weit
       '<button type="button" class="gs-dp-kal" onclick="gsKalenderOeffnen()" aria-label="Kalender öffnen" title="Kalender">📅</button>' +
       '</div>';
@@ -28232,7 +28243,8 @@ window.gsRenderDayPlan = function(){
       '</div>';
   }).join('');
 
-  el.innerHTML = head(tasks.length) +
+  var _heute = tasks.filter(function (t) { return (t.days || 0) <= 0; }).length;
+  el.innerHTML = head(_heute, tasks.length - _heute) +
     '<div class="gs-dp-card">' + rows +
       '<button type="button" class="gs-dp-all" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">' +
         '<span>Alle Aufgaben anzeigen</span><span aria-hidden="true">→</span></button>' +
@@ -73791,6 +73803,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.85', date: '08.09.2026',
+    headline: '📋 „Heute zu tun" zählte drei Tage — die Zahl gehört zum Titel',
+    summary: 'gsGetDueTasks liefert bewusst alles bis d <= 2, also drei Tage weit — die Karte nahm davon tasks.length und schrieb es unter den Titel „Heute zu tun". Bei drei Pflanzen mit Fälligkeit heute, morgen und übermorgen stand da „3 Aufgaben", während GENAU EINE heute dran war. Die Zeilen darunter waren immer ehrlich („Heute" / „Morgen" / „In 2 Tagen"), und der Notizzettel filtert an derselben Stelle längst auf days <= 0: zwei Anzeigen mit demselben Titel zählten verschieden. Die Vorschau bleibt — sie ist nützlich —, sie sagt jetzt nur, was sie ist: „1 Aufgabe · 2 in den nächsten Tagen". Gefunden nicht beim Lesen, sondern beim Nachstellen eines Nutzers mit zwei Jahren Daten (60 Pflanzen, 300 Scans, 2000 Messwerte); dabei nebenbei gemessen, dass die App damit gut zurechtkommt: 1,4 MB Speicher, Tab-Wechsel unter 45 ms. kalender_check hat den Fall, gegen v32.84 rot.',
+    user_summary: '📋 Die Zahl über „Heute zu tun" zählt jetzt wirklich nur, was heute dran ist — die Tage danach stehen separat daneben.',
+    user_items: [
+      {emoji:'📋', bold:'Heute zu tun:', text:' Stand vorher „3 Aufgaben", wenn nur eine heute fällig war und zwei in den nächsten Tagen. Jetzt steht beides getrennt da.'},
+    ],
+  },
+  {
     v: 'v32.84', date: '08.09.2026',
     headline: '🛡️ Rollen vergeben war in der App gar nicht erreichbar',
     summary: 'gsAdminSetExpertLevel hatte NULL Aufrufer, und sein select id="admin-expert-select" wurde nirgends mehr gerendert — die Funktion stieg bei if (!sel) return; still aus. wiring_check führte die zwei Nachschlagungen brav als „abgesichert (still, aber folgenlos)": nichts stürzte ab, und genau deshalb fiel es niemandem auf. Erreichbar war im Admin-Bereich nur Sperren und Entsperren; jemanden zum verifizierten Experten, Mitarbeiter oder Admin zu machen ging überhaupt nicht. Jetzt steht im Nutzer-Detail eine Rollen-Auswahl mit Begründungsfeld, und sie geht denselben Weg wie der Sperr-Knopf: gsAdminAssignRole → RPC fn_assign_role, mit serverseitiger Admin-Prüfung, Letzter-Admin-Sperre, Audit-Log und einer Mitteilung an die Person (deshalb sagt das Feld auch, dass die Begründung mitgelesen wird — live nachgelesen). Sperren bleibt beim eigenen Knopf: zwei Wege zum selben Zustand sind keine Wahlfreiheit. Die tote Funktion und ihr nur dafür gebauter Helfer _gsAdminUidZu sind weg. Und der save_check-Fall, der die Rollenvergabe angeblich prüfte, hatte sich sein select SELBST in die Seite gelegt — er öffnet jetzt das echte Fenster und drückt den echten Knopf. Gegen v32.83: rot.',
@@ -74880,7 +74901,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.84';
+var GS_VERSION = 'v32.85';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

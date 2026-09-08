@@ -498,6 +498,86 @@ const FAELLE = [
     },
   },
   {
+    // v32.85: `gsGetDueTasks` liefert alles bis `d <= 2` — drei Tage weit. Die
+    // Karte zaehlte davon `tasks.length` unter dem Titel „Heute zu tun", also
+    // 3 statt 1. Die ZEILEN waren immer ehrlich („Heute" / „Morgen" / „In 2
+    // Tagen"), und der Notizzettel filtert an derselben Stelle laengst auf
+    // `days <= 0`: zwei Anzeigen mit demselben Titel zaehlten verschieden.
+    // Der Fall stellt drei Pflanzen mit EINDEUTIGER Faelligkeit her und liest
+    // die gerenderte Ueberschrift — nicht das Objekt (v31.90).
+    name: 'Heute zu tun · die Zahl gehört zum Titel: 1 heute, die Vorschau wird benannt — und der Kalender nennt für heute genau dieselbe Aufgabe',
+    lauf: async () => {
+      // Die Karte liest ihre Pflanzen aus dem SPEICHER, nicht aus der globalen
+      // Variablen — wer nur `myPlants` setzt, misst die Beispieldaten weiter
+      // (erster Lauf: „8 Aufgaben"). Beides stellen, beides zuruecksetzen.
+      // Und `_gsPflanzungenNachruesten` baut die Pflanzungen beim Rendern aus
+      // den GAERTEN neu auf (v32.47) — wer die stehen laesst, misst die
+      // Beispielgaerten mit (zweiter Anlauf: „9 Aufgaben" bei drei Pflanzen).
+      const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null,
+                        ga: (typeof gardens !== 'undefined') ? gardens : null,
+                        lsP: localStorage.getItem('ps_myplants'), lsG: localStorage.getItem('gs_plantings'),
+                        lsGa: localStorage.getItem('gs_gardens') };
+      const D = 86400000, n = Date.now(), iso = t => new Date(t).toISOString();
+      try {
+        myPlants = [
+          { id: 'k-heute',  name: 'Heutig',  emoji: '🌿', tasks: { water: { active: true, intervalDays: 3, lastDone: iso(n - 3 * D) } } },
+          { id: 'k-morgen', name: 'Morgig',  emoji: '🌿', tasks: { water: { active: true, intervalDays: 3, lastDone: iso(n - 2 * D) } } },
+          { id: 'k-uebe',   name: 'Uebrig',  emoji: '🌿', tasks: { water: { active: true, intervalDays: 3, lastDone: iso(n - 1 * D) } } },
+        ];
+        if (typeof plantings !== 'undefined') plantings = [];
+        if (typeof gardens !== 'undefined') gardens = [];
+        localStorage.setItem('ps_myplants', JSON.stringify(myPlants));
+        localStorage.setItem('gs_plantings', '[]');
+        localStorage.setItem('gs_gardens', '[]');
+        const due = gsGetDueTasks();
+        const tage = due.map(t => t.days).sort((a, b) => a - b);
+        if (JSON.stringify(tage) !== '[0,1,2]')
+          return { ok: false, warum: 'der Fall stellt die Faelligkeit nicht her: ' + JSON.stringify(tage) };
+
+        // Was steht wirklich auf dem Bildschirm?
+        // `gsBuildWidgetStack` baut VERZOEGERT (requestIdleCallback) — wer sofort
+        // misst, liest den Stand vom Seitenaufbau mit den Beispieldaten. Warten,
+        // bis die Karte die drei gestellten Pflanzen zeigt (v32.32: ein Element,
+        // das gerade neu gebaut wird, wird erst NACH dem Bauen vermessen).
+        if (typeof gsBuildWidgetStack === 'function') { try { gsBuildWidgetStack(); } catch (_) {} }
+        let kopf = null;
+        for (let i = 0; i < 40; i++) {
+          await new Promise(r => setTimeout(r, 50));
+          kopf = document.querySelector('.gs-dp-head');
+          const t = kopf ? (kopf.textContent || '') : '';
+          if (/Heutig/.test((document.getElementById('gs-daily-plan') || document.body).textContent || '')) break;
+        }
+        if (!kopf) return { ok: false, warum: 'die Karte „Heute zu tun" wird nicht gerendert' };
+        const txt = (kopf.textContent || '').replace(/\s+/g, ' ').trim();
+        if (/\b3 Aufgaben\b/.test(txt))
+          return { ok: false, warum: 'zaehlt drei Tage unter dem Titel „Heute": „' + txt + '"' };
+        if (!/1 Aufgabe\b/.test(txt))
+          return { ok: false, warum: 'nennt nicht die EINE heutige Aufgabe: „' + txt + '"' };
+        if (!/2 in den n/.test(txt))
+          return { ok: false, warum: 'die Vorschau wird nicht benannt: „' + txt + '"' };
+
+        // Und die andere Haelfte: der Kalender nennt fuer heute dieselbe Aufgabe.
+        const h = gsHeuteTag();
+        const kal = (gsKalenderEreignisse(h, h) || []).filter(e => e.art === 'aufgabe');
+        if (kal.length !== 1) return { ok: false, warum: 'der Kalender nennt ' + kal.length + ' Aufgaben fuer heute statt 1' };
+        if (!/Heutig/.test(kal[0].titel || '')) return { ok: false, warum: 'der Kalender nennt eine andere: ' + kal[0].titel };
+        // Die Vorschau-Zeilen bleiben — und sagen selbst, wann sie dran sind.
+        const karte = (document.getElementById('gs-daily-plan') || document.body).textContent || '';
+        if (!/Morgen/.test(karte) || !/In 2 Tagen/.test(karte))
+          return { ok: false, warum: 'die Vorschau-Zeilen fehlen oder sagen ihren Tag nicht' };
+        return { ok: true, info: 'Kopf „' + txt.replace(/📅.*$/, '').trim() + '" · Kalender heute: ' + kal[0].titel + ' · Zeilen: Heute/Morgen/In 2 Tagen' };
+      } finally {
+        myPlants = sichern.mp;
+        if (sichern.pl && typeof plantings !== 'undefined') plantings = sichern.pl;
+        if (sichern.lsP === null) localStorage.removeItem('ps_myplants'); else localStorage.setItem('ps_myplants', sichern.lsP);
+        if (sichern.lsG === null) localStorage.removeItem('gs_plantings'); else localStorage.setItem('gs_plantings', sichern.lsG);
+        if (sichern.ga && typeof gardens !== 'undefined') gardens = sichern.ga;
+        if (sichern.lsGa === null) localStorage.removeItem('gs_gardens'); else localStorage.setItem('gs_gardens', sichern.lsGa);
+        try { if (typeof gsBuildWidgetStack === 'function') gsBuildWidgetStack(); } catch (_) {}
+      }
+    },
+  },
+  {
     name: 'Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt',
     lauf: () => {
       // v32.49: das Cloud-Tagebuch ist die dritte Quelle — ein „ohne Daten",
