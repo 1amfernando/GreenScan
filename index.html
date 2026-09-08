@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.97.20260908">
+<meta name="app-version" content="32.98.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57479,10 +57479,44 @@ const _callAI_original = (typeof callAI === 'function') ? callAI : null;
 function getSmartAnswer(question) {
   const q = question.toLowerCase().trim();
   
-  // 1. Emergency check first
-  if (/vergift|notfall|essen.*kind|kind.*essen|gegessen.*giftig|giftig.*gegessen/.test(q)) {
+  // 1. Notfall zuerst — v32.98
+  // Das alte Muster war /vergift|notfall|essen.*kind|kind.*essen|gegessen.*giftig|
+  // giftig.*gegessen/ und griff bei 4 von 17 realistischen Saetzen. „Meine
+  // Tochter hat Beeren gegessen", „mein Sohn hat Pilze gegessen", „baby hat
+  // Blaetter gegessen", „Erbrechen nach Beeren", „hilfe pflanze gegessen" —
+  // alle fielen durch und bekamen stattdessen eine Pflanzenbeschreibung. Das
+  // ist der Text mit dem hoechsten Einsatz in dieser App.
+  //
+  // Zwei Stufen statt einer, weil ein Fehlalarm auch etwas kostet: wer bei
+  // „ich habe gestern Baerlauch gegessen" ein 🆘 sieht, lernt, das Banner zu
+  // ueberlesen (dieselbe Lehre wie bei den vier Falschmeldungen in v32.21).
+  //   dringend → ersetzt die Antwort (jemand hat gegessen UND es geht um ein
+  //              Kind/Tier/Versehen, oder es gibt Symptome, oder das Wort
+  //              Vergiftung/Notfall faellt)
+  //   hinweis  → eine Zeile ueber der normalen Antwort (blosser Verzehr)
+  // Gemessen in DREI Klassen, 36 Saetze, alle richtig eingestuft; der Fall
+  // steht in scan_check (N1) und misst beide Richtungen — „kann man Loewenzahn
+  // essen?" darf NIE ein Notfall sein.
+  var _nfStufe = (function (t) {
+    var AKUT = /vergift|notfall|notruf/;
+    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt/;
+    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht/;
+    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig/;
+    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend/;
+    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete/;
+    if (AKUT.test(t)) return 'dringend';
+    if (SYMPTOM.test(t) && KONTEXT.test(t)) return 'dringend';
+    if (VERZEHR.test(t) && (BETROFFEN.test(t) || SYMPTOM.test(t) || HILFE.test(t))) return 'dringend';
+    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr/.test(t)) return 'dringend';
+    if (VERZEHR.test(t)) return 'hinweis';
+    return 'keiner';
+  })(q);
+  if (_nfStufe === 'dringend') {
     return '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\n\nNotruf: **144** | EU: **112**\n\nBeschreibe welche Pflanze/Pilz, wann und wie viel.';
   }
+  var _nfZeile = (_nfStufe === 'hinweis')
+    ? '⚠️ Wenn jemand etwas gegessen hat und sich unwohl fühlt: **Tox Info Suisse 145** (rund um die Uhr).\n\n'
+    : '';
   
   // 2. Search DB directly
   const matchedPlants = DB.filter(s => {
@@ -57509,13 +57543,13 @@ function getSmartAnswer(question) {
     if (pa.lookalike && pa.lookalike !== 'Keine' && pa.lookalike !== 'Keine (Hauspflanze)') resp += '\n👁️ **Verwechslung:** ' + pa.lookalike;
     if (p.season) resp += '\n📅 **Saison:** ' + p.season;
     if (p.habitat) resp += '\n🗺️ **Habitat:** ' + p.habitat;
-    return resp;
+    return _nfZeile + resp;
   }
   
   // 3. Keyword-based rules (from OFFLINE_RULES)
   if (typeof getOfflineAnswer === 'function') {
     const offlineResp = getOfflineAnswer(question);
-    if (offlineResp && !offlineResp.includes('Bitte die Pflanze konkret nennen')) return offlineResp;
+    if (offlineResp && !offlineResp.includes('Bitte die Pflanze konkret nennen')) return _nfZeile + offlineResp;
   }
   
   // 4. Garden knowledge from PLANT_DB
@@ -57528,7 +57562,7 @@ function getSmartAnswer(question) {
     if (data.boden) resp += '🪱 **Boden:** ' + data.boden + '\n';
     if (data.duengung) resp += '💧 **Düngung:** ' + data.duengung + '\n';
     if (data.krankheiten) resp += '🐛 **Krankheiten:** ' + data.krankheiten + '\n';
-    return resp;
+    return _nfZeile + resp;
   }
   
   // 5. Season calendar
@@ -57550,11 +57584,11 @@ function getSmartAnswer(question) {
       11:'❄️ November: Beet winterfest machen, Mulchen',
       12:'📋 Dezember: Planung für nächstes Jahr'
     };
-    return tipsByMonth[month] || '🌱 **Aktuell (' + monthNames[month-1] + '):** Bitte spezifischer fragen.';
+    return _nfZeile + (tipsByMonth[month] || '🌱 **Aktuell (' + monthNames[month-1] + '):** Bitte spezifischer fragen.');
   }
   
   // 6. Generic
-  return '🌿 Ich suche lokal in ' + DB.length + ' Arten und meinem Gartenwissen.\n\nBitte nenn mir:\n• Den **Namen der Pflanze/Pilz**\n• Oder ein **Problem** (gelbe Blätter, Schädlinge…)\n• Oder eine **Gartenfrage** (giessen, düngen, wann pflanzen…)\n\n💡 **Tipp:** Mit API-Key unter ⚙️ Einstellungen hast du Zugriff auf die volle KI.';
+  return _nfZeile + '🌿 Ich suche lokal in ' + DB.length + ' Arten und meinem Gartenwissen.\n\nBitte nenn mir:\n• Den **Namen der Pflanze/Pilz**\n• Oder ein **Problem** (gelbe Blätter, Schädlinge…)\n• Oder eine **Gartenfrage** (giessen, düngen, wann pflanzen…)\n\n💡 **Tipp:** Mit API-Key unter ⚙️ Einstellungen hast du Zugriff auf die volle KI.';
 }
 
 // Override callAI to use smart offline when no internet/key
@@ -74046,6 +74080,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.98', date: '08.09.2026',
+      headline: 'Der Chat erkennt einen Vergiftungs-Notfall jetzt wirklich',
+      summary: 'Vorher griff die Erkennung bei 4 von 17 normalen Formulierungen.',
+      user_summary: 'Wenn jemand schreibt, dass etwas gegessen wurde, kommt sofort die Nummer von Tox Info Suisse — nicht eine Pflanzenbeschreibung.',
+      user_items: [
+        'Sätze wie „meine Tochter hat Beeren gegessen", „mein Sohn hat Pilze gegessen" oder „Erbrechen nach Beeren" wurden bisher nicht als Notfall erkannt.',
+        'Erkannt wird jetzt auch, wenn ein Haustier etwas gefressen hat oder wenn Beschwerden beschrieben werden.',
+        'Und umgekehrt: „Kann man Löwenzahn essen?" löst weiterhin keinen Notfall aus — sonst gewöhnt man sich an, den Hinweis zu überlesen.'
+      ],
+    },
+    {
     v: 'v32.97', date: '08.09.2026',
       headline: 'Ein Battle zu verlassen hiess, es zu verlieren',
       summary: 'Der 30-Sekunden-Zähler lief weiter und riss das Fenster von selbst wieder auf.',
@@ -75275,7 +75320,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.97';
+var GS_VERSION = 'v32.98';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
