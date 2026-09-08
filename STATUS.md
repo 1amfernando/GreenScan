@@ -57,7 +57,7 @@ Detail zeigt dieselbe Stufe. Gegen v32.91 rot auf allen drei Pruefungen.
 Nebenbei: ein `\` aus einem Kommentar in `scan_check` entfernt, den ich beim
 v32.86-Einbau selbst hineingeschrieben hatte (Rest eines Roh-Strings).
 
-Regression v32.91 → v32.92: `scan_check` 62 Fälle / 0 kaputt (D1c gegen v32.91 rot auf allen drei Prüfungen), `render_check` gegen v32.91 **3'095 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
+Regression v32.91 → v32.92: `scan_check` 62 Fälle / 0 kaputt (D1c gegen v32.91 rot auf allen drei Prüfungen), `render_check` gegen v32.91 **3'095 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt). `perf_check` unauffällig — das Memo je Eintrag kostet nichts Messbares.
 
 ### 2026-09-08 (gf) - v32.91: das Artendetail umging die Vorsichtsregel
 
