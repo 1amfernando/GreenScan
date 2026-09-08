@@ -4,13 +4,73 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.94` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.95` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gk) - v32.95: die Sammlung „Giftige" war unvollstaendig
+
+- **Dieselbe Klasse wie (gg)–(gi), zwei Stellen weiter.** Seit v32.43 gilt bei
+  widerspruechlichen Doppel-Eintraegen die vorsichtigere Angabe, seit v32.92
+  gibt es dafuer **eine** Funktion (`_gsArtAnzeige`). Die automatischen
+  Sammlungen kannten sie nicht:
+
+  ```js
+  var members = items.filter(function(it){ return rule.test(it.sp, it); });
+  ```
+
+  `it.sp` ist der **Eintrag**, nicht die **Art**. Die Regel dahinter lautet
+  `sp.tox >= 4`.
+- **Gemessen ueber die ganze Artenliste** (4'337 Eintraege, Vergleich roher
+  Eintrag gegen `_gsArtAnzeige`):
+  - **22 Eintraege / 16 Arten** waeren NICHT in „☠️ Giftige" gelandet, obwohl
+    die Art Stufe 4 oder 5 hat. Darunter **Kahler Krempling** (Eintrag 3,
+    Art 4), **Fruehlingslorchel** (3 / 4), **Christrose** (3 / 5),
+    **Pfaffenhuetchen**, **Kirschlorbeer**, **Alpenveilchen**.
+  - **98 Eintraege / 67 Arten** haetten in „🍽️ Essbare" gestanden, obwohl die
+    Art nicht essbar ist — Fichte, Weisstanne, Rotbuche, Haengebirke.
+- **Eine Sammlung ist eine Aussage.** „Giftige" ist keine Sortierhilfe, sondern
+  die Liste, in der jemand nachsieht, was er nicht anfassen soll. Fehlt der
+  Kahle Krempling dort, sagt die App nicht „weiss ich nicht", sondern das
+  Gegenteil dessen, was in ihrer eigenen Datenbank steht.
+- **Und die zweite Stelle: die KI-Erklaerung im Quiz.** `dqAskKIExplain` gab
+  `art_tox: sp.tox` mit — den Wert des Eintrags. Seit (gi) wertet das Quiz die
+  Antwort nach der **Art**. Also erklaerte die KI eine andere Antwort als die,
+  die als richtig gilt.
+
+#### Der Pruefstand: `scan_check` Fall D1f (jetzt 65 Faelle)
+
+Er stellt `sbFetch`, `_gsCollGatherSourceItems` und `_gsCollReady` und laesst
+`gsCollectionsAutoVacuum()` wirklich laufen — gemessen wird, **was
+geschrieben wird**, nicht was die Regel zurueckgibt.
+
+- gruen: *„Christrose" (Eintrag tox 3, Art 5) landet in „Giftige" · 2 Zeile(n)
+  geschrieben*
+- Gegenprobe gegen v32.94: *„Christrose" (Eintrag tox 3, Art 5) fehlt in
+  „Giftige" — geschrieben nach: col-sys_wild*
+
+#### Zum dritten Mal in dieselbe Falle gelaufen
+
+Mein erstes Messskript zaehlte, **wie viele Eintraege sich widersprechen** —
+das ist die Datenlage, nicht die Wirkung. Es haette dieselbe Zahl geliefert,
+wenn die Sammlungen laengst richtig einsortierten. Erst der Fall, der den
+Schreibvorgang abfaengt, unterscheidet die beiden Zustaende. Dieselbe Lehre
+wie bei D1 in (gg) und beim Quiz in (gi), und ich habe sie jedes Mal neu
+gebraucht.
+
+**Und eine Zahl gilt nur mit ihrer Einheit.** Der erste Entwurf dieses
+Eintrags sagte „22 Arten". Es sind 22 **Eintraege** und 16 **Arten** — die
+Artenliste fuehrt 657 Arten mehrfach, und genau das ist ja der Anlass. Vor
+dem Schreiben nachgezaehlt, in beiden Einheiten.
+
+#### Optik
+
+`render_check` v32.94 → v32.95: **3'097 vergleichbare Elemente, 0 Aenderungen**
+an Radius, Schriftgroesse, GROESSE und Farbe. Alle 31 Pruefstaende gruen.
 
 ### 2026-09-08 (gj) - v32.94: `gsMonate` stuerzte ab, wenn der Browser keine Monatsnamen kennt
 

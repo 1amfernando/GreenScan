@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.94.20260908">
+<meta name="app-version" content="32.95.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9633,7 +9633,17 @@ window.gsCollectionsAutoVacuum = async function(){
     } catch(_){}
     for (var i=0; i<window.GS_SYSTEM_COLLECTIONS.length; i++){
       var rule = window.GS_SYSTEM_COLLECTIONS[i];
-      var members = items.filter(function(it){ return rule.test(it.sp, it); });
+      // v32.95: die Regel bekommt die Sicherheitsangaben der ART, nicht die
+      // des einzelnen Eintrags. Ueber die ganze Artenliste gerechnet waeren
+      // 22 Eintraege (16 Arten) NICHT in „☠️ Giftige" gelandet, obwohl die
+      // Art Stufe 4+ hat — Christrose (Eintrag 3 / Art 5), Kahler Krempling
+      // (3 / 4), Fruehlingslorchel (3 / 4); und 98 Eintraege (67 Arten)
+      // haetten in „🍽️ Essbare" gestanden, obwohl die Art nicht essbar ist.
+      // Eine Sammlung ist eine Aussage.
+      var members = items.filter(function(it){
+        var sp = (typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(it.sp) : it.sp;
+        return rule.test(sp, it);
+      });
       var colId = sysCols[rule.key];
       // Leerer Bucket → leere System-Sammlung wegräumen (falls vorhanden).
       if (!members.length){
@@ -13685,6 +13695,7 @@ async function dqAskKIExplain() {
   // Frage + Kontext zusammenstellen
   var qText = (document.getElementById('dq-question') || {}).textContent || '';
   var sp = window._dqSpecies || null;
+  var spA = (sp && typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(sp) : sp;
   var context = {
     frage: qText,
     richtige_antwort: _dqCorrect || '',
@@ -13693,8 +13704,10 @@ async function dqAskKIExplain() {
     art_kategorie: sp && sp.cat || '',
     art_habitat: sp && sp.habitat || '',
     art_saison: sp && sp.season || '',
-    art_tox: sp && sp.tox || 0,
-    art_warnung: sp && sp.warning || ''
+    // v32.95: dieselbe Zahl, die das Quiz seit v32.93 als richtig wertet —
+    // sonst erklaert die KI eine andere Antwort als die gegebene.
+    art_tox: spA && spA.tox || 0,
+    art_warnung: spA && spA.warning || ''
   };
   var systemPrompt = 'Du bist Botanik-Experte bei GreenScan. Erkläre kurz (max 80 Wörter, in Deutsch) WARUM die richtige Antwort korrekt ist. Sei präzise, bildlich, lehrreich. Erwähne wichtige Bestimmungsmerkmale, falls relevant. Bei giftigen Arten: weise auf Tox Info Suisse 145 hin.';
   var userMsg = 'Frage: ' + context.frage + '\nRichtige Antwort: ' + context.richtige_antwort + '\n\nArt-Kontext:\n' +
@@ -73999,6 +74012,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.95', date: '08.09.2026',
+      headline: 'Die Sammlung „Giftige" war unvollständig',
+      summary: '16 Arten fehlten dort — darunter Kahler Krempling und Frühlingslorchel.',
+      user_summary: 'Die automatischen Sammlungen ordnen jetzt nach der Art ein, nicht nach einem einzelnen Datenbank-Eintrag.',
+      user_items: [
+        'In „☠️ Giftige" fehlten 16 Arten, obwohl sie giftig sind — unter anderem Christrose, Pfaffenhütchen, Kahler Krempling und Frühlingslorchel.',
+        'In „🍽️ Essbare" standen 67 Arten, die nicht essbar sind.',
+        'Auch die KI-Erklärung im Quiz bekommt jetzt dieselbe Giftstufe, die als richtige Antwort gilt — sonst hätte sie eine andere Antwort erklärt als die gegebene.'
+      ],
+    },
+    {
     v: 'v32.94', date: '08.09.2026',
       headline: 'Absturz beim Start auf einfachen Geräten',
       summary: 'Liefert der Browser keine Monatsnamen, rief der Rückfall sich selbst — endlos.',
@@ -75195,7 +75219,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.94';
+var GS_VERSION = 'v32.95';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
