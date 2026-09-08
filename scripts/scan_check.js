@@ -1704,6 +1704,47 @@ const FAELLE = [
     },
   },
 
+  {
+    // v32.98 — der Text mit dem hoechsten Einsatz in dieser App. Das alte
+    // Muster (/vergift|notfall|essen.*kind|kind.*essen|gegessen.*giftig|
+    // giftig.*gegessen/) griff bei 4 von 17 realistischen Saetzen; „meine
+    // Tochter hat Beeren gegessen" bekam eine Pflanzenbeschreibung.
+    // Gemessen werden BEIDE Richtungen: ein Notfall MUSS die Nummer bringen,
+    // und eine harmlose Frage darf sie NICHT bringen — sonst lernt man, das
+    // Banner zu ueberlesen (dieselbe Lehre wie die vier Falschmeldungen in v32.21).
+    name: 'N1 · Der Offline-Chat erkennt einen Vergiftungs-Notfall — und ruft ihn nicht bei jeder Essensfrage aus',
+    lauf: async () => {
+      if (typeof getSmartAnswer !== 'function') return { ok: false, warum: 'getSmartAnswer fehlt' };
+      const DRINGEND = ['mein kind hat eine beere gegessen', 'meine tochter hat beeren gegessen',
+        'mein sohn hat pilze gegessen', 'mein hund hat davon gefressen',
+        'die katze hat an der pflanze geknabbert', 'ich habe aus versehen davon probiert',
+        'wir haben pilze gegessen und mir ist schlecht', 'meine kleine hat blätter in den mund genommen',
+        'baby hat erde und blätter gegessen', 'mir ist übel nach dem pilzessen', 'erbrechen nach beeren',
+        'kind hat maiglöckchen gegessen', 'hilfe pflanze gegessen', 'vergiftung', 'notfall',
+        'bauchschmerzen nach dem beeren sammeln', 'was tun wenn man giftige beeren isst'];
+      const HARMLOS = ['kann man löwenzahn essen', 'ist bärlauch essbar', 'welche pilze sind essbar',
+        'darf man brennnessel essen', 'wie schmeckt giersch', 'wann kann ich tomaten ernten',
+        'ist die pflanze giftig', 'wie giftig ist der efeu', 'welche beeren sind essbar',
+        'rezept mit bärlauch', 'wann blüht der holunder', 'wie pflege ich basilikum',
+        'ist maiglöckchen giftig', 'giftige pflanzen im garten', 'was ist essbar im wald'];
+      // scan_check fuehrt seine Faelle IN der Seite aus (p.evaluate ueber den
+      // Funktionsrumpf) — getSmartAnswer ist hier direkt greifbar, ein
+      // verschachteltes evaluate waere ein ReferenceError.
+      const nimm = q => String(getSmartAnswer(q) || '');
+      const r = {
+        d: DRINGEND.map(q => ({ q, a: nimm(q) })).filter(x => !/SOFORT Tox Info Suisse/.test(x.a)).map(x => x.q),
+        h: HARMLOS.map(q => ({ q, a: nimm(q) })).filter(x => /Tox Info Suisse/.test(x.a)).map(x => x.q),
+        probe: nimm('vergiftung').slice(0, 30),
+      };
+      if (!/SOFORT Tox Info Suisse/.test(r.probe)) return { ok: false, warum: 'selbst „vergiftung" bringt die Nummer nicht — der Fall misst nichts' };
+      const f = [];
+      if (r.d.length) f.push(r.d.length + ' von ' + DRINGEND.length + ' Notfall-Sätzen OHNE die Nummer: „' + r.d.slice(0, 3).join('" · „') + '"');
+      if (r.h.length) f.push(r.h.length + ' harmlose Frage(n) MIT Notfall-Text: „' + r.h.slice(0, 3).join('" · „') + '"');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: DRINGEND.length + ' Notfall-Sätze bringen die 145 · ' + HARMLOS.length + ' harmlose Fragen bleiben ohne' };
+    },
+  },
+
   // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
   // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
   // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`

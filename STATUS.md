@@ -4,13 +4,72 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.97` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v32.98` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-08 (gq) - v32.98: der Notfall-Satz, den die App am dringendsten braucht, griff bei 4 von 17
+
+- **Der Text mit dem hoechsten Einsatz in dieser App** ist die Antwort auf
+  „jemand hat etwas gegessen". Erkannt wurde er von genau EINEM Muster in
+  `getSmartAnswer` (dem Offline-Chat, den jeder ohne KI-Schluessel bekommt):
+
+  ```js
+  /vergift|notfall|essen.*kind|kind.*essen|gegessen.*giftig|giftig.*gegessen/
+  ```
+
+- **Gemessen an 17 realistischen Saetzen: 4 erkannt.** Nicht erkannt wurden
+  unter anderem:
+
+  | Satz | was stattdessen kam |
+  |---|---|
+  | „meine tochter hat beeren gegessen" | Pflanzenbeschreibung |
+  | „mein sohn hat pilze gegessen" | Pflanzenbeschreibung |
+  | „baby hat erde und blaetter gegessen" | allgemeine Antwort |
+  | „erbrechen nach beeren" | allgemeine Antwort |
+  | „hilfe pflanze gegessen" | allgemeine Antwort |
+  | „mein hund hat davon gefressen" | allgemeine Antwort |
+
+  Das Muster verlangte woertlich „vergift", „notfall" oder die Kombination
+  „kind" + „essen". Wer „Tochter" schreibt statt „Kind", bekam eine
+  Botanik-Auskunft.
+
+#### Zwei Stufen statt einer — weil ein Fehlalarm auch etwas kostet
+
+  | Stufe | wann | was |
+  |---|---|---|
+  | **dringend** | Vergiftung/Notfall genannt · Symptome + Pflanzen-Kontext · Verzehr + (Kind/Tier/Versehen ODER Symptom ODER Hilferuf) | ersetzt die Antwort durch die 145 |
+  | **hinweis** | blosser Verzehr („ich habe gestern Baerlauch gegessen") | eine ruhige Zeile UEBER der normalen Antwort |
+  | keiner | „kann man Loewenzahn essen?" | nichts |
+
+  Wer bei jeder Essensfrage ein 🆘 sieht, lernt es zu ueberlesen — dieselbe
+  Lehre wie die vier staendigen Falschmeldungen in v32.21. Deshalb wird in
+  BEIDE Richtungen gemessen.
+
+- **Und die Hinweiszeile wird auch gelesen.** Sie haengt an allen FUENF
+  Antwort-Rueckgaben der Funktion (`resp` 2×, `offlineResp`, `tipsByMonth`,
+  Rueckfall). Eine Variable, die gesetzt und nie ausgegeben wird, waere genau
+  der Fehler „abgefragt, geliefert, weggeworfen", den `field_check` und
+  `data_check` jagen.
+
+#### Der Pruefstand: `scan_check` N1 (jetzt 69 Faelle)
+
+Drei Klassen, 36 Saetze, beide Richtungen. Gegenprobe gegen das alte Muster:
+**„13 von 17 Notfall-Saetzen OHNE die Nummer"** — genau die Handmessung.
+
+Eine Falle beim Bauen: `scan_check` fuehrt seine Faelle **IN der Seite** aus
+(`p.evaluate` ueber den Funktionsrumpf), `robust_check` dagegen in Node mit
+Zugriff auf `__seite`. Mein erster Anlauf kopierte das robust_check-Muster und
+starb an `ReferenceError: __seite is not defined`. **Wer einen Fall in einen
+anderen Pruefstand kopiert, kopiert auch dessen Ausfuehrungsort.**
+
+**Grenze:** geprueft sind 36 deutsche Saetze, die ich fuer realistisch halte —
+nicht die Sprache echter Nutzer in echter Panik, und nicht Franzoesisch,
+Italienisch oder Englisch. Der Offline-Chat antwortet ohnehin nur deutsch.
 
 ### 2026-09-08 (gp) - Gilt der Battle-Fehler noch woanders? Nein — und jetzt bleibt es so
 
@@ -10971,7 +11030,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.97` (Client) · SW-Cache `gs-v32.97` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.98` (Client) · SW-Cache `gs-v32.98` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **92'227 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

@@ -1442,6 +1442,25 @@ Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
 eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände
 mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
 
+> **Der Text mit dem hoechsten Einsatz ist die Notfall-Antwort — und er wird in
+> BEIDE Richtungen gemessen** (v32.98). `getSmartAnswer` (Offline-Chat, den
+> jeder ohne KI-Schluessel bekommt) erkannte einen Vergiftungs-Notfall an
+> EINEM Muster und griff bei **4 von 17** realistischen Saetzen: „meine
+> tochter hat beeren gegessen" bekam eine Pflanzenbeschreibung, weil dort
+> „Tochter" statt „Kind" steht. Seit v32.98 gibt es zwei Stufen — **dringend**
+> (ersetzt die Antwort) und **hinweis** (eine ruhige Zeile darueber) — und der
+> Fall `scan_check` N1 misst 36 Saetze in drei Klassen. **Die Gegenrichtung
+> ist Pflicht:** „kann man Loewenzahn essen?" darf NIE ein Notfall sein, sonst
+> lernt man, das Banner zu ueberlesen (dieselbe Lehre wie die vier staendigen
+> Falschmeldungen in v32.21). Und die Hinweiszeile haengt an ALLEN fuenf
+> Antwort-Rueckgaben — eine Variable, die gesetzt und nie ausgegeben wird,
+> waere „abgefragt, geliefert, weggeworfen".
+>
+> **Und ein Fall wandert nicht zwischen Pruefstaenden.** `scan_check` fuehrt
+> seine Faelle IN der Seite aus (`p.evaluate` ueber den Funktionsrumpf),
+> `robust_check` in Node mit Zugriff auf `__seite`. Ein kopierter Fall stirbt
+> an `ReferenceError` — wer kopiert, kopiert auch den Ausfuehrungsort.
+
 **Eine Regel aus v32.11, die ueber die Optik hinausgeht:** *Inhalt, auf den es
 ankommt, wird nie NACH UNSICHTBAR animiert.* Zwei Anlaeufe an derselben Stelle
 sind daran gescheitert — erst `opacity:0` per Timer (contrast_check: **1:1**),
