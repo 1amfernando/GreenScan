@@ -4,13 +4,54 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.79` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-07 · **Branch**: `main` · **Version**: `v32.80` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-07 (ft) — v32.80: C5 nachgemessen, ein Versprechen im Kommentar eingelöst — Audit C5 (letzter Punkt aus §G)
+
+- **C5 nennt vier Zahlen. Heute nachgezählt** (die Audit-Zahlen stammen vom
+  06.09., dazwischen liegen fünfzehn Versionen):
+
+  | | Audit | heute | Entscheidung |
+  |---|---|---|---|
+  | leere `catch` | 2'113 | **2'159** | bleibt — CLAUDE.md §3.8: defensives `try/catch` ist Absicht. Die gefährliche Teilmenge (eine verschluckte Schreib-Antwort) deckt `versprechen_check` seit v32.28 und `save_check` seit v31.95. |
+  | Inline-Styles (`style="…"`) | 5'461 | **7'245** | bleibt — eine Suchen-und-Ersetzen-Aktion über 5,7 MB ist laut v32.25 ein Eingriff, kein Aufräumen (dort hat genau das die Datei beschädigt). Die WIRKUNG messen `contrast_check` (43 Fenster, beide Modi), `touch_check` und `a11y_check`. |
+  | feste Hex-Farben | 2'125 gegen 162 Variablen | **3'859 gegen 118** | bleibt — Farbe wird nur mit einem Messwert geändert (v31.77: zwölf Stellen „aufgeräumt", 6,87:1 → 1,83:1). |
+  | `console.warn` in Produktion still | 223 | **225** | bleibt still — aber siehe unten. |
+
+- **Der eine echte Fehler darin:** seit v29.32 stand im Quelltext
+  „Helper: console.gsRestore() um wieder einzuschalten ohne Reload" — und
+  den Helfer gab es nie (die Funktion hiess `gsConsoleRestore`, hatte keinen
+  Aufrufer und ist mit v32.77 gegangen). Die aufgehobenen Originale
+  (`window._gsConsoleOrig`) las damit niemand mehr. Für einen Support-Fall
+  („öffne die Konsole und tippe das ein") gab es keinen Weg. Jetzt gibt es
+  `console.gsRestore()` unter genau dem Namen, den der Kommentar nannte:
+  holt `log`, `debug`, `info`, `warn` aus `_gsConsoleOrig` zurück und sagt,
+  wie man es dauerhaft macht (`gs_debug`). `console.error` war nie still und
+  bleibt es nicht. **Ein Versprechen im Kommentar ist auch eines.**
+- `robust_check` Fall 19 misst es — und zwar an der IDENTITÄT gegen
+  `_gsConsoleOrig`, nicht am Quelltext der Funktion: ein
+  `toString()`-Vergleich hält jede fremde Hülle für „still" und war im
+  ersten Anlauf prompt 3/4 statt 4/4. Vier still, `error` nicht, Aufruf holt
+  alle vier zurück; danach legt der Fall sie wieder still, damit die
+  folgenden Fälle dieselbe Lage sehen.
+- **Und die Tabelle selbst war eine Zeile schuldig:** A10 (Server-Teil) stand
+  oben noch als „offen", während zwölf Zeilen tiefer dieselbe Sache als
+  ✅ v32.72 geführt ist. CLAUDE.md sagt es über genau solche Listen: *ein
+  Rückstand veraltet auch* — wer sie liest, misst sie besser nach, statt sie
+  zu glauben. Nachgemessen (`_shared/auth_vergleich.mjs` ist da, fünf
+  Empfänger importieren es, `robust_check` Fall 9 misst es) und die Dublette
+  entfernt.
+- Damit ist §G des Audits abgearbeitet, soweit es von hier geht. Offen
+  bleibt nur, was Serverzugriff oder eine Entscheidung braucht:
+  FUER-FERNANDO §6–§12.
+
+Regression v32.79 → v32.80: (folgt)
 
 ### 2026-09-07 (fs) — v32.79: pdf.js nur bei Bedarf, Rechtstexte sagen, was stimmt — A8-Rest, Audit E6 (Client)
 
@@ -9825,9 +9866,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.79` (Client) · SW-Cache `gs-v32.79` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.80` (Client) · SW-Cache `gs-v32.80` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'726 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'748 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

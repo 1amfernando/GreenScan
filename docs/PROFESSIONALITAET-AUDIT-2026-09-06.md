@@ -24,7 +24,6 @@
 | A3 · `escHtml` ohne `'` in `onclick`-Strings; Artendetail rendert `warning`/`lat`/`uses`/… roh | ✅ v32.66 — `escHtml` kennt `'`; `_gsOcStr` an den vier Stellen; zehn Felder im Artendetail escaped | `escape_check` Fälle 2–3 |
 | A4 · Mitteilungs-Link ungeprüft in `location.href`/`window.open`; `sw.js` navigiert auf `data.url` | ✅ v32.66 — `_gsSafeLink` (eigener Ursprung oder https), `swSafeUrl` (nur eigener Ursprung) | `escape_check` Fälle 4–5 |
 | A10 · HTML-Teil: KI-Ausgabe roh (Scan-Chat, Admin-Triage), `data-i18n-html`, Bild-URLs ohne Schema-Prüfung | ✅ v32.66 — `gsSanitizeHtml` (Allowlist), Triage escaped, `_gsSafeUrl` in Feed und „Meine Funde" | `escape_check` Fälle 6–7 |
-| A10 · Server-Teil (fünf `includes()`-Vergleiche, `feedback-triage`, `ai-proxy`-CORS) | offen | §G 12 |
 | B1 · `sbFetch` ohne zweites Argument stürzt vor dem `try` ab (Wetterwarnungen, Verkäufer-Status tot) | ✅ v32.67 — `opts = opts || {}` | `robust_check` Fall 1 |
 | B5 · `gsToast` verwirft die Dauer (126 Aufrufer) | ✅ v32.67 — Dauer reist durch `showProfileToast` und die Warteschlange | `robust_check` Fall 2 |
 | B6 · Escape schliesst alle Fenster | ✅ v32.67 — nur das oberste (zuletzt geöffnet, sonst höchster z-index) | `robust_check` Fall 3 |
@@ -58,7 +57,8 @@
 | C2 · 66 Funktionen ohne Aufrufer (nachgezählt: 105) | ✅ v32.77 — 114 entfernt (1790 Zeilen) mit Parser-Grenzen; `closeAbout` bleibt (dynamischer Name); der Scan ist jetzt ein Prüfstand-Deckel | `robust_check` Fall 16 |
 | E1 · Rückmeldungen nur Deutsch (351 `gsToast`, 56 `gsConfirmModal`, 133 `placeholder`, 95 `aria-label`, 52 `MENU_ITEMS`, 56× `de-CH`) | ✅ v32.78 Welle 1 — Phrasen aus dem Quelltext an den Übersetzer, `placeholder`/`aria-label`/Menü per `tText`, `gsLocale()` statt 133× `de-CH` · Welle 2 offen: zusammengesetzte Meldungen, Monatsnamen-Listen, `toFixed()` · ⏳ Admin-Knopf (§11) | `i18n_check` Fragen 9–16 |
 | E6 · Impressum ohne Rechtsträger/Adresse/UID, fester Monat als Stand, siezen, „Fotos nicht dauerhaft gespeichert“ | ✅ v32.79 (Client) — Stand/Version/Artenzahl dynamisch, du statt Sie, Fotos-/Nutzungsdaten-/Kontodaten-Sätze stimmen, Impressum nennt die Lücke · ⏳ Rechtsträger, Postadresse, UID: Fernando (§12) | `nutzersicht_check` Fall E6 |
-| C5 | offen | §G |
+| C5 · Stil (leere `catch`, Inline-Styles, feste Hex, `console.warn` still) | ✅ v32.80 — nachgemessen (2'159 / 7'245 / 3'859 gegen 118 / 225); der eine echte Fehler behoben: `console.gsRestore()` gibt es jetzt wirklich. Der Rest bleibt mit Grund stehen (§3.8, v32.25, v31.77) | `robust_check` Fall 19 |
+| — | — | — |
 
 ## Zahlen zuerst
 

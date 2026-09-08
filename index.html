@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.79.20260907">
+<meta name="app-version" content="32.80.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2486,7 +2486,20 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       console.debug = function(){};
       console.info = function(){};
       console.warn = function(){};   // v29.32: warn auch still — versteckt internen Flow ([gsSync]…). error bleibt aktiv.
-      // Helper: console.gsRestore() um wieder einzuschalten ohne Reload
+      // v32.80 (Audit C5): hier stand seit v29.32 „Helper: console.gsRestore()
+      // um wieder einzuschalten ohne Reload" — und den Helfer gab es nicht. Die
+      // Originale werden eine Zeile höher aufgehoben und von niemandem mehr
+      // gebraucht; ein Support-Fall („öffne die Konsole und tippe das ein")
+      // hatte damit keinen Weg. Jetzt gibt es ihn, unter genau dem Namen, den
+      // der Kommentar nannte. Ein Versprechen im Kommentar ist auch eines.
+      console.gsRestore = function () {
+        try {
+          var o = window._gsConsoleOrig || {};
+          ['log', 'debug', 'info', 'warn'].forEach(function (k) { if (o[k]) console[k] = o[k]; });
+          console.info('[GreenScan] Konsole wieder an. Dauerhaft: localStorage.setItem("gs_debug","1") + neu laden.');
+          return true;
+        } catch (e) { return false; }
+      };
     } else {
       // Dev: leichter Banner-Hint in der Console
       try {
@@ -73657,6 +73670,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.80', date: '08.09.2026',
+    headline: '🧰 Ein Versprechen im Kommentar eingelöst — Audit C5, der letzte Punkt der Liste',
+    summary: 'Audit C5 nennt vier Stil-Zahlen. Alle vier heute nachgezählt (leere catch 2159, Inline-Styles 7245, feste Hex-Farben 3859 gegen 118 Variablen, 225 stillgelegte console.warn) — und begründet, warum sie bleiben: defensives try/catch ist Absicht (CLAUDE.md §3.6), eine Suchen-und-Ersetzen-Aktion über 5,7 MB hat in v32.25 schon einmal die Datei beschädigt, und Farbe wird nur mit einem Messwert geändert. Der eine echte Fehler darin: seit v29.32 versprach ein Kommentar den Helfer console.gsRestore() — den gab es nie. Jetzt gibt es ihn, und robust_check misst ihn. Dazu eine veraltete Zeile aus der Audit-Statustabelle entfernt: A10 stand oben als offen, während dieselbe Sache zwölf Zeilen tiefer als erledigt geführt wird.',
+    user_summary: '🧰 Aufräumarbeiten hinter den Kulissen — für dich ändert sich nichts, für die Fehlersuche im Supportfall einiges.',
+    user_items: [
+      {emoji:'🧰', bold:'Support:', text:' Wenn etwas klemmt, lässt sich die Diagnose-Ausgabe jetzt mit einem Befehl einschalten, ohne die App neu zu laden.'},
+    ],
+  },
+  {
     v: 'v32.79', date: '07.09.2026',
     headline: '📄 pdf.js nur noch bei Bedarf, Rechtstexte sagen was stimmt — A8-Rest, Audit E6',
     summary: 'Zwei Dinge. (1) Die PDF-Bibliothek (1,5 MB vom CDN) wurde bei JEDEM Start geladen und vom Service Worker vorgehalten — für ein Werkzeug, das nur der Admin benutzt (PDF einlesen). Jetzt holt sie _gsPdfjsLaden beim ersten PDF; der Prüfstand zählt beim Start 0 Anfragen an cdnjs statt 1. (2) Die Rechtstexte trugen „Stand März 2026" fest im Text, siezten auf der Haftungsseite und behaupteten, Pflanzenfotos würden nicht dauerhaft gespeichert — sie gehen an den KI-Dienst und liegen im Konto. Stand, Version und Artenzahl kommen jetzt aus der App selbst, die Texte duzen, und die Datenschutzerklärung sagt, was wirklich passiert. Das Impressum nennt offen, dass Rechtsträger, Postadresse und UID noch fehlen.',
@@ -74697,7 +74719,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.79';
+var GS_VERSION = 'v32.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
