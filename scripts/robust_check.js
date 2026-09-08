@@ -555,6 +555,37 @@ const FAELLE = [
     },
   },
   {
+    name: 'C5 · console.gsRestore() gibt es wirklich: in Produktion sind log/debug/info/warn still, der Aufruf holt sie zurück (error war nie still) — und kein Kommentar verspricht einen Helfer, den es nicht gibt',
+    lauf: async () => {
+      const f = [];
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      if (!/console\.gsRestore = function/.test(idx)) f.push('console.gsRestore wird nicht definiert');
+      const r = await __seite.evaluate(() => {
+        // Der Pruefstand laeuft im Produktionsmodus (kein gs_debug) — dort sind die vier still.
+        // Gemessen wird die IDENTITAET gegen die aufgehobenen Originale, nicht der Quelltext
+        // der Funktion: ein `toString()`-Vergleich haelt jede fremde Huelle fuer „still".
+        const o = window._gsConsoleOrig || {};
+        const hatOriginale = ['log', 'debug', 'info', 'warn'].every(k => typeof o[k] === 'function');
+        const nichtStill = ['log', 'debug', 'info', 'warn'].filter(k => console[k] === o[k]);
+        const stillVorher = 4 - nichtStill.length;
+        const errorStill = console.error !== o.error && typeof o.error === 'function';
+        const rueck = (typeof console.gsRestore === 'function') ? console.gsRestore() : null;
+        const wiederDa = ['log', 'debug', 'info', 'warn'].filter(k => console[k] === o[k]);
+        // aufräumen: wieder stilllegen, damit die folgenden Fälle dieselbe Lage sehen
+        if (!window._gsDevMode) ['log', 'debug', 'info', 'warn'].forEach(k => { console[k] = function () {}; });
+        return { stillVorher, nichtStill, hatOriginale, errorStill, rueck, wiederDa: wiederDa.length, dev: !!window._gsDevMode };
+      });
+      if (r.dev) return { ok: true, info: 'Dev-Modus — in Produktion greift die Stilllegung; hier nichts zu messen' };
+      if (r.stillVorher !== 4) f.push('nicht alle vier still: ' + r.stillVorher + '/4 (noch original: ' + (r.nichtStill || []).join(',') + ')');
+      if (!r.hatOriginale) f.push('_gsConsoleOrig unvollständig');
+      if (r.errorStill) f.push('console.error ist still — Fehler sähe niemand');
+      if (r.rueck !== true) f.push('gsRestore() liefert ' + JSON.stringify(r.rueck));
+      if (r.wiederDa !== 4) f.push('nach dem Aufruf nur ' + r.wiederDa + '/4 zurück');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'vier still, error nicht · _gsConsoleOrig vollständig · gsRestore() → alle vier wieder original' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
