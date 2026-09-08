@@ -60,7 +60,7 @@ kein Aufraeumen (v32.25). Die Gruppen mit Zeilennummern: Zwilling-Labels
 (8763–8776), Planer-Pruefgruende (61719–61742), Teilen-Texte (21317, 79112,
 79194), Foto-Vergleich (20442, 69775), Artenlisten-Herkunft (27303–27325).
 
-Regression v32.87 → v32.88: `render_check` gegen v32.87 **3'087 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen. Der Sammler liefert 633 Sätze, die drei neuen Vorlagen einzeln nachgewiesen. Der vollständige Durchlauf über alle 30 lief zum Zeitpunkt dieses Commits noch — sein Ergebnis steht im PR.
+Regression v32.87 → v32.88: `render_check` gegen v32.87 **3'087 vergleichbare Elemente, 0 Änderungen** an Radius, Schriftgrösse, GRÖSSE und Farbe; 0 verdächtige Textstellen. Der Sammler liefert 633 Sätze, die drei neuen Vorlagen einzeln nachgewiesen. Der vollständige Durchlauf danach: **alle 30 Prüfstände grün** (rot: 0 · nicht prüfbar: 0 — Postgres lief, `quiz_check` und `schluessel_check` haben ihr SQL ausgeführt).
 
 ### 2026-09-08 (gb) - v32.87: „Heute fällig" zählte drei Tage — derselbe Fehler, ein Bildschirm weiter
 
