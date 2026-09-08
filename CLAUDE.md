@@ -7,7 +7,7 @@
 
 ## 1 · Was ist GreenScan?
 
-Schweizer PWA für Naturbestimmung — 4'342 Arten (Pflanzen, Pilze, Bäume,
+Schweizer PWA für Naturbestimmung — 4'337 Arten (Pflanzen, Pilze, Bäume,
 Kräuter, Moose, Flechten, Algen). Live unter `https://green-scan.ch/` (kanonisch MIT Bindestrich; `greenscan.ch` ohne Bindestrich ist nur die Mail-Domain). Hosting:
 **Cloudflare Pages** (`greenscan-app`) — und **zusätzlich Netlify**
 (`green-scanswitzerland`), siehe §2.1. Backend: **Supabase** (Auth, Storage,
@@ -102,10 +102,10 @@ diese Sperre.
 ```
 GreenScan/
 ├── index.html           # ~82k Zeilen Monolith (HTML + CSS + JS) — DIE App
-├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'342 Arten) — separat gecacht
+├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push) — 21 KB seit v32.72; sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
-├── supabase/functions/  # ~30 Edge-Functions (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-├── supabase/migrations/ # 214 SQL-Migrationen (alle idempotent)
+├── supabase/functions/  # 41 Edge-Functions (Scan/Pilz/Schädling/Stripe/Push/i18n …)
+├── supabase/migrations/ # 215 SQL-Migrationen (alle idempotent)
 ├── manifest.json        # PWA-Manifest (share_target, file_handlers, etc.)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -113,9 +113,9 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 30 Prüfstände (§7.1) + pruefstaende.sh (alle) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 31 Prüfstände (§7.1) + pruefstaende.sh (alle 31, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
-├── docs/                # lebende Doku · docs/_archiv/ = 49 historische Aufträge/Audits (seit v32.69 aus dem Root)
+├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
@@ -616,7 +616,12 @@ node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? F
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
-bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+bash scripts/pruefstaende.sh     # ALLE 31 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+#   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
+#   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
+#   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
+#   Tor. Die Zahlen schwanken zwischen Laeufen; wer sie vergleicht, misst beide
+#   Staende mit demselben Aufruf.
 #   Genau das faehrt .github/workflows/pruefstaende.yml auf jedem PR — Playwright aus
 #   scripts/package.json (GS_PW), Postgres 16 als Service (GS_PG_URL). Ohne Postgres
 #   melden quiz_check und schluessel_check „nicht pruefbar" (Exit 2), nicht rot.
@@ -661,6 +666,15 @@ enthaelt die id `tp-len` nirgends als Zeichenkette; die vier Felder
 DAUERHAFTE Falschmeldung im Bericht. Er erkennt jetzt die Bauform (ein
 Nachschlagen, dessen Argument verkettet wird) und gibt diesen Feldern eine
 EIGENE Klasse — sie verschwinden nicht, sie zaehlen nur nicht mehr als Fehler.
+
+> **Eine historische Messung wird nicht nachtraeglich umgeschrieben** (v32.94).
+> Beim Nachzaehlen der Ueberblickszahlen stand an sieben Stellen „4'342 Arten",
+> heute sind es 4'337. Berichtigt wurden nur die **Gegenwarts-Aussagen** (§1,
+> die Repo-Struktur, die Beschreibung der Vorauswahl). Die Saetze in STATUS und
+> in den Fund-Schilderungen — „0 von 4'342 Arten", „3'465 ohne Hoehenangabe" —
+> bleiben, wie sie gemessen wurden; einer traegt jetzt „der damals 4'342". Wer
+> eine Aufzeichnung an den heutigen Stand anpasst, macht aus einem Protokoll
+> eine Behauptung.
 
 > **Was man nicht beweisen kann, sagt man gesondert, statt es unter die Fehler
 > zu mischen.** Ein Bericht wird nicht durch eine falsche Zahl unlesbar,
@@ -709,7 +723,7 @@ angetippt wird?*, `field_check` *liest überhaupt jemand, was eingegeben
 wird?* — `data_check` fragt: **gibt es, was gelesen wird?**
 
 Anlass war v31.78: der Blühkalender fragte seit jeher `s.bloom` ab, ein Feld,
-das in **keiner** der 4'342 Arten vorkommt. Kein Absturz, keine Lücke im
+das in **keiner** der damals 4'342 Arten vorkommt. Kein Absturz, keine Lücke im
 Layout — nur eine Ansicht, die nie etwas zeigen konnte, mit einem Zähler
 daneben, der brav `0` meldete.
 
@@ -1464,7 +1478,7 @@ Code (`docs/ARTEN-DATEN.md`).
 
 **Seit v32.12 haelt `scan_check` eine Eigenschaft fest, die man leicht
 kaputtmacht, ohne es zu merken: die UNABHAENGIGKEIT.** Der Scanner misst vor
-der Antwort die Farben des Fotos (`gsBildFarben`) und grenzt die 4'342 Arten
+der Antwort die Farben des Fotos (`gsBildFarben`) und grenzt die 4'337 Arten
 selbst ein (`gsScanVorauswahl`). Beides geht **bewusst nicht** in den Prompt —
 ein Modell, dem man die eigene Vorauswahl zeigt, bestaetigt sie, und die
 spaetere Gegenpruefung waere ein Echo statt einer Pruefung.

@@ -12,6 +12,40 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-08 (gi) - Ueberblickszahlen nachgezaehlt · und `pruefstaende.sh` fuhr 30 von 31
+
+**Kein Anwendungscode, kein Versionssprung** — CLAUDE.md und der Runner.
+
+- **`pruefstaende.sh` heisst „ALLE nacheinander" und liess `perf_check` aus.**
+  Ausgerechnet die Startzeit lief bei keinem PR mit; wer die Kopfzeile las,
+  hielt sie fuer abgedeckt. Er kostet **27 s** und endet **immer mit 0** (er
+  misst und urteilt nicht) — die Luecke war unnoetig. Er laeuft jetzt mit, als
+  Bericht, nicht als Tor.
+- **Vier Zahlen nachgezaehlt statt erinnert** (CLAUDE.md §1/§2):
+
+  | behauptet | gemessen |
+  |---|---|
+  | 4'342 Arten | **4'337** (`DB.length`) |
+  | ~30 Edge-Functions | **41** Verzeichnisse |
+  | 214 SQL-Migrationen | **215** |
+  | docs/_archiv = 49 | **52** |
+  | 30 Pruefstaende | **31** (30 JS + `field_check.py`) |
+
+- **Die App war nicht betroffen — geprueft, nicht angenommen.** Im HTML stehen
+  feste Zahlen (4330, 4342); sie werden zur Laufzeit aus `DB.length`
+  ueberschrieben. Gemessen: Einstellungen **4'337**, Ueber-Fenster **4'337**.
+  Eine falsche Zahl auf dem Bildschirm waere die heutige Klasse gewesen — sie
+  ist es nicht.
+- **Und eine eigene Aenderung zurueckgenommen.** „4'342" steht an sieben
+  weiteren Stellen, aber das sind **historische Aufzeichnungen**: „0 von 4'342
+  Arten" (v32.13), „3'465 ohne Hoehenangabe" (v32.12). Berichtigt wurden nur
+  die Gegenwarts-Aussagen; eine Fund-Schilderung traegt jetzt „der damals
+  4'342". *Wer eine Aufzeichnung an den heutigen Stand anpasst, macht aus einem
+  Protokoll eine Behauptung* — als Regel in CLAUDE.md.
+
+Regression: alle **31 Pruefstaende gruen** (rot: 0 · nicht pruefbar: 0), jetzt
+mit `perf_check` im Lauf.
+
 ### 2026-09-08 (gh) - v32.93: die Klasse zu Ende gesucht — sechs Anzeigen statt drei
 
 - **Die Regel aus v32.87 auf mich selbst angewandt:** *eine Fehlerklasse ist

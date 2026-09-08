@@ -32,6 +32,12 @@ run backend      node scripts/backend_check.js
 run save         node scripts/save_check.js
 run sync         node scripts/sync_check.js
 run data         node scripts/data_check.js
+# v32.94: `perf_check` lief hier NICHT mit — die Kopfzeile sagte „alles",
+# gefahren wurden 30 von 31. Wer das las, hielt die Startzeit fuer abgedeckt.
+# Er kostet 27 s und endet IMMER mit 0 (er misst und urteilt nicht), kann den
+# Lauf also nicht rot faerben. Die Zahlen schwanken zwischen Laeufen — deshalb
+# ist er ein BERICHT, kein Tor; genau so gehoert er hierher.
+TAILN=8 run perf  node scripts/perf_check.js
 run field        python3 scripts/field_check.py
 run planer       node scripts/planer_check.js
 run scan         node scripts/scan_check.js
