@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.90.20260908">
+<meta name="app-version" content="32.91.20260908">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35440,12 +35440,52 @@ function openDetail(id){
   if(id===undefined||id===null||id==='undefined'||id==='null'||id==='') return;
   const idStr = String(id).trim();
   if(!idStr) return;
-  const sp = DB.find(s => s && s.id && s.id===idStr);
-  if(!sp || !sp.id){
+  const _rohEintrag = DB.find(s => s && s.id && s.id===idStr);
+  if(!_rohEintrag || !_rohEintrag.id){
     console.warn('openDetail: not found:',idStr);
     showProfileToast(_t('detail_not_found','Art nicht gefunden:') + ' ' + idStr, 'error');
     return;
   }
+  // ── v32.91: die Vorsichtsregel gilt auch hier ────────────────────────────
+  //
+  // v32.43 hat sie fuer den SCANNER gebaut: fuehrt die Liste eine Art
+  // mehrfach und widersprechen sich die Angaben, gewinnt die vorsichtigere
+  // (`_gsVorsichtigste`) — „die Vorsicht haengt an der ART, nicht an der
+  // Suchstrategie". Der Weg Suche → Detail ging daran vorbei: `DB.find(id)`
+  // zeigte die Angaben GENAU DES EINTRAGS, den jemand angetippt hat.
+  //
+  // Gemessen ueber alle 4'337 Eintraege: 1'814 haben Dubletten, und **186
+  // zeigten eine NIEDRIGERE Giftstufe** als die vorsichtige Antwort — nie die
+  // Gegenrichtung (0). Christrose 3 statt 5, Seidelbast 4 statt 5, Beinwell 1
+  // statt 3, Wacholder 0 statt 2, Schwarzer Holunder 1 statt 2. Dazu 98
+  // Eintraege, die „essbar" sagten, wo die Art es nicht ist.
+  //
+  // Die Quellen der Korrektur sind gepflegt (nachgezaehlt): 0 stammen aus
+  // einem ungeprueften Eintrag, 0 sind ohne Warntext, 10 heben auf Stufe 5.
+  //
+  // Uebernommen werden NUR die Sicherheitsangaben — Name, Beschreibung und
+  // Verwendung bleiben die des angetippten Eintrags. Ein stiller Inhalts-
+  // tausch waere die schlechtere Antwort: jemand tippt einen Eintrag an und
+  // liest einen anderen.
+  var _vorsichtig = null;
+  try {
+    if (typeof _gsArtGruppe === 'function' && typeof _gsVorsichtigste === 'function' && _rohEintrag.lat)
+      _vorsichtig = _gsVorsichtigste(_gsArtGruppe(_rohEintrag, _rohEintrag.lat));
+  } catch (_) {}
+  var _korr = null;
+  if (_vorsichtig && _vorsichtig.id !== _rohEintrag.id && !_vorsichtig._unverified) {
+    var _hoeher = (_vorsichtig.tox || 0) > (_rohEintrag.tox || 0);
+    var _essbarWeg = !!_rohEintrag.edible && !_vorsichtig.edible;
+    if (_hoeher || _essbarWeg) _korr = { vonTox: _rohEintrag.tox, aufTox: _vorsichtig.tox,
+                                         hoeher: _hoeher, essbarWeg: _essbarWeg };
+  }
+  const sp = _korr ? Object.assign({}, _rohEintrag, {
+    tox:       _vorsichtig.tox,
+    toxic:     _vorsichtig.toxic,
+    edible:    _vorsichtig.edible,
+    warning:   _rohEintrag.warning   || _vorsichtig.warning,
+    lookalike: _rohEintrag.lookalike || _vorsichtig.lookalike
+  }) : _rohEintrag;
   // v30.66: nicht-verifizierte Community-Arten (aus Scan-Vorschlägen) haben KEINE geprüfte Tox/Essbarkeit.
   // toxInfo(null) würde sonst GRÜN „Ungiftig" zeigen (HL#24-Falle) → neutrale „nicht geprüft"-Anzeige + Caveat.
   var t = toxInfo(sp.tox);
@@ -35479,6 +35519,22 @@ function openDetail(id){
     '<div style="font-size:var(--fs-md);font-weight:800;color:var(--c-warn-d);margin-bottom:2px;">KI-Einschätzung · nicht fachlich geprüft</div>' +
     '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">Diese Angaben stammen aus einer KI-Bestimmung und sind <b>nicht fachlich verifiziert</b>. Verlass dich bei Essbarkeit &amp; Giftigkeit nicht darauf — im Zweifel <b>nicht verzehren</b>. Bei Pilzen: Pilzkontrolle (VAPKO).</div>' +
     '</div></div>') : '';
+  // Eine Korrektur, die niemand sieht, ist keine — und sie muss sagen, WORAUS
+  // sie folgt (v32.56: „eine Anzeige, die etwas behauptet, muss sagen, woher
+  // sie es weiss").
+  var korrBox = '';
+  if (_korr) {
+    var _teile = [];
+    if (_korr.hoeher) _teile.push(_gsSatz('Giftstufe {1} statt {2}', _korr.aufTox, (typeof _korr.vonTox === 'number' ? _korr.vonTox : '—')));
+    if (_korr.essbarWeg) _teile.push(_gsSatz('nicht als essbar gefuehrt'));
+    korrBox = '<div style="background:var(--bg-yellow-soft);border:2px solid #ffe082;border-radius:var(--r-md);padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
+      '<span style="font-size:var(--fs-xl);flex-shrink:0;" aria-hidden="true">⚖️</span><div>' +
+      '<div style="font-size:var(--fs-md);font-weight:800;color:var(--c-warn-d);margin-bottom:2px;">' +
+      escHtml(_gsSatz('Vorsichtigere Angabe gezeigt')) + '</div>' +
+      '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
+      escHtml(_gsSatz('Diese Art steht mehrfach in der Liste, mit unterschiedlichen Angaben. Gezeigt wird die vorsichtigere: {1}.', _teile.join(', '))) +
+      '</div></div></div>';
+  }
   const isFav = favs.includes(id);
 
   // Toxizitäts-Skala
@@ -35589,6 +35645,7 @@ function openDetail(id){
       // v29.36: min-height reserviert Platz vor Async-Load → kein Layout-Sprung (Loader setzt display:none wenn kein Bild).
       '<div id="sp-img-'+sp.id+'" style="margin-bottom:10px;min-height:170px;border-radius:var(--r-md);background:var(--surface2);"></div>',
       unvBox,
+      korrBox,
       wH,
       // Beschreibung
       '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_description','📖 Beschreibung') + '</h3><p>'+escHtml(sp.desc||'–')+'</p></div>',
@@ -73893,6 +73950,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.91', date: '08.09.2026',
+      headline: 'Artendetail zeigt jetzt die vorsichtigere Angabe',
+      summary: '186 Einträge zeigten eine niedrigere Giftstufe als ihre eigene Art — die Vorsichtsregel galt nur im Scanner.',
+      user_summary: 'Manche Arten stehen mehrfach in der Liste, mit unterschiedlichen Angaben. Beim Öffnen einer Art zählt jetzt immer die vorsichtigere.',
+      user_items: [
+        'Beispiel Christrose: ein Eintrag führte Giftstufe 3, ein anderer 5. Angezeigt wird jetzt 5 — und die Karte sagt, dass korrigiert wurde.',
+        'Beim Violetten Schleierling stand ein Eintrag sogar auf „ungiftig", während die Art Stufe 3 ist.',
+        'Betroffen waren 186 Einträge bei der Giftstufe und 98 bei „essbar". Beschreibung und Verwendung bleiben die des geöffneten Eintrags — nur die Sicherheitsangaben werden angeglichen.'
+      ],
+    },
+    {
     v: 'v32.90', date: '08.09.2026',
       headline: '24 Texte, die nur auf Deutsch existierten',
       summary: 'Zusammengesetzte Sätze erreichen den Übersetzer nicht — die Welle aus v32.88 ist jetzt abgearbeitet.',
@@ -75046,7 +75114,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.90';
+var GS_VERSION = 'v32.91';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

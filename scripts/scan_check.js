@@ -1354,7 +1354,85 @@ const FAELLE = [
       return { ok: true, info: pw.regeln.length + ' Regeln, alle mit Grund, Stufe „' + (pw.stufe && pw.stufe.label) + '"' };
     },
   },
-  // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
+  // ── v32.91 · Die Vorsichtsregel gilt auch im ARTENDETAIL
+  // v32.43 hat sie fuer den Scanner gebaut („die Vorsicht haengt an der ART,
+  // nicht an der Suchstrategie"). Der Weg Suche → Detail ging daran vorbei.
+  {
+    // Dieser Fall MISST die Datenlage und urteilt nicht: die Zahlen sind eine
+    // Eigenschaft der Artenliste (657 mehrfach gefuehrte Arten), nicht ein
+    // Fehler im Code. Ob die ANZEIGE sie aufloest, prueft D1b — ein Name, der
+    // eine Pruefung verspricht, die der Fall nicht macht, waere genau der
+    // Fehler, den dieses Repo den ganzen Tag jagt.
+    name: 'D1 · Artendetail · Datenlage: wie viele Eintraege weichen von ihrer Art ab (Messung)',
+    lauf: () => {
+      if (typeof _gsArtGruppe !== 'function' || typeof _gsVorsichtigste !== 'function')
+        return { ok: false, warum: 'die Vorsichts-Helfer fehlen' };
+      // Eigener Massstab, nicht die zu pruefende Anzeige.
+      var mitDubletten = 0, unter = [], essbarZuViel = 0;
+      DB.forEach(function (sp) {
+        if (!sp || !sp.lat) return;
+        var g = _gsArtGruppe(sp, sp.lat);
+        if (!g || g.length < 2) return;
+        mitDubletten++;
+        var v = _gsVorsichtigste(g);
+        if (!v || v._unverified) return;
+        if ((sp.tox || 0) < (v.tox || 0)) unter.push(sp.name + ' ' + sp.id + ': ' + sp.tox + ' statt ' + v.tox);
+        if (!!sp.edible && !v.edible) essbarZuViel++;
+      });
+      if (!mitDubletten) return { ok: false, warum: 'keine Art mit Dubletten gefunden — der Fall misst nichts' };
+      // Das ist die LAGE in den Daten, nicht der Fehler — die Anzeige muss sie
+      // aufloesen. Der lebende Teil steht in D1b.
+      return { ok: true, info: mitDubletten + ' Arten mit Dubletten · ' + unter.length + ' Eintraege mit niedrigerer Stufe · ' + essbarZuViel + ' mit „essbar" gegen die Art' };
+    },
+  },
+  {
+    name: 'D1b · Artendetail · die Karte zeigt die vorsichtigere Angabe UND sagt es — ohne Dublette sagt sie nichts',
+    lauf: async () => {
+      if (typeof openDetail !== 'function') return { ok: false, warum: 'openDetail fehlt' };
+      var lies = function () {
+        var m = document.getElementById('detail-modal') || document.getElementById('modal-content');
+        return (m && m.textContent) || '';
+      };
+      // Den gefaehrlichsten Fall SUCHEN, nicht annehmen: der groesste
+      // Unterschied zwischen Eintrag und Art.
+      var schlimmster = null, delta = 0;
+      DB.forEach(function (sp) {
+        if (!sp || !sp.lat) return;
+        var g = _gsArtGruppe(sp, sp.lat); if (!g || g.length < 2) return;
+        var v = _gsVorsichtigste(g); if (!v || v._unverified) return;
+        var d = (v.tox || 0) - (sp.tox || 0);
+        if (d > delta) { delta = d; schlimmster = { sp: sp, v: v }; }
+      });
+      if (!schlimmster) return { ok: false, warum: 'kein Eintrag mit niedrigerer Stufe — der Fall misst nichts' };
+      openDetail(schlimmster.sp.id);
+      await new Promise(function (r) { setTimeout(r, 400); });
+      var txt = lies();
+      if (!txt) return { ok: false, warum: 'die Detailkarte wird nicht gerendert' };
+      var f = [];
+      // 1 · Die Stufe der ART steht da, nicht die des Eintrags.
+      var punkte = document.querySelectorAll('#detail-modal .td, #modal-content .td');
+      var aktiv = 0;
+      Array.prototype.forEach.call(punkte, function (d) { if ((d.getAttribute('style') || '').indexOf('background') >= 0) aktiv++; });
+      if (aktiv && aktiv - 1 !== (schlimmster.v.tox || 0))
+        f.push('die Skala zeigt Stufe ' + (aktiv - 1) + ', die Art ist ' + schlimmster.v.tox);
+      // 2 · Und die Karte SAGT, dass korrigiert wurde.
+      if (!/Vorsichtigere Angabe/.test(txt)) f.push('die Korrektur wird nicht genannt');
+      if (!new RegExp('Giftstufe ' + schlimmster.v.tox).test(txt)) f.push('die Zahl der Art wird nicht genannt');
+      try { closeModal('detail-modal'); } catch (_) {}
+      await new Promise(function (r) { setTimeout(r, 250); });
+      // 3 · Gegenrichtung: eine Art OHNE Dublette darf keinen Hinweis bekommen.
+      var ohne = DB.find(function (sp) { if (!sp || !sp.lat) return false; var g = _gsArtGruppe(sp, sp.lat); return g && g.length === 1; });
+      if (!ohne) return { ok: false, warum: 'keine Art ohne Dublette — die Gegenrichtung fehlt' };
+      openDetail(ohne.id);
+      await new Promise(function (r) { setTimeout(r, 400); });
+      if (/Vorsichtigere Angabe/.test(lies())) f.push('„' + ohne.name + '" hat keine Dublette und bekommt trotzdem den Hinweis');
+      try { closeModal('detail-modal'); } catch (_) {}
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: schlimmster.sp.name + ' ' + schlimmster.sp.id + ': ' + schlimmster.sp.tox + ' → ' + schlimmster.v.tox + ' und genannt · „' + ohne.name + '" ohne Dublette bleibt still' };
+    },
+  },
+
+  // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig\"
   // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
   // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`
   // auf essbar geschlossen. Alle vier Faelle waren gegen v32.85 rot.
