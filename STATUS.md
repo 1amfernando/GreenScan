@@ -4,13 +4,56 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.04` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.05` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-09 (gx) - v33.05: zwei fertige Oberflaechen ohne Weg hinein
+
+**Der zweite der drei Punkte, die auf Fernandos Entscheidung warteten.** Die
+Liste `OHNE_EINSTIEG` stand seit v32.97 auf sechs. Jeder Eintrag einzeln
+geprueft — und das Ergebnis war dreimal ein anderes, als ich zuerst dachte.
+
+| Eintrag | gemessen | Entscheidung |
+|---|---|---|
+| `openHarvestAddModal` | Fenster vollstaendig; `gsHarvestSubmit` schreibt in die KANONISCHE Pipeline (v28.15); die Statistik ist ueber `MENU_ITEMS` erreichbar | **verdrahtet** |
+| `gsShowNextWisdom` | vollstaendig, `#wisdom-card` wird gerendert | **verdrahtet** |
+| `gsHarvestLoadForPlant` | ueberholt: das Dossier laedt die Ernten je Pflanze seit v28.23 serverseitig (`fn_plant_dossier`) | **entfernt** |
+| `gsDoctorHistoryLoad` | ueberholt: `gsDoctorShowHistory` per RPC, mit Knopf; `plant_doctor_history` 0 Zeilen | **entfernt** |
+| `gsAROpen` | `ar_models`: 30 Zeilen, **0 mit `gltf_url`, 0 mit `low_poly_url`** | bleibt, gemessen begruendet |
+| `gsSafetyDefaults` | aendert den SICHERHEITSTEXT vieler Detailseiten | bleibt, Fernandos Entscheidung |
+
+#### Der AR-Punkt hat sich von selbst entschieden
+
+„Verdrahten oder entfernen" war die falsche Frage. **Es gibt kein einziges
+3D-Modell** — die 30 Zeilen sind Platzhalter ohne Datei. Ein Knopf am
+Artendetail zeigte fuer jede der 3'136 Arten nur den Rueckfall. Die offene
+Frage lautet jetzt: *willst du Modelle beschaffen?* Bis dahin verspricht der
+Code nichts, weil ihn niemand erreicht.
+
+#### Und ich habe meine eigene Einordnung ZWEIMAL revidiert
+
+1. Zuerst hielt ich `openHarvestAddModal` fuer einen **ueberholten Rest** —
+   die v28.15-Konsolidierung hatte `openErnteTracking` zur Oberflaeche
+   gemacht. **Falsch:** das Fenster ist vollstaendig, hat ein Datum und eine
+   5-Sterne-Qualitaet, die der schnelle Erntekalender gar nicht erfasst, und
+   `gsHarvestSubmit` schreibt in dieselbe Pipeline.
+2. Dann hielt ich `gsHarvestLoadForPlant` fuer die **fehlende Haelfte
+   desselben Features**. **Auch falsch:** das Pflanzen-Dossier laedt genau
+   das seit v28.23 serverseitig, mit Zaehl-Chip und Liste.
+
+Erst der dritte Durchgang stimmte. **Haette ich beim ersten Eindruck
+entfernt, waere ein fertiges Formular verschwunden, das nie jemand vermisst
+haette — weil es ohnehin niemand erreichen konnte.** Genau davor warnt
+CLAUDE.md seit v31.46 (Pflanzenfriedhof), und genau deshalb steht dort
+„nicht ungeprueft entfernen".
+
+> **Eine Liste offener Entscheidungen liest man nicht, man misst sie** — und
+> zwar jede Zeile bis zu der Stelle, an der ihre Wirkung sichtbar wuerde.
 
 ### 2026-09-09 (gw) - v33.04: „4'337 Arten" waren 3'136 Arten
 
