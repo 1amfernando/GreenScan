@@ -4,13 +4,48 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.06` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.07` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-09 (ha) - v33.07: die fuenfte Stelle derselben Frage
+
+**v33.06 hat vier Tore umgestellt. Die Klasse war damit nicht geschlossen** —
+das steht seit v32.87 so in CLAUDE.md („eine Fehlerklasse ist erst
+geschlossen, wenn man sie GESUCHT hat"), und genau das habe ich danach getan:
+fuer einen Nur-Beet-Nutzer ueber alle elf Tabs **jede sichtbare Zahl neben
+ihre Beschriftung** geschrieben.
+
+**Genau ein weiterer Fund.** Die Startkachel `#stat-favs`, beschriftet mit
+„🌱 Pflanzen", zeigte **0** bei drei Garten-Pflanzungen — und ein Tipp darauf
+fuehrt auf „Meine Pflanzen", wo **3** steht. Drei Schreiber, alle
+`myPlants.length`, jetzt `gsPflanzenZahl()`.
+
+#### Und zwei „Funde", die meine eigene Messfalle waren
+
+Der erste Durchgang meldete **„1'993 🌿 Arten"** und **„864 ✅ Essbar"**.
+Beides falsch abgelesen: `gsAnimateCounter` zaehlt **1'400 ms** hoch, gemessen
+wurde nach 700. Nach dem Auslaufen stehen dort **3'136** und **1'228** —
+beide richtig (v33.04 und v32.86). Und die Komma-Schreibweise („3,136") kam
+nicht aus dem Code, sondern aus `gsLocale() === 'en-GB'`: mein Seed setzt kein
+`gs_lang`, und der Browser im Pruefstand spricht Englisch.
+
+> **Haette ich die beiden „repariert", waeren zwei richtige Anzeigen kaputt
+> gegangen** — dieselbe Sorte Fehler wie v31.76, wo ich wegen einer
+> Falschmeldung zwoelf gute Stellen von 6,87:1 auf 1,83:1 gezogen habe. Die
+> Regel gilt in beide Richtungen: **eine Zahl erst aendern, wenn der Messwert
+> reproduzierbar ist** — und bei allem, was animiert, heisst das: nach der
+> Animation messen.
+
+**Pruefstand:** `nutzersicht_check` E10 kennt jetzt die Kachel (nur Beet → 2,
+wirklich nichts → 0) und misst sie nach `updatePlantStat`, nicht waehrend der
+Animation. Alle 31 gruen.
+
+---
 
 ### 2026-09-09 (gz) - Ueberblick nachgezaehlt, und zwei Faeden, die SAUBER waren
 
@@ -11546,7 +11581,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.06` (Client) · SW-Cache `gs-v33.06` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.07` (Client) · SW-Cache `gs-v33.07` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
