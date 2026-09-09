@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.06.20260909">
+<meta name="app-version" content="33.07.20260909">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36013,7 +36013,7 @@ function toggleFav(id){
     if (typeof gsToast === 'function') gsToast('Speicher voll — Favorit evtl. nicht gesichert.', 'warn');
   }
   try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){}
-  document.getElementById('stat-favs').textContent = myPlants.length;
+  document.getElementById('stat-favs').textContent = gsPflanzenZahl();   // v33.07: beide Listen
   const btn = document.getElementById('fav-btn');
   if(btn){var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};btn.textContent=favs.includes(id)?_t('fav_remove_long','⭐ Aus Favoriten entfernen'):_t('fav_add_long','☆ Zu Favoriten hinzufügen');btn.classList.toggle('added',favs.includes(id));}
 
@@ -37214,8 +37214,12 @@ async function aiAnalyzePlant(plantId){
 // v23.94: Wrapper auf zentralen gsNotif-Helper (ehemals dupliziert)
 
 function updatePlantStat(){
+  // v33.07: Die Kachel ist mit „🌱 Pflanzen" beschriftet und fuehrt per Tipp
+  // auf „Meine Pflanzen" — dort stehen seit v32.47 BEIDE Listen. Sie zeigte
+  // `myPlants.length`: bei jemandem mit drei Garten-Pflanzungen und keiner
+  // eigenen Pflanze stand hier 0, einen Tipp neben „3 Pflanzen".
   const el = document.getElementById('stat-favs');
-  if(el) el.textContent = myPlants.length;
+  if(el) el.textContent = gsPflanzenZahl();
 }
 
 function scheduleAllNotifications(){
@@ -74179,6 +74183,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.07', date: '09.09.2026',
+      headline: 'Die fünfte Stelle derselben Frage — gefunden, weil ich gesucht habe',
+      summary: 'v33.06 hat vier Anzeigen umgestellt, die „hast du Pflanzen?" nur mit ps_myplants beantworteten. Die Startkachel „Pflanzen" war die fünfte: sie zeigte 0 und führte per Tipp auf einen Bildschirm, der 3 zeigte.',
+      user_summary: 'Die Kachel „Pflanzen" auf der Startseite zählt jetzt auch deine Beet-Pflanzungen.',
+      user_items: [
+        {emoji:'🌱', text:'Sie zeigte 0, obwohl im Beet drei Pflanzen standen — und ein Tipp darauf führte auf „Meine Pflanzen", wo 3 stand.'}
+      ],
+      items: [
+        {emoji:'🔍', bold:'Gesucht, nicht gestolpert:', text:' für einen Nur-Beet-Nutzer wurde über alle elf Tabs jede sichtbare Zahl neben ihre Beschriftung geschrieben (die Methode aus v32.87). Genau ein weiterer Fund — drei Schreiber von #stat-favs, alle myPlants.length, jetzt gsPflanzenZahl().'},
+        {emoji:'🧪', bold:'nutzersicht_check E10 kennt die Kachel:', text:' nur Beet → 2, wirklich nichts → 0. Gemessen wird NACH updatePlantStat, nicht während gsAnimateCounter läuft.'},
+        {emoji:'⚠️', bold:'Und zwei Funde waren meine eigene Messfalle:', text:' „1’993 Arten" und „864 Essbar" — beides mitten in der 1’400-ms-Zählanimation abgelesen. Nach dem Auslaufen: 3’136 und 1’228, beide richtig. Die Komma-Schreibweise kam von gsLocale() = en-GB im Prüfstand, nicht aus dem Code. Hätte ich sie „repariert", wären zwei richtige Anzeigen kaputtgegangen.'}
+      ],
+    },
+  {
     v: 'v33.06', date: '09.09.2026',
       headline: '„Noch keine Pflanze“ stand über den Aufgaben genau dieser Pflanzen',
       summary: 'Seit v32.47 tragen Garten-Pflanzungen dieselben Aufgaben wie eigene Pflanzen, und gsGetDueTasks rechnet über beide Listen. Drei Anzeigen benutzten weiter myPlants.length als Tor — wer nur ein Beet hat, sah auf der Startseite den Leerzustand.',
@@ -74628,7 +74646,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.06';
+var GS_VERSION = 'v33.07';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -86035,7 +86053,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(sc){ var _azS=(typeof gsArtenZahlen==='function')?gsArtenZahlen():{arten:0};
             if(_azS.arten) sc.textContent = _azS.arten.toLocaleString(gsLocale()) + ' Arten'; }
     document.getElementById('stat-edible').textContent = DB.filter(gsIstEssbar).length;
-    document.getElementById('stat-favs').textContent = myPlants.length;
+    document.getElementById('stat-favs').textContent = gsPflanzenZahl();   // v33.07: beide Listen
     ['wildpflanze','baum','kraut','pilz','moos','flechte','alge','hauspflanze'].forEach(c=>{
       const el=document.getElementById('cnt-'+c);
       if(el) el.textContent=(cats[c]||0)+' Arten';

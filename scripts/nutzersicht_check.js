@@ -366,8 +366,14 @@ const FAELLE = [
         try { gsRenderDayPlan(); } catch (_) {}
         try { gsUpdateHomeGreeting(); } catch (_) {}
         try { gsRenderGardenOverview(); } catch (_) {}
+        // v33.07: die Startkachel gehoert zur selben Frage — sie ist mit
+        // „Pflanzen" beschriftet und fuehrt per Tipp auf „Meine Pflanzen".
+        // updatePlantStat setzt sie ohne Animation (gsAnimateCounter laeuft
+        // 1400 ms; wer waehrenddessen misst, misst einen Zwischenstand).
+        try { if (typeof updatePlantStat === 'function') updatePlantStat(); } catch (_) {}
         const t = (id) => { const el = document.getElementById(id); return el ? el.textContent.replace(/\s+/g, ' ').trim() : ''; };
         return { plan: t('home-dayplan'), titel: t('home-hero-title'), garten: t('garden-overview'),
+                 kachel: t('stat-favs'),
                  faellig: (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().length : -1 };
       };
       try {
@@ -384,6 +390,7 @@ const FAELLE = [
         if (/Noch keine Pflanze/.test(beet.plan)) klagen.push('Tagesplan sagt „Noch keine Pflanze", waehrend ' + beet.faellig + ' Aufgabe(n) dieser Pflanzen anstehen');
         if (!/Dein Garten/.test(beet.titel)) klagen.push('Ueberschrift: „' + beet.titel + '" statt „Dein Garten"');
         if (/Erste Pflanze anlegen/.test(beet.garten)) klagen.push('Garten-Uebersicht sagt „Erste Pflanze anlegen" — im Beet stehen zwei Pflanzungen');
+        if (beet.kachel !== '2') klagen.push('Startkachel „Pflanzen" zeigt „' + beet.kachel + '" statt 2 — sie fuehrt auf „Meine Pflanzen", wo 2 stehen');
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
 
         // Richtung 1b — dasselbe Beet, aber NICHTS faellig. Das Tor der
@@ -408,11 +415,12 @@ const FAELLE = [
         if (!/Noch keine Pflanze/.test(leer.plan)) fehlt.push('Tagesplan zeigt den Leerzustand nicht mehr: „' + leer.plan.slice(0, 70) + '"');
         if (/Dein Garten/.test(leer.titel)) fehlt.push('Ueberschrift sagt „Dein Garten" ohne eine einzige Pflanze');
         if (!/Erste Pflanze anlegen/.test(leer.garten)) fehlt.push('Garten-Uebersicht zeigt den Leerzustand nicht mehr');
+        if (leer.kachel !== '0') fehlt.push('Startkachel zeigt „' + leer.kachel + '" ohne eine einzige Pflanze');
         if (fehlt.length) return { ok: false, warum: 'Gegenrichtung: ' + fehlt.join(' · ') };
 
         const n = (typeof gsPflanzenZahl === 'function') ? 'gsPflanzenZahl vorhanden' : 'KEINE gsPflanzenZahl — jede Stelle zaehlt selbst';
         if (typeof gsPflanzenZahl !== 'function') return { ok: false, warum: n };
-        return { ok: true, info: 'nur Beet: ' + beet.faellig + ' Aufgaben, Titel „' + beet.titel + '" · Beet ohne faellige Aufgabe: kein „Erste Pflanze anlegen" · wirklich leer: alle drei Leerzustaende da' };
+        return { ok: true, info: 'nur Beet: ' + beet.faellig + ' Aufgaben, Kachel ' + beet.kachel + ', Titel „' + beet.titel + '" · Beet ohne faellige Aufgabe: kein „Erste Pflanze anlegen" · wirklich leer: alle drei Leerzustaende da' };
       } finally {
         window.myPlants = mp0; window.plantings = pl0; window.gardens = gd0;
         try {
