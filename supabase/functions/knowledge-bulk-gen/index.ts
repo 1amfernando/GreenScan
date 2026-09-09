@@ -2,6 +2,7 @@
 // 35 Topics gesamt: 4 Wave-13 (alpine_garden_plants, forest_garden_design, indoor_houseplants, urban_balcony_design).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sonnetChain, haikuChain, fetchClaudeChain } from "../_shared/claude_fallback.mjs";
 
 // v29 (HL#19): Admin-Secret NICHT mehr hardcodiert (war im public Repo lesbar) — wird zur Laufzeit
 // aus app_settings.knowledge_gen_secret gelesen (nur admin/service-role lesbar, nie im Repo).
@@ -97,7 +98,12 @@ Deno.serve(async (req) => {
       existKeys = new Set((existing || []).map((r: any) => schema.compositeUniq!.map((k) => r[k]).join("||")));
     }
     const userMsg = `Generiere genau ${count} ${topic}-Einträge. Schweizer Kontext, Deutsch.${focus_topics ? " Fokus: " + focus_topics.join(", ") : ""} Antworte mit reinem JSON-Array.`;
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" }, body: JSON.stringify({ model, max_tokens: 8000, system: schema.system, messages: [{ role: "user", content: userMsg }] }) });
+    // Modell-Rueckfallkette (STATUS.md, Technische Schuld) — Vorlage book-ingest/CLAUDE_MODELS.
+    // `model` bleibt vom Aufrufer wählbar (Admin-only via X-Admin-Secret); die Kette hängt sich
+    // an dieselbe Modell-Familie (Name enthält "haiku" oder nicht) und probiert erst danach die
+    // übrigen bekannten Namen dieser Familie.
+    const claudeChain = /haiku/i.test(model) ? haikuChain(model) : sonnetChain(model);
+    const { res: anthropicRes } = await fetchClaudeChain(apiKey, claudeChain, { max_tokens: 8000, system: schema.system, messages: [{ role: "user", content: userMsg }] });
     if (!anthropicRes.ok) { const errBody = await anthropicRes.text(); return new Response(JSON.stringify({ error: "Anthropic", status: anthropicRes.status, detail: errBody.slice(0, 500) }), { status: 502, headers: { "Content-Type": "application/json" } }); }
     const aiData = await anthropicRes.json();
     const rawText = aiData.content?.[0]?.text || "";

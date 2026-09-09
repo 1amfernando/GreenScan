@@ -12,6 +12,71 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-09 (gx) - Modell-Rückfallketten in acht Edge-Functions nachgerüstet
+
+Der einzige eigenständig abarbeitbare Punkt aus „Technische Schuld, benannt und
+bewusst offen" (df): neun Aufrufstellen in acht Edge-Functions riefen Anthropic
+mit genau EINEM fest verdrahteten Modellnamen, ohne Ausweichmöglichkeit. Fällt
+ein Name für den Account/Key weg (Deprecation, Tippfehler bei einer künftigen
+Migration), endet der Aufruf sonst in einem Fehler, den niemand kommen sieht —
+`book-ingest` hatte als einzige Function schon eine Kette (`CLAUDE_MODELS`,
+siehe `BEFUND.md`) und war die Vorlage.
+
+**Neu:** `supabase/functions/_shared/claude_fallback.mjs` — `SONNET_CHAIN` /
+`HAIKU_CHAIN` (dieselben Namen wie `index.html window._gsClaudeFallbacks` und
+`ai-proxy ALLOWED_MODELS`, dieselbe Reihenfolge), `sonnetChain(primary)` /
+`haikuChain(primary)` (Primärmodell bleibt unverändert an erster Stelle, Rest
+der Kette dahinter ohne Dubletten — **kein** Verhaltenswechsel im Erfolgsfall)
+und `fetchClaudeChain(apiKey, chain, bodyOhneModel, opts)`. Dieselbe Regel wie
+in `book-ingest`: **nur ein HTTP 404 löst den nächsten Versuch aus**, jeder
+andere Status (401/429/5xx) und jeder Netzfehler/Timeout kommt unverändert
+beim Aufrufer an — kein neues Fehlerverhalten, nur ein Netz für den einen
+Fall, der bisher niemanden erreichte.
+
+Umgestellt: `garden-scan-analyze`, `plan-iterate`, `feedback-triage`
+(Sonnet-Kette), `mushroom-identify`, `pest-identify`, `i18n-translate`,
+`knowledge-bulk-gen` (Haiku- bzw. anrufer-gewählte Kette), `plant-doctor-diagnose`
+(Sonnet-Kette). Dabei drei Nebenfunde behoben, weil sie an derselben Stelle
+lagen:
+
+- **`plan-iterate` protokollierte gar kein `p_model`** bei `fn_log_ai_usage` —
+  derselbe Fehler wie `garden-scan-analyze` vor v30.95 (`else`-Zweig bucht
+  0.00 CHF). Nachgetragen.
+- **Drei Stellen loggten/speicherten den Modellnamen als feste Zeichenkette**
+  (`feedback-triage.model`, `plant-doctor-diagnose.model` in
+  `plant_doctor_history`, `i18n-translate.model` in `i18n_translations`) statt
+  den tatsächlich von Anthropic zurückgemeldeten Namen (`response.model`) zu
+  nehmen — bei einem stillen Rückfall auf das zweite Modell der Kette hätte
+  die Datenbank etwas anderes behauptet als tatsächlich gerufen wurde. Jetzt
+  überall der echte Wert.
+- **`i18n-translate` ruft pro Anfrage bis zu ~8 Mal** (Chunks × Sprachen); ein
+  einmal erfolgreich benutztes Modell wird jetzt für den Rest der Anfrage
+  gemerkt (`lastGoodModel`), sonst würde bei einem toten Primärmodell jeder
+  Chunk erneut denselben 404 kassieren, bevor er zum echten Modell kommt.
+
+**Geprüft von hier aus:** die Rückfall-LOGIK isoliert in Node nachgebaut und
+gegen sechs Fälle gestellt (Erfolg beim ersten Modell · 404 → zweites Modell
+→ Erfolg · Nicht-404-Fehler löst KEINEN Rückfall aus · alle Modelle 404 →
+letzte 404-Antwort kommt durch, jedes Modell genau einmal versucht · ein
+geworfener Netzfehler propagiert unverändert ohne Rückfallversuch) — alle
+sechs bestanden. Alle acht `.ts`-Dateien mit dem TypeScript-Compiler geparst
+(0 Syntaxfehler). **Nicht prüfbar von hier aus:** ob die Modellnamen in der
+Kette heute noch bei Anthropic auflösen (kein Netz zu Anthropic in dieser
+Umgebung) und ob die Functions nach einem Deploy wirklich wie erwartet
+laufen — das bleibt Fernando.
+
+**Nicht angefasst:** `ai-proxy` (reiner Durchreicher, das Frontend geht schon
+seine eigene Kette durch, kein Einzelmodell fest verdrahtet) und
+`key-health-check` (fragt gezielt EIN bestimmtes Modell/Endpoint ab, eine
+Kette wäre hier die falsche Antwort).
+
+Kein Deploy ausgelöst — Edge-Function-Deploys sind laut CLAUDE.md §2.1/§7.1
+ausdrücklich Fernandos Schritt. STATUS.md §2 „Warten auf Fernando" entsprechend
+nachgezogen: `feedback-triage`/`garden-scan-analyze`/`plan-iterate` waren
+schon auf der Neun-Functions-Liste (jetzt mit Vermerk), die fünf übrigen
+kommen als eigene Zeile dazu — sie waren vorher live und in Sync mit dem
+Repo, sind es durch diese Änderung nicht mehr.
+
 ### 2026-09-09 (gw) - v33.04: „4'337 Arten" waren 3'136 Arten
 
 **Der erste der drei Punkte, die auf Fernandos Entscheidung warteten** — er hat
@@ -11406,7 +11471,8 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
-| **Neun Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `key-health-check`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `ai-proxy`, `garden-scan-analyze`, `plan-iterate`) | Audit A10/B2: konstantzeitiger Schlüsselvergleich über `_shared/auth_vergleich.mjs`, Triage nur Admins, CORS eng, 110-s-Abbruch. Im Repo, nicht ausgeliefert. | `docs/FUER-FERNANDO.md` §9 · (fl) |
+| **Neun Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `key-health-check`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `ai-proxy`, `garden-scan-analyze`, `plan-iterate`) | Audit A10/B2: konstantzeitiger Schlüsselvergleich über `_shared/auth_vergleich.mjs`, Triage nur Admins, CORS eng, 110-s-Abbruch. **Dazu seit (gx): `feedback-triage`/`garden-scan-analyze`/`plan-iterate` tragen jetzt auch die Modell-Rückfallkette (nächste Zeile).** Im Repo, nicht ausgeliefert. | `docs/FUER-FERNANDO.md` §9 · (fl) |
+| **Fünf weitere Edge-Functions mit Modell-Rückfallkette ausliefern** (`mushroom-identify`, `pest-identify`, `plant-doctor-diagnose`, `i18n-translate`, `knowledge-bulk-gen`) | (gx): Modell-Rückfallkette nachgerüstet (Vorlage `book-ingest`/`CLAUDE_MODELS`, jetzt `_shared/claude_fallback.mjs`) — waren bis dahin live und in Sync mit dem Repo, sind es durch diese Änderung nicht mehr. Reine Resilienz-Änderung (Erfolgsverhalten unverändert, nur ein 404 löst den nächsten Modellnamen aus), kein Sicherheits-Fix — kann unabhängig von der Neun-Functions-Liste oben deployed werden. | `_shared/claude_fallback.mjs` · (gx) |
 | **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
@@ -11438,7 +11504,6 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Stand |
 |---|---|
-| **Modell-Rückfallketten in 8 Edge-Functions** | Neun Stellen nennen genau EIN Modell ohne Ausweichmöglichkeit. Vorlage liegt im Repo (`book-ingest`, `CLAUDE_MODELS`). Ob ein Name heute noch auflöst, ist von hier aus nicht prüfbar. (df) |
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |

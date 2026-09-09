@@ -24,12 +24,16 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sonnetChain, fetchClaudeChain } from "../_shared/claude_fallback.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sbAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false }
 });
+
+// Modell-Rueckfallkette (STATUS.md, Technische Schuld) — Vorlage book-ingest/CLAUDE_MODELS.
+const CLAUDE_CHAIN = sonnetChain("claude-sonnet-4-20250514");
 
 async function getAnthropicKey(): Promise<string | null> {
   const env = Deno.env.get("ANTHROPIC_API_KEY");
@@ -120,25 +124,16 @@ User-Notiz: ${userNote || "keine"}
 
 Bitte Foto analysieren und vollständige Diagnose + Behandlung im JSON-Format zurückgeben.`;
 
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2048,
-      system: sys,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: photoB64 } },
-          { type: "text", text: userMsg }
-        ]
-      }]
-    })
+  const { res: r, model } = await fetchClaudeChain(apiKey, CLAUDE_CHAIN, {
+    max_tokens: 2048,
+    system: sys,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: photoB64 } },
+        { type: "text", text: userMsg }
+      ]
+    }]
   });
   if (!r.ok) throw new Error("Anthropic " + r.status + ": " + await r.text());
   const j = await r.json();
@@ -150,7 +145,8 @@ Bitte Foto analysieren und vollständige Diagnose + Behandlung im JSON-Format zu
     diagnosis: parsed.diagnosis,
     treatment_plan: parsed.treatment_plan,
     tokens_in: j?.usage?.input_tokens || 0,
-    tokens_out: j?.usage?.output_tokens || 0
+    tokens_out: j?.usage?.output_tokens || 0,
+    model: j?.model || model
   };
 }
 
@@ -210,7 +206,7 @@ Deno.serve(async (req: Request) => {
       await sbAdmin.rpc("fn_log_ai_usage", {
         p_edge_fn: "plant-doctor-diagnose",
         // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
-        p_model: "claude-sonnet-4-20250514",
+        p_model: result.model,
         p_tokens_in: result.tokens_in,
         p_tokens_out: result.tokens_out
       });
@@ -231,7 +227,7 @@ Deno.serve(async (req: Request) => {
         treatment_plan: result.treatment_plan,
         status: "open",
         followup_due_at: followupDue,
-        model: "claude-sonnet-4-20250514",
+        model: result.model,
         tokens_in: result.tokens_in,
         tokens_out: result.tokens_out
       }).select("id").single();

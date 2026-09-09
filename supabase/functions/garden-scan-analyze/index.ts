@@ -5,6 +5,11 @@
 //   fn_check_rate_limit. Fail-open (Rate-Limit-Fehler blockiert den Dienst nicht).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sonnetChain, fetchClaudeChain } from "../_shared/claude_fallback.mjs";
+
+// Modell-Rueckfallkette (STATUS.md, Technische Schuld) — Vorlage book-ingest/CLAUDE_MODELS.
+// Primaermodell unveraendert zuerst; faellt es mit 404 aus, versucht der Server die naechsten.
+const CLAUDE_CHAIN = sonnetChain("claude-sonnet-4-20250514");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -305,22 +310,15 @@ Deno.serve(async (req) => {
     // der Nutzer sah „Zeitueberschreitung", startete neu, zahlte doppelt und hatte zwei Plaene.
     // Jetzt bricht der Server nach 110 s ab (Edge-Function-Limit 150 s), der Client wartet 120 s.
     let anthropicRes: Response;
+    let usedModel = CLAUDE_CHAIN[0];
     try {
-      anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: AbortSignal.timeout(110_000),
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+      const attempt = await fetchClaudeChain(apiKey, CLAUDE_CHAIN, {
         max_tokens: horizonYears > 1 ? 14000 : 10000,
         system: systemPrompt,
         messages: [{ role: "user", content: userContent }],
-      }),
-    });
+      }, { signal: AbortSignal.timeout(110_000) });
+      anthropicRes = attempt.res;
+      usedModel = attempt.model;
     } catch (e) {
       const zuLang = e && (e.name === "TimeoutError" || e.name === "AbortError");
       return new Response(JSON.stringify({ error: { code: zuLang ? "timeout" : "upstream", message: zuLang
@@ -377,7 +375,7 @@ Deno.serve(async (req) => {
         p_tokens_in: anthropicData?.usage?.input_tokens || 0,
         p_tokens_out: anthropicData?.usage?.output_tokens || 0,
         // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
-        p_model: anthropicData?.model || "claude-sonnet-4-20250514",
+        p_model: anthropicData?.model || usedModel,
       });
     } catch (_) { /* nicht-blockierend */ }
 

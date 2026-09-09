@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { haikuChain, fetchClaudeChain } from "../_shared/claude_fallback.mjs";
 
 // v29 i18n-translate — DE → {en,fr,it,es} Bulk-Übersetzung via Anthropic Haiku 4.5.
 // Cached in i18n_translations (UNIQUE (src_lang,tgt_lang,hash)).
@@ -88,7 +89,7 @@ async function fetchCached(srcLang: string, tgtLang: string, hashes: string[]) {
 }
 
 async function callAnthropic(
-  apiKey: string, srcLang: string, tgtLang: string, items: { key: string; text: string }[], context?: string
+  apiKey: string, chain: string[], srcLang: string, tgtLang: string, items: { key: string; text: string }[], context?: string
 ) {
   const langName: Record<string, string> = {
     de: "Deutsch (Schweiz)",
@@ -113,19 +114,10 @@ Antwort-Format: NUR JSON-Array mit { "key": "<key>", "translated": "<übersetzun
   const userMsg = `Übersetze diese ${items.length} UI-Strings:\n\n` +
     items.map((it, i) => `${i+1}. key=${it.key}\n   text=${JSON.stringify(it.text)}`).join("\n\n");
 
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 4096,
-      system: sys,
-      messages: [{ role: "user", content: userMsg }]
-    })
+  const { res: r, model } = await fetchClaudeChain(apiKey, chain, {
+    max_tokens: 4096,
+    system: sys,
+    messages: [{ role: "user", content: userMsg }]
   });
   if (!r.ok) throw new Error("Anthropic " + r.status + ": " + await r.text());
   const j = await r.json();
@@ -136,7 +128,8 @@ Antwort-Format: NUR JSON-Array mit { "key": "<key>", "translated": "<übersetzun
   return {
     translations: parsed as { key: string; translated: string }[],
     tokens_in: j?.usage?.input_tokens || 0,
-    tokens_out: j?.usage?.output_tokens || 0
+    tokens_out: j?.usage?.output_tokens || 0,
+    model: j?.model || model
   };
 }
 
@@ -171,6 +164,10 @@ Deno.serve(async (req: Request) => {
 
     const out: Record<string, Record<string, string>> = {};
     let totalCached = 0, totalFetched = 0, tokensIn = 0, tokensOut = 0;
+    // Modell-Rueckfallkette (STATUS.md, Technische Schuld) — Vorlage book-ingest/CLAUDE_MODELS.
+    // Ein erfolgreich benutztes Modell wird für die restlichen Chunks/Sprachen dieser Anfrage
+    // gemerkt — sonst probiert jeder der bis zu ~8 Chunks erneut alle toten Namen der Reihe nach.
+    let lastGoodModel = "claude-haiku-4-5-20251001";
 
     for (const tgt of targetLangs) {
       out[tgt] = {};
@@ -188,7 +185,8 @@ Deno.serve(async (req: Request) => {
       for (let i = 0; i < todo.length; i += CHUNK) {
         const slice = todo.slice(i, i + CHUNK);
         const items = slice.map(s => ({ key: s.key, text: s.text }));
-        const result = await callAnthropic(apiKey, srcLang, tgt, items, context);
+        const result = await callAnthropic(apiKey, haikuChain(lastGoodModel), srcLang, tgt, items, context);
+        lastGoodModel = result.model;
         tokensIn += result.tokens_in;
         tokensOut += result.tokens_out;
 
@@ -204,7 +202,7 @@ Deno.serve(async (req: Request) => {
             source_hash: orig.hash,
             translated_text: tr.translated,
             context_note: context || null,
-            model: "claude-haiku-4-5-20251001",
+            model: result.model,
             tokens_in: Math.round(result.tokens_in / slice.length),
             tokens_out: Math.round(result.tokens_out / slice.length)
           });

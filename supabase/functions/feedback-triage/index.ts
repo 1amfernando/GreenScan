@@ -1,16 +1,20 @@
 // ══════════════════════════════════════════════════════════════════════════
 // SPIEGEL — wortgetreu aus der laufenden Auslieferung gezogen am 02.09.2026
-// (v32.19). version 3 · verify_jwt=true · ezbr_sha256 1bca0016…
-// Keine Überarbeitung.
+// (v32.19). version 3 · verify_jwt=true · ezbr_sha256 1bca0016… (Stand beim Ziehen —
+// seither überarbeitet, siehe Punkt 1: Modell-Rückfallkette nachgetragen, noch nicht
+// ausgeliefert).
 //
-// ZWEI DINGE, DIE BEIM SPIEGELN AUFGEFALLEN SIND (nicht geändert, nur notiert):
+// ZWEI DINGE, DIE BEIM SPIEGELN AUFGEFALLEN SIND:
 //
-// 1. `model: "claude-sonnet-4-6"` steht hier FEST und ohne Rückfall. Das
-//    Frontend geht für dieselbe Frage eine KETTE durch (index.html ~Z. 27079:
-//    sonnet-4-6 → sonnet-4-5 → sonnet-4-5-20250929 → sonnet-4-20250514 →
-//    3-5-sonnet) — hier gibt es das nicht. Fällt der eine Name weg, endet
-//    jeder Aufruf in „llm failed", und niemand merkt es.
-//    Ob der Name heute noch auflöst, ist von hier aus NICHT prüfbar: die
+// 1. `model: "claude-sonnet-4-6"` stand hier FEST und ohne Rückfall (Frontend geht für
+//    dieselbe Frage eine Kette durch, index.html window._gsClaudeFallbacks). Fiel der
+//    eine Name weg, endete jeder Aufruf in „llm failed", ohne dass es jemand merkte.
+//    Nachgetragen: `callClaude` geht jetzt dieselbe Kette durch wie das Frontend, über
+//    `_shared/claude_fallback.mjs` (Vorlage: book-ingest/CLAUDE_MODELS). Nur ein HTTP 404
+//    löst den nächsten Versuch aus — jeder andere Fehler bleibt wie zuvor sichtbar.
+//    Damit ist dieser Spiegel nicht mehr wortgetreu; er wartet zusammen mit den übrigen
+//    Sicherheits-Fixes auf den nächsten Deploy (STATUS.md, „Neun Edge-Functions ausliefern").
+//    Ob die Modellnamen heute noch auflösen, ist von hier aus weiterhin NICHT prüfbar: die
 //    Netz-Richtlinie dieser Umgebung lässt keine Anfrage an Anthropic zu.
 //
 // 2. `feedback_analysis` hat **0 Zeilen** (gemessen am 02.09.2026), bei
@@ -23,6 +27,9 @@
 // feedback-triage: Analysiert einzelne oder viele Feedback-Items mit Claude
 // Nur Admin/Expert-Accounts dürfen triggern. Schreibt in public.feedback_analysis.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { sonnetChain, fetchClaudeChain } from "../_shared/claude_fallback.mjs";
+
+const CLAUDE_CHAIN = sonnetChain("claude-sonnet-4-6");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -37,7 +44,7 @@ function j(obj: unknown, status = 200) {
   });
 }
 
-async function callClaude(apiKey: string, items: Array<{id:string; content:string; kind:string; app_version:string|null}>): Promise<any[]> {
+async function callClaude(apiKey: string, items: Array<{id:string; content:string; kind:string; app_version:string|null}>): Promise<{ items: any[]; model: string }> {
   const system = `Du bist ein Product-Manager-Assistent für die GreenScan-App (Schweizer Pflanzen/Pilze/Kräuter).
 Analysiere User-Feedback nüchtern und präzise auf Deutsch.
 Für jedes Item liefere ein JSON-Objekt mit:
@@ -58,19 +65,10 @@ Keine Einleitung, kein Text ausserhalb des Arrays.`;
   const userMsg = "Bewerte folgende Feedback-Items (IDs bitte 1:1 zurückgeben):\n\n" +
     items.map(it => `ID: ${it.id}\nKind: ${it.kind}\nApp: ${it.app_version || '-'}\nText: ${it.content}`).join("\n---\n");
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2000,
-      system,
-      messages: [{ role: "user", content: userMsg }],
-    }),
+  const { res, model } = await fetchClaudeChain(apiKey, CLAUDE_CHAIN, {
+    max_tokens: 2000,
+    system,
+    messages: [{ role: "user", content: userMsg }],
   });
   if (!res.ok) {
     const txt = await res.text();
@@ -84,7 +82,7 @@ Keine Einleitung, kein Text ausserhalb des Arrays.`;
   if (start < 0 || end < 0 || end < start) throw new Error("Kein JSON-Array in Claude-Antwort");
   const arr = JSON.parse(text.slice(start, end + 1));
   if (!Array.isArray(arr)) throw new Error("Antwort ist kein Array");
-  return arr;
+  return { items: arr, model: data?.model || model };
 }
 
 Deno.serve(async (req) => {
@@ -150,8 +148,11 @@ Deno.serve(async (req) => {
 
   // Claude-Analyse
   let analyses: any[];
+  let usedModel: string = CLAUDE_CHAIN[0];
   try {
-    analyses = await callClaude(ANTHROPIC_KEY, items);
+    const result = await callClaude(ANTHROPIC_KEY, items);
+    analyses = result.items;
+    usedModel = result.model;
   } catch (e) {
     return j({ error: "llm failed", detail: String(e) }, 502);
   }
@@ -168,7 +169,7 @@ Deno.serve(async (req) => {
     rationale: a.rationale || null,
     actionable: !!a.actionable,
     suggested_action: a.suggested_action || null,
-    model: "claude-sonnet-4-6",
+    model: usedModel,
     analyzed_at: new Date().toISOString(),
   })).filter(r => r.feedback_id);
 

@@ -23,9 +23,13 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { haikuChain, fetchClaudeChain } from "../_shared/claude_fallback.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Modell-Rueckfallkette (STATUS.md, Technische Schuld) — Vorlage book-ingest/CLAUDE_MODELS.
+const CLAUDE_CHAIN = haikuChain("claude-haiku-4-5-20251001");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -98,21 +102,16 @@ Deno.serve(async (req) => {
 
   let aiJson: any;
   try {
-    const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 800,
-        system: systemPrompt,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: imageB64 } },
-            { type: "text", text: `Identifiziere den Pilz. Habitat-Hinweis: ${habitatHint || "unbekannt"}. Region: ${regionSlug || "unbekannt"}. SICHERHEIT VOR PRAEZISION.` }
-          ]
-        }]
-      })
+    const { res: aiResp } = await fetchClaudeChain(apiKey, CLAUDE_CHAIN, {
+      max_tokens: 800,
+      system: systemPrompt,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: imageB64 } },
+          { type: "text", text: `Identifiziere den Pilz. Habitat-Hinweis: ${habitatHint || "unbekannt"}. Region: ${regionSlug || "unbekannt"}. SICHERHEIT VOR PRAEZISION.` }
+        ]
+      }]
     });
     if (!aiResp.ok) {
       const errText = await aiResp.text();

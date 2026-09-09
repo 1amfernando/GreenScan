@@ -6,12 +6,16 @@
 // Diese Funktion war ausgeliefert und wird vom Frontend benutzt, hatte aber
 // keinen Quelltext im Repo. Herkunft und Datum stehen hier, damit jede spätere
 // Sitzung nachprüfen kann, ob der Spiegel noch stimmt (neu ziehen und
-// vergleichen). Keine Überarbeitung.
+// vergleichen). Seither überarbeitet: Modell-Rückfallkette nachgetragen (unten,
+// derselbe Fund wie in feedback-triage — FEST verdrahtetes Modell ohne Rückfall,
+// siehe STATUS.md „Modell-Rückfallketten in 8 Edge-Functions"), noch nicht
+// ausgeliefert (siehe STATUS.md „Neun Edge-Functions ausliefern").
 // ══════════════════════════════════════════════════════════════════════════
 // plan-iterate v3 (v26.50 ai_daily_usage Logging) — v2-base + RPC-Log vor success-Return.
 // Region-aware: liest scan_input.region_used aus garden_plans, lädt regional_garden_calendars als Constraint.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sonnetChain, fetchClaudeChain } from "../_shared/claude_fallback.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +23,9 @@ const corsHeaders = {
 };
 
 const MAX_ITERATIONS = 5;
+
+// Modell-Rueckfallkette (STATUS.md, Technische Schuld) — Vorlage book-ingest/CLAUDE_MODELS.
+const CLAUDE_CHAIN = sonnetChain("claude-sonnet-4-20250514");
 
 async function getAnthropicKey(admin: any): Promise<string | null> {
   const fromEnv = Deno.env.get("ANTHROPIC_API_KEY");
@@ -104,22 +111,15 @@ Deno.serve(async (req) => {
     // der Nutzer sah „Zeitueberschreitung", startete neu, zahlte doppelt und hatte zwei Plaene.
     // Jetzt bricht der Server nach 110 s ab (Edge-Function-Limit 150 s), der Client wartet 120 s.
     let anthropicRes: Response;
+    let usedModel = CLAUDE_CHAIN[0];
     try {
-      anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: AbortSignal.timeout(110_000),
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+      const attempt = await fetchClaudeChain(apiKey, CLAUDE_CHAIN, {
         max_tokens: 8000,
         system: buildSystemPrompt(regionalContext),
         messages,
-      }),
-    });
+      }, { signal: AbortSignal.timeout(110_000) });
+      anthropicRes = attempt.res;
+      usedModel = attempt.model;
     } catch (e) {
       const zuLang = e && (e.name === "TimeoutError" || e.name === "AbortError");
       return new Response(JSON.stringify({ error: { code: zuLang ? "timeout" : "upstream", message: zuLang
@@ -169,11 +169,14 @@ Deno.serve(async (req) => {
     }
 
     // v26.50: Log usage (fire-and-forget) — Sonnet-Modell
+    // p_model nachgetragen: ohne dieses Feld bucht fn_log_ai_usage 0.00 CHF (else-Zweig,
+    // derselbe Fehler wie in garden-scan-analyze vor v30.95).
     try {
       await admin.rpc("fn_log_ai_usage", {
         p_edge_fn: "plan-iterate",
         p_tokens_in: anthropicData?.usage?.input_tokens || 0,
         p_tokens_out: anthropicData?.usage?.output_tokens || 0,
+        p_model: anthropicData?.model || usedModel,
       });
     } catch (_) { /* nicht-blockierend */ }
 
