@@ -503,13 +503,23 @@ const FAELLE = [
       // entfernen. Sie wird NAMENTLICH genannt, nie stillschweigend durchgewunken.
       // Alle sieben wurden erst sichtbar, als die eigene Ausfuhr nicht mehr als
       // Nennung zaehlte; sie lagen vorher unter dem Raster, nicht in dieser Liste.
+      // v33.05 — von sechs auf zwei geschrumpft, jeder Eintrag EINZELN auf
+      // seine Wirkung geprueft (die Regel aus v32.97):
+      //   openHarvestAddModal  → VERDRAHTET. Das Fenster ist vollstaendig
+      //     (Datum, Menge, Einheit, 5-Sterne-Qualitaet, Notiz), gsHarvestSubmit
+      //     schreibt in dieselbe kanonische Pipeline wie der Erntekalender
+      //     (garden_harvests, v28.15) — es fehlte nur der Knopf. Er steht jetzt
+      //     im Pflanzen-Dossier, das die Ernten dieser Pflanze ohnehin zeigt.
+      //   gsShowNextWisdom     → VERDRAHTET. Knopf in der Bauernregel-Karte,
+      //     sichtbar nur, wenn mehr als eine Regel geladen ist.
+      //   gsHarvestLoadForPlant→ ENTFERNT. Das Dossier laedt die Ernten einer
+      //     Pflanze seit v28.23 serverseitig (fn_plant_dossier); dieser
+      //     Client-Lader war die zweite, ungenutzte Haelfte derselben Frage.
+      //   gsDoctorHistoryLoad  → ENTFERNT. gsDoctorShowHistory macht dasselbe
+      //     ueber eine RPC und hat einen Knopf; plant_doctor_history: 0 Zeilen.
       const OHNE_EINSTIEG = {
-        gsSafetyDefaults:      'Sicherheitsnetz aus v23.45 (generische Warnung fuer Arten mit leerem warning/lookalike) — nie verdrahtet. Verdrahten aendert den Text auf vielen Detailseiten: eigene Entscheidung.',
-        openHarvestAddModal:   'Oeffner fuer #modal-harvest-add. Die v28.15-Konsolidierung hat openErnteTracking() zur Oberflaeche gemacht (Menue + zwei Kacheln + Erntekalender); dieser Dialog blieb ohne Einstieg zurueck.',
-        gsHarvestLoadForPlant: 'Ernte-Liste je Pflanze aus garden_harvests — kein Aufrufer, also keine Anzeige auf der Pflanzenkarte.',
-        gsDoctorHistoryLoad:   'Doktor-Verlauf je Pflanze — kein Aufrufer, also keine Anzeige.',
-        gsAROpen:              'AR-Ansicht einer Art — kein Aufrufer, kein Knopf.',
-        gsShowNextWisdom:      'Weiterblaettern in der Weisheits-Karte (#wisdom-card wird gerendert) — es gibt keinen Knopf dafuer.',
+        gsSafetyDefaults: 'Sicherheitsnetz aus v23.45 (generische Warnung fuer Arten mit leerem warning/lookalike) — nie verdrahtet. Verdrahten aendert den SICHERHEITSTEXT auf vielen Detailseiten; das entscheidet Fernando, nicht ein Pruefstand.',
+        gsAROpen:         'AR-Ansicht einer Art. Nicht verdrahtet, und das ist GEMESSEN begruendet: ar_models hat 30 Zeilen, davon 0 mit gltf_url und 0 mit low_poly_url (09.09.2026, nur lesend). Es gibt kein einziges Modell — ein Knopf zeigte fuer JEDE Art nur den Rueckfall. Erst Modelle, dann Knopf.',
       };
       const wurzel = path.join(__dirname, '..');
       const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');

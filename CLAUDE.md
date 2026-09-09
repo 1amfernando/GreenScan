@@ -1252,6 +1252,24 @@ durchgewunken; die sieben stehen mit Grund in STATUS §2. **Nicht ungeprueft
 entfernen** — in v31.46 verbarg sich in genau so einer Liste der
 Pflanzenfriedhof, eine Funktion ohne Anzeige statt einer toten Zeile.
 
+> **Und die Liste ist v33.05 von sechs auf zwei geschrumpft — mit zwei
+> revidierten Einordnungen unterwegs.** `openHarvestAddModal` sah aus wie ein
+> ueberholter Rest (die v28.15-Konsolidierung hatte `openErnteTracking` zur
+> Oberflaeche gemacht) und war in Wahrheit ein VOLLSTAENDIGES Formular, das in
+> dieselbe kanonische Pipeline schreibt — nur ohne Knopf. Danach sah
+> `gsHarvestLoadForPlant` aus wie dessen fehlende Haelfte und war doch
+> ueberholt, weil das Pflanzen-Dossier die Ernten je Pflanze seit v28.23
+> serverseitig laedt. **Erst der dritte Durchgang stimmte.** Wer so eine Liste
+> abarbeitet, verfolgt jeden Eintrag bis zu der Stelle, an der seine Wirkung
+> SICHTBAR wuerde — der erste Eindruck war hier zweimal falsch, und beide Male
+> haette „entfernen" etwas Fertiges vernichtet.
+>
+> **Und ein Eintrag kann sich durch die DATEN entscheiden:** `gsAROpen` bleibt
+> ohne Knopf, weil `ar_models` 30 Zeilen hat und davon **0 mit `gltf_url` und
+> 0 mit `low_poly_url`** (09.09.2026, nur lesend gemessen). Es gibt kein
+> einziges Modell — ein Knopf waere ein Versprechen, das die Daten nicht
+> halten. Die Frage ist damit keine Code-Frage mehr.
+
 **`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
 Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf
 vor dem `try`, zwei Wege seit jeher tot), die Toast-Dauer (126 Aufrufer, alle

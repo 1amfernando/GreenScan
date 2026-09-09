@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.04.20260909">
+<meta name="app-version" content="33.05.20260909">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3116,6 +3116,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div id="wisdom-source" style="font-size:var(--fs-xs);color:#6d4c41;margin-bottom:6px;font-weight:600;"></div>
       <div id="wisdom-meaning" style="font-size:var(--fs-sm);color:var(--c-brown-d);line-height:1.55;margin-bottom:6px;"></div>
       <div id="wisdom-modern" style="font-size:var(--fs-sm);color:#5d4037;line-height:1.5;background:rgba(255,255,255,.55);padding:6px 9px;border-radius:var(--r-sm);border-left:3px solid #8d6e63;"></div>
+      <!-- v33.05: gsShowNextWisdom war vollstaendig und hatte keinen Knopf —
+           wer die Regel des Tages gelesen hatte, kam nicht zur naechsten.
+           Sichtbar nur, wenn mehr als eine geladen ist (gsRenderWisdom). -->
+      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+        <button type="button" id="wisdom-next" onclick="gsShowNextWisdom()" style="display:none;background:transparent;border:none;color:#5d4037;font-size:var(--fs-sm);font-weight:800;cursor:pointer;padding:6px 2px;font-family:inherit;">Nächste Bauernregel →</button>
+      </div>
     </div>
 
     <!-- v31.56 — Reihenfolge nach Fernandos Wunsch:
@@ -9463,7 +9469,19 @@ window.gsOpenPlantDossier = async function(plantId){
     var diag = Array.isArray(d.diagnoses) ? d.diagnoses : [];
     var pdiff = Array.isArray(d.photo_diffs) ? d.photo_diffs : [];
     var diaryN = Array.isArray(p.diary) ? p.diary.length : 0;
-    var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' +
+    // v33.05: Das Dossier ZEIGT die Ernten dieser Pflanze („erscheinen hier
+    // automatisch") — eintragen konnte man hier keine. `openHarvestAddModal`
+    // ist seit v28.15 fertig (Datum, Menge, Einheit, 5-Sterne-Qualitaet,
+    // Notiz) und `gsHarvestSubmit` schreibt in DIESELBE kanonische Pipeline
+    // wie der Erntekalender (garden_harvests via gsCloudSync); es fehlte nur
+    // der Einstieg. Derselbe Fall wie der Pflanzenfriedhof in v31.46: eine
+    // fertige Oberflaeche ohne Weg hinein, kein toter Code.
+    var html = '<div style="margin-bottom:10px;">' +
+      '<button type="button" onclick="openHarvestAddModal(' + _gsOcStr(p.id) + ')" ' +
+      'style="width:100%;padding:10px;background:var(--bg-warn-soft);border:1.5px solid #ffcc80;' +
+      'border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;color:#e65100;cursor:pointer;' +
+      'font-family:inherit;">🧺 Ernte für diese Pflanze eintragen</button></div>';
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' +
       _gsDossierChip('🧺', harv.length, 'Ernten') + _gsDossierChip('🔬', diag.length, 'Diagnosen') +
       _gsDossierChip('📸', pdiff.length, 'Foto-Diff') +
       _gsDossierChip('📓', diaryN, 'Tagebuch') + '</div>';
@@ -22864,6 +22882,12 @@ function gsRenderWisdom(w) {
   if (meanEl) meanEl.innerHTML = w.meaning ? '<b>📖 Bedeutung:</b> ' + ed(w.meaning) : '';
   var modEl = document.getElementById('wisdom-modern');
   if (modEl) modEl.innerHTML = w.modern_take ? '<b>🔬 Modern:</b> ' + ed(w.modern_take) : '';
+  // v33.05: der Weiter-Knopf erscheint nur, wenn es etwas zum Weiterblaettern gibt.
+  var nxt = document.getElementById('wisdom-next');
+  if (nxt) {
+    var _n = (window._gsWisdomCache && window._gsWisdomCache.data && window._gsWisdomCache.data.length) || 0;
+    nxt.style.display = (_n > 1) ? 'inline-block' : 'none';
+  }
   card.style.display = 'block';
 }
 window.gsRenderWisdom = gsRenderWisdom;
@@ -40847,14 +40871,10 @@ async function gsDoctorFollowup(historyId, status) {
 window.gsDoctorFollowup = gsDoctorFollowup;
 
 // ── Doctor: History laden (für Plant-Detail-Tab) ──────────────────
-async function gsDoctorHistoryLoad(plantLocalId) {
-  if (!plantLocalId || typeof sbFetch !== 'function') return [];
-  try {
-    var r = await sbFetch('/rest/v1/plant_doctor_history?plant_local_id=eq.' + encodeURIComponent(plantLocalId) + '&order=created_at.desc&limit=20', { method:'GET' });
-    return (r && r.data) || [];
-  } catch(_) { return []; }
-}
-window.gsDoctorHistoryLoad = gsDoctorHistoryLoad;
+// v33.05: `gsDoctorHistoryLoad` entfernt — sie las plant_doctor_history
+// direkt und hatte keinen Aufrufer. `gsDoctorShowHistory` (v26.96) macht
+// dasselbe ueber die RPC fn_plant_diagnoses_for_plant UND hat einen Knopf.
+// Nachgemessen (09.09.2026, nur lesend): plant_doctor_history hat 0 Zeilen.
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.96 PFLANZEN-DOKTOR v2 — Behandlungs-Tracker + Verlauf + 7-Tage-Follow-up
@@ -44199,29 +44219,10 @@ async function openHarvestStatsModal() {
 window.openHarvestStatsModal = openHarvestStatsModal;
 
 // ── Harvest: Pflanzen-spezifische Liste laden ────────────────────
-async function gsHarvestLoadForPlant(plantLocalId) {
-  if (!plantLocalId || typeof sbFetch !== 'function') return [];
-  var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
-  if (!uid) return [];
-  try {
-    // v28.15: kanonische garden_harvests (ts/menge/unit/notes) → alte Feldnamen mappen
-    var r = await sbFetch('/rest/v1/garden_harvests?user_id=eq.' + encodeURIComponent(uid) + '&plant_local_id=eq.' + encodeURIComponent(plantLocalId) + '&order=ts.desc&limit=50', { method:'GET' });
-    var rows = (r && r.data) || [];
-    return rows.map(function(g){
-      return {
-        id: g.id,
-        harvested_at: (g.ts || '').slice(0, 10),
-        amount_value: g.menge,
-        amount_unit: g.unit,
-        note: g.notes,
-        quality_rating: g.quality_rating,
-        species_name: g.species_name,
-        species_lat: g.species_lat
-      };
-    });
-  } catch(_) { return []; }
-}
-window.gsHarvestLoadForPlant = gsHarvestLoadForPlant;
+// v33.05: `gsHarvestLoadForPlant` entfernt — die Ernten EINER Pflanze zeigt
+// seit v28.23 das Pflanzen-Dossier serverseitig (RPC fn_plant_dossier, mit
+// Zaehl-Chip und Liste), und dorthin fuehrt ein Knopf in der Pflanzenkarte.
+// Dieser Client-Lader war die zweite, ungenutzte Haelfte derselben Frage.
 
 // ═════════════════════════════════════════════════════════════════════
 // Ende v25.31 Plant-Doctor + Harvest-Block
@@ -74154,6 +74155,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.05', date: '09.09.2026',
+      headline: 'Zwei fertige Oberflaechen hatten keinen Weg hinein',
+      summary: 'Die Liste OHNE_EINSTIEG stand seit v32.97 auf sechs. Jeder Eintrag einzeln auf seine Wirkung geprueft: zwei verdrahtet, zwei ueberholte entfernt, zwei bleiben mit gemessener Begruendung liegen.',
+      user_summary: 'Du kannst jetzt eine Ernte direkt bei der Pflanze eintragen — und in der Bauernregel weiterblaettern.',
+      user_items: [
+        {emoji:'🧺', text:'Im Dossier einer Pflanze standen deine Ernten schon immer. Nur eintragen konntest du dort keine — das Formular dafuer war fertig gebaut und hatte keinen Knopf. Jetzt hat es einen, mit Datum, Menge, Einheit, Qualitaet und Notiz.'},
+        {emoji:'🌾', text:'Die Bauernregel des Tages zeigte eine Regel und hoerte dort auf. Es gibt einen Weiter-Knopf — er erscheint, sobald mehr als eine geladen ist.'},
+        {emoji:'🧹', text:'Zwei Funktionen, die dasselbe noch einmal taten, sind raus. Nichts, was du siehst, faellt weg: beides gab es an anderer Stelle laengst besser.'}
+      ],
+      items: [
+        {emoji:'🧺', bold:'openHarvestAddModal verdrahtet:', text:' das Fenster ist seit v28.15 vollstaendig, und gsHarvestSubmit schreibt in DIESELBE kanonische Pipeline wie der Erntekalender (garden_harvests via gsCloudSync) — Verdrahten legt also keine zweite Datenspur an. Der Knopf steht im Pflanzen-Dossier, das die Ernten dieser Pflanze ohnehin zeigt und bisher nur sagte „erscheinen hier automatisch".'},
+        {emoji:'🌾', bold:'gsShowNextWisdom verdrahtet:', text:' Knopf in der Karte, sichtbar nur bei mehr als einer geladenen Regel.'},
+        {emoji:'🧹', bold:'Zwei ueberholte entfernt:', text:' gsHarvestLoadForPlant (das Dossier laedt die Ernten je Pflanze seit v28.23 serverseitig ueber fn_plant_dossier) und gsDoctorHistoryLoad (gsDoctorShowHistory macht dasselbe per RPC und hat einen Knopf; plant_doctor_history hat 0 Zeilen). Entfernt an exakten Klammergrenzen, nicht per Zeilensuche.'},
+        {emoji:'🥽', bold:'gsAROpen bleibt bewusst ohne Knopf — und das ist gemessen:', text:' ar_models hat 30 Zeilen, davon 0 mit gltf_url und 0 mit low_poly_url. Es gibt kein einziges 3D-Modell; ein Knopf zeigte fuer jede der 3\u2019136 Arten nur den Rueckfall. Erst Modelle, dann Knopf.'},
+        {emoji:'🛡️', bold:'gsSafetyDefaults bleibt Fernandos Entscheidung:', text:' es aendert den SICHERHEITSTEXT auf vielen Detailseiten. Das entscheidet kein Pruefstand.'},
+        {emoji:'🔁', bold:'Und ich habe die Einordnung zweimal revidiert:', text:' zuerst hielt ich openHarvestAddModal fuer einen ueberholten Rest (falsch — das Fenster ist vollstaendig), dann gsHarvestLoadForPlant fuer die fehlende Haelfte eines Features (auch falsch — das Dossier macht es serverseitig). Erst der dritte Durchgang stimmte. Gut, dass CLAUDE.md sagt: nicht ungeprueft entfernen.'}
+      ],
+    },
+  {
     v: 'v33.04', date: '09.09.2026',
       headline: '„4’337 Arten" waren 3’136 Arten — die Zahl stand neben dem falschen Wort',
       summary: 'Die Artenliste hat 4’337 Eintraege, aber nur 3’136 verschiedene Arten: jede Zeile traegt EINEN deutschen Namen, 660 Arten haben mehr als eine. Fuenf Anzeigen rechneten das live falsch, siebzehn feste Texte trugen dazu noch die alte 4342.',
@@ -74566,7 +74586,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.04';
+var GS_VERSION = 'v33.05';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
