@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.05.20260909">
+<meta name="app-version" content="33.06.20260909">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8636,8 +8636,13 @@ window.gsRenderGardenOverview = function () {
   var t = gsTwinGet();
 
   var nPlants = 0;
-  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) nPlants = myPlants.length; } catch (_) {}
-  if (!nPlants) nPlants = n('ps_myplants');
+  // v33.06: beide Listen (gsPflanzenZahl). Auf der GARTEN-Seite stand
+  // „Erste Pflanze anlegen", waehrend im Beet darunter zwei Pflanzungen
+  // standen. Das widerspricht nicht v31.68: dort ging es um „gepflanzt"
+  // (in DIESEM Beet) gegen „in Pflege" (insgesamt) — die Karte zaehlt
+  // weiter je Beet, und „Meine Pflanzen" zaehlt seit v32.50 ebenfalls beide.
+  try { nPlants = gsPflanzenZahl(); } catch (_) {}
+  if (!nPlants) nPlants = n('ps_myplants') + n('gs_plantings');
   var nBeds  = n('gs_gardens');
   var nPlans = n('gs_garden_plans');
 
@@ -24244,7 +24249,7 @@ function gsUpdateHomeGreeting() {
     var ttl = document.getElementById('home-hero-title');
     if (ttl) {
       var _np2 = 0;
-      try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) _np2 = myPlants.length; } catch(_){}
+      try { _np2 = gsPflanzenZahl(); } catch(_){}   // v33.06: beide Listen
       ttl.textContent = _np2 ? _ht('home_title_garden','Dein Garten') : _ht('home_title_nature','Natur entdecken');
     }
 
@@ -24259,7 +24264,7 @@ function gsUpdateHomeGreeting() {
       try {
         var _dp = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : [];
         var _now = _dp.filter(function(t){ return t.days <= 0; }).length;
-        var _np  = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.length : 0;
+        var _np  = (typeof gsPflanzenZahl === 'function') ? gsPflanzenZahl() : 0;   // v33.06: beide Listen
         if (_now > 0)      subTxt = _now + ' Aufgabe' + (_now === 1 ? '' : 'n') + ' ' + (_now === 1 ? 'wartet' : 'warten') + ' auf dich.';
         else if (_dp.length) subTxt = 'Heute nichts zu tun — ' + _dp.length + ' Aufgabe' + (_dp.length === 1 ? '' : 'n') + ' in den nächsten Tagen.';
         else if (_np > 0)  subTxt = _ht('home_hero_sub_garden', 'Dein Garten im Blick.');
@@ -26651,6 +26656,23 @@ var GS_REGEN_REICHT_MM = 6;
 // Grenze wie gsCheckFrostWarning (Startseite) und der Server-Push.
 var GS_FROST_GRENZE_C = 2;
 
+// v33.06: WIE VIELE PFLANZEN BETREUT DIE PERSON?
+// Seit v32.47 tragen Garten-Pflanzungen (gs_plantings) dieselben Aufgaben wie
+// ps_myplants, und gsGetDueTasks rechnet ueber BEIDE Listen. Drei Anzeigen
+// zaehlten weiter nur myPlants und benutzten die Zahl als TOR: „hat die Person
+// ueberhaupt Pflanzen?". Gemessen mit zwei Pflanzungen und null eigenen
+// Pflanzen: die Startseite sagte „Noch keine Pflanze — scanne eine", waehrend
+// die Zeile DARUEBER „2 Aufgaben warten auf dich" zeigte und „Meine Pflanzen"
+// „2 Pflanzen · 2 Heute faellig" auswies. Wer eine Pflanzenzahl braucht, ruft
+// diese Funktion — ein myPlants.length als Tor uebersieht die halbe App.
+function gsPflanzenZahl(){
+  var n = 0;
+  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) n += myPlants.length; } catch(_){}
+  try { if (typeof plantings !== 'undefined' && Array.isArray(plantings)) n += plantings.length; } catch(_){}
+  return n;
+}
+window.gsPflanzenZahl = gsPflanzenZahl;
+
 function gsGetDueTasks(){
   var out = [];
   try {
@@ -28444,7 +28466,9 @@ window.gsRenderDayPlan = function(){
   var tasks = [];
   try { if (typeof gsGetDueTasks === 'function') tasks = gsGetDueTasks() || []; } catch(_){}
   var nPlants = 0;
-  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) nPlants = myPlants.length; } catch(_){}
+  // v33.06: beide Listen — sonst steht „Noch keine Pflanze" ueber den
+  // Aufgaben, die genau diese Pflanzen brauchen (gsPflanzenZahl).
+  try { nPlants = gsPflanzenZahl(); } catch(_){}
 
   // v32.85: Die Zahl gehoert zum TITEL. Sie stand hier auf `tasks.length` —
   // und `gsGetDueTasks` liefert alles bis `d <= 2`, also drei Tage weit. Bei
@@ -74155,6 +74179,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.06', date: '09.09.2026',
+      headline: '„Noch keine Pflanze“ stand über den Aufgaben genau dieser Pflanzen',
+      summary: 'Seit v32.47 tragen Garten-Pflanzungen dieselben Aufgaben wie eigene Pflanzen, und gsGetDueTasks rechnet über beide Listen. Drei Anzeigen benutzten weiter myPlants.length als Tor — wer nur ein Beet hat, sah auf der Startseite den Leerzustand.',
+      user_summary: 'Wenn du nur ein Beet hast und keine eigenen Pflanzen, sagt die App das jetzt richtig.',
+      user_items: [
+        {emoji:'🌱', text:'Auf der Startseite stand „Noch keine Pflanze — scanne eine“, während eine Zeile darüber „2 Aufgaben warten auf dich“ zu lesen war. Jetzt stehen dort die Aufgaben.'},
+        {emoji:'🌿', text:'Die Überschrift heißt wieder „Dein Garten“, nicht „Natur entdecken“.'},
+        {emoji:'🧺', text:'Und auf der Garten-Seite stand „Erste Pflanze anlegen“, obwohl zwei Pflanzungen im Beet waren.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsPflanzenZahl():', text:' eine Zählung für beide Listen (ps_myplants + gs_plantings), direkt neben gsGetDueTasks, das seit v32.47 dieselben beiden Listen liest. Vier Tore stellen darauf um: der Tagesplan, die zwei Zeilen der Begrüßung und die Garten-Übersicht.'},
+        {emoji:'📏', bold:'Gemessen, nicht vermutet:', text:' mit 0 eigenen Pflanzen und 2 Pflanzungen lieferte gsGetDueTasks 2 fällige Aufgaben, „Meine Pflanzen“ wies „2 Pflanzen · 2 Heute fällig“ aus — und der Tagesplan daneben sagte „Noch keine Pflanze“. Dieselbe Klasse wie v32.87: zwei Antworten auf dieselbe Frage, gleichzeitig sichtbar.'},
+        {emoji:'🛡', bold:'Kein Widerspruch zu v31.68:', text:' dort ging es um „gepflanzt“ (in DIESEM Beet) gegen „in Pflege“ (insgesamt) — die Gartenkarte zählt weiter je Beet, und „Meine Pflanzen“ zählt seit v32.50 ohnehin beide Listen.'},
+        {emoji:'🧪', bold:'nutzersicht_check E10:', text:' drei Zustände — nur ein Beet mit fälliger Aufgabe, dasselbe Beet ohne fällige Aufgabe, und wirklich nichts. Der mittlere musste dazu: das Tor der Garten-Übersicht sitzt hinter „keine Schritte“ und ist unerreichbar, solange Aufgaben anstehen — ohne ihn wäre eine Rücknahme genau dort unbemerkt geblieben. Jede der drei Stellen einzeln zurückgebaut, jede einzeln rot.'},
+        {emoji:'💡', bold:'Und die Falle beim Bau:', text:' gsRenderGardenOverview fällt auf den localStorage zurück, wenn die Variable leer ist. Mein erster Fall setzte nur die Variablen — die Gegenrichtung blieb an den drei Seed-Pflanzen im Speicher hängen und meldete „Leerzustand fehlt“, obwohl die Reparatur stimmte. Ein Zustand, der nur halb hergestellt ist, misst ab da etwas anderes, als er behauptet.'}
+      ],
+    },
+  {
     v: 'v33.05', date: '09.09.2026',
       headline: 'Zwei fertige Oberflaechen hatten keinen Weg hinein',
       summary: 'Die Liste OHNE_EINSTIEG stand seit v32.97 auf sechs. Jeder Eintrag einzeln auf seine Wirkung geprueft: zwei verdrahtet, zwei ueberholte entfernt, zwei bleiben mit gemessener Begruendung liegen.',
@@ -74586,7 +74628,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.05';
+var GS_VERSION = 'v33.06';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
