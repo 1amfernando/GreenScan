@@ -12,6 +12,58 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-09 (gz) - Ueberblick nachgezaehlt, und zwei Faeden, die SAUBER waren
+
+**Kein Code, nur Messung und Buchhaltung.** Sektion 1 stand auf `v33.00` —
+sechs Versionen zurueck — und trug noch die alte Artenzahl, genau die, die
+v33.04 ueberall sonst berichtigt hat. Sektion 2 fuehrte zwei Punkte als offen,
+die v33.04 (Artenzahl) und v33.05 (Oberflaechen ohne Einstieg, sechs → zwei)
+erledigt haben. Beides nachgezogen; die Zahlen frisch gezaehlt (91'692 Zeilen /
+5,6 MB · 215 Migrationen · 40 Edge-Verzeichnisse · 31 Pruefstaende · Archiv 536,
+inline 18).
+
+> **Und beim Nachzaehlen haette ich mich fast selbst hereingelegt.** Mein
+> Wegwerf-Skript meldete **3'164** Arten, `nutzersicht_check` E9 meldet
+> **3'136**. Recht hat E9: es bildet die Entdopplung der App nach
+> (`deduplicateDB`: doppelte id, dann doppelte name+lat) und nimmt deren
+> `normLat`. Mein Skript zaehlte roh. **Wer zwei widersprechende Messungen
+> hat, nimmt die, die den Weg der App geht** — nicht die schnellere. (Dieselbe
+> Lehre wie die zwei Debug-Skripte gegen `touch_check` in v32.07.)
+
+#### Zwei Faeden verfolgt, beide ohne Befund — und das ist das Ergebnis
+
+Die Frage „welche dokumentierte Regel hat keinen Ausloeser?" hat diese Woche
+fuenfmal getragen. Zweimal fuehrte sie ins Leere, und das gehoert genauso
+aufgeschrieben — sonst geht die naechste Sitzung denselben Weg noch einmal.
+
+**1 · `markDirty('state')`.** CLAUDE.md verlangt ihn bei jedem Schreiben eines
+`STATE_KEY`, weil der Auto-Track vom Quota-Wrapper verdeckt ist. Statisch:
+**36 Verdachtsfaelle** von 51 Schluesseln. Nachgesehen sind es keine —
+`gs_ernte_log` hat einen EIGENEN Sync-Weg (`pushHarvestAdd` → `garden_harvests`),
+`gs_dark`/`gs_theme_color`/`gs_lang` stehen im **Pull**-Pfad (dort waere
+`markDirty` falsch), `gs_push_settings` PATCHt den Server direkt. Und der Blob
+wird beim Flush FRISCH aus dem `localStorage` gebaut (`_buildStateBlob`) — ein
+fehlendes `markDirty` **verliert** also nichts, es verzoegert bis zum naechsten
+State-Push. Niedrige Schwere; kein Grund fuer eine Version, und kein Grund fuer
+36 Aenderungen an Stellen, die stimmen.
+
+**2 · `myPlants.find(` in den Karten-Aktionen.** 26 Stellen gegen 7
+`_gsPflanzeFinden`. Gemessen: `doneTask('pl1','water')` auf einer
+Garten-Pflanzung tut wirklich nichts. Aber die `data-action`-Knoepfe
+(`tasks`, `donetask`, `ai`, `edit`, `cemetery`) werden NUR fuer
+`ps_myplants`-Ids gerendert — nachgemessen mit beiden Listen im Speicher:
+`toggle:mp1 · donetask:mp1 · ai:mp1 · tasks:mp1 · edit:mp1 · cemetery:mp1`,
+kein einziges `pl1`. Eine Pflanzung bekommt auf „Meine Pflanzen"
+`gsDueCardDone` und `gsSnoozeTask`, und beide gehen ueber `_gsPflanzeFinden`.
+**Latent, nicht live.**
+
+> Was dabei auffiel und Fernandos Entscheidung ist, nicht meine: eine
+> Garten-Pflanzung hat auf „Meine Pflanzen" nur ✓ und ⏰ — keinen
+> Aufgaben-Manager, kein Bearbeiten, kein Tagebuch, keine KI-Analyse. Ob das
+> so gewollt ist, sagt kein Pruefstand.
+
+---
+
 ### 2026-09-09 (gy) - v33.06: „Noch keine Pflanze" ueber den Aufgaben genau dieser Pflanzen
 
 **Gefunden ueber die Frage, die diese Woche viermal getragen hat: welche
@@ -11485,15 +11537,18 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 02.09.2026.** Er stand bis dahin auf `v30.80` — 140
-> Versionen daneben. Ein Überblick, der so weit hinterherhinkt, führt den
+> **Nachgemessen am 09.09.2026** (davor am 02.09.). Er stand am 02.09. auf
+> `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
+> Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
+> ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
+> merkt es, weil jede Zeile fuer sich plausibel bleibt. Ein Überblick, der so weit hinterherhinkt, führt den
 > nächsten Leser in die Irre, statt ihm Arbeit zu sparen. Wer eine Version
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.00` (Client) · SW-Cache `gs-v33.00` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.06` (Client) · SW-Cache `gs-v33.06` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'227 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -11526,9 +11581,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Was fehlt |
 |---|---|
-| **„4'337 Arten" sind 3'136 Arten** | Gemessen am 08.09.2026 (gn): die Liste hat 4'337 **Einträge**, aber nur **3'136 Arten** — jede Zeile trägt einen deutschen Namen, `allium ursinum` steht viermal drin. An zwölf Stellen nennt die App die Zahl „Arten", in drei verschiedenen festen Werten; die `meta`-Beschreibungen und `install.html` tragen weiter die alte `4342`, die kein Runtime-Wert überschreibt. Drei ehrliche Wege (Wort ändern / Zahl ändern / beides) stehen mit Vorschlag in `docs/FUER-FERNANDO.md` §14, die Messung in `docs/ARTEN-DATEN.md` §8. **Bewusst nicht selbst geändert** — es ist die Aussage des Produkts nach aussen. Die `4342` auf `4337` nachzuziehen kommt nicht in Frage: frische Zahl, unwahre Aussage. |
+| ~~Artenzahl gegen Eintragszahl~~ | **Erledigt in v33.04.** `gsArtenZahlen()` ist die eine Quelle; fünf Live-Anzeigen und siebzehn feste Texte berichtigt, `nutzersicht_check` E9 hält Zahl und Wort zusammen. (gw) |
 | **Arten-Daten vervollständigen** | 78 % der 4'342 Arten haben keine verwertbare Farb- oder Höhenangabe. Drei Wege abgegangen (`docs/ARTEN-DATEN.md`): keine Quelle von hier aus; vier Nebentabellen in der Datenbank (114 Arten, zwei Tabellen nur live); **167 Dubletten-Gruppen mit widersprüchlicher Giftstufe** in `docs/arten-widersprueche.csv` — brauchen eine Flora, keinen Code. Seit v32.43 gewinnt bei Widerspruch die vorsichtigere Angabe (v32.45 korrigiert: Unterarten, Platzhalter). |
-| **Sechs Oberflächen ohne Einstieg** | *(waren sieben — `gsBattleClose` ist seit v32.97 verdrahtet, siehe (go); es war kein Entscheid, sondern ein Defekt.)* `robust_check` C2 nennt sie seit v32.96 namentlich (Klasse `OHNE_EINSTIEG`) — sie waren vorher unsichtbar, weil ihre eigene Ausfuhr (`window.X = X`) als zweite Nennung zählte. Jede braucht eine eigene Entscheidung, **verdrahten oder entfernen**, und keine davon ist von hier aus zu treffen: `gsSafetyDefaults` (Sicherheitsnetz aus v23.45 — generische Warnung für Arten mit leerem `warning`; Verdrahten ändert den Text auf vielen Detailseiten), `openHarvestAddModal` + `gsHarvestLoadForPlant` (Reste der v28.15-Konsolidierung — die lebende Oberfläche ist `openErnteTracking`), `gsDoctorHistoryLoad`, `gsAROpen`, `gsShowNextWisdom` (die Weisheits-Karte wird gerendert, es gibt nur keinen Weiter-Knopf), **Alle sechs auf ihre Wirkung nachgemessen (08.09., nach (go)): keiner startet einen Zähler, keiner schreibt** — sie sind die Einstiege selbst, nicht zu rufen heisst, dass nichts passiert. Der gefährliche Eintrag war der eine **Teardown** (`gsBattleClose`), und der ist verdrahtet. Die sechs sind also Entscheidungen über fehlende Funktionen, keine wartenden Defekte. Bewusst **nicht** entfernt: in v31.46 verbarg sich in genau so einer Liste der Pflanzenfriedhof — eine Funktion ohne Anzeige, keine tote Zeile. |
+| **Zwei Oberflächen ohne Einstieg** | *(waren sechs — v33.05 hat jeden Eintrag einzeln auf seine WIRKUNG geprüft: zwei verdrahtet, zwei überholte entfernt, siehe (gx).)* Es bleiben `gsSafetyDefaults` — verdrahten ändert den **Sicherheitstext** vieler Detailseiten, das entscheidet kein Prüfstand — und `gsAROpen`: `ar_models` hat 30 Zeilen, davon **0 mit `gltf_url` und 0 mit `low_poly_url`** (09.09.2026, nur lesend gemessen). Es gibt kein einziges 3D-Modell; die Frage ist damit keine Code-Frage mehr, sondern ob Modelle beschafft werden. |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
 | Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
 
