@@ -1,7 +1,7 @@
 {
   "name": "GreenScan – Schweizer Pflanzen, Pilze & Natur",
   "short_name": "GreenScan",
-  "description": "KI-Scanner für 4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. Mit Garten-Tagebuch, Lichtmessung und Pflege-Erinnerungen.",
+  "description": "KI-Scanner für 3136 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. Mit Garten-Tagebuch, Lichtmessung und Pflege-Erinnerungen.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

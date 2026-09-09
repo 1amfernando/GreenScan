@@ -614,7 +614,30 @@ vielleicht schon gehört hast:
    höhere. Auch behoben; die Artenliste selbst (657 mehrfach geführte Arten)
    bleibt unverändert, dafür braucht es eine Flora, keinen Code.
 
-## 14 · Eine Entscheidung: „4'337 Arten" sind 3'136 Arten
+## 14 · ERLEDIGT in v33.04 — „4'337 Arten" sind 3'136 Arten
+
+> **Du hast am 09.09. „weiter mit den ausstehenden Sachen" gesagt. Ich habe
+> deshalb den Weg genommen, den ich unten selbst vorgeschlagen hatte — Weg 1:
+> das Wort ändern, beide Zahlen behalten.** Nichts davon ist eine Einbahn-
+> strasse: willst du lieber Weg 2 (nur „3'136 Arten") oder Weg 3, sag es, das
+> ist eine halbe Stunde.
+>
+> **Was jetzt dasteht:** wo „Arten" steht, steht **3'136**. Wo es um die Zeilen
+> der Liste geht, heisst es **„4'337 Einträge"**. Im Über-Fenster stehen beide:
+> *„3'136 Arten in 4'337 Einträgen"*. Deine grosse Zahl ist also nicht weg, sie
+> hat nur das richtige Wort bekommen.
+>
+> **Und die alte 4342 ist überall raus** — auch aus den Seitenbeschreibungen
+> für Google, aus `manifest.json` und aus `install.html`. Sie stand dort, weil
+> ich sie bewusst NICHT nachgezogen hatte, solange die Aussage noch falsch war.
+>
+> **Damit es nicht wieder veraltet:** fünf Stellen rechnen die Zahl jetzt live
+> aus der Liste (`gsArtenZahlen()`), und ein Prüfstand (`nutzersicht_check` E9)
+> zählt selbst nach und wird rot, sobald irgendwo eine Zahl neben dem falschen
+> Wort steht. **Vorher gab es dafür keinen Auslöser — deshalb stand die alte
+> Zahl monatelang da.**
+
+<details><summary>Die ursprüngliche Vorlage mit den drei Wegen (zum Nachlesen)</summary>
 
 **Nur eine Entscheidung, keine Arbeit für dich — und nichts davon ist kaputt.**
 Ich habe heute nachgezählt und die Zahl stimmt nicht mit dem Wort zusammen,
@@ -652,6 +675,13 @@ hast.
 
 Sag mir einfach welchen Weg, dann setze ich ihn in einem Rutsch um (zwölf
 Stellen in `index.html`, dazu `install.html`, dazu die vier Sprachen).
+
+</details>
+
+**Nachgemessen am 09.09.2026** (mit `_gsNormLat` aus der App, nicht geschätzt):
+4'337 Einträge · 3'136 Arten · **660** Arten mit mehr als einer Zeile · 1'201
+Zweit- und Drittnamen. Die älteren Zahlen unten (644 / 1'142) sind auf anderer
+Grundlage gemessen und bleiben als Aufzeichnung stehen.
 
 ### Ein Nebenfund aus derselben Zählung
 
