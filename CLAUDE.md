@@ -210,6 +210,21 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 - PR-basierter Merge ist Pflicht.
 
 ### 3.3 · Single Source of Truth pro Domäne
+> **Und eine ZAEHLUNG ist dasselbe Versprechen wie eine Nachschlagung**
+> (v33.06). `_gsPflanzeFinden` deckt „welche Pflanze ist das?" ab; „hat die
+> Person ueberhaupt Pflanzen?" beantwortete jede Anzeige selbst — mit
+> `myPlants.length`. Gemessen mit 0 eigenen Pflanzen und 2 Garten-Pflanzungen:
+> der Tagesplan sagte „Noch keine Pflanze", waehrend die Zeile darueber
+> „2 Aufgaben warten auf dich" zeigte und „Meine Pflanzen" „2 Pflanzen"
+> auswies. Wer eine Pflanzenzahl braucht, ruft **`gsPflanzenZahl()`**;
+> Pruefstand `nutzersicht_check` E10. Und die zwei Fallen aus dem Bau des
+> Falls: `gsRenderGardenOverview` faellt auf den `localStorage` zurueck, wenn
+> die Variable leer ist — **ein Zustand, der nur an einem der beiden Orte
+> gesetzt wird, ist nur halb hergestellt**. Und **ein Tor hinter einem anderen
+> Tor braucht seinen eigenen Zustand**: das „Erste Pflanze anlegen" der
+> Garten-Uebersicht sitzt hinter „keine Schritte" und ist unerreichbar,
+> solange Aufgaben anstehen.
+
 | Domäne | Quelle | Niemals direkt mutieren |
 |---|---|---|
 | User-Standort | `localStorage.gs_user_location` | globale Var `userLocation` (legacy alias) |

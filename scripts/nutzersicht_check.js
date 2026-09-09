@@ -335,6 +335,95 @@ const FAELLE = [
       return { ok: true, info: ARTEN + ' Arten / ' + EINTRAEGE + ' Einträge selbst gezählt · ' + gemessen + ' Live-Anzeigen stimmen · feste Texte in index.html, install.html und manifest.json geprüft' };
     },
   },
+  {
+    name: 'E10 · „Hast du Pflanzen?" wird ueberall gleich beantwortet — auch bei jemandem, der nur ein Beet hat',
+    lauf: async () => __seite.evaluate(() => {
+      // Seit v32.47 tragen Garten-Pflanzungen dieselben Aufgaben wie
+      // ps_myplants, und gsGetDueTasks rechnet ueber BEIDE Listen. Drei
+      // Anzeigen benutzten myPlants.length als TOR — und sagten „Noch keine
+      // Pflanze", waehrend die Zeile darueber die Aufgaben genau dieser
+      // Pflanzen zeigte. Der Fall stellt beide Richtungen her: nur
+      // Pflanzungen (dann darf kein Leerzustand kommen) und WIRKLICH nichts
+      // (dann MUSS er kommen — sonst waere eine Anzeige, die immer
+      // „du hast Pflanzen" sagt, ebenfalls gruen).
+      // gsRenderGardenOverview faellt auf den localStorage zurueck, wenn die
+      // Variable leer ist — der Zustand muss deshalb an BEIDEN Orten stehen.
+      // Ohne das blieb die Gegenrichtung an den drei Seed-Pflanzen haengen und
+      // meldete „Leerzustand fehlt", obwohl die Reparatur stimmte.
+      const mp0 = window.myPlants, pl0 = window.plantings, gd0 = window.gardens;
+      const sp0 = localStorage.getItem('ps_myplants'), sl0 = localStorage.getItem('gs_plantings'), sg0 = localStorage.getItem('gs_gardens');
+      const setzen = (mp, pl, gd) => {
+        window.myPlants = mp; window.plantings = pl; window.gardens = gd;
+        try {
+          localStorage.setItem('ps_myplants', JSON.stringify(mp));
+          localStorage.setItem('gs_plantings', JSON.stringify(pl));
+          localStorage.setItem('gs_gardens', JSON.stringify(gd));
+        } catch (_) {}
+      };
+      const D = 864e5, jetzt = Date.now();
+      const lesen = () => {
+        try { switchTab('home'); } catch (_) {}
+        try { gsRenderDayPlan(); } catch (_) {}
+        try { gsUpdateHomeGreeting(); } catch (_) {}
+        try { gsRenderGardenOverview(); } catch (_) {}
+        const t = (id) => { const el = document.getElementById(id); return el ? el.textContent.replace(/\s+/g, ' ').trim() : ''; };
+        return { plan: t('home-dayplan'), titel: t('home-hero-title'), garten: t('garden-overview'),
+                 faellig: (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().length : -1 };
+      };
+      try {
+        // Richtung 1 — nur ein Beet, keine eigene Pflanze
+        setzen([], [
+          { id:'nx1', gardenId:'nx-g', name:'Karotte', emoji:'🥕', date:new Date(jetzt-30*D).toISOString(),
+            tasks:{ water:{ active:true, intervalDays:2, lastDone:new Date(jetzt-9*D).toISOString() } } },
+          { id:'nx2', gardenId:'nx-g', name:'Radieschen', emoji:'🌱', date:new Date(jetzt-20*D).toISOString(),
+            tasks:{ water:{ active:true, intervalDays:3, lastDone:new Date(jetzt-3*D).toISOString() } } }
+        ], [{ id: 'nx-g', name: 'Hochbeet', kind: 'hochbeet', type: 'hochbeet', size_m2: 6 }]);
+        const beet = lesen();
+        if (beet.faellig < 1) return { ok: false, warum: 'Fall nicht hergestellt: gsGetDueTasks liefert ' + beet.faellig + ' — ohne faellige Aufgabe misst der Rest nichts' };
+        const klagen = [];
+        if (/Noch keine Pflanze/.test(beet.plan)) klagen.push('Tagesplan sagt „Noch keine Pflanze", waehrend ' + beet.faellig + ' Aufgabe(n) dieser Pflanzen anstehen');
+        if (!/Dein Garten/.test(beet.titel)) klagen.push('Ueberschrift: „' + beet.titel + '" statt „Dein Garten"');
+        if (/Erste Pflanze anlegen/.test(beet.garten)) klagen.push('Garten-Uebersicht sagt „Erste Pflanze anlegen" — im Beet stehen zwei Pflanzungen');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+
+        // Richtung 1b — dasselbe Beet, aber NICHTS faellig. Das Tor der
+        // Garten-Uebersicht sitzt hinter „keine Schritte"; solange Aufgaben
+        // anstehen, ist es unerreichbar — Richtung 1 allein wuerde eine
+        // Ruecknahme genau dort nicht bemerken.
+        setzen([], pl0 === undefined ? [] : [
+          { id:'nx3', gardenId:'nx-g', name:'Karotte', emoji:'🥕', date:new Date(jetzt-30*D).toISOString(),
+            tasks:{ water:{ active:true, intervalDays:60, lastDone:new Date(jetzt).toISOString() } } }
+        ], [{ id: 'nx-g', name: 'Hochbeet', kind: 'hochbeet', type: 'hochbeet', size_m2: 6 }]);
+        const ruhe = lesen();
+        if (ruhe.faellig !== 0) return { ok: false, warum: 'Fall 1b nicht hergestellt: ' + ruhe.faellig + ' Aufgaben faellig, erwartet 0' };
+        const klagen2 = [];
+        if (/Erste Pflanze anlegen/.test(ruhe.garten)) klagen2.push('Garten-Uebersicht sagt „Erste Pflanze anlegen", obwohl eine Pflanzung im Beet steht');
+        if (/Noch keine Pflanze/.test(ruhe.plan)) klagen2.push('Tagesplan sagt „Noch keine Pflanze" statt „Alles versorgt"');
+        if (klagen2.length) return { ok: false, warum: 'ohne faellige Aufgabe: ' + klagen2.join(' · ') };
+
+        // Richtung 2 — wirklich nichts: der Leerzustand MUSS kommen
+        setzen([], [], []);
+        const leer = lesen();
+        const fehlt = [];
+        if (!/Noch keine Pflanze/.test(leer.plan)) fehlt.push('Tagesplan zeigt den Leerzustand nicht mehr: „' + leer.plan.slice(0, 70) + '"');
+        if (/Dein Garten/.test(leer.titel)) fehlt.push('Ueberschrift sagt „Dein Garten" ohne eine einzige Pflanze');
+        if (!/Erste Pflanze anlegen/.test(leer.garten)) fehlt.push('Garten-Uebersicht zeigt den Leerzustand nicht mehr');
+        if (fehlt.length) return { ok: false, warum: 'Gegenrichtung: ' + fehlt.join(' · ') };
+
+        const n = (typeof gsPflanzenZahl === 'function') ? 'gsPflanzenZahl vorhanden' : 'KEINE gsPflanzenZahl — jede Stelle zaehlt selbst';
+        if (typeof gsPflanzenZahl !== 'function') return { ok: false, warum: n };
+        return { ok: true, info: 'nur Beet: ' + beet.faellig + ' Aufgaben, Titel „' + beet.titel + '" · Beet ohne faellige Aufgabe: kein „Erste Pflanze anlegen" · wirklich leer: alle drei Leerzustaende da' };
+      } finally {
+        window.myPlants = mp0; window.plantings = pl0; window.gardens = gd0;
+        try {
+          if (sp0 == null) localStorage.removeItem('ps_myplants'); else localStorage.setItem('ps_myplants', sp0);
+          if (sl0 == null) localStorage.removeItem('gs_plantings'); else localStorage.setItem('gs_plantings', sl0);
+          if (sg0 == null) localStorage.removeItem('gs_gardens'); else localStorage.setItem('gs_gardens', sg0);
+        } catch (_) {}
+        try { gsRenderDayPlan(); gsUpdateHomeGreeting(); } catch (_) {}
+      }
+    }),
+  },
 ];
 
 (async () => {

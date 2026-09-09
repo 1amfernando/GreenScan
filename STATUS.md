@@ -4,13 +4,68 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.05` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.06` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-09 (gy) - v33.06: „Noch keine Pflanze" ueber den Aufgaben genau dieser Pflanzen
+
+**Gefunden ueber die Frage, die diese Woche viermal getragen hat: welche
+dokumentierte Regel hat keinen Ausloeser?** CLAUDE.md sagt seit v32.47: „Ein
+`myPlants.find(…)` an einer neuen Stelle uebersieht die Haelfte der Pflanzen."
+Gezaehlt: **26 `myPlants.find(`** und **7 `_gsPflanzeFinden`**. Die
+Nachschlagungen waren alle in Ordnung (`gsQuickDone`, `gsDoneAllDue` und die
+Aufgaben-Wege gehen laengst ueber beide Listen). Die **Zaehlungen** waren es
+nicht.
+
+#### Gemessen, mit 0 eigenen Pflanzen und 2 Pflanzungen im Beet
+
+| Anzeige | sagte | daneben stand |
+|---|---|---|
+| Tagesplan (Startseite) | „Noch keine Pflanze — scanne eine" | in der Zeile DARUEBER: „2 Aufgaben warten auf dich" |
+| Ueberschrift | „Natur entdecken" | — |
+| Garten-Uebersicht | „Erste Pflanze anlegen" | zwei Pflanzungen im Beet darunter |
+| „Meine Pflanzen" | **„2 Pflanzen · 2 Heute faellig"** | (die war seit v32.50 richtig) |
+
+Die ausfuehrlichste Seite der App zaehlte richtig, die erste Seite sagte das
+Gegenteil. **Dieselbe Klasse wie v32.87** — zwei Antworten auf dieselbe Frage,
+gleichzeitig sichtbar —, nur eine Ebene frueher: hier war es nicht eine falsche
+Zahl, sondern ein **Tor**. Der Tagesplan prueft `nPlants` VOR `tasks.length`
+und kehrte um, bevor er die Aufgaben sah.
+
+#### Die Reparatur ist eine Zaehlung, nicht vier Pflaster
+
+`gsPflanzenZahl()` steht direkt neben `gsGetDueTasks` — der Funktion, die seit
+v32.47 dieselben beiden Listen liest. Vier Tore rufen sie. Wer eine
+Pflanzenzahl braucht, ruft sie; ein `myPlants.length` als Tor uebersieht die
+halbe App.
+
+**Kein Widerspruch zu v31.68.** Dort ging es um dasselbe Wort fuer zwei
+Reichweiten — „gepflanzt" (in DIESEM Beet) gegen „in Pflege" (insgesamt). Die
+Gartenkarte zaehlt weiter je Beet; die Gesamtzahl zaehlt jetzt beide Listen,
+so wie „Meine Pflanzen" es seit v32.50 tut.
+
+#### Und zwei Lehren aus dem Bau des Falls
+
+1. **Ein Zustand, der nur halb hergestellt ist, misst ab da etwas anderes, als
+   er behauptet.** `gsRenderGardenOverview` faellt auf den `localStorage`
+   zurueck, wenn die Variable leer ist. Mein erster Fall setzte nur die
+   Variablen — die Gegenrichtung blieb an den drei Seed-Pflanzen im Speicher
+   haengen und meldete „Leerzustand fehlt", obwohl die Reparatur stimmte.
+2. **Ein Tor hinter einem anderen Tor braucht seinen eigenen Zustand.** Das
+   „Erste Pflanze anlegen" der Garten-Uebersicht sitzt hinter „keine
+   Schritte" — solange Aufgaben anstehen, ist es unerreichbar. Richtung 1
+   allein waere gruen geblieben, wenn ich genau diese Stelle zurueckbaue.
+   Der Fall hat deshalb DREI Zustaende, und jede der drei Stellen wurde
+   einzeln zurueckgebaut und einzeln rot gemeldet.
+
+**Pruefstand:** `nutzersicht_check` E10 (9 Faelle). Alle 31 gruen.
+
+---
 
 ### 2026-09-09 (gx) - v33.05: zwei fertige Oberflaechen ohne Weg hinein
 
