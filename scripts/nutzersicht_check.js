@@ -178,7 +178,10 @@ const FAELLE = [
       if (/März 2026/.test(alle)) f.push('„März 2026" steht noch fest im Text');
       if (!datum || (agb.indexOf('Stand ' + datum) < 0) || (ds.indexOf('Stand ' + datum) < 0)) f.push('Stand nicht aus der Release-Liste (' + datum + ')');
       if (imp.indexOf(GS_VERSION) < 0 || imp.indexOf(datum) < 0) f.push('Impressum ohne Version/Datum');
-      const arten = Array.isArray(window.DB) ? DB.length.toLocaleString(gsLocale()) : '?';
+      // v33.04: neben der Zahl steht „Schweizer Arten" — also die ARTEN-Zahl
+      // (gsArtenZahlen), nicht DB.length; das sind die Eintraege.
+      const _az = (typeof gsArtenZahlen === 'function') ? gsArtenZahlen() : { arten: 0 };
+      const arten = _az.arten ? _az.arten.toLocaleString(gsLocale()) : '?';
       if (imp.indexOf(arten + ' Schweizer Arten') < 0) f.push('Artenzahl nicht aus der Liste (' + arten + ')');
       if (/\bSie\b|\bIhre\b|\bIhnen\b/.test(haft + ds)) f.push('Rechtstexte siezen noch: ' + ((haft + ds).match(/[^.]*\b(Sie|Ihre|Ihnen)\b[^.]*/) || [''])[0].trim().slice(0, 60));
       if (/nicht dauerhaft gespeichert/.test(ds)) f.push('Fotos-Satz behauptet noch „nicht dauerhaft gespeichert"');
@@ -210,6 +213,127 @@ const FAELLE = [
         return { ok: true, info: 'Senioren an → Kompakt aus (Klasse, Vorgabe, Haekchen) · Kompakt an → Senioren aus' + (emoji ? ' · Emojis ' + emoji.stumm + '/' + emoji.n + ' stumm' : '') };
       } finally { window.savePrefs = echtSave; window._gsPrefNachschieben = echtNach; }
     }),
+  },
+  {
+    // v33.04 — „Art" heisst Art. Die Artenliste hat 4'337 EINTRAEGE und
+    // 3'136 verschiedene Arten: jede Zeile traegt EINEN deutschen Namen, 660
+    // Arten haben mehr als eine. Der Baerlauch steht viermal drin.
+    //
+    // Die App schrieb `DB.length` LIVE neben das Wort „Arten" — an fuenf
+    // Stellen (Splash, Statistik-Kachel, Einstellungen, Ueber-Dialog,
+    // Rechtstexte) — und in siebzehn festen Texten stand dazu noch die alte
+    // 4342. Eine getippte Zahl hat keinen Ausloeser; dieser Fall ist er.
+    //
+    // Gerechnet wird hier SELBST (eigener Massstab, v32.86): der Fall ruft
+    // NICHT gsArtenZahlen(), sonst waere er ein Echo der Sache, die er prueft.
+    name: 'E9 · Zahl und Wort passen zusammen: wo „Arten" steht, steht die Artenzahl (3\'136) — wo die Zahl der Einträge steht (4\'337), heisst es auch so',
+    lauf: async () => {
+      const fs = require('fs'), path = require('path');
+      const wurzel = path.resolve(__dirname, '..');
+      const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');
+
+      // _gsNormLat woertlich aus der App holen und die Liste selbst zaehlen
+      const a = idx.indexOf('function _gsNormLat');
+      if (a < 0) return { ok: false, warum: '_gsNormLat nicht gefunden — der Fall kann nichts rechnen' };
+      const b = idx.indexOf('\n}', a);
+      let normLat;
+      try { normLat = eval('(' + idx.slice(a, b + 2).replace(/^function _gsNormLat/, 'function') + ')'); }
+      catch (e) { return { ok: false, warum: '_gsNormLat nicht auswertbar: ' + e.message.split('\n')[0] }; }
+
+      const sandkasten = { window: {} }; sandkasten.window.window = sandkasten.window;
+      try {
+        const quelle = fs.readFileSync(path.join(wurzel, 'data', 'plants.v1.js'), 'utf8');
+        new Function('window', quelle)(sandkasten.window);
+      } catch (e) { return { ok: false, warum: 'Artenliste nicht ladbar: ' + e.message.split('\n')[0] }; }
+      const roh = sandkasten.window.DB || [];
+      if (!roh.length) return { ok: false, warum: 'Artenliste leer — der Fall misst nichts' };
+
+      // dieselbe Entdopplung wie deduplicateDB: doppelte id, dann doppelte name+lat
+      const gid = new Set(), gnl = new Set(), liste = [];
+      for (const s of roh) {
+        if (!s || !s.name) continue;
+        if (s.id != null) { if (gid.has(s.id)) continue; gid.add(s.id); }
+        const nl = String(s.name).toLowerCase().trim() + '|' + String(s.lat || '').toLowerCase().trim();
+        if (gnl.has(nl)) continue;
+        gnl.add(nl); liste.push(s);
+      }
+      const artenSet = new Set();
+      for (const s of liste) { const k = s.lat ? normLat(s.lat) : ''; if (k) artenSet.add(k); }
+      const EINTRAEGE = liste.length, ARTEN = artenSet.size;
+      if (!ARTEN || ARTEN >= EINTRAEGE) return { ok: false, warum: 'Zaehlung unplausibel: ' + ARTEN + ' Arten / ' + EINTRAEGE + ' Eintraege' };
+
+      // ── 1 · feste Texte in den ausgelieferten Dateien ────────────────────
+      // Der GS_RELEASES-Block bleibt aussen vor: dort stehen historische
+      // Messungen, und die werden nicht nachtraeglich umgeschrieben.
+      const relA = idx.indexOf('window.GS_RELEASES = ['), relB = relA < 0 ? -1 : idx.indexOf('\n];', relA);
+      const dateien = [
+        ['index.html', (relA >= 0 && relB > relA) ? idx.slice(0, relA) + idx.slice(relB) : idx],
+        ['install.html', fs.readFileSync(path.join(wurzel, 'install.html'), 'utf8')],
+        ['manifest.json', fs.readFileSync(path.join(wurzel, 'manifest.json'), 'utf8')],
+      ];
+      // Zwei Fallen, beide beim ersten Lauf zugeschlagen:
+      // (1) Im QUELLTEXT stehen Escapes, keine Zeichen — `3\u2019136` und
+      //     `3\'100`. Wer daraus die Ziffern zieht, liest 2019136 bzw. 100.
+      // (2) „100 Arten-Details angesehen" ist eine AUSZEICHNUNG, keine Aussage
+      //     ueber die Groesse der Liste. Solche Stellen bleiben aussen vor;
+      //     erkannt am Bindestrich oder an einem Verb dahinter.
+      // (3) Und die BEUGUNG: `Eintraege\\b` traf „Eintraegen" NICHT — die
+      //     Dativform stand in der Seitenbeschreibung und wurde nie geprueft.
+      //     Gefunden hat es die Gegenprobe, nicht der Lauf.
+      const entEscapen = (t) => t
+        .replace(/\\u2019/g, '’').replace(/\\u00a0/gi, ' ')
+        .replace(/\\'/g, "'").replace(/\\"/g, '"');
+      const muster = /(über|ueber)?\s*(\d[\d'’.]{2,})\s*(?:<\/span>\s*)?(?:Schweizer\s+)?(Arten|Einträgen?|Eintraegen?)\b\s*(-|angesehen|gescannt|gesammelt|bestimmt|entdeckt)?/g;
+      const falsch = [];
+      for (const [name, roher] of dateien) {
+        const text = entEscapen(roher.split('\n').filter(z => !/^\s*(\/\/|\*|\/\*|<!--)/.test(z)).join('\n'));
+        let m;
+        muster.lastIndex = 0;
+        while ((m = muster.exec(text)) !== null) {
+          if (m[4]) continue;                     // Auszeichnung/Kompositum, keine Listen-Aussage
+          const gerundet = !!m[1];
+          const zahl = parseInt(String(m[2]).replace(/[^\d]/g, ''), 10);
+          const wort = /Arten/.test(m[3]) ? 'Arten' : 'Einträge';
+          const soll = wort === 'Arten' ? ARTEN : EINTRAEGE;
+          if (gerundet) {
+            // „über N" darf runden — aber nur nach UNTEN und nicht beliebig weit
+            if (!(zahl <= soll && zahl >= soll * 0.9)) falsch.push(name + ': „über ' + m[2] + ' ' + wort + '" (echt ' + soll + ')');
+          } else if (zahl !== soll) {
+            falsch.push(name + ': „' + m[2] + ' ' + wort + '" (echt ' + soll + ')');
+          }
+        }
+      }
+      if (falsch.length) return { ok: false, warum: falsch.length + ' feste Stelle(n) mit falscher Zahl oder falschem Wort: ' + falsch.slice(0, 5).join(' · ') };
+
+      // ── 2 · die LIVE gerechneten Anzeigen ────────────────────────────────
+      const live = await __seite.evaluate(() => {
+        const holen = (id) => { const el = document.getElementById(id); return el ? el.textContent.replace(/[^\d]/g, '') : null; };
+        try { if (typeof gsUpdateStats === 'function') gsUpdateStats(); } catch (_) {}
+        try { if (typeof loadSettings === 'function') loadSettings(); } catch (_) {}
+        return {
+          splash: holen('splash-count'),
+          statTotal: holen('stat-total'),
+          settings: holen('settings-arten-count'),
+          dbTotal: holen('settings-db-total'),
+          modalAbout: holen('modal-about-arten'),
+          eintraege: holen('about-eintraege-count'),
+          dbLen: (window.DB && DB.length) || 0,
+        };
+      });
+      const lebend = [];
+      for (const [id, wert] of [['splash-count', live.splash], ['stat-total', live.statTotal],
+                                ['settings-arten-count', live.settings], ['settings-db-total', live.dbTotal],
+                                ['modal-about-arten', live.modalAbout]]) {
+        if (wert == null || wert === '') continue;          // nicht gerendert — kein Befund
+        if (parseInt(wert, 10) !== ARTEN) lebend.push(id + ' zeigt ' + wert + ' neben „Arten" (echt ' + ARTEN + (parseInt(wert, 10) === EINTRAEGE ? ', das sind die Einträge' : '') + ')');
+      }
+      if (lebend.length) return { ok: false, warum: lebend.join(' · ') };
+      if (live.dbLen !== EINTRAEGE) return { ok: false, warum: 'DB.length in der Seite ist ' + live.dbLen + ', gezaehlt wurden ' + EINTRAEGE + ' — der Fall misst eine andere Liste' };
+
+      const gemessen = [live.splash, live.statTotal, live.settings, live.dbTotal, live.modalAbout].filter(x => x != null && x !== '').length;
+      if (!gemessen) return { ok: false, warum: 'keine einzige Live-Anzeige gerendert — der Fall misst nichts' };
+      return { ok: true, info: ARTEN + ' Arten / ' + EINTRAEGE + ' Einträge selbst gezählt · ' + gemessen + ' Live-Anzeigen stimmen · feste Texte in index.html, install.html und manifest.json geprüft' };
+    },
   },
 ];
 

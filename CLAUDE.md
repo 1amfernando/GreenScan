@@ -7,8 +7,12 @@
 
 ## 1 · Was ist GreenScan?
 
-Schweizer PWA für Naturbestimmung — 4'337 Arten (Pflanzen, Pilze, Bäume,
-Kräuter, Moose, Flechten, Algen). Live unter `https://green-scan.ch/` (kanonisch MIT Bindestrich; `greenscan.ch` ohne Bindestrich ist nur die Mail-Domain). Hosting:
+Schweizer PWA für Naturbestimmung — **3'136 Arten in 4'337 Einträgen**
+(Pflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen). Jede Zeile der
+Liste trägt EINEN deutschen Namen; 660 Arten haben mehr als eine, der
+Bärlauch vier. Wer eine der beiden Zahlen anzeigt, nimmt `gsArtenZahlen()`
+und schreibt das passende Wort daneben — `nutzersicht_check` E9 misst es
+(v33.04). Live unter `https://green-scan.ch/` (kanonisch MIT Bindestrich; `greenscan.ch` ohne Bindestrich ist nur die Mail-Domain). Hosting:
 **Cloudflare Pages** (`greenscan-app`) — und **zusätzlich Netlify**
 (`green-scanswitzerland`), siehe §2.1. Backend: **Supabase** (Auth, Storage,
 Postgres mit RLS).

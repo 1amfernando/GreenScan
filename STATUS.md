@@ -4,13 +4,79 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-08 · **Branch**: `main` · **Version**: `v33.03` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.04` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-09 (gw) - v33.04: „4'337 Arten" waren 3'136 Arten
+
+**Der erste der drei Punkte, die auf Fernandos Entscheidung warteten** — er hat
+„weiter mit den ausstehenden Sachen" gesagt, also habe ich den Weg genommen,
+den ich in `docs/FUER-FERNANDO.md` §14 selbst vorgeschlagen hatte (Weg 1:
+Wort aendern, beide Zahlen behalten).
+
+Selbst nachgezaehlt am 09.09.2026, mit `_gsNormLat` aus der App:
+
+| | |
+|---|---|
+| Eintraege nach der Entdopplung | **4'337** |
+| verschiedene Binomen | **3'136** |
+| Arten mit mehr als einer Zeile | **660** |
+| Zweit- und Drittnamen | **1'201** |
+
+(Die Doku sagte 644 / 1'142 — auf anderer Grundlage gemessen. Ich habe die
+heutigen Zahlen genommen und den Unterschied benannt, statt die alten
+fortzuschreiben.)
+
+- **EINE Quelle:** `gsArtenZahlen()` liefert `{eintraege, arten}` und rechnet
+  nur neu, wenn die Liste waechst. **Nicht `_gsLatIndex`** — das verlangt ein
+  Leerzeichen im Schluessel und laesst 23 Gattungs-Eintraege („Rubus sp.") und
+  26 Zeilen ohne Binomen aussen vor: 3'113 statt 3'136.
+- **Fuenf LIVE-Schreiber** schrieben `DB.length` neben das Wort „Arten" —
+  Splash, Statistik-Kachel (auch die animierte Zahl), Einstellungen, Kopf des
+  Ueber-Dialogs und die Rechtstexte. **Zwei davon habe ich erst gefunden, als
+  der neue Pruefstand sie meldete.**
+- **Siebzehn feste Texte** trugen dazu noch die alte `4342` — bis in die
+  Seitenbeschreibungen fuer Google, `manifest.json` und `install.html`.
+- **Beide Zahlen bleiben sichtbar**, jede mit ihrem Wort: im Ueber-Dialog
+  steht jetzt „3'136 Arten in 4'337 Eintraegen". Die Scanner-Vorauswahl heisst
+  „aus 4'337 **Eintraegen**" — sie engt wirklich Eintraege ein, und die
+  Live-Zahl daneben (4'337 → N) sagt dasselbe.
+
+#### Der Ausloeser: `nutzersicht_check` E9
+
+Er zaehlt die Liste **selbst** — eigener Massstab, kein Aufruf von
+`gsArtenZahlen`, sonst waere er ein Echo der Sache, die er prueft (v32.86) —
+und haelt jede Zahl neben „Arten"/„Eintraegen" dagegen: in `index.html`,
+`install.html` und `manifest.json` **und** in den Live-Anzeigen. Historische
+Messungen im `GS_RELEASES`-Block bleiben aussen vor.
+
+**E6 rechnete auf derselben falschen Grundlage** (`DB.length` neben
+„Schweizer Arten" im Impressum) und ist mit umgestellt — *Reparatur und
+Pruefung brauchen dieselbe Regel* (v32.16).
+
+#### Und die Gegenprobe hat einen Fehler in meinem Pruefstand gefunden
+
+Vier hergestellte Zustaende. Drei wurden rot wie erwartet. Der vierte — die
+Zahl neben „Eintraegen" faelschlich auf die Artenzahl gesetzt — blieb
+**gruen**:
+
+> `Eintraege\b` trifft „Eintraegen" **nicht**. Die Dativform stand in der
+> Seitenbeschreibung, und mein Muster hat sie nie gesehen.
+
+Der Fall war also von Anfang an halb blind, und der Lauf haette es nie
+gezeigt. **Eine Gegenprobe, die nur bestaetigt, was man erwartet, ist keine**
+— erst der Zustand, der gruen blieb, war die Aussage.
+
+Dazu ein Ablauf-Fehler von mir: eine Ersetzung im Pruefstand ging still
+daneben (falsch geschachtelte Backslashes im Heredoc), und weil kein `&&`
+dahinter stand, lief die Gegenprobe auf der **unveraenderten** Datei — und
+meldete brav dasselbe Ergebnis wie davor. *Nach jeder Aenderung nachsehen, ob
+sie angekommen ist* (dieselbe Lehre wie in v32.24).
 
 ### 2026-09-08 (gv) - v33.03: drei Stellen sagten „gespeichert", ohne nachzusehen
 
