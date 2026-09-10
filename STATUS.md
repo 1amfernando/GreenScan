@@ -4,13 +4,60 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.09` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.10` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (he) - v33.10: der Plan wird zum Kalender (PLANER-V3 N8)
+
+**Richtungswechsel auf Fernandos Wunsch: aufbauen statt nur reparieren.**
+Angesetzt wurde nicht bei einer Idee aus dem Nichts, sondern bei dem, was das
+Repo selbst vorgesehen hat — `docs/PLANER-V3.md` §5 fuehrt Stufe 5 als
+„pruefbar von hier: ja" und **unbebaut**: N8 Kalender-Termine, N10
+Jahresvorlage, N7 Preistabelle.
+
+#### Der Befund vor dem Bau
+
+Ein gespeicherter Plan traegt je Pflanze `sow_date`, `harvest_from`,
+`harvest_to` und eine `timeline` mit Wochen — und erzeugte **keinen einzigen
+Termin**. `gsKalenderEreignisse` kannte die Art `aussaat` (Rang 5,
+Beschriftung „Aussaatfenster") — gemessen: **0 Stellen** im Quelltext
+erzeugen sie. Eine Ereignisart, die es gibt, ohne dass sie je vorkommt.
+
+#### Was gebaut ist
+
+`gsPlanEreignisse(von, bis)` — eine **Quelle** der einen Kalenderfunktion
+(KALENDER-V1: EINE Frage, EINE Funktion), keine eigene Ansicht:
+
+| aus dem Plan | wird zu | Art |
+|---|---|---|
+| `sow_date` | „Tomate säen" mit Saattiefe und Abstand im Grund | `aussaat` |
+| `harvest_from` / `harvest_to` | „Erntefenster beginnt / endet" | `ernte` |
+| `timeline[].week` | Montag der ISO-Woche im Plan-Jahr | `erinnerung` |
+
+Jeder Termin traegt `quelle: 'plan'`, den Plannamen im `grund` und einen
+Verweis auf „Meine Plaene". Dublettensperre Art·Datum·Name — ein Plan steht
+nach dem Cloud-Abgleich zweimal in der Liste (`plan-…` und `gp_…`).
+
+**Bewusst nicht gebaut:** `careSchedule` („taeglich giessen 06-08") ist ein
+Intervall, kein Termin — das wuerde jeden Tag eine Zeile erzeugen und gehoert
+als Aufgabe an die Pflanze (v32.47). Und ein Plan ohne Datumsfelder bekommt
+kein erfundenes Jahr (CLAUDE.md §4a: lieber keine Angabe als eine erfundene).
+
+#### Pruefstand
+
+`kalender_check` Fall „Plan": ein Musterplan im Uhr-Jahr liefert 3 Aussaaten,
+6 Erntefenster-Grenzen, 3 Zeitleisten-Schritte auf Montagen; der Grund nennt
+Plan und Saattiefe; die Tagesliste zeigt die Zeile; der doppelt gespeicherte
+Plan verdoppelt nichts; ein Plan ohne Daten liefert nichts. **Und der Fall
+„Ohne Daten" raeumt jetzt auch `gs_garden_plans`** — CLAUDE.md §7.1: eine
+Quelle, die er stehen laesst, macht ihn rot. Genau das ist beim Bau passiert.
+
+---
 
 ### 2026-09-10 (hd) - v33.09: touch_check hat 43 Fenster nie angesehen
 
@@ -11804,7 +11851,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.09` (Client) · SW-Cache `gs-v33.09` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.10` (Client) · SW-Cache `gs-v33.10` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

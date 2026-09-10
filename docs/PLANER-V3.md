@@ -427,3 +427,22 @@ immer laufende Runde (`_gsPlanBeetZuordnung`).
 Varianten-Vergleich (Ertrag / pflegeleicht / Bienen, drei KI-Läufe) ·
 Nährstoffklassen in der Referenz, falls sie je dazukommen — dann wird aus R12
 eine echte Fruchtfolge-Empfehlung statt nur einer Familien-Prüfung.
+
+## 12 · Was in v33.10 dazukam — N8 · Der Plan wird zum Kalender (Stufe 5, erster Teil)
+
+Vor dem Bau gemessen: `gsKalenderEreignisse` kannte die Art `aussaat`, und
+**keine Stelle im Quelltext erzeugte sie.** Ein gespeicherter Plan mit
+`sow_date`, `harvest_from/to` und `timeline` erzeugte null Termine.
+
+`gsPlanEreignisse(von, bis)` ist jetzt eine Quelle der einen Kalenderfunktion
+(KALENDER-V1) — `sow_date` → `aussaat`, `harvest_from/to` → `ernte` (Beginn und
+Ende), `timeline.week` → `erinnerung` am ISO-Montag des Plan-Jahres. Jeder
+Termin nennt seinen Plan und fuehrt zu „Meine Plaene"; die Plan-Kachel dort
+zeigt „📅 N Termine" aus derselben Rechnung.
+
+**Nicht hinein:** `careSchedule` — ein Intervall, kein Termin (gehoert als
+Aufgabe an die Pflanze). **Noch offen in Stufe 5:** N4 haelt die Termine
+aktuell, wenn der Plan altert; N10 Jahresvorlage mit Versatz; N7 Preistabelle.
+
+Pruefstand: `kalender_check` Fall „Plan" (beide Richtungen, Dublette,
+Anzeige) und der Fall „Ohne Daten" raeumt die fuenfte Quelle.
