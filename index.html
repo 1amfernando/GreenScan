@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.09.20260910">
+<meta name="app-version" content="33.10.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28063,6 +28063,75 @@ function gsTagebuchAlle() {
 }
 window.gsTagebuchAlle = gsTagebuchAlle;
 
+// ── v33.10 · PLANER-V3 N8: DER PLAN WIRD ZUM KALENDER ─────────────────────
+//
+// Ein gespeicherter Plan (gs_garden_plans) traegt je Pflanze `sow_date`,
+// `harvest_from`, `harvest_to` und dazu eine `timeline` mit Wochen — und
+// erzeugte bis v33.09 KEINEN einzigen Termin. Der Kalender kannte die Art
+// `aussaat` sogar (Rang 5, Beschriftung „Aussaatfenster"), nur lieferte sie
+// niemand. Das ist die Regel aus KALENDER-V1: EINE Frage („was ist an diesem
+// Tag?"), EINE Funktion — also ist der Plan hier eine QUELLE von
+// gsKalenderEreignisse, keine eigene Ansicht.
+//
+// Was RECHNET (Code, offline pruefbar): die Termine aus den Datumsfeldern.
+// Was NICHT hier steht: careSchedule („taeglich giessen 06-08") — das ist ein
+// Intervall, keine Termine, und wuerde jeden Tag eine Zeile erzeugen; es
+// gehoert als Aufgabe an die Pflanze (v32.47), nicht in den Kalender.
+// Jeder Termin sagt, woher er weiss, was er weiss (quelle: 'plan', grund).
+// Ein Plan, der zweimal gespeichert ist (LS + Cloud-Abgleich mit gp_-Id),
+// erzeugt denselben Termin nur einmal (Schluessel Art·Datum·Name).
+function _gsIsoWocheMontag(jahr, woche) {
+  // ISO-8601: Woche 1 enthaelt den 4. Januar; Montag = Beginn.
+  var vierter = new Date(jahr, 0, 4);
+  var tag = (vierter.getDay() + 6) % 7;                 // Mo=0 … So=6
+  var montag1 = new Date(jahr, 0, 4 - tag);
+  return new Date(montag1.getFullYear(), montag1.getMonth(), montag1.getDate() + (woche - 1) * 7);
+}
+function gsPlanEreignisse(von, bis) {
+  var out = [];
+  try {
+    var plaene = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
+    if (!Array.isArray(plaene) || !plaene.length) return out;
+    var im = function (tag) { return !!tag && tag >= von && tag <= bis; };
+    var kurz = function (tag) { try { var p = String(tag).split('-'); return p[2] + '.' + p[1] + '.'; } catch (_) { return tag; } };
+    var seen = {};
+    var push = function (art, datum, emoji, titel, grund, pe) {
+      var k = art + ':' + datum + ':' + titel;
+      if (seen[k]) return; seen[k] = 1;
+      out.push({ id: 'plan:' + art + ':' + (pe.id || '') + ':' + datum + ':' + titel.slice(0, 24), art: art, datum: datum, zeit: null, ts: null,
+        titel: titel, emoji: emoji, pflanze: null, garten_id: null, quelle: 'plan', status: 'info', faellig_seit: null,
+        verweis: { fn: 'gsPPopenSavedPlans', args: [] }, grund: grund });
+    };
+    plaene.forEach(function (pe) {
+      var plan = pe && pe.plan; if (!plan || !Array.isArray(plan.plants)) return;
+      var name = String(pe.title || plan.summary || 'Garten-Plan').replace(/^Plan vom [^·]*·\s*/, '').slice(0, 40).trim() || 'Garten-Plan';
+      var herkunft = 'aus dem Plan „' + name + '"';
+      var jahr = null;
+      plan.plants.forEach(function (pl) {
+        if (!pl || !pl.name) return;
+        var sd = _gsKalTag(pl.sow_date), hf = _gsKalTag(pl.harvest_from), ht = _gsKalTag(pl.harvest_to);
+        if (sd && !jahr) jahr = +sd.slice(0, 4);
+        if (sd && im(sd)) push('aussaat', sd, pl.icon || '🌱', pl.name + ' säen', herkunft + (pl.depth_cm ? ' · ' + pl.depth_cm + ' cm tief' : '') + (pl.spacing_cm ? ' · Abstand ' + pl.spacing_cm + ' cm' : ''), pe);
+        if (hf && im(hf)) push('ernte', hf, '🧺', pl.name + ' — Erntefenster beginnt', herkunft + (ht ? ' · bis ' + kurz(ht) : ''), pe);
+        if (ht && im(ht) && ht !== hf) push('ernte', ht, '🧺', pl.name + ' — Erntefenster endet', herkunft + (hf ? ' · seit ' + kurz(hf) : ''), pe);
+      });
+      // Die Zeitleiste des Plans: Wochen werden zu Montagen des Plan-Jahres.
+      // Das Jahr kommt NUR aus den Datumsfeldern des Plans. Mein erster
+      // Anlauf riet es aus dem Speicherdatum — und der Pruefstand meldete
+      // prompt: „der Plan OHNE Datumsfelder hat Termine erzeugt — ein
+      // erfundenes Jahr". CLAUDE.md §4a: lieber keine Angabe als eine erfundene.
+      if (jahr && Array.isArray(plan.timeline)) plan.timeline.forEach(function (t) {
+        if (!t || !t.action) return;
+        var w = parseInt(t.week, 10); if (!isFinite(w) || w < 1 || w > 53) return;
+        var d = _gsKalTag(_gsIsoWocheMontag(jahr, w)); if (!d || !im(d)) return;
+        push('erinnerung', d, '📋', (t.who ? t.who + ': ' : '') + t.action, herkunft + ' · Woche ' + w + (t.moon_phase ? ' · Mond ' + t.moon_phase : ''), pe);
+      });
+    });
+  } catch (_) {}
+  return out;
+}
+window.gsPlanEreignisse = gsPlanEreignisse;
+
 function gsKalenderEreignisse(von, bis) {
   var out = [];
   var heute = gsHeuteTag();
@@ -28198,6 +28267,8 @@ function gsKalenderEreignisse(von, bis) {
       });
     }
   } catch (_) {}
+  // v33.10: die Plaene (PLANER-V3 N8) — siehe gsPlanEreignisse oberhalb.
+  try { gsPlanEreignisse(von, bis).forEach(function (e) { out.push(e); }); } catch (_) {}
   var rang = { aufgabe: 0, alarm: 1, erinnerung: 2, tagebuch: 3, gepflanzt: 4, aussaat: 5, ernte: 6, messung: 7, wetter: 8 };
   out.sort(function (a, b) {
     if (a.datum !== b.datum) return a.datum < b.datum ? -1 : 1;
@@ -70502,6 +70573,14 @@ async function gsPPopenSavedPlans() {
             (nPlants ? '<span>🌱 ' + nPlants + ' Arten</span>' : '') +
             (bedW && bedL ? '<span>📐 ' + bedW + '×' + bedL + ' m</span>' : '') +
             (pl.climateZone ? '<span>🌍 ' + (typeof escHtml==='function'?escHtml(pl.climateZone):pl.climateZone) + '</span>' : '') +
+            // v33.10 (N8): wie viele Termine dieser Plan in den Kalender legt —
+            // dieselbe Rechnung wie der Kalender selbst, ueber das ganze Plan-Jahr.
+            (function(){ try {
+              var _pj = null; (pl.plants||[]).some(function(x){ var d = x && _gsKalTag(x.sow_date); if (d) { _pj = d.slice(0,4); return true; } return false; });
+              if (!_pj) return '';
+              var _alle = gsPlanEreignisse(_pj + '-01-01', _pj + '-12-31').filter(function(e){ return e.id.indexOf('plan:') === 0 && e.id.indexOf(':' + p.id + ':') > 0; }).length;
+              return _alle ? '<span title="' + _pj + '">📅 ' + _alle + ' Termine</span>' : '';
+            } catch(_) { return ''; } })() +
           '</div>' +
           '<button onclick="gsPPloadSavedPlan(\'' + p.id + '\')" style="width:100%;padding:9px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📂 Plan wieder öffnen</button>' +
         '</div>';
@@ -74237,6 +74316,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.10', date: '10.09.2026',
+      headline: 'Der Plan wird zum Kalender — PLANER-V3 N8, Stufe 5',
+      summary: 'Ein gespeicherter Garten-Plan trägt je Pflanze Aussaat- und Erntedaten und eine Wochen-Zeitleiste — und erzeugte bis heute keinen einzigen Termin. Der Kalender kannte die Art „Aussaatfenster" sogar, nur lieferte sie niemand. Jetzt ist der Plan eine Quelle der einen Kalenderfunktion, mit Herkunft an jedem Termin.',
+      user_summary: 'Deine gespeicherten Garten-Pläne stehen jetzt im Kalender: Aussaat, Erntefenster und die Schritte der Zeitleiste — jeder Termin sagt, aus welchem Plan er kommt.',
+      user_items: [
+        {emoji:'🌱', text:'Säen, Auspflanzen, Erntebeginn und -ende aus deinem Plan erscheinen als Termine im Kalender und in „Heute zu tun".'},
+        {emoji:'📋', text:'Die Zeitleiste des Plans (Woche 14: Vorkultur ansetzen …) wird zu Erinnerungen am jeweiligen Montag.'},
+        {emoji:'📂', text:'Jeder Termin nennt seinen Plan und führt mit einem Tipp zu „Meine Pläne".'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsPlanEreignisse(von, bis):', text:' liest gs_garden_plans, rechnet sow_date → aussaat, harvest_from/to → ernte (Beginn und Ende), timeline.week → erinnerung am ISO-Montag des Plan-Jahres. Eingehängt in gsKalenderEreignisse vor dem Sortieren — EINE Frage, EINE Funktion (KALENDER-V1). Dublettensperre Art·Datum·Name, weil ein Plan nach dem Cloud-Abgleich zweimal in der Liste stehen kann.'},
+        {emoji:'🚫', bold:'Was bewusst NICHT hinein kommt:', text:' careSchedule („täglich giessen 06-08") ist ein Intervall, kein Termin — das würde jeden Tag eine Zeile erzeugen und gehört als Aufgabe an die Pflanze. Und ein Plan ohne Datum bekommt kein erfundenes Jahr.'},
+        {emoji:'🧪', bold:'kalender_check:', text:' neuer Fall „Plan" — ein Musterplan liefert 3 Aussaaten, 6 Erntefenster-Grenzen, 3 Zeitleisten-Schritte, jeder mit quelle „plan" und dem Plannamen im Grund; die Tagesliste zeigt die Zeile; ein Plan ohne Daten liefert nichts; der Fall „Ohne Daten" räumt jetzt auch gs_garden_plans — sonst wäre er rot geworden (CLAUDE.md: eine Quelle, die er stehen lässt, macht ihn rot).'}
+      ],
+    },
+  {
     v: 'v33.09', date: '10.09.2026',
       headline: 'touch_check hat 43 Fenster nie angesehen — jetzt schon, und dabei die WCAG-Regel richtiggestellt',
       summary: 'Der Prüfstand für Antippflächen mass nur die elf Bildschirme. Die 43 Fenster darüber hat nie jemand vermessen. Beim Öffnen aller Fenster kam heraus: 22 zu kleine Ziele, davon 21 durch Abstand konform — die Ausnahme, die WCAG 2.5.8 vorsieht und die der Prüfstand nicht kannte. Ein echter Fund blieb übrig.',
@@ -74637,7 +74732,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.09';
+var GS_VERSION = 'v33.10';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

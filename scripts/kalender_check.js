@@ -670,12 +670,13 @@ const FAELLE = [
       // Beispieldaten ein Geraet tragen, macht eine stehen gelassene Quelle den
       // Fall rot (CLAUDE.md §7.1: „eine, die er stehen laesst, macht ihn rot").
       const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch'), cloud: localStorage.getItem('gs_garden_diary_cache'),
-        ger: localStorage.getItem('gs_geraete'), mw: localStorage.getItem('gs_messwerte'), rg: localStorage.getItem('gs_geraete_regeln') };
+        ger: localStorage.getItem('gs_geraete'), mw: localStorage.getItem('gs_messwerte'), rg: localStorage.getItem('gs_geraete_regeln'),
+        pla: localStorage.getItem('gs_garden_plans') };   // v33.10: fuenfte Quelle — die Plaene
       try {
         myPlants = []; if (typeof plantings !== 'undefined') plantings = [];
         localStorage.setItem('gs_gartentagebuch', '[]'); gsTagebuchLoad(true);
         localStorage.removeItem('gs_garden_diary_cache');
-        ['gs_geraete', 'gs_messwerte', 'gs_geraete_regeln'].forEach(k => localStorage.removeItem(k));
+        ['gs_geraete', 'gs_messwerte', 'gs_geraete_regeln', 'gs_garden_plans'].forEach(k => localStorage.removeItem(k));
         const ev = gsKalenderEreignisse(gsHeuteTag(), _gsKalTagPlus(gsHeuteTag(), 30));
         if (ev.length) return { ok: false, warum: ev.length + ' Ereignisse ohne jede Datengrundlage' };
         gsKalenderOeffnen();
@@ -689,6 +690,61 @@ const FAELLE = [
         if (sichern.ger != null) localStorage.setItem('gs_geraete', sichern.ger);
         if (sichern.mw != null) localStorage.setItem('gs_messwerte', sichern.mw);
         if (sichern.rg != null) localStorage.setItem('gs_geraete_regeln', sichern.rg);
+        if (sichern.pla != null) localStorage.setItem('gs_garden_plans', sichern.pla);
+      }
+    },
+  },
+  {
+    name: 'Plan · ein gespeicherter Garten-Plan wird zum Kalender: Aussaat, Erntefenster, Zeitleiste — mit Herkunft; ohne Daten nichts',
+    lauf: () => {
+      // v33.10 · PLANER-V3 N8. Der Fall laeuft IN der Seite (die Uhr steht auf
+      // dem 01.09.2025), also ist der Musterplan hier ein Literal und traegt
+      // Daten des Uhr-Jahres. Beide Richtungen: der Plan MUSS Termine liefern,
+      // und ein Plan ohne Datumsfelder DARF keine liefern.
+      const J = gsHeuteTag().slice(0, 4);
+      const alt = localStorage.getItem('gs_garden_plans');
+      try {
+        const plan = {
+          summary: 'Musterplan fuer den Kalender-Fall', bed: { width_m: 4, length_m: 3 },
+          plants: [
+            { name: 'Tomate', icon: '🍅', sow_date: J + '-04-05', harvest_from: J + '-07-15', harvest_to: J + '-09-30', depth_cm: 2, spacing_cm: 60 },
+            { name: 'Kohlrabi', icon: '🥬', sow_date: J + '-04-01', harvest_from: J + '-06-15', harvest_to: J + '-07-10' },
+            { name: 'Buschbohne', icon: '🫘', sow_date: J + '-05-15', harvest_from: J + '-07-25', harvest_to: J + '-09-05' },
+          ],
+          timeline: [ { week: 14, action: 'Vorkultur ansetzen', who: 'Tomate' }, { week: 20, action: 'Auspflanzen', who: 'Tomate' }, { week: 30, action: 'Erste Ernte', who: 'Buschbohne' } ],
+        };
+        // Zweimal derselbe Plan (LS + Cloud-Abgleich mit gp_-Id) — darf nichts verdoppeln
+        localStorage.setItem('gs_garden_plans', JSON.stringify([
+          { id: 'plan-1', created: J + '-03-01T10:00:00.000Z', title: 'Plan vom 01.03. · Sonnenbeet', plan: plan },
+          { id: 'gp_plan-1', created: J + '-03-01T10:00:00.000Z', title: 'Plan vom 01.03. · Sonnenbeet', plan: plan },
+          { id: 'plan-leer', created: J + '-03-02T10:00:00.000Z', title: 'Ohne Daten', plan: { summary: 'nur Text', plants: [{ name: 'Salat' }], timeline: [{ week: 22, action: 'irgendwas' }] } },
+        ]));
+        const ev = gsKalenderEreignisse(J + '-01-01', J + '-12-31').filter(e => e.quelle === 'plan');
+        const aussaat = ev.filter(e => e.art === 'aussaat'), ernte = ev.filter(e => e.art === 'ernte'), erinn = ev.filter(e => e.art === 'erinnerung');
+        const klagen = [];
+        if (aussaat.length !== 3) klagen.push('Aussaat: ' + aussaat.length + ' statt 3 (Dublette oder Luecke)');
+        if (ernte.length !== 6) klagen.push('Erntefenster-Grenzen: ' + ernte.length + ' statt 6');
+        if (erinn.length !== 3) klagen.push('Zeitleiste: ' + erinn.length + ' statt 3');
+        const tom = aussaat.find(e => /Tomate/.test(e.titel));
+        if (!tom || tom.datum !== J + '-04-05') klagen.push('Tomate saeen nicht am ' + J + '-04-05: ' + (tom && tom.datum));
+        if (tom && !/Sonnenbeet/.test(tom.grund)) klagen.push('Grund nennt den Plan nicht: „' + (tom && tom.grund) + '"');
+        if (tom && !/2 cm tief/.test(tom.grund)) klagen.push('Grund nennt die Saattiefe nicht');
+        const w14 = erinn.find(e => /Vorkultur/.test(e.titel));
+        // ISO-Woche 14 beginnt an einem Montag — der Termin muss ein Montag sein
+        if (w14) { const d = new Date(w14.datum + 'T12:00:00'); if (d.getDay() !== 1) klagen.push('Woche-14-Termin liegt nicht auf einem Montag: ' + w14.datum); }
+        else klagen.push('Zeitleisten-Schritt „Vorkultur ansetzen" fehlt');
+        if (ev.some(e => /Salat|irgendwas/.test(e.titel))) klagen.push('der Plan OHNE Datumsfelder hat Termine erzeugt — ein erfundenes Jahr');
+        if (ev.some(e => !e.verweis || e.verweis.fn !== 'gsPPopenSavedPlans')) klagen.push('ein Plan-Termin fuehrt nicht zu „Meine Plaene"');
+        // Anzeige: die Tagesliste am Aussaat-Tag zeigt die Zeile mit Grund
+        gsKalenderOeffnenAm(J + '-04-05');
+        const t = (document.getElementById('modal-content') || {}).textContent || '';
+        if (!/Tomate säen/.test(t)) klagen.push('Tagesliste am ' + J + '-04-05 zeigt „Tomate säen" nicht');
+        if (!/Sonnenbeet/.test(t)) klagen.push('Tagesliste nennt den Plan nicht');
+        try { closeModal('detail-modal'); } catch (_) {}
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: aussaat.length + ' Aussaaten · ' + ernte.length + ' Erntefenster-Grenzen · ' + erinn.length + ' Zeitleisten-Schritte (Montage) · Dublette einmal · Plan ohne Daten: 0 · Tagesliste zeigt Tomate saeen mit Plan' };
+      } finally {
+        if (alt == null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', alt);
       }
     },
   },
