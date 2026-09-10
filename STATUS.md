@@ -4,13 +4,57 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.12` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.13` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hh) - v33.13: Aussaatfenster im Kalender — Kulturdaten, nicht Sammelsaison
+
+**Vierter Baustein, und der mit einer Korrektur am eigenen Entwurf.**
+KALENDER-V1 §6 fuehrte Stufe 2b als offen: *„Aussaatfenster aus den
+Artendaten (`gsSaisonMonate` auf `season`)"*. Vor dem Bau gemessen: `season`
+steht bei **2'907 von 4'342** Eintraegen — die haeufigsten Werte sind
+„Jun–Aug", „Jun–Sep", „Aug–Nov"; 641 davon sind Pilze, 818 Wildpflanzen.
+Das ist eine **Sammel- oder Erntesaison**, kein Aussaatfenster. Wer daraus
+„saeen" macht, behauptet etwas, das die Daten nicht sagen (§4a: lieber keine
+Angabe als eine erfundene).
+
+Die ehrliche Quelle gab es laengst: `GS_SAE_DB`, die 39 Kulturen des
+Schweizer Aussaatkalenders mit `indoor`/`outdoor` je Monat — der
+Saekalender-Bildschirm zeigt sie seit jeher, nur nie am Tag, an dem es so
+weit ist.
+
+#### Was gebaut ist
+
+`gsAussaatEreignisse(von, bis)` — Quelle der einen Kalenderfunktion: je
+Pflanze beider Listen die Kultur ueber den **bestehenden** Matcher
+(`_gsKulturZuPflanze`: PLANT_DB, Name ±n oder lateinisch), dann `GS_SAE_DB.n`
+direkt, dazu eine kleine Bruecke fuer Schweizer und deutsche Namen DERSELBEN
+Kultur (Rueebli/Karotten ↔ Moehren, Lauch ↔ Porree, Randen ↔ Rote Bete,
+Stielmangold ↔ Mangold) — keine Botanik, nur Synonyme. Je Monat ein
+`info`-Ereignis am 1. („vorziehen (drinnen)" / „saeen (draussen)"), Grund
+nennt Kalender, Lagen und Tipp, Verweis auf den Saekalender. Ohne Treffer
+kein Ereignis (Regel 5).
+
+**Und der Pruefstand hat den ersten Anlauf erwischt:** „Zucchini: 6 statt 3".
+Die Beispieldaten haben ZWEI Zucchini — eine in „Meine Pflanzen", eine als
+Garten-Pflanzung — und mein Code legte je Pflanze eigene Zeilen an. Zehn
+Tomaten haetten zehn identische Zeilen pro Monat bedeutet. **Ein
+Aussaatfenster gehoert zur KULTUR, nicht zur einzelnen Pflanze:** jetzt eine
+Zeile je Kultur und Monat, und die Zeile sagt „betrifft: Zucchini (Balkon),
+Zucchini (Beet)". Dieselbe Sorte Fehler wie die Dublette der Plaene in
+v33.10 — nur hat sie diesmal der Fall gefunden, nicht ich.
+
+**Pruefstand:** `kalender_check` Fall „Aussaat" — Basilikum und Zucchini
+bekommen genau ihre Fenster, Monstera keins, Rueebli wird Moehren, und die
+**Heidelbeere mit `season`** bekommt NICHTS: die Gegenrichtung zur
+Datenfrage, damit niemand die Sammelsaison je wieder als Aussaat einbaut.
+
+---
 
 ### 2026-09-10 (hg) - v33.12: der Plan als Jahresvorlage (PLANER-V3 N10)
 
@@ -11950,7 +11994,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.12` (Client) · SW-Cache `gs-v33.12` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.13` (Client) · SW-Cache `gs-v33.13` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
