@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.18.20260910">
+<meta name="app-version" content="33.19.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5711,6 +5711,10 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 /* v32.46 — Kalender (docs/KALENDER-V1.md). Nur Merkmale, keine festen
    Farben auf Themenflaechen; die Punkte tragen die Ereignisart. */
 .gs-dp-kal{margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);padding:4px 8px;font-size:var(--fs-md);cursor:pointer;line-height:1;color:var(--text);font-family:inherit;}
+/* v33.19: „Heute im Kalender" unter der Tagesplan-Karte */
+.gs-dp-kal-heute{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--elev-1);font-size:var(--fs-sm);color:var(--text2);cursor:pointer;font-family:inherit;text-align:left;-webkit-tap-highlight-color:transparent;}
+.gs-dp-kal-heute-lbl{font-weight:800;color:var(--text);white-space:nowrap;}
+.gs-dp-kal-heute-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* ^ v32.48: ohne `color` erbte der Knopf im Kalender Schwarz — auf der dunklen
    Karte 1,35:1 (contrast_check, Dunkelmodus). Ein Knopf traegt seine Textfarbe
    selbst, nicht die Hoffnung auf den Vorfahren. */
@@ -28682,6 +28686,30 @@ window.gsGiessZettelDrucken = function(){
     return html;
   } catch(_){ return ''; }
 };
+// v33.19: was der Kalender fuer HEUTE ausser den Aufgaben kennt —
+// Aussaatfenster (v33.13), Plan-Termine (v33.10), Erntefenster, Erinnerungen,
+// Frost und Regen, Alarme — stand bis dahin NUR im Kalender. Die Startseite
+// zeigte Aufgaben; wer heute saeen konnte, erfuhr es nicht. Jetzt eine Zeile
+// unter „Heute zu tun": dieselbe Antwort wie der Kalender
+// (gsKalenderEreignisse, KALENDER-V1 Regel 1), nur der heutige Tag, nur die
+// Arten, die KEINE Aufgabe sind (die stehen als Zeilen darueber) und kein
+// Rueckblick (Tagebuch, Gepflanzt, Messwerte). Ohne Ereignis keine Zeile
+// (Regel 5). Antippen oeffnet den Kalender am heutigen Tag.
+var _GS_DP_KAL_ARTEN = { aussaat: 1, ernte: 1, erinnerung: 1, alarm: 1, wetter: 1 };
+function _gsDayPlanKalender(esc) {
+  try {
+    var h = gsHeuteTag();
+    var ev = (gsKalenderEreignisse(h, h) || []).filter(function (e) { return e && _GS_DP_KAL_ARTEN[e.art]; });
+    if (!ev.length) return '';
+    var namen = ev.slice(0, 3).map(function (e) { return (e.emoji ? e.emoji + ' ' : '') + esc(e.titel || ''); });
+    var rest = ev.length - namen.length;
+    var mehr = rest <= 0 ? '' : ' · ' + (rest === 1 ? _gsSatz('+1 weiterer Eintrag') : _gsSatz('+{1} weitere Einträge', rest));
+    return '<button type="button" class="gs-dp-kal-heute" data-n="' + ev.length + '" onclick="gsKalenderOeffnenAm(gsHeuteTag())" aria-label="' + esc(_gsSatz('Heute im Kalender')) + '">' +
+      '<span class="gs-dp-kal-heute-lbl">📅 ' + esc(_gsSatz('Heute im Kalender')) + '</span>' +
+      '<span class="gs-dp-kal-heute-txt">' + namen.join(' · ') + mehr + '</span>' +
+      '<span aria-hidden="true">→</span></button>';
+  } catch (_) { return ''; }
+}
 window.gsRenderDayPlan = function(){
   var el = document.getElementById('home-dayplan');
   if (!el) return;
@@ -28725,13 +28753,15 @@ window.gsRenderDayPlan = function(){
       '<div class="gs-dp-empty"><b>Noch keine Pflanze</b>Scanne eine — danach steht hier jeden Tag, was ansteht.' +
       '</div><button type="button" class="gs-dp-all" style="border-top:none;padding-left:2px;"' +
       ' onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\')">' +
-      '<span>Erste Pflanze scannen</span><span aria-hidden="true">→</span></button>';
+      '<span>Erste Pflanze scannen</span><span aria-hidden="true">→</span></button>' +
+      _gsDayPlanKalender(esc);   // v33.19: ein Plan-Termin oder Frost gilt auch ohne Pflanze
     return;
   }
   if (!tasks.length) {
     el.innerHTML = head(0) +
       '<div class="gs-dp-empty"><b>Alles versorgt</b>In den nächsten Tagen steht nichts an — deine ' + nPlants +
-      ' Pflanze' + (nPlants === 1 ? '' : 'n') + ' ' + (nPlants === 1 ? 'ist' : 'sind') + ' auf Kurs.</div>';
+      ' Pflanze' + (nPlants === 1 ? '' : 'n') + ' ' + (nPlants === 1 ? 'ist' : 'sind') + ' auf Kurs.</div>' +
+      _gsDayPlanKalender(esc);   // v33.19: „auf Kurs" heisst nicht „nichts im Kalender"
     return;
   }
 
@@ -28760,7 +28790,8 @@ window.gsRenderDayPlan = function(){
     '<div class="gs-dp-card">' + rows +
       '<button type="button" class="gs-dp-all" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">' +
         '<span>Alle Aufgaben anzeigen</span><span aria-hidden="true">→</span></button>' +
-    '</div>';
+    '</div>' +
+    _gsDayPlanKalender(esc);   // v33.19
 };
 
 
@@ -74600,6 +74631,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.19', date: '10.09.2026',
+      headline: '„Heute im Kalender" auf der Startseite — Aussaatfenster, Plan-Termine und Frost unter „Heute zu tun"',
+      summary: 'Die Startseite zeigte nur Aufgaben; was der Kalender sonst für heute kennt — ein Aussaatfenster, ein Plan-Termin, Frost, ein Alarm — stand nur im Kalender. Jetzt eine Zeile darunter, aus derselben Kalenderfunktion.',
+      user_summary: 'Unter „Heute zu tun" siehst du jetzt, was der Kalender für heute sonst noch kennt — zum Beispiel „Feldsalat säen (draussen)" oder einen Termin aus deinem Plan. Antippen öffnet den Kalender am heutigen Tag.',
+      user_items: [
+        {emoji:'📅', text:'„Heute im Kalender: 🌱 Feldsalat säen (draussen) · 🌱 Spinat säen · +2 weitere Einträge" — nur, wenn es etwas gibt.'},
+        {emoji:'🧮', text:'Die Zahl im Titel bleibt die Zahl der Aufgaben — Kalender-Einträge werden nicht dazugezählt.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'_gsDayPlanKalender:', text:' gsKalenderEreignisse(heute, heute), nur die Arten aussaat · ernte · erinnerung · alarm · wetter (keine Aufgaben, kein Rückblick), in allen drei Zuständen der Karte. Ohne Ereignis keine Zeile (KALENDER-V1 Regel 5).'},
+        {emoji:'🧪', bold:'kalender_check „Heute im Kalender":', text:' 6 Ereignisse → Zeile mit „+3 weitere", jeder Titel ein Kalender-Ereignis, Kopf zählt 0 Aufgaben · alle Quellen geräumt → keine Zeile · mit Aufgabe → Zeile unter der Karte. Drei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.18', date: '10.09.2026',
       headline: 'Nutzungsmessung lesbar — fn_admin_analytics und die Karte „Nutzung" im Admin-Panel',
       summary: 'Seit v33.11 schreibt die App ein benanntes Vokabular — und niemand las es. Jetzt gibt es die Lese-Seite: eine Migration (nicht angewandt) zählt je Ereignis und Tag, nur Zahlen; die Admin-Karte hat drei Zustände.',
@@ -74994,7 +75039,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.18';
+var GS_VERSION = 'v33.19';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

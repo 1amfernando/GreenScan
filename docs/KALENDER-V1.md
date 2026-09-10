@@ -284,7 +284,8 @@ Beispieldaten aus `_seed.js`:
 | **1** | `gsKalenderEreignisse` + `gsTagebuchAlle` · Snooze ohne Fälschung · Abhaken = ein Tagebuch-Eintrag · Kalender-Bildschirm (Monat + Tag) · vier Zugänge · `kalender_check` Fälle 1–3, 7, 8 | v32.46 |
 | **2** | Aufgaben für Garten-Pflanzungen (Vorgaben je Gartenart, beim ersten Lesen nachgerüstet) · Ernte-Schätzung aus `calcHarvestDate` als Info-Ereignis · Regen als Ereignis · Datumsfeld und `pflanze_id` im Tagebuch, Zukunft = Erinnerung · Pflege-Abschnitt im Pflanzungs-Detail · `buildPlantCard` entfernt · `kalender_check` 11 Fälle · Migration für die Server-Regel (nicht angewandt) | **v32.47 gebaut** |
 | **2b** | Aussaatfenster aus den Artendaten (`gsSaisonMonate` auf `season` — Monatsauflösung, nur wo hinterlegt) · das Cloud-Tagebuch (`gsDiarySubmitEntry` → `garden_diary`) in `gsTagebuchAlle` | **v33.13** — mit Korrektur: `season` ist eine Sammelsaison, kein Aussaatfenster; Quelle sind die Kulturdaten `GS_SAE_DB` (`gsAussaatEreignisse`). Cloud-Tagebuch seit v32.49. |
-| **3** | Sensor-Ereignisse (`messung`, `alarm`) aus `OEKOSYSTEM-V1` Stufe 0 · Bestätigung erledigter Aufgaben durch Messwerte | mit dem Dashboard |
+| **3** | Sensor-Ereignisse (`messung`, `alarm`) aus `OEKOSYSTEM-V1` Stufe 0 · Bestätigung erledigter Aufgaben durch Messwerte | **v32.48 / v32.53 gebaut** (`sensor_check`) |
+| **4** | Die Startseite liest den Kalender: „Heute im Kalender" unter „Heute zu tun" — aussaat · ernte · erinnerung · alarm · wetter für heute, aus `gsKalenderEreignisse`; ohne Ereignis keine Zeile | **v33.19** (`kalender_check` „Heute im Kalender") |
 
 ## 7 · Regeln, die beim Bau gelten
 
