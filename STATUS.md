@@ -4,13 +4,36 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.14` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.15` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hj) - v33.15: der Plan altert und meldet sich (N4, erster Teil)
+
+Klein, und die logische Ergaenzung zu v33.12: ein Plan, dessen Jahr vorbei
+ist, sagt es auf seiner Kachel in „Meine Plaene" und zeigt auf den Weg zur
+Jahresvorlage. Das Jahr kommt aus den Datumsfeldern des Plans (nie geraten;
+ohne Datum kein Hinweis). **Kein Automatismus** — ein Plan wird nicht von
+selbst zur Vorlage, die Person entscheidet.
+
+**Pruefstand:** `planer_check` Fall „N4" — Vorjahr → Hinweis, laufendes Jahr →
+keiner, ohne Datum → keiner; gelesen aus dem gerenderten HTML, nicht aus dem
+Objekt (v31.90).
+
+**Nebenfund im Pruefstand:** Fall N10 (v33.12) stellte
+`window.gsPPopenSavedPlans = () => {}` und liess es stehen — der naechste
+Fall sah ein Fenster, das nie aufging. Ein Fall raeumt auf, was er stellt
+(jetzt im `finally`).
+
+**Offen fuer N4:** der Hinweis auf der Startseite, wenn ALLE Plaene veraltet
+sind; und ob ein veralteter Plan seine Kalender-Termine (v33.10) noch zeigen
+soll — heute zeigt er sie fuer sein eigenes Jahr, also nur rueckblickend.
+
+---
 
 ### 2026-09-10 (hi) - v33.14: Lina kennt den Kalender
 
@@ -12031,7 +12054,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.14` (Client) · SW-Cache `gs-v33.14` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.15` (Client) · SW-Cache `gs-v33.15` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
