@@ -738,6 +738,25 @@ Gemeingut (Artenbilder, Saison-Tipps), Prüfvermerke, Meldungen über andere
 (Moderationsbeleg). Wer das anders will, ändert das Modul — der Prüfstand
 `loeschung_check` sagt dann, was sich verschiebt.
 
+## 16 · Migration `20260910_admin_analytics.sql` — die Nutzungsmessung lesen (v33.18)
+
+Seit v33.11 schreibt die App Ereignisse nach `analytics_events` (Opt-in,
+benanntes Vokabular, keine Namen). Gelesen hat sie bis v33.18 niemand. Die
+Migration legt `fn_admin_analytics(p_days)` an — Zaehlung je Ereignis und
+Tag, nur Zahlen, nur fuer Admins (dasselbe Tor wie `fn_admin_metrics`).
+
+**Anwenden** wie §5–§7: Dashboard → SQL Editor → Datei einfuegen → Run.
+Idempotent, aendert keine Tabelle, loescht nichts. Danach zeigt das
+Admin-Panel die Karte „📈 Nutzung (letzte 30 Tage)" mit Zahlen; bis dahin
+sagt sie, dass die Migration fehlt.
+
+**Danach pruefen:** `select public.fn_admin_analytics(30);` als Admin — eine
+JSON-Antwort mit `total`, `by_event`, `by_day`. Als Nutzer: `forbidden`.
+
+**Was sie NICHT tut:** keine Namen, keine Kennungen, keine Inhalte — die
+Antwort enthaelt nur Zaehlungen (der Pruefstand `nutzung_check` haelt das
+fest: keine `user_id`, keine `session_id` in der Antwort).
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

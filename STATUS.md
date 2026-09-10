@@ -4,13 +4,43 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.17` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.18` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hm) - v33.18: Nutzungsmessung lesbar — die andere Haelfte von v33.11
+
+v33.11 hat die SCHREIB-Seite gebaut (Zustimmung, Vokabular, gefilterte
+Ereignisse). Nachgemessen am 10.09.2026: **niemand las `analytics_events`** —
+kein RPC, keine Edge-Function, keine Stelle in der App. „Abgefragt,
+geliefert, weggeworfen", nur andersherum.
+
+**Gebaut:** `supabase/migrations/20260910_admin_analytics.sql` —
+`fn_admin_analytics(p_days)`: je Ereignis und je Tag (Europe/Zurich),
+Gesamtzahl, Personen, Zustimmungs-Wechsel; **nur Zahlen**, keine `user_id`,
+keine `session_id`, keine `props` ausser dem Zustimmungs-Flag. Gate wie
+`fn_admin_metrics` (SECURITY DEFINER + `is_admin_user`, 42501), REVOKE
+PUBLIC/anon, `p_days` auf 1..365 geklemmt, idempotent. **Nicht angewandt** —
+FUER-FERNANDO §16. Die App: `gsAdminFetchAnalytics` + `_gsAdminAnalyticsHtml`
+im Admin-Panel hinter den Live-Metriken, drei Zustaende — nicht verfuegbar
+(die Karte nennt die Migration) · leer (Opt-in erklaert, „kein Fehler") ·
+Zahlen; Netzfehler ist ein uebersetzter Satz (`_gsFehlerText`),
+Ereignisnamen sind escaped.
+
+**Pruefstand:** `scripts/nutzung_check.js` (33.) — SQL im lokalen Postgres
+(Fixture mit elf Ereignissen: 30 Tage → 10, 7 → 6, 0 → 1, 1000 → 365/11,
+Nutzer → forbidden, anon ohne Recht, admin_emails, Idempotenz, keine
+Kennung in 631 Zeichen Antwort) und App mit gestelltem `sbFetch` (fuenf
+Zustaende + Einbau). Ohne Postgres „nicht pruefbar" (Exit 2). **Vier
+Gegenproben rot:** Gate entfernt · 404 nicht erkannt · `uid` in der Antwort
+· Einbau entfernt. `backend_check` kennt seither eine dritte Klasse auch
+fuer RPCs: „bewusst offen" (Migration im Repo) statt „neu, nachsehen".
+
+---
 
 ### 2026-09-10 (hl) - v33.17: Konto loeschen — vollstaendig und nachgemessen
 
@@ -12140,11 +12170,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.17` (Client) · SW-Cache `gs-v33.17` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.18` (Client) · SW-Cache `gs-v33.18` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
-- **Prüfstände:** **32** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **33** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte

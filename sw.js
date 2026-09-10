@@ -15,7 +15,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v33.17';
+const VERSION = 'gs-v33.18';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

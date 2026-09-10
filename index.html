@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.17.20260910">
+<meta name="app-version" content="33.18.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74600,6 +74600,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.18', date: '10.09.2026',
+      headline: 'Nutzungsmessung lesbar — fn_admin_analytics und die Karte „Nutzung" im Admin-Panel',
+      summary: 'Seit v33.11 schreibt die App ein benanntes Vokabular — und niemand las es. Jetzt gibt es die Lese-Seite: eine Migration (nicht angewandt) zählt je Ereignis und Tag, nur Zahlen; die Admin-Karte hat drei Zustände.',
+      user_summary: 'Für dich ändert sich nichts Sichtbares — die Nutzungsmessung bleibt Opt-in und zählt nur, was du erlaubt hast. Neu kann der Betreiber die Zählungen sehen, ohne Namen oder Kennungen.',
+      user_items: [
+        {emoji:'🔒', text:'Die Auswertung zeigt nur Zahlen — kein Name, keine Kennung, kein Inhalt eines Scans.'},
+        {emoji:'📊', text:'Solange niemand zustimmt, sagt die Karte „noch keine Ereignisse — das ist kein Fehler".'}
+      ],
+      items: [
+        {emoji:'🗄', bold:'20260910_admin_analytics.sql (nicht angewandt):', text:' fn_admin_analytics(p_days) — SECURITY DEFINER + is_admin_user, REVOKE anon, p_days auf 1..365 geklemmt, by_event/by_day/consent, keine user_id in der Antwort.'},
+        {emoji:'📈', bold:'Admin-Karte „Nutzung":', text:' drei Zustände — nicht verfügbar (nennt die Migration) · leer (Opt-in erklärt) · Zahlen; Netzfehler ist ein übersetzter Satz, Ereignisnamen werden escaped.'},
+        {emoji:'🧪', bold:'nutzung_check (33. Prüfstand):', text:' SQL im lokalen Postgres (11 Ereignisse, Fenster, Klemme, Gate, Idempotenz, keine Kennung) + App mit gestelltem sbFetch. backend_check kennt jetzt „bewusst offene" RPCs. Vier Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.17', date: '10.09.2026',
       headline: 'Konto löschen — vollständig und nachgemessen',
       summary: 'Konto löschen räumt jetzt auch die Fotos in der Cloud, den Suchverlauf und die KI-Nutzung; wer eine Organisation erstellt hat, erfährt es vorher statt ein halb gelöschtes Konto zu behalten. Ein neuer Prüfstand hält die Liste gegen die Live-Datenbank.',
@@ -75123,7 +75138,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.17';
+var GS_VERSION = 'v33.18';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -85661,6 +85676,54 @@ async function gsAdminFetchMetrics() {
   } catch(e) { return null; }
 }
 
+// v33.18: die LESE-Seite der Nutzungsmessung. Seit v33.11 schreibt gsTrackEvent
+// ein Vokabular nach analytics_events — und niemand las es. Drei Zustaende,
+// nie ein leeres Feld: nicht_verfuegbar (RPC fehlt → die Karte nennt die
+// Migration) · fehler (uebersetzter Satz) · daten. Nur Zahlen, keine Kennungen.
+async function gsAdminFetchAnalytics(tage) {
+  if (!gsIsAdmin()) return null;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_analytics', { method:'POST', body: JSON.stringify({ p_days: tage || 30 }) });
+    if (r && r.error) {
+      var m = String(r.error.message || '');
+      var fehlt = r.error.status === 404 || /fn_admin_analytics|PGRST202|schema cache/i.test(m);
+      return { state: fehlt ? 'nicht_verfuegbar' : 'fehler', grund: fehlt ? '' : ((typeof _gsFehlerText === 'function') ? _gsFehlerText(r.error) : '') };
+    }
+    var d = (r && r.data !== undefined) ? r.data : r;
+    return (d && typeof d === 'object') ? Object.assign({ state: 'daten' }, d) : { state: 'fehler', grund: '' };
+  } catch(e) { return { state: 'fehler', grund: (typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : '' }; }
+}
+function _gsAdminAnalyticsHtml(a) {
+  var esc = (typeof escHtml === 'function') ? escHtml : function (s) { return String(s); };
+  var tage = (a && a.days) || 30;
+  var kopf = '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);margin-bottom:8px;">📈 Nutzung (letzte ' + tage + ' Tage)</div>';
+  var kasten = function (html) { return '<div class="gs-adm-nutzung" style="margin-bottom:14px;">' + kopf + html + '</div>'; };
+  var hinweis = function (html) { return '<div style="padding:11px 13px;background:var(--bg-yellow-soft);border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--c-brown);line-height:1.5;">' + html + '</div>'; };
+  if (!a || a.state === 'nicht_verfuegbar') return kasten(hinweis('Noch nicht verfügbar — die Migration <code>20260910_admin_analytics.sql</code> (<code>fn_admin_analytics</code>) ist nicht angewandt. Bis dahin schreibt die App Ereignisse, die niemand liest.'));
+  if (a.state === 'fehler') return kasten(hinweis('Konnte nicht geladen werden' + (a.grund ? ': ' + esc(a.grund) : '.') ));
+  var ev = Array.isArray(a.by_event) ? a.by_event : [];
+  if (!Number(a.total)) return kasten(hinweis('Noch keine Ereignisse im Zeitraum. Die Nutzungsmessung ist Opt-in (Einstellungen → Datenschutz) — solange niemand zustimmt, bleibt es hier leer. Das ist kein Fehler.'));
+  var zeilen = ev.map(function (e) {
+    return '<tr data-event="' + esc(String(e.event || '')) + '"><td style="padding:4px 8px 4px 0;font-family:monospace;">' + esc(String(e.event || '')) + '</td>' +
+      '<td style="padding:4px 8px;text-align:right;font-weight:800;">' + esc(String(Number(e.n) || 0)) + '</td>' +
+      '<td style="padding:4px 0 4px 8px;text-align:right;color:var(--muted);">' + esc(String(Number(e.users) || 0)) + '</td></tr>';
+  }).join('');
+  var ts = '';
+  try { ts = a.generated_at ? new Date(a.generated_at).toLocaleTimeString(gsLocale(), {hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
+  return kasten(
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--text2);margin-bottom:8px;">' +
+      '<span><b style="color:var(--text);">' + esc(String(Number(a.total) || 0)) + '</b> Ereignisse</span>' +
+      '<span><b style="color:var(--text);">' + esc(String(Number(a.users) || 0)) + ' Personen</b></span>' +
+      '<span>Zustimmung: <b style="color:var(--text);">' + esc(String(Number(a.consent_on) || 0)) + ' an</b> · ' + esc(String(Number(a.consent_off) || 0)) + ' aus</span>' +
+    '</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:var(--fs-sm);color:var(--text);">' +
+      '<thead><tr style="color:var(--muted);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.3px;"><th style="text-align:left;padding:0 8px 4px 0;font-weight:700;">Ereignis</th><th style="text-align:right;padding:0 8px 4px;font-weight:700;">Anzahl</th><th style="text-align:right;padding:0 0 4px 8px;font-weight:700;">Personen</th></tr></thead>' +
+      '<tbody>' + zeilen + '</tbody></table>' +
+    '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;">' + (ts ? 'Stand: ' + ts + ' · ' : '') + 'Quelle: analytics_events — nur Zählungen, keine Kennungen · Opt-in seit v33.11</div>'
+  );
+}
+window.gsAdminFetchAnalytics = gsAdminFetchAnalytics; window._gsAdminAnalyticsHtml = _gsAdminAnalyticsHtml;
+
 // v28.64: Metriken-Karte rendern (Admin-intern, Deutsch). m = jsonb von fn_admin_metrics
 function _gsAdminMetricsHtml(m) {
   if (!m) {
@@ -86193,10 +86256,10 @@ async function openAdminPanel() {
     gsAdminListUsers(), gsAdminFetchMetrics(), gsAdminFetchStripe(), gsAdminFetchFlags(),
     gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers(),
     gsAdminFetchSpeciesImageQueue(), gsAdminFetchCronHealth(), gsAdminFetchSystemEvents(), gsAdminFetchFinance(),
-    gsAdminFetchOpsDigest(), gsAdminFetchReports(), gsAdminFetchSpeciesProposalQueue()
+    gsAdminFetchOpsDigest(), gsAdminFetchReports(), gsAdminFetchSpeciesProposalQueue(), gsAdminFetchAnalytics()
   ]);
   var users = _ad[0], metrics = _ad[1], stripe = _ad[2], flags = _ad[3],
-      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10], finance = _ad[11], opsDigest = _ad[12], reports = _ad[13], propQueue = _ad[14];
+      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10], finance = _ad[11], opsDigest = _ad[12], reports = _ad[13], propQueue = _ad[14], analytics = _ad[15];
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -86259,6 +86322,7 @@ async function openAdminPanel() {
       '<h2 style="margin:0 0 6px;font-size:var(--fs-xl);color:var(--g-dark);">👑 Admin-Panel · Rollen verwalten</h2>' +
       '<p style="margin:0 0 14px;font-size:var(--fs-sm);color:var(--muted);">Hierarchie: <b>Admin</b> > <b>Mitarbeiter</b> > <b>Experte</b> > <b>Nutzer</b> > <b>Gesperrt</b></p>' +
       _gsAdminMetricsHtml(metrics) +
+      _gsAdminAnalyticsHtml(analytics) +
       _gsAdminStripeHtml(stripe) +
       _gsAdminFlagsHtml(flags) +
       _gsAdminBroadcastHtml() +
