@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.08.20260910">
+<meta name="app-version" content="33.09.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74237,6 +74237,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.09', date: '10.09.2026',
+      headline: 'touch_check hat 43 Fenster nie angesehen — jetzt schon, und dabei die WCAG-Regel richtiggestellt',
+      summary: 'Der Prüfstand für Antippflächen mass nur die elf Bildschirme. Die 43 Fenster darüber hat nie jemand vermessen. Beim Öffnen aller Fenster kam heraus: 22 zu kleine Ziele, davon 21 durch Abstand konform — die Ausnahme, die WCAG 2.5.8 vorsieht und die der Prüfstand nicht kannte. Ein echter Fund blieb übrig.',
+      user_summary: 'Ein Knopf im „Über GreenScan"-Fenster war auf schmalen Geräten zu knapp zum Antippen.',
+      user_items: [
+        {emoji:'🔧', text:'„🔧 Technische Details" war nur 18 Pixel hoch — auf einem schmalen Telefon zu wenig, um ihn sicher zu treffen. Jetzt so hoch wie sein Geschwister-Knopf in „Was ist neu".'}
+      ],
+      items: [
+        {emoji:'🔍', bold:'43 Fenster, 84 Öffnungen (zwei Breiten):', text:' dieselbe Entdeckung wie contrast_check seit v32.25 — jeder Öffner ohne Parameter, dessen Rumpf openModal( enthält, wird wirklich aufgerufen. Eine Liste von Hand veraltet; diese Regel nimmt neue Fenster ab dem Tag ihrer Entstehung mit. CLAUDE.md sagte bis heute: „wer etwas in einem Modal setzt, das der Prüfstand nicht öffnet, rechnet selbst nach" — niemand rechnet selbst nach.'},
+        {emoji:'📐', bold:'Und die Regel war zu streng:', text:' WCAG 2.5.8 erlaubt ein kleines Ziel ausdrücklich, wenn ein 24-px-Kreis um seine Mitte kein anderes Ziel schneidet. Ohne diese Ausnahme hätte der Durchgang 22 Treffer gemeldet, von denen 21 konform sind — Kästchen in Standardgrösse mit reichlich Luft. Ein Bericht mit einundzwanzig richtigen Zeilen, die keine Fehler sind, ist der Bericht, den man zu ignorieren lernt.'},
+        {emoji:'⚠️', bold:'Die Geometrie hatte ich zuerst falsch:', text:' mit Kreisen für die grossen Nachbarziele gerechnet kam 0 heraus, mit ihrer Umrandung 1. Die nachgiebige Rechnung hätte den einen echten Fund verborgen — eine zu lasche Prüfregel ist gefährlicher als eine zu strenge, weil niemand sie bemerkt.'},
+        {emoji:'🧪', bold:'Gemessen statt geschätzt:', text:' zwei Läufe hintereinander dieselben Zahlen (0 Funde, 22 konform); render_check meldet „GROESSE geaendert: 0" — die Polsterung verschiebt kein Layout.'}
+      ],
+    },
+  {
     v: 'v33.08', date: '10.09.2026',
       headline: 'Ein Besteck-Symbol vor „Eicheln (für Tiere)" — an 164 von 372 Tagen',
       summary: 'Zwei unabhängige Funde. Der schwerere: die Wissens-Zeile nahm die Essbarkeit von der ART und den Text vom EINTRAG — zwei Quellen, ein Satz. Der zweite: vier Anzeigen zeigten Eintragszahlen unter dem Wort „Arten", und nutzersicht_check E3 hat genau das erzwungen, während E9 das Gegenteil verlangt.',
@@ -74392,7 +74407,7 @@ window.GS_RELEASES = [
         {emoji:'🔎', text:'Der Prüfstand dafür gab es schon, er prüfte aber nur ein selbst gebautes Beispiel. Jetzt prüft er die echten Notizen.'}
       ],
     },
-    {
+  {
     v: 'v32.99', date: '08.09.2026',
       headline: 'Der Notfall-Hinweis gilt jetzt in allen vier Sprachen',
       summary: 'Auf Französisch, Italienisch und Englisch wurde bisher kein Notfall erkannt.',
@@ -74403,7 +74418,7 @@ window.GS_RELEASES = [
         {emoji:'🆘', text:'Die Nummern sind ohnehin überall dieselben: Tox Info Suisse 145, Notruf 144, EU 112.'},
       ],
     },
-    {
+  {
     v: 'v32.98', date: '08.09.2026',
       headline: 'Der Chat erkennt einen Vergiftungs-Notfall jetzt wirklich',
       summary: 'Vorher griff die Erkennung bei 4 von 17 normalen Formulierungen.',
@@ -74412,104 +74427,6 @@ window.GS_RELEASES = [
         {emoji:'🆘', text:'Sätze wie „meine Tochter hat Beeren gegessen", „mein Sohn hat Pilze gegessen" oder „Erbrechen nach Beeren" wurden bisher nicht als Notfall erkannt.'},
         {emoji:'🆘', text:'Erkannt wird jetzt auch, wenn ein Haustier etwas gefressen hat oder wenn Beschwerden beschrieben werden.'},
         {emoji:'🆘', text:'Und umgekehrt: „Kann man Löwenzahn essen?" löst weiterhin keinen Notfall aus — sonst gewöhnt man sich an, den Hinweis zu überlesen.'},
-      ],
-    },
-    {
-    v: 'v32.97', date: '08.09.2026',
-      headline: 'Ein Battle zu verlassen hiess, es zu verlieren',
-      summary: 'Der 30-Sekunden-Zähler lief weiter und riss das Fenster von selbst wieder auf.',
-      user_summary: 'Wer ein Battle-Fenster schliesst, hat das Battle verlassen — die App spielt es nicht mehr ohne dich zu Ende.',
-      user_items: [
-        {emoji:'⏱', text:'Bisher lief nach dem Schliessen der Zähler weiter: bei 0 wurde die Frage als „nicht beantwortet" gewertet, das Fenster ging von selbst wieder auf, und das ging so bis zur letzten Frage.'},
-        {emoji:'⏱', text:'Am Ende wurde die Runde als verloren an den Server geschickt — ohne dass du noch etwas davon mitbekommen hast.'},
-        {emoji:'⏱', text:'Jetzt beendet das Schliessen die Runde: kein Zähler, keine Antwort in deinem Namen, keine Übertragung.'},
-      ],
-    },
-    {
-    v: 'v32.96', date: '08.09.2026',
-      headline: 'Fünf Stellen sprachen über Giftigkeit, ohne die Art zu fragen',
-      summary: 'Im Lexikon fehlten die tödlichen Arten im Zähler „Giftig".',
-      user_summary: 'Wo die App etwas über Giftigkeit sagt, fragt sie jetzt überall dieselbe Quelle.',
-      user_items: [
-        {emoji:'☠️', text:'Die Zahl unter „Giftig" im Lexikon liess 131 Einträge der Stufen 4 und 5 aus — also gerade die stark giftigen und die tödlichen. Sie zeigt jetzt 598 statt 417.'},
-        {emoji:'☠️', text:'Das Symbol in deinen Sammlungen kommt von der Art: die Christrose stand dort mit 🌿 statt ☠️.'},
-        {emoji:'☠️', text:'Die Wissens-Zeile auf der Startseite und die Antwort im Chat nennen dieselbe Giftstufe wie die Artenseite — vorher hiess die Christrose dort „giftig" statt „TÖDLICH".'},
-      ],
-    },
-    {
-    v: 'v32.95', date: '08.09.2026',
-      headline: 'Die Sammlung „Giftige" war unvollständig',
-      summary: '16 Arten fehlten dort — darunter Kahler Krempling und Frühlingslorchel.',
-      user_summary: 'Die automatischen Sammlungen ordnen jetzt nach der Art ein, nicht nach einem einzelnen Datenbank-Eintrag.',
-      user_items: [
-        {emoji:'☠️', text:'In „☠️ Giftige" fehlten 16 Arten, obwohl sie giftig sind — unter anderem Christrose, Pfaffenhütchen, Kahler Krempling und Frühlingslorchel.'},
-        {emoji:'☠️', text:'In „🍽️ Essbare" standen 67 Arten, die nicht essbar sind.'},
-        {emoji:'☠️', text:'Auch die KI-Erklärung im Quiz bekommt jetzt dieselbe Giftstufe, die als richtige Antwort gilt — sonst hätte sie eine andere Antwort erklärt als die gegebene.'},
-      ],
-    },
-    {
-    v: 'v32.94', date: '08.09.2026',
-      headline: 'Absturz beim Start auf einfachen Geräten',
-      summary: 'Liefert der Browser keine Monatsnamen, rief der Rückfall sich selbst — endlos.',
-      user_summary: 'Auf Geräten, deren Browser keine Monatsnamen kennt, konnte die App beim Start hängen bleiben. Jetzt zeigt sie deutsche Namen.',
-      user_items: [
-        {emoji:'📱', text:'Manche einfachen Android-Browser geben statt „Januar" nur „1" zurück. Der eingebaute Rückfall rief sich in diesem Fall endlos selbst auf — die App blieb hängen.'},
-        {emoji:'📱', text:'Dasselbe bei den Wochentagen: dort wurden Zahlen gar nicht als Fehler erkannt, der Kalender hätte „1 2 3 4 5 6 7" gezeigt.'},
-        {emoji:'📱', text:'Beides fällt jetzt auf deutsche Namen zurück.'},
-      ],
-    },
-    {
-    v: 'v32.93', date: '08.09.2026',
-      headline: 'Das Quiz wertete eine falsche Giftstufe als richtig',
-      summary: 'Die Vorsichtsregel fehlte an fünf weiteren Stellen — auch dort, wo eine Antwort bewertet wird.',
-      user_summary: 'Beim Quiz, im Blühkalender und im Eingrenzen-Bildschirm zählt jetzt dieselbe Einstufung wie überall sonst.',
-      user_items: [
-        {emoji:'🧠', text:'Das Quiz fragt „Wie giftig ist X?" und wertet die Antwort. Bei 269 Arten galt die Zahl eines einzelnen Eintrags als richtig — bei 7 davon eine harmlose Stufe für eine giftige Art. Wer richtig antwortete, bekam einen Fehler angerechnet.'},
-        {emoji:'🧠', text:'Im Blühkalender fehlte bei 94 Arten die Markierung „☠️ giftig".'},
-        {emoji:'🧠', text:'Auch der Bildschirm „Ohne Netz eingrenzen" zeigt jetzt dieselbe Stufe.'},
-      ],
-    },
-    {
-    v: 'v32.92', date: '08.09.2026',
-      headline: 'Trefferliste und Detail sagen dasselbe',
-      summary: 'v32.91 hat das Detail korrigiert, die Liste nicht — ein Pilz stand mit ✅ in der Zeile und mit Stufe 3 im Detail.',
-      user_summary: 'Die Warnfarbe und die Plaketten in der Trefferliste zeigen jetzt dieselbe Einstufung wie die geöffnete Art.',
-      user_items: [
-        {emoji:'🪧', text:'Beispiel Violetter Schleierling: in der Liste stand ein grünes ✅, im Detail Giftstufe 3. Jetzt steht in beiden „⚠️ Giftig".'},
-        {emoji:'🪧', text:'Dahinter liegt eine einzige Funktion, die jede Anzeige einer Art benutzt — Liste, Detail und Scanner geben damit dieselbe Antwort.'},
-      ],
-    },
-    {
-    v: 'v32.91', date: '08.09.2026',
-      headline: 'Artendetail zeigt jetzt die vorsichtigere Angabe',
-      summary: '186 Einträge zeigten eine niedrigere Giftstufe als ihre eigene Art — die Vorsichtsregel galt nur im Scanner.',
-      user_summary: 'Manche Arten stehen mehrfach in der Liste, mit unterschiedlichen Angaben. Beim Öffnen einer Art zählt jetzt immer die vorsichtigere.',
-      user_items: [
-        {emoji:'☠️', text:'Beispiel Christrose: ein Eintrag führte Giftstufe 3, ein anderer 5. Angezeigt wird jetzt 5 — und die Karte sagt, dass korrigiert wurde.'},
-        {emoji:'☠️', text:'Beim Violetten Schleierling stand ein Eintrag sogar auf „ungiftig", während die Art Stufe 3 ist.'},
-        {emoji:'☠️', text:'Betroffen waren 186 Einträge bei der Giftstufe und 98 bei „essbar". Beschreibung und Verwendung bleiben die des geöffneten Eintrags — nur die Sicherheitsangaben werden angeglichen.'},
-      ],
-    },
-    {
-    v: 'v32.90', date: '08.09.2026',
-      headline: '24 Texte, die nur auf Deutsch existierten',
-      summary: 'Zusammengesetzte Sätze erreichen den Übersetzer nicht — die Welle aus v32.88 ist jetzt abgearbeitet.',
-      user_summary: 'Zwei Dutzend Texte in der App waren immer deutsch, egal welche Sprache eingestellt war. Jetzt können sie übersetzt werden.',
-      user_items: [
-        {emoji:'🌍', text:'Im Garten: „3 Pflanzen erkannt", „2 Pflegezonen", „1 Beet angelegt" — bei Ein- und Mehrzahl je ein eigener Satz, damit jede Sprache ihre eigene Regel anwenden kann.'},
-        {emoji:'🌍', text:'Bei den Messwerten: die Begründungen zu Schwellwerten und Aufgaben („Intervall 7 Tage, zuletzt …", „Artenliste … : mindestens 800 lux").'},
-        {emoji:'🌍', text:'Ausserdem Zeitachse, Export- und Teilen-Texte sowie die Hinweise unter einem KI-Gartenplan.'},
-      ],
-    },
-    {
-    v: 'v32.89', date: '08.09.2026',
-      headline: 'Keine englischen Fehlermeldungen mehr',
-      summary: 'Ein Programmierfehler reiste über ein Feld bis in einen Toast und stand dort wörtlich auf Englisch.',
-      user_summary: 'Wenn in der App etwas schiefgeht, steht dort jetzt ein Satz statt einer technischen Meldung.',
-      user_items: [
-        {emoji:'💬', text:'Beim Wetterdienst stand im Fehlerfall wörtlich „Fehler: Cannot read properties of undefined". Jetzt: „Da ist in der App etwas schiefgelaufen — bitte melden, wir kümmern uns darum."'},
-        {emoji:'💬', text:'Dasselbe beim Koppeln und Pausieren eines Geräts.'},
-        {emoji:'💬', text:'Echte Netz- und Server-Probleme werden weiterhin genau benannt — nur die technischen Meldungen verschwinden vom Bildschirm.'},
       ],
     },
 ];
@@ -74677,7 +74594,7 @@ function gsRenderAboutChangelog(){
           (hasTech ? (
             '<div style="margin-top:4px;">' +
               '<button type="button" onclick="(function(b){var t=document.getElementById(\'' + toggleId + '\');if(!t)return;var open=t.style.display!==\'none\';t.style.display=open?\'none\':\'block\';b.textContent=open?\'🔧 Technische Details\':\'▾ Technische Details ausblenden\';})(this)" ' +
-                'style="background:transparent;border:none;color:var(--g-main);font-size:var(--fs-sm);font-weight:700;cursor:pointer;padding:2px 0;font-family:inherit;">🔧 Technische Details</button>' +
+                'style="background:transparent;border:none;color:var(--g-main);font-size:var(--fs-sm);font-weight:700;cursor:pointer;padding:6px 0;font-family:inherit;">🔧 Technische Details</button>' +
               '<ul id="' + toggleId + '" style="display:none;margin:6px 0 0 18px;padding:0;font-size:var(--fs-sm);color:var(--muted);line-height:1.65;">' + techListHtml + '</ul>' +
             '</div>'
           ) : '') +
@@ -74720,7 +74637,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.08';
+var GS_VERSION = 'v33.09';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
