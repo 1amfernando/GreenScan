@@ -130,10 +130,14 @@ const FAELLE = [
       const fehler = (t) => { try { window.dispatchEvent(new ErrorEvent('error', { message: 'Pruefstand-Fehler ' + t, filename: 'x.js', lineno: 1, error: new Error('Pruefstand ' + t) })); } catch (_) {} };
       try {
         localStorage.removeItem('gs_consent'); localStorage.setItem('gs_prefs', JSON.stringify({ privacy: {} }));
-        fehler('ohne'); gsTrackEvent('pruefstand_ohne'); await w(300);
+        // v33.11: ein Ereignis muss im Vokabular (GS_EVENTS) stehen, sonst wird
+        // es verworfen — auch mit Zustimmung. Der Fall nimmt deshalb ein
+        // erklaertes Ereignis; „pruefstand_ohne" waere seither IMMER 0 gewesen
+        // und haette die Zustimmungs-Frage gar nicht mehr gemessen.
+        fehler('ohne'); gsTrackEvent('scan_done', { cat: 'pruefstand' }); await w(300);
         const ohne = { fehler: rufe.filter(p => /client_errors/.test(p)).length, mess: rufe.filter(p => /analytics_events/.test(p)).length, erlaubt: _gsAnalyticsErlaubt() };
         rufe.length = 0; localStorage.setItem('gs_consent', JSON.stringify({ analytics: true }));
-        fehler('mit'); gsTrackEvent('pruefstand_mit'); await w(300);
+        fehler('mit'); gsTrackEvent('scan_done', { cat: 'pruefstand' }); await w(300);
         const mit = { fehler: rufe.filter(p => /client_errors/.test(p)).length, mess: rufe.filter(p => /analytics_events/.test(p)).length, erlaubt: _gsAnalyticsErlaubt() };
         rufe.length = 0; localStorage.removeItem('gs_consent'); localStorage.setItem('gs_prefs', JSON.stringify({ privacy: { analytics: true } }));
         const prefsWeg = _gsAnalyticsErlaubt();

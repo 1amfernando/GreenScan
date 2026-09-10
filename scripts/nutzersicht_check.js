@@ -206,7 +206,13 @@ const FAELLE = [
       if (/\bSie\b|\bIhre\b|\bIhnen\b/.test(haft + ds)) f.push('Rechtstexte siezen noch: ' + ((haft + ds).match(/[^.]*\b(Sie|Ihre|Ihnen)\b[^.]*/) || [''])[0].trim().slice(0, 60));
       if (/nicht dauerhaft gespeichert/.test(ds)) f.push('Fotos-Satz behauptet noch „nicht dauerhaft gespeichert"');
       if (!/Anthropic/.test(ds) || !/in deinem Konto gespeichert/.test(ds)) f.push('Fotos-Satz nennt nicht KI-Dienst und Speicherung');
-      if (!/nur mit deiner Zustimmung/.test(ds) || !/nichts gemessen/.test(ds)) f.push('Nutzungsdaten-Satz sagt nicht, dass nichts gemessen wird');
+      // v33.11: bis hierher verlangte die Zeile „nichts gemessen" — die Wahrheit,
+      // solange es keinen Schalter gab. Jetzt gibt es ihn; der Satz muss sagen,
+      // WO er ist und dass die Vorgabe aus ist — und darf nicht mehr behaupten,
+      // einen Dialog gebe es nicht. Reparatur und Pruefung brauchen dieselbe
+      // Regel (v32.16, v33.08 E3).
+      if (!/nur mit deiner Zustimmung/.test(ds) || !/Datenschutz/.test(ds) || !/Vorgabe aus/.test(ds)) f.push('Nutzungsdaten-Satz nennt Schalter oder Vorgabe nicht');
+      if (/gibt es derzeit nicht/.test(ds)) f.push('Nutzungsdaten-Satz behauptet noch, es gebe keinen Zustimmungsdialog');
       if (/E-Mail \(verschlüsselt\)/.test(ds)) f.push('„E-Mail (verschlüsselt)" steht noch da');
       if (!/Rechtsträger, Postadresse und UID-Nummer/.test(imp)) f.push('Impressum sagt nicht, was fehlt');
       try { closeModal('modal-rechtlich'); } catch (_) {}
