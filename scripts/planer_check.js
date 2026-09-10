@@ -347,6 +347,7 @@ const FAELLE = [
       const alt = localStorage.getItem('gs_garden_plans');
       const orig = JSON.parse(JSON.stringify(window._PF_MUSTER));
       const J = +String(orig.plants[0].sow_date).slice(0, 4);
+      const _oeffner = window.gsPPopenSavedPlans;      // wird im finally zurueckgestellt (v33.15)
       try {
         window.sbIsLoggedIn = () => false;            // lokaler Weg, kein Netz
         window.showProfileToast = () => {}; window.gsToast = () => {}; window.gsPPopenSavedPlans = () => {};
@@ -384,6 +385,54 @@ const FAELLE = [
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
         return { ok: true, info: 'Vorlage ' + (J + 1) + ': 3 Pflanzen, Daten +1 Jahr, Wochen gleich, Kohlrabi markiert, Tomate nicht · ohne cropRotation 0 Markierungen · Original unveraendert · Kalender und Anzeige zeigen es · 29.02.→28.02.' };
       } finally {
+        window.gsPPopenSavedPlans = _oeffner;
+        if (alt == null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', alt);
+      }
+    },
+  },
+  {
+    name: 'N4 · Der Plan altert: Vorjahr → Hinweis auf der Kachel, laufendes Jahr → keiner, ohne Datum → keiner (gelesen aus „Meine Plaene")',
+    lauf: async () => {
+      // v33.15 · PLANER-V3 N4, erster Teil. Drei Plaene nebeneinander in
+      // EINEM Fenster — und gelesen wird das gerenderte HTML, nicht das
+      // Objekt (v31.90: ein toter Anzeige-Block sieht im Objekt richtig aus).
+      const alt = localStorage.getItem('gs_garden_plans');
+      const orig = JSON.parse(JSON.stringify(window._PF_MUSTER));
+      const jetzt = new Date().getFullYear();
+      const mitJahr = (j) => { const c = JSON.parse(JSON.stringify(orig)); c.plants.forEach(x => { ['sow_date','harvest_from','harvest_to'].forEach(k => { if (x[k]) x[k] = j + String(x[k]).slice(4); }); }); if (c.harvest && c.harvest.first_date) c.harvest.first_date = j + String(c.harvest.first_date).slice(4); return c; };
+      const ohne = JSON.parse(JSON.stringify(orig)); ohne.plants.forEach(x => { delete x.sow_date; delete x.harvest_from; delete x.harvest_to; }); delete ohne.harvest; delete ohne.timeline;
+      try {
+        window.sbIsLoggedIn = () => false;            // lokaler Weg, kein Netz
+        localStorage.setItem('gs_garden_plans', JSON.stringify([
+          { id: 'alt-1',  created: (jetzt - 1) + '-03-01T10:00:00.000Z', title: 'Plan vom Vorjahr',      plan: mitJahr(jetzt - 1) },
+          { id: 'jetzt-1', created: jetzt + '-03-01T10:00:00.000Z',      title: 'Plan im laufenden Jahr', plan: mitJahr(jetzt) },
+          { id: 'ohne-1', created: jetzt + '-03-01T10:00:00.000Z',       title: 'Plan ohne Datum',        plan: ohne },
+        ]));
+        await gsPPopenSavedPlans();
+        const m = document.getElementById('modal-saved-plans');
+        if (!m) return { ok: false, warum: '„Meine Plaene" ging nicht auf' };
+        const karten = {};
+        m.querySelectorAll('button[onclick^="gsPPloadSavedPlan("]').forEach(b => { const id = (b.getAttribute('onclick').match(/'([^']+)'/) || [])[1]; karten[id] = b.parentElement; });
+        const klagen = [];
+        ['alt-1', 'jetzt-1', 'ohne-1'].forEach(id => { if (!karten[id]) klagen.push('Kachel ' + id + ' fehlt'); });
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        const txt = (id) => (karten[id].textContent || '').replace(/\s+/g, ' ');
+        const hatVorlageKnopf = (id) => !!karten[id].querySelector('button[onclick^="gsPPvorlageNaechstesJahr("]');
+        // Vorjahr: Hinweis MIT dem Jahr, und der Weg (📅 Vorlage) steht daneben
+        if (!/⏳/.test(txt('alt-1')) || txt('alt-1').indexOf('Plan-Jahr ' + (jetzt - 1) + ' vorbei') < 0) klagen.push('Vorjahres-Plan ohne Hinweis: „' + txt('alt-1').slice(0, 120) + '"');
+        if (!hatVorlageKnopf('alt-1')) klagen.push('Vorjahres-Plan hat den 📅-Vorlage-Knopf nicht, auf den der Hinweis zeigt');
+        // laufendes Jahr: kein Hinweis
+        if (/⏳/.test(txt('jetzt-1'))) klagen.push('Plan im laufenden Jahr traegt den Hinweis: „' + txt('jetzt-1').slice(0, 120) + '"');
+        // ohne Datum: kein Hinweis, kein Vorlage-Knopf (kein Jahr → nichts behaupten)
+        if (/⏳/.test(txt('ohne-1'))) klagen.push('Plan ohne Datum traegt den Hinweis — ein erfundenes Jahr');
+        if (hatVorlageKnopf('ohne-1')) klagen.push('Plan ohne Datum hat einen Vorlage-Knopf');
+        // Sichtbar, nicht nur im DOM
+        const chip = karten['alt-1'].querySelector('.pp-alt');
+        if (chip && !chip.getClientRects().length) klagen.push('Hinweis steht im DOM, ist aber nicht sichtbar');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Vorjahr ' + (jetzt - 1) + ': „⏳ Plan-Jahr vorbei" + 📅-Knopf · laufendes Jahr: kein Hinweis · ohne Datum: kein Hinweis, kein Knopf' };
+      } finally {
+        const m2 = document.getElementById('modal-saved-plans'); if (m2) m2.remove();
         if (alt == null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', alt);
       }
     },

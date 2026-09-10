@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.14.20260910">
+<meta name="app-version" content="33.15.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -70707,11 +70707,17 @@ async function gsPPopenSavedPlans() {
             (pl.climateZone ? '<span>🌍 ' + (typeof escHtml==='function'?escHtml(pl.climateZone):pl.climateZone) + '</span>' : '') +
             // v33.10 (N8): wie viele Termine dieser Plan in den Kalender legt —
             // dieselbe Rechnung wie der Kalender selbst, ueber das ganze Plan-Jahr.
+            // v33.15 (N4, erster Teil): und der Plan ALTERT und meldet sich. Ist
+            // das Plan-Jahr (aus den Datumsfeldern, nie geraten) vorbei, sagt die
+            // Kachel es und zeigt auf den Weg (📅 Vorlage, v33.12). Kein
+            // Automatismus: die Person entscheidet, ob der Plan zur Vorlage wird.
             (function(){ try {
               var _pj = null; (pl.plants||[]).some(function(x){ var d = x && _gsKalTag(x.sow_date); if (d) { _pj = d.slice(0,4); return true; } return false; });
               if (!_pj) return '';
               var _alle = gsPlanEreignisse(_pj + '-01-01', _pj + '-12-31').filter(function(e){ return e.id.indexOf('plan:') === 0 && e.id.indexOf(':' + p.id + ':') > 0; }).length;
-              return _alle ? '<span title="' + _pj + '">📅 ' + _alle + ' Termine</span>' : '';
+              var _h = _alle ? '<span title="' + _pj + '">📅 ' + _alle + ' Termine</span>' : '';
+              if (+_pj < new Date().getFullYear()) _h += '<span class="pp-alt" style="color:var(--c-warn-d);font-weight:700;">⏳ ' + _gsSatz('Plan-Jahr {1} vorbei — 📅 als Vorlage übernehmen', _pj) + '</span>';
+              return _h;
             } catch(_) { return ''; } })() +
           '</div>' +
           '<button onclick="gsPPloadSavedPlan(\'' + p.id + '\')" style="width:100%;padding:9px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📂 Plan wieder öffnen</button>' +
@@ -74522,6 +74528,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.15', date: '10.09.2026',
+      headline: 'Der Plan altert und meldet sich — PLANER-V3 N4, erster Teil',
+      summary: 'Ein Plan, dessen Jahr vorbei ist, sagt es jetzt auf seiner Kachel — und zeigt auf den Weg zur Jahresvorlage. Kein Automatismus: die Person entscheidet.',
+      user_summary: 'In „Meine Pläne" siehst du, wenn das Jahr eines Plans vorbei ist — mit dem Hinweis, ihn als Vorlage fürs nächste Jahr zu übernehmen.',
+      user_items: [
+        {emoji:'⏳', text:'„Plan-Jahr 2025 vorbei — 📅 als Vorlage übernehmen" steht auf der Kachel, sobald das Jahr des Plans hinter dir liegt.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Jahr aus den Datumsfeldern des Plans,', text:' nie geraten; ohne Datum kein Hinweis. _gsSatz-Vorlage, damit die vier Sprachen es übersetzen können.'},
+        {emoji:'🧪', bold:'planer_check „N4":', text:' Plan mit Vorjahr → Hinweis; Plan im laufenden Jahr → keiner; Plan ohne Datum → keiner. Gelesen aus dem gerenderten HTML von „Meine Pläne", nicht aus dem Objekt.'}
+      ],
+    },
+  {
     v: 'v33.14', date: '10.09.2026',
       headline: 'Lina kennt den Kalender — Aussaatfenster und Plan-Termine im Kontext',
       summary: 'Seit v32.56 bekommt Lina Zahlen aus Datensätzen. Jetzt auch die nächsten 60 Tage des Kalenders: welche deiner Kulturen jetzt gesät oder vorgezogen werden, und was dein Plan als Nächstes vorsieht — aus derselben Kalenderfunktion wie die App, nie aus einer zweiten Rechnung.',
@@ -75000,7 +75019,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.14';
+var GS_VERSION = 'v33.15';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
