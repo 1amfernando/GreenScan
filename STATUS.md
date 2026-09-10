@@ -4,13 +4,134 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.07` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.08` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hb) - v33.08: zwei unabhaengige Funde, einer davon sicherheitsnah
+
+#### 1 · Ein Besteck-Symbol vor „Eicheln (fuer Tiere)"
+
+**Gefunden, weil das Datum umgesprungen ist.** Der volle Pruefstands-Lauf
+meldete `scan_check` E3 rot — an einer Stelle, die meine Aenderung nirgends
+beruehrt. Erst `git stash` + derselbe Lauf auf HEAD hat es geklaert: **der
+Fehler lag auf `main`**, ohne dass sich etwas geaendert haette.
+
+Auf dem Bildschirm stand woertlich:
+
+> 🍴 **Gewoehnliche Eiche**: Holz, Eicheln (fuer Tiere), Rinde (Gerbstoff).
+
+Das Besteck sagt „essbar", der Text daneben sagt etwas anderes. **Zwei
+Quellen, ein Satz:** die Zusage kommt seit v32.96 von der ART
+(`_gsArtAnzeige`), der Text vom EINTRAG (`s.uses`).
+
+Quercus robur hat vier Eintraege. Einer davon (T052) traegt `tox 1` und
+`edible: true` mit dem Text „Eicheln geroestet als Kaffeeersatz, Mehl nach
+Gerbsaeureentzug" — die drei anderen `tox 0`, `edible: false`.
+`_gsVorsichtigste` nimmt den mit der **hoeheren** Giftstufe, und dessen
+`edible: true` faehrt mit.
+
+> **Die Vorsichts-Regel hat einen WENIGER vorsichtigen Wert erzeugt.** Sie
+> waehlt einen ganzen DATENSATZ nach einem Feld (`tox`) — die anderen Felder
+> reisen mit. Ueber die ganze Liste gerechnet: **14 Eintraege**, bei denen die
+> Art „essbar" sagt und der Eintrag nicht, **jedes Mal mit gestiegener
+> Giftstufe**. In der Gegenrichtung (Art nicht essbar, Eintrag schon) sind es
+> 98 — dort arbeitet die Regel wie gedacht.
+
+Die Regel daraus, und sie gilt ueber diese Stelle hinaus:
+
+> **Ein Warnsatz folgt der ART, eine Einladung zum Essen braucht BEIDE.**
+
+Die Art macht bei `tox` vorsichtiger — das ist der Gewinn von v32.96 und
+bleibt unveraendert. Bei `edible` macht sie in diesen 14 Faellen
+nachgiebiger; dort zaehlt zusaetzlich der Eintrag, dessen Text danebensteht.
+Damit kommen Symbol und Text wieder aus derselben Quelle. **Die geteilte
+Sicherheitslogik (`_gsVorsichtigste`, `_gsArtAnzeige`) ist NICHT angefasst** —
+ob „Quercus robur, tox 1, essbar nach Gerbsaeureentzug" die richtige Auskunft
+ist, ist eine Frage an eine Flora, nicht an den Code (`docs/ARTEN-DATEN.md`).
+
+#### Und der Pruefstand hing am Tagesdatum
+
+`gsInitDynamicFacts` waehlt 60 von 3'654 Zeilen ueber
+`getDate()*7 + getMonth()`. `scan_check` E3 mass genau den EINEN Tag, an dem
+er lief.
+
+> **Eine Frage, die nur einen Tag kennt, ist an den anderen 364 gruen, ohne
+> etwas zu wissen.** Gegenprobe nach der Umstellung: **5 Arten an 164 von 372
+> Tagen** — der Fehler war also fast an jedem zweiten Tag sichtbar und ist
+> trotzdem nie aufgefallen.
+
+E3 stellt jetzt das Datum und faehrt alle 372 Kombinationen durch die **echte**
+Funktion — keine zweite Umsetzung der Auswahlregel im Pruefstand. Dasselbe
+Muster wie `kalender_check` seit v32.46 (`clock.setFixedTime`), nur von innen.
+
+---
+
+#### 2 · „636 Pilzarten" sind 364 — und ein Pruefstand hat das erzwungen
+
+**Dieselbe Suche wie in v33.07, nur mit den NORMALEN Beispieldaten** — jede
+sichtbare Zahl neben ihre Beschriftung, ueber alle Bildschirme. Der Befund
+stand auf EINEM Tab: „Mehr" zeigte „Total **4'337** Arten" und zwei
+Bildschirme tiefer „GreenScan · **3'136** Arten".
+
+#### Vier Anzeigen, dieselbe Klasse wie v33.04
+
+| Stelle | zeigte | richtig |
+|---|---|---|
+| Menue-Untertitel (`_gsMenuSub`) | Pilze **636 Arten** | **364** Arten in 636 Eintraegen |
+| Aufschluesselung je Kategorie | Eintragszahl, ohne Wort, unter „Was in der Artendatenbank steckt" | Arten UND Eintraege, beide benannt |
+| deren Total-Zeile | `DB.length + ' Arten'` | 3'136 Arten · 4'337 Eintraege |
+| Suchkopf | „4337 Arten" | „4337 Eintraege" — jede Zeile der Liste IST ein Eintrag, und der Leerzustand zwei Zeilen tiefer sagt laengst „Keine Eintraege gefunden" |
+
+Alle vier gehen jetzt durch `gsArtenZahlen(cat)` — dieselbe Funktion wie
+bisher, mit einem optionalen Kategorie-Argument und einem eigenen Cache.
+
+#### Und die Stelle, die diesen Eintrag wert ist
+
+**`nutzersicht_check` E3 hat den Fehler ERZWUNGEN.** Der Fall verlangte seit
+v32.70 woertlich, dass `_gsMenuSub` die **Eintragszahl** mit dem Wort „Arten"
+liefert:
+
+```js
+const n = DB.filter(s => s && s.cat === i.cat).length;   // EINTRAEGE
+const soll = n.toLocaleString('de-CH') + ' Arten';
+```
+
+Waehrend **E9 seit v33.04 das Gegenteil verlangt**. Zwei Faelle im selben
+Pruefstand, mit gegensaetzlichen Regeln, **beide gruen** — weil jeder nur
+seinen eigenen Ausschnitt sah.
+
+> **Ein Pruefstand, der den Fehler erzwingt, ist schlimmer als keiner.** Wer
+> die Anzeige repariert haette, waere rot geworden und haette die Reparatur
+> fuer den Fehler gehalten. Und v32.70 hat hier nichts falsch gemacht: es hat
+> die grobe Luege behoben (252 bei 2'226 Wildpflanzen, Faktor neun) — die
+> feine gab es damals noch gar nicht als Frage, `gsArtenZahlen` kam erst in
+> v33.04. **Eine Regel altert mit dem, was daneben dazukommt.** Wer eine
+> zweite Regel zur selben Sache schreibt, sieht die erste noch einmal an.
+
+E3 zaehlt jetzt Arten — mit **eigenem** Massstab (eigene Entdopplung ueber
+`lat`), nicht durch Aufruf von `gsArtenZahlen`: ein Fall, der die geprueffte
+Funktion ruft, prueft sie mit sich selbst (v32.86).
+
+#### Dazu eine tote Schleife samt ihrer Zaehlung
+
+Acht `cnt-<kategorie>`-Elemente gibt es nicht (in der geladenen Seite
+nachgemessen: alle acht fehlen). Die Schleife schrieb Eintragszahlen mit dem
+Wort „Arten" ins Leere — und ein `DB.forEach` ueber alle 4'337 Eintraege lief
+beim Start nur, um sie zu fuettern. **`wiring_check` sieht so etwas nicht:**
+der Name wird zusammengesetzt (`'cnt-'+c`), und Richtung 2 liest feste
+Zeichenketten. Dieselbe blinde Stelle, die `field_check.py` in v32.41 fuer
+Eingabefelder geschlossen hat.
+
+**Gegenprobe:** die alte `index.html` gegen die neuen Regeln — E3 rot mit
+allen fuenf Kategorien beim Namen, E9 rot mit Total-Zeile und Suchkopf.
+Alle 31 Pruefstaende gruen.
+
+---
 
 ### 2026-09-09 (ha) - v33.07: die fuenfte Stelle derselben Frage
 
@@ -11581,7 +11702,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.07` (Client) · SW-Cache `gs-v33.07` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.08` (Client) · SW-Cache `gs-v33.08` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

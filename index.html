@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.07.20260909">
+<meta name="app-version" content="33.08.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15246,6 +15246,7 @@ window.GS_I18N_JS_STRINGS = {
   'modal_close':               'Schliessen',
   // ── v28.49: Arten-Suchliste (renderList) ───────────────────────
   'unit_species':              'Arten',
+  'unit_entries':              'Einträge',
   'search_no_hits':            'Keine Treffer',
   'search_empty_title':        'Keine Einträge gefunden',
   'search_empty_hint':         'Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.',
@@ -16740,7 +16741,15 @@ function _gsLatIndex() {
 // Binomen aussen vor — 3'113 statt 3'136. Fuer eine Anzeige ist eine
 // Gattungs-Zeile sehr wohl ein eigener Eintrag der Liste.
 var _gsArtenN = -1, _gsArtenWert = 0;
-function gsArtenZahlen() {
+// v33.08: mit `cat` zaehlt sie EINE Kategorie. Die Kategorie-Zahlen sind
+// dieselbe Frage wie die Gesamtzahl, nur enger — und sie lagen genauso
+// daneben: 636 „Pilzarten" sind 364 Arten in 636 Eintraegen.
+// ACHTUNG: die Kategorie-Artenzahlen summieren sich NICHT auf die Gesamtzahl
+// (3'366 gegen 3'136), weil eine Art in zwei Kategorien stehen kann. Wer sie
+// nebeneinander zeigt, sagt das dazu — sonst rechnet jemand nach und findet
+// einen Widerspruch, der keiner ist.
+var _gsArtenKatN = -1, _gsArtenKat = null;
+function gsArtenZahlen(cat) {
   var n = (typeof DB !== 'undefined' && DB && DB.length) ? DB.length : 0;
   if (!n) return { eintraege: 0, arten: 0 };
   if (_gsArtenN !== n) {                     // nur neu rechnen, wenn die Liste waechst
@@ -16754,7 +16763,22 @@ function gsArtenZahlen() {
     _gsArtenWert = Object.keys(seen).length;
     _gsArtenN = n;
   }
-  return { eintraege: n, arten: _gsArtenWert };
+  if (cat == null) return { eintraege: n, arten: _gsArtenWert };
+  if (_gsArtenKatN !== n || !_gsArtenKat) {
+    var kat = {}, kk;
+    for (var j = 0; j < n; j++) {
+      var y = DB[j];
+      if (!y || !y.cat) continue;
+      if (!kat[y.cat]) kat[y.cat] = { eintraege: 0, _set: {} };
+      kat[y.cat].eintraege++;
+      kk = y.lat ? _gsNormLat(y.lat) : '';
+      if (kk) kat[y.cat]._set[kk] = 1;
+    }
+    Object.keys(kat).forEach(function(c){ kat[c].arten = Object.keys(kat[c]._set).length; });
+    _gsArtenKat = kat; _gsArtenKatN = n;
+  }
+  var t = _gsArtenKat[cat];
+  return t ? { eintraege: t.eintraege, arten: t.arten } : { eintraege: 0, arten: 0 };
 }
 window.gsArtenZahlen = gsArtenZahlen;
 // ══ v32.45 · ZWEI KORREKTUREN AN DER VORSICHTS-REGEL (aus der Gegenprüfung) ═
@@ -21026,7 +21050,23 @@ function gsInitDynamicFacts(){
     // v32.86: das Besteck-Symbol stand bei `tox===0 && uses` — 2'501 von
     // 3'654 Zeilen betrafen eine nicht essbare Art, darunter woertlich
     // „🍴 Edelweiss: Nur fotografieren, nicht pfluecken".
-    if(gsIstEssbar(a2)&&s.uses) return '&#127860;&#65039; <strong>'+s.name+'</strong>: '+s.uses.split('.')[0]+'.';
+    //
+    // v33.08: und seit v32.96 stand das Besteck vor einem Text, der etwas
+    // ANDERES sagt. Der Satz nimmt die Zusage von der ART (`a2`) und den Text
+    // vom EINTRAG (`s.uses`) — zwei Quellen, ein Satz. Am 10.09.2026 stand da:
+    //   „🍴 Gewöhnliche Eiche: Holz, Eicheln (für Tiere), Rinde (Gerbstoff)."
+    // Quercus robur hat vier Eintraege; einer (T052, tox 1, edible) traegt
+    // „Eicheln geroestet als Kaffeeersatz, Mehl nach Gerbsaeureentzug".
+    // `_gsVorsichtigste` nimmt den mit der HOEHEREN Giftstufe — und dessen
+    // `edible:true` faehrt mit. Ueber die ganze Liste gerechnet: 14 Eintraege,
+    // bei denen die Art „essbar" sagt und der Eintrag nicht, jedes Mal mit
+    // gestiegener Giftstufe.
+    //
+    // Die Regel daraus: ein WARNSATZ folgt der Art (dort macht sie
+    // vorsichtiger — das ist der Gewinn von v32.96 und bleibt), eine
+    // EINLADUNG zum Essen braucht BEIDE. Und Symbol und Text kommen damit
+    // wieder aus derselben Quelle.
+    if(gsIstEssbar(a2)&&gsIstEssbar(s)&&s.uses) return '&#127860;&#65039; <strong>'+s.name+'</strong>: '+s.uses.split('.')[0]+'.';
     return '&#127807; <strong>'+s.name+'</strong>: '+(s.desc||s.uses||'').split('.')[0]+'.';
   });
   gsShowNextDynFact();
@@ -26125,18 +26165,27 @@ function switchTab(t, btn) {
         moos:'🌾 Moose', flechte:'🔵 Flechten', alge:'🫧 Algen',
         gemuese:'🥦 Gemüse', frucht:'🍎 Früchte'
       };
-      const counts = {};
-      DB.forEach(s => { counts[s.cat] = (counts[s.cat]||0)+1; });
+      // v33.08: die Zahl rechts war die der EINTRAEGE, unter der Ueberschrift
+      // „Was in der Artendatenbank steckt" — bei den Pilzen 636 statt 364.
+      // Und die Total-Zeile sagte „4'337 Arten", waehrend zwei Bildschirme
+      // tiefer „3'136 Arten" steht. Jetzt beide Zahlen, beide benannt.
+      const _az = (typeof gsArtenZahlen === 'function') ? gsArtenZahlen() : { eintraege: DB.length, arten: 0 };
+      const _fmt = (x) => x.toLocaleString(gsLocale());
       dbCatsEl.innerHTML = Object.entries(catMap)
-        .filter(([k]) => counts[k] > 0)
-        .map(([k,label]) =>
-          '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">' +
+        .map(([k,label]) => [k, label, (typeof gsArtenZahlen === 'function') ? gsArtenZahlen(k) : {eintraege:0,arten:0}])
+        .filter(([,,z]) => z.eintraege > 0)
+        .map(([k,label,z]) =>
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">' +
           '<span style="font-size:var(--fs-md);color:var(--text);">' + label + '</span>' +
-          '<span style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">' + counts[k] + '</span></div>'
+          '<span style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);white-space:nowrap;">' + _fmt(z.arten) +
+          ' <span style="font-weight:600;color:var(--muted);font-size:var(--fs-sm);">Arten · ' + _fmt(z.eintraege) + ' Einträge</span></span></div>'
         ).join('') +
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;margin-top:4px;">' +
         '<span style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Total</span>' +
-        '<span style="font-size:var(--fs-md);font-weight:900;color:var(--g-main);">' + DB.length + ' Arten</span></div>';
+        '<span style="font-size:var(--fs-md);font-weight:900;color:var(--g-main);white-space:nowrap;">' + _fmt(_az.arten) +
+        ' <span style="font-weight:700;color:var(--muted);font-size:var(--fs-sm);">Arten · ' + _fmt(_az.eintraege) + ' Einträge</span></span></div>' +
+        '<div style="font-size:var(--fs-xs);color:var(--muted);padding:6px 0 0;line-height:1.45;">' +
+        'Die Kategorien addieren sich auf mehr als das Total: eine Art kann in zwei Kategorien stehen.</div>';
       // v31.54: hier wurde zusaetzlich #more-stat-total gesetzt — Element gibt
       // es nicht, und die Gesamtzahl steht als letzte Zeile in dieser
       // Aufschluesselung ohnehin drin.
@@ -35407,7 +35456,9 @@ function renderList(){
   var rcEl = document.getElementById('search-status');
   if (rcEl) {
     if (total === DB.length && !searchText && !currentFilter) {
-      rcEl.textContent = DB.length + ' ' + _t('unit_species','Arten');
+      // v33.08: jede Zeile der Liste IST ein Eintrag — und der Leerzustand
+      // zwei Zeilen tiefer sagt „Keine Einträge gefunden". Hier stand „Arten".
+      rcEl.textContent = DB.length + ' ' + _t('unit_entries','Einträge');
     } else if (total === 0) {
       rcEl.textContent = _t('search_no_hits','Keine Treffer');
     } else {
@@ -54572,7 +54623,10 @@ async function submitInlinePost() {
 function _gsMenuSub(item){
   try {
     if (item && item.cat && typeof DB !== 'undefined' && Array.isArray(DB)) {
-      var n = 0; for (var i = 0; i < DB.length; i++) if (DB[i] && DB[i].cat === item.cat) n++;
+      // v33.08: zaehlte EINTRAEGE und schrieb „Arten" daneben — bei den Pilzen
+      // 636 statt 364. v32.70 hat hier die grobe Luege behoben (252 bei 2'226),
+      // die feine blieb stehen. Jetzt dieselbe Quelle wie ueberall: gsArtenZahlen.
+      var n = (typeof gsArtenZahlen === 'function') ? gsArtenZahlen(item.cat).arten : 0;
       if (n) return n.toLocaleString(gsLocale()) + ' Arten';
     }
   } catch(_){}
@@ -74183,6 +74237,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.08', date: '10.09.2026',
+      headline: 'Ein Besteck-Symbol vor „Eicheln (für Tiere)" — an 164 von 372 Tagen',
+      summary: 'Zwei unabhängige Funde. Der schwerere: die Wissens-Zeile nahm die Essbarkeit von der ART und den Text vom EINTRAG — zwei Quellen, ein Satz. Der zweite: vier Anzeigen zeigten Eintragszahlen unter dem Wort „Arten", und nutzersicht_check E3 hat genau das erzwungen, während E9 das Gegenteil verlangt.',
+      user_summary: 'Ein Essbar-Symbol steht nur noch dort, wo auch der Text daneben von Essen spricht — und wo „Arten" steht, steht die Zahl der Arten.',
+      user_items: [
+        {emoji:'🍴', text:'In der Wissens-Zeile stand „🍴 Gewöhnliche Eiche: Holz, Eicheln (für Tiere), Rinde (Gerbstoff)." Das Besteck sagte „essbar", der Text daneben etwas anderes. Betroffen waren fünf Arten an 164 von 372 möglichen Tagen.'},
+        {emoji:'🍄', text:'Im Menü stand „636 Arten" bei den Pilzen. Es sind 364 Arten in 636 Einträgen. Dasselbe bei Wildpflanzen (1’994 statt 2’226), Kräutern, Bäumen und Hauspflanzen.'},
+        {emoji:'📖', text:'Die Aufschlüsselung „Was in der Artendatenbank steckt" nennt jetzt beide Zahlen je Kategorie — und sagt dazu, warum sich die Kategorien auf mehr addieren als das Total: eine Art kann in zwei Kategorien stehen.'},
+        {emoji:'🔍', text:'Über der Artensuche stand „4337 Arten". Jede Zeile der Liste ist ein Eintrag — dort steht jetzt „4337 Einträge", wie im Leerzustand zwei Zeilen tiefer schon immer.'}
+      ],
+      items: [
+        {emoji:'🍴', bold:'Warnung von der Art, Einladung von beiden:', text:' seit v32.96 nahm die Wissens-Zeile Giftstufe UND Essbarkeit von der Art (_gsArtAnzeige) und den Text vom Eintrag. Bei Quercus robur gewinnt der Eintrag mit der höheren Giftstufe (tox 1, „Eicheln geröstet als Kaffeeersatz") — und dessen edible:true fährt mit. Über die ganze Liste: 14 Einträge, bei denen die Art „essbar" sagt und der Eintrag nicht, jedes Mal mit gestiegener Giftstufe. Der Warnsatz folgt weiter der Art (dort macht sie vorsichtiger — der Gewinn von v32.96 bleibt); die Einladung braucht jetzt BEIDE, und Symbol und Text kommen wieder aus derselben Quelle.'},
+        {emoji:'📅', bold:'Und der Prüfstand hing am Tagesdatum:', text:' scan_check E3 mass den EINEN Tag, an dem er lief. Der Fehler war 364 Tage unsichtbar und stand am 10.09.2026 plötzlich auf main, ohne dass sich etwas geändert hätte. E3 stellt jetzt das Datum und fährt alle 372 Kombinationen durch die ECHTE Funktion — Gegenprobe: 5 Arten an 164 von 372 Tagen.'},
+        {emoji:'🧮', bold:'gsArtenZahlen(cat):', text:' dieselbe Funktion zählt jetzt auch eine einzelne Kategorie (Cache je Liste). Vier Anzeigen umgestellt: Menü-Untertitel, Aufschlüsselung je Kategorie, deren Total-Zeile und der Suchkopf.'},
+        {emoji:'⚠️', bold:'Ein Prüfstand, der den Fehler erzwingt, ist schlimmer als keiner:', text:' E3 verlangte wörtlich, dass _gsMenuSub die Eintragszahl mit dem Wort „Arten" liefert. Wer die Anzeige repariert hätte, wäre rot geworden und hätte die Reparatur zurückgenommen. E3 zählt jetzt Arten — mit EIGENEM Massstab, nicht durch Aufruf der geprüften Funktion.'},
+        {emoji:'🧹', bold:'Und eine tote Schleife samt ihrer Zählung:', text:' acht cnt-<kategorie>-Elemente gibt es nicht (nachgemessen in der geladenen Seite); die Schleife schrieb Eintragszahlen mit dem Wort „Arten" ins Leere, und ein DB.forEach über alle 4’337 Einträge lief beim Start nur, um sie zu füttern. wiring_check sieht so etwas nicht — der Name wird zusammengesetzt.'},
+        {emoji:'🧪', bold:'nutzersicht_check E9 deckt jetzt beides ab:', text:' jede Kategorie-Zeile muss „N Arten · M Einträge" tragen und die Zahlen müssen zu einer echten Kategorie gehören; der Suchkopf darf nicht „Arten" sagen. Gegenprobe gegen v33.07: E3 und E9 beide rot, mit allen fünf Kategorien beim Namen.'}
+      ],
+    },
+  {
     v: 'v33.07', date: '09.09.2026',
       headline: 'Die fünfte Stelle derselben Frage — gefunden, weil ich gesucht habe',
       summary: 'v33.06 hat vier Anzeigen umgestellt, die „hast du Pflanzen?" nur mit ps_myplants beantworteten. Die Startkachel „Pflanzen" war die fünfte: sie zeigte 0 und führte per Tipp auf einen Bildschirm, der 3 zeigte.',
@@ -74646,7 +74720,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.07';
+var GS_VERSION = 'v33.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -86028,8 +86102,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     }, 100);
 
     // Statistiken
-    const cats={};
-    DB.forEach(s=>{cats[s.cat]=(cats[s.cat]||0)+1;});
+    // v33.08: hier stand ein `DB.forEach` ueber alle 4'337 Eintraege, das eine
+    // Kategorie-Zaehlung `cats` aufbaute — deren einziger Leser war die tote
+    // `cnt-<kategorie>`-Schleife weiter unten. Ein voller Durchlauf der
+    // Artenliste beim Start, fuer nichts.
     // v33.04: die Kachel ist mit „🌿 Arten" beschriftet — also die Artenzahl.
     var _az2 = (typeof gsArtenZahlen === 'function') ? gsArtenZahlen() : { eintraege: DB.length, arten: DB.length };
     document.getElementById('stat-total').textContent = _az2.arten.toLocaleString(gsLocale());
@@ -86054,12 +86130,12 @@ document.addEventListener('DOMContentLoaded',()=>{
             if(_azS.arten) sc.textContent = _azS.arten.toLocaleString(gsLocale()) + ' Arten'; }
     document.getElementById('stat-edible').textContent = DB.filter(gsIstEssbar).length;
     document.getElementById('stat-favs').textContent = gsPflanzenZahl();   // v33.07: beide Listen
-    ['wildpflanze','baum','kraut','pilz','moos','flechte','alge','hauspflanze'].forEach(c=>{
-      const el=document.getElementById('cnt-'+c);
-      if(el) el.textContent=(cats[c]||0)+' Arten';
-    });
-    // v31.50: #cnt-all entfernt — die Home-Kategorien, zu denen es gehoerte,
-    // sind seit v28.22 weg; der Kommentar stand seither daneben.
+    // v33.08: hier stand eine Schleife ueber acht `cnt-<kategorie>`-Elemente.
+    // KEINES davon gibt es (nachgemessen in der geladenen Seite) — sie
+    // gehoerten zu denselben Home-Kategorien wie das in v31.50 entfernte
+    // `#cnt-all`. Sie schrieb ausserdem Eintragszahlen mit dem Wort „Arten".
+    // `wiring_check` sieht so etwas nicht: der Name wird zusammengesetzt
+    // (`'cnt-'+c`), und Richtung 2 liest feste Zeichenketten.
     initHomeBoard();
     renderList();
     if(typeof gsUpdateStreak==="function") gsUpdateStreak();
