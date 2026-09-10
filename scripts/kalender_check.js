@@ -661,6 +661,86 @@ const FAELLE = [
     },
   },
   {
+    name: 'Heute im Kalender · die Startseite nennt heutige Aussaatfenster und Plan-Termine unter „Heute zu tun" — dieselbe Antwort wie der Kalender; ohne Ereignis keine Zeile; der Kopf zählt weiter nur Aufgaben',
+    lauf: async () => {
+      // v33.19. Bis dahin las die Startseite nur gsGetDueTasks — wer heute
+      // säen konnte (v33.13) oder einen Plan-Termin hatte (v33.10), erfuhr es
+      // dort nicht. Drei Zustände, beide Richtungen, gelesen aus dem HTML.
+      const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null,
+                        ga: (typeof gardens !== 'undefined') ? gardens : null,
+                        lsP: localStorage.getItem('ps_myplants'), lsG: localStorage.getItem('gs_plantings'),
+                        lsGa: localStorage.getItem('gs_gardens'), lsPl: localStorage.getItem('gs_garden_plans'),
+                        // die Gegenrichtung braucht WIRKLICH keine Ereignisse: auch Geraete
+                        // (alarm), Tagebuch (erinnerung) und Cloud-Spiegel raeumen — wie „Ohne Daten"
+                        tb: localStorage.getItem('gs_gartentagebuch'), cloud: localStorage.getItem('gs_garden_diary_cache'),
+                        ger: localStorage.getItem('gs_geraete'), mw: localStorage.getItem('gs_messwerte'), rg: localStorage.getItem('gs_geraete_regeln') };
+      const h = gsHeuteTag();
+      const ARTEN = ['aussaat', 'ernte', 'erinnerung', 'alarm', 'wetter'];
+      try {
+        // 1 · Feldsalat (Aussaatkalender: Aug/Sep, die Uhr steht auf dem 01.09.) + ein Plan,
+        //     der heute vier Kulturen säen will, keine Aufgaben → „Alles versorgt" UND die Zeile
+        myPlants = [{ id: 'hk1', name: 'Feldsalat', emoji: '🥬', tasks: {} }];
+        if (typeof plantings !== 'undefined') plantings = [];
+        if (typeof gardens !== 'undefined') gardens = [];
+        localStorage.setItem('ps_myplants', JSON.stringify(myPlants));
+        localStorage.setItem('gs_plantings', '[]'); localStorage.setItem('gs_gardens', '[]');
+        localStorage.setItem('gs_garden_plans', JSON.stringify([{ id: 'hk-plan', created: h + 'T08:00:00.000Z', title: 'Herbstbeet',
+          plan: { plants: [{ name: 'Spinat', sow_date: h }, { name: 'Radieschen', sow_date: h }, { name: 'Rucola', sow_date: h }, { name: 'Pak Choi', sow_date: h }] } }]));
+        const kal = (gsKalenderEreignisse(h, h) || []).filter(e => ARTEN.indexOf(e.art) >= 0);
+        if (kal.length < 4) return { ok: false, warum: 'der Fall stellt den Zustand nicht her: nur ' + kal.length + ' Kalender-Ereignisse für heute' };
+        gsRenderDayPlan();
+        const el = document.getElementById('home-dayplan');
+        const zeile = el && el.querySelector('.gs-dp-kal-heute');
+        const klagen = [];
+        if (!zeile) return { ok: false, warum: 'keine Zeile „Heute im Kalender", obwohl der Kalender ' + kal.length + ' Ereignisse für heute kennt' };
+        const txt = (zeile.textContent || '').replace(/\s+/g, ' ');
+        if (String(zeile.getAttribute('data-n')) !== String(kal.length)) klagen.push('Zeile zählt ' + zeile.getAttribute('data-n') + ', der Kalender ' + kal.length);
+        kal.slice(0, 3).forEach(e => { if (txt.indexOf(e.titel) < 0) klagen.push('Kalender-Ereignis fehlt in der Zeile: ' + e.titel); });
+        if (kal.length > 3 && !/\+\d+ weitere/.test(txt)) klagen.push('mehr als drei Ereignisse, aber kein „+N weitere": „' + txt + '"');
+        if (!/gsKalenderOeffnenAm/.test(zeile.getAttribute('onclick') || '')) klagen.push('Antippen öffnet nicht den Kalender am heutigen Tag');
+        const kopf = (el.querySelector('.gs-dp-head') || {}).textContent || '';
+        if (/Aufgabe/.test(kopf)) klagen.push('der Kopf zählt Kalender-Einträge als Aufgaben: „' + kopf + '"');
+        if (!/Alles versorgt/.test(el.textContent || '')) klagen.push('„Alles versorgt" fehlt — der Zustand ohne Aufgaben muss bleiben');
+        // 2 · Gegenrichtung: Monstera (keine Kultur), kein Plan → keine Zeile
+        myPlants = [{ id: 'hk2', name: 'Monstera', emoji: '🌿', tasks: {} }];
+        localStorage.setItem('ps_myplants', JSON.stringify(myPlants));
+        localStorage.removeItem('gs_garden_plans');
+        localStorage.setItem('gs_gartentagebuch', '[]'); gsTagebuchLoad(true);
+        ['gs_garden_diary_cache', 'gs_geraete', 'gs_messwerte', 'gs_geraete_regeln'].forEach(k => localStorage.removeItem(k));
+        const kal2 = (gsKalenderEreignisse(h, h) || []).filter(e => ARTEN.indexOf(e.art) >= 0);
+        if (kal2.length) klagen.push('der Fall stellt „ohne Ereignis" nicht her: ' + kal2.map(e => e.art + ' ' + e.titel).join(', '));
+        gsRenderDayPlan();
+        if (!kal2.length && document.querySelector('#home-dayplan .gs-dp-kal-heute')) klagen.push('Zeile erscheint ohne ein einziges Ereignis');
+        // 3 · mit Aufgaben: die Aufgaben-Zeilen bleiben, die Zeile steht UNTER der Karte
+        const D = 86400000, n = Date.now(), iso = t => new Date(t).toISOString();
+        myPlants = [{ id: 'hk3', name: 'Feldsalat', emoji: '🥬', tasks: { water: { active: true, intervalDays: 3, lastDone: iso(n - 3 * D) } } }];
+        localStorage.setItem('ps_myplants', JSON.stringify(myPlants));
+        gsRenderDayPlan();
+        const el3 = document.getElementById('home-dayplan');
+        const z3 = el3.querySelector('.gs-dp-kal-heute'), karte = el3.querySelector('.gs-dp-card');
+        if (!z3) klagen.push('mit Aufgaben fehlt die Zeile (Feldsalat liegt im Fenster)');
+        else if (!karte || !el3.querySelector('.gs-dp-row')) klagen.push('mit Aufgaben fehlen die Aufgaben-Zeilen');
+        else if (!(karte.compareDocumentPosition(z3) & Node.DOCUMENT_POSITION_FOLLOWING)) klagen.push('die Zeile steht ÜBER der Aufgaben-Karte');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'ohne Aufgaben: „' + txt.slice(0, 100) + '" (' + kal.length + ' Ereignisse) · Monstera ohne Plan: keine Zeile · mit Aufgabe: Zeile unter der Karte' };
+      } finally {
+        myPlants = sichern.mp;
+        if (sichern.pl && typeof plantings !== 'undefined') plantings = sichern.pl;
+        if (sichern.ga && typeof gardens !== 'undefined') gardens = sichern.ga;
+        if (sichern.lsP === null) localStorage.removeItem('ps_myplants'); else localStorage.setItem('ps_myplants', sichern.lsP);
+        if (sichern.lsG === null) localStorage.removeItem('gs_plantings'); else localStorage.setItem('gs_plantings', sichern.lsG);
+        if (sichern.lsGa === null) localStorage.removeItem('gs_gardens'); else localStorage.setItem('gs_gardens', sichern.lsGa);
+        if (sichern.lsPl === null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', sichern.lsPl);
+        if (sichern.tb != null) localStorage.setItem('gs_gartentagebuch', sichern.tb); gsTagebuchLoad(true);
+        if (sichern.cloud != null) localStorage.setItem('gs_garden_diary_cache', sichern.cloud);
+        if (sichern.ger != null) localStorage.setItem('gs_geraete', sichern.ger);
+        if (sichern.mw != null) localStorage.setItem('gs_messwerte', sichern.mw);
+        if (sichern.rg != null) localStorage.setItem('gs_geraete_regeln', sichern.rg);
+        try { if (typeof gsBuildWidgetStack === 'function') gsBuildWidgetStack(); } catch (_) {}
+      }
+    },
+  },
+  {
     name: 'Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt',
     lauf: () => {
       // v32.49: das Cloud-Tagebuch ist die dritte Quelle — ein „ohne Daten",
