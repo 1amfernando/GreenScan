@@ -4,13 +4,39 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.07` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.08` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hb) - v33.08: essbar ist UND, nie ein Kopieren der falschen Seite
+
+**Routinelauf von `bash scripts/pruefstaende.sh schnell`** meldete `scan_check`
+rot (E3: „Das Besteck-Symbol steht nur vor einer essbaren Art") — 1 von 21
+Besteck-Zeilen stand vor „Gewöhnliche Eiche" (BA031, `edible:false`).
+
+**Ursache: `_gsArtAnzeige` kopierte bei einer Giftstufen-Korrektur das
+`edible`-Feld des Vergleichseintrags ungeprueft mit.** `Quercus robur` fuehrt
+vier Eintraege — T008/BA031/BA250 mit `tox:0, edible:false`, T052 „Eiche
+(Stieleiche)" mit `tox:1, edible:true`. `_gsVorsichtigste` waehlt T052 zu
+Recht als vorsichtigste Angabe (hoehere Giftstufe) — die Korrektur schrieb
+dessen `edible:true` aber auch auf die anderen drei Eintraege, deren Daten
+ausdruecklich „nicht essbar" sagen. Essbar wurde damit HERBEIkorrigiert statt
+nur WEGkorrigiert — das Gegenteil der Absicht der Funktion (siehe deren
+eigener Kommentar seit v32.86/92).
+
+**Reparatur:** `edible` wird jetzt als UND aus Eintrag und Vergleichs-Eintrag
+gebildet (`!!sp.edible && !!v.edible`), nicht mehr blind von `v` kopiert —
+essbar bleibt nur, was beide Seiten so sagen. `index.html` ~Z. 16859.
+
+**Gegengeprueft:** alle 69 `scan_check`-Faelle gruen, inklusive D1a–D1i und
+E1/E1b, die dieselbe Vorsichtsregel aus anderen Blickwinkeln messen — keine
+Regression. `robust_check` (Changelog-Invarianten) und `render_check`
+ebenfalls gruen. Version, Service-Worker-Cache und `GS_RELEASES[0]`
+synchron auf v33.08.
 
 ### 2026-09-09 (ha) - v33.07: die fuenfte Stelle derselben Frage
 
@@ -11581,9 +11607,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.07` (Client) · SW-Cache `gs-v33.07` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.08` (Client) · SW-Cache `gs-v33.08` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
+- **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

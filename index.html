@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.07.20260909">
+<meta name="app-version" content="33.08.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16858,8 +16858,15 @@ function _gsArtAnzeige(sp) {
       if (v && v.id !== sp.id && !v._unverified) {
         var hoeher = (v.tox || 0) > (sp.tox || 0);
         var essbarWeg = !!sp.edible && !v.edible;
+        // v33.08: essbar ist UND, nie ein Kopieren von v.edible. Bei Quercus
+        // robur hat T052 (tox 1, edible:true) die hoechste Giftstufe der
+        // Gruppe und galt damit als "vorsichtigste" — die Korrektur schrieb
+        // sein `edible:true` aber ungeprueft auch auf BA031 „Gewoehnliche
+        // Eiche" (tox 0, edible:false), das damit faelschlich als essbar
+        // galt. Essbar bleibt nur, was BEIDE Seiten so sagen.
+        var edibleKorrigiert = !!sp.edible && !!v.edible;
         if (hoeher || essbarWeg) erg = Object.assign({}, sp, {
-          tox: v.tox, toxic: v.toxic, edible: v.edible,
+          tox: v.tox, toxic: v.toxic, edible: edibleKorrigiert,
           warning: sp.warning || v.warning,
           lookalike: sp.lookalike || v.lookalike,
           _korrigiert: { vonTox: sp.tox, aufTox: v.tox, hoeher: hoeher, essbarWeg: essbarWeg }
@@ -74183,6 +74190,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.08', date: '10.09.2026',
+      headline: 'Essbar ist UND, nie ein Kopieren der falschen Seite',
+      summary: 'scan_check E3 fand: das Besteck-Symbol stand vor „Gewöhnliche Eiche" (nicht essbar). _gsArtAnzeige übernahm bei einer Giftstufen-Korrektur ungeprüft auch das edible-Feld des Vergleichseintrags — bei Quercus robur hatte einer von vier Einträgen tox 1 und edible:true, die anderen drei tox 0 und edible:false.',
+      user_summary: 'Eine Pflanzenart, die laut unseren Daten nicht essbar ist, wurde an einer Stelle fälschlich als essbar markiert — behoben.',
+      user_items: [
+        {emoji:'🌳', text:'„Gewöhnliche Eiche" zeigte das Besteck-Symbol (isst man das?), obwohl der Eintrag selbst „nicht essbar" sagt.'}
+      ],
+      items: [
+        {emoji:'🔍', bold:'Gefunden vom eigenen Prüfstand:', text:' scripts/pruefstaende.sh lief planmässig und meldete scan_check E3 rot — 1 von 20 Besteck-Zeilen vor einer nicht essbaren Art.'},
+        {emoji:'🐛', bold:'Die Ursache:', text:' _gsArtAnzeige wählt bei widersprüchlichen Einträgen derselben Art die „vorsichtigste" Angabe nach Giftstufe. Bei einer Korrektur wegen höherer Giftstufe kopierte sie bisher auch das edible-Feld dieses Eintrags blind mit — auch wenn der eigene Eintrag ausdrücklich „nicht essbar" sagte.'},
+        {emoji:'✅', bold:'Die Regel jetzt:', text:' essbar bleibt nur, was BEIDE Seiten so sagen (UND-Verknüpfung) — eine höhere Giftstufe eines anderen Eintrags kann Essbarkeit nie herbeikorrigieren, nur wegkorrigieren.'},
+        {emoji:'🧪', bold:'Gegengeprüft:', text:' alle 69 scan_check-Fälle grün, inklusive der acht D1/E-Fälle, die dieselbe Vorsichtsregel aus anderen Blickwinkeln messen — keine Regression.'}
+      ],
+    },
+  {
     v: 'v33.07', date: '09.09.2026',
       headline: 'Die fünfte Stelle derselben Frage — gefunden, weil ich gesucht habe',
       summary: 'v33.06 hat vier Anzeigen umgestellt, die „hast du Pflanzen?" nur mit ps_myplants beantworteten. Die Startkachel „Pflanzen" war die fünfte: sie zeigte 0 und führte per Tipp auf einen Bildschirm, der 3 zeigte.',
@@ -74646,7 +74668,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.07';
+var GS_VERSION = 'v33.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
