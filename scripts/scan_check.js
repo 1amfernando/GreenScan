@@ -696,6 +696,40 @@ const FAELLE = [
       return { ok: true, info: 'Aufrufe mit ' + rufe.join('/') + ' Fotos · Knopf: Zweites → Drittes → Maximum-Satz' };
     },
   },
+  // ── v33.20 · Der Scan kennt den Aussaatkalender ──────────────────────
+  {
+    name: 'Aussaatkalender · der Scan einer Kultur nennt ihr Fenster (drinnen · draussen · Ernte) mit dem Weg zum Säkalender — eine Wildart bekommt keins, season ist keins',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      const zeig = r => {
+        showScanResult(Object.assign({ confidence: 88, toxicity: 0, edible: true, alternatives: [] }, r));
+        const el = document.getElementById('scan-result');
+        return { row: el.querySelector('.sr2-row-sae'), cta: el.querySelector('.sr2-sae-cta') };
+      };
+      const klagen = [];
+      const k = (typeof _gsSaeZuPflanze === 'function') ? _gsSaeZuPflanze({ name: 'Tomate' }) : null;
+      if (!k) return { ok: false, warum: 'der Fall stellt den Zustand nicht her: „Tomate" ist keine Kultur in GS_SAE_DB' };
+      const t = zeig({ name: 'Tomate', latin: 'Solanum lycopersicum', season: 'Jun–Sep' });
+      if (!t.row) klagen.push('Tomate: keine Aussaat-Zeile');
+      else {
+        const txt = (t.row.textContent || '').replace(/\s+/g, ' ');
+        const mon = gsMonate(true);
+        [k.indoor, k.outdoor, k.harvest].filter(a => a && a.length).forEach(a => {
+          if (txt.indexOf(mon[a[0]]) < 0 || txt.indexOf(mon[a[a.length - 1]]) < 0) klagen.push('Tomate: Monate ' + mon[a[0]] + '/' + mon[a[a.length - 1]] + ' fehlen: „' + txt + '"');
+        });
+        if (!/drinnen vorziehen/.test(txt) || !/draussen säen/.test(txt) || !/Ernte/.test(txt)) klagen.push('Tomate: drinnen/draussen/Ernte nicht alle genannt: „' + txt + '"');
+        if (!t.cta || !/openSaekalender/.test(t.cta.getAttribute('onclick') || '')) klagen.push('Tomate: kein Weg zum Säkalender');
+      }
+      // Gegenrichtung: Wildart mit season (Sammelsaison) → keine Zeile, kein Knopf
+      const b = zeig({ name: 'Bärlauch', latin: 'Allium ursinum', season: 'Apr–Jun', habitat: 'Auenwald' });
+      if (b.row || b.cta) klagen.push('Bärlauch (Wildart mit season) bekam eine Aussaat-Zeile — season ist eine Sammelsaison');
+      // Der Name der KI zählt auch ohne Treffer in der Artenliste — und der Plural (Zucchini/Zucchinis)
+      const z = zeig({ name: 'Zucchini', latin: 'Cucurbita pepo' });
+      if (!z.row) klagen.push('Zucchini: keine Aussaat-Zeile');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Tomate: „' + (t.row.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 96) + '" · Bärlauch: keine Zeile · Zucchini: Zeile' };
+    },
+  },
   // ── v32.10 · Die Gegenprobe (Stufe 3) ────────────────────────────────
   {
     name: 'Gegenprobe · erscheint NUR bei essbar + giftiger Alternative',

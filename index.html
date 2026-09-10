@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.19.20260910">
+<meta name="app-version" content="33.20.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34607,10 +34607,41 @@ function showScanResult(r){
   var infoRows = '';
   if (r.habitat) infoRows += '<div class="sr2-row"><span class="sr2-row-ic">📍</span><span class="sr2-row-txt">' + esc(r.habitat) + '</span></div>';
   if (r.uses)    infoRows += '<div class="sr2-row"><span class="sr2-row-ic">🍽️</span><span class="sr2-row-txt">' + esc(r.uses) + '</span></div>';
+  // ── v33.20: der Scan kennt den Aussaatkalender ─────────────────────
+  // Ist die erkannte Art eine der Kulturen aus GS_SAE_DB — derselbe Matcher
+  // wie der Kalender (v33.13), erst der Name aus der Artenliste, dann der
+  // der KI —, steht hier ihr Fenster: drinnen vorziehen, draussen saeen,
+  // Ernte, mit dem Weg zum Saekalender. Keine Kultur, keine Zeile: eine
+  // Wildart hat kein Aussaatfenster, und `season` (Sammelsaison) ist keins
+  // (KALENDER-V1 Regel 9). Monatsnamen aus gsMonate, nie aus einer Liste.
+  var _sae = null, _saeCta = '';
+  try {
+    if (typeof _gsSaeZuPflanze === 'function') {
+      _sae = (r.plant && r.plant.name) ? _gsSaeZuPflanze({ name: r.plant.name }) : null;
+      if (!_sae && r.name) _sae = _gsSaeZuPflanze({ name: r.name });
+    }
+  } catch (_) { _sae = null; }
+  if (_sae) {
+    var _mon = (typeof gsMonate === 'function') ? gsMonate(true) : null;
+    var _span = function (arr) {
+      if (!Array.isArray(arr) || !arr.length || !_mon) return '';
+      var zusammen = arr.every(function (m, i) { return i === 0 || m === arr[i - 1] + 1; });
+      if (arr.length === 1) return _mon[arr[0]] || '';
+      return zusammen ? (_mon[arr[0]] + '–' + _mon[arr[arr.length - 1]]) : arr.map(function (m) { return _mon[m]; }).join(', ');
+    };
+    var _teile = [];
+    if (_sae.indoor && _sae.indoor.length) _teile.push(_gsSatz('drinnen vorziehen {1}', _span(_sae.indoor)));
+    if (_sae.outdoor && _sae.outdoor.length) _teile.push(_gsSatz('draussen säen {1}', _span(_sae.outdoor)));
+    if (_sae.harvest && _sae.harvest.length) _teile.push(_gsSatz('Ernte {1}', _span(_sae.harvest)));
+    if (_teile.length) {
+      infoRows += '<div class="sr2-row sr2-row-sae"><span class="sr2-row-ic">🌱</span><span class="sr2-row-txt">' + esc(_sae.n) + ' — ' + esc(_teile.join(' · ')) + '</span></div>';
+      _saeCta = '<button type="button" class="sr2-cta sr2-cta-secondary sr2-sae-cta" style="width:100%;margin-top:8px;" onclick="openSaekalender()">📅 ' + esc(_gsSatz('Säkalender öffnen')) + '</button>';
+    }
+  }
   if (infoRows) {
     body += '<div class="sr2-card">' +
       '<div class="sr2-card-lbl">🌍 Vorkommen &amp; Nutzung</div>' +
-      '<div class="sr2-card-body">' + infoRows + '</div>' +
+      '<div class="sr2-card-body">' + infoRows + _saeCta + '</div>' +
     '</div>';
     if (r.season && typeof gsBuildSeasonBar === 'function') {
       body += '<div style="margin:-6px 0 10px;padding:0 2px;">' + gsBuildSeasonBar(r.season) + '</div>';
@@ -74631,6 +74662,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.20', date: '10.09.2026',
+      headline: 'Der Scan kennt den Aussaatkalender',
+      summary: 'Erkennt der Scanner eine Kultur aus dem Schweizer Aussaatkalender, steht ihr Fenster auf der Karte — drinnen vorziehen, draussen säen, Ernte — mit dem Weg zum Säkalender. Eine Wildart bekommt nichts; die Sammelsaison ist kein Aussaatfenster.',
+      user_summary: 'Scannst du eine Tomate, sagt dir die Karte jetzt auch, wann sie ausgesät wird: „drinnen vorziehen Feb–Apr · draussen säen Mai–Jun · Ernte Jul–Okt" — und ein Knopf öffnet den Säkalender.',
+      user_items: [
+        {emoji:'🌱', text:'Unter „Vorkommen & Nutzung" steht das Aussaatfenster der erkannten Kultur — nur bei Gemüse und Kräutern aus dem Aussaatkalender.'},
+        {emoji:'📅', text:'„Säkalender öffnen" führt direkt zur Übersicht aller 39 Kulturen.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'Derselbe Matcher wie der Kalender', text:' (_gsSaeZuPflanze, v33.13): erst der Name aus der Artenliste, dann der der KI; Monatsnamen aus gsMonate, zusammenhängende Monate als Spanne, sonst einzeln. Kein Fenster aus `season` (Regel 9).'},
+        {emoji:'🧪', bold:'scan_check „Aussaatkalender":', text:' Tomate → Zeile mit allen drei Fenstern und Knopf · Bärlauch mit season → nichts · Zucchini (KI-Name, Plural) → Zeile. Drei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.19', date: '10.09.2026',
       headline: '„Heute im Kalender" auf der Startseite — Aussaatfenster, Plan-Termine und Frost unter „Heute zu tun"',
       summary: 'Die Startseite zeigte nur Aufgaben; was der Kalender sonst für heute kennt — ein Aussaatfenster, ein Plan-Termin, Frost, ein Alarm — stand nur im Kalender. Jetzt eine Zeile darunter, aus derselben Kalenderfunktion.',
@@ -75039,7 +75084,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.19';
+var GS_VERSION = 'v33.20';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

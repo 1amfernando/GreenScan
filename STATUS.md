@@ -4,13 +4,35 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.19` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.20` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (ho) - v33.20: der Scan kennt den Aussaatkalender
+
+Die Aussaatfenster (v33.13) und der Scanner kannten einander nicht: wer eine
+Tomate scannte, bekam Beschreibung, Vorkommen, Saison — aber nicht, wann sie
+ausgesaet wird, obwohl `GS_SAE_DB` es weiss.
+
+**Gebaut:** in „Vorkommen & Nutzung" eine Zeile „🌱 Tomaten — drinnen
+vorziehen Feb–Apr · draussen saeen Mai–Jun · Ernte Jul–Okt" und ein Knopf
+„Saekalender oeffnen". Derselbe Matcher wie der Kalender (`_gsSaeZuPflanze`):
+erst der Name aus der Artenliste (`r.plant.name`), dann der der KI (`r.name`,
+Plural ±n). Monatsnamen aus `gsMonate(true)`; zusammenhaengende Monate als
+Spanne, sonst einzeln. Eine Wildart bekommt nichts, und `season` bleibt, was
+es ist — eine Sammelsaison (KALENDER-V1 Regel 9).
+
+**Pruefstand:** `scan_check` „Aussaatkalender" — Tomate: Zeile mit erstem
+und letztem Monat aller drei Fenster und Knopf mit `openSaekalender` ·
+Baerlauch mit `season` und Habitat: keine Zeile, kein Knopf · Zucchini
+(KI-Name): Zeile. Drei Gegenproben rot (Matcher stumm · `season` als Fenster
+· Knopf entfernt).
+
+---
 
 ### 2026-09-10 (hn) - v33.19: „Heute im Kalender" auf der Startseite
 
@@ -12197,7 +12219,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.19` (Client) · SW-Cache `gs-v33.19` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.20` (Client) · SW-Cache `gs-v33.20` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
