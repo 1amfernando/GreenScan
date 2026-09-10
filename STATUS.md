@@ -4,13 +4,34 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.20` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.21` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hp) - v33.21: das Vokabular waechst — vier Ereignisse, jedes ein Zaehler
+
+Die Bausteine dieses Aufbaus haben Handlungen geschaffen, die die
+Nutzungsmessung nicht kannte: die Jahresvorlage (v33.12), der zweite und
+dritte Blick (v33.16), Linas Kalender-Kontext (v33.14) — und die Ernte, die
+es laengst gab. `GS_EVENTS` kennt jetzt **plan_template** {plants,
+markiert}, **scan_rescan** {fotos}, **lina_message** {ok}, **harvest_logged**
+{quelle}. Keines traegt Inhalt: nicht die Frage an Lina, nicht die Antwort,
+nicht die Art, nicht die Menge, nicht den Titel des Plans — das sind keine
+Felder, also gehen sie nicht durch (`_gsEventFiltern`).
+
+**Pruefstand:** `einstellungen_check` — neu: jedes Ereignis im Vokabular hat
+einen Aufrufer und jeder Aufrufer einen Eintrag (Quelltext: 9 Ereignisse, 10
+Aufrufer); Re-Scan und Vorlage feuern ueber die ECHTEN Funktionen und tragen
+genau ihre Felder (`{fotos: 2}`, `{plants: 1, markiert: 0}`). Zwei
+Gegenproben rot: Eintrag entfernt · Aufrufer entfernt. **Ein Vokabular, das
+nur waechst, wenn jemand daran denkt, ist eine Bitte** — jetzt meldet der
+Pruefstand die Luecke in beide Richtungen.
+
+---
 
 ### 2026-09-10 (ho) - v33.20: der Scan kennt den Aussaatkalender
 
@@ -12219,7 +12240,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.20` (Client) · SW-Cache `gs-v33.20` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.21` (Client) · SW-Cache `gs-v33.21` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

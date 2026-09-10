@@ -979,6 +979,26 @@ const melde = (frage, ok, wie) => {
       aus.gesendet.length = 0;
       try { gsRpcTaskDone('p1', 'water'); } catch (_) {}
       aus.task = aus.gesendet.find(g => g.body && g.body.event === 'task_done');
+      // 5b · v33.21: zwei der vier neuen Ereignisse ueber die echten Funktionen —
+      //     Re-Scan (Zahl der Fotos) und Jahresvorlage (Zahl der Pflanzen); nie ein Name
+      aus.gesendet.length = 0;
+      try {
+        window._gsLastScanB64 = 'AAAA'; window._gsLastScanBilder = [{ b64: 'AAAA', mt: 'image/jpeg' }];
+        if (typeof window.gsResetScanner !== 'function') window.gsResetScanner = () => {};
+        gsAddPhotoForRescan();
+      } catch (_) {}
+      aus.rescan = aus.gesendet.find(g => g.body && g.body.event === 'scan_rescan');
+      window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0;
+      aus.gesendet.length = 0;
+      try {
+        const vorher = localStorage.getItem('gs_garden_plans');
+        localStorage.setItem('gs_garden_plans', JSON.stringify([{ id: 'nm-plan', created: '2025-03-01T10:00:00.000Z', title: 'NM Sonnenbeet', plan: { plants: [{ name: 'Tomate', sow_date: '2025-04-05' }], cropRotation: null } }]));
+        const o = window.gsPPopenSavedPlans; window.gsPPopenSavedPlans = () => {};
+        gsPPvorlageNaechstesJahr('nm-plan');
+        window.gsPPopenSavedPlans = o;
+        if (vorher == null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', vorher);
+      } catch (_) {}
+      aus.vorlage = aus.gesendet.find(g => g.body && g.body.event === 'plan_template');
       // 6 · Nein: nichts mehr — und der Schalter steht aus
       gsConsentAnalyticsSetzen(false);
       aus.gesendet.length = 0;
@@ -1002,6 +1022,19 @@ const melde = (frage, ok, wie) => {
   melde('Nutzungsmessung · ein erklärtes Ereignis geht mit GENAU seinen Feldern — Name, Foto, Standort und Objekte werden herausgefiltert',
     scanOk, scanOk ? 'props = ' + JSON.stringify(NM.scan.props) + ' · app_version ' + NM.scan.app_version : JSON.stringify(NM.scan));
   melde('Nutzungsmessung · ein Ereignis, das nicht im Vokabular steht, wird verworfen — auch mit Ja', NM.unbekannt === 0, NM.unbekannt === 0 ? '„irgendwas_neues" → 0 Anfragen' : NM.unbekannt + ' Anfragen');
+  // v33.21: das Vokabular waechst — und jeder Eintrag hat einen Aufrufer, jeder Aufrufer einen Eintrag
+  const NMq = require('fs').readFileSync(require('path').resolve(__dirname, '..', 'index.html'), 'utf8');
+  const NMvok = await page.evaluate(() => Object.keys(GS_EVENTS));
+  const NMauf = [...NMq.matchAll(/gsTrackEvent\('([a-z_]+)'/g)].map(m => m[1]);
+  const NMohneAufrufer = NMvok.filter(k => !NMauf.includes(k));
+  const NMohneEintrag = [...new Set(NMauf)].filter(k => !NMvok.includes(k));
+  melde('Nutzungsmessung · jedes Ereignis im Vokabular hat einen Aufrufer, und jeder Aufrufer steht im Vokabular',
+    !NMohneAufrufer.length && !NMohneEintrag.length,
+    (!NMohneAufrufer.length && !NMohneEintrag.length) ? NMvok.length + ' Ereignisse, ' + NMauf.length + ' Aufrufer' : JSON.stringify({ ohneAufrufer: NMohneAufrufer, ohneEintrag: NMohneEintrag }));
+  const NMneu = !!(NM.rescan && NM.rescan.body.props && NM.rescan.body.props.fotos === 2 && NM.vorlage && NM.vorlage.body.props && NM.vorlage.body.props.plants === 1 && NM.vorlage.body.props.markiert === 0
+    && Object.keys(NM.vorlage.body.props).sort().join(',') === 'markiert,plants' && Object.keys(NM.rescan.body.props).join(',') === 'fotos');
+  melde('Nutzungsmessung · die neuen Ereignisse gehen durch die echten Funktionen — Re-Scan mit Fotozahl, Vorlage mit Pflanzenzahl, nie ein Name oder Titel',
+    NMneu, JSON.stringify({ rescan: NM.rescan && NM.rescan.body.props, vorlage: NM.vorlage && NM.vorlage.body.props }));
   melde('Nutzungsmessung · Aufgabe erledigt geht durch die EINE Stelle (gsRpcTaskDone) mit task_key und Liste — ohne Pflanzenname',
     !!(NM.task && NM.task.body.props && NM.task.body.props.task_key === 'water' && NM.task.body.props.liste && !('plantId' in NM.task.body.props)),
     NM.task ? JSON.stringify(NM.task.body.props) : 'kein task_done gesendet');

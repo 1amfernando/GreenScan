@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.20.20260910">
+<meta name="app-version" content="33.21.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11243,6 +11243,7 @@ function gsErnteAdd() {
   };
   _gsErnteLog.unshift(entry);
   try { localStorage.setItem('gs_ernte_log', JSON.stringify(_gsErnteLog.slice(0,1000))); } catch(e){}
+  try { gsTrackEvent('harvest_logged', { quelle: 'ernte' }); } catch(_){}   // v33.21: nur der Weg, nie Art oder Menge
   // v26.59: Cross-Device-Sync mit erweitertem Schema
   try {
     if (window.gsCloudSync) gsCloudSync.pushHarvestAdd({
@@ -33274,6 +33275,7 @@ function gsAddPhotoForRescan(){
     window._gsRescanPrior = { b64: bilder[0].b64, mt: bilder[0].mt || 'image/jpeg', bilder: bilder };
     window._gsRescanMode = true;
     window._gsRescanTs = Date.now();
+    try { gsTrackEvent('scan_rescan', { fotos: bilder.length + 1 }); } catch (_) {}   // v33.21: Zahl, kein Bild
     var rd = document.getElementById('scan-result'); if (rd) { rd.style.display='none'; rd.innerHTML=''; }
     if (typeof gsResetScanner === 'function') gsResetScanner();
     if (typeof gsHaptic === 'function') gsHaptic('medium');
@@ -44527,6 +44529,7 @@ async function gsHarvestSubmit() {
     if (Array.isArray(window._gsErnteLog)) {
       window._gsErnteLog.unshift(entry);
       try { localStorage.setItem('gs_ernte_log', JSON.stringify(window._gsErnteLog.slice(0, 1000))); } catch(_){}
+      try { gsTrackEvent('harvest_logged', { quelle: 'pflanze' }); } catch(_){}   // v33.21
     }
     if (window.gsCloudSync && typeof gsCloudSync.pushHarvestAdd === 'function') {
       gsCloudSync.pushHarvestAdd({
@@ -71086,6 +71089,7 @@ function gsPPvorlageNaechstesJahr(id) {
     _gsSatz('📅 Vorlage {1} angelegt', neuJahr) +
     (markiert.length === 1 ? ' · ' + _gsSatz('eine Pflanze zur Fruchtfolge markiert')
      : markiert.length > 1 ? ' · ' + _gsSatz('{1} Pflanzen zur Fruchtfolge markiert', markiert.length) : ''));
+  try { gsTrackEvent('plan_template', { plants: plan.plants.length, markiert: markiert.length }); } catch (_) {}   // v33.21
   try { gsPPopenSavedPlans(); } catch (_) {}
   return neu;
 }
@@ -74662,6 +74666,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.21', date: '10.09.2026',
+      headline: 'Nutzungsmessung: vier Ereignisse mehr — jedes ein Zähler, keines ein Inhalt',
+      summary: 'Jahresvorlage, zweites Foto, Lina-Frage und Ernte-Eintrag sind jetzt benannte Ereignisse im Vokabular — mit genau den Feldern, die sie tragen dürfen. Und der Prüfstand hält fest, dass jedes Ereignis einen Aufrufer hat und jeder Aufrufer einen Eintrag.',
+      user_summary: 'Für dich ändert sich nichts — die Nutzungsmessung bleibt Opt-in. Wenn sie an ist, zählt sie jetzt auch, ob eine Vorlage angelegt, ein zweites Foto gemacht, Lina gefragt oder eine Ernte eingetragen wurde. Nie den Inhalt: keine Frage, keine Antwort, keine Art, keine Menge.',
+      user_items: [
+        {emoji:'🔒', text:'Lina-Fragen werden nur gezählt („kam eine Antwort") — der Text bleibt bei dir und in deinem Verlauf.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'GS_EVENTS:', text:' plan_template {plants, markiert} · scan_rescan {fotos} · lina_message {ok} · harvest_logged {quelle} — vier Aufrufer an den echten Stellen.'},
+        {emoji:'🧪', bold:'einstellungen_check:', text:' jedes Ereignis im Vokabular hat einen Aufrufer, jeder Aufrufer einen Eintrag (Quelltext, 9/10); Re-Scan und Vorlage feuern über die echten Funktionen mit genau ihren Feldern. Zwei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.20', date: '10.09.2026',
       headline: 'Der Scan kennt den Aussaatkalender',
       summary: 'Erkennt der Scanner eine Kultur aus dem Schweizer Aussaatkalender, steht ihr Fenster auf der Karte — drinnen vorziehen, draussen säen, Ernte — mit dem Weg zum Säkalender. Eine Wildart bekommt nichts; die Sammelsaison ist kein Aussaatfenster.',
@@ -75084,7 +75101,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.20';
+var GS_VERSION = 'v33.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -83905,6 +83922,7 @@ async function gsLinaSend(){
     }
     var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
     var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(), 900, { quotaFeature:'lina', timeout:45000 });
+    try { gsTrackEvent('lina_message', { ok: !!reply }); } catch(_){}   // v33.21: kam eine Antwort — nie der Text
     if (!reply) reply = _t('lina_error','Entschuldige, da ist gerade etwas schiefgelaufen — magst du es nochmal versuchen? 🌿');
     // v30.69: optionale [[GS_ACTION]]{json}-Zeile extrahieren + aus dem angezeigten Text entfernen (wird escaped sonst sichtbar)
     try {
@@ -84800,6 +84818,11 @@ var GS_EVENTS = {
   plan_saved:     ['plants', 'has_dates'],                 // Zahl der Pflanzen, traegt der Plan Daten
   task_done:      ['task_key', 'liste'],                   // water/fertilize/…, myPlants/plantings
   quiz_answered:  ['correct'],                             // richtig/falsch (Vorschlag des Clients)
+  // v33.21: vier Ereignisse mehr — jedes ein Zaehler, keines ein Inhalt.
+  plan_template:  ['plants', 'markiert'],                  // Jahresvorlage angelegt (v33.12): Zahl der Pflanzen, davon zur Fruchtfolge markiert
+  scan_rescan:    ['fotos'],                               // zweites/drittes Foto angefordert (v33.16): wie viele Fotos der naechste Scan traegt
+  lina_message:   ['ok'],                                  // eine Frage an Lina: kam eine Antwort — nie der Text, nie die Frage
+  harvest_logged: ['quelle'],                              // Ernte eingetragen: ueber welchen Weg (ernte/pflanze) — nie Art, Menge oder Ort
   consent_changed:['analytics']                            // der Schalter selbst
 };
 window.GS_EVENTS = GS_EVENTS;
