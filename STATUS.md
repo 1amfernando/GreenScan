@@ -4,13 +4,36 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.21` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.22` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hq) - v33.22: Lina oeffnet den Kalender und den Saekalender
+
+Lina kennt den Kalender seit v33.14 (Kontext) — handeln konnte sie nur mit
+`navigate` auf die Tabs, `search_species`, `prefill_form` und zwei
+Vorschlaegen. Wer sie bat „zeig mir den Kalender", bekam eine Beschreibung
+des Weges.
+
+**Gebaut:** zwei lesende Werkzeuge im Dispatcher (`gsLinaDispatch`):
+`open_calendar {day}` → `gsKalenderOeffnenAm` (ohne `day` heute; das Datum
+klemmt `_gsKalTag`), `open_saekalender {}` → `openSaekalender`. Der Auftrag
+(`LINA_SYSTEM`) nennt beide; „Erfinde keine anderen Tools" gilt weiter, ein
+erfundenes Tool tut nichts.
+
+**Pruefstand:** `sensor_check` „Lina · handeln" — der ERSTE Pruefstand fuer
+den Dispatcher (bis v33.21 keiner): Kalender am 01.09. zeigt Feldsalat
+(Aussaatfenster), ohne `day` steht er auf heute, der Saekalender oeffnet
+(Titel und Monatszeile — nicht eine Kultur, die im September nicht dran
+ist: der erste Anlauf verlangte „Tomaten" und war rot), ein erfundenes Tool
+oeffnet kein Fenster, der Auftrag nennt beide Werkzeuge. Zwei Gegenproben
+rot (Fall im Dispatcher entfernt · Zeile im Auftrag entfernt).
+
+---
 
 ### 2026-09-10 (hp) - v33.21: das Vokabular waechst — vier Ereignisse, jedes ein Zaehler
 
@@ -12240,7 +12263,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.21` (Client) · SW-Cache `gs-v33.21` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.22` (Client) · SW-Cache `gs-v33.22` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

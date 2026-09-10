@@ -618,6 +618,54 @@ const FAELLE = [
     },
   },
   {
+    name: 'Lina · handeln: open_calendar oeffnet den Kalender am genannten Tag, open_saekalender den Saekalender, ein erfundenes Tool tut nichts — und der Auftrag nennt beide',
+    lauf: async () => {
+      // v33.22. Lina kennt den Kalender seit v33.14 — jetzt kann sie ihn
+      // oeffnen. Der Dispatcher (gsLinaDispatch) ist die EINE Stelle, durch
+      // die jede Aktion muss; bis v33.21 hatte er keinen Pruefstand.
+      const J = gsHeuteTag().slice(0, 4);
+      const sichern = { mp: myPlants };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const text = () => ((document.getElementById('modal-content') || {}).textContent || '').replace(/\s+/g, ' ');
+      const zu = () => { try { closeModal('detail-modal'); } catch (_) {} };
+      try {
+        window.myPlants = [{ id: 'lh1', name: 'Feldsalat', tasks: {} }];
+        const klagen = [];
+        // 1 · Kalender am 01.09. — Feldsalat liegt dort im Aussaatfenster
+        zu();
+        await gsLinaDispatch({ tool: 'open_calendar', args: { day: J + '-09-01' } });
+        await warte(350);
+        const t1 = text();
+        if (!/Feldsalat/.test(t1)) klagen.push('open_calendar zeigt den 01.09. nicht (Feldsalat fehlt): „' + t1.slice(0, 120) + '"');
+        if (typeof _gsKalStand !== 'undefined' && _gsKalStand.tag !== J + '-09-01') klagen.push('Kalender steht auf ' + (_gsKalStand && _gsKalStand.tag) + ' statt ' + J + '-09-01');
+        zu();
+        // 2 · ohne day → heute
+        await gsLinaDispatch({ tool: 'open_calendar', args: {} });
+        await warte(350);
+        if (typeof _gsKalStand !== 'undefined' && _gsKalStand.tag !== gsHeuteTag()) klagen.push('ohne day steht der Kalender auf ' + _gsKalStand.tag + ' statt heute');
+        zu();
+        // 3 · Saekalender
+        await gsLinaDispatch({ tool: 'open_saekalender', args: {} });
+        await warte(350);
+        const t3 = text();
+        // Der Saekalender zeigt den laufenden Monat (September: 10 Kulturen) — der Titel und die Monatszeile sind der Beleg, nicht eine Kultur, die im September nicht dran ist
+        if (!/S[äa]e?kalender/.test(t3) || !/diesen Monat/.test(t3)) klagen.push('open_saekalender zeigt den Saekalender nicht: „' + t3.slice(0, 120) + '"');
+        zu();
+        // 4 · ein erfundenes Tool tut nichts — kein Fenster, kein Fehler
+        const vorher = text();
+        await gsLinaDispatch({ tool: 'delete_everything', args: { all: true } });
+        await warte(350);
+        const dm = document.getElementById('detail-modal');
+        const offen = dm && dm.style.display !== 'none' && dm.classList.contains('active');
+        if (offen && text() !== vorher) klagen.push('ein erfundenes Tool hat ein Fenster geoeffnet');
+        // 5 · der Auftrag an Lina nennt beide Werkzeuge
+        if (!/open_calendar/.test(LINA_SYSTEM) || !/open_saekalender/.test(LINA_SYSTEM)) klagen.push('LINA_SYSTEM nennt open_calendar/open_saekalender nicht — Lina kann nicht rufen, was sie nicht kennt');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Kalender am 01.09. (Feldsalat) · ohne day heute · Saekalender (Tomaten, Feldsalat) · erfundenes Tool: nichts · Auftrag nennt beide' };
+      } finally { window.myPlants = sichern.mp; zu(); }
+    },
+  },
+  {
     // v32.57: Zwei Geraete, dieselbe Groesse, zwei Linien (§11 Idee 9). Nur
     // Messgroessen, die BEIDE haben; die Legende nennt beide; die Zahl der
     // gezeichneten Reihen steht am Canvas; ein Geraet ohne die Groesse fehlt

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.21.20260910">
+<meta name="app-version" content="33.22.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74666,6 +74666,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.22', date: '10.09.2026',
+      headline: 'Lina öffnet den Kalender und den Säkalender',
+      summary: 'Lina kennt den Kalender seit v33.14 — jetzt kann sie ihn auch zeigen: „öffne den Kalender am 15. September" oder „zeig mir den Säkalender" führt direkt dorthin. Und der Dispatcher, durch den jede ihrer Aktionen muss, hat seinen ersten Prüfstand.',
+      user_summary: 'Frag Lina „was steht nächste Woche an?" — und sag „zeig mir den Kalender": sie öffnet ihn am richtigen Tag. Auch der Säkalender ist einen Satz entfernt.',
+      user_items: [
+        {emoji:'📅', text:'„Öffne den Kalender am 15. September" — Lina zeigt den Tag mit Aufgaben, Aussaatfenstern, Plan-Terminen und Frost.'},
+        {emoji:'🌱', text:'„Zeig mir den Säkalender" — die 39 Kulturen mit drinnen/draussen/Ernte.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsLinaDispatch:', text:' open_calendar {day} → gsKalenderOeffnenAm (ohne day heute) · open_saekalender → openSaekalender; beide nur lesend, ohne Rückfrage. Der Auftrag (LINA_SYSTEM) nennt beide; erfundene Tools tun weiter nichts.'},
+        {emoji:'🧪', bold:'sensor_check „Lina · handeln":', text:' erster Prüfstand für den Dispatcher — Kalender am 01.09. (Feldsalat im Fenster), ohne day heute, Säkalender, erfundenes Tool ohne Wirkung, Auftrag nennt beide. Zwei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.21', date: '10.09.2026',
       headline: 'Nutzungsmessung: vier Ereignisse mehr — jedes ein Zähler, keines ein Inhalt',
       summary: 'Jahresvorlage, zweites Foto, Lina-Frage und Ernte-Eintrag sind jetzt benannte Ereignisse im Vokabular — mit genau den Feldern, die sie tragen dürfen. Und der Prüfstand hält fest, dass jedes Ereignis einen Aufrufer hat und jeder Aufrufer einen Eintrag.',
@@ -75101,7 +75115,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.21';
+var GS_VERSION = 'v33.22';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -83709,6 +83723,9 @@ var LINA_SYSTEM =
   'Schreib davor immer eine kurze, natürliche Antwort. Nutze NUR diese Tools:\n' +
   '• navigate {"screen":"..."} — wechselt den Bereich. Erlaubte screens: home, scanner, search, favs (Meine Pflanzen), garden, season, social (Community), market (Marktplatz), wissen, settings, map, recipes, remedies.\n' +
   '• search_species {"query":"..."} — öffnet die Arten-Suche mit dem Suchbegriff.\n' +
+  // v33.22: Lina kennt den Kalender seit v33.14 — jetzt kann sie ihn auch oeffnen.
+  '• open_calendar {"day":"JJJJ-MM-TT"} — öffnet den Kalender (Aufgaben, Aussaatfenster, Plan-Termine, Frost) an diesem Tag; ohne day heute.\n' +
+  '• open_saekalender {} — öffnet den Säkalender (39 Kulturen: drinnen vorziehen, draussen säen, Ernte).\n' +
   '• prefill_form {"name":"...","emoji":"...","notes":"..."} — öffnet das Pflanze-Hinzufügen-Formular vorausgefüllt (der Nutzer tippt selbst auf Speichern).\n' +
   '• propose_add_plant {"name":"...","emoji":"...","notes":"..."} — schlägt vor, eine Pflanze zu Meine Pflanzen hinzuzufügen (Nutzer bestätigt mit einem Tipp).\n' +
   '• propose_reminder {"task":"...","plantName":"...","intervalDays":N} — richtet eine Pflege-Erinnerung für eine VORHANDENE Pflanze ein. Erlaubte task: water, fertilize, repot, rotate, mist, dust, prune, check.\n' +
@@ -84001,6 +84018,16 @@ async function gsLinaDispatch(act){
       var t = String(a.screen||'').toLowerCase();
       if (GS_LINA_SCREENS.indexOf(t) < 0) return;            // nur Whitelist-Screens
       _close(); setTimeout(function(){ if (typeof switchTab==='function') switchTab(t, null); }, 140);
+      return;
+    }
+    // v33.22: der Kalender ist eine Antwort (KALENDER-V1 Regel 1) — Lina zeigt sie, sie rechnet nicht selbst.
+    case 'open_calendar': {
+      var _tag = (typeof _gsKalTag === 'function' ? _gsKalTag(a.day) : null) || gsHeuteTag();
+      _close(); setTimeout(function(){ try { gsKalenderOeffnenAm(_tag); } catch(_){} }, 140);
+      return;
+    }
+    case 'open_saekalender': {
+      _close(); setTimeout(function(){ try { openSaekalender(); } catch(_){} }, 140);
       return;
     }
     case 'search_species': {
