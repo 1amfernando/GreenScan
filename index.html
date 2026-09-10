@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.08.20260910">
+<meta name="app-version" content="33.09.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74237,6 +74237,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.09', date: '10.09.2026',
+      headline: 'touch_check hat 43 Fenster nie angesehen — jetzt schon, und dabei die WCAG-Regel richtiggestellt',
+      summary: 'Der Prüfstand für Antippflächen mass nur die elf Bildschirme. Die 43 Fenster darüber hat nie jemand vermessen. Beim Öffnen aller Fenster kam heraus: 22 zu kleine Ziele, davon 21 durch Abstand konform — die Ausnahme, die WCAG 2.5.8 vorsieht und die der Prüfstand nicht kannte. Ein echter Fund blieb übrig.',
+      user_summary: 'Ein Knopf im „Über GreenScan"-Fenster war auf schmalen Geräten zu knapp zum Antippen.',
+      user_items: [
+        {emoji:'🔧', text:'„🔧 Technische Details" war nur 18 Pixel hoch — auf einem schmalen Telefon zu wenig, um ihn sicher zu treffen. Jetzt so hoch wie sein Geschwister-Knopf in „Was ist neu".'}
+      ],
+      items: [
+        {emoji:'🔍', bold:'43 Fenster, 84 Öffnungen (zwei Breiten):', text:' dieselbe Entdeckung wie contrast_check seit v32.25 — jeder Öffner ohne Parameter, dessen Rumpf openModal( enthält, wird wirklich aufgerufen. Eine Liste von Hand veraltet; diese Regel nimmt neue Fenster ab dem Tag ihrer Entstehung mit. CLAUDE.md sagte bis heute: „wer etwas in einem Modal setzt, das der Prüfstand nicht öffnet, rechnet selbst nach" — niemand rechnet selbst nach.'},
+        {emoji:'📐', bold:'Und die Regel war zu streng:', text:' WCAG 2.5.8 erlaubt ein kleines Ziel ausdrücklich, wenn ein 24-px-Kreis um seine Mitte kein anderes Ziel schneidet. Ohne diese Ausnahme hätte der Durchgang 22 Treffer gemeldet, von denen 21 konform sind — Kästchen in Standardgrösse mit reichlich Luft. Ein Bericht mit einundzwanzig richtigen Zeilen, die keine Fehler sind, ist der Bericht, den man zu ignorieren lernt.'},
+        {emoji:'⚠️', bold:'Die Geometrie hatte ich zuerst falsch:', text:' mit Kreisen für die grossen Nachbarziele gerechnet kam 0 heraus, mit ihrer Umrandung 1. Die nachgiebige Rechnung hätte den einen echten Fund verborgen — eine zu lasche Prüfregel ist gefährlicher als eine zu strenge, weil niemand sie bemerkt.'},
+        {emoji:'🧪', bold:'Gemessen statt geschätzt:', text:' zwei Läufe hintereinander dieselben Zahlen (0 Funde, 22 konform); render_check meldet „GROESSE geaendert: 0" — die Polsterung verschiebt kein Layout.'}
+      ],
+    },
+  {
     v: 'v33.08', date: '10.09.2026',
       headline: 'Ein Besteck-Symbol vor „Eicheln (für Tiere)" — an 164 von 372 Tagen',
       summary: 'Zwei unabhängige Funde. Der schwerere: die Wissens-Zeile nahm die Essbarkeit von der ART und den Text vom EINTRAG — zwei Quellen, ein Satz. Der zweite: vier Anzeigen zeigten Eintragszahlen unter dem Wort „Arten", und nutzersicht_check E3 hat genau das erzwungen, während E9 das Gegenteil verlangt.',
@@ -74677,7 +74692,7 @@ function gsRenderAboutChangelog(){
           (hasTech ? (
             '<div style="margin-top:4px;">' +
               '<button type="button" onclick="(function(b){var t=document.getElementById(\'' + toggleId + '\');if(!t)return;var open=t.style.display!==\'none\';t.style.display=open?\'none\':\'block\';b.textContent=open?\'🔧 Technische Details\':\'▾ Technische Details ausblenden\';})(this)" ' +
-                'style="background:transparent;border:none;color:var(--g-main);font-size:var(--fs-sm);font-weight:700;cursor:pointer;padding:2px 0;font-family:inherit;">🔧 Technische Details</button>' +
+                'style="background:transparent;border:none;color:var(--g-main);font-size:var(--fs-sm);font-weight:700;cursor:pointer;padding:6px 0;font-family:inherit;">🔧 Technische Details</button>' +
               '<ul id="' + toggleId + '" style="display:none;margin:6px 0 0 18px;padding:0;font-size:var(--fs-sm);color:var(--muted);line-height:1.65;">' + techListHtml + '</ul>' +
             '</div>'
           ) : '') +
@@ -74720,7 +74735,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.08';
+var GS_VERSION = 'v33.09';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

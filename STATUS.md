@@ -4,13 +4,72 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.08` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.09` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hd) - v33.09: touch_check hat 43 Fenster nie angesehen
+
+**Dieselbe Ansage wie bei `contrast_check` vor v32.25 — und dieselbe Antwort.**
+CLAUDE.md §7.1 sagte bis heute ueber `touch_check`: *„Seine andere Grenze
+bleibt — es misst nur die elf Bildschirme"*, und weiter: *„wer Farbe in einem
+Modal setzt, das der Pruefstand nicht oeffnet, rechnet selbst nach."*
+`contrast_check` hat 2026-09-04 festgestellt: **niemand rechnet selbst nach**,
+und fand 44 bzw. 56 nie gemessene Stellen.
+
+`touch_check` oeffnet jetzt dieselben Fenster nach derselben Regel (jeder
+Oeffner ohne Parameter mit `openModal(` im Rumpf): **43 Fenster, 84 Oeffnungen**
+bei zwei Breiten.
+
+#### Der Fund: einer — aber die Regel war das eigentliche Thema
+
+| | |
+|---|---|
+| zu kleine Ziele in Fenstern | **22** |
+| davon durch ABSTAND konform (WCAG 2.5.8 Ausnahme) | **21** |
+| echter Verstoss | **1** — „🔧 Technische Details" im Ueber-Fenster, 126x18 bei 320 px |
+
+`touch_check` kannte die Ausnahme nicht. WCAG 2.5.8 erlaubt ein kleines Ziel
+ausdruecklich, wenn ein Kreis von 24 px Durchmesser um seine Mitte kein
+anderes Ziel schneidet.
+
+> **Ohne die Ausnahme haette die Erweiterung 22 Zeilen gemeldet, von denen 21
+> keine Fehler sind.** Kaestchen in ihrer Standardgroesse mit reichlich Luft
+> darum. Das ist der Bericht, den man zu ignorieren lernt (dieselbe Lehre wie
+> die vier staendigen Falschmeldungen in v32.21) — und dann faellt die eine
+> echte Zeile mit unter den Tisch.
+
+Die 21 stehen deshalb als **eigene Zahl** im Bericht, nicht unter den Fehlern
+(dieselbe Trennung wie die drei Klassen in `backend_check`).
+
+#### Und die Geometrie hatte ich zuerst falsch — in die gefaehrliche Richtung
+
+Mein erster Anlauf rechnete auch fuer die GROSSEN Nachbarziele mit einem
+Kreis. Ergebnis: **0 Funde**. Richtig ist ihre **Umrandung** — WCAG sagt
+„bounding box". Damit: **1 Fund**.
+
+> **Eine zu lasche Pruefregel ist gefaehrlicher als eine zu strenge.** Die
+> strenge meldet zu viel und faellt auf; die lasche meldet gar nichts und
+> sieht aus wie ein gruener Bericht. Ich haette den einen echten Fund mit
+> meiner eigenen Vereinfachung verborgen.
+
+#### Die Reparatur
+
+`padding:2px 0` → `6px 0` an genau einem Knopf — dieselbe Polsterung, die sein
+Geschwister-Knopf in „Was ist neu" seit jeher hat und wegen der er nie
+auffiel. `render_check`: **GROESSE geaendert: 0**. Zwei Laeufe hintereinander
+dieselben Zahlen (0 Funde, 22 konform).
+
+**Und `SCAN` nimmt jetzt eine Wurzel entgegen** — ohne Argument das ganze
+Dokument wie bisher, mit Selektor nur das Fenster. EINE Regel fuer beides; ein
+zweiter Scanner fuer Fenster waere die Falle aus v32.16, diesmal zwischen zwei
+Pruefungen desselben Pruefstands.
+
+---
 
 ### 2026-09-10 (hc) - Die Klasse hinter v33.08 gesucht: KEIN neuer Fehler, zwei Messloecher zu
 
@@ -11745,7 +11804,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.08` (Client) · SW-Cache `gs-v33.08` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.09` (Client) · SW-Cache `gs-v33.09` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
