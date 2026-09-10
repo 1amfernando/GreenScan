@@ -4,13 +4,64 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.16` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.17` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hl) - v33.17: Konto loeschen — vollstaendig und nachgemessen
+
+Der erste Baustein dieses Aufbaus, der aus einer **Live-Messung** kommt
+(nur lesend, `pg_constraint` + `information_schema` + `storage.objects`):
+
+- **`delete-user` loeschte KEIN Storage-Objekt.** 169 Objekte in drei Buckets
+  (`scan-images` 92, `species-images` 10, `book-pdfs` 67), alle unter
+  `<uid>/` — der Dialog versprach „Alle Scans & Bilder".
+- **`ai_usage` und `species_search_log`** tragen `user_id` ohne FK und standen
+  in keiner Liste.
+- **`organizations.created_by` ist NOT NULL + RESTRICT** (2 Zeilen live): wer
+  eine Organisation erstellt hatte, bekam ein HALBES Loeschen — Tabellen und
+  Profil weg, `auth.users` und Login stehen, Antwort 207, die App sagte
+  „fehlgeschlagen".
+- 101 Spalten in `public.*` zeigen auf eine Person; 45 fallen per Kaskade,
+  18 bleiben per `set null` oder ohne FK — nirgends stand, welche mit Grund.
+
+**Gebaut:** `supabase/functions/_shared/loeschung_regeln.mjs` (USER_TABLES,
+BUCKETS, BEWUSST mit Grund, `loeschSperre`, `sperreMeldung`, `speicherPfade`,
+`klassifiziere`) — dieselbe Bauform wie `ingest_regeln.mjs`. `delete-user` v5
+importiert es: Sperre VOR dem ersten Schritt (409 `org_creator`, nichts
+geloescht; die Namen reisen in `message`, weil `sbFetch` von Nicht-2xx nur
+`message` und `status` weiterreicht), Storage je Bucket seitenweise, dann
+Tabellen, Profil, Konto. **Nicht ausgeliefert** — FUER-FERNANDO §15. App:
+bei der Sperre ein Satz mit dem Namen der Organisation, Knopf wieder frei,
+lokal bleibt alles; der Dialog nennt Fotos in der Cloud, Lina-Verlauf,
+Suchverlauf, KI-Nutzung.
+
+**Pruefstand:** `scripts/loeschung_check.js` (32.) gegen die datierte
+Momentaufnahme `docs/loeschung-inventar.json` — kaskade 45 · explizit 38 ·
+bewusst 18 · FEHLT 0; Rechnung, Rand (Reihenfolge, 409, list+remove) und
+App. **Vier Gegenproben rot** — und eine hat den Pruefstand selbst
+geschaerft: ohne die Erkennung reichte `_gsFehlerText` die rohe Meldung
+„org_creator: Schule Muster" durch, der Name stand da, der Fall war gruen.
+**Ein Satz traegt kein Praefix.**
+
+**Grenze:** geprueft sind Listen, Rechnung, Rand und App — nicht die lebende
+Funktion. Ob Supabase die Objekte wirklich entfernt und die Kaskaden greifen,
+zeigt nur ein echtes Loeschen nach der Auslieferung.
+
+**Nebenfund beim ersten CI-Lauf (rot: 1):** `naht_check` las `USER_TABLES`
+aus der Edge-Function und meldete nach dem Umzug ins Modul alle fuenf
+Geraetetabellen als „fehlt" — waehrend `loeschung_check` daneben gruen war.
+Die Kopie, auf der v33.17 geprueft wurde, hatte `naht_check` nicht
+mitgefahren. Jetzt liest der Fall das Modul (Rueckfall Edge-Function) und
+wird rot, wenn er gar keine Liste findet. **Wer eine Liste umzieht, sucht
+ihre Leser** — und faehrt auf der Kopie die Nachbarn, die den Bereich
+kennen, nicht nur die, die naheliegen.
+
+---
 
 ### 2026-09-10 (hk) - v33.16: Scanner — jedes Foto gemessen, der dritte Blick (SCANNER-V3 Stufe 2b)
 
@@ -12089,11 +12140,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.16` (Client) · SW-Cache `gs-v33.16` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.17` (Client) · SW-Cache `gs-v33.17` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
-- **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **32** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -12115,7 +12166,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Edge-Function `device-ingest` | Der Empfänger für Geräte — im Repo, nicht ausgeliefert (`supabase functions deploy device-ingest --no-verify-jwt`). Erst mit dem ersten Gerät. | `docs/GERAETE-VERTRAG.md` · (ex) |
 | Migration `20260906_sensor_push.sql` | Brücken-Sperre (`payload_meta.notification_id`) + Cron `device-alerts` ruft `sensor-push` nur bei etwas Neuem (§11.3k). Nach `20260905_device_alerts_cron.sql`. | `docs/FUER-FERNANDO.md` §6 · (ey) |
 | Edge-Function `sensor-push` | Pusht `sensor_alert`-Inbox-Zeilen (VAPID, Stille, Pause, `notify_sensor`) — im Repo, nicht ausgeliefert (`supabase functions deploy sensor-push`). Ohne ihn landet ein Sensor-Alarm nur in der Inbox. | §11.3k · (ey) |
-| Edge-Function `delete-user` | Neu ausliefern: `USER_TABLES` kennt jetzt die fünf Gerätetabellen. | (ey) |
+| Edge-Function `delete-user` | Neu ausliefern (v5): Sperre für Organisations-Ersteller VOR dem ersten Schritt, Storage je Bucket, `ai_usage` + `species_search_log`, Listen aus `_shared/loeschung_regeln.mjs` (v33.17); davor schon die fünf Gerätetabellen (ey). | (ey), (hl) |
 | Migration `20260906_device_commands_expires_at.sql` | `device_commands.expires_at` — Vertrag §4, Regel-Modul und Empfänger nennen die Spalte, die Tabelle hatte sie nicht (`naht_check`). Nach `20260903_oekosystem_v1_geraete.sql`. | §11.3n · (fb) |
 | **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. | `docs/FUER-FERNANDO.md` §5 · (ep) |
 | Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |

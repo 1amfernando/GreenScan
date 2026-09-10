@@ -108,7 +108,7 @@ GreenScan/
 ├── index.html           # ~82k Zeilen Monolith (HTML + CSS + JS) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push) — 21 KB seit v32.72; sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
-├── supabase/functions/  # 41 Edge-Functions (Scan/Pilz/Schädling/Stripe/Push/i18n …)
+├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
 ├── supabase/migrations/ # 215 SQL-Migrationen (alle idempotent)
 ├── manifest.json        # PWA-Manifest (share_target, file_handlers, etc.)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
@@ -117,7 +117,7 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 31 Prüfstände (§7.1) + pruefstaende.sh (alle 31, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 32 Prüfstände (§7.1) + pruefstaende.sh (alle 32, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -683,12 +683,13 @@ node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor e
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
+node scripts/loeschung_check.js  # raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
-bash scripts/pruefstaende.sh     # ALLE 31 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+bash scripts/pruefstaende.sh     # ALLE 32 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1198,6 +1199,20 @@ Messwerte → Gerät koppeln (`gsGeraetKoppeln`). Der alte Assistent unter
 (`gsShOpen`, Demo-Werte) hängt an keinem Menüeintrag mehr; wer die
 Alt-Tabellen `sensor_devices` / `sensor_readings` anfasst, liest zuerst
 OEKOSYSTEM-V1 §11 Idee 1 (live 1 / 0 / 0 Zeilen, 07.09.2026).
+
+**Seit v33.17 hat „Konto löschen" EINE Liste — und einen Prüfstand dahinter.**
+`supabase/functions/_shared/loeschung_regeln.mjs` (USER_TABLES, BUCKETS,
+BEWUSST mit Grund, `loeschSperre`, `speicherPfade`) ist von Deno
+(`delete-user`) und Node (`loeschung_check`) importiert. Wer eine Tabelle mit
+einer Nutzer-Spalte anlegt oder einen Bucket, traegt sie dort ein UND zieht die
+datierte Momentaufnahme `docs/loeschung-inventar.json` nach (zwei lesende
+Abfragen, stehen im Kopf der Datei). Drei Klassen je Spalte — kaskade ·
+explizit · bewusst — alles andere meldet der Pruefstand. Live gemessen am
+10.09.2026: `delete-user` loeschte kein einziges Storage-Objekt (169 Fotos und
+PDFs), waehrend der Dialog „Alle Scans & Bilder" versprach; und
+`organizations.created_by` (RESTRICT) liess ein HALBES Konto stehen. **Ein
+Loeschen, das der Dialog verspricht, wird gegen die Datenbank gemessen, nicht
+gegen die Liste im Code.**
 
 **Seit v32.75 haben die Push-Sender EIN Helfer-Modul:**
 `supabase/functions/_shared/push_helfer.mjs` (`loadSettings(sb)`,

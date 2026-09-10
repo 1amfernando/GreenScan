@@ -38,6 +38,13 @@ const MIG_PUSH = lies('supabase/migrations/20260906_sensor_push.sql');
 const INGEST_TS = lies('supabase/functions/device-ingest/index.ts');
 const PUSH_TS = lies('supabase/functions/sensor-push/index.ts');
 const DELETE_TS = lies('supabase/functions/delete-user/index.ts');
+// v33.17: die Liste liegt im Modul (loeschung_regeln.mjs) — die Edge-Function
+// importiert sie nur noch. Der Fall las sie bis dahin aus der Edge-Function
+// und meldete nach dem Umzug alle fuenf Geraetetabellen als „fehlt", waehrend
+// loeschung_check daneben gruen war: die Kopie, auf der v33.17 geprueft wurde,
+// hatte naht_check nicht mitgefahren. Wer eine Liste umzieht, sucht ihre Leser.
+let LOESCH_MJS = '';
+try { LOESCH_MJS = lies('supabase/functions/_shared/loeschung_regeln.mjs'); } catch (_) { LOESCH_MJS = ''; }
 const SNAP = JSON.parse(lies('docs/naht-spalten.json'));
 
 // ── Spalten aus `create table if not exists public.X ( … );` ────────────────
@@ -284,8 +291,9 @@ const FAELLE = [
   {
     name: 'Löschen · delete-user kennt jede Gerätetabelle mit user_id — und keine ohne',
     lauf: () => {
-      const liste = (DELETE_TS.match(/const USER_TABLES = \[([\s\S]*?)\];/) || [])[1] || '';
-      const genannt = (liste.match(/"([a-z_]+)"/g) || []).map((x) => x.slice(1, -1));
+      const liste = (LOESCH_MJS.match(/export const USER_TABLES = \[([\s\S]*?)\];/) || DELETE_TS.match(/const USER_TABLES = \[([\s\S]*?)\];/) || [])[1] || '';
+      const genannt = (liste.replace(/\/\/.*$/gm, '').match(/['"]([a-z_]+)['"]/g) || []).map((x) => x.slice(1, -1));
+      if (!genannt.length) return { ok: false, warum: 'keine USER_TABLES gefunden — weder im Modul noch in der Edge-Function' };
       const mitUser = Object.keys(TABELLEN).filter((t) => /^device|^metric/.test(t) && TABELLEN[t].spalten.indexOf('user_id') >= 0);
       const ohneUser = Object.keys(TABELLEN).filter((t) => /^device|^metric/.test(t) && TABELLEN[t].spalten.indexOf('user_id') < 0);
       const fehlt = mitUser.filter((t) => genannt.indexOf(t) < 0);
