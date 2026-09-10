@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.16.20260910">
+<meta name="app-version" content="33.17.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74600,6 +74600,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.17', date: '10.09.2026',
+      headline: 'Konto löschen — vollständig und nachgemessen',
+      summary: 'Konto löschen räumt jetzt auch die Fotos in der Cloud, den Suchverlauf und die KI-Nutzung; wer eine Organisation erstellt hat, erfährt es vorher statt ein halb gelöschtes Konto zu behalten. Ein neuer Prüfstand hält die Liste gegen die Live-Datenbank.',
+      user_summary: '„Konto löschen" löscht jetzt wirklich alles, was der Dialog verspricht — auch deine Fotos in der Cloud. Wer eine Organisation erstellt hat, bekommt vorher einen klaren Satz.',
+      user_items: [
+        {emoji:'🗑️', text:'Deine Scan-Fotos, Artenbilder und Buch-PDFs in der Cloud werden mit dem Konto gelöscht — bisher blieben sie liegen.'},
+        {emoji:'🏫', text:'Hast du eine Organisation erstellt, sagt die App vorher „Übertrage oder lösche sie zuerst" — und löscht nichts, statt Konto und Login halb stehen zu lassen.'},
+        {emoji:'📋', text:'Der Dialog nennt jetzt auch Fotos in der Cloud, Lina-Verlauf, Suchverlauf und KI-Nutzung.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'loeschung_regeln.mjs:', text:' USER_TABLES, BUCKETS, BEWUSST (mit Grund), loeschSperre, speicherPfade — von Deno (delete-user) und Node (Prüfstand) importiert. Live gemessen: 101 Nutzer-Spalten, 3 Buckets mit 169 Objekten, alle unter <uid>/.'},
+        {emoji:'🛡', bold:'delete-user v5:', text:' Sperre VOR dem ersten Schritt (409 org_creator — organizations.created_by ist NOT NULL + RESTRICT), Storage je Bucket seitenweise, ai_usage und species_search_log (user_id ohne FK). Muss von Fernando neu ausgeliefert werden (FUER-FERNANDO §15).'},
+        {emoji:'🧪', bold:'loeschung_check (32. Prüfstand):', text:' jede Nutzer-Spalte der datierten Momentaufnahme ist kaskade, explizit oder bewusst; Rechnung, Rand (Reihenfolge, 409, list+remove) und App (Satz nennt die Organisation, Knopf frei, lokal nichts gelöscht). Vier Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.16', date: '10.09.2026',
       headline: 'Scanner: jedes Foto gemessen, der dritte Blick — SCANNER-V3 Stufe 2b',
       summary: 'Bei mehreren Fotos zählt das schärfste, und die Prüfung sagt, wie viele nichts beitragen. „Zweites Foto" nimmt alle Fotos des letzten Scans mit und wird zum dritten; drei sind das Maximum.',
@@ -75107,7 +75123,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.16';
+var GS_VERSION = 'v33.17';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80315,10 +80331,11 @@ async function profDeleteAccount() {
         '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.6;margin-bottom:14px;">Folgende Daten werden <b>unwiderruflich</b> gelöscht:</div>' +
         '<ul style="font-size:var(--fs-sm);color:var(--text);line-height:1.8;margin:0 0 16px 0;padding-left:20px;">' +
           '<li>Dein Profil &amp; Login</li>' +
-          '<li>Alle Scans &amp; Bilder</li>' +
+          '<li>Alle Scans &amp; Bilder — auch die Fotos in der Cloud</li>' +
           '<li>Alle Gärten, Pflanzen, Aufgaben</li>' +
           '<li>Alle Posts, Kommentare, Likes</li>' +
           '<li>Alle Sensor-Daten &amp; Tracks</li>' +
+          '<li>Lina-Verlauf, Suchverlauf, KI-Nutzung</li>' +
         '</ul>' +
         '<label style="display:block;font-size:var(--fs-sm);font-weight:800;color:var(--c-danger);margin-bottom:6px;">Tippe <code style="background:var(--bg-danger-soft);padding:1px 6px;border-radius:var(--r-xs);">LÖSCHEN</code> zur Bestätigung:</label>' +
         '<input id="del-confirm" type="text" autocomplete="off" placeholder="LÖSCHEN" style="width:100%;padding:12px 14px;border:1.5px solid #c62828;border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;text-align:center;font-weight:800;letter-spacing:2px;text-transform:uppercase;background:var(--card);color:var(--text);box-sizing:border-box;margin-bottom:14px;">' +
@@ -80337,9 +80354,14 @@ async function profDeleteAccount() {
   setTimeout(function(){ var i = document.getElementById('del-confirm'); if (i) i.focus(); }, 150);
 }
 
+// v33.17: die Sperre fuer Ersteller einer Organisation kommt als 409 mit
+// `message = 'org_creator: <Namen>'` (loeschung_regeln.mjs, sperreMeldung) —
+// sbFetch reicht von einer Nicht-2xx-Antwort NUR message und status weiter.
+var GS_LOESCH_SPERRE = /^org_creator:\s*(.+)$/;
 async function gsExecuteDeleteAccount() {
   // v23.92: Single-Source-of-Truth via Edge-Function delete-user.
-  // Service-Role löscht alle 35 user-Tabellen + profiles + legacy_profiles + auth.users.
+  // v33.17: Service-Role raeumt Storage (<uid>/ je Bucket), die Tabellen aus
+  // loeschung_regeln.mjs, profiles und auth.users — Pruefstand loeschung_check.
   // Frontend-Aufgabe: confirmation, edge-call, error-handling, logout, localStorage-wipe, redirect.
   var confirmInput = (document.getElementById('del-confirm')||{}).value || '';
   if (confirmInput.trim().toUpperCase() !== 'LÖSCHEN') {
@@ -80376,10 +80398,15 @@ async function gsExecuteDeleteAccount() {
 
   var ok = !!(resp && resp.data && resp.data.ok === true);
   if (!ok) {
-    var msg = (resp && resp.error && _gsFehlerText(resp.error))
+    // v33.17: Ersteller einer Organisation — der Server hat NICHTS geloescht
+    // und sagt, welche. Ein eigener Satz, kein „fehlgeschlagen".
+    var _sp = (resp && resp.error && resp.error.status === 409) ? GS_LOESCH_SPERRE.exec(String(resp.error.message || '')) : null;
+    var msg = _sp
+              ? _gsSatz('Du hast die Organisation „{1}" erstellt. Übertrage oder lösche sie zuerst — dann lässt sich das Konto löschen. Es wurde nichts gelöscht.', _sp[1])
+              : ((resp && resp.error && _gsFehlerText(resp.error))
               || (resp && resp.data && (resp.data.error || resp.data.auth_error))
-              || 'Unbekannter Fehler';
-    if (typeof showProfileToast==='function') showProfileToast({title:'❌ Konto-Löschen fehlgeschlagen', body:msg, kind:'error', duration:5000});
+              || 'Unbekannter Fehler');
+    if (typeof showProfileToast==='function') showProfileToast({title: _sp ? '🏫 Konto nicht gelöscht' : '❌ Konto-Löschen fehlgeschlagen', body:msg, kind: _sp ? 'warn' : 'error', duration: _sp ? 7000 : 5000});
     if (btn) { btn.textContent = 'Endgültig löschen'; btn.disabled = false; btn.style.opacity = ''; }
     return;
   }

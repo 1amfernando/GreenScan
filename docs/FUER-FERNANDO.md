@@ -701,6 +701,43 @@ Liste stehen, kann ich von hier aus nicht sagen.
 
 Alles nachgemessen und ausführlich in `docs/ARTEN-DATEN.md` §8.
 
+## 15 · `delete-user` neu ausliefern — Konto löschen räumt jetzt auch die Cloud (v33.17)
+
+Gemessen, nur lesend, am 10.09.2026: „Konto löschen" liess **169 Fotos und
+PDFs** in drei Buckets liegen (alle unter `<uid>/`), zwei Tabellen mit
+`user_id` ohne Fremdschlüssel standen in keiner Liste, und wer eine
+Organisation erstellt hatte, bekam ein halb gelöschtes Konto (Tabellen und
+Profil weg, Login stehen — `organizations.created_by` ist RESTRICT).
+
+Alles im Repo, nichts davon läuft, bis du es auslieferst:
+
+```bash
+supabase functions deploy delete-user
+```
+
+Die geteilte Datei `_shared/loeschung_regeln.mjs` bündelt die CLI automatisch
+mit (wie bei `device-ingest`).
+
+**Was danach anders ist:**
+
+- Ersteller einer Organisation bekommen **409** mit dem Namen — und die App
+  sagt „Übertrage oder lösche sie zuerst". Es wird **nichts** gelöscht. Eine
+  Übertragung gibt es heute nicht; das ist eine Produktentscheidung.
+- Storage-Objekte unter `<uid>/` in `scan-images`, `species-images`,
+  `book-pdfs` (und `recipe-photos`, falls es den Bucket gibt) werden mit dem
+  Konto gelöscht — je Bucket gezählt in `tables['storage:<bucket>']`.
+- `ai_usage` und `species_search_log` werden geräumt.
+
+**Danach prüfen** (ein Testkonto, nichts Echtes): Konto löschen, dann in
+`storage.objects` nachsehen, dass unter der uid nichts mehr liegt, und in
+`audit_log` den Eintrag `delete_user` mit den Zählern ansehen.
+
+**Was bewusst BLEIBT** (mit Grund in `BEWUSST` im Modul): anonymisierte
+Zählungen (`analytics_events`, `client_errors` → `user_id` null), Beiträge zum
+Gemeingut (Artenbilder, Saison-Tipps), Prüfvermerke, Meldungen über andere
+(Moderationsbeleg). Wer das anders will, ändert das Modul — der Prüfstand
+`loeschung_check` sagt dann, was sich verschiebt.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

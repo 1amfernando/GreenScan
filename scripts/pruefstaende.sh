@@ -45,6 +45,7 @@ run ingest       node scripts/ingest_check.js
 run sensor_push  node scripts/sensor_push_check.js
 run kalender     node scripts/kalender_check.js
 run naht         node scripts/naht_check.js
+run loeschung    node scripts/loeschung_check.js
 run kamera       node scripts/kamera_check.js
 run tour         node scripts/tour_check.js
 run escape       node scripts/escape_check.js
