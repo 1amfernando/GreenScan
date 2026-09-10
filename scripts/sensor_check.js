@@ -561,7 +561,8 @@ const FAELLE = [
       const zahlen = Array.from(zeile.matchAll(/(\d+(?:\.\d+)?) (?:%|°C)/g)).map(m => m[1]);
       const fremd = zahlen.filter(z => !werte.has(z) && !werte.has(String(Number(z))));
       if (!zahlen.length || fremd.length) return { ok: false, warum: 'Zahlen im Kontext ohne Datensatz: ' + JSON.stringify(fremd) + ' von ' + JSON.stringify(zahlen) };
-      if (ctx.length > 1100) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen — das ist ein Datenexport, kein Kontext' };
+      // v33.14: 1'100 → 1'350 — zwei Kalenderzeilen (je ≤ 160, siehe Fall „Lina · Kalender") kommen dazu.
+      if (ctx.length > 1350) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen — das ist ein Datenexport, kein Kontext' };
       const sichern = { g: localStorage.getItem('gs_geraete'), mp: myPlants, pl: plantings };
       try {
         localStorage.setItem('gs_geraete', '[]'); myPlants = []; plantings = [];
@@ -569,6 +570,51 @@ const FAELLE = [
         if (!/Fällig: keine Aufgaben heute/.test(leer) || !/Geräte: keine/.test(leer)) return { ok: false, warum: 'ohne Daten schweigt der Kontext statt „keine" zu sagen: ' + leer };
       } finally { if (sichern.g != null) localStorage.setItem('gs_geraete', sichern.g); myPlants = sichern.mp; plantings = sichern.pl; }
       return { ok: true, info: ctx.length + ' Zeichen · ' + zahlen.length + ' Zahlen, alle aus Datensätzen · Alarm, Fälligkeit, Anzahl und Lücke genannt · ohne Daten „keine"' };
+    },
+  },
+  {
+    name: 'Lina · Kalender: die naechsten Aussaatfenster und Plan-Termine stehen im Kontext — jede Zeile ist ein Ereignis der einen Kalenderfunktion; ohne Kulturen und Plaene keine Zeile',
+    lauf: () => {
+      // v33.14. Die Uhr steht auf dem 01.09.2025: Feldsalat wird im Aussaat-
+      // kalender im Aug/Sep draussen gesaet, also liegt ein Fenster im
+      // 60-Tage-Blick; ein Plan mit sow_date im Fenster liefert den Termin.
+      const J = gsHeuteTag().slice(0, 4);
+      const sichern = { mp: myPlants, pla: localStorage.getItem('gs_garden_plans') };
+      try {
+        window.myPlants = [{ id: 'lk1', name: 'Feldsalat', tasks: {} }, { id: 'lk2', name: 'Monstera', tasks: {} }];
+        localStorage.setItem('gs_garden_plans', JSON.stringify([{ id: 'lk-plan', created: J + '-08-01T10:00:00.000Z', title: 'Plan vom 01.08. · Herbstbeet',
+          plan: { summary: 'Herbst', plants: [{ name: 'Spinat', icon: '🥬', sow_date: J + '-09-15', harvest_from: J + '-10-20', harvest_to: J + '-11-15' }], timeline: [] } }]));
+        const ctx = gsLinaContext();
+        const klagen = [];
+        const zA = (ctx.match(/Nächste Aussaat[^\n]*/) || [''])[0], zP = (ctx.match(/^Plan \(\d+ Tage\):[^\n]*/m) || [''])[0];
+        if (!zA) klagen.push('keine Aussaat-Zeile, obwohl Feldsalat im Fenster liegt');
+        if (!zP) klagen.push('keine Plan-Zeile, obwohl ein Plan mit Termin im Fenster liegt');
+        if (zA && !/Feldsalat/.test(zA)) klagen.push('Aussaat-Zeile nennt Feldsalat nicht: ' + zA);
+        if (zA && /Monstera/.test(zA)) klagen.push('Monstera (keine Kultur) steht in der Aussaat-Zeile');
+        if (zA && !/400–800 m/.test(zA)) klagen.push('Aussaat-Zeile nennt die Lagen nicht');
+        [zA, zP].filter(Boolean).forEach(z => { if (z.length > 160) klagen.push('Kalenderzeile zu lang (' + z.length + ' > 160): Datenexport statt Kontext'); });
+        if (zP && !/Spinat säen 15\.9\./.test(zP)) klagen.push('Plan-Zeile nennt „Spinat säen 15.9." nicht: ' + zP);
+        // Jede genannte Zeile muss ein Ereignis der EINEN Funktion sein
+        const ev = gsKalenderEreignisse(gsHeuteTag(), _gsKalTagPlus(gsHeuteTag(), 60));
+        const titel = new Set(ev.map(e => e.titel));
+        [zA, zP].filter(Boolean).forEach(z => {
+          z.replace(/^[^:]+: /, '').replace(/\.$/, '').split('; ').forEach(st => {
+            if (/^\+\d+$/.test(st) || /…$/.test(st)) return;     // „+2" und Abschnitt sind keine Titel
+            const t = st.replace(/ ab \d+\.\d+\.$/, '').replace(/ \d+\.\d+\.$/, '');
+            if (!titel.has(t)) klagen.push('„' + t + '" ist kein Ereignis der Kalenderfunktion');
+          });
+        });
+        if (ctx.length > 1350) klagen.push('Kontext ' + ctx.length + ' Zeichen — Datenexport statt Kontext');
+        // Gegenrichtung: ohne Kulturen und Plaene keine dieser Zeilen — und kein erfundenes „keine"
+        window.myPlants = [{ id: 'lk3', name: 'Monstera', tasks: {} }]; localStorage.removeItem('gs_garden_plans');
+        const leer = gsLinaContext();
+        if (/Nächste Aussaat|^Plan \(/m.test(leer)) klagen.push('ohne Kulturen und Plaene steht trotzdem eine Kalenderzeile');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: zA.slice(0, 70) + '… · ' + zP.slice(0, 60) + '… · alle genannten Titel sind Kalender-Ereignisse · ohne Daten keine Zeile · ' + ctx.length + ' Zeichen' };
+      } finally {
+        window.myPlants = sichern.mp;
+        if (sichern.pla == null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', sichern.pla);
+      }
     },
   },
   {
