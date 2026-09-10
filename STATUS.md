@@ -4,13 +4,50 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.13` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.14` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hi) - v33.14: Lina kennt den Kalender
+
+**Fuenfter Baustein — der, in dem die vorigen drei zusammenkommen.** Seit
+v32.56 traegt Linas Kontext Zahlen, jede gegen einen Datensatz gehalten.
+Jetzt auch die naechsten 60 Tage des Kalenders: die Aussaatfenster der
+eigenen Kulturen (v33.13) und die Termine aus den gespeicherten Plaenen
+(v33.10) — aus `gsKalenderEreignisse`, der EINEN Funktion (KALENDER-V1
+Regel 1), nie aus einer zweiten Rechnung.
+
+Zwei Zeilen, je hoechstens drei Eintraege, mit Datum und Quelle in zwei
+Worten. **Ohne Treffer keine Zeile:** ein „keine Aussaat" waere eine
+Behauptung ueber Kulturen, die die App gar nicht kennt (dieselbe Vorsicht
+wie bei `plan._licht = null` in §4a.3).
+
+#### Und der Pruefstand hat den ersten Anlauf erwischt
+
+Der Kontext lief auf **1'245 Zeichen** und wurde abgeschnitten — die
+Messwerte-Zeile aus v32.56 braucht allein rund 600, der ganze Kontext stand
+in den Beispieldaten schon bei **1'069**, die alte Obergrenze war 1'100. Zwei
+Zeilen mehr passen da nicht hinein. Statt sie stillschweigend abzuschneiden:
+knappere Zeilen (drei statt vier Eintraege), Deckel `GS_LINA_ZAHLEN_MAX`
+700 → 950 und die Obergrenze des alten Falls 1'100 → 1'350 — **beides
+benannt, mit Grund** — und der neue Fall deckelt jede Kalenderzeile bei 160
+Zeichen, damit sie nie zum Datenexport wird.
+
+> **Eine Grenze, die man anhebt, muss sagen, warum — und was sie danach
+> noch haelt.** Sonst ist sie beim naechsten Mal wieder nur eine Zahl, die
+> jemand hochsetzt, weil sein Fall sonst rot waere.
+
+**Pruefstand:** `sensor_check` Fall „Lina · Kalender" — Feldsalat (Aug/Sep
+im Aussaatkalender, die Uhr steht auf dem 01.09.) und ein Plan mit Termin
+im Fenster liefern beide Zeilen; Monstera steht in keiner; **jeder genannte
+Titel ist ein Ereignis der einen Kalenderfunktion**; ohne Kulturen und
+Plaene gibt es keine der Zeilen.
+
+---
 
 ### 2026-09-10 (hh) - v33.13: Aussaatfenster im Kalender — Kulturdaten, nicht Sammelsaison
 
@@ -11994,7 +12031,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.13` (Client) · SW-Cache `gs-v33.13` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.14` (Client) · SW-Cache `gs-v33.14` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

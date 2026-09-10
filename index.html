@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.13.20260910">
+<meta name="app-version" content="33.14.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74522,6 +74522,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.14', date: '10.09.2026',
+      headline: 'Lina kennt den Kalender — Aussaatfenster und Plan-Termine im Kontext',
+      summary: 'Seit v32.56 bekommt Lina Zahlen aus Datensätzen. Jetzt auch die nächsten 60 Tage des Kalenders: welche deiner Kulturen jetzt gesät oder vorgezogen werden, und was dein Plan als Nächstes vorsieht — aus derselben Kalenderfunktion wie die App, nie aus einer zweiten Rechnung.',
+      user_summary: 'Frag Lina „Was steht an?" — sie kennt jetzt deine Aussaatfenster und die Termine aus deinem Plan.',
+      user_items: [
+        {emoji:'🌱', text:'Lina weiss, welche deiner Kulturen in den nächsten 60 Tagen gesät oder vorgezogen werden — mit dem Hinweis auf mittlere Lagen.'},
+        {emoji:'📅', text:'Und was dein gespeicherter Plan als Nächstes vorsieht: Aussaat, Erntefenster, Zeitleiste.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsLinaZahlen:', text:' zwei Zeilen aus gsKalenderEreignisse(heute, +60) — quelle kulturdaten (art aussaat) und quelle plan, je höchstens vier, mit Datum. Ohne Treffer keine Zeile: ein „keine Aussaat" wäre eine Behauptung über Kulturen, die die App nicht kennt. Deckel GS_LINA_ZAHLEN_MAX 700 → 900 (zwei Zeilen mehr); sensor_check hält 1’100 als Obergrenze.'},
+        {emoji:'🧪', bold:'sensor_check „Lina · Kalender":', text:' Feldsalat (Aug/Sep) und ein Plan mit Termin im Fenster liefern beide Zeilen, Monstera steht in keiner, jeder genannte Titel ist ein Ereignis der einen Kalenderfunktion — und ohne Kulturen und Pläne gibt es keine der Zeilen.'}
+      ],
+    },
+  {
     v: 'v33.13', date: '10.09.2026',
       headline: 'Aussaatfenster im Kalender — aus den Kulturdaten, nicht aus der Sammelsaison',
       summary: 'KALENDER-V1 Stufe 2b war offen: Aussaatfenster aus den Artendaten. Nachgemessen ist „season" dort bei 2’907 Einträgen eine Sammel- oder Erntesaison, kein Aussaatfenster. Die ehrliche Quelle sind die 39 Kulturen des Schweizer Aussaatkalenders — die stehen jetzt am Tag, an dem es so weit ist, bei deinen Pflanzen im Kalender.',
@@ -74986,7 +75000,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.13';
+var GS_VERSION = 'v33.14';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -83595,7 +83609,8 @@ var LINA_SYSTEM =
 // Kontext — und die Anweisung, nur daraus zu zitieren. Ein Prompt ist keine
 // Garantie (§4a.2); sensor_check haelt fest, dass jede Zahl im Kontext aus
 // einem Datensatz stammt. Deckel ~700 Zeichen: Kontext, kein Datenexport.
-var GS_LINA_ZAHLEN_MAX = 700;
+var GS_LINA_ZAHLEN_MAX = 950;   // v33.14: zwei Kalenderzeilen dazu (vorher 700; die Messwerte-Zeile allein braucht ~600); sensor_check deckelt den ganzen Kontext bei 1'350 und jede Kalenderzeile bei 160
+var GS_LINA_KAL_TAGE = 60;
 function gsLinaZahlen(){
   try {
     var teile = [];
@@ -83628,6 +83643,25 @@ function gsLinaZahlen(){
       if (alarme.length) teile.push('Alarme: ' + alarme.join('; ') + '.'); else teile.push('Alarme: keine verletzte Regel.');
       teile.push('Messwerte: ' + zeilen.join(' | ') + '.');
     }
+    // v33.14: Lina kennt den KALENDER — aus der EINEN Funktion (KALENDER-V1
+    // Regel 1), nie aus einer zweiten Rechnung. Zwei Zeilen, beide mit
+    // Quelle: die naechsten Aussaatfenster deiner Kulturen (v33.13) und die
+    // Termine aus deinen Plaenen (v33.10), je 60 Tage weit, je hoechstens vier.
+    // Ohne Treffer keine Zeile — ein „keine Aussaat" waere hier eine
+    // Behauptung ueber Kulturen, die die App gar nicht kennt.
+    try {
+      var heuteT = gsHeuteTag(), bisT = _gsKalTagPlus(heuteT, GS_LINA_KAL_TAGE);
+      var kal = gsKalenderEreignisse(heuteT, bisT);
+      var kurzT = function (t) { var p = String(t).split('-'); return (+p[2]) + '.' + (+p[1]) + '.'; };
+      var aus = kal.filter(function (e) { return e && e.quelle === 'kulturdaten' && e.art === 'aussaat'; }).slice(0, 4);
+      var pla = kal.filter(function (e) { return e && e.quelle === 'plan'; }).slice(0, 4);
+      // Knapp, weil der Kontext ein Deckel hat: je Zeile hoechstens drei
+      // Eintraege, Quelle in zwei Worten — die Lagen-Anmerkung steht im
+      // Kalender-Ereignis selbst (Grund), nicht hier.
+      var aus3 = aus.slice(0, 3), pla3 = pla.slice(0, 3);
+      if (aus3.length) teile.push('Nächste Aussaat (Aussaatkalender, 400–800 m): ' + aus3.map(function (e) { return e.titel + ' ab ' + kurzT(e.datum); }).join('; ') + (aus.length > 3 ? '; +' + (aus.length - 3) : '') + '.');
+      if (pla3.length) teile.push('Plan (' + GS_LINA_KAL_TAGE + ' Tage): ' + pla3.map(function (e) { return e.titel + ' ' + kurzT(e.datum); }).join('; ') + (pla.length > 3 ? '; +' + (pla.length - 3) : '') + '.');
+    } catch (_) {}
     var txt = teile.join('\n');
     if (txt.length > GS_LINA_ZAHLEN_MAX) txt = txt.slice(0, GS_LINA_ZAHLEN_MAX - 1) + '…';
     return txt;
