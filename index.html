@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.07.20260909">
+<meta name="app-version" content="33.08.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16858,8 +16858,15 @@ function _gsArtAnzeige(sp) {
       if (v && v.id !== sp.id && !v._unverified) {
         var hoeher = (v.tox || 0) > (sp.tox || 0);
         var essbarWeg = !!sp.edible && !v.edible;
+        // v33.08: `edible` darf durch die Korrektur nur nach FALSE kippen, nie
+        // nach TRUE. `hoeher` korrigiert die Giftstufe unabhaengig von der
+        // Essbarkeit — bei „Gewoehnliche Eiche" (BA031, tox 0/edible false)
+        // war `v` ein Dublette mit hoeherer Giftstufe (T052, tox 1) UND
+        // edible:true, und die Korrektur hat `edible` blind von `v`
+        // uebernommen: aus nicht-essbar wurde essbar, obwohl der Anlass
+        // (`hoeher`) nichts ueber Essbarkeit aussagt.
         if (hoeher || essbarWeg) erg = Object.assign({}, sp, {
-          tox: v.tox, toxic: v.toxic, edible: v.edible,
+          tox: v.tox, toxic: v.toxic, edible: (sp.edible === false) ? false : v.edible,
           warning: sp.warning || v.warning,
           lookalike: sp.lookalike || v.lookalike,
           _korrigiert: { vonTox: sp.tox, aufTox: v.tox, hoeher: hoeher, essbarWeg: essbarWeg }
@@ -74183,6 +74190,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.08', date: '10.09.2026',
+      headline: 'Eiche als „essbar" markiert — die Sicherheits-Korrektur hatte selbst einen Fehler',
+      summary: '_gsArtAnzeige (v32.92) sollte bei einer Dublette immer die vorsichtigere Angabe zeigen. Bei Quercus robur (4 widersprüchliche Einträge) hat sie stattdessen „essbar“ von der falschen Dublette übernommen, nur weil die deren Giftstufe höher war.',
+      user_summary: 'Ein Anzeigefehler zeigte die Eiche fälschlich mit dem Besteck-Symbol als essbare Pflanze. Behoben.',
+      user_items: [
+        {emoji:'🌳', text:'„Gewöhnliche Eiche“ stand in der Wissens-Zeile mit dem 🍴-Symbol, obwohl unsere Artenliste sie als nicht essbar führt.'}
+      ],
+      items: [
+        {emoji:'🐛', bold:'scan_check E3 fand es:', text:' „Gewöhnliche Eiche“ (BA031, tox 0/edible false) hat eine Dublette (T052, tox 1/edible true). _gsArtAnzeige korrigiert bei höherer Giftstufe der Dublette (`hoeher`) — und hat dabei blind auch deren `edible` übernommen, statt nur die Giftstufe zu heben.'},
+        {emoji:'🔧', bold:'Die Regel jetzt:', text:' `edible` darf durch die Korrektur nur von true nach false kippen, nie umgekehrt — unabhängig davon, welche Dublette die Giftstufe liefert. Dieselbe Lehre wie in v32.86: essbar ist eine Angabe, kein Rückschluss aus einer anderen Zahl.'},
+        {emoji:'🧪', bold:'Gegenprobe:', text:' scan_check E3 war vor der Reparatur rot (1 von 21 Besteck-Zeilen vor einer nicht essbaren Art), danach grün (0 von 20 — die Eiche zeigt jetzt das 🌿-Symbol). scan_check, robust_check, planer_check, nutzersicht_check und data_check laufen unverändert grün.'}
+      ],
+    },
+  {
     v: 'v33.07', date: '09.09.2026',
       headline: 'Die fünfte Stelle derselben Frage — gefunden, weil ich gesucht habe',
       summary: 'v33.06 hat vier Anzeigen umgestellt, die „hast du Pflanzen?" nur mit ps_myplants beantworteten. Die Startkachel „Pflanzen" war die fünfte: sie zeigte 0 und führte per Tipp auf einen Bildschirm, der 3 zeigte.',
@@ -74646,7 +74667,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.07';
+var GS_VERSION = 'v33.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

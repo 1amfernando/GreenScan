@@ -4,13 +4,43 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.07` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.08` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hb) - v33.08: die Sicherheits-Korrektur hatte selbst einen Fehler
+
+**Gefunden durch einen automatisierten Lauf von `bash scripts/pruefstaende.sh schnell`**
+(27 Pruefstaende, kein Postgres verfuegbar → `quiz`/`schluessel` nicht pruefbar).
+Ein einziger roter Fall: `scan_check` E3 — 1 von 21 Besteck-Zeilen (🍴, „nur vor
+einer essbaren Art") stand vor „Gewöhnliche Eiche", einer Art, die unsere Liste
+als NICHT essbar fuehrt.
+
+**Ursache: `_gsArtAnzeige` (v32.92) selbst.** *Quercus robur* hat vier
+widerspruechliche Eintraege (BA031/T008/BA250: tox 0, edible false · T052:
+tox 1, edible **true**). Die Funktion soll bei einer Dublette immer die
+vorsichtigere Angabe zeigen — sie hebt die Giftstufe korrekt an (0 → 1, weil
+T052 hoeher liegt), hat dabei aber blind auch `edible` von T052 uebernommen.
+Der Anlass der Korrektur (`hoeher`, hoehere Giftstufe) sagt nichts ueber
+Essbarkeit — trotzdem kippte sie von `false` auf `true`.
+
+**Reparatur:** `edible` darf die Korrektur nur noch von `true` nach `false`
+kippen, nie umgekehrt (`index.html` ~Z. 16862, `edible: (sp.edible === false)
+? false : v.edible`). Dieselbe Lehre wie v32.86: essbar ist eine ANGABE, kein
+Ableitung aus einer anderen Zahl — und das gilt jetzt auch fuer eine
+Korrektur, die selbst aus einer anderen Zahl (Giftstufe) motiviert ist.
+
+**Gegenprobe:** `scan_check` vorher rot (1/21), danach gruen (0/20 — die
+Eiche zeigt jetzt 🌿 statt 🍴). `robust_check`, `planer_check`,
+`nutzersicht_check`, `data_check` unveraendert gruen. Changelog-Eintrag
+`v33.08` oben in `GS_RELEASES`, `GS_VERSION`/`sw.js VERSION`/`meta
+app-version` synchron.
+
+---
 
 ### 2026-09-09 (ha) - v33.07: die fuenfte Stelle derselben Frage
 
@@ -11581,9 +11611,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.07` (Client) · SW-Cache `gs-v33.07` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.08` (Client) · SW-Cache `gs-v33.08` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
+- **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** (Deckel erreicht), Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
 - **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
