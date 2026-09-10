@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.12.20260910">
+<meta name="app-version" content="33.13.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28154,6 +28154,92 @@ function gsPlanEreignisse(von, bis) {
 }
 window.gsPlanEreignisse = gsPlanEreignisse;
 
+// ── v33.13 · KALENDER-V1 Stufe 2b: AUSSAATFENSTER AUS DEN KULTURDATEN ─────
+//
+// KALENDER-V1 §6 fuehrte 2b als offen: „Aussaatfenster aus den Artendaten
+// (gsSaisonMonate auf season)". Nachgemessen: `season` ist bei 2'907 Eintraegen
+// eine SAMMEL- oder Erntesaison („Jun–Aug" fuer Beeren, 641 Pilze) — kein
+// Aussaatfenster. Wer daraus „saeen" macht, behauptet etwas, das die Daten
+// nicht sagen. Die ehrliche Quelle sind die Kulturdaten des Schweizer
+// Aussaatkalenders (GS_SAE_DB, 39 Kulturen, indoor/outdoor je Monat,
+// mittlere Lagen 400–800 m), die der Saekalender-Bildschirm seit jeher
+// zeigt — nur eben nicht am Tag, an dem es so weit ist.
+//
+// Zuordnung: erst ueber den bestehenden Matcher _gsKulturZuPflanze (PLANT_DB,
+// Name ±n oder lateinisch), dann direkt gegen GS_SAE_DB.n — und eine kleine
+// Bruecke fuer Schweizer und deutsche Namen DERSELBEN Kultur (Rueebli/Karotten
+// ↔ Moehren, Lauch ↔ Porree, Randen ↔ Rote Bete, Stielmangold ↔ Mangold).
+// Keine Botanik, nur Synonyme. Ohne Treffer kein Ereignis (Regel 5).
+var _GS_SAE_BRUECKE = { rueebli: 'moehren', karotten: 'moehren', karotte: 'moehren', lauch: 'porree', randen: 'rotebete',
+                        stielmangold: 'mangold', endivien: 'endivie', kohl: 'rotkohl' };
+function _gsSaeNorm(x) { return String(x || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z]/g, ''); }
+function _gsSaeZuPflanze(p) {
+  try {
+    if (!p || typeof GS_SAE_DB === 'undefined' || !Array.isArray(GS_SAE_DB)) return null;
+    var kand = [];
+    var n = _gsSaeNorm(p.name || p.nick || ''); if (n) kand.push(n);
+    var kul = (typeof _gsKulturZuPflanze === 'function') ? _gsKulturZuPflanze(p) : null;
+    if (kul && kul.name) kand.push(_gsSaeNorm(kul.name));
+    kand.slice().forEach(function (k) { if (_GS_SAE_BRUECKE[k]) kand.push(_GS_SAE_BRUECKE[k]); });
+    var pm = function (a, b) { return a === b || a + 'n' === b || a === b + 'n'; };
+    for (var i = 0; i < GS_SAE_DB.length; i++) {
+      var sn = _gsSaeNorm(GS_SAE_DB[i].n);
+      for (var j = 0; j < kand.length; j++) if (kand[j] && pm(kand[j], sn)) return GS_SAE_DB[i];
+    }
+    return null;
+  } catch (_) { return null; }
+}
+window._gsSaeZuPflanze = _gsSaeZuPflanze;
+function gsAussaatEreignisse(von, bis) {
+  var out = [];
+  try {
+    var listen = [];
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) { listen.push({ p: p, liste: 'myPlants' }); });
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { listen.push({ p: p, liste: 'plantings' }); });
+    if (!listen.length) return out;
+    var j0 = +String(von).slice(0, 4), j1 = +String(bis).slice(0, 4); if (!isFinite(j0) || !isFinite(j1)) return out;
+    var im = function (tag) { return !!tag && tag >= von && tag <= bis; };
+    var monKurz = (typeof gsMonate === 'function') ? gsMonate(true) : null;
+    var mn = function (i) { return (monKurz && monKurz[i]) || String(i + 1); };
+    var spanne = function (arr) { return (arr || []).map(mn).join(', '); };
+    // Ein Aussaatfenster gehoert zur KULTUR, nicht zur einzelnen Pflanze: wer
+    // zehn Tomaten hat, bekommt EINE Zeile „Tomaten saeen", nicht zehn — und
+    // die Zeile sagt, welche Pflanzen sie betrifft. (Der Pruefstand hat es
+    // gezeigt: die Beispieldaten haben zwei Zucchini, eine je Liste.)
+    var kulturen = {}, reihenfolge = [];
+    listen.forEach(function (x) {
+      var p = x.p; if (!p || !p.name) return;
+      var k = _gsSaeZuPflanze(p); if (!k) return;
+      if (!kulturen[k.n]) { kulturen[k.n] = { k: k, pflanzen: [] }; reihenfolge.push(k.n); }
+      var ort = p.nick || p.location || '';
+      kulturen[k.n].pflanzen.push(p.name + (ort && ort !== p.name ? ' (' + ort + ')' : ''));
+    });
+    reihenfolge.forEach(function (name) {
+      var k = kulturen[name].k, betrifft = kulturen[name].pflanzen;
+      var grundKopf = 'Schweizer Aussaatkalender „' + k.n + '": ' +
+        (k.indoor && k.indoor.length ? 'drinnen vorziehen ' + spanne(k.indoor) : '') +
+        (k.indoor && k.indoor.length && k.outdoor && k.outdoor.length ? ' · ' : '') +
+        (k.outdoor && k.outdoor.length ? 'draussen säen ' + spanne(k.outdoor) : '') +
+        ' — mittlere Lagen 400–800 m, höhere Lagen 2–3 Wochen später' + (k.tip ? ' · ' + k.tip : '') +
+        ' · betrifft: ' + betrifft.slice(0, 6).join(', ') + (betrifft.length > 6 ? ' +' + (betrifft.length - 6) : '');
+      [['indoor', ' vorziehen (drinnen)', '🪴'], ['outdoor', ' säen (draussen)', '🌱']].forEach(function (art) {
+        (k[art[0]] || []).forEach(function (m) {
+          for (var j = j0; j <= j1; j++) {
+            var tag = _gsKalTag(new Date(j, m, 1)); if (!im(tag)) continue;
+            out.push({ id: 'aussaat:' + _gsSaeNorm(k.n) + ':' + art[0] + ':' + tag, art: 'aussaat', datum: tag, zeit: null, ts: null,
+              titel: k.n + art[1], emoji: art[2],
+              pflanze: null, garten_id: null,
+              quelle: 'kulturdaten', status: 'info', faellig_seit: null,
+              verweis: { fn: 'openSaekalender', args: [] }, grund: grundKopf });
+          }
+        });
+      });
+    });
+  } catch (_) {}
+  return out;
+}
+window.gsAussaatEreignisse = gsAussaatEreignisse;
+
 function gsKalenderEreignisse(von, bis) {
   var out = [];
   var heute = gsHeuteTag();
@@ -28291,6 +28377,8 @@ function gsKalenderEreignisse(von, bis) {
   } catch (_) {}
   // v33.10: die Plaene (PLANER-V3 N8) — siehe gsPlanEreignisse oberhalb.
   try { gsPlanEreignisse(von, bis).forEach(function (e) { out.push(e); }); } catch (_) {}
+  // v33.13: Aussaatfenster aus den Kulturdaten (KALENDER-V1 2b) — siehe gsAussaatEreignisse oberhalb.
+  try { gsAussaatEreignisse(von, bis).forEach(function (e) { out.push(e); }); } catch (_) {}
   var rang = { aufgabe: 0, alarm: 1, erinnerung: 2, tagebuch: 3, gepflanzt: 4, aussaat: 5, ernte: 6, messung: 7, wetter: 8 };
   out.sort(function (a, b) {
     if (a.datum !== b.datum) return a.datum < b.datum ? -1 : 1;
@@ -74434,6 +74522,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.13', date: '10.09.2026',
+      headline: 'Aussaatfenster im Kalender — aus den Kulturdaten, nicht aus der Sammelsaison',
+      summary: 'KALENDER-V1 Stufe 2b war offen: Aussaatfenster aus den Artendaten. Nachgemessen ist „season" dort bei 2’907 Einträgen eine Sammel- oder Erntesaison, kein Aussaatfenster. Die ehrliche Quelle sind die 39 Kulturen des Schweizer Aussaatkalenders — die stehen jetzt am Tag, an dem es so weit ist, bei deinen Pflanzen im Kalender.',
+      user_summary: 'Deine Gemüse und Kräuter sagen dir im Kalender, wann sie vorgezogen und wann sie draussen gesät werden — mit dem Hinweis für höhere Lagen.',
+      user_items: [
+        {emoji:'🌱', text:'Am Monatsersten steht „Basilikum vorziehen (drinnen)" oder „Zucchini säen (draussen)" — für jede deiner Pflanzen, die im Schweizer Aussaatkalender steht.'},
+        {emoji:'🏔', text:'Jeder Eintrag sagt, woher er kommt: „mittlere Lagen 400–800 m, höhere Lagen 2–3 Wochen später" — und führt zum Säkalender.'},
+        {emoji:'🇨🇭', text:'Rüebli, Randen, Lauch: die Schweizer Namen werden derselben Kultur zugeordnet.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'Korrektur an KALENDER-V1 2b:', text:' `season` (gsSaisonMonate) ist bei Beeren, Pilzen und Wildpflanzen die Sammelsaison — daraus „säen" zu machen wäre eine Behauptung, die die Daten nicht tragen. gsAussaatEreignisse liest GS_SAE_DB (indoor/outdoor je Monat, 0-basiert wie GS_SAE_DATEN) und erzeugt je Monat ein info-Ereignis am 1., quelle „kulturdaten", Verweis openSaekalender.'},
+        {emoji:'🔗', bold:'Zuordnung ohne zweiten Matcher:', text:' erst _gsKulturZuPflanze (PLANT_DB, Name ±n oder lateinisch), dann GS_SAE_DB.n direkt, dazu eine Brücke für Schweizer/deutsche Namen DERSELBEN Kultur (Rüebli/Karotten ↔ Möhren, Lauch ↔ Porree, Randen ↔ Rote Bete, Stielmangold ↔ Mangold). Keine Botanik, nur Synonyme. Ohne Treffer kein Ereignis (Regel 5).'},
+        {emoji:'🧪', bold:'kalender_check „Aussaat":', text:' Basilikum und Zucchini bekommen genau ihre Fenster, Monstera keins, Rüebli wird Möhren, und eine Wildart mit season (Heidelbeere) bekommt NICHTS — die Gegenrichtung zur Datenfrage. Jedes Ereignis am 1., info, mit Kalender, Lagen und Verweis; die Tagesliste zeigt es.'}
+      ],
+    },
+  {
     v: 'v33.12', date: '10.09.2026',
       headline: 'Ein Plan, der funktioniert hat, wird zur Vorlage — PLANER-V3 N10',
       summary: 'Gärtnern ist mehrjährig; der Planer behandelte es als Einmal-Ereignis. Ein gespeicherter Plan lässt sich jetzt um ein Jahr versetzen: Aussaat, Ernte und Zeitleiste wandern mit, und Pflanzen, deren Familie der Plan selbst zur Pause rät, werden markiert — nie entfernt.',
@@ -74882,7 +74986,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.12';
+var GS_VERSION = 'v33.13';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

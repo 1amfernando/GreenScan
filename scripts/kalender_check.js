@@ -695,6 +695,61 @@ const FAELLE = [
     },
   },
   {
+    name: 'Aussaat · aus den Kulturdaten: Basilikum und Zucchini bekommen ihre Fenster, Monstera keins — Grund nennt den Aussaatkalender und die Lagen; season der Artenliste wird NICHT dafuer verwendet',
+    lauf: () => {
+      // v33.13 · KALENDER-V1 2b. Beide Richtungen: eine Kultur aus dem
+      // Aussaatkalender liefert ihre Fenster, eine Zimmerpflanze ohne Kultur
+      // liefert nichts. Und die Gegenrichtung zur Datenfrage: eine Art mit
+      // `season` (Sammelsaison), die keine Kultur ist, darf KEIN Aussaat-
+      // Ereignis bekommen.
+      const J = gsHeuteTag().slice(0, 4);
+      const mp0 = window.myPlants;
+      try {
+        window.myPlants = [
+          { id: 'sa1', name: 'Basilikum', tasks: {} },
+          { id: 'sa2', name: 'Zucchini', tasks: {} },
+          { id: 'sa3', name: 'Monstera', tasks: {} },
+          { id: 'sa4', name: 'Rüebli', tasks: {} },                                  // Schweizer Name → Möhren
+          { id: 'sa5', name: 'Heidelbeere', species: 'Vaccinium myrtillus', tasks: {} },   // Wildart mit season, keine Kultur
+        ];
+        const ev = gsKalenderEreignisse(J + '-01-01', J + '-12-31').filter(e => e.art === 'aussaat' && e.quelle === 'kulturdaten');
+        // je KULTUR (Titel beginnt mit dem Kultur-Namen); die Beispieldaten
+        // haben eine zweite Zucchini als Garten-Pflanzung — es darf trotzdem
+        // nur EINE Zeile je Monat geben, und die nennt beide Pflanzen.
+        const je = n => ev.filter(e => e.titel.indexOf(n) === 0);
+        const klagen = [];
+        const bas = je('Basilikum'), zuc = je('Zucchini'), mon = je('Monstera'), rue = je('Möhren'), hei = je('Heidelbeere');
+        if (zuc.length && !/betrifft:.*Zucchini.*Zucchini/.test(zuc[0].grund)) klagen.push('die Zucchini-Zeile nennt nicht beide Zucchini-Pflanzen: ' + zuc[0].grund.slice(-80));
+        const kB = _gsSaeZuPflanze({ name: 'Basilikum' }), kZ = _gsSaeZuPflanze({ name: 'Zucchini' });
+        if (!kB || !kZ) klagen.push('Matcher findet Basilikum/Zucchini nicht');
+        const soll = k => (k ? ((k.indoor || []).length + (k.outdoor || []).length) : -1);
+        if (kB && bas.length !== soll(kB)) klagen.push('Basilikum: ' + bas.length + ' Ereignisse statt ' + soll(kB));
+        if (kZ && zuc.length !== soll(kZ)) klagen.push('Zucchini: ' + zuc.length + ' statt ' + soll(kZ));
+        if (mon.length) klagen.push('Monstera bekam ' + mon.length + ' Aussaat-Ereignisse — ist keine Kultur');
+        if (!rue.length) klagen.push('Rüebli (Schweizer Name) nicht zu Möhren zugeordnet');
+        if (rue.length && !/Rüebli/.test(rue[0].grund)) klagen.push('Möhren-Zeile nennt Rüebli nicht als betroffene Pflanze');
+        if (hei.length) klagen.push('Heidelbeere bekam Aussaat-Ereignisse aus `season` — das ist eine Sammelsaison');
+        // jedes Ereignis: Tag = 1. des Monats, info, Grund nennt Kalender + Lagen, Verweis
+        ev.forEach(e => {
+          if (!/-01$/.test(e.datum)) klagen.push(e.titel + ' nicht am 1. des Monats: ' + e.datum);
+          if (e.status !== 'info') klagen.push(e.titel + ' ist kein info-Ereignis');
+          if (!/Aussaatkalender/.test(e.grund) || !/400–800 m/.test(e.grund)) klagen.push(e.titel + ': Grund nennt Kalender oder Lagen nicht');
+          if (!e.verweis || e.verweis.fn !== 'openSaekalender') klagen.push(e.titel + ' ohne Verweis auf den Säkalender');
+        });
+        if (!ev.some(e => /vorziehen \(drinnen\)/.test(e.titel)) || !ev.some(e => /säen \(draussen\)/.test(e.titel))) klagen.push('drinnen/draussen nicht beide vertreten');
+        // Anzeige: die Tagesliste am ersten Basilikum-Tag zeigt die Zeile
+        if (bas.length) {
+          gsKalenderOeffnenAm(bas[0].datum);
+          const t = (document.getElementById('modal-content') || {}).textContent || '';
+          if (!/Basilikum/.test(t)) klagen.push('Tagesliste am ' + bas[0].datum + ' zeigt Basilikum nicht');
+          try { closeModal('detail-modal'); } catch (_) {}
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Basilikum ' + bas.length + ' · Zucchini ' + zuc.length + ' · Rüebli→Möhren ' + rue.length + ' · zwei Zucchini → eine Zeile, beide genannt · Monstera 0 · Heidelbeere (season) 0 · alle am 1., info, mit Kalender, Lagen und Verweis · Tagesliste zeigt Basilikum' };
+      } finally { window.myPlants = mp0; }
+    },
+  },
+  {
     name: 'Plan · ein gespeicherter Garten-Plan wird zum Kalender: Aussaat, Erntefenster, Zeitleiste — mit Herkunft; ohne Daten nichts',
     lauf: () => {
       // v33.10 · PLANER-V3 N8. Der Fall laeuft IN der Seite (die Uhr steht auf

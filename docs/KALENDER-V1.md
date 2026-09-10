@@ -283,7 +283,7 @@ Beispieldaten aus `_seed.js`:
 | **0** | Beispieldaten mit echten Aufgaben (erledigt) · Rand-Fehler des Notizzettels | v32.46 |
 | **1** | `gsKalenderEreignisse` + `gsTagebuchAlle` · Snooze ohne Fälschung · Abhaken = ein Tagebuch-Eintrag · Kalender-Bildschirm (Monat + Tag) · vier Zugänge · `kalender_check` Fälle 1–3, 7, 8 | v32.46 |
 | **2** | Aufgaben für Garten-Pflanzungen (Vorgaben je Gartenart, beim ersten Lesen nachgerüstet) · Ernte-Schätzung aus `calcHarvestDate` als Info-Ereignis · Regen als Ereignis · Datumsfeld und `pflanze_id` im Tagebuch, Zukunft = Erinnerung · Pflege-Abschnitt im Pflanzungs-Detail · `buildPlantCard` entfernt · `kalender_check` 11 Fälle · Migration für die Server-Regel (nicht angewandt) | **v32.47 gebaut** |
-| **2b** | Aussaatfenster aus den Artendaten (`gsSaisonMonate` auf `season` — Monatsauflösung, nur wo hinterlegt) · das Cloud-Tagebuch (`gsDiarySubmitEntry` → `garden_diary`) in `gsTagebuchAlle` | offen |
+| **2b** | Aussaatfenster aus den Artendaten (`gsSaisonMonate` auf `season` — Monatsauflösung, nur wo hinterlegt) · das Cloud-Tagebuch (`gsDiarySubmitEntry` → `garden_diary`) in `gsTagebuchAlle` | **v33.13** — mit Korrektur: `season` ist eine Sammelsaison, kein Aussaatfenster; Quelle sind die Kulturdaten `GS_SAE_DB` (`gsAussaatEreignisse`). Cloud-Tagebuch seit v32.49. |
 | **3** | Sensor-Ereignisse (`messung`, `alarm`) aus `OEKOSYSTEM-V1` Stufe 0 · Bestätigung erledigter Aufgaben durch Messwerte | mit dem Dashboard |
 
 ## 7 · Regeln, die beim Bau gelten
@@ -302,3 +302,8 @@ Beispieldaten aus `_seed.js`:
    erledigt hat.
 8. **Die Uhr wird gestellt, nicht abgewartet.** Kein Fall im Prüfstand hängt
    am echten Datum.
+9. **Ein Feld heisst, was es misst** (v33.13). `season` ist die Sammel- oder
+   Erntesaison einer Art — kein Aussaatfenster. Aussaat kommt aus den
+   Kulturdaten (`GS_SAE_DB`), und nur für Pflanzen, die dort stehen. Der
+   Prüfstand hält die Gegenrichtung fest: eine Wildart mit `season` bekommt
+   kein Aussaat-Ereignis.
