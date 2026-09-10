@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.11.20260910">
+<meta name="app-version" content="33.12.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -62501,6 +62501,15 @@ function gsPPShowTab(container, k){
 function gsPPrenderPlan(plan, data) {
   var esc = function(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   var html = '';
+  // v33.12 (N10): eine Vorlage sagt, woher sie kommt — und welche Pflanzen der
+  // Plan selbst zur Fruchtfolge markiert hat. Nicht entfernt, markiert.
+  if (plan && plan._vorlageVon) {
+    var _vv = plan._vorlageVon, _mk = Array.isArray(_vv.markiert) ? _vv.markiert : [];
+    html += '<div class="pp-vorlage" style="margin:0 0 10px;padding:10px 12px;border-radius:var(--r-md);background:var(--bg-warn-soft);border:1px solid #ffcc80;font-size:var(--fs-sm);line-height:1.5;color:var(--text);">' +
+      '📅 <b>Vorlage aus ' + esc(_vv.jahr) + '</b>' + (_vv.title ? ' · ' + esc(String(_vv.title).slice(0, 50)) : '') + ' — alle Termine um ein Jahr versetzt.' +
+      (_mk.length ? '<br>🔄 <b>Fruchtfolge:</b> ' + esc(_mk.join(', ')) + ' — der Plan selbst rät nach ' + esc(_vv.jahr) + ' zur Pause dieser Familie(n). Beet wechseln oder bewusst lassen; das Prüfwerk unten rechnet gegen deine echte Historie.' : '') +
+      '</div>';
+  }
 
   // ── v31.83: Kennzahlen ganz oben ────────────────────────────────────
   //
@@ -70596,6 +70605,10 @@ async function gsPPopenSavedPlans() {
             '<div style="display:flex;gap:2px;flex-shrink:0;">' +
               '<button onclick="gsPPrenamePlan(\'' + p.id + '\')" aria-label="Plan umbenennen" title="Umbenennen" style="background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);width:32px;height:32px;cursor:pointer;font-family:inherit;">✏️</button>' +
               '<button onclick="gsPPduplicatePlan(\'' + p.id + '\')" aria-label="Plan duplizieren" title="Duplizieren" style="background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);width:32px;height:32px;cursor:pointer;font-family:inherit;">🔁</button>' +
+              // v33.12 (N10): der Plan als Vorlage fuers naechste Jahr — nur, wenn er ein Jahr hat
+              (((pl.plants||[]).some(function(x){ return x && _gsKalTag(x.sow_date); }))
+                ? '<button onclick="gsPPvorlageNaechstesJahr(\'' + p.id + '\')" aria-label="Als Vorlage fürs nächste Jahr übernehmen" title="Vorlage fürs nächste Jahr" style="background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);width:32px;height:32px;cursor:pointer;font-family:inherit;">📅</button>'
+                : '') +
               '<button onclick="gsPPdeletePlan(\'' + p.id + '\')" aria-label="Plan löschen" title="Löschen" style="background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);width:32px;height:32px;cursor:pointer;font-family:inherit;">🗑</button>' +
             '</div>' +
           '</div>' +
@@ -70776,6 +70789,80 @@ async function gsPPrenamePlan(id){
 window.gsPPrenamePlan = gsPPrenamePlan;
 
 // ── v30.45 Block F.3: Plan DUPLIZIEREN (gp_ → neue garden_plans-Row; LS-only → Kopie in LS + user_gardens) ──
+// ── v33.12 · PLANER-V3 N10: EIN PLAN, DER FUNKTIONIERT HAT, WIRD ZUR VORLAGE ─
+//
+// Gaertnern ist eine mehrjaehrige Taetigkeit; der Planer behandelte sie als
+// Einmal-Ereignis. Die Vorlage nimmt einen gespeicherten Plan und versetzt
+// ihn um EIN JAHR — gerechnet vom Jahr des Plans, nicht von heute (ein Plan
+// von 2025, 2027 geoeffnet, wird zur Vorlage 2026; wer 2027 will, macht es
+// zweimal — das ist ehrlicher als ein geratener Sprung).
+//
+// Was RECHNET: die vier Datumsfelder (+1 Jahr, 29.02. → 28.02.); die
+// Zeitleiste traegt ISO-Wochen ohne Jahr und faellt damit von selbst auf die
+// neuen Montage (gsPlanEreignisse). Und die FRUCHTFOLGE: Familien, die der
+// Plan selbst unter cropRotation.avoid_next_year fuehrt, werden MARKIERT —
+// nie entfernt (CLAUDE.md §4a.2: keine Vorliebe darf eine Pflanze verhindern;
+// ein Plan, der stillschweigend Pflanzen verliert, waere kein Plan). Beim
+// Oeffnen laeuft ohnehin das Pruefwerk mit R5 gegen die echte Historie.
+function _gsDatumPlusJahre(iso, n) {
+  var t = _gsKalTag(iso); if (!t) return iso;
+  var p = t.split('-'), j = +p[0] + (n || 1), m = +p[1], d = +p[2];
+  var letzter = new Date(j, m, 0).getDate();            // Tage des Zielmonats
+  return _gsKalTag(new Date(j, m - 1, Math.min(d, letzter)));
+}
+window._gsDatumPlusJahre = _gsDatumPlusJahre;
+function gsPPvorlageNaechstesJahr(id) {
+  var cur = null;
+  try { var arr = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); cur = (Array.isArray(arr) ? arr : []).find(function (x) { return x && x.id === id; }); } catch (_) {}
+  if (!cur || !cur.plan || !Array.isArray(cur.plan.plants)) { if (typeof gsToast === 'function') gsToast('Plan nicht gefunden', 'warn'); return null; }
+  var plan;
+  try { plan = JSON.parse(JSON.stringify(cur.plan)); } catch (_) { plan = null; }
+  if (!plan) return null;
+  // Das Jahr des Plans — aus seinen eigenen Daten, nie geraten
+  var jahr = null;
+  plan.plants.some(function (x) { var t = x && _gsKalTag(x.sow_date); if (t) { jahr = +t.slice(0, 4); return true; } return false; });
+  if (!jahr) { if (typeof gsToast === 'function') gsToast('Dieser Plan trägt keine Daten — eine Vorlage braucht ein Jahr.', 'warn'); return null; }
+  var neuJahr = jahr + 1;
+  plan.plants.forEach(function (x) {
+    if (!x) return;
+    ['sow_date', 'harvest_from', 'harvest_to'].forEach(function (k) { if (x[k]) x[k] = _gsDatumPlusJahre(x[k], 1); });
+  });
+  if (plan.harvest && plan.harvest.first_date) plan.harvest.first_date = _gsDatumPlusJahre(plan.harvest.first_date, 1);
+  // Fruchtfolge: markieren, nicht entfernen
+  var meiden = ((plan.cropRotation && Array.isArray(plan.cropRotation.avoid_next_year)) ? plan.cropRotation.avoid_next_year : [])
+    .map(function (f) { return _gsNorm(String(f || '')); }).filter(Boolean);
+  var markiert = [];
+  plan.plants.forEach(function (x) {
+    if (!x) return; delete x._rotation;
+    var fam = x.family || (typeof _gsFamilieVon === 'function' ? _gsFamilieVon(x.name) : '');
+    if (fam && meiden.indexOf(_gsNorm(String(fam))) >= 0) {
+      x._rotation = _gsSatz('Familie „{1}" stand {2} hier — der Plan selbst rät zur Pause. Beet wechseln oder bewusst lassen.', fam, jahr);
+      markiert.push(x.name);
+    }
+  });
+  // Alte Rechnungen weg — das Pruefwerk rechnet beim Oeffnen neu (v31.76)
+  Object.keys(plan).forEach(function (k) { if (k.charAt(0) === '_') delete plan[k]; });
+  plan._vorlageVon = { id: cur.id, title: cur.title || '', jahr: jahr, markiert: markiert };
+  var titelKern = String(cur.title || plan.summary || 'Garten-Plan').replace(/^Plan vom [^·]*·\s*/, '').replace(/^Vorlage \d{4} · /, '').slice(0, 40).trim();
+  var neu = { id: 'plan_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), created: new Date().toISOString(),
+              title: 'Vorlage ' + neuJahr + ' · ' + titelKern, plan: plan, data: cur.data || null, source: 'local', vorlage_von: cur.id };
+  // Lokal einfuegen (vorn, Deckel 30) — am Rueckgabewert geprueft (§3.5)
+  var ok = false;
+  try { var s2 = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); if (!Array.isArray(s2)) s2 = []; s2.unshift(neu);
+        s2 = gsCapWithArchive('gs_garden_plans', s2, 30); ok = (localStorage.setItem('gs_garden_plans', JSON.stringify(s2)) !== false); } catch (_) { ok = false; }
+  if (!ok) { if (typeof gsToast === 'function') gsToast('Speicher voll — Vorlage nicht gesichert.', 'warn'); return null; }
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch (_) {}
+  // Ganze Saetze, keine Fragmente (v32.83/v32.90): die Vorlage wird uebersetzt,
+  // der Wert danach eingesetzt; Einzahl/Mehrzahl sind zwei Saetze.
+  if (typeof showProfileToast === 'function') showProfileToast(
+    _gsSatz('📅 Vorlage {1} angelegt', neuJahr) +
+    (markiert.length === 1 ? ' · ' + _gsSatz('eine Pflanze zur Fruchtfolge markiert')
+     : markiert.length > 1 ? ' · ' + _gsSatz('{1} Pflanzen zur Fruchtfolge markiert', markiert.length) : ''));
+  try { gsPPopenSavedPlans(); } catch (_) {}
+  return neu;
+}
+window.gsPPvorlageNaechstesJahr = gsPPvorlageNaechstesJahr;
+
 async function gsPPduplicatePlan(id){
   var cur = null;
   try { var arr1 = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); cur = (Array.isArray(arr1)?arr1:[]).find(function(x){ return x && x.id===id; }); } catch(_){}
@@ -74347,6 +74434,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.12', date: '10.09.2026',
+      headline: 'Ein Plan, der funktioniert hat, wird zur Vorlage — PLANER-V3 N10',
+      summary: 'Gärtnern ist mehrjährig; der Planer behandelte es als Einmal-Ereignis. Ein gespeicherter Plan lässt sich jetzt um ein Jahr versetzen: Aussaat, Ernte und Zeitleiste wandern mit, und Pflanzen, deren Familie der Plan selbst zur Pause rät, werden markiert — nie entfernt.',
+      user_summary: 'In „Meine Pläne" gibt es 📅 „Vorlage fürs nächste Jahr": derselbe Plan, alle Termine ein Jahr später, mit Hinweis zur Fruchtfolge.',
+      user_items: [
+        {emoji:'📅', text:'Ein Tipp auf 📅 legt eine Kopie deines Plans fürs nächste Jahr an — Aussaat, Erntefenster und die Wochen der Zeitleiste sind versetzt und stehen im Kalender.'},
+        {emoji:'🔄', text:'Pflanzen, deren Familie der Plan selbst nach diesem Jahr meiden will, sind markiert: „Beet wechseln oder bewusst lassen". Nichts wird stillschweigend gestrichen.'},
+        {emoji:'🧾', text:'Die Vorlage sagt oben, woher sie kommt — und beim Öffnen läuft die Plan-Prüfung mit deiner echten Beet-Geschichte.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsPPvorlageNaechstesJahr(id):', text:' Jahr aus den Daten des PLANS (nie aus „heute"), vier Datumsfelder +1 Jahr über _gsDatumPlusJahre (29.02.→28.02.), Zeitleisten-Wochen bleiben (ISO-Wochen fallen von selbst auf die neuen Montage, gsPlanEreignisse). Familien aus cropRotation.avoid_next_year werden über _gsNorm/_gsFamilieVon (dieselben Helfer wie R5) MARKIERT (_rotation), nie entfernt — CLAUDE.md §4a.2. Alte Rechnungen (_…) werden verworfen, das Prüfwerk rechnet beim Öffnen neu. Speichern am Rückgabewert geprüft.'},
+        {emoji:'🧪', bold:'planer_check „N10":', text:' Daten +1 Jahr, harvest.first_date mit, Wochen gleich, drei Pflanzen bleiben drei, Kohlrabi markiert und Tomate nicht, Herkunft und Titel tragen das Jahr, Original unverändert, ohne cropRotation keine Markierung, Kalender zeigt „Tomate säen" im neuen Jahr, gerenderter Plan nennt Herkunft und Markierung, Schaltjahr.'}
+      ],
+    },
+  {
     v: 'v33.11', date: '10.09.2026',
       headline: 'Nutzungsmessung: ein Schalter, ein Vokabular, eine Zustimmung',
       summary: 'gsTrackEvent hatte 0 Aufrufer, gs_consent 0 Schreiber, einen Zustimmungsdialog gab es nicht — die Strecke war tot. Jetzt: Opt-in in „Datenschutz & Daten" (Vorgabe aus), ein erklärtes Ereignis-Vokabular statt Ad-hoc-Namen, und ein Prüfstand, der beweist: ohne Ja verlässt nichts das Gerät.',
@@ -74780,7 +74882,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.11';
+var GS_VERSION = 'v33.12';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
