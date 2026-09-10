@@ -52,6 +52,15 @@ geschaerft: ohne die Erkennung reichte `_gsFehlerText` die rohe Meldung
 Funktion. Ob Supabase die Objekte wirklich entfernt und die Kaskaden greifen,
 zeigt nur ein echtes Loeschen nach der Auslieferung.
 
+**Nebenfund beim ersten CI-Lauf (rot: 1):** `naht_check` las `USER_TABLES`
+aus der Edge-Function und meldete nach dem Umzug ins Modul alle fuenf
+Geraetetabellen als „fehlt" — waehrend `loeschung_check` daneben gruen war.
+Die Kopie, auf der v33.17 geprueft wurde, hatte `naht_check` nicht
+mitgefahren. Jetzt liest der Fall das Modul (Rueckfall Edge-Function) und
+wird rot, wenn er gar keine Liste findet. **Wer eine Liste umzieht, sucht
+ihre Leser** — und faehrt auf der Kopie die Nachbarn, die den Bereich
+kennen, nicht nur die, die naheliegen.
+
 ---
 
 ### 2026-09-10 (hk) - v33.16: Scanner — jedes Foto gemessen, der dritte Blick (SCANNER-V3 Stufe 2b)
