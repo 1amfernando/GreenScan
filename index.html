@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.15.20260910">
+<meta name="app-version" content="33.16.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31222,6 +31222,39 @@ function gsQualitaetZuSchlecht(q) {
 }
 window.gsQualitaetZuSchlecht = gsQualitaetZuSchlecht;
 
+// v33.16 (SCANNER-V3, Stufe 2b): wie viele Fotos ein Scan hoechstens traegt.
+// Stand bis dahin als nackte 3 an zwei Stellen (Sammeln, Zufuegen) — und der
+// dritte Blick ueber „Zweites Foto" kannte gar keinen Deckel, er verlor
+// einfach das erste Foto. EINE Zahl, drei Leser.
+var GS_SCAN_FOTOS_MAX = 3;
+
+// v33.16: die Messung ueber ALLE Fotos eines Scans. Bis dahin uebersprang der
+// Mehrfach-Weg die Messung ganz, und S5 sagte „N Fotos kombiniert — die beste
+// Grundlage, die der Scanner kennt" ueber Fotos, die niemand angesehen hatte.
+// Ergebnis: die Messung des SCHAERFSTEN Fotos (hoechste quality), dazu
+// `fotos` (alle), `gemessen` (davon messbar), `schwach` (davon zu schlecht,
+// nach derselben Regel wie die Rueckfrage) und `alle` (je Foto oder null).
+// Nicht messbar bleibt nicht messbar — null wird nie als 0 gezaehlt
+// (CLAUDE.md §4a: lieber keine Angabe als eine erfundene).
+async function gsQualitaetMehrere(b64, mt, extra) {
+  var ex = Array.isArray(extra) ? extra.filter(function (x) { return x && x.b64; }) : [];
+  var bilder = [{ b64: b64, mt: mt }].concat(ex);
+  var liste = [];
+  for (var i = 0; i < bilder.length; i++) {
+    var q = null;
+    try { if (bilder[i].b64 && typeof gsBildQualitaetVonB64 === 'function') q = await gsBildQualitaetVonB64(bilder[i].b64, bilder[i].mt || 'image/jpeg'); } catch (_) { q = null; }
+    liste.push(q && q.messbar ? q : null);
+  }
+  var mess = liste.filter(function (q) { return q && typeof q.quality === 'number'; });
+  var aus = { fotos: bilder.length, gemessen: mess.length,
+              schwach: mess.filter(function (q) { return gsQualitaetZuSchlecht(q); }).length,
+              alle: liste.map(function (q) { return q ? { quality: q.quality, blur: q.blur, light: q.light } : null; }) };
+  if (!mess.length) return Object.assign({ messbar: false, ok: true, quality: null, blur: null, light: null, warnings: [] }, aus);
+  var best = mess.reduce(function (a, b) { return b.quality > a.quality ? b : a; });
+  return Object.assign({}, best, aus);
+}
+window.gsQualitaetMehrere = gsQualitaetMehrere;
+
 // v31.79: nur noch ein Durchreicher. Die Messung steht in gsBildQualitaet
 // und nimmt jede Quelle an — zwei Kopien derselben Rechnung waeren genau
 // die Sorte Doppelpflege, die auseinanderlaeuft (CLAUDE.md §3.3).
@@ -31329,7 +31362,7 @@ async function shutterAndScan(){
 async function gsCaptureMultiShot(){
   const video = document.getElementById('video');
   if(!video || !video.srcObject){ showProfileToast('Kamera nicht bereit'); return; }
-  if (window._gsMultiShots && window._gsMultiShots.length >= 3) {
+  if (window._gsMultiShots && window._gsMultiShots.length >= GS_SCAN_FOTOS_MAX) {
     showProfileToast('Max. 3 Fotos · jetzt Shutter drücken für Auswertung');
     return;
   }
@@ -31377,7 +31410,7 @@ window._gsMultiShots = window._gsMultiShots || [];
 window._gsMultiShotLabels = ['Pflanze gesamt', 'Blatt', 'Blüte/Frucht', 'Stamm/Stiel', 'Habitat'];
 function gsAddMultiShot(b64, mt) {
   if (!window._gsMultiShots) window._gsMultiShots = [];
-  if (window._gsMultiShots.length >= 3) {
+  if (window._gsMultiShots.length >= GS_SCAN_FOTOS_MAX) {
     showProfileToast('Max. 3 Fotos pro Scan.'); return;
   }
   // Auto-Label wählen aus den noch nicht verwendeten
@@ -32161,13 +32194,25 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     if (window._gsRescanMode && window._gsRescanPrior && window._gsRescanPrior.b64) {
       var _fresh = window._gsRescanTs && (Date.now() - window._gsRescanTs < 180000);
       if (_fresh && (!extraImages || !extraImages.length)) {
-        extraImages = [{ b64: window._gsRescanPrior.b64, mt: window._gsRescanPrior.mt || 'image/jpeg' }];
+        // v33.16: ALLE Fotos des vorigen Scans, nicht nur das neueste —
+        // sonst verlor der dritte Blick das erste Foto (gsAddPhotoForRescan).
+        var _pb = window._gsRescanPrior.bilder;
+        extraImages = (Array.isArray(_pb) && _pb.length)
+          ? _pb.map(function (x) { return { b64: x.b64, mt: x.mt || 'image/jpeg' }; })
+          : [{ b64: window._gsRescanPrior.b64, mt: window._gsRescanPrior.mt || 'image/jpeg' }];
       }
       window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0;
     }
   } catch(_){}
   // v23.86: Bild für Cloud-Persist merken (gsScanPersistToCloud nach Identifikation)
   try { window._gsLastScanB64 = b64 || null; window._gsLastScanMt = mt || 'image/jpeg'; } catch(_){}
+  // v33.16: und ALLE Fotos dieses Scans, neuestes zuerst — der naechste
+  // „Zweites/Drittes Foto"-Weg nimmt sie mit (Deckel GS_SCAN_FOTOS_MAX).
+  try {
+    window._gsLastScanBilder = [{ b64: b64, mt: mt || 'image/jpeg' }].concat(
+      (Array.isArray(extraImages) ? extraImages : []).filter(function (x) { return x && x.b64; })
+        .map(function (x) { return { b64: x.b64, mt: x.mt || 'image/jpeg' }; }));
+  } catch(_){}
   // v28.05: Früher LS-Scan-Gate (5/Tag) ENTFERNT — die server-authoritative Per-Feature-Quota
   // (callVisionAI mit quotaFeature:'scan', free 15/Tag) gilt jetzt UND nur bei echtem Claude-Call
   // (Cache-Treffer sind frei → kosten keine Quota). Warme Limit-UI via gsShowQuotaCountdown.
@@ -32222,14 +32267,20 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // Geblockt wird NICHT: der Mensch entscheidet. Er soll es nur vorher
   // wissen. Und die Schwelle ist tief — eine Warnung bei jedem zweiten Foto
   // wird weggetippt und schuetzt dann niemanden mehr.
+  // v33.16: JEDES Foto wird gemessen, auch die zusaetzlichen. Bis dahin
+  // lief die Messung nur fuer ein einzelnes Foto — ein Mehrfach-Scan kam
+  // ungemessen durch, und S5 nannte ihn „die beste Grundlage, die der
+  // Scanner kennt". `_qual` ist die Messung des SCHAERFSTEN Fotos, mit der
+  // Zahl aller Fotos daneben (gsQualitaetMehrere). Die Rueckfrage kommt nur,
+  // wenn KEIN Foto lesbar ist — ein scharfes traegt die unscharfen mit, und
+  // S5 sagt dann, wie viele nichts beitragen. Auch bei „Trotzdem" wird
+  // gemessen (nur die Rueckfrage entfaellt): die Bestimmung steht dann
+  // ehrlich auf einer duennen Grundlage, statt auf einer ungemessenen.
   var _qual = null;
+  try { _qual = await gsQualitaetMehrere(b64, mt, extraImages); } catch (_) { _qual = null; }
   if (!opts.trotzdem) {
-    var _einzeln = !(Array.isArray(extraImages) && extraImages.length);
-    if (_einzeln && b64 && typeof gsBildQualitaetVonB64 === 'function') {
-      try { _qual = await gsBildQualitaetVonB64(b64, mt); } catch (_) { _qual = null; }
-    }
     if (gsQualitaetZuSchlecht(_qual)) {
-      try { window._gsQualB64 = b64; window._gsQualMt = mt; window._gsQualCtx = organContext || ''; } catch (_) {}
+      try { window._gsQualB64 = b64; window._gsQualMt = mt; window._gsQualCtx = organContext || ''; window._gsQualExtra = (Array.isArray(extraImages) && extraImages.length) ? extraImages : null; } catch (_) {}
       rd.innerHTML =
         '<div style="padding:26px 20px;text-align:center;background:var(--card);">' +
           '<div style="font-size:52px;margin-bottom:10px;">\ud83d\udcf7</div>' +
@@ -32237,7 +32288,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
           '<div style="font-size:var(--fs-md);color:var(--text2);line-height:1.6;margin-bottom:6px;max-width:340px;margin-left:auto;margin-right:auto;">' +
             (_qual.warnings.length ? gsEscHtml(_qual.warnings.join(' \u00b7 ')) : 'Sch\u00e4rfe und Licht reichen kaum f\u00fcr eine sichere Bestimmung.') +
           '</div>' +
-          '<div style="font-size:var(--fs-sm);color:var(--muted);line-height:1.5;margin-bottom:18px;">Gemessen: Sch\u00e4rfe ' + _qual.blur + '/100 \u00b7 Licht ' + _qual.light + '/100. ' +
+          '<div style="font-size:var(--fs-sm);color:var(--muted);line-height:1.5;margin-bottom:18px;">' + (_qual.fotos > 1 ? _gsSatz('{1} Fotos gemessen, keines lesbar — das beste:', _qual.fotos) + ' ' : 'Gemessen: ') + 'Sch\u00e4rfe ' + _qual.blur + '/100 \u00b7 Licht ' + _qual.light + '/100. ' +
             'Ein zweites Foto bringt hier meist mehr als eine Bestimmung auf dieser Grundlage \u2014 und kostet keinen Versuch aus deinem Tageskontingent.</div>' +
           '<button onclick="gsResetScanner&&gsResetScanner()" style="display:block;width:100%;max-width:300px;margin:0 auto 8px;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">\ud83d\udcf8 Neues Foto</button>' +
           '<button onclick="gsQualTrotzdem()" style="display:block;width:100%;max-width:300px;margin:0 auto;padding:11px;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">Trotzdem bestimmen</button>' +
@@ -32245,12 +32296,14 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
       try { if (typeof gsScanStatusHide === 'function') gsScanStatusHide(); } catch (_) {}
       return;
     }
-    // Messbar und brauchbar? Dann wandert der Wert in den Prompt — die KI
-    // soll wissen, wie gut die Vorlage ist, statt es zu raten.
-    if (_qual && _qual.messbar && !organContext) {
-      organContext = 'Bildqualität: ' + _qual.quality + '/100' +
-                     (_qual.warnings.length ? ' (' + _qual.warnings.join(', ') + ')' : '');
-    }
+  }
+  // Messbar? Dann wandert der Wert in den Prompt — die KI soll wissen, wie
+  // gut die Vorlage ist, statt es zu raten. Bei mehreren Fotos der beste Wert
+  // und die Zahl der Fotos.
+  if (_qual && _qual.messbar && !organContext) {
+    organContext = 'Bildqualität: ' + _qual.quality + '/100' +
+                   (_qual.fotos > 1 ? ' (bestes von ' + _qual.fotos + ' Fotos)' : '') +
+                   (_qual.warnings.length ? ' (' + _qual.warnings.join(', ') + ')' : '');
   }
   // v23.67: Freundlichere Status-Messages — weniger "Scan"-Sprache, mehr Natur-Kontext
   // ── v31.79: Schritte, die es wirklich gibt ─────────────────────────
@@ -32335,8 +32388,8 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // gemessen (oben, vor der Rueckfrage bei schlechten Fotos). Was hier
   // steht, ist also ein Messwert und keine Ansage.
   scanSchritt('bild', (_qual && _qual.messbar)
-    ? ('Schärfe ' + _qual.blur + ' · Licht ' + _qual.light)
-    : (shotCount > 1 ? shotCount + ' Fotos' : 'nicht messbar'));
+    ? ('Schärfe ' + _qual.blur + ' · Licht ' + _qual.light + (shotCount > 1 ? ' · ' + shotCount + ' Fotos' : ''))
+    : (shotCount > 1 ? shotCount + ' Fotos, nicht messbar' : 'nicht messbar'));
 
   // Kontext aufbauen (GPS, Monat, Region, Habitat, User-History)
   var ctx = gsBuildScanContext();
@@ -33097,7 +33150,7 @@ window.gsQualTrotzdem = function () {
   try {
     var b = window._gsQualB64, m = window._gsQualMt, c = window._gsQualCtx;
     if (!b) { if (typeof gsResetScanner === 'function') gsResetScanner(); return; }
-    analyzeImage(b, m, c, null, { trotzdem: true });
+    analyzeImage(b, m, c, window._gsQualExtra || null, { trotzdem: true });   // v33.16: die zusaetzlichen Fotos bleiben
   } catch (_) { if (typeof gsResetScanner === 'function') gsResetScanner(); }
 };
 
@@ -33181,7 +33234,13 @@ function gsAddPhotoForRescan(){
   try {
     var prior = window._gsLastScanB64;
     if (!prior) { if (typeof showProfileToast==='function') showProfileToast('Kein vorheriges Foto gespeichert.', 'error'); return; }
-    window._gsRescanPrior = { b64: prior, mt: window._gsLastScanMt || 'image/jpeg' };
+    // v33.16: ALLE Fotos des letzten Scans, neuestes zuerst — bis dahin nur
+    // das neueste, und der dritte Blick verlor den ersten. Deckel
+    // GS_SCAN_FOTOS_MAX: es bleiben die neuesten, das neue Foto wird das letzte.
+    var bilder = (Array.isArray(window._gsLastScanBilder) && window._gsLastScanBilder.length)
+      ? window._gsLastScanBilder.slice(0, GS_SCAN_FOTOS_MAX - 1)
+      : [{ b64: prior, mt: window._gsLastScanMt || 'image/jpeg' }];
+    window._gsRescanPrior = { b64: bilder[0].b64, mt: bilder[0].mt || 'image/jpeg', bilder: bilder };
     window._gsRescanMode = true;
     window._gsRescanTs = Date.now();
     var rd = document.getElementById('scan-result'); if (rd) { rd.style.display='none'; rd.innerHTML=''; }
@@ -33879,11 +33938,15 @@ function _gsScanPruefwerk(res, qual) {
 
     // ── S5 · Die Grundlage: Bildqualitaet und Zahl der Fotos ─────────────
     var shots = Number(res._shotCount || 1);
+    // v33.16: bei mehreren Fotos zaehlt das SCHAERFSTE (gsQualitaetMehrere),
+    // und die Zeile sagt, wie viele nichts beitragen. Bis dahin galt „N Fotos
+    // kombiniert" ungemessen als die beste Grundlage — ein Lob, keine Messung.
+    var _schwach = (qual && qual.schwach > 0) ? ' ' + (qual.schwach === 1 ? _gsSatz('Eines davon ist zu unscharf, um etwas beizutragen.') : _gsSatz('{1} davon sind zu unscharf, um etwas beizutragen.', qual.schwach)) : '';
     if (qual && qual.messbar) {
-      if (qual.quality >= 55) regel('grundlage', 'ok', 'Bildgrundlage brauchbar (Schärfe ' + qual.blur + ', Licht ' + qual.light + ')' + (shots > 1 ? ' aus ' + shots + ' Fotos' : '') + '.');
-      else regel('grundlage', 'warn', 'Dünne Bildgrundlage (Schärfe ' + qual.blur + ', Licht ' + qual.light + ' von 100). Die Bestimmung steht auf wenig.');
+      if (qual.quality >= 55) regel('grundlage', 'ok', 'Bildgrundlage brauchbar (Schärfe ' + qual.blur + ', Licht ' + qual.light + ')' + (shots > 1 ? ' — das schärfste von ' + shots + ' Fotos' : '') + '.' + _schwach);
+      else regel('grundlage', 'warn', 'Dünne Bildgrundlage (Schärfe ' + qual.blur + ', Licht ' + qual.light + ' von 100' + (shots > 1 ? ', das schärfste von ' + shots + ' Fotos' : '') + '). Die Bestimmung steht auf wenig.' + _schwach);
     } else if (shots > 1) {
-      regel('grundlage', 'ok', shots + ' Fotos kombiniert — das ist die beste Grundlage, die der Scanner kennt.');
+      regel('grundlage', 'unbekannt', shots + ' Fotos kombiniert — die Bildqualität konnte für keines gemessen werden.');
     } else {
       regel('grundlage', 'unbekannt', 'Bildqualität wurde für diesen Weg nicht gemessen.');
     }
@@ -34330,10 +34393,19 @@ function showScanResult(r){
       // hier fast immer derselbe und kostet KEIN zusaetzliches Kontingent
       // im Sinne eines zweiten Aufrufs auf denselben Stand: ein zweites
       // Foto aus anderem Blickwinkel, mit dem ersten kombiniert.
-      ((_pw.warn > 0 && window._gsLastScanB64)
-        ? '<button onclick="gsAddPhotoForRescan()" class="sr2-pruef-knopf">\ud83d\udcf7 Zweites Foto \u2014 das kl\u00e4rt ' +
-          (_pw.warn === 1 ? 'den Vorbehalt' : 'die Vorbehalte') + ' am schnellsten</button>'
-        : '') +
+      // v33.16: nach zwei Fotos heisst er „Drittes Foto"; am Deckel
+      // (GS_SCAN_FOTOS_MAX) steht statt des Knopfs ein Satz — ein Vorbehalt,
+      // der drei Fotos ueberlebt, ist keiner, den ein viertes wegraeumt.
+      (function () {
+        var _n = Number(r._shotCount || 1);
+        if (!(_pw.warn > 0)) return '';
+        if (_n >= GS_SCAN_FOTOS_MAX) return '<div class="sr2-card-body sr2-pruef-deckel" style="color:var(--muted);margin-bottom:6px;">' + esc(_gsSatz('{1} Fotos sind das Maximum — bleibt ein Vorbehalt, ist er echt.', GS_SCAN_FOTOS_MAX)) + '</div>';
+        if (!window._gsLastScanB64) return '';
+        var _t = _n >= 2
+          ? (_pw.warn === 1 ? _gsSatz('📷 Drittes Foto — das klärt den Vorbehalt am schnellsten') : _gsSatz('📷 Drittes Foto — das klärt die Vorbehalte am schnellsten'))
+          : (_pw.warn === 1 ? _gsSatz('📷 Zweites Foto — das klärt den Vorbehalt am schnellsten') : _gsSatz('📷 Zweites Foto — das klärt die Vorbehalte am schnellsten'));
+        return '<button onclick="gsAddPhotoForRescan()" class="sr2-pruef-knopf">' + esc(_t) + '</button>';
+      })() +
       _pw.regeln.slice().sort(function (x, y) {
         var rg = { warn: 0, ok: 1 };
         return (rg[x.zustand] === undefined ? 2 : rg[x.zustand]) - (rg[y.zustand] === undefined ? 2 : rg[y.zustand]);
@@ -34616,7 +34688,7 @@ function showScanResult(r){
     var _hintTxt = r.next_photo_hint || 'Ein zusätzliches Foto aus anderem Blickwinkel (z.B. Blatt + Blüte, Rinde, Standort) macht die Bestimmung deutlich sicherer.';
     // v32.01: nicht doppelt anbieten — steht der Knopf schon oben in der
     // Pruefung, waere hier ein zweiter fuer dieselbe Handlung.
-    var _canRescan = !!window._gsLastScanB64 && !(_pw && _pw.warn > 0);
+    var _canRescan = !!window._gsLastScanB64 && !(_pw && _pw.warn > 0) && Number(r._shotCount || 1) < GS_SCAN_FOTOS_MAX;   // v33.16: Deckel
     body += '<div class="sr2-card" style="background:linear-gradient(135deg,rgba(255,193,7,.12),rgba(255,193,7,.02));border-left:3px solid #ffa000;">' +
       /* v31.99: erst #8d6e00 (4,26:1 hell), dann #6b5300 — und das war im
          DUNKELMODUS 2,18:1. Genau die Falle aus CLAUDE.md §7.1: eine feste
@@ -74528,6 +74600,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.16', date: '10.09.2026',
+      headline: 'Scanner: jedes Foto gemessen, der dritte Blick — SCANNER-V3 Stufe 2b',
+      summary: 'Bei mehreren Fotos zählt das schärfste, und die Prüfung sagt, wie viele nichts beitragen. „Zweites Foto" nimmt alle Fotos des letzten Scans mit und wird zum dritten; drei sind das Maximum.',
+      user_summary: 'Der Scanner misst jetzt jedes Foto — und sagt dir, wenn eines zu unscharf ist, um zu helfen. Nach dem zweiten Foto kannst du ein drittes dazunehmen.',
+      user_items: [
+        {emoji:'📷', text:'„Das schärfste von 2 Fotos" steht in der Prüfung — und „eines davon ist zu unscharf", wenn es so ist.'},
+        {emoji:'3️⃣', text:'„Drittes Foto" nach dem zweiten; bei drei Fotos sagt die Prüfung, dass das Maximum erreicht ist.'},
+        {emoji:'🛑', text:'Die Rückfrage „Das Foto ist schwer zu lesen" kommt nur noch, wenn KEIN Foto lesbar ist — ein scharfes trägt ein unscharfes mit.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsQualitaetMehrere:', text:' Messung über alle Fotos, das schärfste zählt, `fotos/gemessen/schwach/alle` daneben. Ungemessen ist kein Lob mehr: „N Fotos kombiniert" ohne Messung gilt als nicht prüfbar, nicht als erfüllt.'},
+        {emoji:'🔁', bold:'Re-Scan nimmt alle Fotos mit', text:' (`_gsLastScanBilder`, neuestes zuerst, Deckel `GS_SCAN_FOTOS_MAX` = 3 — eine Zahl, drei Leser). „Trotzdem bestimmen" behält die zusätzlichen Fotos.'},
+        {emoji:'🧪', bold:'scan_check:', text:' S5b (Prüfwerk), „Ablauf · jedes Foto gemessen" (scharf trägt unscharf, keines lesbar → Rückfrage, Trotzdem mit beiden), „Dritter Blick" (1/2/3/3 Fotos, Knopf Zweites → Drittes → Maximum-Satz). Vier Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.15', date: '10.09.2026',
       headline: 'Der Plan altert und meldet sich — PLANER-V3 N4, erster Teil',
       summary: 'Ein Plan, dessen Jahr vorbei ist, sagt es jetzt auf seiner Kachel — und zeigt auf den Weg zur Jahresvorlage. Kein Automatismus: die Person entscheidet.',
@@ -75019,7 +75107,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.15';
+var GS_VERSION = 'v33.16';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

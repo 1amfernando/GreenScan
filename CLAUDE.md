@@ -1708,6 +1708,16 @@ neue Strategie hinzufuegt, gibt ihr Ergebnis durch
 stehen in `docs/arten-widersprueche.csv` und brauchen eine Flora, keinen
 Code (`docs/ARTEN-DATEN.md`).
 
+> **Und die Zahl der Fotos ist eine Messung, kein Lob** (v33.16). Ein
+> Mehrfach-Scan kam bis dahin UNGEMESSEN durch — `analyzeImage` mass nur ein
+> einzelnes Foto — und S5 nannte ihn „die beste Grundlage, die der Scanner
+> kennt". Seither misst `gsQualitaetMehrere` jedes Foto; das schaerfste
+> zaehlt, `schwach` sagt, wie viele nichts beitragen, und ungemessen ist
+> `unbekannt`. Wer einen weiteren Weg mit mehreren Fotos baut, gibt sie durch
+> dieselbe Funktion und haelt `GS_SCAN_FOTOS_MAX` (3) ein — `_gsLastScanBilder`
+> traegt alle Fotos des letzten Scans, neuestes zuerst. Pruefstand: `scan_check`
+> S5b, „Ablauf · jedes Foto gemessen", „Dritter Blick".
+
 **Seit v32.12 haelt `scan_check` eine Eigenschaft fest, die man leicht
 kaputtmacht, ohne es zu merken: die UNABHAENGIGKEIT.** Der Scanner misst vor
 der Antwort die Farben des Fotos (`gsBildFarben`) und grenzt die 4'337 Arten
