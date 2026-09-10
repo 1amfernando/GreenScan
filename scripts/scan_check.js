@@ -1804,14 +1804,22 @@ const FAELLE = [
     },
   },
   {
-    name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — alle 12 Monate',
+    name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — an JEDEM Tag des Jahres',
     lauf: () => {
       if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };
       var echtMonat = Date.prototype.getMonth, echtTag = Date.prototype.getDate;
       var schlecht = [], geprueft = 0;
       try {
+        // v33.09: hier stand `t <= 28; t += 3` — zehn von einunddreissig Tagen
+        // je Monat, und der 29. bis 31. nie. `gsInitSmartSeasonTip` waehlt mit
+        // `getDate() * 13 % pool.length`: einundzwanzig moegliche Auswahlen je
+        // Monat wurden damit NIE gemessen. Genau dieses Loch hat in v33.08 den
+        // Eiche-Fund monatelang verdeckt (dort: EIN Tag statt 372). Nachgemessen
+        // hat der volle Durchlauf hier nichts Neues gefunden — die Stichprobe
+        // war zufaellig ausreichend. „Zufaellig ausreichend" ist keine Eigenschaft,
+        // auf die man sich verlaesst.
         for (var m = 0; m < 12; m++) {
-          for (var t = 1; t <= 28; t += 3) {
+          for (var t = 1; t <= 31; t++) {
             (function (mm, tt) {
               Date.prototype.getMonth = function () { return mm; };
               Date.prototype.getDate  = function () { return tt; };
@@ -1841,6 +1849,52 @@ const FAELLE = [
       if (!geprueft) return { ok: false, warum: 'kein einziger Tipp gerendert — der Fall misst nichts' };
       if (schlecht.length) return { ok: false, warum: schlecht.length + ' von ' + geprueft + ' zum Sammeln empfohlen, ohne essbar zu sein: ' + schlecht.slice(0, 3).join(' | ') };
       return { ok: true, info: geprueft + ' Tage geprueft, jeder Sammel-Tipp ist essbar' };
+    },
+  },
+  {
+    name: 'E4 · Das Tagesquiz stellt an JEDEM Tag eine beantwortbare Frage',
+    lauf: () => {
+      // Das Quiz WERTET (v32.93) — eine kaputte Frage ist keine Anzeige, sondern
+      // eine falsche Note. Die Frage haengt am Datum
+      // (`getFullYear()*10000 + (getMonth()+1)*100 + getDate()`), und bis v33.09
+      // hat sie niemand ueber mehr als den laufenden Tag gemessen. Dieselbe
+      // Luecke wie bei E3, nur noch ungemessen.
+      if (typeof initQuiz !== 'function') return { ok: false, warum: 'initQuiz gibt es nicht' };
+      var eJ = Date.prototype.getFullYear, eM = Date.prototype.getMonth, eT = Date.prototype.getDate;
+      var verdaechtig = [], nichtEine = [], leer = [], gemessen = 0;
+      try {
+        for (var m = 0; m < 12; m++) {
+          for (var t = 1; t <= 31; t++) {
+            (function (mm, tt) {
+              Date.prototype.getFullYear = function () { return 2026; };
+              Date.prototype.getMonth = function () { return mm; };
+              Date.prototype.getDate = function () { return tt; };
+            })(m, t);
+            initQuiz();
+            var q = (document.getElementById('quiz-question') || {}).textContent || '';
+            var btns = [].slice.call(document.querySelectorAll('#quiz-options .quiz-opt-btn'));
+            if (!q || !btns.length) continue;
+            gemessen++;
+            var wo = (m + 1) + '/' + t + ': ';
+            if (/undefined|null|NaN|\[object Object\]/.test(q)) verdaechtig.push(wo + q.replace(/\n/g, ' ').slice(0, 60));
+            var richtig = btns.filter(function (b) { return b.dataset.correct === '1'; });
+            if (richtig.length !== 1) nichtEine.push(wo + richtig.length + ' richtige von ' + btns.length);
+            btns.forEach(function (b) {
+              var txt = (b.textContent || '').trim();
+              if (!txt) leer.push(wo + 'leere Antwortmoeglichkeit');
+              else if (/undefined|null|NaN|\[object Object\]/.test(txt)) verdaechtig.push(wo + 'Option „' + txt.slice(0, 35) + '"');
+            });
+          }
+        }
+      } finally { Date.prototype.getFullYear = eJ; Date.prototype.getMonth = eM; Date.prototype.getDate = eT; }
+      if (gemessen < 300) return { ok: false, warum: 'nur ' + gemessen + ' von 372 Tagen gebaut — der Fall misst zu wenig' };
+      var klagen = [];
+      if (verdaechtig.length) klagen.push(verdaechtig.length + 'x verdaechtiger Text: ' + verdaechtig.slice(0, 3).join(' · '));
+      if (nichtEine.length) klagen.push(nichtEine.length + 'x nicht genau EINE richtige Antwort: ' + nichtEine.slice(0, 3).join(' · '));
+      if (leer.length) klagen.push(leer.length + 'x leere Antwortmoeglichkeit: ' + leer.slice(0, 2).join(' · '));
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      initQuiz();   // wieder auf den echten Tag stellen
+      return { ok: true, info: gemessen + ' Tage gebaut · jede Frage mit genau einer richtigen Antwort, kein „undefined", keine leere Option' };
     },
   },
   {
