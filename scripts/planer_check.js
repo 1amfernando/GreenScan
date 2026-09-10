@@ -339,6 +339,56 @@ const FAELLE = [
     },
   },
   {
+    name: 'N10 · Jahresvorlage: alle Daten +1 Jahr, Wochen bleiben, gemiedene Familie MARKIERT (nicht entfernt), Original unveraendert, Kalender zeigt das neue Jahr',
+    lauf: () => {
+      // v33.12 · PLANER-V3 N10. Beide Richtungen: mit cropRotation wird die
+      // Familie markiert, ohne cropRotation nichts — und die Vorlage rechnet
+      // vom Jahr des PLANS, nicht von heute.
+      const alt = localStorage.getItem('gs_garden_plans');
+      const orig = JSON.parse(JSON.stringify(window._PF_MUSTER));
+      const J = +String(orig.plants[0].sow_date).slice(0, 4);
+      try {
+        window.sbIsLoggedIn = () => false;            // lokaler Weg, kein Netz
+        window.showProfileToast = () => {}; window.gsToast = () => {}; window.gsPPopenSavedPlans = () => {};
+        localStorage.setItem('gs_garden_plans', JSON.stringify([
+          { id: 'orig-1', created: J + '-03-01T10:00:00.000Z', title: 'Plan vom 01.03. · Sonnenbeet', plan: orig },
+          { id: 'orig-2', created: J + '-03-01T10:00:00.000Z', title: 'Ohne Rotation', plan: Object.assign(JSON.parse(JSON.stringify(orig)), { cropRotation: null }) },
+        ]));
+        const neu = gsPPvorlageNaechstesJahr('orig-1');
+        const klagen = [];
+        if (!neu || !neu.plan) return { ok: false, warum: 'keine Vorlage angelegt' };
+        const tom = neu.plan.plants.find(x => x.name === 'Tomate'), kohl = neu.plan.plants.find(x => x.name === 'Kohlrabi');
+        if (!tom || tom.sow_date !== (J + 1) + '-04-05') klagen.push('Tomate sow_date: ' + (tom && tom.sow_date) + ' statt ' + (J + 1) + '-04-05');
+        if (!tom || tom.harvest_to !== (J + 1) + '-09-30') klagen.push('Tomate harvest_to nicht versetzt: ' + (tom && tom.harvest_to));
+        if (neu.plan.harvest && neu.plan.harvest.first_date !== (J + 1) + '-06-15') klagen.push('harvest.first_date nicht versetzt: ' + neu.plan.harvest.first_date);
+        if (JSON.stringify(neu.plan.timeline.map(t => t.week)) !== JSON.stringify(orig.timeline.map(t => t.week))) klagen.push('Zeitleisten-Wochen veraendert');
+        if (neu.plan.plants.length !== orig.plants.length) klagen.push('Pflanzen entfernt: ' + neu.plan.plants.length + ' statt ' + orig.plants.length);
+        if (!kohl || !kohl._rotation) klagen.push('Kohlrabi (Kreuzbluetler, avoid_next_year) NICHT markiert');
+        if (tom && tom._rotation) klagen.push('Tomate faelschlich markiert: ' + tom._rotation);
+        if (!neu.plan._vorlageVon || neu.plan._vorlageVon.jahr !== J || neu.plan._vorlageVon.id !== 'orig-1') klagen.push('Herkunft fehlt oder falsch: ' + JSON.stringify(neu.plan._vorlageVon));
+        if (!/^Vorlage \d{4} · /.test(neu.title) || neu.title.indexOf(String(J + 1)) < 0) klagen.push('Titel nennt das neue Jahr nicht: ' + neu.title);
+        // Original unveraendert
+        const nachher = JSON.parse(localStorage.getItem('gs_garden_plans')).find(x => x.id === 'orig-1');
+        if (nachher.plan.plants[0].sow_date !== orig.plants[0].sow_date) klagen.push('Original wurde veraendert');
+        // Gegenrichtung: ohne cropRotation keine Markierung
+        const neu2 = gsPPvorlageNaechstesJahr('orig-2');
+        if (!neu2 || neu2.plan.plants.some(x => x._rotation)) klagen.push('ohne cropRotation wurde trotzdem markiert');
+        // Kalender: die Vorlage liefert Termine im neuen Jahr (quelle plan)
+        const ev = gsPlanEreignisse((J + 1) + '-01-01', (J + 1) + '-12-31').filter(e => /Tomate säen/.test(e.titel) && e.datum === (J + 1) + '-04-05');
+        if (!ev.length) klagen.push('Kalender zeigt „Tomate säen" am ' + (J + 1) + '-04-05 nicht');
+        // Anzeige: die Herkunftszeile steht im gerenderten Plan
+        const html = gsPPrenderPlan(neu.plan, neu.data || {});
+        if (!/Vorlage aus/.test(html) || !/Kohlrabi/.test(html.split('pp-vorlage')[1] || '')) klagen.push('gerenderter Plan nennt Herkunft oder markierte Pflanze nicht');
+        // Schaltjahr: 29.02. wird 28.02., nicht 01.03.
+        if (_gsDatumPlusJahre('2028-02-29', 1) !== '2029-02-28') klagen.push('29.02. → ' + _gsDatumPlusJahre('2028-02-29', 1));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Vorlage ' + (J + 1) + ': 3 Pflanzen, Daten +1 Jahr, Wochen gleich, Kohlrabi markiert, Tomate nicht · ohne cropRotation 0 Markierungen · Original unveraendert · Kalender und Anzeige zeigen es · 29.02.→28.02.' };
+      } finally {
+        if (alt == null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', alt);
+      }
+    },
+  },
+  {
     name: 'Guter Plan · Musterplan aus _seed.js loest keinen Fehlalarm aus',
     lauf: () => {
       _pfAufbau({ beete: [], zwillingPflanzen: [] });

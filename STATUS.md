@@ -4,13 +4,54 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.11` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.12` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hg) - v33.12: der Plan als Jahresvorlage (PLANER-V3 N10)
+
+**Dritter Baustein des Aufbaus, die natuerliche Fortsetzung von v33.10.**
+PLANER-V3 §3 N10: *„Gaertnern ist eine mehrjaehrige Taetigkeit; der Planer
+behandelt sie bisher als Einmal-Ereignis."*
+
+`gsPPvorlageNaechstesJahr(id)` versetzt einen gespeicherten Plan um ein
+Jahr — **gerechnet vom Jahr des Plans, nie von heute** (ein Plan von 2025,
+2027 geoeffnet, wird zur Vorlage 2026; ein geratener Sprung waere eine
+Behauptung). Die vier Datumsfelder wandern (`29.02. → 28.02.`), die
+Zeitleiste traegt ISO-Wochen ohne Jahr und faellt von selbst auf die neuen
+Montage (das ist der Gewinn der Bauform aus v33.10).
+
+**Fruchtfolge: markieren, nicht entfernen.** Familien, die der Plan selbst
+unter `cropRotation.avoid_next_year` fuehrt, bekommen `_rotation` und stehen
+oben in der Herkunftszeile — dieselben Helfer wie R5 (`_gsNorm`,
+`_gsFamilieVon`), keine zweite Familienlogik. CLAUDE.md §4a.2: keine Vorliebe
+darf eine Pflanze verhindern; ein Plan, der stillschweigend Pflanzen
+verliert, waere kein Plan. Beim Oeffnen laeuft das Pruefwerk ohnehin mit R5
+gegen die echte Beet-Geschichte.
+
+**Pruefstand:** `planer_check` Fall „N10" — Daten +1 Jahr, Wochen gleich,
+drei Pflanzen bleiben drei, Kohlrabi markiert und Tomate nicht, Original
+unveraendert, ohne `cropRotation` keine Markierung, Kalender zeigt das neue
+Jahr, gerenderter Plan nennt Herkunft und Markierung, Schaltjahr.
+
+**Und die Nachbarn auf der Kopie, bevor irgendetwas gepusht war:** `i18n_check`
+meldete den Toast `'📅 Vorlage ' + jahr + ' angelegt'` als Fragment — die
+Hausregel aus v32.83, die ich beim Schreiben uebergangen hatte. Jetzt
+`_gsSatz('📅 Vorlage {1} angelegt', jahr)` und zwei ganze Saetze fuer Einzahl
+und Mehrzahl (v32.90); dasselbe fuer den `_rotation`-Text. Wer eine Regel
+kennt, haelt sie trotzdem nicht automatisch ein — der Pruefstand tut es.
+
+**Offen in Stufe 5:** N7 Preistabelle — braucht eine QUELLE fuer
+CH-Richtwerte, keine Erfindung (CLAUDE.md: nie botanische oder sonstige
+Fakten erfinden). N4 „der Plan altert": die Vorlage ist der erste Schritt;
+ein Hinweis auf der Plan-Kachel, wenn das Plan-Jahr vorbei ist, waere der
+zweite.
+
+---
 
 ### 2026-09-10 (hf) - v33.11: Nutzungsmessung — ein Schalter, ein Vokabular, eine Zustimmung
 
@@ -11909,7 +11950,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.11` (Client) · SW-Cache `gs-v33.11` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.12` (Client) · SW-Cache `gs-v33.12` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

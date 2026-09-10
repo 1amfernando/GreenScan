@@ -446,3 +446,20 @@ aktuell, wenn der Plan altert; N10 Jahresvorlage mit Versatz; N7 Preistabelle.
 
 Pruefstand: `kalender_check` Fall „Plan" (beide Richtungen, Dublette,
 Anzeige) und der Fall „Ohne Daten" raeumt die fuenfte Quelle.
+
+## 13 · Was in v33.12 dazukam — N10 · Jahresvorlage (Stufe 5, zweiter Teil)
+
+`gsPPvorlageNaechstesJahr(id)` — Jahr aus den Daten des Plans (nie aus
+„heute"), vier Datumsfelder +1 Jahr (`_gsDatumPlusJahre`, 29.02. → 28.02.),
+Zeitleisten-Wochen bleiben und fallen ueber `gsPlanEreignisse` auf die neuen
+Montage. Familien aus `cropRotation.avoid_next_year` werden **markiert**
+(`_rotation`), nie entfernt (§4a.2); die Herkunft steht als erste Zeile im
+gerenderten Plan (`_vorlageVon`), alle `_…`-Rechnungen werden verworfen und
+beim Oeffnen neu gerechnet. Knopf 📅 in „Meine Plaene", nur bei Plaenen mit
+Datum.
+
+Pruefstand: `planer_check` Fall „N10" — beide Richtungen (mit und ohne
+`cropRotation`), Original unveraendert, Kalender und Anzeige.
+
+**Offen in Stufe 5:** N7 Preistabelle braucht eine Quelle; N4 „der Plan
+altert" — ein Hinweis auf der Kachel, wenn das Plan-Jahr vorbei ist.
