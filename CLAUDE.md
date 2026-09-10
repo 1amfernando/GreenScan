@@ -376,8 +376,15 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   `gs_consent.analytics === true ODER gs_prefs.privacy.analytics === true`.
   Seit v32.71 ist das EINE Funktion: `_gsAnalyticsErlaubt()` — sie gilt für
   `gsTrackEvent` UND für die Fehlerberichte nach `client_errors` (die tragen
-  `user_id`, Meldung und Stack). Einen Zustimmungs-Dialog gibt es nicht; die
-  Antwort ist deshalb heute für alle „nein", und die Über-Liste sagt das.
+  `user_id`, Meldung und Stack). **Seit v33.11 gibt es den Schalter** (Einstellungen
+  › Datenschutz & Daten, Vorgabe aus, `gsConsentAnalyticsSetzen` schreibt
+  `gs_consent {analytics, at, version}`) — und ein **Vokabular**: `GS_EVENTS`
+  erklärt jedes Ereignis mit seinen erlaubten Feldern, `_gsEventFiltern`
+  lässt nur diese durch. **Ein neues Ereignis ist ein Eintrag im Vokabular,
+  kein Aufruf irgendwo** — ohne Eintrag wird es verworfen, auch mit Ja. Keine
+  Fotos, kein Standort, keine Pflanzennamen, kein Eingabetext: das sind keine
+  Felder, also gehen sie nicht durch. Prüfstand: `einstellungen_check`
+  (sechs Fragen, jede stellt den Schalter und liest die Nutzlast).
   Und: keine Ortung über die IP-Adresse (`ipapi.co` ist seit v32.71 raus, auch
   aus der CSP) — wer den Standort verweigert, bekommt Zürich mit Hinweis.
 - Daten landen in Supabase EU-Region. Datenschutz-Erklärung verlinkt im

@@ -4,13 +4,71 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.10` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.11` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hf) - v33.11: Nutzungsmessung — ein Schalter, ein Vokabular, eine Zustimmung
+
+**Der zweite Baustein des Aufbaus, und der mit dem klarsten Befund:**
+`gsTrackEvent` hatte **0 Aufrufer**, `gs_consent` **0 Schreiber**, einen
+Zustimmungsdialog gab es nicht. CLAUDE.md §3.7 sagte es selbst: *„Einen
+Zustimmungs-Dialog gibt es nicht; die Antwort ist deshalb heute fuer alle
+nein."* Eine Strecke, die existierte und tot war — und haette sie gelebt,
+haette jeder Aufrufer beliebige Felder mitgeschickt.
+
+#### Drei Regeln, jetzt im Code und im Pruefstand
+
+1. **Opt-in.** Schalter unter „Datenschutz & Daten", Vorgabe aus. Er wohnt in
+   `gs_consent` (ueberlebt das Abmelden, `GS_KEEP_ON_LOGOUT`) — bewusst nicht
+   in `gs_prefs`, das ein Server-Pull ersetzen kann (v32.36), und nicht in
+   `toggleMap`, dessen Vorgabe „an" ist.
+2. **Vokabular.** `GS_EVENTS` erklaert fuenf Ereignisse mit ihren erlaubten
+   Feldern. `_gsEventFiltern` laesst nur diese Schluessel durch, nur
+   Grundtypen, gekuerzt. Ein Name, ein Foto, ein Standort, ein Objekt — sind
+   keine Felder im Vokabular, also gehen sie nicht durch, egal wer sie
+   mitschickt. Ein unbekanntes Ereignis wird verworfen, auch mit Ja.
+3. **Eine Zustimmung.** Dieselbe fuer die Fehlerberichte mit Konto-Bezug
+   (`client_errors`, seit v32.71 an `_gsAnalyticsErlaubt` haengend).
+
+Vier Stellen sind verdrahtet, je EINE je Frage: Scan fertig, Plan gespeichert,
+Aufgabe erledigt (in `gsRpcTaskDone` — die eine Stelle, durch die
+`gsQuickDone`, `doneTask` und „Alle erledigt" gehen), Quiz beantwortet.
+
+> **Tracking, das fuer die Zukunft sauber ist, heisst: ein neues Ereignis ist
+> ein Eintrag im Vokabular, kein Aufruf irgendwo.** Wer eines braucht, traegt
+> es in `GS_EVENTS` ein — mit den Feldern, die es tragen darf — und der
+> Pruefstand sieht es beim naechsten Lauf.
+
+#### Und zwei Pruefstaende hielten die ALTE Wahrheit fest
+
+Auf einer Kopie mit B gemessen, bevor irgendetwas gepusht war: `nutzersicht_check`
+E6 verlangte, dass der Rechtstext „nichts gemessen" sagt — richtig, solange
+es keinen Schalter gab. `robust_check` A9 schickte `gsTrackEvent('pruefstand_mit')`
+und erwartete eine Anfrage — ein Name, der in keinem Vokabular steht und
+seit v33.11 verworfen wird. **Beide waeren rot geworden, ohne dass etwas
+kaputt war** — dieselbe Klasse wie E3 in v33.08, nur diesmal VOR dem
+Ausliefern gefunden, weil die Nachbar-Pruefstaende auf der Kopie mitliefen.
+Beide wandern mit der Regel: E6 verlangt jetzt Schalter-Ort und „Vorgabe aus"
+und verbietet „gibt es derzeit nicht"; A9 nimmt ein erklaertes Ereignis.
+
+> **Wer eine Regel aendert, laesst die Nachbarn mitlaufen, bevor er pusht.**
+> Ein Pruefstand, der die alte Regel festhaelt, sieht in der CI aus wie ein
+> Fehler in der Reparatur.
+
+**Pruefstand:** `einstellungen_check`, sechs Fragen (33 → 39). Jede stellt den
+Zustand HER und liest die Nutzlast, nicht die Absicht: Vorgabe aus und 0
+Anfragen · Ja schreibt Datum und Fassung, erstes Ereignis ist die Zustimmung ·
+erklaertes Ereignis mit GENAU seinen Feldern (Name/Foto/Standort/Objekt
+herausgefiltert) · unbekannter Name verworfen · `task_done` ohne Pflanzenname
+· Nein schaltet ab, und die Ueber-Liste sagt nicht mehr „einen Dialog gibt es
+nicht".
+
+---
 
 ### 2026-09-10 (he) - v33.10: der Plan wird zum Kalender (PLANER-V3 N8)
 
@@ -11851,7 +11909,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.10` (Client) · SW-Cache `gs-v33.10` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.11` (Client) · SW-Cache `gs-v33.11` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

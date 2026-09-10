@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.10.20260910">
+<meta name="app-version" content="33.11.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6641,6 +6641,21 @@ html, body{ scroll-behavior: smooth; }
     <!-- DATENSCHUTZ & DATEN -->
     <div class="settings-group-title" data-i18n="settings_group_data" data-i18n-fallback="🔒 Datenschutz & Daten">🔒 Datenschutz &amp; Daten</div>
     <div class="settings-card">
+      <!-- v33.11: Nutzungsmessung als OPT-IN (revDSG, CLAUDE.md §3.7). Bis hierher
+           gab es die Zustimmung nur als Schluessel (gs_consent) ohne einen einzigen
+           Schreiber — die ganze Strecke war tot. Vorgabe: AUS. Der Text sagt, was
+           gesendet wird, nicht nur, DASS etwas gesendet wird. -->
+      <div class="settings-row">
+        <div class="settings-icon" style="background:var(--bg-indigo-soft);">📊</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_analytics" data-i18n-fallback="Nutzungsmessung erlauben">Nutzungsmessung erlauben</div>
+          <div class="settings-label-sub" data-i18n="settings_analytics_hint" data-i18n-fallback="Aus. Wenn an: nur benannte Ereignisse (Scan fertig, Plan gespeichert, Aufgabe erledigt, Quiz beantwortet) mit Kategorie und App-Version — keine Fotos, kein Standort, keine Pflanzennamen. Gilt auch für Fehlerberichte mit Konto-Bezug.">Aus. Wenn an: nur benannte Ereignisse (Scan fertig, Plan gespeichert, Aufgabe erledigt, Quiz beantwortet) mit Kategorie und App-Version — keine Fotos, kein Standort, keine Pflanzennamen. Gilt auch für Fehlerberichte mit Konto-Bezug.</div>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="toggle-analytics" onchange="gsConsentAnalyticsSetzen(this.checked)">
+          <span class="settings-toggle-slider"></span>
+        </label>
+      </div>
       <div class="settings-row">
         <div class="settings-icon" style="background:var(--bg-yellow-soft);">🏆</div>
         <div class="settings-label">
@@ -7505,7 +7520,7 @@ html, body{ scroll-behavior: smooth; }
           <li>⚙️ <b>User-Preferences:</b> Theme/Locale/Notifications/Privacy in user_preferences · gsPrefsPush/Pull</li>
           <li>🎟️ <b>Vouchers + Referrals:</b> Gutschein-Codes mit Plan-Restriction · Einladungs-Code-System mit Reward-XP</li>
           <li>🤝 <b>Social Graph:</b> friendships (Follow/Pending/Blocked) — User können sich vernetzen</li>
-          <li>📊 <b>Nutzungsmessung: aus.</b> Ohne ausdrückliche Zustimmung wird nichts gemessen und kein Fehlerbericht mit Konto-Bezug gesendet — einen Zustimmungs-Dialog gibt es derzeit nicht, also gilt für alle „nein".</li>
+          <li>📊 <b>Nutzungsmessung: aus, bis du sie einschaltest.</b> Ohne dein Ja wird nichts gemessen und kein Fehlerbericht mit Konto-Bezug gesendet. Der Schalter steht unter Einstellungen › Datenschutz &amp; Daten und sagt dort, was gesendet würde: nur benannte Ereignisse, keine Fotos, kein Standort, keine Pflanzennamen.</li>
           <li>🛡️ <b>Audit-Log:</b> kritische Admin-Aktionen werden revisionssicher geloggt</li>
           <li>🗂️ <b>Migrations-SQL auf 44 Tabellen, 5 Views, 7 Functions, 106 RLS-Policies, 73 Indexes</b> erweitert</li>
           <li>📘 <b>Client-Mapping-Dokumentation:</b> im SQL ist pro Tabelle dokumentiert welche Client-Funktion &amp; welcher localStorage-Key zugeordnet sind — klarer Entwickler-Pfad</li>
@@ -9981,6 +9996,10 @@ window.gsMarkPlantReminderRead = async function(plantId, taskKey) {
 // lastDone-Stand trotzdem serverseitig → v_plant_tasks_due bleibt korrekt und
 // der Cron-Push re-triggert erst zur nächsten Fälligkeit. Fire-and-forget.
 function gsRpcTaskDone(plantId, taskKey) {
+  // v33.11: die EINE Stelle, durch die gsQuickDone, doneTask und „Alle
+  // erledigt" gehen — deshalb steht die Nutzungsmessung hier, vor der
+  // Anmelde-Sperre (die Messung braucht kein Konto, nur ein Ja).
+  try { var _pf = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(plantId) : null; gsTrackEvent('task_done', { task_key: String(taskKey || '').slice(0, 20), liste: (_pf && _pf.liste) || 'unbekannt' }); } catch (_) {}
   try {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
     if (!plantId || !taskKey || typeof sbFetch !== 'function') return;
@@ -13582,6 +13601,7 @@ async function answerSupaDailyQuiz(btn) {
             body: JSON.stringify({ user_id: uid, quiz_id: window._dqSupaQuizId, is_correct: isCorrect, selected_option: _dqSelIdx })
           }).then(function(r){
             try { _dqServerUrteil(r, isCorrect); } catch(_){}
+            try { gsTrackEvent('quiz_answered', { correct: !!isCorrect }); } catch(_){}   // v33.11
             try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(dqGetStats()); } catch(_){}
             try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch(_){}
           }).catch(function(e){ console.log('[GS] quiz_answers insert:', e && e.message); });
@@ -15247,6 +15267,8 @@ window.GS_I18N_JS_STRINGS = {
   // ── v28.49: Arten-Suchliste (renderList) ───────────────────────
   'unit_species':              'Arten',
   'unit_entries':              'Einträge',
+  'settings_analytics':        'Nutzungsmessung erlauben',
+  'settings_analytics_hint':   'Aus. Wenn an: nur benannte Ereignisse (Scan fertig, Plan gespeichert, Aufgabe erledigt, Quiz beantwortet) mit Kategorie und App-Version — keine Fotos, kein Standort, keine Pflanzennamen. Gilt auch für Fehlerberichte mit Konto-Bezug.',
   'search_no_hits':            'Keine Treffer',
   'search_empty_title':        'Keine Einträge gefunden',
   'search_empty_hint':         'Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.',
@@ -34050,6 +34072,8 @@ function showScanResult(r){
   // v32.10: die gefaehrlichste Alternative — GLEICH HIER, weil die
   // Gegenprobe-Karte weiter oben steht als der Alternativen-Streifen.
   try { r._altGefahr = _gsAltGefahr(r); } catch (_) { r._altGefahr = 0; }
+  // v33.11: Nutzungsmessung — nur Kategorie, Konfidenz-Stufe, Treffer. Kein Name.
+  try { var _cf = parseFloat(r.confidence); gsTrackEvent('scan_done', { cat: String(r.category || '').slice(0, 20), conf_bucket: isFinite(_cf) ? (_cf >= 80 ? 'hoch' : _cf >= 50 ? 'mittel' : 'tief') : 'unbekannt', db_hit: !!(r.plant) }); } catch (_) {}
   // v32.08: der letzte Schritt der Liste hakt sich hier ab — mit dem, was
   // wirklich herausgekommen ist. Die Liste steht noch, wenn dieser Code
   // laeuft; erst danach wird sie durch die Ergebniskarte ersetzt.
@@ -54178,6 +54202,11 @@ function initSettingsScreen() {
     const el = document.getElementById(id);
     if (el) el.checked = userPrefs[key] !== false;
   });
+  // v33.11: die Zustimmung haengt NICHT an toggleMap — dort ist die Vorgabe
+  // „an" (`!== false`), hier muss sie „aus" sein, und der Wert wohnt in
+  // gs_consent (ueberlebt das Abmelden, GS_KEEP_ON_LOGOUT), nicht in gs_prefs
+  // (den ein Pull vom Server ersetzen kann, v32.36).
+  try { const _ca = document.getElementById('toggle-analytics'); if (_ca) _ca.checked = (typeof _gsAnalyticsErlaubt === 'function') && _gsAnalyticsErlaubt(); } catch(_){}
 
   // v23.54: Live-Tracking-Toggle initialisieren
   try { if (typeof gsLiveTrackingUpdateUI === 'function') gsLiveTrackingUpdateUI(); } catch(e){}
@@ -66203,6 +66232,8 @@ async function gsPPsavePlan() {
     saved.unshift(planEntry);
     saved = gsCapWithArchive('gs_garden_plans', saved, 30);
     localSaved = (localStorage.setItem('gs_garden_plans', JSON.stringify(saved)) !== false);
+    // v33.11: Nutzungsmessung — Zahl der Pflanzen und ob der Plan Daten traegt. Keine Namen.
+    try { if (localSaved) gsTrackEvent('plan_saved', { plants: (_gsPP.plan.plants || []).length, has_dates: (_gsPP.plan.plants || []).some(function (x) { return x && x.sow_date; }) }); } catch (_) {}
     // Stufenweise kuerzen, bis es passt. Der neue Plan steht vorn und
     // ueberlebt daher als letzter.
     var stufen = [10, 5, 2, 1];
@@ -74316,6 +74347,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.11', date: '10.09.2026',
+      headline: 'Nutzungsmessung: ein Schalter, ein Vokabular, eine Zustimmung',
+      summary: 'gsTrackEvent hatte 0 Aufrufer, gs_consent 0 Schreiber, einen Zustimmungsdialog gab es nicht — die Strecke war tot. Jetzt: Opt-in in „Datenschutz & Daten" (Vorgabe aus), ein erklärtes Ereignis-Vokabular statt Ad-hoc-Namen, und ein Prüfstand, der beweist: ohne Ja verlässt nichts das Gerät.',
+      user_summary: 'Du entscheidest, ob GreenScan Nutzung misst — der Schalter ist aus, bis du ihn einschaltest, und er sagt dir genau, was gesendet würde.',
+      user_items: [
+        {emoji:'📊', text:'Neu unter Einstellungen › Datenschutz & Daten: „Nutzungsmessung erlauben". Vorgabe: aus.'},
+        {emoji:'🔒', text:'Wenn an, gehen nur benannte Ereignisse (Scan fertig, Plan gespeichert, Aufgabe erledigt, Quiz beantwortet) mit Kategorie und App-Version — keine Fotos, kein Standort, keine Pflanzennamen.'},
+        {emoji:'📜', text:'Die Über-Seite und die Rechtstexte sagen jetzt, wo der Schalter ist — nicht mehr „einen Dialog gibt es nicht".'}
+      ],
+      items: [
+        {emoji:'📖', bold:'GS_EVENTS:', text:' fünf Ereignisse, jedes mit seinen erlaubten Feldern (scan_done: cat, conf_bucket, db_hit · plan_saved: plants, has_dates · task_done: task_key, liste · quiz_answered: correct · consent_changed: analytics). _gsEventFiltern lässt nur diese Schlüssel durch, nur Grundtypen, gekürzt — ein Aufrufer kann kein Feld dazuerfinden. Unbekannte Namen werden verworfen, auch mit Ja.'},
+        {emoji:'🎛', bold:'gsConsentAnalyticsSetzen:', text:' schreibt gs_consent {analytics, at, version} — am Rückgabewert geprüft (der Wrapper wirft nie, §3.5), Schalter nur bei Erfolg umgestellt. Wohnt bewusst NICHT in gs_prefs (ein Server-Pull kann die ersetzen, v32.36) und nicht in toggleMap (Vorgabe dort ist an). Der Schalter selbst ist das erste Ereignis.'},
+        {emoji:'📍', bold:'Vier Stellen, je eine:', text:' showScanResult (nach dem Prüfwerk), gsPPsavePlan (nach dem lokalen Erfolg), gsRpcTaskDone (die eine Stelle, durch die gsQuickDone, doneTask und „Alle erledigt" gehen — vor der Anmelde-Sperre), answerSupaDailyQuiz (nach dem Server-Urteil).'},
+        {emoji:'🧪', bold:'einstellungen_check, sechs Fragen:', text:' Vorgabe aus und 0 Anfragen · Ja schreibt Datum und Fassung, erstes Ereignis ist die Zustimmung · erklärtes Ereignis mit GENAU seinen Feldern, Name/Foto/Standort/Objekt herausgefiltert · unbekannter Name verworfen · task_done über gsRpcTaskDone ohne Pflanzenname · Nein schaltet ab und die Über-Liste ist aktualisiert.'}
+      ],
+    },
+  {
     v: 'v33.10', date: '10.09.2026',
       headline: 'Der Plan wird zum Kalender — PLANER-V3 N8, Stufe 5',
       summary: 'Ein gespeicherter Garten-Plan trägt je Pflanze Aussaat- und Erntedaten und eine Wochen-Zeitleiste — und erzeugte bis heute keinen einzigen Termin. Der Kalender kannte die Art „Aussaatfenster" sogar, nur lieferte sie niemand. Jetzt ist der Plan eine Quelle der einen Kalenderfunktion, mit Herkunft an jedem Termin.',
@@ -74732,7 +74780,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.10';
+var GS_VERSION = 'v33.11';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -84393,9 +84441,64 @@ function _gsAnalyticsErlaubt(){
   } catch(_) { return false; }
 }
 window._gsAnalyticsErlaubt = _gsAnalyticsErlaubt;
+// ── v33.11 · NUTZUNGSMESSUNG, SAUBER GEBAUT ──────────────────────────────
+//
+// Gemessen am 10.09.2026: gsTrackEvent hatte 0 Aufrufer, gs_consent 0
+// Schreiber, einen Zustimmungsdialog gab es nicht. Die Strecke existierte
+// und war tot — und haette sie gelebt, haette jeder Aufrufer beliebige
+// Felder mitgeschickt.
+//
+// Drei Regeln, die hier festgehalten sind:
+//  1. OPT-IN. Vorgabe aus; gesendet wird erst nach einem Ja im Schalter.
+//  2. VOKABULAR. Ein Ereignis ist erklaert (Name + erlaubte Felder) oder es
+//     wird verworfen. Kein Aufrufer kann ein Feld dazuerfinden — Werte werden
+//     auf die erlaubten Schluessel gefiltert, auf Grundtypen gebracht und
+//     gekuerzt. Keine Fotos, kein Standort, keine Pflanzennamen, kein Text
+//     aus Eingabefeldern: das sind keine Felder im Vokabular, also gehen sie
+//     nicht durch.
+//  3. EINE Zustimmung fuer alles mit Konto-Bezug — auch die Fehlerberichte
+//     (client_errors) fragen _gsAnalyticsErlaubt (v32.71).
+// Wer ein Ereignis braucht, traegt es hier ein — mit den Feldern, die es
+// tragen darf. Pruefstand: einstellungen_check (sechs Fragen).
+var GS_EVENTS = {
+  scan_done:      ['cat', 'conf_bucket', 'db_hit'],       // Kategorie, Konfidenz-Stufe, in der Artenliste gefunden
+  plan_saved:     ['plants', 'has_dates'],                 // Zahl der Pflanzen, traegt der Plan Daten
+  task_done:      ['task_key', 'liste'],                   // water/fertilize/…, myPlants/plantings
+  quiz_answered:  ['correct'],                             // richtig/falsch (Vorschlag des Clients)
+  consent_changed:['analytics']                            // der Schalter selbst
+};
+window.GS_EVENTS = GS_EVENTS;
+function _gsEventFiltern(event, props) {
+  var erlaubt = GS_EVENTS[event];
+  if (!erlaubt) return null;
+  var out = {};
+  erlaubt.forEach(function (k) {
+    if (!props || !(k in props)) return;
+    var v = props[k];
+    if (typeof v === 'number' && isFinite(v)) out[k] = v;
+    else if (typeof v === 'boolean') out[k] = v;
+    else if (typeof v === 'string') out[k] = v.slice(0, 40);
+    // Objekte, Arrays, Funktionen: nicht erklaert, nicht dabei.
+  });
+  return out;
+}
+window._gsEventFiltern = _gsEventFiltern;
+function gsConsentAnalyticsSetzen(checked) {
+  var wert = { analytics: !!checked, at: new Date().toISOString(), version: 1 };
+  var ok = (localStorage.setItem('gs_consent', JSON.stringify(wert)) !== false);   // der Wrapper wirft nie (§3.5)
+  try { var cb = document.getElementById('toggle-analytics'); if (cb) cb.checked = ok ? !!checked : !checked; } catch (_) {}
+  try { if (typeof gsToast === 'function') gsToast(!ok ? 'Speicher voll — Einstellung nicht gesichert.' : (checked ? '📊 Nutzungsmessung an — nur benannte Ereignisse.' : '📊 Nutzungsmessung aus.'), ok ? 'success' : 'warn'); } catch (_) {}
+  // Der Schalter selbst ist ein Ereignis — beim Einschalten das erste, beim
+  // Ausschalten das letzte, das noch durchgeht (die Entscheidung ist ja gefallen).
+  if (ok) { try { gsTrackEvent('consent_changed', { analytics: !!checked }); } catch (_) {} }
+  return ok;
+}
+window.gsConsentAnalyticsSetzen = gsConsentAnalyticsSetzen;
 window.gsTrackEvent = function(event, props){
   try {
     if (!_gsAnalyticsErlaubt()) return;   // v32.71: Opt-in, nicht Opt-out
+    var gefiltert = _gsEventFiltern(event, props);
+    if (!gefiltert) { try { console.warn('[gsTrackEvent] nicht im Vokabular, verworfen:', event); } catch (_) {} return; }
     if (typeof sbFetch !== 'function') return;
     var uid = gsStore.get('gs_sb_uid', null) || null;
     sbFetch('/rest/v1/analytics_events', {
@@ -84404,8 +84507,8 @@ window.gsTrackEvent = function(event, props){
       body: JSON.stringify({
         user_id: uid,
         session_id: (window._gsSessionId || (window._gsSessionId = 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8))),
-        event: String(event || 'unknown').slice(0,60),
-        props: props || {},
+        event: String(event).slice(0,60),
+        props: gefiltert,
         app_version: (typeof GS_VERSION !== 'undefined') ? GS_VERSION : null,
         platform: /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'ios' :
                   /Android/.test(navigator.userAgent) ? 'android' : 'web'
@@ -86211,7 +86314,7 @@ function showLegalTab(tab) {
       '<p>GreenScan · E-Mail: <a href="mailto:info@greenscan.ch" style="color:var(--g-main);">info@greenscan.ch</a><br>Datenschutz-Anfragen: <a href="mailto:info@greenscan.ch" style="color:var(--g-main);">info@greenscan.ch</a></p>' +
       '<h4 style="color:var(--g-dark);">Welche Daten wir bearbeiten</h4>' +
       '<p><strong>Kontodaten:</strong> Name, E-Mail · gespeichert bei Supabase (EU-Rechenzentrum), Passwort nur als Hash · Zweck: Kontoverwaltung<br>' +
-      '<strong>Nutzungsdaten:</strong> nur mit deiner Zustimmung — einen Zustimmungsdialog gibt es derzeit nicht, deshalb wird nichts gemessen; Fehlerberichte mit Konto-Bezug gehen ebenfalls nur mit Zustimmung<br>' +
+      '<strong>Nutzungsdaten:</strong> nur mit deiner Zustimmung (Einstellungen › Datenschutz &amp; Daten, Vorgabe aus) — und dann nur benannte Ereignisse ohne Fotos, Standort oder Pflanzennamen; Fehlerberichte mit Konto-Bezug gehen ebenfalls nur mit Zustimmung<br>' +
       '<strong>Standortdaten:</strong> GPS nur bei expliziter Freigabe · Zweck: Wetter, Karte, lokale Hinweise · keine Ortung über die IP-Adresse<br>' +
       '<strong>Pflanzenfotos:</strong> gehen für die Bestimmung an den KI-Dienst (Anthropic, USA) und werden mit deinem Scan in deinem Konto gespeichert, bis du den Scan löschst; Fotos, die du in der Community oder als Artenbeitrag teilst, sind öffentlich<br>' +
       '<strong>Pflanzen, Gärten, Tagebuch, Messwerte:</strong> in deinem Konto, nur für dich lesbar (Zeilenschutz in der Datenbank)</p>' +

@@ -944,8 +944,73 @@ const melde = (frage, ok, wie) => {
       : JSON.stringify({ a1, a2: N.a2, a3: N.a3, a4: N.a4 }) + ' — cooldown_minutes stand seit v32.48 in jeder Regel und wurde nie gelesen');
   melde('Der Wochenzähler in den Push-Einstellungen zählt die lokalen Meldungen', /Diese Woche: [1-9]\d* lokale Meldung/.test(N.zaehler), N.zaehler || 'kein #push-wochenzaehler');
 
+  // ── v33.11 · Nutzungsmessung: Opt-in, Vokabular, eine Zustimmung ────────
+  //
+  // Gemessen am 10.09.2026: gsTrackEvent 0 Aufrufer, gs_consent 0 Schreiber,
+  // kein Schalter. Jede Frage hier stellt den Zustand HER (Schalter aus/an),
+  // stellt den Server (sbFetch zaehlt und protokolliert) und liest die
+  // Nutzlast — nicht die Absicht.
+  const NM = await page.evaluate(async () => {
+    const aus = { gesendet: [] };
+    const echt = { fetch: window.sbFetch, consent: localStorage.getItem('gs_consent') };
+    window.sbFetch = async (pfad, opts) => { aus.gesendet.push({ pfad, body: (opts && opts.body) ? JSON.parse(opts.body) : null }); return { data: null, error: null }; };
+    try {
+      localStorage.removeItem('gs_consent');
+      // 1 · Vorgabe: der Schalter ist aus, nichts geht raus
+      try { updateSettingsUI && updateSettingsUI(); } catch (_) {}
+      const cb = document.getElementById('toggle-analytics');
+      aus.schalterDa = !!cb; aus.vorgabeAus = !!cb && cb.checked === false && !_gsAnalyticsErlaubt();
+      gsTrackEvent('scan_done', { cat: 'pilz', conf_bucket: 'hoch', db_hit: true });
+      aus.ohneJa = aus.gesendet.length;
+      // 2 · Ja: der Schluessel traegt Datum und Fassung, der Schalter zeigt es, das erste Ereignis ist die Zustimmung selbst
+      gsConsentAnalyticsSetzen(true);
+      const c = JSON.parse(localStorage.getItem('gs_consent') || 'null');
+      aus.consent = c; aus.erlaubt = _gsAnalyticsErlaubt(); aus.schalterAn = !!cb && cb.checked === true;
+      aus.erstes = aus.gesendet[0] ? aus.gesendet[0].body : null;
+      // 3 · ein erklaertes Ereignis geht mit GENAU den erklaerten Feldern — Fremdes wird gefiltert, Namen kommen nicht mit
+      aus.gesendet.length = 0;
+      gsTrackEvent('scan_done', { cat: 'pilz', conf_bucket: 'hoch', db_hit: true, name: 'Steinpilz', foto: 'data:...', lat: 47.3, extra: { x: 1 } });
+      aus.scan = aus.gesendet[0] ? aus.gesendet[0].body : null;
+      // 4 · ein Ereignis ohne Eintrag im Vokabular wird verworfen — auch mit Ja
+      aus.gesendet.length = 0;
+      gsTrackEvent('irgendwas_neues', { a: 1 });
+      aus.unbekannt = aus.gesendet.length;
+      // 5 · die vier verdrahteten Stellen liefern ihr Ereignis (ueber die echten Funktionen, wo das ohne Netz geht)
+      aus.gesendet.length = 0;
+      try { gsRpcTaskDone('p1', 'water'); } catch (_) {}
+      aus.task = aus.gesendet.find(g => g.body && g.body.event === 'task_done');
+      // 6 · Nein: nichts mehr — und der Schalter steht aus
+      gsConsentAnalyticsSetzen(false);
+      aus.gesendet.length = 0;
+      gsTrackEvent('scan_done', { cat: 'pilz' });
+      aus.nachNein = aus.gesendet.length; aus.schalterAusDanach = !!cb && cb.checked === false && !_gsAnalyticsErlaubt();
+      // Ueber-Liste: der Satz „gibt es derzeit nicht" muss weg sein
+      aus.ueberAlt = /Zustimmungs-?[Dd]ialog gibt es derzeit nicht/.test(document.body.innerHTML);
+    } finally {
+      window.sbFetch = echt.fetch;
+      if (echt.consent == null) localStorage.removeItem('gs_consent'); else localStorage.setItem('gs_consent', echt.consent);
+    }
+    return aus;
+  });
+  melde('Nutzungsmessung · der Schalter existiert, ist per Vorgabe AUS, und ohne Ja verlässt kein Ereignis das Gerät',
+    NM.schalterDa && NM.vorgabeAus && NM.ohneJa === 0,
+    NM.schalterDa && NM.vorgabeAus && NM.ohneJa === 0 ? 'toggle-analytics aus · _gsAnalyticsErlaubt() false · 0 Anfragen' : JSON.stringify({ da: NM.schalterDa, vorgabeAus: NM.vorgabeAus, ohneJa: NM.ohneJa }));
+  melde('Nutzungsmessung · ein Ja schreibt gs_consent mit Datum und Fassung, der Schalter zeigt es, und das erste Ereignis ist die Zustimmung selbst',
+    !!(NM.consent && NM.consent.analytics === true && NM.consent.at && NM.consent.version === 1 && NM.erlaubt && NM.schalterAn && NM.erstes && NM.erstes.event === 'consent_changed' && NM.erstes.props && NM.erstes.props.analytics === true),
+    NM.consent ? 'gs_consent ' + JSON.stringify(NM.consent).slice(0, 80) + ' · erstes Ereignis: ' + (NM.erstes && NM.erstes.event) : 'gs_consent fehlt');
+  const scanOk = !!(NM.scan && NM.scan.event === 'scan_done' && NM.scan.props && Object.keys(NM.scan.props).sort().join(',') === 'cat,conf_bucket,db_hit' && NM.scan.props.cat === 'pilz' && !('name' in NM.scan.props) && !('foto' in NM.scan.props) && !('lat' in NM.scan.props) && NM.scan.app_version && NM.scan.session_id);
+  melde('Nutzungsmessung · ein erklärtes Ereignis geht mit GENAU seinen Feldern — Name, Foto, Standort und Objekte werden herausgefiltert',
+    scanOk, scanOk ? 'props = ' + JSON.stringify(NM.scan.props) + ' · app_version ' + NM.scan.app_version : JSON.stringify(NM.scan));
+  melde('Nutzungsmessung · ein Ereignis, das nicht im Vokabular steht, wird verworfen — auch mit Ja', NM.unbekannt === 0, NM.unbekannt === 0 ? '„irgendwas_neues" → 0 Anfragen' : NM.unbekannt + ' Anfragen');
+  melde('Nutzungsmessung · Aufgabe erledigt geht durch die EINE Stelle (gsRpcTaskDone) mit task_key und Liste — ohne Pflanzenname',
+    !!(NM.task && NM.task.body.props && NM.task.body.props.task_key === 'water' && NM.task.body.props.liste && !('plantId' in NM.task.body.props)),
+    NM.task ? JSON.stringify(NM.task.body.props) : 'kein task_done gesendet');
+  melde('Nutzungsmessung · ein Nein schaltet ab: danach 0 Anfragen, Schalter aus — und die Über-Liste sagt nicht mehr „einen Dialog gibt es nicht"',
+    NM.nachNein === 0 && NM.schalterAusDanach && !NM.ueberAlt,
+    NM.nachNein === 0 && NM.schalterAusDanach && !NM.ueberAlt ? '0 Anfragen · Schalter aus · Über-Satz aktualisiert' : JSON.stringify({ nachNein: NM.nachNein, schalterAus: NM.schalterAusDanach, ueberAlt: NM.ueberAlt }));
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 33 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 39 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 4).join(' | ') : 'keine'));
   console.log('  Gestellte Sperren: Notification.requestPermission → granted · setTimeout beim');
   console.log('  Löschen abgefangen (`location.reload` lässt sich nicht zuverlässig ersetzen —');
