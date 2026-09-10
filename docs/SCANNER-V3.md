@@ -118,6 +118,14 @@ Foto lesbar ist — ein scharfes trägt ein unscharfes mit. Prüfstand:
 > **Eine Zahl neben einem Ergebnis ist eine Messung oder ein Lob.** „2 Fotos
 > kombiniert" ohne Messung war das Zweite.
 
+### Nachtrag v33.20 — der Scan kennt den Aussaatkalender
+
+Erkennt der Scanner eine Kultur aus `GS_SAE_DB` (derselbe Matcher wie der
+Kalender, `_gsSaeZuPflanze`), steht ihr Fenster auf der Karte — drinnen
+vorziehen, draussen säen, Ernte — mit dem Weg zum Säkalender. Eine Wildart
+bekommt nichts; `season` ist eine Sammelsaison, kein Aussaatfenster
+(KALENDER-V1 Regel 9). Prüfstand: `scan_check` „Aussaatkalender".
+
 ### Offen für Stufe 2
 
 - Ob das dritte Foto etwas **anderes** zeigt als das zweite (Blatt statt
