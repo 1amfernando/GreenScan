@@ -117,7 +117,7 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 32 Prüfstände (§7.1) + pruefstaende.sh (alle 32, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 33 Prüfstände (§7.1) + pruefstaende.sh (alle 33, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -385,6 +385,12 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   Fotos, kein Standort, keine Pflanzennamen, kein Eingabetext: das sind keine
   Felder, also gehen sie nicht durch. Prüfstand: `einstellungen_check`
   (sechs Fragen, jede stellt den Schalter und liest die Nutzlast).
+  **Und seit v33.18 die LESE-Seite:** `fn_admin_analytics` (Migration
+  `20260910_admin_analytics.sql`, nicht angewandt) zählt je Ereignis und Tag —
+  nur Zahlen, keine Kennungen — und die Karte „Nutzung" im Admin-Panel zeigt
+  sie mit drei Zuständen (Prüfstand `nutzung_check`). Nachgemessen am
+  10.09.2026: bis dahin las NIEMAND `analytics_events`. **Was getrackt wird,
+  wird auch gelesen** — sonst ist es Speicherplatz.
   Und: keine Ortung über die IP-Adresse (`ipapi.co` ist seit v32.71 raus, auch
   aus der CSP) — wer den Standort verweigert, bekommt Zürich mit Hinweis.
 - Daten landen in Supabase EU-Region. Datenschutz-Erklärung verlinkt im
@@ -684,12 +690,13 @@ node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 node scripts/loeschung_check.js  # raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17)
+node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
-bash scripts/pruefstaende.sh     # ALLE 32 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+bash scripts/pruefstaende.sh     # ALLE 33 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein

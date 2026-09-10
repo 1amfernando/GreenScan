@@ -30,6 +30,150 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.06', date: '09.09.2026',
+      headline: '„Noch keine Pflanze“ stand über den Aufgaben genau dieser Pflanzen',
+      summary: 'Seit v32.47 tragen Garten-Pflanzungen dieselben Aufgaben wie eigene Pflanzen, und gsGetDueTasks rechnet über beide Listen. Drei Anzeigen benutzten weiter myPlants.length als Tor — wer nur ein Beet hat, sah auf der Startseite den Leerzustand.',
+      user_summary: 'Wenn du nur ein Beet hast und keine eigenen Pflanzen, sagt die App das jetzt richtig.',
+      user_items: [
+        {emoji:'🌱', text:'Auf der Startseite stand „Noch keine Pflanze — scanne eine“, während eine Zeile darüber „2 Aufgaben warten auf dich“ zu lesen war. Jetzt stehen dort die Aufgaben.'},
+        {emoji:'🌿', text:'Die Überschrift heißt wieder „Dein Garten“, nicht „Natur entdecken“.'},
+        {emoji:'🧺', text:'Und auf der Garten-Seite stand „Erste Pflanze anlegen“, obwohl zwei Pflanzungen im Beet waren.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsPflanzenZahl():', text:' eine Zählung für beide Listen (ps_myplants + gs_plantings), direkt neben gsGetDueTasks, das seit v32.47 dieselben beiden Listen liest. Vier Tore stellen darauf um: der Tagesplan, die zwei Zeilen der Begrüßung und die Garten-Übersicht.'},
+        {emoji:'📏', bold:'Gemessen, nicht vermutet:', text:' mit 0 eigenen Pflanzen und 2 Pflanzungen lieferte gsGetDueTasks 2 fällige Aufgaben, „Meine Pflanzen“ wies „2 Pflanzen · 2 Heute fällig“ aus — und der Tagesplan daneben sagte „Noch keine Pflanze“. Dieselbe Klasse wie v32.87: zwei Antworten auf dieselbe Frage, gleichzeitig sichtbar.'},
+        {emoji:'🛡', bold:'Kein Widerspruch zu v31.68:', text:' dort ging es um „gepflanzt“ (in DIESEM Beet) gegen „in Pflege“ (insgesamt) — die Gartenkarte zählt weiter je Beet, und „Meine Pflanzen“ zählt seit v32.50 ohnehin beide Listen.'},
+        {emoji:'🧪', bold:'nutzersicht_check E10:', text:' drei Zustände — nur ein Beet mit fälliger Aufgabe, dasselbe Beet ohne fällige Aufgabe, und wirklich nichts. Der mittlere musste dazu: das Tor der Garten-Übersicht sitzt hinter „keine Schritte“ und ist unerreichbar, solange Aufgaben anstehen — ohne ihn wäre eine Rücknahme genau dort unbemerkt geblieben. Jede der drei Stellen einzeln zurückgebaut, jede einzeln rot.'},
+        {emoji:'💡', bold:'Und die Falle beim Bau:', text:' gsRenderGardenOverview fällt auf den localStorage zurück, wenn die Variable leer ist. Mein erster Fall setzte nur die Variablen — die Gegenrichtung blieb an den drei Seed-Pflanzen im Speicher hängen und meldete „Leerzustand fehlt“, obwohl die Reparatur stimmte. Ein Zustand, der nur halb hergestellt ist, misst ab da etwas anderes, als er behauptet.'}
+      ],
+    },
+  {
+    v: 'v33.05', date: '09.09.2026',
+      headline: 'Zwei fertige Oberflaechen hatten keinen Weg hinein',
+      summary: 'Die Liste OHNE_EINSTIEG stand seit v32.97 auf sechs. Jeder Eintrag einzeln auf seine Wirkung geprueft: zwei verdrahtet, zwei ueberholte entfernt, zwei bleiben mit gemessener Begruendung liegen.',
+      user_summary: 'Du kannst jetzt eine Ernte direkt bei der Pflanze eintragen — und in der Bauernregel weiterblaettern.',
+      user_items: [
+        {emoji:'🧺', text:'Im Dossier einer Pflanze standen deine Ernten schon immer. Nur eintragen konntest du dort keine — das Formular dafuer war fertig gebaut und hatte keinen Knopf. Jetzt hat es einen, mit Datum, Menge, Einheit, Qualitaet und Notiz.'},
+        {emoji:'🌾', text:'Die Bauernregel des Tages zeigte eine Regel und hoerte dort auf. Es gibt einen Weiter-Knopf — er erscheint, sobald mehr als eine geladen ist.'},
+        {emoji:'🧹', text:'Zwei Funktionen, die dasselbe noch einmal taten, sind raus. Nichts, was du siehst, faellt weg: beides gab es an anderer Stelle laengst besser.'}
+      ],
+      items: [
+        {emoji:'🧺', bold:'openHarvestAddModal verdrahtet:', text:' das Fenster ist seit v28.15 vollstaendig, und gsHarvestSubmit schreibt in DIESELBE kanonische Pipeline wie der Erntekalender (garden_harvests via gsCloudSync) — Verdrahten legt also keine zweite Datenspur an. Der Knopf steht im Pflanzen-Dossier, das die Ernten dieser Pflanze ohnehin zeigt und bisher nur sagte „erscheinen hier automatisch".'},
+        {emoji:'🌾', bold:'gsShowNextWisdom verdrahtet:', text:' Knopf in der Karte, sichtbar nur bei mehr als einer geladenen Regel.'},
+        {emoji:'🧹', bold:'Zwei ueberholte entfernt:', text:' gsHarvestLoadForPlant (das Dossier laedt die Ernten je Pflanze seit v28.23 serverseitig ueber fn_plant_dossier) und gsDoctorHistoryLoad (gsDoctorShowHistory macht dasselbe per RPC und hat einen Knopf; plant_doctor_history hat 0 Zeilen). Entfernt an exakten Klammergrenzen, nicht per Zeilensuche.'},
+        {emoji:'🥽', bold:'gsAROpen bleibt bewusst ohne Knopf — und das ist gemessen:', text:' ar_models hat 30 Zeilen, davon 0 mit gltf_url und 0 mit low_poly_url. Es gibt kein einziges 3D-Modell; ein Knopf zeigte fuer jede der 3\u2019136 Arten nur den Rueckfall. Erst Modelle, dann Knopf.'},
+        {emoji:'🛡️', bold:'gsSafetyDefaults bleibt Fernandos Entscheidung:', text:' es aendert den SICHERHEITSTEXT auf vielen Detailseiten. Das entscheidet kein Pruefstand.'},
+        {emoji:'🔁', bold:'Und ich habe die Einordnung zweimal revidiert:', text:' zuerst hielt ich openHarvestAddModal fuer einen ueberholten Rest (falsch — das Fenster ist vollstaendig), dann gsHarvestLoadForPlant fuer die fehlende Haelfte eines Features (auch falsch — das Dossier macht es serverseitig). Erst der dritte Durchgang stimmte. Gut, dass CLAUDE.md sagt: nicht ungeprueft entfernen.'}
+      ],
+    },
+  {
+    v: 'v33.04', date: '09.09.2026',
+      headline: '„4’337 Arten" waren 3’136 Arten — die Zahl stand neben dem falschen Wort',
+      summary: 'Die Artenliste hat 4’337 Eintraege, aber nur 3’136 verschiedene Arten: jede Zeile traegt EINEN deutschen Namen, 660 Arten haben mehr als eine. Fuenf Anzeigen rechneten das live falsch, siebzehn feste Texte trugen dazu noch die alte 4342.',
+      user_summary: 'Wo „Arten" steht, steht jetzt die Zahl der Arten — und wo es um Eintraege geht, steht das auch dabei.',
+      user_items: [
+        {emoji:'🌿', text:'Die App sagte „4’342 Arten". In der Liste stehen aber 4’337 EINTRAEGE zu nur 3’136 Arten — der Baerlauch zum Beispiel viermal, weil jede Zeile einen eigenen deutschen Namen traegt.'},
+        {emoji:'⚖️', text:'Beide Zahlen bleiben sichtbar, jede mit ihrem eigenen Wort: im Ueber-Fenster steht jetzt „3’136 Arten in 4’337 Eintraegen". Nichts wurde weggerechnet, nur richtig benannt.'},
+        {emoji:'🔍', text:'Betroffen war auch, was Google und die App-Installation zeigen — dort stand seit Monaten eine Zahl, die es so gar nicht mehr gibt.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Selbst nachgezaehlt (09.09.2026):', text:' 4’337 Eintraege nach der Entdopplung, 3’136 verschiedene Binomen nach _gsNormLat, 660 Arten mit mehr als einer Zeile, 1’201 Zweit- und Drittnamen.'},
+        {emoji:'🔧', bold:'EINE Quelle:', text:' gsArtenZahlen() liefert {eintraege, arten} und rechnet nur neu, wenn die Liste waechst. Nicht _gsLatIndex nehmen — das verlangt ein Leerzeichen im Schluessel und laesst 23 Gattungs-Eintraege und 26 Zeilen ohne Binomen aussen vor (3’113 statt 3’136).'},
+        {emoji:'📝', bold:'Fuenf LIVE-Schreiber umgestellt:', text:' Splash, Statistik-Kachel (auch die animierte Zahl), Einstellungen, Ueber-Dialog-Kopf und die Rechtstexte schrieben alle DB.length neben das Wort „Arten". Zwei davon hat erst der neue Pruefstand gefunden.'},
+        {emoji:'📄', bold:'Siebzehn feste Texte:', text:' Seitenbeschreibungen, og:/twitter:, Onboarding, Ueber-Liste, Preis-Kachel, Scan-Warnung, Offline-Karte, FAQ, Lina-Hilfe, install.html und manifest.json. Die Scanner-Vorauswahl heisst jetzt „aus 4’337 Eintraegen" — sie engt wirklich Eintraege ein, und die Live-Zahl daneben sagt dasselbe.'},
+        {emoji:'🚧', bold:'nutzersicht_check E9 ist der Ausloeser:', text:' er zaehlt die Liste SELBST (eigener Massstab, kein Echo von gsArtenZahlen) und haelt jede Zahl neben „Arten"/„Eintraegen" dagegen — in index.html, install.html und manifest.json, plus die Live-Anzeigen. Historische Messungen in GS_RELEASES bleiben aussen vor. E6 rechnete auf derselben falschen Grundlage und ist mit umgestellt.'},
+        {emoji:'🧪', bold:'Gegenprobe, vier Zustaende:', text:' fester Text zurueck auf 4342 → rot; Live-Anzeige zurueck auf DB.length → rot; die Zahl neben „Eintraegen" auf die Artenzahl gesetzt → rot. Der dritte war zuerst GRUEN: `Eintraege\b` trifft „Eintraegen" nicht, die Dativform wurde nie geprueft. Gefunden hat es die Gegenprobe, nicht der Lauf.'}
+      ],
+    },
+  {
+    v: 'v33.03', date: '08.09.2026',
+      headline: 'Drei Stellen sagten „gespeichert", ohne nachzusehen',
+      summary: 'Rezept-Favorit, Namensaenderung und Avatar-Wechsel meldeten Erfolg, ohne die Antwort von Geraet oder Server anzusehen. versprechen_check kennt nur sbFetch — diese drei gingen durch Helfer bzw. an den Geraetespeicher.',
+      user_summary: 'Wenn etwas nicht gespeichert werden kann, steht das jetzt da — statt eines Hakens fuer nichts.',
+      user_items: [
+        {emoji:'💾', text:'Ein Rezept als Favorit zu merken meldete „Rezept gespeichert!", bevor ueberhaupt geschrieben wurde. War das Geraet voll, war das Rezept nach dem naechsten Start wieder weg — ohne dass es jemand gesagt haette.'},
+        {emoji:'✏️', text:'Dasselbe beim Namen und beim Avatar: beide meldeten Erfolg, ohne die Antwort des Servers anzusehen. Lehnte der ab, stand trotzdem ein Haken da — und beim naechsten Laden war die Aenderung weg.'},
+        {emoji:'↩️', text:'Der Avatar wechselt weiterhin sofort, das fuehlt sich schneller an. Sagt der Server aber Nein, springt er jetzt zurueck und die App sagt, woran es lag.'}
+      ],
+      items: [
+        {emoji:'🧾', bold:'toggleRecipeFav:', text:' die Meldung stand VOR dem Schreiben, und der Rueckgabewert lag in einem toten catch — localStorage.setItem wirft nie, es gibt false zurueck (CLAUDE.md §3.5). Jetzt: erst schreiben, bei false die Liste auf den Stand davor zurueck (Kopie, keine Referenz) und ein Satz dazu.'},
+        {emoji:'🧾', bold:'profEditName:', text:' zwei ungeprueffte Schreibvorgaenge hintereinander — sbSaveProfile (gibt {data,error}, wirft nie) und setItem. Jetzt _gsSchreibOk fuer den Server (Ablehnung UND 0 Zeilen), und die lokale Haelfte sagt „geaendert, aber auf diesem Geraet nicht gemerkt", statt einen Haken zu zeigen.'},
+        {emoji:'🧾', bold:'profSetAvatar:', text:' „✅ Avatar gespeichert!" stand vor dem Serveraufruf, und das .catch() daran war von Bauart tot. Optimistisch bleibt es — mit der Regel aus v32.82: Zustand davor merken, bei Nein zuruecknehmen, einen Satz sagen.'},
+        {emoji:'🔍', bold:'Warum kein Pruefstand das sah:', text:' versprechen_check sucht Meldungen neben einem sbFetch-Aufruf. Hier ging der eine ueber den HELFER sbSaveProfile, und beim Rezept ging es gar nicht an den Server, sondern an den Geraetespeicher — eine Frage, die dieser Pruefstand nicht stellt. Vier neue Faelle: speicher_check (voller Speicher) und save_check SERVER_WEGE (Ablehnung · 0 Zeilen · Bestaetigung).'},
+        {emoji:'🧪', bold:'Gegenprobe:', text:' jede der drei Reparaturen einzeln zurueckgebaut — dreimal rot, mit dem echten Beleg daneben („permission denied" vom Server, und die App meldete ✅ Name aktualisiert!).'}
+      ],
+    },
+  {
+    v: 'v33.02', date: '08.09.2026',
+      headline: 'Die Beispieldaten der Pruefstaende waren ueber ein Jahr alt',
+      summary: 'Der Zeit-Anker in scripts/_seed.js stand als feste Zahl auf dem 1. September 2025. 29 der 31 Pruefstaende vermassen die App damit in einem Zustand, den kein Mensch hat.',
+      user_summary: 'Eine Reparatur an der Werkstatt, nicht an der App: die Testdaten, mit denen jede Aenderung geprueft wird, waren ein Jahr veraltet.',
+      user_items: [
+        {emoji:'📅', text:'Die Beispieldaten, gegen die jede Aenderung geprueft wird, waren auf ein festes Datum eingefroren — den 1. September 2025. Gemessen heute: jede Aufgabe 347 bis 373 Tage ueberfaellig, kein Messwert der letzten Woche, die Diagramme leer.'},
+        {emoji:'🔍', text:'Das heisst: die Bildschirme „Heute faellig", „in Ordnung" und die Sensor-Diagramme wurden lange nicht mehr in dem Zustand geprueft, in dem du sie siehst. Nichts war deswegen kaputt — aber gesehen hat es auch niemand.'},
+        {emoji:'🧪', text:'Der Anker folgt jetzt dem laufenden Tag, und ein neuer Pruefstand faellt durch, sobald Beispieldaten nicht mehr in der App ankommen. Diese Falle hat dreimal zugeschlagen; gefunden wurde sie jedes Mal durch Zufall.'}
+      ],
+      items: [
+        {emoji:'📅', bold:'Der Anker war 1756684800000 = 2025-09-01:', text:' _seed.js rechnete alles Zeitbezogene daraus. Gemessen am 08.09.2026 mit laufender Uhr: Messwerte 374–380 Tage alt (0 in den letzten 7 Tagen), Aufgaben 9× ueberfaellig / 0× heute / 0× in Ordnung, Scans 375–382 Tage, Tagebuch 374–379 Tage, und das Sitzungs-Token 343 Tage abgelaufen. Jetzt: Mitternacht des laufenden Tages.'},
+        {emoji:'🕰️', bold:'Die zwei Pruefstaende mit gestellter Uhr sind unberuehrt:', text:' kalender_check und sensor_check rufen clock.setFixedTime VOR addInitScript — Date.now() liefert dort ihre Konstante, deren Mitternacht genau der alte Wert ist. Ihre Daten sind Bit fuer Bit dieselben.'},
+        {emoji:'🚧', bold:'robust_check Fall 25:', text:' misst nicht die FORM der Beispieldaten, sondern ihre WIRKUNG — Pflanzen, faellige Aufgaben, Gaerten, Geraet, Messwerte, Regeln, Tagebuch, Scans, Ernte muessen in der laufenden App ankommen, und es muss mindestens eine ueberfaellige UND eine heute faellige Aufgabe geben.'},
+        {emoji:'📏', bold:'Was sich dadurch aendert, ist gemessen:', text:' render_check zaehlt im Favoriten-Tab 213 → 171 Elemente. Das ist richtig so — vorher standen dort zehn Aufgaben „Seit 373 Tagen ueberfaellig", jetzt vier realistische. Sonst keine Abweichung ausser Uhrzeiten.'}
+      ],
+    },
+  {
+    v: 'v33.01', date: '08.09.2026',
+      headline: 'Der Changelog lag zu 138 KB in der App, obwohl der Start nur den neuesten Eintrag braucht',
+      summary: 'v31.36 hat GS_RELEASES geteilt: 12 Eintraege inline, der Rest im nachgeladenen Archiv. Aus den 12 waren wieder 100 geworden — die Regel stand in einem Kommentar und hatte keinen Ausloeser.',
+      user_summary: 'Die App laedt bei jedem Update rund 42 KB weniger. Und der „Was ist neu"-Dialog hat jetzt eine Kontrolle, die den Fehler von vorhin nicht wiederkommen laesst.',
+      user_items: [
+        {emoji:'📦', text:'Die Liste aller Aenderungen lag zu 138 KB direkt in der App — obwohl beim Start nur der neueste Eintrag gebraucht wird. Die 88 aelteren sind dorthin umgezogen, wo die uebrigen 448 schon liegen; geladen werden sie, wenn du den Changelog oeffnest.'},
+        {emoji:'⏱️', text:'Ob die App dadurch spuerbar schneller startet: nachgemessen, zehn Durchlaeufe unter Telefon-Bedingungen — und die Antwort ist nein, der Unterschied geht in der Streuung unter. Sicher ist nur das Kleinere: 42 KB weniger bei jedem Update.'},
+        {emoji:'🔔', text:'Der Fehler von heute Morgen (dreimal Computer-Kauderwelsch statt der Notizen) kann so nicht wiederkommen. Eine Pruefung sieht jetzt nach, ob die Notizen zur laufenden Version gehoeren und die richtige Form haben — vorher pruefte das niemand.'},
+        {emoji:'🔧', text:'Und dieselbe Stelle unter „Technische Details" war noch offen: dort stand die Reparatur von heute Morgen nicht. Jetzt schon.'}
+      ],
+      items: [
+        {emoji:'📦', bold:'88 Eintraege umgezogen:', text:' GS_RELEASES inline 100 → 12 Eintraege (138,1 → 9,9 KB); data/releases.v1.js 448 → 536. Reihenfolge und Inhalt Zeichen fuer Zeichen unveraendert, ueber alle 548 verglichen. index.html 5,67 → 5,54 MB, gzip -9 1590 → 1548 KB.'},
+        {emoji:'📏', bold:'Startzeit: kein Befund.', text:' 5+5 Laeufe perf_check, Mittelklasse-Telefon (4x): DCL Median 1704 vs 1748 ms, Mittelwert 1716 vs 1713 ms; Streuung je Gruppe 190 bzw. 300 ms. Nicht messbar — das steht so auch in der Nutzer-Notiz.'},
+        {emoji:'🚧', bold:'robust_check Fall 24:', text:' Deckel 20 Eintraege inline · GS_RELEASES[0].v muss GS_VERSION sein (CLAUDE.md §3.1, bis heute von keinem Pruefstand gemessen — wird es vergessen, bleibt „Was ist neu" bei allen still aus) · keine Version doppelt · Naht neu → alt · Form der user_items/items. Gegenprobe: vier hergestellte Zustaende, jeder rot mit eigenem Grund.'},
+        {emoji:'📄', bold:'Eine falsche Zeile richtiggestellt:', text:' data/releases.v1.js behauptete im Kopf, der Service Worker cache das Archiv ueber SHELL_URLS mit. sw.js sagt an seiner Stelle das Gegenteil, und sw.js hat recht. Zwei Dateien beschrieben denselben Mechanismus gegensaetzlich; die falsche Haelfte klang plausibel.'},
+        {emoji:'🔧', bold:'_gsRelItem jetzt an ALLEN vier Render-Stellen:', text:' v33.00 hat nur user_items normalisiert. `items` (die technischen Zeilen) las weiter roh — ein String haette dort dieselbe String.prototype.bold gezeigt. Heute kein Vorkommen, aber dieselbe Falle ein Feld weiter; Fall 24 zaehlt die rohen Stellen und laesst keine zu.'},
+        {emoji:'🔬', bold:'E4b misst wieder alles:', text:' der Fall las gsAllReleases() und sah damit nur die Inline-Liste — nach dem Umzug waeren das 13 statt 100 Eintraege gewesen, die Abdeckung waere STILL geschrumpft. Er holt das Archiv jetzt von der Platte: 549 Releases, 1812 Zeilen durch den echten Renderer.'}
+      ],
+    },
+  {
+    v: 'v33.00', date: '08.09.2026',
+      headline: 'Dieses Fenster zeigte Computer-Kauderwelsch statt der Notizen',
+      summary: 'Von Fernando auf dem Telefon fotografiert — betroffen war jeder Dialog seit v32.86.',
+      user_summary: 'Die Release-Notizen sind wieder lesbar — statt dreimal derselben unverständlichen Zeile.',
+      user_items: [
+        {emoji:'🐞', text:'In den Notizen der letzten vierzehn Versionen stand statt des Textes dreimal eine technische Zeile. Die Sätze waren da, sie kamen nur nicht an.'},
+        {emoji:'🔤', text:'Ursache: die Notizen waren als reiner Text hinterlegt, die Anzeige erwartete aber ein Feld mit Beschriftung — und griff dabei versehentlich eine eingebaute Funktion des Browsers ab.'},
+        {emoji:'🔎', text:'Der Prüfstand dafür gab es schon, er prüfte aber nur ein selbst gebautes Beispiel. Jetzt prüft er die echten Notizen.'}
+      ],
+    },
+  {
+    v: 'v32.99', date: '08.09.2026',
+      headline: 'Der Notfall-Hinweis gilt jetzt in allen vier Sprachen',
+      summary: 'Auf Französisch, Italienisch und Englisch wurde bisher kein Notfall erkannt.',
+      user_summary: 'Der Chat erkennt einen Vergiftungs-Notfall jetzt auch, wenn du nicht auf Deutsch schreibst.',
+      user_items: [
+        {emoji:'🆘', text:'Der Chat ohne KI-Schlüssel fragt die Sprache nirgends ab — „ma fille a mangé des baies" oder „my son ate a mushroom" wurden bisher gar nicht als Notfall erkannt, nicht einmal das Wort „poisoning".'},
+        {emoji:'🆘', text:'Jetzt erkennt er Verzehr, Beschwerden und Hilferufe in Deutsch, Französisch, Italienisch und Englisch.'},
+        {emoji:'🆘', text:'Die Nummern sind ohnehin überall dieselben: Tox Info Suisse 145, Notruf 144, EU 112.'},
+      ],
+    },
+  {
+    v: 'v32.98', date: '08.09.2026',
+      headline: 'Der Chat erkennt einen Vergiftungs-Notfall jetzt wirklich',
+      summary: 'Vorher griff die Erkennung bei 4 von 17 normalen Formulierungen.',
+      user_summary: 'Wenn jemand schreibt, dass etwas gegessen wurde, kommt sofort die Nummer von Tox Info Suisse — nicht eine Pflanzenbeschreibung.',
+      user_items: [
+        {emoji:'🆘', text:'Sätze wie „meine Tochter hat Beeren gegessen", „mein Sohn hat Pilze gegessen" oder „Erbrechen nach Beeren" wurden bisher nicht als Notfall erkannt.'},
+        {emoji:'🆘', text:'Erkannt wird jetzt auch, wenn ein Haustier etwas gefressen hat oder wenn Beschwerden beschrieben werden.'},
+        {emoji:'🆘', text:'Und umgekehrt: „Kann man Löwenzahn essen?" löst weiterhin keinen Notfall aus — sonst gewöhnt man sich an, den Hinweis zu überlesen.'},
+      ],
+    },
+  {
     v: 'v32.97', date: '08.09.2026',
       headline: 'Ein Battle zu verlassen hiess, es zu verlieren',
       summary: 'Der 30-Sekunden-Zähler lief weiter und riss das Fenster von selbst wieder auf.',

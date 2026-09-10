@@ -80,9 +80,15 @@ melde(tblRot.length === 0, 'Jede angesprochene Tabelle/View existiert',
                       (tblOffen.length ? ' · ' + tblOffen.length + ' bewusst offen (siehe unten)' : ''));
 
 // ── RPCs ─────────────────────────────────────────────────────────────────
-const rpcNeu = rpc.filter(r => !rpcGeprueft.has(r));
+// v33.18: ein RPC, den eine Migration im Repo vorbereitet (offen[…]), ist
+// nicht „neu, nachsehen" — er existiert bewusst noch nicht. Dieselbe dritte
+// Klasse wie bei den Tabellen.
+const rpcAlle = rpc.filter(r => !rpcGeprueft.has(r));
+const rpcOffen = rpcAlle.filter(r => offen[r]);
+const rpcNeu = rpcAlle.filter(r => !offen[r]);
 melde(true, 'Jeder aufgerufene RPC war bei der Momentaufnahme vorhanden',
-      rpc.length + ' aufgerufen · ' + (rpc.length - rpcNeu.length) + ' geprüft' +
+      rpc.length + ' aufgerufen · ' + (rpc.length - rpcAlle.length) + ' geprüft' +
+      (rpcOffen.length ? ' · ' + rpcOffen.length + ' bewusst offen (siehe oben)' : '') +
       (rpcNeu.length ? ' · ' + rpcNeu.length + ' seither dazugekommen' : ''));
 if (rpcNeu.length) {
   console.log('       NEU seit der Momentaufnahme — noch niemand hat nachgesehen, ob es sie gibt:');
