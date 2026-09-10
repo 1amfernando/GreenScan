@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.07.20260909">
+<meta name="app-version" content="33.08.20260910">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16858,8 +16858,15 @@ function _gsArtAnzeige(sp) {
       if (v && v.id !== sp.id && !v._unverified) {
         var hoeher = (v.tox || 0) > (sp.tox || 0);
         var essbarWeg = !!sp.edible && !v.edible;
+        // v33.08: `edible` darf durch die Korrektur nur WEGFALLEN, nie
+        // dazukommen — sonst macht der `hoeher`-Zweig eine Art essbarer, als
+        // ihr eigener Eintrag sagt. Fall: „Gewöhnliche Eiche" (edible:false,
+        // tox 0) wurde per Gruppe mit „Eiche (Stieleiche)" (edible:true,
+        // tox 1) verglichen — die hoehere Giftstufe gewann zu Recht, ihr
+        // `edible:true` riss die Essbarkeit ungefragt mit. `sp.edible &&
+        // v.edible` haelt eine Verneinung fest, egal welcher Zweig feuert.
         if (hoeher || essbarWeg) erg = Object.assign({}, sp, {
-          tox: v.tox, toxic: v.toxic, edible: v.edible,
+          tox: v.tox, toxic: v.toxic, edible: (sp.edible && v.edible),
           warning: sp.warning || v.warning,
           lookalike: sp.lookalike || v.lookalike,
           _korrigiert: { vonTox: sp.tox, aufTox: v.tox, hoeher: hoeher, essbarWeg: essbarWeg }
@@ -74183,6 +74190,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.08', date: '10.09.2026',
+      headline: 'Die Eiche lieh sich ihr Besteck-Symbol von einer Dublette',
+      summary: '_gsArtAnzeige hebt bei einer Dubletten-Gruppe die Giftstufe auf den vorsichtigsten Wert an — und riss dabei ungefragt die Essbarkeit mit, wenn genau der giftigere Eintrag zufällig edible:true trug. scan_check E3 fand es: „Gewöhnliche Eiche" (eigener Eintrag edible:false, tox 0) zeigte in der Fakten-Zeile das 🍴-Symbol, weil ihre Dublette „Eiche (Stieleiche)" (tox 1, edible:true) die höhere Giftstufe der Gruppe stellte und ihr edible-Feld gleich mitbrachte.',
+      user_summary: 'Ein Fakten-Hinweis zeigte fälschlich das Besteck-Symbol bei einer als „nicht essbar" geführten Eichen-Art.',
+      user_items: [
+        {emoji:'🌳', text:'Die „Gewöhnliche Eiche" wurde in einem Fakten-Hinweis als essbar dargestellt, obwohl ihr eigener Eintrag das ausdrücklich verneint. Die vorsichtigere Angabe gilt jetzt auch bei diesem Feld.'}
+      ],
+      items: [
+        {emoji:'🐛', bold:'gefunden von scan_check E3:', text:' „1 von 21 Besteck-Zeilen vor einer nicht essbaren Art: Gewöhnliche Eiche" — Teil der wöchentlichen Prüfstand-Läufe, kein manueller Fund.'},
+        {emoji:'🔍', bold:'Ursache:', text:' die Quercus-robur-Gruppe führt vier Dubletten, drei mit edible:false/tox 0, eine (Eiche (Stieleiche)) mit edible:true/tox 1. _gsVorsichtigste wählt nach der höchsten Giftstufe — richtig für tox, aber der `hoeher`-Zweig kopierte deren edible-Feld ungeprüft mit und machte damit die „Gewöhnliche Eiche" essbarer, als ihr eigener Eintrag sagt.'},
+        {emoji:'🛡', bold:'Reparatur:', text:' `edible: sp.edible && v.edible` — die Korrektur darf Essbarkeit nur noch WEGNEHMEN, nie hinzufügen, unabhängig davon, ob die Giftstufe oder die Essbarkeit selbst den Anlass gibt. Alle 27 schnellen Prüfstände danach grün (vorher: scan_check rot).'}
+      ],
+    },
+  {
     v: 'v33.07', date: '09.09.2026',
       headline: 'Die fünfte Stelle derselben Frage — gefunden, weil ich gesucht habe',
       summary: 'v33.06 hat vier Anzeigen umgestellt, die „hast du Pflanzen?" nur mit ps_myplants beantworteten. Die Startkachel „Pflanzen" war die fünfte: sie zeigte 0 und führte per Tipp auf einen Bildschirm, der 3 zeigte.',
@@ -74646,7 +74667,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.07';
+var GS_VERSION = 'v33.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

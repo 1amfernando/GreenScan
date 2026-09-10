@@ -4,13 +4,27 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-09 · **Branch**: `main` · **Version**: `v33.07` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.08` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hb) - v33.08: die Eiche lieh sich ihr Besteck-Symbol von einer Dublette
+
+**Routinelauf, kein zugewiesener Auftrag.** `bash scripts/pruefstaende.sh schnell` als Gesundheitscheck gefahren — Arbeitsbaum war sauber, `main` und der Feature-Branch deckungsgleich mit dem letzten Commit (v33.07). Ergebnis: **1 rot von 27**, `scan_check` E3.
+
+**Der Fund:** „🍴 Gewöhnliche Eiche: …" stand in der Fakten-Zeile, obwohl der Eintrag BA031 „Gewöhnliche Eiche" `edible:false` führt. Ursache in `_gsArtAnzeige` (v32.92): die Quercus-robur-Gruppe hat vier Dubletten — drei mit `edible:false`/`tox 0`, eine („Eiche (Stieleiche)", T052) mit `edible:true`/`tox 1`. `_gsVorsichtigste` waehlt die Dublette mit der HOECHSTEN Giftstufe als Referenz — hier richtig T052 — aber der `hoeher`-Zweig kopierte deren `edible`-Feld ungeprueft mit. Eine Korrektur, die die Giftstufe anheben sollte, machte die Art nebenbei essbarer als ihr eigener Eintrag sagt — das Gegenteil der Absicht von v32.86/v32.92 ("bei Widerspruch gewinnt die vorsichtigere Angabe").
+
+**Reparatur:** `edible: (sp.edible && v.edible)` statt `edible: v.edible` — die Korrektur darf Essbarkeit nur noch WEGNEHMEN, nie hinzufuegen, in BEIDEN Zweigen (`hoeher` und `essbarWeg`). `node scripts/scan_check.js` danach: E3 gruen (20 von 20 Besteck-Zeilen essbar, vorher 20 von 21). Ganzer schneller Lauf danach: 27/27 gruen.
+
+**Pruefstand nicht erweitert** — `scan_check` E3 hat den Fall bereits gefunden und deckt die Regel ab (ein Besteck-Symbol vor einer nicht essbaren Art ist rot); ein zweiter Fall waere eine Dublette der Pruefung, keine neue Aussage.
+
+Version gebumpt (`GS_VERSION`/`sw.js VERSION`/`meta app-version` auf `33.08`), `GS_RELEASES[0]` ergaenzt.
+
+---
 
 ### 2026-09-09 (ha) - v33.07: die fuenfte Stelle derselben Frage
 
@@ -11572,7 +11586,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 09.09.2026** (davor am 02.09.). Er stand am 02.09. auf
+> **Nachgemessen am 10.09.2026** (davor am 09.09. und am 02.09.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -11581,11 +11595,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.07` (Client) · SW-Cache `gs-v33.07` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.08` (Client) · SW-Cache `gs-v33.08` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
+- **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **19**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
-- **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **31** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün (27 der schnellen Klasse am 10.09. erneut gefahren, `quiz`/`schluessel` „nicht prüfbar" ohne lokales Postgres — wie erwartet). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
