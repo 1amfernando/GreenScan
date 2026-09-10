@@ -12,6 +12,49 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-10 (hc) - Die Klasse hinter v33.08 gesucht: KEIN neuer Fehler, zwei Messloecher zu
+
+**Kein Code, nur Pruefstaende.** Keine Versionsaenderung, also auch kein
+`GS_RELEASES`-Eintrag.
+
+v33.08 hat einen Fehler gefunden, der an **164 von 372 Tagen** sichtbar war
+und trotzdem monatelang unbemerkt blieb — weil der Pruefstand genau den EINEN
+Tag mass, an dem er lief. Die Frage danach ist die Klasse: **welche Anzeigen
+waehlen ihren Inhalt nach dem Datum, und misst die je jemand an mehr als einem
+Tag?**
+
+| Stelle | waehlt mit | Stand vorher | gemessen |
+|---|---|---|---|
+| `gsInitDynamicFacts` | `getDate()*7 + getMonth()` | EIN Tag | in v33.08 auf 372 gestellt |
+| `gsInitSmartSeasonTip` („JETZT SAMMELN") | `getDate()*13 % pool.length` | **120 von 372** — `t <= 28; t += 3`, der 29.–31. nie | jetzt 372 |
+| `initQuiz` (Tagesquiz) | `getFullYear()*10000 + …` | **niemand** | jetzt 372 (neuer Fall E4) |
+| `gsRenderWissenHero` | fester Tipp-Liste | — | harmlos, keine Aussage |
+| `gsLoadSupabaseDailyContent` | Serverdaten | — | braucht Netz, von hier nicht pruefbar |
+
+#### Das Ergebnis, ehrlich: nichts gefunden
+
+Der volle Durchlauf ueber alle 372 Tage fand **0** falsche Sammel-Tipps und
+**0** kaputte Quiz-Fragen. Die 10-Tage-Stichprobe von E2 war also zufaellig
+ausreichend.
+
+> **„Zufaellig ausreichend" ist keine Eigenschaft, auf die man sich
+> verlaesst.** Bei den Fakten-Zeilen war dieselbe Stichprobe nicht
+> ausreichend — dort steckte der Eiche-Fund. Der Unterschied zwischen den
+> beiden Faellen war Zufall, nicht Sorgfalt. Ein Messloch ist auch dann eines,
+> wenn gerade nichts darin liegt.
+
+Das Tagesquiz ist die teurere der beiden Luecken: es **wertet**. Eine kaputte
+Frage ist dort keine Anzeige, sondern eine falsche Note. E4 prueft an jedem
+der 372 Tage: genau EINE richtige Antwort, kein `undefined`/`NaN`/
+`[object Object]`, keine leere Antwortmoeglichkeit. **Gegenprobe gemacht** —
+die Kategorie-Antwort absichtlich auf `undefined` gesetzt: „64x verdaechtiger
+Text: 1/5: Option „undefined" · 1/11 · 1/17".
+
+Und der Preis ist gemessen, nicht geschaetzt: der CI-Lauf mit den 372-Tage-
+Durchlaeufen brauchte **8:58 min** gegen bisher rund neun — kein Unterschied.
+
+---
+
 ### 2026-09-10 (hb) - v33.08: zwei unabhaengige Funde, einer davon sicherheitsnah
 
 #### 1 · Ein Besteck-Symbol vor „Eicheln (fuer Tiere)"
