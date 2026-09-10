@@ -132,6 +132,27 @@ const FAELLE = [
     },
   },
   {
+    name: 'S5b · mehrere Fotos: das schärfste zählt, Unscharfe werden genannt — und ungemessen ist kein Lob',
+    lauf: () => {
+      // v33.16 (Stufe 2b). Bis dahin galt „2 Fotos kombiniert" OHNE Messung
+      // als „die beste Grundlage, die der Scanner kennt" — ein Lob ueber
+      // Fotos, die niemand angesehen hatte.
+      const basis = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, toxicity: 0, alternatives: [], _shotCount: 2 };
+      const mach = q => _gsScanPruefwerk(Object.assign({}, basis), q).regeln.find(x => x.id === 'grundlage');
+      const klagen = [];
+      const gut = mach({ messbar: true, quality: 80, blur: 75, light: 85, warnings: [], fotos: 2, gemessen: 2, schwach: 1 });
+      if (!gut || gut.zustand !== 'ok') klagen.push('bestes Foto 80 gilt als dünn');
+      else if (!/2 Fotos/.test(gut.text) || !/Eines davon ist zu unscharf/.test(gut.text)) klagen.push('nennt Zahl der Fotos oder das unscharfe nicht: ' + gut.text);
+      const duenn = mach({ messbar: true, quality: 30, blur: 20, light: 40, warnings: [], fotos: 2, gemessen: 2, schwach: 0 });
+      if (!duenn || duenn.zustand !== 'warn') klagen.push('bestes Foto 30 gilt als brauchbar');
+      else if (!/2 Fotos/.test(duenn.text)) klagen.push('Vorbehalt nennt die Zahl der Fotos nicht: ' + duenn.text);
+      const ohne = mach(null);
+      if (!ohne || ohne.zustand !== 'unbekannt') klagen.push('2 Fotos OHNE Messung gelten als „' + (ohne && ohne.zustand) + '" — ein Lob, keine Messung');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '80 → ok „das schärfste von 2 Fotos", 30 → Vorbehalt, ungemessen → unbekannt' };
+    },
+  },
+  {
     name: 'Anzeige · die gesehenen Merkmale stehen auf der Karte',
     lauf: () => {
       const r = {
@@ -565,6 +586,114 @@ const FAELLE = [
       const el = document.getElementById('scan-result');
       if (!el.querySelector('.sr2-zurueck')) return { ok: false, warum: 'nach dem Scan fehlt die Zurück-Leiste' };
       return { ok: true, info: gesehen.filter(x => /^erg/.test(x)).join(' · ') };
+    },
+  },
+  // ── v33.16 · Stufe 2b: jedes Foto gemessen, der dritte Blick ─────────
+  {
+    name: 'Ablauf · jedes Foto gemessen: das scharfe trägt das unscharfe, keines lesbar → Rückfrage, „Trotzdem" behält beide',
+    lauf: async () => {
+      const scharf = (() => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1d5c22'; g.lineWidth = 2; for (let i = 0; i < 12; i++) { g.beginPath(); g.moveTo(10 + i * 12, 150); g.lineTo(60 + i * 8, 20); g.stroke(); }
+        return c.toDataURL('image/jpeg', 0.9).split(',')[1]; })();
+      const flach = (() => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d'); g.fillStyle = '#7a8a6a'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; })();
+      const qS = await gsBildQualitaetVonB64(scharf, 'image/jpeg'), qF = await gsBildQualitaetVonB64(flach, 'image/jpeg');
+      // Der Fall stellt seinen Zustand HER und weist ihn nach (CLAUDE.md §7.1).
+      if (!qS.messbar || gsQualitaetZuSchlecht(qS)) return { ok: false, warum: 'Prüfbild „scharf" ist selbst zu schlecht (Schärfe ' + qS.blur + ') — der Fall stellt den Zustand nicht her' };
+      if (!qF.messbar || !gsQualitaetZuSchlecht(qF)) return { ok: false, warum: 'Prüfbild „flach" gilt als lesbar (Schärfe ' + qF.blur + ') — der Fall stellt den Zustand nicht her' };
+      // Sperren und Netz stellen — geprüft wird der ABLAUF, nicht die KI.
+      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+      window._gsScanDHash = async () => 'hash-h2'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+      const rufe = [];
+      window.callVisionAI = async (b, m, p, ex) => { rufe.push({ n: 1 + ((ex || []).length), prompt: String(p || ''), schritt: ((document.querySelector('#schritt-bild .gs-s-erg') || {}).textContent || '') }); return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+      const alt = window.showScanResult; let res = null;
+      window.showScanResult = function (r) { res = r; return alt(r); };
+      const klagen = [];
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      try {
+        // 1 · neues Foto scharf, zusätzliches unscharf → kein Stopp, beides gemessen
+        await analyzeImage(scharf, 'image/jpeg', '', [{ b64: flach, mt: 'image/jpeg' }]);
+        if (rufe.length !== 1 || rufe[0].n !== 2) klagen.push('1: KI-Aufruf mit ' + (rufe[0] ? rufe[0].n : 0) + ' Fotos statt 2');
+        const q1 = res && res._qual;
+        if (!q1 || !q1.messbar) klagen.push('1: keine Messung im Ergebnis (der alte Mehrfach-Weg mass nichts)');
+        else {
+          if (q1.fotos !== 2 || q1.gemessen !== 2) klagen.push('1: fotos/gemessen = ' + q1.fotos + '/' + q1.gemessen + ' statt 2/2');
+          if (q1.quality !== qS.quality) klagen.push('1: quality ' + q1.quality + ' ist nicht die des schärfsten Fotos (' + qS.quality + ')');
+          if (q1.schwach !== 1) klagen.push('1: schwach = ' + q1.schwach + ' statt 1');
+          if (!q1.alle || q1.alle.length !== 2 || !q1.alle[1] || q1.alle[1].blur !== qF.blur) klagen.push('1: je-Foto-Liste fehlt oder falsch: ' + JSON.stringify(q1.alle));
+        }
+        if (!/bestes von 2 Fotos/.test(rufe[0] ? rufe[0].prompt : '')) klagen.push('1: der Prompt nennt die Zahl der Fotos nicht');
+        const t1 = karte();
+        if (!/das schärfste von 2 Fotos/.test(t1) || !/Eines davon ist zu unscharf/.test(t1)) klagen.push('1: S5 auf der Karte nennt weder „schärfste von 2 Fotos" noch das unscharfe');
+        // gelesen WAEHREND des KI-Aufrufs — danach ersetzt die Karte die Schrittliste
+        const schritt = rufe[0] ? rufe[0].schritt : '';
+        if (!/Schärfe \d+ · Licht \d+ · 2 Fotos/.test(schritt)) klagen.push('1: Schritt „Bild" nennt die 2 Fotos nicht: „' + schritt + '"');
+        // 2 · beide unscharf → Rückfrage, KEIN Aufruf; „Trotzdem" behält das zweite Foto
+        res = null;
+        await analyzeImage(flach, 'image/jpeg', '', [{ b64: flach, mt: 'image/jpeg' }]);
+        const t2 = karte();
+        if (rufe.length !== 1) klagen.push('2: KI wurde trotz zwei unlesbarer Fotos gerufen');
+        if (!/schwer zu lesen/.test(t2)) klagen.push('2: keine Rückfrage bei zwei unlesbaren Fotos');
+        if (!/2 Fotos gemessen, keines lesbar/.test(t2)) klagen.push('2: die Rückfrage sagt nicht, dass beide gemessen wurden: „' + t2.slice(0, 160) + '"');
+        gsQualTrotzdem();
+        for (let i = 0; i < 60 && (rufe.length < 2 || !res); i++) await new Promise(r => setTimeout(r, 50));
+        if (rufe.length !== 2 || rufe[1].n !== 2) klagen.push('2: „Trotzdem" rief die KI mit ' + (rufe[1] ? rufe[1].n : 0) + ' Fotos statt 2 — das zweite Foto ging verloren');
+        const q2 = res && res._qual;
+        if (!q2 || q2.fotos !== 2 || !q2.messbar) klagen.push('2: nach „Trotzdem" keine Messung über 2 Fotos: ' + JSON.stringify(q2 && { fotos: q2.fotos, messbar: q2.messbar }));
+        if (!/Dünne Bildgrundlage/.test(karte())) klagen.push('2: nach „Trotzdem" fehlt der Vorbehalt „Dünne Bildgrundlage" — die Bestimmung stünde auf einer ungemessenen Grundlage');
+      } finally { window.showScanResult = alt; window._gsQualExtra = null; }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'scharf+flach: 2/2 gemessen, bestes zählt (' + qS.quality + '), 1 unscharf genannt · flach+flach: Rückfrage ohne Aufruf, „Trotzdem" mit 2 Fotos und Vorbehalt' };
+    },
+  },
+  {
+    name: 'Dritter Blick · „Zweites Foto" nimmt ALLE Fotos des letzten Scans mit, wird zum dritten, endet am Deckel',
+    lauf: async () => {
+      const bild = (seed) => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.strokeStyle = '#3f9142'; g.lineWidth = 2;
+        for (let i = 0; i < 14; i++) { g.beginPath(); g.moveTo((seed * 7 + i * 11) % 160, 150); g.lineTo((seed * 13 + i * 9) % 160, 10); g.stroke(); }
+        return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      const b1 = bild(1), b2 = bild(2), b3 = bild(3), b4 = bild(4);
+      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+      window._gsScanDHash = async () => 'hash-h3'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+      const rufe = [];
+      // Herbstzeitlose als „essbar" → die Prüfung widerspricht (S1): der Knopf MUSS da sein
+      window.callVisionAI = async (b, m, p, ex) => { rufe.push(1 + ((ex || []).length)); return JSON.stringify({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 94, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+      const klagen = [];
+      const karte = () => document.getElementById('scan-result');
+      try {
+        await analyzeImage(b1, 'image/jpeg');
+        if (rufe[0] !== 1) klagen.push('Scan 1 mit ' + rufe[0] + ' Fotos');
+        let k = karte().querySelector('.sr2-pruef-knopf');
+        if (!k || !/Zweites Foto/.test(k.textContent)) klagen.push('nach 1 Foto kein „Zweites Foto"-Knopf: ' + (k ? k.textContent : 'fehlt'));
+        gsAddPhotoForRescan();
+        const pr1 = window._gsRescanPrior && window._gsRescanPrior.bilder;
+        if (!pr1 || pr1.length !== 1) klagen.push('Re-Scan nach 1 Foto trägt ' + (pr1 && pr1.length) + ' Fotos statt 1');
+        await analyzeImage(b2, 'image/jpeg');
+        if (rufe[1] !== 2) klagen.push('Scan 2 mit ' + rufe[1] + ' Fotos statt 2');
+        k = karte().querySelector('.sr2-pruef-knopf');
+        if (!k || !/Drittes Foto/.test(k.textContent)) klagen.push('nach 2 Fotos heisst der Knopf nicht „Drittes Foto": ' + (k ? k.textContent : 'fehlt'));
+        gsAddPhotoForRescan();
+        const pr2 = window._gsRescanPrior && window._gsRescanPrior.bilder;
+        if (!pr2 || pr2.length !== 2) klagen.push('Re-Scan nach 2 Fotos trägt ' + (pr2 && pr2.length) + ' Fotos statt 2 — das erste Foto ging verloren');
+        else if (pr2[0].b64 !== b2 || pr2[1].b64 !== b1) klagen.push('Re-Scan-Fotos in falscher Reihenfolge (neuestes zuerst erwartet)');
+        await analyzeImage(b3, 'image/jpeg');
+        if (rufe[2] !== 3) klagen.push('Scan 3 mit ' + rufe[2] + ' Fotos statt 3');
+        const txt = (karte().textContent || '').replace(/\s+/g, ' ');
+        if (karte().querySelector('.sr2-pruef-knopf') || karte().querySelector('[onclick*="gsAddPhotoForRescan"]')) klagen.push('nach 3 Fotos wird ein viertes angeboten');
+        if (!/3 Fotos sind das Maximum/.test(txt)) klagen.push('am Deckel fehlt der Satz „3 Fotos sind das Maximum"');
+        if (!/das schärfste von 3 Fotos/.test(txt)) klagen.push('S5 nennt „das schärfste von 3 Fotos" nicht');
+        // Und selbst ein direkter vierter Anlauf bleibt bei drei Fotos
+        gsAddPhotoForRescan();
+        const pr4 = window._gsRescanPrior && window._gsRescanPrior.bilder;
+        if (!pr4 || pr4.length !== 2) klagen.push('Re-Scan nach 3 Fotos trägt ' + (pr4 && pr4.length) + ' statt 2 (Deckel 3)');
+        await analyzeImage(b4, 'image/jpeg');
+        if (rufe[3] !== 3) klagen.push('Scan 4 mit ' + rufe[3] + ' Fotos statt 3 (Deckel)');
+      } finally { window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0; }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Aufrufe mit ' + rufe.join('/') + ' Fotos · Knopf: Zweites → Drittes → Maximum-Satz' };
     },
   },
   // ── v32.10 · Die Gegenprobe (Stufe 3) ────────────────────────────────

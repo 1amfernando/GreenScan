@@ -4,13 +4,48 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.15` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.16` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-10 (hk) - v33.16: Scanner — jedes Foto gemessen, der dritte Blick (SCANNER-V3 Stufe 2b)
+
+Der offene Punkt von Stufe 2 („mehrere Fotos anbieten, wenn die Pruefung
+duenn ausfaellt") war seit v32.01 zur Haelfte gebaut: der Knopf stand da.
+Was fehlte, hat erst das Nachmessen gezeigt:
+
+- **Ein Mehrfach-Scan wurde nie gemessen.** `analyzeImage` mass die
+  Bildqualitaet nur fuer ein EINZELNES Foto; mit einem zweiten kam alles
+  ungemessen durch, und S5 sagte „2 Fotos kombiniert — das ist die beste
+  Grundlage, die der Scanner kennt". Ein Lob ueber Fotos, die niemand
+  angesehen hatte. Jetzt `gsQualitaetMehrere`: jedes Foto gemessen, das
+  schaerfste zaehlt, S5 sagt „das schaerfste von 2 Fotos" und „eines davon
+  ist zu unscharf, um etwas beizutragen". Ungemessen ist `unbekannt`, nicht
+  `ok`.
+- **Der dritte Blick verlor den ersten.** `gsAddPhotoForRescan` nahm nur
+  `_gsLastScanB64` mit — nach einem 2-Foto-Scan ergab „Zweites Foto" wieder
+  zwei Fotos, das erste war weg. Jetzt `_gsLastScanBilder` (alle, neuestes
+  zuerst) und ein benannter Deckel `GS_SCAN_FOTOS_MAX = 3`, der auch die
+  zwei nackten `>= 3` beim Sammeln ersetzt. Der Knopf heisst nach zwei
+  Fotos „Drittes Foto"; bei drei steht ein Satz statt des Knopfs.
+- **„Trotzdem bestimmen" verlor die zusaetzlichen Fotos** (`_gsQualExtra`).
+- **Die Rueckfrage kommt nur, wenn KEIN Foto lesbar ist** — ein scharfes
+  traegt ein unscharfes mit; dass es nichts beitraegt, sagt S5.
+
+**Pruefstand:** `scan_check` S5b · „Ablauf · jedes Foto gemessen" (der Fall
+stellt seinen Zustand HER und weist ihn nach: das scharfe Pruefbild muss
+lesbar, das flache unlesbar sein, sonst prueft er nichts) · „Dritter Blick"
+(Aufrufe mit 1/2/3/3 Fotos). Vier Gegenproben einzeln gestellt, alle rot.
+
+**Grenze:** die Messung ist Laplace-Varianz und Helligkeit auf 120x90 px
+(`gsBildQualitaet`), keine Aussage ueber den INHALT — ob das dritte Foto
+etwas anderes zeigt als das zweite, weiss nur die KI.
+
+---
 
 ### 2026-09-10 (hj) - v33.15: der Plan altert und meldet sich (N4, erster Teil)
 
@@ -12054,7 +12089,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.15` (Client) · SW-Cache `gs-v33.15` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.16` (Client) · SW-Cache `gs-v33.16` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.

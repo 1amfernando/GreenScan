@@ -100,9 +100,30 @@ Regel S3 meldete anschliessend einen Widerspruch, den es gar nicht gab.
    Monat verschoben. Gefunden nur, weil der EXIF-Fall Juli gegen September
    stellte.
 
+### Stufe 2b — Jedes Foto gemessen, der dritte Blick (v33.16, ausgeliefert)
+
+Der Knopf „Zweites Foto" stand seit v32.01 bei jedem Vorbehalt. Nachgemessen
+fehlten drei Dinge dahinter:
+
+| war | ist |
+|---|---|
+| Ein Mehrfach-Scan wurde **nie** gemessen; S5 nannte ihn ungemessen „die beste Grundlage, die der Scanner kennt" | `gsQualitaetMehrere`: jedes Foto gemessen, das **schärfste** zählt; S5 sagt „das schärfste von N Fotos" und wie viele nichts beitragen; ungemessen ist *nicht prüfbar*, kein Lob |
+| Der dritte Blick verlor den ersten (`gsAddPhotoForRescan` nahm nur das neueste Foto mit) | `_gsLastScanBilder` (alle, neuestes zuerst), Deckel `GS_SCAN_FOTOS_MAX = 3`; Knopf heisst „Drittes Foto", bei drei ein Satz statt des Knopfs |
+| „Trotzdem bestimmen" verlor die zusätzlichen Fotos | `_gsQualExtra` reist mit |
+
+Und die Rückfrage „Das Foto ist schwer zu lesen" kommt nur noch, wenn **kein**
+Foto lesbar ist — ein scharfes trägt ein unscharfes mit. Prüfstand:
+`scan_check` S5b · „Ablauf · jedes Foto gemessen" · „Dritter Blick".
+
+> **Eine Zahl neben einem Ergebnis ist eine Messung oder ein Lob.** „2 Fotos
+> kombiniert" ohne Messung war das Zweite.
+
 ### Offen für Stufe 2
 
-- Mehrere Fotos automatisch anbieten, wenn die Prüfung dünn ausfällt.
+- Ob das dritte Foto etwas **anderes** zeigt als das zweite (Blatt statt
+  Blüte), weiss nur die KI — die Messung sieht Schärfe und Licht, nicht den
+  Inhalt. Ein Hinweis „nimm ein anderes Organ" bräuchte die Merkmale aus der
+  Antwort (`diagnostic_features`), nicht die Bildstatistik.
 
 ### Stufe 3 — Gegenprobe (v32.10, ausgeliefert)
 
