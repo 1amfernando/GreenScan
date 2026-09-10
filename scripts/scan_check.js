@@ -1844,24 +1844,69 @@ const FAELLE = [
     },
   },
   {
-    name: 'E3 · Das Besteck-Symbol steht nur vor einer essbaren Art',
+    name: 'E3 · Das Besteck-Symbol steht nur vor einer essbaren Art — an JEDEM Tag des Jahres',
     lauf: () => {
+      // v33.08: dieser Fall hing am laufenden Datum. `gsInitDynamicFacts`
+      // waehlt 60 von 3'654 Zeilen ueber `getDate()*7 + getMonth()`; der
+      // Fehler mit der Eiche war 364 Tage unsichtbar und stand am 10.09.2026
+      // ploetzlich da — auf `main`, ohne dass sich etwas geaendert haette.
+      // Eine Frage, die nur EINEN Tag kennt, ist an den anderen 364 gruen,
+      // ohne etwas zu wissen. Der Fall stellt jetzt das Datum und faehrt alle
+      // 372 Kombinationen (31 Tage x 12 Monate) durch die ECHTE Funktion —
+      // keine zweite Umsetzung der Auswahlregel im Pruefstand.
       if (typeof gsInitDynamicFacts !== 'function') return { ok: false, warum: 'gsInitDynamicFacts gibt es nicht' };
+      var Echt = Date;
+      var pruefe = function () {
+        var zeilen = (typeof _dynF !== 'undefined' && _dynF) ? _dynF : [];
+        var b = 0, schlecht = [];
+        zeilen.forEach(function (z) {
+          if (String(z).indexOf('&#127860;') !== 0) return;
+          b++;
+          var m = String(z).match(/<strong>([^<]+)<\/strong>/);
+          if (!m) { schlecht.push('Zeile ohne Namen'); return; }
+          // eigener Massstab (v32.86): der Eintrag, dessen Text daneben steht,
+          // muss selbst essbar sein — nicht die Funktion fragen, die geprueft wird
+          var treffer = DB.filter(function (s) { return s.name === m[1]; });
+          if (!treffer.some(function (sp) { return !!(sp && sp.edible); })) schlecht.push(m[1]);
+        });
+        return { besteck: b, schlecht: schlecht, zeilen: zeilen.length };
+      };
+      var gesamtBesteck = 0, gesamtZeilen = 0, tageOhneBesteck = 0, funde = {}, tage = 0;
+      try {
+        for (var mon = 0; mon < 12; mon++) {
+          for (var tag = 1; tag <= 31; tag++) {
+            var fest = new Echt(2026, mon, Math.min(tag, 28), 12, 0, 0);
+            // getDate() soll wirklich `tag` liefern — auch fuer den 29.-31.
+            window.Date = function (a, b2, c) {
+              if (arguments.length) return new Echt(a, b2, c);
+              var d = new Echt(fest.getTime());
+              d.getDate = function () { return tag; };
+              return d;
+            };
+            window.Date.now = Echt.now;
+            window.Date.parse = Echt.parse;
+            window.Date.UTC = Echt.UTC;
+            window.Date.prototype = Echt.prototype;
+            gsInitDynamicFacts();
+            var r = pruefe();
+            tage++;
+            gesamtBesteck += r.besteck; gesamtZeilen += r.zeilen;
+            if (!r.besteck) tageOhneBesteck++;
+            r.schlecht.forEach(function (n) { funde[n] = (funde[n] || 0) + 1; });
+          }
+        }
+      } finally { window.Date = Echt; }
+      if (!tage) return { ok: false, warum: 'kein einziger Tag durchgefahren — der Fall misst nichts' };
+      if (!gesamtBesteck) return { ok: false, warum: 'an keinem der ' + tage + ' Tage eine Besteck-Zeile — der Fall misst nichts' };
+      var namen = Object.keys(funde);
+      if (namen.length) {
+        return { ok: false, warum: namen.length + ' Art(en) mit Besteck ohne essbaren Eintrag, an ' +
+          Object.values(funde).reduce(function (a, b3) { return a + b3; }, 0) + ' von ' + tage + ' Tagen: ' + namen.slice(0, 6).join(' · ') };
+      }
+      // Uhr wieder frei laufen lassen, damit die spaeteren Faelle den echten Tag sehen
       gsInitDynamicFacts();
-      var zeilen = (typeof _dynF !== 'undefined' && _dynF) ? _dynF : [];
-      if (!zeilen.length) return { ok: false, warum: 'keine Fakten gebaut — der Fall misst nichts' };
-      var besteck = 0, schlecht = [];
-      zeilen.forEach(function (z) {
-        if (String(z).indexOf('&#127860;') !== 0) return;
-        besteck++;
-        var m = String(z).match(/<strong>([^<]+)<\/strong>/);
-        if (!m) { schlecht.push('Zeile ohne Namen'); return; }
-        var treffer = DB.filter(function (s) { return s.name === m[1]; });
-        if (!treffer.some(function (sp) { return !!(sp && sp.edible); })) schlecht.push(m[1]);
-      });
-      if (!besteck) return { ok: false, warum: 'keine einzige Besteck-Zeile — der Fall misst nichts' };
-      if (schlecht.length) return { ok: false, warum: schlecht.length + ' von ' + besteck + ' Besteck-Zeilen vor einer nicht essbaren Art: ' + schlecht.slice(0, 3).join(', ') };
-      return { ok: true, info: besteck + ' Besteck-Zeilen, alle essbar (von ' + zeilen.length + ')' };
+      return { ok: true, info: tage + ' Tage durchgefahren · ' + gesamtBesteck + ' Besteck-Zeilen von ' + gesamtZeilen + ', alle mit essbarem Eintrag' +
+        (tageOhneBesteck ? ' · ' + tageOhneBesteck + ' Tage ohne Besteck-Zeile' : '') };
     },
   },
 

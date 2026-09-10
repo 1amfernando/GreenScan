@@ -25,11 +25,31 @@ const FAELLE = [
     lauf: async () => __seite.evaluate(() => {
       const mit = MENU_ITEMS.filter(i => i.cat);
       if (mit.length !== 5) return { ok: false, warum: mit.length + ' Eintraege mit cat (erwartet 5)' };
+      // v33.08: dieser Fall hat bis hierher den FEHLER erzwungen. Er zaehlte
+      // `DB.filter(cat === …).length` — das sind EINTRAEGE — und verlangte das
+      // Wort „Arten" daneben; bei den Pilzen also 636 statt 364. E9 verlangt
+      // seit v33.04 das Gegenteil. Zwei Faelle im selben Pruefstand, mit
+      // gegensaetzlichen Regeln, beide gruen.
+      // Gezaehlt wird hier mit dem EIGENEN Massstab (v32.86): eine eigene
+      // Entdopplung ueber `lat`, nicht ein Aufruf von gsArtenZahlen — sonst
+      // prueft der Fall die Funktion mit sich selbst.
       const falsch = [];
+      const _artenJeKat = (cat) => {
+        const set = new Set();
+        for (const sp of DB) {
+          if (!sp || sp.cat !== cat || !sp.lat) continue;
+          const k = _gsNormLat(sp.lat);
+          if (k) set.add(k);
+        }
+        return set.size;
+      };
       mit.forEach(i => {
-        const n = DB.filter(s => s && s.cat === i.cat).length;
-        const soll = n.toLocaleString('de-CH') + ' Arten';
-        if (_gsMenuSub(i) !== soll || n < 50) falsch.push(i.cat + ': ' + _gsMenuSub(i) + ' (gezaehlt ' + n + ')');
+        const arten = _artenJeKat(i.cat);
+        const eintraege = DB.filter(s => s && s.cat === i.cat).length;
+        const soll = arten.toLocaleString('de-CH') + ' Arten';
+        if (_gsMenuSub(i) !== soll || arten < 30) {
+          falsch.push(i.cat + ': „' + _gsMenuSub(i) + '" (gezaehlt ' + arten + ' Arten in ' + eintraege + ' Eintraegen)');
+        }
       });
       if (falsch.length) return { ok: false, warum: falsch.join(' · ') };
       const ohne = MENU_ITEMS.find(i => !i.cat && i.sub);
@@ -41,7 +61,7 @@ const FAELLE = [
         const fn = Object.keys(window).map(k => window[k]).find(f => typeof f === 'function' && /scored = MENU_ITEMS\.map/.test(String(f)));
         if (fn) { fn('pilz'); const box = document.querySelector('.menu-search-result'); gerendert = box ? box.textContent : null; }
       } catch (_) {}
-      const pilze = DB.filter(s => s && s.cat === 'pilz').length.toLocaleString('de-CH');
+      const pilze = _artenJeKat('pilz').toLocaleString('de-CH');
       return { ok: true, info: mit.map(i => i.cat + ' ' + _gsMenuSub(i)).join(' · ') + (gerendert ? ' · gerendert: ' + (gerendert.indexOf(pilze) >= 0 ? 'Pilze ' + pilze + ' sichtbar' : 'ohne Zahl?') : '') };
     }),
   },
@@ -330,9 +350,51 @@ const FAELLE = [
       if (lebend.length) return { ok: false, warum: lebend.join(' · ') };
       if (live.dbLen !== EINTRAEGE) return { ok: false, warum: 'DB.length in der Seite ist ' + live.dbLen + ', gezaehlt wurden ' + EINTRAEGE + ' — der Fall misst eine andere Liste' };
 
+      // ── 3 · Aufschluesselung „Was in der Artendatenbank steckt" + Suchkopf ──
+      // Beide standen bis v33.08 mit Eintragszahlen unter dem Wort „Arten":
+      // die Total-Zeile sagte „4'337 Arten", zwei Bildschirme tiefer stand
+      // „3'136 Arten" — auf DEMSELBEN Tab.
+      const block = await __seite.evaluate(() => {
+        const o = {};
+        try { switchTab('more'); } catch (_) {}
+        const box = document.getElementById('more-db-cats');
+        o.text = box ? box.textContent.replace(/\s+/g, ' ').trim() : '';
+        // eigene Zaehlung je Kategorie, ohne gsArtenZahlen zu fragen
+        const je = {};
+        for (const sp of (window.DB || [])) {
+          if (!sp || !sp.cat) continue;
+          const e = je[sp.cat] || (je[sp.cat] = { eintraege: 0, set: new Set() });
+          e.eintraege++;
+          const k = sp.lat ? _gsNormLat(sp.lat) : '';
+          if (k) e.set.add(k);
+        }
+        o.je = Object.keys(je).map(c => [c, je[c].set.size, je[c].eintraege]);
+        try { switchTab('search'); if (typeof renderList === 'function') renderList(); } catch (_) {}
+        const st = document.getElementById('search-status');
+        o.suchkopf = st ? st.textContent.trim() : '';
+        return o;
+      });
+      const blockKlagen = [];
+      if (!block.text) blockKlagen.push('Aufschluesselung #more-db-cats leer — der Fall misst nichts');
+      else {
+        // Jede Zeile muss „<Arten> Arten · <Eintraege> Einträge" tragen
+        const paare = [...block.text.matchAll(/([\d'’.]+)\s*Arten\s*·\s*([\d'’.]+)\s*Einträge/g)]
+          .map(m => [parseInt(m[1].replace(/[^\d]/g, ''), 10), parseInt(m[2].replace(/[^\d]/g, ''), 10)]);
+        if (paare.length < 5) blockKlagen.push('nur ' + paare.length + ' Zeilen der Form „N Arten · M Einträge" — vorher stand dort die Eintragszahl unter „Arten"');
+        const echt = new Set(block.je.map(([, a, e]) => a + '|' + e));
+        echt.add(ARTEN + '|' + EINTRAEGE);                       // die Total-Zeile
+        const fremd = paare.filter(([a, e]) => !echt.has(a + '|' + e));
+        if (fremd.length) blockKlagen.push('Zeile(n) mit einer Zahl, die zu keiner Kategorie passt: ' + fremd.map(x => x.join('/')).join(' · '));
+        if (!paare.some(([a, e]) => a === ARTEN && e === EINTRAEGE)) blockKlagen.push('Total-Zeile nennt nicht ' + ARTEN + ' Arten · ' + EINTRAEGE + ' Einträge');
+      }
+      if (/Arten/.test(block.suchkopf) && !/Einträge/.test(block.suchkopf)) {
+        blockKlagen.push('Suchkopf sagt „' + block.suchkopf + '" — die Liste zeigt Einträge, jede Zeile ist einer');
+      }
+      if (blockKlagen.length) return { ok: false, warum: blockKlagen.join(' · ') };
+
       const gemessen = [live.splash, live.statTotal, live.settings, live.dbTotal, live.modalAbout].filter(x => x != null && x !== '').length;
       if (!gemessen) return { ok: false, warum: 'keine einzige Live-Anzeige gerendert — der Fall misst nichts' };
-      return { ok: true, info: ARTEN + ' Arten / ' + EINTRAEGE + ' Einträge selbst gezählt · ' + gemessen + ' Live-Anzeigen stimmen · feste Texte in index.html, install.html und manifest.json geprüft' };
+      return { ok: true, info: ARTEN + ' Arten / ' + EINTRAEGE + ' Einträge selbst gezählt · ' + gemessen + ' Live-Anzeigen stimmen · Aufschlüsselung und Suchkopf benannt · feste Texte in index.html, install.html und manifest.json geprüft' };
     },
   },
   {
