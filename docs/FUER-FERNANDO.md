@@ -757,6 +757,14 @@ JSON-Antwort mit `total`, `by_event`, `by_day`. Als Nutzer: `forbidden`.
 Antwort enthaelt nur Zaehlungen (der Pruefstand `nutzung_check` haelt das
 fest: keine `user_id`, keine `session_id` in der Antwort).
 
+**Und die zweite Migration dazu (v33.24):**
+`20260910_analytics_retention.sql` legt `fn_analytics_prune` an und plant
+einen taeglichen Cron (`analytics-prune`, 03:40 UTC), der Ereignisse aelter
+als 180 Tage loescht — revDSG: Speicherbegrenzung. Gleich anwenden; sie
+loescht beim Anwenden selbst nichts, erst der Cron. Wer die Frist aendern
+will, aendert BEIDE Zahlen: `p_days integer DEFAULT 180` in der Migration und
+`GS_ANALYTICS_TAGE` in `index.html` — `nutzung_check` wird sonst rot.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier
