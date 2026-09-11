@@ -666,6 +666,43 @@ const FAELLE = [
     },
   },
   {
+    name: 'Lina · letzter Scan: der juengste Eintrag des Scan-Verlaufs steht im Kontext — Name, Latein, Sicherheit, Alter; ohne Verlauf keine Zeile; nie das Foto',
+    lauf: () => {
+      // v33.23. Die Uhr steht auf dem 01.09.2025 12:00.
+      const key = (typeof SCAN_HISTORY_KEY !== 'undefined') ? SCAN_HISTORY_KEY : 'gs_scan_history';
+      const vorher = localStorage.getItem(key);
+      const jetzt = Date.now();
+      try {
+        localStorage.setItem(key, JSON.stringify([
+          { id: 's-alt', name: 'Bärlauch', latin: 'Allium ursinum', confidence: 91, emoji: '🌿', timestamp: new Date(jetzt - 5 * 864e5).toISOString(), category: 'wildpflanze', thumb: 'data:image/jpeg;base64,AAAA' },
+          { id: 's-neu', name: 'Tomate', latin: 'Solanum lycopersicum', confidence: 88, emoji: '🍅', timestamp: new Date(jetzt - 3600e3).toISOString(), category: 'gemuese', thumb: 'data:image/jpeg;base64,BBBB' },
+        ]));
+        const ctx = gsLinaContext();
+        const z = (ctx.match(/^Letzter Scan:[^\n]*/m) || [''])[0];
+        const klagen = [];
+        if (!z) klagen.push('keine Zeile „Letzter Scan", obwohl der Verlauf zwei Eintraege hat');
+        else {
+          if (!/Tomate/.test(z) || /Bärlauch/.test(z)) klagen.push('nennt nicht den JUENGSTEN Scan: ' + z);
+          if (!/Solanum lycopersicum/.test(z)) klagen.push('Latein fehlt: ' + z);
+          if (!/88 % sicher/.test(z)) klagen.push('Sicherheit fehlt oder falsch: ' + z);
+          if (!/heute/.test(z)) klagen.push('Alter fehlt (heute): ' + z);
+          if (/base64|data:image/.test(z)) klagen.push('das Foto steht im Kontext');
+          if (z.length > 160) klagen.push('Zeile zu lang (' + z.length + ')');
+        }
+        // Gegenrichtung: ohne Verlauf keine Zeile
+        localStorage.removeItem(key);
+        const ctx2 = gsLinaContext();
+        if (/^Letzter Scan:/m.test(ctx2)) klagen.push('Zeile erscheint ohne Verlauf');
+        // Alter: vor 5 Tagen
+        localStorage.setItem(key, JSON.stringify([{ id: 's-alt', name: 'Bärlauch', latin: 'Allium ursinum', confidence: 91, timestamp: new Date(jetzt - 5 * 864e5).toISOString() }]));
+        const z3 = (gsLinaContext().match(/^Letzter Scan:[^\n]*/m) || [''])[0];
+        if (!/vor 5 Tagen/.test(z3)) klagen.push('Alter falsch: ' + z3);
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: z + ' · ohne Verlauf keine Zeile · 5 Tage alt: „vor 5 Tagen"' };
+      } finally { if (vorher == null) localStorage.removeItem(key); else localStorage.setItem(key, vorher); }
+    },
+  },
+  {
     // v32.57: Zwei Geraete, dieselbe Groesse, zwei Linien (§11 Idee 9). Nur
     // Messgroessen, die BEIDE haben; die Legende nennt beide; die Zahl der
     // gezeichneten Reihen steht am Canvas; ein Geraet ohne die Groesse fehlt
