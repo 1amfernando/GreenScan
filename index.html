@@ -77211,17 +77211,24 @@ function _gsAppRuhig(){
 }
 window._gsAppRuhig = _gsAppRuhig;
 // Der Worker sagt seine Version (sw.js GET_VERSION → VERSION), Antwort ueber
-// einen eigenen Port; ohne Antwort nach 1,5 s null.
+// einen eigenen Port. Ein wartender Worker antwortet erst, wenn er dran ist —
+// auf einem langsamen Geraet dauert das; deshalb zwei Versuche je 3 s, dann null.
+// (Gemessen: unter Last blieb die erste 1,5-s-Frist leer, der Loop-Zaehler wurde
+// nach dem Update nicht geraeumt, und der naechste Versuch auf dieselbe Version
+// landete im Banner.)
 function _gsWorkerVersion(sw){
-  return new Promise(function(res){
-    var fertig = false, ende = function(v){ if (fertig) return; fertig = true; res(v || null); };
-    try {
-      var ch = new MessageChannel();
-      ch.port1.onmessage = function(e){ ende(e.data && e.data.version); };
-      sw.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
-    } catch(_){ ende(null); }
-    setTimeout(function(){ ende(null); }, 1500);
-  });
+  var einmal = function(){
+    return new Promise(function(res){
+      var fertig = false, ende = function(v){ if (fertig) return; fertig = true; res(v || null); };
+      try {
+        var ch = new MessageChannel();
+        ch.port1.onmessage = function(e){ ende(e.data && e.data.version); };
+        sw.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+      } catch(_){ ende(null); }
+      setTimeout(function(){ ende(null); }, 3000);
+    });
+  };
+  return einmal().then(function(v){ return v || einmal(); });
 }
 // Sichern vor dem Update: flushNow immer; pre_migration-Snapshot nur, wenn
 // seit dem letzten Snapshot etwas gepusht wurde (sonst waere er eine Kopie,
