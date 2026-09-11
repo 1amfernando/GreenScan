@@ -80,6 +80,7 @@ function sqlHaelfte() {
   const url = URL0.replace(/\/[^/]*$/, '/' + DBN);
   sql(url, FIXTURE);
   sqlFile(url, MIG('20260910_admin_analytics.sql'));
+  sqlFile(url, MIG('20260910_analytics_retention.sql'));   // v33.24: die Aufbewahrung
   const admin = (q) => JSON.parse(als(url, U.admin, 'a@example.ch', q));
   fallS('Admin · 30 Tage: 10 Ereignisse, 2 Personen (anonym zaehlt nicht), scan_done zuerst mit 5 (2 Personen), Zustimmung 1 an / 1 aus, Tage summieren sich', () => {
     const r = admin('select public.fn_admin_analytics(30)');
@@ -118,6 +119,31 @@ function sqlHaelfte() {
     if (!/forbidden/.test(fehler)) return { ok: false, warum: 'Nutzer bekam: ' + (fehler || 'eine Antwort') };
     if (anon !== 'f' || auth !== 't') return { ok: false, warum: 'anon=' + anon + ' authenticated=' + auth };
     return { ok: true, info: 'forbidden · anon f · authenticated t' };
+  });
+  // v33.24 · Aufbewahrung: was aelter ist als die Frist, verschwindet — der Rest bleibt
+  fallS('Aufbewahrung · fn_analytics_prune(180) loescht nur Aelteres, klemmt auf 30..730, nur service_role darf — und die App nennt dieselbe Zahl', () => {
+    sql(url, `insert into public.analytics_events (user_id, event, props, created_at) values ('${U.u1}', 'scan_done', '{}', now() - interval '200 days'), ('${U.u2}', 'scan_done', '{}', now() - interval '190 days')`);
+    const vorher = +sql(url, 'select count(*) from public.analytics_events');
+    const geloescht = +sql(url, 'select public.fn_analytics_prune(180)');
+    const nachher = +sql(url, 'select count(*) from public.analytics_events');
+    const klagen = [];
+    if (vorher !== 13) klagen.push('Fixture: ' + vorher + ' Zeilen statt 13');
+    if (geloescht !== 2 || nachher !== 11) klagen.push('prune(180): ' + geloescht + ' geloescht, ' + nachher + ' bleiben (erwartet 2 / 11 — das 45 Tage alte bleibt)');
+    // Klemme: 1 Tag → 30 Tage (das 45 Tage alte faellt, die juengeren nicht)
+    const g2 = +sql(url, 'select public.fn_analytics_prune(1)');
+    const n2 = +sql(url, 'select count(*) from public.analytics_events');
+    if (g2 !== 1 || n2 !== 10) klagen.push('prune(1) klemmt nicht auf 30: ' + g2 + ' geloescht, ' + n2 + ' bleiben (erwartet 1 / 10)');
+    const anon = sql(url, `select has_function_privilege('anon', 'public.fn_analytics_prune(integer)', 'execute')`);
+    const auth = sql(url, `select has_function_privilege('authenticated', 'public.fn_analytics_prune(integer)', 'execute')`);
+    if (anon !== 'f' || auth !== 'f') klagen.push('Rechte: anon=' + anon + ' authenticated=' + auth + ' (beide muessen f sein — nur der Cron loescht)');
+    // Eine Zahl, zwei Leser: die App nennt dieselbe Frist wie die Migration
+    const fs2 = require('fs'), path2 = require('path');
+    const mig = fs2.readFileSync(MIG('20260910_analytics_retention.sql'), 'utf8');
+    const app = fs2.readFileSync(path2.resolve(ROOT, 'index.html'), 'utf8');
+    const mTage = (mig.match(/p_days integer DEFAULT (\d+)/) || [])[1], aTage = (app.match(/var GS_ANALYTICS_TAGE = (\d+);/) || [])[1];
+    if (!mTage || !aTage || mTage !== aTage) klagen.push('Frist: Migration ' + mTage + ' Tage, App ' + aTage + ' Tage');
+    if (!/'analytics-prune'/.test(mig) || !/pg_cron/.test(mig)) klagen.push('Migration plant keinen Cron (analytics-prune) oder prueft pg_cron nicht');
+    return klagen.length ? { ok: false, warum: klagen.join(' · ') } : { ok: true, info: '13 → prune(180) loescht 2 → 11 · prune(1) klemmt auf 30 → 10 · anon f, authenticated f · Frist ' + mTage + ' Tage in Migration und App' };
   });
   fallS('Admin ueber admin_emails · und idempotent (zweiter Lauf der Migration, gleiche Antwort)', () => {
     const vorher = als(url, '', 'chef@example.ch', 'select public.fn_admin_analytics(30)');

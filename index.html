@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.23.20260911">
+<meta name="app-version" content="33.24.20260911">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74666,6 +74666,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.24', date: '11.09.2026',
+      headline: 'Nutzungsmessung: Ereignisse werden nach 180 Tagen gelöscht',
+      summary: 'Eine Zählung, die nie endet, ist ein Archiv. Eine Migration (nicht angewandt) legt fn_analytics_prune an und plant den täglichen Cron; die Admin-Karte nennt die Frist. revDSG: Daten bleiben nur, solange der Zweck sie braucht.',
+      user_summary: 'Deine Nutzungsereignisse — falls du zugestimmt hast — werden nach 180 Tagen automatisch gelöscht. Die Frist steht in der Admin-Karte und gilt für alle gleich.',
+      user_items: [
+        {emoji:'🗓️', text:'180 Tage — danach ist ein Ereignis weg, nicht nur anonym.'}
+      ],
+      items: [
+        {emoji:'🗄', bold:'20260910_analytics_retention.sql (nicht angewandt):', text:' fn_analytics_prune(p_days, Vorgabe 180, geklemmt 30..730), nur service_role, Cron analytics-prune täglich 03:40 UTC — nur wenn pg_cron da ist.'},
+        {emoji:'🧪', bold:'nutzung_check „Aufbewahrung":', text:' 13 Zeilen → prune(180) löscht 2 → 11; prune(1) klemmt auf 30 → 10; anon und authenticated dürfen nicht; die App (GS_ANALYTICS_TAGE) nennt dieselbe Frist wie die Migration — eine Zahl, zwei Leser.'}
+      ],
+    },
+  {
     v: 'v33.23', date: '11.09.2026',
       headline: 'Lina kennt den letzten Scan',
       summary: 'Wer Lina direkt nach einem Scan fragt „was war das gerade?", bekam bisher eine Gegenfrage. Jetzt steht der jüngste Eintrag des Scan-Verlaufs in ihrem Kontext — Name, lateinischer Name, Sicherheit, Alter. Nie das Foto; ohne Verlauf keine Zeile.',
@@ -75129,7 +75142,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.23';
+var GS_VERSION = 'v33.24';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -85705,6 +85718,9 @@ async function gsAdminFetchMetrics() {
 // ein Vokabular nach analytics_events — und niemand las es. Drei Zustaende,
 // nie ein leeres Feld: nicht_verfuegbar (RPC fehlt → die Karte nennt die
 // Migration) · fehler (uebersetzter Satz) · daten. Nur Zahlen, keine Kennungen.
+// v33.24: wie lange Ereignisse bleiben. Dieselbe Zahl wie fn_analytics_prune
+// (20260910_analytics_retention.sql) — nutzung_check haelt beide gegeneinander.
+var GS_ANALYTICS_TAGE = 180;
 async function gsAdminFetchAnalytics(tage) {
   if (!gsIsAdmin()) return null;
   try {
@@ -85744,7 +85760,7 @@ function _gsAdminAnalyticsHtml(a) {
     '<table style="width:100%;border-collapse:collapse;font-size:var(--fs-sm);color:var(--text);">' +
       '<thead><tr style="color:var(--muted);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.3px;"><th style="text-align:left;padding:0 8px 4px 0;font-weight:700;">Ereignis</th><th style="text-align:right;padding:0 8px 4px;font-weight:700;">Anzahl</th><th style="text-align:right;padding:0 0 4px 8px;font-weight:700;">Personen</th></tr></thead>' +
       '<tbody>' + zeilen + '</tbody></table>' +
-    '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;">' + (ts ? 'Stand: ' + ts + ' · ' : '') + 'Quelle: analytics_events — nur Zählungen, keine Kennungen · Opt-in seit v33.11</div>'
+    '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;">' + (ts ? 'Stand: ' + ts + ' · ' : '') + 'Quelle: analytics_events — nur Zählungen, keine Kennungen · Opt-in seit v33.11 · Aufbewahrung ' + GS_ANALYTICS_TAGE + ' Tage</div>'
   );
 }
 window.gsAdminFetchAnalytics = gsAdminFetchAnalytics; window._gsAdminAnalyticsHtml = _gsAdminAnalyticsHtml;

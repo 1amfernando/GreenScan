@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-10 · **Branch**: `main` · **Version**: `v33.23` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.24` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
@@ -12,7 +12,27 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-09-10 (hr) - v33.23: Lina kennt den letzten Scan
+### 2026-09-11 (hs) - v33.24: Nutzungsereignisse werden nach 180 Tagen geloescht
+
+v33.11 schreibt, v33.18 liest — und nichts loeschte je. Eine Zaehlung, die
+nie endet, ist ein Archiv; revDSG verlangt Speicherbegrenzung.
+
+**Gebaut:** `supabase/migrations/20260910_analytics_retention.sql` (nicht
+angewandt): `fn_analytics_prune(p_days)` — Vorgabe 180, geklemmt 30..730,
+SECURITY DEFINER, nur `service_role` darf rufen (REVOKE PUBLIC/anon/
+authenticated); Cron `analytics-prune` taeglich 03:40 UTC, nur wenn `pg_cron`
+da ist (Bauform 20260905_device_alerts_cron). Die Admin-Karte nennt die
+Frist (`GS_ANALYTICS_TAGE`).
+
+**Pruefstand:** `nutzung_check` „Aufbewahrung" — 13 Zeilen → `prune(180)`
+loescht 2 → 11 (das 45 Tage alte bleibt) · `prune(1)` klemmt auf 30 → 10 ·
+anon und authenticated ohne Recht · **eine Zahl, zwei Leser:** die Frist in
+der Migration und `GS_ANALYTICS_TAGE` in der App muessen gleich sein, sonst
+rot. `backend_check` kennt `fn_analytics_prune` als bewusst offen.
+
+---
+
+### 2026-09-11 (hr) - v33.23: Lina kennt den letzten Scan
 
 Der haeufigste Moment, Lina zu fragen, ist direkt nach einem Scan — und sie
 wusste nicht, was gescannt wurde. `openScanChat` („Lina zu dieser Art
@@ -12284,7 +12304,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.23` (Client) · SW-Cache `gs-v33.23` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.24` (Client) · SW-Cache `gs-v33.24` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **91'692 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **536 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **215 Migrationen** (9 davon bewusst nicht angewandt, Sektion 2). Advisor: **0 ERROR**.
@@ -12311,6 +12331,8 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Migration `20260906_sensor_push.sql` | Brücken-Sperre (`payload_meta.notification_id`) + Cron `device-alerts` ruft `sensor-push` nur bei etwas Neuem (§11.3k). Nach `20260905_device_alerts_cron.sql`. | `docs/FUER-FERNANDO.md` §6 · (ey) |
 | Edge-Function `sensor-push` | Pusht `sensor_alert`-Inbox-Zeilen (VAPID, Stille, Pause, `notify_sensor`) — im Repo, nicht ausgeliefert (`supabase functions deploy sensor-push`). Ohne ihn landet ein Sensor-Alarm nur in der Inbox. | §11.3k · (ey) |
 | Edge-Function `delete-user` | Neu ausliefern (v5): Sperre für Organisations-Ersteller VOR dem ersten Schritt, Storage je Bucket, `ai_usage` + `species_search_log`, Listen aus `_shared/loeschung_regeln.mjs` (v33.17); davor schon die fünf Gerätetabellen (ey). | (ey), (hl) |
+| Migration `20260910_admin_analytics.sql` | `fn_admin_analytics` — Lese-Seite der Nutzungsmessung (v33.18): zählt je Ereignis und Tag, nur Zahlen, nur für Admins; die Karte „Nutzung" im Admin-Panel sagt bis dahin, dass die Funktion fehlt. | `docs/FUER-FERNANDO.md` §16 · (hm) |
+| Migration `20260910_analytics_retention.sql` | `fn_analytics_prune(p_days)` (klemmt 30..730, nur `service_role`) + Cron `analytics-prune` täglich 03:40 mit 180 Tagen (v33.24); ohne sie wächst `analytics_events` ohne Ende. Die App nennt dieselbe Frist (`GS_ANALYTICS_TAGE`), `nutzung_check` hält beide zusammen. | `docs/FUER-FERNANDO.md` §16 · (hs) |
 | Migration `20260906_device_commands_expires_at.sql` | `device_commands.expires_at` — Vertrag §4, Regel-Modul und Empfänger nennen die Spalte, die Tabelle hatte sie nicht (`naht_check`). Nach `20260903_oekosystem_v1_geraete.sql`. | §11.3n · (fb) |
 | **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. | `docs/FUER-FERNANDO.md` §5 · (ep) |
 | Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
