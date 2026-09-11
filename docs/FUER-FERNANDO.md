@@ -765,6 +765,34 @@ loescht beim Anwenden selbst nichts, erst der Cron. Wer die Frist aendern
 will, aendert BEIDE Zahlen: `p_days integer DEFAULT 180` in der Migration und
 `GS_ANALYTICS_TAGE` in `index.html` — `nutzung_check` wird sonst rot.
 
+## 17 · Was der Aufbau vom 10.–11.09.2026 (v33.06 – v33.24) bei dir liegen lässt
+
+Neunzehn Auslieferungen, alle mit Prüfstand und vollem Lauf. **Vier Dinge
+kannst nur du** — in dieser Reihenfolge, jedes mit Gegenprobe oben:
+
+1. **`supabase functions deploy delete-user`** (§15) — sonst bleiben Fotos
+   nach „Konto löschen" liegen, und Organisations-Ersteller behalten ein
+   halbes Konto. Am wichtigsten, weil es ein Versprechen im Dialog betrifft.
+2. **`20260910_admin_analytics.sql`** anwenden (§16) — die Karte „Nutzung" im
+   Admin-Panel zeigt bis dahin, dass sie fehlt.
+3. **`20260910_analytics_retention.sql`** anwenden (§16, zweiter Teil) — die
+   180-Tage-Frist; ohne sie wächst `analytics_events` ohne Ende.
+4. **Übersetzungs-Knopf** (§11) noch einmal — rund vierzig neue Sätze
+   (Kalender-Zeile auf der Startseite, Aussaatfenster im Scan, Vorlagen,
+   Lina-Werkzeuge, Sperre beim Löschen) stehen sonst in fr/it/en/es deutsch.
+
+**Eine Entscheidung, keine Anleitung:** wer eine Organisation erstellt hat,
+kann sein Konto nicht löschen, solange sie ihm gehört (`organizations
+.created_by` ist RESTRICT — das war schon vorher so, nur sagte es niemand).
+Die App sagt es jetzt vorher. Ob es eine **Übertragung** an ein anderes
+Mitglied geben soll, ist eine Produktfrage; heute sind es zwei
+Organisationen.
+
+**Was du sehen wirst, ohne etwas zu tun:** „Heute im Kalender" auf der
+Startseite, das Aussaatfenster unter einem Tomaten-Scan, der 📅-Knopf und
+die ⏳-Zeile bei gespeicherten Plänen, „Drittes Foto" nach dem zweiten,
+Linas „Letzter Scan: …" — alles rein in der App.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

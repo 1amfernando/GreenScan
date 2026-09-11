@@ -186,6 +186,50 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
+### Seit dem 10.09.2026 (v33.06 – v33.24) — der Aufbau: bauen, was die Entwürfe längst vorsahen
+
+Fernandos Auftrag: *„baue alles mehr auf, mach alles intelligenter, erweitere
+Funktionen mit Potential, mach es zuverlässiger — und alles, was getrackt
+werden sollte, muss sauber aufgebaut sein für die Zukunft."* Gebaut wurde,
+was die eigenen Entwürfe (PLANER-V3, KALENDER-V1, SCANNER-V3) als offen
+führten — jeder Baustein zuerst auf einer Kopie mit Prüfstand-Fall und
+Gegenproben, dann als eigener PR mit vollem Lauf:
+
+- **Der Planer wird zum Kalender und altert** (v33.10 `70a46c6` · v33.12 `cb0be74` ·
+  v33.15 `f53a309`): ein gespeicherter Plan legt Aussaat, Erntefenster und Zeitleiste
+  in den Kalender; ein Plan, der funktioniert hat, wird per Knopf zur
+  Jahresvorlage (Daten +1 Jahr, Fruchtfolge markiert, nie entfernt); ein Plan
+  aus dem Vorjahr sagt es auf seiner Kachel. PLANER-V3 N8, N10, N4.
+- **Aussaatfenster aus den Kulturdaten** (v33.13 `017b1dc`): 39 Kulturen des
+  Schweizer Aussaatkalenders als Kalender-Ereignisse — mit der Korrektur am
+  eigenen Entwurf: `season` ist eine Sammelsaison, kein Aussaatfenster
+  (KALENDER-V1 Regel 9).
+- **Die Startseite liest den Kalender** (v33.19 `ca98f85`): „Heute im Kalender"
+  unter „Heute zu tun" — Aussaat, Plan-Termine, Frost, Alarme, aus der einen
+  Funktion.
+- **Lina** kennt den Kalender (v33.14 `c921906`), den letzten Scan (v33.23 `c6ba238`) und
+  kann Kalender und Säkalender öffnen (v33.22 `268d0af`) — der Dispatcher hat seit
+  v33.22 seinen ersten Prüfstand.
+- **Scanner** (v33.16 `da6a3ce` · v33.20 `de8950b`): jedes Foto gemessen, das schärfste
+  zählt, der dritte Blick verliert den ersten nicht mehr; eine erkannte
+  Kultur zeigt ihr Aussaatfenster mit dem Weg zum Säkalender.
+- **Konto löschen — gegen die Datenbank gemessen** (v33.17 `e1c6f34`): 169 Fotos und
+  PDFs blieben liegen, zwei Tabellen ohne FK, ein halbes Konto bei
+  Organisations-Erstellern. Modul `loeschung_regeln.mjs`, `delete-user` v5,
+  datierte Momentaufnahme, Prüfstand `loeschung_check`.
+- **Nutzungsmessung, alle drei Seiten** (v33.11 `ee8a60b` · v33.18 `577ed35` · v33.21 `2284fc9` ·
+  v33.24 `4bc938c`): Zustimmung und Vokabular · die Lese-Seite (`fn_admin_analytics`
+  + Admin-Karte, nur Zahlen) · vier Ereignisse mehr, jedes ein Zähler · und
+  ein Ende: 180 Tage, dann gelöscht (`fn_analytics_prune` + Cron).
+- **Prüfstände von 31 auf 33** — neu `loeschung_check` und `nutzung_check`;
+  14 Fälle in bestehenden Prüfständen dazu, jeder mit mindestens zwei
+  Gegenproben, die einzeln rot wurden.
+
+**Was daraus bei Fernando liegt:** `delete-user` neu ausliefern, zwei
+Migrationen anwenden, den Übersetzungs-Knopf drücken, und eine
+Produktentscheidung (Übertragung einer Organisation) —
+`docs/FUER-FERNANDO.md` §15–§17.
+
 ### Seit dem 07.09.2026 (v32.65 – v32.85) — das Professionalitäts-Audit abgearbeitet
 
 `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md` §G, Punkt für Punkt. Jeder mit
