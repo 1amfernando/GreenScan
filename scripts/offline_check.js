@@ -28,6 +28,14 @@
  * Kontext. `file://` ist keiner, `http://127.0.0.1` schon — deshalb 30
  * Zeilen statischer Server statt eines weiteren npm-Pakets.
  *
+ *   11. Versionswechsel OHNE Klick (v33.25): ein neuer sw.js wartet — die App
+ *       sichert, wendet ihn beim Zurueckkommen nach Abwesenheit an, laedt
+ *       einmal neu, stellt den Tab wieder her. Mit den Gegenrichtungen: kein
+ *       Reload, solange ein Fenster offen ist / das Quiz offen ist / eine
+ *       KI-Antwort laeuft / ein Feld Text traegt / die Kamera an ist; kein
+ *       Reload beim Erstbesuch; Loop-Schutz; Zweit-Tab laedt mit; gleiche
+ *       Version → Umschalten ohne Reload.
+ *
  *   node scripts/offline_check.js
  */
 const path = require('path');
@@ -45,10 +53,26 @@ const TYPEN = {
   '.xml': 'application/xml',
 };
 
+// Fall 11: der Server kann sw.js (und index.html) mit einer ANDEREN Version
+// ausliefern — so entsteht ein Versionswechsel, ohne das Repo anzufassen.
+let versionErsatz = null;   // z.B. 'vTEST2' → sw.js VERSION 'gs-vTEST2', index.html GS_VERSION 'vTEST2'
+let swAnhang = '';          // Byte-Aenderung ohne Versionswechsel (gleiche VERSION, neuer Worker)
 function server(wunschPort) {
   return new Promise((fertig) => {
     const s = http.createServer((req, res) => {
       let p = decodeURIComponent(req.url.split('?')[0]);
+      if ((p === '/sw.js' || p === '/index.html' || p === '/') && (versionErsatz || swAnhang)) {
+        const datei = path.join(WURZEL, p === '/sw.js' ? 'sw.js' : 'index.html');
+        let text = fs.readFileSync(datei, 'utf8');
+        if (versionErsatz) {
+          text = (p === '/sw.js')
+            ? text.replace(/const VERSION = 'gs-v[\d.]+';/, "const VERSION = 'gs-" + versionErsatz + "';")
+            : text.replace(/var GS_VERSION = 'v[\d.]+';/, "var GS_VERSION = '" + versionErsatz + "';");
+        }
+        if (p === '/sw.js' && swAnhang) text += '\n' + swAnhang + '\n';
+        res.writeHead(200, { 'Content-Type': TYPEN[p === '/sw.js' ? '.js' : '.html'], 'Service-Worker-Allowed': '/' });
+        res.end(text); return;
+      }
       // Nur fuer den Deckel-Fall: beliebig viele unterscheidbare „Kacheln".
       // Ein echtes 1x1-PNG, damit der Service Worker es als Bild behandelt.
       if (p.startsWith('/__kachel/')) {
@@ -450,8 +474,156 @@ function server(wunschPort) {
           : 'A meldet ' + eig.zaehlerA + ' wartend (erwartet 2) und +' + neuArchiviert + ' archiviert (erwartet +2); '
             + 'B meldet ' + eig.alsB.zaehler + ' und ' + eig.alsB.archiv + ' (erwartet 0 und 0)');
 
+  // ── 11 · Versionswechsel ohne Klick (v33.25) ──────────────────────────
+  // Der Ablauf, den eine Person auf dem Telefon erlebt: die App laeuft, ein
+  // neuer Worker kommt (Deploy), die App sichert — und wendet ihn erst an,
+  // wenn sie nach ≥ 5 min Abwesenheit zurueckkommt. Jede Gegenrichtung stellt
+  // ihren Zustand wirklich her und zaehlt die Navigationen des Hauptrahmens.
+  {
+    const { s: s7 } = await server(port);   // der Server des vorigen Falls ist geschlossen
+    const swQ = fs.readFileSync(path.join(WURZEL, 'sw.js'), 'utf8');
+    const vAlt = (swQ.match(/const VERSION = '([^']+)'/) || [])[1] || '';
+    // (a) Erstbesuch in einem FRISCHEN Kontext: der Uebergang „kein Controller →
+    //     Worker" (clients.claim) feuert controllerchange — und darf NICHT laden.
+    let navErst = 0;
+    {
+      const ctxE = await br.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'allow' });
+      const e = await ctxE.newPage();
+      e.on('framenavigated', f => { if (f === e.mainFrame()) navErst++; });
+      await e.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await e.waitForTimeout(9000);
+      await ctxE.close();
+    }
+    melde('Erstbesuch: der erste Worker uebernimmt (claim), und die Seite laedt NICHT neu', navErst === 1,
+          navErst === 1 ? '1 Navigation (das goto) — controllerchange beim Erstbesuch ist keine Version' : navErst + ' Navigationen beim Erstbesuch');
+
+    // Zwei frische Tabs im bestehenden Kontext (der Worker ist aktiv): q wendet an, z ist der Zweit-Tab.
+    try { await p.close(); } catch (_) {}
+    const q = await ctx.newPage(), z = await ctx.newPage();
+    let navQ = 0, navZ = 0;
+    q.on('framenavigated', f => { if (f === q.mainFrame()) navQ++; });
+    z.on('framenavigated', f => { if (f === z.mainFrame()) navZ++; });
+    q.on('pageerror', e => fehler.push('Fall 11: ' + e.message.split('\n')[0]));
+    for (const seite of [q, z]) {
+      await seite.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await seite.waitForTimeout(3500);
+      await seite.evaluate(() => {
+        // Angemeldet (frisch) — sonst sichert die App nichts; Sichern und Flush gestellt, gezaehlt.
+        const bis = new Date(Date.now() + 3600 * 1000).toISOString();
+        localStorage.setItem('gs_sb_token', 'x.y.z'); localStorage.setItem('gs_sb_uid', 'u-update'); localStorage.setItem('gs_sb_expires', String(Date.now() + 3600 * 1000)); localStorage.setItem('gs_sb_expires_at', bis);
+        localStorage.setItem('gs_snapshot_last', new Date(Date.now() - 7200 * 1000).toISOString());
+        localStorage.setItem('gs_sync_last_push', new Date().toISOString());
+        window.__snap = 0; window.__flush = 0;
+        window.gsSnapshotCreate = async function(t){ window.__snap++; window.__snapTrig = t; return 'snap-' + window.__snap; };
+        if (window.gsCloudSync) gsCloudSync.flushNow = function(){ window.__flush++; };
+      });
+    }
+    const hatte = await q.evaluate(() => !!(window._gsUpdate && window._gsUpdate.hatteController));
+    melde('Ein Tab, der unter einem aktiven Worker startet, weiss das (hatteController)', hatte, hatte ? 'true' : 'false — der Zweit-Tab-Weg waere blind');
+
+    // (b) Neuer Worker mit ANDERER Version: reg.update() → waiting; die App sichert sofort (sichtbar, ruhig).
+    versionErsatz = 'vTEST2';
+    await q.evaluate(() => { try { window._gsSwReg.update(); } catch (_) {} });
+    let wartet = false;
+    for (let i = 0; i < 40 && !wartet; i++) { await q.waitForTimeout(500); wartet = await q.evaluate(() => !!(window._gsSwReg && window._gsSwReg.waiting && window._gsUpdate && window._gsUpdate.wartend)); }
+    const gesichert = await q.evaluate(() => ({ snap: window.__snap, flush: window.__flush, trig: window.__snapTrig }));
+    melde('Ein neuer Worker wartet — die App sichert sofort (flushNow + pre_migration), wendet aber noch nichts an', wartet && gesichert.snap >= 1 && gesichert.flush >= 1 && gesichert.trig === 'pre_migration' && navQ === 1,
+          wartet ? ('Snapshot ' + gesichert.snap + '× (' + gesichert.trig + ') · flushNow ' + gesichert.flush + '× · Navigationen ' + navQ) : 'kein wartender Worker nach 20 s');
+
+    // (c) Gegenrichtungen: jeder Zustand fuer sich; nie eine Navigation.
+    const probe = async (aufbau, abbau, erwartet) => {
+      // Laedt die Seite waehrend der Probe neu, stirbt evaluate — genau das ist
+      // dann der Befund (die Gegenprobe „Fenster-Pruefung entfernt" endet so).
+      let r = null;
+      try {
+        r = await q.evaluate(async ([auf, ab]) => {
+          try { (new Function(auf))(); } catch (e) { return { fehler: 'Aufbau: ' + e.message }; }
+          const res = await window.gsUpdateAnwenden('rueckkehr');
+          try { (new Function(ab))(); } catch (_) {}
+          return res;
+        }, [aufbau, abbau]);
+      } catch (e) { r = { ok: true, grund: 'Seite hat waehrend der Probe neu geladen (' + String(e.message).slice(0, 60) + ')' }; }
+      await q.waitForTimeout(600);
+      return { ok: r && r.ok === false && String(r.grund || '').indexOf(erwartet) >= 0 && navQ === 1, grund: r && (r.grund || r.fehler) };
+    };
+    const proben = [
+      ['fenster', "openModal('detail-modal');", "closeModal('detail-modal');"],
+      ['quiz', "window.__dq = _dqOpen; _dqOpen = true;", "_dqOpen = window.__dq;"],
+      ['ki', "window._gsAiLaufend = 1;", "window._gsAiLaufend = 0;"],
+      ['eingabe', "var t=document.createElement('textarea');t.id='__probe';t.value='halb fertig';document.body.appendChild(t);", "document.getElementById('__probe').remove();"],
+      ['kamera', "window._gsKameraStreams.push({ getTracks: function(){ return [{ readyState: 'live' }]; } });", "window._gsKameraStreams = [];"],
+      ['zahlung', "window._gsBillingPopup = true;", "window._gsBillingPopup = false;"],
+      ['dateiwahl', "window._gsDateiwahlOffen = true;", "window._gsDateiwahlOffen = false;"],
+    ];
+    const rot = [];
+    for (const [erw, auf, ab] of proben) { const r = await probe(auf, ab, erw); if (!r.ok) rot.push(erw + ' (Antwort: ' + r.grund + ')'); }
+    melde('Kein Reload, solange etwas laeuft oder liest: Fenster · Quiz · KI · Text im Feld · Kamera · Zahlung · Dateiauswahl', rot.length === 0 && navQ === 1,
+          rot.length ? rot.join(' · ') : proben.length + ' Zustaende hergestellt, jeder verweigert mit seinem Grund, 0 Navigationen');
+
+    // (d) Loop-Schutz: ein zweiter Versuch auf DIESELBE Zielversion → Banner statt Reload.
+    const loop = await q.evaluate(async () => {
+      sessionStorage.setItem('gs_update_versuch', JSON.stringify({ nach: 'vTEST2', n: 1 }));
+      const r = await window.gsUpdateAnwenden('rueckkehr');
+      const b = document.getElementById('gs-sw-update-banner');
+      const out = { grund: r && r.grund, banner: !!b, bannerGrund: b && b.getAttribute('data-grund') };
+      if (b) b.remove(); sessionStorage.removeItem('gs_update_versuch'); window._gsUpdate.bannerGeschlossen = false;
+      return out;
+    });
+    await q.waitForTimeout(600);
+    melde('Loop-Schutz: zweiter Versuch auf dieselbe Zielversion → Banner, kein Reload', loop.grund === 'loop' && loop.banner && loop.bannerGrund === 'loop' && navQ === 1,
+          'Antwort ' + loop.grund + ' · Banner ' + loop.banner + ' (' + loop.bannerGrund + ') · Navigationen ' + navQ);
+
+    // (e) Zurueck nach 60 s: zu kurz — nichts passiert.
+    await q.evaluate(() => { window._gsUpdate.hiddenSeit = performance.now() - 60 * 1000; window._gsUpdateBeiRueckkehr(); });
+    await q.waitForTimeout(2500);
+    melde('Zurueck nach einer Minute: das Update wartet weiter (kein Reload)', navQ === 1, navQ === 1 ? '0 Navigationen' : (navQ - 1) + ' Navigation(en) nach 60 s Abwesenheit');
+
+    // (f) Zurueck nach 6 min: anwenden → genau ein Reload, neue Version, Tab wieder da, Zweit-Tab laedt mit.
+    await q.evaluate(() => { try { switchTab('wissen'); } catch (_) {} });
+    await q.waitForTimeout(400);
+    const navQvor = navQ, navZvor = navZ;
+    const nachher = q.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).then(() => true).catch(() => false);
+    try { await q.evaluate(() => { window._gsUpdate.hiddenSeit = performance.now() - 6 * 60 * 1000; window._gsUpdateBeiRueckkehr(); }); } catch (_) {}
+    const geladen = await nachher;
+    await q.waitForTimeout(4000);
+    let stand = { caches: [], ctl: null, tab: null, versuch: 'unbekannt', zurueck: 'unbekannt', gsv: null, toast: false };
+    try {
+      stand = await q.evaluate(async () => {
+        const keys = await caches.keys();
+        const ctl = navigator.serviceWorker.controller;
+        const ver = await new Promise(res => { try { const ch = new MessageChannel(); ch.port1.onmessage = e => res(e.data && e.data.version); ctl.postMessage({ type: 'GET_VERSION' }, [ch.port2]); setTimeout(() => res(null), 1500); } catch (_) { res(null); } });
+        return { caches: keys, ctl: ver, tab: (typeof _gsCurrentTab !== 'undefined' ? _gsCurrentTab : null), versuch: sessionStorage.getItem('gs_update_versuch'), zurueck: sessionStorage.getItem('gs_update_zurueck'),
+                 gsv: (typeof GS_VERSION !== 'undefined' ? GS_VERSION : null), toast: /Aktualisiert auf vTEST2/.test(document.body.innerText || '') };
+      });
+    } catch (_) {}
+    const neuDa = stand.caches.some(k => k.indexOf('gs-vTEST2') === 0), altWeg = !stand.caches.some(k => k.indexOf(vAlt) === 0);
+    const okF = geladen && (navQ - navQvor) === 1 && neuDa && altWeg && stand.ctl === 'gs-vTEST2' && stand.gsv === 'vTEST2' && stand.tab === 'wissen' && stand.versuch === null && stand.zurueck === null;
+    melde('Zurueck nach sechs Minuten: das Update wird angewandt — ein Reload, neue Caches, alte weg, der Worker sagt gs-vTEST2, der Tab „wissen" ist wieder da, Loop-Zaehler geloescht', okF,
+          okF ? ('1 Navigation · Caches ' + stand.caches.filter(k => k.indexOf('gs-vTEST2') === 0).length + ' neu, alte (' + vAlt + ') weg · Toast ' + (stand.toast ? 'gesehen' : 'nicht mehr sichtbar'))
+              : ('geladen ' + geladen + ' · Navigationen +' + (navQ - navQvor) + ' · Caches ' + stand.caches.join(',') + ' · Worker ' + stand.ctl + ' · GS_VERSION ' + stand.gsv + ' · Tab ' + stand.tab + ' · versuch ' + stand.versuch + ' · zurueck ' + stand.zurueck));
+    let zLaed = false;
+    for (let i = 0; i < 30 && !zLaed; i++) { await z.waitForTimeout(500); zLaed = (navZ - navZvor) >= 1; }
+    melde('Der Zweit-Tab laedt nach dem Wechsel von selbst neu (alte Seite unter neuem Worker gibt es nicht mehr)', zLaed && (navZ - navZvor) === 1,
+          zLaed ? '1 Navigation im Zweit-Tab' : 'Zweit-Tab blieb alt (' + (navZ - navZvor) + ' Navigationen)');
+
+    // (g) Gleiche Version, neuer Worker (Kaltstart mit Netz: HTML ist schon neu): umschalten OHNE Reload.
+    swAnhang = '// byte-aenderung ' + Date.now();
+    await q.evaluate(() => { window.__snap = 0; try { window._gsSwReg.update(); } catch (_) {} });
+    let wartet2 = false;
+    for (let i = 0; i < 40 && !wartet2; i++) { await q.waitForTimeout(500); wartet2 = await q.evaluate(() => !!(window._gsSwReg && window._gsSwReg.waiting)); }
+    const navQ2 = navQ;
+    await q.evaluate(() => { window._gsUpdate.hiddenSeit = performance.now() - 6 * 60 * 1000; window._gsUpdateBeiRueckkehr(); });
+    let ohne = false;
+    for (let i = 0; i < 20 && !ohne; i++) { await q.waitForTimeout(500); ohne = await q.evaluate(() => !!(window._gsUpdate && window._gsUpdate.angewandtOhneReload)).catch(() => false); }
+    const keinWarten = await q.evaluate(() => !(window._gsSwReg && window._gsSwReg.waiting)).catch(() => false);
+    melde('Gleiche Version, neuer Worker: umschalten ohne Reload (die HTML ist schon neu)', wartet2 && ohne && keinWarten && navQ === navQ2,
+          wartet2 ? ('angewandtOhneReload ' + ohne + ' · waiting danach ' + !keinWarten + ' · Navigationen +' + (navQ - navQ2)) : 'kein wartender Worker nach 20 s');
+    versionErsatz = null; swAnhang = '';
+    s7.close();
+  }
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 13 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 22 · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
