@@ -15,7 +15,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v33.24';
+const VERSION = 'gs-v33.25';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -387,7 +387,12 @@ self.addEventListener('message', (event) => {
         })
     );
   } else if (data.type === 'GET_VERSION') {
-    if (event.source) event.source.postMessage({ type: 'VERSION', version: VERSION });
+    // v33.25: Antwort ueber den mitgeschickten Port (auch ein WARTENDER Worker
+    // kann so gefragt werden, bevor die App entscheidet, ob ein Reload noetig ist);
+    // ohne Port wie bisher an den Absender.
+    const port = event.ports && event.ports[0];
+    if (port) port.postMessage({ type: 'VERSION', version: VERSION });
+    else if (event.source) event.source.postMessage({ type: 'VERSION', version: VERSION });
   }
 });
 

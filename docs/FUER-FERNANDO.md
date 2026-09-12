@@ -793,6 +793,20 @@ Startseite, das Aussaatfenster unter einem Tomaten-Scan, der 📅-Knopf und
 die ⏳-Zeile bei gespeicherten Plänen, „Drittes Foto" nach dem zweiten,
 Linas „Letzter Scan: …" — alles rein in der App.
 
+## 18 · Update ohne Klick (v33.25) — ein Handgriff am iPhone
+
+Die App wendet Updates jetzt selbst an: beim Start, oder wenn du nach mehr als
+fünf Minuten Pause zurückkommst — nie, während etwas läuft oder ein Fenster
+offen ist. Von hier aus ist das im Browser gemessen (`offline_check` Fall 11,
+22 Fragen grün). **Nicht messbar ist iOS:** Safari friert eine PWA im
+Hintergrund ein. Bitte einmal so: App auf dem iPhone öffnen, in den Hintergrund
+legen, mindestens sechs Minuten warten (nach einem Deploy), zurückkommen. Was
+erwartet wird: ein kurzer weisser Start, dann derselbe Bereich wie vorher und
+entweder „Was ist neu" oder ein Toast „✅ Aktualisiert auf v33.xx". Was NICHT
+passieren darf: ein Reload, während du gerade etwas tippst oder ein Scan-Foto
+offen ist. Wenn du etwas anderes siehst: Version (Einstellungen → Über) und
+was auf dem Bildschirm war, und ich baue den iOS-Zweig danach.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

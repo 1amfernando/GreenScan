@@ -4,13 +4,83 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.24` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.25` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-11 (ht) - v33.25: Update ohne Klick — an zwei Stellen, an denen niemand liest
+
+Fernandos Wunsch (11.09.): „man soll die Updates nicht mehr selber anklicken
+muessen — direkt geupdatet, mit dem Backup zusammen". Bis v33.24: Banner →
+Klick → SKIP_WAITING → controllerchange → reload, und ein Rueckfall-Reload nach
+4 s OHNE jede Bedingung — auch mitten in einer Lina-Antwort (Kontingent
+verbraucht, Antwort weg) oder einem Scan (Foto nur im Arbeitsspeicher);
+`reg.update()` nur alle 60 min; kein Prueftstand fuhr den Wechsel; ein Zweit-Tab
+blieb als alte Seite unter dem neuen Worker (B3-Symptom, v32.67).
+
+**Der Entwurf wurde gegnerisch geprueft (zwei Linsen, `scratchpad/c2/kritik1.md`)
+und an sieben blockierenden Punkten geaendert, bevor eine Zeile geschrieben
+war.** Der wichtigste: NICHT beim Verbergen laden — auf dem Telefon geht genau
+dann die Systemkamera (`input type=file`) oder das Stripe-Fenster auf, und ein
+Reload zerstoert den Empfaenger, zu dem Foto und Zahlung zurueckkommen. Die
+zwei Stellen, an denen niemand liest: der **Start** (der Worker wartet schon)
+und das **Zurueckkommen nach ≥ 5 min** Abwesenheit (`performance.now()`, nie
+`Date.now()`).
+
+**Gebaut:** `_gsAppRuhig()` — EIN Praedikat mit Grund: Lina, laufende
+KI-Anfragen (`_gsAiAnfrage` zaehlt in try/finally — jeder KI-Weg, kein
+Hand-Flag), Flush/Pull, GPS-Track, Quiz (auch beantwortet, bis closeDailyQuiz),
+Battle, Kamera (das getUserMedia-Tor merkt jeden Stream, `_gsKameraAktiv`
+fragt die Spuren), Zahlung (`_gsBillingPopup`/`_gsBillingPoll`), Dateiauswahl,
+offenes Fenster (`.modal-overlay.open, .overlay-modal.open` — Lina lebt in der
+zweiten Familie), `#scan-result` sichtbar, Text in einem sichtbaren Feld
+(ganzes Dokument, nicht nur Fenster: der Community-Composer steht auf einem
+Tab). `gsUpdateAnwenden(weg)`: ruhig → Worker-Version ueber einen Port
+(GET_VERSION) → Loop-Schutz je ZIELVERSION in sessionStorage (ein zweiter
+Versuch auf dieselbe Version → Banner; kein Zeitstempel, die Pruefstaende
+stellen die Uhr) → sichern (flushNow + pre_migration nur, wenn seit dem
+letzten Snapshot gepusht wurde) → `gs_update_zurueck` {tab} → SKIP_WAITING →
+controllerchange → reload NUR, wenn die HTML nicht schon die Zielversion ist
+(Kaltstart mit Netz: networkFirst + must-revalidate liefern sie laengst — dann
+nur umschalten, kein zweiter Boot des Monolithen). Nach dem Reload fragt
+`_gsUpdateNachher` den Controller: erst wenn er `gs-` + GS_VERSION sagt, gilt
+es als angewandt (Tab zurueck, Ereignis `app_updated`, Toast nur wenn „Was ist
+neu" stumm bleibt). Erst-Install-Sperre: der Uebergang „kein Controller →
+Worker" (clients.claim) feuert dasselbe controllerchange und laedt NICHT.
+Zweit-Tab: globaler Listener laedt, wenn hidden oder ruhig, sonst beim
+Zurueckkommen. Der Banner ist nur noch Rueckfall (Loop, oder 30 min sichtbar
+ohne Pause) und sein Knopf geht durch dasselbe Praedikat — statt zu laden,
+sagt er den Grund („Lina antwortet gerade"). `reg.update()` zusaetzlich bei
+Zurueckkommen/online (Cooldown 10 min), alle mit `.catch` (offline war der
+Takt ein unhandledrejection).
+
+**Pruefstand:** `offline_check` Fall 11 (9 Fragen; der Pruefserver liefert
+sw.js/index.html mit ersetzter Version): Erstbesuch in frischem Kontext →
+1 Navigation · Tab unter aktivem Worker weiss es · neuer Worker wartet → App
+sichert sofort (Snapshot 1× pre_migration, flushNow 1×), 0 Navigationen ·
+sieben Gegenrichtungen je einzeln hergestellt (Fenster, Quiz, KI, Text im
+Feld, Kamera-Spur, Zahlung, Dateiauswahl → jede verweigert mit ihrem Grund) ·
+Loop → Banner · 60 s Abwesenheit → nichts · 6 min → EIN Reload, `gs-vTEST2`-
+Caches da, alte weg, Controller sagt gs-vTEST2, Tab „wissen" wieder da,
+Loop-Zaehler geloescht, Toast gesehen · Zweit-Tab laedt genau einmal · gleiche
+Version, neuer Worker → umschalten ohne Reload. `robust_check` Fall 24 haelt
+jetzt auch `sw.js VERSION === 'gs-' + GS_VERSION` und die meta app-version —
+ein Deploy ohne sw-Bump erzeugte nie ein updatefound, und niemand mass es.
+**Gegenproben:** Erst-Install-Sperre + Fenster-Pruefung entfernt → beide
+Fragen rot; sw.js-Version verstellt → Fall 24 rot.
+
+**Grenze, ehrlich:** iOS-PWA suspendiert JS im Hintergrund; ob der Reload beim
+Zurueckkommen dort als weisser Start erscheint, ist von hier nicht messbar —
+FUER-FERNANDO §18 nennt den Handgriff. Und `manual`-Snapshots sind in der
+Aufbewahrung nicht geschuetzt (v29_28: 6 + je neuester pre_migration/
+auto_daily/pre_logout) — mit haeufigeren pre_migration-Snapshots faellt ein
+bewusstes „Backup jetzt" schneller heraus; das ist U2 (v33.26).
+
+---
 
 ### 2026-09-11 (hs) - v33.24: Nutzungsereignisse werden nach 180 Tagen geloescht
 
@@ -12304,7 +12374,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.24` (Client) · SW-Cache `gs-v33.24` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.25` (Client) · SW-Cache `gs-v33.25` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **92'381 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **554 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **217 Migrationen** (12 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.

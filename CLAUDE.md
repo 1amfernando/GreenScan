@@ -578,8 +578,19 @@ Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
 
 - Push auf `main` → Cloudflare Pages baut automatisch (kein Build-Step).
 - `_headers` und `sw.js` greifen erst nach Re-Deploy + Hard-Refresh.
-- Service-Worker-Updates kommen via Update-Banner zum User —
-  Cache-Version in `sw.js` muss bei größeren Releases hochgesetzt werden.
+- **Seit v33.25 kommen Service-Worker-Updates OHNE Klick** — die App wendet
+  einen wartenden Worker beim Start oder beim Zurückkommen nach ≥ 5 min
+  Abwesenheit an, nie im Moment des Verbergens (Systemkamera, Stripe-Fenster)
+  und nie, solange `_gsAppRuhig()` einen Grund nennt. **Wer eine neue Ansicht
+  baut, deren Ergebnis nur im Arbeitsspeicher liegt, trägt sie in
+  `_gsAppRuhig()` ein** — die Liste ist die Prüfung (`offline_check` Fall 11).
+  KI-Wege zählen automatisch (`_gsAiAnfrage`), Kamera-Wege ebenso (das
+  getUserMedia-Tor merkt die Streams); ein Hand-Flag je Aufrufer ist die Falle
+  aus v32.33. Der Banner ist nur noch Rückfall (Loop-Schutz je Zielversion,
+  30 min ohne Pause) und geht durch dasselbe Prädikat.
+- Die Cache-Version in `sw.js` ist Teil JEDES Bumps: ohne neuen Worker gibt es
+  kein `updatefound` und damit kein Update — `robust_check` Fall 24 hält
+  `VERSION === 'gs-' + GS_VERSION` und die meta app-version zusammen.
 
 ## 7 · Hilfe-Adressen
 

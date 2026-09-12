@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.24.20260911">
+<meta name="app-version" content="33.25.20260911">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14675,6 +14675,23 @@ window.GS_I18N_JS_STRINGS = {
   'sw_reload':                 'Neu laden',
   'sw_later':                  'Später',
   'sw_saving':                 'Sichere…',
+  // ── v33.25 Update ohne Klick ──
+  'sw_update_loop':            'Das Update konnte nicht von selbst angewandt werden.',
+  'sw_update_spaeter':         'Das Update kommt, sobald hier Ruhe ist.',
+  'upd_grund_lina':            'Lina antwortet gerade',
+  'upd_grund_ki':              'Eine KI-Antwort läuft gerade',
+  'upd_grund_flush':           'Daten werden gerade übertragen',
+  'upd_grund_pull':            'Daten werden gerade geladen',
+  'upd_grund_track':           'Eine GPS-Aufzeichnung läuft',
+  'upd_grund_quiz':            'Das Quiz ist offen',
+  'upd_grund_battle':          'Ein Battle läuft',
+  'upd_grund_kamera':          'Die Kamera ist an',
+  'upd_grund_zahlung':         'Eine Zahlung läuft',
+  'upd_grund_dateiwahl':       'Die Dateiauswahl ist offen',
+  'upd_grund_fenster':         'Ein Fenster ist offen',
+  'upd_grund_scan':            'Das Scan-Ergebnis ist offen',
+  'upd_grund_eingabe':         'Ein Feld enthält noch Text',
+  'upd_grund_unklar':          'Der Zustand ist gerade unklar',
   // ── v29.13 Gutschein einlösen ──
   'voucher_redeem_title':      '🎟️ Gutschein einlösen',
   'voucher_redeem_msg':        'Gutschein-Code eingeben:',
@@ -18425,16 +18442,18 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
     // 3) Popup navigieren (oder Fallback: selbes Fenster)
     if (popup && !popup.closed) {
       popup.location.href = data.url;
+      window._gsBillingPopup = true;   // v33.25: _gsAppRuhig — kein Reload, solange das Stripe-Fenster offen ist
       // Polling: wenn Popup geschlossen, Entitlements reload
       var checkClosed = setInterval(function(){
         if (popup.closed) {
           clearInterval(checkClosed);
+          window._gsBillingPopup = false;
           btns.forEach(function(b){ b.disabled = false; b.style.opacity = '1'; });
           if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements();
         }
       }, 800);
       // Safety timeout: 15 Min
-      setTimeout(function(){ try { clearInterval(checkClosed); } catch(e){} }, 15*60*1000);
+      setTimeout(function(){ try { clearInterval(checkClosed); } catch(e){} window._gsBillingPopup = false; }, 15*60*1000);
     } else {
       // Popup-Fallback: normaler Redirect
       location.href = data.url;
@@ -18503,9 +18522,11 @@ async function gsOpenBillingPortal(flow) {
     }
     if (popup && !popup.closed) {
       popup.location.href = data.url;
+      window._gsBillingPopup = true;   // v33.25
       var chk = setInterval(function(){
         if (popup.closed) {
           clearInterval(chk);
+          window._gsBillingPopup = false;
           if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements();
           // v29.24 Bug-4: Abo-Karte mit Retry neu rendern (Webhook-Lag) + Status-Hinweis,
           // damit Kündigung/Reaktivierung sofort sichtbar wird statt stillem "Aktiv".
@@ -18968,11 +18989,12 @@ window.gsRunFirstRunWelcome = function(){
       // keine Geld-/Checkout-Logik berührt.
       if (typeof gsLoadEntitlements === 'function') { try { gsLoadEntitlements(); } catch(e){} }
       var _bTries = 0;
+      window._gsBillingPoll = true;   // v33.25: _gsAppRuhig — die Freischaltung wird noch abgefragt
       var _bPoll = setInterval(function(){
         _bTries++;
         if (typeof gsLoadEntitlements === 'function') { try { gsLoadEntitlements(); } catch(e){} }
         if (_bTries === 1 && typeof gsRefreshSubInfoCardRetry === 'function') { try { gsRefreshSubInfoCardRetry(); } catch(e){} }
-        if (_bTries > 6) clearInterval(_bPoll);
+        if (_bTries > 6) { clearInterval(_bPoll); window._gsBillingPoll = false; }
       }, 2000);
     } else if (b === 'cancel') {
       setTimeout(function(){ try { gsToast('Zahlung abgebrochen', 'error'); } catch(e){} }, 400);
@@ -30290,7 +30312,14 @@ function _gsAiDirekt(key){
 // (gs_ai_proxy_down_ts, fuer das Admin-Panel). Ohne Schluessel wird der Fehler
 // ehrlich gemeldet. Nach der Migration hat kein Nutzer mehr einen Schluessel;
 // der Rueckfall verschwindet damit von selbst.
+// v33.25: EIN Zaehler fuer alle KI-Wege (Scanner, Lina, Doktor, Planer, Zwilling)
+// — _gsAppRuhig liest ihn. Ein Hand-Flag je Aufrufer waere die Falle aus v32.33.
 async function _gsAiAnfrage(tgt, body, key, fopts){
+  window._gsAiLaufend = (window._gsAiLaufend || 0) + 1;
+  try { return await _gsAiAnfrageRoh(tgt, body, key, fopts); }
+  finally { window._gsAiLaufend = Math.max(0, (window._gsAiLaufend || 1) - 1); }
+}
+async function _gsAiAnfrageRoh(tgt, body, key, fopts){
   var resp = null, fehler = null;
   try { resp = await _gsApiFetch(tgt.url, { method:'POST', headers: tgt.headers, body: body }, fopts); }
   catch(e) { fehler = e; }
@@ -59873,7 +59902,9 @@ async function _gsKamFragen(){
   try {
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') return;
     if (navigator.mediaDevices._gsTorGesetzt) return;
-    var echt = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    var echtRoh = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    // v33.25: jeden Stream merken — _gsKameraAktiv() fragt die Spuren, nicht #video.
+    var echt = function(c){ return echtRoh(c).then(function(st){ try { (window._gsKameraStreams = window._gsKameraStreams || []).push(st); } catch(_){} return st; }); };
     navigator.mediaDevices.getUserMedia = function(c){
       // v32.34: Der GEWOEHNLICHE Weg (Schalter aus — der Standard) geht hier
       // ohne jede Verzoegerung durch: gleicher Aufruf, gleicher Aufrufstapel.
@@ -74666,6 +74697,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.25', date: '11.09.2026',
+      headline: 'Updates kommen von selbst — an zwei Stellen, an denen niemand liest',
+      summary: 'Ein wartendes Update wird beim Start oder beim Zurückkommen nach fünf Minuten Abwesenheit angewandt, nie mitten in einer Antwort, einem Scan oder einem Fenster. Vorher sichert die App; danach steht derselbe Tab wieder da. Der Banner ist nur noch Rückfall.',
+      user_summary: 'Du musst Updates nicht mehr antippen. Die App holt sie sich, wenn du sie das nächste Mal öffnest oder nach einer Pause zurückkommst — nie, während du etwas liest oder tippst. Vorher sichert sie deine Daten, danach bist du wieder dort, wo du warst.',
+      user_items: [
+        {emoji:'🔄', bold:'Ohne Klick:', text:' beim Start oder nach fünf Minuten Pause — nie mitten in Lina, im Scanner, im Quiz, in einem Fenster oder bei einer Zahlung.'},
+        {emoji:'💾', bold:'Erst sichern:', text:' Synchronisierung und Cloud-Backup laufen, bevor die App neu lädt.'},
+        {emoji:'📍', bold:'Wieder dort:', text:' nach dem Update öffnet sich derselbe Bereich wie vorher.'}
+      ],
+      items: [
+        {emoji:'🧭', bold:'_gsAppRuhig():', text:' EIN Prädikat für „darf jetzt neu geladen werden" — Lina, KI-Zähler (_gsAiAnfrage try/finally), Flush/Pull, GPS-Track, Quiz, Battle, Kamera (getUserMedia-Tor merkt die Spuren), Zahlung (Popup/Poll), Dateiauswahl, offenes Fenster (beide Klassen), Scan-Ergebnis, Text in einem sichtbaren Feld.'},
+        {emoji:'🛡️', bold:'Vier Sperren:', text:' Erst-Install (controllerchange ohne Vorgänger lädt nicht), Loop-Schutz je Zielversion (sessionStorage, keine Uhr), gleiche Version → nur umschalten (GET_VERSION über Port), 4-s-Zwangs-Reload gestrichen.'},
+        {emoji:'🧪', bold:'offline_check Fall 11:', text:' zweiter sw.js vom Prüfserver → sichern → sieben Gegenrichtungen → Loop → 60 s zu kurz → 6 min: ein Reload, neue Caches, Tab „wissen" zurück, Zweit-Tab lädt mit, gleiche Version ohne Reload. robust_check Fall 24: sw.js VERSION und meta app-version müssen zur GS_VERSION passen.'}
+      ],
+    },
+  {
     v: 'v33.24', date: '11.09.2026',
       headline: 'Nutzungsmessung: Ereignisse werden nach 180 Tagen gelöscht',
       summary: 'Eine Zählung, die nie endet, ist ein Archiv. Eine Migration (nicht angewandt) legt fn_analytics_prune an und plant den täglichen Cron; die Admin-Karte nennt die Frist. revDSG: Daten bleiben nur, solange der Zweck sie braucht.',
@@ -75142,7 +75189,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.24';
+var GS_VERSION = 'v33.25';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -77066,6 +77113,290 @@ function gsEnsureManifest() {
   }).catch(function(e){ console.warn('[GreenScan] manifest.json Fehler: ' + e.message); });
 }
 
+// v33.25 ═══ UPDATE OHNE KLICK ═══════════════════════════════════════════
+// Bis v33.24 brauchte jedes Update einen Tipp auf „Neu laden" — und der Knopf
+// lud nach spaetestens 4 s BEDINGUNGSLOS neu, auch mitten in einer Lina-Antwort
+// (Kontingent verbraucht, Antwort weg) oder einem Scan (Foto nur im Speicher).
+// Jetzt wendet die App ein wartendes Update SELBST an — aber nur an zwei
+// Stellen, an denen niemand liest: beim Start (der Worker wartet schon) und
+// beim Zurueckkommen nach mindestens GS_UPDATE_RUECKKEHR_MS Abwesenheit.
+// NIE im Moment des Verbergens: auf dem Telefon geht genau dann die
+// Systemkamera (input type=file) oder das Stripe-Fenster auf, und ein Reload
+// zerstoert den Empfaenger, zu dem Foto und Zahlung zurueckkommen.
+// Vorher wird gesichert (flushNow + pre_migration-Snapshot, nur wenn seit dem
+// letzten Snapshot etwas gepusht wurde), und _gsAppRuhig() muss ja sagen —
+// DIE Liste der Zustaende, in denen ein Reload etwas zerstoeren wuerde. Wer
+// eine neue Ansicht baut, deren Ergebnis nur im Arbeitsspeicher liegt, traegt
+// sie dort ein; offline_check „Versionswechsel" misst die Liste.
+// Fristen zaehlen mit performance.now(), nie mit Date.now() (Pruefstaende
+// stellen die Uhr; CLAUDE.md v32.61). Der Loop-Schutz zaehlt VERSUCHE je
+// Zielversion (sessionStorage, je Tab), keine Sekunden.
+var GS_UPDATE_RUECKKEHR_MS = 5 * 60 * 1000;
+var GS_UPDATE_BANNER_NACH_MS = 30 * 60 * 1000;   // Update erkannt, aber die App war seither nie lang genug weg → Banner als Rueckfall
+var GS_UPDATE_PRUEF_COOLDOWN_MS = 10 * 60 * 1000;
+window._gsAiLaufend = window._gsAiLaufend || 0;          // gezaehlt in _gsAiAnfrage (try/finally) — jeder KI-Weg
+window._gsKameraStreams = window._gsKameraStreams || []; // vom getUserMedia-Tor gemerkt — jeder Kamera-Weg
+window._gsUpdate = { reg: null, wartend: null, hatteController: false, eigen: false, fremdOffen: false,
+  gesichert: null, erkanntSeit: null, hiddenSeit: null, letztePruefung: null, bannerTimer: null,
+  bannerGeschlossen: false, angewandtOhneReload: false };
+// Die Gruende, in der Sprache der Person (Banner-Knopf und Toast). Schluessel
+// stehen in GS_I18N_JS_STRINGS (i18n_check).
+var GS_UPDATE_GRUENDE = {
+  'lina': ['upd_grund_lina', 'Lina antwortet gerade'],
+  'ki': ['upd_grund_ki', 'Eine KI-Antwort läuft gerade'],
+  'flush': ['upd_grund_flush', 'Daten werden gerade übertragen'],
+  'pull': ['upd_grund_pull', 'Daten werden gerade geladen'],
+  'track': ['upd_grund_track', 'Eine GPS-Aufzeichnung läuft'],
+  'quiz': ['upd_grund_quiz', 'Das Quiz ist offen'],
+  'battle': ['upd_grund_battle', 'Ein Battle läuft'],
+  'kamera': ['upd_grund_kamera', 'Die Kamera ist an'],
+  'zahlung': ['upd_grund_zahlung', 'Eine Zahlung läuft'],
+  'dateiwahl': ['upd_grund_dateiwahl', 'Die Dateiauswahl ist offen'],
+  'fenster': ['upd_grund_fenster', 'Ein Fenster ist offen'],
+  'scan-ergebnis': ['upd_grund_scan', 'Das Scan-Ergebnis ist offen'],
+  'eingabe': ['upd_grund_eingabe', 'Ein Feld enthält noch Text'],
+  'unklar': ['upd_grund_unklar', 'Der Zustand ist gerade unklar']
+};
+function _gsUpdateGrundText(grund){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  var k = String(grund || '').split(',')[0].trim();
+  var p = GS_UPDATE_GRUENDE[k] || GS_UPDATE_GRUENDE['unklar'];
+  return _t(p[0], p[1]);
+}
+function _gsSichtbar(el){ try { return !!(el && el.getClientRects && el.getClientRects().length); } catch(_){ return false; } }
+function _gsKameraAktiv(){
+  try {
+    window._gsKameraStreams = (window._gsKameraStreams || []).filter(function(st){
+      try { return !!(st && st.getTracks && st.getTracks().some(function(t){ return t.readyState === 'live'; })); } catch(_){ return false; }
+    });
+    return window._gsKameraStreams.length > 0;
+  } catch(_){ return false; }
+}
+// Sichtbare Textfelder mit Inhalt — im GANZEN Dokument, nicht nur in Fenstern:
+// der Community-Composer (#inline-post-text) und das Feedback-Feld stehen auf
+// Tabs, und ein Entwurf wird erst beim Senden gesichert.
+function _gsEingabeOffen(){
+  try {
+    var felder = document.querySelectorAll('textarea, input');
+    for (var i = 0; i < felder.length; i++) {
+      var f = felder[i], t = String(f.type || 'text').toLowerCase();
+      if (/^(hidden|checkbox|radio|range|color|submit|button|file|reset|image)$/.test(t)) continue;
+      if (!_gsSichtbar(f)) continue;
+      if (String(f.value || '').trim()) return f.id || f.name || t;
+    }
+  } catch(_){}
+  return null;
+}
+// EIN Praedikat: darf die App jetzt neu laden, ohne etwas zu zerstoeren?
+// Rueckgabe {ruhig, grund}; grund ist eine Liste von Schluesseln aus
+// GS_UPDATE_GRUENDE (der erste wird angezeigt).
+function _gsAppRuhig(){
+  var g = [];
+  try {
+    if (window._gsLinaSending) g.push('lina');
+    if ((window._gsAiLaufend || 0) > 0) g.push('ki');
+    if (window._gsFlushing || window._gsPhotoFlushing || window._gsKorrFlush) g.push('flush');
+    if (window._gsPullInFlight) g.push('pull');
+    if (typeof _gsTrack !== 'undefined' && _gsTrack && _gsTrack.active) g.push('track');
+    if (typeof _dqOpen !== 'undefined' && _dqOpen) g.push('quiz');        // auch beantwortet: bis closeDailyQuiz
+    if (window._gsBattle) g.push('battle');
+    if (_gsKameraAktiv()) g.push('kamera');
+    if (window._gsBillingPoll || window._gsBillingPopup) g.push('zahlung');
+    if (window._gsDateiwahlOffen) g.push('dateiwahl');
+    if (document.querySelector('.modal-overlay.open, .overlay-modal.open')) g.push('fenster');
+    if (_gsSichtbar(document.getElementById('scan-result'))) g.push('scan-ergebnis');
+    if (_gsEingabeOffen()) g.push('eingabe');
+  } catch(_){ g.push('unklar'); }
+  return { ruhig: g.length === 0, grund: g.join(', ') };
+}
+window._gsAppRuhig = _gsAppRuhig;
+// Der Worker sagt seine Version (sw.js GET_VERSION → VERSION), Antwort ueber
+// einen eigenen Port. Ein wartender Worker antwortet erst, wenn er dran ist —
+// auf einem langsamen Geraet dauert das; deshalb zwei Versuche je 3 s, dann null.
+// (Gemessen: unter Last blieb die erste 1,5-s-Frist leer, der Loop-Zaehler wurde
+// nach dem Update nicht geraeumt, und der naechste Versuch auf dieselbe Version
+// landete im Banner.)
+function _gsWorkerVersion(sw){
+  var einmal = function(){
+    return new Promise(function(res){
+      var fertig = false, ende = function(v){ if (fertig) return; fertig = true; res(v || null); };
+      try {
+        var ch = new MessageChannel();
+        ch.port1.onmessage = function(e){ ende(e.data && e.data.version); };
+        sw.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+      } catch(_){ ende(null); }
+      setTimeout(function(){ ende(null); }, 3000);
+    });
+  };
+  return einmal().then(function(v){ return v || einmal(); });
+}
+// Sichern vor dem Update: flushNow immer; pre_migration-Snapshot nur, wenn
+// seit dem letzten Snapshot etwas gepusht wurde (sonst waere er eine Kopie,
+// und die Aufbewahrung haelt nur sechs). Nie laenger als 2,5 s.
+function _gsUpdateSichern(){
+  return new Promise(function(res){
+    var fertig = false, ende = function(){ if (fertig) return; fertig = true; res(); };
+    try { if (window.gsCloudSync && gsCloudSync.flushNow) gsCloudSync.flushNow(); } catch(_){}
+    try {
+      var last = null, push = null;
+      try { last = localStorage.getItem('gs_snapshot_last'); push = localStorage.getItem('gs_sync_last_push'); } catch(_){}
+      var noetig = !last || (!!push && String(push) > String(last));   // ISO-Zeitstempel, lexikalisch vergleichbar
+      if (noetig && typeof gsSnapshotCreate === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+        Promise.resolve(gsSnapshotCreate('pre_migration')).then(function(id){ window._gsUpdate.gesichert = !!id; ende(); }).catch(ende);
+      } else { window._gsUpdate.gesichert = noetig ? false : null; ende(); }
+    } catch(_){ ende(); }
+    setTimeout(ende, 2500);
+  });
+}
+// Loop-Schutz: Versuche je ZIELVERSION, je Tab. Kann der Versuch nicht gemerkt
+// werden, gibt es keinen Schutz — dann kein automatischer Reload.
+function _gsUpdateVersuch(nach){
+  try {
+    var j = null;
+    try { j = JSON.parse(sessionStorage.getItem('gs_update_versuch') || 'null'); } catch(_){ j = null; }
+    if (!j || j.nach !== nach) j = { nach: nach, n: 0 };
+    j.n++;
+    sessionStorage.setItem('gs_update_versuch', JSON.stringify(j));
+    return j.n;
+  } catch(_){ return 99; }
+}
+// weg: 'boot' | 'rueckkehr' | 'klick'. Rueckgabe {ok, grund|reload, nach}.
+async function gsUpdateAnwenden(weg){
+  var u = window._gsUpdate;
+  var sw = u.wartend || (u.reg && u.reg.waiting) || null;
+  if (!sw) return { ok: false, grund: 'kein-worker' };
+  var r = _gsAppRuhig();
+  if (!r.ruhig) return { ok: false, grund: r.grund };
+  var nach = String((await _gsWorkerVersion(sw)) || '').replace(/^gs-/, '');
+  var n = _gsUpdateVersuch(nach || '?');
+  if (n > 1 && weg !== 'klick') { _gsUpdateBannerZeigen('loop'); return { ok: false, grund: 'loop' }; }
+  await _gsUpdateSichern();
+  // Ein Kaltstart mit Netz laeuft schon auf der neuen HTML (networkFirst,
+  // must-revalidate) — nur Worker und Caches sind alt. Dann reicht das
+  // Umschalten; der zweite Boot des Monolithen entfaellt.
+  var reloadNoetig = !nach || nach !== GS_VERSION;
+  try {
+    sessionStorage.setItem('gs_update_zurueck', JSON.stringify({
+      tab: (typeof _gsCurrentTab !== 'undefined' ? _gsCurrentTab : 'home'), von: GS_VERSION, nach: nach, weg: weg, reload: reloadNoetig
+    }));
+  } catch(_){}
+  u.eigen = true;
+  if (u.bannerTimer) { clearTimeout(u.bannerTimer); u.bannerTimer = null; }
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    if (reloadNoetig) { window.location.reload(); return; }
+    u.angewandtOhneReload = true; u.wartend = null; u.eigen = false;
+    try { sessionStorage.removeItem('gs_update_zurueck'); sessionStorage.removeItem('gs_update_versuch'); } catch(_){}
+    try { var b = document.getElementById('gs-sw-update-banner'); if (b) b.remove(); } catch(_){}
+  }, { once: true });
+  sw.postMessage({ type: 'SKIP_WAITING' });
+  return { ok: true, reload: reloadNoetig, nach: nach };
+}
+window.gsUpdateAnwenden = gsUpdateAnwenden;
+function _gsUpdateErkannt(sw){
+  var u = window._gsUpdate;
+  u.wartend = sw; u.erkanntSeit = performance.now();
+  // Jetzt sichern (die App ist sichtbar und ruhig) — angewandt wird beim
+  // naechsten Zurueckkommen oder Start.
+  try { if (!document.hidden && _gsAppRuhig().ruhig) _gsUpdateSichern(); } catch(_){}
+  if (u.bannerTimer) clearTimeout(u.bannerTimer);
+  u.bannerTimer = setTimeout(function(){ if (window._gsUpdate.wartend && !window._gsUpdate.bannerGeschlossen) _gsUpdateBannerZeigen('lange'); }, GS_UPDATE_BANNER_NACH_MS);
+}
+function _gsUpdateVerborgen(){ window._gsUpdate.hiddenSeit = performance.now(); }
+function _gsUpdateBeiRueckkehr(){
+  var u = window._gsUpdate;
+  var weg = (u.hiddenSeit == null) ? 0 : (performance.now() - u.hiddenSeit);
+  u.hiddenSeit = null;
+  if (u.fremdOffen && _gsAppRuhig().ruhig) { u.fremdOffen = false; window.location.reload(); return; }
+  if (weg >= GS_UPDATE_RUECKKEHR_MS && (u.wartend || (u.reg && u.reg.waiting))) { gsUpdateAnwenden('rueckkehr'); }
+  _gsUpdatePruefen('sichtbar');
+}
+window._gsUpdateBeiRueckkehr = _gsUpdateBeiRueckkehr;
+// reg.update() bei Zurueckkommen und beim Online-Gehen (Cooldown), mit .catch —
+// offline lehnt die Promise ab, und das war bis v33.24 ein unhandledrejection.
+function _gsUpdatePruefen(anlass){
+  var u = window._gsUpdate; if (!u.reg) return;
+  var jetzt = performance.now();
+  if (anlass !== 'takt' && u.letztePruefung != null && (jetzt - u.letztePruefung) < GS_UPDATE_PRUEF_COOLDOWN_MS) return;
+  u.letztePruefung = jetzt;
+  try { Promise.resolve(u.reg.update()).catch(function(){}); } catch(_){}
+}
+document.addEventListener('visibilitychange', function(){ try { if (document.hidden) _gsUpdateVerborgen(); else _gsUpdateBeiRueckkehr(); } catch(_){} });
+window.addEventListener('online', function(){ try { _gsUpdatePruefen('online'); } catch(_){} });
+// Dateiauswahl: die Seite wird hidden, sobald die Systemkamera aufgeht — der
+// Zustand ist bis zum change (Foto zurueck) oder focus (abgebrochen) nicht ruhig.
+document.addEventListener('click', function(e){
+  try {
+    var t = e.target && e.target.closest ? e.target.closest('input[type=file], label') : null;
+    if (!t) return;
+    if (t.tagName === 'LABEL') {
+      var f = t.control || (t.htmlFor ? document.getElementById(t.htmlFor) : null);
+      if (!f || String(f.type).toLowerCase() !== 'file') return;
+    }
+    window._gsDateiwahlOffen = true;
+  } catch(_){}
+}, true);
+document.addEventListener('change', function(e){ try { if (e.target && String(e.target.type).toLowerCase() === 'file') window._gsDateiwahlOffen = false; } catch(_){} }, true);
+window.addEventListener('focus', function(){ setTimeout(function(){ window._gsDateiwahlOffen = false; }, 800); });
+// Banner: nur noch RUECKFALL — Loop-Schutz hat gegriffen ('loop'), oder das
+// Update wartet seit 30 Minuten ('lange'). Der Knopf geht durch dasselbe
+// Praedikat und sagt den Grund, statt zu laden.
+function _gsUpdateBannerZeigen(grund){
+  if (document.getElementById('gs-sw-update-banner')) return;
+  var T = (window.gsI18n && gsI18n.t) ? function(k, f){ return gsI18n.t(k, f); } : function(k, f){ return f; };
+  var b = document.createElement('div');
+  b.id = 'gs-sw-update-banner';
+  b.setAttribute('data-grund', grund || '');
+  b.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;border-radius:var(--r-lg);padding:12px 14px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;animation:gsSlideDownBanner .35s ease-out;';
+  if (!document.getElementById('gs-banner-anim-down')) {
+    var st = document.createElement('style'); st.id = 'gs-banner-anim-down';
+    st.textContent = '@keyframes gsSlideDownBanner{from{transform:translateY(-120%);opacity:0}to{transform:translateY(0);opacity:1}}';
+    document.head.appendChild(st);
+  }
+  var sub = (grund === 'loop') ? T('sw_update_loop', 'Das Update konnte nicht von selbst angewandt werden.') : T('sw_update_sub', 'Sicherheits- &amp; Feature-Updates bereit.');
+  b.innerHTML =
+    '<div style="font-size:var(--fs-2xl);flex-shrink:0;">🆕</div>' +
+    '<div style="flex:1;min-width:0;font-size:var(--fs-md);line-height:1.35;">' +
+      '<b>' + T('sw_update_title', 'Neue Version verfügbar') + '</b><br><span style="opacity:.85;font-size:var(--fs-sm);">' + sub + '</span>' +
+    '</div>' +
+    '<button id="gs-sw-reload-btn" style="background:#fff;color:var(--c-info);border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">' + T('sw_reload', 'Neu laden') + '</button>' +
+    '<button id="gs-sw-later-btn" aria-label="' + T('sw_later', 'Später') + '" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:var(--r-sm);width:30px;height:30px;font-size:var(--fs-lg);cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
+  document.body.appendChild(b);
+  document.getElementById('gs-sw-reload-btn').onclick = function(){
+    var _rb = document.getElementById('gs-sw-reload-btn');
+    try { if (_rb) { _rb.textContent = T('sw_saving', 'Sichere…'); _rb.disabled = true; } } catch(_){}
+    gsUpdateAnwenden('klick').then(function(r){
+      if (r && r.ok) return;
+      try { if (_rb) { _rb.textContent = T('sw_reload', 'Neu laden'); _rb.disabled = false; } } catch(_){}
+      if (r && r.grund && r.grund !== 'kein-worker') gsToast(_gsUpdateGrundText(r.grund) + ' — ' + T('sw_update_spaeter', 'Das Update kommt, sobald hier Ruhe ist.'), 'info');
+    });
+  };
+  document.getElementById('gs-sw-later-btn').onclick = function(){ window._gsUpdate.bannerGeschlossen = true; b.remove(); };
+}
+// Nach dem Reload: hat das Update gegriffen? Nur der Worker selbst kann das
+// sagen (GS_VERSION beweist nichts, die HTML ist vor dem Worker neu). Dann den
+// Tab wiederherstellen und — nur wenn „Was ist neu" stumm bleibt — ein Toast.
+function _gsUpdateNachher(){
+  var z = null;
+  try { z = JSON.parse(sessionStorage.getItem('gs_update_zurueck') || 'null'); sessionStorage.removeItem('gs_update_zurueck'); } catch(_){ z = null; }
+  if (!z) return;
+  var ctl = (navigator.serviceWorker && navigator.serviceWorker.controller) || null;
+  (ctl ? _gsWorkerVersion(ctl) : Promise.resolve(null)).then(function(v){
+    var ok = !!v && v === 'gs-' + GS_VERSION;
+    if (ok) { try { sessionStorage.removeItem('gs_update_versuch'); } catch(_){} }
+    if (ok && z.tab && z.tab !== 'home' && typeof switchTab === 'function') {
+      setTimeout(function(){ try { switchTab(z.tab); } catch(_){} }, 900);
+    }
+    try { if (typeof gsTrackEvent === 'function') gsTrackEvent('app_updated', { von: z.von, nach: GS_VERSION, weg: z.weg, ok: ok }); } catch(_){}
+    if (!ok || document.hidden) return;
+    var dialogKommt = false;
+    try {
+      var rel = (window.GS_RELEASES || [])[0], seen = localStorage.getItem('gs_seen_version');
+      dialogKommt = !!(rel && rel.v === GS_VERSION && seen && seen !== GS_VERSION);
+    } catch(_){}
+    if (!dialogKommt) { try { gsToast(_gsSatz('✅ Aktualisiert auf {1}', GS_VERSION), 'success'); } catch(_){} }
+  });
+}
+
 // v24.35: Service-Worker Registration mit echtem Update-Flow + Background-Sync.
 // Update-Banner mit „Jetzt neu laden"-Button (statt nur Toast). Periodic-Sync für
 // Hintergrund-Updates. Sync-Tag „gs-sync-pending" für offline erstellte Daten.
@@ -77082,7 +77413,7 @@ function gsRegisterServiceWorker() {
         window._gsSwReg = reg;
         // Auto-Update Check alle 60 Min — v24.49: Handle für idempotenten Re-Init
         if (window._gsSwUpdateInterval) clearInterval(window._gsSwUpdateInterval);
-        window._gsSwUpdateInterval = setInterval(function(){ try { reg.update(); } catch(e){} }, 60 * 60 * 1000);
+        window._gsSwUpdateInterval = setInterval(function(){ _gsUpdatePruefen('takt'); }, 60 * 60 * 1000);
 
         // Periodic-Sync (Chrome Android, nur wenn Permission „granted")
         try {
@@ -77095,73 +77426,42 @@ function gsRegisterServiceWorker() {
           }
         } catch(e) { /* nicht supported / not granted — kein Problem */ }
 
-        // Update-Banner: zeigt sich wenn neuer SW „installed" + alter SW noch controller ist
-        function showUpdateBanner(newSw){
-          if (document.getElementById('gs-sw-update-banner')) return;
-          var T = (window.gsI18n && gsI18n.t) ? function(k,f){ return gsI18n.t(k,f); } : function(k,f){ return f; }; // v29.06
-          var b = document.createElement('div');
-          b.id = 'gs-sw-update-banner';
-          // v24.49: --z-toast (9999) — Update-Banner muss über jedem Modal/Toast liegen.
-          b.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;border-radius:var(--r-lg);padding:12px 14px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;animation:gsSlideDownBanner .35s ease-out;';
-          if (!document.getElementById('gs-banner-anim-down')) {
-            var s = document.createElement('style'); s.id = 'gs-banner-anim-down';
-            s.textContent = '@keyframes gsSlideDownBanner{from{transform:translateY(-120%);opacity:0}to{transform:translateY(0);opacity:1}}';
-            document.head.appendChild(s);
-          }
-          b.innerHTML =
-            '<div style="font-size:var(--fs-2xl);flex-shrink:0;">🆕</div>' +
-            '<div style="flex:1;min-width:0;font-size:var(--fs-md);line-height:1.35;">' +
-              '<b>' + T('sw_update_title','Neue Version verfügbar') + '</b><br><span style="opacity:.85;font-size:var(--fs-sm);">' + T('sw_update_sub','Sicherheits- &amp; Feature-Updates bereit.') + '</span>' +
-            '</div>' +
-            '<button id="gs-sw-reload-btn" style="background:#fff;color:var(--c-info);border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">' + T('sw_reload','Neu laden') + '</button>' +
-            '<button id="gs-sw-later-btn" aria-label="' + T('sw_later','Später') + '" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:var(--r-sm);width:30px;height:30px;font-size:var(--fs-lg);cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
-          document.body.appendChild(b);
-          document.getElementById('gs-sw-reload-btn').onclick = function(){
-            var _go = function(){
-              if (newSw) newSw.postMessage({ type: 'SKIP_WAITING' });
-              // Wenn SW skipWaiting → controllerchange → reload
-              navigator.serviceWorker.addEventListener('controllerchange', function(){
-                window.location.reload();
-              }, { once: true });
-              // Fallback: Hard-Reload nach 4 s. v32.67 (Audit B3): der neue Worker
-              // aktiviert sich nicht mehr selbst — er wartet auf dieses SKIP_WAITING
-              // und braucht danach einen Moment (alte Caches löschen, claim).
-              setTimeout(function(){ window.location.reload(); }, 4000);
-            };
-            // v27.01: VOR dem Update den kompletten User-State als Pre-Migration-Snapshot
-            // in die Cloud sichern (Sicherheitsnetz gegen Datenverlust). Reload nie länger
-            // als 2.5s blockieren — Snapshot ist best-effort.
-            try {
-              var _rb = document.getElementById('gs-sw-reload-btn');
-              if (_rb) { _rb.textContent = T('sw_saving','Sichere…'); _rb.disabled = true; }
-            } catch(_){}
-            try {
-              if (typeof gsSnapshotCreate === 'function') {
-                var _done = false;
-                var _proceed = function(){ if (_done) return; _done = true; _go(); };
-                Promise.resolve(gsSnapshotCreate('pre_migration')).then(_proceed).catch(_proceed);
-                setTimeout(_proceed, 2500);
-              } else { _go(); }
-            } catch(_){ _go(); }
-          };
-          document.getElementById('gs-sw-later-btn').onclick = function(){ b.remove(); };
-        }
-
+        // v33.25: Update ohne Klick — die Verdrahtung. Der Banner ist nur noch
+        // Rueckfall (_gsUpdateBannerZeigen); Anwenden geht ueber gsUpdateAnwenden.
+        var u = window._gsUpdate;
+        u.reg = reg;
+        u.hatteController = !!navigator.serviceWorker.controller;
+        // Zweit-Tab: ein anderer Tab hat SKIP_WAITING geschickt, der neue Worker
+        // hat uebernommen (claim) und die alten Caches sind weg — die alte Seite
+        // darunter waere das B3-Symptom (v32.67). Beim ERSTEN Install gibt es
+        // keinen Vorgaenger: der Uebergang „kein Controller → Worker" feuert
+        // dasselbe Ereignis und darf NICHT laden (offline_check Fall 1).
+        navigator.serviceWorker.addEventListener('controllerchange', function(){
+          if (!u.hatteController) { u.hatteController = true; return; }
+          if (u.eigen) return;
+          try {
+            if (document.hidden || _gsAppRuhig().ruhig) { window.location.reload(); return; }
+          } catch(_){}
+          u.fremdOffen = true;   // beim naechsten Zurueckkommen, sobald ruhig
+        });
         reg.addEventListener('updatefound', function(){
           var nw = reg.installing;
           if (!nw) return;
           nw.addEventListener('statechange', function(){
             if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[GreenScan] 🆕 Update bereit');
-              showUpdateBanner(nw);
+              console.log('[GreenScan] 🆕 Update bereit — wird beim naechsten Start oder Zurueckkommen angewandt');
+              _gsUpdateErkannt(nw);
             }
           });
         });
-
-        // Wenn schon ein waiting-SW da ist (z.B. nach Refresh)
+        // Beim Start wartet schon ein Worker: sofort anwenden, bevor jemand
+        // etwas tut (das Praedikat prueft trotzdem).
         if (reg.waiting && navigator.serviceWorker.controller) {
-          showUpdateBanner(reg.waiting);
+          u.wartend = reg.waiting;
+          gsUpdateAnwenden('boot');
         }
+        // …und war der letzte Reload ein Update? Dann Tab zurueck, Toast, Ereignis.
+        try { _gsUpdateNachher(); } catch(_){}
 
         // SW-Messages empfangen (z.B. SYNC_PENDING vom Background-Sync)
         navigator.serviceWorker.addEventListener('message', function(e){
@@ -84892,7 +85192,8 @@ var GS_EVENTS = {
   scan_rescan:    ['fotos'],                               // zweites/drittes Foto angefordert (v33.16): wie viele Fotos der naechste Scan traegt
   lina_message:   ['ok'],                                  // eine Frage an Lina: kam eine Antwort — nie der Text, nie die Frage
   harvest_logged: ['quelle'],                              // Ernte eingetragen: ueber welchen Weg (ernte/pflanze) — nie Art, Menge oder Ort
-  consent_changed:['analytics']                            // der Schalter selbst
+  consent_changed:['analytics'],                           // der Schalter selbst
+  app_updated:    ['von', 'nach', 'weg', 'ok']             // v33.25: Update ohne Klick — Versionen und Weg (boot/rueckkehr/klick), hat es gegriffen; keine Kennung
 };
 window.GS_EVENTS = GS_EVENTS;
 function _gsEventFiltern(event, props) {

@@ -928,7 +928,7 @@ const FAELLE = [
     // Dazu die zweite Pflicht aus CLAUDE.md §3.1, die ebenfalls niemand mass:
     // GS_RELEASES[0].v MUSS der laufenden GS_VERSION entsprechen — sonst
     // bleibt „Was ist neu" bei jedem Nutzer aus, still (v31.13).
-    name: 'Changelog · die Inline-Liste bleibt klein (Deckel 20), GS_RELEASES[0] gehoert zur laufenden Version, und kein Eintrag steht doppelt oder ist beim Umzug ins Archiv verlorengegangen',
+    name: 'Changelog · die Inline-Liste bleibt klein (Deckel 20), GS_RELEASES[0] gehoert zur laufenden Version, sw.js VERSION und meta app-version passen dazu, und kein Eintrag steht doppelt oder ist beim Umzug ins Archiv verlorengegangen',
     lauf: async () => {
       const DECKEL = 20;
       const idx = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -954,6 +954,17 @@ const FAELLE = [
       if (!mv) return { ok: false, warum: 'GS_VERSION nicht gefunden' };
       if (!inline.length) return { ok: false, warum: 'Inline-Liste ist leer — „Was ist neu" kann nie erscheinen' };
       if (inline[0].v !== mv[1]) return { ok: false, warum: 'GS_RELEASES[0] ist ' + inline[0].v + ', die App laeuft auf ' + mv[1] + ' — showWhatsNew bricht ab und stempelt gs_seen_version NICHT; kein Nutzer sieht Release-Notizen (v31.13)' };
+
+      // 2b · v33.25: sw.js VERSION und meta app-version gehoeren zur selben Version.
+      // Ein Deploy ohne sw.js-Bump erzeugt nie ein updatefound — kein Banner,
+      // kein Update ohne Klick, und niemand merkt es, bis ein Telefon alt bleibt.
+      const sw = fs.readFileSync(path.resolve(__dirname, '..', 'sw.js'), 'utf8');
+      const msw = sw.match(/const VERSION = '([^']+)'/);
+      if (!msw) return { ok: false, warum: 'sw.js: const VERSION nicht gefunden' };
+      if (msw[1] !== 'gs-' + mv[1]) return { ok: false, warum: 'sw.js VERSION ist ' + msw[1] + ', die App laeuft auf ' + mv[1] + ' — ohne neuen Worker gibt es kein updatefound: kein Update ohne Klick (v33.25), kein Banner, alte Caches bleiben' };
+      const mmeta = idx.match(/<meta name="app-version" content="([^"]+)">/);
+      if (!mmeta) return { ok: false, warum: 'meta app-version nicht gefunden' };
+      if (mmeta[1].indexOf(mv[1].replace(/^v/, '') + '.') !== 0) return { ok: false, warum: 'meta app-version ist ' + mmeta[1] + ', GS_VERSION ist ' + mv[1] + ' — CLAUDE.md §3.1: bei Bumps immer alle drei syncen' };
 
       // 3 · Nichts doppelt, nichts verloren: die Reihenfolge ist ueberall neu → alt.
       const alle = inline.concat(archiv), gesehen = new Set(), dub = [];
@@ -993,7 +1004,7 @@ const FAELLE = [
       const rohStellen = (idx.match(/Array\.isArray\((?:rel|release)\.(?:user_)?items\)\s*\?\s*(?:rel|release)\.(?:user_)?items\s*:\s*\[\](?!\s*\)?\.map\(_gsRelItem\))/g) || []);
       if (rohStellen.length) return { ok: false, warum: rohStellen.length + ' Render-Stelle(n) lesen items/user_items ohne _gsRelItem — dort wird ein String wieder zu String.prototype.bold' };
 
-      return { ok: true, info: inline.length + ' inline (' + kb + ' KB, Deckel ' + DECKEL + ') · ' + archiv.length + ' im Archiv · ' + alle.length + ' zusammen, keine Dublette · GS_RELEASES[0] = ' + inline[0].v + ' = GS_VERSION · Naht ' + inline[inline.length - 1].v + ' → ' + archiv[0].v };
+      return { ok: true, info: inline.length + ' inline (' + kb + ' KB, Deckel ' + DECKEL + ') · ' + archiv.length + ' im Archiv · ' + alle.length + ' zusammen, keine Dublette · GS_RELEASES[0] = ' + inline[0].v + ' = GS_VERSION = sw.js ' + msw[1] + ' = meta ' + mmeta[1] + ' · Naht ' + inline[inline.length - 1].v + ' → ' + archiv[0].v };
     },
   },
   {
