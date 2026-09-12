@@ -4,13 +4,92 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.27` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.28` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-12 (hw) - v33.28: Üben — Lernkarten, die sich merken, was du nicht kannst
+
+Zweiter Teil von Fernandos Satz vom 11.09.: „von den **Resultaten** besser wie
+andere Quizapps". v33.27 hat geklärt, ob die Antwort STIMMT; hier geht es
+darum, ob man etwas LERNT. Wer zufällige Fragen stellt, lässt den Spieler
+dieselben Arten immer wieder richtig beantworten und die schweren nie.
+
+**Was gebaut ist.** „📚 Üben" unter der Tagesfrage: Lernkarten mit fünf
+Leitner-Boxen (1 · 2 · 4 · 8 · 16 Tage). Richtig → eine Stufe höher. Falsch →
+**immer** zurück auf Box 1, nicht eine Stufe: vier Optionen sind 25 % Raten,
+und eine geratene Karte soll die Leiter nicht überleben. Das ist eine Dämpfung,
+keine Garantie, und so steht es auch da.
+
+**Die Rahmung hat eine Messung erzwungen, und das ist der wichtigste Punkt.**
+Die Artenliste hat **kein Bildfeld** — 27 Felder, keines ein Foto. „Üben" kann
+also keine Bilderkennung üben; das ist die Arbeit des Scanners. Die erste Zeile
+im Fenster sagt das. Dasselbe Muster wie `gsAROpen` (v33.05): was die Daten
+nicht hergeben, wird nicht versprochen.
+
+**Der Befund, der den Schnitt gerechtfertigt hat.** `dqBuildQuestion` fällt bei
+zwei Fragetypen auf einen Vorgabewert zurück — `sp.season || 'Ganzjährig'` und
+`sp.habitat || 'Verschiedene Standorte'`. Gemessen am 12.09.2026: `season` steht
+bei **2'902 von 4'337** Einträgen, `habitat` bei **3'386**. Für das Tagesquiz ist
+das ein Rückfall; für eine LERNKARTE wäre es etwas anderes — man lernt
+auswendig, dass ein Feld leer ist, bei **1'435** bzw. **951** Einträgen.
+`_gsTrainingTypOk` stellt einen Typ nur, wenn das Feld da ist. 200 gezogene
+Karten, **0** Verstösse, alle sieben Fragetypen vertreten.
+
+**Getrennt vom Tagesquiz, und der Fall prüft beide Richtungen.** Üben rührt
+`gs_dq_stats`, `quiz_answers` und die Rangliste nicht an — sonst bedeutete die
+Zahl neben dem eigenen Namen nichts mehr. XP klein und mit Tagesdeckel.
+
+**Drei Dinge, die erst der laufende Bau gezeigt hat:**
+
+1. **„1 Karten".** Plural — zwei ganze Sätze statt eines Platzhalters (v32.90).
+2. **„⚠️ Keine bekannten Risiken".** Das Feld `warning` trägt bei **1'612 von
+   2'927** Einträgen das Gegenteil einer Warnung. Ein Dreieck davor macht daraus
+   einen Alarm, der keiner ist — und wer lernt, das Dreieck zu überlesen,
+   überliest auch das echte (dieselbe Lehre wie die vier ständigen
+   Falschmeldungen in v32.21). `_gsWarnungEcht` trennt das; der Satz bleibt
+   stehen, nur ohne Dreieck.
+   **Und die Klasse ist genau eine Stelle gross, nicht fünf.** Ich hatte vier
+   weitere „⚠️ + warning"-Stellen gefunden und wollte sie mitnehmen —
+   nachgesehen: sie lesen REZEPTE und die Wissensdatenbank, nicht die
+   Artenliste, und `openDetail` färbt seinen Kasten nach der Giftstufe. Der
+   Schnitt wäre auf drei fremde Stellen ausgeweitet worden, auf einer falschen
+   Annahme.
+3. **Der Lernstand reiste nur im Snapshot.** Es gibt ZWEI Blob-Bauer: den
+   Sync-Blob (`_gsBuildStateBlob`, geht bei jedem Abgleich raus) und den
+   Snapshot. Der RÜCKweg (`stateMap`) hatte `dq_training` sofort, der HINweg
+   nicht — bei einem gewöhnlichen Gerätewechsel wäre der Lernstand verloren
+   gewesen. Gefunden hat es der eigene Prüfstands-Fall, nicht das Lesen.
+
+**Und zwei NACHBAR-Prüfstände haben genau das gemeldet, was in ihrem Vertrag
+steht** — beide beim ersten vollen Durchlauf, beide mit Namen:
+`i18n_check` fand `quiz_practice`, den `_t`-Schlüssel des neuen „Üben"-Knopfes
+ohne Eintrag in `GS_I18N_JS_STRINGS` (er wäre in allen vier Sprachen dauerhaft
+deutsch geblieben, ohne dass je etwas meldet); `sync_check` fand
+`gs_dq_training` „ungeprüft, weil kein Probewert eingetragen". Beides steht so
+in CLAUDE.md §7.1 — **die Prüfstände ersetzen das Daran-Denken, und genau dafür
+sind sie da.** Nach dem Eintrag: 1'508 Schlüssel statt 1'507, 48 Blob-Schlüssel
+statt 47.
+
+**Prüfstand: `quiz_check` +7 (28 Fälle).** Fünf Gegenproben einzeln gestellt:
+falsch fällt nur eine Stufe → „Box 4 statt 1"; Typ-Prüfung raus → „14 von 200
+Karten auf einem fehlenden Feld"; `dq_training` aus dem Sync-Blob → „nicht im
+Sync-Blob"; Warnzeile ohne Prädikat → „„Keine bekannten Risiken" steht mit ⚠️
+da"; Deckel nach Datum statt Box → siehe unten.
+
+> **Und eine Gegenprobe, die zuerst NICHTS gemessen hat.** Der Deckel-Fall gab
+> allen Karten dasselbe Fälligkeitsdatum. Damit sind „höchste Box zuerst" und
+> „ältestes Datum zuerst" **dieselbe Reihenfolge** — die Gegenprobe mit
+> umgedrehter Regel blieb grün. Jetzt trägt Box 5 das NEUESTE Datum und Box 1
+> das älteste, die beiden Regeln widersprechen sich, und die Gegenprobe kann rot
+> werden. **Ein Fall, dessen zwei denkbare Regeln zufällig dasselbe Ergebnis
+> liefern, prüft keine von beiden.**
+
+---
 
 ### 2026-09-12 (hv) - v33.27: Das Quiz sagt, was stimmt — und der Zeitablauf zählt
 
@@ -12610,7 +12689,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.27` (Client) · SW-Cache `gs-v33.27` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.28` (Client) · SW-Cache `gs-v33.28` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **92'749 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **563 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **12**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **218 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
