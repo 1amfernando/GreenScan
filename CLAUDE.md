@@ -117,7 +117,7 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 33 Prüfstände (§7.1) + pruefstaende.sh (alle 33, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 34 Prüfstände (§7.1) + pruefstaende.sh (alle 34, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -702,12 +702,13 @@ node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nu
 node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
 node scripts/loeschung_check.js  # raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17)
 node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18)
+node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
-bash scripts/pruefstaende.sh     # ALLE 33 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+bash scripts/pruefstaende.sh     # ALLE 34 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1105,6 +1106,32 @@ ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
 der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
 Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
 erst nach der Bestätigung umgestellt.
+
+**`backup_check.js` (seit v33.26) fragt zwei Dinge, die nie jemand gemessen
+hat: WANN ist ein automatisches Backup faellig, und WELCHES ueberlebt die
+Aufbewahrung?** Bis v33.25 gab es fuer die erste Frage ZWEI Regeln, die
+auseinanderliefen — `auto_daily` nach dem Kalendertag (UTC gerechnet),
+`auto_periodic` nach reiner Zeit (> 3 h) — und **keine fragte, ob sich etwas
+geaendert hat.** Wer die App offen liess, bekam alle drei Stunden eine Kopie
+desselben Zustands; wer kuerzer als fuenf Minuten da war, bekam gar nichts
+(der Traeger ist ein 5-Minuten-Intervall). Seit v33.26 gibt es
+**`_gsSnapshotAutoFaellig()`** — eine Regel mit immer einem GRUND, auch wenn
+nichts faellig ist, und der Tag ist der **lokale** (`_gsDayKey`): fuer eine
+Person in der Schweiz wechselte der UTC-Tag um 01:00/02:00 Ortszeit, das
+„Backup von heute" war dann eines von gestern Abend. Wer einen neuen Anlass
+braucht, nimmt einen der fuenf Namen, die der CHECK auf `user_state_snapshots`
+kennt (`auto_daily · auto_periodic · pre_migration · manual · pre_logout`) —
+ein neuer Name ist ein Insert, den der Server ablehnt.
+
+Die zweite Frage hat einen Befund: **`manual` war in der Aufbewahrung nicht
+geschuetzt.** `fn_cleanup_user_snapshots` (v29_28) haelt die 6 neuesten plus
+den je neuesten `pre_migration` / `auto_daily` / `pre_logout` — ausgerechnet
+der Stand, den eine Person selbst angelegt hat, fehlte. Mit „Update ohne
+Klick" (v33.25) entsteht je Auslieferung ein `pre_migration`; am 10.09.2026
+waren das vierzehn an einem Tag. Die Migration
+`20260912_snapshot_retention_manual.sql` schliesst das und ist **nicht
+angewandt** — der Pruefstand rechnet sie in einem lokalen Postgres nach, mit
+Reproduktion (alte Fassung frisst das `manual`) und Gegenprobe.
 
 **`nutzersicht_check.js` (seit v32.70) fragt, was kein anderer fragt: sagt die
 App, was STIMMT, in der Sprache der Person?** (Audit E2–E5, E8.) Fünf Fälle,

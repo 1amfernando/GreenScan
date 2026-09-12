@@ -4,13 +4,83 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.25` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.26` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-12 (hu) - v33.26: Ein Backup je Sitzung — und EINE Regel statt zweier
+
+Zweiter Teil von Fernandos Satz vom 11.09.: „direkt geupdatet **mit dem Backup
+zusammen**, das bei jeder Sitzung wieder aktualisiert wird."
+
+**Was vorher war, nachgemessen:** ZWEI Regeln fuer dieselbe Frage, und sie
+liefen auseinander. `auto_daily` ging nach dem Kalendertag — gerechnet in UTC,
+also wechselte er fuer eine Person in der Schweiz um 01:00/02:00 Ortszeit;
+`auto_periodic` ging nach reiner Zeit (> 3 h seit `gs_snapshot_last`). **Keine
+von beiden fragte, ob sich etwas geaendert hat.** Wer die App offen liess,
+bekam alle drei Stunden eine Kopie desselben Zustands — und die Aufbewahrung
+(6 neueste + je neuester pro Typ, v29_28) schob damit die brauchbaren Staende
+hinaus. Und „je Sitzung" erfuellte keine der beiden: beide haengen am
+5-Minuten-Takt, also bekam eine kuerzere Sitzung gar kein Backup.
+
+**Gebaut:** `_gsSnapshotAutoFaellig()` — EINE Regel mit fuenf Ausgaengen und
+IMMER einem Grund (auch wenn nichts faellig ist):
+
+1. kein Backup vorhanden → faellig (`auto_daily`)
+2. seit dem letzten Backup nichts gepusht → **nicht** faellig („waere eine Kopie")
+3. neuer **lokaler** Kalendertag (`_gsDayKey`) → faellig (`auto_daily`)
+4. letztes Backup aelter als `GS_SNAPSHOT_PERIODE_MS` (3 h) → faellig (`auto_periodic`)
+5. sonst nicht faellig, mit Alter im Grund
+
+`_gsSnapshotAuto(anlass)` ist der eine Ausfuehrer; **drei Aufrufer**: direkt
+nach `_gsInitialSyncDone` (das Backup dieser Sitzung — die frueheste Stelle, an
+der der Zustand vollstaendig ist), der 5-Minuten-Takt, und der Update-Weg aus
+v33.25 fragt dieselbe zweite Stufe. Der Tagesstempel `gs_snapshot_auto_day`
+wird **nur nach einem belegten Snapshot** gesetzt — sagt der Server Nein (0
+Zeilen), bleibt er alt und der naechste Versuch probiert es erneut. Die
+Trigger-Namen bleiben die fuenf, die der CHECK auf `user_state_snapshots`
+kennt; ein neuer Name waere ein Insert, den der Server ablehnt.
+
+**Und ein Befund an der Aufbewahrung:** `manual` war dort NICHT geschuetzt.
+`fn_cleanup_user_snapshots` haelt die 6 neuesten plus den je neuesten
+`pre_migration`/`auto_daily`/`pre_logout` — ausgerechnet der Stand, den eine
+Person selbst angelegt hat, fehlte. Mit „Update ohne Klick" (v33.25) entsteht
+je Auslieferung ein `pre_migration`; am 10.09. waren das vierzehn an einem Tag,
+sechs Plaetze sind dann an einem Nachmittag durchgespuelt. Live gemessen am
+11.09. (nur lesend): 18 `auto_periodic` · 14 `auto_daily` · 11 `pre_migration`
+· **0 `manual`** · 0 `pre_logout`. Ehrlich dazu: 0 kann auch heissen, dass den
+Knopf nie jemand gedrueckt hat — die Luecke ist trotzdem real.
+`supabase/migrations/20260912_snapshot_retention_manual.sql` schliesst sie und
+ist **nicht angewandt** (FUER-FERNANDO §19).
+
+**Pruefstand: `backup_check.js` — der vierunddreissigste.** Zwei Haelften.
+*Aufbewahrung* (lokales Postgres): **Reproduktion** (ein `manual` um 08:00,
+danach zehn Auslieferungen → das `manual` ist weg; ohne diesen Fall misst der
+Rest nichts) · die Migration nachgerechnet (es bleibt) · von jedem Anlass
+ueberlebt der neueste, auch bei vierzig Staenden · Idempotenz · **Gegenprobe**
+(alte Fassung erneut → wieder weg, Migration erneut → wieder da). *App*
+(Playwright, Uhr auf 11.09. 22:30 UTC und Zeitzone Pacific/Auckland, damit
+lokaler Tag 12.09. und UTC-Tag 11.09. auseinanderfallen): die Regel in fuenf
+Zustaenden, jeder mit Grund · das Sitzungs-Backup laeuft nach dem Pull genau
+einmal und der Takt danach legt keine Kopie nach · Server sagt Nein → Stempel
+bleibt alt · der Update-Weg sichert nur bei Aenderung.
+
+**Zwei Gegenproben, je einzeln gestellt:** die Stufe „keine Aenderung"
+entfernt → zwei Fragen rot; den Aufruf nach dem Pull entfernt → das
+Sitzungs-Backup rot.
+
+**Und eine Falle aus dem Bau des Pruefstands:** `select trigger_reason || ':'
+|| count(*) … group by 1` ist kein gueltiges SQL (die Positionsangabe zeigt auf
+einen Ausdruck MIT Aggregat) — und die Fehlermeldung, die im Bericht landete,
+war die LETZTE Zeile der psql-Ausgabe: ein einzelnes `^`. **Eine Meldung, aus
+der niemand etwas ablesen kann, ist keine Meldung**; `letzte()` nimmt jetzt die
+Zeile mit `ERROR`/`FEHLER`.
+
+---
 
 ### 2026-09-11 (ht) - v33.25: Update ohne Klick — an zwei Stellen, an denen niemand liest
 
@@ -12374,11 +12444,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.25` (Client) · SW-Cache `gs-v33.25` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.26` (Client) · SW-Cache `gs-v33.26` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **92'381 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **554 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **217 Migrationen** (12 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **33** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **218 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
+- **Prüfstände:** **34** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -12402,6 +12472,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Edge-Function `sensor-push` | Pusht `sensor_alert`-Inbox-Zeilen (VAPID, Stille, Pause, `notify_sensor`) — im Repo, nicht ausgeliefert (`supabase functions deploy sensor-push`). Ohne ihn landet ein Sensor-Alarm nur in der Inbox. | §11.3k · (ey) |
 | Edge-Function `delete-user` | Neu ausliefern (v5): Sperre für Organisations-Ersteller VOR dem ersten Schritt, Storage je Bucket, `ai_usage` + `species_search_log`, Listen aus `_shared/loeschung_regeln.mjs` (v33.17); davor schon die fünf Gerätetabellen (ey). | (ey), (hl) |
 | Migration `20260910_admin_analytics.sql` | `fn_admin_analytics` — Lese-Seite der Nutzungsmessung (v33.18): zählt je Ereignis und Tag, nur Zahlen, nur für Admins; die Karte „Nutzung" im Admin-Panel sagt bis dahin, dass die Funktion fehlt. | `docs/FUER-FERNANDO.md` §16 · (hm) |
+| Migration `20260912_snapshot_retention_manual.sql` | `manual` ist in `fn_cleanup_user_snapshots` nicht geschützt — ein bewusst angelegtes Cloud-Backup kann von automatischen Ständen verdrängt werden (6 Plätze + je neuester pro Typ). Mit „Update ohne Klick" entsteht je Auslieferung ein `pre_migration`. Live 11.09.: 0 `manual`-Zeilen. | `docs/FUER-FERNANDO.md` §19 · (hu) |
 | Migration `20260910_analytics_retention.sql` | `fn_analytics_prune(p_days)` (klemmt 30..730, nur `service_role`) + Cron `analytics-prune` täglich 03:40 mit 180 Tagen (v33.24); ohne sie wächst `analytics_events` ohne Ende. Die App nennt dieselbe Frist (`GS_ANALYTICS_TAGE`), `nutzung_check` hält beide zusammen. | `docs/FUER-FERNANDO.md` §16 · (hs) |
 | Migration `20260906_device_commands_expires_at.sql` | `device_commands.expires_at` — Vertrag §4, Regel-Modul und Empfänger nennen die Spalte, die Tabelle hatte sie nicht (`naht_check`). Nach `20260903_oekosystem_v1_geraete.sql`. | §11.3n · (fb) |
 | **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. | `docs/FUER-FERNANDO.md` §5 · (ep) |
