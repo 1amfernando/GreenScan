@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.25.20260911">
+<meta name="app-version" content="33.26.20260912">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74697,6 +74697,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.26', date: '12.09.2026',
+      headline: 'Ein Backup je Sitzung — und eine Regel statt zweier',
+      summary: 'Das automatische Backup läuft jetzt direkt nach dem ersten erfolgreichen Abgleich, nicht erst nach fünf Minuten — und nur, wenn sich seither etwas geändert hat. Der Tag ist der eigene, nicht UTC. Eine Migration schützt das bewusst angelegte Backup vor der Aufbewahrung.',
+      user_summary: 'Dein Cloud-Backup ist ab sofort schon kurz nach dem Öffnen aktuell, statt erst nach fünf Minuten. Kopien ohne Änderung legt die App nicht mehr an — damit bleibt Platz für die Stände, die wirklich etwas enthalten.',
+      user_items: [
+        {emoji:'💾', bold:'Früher da:', text:' das Backup dieser Sitzung entsteht direkt nach dem Abgleich beim Start.'},
+        {emoji:'🚫', bold:'Keine Kopien:', text:' ohne Änderung legt die App kein Backup an — das spart die Plätze für echte Stände.'},
+        {emoji:'📅', bold:'Dein Tag:', text:' „einmal am Tag" zählt jetzt deinen Kalendertag, nicht den in London.'}
+      ],
+      items: [
+        {emoji:'🧭', bold:'_gsSnapshotAutoFaellig():', text:' EINE Regel mit fünf Ausgängen und immer einem Grund — kein Backup · keine Änderung (gs_sync_last_push ≤ gs_snapshot_last) · neuer lokaler Tag (_gsDayKey) · älter als drei Stunden · frisch. _gsSnapshotAuto ist der eine Ausführer; der Tagesstempel wird nur nach einem BELEGTEN Snapshot gesetzt.'},
+        {emoji:'🗄', bold:'20260912_snapshot_retention_manual.sql (nicht angewandt):', text:' „manual" kommt in die geschützte Liste von fn_cleanup_user_snapshots — bis dahin konnte ein bewusst angelegtes Backup von automatischen Ständen verdrängt werden (live 11.09.: 18 auto_periodic · 14 auto_daily · 11 pre_migration · 0 manual).'},
+        {emoji:'🧪', bold:'backup_check.js (Prüfstand 34):', text:' Aufbewahrung im lokalen Postgres mit Reproduktion und Gegenprobe (ein manual, zehn Auslieferungen) · die Regel in fünf Zuständen mit gestellter Uhr UND Zeitzone (lokal 12.09. vs UTC 11.09.) · das Sitzungs-Backup nach dem Pull · Server sagt Nein → Stempel bleibt alt.'}
+      ],
+    },
+  {
     v: 'v33.25', date: '11.09.2026',
       headline: 'Updates kommen von selbst — an zwei Stellen, an denen niemand liest',
       summary: 'Ein wartendes Update wird beim Start oder beim Zurückkommen nach fünf Minuten Abwesenheit angewandt, nie mitten in einer Antwort, einem Scan oder einem Fenster. Vorher sichert die App; danach steht derselbe Tab wieder da. Der Banner ist nur noch Rückfall.',
@@ -75189,7 +75205,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.25';
+var GS_VERSION = 'v33.26';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -77136,7 +77152,7 @@ var GS_UPDATE_BANNER_NACH_MS = 30 * 60 * 1000;   // Update erkannt, aber die App
 var GS_UPDATE_PRUEF_COOLDOWN_MS = 10 * 60 * 1000;
 window._gsAiLaufend = window._gsAiLaufend || 0;          // gezaehlt in _gsAiAnfrage (try/finally) — jeder KI-Weg
 window._gsKameraStreams = window._gsKameraStreams || []; // vom getUserMedia-Tor gemerkt — jeder Kamera-Weg
-window._gsUpdate = { reg: null, wartend: null, hatteController: false, eigen: false, fremdOffen: false,
+window._gsUpdate = { reg: null, wartend: null, wartendVersion: null, hatteController: false, eigen: false, fremdOffen: false,
   gesichert: null, erkanntSeit: null, hiddenSeit: null, letztePruefung: null, bannerTimer: null,
   bannerGeschlossen: false, angewandtOhneReload: false };
 // Die Gruende, in der Sprache der Person (Banner-Knopf und Toast). Schluessel
@@ -77240,6 +77256,9 @@ function _gsUpdateSichern(){
     try {
       var last = null, push = null;
       try { last = localStorage.getItem('gs_snapshot_last'); push = localStorage.getItem('gs_sync_last_push'); } catch(_){}
+      // Dieselbe Frage wie _gsSnapshotAutoFaellig Schritt 2 (v33.26): ohne
+      // Aenderung waere auch der pre_migration-Snapshot eine Kopie — und er
+      // verdraengt in der Aufbewahrung einen Stand, der etwas enthaelt.
       var noetig = !last || (!!push && String(push) > String(last));   // ISO-Zeitstempel, lexikalisch vergleichbar
       if (noetig && typeof gsSnapshotCreate === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
         Promise.resolve(gsSnapshotCreate('pre_migration')).then(function(id){ window._gsUpdate.gesichert = !!id; ende(); }).catch(ende);
@@ -77267,7 +77286,7 @@ async function gsUpdateAnwenden(weg){
   if (!sw) return { ok: false, grund: 'kein-worker' };
   var r = _gsAppRuhig();
   if (!r.ruhig) return { ok: false, grund: r.grund };
-  var nach = String((await _gsWorkerVersion(sw)) || '').replace(/^gs-/, '');
+  var nach = String(u.wartendVersion || (await _gsWorkerVersion(sw)) || '').replace(/^gs-/, '');
   var n = _gsUpdateVersuch(nach || '?');
   if (n > 1 && weg !== 'klick') { _gsUpdateBannerZeigen('loop'); return { ok: false, grund: 'loop' }; }
   await _gsUpdateSichern();
@@ -77294,7 +77313,13 @@ async function gsUpdateAnwenden(weg){
 window.gsUpdateAnwenden = gsUpdateAnwenden;
 function _gsUpdateErkannt(sw){
   var u = window._gsUpdate;
-  u.wartend = sw; u.erkanntSeit = performance.now();
+  u.wartend = sw; u.erkanntSeit = performance.now(); u.wartendVersion = null;
+  // v33.26: die Zielversion JETZT holen, nicht erst beim Anwenden. Ein
+  // wartender Worker antwortet erst, wenn er dran ist; auf einem langsamen
+  // Geraet kostete das beim Anwenden bis zu sechs Sekunden, in denen nichts
+  // geschah. Hier stoert es niemanden — das Update wird ohnehin erst spaeter
+  // angewandt.
+  try { _gsWorkerVersion(sw).then(function(v){ if (u.wartend === sw) u.wartendVersion = v; }); } catch(_){}
   // Jetzt sichern (die App ist sichtbar und ruhig) — angewandt wird beim
   // naechsten Zurueckkommen oder Start.
   try { if (!document.hidden && _gsAppRuhig().ruhig) _gsUpdateSichern(); } catch(_){}
@@ -77458,6 +77483,7 @@ function gsRegisterServiceWorker() {
         // etwas tut (das Praedikat prueft trotzdem).
         if (reg.waiting && navigator.serviceWorker.controller) {
           u.wartend = reg.waiting;
+          try { _gsWorkerVersion(reg.waiting).then(function(v){ if (u.wartend === reg.waiting) u.wartendVersion = v; }); } catch(_){}
           gsUpdateAnwenden('boot');
         }
         // …und war der letzte Reload ein Update? Dann Tab zurueck, Toast, Ereignis.
@@ -82068,6 +82094,11 @@ async function gsSyncUserDataOnLogin(){
     console.log('[gsSync] complete cross-device sync done for', uid);
     // v27.01: nach erfolgreichem Pull eventuell zurückgehaltene Repair-Pushes ausführen
     try { if (window.gsCloudSync && gsCloudSync.flushNow) gsCloudSync.flushNow(); } catch(_){}
+    // v33.26: das Backup DIESER Sitzung — hier und nicht im 5-Minuten-Takt.
+    // Dies ist die frueheste Stelle, an der der Zustand vollstaendig ist: der
+    // Pull ist durch (sonst sicherte man den halben Stand des Geraets), und die
+    // Regel entscheidet selbst, ob heute schon eines existiert.
+    try { if (typeof _gsSnapshotAuto === 'function') _gsSnapshotAuto('sitzung'); } catch(_){}
   } catch(e){ console.warn('[gsSyncUserDataOnLogin]', e); }
   finally {
     // v29.45: Race-Guards nesting-safe zurücksetzen — gilt für ALLE Pull-Pfade (Boot/Login/Visibility)
@@ -83263,7 +83294,68 @@ function _gsSetupConstantSync(){
 }
 window._gsSetupConstantSync = _gsSetupConstantSync;
 
-// Auto-Sync alle 5 Min: Flush + 1×/Tag auto_daily-Snapshot + Status-Indikator. Idempotent.
+// v33.26 ═══ EIN BACKUP JE SITZUNG ══════════════════════════════════════
+// Bis v33.25 gab es ZWEI Regeln fuer dieselbe Frage — „ist ein automatisches
+// Backup faellig?" — und sie liefen auseinander:
+//   auto_daily nach dem KALENDERTAG (gs_snapshot_auto_day, UTC gerechnet)
+//   auto_periodic nach reiner ZEIT (> 3 h seit gs_snapshot_last)
+// Keine der beiden fragte, ob sich ueberhaupt etwas GEAENDERT hat. Wer die App
+// offen liess, bekam alle drei Stunden eine Kopie desselben Zustands — und die
+// Aufbewahrung (6 neueste + je neuester pro Typ, v29_28) schob damit die
+// brauchbaren Staende hinaus. Und Fernandos Wunsch („ein Backup, das jede
+// Sitzung aktualisiert wird") erfuellte keine: der 5-Minuten-Takt greift
+// fruehestens fuenf Minuten nach dem Start — wer kuerzer da ist, bekam nie
+// eines.
+//
+// Die eine Regel, in dieser Reihenfolge. Sie gibt IMMER einen Grund zurueck,
+// auch wenn nichts faellig ist (eine Anzeige, die etwas behauptet, muss sagen
+// koennen, woher sie es weiss):
+//   1. kein Backup vorhanden            → faellig (auto_daily)
+//   2. seit dem letzten Backup NICHTS gepusht → nicht faellig (waere eine Kopie)
+//   3. neuer Kalendertag (LOKAL, _gsDayKey) → faellig (auto_daily)
+//   4. letztes Backup aelter als GS_SNAPSHOT_PERIODE_MS → faellig (auto_periodic)
+//   sonst nicht faellig.
+// Der Tag ist bewusst der LOKALE (_gsDayKey): fuer eine Person in der Schweiz
+// wechselte der UTC-Tag um 01:00/02:00 Ortszeit — das „Backup von heute" war
+// dann eines von gestern Abend.
+// Die Trigger-Namen bleiben die der Datenbank (CHECK auf user_state_snapshots
+// kennt nur auto_daily · auto_periodic · pre_migration · manual · pre_logout) —
+// ein neuer Name waere ein Insert, den der Server ablehnt.
+var GS_SNAPSHOT_PERIODE_MS = 3 * 3600 * 1000;
+function _gsSnapshotAutoFaellig(){
+  var last = null, autoDay = null, push = null;
+  try { last = localStorage.getItem('gs_snapshot_last'); } catch(_){}
+  try { autoDay = localStorage.getItem('gs_snapshot_auto_day'); } catch(_){}
+  try { push = localStorage.getItem('gs_sync_last_push'); } catch(_){}
+  var heute = (typeof _gsDayKey === 'function') ? _gsDayKey() : new Date().toISOString().slice(0, 10);
+  if (!last) return { faellig: true, trigger: 'auto_daily', tag: heute, grund: 'noch kein Backup' };
+  // Ein Backup ohne Aenderung ist eine Kopie — und verdraengt die Aufbewahrung.
+  if (!push || String(push) <= String(last)) return { faellig: false, trigger: null, tag: heute, grund: 'keine Aenderung seit dem letzten Backup' };
+  if (autoDay !== heute) return { faellig: true, trigger: 'auto_daily', tag: heute, grund: 'erstes Backup heute' };
+  var alterMs = Date.now() - new Date(last).getTime();
+  if (!(alterMs >= 0)) return { faellig: true, trigger: 'auto_periodic', tag: heute, grund: 'Zeitstempel unbrauchbar' };
+  if (alterMs > GS_SNAPSHOT_PERIODE_MS) return { faellig: true, trigger: 'auto_periodic', tag: heute, grund: 'letztes Backup vor ' + Math.round(alterMs / 3600000) + ' h' };
+  return { faellig: false, trigger: null, tag: heute, grund: 'letztes Backup vor ' + Math.round(alterMs / 60000) + ' min' };
+}
+window._gsSnapshotAutoFaellig = _gsSnapshotAutoFaellig;
+// Der EINE Ausfuehrer. Drei Aufrufer: nach dem ersten erfolgreichen Pull
+// (das Backup dieser Sitzung), der 5-Minuten-Takt, und der Update-Weg fragt
+// dieselbe Regel ueber _gsUpdateSichern. `anlass` steht nur im Protokoll.
+function _gsSnapshotAuto(anlass){
+  var f = _gsSnapshotAutoFaellig();
+  window._gsSnapshotZuletztGeprueft = { anlass: anlass || '?', faellig: f.faellig, trigger: f.trigger, grund: f.grund };
+  if (!f.faellig) return Promise.resolve(null);
+  if (typeof gsSnapshotCreate !== 'function') return Promise.resolve(null);
+  return Promise.resolve(gsSnapshotCreate(f.trigger)).then(function(id){
+    // Der Tagesstempel wird NUR nach einem belegten Snapshot gesetzt — sonst
+    // faellt das Tages-Backup aus, ohne dass eines existiert.
+    if (id && f.trigger === 'auto_daily') { try { localStorage.setItem('gs_snapshot_auto_day', f.tag); } catch(_){} }
+    return id || null;
+  }).catch(function(){ return null; });
+}
+window._gsSnapshotAuto = _gsSnapshotAuto;
+
+// Auto-Sync alle 5 Min: Flush + Backup nach der EINEN Regel + Status-Indikator. Idempotent.
 function _gsSnapshotSetupAutoSync(){
   if (window._gsAutoSyncSetup) return;
   window._gsAutoSyncSetup = true;
@@ -83277,22 +83369,9 @@ function _gsSnapshotSetupAutoSync(){
         // v30.47 (Rhythmus): durable Offline-Queue periodisch leeren — vorher nur bei online-Event/Boot/Reload.
         // Deckt jetzt auch online-fehlgeschlagene Scans (v30.47 Fix) ab → „gescannte Sachen" werden zuverlässig nachgepusht.
         try { if (navigator.onLine && typeof window.gsFlushOfflineQueue === 'function') window.gsFlushOfflineQueue(); } catch(_){}
-        // 1× pro Tag einen auto_daily-Snapshot
-        var today = new Date().toISOString().slice(0,10);
-        var last = null; try { last = localStorage.getItem('gs_snapshot_auto_day'); } catch(_){}
-        if (last !== today) {
-          gsSnapshotCreate('auto_daily').then(function(id){
-            if (id) { try { localStorage.setItem('gs_snapshot_auto_day', today); } catch(_){} }
-          });
-        }
-        // v29.27 konstanteres Backup: zusätzlich alle ~3h ein Snapshot (immer ein frischer
-        // Wiederherstellungspunkt; server-seitig auf 3/User gekappt → rotiert von selbst).
-        try {
-          var snapLast = localStorage.getItem('gs_snapshot_last');
-          if (!snapLast || (Date.now() - new Date(snapLast).getTime()) > 3*3600*1000) {
-            gsSnapshotCreate('auto_periodic');
-          }
-        } catch(_){}
+        // v33.26: EINE Regel statt zweier (_gsSnapshotAutoFaellig) — Tages-Backup,
+        // periodisches Backup und „nur bei Aenderung" stehen dort zusammen.
+        try { _gsSnapshotAuto('takt'); } catch(_){}
         _gsUpdateSyncStatusEl();
       } catch(_){}
     }, 300000); // 5 Min

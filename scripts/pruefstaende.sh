@@ -6,7 +6,7 @@
 #
 # Playwright: $GS_PW (Pfad zum playwright-Modul) — in CI scripts/node_modules/playwright,
 # in der Claude-Cloud /opt/node22/lib/node_modules/playwright (Vorgabe in den Pruefstaenden).
-# Postgres (quiz_check, schluessel_check): $GS_PG_URL, sonst 127.0.0.1:54329 (scripts/_pg_local.sh).
+# Postgres (quiz_check, schluessel_check, nutzung_check, backup_check): $GS_PG_URL, sonst 127.0.0.1:54329 (scripts/_pg_local.sh).
 # Ohne Postgres melden diese beiden „nicht pruefbar" (Exit 2) — hier gilt das als Warnung, nicht als rot.
 set -u
 cd "$(dirname "$0")/.."
@@ -53,6 +53,7 @@ run robust       node scripts/robust_check.js
 run quiz         node scripts/quiz_check.js
 run schluessel   node scripts/schluessel_check.js
 run nutzung      node scripts/nutzung_check.js
+run backup       node scripts/backup_check.js
 run nutzersicht  node scripts/nutzersicht_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js

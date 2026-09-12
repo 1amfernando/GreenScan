@@ -582,7 +582,7 @@ function server(wunschPort) {
     await q.evaluate(() => { try { switchTab('wissen'); } catch (_) {} });
     await q.waitForTimeout(400);
     const navQvor = navQ, navZvor = navZ;
-    const nachher = q.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).then(() => true).catch(() => false);
+    const nachher = q.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 40000 }).then(() => true).catch(() => false);
     try { await q.evaluate(() => { window._gsUpdate.hiddenSeit = performance.now() - 6 * 60 * 1000; window._gsUpdateBeiRueckkehr(); }); } catch (_) {}
     const geladen = await nachher;
     await q.waitForTimeout(4000);
@@ -613,8 +613,12 @@ function server(wunschPort) {
     for (let i = 0; i < 40 && !wartet2; i++) { await q.waitForTimeout(500); wartet2 = await q.evaluate(() => !!(window._gsSwReg && window._gsSwReg.waiting)); }
     const navQ2 = navQ;
     await q.evaluate(() => { window._gsUpdate.hiddenSeit = performance.now() - 6 * 60 * 1000; window._gsUpdateBeiRueckkehr(); });
+    // 40 Versuche (20 s): das Anwenden holt notfalls die Worker-Version (2 × 3 s)
+    // und sichert (bis 2,5 s), bevor SKIP_WAITING geht. Eine Wartefrist, die
+    // KUERZER ist als das Budget der gemessenen Funktion, meldet unter Last rot,
+    // ohne dass etwas kaputt waere — genau das ist hier zweimal passiert.
     let ohne = false;
-    for (let i = 0; i < 20 && !ohne; i++) { await q.waitForTimeout(500); ohne = await q.evaluate(() => !!(window._gsUpdate && window._gsUpdate.angewandtOhneReload)).catch(() => false); }
+    for (let i = 0; i < 40 && !ohne; i++) { await q.waitForTimeout(500); ohne = await q.evaluate(() => !!(window._gsUpdate && window._gsUpdate.angewandtOhneReload)).catch(() => false); }
     const keinWarten = await q.evaluate(() => !(window._gsSwReg && window._gsSwReg.waiting)).catch(() => false);
     melde('Gleiche Version, neuer Worker: umschalten ohne Reload (die HTML ist schon neu)', wartet2 && ohne && keinWarten && navQ === navQ2,
           wartet2 ? ('angewandtOhneReload ' + ohne + ' · waiting danach ' + !keinWarten + ' · Navigationen +' + (navQ - navQ2)) : 'kein wartender Worker nach 20 s');

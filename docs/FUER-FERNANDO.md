@@ -807,6 +807,29 @@ passieren darf: ein Reload, während du gerade etwas tippst oder ein Scan-Foto
 offen ist. Wenn du etwas anderes siehst: Version (Einstellungen → Über) und
 was auf dem Bildschirm war, und ich baue den iOS-Zweig danach.
 
+## 19 · Eine Migration für das Backup (v33.26)
+
+`supabase/migrations/20260912_snapshot_retention_manual.sql` — **nicht
+angewandt**, wie alle anderen. Sie ändert genau eine Funktion:
+`fn_cleanup_user_snapshots` schützt künftig auch `manual`.
+
+**Warum:** die Aufbewahrung hält je Nutzer sechs Stände plus den je neuesten
+`pre_migration` / `auto_daily` / `pre_logout`. Ein Backup, das du selbst
+angelegt hast („Cloud-Backup & Sync" → tippen), steht in dieser Liste nicht —
+und seit v33.25 entsteht bei jeder Auslieferung ein `pre_migration`. Am
+10.09. waren das vierzehn an einem Tag.
+
+**Anwenden** (im SQL-Editor, die Datei ganz einfügen) und danach nachsehen:
+
+```sql
+select pg_get_functiondef('public.fn_cleanup_user_snapshots'::regproc)
+       like '%''manual''%' as manual_geschuetzt;   -- erwartet: t
+```
+
+Es wird dabei nichts gelöscht und nichts angelegt — nur die Funktion ersetzt.
+`node scripts/backup_check.js` rechnet dieselbe Regel vorher in einem lokalen
+Postgres nach.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier
