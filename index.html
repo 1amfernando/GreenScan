@@ -77152,7 +77152,7 @@ var GS_UPDATE_BANNER_NACH_MS = 30 * 60 * 1000;   // Update erkannt, aber die App
 var GS_UPDATE_PRUEF_COOLDOWN_MS = 10 * 60 * 1000;
 window._gsAiLaufend = window._gsAiLaufend || 0;          // gezaehlt in _gsAiAnfrage (try/finally) — jeder KI-Weg
 window._gsKameraStreams = window._gsKameraStreams || []; // vom getUserMedia-Tor gemerkt — jeder Kamera-Weg
-window._gsUpdate = { reg: null, wartend: null, hatteController: false, eigen: false, fremdOffen: false,
+window._gsUpdate = { reg: null, wartend: null, wartendVersion: null, hatteController: false, eigen: false, fremdOffen: false,
   gesichert: null, erkanntSeit: null, hiddenSeit: null, letztePruefung: null, bannerTimer: null,
   bannerGeschlossen: false, angewandtOhneReload: false };
 // Die Gruende, in der Sprache der Person (Banner-Knopf und Toast). Schluessel
@@ -77286,7 +77286,7 @@ async function gsUpdateAnwenden(weg){
   if (!sw) return { ok: false, grund: 'kein-worker' };
   var r = _gsAppRuhig();
   if (!r.ruhig) return { ok: false, grund: r.grund };
-  var nach = String((await _gsWorkerVersion(sw)) || '').replace(/^gs-/, '');
+  var nach = String(u.wartendVersion || (await _gsWorkerVersion(sw)) || '').replace(/^gs-/, '');
   var n = _gsUpdateVersuch(nach || '?');
   if (n > 1 && weg !== 'klick') { _gsUpdateBannerZeigen('loop'); return { ok: false, grund: 'loop' }; }
   await _gsUpdateSichern();
@@ -77313,7 +77313,13 @@ async function gsUpdateAnwenden(weg){
 window.gsUpdateAnwenden = gsUpdateAnwenden;
 function _gsUpdateErkannt(sw){
   var u = window._gsUpdate;
-  u.wartend = sw; u.erkanntSeit = performance.now();
+  u.wartend = sw; u.erkanntSeit = performance.now(); u.wartendVersion = null;
+  // v33.26: die Zielversion JETZT holen, nicht erst beim Anwenden. Ein
+  // wartender Worker antwortet erst, wenn er dran ist; auf einem langsamen
+  // Geraet kostete das beim Anwenden bis zu sechs Sekunden, in denen nichts
+  // geschah. Hier stoert es niemanden — das Update wird ohnehin erst spaeter
+  // angewandt.
+  try { _gsWorkerVersion(sw).then(function(v){ if (u.wartend === sw) u.wartendVersion = v; }); } catch(_){}
   // Jetzt sichern (die App ist sichtbar und ruhig) — angewandt wird beim
   // naechsten Zurueckkommen oder Start.
   try { if (!document.hidden && _gsAppRuhig().ruhig) _gsUpdateSichern(); } catch(_){}
@@ -77477,6 +77483,7 @@ function gsRegisterServiceWorker() {
         // etwas tut (das Praedikat prueft trotzdem).
         if (reg.waiting && navigator.serviceWorker.controller) {
           u.wartend = reg.waiting;
+          try { _gsWorkerVersion(reg.waiting).then(function(v){ if (u.wartend === reg.waiting) u.wartendVersion = v; }); } catch(_){}
           gsUpdateAnwenden('boot');
         }
         // …und war der letzte Reload ein Update? Dann Tab zurueck, Toast, Ereignis.
