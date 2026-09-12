@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.26.20260912">
+<meta name="app-version" content="33.27.20260912">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12487,6 +12487,22 @@ var _dqStartTime = 0;
 var _dqTimerInterval = null;
 var _dqOpen = false;
 
+// v33.27: der Quiz-Tag ist UTC (siehe dqDayKey weiter unten, dort ausfuehrlich
+// begruendet) — der Countdown im Teaser rechnete aber bis zur LOKALEN
+// Mitternacht und stand in der Schweiz zwei Stunden zu frueh auf null, waehrend
+// zwei andere Anzeigen „morgen um Mitternacht" dazu sagten. Die neue Frage
+// kommt um 01:00 (Winter) bzw. 02:00 (Sommer) Ortszeit. EINE Stelle rechnet das
+// jetzt, und sie nennt die ORTSZEIT, damit niemand selbst umrechnen muss.
+function dqNaechsteFrage() {
+  var jetzt = new Date();
+  var d = new Date(Date.UTC(jetzt.getUTCFullYear(), jetzt.getUTCMonth(), jetzt.getUTCDate() + 1, 0, 0, 0, 0));
+  var ms = Math.max(0, d - jetzt);
+  var zeit = '00:00';
+  try { zeit = d.toLocaleTimeString((typeof gsLocale === 'function') ? gsLocale() : 'de-CH', { hour: '2-digit', minute: '2-digit' }); } catch (_) {}
+  return { ms: ms, std: Math.floor(ms / 3600000), min: Math.floor((ms % 3600000) / 60000), zeit: zeit, datum: d };
+}
+window.dqNaechsteFrage = dqNaechsteFrage;
+
 // Tages-Seed: deterministisch aus Datum
 function dqDaySeed(dateStr) {
   var s = 0;
@@ -12517,8 +12533,45 @@ function dqDaySeed(dateStr) {
 function dqDayKey() {
   return new Date().toISOString().slice(0,10);
 }
+// v33.27: hiess bis dahin `gs_dq_<datum>`. Zwei Dinge waren daran falsch, und
+// beide haengen am NAMEN.
+// (1) Der Schluessel stand in KEINER der vier Listen — nicht in GS_USER_KEYS,
+//     nicht in GS_USER_PREFIXES, nicht in GS_KEEP_ON_LOGOUT/GS_KEEP_PREFIXES.
+//     Er ueberlebte also das Abmelden, und `openDailyQuiz` hat einen LOKALEN
+//     Fast-Path ganz oben (vor jeder Server-Pruefung): die naechste Person am
+//     selben Geraet sah das Ergebnis der vorigen und durfte nicht spielen.
+//     Ein Praefix `gs_dq_` war nicht zu haben — damit faengt auch `gs_dq_stats`
+//     an (geht beim Abmelden MIT) und `gs_dq_today_cache` (bleibt BEWUSST).
+// (2) Es entstand EIN Schluessel JE TAG, und `dqSaveToday` legt Frage, richtige
+//     Antwort und ein Arten-Objekt hinein. Entfernt hat nie jemand einen:
+//     `removeItem` kam im ganzen Quiz-Bereich nicht vor. Zwei Jahre taeglich
+//     sind rund 730 Stueck in einem 5-MB-Speicher.
+var GS_DQ_TAGE_MAX = 30;
+// Der Altbestand unter dem alten Namen. Bewusst KEIN Praefix in
+// `GS_USER_PREFIXES`: `gs_dq_` faengt auch `gs_dq_stats` (steht in
+// GS_USER_KEYS, geht mit) und `gs_dq_today_cache` (steht in
+// GS_KEEP_ON_LOGOUT, bleibt bewusst) — ein Praefix waere also entweder zu
+// weit oder gelogen. Ein Datum ist die genaue Form, also prueft eine Form.
+var GS_DQ_ALT = /^gs_dq_\d{4}-\d{2}-\d{2}$/;
 function dqTodayKey() {
-  return 'gs_dq_' + dqDayKey();
+  return 'gs_dq_tag_' + dqDayKey();
+}
+function _dqTageAufraeumen() {
+  var weg = [];
+  try {
+    var heute = dqDayKey();
+    var d = new Date(heute + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - GS_DQ_TAGE_MAX);
+    var grenze = d.toISOString().slice(0, 10);
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (!k) continue;
+      if (GS_DQ_ALT.test(k)) { weg.push(k); continue; }   // Altbestand, liest niemand mehr
+      if (k.indexOf('gs_dq_tag_') === 0 && k.slice(10) < grenze) weg.push(k);
+    }
+    weg.forEach(function(k){ try { localStorage.removeItem(k); } catch(_){} });
+  } catch(_){}
+  return weg.length;
 }
 function dqGetToday() {
   try { return JSON.parse(localStorage.getItem(dqTodayKey()) || 'null'); } catch(e) { return null; }
@@ -12541,8 +12594,57 @@ function dqSaveToday(data) {
       };
     }
     localStorage.setItem(dqTodayKey(), JSON.stringify(enriched));
+    _dqTageAufraeumen();
   } catch(e) {}
 }
+// ═══ Serie und Jahreswechsel — EINE Regel (v33.27) ═══════════════════════════
+// Vorher zaehlte `stats.streak++` je RICHTIGER Antwort und kannte keine
+// Tagesluecke, waehrend neun Anzeigen „N Tage" danebenschrieben: wer Montag und
+// Dienstag spielte, zwei Wochen aussetzte und dann richtig antwortete, las
+// „3 Tage". Und `dqYearlyReset` hatte GENAU einen Aufrufer — den lokalen
+// Rueckfall `answerDailyQuiz`. Der normale Weg (Serverfrage) und der
+// Zeitablauf kamen nie dorthin, fuer fast jeden lief der Jahreswechsel also nie.
+// Der Tag ist ueberall im Quiz derselbe: dqDayKey(), also UTC.
+function dqTagDavor(key) {
+  var d = new Date(key + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+// Die LEBENDE Serie. Wer gestern zuletzt richtig lag, haelt sie noch; wer
+// davor, hat sie verloren — eine Anzeige, die einfach `stats.streak` liest,
+// behauptet eine Serie, die es nicht mehr gibt. Altbestand ohne `lastDay`
+// bleibt unangetastet (sein naechster Treffer stempelt den Tag).
+function dqSerie(stats) {
+  stats = stats || dqGetStats();
+  var n = stats.streak | 0;
+  if (n <= 0) return 0;
+  if (!stats.lastDay) return n;
+  var heute = dqDayKey();
+  return (stats.lastDay === heute || stats.lastDay === dqTagDavor(heute)) ? n : 0;
+}
+// Der eine Buchungsweg: Jahreswechsel, Serie, Treffer, Versuch. Gibt die
+// Statistik zurueck — gespeichert wird beim Aufrufer, der die Punkte noch
+// dazurechnet.
+function dqStatsBuchen(correct) {
+  var stats = dqGetStats();
+  var heute = dqDayKey();
+  var jahr = parseInt(heute.slice(0, 4), 10);
+  if (stats.year && stats.year !== jahr) { dqYearlyReset(stats); stats = dqGetStats(); }
+  stats.year = jahr;
+  if (correct) {
+    stats.correct = (stats.correct | 0) + 1;
+    stats.streak = (stats.lastDay === heute) ? Math.max(1, stats.streak | 0) : dqSerie(stats) + 1;
+    stats.bestStreak = Math.max(stats.bestStreak | 0, stats.streak);
+  } else {
+    stats.streak = 0;
+  }
+  stats.lastDay = heute;
+  stats.total = (stats.total | 0) + 1;
+  return stats;
+}
+window.dqSerie = dqSerie;
+window.dqStatsBuchen = dqStatsBuchen;
+
 function dqGetStats() {
   try { return JSON.parse(localStorage.getItem('gs_dq_stats') || '{"points":0,"correct":0,"total":0,"streak":0,"bestStreak":0,"year":'+new Date().getFullYear()+'}'); } catch(e) { return {points:0,correct:0,total:0,streak:0,bestStreak:0,year:new Date().getFullYear()}; }
 }
@@ -12915,6 +13017,14 @@ function dqHabitatBucket(h) {
 }
 
 function dqBuildQuestion(sp, typeIdx, others) {
+  // v33.27: das Quiz WERTET — Giftstufe (Typ 2) und Essbarkeit (Typ 5) kommen
+  // deshalb von der ART, nicht vom angetippten Eintrag. v32.93 hat das fuer
+  // `initQuiz` und das Mini-Quiz getan; diese Funktion blieb zurueck, und mit
+  // ihr BEIDE Aufrufer: die Ersatzfrage des Tagesquiz und jede Battle-Frage.
+  // Die Zeile steht ganz oben, damit kein Zweig darunter den rohen Eintrag
+  // sieht — und sie deckt jeden kuenftigen Aufrufer mit ab. Name, lat, cat,
+  // season und habitat bleiben die des Eintrags; _gsArtAnzeige ruehrt sie nicht an.
+  if (typeof _gsArtAnzeige === 'function') sp = _gsArtAnzeige(sp);
   var types = [
     // 0: Name erraten
     function() {
@@ -13104,6 +13214,15 @@ function openDailyQuiz() {
 
 // v24.33: Lokaler Fallback (alte Logik)
 function _openDailyQuizLocal() {
+  // v33.27: die Ersatzfrage hat KEINE Server-Id. `window._dqSupaQuizId` wird
+  // an genau einer Stelle gesetzt (openDailyQuizFromSupa) und wurde nie wieder
+  // geraeumt — seit der Zeitablauf sendet (siehe _dqAntwortSenden), waere das
+  // eine Zeile fuer die FALSCHE Frage: wer heute die Serverfrage oeffnet, sie
+  // ungeloest schliesst und danach in derselben Sitzung auf die Ersatzfrage
+  // faellt (RPC antwortet nicht mehr), hinterliesse beim Zeitablauf einen
+  // Fehlversuch an einer Frage, die er nie beantwortet hat — und waere damit
+  // fuer sie gesperrt. Die Ersatzfrage raeumt die Id deshalb selbst.
+  window._dqSupaQuizId = null;
   // ── Supabase-Quiz bevorzugen, falls schon geladen ──────────────────────────
   // v30.32: auch im lokalen Fallback alle 3 Shapes normalisieren (answers-shape kam sonst nicht durch)
   var _sqLocal = _gsQuizToSupaShape(window._gsTodayQuiz);
@@ -13173,8 +13292,9 @@ function _openDailyQuizLocal() {
   qEl.textContent = qData.q;
   if (hintEl) { hintEl.textContent = qData.hint || ''; hintEl.style.display = qData.hint ? 'block' : 'none'; }
   if (stEl) {
-    stEl.innerHTML = stats.streak > 0
-      ? '🔥 ' + stats.streak + ' Tage Streak · ' + stats.points + ' Punkte'
+    var _serie = (typeof dqSerie === 'function') ? dqSerie(stats) : (stats.streak | 0);
+    stEl.innerHTML = _serie > 0
+      ? '🔥 ' + _serie + ' Tage Streak · ' + stats.points + ' Punkte'
       : '🎯 ' + new Date().toLocaleDateString(gsLocale(), {day:'numeric',month:'long'});
   }
 
@@ -13249,25 +13369,10 @@ function answerDailyQuiz(btn) {
     b.style.cursor = 'default';
   });
 
-  // Punkte
-  var stats = dqGetStats();
-  if (correct) {
-    stats.correct++;
-    stats.streak++;
-    stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
-  } else {
-    stats.streak = 0;
-  }
-  stats.total++;
+  // Punkte — Serie, Versuch und Jahreswechsel kommen aus dqStatsBuchen (v33.27)
+  var stats = dqStatsBuchen(correct);
   var pts = dqCalcPoints(correct, timeUsed, stats.streak);
   stats.points = (stats.points || 0) + pts;
-  // Jahres-Reset
-  var thisYear = new Date().getFullYear();
-  if (stats.year && stats.year !== thisYear) {
-    // Jahresabschluss: Top-3 würden hier belohnt (Supabase)
-    dqYearlyReset(stats);
-    stats = dqGetStats();
-  }
   dqSaveStats(stats);
 
   // Heute speichern
@@ -13283,7 +13388,7 @@ function answerDailyQuiz(btn) {
           '<div style="font-size:var(--fs-4xl);margin-bottom:6px;">🎉</div>' +
           '<div style="font-size:var(--fs-lg);font-weight:900;color:#a5d6a7;margin-bottom:4px;">Richtig!</div>' +
           '<div style="font-size:var(--fs-md);color:rgba(255,255,255,.8);">+' + pts + ' Punkte' +
-            (stats.streak > 1 ? ' · 🔥 ' + stats.streak + ' Tage Streak!' : '') + '</div>' +
+            (stats.streak > 1 ? ' · 🔥 ' + stats.streak + ' Tage Streak!' : '') + '</div>' +  // frisch gebucht = lebendig
         '</div>'
       : '<div style="text-align:center;padding:8px 0;">' +
           '<div style="font-size:var(--fs-4xl);margin-bottom:6px;">😔</div>' +
@@ -13315,7 +13420,14 @@ function dqYearlyReset(oldStats) {
     try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
   } catch(e) {}
   // Neue Statistik
-  var fresh = {points:0, correct:0, total:0, streak:oldStats.streak, bestStreak:oldStats.bestStreak, year: new Date().getFullYear()};
+  // v33.27: `lastDay` MUSS mit. Die Serie soll den Jahreswechsel ueberleben
+  // (darum `streak: oldStats.streak`) — ohne den Tagesstempel faellt sie
+  // danach aber in den Altbestands-Zweig von `dqSerie`, und eine laengst
+  // gerissene Serie waere am 1. Januar wieder lebendig: einmal im Jahr genau
+  // der Fehler, den dieser Schnitt behebt. Das Jahr kommt aus dem Quiz-Tag,
+  // nicht aus der Ortszeit — sonst rechnen zwei Stellen verschieden.
+  var fresh = {points:0, correct:0, total:0, streak:oldStats.streak, bestStreak:oldStats.bestStreak,
+               lastDay: oldStats.lastDay, year: parseInt(dqDayKey().slice(0, 4), 10)};
   dqSaveStats(fresh);
   // Top-3 Belohnung: Supabase
   if (typeof dqPushToSupabase === 'function') setTimeout(function(){ dqPushToSupabase({yearEnd: true, year: year}); }, 1000);
@@ -13361,11 +13473,12 @@ function dqTimeout() {
     var rankBtn = document.getElementById('dq-ranking-btn');
     if (rankBtn) rankBtn.style.display = 'block';
   }
-  var stats = dqGetStats();
-  stats.streak = 0;
-  stats.total++;
+  var stats = dqStatsBuchen(false);
   dqSaveStats(stats);
   dqSaveToday({ answered: true, correct: false, points: 0, timeMs: 20000, timeout: true });
+  // v33.27: der Zeitablauf erreicht den Server jetzt auch — sonst ist er auf
+  // einem zweiten Geraet ein Freiversuch (siehe _dqAntwortSenden).
+  _dqAntwortSenden(false, -1);
   if (typeof dqPushToSupabase === 'function') setTimeout(function(){ dqPushToSupabase(stats); }, 500);
   setTimeout(function(){ if (_dqOpen) closeDailyQuiz(); }, 4000);
   document.removeEventListener('visibilitychange', dqOnVisibilityChange);
@@ -13418,7 +13531,15 @@ function openDailyQuizFromSupa(quiz) {
   _dqAnswered = false;
   _dqTimeLeft = 20;
   _dqStartTime = Date.now();
-  window._dqSupaQuizId = quiz.id;
+  // v33.27: NUR eine echte Server-Id. Dieselbe Anzeige rendert auch den
+  // Rueckfall `GS_QUIZ_FALLBACK_POOL` (50 kuratierte Fragen mit den Ids
+  // `lq1`…`lq50`), der einspringt, sobald die RPC nicht antwortet — und
+  // `quiz_answers.quiz_id` ist eine **uuid** (live nachgesehen am 12.09.2026).
+  // Ein `lq6` weist PostgREST ab; seit v32.65 liest die App sein Urteil und
+  // schrieb der Person „📵 Die Antwort ist nicht beim Server angekommen" hin,
+  // obwohl es gar nichts zu senden gab. Ohne Id wird nicht gesendet und nichts
+  // behauptet.
+  window._dqSupaQuizId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(quiz.id || '')) ? quiz.id : null;
   window._dqSupaXP = quiz.xp_reward || 10;
   window._dqSupaExpl = correctOpt.explanation || '';
 
@@ -13459,8 +13580,9 @@ function openDailyQuizFromSupa(quiz) {
     hintEl.style.display = hintEl.textContent ? 'block' : 'none';
   }
   if (stEl) {
-    stEl.innerHTML = stats.streak > 0
-      ? '🔥 ' + stats.streak + ' Tage Streak · ' + stats.points + ' Punkte'
+    var _serie = (typeof dqSerie === 'function') ? dqSerie(stats) : (stats.streak | 0);
+    stEl.innerHTML = _serie > 0
+      ? '🔥 ' + _serie + ' Tage Streak · ' + stats.points + ' Punkte'
       : '🎯 ' + new Date().toLocaleDateString(gsLocale(), {day:'numeric',month:'long'});
   }
 
@@ -13544,16 +13666,9 @@ async function answerSupaDailyQuiz(btn) {
   }
   document.querySelectorAll('.dq-opt').forEach(function(b) { b.style.pointerEvents = 'none'; });
 
-  // Stats + Heute speichern
-  var stats = dqGetStats();
-  if (isCorrect) {
-    stats.correct++;
-    stats.streak++;
-    stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
-  } else {
-    stats.streak = 0;
-  }
-  stats.total++;
+  // Stats + Heute speichern — derselbe Buchungsweg wie im Rueckfall (v33.27);
+  // der Jahreswechsel lief hier vorher NIE.
+  var stats = dqStatsBuchen(isCorrect);
   var pts = dqCalcPoints(isCorrect, timeUsed, stats.streak);
   stats.points = (stats.points || 0) + pts;
   dqSaveStats(stats);
@@ -13569,7 +13684,7 @@ async function answerSupaDailyQuiz(btn) {
           '<div style="font-size:var(--fs-4xl);margin-bottom:6px;">🎉</div>' +
           '<div style="font-size:var(--fs-lg);font-weight:900;color:#a5d6a7;margin-bottom:4px;">Richtig!</div>' +
           '<div style="font-size:var(--fs-md);color:rgba(255,255,255,.85);margin-bottom:8px;">+' + pts + ' Punkte' +
-            (stats.streak > 1 ? ' · 🔥 ' + stats.streak + ' Tage Streak!' : '') + '</div>' +
+            (stats.streak > 1 ? ' · 🔥 ' + stats.streak + ' Tage Streak!' : '') + '</div>' +  // frisch gebucht = lebendig
           (expl ? '<div style="font-size:var(--fs-sm);color:rgba(255,255,255,.8);line-height:1.4;">' + expl.replace(/</g,'&lt;') + '</div>' : '') +
         '</div>'
       : '<div style="text-align:center;padding:8px 0;">' +
@@ -13587,32 +13702,7 @@ async function answerSupaDailyQuiz(btn) {
     // Upsert-RPC zaehlte quiz_answers OHNE die neue Antwort → Rangliste fror ein
     // (DB-Beweis: lb.updated_at 318ms VOR answers.created_at). Jetzt: DB-Trigger
     // zaehlt atomar; zusaetzlich pushen/refreshen wir hier explizit NACH dem Insert.
-    try {
-      if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-        var uid = gsStore.get('gs_sb_uid', null);
-        if (uid && window._dqSupaQuizId) {
-          // v30.95: selected_option (DB-Index) mitschicken. Der Server leitet
-          // is_correct daraus selbst ab — der hier mitgeschickte Wert ist nur noch
-          // Vorschlag und wird serverseitig ersetzt. Ohne Index gilt die Antwort
-          // als nicht ueberpruefbar und zaehlt nicht (bewusst: im Zweifel nicht anrechnen).
-          sbFetch('/rest/v1/quiz_answers', {
-            method:'POST',
-            // v32.65: return=representation statt minimal. Seit v30.95 entscheidet
-            // der SERVER ueber is_correct — und die App las sein Urteil nie. So
-            // blieb vom 01. bis 07.09.2026 unbemerkt, dass der Trigger nur eines
-            // von drei Frageformaten kannte und in 198 von 203 Fragen JEDE Antwort
-            // verwarf. Jetzt wird die Antwort gelesen (_dqServerUrteil).
-            headers:{'Content-Type':'application/json','Prefer':'return=representation,resolution=ignore-duplicates'},
-            body: JSON.stringify({ user_id: uid, quiz_id: window._dqSupaQuizId, is_correct: isCorrect, selected_option: _dqSelIdx })
-          }).then(function(r){
-            try { _dqServerUrteil(r, isCorrect); } catch(_){}
-            try { gsTrackEvent('quiz_answered', { correct: !!isCorrect }); } catch(_){}   // v33.11
-            try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(dqGetStats()); } catch(_){}
-            try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch(_){}
-          }).catch(function(e){ console.log('[GS] quiz_answers insert:', e && e.message); });
-        }
-      }
-    } catch(e) { console.log('[GS] quiz_answers insert:', e.message); }
+    _dqAntwortSenden(isCorrect, _dqSelIdx);
     // v23.50: KEIN Auto-Close
   }, 800);
 
@@ -13647,6 +13737,44 @@ function closeDailyQuiz() {
 // Fragen, und die App meldete weiter „Richtig!" — sie hatte die Antwort mit
 // `return=minimal` nie gelesen. Ein Widerspruch, den man SIEHT, waere am
 // ersten Tag aufgefallen.
+// ═══ EIN Weg nach quiz_answers (v33.27) ══════════════════════════════════════
+// Der Insert stand bis dahin NUR im Antwortweg. `dqTimeout` schrieb lokal
+// „answered: true" und liess den Server nichts wissen — auf einem ZWEITEN
+// Geraet sagte `_dqServerPlayed` deshalb „heute nicht gespielt" und dieselbe
+// Frage kam noch einmal, diesmal mit voller Zeit. Ein Zeitablauf war ein
+// Freiversuch. Jetzt gehen beide durch diese eine Funktion.
+//
+// `selIdx = -1` ist der Weg fuer den Zeitablauf: der Trigger aus
+// 20260907_quiz_antwort_formate.sql setzt bei fehlendem oder negativem Index
+// `is_correct := false` und `xp_earned := 0` und kehrt VOR der Formatpruefung
+// zurueck — er schreibt also auch keine Warnung nach `system_events`. Genau
+// richtig: ein Versuch, nicht richtig, kein Laerm.
+//
+// v30.95: der mitgeschickte `is_correct` ist nur ein Vorschlag, der Server
+// leitet ihn aus dem Index ab. v32.65: `return=representation`, damit sein
+// Urteil auch GELESEN wird (_dqServerUrteil) — mit `minimal` blieb vom 01. bis
+// 07.09.2026 unbemerkt, dass der Trigger in 198 von 203 Fragen jede Antwort
+// verwarf.
+function _dqAntwortSenden(isCorrect, selIdx) {
+  try {
+    if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return false;
+    var uid = gsStore.get('gs_sb_uid', null);
+    if (!uid || !window._dqSupaQuizId) return false;
+    sbFetch('/rest/v1/quiz_answers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation,resolution=ignore-duplicates' },
+      body: JSON.stringify({ user_id: uid, quiz_id: window._dqSupaQuizId, is_correct: !!isCorrect, selected_option: (typeof selIdx === 'number' ? selIdx : -1) })
+    }).then(function (r) {
+      try { _dqServerUrteil(r, !!isCorrect); } catch (_) {}
+      try { gsTrackEvent('quiz_answered', { correct: !!isCorrect }); } catch (_) {}   // v33.11
+      try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(dqGetStats()); } catch (_) {}
+      try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch (_) {}
+    }).catch(function (e) { console.log('[GS] quiz_answers insert:', e && e.message); });
+    return true;
+  } catch (e) { console.log('[GS] quiz_answers insert:', e.message); return false; }
+}
+window._dqAntwortSenden = _dqAntwortSenden;
+
 function _dqServerUrteil(r, clientCorrect) {
   var res = document.getElementById('dq-result');
   var alt = document.getElementById('dq-server-urteil');
@@ -13821,14 +13949,16 @@ function showDqResult(data) {
     if (data.correctAnswer) {
       lines.push('<div style="font-size:var(--fs-md);color:rgba(255,255,255,.85);">Richtige Antwort: <b>' + String(data.correctAnswer).replace(/</g,'&lt;') + '</b></div>');
     }
-    lines.push('<div style="font-size:var(--fs-md);color:rgba(255,255,255,.75);margin-top:4px;">Nächste Frage morgen um Mitternacht 🌙</div>');
+    var _nf = (typeof dqNaechsteFrage === 'function') ? dqNaechsteFrage() : null;
+    lines.push('<div style="font-size:var(--fs-md);color:rgba(255,255,255,.75);margin-top:4px;">' +
+      gsEscHtml(_nf ? _gsSatz('Nächste Frage um {1} Uhr 🌙', _nf.zeit) : _gsSatz('Nächste Frage morgen 🌙')) + '</div>');
     // v32.65: das Urteil des Servers (siehe _dqServerUrteil) auch beim Wiederoeffnen.
     if (data.serverUrteil === 'nicht_angekommen') {
       lines.push('<div id="dq-server-urteil" role="status" style="font-size:var(--fs-sm);color:#ffcc80;margin-top:6px;line-height:1.4;">📵 Die Antwort ist nicht beim Server angekommen — in der Rangliste zählt sie nicht.</div>');
     } else if ((data.serverUrteil === 'richtig' || data.serverUrteil === 'falsch') && (data.serverUrteil === 'richtig') !== !!data.correct) {
       lines.push('<div id="dq-server-urteil" role="status" style="font-size:var(--fs-sm);color:#ffcc80;margin-top:6px;line-height:1.4;">⚠️ Der Server wertet diese Antwort als ' + data.serverUrteil + ' — in der Rangliste zählt sein Urteil.</div>');
     }
-    lines.push('<div style="font-size:var(--fs-md);margin-top:8px;font-weight:800;color:rgba(255,255,255,.9);">Gesamt: ' + stats.points + ' Punkte · 🔥 ' + stats.streak + ' Tage</div>');
+    lines.push('<div style="font-size:var(--fs-md);margin-top:8px;font-weight:800;color:rgba(255,255,255,.9);">Gesamt: ' + stats.points + ' Punkte · 🔥 ' + ((typeof dqSerie === 'function') ? dqSerie(stats) : (stats.streak|0)) + ' Tage</div>');
     res.innerHTML = '<div style="text-align:center;padding:8px;">' + lines.join('') + '</div>';
     // Alte getrennte Rangliste-Button ausblenden — wir haben jetzt dqShowPostAnswerActions
     var rankBtn = document.getElementById('dq-ranking-btn');
@@ -14078,10 +14208,11 @@ function gsRenderStreakEverywhere() {
   // 4. Quiz-Streak — explizit getrennt (anderer Zähler!)
   try {
     var stats = (typeof dqGetStats === 'function') ? dqGetStats() : {};
+    var serie = (typeof dqSerie === 'function') ? dqSerie(stats) : (stats.streak || 0);
     var mqs = document.getElementById('more-quiz-streak');
-    if (mqs) mqs.textContent = (stats.streak||0) + ' Tage 🎯 Quiz';
+    if (mqs) mqs.textContent = serie + ' Tage 🎯 Quiz';
     var qs = document.getElementById('quiz-streak');
-    if (qs) qs.textContent = (stats.streak||0) > 0 ? ('🔥 ' + stats.streak) : '';
+    if (qs) qs.textContent = serie > 0 ? ('🔥 ' + serie) : '';
   } catch(e) {}
 }
 
@@ -22799,7 +22930,9 @@ function initDailyQuiz() {
   var answered = localStorage.getItem('gs_quiz_lastday') === today;
   if (answered) {
     qEl.innerHTML = '✅ Heute schon beantwortet!';
-    oEl.innerHTML = '<div style="font-size:var(--fs-sm);opacity:.85;">Komm morgen wieder für eine neue Frage.</div>';
+    var _nfq = (typeof dqNaechsteFrage === 'function') ? dqNaechsteFrage() : null;
+    oEl.innerHTML = '<div style="font-size:var(--fs-sm);opacity:.85;">' +
+      gsEscHtml(_nfq ? _gsSatz('Die nächste Frage kommt um {1} Uhr.', _nfq.zeit) : _gsSatz('Komm morgen wieder für eine neue Frage.')) + '</div>';
     if (rEl) rEl.style.display = 'none';
     return;
   }
@@ -23702,7 +23835,8 @@ function renderDailyQuizTeaser() {
     // Streak + Punkte-Anzeige
     var stats = (typeof dqGetStats === 'function') ? dqGetStats() : {streak:0, points:0};
     if (stEl) {
-      stEl.textContent = stats.streak > 0 ? ('🔥 ' + stats.streak + ' ' + _t('unit_days','Tage')) : '';
+      var serie = (typeof dqSerie === 'function') ? dqSerie(stats) : (stats.streak || 0);
+      stEl.textContent = serie > 0 ? ('🔥 ' + serie + ' ' + _t('unit_days','Tage')) : '';
     }
 
     // Heute schon beantwortet? (via dqGetToday — nutzt per-Tag-Key)
@@ -23710,13 +23844,9 @@ function renderDailyQuizTeaser() {
     var answered = todayData && todayData.answered;
 
     if (answered) {
-      // Countdown bis morgen 00:00
-      var tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0,0,0,0);
-      var ms = tomorrow - new Date();
-      var hrs = Math.floor(ms / 3600000);
-      var min = Math.floor((ms % 3600000) / 60000);
+      // Countdown bis zum naechsten Quiz-Tag — der ist UTC (dqNaechsteFrage)
+      var _nf = (typeof dqNaechsteFrage === 'function') ? dqNaechsteFrage() : { std: 0, min: 0, zeit: '' };
+      var hrs = _nf.std, min = _nf.min;
       var icon = todayData.correct ? '✅' : '⏱️';
       var status = todayData.correct
         ? '+' + (todayData.points||0) + ' ' + _t('quiz_points_today','Punkte heute')
@@ -23724,7 +23854,7 @@ function renderDailyQuizTeaser() {
       qEl.innerHTML = icon + ' ' + _t('quiz_already_answered','Heute schon beantwortet');
       oEl.innerHTML =
         '<div style="padding:9px 12px;background:rgba(255,255,255,.12);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;opacity:.92;">' + status + '</div>' +
-        '<div style="font-size:var(--fs-sm);opacity:.85;margin-top:6px;">' + _t('quiz_next_in','Nächste Frage in') + ' ' + hrs + _t('unit_h','h') + ' ' + min + _t('unit_min','min') + '</div>' +
+        '<div style="font-size:var(--fs-sm);opacity:.85;margin-top:6px;">' + _t('quiz_next_in','Nächste Frage in') + ' ' + hrs + _t('unit_h','h') + ' ' + min + _t('unit_min','min') + (_nf.zeit ? ' (' + _nf.zeit + ')' : '') + '</div>' +
         battleBtn;
       if (rEl) rEl.style.display = 'none';
       try { if (typeof gsBattleBadgeRefresh === 'function') gsBattleBadgeRefresh(); } catch(_){}
@@ -74697,6 +74827,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.27', date: '12.09.2026',
+      headline: 'Das Quiz sagt, was stimmt — und der Zeitablauf zaehlt',
+      summary: 'Die Giftstufe und die Essbarkeit im Quiz kommen jetzt von der ART, nicht vom einzelnen Eintrag: bei 130 von 4\u2019337 Eintraegen stand die falsche Giftstufen-Stufe als richtige Antwort, bei 133 die falsche Essbarkeit. Die Serie zaehlt wieder Tage. Der Countdown zeigt die Uhrzeit, zu der die naechste Frage wirklich kommt.',
+      user_summary: 'Beim Quiz zaehlt ab sofort, was deine Artenliste ueber die ART sagt — nicht, welchen von mehreren Eintraegen die Frage zufaellig erwischt hat. Und „🔥 N Tage" heisst wieder N Tage hintereinander.',
+      user_items: [
+        {emoji:'\u2620\ufe0f', bold:'Richtig gewertet:', text:' „Wie giftig ist …?" und „Ist … essbar?" nehmen die vorsichtigste Angabe der Art. Bei der Echten Engelwurz stand „Nicht giftig" und „Essbar" — die Art fuehrt Stufe 1 und nicht essbar.'},
+        {emoji:'\U0001f525', bold:'Serie nach Tagen:', text:' wer eine Woche aussetzt, faengt wieder bei 1 an. Vorher zaehlte die Serie einfach richtige Antworten weiter, egal wie lange dazwischen nichts war.'},
+        {emoji:'\u23f0', bold:'Richtige Uhrzeit:', text:' der Countdown sagt jetzt, wann die naechste Frage kommt — in der Schweiz um 02:00, nicht um Mitternacht.'},
+        {emoji:'\u23f1\ufe0f', bold:'Zeit abgelaufen zaehlt:', text:' ein Zeitablauf wird auch auf dem Server vermerkt. Auf einem zweiten Geraet gab es dieselbe Frage sonst noch einmal.'}
+      ],
+      items: [
+        {emoji:'\U0001f9ed', bold:'dqBuildQuestion wertet nach der ART:', text:' _gsArtAnzeige als erste Zeile — damit auch gsBattleBuildQuestions und jeder kuenftige Aufrufer. Gemessen: 130 von 4\u2019337 Eintraegen mit anderer Giftstufen-Stufe, 133 mit anderer Essbarkeit. Name, Binomen, Kategorie, Saison und Standort bleiben die des Eintrags.'},
+        {emoji:'\U0001f4c5', bold:'dqSerie / dqStatsBuchen — eine Regel:', text:' die Serie sind Tage hintereinander (dqDayKey, gestempelt in stats.lastDay); neun Anzeigen lesen die LEBENDE Serie statt der gespeicherten Zahl. Der Jahreswechsel hing an answerDailyQuiz, dem lokalen Rueckfall — jetzt laeuft er auf beiden Wegen und beim Zeitablauf.'},
+        {emoji:'\U0001f5dd', bold:'gs_dq_tag_<datum>:', text:' der „heute schon gespielt"-Schluessel stand in keiner der vier Speicherlisten und ueberlebte das Abmelden — auf einem geteilten Geraet sah die naechste Person das Ergebnis der vorigen. Er heisst jetzt anders, steht in GS_USER_PREFIXES und wird nach 30 Tagen weggeraeumt (vorher entstand einer je Tag, fuer immer).'},
+        {emoji:'\U0001f4e4', bold:'_dqAntwortSenden — ein Schreibweg:', text:' der Zeitablauf sendet selected_option -1; der Trigger setzt is_correct false, xp 0 und kehrt vor der Formatpruefung zurueck, schreibt also keine Warnung. Sieben neue Faelle in quiz_check (20 statt 13), fuenf Gegenproben einzeln gestellt.'}
+      ],
+    },
+  {
     v: 'v33.26', date: '12.09.2026',
       headline: 'Ein Backup je Sitzung — und eine Regel statt zweier',
       summary: 'Das automatische Backup läuft jetzt direkt nach dem ersten erfolgreichen Abgleich, nicht erst nach fünf Minuten — und nur, wenn sich seither etwas geändert hat. Der Tag ist der eigene, nicht UTC. Eine Migration schützt das bewusst angelegte Backup vor der Aufbewahrung.',
@@ -74855,146 +75003,6 @@ window.GS_RELEASES = [
         {emoji:'🧮', bold:'gsQualitaetMehrere:', text:' Messung über alle Fotos, das schärfste zählt, `fotos/gemessen/schwach/alle` daneben. Ungemessen ist kein Lob mehr: „N Fotos kombiniert" ohne Messung gilt als nicht prüfbar, nicht als erfüllt.'},
         {emoji:'🔁', bold:'Re-Scan nimmt alle Fotos mit', text:' (`_gsLastScanBilder`, neuestes zuerst, Deckel `GS_SCAN_FOTOS_MAX` = 3 — eine Zahl, drei Leser). „Trotzdem bestimmen" behält die zusätzlichen Fotos.'},
         {emoji:'🧪', bold:'scan_check:', text:' S5b (Prüfwerk), „Ablauf · jedes Foto gemessen" (scharf trägt unscharf, keines lesbar → Rückfrage, Trotzdem mit beiden), „Dritter Blick" (1/2/3/3 Fotos, Knopf Zweites → Drittes → Maximum-Satz). Vier Gegenproben rot.'}
-      ],
-    },
-  {
-    v: 'v33.15', date: '10.09.2026',
-      headline: 'Der Plan altert und meldet sich — PLANER-V3 N4, erster Teil',
-      summary: 'Ein Plan, dessen Jahr vorbei ist, sagt es jetzt auf seiner Kachel — und zeigt auf den Weg zur Jahresvorlage. Kein Automatismus: die Person entscheidet.',
-      user_summary: 'In „Meine Pläne" siehst du, wenn das Jahr eines Plans vorbei ist — mit dem Hinweis, ihn als Vorlage fürs nächste Jahr zu übernehmen.',
-      user_items: [
-        {emoji:'⏳', text:'„Plan-Jahr 2025 vorbei — 📅 als Vorlage übernehmen" steht auf der Kachel, sobald das Jahr des Plans hinter dir liegt.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'Jahr aus den Datumsfeldern des Plans,', text:' nie geraten; ohne Datum kein Hinweis. _gsSatz-Vorlage, damit die vier Sprachen es übersetzen können.'},
-        {emoji:'🧪', bold:'planer_check „N4":', text:' Plan mit Vorjahr → Hinweis; Plan im laufenden Jahr → keiner; Plan ohne Datum → keiner. Gelesen aus dem gerenderten HTML von „Meine Pläne", nicht aus dem Objekt.'}
-      ],
-    },
-  {
-    v: 'v33.14', date: '10.09.2026',
-      headline: 'Lina kennt den Kalender — Aussaatfenster und Plan-Termine im Kontext',
-      summary: 'Seit v32.56 bekommt Lina Zahlen aus Datensätzen. Jetzt auch die nächsten 60 Tage des Kalenders: welche deiner Kulturen jetzt gesät oder vorgezogen werden, und was dein Plan als Nächstes vorsieht — aus derselben Kalenderfunktion wie die App, nie aus einer zweiten Rechnung.',
-      user_summary: 'Frag Lina „Was steht an?" — sie kennt jetzt deine Aussaatfenster und die Termine aus deinem Plan.',
-      user_items: [
-        {emoji:'🌱', text:'Lina weiss, welche deiner Kulturen in den nächsten 60 Tagen gesät oder vorgezogen werden — mit dem Hinweis auf mittlere Lagen.'},
-        {emoji:'📅', text:'Und was dein gespeicherter Plan als Nächstes vorsieht: Aussaat, Erntefenster, Zeitleiste.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'gsLinaZahlen:', text:' zwei Zeilen aus gsKalenderEreignisse(heute, +60) — quelle kulturdaten (art aussaat) und quelle plan, je höchstens vier, mit Datum. Ohne Treffer keine Zeile: ein „keine Aussaat" wäre eine Behauptung über Kulturen, die die App nicht kennt. Deckel GS_LINA_ZAHLEN_MAX 700 → 900 (zwei Zeilen mehr); sensor_check hält 1’100 als Obergrenze.'},
-        {emoji:'🧪', bold:'sensor_check „Lina · Kalender":', text:' Feldsalat (Aug/Sep) und ein Plan mit Termin im Fenster liefern beide Zeilen, Monstera steht in keiner, jeder genannte Titel ist ein Ereignis der einen Kalenderfunktion — und ohne Kulturen und Pläne gibt es keine der Zeilen.'}
-      ],
-    },
-  {
-    v: 'v33.13', date: '10.09.2026',
-      headline: 'Aussaatfenster im Kalender — aus den Kulturdaten, nicht aus der Sammelsaison',
-      summary: 'KALENDER-V1 Stufe 2b war offen: Aussaatfenster aus den Artendaten. Nachgemessen ist „season" dort bei 2’907 Einträgen eine Sammel- oder Erntesaison, kein Aussaatfenster. Die ehrliche Quelle sind die 39 Kulturen des Schweizer Aussaatkalenders — die stehen jetzt am Tag, an dem es so weit ist, bei deinen Pflanzen im Kalender.',
-      user_summary: 'Deine Gemüse und Kräuter sagen dir im Kalender, wann sie vorgezogen und wann sie draussen gesät werden — mit dem Hinweis für höhere Lagen.',
-      user_items: [
-        {emoji:'🌱', text:'Am Monatsersten steht „Basilikum vorziehen (drinnen)" oder „Zucchini säen (draussen)" — für jede deiner Pflanzen, die im Schweizer Aussaatkalender steht.'},
-        {emoji:'🏔', text:'Jeder Eintrag sagt, woher er kommt: „mittlere Lagen 400–800 m, höhere Lagen 2–3 Wochen später" — und führt zum Säkalender.'},
-        {emoji:'🇨🇭', text:'Rüebli, Randen, Lauch: die Schweizer Namen werden derselben Kultur zugeordnet.'}
-      ],
-      items: [
-        {emoji:'📐', bold:'Korrektur an KALENDER-V1 2b:', text:' `season` (gsSaisonMonate) ist bei Beeren, Pilzen und Wildpflanzen die Sammelsaison — daraus „säen" zu machen wäre eine Behauptung, die die Daten nicht tragen. gsAussaatEreignisse liest GS_SAE_DB (indoor/outdoor je Monat, 0-basiert wie GS_SAE_DATEN) und erzeugt je Monat ein info-Ereignis am 1., quelle „kulturdaten", Verweis openSaekalender.'},
-        {emoji:'🔗', bold:'Zuordnung ohne zweiten Matcher:', text:' erst _gsKulturZuPflanze (PLANT_DB, Name ±n oder lateinisch), dann GS_SAE_DB.n direkt, dazu eine Brücke für Schweizer/deutsche Namen DERSELBEN Kultur (Rüebli/Karotten ↔ Möhren, Lauch ↔ Porree, Randen ↔ Rote Bete, Stielmangold ↔ Mangold). Keine Botanik, nur Synonyme. Ohne Treffer kein Ereignis (Regel 5).'},
-        {emoji:'🧪', bold:'kalender_check „Aussaat":', text:' Basilikum und Zucchini bekommen genau ihre Fenster, Monstera keins, Rüebli wird Möhren, und eine Wildart mit season (Heidelbeere) bekommt NICHTS — die Gegenrichtung zur Datenfrage. Jedes Ereignis am 1., info, mit Kalender, Lagen und Verweis; die Tagesliste zeigt es.'}
-      ],
-    },
-  {
-    v: 'v33.12', date: '10.09.2026',
-      headline: 'Ein Plan, der funktioniert hat, wird zur Vorlage — PLANER-V3 N10',
-      summary: 'Gärtnern ist mehrjährig; der Planer behandelte es als Einmal-Ereignis. Ein gespeicherter Plan lässt sich jetzt um ein Jahr versetzen: Aussaat, Ernte und Zeitleiste wandern mit, und Pflanzen, deren Familie der Plan selbst zur Pause rät, werden markiert — nie entfernt.',
-      user_summary: 'In „Meine Pläne" gibt es 📅 „Vorlage fürs nächste Jahr": derselbe Plan, alle Termine ein Jahr später, mit Hinweis zur Fruchtfolge.',
-      user_items: [
-        {emoji:'📅', text:'Ein Tipp auf 📅 legt eine Kopie deines Plans fürs nächste Jahr an — Aussaat, Erntefenster und die Wochen der Zeitleiste sind versetzt und stehen im Kalender.'},
-        {emoji:'🔄', text:'Pflanzen, deren Familie der Plan selbst nach diesem Jahr meiden will, sind markiert: „Beet wechseln oder bewusst lassen". Nichts wird stillschweigend gestrichen.'},
-        {emoji:'🧾', text:'Die Vorlage sagt oben, woher sie kommt — und beim Öffnen läuft die Plan-Prüfung mit deiner echten Beet-Geschichte.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'gsPPvorlageNaechstesJahr(id):', text:' Jahr aus den Daten des PLANS (nie aus „heute"), vier Datumsfelder +1 Jahr über _gsDatumPlusJahre (29.02.→28.02.), Zeitleisten-Wochen bleiben (ISO-Wochen fallen von selbst auf die neuen Montage, gsPlanEreignisse). Familien aus cropRotation.avoid_next_year werden über _gsNorm/_gsFamilieVon (dieselben Helfer wie R5) MARKIERT (_rotation), nie entfernt — CLAUDE.md §4a.2. Alte Rechnungen (_…) werden verworfen, das Prüfwerk rechnet beim Öffnen neu. Speichern am Rückgabewert geprüft.'},
-        {emoji:'🧪', bold:'planer_check „N10":', text:' Daten +1 Jahr, harvest.first_date mit, Wochen gleich, drei Pflanzen bleiben drei, Kohlrabi markiert und Tomate nicht, Herkunft und Titel tragen das Jahr, Original unverändert, ohne cropRotation keine Markierung, Kalender zeigt „Tomate säen" im neuen Jahr, gerenderter Plan nennt Herkunft und Markierung, Schaltjahr.'}
-      ],
-    },
-  {
-    v: 'v33.11', date: '10.09.2026',
-      headline: 'Nutzungsmessung: ein Schalter, ein Vokabular, eine Zustimmung',
-      summary: 'gsTrackEvent hatte 0 Aufrufer, gs_consent 0 Schreiber, einen Zustimmungsdialog gab es nicht — die Strecke war tot. Jetzt: Opt-in in „Datenschutz & Daten" (Vorgabe aus), ein erklärtes Ereignis-Vokabular statt Ad-hoc-Namen, und ein Prüfstand, der beweist: ohne Ja verlässt nichts das Gerät.',
-      user_summary: 'Du entscheidest, ob GreenScan Nutzung misst — der Schalter ist aus, bis du ihn einschaltest, und er sagt dir genau, was gesendet würde.',
-      user_items: [
-        {emoji:'📊', text:'Neu unter Einstellungen › Datenschutz & Daten: „Nutzungsmessung erlauben". Vorgabe: aus.'},
-        {emoji:'🔒', text:'Wenn an, gehen nur benannte Ereignisse (Scan fertig, Plan gespeichert, Aufgabe erledigt, Quiz beantwortet) mit Kategorie und App-Version — keine Fotos, kein Standort, keine Pflanzennamen.'},
-        {emoji:'📜', text:'Die Über-Seite und die Rechtstexte sagen jetzt, wo der Schalter ist — nicht mehr „einen Dialog gibt es nicht".'}
-      ],
-      items: [
-        {emoji:'📖', bold:'GS_EVENTS:', text:' fünf Ereignisse, jedes mit seinen erlaubten Feldern (scan_done: cat, conf_bucket, db_hit · plan_saved: plants, has_dates · task_done: task_key, liste · quiz_answered: correct · consent_changed: analytics). _gsEventFiltern lässt nur diese Schlüssel durch, nur Grundtypen, gekürzt — ein Aufrufer kann kein Feld dazuerfinden. Unbekannte Namen werden verworfen, auch mit Ja.'},
-        {emoji:'🎛', bold:'gsConsentAnalyticsSetzen:', text:' schreibt gs_consent {analytics, at, version} — am Rückgabewert geprüft (der Wrapper wirft nie, §3.5), Schalter nur bei Erfolg umgestellt. Wohnt bewusst NICHT in gs_prefs (ein Server-Pull kann die ersetzen, v32.36) und nicht in toggleMap (Vorgabe dort ist an). Der Schalter selbst ist das erste Ereignis.'},
-        {emoji:'📍', bold:'Vier Stellen, je eine:', text:' showScanResult (nach dem Prüfwerk), gsPPsavePlan (nach dem lokalen Erfolg), gsRpcTaskDone (die eine Stelle, durch die gsQuickDone, doneTask und „Alle erledigt" gehen — vor der Anmelde-Sperre), answerSupaDailyQuiz (nach dem Server-Urteil).'},
-        {emoji:'🧪', bold:'einstellungen_check, sechs Fragen:', text:' Vorgabe aus und 0 Anfragen · Ja schreibt Datum und Fassung, erstes Ereignis ist die Zustimmung · erklärtes Ereignis mit GENAU seinen Feldern, Name/Foto/Standort/Objekt herausgefiltert · unbekannter Name verworfen · task_done über gsRpcTaskDone ohne Pflanzenname · Nein schaltet ab und die Über-Liste ist aktualisiert.'}
-      ],
-    },
-  {
-    v: 'v33.10', date: '10.09.2026',
-      headline: 'Der Plan wird zum Kalender — PLANER-V3 N8, Stufe 5',
-      summary: 'Ein gespeicherter Garten-Plan trägt je Pflanze Aussaat- und Erntedaten und eine Wochen-Zeitleiste — und erzeugte bis heute keinen einzigen Termin. Der Kalender kannte die Art „Aussaatfenster" sogar, nur lieferte sie niemand. Jetzt ist der Plan eine Quelle der einen Kalenderfunktion, mit Herkunft an jedem Termin.',
-      user_summary: 'Deine gespeicherten Garten-Pläne stehen jetzt im Kalender: Aussaat, Erntefenster und die Schritte der Zeitleiste — jeder Termin sagt, aus welchem Plan er kommt.',
-      user_items: [
-        {emoji:'🌱', text:'Säen, Auspflanzen, Erntebeginn und -ende aus deinem Plan erscheinen als Termine im Kalender und in „Heute zu tun".'},
-        {emoji:'📋', text:'Die Zeitleiste des Plans (Woche 14: Vorkultur ansetzen …) wird zu Erinnerungen am jeweiligen Montag.'},
-        {emoji:'📂', text:'Jeder Termin nennt seinen Plan und führt mit einem Tipp zu „Meine Pläne".'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'gsPlanEreignisse(von, bis):', text:' liest gs_garden_plans, rechnet sow_date → aussaat, harvest_from/to → ernte (Beginn und Ende), timeline.week → erinnerung am ISO-Montag des Plan-Jahres. Eingehängt in gsKalenderEreignisse vor dem Sortieren — EINE Frage, EINE Funktion (KALENDER-V1). Dublettensperre Art·Datum·Name, weil ein Plan nach dem Cloud-Abgleich zweimal in der Liste stehen kann.'},
-        {emoji:'🚫', bold:'Was bewusst NICHT hinein kommt:', text:' careSchedule („täglich giessen 06-08") ist ein Intervall, kein Termin — das würde jeden Tag eine Zeile erzeugen und gehört als Aufgabe an die Pflanze. Und ein Plan ohne Datum bekommt kein erfundenes Jahr.'},
-        {emoji:'🧪', bold:'kalender_check:', text:' neuer Fall „Plan" — ein Musterplan liefert 3 Aussaaten, 6 Erntefenster-Grenzen, 3 Zeitleisten-Schritte, jeder mit quelle „plan" und dem Plannamen im Grund; die Tagesliste zeigt die Zeile; ein Plan ohne Daten liefert nichts; der Fall „Ohne Daten" räumt jetzt auch gs_garden_plans — sonst wäre er rot geworden (CLAUDE.md: eine Quelle, die er stehen lässt, macht ihn rot).'}
-      ],
-    },
-  {
-    v: 'v33.09', date: '10.09.2026',
-      headline: 'touch_check hat 43 Fenster nie angesehen — jetzt schon, und dabei die WCAG-Regel richtiggestellt',
-      summary: 'Der Prüfstand für Antippflächen mass nur die elf Bildschirme. Die 43 Fenster darüber hat nie jemand vermessen. Beim Öffnen aller Fenster kam heraus: 22 zu kleine Ziele, davon 21 durch Abstand konform — die Ausnahme, die WCAG 2.5.8 vorsieht und die der Prüfstand nicht kannte. Ein echter Fund blieb übrig.',
-      user_summary: 'Ein Knopf im „Über GreenScan"-Fenster war auf schmalen Geräten zu knapp zum Antippen.',
-      user_items: [
-        {emoji:'🔧', text:'„🔧 Technische Details" war nur 18 Pixel hoch — auf einem schmalen Telefon zu wenig, um ihn sicher zu treffen. Jetzt so hoch wie sein Geschwister-Knopf in „Was ist neu".'}
-      ],
-      items: [
-        {emoji:'🔍', bold:'43 Fenster, 84 Öffnungen (zwei Breiten):', text:' dieselbe Entdeckung wie contrast_check seit v32.25 — jeder Öffner ohne Parameter, dessen Rumpf openModal( enthält, wird wirklich aufgerufen. Eine Liste von Hand veraltet; diese Regel nimmt neue Fenster ab dem Tag ihrer Entstehung mit. CLAUDE.md sagte bis heute: „wer etwas in einem Modal setzt, das der Prüfstand nicht öffnet, rechnet selbst nach" — niemand rechnet selbst nach.'},
-        {emoji:'📐', bold:'Und die Regel war zu streng:', text:' WCAG 2.5.8 erlaubt ein kleines Ziel ausdrücklich, wenn ein 24-px-Kreis um seine Mitte kein anderes Ziel schneidet. Ohne diese Ausnahme hätte der Durchgang 22 Treffer gemeldet, von denen 21 konform sind — Kästchen in Standardgrösse mit reichlich Luft. Ein Bericht mit einundzwanzig richtigen Zeilen, die keine Fehler sind, ist der Bericht, den man zu ignorieren lernt.'},
-        {emoji:'⚠️', bold:'Die Geometrie hatte ich zuerst falsch:', text:' mit Kreisen für die grossen Nachbarziele gerechnet kam 0 heraus, mit ihrer Umrandung 1. Die nachgiebige Rechnung hätte den einen echten Fund verborgen — eine zu lasche Prüfregel ist gefährlicher als eine zu strenge, weil niemand sie bemerkt.'},
-        {emoji:'🧪', bold:'Gemessen statt geschätzt:', text:' zwei Läufe hintereinander dieselben Zahlen (0 Funde, 22 konform); render_check meldet „GROESSE geaendert: 0" — die Polsterung verschiebt kein Layout.'}
-      ],
-    },
-  {
-    v: 'v33.08', date: '10.09.2026',
-      headline: 'Ein Besteck-Symbol vor „Eicheln (für Tiere)" — an 164 von 372 Tagen',
-      summary: 'Zwei unabhängige Funde. Der schwerere: die Wissens-Zeile nahm die Essbarkeit von der ART und den Text vom EINTRAG — zwei Quellen, ein Satz. Der zweite: vier Anzeigen zeigten Eintragszahlen unter dem Wort „Arten", und nutzersicht_check E3 hat genau das erzwungen, während E9 das Gegenteil verlangt.',
-      user_summary: 'Ein Essbar-Symbol steht nur noch dort, wo auch der Text daneben von Essen spricht — und wo „Arten" steht, steht die Zahl der Arten.',
-      user_items: [
-        {emoji:'🍴', text:'In der Wissens-Zeile stand „🍴 Gewöhnliche Eiche: Holz, Eicheln (für Tiere), Rinde (Gerbstoff)." Das Besteck sagte „essbar", der Text daneben etwas anderes. Betroffen waren fünf Arten an 164 von 372 möglichen Tagen.'},
-        {emoji:'🍄', text:'Im Menü stand „636 Arten" bei den Pilzen. Es sind 364 Arten in 636 Einträgen. Dasselbe bei Wildpflanzen (1’994 statt 2’226), Kräutern, Bäumen und Hauspflanzen.'},
-        {emoji:'📖', text:'Die Aufschlüsselung „Was in der Artendatenbank steckt" nennt jetzt beide Zahlen je Kategorie — und sagt dazu, warum sich die Kategorien auf mehr addieren als das Total: eine Art kann in zwei Kategorien stehen.'},
-        {emoji:'🔍', text:'Über der Artensuche stand „4337 Arten". Jede Zeile der Liste ist ein Eintrag — dort steht jetzt „4337 Einträge", wie im Leerzustand zwei Zeilen tiefer schon immer.'}
-      ],
-      items: [
-        {emoji:'🍴', bold:'Warnung von der Art, Einladung von beiden:', text:' seit v32.96 nahm die Wissens-Zeile Giftstufe UND Essbarkeit von der Art (_gsArtAnzeige) und den Text vom Eintrag. Bei Quercus robur gewinnt der Eintrag mit der höheren Giftstufe (tox 1, „Eicheln geröstet als Kaffeeersatz") — und dessen edible:true fährt mit. Über die ganze Liste: 14 Einträge, bei denen die Art „essbar" sagt und der Eintrag nicht, jedes Mal mit gestiegener Giftstufe. Der Warnsatz folgt weiter der Art (dort macht sie vorsichtiger — der Gewinn von v32.96 bleibt); die Einladung braucht jetzt BEIDE, und Symbol und Text kommen wieder aus derselben Quelle.'},
-        {emoji:'📅', bold:'Und der Prüfstand hing am Tagesdatum:', text:' scan_check E3 mass den EINEN Tag, an dem er lief. Der Fehler war 364 Tage unsichtbar und stand am 10.09.2026 plötzlich auf main, ohne dass sich etwas geändert hätte. E3 stellt jetzt das Datum und fährt alle 372 Kombinationen durch die ECHTE Funktion — Gegenprobe: 5 Arten an 164 von 372 Tagen.'},
-        {emoji:'🧮', bold:'gsArtenZahlen(cat):', text:' dieselbe Funktion zählt jetzt auch eine einzelne Kategorie (Cache je Liste). Vier Anzeigen umgestellt: Menü-Untertitel, Aufschlüsselung je Kategorie, deren Total-Zeile und der Suchkopf.'},
-        {emoji:'⚠️', bold:'Ein Prüfstand, der den Fehler erzwingt, ist schlimmer als keiner:', text:' E3 verlangte wörtlich, dass _gsMenuSub die Eintragszahl mit dem Wort „Arten" liefert. Wer die Anzeige repariert hätte, wäre rot geworden und hätte die Reparatur zurückgenommen. E3 zählt jetzt Arten — mit EIGENEM Massstab, nicht durch Aufruf der geprüften Funktion.'},
-        {emoji:'🧹', bold:'Und eine tote Schleife samt ihrer Zählung:', text:' acht cnt-<kategorie>-Elemente gibt es nicht (nachgemessen in der geladenen Seite); die Schleife schrieb Eintragszahlen mit dem Wort „Arten" ins Leere, und ein DB.forEach über alle 4’337 Einträge lief beim Start nur, um sie zu füttern. wiring_check sieht so etwas nicht — der Name wird zusammengesetzt.'},
-        {emoji:'🧪', bold:'nutzersicht_check E9 deckt jetzt beides ab:', text:' jede Kategorie-Zeile muss „N Arten · M Einträge" tragen und die Zahlen müssen zu einer echten Kategorie gehören; der Suchkopf darf nicht „Arten" sagen. Gegenprobe gegen v33.07: E3 und E9 beide rot, mit allen fünf Kategorien beim Namen.'}
-      ],
-    },
-  {
-    v: 'v33.07', date: '09.09.2026',
-      headline: 'Die fünfte Stelle derselben Frage — gefunden, weil ich gesucht habe',
-      summary: 'v33.06 hat vier Anzeigen umgestellt, die „hast du Pflanzen?" nur mit ps_myplants beantworteten. Die Startkachel „Pflanzen" war die fünfte: sie zeigte 0 und führte per Tipp auf einen Bildschirm, der 3 zeigte.',
-      user_summary: 'Die Kachel „Pflanzen" auf der Startseite zählt jetzt auch deine Beet-Pflanzungen.',
-      user_items: [
-        {emoji:'🌱', text:'Sie zeigte 0, obwohl im Beet drei Pflanzen standen — und ein Tipp darauf führte auf „Meine Pflanzen", wo 3 stand.'}
-      ],
-      items: [
-        {emoji:'🔍', bold:'Gesucht, nicht gestolpert:', text:' für einen Nur-Beet-Nutzer wurde über alle elf Tabs jede sichtbare Zahl neben ihre Beschriftung geschrieben (die Methode aus v32.87). Genau ein weiterer Fund — drei Schreiber von #stat-favs, alle myPlants.length, jetzt gsPflanzenZahl().'},
-        {emoji:'🧪', bold:'nutzersicht_check E10 kennt die Kachel:', text:' nur Beet → 2, wirklich nichts → 0. Gemessen wird NACH updatePlantStat, nicht während gsAnimateCounter läuft.'},
-        {emoji:'⚠️', bold:'Und zwei Funde waren meine eigene Messfalle:', text:' „1’993 Arten" und „864 Essbar" — beides mitten in der 1’400-ms-Zählanimation abgelesen. Nach dem Auslaufen: 3’136 und 1’228, beide richtig. Die Komma-Schreibweise kam von gsLocale() = en-GB im Prüfstand, nicht aus dem Code. Hätte ich sie „repariert", wären zwei richtige Anzeigen kaputtgegangen.'}
       ],
     },
 ];
@@ -75205,7 +75213,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.26';
+var GS_VERSION = 'v33.27';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -81697,7 +81705,8 @@ var GS_USER_KEYS = [
 // gs_aicalls_<datum> und gs_sync_*_at_<bereich> entstehen zur Laufzeit.
 // gsOnLogout() raeumte bisher genau drei Bereiche ('plants','garden','state')
 // — jeder weitere blieb liegen.
-var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_'];
+// v33.27: `gs_dq_tag_<datum>` — „heute schon gespielt" ist ein Nutzerdatum.
+var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_','gs_dq_tag_'];
 
 function gsClearUserDataKeys(){
   try {
@@ -81709,6 +81718,11 @@ function gsClearUserDataKeys(){
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
         if (!k) continue;
+        // v33.27: der Altbestand des Tagesquiz (`gs_dq_<datum>`, bis v33.26)
+        // ist ein Nutzerdatum wie der neue `gs_dq_tag_<datum>` — er hat nur
+        // keine Form, die ein Praefix treffen koennte, ohne zwei Nachbarn
+        // mitzunehmen. Siehe GS_DQ_ALT.
+        if (typeof GS_DQ_ALT !== 'undefined' && GS_DQ_ALT.test(k)) { weg.push(k); continue; }
         for (var j = 0; j < GS_USER_PREFIXES.length; j++) {
           if (k.indexOf(GS_USER_PREFIXES[j]) === 0) { weg.push(k); break; }
         }

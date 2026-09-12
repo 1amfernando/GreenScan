@@ -230,6 +230,277 @@ function sqlHaelfte() {
 
 // ── App-Haelfte (Playwright) ──────────────────────────────────────────────
 const K = [
+  // ── v33.27 ───────────────────────────────────────────────────────────────
+  {
+    name: 'Die Wertung folgt der ART · „Wie giftig ist X?" und „Ist X essbar?" nehmen die Angabe der Art, nicht die des angetippten Eintrags — und die Zahl daneben sagt, um wie viele es geht',
+    lauf: async () => __seite.evaluate(async () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const eimer = (t) => (t | 0) === 0 ? 'Nicht giftig ✅' : (t | 0) <= 2 ? 'Leicht giftig ⚠️' : 'Stark giftig ☠️';
+      const essbar = (sp) => sp.edible ? 'Essbar ✅' : (sp.tox > 0 ? 'Giftig ☠️' : 'Nicht essbar ❌');
+      let nTox = 0, nEss = 0, ersterTox = null, ersterEss = null;
+      for (const sp of DB) {
+        if (!sp || !sp.id || !sp.lat) continue;
+        const a = _gsArtAnzeige(sp);
+        if (a === sp) continue;
+        if (eimer(a.tox) !== eimer(sp.tox)) { nTox++; if (!ersterTox) ersterTox = sp; }
+        if (essbar(a) !== essbar(sp)) { nEss++; if (!ersterEss) ersterEss = sp; }
+      }
+      if (!ersterTox && !ersterEss) return { ok: false, warum: 'kein Eintrag, dessen Art anders urteilt — der Fall misst nichts' };
+      const andere = DB.slice(0, 6);
+      const pruef = (sp, typ, erwartet, was) => {
+        const q = dqBuildQuestion(sp, typ, andere);
+        if (q.a !== erwartet) return sp.name + ' (' + sp.lat + '): ' + was + ' = „' + q.a + '", die Art sagt „' + erwartet + '"';
+        // Die richtige Antwort darf nicht zugleich unter den falschen stehen.
+        if ((q.wrong || []).indexOf(q.a) >= 0) return sp.name + ': „' + q.a + '" steht auch bei den falschen Antworten';
+        return null;
+      };
+      const fehler = [];
+      if (ersterTox) { const f = pruef(ersterTox, 2, eimer(_gsArtAnzeige(ersterTox).tox), 'Giftigkeit'); if (f) fehler.push(f); }
+      if (ersterEss) { const f = pruef(ersterEss, 5, essbar(_gsArtAnzeige(ersterEss)), 'Essbarkeit'); if (f) fehler.push(f); }
+      // Gegenrichtung: Name, Binomen und Kategorie bleiben die des EINTRAGS —
+      // _gsArtAnzeige darf sie nicht anfassen, sonst liest jemand eine andere Art.
+      const sp0 = ersterTox || ersterEss;
+      const qn = dqBuildQuestion(sp0, 0, andere), ql = dqBuildQuestion(sp0, 3, andere);
+      if (qn.a !== sp0.name) fehler.push('Typ 0 nennt „' + qn.a + '" statt „' + sp0.name + '"');
+      if (ql.a !== (sp0.lat || 'Unbekannt')) fehler.push('Typ 3 nennt „' + ql.a + '" statt „' + sp0.lat + '"');
+      if (fehler.length) return { ok: false, warum: fehler.join(' · ') };
+      return { ok: true, info: DB.length + ' Eintraege · ' + nTox + ' mit anderer Giftstufen-Stufe · ' + nEss + ' mit anderer Essbarkeit · Beispiel ' + (ersterTox || ersterEss).name + ' · Name und Binomen bleiben die des Eintrags' };
+    }),
+  },
+  {
+    name: 'Die Battle-Fragen gehen denselben Weg · gsBattleBuildQuestions ruft dqBuildQuestion, also wertet auch das Duell nach der Art',
+    lauf: async () => __seite.evaluate(async () => {
+      if (typeof gsBattleBuildQuestions !== 'function') return { ok: false, warum: 'gsBattleBuildQuestions fehlt' };
+      let gesehen = null;
+      const echt = window._gsArtAnzeige;
+      window._gsArtAnzeige = function (sp) { gesehen = (gesehen || 0) + 1; return echt(sp); };
+      let fr;
+      try { fr = gsBattleBuildQuestions(5); } finally { window._gsArtAnzeige = echt; }
+      if (!fr || fr.length !== 5) return { ok: false, warum: 'nur ' + ((fr && fr.length) || 0) + ' von 5 Fragen' };
+      if (!gesehen) return { ok: false, warum: 'dqBuildQuestion hat _gsArtAnzeige kein einziges Mal gerufen' };
+      for (const f of fr) {
+        if (!Array.isArray(f.options) || f.options.length !== 4) return { ok: false, warum: 'Frage ohne vier Optionen: ' + JSON.stringify(f) };
+        if (!(f.correct_idx >= 0 && f.correct_idx < 4)) return { ok: false, warum: 'correct_idx ' + f.correct_idx };
+        if (new Set(f.options).size !== 4) return { ok: false, warum: 'doppelte Option: ' + JSON.stringify(f.options) };
+      }
+      return { ok: true, info: '5 Fragen · _gsArtAnzeige ' + gesehen + '× gerufen · je 4 verschiedene Optionen mit gueltigem correct_idx' };
+    }),
+  },
+  {
+    name: 'Die Serie zaehlt TAGE · gestern richtig → +1; eine Luecke dazwischen → die Serie beginnt neu; falsch → 0; und eine Anzeige liest nie den alten Stand',
+    lauf: async () => __seite.evaluate(async () => {
+      const heute = dqDayKey();
+      const tagMinus = (n) => { const d = new Date(heute + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+      const stelle = (o) => localStorage.setItem('gs_dq_stats', JSON.stringify(Object.assign({ points: 0, correct: 0, total: 0, streak: 0, bestStreak: 0, year: parseInt(heute.slice(0, 4), 10) }, o)));
+      const f = [];
+      // 1 · gestern richtig, heute richtig → 6
+      stelle({ streak: 5, bestStreak: 5, lastDay: tagMinus(1) });
+      let s = dqStatsBuchen(true);
+      if (s.streak !== 6) f.push('gestern+heute: ' + s.streak + ' statt 6');
+      if (s.lastDay !== heute) f.push('lastDay nicht gestempelt: ' + s.lastDay);
+      // 2 · Luecke von fuenf Tagen → beginnt bei 1 (und das ist der Kern des Falls)
+      stelle({ streak: 5, bestStreak: 5, lastDay: tagMinus(5) });
+      s = dqStatsBuchen(true);
+      if (s.streak !== 1) f.push('nach fuenf Tagen Pause: ' + s.streak + ' statt 1');
+      if (s.bestStreak !== 5) f.push('bestStreak verloren: ' + s.bestStreak);
+      // 3 · falsch → 0, und der Tag wird trotzdem gestempelt
+      stelle({ streak: 7, bestStreak: 9, lastDay: tagMinus(1) });
+      s = dqStatsBuchen(false);
+      if (s.streak !== 0 || s.lastDay !== heute) f.push('falsch: ' + JSON.stringify({ streak: s.streak, lastDay: s.lastDay }));
+      // 4 · Altbestand OHNE lastDay bleibt unangetastet und waechst weiter
+      stelle({ streak: 4, bestStreak: 4 });
+      if (dqSerie(dqGetStats()) !== 4) f.push('Altbestand ohne lastDay verliert seine Serie');
+      s = dqStatsBuchen(true);
+      if (s.streak !== 5) f.push('Altbestand: ' + s.streak + ' statt 5');
+      // 5 · die ANZEIGE liest die lebende Serie, nicht die gespeicherte Zahl.
+      // ZUERST die Gegenrichtung: eine LEBENDE Serie muss dastehen — sonst
+      // misst der Rest nur, dass renderDailyQuizTeaser gar nichts geschrieben
+      // hat, und waere auch mit ausgebautem dqSerie gruen.
+      stelle({ streak: 8, bestStreak: 8, lastDay: heute });
+      renderDailyQuizTeaser(); gsRenderStreakEverywhere();
+      const st = document.getElementById('quiz-streak');
+      const mq = document.getElementById('more-quiz-streak');
+      const lebt = (st && st.textContent) || '', lebtM = (mq && mq.textContent) || '';
+      if (!/8/.test(lebt)) f.push('Teaser zeigt eine LEBENDE Serie von 8 nicht: „' + lebt.trim() + '"');
+      if (!/8/.test(lebtM)) f.push('Mehr-Seite zeigt eine LEBENDE Serie von 8 nicht: „' + lebtM.trim() + '"');
+      stelle({ streak: 8, bestStreak: 8, lastDay: tagMinus(3) });
+      if (dqSerie(dqGetStats()) !== 0) f.push('dqSerie haelt eine drei Tage alte Serie fuer lebendig');
+      renderDailyQuizTeaser(); gsRenderStreakEverywhere();
+      if (st && /8/.test(st.textContent || '')) f.push('Teaser zeigt weiter „' + st.textContent.trim() + '"');
+      if (mq && /8/.test(mq.textContent || '')) f.push('Mehr-Seite zeigt weiter „' + mq.textContent.trim() + '"');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'gestern→6 · fuenf Tage Pause→1 (bestStreak 5 bleibt) · falsch→0 · Altbestand ohne lastDay→5 · Anzeige lebend „' + lebt.trim() + '" / nach drei Tagen Pause „' + ((st && st.textContent.trim()) || '') + '"' };
+    }),
+  },
+  {
+    name: 'Der Jahreswechsel gilt auf BEIDEN Wegen · er hing bis v33.26 an answerDailyQuiz, dem lokalen Rueckfall — der normale Weg ueber die Serverfrage kam nie dorthin',
+    lauf: async () => __seite.evaluate(async () => {
+      const heute = dqDayKey(), jahr = parseInt(heute.slice(0, 4), 10);
+      const vorher = () => { try { return JSON.parse(localStorage.getItem('gs_dq_archive') || '[]').length; } catch (_) { return 0; } };
+      localStorage.setItem('gs_dq_archive', '[]');
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 640, correct: 8, total: 10, streak: 3, bestStreak: 5, year: jahr - 1, lastDay: heute }));
+      const s = dqStatsBuchen(true);
+      const arch = JSON.parse(localStorage.getItem('gs_dq_archive') || '[]');
+      if (arch.length !== 1) return { ok: false, warum: 'nicht archiviert (' + arch.length + ' Eintraege)' };
+      if (arch[0].year !== jahr - 1 || arch[0].points !== 640) return { ok: false, warum: 'falsch archiviert: ' + JSON.stringify(arch[0]) };
+      if (s.year !== jahr) return { ok: false, warum: 'Jahr nach dem Wechsel: ' + s.year };
+      if (s.points) return { ok: false, warum: 'Punkte nicht zurueckgesetzt: ' + s.points };
+      // Und jetzt ueber den SERVER-Weg, der den Reset nie gesehen hat.
+      const A = window.__qc;
+      localStorage.setItem('gs_dq_archive', '[]');
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 111, correct: 2, total: 2, streak: 1, bestStreak: 1, year: jahr - 1 }));
+      await A.reset(); A.antwort = { data: [{ is_correct: true }], error: null };
+      A.oeffnen({ id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1 } });
+      const k = A.knoepfe().find(x => x.correct === '1');
+      document.querySelectorAll('.dq-opt')[k.pos].click();
+      await new Promise(r => setTimeout(r, 1400));
+      const arch2 = JSON.parse(localStorage.getItem('gs_dq_archive') || '[]');
+      if (arch2.length !== 1 || arch2[0].points !== 111) return { ok: false, warum: 'der Serverweg archiviert nicht: ' + JSON.stringify(arch2) };
+      // Und die Serie darf den Jahreswechsel nicht als Altbestand passieren:
+      // `dqYearlyReset` behaelt sie absichtlich — ohne `lastDay` waere eine
+      // laengst gerissene Serie am 1. Januar wieder lebendig.
+      const tagMinus = (n) => { const d = new Date(heute + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 50, correct: 1, total: 1, streak: 9, bestStreak: 9, year: jahr - 1, lastDay: tagMinus(6) }));
+      const s3 = dqStatsBuchen(true);
+      if (s3.streak !== 1) return { ok: false, warum: 'ueber den Jahreswechsel lebt eine sechs Tage alte Serie weiter: ' + s3.streak + ' statt 1' };
+      if (s3.bestStreak !== 9) return { ok: false, warum: 'bestStreak ueber den Jahreswechsel verloren: ' + s3.bestStreak };
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 50, correct: 1, total: 1, streak: 9, bestStreak: 9, year: jahr - 1, lastDay: tagMinus(1) }));
+      const s4 = dqStatsBuchen(true);
+      if (s4.streak !== 10) return { ok: false, warum: 'eine LEBENDE Serie ueberlebt den Jahreswechsel nicht: ' + s4.streak + ' statt 10' };
+      return { ok: true, info: 'Rueckfall archiviert 640 Punkte · Serverweg archiviert 111 Punkte · beide setzen das Jahr auf ' + jahr + ' · gerissene Serie ueber den Jahreswechsel: 1 · lebende: 10' };
+    }),
+  },
+  {
+    name: 'Die Tagesgrenze der ANZEIGE ist dieselbe wie die des Tagesschluessels · der Countdown lief bis zur LOKALEN Mitternacht, der Quiz-Tag ist UTC',
+    lauf: async () => __seite.evaluate(async () => {
+      const nf = dqNaechsteFrage();
+      const d = nf.datum;
+      if (d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0 || d.getUTCSeconds() !== 0) return { ok: false, warum: 'nicht auf einer UTC-Mitternacht: ' + d.toISOString() };
+      const naechsterTag = d.toISOString().slice(0, 10);
+      if (dqTagDavor(naechsterTag) !== dqDayKey()) return { ok: false, warum: 'nicht der Tag NACH dem heutigen Quiz-Tag: ' + naechsterTag + ' (heute ' + dqDayKey() + ')' };
+      if (!(nf.ms > 0 && nf.ms <= 86400000)) return { ok: false, warum: 'ms ausserhalb eines Tages: ' + nf.ms };
+      // Die LOKALE Mitternacht — die alte Rechnung. In einer Zone mit Versatz
+      // muss sie sich unterscheiden, sonst misst der Fall nichts.
+      const lokal = new Date(); lokal.setDate(lokal.getDate() + 1); lokal.setHours(0, 0, 0, 0);
+      const versatz = new Date().getTimezoneOffset();
+      if (versatz !== 0 && Math.abs((lokal - new Date()) - nf.ms) < 60000) return { ok: false, warum: 'UTC- und Ortszeit-Rechnung liefern dasselbe bei Versatz ' + versatz + ' min — der Fall misst nichts' };
+      // Und die Anzeige nennt die Uhrzeit, damit niemand selbst umrechnet.
+      localStorage.setItem(dqTodayKey(), JSON.stringify({ answered: true, correct: true, points: 120 }));
+      renderDailyQuizTeaser();
+      const txt = (document.getElementById('quiz-options') || {}).textContent || '';
+      if (txt.indexOf(nf.zeit) < 0) return { ok: false, warum: 'der Teaser nennt die Uhrzeit „' + nf.zeit + '" nicht: ' + txt.slice(0, 120) };
+      const std = Math.floor(nf.ms / 3600000);
+      if (txt.indexOf(String(std)) < 0) return { ok: false, warum: 'der Teaser zeigt nicht ' + std + ' h: ' + txt.slice(0, 120) };
+      localStorage.removeItem(dqTodayKey());
+      return { ok: true, info: 'naechster Quiz-Tag ' + d.toISOString() + ' · in ' + std + ' h · Teaser nennt „' + nf.zeit + '" (Versatz ' + (-versatz) + ' min)' };
+    }),
+  },
+  {
+    name: 'Der Tagesschluessel gehoert dem Konto · gs_dq_tag_<datum> geht beim Abmelden mit, wird nach 30 Tagen weggeraeumt, und die zwei Nachbarn mit demselben Wortanfang bleiben unberuehrt',
+    lauf: async () => __seite.evaluate(async () => {
+      const heute = dqDayKey();
+      const f = [];
+      if (dqTodayKey() !== 'gs_dq_tag_' + heute) f.push('Name: ' + dqTodayKey());
+      if ((window.GS_USER_PREFIXES || []).indexOf('gs_dq_tag_') < 0) f.push('gs_dq_tag_ steht nicht in GS_USER_PREFIXES');
+      const tagMinus = (n) => { const d = new Date(heute + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+      // Deckel: alt raus, jung bleibt, Altbestand von gestern raus, der von HEUTE bleibt
+      localStorage.setItem('gs_dq_tag_' + tagMinus(40), '{"answered":true}');
+      localStorage.setItem('gs_dq_tag_' + tagMinus(3), '{"answered":true}');
+      localStorage.setItem('gs_dq_' + tagMinus(2), '{"answered":true}');
+      localStorage.setItem('gs_dq_' + heute, '{"answered":true,"correct":true,"alt":1}');
+      localStorage.setItem('gs_dq_stats', '{"points":7,"streak":0,"total":0,"correct":0,"bestStreak":0}');
+      localStorage.setItem('gs_dq_today_cache', '{"id":"x"}');
+      localStorage.setItem('gs_dq_archive', '[]');
+      const weg = _dqTageAufraeumen();
+      if (localStorage.getItem('gs_dq_tag_' + tagMinus(40))) f.push('40 Tage alter Schluessel liegt noch da');
+      if (!localStorage.getItem('gs_dq_tag_' + tagMinus(3))) f.push('drei Tage alter Schluessel weggeraeumt');
+      if (localStorage.getItem('gs_dq_' + tagMinus(2))) f.push('Altbestand von vorgestern liegt noch da');
+      if (localStorage.getItem('gs_dq_' + heute)) f.push('Altbestand von heute liegt noch da — ihn liest seit v33.27 niemand mehr');
+      if (!localStorage.getItem('gs_dq_stats')) f.push('gs_dq_stats mitgeraeumt');
+      if (!localStorage.getItem('gs_dq_today_cache')) f.push('gs_dq_today_cache mitgeraeumt');
+      if (!localStorage.getItem('gs_dq_archive')) f.push('gs_dq_archive mitgeraeumt');
+      // Abmelden: der neue Schluessel geht ueber das Praefix, der Altbestand
+      // ueber die FORM (GS_DQ_ALT) — und die zwei Nachbarn bleiben, wie es
+      // ihre Listen sagen.
+      localStorage.setItem(dqTodayKey(), '{"answered":true}');
+      localStorage.setItem('gs_dq_' + tagMinus(7), '{"answered":true}');
+      gsClearUserDataKeys();
+      if (localStorage.getItem(dqTodayKey())) f.push('der neue Schluessel ueberlebt das Abmelden');
+      if (localStorage.getItem('gs_dq_' + tagMinus(7))) f.push('der Altbestand ueberlebt das Abmelden');
+      if (localStorage.getItem('gs_dq_stats')) f.push('gs_dq_stats ueberlebt das Abmelden (steht in GS_USER_KEYS)');
+      if (!localStorage.getItem('gs_dq_today_cache')) f.push('gs_dq_today_cache beim Abmelden mitgenommen (steht bewusst in GS_KEEP_ON_LOGOUT)');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: weg + ' Schluessel weggeraeumt · Deckel ' + GS_DQ_TAGE_MAX + ' Tage · Abmelden nimmt neuen Schluessel (Praefix), Altbestand (Form) und gs_dq_stats mit — gs_dq_today_cache bleibt' };
+    }),
+  },
+  {
+    name: 'Die Rueckfall-Frage ist kein Server-Quiz · GS_QUIZ_FALLBACK_POOL traegt die Ids lq1…lq50, quiz_answers.quiz_id ist eine uuid — es wird nichts gesendet und nichts behauptet',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      const lq = (typeof GS_QUIZ_FALLBACK_POOL !== 'undefined' && GS_QUIZ_FALLBACK_POOL && GS_QUIZ_FALLBACK_POOL[5]) || null;
+      if (!lq) return { ok: false, warum: 'GS_QUIZ_FALLBACK_POOL nicht gefunden — der Fall misst nichts' };
+      if (!/^lq\d+$/.test(String(lq.id))) return { ok: false, warum: 'unerwartete Rueckfall-Id: ' + lq.id };
+      await A.reset(); A.antwort = { data: null, error: { message: 'invalid input syntax for type uuid: "' + lq.id + '"', status: 400 } };
+      A.oeffnen(lq);
+      if (window._dqSupaQuizId) return { ok: false, warum: 'die Rueckfall-Id steht als Server-Id da: ' + window._dqSupaQuizId };
+      const kn = A.knoepfe();
+      if (kn.length !== 4) return { ok: false, warum: 'die Rueckfall-Frage rendert nicht (' + kn.length + ' Knoepfe)' };
+      const k = kn.find(x => x.correct === '1');
+      if (!k) return { ok: false, warum: 'kein richtiger Knopf in der Rueckfall-Frage' };
+      document.querySelectorAll('.dq-opt')[k.pos].click();
+      await new Promise(r => setTimeout(r, 1400));
+      const post = A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST');
+      if (post) return { ok: false, warum: 'eine Zeile fuer die Rueckfall-Frage gesendet: ' + post.opts.body };
+      const el = document.getElementById('dq-server-urteil');
+      if (el) return { ok: false, warum: 'behauptet etwas ueber den Server: „' + el.textContent.trim() + '"' };
+      if ((dqGetToday() || {}).serverUrteil) return { ok: false, warum: 'ein Server-Urteil vermerkt: ' + (dqGetToday() || {}).serverUrteil };
+      const st = dqGetStats();
+      if (!(st.total > 0)) return { ok: false, warum: 'der Versuch wurde lokal nicht gezaehlt' };
+      // Gegenrichtung: eine ECHTE uuid geht weiterhin raus.
+      await A.reset(); A.antwort = { data: [{ is_correct: true }], error: null };
+      A.oeffnen({ id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1 } });
+      if (window._dqSupaQuizId !== 'aaaaaaaa-0000-4000-8000-000000000002') return { ok: false, warum: 'eine echte uuid kommt nicht durch: ' + window._dqSupaQuizId };
+      const k2 = A.knoepfe().find(x => x.correct === '1');
+      document.querySelectorAll('.dq-opt')[k2.pos].click();
+      await new Promise(r => setTimeout(r, 1400));
+      if (!A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST')) return { ok: false, warum: 'die echte Frage sendet nicht mehr' };
+      return { ok: true, info: 'Rueckfall „' + lq.id + '": kein POST, kein Server-Urteil, lokal gezaehlt · echte uuid: POST geht raus' };
+    }),
+  },
+  {
+    name: 'Der Zeitablauf erreicht den Server · er schrieb lokal „gespielt" und liess den Server nichts wissen — auf einem zweiten Geraet war das ein Freiversuch',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      await A.reset(); A.antwort = { data: [{ is_correct: false }], error: null };
+      A.oeffnen({ id: 'aaaaaaaa-0000-4000-8000-000000000003', question: 'Format C', category: 'x', xp_reward: 20, options: { choices: ['C0', 'C1', 'C2', 'C3'], correct: 2 } });
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 0, correct: 0, total: 4, streak: 3, bestStreak: 3, lastDay: dqDayKey() }));
+      dqTimeout();
+      await new Promise(r => setTimeout(r, 1200));
+      const post = A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST');
+      if (!post) return { ok: false, warum: 'kein POST auf quiz_answers (' + A.rufe.map(x => x.path).join(', ') + ')' };
+      const b = JSON.parse(post.opts.body);
+      if (b.selected_option !== -1) return { ok: false, warum: 'selected_option ' + b.selected_option + ' statt -1 (nur bei fehlendem oder negativem Index kehrt der Trigger VOR der Formatpruefung zurueck und schreibt keine Warnung)' };
+      if (b.is_correct !== false) return { ok: false, warum: 'is_correct ' + b.is_correct };
+      if (b.quiz_id !== 'aaaaaaaa-0000-4000-8000-000000000003') return { ok: false, warum: 'quiz_id ' + b.quiz_id };
+      if (!/return=representation/.test((post.opts.headers || {}).Prefer || '')) return { ok: false, warum: 'Prefer ' + (post.opts.headers || {}).Prefer };
+      const st = dqGetStats();
+      if (st.streak !== 0) return { ok: false, warum: 'Serie nach Zeitablauf: ' + st.streak };
+      if (st.total !== 5) return { ok: false, warum: 'Versuch nicht gezaehlt: total ' + st.total };
+      if ((dqGetToday() || {}).timeout !== true) return { ok: false, warum: 'lokal nicht als Zeitablauf vermerkt' };
+      // Gegenrichtung: die ERSATZFRAGE hat keine Server-Id. Wer sie zeigt,
+      // raeumt `_dqSupaQuizId` — sonst schriebe ein Zeitablauf dort eine Zeile
+      // fuer die zuletzt geladene SERVERfrage und sperrte den Spieler fuer
+      // eine Frage, die er nie beantwortet hat.
+      A.rufe.length = 0;
+      try { _openDailyQuizLocal(); } catch (_) {}
+      if (window._dqSupaQuizId) return { ok: false, warum: 'die Ersatzfrage laesst _dqSupaQuizId stehen: ' + window._dqSupaQuizId };
+      dqTimeout();
+      await new Promise(r => setTimeout(r, 900));
+      const post2 = A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST');
+      if (post2) return { ok: false, warum: 'die Ersatzfrage schreibt beim Zeitablauf eine Server-Zeile: ' + post2.opts.body };
+      return { ok: true, info: 'POST mit selected_option -1 · is_correct false · Prefer return=representation · Serie 0 · Versuch gezaehlt (4→5) · Ersatzfrage schreibt keine Zeile' };
+    }),
+  },
   {
     name: 'Index reist mit · in allen drei Formaten traegt jeder Knopf den DB-Index seiner Option; angetippt wird der richtige, gesendet wird SEIN Index (nicht die gemischte Position)',
     lauf: async () => {
@@ -349,7 +620,7 @@ let __seite = null;
   }
   // ── App ────────────────────────────────────────────────────────────────
   const br = await chromium.launch();
-  const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
+  const ctx = await br.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'Europe/Zurich' });
   const p = await ctx.newPage(); __seite = p;
   const errs = [];
   p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
@@ -391,5 +662,7 @@ let __seite = null;
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
   console.log('  Grenze: das lokale Postgres hat keine RLS und kein auth.users — geprueft ist die');
   console.log('  Rechnung der Migration und die Rueckmeldung der App, nicht die Anwendung auf der Live-DB.');
+  console.log('  Die Zeitzone der App-Haelfte ist Europe/Zurich: ohne Versatz zu UTC koennte der');
+  console.log('  Tagesgrenzen-Fall nicht zeigen, dass die beiden Rechnungen auseinanderfallen.');
   process.exitCode = kaputt ? 1 : (offen ? 2 : 0);
 })();

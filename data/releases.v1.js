@@ -30,6 +30,146 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.15', date: '10.09.2026',
+      headline: 'Der Plan altert und meldet sich — PLANER-V3 N4, erster Teil',
+      summary: 'Ein Plan, dessen Jahr vorbei ist, sagt es jetzt auf seiner Kachel — und zeigt auf den Weg zur Jahresvorlage. Kein Automatismus: die Person entscheidet.',
+      user_summary: 'In „Meine Pläne" siehst du, wenn das Jahr eines Plans vorbei ist — mit dem Hinweis, ihn als Vorlage fürs nächste Jahr zu übernehmen.',
+      user_items: [
+        {emoji:'⏳', text:'„Plan-Jahr 2025 vorbei — 📅 als Vorlage übernehmen" steht auf der Kachel, sobald das Jahr des Plans hinter dir liegt.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Jahr aus den Datumsfeldern des Plans,', text:' nie geraten; ohne Datum kein Hinweis. _gsSatz-Vorlage, damit die vier Sprachen es übersetzen können.'},
+        {emoji:'🧪', bold:'planer_check „N4":', text:' Plan mit Vorjahr → Hinweis; Plan im laufenden Jahr → keiner; Plan ohne Datum → keiner. Gelesen aus dem gerenderten HTML von „Meine Pläne", nicht aus dem Objekt.'}
+      ],
+    },
+  {
+    v: 'v33.14', date: '10.09.2026',
+      headline: 'Lina kennt den Kalender — Aussaatfenster und Plan-Termine im Kontext',
+      summary: 'Seit v32.56 bekommt Lina Zahlen aus Datensätzen. Jetzt auch die nächsten 60 Tage des Kalenders: welche deiner Kulturen jetzt gesät oder vorgezogen werden, und was dein Plan als Nächstes vorsieht — aus derselben Kalenderfunktion wie die App, nie aus einer zweiten Rechnung.',
+      user_summary: 'Frag Lina „Was steht an?" — sie kennt jetzt deine Aussaatfenster und die Termine aus deinem Plan.',
+      user_items: [
+        {emoji:'🌱', text:'Lina weiss, welche deiner Kulturen in den nächsten 60 Tagen gesät oder vorgezogen werden — mit dem Hinweis auf mittlere Lagen.'},
+        {emoji:'📅', text:'Und was dein gespeicherter Plan als Nächstes vorsieht: Aussaat, Erntefenster, Zeitleiste.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsLinaZahlen:', text:' zwei Zeilen aus gsKalenderEreignisse(heute, +60) — quelle kulturdaten (art aussaat) und quelle plan, je höchstens vier, mit Datum. Ohne Treffer keine Zeile: ein „keine Aussaat" wäre eine Behauptung über Kulturen, die die App nicht kennt. Deckel GS_LINA_ZAHLEN_MAX 700 → 900 (zwei Zeilen mehr); sensor_check hält 1’100 als Obergrenze.'},
+        {emoji:'🧪', bold:'sensor_check „Lina · Kalender":', text:' Feldsalat (Aug/Sep) und ein Plan mit Termin im Fenster liefern beide Zeilen, Monstera steht in keiner, jeder genannte Titel ist ein Ereignis der einen Kalenderfunktion — und ohne Kulturen und Pläne gibt es keine der Zeilen.'}
+      ],
+    },
+  {
+    v: 'v33.13', date: '10.09.2026',
+      headline: 'Aussaatfenster im Kalender — aus den Kulturdaten, nicht aus der Sammelsaison',
+      summary: 'KALENDER-V1 Stufe 2b war offen: Aussaatfenster aus den Artendaten. Nachgemessen ist „season" dort bei 2’907 Einträgen eine Sammel- oder Erntesaison, kein Aussaatfenster. Die ehrliche Quelle sind die 39 Kulturen des Schweizer Aussaatkalenders — die stehen jetzt am Tag, an dem es so weit ist, bei deinen Pflanzen im Kalender.',
+      user_summary: 'Deine Gemüse und Kräuter sagen dir im Kalender, wann sie vorgezogen und wann sie draussen gesät werden — mit dem Hinweis für höhere Lagen.',
+      user_items: [
+        {emoji:'🌱', text:'Am Monatsersten steht „Basilikum vorziehen (drinnen)" oder „Zucchini säen (draussen)" — für jede deiner Pflanzen, die im Schweizer Aussaatkalender steht.'},
+        {emoji:'🏔', text:'Jeder Eintrag sagt, woher er kommt: „mittlere Lagen 400–800 m, höhere Lagen 2–3 Wochen später" — und führt zum Säkalender.'},
+        {emoji:'🇨🇭', text:'Rüebli, Randen, Lauch: die Schweizer Namen werden derselben Kultur zugeordnet.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'Korrektur an KALENDER-V1 2b:', text:' `season` (gsSaisonMonate) ist bei Beeren, Pilzen und Wildpflanzen die Sammelsaison — daraus „säen" zu machen wäre eine Behauptung, die die Daten nicht tragen. gsAussaatEreignisse liest GS_SAE_DB (indoor/outdoor je Monat, 0-basiert wie GS_SAE_DATEN) und erzeugt je Monat ein info-Ereignis am 1., quelle „kulturdaten", Verweis openSaekalender.'},
+        {emoji:'🔗', bold:'Zuordnung ohne zweiten Matcher:', text:' erst _gsKulturZuPflanze (PLANT_DB, Name ±n oder lateinisch), dann GS_SAE_DB.n direkt, dazu eine Brücke für Schweizer/deutsche Namen DERSELBEN Kultur (Rüebli/Karotten ↔ Möhren, Lauch ↔ Porree, Randen ↔ Rote Bete, Stielmangold ↔ Mangold). Keine Botanik, nur Synonyme. Ohne Treffer kein Ereignis (Regel 5).'},
+        {emoji:'🧪', bold:'kalender_check „Aussaat":', text:' Basilikum und Zucchini bekommen genau ihre Fenster, Monstera keins, Rüebli wird Möhren, und eine Wildart mit season (Heidelbeere) bekommt NICHTS — die Gegenrichtung zur Datenfrage. Jedes Ereignis am 1., info, mit Kalender, Lagen und Verweis; die Tagesliste zeigt es.'}
+      ],
+    },
+  {
+    v: 'v33.12', date: '10.09.2026',
+      headline: 'Ein Plan, der funktioniert hat, wird zur Vorlage — PLANER-V3 N10',
+      summary: 'Gärtnern ist mehrjährig; der Planer behandelte es als Einmal-Ereignis. Ein gespeicherter Plan lässt sich jetzt um ein Jahr versetzen: Aussaat, Ernte und Zeitleiste wandern mit, und Pflanzen, deren Familie der Plan selbst zur Pause rät, werden markiert — nie entfernt.',
+      user_summary: 'In „Meine Pläne" gibt es 📅 „Vorlage fürs nächste Jahr": derselbe Plan, alle Termine ein Jahr später, mit Hinweis zur Fruchtfolge.',
+      user_items: [
+        {emoji:'📅', text:'Ein Tipp auf 📅 legt eine Kopie deines Plans fürs nächste Jahr an — Aussaat, Erntefenster und die Wochen der Zeitleiste sind versetzt und stehen im Kalender.'},
+        {emoji:'🔄', text:'Pflanzen, deren Familie der Plan selbst nach diesem Jahr meiden will, sind markiert: „Beet wechseln oder bewusst lassen". Nichts wird stillschweigend gestrichen.'},
+        {emoji:'🧾', text:'Die Vorlage sagt oben, woher sie kommt — und beim Öffnen läuft die Plan-Prüfung mit deiner echten Beet-Geschichte.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsPPvorlageNaechstesJahr(id):', text:' Jahr aus den Daten des PLANS (nie aus „heute"), vier Datumsfelder +1 Jahr über _gsDatumPlusJahre (29.02.→28.02.), Zeitleisten-Wochen bleiben (ISO-Wochen fallen von selbst auf die neuen Montage, gsPlanEreignisse). Familien aus cropRotation.avoid_next_year werden über _gsNorm/_gsFamilieVon (dieselben Helfer wie R5) MARKIERT (_rotation), nie entfernt — CLAUDE.md §4a.2. Alte Rechnungen (_…) werden verworfen, das Prüfwerk rechnet beim Öffnen neu. Speichern am Rückgabewert geprüft.'},
+        {emoji:'🧪', bold:'planer_check „N10":', text:' Daten +1 Jahr, harvest.first_date mit, Wochen gleich, drei Pflanzen bleiben drei, Kohlrabi markiert und Tomate nicht, Herkunft und Titel tragen das Jahr, Original unverändert, ohne cropRotation keine Markierung, Kalender zeigt „Tomate säen" im neuen Jahr, gerenderter Plan nennt Herkunft und Markierung, Schaltjahr.'}
+      ],
+    },
+  {
+    v: 'v33.11', date: '10.09.2026',
+      headline: 'Nutzungsmessung: ein Schalter, ein Vokabular, eine Zustimmung',
+      summary: 'gsTrackEvent hatte 0 Aufrufer, gs_consent 0 Schreiber, einen Zustimmungsdialog gab es nicht — die Strecke war tot. Jetzt: Opt-in in „Datenschutz & Daten" (Vorgabe aus), ein erklärtes Ereignis-Vokabular statt Ad-hoc-Namen, und ein Prüfstand, der beweist: ohne Ja verlässt nichts das Gerät.',
+      user_summary: 'Du entscheidest, ob GreenScan Nutzung misst — der Schalter ist aus, bis du ihn einschaltest, und er sagt dir genau, was gesendet würde.',
+      user_items: [
+        {emoji:'📊', text:'Neu unter Einstellungen › Datenschutz & Daten: „Nutzungsmessung erlauben". Vorgabe: aus.'},
+        {emoji:'🔒', text:'Wenn an, gehen nur benannte Ereignisse (Scan fertig, Plan gespeichert, Aufgabe erledigt, Quiz beantwortet) mit Kategorie und App-Version — keine Fotos, kein Standort, keine Pflanzennamen.'},
+        {emoji:'📜', text:'Die Über-Seite und die Rechtstexte sagen jetzt, wo der Schalter ist — nicht mehr „einen Dialog gibt es nicht".'}
+      ],
+      items: [
+        {emoji:'📖', bold:'GS_EVENTS:', text:' fünf Ereignisse, jedes mit seinen erlaubten Feldern (scan_done: cat, conf_bucket, db_hit · plan_saved: plants, has_dates · task_done: task_key, liste · quiz_answered: correct · consent_changed: analytics). _gsEventFiltern lässt nur diese Schlüssel durch, nur Grundtypen, gekürzt — ein Aufrufer kann kein Feld dazuerfinden. Unbekannte Namen werden verworfen, auch mit Ja.'},
+        {emoji:'🎛', bold:'gsConsentAnalyticsSetzen:', text:' schreibt gs_consent {analytics, at, version} — am Rückgabewert geprüft (der Wrapper wirft nie, §3.5), Schalter nur bei Erfolg umgestellt. Wohnt bewusst NICHT in gs_prefs (ein Server-Pull kann die ersetzen, v32.36) und nicht in toggleMap (Vorgabe dort ist an). Der Schalter selbst ist das erste Ereignis.'},
+        {emoji:'📍', bold:'Vier Stellen, je eine:', text:' showScanResult (nach dem Prüfwerk), gsPPsavePlan (nach dem lokalen Erfolg), gsRpcTaskDone (die eine Stelle, durch die gsQuickDone, doneTask und „Alle erledigt" gehen — vor der Anmelde-Sperre), answerSupaDailyQuiz (nach dem Server-Urteil).'},
+        {emoji:'🧪', bold:'einstellungen_check, sechs Fragen:', text:' Vorgabe aus und 0 Anfragen · Ja schreibt Datum und Fassung, erstes Ereignis ist die Zustimmung · erklärtes Ereignis mit GENAU seinen Feldern, Name/Foto/Standort/Objekt herausgefiltert · unbekannter Name verworfen · task_done über gsRpcTaskDone ohne Pflanzenname · Nein schaltet ab und die Über-Liste ist aktualisiert.'}
+      ],
+    },
+  {
+    v: 'v33.10', date: '10.09.2026',
+      headline: 'Der Plan wird zum Kalender — PLANER-V3 N8, Stufe 5',
+      summary: 'Ein gespeicherter Garten-Plan trägt je Pflanze Aussaat- und Erntedaten und eine Wochen-Zeitleiste — und erzeugte bis heute keinen einzigen Termin. Der Kalender kannte die Art „Aussaatfenster" sogar, nur lieferte sie niemand. Jetzt ist der Plan eine Quelle der einen Kalenderfunktion, mit Herkunft an jedem Termin.',
+      user_summary: 'Deine gespeicherten Garten-Pläne stehen jetzt im Kalender: Aussaat, Erntefenster und die Schritte der Zeitleiste — jeder Termin sagt, aus welchem Plan er kommt.',
+      user_items: [
+        {emoji:'🌱', text:'Säen, Auspflanzen, Erntebeginn und -ende aus deinem Plan erscheinen als Termine im Kalender und in „Heute zu tun".'},
+        {emoji:'📋', text:'Die Zeitleiste des Plans (Woche 14: Vorkultur ansetzen …) wird zu Erinnerungen am jeweiligen Montag.'},
+        {emoji:'📂', text:'Jeder Termin nennt seinen Plan und führt mit einem Tipp zu „Meine Pläne".'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsPlanEreignisse(von, bis):', text:' liest gs_garden_plans, rechnet sow_date → aussaat, harvest_from/to → ernte (Beginn und Ende), timeline.week → erinnerung am ISO-Montag des Plan-Jahres. Eingehängt in gsKalenderEreignisse vor dem Sortieren — EINE Frage, EINE Funktion (KALENDER-V1). Dublettensperre Art·Datum·Name, weil ein Plan nach dem Cloud-Abgleich zweimal in der Liste stehen kann.'},
+        {emoji:'🚫', bold:'Was bewusst NICHT hinein kommt:', text:' careSchedule („täglich giessen 06-08") ist ein Intervall, kein Termin — das würde jeden Tag eine Zeile erzeugen und gehört als Aufgabe an die Pflanze. Und ein Plan ohne Datum bekommt kein erfundenes Jahr.'},
+        {emoji:'🧪', bold:'kalender_check:', text:' neuer Fall „Plan" — ein Musterplan liefert 3 Aussaaten, 6 Erntefenster-Grenzen, 3 Zeitleisten-Schritte, jeder mit quelle „plan" und dem Plannamen im Grund; die Tagesliste zeigt die Zeile; ein Plan ohne Daten liefert nichts; der Fall „Ohne Daten" räumt jetzt auch gs_garden_plans — sonst wäre er rot geworden (CLAUDE.md: eine Quelle, die er stehen lässt, macht ihn rot).'}
+      ],
+    },
+  {
+    v: 'v33.09', date: '10.09.2026',
+      headline: 'touch_check hat 43 Fenster nie angesehen — jetzt schon, und dabei die WCAG-Regel richtiggestellt',
+      summary: 'Der Prüfstand für Antippflächen mass nur die elf Bildschirme. Die 43 Fenster darüber hat nie jemand vermessen. Beim Öffnen aller Fenster kam heraus: 22 zu kleine Ziele, davon 21 durch Abstand konform — die Ausnahme, die WCAG 2.5.8 vorsieht und die der Prüfstand nicht kannte. Ein echter Fund blieb übrig.',
+      user_summary: 'Ein Knopf im „Über GreenScan"-Fenster war auf schmalen Geräten zu knapp zum Antippen.',
+      user_items: [
+        {emoji:'🔧', text:'„🔧 Technische Details" war nur 18 Pixel hoch — auf einem schmalen Telefon zu wenig, um ihn sicher zu treffen. Jetzt so hoch wie sein Geschwister-Knopf in „Was ist neu".'}
+      ],
+      items: [
+        {emoji:'🔍', bold:'43 Fenster, 84 Öffnungen (zwei Breiten):', text:' dieselbe Entdeckung wie contrast_check seit v32.25 — jeder Öffner ohne Parameter, dessen Rumpf openModal( enthält, wird wirklich aufgerufen. Eine Liste von Hand veraltet; diese Regel nimmt neue Fenster ab dem Tag ihrer Entstehung mit. CLAUDE.md sagte bis heute: „wer etwas in einem Modal setzt, das der Prüfstand nicht öffnet, rechnet selbst nach" — niemand rechnet selbst nach.'},
+        {emoji:'📐', bold:'Und die Regel war zu streng:', text:' WCAG 2.5.8 erlaubt ein kleines Ziel ausdrücklich, wenn ein 24-px-Kreis um seine Mitte kein anderes Ziel schneidet. Ohne diese Ausnahme hätte der Durchgang 22 Treffer gemeldet, von denen 21 konform sind — Kästchen in Standardgrösse mit reichlich Luft. Ein Bericht mit einundzwanzig richtigen Zeilen, die keine Fehler sind, ist der Bericht, den man zu ignorieren lernt.'},
+        {emoji:'⚠️', bold:'Die Geometrie hatte ich zuerst falsch:', text:' mit Kreisen für die grossen Nachbarziele gerechnet kam 0 heraus, mit ihrer Umrandung 1. Die nachgiebige Rechnung hätte den einen echten Fund verborgen — eine zu lasche Prüfregel ist gefährlicher als eine zu strenge, weil niemand sie bemerkt.'},
+        {emoji:'🧪', bold:'Gemessen statt geschätzt:', text:' zwei Läufe hintereinander dieselben Zahlen (0 Funde, 22 konform); render_check meldet „GROESSE geaendert: 0" — die Polsterung verschiebt kein Layout.'}
+      ],
+    },
+  {
+    v: 'v33.08', date: '10.09.2026',
+      headline: 'Ein Besteck-Symbol vor „Eicheln (für Tiere)" — an 164 von 372 Tagen',
+      summary: 'Zwei unabhängige Funde. Der schwerere: die Wissens-Zeile nahm die Essbarkeit von der ART und den Text vom EINTRAG — zwei Quellen, ein Satz. Der zweite: vier Anzeigen zeigten Eintragszahlen unter dem Wort „Arten", und nutzersicht_check E3 hat genau das erzwungen, während E9 das Gegenteil verlangt.',
+      user_summary: 'Ein Essbar-Symbol steht nur noch dort, wo auch der Text daneben von Essen spricht — und wo „Arten" steht, steht die Zahl der Arten.',
+      user_items: [
+        {emoji:'🍴', text:'In der Wissens-Zeile stand „🍴 Gewöhnliche Eiche: Holz, Eicheln (für Tiere), Rinde (Gerbstoff)." Das Besteck sagte „essbar", der Text daneben etwas anderes. Betroffen waren fünf Arten an 164 von 372 möglichen Tagen.'},
+        {emoji:'🍄', text:'Im Menü stand „636 Arten" bei den Pilzen. Es sind 364 Arten in 636 Einträgen. Dasselbe bei Wildpflanzen (1’994 statt 2’226), Kräutern, Bäumen und Hauspflanzen.'},
+        {emoji:'📖', text:'Die Aufschlüsselung „Was in der Artendatenbank steckt" nennt jetzt beide Zahlen je Kategorie — und sagt dazu, warum sich die Kategorien auf mehr addieren als das Total: eine Art kann in zwei Kategorien stehen.'},
+        {emoji:'🔍', text:'Über der Artensuche stand „4337 Arten". Jede Zeile der Liste ist ein Eintrag — dort steht jetzt „4337 Einträge", wie im Leerzustand zwei Zeilen tiefer schon immer.'}
+      ],
+      items: [
+        {emoji:'🍴', bold:'Warnung von der Art, Einladung von beiden:', text:' seit v32.96 nahm die Wissens-Zeile Giftstufe UND Essbarkeit von der Art (_gsArtAnzeige) und den Text vom Eintrag. Bei Quercus robur gewinnt der Eintrag mit der höheren Giftstufe (tox 1, „Eicheln geröstet als Kaffeeersatz") — und dessen edible:true fährt mit. Über die ganze Liste: 14 Einträge, bei denen die Art „essbar" sagt und der Eintrag nicht, jedes Mal mit gestiegener Giftstufe. Der Warnsatz folgt weiter der Art (dort macht sie vorsichtiger — der Gewinn von v32.96 bleibt); die Einladung braucht jetzt BEIDE, und Symbol und Text kommen wieder aus derselben Quelle.'},
+        {emoji:'📅', bold:'Und der Prüfstand hing am Tagesdatum:', text:' scan_check E3 mass den EINEN Tag, an dem er lief. Der Fehler war 364 Tage unsichtbar und stand am 10.09.2026 plötzlich auf main, ohne dass sich etwas geändert hätte. E3 stellt jetzt das Datum und fährt alle 372 Kombinationen durch die ECHTE Funktion — Gegenprobe: 5 Arten an 164 von 372 Tagen.'},
+        {emoji:'🧮', bold:'gsArtenZahlen(cat):', text:' dieselbe Funktion zählt jetzt auch eine einzelne Kategorie (Cache je Liste). Vier Anzeigen umgestellt: Menü-Untertitel, Aufschlüsselung je Kategorie, deren Total-Zeile und der Suchkopf.'},
+        {emoji:'⚠️', bold:'Ein Prüfstand, der den Fehler erzwingt, ist schlimmer als keiner:', text:' E3 verlangte wörtlich, dass _gsMenuSub die Eintragszahl mit dem Wort „Arten" liefert. Wer die Anzeige repariert hätte, wäre rot geworden und hätte die Reparatur zurückgenommen. E3 zählt jetzt Arten — mit EIGENEM Massstab, nicht durch Aufruf der geprüften Funktion.'},
+        {emoji:'🧹', bold:'Und eine tote Schleife samt ihrer Zählung:', text:' acht cnt-<kategorie>-Elemente gibt es nicht (nachgemessen in der geladenen Seite); die Schleife schrieb Eintragszahlen mit dem Wort „Arten" ins Leere, und ein DB.forEach über alle 4’337 Einträge lief beim Start nur, um sie zu füttern. wiring_check sieht so etwas nicht — der Name wird zusammengesetzt.'},
+        {emoji:'🧪', bold:'nutzersicht_check E9 deckt jetzt beides ab:', text:' jede Kategorie-Zeile muss „N Arten · M Einträge" tragen und die Zahlen müssen zu einer echten Kategorie gehören; der Suchkopf darf nicht „Arten" sagen. Gegenprobe gegen v33.07: E3 und E9 beide rot, mit allen fünf Kategorien beim Namen.'}
+      ],
+    },
+  {
+    v: 'v33.07', date: '09.09.2026',
+      headline: 'Die fünfte Stelle derselben Frage — gefunden, weil ich gesucht habe',
+      summary: 'v33.06 hat vier Anzeigen umgestellt, die „hast du Pflanzen?" nur mit ps_myplants beantworteten. Die Startkachel „Pflanzen" war die fünfte: sie zeigte 0 und führte per Tipp auf einen Bildschirm, der 3 zeigte.',
+      user_summary: 'Die Kachel „Pflanzen" auf der Startseite zählt jetzt auch deine Beet-Pflanzungen.',
+      user_items: [
+        {emoji:'🌱', text:'Sie zeigte 0, obwohl im Beet drei Pflanzen standen — und ein Tipp darauf führte auf „Meine Pflanzen", wo 3 stand.'}
+      ],
+      items: [
+        {emoji:'🔍', bold:'Gesucht, nicht gestolpert:', text:' für einen Nur-Beet-Nutzer wurde über alle elf Tabs jede sichtbare Zahl neben ihre Beschriftung geschrieben (die Methode aus v32.87). Genau ein weiterer Fund — drei Schreiber von #stat-favs, alle myPlants.length, jetzt gsPflanzenZahl().'},
+        {emoji:'🧪', bold:'nutzersicht_check E10 kennt die Kachel:', text:' nur Beet → 2, wirklich nichts → 0. Gemessen wird NACH updatePlantStat, nicht während gsAnimateCounter läuft.'},
+        {emoji:'⚠️', bold:'Und zwei Funde waren meine eigene Messfalle:', text:' „1’993 Arten" und „864 Essbar" — beides mitten in der 1’400-ms-Zählanimation abgelesen. Nach dem Auslaufen: 3’136 und 1’228, beide richtig. Die Komma-Schreibweise kam von gsLocale() = en-GB im Prüfstand, nicht aus dem Code. Hätte ich sie „repariert", wären zwei richtige Anzeigen kaputtgegangen.'}
+      ],
+    },
+  {
     v: 'v33.06', date: '09.09.2026',
       headline: '„Noch keine Pflanze“ stand über den Aufgaben genau dieser Pflanzen',
       summary: 'Seit v32.47 tragen Garten-Pflanzungen dieselben Aufgaben wie eigene Pflanzen, und gsGetDueTasks rechnet über beide Listen. Drei Anzeigen benutzten weiter myPlants.length als Tor — wer nur ein Beet hat, sah auf der Startseite den Leerzustand.',

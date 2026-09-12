@@ -4,13 +4,179 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.26` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.27` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-12 (hv) - v33.27: Das Quiz sagt, was stimmt — und der Zeitablauf zählt
+
+Erster Teil von Fernandos Satz vom 11.09.: „das Tägliche Quiz viel besser. Es
+soll von der Zuverlässigkeit und den Resultaten besser wie andere Quizapps
+sein." Deshalb steht hier **nicht** ein neuer Spielmodus, sondern das, was ein
+Quiz überhaupt erst zuverlässig macht: **stimmt die Antwort, die es als richtig
+wertet?**
+
+**Sieben Befunde, alle am 12.09.2026 gemessen (nur lesend):**
+
+**1 · Die Wertung folgte dem EINTRAG, nicht der Art.** `dqBuildQuestion` liest
+`sp.tox` (Frage „Wie giftig ist X?") und `sp.edible` („Ist X essbar?") aus dem
+übergebenen Eintrag. v32.93 hat genau diese Klasse für `initQuiz` und das
+Mini-Quiz geschlossen — diese Funktion blieb zurück, und mit ihr **beide**
+Aufrufer: die Ersatzfrage des Tagesquiz und **jede** Battle-Frage. Über die
+Artenliste gerechnet: **130 von 4'337 Einträgen** hätten eine andere
+Giftigkeits-Stufe als richtig gewertet, **133** eine andere Essbarkeit. Die
+Echte Engelwurz (*Angelica archangelica*) stand mit „Nicht giftig ✅" und
+„Essbar ✅" da, während die Art Stufe 1 und **nicht** essbar führt.
+`_gsArtAnzeige` steht jetzt als **erste** Zeile in `dqBuildQuestion` — damit ist
+jeder künftige Aufrufer mitgedeckt, und Name, Binomen, Kategorie, Saison und
+Standort bleiben die des angetippten Eintrags.
+
+**Und die Klasse wurde GESUCHT, nicht angenommen** (die Regel aus v32.87): alle
+`tox`/`edible`-Lesestellen nach umschliessender Funktion gezählt — 48 Funktionen.
+Die drei anderen Quiz-Einstiege (`initQuiz`, `initQuizModal`, `initDailyQuiz`)
+tragen die v32.93-Korrektur alle. Übersehen wurde ausgerechnet der **gemeinsame
+Bauer**, nicht ein Blatt: v32.93 ist die Einstiege durchgegangen, und
+`dqBuildQuestion` ist keiner — es holt nichts aus `DB`, es bekommt die Art
+gereicht. Wer eine solche Welle durchgeht, sucht deshalb nicht nur die Stellen,
+die selbst nachschlagen, sondern auch die, an die weitergereicht wird.
+
+**2 · „🔥 N Tage" zählte keine Tage.** `stats.streak++` lief je RICHTIGER
+Antwort und kannte keine Tageslücke, während **neun** Anzeigen „Tage" daneben
+schrieben. Wer Montag und Dienstag spielte, zwei Wochen aussetzte und dann
+richtig antwortete, las „3 Tage". Seit v33.27 ist die Serie, was sie behauptet:
+Tage hintereinander (`dqDayKey`, gestempelt in `stats.lastDay`). Und die
+Anzeigen lesen `dqSerie()` — die **lebende** Serie —, nicht die gespeicherte
+Zahl; sonst steht die Serie noch da, wenn sie längst gerissen ist.
+
+**3 · Der Jahres-Reset hatte GENAU einen Aufrufer.** `dqYearlyReset` hing an
+`answerDailyQuiz`, dem **lokalen Rückfall**. Der normale Weg über die
+Serverfrage (`answerSupaDailyQuiz`) kam nie dorthin, der Zeitablauf auch nicht —
+für fast jeden lief der Jahreswechsel also nie. Er sitzt jetzt in
+`dqStatsBuchen`, durch das alle drei gehen.
+
+Und beim Hinsehen lag dort noch ein zweites Loch, das erst die neue Serienregel
+erzeugt hat: `dqYearlyReset` behält die Serie absichtlich (`streak:
+oldStats.streak`), liess aber `lastDay` fallen. Damit fiel sie danach in den
+**Altbestands-Zweig** von `dqSerie` — eine längst gerissene Serie wäre am
+1. Januar wieder lebendig gewesen. Einmal im Jahr genau der Fehler, den dieser
+Schnitt behebt. Gefunden beim erneuten Durchlesen des eigenen Diffs, nicht von
+einem Prüfstand; der Fall dazu misst jetzt beide Richtungen (sechs Tage alt →
+1, gestern → 10).
+
+**4 · Der Countdown zählte zur falschen Mitternacht.** Der Quiz-Tag ist
+**bewusst** UTC (der Server rotiert mit `current_date`, ausführlich begründet
+seit v31.15) — der Teaser rechnete bis zur **lokalen** Mitternacht und stand in
+der Schweiz zwei Stunden zu früh auf null, während zwei weitere Anzeigen
+„morgen um Mitternacht" dazu sagten. Der Tagesschlüssel bleibt unangetastet;
+`dqNaechsteFrage()` rechnet die Anzeige und **nennt die Ortszeit** (02:00 im
+Sommer), damit niemand selbst umrechnet.
+
+**5 · `gs_dq_<datum>` stand in KEINER der vier Speicherlisten.** Nicht in
+`GS_USER_KEYS`, nicht in `GS_USER_PREFIXES`, nicht in `GS_KEEP_ON_LOGOUT` /
+`GS_KEEP_PREFIXES` — und `storage_check` setzt ihn nie, also hat ihn nie jemand
+gemessen. Er überlebte damit das Abmelden, und `openDailyQuiz` hat einen
+**lokalen** Fast-Path ganz oben, vor jeder Server-Prüfung: die nächste Person am
+selben Gerät sah das Ergebnis der vorigen und durfte nicht spielen. Ein Präfix
+`gs_dq_` war nicht zu haben — damit fängt auch `gs_dq_stats` an (geht MIT) und
+`gs_dq_today_cache` (bleibt BEWUSST). Dazu der zweite Teil: es entstand **ein
+Schlüssel je Tag**, mit Frage, richtiger Antwort und einem Arten-Objekt darin,
+und entfernt hat nie jemand einen (`removeItem` kam im ganzen Quiz-Bereich nicht
+vor) — zwei Jahre täglich sind rund 730 Stück in einem 5-MB-Speicher. Er heisst
+jetzt `gs_dq_tag_<datum>` und steht in `GS_USER_PREFIXES`; nach 30 Tagen wird
+er weggeräumt, und der Altbestand geht mit — beim Aufräumen und beim Abmelden.
+
+Der Altbestand braucht dafür eine **Form** statt eines Präfixes
+(`GS_DQ_ALT = /^gs_dq_\d{4}-\d{2}-\d{2}$/`), und das ist die eigentliche
+Lehre dieses Punktes. Mein erster Anlauf hat den alten Schlüssel beim Lesen
+einmal **übernommen** — damit stand `'gs_dq_' + dqDayKey()` wieder im Quelltext,
+`storage_check` erkannte daraus prompt eine Präfix-Familie `gs_dq_`, säte
+`gs_dq_PRUEFWERT` und meldete **rot**: „überlebt das Abmelden, steht in KEINER
+Liste". Der Prüfstand hatte recht, und der Ausweg war nicht, ihn ruhigzustellen,
+sondern den Grund wegzunehmen: die Übernahme ist raus. Der ehrliche Preis steht
+hier: wer am Update-Tag **schon gespielt hat und nicht angemeldet ist**, darf
+einmal noch einmal spielen. Angemeldete hält das Server-Tor (`_dqServerPlayed`)
+auf, die Rangliste rechnet ohnehin aus `quiz_answers`, und Anonyme stehen dort
+gar nicht — ein einmaliger, folgenloser Effekt gegen eine dauerhaft falsche
+Präfix-Familie.
+
+**6 · Der Zeitablauf erreichte den Server nie.** Der Insert nach `quiz_answers`
+stand nur im Antwortweg. `dqTimeout` schrieb lokal „gespielt" und liess den
+Server nichts wissen — auf einem **zweiten** Gerät sagte `_dqServerPlayed`
+deshalb „heute nicht gespielt", und dieselbe Frage kam noch einmal, diesmal mit
+voller Zeit. Ein Zeitablauf war ein Freiversuch. Beide Wege gehen jetzt durch
+`_dqAntwortSenden(isCorrect, selIdx)`; der Zeitablauf sendet
+`selected_option: -1`, und der Trigger aus `20260907_quiz_antwort_formate.sql`
+setzt dafür `is_correct := false`, `xp_earned := 0` und kehrt **vor** der
+Formatprüfung zurück — er schreibt also auch keine Warnung nach `system_events`.
+
+**7 · Die Rückfall-Frage wurde als Server-Quiz behandelt.** Antwortet die RPC
+nicht, springt `GS_QUIZ_FALLBACK_POOL` ein — 50 kuratierte Fragen mit den Ids
+`lq1`…`lq50` — und sie läuft durch dieselbe Anzeige wie eine Serverfrage.
+`openDailyQuizFromSupa` setzte `window._dqSupaQuizId = quiz.id` **ohne zu
+fragen**, und `quiz_answers.quiz_id` ist eine **uuid** (live nachgesehen am
+12.09.2026). Ein `lq6` weist PostgREST also ab — und seit v32.65 liest die App
+das Urteil des Servers und schrieb der Person „📵 Die Antwort ist nicht beim
+Server angekommen" hin, obwohl es gar nichts zu senden gab. Genau dann, wenn
+ohnehin schon etwas nicht ging. Jetzt steht dort nur eine echte uuid; ohne Id
+wird nicht gesendet und nichts behauptet. Und weil der Wert nie geräumt wurde,
+räumt ihn `_openDailyQuizLocal` jetzt zusätzlich selbst: wer die Serverfrage
+öffnet, sie ungelöst schliesst und in derselben Sitzung auf die Ersatzfrage
+fällt, hinterliesse beim Zeitablauf (Punkt 6) sonst einen Fehlversuch an einer
+Frage, die er nie beantwortet hat — und wäre für sie gesperrt.
+
+**Prüfstand:** `quiz_check` hat acht Fälle mehr (21 statt 13), und die
+App-Hälfte läuft jetzt in **Europe/Zurich** — ohne Versatz zu UTC könnte der
+Tagesgrenzen-Fall gar nicht zeigen, dass die beiden Rechnungen auseinanderlaufen.
+**Acht Gegenproben, jede einzeln gestellt:** Art-Regel raus → zwei Fälle rot mit
+der echten Zeile („Echte Engelwurz: Giftigkeit = „Nicht giftig ✅", die Art sagt
+„Leicht giftig ⚠️""); Serie wieder je Antwort → „nach fünf Tagen Pause: 6 statt
+1"; Tagesgrenze wieder lokal → „nicht auf einer UTC-Mitternacht:
+2026-09-12T22:00:00.000Z"; Präfix raus → „der neue Schlüssel überlebt das
+Abmelden"; `GS_DQ_ALT` beim Abmelden raus → „der Altbestand überlebt das
+Abmelden"; `lastDay` im Jahreswechsel raus → „über den Jahreswechsel lebt eine
+sechs Tage alte Serie weiter: 10 statt 1"; Zeitablauf ohne Senden → „kein POST
+auf quiz_answers"; uuid-Prüfung raus → „die Rückfall-Id steht als Server-Id da:
+lq6".
+
+**Und eine Härtung am eigenen Fall, weil er sonst nichts gemessen hätte:** der
+Serien-Fall prüfte nur, dass der Teaser eine **gerissene** Serie NICHT zeigt.
+Ein Teaser, der überhaupt nichts schreibt (früher Ausstieg, fehlendes Element),
+wäre damit grün gewesen. Er misst jetzt zuerst die Gegenrichtung — eine
+**lebende** Serie von 8 muss dastehen — und danach das Verschwinden.
+
+**Ein Nebenbefund, gemessen und bewusst NICHT hier behoben:** die Regex
+`/['"]((?:gs|ps)_[A-Za-z0-9_.:-]*_)['"]\s*\+/` findet in `index.html` **13
+Präfix-Familien**, aus denen zur Laufzeit localStorage-Schlüssel gebaut werden.
+Gegen v33.26 gemessen (setzen → `gsClearUserDataKeys()` + `gsOnLogout()` →
+nachsehen): vier sind richtig eingeordnet (`gs_aicalls_`, `gs_sync_dirty_at_`,
+`gs_sync_synced_at_` gehen mit; `gs_perm_` bleibt), **neun stehen in keiner
+Liste** — `gs_dq_` (den schliesst dieser Schnitt) sowie `gs_corrupt_bak__`,
+`gs_followup_shown_`, `gs_frost_logged_`, `gs_scans_`, `gs_score_logged_`,
+`gs_sh_lastalert_`, `gs_trial_banner_seen_`, `gs_weather_logged_`.
+`storage_check` kann die Klasse nicht sehen: seine Präfix-Erkennung sucht nur
+`setItem('gs_x_' + …`, und die Präfixe, die er zusätzlich sät, kommen **aus den
+Listen** — also genau von denen, die schon deklariert sind. Die acht übrigen und
+die Erweiterung der Erkennung gehören in den Speicher-/Sync-Schnitt: jede
+Familie braucht eine **eigene** Entscheidung (Gerätedatum oder Nutzerdatum), und
+eine Sammelbehandlung wäre geraten statt gemessen.
+
+**Zwei Dinge bewusst NICHT gemacht, beide mit Grund:**
+`data-correct="1"` steht weiter im DOM. Das sieht nach einem Fund aus und ist
+keiner, den man in der App schliessen kann: `fn_get_daily_quiz` liefert
+`options` **mit** `is_correct` an den Client — wer das Attribut entfernt, liest
+die Antwort im Netzwerk-Reiter. Ein Deckel, der nichts deckelt. Ebenso die
+**Serie auf der öffentlichen Rangliste**: `fn_quiz_leaderboard_upsert` nimmt
+`total_correct` / `total_attempts` seit v30_42 autoritativ aus `quiz_answers`,
+aber `streak_current = EXCLUDED.streak_current` — die Serie ist eine Behauptung
+des Geräts. Sie serverseitig aus `quiz_answers.answered_on` zu rechnen ist
+richtig und ist eine **Migration**; das gehört in einen eigenen Schnitt, nicht
+in diesen.
+
+---
 
 ### 2026-09-12 (hu) - v33.26: Ein Backup je Sitzung — und EINE Regel statt zweier
 
@@ -12444,9 +12610,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.26` (Client) · SW-Cache `gs-v33.26` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.27` (Client) · SW-Cache `gs-v33.27` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'381 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **554 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **18**, Deckel 20 durch `robust_check` Fall 24).
+- **Frontend:** `index.html` **92'749 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **563 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **12**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **218 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **34** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
