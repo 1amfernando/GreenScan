@@ -236,6 +236,9 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 | Mischkultur | Supabase `plant_companion_matrix` / `v_companion_lookup` | **keine** Nachbarschaftstabelle im Code anlegen |
 | Geräte | `localStorage.gs_geraete` (`gsGeraete` / `_gsGeraeteSchreiben`); für **gekoppelte** Geräte (`cloud_id`) ist Supabase `devices` die Instanz für Status, `paired_at`, Firmware (`gsGeraeteCloudAbgleich`, seit v32.62) und der Server meldet die Alarme | nie den Status eines gekoppelten Geräts lokal raten; `cloud_id` nur nach `_gsSchreibOk` setzen; das Token nie speichern |
 | Messwerte | `localStorage.gs_messwerte`, **nur** über `_gsMesswerteAnhaengen` / `gsMesswertEintragen` (seit v32.52: ein Weg, Dublettensperre auf Gerät · Messgrösse · Zeit) | nie direkt `push`en — der Deckel und die Sortierung nach `ts` hängen daran |
+| Quiz-Tag | `dqDayKey()` — **UTC**, weil der Server mit `current_date` rotiert; die Anzeige der Grenze rechnet `dqNaechsteFrage()` | nie `new Date().toISOString()` je Anzeige, nie die lokale Mitternacht |
+| Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
+| „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
 
 ### 3.4 · KI-Calls
@@ -703,7 +706,7 @@ node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusam
 node scripts/loeschung_check.js  # raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17)
 node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18)
 node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
-node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`)
+node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
@@ -1419,6 +1422,72 @@ wird und mitreist, und dass die App seit v32.65 das Urteil des Servers
 LIEST (`return=representation`, `_dqServerUrteil`): Widerspruch und
 Nicht-Ankommen stehen sichtbar unter dem Ergebnis, Bestätigung und Dublette
 bleiben still.
+
+**Seit v33.27 hat er acht Faelle mehr — und alle acht fragen dasselbe:
+stimmt, was dasteht?** Fuenf Regeln, die ueber das Quiz hinausgehen:
+
+- **Was WERTET, geht durch `_gsArtAnzeige`** (dieselbe Regel wie v32.93/95).
+  `dqBuildQuestion` las `sp.tox` und `sp.edible` aus dem Eintrag; gemessen ueber
+  die Artenliste: **130 von 4'337 Eintraegen** haetten eine andere
+  Giftigkeits-Stufe als richtig gewertet, **133** eine andere Essbarkeit. Die
+  Zeile steht als ERSTE in `dqBuildQuestion` — damit sind beide Aufrufer
+  (Ersatzfrage, `gsBattleBuildQuestions`) und jeder kuenftige mitgedeckt.
+- **Eine Serie ist eine Behauptung ueber TAGE.** `stats.streak++` je richtiger
+  Antwort, „🔥 N Tage" daneben, an neun Stellen. Wer eine Faelligkeit oder eine
+  Serie braucht, ruft `dqSerie()` — die LEBENDE Serie; die gespeicherte Zahl
+  steht auch dann noch da, wenn sie gerissen ist. Gebucht wird ausschliesslich
+  ueber `dqStatsBuchen(correct)`; dort sitzt auch der Jahreswechsel, der bis
+  v33.26 GENAU einen Aufrufer hatte (den lokalen Rueckfall).
+- **Die Anzeige einer Grenze rechnet mit derselben Grenze.** Der Quiz-Tag ist
+  bewusst UTC (`dqDayKey`); der Countdown lief bis zur LOKALEN Mitternacht und
+  stand in der Schweiz zwei Stunden zu frueh auf null. `dqNaechsteFrage()` ist
+  die eine Rechnung dafuer und nennt die Ortszeit. Und der Fall dazu laeuft in
+  **Europe/Zurich**: ohne Versatz zu UTC koennte er gar nicht zeigen, dass die
+  beiden Rechnungen auseinanderlaufen.
+- **Ein Schluessel, den kein Pruefstand SETZT, hat niemand gemessen.**
+  `gs_dq_<datum>` stand in keiner der vier Speicherlisten, ueberlebte das
+  Abmelden (und `openDailyQuiz` hat einen lokalen Fast-Path VOR der
+  Server-Pruefung: die naechste Person am Geraet durfte nicht spielen) und
+  entstand einmal JE TAG, ohne dass ihn je jemand entfernte. Er heisst jetzt
+  `gs_dq_tag_<datum>` — ein Praefix `gs_dq_` war nicht zu haben, weil damit auch
+  `gs_dq_stats` (geht mit) und `gs_dq_today_cache` (bleibt bewusst) anfangen.
+  Der **Altbestand** geht deshalb ueber eine FORM statt eines Praefixes
+  (`GS_DQ_ALT = /^gs_dq_\d{4}-\d{2}-\d{2}$/`), und zwar sowohl beim Aufraeumen
+  als auch in `gsClearUserDataKeys`.
+
+  > **Und der Umweg dorthin ist die Lehre.** Der erste Anlauf uebernahm den
+  > alten Schluessel beim Lesen einmal — damit stand `'gs_dq_' + dqDayKey()`
+  > wieder im Quelltext, und `storage_check` erkannte daraus eine Praefix-
+  > Familie `gs_dq_`, saete `gs_dq_PRUEFWERT` und wurde ROT. Er hatte recht:
+  > seine Erkennung ist `setItem|getItem('<praefix>' + …`, also beschreibt jedes
+  > solche Literal eine Familie, die es dann auch geben muss. Der Ausweg war
+  > nicht, den Pruefstand ruhigzustellen, sondern den Grund wegzunehmen. **Wer
+  > einen Schluessel aus einem Literal plus `+` baut, erklaert damit eine
+  > Familie** — und die muss in eine der vier Listen passen, ohne Nachbarn
+  > mitzunehmen. Passt sie nicht, ist es keine Familie, sondern eine Form.
+
+- **Eine Id, die der Server nicht kennt, ist keine Id.** Der Rueckfall
+  `GS_QUIZ_FALLBACK_POOL` (50 Fragen, `lq1`…`lq50`) laeuft durch DIESELBE
+  Anzeige wie eine Serverfrage, und `openDailyQuizFromSupa` uebernahm ihre Id
+  ungefragt als `_dqSupaQuizId`. `quiz_answers.quiz_id` ist eine **uuid** —
+  PostgREST weist `lq6` ab, und seit v32.65 stand deshalb „nicht beim Server
+  angekommen" auf dem Bildschirm, obwohl es nichts zu senden gab. Wer eine
+  Kennung aus zwei Quellen in EIN Feld schreibt, prueft ihre FORM; und ein
+  Wert, der nur gesetzt und nie geraeumt wird, ist beim naechsten Weg durch
+  dieselbe Anzeige eine falsche Zusage (`_openDailyQuizLocal` raeumt ihn).
+
+Und eine Haertung am eigenen Fall, die fuer jeden Pruefstand gilt: der
+Serien-Fall prueft, dass der Teaser eine GERISSENE Serie nicht mehr zeigt — ein
+Teaser, der ueberhaupt nichts schreibt, waere damit ebenfalls gruen gewesen. Er
+misst jetzt zuerst die Gegenrichtung (eine LEBENDE Serie von 8 muss dastehen).
+
+> **Und zwei der acht Faelle gibt es, weil ich den eigenen Diff ein zweites Mal
+> gelesen habe** — kein Pruefstand hat sie gefunden. `dqYearlyReset` liess
+> `lastDay` fallen (die neue Serienregel haette am 1. Januar eine gerissene
+> Serie wiederbelebt), und der Zeitablauf, der seit v33.27 SENDET, machte die
+> nie geraeumte `_dqSupaQuizId` erst gefaehrlich. **Eine Aenderung kann eine
+> Stelle gefaehrlich machen, die vorher harmlos war** — wer etwas neu SENDEN
+> laesst, geht jeden Weg nach, auf dem der gesendete Wert entsteht.
 
 Drei Regeln daraus:
 
