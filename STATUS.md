@@ -12,6 +12,151 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-14 (hz) - v33.30: Lina schaut nach, statt zu raten
+
+Erster Lina-Schnitt. Gemessen am 14.09.2026 im Quelltext: `getSmartAnswer` —
+der Offline-Chat — hat seit v32.96/98/99 eine Notfall-Erkennung in vier
+Sprachen und erdet jede Artenauskunft an `_gsArtAnzeige`. **Lina hatte davon
+nichts:** im Rumpf von `gsLinaSend` **0 Treffer** auf „notfall", in
+`gsLinaContext` **0** auf `DB` / `_gsArtAnzeige`. Und ohne Netz gab es nur
+einen Toast, waehrend `getSmartAnswer` daneben haette antworten koennen.
+
+**Der naheliegende Weg waere falsch gewesen.** Den Namensvergleich aus
+`getSmartAnswer` mitzubenutzen heisst, IRGENDEIN Wort eines Namens irgendwo in
+der Frage zu akzeptieren (`n.length > 4` misst den ganzen Namen, nicht das
+Wort). Gemessen ueber die Artenliste:
+
+| Frage | Treffer | `[0]` |
+|---|---|---|
+| „Meine Tomaten haben braune Blätter, was tun?" | 2 | **Braune Krustenflechte** (eine Flechte) |
+| „Wie gross wird eine echte Kamille?" | 46 | **Echte Engelwurz** |
+
+Zwei von acht realistischen Fragen landen auf einer **anderen Art**; dass die
+uebrigen stimmen, ist die Dateireihenfolge (dieselbe Lehre wie v32.43).
+
+> **Eine falsche Erdung ist schlechter als keine.** Ohne Arten-Zeile raet das
+> Modell und klingt unsicher; mit einer falschen raet es dasselbe und klingt
+> sicher, weil „die App" es angeblich sagt.
+
+**Gebaut:**
+
+- `_gsArtenTreffer(text)` — ganzer Name oder ganzes Binomen, an Wortgrenzen.
+  Damit faellt die Flechte auf 0, und das Binomen („Allium ursinum") trifft
+  erstmals.
+- **Deutsch dekliniert**, und das war der erste rote Fall: „den **Grünen**
+  Knollenblätterpilz" trifft „Grüner Knollenblätterpilz" nie als ganzen Namen.
+  Das LETZTE Wort eines mehrteiligen Namens bleibt unveraendert — und ist
+  eindeutig genug: von **505** solchen Woertern mit ≥ 10 Zeichen zeigen **384**
+  auf genau EINE Art. Die uebrigen zeigen auf mehrere und laufen in dieselbe
+  Mehrdeutigkeits-Regel. **Das ist kein Wort-Teiltreffer** — gesucht wird ein
+  ganzes Wort, nur nicht der ganze Name; „braune Blätter" bleibt bei 0.
+- **Bei mehreren Arten wird KEINE ausgewaehlt.** Nachgemessen: die Treffer sind
+  ECHTE verschiedene Arten, kein Dubletten-Artefakt — Wacholder 8 *Juniperus*,
+  Rose 19 *Rosa*, Kamille 4 *Matricaria*. Und dann die Frage, die den Entwurf
+  gerettet hat: **sind sie sich einig?** Rose und Kamille ja (alle ungiftig),
+  Wacholder und Salbei nein (essbar nur manche). Also: einig → erden
+  („19 Arten, keine giftig"), uneinig → genau das sagen und nachfragen.
+- `_gsLinaSicherheit` — behauptet die Antwort „essbar" ueber eine Art mit
+  `tox ≥ 3`, kommt eine Warnzeile DARUEBER. Die Antwort wird nicht verschluckt:
+  wer eine Antwort erwartet und nichts bekommt, fragt woanders.
+- `_gsNotfallStufe` aus `getSmartAnswer` **herausgeloest** — EIN Vokabular fuer
+  beide Chats, kein zweites. Bei `dringend` wird `callAI` **gar nicht** gerufen.
+- Ohne Netz antwortet `getSmartAnswer` als Lina-Antwort; erst wenn auch von
+  dort nichts kommt, bleibt der alte Hinweis.
+- `lina_message` bekommt `erdung` (keine/eine/mehrere_einig/mehrere_uneinig/
+  notfall/offline) — ein Wort aus fester Liste, im `GS_EVENTS`-Vokabular.
+
+**Pruefstand: `sensor_check` +7 (38 Faelle).** Darunter einer, der den **WEG**
+misst statt der Funktionen: bei einem Notfall **0 KI-Aufrufe** und die 145, bei
+einer normalen Frage die ARTEN-Zeile im Kontext, die Warnzeile ueber (nicht
+statt) der Antwort, und ohne Netz eine Antwort aus der Liste. **Drei Faelle
+davor pruefen Funktionen — ohne diesen waere gruen, dass sie existieren, nicht
+dass Lina sie ruft.**
+
+**Elf Gegenproben einzeln gestellt** — und eine davon hat zuerst NICHTS
+gemessen: „tox aus dem Eintrag statt aus der Art" blieb gruen, weil die Probe
+Baerlauch nahm, wo Eintrag und Art uebereinstimmen. **Zwei denkbare Regeln mit
+demselben Ergebnis pruefen keine von beiden.** Gemessen, wo sie auseinander
+gehen, und die Probe umgestellt: **Beinwell** steht als Eintrag auf Stufe 1,
+als ART auf 3 — das ueberschreitet die Warnschwelle, aendert also das
+VERHALTEN und nicht nur eine Zahl; Christrose 3 gegen 5.
+
+**Und eine zweite Grenze, ebenfalls gemessen: Namen, die auch Alltagswoerter
+sind.** 1'090 Eintraege tragen einen EINWORT-Namen; aus einer Stichprobe von 37
+deutschen Vornamen und Alltagswoertern sind **20 zugleich Artnamen** — `rose`
+(19 Arten), `heide` (5), `minze` (7), `wicke` (17), `linde`, `esche`, `buche`,
+`salbei` (3) und weitere. „Ich habe **Rose** gefragt" erdet damit auf 19 Arten.
+
+**Bewusst nicht behoben:** jede Abhilfe waere eine ZWEITE Heuristik („klingt
+die Frage nach einer Pflanze?") mit eigenen Fehlern, und der Schaden ist klein
+und einseitig — die Zeile steht als KONTEXT im Prompt, nicht auf dem
+Bildschirm, sie ersetzt nie die Antwort, und sie ist als „aus der App-Liste"
+gerahmt. Im schlimmsten Fall erscheint eine Warnung, die nicht noetig war: die
+sichere Richtung. **Eine gemessene Grenze ist besser als eine ungemessene
+Heuristik.** Wer sie enger zieht, misst zuerst, wie oft eine echte Frage
+dadurch ihre Erdung verliert.
+
+**Und dann hat eine gegnerische Pruefung des fertigen Schnitts acht Loecher
+gefunden — alle in der EINEN Sicherung dieser App gegen eine falsche
+Essbarkeits-Zusage.** Jedes selbst nachgestellt, bevor etwas geaendert wurde:
+
+1. **`_gsLinaSicherheit` erkannte fast keine echte Zusage.** Der Ausloeser war
+   `\bessbar\b` — die deutschen Adjektivformen („eine **essbare** Pflanze")
+   fallen daran durch, und genau so baut ein Modell den Satz meistens.
+   Gemessen an elf realistischen Bejahungen: **fuenf getroffen, sechs
+   verpasst**, darunter „du darfst ihn essen" und „zum Verzehr". Jetzt der
+   Wortstamm — und die Verneinung wird nur im SELBEN Satz gesucht, nicht in
+   der ganzen Antwort (sonst entwertet ein spaeterer Nebensatz die Warnung).
+2. **Der Notfall-Zweig sass HINTER dem Doppel-Send-Riegel.** Der Riegel
+   schuetzt vor zwei parallelen KI-Aufrufen — waehrend einer laufenden Anfrage
+   (Timeout **45 s**) haette er aber auch eine Notfall-Nachricht verschluckt,
+   und die ruft gar keine KI. Eine Dreiviertelminute Stille bei einer
+   Vergiftung. Der Zweig steht jetzt ganz oben.
+3. **Ein SAMMELBEGRIFF wurde zu EINER Art mit Zusage.** „Kann man Wiesenpilze
+   essen?" traf ueber die Deklinations-Regel den „Perlweissen Wiesenpilz" und
+   meldete „nicht giftig, essbar" — auf eine Frage nach einer ganzen Gruppe.
+   Ein Treffer, bei dem der VOLLE Name nie in der Frage stand, traegt jetzt
+   keine Zusage mehr, sondern sagt genau das.
+4. **Der Umgangsname zog seine Familie nicht mit** — und das ist die
+   `_gsVorsichtigste`-Lehre aus v32.43, die ich nicht angewandt hatte.
+   „Ist Holunder essbar?" traf woertlich den EINEN Eintrag, der so heisst
+   (tox 2, essbar) und meldete `einig: true`; die Liste fuehrt **18
+   Sambucus-Eintraege bis tox 4**, darunter den Zwerg-Holunder. Jetzt zieht
+   jeder Eintrag mit, dessen Name den getroffenen Namen als ganzes Wort
+   enthaelt: **3 Arten, tox 2/3/5, „bis TÖDLICH giftig".**
+5. **Die Offline-Antwort brachte den GROBEN Vergleich zurueck.**
+   `getSmartAnswer` erdet mit genau dem Vergleich, den dieser Schnitt als
+   unbrauchbar gemessen hat — offline beantwortete Lina „braune Blätter" also
+   wieder mit der **Braunen Krustenflechte**. Der eigene Fehler durch die
+   Hintertuer. Seine Artkarte gilt jetzt nur, wenn der strenge Vergleich
+   dieselbe Art nennt.
+6. **Ein Fehlalarm nahm der Person die Antwort weg.** „mon chat peut manger
+   cette plante ?" liest die Erkennung als `dringend` (`manger` + `chat`) — und
+   der neue Zweig uebersprang `callAI` ganz: nur die Nummer, keine Auskunft.
+   In v33.29 wurde dieselbe Frage normal beantwortet. **Die Nummer zuerst, die
+   Antwort trotzdem**; bei einer echten Vergiftung kostet das nichts, die
+   Nummer steht schon da.
+7. **`ß` und `ss` erdeten verschieden** („Süßholz" 0 Treffer, „Süssholz" 1).
+8. **14 Adjektive erdeten ueber den Klammer-Zusatz.** 292 Eintraege tragen
+   einen („Königskerze (Grosse)"); `_gsLinaNorm` streicht die Klammern, damit
+   wurde „grosse" zum letzten Wort. Fuer die Deklinations-Regel zaehlt jetzt
+   der Name OHNE Zusatz.
+
+> **Und zwei Messfallen beim Reparieren, beide aus derselben Ursache.** Mein
+> Notfall-Block leerte erst das Eingabefeld, dann rief er `gsLinaRender` —
+> und beides fuehrt dazu, dass der gewoehnliche Weg gleich darauf ein LEERES
+> Feld liest und an `if (!text) return;` umkehrt: die Person bekaeme die Nummer
+> und sonst nichts. **`gsLinaRender` baut das Panel neu auf; jede gemerkte
+> Referenz auf das Eingabefeld ist danach abgehaengt** — im Pruefstand wie im
+> Code.
+
+**Die Grenze, ehrlich benannt:** „Sind **Holunderbeeren** essbar?" trifft
+nichts — der Eintrag heisst „Holunder", und ein Kompositum findet ein
+Wortgrenzen-Vergleich nicht. Das ist der Preis dafuer, die Flechte
+loszuwerden, und die richtige Seite, auf der man irrt. Wer es lockert, misst
+zuerst, wie viele echte Fragen daran scheitern — ein Praefix-Vergleich holt
+die Falschtreffer zurueck.
+
 ### 2026-09-14 (hy) - v33.29: Eine Kategorie ist ein Eintrag im Vokabular
 
 Der dritte Quiz-Schnitt. v33.27 hat gefragt, ob die Antwort STIMMT, v33.28, ob

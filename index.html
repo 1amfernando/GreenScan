@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.29.20260914">
+<meta name="app-version" content="33.30.20260914">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15931,6 +15931,8 @@ window.GS_I18N_JS_STRINGS = {
   // ── v28.52: Tages-Quiz-Teaser (renderDailyQuizTeaser) ──────────
   'quiz_battle_1v1':           'Quiz-Battle (1v1)',
   'quiz_practice':             'Üben',
+  'lina_sicherheit_gift':      '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.',
+  'lina_offline_vor':          '📡 Gerade ohne Internet — hier ist, was ich aus der App-Liste weiss:',
   'quiz_kat_bestimmung':       'Bestimmen',
   'quiz_kat_giftigkeit':       'Giftigkeit',
   'quiz_kat_kueche':           'Küche',
@@ -58518,6 +58520,37 @@ function getOfflineAnswer(question) {
 const _callAI_original = (typeof callAI === 'function') ? callAI : null;
 
 // ERWEITERTE OFFLINE-KI mit Gartenwissen
+// v33.30: aus `getSmartAnswer` herausgeloest, damit LINA dieselbe Erkennung
+// benutzt statt einer zweiten. Der Offline-Chat hatte sie seit v32.98/99 —
+// Lina, der Chat, den die meisten oeffnen, hatte sie nicht: im Rumpf von
+// `gsLinaSend` stand kein einziger Notfall-Treffer. Wer hier etwas aendert,
+// aendert sie fuer BEIDE Wege, und `scan_check` N1 misst weiterhin dieselben
+// 36 Saetze in drei Klassen.
+function _gsNotfallStufe(t) {
+
+    // v32.99: vier Sprachen. Der Offline-Chat ist der Rueckfall fuer JEDEN ohne
+    // KI-Schluessel (seit v32.68 bekommt den globalen nur der Admin) — und er
+    // fragt die Sprache nirgends ab. Gemessen mit dem deutschen Vokabular:
+    // 0 von 12 franzoesischen, italienischen und englischen Notfallsaetzen,
+    // nicht einmal „empoisonnement", „avvelenamento", „poisoning".
+    // Die Nummern (145/144/112) gelten ohnehin fuer alle.
+    var AKUT = /vergift|notfall|notruf|empoisonn|intoxicat|avvelenament|poisoning|poisoned|emergency/;
+    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt|mangé|manger|avalé|ingéré|croqué|mangiato|ingerito|inghiottito|\bate\b|eaten|swallow|swallowed|bit into|chewed/;
+    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht|vomi|nausée|diarrhée|mal au ventre|vertige|vomit|nausea|diarrea|mal di pancia|capogir|vomiting|nauseous|diarrhea|stomach ache|dizzy/;
+    // `\bcat\b` allein traefe auch „catégorie": in JS ist „é" KEIN Wortzeichen,
+    // die Grenze sitzt also mitten im Wort. Deshalb die Nachschau.
+    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig|enfant|fille|fils|bébé|chien|chat|accident|bambin|figlia|figlio|cane|gatto|child|daughter|son|dog|\bcat\b(?![a-zà-ÿ])|toddler/;
+    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend|au secours|à l'aide|que faire|aiuto|che fare|help|what (should|do) i do|urgent/;
+    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete|toxique|baie|champignon|plante|feuille|fruit|graine|velenos|tossic|bacca|fungo|pianta|foglia|poison|berry|berries|mushroom|plant|leaf|leaves|seed/;
+    if (AKUT.test(t)) return 'dringend';
+    if (SYMPTOM.test(t) && KONTEXT.test(t)) return 'dringend';
+    if (VERZEHR.test(t) && (BETROFFEN.test(t) || SYMPTOM.test(t) || HILFE.test(t))) return 'dringend';
+    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr|manger|mangia|\beat\b|\beats\b|eating/.test(t)) return 'dringend';
+    if (VERZEHR.test(t)) return 'hinweis';
+    return 'keiner';
+}
+window._gsNotfallStufe = _gsNotfallStufe;
+
 function getSmartAnswer(question) {
   const q = question.toLowerCase().trim();
   
@@ -58539,28 +58572,7 @@ function getSmartAnswer(question) {
   // Gemessen in DREI Klassen, 36 Saetze, alle richtig eingestuft; der Fall
   // steht in scan_check (N1) und misst beide Richtungen — „kann man Loewenzahn
   // essen?" darf NIE ein Notfall sein.
-  var _nfStufe = (function (t) {
-    // v32.99: vier Sprachen. Der Offline-Chat ist der Rueckfall fuer JEDEN ohne
-    // KI-Schluessel (seit v32.68 bekommt den globalen nur der Admin) — und er
-    // fragt die Sprache nirgends ab. Gemessen mit dem deutschen Vokabular:
-    // 0 von 12 franzoesischen, italienischen und englischen Notfallsaetzen,
-    // nicht einmal „empoisonnement", „avvelenamento", „poisoning".
-    // Die Nummern (145/144/112) gelten ohnehin fuer alle.
-    var AKUT = /vergift|notfall|notruf|empoisonn|intoxicat|avvelenament|poisoning|poisoned|emergency/;
-    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt|mangé|manger|avalé|ingéré|croqué|mangiato|ingerito|inghiottito|\bate\b|eaten|swallow|swallowed|bit into|chewed/;
-    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht|vomi|nausée|diarrhée|mal au ventre|vertige|vomit|nausea|diarrea|mal di pancia|capogir|vomiting|nauseous|diarrhea|stomach ache|dizzy/;
-    // `\bcat\b` allein traefe auch „catégorie": in JS ist „é" KEIN Wortzeichen,
-    // die Grenze sitzt also mitten im Wort. Deshalb die Nachschau.
-    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig|enfant|fille|fils|bébé|chien|chat|accident|bambin|figlia|figlio|cane|gatto|child|daughter|son|dog|\bcat\b(?![a-zà-ÿ])|toddler/;
-    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend|au secours|à l'aide|que faire|aiuto|che fare|help|what (should|do) i do|urgent/;
-    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete|toxique|baie|champignon|plante|feuille|fruit|graine|velenos|tossic|bacca|fungo|pianta|foglia|poison|berry|berries|mushroom|plant|leaf|leaves|seed/;
-    if (AKUT.test(t)) return 'dringend';
-    if (SYMPTOM.test(t) && KONTEXT.test(t)) return 'dringend';
-    if (VERZEHR.test(t) && (BETROFFEN.test(t) || SYMPTOM.test(t) || HILFE.test(t))) return 'dringend';
-    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr|manger|mangia|\beat\b|\beats\b|eating/.test(t)) return 'dringend';
-    if (VERZEHR.test(t)) return 'hinweis';
-    return 'keiner';
-  })(q);
+  var _nfStufe = _gsNotfallStufe(q);
   // Der Text geht durch die Sprachschicht (Schluessel in GS_I18N_JS_STRINGS,
   // sonst wird er nie nachgeschlagen — CLAUDE.md §7.1). Bis der Uebersetzer
   // gelaufen ist, steht hier Deutsch; die NUMMERN sind in jeder Sprache
@@ -75241,6 +75253,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.30', date: '14.09.2026',
+      headline: 'Lina schaut in unsere Artenliste — und ruft bei einem Notfall sofort die Nummer',
+      summary: 'Lina hatte keinen Zugriff auf die Artenliste: wer sie nach einer Pflanze fragte, bekam die Antwort des Sprachmodells, nicht die der 4\'337 Eintraege, gegen die Scanner und Quiz laengst pruefen. Jetzt steht die erkannte Art im Kontext — und wenn mehrere Arten denselben Namen tragen, sagt Lina das, statt sich eine auszusuchen. Dazu: bei einem Vergiftungs-Notfall kommt sofort die 145, ohne Umweg ueber die KI, und ohne Internet antwortet sie aus der App-Liste statt gar nicht.',
+      user_summary: 'Frag Lina nach einer Pflanze, und sie schaut in unserer Artenliste nach, statt zu raten. Bei einem Notfall nennt sie sofort die Giftnotruf-Nummer. Und ohne Internet sagt sie jetzt, was sie weiss, statt dich wegzuschicken.',
+      user_items: [
+        {emoji: '🌿', bold: 'Sie schaut nach, statt zu raten:', text: ' nennst du eine Pflanze, stehen Giftigkeit und Essbarkeit aus unserer Liste in ihrer Antwort — dieselben Angaben wie im Scanner.'},
+        {emoji: '🤔', bold: 'Bei mehreren Arten fragt sie nach:', text: ' „Wacholder" sind acht Arten in unserer Liste, und sie sind nicht alle gleich. Dann sagt Lina das, statt sich eine auszusuchen.'},
+        {emoji: '🆘', bold: 'Notfall zuerst:', text: ' wer schreibt, dass jemand etwas gegessen hat, bekommt sofort Tox Info Suisse 145 — ohne auf die KI zu warten. In vier Sprachen.'},
+        {emoji: '📡', bold: 'Ohne Internet trotzdem eine Antwort:', text: ' Lina sagt, was in der App-Liste steht, statt dich auf spaeter zu vertroesten.'},
+        {emoji: '⚠️', bold: 'Und eine Gegenprobe:', text: ' behauptet die Antwort „essbar" ueber etwas, das unsere Liste als giftig fuehrt, steht eine Warnung darueber.'}
+      ],
+      items: [
+        '_gsArtenTreffer(text): ganzer Name oder ganzes Binomen an Wortgrenzen. Der grobe Vergleich aus getSmartAnswer nimmt IRGENDEIN Wort eines Namens — „Meine Tomaten haben braune Blaetter" ergab dort die Braune Krustenflechte, „echte Kamille" die Echte Engelwurz.',
+        'Deutsch dekliniert: „den Gruenen Knollenblaetterpilz" trifft ueber das letzte Wort des Namens. Gemessen: von 505 solchen Woertern mit >= 10 Zeichen zeigen 384 auf genau eine Art; die uebrigen laufen in dieselbe Mehrdeutigkeits-Regel.',
+        'Bei mehreren Arten wird KEINE ausgewaehlt. Sind sie sich einig (Rose: 19 Arten, keine giftig), wird geerdet; gehen sie auseinander (Wacholder: essbar nur manche), sagt die Zeile genau das.',
+        'Jede Angabe durch _gsArtAnzeige — die der ART, nicht des Eintrags. Gemessen: Beinwell steht als Eintrag auf Stufe 1, als Art auf 3 (ueberschreitet die Warnschwelle), Christrose 3 gegen 5.',
+        '_gsNotfallStufe aus getSmartAnswer herausgeloest: EIN Vokabular fuer beide Chats. Bei „dringend" steht die Nummer sofort da — VOR dem Doppel-Send-Riegel, damit sie auch waehrend einer laufenden Anfrage erscheint — und die Antwort kommt trotzdem: ein Fehlalarm darf der Person nicht die Auskunft wegnehmen.',
+        'Ohne Netz antwortet getSmartAnswer als Lina-Antwort; erst wenn auch von dort nichts kommt, bleibt der alte Hinweis.',
+        'Pruefstand: sensor_check +5 (36 Faelle), darunter einer, der den WEG misst statt der Funktionen — Notfall ohne KI-Aufruf, Kontext mit ARTEN-Zeile, Warnzeile ueber der Antwort, Antwort ohne Netz. Fuenf Gegenproben einzeln gestellt.'
+      ]
+  },
+  {
     v: 'v33.29', date: '14.09.2026',
       headline: 'Beim Quiz steht jetzt „Giftigkeit" statt „edible_toxic"',
       summary: 'Die Zeile unter der Quizfrage zeigte den rohen Datenbanknamen — und dafuer gab es drei Quellen mit zusammen 35 verschiedenen Schreibweisen, darunter pilz und pilze nebeneinander. Jetzt gibt es zwoelf Kategorien in vier Sprachen, und der Fragen-Generator darf keine anderen mehr anlegen. Dazu eine Pruefung vor dem Anlegen (vier Antworten, richtige Antwort im Bereich, Erklaerung da) und eine Dublettensperre, die auch innerhalb einer Lieferung greift.',
@@ -75666,7 +75700,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.29';
+var GS_VERSION = 'v33.30';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -84691,7 +84725,213 @@ function gsLinaZahlen(){
   } catch(_){ return ''; }
 }
 window.gsLinaZahlen = gsLinaZahlen;
-function gsLinaContext(){
+// ══ v33.30: Lina wird GEERDET ══════════════════════════════════════════════
+// Gemessen am 14.09.2026: `gsLinaContext` trug Pflanzenzahl, Region, Jahreszeit,
+// Messwerte, letzten Scan und Kalender — aber KEINE Arten. Wer Lina fragt
+// „kann ich Bärlauch essen?", bekam die Antwort des Modells, nicht die der
+// Liste, gegen die Scanner, Quiz und Offline-Chat längst prüfen.
+//
+// Der naheliegende Weg wäre gewesen, den Namensvergleich aus `getSmartAnswer`
+// mitzubenutzen. Er ist dafür zu grob: er nimmt IRGENDEIN Wort eines Namens
+// irgendwo in der Frage. Gemessen über die Artenliste:
+//   „Meine Tomaten haben braune Blätter"  → 2 Treffer, [0] = Braune Krustenflechte
+//   „Wie gross wird eine echte Kamille?"  → 46 Treffer, [0] = Echte Engelwurz
+// Zwei von acht realistischen Fragen landen auf einer ANDEREN Art; dass die
+// übrigen stimmen, ist die Dateireihenfolge (dieselbe Lehre wie v32.43).
+//
+// **Eine falsche Erdung ist schlechter als keine.** Ohne Arten-Zeile rät das
+// Modell und klingt unsicher; mit einer falschen rät es dasselbe und klingt
+// sicher, weil „die App" es angeblich sagt. Deshalb: ganzer Name oder ganzes
+// Binomen, an Wortgrenzen.
+var GS_LINA_ARTEN_MAX = 260;     // eigener Deckel neben GS_LINA_ZAHLEN_MAX (950)
+var GS_LINA_ARTEN_NENNEN = 3;    // so viele Arten werden namentlich genannt
+
+function _gsLinaNorm(t) {
+  // ß → ss: die Artenliste schreibt schweizerisch („Süssholz"), getippt wird
+  // aber auch „Süßholz". Ohne das Falten erdet das eine, das andere nicht.
+  return String(t == null ? '' : t).toLowerCase().normalize('NFC')
+    .replace(/ß/g, 'ss')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Welche Arten nennt dieser Text? Drei Zustände, und bei mehreren wird KEINE
+ * ausgewählt — `[0]` zu nehmen hiesse, die Dateireihenfolge zur Wahrheit zu
+ * erklären. Gemessen: die Mehrfachtreffer sind ECHTE verschiedene Arten
+ * (Wacholder 8 Juniperus-Arten, Rose 19 Rosa-Arten), kein Dubletten-Artefakt.
+ *
+ * @returns {{arten:object[], zahl:number, einig:boolean|null, tox:number[], essbar:boolean[]}}
+ */
+function _gsArtenTreffer(text) {
+  var leer = { arten: [], zahl: 0, einig: null, tox: [], essbar: [] };
+  try {
+    if (typeof DB === 'undefined' || !DB || !DB.length) return leer;
+    var q = ' ' + _gsLinaNorm(text) + ' ';
+    if (q.length < 5) return leer;
+    var gefunden = [];
+    for (var i = 0; i < DB.length; i++) {
+      var sp = DB[i];
+      if (!sp) continue;
+      var n = _gsLinaNorm(sp.name), l = _gsLinaNorm(sp.lat);
+      // Ganzer Name (> 3 Zeichen) oder ganzes Binomen (> 5), an Wortgrenzen.
+      if ((n.length > 3 && q.indexOf(' ' + n + ' ') !== -1) ||
+          (l.length > 5 && q.indexOf(' ' + l + ' ') !== -1)) { gefunden.push(sp); continue; }
+      // Deutsch dekliniert: „Kann ich den GRÜNEN Knollenblätterpilz essen?"
+      // trifft „Grüner Knollenblätterpilz" nie als ganzen Namen. Das LETZTE
+      // Wort eines mehrteiligen Namens bleibt dabei unverändert — und es ist
+      // eindeutig genug: von 505 solchen Wörtern mit mindestens 10 Zeichen
+      // zeigen 384 auf genau EINE Art (gemessen 14.09.2026). Die übrigen
+      // zeigen auf mehrere und laufen damit in dieselbe Mehrdeutigkeits-Regel,
+      // die auch sonst gilt — es wird nie eine Art herausgegriffen.
+      // Das ist KEIN Wort-Teiltreffer: gesucht wird ein ganzes Wort, nur nicht
+      // der ganze Name. „braune Blätter" bleibt deshalb bei 0 Treffern.
+      // 292 Eintraege tragen einen Klammer-Zusatz am Namensende
+      // („Königskerze (Grosse)", „Ringelblume (Wild)"). `_gsLinaNorm` streicht
+      // die Klammern, damit wuerde der ZUSATZ zum „letzten Wort" — und
+      // Adjektive wie „gewöhnliche" oder „kriechender" erdeten auf eine Art.
+      // Fuer die Deklinations-Regel zaehlt deshalb der Name OHNE Zusatz.
+      var ohneZusatz = _gsLinaNorm(String(sp.name || '').replace(/\([^)]*\)\s*$/, ''));
+      var teile = ohneZusatz.split(' ');
+      if (teile.length > 1) {
+        var letztes = teile[teile.length - 1];
+        if (letztes.length >= 10 && q.indexOf(' ' + letztes + ' ') !== -1) {
+          sp = Object.create(sp); sp._nurTeilname = true;   // gemerkt, siehe unten
+          gefunden.push(sp);
+        }
+      }
+    }
+    if (!gefunden.length) return leer;
+    // Der UMGANGSNAME zieht seine Familie mit. „Ist Holunder essbar?" trifft
+    // woertlich den einen Eintrag, der genau so heisst (Sambucus nigra, tox 2,
+    // essbar) — und die Liste fuehrt 18 Sambucus-Eintraege von tox 1 bis 4,
+    // darunter den Zwerg-Holunder (S. ebulus). Eine Zusage „essbar" auf so eine
+    // Frage ist genau der Fehler, den `_gsVorsichtigste` seit v32.43 fuer den
+    // Scanner verhindert. Also: jeder Eintrag, dessen Name den getroffenen
+    // Namen als GANZES Wort enthaelt, gehoert dazu.
+    try {
+      var stamm = {};
+      for (var gi = 0; gi < gefunden.length; gi++) stamm[_gsLinaNorm(gefunden[gi].name)] = true;
+      for (var di = 0; di < DB.length; di++) {
+        var kand = DB[di];
+        if (!kand || !kand.name) continue;
+        var kn = ' ' + _gsLinaNorm(kand.name) + ' ';
+        for (var st in stamm) {
+          if (st.length > 3 && kn.indexOf(' ' + st + ' ') !== -1) { gefunden.push(kand); break; }
+        }
+      }
+    } catch(_){}
+    // Je Art EIN Eintrag, und die Angaben kommen von der ART (v32.92/93/95).
+    var proArt = {}, reihe = [];
+    for (var j = 0; j < gefunden.length; j++) {
+      var g = gefunden[j];
+      var key = (typeof _gsNormLat === 'function' ? _gsNormLat(g.lat || '') : _gsLinaNorm(g.lat || '')) || ('id:' + g.id);
+      if (proArt[key]) continue;
+      var ang = (typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(g) : g;
+      proArt[key] = true;
+      reihe.push({ name: g.name, lat: g.lat, tox: ang.tox | 0, essbar: !!ang.edible, nurTeilname: !!g._nurTeilname });
+    }
+    var toxe = [], essb = [];
+    for (var k = 0; k < reihe.length; k++) {
+      if (toxe.indexOf(reihe[k].tox) === -1) toxe.push(reihe[k].tox);
+      if (essb.indexOf(reihe[k].essbar) === -1) essb.push(reihe[k].essbar);
+    }
+    toxe.sort(function (a, b) { return a - b; });
+    // Kam der EINZIGE Treffer nur ueber das letzte Wort, stand der volle Name
+    // nie in der Frage: „Kann man Wiesenpilze essen?" trifft so den
+    // „Perlweissen Wiesenpilz" — und eine Zusage „nicht giftig" ueber einen
+    // Sammelbegriff waere eine Aussage, die die Frage gar nicht gestellt hat.
+    // Dann wird wie bei mehreren Arten verfahren: benennen, nicht zusichern.
+    var nurTeil = reihe.length === 1 && reihe[0].nurTeilname;
+    return { arten: reihe, zahl: reihe.length, nurTeilname: nurTeil,
+             einig: (!nurTeil && toxe.length === 1 && essb.length === 1), tox: toxe, essbar: essb };
+  } catch (_) { return leer; }
+}
+window._gsArtenTreffer = _gsArtenTreffer;
+
+/**
+ * Die Namen für die Zeile: VERSCHIEDENE Namen, und wo derselbe deutsche Name
+ * mehrfach vorkommt, das unterscheidende Binomen dazu. Sonst stuende dort
+ * dreimal dasselbe Wort — und daneben die Anweisung, nach der gemeinten Art zu
+ * fragen, ohne dass die Zeile einen Unterschied zeigt.
+ */
+function _gsArtenNamen(arten) {
+  var gesehen = {}, raus = [];
+  for (var i = 0; i < arten.length && raus.length < GS_LINA_ARTEN_NENNEN; i++) {
+    var a = arten[i], n = a.name;
+    if (gesehen[n]) { if (a.lat) { raus.push(n + ' (' + a.lat + ')'); gesehen[n + '|' + a.lat] = true; } continue; }
+    gesehen[n] = true; raus.push(n);
+  }
+  return raus;
+}
+
+/** Die ARTEN-Zeile für den KI-Kontext — oder '' , wenn nichts erkannt wurde. */
+function _gsLinaArtenZeile(text) {
+  try {
+    var t = _gsArtenTreffer(text);
+    if (!t.zahl) return '';
+    var giftWort = function (n) { return ['nicht giftig', 'gering giftig', 'mässig giftig', 'giftig', 'stark giftig', 'TÖDLICH giftig'][n] || ('Giftstufe ' + n); };
+    var zeile;
+    if (t.zahl === 1 && t.nurTeilname) {
+      var a1 = t.arten[0];
+      zeile = a1.name + (a1.lat ? ' (' + a1.lat + ')' : '') + ' — ' + giftWort(a1.tox) + ', '
+        + (a1.essbar ? 'essbar' : 'nicht als essbar gefuehrt')
+        + '. Der volle Name stand nicht in der Frage: frag nach, ob diese Art gemeint ist.';
+    } else if (t.zahl === 1) {
+      var a = t.arten[0];
+      zeile = a.name + (a.lat ? ' (' + a.lat + ')' : '') + ' — ' + giftWort(a.tox) + ', ' + (a.essbar ? 'essbar' : 'nicht als essbar geführt') + '.';
+    } else if (t.einig) {
+      zeile = _gsArtenNamen(t.arten).join(', ')
+        + ' — ' + t.zahl + ' Arten in der Liste, alle ' + giftWort(t.tox[0]) + ', '
+        + (t.essbar[0] ? 'alle essbar' : 'keine als essbar geführt') + '.';
+    } else {
+      // Der Fall, in dem es am meisten darauf ankommt: die Arten widersprechen
+      // sich. Eine herauszugreifen wäre eine Zusage, die die Daten nicht decken.
+      var hoechste = t.tox[t.tox.length - 1];
+      zeile = _gsArtenNamen(t.arten).join(', ')
+        + ' — ' + t.zahl + ' Arten, und sie unterscheiden sich'
+        + (t.tox.length > 1 ? ' (bis ' + giftWort(hoechste) + ')' : '')
+        + (t.essbar.length > 1 ? '; essbar sind nur manche' : '')
+        + '. Frag nach, welche gemeint ist, statt zu raten.';
+    }
+    var txt = 'ARTEN (aus der App-Liste — nicht raten, nicht ergänzen): ' + zeile;
+    if (txt.length > GS_LINA_ARTEN_MAX) txt = txt.slice(0, GS_LINA_ARTEN_MAX - 1) + '…';
+    return txt;
+  } catch (_) { return ''; }
+}
+window._gsLinaArtenZeile = _gsLinaArtenZeile;
+
+/**
+ * Die Gegenprobe NACH der Antwort: behauptet Lina „essbar" über eine Art, die
+ * die Liste mit tox >= 3 führt, kommt eine Warnzeile DARÜBER. Die Antwort wird
+ * nicht verschluckt — wer eine Antwort erwartet und nichts bekommt, fragt
+ * woanders. Nur diese eine Richtung; „giftig" über etwas Harmloses schadet nicht.
+ */
+function _gsLinaSicherheit(antwort, treffer) {
+  try {
+    if (!antwort || !treffer || !treffer.zahl) return '';
+    var hoch = treffer.arten.filter(function (a) { return a.tox >= 3; });
+    if (!hoch.length) return '';
+    var a = _gsLinaNorm(antwort);
+    // Gemessen an elf realistischen Bejahungen traf die alte Fassung
+    // (`\bessbar\b`) nur fuenf: „essbare Pflanze", „du darfst ihn essen",
+    // „zum Verzehr" fielen durch — und das ist die EINE Sicherung dieser App
+    // gegen eine falsche Essbarkeits-Zusage. Jetzt der Wortstamm, und die
+    // Verneinung wird nur im selben Satz gesucht, nicht in der ganzen Antwort
+    // (sonst entwertet ein spaeterer Nebensatz die Warnung).
+    var JA = /essbar|geniessbar|geniessen|verzehr|unbedenklich|bedenkenlos|kannst du essen|kann man essen|darfst du essen|darfst ihn essen|zum essen|comestible|commestibile|edible|safe to eat/;
+    var NEIN = /nicht essbar|nicht geniessbar|niemals essen|auf keinen fall|nie essen|kein verzehr|ungeniessbar|pas comestible|non commestibile|not edible|do not eat/;
+    var saetze = a.split(/(?:[.!?]|\bund\b|\baber\b)/);
+    var bejaht = saetze.some(function (sz) { return JA.test(sz) && !NEIN.test(sz); });
+    if (!bejaht) return '';
+    var namen = hoch.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+    return _t('lina_sicherheit_gift', '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.')
+      .replace('{1}', namen);
+  } catch (_) { return ''; }
+}
+window._gsLinaSicherheit = _gsLinaSicherheit;
+
+function gsLinaContext(frageText){
   try {
     var ctx = '';
     // v32.70 (Audit E2): Lina antwortete immer auf Deutsch — für jede App-Sprache.
@@ -84711,6 +84951,11 @@ function gsLinaContext(){
     ctx += ' Jahreszeit: ' + ((mon>=3&&mon<=5)?'Frühling':(mon>=6&&mon<=8)?'Sommer':(mon>=9&&mon<=11)?'Herbst':'Winter') + '.';
     var zahlen = gsLinaZahlen();
     if (zahlen) ctx += '\n' + zahlen;
+    // v33.30: die Arten aus der FRAGE — nur wenn eine erkannt wurde.
+    try {
+      var _az = (typeof _gsLinaArtenZeile === 'function') ? _gsLinaArtenZeile(frageText || '') : '';
+      if (_az) ctx += '\n' + _az;
+    } catch(_){}
     ctx += '\nREGEL: Zahlen, Daten und Gerätenamen nur aus diesem KONTEXT zitieren. Fehlt ein Wert, sag, dass keiner vorliegt — nichts schätzen, nichts interpolieren.';
     return ctx;
   } catch(_){ return ''; }
@@ -84807,18 +85052,107 @@ function _gsLinaSpeicherPruefen(r){
   } catch(_){}
 }
 async function gsLinaSend(){
+  // v33.30: der Notfall geht VOR dem Doppel-Send-Riegel. Der Riegel schuetzt
+  // vor zwei parallelen callAI-Aufrufen — aber waehrend einer laufenden
+  // Anfrage (Timeout 45 s!) haette er auch eine NOTFALL-Nachricht verschluckt,
+  // und die ruft gar keine KI. Bei einer Vergiftung ist eine Dreiviertelminute
+  // Stille die teuerste Antwort, die es gibt.
+  try {
+    var _inp0 = document.getElementById('gs-lina-input');
+    var _txt0 = _inp0 ? String(_inp0.value || '').trim() : '';
+    if (_txt0 && typeof _gsNotfallStufe === 'function' && _gsNotfallStufe(_txt0.toLowerCase()) === 'dringend') {
+      var _tn0 = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+      // Das Eingabefeld NICHT hier leeren: der gewoehnliche Weg liest es gleich
+      // wieder, und ein geleertes Feld liesse ihn an `if (!text) return;`
+      // umkehren — die Person bekaeme die Nummer und sonst nichts. Geleert wird
+      // es unten, wie immer.
+      window._gsLinaMsgs = window._gsLinaMsgs || [];
+      window._gsLinaMsgs.push({ role:'user', content:_txt0 });
+      window._gsLinaMsgs.push({ role:'assistant', content: _tn0('notfall_sofort', '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\n\nNotruf: **144** | EU: **112**\n\nBeschreibe welche Pflanze/Pilz, wann und wie viel.') });
+      gsLinaRender(false);
+      // `gsLinaRender` baut das Panel neu auf — das Eingabefeld darunter ist ein
+      // NEUES, leeres Element. Der gewoehnliche Weg liest es gleich und wuerde
+      // an `if (!text) return;` umkehren: die Person bekaeme die Nummer und
+      // sonst nichts. Den Text also wieder hineinschreiben.
+      try { var _inp1 = document.getElementById('gs-lina-input'); if (_inp1) _inp1.value = _txt0; } catch(_){}
+      try { gsTrackEvent('lina_message', { ok: true, erdung: 'notfall' }); } catch(_){}
+      // Die Nummer steht jetzt auf dem Bildschirm — aber die Frage bleibt
+      // unbeantwortet, und das ist die falsche Seite des Fehlalarms:
+      // „mon chat peut manger cette plante ?" wird von der Erkennung als
+      // dringend gelesen (`manger` + `chat`) und bekaeme sonst NUR die Nummer.
+      // Gemessen; in v33.29 wurde dieselbe Frage normal beantwortet. Also
+      // laeuft der gewoehnliche Weg weiter: die Nummer zuerst, die Antwort
+      // danach. Bei einer echten Vergiftung kostet das nichts — die Nummer
+      // steht schon da.
+      if (window._gsLinaSending) return;
+    }
+  } catch(_){}
   if (window._gsLinaSending) return; // v29.48: Doppel-Send-Guard — sonst 2 parallele callAI → doppelter Quota-Abzug
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var inp = document.getElementById('gs-lina-input');
   var text = inp ? (inp.value||'').trim() : '';
   if (!text) return;
-  // v30.24: offline → sofortiger Hinweis statt 45s-Timeout (Eingabe bleibt erhalten)
-  if (!navigator.onLine) { if (typeof gsToast === 'function') gsToast('📡 Lina braucht Internet — sobald du online bist, bin ich wieder da. 🌿', 'warning'); return; }
+  // v33.30: Notfall VOR allem anderen. Der Offline-Chat erkennt einen
+  // Vergiftungs-Notfall seit v32.98/99 in vier Sprachen — Lina, der Chat, den
+  // die meisten oeffnen, tat es nicht: im Rumpf stand kein einziger Treffer.
+  // `dringend` ruft die KI GAR NICHT: bei einer Vergiftung zaehlt die Nummer,
+  // nicht eine Antwort in 8 Sekunden.
+  // Die Nummer setzt der Block ganz oben (vor dem Doppel-Send-Riegel). Hier
+  // bleibt nur die ruhige Zeile fuer den blossen Verzehr.
+  try {
+    var _nf = (typeof _gsNotfallStufe === 'function') ? _gsNotfallStufe(String(text).toLowerCase()) : 'keiner';
+    window._gsLinaNotfallHinweis = (_nf === 'hinweis');
+  } catch(_){ window._gsLinaNotfallHinweis = false; }
+
+  // v33.30: ohne Netz antwortet Lina trotzdem — `getSmartAnswer` laeuft ohne
+  // Netz und stand die ganze Zeit daneben. Erst wenn auch von dort nichts
+  // kommt, bleibt der alte Hinweis.
+  if (!navigator.onLine) {
+    var _off = null;
+    // `getSmartAnswer` erdet mit dem GROBEN Namensvergleich — genau dem, den
+    // dieser Schnitt als unbrauchbar gemessen hat: „Meine Tomaten haben braune
+    // Blätter" beantwortet er mit der **Braunen Krustenflechte**. Ihn hier
+    // ungefiltert durchzureichen hiesse, den Fehler durch die Hintertuer
+    // wieder einzubauen. Also: seine Antwort gilt nur, wenn der STRENGE
+    // Vergleich dieselbe Art auch findet — sonst antwortet Lina lieber
+    // allgemein als falsch.
+    try {
+      var _sa = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : { zahl: 0, arten: [] };
+      var _roh = (typeof getSmartAnswer === 'function') ? getSmartAnswer(text) : null;
+      if (_roh) {
+        var _istArtKarte = /^🌿 \*\*/.test(String(_roh).trim());
+        if (!_istArtKarte) _off = _roh;                       // Notfall, Tipp, allgemeine Antwort
+        else if (_sa.zahl) {
+          // Artkarte — nur nehmen, wenn der strenge Vergleich dieselbe Art nennt
+          var _n0 = _gsLinaNorm(String(_roh).split('**')[1] || '');
+          _off = _sa.arten.some(function (a) { return _gsLinaNorm(a.name) === _n0; }) ? _roh : null;
+        }
+      }
+    } catch(_){ _off = null; }
+    if (_off) {
+      var _to = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+      if (inp) inp.value = '';
+      window._gsLinaMsgs = window._gsLinaMsgs || [];
+      window._gsLinaMsgs.push({ role:'user', content:text });
+      window._gsLinaMsgs.push({ role:'assistant', content: _to('lina_offline_vor', '📡 Gerade ohne Internet — hier ist, was ich aus der App-Liste weiss:') + '\n\n' + _off });
+      gsLinaRender(false);
+      try { gsTrackEvent('lina_message', { ok: true, erdung: 'offline' }); } catch(_){}
+      return;
+    }
+    if (typeof gsToast === 'function') gsToast('📡 Lina braucht Internet — sobald du online bist, bin ich wieder da. 🌿', 'warning'); return;
+  }
   window._gsLinaSending = true;
+  // Bei einem Notfall steht die Nutzerzeile schon oben (samt Nummer) — sie darf
+  // nicht ein zweites Mal dazukommen.
+  var _schonGefuehrt = false;
+  try {
+    var _m = window._gsLinaMsgs || [];
+    _schonGefuehrt = _m.length >= 2 && _m[_m.length - 2].role === 'user' && _m[_m.length - 2].content === text;
+  } catch(_){}
   var _linaAct = null; // v30.69: optionale Aktion aus Lina's Antwort (nach dem Send-Guard dispatcht)
   if (inp) inp.value = '';
   window._gsLinaMsgs = window._gsLinaMsgs || [];
-  window._gsLinaMsgs.push({ role:'user', content:text });
+  if (!_schonGefuehrt) window._gsLinaMsgs.push({ role:'user', content:text });
   gsLinaRender(true);
   var uid = gsStore.get('gs_sb_uid', null);
   try {
@@ -84832,14 +85166,32 @@ async function gsLinaSend(){
       sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })}).then(_gsLinaSpeicherPruefen);
     }
     var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
-    var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(), 900, { quotaFeature:'lina', timeout:45000 });
-    try { gsTrackEvent('lina_message', { ok: !!reply }); } catch(_){}   // v33.21: kam eine Antwort — nie der Text
+    var _treffer = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : null;
+    var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(text), 900, { quotaFeature:'lina', timeout:45000 });
+    // v33.21: kam eine Antwort — nie der Text. v33.30: dazu, WIE geerdet wurde.
+    try {
+      gsTrackEvent('lina_message', { ok: !!reply, erdung: !_treffer || !_treffer.zahl ? 'keine'
+        : (_treffer.zahl === 1 ? 'eine' : (_treffer.einig ? 'mehrere_einig' : 'mehrere_uneinig')) });
+    } catch(_){}
     if (!reply) reply = _t('lina_error','Entschuldige, da ist gerade etwas schiefgelaufen — magst du es nochmal versuchen? 🌿');
     // v30.69: optionale [[GS_ACTION]]{json}-Zeile extrahieren + aus dem angezeigten Text entfernen (wird escaped sonst sichtbar)
     try {
       var _am = reply.match(/\[\[GS_ACTION\]\]\s*(\{[\s\S]*\})\s*$/);
       if (_am) { try { _linaAct = JSON.parse(_am[1]); } catch(_e){ _linaAct = null; } reply = reply.slice(0, _am.index).trim(); if (!reply) reply = '🌿'; }
     } catch(_){}
+    // v33.30: die Gegenprobe. Behauptet die Antwort „essbar" ueber eine Art,
+    // die die Liste mit tox >= 3 fuehrt, kommt eine Warnzeile DARUEBER — die
+    // Antwort wird nicht verschluckt. Dazu die ruhige Notfall-Zeile, wenn die
+    // Frage einen blossen Verzehr nennt.
+    try {
+      var _warn = (typeof _gsLinaSicherheit === 'function') ? _gsLinaSicherheit(reply, _treffer) : '';
+      if (_warn) reply = _warn + '\n\n' + reply;
+      if (window._gsLinaNotfallHinweis) {
+        var _th = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+        reply = _th('notfall_hinweis', '⚠️ Wenn jemand etwas gegessen hat und sich unwohl fühlt: **Tox Info Suisse 145** (rund um die Uhr).') + '\n\n' + reply;
+      }
+    } catch(_){}
+    window._gsLinaNotfallHinweis = false;
     window._gsLinaMsgs.push({ role:'assistant', content:reply });
     gsLinaRender(false);
     if (window._gsLinaConvId) {
@@ -85742,7 +86094,10 @@ var GS_EVENTS = {
   // v33.21: vier Ereignisse mehr — jedes ein Zaehler, keines ein Inhalt.
   plan_template:  ['plants', 'markiert'],                  // Jahresvorlage angelegt (v33.12): Zahl der Pflanzen, davon zur Fruchtfolge markiert
   scan_rescan:    ['fotos'],                               // zweites/drittes Foto angefordert (v33.16): wie viele Fotos der naechste Scan traegt
-  lina_message:   ['ok'],                                  // eine Frage an Lina: kam eine Antwort — nie der Text, nie die Frage
+  // v33.30: `erdung` sagt, WORAUF die Antwort stand — keine/eine/mehrere_einig/
+  // mehrere_uneinig/notfall/offline. Ein Wort aus fester Liste, nie die Art und
+  // nie die Frage. Ohne Eintrag hier wuerde _gsEventFiltern es verwerfen.
+  lina_message:   ['ok', 'erdung'],                        // eine Frage an Lina: kam eine Antwort — nie der Text, nie die Frage
   harvest_logged: ['quelle'],                              // Ernte eingetragen: ueber welchen Weg (ernte/pflanze) — nie Art, Menge oder Ort
   consent_changed:['analytics'],                           // der Schalter selbst
   app_updated:    ['von', 'nach', 'weg', 'ok'],            // v33.25: Update ohne Klick — Versionen und Weg (boot/rueckkehr/klick), hat es gegriffen; keine Kennung

@@ -541,6 +541,316 @@ const FAELLE = [
     },
   },
   {
+    // v33.30: Lina wird GEERDET. Gemessen am 14.09.2026: `gsLinaContext` trug
+    // Pflanzenzahl, Region, Jahreszeit, Messwerte und Kalender — aber KEINE
+    // Arten, und `gsLinaSend` keine Notfall-Erkennung. Der Offline-Chat hatte
+    // beides seit v32.96/98/99.
+    //
+    // Der naheliegende Weg (den Namensvergleich aus `getSmartAnswer`
+    // mitbenutzen) waere falsch gewesen: er nimmt IRGENDEIN Wort eines Namens.
+    // „Meine Tomaten haben braune Blätter" ergab dort die **Braune
+    // Krustenflechte**, „echte Kamille" die **Echte Engelwurz** — zwei von acht
+    // realistischen Fragen auf einer anderen Art, mit anderer Giftstufe.
+    // Eine falsche Erdung ist schlechter als keine.
+    name: 'Lina · Arten: ganzer Name oder ganzes Binomen an Wortgrenzen — nie ein Wort-Teiltreffer, und bei mehreren Arten wird KEINE ausgewählt',
+    lauf: () => {
+      const t = (q) => _gsArtenTreffer(q);
+      // 1 · der Fall, an dem der grobe Vergleich scheitert
+      const flechte = t('Meine Tomaten haben braune Blätter, was tun?');
+      if (flechte.zahl) return { ok: false, warum: '„braune Blätter" erdet auf ' + flechte.arten.map(a => a.name).join(', ') + ' — ein Wort-Teiltreffer' };
+      // 2 · eine eindeutige Art
+      const bl = t('Kann ich Bärlauch essen?');
+      if (bl.zahl !== 1 || !/Bärlauch/i.test(bl.arten[0].name)) return { ok: false, warum: 'Bärlauch: ' + JSON.stringify(bl.arten.map(a => a.name)) };
+      // 3 · das BINOMEN trifft (der grobe Vergleich fand es nur über den deutschen Namen)
+      const lat = t('Ist Allium ursinum dasselbe wie Bärlauch?');
+      if (!lat.zahl) return { ok: false, warum: 'das Binomen „Allium ursinum" trifft nichts' };
+      // 4 · mehrere Arten, EINIG → darf erden
+      const ros = t('Wie oft muss ich meine Rose giessen?');
+      if (ros.zahl < 2 || ros.einig !== true) return { ok: false, warum: 'Rose: ' + ros.zahl + ' Arten, einig=' + ros.einig };
+      // 5 · mehrere Arten, UNEINIG → darf NICHT erden
+      const wac = t('Ist der Gemeine Wacholder giftig?');
+      if (wac.zahl < 2 || wac.einig !== false) return { ok: false, warum: 'Wacholder: ' + wac.zahl + ' Arten, einig=' + wac.einig + ' (erwartet: mehrere, uneinig)' };
+      // 6 · und die Zeile sagt das auch — keine Art wird herausgegriffen
+      const zW = _gsLinaArtenZeile('Ist der Gemeine Wacholder giftig?');
+      if (!/unterscheiden sich/.test(zW) || !/Frag nach/.test(zW)) return { ok: false, warum: 'uneinige Zeile: ' + zW };
+      const zR = _gsLinaArtenZeile('Wie oft muss ich meine Rose giessen?');
+      if (!/Arten in der Liste/.test(zR)) return { ok: false, warum: 'einige Zeile: ' + zR };
+      if (_gsLinaArtenZeile('Meine Tomaten haben braune Blätter, was tun?')) return { ok: false, warum: 'ohne Treffer entsteht trotzdem eine Zeile' };
+      // 7 · Deckel
+      if (zR.length > GS_LINA_ARTEN_MAX || zW.length > GS_LINA_ARTEN_MAX) return { ok: false, warum: 'Zeile über dem Deckel: ' + Math.max(zR.length, zW.length) };
+      return { ok: true, info: 'Flechte 0 · Bärlauch 1 · Binomen trifft · Rose ' + ros.zahl + ' einig · Wacholder ' + wac.zahl + ' uneinig · Zeilen ≤ ' + GS_LINA_ARTEN_MAX };
+    },
+  },
+  {
+    // Die Angaben stammen von der ART, nicht vom Eintrag (v32.92/93/95) — und
+    // die Zeile steht wirklich im Kontext, mit der Frage als Grundlage.
+    name: 'Lina · die ARTEN-Zeile steht im Kontext, die Angaben kommen aus _gsArtAnzeige, und ohne erkannte Art gibt es keine Zeile',
+    lauf: () => {
+      const ctx = gsLinaContext('Kann ich Bärlauch essen?');
+      if (!/ARTEN \(aus der App-Liste/.test(ctx)) return { ok: false, warum: 'keine ARTEN-Zeile: ' + ctx.slice(-220) };
+      if (!/Bärlauch/.test(ctx)) return { ok: false, warum: 'die Art fehlt in der Zeile' };
+      const ohne = gsLinaContext('Wie war das Wetter gestern?');
+      if (/ARTEN \(aus der App-Liste/.test(ohne)) return { ok: false, warum: 'ohne erkannte Art entsteht trotzdem eine ARTEN-Zeile' };
+      // Die Angabe muss die der ART sein, nicht die des Eintrags. Mit Bärlauch
+      // liesse sich das NICHT messen: dort stimmen beide überein, und zwei
+      // denkbare Regeln mit demselben Ergebnis prüfen keine von beiden.
+      // Gemessen (14.09.2026) gibt es echte Abweichungen — diese hier ändern
+      // das VERHALTEN, nicht nur eine Zahl:
+      //   Beinwell    Eintrag tox 1, Art tox 3  → überschreitet die Warnschwelle
+      //   Christrose  Eintrag tox 3, Art tox 5
+      const proben = [['Beinwell', 3], ['Christrose', 5]];
+      for (const [nm, sollTox] of proben) {
+        const roh = DB.filter(x => (x.name || '').toLowerCase() === nm.toLowerCase());
+        if (!roh.length) continue;
+        const tr = _gsArtenTreffer('Ist ' + nm + ' giftig?');
+        if (!tr.zahl) return { ok: false, warum: nm + ' wird nicht gefunden — die Probe misst nichts' };
+        if (tr.arten[0].tox !== sollTox) {
+          return { ok: false, warum: nm + ': tox ' + tr.arten[0].tox + ' statt ' + sollTox
+            + ' (Eintrag sagt ' + (roh[0].tox | 0) + ') — die Angabe kommt aus dem EINTRAG, nicht aus der Art' };
+        }
+      }
+      if (ctx.length > 1650) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen — mit der ARTEN-Zeile zu lang' };
+      return { ok: true, info: ctx.length + ' Zeichen · Zeile da bei erkannter Art, weg ohne · tox aus _gsArtAnzeige' };
+    },
+  },
+  {
+    // Die Gegenprobe NACH der Antwort. Nur eine Richtung: eine essbar-Behauptung
+    // über eine Art, die die Liste mit tox >= 3 führt.
+    name: 'Lina · Sicherheit: „essbar" über eine Art mit tox ≥ 3 bekommt eine Warnzeile — „giftig" bekommt keine, und ohne Treffer passiert nichts',
+    lauf: () => {
+      const giftig = { zahl: 1, einig: true, tox: [5], essbar: [false], arten: [{ name: 'Grüner Knollenblätterpilz', lat: 'Amanita phalloides', tox: 5, essbar: false }] };
+      const harmlos = { zahl: 1, einig: true, tox: [0], essbar: [true], arten: [{ name: 'Bärlauch', lat: 'Allium ursinum', tox: 0, essbar: true }] };
+      const w1 = _gsLinaSicherheit('Ja, den kannst du essen — er ist essbar und schmeckt nussig.', giftig);
+      if (!w1 || !/Knollenblätterpilz/.test(w1)) return { ok: false, warum: 'keine Warnung bei essbar-Behauptung zu tox 5: ' + JSON.stringify(w1) };
+      const w2 = _gsLinaSicherheit('Nein, der ist hochgiftig — bitte auf keinen Fall essen.', giftig);
+      if (w2) return { ok: false, warum: 'Warnung, obwohl die Antwort selbst warnt: ' + w2 };
+      const w3 = _gsLinaSicherheit('Ja, der ist essbar.', harmlos);
+      if (w3) return { ok: false, warum: 'Warnung bei einer harmlosen Art: ' + w3 };
+      const w4 = _gsLinaSicherheit('Ja, der ist essbar.', { zahl: 0, arten: [] });
+      if (w4) return { ok: false, warum: 'Warnung ohne erkannte Art: ' + w4 };
+      const w5 = _gsLinaSicherheit('Der ist NICHT essbar.', giftig);
+      if (w5) return { ok: false, warum: '„nicht essbar" als essbar-Behauptung gelesen: ' + w5 };
+      return { ok: true, info: 'tox 5 + „essbar" → Warnung · „giftig" → keine · harmlos → keine · ohne Treffer → keine · „nicht essbar" → keine' };
+    },
+  },
+  {
+    // Zwei weitere Befunde derselben Pruefung, beide mit Folgen fuer die Sicherheit.
+    name: 'Lina · der Umgangsname zieht seine Familie mit, und ein Fehlalarm nimmt der Person nicht die Antwort weg',
+    lauf: async () => {
+      // 1 · „Holunder" traf woertlich den EINEN Eintrag, der so heisst
+      // (Sambucus nigra, tox 2, essbar) — und meldete einig:true. Die Liste
+      // fuehrt 18 Sambucus-Eintraege bis tox 4, darunter den Zwerg-Holunder.
+      // Eine Zusage „essbar" darauf ist genau der Fehler, den _gsVorsichtigste
+      // seit v32.43 fuer den Scanner verhindert.
+      const h = _gsArtenTreffer('Ist Holunder essbar?');
+      if (h.zahl < 2) return { ok: false, warum: '„Holunder" findet nur ' + h.zahl + ' Art — die Familie wird nicht mitgezogen' };
+      if (h.einig !== false) return { ok: false, warum: '„Holunder" gilt als einig, obwohl die Arten von tox ' + h.tox.join('/') + ' reichen' };
+      if (Math.max.apply(null, h.tox) < 3) return { ok: false, warum: 'die giftigen Verwandten fehlen: tox ' + JSON.stringify(h.tox) };
+      const hz = _gsLinaArtenZeile('Ist Holunder essbar?');
+      if (!/unterscheiden sich/.test(hz)) return { ok: false, warum: 'die Zeile sagt den Unterschied nicht: ' + hz.slice(0, 140) };
+      // Gegenrichtung: eine eindeutige Art bleibt eindeutig
+      const b = _gsArtenTreffer('Kann ich Bärlauch essen?');
+      if (b.zahl !== 1 || b.einig !== true) return { ok: false, warum: 'Bärlauch ist nicht mehr eindeutig: ' + JSON.stringify({ zahl: b.zahl, einig: b.einig }) };
+      // Und die Flechte bleibt draussen
+      if (_gsArtenTreffer('Meine Tomaten haben braune Blätter, was tun?').zahl) return { ok: false, warum: 'die Familien-Regel holt den Wort-Teiltreffer zurueck' };
+
+      // 2 · Ein Fehlalarm darf die Antwort nicht wegnehmen. „mon chat peut
+      // manger cette plante ?" liest die Erkennung als dringend (`manger` +
+      // `chat`); in v33.29 wurde die Frage normal beantwortet.
+      if (_gsNotfallStufe('mon chat peut manger cette plante ?') !== 'dringend') {
+        return { ok: false, warum: 'der Fehlalarm ist weg — der Fall misst seine eigene Voraussetzung nicht mehr' };
+      }
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, gt: window.gsToast };
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        window.gsToast = () => {};
+        let gerufen = 0;
+        window.callAI = async () => { gerufen++; return 'Die meisten Zimmerpflanzen sind fuer Katzen nicht geeignet.'; };
+        if (!document.getElementById('gs-lina-input') && typeof gsOpenLina === 'function') {
+          try { await gsOpenLina(); } catch (_) {}
+          await new Promise(r => setTimeout(r, 120));
+        }
+        const el = document.getElementById('gs-lina-input');
+        if (!el) return { ok: false, warum: 'kein Eingabefeld — der Fall misst nichts' };
+        window._gsLinaMsgs = [];
+        window._gsLinaSending = false;
+        el.value = 'mon chat peut manger cette plante ?';
+        await gsLinaSend();
+        await new Promise(r => setTimeout(r, 120));
+        const texte = window._gsLinaMsgs.filter(m => m.role === 'assistant').map(m => String(m.content));
+        if (!texte.some(t => /145/.test(t))) return { ok: false, warum: 'die Nummer fehlt: ' + JSON.stringify(texte).slice(0, 140) };
+        if (!gerufen) return { ok: false, warum: 'der Fehlalarm nimmt die Antwort weg — callAI wurde nicht gerufen' };
+        const nutzer = window._gsLinaMsgs.filter(m => m.role === 'user');
+        if (nutzer.length !== 1) return { ok: false, warum: 'die Frage steht ' + nutzer.length + '-mal im Verlauf' };
+        return { ok: true, info: 'Holunder ' + h.zahl + ' Arten bis tox ' + Math.max.apply(null, h.tox) + ', uneinig · Bärlauch eindeutig · Flechte 0 · Fehlalarm: Nummer UND Antwort, Frage einmal' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li;
+        window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        window._gsLinaSending = false;
+        try { if (typeof closeModal === 'function') closeModal(); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Fuenf Befunde einer gegnerischen Pruefung des fertigen Schnitts, jeder
+    // selbst nachgestellt. Sie betreffen alle die EINE Sicherung dieser App
+    // gegen eine falsche Essbarkeits-Zusage.
+    name: 'Lina · die vier Loecher der ersten Fassung: Sammelbegriff, ß/ss, flektiertes „essbar", Notfall hinter dem Riegel',
+    lauf: async () => {
+      // 1 · Sammelbegriff: „Wiesenpilze" traf den „Perlweissen Wiesenpilz" —
+      // EINE Art mit der Zusage „nicht giftig, essbar" auf eine Frage nach
+      // einer ganzen Gruppe. Der volle Name stand nie in der Frage.
+      const w = _gsArtenTreffer('Kann man Wiesenpilze essen?');
+      if (!w.zahl) return { ok: false, warum: '„Wiesenpilze" trifft nichts — der Fall misst nichts' };
+      if (!w.nurTeilname) return { ok: false, warum: 'Treffer nur ueber das letzte Wort wird nicht als solcher gemerkt' };
+      if (w.einig !== false) return { ok: false, warum: 'ein Sammelbegriff-Treffer gilt als „einig" und traegt damit eine Zusage' };
+      const wz = _gsLinaArtenZeile('Kann man Wiesenpilze essen?');
+      if (!/voll[e]? Name stand nicht/.test(wz)) return { ok: false, warum: 'die Zeile sagt nicht, dass der volle Name fehlte: ' + wz.slice(0, 140) };
+      // Gegenrichtung: ein VOLLER Name traegt weiterhin die Zusage
+      const b = _gsArtenTreffer('Kann ich Bärlauch essen?');
+      if (b.nurTeilname || b.einig !== true) return { ok: false, warum: 'ein voller Name gilt jetzt auch als unsicher: ' + JSON.stringify(b) };
+
+      // 2 · ß und ss muessen dasselbe erden
+      const a1 = _gsArtenTreffer('Kann ich Süssholz essen?').zahl;
+      const a2 = _gsArtenTreffer('Kann ich Süßholz essen?').zahl;
+      if (!a1 || a1 !== a2) return { ok: false, warum: 'ß und ss erden verschieden: ss=' + a1 + ' ß=' + a2 };
+
+      // 3 · die essbar-Erkennung: flektiert, umschrieben, verneint
+      const giftig = { zahl: 1, arten: [{ name: 'Knollenblätterpilz', lat: 'Amanita phalloides', tox: 5, essbar: false }] };
+      const ja = ['Ja, das ist eine essbare Pflanze.', 'Ja, du darfst ihn essen.', 'Er eignet sich gut zum Verzehr.', 'Ja, essbar und lecker.', 'Du kannst ihn bedenkenlos verzehren.'];
+      const verpasst = ja.filter(x => !_gsLinaSicherheit(x, giftig));
+      if (verpasst.length) return { ok: false, warum: verpasst.length + ' Bejahungen ohne Warnung: ' + JSON.stringify(verpasst) };
+      const nein = ['Der ist NICHT essbar.', 'Auf keinen Fall essen — hochgiftig.', 'Nicht geniessbar.'];
+      const falschAlarm = nein.filter(x => _gsLinaSicherheit(x, giftig));
+      if (falschAlarm.length) return { ok: false, warum: 'Warnung trotz Verneinung: ' + JSON.stringify(falschAlarm) };
+
+      // 4 · der Notfall sitzt VOR dem Doppel-Send-Riegel
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, gt: window.gsToast };
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        window.gsToast = () => {};
+        window.callAI = async () => 'sollte nicht gerufen werden';
+        if (!document.getElementById('gs-lina-input') && typeof gsOpenLina === 'function') {
+          try { await gsOpenLina(); } catch (_) {}
+          await new Promise(r => setTimeout(r, 120));
+        }
+        const el = document.getElementById('gs-lina-input');
+        if (!el) return { ok: false, warum: 'kein Eingabefeld — der Fall misst nichts' };
+        window._gsLinaMsgs = [];
+        window._gsLinaSending = true;          // ← eine Anfrage laeuft gerade (Timeout 45 s)
+        el.value = 'meine tochter hat beeren gegessen';
+        await gsLinaSend();
+        await new Promise(r => setTimeout(r, 80));
+        const letzte = (window._gsLinaMsgs.filter(m => m.role === 'assistant').slice(-1)[0] || {}).content || '';
+        if (!/145/.test(letzte)) return { ok: false, warum: 'waehrend einer laufenden Anfrage bleibt die 145 unerreichbar: ' + JSON.stringify(letzte).slice(0, 120) };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li;
+        window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        window._gsLinaSending = false;
+        try { if (typeof closeModal === 'function') closeModal(); } catch (_) {}
+      }
+      return { ok: true, info: 'Sammelbegriff ohne Zusage · ß=ss · 5 Bejahungen erkannt, 3 Verneinungen nicht · 145 auch bei laufender Anfrage' };
+    },
+  },
+  {
+    // Die drei Faelle davor messen FUNKTIONEN. Dieser misst, ob Lina sie auch
+    // RUFT — ein Fall, der nur die Vorlage prueft, ist gruen, auch wenn der
+    // Aufruf fehlt (CLAUDE.md §3.1, v33.00).
+    name: 'Lina · der Weg: bei einem Notfall steht die Nummer ZUERST, ohne Netz antwortet sie trotzdem, und die Warnzeile steht ueber der Antwort',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, on: navigator.onLine, li: window.sbIsLoggedIn, sf: window.sbFetch, gt: window.gsToast, sp: window.showProfileToast };
+      const rufe = [];
+      try {
+        window.callAI = async function (h, sys) { rufe.push(sys || ''); return 'Ja, den kannst du essen — er ist essbar.'; };
+        // Linas Fenster haengt an einer echten Anmeldung und an der Cloud; beides
+        // wird hier gestellt, damit das Eingabefeld ueberhaupt entsteht.
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        window.gsToast = () => {};
+        window.showProfileToast = () => {};
+        window._gsLinaMsgs = [];
+        window._gsLinaConvId = null;
+        // Das Eingabefeld entsteht erst, wenn Linas Fenster offen ist.
+        if (!document.getElementById('gs-lina-input') && typeof gsOpenLina === 'function') {
+          try { await gsOpenLina(); } catch (_) {}
+          await new Promise(r => setTimeout(r, 120));
+        }
+        if (!document.getElementById('gs-lina-input')) return { ok: false, warum: 'das Eingabefeld #gs-lina-input gibt es nicht — der Fall misst nichts' };
+        // Das Feld JEDES MAL frisch holen: `gsLinaRender` baut das Panel neu auf,
+        // eine gemerkte Referenz ist danach abgehaengt und traegt den Text ins
+        // Leere — `gsLinaSend` liest dann ein leeres Feld und kehrt sofort um.
+        const senden = async (t) => {
+          const el = document.getElementById('gs-lina-input');
+          if (!el) throw new Error('Eingabefeld nach dem Rendern verschwunden');
+          el.value = t; window._gsLinaSending = false;
+          await gsLinaSend(); await new Promise(r => setTimeout(r, 80));
+        };
+        const letzte = () => (window._gsLinaMsgs.filter(m => m.role === 'assistant').slice(-1)[0] || {}).content || '';
+
+        // 1 · Notfall: die Nummer steht ZUERST auf dem Bildschirm. Ob die KI
+        // danach noch antwortet, ist eine andere Frage (sie darf — siehe den
+        // Fall „Umgangsname/Fehlalarm": ein Fehlalarm darf der Person nicht die
+        // Auskunft wegnehmen). Gemessen wird, dass die Nummer die ERSTE
+        // Assistenten-Zeile ist und nicht auf die KI wartet.
+        await senden('meine tochter hat beeren gegessen');
+        const ersteAntwort = (window._gsLinaMsgs.filter(m => m.role === 'assistant')[0] || {}).content || '';
+        if (!/145/.test(ersteAntwort)) return { ok: false, warum: 'die Nummer ist nicht die erste Antwort: ' + JSON.stringify(ersteAntwort).slice(0, 120) };
+
+        // 2 · normale Frage: die KI wird gerufen, und der Kontext traegt die ARTEN-Zeile
+        window._gsLinaMsgs = [];
+        await senden('Kann ich Bärlauch essen?');
+        if (!rufe.length) return { ok: false, warum: 'die KI wurde bei einer normalen Frage nicht gerufen — letzte Antwort: ' + JSON.stringify(letzte()).slice(0, 200) };
+        if (!/ARTEN \(aus der App-Liste/.test(rufe[rufe.length - 1])) return { ok: false, warum: 'der Kontext an die KI traegt keine ARTEN-Zeile' };
+
+        // 3 · die Warnzeile steht UEBER der Antwort, die Antwort bleibt
+        window._gsLinaMsgs = [];
+        rufe.length = 0;
+        await senden('Kann ich den Grünen Knollenblätterpilz essen?');
+        const a3 = letzte();
+        if (!/Artenliste/.test(a3)) return { ok: false, warum: 'keine Warnzeile bei essbar-Behauptung zu einer giftigen Art: ' + a3.slice(0, 160) };
+        if (!/essbar/.test(a3)) return { ok: false, warum: 'die Antwort selbst wurde verschluckt: ' + a3.slice(0, 160) };
+        if (a3.indexOf('Artenliste') > a3.indexOf('kannst du essen')) return { ok: false, warum: 'die Warnzeile steht UNTER der Antwort' };
+
+        // 4 · ohne Netz antwortet sie trotzdem
+        window._gsLinaMsgs = [];
+        rufe.length = 0;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
+        await senden('Kann ich Bärlauch essen?');
+        if (rufe.length) return { ok: false, warum: 'ohne Netz wurde die KI gerufen' };
+        const a4 = letzte();
+        if (!a4 || !/Bärlauch/i.test(a4)) return { ok: false, warum: 'ohne Netz kam keine Antwort aus der App-Liste: ' + JSON.stringify(a4).slice(0, 160) };
+        return { ok: true, info: 'Notfall: 0 KI-Aufrufe, 145 · normal: Kontext mit ARTEN · Warnzeile ueber der Antwort · offline: Antwort aus der Liste' };
+      } finally {
+        window.callAI = sichern.ai;
+        window.sbIsLoggedIn = sichern.li;
+        window.sbFetch = sichern.sf;
+        window.gsToast = sichern.gt;
+        window.showProfileToast = sichern.sp;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on });
+        window._gsLinaSending = false;
+        try { if (typeof closeModal === 'function') closeModal(); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Dieselbe Erkennung wie der Offline-Chat, kein zweites Vokabular.
+    name: 'Lina · Notfall: dieselbe Erkennung wie der Offline-Chat, in vier Sprachen — und eine harmlose Essensfrage ist keiner',
+    lauf: () => {
+      if (typeof _gsNotfallStufe !== 'function') return { ok: false, warum: '_gsNotfallStufe gibt es nicht — Lina hätte ein zweites Vokabular' };
+      const dringend = ['meine tochter hat beeren gegessen', 'mein sohn hat pilze gegessen und erbricht',
+        'vergiftung was tun', 'mon enfant a mangé des baies', 'il bambino ha mangiato bacche', 'my dog ate mushrooms help'];
+      const keiner = ['kann man löwenzahn essen?', 'wann blüht der bärlauch?', 'wie pflanze ich tomaten?'];
+      const f1 = dringend.filter(x => _gsNotfallStufe(x) !== 'dringend');
+      if (f1.length) return { ok: false, warum: 'nicht als dringend erkannt: ' + JSON.stringify(f1) };
+      const f2 = keiner.filter(x => _gsNotfallStufe(x) !== 'keiner');
+      if (f2.length) return { ok: false, warum: 'harmlose Frage als Notfall: ' + JSON.stringify(f2) + ' → ' + f2.map(x => _gsNotfallStufe(x)).join(',') };
+      if (_gsNotfallStufe('ich habe gestern bärlauch gegessen') !== 'hinweis') return { ok: false, warum: 'blosser Verzehr ist kein „hinweis"' };
+      return { ok: true, info: dringend.length + ' dringend · ' + keiner.length + ' harmlos ohne Alarm · blosser Verzehr → hinweis' };
+    },
+  },
+  {
     // v32.56: Lina kennt die Zahlen (§11 Idee 6). Ein Prompt ist keine Garantie
     // (§4a.2) — geprueft wird der KONTEXT: jede Prozentzahl darin ist ein
     // gespeicherter plausibler Wert, Luecken und Anzahl stehen dabei, und ohne

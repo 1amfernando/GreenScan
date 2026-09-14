@@ -247,6 +247,7 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 | Messwerte | `localStorage.gs_messwerte`, **nur** über `_gsMesswerteAnhaengen` / `gsMesswertEintragen` (seit v32.52: ein Weg, Dublettensperre auf Gerät · Messgrösse · Zeit) | nie direkt `push`en — der Deckel und die Sortierung nach `ts` hängen daran |
 | Quiz-Tag | `dqDayKey()` — **UTC**, weil der Server mit `current_date` rotiert; die Anzeige der Grenze rechnet `dqNaechsteFrage()` | nie `new Date().toISOString()` je Anzeige, nie die lokale Mitternacht |
 | Lernkarten („Üben") | `localStorage.gs_dq_training` über `gsTrainingLaden()` / `gsTrainingBuchen(schluessel, richtig)`; Schlüssel = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag) | nie direkt schreiben — Deckel, Karteileichen-Räumung und `markDirty('state')` hängen daran; und nie `gs_dq_stats` mitzählen: Üben ist vom Tagesquiz getrennt |
+| Arten in einem FREITEXT (Lina, Chat) | `_gsArtenTreffer(text)` — ganzer Name oder ganzes Binomen an Wortgrenzen, plus das letzte Wort eines mehrteiligen Namens (≥ 10 Zeichen, gegen die deutsche Deklination); der Umgangsname zieht seine FAMILIE mit; je Art durch `_gsArtAnzeige` | nie den Vergleich aus `getSmartAnswer` nachbauen (er nimmt IRGENDEIN Wort — „braune Blätter" ergibt die Braune Krustenflechte), nie bei mehreren Arten eine auswählen (`[0]` ist die Dateireihenfolge), und nie eine Zusage geben, wenn der volle Name gar nicht in der Frage stand |
 | Quiz-Kategorie | `supabase/functions/_shared/quiz_gen_regeln.mjs` (`QUIZ_KATEGORIEN` + `QUIZ_KAT_ALIAS`), in der App gespiegelt als `GS_QUIZ_KATEGORIEN` / `GS_QUIZ_KAT_ALIAS`; angezeigt **nur** über `_gsQuizKatLabel(slug)` | nie `quiz.category` roh anzeigen (es gab 35 Schreibweisen aus drei Quellen), nie eine Kategorie erfinden — was das Vokabular nicht kennt, wird verworfen bzw. bleibt leer |
 | Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
 | „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
@@ -1229,6 +1230,47 @@ Leitner-Boxen neben der Tagesfrage. Vier Regeln, die ueber das Quiz hinausgehen:
 > gruen. **Ein Fall, dessen zwei denkbare Regeln zufaellig dasselbe Ergebnis
 > liefern, prueft keine von beiden** — die Daten muessen die Regeln
 > auseinanderziehen (Box 5 mit dem neuesten Datum, Box 1 mit dem aeltesten).
+
+**Seit v33.30 ist Lina GEERDET — und die Regeln gelten fuer jeden kuenftigen
+Freitext-Weg.** Gemessen: `getSmartAnswer` (der Offline-Chat) hatte seit
+v32.96/98/99 eine Notfall-Erkennung in vier Sprachen und erdete jede
+Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
+„notfall" in `gsLinaSend`, 0 auf `DB` in `gsLinaContext`).
+
+- **Eine falsche Erdung ist schlechter als keine.** Der Vergleich aus
+  `getSmartAnswer` nimmt IRGENDEIN Wort eines Namens — „Meine Tomaten haben
+  braune Blätter" ergab die **Braune Krustenflechte**, „echte Kamille" die
+  **Echte Engelwurz**. Wer einen Freitext erdet, nimmt `_gsArtenTreffer`.
+- **Bei mehreren Arten wird KEINE ausgewaehlt**, und **der Umgangsname zieht
+  seine Familie mit**: „Ist Holunder essbar?" traf erst nur den einen Eintrag,
+  der so heisst (tox 2, essbar) — die Liste fuehrt **18 Sambucus-Eintraege bis
+  tox 4**. Gefragt wird, ob die Arten sich EINIG sind: ja → erden; nein →
+  genau das sagen. Dieselbe Lehre wie `_gsVorsichtigste` (v32.43).
+- **Stand der VOLLE Name nicht in der Frage, gibt es keine Zusage.** „Kann man
+  Wiesenpilze essen?" traf ueber die Deklinations-Regel den „Perlweissen
+  Wiesenpilz" — eine Zusage „nicht giftig, essbar" auf eine Frage nach einer
+  ganzen Gruppe.
+- **Ein Notfall-Vokabular, nicht zwei.** `_gsNotfallStufe` ist aus
+  `getSmartAnswer` herausgeloest; beide Chats rufen es. Die Nummer kommt VOR
+  dem Doppel-Send-Riegel (sonst verschluckt eine laufende 45-s-Anfrage sie) —
+  und **der Fehlalarm nimmt der Person die Antwort nicht weg**: „mon chat peut
+  manger cette plante ?" liest die Erkennung als dringend, bekam aber sonst
+  NUR die Nummer. Nummer zuerst, Antwort trotzdem.
+- **Eine Sicherung, die nur `\bessbar\b` sucht, sichert nichts.** Von elf
+  realistischen Bejahungen traf sie fuenf; „eine **essbare** Pflanze" und „du
+  darfst ihn essen" fielen durch. Wortstamm statt Wortgrenze, und die
+  Verneinung nur im SELBEN Satz.
+
+> **Und was von `getSmartAnswer` kommt, ist nicht automatisch geerdet**
+> (v33.30). Die Offline-Antwort holte den groben Vergleich zurueck, den dieser
+> Schnitt gerade als unbrauchbar gemessen hatte — **der eigene Fehler durch die
+> Hintertuer**. Seine Artkarte gilt nur, wenn `_gsArtenTreffer` dieselbe Art
+> nennt.
+
+> **`gsLinaRender` baut das Panel NEU auf.** Jede gemerkte Referenz auf
+> `#gs-lina-input` ist danach abgehaengt, und ein frisch gerendertes Feld ist
+> LEER — wer davor den Text hineingeschrieben hat, sieht `gsLinaSend` gleich
+> darauf an `if (!text) return;` umkehren. Gilt im Code wie im Pruefstand.
 
 **`nutzersicht_check.js` (seit v32.70) fragt, was kein anderer fragt: sagt die
 App, was STIMMT, in der Sprache der Person?** (Audit E2–E5, E8.) Fünf Fälle,
