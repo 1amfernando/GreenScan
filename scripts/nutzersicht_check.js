@@ -118,7 +118,7 @@ const FAELLE = [
       if (!alle.length) return { ok: false, warum: 'keine Release-Eintraege — der Fall misst nichts' };
       if (!ausArchiv) return { ok: false, warum: 'das Archiv kam leer an — der Fall wuerde nur die Inline-Liste messen' };
       const pruefe = alle;
-      const kaputt = [], leer = [];
+      const kaputt = [], leer = [], falschesEmoji = [];
       pruefe.forEach(rel => {
         const items = (typeof gsAutoUserItems === 'function') ? gsAutoUserItems(rel) : (rel.user_items || []);
         items.forEach((it, i) => {
@@ -131,9 +131,21 @@ const FAELLE = [
           const tx = (it && typeof it.text === 'string') ? it.text : '';
           if (boldRoh != null && typeof boldRoh !== 'string') kaputt.push(rel.v + '#' + (i + 1) + ' (bold ist ' + typeof boldRoh + ')');
           else if (!(b + tx).trim()) leer.push(rel.v + '#' + (i + 1));
+          // v33.29: `\U0001f4da` ist KEIN JavaScript-Escape (JS kennt nur
+          // \uXXXX und \u{...}) — die Zeichenkette wird zu „U0001f4da", und
+          // genau das stand seit v33.27 in elf Eintraegen auf dem Bildschirm.
+          // Der Fall rendert die echten Eintraege und hat es trotzdem nicht
+          // gesehen, weil er nur `bold` und `text` ansah. Ein Emoji ist ein
+          // Zeichen, kein Wort.
+          const em = it && it.emoji;
+          // Beide Formen: '\U0001f4da' wird in JS zu „U0001f4da" (JS kennt
+          // kein \U), '\\U0001f4da' zu „\U0001f4da". Auf dem Bildschirm
+          // steht in beiden Faellen ein Escape statt eines Bildes.
+          if (typeof em === 'string' && /^\\?[Uu]\+?[0-9A-Fa-f]{4,8}/.test(em)) falschesEmoji.push(rel.v + '#' + (i + 1) + ' („' + em.slice(0, 14) + '")');
         });
       });
       if (kaputt.length) return { ok: false, warum: kaputt.length + ' Eintrag/Eintraege rendern [native code]: ' + kaputt.slice(0, 6).join(' ') };
+      if (falschesEmoji.length) return { ok: false, warum: falschesEmoji.length + ' Eintrag/Eintraege zeigen einen Escape statt eines Emojis: ' + falschesEmoji.slice(0, 6).join(' ') };
       if (leer.length) return { ok: false, warum: leer.length + ' Eintrag/Eintraege ohne sichtbaren Text: ' + leer.slice(0, 6).join(' ') };
       const n = pruefe.reduce((a, r) => a + ((typeof gsAutoUserItems === 'function') ? gsAutoUserItems(r) : (r.user_items || [])).length, 0);
       return { ok: true, info: pruefe.length + ' echte Releases (' + (pruefe.length - ausArchiv) + ' inline + ' + ausArchiv + ' aus dem Archiv) · ' + n + ' Zeilen, alle mit Text' };

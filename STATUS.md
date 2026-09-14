@@ -12,6 +12,216 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-14 (hy) - v33.29: Eine Kategorie ist ein Eintrag im Vokabular
+
+Der dritte Quiz-Schnitt. v33.27 hat gefragt, ob die Antwort STIMMT, v33.28, ob
+man etwas LERNT — hier geht es um den Nachschub: **woher kommen die Fragen, und
+was laesst sie hinein?**
+
+**Der Befund, alles am 14.09.2026 nur lesend an der Live-DB gemessen.**
+
+- Die Zeile unter der Quizfrage zeigte den **rohen Datenbank-Slug**
+  (`index.html`: `'Kategorie: ' + quiz.category`). Und dafuer gab es **drei**
+  Quellen: der Prompt des Generators nennt 6 Kategorien (englisch), die Tabelle
+  fuehrt **23** (10 englisch, 13 deutsch), und `GS_QUIZ_FALLBACK_POOL` in der
+  App noch einmal **13** eigene. Der Pool erreicht dieselbe Anzeige — sein
+  Eintrag geht durch `_gsQuizToSupaShape`, das `category` weiterreicht.
+  **Vereinigung: 35 Slugs**, darunter drei Einzahl/Mehrzahl-Paare
+  (`pilz`/`pilze`, `wildpflanze`/`wildpflanzen`, `heilpflanze`/`heilpflanzen`).
+- Der Generator prueft die STRUKTUR nicht. Der Mapper reicht `answers`,
+  `correct_idx`, `explanation` und `category` ungeprueft durch; `daily_quizzes`
+  hat **genau einen** Constraint, den Primaerschluessel. Dass heute 0 von 215
+  Fragen kaputt sind, ist Glueck, keine Regel.
+- Die Dublettenpruefung baut ihre Menge **einmal** aus der Datenbank und zieht
+  sie beim Einfuegen nie nach: zwei gleiche Fragen aus EINER KI-Antwort kaemen
+  beide durch. **Ehrlich dazu: die zwei Dubletten im Bestand stammen nicht
+  daher** — beide sind vom 29.04.2026 aus einem Massen-Import ganz ohne
+  Pruefung. Das Loch hat noch nie zugeschlagen; es ist trotzdem eines.
+
+**Und die Zahl, die niemand kannte.** `daily_quiz_history` zaehlt 34 gespielte
+Tage (11.06. bis 12.09.), 34 verschiedene Fragen, 0 Wiederholungen; nach der
+730-Tage-Regel von `fn_get_daily_quiz` sind **181 Fragen frei**. Der Nachschub
+laeuft — `knowledge-growth-daily` (03:30) rotiert **35 Themen** und schickt
+`{topic, count: 12}`; `daily_quizzes` kommt also alle 35 Tage dran (gemessen an
+`created_at`: 01.07. · 05.08. · 09.09., genau 35 Tage, je 12 Fragen).
+
+```
+Zulauf    12 / 35 Tage = 0,343 / Tag
+Verbrauch  1 /  1 Tag  = 1,0   / Tag
+Bilanz                  -0,657 / Tag   ->  181 / 0,657 = 275 Tage
+```
+
+**Der Vorrat ist am 16.06.2027 erschoepft.** Danach faellt `fn_get_daily_quiz`
+auf ihren Rueckfall und wiederholt Fragen INNERHALB des Fensters, das sie
+verhindern soll — lautlos. Um mitzuhalten, muesste ein Lauf **35** Fragen
+liefern statt 12.
+
+**Gebaut:**
+
+- `supabase/functions/_shared/quiz_gen_regeln.mjs` (neu, reines ESM fuer Deno
+  UND Node): `QUIZ_KATEGORIEN` (12), `QUIZ_KAT_ALIAS` (31 Eintraege — jeder der
+  35 gemessenen Slugs loest auf), `quizKategorie`, `quizNormFrage`,
+  `quizFrageValide`, `quizStapelFiltern`, `quizVorrat`.
+- `knowledge-bulk-gen` importiert das Modul fuer `topic === 'daily_quizzes'`.
+  Der Prompt nennt jetzt `QUIZ_KATEGORIEN.join("|")` statt einer eigenen
+  Sechserliste, die vorhandenen Fragen werden normiert verglichen, und die
+  Antwort meldet `rejected` samt Grund. Eine kaputte Zeile verwirft die ZEILE,
+  nie den Lauf.
+- App: `GS_QUIZ_KATEGORIEN` / `GS_QUIZ_KAT_ALIAS` / `GS_QUIZ_KAT_DE` und
+  `_gsQuizKatLabel(slug)`. Unbekannt ergibt **leer** — lieber keine Zeile als
+  ein Datenbankwort. Zwoelf `_t`-Schluessel in `GS_I18N_JS_STRINGS`.
+- `supabase/migrations/20260914_quiz_vorrat.sql` (**nicht angewandt**):
+  `fn_quiz_vorrat()` liefert die Zahlen, `fn_quiz_vorrat_pruefen()` schreibt ab
+  60 verbleibenden Tagen nach `system_events` (`warn`, unter 14 `error`), Cron
+  `quiz-vorrat-daily` 04:55.
+- `scripts/quiz_gen_check.js` (neu, Pruefstand 35): **23 Faelle** in drei
+  Haelften — Rechnung in Node, Vorrat in einem lokalen Postgres, Anzeige in
+  Playwright. Ohne Postgres „nicht pruefbar" (Exit 2), nie gruen.
+- `scripts/i18n_check.js` kennt jetzt auch **flache** Datenlisten
+  (Zeichenketten ohne Feld) — `GS_QUIZ_KATEGORIEN` mit Praefix `quiz_kat_` ist
+  die erste.
+
+**Die zwei Listen bindet der PRUEFSTAND, nicht der gute Wille.** Modul und App
+muessen dieselben Kategorien, denselben Alias UND denselben deutschen Text
+tragen; fehlt ein `_t`-Schluessel, meldet er es.
+
+**Zwanzig Gegenproben einzeln gestellt**, jede rot mit der echten Zahl daneben:
+`bekannt.add` entfernt (2 statt 1 neu) · Normalisierung entfernt · Kategorie
+ungeprueft durchgereicht · „keine Daten" als 0 statt `null` · Anzeige zeigt
+wieder den Slug · deutscher Text auseinandergezogen (`Kochen` gegen `Küche`) ·
+eine Kategorie ohne `_t`-Schluessel (in ZWEI Pruefstaenden rot) ·
+`Number.isInteger(ci)` zu `!ci` (die klassische Falle: `correct = 0` ist die
+erste Antwort und voellig gueltig) · `QUIZ_OPTIONEN` auf 5 (sechs Faelle rot —
+eine zu strenge Regel weist den eigenen Bestand ab). Dazu in SQL: ohne das
+730-Tage-Fenster liefert die Rechnung 5 statt 10 — **die zwei denkbaren Regeln
+geben also verschiedene Antworten**, der Fall unterscheidet sie wirklich.
+
+**Und die Regeln sind an den DATEN geeicht, nicht erfunden.** Von den 215
+aktiven Fragen hat live keine eine andere Optionszahl als vier, keine ein
+`correct` ausserhalb des Bereichs oder als Zeichenkette, keine eine Frage unter
+15 oder ueber 200 Zeichen — und alle 215 haben eine Erklaerung. Ein eigener
+Fall faehrt je eine echte Frage aus allen drei Formaten durch die Pruefung:
+**eine Regel, die den eigenen Bestand abweisen wuerde, waere zu streng, und der
+naechste Lauf lieferte 0 Fragen.**
+
+**Gefunden hat der volle Suite-Lauf noch einen eigenen Fehler**, und zwar genau
+dort, wo CLAUDE.md ihn beschreibt: `_gsQuizKatLabel` baute
+`_t('quiz_kat_' + k, …)`, und `i18n_check` liest daraus den Schluessel
+`quiz_kat_` ohne Eintrag — zwei rote Fragen. Der Hausweg steht seit v32.55 in
+`_gsMetricLabel`: den berechneten Schluessel erst in eine **Variable** legen
+(`var schl = 'quiz_kat_' + k;`) und die Liste in `i18n_check` als Datenliste
+**eintragen**. Beides gemacht; der Einzellauf davor war gruen, weil ich nur den
+Schluss des Berichts angesehen hatte statt der Fallzeilen.
+
+**Und der Fall hat schon den ENTWURF korrigiert.** Meine erste Alias-Tabelle
+deckte 34 von 35 Slugs — `season` fehlte, und das sind 21 der 215 Fragen. Auf
+dem Bildschirm waere bei jeder fuenften Frage die Kategoriezeile leer
+geblieben. Gefunden hat es nicht das Lesen, sondern das Skript, das die
+gemessenen Slugs gegen die Tabelle haelt.
+
+
+**Und dann hat eine gegnerische Pruefung des fertigen Schnitts dreizehn Dinge
+gefunden, sechs davon ernst** (zwei weitere Behauptungen hat die
+Gegenpruefung widerlegt — das ist der Sinn der zweiten Stufe).** Sie lief als Workflow ueber den Diff, jede
+Behauptung mit Beleg; ich habe jede einzelne selbst nachgestellt, bevor ich
+etwas geaendert habe.
+
+1. **Das neue Vokabular ist deutsch — und kannte keine Umlaute.** Der Prompt
+   verlangt seit diesem Schnitt `kueche|bestaeuber|schaedlinge`; ein Modell,
+   das auf Deutsch schreibt, liefert `küche` und `bestäuber`. Die haetten
+   NICHTS getroffen, und im schlimmsten Fall waeren 12 von 12 Zeilen eines
+   Laufs verworfen worden. Das alte Vokabular war reines ASCII-Englisch und
+   hatte dieses Risiko nicht — **es kommt mit der deutschen Liste herein.**
+   Jetzt falten Modul UND App (`ä→ae`, `ö→oe`, `ü→ue`, `ß→ss`).
+2. **Ein Lauf, der alles verwirft, sah aus wie ein gesunder Lauf.**
+   `{ok:true, inserted:0}` — und die Antwort liest niemand:
+   `fn_knowledge_growth_daily` ruft `PERFORM net.http_post(…)` und wirft das
+   Ergebnis weg. **Die neue Pruefung haette den Nachschub stilllegen koennen,
+   ohne dass es auffaellt.** Jetzt schreibt der Generator bei 0 neuen Zeilen
+   ein `error` nach `system_events` (nicht-blockierend).
+3. **Die Index-Form mit OBJEKT-Optionen ging durch — und waere auf dem
+   Bildschirm tot.** `openDailyQuizFromSupa` baut aus einem Index nur dann
+   Optionen, wenn `typeof quiz.options[0] === 'string'`. Sind alle Optionen
+   Objekte, bricht sie mit „⚠️ Quiz hat keine richtige Antwort markiert" ab —
+   das Tagesquiz waere an diesem Tag fuer ALLE aus. Ist nur die erste eine
+   Zeichenkette, waehlt die Person zwischen drei `[object Object]`. Beides in
+   Playwright nachgestellt; die Formen duerfen sich jetzt nicht mischen, und
+   ein Fall rendert beide abgewiesenen Varianten wirklich.
+4. **Elf Emoji im Changelog waren gar keine Emoji.** `'\U0001f4da'` ist KEIN
+   JavaScript-Escape (JS kennt nur `\uXXXX` und `\u{…}`) — die Zeichenkette
+   wird zu `"U0001f4da"`. Das steht seit **v33.27 und v33.28 live** auf dem
+   Bildschirm, in elf Eintraegen, aus meinen eigenen zwei letzten Schnitten.
+   **`nutzersicht_check` E4b rendert die echten Eintraege und hat es nicht
+   gesehen, weil es nur `bold` und `text` ansah — ein Emoji ist ein Zeichen,
+   kein Wort.** Alle 14 Vorkommen durch das echte Zeichen ersetzt, E4b prueft
+   es jetzt (beide Schreibweisen, mit und ohne Backslash).
+5. **Die Vorrats-Warnung haette 60 Tage lang jeden Morgen dieselbe Zeile
+   geschrieben.** Die Nachbar-Waechter tun das auch — aber das sind
+   MOMENTAUFNAHMEN, und dies ist eine WARNUNG. Jetzt hoechstens eine je Woche
+   und Stufe; steigt `warn` auf `error`, meldet sie sich sofort.
+6. **`_tagPlus` warf eine `RangeError`**, in einem Modul, dessen ganzer Vertrag
+   „drei Zustaende, nie ein Absturz" lautet — und das in einer Edge-Function
+   laeuft, wo eine Ausnahme den Lauf mit 500 beendet.
+7. **`quizNormFrage` zog Unicode nicht zusammen.** Dieselbe Frage in NFD wurde
+   zur zweiten Frage, und „Wächst" zerfiel zu „wa chst".
+8. **Die Mindestlaenge 15 haette „Was ist VAPKO?" (14 Zeichen) abgewiesen** —
+   eine Frage, die die App in ihrem eigenen Rueckfall-Pool ausliefert. Grenze
+   auf 12; „Was?" faellt weiter durch.
+9. **Die bereitliegende Migration `20260827_…` bringt 12 Slugs mit, die das
+   Vokabular nicht kannte** — `mushroom_safety`, `soil`, `garden_care`, `birds`
+   und acht weitere. **38 der 43 Fragen haetten nach dem Anwenden GAR KEINE
+   Kategoriezeile bekommen**, und mein eigener FUER-FERNANDO-Abschnitt
+   empfiehlt genau dieses Anwenden. Eine SQL-Migration geht am Generator
+   vorbei. Alle zwoelf eingetragen — **und der Fall zieht seine Slugs jetzt
+   aus den MIGRATIONEN und aus `GS_QUIZ_FALLBACK_POOL` selbst**, statt aus
+   einer abgetippten Liste: sonst waere die naechste Migration dieselbe Luecke.
+10. **Zwei Faelle suchten Quelltext-WOERTER und blieben gruen, wenn der Code
+    auskommentiert war.** Genau die Falle, die CLAUDE.md fuer `wiring_check`
+    festhaelt. Der Pruefstand zieht Kommentare jetzt ab (mit mitgefuehrten
+    Zeichenketten, wegen `accept="image/*"`); beide Gegenproben sind rot.
+11. **Die SQL-Fixture unterschied 730 Tage nicht von 365.** Zwischen Tag 26 und
+    Tag 800 lag nichts, also ergab JEDES Fenster dieselbe Zahl — der Fall trug
+    „730" im Namen und haette mit 365 ebenso gruen gemeldet. Zwei Zeilen an der
+    GRENZE (Tag 729 verbraucht, Tag 731 frei) trennen die Regeln jetzt
+    wirklich; gegengeprueft, indem die Migration auf 365 gestellt wurde.
+12. **Der Pruefstand waere auf einem frischen Postgres abgestuerzt** — die
+    Migration setzt Rechte fuer `anon`, und die Fixture legte die Rolle nicht
+    an. Gruen war er nur, weil `pruefstaende.sh` `quiz` VOR `quizgen` faehrt und
+    `quiz_check` die Rollen anlegt; Rollen sind clusterweit. **Ein Pruefstand
+    darf sich nicht auf die Reihenfolge seiner Nachbarn verlassen.** Dazu:
+    `sqlHaelfte()` lief ohne `try/catch` — ein Fehler dort haette die ganze
+    Anzeige-Haelfte mitgerissen, ohne sie im Bericht auch nur zu vermissen.
+13. **`quizVorrat` hatte keinen Aufrufer.** Jetzt vergleicht ein Fall die
+    Regel im Modul mit der in SQL: beide muessen dieselbe Bilanz rechnen.
+
+> **Zwei Lehren, und beide gelten ueber diesen Schnitt hinaus.** Die erste:
+> **wer eine Liste von Englisch auf Deutsch umstellt, uebernimmt damit die
+> Umlaute** — die Verschaerfung kam nicht aus dem alten Code, sondern aus
+> meiner eigenen Aenderung. Die zweite: **ein Fall, der die echten Daten
+> rendert, prueft nur das, wonach er fragt.** E4b las `bold` und `text` und
+> ging an elf kaputten Emoji vorbei, zwei Auslieferungen lang.
+>
+> Und die Gegenprobe dazu hat mich dreimal ausgetrickst: mein erster Versuch,
+> den Emoji-Fehler wiederherzustellen, aenderte gar nichts (0 Treffer), der
+> zweite baute die FALSCHE Form (zwei Backslashes statt einem) und lief
+> stillschweigend am Fall vorbei. **Eine Gegenprobe, deren Aufbau still
+> fehlschlaegt, sieht aus wie eine bestandene Gegenprobe** — deshalb steht in
+> jedem dieser Skripte jetzt ein `assert` auf die Trefferzahl.
+
+**Bewusst nicht gemacht, mit Grund:** die 23 Slugs in der Live-DB umschreiben
+(ein UPDATE auf der Produktivdatenbank — Fernandos Entscheid; der Alias deckt
+sie bis dahin) · Validierung fuer die anderen 34 Themen (gemessen ist das Quiz;
+fuer `recipes` & Co. habe ich keine Zahl) · die Rotation von 12 auf 35 Fragen
+heben (das aendert KI-Kosten und ist eine Entscheidung, keine Reparatur — sie
+steht in FUER-FERNANDO).
+
+**Nebenbefund, nicht Teil des Schnitts:** `daily_quizzes` hat live **keine**
+Spalten `image_url`/`image_credit`/`image_alt` (die Abfrage bricht mit `42703`
+ab), waehrend die App sie seit v30.85 rendert. Die Migration
+`20260827_quiz_bilder_und_fragen_v30_85.sql` steht in diesem Dokument seit
+jeher als „Anwendung offen" — mit ihr kaemen 42 Fragen (+42 Tage Vorrat) und
+die Bildfunktion dazu.
+
 ### 2026-09-13 (hx) - Live nachgemessen: die Quiz-Rangliste zählt immer noch nicht
 
 Reine Doku, kein Bump. Nach v33.27 und v33.28 (beide Client-Seite) die
@@ -12720,7 +12930,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 09.09.2026** (davor am 02.09.). Er stand am 02.09. auf
+> **Nachgemessen am 14.09.2026** (davor am 09.09.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -12729,11 +12939,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.28` (Client) · SW-Cache `gs-v33.28` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.29` (Client) · SW-Cache `gs-v33.29` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **92'749 Zeilen / 5,6 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **563 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **12**, Deckel 20 durch `robust_check` Fall 24).
+- **Frontend:** `index.html` **93'266 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **563 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **12**, Deckel 20 durch `robust_check` Fall 24).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **218 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **34** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -12746,7 +12956,8 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
-| `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. | (2026-08-31 y) |
+| `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. **Live nachgemessen 14.09.2026: die Spalte existiert nicht** (`42703`), waehrend die App sie seit v30.85 rendert — der Bildblock kann nie gefeuert haben. Mit `20260827_quiz_bilder_und_fragen_v30_85.sql` kaemen 43 Fragen (+43 Tage Vorrat). Seit v33.29 kennt das Kategorien-Vokabular ihre 12 eigenen Slugs, sie braechte also keine leeren Kategoriezeilen mit. | (2026-08-31 y), (hy) |
+| **Migration `20260914_quiz_vorrat.sql`** | `fn_quiz_vorrat()` + `fn_quiz_vorrat_pruefen()` + Cron `quiz-vorrat-daily` (v33.29): misst den Fragen-Vorrat und warnt nach `system_events`, sobald unter 60 freie Fragen uebrig sind. Aendert nichts am Quiz. Ohne sie bleibt der Vorrat ungemessen — **er ist am 16.06.2027 erschoepft**, und `fn_get_daily_quiz` wiederholt dann still. | (hy), FUER-FERNANDO §20 |
 | `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
 | Leaked-Password-Protection | Ein Dashboard-Klick. | (2026-08-31 y) |
 | **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). | `docs/FUER-FERNANDO.md` §5 · (ei) |

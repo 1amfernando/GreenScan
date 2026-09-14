@@ -95,14 +95,23 @@ function aufrufe() {
     // v32.55: der Startbestand des Messgroessen-Katalogs — `_gsMetricLabel` baut
     // daraus `metric_<key>` (OEKOSYSTEM-V1.md §11 Idee 22). Praefix statt Endung.
     { name: 'GS_METRIC_KATALOG_START', feld: 'key', endungen: [''], praefix: 'metric_' },
+    // v33.29: das Quiz-Kategorien-Vokabular ist eine FLACHE Liste von
+    // Zeichenketten (kein Feld), und `_gsQuizKatLabel` baut daraus
+    // `quiz_kat_<kategorie>`. Die Gegenseite steht in
+    // supabase/functions/_shared/quiz_gen_regeln.mjs; dass beide dieselben
+    // Kategorien kennen, prueft quiz_gen_check.
+    { name: 'GS_QUIZ_KATEGORIEN', flach: true, endungen: [''], praefix: 'quiz_kat_' },
   ];
   const listenLuecken = [];
   let listenSchluessel = 0;
   for (const L of DATENLISTEN) {
     const i2 = QUELLE.indexOf('var ' + L.name + ' = [');
     if (i2 < 0) { listenLuecken.push(L.name + ' (Liste nicht gefunden)'); continue; }
-    const blk = QUELLE.slice(i2, QUELLE.indexOf('\n];', i2));
-    for (const m of blk.matchAll(new RegExp("\\b" + L.feld + ":\\s*'([^']+)'", 'g'))) {
+    const blk = QUELLE.slice(i2, QUELLE.indexOf('];', i2));
+    const treffer = L.flach
+      ? [...blk.matchAll(/'([a-z_]+)'/g)]
+      : [...blk.matchAll(new RegExp("\\b" + L.feld + ":\\s*'([^']+)'", 'g'))];
+    for (const m of treffer) {
       for (const e of L.endungen) {
         listenSchluessel++;
         if (!tab.has((L.praefix || '') + m[1] + e)) listenLuecken.push((L.praefix || '') + m[1] + e);

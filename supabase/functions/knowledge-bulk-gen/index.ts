@@ -2,6 +2,11 @@
 // 35 Topics gesamt: 4 Wave-13 (alpine_garden_plants, forest_garden_design, indoor_houseplants, urban_balcony_design).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// v33.29: die RECHNENDEN Regeln fuer Quizfragen stehen in einem reinen
+// ESM-Modul, das Deno UND Node importieren (Bauform wie ingest_regeln.mjs) —
+// nur so lassen sie sich ohne Deno pruefen: scripts/quiz_gen_check.js.
+// Wer eine Regel aendert, aendert das Modul und den Fall, nie nur diese Datei.
+import { quizStapelFiltern, quizNormFrage, QUIZ_KATEGORIEN } from "../_shared/quiz_gen_regeln.mjs";
 
 // v29 (HL#19): Admin-Secret NICHT mehr hardcodiert (war im public Repo lesbar) — wird zur Laufzeit
 // aus app_settings.knowledge_gen_secret gelesen (nur admin/service-role lesbar, nie im Repo).
@@ -22,7 +27,7 @@ const SCHEMAS: Record<string, SchemaCfg> = {
   garden_techniques: { table: "garden_techniques", uniqKey: "slug", system: `Permakultur-Techniken Schweiz. JSON-Array nur. Schema: { "slug":"<unique>", "title":"<text>", "short_desc":"<1 Satz>", "body":"<3 Sätze>", "steps":["<schritt>"], "benefits":["<vorteil>"], "tools":["<werkzeug>"], "category":"<MUSS einer von: pest_control, propagation, soil, companion, mulching, pruning, permaculture, seasonal, planting, fertilizing>", "difficulty":"easy|medium|hard" }. KEINE Markdown.` },
   did_you_know_facts: { table: "did_you_know_facts", uniqKey: "title", system: `Überraschende Fakten Schweizer Pflanzen. JSON-Array nur. Schema: { "title":"<kurzer titel unique>", "body":"<1-2 Sätze>", "icon":"<emoji>", "category":"plants|fungi|trees|herbs|animals", "month":<1-12 or null>, "is_active":true }. KEINE Markdown.` },
   seasonal_tips: { table: "seasonal_tips", uniqKey: "tip_key", system: `Saisonale Tipps. JSON-Array nur. Schema: { "tip_key":"<unique>", "title":"<text>", "body":"<2 Sätze>", "icon":"<emoji>", "category":"foraging|garden|harvest|observation|planting", "months":[<1-12>], "priority":<1-10>, "active":true }. KEINE Markdown.` },
-  daily_quizzes: { table: "daily_quizzes", uniqKey: "question", system: `Quiz Schweiz. JSON-Array nur. Schema: { "question":"<text>", "answers":["<a>","<b>","<c>","<d>"], "correct_idx":<0-3>, "explanation":"<text>", "category":"identification|toxicity|culinary|medicinal|habitat|season", "difficulty":"easy|medium|hard" }. KEINE Markdown.`, mapper: (e: any) => ({ question: e.question, options: { answers: e.answers, correct: e.correct_idx, explanation: e.explanation, difficulty: e.difficulty }, category: e.category, xp_reward: 10, is_active: true }) },
+  daily_quizzes: { table: "daily_quizzes", uniqKey: "question", system: `Quiz Schweiz. JSON-Array nur. Schema: { "question":"<text>", "answers":["<a>","<b>","<c>","<d>"], "correct_idx":<0-3>, "explanation":"<text>", "category":"${QUIZ_KATEGORIEN.join("|")}", "difficulty":"easy|medium|hard" }. KEINE Markdown.`, mapper: (e: any) => ({ question: e.question, options: { answers: e.answers, correct: e.correct_idx, explanation: e.explanation, difficulty: e.difficulty }, category: e.category, xp_reward: 10, is_active: true }) },
   achievements: { table: "achievements_catalog", uniqKey: "slug", system: `Achievements. JSON-Array nur. Schema: { "slug":"<unique>", "title":"<text>", "description":"<1 Satz>", "emoji":"<emoji>", "condition": {"type":"scan_count|garden_plant_count|quiz_streak","target":<int>}, "rarity":"common|rare|epic|legendary", "xp_reward":<int> }. KEINE Markdown.` },
   plant_diseases: { table: "plant_diseases", uniqKey: "slug", system: `Pflanzenkrankheiten Schweiz. JSON-Array nur. Schema: { "slug":"<unique>", "name":"<text>", "scientific_name":"<text or null>", "category":"pilz|bakterium|virus|schaedling|mangel|umweltstress", "severity":"leicht|mittel|schwer", "symptoms_de":"<text>", "symptoms_visual":["<text>"], "affected_parts":["blatt|stamm|wurzel|frucht"], "affected_species_lat":["<lat>"], "treatment_organic":"<text>", "treatment_chemical":null, "prevention":"<text>", "spread_method":"<text>", "optimal_conditions":"<text>", "emoji":"<emoji>", "warning":null }. KEINE Markdown.` },
   pollinators: { table: "pollinators", uniqKey: "slug", system: `Bestäuber Schweiz. JSON-Array nur. Schema: { "slug":"<unique>", "name":"<text>", "scientific_name":"<text or null>", "category":"wildbiene|honigbiene|schmetterling|kaefer|fliege|vogel", "emoji":"<emoji>", "description":"<text>", "habitat":"<text>", "active_months":[<1-12>], "preferred_flowers":["<lat>"], "preferred_colors":["gelb|lila|weiss|rosa|blau"], "conservation_status":"haeufig|gefaehrdet|stark_gefaehrdet", "ecological_value":"kritisch|hoch|mittel|niedrig", "swiss_native":true }. KEINE Markdown.` },
@@ -91,7 +96,13 @@ Deno.serve(async (req) => {
     let existKeys = new Set<string>();
     if (schema.uniqKey) {
       const { data: existing } = await admin.from(schema.table).select(schema.uniqKey);
-      existKeys = new Set((existing || []).map((r: any) => r[schema.uniqKey!]));
+      // v33.29: fuer daily_quizzes wird NORMIERT verglichen (klein, ohne
+      // Satzzeichen, Leerraum auf eins) — sonst sind „Was ist Mykorrhiza?" und
+      // „was ist mykorrhiza" zwei Fragen. Dieselbe Funktion wie im Pruefstand.
+      const schluessel = topic === "daily_quizzes"
+        ? (r: any) => quizNormFrage(r[schema.uniqKey!])
+        : (r: any) => r[schema.uniqKey!];
+      existKeys = new Set((existing || []).map(schluessel));
     } else if (schema.compositeUniq) {
       const { data: existing } = await admin.from(schema.table).select(schema.compositeUniq.join(","));
       existKeys = new Set((existing || []).map((r: any) => schema.compositeUniq!.map((k) => r[k]).join("||")));
@@ -105,10 +116,46 @@ Deno.serve(async (req) => {
     const entries = salvageJsonArray(rawText);
     if (!entries.length) return new Response(JSON.stringify({ error: "JSON salvage produced 0 entries", stop_reason: stopReason, raw_preview: rawText.slice(0, 600) }), { status: 502, headers: { "Content-Type": "application/json" } });
     const mapped = schema.mapper ? entries.map(schema.mapper) : entries;
-    const newEntries = mapped.filter((e: any) => { if (schema.uniqKey) return e[schema.uniqKey] && !existKeys.has(e[schema.uniqKey]); if (schema.compositeUniq) { const key = schema.compositeUniq.map((k) => e[k]).join("||"); return schema.compositeUniq.every((k) => e[k]) && !existKeys.has(key); } return true; });
+    // v33.29: Quizfragen gehen durch quizStapelFiltern — Struktur (vier
+    // Optionen, Index im Bereich, Erklaerung da, keine zwei gleichen
+    // Optionen), Kategorie gegen das Vokabular (unbekannt = verworfen, nie
+    // geraten) und Dubletten AUCH innerhalb des Stapels: die alte Zeile baute
+    // ihre Menge einmal aus der Datenbank und zog sie beim Einfuegen nie nach,
+    // zwei gleiche Fragen aus EINER Antwort kamen also beide durch.
+    // Eine verworfene Zeile verwirft die ZEILE, nie den Lauf.
+    let verworfen: any[] = [];
+    let newEntries: any[];
+    if (topic === "daily_quizzes") {
+      const gefiltert = quizStapelFiltern(mapped, existKeys);
+      newEntries = gefiltert.neu; verworfen = gefiltert.verworfen;
+    } else {
+      newEntries = mapped.filter((e: any) => { if (schema.uniqKey) return e[schema.uniqKey] && !existKeys.has(e[schema.uniqKey]); if (schema.compositeUniq) { const key = schema.compositeUniq.map((k) => e[k]).join("||"); return schema.compositeUniq.every((k) => e[k]) && !existKeys.has(key); } return true; });
+    }
     let inserted = 0; const errors: any[] = [];
     for (const row of newEntries) { const { error } = await admin.from(schema.table).insert(row); if (error) { if (errors.length < 5) errors.push({ row_preview: JSON.stringify(row).slice(0, 80), error: error.message }); } else inserted++; }
     const { count: total } = await admin.from(schema.table).select("*", { count: "exact", head: true });
+
+    // v33.29: ein Lauf, der NICHTS liefert, sieht in der Antwort aus wie ein
+    // gesunder Lauf ohne Nachschubbedarf ({ok:true, inserted:0}) — und die
+    // Antwort liest niemand: `fn_knowledge_growth_daily` ruft
+    // `PERFORM net.http_post(...)` und verwirft das Ergebnis, der audit_log-
+    // Eintrag daneben traegt nur {topic, triggered_at}. Ohne diese Zeile
+    // koennte die neue Pruefung den Nachschub stillegen, ohne dass es auffaellt.
+    // Hoechstens EINE Zeile je Lauf, nur wenn wirklich etwas verworfen wurde.
+    try {
+      if (verworfen.length > 0) {
+        const anteil = verworfen.length / Math.max(1, verworfen.length + newEntries.length);
+        if (newEntries.length === 0 || anteil >= 0.34) {
+          await admin.from("system_events").insert({
+            severity: newEntries.length === 0 ? "error" : "warn",
+            source: "knowledge_gen",
+            event: "eintraege_verworfen",
+            detail: { topic, generated: entries.length, neu: newEntries.length,
+                      verworfen: verworfen.length, gruende: verworfen.slice(0, 5) },
+          });
+        }
+      }
+    } catch (_) { /* nicht-blockierend: eine Meldung darf den Lauf nie aufhalten */ }
 
     // v26.50: Log usage (fire-and-forget)
     try {
@@ -124,6 +171,6 @@ Deno.serve(async (req) => {
       });
     } catch (_) { /* nicht-blockierend */ }
 
-    return new Response(JSON.stringify({ ok: errors.length === 0, topic, generated: entries.length, salvaged: stopReason !== "end_turn", stop_reason: stopReason, new_unique: newEntries.length, inserted, total_in_db: total, tokens: aiData.usage, errors }, null, 2), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: errors.length === 0, topic, generated: entries.length, salvaged: stopReason !== "end_turn", stop_reason: stopReason, new_unique: newEntries.length, inserted, total_in_db: total, rejected: verworfen.length, rejected_detail: verworfen.slice(0, 10), tokens: aiData.usage, errors }, null, 2), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (e) { return new Response(JSON.stringify({ error: String((e as any)?.message ?? e) }), { status: 500, headers: { "Content-Type": "application/json" } }); }
 });
