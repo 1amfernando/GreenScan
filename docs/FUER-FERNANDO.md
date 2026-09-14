@@ -860,6 +860,79 @@ Es wird dabei nichts gelöscht und nichts angelegt — nur die Funktion ersetzt.
 `node scripts/backup_check.js` rechnet dieselbe Regel vorher in einem lokalen
 Postgres nach.
 
+## 20 · Dem Quiz gehen die Fragen aus — am 16. Juni 2027 (v33.29)
+
+Das ist kein Fehler, sondern eine Rechnung. Alle Zahlen am **14.09.2026 nur
+lesend** an der Live-Datenbank gemessen.
+
+**Wie das Quiz seine Frage waehlt.** `fn_get_daily_quiz` merkt sich in
+`daily_quiz_history`, welche Frage an welchem Tag dran war, und nimmt zwei
+Jahre lang keine zweimal. Stand heute: 215 Fragen, 34 Tage gespielt (11.06. bis
+12.09.), **181 Fragen noch nie dran**.
+
+**Wie Nachschub entsteht.** Jede Nacht um 03:30 laeuft `knowledge-growth-daily`
+und bittet die KI um 12 neue Eintraege — aber reihum fuer **35 verschiedene
+Themen**. Das Quiz ist eines davon, kommt also **alle 35 Tage** dran. Gemessen:
+01.07. · 05.08. · 09.09., jedes Mal genau 12 Fragen. Der naechste Lauf ist am
+**14.10.2026**.
+
+```
+kommt herein   12 Fragen alle 35 Tage  =  0,34 pro Tag
+geht heraus     1 Frage  pro Tag       =  1,0  pro Tag
+                                         -------------
+                                          −0,66 pro Tag
+```
+
+Bei 181 freien Fragen ist der Vorrat in **275 Tagen** leer, also um den
+**16. Juni 2027**. Danach passiert nichts Dramatisches — das Quiz faellt auf
+seinen Rueckfall zurueck und fragt eine Frage noch einmal. Nur sagt es das
+niemandem, und die Zwei-Jahres-Regel gilt ab dann faktisch nicht mehr.
+
+### Was du entscheiden kannst
+
+**a) Mehr Fragen je Lauf.** Damit der Vorrat nicht schrumpft, muesste ein Lauf
+**35** Fragen liefern statt 12 — oder das Quiz muesste oefter als alle 35 Tage
+an die Reihe kommen. Beides kostet KI-Aufrufe; deshalb habe ich es nicht
+gemacht. Der Wert steht in `fn_knowledge_growth_daily` (`'count', 12`).
+
+**b) Die Migration `20260827_quiz_bilder_und_fragen_v30_85.sql` anwenden.** Sie
+liegt seit dem 27.08. bereit und bringt **42 neue Fragen** (+42 Tage Vorrat)
+und die Bildfragen. Nachgemessen: die Spalten `image_url`, `image_credit` und
+`image_alt` gibt es in `daily_quizzes` **nicht** — die Abfrage danach bricht
+mit `42703: column "image_url" does not exist` ab. Die App rendert sie seit
+v30.85 trotzdem; der Block kann also noch nie gefeuert haben. Achtung: die
+Migration aendert die Rueckgabe von `fn_get_daily_quiz` (DROP + CREATE, Rechte
+neu setzen) — das steht im Kopf der Datei.
+
+> **Vorbereitet in v33.29:** ihre 43 Fragen tragen 15 Kategorien, davon zwoelf,
+> die es sonst nirgends gibt (`mushroom_safety`, `soil`, `garden_care`,
+> `birds`, `alpine` und sieben weitere). Waeren sie nicht im Vokabular, haetten
+> **38 der 43 Fragen gar keine Kategoriezeile** — das ist beim Bauen aufgefallen
+> und behoben. Du kannst die Migration also anwenden, ohne dass in der App
+> etwas leer bleibt.
+
+**c) Die Migration `20260914_quiz_vorrat.sql` anwenden** (neu, mit v33.29). Sie
+aendert nichts am Quiz, sie MISST nur: `fn_quiz_vorrat()` liefert die Zahlen,
+und `fn_quiz_vorrat_pruefen()` schreibt ab 60 verbleibenden Tagen eine Warnung
+nach `system_events` (unter 14 Tagen `error`). Dann meldet sich der Server von
+selbst, statt still zu wiederholen. Nachgerechnet in `quiz_gen_check` gegen ein
+lokales Postgres, inklusive Gegenprobe.
+
+**d) Die Kategorien in der Datenbank aufraeumen.** Die 215 Fragen tragen **23
+verschiedene** Kategorien in zwei Sprachen, darunter vier Paare, die dasselbe
+meinen (`heilpflanzen`/`medicinal`, `edible_toxic`/`toxicity`,
+`species_id`/`identification`, `wildpflanzen`/`foraging`). Seit v33.29 uebersetzt
+die App sie alle auf zwoelf saubere Kategorien, und der Generator darf keine
+neuen mehr erfinden — **du musst also nichts tun**. Wenn du trotzdem aufraeumen
+willst, ist es ein `UPDATE` auf der Produktivdatenbank, und das mache ich von
+hier aus nicht.
+
+> Was v33.29 schon getan hat, ohne dich: die Anzeige zeigt statt
+> „Kategorie: edible_toxic" jetzt „Giftigkeit", in vier Sprachen; neue Fragen
+> werden vor dem Anlegen geprueft (vier Antworten, richtige Antwort im Bereich,
+> Erklaerung da); und zwei gleiche Fragen aus derselben Lieferung kommen nicht
+> mehr beide durch.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

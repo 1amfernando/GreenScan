@@ -109,7 +109,7 @@ GreenScan/
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push) — 21 KB seit v32.72; sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-├── supabase/migrations/ # 215 SQL-Migrationen (alle idempotent)
+├── supabase/migrations/ # 219 SQL-Migrationen (alle idempotent)
 ├── manifest.json        # PWA-Manifest (share_target, file_handlers, etc.)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -117,7 +117,7 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 34 Prüfstände (§7.1) + pruefstaende.sh (alle 34, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 35 Prüfstände (§7.1) + pruefstaende.sh (alle 35, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -159,6 +159,15 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 > `function bold() { [native code] }`, `it.text` war `undefined`. Vierzehn
 > Auslieferungen lang, bis Fernando es fotografiert hat. `gsAutoUserItems`
 > normalisiert das jetzt (`_gsRelItem`), aber die Hausform bleibt das Objekt.
+>
+> **Und ein Emoji ist ein ZEICHEN, kein Escape** (v33.29). `'\U0001f4da'` ist
+> **kein** JavaScript-Escape — JS kennt nur `\uXXXX` und `\u{…}`; aus der
+> Zeichenkette wird woertlich `"U0001f4da"`. Genau das stand in **elf**
+> Eintraegen aus v33.27 und v33.28 auf dem Bildschirm, zwei Auslieferungen
+> lang. Entstanden ist es beim Schreiben mit einem Python-Skript, das seine
+> eigenen Escapes durchgereicht hat. **Emoji werden als Zeichen geschrieben**
+> (`'📚'`), nie als Escape; `nutzersicht_check` E4b prueft es seither, beide
+> Schreibweisen.
 >
 > **Und der Pruefstand dafuer war gruen.** `nutzersicht_check` E4 ersetzt
 > `GS_RELEASES` durch eine EIGENE, korrekt geformte Attrappe und sieht die
@@ -238,6 +247,7 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 | Messwerte | `localStorage.gs_messwerte`, **nur** über `_gsMesswerteAnhaengen` / `gsMesswertEintragen` (seit v32.52: ein Weg, Dublettensperre auf Gerät · Messgrösse · Zeit) | nie direkt `push`en — der Deckel und die Sortierung nach `ts` hängen daran |
 | Quiz-Tag | `dqDayKey()` — **UTC**, weil der Server mit `current_date` rotiert; die Anzeige der Grenze rechnet `dqNaechsteFrage()` | nie `new Date().toISOString()` je Anzeige, nie die lokale Mitternacht |
 | Lernkarten („Üben") | `localStorage.gs_dq_training` über `gsTrainingLaden()` / `gsTrainingBuchen(schluessel, richtig)`; Schlüssel = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag) | nie direkt schreiben — Deckel, Karteileichen-Räumung und `markDirty('state')` hängen daran; und nie `gs_dq_stats` mitzählen: Üben ist vom Tagesquiz getrennt |
+| Quiz-Kategorie | `supabase/functions/_shared/quiz_gen_regeln.mjs` (`QUIZ_KATEGORIEN` + `QUIZ_KAT_ALIAS`), in der App gespiegelt als `GS_QUIZ_KATEGORIEN` / `GS_QUIZ_KAT_ALIAS`; angezeigt **nur** über `_gsQuizKatLabel(slug)` | nie `quiz.category` roh anzeigen (es gab 35 Schreibweisen aus drei Quellen), nie eine Kategorie erfinden — was das Vokabular nicht kennt, wird verworfen bzw. bleibt leer |
 | Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
 | „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
@@ -707,12 +717,13 @@ node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusam
 node scripts/loeschung_check.js  # raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17)
 node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18)
 node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
+node scripts/quiz_gen_check.js   # kommt nur eine Frage in die Tabelle, die man auch anzeigen kann? Regeln in Node + Vorrat in lokalem Postgres + Anzeige (seit v33.29)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
-bash scripts/pruefstaende.sh     # ALLE 34 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+bash scripts/pruefstaende.sh     # ALLE 35 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1136,6 +1147,57 @@ waren das vierzehn an einem Tag. Die Migration
 `20260912_snapshot_retention_manual.sql` schliesst das und ist **nicht
 angewandt** — der Pruefstand rechnet sie in einem lokalen Postgres nach, mit
 Reproduktion (alte Fassung frisst das `manual`) und Gegenprobe.
+
+**`quiz_gen_check.js` (seit v33.29) fragt, was vor `quiz_check` kommt: WOHER
+kommen die Fragen, und was laesst sie hinein?** Drei Regeln, die ueber das Quiz
+hinausgehen:
+
+- **Eine Kategorie ist ein EINTRAG im Vokabular, keine Prompt-Zeile.** Gemessen
+  am 14.09.2026: die eine Zeile unter der Frage zeigte den rohen Slug, und
+  dafuer gab es DREI Quellen — der Prompt des Generators (6, englisch), die
+  Live-Tabelle (23, zweisprachig) und `GS_QUIZ_FALLBACK_POOL` in der App (13,
+  deutsch, ueber `_gsQuizToSupaShape` an derselben Anzeige). **35 Slugs**,
+  darunter `pilz` neben `pilze`. Wer eine Kategorie braucht, nimmt
+  `_gsQuizKatLabel(slug)`; unbekannt ergibt **leer**, nie der Slug. Dieselbe
+  Antwort wie `GS_EVENTS` (v33.11): ein Eintrag oder es geht nicht durch.
+- **Eine Dublettenpruefung muss auch SICH SELBST sehen.** Die alte Pruefung
+  baute ihre Menge einmal aus der Datenbank und zog sie beim Einfuegen nie
+  nach — zwei gleiche Fragen aus EINER KI-Antwort kamen beide durch.
+  `quizStapelFiltern` nimmt jeden angenommenen Schluessel sofort auf. *Ehrlich
+  dazu: die zwei Dubletten im Bestand stammen NICHT daher* (beide 29.04.2026,
+  Massen-Import ohne jede Pruefung) — das Loch hat noch nie zugeschlagen.
+- **Ein Vorrat ist eine ZAHL mit drei Zustaenden.** 181 Fragen frei, Zulauf 12
+  je 35 Tage (`knowledge-growth-daily` rotiert 35 Themen), Verbrauch 1 je Tag →
+  `-0,657/Tag` → erschoepft am **16.06.2027**, danach wiederholt
+  `fn_get_daily_quiz` ueber ihren Rueckfall, ohne dass etwas meldet. `quizVorrat`
+  gibt nie `0` fuer „keine Daten", sondern `null` mit Grund.
+
+**Die zwei Listen (Modul und App) bindet der PRUEFSTAND.** Fall „Ein
+Vokabular" liest beide und verlangt dieselben Kategorien, denselben Alias, je
+einen `_t`-Schluessel **und denselben deutschen Text** an Tabelle und Aufrufort
+— dieselbe Regel wie in `i18n_check`. Wer eine Kategorie hinzufuegt, aendert
+das Modul, die App und `GS_I18N_JS_STRINGS`; wer eine vergisst, sieht es beim
+naechsten Lauf.
+
+> **Wer eine Liste von Englisch auf Deutsch umstellt, uebernimmt damit die
+> UMLAUTE** (v33.29). Das alte Kategorien-Vokabular war reines ASCII-Englisch
+> (`identification|toxicity|…`) und konnte gar nicht an einem Umlaut
+> scheitern. Das neue ist deutsch in ASCII-Umschrift (`kueche`, `bestaeuber`)
+> — und ein Modell, das auf Deutsch schreibt, liefert `küche` und `bestäuber`.
+> Ohne Falten haette das jede solche Zeile verworfen, im schlimmsten Fall
+> **12 von 12 eines Laufs**, waehrend die Antwort `ok: true` meldet. `quizKategorie`
+> und `_gsQuizKatLabel` falten deshalb beide `ä/ö/ü/ß`, und ein Fall prueft,
+> dass sie es GLEICH tun. **Die Verschaerfung kam nicht aus dem alten Code,
+> sondern aus der eigenen Aenderung.**
+>
+> **Und der Fall hat den ENTWURF korrigiert, bevor es Code gab** (v33.29).
+> Meine erste Alias-Tabelle deckte **34 von 35** Slugs — `season` fehlte, und
+> das sind 21 der 215 Fragen. Auf dem Bildschirm waere bei jeder fuenften Frage
+> die Kategoriezeile leer geblieben, ohne dass etwas meldet. Gefunden hat es
+> nicht das Lesen, sondern ein zwanzigzeiliges Skript, das die GEMESSENEN Slugs
+> gegen die Tabelle haelt. **Ein Fall, der schon den Entwurf korrigiert, ist
+> der richtige Fall** — und eine Liste, die man von Hand aus dem Kopf schreibt,
+> ist nie vollstaendig.
 
 **Seit v33.28 prueft `quiz_check` auch „Ueben"** — Lernkarten mit fuenf
 Leitner-Boxen neben der Tagesfrage. Vier Regeln, die ueber das Quiz hinausgehen:

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.28.20260912">
+<meta name="app-version" content="33.29.20260914">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13833,6 +13833,68 @@ function dqOnBlur() { if (_dqOpen && !_dqAnswered) dqExpire(); }
 // ══ QUIZDUELL-MODUS mit Supabase-Frage ═════════════════════════════════
 // Nutzt das gleiche Modal + Anti-Cheat wie openDailyQuiz, aber mit
 // einer server-validierten Frage aus v_today_quiz (Tabelle daily_quizzes).
+// ── Quiz-Kategorien: EIN Vokabular fuer Generator und Anzeige (v33.29) ────
+// Gemessen am 14.09.2026: die eine Zeile unter der Frage zeigte den ROHEN
+// Slug aus der Datenbank („Kategorie: edible_toxic"). Es gab dafuer DREI
+// Quellen mit zusammen 35 verschiedenen Slugs — der Prompt des Generators
+// (6, englisch), die Live-Tabelle (23, zweisprachig) und der Rueckfall-Pool
+// hier in der App (13, deutsch), darunter drei Einzahl/Mehrzahl-Paare
+// (pilz/pilze, wildpflanze/wildpflanzen, heilpflanze/heilpflanzen).
+//
+// Diese zwei Listen sind die SPIEGELUNG von
+// supabase/functions/_shared/quiz_gen_regeln.mjs — der Generator laesst nur
+// noch kanonische Kategorien in die Tabelle, die Anzeige uebersetzt sie.
+// Gebunden werden die beiden Seiten nicht durch guten Willen, sondern durch
+// `quiz_gen_check` Fall „Ein Vokabular": er liest das Modul UND diese Datei
+// und verlangt Deckungsgleichheit, samt _t-Schluessel je Kategorie.
+var GS_QUIZ_KATEGORIEN = ['bestimmung','giftigkeit','kueche','heilkunde','standort','saison','sammeln','garten','pilze','tiere','natur','wissen'];
+var GS_QUIZ_KAT_ALIAS = {
+  identification:'bestimmung', species_id:'bestimmung',
+  toxicity:'giftigkeit', edible_toxic:'giftigkeit', giftig:'giftigkeit', sicherheit:'giftigkeit',
+  culinary:'kueche', essbar:'kueche',
+  medicinal:'heilkunde', heilpflanzen:'heilkunde', heilpflanze:'heilkunde', kraut:'heilkunde',
+  habitat:'standort', klima:'standort',
+  season:'saison',
+  foraging:'sammeln', wildpflanzen:'sammeln', wildpflanze:'sammeln',
+  permakultur:'garten', mondkalender:'garten', schaedlinge:'garten', sortenvielfalt:'garten',
+  pilz:'pilze',
+  bestaeuber:'tiere', tier:'tiere',
+  biodiversitaet:'natur', oekologie:'natur', naturschutz:'natur', neophyt:'natur', baum:'natur',
+  general:'wissen',
+  // Aus der bereitliegenden Migration 20260827_… (43 Fragen, NICHT angewandt):
+  // ohne diese zwoelf haetten 38 davon nach dem Anwenden keine Kategoriezeile.
+  mushroom_safety:'pilze', mushroom_id:'pilze', tree_id:'bestimmung', trees:'natur',
+  wild_herbs:'sammeln', garden_helpers:'garten', garden_care:'garten', soil:'garten',
+  ecology:'natur', safety:'giftigkeit', birds:'tiere', alpine:'standort'
+};
+var GS_QUIZ_KAT_DE = {
+  bestimmung:'Bestimmen', giftigkeit:'Giftigkeit', kueche:'Küche', heilkunde:'Heilkunde',
+  standort:'Standort', saison:'Saison', sammeln:'Sammeln', garten:'Garten',
+  pilze:'Pilze', tiere:'Tiere', natur:'Natur', wissen:'Wissen'
+};
+/**
+ * Der Text fuer die Kategoriezeile unter der Quizfrage — oder ''.
+ * Ein Slug, den das Vokabular nicht kennt, ergibt LEER: lieber keine Zeile
+ * als ein Datenbank-Wort auf dem Bildschirm einer Person.
+ */
+function _gsQuizKatLabel(slug) {
+  try {
+    // Umlaute falten wie im Modul (quiz_gen_regeln.mjs) — sonst kennt die
+    // Anzeige einen Slug nicht, den der Generator durchgelassen hat, und die
+    // Zeile bliebe leer. quiz_gen_check prueft beide Seiten mit denselben Werten.
+    var s = String(slug == null ? '' : slug).trim().toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+    if (!s) return '';
+    var k = (GS_QUIZ_KATEGORIEN.indexOf(s) !== -1) ? s
+          : (Object.prototype.hasOwnProperty.call(GS_QUIZ_KAT_ALIAS, s) ? GS_QUIZ_KAT_ALIAS[s] : null);
+    if (!k) return '';
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(key, f){ return f; };
+    var schl = 'quiz_kat_' + k;   // berechneter Schluessel — i18n_check kennt die Liste (GS_QUIZ_KATEGORIEN, Praefix quiz_kat_)
+    return _t(schl, GS_QUIZ_KAT_DE[k] || '');
+  } catch (_) { return ''; }
+}
+window._gsQuizKatLabel = _gsQuizKatLabel;
+
 function openDailyQuizFromSupa(quiz) {
   if (!quiz || !Array.isArray(quiz.options) || quiz.options.length < 2) {
     showProfileToast && showProfileToast('Quiz-Frage konnte nicht geladen werden — bitte später nochmal','error');
@@ -13913,7 +13975,8 @@ function openDailyQuizFromSupa(quiz) {
     }
   } catch(_){}
   if (hintEl) {
-    hintEl.textContent = quiz.category ? ('Kategorie: ' + quiz.category) : '';
+    // v33.29: uebersetztes Label statt des rohen Slugs. Unbekannt -> leer.
+    hintEl.textContent = _gsQuizKatLabel(quiz.category);
     hintEl.style.display = hintEl.textContent ? 'block' : 'none';
   }
   if (stEl) {
@@ -15868,6 +15931,18 @@ window.GS_I18N_JS_STRINGS = {
   // ── v28.52: Tages-Quiz-Teaser (renderDailyQuizTeaser) ──────────
   'quiz_battle_1v1':           'Quiz-Battle (1v1)',
   'quiz_practice':             'Üben',
+  'quiz_kat_bestimmung':       'Bestimmen',
+  'quiz_kat_giftigkeit':       'Giftigkeit',
+  'quiz_kat_kueche':           'Küche',
+  'quiz_kat_heilkunde':        'Heilkunde',
+  'quiz_kat_standort':         'Standort',
+  'quiz_kat_saison':           'Saison',
+  'quiz_kat_sammeln':          'Sammeln',
+  'quiz_kat_garten':           'Garten',
+  'quiz_kat_pilze':            'Pilze',
+  'quiz_kat_tiere':            'Tiere',
+  'quiz_kat_natur':            'Natur',
+  'quiz_kat_wissen':           'Wissen',
   'quiz_points_today':         'Punkte heute',
   'quiz_timeout':              'Zeit abgelaufen',
   'quiz_incorrect':            'Nicht ganz richtig',
@@ -75166,21 +75241,42 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.29', date: '14.09.2026',
+      headline: 'Beim Quiz steht jetzt „Giftigkeit" statt „edible_toxic"',
+      summary: 'Die Zeile unter der Quizfrage zeigte den rohen Datenbanknamen — und dafuer gab es drei Quellen mit zusammen 35 verschiedenen Schreibweisen, darunter pilz und pilze nebeneinander. Jetzt gibt es zwoelf Kategorien in vier Sprachen, und der Fragen-Generator darf keine anderen mehr anlegen. Dazu eine Pruefung vor dem Anlegen (vier Antworten, richtige Antwort im Bereich, Erklaerung da) und eine Dublettensperre, die auch innerhalb einer Lieferung greift.',
+      user_summary: 'Unter jeder Quizfrage steht jetzt ein richtiges Wort statt eines Datenbanknamens — und in deiner Sprache. Unsichtbar dahinter: neue Fragen werden geprueft, bevor sie ins Quiz kommen.',
+      user_items: [
+        {emoji: '🏷\ufe0f', bold: 'Zwoelf Kategorien:', text: ' Bestimmen, Giftigkeit, Kueche, Heilkunde, Standort, Saison, Sammeln, Garten, Pilze, Tiere, Natur, Wissen — uebersetzt, statt „edible_toxic" oder „bestaeuber".'},
+        {emoji: '\u2705', bold: 'Geprueft, bevor es ins Quiz kommt:', text: ' genau vier Antworten, die richtige im Bereich, eine Erklaerung dabei, keine zwei gleichen Antworten. Was durchfaellt, kommt nicht hinein — und haelt den Rest nicht auf.'},
+        {emoji: '🔁', bold: 'Keine doppelten Fragen mehr:', text: ' verglichen wird ohne Gross-/Kleinschreibung und ohne Satzzeichen — und neu auch innerhalb einer Lieferung, nicht nur gegen das, was schon da ist.'},
+        {emoji: '📉', bold: 'Der Vorrat wird gezaehlt:', text: ' 181 Fragen sind noch nie drangekommen. Wird es knapp, meldet sich der Server rechtzeitig, statt still Fragen zu wiederholen.'}
+      ],
+      items: [
+        'Vokabular: supabase/functions/_shared/quiz_gen_regeln.mjs — zwoelf Kategorien, 31 Alias-Eintraege; jeder der 35 live gemessenen Slugs loest auf. Die App spiegelt die Listen (GS_QUIZ_KATEGORIEN / GS_QUIZ_KAT_ALIAS), gebunden durch quiz_gen_check.',
+        'Anzeige: _gsQuizKatLabel(slug) statt „Kategorie: " + slug. Unbekannt ergibt LEER — lieber keine Zeile als ein Datenbankwort. Zwoelf _t-Schluessel in GS_I18N_JS_STRINGS.',
+        'Generator: knowledge-bulk-gen importiert das Modul, der Prompt nennt das Vokabular statt einer eigenen Sechserliste, und die Antwort meldet rejected samt Grund.',
+        'Dubletten: die Menge der bekannten Fragen waechst waehrend des Stapels mit. Vorher wurde sie einmal aus der Datenbank gebaut und nie nachgezogen.',
+        'Vorrat: Migration 20260914_quiz_vorrat.sql (NICHT angewandt) mit fn_quiz_vorrat und einer taeglichen Warnung nach system_events ab 60 verbleibenden Tagen.',
+        'Pruefstand: scripts/quiz_gen_check.js — 23 Faelle (Rechnung in Node, Vorrat in einem lokalen Postgres, Anzeige in Playwright), zwanzig Gegenproben einzeln gestellt.',
+        'Eine gegnerische Pruefung des fertigen Schnitts fand 13 Dinge, sechs davon ernst — darunter elf Emoji aus v33.27/v33.28, die gar keine Emoji waren, und ein Vokabular, das die Umlaute nicht kannte, die sein eigener Prompt provoziert.'
+      ]
+  },
+  {
     v: 'v33.28', date: '12.09.2026',
       headline: 'Üben — Lernkarten, die sich merken, was du nicht kannst',
       summary: 'Neben der einen Tagesfrage gibt es jetzt „Üben": Lernkarten mit fünf Leitner-Boxen. Was du falsch hattest, kommt morgen wieder; was sitzt, erst in sechzehn Tagen. Eine Karte wird nie auf einem fehlenden Feld gebaut — 1\u2019435 Einträge hätten sonst „Ganzjährig" als richtige Antwort bekommen, weil ihre Saison leer ist.',
       user_summary: 'Unter der Tagesfrage findest du „📚 Üben". Da kannst du so lange üben, wie du magst — und die App merkt sich, welche Arten dir schwerfallen, und fragt genau die wieder. Deine Serie und die Rangliste bleiben davon unberührt: die gehören der Tagesfrage.',
       user_items: [
-        {emoji:'\U0001f4da', bold:'Üben ohne Ende:', text:' Lernkarten zu Familie, Essbarkeit, Giftstufe, Saison und Standort — nach Gruppe filterbar. Fürs Erkennen auf dem Foto ist der Scanner da; Bilder hat die Artenliste keine.'},
-        {emoji:'\U0001f501', bold:'Fünf Boxen:', text:' richtig → eine Stufe höher und später wieder (1 · 2 · 4 · 8 · 16 Tage). Falsch → zurück auf Box 1. Geraten hält also nicht lange.'},
+        {emoji:'📚', bold:'Üben ohne Ende:', text:' Lernkarten zu Familie, Essbarkeit, Giftstufe, Saison und Standort — nach Gruppe filterbar. Fürs Erkennen auf dem Foto ist der Scanner da; Bilder hat die Artenliste keine.'},
+        {emoji:'🔁', bold:'Fünf Boxen:', text:' richtig → eine Stufe höher und später wieder (1 · 2 · 4 · 8 · 16 Tage). Falsch → zurück auf Box 1. Geraten hält also nicht lange.'},
         {emoji:'\u2696\ufe0f', bold:'Getrennt von der Tagesfrage:', text:' Üben ändert weder deine Serie noch die Rangliste — sonst würde die Zahl neben deinem Namen nichts mehr bedeuten.'},
-        {emoji:'\U0001f4cd', bold:'Nach der Antwort:', text:' Binomen, Familie, Warnung und ein Knopf zur Art — und wann die Karte wiederkommt.'}
+        {emoji:'📍', bold:'Nach der Antwort:', text:' Binomen, Familie, Warnung und ein Knopf zur Art — und wann die Karte wiederkommt.'}
       ],
       items: [
-        {emoji:'\U0001f9ed', bold:'_gsTrainingTypOk:', text:' ein Fragetyp wird nur gestellt, wenn die Art das Feld HAT. dqBuildQuestion fällt bei Saison und Standort auf einen Vorgabewert zurück — gemessen 12.09.2026: season bei 2\u2019902 von 4\u2019337, habitat bei 3\u2019386. Für ein Tagesquiz ist das ein Rückfall, für eine Lernkarte wäre es Auswendiglernen eines leeren Feldes.'},
-        {emoji:'\U0001f5c3', bold:'gs_dq_training:', text:' Karte = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag — 657 Arten stehen mehrfach). Deckel 500; greift er, fliegt die HÖCHSTE Box, nicht die neueste. Karteileichen fallen beim Lesen weg. In GS_USER_KEYS, im Sync-Blob UND im Snapshot, markDirty(state) von Hand.'},
+        {emoji:'🧭', bold:'_gsTrainingTypOk:', text:' ein Fragetyp wird nur gestellt, wenn die Art das Feld HAT. dqBuildQuestion fällt bei Saison und Standort auf einen Vorgabewert zurück — gemessen 12.09.2026: season bei 2\u2019902 von 4\u2019337, habitat bei 3\u2019386. Für ein Tagesquiz ist das ein Rückfall, für eine Lernkarte wäre es Auswendiglernen eines leeren Feldes.'},
+        {emoji:'🗃', bold:'gs_dq_training:', text:' Karte = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag — 657 Arten stehen mehrfach). Deckel 500; greift er, fliegt die HÖCHSTE Box, nicht die neueste. Karteileichen fallen beim Lesen weg. In GS_USER_KEYS, im Sync-Blob UND im Snapshot, markDirty(state) von Hand.'},
         {emoji:'\u26a0\ufe0f', bold:'_gsWarnungEcht:', text:' „warning" trägt bei 1\u2019612 von 2\u2019927 Einträgen das Gegenteil einer Warnung („Keine bekannten Risiken"). Mit ⚠️ davor wird daraus ein Alarm, der keiner ist. Die vier anderen ⚠️-Stellen lesen Rezepte und die Wissensdatenbank — nachgesehen, bevor geändert.'},
-        {emoji:'\U0001f9ea', bold:'quiz_check +7 (28 Fälle):', text:' Leitner mit Intervallen · fällig vor neu, immer mit Grund · 200 Karten, 0 auf einem leeren Feld · Üben rührt Serie/Rangliste/quiz_answers nicht an (Gegenrichtung: das Tagesquiz schon) · der Lernstand reist · der Deckel · die Warnzeile. Fünf Gegenproben einzeln gestellt.'}
+        {emoji:'🧪', bold:'quiz_check +7 (28 Fälle):', text:' Leitner mit Intervallen · fällig vor neu, immer mit Grund · 200 Karten, 0 auf einem leeren Feld · Üben rührt Serie/Rangliste/quiz_answers nicht an (Gegenrichtung: das Tagesquiz schon) · der Lernstand reist · der Deckel · die Warnzeile. Fünf Gegenproben einzeln gestellt.'}
       ],
     },
   {
@@ -75190,15 +75286,15 @@ window.GS_RELEASES = [
       user_summary: 'Beim Quiz zaehlt ab sofort, was deine Artenliste ueber die ART sagt — nicht, welchen von mehreren Eintraegen die Frage zufaellig erwischt hat. Und „🔥 N Tage" heisst wieder N Tage hintereinander.',
       user_items: [
         {emoji:'\u2620\ufe0f', bold:'Richtig gewertet:', text:' „Wie giftig ist …?" und „Ist … essbar?" nehmen die vorsichtigste Angabe der Art. Bei der Echten Engelwurz stand „Nicht giftig" und „Essbar" — die Art fuehrt Stufe 1 und nicht essbar.'},
-        {emoji:'\U0001f525', bold:'Serie nach Tagen:', text:' wer eine Woche aussetzt, faengt wieder bei 1 an. Vorher zaehlte die Serie einfach richtige Antworten weiter, egal wie lange dazwischen nichts war.'},
+        {emoji:'🔥', bold:'Serie nach Tagen:', text:' wer eine Woche aussetzt, faengt wieder bei 1 an. Vorher zaehlte die Serie einfach richtige Antworten weiter, egal wie lange dazwischen nichts war.'},
         {emoji:'\u23f0', bold:'Richtige Uhrzeit:', text:' der Countdown sagt jetzt, wann die naechste Frage kommt — in der Schweiz um 02:00, nicht um Mitternacht.'},
         {emoji:'\u23f1\ufe0f', bold:'Zeit abgelaufen zaehlt:', text:' ein Zeitablauf wird auch auf dem Server vermerkt. Auf einem zweiten Geraet gab es dieselbe Frage sonst noch einmal.'}
       ],
       items: [
-        {emoji:'\U0001f9ed', bold:'dqBuildQuestion wertet nach der ART:', text:' _gsArtAnzeige als erste Zeile — damit auch gsBattleBuildQuestions und jeder kuenftige Aufrufer. Gemessen: 130 von 4\u2019337 Eintraegen mit anderer Giftstufen-Stufe, 133 mit anderer Essbarkeit. Name, Binomen, Kategorie, Saison und Standort bleiben die des Eintrags.'},
-        {emoji:'\U0001f4c5', bold:'dqSerie / dqStatsBuchen — eine Regel:', text:' die Serie sind Tage hintereinander (dqDayKey, gestempelt in stats.lastDay); neun Anzeigen lesen die LEBENDE Serie statt der gespeicherten Zahl. Der Jahreswechsel hing an answerDailyQuiz, dem lokalen Rueckfall — jetzt laeuft er auf beiden Wegen und beim Zeitablauf.'},
-        {emoji:'\U0001f5dd', bold:'gs_dq_tag_<datum>:', text:' der „heute schon gespielt"-Schluessel stand in keiner der vier Speicherlisten und ueberlebte das Abmelden — auf einem geteilten Geraet sah die naechste Person das Ergebnis der vorigen. Er heisst jetzt anders, steht in GS_USER_PREFIXES und wird nach 30 Tagen weggeraeumt (vorher entstand einer je Tag, fuer immer).'},
-        {emoji:'\U0001f4e4', bold:'_dqAntwortSenden — ein Schreibweg:', text:' der Zeitablauf sendet selected_option -1; der Trigger setzt is_correct false, xp 0 und kehrt vor der Formatpruefung zurueck, schreibt also keine Warnung. Sieben neue Faelle in quiz_check (20 statt 13), fuenf Gegenproben einzeln gestellt.'}
+        {emoji:'🧭', bold:'dqBuildQuestion wertet nach der ART:', text:' _gsArtAnzeige als erste Zeile — damit auch gsBattleBuildQuestions und jeder kuenftige Aufrufer. Gemessen: 130 von 4\u2019337 Eintraegen mit anderer Giftstufen-Stufe, 133 mit anderer Essbarkeit. Name, Binomen, Kategorie, Saison und Standort bleiben die des Eintrags.'},
+        {emoji:'📅', bold:'dqSerie / dqStatsBuchen — eine Regel:', text:' die Serie sind Tage hintereinander (dqDayKey, gestempelt in stats.lastDay); neun Anzeigen lesen die LEBENDE Serie statt der gespeicherten Zahl. Der Jahreswechsel hing an answerDailyQuiz, dem lokalen Rueckfall — jetzt laeuft er auf beiden Wegen und beim Zeitablauf.'},
+        {emoji:'🗝', bold:'gs_dq_tag_<datum>:', text:' der „heute schon gespielt"-Schluessel stand in keiner der vier Speicherlisten und ueberlebte das Abmelden — auf einem geteilten Geraet sah die naechste Person das Ergebnis der vorigen. Er heisst jetzt anders, steht in GS_USER_PREFIXES und wird nach 30 Tagen weggeraeumt (vorher entstand einer je Tag, fuer immer).'},
+        {emoji:'📤', bold:'_dqAntwortSenden — ein Schreibweg:', text:' der Zeitablauf sendet selected_option -1; der Trigger setzt is_correct false, xp 0 und kehrt vor der Formatpruefung zurueck, schreibt also keine Warnung. Sieben neue Faelle in quiz_check (20 statt 13), fuenf Gegenproben einzeln gestellt.'}
       ],
     },
   {
@@ -75570,7 +75666,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.28';
+var GS_VERSION = 'v33.29';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
