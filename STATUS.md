@@ -12,6 +12,67 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-14 (ia) - v33.31: Ein Chat statt zwei
+
+Nach v33.30 hatte Lina Notfall-Erkennung, Arten-Erdung und die
+Sicherheitszeile. **Ein zweiter Chat hatte nichts davon** — und war trotzdem
+erreichbar, aber nur fuer Lina.
+
+**Gemessen am 14.09.2026 im Quelltext:**
+
+- `switchTab('ai')` kommt **null mal** vor. Die neun erreichbaren Tabs sind
+  `favs · garden · home · map · recipes · remedies · scanner · search · wissen`.
+  `#screen-ai` wurde nur an seiner eigenen Definition genannt.
+- **Aber `GS_LINA_SCREENS` fuehrte `'ai'`.** Lina konnte jemanden auf einen
+  Bildschirm schicken, den sonst kein Weg erreicht — und dort stand `sendAI`:
+  kein Notfall, keine Erdung, keine Sicherheitszeile, dafuer ein
+  Schluessel-Tor (`getApiConfig().key`).
+
+Das ist die Klasse aus `wiring_check` Richtung 3, nur andersherum: **kein Ziel
+ohne Einstieg, sondern ein EINSTIEG, den nur die KI kennt.**
+
+**Und es war KEIN Rest.** Nachgesehen statt vermutet (v32.97): Zeile 3516-3534
+trug **fuenf uebersetzte Vorschlags-Chips**, eine Begruessung und eine
+Eingabezeile — eine fertige Oberflaeche ohne Knopf. Lina hatte keine
+Vorschlaege.
+
+> **Etwas Fertiges wird nicht weggeworfen, weil niemand hinfuehrt — es wird
+> dorthin gebracht, wo die Leute sind.**
+
+Die fuenf Vorschlaege sind jetzt `GS_LINA_VORSCHLAEGE` und stehen im LEEREN
+Gespraech; sie nutzen **dieselben `_t`-Schluessel**, damit die vorhandenen
+Uebersetzungen weiter ankommen. Entfernt: `#screen-ai`, `sendAI`, `sendSug`.
+
+**Drei Pruefstaende haben Reste gefunden, die ich sonst ausgeliefert haette:**
+
+1. `robust_check` C2: **fuenf Funktionen ohne zweite Nennung** —
+   `addAIMsg`, `gsChatBuildContext`, `gsChatFindMentions`,
+   `gsChatGardenContext`, `removeTyping`. Helfer des alten Chats.
+2. `sync_check`: `gs_chat_history` kam noch im Blob an — und der letzte
+   Treffer war **mein eigener Kommentar**. Ein Pruefstand, der den Quelltext
+   durchsucht, findet seine eigene Dokumentation; CLAUDE.md haelt genau das
+   fuer `wiring_check` fest, und ich bin hineingelaufen. Der Kommentar
+   schreibt den Namen jetzt nicht mehr aus und sagt, warum.
+3. `sync_check` noch einmal: sein **eigener Probewert** war verwaist. Der
+   Vertrag gilt in beide Richtungen — wer ein Blob-Feld anlegt, hinterlegt
+   einen Probewert; wer es entfernt, nimmt ihn mit.
+
+**Der localStorage-Verlauf des alten Chats ist mitsamt seinen acht Eintraegen**
+in `GS_USER_KEYS`, der Auto-Track-Tabelle, `stateKeys`, beiden Blob-Bauern,
+`stateMap`, der Wiederherstellung und dem Snapshot **verschwunden**. Ein
+Schluessel, den niemand mehr schreibt und niemand mehr liest, waere genau das
+Feld, das niemand liest. Linas Verlauf liegt in Supabase (`coach_messages`)
+und ist geraeteuebergreifend — **alte Sicherungen verlieren dadurch nichts,
+was noch eine Anzeige haette.**
+
+**Pruefstand: `sensor_check` +1 (39 Faelle).** Der Fall wurde VOR der Aenderung
+geschrieben und war rot. Zwei Gegenproben: `'ai'` zurueck in die Whitelist
+(„16 Ziele, davon ohne Bildschirm: ai") und ein zweiter Chat wieder da.
+
+> **Eine Whitelist ist die ZUSAGE, dass ihre Ziele existieren.** Wer eine
+> anlegt, prueft jeden Eintrag gegen das Dokument — sonst fuehrt sie eines
+> Tages irgendwohin.
+
 ### 2026-09-14 (hz) - v33.30: Lina schaut nach, statt zu raten
 
 Erster Lina-Schnitt. Gemessen am 14.09.2026 im Quelltext: `getSmartAnswer` —

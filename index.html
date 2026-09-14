@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.30.20260914">
+<meta name="app-version" content="33.31.20260914">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3513,24 +3513,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 
 
-<div class="screen" id="screen-ai" style="overflow:hidden;">
-  <div class="ai-screen" style="height:100%;">
-    <div class="ai-suggestions" id="ai-sugs">
-      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_1" data-i18n-fallback="Was ist der giftigste Pilz der Schweiz?">Was ist der giftigste Pilz der Schweiz?</div>
-      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_2" data-i18n-fallback="Welche Pflanzen blühen im April?">Welche Pflanzen blühen im April?</div>
-      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_3" data-i18n-fallback="Bärlauch richtig bestimmen">Bärlauch richtig bestimmen</div>
-      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_4" data-i18n-fallback="Steinpilz Verwechslungen">Steinpilz Verwechslungen</div>
-      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_5" data-i18n-fallback="Beste Heilkräuter Schweiz">Beste Heilkräuter Schweiz</div>
-    </div>
-    <div class="ai-messages" id="ai-messages">
-      <div class="ai-msg bot" data-i18n="ai_greeting" data-i18n-html data-i18n-fallback="Hallo! 🌿 Ich bin dein Natur-Assistent für die Schweizer Flora und Fauna. Ich beantworte Fragen zu Pflanzen, Pilzen, Kräutern, Giftpflanzen und Heilpflanzen.<br><br>Was möchtest du wissen?">Hallo! 🌿 Ich bin dein Natur-Assistent für die Schweizer Flora und Fauna. Ich beantworte Fragen zu Pflanzen, Pilzen, Kräutern, Giftpflanzen und Heilpflanzen.<br><br>Was möchtest du wissen?</div>
-    </div>
-    <div class="ai-input-row">
-      <input class="ai-input" id="ai-input" type="text" placeholder="Frage zu Pflanzen, Pilzen, Natur…" onkeydown="if(event.key==='Enter')sendAI()" autocomplete="off">
-      <button class="ai-send" onclick="sendAI()">➤</button>
-    </div>
-  </div>
-</div>
+<!-- v33.31: #screen-ai entfernt. Eine FERTIGE Oberflaeche ohne Einstieg
+     (`switchTab('ai')`: 0 Treffer) mit einem zweiten Chat, der weder
+     Notfall-Erkennung noch Arten-Erdung hatte. Die fuenf Vorschlaege
+     leben in Lina weiter (GS_LINA_VORSCHLAEGE). -->
 
 <!-- FEEDBACK & SUPPORT -->
 <div class="screen" id="screen-more">
@@ -25203,7 +25189,7 @@ var stream = null;
 const cameraFacing = 'environment'; // Nur Hinterkamera
 let measuring = false;
 let lightStream = null;
-let aiHistory = [];
+// v33.31: `aiHistory` entfernt — der zweite Chat ist weg.
 
 // ═══ MEINE PFLANZEN STATE ══════════════════════════════════
 var myPlants = safeGetItem('ps_myplants', []);
@@ -39459,233 +39445,24 @@ DU LERNST MIT DER APP MIT:
 • Du bringst proaktiv passende Hinweise ein (z.B. "da du letzte Woche Tomaten gescannt hast…").
 • Du erkennst Folgefragen und baust auf dem vorherigen Gespräch auf.`;
 
-// Persistenter Chat-Verlauf via localStorage
-(function(){
-  try {
-    var saved = JSON.parse(localStorage.getItem('gs_chat_history') || '[]');
-    if (Array.isArray(saved) && saved.length) aiHistory = saved.slice(-16);
-  } catch(e){}
-})();
-
-function gsChatSaveHistory(){
-  try { localStorage.setItem('gs_chat_history', JSON.stringify(aiHistory.slice(-20))); } catch(e){}
-  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
-}
+// v33.31: Der localStorage-Verlauf des alten Chats ist weg. Er gehoerte dem
+// zweiten Chat, den es nicht mehr gibt, und sein Schreiber hatte danach null
+// Aufrufer. Der Schluessel ist auch aus den Speicherlisten und aus dem
+// Sync-Blob verschwunden: eine Zeile, die niemand mehr schreibt und niemand
+// mehr liest, waere genau das Feld, das niemand liest (CLAUDE.md).
+// ACHTUNG: den Schluesselnamen hier NICHT ausschreiben — `sync_check` liest
+// die Blob-Felder aus dem Quelltext und findet ihn sonst im eigenen Kommentar
+// wieder (dieselbe Falle wie bei `wiring_check`). Linas Verlauf liegt in
+// Supabase (`coach_messages`), geraeteuebergreifend.
+/* entfernt (v33.31)
+*/
 
 
 // Baut den Live-Kontext, der vor jeder KI-Anfrage in den Prompt injiziert wird.
-function gsChatBuildContext(){
-  var ctx = [];
-  try {
-    // 1. Datum & Saison
-    var now = new Date();
-    var month = now.getMonth() + 1;
-    var monthNames = gsMonate();
-    var season = (month>=3&&month<=5)?'Frühling':(month>=6&&month<=8)?'Sommer':(month>=9&&month<=11)?'Herbst':'Winter';
-    ctx.push('📅 Datum: ' + now.toISOString().slice(0,10) + ' · ' + monthNames[month-1] + ' · ' + season);
-    // 2. Mondphase (Conway-Simple)
-    if (typeof gsPPmoonPhase === 'function') {
-      var moon = gsPPmoonPhase(now);
-      ctx.push('🌙 Mond: ' + moon.phase + ' — ' + moon.advice);
-    }
-    // 3. Standort / Klima
-    try {
-      var loc = JSON.parse(localStorage.getItem('userLocation') || 'null');
-      if (loc && loc.city) ctx.push('📍 Standort: ' + loc.city + (loc.zone?' (Klimazone '+loc.zone+')':''));
-    } catch(e){}
-    // 4. Aktiver Gartenplan
-    try {
-      var curPlan = JSON.parse(localStorage.getItem('gs_garden_plan_current') || 'null');
-      if (curPlan && curPlan.plan && curPlan.plan.plants) {
-        var pl = curPlan.plan.plants.slice(0,8).map(function(p){ return p.name; }).join(', ');
-        ctx.push('🌱 Aktiver Gartenplan: ' + curPlan.plan.plants.length + ' Pflanzen (' + pl + (curPlan.plan.plants.length>8?'…':'') + ')');
-      }
-    } catch(e){}
-    // 5. Letzte Scans
-    try {
-      // v28.76 C2-1: kanonischer Key ist gs_scan_history — Lina sah die Scans bisher NIE (toter 'scan_history').
-      var scans = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
-      if (Array.isArray(scans) && scans.length) {
-        var recent = scans.slice(0,5).map(function(s){ return s.name || s.topMatch || ''; }).filter(Boolean).join(', ');
-        if (recent) ctx.push('🔬 Letzte Scans: ' + recent);
-      }
-    } catch(e){}
-    // 6. Eigene Pflanzen
-    try {
-      var myP = JSON.parse(gsStore.get('ps_myplants', null) || '[]');
-      if (Array.isArray(myP) && myP.length) {
-        var names = myP.slice(0,6).map(function(p){ return p.name || p.customName || ''; }).filter(Boolean).join(', ');
-        if (names) ctx.push('🪴 Eigene Pflanzen: ' + names + (myP.length>6?'…':''));
-      }
-    } catch(e){}
-    // 7. DB-Info
-    if (typeof DB !== 'undefined' && Array.isArray(DB)) {
-      ctx.push('📚 DB: ' + DB.length + ' Schweizer Arten verfügbar (GreenScan-DB; du kannst auf Namen, Familien, Giftstoffe, Vorkommen, Standorte zurückgreifen)');
-    }
-  } catch(e){}
-  return ctx.length ? '\n\n[LIVE-KONTEXT — kennst du und beziehst dich darauf wenn relevant]\n' + ctx.join('\n') : '';
-}
 
-// Durchsucht die DB nach Arten, die in der User-Nachricht erwähnt werden, und liefert Kurz-Infos für den Prompt
-function gsChatFindMentions(msg){
-  if (typeof DB === 'undefined' || !Array.isArray(DB) || !msg) return '';
-  try {
-    var lower = String(msg).toLowerCase();
-    var hits = [];
-    for (var i=0; i<DB.length && hits.length<5; i++) {
-      var sp = DB[i];
-      var n = String(sp.name||'').toLowerCase();
-      var s = String(sp.sci||sp.scientific||'').toLowerCase();
-      if (n && n.length>3 && lower.indexOf(n) !== -1) hits.push(sp);
-      else if (s && s.length>3 && lower.indexOf(s) !== -1) hits.push(sp);
-    }
-    if (!hits.length) return '';
-    var out = hits.map(function(h){
-      var parts = [];
-      if (h.name) parts.push(h.name);
-      if (h.sci||h.scientific) parts.push('('+(h.sci||h.scientific)+')');
-      if (h.family) parts.push('· Familie: '+h.family);
-      if (h.toxic || h.giftig) parts.push('· ⚠️ giftig');
-      if (h.edible) parts.push('· essbar');
-      return '• ' + parts.join(' ');
-    }).join('\n');
-    return '\n\n[DB-TREFFER zu dieser Frage — verwende diese Fakten]\n' + out;
-  } catch(e){ return ''; }
-}
 
-// v23.61 · Injects GARDEN_KNOWLEDGE sections relevant to the user's question into the AI context
-// This feeds the KI chat with the curated Bibliothek-Inhalte so answers cite the exact best-practices.
-function gsChatGardenContext(msg){
-  try{
-    if (typeof GARDEN_KNOWLEDGE === 'undefined' || !msg) return '';
-    var lower = String(msg).toLowerCase();
-    // Map keywords → chapter keys; extend as knowledge grows.
-    var keyMap = [
-      {k:['boden','erde','ph','lehm','sand','ton','humus','kompost','mulch'], ch:'boden'},
-      {k:['tracht','fruchtfolge','starkzehrer','mittelzehrer','schwachzehrer','rotation','mischkultur'], ch:'trachten'},
-      {k:['dünger','düngung','duengung','jauche','kalium','stickstoff','phosphor','brennnessel','nährstoff','naehrstoff'], ch:'duengung'},
-      {k:['schutz','vorbeugung','schutznetz','fruchtfolge'], ch:'pflanzenschutz'},
-      {k:['schädling','schaedling','krankheit','läuse','laeuse','schnecken','mehltau','kohlhernie','mö','moehrenfliege','milbe','botrytis','braunfäule','braunfaeule','pilz'], ch:'schaedlinge'},
-      {k:['aussaat','säen','saeen','pflanzkalender','kalender','sähen','saeen'], ch:'aussaat'},
-      {k:['abstand','pflanzabstand','reihenabstand'], ch:'pflanzentafel'},
-      {k:['lexikon','begriff','glossar'], ch:'lexikon'}
-    ];
-    var hit = {};
-    for (var i=0; i<keyMap.length; i++){
-      var m = keyMap[i];
-      for (var j=0; j<m.k.length; j++){
-        if (lower.indexOf(m.k[j]) !== -1){ hit[m.ch] = true; break; }
-      }
-    }
-    var chosen = Object.keys(hit);
-    if (!chosen.length) return '';
-    var out = [];
-    chosen.forEach(function(key){
-      var chap = GARDEN_KNOWLEDGE[key];
-      if (!chap) return;
-      // Normal chapter with sections (boden, trachten, duengung, pflanzenschutz)
-      if (Array.isArray(chap.sections)){
-        chap.sections.slice(0,3).forEach(function(s){
-          var line = '• ' + (chap.title||key) + ' · ' + (s.title||'');
-          if (s.content) line += ': ' + String(s.content).slice(0,220);
-          if (Array.isArray(s.tips) && s.tips.length){
-            line += ' (Tipps: ' + s.tips.slice(0,3).map(function(t){return String(t).slice(0,100);}).join('; ') + ')';
-          }
-          out.push(line);
-        });
-      }
-      // schaedlinge: array of items
-      if (Array.isArray(chap.items)){
-        chap.items.slice(0,4).forEach(function(it){
-          var line = '• ' + (it.name||'') + ' (' + (it.typ||'') + ')';
-          if (it.beschreibung) line += ': ' + String(it.beschreibung).slice(0,150);
-          if (Array.isArray(it.massnahmen)) line += ' — Gegenmassnahmen: ' + it.massnahmen.slice(0,2).join(', ');
-          out.push(line);
-        });
-      }
-    });
-    if (!out.length) return '';
-    return '\n\n[GARTEN-BIBLIOTHEK — kuratierte Inhalte, zitiere diese Fakten bevorzugt]\n' + out.slice(0,10).join('\n');
-  } catch(e){ return ''; }
-}
 
-async function sendAI(){
-  const input = document.getElementById('ai-input');
-  const msg = input.value.trim();
-  if(!msg) return;
-  input.value = '';
 
-  addAIMsg(msg, 'user');
-  addAIMsg('…', 'bot typing');
-
-  aiHistory.push({role:'user', content:msg});
-
-  try{
-    // v23.57: Dynamischer Experten-Prompt mit Live-Kontext + DB-Treffern
-    // v23.61: +Garten-Bibliothek (GARDEN_KNOWLEDGE sections) falls Keyword-Match
-    var liveCtx = gsChatBuildContext();
-    var dbHits  = gsChatFindMentions(msg);
-    var gkCtx   = gsChatGardenContext(msg);
-    var systemPrompt = AI_SYSTEM_BASE + liveCtx + dbHits + gkCtx;
-
-    // v23.57: Offline-Fallback nutzen wenn kein API-Key ODER Netz weg
-    var reply;
-    const {key} = getApiConfig();
-    if(!key){
-      // Offline-Modus: Smart-Answer aus lokaler DB + Regeln
-      reply = (typeof getSmartAnswer === 'function') ? getSmartAnswer(msg) :
-        'Bitte zuerst einen API Key unter 🔑 einrichten, um die volle KI-Expertise zu nutzen.';
-    } else {
-      try {
-        reply = await callAI(aiHistory, systemPrompt, 700);
-      } catch(e){
-        // Offline-Fallback
-        reply = (typeof getSmartAnswer === 'function') ? getSmartAnswer(msg) : null;
-        if (!reply) throw e;
-      }
-    }
-
-    removeTyping();
-    if(!reply) throw new Error('Keine Antwort');
-    aiHistory.push({role:'assistant', content:reply});
-    if(aiHistory.length > 20) aiHistory = aiHistory.slice(-16);
-    gsChatSaveHistory();
-    addAIMsg(reply, 'bot');
-  }catch(err){
-    removeTyping();
-    addAIMsg('❌ Fehler: '+err.message+'. API Key prüfen.', 'bot');
-  }
-}
-
-function sendSug(el){
-  const input = document.getElementById('ai-input');
-  input.value = el.textContent;
-  sendAI();
-}
-
-function addAIMsg(text, type){
-  const el = document.createElement('div');
-  el.className = 'ai-msg '+type;
-  if (type === 'bot') {
-    // Render markdown-like: **bold**, bullet points
-    const safe = escHtml(text);
-    el.innerHTML = safe
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n• /g, '<br><span style="color:var(--g-main);font-weight:800;">•</span> ')
-      .replace(/\n\n/g,'<br><br>')
-      .replace(/\n/g,'<br>');
-  } else {
-    el.innerHTML = escHtml(text).replace(/\n/g,'<br>');
-  }
-  const msgs = document.getElementById('ai-messages');
-  msgs.appendChild(el);
-  msgs.scrollTop = msgs.scrollHeight;
-}
-
-function removeTyping(){
-  const el = document.querySelector('.ai-msg.typing');
-  if(el) el.remove();
-}
 
 // ═══ FEEDBACK (v23.60: keine Vorlagen mehr – nur echte User-Einträge) ═══
 // Vorlagen-Cleanup: alte "fb1"–"fb5" Template-IDs aus localStorage entfernen
@@ -75253,6 +75030,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.31', date: '14.09.2026',
+      headline: 'Ein Chat statt zwei — und Lina schlaegt jetzt Fragen vor',
+      summary: 'Es gab einen zweiten Chat-Bildschirm, zu dem kein Weg mehr fuehrte: switchTab(\'ai\') kam im ganzen Quelltext null mal vor. Erreichbar war er nur noch ueber Linas eigene Navigations-Liste — und dort stand ein Chat OHNE Notfall-Erkennung, ohne Arten-Erdung und ohne die Sicherheitszeile aus v33.30. Der Bildschirm ist weg; seine fuenf Fragevorschlaege leben in Lina weiter.',
+      user_summary: 'Wenn du Lina oeffnest, schlaegt sie dir jetzt fuenf Fragen vor — die musst du nur antippen. Und es gibt nur noch EINEN Chat: den, der in unserer Artenliste nachschaut und bei einem Notfall sofort die Nummer nennt.',
+      user_items: [
+        {emoji: '💬', bold: 'Fuenf Vorschlaege zum Antippen:', text: ' „Was ist der giftigste Pilz der Schweiz?", „Baerlauch richtig bestimmen" und drei weitere — sie stehen da, solange das Gespraech leer ist.'},
+        {emoji: '🎯', bold: 'Nur noch ein Chat:', text: ' der zweite hatte weder die Notfall-Nummer noch den Blick in unsere Artenliste. Jetzt fuehrt jeder Weg zu Lina.'},
+        {emoji: '🧹', bold: 'Aufgeraeumt:', text: ' der alte Gespraechsverlauf im Geraetespeicher ist weg — Linas Verlauf liegt ohnehin in der Cloud und ist auf jedem Geraet da.'}
+      ],
+      items: [
+        'Gemessen: switchTab(\'ai\') 0 Treffer im ganzen Quelltext; die neun erreichbaren Tabs sind favs, garden, home, map, recipes, remedies, scanner, search, wissen. #screen-ai wurde nur an seiner eigenen Definition genannt — und stand trotzdem in GS_LINA_SCREENS.',
+        'Es war KEIN Rest: fuenf uebersetzte Vorschlaege, eine Begruessung, eine Eingabezeile. Etwas Fertiges wird nicht weggeworfen, weil niemand hinfuehrt — die Vorschlaege sind jetzt GS_LINA_VORSCHLAEGE und nutzen dieselben _t-Schluessel.',
+        'Entfernt: #screen-ai, sendAI, sendSug und fuenf Helfer, die danach null Aufrufer hatten (robust_check C2 hat sie gemeldet).',
+        'Der localStorage-Verlauf des alten Chats ist mitsamt seinen acht Eintraegen in den Speicher- und Sync-Listen verschwunden: ein Feld, das niemand mehr schreibt und niemand mehr liest.',
+        'Pruefstand: sensor_check +1 (39 Faelle) — jeder Eintrag in GS_LINA_SCREENS muss einem Bildschirm entsprechen, den es gibt, und es darf nur EINEN Chat geben. Eine Whitelist ist die Zusage, dass ihre Ziele existieren.'
+      ]
+  },
+  {
     v: 'v33.30', date: '14.09.2026',
       headline: 'Lina schaut in unsere Artenliste — und ruft bei einem Notfall sofort die Nummer',
       summary: 'Lina hatte keinen Zugriff auf die Artenliste: wer sie nach einer Pflanze fragte, bekam die Antwort des Sprachmodells, nicht die der 4\'337 Eintraege, gegen die Scanner und Quiz laengst pruefen. Jetzt steht die erkannte Art im Kontext — und wenn mehrere Arten denselben Namen tragen, sagt Lina das, statt sich eine auszusuchen. Dazu: bei einem Vergiftungs-Notfall kommt sofort die 145, ohne Umweg ueber die KI, und ohne Internet antwortet sie aus der App-Liste statt gar nicht.',
@@ -75700,7 +75495,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.30';
+var GS_VERSION = 'v33.31';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -82120,7 +81915,7 @@ var GS_USER_KEYS = [
   'gs_wetter_geraet_aus',   // v32.52: „Wetterdienst nicht als Geraet fuehren" — eine Wahl der Person
   'gs_notif_log','gs_notif_kat',   // v32.54: lokale Meldungen — Wochenzaehler und „eine je Kategorie und Tag"
   'gs_garden_diary_cache',                           // v32.49: Spiegel des Cloud-Tagebuchs
-  'gs_doctor_history','gs_seed_inventory','gs_chat_history','gs_ki_analyses',
+  'gs_doctor_history','gs_seed_inventory','gs_ki_analyses',
   'gs_scan_history','gs_scan_count','gs_scan_corrections','ps_feedback','ps_votes',
   'gs_achievements','gs_favorites','ps_favs','gs_confirmed_species',
   'gs_streak','gs_streak_sig','gs_streak_stamp','gs_last_active_day_iso','gs_last_active_day',
@@ -82383,7 +82178,7 @@ async function gsSyncUserDataOnLogin(){
             // nur zusammen gültig und werden unten von _gsStreakApplyCloud als
             // ein Datensatz übernommen. Einzeln geschrieben löschten sie den
             // Streak (siehe Kommentar bei _gsStreakApplyCloud).
-            'gs_chat_history': sd.chat_history, 'gs_doctor_history': sd.doctor_history,
+            'gs_doctor_history': sd.doctor_history,
             'gs_ki_analyses': sd.ki_analyses,
             'gs_dq_archive': sd.dq_archive, 'gs_dq_stats': sd.dq_stats, 'gs_dq_training': sd.dq_training, 'gs_quiz_streak': sd.quiz_streak,
             'gs_recipe_favs': sd.recipe_favs, 'gs_recent_searches': sd.recent_searches,
@@ -82810,7 +82605,6 @@ window.gsCloudSync = (function(){
     try { data.streak_stamp = localStorage.getItem('gs_streak_stamp') || ''; } catch(_){}
     try { data.last_active_day_iso = localStorage.getItem('gs_last_active_day_iso') || ''; } catch(_){}
     // KI-Verläufe
-    try { data.chat_history = JSON.parse(localStorage.getItem('gs_chat_history')||'[]'); } catch(_){}
     try { data.doctor_history = JSON.parse(localStorage.getItem('gs_doctor_history')||'[]'); } catch(_){}
     try { data.ki_analyses = JSON.parse(localStorage.getItem('gs_ki_analyses')||'[]'); } catch(_){}
     // Quiz
@@ -83040,7 +82834,7 @@ window.gsCloudSync = (function(){
         'gs_streak':'state','gs_login_streak':'state','gs_streak_sig':'state','gs_streak_stamp':'state',
         'gs_last_login':'state',   // v31.14: gehört zu gs_login_streak — beide oder keiner
         'gs_last_active_day_iso':'state',
-        'gs_chat_history':'state','gs_doctor_history':'state','gs_ki_analyses':'state',
+        'gs_doctor_history':'state','gs_ki_analyses':'state',
         'gs_dq_archive':'state','gs_dq_stats':'state','gs_quiz_streak':'state','gs_dq_training':'state',
         'gs_recipe_favs':'state','gs_recent_searches':'state','gs_wissen_read':'state',
         'gs_geraete':'state','gs_geraete_regeln':'state',   // v32.48
@@ -83119,7 +82913,7 @@ window.gsCloudSync = (function(){
         var d2 = _getDirty(); d2.garden = Date.now(); _setDirty(d2);
       }
       // v24.24: state-Scope auch dirty markieren wenn relevante Keys vorhanden sind
-      var stateKeys = ['gs_streak','gs_login_streak','gs_chat_history','gs_doctor_history',
+      var stateKeys = ['gs_streak','gs_login_streak','gs_doctor_history',
         'gs_ki_analyses','gs_dq_archive','gs_dq_stats','gs_quiz_streak','gs_dq_training','gs_recipe_favs',
         'gs_recent_searches','ps_favs','ps_votes','gs_dead_plants','gs_seed_inventory',
         'gs_dark','gs_theme_color','gs_lang','gs_achievements','gs_gpx_tracks','gs_confirmed_species'];
@@ -83277,7 +83071,6 @@ function gsSnapshotBuildState(){
     confirmed_species:   _j('gs_confirmed_species','[]'),
     scan_history:        _j('gs_scan_history','[]'),
     doctor_history:      _j('gs_doctor_history','[]'),
-    chat_history:        _j('gs_chat_history','[]'),
     dq_archive:          _j('gs_dq_archive','[]'),
     dq_stats:            _j('gs_dq_stats','null'),
     dq_training:         _j('gs_dq_training','null'),
@@ -83468,7 +83261,7 @@ function _gsApplyStateBlob(b){
   // füllt je Schlüssel einzeln, was denselben halben Datensatz erzeugen kann
   // wie im Cloud-Pull. Sie kommen unten als Ganzes.
   var map = {
-    chat_history:'gs_chat_history', doctor_history:'gs_doctor_history',
+    doctor_history:'gs_doctor_history',
     ki_analyses:'gs_ki_analyses', dq_archive:'gs_dq_archive', dq_stats:'gs_dq_stats', dq_training:'gs_dq_training', quiz_streak:'gs_quiz_streak',
     recipe_favs:'gs_recipe_favs', recent_searches:'gs_recent_searches', wissen_read:'gs_wissen_read',
     favs:'ps_favs', votes:'ps_votes', confirmed_species:'gs_confirmed_species', achievements:'gs_achievements',
@@ -83510,7 +83303,6 @@ async function gsSnapshotRestore(){
     _gsRestoreKey('gs_confirmed_species', st.confirmed_species);
     _gsRestoreKey('gs_scan_history', st.scan_history);
     _gsRestoreKey('gs_doctor_history', st.doctor_history);
-    _gsRestoreKey('gs_chat_history', st.chat_history);
     _gsRestoreKey('gs_dq_archive', st.dq_archive);
     _gsRestoreKey('ps_favs', st.favs);
     _gsRestoreKey('gs_sae_merkliste', st.sae_merkliste);
@@ -85005,6 +84797,29 @@ window.gsDoctorToLina = async function(topName, plantName){
   try { if (typeof gsLinaSend === 'function') gsLinaSend(); } catch(_){}
 };
 
+// v33.31: die fuenf Vorschlaege aus dem alten Chat-Bildschirm. Der war eine
+// FERTIGE Oberflaeche — fuenf uebersetzte Chips, Begruessung, Eingabezeile —
+// zu der nur kein Weg mehr fuehrte (`switchTab('ai')`: 0 Treffer). Etwas
+// Fertiges wird nicht weggeworfen, weil niemand hinfuehrt; es wird dorthin
+// gebracht, wo die Leute sind. Die `_t`-Schluessel sind dieselben, damit die
+// vorhandenen Uebersetzungen weiter ankommen.
+var GS_LINA_VORSCHLAEGE = [
+  ['ai_sug_1', 'Was ist der giftigste Pilz der Schweiz?'],
+  ['ai_sug_2', 'Welche Pflanzen blühen im April?'],
+  ['ai_sug_3', 'Bärlauch richtig bestimmen'],
+  ['ai_sug_4', 'Steinpilz Verwechslungen'],
+  ['ai_sug_5', 'Beste Heilkräuter Schweiz']
+];
+function gsLinaVorschlag(el){
+  try {
+    var inp = document.getElementById('gs-lina-input');
+    if (!inp || !el) return;
+    inp.value = (el.textContent || '').trim();
+    gsLinaSend();
+  } catch(_){}
+}
+window.gsLinaVorschlag = gsLinaVorschlag;
+
 function gsLinaRender(typing){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var msgs = window._gsLinaMsgs || [];
@@ -85019,6 +84834,15 @@ function gsLinaRender(typing){
         + (isU ? 'background:var(--fill-brand);color:#fff;border-bottom-right-radius:4px;' : 'background:var(--surface2);color:var(--text);border-bottom-left-radius:4px;')
         + '">' + (isU?'':'🌿 ') + escHtml(m.content) + '</div></div>';
     });
+  }
+  // Die Vorschlaege nur im LEEREN Verlauf: wer schon schreibt, braucht sie nicht.
+  if (!msgs.length) {
+    body += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:4px 6px 10px;">';
+    GS_LINA_VORSCHLAEGE.forEach(function(v){
+      body += '<button onclick="gsLinaVorschlag(this)" style="padding:8px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-xl);font-size:var(--fs-sm);font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;">'
+        + escHtml(_t(v[0], v[1])) + '</button>';
+    });
+    body += '</div>';
   }
   if (typing) body += '<div style="display:flex;justify-content:flex-start;margin:8px 0;"><div style="padding:10px 13px;border-radius:var(--r-lg);background:var(--surface2);color:var(--muted);font-size:var(--fs-md);">' + _t('lina_thinking','🌿 Lina denkt nach…') + '</div></div>';
   var html = '<div style="display:flex;flex-direction:column;height:72vh;max-width:520px;margin:0 auto;">'
@@ -85216,7 +85040,10 @@ window.gsLinaSend = gsLinaSend;
 // ══ v30.69: Lina-Aktions-Dispatcher — sicher per Konstruktion (feste Whitelist, kein eval/window[...],
 // Schreib-Aktionen NUR nach gsConfirmModal). Unbekannte/fehlerhafte Aktionen werden still ignoriert.
 // Es gibt KEINEN Case für Löschen/Einstellungen/Rollen/Zahlungen/Admin → unerreichbar.
-var GS_LINA_SCREENS = ['home','scanner','search','favs','ai','more','garden','farm','season','social','market','recipes','remedies','wissen','settings','map'];
+// v33.31: 'ai' ist raus — den Bildschirm gibt es nicht mehr (er war ohnehin
+// nur ueber diese Liste erreichbar). Eine Whitelist ist die ZUSAGE, dass ihre
+// Ziele existieren; `sensor_check` prueft jeden Eintrag gegen das Dokument.
+var GS_LINA_SCREENS = ['home','scanner','search','favs','more','garden','farm','season','social','market','recipes','remedies','wissen','settings','map'];
 function gsLinaResolvePlant(id, name){
   try {
     if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return null;
