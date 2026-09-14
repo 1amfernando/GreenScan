@@ -81,6 +81,10 @@ const PROBEN = {
   'gs_ki_analyses': '[{"a":1}]',
   'gs_dq_archive': '[{"d":"2026-01-01"}]',
   'gs_dq_stats': '{"n":5}',
+  // v33.28: der Lernstand der Lernkarten. Eine ECHTE Karte, damit der
+  // Rueckweg nicht bloss ein leeres Objekt durchreicht — genau das war der
+  // Fund beim Bau: der Hinweg (_gsBuildStateBlob) kannte das Feld nicht.
+  'gs_dq_training': '{"v":1,"karten":{"urtica dioica|2":{"b":3,"faellig":"2099-01-01","r":2,"f":1}},"tag":"2026-09-12","heute":1,"xpHeute":2}',
   'gs_quiz_streak': '{"n":3}',
   'gs_recipe_favs': '["r1"]',
   'gs_recent_searches': '["baerlauch"]',

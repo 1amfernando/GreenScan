@@ -237,6 +237,7 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 | Geräte | `localStorage.gs_geraete` (`gsGeraete` / `_gsGeraeteSchreiben`); für **gekoppelte** Geräte (`cloud_id`) ist Supabase `devices` die Instanz für Status, `paired_at`, Firmware (`gsGeraeteCloudAbgleich`, seit v32.62) und der Server meldet die Alarme | nie den Status eines gekoppelten Geräts lokal raten; `cloud_id` nur nach `_gsSchreibOk` setzen; das Token nie speichern |
 | Messwerte | `localStorage.gs_messwerte`, **nur** über `_gsMesswerteAnhaengen` / `gsMesswertEintragen` (seit v32.52: ein Weg, Dublettensperre auf Gerät · Messgrösse · Zeit) | nie direkt `push`en — der Deckel und die Sortierung nach `ts` hängen daran |
 | Quiz-Tag | `dqDayKey()` — **UTC**, weil der Server mit `current_date` rotiert; die Anzeige der Grenze rechnet `dqNaechsteFrage()` | nie `new Date().toISOString()` je Anzeige, nie die lokale Mitternacht |
+| Lernkarten („Üben") | `localStorage.gs_dq_training` über `gsTrainingLaden()` / `gsTrainingBuchen(schluessel, richtig)`; Schlüssel = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag) | nie direkt schreiben — Deckel, Karteileichen-Räumung und `markDirty('state')` hängen daran; und nie `gs_dq_stats` mitzählen: Üben ist vom Tagesquiz getrennt |
 | Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
 | „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
@@ -1135,6 +1136,37 @@ waren das vierzehn an einem Tag. Die Migration
 `20260912_snapshot_retention_manual.sql` schliesst das und ist **nicht
 angewandt** — der Pruefstand rechnet sie in einem lokalen Postgres nach, mit
 Reproduktion (alte Fassung frisst das `manual`) und Gegenprobe.
+
+**Seit v33.28 prueft `quiz_check` auch „Ueben"** — Lernkarten mit fuenf
+Leitner-Boxen neben der Tagesfrage. Vier Regeln, die ueber das Quiz hinausgehen:
+
+- **Eine Karte wird nie auf einem FEHLENDEN Feld gebaut.** `dqBuildQuestion`
+  faellt bei Saison und Standort auf einen Vorgabewert zurueck
+  (`sp.season || 'Ganzjaehrig'`); gemessen 12.09.2026: `season` bei 2'902 von
+  4'337, `habitat` bei 3'386. Fuer ein Tagesquiz ist das ein Rueckfall, fuer
+  eine Lernkarte waere es Auswendiglernen eines leeren Feldes (1'435 bzw. 951
+  Eintraege). `_gsTrainingTypOk` ist die Regel; wer einen Fragetyp hinzufuegt,
+  traegt sein Pflichtfeld dort ein.
+- **Was die Daten nicht hergeben, wird nicht versprochen.** Die Artenliste hat
+  KEIN Bildfeld (27 Felder) — „Ueben" uebt Wissen, nicht Bilderkennung, und die
+  erste Zeile im Fenster sagt das. Dasselbe Muster wie `gsAROpen` (v33.05).
+- **Ein Feld namens `warning` ist nicht immer eine Warnung.** Bei 1'612 von
+  2'927 Eintraegen steht dort das Gegenteil („Keine bekannten Risiken"); ein ⚠️
+  davor macht daraus einen Alarm, der keiner ist. `_gsWarnungEcht` trennt das.
+  **Und vor dem Ausweiten wurde nachgesehen:** die vier anderen
+  „⚠️ + warning"-Stellen lesen Rezepte und die Wissensdatenbank, nicht die
+  Artenliste.
+- **Ein Zustand muss in BEIDE Blobs.** Es gibt den Sync-Blob
+  (`_gsBuildStateBlob`) und den Snapshot. Der Rueckweg (`stateMap`) hatte
+  `dq_training` sofort, der Hinweg nicht — dann reist ein Wert nur im Backup und
+  geht beim gewoehnlichen Geraetewechsel verloren.
+
+> **Und eine Gegenprobe, die zuerst nichts gemessen hat.** Der Deckel-Fall gab
+> allen Karten dasselbe Faelligkeitsdatum — damit sind „hoechste Box zuerst" und
+> „aeltestes Datum zuerst" DIESELBE Reihenfolge, und die umgedrehte Regel blieb
+> gruen. **Ein Fall, dessen zwei denkbare Regeln zufaellig dasselbe Ergebnis
+> liefern, prueft keine von beiden** — die Daten muessen die Regeln
+> auseinanderziehen (Box 5 mit dem neuesten Datum, Box 1 mit dem aeltesten).
 
 **`nutzersicht_check.js` (seit v32.70) fragt, was kein anderer fragt: sagt die
 App, was STIMMT, in der Sprache der Person?** (Audit E2–E5, E8.) Fünf Fälle,

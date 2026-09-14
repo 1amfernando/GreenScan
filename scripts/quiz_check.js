@@ -230,6 +230,218 @@ function sqlHaelfte() {
 
 // ── App-Haelfte (Playwright) ──────────────────────────────────────────────
 const K = [
+  // ── v33.28 · Üben ────────────────────────────────────────────────────────
+  {
+    name: 'Leitner rechnet · richtig → eine Stufe hoch mit dem Intervall der neuen Box; falsch → IMMER zurueck auf 1, nicht eine Stufe (vier Optionen sind 25 % Raten)',
+    lauf: async () => __seite.evaluate(async () => {
+      localStorage.removeItem('gs_dq_training');
+      const heute = dqDayKey();
+      const plus = (n) => { const d = new Date(heute + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+      const n = gsTrainingNaechste('');
+      if (!n.karte) return { ok: false, warum: 'keine erste Karte: ' + n.grund };
+      const erwartet = [null, 1, 2, 4, 8, 16];
+      const weg = [];
+      for (let b = 2; b <= 5; b++) {
+        const k = gsTrainingBuchen(n.karte, true);
+        weg.push(k.b);
+        if (k.b !== b) return { ok: false, warum: 'nach ' + (b - 1) + '× richtig: Box ' + k.b + ' statt ' + b };
+        if (k.faellig !== plus(erwartet[b])) return { ok: false, warum: 'Box ' + b + ' faellig ' + k.faellig + ' statt ' + plus(erwartet[b]) };
+      }
+      const deckel = gsTrainingBuchen(n.karte, true);
+      if (deckel.b !== 5) return { ok: false, warum: 'Box laeuft ueber 5 hinaus: ' + deckel.b };
+      const runter = gsTrainingBuchen(n.karte, false);
+      if (runter.b !== 1) return { ok: false, warum: 'falsch aus Box 5 → Box ' + runter.b + ' statt 1' };
+      if (runter.faellig !== plus(1)) return { ok: false, warum: 'nach falsch faellig ' + runter.faellig + ' statt ' + plus(1) };
+      if ((runter.f | 0) !== 1 || (runter.r | 0) !== 5) return { ok: false, warum: 'Zaehler: ' + JSON.stringify({ r: runter.r, f: runter.f }) };
+      return { ok: true, info: 'Boxen ' + weg.join('→') + ' (Deckel 5) · Intervalle 1/2/4/8/16 · falsch aus Box 5 → Box 1, morgen faellig · 5 richtig / 1 falsch gezaehlt' };
+    }),
+  },
+  {
+    name: 'Die Auswahl nimmt Faelliges VOR Neuem — und sagt IMMER einen Grund, auch wenn nichts faellig ist',
+    lauf: async () => __seite.evaluate(async () => {
+      localStorage.removeItem('gs_dq_training');
+      const heute = dqDayKey();
+      const a = gsTrainingNaechste('');
+      if (a.quelle !== 'neu' || !/Neue Karte/.test(a.grund || '')) return { ok: false, warum: 'erste Karte: ' + JSON.stringify({ q: a.quelle, g: a.grund }) };
+      gsTrainingBuchen(a.karte, true);              // liegt jetzt in Box 2, faellig in 2 Tagen
+      // Eine zweite Karte anlegen und von Hand auf „gestern faellig" stellen.
+      const b = gsTrainingNaechste('');
+      if (!b.karte) return { ok: false, warum: 'keine zweite Karte: ' + b.grund };
+      gsTrainingBuchen(b.karte, true);
+      const t = gsTrainingLaden();
+      const gestern = new Date(heute + 'T00:00:00Z'); gestern.setUTCDate(gestern.getUTCDate() - 1);
+      t.karten[b.karte].faellig = gestern.toISOString().slice(0, 10);
+      localStorage.setItem('gs_dq_training', JSON.stringify(t));
+      const c = gsTrainingNaechste('');
+      if (c.quelle !== 'faellig') return { ok: false, warum: 'Faelliges kommt nicht zuerst: ' + c.quelle + ' (' + c.grund + ')' };
+      if (c.karte !== b.karte) return { ok: false, warum: 'die falsche faellige Karte: ' + c.karte };
+      if (!/Box 2/.test(c.grund || '') || !/f(ä|ae)llig seit/i.test(c.grund || '')) return { ok: false, warum: 'Grund ohne Box oder Datum: ' + c.grund };
+      // Nichts faellig und Deckel erreicht → Grund statt Karte
+      const t2 = gsTrainingLaden();
+      for (let i = 0; i < GS_TRAINING_KARTEN_MAX + 5; i++) t2.karten['Kunstart nr' + i + '|2'] = { b: 3, faellig: '2099-01-01', r: 1, f: 0 };
+      localStorage.setItem('gs_dq_training', JSON.stringify(t2));
+      const d = gsTrainingNaechste('');
+      // Die Kunstarten kennt DB nicht — sie fallen beim Lesen weg; also bleibt eine echte Karte.
+      if (!d.grund) return { ok: false, warum: 'ein Zustand ohne Grund' };
+      return { ok: true, info: 'neu → „' + a.grund + '" · faellig gewinnt → „' + c.grund + '" · jeder Ausgang mit Grund' };
+    }),
+  },
+  {
+    name: 'Eine Karte wird NIE auf einem fehlenden Feld gebaut · dqBuildQuestion faellt bei Saison und Standort auf einen Vorgabewert zurueck — geuebt wuerde dann, dass das Feld leer ist',
+    lauf: async () => __seite.evaluate(async () => {
+      let ohneS = 0, ohneH = 0;
+      for (const s of DB) { if (!_gsTrainingTypOk(s, 4)) ohneS++; if (!_gsTrainingTypOk(s, 6)) ohneH++; }
+      if (!ohneS || !ohneH) return { ok: false, warum: 'kein Eintrag ohne Saison/Standort — der Fall misst nichts (' + ohneS + '/' + ohneH + ')' };
+      // Die Vorgabewerte, gegen die geprueft wird: sie stehen wirklich in dqBuildQuestion.
+      const leer = { id: '__t', name: 'Testart', lat: 'Testus testus', cat: 'kraut', emoji: '🌿', tox: 0, edible: false };
+      const q4 = dqBuildQuestion(leer, 4, DB.slice(0, 6)), q6 = dqBuildQuestion(leer, 6, DB.slice(0, 6));
+      if (!/Ganzj/.test(q4.a) || !/Verschiedene|Garten|Wald/.test(q6.a)) return { ok: false, warum: 'der Rueckfall sieht anders aus als angenommen: ' + q4.a + ' / ' + q6.a };
+      if (_gsTrainingTypOk(leer, 4) || _gsTrainingTypOk(leer, 6)) return { ok: false, warum: 'eine Art ohne Saison/Standort wird trotzdem gefragt' };
+      // 200 Karten ziehen: keine einzige auf einem fehlenden Feld
+      localStorage.removeItem('gs_dq_training');
+      const typen = {}; let verletzt = 0, gezogen = 0;
+      for (let i = 0; i < 200; i++) {
+        const n = gsTrainingNaechste(''); if (!n.karte) break;
+        gezogen++; typen[n.typ] = (typen[n.typ] || 0) + 1;
+        if (!_gsTrainingTypOk(n.sp, n.typ)) verletzt++;
+        gsTrainingBuchen(n.karte, true);
+      }
+      if (verletzt) return { ok: false, warum: verletzt + ' von ' + gezogen + ' Karten auf einem fehlenden Feld' };
+      if (Object.keys(typen).length < 5) return { ok: false, warum: 'nur ' + Object.keys(typen).length + ' Fragetypen gezogen — die Auswahl ist zu eng' };
+      return { ok: true, info: gezogen + ' Karten · 0 auf einem fehlenden Feld · ' + Object.keys(typen).length + ' Fragetypen · abgelehnt waeren: Saison ' + ohneS + ', Standort ' + ohneH + ' von ' + DB.length };
+    }),
+  },
+  {
+    name: 'Ueben fasst die Serie, die Rangliste und quiz_answers NICHT an — und das Tagesquiz tut es weiterhin',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      localStorage.removeItem('gs_dq_training');
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 500, correct: 7, total: 9, streak: 4, bestStreak: 6, year: parseInt(dqDayKey().slice(0, 4), 10), lastDay: dqDayKey() }));
+      const vorher = JSON.parse(localStorage.getItem('gs_dq_stats'));
+      A.rufe.length = 0;
+      gsOpenTraining();
+      await new Promise(r => setTimeout(r, 400));
+      const kn = document.querySelectorAll('.tr-opt');
+      if (kn.length !== 4) return { ok: false, warum: 'das Fenster zeigt ' + kn.length + ' Knoepfe statt 4' };
+      kn[0].click();
+      await new Promise(r => setTimeout(r, 400));
+      const nachher = JSON.parse(localStorage.getItem('gs_dq_stats'));
+      if (JSON.stringify(vorher) !== JSON.stringify(nachher)) return { ok: false, warum: 'gs_dq_stats angefasst: ' + JSON.stringify(nachher) };
+      const post = A.rufe.filter(x => /\/quiz_answers$/.test(x.path) || /fn_quiz_leaderboard_upsert/.test(x.path));
+      if (post.length) return { ok: false, warum: 'Ueben schreibt an den Server: ' + post.map(x => x.path).join(', ') };
+      if (!(gsTrainingZahlen().heute > 0)) return { ok: false, warum: 'die Uebung wurde nicht gezaehlt' };
+      closeQuizTraining();
+      // Gegenrichtung: das Tagesquiz schreibt weiterhin
+      await A.reset(); A.antwort = { data: [{ is_correct: true }], error: null };
+      A.oeffnen({ id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1 } });
+      const k2 = A.knoepfe().find(x => x.correct === '1');
+      document.querySelectorAll('.dq-opt')[k2.pos].click();
+      await new Promise(r => setTimeout(r, 1400));
+      if (!A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST')) return { ok: false, warum: 'das Tagesquiz schreibt nicht mehr — die Gegenrichtung fehlt' };
+      const dq = JSON.parse(localStorage.getItem('gs_dq_stats'));
+      if (dq.total !== vorher.total + 1) return { ok: false, warum: 'das Tagesquiz zaehlt nicht mehr: total ' + dq.total };
+      return { ok: true, info: 'Ueben: gs_dq_stats unveraendert, kein POST, lokal gezaehlt · Tagesquiz: POST und total ' + vorher.total + '→' + dq.total };
+    }),
+  },
+  {
+    name: 'Der Lernstand gehoert dem Konto · gs_dq_training steht in GS_USER_KEYS, reist im state-Blob und wird beim Schreiben als dirty gemeldet (der Auto-Track ist geshadowed)',
+    lauf: async () => __seite.evaluate(async () => {
+      const f = [];
+      if ((window.GS_USER_KEYS || []).indexOf('gs_dq_training') < 0) f.push('nicht in GS_USER_KEYS');
+      let dirty = 0;
+      const echt = window.gsCloudSync && gsCloudSync.markDirty;
+      if (echt) gsCloudSync.markDirty = function (s) { if (s === 'state') dirty++; return echt.apply(gsCloudSync, arguments); };
+      try {
+        localStorage.removeItem('gs_dq_training');
+        const n = gsTrainingNaechste(''); gsTrainingBuchen(n.karte, true);
+      } finally { if (echt) gsCloudSync.markDirty = echt; }
+      if (!dirty) f.push('markDirty(state) nicht gerufen');
+      // Es gibt ZWEI Blobs: den Sync-Blob (_gsBuildStateBlob, geht bei jedem
+      // Abgleich raus) und den Snapshot-Blob. Der Lernstand muss in BEIDEN
+      // stehen — steht er nur im Snapshot, reist er beim gewoehnlichen
+      // Geraetewechsel nicht mit.
+      const sync = (typeof window._gsBuildStateBlob === 'function') ? window._gsBuildStateBlob() : null;
+      if (!sync) f.push('_gsBuildStateBlob nicht erreichbar');
+      else if (!sync.dq_training) f.push('nicht im Sync-Blob (_gsBuildStateBlob)');
+      const snap = (typeof window._gsBuildSnapshot === 'function') ? window._gsBuildSnapshot() : null;
+      const vorher = localStorage.getItem('gs_dq_training');
+      localStorage.removeItem('gs_dq_training');
+      if (typeof _gsApplyStateBlob === 'function' && sync) _gsApplyStateBlob(sync);
+      if (!localStorage.getItem('gs_dq_training')) f.push('kommt aus dem Sync-Blob nicht zurueck');
+      // Abmelden nimmt ihn mit
+      localStorage.setItem('gs_dq_training', vorher || '{}');
+      gsClearUserDataKeys();
+      if (localStorage.getItem('gs_dq_training')) f.push('ueberlebt das Abmelden');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'in GS_USER_KEYS · markDirty(state) ' + dirty + '× · im Sync-Blob und zurueck' + (snap && snap.dq_training ? ' · auch im Snapshot' : '') + ' · Abmelden raeumt ihn' };
+    }),
+  },
+  {
+    name: 'Der Deckel wirft die HOECHSTE Box weg, nicht die neueste — die hoechste sitzt schon, die neueste ist das Lernen',
+    lauf: async () => __seite.evaluate(async () => {
+      const t = { v: 1, karten: {}, tag: dqDayKey(), heute: 0, xpHeute: 0 };
+      // echte Schluessel, damit sie das Aufraeumen ueberleben
+      // Verschiedene ARTEN, nicht Eintraege: der Schluessel ist das normierte
+      // Binomen, und 520 Eintraege ergaben im ersten Anlauf nur 389 Schluessel
+      // — die Dubletten fallen zusammen. Genau das soll er auch.
+      const gesehen = {}, arten = [];
+      for (const s of DB) {
+        if (!s.lat) continue;
+        const k = _gsTrainingSchluessel(s, 2);
+        if (gesehen[k]) continue;
+        gesehen[k] = 1; arten.push(s);
+        if (arten.length >= GS_TRAINING_KARTEN_MAX + 20) break;
+      }
+      if (arten.length < GS_TRAINING_KARTEN_MAX + 20) return { ok: false, warum: 'nur ' + arten.length + ' verschiedene Arten — zu wenige fuer den Fall' };
+      // Die Faelligkeiten muessen der Box WIDERSPRECHEN, sonst kann der Fall die
+      // beiden denkbaren Regeln nicht unterscheiden: mit einem einzigen Datum
+      // fuer alle Karten waere „hoechste Box zuerst" und „aeltestes Datum
+      // zuerst" dieselbe Reihenfolge, und eine Gegenprobe bliebe gruen.
+      // Also: Box 5 traegt das NEUESTE Datum, Box 1 das aelteste.
+      arten.forEach(function (s, i) {
+        t.karten[_gsTrainingSchluessel(s, 2)] = (i < 20)
+          ? { b: 5, faellig: '2099-12-31', r: 9, f: 0 }
+          : { b: 1, faellig: '2000-01-01', r: 0, f: 3 };
+      });
+      localStorage.setItem('gs_dq_training', JSON.stringify(t));
+      const hoch = _gsTrainingSchluessel(arten[0], 2), tief = _gsTrainingSchluessel(arten[100], 2);
+      const geladen = gsTrainingLaden();
+      const n = _gsTrainingDeckeln(geladen);
+      if (!n) return { ok: false, warum: 'der Deckel hat nicht gegriffen (' + Object.keys(geladen.karten).length + ' Karten)' };
+      if (Object.keys(geladen.karten).length !== GS_TRAINING_KARTEN_MAX) return { ok: false, warum: 'nach dem Deckeln ' + Object.keys(geladen.karten).length + ' statt ' + GS_TRAINING_KARTEN_MAX };
+      if (geladen.karten[hoch]) return { ok: false, warum: 'eine Karte aus Box 5 ist geblieben' };
+      if (!geladen.karten[tief]) return { ok: false, warum: 'eine Karte aus Box 1 wurde weggeworfen' };
+      return { ok: true, info: n + ' Karten entfernt, alle aus Box 5 (und mit dem NEUESTEN Datum) · Box 1 unberuehrt · Deckel ' + GS_TRAINING_KARTEN_MAX };
+    }),
+  },
+  {
+    name: '„Keine bekannten Risiken" ist kein Alarm · das Feld warning traegt bei mehr als der Haelfte der Eintraege das Gegenteil einer Warnung',
+    lauf: async () => __seite.evaluate(async () => {
+      const mitW = DB.filter(s => s.warning && String(s.warning).trim());
+      const keine = mitW.filter(s => !_gsWarnungEcht(s.warning));
+      if (!keine.length) return { ok: false, warum: 'kein Eintrag mit einer Nicht-Warnung — der Fall misst nichts' };
+      const paare = [['Keine bekannten Risiken', false], ['keine', false], ['–', false], ['', false],
+                     ['Giftig bei Verzehr', true], ['Nicht mit Maigloeckchen verwechseln', true]];
+      for (const [w, soll] of paare) if (_gsWarnungEcht(w) !== soll) return { ok: false, warum: '„' + w + '" → ' + _gsWarnungEcht(w) + ', erwartet ' + soll };
+      // Und die Anzeige: eine Nicht-Warnung ohne ⚠️, eine echte MIT
+      const zeige = async (sp) => {
+        localStorage.removeItem('gs_dq_training');
+        window._gsTr = { karte: _gsTrainingSchluessel(sp, 1), sp: sp, typ: 1, richtig: 0, optionen: ['A', 'B', 'C', 'D'], beantwortet: false, quelle: 'neu', box: 0 };
+        const erg = document.getElementById('tr-result'); if (erg) { erg.innerHTML = ''; erg.style.display = 'none'; }
+        document.getElementById('tr-options').innerHTML = '<button class="tr-opt"></button><button class="tr-opt"></button><button class="tr-opt"></button><button class="tr-opt"></button>';
+        gsTrainingAntwort(0);
+        await new Promise(r => setTimeout(r, 120));
+        return (document.getElementById('tr-result') || {}).textContent || '';
+      };
+      const ohne = await zeige(keine[0]);
+      if (!ohne.includes(String(keine[0].warning).trim())) return { ok: false, warum: 'der Satz wird verschluckt: ' + ohne.slice(0, 90) };
+      if (/⚠️/.test(ohne)) return { ok: false, warum: '„' + keine[0].warning + '" steht mit ⚠️ da' };
+      const echt = mitW.find(s => _gsWarnungEcht(s.warning));
+      const mit = await zeige(echt);
+      if (!/⚠️/.test(mit)) return { ok: false, warum: 'eine ECHTE Warnung steht ohne ⚠️ da: ' + mit.slice(0, 90) };
+      return { ok: true, info: mitW.length + ' Eintraege mit warning, davon ' + keine.length + ' ohne echte Warnung · „' + String(keine[0].warning).slice(0, 30) + '" ohne Dreieck · „' + String(echt.warning).slice(0, 30) + '" mit' };
+    }),
+  },
   // ── v33.27 ───────────────────────────────────────────────────────────────
   {
     name: 'Die Wertung folgt der ART · „Wie giftig ist X?" und „Ist X essbar?" nehmen die Angabe der Art, nicht die des angetippten Eintrags — und die Zahl daneben sagt, um wie viele es geht',
@@ -664,5 +876,7 @@ let __seite = null;
   console.log('  Rechnung der Migration und die Rueckmeldung der App, nicht die Anwendung auf der Live-DB.');
   console.log('  Die Zeitzone der App-Haelfte ist Europe/Zurich: ohne Versatz zu UTC koennte der');
   console.log('  Tagesgrenzen-Fall nicht zeigen, dass die beiden Rechnungen auseinanderfallen.');
+  console.log('  Ueben (v33.28) wird hier ohne Netz gemessen: Leitner, Auswahl, Deckel und die');
+  console.log('  Anzeige — nicht, ob der Lernstand in der Cloud wirklich ankommt (dafuer sync_check).');
   process.exitCode = kaputt ? 1 : (offen ? 2 : 0);
 })();
