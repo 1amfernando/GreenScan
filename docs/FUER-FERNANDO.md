@@ -338,6 +338,36 @@ vor, ihn auf „Messwerte" umzuleiten — sag Ja, dann mache ich es.
 
 ## 7 · Migration `20260907_quiz_antwort_formate.sql` — die Quiz-Rangliste zählt wieder
 
+> ### ⚠️ Stand 13.09.2026: noch nicht angewandt — und es läuft weiter
+>
+> Nachgemessen an der Live-Datenbank, **nur lesend**:
+> `fn_quiz_option_correct` existiert dort **nicht**. Der Trigger, der läuft,
+> heisst `fn_quiz_answers_verify` und rechnet
+> `COALESCE((q.options -> NEW.selected_option ->> 'is_correct')::boolean, false)`
+> — `options -> <zahl>` trifft nur ein JSON-**Array**. Bei einem Objekt
+> (`{answers,correct}` / `{choices,correct}`) kommt NULL heraus, und
+> `COALESCE(…, false)` macht daraus **falsch**.
+>
+> | | |
+> |---|---|
+> | Fragen in `daily_quizzes` | **215**, alle aktiv |
+> | Array-Format (funktioniert) | **5** |
+> | `{answers,correct}` · `{choices,correct}` | **150 · 60** |
+> | **betroffen** | **210 von 215 = 97,7 %** |
+> | Antworten seit 01.09. | **19** — davon **2** richtig, **17** falsch |
+>
+> Die zwei richtigen dürften die fünf Array-Fragen sein. Das heisst: v33.27
+> und v33.28 haben die **App**-Seite in Ordnung gebracht — welche Antwort
+> stimmt, wie die Serie zählt, was geübt wird. Die **Rangliste** hängt an
+> diesem Trigger, und der verwirft weiterhin fast jede richtige Antwort.
+> Dein ursprünglicher Satz trifft also heute noch zu.
+>
+> Ich wende keine Migration auf der Produktivdatenbank an — das ist die
+> stehende Grenze dieser Sitzungen. Die Datei liegt im Repo, ist idempotent
+> und in `quiz_check` gegen ein lokales Postgres nachgerechnet (mit
+> Reproduktion und Gegenprobe). **Von allem, was hier offen steht, ist das
+> der Punkt mit der grössten Wirkung.**
+
 Deine Meldung vom 07.09.: „Die Rangliste aktualisiert nicht, obwohl ich die
 Antwort mehrmals richtig hatte." Stimmt, und zwar für alle. Seit du am
 01.09. die Migration v30.95 eingespielt hast, entscheidet der Server, ob eine

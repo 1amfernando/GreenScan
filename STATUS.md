@@ -12,6 +12,46 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-13 (hx) - Live nachgemessen: die Quiz-Rangliste zählt immer noch nicht
+
+Reine Doku, kein Bump. Nach v33.27 und v33.28 (beide Client-Seite) die
+naheliegende Gegenfrage gestellt: **kommt das jetzt auch auf dem Server an?**
+Nur lesend gegen die Live-Datenbank gemessen — nein.
+
+`fn_quiz_option_correct` existiert dort **nicht**; die Migration
+`20260907_quiz_antwort_formate.sql` ist weiterhin nicht angewandt (in
+FUER-FERNANDO §7 und Sektion 2 korrekt vermerkt). Der Trigger, der läuft,
+heisst `fn_quiz_answers_verify` und rechnet
+`COALESCE((q.options -> NEW.selected_option ->> 'is_correct')::boolean, false)`
+— `options -> <zahl>` trifft nur ein JSON-**Array**; bei einem Objekt kommt
+NULL, und `COALESCE` macht daraus **falsch**.
+
+| | |
+|---|---|
+| Fragen in `daily_quizzes` | **215**, alle aktiv |
+| Array-Format (funktioniert) | **5** |
+| `{answers,correct}` · `{choices,correct}` | **150 · 60** |
+| **betroffen** | **210 von 215 = 97,7 %** |
+| Antworten seit 01.09. | **19** — davon **2** richtig, **17** falsch |
+
+**Warum das hier steht und nicht als Reparatur:** kein DDL auf der
+Produktivdatenbank (CLAUDE.md §7.1, STATUS 2026-08-31 y). Die Migration liegt
+im Repo, ist idempotent und in `quiz_check` gegen ein lokales Postgres
+nachgerechnet, mit Reproduktion und Gegenprobe. Anwenden muss sie Fernando.
+
+**Und die Lehre über diesen Fall hinaus:** v33.27 und v33.28 haben die App
+richtig gemacht — welche Antwort stimmt, wie die Serie zählt, was geübt wird.
+Die Rangliste hängt trotzdem an einer Zeile SQL, die niemand eingespielt hat.
+**Eine Kette ist an ihrer unangewandten Stelle so lang wie gar nicht** — wer
+eine Client-Seite repariert, misst danach, ob die Server-Seite dieselbe Regel
+kennt.
+
+Nebenbefund für Q3: 215 Fragen, **213 verschiedene** (zwei Dubletten), und bei
+einer Frage pro Tag reicht der Bestand 215 Tage, während `fn_get_daily_quiz`
+zwei Jahre Anti-Repeat beansprucht.
+
+---
+
 ### 2026-09-12 (hw) - v33.28: Üben — Lernkarten, die sich merken, was du nicht kannst
 
 Zweiter Teil von Fernandos Satz vom 11.09.: „von den **Resultaten** besser wie
