@@ -634,6 +634,36 @@ const FAELLE = [
     },
   },
   {
+    // v33.31: Eine Whitelist ist die ZUSAGE, dass ihre Ziele existieren.
+    // Gemessen am 14.09.2026: `GS_LINA_SCREENS` fuehrte 'ai' — und
+    // `switchTab('ai')` kommt NULL-mal vor. Lina konnte jemanden auf einen
+    // Bildschirm schicken, den sonst kein Weg erreicht, und dort stand ein
+    // ZWEITER Chat (`sendAI`) ohne Notfall-Erkennung, ohne Arten-Erdung und
+    // ohne Sicherheitszeile — alles, was v33.30 gebaut hat, fehlte dort.
+    // Das ist die Klasse aus wiring_check Richtung 3, nur andersherum: kein
+    // Ziel ohne Einstieg, sondern ein EINSTIEG, den nur die KI kennt.
+    name: 'Lina · jeder Bildschirm in GS_LINA_SCREENS existiert wirklich — und es gibt nur EINEN Chat',
+    lauf: () => {
+      if (typeof GS_LINA_SCREENS === 'undefined' || !GS_LINA_SCREENS.length) {
+        return { ok: false, warum: 'GS_LINA_SCREENS gibt es nicht — der Fall misst nichts' };
+      }
+      const fehlend = GS_LINA_SCREENS.filter((t) => !document.getElementById('screen-' + t));
+      if (fehlend.length) return { ok: false, warum: GS_LINA_SCREENS.length + ' Ziele, davon ohne Bildschirm: ' + fehlend.join(', ') };
+      // Und jedes Ziel muss auch sonst erreichbar sein — sonst fuehrt Lina
+      // irgendwohin, wo die Person allein nie hinkaeme.
+      const nurLina = GS_LINA_SCREENS.filter((t) => {
+        const el = document.getElementById('screen-' + t);
+        return el && !el.querySelector('input, textarea, button, [onclick]');
+      });
+      if (nurLina.length) return { ok: false, warum: 'Ziel ohne jedes Bedienelement: ' + nurLina.join(', ') };
+      // Es gibt genau EINEN Chat: den von Lina.
+      if (typeof sendAI === 'function') return { ok: false, warum: 'ein zweiter Chat (sendAI) existiert noch — er hat weder Notfall-Erkennung noch Arten-Erdung' };
+      if (document.getElementById('screen-ai')) return { ok: false, warum: '#screen-ai existiert noch' };
+      if (typeof gsLinaSend !== 'function') return { ok: false, warum: 'gsLinaSend fehlt — der Fall misst nichts' };
+      return { ok: true, info: GS_LINA_SCREENS.length + ' Ziele, alle vorhanden und bedienbar · genau ein Chat (Lina)' };
+    },
+  },
+  {
     // Zwei weitere Befunde derselben Pruefung, beide mit Folgen fuer die Sicherheit.
     name: 'Lina · der Umgangsname zieht seine Familie mit, und ein Fehlalarm nimmt der Person nicht die Antwort weg',
     lauf: async () => {

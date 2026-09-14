@@ -76,7 +76,6 @@ const PROBEN = {
   'gs_gardens': '[{"id":"g1","name":"Hof"}]',
   'gs_plantings': '[{"id":"pf1"}]',
   'gs_gpx_tracks': '[{"id":"tr1"}]',
-  'gs_chat_history': '[{"q":"hallo"}]',
   'gs_doctor_history': '[{"q":"blatt"}]',
   'gs_ki_analyses': '[{"a":1}]',
   'gs_dq_archive': '[{"d":"2026-01-01"}]',
