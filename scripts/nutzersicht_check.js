@@ -168,8 +168,13 @@ const FAELLE = [
         Object.keys(erw).forEach(l => { gsI18n.getLang = () => l; const c = gsLinaContext(); if (c.indexOf('SPRACHE: Antworte auf ' + erw[l] + '.') < 0) falsch.push(l + ' → ' + (c.match(/SPRACHE: [^\n]*/) || ['fehlt'])[0]); });
         if (falsch.length) return { ok: false, warum: falsch.join(' · ') };
         const p = LINA_SYSTEM;
-        const phantom = ['Tab „Garten"', 'Tab „Saison"', 'Tab „Suche"', 'Tab „Karte"', 'Tab „Marktplatz"', 'Tab „Einstellungen"', 'antwortest auf Deutsch'].filter(t => p.indexOf(t) >= 0);
+        // v33.33: „Unter-Tab „Scans"" stand seit v30.62 im Prompt — der Pflanzen-Tab
+        // hat genau zwei Unter-Tabs (Wohnung, Garten). Eine feste Phantom-Liste
+        // faengt nur, was sie kennt; deshalb ZUSAETZLICH die Gegenrichtung: jeder
+        // im Prompt genannte Unter-Tab muss als gsFavsSwitchSub-Wert existieren.
+        const phantom = ['Tab „Garten"', 'Tab „Saison"', 'Tab „Suche"', 'Tab „Karte"', 'Tab „Marktplatz"', 'Tab „Einstellungen"', 'Unter-Tab', 'Tab „Scans"', 'antwortest auf Deutsch'].filter(t => p.indexOf(t) >= 0);
         if (phantom.length) return { ok: false, warum: 'noch im Prompt: ' + phantom.join(', ') };
+        if (!/Scan-Verlauf[^\n]*„Mehr"/.test(p) && !/Scan-Historie[^\n]*„Mehr"/.test(p)) return { ok: false, warum: 'der Weg zum Scan-Verlauf nennt „Mehr" nicht (dort liegt er: #screen-more)' };
         const echte = ['Scanner', 'Pflanzen', 'Home', 'Community', 'Mehr'].filter(t => p.indexOf(t) < 0);
         if (echte.length) return { ok: false, warum: 'Tab-Leiste nicht genannt: ' + echte.join(', ') };
         if (!/„Mehr" → „Garten"/.test(p)) return { ok: false, warum: 'Weg zum Garten fehlt' };

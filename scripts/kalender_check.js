@@ -883,6 +883,31 @@ const FAELLE = [
       }
     },
   },
+  {
+    // v33.33: die Garten-Timeline las den nackten Schluessel 'scan_history' —
+    // den schreibt niemand (kanonisch SCAN_HISTORY_KEY = gs_scan_history), und
+    // das Repo wusste es an zwei anderen Stellen (2620, 62064). Die dritte
+    // fehlte: seit jeher 0 Scans in der Timeline, „N Ereignisse" zaehlte eine
+    // Aktivitaet mit, die nie in der Liste war. Und die Ernte las {pflanze, menge},
+    // der Seed schrieb {plant, amount} — Seed-Falle Nr. 5.
+    name: 'Garten-Timeline · zeigt die Scans des Verlaufs (kein toter Schluessel) und die Ernte mit Name und Menge (Seed-Felder = App-Felder)',
+    lauf: () => {
+      const klagen = [];
+      const key = (typeof SCAN_HISTORY_KEY !== 'undefined') ? SCAN_HISTORY_KEY : 'gs_scan_history';
+      let hist = []; try { hist = JSON.parse(localStorage.getItem(key) || '[]'); } catch (_) {}
+      if (!Array.isArray(hist) || hist.length < 2) return { ok: false, warum: 'Beispieldaten ohne Scan-Verlauf (' + (hist.length || 0) + ') — der Fall misst nichts' };
+      gsOpenGardenTimeline();
+      const body = document.getElementById('gs-nl-body');
+      const t = (body && body.textContent) || '';
+      const scans = (t.match(/🔬 Scan:/g) || []).length;
+      if (scans !== hist.length) klagen.push(scans + ' Scan-Zeilen in der Timeline bei ' + hist.length + ' Eintraegen im Verlauf');
+      hist.forEach(h => { if (h && h.name && t.indexOf(h.name) < 0) klagen.push('Scan „' + h.name + '" fehlt'); });
+      if (!/🧺 Ernte: Tomate · 420 g/.test(t)) klagen.push('Ernte-Zeile falsch: ' + ((t.match(/🧺 Ernte:[^\n]{0,40}/) || ['(keine)'])[0]));
+      try { closeModal('gs-nl-modal'); } catch (_) {}
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: scans + ' Scans (' + hist.map(h => h.name).join(', ') + ') · Ernte „Tomate · 420 g"' };
+    },
+  },
 ];
 
 (async () => {

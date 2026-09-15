@@ -82,7 +82,10 @@ module.exports = () => { try {
   // allen vier Stellen (gsErnteAdd u.a.). Hier stand eine Zahl, und
   // `openErnteTracking` starb an `e.ts.slice(0,10)`. Dieselbe Lehre wie
   // v31.46: Beispieldaten gegen index.html pruefen, nicht gegen den Namen.
-  set('gs_ernte_log', [{ id:'e1', plant:'Tomate', amount:420, unit:'g', ts:new Date(now-3*D).toISOString() }]);
+  // v33.33: die App schreibt {pflanze, menge, unit} (gsErnteAdd 11219, 44868) —
+  // hier standen {plant, amount}: Naturjahr rechnete NaN → 0, die Timeline
+  // zeigte „🧺 Ernte: ? · 0 g". Seed-Falle Nr. 5 (v31.46/v32.46/v32.52/v33.02).
+  set('gs_ernte_log', [{ id:'e1', pflanze:'Tomate', emoji:'🍅', menge:420, unit:'g', ts:new Date(now-3*D).toISOString() }]);
   set('gs_confirmed_species', ['Taraxacum officinale','Boletus edulis']);
   set('gs_wissen_read', ['alpen-1','voegel-2']);
   set('gs_last_active_day_iso', new Date(now).toISOString().slice(0,10));

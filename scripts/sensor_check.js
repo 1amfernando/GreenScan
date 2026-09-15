@@ -1105,6 +1105,133 @@ const FAELLE = [
     },
   },
   {
+    // v33.33: die Scan-Historie hat DREI Zeitfelder (timestamp ISO aus
+    // gsAddToScanHistory, ts ms aus dem Scanner-Hauptweg und aus dem
+    // Cloud-Abgleich, createdAt ms aus gsAddScanHistory). Die Liste der App
+    // liest seit v30.54 tolerant; die Lina-Zeile aus v33.23 verlangte
+    // `h.timestamp` allein — nach gsLoadCloudScans (gewinnt den Dedup, schreibt
+    // nur ts) sah Lina 0 Scans. Und `conf` (Cloud) neben `confidence` (App).
+    name: 'Lina · letzter Scan ueberlebt den Cloud-Abgleich: ts (Cloud), timestamp (App) und createdAt (Merge) lesen dieselbe Zeit ueber EINE Funktion — der juengste gewinnt, egal welches Feld er traegt',
+    lauf: () => {
+      const key = (typeof SCAN_HISTORY_KEY !== 'undefined') ? SCAN_HISTORY_KEY : 'gs_scan_history';
+      const vorher = localStorage.getItem(key);
+      const jetzt = Date.now();
+      try {
+        const klagen = [];
+        // 1 · Cloud-Form: nur ts (ms) und conf — so schreibt gsLoadCloudScans
+        localStorage.setItem(key, JSON.stringify([{ id: 'c1', name: 'Steinpilz', latin: 'Boletus edulis', conf: 88, ts: jetzt - 2 * 3600e3, _cloud: true }]));
+        const z1 = (gsLinaContext().match(/^Letzter Scan:[^\n]*/m) || [''])[0];
+        if (!z1) klagen.push('Cloud-Eintrag (nur ts): KEINE Zeile');
+        else {
+          if (!/Steinpilz/.test(z1) || !/heute/.test(z1)) klagen.push('Cloud-Eintrag: ' + z1);
+          if (!/88 % sicher/.test(z1)) klagen.push('Sicherheit aus `conf` fehlt: ' + z1);
+        }
+        // 2 · drei Eintraege, drei Zeitfelder — der JUENGSTE traegt createdAt
+        localStorage.setItem(key, JSON.stringify([
+          { id: 'a', name: 'Bärlauch', latin: 'Allium ursinum', confidence: 91, timestamp: new Date(jetzt - 5 * 864e5).toISOString() },
+          { id: 'b', name: 'Steinpilz', latin: 'Boletus edulis', conf: 88, ts: jetzt - 3 * 864e5 },
+          { id: 'c', name: 'Tomate', latin: 'Solanum lycopersicum', confidence: 77, createdAt: jetzt - 1 * 864e5 },
+        ]));
+        const z2 = (gsLinaContext().match(/^Letzter Scan:[^\n]*/m) || [''])[0];
+        if (!/Tomate/.test(z2) || !/gestern/.test(z2)) klagen.push('juengster (createdAt) nicht erkannt: ' + (z2 || '(keine Zeile)'));
+        // 3 · EINE Lesefunktion, drei Formen, und leer ist null — nicht 0
+        if (typeof _gsScanZeit !== 'function') klagen.push('_gsScanZeit fehlt');
+        else {
+          const t = [_gsScanZeit({ ts: 5 }), _gsScanZeit({ timestamp: '1970-01-01T00:00:00.006Z' }), _gsScanZeit({ createdAt: 7 }), _gsScanZeit({}), _gsScanZeit(null)];
+          if (t[0] !== 5 || t[1] !== 6 || t[2] !== 7 || t[3] !== null || t[4] !== null) klagen.push('_gsScanZeit: ' + JSON.stringify(t));
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: z1 + ' · drei Felder, juengster gewinnt: ' + z2 };
+      } finally { if (vorher == null) localStorage.removeItem(key); else localStorage.setItem(key, vorher); }
+    },
+  },
+  {
+    // v33.33: gsOpenLina lud `order=created_at.asc&limit=100` — die AELTESTEN
+    // hundert. Ab Nachricht 101 sah Lina beim Oeffnen die ersten hundert und
+    // schickte davon slice(-16), also Nachrichten 85–100; der juengste Teil des
+    // Gespraechs fehlte komplett, ohne dass etwas meldete. Zehn Fragen am Tag
+    // (Freikontingent) sind 20 Zeilen — 100 sind nach fuenf Tagen erreicht.
+    name: 'Lina · Verlauf: bei 120 Nachrichten holt gsOpenLina die NEUESTEN 100 (N21 … N120) und zeigt sie in zeitlicher Reihenfolge — nicht die aeltesten',
+    lauf: async () => {
+      const echtFetch = window.sbFetch, echtLogin = window.sbIsLoggedIn, echtOpen = window._gsNlOpen, echtRender = window.gsLinaRender;
+      const echtMsgs = window._gsLinaMsgs, echtConv = window._gsLinaConvId;
+      try {
+        window.sbIsLoggedIn = () => true;
+        window._gsNlOpen = () => {};
+        window.gsLinaRender = () => {};
+        const alle = []; for (let i = 1; i <= 120; i++) alle.push({ role: i % 2 ? 'user' : 'assistant', content: 'N' + i, created_at: new Date(Date.UTC(2025, 0, 1, 0, i)).toISOString() });
+        let abfrage = '';
+        window.sbFetch = async (path) => {
+          if (/coach_conversations/.test(path)) return { data: [{ id: 'conv-1' }], error: null };
+          if (/coach_messages/.test(path)) {
+            abfrage = path;
+            const desc = /order=created_at\.desc/.test(path);
+            const lim = parseInt((path.match(/limit=(\d+)/) || [0, '100'])[1], 10);
+            const sortiert = alle.slice().sort((a, b) => desc ? b.created_at.localeCompare(a.created_at) : a.created_at.localeCompare(b.created_at));
+            return { data: sortiert.slice(0, lim).map(m => ({ role: m.role, content: m.content })), error: null };
+          }
+          return { data: [], error: null };
+        };
+        await gsOpenLina();
+        const msgs = window._gsLinaMsgs || [];
+        const klagen = [];
+        if (!abfrage) klagen.push('coach_messages wurde gar nicht abgefragt');
+        if (msgs.length !== 100) klagen.push(msgs.length + ' Nachrichten statt 100');
+        if (!msgs.length || msgs[msgs.length - 1].content !== 'N120') klagen.push('die letzte geladene ist ' + (msgs.length ? msgs[msgs.length - 1].content : '(keine)') + ' statt N120 — es sind die AELTESTEN');
+        if (msgs.length && msgs[0].content !== 'N21') klagen.push('erste ist ' + msgs[0].content + ' statt N21');
+        for (let i = 1; i < msgs.length; i++) { if (parseInt(msgs[i].content.slice(1), 10) <= parseInt(msgs[i - 1].content.slice(1), 10)) { klagen.push('Reihenfolge nicht zeitlich: ' + msgs[i - 1].content + ' → ' + msgs[i].content); break; } }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') + ' [' + abfrage.replace(/^.*\?/, '?') + ']' };
+        return { ok: true, info: 'N21 … N120 in zeitlicher Reihenfolge · Abfrage ' + abfrage.replace(/^.*\?/, '?') };
+      } finally { window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; window._gsNlOpen = echtOpen; window.gsLinaRender = echtRender; window._gsLinaMsgs = echtMsgs; window._gsLinaConvId = echtConv; }
+    },
+  },
+  {
+    // v33.33: gsLinaResolvePlant suchte NUR myPlants (die Garten-Pflanzung
+    // „Zucchini" steht in gsGetDueTasks, in der Faellig-Zeile und in
+    // gsPflanzenZahl — und war fuer eine Erinnerung unerreichbar) und fiel auf
+    // indexOf zurueck („Mon" → Monstera). CLAUDE.md §3.3: _gsPflanzeFinden.
+    name: 'Lina · Pflanze aufloesen: ueber _gsPflanzeFinden in BEIDEN Listen (Garten-Pflanzung „Zucchini" wird gefunden), Name oder Spitzname exakt — kein Teilstring („Mon" trifft nichts)',
+    lauf: () => {
+      const klagen = [];
+      const pl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings : [];
+      const zuc = pl.find(p => p && /zucchini/i.test(p.name || ''));
+      if (!zuc) return { ok: false, warum: 'Beispieldaten ohne Garten-Pflanzung „Zucchini" — der Fall misst nichts' };
+      const r1 = gsLinaResolvePlant(null, 'Zucchini');
+      if (!r1 || r1.id !== zuc.id) klagen.push('„Zucchini" (Garten-Pflanzung) nicht gefunden: ' + JSON.stringify(r1 ? r1.name : null));
+      const r1b = gsLinaResolvePlant(zuc.id, null);
+      if (!r1b || r1b.id !== zuc.id) klagen.push('Pflanzung ueber die id nicht gefunden');
+      const mon = myPlants.find(p => p && /monstera/i.test(p.name || ''));
+      if (!mon) klagen.push('Beispieldaten ohne Monstera');
+      else {
+        const r2 = gsLinaResolvePlant(null, 'Mon');
+        if (r2) klagen.push('Teilstring „Mon" trifft „' + r2.name + '"');
+        const r3 = gsLinaResolvePlant(null, String(mon.name).toUpperCase());
+        if (!r3 || r3.id !== mon.id) klagen.push('exakter Name in Grossschreibung nicht gefunden');
+        const alterNick = mon.nick; mon.nick = 'Die Grosse im Flur';
+        try { const r4 = gsLinaResolvePlant(null, 'die grosse im flur'); if (!r4 || r4.id !== mon.id) klagen.push('Spitzname nicht gefunden'); }
+        finally { mon.nick = alterNick; }
+      }
+      if (gsLinaResolvePlant(null, 'Gibtsnicht') !== null) klagen.push('erfundener Name liefert etwas');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Zucchini (plantings) ✓ · id ✓ · „Mon" → null · exakt + Spitzname ✓ · erfunden → null' };
+    },
+  },
+  {
+    // v33.33: der Kontext rechnete myPlants.length + plantings.length selbst —
+    // eine zweite Rechnung an der Frage, die gsPflanzenZahl() beantwortet (v33.06).
+    name: 'Lina · die Pflanzenzahl im Kontext kommt aus gsPflanzenZahl() — nicht aus einer zweiten Rechnung',
+    lauf: () => {
+      const echt = window.gsPflanzenZahl;
+      try {
+        window.gsPflanzenZahl = () => 4711;
+        const c = gsLinaContext();
+        const satz = (c.match(/Die Person hat[^\n.]*/) || ['(kein Satz)'])[0];
+        if (!/4711 Pflanze/.test(c)) return { ok: false, warum: 'Kontext rechnet selbst: ' + satz };
+        return { ok: true, info: satz };
+      } finally { window.gsPflanzenZahl = echt; }
+    },
+  },
+  {
     // v32.57: Zwei Geraete, dieselbe Groesse, zwei Linien (§11 Idee 9). Nur
     // Messgroessen, die BEIDE haben; die Legende nennt beide; die Zahl der
     // gezeichneten Reihen steht am Canvas; ein Geraet ohne die Groesse fehlt

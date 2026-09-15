@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.32.20260914">
+<meta name="app-version" content="33.33.20260915">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20688,7 +20688,7 @@ function _gsBuildScanHistList() {
       lat: h.latin || '',
       // v30.54 FIX: tolerant lesen — Writer/Cloud-Loader schreiben conf/ts, alte/andere Pfade confidence/timestamp.
       conf: (typeof h.conf === 'number' ? h.conf : (typeof h.confidence === 'number' ? h.confidence : 0)),
-      time: h.ts || h.timestamp || h.scannedAt || h.createdAt || '',
+      time: _gsScanZeit(h) || '',   // v33.33: EIN Leser fuer drei Zeitfelder
       emoji: h.emoji || '🔬',
       thumb: h.thumb || null,
       category: h.category || '',
@@ -21491,7 +21491,7 @@ function gsOpenNaturjahr(){
   // Scans (gs_scan_history: {name, createdAt ms})
   var scanYear=0, speciesCount={};
   _gsNjArr('gs_scan_history').forEach(function(s){
-    var d=_gsNjDate(s.createdAt||s.ts||s.time); if(d&&d.getFullYear()===YEAR){ scanYear++; bump(d); }
+    var d=_gsNjDate(_gsScanZeit(s)); if(d&&d.getFullYear()===YEAR){ scanYear++; bump(d); }   // v33.33: ein Leser
     var nm=(s.name||'').trim(); if(nm) speciesCount[nm]=(speciesCount[nm]||0)+1;
   });
   var uniqueSpecies=Object.keys(speciesCount).length;
@@ -35586,6 +35586,22 @@ async function sendScanChat() {
 
 // ══ SCAN-HISTORY ══════════════════════════════════════════════
 var SCAN_HISTORY_KEY = 'gs_scan_history';
+// v33.33: die Historie hat DREI Zeitfelder, je nach Schreiber — `timestamp`
+// (ISO, gsAddToScanHistory), `ts` (ms, Scanner-Hauptweg und gsLoadCloudScans)
+// und `createdAt` (ms, gsAddScanHistory beim INSERT). Die Liste las seit v30.54
+// tolerant; die Lina-Zeile aus v33.23 verlangte `timestamp` allein und war
+// nach dem Cloud-Abgleich (schreibt nur ts, gewinnt den Dedup) leer. Wer die
+// Zeit eines Eintrags braucht, ruft DIESE Funktion: Millisekunden oder null.
+function _gsScanZeit(h) {
+  try {
+    if (!h) return null;
+    var roh = (h.ts != null) ? h.ts : (h.timestamp != null) ? h.timestamp : (h.scannedAt != null) ? h.scannedAt : (h.createdAt != null) ? h.createdAt : null;
+    if (roh == null || roh === '') return null;
+    var ms = (typeof roh === 'number') ? roh : Date.parse(roh);
+    return isFinite(ms) ? ms : null;
+  } catch (_) { return null; }
+}
+window._gsScanZeit = _gsScanZeit;
 var MAX_SCAN_HISTORY = 50; // Cloud-Fetch-Limit (nur die jüngsten Cloud-Scans ziehen)
 var SCAN_HISTORY_LOCAL_CAP = 200; // v30.31: lokaler Write-back-Cap = identisch zu gsAddScanHistory (sonst kürzte jeder Cloud-Pull den lokalen Verlauf auf 50 → Datenverlust bei lokal-only Scans + Notizen)
 var _lastScanResult  = null;
@@ -75030,6 +75046,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.33', date: '15.09.2026',
+    headline: 'Lina sagt, was stimmt: letzter Scan, Verlauf, Pflanzen — und die Garten-Timeline zeigt endlich Scans',
+    summary: 'Fuenf gemessene Fehler, alle mit Pruefstand-Fall zuerst. Lina verlor den letzten Scan, sobald der Cloud-Abgleich gelaufen war (drei Zeitfelder, ein Leser verlangte genau eines); sie lud die AELTESTEN hundert Nachrichten statt der neuesten; sie fand Garten-Pflanzungen nicht und traf beim Namen per Teilstring die falsche Pflanze; sie nannte einen Weg in der App, den es nicht gibt. Und die Garten-Timeline las seit jeher einen Schluessel, den niemand schreibt — null Scans, immer.',
+    user_summary: 'Lina weiss jetzt zuverlaessig, was du zuletzt gescannt hast, kennt den juengsten Teil eures Gespraechs, findet auch deine Garten-Pflanzungen — und schickt dich nicht mehr auf einen Weg, den es in der App nicht gibt. Die Garten-Timeline zeigt jetzt deine Scans.',
+    user_items: [
+      {emoji: '🔬', bold: 'Letzter Scan bleibt sichtbar:', text: ' auch nach dem Abgleich mit der Cloud und bei Scans von einem zweiten Geraet.'},
+      {emoji: '💬', bold: 'Das Gespraech geht weiter:', text: ' Lina laedt die neuesten hundert Nachrichten, nicht die aeltesten.'},
+      {emoji: '🌱', bold: 'Garten-Pflanzungen gefunden:', text: ' eine Erinnerung an die Zucchini im Beet geht jetzt — und „Mon" trifft nicht mehr die Monstera.'},
+      {emoji: '📆', bold: 'Garten-Timeline mit Scans:', text: ' sie zeigte bisher keine, weil sie am falschen Ort nachsah.'}
+    ],
+    items: [
+      '_gsScanZeit(h): EIN Leser fuer ts (Cloud, Scanner), timestamp (App) und createdAt (Merge). gsLinaZahlen, die Verlaufsliste, Mein Naturjahr und die Timeline lesen ihn; conf neben confidence.',
+      'gsOpenLina: order=created_at.desc&limit=100, fuer die Anzeige umgedreht. Vorher asc — ab Nachricht 101 fehlte der juengste Teil, still.',
+      'gsLinaResolvePlant ueber _gsPflanzeFinden (beide Listen), Name oder Spitzname exakt, kein indexOf. gsLinaContext nimmt gsPflanzenZahl().',
+      'LINA_SYSTEM: „Unter-Tab Scans" gestrichen (der Pflanzen-Tab hat Wohnung und Garten); nutzersicht_check E2 kennt das Phantom und prueft die Gegenrichtung.',
+      'Garten-Timeline: SCAN_HISTORY_KEY statt des nackten scan_history (0 Schreiber). _seed.js: Ernte-Log mit {pflanze, menge} wie die App — Seed-Falle Nr. 5.',
+      'Pruefstaende: sensor_check 44 (4 neu), nutzersicht_check E2 erweitert, kalender_check 23 (Timeline). Alle fuenf Faelle rot gegen v33.32, gruen danach; Gegenproben toter Schluessel / Seed-Felder rot.',
+      'Berichtigung: die Zusammenfassung von v33.31 nannte „Verlauf neueste 100", „_gsPflanzeFinden/gsPflanzenZahl" und „Tools open_species/mark_done" — nichts davon war im Code. Eine Zusammenfassung ist kein Diff.'
+    ]
+  },
+  {
     v: 'v33.32', date: '14.09.2026',
       headline: 'Die Giftwarnung bei Lina greift jetzt wirklich',
       summary: 'v33.30 hat eine Sicherung eingebaut: behauptet Lina „essbar\' ueber eine Art, die unsere Liste als giftig fuehrt, kommt eine Warnung darueber. Eine gegnerische Pruefung hat sie danach gegen die echte Artenliste gemessen — und 8 von 9 realistischen Saetzen kamen ohne Warnung durch, darunter ALLE drei nicht-deutschen. Der Ausloeser suchte ganze Woerter; „Ja, die kannst du roh essen\' oder „Das ist ein Speisepilz\' standen nicht darin. Jetzt Wortstaemme, ein Verzehr-Verb in der Naehe einer Zustimmung, und vier Sprachen.',
@@ -75512,7 +75549,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.32';
+var GS_VERSION = 'v33.33';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -84425,7 +84462,7 @@ var LINA_SYSTEM =
   'WAS GREENSCAN KANN (so findet man es): Die Leiste unten hat fünf Tabs — Scanner, Pflanzen, Home, Community, Mehr. Alles andere liegt hinter „Mehr" (unten rechts).\n' +
   '• Bestimmen (Pflanze/Pilz/Baum/Kraut per Foto): Tab „Scanner" (Kamera-Knopf unten). Pilze werden im selben Scanner erkannt.\n' +
   '• Meine Pflanzen (sammeln, Pflege, Giess-Erinnerungen, Tagebuch): Tab „Pflanzen".\n' +
-  '• Scan-Historie früherer Bestimmungen: in „Pflanzen" der Unter-Tab „Scans".\n' +
+  '• Scan-Verlauf früherer Bestimmungen: „Mehr" → „Scan-Verlauf", oder die Kachel „Scans" auf der Startseite, oder im Scanner das Verlauf-Symbol oben.\n' +
   '• Mein Garten (Beete, Ernte, Wetter, Frostwarnung): „Mehr" → „Garten".\n' +
   '• KI-Gartenplaner (Bepflanzungsplan, Ernte-Prognose): Knopf „KI-Gartenplaner" im Garten-Bereich.\n' +
   '• Saisonkalender (was wann säen/ernten) + Saison-Pilze der Region: „Mehr" → „Saison" bzw. die Pilz-Karte auf der Startseite.\n' +
@@ -84506,12 +84543,15 @@ function gsLinaZahlen(){
     // Sicherheit, Alter. Ohne Verlauf keine Zeile; nie das Foto.
     try {
       var hist = JSON.parse(gsStore.get(SCAN_HISTORY_KEY, null) || '[]');
-      var letzter = Array.isArray(hist) ? hist.filter(function (h) { return h && h.name && h.timestamp; })
-        .sort(function (a, b) { return String(b.timestamp).localeCompare(String(a.timestamp)); })[0] : null;
+      // v33.33: die Zeit ueber _gsScanZeit (drei Felder, ein Leser) — sonst ist
+      // die Zeile nach dem Cloud-Abgleich still; und `conf` (Cloud) neben `confidence`.
+      var letzter = Array.isArray(hist) ? hist.filter(function (h) { return h && h.name && _gsScanZeit(h) != null; })
+        .sort(function (a, b) { return _gsScanZeit(b) - _gsScanZeit(a); })[0] : null;
       if (letzter) {
-        var alterT = Math.max(0, Math.round((Date.now() - new Date(letzter.timestamp).getTime()) / 864e5));
+        var alterT = Math.max(0, Math.round((Date.now() - _gsScanZeit(letzter)) / 864e5));
+        var sicherT = (typeof letzter.confidence === 'number') ? letzter.confidence : (typeof letzter.conf === 'number') ? letzter.conf : 0;
         teile.push('Letzter Scan: ' + String(letzter.name).slice(0, 40) + (letzter.latin ? ' (' + String(letzter.latin).slice(0, 40) + ')' : '') +
-          (letzter.confidence > 0 ? ', ' + Math.round(letzter.confidence) + ' % sicher' : '') + ', ' +
+          (sicherT > 0 ? ', ' + Math.round(sicherT) + ' % sicher' : '') + ', ' +
           (alterT === 0 ? 'heute' : alterT === 1 ? 'gestern' : 'vor ' + alterT + ' Tagen') + '.');
       }
     } catch (_) {}
@@ -84777,9 +84817,10 @@ function gsLinaContext(frageText){
       var _ln = ({de:'Deutsch', fr:'Französisch', it:'Italienisch', en:'Englisch', es:'Spanisch', gsw:'Deutsch'})[_lg] || 'Deutsch';
       ctx += '\n\nSPRACHE: Antworte auf ' + _ln + '.';
     } catch(_){}
-    var plants = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.length : 0;
-    var pflanzungen = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.length : 0;
-    if (plants || pflanzungen) ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich): Die Person hat ' + plants + ' Pflanze(n)' + (pflanzungen ? ' und ' + pflanzungen + ' Garten-Pflanzung(en)' : '') + ' in GreenScan.';
+    // v33.33: die Zahl aus gsPflanzenZahl() (CLAUDE.md §3.3, v33.06) — beide
+    // Listen, eine Rechnung. Vorher rechnete der Kontext selbst.
+    var plants = (typeof gsPflanzenZahl === 'function') ? gsPflanzenZahl() : 0;
+    if (plants) ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich): Die Person hat ' + plants + ' Pflanze(n) in GreenScan (Wohnung und Garten zusammen).';
     else ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich):';
     var loc = localStorage.getItem('gs_user_location');
     if (loc) { try { var l = JSON.parse(loc); if (l && l.name) ctx += ' Region: ' + l.name + '.'; } catch(_){} }
@@ -84811,8 +84852,11 @@ async function gsOpenLina(){
     var convs = (rc && rc.data) || [];
     if (Array.isArray(convs) && convs.length) {
       window._gsLinaConvId = convs[0].id;
-      var rm = await sbFetch('/rest/v1/coach_messages?conversation_id=eq.'+window._gsLinaConvId+'&select=role,content&order=created_at.asc&limit=100', {method:'GET'});
-      window._gsLinaMsgs = ((rm && rm.data) || []).map(function(m){ return { role:m.role, content:m.content }; });
+      // v33.33: `order=created_at.asc&limit=100` holte die AELTESTEN hundert —
+      // ab Nachricht 101 fehlte der juengste Teil des Gespraechs, still. Jetzt
+      // die neuesten hundert (desc), fuer die Anzeige zeitlich umgedreht.
+      var rm = await sbFetch('/rest/v1/coach_messages?conversation_id=eq.'+window._gsLinaConvId+'&select=role,content&order=created_at.desc&limit=100', {method:'GET'});
+      window._gsLinaMsgs = ((rm && rm.data) || []).map(function(m){ return { role:m.role, content:m.content }; }).reverse();
     }
   } catch(_){}
   gsLinaRender(false);
@@ -85088,14 +85132,22 @@ window.gsLinaSend = gsLinaSend;
 // nur ueber diese Liste erreichbar). Eine Whitelist ist die ZUSAGE, dass ihre
 // Ziele existieren; `sensor_check` prueft jeden Eintrag gegen das Dokument.
 var GS_LINA_SCREENS = ['home','scanner','search','favs','more','garden','farm','season','social','market','recipes','remedies','wissen','settings','map'];
+// v33.33: ueber _gsPflanzeFinden in BEIDEN Listen (CLAUDE.md §3.3) — die
+// Garten-Pflanzung „Zucchini" war fuer eine Erinnerung unerreichbar, obwohl
+// sie in der Faellig-Zeile stand. Und exakt, nie per Teilstring: „Mon" traf
+// die Monstera, mit zwei Tomaten-Eintraegen die falsche. Eine Erinnerung an
+// der falschen Pflanze ist ein Schreibvorgang; da ist kein Treffer der
+// bessere Treffer.
 function gsLinaResolvePlant(id, name){
   try {
-    if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return null;
-    if (id){ var p = myPlants.find(function(x){ return x && x.id===id; }); if (p) return p; }
-    if (name){ var n = String(name).toLowerCase().trim();
-      return myPlants.find(function(x){ return x && (x.name||'').toLowerCase()===n; })
-          || myPlants.find(function(x){ return x && (x.nick||'').toLowerCase()===n; })
-          || myPlants.find(function(x){ return x && (x.name||'').toLowerCase().indexOf(n)>=0; }) || null;
+    if (id && typeof _gsPflanzeFinden === 'function') { var f = _gsPflanzeFinden(id); if (f && f.p) return f.p; }
+    if (name){
+      var n = String(name).toLowerCase().trim(); if (!n) return null;
+      var alle = [];
+      if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) alle = alle.concat(myPlants);
+      if (typeof plantings !== 'undefined' && Array.isArray(plantings)) alle = alle.concat(plantings);
+      return alle.find(function(x){ return x && String(x.name||'').toLowerCase().trim()===n; })
+          || alle.find(function(x){ return x && String(x.nick||'').toLowerCase().trim()===n; }) || null;
     }
   } catch(_){}
   return null;
@@ -88294,7 +88346,7 @@ function gsOpenGardenTimeline(){
   // v28.15: vereinheitlichte Ernte-Quelle (gs_ernte_log / garden_harvests) statt LS-only gs_harvest_log
   var harvest = [];
   try { if (typeof gsErnteLoad === 'function') gsErnteLoad(); harvest = Array.isArray(window._gsErnteLog) ? window._gsErnteLog : []; } catch(_){ harvest = []; }
-  var scans   = _gsNlSafeItems('scan_history');
+  var scans   = _gsNlSafeItems(SCAN_HISTORY_KEY);   // v33.33: 'scan_history' (ohne gs_) schreibt niemand — die Timeline zeigte seit jeher 0 Scans
   var events = [];
   harvest.forEach(function(h){
     var nm = h.pflanze || h.name || '?';
@@ -88302,7 +88354,7 @@ function gsOpenGardenTimeline(){
     var un = h.unit || 'kg';
     events.push({ type:'harvest', date:(h.ts||h.date||'').slice(0,10) || new Date().toISOString().slice(0,10), label:_gsSatz('🧺 Ernte: {1} · {2} {3}', nm, (parseFloat(mg)||0), un) });
   });
-  scans.forEach(function(s){ if(s.ts) events.push({ type:'scan', date:new Date(s.ts).toISOString().slice(0,10), label:_gsSatz('🔬 Scan: {1}', (s.name||s.topMatch||'?')) }); });
+  scans.forEach(function(s){ var zt = _gsScanZeit(s); if(zt != null && s && s.name) events.push({ type:'scan', date:new Date(zt).toISOString().slice(0,10), label:_gsSatz('🔬 Scan: {1}', s.name) }); });
   // Saison-Ereignisse des Jahres
   var y = new Date().getFullYear();
   var seasons = [
