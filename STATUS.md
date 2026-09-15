@@ -4,13 +4,74 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-11 · **Branch**: `main` · **Version**: `v33.28` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-15 · **Branch**: `main` · **Version**: `v33.33` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-15 (ic) - v33.33: Lina sagt, was stimmt
+
+**Anlass:** Fernando hat Lina gefragt, was sie besser machen wuerde, und mir
+ihre Antworten geschickt (sechs Nachrichten, woertlich gesichert). Ein
+Sprachmodell weiss nicht zuverlaessig, was in seinem eigenen Kontext steht —
+also wurde jeder Punkt GEMESSEN, nicht geglaubt. Die Kartierung (Kalender und
+Lina, 20 Befunde mit Zeilennummern) liegt in `scratchpad/c3/kartierung.md`
+der Sitzung; die Befunde mit Datum stehen in den Pruefstaenden.
+
+**Fuenf Fehler, alle harness-first (5 Faelle rot gegen v33.32 → gruen):**
+
+1. **Lina verlor den letzten Scan nach dem Cloud-Abgleich.** Die Scan-Historie
+   hat DREI Zeitfelder — `timestamp` (ISO, `gsAddToScanHistory`), `ts` (ms,
+   Scanner-Hauptweg und `gsLoadCloudScans`), `createdAt` (ms, beim INSERT).
+   Die Liste der App liest seit v30.54 tolerant; die Lina-Zeile aus v33.23
+   (meine) verlangte `h.timestamp` allein — und `gsLoadCloudScans` schreibt
+   nur `ts` und gewinnt den Dedup. In Node nachgestellt: nach dem Merge 0
+   Eintraege fuer Lina. Jetzt `_gsScanZeit(h)`, EIN Leser, und `conf` neben
+   `confidence`. Naturjahr und Timeline lesen ihn ebenfalls.
+2. **`gsOpenLina` lud die AELTESTEN hundert Nachrichten**
+   (`order=created_at.asc&limit=100`) und schickte davon `slice(-16)` — ab
+   Nachricht 101 fehlte der juengste Teil des Gespraechs, still. Zehn Fragen
+   am Tag (Freikontingent) sind 20 Zeilen: nach fuenf Tagen erreicht. Jetzt
+   `desc` + `reverse()`; Fall mit 120 Nachrichten (N21 … N120).
+3. **`gsLinaResolvePlant` suchte nur `myPlants`** — die Garten-Pflanzung
+   „Zucchini" stand in der Faellig-Zeile und war fuer eine Erinnerung
+   unerreichbar — **und fiel auf `indexOf` zurueck** („Mon" → Monstera; mit
+   zwei Tomaten die falsche). Jetzt `_gsPflanzeFinden`, beide Listen, Name
+   oder Spitzname exakt (CLAUDE.md §3.3). `gsLinaContext` nimmt
+   `gsPflanzenZahl()` statt einer zweiten Rechnung.
+4. **`LINA_SYSTEM` schickte zum „Unter-Tab „Scans" im Pflanzen-Tab** — den
+   gibt es nicht (Wohnung, Garten). Zwei Absaetze hoeher steht „Erfinde NIE
+   einen Weg". `nutzersicht_check` E2 hielt eine FESTE Phantom-Liste dagegen
+   und war gruen. Jetzt der echte Weg („Mehr" → „Scan-Verlauf", Kachel
+   „Scans", Verlauf-Symbol im Scanner), `Unter-Tab` in der Liste und die
+   Gegenrichtung (der Weg muss „Mehr" nennen).
+5. **Die Garten-Timeline las `'scan_history'`** — ohne `gs_`. Den Schluessel
+   schreibt niemand; das Repo wusste es an ZWEI Stellen (2620, 62064), die
+   dritte fehlte. Null Scans, seit v23.57. Dazu `_seed.js`: Ernte-Log mit
+   `{plant, amount}`, die App liest `{pflanze, menge}` → Naturjahr NaN → 0,
+   Timeline „🧺 Ernte: ? · 0 g". **Seed-Falle Nr. 5** (v31.46, v32.46,
+   v32.52, v33.02). `kalender_check` Fall „Garten-Timeline", Gegenproben
+   toter Schluessel und Seed-Felder je rot.
+
+**Berichtigung an der eigenen Buchfuehrung.** Die Aufgaben-Zusammenfassung
+von v33.31 nannte „Verlauf neueste 100", „_gsPflanzeFinden/gsPflanzenZahl"
+und „Tools open_species/mark_done" als geliefert. `git log -S` ueber
+`index.html`: **null Commits** fuer alle drei. Der Text war aus der Absicht
+geschrieben, nicht aus dem Diff — und ein Messender hat es gefunden, nicht
+ich. **Eine Zusammenfassung ist kein Diff.** Was in einer Liste als fertig
+steht, wird gegen `git show` gelesen, bevor man es weiterschreibt.
+
+**Was NICHT in dieser Scheibe ist (bewusst, naechste):** der Deckel
+`GS_LINA_ZAHLEN_MAX` schneidet hart vom Ende (mit 6 Geraeten fiel die
+Scan-Zeile ganz weg), Geraete `slice(0,4)` ohne „+N weitere", eine Regel
+`nicht_pruefbar` ergibt „Alarme: keine verletzte Regel." — das gehoert in den
+Umbau des Lina-Kontexts mit dem Kalender (Hauptauftrag).
+
+**Pruefstaende:** sensor_check 44 (4 neu), nutzersicht_check E2 erweitert,
+kalender_check 23 (1 neu). Volle Suite: siehe Commit.
 
 ### 2026-09-14 (ib) - v33.32: Die Giftwarnung greift jetzt wirklich
 

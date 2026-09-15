@@ -710,7 +710,7 @@ node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt s
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
-node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46)
+node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch: zeigt die Garten-Timeline die Scans (kein toter Schluessel) und die Ernte mit den Feldern der App
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
@@ -1282,6 +1282,34 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
 > Saetze braucht, trennt am ROHEN Text.
+
+> **Ein Feld, das drei Schreiber drei verschieden nennen, hat EINEN Leser**
+> (v33.33). Die Scan-Historie traegt `timestamp` (ISO), `ts` (ms) oder
+> `createdAt` (ms) — je nach Weg. v30.54 hatte die Liste tolerant gemacht;
+> v33.23 verlangte fuer Lina `h.timestamp` allein, und nach dem Cloud-Abgleich
+> (schreibt nur `ts`, gewinnt den Dedup) sah sie null Scans. Wer die Zeit
+> eines Eintrags braucht, ruft `_gsScanZeit(h)` (ms oder `null`) — nie ein
+> Feld direkt. Dieselbe Klasse wie `_gsMetricLabel` (v32.55) und
+> `_gsPflanzeFinden` (v32.47): **der Leser ist die Regel, nicht das Feld.**
+
+> **`limit=100` ohne `desc` ist eine Zeitmaschine in die falsche Richtung**
+> (v33.33). `gsOpenLina` holte die AELTESTEN hundert Nachrichten und zeigte
+> davon `slice(-16)` — ab Nachricht 101 fehlte das Ende des Gespraechs, ohne
+> Meldung. Wer „die letzten N" laedt, sortiert absteigend, deckelt, dreht um.
+> Und ein Fall dazu braucht MEHR Zeilen als der Deckel (120 bei 100), sonst
+> sind beide Richtungen dieselbe Liste.
+
+> **Eine Aufloesung per Teilstring ist bei einem Schreibvorgang kein
+> Treffer, sondern ein Fehlgriff** (v33.33). `gsLinaResolvePlant` nahm
+> `indexOf` — „Mon" traf die Monstera, zwei Tomaten die erste. Fuer eine
+> Erinnerung (schreibt `tasks`) ist KEIN Treffer der bessere Treffer; die
+> Rueckfrage zeigt nur den Namen, nicht welchen Eintrag. Exakt, Name oder
+> Spitzname, ueber `_gsPflanzeFinden` in beiden Listen.
+
+> **Eine Zusammenfassung ist kein Diff** (v33.33). Die Aufgabenliste zu
+> v33.31 nannte drei Dinge als geliefert, die in keinem Commit stehen
+> (`git log -S`: 0). Gefunden hat es ein Messender, nicht ich. Was als
+> „fertig" weitergeschrieben wird, wird vorher gegen `git show` gelesen.
 
 > **`gsLinaRender` baut das Panel NEU auf.** Jede gemerkte Referenz auf
 > `#gs-lina-input` ist danach abgehaengt, und ein frisch gerendertes Feld ist
