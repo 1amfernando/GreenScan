@@ -1267,6 +1267,22 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > Hintertuer**. Seine Artkarte gilt nur, wenn `_gsArtenTreffer` dieselbe Art
 > nennt.
 
+> **Eine Sicherung wird mit den Saetzen gemessen, die wirklich vorkommen**
+> (v33.32). `_gsLinaSicherheit` (die EINZIGE Rechnung gegen eine falsche
+> Essbarkeits-Zusage) suchte ganze Woerter. End-to-end gegen die echte
+> Artenliste gemessen: **8 von 9** realistischen Zusagen ueber einen
+> Knollenblaetterpilz (tox 5) kamen ohne Warnung durch — „kannst du roh
+> essen", „Speisepilz", „eignet sich zum Kochen", und **fr/it/en 3 von 3**
+> (dieselbe Klasse wie v32.99). Jetzt Staemme plus ein Verzehr-Verb in der
+> Naehe einer Zustimmung. **Und der Fall traegt die GEMESSENEN Saetze, nicht
+> ausgewaehlte** — ein Fall, dessen Satz den Treffer schon enthaelt, prueft
+> die Vorlage und nicht die Ware.
+
+> **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
+> nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
+> lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
+> Saetze braucht, trennt am ROHEN Text.
+
 > **`gsLinaRender` baut das Panel NEU auf.** Jede gemerkte Referenz auf
 > `#gs-lina-input` ist danach abgehaengt, und ein frisch gerendertes Feld ist
 > LEER — wer davor den Text hineingeschrieben hat, sieht `gsLinaSend` gleich

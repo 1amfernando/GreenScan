@@ -634,6 +634,68 @@ const FAELLE = [
     },
   },
   {
+    // v33.32: Die EINZIGE Rechnung, die eine falsche Essbarkeits-Zusage ueber
+    // eine giftige Art abfangen kann. Eine gegnerische Pruefung hat v33.30
+    // end-to-end gegen die echte Artenliste gemessen: **8 von 9** realistischen
+    // Zusagen kamen ohne Warnung durch — darunter alle DREI nicht-deutschen.
+    //
+    // Die Saetze hier sind die GEMESSENEN, nicht ausgewaehlte. Ein Fall, dessen
+    // Satz den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware —
+    // genau das war die zweite Kritik an v33.30.
+    name: 'Lina · Sicherheit: jede realistische Zusage ueber eine giftige Art wird gewarnt — in vier Sprachen, und eine Warnung wird nicht zur Zusage',
+    lauf: () => {
+      const giftig = { zahl: 1, arten: [{ name: 'Grüner Knollenblätterpilz', lat: 'Amanita phalloides', tox: 5, essbar: false }] };
+      const harmlos = { zahl: 1, arten: [{ name: 'Bärlauch', lat: 'Allium ursinum', tox: 0, essbar: true }] };
+
+      // Alle zwoelf sind an v33.30 gemessen worden; acht davon kamen durch.
+      const ZUSAGEN = [
+        'Ja, die kannst du roh essen.',
+        'Ja, du kannst die jungen Blätter essen.',
+        'Das ist ein hervorragender Speisepilz.',
+        'Er eignet sich zum Kochen.',
+        'Oui, vous pouvez le manger.',
+        'Sì, si può mangiare senza problemi.',
+        'Yes, you can eat it.',
+        'Ja, er ist essbar.',
+        'Ja, das ist essbare Nahrung.',
+        'Du kannst ihn bedenkenlos verzehren.',
+        'Ja, du darfst ihn essen.',
+        // Eine Zusage bleibt eine Zusage, auch wenn ein SPAETERER Satz ueber
+        // etwas anderes spricht. Vor v33.32 hat dieser Satz NICHT gewarnt:
+        // `_gsLinaNorm` streicht `.!?` VOR dem Satz-Split, der Split trennte
+        // also an nichts, und die Verneinung im Nebensatz entwertete alles.
+        'Ja, das ist essbar. Der giftige Doppelgänger ist nicht essbar.'
+      ];
+      const verpasst = ZUSAGEN.filter((x) => !_gsLinaSicherheit(x, giftig));
+      if (verpasst.length) return { ok: false, warum: verpasst.length + ' von ' + ZUSAGEN.length + ' Zusagen ohne Warnung: ' + JSON.stringify(verpasst.slice(0, 4)) };
+
+      // Gegenrichtung: eine Antwort, die selbst warnt, darf keine Warnung ausloesen —
+      // sonst lernt man, das Banner zu ueberlesen (v32.21).
+      const WARNT_SELBST = [
+        'Nein, der ist tödlich giftig — auf keinen Fall essen.',
+        'Der ist NICHT essbar.',
+        'Nicht geniessbar.',
+        'Non, il ne faut pas le manger.',
+        'No, do not eat it.',
+        'Auf keinen Fall essen, das ist der Knollenblätterpilz.'
+      ];
+      const fehlalarm = WARNT_SELBST.filter((x) => _gsLinaSicherheit(x, giftig));
+      if (fehlalarm.length) return { ok: false, warum: 'Warnung ueber einer Antwort, die selbst warnt: ' + JSON.stringify(fehlalarm) };
+
+      // Und bei einer harmlosen Art nie.
+      const beiHarmlos = ZUSAGEN.filter((x) => _gsLinaSicherheit(x, harmlos));
+      if (beiHarmlos.length) return { ok: false, warum: 'Warnung bei einer harmlosen Art: ' + JSON.stringify(beiHarmlos.slice(0, 3)) };
+      if (_gsLinaSicherheit('Ja, essbar.', { zahl: 0, arten: [] })) return { ok: false, warum: 'Warnung ohne erkannte Art' };
+
+      // Der Satz-Split muss am ROHEN Text greifen. Gegenprobe auf die Mechanik:
+      // zwei Saetze, der erste verneint, der zweite sagt zu → muss warnen.
+      if (!_gsLinaSicherheit('Nicht essbar ist der Doppelgänger. Dieser hier ist essbar.', giftig)) {
+        return { ok: false, warum: 'die Verneinung im ERSTEN Satz unterdrueckt die Zusage im zweiten — der Split greift nicht' };
+      }
+      return { ok: true, info: ZUSAGEN.length + ' Zusagen erkannt (de/fr/it/en) · ' + WARNT_SELBST.length + ' Warnungen still · harmlos still · Split am rohen Text' };
+    },
+  },
+  {
     // v33.31: Eine Whitelist ist die ZUSAGE, dass ihre Ziele existieren.
     // Gemessen am 14.09.2026: `GS_LINA_SCREENS` fuehrte 'ai' — und
     // `switchTab('ai')` kommt NULL-mal vor. Lina konnte jemanden auf einen
