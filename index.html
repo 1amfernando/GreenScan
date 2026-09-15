@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.31.20260914">
+<meta name="app-version" content="33.32.20260914">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75030,6 +75030,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.32', date: '14.09.2026',
+      headline: 'Die Giftwarnung bei Lina greift jetzt wirklich',
+      summary: 'v33.30 hat eine Sicherung eingebaut: behauptet Lina „essbar\' ueber eine Art, die unsere Liste als giftig fuehrt, kommt eine Warnung darueber. Eine gegnerische Pruefung hat sie danach gegen die echte Artenliste gemessen — und 8 von 9 realistischen Saetzen kamen ohne Warnung durch, darunter ALLE drei nicht-deutschen. Der Ausloeser suchte ganze Woerter; „Ja, die kannst du roh essen\' oder „Das ist ein Speisepilz\' standen nicht darin. Jetzt Wortstaemme, ein Verzehr-Verb in der Naehe einer Zustimmung, und vier Sprachen.',
+      user_summary: 'Wenn Lina etwas als essbar bezeichnet, das in unserer Artenliste als giftig steht, steht jetzt zuverlaessig eine Warnung darueber — egal wie der Satz gebaut ist und in welcher der vier Sprachen du fragst.',
+      user_items: [
+        {emoji: '🛡️', bold: 'Die Warnung greift jetzt wirklich:', text: ' vorher nur bei „ist essbar\'. Jetzt auch bei „kannst du roh essen\', „Speisepilz\', „eignet sich zum Kochen\' — und auf Franzoesisch, Italienisch und Englisch.'},
+        {emoji: '🔤', bold: 'Ein Satz ist ein Satz:', text: ' warnt Lina im zweiten Satz vor dem Doppelgaenger, hebt das die Zusage im ersten nicht mehr auf.'},
+        {emoji: '🤫', bold: 'Und kein Fehlalarm:', text: ' wenn Lina selbst schon warnt, kommt keine zweite Warnung darueber.'}
+      ],
+      items: [
+        'Gemessen end-to-end gegen die echte Artenliste (Gruener Knollenblaetterpilz, tox 5): 8 von 9 Zusagen ohne Warnung, darunter fr/it/en 3 von 3 — dieselbe Klasse, die v32.99 schon einmal bezahlt hat.',
+        'Der Satz-Split war tot: _gsLinaNorm streicht .!? VOR dem split(), also wurde an nichts getrennt. Der Kommentar darueber behauptete das Gegenteil. Getrennt wird jetzt am ROHEN Text.',
+        'Staemme statt ganzer Woerter (essbar|geniess|verzehr|speise|comestib|commestib|edib) plus ein Verzehr-Verb in der Naehe einer Zustimmung (essen/kochen/roh/manger/mangiare/eat).',
+        'Pruefstand: sensor_check Fall mit den ZWOELF GEMESSENEN Saetzen statt ausgewaehlter — ein Fall, dessen Satz den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware. Drei Gegenproben: Wortliste zurueck (3 verpasst), Verzehr-Naehe aus (7 verpasst), Split am normierten Text (1 verpasst).'
+      ]
+  },
+  {
     v: 'v33.31', date: '14.09.2026',
       headline: 'Ein Chat statt zwei — und Lina schlaegt jetzt Fragen vor',
       summary: 'Es gab einen zweiten Chat-Bildschirm, zu dem kein Weg mehr fuehrte: switchTab(\'ai\') kam im ganzen Quelltext null mal vor. Erreichbar war er nur noch ueber Linas eigene Navigations-Liste — und dort stand ein Chat OHNE Notfall-Erkennung, ohne Arten-Erdung und ohne die Sicherheitszeile aus v33.30. Der Bildschirm ist weg; seine fuenf Fragevorschlaege leben in Lina weiter.',
@@ -75495,7 +75512,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.31';
+var GS_VERSION = 'v33.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -84703,22 +84720,49 @@ function _gsLinaSicherheit(antwort, treffer) {
     if (!antwort || !treffer || !treffer.zahl) return '';
     var hoch = treffer.arten.filter(function (a) { return a.tox >= 3; });
     if (!hoch.length) return '';
-    var a = _gsLinaNorm(antwort);
-    // Gemessen an elf realistischen Bejahungen traf die alte Fassung
-    // (`\bessbar\b`) nur fuenf: „essbare Pflanze", „du darfst ihn essen",
-    // „zum Verzehr" fielen durch — und das ist die EINE Sicherung dieser App
-    // gegen eine falsche Essbarkeits-Zusage. Jetzt der Wortstamm, und die
-    // Verneinung wird nur im selben Satz gesucht, nicht in der ganzen Antwort
-    // (sonst entwertet ein spaeterer Nebensatz die Warnung).
-    var JA = /essbar|geniessbar|geniessen|verzehr|unbedenklich|bedenkenlos|kannst du essen|kann man essen|darfst du essen|darfst ihn essen|zum essen|comestible|commestibile|edible|safe to eat/;
-    var NEIN = /nicht essbar|nicht geniessbar|niemals essen|auf keinen fall|nie essen|kein verzehr|ungeniessbar|pas comestible|non commestibile|not edible|do not eat/;
-    var saetze = a.split(/(?:[.!?]|\bund\b|\baber\b)/);
-    var bejaht = saetze.some(function (sz) { return JA.test(sz) && !NEIN.test(sz); });
-    if (!bejaht) return '';
-    var namen = hoch.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
-    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
-    return _t('lina_sicherheit_gift', '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.')
-      .replace('{1}', namen);
+
+    // v33.32: Diese Pruefung ist die EINZIGE Rechnung, die eine falsche
+    // Essbarkeits-Zusage ueber eine giftige Art noch abfangen kann. Die
+    // ARTEN-Zeile im Kontext ist nur eine Prompt-Zeile — CLAUDE.md §4a.2:
+    // „Eine Prompt-Zeile ist keine Garantie."
+    //
+    // Die erste Fassung (v33.30) suchte nach ganzen WOERTERN. Gemessen gegen
+    // den Gruenen Knollenblaetterpilz (tox 5): **8 von 9** realistischen
+    // Zusagen kamen ohne Warnung durch —
+    //   „Ja, die kannst du ROH essen."      „Das ist ein Speisepilz."
+    //   „Ja, du kannst die jungen BLAETTER essen."   „Er eignet sich zum Kochen."
+    //   und alle DREI nicht-deutschen Saetze (fr/it/en).
+    // Das letzte ist dieselbe Klasse, die das Repo in v32.99 schon einmal
+    // bezahlt hat: „0 von 12 nicht-deutschen Notfallsaetzen".
+    //
+    // Zwei Aenderungen:
+    //  1. STAEMME statt ganzer Woerter, und ein Verzehr-Verb in der NAEHE einer
+    //     Bejahung zaehlt auch — nicht nur das Wort „essbar".
+    //  2. Die Saetze werden am ROHEN Text getrennt. `_gsLinaNorm` streicht
+    //     `.!?` — wer danach trennt, trennt an nichts. Die Verneinung im
+    //     Nebensatz („… ist essbar. Der Doppelgaenger ist NICHT essbar.")
+    //     entwertete so die ganze Antwort.
+    var roh = String(antwort);
+    var saetze = roh.split(/(?:[.!?;\n]+|\bund\b|\baber\b|\bmais\b|\bma\b|\bbut\b)/i);
+
+    // Bejahung: Essbarkeits-Stamm ODER ein Verzehr-Verb mit Zustimmung davor.
+    var STAMM = /essbar|geniess|verzehr|speisepilz|speise|bedenkenlos|unbedenklich|comestib|commestib|\bedib/;
+    var VERZEHR = /\bessen\b|\bisst\b|\bkochen\b|\broh\b|\bmanger\b|\bmange\b|\bconsommer\b|\bmangiare\b|\bmangia\b|\beat\b|\beating\b|\bcook\b/;
+    var JA_DAVOR = /\bja\b|\bkannst\b|\bkann man\b|\bkoennen\b|\bdarfst\b|\bdarf man\b|\beignet sich\b|\boui\b|\bpouvez\b|\bpeut\b|\bsi\b|\bpuo\b|\byes\b|\bcan\b|\bsafe\b/;
+    var NEIN = /nicht|kein|niemals|nie\b|auf keinen fall|ungeniess|unbedingt meiden|finger weg|\bpas\b|\bjamais\b|\bnon\b|\bmai\b|\bnot\b|\bnever\b|\bdon t\b|\bdo not\b|\bavoid\b/;
+
+    for (var i = 0; i < saetze.length; i++) {
+      var sz = _gsLinaNorm(saetze[i]);
+      if (!sz) continue;
+      if (NEIN.test(sz)) continue;                 // dieser Satz warnt selbst
+      var bejaht = STAMM.test(sz) || (VERZEHR.test(sz) && JA_DAVOR.test(sz));
+      if (!bejaht) continue;
+      var namen = hoch.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
+      var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+      return _t('lina_sicherheit_gift', '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.')
+        .replace('{1}', namen);
+    }
+    return '';
   } catch (_) { return ''; }
 }
 window._gsLinaSicherheit = _gsLinaSicherheit;

@@ -12,6 +12,69 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-14 (ib) - v33.32: Die Giftwarnung greift jetzt wirklich
+
+**Ein Sicherheits-Fix auf etwas, das ich zwei Auslieferungen vorher selbst
+gebaut und fuer fertig erklaert habe.**
+
+v33.30 hat `_gsLinaSicherheit` eingefuehrt: behauptet Lina „essbar" ueber eine
+Art, die die Liste mit `tox >= 3` fuehrt, kommt eine Warnzeile darueber. Eine
+gegnerische Pruefung des fertigen Schnitts lief weiter, nachdem ich sie
+abgebrochen und v33.30 gemergt hatte — und hat sie **end-to-end gegen die
+echte Artenliste** gemessen (Playwright, `file://`, Netz ab, 4'337 Eintraege,
+Gruener Knollenblaetterpilz → 3 Arten, alle tox 5).
+
+**Ergebnis: 8 von 9 realistischen Zusagen kamen OHNE Warnung durch.**
+
+```
+„Ja, die kannst du roh essen."            → keine Warnung
+„Ja, du kannst die jungen Blätter essen." → keine Warnung
+„Das ist ein hervorragender Speisepilz."  → keine Warnung
+„Er eignet sich zum Kochen."              → keine Warnung
+„Oui, vous pouvez le manger."             → keine Warnung
+„Sì, si può mangiare senza problemi."     → keine Warnung
+„Yes, you can eat it."                    → keine Warnung
+„Ja, er ist essbar."                      → WARNUNG   ← der einzige Treffer
+```
+
+Der Ausloeser suchte **ganze Woerter**. Meine Erweiterung in v33.30 hat die
+deklinierten Formen gefangen („essbare Pflanze"), aber nicht die FORMULIERUNG
+— und die drei nicht-deutschen Sprachen gar nicht. **Das ist dieselbe Klasse,
+die das Repo in v32.99 schon einmal bezahlt hat** („0 von 12 nicht-deutschen
+Notfallsaetzen").
+
+**Und ein zweiter Fehler, den die Pruefung selbst gefunden hat:** der
+Satz-Split war tot. `_gsLinaNorm` streicht `.!?` **vor** dem
+`split(/[.!?]/)` — getrennt wurde also an nichts ausser „und"/„aber". Der
+Kommentar darueber behauptete genau das Gegenteil („die Verneinung wird nur im
+SELBEN Satz gesucht"). Folge: „Ja, das ist essbar. Der Doppelgaenger ist nicht
+essbar." warnte NICHT.
+
+> **Eine Sicherung, die man nicht mit den Saetzen misst, die wirklich
+> vorkommen, ist eine Vermutung.** Und ein Kommentar, der eine Eigenschaft
+> behauptet, ersetzt keine Messung — er hat hier zwei Auslieferungen lang
+> das Gegenteil dessen dokumentiert, was der Code tat.
+
+**Gebaut:** Staemme statt ganzer Woerter
+(`essbar|geniess|verzehr|speise|bedenkenlos|comestib|commestib|edib`), dazu ein
+**Verzehr-Verb in der Naehe einer Zustimmung** (`essen|kochen|roh|manger|
+mangiare|eat` neben `ja|kannst|darfst|oui|pouvez|si|yes|can`), Verneinung je
+Satz, und der Split am **rohen** Text.
+
+**Pruefstand:** der Fall traegt die **zwoelf GEMESSENEN** Saetze, nicht
+ausgewaehlte — das war die zweite Kritik der Pruefung: *ein Fall, dessen Satz
+den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware.* Dazu sechs
+Saetze, die selbst warnen und still bleiben muessen, und die Gegenrichtung bei
+einer harmlosen Art.
+
+**Drei Gegenproben, jede rot mit der echten Zahl:** Wortliste zurueck (3 von 12
+verpasst) · Verzehr-Naehe aus (**7 von 12**) · Split am normierten Text (1 von
+12, genau der Doppelgaenger-Satz).
+
+**Eine Einordnung, damit die Lage stimmt:** v33.29 hatte gar keine Sicherung.
+v33.30 war also kein Rueckschritt, sondern eine neue Sicherung mit einem Loch —
+aber das Loch lag in genau der Klasse, fuer die sie gebaut wurde.
+
 ### 2026-09-14 (ia) - v33.31: Ein Chat statt zwei
 
 Nach v33.30 hatte Lina Notfall-Erkennung, Arten-Erdung und die
