@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.44.20260916">
+<meta name="app-version" content="33.45.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27778,6 +27778,9 @@ window._gsMesswerteDeckel = _gsMesswerteDeckel;
 // Antwort sagt es. Gelesen und geschrieben wird EINMAL, nicht je Wert; die
 // Liste bleibt nach `ts` sortiert, damit der Deckel wirklich die aeltesten
 // nimmt (eine Nachlieferung alter Stunden stuende sonst am Ende).
+// v33.45: der Deckel hiess bis dahin nur `2000` an seiner Aufrufstelle. Ein
+// Deckel ohne Namen steht in keinem Dokument und in keiner Regel.
+var GS_MESSWERTE_MAX = 2000;
 function _gsMesswerteAnhaengen(g, liste, opts) {
   var out = { ok: true, neu: 0, doppelt: 0, abgelehnt: [], quality: null, grund: '' };
   try {
@@ -27821,7 +27824,7 @@ function _gsMesswerteAnhaengen(g, liste, opts) {
       return { ok: false, neu: 0, doppelt: 0, abgelehnt: out.abgelehnt, quality: null, grund: out.abgelehnt.length ? out.abgelehnt[0].grund : 'Nichts einzutragen.' };
     }
     arr.sort(function (a, b) { return String(a.ts).localeCompare(String(b.ts)); });
-    arr = _gsMesswerteDeckel(arr, 2000);   // v32.51: hochgeladene zuerst, dann der alte Deckel
+    arr = _gsMesswerteDeckel(arr, GS_MESSWERTE_MAX);   // v32.51: hochgeladene zuerst, dann der alte Deckel
     if (localStorage.setItem('gs_messwerte', JSON.stringify(arr)) === false) {
       if (typeof gsToast === 'function') gsToast('Speicher voll — der Messwert wurde nicht gesichert.', 'warn', 5000);
       return { ok: false, neu: 0, doppelt: out.doppelt, abgelehnt: out.abgelehnt, quality: letzte.q, grund: 'Speicher voll — der Messwert wurde nicht gesichert.' };
@@ -75901,6 +75904,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.45', date: '16.09.2026',
+      headline: 'Was demnächst abläuft, steht jetzt auf dem Bildschirm',
+      summary: 'v33.44 hat das Risiko-Inventar gebaut und im selben Atemzug notiert, was daran fehlt: eine Liste, die niemand liest, ist Speicherplatz. GS_FRISTEN rechnet sechs Fristen selbst aus — fünf live auf dem Gerät, eine gemessen mit Datum — und das Admin-Panel zeigt sie.',
+      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel. Für dich ändert sich nichts — sie sorgt dafür, dass Deckel und Fristen nicht erst auffallen, wenn sie erreicht sind.',
+      user_items: [
+        {emoji:'⏳', text:'Der Speicher auf deinem Gerät und die Deckel der App werden überwacht, bevor etwas voll ist.'}
+      ],
+      items: [
+        {emoji:'📋', bold:'GS_FRISTEN + gsFristenStand():', text:' zwei Arten — ein DATUM ist gemessen (mit Messdatum und Quelle daneben), eine SCHWELLE rechnet die App live. Vier Zustände: ok · bald (ab 80 %) · fällig · nicht_bekannt MIT GRUND.'},
+        {emoji:'⚖️', bold:'Am Deckel ist der Normalzustand, nicht der Alarm:', text:' das Changelog steht bei 20 von 20, und der nächste Bump schiebt den ältesten ins Archiv. ‚Fällig‘ ist erst DARÜBER — ein Alarm, der im Normalzustand steht, ist die Zahl, die man zu ignorieren lernt.'},
+        {emoji:'🧪', bold:'risiko_check R4:', text:' liest die GERENDERTE Karte, nicht das Objekt — und beide Richtungen: jeder Eintrag steht auf dem Bildschirm, und jedes Datum aus dem Inventar hat einen Eintrag. Die Gegenrichtung fehlte zuerst, und die Gegenprobe ‚eine Frist entfernt‘ blieb genau deshalb grün.'},
+        {emoji:'🏷️', bold:'GS_MESSWERTE_MAX:', text:' der Messwerte-Deckel hiess bis hierher nur 2000 an seiner Aufrufstelle. Ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.'}
+      ],
+    },
+  {
     v: 'v33.44', date: '16.09.2026',
       headline: 'Was später schiefgeht — gemessen, bevor es passiert',
       summary: 'Die Wochen-Tipps werden nur nach Kalenderwoche ausgewählt, wiederholen sich also jedes Jahr — und elf davon nannten ein Jahr im Sinn von ‚dieses Jahr‘. Ab dem 1. Januar 2027 hätte die App in Woche 13 von einer Pilzsaison erzählt, die vorbei ist. Bereinigt, und ein neuer Prüfstand hält es fest.',
@@ -76228,22 +76246,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'backup_check.js (Prüfstand 34):', text:' Aufbewahrung im lokalen Postgres mit Reproduktion und Gegenprobe (ein manual, zehn Auslieferungen) · die Regel in fünf Zuständen mit gestellter Uhr UND Zeitzone (lokal 12.09. vs UTC 11.09.) · das Sitzungs-Backup nach dem Pull · Server sagt Nein → Stempel bleibt alt.'}
       ],
     },
-  {
-    v: 'v33.25', date: '11.09.2026',
-      headline: 'Updates kommen von selbst — an zwei Stellen, an denen niemand liest',
-      summary: 'Ein wartendes Update wird beim Start oder beim Zurückkommen nach fünf Minuten Abwesenheit angewandt, nie mitten in einer Antwort, einem Scan oder einem Fenster. Vorher sichert die App; danach steht derselbe Tab wieder da. Der Banner ist nur noch Rückfall.',
-      user_summary: 'Du musst Updates nicht mehr antippen. Die App holt sie sich, wenn du sie das nächste Mal öffnest oder nach einer Pause zurückkommst — nie, während du etwas liest oder tippst. Vorher sichert sie deine Daten, danach bist du wieder dort, wo du warst.',
-      user_items: [
-        {emoji:'🔄', bold:'Ohne Klick:', text:' beim Start oder nach fünf Minuten Pause — nie mitten in Lina, im Scanner, im Quiz, in einem Fenster oder bei einer Zahlung.'},
-        {emoji:'💾', bold:'Erst sichern:', text:' Synchronisierung und Cloud-Backup laufen, bevor die App neu lädt.'},
-        {emoji:'📍', bold:'Wieder dort:', text:' nach dem Update öffnet sich derselbe Bereich wie vorher.'}
-      ],
-      items: [
-        {emoji:'🧭', bold:'_gsAppRuhig():', text:' EIN Prädikat für „darf jetzt neu geladen werden" — Lina, KI-Zähler (_gsAiAnfrage try/finally), Flush/Pull, GPS-Track, Quiz, Battle, Kamera (getUserMedia-Tor merkt die Spuren), Zahlung (Popup/Poll), Dateiauswahl, offenes Fenster (beide Klassen), Scan-Ergebnis, Text in einem sichtbaren Feld.'},
-        {emoji:'🛡️', bold:'Vier Sperren:', text:' Erst-Install (controllerchange ohne Vorgänger lädt nicht), Loop-Schutz je Zielversion (sessionStorage, keine Uhr), gleiche Version → nur umschalten (GET_VERSION über Port), 4-s-Zwangs-Reload gestrichen.'},
-        {emoji:'🧪', bold:'offline_check Fall 11:', text:' zweiter sw.js vom Prüfserver → sichern → sieben Gegenrichtungen → Loop → 60 s zu kurz → 6 min: ein Reload, neue Caches, Tab „wissen" zurück, Zweit-Tab lädt mit, gleiche Version ohne Reload. robust_check Fall 24: sw.js VERSION und meta app-version müssen zur GS_VERSION passen.'}
-      ],
-    },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76452,7 +76454,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.44';
+var GS_VERSION = 'v33.45';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -87719,6 +87721,210 @@ async function gsAdminSendBroadcast() {
   } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
 }
 window.gsAdminSendBroadcast = gsAdminSendBroadcast;
+// ═══════════════════════════════════════════════════════════════════════════
+// v33.45 · GS_FRISTEN — was demnaechst ablaeuft, und wer es sieht
+//
+// v33.44 hat das Inventar gebaut (docs/RISIKEN.md) und im selben Atemzug
+// aufgeschrieben, was daran noch fehlt: **eine Liste, die niemand liest, ist
+// Speicherplatz** (die Lehre aus v33.18, wo die Nutzungsmessung monatelang
+// schrieb, ohne dass jemand die Zahlen abrief).
+//
+// Also: die Fristen stehen hier, sie rechnen sich SELBST aus, und das
+// Admin-Panel zeigt sie. Zwei Arten:
+//   `datum`    — ein Tag, an dem etwas aufhoert. Er ist GEMESSEN worden, nicht
+//                gerechnet; deshalb traegt jeder Eintrag sein Messdatum.
+//   `schwelle` — eine Groesse mit einem Deckel. Die rechnet die App live.
+//
+// Und drei Zustaende, wie ueberall: ok · bald · faellig — plus
+// **nicht_bekannt** mit Grund, wenn sich nichts messen laesst. Nie 0 fuer
+// „keine Daten" (PLANER-V3, KALENDER-V2).
+// Pruefstand: scripts/risiko_check.js R4 (liest die GERENDERTE Karte).
+// ═══════════════════════════════════════════════════════════════════════════
+var GS_FRISTEN = [
+  {
+    id: 'quiz_vorrat',
+    titel: 'Quiz-Vorrat',
+    art: 'datum',
+    datum: '2027-06-16',
+    gemessen: '14.09.2026',
+    quelle: 'quiz_gen_check: 181 freie Fragen, Zulauf 12 je 35 Tage, Verbrauch 1/Tag → −0,657/Tag',
+    was: 'Danach wiederholt der Server Fragen über seinen Rückfall — ohne dass etwas meldet.',
+    tun: 'Migration 20260914_quiz_vorrat.sql anwenden (misst den Vorrat, warnt unter 60 Fragen).'
+  },
+  {
+    id: 'speicher',
+    titel: 'Speicher auf diesem Gerät',
+    art: 'schwelle',
+    einheit: 'KB',
+    mess: function () {
+      try {
+        if (!window.gsStore || typeof gsStore.usageBytes !== 'function') return null;
+        var b = gsStore.usageBytes();
+        if (typeof b !== 'number' || !isFinite(b) || b <= 0) return null;
+        return { ist: Math.round(b / 1024), von: 5 * 1024 };
+      } catch (_) { return null; }
+    },
+    was: 'Ist er voll, meldet jeder Schreibversuch false — die App sagt es, aber der Wert ist weg.',
+    tun: 'Die Deckel greifen von selbst. speicher_check fährt zehn Rettungswege durch.'
+  },
+  {
+    id: 'changelog',
+    titel: 'Changelog im Start-Paket',
+    art: 'schwelle',
+    einheit: 'Einträge',
+    mess: function () {
+      try {
+        var n = (window.GS_RELEASES && GS_RELEASES.length) || 0;
+        return n ? { ist: n, von: 20 } : null;
+      } catch (_) { return null; }
+    },
+    was: 'Jeder Eintrag darüber wird bei jedem Kaltstart mitgeladen und geparst.',
+    tun: 'Beim nächsten Bump wandert der älteste ins Archiv (robust_check Fall 24).'
+  },
+  {
+    id: 'lernkarten',
+    titel: 'Lernkarten („Üben")',
+    art: 'schwelle',
+    einheit: 'Karten',
+    mess: function () {
+      try {
+        if (typeof gsTrainingLaden !== 'function') return null;
+        var t = gsTrainingLaden();
+        var n = (t && t.karten) ? Object.keys(t.karten).length : 0;
+        return { ist: n, von: (typeof GS_TRAINING_KARTEN_MAX === 'number') ? GS_TRAINING_KARTEN_MAX : 500 };
+      } catch (_) { return null; }
+    },
+    was: 'Über dem Deckel fallen die ältesten Karten weg.',
+    tun: 'Nichts — der Deckel ist Absicht.'
+  },
+  {
+    id: 'messwerte',
+    titel: 'Messwerte auf diesem Gerät',
+    art: 'schwelle',
+    einheit: 'Werte',
+    mess: function () {
+      try {
+        var l = JSON.parse(localStorage.getItem('gs_messwerte') || '[]');
+        if (!Array.isArray(l)) return null;
+        return { ist: l.length, von: (typeof GS_MESSWERTE_MAX === 'number') ? GS_MESSWERTE_MAX : 2000 };
+      } catch (_) { return null; }
+    },
+    was: 'Über dem Deckel wird zuerst weggeworfen, was schon hochgeladen ist — eine Handmessung ohne Kopie bleibt.',
+    tun: 'Nichts — der Deckel ist Absicht (v32.51).'
+  },
+  {
+    id: 'quiz_tage',
+    titel: 'Quiz-Tagesschlüssel',
+    art: 'schwelle',
+    einheit: 'Tage',
+    mess: function () {
+      try {
+        var n = 0;
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf('gs_dq_tag_') === 0) n++;
+        }
+        return { ist: n, von: (typeof GS_DQ_TAGE_MAX === 'number') ? GS_DQ_TAGE_MAX : 30 };
+      } catch (_) { return null; }
+    },
+    was: 'Ohne Deckel entstünde einer je Tag, für immer.',
+    tun: 'Nichts — sie werden nach dem Deckel weggeräumt (v33.27).'
+  }
+];
+window.GS_FRISTEN = GS_FRISTEN;
+
+// Der Stand jeder Frist — mit drei Zustaenden und einem vierten fuer
+// „nicht bekannt". Rechnet nur, schreibt nichts.
+function gsFristenStand() {
+  var heute = new Date();
+  return GS_FRISTEN.map(function (f) {
+    var e = { id: f.id, titel: f.titel, art: f.art, was: f.was, tun: f.tun };
+    if (f.art === 'datum') {
+      var d = null;
+      try { d = new Date(f.datum + 'T00:00:00'); } catch (_) {}
+      if (!d || isNaN(d.getTime())) {
+        e.zustand = 'nicht_bekannt'; e.grund = _gsSatz('Das Datum ist unlesbar.'); return e;
+      }
+      var tage = Math.round((d - heute) / 86400000);
+      e.tage = tage;
+      e.wert = _gsDatumKurz(d);
+      e.zustand = tage <= 0 ? 'faellig' : (tage <= 90 ? 'bald' : 'ok');
+      e.grund = _gsSatz('Gemessen am {1}: {2}', f.gemessen, f.quelle);
+      return e;
+    }
+    var m = null;
+    try { m = f.mess(); } catch (_) { m = null; }
+    if (!m || typeof m.ist !== 'number' || typeof m.von !== 'number' || m.von <= 0) {
+      e.zustand = 'nicht_bekannt';
+      e.grund = _gsSatz('Auf diesem Gerät nicht messbar.');
+      return e;
+    }
+    e.ist = m.ist; e.von = m.von; e.einheit = f.einheit || '';
+    e.anteil = m.ist / m.von;
+    e.wert = m.ist + ' / ' + m.von + (f.einheit ? (' ' + f.einheit) : '');
+    // AM Deckel ist der Normalzustand, nicht der Alarm — das Changelog steht
+    // bei 20 von 20, und der nächste Bump schiebt den ältesten ins Archiv.
+    // Ein Alarm, der im Normalzustand steht, ist die Zahl, die man zu
+    // ignorieren lernt (v32.21). „Fällig“ ist erst DARÜBER.
+    e.zustand = e.ist > e.von ? 'faellig' : (e.anteil >= 0.8 ? 'bald' : 'ok');
+    return e;
+  });
+}
+window.gsFristenStand = gsFristenStand;
+
+// Ein kurzes Datum in der Sprache der Person — nie 'de-CH' fest (i18n_check).
+function _gsDatumKurz(d) {
+  try { return d.toLocaleDateString(gsLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+  catch (_) { return String(d && d.getTime ? d.toISOString().slice(0, 10) : ''); }
+}
+
+// Die Karte im Admin-Panel. Sie holt nichts vom Server — deshalb steht sie
+// nicht in GS_ADM_SEKTIONEN (v33.42), sondern wird wie _gsAdminBroadcastHtml
+// direkt gerufen.
+function _gsAdminFristenHtml() {
+  var esc = (typeof escHtml === 'function') ? escHtml : function (s) { return String(s == null ? '' : s); };
+  var stand = [];
+  try { stand = gsFristenStand(); } catch (_) { stand = []; }
+  var rang = { faellig: 0, bald: 1, nicht_bekannt: 2, ok: 3 };
+  stand.sort(function (a, b) { return (rang[a.zustand] || 9) - (rang[b.zustand] || 9); });
+  var farbe = { faellig: 'var(--c-danger)', bald: 'var(--c-warn-d)', nicht_bekannt: 'var(--muted)', ok: 'var(--c-success)' };
+  var zeichen = { faellig: '\u26a0\ufe0f', bald: '\u23f3', nicht_bekannt: '\u2014', ok: '\u2705' };
+  var wort = {
+    faellig: _gsSatz('F\u00e4llig'), bald: _gsSatz('Bald'),
+    nicht_bekannt: _gsSatz('Nicht bekannt'), ok: _gsSatz('In Ordnung')
+  };
+  var offen = stand.filter(function (e) { return e.zustand === 'faellig' || e.zustand === 'bald'; }).length;
+  var zeilen = stand.map(function (e) {
+    var unten = (e.zustand === 'nicht_bekannt')
+      ? esc(e.grund || '')
+      : (e.art === 'datum'
+          ? esc(_gsSatz('in {1} Tagen', e.tage) + ' \u00b7 ' + (e.was || ''))
+          : esc(e.was || ''));
+    return '<div data-frist="' + esc(e.id) + '" data-zustand="' + esc(e.zustand) + '"' +
+      ' style="display:flex;gap:9px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:var(--fs-sm);">' +
+      '<span aria-hidden="true" style="flex-shrink:0;">' + zeichen[e.zustand] + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:700;color:var(--text);">' + esc(e.titel) +
+          ' <span style="font-weight:600;color:' + farbe[e.zustand] + ';">' + esc(wort[e.zustand]) + '</span></div>' +
+        '<div style="color:var(--muted);line-height:1.45;">' + unten + '</div>' +
+        (e.tun && e.zustand !== 'ok' ? '<div style="color:var(--text2);margin-top:2px;">\u2192 ' + esc(e.tun) + '</div>' : '') +
+      '</div>' +
+      '<div style="flex-shrink:0;font-variant-numeric:tabular-nums;color:var(--text2);">' + esc(e.wert || '') + '</div>' +
+    '</div>';
+  }).join('');
+  var kopf = offen
+    ? esc(_gsSatz('{1} von {2} brauchen Aufmerksamkeit', offen, stand.length))
+    : esc(_gsSatz('Alle {1} in Ordnung', stand.length));
+  return '<div id="gs-admin-fristen-sec" style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:var(--r-sm);">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">\u23f3 ' + esc(_gsSatz('L\u00e4uft demn\u00e4chst ab')) + '</div>' +
+      '<div style="font-size:var(--fs-xs);color:var(--muted);">' + kopf + '</div>' +
+    '</div>' + (zeilen || '<div style="font-size:var(--fs-sm);color:var(--muted);">' + esc(_gsSatz('Keine Fristen hinterlegt.')) + '</div>') +
+    '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;">' +
+      esc(_gsSatz('Schwellen rechnet die App auf diesem Ger\u00e4t. Ein Datum ist GEMESSEN, nicht gerechnet \u2014 das Messdatum steht dabei. Inventar: docs/RISIKEN.md')) +
+    '</div></div>';
+}
+
 function _gsAdminBroadcastHtml() {
   return '<div style="margin-top:10px;padding:11px 13px;background:var(--bg-warn-soft);border-radius:var(--r-sm);">' +
     '<div style="font-weight:800;font-size:var(--fs-sm);margin-bottom:6px;color:var(--c-warn-d);">📣 Push-Broadcast (an alle Abonnenten)</div>' +
@@ -88699,6 +88905,7 @@ async function openAdminPanel() {
       _gsAdminAnalyticsHtml(analytics) +
       _gsAdminStripeHtml(stripe) +
       _gsAdminFlagsHtml(flags) +
+      _gsAdminFristenHtml() +
       _gsAdminBroadcastHtml() +
       _gsAdminI18nHtml() +
       _gsAdminClientErrorsHtml(cerrs) +

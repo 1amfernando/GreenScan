@@ -30,6 +30,22 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.25', date: '11.09.2026',
+      headline: 'Updates kommen von selbst — an zwei Stellen, an denen niemand liest',
+      summary: 'Ein wartendes Update wird beim Start oder beim Zurückkommen nach fünf Minuten Abwesenheit angewandt, nie mitten in einer Antwort, einem Scan oder einem Fenster. Vorher sichert die App; danach steht derselbe Tab wieder da. Der Banner ist nur noch Rückfall.',
+      user_summary: 'Du musst Updates nicht mehr antippen. Die App holt sie sich, wenn du sie das nächste Mal öffnest oder nach einer Pause zurückkommst — nie, während du etwas liest oder tippst. Vorher sichert sie deine Daten, danach bist du wieder dort, wo du warst.',
+      user_items: [
+        {emoji:'🔄', bold:'Ohne Klick:', text:' beim Start oder nach fünf Minuten Pause — nie mitten in Lina, im Scanner, im Quiz, in einem Fenster oder bei einer Zahlung.'},
+        {emoji:'💾', bold:'Erst sichern:', text:' Synchronisierung und Cloud-Backup laufen, bevor die App neu lädt.'},
+        {emoji:'📍', bold:'Wieder dort:', text:' nach dem Update öffnet sich derselbe Bereich wie vorher.'}
+      ],
+      items: [
+        {emoji:'🧭', bold:'_gsAppRuhig():', text:' EIN Prädikat für „darf jetzt neu geladen werden" — Lina, KI-Zähler (_gsAiAnfrage try/finally), Flush/Pull, GPS-Track, Quiz, Battle, Kamera (getUserMedia-Tor merkt die Spuren), Zahlung (Popup/Poll), Dateiauswahl, offenes Fenster (beide Klassen), Scan-Ergebnis, Text in einem sichtbaren Feld.'},
+        {emoji:'🛡️', bold:'Vier Sperren:', text:' Erst-Install (controllerchange ohne Vorgänger lädt nicht), Loop-Schutz je Zielversion (sessionStorage, keine Uhr), gleiche Version → nur umschalten (GET_VERSION über Port), 4-s-Zwangs-Reload gestrichen.'},
+        {emoji:'🧪', bold:'offline_check Fall 11:', text:' zweiter sw.js vom Prüfserver → sichern → sieben Gegenrichtungen → Loop → 60 s zu kurz → 6 min: ein Reload, neue Caches, Tab „wissen" zurück, Zweit-Tab lädt mit, gleiche Version ohne Reload. robust_check Fall 24: sw.js VERSION und meta app-version müssen zur GS_VERSION passen.'}
+      ],
+    },
+  {
     v: 'v33.24', date: '11.09.2026',
       headline: 'Nutzungsmessung: Ereignisse werden nach 180 Tagen gelöscht',
       summary: 'Eine Zählung, die nie endet, ist ein Archiv. Eine Migration (nicht angewandt) legt fn_analytics_prune an und plant den täglichen Cron; die Admin-Karte nennt die Frist. revDSG: Daten bleiben nur, solange der Zweck sie braucht.',

@@ -749,7 +749,7 @@ node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
-node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44)
+node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
 bash scripts/pruefstaende.sh     # ALLE 38 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
@@ -1565,6 +1565,28 @@ Jahr im Sinn von „dieses Jahr". **Ab dem 1. Januar 2027 hätte die App in Woch
 > kommentarfreien — die Nummern zeigten auf ganz andere Zeilen, und die
 > ersten drei „Funde" waren keine. **Eine Zeilennummer stammt aus demselben
 > Text wie ihr Treffer.**
+
+> **Eine Liste, die niemand liest, ist Speicherplatz — und zwei Seiten, die
+> dieselbe Liste lesen, prüfen einander nicht** (v33.45). `GS_FRISTEN` steht
+> seit v33.45 im Admin-Panel (`_gsAdminFristenHtml`, Karte „Läuft demnächst
+> ab"); `gsFristenStand()` rechnet zwei Arten — ein **Datum** ist GEMESSEN
+> (Messdatum und Quelle stehen dabei), eine **Schwelle** rechnet die App live —
+> und vier Zustände: `ok` · `bald` (ab 80 %) · `faellig` · `nicht_bekannt` mit
+> Grund. Wer eine Frist oder einen Deckel einführt, trägt ihn dort UND in
+> `docs/RISIKEN.md` ein.
+>
+> **Am Deckel ist der Normalzustand, nicht der Alarm.** Meine erste Fassung
+> meldete `faellig` ab `ist >= von` — das Changelog steht bei 20 von 20, weil
+> 20 der Deckel IST. `faellig` ist erst DARÜBER (v32.21: ein Bericht wird nicht
+> durch eine falsche Zahl unlesbar, sondern durch eine, die man zu ignorieren
+> gelernt hat).
+>
+> Und die Gegenprobe, die grün blieb: „eine Frist aus der Liste entfernt"
+> ändert BEIDE Seiten, wenn der Fall nur „jeder Eintrag steht auf dem
+> Bildschirm" prüft. R4 hält deshalb auch das INVENTAR dagegen — jedes Datum
+> aus `docs/RISIKEN.md` §1 braucht einen Eintrag. **Ein Deckel ohne Namen**
+> (`2000` an der Aufrufstelle) steht übrigens in keinem Dokument und in keiner
+> Regel; er heisst jetzt `GS_MESSWERTE_MAX`.
 
 **`android_check.js` (seit v33.43) fragt, ob die App hält, was eine
 ANDROID-App verspricht.** Anlass war Fernandos „Ich will es auch langsam als

@@ -158,17 +158,107 @@ function r3() {
   return { ok: true, info: paare.length + ' Konstante(n) im Dokument, jede stimmt mit dem Quelltext überein' };
 }
 
+// ── R4 ────────────────────────────────────────────────────────────────────
+// Eine Liste, die niemand liest, ist Speicherplatz (v33.18). GS_FRISTEN steht
+// seit v33.45 im Admin-Panel — gemessen wird die GERENDERTE Karte, nicht das
+// Objekt (dieselbe Regel wie in planer_check seit v31.90).
+async function r4() {
+  const path2 = require('path');
+  let chromium;
+  try { ({ chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright')); }
+  catch (e) { return { ok: false, warum: 'Playwright fehlt: ' + e.message }; }
+  const SEED = require('./_seed.js');
+  const br = await chromium.launch();
+  try {
+    const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
+    const p = await ctx.newPage();
+    await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+    await p.addInitScript(SEED);
+    await p.goto('file://' + path2.join(WURZEL, 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await p.waitForTimeout(4000);
+    const doc = fs.readFileSync(path2.join(WURZEL, 'docs', 'RISIKEN.md'), 'utf8');
+    const r = await p.evaluate(async () => {
+      document.documentElement.classList.remove('gs-preauth');
+      window.gsRequire = () => true; window.gsToast = () => {}; window.showProfileToast = () => {};
+      window._gsFreshToken = async () => 'tok';
+      localStorage.setItem('gs_is_admin', '1');
+      window.sbFetch = async () => ({ data: [], error: null });
+      const liste = (window.GS_FRISTEN || []).map(f => ({ id: f.id, art: f.art, datum: f.datum || null }));
+      let stand = [];
+      try { stand = gsFristenStand(); } catch (e) { return { fehler: 'gsFristenStand wirft: ' + e.message }; }
+      try { await openAdminPanel(); } catch (e) { return { fehler: 'das Panel wirft: ' + e.message }; }
+      const m = document.getElementById('modal-admin-panel');
+      if (!m) return { fehler: 'das Panel geht nicht auf' };
+      const karte = m.querySelector('#gs-admin-fristen-sec');
+      const zeilen = karte ? [...karte.querySelectorAll('[data-frist]')].map(e => ({
+        id: e.getAttribute('data-frist'), zustand: e.getAttribute('data-zustand'),
+        text: (e.textContent || '').replace(/\s+/g, ' ').trim(),
+      })) : [];
+      // Und der dritte Zustand, HERGESTELLT: eine Messung, die nichts liefert.
+      let unbekannt = null;
+      const f0 = (window.GS_FRISTEN || []).filter(f => f.art === 'schwelle')[0];
+      if (f0) {
+        const echt = f0.mess;
+        f0.mess = function () { return null; };
+        try { unbekannt = (gsFristenStand().filter(e => e.id === f0.id)[0]) || null; } finally { f0.mess = echt; }
+      }
+      try { m.remove(); } catch (_) {}
+      return { liste, stand: stand.map(e => ({ id: e.id, zustand: e.zustand, wert: e.wert || '', grund: e.grund || '' })), karte: !!karte, zeilen, unbekannt };
+    });
+    if (r.fehler) return { ok: false, warum: r.fehler };
+    const klagen = [];
+    if (!r.liste.length) return { ok: false, warum: 'GS_FRISTEN fehlt oder ist leer — dann gibt es nichts zu zeigen' };
+    if (!r.karte) klagen.push('die Karte #gs-admin-fristen-sec steht nicht im Admin-Panel — die Liste läge da und niemand sähe sie');
+    const gezeigt = new Set(r.zeilen.map(z => z.id));
+    const fehlend = r.liste.filter(f => !gezeigt.has(f.id)).map(f => f.id);
+    if (fehlend.length) klagen.push(fehlend.length + ' Frist(en) stehen in der Liste, aber nicht auf dem Bildschirm: ' + fehlend.join(', '));
+    const ZUSTAENDE = ['ok', 'bald', 'faellig', 'nicht_bekannt'];
+    r.stand.forEach(e => { if (ZUSTAENDE.indexOf(e.zustand) < 0) klagen.push(e.id + ': Zustand „' + e.zustand + '" gibt es nicht'); });
+    // Jedes Datum muss auch im Inventar stehen — sonst driften Liste und Dokument.
+    r.liste.filter(f => f.art === 'datum').forEach(f => {
+      const [j, mo, t] = [f.datum.slice(0, 4), f.datum.slice(5, 7), f.datum.slice(8, 10)];
+      if (doc.indexOf(t + '.' + mo + '.' + j) < 0) klagen.push(f.id + ': das Datum ' + t + '.' + mo + '.' + j + ' steht in keiner Zeile von docs/RISIKEN.md');
+    });
+    // UND die Gegenrichtung: jedes Datum, das im Inventar steht, braucht einen
+    // Eintrag. Ohne sie fällt es niemandem auf, wenn eine Frist aus der Liste
+    // verschwindet — die Anzeige verschwände mit ihr (die Gegenprobe blieb
+    // grün, weil beide Seiten dieselbe Liste lasen).
+    const inLista = new Set(r.liste.filter(f => f.art === 'datum').map(f => {
+      return f.datum.slice(8, 10) + '.' + f.datum.slice(5, 7) + '.' + f.datum.slice(0, 4);
+    }));
+    const eins = doc.indexOf('## 1 \u00b7 Was an einem DATUM aufh\u00f6rt');
+    const zwei = doc.indexOf('## 2 \u00b7');
+    const abschnitt = (eins >= 0 && zwei > eins) ? doc.slice(eins, zwei) : '';
+    if (!abschnitt) klagen.push('docs/RISIKEN.md §1 („Was an einem DATUM aufhört") nicht gefunden — dann kann niemand die Gegenrichtung prüfen');
+    else {
+      const imDoc = [...abschnitt.matchAll(/\*\*(\d{2}\.\d{2}\.\d{4})\*\*/g)].map(m => m[1]);
+      const ohne = imDoc.filter(d => !inLista.has(d));
+      if (ohne.length) klagen.push(ohne.length + ' Datum/Daten stehen im Inventar §1, aber in keinem GS_FRISTEN-Eintrag: ' + ohne.join(', '));
+    }
+    // Der dritte Zustand muss einen GRUND haben — Stille ist keine Messung.
+    if (!r.unbekannt) klagen.push('der Zustand „nicht bekannt" liess sich nicht herstellen — dann prüft dieser Fall ihn nicht');
+    else if (r.unbekannt.zustand !== 'nicht_bekannt') klagen.push('eine Messung, die nichts liefert, ergibt „' + r.unbekannt.zustand + '" statt „nicht_bekannt"');
+    else if (!r.unbekannt.grund) klagen.push('„nicht bekannt" ohne Grund — das ist Stille');
+    if (klagen.length) return { ok: false, warum: klagen.slice(0, 3).join(' · ') };
+    const n = { ok: 0, bald: 0, faellig: 0, nicht_bekannt: 0 };
+    r.stand.forEach(e => n[e.zustand]++);
+    return { ok: true, info: r.liste.length + ' Fristen · gezeigt ' + r.zeilen.length + ' · ' + n.ok + ' ok, ' + n.bald + ' bald, ' + n.faellig + ' fällig, ' + n.nicht_bekannt + ' nicht bekannt' };
+  } finally { await br.close(); }
+}
+
 const FAELLE = [
   { name: 'R1 · Kein „dieses Jahr" in einem Text, der jedes Jahr wiederkehrt', lauf: r1 },
   { name: 'R2 · Jede Listen-Abfrage ohne limit= ist eingeordnet — Katalog, Einzelzeile oder wächst-mit-der-Person', lauf: r2 },
   { name: 'R3 · Was docs/RISIKEN.md als Zahl nennt, steht so auch im Quelltext', lauf: r3 },
+  { name: 'R4 · Jede Frist steht nicht nur in der Liste, sondern auf dem Bildschirm — mit Zustand und Grund', lauf: r4 },
 ];
 
+(async () => {
 console.log('\n=== risiko_check — was geht SPAETER schief?');
 let kaputt = 0;
 for (const f of FAELLE) {
   let r;
-  try { r = f.lauf(); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message }; }
+  try { r = await f.lauf(); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message }; }
   if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
   else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
 }
@@ -178,3 +268,4 @@ console.log('  Grenze: hier wird AUSGEZAEHLT. Ein Dienst, der abgeschaltet wird,
 console.log('  die sich aendert, ein Schluessel, der ablaeuft — das steht in docs/RISIKEN.md mit');
 console.log('  Datum und OHNE Pruefstand. Was man nicht messen kann, sagt man gesondert.');
 process.exitCode = kaputt ? 1 : 0;
+})();
