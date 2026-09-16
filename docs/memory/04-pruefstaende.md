@@ -1,4 +1,4 @@
-# 04 · Die 35 Pruefstaende — welcher fragt was
+# 04 · Die 36 Pruefstaende — welcher fragt was
 
 Alle liegen in `scripts/`, alle laufen ohne Netz (`file://` + Playwright aus
 `scripts/package.json`); vier brauchen ein lokales Postgres
@@ -7,7 +7,7 @@ pruefbar" (Exit 2), nie gruen. Alle auf einmal:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: "35 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
+# Erwartung: "36 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
 ```
 
 Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
@@ -50,9 +50,10 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `robust_check` | kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch; seit v33.34 „ein Schluessel, ein Schreiber" (Wetter-Zwischenspeicher) |
 | `schluessel_check` | verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68) |
 | `nutzersicht_check` | sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70) |
-| `pruefstaende` | ALLE 35 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
+| `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42) |
+| `pruefstaende` | ALLE 36 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
 
-## Wie ein Fall gebaut wird (die Regeln, die alle 35 teilen)
+## Wie ein Fall gebaut wird (die Regeln, die alle 36 teilen)
 
 1. **Erst der Fall, dann der Code.** Gegen den alten Stand gefahren muss er
    rot sein. Erst danach wird repariert.

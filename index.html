@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.41.20260916">
+<meta name="app-version" content="33.42.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75746,6 +75746,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.42', date: '16.09.2026',
+      headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
+      summary: 'Dreizehn von sechzehn Admin-Sektionen lasen den Fehler gar nicht: eine Ablehnung wurde zur leeren Liste, und auf dem Bildschirm stand ‚Keine offenen Meldungen‘. Sieben fragten nicht einmal, ob die Person Admin ist. Jetzt gibt es eine Liste, einen Weg und vier Zustände — dazu einen Überblick ganz oben und einen Aktualisieren-Knopf je Sektion.',
+      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel — für dich ändert sich nichts. Sie sorgt dafür, dass gemeldete Beiträge nicht liegen bleiben, weil eine Abfrage stillschweigend fehlgeschlagen ist.',
+      user_items: [
+        {emoji:'🛡️', text:'Meldungen an die Moderation gehen nicht mehr unbemerkt unter.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Gemessen an v33.41:', text:' 13 von 16 Sektionen endeten auf catch(e) { return []; } — Ablehnung, 404, Netzfehler und ‚leer‘ sahen gleich aus. 7 von 16 hatten kein gsIsAdmin()-Tor und schickten ihre Anfrage trotzdem los.'},
+        {emoji:'📋', bold:'GS_ADM_SEKTIONEN + _gsAdmHole:', text:' eine Liste mit Titel, Pfad, Anzeige und Element je Sektion; ein Weg, der IMMER einen Umschlag {state, daten, grund} zurückgibt — daten · nicht_verfuegbar · fehler · kein_zugriff. Der Grund kommt aus _gsFehlerText, nie roh aus PostgREST.'},
+        {emoji:'🔄', bold:'gsAdmSektionNeu(schlüssel):', text:' eine Anfrage statt sechzehn. Der alte _gsAdminRefreshSection nahm Funktionsreferenzen (von aussen nicht adressierbar) und baute bei fehlendem Element das ganze Panel neu auf.'},
+        {emoji:'🔎', bold:'Überblick oben im Panel:', text:' ‚3 von 16 Sektionen konnten nicht geladen werden: Moderation · Hintergrund-Jobs · Gutscheine‘ mit ‚Nur diese erneut versuchen‘ — das sind dann drei Anfragen, nicht sechzehn.'},
+        {emoji:'🧪', bold:'scripts/admin_check.js (neu, 36. Prüfstand):', text:' sechs Fälle — Zugang, drei Zustände je Sektion, was auf dem Bildschirm steht, Einzel-Refresh, die Liste selbst, der Überblick. Alle sechs waren gegen v33.41 rot; jede Regel hat ihre eigene Gegenprobe.'}
+      ],
+    },
+  {
     v: 'v33.41', date: '16.09.2026',
     headline: 'Der Server kennt jetzt auch deine Beete — und zwei Migrationen, die gar nicht angewendet werden konnten',
     summary: 'Siebte und letzte Scheibe von KALENDER-V2. Drei Befunde, alle live gemessen: der Aufgaben-Push kannte nur „Meine Pflanzen" und nie eine Garten-Pflanzung; die saisonale Erinnerung filterte auf eine Spalte, die es gar nicht gibt (`priority`), und der Fehler wurde verschluckt — sie hat seit dem Bau keine einzige Zeile gehabt; und zwei Migrationen, die seit Tagen als „bereit" in der Liste standen, waeren beim Anwenden gescheitert, weil `CREATE OR REPLACE VIEW` Spalten nur anhaengen darf.',
@@ -76068,21 +76084,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'sensor_check „Lina · letzter Scan":', text:' zwei Eintraege → der juengste, mit Latein, 88 %, heute, ohne base64 · ohne Verlauf keine Zeile · 5 Tage alt → „vor 5 Tagen". Zwei Gegenproben rot.'}
       ],
     },
-  {
-    v: 'v33.22', date: '10.09.2026',
-      headline: 'Lina öffnet den Kalender und den Säkalender',
-      summary: 'Lina kennt den Kalender seit v33.14 — jetzt kann sie ihn auch zeigen: „öffne den Kalender am 15. September" oder „zeig mir den Säkalender" führt direkt dorthin. Und der Dispatcher, durch den jede ihrer Aktionen muss, hat seinen ersten Prüfstand.',
-      user_summary: 'Frag Lina „was steht nächste Woche an?" — und sag „zeig mir den Kalender": sie öffnet ihn am richtigen Tag. Auch der Säkalender ist einen Satz entfernt.',
-      user_items: [
-        {emoji:'📅', text:'„Öffne den Kalender am 15. September" — Lina zeigt den Tag mit Aufgaben, Aussaatfenstern, Plan-Terminen und Frost.'},
-        {emoji:'🌱', text:'„Zeig mir den Säkalender" — die 39 Kulturen mit drinnen/draussen/Ernte.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'gsLinaDispatch:', text:' open_calendar {day} → gsKalenderOeffnenAm (ohne day heute) · open_saekalender → openSaekalender; beide nur lesend, ohne Rückfrage. Der Auftrag (LINA_SYSTEM) nennt beide; erfundene Tools tun weiter nichts.'},
-        {emoji:'🧪', bold:'sensor_check „Lina · handeln":', text:' erster Prüfstand für den Dispatcher — Kalender am 01.09. (Feldsalat im Fenster), ohne day heute, Säkalender, erfundenes Tool ohne Wirkung, Auftrag nennt beide. Zwei Gegenproben rot.'}
-      ],
-    },
-
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76291,7 +76292,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.41';
+var GS_VERSION = 'v33.42';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -87141,13 +87142,248 @@ async function gsAdminAssignRole(userId, role, note, opts) {
 }
 
 // User-Liste laden (Admin)
-async function gsAdminListUsers() {
-  if (!gsIsAdmin()) return [];
-  try {
-    var r = await sbFetch('/rest/v1/v_admin_users?select=*&order=role.asc,created_at.desc', {method:'GET'});
-    return (r && r.data) ? r.data : (Array.isArray(r) ? r : []);
-  } catch(e) { return []; }
+// ═══════════════════════════════════════════════════════════════════════════
+// v33.42 · Admin-Panel: EIN Weg zu einer Sektion — und Zustaende, die es sagt
+//
+// Gemessen am 16.09.2026 an v33.41: von SECHZEHN Sektionen lasen DREIZEHN den
+// Fehler gar nicht. Sie endeten auf
+//       return (r && Array.isArray(r.data)) ? r.data : [];
+//     } catch(e) { return []; }
+// Eine Ablehnung, ein 404, eine fehlende RPC, ein Netzfehler — alles wurde zu
+// einer leeren Liste. Auf dem Bildschirm stand dann "Kein Inhalt vorhanden",
+// "Keine offenen Meldungen", "Alle Jobs laufen". Das ist keine Stille, das ist
+// eine ZUSAGE — bei der Moderation heisst sie "nichts zu tun".
+// Und SIEBEN der sechzehn fragten gar nicht erst, ob die Person Admin ist.
+//
+// Seither: eine Liste (GS_ADM_SEKTIONEN), ein Weg (_gsAdmHole) und vier
+// Zustaende, von denen drei die Anzeige AUSSPRECHEN muss:
+//     daten (leer ist Teil davon) · nicht_verfuegbar · fehler · kein_zugriff
+// Vorbild ist gsAdminFetchAnalytics (v33.18) — die Bauform stand dort schon,
+// sie galt nur fuer eine einzige Sektion.
+// Pruefstand: scripts/admin_check.js
+// ═══════════════════════════════════════════════════════════════════════════
+var GS_ADM_SEKTIONEN = {
+  cockpit:    { titel:'Ops-Cockpit', sec:'gs-admin-cockpit-sec',    hol:'gsAdminFetchOpsDigest',              html:'_gsAdminOpsCockpitHtml',        rpc:'fn_admin_ops_digest',              leer:null },
+  metrics:    { titel:'Live-Metriken', sec:'gs-admin-metrics-sec',    hol:'gsAdminFetchMetrics',                html:'_gsAdminMetricsHtml',           rpc:'fn_admin_metrics',                 leer:null },
+  analytics:  { titel:'Nutzung', sec:'gs-admin-analytics-sec',  hol:'gsAdminFetchAnalytics',              html:'_gsAdminAnalyticsHtml',         rpc:'fn_admin_analytics',               leer:null, body:{ p_days: 30 } },
+  stripe:     { titel:'Stripe-Übersicht', sec:'gs-admin-stripe-sec',     hol:'gsAdminFetchStripe',                 html:'_gsAdminStripeHtml',            rpc:'fn_admin_stripe_overview',         leer:null },
+  finance:    { titel:'Kostendeckung', sec:'gs-admin-finance-sec',    hol:'gsAdminFetchFinance',                html:'_gsAdminFinanceHtml',           rpc:'fn_admin_finance_snapshot',        leer:null },
+  flags:      { titel:'Feature-Flags', sec:'gs-admin-flags-sec',      hol:'gsAdminFetchFlags',                  html:'_gsAdminFlagsHtml',             rpc:'fn_admin_flags_list',              leer:[] },
+  cerrs:      { titel:'Client-Fehler', sec:'gs-admin-cerrs-sec',      hol:'gsAdminFetchClientErrors',           html:'_gsAdminClientErrorsHtml',      rpc:'fn_admin_client_errors',           leer:[], body:{ p_days: 7 } },
+  moderation: { titel:'Moderation', sec:'gs-admin-moderation-sec', hol:'gsAdminFetchModerationFeed',         html:'_gsAdminModerationHtml',        rpc:'fn_admin_moderation_feed',         leer:[], body:{ p_limit: 30 } },
+  reports:    { titel:'Nutzer-Meldungen', sec:'gs-admin-reports-sec',    hol:'gsAdminFetchReports',                html:'_gsAdminReportsHtml',           rpc:'fn_admin_reports_list',            leer:[], body:{ p_limit: 100 } },
+  simg:       { titel:'Foto-Beiträge', sec:'gs-admin-simg-sec',       hol:'gsAdminFetchSpeciesImageQueue',      html:'_gsAdminSpeciesImageHtml',      rpc:'fn_admin_species_image_queue',     leer:[], body:{ p_limit: 50 } },
+  prop:       { titel:'Arten-Vorschläge', sec:'gs-admin-prop-sec',       hol:'gsAdminFetchSpeciesProposalQueue',   html:'_gsAdminSpeciesProposalHtml',   rpc:'fn_admin_species_proposal_queue',  leer:[], body:{ p_limit: 50 } },
+  cron:       { titel:'Hintergrund-Jobs', sec:'gs-admin-cron-sec',       hol:'gsAdminFetchCronHealth',             html:'_gsAdminCronHealthHtml',        rpc:'fn_admin_cron_health',             leer:[] },
+  sysevents:  { titel:'System-Ereignisse', sec:'gs-admin-sysevents-sec',  hol:'gsAdminFetchSystemEvents',           html:'_gsAdminSystemEventsHtml',      rpc:'fn_admin_system_events',           leer:[], body:{ p_limit: 30 } },
+  vouchers:   { titel:'Gutscheine', sec:'gs-admin-vouchers-sec',   hol:'gsAdminFetchVouchers',               html:'_gsAdminVouchersHtml',          rpc:'fn_admin_vouchers_list',           leer:[] },
+  audit:      { titel:'Admin-Protokoll', sec:'gs-admin-audit-sec',      hol:'gsAdminFetchAudit',                  html:'_gsAdminAuditHtml',             rpc:'fn_admin_audit_recent',            leer:[], body:{ p_limit: 15 } },
+  users:      { titel:'Nutzer', sec:'gs-admin-users-sec',      hol:'gsAdminListUsers',                   html:'_gsAdminUsersHtml',             leer:[],
+                pfad:'/rest/v1/v_admin_users?select=*&order=role.asc,created_at.desc', opts:{ method:'GET' } }
+};
+window.GS_ADM_SEKTIONEN = GS_ADM_SEKTIONEN;
+
+// Der eine Weg zu einer Sektion. Gibt IMMER einen Umschlag zurueck, nie eine
+// nackte Liste — die Anzeige soll den Unterschied zwischen "nichts da" und
+// "nicht geladen" gar nicht erst verlieren koennen.
+// Was die letzte Abfrage je Sektion ergeben hat. Der Überblick oben im Panel
+// liest NUR das — er rechnet nichts nach und holt nichts nach.
+window._gsAdmStand = window._gsAdmStand || {};
+async function _gsAdmHole(schluessel, zusatz) {
+  var sek = await _gsAdmHolen(schluessel, zusatz);
+  try { window._gsAdmStand[schluessel] = { state: sek.state, grund: sek.grund || '' }; } catch(_){}
+  return sek;
 }
+async function _gsAdmHolen(schluessel, zusatz) {
+  var s = GS_ADM_SEKTIONEN[schluessel];
+  if (!s) return { state:'fehler', daten:null, key:schluessel, grund:_gsSatz('Unbekannte Sektion {1}', schluessel) };
+  var leer = Array.isArray(s.leer) ? [] : null;
+  // Der Server entscheidet, nicht der Speicher (v32.74) — und ohne sein Ja
+  // geht gar keine Anfrage hinaus.
+  if (!(typeof gsIsAdmin === 'function' && gsIsAdmin()))
+    return { state:'kein_zugriff', daten:leer, key:schluessel, grund:'' };
+  try {
+    var pfad = s.pfad, o = s.opts || { method:'GET' };
+    if (s.rpc) {
+      pfad = '/rest/v1/rpc/' + s.rpc;
+      var body = {};
+      if (s.body) for (var k in s.body) { if (Object.prototype.hasOwnProperty.call(s.body, k)) body[k] = s.body[k]; }
+      if (zusatz) for (var k2 in zusatz) { if (Object.prototype.hasOwnProperty.call(zusatz, k2)) body[k2] = zusatz[k2]; }
+      o = { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) };
+    }
+    var r = await sbFetch(pfad, o);
+    if (r && r.error) {
+      var m = String((r.error && r.error.message) || '');
+      // Eine RPC, die es nicht gibt, ist kein Fehler des Admins — sie ist eine
+      // nicht angewandte Migration. Das sind zwei verschiedene Saetze.
+      var fehlt = (r.error.status === 404) || /PGRST202|PGRST205|schema cache|Could not find/i.test(m);
+      return { state: fehlt ? 'nicht_verfuegbar' : 'fehler', daten: leer, key: schluessel,
+               grund: (typeof _gsFehlerText === 'function') ? _gsFehlerText(r.error) : m };
+    }
+    var d = (r && r.data !== undefined) ? r.data : r;
+    if (Array.isArray(s.leer)) return { state:'daten', daten: Array.isArray(d) ? d : [], key:schluessel, grund:'' };
+    if (!d || typeof d !== 'object') return { state:'nicht_verfuegbar', daten:null, key:schluessel, grund:'' };
+    return { state:'daten', daten:d, key:schluessel, grund:'' };
+  } catch(e) {
+    return { state:'fehler', daten:leer, key:schluessel,
+             grund:(typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : String((e && e.message) || e) };
+  }
+}
+window._gsAdmHole = _gsAdmHole;
+
+// Der Zustand, den die Anzeige aussprechen MUSS — oder null, wenn Daten da sind.
+function _gsAdmZustand(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  if (typeof x.state !== 'string' || x.state === 'daten') return null;
+  return { state: x.state, grund: x.grund || '' };
+}
+// Die Nutzlast — egal ob im Umschlag oder (aus einem Altaufruf) nackt.
+function _gsAdmNutzlast(x, vorgabe) {
+  if (x && typeof x === 'object' && !Array.isArray(x) && typeof x.state === 'string')
+    return (x.state === 'daten') ? x.daten : vorgabe;
+  return (x === undefined || x === null) ? vorgabe : x;
+}
+// Der Satz, der an die Stelle der leeren Liste tritt. Er nennt den Grund —
+// "konnte nicht geladen werden" ohne Grund ist fuer den Admin nutzlos.
+function _gsAdmNichtGeladenHtml(z) {
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s == null ? '' : s); };
+  var satz = (z.state === 'kein_zugriff')
+      ? _gsSatz('Kein Admin-Zugang — der Server hat das Konto nicht bestätigt.')
+      : (z.state === 'nicht_verfuegbar')
+      ? _gsSatz('Nicht verfügbar — diese Auswertung gibt es auf dem Server (noch) nicht.')
+      : _gsSatz('Konnte nicht geladen werden.');
+  return '<div class="gs-adm-fehlt" style="padding:8px 10px;background:var(--bg-yellow-soft);border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--c-brown);line-height:1.5;">' +
+    '<span aria-hidden="true">⚠️</span> ' + esc(satz) +
+    (z.grund ? ' <span style="color:var(--muted);">' + esc(z.grund) + '</span>' : '') + '</div>';
+}
+// Ein Knopf je Sektion. Eine frische Zahl kostete bis v33.41 das Schliessen
+// des Panels und sechzehn neue Anfragen.
+function _gsAdmNeuKnopf(schluessel, hell) {
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s == null ? '' : s); };
+  var t = esc(_gsSatz('Nur diese Sektion neu laden'));
+  return '<button onclick="gsAdmSektionNeu(\'' + schluessel + '\')" title="' + t + '" aria-label="' + t + '"' +
+    ' style="padding:5px 10px;min-width:30px;min-height:30px;border:1px solid ' + (hell ? 'rgba(255,255,255,.25)' : 'var(--border)') +
+    ';border-radius:var(--r-sm);background:' + (hell ? 'rgba(255,255,255,.1)' : 'var(--card)') +
+    ';color:' + (hell ? '#fff' : 'var(--text)') + ';font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;"><span aria-hidden="true">↻</span></button>';
+}
+// Der Überblick ganz oben: was hat NICHT geladen? Das Panel ist eine lange
+// Rolle — eine Sektion, die auf Position zwölf schweigt, sieht niemand.
+function _gsAdmUeberblickHtml() {
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s == null ? '' : s); };
+  var stand = window._gsAdmStand || {};
+  var offen = Object.keys(GS_ADM_SEKTIONEN).filter(function(k){
+    return stand[k] && stand[k].state && stand[k].state !== 'daten';
+  });
+  var gesamt = Object.keys(stand).length;
+  var rahmen = function(inhalt){
+    return '<div id="gs-admin-ueberblick-sec" style="margin-bottom:12px;padding:9px 11px;border-radius:var(--r-sm);background:' +
+      (offen.length ? 'var(--bg-yellow-soft)' : 'var(--bg-success-soft)') + ';font-size:var(--fs-sm);line-height:1.5;">' + inhalt + '</div>';
+  };
+  if (!gesamt) return rahmen('<span style="color:var(--muted);">' + esc(_gsSatz('Noch nichts abgefragt.')) + '</span>');
+  if (!offen.length)
+    return rahmen('<span style="color:var(--c-success);font-weight:700;"><span aria-hidden="true">✅</span> ' +
+      esc(_gsSatz('Alle {1} Sektionen geladen.', gesamt)) + '</span>');
+  var namen = offen.map(function(k){ return esc(_gsSatz(GS_ADM_SEKTIONEN[k].titel)); }).join(' · ');
+  return rahmen(
+    '<div style="color:var(--c-brown);font-weight:700;"><span aria-hidden="true">⚠️</span> ' +
+      esc(_gsSatz('{1} von {2} Sektionen konnten nicht geladen werden.', offen.length, gesamt)) + '</div>' +
+    '<div style="color:var(--c-brown);margin-top:2px;">' + namen + '</div>' +
+    '<button onclick="gsAdmFehlendeNeu()" style="margin-top:7px;padding:6px 12px;min-height:30px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);color:var(--text);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' +
+      esc(_gsSatz('Nur diese erneut versuchen')) + '</button>'
+  );
+}
+// Nur die Sektionen nachholen, die es nötig haben — nicht alle sechzehn.
+async function gsAdmFehlendeNeu() {
+  var stand = window._gsAdmStand || {};
+  var offen = Object.keys(GS_ADM_SEKTIONEN).filter(function(k){
+    return stand[k] && stand[k].state && stand[k].state !== 'daten';
+  });
+  for (var i = 0; i < offen.length; i++) await gsAdmSektionNeu(offen[i], true);
+  _gsAdmUeberblickNachziehen();
+  return offen.length;
+}
+window.gsAdmFehlendeNeu = gsAdmFehlendeNeu;
+function _gsAdmUeberblickNachziehen() {
+  try {
+    var u = document.getElementById('gs-admin-ueberblick-sec');
+    if (u) u.outerHTML = _gsAdmUeberblickHtml();
+  } catch(_){}
+}
+
+// EINE Sektion neu holen — eine Anfrage, nicht sechzehn.
+async function gsAdmSektionNeu(schluessel, ohneUeberblick) {
+  var s = GS_ADM_SEKTIONEN[schluessel];
+  if (!s) return false;
+  var hol = window[s.hol], html = window[s.html];
+  if (typeof hol !== 'function' || typeof html !== 'function') return false;
+  var sek;
+  try { sek = await hol(); } catch(e) { sek = { state:'fehler', daten:null, key:schluessel,
+        grund:(typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : '' }; }
+  try {
+    var el = document.getElementById(s.sec);
+    // Kein Element heisst: das Panel ist zu. Dann wird NICHT neu aufgebaut —
+    // genau das kostete vorher sechzehn Anfragen (_gsAdminRefreshSection).
+    if (el) el.outerHTML = html(sek);
+  } catch(_){}
+  if (!ohneUeberblick) _gsAdmUeberblickNachziehen();
+  return true;
+}
+window.gsAdmSektionNeu = gsAdmSektionNeu;
+
+// Die Nutzerliste war der einzige Abschnitt, den openAdminPanel selbst
+// zusammenbaute — damit liess sie sich als einzige nicht einzeln nachladen.
+function _gsAdminUsersHtml(sek) {
+  var _z = _gsAdmZustand(sek);
+  var users = _gsAdmNutzlast(sek, []);
+  if (!Array.isArray(users)) users = [];
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s == null ? '' : s); };
+  var rows = users.map(function(u){
+    var bg = u.role === 'admin' ? '#fff3e0' : u.role === 'staff' ? '#e3f2fd' : u.role === 'expert' ? '#e8f5e9' : u.role === 'banned' ? '#ffebee' : '#fafafa';
+    var safeName = (typeof escHtml==='function') ? escHtml(u.display_name || '—') : (u.display_name || '—');
+    var safeEmail = (typeof escHtml==='function') ? escHtml(u.email || '—') : (u.email || '—');
+    // v28.69 Q3: data-search für Client-seitige Filterung (Name+Email+Rolle, lowercased, attr-escaped)
+    var srch = ((u.display_name||'') + ' ' + (u.email||'') + ' ' + (u.role||'')).toLowerCase().replace(/"/g,'');
+    return '<div class="gs-admin-user-row" data-search="' + srch + '" style="background:' + bg + ';padding:10px 12px;border-radius:var(--r-sm);margin-bottom:6px;display:flex;align-items:center;gap:10px;">' +
+      '<div style="font-size:var(--fs-2xl);flex-shrink:0;">' + escHtml(u.avatar_emoji || '🌿') + '</div>' + /* v29.09 SECURITY: XSS avatar_emoji */
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">' + safeName + gsRoleBadge(u.role, {size:'sm'}) + '</div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--muted);">' + safeEmail + ' · XP ' + (u.xp||0) + ' · ' + (u.scan_count||0) + ' Scans</div>' +
+      '</div>' +
+      '<select onchange="gsAdminAssignRole(\'' + u.id + '\', this.value).then(function(){openAdminPanel();})" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;">' +
+        '<option value="">— Rolle —</option>' +
+        '<option value="admin"' + (u.role==='admin'?' selected':'') + '>👑 Admin</option>' +
+        '<option value="staff"' + (u.role==='staff'?' selected':'') + '>🛡️ Mitarbeiter</option>' +
+        '<option value="expert"' + (u.role==='expert'?' selected':'') + '>✓ Experte</option>' +
+        '<option value="user"' + (u.role==='user'?' selected':'') + '>👤 Nutzer</option>' +
+        '<option value="banned"' + (u.role==='banned'?' selected':'') + '>🚫 Gesperrt</option>' +
+      '</select>' +
+      // v28.98 Admin-Ausbau: Tier vergeben (Comp/Tester) — RPC fn_admin_set_tier (audit-geloggt)
+      '<select onchange="gsAdminSetTier(\'' + u.id + '\', this.value).then(function(){openAdminPanel();})" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;">' +
+        '<option value="">— Tier —</option>' +
+        '<option value="free"' + (u.tier==='free'?' selected':'') + '>🌱 Free</option>' +
+        '<option value="pro"' + (u.tier==='pro'?' selected':'') + '>💎 Pro</option>' +
+        '<option value="lifetime"' + (u.tier==='lifetime'?' selected':'') + '>♾️ Lifetime</option>' +
+      '</select>' +
+      // v29.12: Nutzer-Detailansicht (Profil + Abo + Aktivität + Aktionen)
+      '<button onclick="gsAdminOpenUserDetail(\'' + u.id + '\')" title="Details" style="padding:6px 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-md);cursor:pointer;font-family:inherit;flex-shrink:0;">ℹ️</button>' +
+    '</div>';
+  }).join('');
+  var leer = _z ? _gsAdmNichtGeladenHtml(_z)
+                : '<div style="text-align:center;padding:20px;color:var(--muted);">' + esc(_gsSatz('Es gibt noch keine Nutzer.')) + '</div>';
+  var such = esc(_gsSatz('Nutzer suchen (Name, E-Mail, Rolle)'));
+  return '<div id="gs-admin-users-sec">' +
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">' +
+      '<input type="text" oninput="gsAdminFilterUsers(this.value)" aria-label="' + such + '" placeholder="🔍 ' + such + '…" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;">' +
+      _gsAdmNeuKnopf('users') +
+    '</div>' +
+    '<div id="gs-admin-user-list">' + (rows || leer) + '</div>' +
+    '<div id="gs-admin-user-empty" style="display:none;text-align:center;padding:14px;color:var(--muted);font-size:var(--fs-sm);">' + esc(_gsSatz('Kein Treffer in dieser Suche.')) + '</div>' +
+  '</div>';
+}
+window._gsAdminUsersHtml = _gsAdminUsersHtml;
+
+async function gsAdminListUsers() { return _gsAdmHole('users'); }
+window.gsAdminListUsers = gsAdminListUsers;
 
 // v28.98 Admin-Ausbau: Tier vergeben (free/pro/lifetime) — RPC admin-gated + audit_log.
 // v29.16: setzt jetzt einen Stripe-UNABHÄNGIGEN comp-Grant (comp_tier) → v_user_entitlements
@@ -87173,13 +87409,8 @@ async function gsAdminSetTier(userId, tier, opts) {
 window.gsAdminSetTier = gsAdminSetTier;
 
 // v28.98 Admin-Ausbau: Feature-Flags (nur flag_*-Keys — Secrets unerreichbar, RPC-erzwungen)
-async function gsAdminFetchFlags() {
-  if (!gsIsAdmin()) return [];
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_flags_list', { method:'POST', headers:{'Content-Type':'application/json'}, body: '{}' });
-    return (r && Array.isArray(r.data)) ? r.data : [];
-  } catch(e) { return []; }
-}
+async function gsAdminFetchFlags() { return _gsAdmHole('flags'); }
+window.gsAdminFetchFlags = gsAdminFetchFlags;
 async function gsAdminEditFlag(key, currentValue) {
   if (!gsIsAdmin()) return;
   var nv = (typeof gsPromptModal === 'function')
@@ -87195,6 +87426,7 @@ async function gsAdminEditFlag(key, currentValue) {
 }
 window.gsAdminEditFlag = gsAdminEditFlag;
 function _gsAdminFlagsHtml(flags) {
+  var _z = _gsAdmZustand(flags); flags = _gsAdmNutzlast(flags, []);
   var inner = (flags && flags.length) ? flags.map(function(f){
     var k = (typeof escHtml === 'function') ? escHtml(f.key) : f.key;
     var v = (typeof escHtml === 'function') ? escHtml(f.value || '') : (f.value || '');
@@ -87205,9 +87437,11 @@ function _gsAdminFlagsHtml(flags) {
       '<span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (f.value ? '#2e7d32' : 'var(--muted)') + ';font-weight:700;">' + (v || '(aus)') + '</span>' +
       '<button onclick="gsAdminEditFlag(\'' + f.key + '\', this.getAttribute(\'data-v\'))" data-v="' + v.replace(/"/g,'&quot;') + '" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">✏️</button>' +
     '</div>';
-  }).join('') : '<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 0;">Keine Flags.</div>';
-  return '<div style="margin-top:14px;padding:11px 13px;background:var(--bg-violet-soft);border-radius:var(--r-sm);">' +
-    '<div style="font-weight:800;font-size:var(--fs-sm);margin-bottom:4px;color:var(--c-violet);">🚩 Feature-Flags (live, ohne Deploy)</div>' +
+  }).join('') : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 0;">Keine Flags hinterlegt.</div>');
+  return '<div id="gs-admin-flags-sec" style="margin-top:14px;padding:11px 13px;background:var(--bg-violet-soft);border-radius:var(--r-sm);">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--c-violet);">🚩 Feature-Flags (live, ohne Deploy)</div>' + _gsAdmNeuKnopf('flags') +
+    '</div>' +
     '<div style="font-size:var(--fs-xs);color:var(--c-violet);margin-bottom:6px;">flag_maintenance_banner: Text eintragen = Banner für alle User · leer = aus</div>' +
     inner + '</div>';
 }
@@ -87324,13 +87558,8 @@ function _gsAdminBroadcastHtml() {
 }
 
 // v28.99: Audit-Log-Viewer (letzte Admin-Aktionen — Rollen/Tier/Flags)
-async function gsAdminFetchAudit() {
-  if (!gsIsAdmin()) return [];
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_audit_recent', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 15 }) });
-    return (r && Array.isArray(r.data)) ? r.data : [];
-  } catch(e) { return []; }
-}
+async function gsAdminFetchAudit() { return _gsAdmHole('audit'); }
+window.gsAdminFetchAudit = gsAdminFetchAudit;
 // v29.15: relative Zeit ("vor X Min/Std/Tg"), ab >7 Tagen absolutes Datum MIT Jahr.
 function _gsAdminRelTime(ts){
   try {
@@ -87346,7 +87575,13 @@ function _gsAdminRelTime(ts){
 // v29.15: Audit-Log lesbar — Action-Code → DE-Text + relative Zeit + sprechende Zusammenfassung
 // statt roher action/target_type/UUID/JSON. (Fernando: "muss verbessert werden".)
 function _gsAdminAuditHtml(audit) {
-  if (!audit || !audit.length) return '';
+  var _z = _gsAdmZustand(audit); audit = _gsAdmNutzlast(audit, []);
+  // Bis v33.41 gab diese Sektion bei einem Fehler eine LEERE Zeichenkette
+  // zurück — das Protokoll der Admin-Aktionen verschwand dann ganz.
+  if (_z) return '<div id="gs-admin-audit-sec" style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:var(--r-sm);">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:#37474f;">📜 Letzte Admin-Aktionen</div>' + _gsAdmNeuKnopf('audit') +
+    '</div>' + _gsAdmNichtGeladenHtml(_z) + '</div>';
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
   var ACT = {
     admin_moderate:'🛡️ Moderation', admin_set_tier:'💎 Tier vergeben', role_assign:'👑 Rolle geändert',
@@ -87367,7 +87602,7 @@ function _gsAdminAuditHtml(audit) {
       var s = JSON.stringify(d); return (s && s !== '{}') ? esc(s.slice(0,48)) : '';
     } catch(_){ return ''; }
   }
-  var rows = audit.map(function(a){
+  var rows = (Array.isArray(audit) ? audit : []).map(function(a){
     var label = ACT[a.action] || esc(String(a.action||''));
     var tt = TT[a.target_type] || (a.target_type ? esc(String(a.target_type)) : '');
     var sm = summ(a);
@@ -87378,40 +87613,39 @@ function _gsAdminAuditHtml(audit) {
     '</div>';
   }).join('');
   return '<div id="gs-admin-audit-sec" style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:var(--r-sm);">' +
-    '<div style="font-weight:800;font-size:var(--fs-sm);margin-bottom:4px;color:#37474f;">📜 Letzte Admin-Aktionen</div>' + rows + '</div>';
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:#37474f;">📜 Letzte Admin-Aktionen</div>' + _gsAdmNeuKnopf('audit') +
+    '</div>' +
+    // Bis v33.41 verschwand die ganze Sektion bei einem leeren Protokoll —
+    // und mit ihr der Weg, sie noch einmal zu holen.
+    (rows || ('<div style="font-size:var(--fs-sm);color:var(--muted);padding:4px 0;">' + esc(_gsSatz('Noch keine Admin-Aktion protokolliert.')) + '</div>')) + '</div>';
 }
 
 // v29.00 Admin-Ausbau Schritt 3: Server-seitiges Client-Error-Log (alle User, gruppiert)
-async function gsAdminFetchClientErrors() {
-  if (!gsIsAdmin()) return [];
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_client_errors', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_days: 7 }) });
-    return (r && Array.isArray(r.data)) ? r.data : [];
-  } catch(e) { return []; }
-}
+async function gsAdminFetchClientErrors() { return _gsAdmHole('cerrs'); }
+window.gsAdminFetchClientErrors = gsAdminFetchClientErrors;
 function _gsAdminClientErrorsHtml(errs) {
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var _z = _gsAdmZustand(errs); errs = _gsAdmNutzlast(errs, []);
   var rows = (errs && errs.length) ? errs.map(function(e){
     var last = e.last_seen ? new Date(e.last_seen).toLocaleString(gsLocale(), {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
     return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:var(--fs-sm);">' +
       '<div style="color:var(--c-danger);font-weight:700;">' + esc(String(e.message||'').slice(0,90)) + '</div>' +
       '<div style="color:var(--muted);">' + (e.n||0) + '× · ' + (e.users||0) + ' Nutzer · ' + esc(e.app_version||'?') + ' · ' + esc(e.err_type||'') + ' · zuletzt ' + last + (e.last_context ? ' · ' + esc(String(e.last_context).slice(0,50)) : '') + '</div>' +
     '</div>';
-  }).join('') : '<div style="color:var(--c-success);font-size:var(--fs-sm);padding:6px 0;">✅ Keine Client-Fehler in den letzten 7 Tagen.</div>';
-  return '<div style="margin-top:10px;padding:11px 13px;background:var(--bg-pink-soft);border-radius:var(--r-sm);">' +
-    '<div style="font-weight:800;font-size:var(--fs-sm);margin-bottom:4px;color:var(--c-pink);">🐛 Client-Fehler (alle Nutzer · 7 Tage · server-seitig)</div>' + rows + '</div>';
+  }).join('') : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="color:var(--c-success);font-size:var(--fs-sm);padding:6px 0;">✅ Keine Client-Fehler in den letzten 7 Tagen.</div>');
+  return '<div id="gs-admin-cerrs-sec" style="margin-top:10px;padding:11px 13px;background:var(--bg-pink-soft);border-radius:var(--r-sm);">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--c-pink);">🐛 Client-Fehler (alle Nutzer · 7 Tage · server-seitig)</div>' + _gsAdmNeuKnopf('cerrs') +
+    '</div>' + rows + '</div>';
 }
 
 // v29.11 Admin-Ausbau: Content-Moderation — Posts/Inserate/Kommentare verstecken/löschen
-async function gsAdminFetchModerationFeed() {
-  if (!gsIsAdmin()) return [];
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_moderation_feed', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 30 }) });
-    return (r && Array.isArray(r.data)) ? r.data : [];
-  } catch(e) { return []; }
-}
+async function gsAdminFetchModerationFeed() { return _gsAdmHole('moderation'); }
+window.gsAdminFetchModerationFeed = gsAdminFetchModerationFeed;
 function _gsAdminModerationHtml(feed) {
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var _z = _gsAdmZustand(feed); feed = _gsAdmNutzlast(feed, []);
   var ICON = { post:'📝', listing:'🛒', comment:'💬' };
   var rows = (feed && feed.length) ? feed.map(function(it){
     // v29.17: 'hidden' = NUR Admin-moderiert (fn_admin_moderation_feed liefert 'hidden' wenn moderation_status='hidden').
@@ -87441,9 +87675,11 @@ function _gsAdminModerationHtml(feed) {
       '</div>' +
       '<div style="flex-shrink:0;white-space:nowrap;">' + btns + '</div>' +
     '</div>';
-  }).join('') : '<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 0;">Kein Inhalt vorhanden.</div>';
+  }).join('') : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 0;">Kein Inhalt vorhanden.</div>');
   return '<div id="gs-admin-moderation-sec" style="margin-top:10px;padding:11px 13px;background:var(--bg-warn-soft);border-radius:var(--r-sm);">' +
-    '<div style="font-weight:800;font-size:var(--fs-sm);margin-bottom:4px;color:var(--c-warn-d);">🛡️ Moderation (Posts · Inserate · Kommentare · neueste 30)</div>' + rows + '</div>';
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--c-warn-d);">🛡️ Moderation (Posts · Inserate · Kommentare · neueste 30)</div>' + _gsAdmNeuKnopf('moderation') +
+    '</div>' + rows + '</div>';
 }
 async function gsAdminModerate(type, id, action) {
   if (!gsIsAdmin()) return;
@@ -87468,7 +87704,7 @@ async function gsAdminModerate(type, id, action) {
     }
     else { if (typeof gsToast==='function') gsToast('⚠️ ' + ((res && res.error) || 'Fehler'), 'error'); }
   } catch(e) { if (typeof gsToast==='function') gsToast('⚠️ ' + (e && e.message || 'Fehler'), 'error'); }
-  await _gsAdminRefreshSection('gs-admin-moderation-sec', gsAdminFetchModerationFeed, _gsAdminModerationHtml);
+  await gsAdmSektionNeu('moderation');
 }
 
 // v29.12 Admin-Ausbau #2: Nutzer-Detailansicht (Profil + Abo + Aktivität an einem Ort)
@@ -87548,15 +87784,11 @@ async function gsAdminOpenUserDetail(userId) {
 }
 
 // v29.13 Admin-Ausbau #3: Gutschein-Verwaltung (Pro/Lifetime verschenken)
-async function gsAdminFetchVouchers() {
-  if (!gsIsAdmin()) return [];
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_vouchers_list', { method:'POST', headers:{'Content-Type':'application/json'}, body: '{}' });
-    return (r && Array.isArray(r.data)) ? r.data : [];
-  } catch(e) { return []; }
-}
+async function gsAdminFetchVouchers() { return _gsAdmHole('vouchers'); }
+window.gsAdminFetchVouchers = gsAdminFetchVouchers;
 function _gsAdminVouchersHtml(vouchers) {
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var _z = _gsAdmZustand(vouchers); vouchers = _gsAdmNutzlast(vouchers, []);
   var rows = (vouchers && vouchers.length) ? vouchers.map(function(v){
     var rew = (v.reward && v.reward.tier) ? ({pro:'💎 Pro',lifetime:'♾️ Lifetime'}[v.reward.tier] || esc(v.reward.tier)) : '—';
     var uses = (v.used_count||0) + (v.max_uses ? ('/' + v.max_uses) : '/∞');
@@ -87567,9 +87799,11 @@ function _gsAdminVouchersHtml(vouchers) {
         (active ? '' : ' <span style="color:var(--c-danger);font-weight:700;">(inaktiv)</span>') + '</div>' +
       '<button data-vc-code="' + esc(v.code) + '" data-vc-next="' + (active?'0':'1') + '" onclick="gsAdminToggleVoucher(this.getAttribute(\'data-vc-code\'), this.getAttribute(\'data-vc-next\')===\'1\')" style="padding:3px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">' + (active?'⏸️ Aus':'▶️ An') + '</button>' +
     '</div>';
-  }).join('') : '<div style="color:var(--muted);font-size:var(--fs-sm);padding:4px 0;">Noch keine Gutscheine.</div>';
+  }).join('') : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="color:var(--muted);font-size:var(--fs-sm);padding:4px 0;">Noch keine Gutscheine.</div>');
   return '<div id="gs-admin-vouchers-sec" style="margin-top:10px;padding:11px 13px;background:var(--bg-violet-soft);border-radius:var(--r-sm);">' +
-    '<div style="font-weight:800;font-size:var(--fs-sm);margin-bottom:6px;color:var(--c-violet);">🎟️ Gutscheine (Pro/Lifetime verschenken)</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--c-violet);">🎟️ Gutscheine (Pro/Lifetime verschenken)</div>' + _gsAdmNeuKnopf('vouchers') +
+    '</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;align-items:center;">' +
       '<input id="gs-vc-code" placeholder="CODE" style="flex:1;min-width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:monospace;">' +
       '<select id="gs-vc-tier" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;"><option value="pro">💎 Pro</option><option value="lifetime">♾️ Lifetime</option></select>' +
@@ -87592,14 +87826,14 @@ async function gsAdminCreateVoucher() {
     if (res && res.ok) { if (typeof gsToast==='function') gsToast(_gsSatz('✅ Gutschein {1} erstellt', res.code), 'success'); }
     else { var E={code_exists:'Code existiert bereits',invalid_reward:'Ungültige Belohnung',no_code:'Kein Code',forbidden:'Keine Berechtigung'}; if (typeof gsToast==='function') gsToast('⚠️ ' + (E[res&&res.error]||(res&&res.error)||'Fehler'), 'error'); }
   } catch(e){ if (typeof gsToast==='function') gsToast('⚠️ ' + (e&&e.message||'Fehler'), 'error'); }
-  await _gsAdminRefreshSection('gs-admin-vouchers-sec', gsAdminFetchVouchers, _gsAdminVouchersHtml);
+  await gsAdmSektionNeu('vouchers');
 }
 async function gsAdminToggleVoucher(code, active) {
   if (!gsIsAdmin()) return;
   try {
     await sbFetch('/rest/v1/rpc/fn_admin_voucher_toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_code: code, p_active: !!active }) });
   } catch(_){}
-  await _gsAdminRefreshSection('gs-admin-vouchers-sec', gsAdminFetchVouchers, _gsAdminVouchersHtml);
+  await gsAdmSektionNeu('vouchers');
 }
 
 // v29.14 Admin-Ausbau #4: Wissens-DB-Editor (anlegen/editieren/freigeben)
@@ -87697,15 +87931,8 @@ async function gsAdminKnTogglePublish(id, cur){
 window.gsAdminOpenKnowledgeEditor = gsAdminOpenKnowledgeEditor;
 
 // v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
-async function gsAdminFetchMetrics() {
-  if (!gsIsAdmin()) return null;
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_metrics', { method:'POST', body: JSON.stringify({}) });
-    if (r && r.error) return null;
-    var d = (r && r.data !== undefined) ? r.data : r;
-    return (d && typeof d === 'object') ? d : null;
-  } catch(e) { return null; }
-}
+async function gsAdminFetchMetrics() { return _gsAdmHole('metrics'); }
+window.gsAdminFetchMetrics = gsAdminFetchMetrics;
 
 // v33.18: die LESE-Seite der Nutzungsmessung. Seit v33.11 schreibt gsTrackEvent
 // ein Vokabular nach analytics_events — und niemand las es. Drei Zustaende,
@@ -87714,27 +87941,21 @@ async function gsAdminFetchMetrics() {
 // v33.24: wie lange Ereignisse bleiben. Dieselbe Zahl wie fn_analytics_prune
 // (20260910_analytics_retention.sql) — nutzung_check haelt beide gegeneinander.
 var GS_ANALYTICS_TAGE = 180;
-async function gsAdminFetchAnalytics(tage) {
-  if (!gsIsAdmin()) return null;
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_analytics', { method:'POST', body: JSON.stringify({ p_days: tage || 30 }) });
-    if (r && r.error) {
-      var m = String(r.error.message || '');
-      var fehlt = r.error.status === 404 || /fn_admin_analytics|PGRST202|schema cache/i.test(m);
-      return { state: fehlt ? 'nicht_verfuegbar' : 'fehler', grund: fehlt ? '' : ((typeof _gsFehlerText === 'function') ? _gsFehlerText(r.error) : '') };
-    }
-    var d = (r && r.data !== undefined) ? r.data : r;
-    return (d && typeof d === 'object') ? Object.assign({ state: 'daten' }, d) : { state: 'fehler', grund: '' };
-  } catch(e) { return { state: 'fehler', grund: (typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : '' }; }
-}
-function _gsAdminAnalyticsHtml(a) {
+async function gsAdminFetchAnalytics(tage) { return _gsAdmHole('analytics', { p_days: tage || 30 }); }
+window.gsAdminFetchAnalytics = gsAdminFetchAnalytics;
+function _gsAdminAnalyticsHtml(sek) {
   var esc = (typeof escHtml === 'function') ? escHtml : function (s) { return String(s); };
+  // v33.42: dieselbe Bauform wie die anderen fünfzehn. Sie stand seit v33.18
+  // HIER — nur eben als Sonderfall dieser einen Sektion.
+  var _z = _gsAdmZustand(sek);
+  var a = _gsAdmNutzlast(sek, null);
   var tage = (a && a.days) || 30;
-  var kopf = '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);margin-bottom:8px;">📈 Nutzung (letzte ' + tage + ' Tage)</div>';
-  var kasten = function (html) { return '<div class="gs-adm-nutzung" style="margin-bottom:14px;">' + kopf + html + '</div>'; };
+  var kopf = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+    '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">📈 Nutzung (letzte ' + tage + ' Tage)</div>' + _gsAdmNeuKnopf('analytics') + '</div>';
+  var kasten = function (html) { return '<div id="gs-admin-analytics-sec" class="gs-adm-nutzung" style="margin-bottom:14px;">' + kopf + html + '</div>'; };
   var hinweis = function (html) { return '<div style="padding:11px 13px;background:var(--bg-yellow-soft);border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--c-brown);line-height:1.5;">' + html + '</div>'; };
-  if (!a || a.state === 'nicht_verfuegbar') return kasten(hinweis('Noch nicht verfügbar — die Migration <code>20260910_admin_analytics.sql</code> (<code>fn_admin_analytics</code>) ist nicht angewandt. Bis dahin schreibt die App Ereignisse, die niemand liest.'));
-  if (a.state === 'fehler') return kasten(hinweis('Konnte nicht geladen werden' + (a.grund ? ': ' + esc(a.grund) : '.') ));
+  if ((_z && _z.state === 'nicht_verfuegbar') || (!_z && !a)) return kasten(hinweis('Noch nicht verfügbar — die Migration <code>20260910_admin_analytics.sql</code> (<code>fn_admin_analytics</code>) ist nicht angewandt. Bis dahin schreibt die App Ereignisse, die niemand liest.'));
+  if (_z) return kasten(_gsAdmNichtGeladenHtml(_z));
   var ev = Array.isArray(a.by_event) ? a.by_event : [];
   if (!Number(a.total)) return kasten(hinweis('Noch keine Ereignisse im Zeitraum. Die Nutzungsmessung ist Opt-in (Einstellungen → Datenschutz) — solange niemand zustimmt, bleibt es hier leer. Das ist kein Fehler.'));
   var zeilen = ev.map(function (e) {
@@ -87760,8 +87981,12 @@ window.gsAdminFetchAnalytics = gsAdminFetchAnalytics; window._gsAdminAnalyticsHt
 
 // v28.64: Metriken-Karte rendern (Admin-intern, Deutsch). m = jsonb von fn_admin_metrics
 function _gsAdminMetricsHtml(m) {
-  if (!m) {
-    return '<div style="margin-bottom:14px;padding:11px 13px;background:var(--bg-yellow-soft);border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--c-brown);">📊 Live-Metriken konnten nicht geladen werden (RPC fn_admin_metrics).</div>';
+  var _z = _gsAdmZustand(m); m = _gsAdmNutzlast(m, null);
+  if (_z || !m) {
+    return '<div id="gs-admin-metrics-sec" style="margin-bottom:14px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+        '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">📊 Live-Metriken</div>' + _gsAdmNeuKnopf('metrics') +
+      '</div>' + _gsAdmNichtGeladenHtml(_z || { state:'nicht_verfuegbar', grund:'fn_admin_metrics' }) + '</div>';
   }
   var n = function(k){ var v = m[k]; return (typeof v === 'number') ? v : (v != null ? v : 0); };
   function card(emoji, label, big, sub, color){
@@ -87774,10 +87999,9 @@ function _gsAdminMetricsHtml(m) {
   var whColor = n('webhook_errors_7d') === 0 ? '#2e7d32' : '#c62828';
   var ts = '';
   try { ts = m.generated_at ? new Date(m.generated_at).toLocaleTimeString(gsLocale(), {hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
-  return '<div style="margin-bottom:14px;">' +
+  return '<div id="gs-admin-metrics-sec" style="margin-bottom:14px;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-      '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">📊 Live-Metriken</div>' +
-      '<button onclick="openAdminPanel()" style="padding:4px 10px;background:var(--surface2);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;color:var(--text);">🔄 Aktualisieren</button>' +
+      '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">📊 Live-Metriken</div>' + _gsAdmNeuKnopf('metrics') +
     '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:7px;">' +
       card('👥','User gesamt', n('users_total'), 'neu 7T: ' + n('users_new_7d') + ' · 30T: ' + n('users_new_30d')) +
@@ -87792,20 +88016,17 @@ function _gsAdminMetricsHtml(m) {
 }
 
 // v28.65 Block F.2: Stripe-Übersicht laden (Admin) — RPC fn_admin_stripe_overview (admin-gated, jsonb)
-async function gsAdminFetchStripe() {
-  if (!gsIsAdmin()) return null;
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_stripe_overview', { method:'POST', body: JSON.stringify({}) });
-    if (r && r.error) return null;
-    var d = (r && r.data !== undefined) ? r.data : r;
-    return (d && typeof d === 'object') ? d : null;
-  } catch(e) { return null; }
-}
+async function gsAdminFetchStripe() { return _gsAdmHole('stripe'); }
+window.gsAdminFetchStripe = gsAdminFetchStripe;
 
 // v28.65: Stripe-Übersicht rendern (Admin-intern, Deutsch). Internes Monitoring, KEIN Sales-UI.
 function _gsAdminStripeHtml(s) {
-  if (!s) {
-    return '<div style="margin-bottom:14px;padding:11px 13px;background:var(--bg-yellow-soft);border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--c-brown);">💳 Stripe-Übersicht konnte nicht geladen werden (RPC fn_admin_stripe_overview).</div>';
+  var _z = _gsAdmZustand(s); s = _gsAdmNutzlast(s, null);
+  if (_z || !s) {
+    return '<div id="gs-admin-stripe-sec" style="margin-bottom:14px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+        '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">💳 Stripe-Übersicht</div>' + _gsAdmNeuKnopf('stripe') +
+      '</div>' + _gsAdmNichtGeladenHtml(_z || { state:'nicht_verfuegbar', grund:'fn_admin_stripe_overview' }) + '</div>';
   }
   var n = function(k){ var v = s[k]; return (typeof v === 'number') ? v : 0; };
   var cur = (s.currency || 'chf').toUpperCase();
@@ -87843,8 +88064,10 @@ function _gsAdminStripeHtml(s) {
   var ts = '';
   try { ts = s.generated_at ? new Date(s.generated_at).toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
   var mrr = n('mrr_cents');
-  return '<div style="margin-bottom:14px;">' +
-    '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);margin-bottom:8px;">💳 Stripe-Übersicht <span style="font-size:var(--fs-xs);font-weight:600;color:var(--muted);">· internes Monitoring</span></div>' +
+  return '<div id="gs-admin-stripe-sec" style="margin-bottom:14px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">💳 Stripe-Übersicht <span style="font-size:var(--fs-xs);font-weight:600;color:var(--muted);">· internes Monitoring</span></div>' + _gsAdmNeuKnopf('stripe') +
+    '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:7px;">' +
       card('💰','MRR', money(mrr), 'ARR: ' + money(mrr*12), mrr>0?'#1b5e20':'var(--g-dark)') +
       card('💳','Abos aktiv', n('subs_active'), 'Trial: ' + n('subs_trialing') + ' · überfällig: ' + n('subs_past_due')) +
@@ -87881,15 +88104,11 @@ window.gsAdminFilterUsers = function(q){
 // htmlFn MUSS einen Root-Container mit derselben id liefern, damit der nächste Refresh wieder greift.
 // ══ v29.26 Block A: Admin — Arten-Foto-Beiträge moderieren ══
 async function gsAdminFetchSpeciesImageQueue(){
-  try {
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_species_image_queue', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 50 })
-    });
-    var q = (res && res.data) || [];
-    try { window._gsAdminImgQueue = q; } catch(_){} // v30.48: für 2×-KI-Verify (Lookup url+species_id by id)
-    return q;
-  } catch(_) { return []; }
+  var sek = await _gsAdmHole('simg');
+  try { window._gsAdminImgQueue = _gsAdmNutzlast(sek, []); } catch(_){} // v30.48: für 2×-KI-Verify (Lookup url+species_id by id)
+  return sek;
 }
+window.gsAdminFetchSpeciesImageQueue = gsAdminFetchSpeciesImageQueue;
 // v30.48: Beim Freigeben das Beitrags-Foto 2× von der KI gegenprüfen, dass es EINDEUTIG die Art zeigt
 // (Sicherheit, HL24/25 — ein falsches Foto an einer Giftart ist gefährlich). true NUR bei 2× JA;
 // null = Verify nicht möglich (Netz/Key) → Admin entscheidet selbst.
@@ -87910,6 +88129,7 @@ async function _gsVerifySpeciesImage(url, speciesName, lat){
   } catch(_){ return null; }
 }
 function _gsAdminSpeciesImageHtml(queue){
+  var _z = _gsAdmZustand(queue); queue = _gsAdmNutzlast(queue, []);
   queue = Array.isArray(queue) ? queue : [];
   var items = queue.map(function(q){
     var url = String(q.url||'').replace(/"/g,'&quot;');
@@ -87932,8 +88152,10 @@ function _gsAdminSpeciesImageHtml(queue){
     '</div>';
   }).join('');
   return '<div id="gs-admin-simg-sec" style="margin-top:10px;padding:11px 13px;background:var(--bg-success-soft);border-radius:var(--r-sm);">' +
-    '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);margin-bottom:8px;">📸 Foto-Beiträge ' + (queue.length?('('+queue.length+')'):'') + '</div>' +
-    (queue.length ? items : '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine offenen Foto-Beiträge.</div>') +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">📸 Foto-Beiträge ' + (queue.length?('('+queue.length+')'):'') + '</div>' + _gsAdmNeuKnopf('simg') +
+    '</div>' +
+    (queue.length ? items : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine offenen Foto-Beiträge.</div>')) +
   '</div>';
 }
 async function gsAdminReviewSpeciesImage(id, approve){
@@ -87963,7 +88185,7 @@ async function gsAdminReviewSpeciesImage(id, approve){
     if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
     try { gsToast(approve ? '✅ Freigegeben — wird als Arten-Bild gezeigt.' : '🗑️ Abgelehnt.', 'success'); } catch(_){}
     try { _spImgCache = {}; } catch(_){}
-    await _gsAdminRefreshSection('gs-admin-simg-sec', gsAdminFetchSpeciesImageQueue, _gsAdminSpeciesImageHtml);
+    await gsAdmSektionNeu('simg');
   } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
 }
 
@@ -87972,16 +88194,13 @@ async function gsAdminReviewSpeciesImage(id, approve){
 // (→ species-Tabelle via fn_admin_review_species_proposal). HL#24: Tox/Essbarkeit werden NICHT aus dem
 // KI-Vorschlag übernommen (nur Text); approve-te Art erscheint nach DB-Update/Boot-Merge in der App.
 async function gsAdminFetchSpeciesProposalQueue(){
-  try {
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_species_proposal_queue', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 50 })
-    });
-    var q = (res && res.data) || [];
-    try { window._gsAdminPropQueue = q; } catch(_){} // für 2×-KI-Foto-Gegencheck (Lookup by id)
-    return q;
-  } catch(_) { return []; }
+  var sek = await _gsAdmHole('prop');
+  try { window._gsAdminPropQueue = _gsAdmNutzlast(sek, []); } catch(_){} // für 2×-KI-Foto-Gegencheck (Lookup by id)
+  return sek;
 }
+window.gsAdminFetchSpeciesProposalQueue = gsAdminFetchSpeciesProposalQueue;
 function _gsAdminSpeciesProposalHtml(queue){
+  var _z = _gsAdmZustand(queue); queue = _gsAdmNutzlast(queue, []);
   queue = Array.isArray(queue) ? queue : [];
   var _e = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
   var items = queue.map(function(p){
@@ -88004,8 +88223,10 @@ function _gsAdminSpeciesProposalHtml(queue){
     '</div>';
   }).join('');
   return '<div id="gs-admin-prop-sec" style="margin-top:10px;padding:11px 13px;background:var(--bg-success-soft);border-radius:var(--r-sm);">' +
-    '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);margin-bottom:8px;">🧬 Arten-Vorschläge ' + (queue.length?('('+queue.length+')'):'') + '</div>' +
-    (queue.length ? items : '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine offenen Vorschläge.</div>') +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">🧬 Arten-Vorschläge ' + (queue.length?('('+queue.length+')'):'') + '</div>' + _gsAdmNeuKnopf('prop') +
+    '</div>' +
+    (queue.length ? items : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine offenen Vorschläge.</div>')) +
   '</div>';
 }
 async function gsAdminReviewSpeciesProposal(id, approve){
@@ -88036,20 +88257,15 @@ async function gsAdminReviewSpeciesProposal(id, approve){
             : (rd.inserted === false ? '✅ War bereits in der Arten-DB — als geprüft markiert.'
                                      : '✅ Neu in die Arten-DB aufgenommen.');
     try { gsToast(msg, 'success'); } catch(_){}
-    await _gsAdminRefreshSection('gs-admin-prop-sec', gsAdminFetchSpeciesProposalQueue, _gsAdminSpeciesProposalHtml);
+    await gsAdmSektionNeu('prop');
   } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
 }
 
 // ══ v30.34: Admin — Nutzer-Meldungen (user_reports) moderieren ══
-async function gsAdminFetchReports(){
-  try {
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_reports_list', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 100 })
-    });
-    return (res && res.data) || [];
-  } catch(_) { return []; }
-}
+async function gsAdminFetchReports(){ return _gsAdmHole('reports'); }
+window.gsAdminFetchReports = gsAdminFetchReports;
 function _gsAdminReportsHtml(list){
+  var _z = _gsAdmZustand(list); list = _gsAdmNutzlast(list, []);
   list = Array.isArray(list) ? list : [];
   var _e = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
   var typeLabel = { user:'👤 Nutzer', listing:'🛒 Inserat', post:'📝 Beitrag', comment:'💬 Kommentar' };
@@ -88065,8 +88281,10 @@ function _gsAdminReportsHtml(list){
     '</div>';
   }).join('');
   return '<div id="gs-admin-reports-sec" style="margin-top:10px;padding:11px 13px;background:var(--bg-warn-soft);border-radius:var(--r-sm);">' +
-    '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--c-warn-d);margin-bottom:8px;">🚩 Nutzer-Meldungen ' + (list.length?('('+list.length+')'):'') + '</div>' +
-    (list.length ? items : '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine offenen Meldungen.</div>') +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--c-warn-d);">🚩 Nutzer-Meldungen ' + (list.length?('('+list.length+')'):'') + '</div>' + _gsAdmNeuKnopf('reports') +
+    '</div>' +
+    (list.length ? items : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine offenen Meldungen.</div>')) +
   '</div>';
 }
 async function gsAdminReviewReport(id, status){
@@ -88077,18 +88295,15 @@ async function gsAdminReviewReport(id, status){
     });
     if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
     try { gsToast(status==='reviewed' ? '✅ Als erledigt markiert.' : '🗑️ Verworfen.', 'success'); } catch(_){}
-    await _gsAdminRefreshSection('gs-admin-reports-sec', gsAdminFetchReports, _gsAdminReportsHtml);
+    await gsAdmSektionNeu('reports');
   } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
 }
 
 // ══ v29.30 Schicht 1 (Observability): Admin — Hintergrund-Jobs (Cron-Health) ══
-async function gsAdminFetchCronHealth(){
-  try {
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_cron_health', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-    return (res && res.data) || [];
-  } catch(_) { return []; }
-}
+async function gsAdminFetchCronHealth(){ return _gsAdmHole('cron'); }
+window.gsAdminFetchCronHealth = gsAdminFetchCronHealth;
 function _gsAdminCronHealthHtml(jobs){
+  var _z = _gsAdmZustand(jobs); jobs = _gsAdmNutzlast(jobs, []);
   jobs = Array.isArray(jobs) ? jobs : [];
   var unhealthy = jobs.filter(function(j){ return !j.healthy; }).length;
   function _fmtAge(ts){
@@ -88107,22 +88322,20 @@ function _gsAdminCronHealthHtml(jobs){
   }).join('');
   return '<div id="gs-admin-cron-sec" style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:var(--r-sm);">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">⚙️ Hintergrund-Jobs ('+jobs.length+')</div>' +
-      '<button onclick="_gsAdminRefreshSection(\'gs-admin-cron-sec\', gsAdminFetchCronHealth, _gsAdminCronHealthHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">↻</button>' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">⚙️ Hintergrund-Jobs ('+jobs.length+')</div>' + _gsAdmNeuKnopf('cron') +
     '</div>' +
-    (unhealthy>0 ? '<div style="font-size:var(--fs-sm);color:var(--c-danger);font-weight:700;margin-bottom:6px;">⚠️ '+unhealthy+' Job(s) ohne aktuellen Erfolg</div>' : '<div style="font-size:var(--fs-sm);color:var(--c-success);margin-bottom:6px;">✅ Alle Jobs laufen</div>') +
-    (jobs.length ? rows : '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine Job-Daten.</div>') +
+    // "Alle Jobs laufen" ohne eine einzige Zeile war die teuerste Zusage dieser
+    // Sektion: sie stand auch dann da, wenn die Abfrage abgelehnt wurde.
+    (!jobs.length ? '' : (unhealthy>0 ? '<div style="font-size:var(--fs-sm);color:var(--c-danger);font-weight:700;margin-bottom:6px;">⚠️ '+unhealthy+' Job(s) ohne aktuellen Erfolg</div>' : '<div style="font-size:var(--fs-sm);color:var(--c-success);margin-bottom:6px;">✅ Alle Jobs laufen</div>')) +
+    (jobs.length ? rows : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine Job-Daten.</div>')) +
   '</div>';
 }
 
 // ══ v29.31 Schicht 2 (Self-Healing): Admin — System-Ereignisse ══
-async function gsAdminFetchSystemEvents(){
-  try {
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_system_events', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({p_limit:30}) });
-    return (res && res.data) || [];
-  } catch(_) { return []; }
-}
+async function gsAdminFetchSystemEvents(){ return _gsAdmHole('sysevents'); }
+window.gsAdminFetchSystemEvents = gsAdminFetchSystemEvents;
 function _gsAdminSystemEventsHtml(events){
+  var _z = _gsAdmZustand(events); events = _gsAdmNutzlast(events, []);
   events = Array.isArray(events) ? events : [];
   var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
   function _age(ts){ try { var m=Math.round((Date.now()-new Date(ts).getTime())/60000); if(m<60)return 'vor '+m+'m'; if(m<1440)return 'vor '+Math.round(m/60)+'h'; return 'vor '+Math.round(m/1440)+'d'; }catch(_){return '?';} }
@@ -88139,21 +88352,17 @@ function _gsAdminSystemEventsHtml(events){
       '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">🩺 System-Ereignisse ('+events.length+')</div>' +
       '<div style="display:flex;gap:5px;flex-shrink:0;">' +
         '<button onclick="gsAdminRunIntegrityScan()" title="Daten-Integrität jetzt prüfen" style="padding:4px 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">🔍 Integrität</button>' +
-        '<button onclick="_gsAdminRefreshSection(\'gs-admin-sysevents-sec\', gsAdminFetchSystemEvents, _gsAdminSystemEventsHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">↻</button>' +
+        _gsAdmNeuKnopf('sysevents') +
       '</div>' +
     '</div>' +
-    (events.length ? rows : '<div style="font-size:var(--fs-sm);color:var(--c-success);">✅ Keine Ereignisse — alles ruhig.</div>') +
+    (events.length ? rows : (_z ? _gsAdmNichtGeladenHtml(_z) : '<div style="font-size:var(--fs-sm);color:var(--c-success);">✅ Keine Ereignisse — alles ruhig.</div>')) +
   '</div>';
 }
 
-async function _gsAdminRefreshSection(secId, fetchFn, htmlFn) {
-  try {
-    var el = document.getElementById(secId);
-    if (!el) { try { openAdminPanel(); } catch(_){} return; }
-    var data = await fetchFn();
-    el.outerHTML = htmlFn(data);
-  } catch(_) { try { openAdminPanel(); } catch(e){} }
-}
+// v33.42: _gsAdminRefreshSection ist in gsAdmSektionNeu aufgegangen. Der alte
+// Weg nahm Funktionsreferenzen statt eines Namens (also von aussen nicht
+// adressierbar) und baute bei fehlendem Element das GANZE Panel neu auf —
+// sechzehn Anfragen fuer eine Sektion.
 
 // ══ v29.41 Schicht 5 (Daten-Integrität): On-Demand-Scan → loggt nach system_events ══
 async function gsAdminRunIntegrityScan(){
@@ -88168,26 +88377,21 @@ async function gsAdminRunIntegrityScan(){
       gsToast('Integritäts-Check ohne Resultat','error',4000);
     }
     // System-Ereignisse-Sektion neu laden → der neue Scan erscheint sofort
-    if (typeof _gsAdminRefreshSection==='function') _gsAdminRefreshSection('gs-admin-sysevents-sec', gsAdminFetchSystemEvents, _gsAdminSystemEventsHtml);
+    gsAdmSektionNeu('sysevents');
   } catch(e){ if (typeof gsToast==='function') gsToast('Integritäts-Check fehlgeschlagen','error',4000); }
 }
 
 // ══ v29.42 Schicht 7 (Kostendeckung): Finanz-Snapshot (MRR vs AI-Kosten) — Mission ══
-async function gsAdminFetchFinance(){
-  try {
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_finance_snapshot', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-    return (res && res.data) || null;
-  } catch(_) { return null; }
-}
+async function gsAdminFetchFinance(){ return _gsAdmHole('finance'); }
+window.gsAdminFetchFinance = gsAdminFetchFinance;
 function _gsAdminFinanceHtml(fin){
   var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
-  if (!fin) {
+  var _z = _gsAdmZustand(fin); fin = _gsAdmNutzlast(fin, null);
+  if (_z || !fin) {
     return '<div id="gs-admin-finance-sec" style="margin-top:10px;padding:11px 13px;background:#ecfdf5;border-radius:var(--r-sm);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-        '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">💰 Kostendeckung</div>' +
-        '<button onclick="_gsAdminRefreshSection(\'gs-admin-finance-sec\', gsAdminFetchFinance, _gsAdminFinanceHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">↻</button>' +
-      '</div>' +
-      '<div style="font-size:var(--fs-sm);color:var(--muted);">Keine Daten verfügbar.</div></div>';
+        '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">💰 Kostendeckung</div>' + _gsAdmNeuKnopf('finance') +
+      '</div>' + _gsAdmNichtGeladenHtml(_z || { state:'nicht_verfuegbar', grund:'fn_admin_finance_snapshot' }) + '</div>';
   }
   var cov = (fin.coverage_ratio_mrr_over_ai==null) ? '–' : (fin.coverage_ratio_mrr_over_ai + '×');
   var anomalies = (fin.anomalies && fin.anomalies.length)
@@ -88196,8 +88400,7 @@ function _gsAdminFinanceHtml(fin){
   function cell(lbl, val){ return '<div style="flex:1;min-width:84px;"><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">'+lbl+'</div><div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">'+val+'</div></div>'; }
   return '<div id="gs-admin-finance-sec" style="margin-top:10px;padding:11px 13px;background:#ecfdf5;border-radius:var(--r-sm);">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">💰 Kostendeckung (MRR vs AI-Kosten)</div>' +
-      '<button onclick="_gsAdminRefreshSection(\'gs-admin-finance-sec\', gsAdminFetchFinance, _gsAdminFinanceHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">↻</button>' +
+      '<div style="font-weight:800;font-size:var(--fs-sm);color:var(--g-dark);">💰 Kostendeckung (MRR vs AI-Kosten)</div>' + _gsAdmNeuKnopf('finance') +
     '</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
       cell('MRR', (fin.est_mrr_chf||0)+' CHF') +
@@ -88211,21 +88414,17 @@ function _gsAdminFinanceHtml(fin){
 }
 
 // ══ v29.43 Schicht 10: Ops-Cockpit — bündelt alle Hintergrund-Schichten in eine Übersicht ══
-async function gsAdminFetchOpsDigest(){
-  try {
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_ops_digest', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-    return (res && res.data) || null;
-  } catch(_) { return null; }
-}
+async function gsAdminFetchOpsDigest(){ return _gsAdmHole('cockpit'); }
+window.gsAdminFetchOpsDigest = gsAdminFetchOpsDigest;
 function _gsAdminOpsCockpitHtml(d){
   var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
+  var _z = _gsAdmZustand(d); d = _gsAdmNutzlast(d, null);
   function age(ts){ if(!ts) return '–'; try { var m=Math.round((Date.now()-new Date(ts).getTime())/60000); if(m<60)return 'vor '+m+'m'; if(m<1440)return 'vor '+Math.round(m/60)+'h'; return 'vor '+Math.round(m/1440)+'d'; }catch(_){return '?';} }
-  if (!d) {
+  if (_z || !d) {
     return '<div id="gs-admin-cockpit-sec" style="margin-top:4px;padding:12px 14px;background:#0d2b0d;border-radius:var(--r-md);color:#fff;">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-        '<div style="font-weight:800;font-size:var(--fs-md);">🩺 Ops-Cockpit</div>' +
-        '<button onclick="_gsAdminRefreshSection(\'gs-admin-cockpit-sec\', gsAdminFetchOpsDigest, _gsAdminOpsCockpitHtml)" style="padding:4px 9px;border:1px solid rgba(255,255,255,.25);border-radius:var(--r-sm);background:rgba(255,255,255,.1);color:#fff;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">↻</button>' +
-      '</div><div style="font-size:var(--fs-sm);color:#a5d6a7;margin-top:6px;">Keine Daten verfügbar.</div></div>';
+        '<div style="font-weight:800;font-size:var(--fs-md);">🩺 Ops-Cockpit</div>' + _gsAdmNeuKnopf('cockpit', true) +
+      '</div>' + _gsAdmNichtGeladenHtml(_z || { state:'nicht_verfuegbar', grund:'fn_admin_ops_digest' }) + '</div>';
   }
   var ov = d.overall || 'ok';
   var dot = ov==='error' ? '🔴' : ov==='warn' ? '🟡' : '🟢';
@@ -88246,7 +88445,7 @@ function _gsAdminOpsCockpitHtml(d){
   return '<div id="gs-admin-cockpit-sec" style="margin-top:4px;padding:13px 15px;background:linear-gradient(135deg,#0d2b0d,#1a3d1a);border-radius:var(--r-md);color:#fff;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">' +
       '<div style="font-weight:800;font-size:var(--fs-md);">🩺 Ops-Cockpit <span style="font-weight:600;color:#a5d6a7;font-size:var(--fs-sm);">'+dot+' '+esc(ovTxt)+'</span></div>' +
-      '<button onclick="_gsAdminRefreshSection(\'gs-admin-cockpit-sec\', gsAdminFetchOpsDigest, _gsAdminOpsCockpitHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid rgba(255,255,255,.25);border-radius:var(--r-sm);background:rgba(255,255,255,.1);color:#fff;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">↻</button>' +
+      _gsAdmNeuKnopf('cockpit', true) +
     '</div>' +
     '<div style="font-size:var(--fs-sm);color:#c8e6c9;margin-bottom:8px;">'+(d.cron_active!=null?d.cron_active:'–')+' aktive Hintergrund-Jobs · '+(d.cron_failed_24h||0)+' Fehlläufe 24h · '+(d.events_warn_24h||0)+' Warnungen / '+(d.events_error_24h||0)+' Fehler (24h)</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
@@ -88303,37 +88502,6 @@ async function openAdminPanel() {
   m.style.zIndex = '99999';
   m.onclick = function(e){ if (e.target === m) m.remove(); };
 
-  var rows = users.map(function(u){
-    var bg = u.role === 'admin' ? '#fff3e0' : u.role === 'staff' ? '#e3f2fd' : u.role === 'expert' ? '#e8f5e9' : u.role === 'banned' ? '#ffebee' : '#fafafa';
-    var safeName = (typeof escHtml==='function') ? escHtml(u.display_name || '—') : (u.display_name || '—');
-    var safeEmail = (typeof escHtml==='function') ? escHtml(u.email || '—') : (u.email || '—');
-    // v28.69 Q3: data-search für Client-seitige Filterung (Name+Email+Rolle, lowercased, attr-escaped)
-    var srch = ((u.display_name||'') + ' ' + (u.email||'') + ' ' + (u.role||'')).toLowerCase().replace(/"/g,'');
-    return '<div class="gs-admin-user-row" data-search="' + srch + '" style="background:' + bg + ';padding:10px 12px;border-radius:var(--r-sm);margin-bottom:6px;display:flex;align-items:center;gap:10px;">' +
-      '<div style="font-size:var(--fs-2xl);flex-shrink:0;">' + escHtml(u.avatar_emoji || '🌿') + '</div>' + /* v29.09 SECURITY: XSS avatar_emoji */
-      '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">' + safeName + gsRoleBadge(u.role, {size:'sm'}) + '</div>' +
-        '<div style="font-size:var(--fs-sm);color:var(--muted);">' + safeEmail + ' · XP ' + (u.xp||0) + ' · ' + (u.scan_count||0) + ' Scans</div>' +
-      '</div>' +
-      '<select onchange="gsAdminAssignRole(\'' + u.id + '\', this.value).then(function(){openAdminPanel();})" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;">' +
-        '<option value="">— Rolle —</option>' +
-        '<option value="admin"' + (u.role==='admin'?' selected':'') + '>👑 Admin</option>' +
-        '<option value="staff"' + (u.role==='staff'?' selected':'') + '>🛡️ Mitarbeiter</option>' +
-        '<option value="expert"' + (u.role==='expert'?' selected':'') + '>✓ Experte</option>' +
-        '<option value="user"' + (u.role==='user'?' selected':'') + '>👤 Nutzer</option>' +
-        '<option value="banned"' + (u.role==='banned'?' selected':'') + '>🚫 Gesperrt</option>' +
-      '</select>' +
-      // v28.98 Admin-Ausbau: Tier vergeben (Comp/Tester) — RPC fn_admin_set_tier (audit-geloggt)
-      '<select onchange="gsAdminSetTier(\'' + u.id + '\', this.value).then(function(){openAdminPanel();})" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;">' +
-        '<option value="">— Tier —</option>' +
-        '<option value="free"' + (u.tier==='free'?' selected':'') + '>🌱 Free</option>' +
-        '<option value="pro"' + (u.tier==='pro'?' selected':'') + '>💎 Pro</option>' +
-        '<option value="lifetime"' + (u.tier==='lifetime'?' selected':'') + '>♾️ Lifetime</option>' +
-      '</select>' +
-      // v29.12: Nutzer-Detailansicht (Profil + Abo + Aktivität + Aktionen)
-      '<button onclick="gsAdminOpenUserDetail(\'' + u.id + '\')" title="Details" style="padding:6px 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-md);cursor:pointer;font-family:inherit;flex-shrink:0;">ℹ️</button>' +
-    '</div>';
-  }).join('') || '<div style="text-align:center;padding:20px;color:var(--muted);">Keine User gefunden.</div>';
 
   // v24.49: Storage-Diagnostics — gsStore-Quota-Telemetrie
   var quotaHits = (typeof window.gsStoreQuotaHits === 'number') ? window.gsStoreQuotaHits : 0;
@@ -88355,6 +88523,7 @@ async function openAdminPanel() {
     '<div class="modal-content">' +
       '<h2 style="margin:0 0 6px;font-size:var(--fs-xl);color:var(--g-dark);">👑 Admin-Panel · Rollen verwalten</h2>' +
       '<p style="margin:0 0 14px;font-size:var(--fs-sm);color:var(--muted);">Hierarchie: <b>Admin</b> > <b>Mitarbeiter</b> > <b>Experte</b> > <b>Nutzer</b> > <b>Gesperrt</b></p>' +
+      _gsAdmUeberblickHtml() +
       _gsAdminMetricsHtml(metrics) +
       _gsAdminAnalyticsHtml(analytics) +
       _gsAdminStripeHtml(stripe) +
@@ -88376,9 +88545,7 @@ async function openAdminPanel() {
         '<button onclick="gsAdminOpenKnowledgeEditor()" style="padding:7px 13px;background:#3949ab;color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">Öffnen ›</button>' +
       '</div>' +
       _gsAdminAuditHtml(audit) +
-      '<input type="text" oninput="gsAdminFilterUsers(this.value)" placeholder="🔍 Nutzer suchen (Name, E-Mail, Rolle)…" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;">' +
-      '<div id="gs-admin-user-list">' + rows + '</div>' +
-      '<div id="gs-admin-user-empty" style="display:none;text-align:center;padding:14px;color:var(--muted);font-size:var(--fs-sm);">Keine Nutzer gefunden.</div>' +
+      _gsAdminUsersHtml(users) +
       diagBlock +
       '<div style="margin-top:14px;padding:10px 12px;background:var(--bg-yellow-soft);border-left:3px solid #ffa000;font-size:var(--fs-sm);color:#5d4037;border-radius:0 var(--r-sm) var(--r-sm) 0;line-height:1.5;">' +
         '⚠ <b>Vorsicht:</b> Rollen-Wechsel sendet automatisch eine Notification. Audit-Log wird geschrieben. Letzter Admin kann sich nicht selbst degradieren.' +

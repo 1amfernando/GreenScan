@@ -4,13 +4,95 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.41` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.42` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (im) - v33.42: Das Admin-Panel sagt, was es weiss
+
+**Fernandos Auftrag:** „Auch für mich als Admin muss mehr gemacht werden."
+Vor dem Bauen gemessen, nicht geraten — und der Befund war grösser als erwartet.
+
+**1 · Dreizehn von sechzehn Sektionen lasen den Fehler gar nicht.** Sie endeten
+alle auf dieselbe Bauform:
+
+```js
+    return (r && Array.isArray(r.data)) ? r.data : [];
+  } catch(e) { return []; }
+```
+
+Eine RLS-Ablehnung, ein 404, eine fehlende RPC, ein Netzfehler — alles wurde zu
+einer leeren Liste. Auf dem Bildschirm stand dann „Kein Inhalt vorhanden",
+„Keine offenen Meldungen", „✅ Alle Jobs laufen". **Das ist keine Stille, das
+ist eine Zusage.** Bei der Moderation heisst sie „nichts zu tun"; bei den
+Client-Fehlern „keine Fehler". Beides kann auch heissen: die Abfrage kam nie
+durch.
+
+Seither: **eine Liste** (`GS_ADM_SEKTIONEN`, 16 Zeilen mit Titel, Pfad,
+Anzeige und Element), **ein Weg** (`_gsAdmHole`) und **vier Zustände** —
+`daten` (leer ist Teil davon) · `nicht_verfuegbar` · `fehler` ·
+`kein_zugriff`. Der Grund kommt aus `_gsFehlerText`, nie roh aus PostgREST.
+Die Bauform stand seit v33.18 in `gsAdminFetchAnalytics` — sie galt nur für
+diese eine Sektion.
+
+**2 · Sieben von sechzehn fragten nicht, ob die Person Admin ist.** Die später
+gebauten Sektionen (Foto-Beiträge, Arten-Vorschläge, Cron, System-Ereignisse,
+Kostendeckung, Ops-Cockpit, Meldungen) hatten kein `gsIsAdmin()`-Tor: die
+Anfrage ging hinaus und wurde von RLS abgewiesen. Das Tor sitzt jetzt an der
+EINEN Stelle, durch die alle sechzehn müssen — dieselbe Antwort wie bei der
+Tastatur (v32.16) und beim Kamera-Riegel (v32.33).
+
+**3 · Eine frische Zahl kostete das Schliessen des Panels und sechzehn
+Anfragen.** `_gsAdminRefreshSection` gab es, aber nur vier Sektionen hatten
+einen Knopf, die Funktion nahm **Funktionsreferenzen statt eines Namens** (von
+aussen also nicht adressierbar), und bei fehlendem Element baute sie das
+**ganze** Panel neu auf. Jetzt `gsAdmSektionNeu('<schlüssel>')`: eine Anfrage,
+die Nachbarn bleiben unberührt — gemessen, nicht behauptet.
+
+**4 · Neu, nicht nur repariert: der Überblick.** Das Panel ist eine lange
+Rolle; eine Sektion, die auf Position zwölf schweigt, sieht niemand. Ganz oben
+steht jetzt „3 von 16 Sektionen konnten nicht geladen werden: Moderation ·
+Hintergrund-Jobs · Gutscheine" mit **„Nur diese erneut versuchen"** — das sind
+dann drei Anfragen, nicht sechzehn. Laden alle, steht dort „✅ Alle 16
+Sektionen geladen."
+
+**5 · `scripts/admin_check.js` — der 36. Prüfstand.** Sechs Fälle: Zugang ·
+drei Zustände je Sektion (Ablehnung / fehlende RPC / leer, einzeln gestellt) ·
+was bei lauter Ablehnungen auf dem Bildschirm steht · Einzel-Refresh · die
+Liste selbst · der Überblick. **Alle sechs waren gegen v33.41 rot.** Jede
+Regel hat ihre eigene Gegenprobe (Tor ausgebaut, Umschlag ausgebaut, Satz
+schweigt, Refresh umbenannt, Refresh holt alles, Zeile aus der Liste entfernt,
+Überblick nicht im Panel, erneut-versuchen holt alle, Überblick nennt keine
+Namen) — jede davon macht genau ihren Fall rot.
+
+**Zwei Dinge aus dem Bau, beide allgemein:**
+
+> **Eine Gegenprobe mit `delete window.X` entfernt keine Funktion.** Mein
+> erster Versuch, den Einzel-Refresh wegzunehmen, löschte
+> `window.gsAdmSektionNeu` — und der Fall blieb **grün**. Eine
+> Funktionsdeklaration auf oberster Ebene ist eine nicht-konfigurierbare
+> Eigenschaft des globalen Objekts; das `delete` schlägt still fehl. Erst das
+> **Umbenennen** im Quelltext stellt den Zustand her (danach: rot, mit Grund).
+> Dieselbe Klasse wie v32.24 — nach jeder Gegenprobe nachsehen, ob der Zustand
+> wirklich hergestellt wurde.
+
+> **Mein eigener neuer Fall hat zwei Lücken gefunden, die ich gebaut hatte.**
+> Der Fall „Die Liste ist die Prüfung" verlangt, dass JEDE Zeile der Liste
+> auch ein Element im Panel hat. Zwei hatten keines: „Nutzung" (ich hatte die
+> Sektion beim Umbau schlicht vergessen) und „Admin-Protokoll", das bei einem
+> LEEREN Protokoll eine leere Zeichenkette zurückgab — die ganze Sektion
+> verschwand, und mit ihr der Weg, sie noch einmal zu holen. **Ein Fall, der
+> die Liste gegen die Wirklichkeit hält, findet auch das, was der Autor
+> vergessen hat.**
+
+**Ausdrücklich NICHT geändert:** was die sechzehn RPCs auf dem Server tun. Der
+Prüfstand stellt den Server; geprüft ist, was die App aus einer Antwort MACHT
+— nicht ob die RPC existiert (das sagt `backend_check`) und nicht, ob RLS sie
+durchlässt.
 
 ### 2026-09-16 (il) - v33.41: Das Backend — und zwei Migrationen, die gar nicht anwendbar waren
 
@@ -13849,11 +13931,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.41` (Client) · SW-Cache `gs-v33.41` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.42` (Client) · SW-Cache `gs-v33.42` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **94'373 Zeilen / 6,03 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **569 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.21).
+- **Frontend:** `index.html` **94'540 Zeilen / 6,04 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **570 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.22).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **220 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **36** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
