@@ -30,6 +30,20 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.22', date: '10.09.2026',
+      headline: 'Lina öffnet den Kalender und den Säkalender',
+      summary: 'Lina kennt den Kalender seit v33.14 — jetzt kann sie ihn auch zeigen: „öffne den Kalender am 15. September" oder „zeig mir den Säkalender" führt direkt dorthin. Und der Dispatcher, durch den jede ihrer Aktionen muss, hat seinen ersten Prüfstand.',
+      user_summary: 'Frag Lina „was steht nächste Woche an?" — und sag „zeig mir den Kalender": sie öffnet ihn am richtigen Tag. Auch der Säkalender ist einen Satz entfernt.',
+      user_items: [
+        {emoji:'📅', text:'„Öffne den Kalender am 15. September" — Lina zeigt den Tag mit Aufgaben, Aussaatfenstern, Plan-Terminen und Frost.'},
+        {emoji:'🌱', text:'„Zeig mir den Säkalender" — die 39 Kulturen mit drinnen/draussen/Ernte.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsLinaDispatch:', text:' open_calendar {day} → gsKalenderOeffnenAm (ohne day heute) · open_saekalender → openSaekalender; beide nur lesend, ohne Rückfrage. Der Auftrag (LINA_SYSTEM) nennt beide; erfundene Tools tun weiter nichts.'},
+        {emoji:'🧪', bold:'sensor_check „Lina · handeln":', text:' erster Prüfstand für den Dispatcher — Kalender am 01.09. (Feldsalat im Fenster), ohne day heute, Säkalender, erfundenes Tool ohne Wirkung, Auftrag nennt beide. Zwei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.21', date: '10.09.2026',
       headline: 'Nutzungsmessung: vier Ereignisse mehr — jedes ein Zähler, keines ein Inhalt',
       summary: 'Jahresvorlage, zweites Foto, Lina-Frage und Ernte-Eintrag sind jetzt benannte Ereignisse im Vokabular — mit genau den Feldern, die sie tragen dürfen. Und der Prüfstand hält fest, dass jedes Ereignis einen Aufrufer hat und jeder Aufrufer einen Eintrag.',

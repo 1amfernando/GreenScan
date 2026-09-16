@@ -124,7 +124,7 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 35 Prüfstände (§7.1) + pruefstaende.sh (alle 35, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 36 Prüfstände (§7.1) + pruefstaende.sh (alle 36, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -747,7 +747,8 @@ node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? F
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
-bash scripts/pruefstaende.sh     # ALLE 35 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42)
+bash scripts/pruefstaende.sh     # ALLE 36 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1533,6 +1534,41 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > `#gs-lina-input` ist danach abgehaengt, und ein frisch gerendertes Feld ist
 > LEER — wer davor den Text hineingeschrieben hat, sieht `gsLinaSend` gleich
 > darauf an `if (!text) return;` umkehren. Gilt im Code wie im Pruefstand.
+
+**`admin_check.js` (seit v33.42) fragt, ob das Admin-Panel sagt, was es
+WEISS.** Anlass war Fernandos „Auch für mich als Admin muss mehr gemacht
+werden". Gemessen an v33.41: **dreizehn von sechzehn** Sektionen lasen den
+Fehler gar nicht (`catch(e) { return []; }`), **sieben** hatten kein
+`gsIsAdmin()`-Tor, und eine frische Zahl kostete das Schliessen des Panels und
+sechzehn neue Anfragen. Seither gilt für jede Admin-Sektion:
+
+- **Eine Liste, ein Weg.** `GS_ADM_SEKTIONEN` trägt je Sektion Titel, Pfad,
+  Anzeige-Funktion und Element-id; `_gsAdmHole(schlüssel)` ist die einzige
+  Abfrage und gibt IMMER einen Umschlag `{state, daten, grund}` zurück.
+  Wer eine Sektion hinzufügt, trägt sie dort ein — **die Liste ist die
+  Prüfung** (Fall 5 hält jeden Eintrag gegen das, was das Panel wirklich
+  rendert, und meldet jede Sektion ohne Element oder ohne Knopf).
+- **Vier Zustände, und drei davon muss die Anzeige AUSSPRECHEN.** `daten`
+  (leer ist Teil davon) · `nicht_verfuegbar` (die RPC gibt es nicht — das ist
+  eine nicht angewandte Migration, kein Fehler des Admins) · `fehler` ·
+  `kein_zugriff`. `_gsAdmZustand(x)` / `_gsAdmNutzlast(x, vorgabe)` /
+  `_gsAdmNichtGeladenHtml(z)` sind die drei Helfer dazu.
+- **Ein Zustand, den die Anzeige nicht aussprechen kann, wird von ihr
+  ERFUNDEN.** „✅ Alle Jobs laufen" stand auch dann da, wenn die Abfrage
+  abgelehnt wurde — die Zeile hängt jetzt an `jobs.length`. Wer eine
+  beruhigende Zeile schreibt, prüft, woher sie ihre Ruhe nimmt.
+- **Ein Refresh ist eine Anfrage, nicht sechzehn.** `gsAdmSektionNeu(key)`
+  ersetzt nur sein Element; der Überblick oben (`_gsAdmUeberblickHtml`) nennt
+  die nicht geladenen Sektionen beim Namen, und `gsAdmFehlendeNeu()` holt
+  genau diese nach.
+
+> **Eine Gegenprobe mit `delete window.X` entfernt keine Funktion** (v33.42).
+> Eine `function`-Deklaration auf oberster Ebene ist eine
+> **nicht-konfigurierbare** Eigenschaft des globalen Objekts — das `delete`
+> schlägt still fehl, und der Fall bleibt grün. Wer eine Funktion für eine
+> Gegenprobe wegnehmen will, **benennt sie im Quelltext um**. Dieselbe Klasse
+> wie die Gegenprobe, deren Skript nichts geändert hat (v32.24): nach jeder
+> Gegenprobe nachsehen, ob der Zustand wirklich hergestellt wurde.
 
 **`nutzersicht_check.js` (seit v32.70) fragt, was kein anderer fragt: sagt die
 App, was STIMMT, in der Sprache der Person?** (Audit E2–E5, E8.) Fünf Fälle,
