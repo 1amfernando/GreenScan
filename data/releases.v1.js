@@ -30,6 +30,21 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.18', date: '10.09.2026',
+      headline: 'Nutzungsmessung lesbar — fn_admin_analytics und die Karte „Nutzung" im Admin-Panel',
+      summary: 'Seit v33.11 schreibt die App ein benanntes Vokabular — und niemand las es. Jetzt gibt es die Lese-Seite: eine Migration (nicht angewandt) zählt je Ereignis und Tag, nur Zahlen; die Admin-Karte hat drei Zustände.',
+      user_summary: 'Für dich ändert sich nichts Sichtbares — die Nutzungsmessung bleibt Opt-in und zählt nur, was du erlaubt hast. Neu kann der Betreiber die Zählungen sehen, ohne Namen oder Kennungen.',
+      user_items: [
+        {emoji:'🔒', text:'Die Auswertung zeigt nur Zahlen — kein Name, keine Kennung, kein Inhalt eines Scans.'},
+        {emoji:'📊', text:'Solange niemand zustimmt, sagt die Karte „noch keine Ereignisse — das ist kein Fehler".'}
+      ],
+      items: [
+        {emoji:'🗄', bold:'20260910_admin_analytics.sql (nicht angewandt):', text:' fn_admin_analytics(p_days) — SECURITY DEFINER + is_admin_user, REVOKE anon, p_days auf 1..365 geklemmt, by_event/by_day/consent, keine user_id in der Antwort.'},
+        {emoji:'📈', bold:'Admin-Karte „Nutzung":', text:' drei Zustände — nicht verfügbar (nennt die Migration) · leer (Opt-in erklärt) · Zahlen; Netzfehler ist ein übersetzter Satz, Ereignisnamen werden escaped.'},
+        {emoji:'🧪', bold:'nutzung_check (33. Prüfstand):', text:' SQL im lokalen Postgres (11 Ereignisse, Fenster, Klemme, Gate, Idempotenz, keine Kennung) + App mit gestelltem sbFetch. backend_check kennt jetzt „bewusst offene" RPCs. Vier Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.17', date: '10.09.2026',
       headline: 'Konto löschen — vollständig und nachgemessen',
       summary: 'Konto löschen räumt jetzt auch die Fotos in der Cloud, den Suchverlauf und die KI-Nutzung; wer eine Organisation erstellt hat, erfährt es vorher statt ein halb gelöschtes Konto zu behalten. Ein neuer Prüfstand hält die Liste gegen die Live-Datenbank.',

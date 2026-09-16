@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.37.20260916">
+<meta name="app-version" content="33.38.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7313,9 +7313,9 @@ html, body{ scroll-behavior: smooth; }
         <div class="menu-item-icon" style="background:var(--bg-success-soft);">🐝</div>
         <span class="menu-item-label" data-i18n="menu_biodiversitaet" data-i18n-fallback="Biodiversität">Biodiversität</span>
       </button>
-      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenGardenTimeline();},200)" id="mi-timeline">
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsKalRueckblick();},200)" id="mi-timeline">
         <div class="menu-item-icon" style="background:var(--bg-violet-soft);">📆</div>
-        <span class="menu-item-label" data-i18n="menu_garten_timeline" data-i18n-fallback="Garten-Timeline">Garten-Timeline</span>
+        <span class="menu-item-label" data-i18n="menu_garten_rueckblick" data-i18n-fallback="Rückblick">Rückblick</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenWeatherWarn();},200)" id="mi-weatherwarn">
         <div class="menu-item-icon" style="background:#e1f5fe;">⚠️</div>
@@ -15168,7 +15168,7 @@ window.GS_I18N_JS_STRINGS = {
   'nj_scans':                 'Scans',
   'nj_species':               'Arten',
   'nj_finds':                 'Funde',
-  'nj_plantings':             'Pflanzungen',
+  'nj_plantings':             'Gepflanzt',
   'nj_harvest':               'Ernte',
   'nj_achievements':          'Erfolge',
   'nj_streak':                'Streak',
@@ -21522,36 +21522,44 @@ window.gsAddScanHistory = gsAddScanHistory;
 // Verbindet Mensch & Natur (Mission): aggregiert AUSSCHLIESSLICH bereits vorhandene,
 // gesyncte Daten (Scans/Funde/Garten/Ernte/Quiz/Erfolge) zu einer schönen Jahres-Story.
 // Kein neues Tracking, kein Backend, voll offline. Defensiv (alle Quellen optional).
-function _gsNjArr(key){ try { var v=(window.gsStore&&gsStore.get)?gsStore.get(key,null):localStorage.getItem(key); var a=JSON.parse(v||'[]'); return Array.isArray(a)?a:[]; } catch(_){ return []; } }
-function _gsNjDate(ts){ if(ts==null) return null; try { var d=new Date(ts); return isNaN(d.getTime())?null:d; } catch(_){ return null; } }
 function gsOpenNaturjahr(){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
   var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
   var YEAR = new Date().getFullYear(), CURM = new Date().getMonth();
   var monNames = gsMonate(true);
   var months = [0,0,0,0,0,0,0,0,0,0,0,0];
-  function bump(d){ if(d && d.getFullYear()===YEAR) months[d.getMonth()]++; }
 
-  // Scans (gs_scan_history: {name, createdAt ms})
-  var scanYear=0, speciesCount={};
-  _gsNjArr('gs_scan_history').forEach(function(s){
-    var d=_gsNjDate(_gsScanZeit(s)); if(d&&d.getFullYear()===YEAR){ scanYear++; bump(d); }   // v33.33: ein Leser
-    var nm=(s.name||'').trim(); if(nm) speciesCount[nm]=(speciesCount[nm]||0)+1;
+  // v33.38 (KALENDER-V2 Scheibe 4b): die Zahlen kommen aus der EINEN Funktion.
+  // Bis hierher zaehlte dieser Bildschirm vier Quellen selbst — und damit
+  // anders als der Kalender: „Funde" las f.ts||f.time||f.found_at, ein Feld,
+  // das keine der drei Schreibstellen setzt (v33.37: es ist „date"), also stand
+  // dort immer 0; und „Arten" kannte als einzige Kachel KEINEN Jahresfilter,
+  // stand aber unter der Ueberschrift „Mein Naturjahr <Jahr>".
+  var ev = [];
+  try { ev = gsKalenderEreignisse(YEAR + '-01-01', YEAR + '-12-31') || []; } catch(_) { ev = []; }
+  function njMonat(e){ var m = parseInt(String(e.datum).slice(5,7),10) - 1; if(m>=0 && m<12) months[m]++; }
+
+  var scans = ev.filter(function(e){ return e.art==='scan'; });
+  var funde = ev.filter(function(e){ return e.art==='fund'; });
+  var pfl   = ev.filter(function(e){ return e.art==='gepflanzt'; });
+  // Die Ernte-SCHAETZUNG (quelle „regel") ist kein Ereignis dieses Jahres,
+  // sondern eine Vorhersage — gezaehlt wird, was wirklich geerntet wurde.
+  var ernten = ev.filter(function(e){ return e.art==='ernte' && e.quelle==='hand'; });
+  [scans, funde, pfl, ernten].forEach(function(l){ l.forEach(njMonat); });
+
+  var scanYear = scans.length, findYear = funde.length, plantYear = pfl.length;
+  var ernteCount = ernten.length, ernteKg = 0;
+  ernten.forEach(function(e){
+    var m = (e.menge != null && isFinite(e.menge)) ? Number(e.menge) : 0;
+    var u = String(e.einheit || '').toLowerCase();
+    if (u === 'kg') ernteKg += m; else if (u === 'g') ernteKg += m / 1000;
   });
-  var uniqueSpecies=Object.keys(speciesCount).length;
-  var topSpecies=Object.keys(speciesCount).sort(function(a,b){return speciesCount[b]-speciesCount[a];}).slice(0,5);
 
-  // Karten-Funde (greenscan_markers)
-  var findYear=0;
-  _gsNjArr('greenscan_markers').forEach(function(f){ var d=_gsNjDate(f.ts||f.time||f.found_at||f.created_at); if(d&&d.getFullYear()===YEAR){ findYear++; bump(d); } });
-
-  // Garten-Pflanzungen (gs_plantings: {date, added}) + Meine Pflanzen
-  var plantYear=0;
-  _gsNjArr('gs_plantings').forEach(function(p){ var d=_gsNjDate(p.date||p.added); if(d&&d.getFullYear()===YEAR){ plantYear++; bump(d); } });
-
-  // Ernte (gs_ernte_log: {ts, menge, unit})
-  var ernteCount=0, ernteKg=0;
-  _gsNjArr('gs_ernte_log').forEach(function(e){ var d=_gsNjDate(e.ts); if(d&&d.getFullYear()===YEAR){ ernteCount++; bump(d); var m=parseFloat(e.menge)||0, u=String(e.unit||'').toLowerCase(); if(u==='kg')ernteKg+=m; else if(u==='g')ernteKg+=m/1000; } });
+  // Arten: aus den Scan-Ereignissen DIESES Jahres (sie tragen den Namen seit v33.38)
+  var speciesCount = {};
+  scans.forEach(function(e){ var nm = String(e.name || '').trim(); if (nm) speciesCount[nm] = (speciesCount[nm]||0) + 1; });
+  var uniqueSpecies = Object.keys(speciesCount).length;
+  var topSpecies = Object.keys(speciesCount).sort(function(a,b){ return speciesCount[b]-speciesCount[a]; }).slice(0,5);
 
   // Quiz (gs_dq_stats) + Achievements (gs_achievements: Array ODER Object)
   var dq={}; try { dq=JSON.parse(localStorage.getItem('gs_dq_stats')||'{}')||{}; } catch(_){}
@@ -21586,7 +21594,7 @@ function gsOpenNaturjahr(){
       '</div>'+
       (empty
         ? '<div style="text-align:center;padding:24px;color:var(--muted);font-size:var(--fs-md);line-height:1.6;">🌱 '+_t('nj_empty','Noch keine Aktivität dieses Jahr. Scanne Pflanzen, lege einen Garten an oder spiele das Quiz — dein Naturjahr füllt sich von selbst.')+'</div>'
-        : ('<div style="display:flex;gap:7px;margin-bottom:7px;">'+tile('🔍',scanYear,_t('nj_scans','Scans'),'#e8f5e9')+tile('🌿',uniqueSpecies,_t('nj_species','Arten'),'#f1f8e9')+tile('📍',findYear,_t('nj_finds','Funde'),'#e3f2fd')+tile('🌱',plantYear,_t('nj_plantings','Pflanzungen'),'#f9fbe7')+'</div>'+
+        : ('<div style="display:flex;gap:7px;margin-bottom:7px;">'+tile('🔍',scanYear,_t('nj_scans','Scans'),'#e8f5e9')+tile('🌿',uniqueSpecies,_t('nj_species','Arten'),'#f1f8e9')+tile('📍',findYear,_t('nj_finds','Funde'),'#e3f2fd')+tile('🌱',plantYear,_t('nj_plantings','Gepflanzt'),'#f9fbe7')+'</div>'+
            '<div style="display:flex;gap:7px;margin-bottom:14px;">'+tile('🧺',(ernteKg>0?(Math.round(ernteKg*10)/10)+'kg':ernteCount),_t('nj_harvest','Ernte'),'#fff8e1')+tile('🏆',achN,_t('nj_achievements','Erfolge'),'#fff3e0')+tile('🧩',(dq.bestStreak||0),_t('nj_streak','Streak'),'#ede7f6')+tile('⭐',(dq.points||0),_t('nj_points','Quiz-Pkt'),'#e0f7fa')+'</div>'+
            '<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">'+_t('nj_activity','📈 Aktivität pro Monat')+'</div>'+
            '<div style="display:flex;align-items:flex-end;gap:3px;height:62px;background:var(--surface2);border-radius:var(--r-md);padding:8px 6px;">'+bars+'</div>'+
@@ -29076,7 +29084,7 @@ function gsKalenderEreignisse(von, bis) {
       var tag = _gsKalTag(zt); if (!tag || !im(tag)) return;
       var konf = (h.conf != null) ? h.conf : h.confidence;
       out.push({ id: 'scan:' + (h.id || (tag + ':' + i)), art: 'scan', datum: tag, zeit: _gsKalZeit(zt), ts: new Date(zt).toISOString(),
-        titel: _gsSatz('{1} gescannt', h.name), emoji: '🔬',
+        titel: _gsSatz('{1} gescannt', h.name), emoji: '🔬', name: h.name,
         pflanze: null, garten_id: null, quelle: 'scan', status: 'info', faellig_seit: null,
         verweis: (h.lat || h.name) ? { fn: 'gsSearchSpecies', args: [h.lat || h.name] } : null,
         grund: (konf != null && isFinite(konf))
@@ -29093,7 +29101,7 @@ function gsKalenderEreignisse(von, bis) {
       var zt = _gsFundZeit(f); if (zt == null) return;
       var tag = _gsKalTag(zt); if (!tag || !im(tag)) return;
       out.push({ id: 'fund:' + (f.id || (tag + ':' + i)), art: 'fund', datum: tag, zeit: _gsKalZeit(zt), ts: new Date(zt).toISOString(),
-        titel: _gsSatz('{1} gefunden', f.name), emoji: '📍',
+        titel: _gsSatz('{1} gefunden', f.name), emoji: '📍', name: f.name,
         pflanze: null, garten_id: null, quelle: 'hand', status: 'info', faellig_seit: null,
         verweis: { fn: 'gsOpenMyFinds', args: [] },
         grund: _gsSatz('Ein Fundort aus deiner Karte') });
@@ -29112,7 +29120,7 @@ function gsKalenderEreignisse(von, bis) {
       var menge = (z.menge != null && isFinite(Number(z.menge))) ? Number(z.menge) : null;
       out.push({ id: 'ernte-hand:' + (z.id || (tag + ':' + i)), art: 'ernte', datum: tag, zeit: _gsKalZeit(z.ts), ts: z.ts,
         titel: menge != null ? _gsSatz('{1} geerntet: {2} {3}', z.pflanze, menge, z.unit || '') : _gsSatz('{1} geerntet', z.pflanze),
-        emoji: z.emoji || '🧺',
+        emoji: z.emoji || '🧺', menge: menge, einheit: z.unit || null,
         pflanze: null, garten_id: null, quelle: 'hand', status: 'info', faellig_seit: null,
         verweis: { fn: 'openErnteTracking', args: [] },
         grund: _gsSatz('Aus deinem Ernte-Buch') });
@@ -29427,6 +29435,20 @@ window._gsKalFilter = _gsKalFilter;
 window._gsKalArtGruppe = _gsKalArtGruppe;
 window.gsKalGruppeUmschalten = gsKalGruppeUmschalten;
 window.gsKalAlleZeigen = gsKalAlleZeigen;
+// v33.38: der Weg, den frueher die „Garten-Timeline“ genommen hat. Sie war
+// eine ZWEITE Oberflaeche fuer dieselbe Frage — dieselben Ernten, dieselben
+// Scans, dazu sechs feste Kalendertage als „Saison-Ereignisse“ („Eisheilige
+// Ende 15.05.“), die mit dem Standort der Person nichts zu tun hatten.
+// Jetzt fuehrt der Eintrag in den Kalender und schaltet den Rueckblick ein.
+function gsKalRueckblick() {
+  try {
+    var f = _gsKalFilter();
+    var g = null; GS_KAL_GRUPPEN.forEach(function (x) { if (x.id === 'rueckblick') g = x; });
+    if (g) { f.aus = f.aus.filter(function (a) { return g.arten.indexOf(a) < 0; }); _gsKalFilterSchreiben(f); }
+  } catch (_) {}
+  gsKalenderOeffnen();
+}
+window.gsKalRueckblick = gsKalRueckblick;
 
 // ── Der Bildschirm: Monat oben, Tag darunter ──────────────────────────────
 var _gsKalStand = { monat: null, tag: null };
@@ -75584,6 +75606,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.38', date: '16.09.2026',
+    headline: '„Mein Naturjahr“ zählt jetzt dasselbe wie der Kalender — und die Garten-Timeline ist darin aufgegangen',
+    summary: 'Zweiter Teil der vierten Scheibe. Der Jahresrückblick rechnete seine Zahlen selbst, mit eigenen Lesern — und lag daneben: die Kachel „Funde“ stand seit jeher auf 0, weil sie ein Feld las, das keine der drei Schreibstellen setzt, und „Arten“ zählte als einzige Kachel ohne Jahresfilter, unter der Überschrift „Mein Naturjahr 2026“. Beides kommt jetzt aus der einen Kalender-Funktion. Und die Garten-Timeline, die dieselbe Frage mit sechs eigenen Quellen beantwortet hat, ist ersatzlos weg: der Menüeintrag heisst „Rückblick“ und öffnet den Kalender mit eingeschalteter Rückblick-Gruppe.',
+    user_summary: 'Dein Jahresrückblick zeigt jetzt die richtigen Zahlen — und die Garten-Timeline findest du als „Rückblick“ im Kalender.',
+    user_items: [
+      {emoji: '📍', bold: 'Funde zählen wieder:', text: ' Die Kachel „Funde“ in „Mein Naturjahr“ stand immer auf 0, egal wie viele Fundorte du auf der Karte hattest. Jetzt steht dort, was der Kalender auch zeigt.'},
+      {emoji: '🌿', bold: 'Arten zählen dein Jahr:', text: ' Unter „Mein Naturjahr 2026“ zählte die Arten-Kachel alle Scans, die du je gemacht hast. Jetzt zählt sie die dieses Jahres.'},
+      {emoji: '📆', bold: 'Rückblick statt Timeline:', text: ' Der Menüeintrag „Garten-Timeline“ heisst jetzt „Rückblick“ und öffnet den Kalender — mit Tagebuch, Pflanzungen und Fundorten eingeschaltet. Eine Ansicht statt zwei, und diese denkt mit.'}
+    ],
+  },
+  {
     v: 'v33.37', date: '16.09.2026',
     headline: 'Scans, Fundorte und deine wirkliche Ernte stehen jetzt im Kalender',
     summary: 'Vierte Scheibe von KALENDER-V2, erster Teil der drei Namen. Drei Quellen, die es in der App längst gibt und die im Kalender fehlten: der Scan-Verlauf, die Karten-Fundorte und das Ernte-Buch. Dabei gemessen: „Funde" in Mein Naturjahr stand seit jeher auf 0 — beide Schreiber legen die Zeit als `date` ab, gelesen wurde `ts/time/found_at/created_at`. Kein Fund hat je einen Monatsbalken bewegt.',
@@ -75914,21 +75947,7 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'kalender_check „Heute im Kalender":', text:' 6 Ereignisse → Zeile mit „+3 weitere", jeder Titel ein Kalender-Ereignis, Kopf zählt 0 Aufgaben · alle Quellen geräumt → keine Zeile · mit Aufgabe → Zeile unter der Karte. Drei Gegenproben rot.'}
       ],
     },
-  {
-    v: 'v33.18', date: '10.09.2026',
-      headline: 'Nutzungsmessung lesbar — fn_admin_analytics und die Karte „Nutzung" im Admin-Panel',
-      summary: 'Seit v33.11 schreibt die App ein benanntes Vokabular — und niemand las es. Jetzt gibt es die Lese-Seite: eine Migration (nicht angewandt) zählt je Ereignis und Tag, nur Zahlen; die Admin-Karte hat drei Zustände.',
-      user_summary: 'Für dich ändert sich nichts Sichtbares — die Nutzungsmessung bleibt Opt-in und zählt nur, was du erlaubt hast. Neu kann der Betreiber die Zählungen sehen, ohne Namen oder Kennungen.',
-      user_items: [
-        {emoji:'🔒', text:'Die Auswertung zeigt nur Zahlen — kein Name, keine Kennung, kein Inhalt eines Scans.'},
-        {emoji:'📊', text:'Solange niemand zustimmt, sagt die Karte „noch keine Ereignisse — das ist kein Fehler".'}
-      ],
-      items: [
-        {emoji:'🗄', bold:'20260910_admin_analytics.sql (nicht angewandt):', text:' fn_admin_analytics(p_days) — SECURITY DEFINER + is_admin_user, REVOKE anon, p_days auf 1..365 geklemmt, by_event/by_day/consent, keine user_id in der Antwort.'},
-        {emoji:'📈', bold:'Admin-Karte „Nutzung":', text:' drei Zustände — nicht verfügbar (nennt die Migration) · leer (Opt-in erklärt) · Zahlen; Netzfehler ist ein übersetzter Satz, Ereignisnamen werden escaped.'},
-        {emoji:'🧪', bold:'nutzung_check (33. Prüfstand):', text:' SQL im lokalen Postgres (11 Ereignisse, Fenster, Klemme, Gate, Idempotenz, keine Kennung) + App mit gestelltem sbFetch. backend_check kennt jetzt „bewusst offene" RPCs. Vier Gegenproben rot.'}
-      ],
-    },
+
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76137,7 +76156,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.37';
+var GS_VERSION = 'v33.38';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -88934,51 +88953,11 @@ function gsOpenBiodiversity(){
   _gsNlOpen(html);
 }
 
-// ── 5. GARTEN-TIMELINE ────────────────────────────────────────────
-function gsOpenGardenTimeline(){
-  // v28.15: vereinheitlichte Ernte-Quelle (gs_ernte_log / garden_harvests) statt LS-only gs_harvest_log
-  var harvest = [];
-  try { if (typeof gsErnteLoad === 'function') gsErnteLoad(); harvest = Array.isArray(window._gsErnteLog) ? window._gsErnteLog : []; } catch(_){ harvest = []; }
-  var scans   = _gsNlSafeItems(SCAN_HISTORY_KEY);   // v33.33: 'scan_history' (ohne gs_) schreibt niemand — die Timeline zeigte seit jeher 0 Scans
-  var events = [];
-  harvest.forEach(function(h){
-    var nm = h.pflanze || h.name || '?';
-    var mg = (h.menge != null ? h.menge : h.kg);
-    var un = h.unit || 'kg';
-    events.push({ type:'harvest', date:(h.ts||h.date||'').slice(0,10) || new Date().toISOString().slice(0,10), label:_gsSatz('🧺 Ernte: {1} · {2} {3}', nm, (parseFloat(mg)||0), un) });
-  });
-  scans.forEach(function(s){ var zt = _gsScanZeit(s); if(zt != null && s && s.name) events.push({ type:'scan', date:new Date(zt).toISOString().slice(0,10), label:_gsSatz('🔬 Scan: {1}', s.name) }); });
-  // Saison-Ereignisse des Jahres
-  var y = new Date().getFullYear();
-  var seasons = [
-    { date: y+'-03-20', label:'🌱 Frühlingsbeginn — Aussaat beginnen' },
-    { date: y+'-05-15', label:'❄️ Eisheilige Ende — frostempfindliche Pflanzen ins Freie' },
-    { date: y+'-06-21', label:'☀️ Sommerbeginn — regelmässig wässern' },
-    { date: y+'-09-23', label:'🍂 Herbstbeginn — Winterkulturen starten' },
-    { date: y+'-10-31', label:'🧄 Knoblauch-Pflanzung (Herbst)' },
-    { date: y+'-12-21', label:'❄️ Wintersonnenwende — Garten ruht' }
-  ];
-  seasons.forEach(function(s){ events.push({ type:'season', date:s.date, label:s.label }); });
-  events.sort(function(a,b){ return a.date.localeCompare(b.date); });
-
-  var html =
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
-      '<div style="font-size:36px;">📆</div>' +
-      '<div><h3 style="margin:0;color:var(--g-dark);">Garten-Timeline</h3>' +
-      '<div style="font-size:var(--fs-sm);color:var(--muted);">' + events.length + ' Ereignisse · Saison &amp; Aktivität</div></div>' +
-    '</div>' +
-    '<div style="max-height:55vh;overflow-y:auto;position:relative;padding-left:16px;border-left:3px solid #c8e6c9;">' +
-      events.map(function(ev){
-        var col = ev.type==='harvest'?'#fff8e1':ev.type==='scan'?'#e1f5fe':'#f1f8e9';
-        return '<div style="position:relative;margin-bottom:10px;padding:10px 12px;background:' + col + ';border-radius:var(--r-sm);">' +
-          '<div style="position:absolute;left:-22px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--fill-brand);border:3px solid var(--card);"></div>' +
-          '<div style="font-size:var(--fs-sm);color:var(--muted);">' + escHtml(ev.date) + '</div>' +
-          '<div style="font-size:var(--fs-md);">' + escHtml(ev.label) + '</div>' +
-          '</div>';
-      }).join('') +
-    '</div>';
-  _gsNlOpen(html);
-}
+// ── 5. GARTEN-TIMELINE → im Kalender aufgegangen (v33.38) ─────
+// Sie beantwortete dieselbe Frage wie „was war an diesem Tag?“ und tat es
+// mit eigenen Lesern: sechs feste Quellen, ein toter Schluessel (v33.33) und
+// keine Hinweise. Seit v33.37 stehen Scans, Fundorte und die wirkliche Ernte
+// im Kalender; „Rueckblick“ (gsKalRueckblick) ist der Weg dorthin.
 
 // ── 6. WETTER-FRÜHWARNUNG ─────────────────────────────────────────
 // v33.36 (KALENDER-V2 R7): das Warnfenster liest DENSELBEN Zwischenspeicher wie

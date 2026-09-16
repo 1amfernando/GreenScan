@@ -538,7 +538,9 @@ Wer Aufgaben, Termine, Saison, Naturjahr, Timeline oder Wetter anfasst, liest
 zuerst V1 (die eine Regel: EINE Frage, EINE Funktion `gsKalenderEreignisse`)
 und V2 (seit v33.34: das Pruefwerk `_gsKalPruefwerk` mit `hinweise[]`, das
 Sieb, die drei Namen aus Fernandos Auftrag, Lina, sieben Scheiben). Kurzform
-in `docs/memory/06-kalender.md`. Die eine neue Regel: **Rechnung → Pruefwerk
+in `docs/memory/06-kalender.md`. **Seit v33.38 ist Scheibe 4 fertig:**
+„Mein Naturjahr“ rechnet aus `gsKalenderEreignisse`, die Garten-Timeline gibt
+es nicht mehr, `gsKalRueckblick()` ist der Weg dorthin. Die eine neue Regel: **Rechnung → Pruefwerk
 → Sieb → Anzeige** — ein Filter ist ein Sieb auf dem Ergebnis, nie eine
 Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
 
@@ -727,7 +729,7 @@ node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt s
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
-node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch: zeigt die Garten-Timeline die Scans (kein toter Schluessel) und die Ernte mit den Feldern der App; seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML; seit v33.35 das SIEB (§4): Filter auf dem Ergebnis (die Rechnung bleibt), fuenf Gruppen-Chips mit ihren Zahlen aus der UNGEFILTERTEN Liste, Zustand ueberlebt, Punkte nach Gruppe, dritter Leerzustand
+node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch die Scan-Zeit aus EINEM Leser (die Garten-Timeline, an der es gemessen wurde, ist seit v33.38 weg — M2); seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML; seit v33.35 das SIEB (§4): Filter auf dem Ergebnis (die Rechnung bleibt), fuenf Gruppen-Chips mit ihren Zahlen aus der UNGEFILTERTEN Liste, Zustand ueberlebt, Punkte nach Gruppe, dritter Leerzustand; seit v33.36 EIN WETTER (GS_WETTER_GRENZEN, vier Schwellen, R6/R7, dasselbe im Warnfenster); seit v33.37 die DREI QUELLEN, die es laengst gab (Scan-Verlauf, Karten-Fundorte mit _gsFundZeit, die wirkliche Ernte quelle hand neben der Schaetzung); seit v33.38 zaehlt „Mein Naturjahr“ aus dem KALENDER (M1) und die Garten-Timeline ist darin aufgegangen (M2)
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
@@ -1350,6 +1352,23 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > das Pruefwerk brauchte denselben; zwei Kopien waeren die Frost-Klasse aus
 > S5 (vier Rechnungen fuer dieselbe Frage). `_gsRegenUebernimmt(p)` ist die
 > eine, und `kalender_check` R2 zaehlt Startseite und Kalender gegeneinander.
+
+> **Eine Anzeige, die dieselbe Frage stellt wie eine vorhandene Rechnung,
+> ruft sie — sie rechnet nicht daneben** (v33.38). „Mein Naturjahr“ und die
+> Garten-Timeline beantworteten beide „was war in diesem Jahr / an diesem
+> Tag?“, jede mit eigenen Lesern. Der Preis war nicht Doppelarbeit, sondern
+> **Abweichung**: „Funde“ stand seit jeher auf 0 (falsches Feld), und „Arten“
+> war die einzige der fünf Kacheln ohne Jahresfilter — unter der
+> Überschrift „Mein Naturjahr <Jahr>“. Beides kommt jetzt aus
+> `gsKalenderEreignisse`, die Timeline ist ersatzlos weg. **Zwei Dinge gehören
+> dazu**, und beide sind eigene Arbeitsschritte: eine Kachel, die zwei Wege
+> zählt, heisst nach beiden („Pflanzungen“ → „Gepflanzt“, weil auch eine in
+> „Meine Pflanzen“ aufgenommene Pflanze ein `gepflanzt`-Ereignis ist); und
+> **ein Prüfstandsfall geht mit seiner Funktion, aber erst, wenn ein anderer
+> misst, was er mass** — der Fall „Garten-Timeline“ fiel weg, nachdem
+> nachgesehen war, dass N1 (Scans) und N3 (Ernte mit Menge) dasselbe messen.
+> Entfernt wird mit dem Parser (`acorn`, exakte Grenzen), nie mit einer
+> Zeilensuche. Prüfstand: `kalender_check` M1/M2, drei Gegenproben.
 
 > **Dritte Instanz derselben Klasse in vier Auslieferungen: der Leser ist die
 > Regel, nicht das Feld** (v33.37). Die Karten-Fundorte werden von beiden

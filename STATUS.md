@@ -4,13 +4,63 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-15 · **Branch**: `main` · **Version**: `v33.34` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.38` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (ii) - v33.38: „Mein Naturjahr“ zählt dasselbe wie der Kalender — und die Timeline ist darin aufgegangen
+
+**KALENDER-V2 Scheibe 4, zweiter Teil.** Zwei Oberflächen beantworteten
+dieselbe Frage wie `gsKalenderEreignisse` — „was war an diesem Tag / in diesem
+Jahr?“ — und beide mit eigenen Lesern. Beide sind jetzt darin aufgegangen.
+
+**Mein Naturjahr rechnete selbst, und lag daneben.** Gemessen:
+
+1. **Die Kachel „Funde“ stand IMMER auf 0.** Sie las `f.ts || f.time ||
+   f.found_at || f.created_at` — keines der vier Felder schreibt eine der drei
+   Speicherstellen; die App schreibt `date` (das ist derselbe Befund, den
+   v33.37 mit `_gsFundZeit` im Kalender behoben hat, eine Ebene weiter). Die
+   Gegenprobe zu dieser Version reproduziert ihn wörtlich: „Kachel ‚Funde‘
+   zeigt 0, der Kalender hat 1“.
+2. **„Arten“ war die EINZIGE Kachel ohne Jahresfilter.** Die anderen vier
+   fragten `d.getFullYear() === YEAR`, diese zählte jeden Scan, den es je gab —
+   unter der Überschrift „Mein Naturjahr <Jahr>“.
+
+Beides kommt jetzt aus der einen Funktion: `gsKalenderEreignisse(J + '-01-01',
+J + '-12-31')`, gezählt nach Art (`scan`, `fund`, `gepflanzt`) und für die
+Ernte nach `quelle === 'hand'` — die **Schätzung zählt nicht mit**, sie sagt,
+was reif sein könnte, nicht was war. Die Monatsbalken kommen aus denselben
+Ereignissen. Die zwei eigenen Helfer (`_gsNjArr`, `_gsNjDate`) sind weg.
+
+**Und eine Kachel heisst jetzt, was sie zählt.** „Pflanzungen“ zählte immer
+schon Garten-Pflanzungen UND in „Meine Pflanzen“ aufgenommene Pflanzen (die
+Ereignisse heissen „X gepflanzt“ und „X aufgenommen“). Sie heisst „Gepflanzt“.
+
+**Die Garten-Timeline ist ersatzlos weg.** Sie las sechs feste Quellen selbst,
+hatte keine Hinweise, keinen Filter und bis v33.33 einen toten Schlüssel. Der
+Menüeintrag `mi-timeline` heisst jetzt „Rückblick“ und ruft `gsKalRueckblick()`:
+Gruppe `rueckblick` einschalten (Tagebuch, Pflanzungen, Fundorte), dann
+`gsKalenderOeffnen()`. Entfernt mit dem **Parser** (`acorn`, exakte Grenzen),
+nie mit einer Zeilensuche — die Regel aus v32.77.
+
+> **Ein Prüfstandsfall geht mit seiner Funktion, aber erst wenn ein anderer
+> misst, was er mass.** Der Fall „Garten-Timeline“ (v33.33) prüfte, dass die
+> Scans in der Liste stehen und die Ernte Name und Menge trägt. Bevor er
+> wegfiel, wurde nachgesehen, wo das jetzt gemessen wird: N1 (Scans im
+> Kalender) und N3 (Ernte `hand` mit Menge und Einheit), beide seit v33.37.
+
+**Prüfstände:** `kalender_check` 45 (2 neu, beide rot gegen v33.37; 1 entfernt).
+Drei Gegenproben, jede einzeln zurückgebaut: Arten ohne Jahresfilter → M1 rot
+(„zeigt 3 statt 2“); Funde aus dem alten Feld → M1 rot („zeigt 0, der Kalender
+hat 1“); Menüeintrag zurück auf die alte Funktion → M2 rot.
+Changelog-Umzug: v33.18 ins Archiv.
+
+**Damit ist Scheibe 4 fertig.** Offen bleiben 5 (Lina), 6 (die Woche) und
+7 (Backend) — sie tragen jetzt v33.39 bis v33.41.
 
 ### 2026-09-16 (ih) - v33.37: Scans, Fundorte und die wirkliche Ernte
 
@@ -46,9 +96,9 @@ Drei Gegenproben: Scan-Zeit aus EINEM Feld statt dem Leser → N1 rot;
 `_gsFundZeit` ohne `date` → N2 rot; Ernte ohne Weg und ohne Grund → N3 rot.
 Changelog-Umzug: v33.17 ins Archiv.
 
-**Noch offen aus Scheibe 4:** Mein Naturjahr rechnet seine Balken weiter
-selbst (und zaehlt die Arten ohne Jahresfilter — gemessen, K1), und die
-Garten-Timeline ist noch nicht aufgehoben. Beides kommt als zweiter Teil.
+**Noch offen aus Scheibe 4 (erledigt in v33.38, Eintrag ii):** Mein Naturjahr
+rechnete seine Balken weiter selbst (und zaehlte die Arten ohne Jahresfilter —
+gemessen, K1), und die Garten-Timeline war noch nicht aufgehoben.
 
 ### 2026-09-16 (ig) - v33.36: Ein Wetter für die ganze App
 
@@ -13574,9 +13624,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.37` (Client) · SW-Cache `gs-v33.37` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.38` (Client) · SW-Cache `gs-v33.38` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.17).
+- **Frontend:** `index.html` **94'127 Zeilen / 6,01 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **566 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.18).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
