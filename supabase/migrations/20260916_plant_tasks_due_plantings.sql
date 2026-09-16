@@ -1,21 +1,29 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- v32.53 · v_plant_tasks_due: eine Sensor-Regel zieht eine Aufgabe VOR
--- Entwurf: docs/OEKOSYSTEM-V1.md §6 und §11 Idee 4 · docs/KALENDER-V1.md §1.2
+-- v33.41 · v_plant_tasks_due kennt BEIDE Pflanzenlisten
+-- Entwurf: docs/KALENDER-V2.md §8 Punkt 1 · docs/KALENDER-V1.md §1.2
 --
 -- BEWUSST NICHT ANGEWANDT (DDL ist Fernandos Handgriff). Idempotent; ersetzt
--- die Sicht aus 20260903_plant_tasks_due_snooze.sql vollstaendig — diese
+-- die Sicht aus 20260904_plant_tasks_due_vorgezogen.sql vollstaendig — diese
 -- Datei nach jener anwenden (oder nur diese: sie enthaelt alles).
 --
--- Was der Client seit v32.53 anders macht als die alte Sicht:
---   Eine verletzte Regel `task:<key>` an einem Geraet der Pflanze schreibt
---   `tasks.<key>.vorgezogenAuf` (ISO, Mitternacht des Tages) und
---   `vorgezogenGrund`. getDaysUntilDue rechnet:
---     faellig = max( min(lastDone + Intervall, vorgezogenAuf), snoozedUntil )
---   vorgezogenAuf zaehlt nur, wenn es NACH lastDone liegt (seither nicht
---   erledigt). Die Verschiebung durch die Person gewinnt — der Sensor ist
---   ein Hinweis, entschieden wird nicht fuer den Menschen.
--- Ohne diese Sicht haelt der Push-Cron eine vorgezogene Aufgabe erst am
--- regulaeren Tag fuer faellig — zwei Regeln fuer dieselbe Frage.
+-- DER BEFUND, live gemessen am 16.09.2026 (nur lesend):
+--   Die Sicht expandiert ausschliesslich `user_plants.data -> 'plants'`.
+--   `user_gardens` kommt in KEINER der vier Migrationen dieser Sicht vor.
+--   Gemessen: 15 Garten-Pflanzungen mit `tasks` in `user_gardens`, und die
+--   Sicht hatte 23 Zeilen — alle aus `user_plants` (6 Zeilen).
+--   Der Aufgaben-Cron (`daily-push-checker`) hat also seit v26.93 an KEINE
+--   einzige Garten-Pflanzung erinnert.
+--   Die App zaehlt seit v32.47 beide Listen (`gsGetDueTasks` ueber
+--   `_gsPflanzeFinden`); der Server eine. Zwei Zahlen fuer „faellig", und
+--   die kleinere ist die, die pusht.
+--
+-- Die Rechnung bleibt WOERTLICH dieselbe — sie steht deshalb genau EINMAL,
+-- hinter einem UNION ALL der beiden Quellen. Zwei Kopien waeren die Klasse,
+-- die dieser Kalender ueberall abbaut.
+--
+-- Die Pflanzung traegt zusaetzlich ihren Garten (`garden_id`, `garden_name`)
+-- und `liste` ('myPlants' | 'plantings') — damit ein Push sagen kann, WO die
+-- Pflanze steht, und ein Pruefstand die zwei Quellen auseinanderhalten kann.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ───────────────────────────────────────────────────────────────────────────
@@ -36,16 +44,40 @@ DROP VIEW IF EXISTS public.v_plant_tasks_due;
 
 CREATE VIEW public.v_plant_tasks_due
   WITH (security_invoker = true) AS
-WITH plants AS (
+WITH quellen AS (
+  -- 1 · „Meine Pflanzen" (user_plants.data -> 'plants')
   SELECT up.user_id,
-         jsonb_array_elements(up.data -> 'plants') AS plant
+         jsonb_array_elements(up.data -> 'plants') AS pflanze,
+         'myPlants'::text                          AS liste,
+         NULL::text                                AS garden_id,
+         NULL::text                                AS garden_name
   FROM public.user_plants up
   WHERE jsonb_typeof(up.data -> 'plants') = 'array'
+
+  UNION ALL
+
+  -- 2 · Garten-Pflanzungen (user_gardens.data -> 'plantings') — v33.41.
+  --     Der Gartenname kommt aus `data -> 'gardens'` ueber die gardenId der
+  --     Pflanzung; fehlt er, bleibt er NULL (nie ein erfundener Name).
+  SELECT ug.user_id,
+         p                                          AS pflanze,
+         'plantings'::text                          AS liste,
+         p ->> 'gardenId'                           AS garden_id,
+         (SELECT g ->> 'name'
+            FROM jsonb_array_elements(COALESCE(ug.data -> 'gardens', '[]'::jsonb)) g
+           WHERE g ->> 'id' = p ->> 'gardenId'
+           LIMIT 1)                                 AS garden_name
+  FROM public.user_gardens ug,
+       LATERAL jsonb_array_elements(ug.data -> 'plantings') p
+  WHERE jsonb_typeof(ug.data -> 'plantings') = 'array'
 ), expanded AS (
-  SELECT pl.user_id,
-         pl.plant ->> 'id'    AS plant_id,
-         pl.plant ->> 'name'  AS plant_name,
-         pl.plant ->> 'emoji' AS emoji,
+  SELECT q.user_id,
+         q.liste,
+         q.garden_id,
+         q.garden_name,
+         q.pflanze ->> 'id'    AS plant_id,
+         q.pflanze ->> 'name'  AS plant_name,
+         q.pflanze ->> 'emoji' AS emoji,
          t.task_key,
          (t.value ->> 'active')::boolean AS active,
          NULLIF(t.value ->> 'intervalDays', '')::integer AS interval_days,
@@ -53,9 +85,9 @@ WITH plants AS (
          public._gs_parse_ts_flex(t.value ->> 'snoozedUntil')  AS snoozed_until,
          public._gs_parse_ts_flex(t.value ->> 'vorgezogenAuf') AS vorgezogen_auf,
          t.value ->> 'vorgezogenGrund'                          AS vorgezogen_grund
-  FROM plants pl,
-       LATERAL jsonb_each(COALESCE(pl.plant -> 'tasks', '{}'::jsonb)) t(task_key, value)
-  WHERE jsonb_typeof(pl.plant -> 'tasks') = 'object'
+  FROM quellen q,
+       LATERAL jsonb_each(COALESCE(q.pflanze -> 'tasks', '{}'::jsonb)) t(task_key, value)
+  WHERE jsonb_typeof(q.pflanze -> 'tasks') = 'object'
 ), berechnet AS (
   SELECT *,
          -- faellig = max( min(lastDone + Intervall, vorgezogenAuf), snoozedUntil )
@@ -73,6 +105,9 @@ SELECT user_id,
        plant_id,
        plant_name,
        emoji,
+       liste,
+       garden_id,
+       garden_name,
        task_key,
        interval_days,
        last_done,
@@ -102,4 +137,4 @@ WHERE active = true
 GRANT SELECT ON public.v_plant_tasks_due TO authenticated;
 
 COMMENT ON VIEW public.v_plant_tasks_due IS
-  'Faellige Pflegeaufgaben je Nutzer. Seit v32.46: snoozedUntil zaehlt, Kalendertag Europe/Zurich. Seit v32.53: vorgezogenAuf (Sensor-Regel task:<key>) zieht vor, die Verschiebung gewinnt — dieselbe Regel wie getDaysUntilDue im Client.';
+  'Faellige Pflegeaufgaben je Nutzer aus BEIDEN Listen (v33.41): user_plants.data->plants und user_gardens.data->plantings, mit liste/garden_id/garden_name. Seit v32.46: snoozedUntil zaehlt, Kalendertag Europe/Zurich. Seit v32.53: vorgezogenAuf (Sensor-Regel task:<key>) zieht vor, die Verschiebung gewinnt — dieselbe Regel wie getDaysUntilDue im Client.';

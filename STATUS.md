@@ -4,13 +4,88 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.40` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.41` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (il) - v33.41: Das Backend — und zwei Migrationen, die gar nicht anwendbar waren
+
+**KALENDER-V2 Scheibe 7.** Damit ist der Auftrag vom 14.09. vollständig
+geliefert: sieben Scheiben, v33.34 bis v33.41.
+
+**1 · Der Server kannte nur eine Pflanzenliste.** Live gemessen (nur lesend):
+`user_gardens` enthält **15 Garten-Pflanzungen mit Pflege-Aufgaben**, und
+`v_plant_tasks_due` hatte **23 Zeilen — alle aus `user_plants`** (6 Zeilen).
+Der Aufgaben-Cron (`daily-push-checker`) hat seit v26.93 an **keine einzige
+Garten-Pflanzung** erinnert. Die App zählt seit v32.47 beide Listen
+(`gsGetDueTasks` über `_gsPflanzeFinden`), der Server eine — zwei Zahlen für
+„fällig", und die kleinere ist die, die pusht.
+`20260916_plant_tasks_due_plantings.sql` (**nicht angewandt**) vereint die
+zwei Quellen mit `UNION ALL`; **die Fälligkeits-Rechnung steht genau einmal**,
+hinter dem UNION. Die Pflanzung trägt `liste`, `garden_id` und `garden_name`
+— ein Push soll sagen können, WO die Pflanze steht.
+
+**2 · Die saisonale Erinnerung filterte eine Spalte, die es nicht gibt.**
+`daily-push-checker` nahm `.eq('priority','high')`. Live gemessen:
+`garden_tasks_catalog` hat 189 Zeilen und die Spalten … `importance`, `data`
+— **kein `priority`**, auch nicht als jsonb-Schlüssel (0 von 189). PostgREST
+antwortet darauf mit **42703**; `data` ist `null`, und weil der Fehler
+wegdestrukturiert war (`const { data: tasks } = …`), lief die Funktion still
+weiter. **Die saisonale Erinnerung hat seit dem Bau keine einzige Zeile
+gehabt, und nichts hat es gesagt.** Jetzt `importance in (kritisch, wichtig)`
+— die Werte, die `knowledge-bulk-gen` schreibt — und der Fehler wird gesagt.
+
+> Das ist die `_gsSchreibOk`-Klasse auf der Server-Seite: **ein Fehler, der
+> wegdestrukturiert wird, macht „nichts gefunden" von „kaputt"
+> ununterscheidbar.**
+
+**3 · Und der Befund, den erst das ANWENDEN gezeigt hat.** Die zwei
+Sicht-Migrationen `20260903_plant_tasks_due_snooze.sql` und
+`20260904_plant_tasks_due_vorgezogen.sql` standen seit Tagen als „bereit" in
+der Liste der offenen Migrationen (Sektion 2). Gegen die Sicht, wie sie LIVE
+steht (v26_93, zehn Spalten), in einem lokalen Postgres nachgerechnet:
+
+```
+ERROR: cannot change name of view column "next_due_at" to "snoozed_until"
+HINT:  Use ALTER VIEW ... RENAME COLUMN ...
+```
+
+`CREATE OR REPLACE VIEW` darf Spalten nur **anhängen**, nie einfügen oder
+umbenennen — beide Dateien fügen welche in der Mitte ein. **Sie wären beim
+ersten Versuch gescheitert**, und meine eigene neue hätte denselben Fehler
+gemacht (der Prüfstand hat sie im ersten Lauf gemeldet). Nichts hängt an der
+Sicht (live geprüft, `pg_depend`: 0 abhängige Objekte) — alle drei sind jetzt
+DROP + CREATE.
+
+> **Eine Migration, die man nicht ANWENDET, hat man nicht geprüft.** Dieselbe
+> Lehre wie v32.65 („eine SQL-Regel, die man nicht ausführt, hat man nicht
+> geprüft"), eine Ebene höher: dort ging es um die Rechnung IN der Migration,
+> hier um die Migration selbst. `node --check` und ein Blick auf die Spalten
+> hätten es nie gezeigt.
+
+**Prüfstände:** `naht_check` 16 (4 neu, alle vier rot gegen v33.40) — und er
+hat seit v33.41 eine **SQL-Hälfte**: der Fall „App und Sicht zählen dieselben
+Aufgaben" rechnet die Sicht in einem lokalen Postgres nach (Reproduktion mit
+der alten Sicht: 1 statt 3 · neue Sicht: 3 · `snoozedUntil` wirkt auch an
+einer Pflanzung: 3 → 2 · Gegenprobe ohne den plantings-Zweig: 1). Ohne
+Postgres meldet er **„nicht prüfbar" (Exit 2)**, nie grün; der Kopf sagt das
+jetzt auch. Vier Gegenproben, alle vier rot.
+
+> **Und zwei meiner eigenen Fälle waren im ersten Lauf falsch, beide aus
+> bekannten Klassen.** Das Fenster der Fehler-Frage begann am Tabellennamen —
+> die Destrukturierung steht davor, also sah es das `error:` nie und meldete
+> immer rot; und die lazy Suche nach `if (tasks` traf `if (tasksErr)` selbst.
+> **Und die Gegenprobe schnitt am ersten „UNION ALL" — das steht im KOMMENTAR
+> der Migration**, nicht im SQL, also schnitt sie `CREATE VIEW` mit weg.
+> Dieselbe Klasse wie die Jargon-Suche, die ihre eigenen Release-Notizen
+> findet (v32.70): **eine Suche im eigenen Text findet zuerst den eigenen
+> Text über die Sache.**
+
+Changelog-Umzug: v33.21 ins Archiv.
 
 ### 2026-09-16 (ik) - v33.40: Die Woche — eine Rechnung, ein Satz, drei Anzeigen
 
@@ -13774,10 +13849,10 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.40` (Client) · SW-Cache `gs-v33.40` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.41` (Client) · SW-Cache `gs-v33.41` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **94'375 Zeilen / 6,03 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **568 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.20).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
+- **Frontend:** `index.html` **94'373 Zeilen / 6,03 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **569 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.21).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **220 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
@@ -13795,7 +13870,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Migration `20260914_quiz_vorrat.sql`** | `fn_quiz_vorrat()` + `fn_quiz_vorrat_pruefen()` + Cron `quiz-vorrat-daily` (v33.29): misst den Fragen-Vorrat und warnt nach `system_events`, sobald unter 60 freie Fragen uebrig sind. Aendert nichts am Quiz. Ohne sie bleibt der Vorrat ungemessen — **er ist am 16.06.2027 erschoepft**, und `fn_get_daily_quiz` wiederholt dann still. | (hy), FUER-FERNANDO §20 |
 | `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
 | Leaked-Password-Protection | Ein Dashboard-Klick. | (2026-08-31 y) |
-| **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). | `docs/FUER-FERNANDO.md` §5 · (ei) |
+| **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). **Seit v33.41 DROP + CREATE** — sie wäre vorher beim Anwenden gescheitert (`CREATE OR REPLACE VIEW` darf Spalten nur anhängen; nachgerechnet in einem lokalen Postgres, `naht_check`). | `docs/FUER-FERNANDO.md` §5 · (ei), (il) |
 | Migration `20260905_device_daily.sql` | Tagesaggregat als Tabelle (§11 Idee 17) — sonst verschwindet das Aggregat mit dem Prune nach 400 Tagen. Nach `20260903_oekosystem_v1_geraete.sql`. | `docs/FUER-FERNANDO.md` §6 · (ex) |
 | Migration `20260905_device_alerts_cron.sql` | Cron `device-alerts` alle 15 Min (§11 Idee 16): verstummte Geräte, verletzte Regeln → `notifications`. Nach `20260903_oekosystem_v1_geraete.sql`. Erst sinnvoll mit dem ersten Gerät. | `docs/FUER-FERNANDO.md` §6 · (ex) |
 | Edge-Function `device-ingest` | Der Empfänger für Geräte — im Repo, nicht ausgeliefert (`supabase functions deploy device-ingest --no-verify-jwt`). Erst mit dem ersten Gerät. | `docs/GERAETE-VERTRAG.md` · (ex) |
@@ -13806,7 +13881,8 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Migration `20260912_snapshot_retention_manual.sql` | `manual` ist in `fn_cleanup_user_snapshots` nicht geschützt — ein bewusst angelegtes Cloud-Backup kann von automatischen Ständen verdrängt werden (6 Plätze + je neuester pro Typ). Mit „Update ohne Klick" entsteht je Auslieferung ein `pre_migration`. Live 11.09.: 0 `manual`-Zeilen. | `docs/FUER-FERNANDO.md` §19 · (hu) |
 | Migration `20260910_analytics_retention.sql` | `fn_analytics_prune(p_days)` (klemmt 30..730, nur `service_role`) + Cron `analytics-prune` täglich 03:40 mit 180 Tagen (v33.24); ohne sie wächst `analytics_events` ohne Ende. Die App nennt dieselbe Frist (`GS_ANALYTICS_TAGE`), `nutzung_check` hält beide zusammen. | `docs/FUER-FERNANDO.md` §16 · (hs) |
 | Migration `20260906_device_commands_expires_at.sql` | `device_commands.expires_at` — Vertrag §4, Regel-Modul und Empfänger nennen die Spalte, die Tabelle hatte sie nicht (`naht_check`). Nach `20260903_oekosystem_v1_geraete.sql`. | §11.3n · (fb) |
-| **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. | `docs/FUER-FERNANDO.md` §5 · (ep) |
+| **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. **Seit v33.41 DROP + CREATE** (siehe oben). | `docs/FUER-FERNANDO.md` §5 · (ep), (il) |
+| **Migration `20260916_plant_tasks_due_plantings.sql`** | Die Sicht liest BEIDE Pflanzenlisten. Live gemessen am 16.09.2026: 15 Garten-Pflanzungen mit Pflege-Aufgaben, und die Sicht hatte 23 Zeilen — alle aus `user_plants`. Der Aufgaben-Cron hat seit v26.93 an keine einzige Garten-Pflanzung erinnert; die App zählt beide Listen, der Server eine. Nachfolgerin von `20260904` (enthält sie); nur diese anwenden genügt. | `docs/KALENDER-V2.md` §8 · (il) |
 | Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
 
 ### Braucht eine Entscheidung oder eine Quelle

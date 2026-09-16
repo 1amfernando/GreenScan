@@ -40,7 +40,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `sensor_check` | funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48) |
 | `ingest_check` | rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno) |
 | `sensor_push_check` | wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno) |
-| `naht_check` | passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026) |
+| `naht_check` | passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026). **Seit v33.41 mit einer SQL-Haelfte** (lokales Postgres, GS_PG_URL): die Sicht `v_plant_tasks_due` liest BEIDE Pflanzenlisten, und jede Sicht-Migration laesst sich WIRKLICH anwenden (DROP + CREATE; `CREATE OR REPLACE VIEW` darf Spalten nur anhaengen). Ohne Postgres „nicht pruefbar" (Exit 2), nie gruen |
 | `loeschung_check` | raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17) |
 | `nutzung_check` | liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18) |
 | `backup_check` | ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26) |

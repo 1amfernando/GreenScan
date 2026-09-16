@@ -30,6 +30,19 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.21', date: '10.09.2026',
+      headline: 'Nutzungsmessung: vier Ereignisse mehr — jedes ein Zähler, keines ein Inhalt',
+      summary: 'Jahresvorlage, zweites Foto, Lina-Frage und Ernte-Eintrag sind jetzt benannte Ereignisse im Vokabular — mit genau den Feldern, die sie tragen dürfen. Und der Prüfstand hält fest, dass jedes Ereignis einen Aufrufer hat und jeder Aufrufer einen Eintrag.',
+      user_summary: 'Für dich ändert sich nichts — die Nutzungsmessung bleibt Opt-in. Wenn sie an ist, zählt sie jetzt auch, ob eine Vorlage angelegt, ein zweites Foto gemacht, Lina gefragt oder eine Ernte eingetragen wurde. Nie den Inhalt: keine Frage, keine Antwort, keine Art, keine Menge.',
+      user_items: [
+        {emoji:'🔒', text:'Lina-Fragen werden nur gezählt („kam eine Antwort") — der Text bleibt bei dir und in deinem Verlauf.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'GS_EVENTS:', text:' plan_template {plants, markiert} · scan_rescan {fotos} · lina_message {ok} · harvest_logged {quelle} — vier Aufrufer an den echten Stellen.'},
+        {emoji:'🧪', bold:'einstellungen_check:', text:' jedes Ereignis im Vokabular hat einen Aufrufer, jeder Aufrufer einen Eintrag (Quelltext, 9/10); Re-Scan und Vorlage feuern über die echten Funktionen mit genau ihren Feldern. Zwei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.20', date: '10.09.2026',
       headline: 'Der Scan kennt den Aussaatkalender',
       summary: 'Erkennt der Scanner eine Kultur aus dem Schweizer Aussaatkalender, steht ihr Fenster auf der Karte — drinnen vorziehen, draussen säen, Ernte — mit dem Weg zum Säkalender. Eine Wildart bekommt nichts; die Sammelsaison ist kein Aussaatfenster.',
