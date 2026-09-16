@@ -489,7 +489,12 @@ function server(wunschPort) {
     {
       const ctxE = await br.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'allow' });
       const e = await ctxE.newPage();
-      e.on('framenavigated', f => { if (f === e.mainFrame()) navErst++; });
+      // v33.43: NUR echte Dokument-Ladungen zaehlen. `framenavigated` feuert
+      // auch fuer history.pushState/back im selben Dokument — seit die App
+      // einen Verlaufs-Eintrag fuer den Android-Zurueck-Knopf setzt, waere das
+      // ein Reload, der keiner ist. `domcontentloaded` gibt es nur einmal je
+      // geladenem Dokument.
+      e.on('domcontentloaded', () => { navErst++; });
       await e.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
       await e.waitForTimeout(9000);
       await ctxE.close();
@@ -501,8 +506,8 @@ function server(wunschPort) {
     try { await p.close(); } catch (_) {}
     const q = await ctx.newPage(), z = await ctx.newPage();
     let navQ = 0, navZ = 0;
-    q.on('framenavigated', f => { if (f === q.mainFrame()) navQ++; });
-    z.on('framenavigated', f => { if (f === z.mainFrame()) navZ++; });
+    q.on('domcontentloaded', () => { navQ++; });
+    z.on('domcontentloaded', () => { navZ++; });
     q.on('pageerror', e => fehler.push('Fall 11: ' + e.message.split('\n')[0]));
     for (const seite of [q, z]) {
       await seite.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });

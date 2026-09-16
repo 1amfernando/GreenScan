@@ -30,6 +30,20 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.23', date: '11.09.2026',
+      headline: 'Lina kennt den letzten Scan',
+      summary: 'Wer Lina direkt nach einem Scan fragt „was war das gerade?", bekam bisher eine Gegenfrage. Jetzt steht der jüngste Eintrag des Scan-Verlaufs in ihrem Kontext — Name, lateinischer Name, Sicherheit, Alter. Nie das Foto; ohne Verlauf keine Zeile.',
+      user_summary: 'Frag Lina nach deinem letzten Scan — sie weiss, was es war, wie sicher die Bestimmung war und wann du fotografiert hast.',
+      user_items: [
+        {emoji:'🔬', text:'„Letzter Scan: Tomate (Solanum lycopersicum), 88 % sicher, heute." — Lina kann direkt darauf eingehen.'},
+        {emoji:'🔒', text:'Nur, wenn du den Scan-Verlauf speicherst (Einstellungen → Datenschutz); das Foto bleibt immer aussen vor.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsLinaZahlen:', text:' juengster Eintrag aus gs_scan_history (nach timestamp), Name/Latein je 40 Zeichen, Sicherheit nur wenn > 0, Alter heute/gestern/vor N Tagen. Vor den Kalenderzeilen, damit der Deckel sie nicht zuerst trifft.'},
+        {emoji:'🧪', bold:'sensor_check „Lina · letzter Scan":', text:' zwei Eintraege → der juengste, mit Latein, 88 %, heute, ohne base64 · ohne Verlauf keine Zeile · 5 Tage alt → „vor 5 Tagen". Zwei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.22', date: '10.09.2026',
       headline: 'Lina öffnet den Kalender und den Säkalender',
       summary: 'Lina kennt den Kalender seit v33.14 — jetzt kann sie ihn auch zeigen: „öffne den Kalender am 15. September" oder „zeig mir den Säkalender" führt direkt dorthin. Und der Dispatcher, durch den jede ihrer Aktionen muss, hat seinen ersten Prüfstand.',

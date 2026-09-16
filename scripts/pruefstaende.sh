@@ -57,6 +57,7 @@ run backup       node scripts/backup_check.js
 run quizgen      node scripts/quiz_gen_check.js
 run nutzersicht  node scripts/nutzersicht_check.js
 run admin        node scripts/admin_check.js
+run android      node scripts/android_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js
   TAILN=14 run einstellungen node scripts/einstellungen_check.js

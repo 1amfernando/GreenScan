@@ -124,7 +124,7 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 36 Prüfstände (§7.1) + pruefstaende.sh (alle 36, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 37 Prüfstände (§7.1) + pruefstaende.sh (alle 37, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -748,7 +748,8 @@ node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42)
-bash scripts/pruefstaende.sh     # ALLE 36 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
+bash scripts/pruefstaende.sh     # ALLE 37 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1534,6 +1535,62 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > `#gs-lina-input` ist danach abgehaengt, und ein frisch gerendertes Feld ist
 > LEER — wer davor den Text hineingeschrieben hat, sieht `gsLinaSend` gleich
 > darauf an `if (!text) return;` umkehren. Gilt im Code wie im Pruefstand.
+
+**`android_check.js` (seit v33.43) fragt, ob die App hält, was eine
+ANDROID-App verspricht.** Anlass war Fernandos „Ich will es auch langsam als
+apk für Android sowie haben." GreenScan wird als **TWA** zur Android-App —
+dieselbe PWA in einer Hülle. Alles funktioniert darin wie im Browser, mit
+EINER Ausnahme: der **Zurück-Knopf** spricht mit der Browser-History.
+Gemessen an v33.42: `history.pushState` **0** · `popstate` **0** ·
+`history.back` **0**. **Wer ein Fenster offen hatte und zurück drückte,
+schloss die ganze App.** Entwurf und Handgriffe: `docs/ANDROID-APK.md`.
+
+- **Eine Zurück-Regel, zwei Auslöser.** `gsZurueck()` nimmt die OBERSTE
+  Schicht ab — über DREI Familien hinweg: dynamische Dialoge
+  (`.gs-dyn-overlay` + `GS_DISMISSIBLE_OVERLAYS`) · gestapelte
+  `.modal-overlay.open` · Vollbild-Fenster (`GS_VOLLBILD_OVERLAYS`) — danach
+  den Tab (`gsGoBack`). Rückgabe: `overlay` · `modal` · `vollbild` · `tab` ·
+  `app`. Escape und `popstate` rufen sie beide; **ein Druck ist EINE Schicht**
+  (Escape schloss bis v33.42 zwei).
+- **Ein Fenster, das nicht über `openModal` läuft, ist für jede Regel
+  unsichtbar, die `.modal-overlay` sucht.** Neun Vollbild-Fenster schalten ihr
+  eigenes `display` — Tagesquiz, „Ueben", Rangliste, Scan-Verlauf, Wetter,
+  Lichtmesser, Pro-Messung, Kalibrierung, Erst-Start. **Escape erreichte
+  keines davon.** Wer ein weiteres baut, trägt es in `GS_VOLLBILD_OVERLAYS`
+  ein (mit seiner Schliess-Funktion) oder mit Grund in
+  `GS_VOLLBILD_OHNE_ZURUECK`; der Prüfstand zählt die Vollbild-Fenster im HTML
+  dagegen.
+- **Genau EIN Verlaufs-Eintrag, und er wird zurückgenommen.** `_gsHistSync()`
+  setzt ihn, solange es etwas zu schliessen gibt; wer per X schliesst, hat ihn
+  nicht verbraucht — ohne Rücknahme kostet der nächste Druck nichts. Der
+  eine Ort, durch den alle müssen, ist hier der **Zustand des Dokuments**:
+  `openModal`/`closeModal`/`switchTab` rufen `_gsHistSyncBald()`, und ein
+  `MutationObserver` auf `document.body` sieht die rund dreissig Dialoge, die
+  per `appendChild` entstehen (dieselbe Entscheidung wie v32.16 und v32.33).
+- **`gsLaeuftAlsApp()` ist das eine Prädikat** für „läuft als App": PWA,
+  iOS-Homescreen und die Android-Hülle (`document.referrer` beginnt mit
+  `android-app://`). Es gab zwei Rechnungen, und nur die des Install-Banners
+  kannte die Hülle.
+
+> **Ein Fall, der die Funktion direkt ruft, misst die Rechnung — nicht den
+> DRAHT** (v33.43). Meine Fälle riefen `gsZurueck()` auf; die Gegenprobe
+> „`popstate` hört nicht mehr zu" blieb deshalb **grün**, obwohl damit genau
+> das kaputt war, wofür der ganze Schnitt gebaut wurde. Wer eine VERDRAHTUNG
+> baut, geht im Fall den echten Weg (`history.back()`), nicht die Abkürzung.
+> Zwei weitere Gegenproben blieben aus derselben Familie grün: ein Fall, der
+> die WIRKUNG misst, sieht die Buchführung dahinter nicht (der Verlaufsstand
+> wird jetzt an `history.state` gelesen), und **zwei Regeln, die bei den
+> gewählten Daten dasselbe Ergebnis liefern, prüfen keine von beiden** (v33.28)
+> — „die erste gefundene" und „die oberste" Schicht brauchen Fenster, deren
+> Sammelreihenfolge der z-Reihenfolge WIDERSPRICHT.
+
+> **Eine Navigation im selben Dokument ist kein Reload** (v33.43).
+> `offline_check` zählte mit `framenavigated` — das feuert auch für
+> `history.pushState`/`back`. Mit dem neuen Verlaufs-Eintrag meldete es einen
+> Reload, den es nicht gab. Gezählt werden Dokument-Ladungen
+> (`domcontentloaded`). Und `robust_check` B6 fand ein Vollbild-Fenster aus
+> einem früheren Fall vor: **wer einen Zustand braucht, stellt ihn HER**
+> (v32.40).
 
 **`admin_check.js` (seit v33.42) fragt, ob das Admin-Panel sagt, was es
 WEISS.** Anlass war Fernandos „Auch für mich als Admin muss mehr gemacht
