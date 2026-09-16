@@ -4,13 +4,83 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.39` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.40` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (ik) - v33.40: Die Woche — eine Rechnung, ein Satz, drei Anzeigen
+
+**KALENDER-V2 Scheibe 6 (R9, R10).** Damit ist der Auftrag vom 14.09. bis auf
+die Backend-Scheibe geliefert.
+
+**R9 · Abwesenheit trifft Aufgaben.** Gemessen am 16.09.2026: mit „Stillen
+Tagen" bis zum 11.9. fielen **sieben Fälligkeiten** in die Abwesenheit, und
+**kein einziges Ereignis sagte es**. Der Giess-Zettel kannte das Fenster seit
+v32.59 (`gsGiessZettelFenster`, Quelle `pause`) — der Kalender nicht. Jetzt
+trägt jede Aufgabe im Fenster den Hinweis „fällt in deine Stillen Tage (bis
+11.09.)" und einen Verweis auf den Zettel. Drei Zustände: **keine Pause = kein
+Feld** (der Normalfall ist kein Zustand), **unlesbares Datum → nicht prüfbar**
+mit Grund, an der nächsten fälligen Aufgabe (ein Satz je Aufgabe wäre Lärm).
+Und die Lesart von `pauseUntil` ist dieselbe wie die des Zettels — nie eine
+zweite.
+
+**R10 · Die Woche.** Bis hierher zählte jede Anzeige sie selbst: Lina im
+Kontextbauer (seit v33.39), der Wochenrückblick mit eigenen Schleifen — und
+auf der Startseite und im Kalender stand gar nichts. `_gsKalWoche()` ist die
+eine Rechnung, `_gsKalWocheZeile()` ihr einer Satz, und er steht an **drei**
+Stellen mit denselben Zahlen.
+
+> **Wie weit zwei Rechnungen für eine Frage auseinanderlaufen — gemessen.**
+> Ein Tagebuch-Eintrag VON HAND mit `cat: 'water'` galt dem Wochenrückblick als
+> **erledigte Aufgabe** (2 statt 1): die App schrieb der Person eine Aufgabe
+> gut, die sie nur notiert hat. **Erledigt ist, was ABGEHAKT wurde**
+> (`tagebuch` mit `quelle === 'regel'`). Und sein rollendes ms-Fenster
+> (`Date.now() − 7 × 864e5`) und das Tagesfenster des Kalenders fielen an der
+> Grenze auseinander: 2 gegen 4 Einträge. Ein Fenster, nicht zwei.
+
+**Und die dritte Stelle war der Anlass für die Regel.** `frost === null` heisst
+„keine Vorhersage geladen", nie `0` — dieselbe Klasse wie „alles im grünen
+Bereich" (v33.36). Die Zeile sagt dann „Frost: keine Vorhersage".
+
+**Ohne Pflanzen entfällt die Zeile.** „0 Aufgaben" bei jemandem ohne Pflanzen
+ist keine Aussage, sondern eine leere Zeile mit einer Zahl darin.
+
+> **Und der NACHBAR-Prüfstand hat gemeldet, was die eigenen Fälle nicht
+> messen.** `sensor_check` „Deine Woche" erwartete „nie unter 22 % (6 Werte)"
+> und bekam sieben: das Feuchte-Tief liest zwar weiter die Messwerte selbst
+> (die Ereignisse tragen kein Minimum), aber jetzt im TAGESfenster des
+> Kalenders — der siebte Wert lag genau zwischen den beiden Fenstern. **Das ist
+> die Änderung, nicht ihr Fehler**, und der Fall sagt das jetzt an Ort und
+> Stelle. Ohne die Reihe wäre es niemandem aufgefallen, weil die vier neuen
+> Fälle das Fenster nur gegen den Kalender halten, nicht gegen die alte Zahl.
+
+**Prüfstände:** `kalender_check` 49 (4 neu, alle vier rot gegen v33.39),
+`sensor_check` K2 zieht nach (Lina formuliert die Zeile nicht mehr selbst —
+sie muss WÖRTLICH `_gsKalWocheZeile()` sein). Sieben Gegenproben, jede einzeln
+zurückgebaut, alle sieben rot.
+
+Changelog-Umzug: v33.20 ins Archiv.
+
+> **Und ein Nachtrag zu v33.39, weil er dieselbe Klasse ist wie v33.33.** Der
+> PR-Text von v33.39 sagte „CLAUDE.md (zwei Regeln)". Nachgelesen mit
+> `git show <hash> -- CLAUDE.md`: **die zwei Regelbloecke stehen dort nicht.**
+> Das Skript, das sie einfuegen sollte, ist an einer spaeteren Zusicherung
+> gescheitert und hat deshalb GAR NICHTS geschrieben — die Fehlermeldung ging
+> im Lauf unter, weil der §4c-Teil danach von Hand nachgezogen wurde und
+> „ok" meldete. Beide Regeln stehen jetzt hier drin, mit ihrer Version.
+> **Ein Skript, das alles oder nichts schreibt, muss auch alles oder nichts
+> MELDEN** — und was als geliefert weitergeschrieben wird, wird gegen
+> `git show` gelesen (die Lehre aus v33.33, diesmal an mir selbst).
+
+> **Und ein Fehler beim Mergen, der hier steht, weil er sich wiederholen
+> kann:** ich habe `expectedHeadSha` aus einem KURZEN Hash verlängert statt
+> ihn zu lesen — GitHub antwortete „Head branch was modified", was nach einem
+> fremden Push aussieht und keiner war. **Eine 40-stellige Prüfsumme wird
+> gelesen, nie ergänzt** (`git rev-parse`).
 
 ### 2026-09-16 (ij) - v33.39: Lina sieht den Kalender — und sagt, wenn sie etwas nicht weiss
 
@@ -13704,9 +13774,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.39` (Client) · SW-Cache `gs-v33.39` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.40` (Client) · SW-Cache `gs-v33.40` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **94'263 Zeilen / 6,02 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **567 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.19).
+- **Frontend:** `index.html` **94'375 Zeilen / 6,03 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **568 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.20).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

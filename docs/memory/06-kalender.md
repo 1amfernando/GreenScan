@@ -133,7 +133,7 @@ Daten-Scheibe, keine Kalender-Logik.
 
 ## Prüfstände
 
-`kalender_check` (45 Fälle, Stand v33.38, Uhr gestellt auf 2025-09-01 12:00 UTC,
+`kalender_check` (49 Fälle, Stand v33.40, Uhr gestellt auf 2025-09-01 12:00 UTC,
 kein Fall hängt am echten Datum; je Regel gut · schlecht · nicht prüfbar, aus
 dem gerenderten HTML gelesen) · `sensor_check` (Messwerte, Alarme, Lina-Kalender-
 Zeilen) · `contrast_check` öffnet das Kalender-Fenster · `wiring_check` die

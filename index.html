@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.39.20260916">
+<meta name="app-version" content="33.40.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5835,6 +5835,8 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-kal-hin{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);flex-shrink:0;cursor:pointer;font-size:var(--fs-lg);line-height:1;}
 .gs-kal-leerzeile{font-size:var(--fs-sm);color:var(--text2);padding:14px;background:var(--surface2);border-radius:var(--r-md);text-align:center;}
 .gs-kal-fuss{font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:10px;}
+.gs-dp-woche{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;padding:9px 12px;min-height:40px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-sm);text-align:left;cursor:pointer;}
+.gs-dp-woche-txt{flex:1;min-width:0;}
 @media (prefers-reduced-motion: no-preference){ .gs-kal-tag{transition:background .15s,border-color .15s;} }
 .gs-s-tupfen{flex-shrink:0;display:inline-flex;gap:3px;margin-right:6px;align-items:center;}
 .gs-s-tupfen i{width:9px;height:9px;border-radius:50%;display:block;
@@ -29318,8 +29320,106 @@ function _gsKalPruefwerk(out, von, bis, heute) {
       else if (typeof e.faellig_seit === 'number' && e.faellig_seit <= 0) _gsKalHinweis(e, 'ueberfaellig', 'erfuellt', '', '');
     });
   } catch (_) {}
+  // ── R9 · Abwesenheit trifft Aufgaben ────────────────────────────
+  // Dieselbe Regel, die der Giess-Zettel als Fenster nimmt (`gsGiessZettelFenster`,
+  // Quelle 'pause') — nie eine zweite Lesart von `gs_push_settings.pauseUntil`.
+  // Gemessen am 16.09.2026: mit Stillen Tagen bis zum 11.9. fielen SIEBEN
+  // Aufgaben in die Abwesenheit, und kein Ereignis sagte es.
+  // Drei Zustaende: Pause da → verletzt an jeder Aufgabe im Fenster; keine
+  // Pause → GAR KEIN Feld (keine Pause ist kein Zustand, sondern der
+  // Normalfall); Datum unlesbar → nicht pruefbar mit Grund.
+  try {
+    var pRoh = null;
+    try { pRoh = (JSON.parse(localStorage.getItem('gs_push_settings') || '{}') || {}).pauseUntil; } catch (_) { pRoh = null; }
+    if (pRoh != null && pRoh !== '') {
+      var pTag = (typeof _gsKalTag === 'function') ? _gsKalTag(pRoh) : null;
+      if (!pTag) {
+        // Ein unlesbares Datum betrifft ALLE Aufgaben gleich — aber ein Satz
+        // je Aufgabe waere Laerm. Er steht an der naechsten faelligen.
+        var erste = null;
+        out.forEach(function (e) { if (e.art === 'aufgabe' && (!erste || e.datum < erste.datum)) erste = e; });
+        if (erste) _gsKalHinweis(erste, 'abwesenheit', 'nicht_pruefbar', '', _gsSatz('Stille Tage: das Enddatum ist nicht lesbar'));
+      } else if (pTag > heute) {
+        var nDrin = 0;
+        out.forEach(function (e) { if (e.art === 'aufgabe' && e.datum >= heute && e.datum <= pTag) nDrin++; });
+        out.forEach(function (e) {
+          if (e.art !== 'aufgabe' || e.datum < heute || e.datum > pTag) return;
+          _gsKalHinweis(e, 'abwesenheit', 'verletzt',
+            _gsSatz('fällt in deine Stillen Tage (bis {1})', _gsKalDatumKurz(pTag)),
+            _gsSatz('{1} von {2} Fälligkeiten liegen in deiner Abwesenheit — der Giess-Zettel listet sie mit Ort und Intervall', nDrin, nDrin));
+          if (!e.verweis) e.verweis = { fn: 'gsGiessZettelOeffnen', args: [] };
+        });
+      }
+    }
+  } catch (_) {}
 }
 window._gsKalPruefwerk = _gsKalPruefwerk;
+// ══ v33.40 (KALENDER-V2 R10): DIE WOCHE — EINE Rechnung ═══════════════
+// Bis hierher zaehlte jede Anzeige die Woche selbst: Lina im Kontextbauer
+// (v33.39), der Wochenrueckblick mit eigenen Schleifen ueber `gsTagebuchAlle`
+// und `gsMesswerte` — und auf der Startseite und im Kalender stand gar nichts.
+// Gemessen am 16.09.2026, wie weit das auseinanderlaeuft: ein Tagebuch-Eintrag
+// VON HAND mit `cat: 'water'` galt dem Rueckblick als ERLEDIGTE Aufgabe (2
+// statt 1) — die App schrieb der Person eine Aufgabe gut, die sie nur notiert
+// hat; und sein rollendes ms-Fenster und das Tagesfenster des Kalenders
+// fielen an der Grenze auseinander (2 gegen 4 Eintraege).
+//
+// `_gsKalWoche()` ist die eine Rechnung, `_gsKalWocheZeile()` ihr einer Satz.
+// Drei Zustaende wie ueberall: `frost === null` heisst „keine Vorhersage",
+// nicht „kein Frost" (die Klasse aus v33.36).
+var GS_WOCHE_VOR_TAGE = 6, GS_WOCHE_RUECK_TAGE = 7;
+function _gsKalWoche() {
+  var w = { aufgaben: 0, aussaat: 0, ernte: 0, wetter: 0, hinweise: 0,
+            frost: null, frost_grund: '', frost_tag: null,
+            erledigt: 0, notizen: 0, messung: 0, pflanzen: 0, von: null, bis: null, rueck_von: null };
+  try {
+    var heute = gsHeuteTag();
+    w.von = heute; w.bis = _gsKalTagPlus(heute, GS_WOCHE_VOR_TAGE); w.rueck_von = _gsKalTagPlus(heute, -GS_WOCHE_RUECK_TAGE);
+    w.pflanzen = (typeof gsPflanzenZahl === 'function') ? gsPflanzenZahl() : 0;
+    var vor = gsKalenderEreignisse(w.von, w.bis) || [];
+    vor.forEach(function (e) {
+      if (['aufgabe', 'alarm', 'erinnerung'].indexOf(e.art) >= 0) w.aufgaben++;
+      else if (e.art === 'aussaat') w.aussaat++;
+      else if (e.art === 'ernte') w.ernte++;
+      else if (e.art === 'wetter') w.wetter++;
+      if ((e.hinweise || []).some(function (h) { return h.zustand === 'verletzt'; })) w.hinweise++;
+    });
+    // Frost: drei Zustaende. Die Quelle ist dieselbe wie die des Ereignisses
+    // (Nr. 5b) — `_gsWetterTage()` gibt null, wenn keine Vorhersage geladen ist.
+    var tage = (typeof _gsWetterTage === 'function') ? _gsWetterTage() : null;
+    if (tage == null) { w.frost = null; w.frost_grund = _gsSatz('keine Vorhersage geladen'); }
+    else {
+      var ft = null;
+      tage.forEach(function (t) { if (!ft && t.tag >= w.von && t.tag <= w.bis && (t.treffer || []).some(function (x) { return x.k === 'frost'; })) ft = t.tag; });
+      w.frost = ft ? 1 : 0; w.frost_tag = ft; w.frost_grund = '';
+    }
+    // Rueckwaerts: dieselben Ereignisse, dasselbe Tagesfenster.
+    var rueck = gsKalenderEreignisse(w.rueck_von, heute) || [];
+    rueck.forEach(function (e) {
+      if (e.art === 'tagebuch' && e.quelle === 'regel') w.erledigt++;
+      else if (e.art === 'tagebuch') w.notizen++;
+      if (e.art === 'messung') w.messung++;
+    });
+  } catch (_) {}
+  return w;
+}
+window._gsKalWoche = _gsKalWoche;
+// Der EINE Satz. Ohne Pflanzen gibt es ihn nicht: „0 Aufgaben" bei niemandem,
+// der Pflanzen hat, ist keine Aussage, sondern eine leere Zeile mit Zahl.
+function _gsKalWocheZeile() {
+  try {
+    var w = _gsKalWoche();
+    if (!w.pflanzen) return '';
+    var st = [];
+    st.push(w.aufgaben + ' ' + (w.aufgaben === 1 ? _gsSatz('Aufgabe') : _gsSatz('Aufgaben')));
+    if (w.aussaat) st.push(w.aussaat + ' ' + (w.aussaat === 1 ? _gsSatz('Aussaatfenster') : _gsSatz('Aussaatfenster')));
+    if (w.frost === null) st.push(_gsSatz('Frost: keine Vorhersage'));
+    else if (w.frost) st.push(_gsSatz('Frost am {1}', _gsKalDatumKurz(w.frost_tag)));
+    if (w.hinweise) st.push(w.hinweise + ' ' + (w.hinweise === 1 ? _gsSatz('Hinweis') : _gsSatz('Hinweise')));
+    return _gsSatz('Diese Woche') + ': ' + st.join(' · ') + '.';
+  } catch (_) { return ''; }
+}
+window._gsKalWocheZeile = _gsKalWocheZeile;
 // v33.34 (R8): gibt es ueberhaupt eine Quelle, aus der ein Ereignis entstehen
 // koennte? Ein leerer Tag MIT Daten heisst „Nichts an diesem Tag"; ohne jede
 // Quelle heisst er „Noch keine Daten". Zwei Saetze fuer zwei Wahrheiten.
@@ -29603,6 +29703,8 @@ function _gsKalRender() {
       (nVersteckt > 0 ? ' <i>' + esc(_gsSatz('({1} ausgeblendet)', nVersteckt)) + '</i>' : '') + '</div>' +
     '<div class="gs-kal-liste">' + zeilen + '</div>' +
     (nOffen ? '<div class="gs-kal-fuss">' + nOffen + ' ' + (nOffen === 1 ? _t('kal_offen_1', 'offene Aufgabe bis heute') : _t('kal_offen_n', 'offene Aufgaben bis heute')) + '</div>' : '') +
+    // v33.40 (R10): dieselbe Zeile wie auf der Startseite und bei Lina
+    (function(){ var wz = (typeof _gsKalWocheZeile === 'function') ? _gsKalWocheZeile() : ''; return wz ? '<div class="gs-kal-fuss">' + esc(wz) + '</div>' : ''; })() +
   '</div>';
 }
 
@@ -29662,13 +29764,19 @@ var GS_WOCHE_TAGE = 7, GS_GERAET_STILL_TAGE = 2;
 window.gsWochenrueckblick = function(){
   var out = { zeilen: [], leer: true };
   try {
-    var jetzt = Date.now(), von = jetzt - GS_WOCHE_TAGE * 864e5;
-    var tb = (typeof gsTagebuchAlle === 'function') ? gsTagebuchAlle().filter(function(e){ var t = e && e.ts ? new Date(e.ts).getTime() : NaN; return isFinite(t) && t >= von && t <= jetzt; }) : [];
-    var erledigt = tb.filter(function(e){ return e.quelle === 'regel' || (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[e.cat]); }).length;
+    var jetzt = Date.now();
+    // v33.40 (R10): der Rueckblick LIEST den Kalender, statt selbst zu zaehlen.
+    // Bis hierher galt ihm jeder Tagebuch-Eintrag mit einer Aufgaben-Kategorie
+    // als ERLEDIGTE Aufgabe — auch einer, den die Person von Hand notiert hat
+    // (gemessen: 2 statt 1). Und sein rollendes ms-Fenster lief gegen das
+    // Tagesfenster des Kalenders (2 gegen 4 Eintraege an der Grenze).
+    // Erledigt ist, was ABGEHAKT wurde: `tagebuch` mit `quelle === 'regel'`.
+    var w = (typeof _gsKalWoche === 'function') ? _gsKalWoche() : null;
+    var von = w && w.rueck_von ? new Date(w.rueck_von + 'T00:00:00').getTime() : (jetzt - GS_WOCHE_TAGE * 864e5);
+    var erledigt = w ? w.erledigt : 0, notizen = w ? w.notizen : 0;
     var offen = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().filter(function(x){ return x && x.days <= 0; }).length : 0;
-    var pflanzen = ((typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.length : 0) + ((typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.length : 0);
+    var pflanzen = w ? w.pflanzen : 0;
     if (pflanzen) { out.zeilen.push('✅ ' + erledigt + ' Aufgabe' + (erledigt === 1 ? '' : 'n') + ' erledigt · ' + (offen ? offen + ' heute offen' : 'heute nichts offen')); out.leer = false; }
-    var notizen = tb.length - erledigt;
     if (notizen > 0) { out.zeilen.push('📝 ' + notizen + ' Tagebuch-Eintr' + (notizen === 1 ? 'ag' : 'äge')); out.leer = false; }
     var ger = (typeof gsGeraete === 'function') ? gsGeraete() : [];
     var wetter = ger.filter(function(g){ return g && g.kind === 'weather'; });
@@ -29803,6 +29911,17 @@ window.gsGiessZettelDrucken = function(){
 // Rueckblick (Tagebuch, Gepflanzt, Messwerte). Ohne Ereignis keine Zeile
 // (Regel 5). Antippen oeffnet den Kalender am heutigen Tag.
 var _GS_DP_KAL_ARTEN = { aussaat: 1, ernte: 1, erinnerung: 1, alarm: 1, wetter: 1 };
+// v33.40 (R10): die Wochenzeile auf der Startseite — derselbe Satz wie im
+// Kalender-Fuss und in Linas Kontext, aus `_gsKalWocheZeile()`. Ohne Pflanzen
+// gibt es ihn nicht (die Funktion gibt dann '' zurueck).
+function _gsDayPlanWoche(esc) {
+  try {
+    var z = (typeof _gsKalWocheZeile === 'function') ? _gsKalWocheZeile() : '';
+    if (!z) return '';
+    return '<button type="button" class="gs-dp-woche" onclick="gsKalenderOeffnen()" aria-label="' + esc(z) + '">' +
+      '<span class="gs-dp-woche-txt">📆 ' + esc(z) + '</span><span aria-hidden="true">→</span></button>';
+  } catch (_) { return ''; }
+}
 function _gsDayPlanKalender(esc) {
   try {
     var h = gsHeuteTag();
@@ -29861,14 +29980,14 @@ window.gsRenderDayPlan = function(){
       '</div><button type="button" class="gs-dp-all" style="border-top:none;padding-left:2px;"' +
       ' onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\')">' +
       '<span>Erste Pflanze scannen</span><span aria-hidden="true">→</span></button>' +
-      _gsDayPlanKalender(esc);   // v33.19: ein Plan-Termin oder Frost gilt auch ohne Pflanze
+      _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: ein Plan-Termin oder Frost gilt auch ohne Pflanze
     return;
   }
   if (!tasks.length) {
     el.innerHTML = head(0) +
       '<div class="gs-dp-empty"><b>Alles versorgt</b>In den nächsten Tagen steht nichts an — deine ' + nPlants +
       ' Pflanze' + (nPlants === 1 ? '' : 'n') + ' ' + (nPlants === 1 ? 'ist' : 'sind') + ' auf Kurs.</div>' +
-      _gsDayPlanKalender(esc);   // v33.19: „auf Kurs" heisst nicht „nichts im Kalender"
+      _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: „auf Kurs" heisst nicht „nichts im Kalender"
     return;
   }
 
@@ -29898,7 +30017,7 @@ window.gsRenderDayPlan = function(){
       '<button type="button" class="gs-dp-all" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">' +
         '<span>Alle Aufgaben anzeigen</span><span aria-hidden="true">→</span></button>' +
     '</div>' +
-    _gsDayPlanKalender(esc);   // v33.19
+    _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40
 };
 
 
@@ -75627,6 +75746,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.40', date: '16.09.2026',
+    headline: 'Die Woche auf einen Blick — und deine Stillen Tage stehen im Kalender',
+    summary: 'Sechste Scheibe von KALENDER-V2. Eine Zeile sagt, was die Woche bringt — auf der Startseite, im Kalender und in Linas Kontext, aus DERSELBEN Rechnung. Und wenn du Stille Tage eingestellt hast, sagt jede Aufgabe, die hineinfällt, dass sie hineinfällt. Dabei gemessen: mit Stillen Tagen bis zum 11.9. fielen SIEBEN Fälligkeiten in die Abwesenheit, und kein Ereignis sagte es; und der Wochenrückblick zählte einen selbst notierten Tagebuch-Eintrag als erledigte Aufgabe.',
+    user_summary: 'Eine Zeile zeigt dir die Woche — Aufgaben, Aussaatfenster, Frost, Hinweise. Und Aufgaben, die in deine Stillen Tage fallen, sagen es dir, mit dem Weg zum Giess-Zettel.',
+    user_items: [
+      {emoji: '📆', bold: 'Diese Woche:', text: ' „Diese Woche: 5 Aufgaben · 1 Aussaatfenster · Frost am 18.09. · 2 Hinweise.“ — auf der Startseite, unter dem Kalender und bei Lina. Immer dieselben Zahlen, weil es dieselbe Rechnung ist.'},
+      {emoji: '✈️', bold: 'Stille Tage im Kalender:', text: ' Hast du eine Pause eingestellt, trägt jede Aufgabe, die hineinfällt, den Hinweis — mit dem Enddatum und einem Tipp auf den Giess-Zettel für die Nachbarin.'},
+      {emoji: '✅', bold: 'Erledigt heisst abgehakt:', text: ' Der Wochenrückblick schrieb dir auch eine Aufgabe gut, die du nur ins Tagebuch notiert hattest. Jetzt zählt er, was du wirklich abgehakt hast.'},
+      {emoji: '❄️', bold: 'Keine Vorhersage ist keine Entwarnung:', text: ' Fehlt das Wetter, steht „Frost: keine Vorhersage“ — nicht „kein Frost“.'}
+    ],
+  },
+  {
     v: 'v33.39', date: '16.09.2026',
     headline: 'Lina sieht deinen Kalender — und sagt, wenn sie etwas nicht weiß',
     summary: 'Fünfte Scheibe von KALENDER-V2. Lina bekommt drei Zeilen aus der einen Kalender-Funktion (was heute ansteht, was die Woche bringt, was das Prüfwerk dazu sagt) und darf einen Termin VORSCHLAGEN, den du bestätigst. Dabei gemessen und behoben: ihr Kontext wurde bei sechs Geräten mitten im Wort abgeschnitten, Geräte fielen stillschweigend weg, eine Regel ohne Messwerte stand als „keine verletzte Regel“ da — und die Sicherheit eines Scans hatte drei verschiedene Antworten (0.94 %, 1 %, 94 %).',
@@ -75953,20 +76084,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'einstellungen_check:', text:' jedes Ereignis im Vokabular hat einen Aufrufer, jeder Aufrufer einen Eintrag (Quelltext, 9/10); Re-Scan und Vorlage feuern über die echten Funktionen mit genau ihren Feldern. Zwei Gegenproben rot.'}
       ],
     },
-  {
-    v: 'v33.20', date: '10.09.2026',
-      headline: 'Der Scan kennt den Aussaatkalender',
-      summary: 'Erkennt der Scanner eine Kultur aus dem Schweizer Aussaatkalender, steht ihr Fenster auf der Karte — drinnen vorziehen, draussen säen, Ernte — mit dem Weg zum Säkalender. Eine Wildart bekommt nichts; die Sammelsaison ist kein Aussaatfenster.',
-      user_summary: 'Scannst du eine Tomate, sagt dir die Karte jetzt auch, wann sie ausgesät wird: „drinnen vorziehen Feb–Apr · draussen säen Mai–Jun · Ernte Jul–Okt" — und ein Knopf öffnet den Säkalender.',
-      user_items: [
-        {emoji:'🌱', text:'Unter „Vorkommen & Nutzung" steht das Aussaatfenster der erkannten Kultur — nur bei Gemüse und Kräutern aus dem Aussaatkalender.'},
-        {emoji:'📅', text:'„Säkalender öffnen" führt direkt zur Übersicht aller 39 Kulturen.'}
-      ],
-      items: [
-        {emoji:'📐', bold:'Derselbe Matcher wie der Kalender', text:' (_gsSaeZuPflanze, v33.13): erst der Name aus der Artenliste, dann der der KI; Monatsnamen aus gsMonate, zusammenhängende Monate als Spanne, sonst einzeln. Kein Fenster aus `season` (Regel 9).'},
-        {emoji:'🧪', bold:'scan_check „Aussaatkalender":', text:' Tomate → Zeile mit allen drei Fenstern und Knopf · Bärlauch mit season → nichts · Zucchini (KI-Name, Plural) → Zeile. Drei Gegenproben rot.'}
-      ],
-    },
 
 ];
 
@@ -76176,7 +76293,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.39';
+var GS_VERSION = 'v33.40';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -85142,7 +85259,7 @@ var GS_LINA_ZAHLEN_MAX = 1000;  // v33.39: der Kalender-Block kommt dazu (heute 
 // Die Reihenfolge nach NUTZEN — sie bestimmt beides: was zuerst dasteht und
 // was zuerst faellt. Eine Liste, nicht zwei; sonst laufen Anzeige und Deckel
 // auseinander (die Klasse aus §4a.2). Was hier nicht steht, kommt hinten.
-var GS_LINA_ZEILEN_RANG = ['Fällig:', 'Hinweise:', 'Nächste 7 Tage:', 'Alarme:', 'Kalender heute:',
+var GS_LINA_ZEILEN_RANG = ['Fällig:', 'Hinweise:', 'Diese Woche:', 'Alarme:', 'Kalender heute:',
                            'Nächste Aussaat', 'Plan (', 'Letzter Scan:', 'Geräte:', 'Messwerte:'];
 function _gsLinaRang(zeile) {
   for (var i = 0; i < GS_LINA_ZEILEN_RANG.length; i++) if (String(zeile).indexOf(GS_LINA_ZEILEN_RANG[i]) === 0) return i;
@@ -85237,17 +85354,12 @@ function gsLinaZahlen(){
         var h3 = heuteTun.slice(0, 3).map(function (e) { return e.titel; });
         teile.push('Kalender heute: ' + h3.join('; ') + (heuteTun.length > 3 ? '; +' + (heuteTun.length - 3) + ' weitere' : '') + '.');
       }
-      // Die Woche: gezaehlt, nicht aufgezaehlt — und jede Zahl aus derselben Liste.
-      var nAufg = evW.filter(function (e) { return ['aufgabe', 'alarm', 'erinnerung'].indexOf(e.art) >= 0; }).length;
-      var nSaat = evW.filter(function (e) { return e.art === 'aussaat'; }).length;
-      var nWett = evW.filter(function (e) { return e.art === 'wetter'; }).length;
-      var nHinw = evW.filter(function (e) { return (e.hinweise || []).some(function (h) { return h.zustand === 'verletzt'; }); }).length;
-      var wStk = [];
-      if (nAufg) wStk.push(nAufg + ' Aufgabe' + (nAufg === 1 ? '' : 'n'));
-      if (nSaat) wStk.push(nSaat + ' Aussaatfenster');
-      if (nWett) wStk.push(nWett + ' Wetter-Ereignis' + (nWett === 1 ? '' : 'se'));
-      if (nHinw) wStk.push(nHinw + ' Hinweis' + (nHinw === 1 ? '' : 'e'));
-      if (wStk.length) teile.push('Nächste 7 Tage: ' + wStk.join(' · ') + '.');
+      // v33.40: die Woche kommt aus der EINEN Rechnung (`_gsKalWocheZeile`,
+      // R10) — dieselbe Zeile, die auf der Startseite und im Kalender-Fuss
+      // steht. Bis v33.39 zaehlte der Kontextbauer hier selbst; zwei
+      // Rechnungen fuer eine Frage sind die Klasse aus §4a.2.
+      var wZeile = (typeof _gsKalWocheZeile === 'function') ? _gsKalWocheZeile() : '';
+      if (wZeile) teile.push(wZeile);
       // Die Hinweise des Pruefwerks — nur VERLETZTE. Ein `nicht_pruefbar`
       // gehoert nicht hierher: es ist keine Aussage, sondern das Fehlen einer.
       var hTexte = [];

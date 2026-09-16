@@ -1314,7 +1314,12 @@ const FAELLE = [
         let z = zeilen();
         if (!z.some(t => /^✅ \d+ Aufgaben? erledigt · \d+ heute offen$/.test(t))) return { ok: false, warum: 'Aufgaben-Zeile fehlt oder hat kein Format: ' + JSON.stringify(z) };
         if (!z.some(t => /kein Wetterdienst als Gerät/.test(t))) return { ok: false, warum: 'ohne Wetterdienst muss die Karte „kein Regen- und Frostwert" sagen: ' + JSON.stringify(z) };
-        if (!z.some(t => /Balkon Süd · Erde: nie unter 22 % \(6 Werte\)/.test(t))) return { ok: false, warum: 'Feuchte-Tief des Seed-Geräts fehlt: ' + JSON.stringify(z) };
+        // v33.40: SIEBEN Werte, nicht sechs. Das Fenster des Rueckblicks ist
+        // seither das TAGESfenster des Kalenders (`_gsKalWoche().rueck_von`,
+        // also 7 Tage zurueck ab Mitternacht) statt eines rollenden
+        // ms-Fensters ab `Date.now()`. Der siebte Wert lag genau dazwischen —
+        // das ist die Aenderung, nicht ein Fehler. Ein Fenster, nicht zwei.
+        if (!z.some(t => /Balkon Süd · Erde: nie unter 22 % \(7 Werte\)/.test(t))) return { ok: false, warum: 'Feuchte-Tief des Seed-Geräts fehlt: ' + JSON.stringify(z) };
         if (z.some(t => /Note|Score|Punkte/.test(t))) return { ok: false, warum: 'die Karte vergibt eine Note' };
         // Wetterdienst mit 10 mm Regen und einer Frostnacht (gemessen)
         const heute = gsHeuteTag(), gestern = _gsKalTagPlus(heute, -1);
@@ -1334,7 +1339,7 @@ const FAELLE = [
         gsRenderWochenrueckblick();
         const titel = (document.getElementById('woche-titel') || {}).textContent || '';
         if (!/Noch keine Woche mit Daten/.test(titel) || zeilen().length !== 1) return { ok: false, warum: 'ohne Daten: „' + titel + '" · ' + JSON.stringify(zeilen()) };
-        return { ok: true, info: 'Aufgaben-Zeile · ohne Wetterdienst „kein Wert" · Süd: nie unter 22 % (6) · mit Wetterdienst: 10 mm, 1 Frostnacht, gemessen · Nord schwieg 4 Tage · ohne Daten sagt es die Karte' };
+        return { ok: true, info: 'Aufgaben-Zeile · ohne Wetterdienst „kein Wert" · Süd: nie unter 22 % (7, Tagesfenster) · mit Wetterdienst: 10 mm, 1 Frostnacht, gemessen · Nord schwieg 4 Tage · ohne Daten sagt es die Karte' };
       } finally {
         if (sichern.g != null) localStorage.setItem('gs_geraete', sichern.g); if (sichern.mw != null) localStorage.setItem('gs_messwerte', sichern.mw);
         myPlants = sichern.mp; plantings = sichern.pl;
@@ -1839,12 +1844,12 @@ const FAELLE = [
     },
   },
   {
-    name: 'Lina K2 · „Nächste 7 Tage": die Zahlen kommen aus derselben Rechnung — Aufgaben, Aussaatfenster, Wetter, Hinweise, eintragsgenau',
+    name: 'Lina K2 · die Wochenzeile ist DIESELBE wie auf der Startseite und im Kalender (_gsKalWocheZeile) — Aufgaben, Aussaatfenster, Frost, Hinweise, eintragsgenau',
     lauf: () => {
       const klagen = [];
       const heute = gsHeuteTag(), bis = _gsKalTagPlus(heute, 6);
       const ev = gsKalenderEreignisse(heute, bis);
-      const z = (gsLinaZahlen().match(/^Nächste 7 Tage:[^\n]*/m) || [''])[0];
+      const z = (gsLinaZahlen().match(/^Diese Woche:[^\n]*/m) || [''])[0];
       if (!z) return { ok: false, warum: 'keine Wochenzeile, obwohl ' + ev.length + ' Ereignisse in sieben Tagen liegen' };
       const zahl = (was) => (z.match(new RegExp('(\\d+)\\s*' + was)) || [0, null])[1];
       const aufg = ev.filter(e => ['aufgabe', 'alarm', 'erinnerung'].indexOf(e.art) >= 0).length;
@@ -1854,6 +1859,8 @@ const FAELLE = [
       if (aufg && Number(gAufg) !== aufg) klagen.push('Aufgaben: Zeile sagt ' + gAufg + ', der Kalender hat ' + aufg);
       if (saat && Number(gSaat) !== saat) klagen.push('Aussaatfenster: Zeile sagt ' + gSaat + ', der Kalender hat ' + saat);
       if (hinw && Number(gHinw) !== hinw) klagen.push('Hinweise: Zeile sagt ' + gHinw + ', das Pruefwerk hat ' + hinw);
+      if (typeof _gsKalWocheZeile === 'function' && z !== _gsKalWocheZeile())
+        klagen.push('Lina formuliert eine EIGENE Wochenzeile: „' + z + '“ gegen „' + _gsKalWocheZeile() + '“');
       if (z.length > 200) klagen.push('Zeile zu lang (' + z.length + ')');
       if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
       return { ok: true, info: z.slice(0, 140) };
