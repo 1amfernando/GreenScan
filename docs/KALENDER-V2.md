@@ -296,7 +296,7 @@ das Feld.**
 eigene Scheiben, beide Migrationen bleiben „nicht angewandt", bis Fernando sie
 anwendet:**
 
-1. **Der Server kennt nur eine Pflanzenliste.** `v_plant_tasks_due`
+1. **Der Server kennt nur eine Pflanzenliste.** — **geschlossen v33.41** (live gemessen: 15 Garten-Pflanzungen mit Aufgaben, die Sicht hatte 23 Zeilen, alle aus `user_plants`). `v_plant_tasks_due`
    (Migrationen v26_93 / 20260903 / 20260904) expandiert `user_plants.data`;
    `user_gardens` kommt in keiner der drei Dateien vor. Der Aufgaben-Cron
    (`daily-push-checker`) erinnert damit nie an eine Garten-Pflanzung — die App
@@ -305,10 +305,34 @@ anwendet:**
    'plantings'` mit derselben Rechnung; `naht_check`-Fall „App und Sicht zählen
    dieselben Aufgaben" (SQL im lokalen Postgres, wie `quiz_check`).
 2. **Die saisonale Checkliste filtert ein Feld, das der Generator nicht
-   schreibt.** `daily-push-checker` nimmt `garden_tasks_catalog` mit
+   schreibt.** — **geschlossen v33.41, und schlimmer als vermutet:** die Spalte `priority` GIBT ES NICHT (189 Zeilen, 0 mit dem Schlüssel, auch nicht in `data`). PostgREST antwortet 42703, der Fehler wurde wegdestrukturiert — die saisonale Erinnerung hatte seit dem Bau keine einzige Zeile, und nichts hat es gesagt. `daily-push-checker` nimmt `garden_tasks_catalog` mit
    `.eq('priority','high')`; `knowledge-bulk-gen` schreibt `importance:
    kritisch|wichtig|optional`. Vor dem Bauen live (nur lesend) messen, ob
    `priority` je gefüllt ist — wenn nicht, trifft der Filter seit dem Bau nie.
+
+**3. Und ein dritter Befund, den erst das ANWENDEN gezeigt hat** (v33.41).
+Die zwei Sicht-Migrationen `20260903_plant_tasks_due_snooze.sql` und
+`20260904_plant_tasks_due_vorgezogen.sql` standen seit Tagen als „bereit" in
+der Liste der offenen Migrationen. Gegen die Sicht, wie sie LIVE steht
+(v26_93, zehn Spalten), in einem lokalen Postgres nachgerechnet:
+
+```
+ERROR: cannot change name of view column "next_due_at" to "snoozed_until"
+HINT:  Use ALTER VIEW ... RENAME COLUMN ...
+```
+
+`CREATE OR REPLACE VIEW` darf Spalten nur **anhängen**, nie einfügen oder
+umbenennen — und beide Dateien fügen welche in der Mitte ein. **Sie wären
+beim ersten Versuch gescheitert.** Nichts hängt an der Sicht (live geprüft,
+`pg_depend`: 0 abhängige Objekte), deshalb sind alle drei jetzt DROP + CREATE.
+
+> **Eine Migration, die man nicht ANWENDET, hat man nicht geprüft** — dieselbe
+> Lehre wie v32.65 („eine SQL-Regel, die man nicht ausführt"), eine Ebene
+> höher. Der Fall `naht_check` „jede Sicht-Migration lässt sich WIRKLICH
+> anwenden" spielt deshalb den Live-Stand nach, wendet alle drei an, wendet
+> sie ein ZWEITES Mal an (Idempotenz) — und prüft in der Gegenprobe, dass es
+> mit `CREATE OR REPLACE` scheitert.
+
 
 Ein Server-Push „morgen Frost trifft deine Zucchini" (R6 als Push) bräuchte
 Gärten und Pflanzungen serverseitig lesbar plus die Frost-Vorhersage je
@@ -327,7 +351,7 @@ Nutzer — eine spätere Scheibe über `_shared/push_helfer.mjs` mit
 | 4b | **v33.38 (geliefert)** | **Die drei Namen, zweiter Teil**: „Mein Naturjahr" rechnet aus `gsKalenderEreignisse(J-01-01, J-12-31)` (K1 Arten ohne Jahresfilter, K3 Funde immer 0); Kachel „Pflanzungen" → „Gepflanzt", weil sie beide Wege zählt; Garten-Timeline ersatzlos entfernt (Parser), `mi-timeline` heisst „Rückblick" und öffnet den Kalender über `gsKalRueckblick` | M1 Kachel === Ereigniszahl, Arten nur dieses Jahr · M2 alte Funktion weg, Menüeintrag führt zum Kalender, Rückblick-Gruppe wirklich eingeschaltet |
 | 5 | **v33.39 (geliefert)** | **Lina**: Kalender-Block (heute · Woche · Hinweise) aus `gsKalenderEreignisse`; `_gsLinaDeckeln` laesst GANZE Zeilen weg und sagt es, Reihenfolge und Fallordnung aus EINER Liste (`GS_LINA_ZEILEN_RANG`); „+N weitere“ bei Geräten, Messgrössen und Alarmen; `nicht_pruefbar` ≠ „keine verletzte Regel“; `_gsScanKonfidenz` (der EINE Leser, 0.94 und 94 → 94); `add_calendar_note` mit Rückfrage, `quelle: 'lina'` und `bestaetigt_am` | D1 Deckel ganze Zeilen · D2 „+2 weitere“ · D3 nicht prüfbar · K1/K2/K3 die drei Zeilen gegen die eine Funktion · S1 eine Zahl statt drei · T1 Nein schreibt nichts, Ja genau eines · T2 die zwei alten Schreib-Tools |
 | 6 | **v33.40 (geliefert)** | **Die Woche**: R9 (Abwesenheit × Aufgaben, drei Zustände, Verweis auf `gsGiessZettelOeffnen`), R10 (`_gsKalWoche` + `_gsKalWocheZeile` — eine Rechnung, ein Satz); die Zeile steht auf der Startseite, im Kalender-Fuss und in Linas Kontext; `gsWochenrueckblick` liest den Kalender statt eigener Schleifen | R9 sieben Fälligkeiten im Fenster · ohne Pause kein Feld · unlesbares Datum → nicht prüfbar · R10 eintragsgenau gegen `gsKalenderEreignisse` · `frost === null` ≠ kein Frost · R10b dieselben Zahlen an drei Stellen, ohne Pflanzen keine Zeile · R10c eine notierte Aufgabe ist keine erledigte |
-| 7 | v33.41 | **Backend**: `v_plant_tasks_due` kennt Pflanzungen (Migration, nicht angewandt); `priority`/`importance` live gemessen und bereinigt | naht_check „App und Sicht zählen dieselben Aufgaben" im lokalen Postgres |
+| 7 | **v33.41 (geliefert)** | **Backend**: `v_plant_tasks_due` liest BEIDE Listen (`20260916_plant_tasks_due_plantings.sql`, nicht angewandt — UNION ALL, die Rechnung genau einmal, `liste`/`garden_id`/`garden_name`); `daily-push-checker` filtert `importance` statt der nicht existierenden Spalte `priority` und SAGT den Fehler; die drei Sicht-Migrationen sind DROP + CREATE, weil `CREATE OR REPLACE VIEW` Spalten nur anhängen darf | `naht_check` 16: Katalog-Spalte · Sicht liest beide Listen · „App und Sicht zählen dieselben Aufgaben“ im lokalen Postgres (alt 1 → neu 3, snoozedUntil wirkt auch an einer Pflanzung, Gegenprobe 1) · „jede Sicht-Migration lässt sich WIRKLICH anwenden“ |
 
 ## 10 · Was bewusst NICHT gebaut wird
 

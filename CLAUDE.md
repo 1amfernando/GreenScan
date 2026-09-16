@@ -538,12 +538,13 @@ Wer Aufgaben, Termine, Saison, Naturjahr, Timeline oder Wetter anfasst, liest
 zuerst V1 (die eine Regel: EINE Frage, EINE Funktion `gsKalenderEreignisse`)
 und V2 (seit v33.34: das Pruefwerk `_gsKalPruefwerk` mit `hinweise[]`, das
 Sieb, die drei Namen aus Fernandos Auftrag, Lina, sieben Scheiben). Kurzform
-in `docs/memory/06-kalender.md`. **Seit v33.40 sind die Scheiben 4 bis 6 fertig:**
+in `docs/memory/06-kalender.md`. **Seit v33.41 sind ALLE SIEBEN Scheiben geliefert (v33.34–v33.41):**
 „Mein Naturjahr“ rechnet aus `gsKalenderEreignisse`, die Garten-Timeline gibt
 es nicht mehr (`gsKalRueckblick()` ist der Weg dorthin), und Lina hat den
 Kalender-Block, `_gsLinaDeckeln` und `add_calendar_note`; die Woche ist EINE
 Rechnung (`_gsKalWoche` / `_gsKalWocheZeile`), und R9 sagt, welche Aufgaben in
-deine Stillen Tage fallen. Offen bleibt nur die Backend-Scheibe (7). Die eine neue Regel: **Rechnung → Pruefwerk
+deine Stillen Tage fallen; und die Sicht `v_plant_tasks_due` liest beide
+Pflanzenlisten (Migration, nicht angewandt). Die eine neue Regel: **Rechnung → Pruefwerk
 → Sieb → Anzeige** — ein Filter ist ein Sieb auf dem Ergebnis, nie eine
 Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
 
@@ -736,7 +737,7 @@ node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie �
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
-node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026)
+node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026); seit v33.41 mit einer SQL-HAELFTE (lokales Postgres, ohne es „nicht pruefbar" statt gruen): die Sicht `v_plant_tasks_due` liest BEIDE Pflanzenlisten (App und Sicht zaehlen dieselben Aufgaben), der saisonale Push filtert eine Spalte, die es GIBT, und jede Sicht-Migration laesst sich WIRKLICH anwenden (CREATE OR REPLACE VIEW darf Spalten nur anhaengen)
 node scripts/loeschung_check.js  # raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17)
 node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18)
 node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
@@ -1387,6 +1388,41 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > `confidence: 88` ein — eine Zahl, die schon in der Zielform ist. Ein Fall,
 > dessen Wert den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware
 > (v33.32, v33.00). Wer eine Normalisierung prueft, fuettert BEIDE Formen.
+
+> **Eine Migration, die man nicht ANWENDET, hat man nicht geprueft** (v33.41).
+> Zwei Sicht-Migrationen standen seit Tagen als „bereit" in der Liste der
+> offenen Migrationen (STATUS §2). Gegen die Sicht, wie sie LIVE steht, in
+> einem lokalen Postgres nachgerechnet:
+> `ERROR: cannot change name of view column "next_due_at" to "snoozed_until"`.
+> **`CREATE OR REPLACE VIEW` darf Spalten nur ANHAENGEN**, nie einfuegen oder
+> umbenennen — beide Dateien fuegen welche in der Mitte ein, waeren also beim
+> ersten Versuch gescheitert. Wer eine Sicht aendert, nimmt DROP + CREATE
+> (nach `pg_depend`: haengt etwas daran?) und **spielt den Live-Stand nach**:
+> Migration anwenden, ein ZWEITES Mal anwenden (Idempotenz), Gegenprobe. Das
+> ist v32.65 eine Ebene hoeher — dort war es die Rechnung IN der Migration,
+> hier die Migration selbst. `node --check` und ein Blick auf die Spalten
+> zeigen es nie. Pruefstand: `naht_check` „jede Sicht-Migration laesst sich
+> WIRKLICH anwenden".
+
+> **Ein Fehler, der wegdestrukturiert wird, macht „nichts gefunden" von
+> „kaputt" ununterscheidbar** (v33.41) — die `_gsSchreibOk`-Klasse auf der
+> Server-Seite. `daily-push-checker` schrieb `const { data: tasks } = await sb
+> .from('garden_tasks_catalog') … .eq('priority','high')`. Live gemessen:
+> **die Spalte `priority` gibt es nicht** (189 Zeilen, 0 mit dem Schluessel,
+> auch nicht in `data`); PostgREST antwortet 42703, `data` ist `null`, und die
+> Funktion lief still weiter. Die saisonale Erinnerung hatte **seit dem Bau
+> keine einzige Zeile**. In einer Edge-Function wird der `error` GELESEN und
+> gesagt (`console.error`, `system_events`) — nie weggelassen.
+
+> **Und eine Suche im eigenen Text findet zuerst den eigenen Text ueber die
+> Sache** (v33.41). Die Gegenprobe schnitt am ersten „UNION ALL" — und das
+> stand im KOMMENTAR der Migration, nicht im SQL; sie schnitt `CREATE VIEW`
+> mit weg. Dieselbe Klasse wie die Jargon-Suche, die ihre eigenen
+> Release-Notizen findet (v32.70). Wer im Quelltext nach einem Schluesselwort
+> schneidet, ankert an seiner FORM (Einrueckung, Zeilenanfang), nicht an der
+> blossen Zeichenkette. Und eine lazy Suche nach `if (tasks` trifft
+> `if (tasksErr)` zuerst.
+
 
 > **Zwei Rechnungen fuer eine Woche — und die Zahl, um die sie auseinanderlagen**
 > (v33.40). `gsWochenrueckblick` zaehlte „erledigte Aufgaben“ als jeden

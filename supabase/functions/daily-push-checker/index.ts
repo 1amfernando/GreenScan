@@ -104,12 +104,23 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
 
   if (sub.notify_seasonal && hourLocal < 12) {
     if (!(await alreadySentToday(userId, "seasonal"))) {
-      const { data: tasks } = await sb
+      // v33.41 (KALENDER-V2 §8 Punkt 2): die Spalte `priority` GIBT ES NICHT.
+      // Live gemessen am 16.09.2026 (nur lesend): `garden_tasks_catalog` hat
+      // 189 Zeilen und die Spalten … importance, data — kein `priority`, auch
+      // nicht in `data` (0 von 189 tragen den Schluessel). PostgREST antwortet
+      // auf `.eq("priority","high")` mit 42703, `data` ist null, und weil der
+      // Fehler hier wegdestrukturiert wurde, lief die Funktion still weiter:
+      // die saisonale Erinnerung hat SEIT DEM BAU keine einzige Zeile gehabt.
+      // `knowledge-bulk-gen` schreibt `importance: kritisch|wichtig|optional`.
+      const { data: tasks, error: tasksErr } = await sb
         .from("garden_tasks_catalog")
-        .select("title,description,priority")
+        .select("title,description,importance")
         .lte("month_start", month).gte("month_end", month)
-        .eq("priority", "high")
+        .in("importance", ["kritisch", "wichtig"])
         .limit(1);
+      // Ein Fehler wird GESAGT, nie verschluckt — sonst sieht „keine Aufgabe
+      // diesen Monat" genauso aus wie „die Abfrage ist kaputt".
+      if (tasksErr) console.error("[daily-push-checker] garden_tasks_catalog:", tasksErr.message || tasksErr);
       if (tasks && tasks.length) {
         const t: any = tasks[0];
         const title = `Saisonale Aufgabe: ${t.title}`;

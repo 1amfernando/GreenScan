@@ -15,7 +15,23 @@
 --    ab 00:00. Zwei Regeln fuer dieselbe Frage — jetzt eine, in Europe/Zurich.
 -- ═══════════════════════════════════════════════════════════════════════════
 
-CREATE OR REPLACE VIEW public.v_plant_tasks_due
+-- ───────────────────────────────────────────────────────────────────────────
+-- v33.41 · WARUM DROP + CREATE statt CREATE OR REPLACE
+-- Gemessen am 16.09.2026 in einem lokalen Postgres, gegen die Sicht, wie sie
+-- HEUTE live steht (v26_93, zehn Spalten):
+--     ERROR: cannot change name of view column "next_due_at" to "snoozed_until"
+-- `CREATE OR REPLACE VIEW` darf Spalten nur ANHAENGEN, nie einfuegen oder
+-- umbenennen. Diese Datei fuegt welche in der Mitte ein — sie WAERE beim
+-- Anwenden gescheitert, und stand trotzdem seit Tagen als „bereit" in der
+-- Liste der offenen Migrationen.
+-- Nichts haengt an der Sicht (live geprueft, pg_depend: 0 abhaengige Objekte),
+-- deshalb ist DROP + CREATE gefahrlos — und idempotent.
+-- Pruefstand: naht_check „Migration · jede Sicht-Migration laesst sich WIRKLICH
+-- anwenden" rechnet genau das in einem lokalen Postgres nach.
+-- ───────────────────────────────────────────────────────────────────────────
+DROP VIEW IF EXISTS public.v_plant_tasks_due;
+
+CREATE VIEW public.v_plant_tasks_due
   WITH (security_invoker = true) AS
 WITH plants AS (
   SELECT up.user_id,

@@ -131,9 +131,34 @@ Sechs unabhängige Aussaat-Listen gibt es im Repo (`GS_SAE_DB`, `SEASON_DATA`,
 siebte anzulegen ist der Fehler; die sechs zusammenzuführen ist eine
 Daten-Scheibe, keine Kalender-Logik.
 
+## Was der SERVER davon kennt (v33.41)
+
+Die Rechnung liegt ganz im Browser — der Server macht nur den Push. Und er
+kannte bis v33.41 nur EINE Pflanzenliste: `v_plant_tasks_due` expandierte
+`user_plants.data -> 'plants'`, nie `user_gardens.data -> 'plantings'`.
+Gemessen: 15 Garten-Pflanzungen mit Aufgaben, 0 Erinnerungen dafuer.
+`20260916_plant_tasks_due_plantings.sql` (nicht angewandt) vereint beide mit
+UNION ALL — die Faelligkeits-Rechnung steht genau EINMAL, hinter dem UNION.
+
+Zwei Regeln fuer jede Sicht-Migration, beide in v33.41 gemessen:
+
+- **DROP + CREATE, nicht CREATE OR REPLACE.** Letzteres darf Spalten nur
+  ANHAENGEN. Zwei Migrationen standen seit Tagen als „bereit" und waeren beim
+  Anwenden gescheitert. Vorher `pg_depend` fragen: haengt etwas an der Sicht?
+- **Anwenden, nicht lesen.** `naht_check` spielt den Live-Stand nach, wendet
+  jede Migration an, wendet sie ein zweites Mal an (Idempotenz) und macht die
+  Gegenprobe.
+
+Und auf der Server-Seite gilt `_gsSchreibOk` genauso: ein
+`const { data } = await sb…` ohne `error` macht „nichts gefunden" von
+„kaputt" ununterscheidbar. `daily-push-checker` filterte auf `priority` —
+eine Spalte, die es nicht gibt — und hat seit dem Bau keine einzige saisonale
+Erinnerung verschickt.
+
+
 ## Prüfstände
 
-`kalender_check` (49 Fälle, Stand v33.40, Uhr gestellt auf 2025-09-01 12:00 UTC,
+`kalender_check` (49 Fälle, Stand v33.41, Uhr gestellt auf 2025-09-01 12:00 UTC,
 kein Fall hängt am echten Datum; je Regel gut · schlecht · nicht prüfbar, aus
 dem gerenderten HTML gelesen) · `sensor_check` (Messwerte, Alarme, Lina-Kalender-
 Zeilen) · `contrast_check` öffnet das Kalender-Fenster · `wiring_check` die

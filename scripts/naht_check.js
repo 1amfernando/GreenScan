@@ -19,7 +19,11 @@
 // anlegt) — und haelt dagegen, was jeder Teil im Quelltext benutzt. Dazu zwei
 // Rechnungen, die wirklich laufen: der Token-Hash der App gegen den des
 // Empfaengers, und die Batch-Zeilen des Empfaengers gegen die Tabelle.
-// Wie backend_check: ohne Netz, ohne Zugangsdaten, vor dem Ausliefern.
+// Wie backend_check: ohne Netz und ohne Zugangsdaten — mit EINER Ausnahme
+// seit v33.41 (KALENDER-V2 Scheibe 7): der Fall „App und Sicht zaehlen
+// dieselben Aufgaben" RECHNET `v_plant_tasks_due` in einem lokalen Postgres
+// nach (wie quiz_check und backup_check). Ohne Postgres meldet er „nicht
+// pruefbar" (Exit 2), nie gruen — die anderen Faelle laufen weiter ohne.
 //
 // Drei Klassen, nicht zwei: live (Momentaufnahme) · per Migration vorbereitet
 // (nicht angewandt) · fehlt nirgends. Nur das Letzte ist rot.
@@ -27,6 +31,17 @@
 const fs = require('fs');
 const path = require('path');
 const nodeCrypto = require('crypto');
+const { spawnSync } = require('child_process');
+// v33.41: die SQL-Haelfte (siehe Kopf). Dieselbe Bauform wie backup_check.
+const PG_URL = process.env.GS_PG_URL || 'postgresql://postgres@127.0.0.1:54329/postgres';
+const PG_DB = 'gs_naht_check';
+function psql(url, args) { return spawnSync('psql', [url, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-A', '-t', '-F', '\t', ...args], { encoding: 'utf8' }); }
+function pgLetzte(r) {
+  const z = String((r.stderr || r.stdout || '')).trim().split('\n').map(x => x.trim()).filter(Boolean);
+  return (z.find(x => /^(ERROR|FEHLER|DETAIL|HINT)/i.test(x)) || z[0] || '').slice(0, 200);
+}
+function pgSql(url, q) { const r = psql(url, ['-c', q]); if (r.status !== 0) throw new Error(pgLetzte(r)); return (r.stdout || '').trim(); }
+function pgDa() { const r = psql(PG_URL, ['-c', 'select 1']); return r.status === 0; }
 
 const WURZEL = path.resolve(__dirname, '..');
 const lies = (p) => fs.readFileSync(path.join(WURZEL, p), 'utf8');
@@ -312,20 +327,223 @@ const FAELLE = [
       return { ok: true, info: 'token_klartext → gemeldet · notify_sensor → „vorbereitet", nicht rot' };
     },
   },
+  // ═══ KALENDER-V2 · Scheibe 7 (v33.41): das Backend ═══════════════════════
+  {
+    name: 'Katalog · der saisonale Push filtert eine Spalte, die es GIBT — `priority` existiert nicht, `importance` schon',
+    lauf: () => {
+      // Live gemessen am 16.09.2026 (nur lesend): `garden_tasks_catalog` hat
+      // 189 Zeilen, Spalten … importance, data — KEIN `priority`, auch nicht
+      // als jsonb-Schluessel (0 von 189). PostgREST antwortet auf
+      // `.eq("priority","high")` mit 42703; `data` ist null, und der Fehler
+      // wurde wegdestrukturiert. Die saisonale Erinnerung hat seit dem Bau
+      // keine einzige Zeile gehabt, und nichts hat es gesagt.
+      const DPC = lies('supabase/functions/daily-push-checker/index.ts');
+      const block = (DPC.match(/from\("garden_tasks_catalog"\)[\s\S]{0,420}?\.limit\(\d+\)/) || [''])[0];
+      if (!block) return { ok: false, warum: 'der Katalog-Aufruf ist nicht auffindbar' };
+      const klagen = [];
+      if (/priority/.test(block)) klagen.push('filtert weiter auf `priority` — die Spalte gibt es nicht: ' + block.replace(/\s+/g, ' ').slice(0, 150));
+      if (!/importance/.test(block)) klagen.push('nennt `importance` nicht — das ist die Spalte, die der Generator schreibt');
+      // Und der Fehler wird GESAGT, nicht verschluckt (dieselbe Klasse wie _gsSchreibOk)
+      // Das Fenster beginnt an der DESTRUKTURIERUNG — sie steht VOR der Zeile
+      // mit dem Tabellennamen. Ein Fenster, das am Tabellennamen anfaengt,
+      // sieht das `error:` nie und meldet immer rot (erster Lauf: genau so).
+      const umfeld = (DPC.match(/const \{[^}]*\}\s*=\s*await sb[\s\S]{0,900}?garden_tasks_catalog[\s\S]{0,900}?if \(tasks &&/) || [''])[0];
+      if (!/error:\s*\w+/.test(umfeld)) klagen.push('der Fehler wird wegdestrukturiert — „keine Aufgabe diesen Monat" sieht dann aus wie „die Abfrage ist kaputt"');
+      else if (!/console\.error|system_events|logSend/.test(umfeld)) klagen.push('der Fehler wird gelesen, aber nirgends gesagt');
+      // Die Werte muessen die des Generators sein
+      const GEN = lies('supabase/functions/knowledge-bulk-gen/index.ts');
+      const werte = Array.from(new Set((GEN.match(/kritisch|wichtig|optional/g) || [])));
+      if (werte.length && !/kritisch/.test(block)) klagen.push('der Filter nennt keinen Wert des Generators (' + werte.join('|') + ')');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'filtert `importance` in (kritisch, wichtig) · der Fehler wird gesagt · Generator-Werte: ' + werte.join(', ') };
+    },
+  },
+  {
+    name: 'Sicht · v_plant_tasks_due liest BEIDE Pflanzenlisten (Migration, nicht angewandt) — user_gardens.plantings kommt vor',
+    lauf: () => {
+      const MIG = lies('supabase/migrations/20260916_plant_tasks_due_plantings.sql');
+      const klagen = [];
+      if (!/user_gardens/.test(MIG)) klagen.push('die Migration nennt `user_gardens` nicht');
+      if (!/'plantings'/.test(MIG)) klagen.push("die Migration liest `data -> 'plantings'` nicht");
+      if (!/union all/i.test(MIG)) klagen.push('die zwei Quellen sind nicht mit UNION ALL vereint — die Rechnung stuende dann zweimal da');
+      // Die Rechnung steht GENAU EINMAL
+      const n = (MIG.match(/GREATEST\(/g) || []).length;
+      if (n !== 1) klagen.push('die Faelligkeits-Rechnung steht ' + n + '-mal — sie muss EINMAL dastehen (hinter dem UNION)');
+      for (const sp of ['liste', 'garden_id', 'garden_name']) {
+        if (!new RegExp('\\b' + sp + '\\b').test(MIG)) klagen.push('Spalte `' + sp + '` fehlt — ein Push soll sagen koennen, WO die Pflanze steht');
+      }
+      if (!/security_invoker\s*=\s*true/.test(MIG)) klagen.push('security_invoker fehlt — ohne ihn sieht jeder alles');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'UNION ALL beider Listen · die Rechnung genau einmal · liste/garden_id/garden_name · security_invoker' };
+    },
+  },
+  {
+    name: 'App und Sicht zählen dieselben Aufgaben — im lokalen Postgres nachgerechnet, mit Reproduktion und Gegenprobe',
+    lauf: () => {
+      if (!pgDa()) return { offen: true, warum: 'kein lokales Postgres erreichbar (GS_PG_URL) — die Sicht wurde NICHT nachgerechnet' };
+      const U = '33333333-3333-4333-8333-000000000041';
+      const HEUTE = "now() - interval '9 days'";   // lastDone: 9 Tage her, Intervall 7 → faellig
+      try {
+        pgSql(PG_URL, 'drop database if exists ' + PG_DB + ' with (force)');
+        pgSql(PG_URL, 'create database ' + PG_DB);
+      } catch (e) { return { offen: true, warum: 'Datenbank nicht anlegbar: ' + e.message }; }
+      const U2 = PG_URL.replace(/\/[^/]*$/, '/' + PG_DB);
+      try {
+        // Die zwei Tabellen wie live (ohne auth.users-FK, ohne RLS) + der Zeit-Parser
+        pgSql(U2, `
+          create table public.user_plants  (user_id uuid primary key, data jsonb not null);
+          create table public.user_gardens (user_id uuid primary key, data jsonb not null);
+          create or replace function public._gs_parse_ts_flex(t text) returns timestamptz
+            language plpgsql immutable as $f$
+            begin
+              if t is null or t = '' then return null; end if;
+              begin return t::timestamptz; exception when others then null; end;
+              begin return to_timestamp((t)::numeric / 1000); exception when others then null; end;
+              return null;
+            end $f$;
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+          end $$;`);
+        // EINE Pflanze in „Meine Pflanzen", ZWEI Garten-Pflanzungen — alle drei faellig
+        pgSql(U2, `
+          insert into public.user_plants (user_id, data) values ('${U}', jsonb_build_object(
+            'plants', jsonb_build_array(jsonb_build_object(
+              'id','p1','name','Basilikum','emoji','🌿',
+              'tasks', jsonb_build_object('water', jsonb_build_object(
+                'active', true, 'intervalDays', 7, 'lastDone', to_char(${HEUTE}, 'YYYY-MM-DD"T"HH24:MI:SSOF')))))));
+          insert into public.user_gardens (user_id, data) values ('${U}', jsonb_build_object(
+            'gardens', jsonb_build_array(jsonb_build_object('id','g1','name','Balkon Süd')),
+            'plantings', jsonb_build_array(
+              jsonb_build_object('id','pl1','name','Zucchini','gardenId','g1',
+                'tasks', jsonb_build_object('water', jsonb_build_object(
+                  'active', true, 'intervalDays', 7, 'lastDone', to_char(${HEUTE}, 'YYYY-MM-DD"T"HH24:MI:SSOF')))),
+              jsonb_build_object('id','pl2','name','Tomate','gardenId','g1',
+                'tasks', jsonb_build_object('fertilize', jsonb_build_object(
+                  'active', true, 'intervalDays', 7, 'lastDone', to_char(${HEUTE}, 'YYYY-MM-DD"T"HH24:MI:SSOF')))))));`);
+        // ── REPRODUKTION: die ALTE Sicht (v32.53) sieht nur EINE Liste
+        const ALT = lies('supabase/migrations/20260904_plant_tasks_due_vorgezogen.sql');
+        pgSql(U2, ALT);
+        const alt = Number(pgSql(U2, `select count(*) from public.v_plant_tasks_due where user_id = '${U}' and is_due_now`));
+        if (alt !== 1) return { ok: false, warum: 'Reproduktion misslungen: die alte Sicht zaehlt ' + alt + ' statt 1 — der Fall misst nichts' };
+        // ── Die neue Sicht
+        pgSql(U2, lies('supabase/migrations/20260916_plant_tasks_due_plantings.sql'));
+        const neu = Number(pgSql(U2, `select count(*) from public.v_plant_tasks_due where user_id = '${U}' and is_due_now`));
+        const klagen = [];
+        if (neu !== 3) klagen.push('die neue Sicht zaehlt ' + neu + ' statt 3 (1 aus „Meine Pflanzen" + 2 Garten-Pflanzungen)');
+        const zeilen = pgSql(U2, `select liste || '|' || coalesce(garden_name,'-') || '|' || plant_name || '|' || task_key
+                                    from public.v_plant_tasks_due where user_id = '${U}' order by plant_name`).split('\n');
+        if (zeilen.indexOf('plantings|Balkon Süd|Tomate|fertilize') < 0) klagen.push('die Pflanzung traegt ihren Gartennamen nicht: ' + JSON.stringify(zeilen));
+        if (zeilen.indexOf('myPlants|-|Basilikum|water') < 0) klagen.push('„Meine Pflanzen" traegt faelschlich einen Garten: ' + JSON.stringify(zeilen));
+        // ── Dieselbe Rechnung: snoozedUntil verschiebt auch eine Pflanzung
+        pgSql(U2, `update public.user_gardens set data = jsonb_set(data,
+                     '{plantings,0,tasks,water,snoozedUntil}',
+                     to_jsonb(to_char(now() + interval '3 days', 'YYYY-MM-DD"T"HH24:MI:SSOF')))
+                   where user_id = '${U}'`);
+        const nachSnooze = Number(pgSql(U2, `select count(*) from public.v_plant_tasks_due where user_id = '${U}' and is_due_now`));
+        if (nachSnooze !== 2) klagen.push('snoozedUntil wirkt an einer Pflanzung nicht: ' + nachSnooze + ' statt 2 — zwei Rechnungen fuer eine Frage');
+        // ── Gegenprobe: ohne plantings-Zweig faellt sie auf 1 zurueck
+        // Der Schnitt sitzt am SQL-Schluesselwort in seiner Einrueckung, nicht
+        // am ersten Vorkommen der Zeichenkette: „UNION ALL" steht auch im
+        // KOMMENTAR der Migration, und der erste Anlauf hat deshalb von dort
+        // bis zum `expanded` geschnitten — mitsamt `CREATE VIEW`. Dieselbe
+        // Klasse wie die Jargon-Suche, die ihre eigenen Notizen findet (v32.70).
+        const ohne = lies('supabase/migrations/20260916_plant_tasks_due_plantings.sql')
+          .replace(/^ {2}UNION ALL$[\s\S]*?^\), expanded AS \($/m, '), expanded AS (');
+        pgSql(U2, ohne);
+        const zurueck = Number(pgSql(U2, `select count(*) from public.v_plant_tasks_due where user_id = '${U}' and is_due_now`));
+        if (zurueck !== 1) klagen.push('Gegenprobe misslungen: ohne den plantings-Zweig zaehlt sie ' + zurueck + ' statt 1');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'alt 1 → neu 3 (1 myPlants + 2 plantings) · Gartenname dabei · snoozedUntil wirkt auch dort (3 → 2) · Gegenprobe 1' };
+      } catch (e) {
+        return { ok: false, warum: 'SQL: ' + (e && e.message ? e.message : e) };
+      } finally {
+        try { pgSql(PG_URL, 'drop database if exists ' + PG_DB + ' with (force)'); } catch (_) {}
+      }
+    },
+  },
+
+  {
+    name: 'Migration · jede Sicht-Migration lässt sich WIRKLICH anwenden (CREATE OR REPLACE VIEW darf Spalten nur anhängen)',
+    lauf: () => {
+      // Gemessen am 16.09.2026: `20260903_plant_tasks_due_snooze.sql` fuegt
+      // `snoozed_until` VOR `next_due_at` ein. Gegen die Sicht, wie sie live
+      // steht (v26_93, zehn Spalten), antwortet Postgres:
+      //   ERROR: cannot change name of view column "next_due_at" to "snoozed_until"
+      // Beide Dateien standen seit Tagen als „bereit" in der Liste der offenen
+      // Migrationen — und waeren beim Anwenden gescheitert. Eine Migration, die
+      // man nicht ANWENDET, hat man nicht geprueft (dieselbe Lehre wie v32.65,
+      // eine Ebene hoeher). Nichts haengt an der Sicht (pg_depend live: 0),
+      // deshalb DROP + CREATE.
+      if (!pgDa()) return { offen: true, warum: 'kein lokales Postgres erreichbar (GS_PG_URL) — die Migrationen wurden NICHT angewandt' };
+      const DATEIEN = ['20260903_plant_tasks_due_snooze.sql',
+                       '20260904_plant_tasks_due_vorgezogen.sql',
+                       '20260916_plant_tasks_due_plantings.sql'];
+      const DB = PG_DB + '_mig';
+      try { pgSql(PG_URL, 'drop database if exists ' + DB + ' with (force)'); pgSql(PG_URL, 'create database ' + DB); }
+      catch (e) { return { offen: true, warum: 'Datenbank nicht anlegbar: ' + e.message }; }
+      const U2 = PG_URL.replace(/\/[^/]*$/, '/' + DB);
+      try {
+        // Der Stand, wie er LIVE ist: die Sicht aus v26_93 (zehn Spalten).
+        pgSql(U2, `
+          create table public.user_plants  (user_id uuid primary key, data jsonb not null);
+          create table public.user_gardens (user_id uuid primary key, data jsonb not null);
+          create or replace function public._gs_parse_ts_flex(t text) returns timestamptz
+            language sql immutable as $f$ select null::timestamptz $f$;
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+          end $$;
+          create view public.v_plant_tasks_due with (security_invoker = true) as
+            select up.user_id, 'x'::text as plant_id, 'x'::text as plant_name, 'x'::text as emoji,
+                   'x'::text as task_key, 1 as interval_days, now() as last_done,
+                   now() as next_due_at, true as is_due_now, 'x'::text as task_label
+            from public.user_plants up;`);
+        const klagen = [];
+        DATEIEN.forEach((d) => {
+          try { pgSql(U2, lies('supabase/migrations/' + d)); }
+          catch (e) { klagen.push(d + ': ' + String(e.message).slice(0, 120)); }
+        });
+        // Und zweimal hintereinander — eine Migration ist idempotent
+        try { DATEIEN.forEach((d) => pgSql(U2, lies('supabase/migrations/' + d))); }
+        catch (e) { klagen.push('zweiter Durchlauf (Idempotenz): ' + String(e.message).slice(0, 120)); }
+        // Die Gegenprobe: mit CREATE OR REPLACE muss es scheitern
+        const mitReplace = lies('supabase/migrations/20260903_plant_tasks_due_snooze.sql')
+          .replace(/DROP VIEW IF EXISTS public\.v_plant_tasks_due;\s*\n\s*CREATE VIEW/, 'CREATE OR REPLACE VIEW');
+        pgSql(U2, 'drop view if exists public.v_plant_tasks_due');
+        pgSql(U2, `create view public.v_plant_tasks_due with (security_invoker = true) as
+                     select up.user_id, 'x'::text as plant_id, 'x'::text as plant_name, 'x'::text as emoji,
+                            'x'::text as task_key, 1 as interval_days, now() as last_done,
+                            now() as next_due_at, true as is_due_now, 'x'::text as task_label
+                     from public.user_plants up;`);
+        let gescheitert = false;
+        try { pgSql(U2, mitReplace); } catch (_) { gescheitert = true; }
+        if (!gescheitert) klagen.push('Gegenprobe: mit CREATE OR REPLACE ging es durch — dann misst der Fall nichts');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: DATEIEN.length + ' Migrationen gegen die LIVE-Sicht angewandt, zweimal (idempotent) · Gegenprobe mit CREATE OR REPLACE scheitert wie erwartet' };
+      } catch (e) {
+        return { ok: false, warum: 'SQL: ' + (e && e.message ? e.message : e) };
+      } finally {
+        try { pgSql(PG_URL, 'drop database if exists ' + DB + ' with (force)'); } catch (_) {}
+      }
+    },
+  },
+
 ];
 
 (async () => {
   console.log('\n=== naht_check — passen App, Empfaenger, Cron und Pusher zusammen?');
-  let kaputt = 0;
+  let kaputt = 0, offen = 0;
   for (const f of FAELLE) {
     let r;
     try { r = await f.lauf(); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + (e && e.message ? e.message.split('\n')[0] : e) }; }
-    if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
+    // v33.41: die dritte Klasse. „Nicht pruefbar" ist nie gruen — ohne
+    // Postgres wurde die Sicht NICHT nachgerechnet, und das steht da.
+    if (r && r.offen) { offen++; console.log('  --   ' + f.name + '\n         → nicht pruefbar: ' + ((r && r.warum) || 'unbekannt')); }
+    else if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
     else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
   }
   console.log('  ---');
-  console.log('  Naehte geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
+  console.log('  Naehte geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt + (offen ? ' · nicht pruefbar: ' + offen + ' (die Sicht braucht ein lokales Postgres, GS_PG_URL)' : ''));
   console.log('  Live-Momentaufnahme: docs/naht-spalten.json vom ' + SNAP.stand + ' (nur notifications, push_send_log, push_subscriptions).');
   console.log('  Grenze: Spalten und Schluessel, nicht Typen und nicht RLS — ob eine Zeile ANGENOMMEN wird, sagt nur der lebende Server.');
-  process.exitCode = kaputt ? 1 : 0;
+  process.exitCode = kaputt ? 1 : (offen ? 2 : 0);
 })();
