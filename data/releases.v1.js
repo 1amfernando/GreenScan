@@ -30,6 +30,22 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.17', date: '10.09.2026',
+      headline: 'Konto löschen — vollständig und nachgemessen',
+      summary: 'Konto löschen räumt jetzt auch die Fotos in der Cloud, den Suchverlauf und die KI-Nutzung; wer eine Organisation erstellt hat, erfährt es vorher statt ein halb gelöschtes Konto zu behalten. Ein neuer Prüfstand hält die Liste gegen die Live-Datenbank.',
+      user_summary: '„Konto löschen" löscht jetzt wirklich alles, was der Dialog verspricht — auch deine Fotos in der Cloud. Wer eine Organisation erstellt hat, bekommt vorher einen klaren Satz.',
+      user_items: [
+        {emoji:'🗑️', text:'Deine Scan-Fotos, Artenbilder und Buch-PDFs in der Cloud werden mit dem Konto gelöscht — bisher blieben sie liegen.'},
+        {emoji:'🏫', text:'Hast du eine Organisation erstellt, sagt die App vorher „Übertrage oder lösche sie zuerst" — und löscht nichts, statt Konto und Login halb stehen zu lassen.'},
+        {emoji:'📋', text:'Der Dialog nennt jetzt auch Fotos in der Cloud, Lina-Verlauf, Suchverlauf und KI-Nutzung.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'loeschung_regeln.mjs:', text:' USER_TABLES, BUCKETS, BEWUSST (mit Grund), loeschSperre, speicherPfade — von Deno (delete-user) und Node (Prüfstand) importiert. Live gemessen: 101 Nutzer-Spalten, 3 Buckets mit 169 Objekten, alle unter <uid>/.'},
+        {emoji:'🛡', bold:'delete-user v5:', text:' Sperre VOR dem ersten Schritt (409 org_creator — organizations.created_by ist NOT NULL + RESTRICT), Storage je Bucket seitenweise, ai_usage und species_search_log (user_id ohne FK). Muss von Fernando neu ausgeliefert werden (FUER-FERNANDO §15).'},
+        {emoji:'🧪', bold:'loeschung_check (32. Prüfstand):', text:' jede Nutzer-Spalte der datierten Momentaufnahme ist kaskade, explizit oder bewusst; Rechnung, Rand (Reihenfolge, 409, list+remove) und App (Satz nennt die Organisation, Knopf frei, lokal nichts gelöscht). Vier Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.16', date: '10.09.2026',
       headline: 'Scanner: jedes Foto gemessen, der dritte Blick — SCANNER-V3 Stufe 2b',
       summary: 'Bei mehreren Fotos zählt das schärfste, und die Prüfung sagt, wie viele nichts beitragen. „Zweites Foto" nimmt alle Fotos des letzten Scans mit und wird zum dritten; drei sind das Maximum.',
