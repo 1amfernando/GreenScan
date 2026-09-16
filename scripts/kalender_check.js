@@ -1676,6 +1676,151 @@ const FAELLE = [
       } finally { if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF); }
     },
   },
+  // ═══ KALENDER-V2 · Scheibe 6 (v33.40): die Woche ═════════════════════════
+  // Gemessen am 16.09.2026 gegen v33.39, vor dem ersten Codezeichen:
+  //   R9 fehlt ganz — mit „Stille Tage" bis zum 11.9. fielen SIEBEN Aufgaben in
+  //   die Abwesenheit, und kein einziges Ereignis sagte es.
+  //   R10 gibt es nur bei Lina, und dort als EIGENE Zählung im Kontextbauer.
+  //   Und `gsWochenrueckblick` zählt mit eigenen Schleifen: ein Tagebuch-Eintrag
+  //   VON HAND mit `cat: 'water'` galt ihm als „erledigte Aufgabe" (2 statt 1) —
+  //   die App schrieb der Person eine Aufgabe gut, die sie nur notiert hat. Und
+  //   sein rollendes ms-Fenster und das Tagesfenster des Kalenders fielen an der
+  //   Grenze auseinander (2 gegen 4 Einträge).
+  {
+    name: 'Woche R9 · Abwesenheit trifft Aufgaben: mit „Stillen Tagen" trägt jede Aufgabe im Fenster einen Hinweis mit Datum und Weg zum Giess-Zettel; ohne Pause keiner; unlesbares Datum → nicht prüfbar',
+    lauf: () => {
+      const alt = localStorage.getItem('gs_push_settings');
+      try {
+        const klagen = [];
+        const heute = gsHeuteTag();
+        const setz = (v) => { const s = JSON.parse(alt || '{}') || {}; if (v === null) delete s.pauseUntil; else s.pauseUntil = v; localStorage.setItem('gs_push_settings', JSON.stringify(s)); };
+        // 1 · Pause bis in 10 Tagen
+        setz(new Date(Date.now() + 10 * 864e5).toISOString());
+        const bis = _gsKalTagPlus(heute, 10);
+        let ev = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 14));
+        const drin = ev.filter(e => e.art === 'aufgabe' && e.datum <= bis);
+        const draussen = ev.filter(e => e.art === 'aufgabe' && e.datum > bis);
+        if (!drin.length) return { ok: false, warum: 'keine Aufgabe im Abwesenheitsfenster — der Fall misst nichts' };
+        const ohneHinweis = drin.filter(e => !(e.hinweise || []).some(h => h.regel === 'abwesenheit' && h.zustand === 'verletzt'));
+        if (ohneHinweis.length) klagen.push(ohneHinweis.length + ' von ' + drin.length + ' Aufgaben im Fenster ohne Abwesenheits-Hinweis');
+        const h0 = drin[0].hinweise.find(h => h.regel === 'abwesenheit');
+        if (h0 && !/\d+\.\d+\./.test(h0.text + ' ' + h0.grund)) klagen.push('der Hinweis nennt das Ende der Pause nicht: ' + JSON.stringify(h0));
+        if (h0 && !/Giess|Zettel/i.test(h0.text + ' ' + h0.grund)) klagen.push('der Hinweis nennt den Giess-Zettel nicht: ' + JSON.stringify(h0));
+        if (draussen.some(e => (e.hinweise || []).some(h => h.regel === 'abwesenheit' && h.zustand === 'verletzt')))
+          klagen.push('eine Aufgabe NACH der Pause traegt trotzdem den Hinweis');
+        // 2 · Ohne Pause kein Feld — nicht „erfuellt", sondern gar nichts
+        setz(null);
+        ev = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 14));
+        if (ev.some(e => (e.hinweise || []).some(h => h.regel === 'abwesenheit')))
+          klagen.push('ohne Pause traegt eine Aufgabe ein Abwesenheits-Feld — keine Pause ist kein Zustand');
+        // 3 · Unlesbares Datum → nicht pruefbar MIT Grund, nie stillschweigend
+        setz('morgen irgendwann');
+        ev = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 14));
+        const np = ev.flatMap(e => (e.hinweise || [])).filter(h => h.regel === 'abwesenheit');
+        if (!np.length) klagen.push('unlesbares pauseUntil ergibt gar kein Feld — „Datum unlesbar" muss dastehen');
+        else if (np[0].zustand !== 'nicht_pruefbar') klagen.push('unlesbares pauseUntil ergibt „' + np[0].zustand + '" statt nicht_pruefbar');
+        else if (!/unlesbar|nicht lesbar/i.test(np[0].grund || '')) klagen.push('der Grund sagt nicht, dass das Datum unlesbar ist: ' + np[0].grund);
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: drin.length + ' Aufgaben im Fenster bis ' + bis + ', alle mit Hinweis („' + (h0.text || '').slice(0, 50) + '") · ohne Pause kein Feld · unlesbar → nicht prüfbar' };
+      } finally { if (alt == null) localStorage.removeItem('gs_push_settings'); else localStorage.setItem('gs_push_settings', alt); }
+    },
+  },
+  {
+    name: 'Woche R10 · EINE Rechnung für die Woche: _gsKalWoche zählt eintragsgenau gegen gsKalenderEreignisse — vorwärts und rückwärts, mit drei Zuständen',
+    lauf: () => {
+      const klagen = [];
+      if (typeof _gsKalWoche !== 'function') return { ok: false, warum: '_gsKalWoche fehlt — die Woche wird an jeder Anzeige neu gezählt' };
+      const heute = gsHeuteTag(), bis = _gsKalTagPlus(heute, 6);
+      const w = _gsKalWoche();
+      const ev = gsKalenderEreignisse(heute, bis);
+      const z = (a) => ev.filter(e => e.art === a).length;
+      if (w.aufgaben !== z('aufgabe') + z('alarm') + z('erinnerung')) klagen.push('aufgaben ' + w.aufgaben + ' ≠ ' + (z('aufgabe') + z('alarm') + z('erinnerung')));
+      if (w.aussaat !== z('aussaat')) klagen.push('aussaat ' + w.aussaat + ' ≠ ' + z('aussaat'));
+      if (w.wetter !== z('wetter')) klagen.push('wetter ' + w.wetter + ' ≠ ' + z('wetter'));
+      const hinw = ev.filter(e => (e.hinweise || []).some(h => h.zustand === 'verletzt')).length;
+      if (w.hinweise !== hinw) klagen.push('hinweise ' + w.hinweise + ' ≠ ' + hinw);
+      // rueckwaerts
+      const rueck = gsKalenderEreignisse(_gsKalTagPlus(heute, -7), heute);
+      const erledigt = rueck.filter(e => e.art === 'tagebuch' && e.quelle === 'regel').length;
+      if (w.erledigt !== erledigt) klagen.push('erledigt ' + w.erledigt + ' ≠ ' + erledigt + ' (tagebuch mit quelle regel in 7 Tagen)');
+      // Frost: drei Zustaende
+      const altC = localStorage.getItem('gs_weather_cache');
+      try {
+        localStorage.removeItem('gs_weather_cache');
+        const ohne = _gsKalWoche();
+        if (ohne.frost !== null) klagen.push('ohne Vorhersage ist frost ' + JSON.stringify(ohne.frost) + ' statt null — „keine Vorhersage" ist nicht „kein Frost"');
+        if (!/Vorhersage/i.test(ohne.frost_grund || '')) klagen.push('ohne Vorhersage fehlt der Grund: ' + ohne.frost_grund);
+      } finally { if (altC == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', altC); }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: w.aufgaben + ' Aufgaben · ' + w.aussaat + ' Aussaat · ' + w.wetter + ' Wetter · ' + w.hinweise + ' Hinweise · ' + w.erledigt + ' erledigt' };
+    },
+  },
+  {
+    name: 'Woche R10b · die Zeile steht an DREI Stellen und sagt überall dasselbe: Startseite, Kalender-Fuss, Linas Kontext — und ohne Pflanzen entfällt sie',
+    lauf: () => {
+      const klagen = [];
+      if (typeof _gsKalWocheZeile !== 'function') return { ok: false, warum: '_gsKalWocheZeile fehlt — jede Anzeige formuliert ihre eigene Zeile' };
+      const zeile = _gsKalWocheZeile();
+      if (!zeile) return { ok: false, warum: 'keine Wochenzeile, obwohl es Pflanzen und Ereignisse gibt' };
+      // 1 · Startseite
+      try { switchTab('home'); if (typeof gsBuildWidgetStack === 'function') gsBuildWidgetStack(); } catch (_) {}
+      const home = (document.getElementById('screen-home') || {}).textContent || '';
+      if (home.indexOf(zeile) < 0) klagen.push('die Startseite zeigt die Zeile nicht: „' + zeile.slice(0, 60) + '"');
+      // 2 · Kalender-Fuss
+      try { gsKalenderOeffnen(); } catch (_) {}
+      const mc = (document.getElementById('modal-content') || {}).textContent || '';
+      if (mc.indexOf(zeile) < 0) klagen.push('der Kalender-Fuss zeigt die Zeile nicht');
+      try { closeModal('detail-modal'); } catch (_) {}
+      // 3 · Lina — dieselbe Rechnung, nicht eine zweite
+      const lz = (gsLinaZahlen().match(/^Diese Woche:[^\n]*|^Nächste 7 Tage:[^\n]*/m) || [''])[0];
+      if (!lz) klagen.push('Linas Kontext hat keine Wochenzeile');
+      else {
+        const zahlen = (s) => (String(s).match(/\d+/g) || []).join(',');
+        if (zahlen(lz) !== zahlen(zeile)) klagen.push('Lina nennt andere Zahlen als die Zeile: „' + lz + '" gegen „' + zeile + '"');
+      }
+      // 4 · Ohne Pflanzen entfaellt sie — ein „0 Aufgaben" ohne Pflanzen ist keine Aussage
+      const s = { mp: myPlants, pl: plantings };
+      try {
+        window.myPlants = []; window.plantings = [];
+        if (_gsKalWocheZeile()) klagen.push('ohne Pflanzen steht trotzdem eine Wochenzeile: ' + _gsKalWocheZeile());
+      } finally { window.myPlants = s.mp; window.plantings = s.pl; }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '„' + zeile + '" — Startseite, Kalender-Fuss und Lina, dieselben Zahlen · ohne Pflanzen keine Zeile' };
+    },
+  },
+  {
+    name: 'Woche R10c · der Wochenrückblick LIEST den Kalender: eine von Hand notierte Aufgabe ist keine erledigte, und das Fenster ist dasselbe',
+    lauf: () => {
+      const alt = localStorage.getItem('gs_gartentagebuch');
+      try {
+        const klagen = [];
+        const heute = gsHeuteTag();
+        const tb = gsTagebuchLoad(true);
+        // Ein Eintrag VON HAND mit einer Aufgaben-Kategorie: er ist eine Notiz,
+        // keine erledigte Aufgabe. Gemessen gegen v33.39: der Rueckblick
+        // schrieb ihn der Person als „erledigt" gut (2 statt 1).
+        tb.unshift({ id: 'r10c_hand', ts: new Date(Date.now() - 2 * 864e5).toISOString(), date: '30.8.',
+                     text: 'Basilikum gegossen (selbst notiert)', cat: 'water', emoji: '💧', quelle: 'hand' });
+        // Und einer knapp AUSSERHALB des Tagesfensters (−7 Tage minus eine Stunde)
+        tb.unshift({ id: 'r10c_rand', ts: new Date(Date.now() - 7 * 864e5 - 3600e3).toISOString(), date: 'Rand',
+                     text: 'Knapp ausserhalb', cat: 'note', quelle: 'hand' });
+        gsTagebuchSave();
+        const rueck = gsKalenderEreignisse(_gsKalTagPlus(heute, -7), heute);
+        const erledigt = rueck.filter(e => e.art === 'tagebuch' && e.quelle === 'regel').length;
+        const tagebuch = rueck.filter(e => e.art === 'tagebuch').length;
+        const w = gsWochenrueckblick();
+        const zE = (w.zeilen || []).find(z => /erledigt/.test(z)) || '';
+        const zT = (w.zeilen || []).find(z => /Tagebuch/.test(z)) || '';
+        const n = (s) => { const m = String(s).match(/(\d+)/); return m ? Number(m[1]) : null; };
+        if (n(zE) !== erledigt) klagen.push('„erledigt": Rückblick sagt ' + n(zE) + ', der Kalender ' + erledigt + ' — eine von Hand notierte Aufgabe ist keine erledigte');
+        const notizen = tagebuch - erledigt;
+        if (notizen > 0 && n(zT) !== notizen) klagen.push('„Tagebuch": Rückblick sagt ' + n(zT) + ', der Kalender ' + notizen + ' — zwei Fenster für eine Woche');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: erledigt + ' erledigt · ' + notizen + ' Notizen — Rückblick und Kalender zählen dieselben Einträge im selben Fenster' };
+      } finally { if (alt == null) localStorage.removeItem('gs_gartentagebuch'); else localStorage.setItem('gs_gartentagebuch', alt); try { gsTagebuchLoad(true); } catch (_) {} }
+    },
+  },
+
 ];
 
 (async () => {

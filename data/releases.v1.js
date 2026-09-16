@@ -30,6 +30,20 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.20', date: '10.09.2026',
+      headline: 'Der Scan kennt den Aussaatkalender',
+      summary: 'Erkennt der Scanner eine Kultur aus dem Schweizer Aussaatkalender, steht ihr Fenster auf der Karte — drinnen vorziehen, draussen säen, Ernte — mit dem Weg zum Säkalender. Eine Wildart bekommt nichts; die Sammelsaison ist kein Aussaatfenster.',
+      user_summary: 'Scannst du eine Tomate, sagt dir die Karte jetzt auch, wann sie ausgesät wird: „drinnen vorziehen Feb–Apr · draussen säen Mai–Jun · Ernte Jul–Okt" — und ein Knopf öffnet den Säkalender.',
+      user_items: [
+        {emoji:'🌱', text:'Unter „Vorkommen & Nutzung" steht das Aussaatfenster der erkannten Kultur — nur bei Gemüse und Kräutern aus dem Aussaatkalender.'},
+        {emoji:'📅', text:'„Säkalender öffnen" führt direkt zur Übersicht aller 39 Kulturen.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'Derselbe Matcher wie der Kalender', text:' (_gsSaeZuPflanze, v33.13): erst der Name aus der Artenliste, dann der der KI; Monatsnamen aus gsMonate, zusammenhängende Monate als Spanne, sonst einzeln. Kein Fenster aus `season` (Regel 9).'},
+        {emoji:'🧪', bold:'scan_check „Aussaatkalender":', text:' Tomate → Zeile mit allen drei Fenstern und Knopf · Bärlauch mit season → nichts · Zucchini (KI-Name, Plural) → Zeile. Drei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.19', date: '10.09.2026',
       headline: '„Heute im Kalender" auf der Startseite — Aussaatfenster, Plan-Termine und Frost unter „Heute zu tun"',
       summary: 'Die Startseite zeigte nur Aufgaben; was der Kalender sonst für heute kennt — ein Aussaatfenster, ein Plan-Termin, Frost, ein Alarm — stand nur im Kalender. Jetzt eine Zeile darunter, aus derselben Kalenderfunktion.',

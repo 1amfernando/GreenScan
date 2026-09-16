@@ -538,10 +538,12 @@ Wer Aufgaben, Termine, Saison, Naturjahr, Timeline oder Wetter anfasst, liest
 zuerst V1 (die eine Regel: EINE Frage, EINE Funktion `gsKalenderEreignisse`)
 und V2 (seit v33.34: das Pruefwerk `_gsKalPruefwerk` mit `hinweise[]`, das
 Sieb, die drei Namen aus Fernandos Auftrag, Lina, sieben Scheiben). Kurzform
-in `docs/memory/06-kalender.md`. **Seit v33.39 sind die Scheiben 4 und 5 fertig:**
+in `docs/memory/06-kalender.md`. **Seit v33.40 sind die Scheiben 4 bis 6 fertig:**
 „Mein Naturjahr“ rechnet aus `gsKalenderEreignisse`, die Garten-Timeline gibt
 es nicht mehr (`gsKalRueckblick()` ist der Weg dorthin), und Lina hat den
-Kalender-Block, `_gsLinaDeckeln` und `add_calendar_note`. Die eine neue Regel: **Rechnung → Pruefwerk
+Kalender-Block, `_gsLinaDeckeln` und `add_calendar_note`; die Woche ist EINE
+Rechnung (`_gsKalWoche` / `_gsKalWocheZeile`), und R9 sagt, welche Aufgaben in
+deine Stillen Tage fallen. Offen bleibt nur die Backend-Scheibe (7). Die eine neue Regel: **Rechnung → Pruefwerk
 → Sieb → Anzeige** — ein Filter ist ein Sieb auf dem Ergebnis, nie eine
 Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
 
@@ -1353,6 +1355,62 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > das Pruefwerk brauchte denselben; zwei Kopien waeren die Frost-Klasse aus
 > S5 (vier Rechnungen fuer dieselbe Frage). `_gsRegenUebernimmt(p)` ist die
 > eine, und `kalender_check` R2 zaehlt Startseite und Kalender gegeneinander.
+
+> **Ein halber Satz ist schlimmer als eine fehlende Zeile** (v33.39). Linas
+> Kontext hatte einen Deckel, der Zeichen zaehlte (`txt.slice(0, 949) + '…'`);
+> mit sechs Geraeten gemessen endete er auf „Taraxacum officinale…“ — die
+> Scan-Zeile verstuemmelt, und nichts sagte, dass etwas fehlt. **In einem
+> KI-Kontext sieht ein abgeschnittener Wert aus wie eine Angabe.**
+> `_gsLinaDeckeln` laesst ganze Zeilen weg und haengt „(+N Zeilen ausgelassen)“
+> an; was nicht in eine Zeile passt, wird GEZAEHLT („+2 weitere“), nie
+> stillschweigend weggelassen. Und **Reihenfolge und Fallordnung sind EINE
+> Liste** (`GS_LINA_ZEILEN_RANG`) — die erste Fassung liess von hinten fallen
+> und warf die kurze Scan-Zeile weg, waehrend die 400 Zeichen lange
+> Messwerte-Zeile stehenblieb.
+>
+> **Und eine Schranke, die nicht aus ihren Teilen gerechnet ist, ist eine
+> Hoffnung.** Der Pruefstand deckelte den ganzen Kontext bei 1'350 — eine Zahl
+> aus v33.14, die zufaellig hielt; sie wird jetzt aus den Teil-Deckeln
+> gerechnet (`GS_LINA_ZAHLEN_MAX + GS_LINA_ARTEN_MAX + 400`).
+
+> **Vierte Instanz: der Leser ist die Regel, nicht das Feld — diesmal bei einer
+> ZAHL** (v33.39). `gsNormConfidence` gibt es seit v31.79, gebaut weil „die
+> Regel zweimal im Code stand und die Anzeige sie gar nicht benutzte“. Gemessen
+> am 16.09.2026 fuer denselben Eintrag (`confidence: 0.94`): die Verlaufsliste
+> zeigte „0.94%“, Linas Kontext „1 % sicher“, die eine Funktion haette 94
+> gesagt. **Eine Funktion, die die Regel kennt, hilft nichts, solange die
+> Anzeigen sie nicht rufen.** `_gsScanKonfidenz(h)` ist der eine Leser; die
+> fuenf Erzeuger von `item.conf` gehen durch ihn — EINE Reparatur, nicht fuenf
+> Pflaster (dieselbe Entscheidung wie die Tastatur-Nachruestung in v32.16).
+>
+> **Und der Pruefstand dazu war gruen:** der Fall aus v33.23 setzt
+> `confidence: 88` ein — eine Zahl, die schon in der Zielform ist. Ein Fall,
+> dessen Wert den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware
+> (v33.32, v33.00). Wer eine Normalisierung prueft, fuettert BEIDE Formen.
+
+> **Zwei Rechnungen fuer eine Woche — und die Zahl, um die sie auseinanderlagen**
+> (v33.40). `gsWochenrueckblick` zaehlte „erledigte Aufgaben“ als jeden
+> Tagebuch-Eintrag, dessen `cat` ein Aufgaben-Schluessel ist. Gemessen: ein
+> Eintrag, den die Person VON HAND notiert hat („Basilikum gegossen“,
+> `quelle: 'hand'`), wurde ihr als **erledigte Aufgabe gutgeschrieben** — 2
+> statt 1. **Erledigt ist, was ABGEHAKT wurde** (`tagebuch` mit
+> `quelle === 'regel'`). Und sein rollendes ms-Fenster (`Date.now() − 7 × 864e5`)
+> lief gegen das Tagesfenster des Kalenders: an der Grenze 2 gegen 4 Eintraege.
+> **Ein Fenster, nicht zwei** — `_gsKalWoche()` ist die Rechnung,
+> `_gsKalWocheZeile()` ihr einer Satz, und er steht auf der Startseite, im
+> Kalender-Fuss und in Linas Kontext. Wer eine vierte Anzeige baut, ruft ihn;
+> `kalender_check` R10b haelt die drei gegeneinander.
+>
+> **Und wenn eine Anzeige ohne Daten gar nichts sagen soll, gibt die Funktion
+> '' zurueck — nicht eine Zeile mit Null.** „0 Aufgaben“ bei jemandem ohne
+> Pflanzen ist keine Aussage.
+
+> **Eine 40-stellige Pruefsumme wird GELESEN, nie ergaenzt** (v33.40). Ich habe
+> `expectedHeadSha` aus einem kurzen Hash verlaengert; GitHub antwortete „Head
+> branch was modified“ — was nach einem fremden Push aussieht und keiner war.
+> `git rev-parse <branch>` liefert sie; eine geratene Stelle macht aus einer
+> Sicherung eine Fehlermeldung, die in die falsche Richtung zeigt.
+
 
 > **Eine Anzeige, die dieselbe Frage stellt wie eine vorhandene Rechnung,
 > ruft sie — sie rechnet nicht daneben** (v33.38). „Mein Naturjahr“ und die
