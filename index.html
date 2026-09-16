@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.35.20260916">
+<meta name="app-version" content="33.36.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5789,6 +5789,17 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 /* v33.35: die Chips ersetzen die Legende. Ein ausgeschalteter Chip zeigt sich
    durch FARBE und aria-pressed, nie durch Deckkraft — opacity senkt den
    Kontrast blind (v32.25). Mindesthoehe 32 px (WCAG 2.5.8 will 24). */
+/* v33.36: das Wetter-Warnfenster — drei Zustaende, drei Kaesten. Farben als
+   TEXT auf der Kartenflaeche, nie als Fuellung mit weisser Schrift (v32.25). */
+.gs-ww-zeile{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:6px;font-size:var(--fs-md);}
+.gs-ww-tag{grid-row:span 2;align-self:center;font-size:var(--fs-sm);font-weight:800;color:var(--muted);}
+.gs-ww-rat{font-size:var(--fs-sm);color:var(--muted);}
+.gs-ww-zeile.gs-ww-frost{border-left:3px solid #1565c0;}
+.gs-ww-zeile.gs-ww-hitze{border-left:3px solid var(--c-danger,#e53935);}
+.gs-ww-zeile.gs-ww-starkregen{border-left:3px solid #00838f;}
+.gs-ww-zeile.gs-ww-sturm{border-left:3px solid var(--c-warn-d,#bf360c);}
+.gs-ww-ok,.gs-ww-leer{padding:16px;border-radius:var(--r-md);border:1px solid var(--border);font-size:var(--fs-md);line-height:1.5;}
+.gs-ww-fuss{margin-top:10px;font-size:var(--fs-xs);color:var(--muted);line-height:1.45;}
 .gs-kal-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;margin:4px 0 0;-webkit-overflow-scrolling:touch;}
 .gs-kal-chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-xs);font-weight:700;cursor:pointer;white-space:nowrap;}
 .gs-kal-chip[aria-pressed="false"]{background:transparent;color:var(--text);border-style:dashed;}
@@ -15060,6 +15071,7 @@ window.GS_I18N_JS_STRINGS = {
   'kal_g_rueckblick': 'Rückblick',
   'kal_g_messung': 'Messwerte',
   'kal_alle_zeigen': 'Alle zeigen',
+  'ww_titel': 'Wetter-Frühwarnung',
   'kal_hinweis_1': 'Hinweis',
   'kal_hinweis_n': 'Hinweise',
   'kal_messwerte_a': 'Messwerte öffnen',
@@ -27332,7 +27344,74 @@ window.gsPflanzeDraussen = gsPflanzeDraussen;
 var GS_REGEN_REICHT_MM = 6;
 // v32.56: ab welchem Tagesminimum der Kalender „Frost möglich" sagt — dieselbe
 // Grenze wie gsCheckFrostWarning (Startseite) und der Server-Push.
-var GS_FROST_GRENZE_C = 2;
+// v33.36 (KALENDER-V2 R7): VIER Schwellen, EINE Tabelle. Bis hierher standen
+// sie an ZWEI Stellen — `GS_FROST_GRENZE_C` (2) fuer den Kalender, und vier
+// Literale (2 / 30 / 20 / 40) in `gsOpenWeatherWarn`, das dazu einen EIGENEN
+// Open-Meteo-Aufruf machte und den Legacy-Schluessel `userLocation` las. Zwei
+// Rechnungen fuer dieselbe Frage; die zweite sagte ausserdem „Keine Warnungen
+// — alles im gruenen Bereich!“, wenn die Antwort GAR KEINE Tageswerte hatte:
+// Stille als Entwarnung, bei Frost der teuerste Fehler dieser App.
+//
+// Einheiten, damit niemand raet: frost/hitze in °C (Tagesminimum bzw.
+// -maximum), starkregen in mm je Tag, sturm in km/h (der Lader fragt
+// `wind_speed_unit=kmh`). Eine Schwelle gilt AB dem Wert, nicht darueber.
+var GS_WETTER_GRENZEN = { frost: 2, hitze: 30, starkregen: 20, sturm: 40 };
+window.GS_WETTER_GRENZEN = GS_WETTER_GRENZEN;
+// Welches TAGESFELD traegt welche Schwelle, und in welche Richtung. Der
+// Wetter-Lader holt genau diese vier (`daily=…`, `wind_speed_unit=kmh`) — wer
+// eine fuenfte Schwelle will, braucht ZUERST ihr Feld in der Anfrage.
+var GS_WETTER_ANZEIGE = [
+  { k: 'frost',      feld: 'temperature_2m_min', unter: true,  emoji: '❄️', quelle: 'Tagesminimum' },
+  { k: 'hitze',      feld: 'temperature_2m_max', unter: false, emoji: '🔥', quelle: 'Tageshöchstwert' },
+  { k: 'starkregen', feld: 'precipitation_sum',  unter: false, emoji: '🌧️', quelle: 'Tagessumme' },
+  { k: 'sturm',      feld: 'windspeed_10m_max',  unter: false, emoji: '💨', quelle: 'Böenspitze' }
+];
+function _gsWetterTitel(k, wert) {
+  if (k === 'frost') return _gsSatz('Frost möglich — Tiefstwert {1} °C', wert);
+  if (k === 'hitze') return _gsSatz('Hitze erwartet — Höchstwert {1} °C', wert);
+  if (k === 'starkregen') return _gsSatz('Starkregen erwartet — {1} mm', wert);
+  if (k === 'sturm') return _gsSatz('Sturm erwartet — {1} km/h', wert);
+  return '';
+}
+// Ein Rat, kein Alarm: die Anzeige sagt, was man TUN kann, und der Grund
+// sagt, woher die Zahl kommt. Beides in ganzen Saetzen.
+function _gsWetterRat(k) {
+  if (k === 'frost') return _gsSatz('Empfindliche Pflanzen abdecken oder hereinholen');
+  if (k === 'hitze') return _gsSatz('Morgens giessen und mulchen');
+  if (k === 'starkregen') return _gsSatz('Reife Früchte ernten, jetzt nicht spritzen');
+  if (k === 'sturm') return _gsSatz('Stützen und Töpfe sichern');
+  return '';
+}
+// Die vier Schwellen je Tag aus dem Zwischenspeicher — EINE Rechnung fuer den
+// Kalender (Nr. 5b) und das Warnfenster (gsOpenWeatherWarn). `null` heisst
+// „keine Vorhersage geladen“ und ist NICHT dasselbe wie eine leere Liste
+// („Vorhersage da, nichts ueberschritten“) — genau diese Verwechslung liess
+// das Warnfenster „alles im gruenen Bereich“ sagen, wenn es gar nichts wusste.
+function _gsWetterTage() {
+  try {
+    var c = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
+    var d = c && c.data && c.data.daily;
+    if (!d || !Array.isArray(d.time) || !d.time.length) return null;
+    var alterH = c.ts ? Math.round((Date.now() - c.ts) / 3600000) : null;
+    var raus = [];
+    for (var i = 0; i < d.time.length && i < 7; i++) {
+      var tag = String(d.time[i]).slice(0, 10), treffer = [];
+      GS_WETTER_ANZEIGE.forEach(function (a) {
+        var reihe = d[a.feld];
+        if (!Array.isArray(reihe)) return;                 // Feld nicht geholt: keine Aussage, kein Alarm
+        var w = Number(reihe[i]);
+        if (!isFinite(w)) return;
+        var trifft = a.unter ? (w <= GS_WETTER_GRENZEN[a.k]) : (w >= GS_WETTER_GRENZEN[a.k]);
+        if (trifft) treffer.push({ k: a.k, wert: Math.round(w * 10) / 10, emoji: a.emoji, quelle: a.quelle });
+      });
+      raus.push({ tag: tag, alter_h: alterH, treffer: treffer });
+    }
+    return raus;
+  } catch (_) { return null; }
+}
+window._gsWetterTage = _gsWetterTage;
+window._gsWetterTitel = _gsWetterTitel;
+window._gsWetterRat = _gsWetterRat;
 
 // v33.06: WIE VIELE PFLANZEN BETREUT DIE PERSON?
 // Seit v32.47 tragen Garten-Pflanzungen (gs_plantings) dieselben Aufgaben wie
@@ -28956,20 +29035,18 @@ function gsKalenderEreignisse(von, bis) {
   //      Grund sagt Quelle, Standort und Alter. Dieselbe Grenze wie der
   //      Frost-Tipp auf der Startseite und der Server-Push (2 °C).
   try {
-    var c5 = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
-    var dly = c5 && c5.data && c5.data.daily;
-    if (dly && Array.isArray(dly.time) && Array.isArray(dly.temperature_2m_min)) {
-      var alterH = c5.ts ? Math.round((Date.now() - c5.ts) / 3600000) : null;
-      for (var fi = 0; fi < dly.time.length && fi < 7; fi++) {
-        var ftag = String(dly.time[fi]).slice(0, 10), fmin = Number(dly.temperature_2m_min[fi]);
-        if (!im(ftag) || ftag < heute || !isFinite(fmin) || fmin > GS_FROST_GRENZE_C) continue;
-        out.push({ id: 'frost:' + ftag, art: 'wetter', datum: ftag, zeit: null, ts: null, titel: _gsSatz('Frost möglich — Tiefstwert {1} °C', Math.round(fmin * 10) / 10), emoji: '❄️', wert: Math.round(fmin * 10) / 10,
+    var wtage = _gsWetterTage();
+    (wtage || []).forEach(function (w) {
+      if (!im(w.tag) || w.tag < heute) return;
+      w.treffer.forEach(function (t) {
+        out.push({ id: t.k + ':' + w.tag, art: 'wetter', datum: w.tag, zeit: null, ts: null,
+          titel: _gsWetterTitel(t.k, t.wert), emoji: t.emoji, wert: t.wert,
           pflanze: null, garten_id: null, quelle: 'wetter', status: 'info', faellig_seit: null, verweis: null,
-          grund: (alterH != null
-            ? _gsSatz('Vorhersage Open-Meteo für den Nutzer-Standort (Tagesminimum, kein Messwert), Stand vor {1} h — Reif bildet sich schon bei +2 °C Lufttemperatur', alterH)
-            : _gsSatz('Vorhersage Open-Meteo für den Nutzer-Standort (Tagesminimum, kein Messwert) — Reif bildet sich schon bei +2 °C Lufttemperatur')) });
-      }
-    }
+          grund: (w.alter_h != null
+            ? _gsSatz('Vorhersage vom Wetterdienst für deinen Standort ({1}, kein Messwert), Stand vor {2} h — {3}', t.quelle, w.alter_h, _gsWetterRat(t.k))
+            : _gsSatz('Vorhersage vom Wetterdienst für deinen Standort ({1}, kein Messwert) — {2}', t.quelle, _gsWetterRat(t.k))) });
+      });
+    });
   } catch (_) {}
   // 6 · Messwerte (Stufe 0 von Hand) — je Geraet und Tag EIN Ereignis — und
   //     verletzte Regeln als Alarm am heutigen Tag (OEKOSYSTEM-V1.md §6)
@@ -29069,6 +29146,42 @@ function _gsKalPruefwerk(out, von, bis, heute) {
         _gsKalHinweis(a, 'frost_aussaat', 'nicht_pruefbar', '', _gsSatz('Frost: keine Wettervorhersage für diese Tage geladen'));
       }
     });
+  } catch (_) {}
+  // ── R6 · Frost trifft eine frostempfindliche Pflanze DRAUSSEN ──────────
+  // Eingaben: die Frost-Ereignisse (Nr. 5b) × beide Pflanzenlisten. Gemeint ist
+  // nur, was die Kulturdaten SAGEN: `_gsKulturZuPflanze(p).k.frost === -1`
+  // (11 von 41 Kulturen). Ohne Kultur wird ueber die Pflanze NICHTS behauptet
+  // — eine Monstera steht in keiner Gemuese-Tabelle, und ein Rueckfall waere
+  // eine Erfindung (v33.34, R3). Standort unbekannt heisst „nicht bekannt“.
+  try {
+    var froste6 = out.filter(function (e) { return e.art === 'wetter' && /^frost:/.test(e.id); });
+    if (froste6.length) {
+      var alle6 = [];
+      try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) alle6 = alle6.concat(myPlants); } catch (_) {}
+      try { if (typeof plantings !== 'undefined' && Array.isArray(plantings)) alle6 = alle6.concat(plantings); } catch (_) {}
+      var trifft6 = [], unklar6 = 0;
+      alle6.forEach(function (p) {
+        if (!p || !p.name) return;
+        var kul = (typeof _gsKulturZuPflanze === 'function') ? _gsKulturZuPflanze(p) : null;
+        if (!kul || !kul.k || kul.k.frost !== -1) return;     // tolerant oder keine Angabe: keine Behauptung
+        var dr = (typeof gsPflanzeDraussen === 'function') ? gsPflanzeDraussen(p) : null;
+        if (dr === true) { if (trifft6.indexOf(p.name) < 0) trifft6.push(p.name); }
+        else if (dr !== false) unklar6++;
+      });
+      froste6.forEach(function (f) {
+        if (trifft6.length) {
+          var sicht = trifft6.slice(0, 3), rest = trifft6.length - sicht.length;
+          _gsKalHinweis(f, 'frost_pflanzen', 'verletzt',
+            _gsSatz('trifft draussen: {1}', sicht.join(', ')) + (rest > 0 ? ' ' + _gsSatz('+{1} weitere', rest) : ''),
+            _gsSatz('frostempfindlich laut Kulturdaten — und der Standort sagt: draussen'));
+        } else if (unklar6) {
+          _gsKalHinweis(f, 'frost_pflanzen', 'nicht_pruefbar', '',
+            _gsSatz('{1} frostempfindliche Pflanze ohne Standort — im Pflanzenprofil oder am Garten eintragen', unklar6));
+        } else {
+          _gsKalHinweis(f, 'frost_pflanzen', 'erfuellt', '', _gsSatz('keine frostempfindliche Pflanze draussen'));
+        }
+      });
+    }
   } catch (_) {}
   // ── R2 · Regen uebernimmt das Giessen (nur heute, nur draussen, nur gemessen) ──
   try {
@@ -29459,7 +29572,7 @@ window.gsWochenrueckblick = function(){
       var regen = 0, hatRegen = false, frost = {};
       wetter.forEach(function(g){
         gsMesswerte(g.id, 'rain').forEach(function(m){ var t = new Date(m.ts).getTime(); if (t >= von && t <= jetzt && m.quality === 2) { regen += m.wert; hatRegen = true; } });
-        gsMesswerte(g.id, 'air_temp').forEach(function(m){ var t = new Date(m.ts).getTime(); if (t >= von && t <= jetzt && m.quality === 2 && m.wert <= GS_FROST_GRENZE_C) frost[_gsKalTag(m.ts)] = true; });
+        gsMesswerte(g.id, 'air_temp').forEach(function(m){ var t = new Date(m.ts).getTime(); if (t >= von && t <= jetzt && m.quality === 2 && m.wert <= GS_WETTER_GRENZEN.frost) frost[_gsKalTag(m.ts)] = true; });
       });
       var nf = Object.keys(frost).length;
       out.zeilen.push('🌧️ ' + (hatRegen ? (Math.round(regen * 10) / 10) + ' mm Regen' : 'kein Regenwert') + ' · ' + (nf ? nf + ' Frostnacht' + (nf === 1 ? '' : 'nächte') : 'keine Frostnacht') + ' (' + wetter[0].name + ', gemessen)');
@@ -75393,6 +75506,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.36', date: '16.09.2026',
+    headline: 'Ein Wetter für die ganze App — Frost, Hitze, Starkregen und Sturm stehen im Kalender, und das Warnfenster rechnet mit denselben Zahlen',
+    summary: 'Dritte Scheibe von KALENDER-V2 (R6, R7). Die vier Schwellen standen an zwei Stellen: eine Konstante für den Frost im Kalender und vier Literale im Warnfenster, das dazu einen eigenen Wetter-Abruf machte und einen alten Standort-Schlüssel las. Jetzt eine Tabelle, ein Zwischenspeicher, eine Rechnung. Und der teuerste Teil: hatte die Antwort keine Tageswerte, sagte das Warnfenster „alles im grünen Bereich" — Stille als Entwarnung, bei Frost der teuerste Fehler dieser App.',
+    user_summary: 'Der Kalender zeigt dir jetzt nicht nur Frost, sondern auch Hitze, Starkregen und Sturm — je Tag, mit der Zahl und einem Rat, was zu tun ist. Das Warnfenster im Menü zeigt dasselbe, ohne neu zu laden. Und wenn noch keine Vorhersage da ist, sagt es das, statt Entwarnung zu geben.',
+    user_items: [
+      {emoji: '❄️', bold: 'Vier Warnungen statt einer:', text: ' Frost ab 2 °C, Hitze ab 30 °C, Starkregen ab 20 mm, Sturm ab 40 km/h — jede mit ihrer Zahl und einem Rat.'},
+      {emoji: '🥶', bold: 'Frost trifft deine Pflanzen:', text: ' steht Frost an und hast du eine frostempfindliche Pflanze draussen, nennt der Kalender sie beim Namen.'},
+      {emoji: '🤷', bold: 'Keine Vorhersage heisst nicht „keine Gefahr":', text: ' das Warnfenster sagt jetzt, wenn es nichts weiss.'},
+      {emoji: '📖', bold: 'Die Grenzen stehen dabei:', text: ' unter der Liste steht, ab welchem Wert gewarnt wird — damit du sie einordnen kannst.'}
+    ],
+    items: [
+      'GS_WETTER_GRENZEN {frost:2, hitze:30, starkregen:20, sturm:40} — eine Tabelle; GS_FROST_GRENZE_C löst sich darin auf (3 Lesestellen).',
+      '_gsWetterTage(): EINE Rechnung für Kalender (Nr. 5b) und Warnfenster. Gibt null für „keine Vorhersage geladen" und [] für „geladen, nichts überschritten" — genau diese Verwechslung liess das Warnfenster entwarnen, wenn es nichts wusste.',
+      'R6: Frost-Ereignis × beide Pflanzenlisten mit frost === -1 (11 von 41 Kulturen) und gsPflanzeDraussen === true. Ohne Kulturangabe keine Behauptung, Standort unbekannt → „nicht bekannt".',
+      'gsOpenWeatherWarn: kein eigener Open-Meteo-Aufruf mehr, kein Legacy-Schlüssel userLocation, keine eigenen Zahlen — und es ist nicht mehr async.',
+      'Prüfstände: kalender_check 40 (4 neu, alle rot gegen v33.35). Gegenproben: [] statt null, nur Frost statt vier Schwellen, Standort egal → je rot. Changelog-Umzug: v33.16 ins Archiv (Deckel 20).'
+    ]
+  },
+  {
     v: 'v33.35', date: '16.09.2026',
     headline: 'Der Kalender zeigt, was du sehen willst — fünf Chips, und jede Zahl steht nur an einer Stelle',
     summary: 'Zweite Scheibe von KALENDER-V2: das Sieb. Ein Filter sitzt auf dem ERGEBNIS, nie in der Rechnung — sonst zählt die Anzeige sich selbst und Lina wird blind. Gespeichert wird nach Art, gezeigt nach Gruppe: eine neue Ereignisart ist damit automatisch sichtbar. Die Punkte im Raster tragen jetzt die Farbe der Gruppe (fünf) statt der Art (neun), und die Legende entfällt, weil die Chips sie erklären.',
@@ -75716,22 +75848,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'loeschung_check (32. Prüfstand):', text:' jede Nutzer-Spalte der datierten Momentaufnahme ist kaskade, explizit oder bewusst; Rechnung, Rand (Reihenfolge, 409, list+remove) und App (Satz nennt die Organisation, Knopf frei, lokal nichts gelöscht). Vier Gegenproben rot.'}
       ],
     },
-  {
-    v: 'v33.16', date: '10.09.2026',
-      headline: 'Scanner: jedes Foto gemessen, der dritte Blick — SCANNER-V3 Stufe 2b',
-      summary: 'Bei mehreren Fotos zählt das schärfste, und die Prüfung sagt, wie viele nichts beitragen. „Zweites Foto" nimmt alle Fotos des letzten Scans mit und wird zum dritten; drei sind das Maximum.',
-      user_summary: 'Der Scanner misst jetzt jedes Foto — und sagt dir, wenn eines zu unscharf ist, um zu helfen. Nach dem zweiten Foto kannst du ein drittes dazunehmen.',
-      user_items: [
-        {emoji:'📷', text:'„Das schärfste von 2 Fotos" steht in der Prüfung — und „eines davon ist zu unscharf", wenn es so ist.'},
-        {emoji:'3️⃣', text:'„Drittes Foto" nach dem zweiten; bei drei Fotos sagt die Prüfung, dass das Maximum erreicht ist.'},
-        {emoji:'🛑', text:'Die Rückfrage „Das Foto ist schwer zu lesen" kommt nur noch, wenn KEIN Foto lesbar ist — ein scharfes trägt ein unscharfes mit.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'gsQualitaetMehrere:', text:' Messung über alle Fotos, das schärfste zählt, `fotos/gemessen/schwach/alle` daneben. Ungemessen ist kein Lob mehr: „N Fotos kombiniert" ohne Messung gilt als nicht prüfbar, nicht als erfüllt.'},
-        {emoji:'🔁', bold:'Re-Scan nimmt alle Fotos mit', text:' (`_gsLastScanBilder`, neuestes zuerst, Deckel `GS_SCAN_FOTOS_MAX` = 3 — eine Zahl, drei Leser). „Trotzdem bestimmen" behält die zusätzlichen Fotos.'},
-        {emoji:'🧪', bold:'scan_check:', text:' S5b (Prüfwerk), „Ablauf · jedes Foto gemessen" (scharf trägt unscharf, keines lesbar → Rückfrage, Trotzdem mit beiden), „Dritter Blick" (1/2/3/3 Fotos, Knopf Zweites → Drittes → Maximum-Satz). Vier Gegenproben rot.'}
-      ],
-    },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -75940,7 +76056,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.35';
+var GS_VERSION = 'v33.36';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -88784,46 +88900,46 @@ function gsOpenGardenTimeline(){
 }
 
 // ── 6. WETTER-FRÜHWARNUNG ─────────────────────────────────────────
-async function gsOpenWeatherWarn(){
-  _gsNlOpen('<div style="padding:30px;text-align:center;">⏳ Lade Wetterdaten…</div>');
-  var loc = null; try { loc = JSON.parse(localStorage.getItem('userLocation') || 'null'); } catch(e){}
-  var lat = loc && loc.lat ? loc.lat : 47.37;
-  var lon = loc && loc.lon ? loc.lon : 8.55;
-  var html;
-  try {
-    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&daily=temperature_2m_min,temperature_2m_max,precipitation_sum,wind_speed_10m_max&forecast_days=7&timezone=auto';
-    var r = await (window._gsFetch || fetch)(url, {}, 12000);
-    var d = await r.json();
-    var warnings = [];
-    if (d && d.daily) {
-      d.daily.time.forEach(function(dt, i){
-        var tmin = d.daily.temperature_2m_min[i];
-        var tmax = d.daily.temperature_2m_max[i];
-        var rain = d.daily.precipitation_sum[i];
-        var wind = d.daily.wind_speed_10m_max[i];
-        if (tmin <= 2) warnings.push({ date:dt, type:'frost', msg:'❄️ Frostgefahr — empfindliche Pflanzen abdecken ('+tmin.toFixed(0)+'°C)' });
-        if (tmax >= 30) warnings.push({ date:dt, type:'hitze', msg:'🔥 Hitze ('+tmax.toFixed(0)+'°C) — morgens gut wässern, mulchen' });
-        if (rain >= 20) warnings.push({ date:dt, type:'regen', msg:'🌧️ Starkregen ('+rain.toFixed(0)+'mm) — Ernte sichern, keine Behandlung' });
-        if (wind >= 40) warnings.push({ date:dt, type:'sturm', msg:'💨 Sturm ('+wind.toFixed(0)+' km/h) — Stützen prüfen' });
+// v33.36 (KALENDER-V2 R7): das Warnfenster liest DENSELBEN Zwischenspeicher wie
+// der Kalender und rechnet mit DERSELBEN Tabelle. Bis hierher machte es einen
+// EIGENEN Open-Meteo-Aufruf mit vier eigenen Literalen und las den
+// Legacy-Schluessel `userLocation` — zwei Rechnungen fuer dieselbe Frage, und
+// die zweite war ohne Netz stumm. Und der teuerste Teil: hatte die Antwort
+// keine Tageswerte, stand dort „Keine Warnungen — alles im gruenen Bereich!“.
+// Stille als Entwarnung, bei Frost der teuerste Fehler dieser App.
+function gsOpenWeatherWarn(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var tage = (typeof _gsWetterTage === 'function') ? _gsWetterTage() : null;
+  var ort = '';
+  try { var l = JSON.parse(localStorage.getItem('gs_user_location') || 'null'); if (l && l.city) ort = String(l.city); } catch(_){}
+  var kopf =
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+      '<div style="font-size:36px;" aria-hidden="true">⚠️</div>' +
+      '<div><h3 style="margin:0;color:var(--g-dark);">' + _t('ww_titel', 'Wetter-Frühwarnung') + '</h3>' +
+      '<div style="font-size:var(--fs-sm);color:var(--muted);">' + escHtml(_gsSatz('Nächste 7 Tage') + (ort ? ' · ' + ort : '')) + '</div></div>' +
+    '</div>';
+  var rumpf;
+  if (tage === null) {
+    // KEINE Vorhersage ist nicht „keine Warnung“. Drei Zustaende, nicht zwei.
+    rumpf = '<div class="gs-ww-leer">' + escHtml(_gsSatz('Es ist noch keine Wettervorhersage geladen — deshalb weiß die App gerade nicht, ob etwas ansteht. Öffne die Startseite, wenn du Empfang hast.')) + '</div>';
+  } else {
+    var zeilen = [];
+    tage.forEach(function (w) {
+      w.treffer.forEach(function (t) {
+        zeilen.push('<div class="gs-ww-zeile gs-ww-' + t.k + '">' +
+          '<div class="gs-ww-tag">' + escHtml(_gsKalDatumKurz(w.tag + 'T12:00:00')) + '</div>' +
+          '<div>' + escHtml(t.emoji + ' ' + _gsWetterTitel(t.k, t.wert)) + '</div>' +
+          '<div class="gs-ww-rat">' + escHtml(_gsWetterRat(t.k)) + '</div>' +
+          '</div>');
       });
-    }
-    html =
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
-        '<div style="font-size:36px;">⚠️</div>' +
-        '<div><h3 style="margin:0;color:var(--g-dark);">Wetter-Frühwarnung</h3>' +
-        '<div style="font-size:var(--fs-sm);color:var(--muted);">Nächste 7 Tage · ' + (loc && loc.city ? escHtml(loc.city) : 'Schweiz') + '</div></div>' +
-      '</div>' +
-      (warnings.length ? warnings.map(function(w){
-        var col = w.type==='frost'?'#e3f2fd':w.type==='hitze'?'#ffebee':w.type==='regen'?'#e0f2f1':'#fff8e1';
-        return '<div style="padding:10px 12px;background:' + col + ';border-radius:var(--r-sm);margin-bottom:6px;font-size:var(--fs-md);">' +
-          '<div style="font-size:var(--fs-sm);color:var(--muted);">' + escHtml(w.date) + '</div>' +
-          '<div>' + escHtml(w.msg) + '</div>' +
-          '</div>';
-      }).join('') : '<div style="padding:20px;text-align:center;color:var(--c-success);background:var(--bg-success-soft);border-radius:var(--r-md);">✅ Keine Warnungen für die nächsten 7 Tage — alles im grünen Bereich!</div>');
-  } catch(err){
-    html = '<div style="padding:20px;color:var(--c-danger);">❌ Wetterdaten nicht verfügbar: ' + escHtml(err.message||'') + '</div>';
+    });
+    rumpf = zeilen.length
+      ? zeilen.join('')
+      : '<div class="gs-ww-ok">' + escHtml(_gsSatz('Kein Frost, keine Hitze, kein Starkregen, kein Sturm in den nächsten {1} Tagen.', tage.length)) + '</div>';
   }
-  _gsNlOpen(html);
+  var fuss = '<div class="gs-ww-fuss">' + escHtml(_gsSatz('Grenzen: ab {1} °C Frost, ab {2} °C Hitze, ab {3} mm Regen, ab {4} km/h Wind.',
+    GS_WETTER_GRENZEN.frost, GS_WETTER_GRENZEN.hitze, GS_WETTER_GRENZEN.starkregen, GS_WETTER_GRENZEN.sturm)) + '</div>';
+  _gsNlOpen(kopf + rumpf + fuss);
 }
 
 </script>

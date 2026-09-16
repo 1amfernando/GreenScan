@@ -1351,6 +1351,22 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > S5 (vier Rechnungen fuer dieselbe Frage). `_gsRegenUebernimmt(p)` ist die
 > eine, und `kalender_check` R2 zaehlt Startseite und Kalender gegeneinander.
 
+> **„Keine Daten“ ist nicht „keine Gefahr“ — und eine leere Liste sagt etwas
+> anderes als `null`** (v33.36). `gsOpenWeatherWarn` holte sein Wetter selbst,
+> und wenn die Antwort keine Tageswerte hatte, stand dort „Keine Warnungen —
+> alles im gruenen Bereich!“. Stille als Entwarnung, bei Frost der teuerste
+> Fehler dieser App. `_gsWetterTage()` gibt deshalb `null` fuer „nichts
+> geladen“ und `[]` fuer „geladen, nichts ueberschritten“; wer eine solche
+> Funktion baut, trennt die beiden und die Anzeige sagt beide Saetze.
+> Und die vier Schwellen stehen in EINER Tabelle (`GS_WETTER_GRENZEN`) —
+> vorher eine Konstante im Kalender und vier Literale im Warnfenster.
+
+> **Ein deutsches Kompositum verschluckt das Wort, nach dem du suchst**
+> (v33.36). Ein Grund mit „Wettervorhersage“ enthaelt „Vorhersage“ NICHT mit
+> grossem V — zwei Pruefstands-Faelle wurden rot, und beide hatten recht.
+> Dieselbe Klasse wie `\bcat\b` in „catégorie“ (v32.99): wer auf ein Wort
+> prueft, prueft an einem Beispiel, in dem es in einem Kompositum steckt.
+
 > **Ein Filter ist ein SIEB auf dem Ergebnis, nie eine Bedingung in der
 > Rechnung** (v33.35, KALENDER-V2 §4). `_gsKalFiltern(liste, f)` laeuft NACH
 > dem Pruefwerk; `gsKalenderEreignisse` liefert mit gesetztem Filter dieselbe
@@ -1788,7 +1804,7 @@ Dezimalstelle. Wer Lina weitere Daten gibt, nimmt den Fall „Lina" in
 `sensor_check` mit (jede Prozent-/Grad-Zahl der Messwert-Zeile muss
 gespeichert sein) und den Deckel (`GS_LINA_ZAHLEN_MAX`, 700 Zeichen —
 Kontext, kein Datenexport). Und eine Vorhersage bleibt eine Vorhersage: das
-Frost-Ereignis im Kalender (`GS_FROST_GRENZE_C`) sagt Quelle, Standort und
+Frost-Ereignis im Kalender (`GS_WETTER_GRENZEN`.frost) sagt Quelle, Standort und
 Alter und gilt nur für heute und später.
 
 **Seit v32.55 hat der Name einer Messgrösse EINE Funktion: `_gsMetricLabel(k)`.**

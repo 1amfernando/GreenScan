@@ -1379,6 +1379,117 @@ const FAELLE = [
       return { ok: true, info: 'in GS_USER_KEYS · im Hinweg als kal_filter (den Rückweg misst sync_check)' };
     },
   },
+  {
+    // v33.36 · KALENDER-V2 R7. Bis hierher standen die vier Schwellen an ZWEI
+    // Stellen: GS_FROST_GRENZE_C (2) im Kalender und vier Literale (2/30/20/40)
+    // in gsOpenWeatherWarn — das dazu einen EIGENEN Open-Meteo-Aufruf machte
+    // und den Legacy-Schluessel `userLocation` las. Zwei Rechnungen fuer
+    // dieselbe Frage, die dritte Klasse dieses Repos (§4a.2).
+    name: 'Wetter W1 · EINE Tabelle für alle vier Schwellen: GS_WETTER_GRENZEN, keine zweite Zahl im Warnfenster, kein eigener Netz-Aufruf mehr',
+    lauf: () => {
+      const klagen = [];
+      if (typeof GS_WETTER_GRENZEN !== 'object' || !GS_WETTER_GRENZEN) return { ok: false, warum: 'GS_WETTER_GRENZEN fehlt' };
+      ['frost', 'hitze', 'starkregen', 'sturm'].forEach(k => { if (typeof GS_WETTER_GRENZEN[k] !== 'number') klagen.push('Schwelle „' + k + '" fehlt oder ist keine Zahl'); });
+      const q = String(window.gsOpenWeatherWarn || '');
+      if (!q) return { ok: false, warum: 'gsOpenWeatherWarn nicht erreichbar' };
+      if (/api\.open-meteo\.com/.test(q)) klagen.push('das Warnfenster holt das Wetter noch selbst — es soll denselben Zwischenspeicher lesen wie der Kalender');
+      if (/'userLocation'|"userLocation"/.test(q)) klagen.push('das Warnfenster liest den Legacy-Schlüssel userLocation');
+      if (!/GS_WETTER_GRENZEN/.test(q)) klagen.push('das Warnfenster rechnet nicht mit GS_WETTER_GRENZEN');
+      [30, 20, 40].forEach(z => { if (new RegExp('>=\\s*' + z + '\\b').test(q)) klagen.push('feste Schwelle ' + z + ' im Warnfenster'); });
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: JSON.stringify(GS_WETTER_GRENZEN) + ' · Warnfenster ohne eigenen Abruf und ohne eigene Zahlen' };
+    },
+  },
+  {
+    name: 'Wetter W2 · vier Schwellen, knapp darunter und knapp darüber: je ein wetter-Ereignis mit Wert und Grund — und ohne Vorhersage keins',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('gs_weather_cache');
+      const setz = (tmin, tmax, regen, wind) => {
+        const t = [], mi = [], ma = [], ps = [], wd = [];
+        for (let i = 0; i < 3; i++) { t.push(_gsKalTagPlus(heute, i)); mi.push(i === 1 ? tmin : 8); ma.push(i === 1 ? tmax : 20); ps.push(i === 1 ? regen : 0); wd.push(i === 1 ? wind : 10); }
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600000, data: { daily: { time: t, temperature_2m_min: mi, temperature_2m_max: ma, precipitation_sum: ps, windspeed_10m_max: wd } } }));
+      };
+      const morgen = _gsKalTagPlus(heute, 1);
+      const arten = () => gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 2)).filter(e => e.art === 'wetter' && e.datum === morgen).map(e => String(e.id).split(':')[0]);
+      try {
+        const klagen = [];
+        const G = GS_WETTER_GRENZEN;
+        // knapp DRUNTER: keine einzige Warnung
+        setz(G.frost + 0.1, G.hitze - 0.1, G.starkregen - 0.1, G.sturm - 0.1);
+        let a = arten();
+        if (a.length) klagen.push('knapp unter allen vier Schwellen entstehen trotzdem: ' + a.join(', '));
+        // knapp DRUEBER: alle vier
+        setz(G.frost, G.hitze, G.starkregen, G.sturm);
+        a = arten();
+        ['frost', 'hitze', 'starkregen', 'sturm'].forEach(k => { if (a.indexOf(k) < 0) klagen.push('„' + k + "\" fehlt genau auf der Schwelle (" + G[k] + ')'); });
+        // Jedes Ereignis nennt seinen Wert und sagt, woher
+        const ev = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 2)).filter(e => e.art === 'wetter' && e.datum === morgen);
+        ev.forEach(e => {
+          if (typeof e.wert !== 'number') klagen.push(String(e.id).split(':')[0] + ' ohne Feld wert');
+          if (!e.grund || !/Wetterdienst|Vorhersage/.test(e.grund)) klagen.push(String(e.id).split(':')[0] + ' ohne Herkunft im Grund');
+        });
+        // ohne Vorhersage: gar nichts
+        localStorage.removeItem('gs_weather_cache');
+        a = arten();
+        if (a.length) klagen.push('ohne Vorhersage entstehen Wetter-Ereignisse: ' + a.join(', '));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'unter den Schwellen 0 · auf den Schwellen ' + ['frost', 'hitze', 'starkregen', 'sturm'].join('+') + ' · jedes mit Wert und Herkunft · ohne Cache 0' };
+      } finally { if (alt == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', alt); }
+    },
+  },
+  {
+    name: 'Wetter W3 · R6: Frost trifft frostempfindliche Pflanzen DRAUSSEN — Zucchini (Balkon) ja, Basilikum (Küchenfenster) nein, eine tolerante Kultur nein, ohne Kulturangabe keine Behauptung',
+    lauf: () => {
+      const heute = gsHeuteTag(), morgen = _gsKalTagPlus(heute, 1);
+      const alt = localStorage.getItem('gs_weather_cache');
+      const mp0 = myPlants.length, pl0 = plantings.length;
+      try {
+        const klagen = [];
+        const t = [], mi = [];
+        for (let i = 0; i < 3; i++) { t.push(_gsKalTagPlus(heute, i)); mi.push(i === 1 ? -1 : 8); }
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { daily: { time: t, temperature_2m_min: mi } } }));
+        // Feldsalat ist winterhart (frost 1), Monstera hat keine Kultur
+        myPlants.push({ id: 'pW3a', name: 'Feldsalat', tasks: {} });
+        myPlants.push({ id: 'pW3b', name: 'Monstera', tasks: {} });
+        const ev = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 2));
+        const fr = ev.find(e => e.art === 'wetter' && e.datum === morgen && /^frost:/.test(e.id));
+        if (!fr) return { ok: false, warum: 'kein Frost-Ereignis für morgen — Grundlage fehlt' };
+        const h = (fr.hinweise || []).find(x => x.regel === 'frost_pflanzen');
+        if (!h || h.zustand !== 'verletzt') return { ok: false, warum: 'kein verletzter Hinweis „frost_pflanzen" am Frost-Ereignis: ' + JSON.stringify(fr.hinweise || null) };
+        if (!/Zucchini/.test(h.text)) klagen.push('die Zucchini (Balkon, frostempfindlich) wird nicht genannt: „' + h.text + '"');
+        if (/Basilikum/.test(h.text)) klagen.push('Basilikum steht am Küchenfenster und wird trotzdem genannt');
+        if (/Feldsalat/.test(h.text)) klagen.push('Feldsalat ist winterhart (frost 1) und wird trotzdem genannt');
+        if (/Monstera/.test(h.text)) klagen.push('Monstera hat keine Kulturangabe — über sie wird nichts behauptet');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '„' + h.text + '"' };
+      } finally { myPlants.length = mp0; plantings.length = pl0; if (alt == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', alt); }
+    },
+  },
+  {
+    name: 'Wetter W4 · das Warnfenster liest denselben Zwischenspeicher — mit Hitze zeigt es sie, ohne Vorhersage sagt es das, nie „alles im grünen Bereich"',
+    lauf: async () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('gs_weather_cache');
+      try {
+        const klagen = [];
+        const t = [], mi = [], ma = [], ps = [], wd = [];
+        for (let i = 0; i < 3; i++) { t.push(_gsKalTagPlus(heute, i)); mi.push(8); ma.push(i === 1 ? 33 : 20); ps.push(0); wd.push(10); }
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { daily: { time: t, temperature_2m_min: mi, temperature_2m_max: ma, precipitation_sum: ps, windspeed_10m_max: wd } } }));
+        await gsOpenWeatherWarn();
+        let txt = (document.getElementById('gs-nl-modal') || document.body).textContent || '';
+        if (!/33/.test(txt)) klagen.push('die Hitze aus dem Zwischenspeicher steht nicht im Fenster');
+        if (/grünen Bereich/.test(txt)) klagen.push('„alles im grünen Bereich" trotz Hitze');
+        localStorage.removeItem('gs_weather_cache');
+        await gsOpenWeatherWarn();
+        txt = (document.getElementById('gs-nl-modal') || document.body).textContent || '';
+        if (/grünen Bereich/.test(txt)) klagen.push('ohne Vorhersage sagt das Fenster „alles im grünen Bereich" — Stille als Entwarnung');
+        if (!/keine Vorhersage|noch keine Wettervorhersage|nicht geladen/i.test(txt)) klagen.push('ohne Vorhersage sagt das Fenster nicht, dass es nichts weiss: „' + txt.slice(0, 120) + '"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'mit Cache: Hitze 33 °C · ohne Cache: sagt es, statt zu entwarnen' };
+      } finally { if (alt == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', alt); try { if (typeof closeModal === 'function') closeModal(); } catch (_) {} }
+    },
+  },
 ];
 
 (async () => {
