@@ -96,12 +96,21 @@ Sichtungen); „du giesst zu oft" (Sollwerte bei 40 von 4'342 Arten).
 
 - **Gespeichert wird nach ART, gezeigt nach GRUPPE.** `gs_kal_filter =
   {aus: ['messung','scan'], garten: null}` — die Liste der AUSGEBLENDETEN
-  Arten, damit eine neue Art automatisch sichtbar ist. Vier Gruppen-Chips:
+  Arten, damit eine neue Art automatisch sichtbar ist. **Fünf** Gruppen-Chips (gebaut v33.35):
   **Zu tun** (aufgabe · alarm · erinnerung) · **Säen & Ernten** (aussaat ·
   ernte · Plan-Termine — nicht „Fenster": in dieser App ist ein Fenster ein
   Standort, `_GS_DRINNEN` kennt es, Basilikum steht am „Küchenfenster") ·
-  **Wetter** (wetter) · **Rückblick** (tagebuch · gepflanzt · messung · scan).
-  **Die Punkte im Raster tragen die Farbe der GRUPPE** (vier Farben), nicht
+  **Wetter** (wetter) · **Rückblick** (tagebuch · gepflanzt) · **Messwerte**
+  (messung · später scan).
+
+  *Warum fünf und nicht vier:* die Vorgabe blendet `messung` aus
+  (Entscheidung 3). Stände sie im Rückblick, wäre dessen Chip von Anfang an
+  HALB aus — ein dritter Zustand, den niemand liest. Ein Chip ist an oder aus.
+  Der Entwurf sagte hier zuerst „vier", nannte im selben Abschnitt aber
+  „Messwerte 5" als Beispiel für einen ausgeschalteten Chip; der Bau hat den
+  Widerspruch aufgelöst.
+
+  **Die Punkte im Raster tragen die Farbe der GRUPPE** (fünf Farben), nicht
   der Art (neun Arten, acht Farben, `aussaat` ohne) — so erklären die Chips
   den Farbcode, und die Legende kann entfallen, ohne dass ein brauner Punkt
   unerklärt bleibt. Garten-Auswahl (`garten_id`) nur bei `gardens.length > 1`.
@@ -121,6 +130,18 @@ Sichtungen); „du giesst zu oft" (Sollwerte bei 40 von 4'342 Arten).
 - **Die Sperre:** ein Fall „Filter aus ⇒ Liste === `gsKalenderEreignisse`,
   Eintrag für Eintrag". Wer aus Tempo eine Quelle in der RECHNUNG überspringt,
   wenn der Chip aus ist, macht „N von M" falsch und Lina blind.
+
+**Gebaut in v33.35** (`kalender_check` F1–F6): `_gsKalFiltern(liste, f)` nach
+dem Prüfwerk, `gs_kal_filter` in `GS_USER_KEYS` und in beiden Richtungen des
+state-Blobs, fünf Chips als `button` mit `aria-pressed`, Punkte nach Gruppe,
+Legende entfallen, dritter Leerzustand mit „Alle zeigen". Gegenproben: das
+Sieb in die Rechnung geschoben → F1 rot; Chip-Zahlen aus der gefilterten Liste
+→ F2 rot; dritter Leerzustand ausgebaut → F4 rot; Punkte wieder nach Art →
+F5 rot. Und eine Lehre aus dem Bau: F2 war mit leerem Filter zuerst GRÜN mit
+der falschen Regel — ungefiltert und gefiltert liefern dann dieselbe Zahl.
+**Ein Fall, dessen zwei denkbare Regeln zufällig dasselbe Ergebnis liefern,
+prüft keine von beiden** (v33.28); er blendet jetzt zuerst eine Gruppe MIT
+Ereignissen aus.
 
 ## 5 · Das Fenster (412 px, von oben)
 

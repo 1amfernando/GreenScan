@@ -1202,6 +1202,183 @@ const FAELLE = [
       return { ok: true, info: leer + ' · „Nichts an diesem Tag" (Daten da, Tag leer)' };
     },
   },
+  {
+    // v33.35 · KALENDER-V2 §4. Die Reihenfolge ist die Sache: Rechnung →
+    // Pruefwerk → SIEB → Anzeige. Wer aus Tempo eine Quelle in der RECHNUNG
+    // ueberspringt, wenn ein Chip aus ist, macht „N von M" falsch und Lina
+    // blind — sie liest die ungefilterte Liste.
+    name: 'Sieb F1 · ein Filter ist ein Sieb auf dem Ergebnis: leer ⇒ Liste identisch, „messung" aus ⇒ nur Messwerte fehlen, und die RECHNUNG selbst bleibt unberührt',
+    lauf: () => {
+      // Der Bereich reicht bewusst ZURUECK: die Messwerte der Beispieldaten
+      // liegen in den sieben Tagen vor dem Anker, also teils im Vormonat.
+      const heute = gsHeuteTag(), von = _gsKalTagPlus(heute, -10), bis = _gsKalTagPlus(heute, 25);
+      const alt = localStorage.getItem('gs_kal_filter');
+      try {
+        const klagen = [];
+        if (typeof _gsKalFiltern !== 'function') return { ok: false, warum: '_gsKalFiltern fehlt' };
+        const roh = gsKalenderEreignisse(von, bis);
+        if (!roh.length) return { ok: false, warum: 'keine Ereignisse im Bereich — Grundlage fehlt' };
+        const leer = _gsKalFiltern(roh, { aus: [], garten: null });
+        if (leer.length !== roh.length || leer.some((e, i) => e.id !== roh[i].id)) klagen.push('leerer Filter ändert die Liste: ' + roh.length + ' → ' + leer.length);
+        const nMess = roh.filter(e => e.art === 'messung').length;
+        if (!nMess) klagen.push('keine Messwert-Ereignisse in den Beispieldaten — der Fall misst das Ausblenden nicht');
+        const ohne = _gsKalFiltern(roh, { aus: ['messung'], garten: null });
+        if (ohne.some(e => e.art === 'messung')) klagen.push('„messung" ausgeblendet, kommt trotzdem vor');
+        if (ohne.length !== roh.length - nMess) klagen.push('mit „messung" aus fehlen ' + (roh.length - ohne.length) + ' statt ' + nMess);
+        // Die Rechnung kennt den Filter nicht: alles ausblenden, dann zählen
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: ['aufgabe', 'tagebuch', 'gepflanzt', 'aussaat', 'ernte', 'erinnerung', 'messung', 'alarm', 'wetter'], garten: null }));
+        const roh2 = gsKalenderEreignisse(von, bis);
+        if (roh2.length !== roh.length) klagen.push('gsKalenderEreignisse liefert mit gesetztem Filter ' + roh2.length + ' statt ' + roh.length + ' — das Sieb sitzt in der Rechnung');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: roh.length + ' Ereignisse · leer identisch · ohne Messwerte ' + ohne.length + ' (−' + nMess + ') · Rechnung unberührt' };
+      } finally { if (alt == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', alt); }
+    },
+  },
+  {
+    name: 'Sieb F2 · fünf Gruppen-Chips mit aria-pressed; ihre Zahlen kommen aus der UNGEFILTERTEN Liste und summieren sich auf den Monat; „Messwerte" ist von Anfang an aus',
+    lauf: () => {
+      const heute = gsHeuteTag(), mon = heute.slice(0, 7);
+      const alt = localStorage.getItem('gs_kal_filter');
+      try {
+        // Der Zustand ZIEHT die beiden denkbaren Regeln auseinander: mit
+        // leerem Filter liefern „aus der ungefilterten" und „aus der
+        // gefilterten Liste" DIESELBE Zahl, und der Fall pruefte keine von
+        // beiden (v33.28). Also wird eine Gruppe MIT Ereignissen ausgeblendet.
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: ['aufgabe', 'alarm', 'erinnerung'], garten: null }));
+        const klagen = [];
+        gsKalenderOeffnenAm(heute);
+        const mc = document.getElementById('modal-content');
+        const chips = Array.from(mc.querySelectorAll('.gs-kal-chip'));
+        if (chips.length !== 5) return { ok: false, warum: chips.length + ' Chips statt 5: ' + chips.map(c => c.textContent.trim()).join(' | ') };
+        const ohneAria = chips.filter(c => c.tagName !== 'BUTTON' || !c.hasAttribute('aria-pressed'));
+        if (ohneAria.length) klagen.push(ohneAria.length + ' Chips ohne <button aria-pressed>');
+        const tage = new Date(+mon.slice(0, 4), +mon.slice(5, 7), 0).getDate();
+        const roh = gsKalenderEreignisse(mon + '-01', mon + '-' + String(tage).padStart(2, '0'));
+        const zahlen = chips.map(c => { const m = c.textContent.match(/(\d+)\s*$/); return m ? +m[1] : null; });
+        if (zahlen.some(z => z === null)) klagen.push('ein Chip ohne Zahl: ' + chips.map(c => c.textContent.trim()).join(' | '));
+        else {
+          const summe = zahlen.reduce((a, b) => a + b, 0);
+          if (summe !== roh.length) klagen.push('Chip-Zahlen summieren ' + summe + ', der Monat hat ' + roh.length + ' Ereignisse (ungefiltert)');
+        }
+        const zt = chips.find(c => /Zu tun/i.test(c.textContent));
+        if (zt && zt.getAttribute('aria-pressed') !== 'false') klagen.push('die ausgeblendete Gruppe zeigt sich als EIN');
+        if (zt) { const m = zt.textContent.match(/(\d+)\s*$/); const nRoh = roh.filter(e => ['aufgabe', 'alarm', 'erinnerung'].indexOf(e.art) >= 0).length;
+          if (!m || +m[1] !== nRoh) klagen.push('der ausgeschaltete Chip zeigt ' + (m ? m[1] : '—') + ' statt ' + nRoh + ' — er soll sagen, was er verbirgt'); }
+        // Und die Vorgabe, aus einem eigenen, sauberen Zustand:
+        localStorage.removeItem('gs_kal_filter');
+        gsKalenderOeffnenAm(heute);
+        const mess = Array.from(document.getElementById('modal-content').querySelectorAll('.gs-kal-chip')).find(c => /Messwert/i.test(c.textContent));
+        if (!mess) klagen.push('kein Chip „Messwerte"');
+        else if (mess.getAttribute('aria-pressed') !== 'false') klagen.push('„Messwerte" ist ohne Zutun EIN — Vorgabe ist aus (Entscheidung 3)');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: chips.map(c => c.textContent.trim().replace(/\s+/g, ' ')).join(' · ') };
+      } finally { if (alt == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', alt); }
+    },
+  },
+  {
+    name: 'Sieb F3 · ein Tippen blendet die ganze Gruppe aus, schreibt sie in gs_kal_filter und überlebt das Neu-Öffnen — und ein zweites Tippen holt sie zurück',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('gs_kal_filter');
+      try {
+        localStorage.removeItem('gs_kal_filter');
+        const klagen = [];
+        gsKalenderOeffnenAm(heute);
+        let mc = document.getElementById('modal-content');
+        const zutun = Array.from(mc.querySelectorAll('.gs-kal-chip')).find(c => /Zu tun/i.test(c.textContent));
+        if (!zutun) return { ok: false, warum: 'kein Chip „Zu tun"' };
+        const vorher = mc.querySelectorAll('.gs-kal-zeile.gs-kal-aufgabe').length;
+        if (!vorher) return { ok: false, warum: 'heute keine Aufgaben-Zeile — Grundlage fehlt' };
+        zutun.click();
+        mc = document.getElementById('modal-content');
+        if (mc.querySelectorAll('.gs-kal-zeile.gs-kal-aufgabe').length) klagen.push('nach dem Tippen stehen die Aufgaben noch da');
+        const f = JSON.parse(localStorage.getItem('gs_kal_filter') || 'null');
+        if (!f || !Array.isArray(f.aus) || ['aufgabe', 'alarm', 'erinnerung'].some(a => f.aus.indexOf(a) < 0)) klagen.push('gs_kal_filter trägt die Gruppe nicht: ' + JSON.stringify(f));
+        gsKalenderOeffnenAm(heute);
+        mc = document.getElementById('modal-content');
+        if (mc.querySelectorAll('.gs-kal-zeile.gs-kal-aufgabe').length) klagen.push('nach dem Neu-Öffnen sind die Aufgaben zurück — der Zustand überlebt nicht');
+        const wieder = Array.from(mc.querySelectorAll('.gs-kal-chip')).find(c => /Zu tun/i.test(c.textContent));
+        if (wieder && wieder.getAttribute('aria-pressed') !== 'false') klagen.push('der Chip zeigt sich als EIN, obwohl die Gruppe aus ist');
+        if (wieder) wieder.click();
+        mc = document.getElementById('modal-content');
+        if (mc.querySelectorAll('.gs-kal-zeile.gs-kal-aufgabe').length !== vorher) klagen.push('zweites Tippen holt die Aufgaben nicht zurück (' + mc.querySelectorAll('.gs-kal-zeile.gs-kal-aufgabe').length + ' statt ' + vorher + ')');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: vorher + ' Aufgaben-Zeilen → aus → überlebt → wieder ' + vorher };
+      } finally { if (alt == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', alt); }
+    },
+  },
+  {
+    name: 'Sieb F4 · die Zahl steht an EINER Stelle: „(N ausgeblendet)" nur wenn > 0 im Tageskopf, kein Monatsfuss mit drei Zahlen — und ein Tag, an dem alles ausgeblendet ist, sagt es und führt zurück',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('gs_kal_filter');
+      try {
+        const klagen = [];
+        localStorage.removeItem('gs_kal_filter');
+        gsKalenderOeffnenAm(heute);
+        let mc = document.getElementById('modal-content');
+        let kopf = mc.querySelector('.gs-kal-tagkopf');
+        if (kopf && /ausgeblendet/.test(kopf.textContent)) klagen.push('ohne ausgeblendete Einträge steht „ausgeblendet" im Tageskopf: „' + kopf.textContent.trim() + '"');
+        // alles aus: der Tag muss es sagen UND einen Weg zurück anbieten
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: ['aufgabe', 'tagebuch', 'gepflanzt', 'aussaat', 'ernte', 'erinnerung', 'messung', 'alarm', 'wetter'], garten: null }));
+        gsKalenderOeffnenAm(heute);
+        mc = document.getElementById('modal-content');
+        const t = mc.textContent || '';
+        if (!/ausgeblendet/.test(t)) klagen.push('ein Tag mit lauter ausgeblendeten Einträgen sagt es nicht');
+        if (/Noch keine Daten/.test(t)) klagen.push('ausgeblendet wird als „Noch keine Daten" gezeigt — drei Leerzustände, nicht zwei');
+        const zurueck = mc.querySelector('.gs-kal-alle');
+        if (!zurueck) klagen.push('kein Weg zurück („alle zeigen")');
+        else {
+          zurueck.click();
+          mc = document.getElementById('modal-content');
+          if (!mc.querySelectorAll('.gs-kal-zeile').length) klagen.push('„alle zeigen" bringt die Einträge nicht zurück');
+          const f = JSON.parse(localStorage.getItem('gs_kal_filter') || 'null');
+          if (f && Array.isArray(f.aus) && f.aus.length) klagen.push('„alle zeigen" lässt ' + f.aus.length + ' Arten ausgeblendet');
+        }
+        // kein Monatsfuss mit „N · M · K"
+        if (/\d+\s*·\s*\d+\s*gezeigt/.test(t)) klagen.push('Monatsfuss zählt ein zweites Mal');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'ohne Filter kein „ausgeblendet" · alles aus → Satz + „alle zeigen" → zurück' };
+      } finally { if (alt == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', alt); }
+    },
+  },
+  {
+    name: 'Sieb F5 · die Punkte im Raster tragen die Farbe der GRUPPE (fünf), nicht der Art (neun) — und die Legende ist weg, weil die Chips sie erklären',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('gs_kal_filter');
+      try {
+        localStorage.removeItem('gs_kal_filter');
+        const klagen = [];
+        gsKalenderOeffnenAm(heute);
+        const mc = document.getElementById('modal-content');
+        if (mc.querySelector('.gs-kal-legende')) klagen.push('die Legende steht noch da');
+        const punkte = Array.from(mc.querySelectorAll('.gs-kal-punkte .gs-kal-p'));
+        if (!punkte.length) return { ok: false, warum: 'keine Punkte im Raster — Grundlage fehlt' };
+        const klassen = new Set();
+        punkte.forEach(p => Array.from(p.classList).forEach(k => { if (k !== 'gs-kal-p') klassen.add(k); }));
+        const nichtGruppe = Array.from(klassen).filter(k => k.indexOf('gs-kal-p-g-') !== 0);
+        if (nichtGruppe.length) klagen.push('Punkte tragen Art-Klassen statt Gruppen-Klassen: ' + nichtGruppe.join(', '));
+        if (klassen.size > 5) klagen.push(klassen.size + ' verschiedene Punktfarben — höchstens fünf (eine je Gruppe)');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: punkte.length + ' Punkte · ' + klassen.size + ' Gruppenfarben · keine Legende' };
+      } finally { if (alt == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', alt); }
+    },
+  },
+  {
+    name: 'Sieb F6 · der Filterzustand gehört dem Konto: gs_kal_filter steht in GS_USER_KEYS und reist im state-Blob HIN und RÜCK',
+    lauf: () => {
+      const klagen = [];
+      if (typeof GS_USER_KEYS === 'undefined' || GS_USER_KEYS.indexOf('gs_kal_filter') < 0) klagen.push('gs_kal_filter steht nicht in GS_USER_KEYS');
+      localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: ['wetter'], garten: null }));
+      const blob = (typeof window._gsBuildStateBlob === 'function') ? window._gsBuildStateBlob() : null;
+      if (!blob) klagen.push('_gsBuildStateBlob nicht erreichbar');
+      else if (!blob.kal_filter || !Array.isArray(blob.kal_filter.aus) || blob.kal_filter.aus[0] !== 'wetter') klagen.push('der Hinweg trägt den Filter nicht: ' + JSON.stringify(blob.kal_filter || null));
+      localStorage.removeItem('gs_kal_filter');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'in GS_USER_KEYS · im Hinweg als kal_filter (den Rückweg misst sync_check)' };
+    },
+  },
 ];
 
 (async () => {

@@ -80,18 +80,31 @@ Drei Dinge, die dabei für JEDE Anzeige gelten:
 Was nicht gerechnet wird: Mond, Höhenlage (`elevation`: 0 Schreiber),
 Gartenlore („Eisheilige 15.05."), Schädlingswellen, „du giesst zu oft".
 
-## Das Sieb (V2 §4)
+## Das Sieb (V2 §4, gebaut v33.35)
 
-**Geplant (Scheibe 2), noch nicht gebaut:** _gsKalFiltern(liste, f) NACH dem
-Prüfwerk; gs_kal_filter = {aus:[…],
-garten}` speichert die AUSGEBLENDETEN Arten (neue Arten sind sichtbar);
-vier Chips: Zu tun · Säen & Ernten · Wetter · Rückblick (NICHT „Fenster": in
-dieser App ist ein Fenster ein Standort — `_GS_DRINNEN` kennt es, Basilikum
-steht am „Küchenfenster"); Vorgabe: alles an ausser
-`messung` (bis 30 im Monat je Handgerät) und `scan` (bis 200). Jeder Chip
-und jeder Kopf trägt „N von M" aus der ungefilterten Liste. Die Sperre im
-Prüfstand: Filter aus ⇒ Liste === `gsKalenderEreignisse`, Eintrag für Eintrag.
-Der Schlüssel steht in `GS_USER_KEYS`, im Blob hin UND rück, `markDirty('state')`.
+`_gsKalFiltern(liste, f)` laeuft NACH dem Pruefwerk — ein Filter ist ein Sieb
+auf dem ERGEBNIS, nie eine Bedingung in der Rechnung. `gs_kal_filter =
+{aus:[Arten], garten}` speichert die AUSGEBLENDETEN Arten, damit eine neue Art
+automatisch sichtbar ist statt stillschweigend verschluckt.
+
+**Fünf** Gruppen-Chips: Zu tun · Säen & Ernten · Wetter · Rückblick ·
+Messwerte. Nicht „Fenster" — in dieser App ist ein Fenster ein STANDORT
+(`_GS_DRINNEN` kennt es, das Basilikum steht am „Küchenfenster"). Und
+„Messwerte" ist eine EIGENE Gruppe, weil die Vorgabe sie ausblendet: im
+Rückblick stünde dessen Chip von Anfang an halb aus, ein dritter Zustand, den
+niemand liest.
+
+Jeder Chip trägt seine Zahl aus der UNGEFILTERTEN Liste des Monats — ein
+ausgeschalteter sagt so, was er zurückhält. Der Tageskopf sagt
+„(N ausgeblendet)" nur, wenn es etwas zu sagen gibt; einen Monatsfuss mit drei
+Zahlen gibt es nicht. Die Punkte im Raster tragen die Farbe der GRUPPE (fünf),
+nicht der Art (neun) — so erklären die Chips den Farbcode, und die Legende ist
+weg. Dritter Leerzustand: „3 Einträge sind ausgeblendet" mit „Alle zeigen".
+
+Der Schlüssel steht in `GS_USER_KEYS`, im Blob hin UND rück, `markDirty('state')`
+von Hand, Schreibversuch am Rückgabewert. Die Sperre im Prüfstand
+(`kalender_check` F1): Filter aus ⇒ Liste === `gsKalenderEreignisse`, Eintrag
+für Eintrag — und mit gesetztem Filter liefert die Rechnung dieselbe Zahl.
 
 ## Die drei Namen
 

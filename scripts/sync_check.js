@@ -69,6 +69,7 @@ const BLOB_KEYS = Array.from(new Set(
 const PROBEN = {
   'ps_myplants': '[{"id":"p1","name":"Tomate"}]',
   'gs_gartentagebuch': '[{"id":"d1","text":"Notiz"}]',
+  'gs_kal_filter': '{"aus":["messung"],"garten":null}',
   'gs_dead_plants': '[{"id":"t1"}]',
   'gs_seed_inventory': '[{"id":"s1"}]',
   'gs_garden_plans': '[{"id":"pl1"}]',
