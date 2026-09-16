@@ -4,13 +4,93 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.38` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.39` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (ij) - v33.39: Lina sieht den Kalender — und sagt, wenn sie etwas nicht weiss
+
+**KALENDER-V2 Scheibe 5.** Lina bekommt drei Zeilen aus der EINEN Funktion und
+darf einen Termin vorschlagen. Vier der fünf Befunde standen so im Entwurf und
+wurden vor dem ersten Codezeichen nachgemessen; der fünfte kam beim Messen dazu.
+
+**1 · Der Deckel schnitt mitten im Wort.** `GS_LINA_ZAHLEN_MAX` machte
+`txt.slice(0, 949) + '…'`. Mit sechs Geräten gemessen endete der Kontext auf
+`Löwenzahn (Taraxacum officinale…` — die Scan-Zeile verstümmelt, Sicherheit und
+Alter weg, und nichts sagte, dass etwas fehlt. **Ein halber Satz im Kontext
+eines Sprachmodells ist schlimmer als eine fehlende Zeile: er sieht aus wie
+eine Angabe.** `_gsLinaDeckeln` lässt ganze Zeilen weg und hängt „(+N Zeilen
+ausgelassen)" an.
+
+> **Und Reihenfolge und Fallordnung kommen aus EINER Liste.** Die erste Fassung
+> liess von hinten fallen — und hinten stand die Scan-Zeile, während die
+> 400 Zeichen lange Messwerte-Zeile stehenblieb. `GS_LINA_ZEILEN_RANG` ist
+> jetzt beides: was zuerst dasteht und was zuerst fällt. Zwei Listen wären die
+> Klasse aus §4a.2.
+
+**2 · Vier von sechs Geräten, ohne dass es dasteht.** `ger.slice(0, 4)` war
+richtig (der Kontext hat einen Deckel), das Schweigen darüber nicht. Jetzt
+„+2 weitere Geräte" und „+N weitere Messgrössen"; Alarme ebenso.
+
+**3 · „Alarme: keine verletzte Regel." bei einer Regel ohne Messwerte.**
+Gemessen: `gsRegelnPruefen` gab `['nicht_pruefbar']` zurück, und Lina machte
+daraus eine Entwarnung. Dieselbe Klasse wie „alles im grünen Bereich" im
+Warnfenster (v33.36) — **Stille ist keine Messung.** Jetzt: „N Regeln nicht
+prüfbar (keine Werte) — keine Aussage über verletzte Regeln."
+
+**4 · Der Kalender-Block.** Drei Zeilen, jede eine Anzeige der Rechnung:
+„Kalender heute" (Titel von Ereignissen, Rückblick-Arten ausgenommen, ≤ 3 plus
+„+N weitere"), „Nächste 7 Tage" (gezählt aus derselben Liste) und „Hinweise"
+(nur `verletzt`). Ohne Ereignis keine Zeile — nie ein erfundenes „keine".
+
+**5 · Und der Befund, der nicht im Entwurf stand: die Sicherheit eines Scans
+hatte DREI Antworten.** `gsNormConfidence` gibt es seit v31.79 — mit sechs
+Aufrufern, und keiner davon war eine Anzeige. Für denselben Eintrag
+(`confidence: 0.94`) gemessen:
+
+| wo | zeigte |
+|---|---|
+| `gsNormConfidence(0.94)` | 94 |
+| Scan-Verlaufsliste | „0.94%" |
+| Linas Kontext | „1 % sicher" |
+
+`_gsScanKonfidenz(h)` ist jetzt der EINE Leser (neben `_gsScanZeit`), und die
+fünf Erzeuger von `item.conf` gehen durch ihn — eine Reparatur, nicht fünf
+Pflaster.
+
+> **Und der Prüfstand dafür war grün.** Der Fall aus v33.23 prüft „88 % sicher"
+> — er setzt `confidence: 88` ein, eine Zahl, die schon in der Zielform ist.
+> **Ein Fall, dessen Wert den Treffer schon enthält, prüft die Vorlage und
+> nicht die Ware** (dieselbe Lehre wie v33.32 und v33.00).
+
+**Das Tool.** `add_calendar_note {day, text, plantName?}` fragt über
+`gsConfirmModal` und schreibt erst bei Ja genau einen Eintrag ins
+Gartentagebuch (`quelle: 'lina'`, `bestaetigt_am`), geprüft am Rückgabewert von
+`gsTagebuchSave`. Im Kalender steht er mit dem Grund „von Lina vorgeschlagen,
+von dir bestätigt am …". Kein zweiter Speicher (V1 Regel 2).
+
+**Prüfstände:** `sensor_check` 53 (9 neu, 7 rot gegen v33.38). Neun
+Gegenproben, jede einzeln zurückgebaut — alle neun rot.
+
+> **Zwei davon haben meine eigenen Fälle korrigiert.** K3 war im ersten Lauf
+> grün, weil die Beispieldaten in sieben Tagen keine verletzte Regel haben —
+> er stellt den Zustand jetzt selbst her (8 mm Regen). Und die Gegenprobe zu
+> seiner zweiten Hälfte blieb grün: nur verletzte Hinweise tragen einen `text`,
+> die anderen einen `grund`, und `h.text` allein hielt die Grenze. Gemessen
+> wird jetzt der GRUND der nicht verletzten Hinweise — damit ist
+> `h.text || h.grund` (der naheliegende Fehlgriff) rot.
+
+> **Und eine Schranke, die nicht aus ihren Teilen gerechnet ist, ist eine
+> Hoffnung.** Der Prüfstand deckelte den ganzen Kontext bei 1'350 — eine Zahl
+> aus v33.14, die zufällig hielt. Sie wird jetzt gerechnet:
+> `GS_LINA_ZAHLEN_MAX + GS_LINA_ARTEN_MAX + 400`.
+
+Changelog-Umzug: v33.19 ins Archiv. **Offen bleiben Scheibe 6 (die Woche) und
+7 (Backend).**
 
 ### 2026-09-16 (ii) - v33.38: „Mein Naturjahr“ zählt dasselbe wie der Kalender — und die Timeline ist darin aufgegangen
 
@@ -13624,9 +13704,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.38` (Client) · SW-Cache `gs-v33.38` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.39` (Client) · SW-Cache `gs-v33.39` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **94'127 Zeilen / 6,01 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **566 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.18).
+- **Frontend:** `index.html` **94'263 Zeilen / 6,02 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **567 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.19).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

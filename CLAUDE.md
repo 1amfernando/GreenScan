@@ -538,9 +538,10 @@ Wer Aufgaben, Termine, Saison, Naturjahr, Timeline oder Wetter anfasst, liest
 zuerst V1 (die eine Regel: EINE Frage, EINE Funktion `gsKalenderEreignisse`)
 und V2 (seit v33.34: das Pruefwerk `_gsKalPruefwerk` mit `hinweise[]`, das
 Sieb, die drei Namen aus Fernandos Auftrag, Lina, sieben Scheiben). Kurzform
-in `docs/memory/06-kalender.md`. **Seit v33.38 ist Scheibe 4 fertig:**
+in `docs/memory/06-kalender.md`. **Seit v33.39 sind die Scheiben 4 und 5 fertig:**
 „Mein Naturjahr“ rechnet aus `gsKalenderEreignisse`, die Garten-Timeline gibt
-es nicht mehr, `gsKalRueckblick()` ist der Weg dorthin. Die eine neue Regel: **Rechnung → Pruefwerk
+es nicht mehr (`gsKalRueckblick()` ist der Weg dorthin), und Lina hat den
+Kalender-Block, `_gsLinaDeckeln` und `add_calendar_note`. Die eine neue Regel: **Rechnung → Pruefwerk
 → Sieb → Anzeige** — ein Filter ist ein Sieb auf dem Ergebnis, nie eine
 Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
 

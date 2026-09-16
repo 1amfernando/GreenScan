@@ -200,8 +200,8 @@ Kalender-Logik).
 
 ## 7 · Lina
 
-**Kontext** — die zwei Zeilen aus v33.14 werden EIN Kalender-Block aus der
-einen Funktion, drei Zeilen:
+**Kontext** — **geliefert v33.39.** Die zwei Zeilen aus v33.14 werden EIN
+Kalender-Block aus der einen Funktion, drei Zeilen:
 
 - „Kalender heute: Basilikum giessen (seit 1 Tag); Tomate giessen; Balkon Süd
   · Erde: Bodenfeuchte unter 25 % → Giessen; +1 weitere." (alle Arten ausser
@@ -215,16 +215,36 @@ Jeder Eintrag ist der Titel eines Ereignisses — der bestehende
 `sensor_check`-Fall prüft das gegen `gsKalenderEreignisse` und gilt weiter.
 Ohne Pflanzen keine Zeile, nie ein erfundenes „keine".
 
-**Deckel** — `GS_LINA_ZAHLEN_MAX` (950) schneidet heute hart vom Ende
-(`txt.slice(0, 949)`; gemessen mit sechs Geräten: die Scan-Zeile fiel ganz
-weg, ein Schnitt mitten in „14.09"). Neu `_gsLinaDeckeln(teile, max)`: ganze
-Zeilen vom Ende weglassen und „(+N Zeilen ausgelassen)" anhängen. Reihenfolge
-nach Nutzen: Fällig · Hinweise · Woche · Alarme · Kalender heute · Letzter
-Scan · Messwerte — was fällt, ist das Längste und Entbehrlichste. Geräte,
-Messgrössen und Alarme bekommen ihr „+N weitere" (L5); eine Regel
-`nicht_pruefbar` ergibt nie „Alarme: keine verletzte Regel" (OEKOSYSTEM Regel 2).
+**Deckel** — **geliefert v33.39.** `GS_LINA_ZAHLEN_MAX` schnitt hart vom Ende
+(`txt.slice(0, 949)`); gemessen mit sechs Geräten endete der Kontext mitten in
+„Taraxacum officinale…“ — die Scan-Zeile verstümmelt, Sicherheit und Alter weg,
+und nichts sagte, dass etwas fehlt. **Ein halber Satz im Kontext eines
+Sprachmodells ist schlimmer als eine fehlende Zeile: er sieht aus wie eine
+Angabe.** `_gsLinaDeckeln(teile, max)` lässt ganze Zeilen vom Ende weg und hängt
+„(+N Zeilen ausgelassen)“ an. Reihenfolge und Fallordnung kommen aus **einer**
+Liste (`GS_LINA_ZEILEN_RANG`: Fällig · Hinweise · Woche · Alarme · Kalender heute ·
+Aussaat · Plan · Letzter Scan · Geräte · Messwerte) — zwei Listen würden
+auseinanderlaufen, und genau das hat die erste Fassung getan (der Fall meldete
+„die Messwerte-Zeile ist geblieben, die Scan-Zeile gefallen“). Geräte,
+Messgrössen und Alarme bekommen ihr „+N weitere“ (L5); eine Regel im Zustand
+`nicht_pruefbar` ergibt nie „Alarme: keine verletzte Regel“, sondern „N Regeln
+nicht prüfbar (keine Werte)“ (OEKOSYSTEM Regel 2).
 
-**Tool** — `add_calendar_note {day, text, plantName?}`: im Dispatcher, nicht
+> **Und eine Schranke, die nicht aus ihren Teilen gerechnet ist, ist eine
+> Hoffnung.** Der Prüfstand deckelte den GANZEN Kontext bei 1'350 — eine Zahl
+> aus v33.14, die zufällig hielt. Der Kalender-Block hätte sie gerissen, ohne
+> dass ein Teil zu gross ist. Sie wird jetzt gerechnet:
+> `GS_LINA_ZAHLEN_MAX + GS_LINA_ARTEN_MAX + 400`.
+
+> **Die Sicherheit eines Scans hatte drei Antworten** (v33.39). `gsNormConfidence`
+> gibt es seit v31.79 — mit sechs Aufrufern, keiner davon eine Anzeige. Gemessen
+> am 16.09.2026 für denselben Eintrag: die Verlaufsliste zeigte „0.94%“, Linas
+> Kontext „1 % sicher“, die eine Funktion hätte 94 gesagt. Und der Fall aus
+> v33.23 konnte es nicht sehen, weil er `confidence: 88` einsetzt — eine Zahl,
+> die schon in der Zielform ist (dieselbe Lehre wie v33.32). Wer die Sicherheit
+> eines Scans braucht, ruft **`_gsScanKonfidenz(h)`**, nie ein Feld.
+
+**Tool** — **geliefert v33.39.** `add_calendar_note {day, text, plantName?}`: im Dispatcher, nicht
 im Prompt erzwungen (§4a.2). `gsConfirmModal` „Soll ich für 12.10. eintragen:
 ‚Rosen schneiden'?" (Vorauswahl Abbrechen, v32.37); bei Ja ein Eintrag in
 `gs_gartentagebuch` {ts: day 12:00 Ortszeit, text, cat:'note', pflanze über
@@ -305,7 +325,7 @@ Nutzer — eine spätere Scheibe über `_shared/push_helfer.mjs` mit
 | 3 | **v33.36 (geliefert)** | **Ein Wetter**: `GS_WETTER_GRENZEN`; Hitze/Starkregen/Sturm als `wetter`-Info aus dem Cache (R7); R6; `gsOpenWeatherWarn` liest denselben Cache und `gs_user_location`, sagt „keine Vorhersage" statt „alles im grünen Bereich" | vier Schwellen knapp darunter/darüber; Cache leer → beide Anzeigen ehrlich; Zucchini (−1, Balkon) trifft Frost, Salat (1) nicht, Basilikum (−1, Küchenfenster) nicht |
 | 4a | **v33.37 (geliefert)** | **Die drei Namen, erster Teil**: Art `scan` (mit `name`), Art `fund` mit `_gsFundZeit` (die App schreibt `date`, gelesen wurde `ts/time/found_at`), echte Ernte als `ernte` quelle hand (K4), `_gsKalDatenlage` kennt Scans und Funde | N1 Scan von 2019 zählt nicht für 2025 · N2 der eine Leser · N3 hand ≠ regel, mit Menge · N4 Chip, Farbe, Name |
 | 4b | **v33.38 (geliefert)** | **Die drei Namen, zweiter Teil**: „Mein Naturjahr" rechnet aus `gsKalenderEreignisse(J-01-01, J-12-31)` (K1 Arten ohne Jahresfilter, K3 Funde immer 0); Kachel „Pflanzungen" → „Gepflanzt", weil sie beide Wege zählt; Garten-Timeline ersatzlos entfernt (Parser), `mi-timeline` heisst „Rückblick" und öffnet den Kalender über `gsKalRueckblick` | M1 Kachel === Ereigniszahl, Arten nur dieses Jahr · M2 alte Funktion weg, Menüeintrag führt zum Kalender, Rückblick-Gruppe wirklich eingeschaltet |
-| 5 | v33.39 | **Lina**: Kalender-Block (heute · Woche · Hinweise), `_gsLinaDeckeln` an Zeilengrenze, „+N" bei Geräten/Grössen/Alarmen, `nicht_pruefbar` ≠ „keine verletzte Regel", `add_calendar_note` mit Rückfrage und quelle lina | jede Zeile ein Ereignis; sechs Geräte → ganze Zeile weg, kein halber Wert; Tool mit Nein schreibt nichts, mit Ja steht die Erinnerung im Kalender; die zwei alten Schreib-Tools bekommen ihren Fall |
+| 5 | **v33.39 (geliefert)** | **Lina**: Kalender-Block (heute · Woche · Hinweise) aus `gsKalenderEreignisse`; `_gsLinaDeckeln` laesst GANZE Zeilen weg und sagt es, Reihenfolge und Fallordnung aus EINER Liste (`GS_LINA_ZEILEN_RANG`); „+N weitere“ bei Geräten, Messgrössen und Alarmen; `nicht_pruefbar` ≠ „keine verletzte Regel“; `_gsScanKonfidenz` (der EINE Leser, 0.94 und 94 → 94); `add_calendar_note` mit Rückfrage, `quelle: 'lina'` und `bestaetigt_am` | D1 Deckel ganze Zeilen · D2 „+2 weitere“ · D3 nicht prüfbar · K1/K2/K3 die drei Zeilen gegen die eine Funktion · S1 eine Zahl statt drei · T1 Nein schreibt nichts, Ja genau eines · T2 die zwei alten Schreib-Tools |
 | 6 | v33.40 | **Die Woche**: R9, R10; „Diese Woche"-Zeile Startseite + Fuss; `gsWochenrueckblick` liest den Kalender | Zeile zählt eintragsgenau; ohne Cache „keine Vorhersage"; Rückblick „N erledigt" === tagebuch(regel) der 7 Tage; pauseUntil abgelaufen/unlesbar → kein erfundener Zeitraum |
 | 7 | v33.41 | **Backend**: `v_plant_tasks_due` kennt Pflanzungen (Migration, nicht angewandt); `priority`/`importance` live gemessen und bereinigt | naht_check „App und Sicht zählen dieselben Aufgaben" im lokalen Postgres |
 

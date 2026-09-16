@@ -27,28 +27,34 @@ Artkarte gilt nur, wenn `_gsArtenTreffer` dieselbe Art nennt.
 | Pflanzenzahl | `gsPflanzenZahl()` (beide Listen) | nur die ZAHL — Namen erscheinen nur in „Faellig" |
 | Region, Jahreszeit | `gs_user_location.name`, Monat → 4 Werte | kein Datum, keine Hoehe |
 | Faellig | `gsGetDueTasks().filter(days <= 0)` | 5 Namen + „+N weitere" |
-| Alarme / Messwerte | `gsGeraete()`, `gsRegelnPruefen`, `gsMesswerte` — Rohwerte, nie gerundet | 4 Geraete, 3 Groessen, 3 Alarme — **ohne „+N"** (offen) |
-| Letzter Scan | `gs_scan_history` ueber `_gsScanZeit` | 1 Eintrag |
+| Alarme / Messwerte | `gsGeraete()`, `gsRegelnPruefen`, `gsMesswerte` — Rohwerte, nie gerundet | 4 Geraete, 3 Groessen, 3 Alarme, je mit „+N weitere“ (v33.39). Eine Regel im Zustand `nicht_pruefbar` ergibt NIE „keine verletzte Regel“ |
+| Letzter Scan | `gs_scan_history` ueber `_gsScanZeit` (Zeit) und `_gsScanKonfidenz` (Sicherheit — 0.94 und 94 ergeben beide 94) | 1 Eintrag |
+| Kalender heute · Nächste 7 Tage · Hinweise | `gsKalenderEreignisse(heute, +6 Tage)` — drei Zeilen, v33.39 | je 3 + „+N weitere“; Hinweise nur `verletzt` |
 | Naechste Aussaat, Plan-Termine | `gsKalenderEreignisse(heute, +60 Tage)` | je 3 + „+N" |
 | ARTEN | `_gsArtenTreffer(frage)` → `_gsArtAnzeige` je Art | `GS_LINA_ARTEN_MAX` 260 Zeichen |
-| Gesamt | | `GS_LINA_ZAHLEN_MAX` 950 Zeichen, **harter Schnitt vom Ende** (offen) |
+| Gesamt | | `GS_LINA_ZAHLEN_MAX` 1000 Zeichen — seit v33.39 faellt EINE GANZE ZEILE, nie ein halber Satz (`_gsLinaDeckeln`), Reihenfolge und Fallordnung aus `GS_LINA_ZEILEN_RANG`, und „(+N Zeilen ausgelassen)“ steht dabei |
 
 Was sie NICHT sieht (gemessen 15.09.2026): Gaerten und Beete (0 Treffer
 `gardens`), Pflanzennamen ohne faellige Aufgabe, `nick`, Tagebuch, Ernten,
-Wettervorhersage (obwohl `gs_weather_cache` im selben Browser liegt), Saatgut,
-Uebungs-Lernstand, fruehere Gespraeche (nur die letzte Konversation, neueste
+Saatgut, Uebungs-Lernstand, fruehere Gespraeche (nur die letzte Konversation, neueste
 100 Zeilen, davon 16 an das Modell).
 
-## Was Lina DARF (`gsLinaDispatch`, 8 Faelle)
+## Was Lina DARF (`gsLinaDispatch`, 9 Faelle)
 
 Lesend: `navigate`, `open_calendar {day}`, `open_saekalender`, `search_species`,
 `prefill_form`. Schreibend, nur nach `gsConfirmModal`: `propose_add_plant`,
 `propose_reminder` / `propose_task` (Intervall aus `TASK_DEFS`, Pflanze ueber
-`gsLinaResolvePlant` → `_gsPflanzeFinden`, exakt). Unbekanntes Tool → nichts.
-Kein Loeschen, keine Einstellungen, keine Rollen, keine Zahlungen — es gibt
-keinen Fall dafuer, also keinen Weg. `sensor_check` „Lina · handeln" prueft
-die lesenden Tools und ein erfundenes; **die zwei schreibenden haben noch
-keinen Fall** (offen).
+`gsLinaResolvePlant` → `_gsPflanzeFinden`, exakt) und seit v33.39
+`add_calendar_note {day, text, plantName?}` — ein datierter Eintrag im
+Gartentagebuch mit `quelle: 'lina'` und `bestaetigt_am`, geprueft am
+Rueckgabewert von `gsTagebuchSave`; im Kalender steht er mit dem Grund „von
+Lina vorgeschlagen, von dir bestaetigt am …“. Kein zweiter Speicher
+(V1 Regel 2), und ein Filter-Argument gibt es bewusst nicht — Lina verstellt
+nichts an der Wahl der Person. Unbekanntes Tool → nichts. Kein Loeschen, keine
+Einstellungen, keine Rollen, keine Zahlungen — es gibt keinen Fall dafuer, also
+keinen Weg. `sensor_check` prueft die lesenden Tools und ein erfundenes
+(„Lina · handeln“), `add_calendar_note` (T1) und seit v33.39 auch die zwei
+alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
 
 ## Die fuenf Regeln, die fuer jeden Freitext-Weg gelten
 

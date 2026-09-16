@@ -30,6 +30,20 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.19', date: '10.09.2026',
+      headline: '„Heute im Kalender" auf der Startseite — Aussaatfenster, Plan-Termine und Frost unter „Heute zu tun"',
+      summary: 'Die Startseite zeigte nur Aufgaben; was der Kalender sonst für heute kennt — ein Aussaatfenster, ein Plan-Termin, Frost, ein Alarm — stand nur im Kalender. Jetzt eine Zeile darunter, aus derselben Kalenderfunktion.',
+      user_summary: 'Unter „Heute zu tun" siehst du jetzt, was der Kalender für heute sonst noch kennt — zum Beispiel „Feldsalat säen (draussen)" oder einen Termin aus deinem Plan. Antippen öffnet den Kalender am heutigen Tag.',
+      user_items: [
+        {emoji:'📅', text:'„Heute im Kalender: 🌱 Feldsalat säen (draussen) · 🌱 Spinat säen · +2 weitere Einträge" — nur, wenn es etwas gibt.'},
+        {emoji:'🧮', text:'Die Zahl im Titel bleibt die Zahl der Aufgaben — Kalender-Einträge werden nicht dazugezählt.'}
+      ],
+      items: [
+        {emoji:'📐', bold:'_gsDayPlanKalender:', text:' gsKalenderEreignisse(heute, heute), nur die Arten aussaat · ernte · erinnerung · alarm · wetter (keine Aufgaben, kein Rückblick), in allen drei Zuständen der Karte. Ohne Ereignis keine Zeile (KALENDER-V1 Regel 5).'},
+        {emoji:'🧪', bold:'kalender_check „Heute im Kalender":', text:' 6 Ereignisse → Zeile mit „+3 weitere", jeder Titel ein Kalender-Ereignis, Kopf zählt 0 Aufgaben · alle Quellen geräumt → keine Zeile · mit Aufgabe → Zeile unter der Karte. Drei Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.18', date: '10.09.2026',
       headline: 'Nutzungsmessung lesbar — fn_admin_analytics und die Karte „Nutzung" im Admin-Panel',
       summary: 'Seit v33.11 schreibt die App ein benanntes Vokabular — und niemand las es. Jetzt gibt es die Lese-Seite: eine Migration (nicht angewandt) zählt je Ereignis und Tag, nur Zahlen; die Admin-Karte hat drei Zustände.',
