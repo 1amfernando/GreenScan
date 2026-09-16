@@ -4,13 +4,61 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.44` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.45` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (ip) - v33.45: Was demnächst abläuft, steht jetzt auf dem Bildschirm
+
+v33.44 hat das Risiko-Inventar gebaut — und im selben Atemzug notiert, was
+daran fehlt: **eine Liste, die niemand liest, ist Speicherplatz** (die Lehre aus
+v33.18, wo die Nutzungsmessung monatelang schrieb, ohne dass jemand die Zahlen
+abrief). Das ist jetzt geschlossen.
+
+**1 · `GS_FRISTEN` — sechs Fristen, die sich selbst ausrechnen.** Zwei Arten:
+
+- **`datum`** — ein Tag, an dem etwas aufhört. Er ist GEMESSEN, nicht
+  gerechnet; jeder Eintrag trägt sein **Messdatum und seine Quelle**. Heute
+  genau einer: der Quiz-Vorrat am 16.06.2027 (gemessen 14.09.2026,
+  `quiz_gen_check`).
+- **`schwelle`** — eine Grösse mit einem Deckel, live auf dem Gerät gerechnet:
+  Speicher (`gsStore.usageBytes`), Changelog inline, Lernkarten, Messwerte,
+  Quiz-Tagesschlüssel.
+
+Vier Zustände: `ok` · `bald` (ab 80 %) · `faellig` · **`nicht_bekannt` mit
+Grund**. Nie 0 für „keine Daten".
+
+**2 · Und eine Korrektur an mir selbst, noch vor dem ersten Lauf.** Meine erste
+Fassung meldete `faellig`, sobald `ist >= von` — das Changelog steht bei **20
+von 20**, weil 20 der Deckel IST und der nächste Bump den ältesten ins Archiv
+schiebt. Ein Alarm, der im Normalzustand steht, ist genau die Zahl, die man zu
+ignorieren lernt (v32.21, die vier ständigen Falschmeldungen). **`faellig` ist
+jetzt erst DARÜBER**; am Deckel steht `bald`.
+
+**3 · Die Karte im Admin-Panel.** Sie holt nichts vom Server, steht also nicht
+in `GS_ADM_SEKTIONEN` (v33.42), sondern wird wie `_gsAdminBroadcastHtml` direkt
+gerufen. Sortiert nach Dringlichkeit, jede Zeile mit Zustand **in Worten** (nicht
+nur als Farbe), mit dem, was dann passiert, und mit dem, was man tun kann.
+
+**4 · `risiko_check` R4 liest die GERENDERTE Karte**, nicht das Objekt (dieselbe
+Regel wie `planer_check` seit v31.90) — und stellt den dritten Zustand selbst
+her, indem er eine Messung auf `null` setzt.
+
+> **Die Gegenrichtung fehlte, und die Gegenprobe hat es gezeigt.** „Eine Frist
+> aus der Liste entfernt" blieb **grün** — der Fall prüfte „jeder Eintrag
+> steht auf dem Bildschirm", und wer den Eintrag löscht, löscht beide Seiten.
+> **Zwei Seiten, die dieselbe Liste lesen, prüfen einander nicht.** Jetzt hält
+> R4 das INVENTAR dagegen: jedes Datum aus `docs/RISIKEN.md` §1 braucht einen
+> Eintrag. Mit der Gegenrichtung wird die Gegenprobe rot.
+
+**5 · `GS_MESSWERTE_MAX`.** Der Messwerte-Deckel hiess bis hierher nur `2000` an
+seiner Aufrufstelle. **Ein Deckel ohne Namen steht in keinem Dokument und in
+keiner Regel** — R3 kann nur benannte Zahlen gegen den Quelltext halten. Jetzt
+sind es vier.
 
 ### 2026-09-16 (io) - v33.44: Was später schiefgeht — gemessen, bevor es passiert
 
@@ -14077,9 +14125,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.44` (Client) · SW-Cache `gs-v33.44` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.45` (Client) · SW-Cache `gs-v33.45` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **94'709 Zeilen / 6,05 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **570 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.22).
+- **Frontend:** `index.html` **94'919 Zeilen / 6,06 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **570 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.22).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **220 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **38** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

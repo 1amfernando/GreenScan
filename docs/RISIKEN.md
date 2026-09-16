@@ -42,6 +42,7 @@ Ein Text darin, der „dieses Jahr" meint, ist ab dem 1. Januar falsch.
 | Tagebuch | 300 Einträge (`slice(0, 300)`) | — | — |
 | Lernkarten | `GS_TRAINING_KARTEN_MAX` = **500** | — | — |
 | Quiz-Tagesschlüssel | `GS_DQ_TAGE_MAX` = **30** | einer je Tag | Ohne Deckel ein Schlüssel je Tag, für immer |
+| Messwerte auf dem Gerät | `GS_MESSWERTE_MAX` = **2000** | hochgeladene fallen zuerst | Bis v33.45 hiess der Deckel nur `2000` an seiner Aufrufstelle — **ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.** |
 | Nutzungsereignisse | `GS_ANALYTICS_TAGE` = **180** Tage | Migration `20260910_analytics_retention.sql` **nicht angewandt** | Eine Zählung, die nie endet, ist ein Archiv |
 | Bild-Cache (Service Worker) | `IMAGE_CACHE_MAX` 500 Kacheln (~17 MB), geprüft alle 50 | in `sw.js` — `risiko_check` R3 liest nur `index.html`, diese Zahl ist **nicht** maschinell geprüft | Geht der Platz aus, räumt mancher Browser den **ganzen Ursprung** ab, mitsamt `localStorage` |
 | Changelog-Archiv | inline 20, Rest im Archiv | **571 Einträge, 1,2 MB** | Wird erst beim Öffnen geladen — nicht vorgecacht (v33.01) |
@@ -110,6 +111,28 @@ dorthin. **Das steht hier ausdrücklich ohne Prüfstand.**
   nicht (der Bild-Cache steht deshalb in §2 ausdrücklich als ungeprüft).
 - Er kennt kein Wachstum der echten Datenbank. Wie schnell `device_readings`
   wirklich wächst, sagt erst das erste Gerät.
+
+## 6 · Wer das liest (seit v33.45)
+
+Dieses Dokument ist ein Inventar — und ein Inventar, das niemand aufschlägt,
+ist Speicherplatz (dieselbe Lehre wie die Nutzungsmessung, v33.18). Deshalb
+gibt es **`GS_FRISTEN`** in der App: dieselben Fristen, aber sie rechnen sich
+selbst aus, und das **Admin-Panel zeigt sie** (Karte „Läuft demnächst ab").
+
+- Ein **Datum** ist GEMESSEN, nicht gerechnet — jeder Eintrag trägt sein
+  Messdatum und seine Quelle.
+- Eine **Schwelle** rechnet die App live auf dem Gerät.
+- Vier Zustände: `ok` · `bald` (ab 80 %) · `faellig` (ÜBER dem Deckel) ·
+  **`nicht_bekannt` mit Grund**. **Am Deckel ist der Normalzustand, nicht der
+  Alarm** — das Changelog steht bei 20 von 20, und der nächste Bump schiebt
+  den ältesten ins Archiv. Ein Alarm, der im Normalzustand steht, ist die
+  Zahl, die man zu ignorieren lernt (v32.21).
+
+`risiko_check` R4 liest die **gerenderte Karte**, nicht das Objekt — und
+prüft beide Richtungen: jeder Eintrag steht auf dem Bildschirm, und jedes
+Datum aus §1 hat einen Eintrag.
+
+---
 
 **Wer eine Frist oder einen Deckel einführt, trägt ihn hier ein** — und wenn er
 als Konstante im Quelltext steht, mit der Schreibweise `` `GS_X` = **n** ``,
