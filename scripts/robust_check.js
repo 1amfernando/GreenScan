@@ -901,6 +901,72 @@ const FAELLE = [
     },
   },
   {
+    // v33.34 — gemessen beim Bau des Kalender-Pruefwerks. `gs_weather_cache`
+    // hatte ZWEI Schreiber mit ZWEI Formen: der Wetter-Lader legt dort ein
+    // einzelnes `{ts, data, lat, lon}` ab (Frost, Regen, R1 und R2 lesen genau
+    // dieses `data`), der Planer eine KARTE `{"lat,lon": {ts, data}}` — und er
+    // liest seine Variable EINMAL beim Start und schreibt sie spaeter ganz
+    // zurueck. Wer den Planer benutzte, warf damit den frischen Wetterstand
+    // weg; die Frost- und Regenzeilen im Kalender verschwanden, ohne dass
+    // etwas meldet.
+    //
+    // Die Regel, die der Fall festhaelt und die ueber das Wetter hinausgeht:
+    // ein Schluessel, dessen Inhalt eine FORM hat, hat GENAU EINEN Schreiber.
+    // Wer eine zweite Form braucht, braucht einen zweiten Schluessel — und der
+    // muss in einer der Speicherlisten stehen (storage_check).
+    name: 'Wetter-Zwischenspeicher · ein Schlüssel, ein Schreiber — der Planer hat seinen eigenen, und der steht in der Speicherliste',
+    lauf: async () => {
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const ohneKommentar = idx.split('\n').filter(z => !z.trim().startsWith('//')).join('\n');
+      const zaehl = (re) => (ohneKommentar.match(re) || []).length;
+      const klagen = [];
+      const nSchreiber = zaehl(/setItem\(\s*'gs_weather_cache'/g);
+      if (nSchreiber !== 1) klagen.push(nSchreiber + ' Schreiber auf gs_weather_cache (erwartet: 1 — der Wetter-Lader)');
+      if (!/safeGetItem\(\s*'gs_weather_cache_planer'/.test(ohneKommentar)) klagen.push('der Planer liest gs_weather_cache_planer nicht');
+      if (!zaehl(/setItem\(\s*'gs_weather_cache_planer'/g)) klagen.push('der Planer schreibt gs_weather_cache_planer nicht');
+      // Ein neuer Schluessel, der das Abmelden ueberlebt, waere ein Fund fuer
+      // storage_check — hier gehoert er zu den Nutzerdaten.
+      if (!/'gs_weather_cache_planer'/.test((idx.match(/var GS_USER_KEYS = \[[\s\S]*?\n\];/) || [''])[0])) klagen.push('gs_weather_cache_planer steht nicht in GS_USER_KEYS');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'gs_weather_cache: 1 Schreiber · Planer auf gs_weather_cache_planer (gelesen, geschrieben, in GS_USER_KEYS)' };
+    },
+  },
+  {
+    // v33.34: docs/memory/ ist das Gedaechtnis fuer JEDE KI (auch fremde). Eine
+    // Gedaechtnisdatei, die einen Funktionsnamen nennt, den es nicht mehr gibt,
+    // ist schlimmer als keine — sie klingt sicher. Der Fall liest jede Datei,
+    // zieht jeden in Backticks genannten Namen mit App-Praefix (gs*, _gs*,
+    // dq*, sb*, GS_*) und verlangt eine Definition oder Nennung im Quelltext.
+    // Was bewusst als ENTFERNT genannt wird, steht namentlich in BEWUSST.
+    name: 'Memory · jeder in docs/memory/*.md genannte Funktions- oder Konstantenname existiert im Quelltext — und alle neun Dateien sind da',
+    lauf: async () => {
+      const fs = require('fs'), path = require('path');
+      const dir = path.join(__dirname, '..', 'docs', 'memory');
+      const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const ERWARTET = ['README.md', '01-projekt.md', '02-regeln.md', '03-daten-eigner.md', '04-pruefstaende.md', '05-fallen.md', '06-kalender.md', '07-lina.md', '08-arbeitsweise.md'];
+      const BEWUSST = { gsBrain: 'seit v28.75 entfernt — die Datei sagt genau das' };
+      if (!fs.existsSync(dir)) return { ok: false, warum: 'docs/memory/ fehlt' };
+      const fehlend = ERWARTET.filter(f => !fs.existsSync(path.join(dir, f)));
+      if (fehlend.length) return { ok: false, warum: 'Dateien fehlen: ' + fehlend.join(', ') };
+      const MUSTER = /^(_?gs[A-Z]|dq[A-Z]|sb[A-Z]|GS_[A-Z]|_gs[a-z])/;
+      let n = 0; const fehlt = [];
+      for (const f of ERWARTET) {
+        const t = fs.readFileSync(path.join(dir, f), 'utf8');
+        const namen = new Set((t.match(/`([_A-Za-z][\w]*)(?:\([^)]*\))?`/g) || []).map(x => x.replace(/`/g, '').replace(/\(.*$/, '')).filter(x => MUSTER.test(x)));
+        for (const id of namen) {
+          n++;
+          if (BEWUSST[id]) continue;
+          const re = new RegExp('(function\\s+' + id + '\\b|\\b' + id + '\\s*=|\\bvar\\s+' + id + '\\b|\\bconst\\s+' + id + '\\b|\\blet\\s+' + id + '\\b|window\\.' + id + '\\b|\\b' + id + '\\s*[:(])');
+          if (!re.test(src)) fehlt.push(f + ': ' + id);
+        }
+      }
+      // Gegenrichtung: der Fall muss etwas SEHEN — ein Gedaechtnis ohne Namen waere auch gruen.
+      if (n < 60) return { ok: false, warum: 'nur ' + n + ' Namen gefunden — die Dateien nennen kaum Code, oder das Muster greift nicht' };
+      if (fehlt.length) return { ok: false, warum: fehlt.length + ' Namen ohne Definition: ' + fehlt.slice(0, 8).join(' · ') + (fehlt.length > 8 ? ' · +' + (fehlt.length - 8) : '') };
+      return { ok: true, info: n + ' Namen in ' + ERWARTET.length + ' Dateien, alle im Quelltext · bewusst entfernt: ' + Object.keys(BEWUSST).join(', ') };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');

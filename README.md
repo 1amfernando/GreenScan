@@ -1,7 +1,8 @@
 # GreenScan 🌿
 
-Schweizer Naturbestimmungs-PWA — **4'342 Arten** (Pflanzen, Pilze, Bäume,
-Kräuter, Moose, Flechten, Algen). KI-Scanner, Garten-Planer, Pilz-Sicherheit,
+Schweizer Naturbestimmungs-PWA — **3'136 Arten in 4'337 Einträgen** (Pflanzen,
+Pilze, Bäume, Kräuter, Moose, Flechten, Algen; wer eine der beiden Zahlen
+anzeigt, nimmt `gsArtenZahlen()`). KI-Scanner, Garten-Planer, Pilz-Sicherheit,
 Marketplace, mehrsprachig.
 
 **Live:** https://green-scan.ch/ · **Install:** https://green-scan.ch/install.html
@@ -9,10 +10,14 @@ Marketplace, mehrsprachig.
 
 ## Stack
 
-- **Frontend:** Vanilla JS in `index.html` (~82k Zeilen Monolith, kein npm/Build).
-  Hosting: **Cloudflare Pages**.
-- **Backend:** **Supabase** — 117 Tabellen (alle RLS), ~30 Edge-Functions,
-  195 Migrationen.
+- **Frontend:** Vanilla JS in `index.html` (**93'784 Zeilen**, 6,0 MB Monolith,
+  kein npm/Build). Hosting: **Cloudflare Pages** — und zusätzlich **Netlify**
+  (beide liefern das Repo-Wurzelverzeichnis aus, `_headers`/`_redirects` gelten
+  auf beiden).
+- **Backend:** **Supabase** — **213 Objekte** (178 Tabellen + 35 Views, alle
+  RLS; Momentaufnahme `docs/backend-inventar.json`, 02.09.2026), **40
+  Edge-Function-Verzeichnisse**, **219 Migrationen** (13 davon bewusst nicht
+  angewandt — `STATUS.md` §2).
 - **KI:** **Claude (Anthropic)** — Server-Proxy (User braucht keinen eigenen Key)
   oder BYO-Key. Eigene Edge-Fns für Scan/Pilz/Schädling/Garten-Analyse.
 - **Maps:** Leaflet + swisstopo WMTS.
@@ -37,8 +42,12 @@ Marketplace, mehrsprachig.
 
 ## Dokumentation
 
-- 📖 [`CLAUDE.md`](./CLAUDE.md) — Onboarding für AI-Agenten (Konventionen,
-  KI-Call-Wrapper, RLS-Regeln, Multi-Agent-Sync).
+- 🧠 [`docs/memory/`](./docs/memory/) — **das Gedächtnis in Kurzform**: neun
+  Dateien, rund 20 Minuten, für JEDE KI (nichts darin setzt Claude Code
+  voraus). Fang hier an.
+- 📖 [`CLAUDE.md`](./CLAUDE.md) — das ausführliche Tagebuch dahinter
+  (Konventionen, KI-Call-Wrapper, RLS-Regeln, Multi-Agent-Sync, jede Falle mit
+  ihrer Version).
 - 📊 [`STATUS.md`](./STATUS.md) — Operativer Snapshot + tägliche Routine-Einträge.
 - 🗺️ [`ROADMAP.md`](./ROADMAP.md) — Priorisierte Meilensteine.
 - 🧭 [`docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md`](./BACKEND_FRONTEND_MAP_v26.76.md) —

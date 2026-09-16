@@ -376,6 +376,45 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (dm) { dm.style.display = ''; dm.classList.add('active'); }
         return document.getElementById('modal-content');
       }],
+      // v33.34: der Kalender MIT einem verletzten Hinweis (KALENDER-V2 §3).
+      // Die Beispieldaten tragen keinen Regen — ohne gestellte Daten stuende
+      // die neue Hinweiszeile (.gs-kal-hinweis, --c-warn-d als TEXT) in keinem
+      // gemessenen Fenster. Ein Pruefstand misst, was er erreicht (v32.12).
+      // REGEN und nicht Frost: Aussaatfenster haengen am Monat, der Regen
+      // nicht — ein Fall, der nur im Herbst etwas zu messen hat, misst im
+      // Sommer nichts und sieht dabei aus wie „keine Funde". Und die 8 mm
+      // stehen in Stunde 0, weil gsRegenGefallen nur bis zur AKTUELLEN Stunde
+      // zaehlt: ein Lauf um 03:00 nachts haette sonst 0 mm gemessen.
+      ['kalender-hinweis', () => {
+        if (typeof gsKalenderOeffnenAm !== 'function' || typeof gsHeuteTag !== 'function') return 0;
+        const heute = gsHeuteTag();
+        // Der Zustand wird HERGESTELLT, und zwar GANZ: dieser Pruefstand hat
+        // seinen EIGENEN, winzigen Seed (nur Anmeldung und Sprache) — die
+        // Beispieldaten aus scripts/_seed.js liegen hier NICHT. Ein Fall, der
+        // `plant_seed_1` sucht, findet nichts und misst nichts (erster Lauf:
+        // „Fenster uebersprungen"). Also Garten und Pflanzung selbst anlegen.
+        try {
+          if (typeof gardens !== 'undefined' && Array.isArray(gardens) && !gardens.some(g => g && g.id === 'g-kontrast'))
+            gardens.push({ id: 'g-kontrast', name: 'Balkon', kind: 'balkon' });
+          if (typeof plantings !== 'undefined' && Array.isArray(plantings) && !plantings.some(x => x && x.id === 'p-kontrast'))
+            plantings.push({ id: 'p-kontrast', gardenId: 'g-kontrast', name: 'Zucchini', date: new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10), added: new Date(Date.now() - 30 * 864e5).toISOString(),
+              tasks: { water: { active: true, intervalDays: 2, lastDone: new Date(Date.now() - 3 * 864e5).toISOString() } } });
+        } catch (_) {}
+        const zeiten = [], regen = [];
+        for (let h = 0; h < 24; h++) { zeiten.push(heute + 'T' + String(h).padStart(2, '0') + ':00'); regen.push(h === 0 ? 8 : 0); }
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { hourly: { time: zeiten, precipitation: regen } } }));
+        gsKalenderOeffnenAm(heute);
+        const mc = document.getElementById('modal-content');
+        // Grund-Zeilen sind versteckt (hidden) — die Hinweiszeile nicht. Fehlt
+        // sie, hat der Fall seinen Zustand nicht hergestellt: dann LAUT sein,
+        // nicht still 0 zurueckgeben (ein Fenster ohne Messung sieht sonst aus
+        // wie ein Fenster ohne Funde — v32.35).
+        if (!mc) throw new Error('kalender-hinweis: kein #modal-content');
+        if (!mc.querySelector('.gs-kal-hinweis')) throw new Error('kalender-hinweis: keine .gs-kal-hinweis-Zeile — der Fall stellt seinen Zustand nicht her');
+        const dm = document.getElementById('detail-modal');
+        if (dm) { dm.style.display = ''; dm.classList.add('active'); }
+        return mc;
+      }],
     ];
 
     // v32.25: der Messvorgang als FUNKTION — er wird jetzt von zwei Seiten

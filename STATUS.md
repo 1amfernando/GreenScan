@@ -4,13 +4,174 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-15 · **Branch**: `main` · **Version**: `v33.33` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-15 · **Branch**: `main` · **Version**: `v33.34` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (ie) - docs/memory: das Gedächtnis in Kurzform, fuer JEDE KI
+
+**Fernandos Auftrag (14.09.):** „Erstelle neue effiziente Memory-Dateien, die
+man auch anderen KIs geben kann." Neun Dateien in `docs/memory/`, rund
+20 Minuten Lesezeit, 850 Zeilen — nichts darin setzt Claude Code voraus:
+README (Wegweiser) · 01 Projekt · 02 die zwoelf Regeln · 03 Daten und Eigner ·
+04 die 35 Pruefstaende · 05 die Fallen · 06 Kalender · 07 Lina ·
+08 Arbeitsweise. `CLAUDE.md` bleibt das ausfuehrliche Tagebuch dahinter und
+verweist oben darauf; jede Regel dort nennt ihre Stelle hier.
+
+**Und ein Pruefstand dahinter** (`robust_check` „Memory", 27 Faelle): er
+liest jede Datei, zieht jeden in Backticks genannten Namen mit App-Praefix
+(`gs*`, `_gs*`, `dq*`, `sb*`, `GS_*`) und verlangt eine Definition im
+Quelltext. **Eine Gedaechtnisdatei, die einen Namen nennt, den es nicht
+gibt, ist schlimmer als keine — sie klingt sicher.** Gemessen: 129 Namen,
+0 ohne Definition. Zwei Namen mussten dafuer entschaerft werden
+(`GS_WETTER_GRENZEN` und `_gsKalFiltern` sind fuer die Scheiben 2/3 geplant
+und existieren noch nicht — sie stehen jetzt ohne Backticks mit dem Vermerk
+„geplant"). Zwei Gegenproben: eine Datei entfernt → rot; einen erfundenen
+Namen eingetragen → rot. Und der Fall prueft, dass er ueberhaupt etwas
+SIEHT (mindestens 60 Namen) — ein Gedaechtnis ohne Namen waere sonst
+ebenfalls gruen.
+
+**Zwei Ueberblicke nachgemessen, weil sie leise veraltet waren:** `README.md`
+stand auf „4'342 Arten", „~82k Zeilen", „117 Tabellen", „~30
+Edge-Functions", „195 Migrationen" — jede Zeile fuer sich plausibel, keine
+davon aktuell; es ist die erste Datei, die ein Mensch oder eine fremde KI
+auf GitHub sieht. Jetzt gemessen (3'136 Arten in 4'337 Eintraegen, 93'784
+Zeilen, 213 Objekte, 40 Edge-Verzeichnisse, 219 Migrationen) und mit dem
+Zeiger auf `docs/memory/` zuoberst. `STATUS.md` §1 stand auf `v33.29` —
+fuenf Versionen zurueck; ebenfalls nachgezogen. Kein Bump: kein Byte der App.
+
+### 2026-09-15 (id) - v33.34: Der Kalender denkt — das Prüfwerk (KALENDER-V2, Scheibe 1)
+
+**Fernandos Auftrag (14.09.):** der intelligenteste Kalender, verknuepft mit
+Naturjahr, Saisonkalender und Garten-Timeline, mit Filtern, nicht vollgepumpt,
+Lina komplett verknuepft, „der Kalender soll selber denken koennen". Der
+Entwurf steht in `docs/KALENDER-V2.md` (fuenf Entscheidungen, zehn rechnende
+Regeln, sieben Scheiben) — auf gemessener Grundlage: eine Funktion, 13
+Geschwister-Oberflaechen (die Timeline liest seit v23.57 einen toten
+Schluessel; SECHS unabhaengige Aussaat-Listen im Repo), 20 Befunde.
+
+**Die neue Regel in einem Satz:** „Denken" heisst nicht, mehr zu wissen,
+sondern das, was die App schon weiss, GEGENEINANDER zu halten — und zu sagen,
+woher. `_gsKalPruefwerk(liste)` laeuft am Ende der EINEN Funktion
+(`gsKalenderEreignisse`) und schreibt `hinweise[]` an die beteiligten
+Ereignisse: drei Zustaende je Regel, `verletzt` als Zeile im Fenster,
+`nicht_pruefbar` im Grund, `erfuellt` still. Reihenfolge fest: Rechnung →
+Pruefwerk → Sieb (naechste Scheibe) → Anzeige. Keine Regel schreibt.
+
+**Fuenf Regeln in dieser Scheibe, jede mit gut · schlecht · nicht pruefbar im
+Pruefstand, aus dem HTML gelesen:**
+
+- **R1 Frost trifft Aussaat draussen.** Frost-Ereignis (Vorhersage, 5b) und
+  Aussaat-Ereignis mit `fenster:'outdoor'` (neues Feld — das Pruefwerk fragt
+  das Feld, nie den Titel) im selben Monat → Hinweis an BEIDEN Zeilen. Ohne
+  Vorhersage: „nicht pruefbar", nie „kein Frost".
+- **R2 Regen uebernimmt das Giessen.** EINE Rechnung: `_gsRegenUebernimmt(p)`
+  — `gsGetDueTasks` (der Draht aus v31.84, `eintrag.regen`) und das Pruefwerk
+  rufen dieselbe; der Fall zaehlt beide und vergleicht. Drinnen ist „gilt
+  nicht", kein Zustand; unbekannter Standort und fehlender Regenwert sind
+  „nicht pruefbar". Die Aufgabe bleibt, das Kaestchen bleibt.
+- **R3 Ernte-Schaetzung nur mit Kulturdaten.** Gemessen: `calcHarvestDate`
+  ruft `getPlantInfo`, und das gibt fuer JEDEN unbekannten Namen {60, 90}
+  Tage zurueck — eine Monstera-Pflanzung bekam „Ernte voraussichtlich
+  16.10.", Rosen „15.12.", mit dem Grund „typische Kulturdauer", die es fuer
+  sie nicht gibt. Jetzt ist `_gsKulturZuPflanze` das Tor (41 Kulturen,
+  exakt); ohne Treffer KEIN Ereignis, und der Grund nennt die Zahlen in
+  Alltagssprache („Zucchini braucht meist 50 bis 65 Tage — gepflanzt am
+  02.08. Eine Schaetzung, kein Versprechen"). Und das DATUM kommt aus
+  derselben Quelle wie der Grund (`kul.k`), nicht mehr aus `calcHarvestDate`
+  — zwei Rechnungen fuer eine Frage sind die Klasse aus §4a.2.
+- **R4 Erntereif geschaetzt, nichts eingetragen.** Schaetzung ≤ heute ohne
+  Zeile im Ernte-Log → „seit 12 Tagen voraussichtlich erntereif — keine Ernte
+  eingetragen"; mit Zeile → erfuellt mit Menge im Grund; eine Log-Zeile ohne
+  Pflanzenangabe (die Seed-Falle K5 aus v33.33) → „nicht pruefbar", nie
+  „nichts eingetragen".
+- **R5 Ueberfaellig-Stufe.** `faellig_seit ≤ −7` → die Klasse
+  `gs-kal-lange` und SONST NICHTS: die Unterzeile sagt „Seit 11 Tagen
+  faellig" bereits (`_gsDayPlanWhen`), und zwei Texte fuer dieselbe Frage,
+  gleichzeitig sichtbar, sind die Klasse aus v32.87. Ohne `lastDone` gibt
+  `getDaysUntilDue` 0 zurueck — sah aus wie „heute"; jetzt „noch nie
+  abgehakt" unter „Nicht bekannt".
+- **R8 Leere Tage sind eine Aussage** — zwei der drei Saetze: „Nichts an
+  diesem Tag" (Daten da) und „Noch keine Daten" (keine Quelle,
+  `_gsKalDatenlage()`); der dritte („N ausgeblendet") kommt mit dem Sieb.
+
+**Fenster (nach der gegnerischen Pruefung ueberarbeitet):** je Zeile EIN
+sichtbarer Hinweissatz, der Rest als „+N weitere" im aufklappbaren Grund
+(`.gs-kal-hinweis`, `--c-warn-d` als TEXT, nie als Fuellung) — R1 schreibt je
+Frosttag einen Satz, eine Novemberwoche haette sieben in einer 10-px-Zeile.
+Die ⚠-Ecke gilt nur fuer Hinweise MIT Satz (der rote Ueberfaellig-Rand sagt
+dasselbe wie eine zweite Ecke) und waechst im Senioren-Modus mit; ihre Zahl
+steht im `aria-label` des Tages. Im Grund steht „Nicht bekannt:" statt
+„Nicht pruefbar:" — „pruefbar" ist Pruefstand-Vokabular, kein Nutzerwort.
+Und die Gruende sagen „Wetterdienst" statt „Open-Meteo", „noch keine Ernte
+eingetragen" statt „kein Eintrag im Ernte-Log", „keine Wettervorhersage
+geladen" statt „nicht im Zwischenspeicher".
+
+**Beispieldaten:** `_seed.js` traegt jetzt einen Wetter-Zwischenspeicher —
+RELATIV zum Anker, sieben Tage, ohne Frost, ohne Regen, nur `daily`: ein
+`hourly`-Block liesse `gsWetterGeraetAbgleich` ein Pseudo-Geraet
+„Wetterdienst" anlegen, und jeder Pruefstand zaehlte zwei Geraete statt
+eines. Der Fall „Ohne Daten" raeumt ihn als sechste Quelle und erwartet den
+dritten Leerzustand.
+
+**Pruefstaende:** `kalender_check` 30 Faelle (7 neu; alle 7 rot gegen
+v33.33, gruen danach). Gegenproben: R1, R2, R3, R4 je ausgebaut → der Fall
+rot. Und eine Lehre aus dem Bau: der R5-Fall meldete „Tomate (heute faellig)
+bekommt eine Stufe" mit `faellig_seit −28` — ein frueherer Fall hatte
+Tomates `lastDone` auf −30 Tage gesetzt. Die Regel war richtig, die Annahme
+ueber die Reihenfolge nicht (v32.40: **wer einen Zustand braucht, stellt ihn
+her**). `contrast_check` misst das Kalender-Fenster jetzt ueber den REGEN
+(8 mm in Stunde 0, Zucchini heute faellig): Aussaatfenster haengen am Monat,
+ein Fall, der nur im Herbst etwas zu messen hat, misst im Sommer nichts und
+sieht dabei aus wie „keine Funde". Er WIRFT jetzt, wenn keine Hinweiszeile
+entsteht, statt still 0 zu liefern — und genau das hat beim ersten Lauf
+zugeschlagen: Garten-Pflanzungen bekommen ihre Aufgaben erst beim ersten
+Lesen (`_gsPflanzungenNachruesten`), also stellt der Fall sie jetzt selbst her.
+
+**Die gegnerische Pruefung (15.09.) und was sie geaendert hat.** Zwei Richter
+haben den Entwurf und den Code gegen die Hausregeln gehalten; sechs Befunde
+sind eingearbeitet (Deckel an der Hinweiszeile, R5 ohne Doppelung, ein
+Signal je Tag, „Nicht bekannt", Gruende in Alltagssprache, Entwurf und Code
+gleichgezogen). Zwei weitere Befunde stammen aus dem eigenen Nachmessen
+waehrend der Reparatur:
+
+- **Ein Schluessel, zwei Schreiber, zwei Formen.** `gs_weather_cache` traegt
+  beim Wetter-Lader ein `{ts, data, lat, lon}` (Frost, Regen, R1, R2 und
+  `_gsKalDatenlage` lesen genau dieses `data`) — der Planer legte dort eine
+  KARTE `{"lat,lon": {ts, data}}` ab, gelesen EINMAL beim Start und spaeter
+  ganz zurueckgeschrieben. Wer den Planer benutzte, warf damit den frischen
+  Wetterstand weg; die Frost- und Regenzeilen im Kalender verschwanden, ohne
+  dass etwas meldet. Der Planer hat jetzt `gs_weather_cache_planer` (in
+  `GS_USER_KEYS`, dieselbe Klasse wie Hof- und Gartenwetter). Pruefstand:
+  `robust_check` „Wetter-Zwischenspeicher · ein Schluessel, ein Schreiber"
+  (Gegenprobe: zurueckgebaut → rot mit „2 Schreiber").
+- **`ctx.harvests` war seit jeher leer.** Der Planer-Kontext las die
+  Ernte-Erfahrung als `h.name || h.crop || h.plant` — alle drei Schreiber von
+  `gs_ernte_log` schreiben `pflanze`/`menge`. Dieselbe Klasse wie
+  `_gsScanZeit` (v33.33): **der Leser ist die Regel, nicht das Feld.**
+
+**Offen, bewusst nicht in dieser Scheibe:** das Messwerte-Dashboard sagt seit
+v32.48 „nicht pruefbar" auf dem Bildschirm (`mw_nicht_pruefbar` und sechs
+Saetze in `_gsRegelUrteil`). Im Kalender heisst dieser Zustand jetzt „Nicht
+bekannt" — „pruefbar" ist das Wort der Pruefstaende, nicht der Person. Die
+Sensor-Texte mitzuziehen ist eine eigene, gemessene Scheibe (sie haengen an
+`sensor_check`-Faellen), kein Nebeneffekt hier.
+
+Und eine Falle aus der Reparatur selbst, die jeden Fall betrifft: die neue
+Gegenprobe „nur eine Wettervorhersage ist keine Datengrundlage" blieb gruen,
+weil sie den Zwischenspeicher aus `sichern.wc` wiederherstellen wollte — und
+der war `null`, weil ein FRUEHERER Fall ihn geraeumt und nicht zurueckgelegt
+hatte. Sie stellt ihn jetzt selbst her. **Eine Gegenprobe, deren Aufbau still
+fehlschlaegt, sieht aus wie eine bestandene.**
+
+**Was bewusst NICHT hier ist:** das Sieb (Scheibe 2), Wetter-Schwellen und
+R6 (Scheibe 3), Art `scan`, echte Ernte, Merkliste, Naturjahr aus dem
+Kalender, Timeline aufheben (Scheibe 4), Linas Kalender-Block (Scheibe 5),
+Woche und Abwesenheit (Scheibe 6), Server-Sicht mit Pflanzungen (Scheibe 7).
 
 ### 2026-09-15 (ic) - v33.33: Lina sagt, was stimmt
 
@@ -13260,7 +13421,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 14.09.2026** (davor am 09.09.). Er stand am 02.09. auf
+> **Nachgemessen am 16.09.2026** (davor am 14.09.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -13269,10 +13430,10 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.29` (Client) · SW-Cache `gs-v33.29` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.34` (Client) · SW-Cache `gs-v33.34` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'266 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **563 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **12**, Deckel 20 durch `robust_check` Fall 24).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **218 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
+- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **19**, Deckel 20 durch `robust_check` Fall 24).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 

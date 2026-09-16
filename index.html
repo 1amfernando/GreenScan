@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.33.20260915">
+<meta name="app-version" content="33.34.20260915">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5798,6 +5798,10 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-kal-txt b{font-size:var(--fs-sm);font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gs-kal-txt i{font-size:var(--fs-xs);color:var(--muted);font-style:normal;}
 .gs-kal-grund{font-size:var(--fs-xs);color:var(--text2);margin-top:3px;line-height:1.4;}
+.gs-kal-hinweis{font-size:var(--fs-xs);color:var(--c-warn-d);font-style:normal;font-weight:700;line-height:1.35;}   /* v33.34: Textfarbe, nie Fuellung */
+.gs-kal-zeile.gs-kal-lange{border-left:3px solid var(--c-danger);}
+.gs-kal-tag{position:relative;}
+.gs-kal-tag .gs-kal-w{position:absolute;top:1px;right:2px;font-size:.62em;line-height:1;font-style:normal;color:var(--c-warn-d);}
 .gs-kal-box{width:28px;height:28px;border-radius:50%;border:2px solid var(--g-main);background:transparent;flex-shrink:0;cursor:pointer;color:#fff;font-size:var(--fs-md);line-height:1;}
 .gs-kal-box.on{background:var(--fill-brand);border-color:var(--fill-brand);}
 .gs-kal-box.info{border-style:dotted;border-color:var(--border);cursor:default;}
@@ -15031,6 +15035,11 @@ window.GS_I18N_JS_STRINGS = {
   'kal_oeffnen': 'Öffnen',
   'kal_verschoben': 'verschoben',
   'kal_nichts': 'Nichts an diesem Tag.',
+  'kal_keine_daten': 'Noch keine Daten — leg eine Pflanze an, dann füllt sich der Kalender.',
+  'kal_nicht_bekannt': 'Nicht bekannt:',
+  'kal_hinweis_1': 'Hinweis',
+  'kal_hinweis_n': 'Hinweise',
+  'kal_messwerte_a': 'Messwerte öffnen',
   'kal_heute': 'Heute',
   'kal_offen_1': 'offene Aufgabe bis heute',
   'kal_offen_n': 'offene Aufgaben bis heute',
@@ -27254,6 +27263,22 @@ window.gsRegenGefallen = gsRegenGefallen;
 var _GS_DRAUSSEN = ['balkon', 'terrasse', 'garten', 'beet', 'draussen', 'freiland', 'hochbeet', 'hof', 'dachterrasse'];
 var _GS_DRINNEN  = ['zimmer', 'wohn', 'kueche', 'küche', 'fenster', 'bad', 'buero', 'büro', 'schlaf', 'flur', 'indoor',
                     'gewaechshaus', 'gewächshaus', 'treibhaus', 'wintergarten', 'folientunnel'];
+// v33.34 (KALENDER-V2 R2): „Regen uebernimmt das Giessen" — EINE Rechnung
+// fuer gsGetDueTasks (eintrag.regen) und das Pruefwerk des Kalenders. Drei
+// Zustaende plus „gilt nicht": drinnen (false) ist KEIN nicht_pruefbar, sondern
+// keine Regel; unbekannter Standort (null) und fehlender Regenwert sind es.
+function _gsRegenUebernimmt(p) {
+  try {
+    var dr = gsPflanzeDraussen(p);
+    if (dr === false) return null;
+    if (dr !== true) return { zustand: 'nicht_pruefbar', r: null, grund: _gsSatz('Standort unbekannt — im Pflanzenprofil oder am Garten eintragen') };
+    var r = (typeof gsRegenGefallen === 'function') ? gsRegenGefallen() : null;
+    if (!r) return { zustand: 'nicht_pruefbar', r: null, grund: _gsSatz('Regen: keine Wettervorhersage geladen') };
+    if (r.mm >= GS_REGEN_REICHT_MM) return { zustand: 'verletzt', r: r, text: _gsSatz('Regen übernimmt: {1} mm bis jetzt', r.mm), grund: _gsSatz('Wetterdienst, Stand vor {1} min — abhaken bleibt dir', r.alter_min) };
+    return { zustand: 'erfuellt', r: r, grund: _gsSatz('{1} mm Regen bis jetzt — unter {2} mm', r.mm, GS_REGEN_REICHT_MM) };
+  } catch (e) { return { zustand: 'nicht_pruefbar', r: null, grund: (typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : '' }; }
+}
+window._gsRegenUebernimmt = _gsRegenUebernimmt;
 function gsPflanzeDraussen(p) {
   try {
     // v32.51: Eine Pflanzung steht in einem Garten — und dessen Art weiss,
@@ -27324,10 +27349,9 @@ function gsGetDueTasks(){
         if (t.vorgezogenAuf && t.vorgezogenGrund && (!t.lastDone || String(t.lastDone) < String(t.vorgezogenAuf))) eintrag.sensor = t.vorgezogenGrund;
         // v31.84: Giessen und Regen zusammenbringen. Nur beim Giessen, nur
         // draussen, nur mit gemessenem Wert — und die Aufgabe bleibt stehen.
-        if (k === 'water' && gsPflanzeDraussen(p) === true) {
-          var r = gsRegenGefallen();
-          if (r && r.mm >= GS_REGEN_REICHT_MM) eintrag.regen = r;
-        }
+        // v33.34: die Rechnung steht in _gsRegenUebernimmt — das Pruefwerk des
+        // Kalenders (R2) ruft dieselbe; zwei Rechnungen liefen auseinander.
+        if (k === 'water') { var ru = _gsRegenUebernimmt(p); if (ru && ru.zustand === 'verletzt') eintrag.regen = ru.r; }
         out.push(eintrag);
       });
     });
@@ -28786,7 +28810,7 @@ function gsAussaatEreignisse(von, bis) {
           for (var j = j0; j <= j1; j++) {
             var tag = _gsKalTag(new Date(j, m, 1)); if (!im(tag)) continue;
             out.push({ id: 'aussaat:' + _gsSaeNorm(k.n) + ':' + art[0] + ':' + tag, art: 'aussaat', datum: tag, zeit: null, ts: null,
-              titel: k.n + art[1], emoji: art[2],
+              titel: k.n + art[1], emoji: art[2], fenster: art[0],   // v33.34: 'indoor' | 'outdoor' — das Pruefwerk fragt das Feld, nie den Titel
               pflanze: null, garten_id: null,
               quelle: 'kulturdaten', status: 'info', faellig_seit: null,
               verweis: { fn: 'openSaekalender', args: [] }, grund: grundKopf });
@@ -28871,14 +28895,29 @@ function gsKalenderEreignisse(von, bis) {
   // 4 · Ernte-Schaetzung je Pflanzung (calcHarvestDate rechnet aus Pflanzdatum
   //     und typischer Dauer der PLANT_DB — eine Schaetzung, und der Grund sagt es)
   try {
-    if (typeof plantings !== 'undefined' && Array.isArray(plantings) && typeof calcHarvestDate === 'function') plantings.forEach(function (p) {
+    // v33.34 (KALENDER-V2 R3): nur mit KULTURDATEN. calcHarvestDate ruft
+    // getPlantInfo, und das gibt fuer jeden unbekannten Namen {60, 90} Tage
+    // zurueck — gemessen: eine Monstera-Pflanzung bekam „Ernte voraussichtlich
+    // 16.10.", Rosen „15.12.", mit dem Grund „typische Kulturdauer", die es fuer
+    // sie nicht gibt. Das Tor ist _gsKulturZuPflanze (exakt, 41 Kulturen);
+    // ohne Treffer KEIN Ereignis — und der Grund nennt die Zahlen.
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) {
       if (!p || !p.date) return;
-      var h = null; try { h = calcHarvestDate(p, null); } catch (_) { h = null; }
-      var tag = (h && h.harvestDate) ? _gsKalTag(h.harvestDate) : null;   // calcHarvestDate → {harvestDate, adjustedDays, daysGrown, progress, daysLeft}
+      var kul = (typeof _gsKulturZuPflanze === 'function') ? _gsKulturZuPflanze(p) : null;
+      if (!kul || !kul.k || !(kul.k.minDays > 0) || !(kul.k.maxDays > 0)) return;
+      // Und die Zahl der ANZEIGE kommt aus DERSELBEN Quelle wie die des
+      // Grundes. calcHarvestDate rechnet mit getPlantInfo, dessen Rueckfall
+      // ({60, 90}) von der gefundenen Kultur abweichen kann — zwei Rechnungen
+      // fuer eine Frage sind die Klasse aus §4a.2.
+      var mitte = Math.round((kul.k.minDays + kul.k.maxDays) / 2);
+      var basis = new Date(String(p.date).slice(0, 10) + 'T12:00:00');
+      if (isNaN(basis.getTime())) return;
+      var tag = _gsKalTag(new Date(basis.getTime() + mitte * 864e5));
       if (!tag || !im(tag)) return;
       out.push({ id: 'ernte:' + p.id, art: 'ernte', datum: tag, zeit: null, ts: null, titel: (p.name || '') + ' — Ernte voraussichtlich', emoji: '🧺',
         pflanze: { id: p.id, name: p.name, liste: 'plantings' }, garten_id: p.gardenId || null, quelle: 'regel', status: 'info', faellig_seit: null,
-        verweis: { fn: 'openPlantingDetail', args: [p.id] }, grund: 'Schätzung aus Pflanzdatum und typischer Kulturdauer — kein Versprechen' });
+        verweis: { fn: 'openPlantingDetail', args: [p.id] },
+        grund: _gsSatz('{1} braucht meist {2} bis {3} Tage — gepflanzt am {4}. Eine Schätzung, kein Versprechen', kul.name, kul.k.minDays, kul.k.maxDays, _gsKalDatumKurz(p.date)) });
     });
   } catch (_) {}
   // 5 · Regen heute (Open-Meteo-Zwischenspeicher, nur mit gemessenem Wert)
@@ -28901,7 +28940,7 @@ function gsKalenderEreignisse(von, bis) {
       for (var fi = 0; fi < dly.time.length && fi < 7; fi++) {
         var ftag = String(dly.time[fi]).slice(0, 10), fmin = Number(dly.temperature_2m_min[fi]);
         if (!im(ftag) || ftag < heute || !isFinite(fmin) || fmin > GS_FROST_GRENZE_C) continue;
-        out.push({ id: 'frost:' + ftag, art: 'wetter', datum: ftag, zeit: null, ts: null, titel: _gsSatz('Frost möglich — Tiefstwert {1} °C', Math.round(fmin * 10) / 10), emoji: '❄️',
+        out.push({ id: 'frost:' + ftag, art: 'wetter', datum: ftag, zeit: null, ts: null, titel: _gsSatz('Frost möglich — Tiefstwert {1} °C', Math.round(fmin * 10) / 10), emoji: '❄️', wert: Math.round(fmin * 10) / 10,
           pflanze: null, garten_id: null, quelle: 'wetter', status: 'info', faellig_seit: null, verweis: null,
           grund: (alterH != null
             ? _gsSatz('Vorhersage Open-Meteo für den Nutzer-Standort (Tagesminimum, kein Messwert), Stand vor {1} h — Reif bildet sich schon bei +2 °C Lufttemperatur', alterH)
@@ -28938,6 +28977,10 @@ function gsKalenderEreignisse(von, bis) {
   try { gsPlanEreignisse(von, bis).forEach(function (e) { out.push(e); }); } catch (_) {}
   // v33.13: Aussaatfenster aus den Kulturdaten (KALENDER-V1 2b) — siehe gsAussaatEreignisse oberhalb.
   try { gsAussaatEreignisse(von, bis).forEach(function (e) { out.push(e); }); } catch (_) {}
+  // v33.34: das PRUEFWERK (KALENDER-V2 §3) — haelt die Ereignisse gegeneinander
+  // und schreibt hinweise[] an die beteiligten. Rechnung → Pruefwerk → Sieb →
+  // Anzeige; das Sieb kommt in der naechsten Scheibe und fasst diese Liste nie an.
+  try { _gsKalPruefwerk(out, von, bis, heute); } catch (_) { out.forEach(function (e) { if (e && !Array.isArray(e.hinweise)) e.hinweise = []; }); }
   var rang = { aufgabe: 0, alarm: 1, erinnerung: 2, tagebuch: 3, gepflanzt: 4, aussaat: 5, ernte: 6, messung: 7, wetter: 8 };
   out.sort(function (a, b) {
     if (a.datum !== b.datum) return a.datum < b.datum ? -1 : 1;
@@ -28949,6 +28992,132 @@ function gsKalenderEreignisse(von, bis) {
   return out;
 }
 window.gsKalenderEreignisse = gsKalenderEreignisse;
+
+// ═══ v33.34 · KALENDER-V2 §3: das Pruefwerk ═══════════════════════════════
+// „Denken" heisst hier nicht, mehr zu wissen, sondern das, was die App schon
+// weiss, GEGENEINANDER zu halten — und zu sagen, woher. Dieselbe Bauform wie
+// _gsPlanPruefwerk (PLANER-V3): jede Regel rechnet offline aus Daten, die im
+// Repo liegen, hat drei Zustaende (erfuellt · verletzt · nicht_pruefbar mit
+// Grund) und schreibt ihr Urteil als Eintrag in hinweise[] an die beteiligten
+// Ereignisse. Keine Regel schreibt: kein lastDone, kein Datum wird angefasst.
+// Nur `verletzt` wird als Zeile gezeigt; `nicht_pruefbar` steht im Grund.
+var GS_UEBERFAELLIG_LANGE_TAGE = 7;   // eine Woche — „woechentlich", die mittlere Giess-Stufe in TASK_DEFS
+function _gsKalHinweis(e, regel, zustand, text, grund) {
+  if (!e) return;
+  if (!Array.isArray(e.hinweise)) e.hinweise = [];
+  e.hinweise.push({ regel: regel, zustand: zustand, text: text || '', grund: grund || '' });
+}
+function _gsKalPruefwerk(out, von, bis, heute) {
+  out.forEach(function (e) { if (e && !Array.isArray(e.hinweise)) e.hinweise = []; });
+  var monat = function (t) { return String(t || '').slice(0, 7); };
+  // ── R1 · Frost trifft Aussaat draussen ─────────────────────────────────
+  // Eingaben: die Frost-Ereignisse aus der Vorhersage (Nr. 5b, id 'frost:<tag>')
+  // und die Aussaat-Ereignisse mit fenster 'outdoor' im SELBEN Monat. Ohne
+  // Vorhersage: nicht pruefbar an der Aussaat des laufenden Monats — nie „kein Frost".
+  try {
+    var froste = {};
+    out.forEach(function (e) { if (e.art === 'wetter' && /^frost:/.test(e.id)) (froste[monat(e.datum)] = froste[monat(e.datum)] || []).push(e); });
+    // Worueber sagt die Vorhersage ueberhaupt etwas? Sieben Tage ab heute —
+    // dieselbe Grenze wie das Frost-Ereignis (Nr. 5b). Ein Monat, der davon
+    // nicht beruehrt wird, bekommt KEIN Urteil: weder „kein Frost“ (das waere
+    // erfunden) noch „nicht bekannt“ an einem Fenster im uebernaechsten Monat
+    // (das stuende zwoelfmal da, ohne dass es je anders sein koennte).
+    var vorhersage = [];
+    try {
+      var cw = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
+      var dl = cw && cw.data && cw.data.daily;
+      if (dl && Array.isArray(dl.time) && Array.isArray(dl.temperature_2m_min))
+        for (var vi = 0; vi < dl.time.length && vi < 7; vi++) { var vt = String(dl.time[vi]).slice(0, 10); if (vt >= heute) vorhersage.push(vt); }
+    } catch (_) {}
+    var bisTag = vorhersage.length ? vorhersage[vorhersage.length - 1] : null;
+    var monateMitVorhersage = {}; vorhersage.forEach(function (t) { monateMitVorhersage[monat(t)] = true; });
+    out.forEach(function (a) {
+      if (a.art !== 'aussaat' || a.fenster !== 'outdoor') return;
+      if (monat(a.datum) < monat(heute)) return;                       // vorbei — dazu gibt es nichts mehr zu sagen
+      var treffer = froste[monat(a.datum)] || [];
+      if (treffer.length) {
+        treffer.forEach(function (f) {
+          _gsKalHinweis(a, 'frost_aussaat', 'verletzt', _gsSatz('Frost am {1} ({2} °C laut Vorhersage) — draussen lieber danach säen', _gsKalDatumKurz(f.datum), f.wert != null ? f.wert : '?'), f.grund);
+          _gsKalHinweis(f, 'frost_aussaat', 'verletzt', _gsSatz('trifft das Aussaatfenster: {1}', a.titel), a.grund);
+        });
+      } else if (monateMitVorhersage[monat(a.datum)]) {
+        _gsKalHinweis(a, 'frost_aussaat', 'erfuellt', '', _gsSatz('kein Frost in der Wettervorhersage bis {1}', _gsKalDatumKurz(bisTag)));
+      } else if (monat(a.datum) === monat(heute)) {
+        _gsKalHinweis(a, 'frost_aussaat', 'nicht_pruefbar', '', _gsSatz('Frost: keine Wettervorhersage für diese Tage geladen'));
+      }
+    });
+  } catch (_) {}
+  // ── R2 · Regen uebernimmt das Giessen (nur heute, nur draussen, nur gemessen) ──
+  try {
+    out.forEach(function (e) {
+      if (e.art !== 'aufgabe' || e.key !== 'water' || e.datum !== heute || !e.pflanze) return;
+      var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(e.pflanze.id) : null; if (!f || !f.p) return;
+      var ru = _gsRegenUebernimmt(f.p); if (!ru) return;   // drinnen: die Regel gilt nicht
+      _gsKalHinweis(e, 'regen', ru.zustand, ru.text || '', ru.grund || '');
+    });
+  } catch (_) {}
+  // ── R4 · Erntereif geschaetzt, nichts eingetragen ───────────────────────
+  // Eingaben: ernte-Ereignisse mit quelle 'regel' und datum <= heute, und das
+  // Ernte-Log (gsErnteAdd: {pflanze, menge, unit, ts}; Cloud: plant_local_id).
+  // Eine Log-Zeile ohne lesbare Pflanzenangabe macht die Frage nicht pruefbar —
+  // nie „nichts eingetragen".
+  try {
+    var log = (typeof gsErnteLoad === 'function') ? (gsErnteLoad() || []) : [];
+    var normN = function (x) { return String(x || '').toLowerCase().trim(); };
+    out.forEach(function (e) {
+      if (e.art !== 'ernte' || e.quelle !== 'regel' || !e.pflanze || e.datum > heute) return;
+      var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(e.pflanze.id) : null; var p = f && f.p; if (!p) return;
+      var seit = Math.round((new Date(heute + 'T12:00:00').getTime() - new Date(e.datum + 'T12:00:00').getTime()) / 864e5);
+      var unlesbar = 0, passend = null;
+      log.forEach(function (z) {
+        if (!z) return;
+        var name = z.pflanze;   // alle Schreiber von gs_ernte_log nennen es so (gsErnteAdd, das Pflanzen-Formular, der Cloud-Abgleich)
+        if (!z.plant_local_id && (name == null || name === '')) { unlesbar++; return; }
+        var gehoert = (z.plant_local_id && z.plant_local_id === p.id) || (name != null && normN(name) === normN(p.name));
+        if (!gehoert) return;
+        if (p.date && z.ts && String(z.ts) < String(p.date)) return;
+        if (!passend || String(z.ts) > String(passend.ts)) passend = z;
+      });
+      if (passend) _gsKalHinweis(e, 'ernte_offen', 'erfuellt', '', _gsSatz('Ernte eingetragen am {1} ({2} {3})', _gsKalDatumKurz(passend.ts), passend.menge != null ? passend.menge : '?', passend.unit || ''));
+      else if (unlesbar) _gsKalHinweis(e, 'ernte_offen', 'nicht_pruefbar', '', _gsSatz('{1} Ernte-Eintrag ohne Pflanzennamen — nicht bekannt, ob geerntet wurde', unlesbar));
+      else _gsKalHinweis(e, 'ernte_offen', 'verletzt', seit > 0 ? _gsSatz('seit {1} Tagen voraussichtlich erntereif — noch keine Ernte eingetragen', seit) : _gsSatz('voraussichtlich erntereif — noch keine Ernte eingetragen'), _gsSatz('seit dem Pflanzdatum ist für „{1}" keine Ernte eingetragen', p.name || ''));
+    });
+  } catch (_) {}
+  // ── R5 · Ueberfaellig-Stufe ─────────────────────────────────────────────
+  // faellig_seit <= -7 → „lange" (nur die Klasse, kein Satz); ohne lastDone gibt
+  // getDaysUntilDue 0 zurueck (sieht aus wie „heute") — dann steht „noch nie
+  // abgehakt" unter „Nicht bekannt".
+  try {
+    out.forEach(function (e) {
+      if (e.art !== 'aufgabe' || !e.pflanze || !e.key) return;
+      var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(e.pflanze.id) : null; var t = f && f.p && f.p.tasks && f.p.tasks[e.key];
+      // KEIN eigener Satz: die Unterzeile der Zeile sagt „Seit 11 Tagen
+      // fällig“ bereits (_gsDayPlanWhen). Zwei Texte fuer dieselbe Frage,
+      // gleichzeitig sichtbar, sind die Klasse aus v32.87. Die Stufe zeigt
+      // die Zeile selbst (Klasse gs-kal-lange); der Grund sagt, ab wann.
+      if (t && !t.lastDone) { _gsKalHinweis(e, 'ueberfaellig', 'nicht_pruefbar', '', _gsSatz('noch nie abgehakt')); return; }
+      if (typeof e.faellig_seit === 'number' && e.faellig_seit <= -GS_UEBERFAELLIG_LANGE_TAGE) _gsKalHinweis(e, 'ueberfaellig', 'verletzt', '', _gsSatz('länger als eine Woche fällig'));
+      else if (typeof e.faellig_seit === 'number' && e.faellig_seit <= 0) _gsKalHinweis(e, 'ueberfaellig', 'erfuellt', '', '');
+    });
+  } catch (_) {}
+}
+window._gsKalPruefwerk = _gsKalPruefwerk;
+// v33.34 (R8): gibt es ueberhaupt eine Quelle, aus der ein Ereignis entstehen
+// koennte? Ein leerer Tag MIT Daten heisst „Nichts an diesem Tag"; ohne jede
+// Quelle heisst er „Noch keine Daten". Zwei Saetze fuer zwei Wahrheiten.
+function _gsKalDatenlage() {
+  var q = [];
+  try { if (typeof gsPflanzenZahl === 'function' && gsPflanzenZahl() > 0) q.push('pflanzen'); } catch (_) {}
+  try { if (typeof gsTagebuchAlle === 'function' && gsTagebuchAlle().length) q.push('tagebuch'); } catch (_) {}
+  try { if (typeof gsGeraete === 'function' && gsGeraete().some(function (g) { return g && g.kind !== 'weather'; })) q.push('geraete'); } catch (_) {}
+  try { var pl = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); if (Array.isArray(pl) && pl.length) q.push('plaene'); } catch (_) {}
+  // Die Wettervorhersage zaehlt NICHT, und das Pseudo-Geraet „Wetterdienst“
+  // ebenso wenig: beide entstehen ohne Zutun der Person. „Noch keine Daten“
+  // ist die Aufforderung, eine Pflanze anzulegen — eine Vorhersage, die von
+  // selbst geladen wurde, darf sie nicht wegnehmen.
+  return q;
+}
+window._gsKalDatenlage = _gsKalDatenlage;
 
 // ── Der Bildschirm: Monat oben, Tag darunter ──────────────────────────────
 var _gsKalStand = { monat: null, tag: null };
@@ -29010,7 +29179,7 @@ function _gsKalRender() {
     '<button type="button" class="gs-kal-nav" onclick="gsKalMonat(-1)" aria-label="' + _t('kal_vor', 'Voriger Monat') + '">‹</button>' +
     '<div class="gs-kal-titel">' + _GS_KAL_MON[m - 1] + ' ' + y + '</div>' +
     '<button type="button" class="gs-kal-nav" onclick="gsKalMonat(1)" aria-label="' + _t('kal_nach', 'Nächster Monat') + '">›</button></div>' +
-    '<div class="gs-kal-werkzeuge"><button type="button" class="gs-dp-kal" onclick="gsMesswerteOeffnen()" aria-label="Messwerte öffnen">📊 ' + _t('mw_titel', 'Messwerte') + '</button></div>';
+    '<div class="gs-kal-werkzeuge"><button type="button" class="gs-dp-kal" onclick="gsMesswerteOeffnen()" aria-label="' + _t('kal_messwerte_a', 'Messwerte öffnen') + '">📊 ' + _t('mw_titel', 'Messwerte') + '</button></div>';
   var raster = '<div class="gs-kal-wt" aria-hidden="true">' + gsWochentage({abMontag:true}).map(function (w) { return '<span>' + w + '</span>'; }).join('') + '</div>' +
     '<div class="gs-kal-raster" role="grid" aria-label="' + _GS_KAL_MON[m - 1] + ' ' + y + '">';
   for (var i = 0; i < start; i++) raster += '<span class="gs-kal-leer" aria-hidden="true"></span>';
@@ -29019,9 +29188,13 @@ function _gsKalRender() {
     var arten = []; l.forEach(function (e) { if (arten.indexOf(e.art) < 0) arten.push(e.art); });
     var punkte = arten.slice(0, 3).map(function (a) { return '<i class="gs-kal-p gs-kal-p-' + a + '"></i>'; }).join('');
     var ueberf = l.some(function (e) { return e.art === 'aufgabe' && e.faellig_seit < 0; });
-    raster += '<button type="button" role="gridcell" class="gs-kal-tag' + (tag === heute ? ' heute' : '') + (tag === gewaehlt ? ' gewaehlt' : '') + (ueberf ? ' ueberfaellig' : '') + '"' +
-      ' onclick="gsKalTagWaehlen(\'' + tag + '\')" aria-label="' + d + '. ' + _GS_KAL_MON[m - 1] + (l.length ? ', ' + l.length + ' ' + (l.length === 1 ? _t('kal_ereignis', 'Ereignis') : _t('kal_ereignisse', 'Ereignisse')) : '') + '"' + (tag === gewaehlt ? ' aria-current="date"' : '') + '>' +
-      '<span class="gs-kal-zahl">' + d + '</span><span class="gs-kal-punkte">' + punkte + (l.length > 3 ? '<b>' + l.length + '</b>' : '') + '</span></button>';
+    // v33.34: die ⚠-Ecke gilt nur fuer Hinweise MIT Satz. „Lange ueberfaellig“
+    // hat keinen eigenen Satz und zeigt sich am roten Rand — zwei Zeichen fuer
+    // dieselbe Sache liest niemand als zwei.
+    var nWarn = 0; l.forEach(function (e) { (e.hinweise || []).forEach(function (h) { if (h.zustand === 'verletzt' && h.text) nWarn++; }); });
+    raster += '<button type="button" role="gridcell" class="gs-kal-tag' + (tag === heute ? ' heute' : '') + (tag === gewaehlt ? ' gewaehlt' : '') + (ueberf ? ' ueberfaellig' : '') + (nWarn ? ' warn' : '') + '"' +
+      ' onclick="gsKalTagWaehlen(\'' + tag + '\')" aria-label="' + d + '. ' + _GS_KAL_MON[m - 1] + (l.length ? ', ' + l.length + ' ' + (l.length === 1 ? _t('kal_ereignis', 'Ereignis') : _t('kal_ereignisse', 'Ereignisse')) : '') + (nWarn ? ', ' + nWarn + ' ' + (nWarn === 1 ? _t('kal_hinweis_1', 'Hinweis') : _t('kal_hinweis_n', 'Hinweise')) : '') + '"' + (tag === gewaehlt ? ' aria-current="date"' : '') + '>' +
+      '<span class="gs-kal-zahl">' + d + '</span><span class="gs-kal-punkte">' + punkte + (l.length > 3 ? '<b>' + l.length + '</b>' : '') + '</span>' + (nWarn ? '<i class="gs-kal-w" aria-hidden="true">⚠</i>' : '') + '</button>';
   }
   raster += '</div>';
 
@@ -29036,10 +29209,26 @@ function _gsKalRender() {
     var sub = (e.art === 'aufgabe')
       ? ((typeof _gsDayPlanWhen === 'function') ? _gsDayPlanWhen(e.faellig_seit) : '') + (e.status === 'verschoben' ? ' · ' + _t('kal_verschoben', 'verschoben') : '')
       : ((e.zeit ? e.zeit + ' · ' : '') + (e.pflanze && e.pflanze.name ? e.pflanze.name : (_GS_KAL_ART[e.art] || e.art)));
-    return '<div class="gs-kal-zeile gs-kal-' + e.art + '" onclick="gsKalGrund(this)">' +
+    // v33.34 (KALENDER-V2): verletzte Hinweise als EINE Zeile darunter (Warnfarbe
+    // als TEXT, nie als Fuellung); nicht pruefbare stehen im Grund; „lange
+    // ueberfaellig" ist eine zweite Klasse, keine zweite Farbe.
+    var hv = (e.hinweise || []).filter(function (h) { return h.zustand === 'verletzt' && h.text; });
+    var hn = (e.hinweise || []).filter(function (h) { return h.zustand === 'nicht_pruefbar' && (h.grund || h.text); });
+    var lange = (e.hinweise || []).some(function (h) { return h.regel === 'ueberfaellig' && h.zustand === 'verletzt'; });
+    // EIN Satz sichtbar, der Rest im Grund: R1 schreibt je Frosttag einen
+    // Eintrag — eine Novemberwoche ergaebe sieben Saetze in einer 10-px-Zeile.
+    // Gedeckelt heisst in diesem Haus „+N weitere“, nicht abgeschnitten.
+    var hRest = hv.slice(1).map(function (h) { return h.text; });
+    var hSicht = hv.length ? esc(hv[0].text) + (hRest.length ? ' ' + esc(_gsSatz('+{1} weitere', hRest.length)) : '') : '';
+    var grundTxt = esc(e.grund || '')
+      + (hRest.length ? '<br>' + esc(hRest.join(' · ')) : '')
+      + (hn.length ? '<br>' + esc(_t('kal_nicht_bekannt', 'Nicht bekannt:')) + ' ' + esc(hn.map(function (h) { return h.grund || h.text; }).join(' · ')) : '');
+    return '<div class="gs-kal-zeile gs-kal-' + e.art + (lange ? ' gs-kal-lange' : '') + '" onclick="gsKalGrund(this)">' +
       '<span class="gs-kal-emoji" aria-hidden="true">' + esc(e.emoji || '') + '</span>' +
-      '<div class="gs-kal-txt"><b>' + esc(e.titel) + '</b><i>' + esc(sub) + '</i><small class="gs-kal-grund" hidden>' + esc(e.grund || '') + '</small></div>' + kasten + '</div>';
-  }).join('') : '<div class="gs-kal-leerzeile">' + _t('kal_nichts', 'Nichts an diesem Tag.') + '</div>';
+      '<div class="gs-kal-txt"><b>' + esc(e.titel) + '</b><i>' + esc(sub) + '</i>' +
+        (hSicht ? '<em class="gs-kal-hinweis">⚠ ' + hSicht + '</em>' : '') +
+        '<small class="gs-kal-grund" hidden>' + grundTxt + '</small></div>' + kasten + '</div>';
+  }).join('') : '<div class="gs-kal-leerzeile">' + (_gsKalDatenlage().length ? _t('kal_nichts', 'Nichts an diesem Tag.') : _t('kal_keine_daten', 'Noch keine Daten — leg eine Pflanze an, dann füllt sich der Kalender.')) + '</div>';
 
   var legende = '<div class="gs-kal-legende">' + ['aufgabe', 'tagebuch', 'gepflanzt', 'ernte', 'messung', 'alarm'].map(function (a) { return '<span><i class="gs-kal-p gs-kal-p-' + a + '"></i>' + (_GS_KAL_ART[a] || a) + '</span>'; }).join('') + '</div>';
   var nOffen = ev.filter(function (e) { return e.art === 'aufgabe' && e.datum <= heute; }).length;
@@ -58578,7 +58767,14 @@ async function runKiImprove(){
 var gardens = safeGetItem('gs_gardens', []);
 var editingGardenId = null;
 var plantings = safeGetItem('gs_plantings', []);
-let weatherCache = safeGetItem('gs_weather_cache', {});
+// v33.34: EIGENER Schluessel. Der Planer haelt hier eine KARTE
+// (`{"lat,lon": {ts, data}}`), der Wetter-Lader legt unter
+// `gs_weather_cache` ein EINZELNES `{ts, data, lat, lon}` ab — und diese
+// Variable wird einmal beim Start gelesen und spaeter ganz zurueck-
+// geschrieben. Wer nach einem Wetter-Abruf den Planer benutzte, warf damit
+// den frischen Stand weg; Frost, Regen und das Pruefwerk (R1/R2) lesen
+// genau dieses `data` und wurden still, ohne dass etwas meldet.
+let weatherCache = safeGetItem('gs_weather_cache_planer', {});
 
 // Pflanzen-Datenbank mit Wachstumszeiten (Tage) und Infos
 const PLANT_DB = {
@@ -59684,6 +59880,7 @@ function saveUserLocation(locObj) {
   try {
     weatherCache = {}; // kompletter Wetter-Cache weg
     localStorage.removeItem('gs_weather_cache');
+    localStorage.removeItem('gs_weather_cache_planer');
     localStorage.removeItem('gs_weather_cache_home');
     localStorage.removeItem('gs_weather_cache_garden');
     localStorage.removeItem('gs_weather_cache_farm');
@@ -62084,7 +62281,11 @@ function gsPPbuildUserContext() {
     try{ if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) {
       ctx.myPlants = myPlants.map(function(p){ return (p && (p.name||p.commonName||p.title||p.label)) || ''; }).filter(Boolean).slice(0,25);
       ctx.myFamilies = Array.from(new Set(myPlants.map(function(p){ return p && (p.family||p.fam); }).filter(Boolean))).slice(0,12);
-    } var _ernte = JSON.parse(localStorage.getItem('gs_ernte_log')||'[]'); if (Array.isArray(_ernte)) ctx.harvests = _ernte.slice(0,12).map(function(h){ return (h && (h.name||h.crop||h.plant)) || ''; }).filter(Boolean); }catch(_e){}
+    }
+    // v33.34: das Feld heisst `pflanze`. KEIN Schreiber von gs_ernte_log
+    // (gsErnteAdd, das Pflanzen-Formular, der Cloud-Abgleich) kennt
+    // name/crop/plant — ctx.harvests war seit jeher leer.
+    var _ernte = JSON.parse(localStorage.getItem('gs_ernte_log')||'[]'); if (Array.isArray(_ernte)) ctx.harvests = _ernte.slice(0,12).map(function(h){ return (h && h.pflanze) || ''; }).filter(Boolean); }catch(_e){}
     // ── v31.58 (Planer V3): der Garten-Zwilling ────────────────────────
     // Bisher kannte der Planer vom Bestand nur NAMEN (myPlants). Der
     // Zwilling liefert Positionen, Beete und Lichtzonen in Metern — damit
@@ -72869,7 +73070,7 @@ async function fetchWeather(location) {
   };
 
   weatherCache[cacheKey] = {ts: Date.now(), data: result};
-  try { localStorage.setItem('gs_weather_cache', JSON.stringify(weatherCache)); } catch(_){}
+  try { localStorage.setItem('gs_weather_cache_planer', JSON.stringify(weatherCache)); } catch(_){}
   return result;
 }
 
@@ -75046,6 +75247,31 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.34', date: '15.09.2026',
+    headline: 'Der Kalender denkt: Frost trifft Aussaat, Regen übernimmt das Giessen, Ernte ohne Eintrag — und er sagt, woher er es weiss',
+    summary: 'Erste Scheibe von KALENDER-V2. Der Kalender hält seine Ereignisse jetzt gegeneinander: ein Prüfwerk am Ende der einen Kalender-Funktion rechnet fünf Regeln mit je drei Zuständen (erfüllt · verletzt · nicht prüfbar) und schreibt Hinweise an die beteiligten Zeilen. Dazu ein gemessener Fehler: die Ernte-Schätzung erfand für jede unbekannte Pflanze ein Datum aus 60–90 Tagen — eine Monstera-Pflanzung bekam „Ernte voraussichtlich 16.10.". Jetzt nur mit Kulturdaten, und der Grund nennt die Zahlen.',
+    user_summary: 'Der Kalender warnt dich jetzt, wenn Frost in ein Aussaatfenster fällt, sagt dir, wenn Regen das Giessen übernommen hat, erinnert dich, wenn eine geschätzte Ernte reif sein müsste und nichts eingetragen ist, und hebt Aufgaben hervor, die länger als eine Woche fällig sind. Jede Warnung lässt sich antippen und sagt, woher sie kommt — und wenn er etwas nicht sicher weiß, schreibt er das hin, statt zu schweigen.',
+    user_items: [
+      {emoji: '❄️', bold: 'Frost trifft Aussaat:', text: ' steht ein Frosttag in der Vorhersage und ein Aussaatfenster draussen im selben Monat, tragen beide Zeilen den Hinweis.'},
+      {emoji: '🌧️', bold: 'Regen übernimmt:', text: ' ab 6 mm gemessenem Regen heute steht es an der Giess-Aufgabe deiner Pflanzen draussen — die Aufgabe bleibt, du entscheidest.'},
+      {emoji: '🧺', bold: 'Ernte ohne Eintrag:', text: ' ist eine geschätzte Ernte fällig und nichts im Ernte-Log, sagt der Kalender seit wie vielen Tagen.'},
+      {emoji: '⏰', bold: 'Länger als eine Woche fällig:', text: ' solche Aufgaben sind im Kalender hervorgehoben; eine nie abgehakte sagt das jetzt, statt wie „heute fällig" auszusehen.'},
+      {emoji: '🌦️', bold: 'Wetterzeilen bleiben:', text: ' wer den Planer benutzt hatte, bei dem verschwanden Frost- und Regenzeile im Kalender wieder — zwei Teile der App teilten sich einen Speicherplatz. Jeder hat jetzt seinen eigenen.'},
+      {emoji: '📭', bold: 'Zwei leere Zustände:', text: ' „Nichts an diesem Tag" heisst Daten da, Tag leer — „Noch keine Daten" heisst: es gibt noch nichts, woraus ein Kalender entstehen kann.'}
+    ],
+    items: [
+      'docs/KALENDER-V2.md: der Entwurf zu Fernandos Auftrag — fünf Entscheidungen, zehn Regeln, sieben Scheiben, auf gemessener Grundlage (eine Funktion, 13 Geschwister-Oberflächen, sechs unabhängige Aussaat-Listen im Repo).',
+      '_gsKalPruefwerk(liste) am Ende von gsKalenderEreignisse: hinweise[] an jedem Ereignis, fenster (indoor|outdoor) am Aussaat-Ereignis. Reihenfolge fest: Rechnung → Prüfwerk → Sieb → Anzeige; keine Regel schreibt.',
+      'R2 ist EINE Rechnung: _gsRegenUebernimmt(p) für gsGetDueTasks (eintrag.regen, v31.84) und das Prüfwerk — der Fall zählt beide gegeneinander.',
+      'R3: calcHarvestDate/getPlantInfo gab für jeden unbekannten Namen 60–90 Tage zurück; jetzt Tor _gsKulturZuPflanze, ohne Treffer kein Ereignis — und Datum wie Grund kommen aus DERSELBEN Quelle (kul.k), nicht aus zwei Rechnungen.',
+      'Zwei Schreiber, ein Schlüssel: der Planer hielt unter gs_weather_cache eine KARTE, der Wetter-Lader ein einzelnes {ts, data, lat, lon} — und der Planer schrieb seine beim Start gelesene Fassung ganz zurück. Frost, Regen, R1 und R2 wurden danach still. Jetzt gs_weather_cache_planer (in GS_USER_KEYS).',
+      'Der Planer-Kontext las die Ernten als h.name/h.crop/h.plant — kein Schreiber von gs_ernte_log kennt eines davon; ctx.harvests war immer leer.',
+      'Beispieldaten: Wetter-Zwischenspeicher RELATIV zum Anker, nur daily — ein hourly-Block liesse ein Pseudo-Gerät „Wetterdienst" entstehen und jeder Prüfstand zählte zwei Geräte. Folge: R1 steht im Seed auf erfüllt, R2 auf nicht prüfbar.',
+      'Anzeige aus der gegnerischen Prüfung: EIN Hinweissatz je Zeile sichtbar (Rest als „+N weitere" im Grund), die ⚠-Ecke nur für Hinweise mit Satz, „Nicht bekannt:" statt „Nicht prüfbar:", Gründe ohne Open-Meteo/Ernte-Log/Zwischenspeicher, keine Doppelung von „seit N Tagen fällig".',
+      'Prüfstände: kalender_check 30 (7 neu, alle rot gegen v33.33); Gegenproben R1–R4 je ausgebaut → rot; contrast_check misst das Kalender-Fenster über den REGEN (monatsunabhängig) und wirft, wenn keine Hinweiszeile entsteht.'
+    ]
+  },
+  {
     v: 'v33.33', date: '15.09.2026',
     headline: 'Lina sagt, was stimmt: letzter Scan, Verlauf, Pflanzen — und die Garten-Timeline zeigt endlich Scans',
     summary: 'Fuenf gemessene Fehler, alle mit Pruefstand-Fall zuerst. Lina verlor den letzten Scan, sobald der Cloud-Abgleich gelaufen war (drei Zeitfelder, ein Leser verlangte genau eines); sie lud die AELTESTEN hundert Nachrichten statt der neuesten; sie fand Garten-Pflanzungen nicht und traf beim Namen per Teilstring die falsche Pflanze; sie nannte einen Weg in der App, den es nicht gibt. Und die Garten-Timeline las seit jeher einen Schluessel, den niemand schreibt — null Scans, immer.',
@@ -75549,7 +75775,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.33';
+var GS_VERSION = 'v33.34';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -82036,7 +82262,10 @@ var GS_USER_KEYS = [
   'gs_snapshot_last','gs_snapshot_auto_day','gs_last_pull','gs_last_sync_ts','gs_prefs_synced_at',
   // WETTER zu Hof und Garten — beides Koordinaten des scheidenden Nutzers.
   // gs_weather_cache_home haengt an gs_user_location und bleibt deshalb.
-  'gs_weather_cache_farm','gs_weather_cache_garden'
+  // v33.34: gs_weather_cache_planer ist der EIGENE Zwischenspeicher des
+  // Planers (Karte lat,lon → Wetter) — dieselbe Klasse wie Hof und Garten:
+  // Koordinaten des scheidenden Nutzers.
+  'gs_weather_cache_farm','gs_weather_cache_garden','gs_weather_cache_planer'
 ];
 // Praefix-Familien, die MIT muessen. Ein fester Name reicht hier nicht:
 // gs_aicalls_<datum> und gs_sync_*_at_<bereich> entstehen zur Laufzeit.
