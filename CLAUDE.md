@@ -727,7 +727,7 @@ node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt s
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
-node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch: zeigt die Garten-Timeline die Scans (kein toter Schluessel) und die Ernte mit den Feldern der App; seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML
+node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch: zeigt die Garten-Timeline die Scans (kein toter Schluessel) und die Ernte mit den Feldern der App; seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML; seit v33.35 das SIEB (§4): Filter auf dem Ergebnis (die Rechnung bleibt), fuenf Gruppen-Chips mit ihren Zahlen aus der UNGEFILTERTEN Liste, Zustand ueberlebt, Punkte nach Gruppe, dritter Leerzustand
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
@@ -1350,6 +1350,17 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > das Pruefwerk brauchte denselben; zwei Kopien waeren die Frost-Klasse aus
 > S5 (vier Rechnungen fuer dieselbe Frage). `_gsRegenUebernimmt(p)` ist die
 > eine, und `kalender_check` R2 zaehlt Startseite und Kalender gegeneinander.
+
+> **Ein Filter ist ein SIEB auf dem Ergebnis, nie eine Bedingung in der
+> Rechnung** (v33.35, KALENDER-V2 §4). `_gsKalFiltern(liste, f)` laeuft NACH
+> dem Pruefwerk; `gsKalenderEreignisse` liefert mit gesetztem Filter dieselbe
+> Liste wie ohne (`kalender_check` F1 zaehlt beide). Wer aus Tempo eine Quelle
+> ueberspringt, weil ein Chip aus ist, macht die Zahl am Chip falsch und Lina
+> blind — sie liest die ungefilterte Liste. Gespeichert wird die Liste der
+> AUSGEBLENDETEN Arten (`gs_kal_filter.aus`), nie die der erlaubten: so ist
+> eine neue Ereignisart automatisch sichtbar statt stillschweigend verschluckt.
+> Und eine Gruppe, deren Vorgabe AUS ist, braucht einen EIGENEN Chip — sonst
+> steht ein Chip halb aus, und das ist ein dritter Zustand, den niemand liest.
 
 > **Ein Schluessel, dessen Inhalt eine FORM hat, hat GENAU EINEN Schreiber**
 > (v33.34). `gs_weather_cache` hatte zwei: der Wetter-Lader schreibt

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.34.20260915">
+<meta name="app-version" content="33.35.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5786,6 +5786,22 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-mw-token i{display:block;color:var(--muted);line-height:1.5;margin-bottom:6px;}
 .gs-mw-koppeln{margin:4px 0 8px;}
 .gs-kal-tag.gewaehlt .gs-kal-p{background:#fff;}
+/* v33.35: die Chips ersetzen die Legende. Ein ausgeschalteter Chip zeigt sich
+   durch FARBE und aria-pressed, nie durch Deckkraft — opacity senkt den
+   Kontrast blind (v32.25). Mindesthoehe 32 px (WCAG 2.5.8 will 24). */
+.gs-kal-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;margin:4px 0 0;-webkit-overflow-scrolling:touch;}
+.gs-kal-chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-xs);font-weight:700;cursor:pointer;white-space:nowrap;}
+.gs-kal-chip[aria-pressed="false"]{background:transparent;color:var(--text);border-style:dashed;}
+.gs-kal-chip[aria-pressed="false"] .gs-kal-p{filter:grayscale(1);}
+.gs-kal-chip b{font-weight:900;}
+.gs-kal-p-g-zutun{background:var(--c-warn-d,#bf360c);}
+.gs-kal-p-g-saeen{background:var(--g-dark);}
+.gs-kal-p-g-wetter{background:#5c6bc0;}
+.gs-kal-p-g-rueckblick{background:#8d6e63;}
+.gs-kal-p-g-messung{background:#00838f;}
+.gs-kal-p-g-andere{background:var(--muted);}
+.gs-kal-alle{margin-left:6px;min-height:32px;padding:5px 12px;border-radius:999px;border:1px solid var(--g-main);background:transparent;color:var(--g-dark);font-family:inherit;font-size:var(--fs-xs);font-weight:800;cursor:pointer;}
+.gs-kal-tagkopf i{font-style:normal;font-weight:600;color:var(--muted);font-size:var(--fs-xs);}
 .gs-kal-legende{display:flex;gap:12px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--muted);margin:8px 0 12px;}
 .gs-kal-legende span{display:inline-flex;align-items:center;gap:5px;}
 .gs-kal-tagkopf{font-size:var(--fs-md);font-weight:900;color:var(--text);margin:4px 0 8px;display:flex;align-items:center;gap:8px;}
@@ -15037,6 +15053,13 @@ window.GS_I18N_JS_STRINGS = {
   'kal_nichts': 'Nichts an diesem Tag.',
   'kal_keine_daten': 'Noch keine Daten — leg eine Pflanze an, dann füllt sich der Kalender.',
   'kal_nicht_bekannt': 'Nicht bekannt:',
+  'kal_chips': 'Was der Kalender zeigt',
+  'kal_g_zutun': 'Zu tun',
+  'kal_g_saeen': 'Säen & Ernten',
+  'kal_g_wetter': 'Wetter',
+  'kal_g_rueckblick': 'Rückblick',
+  'kal_g_messung': 'Messwerte',
+  'kal_alle_zeigen': 'Alle zeigen',
   'kal_hinweis_1': 'Hinweis',
   'kal_hinweis_n': 'Hinweise',
   'kal_messwerte_a': 'Messwerte öffnen',
@@ -29119,6 +29142,101 @@ function _gsKalDatenlage() {
 }
 window._gsKalDatenlage = _gsKalDatenlage;
 
+// ═══ v33.35 · KALENDER-V2 §4: das Sieb ═══════════════════════════
+// Reihenfolge: Rechnung → Pruefwerk → SIEB → Anzeige. Das Sieb sitzt auf dem
+// ERGEBNIS, nie in der Rechnung — wer aus Tempo eine Quelle ueberspringt, weil
+// ein Chip aus ist, macht die Zahl am Chip falsch und Lina blind (sie liest die
+// ungefilterte Liste).
+//
+// Gespeichert wird nach ART (`aus: ['messung']`), gezeigt nach GRUPPE. Damit ist
+// eine NEUE Ereignisart automatisch sichtbar; eine Liste der erlaubten Arten
+// haette sie stillschweigend verschluckt.
+//
+// Warum „Messwerte“ eine eigene Gruppe ist und nicht zum Rueckblick gehoert: die
+// Vorgabe blendet sie aus (Entscheidung 3). Steckte sie im Rueckblick, stuende
+// dessen Chip von Anfang an HALB aus — ein dritter Zustand, den niemand liest.
+// Ein Chip ist an oder aus.
+//
+// Und die Aussaat-Gruppe heisst nicht „Fenster“: in dieser App ist ein Fenster
+// ein STANDORT (`_GS_DRINNEN` kennt es, das Basilikum steht am „Kuechenfenster“).
+var GS_KAL_GRUPPEN = [
+  { id: 'zutun',      emoji: '✅', arten: ['aufgabe', 'alarm', 'erinnerung'] },
+  { id: 'saeen',      emoji: '🌱', arten: ['aussaat', 'ernte'] },
+  { id: 'wetter',     emoji: '🌦️', arten: ['wetter'] },
+  { id: 'rueckblick', emoji: '📖', arten: ['tagebuch', 'gepflanzt'] },
+  { id: 'messung',    emoji: '📊', arten: ['messung'] }
+];
+var GS_KAL_AUS_VORGABE = ['messung'];
+var GS_KAL_FILTER_KEY = 'gs_kal_filter';
+function _gsKalGruppeLabel(id) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  if (id === 'zutun') return _t('kal_g_zutun', 'Zu tun');
+  if (id === 'saeen') return _t('kal_g_saeen', 'Säen & Ernten');
+  if (id === 'wetter') return _t('kal_g_wetter', 'Wetter');
+  if (id === 'rueckblick') return _t('kal_g_rueckblick', 'Rückblick');
+  if (id === 'messung') return _t('kal_g_messung', 'Messwerte');
+  return '';
+}
+// Welche Gruppe traegt diese Art? `null` heisst: keine — dann wird sie GEZEIGT
+// (und der Pruefstand meldet die fehlende Zuordnung, statt sie zu verstecken).
+function _gsKalArtGruppe(art) {
+  for (var i = 0; i < GS_KAL_GRUPPEN.length; i++) if (GS_KAL_GRUPPEN[i].arten.indexOf(art) >= 0) return GS_KAL_GRUPPEN[i].id;
+  return null;
+}
+function _gsKalFilter() {
+  var f = null;
+  try { f = safeGetItem(GS_KAL_FILTER_KEY, null); } catch (_) {}
+  if (!f || typeof f !== 'object' || !Array.isArray(f.aus)) return { aus: GS_KAL_AUS_VORGABE.slice(), garten: null };
+  return {
+    aus: f.aus.filter(function (a) { return !!_GS_KAL_ART[a]; }),   // eine Art, die es nicht mehr gibt, blendet nichts aus
+    garten: (typeof f.garten === 'string' && f.garten) ? f.garten : null
+  };
+}
+function _gsKalFilterSchreiben(f) {
+  // setItem WIRFT NIE (CLAUDE.md §3.5) — der Rettungsweg haengt am Rueckgabewert.
+  var ok = localStorage.setItem(GS_KAL_FILTER_KEY, JSON.stringify({ aus: f.aus, garten: f.garten || null }));
+  if (ok === false) {
+    if (typeof gsToast === 'function') gsToast(_gsSatz('Der Speicher ist voll — die Auswahl gilt nur für dieses Mal'));
+    return false;
+  }
+  try { if (typeof markDirty === 'function') markDirty('state'); } catch (_) {}   // der Auto-Track ist verdeckt (v32.36)
+  return true;
+}
+function gsKalGruppeUmschalten(id) {
+  var g = null;
+  GS_KAL_GRUPPEN.forEach(function (x) { if (x.id === id) g = x; });
+  if (!g) return;
+  var f = _gsKalFilter();
+  var an = !g.arten.every(function (a) { return f.aus.indexOf(a) >= 0; });
+  if (an) g.arten.forEach(function (a) { if (f.aus.indexOf(a) < 0) f.aus.push(a); });
+  else f.aus = f.aus.filter(function (a) { return g.arten.indexOf(a) < 0; });
+  _gsKalFilterSchreiben(f);
+  try { if (typeof gsHaptic === 'function') gsHaptic('light'); } catch (_) {}
+  _gsKalRender();
+}
+function gsKalAlleZeigen() {
+  var f = _gsKalFilter(); f.aus = [];
+  _gsKalFilterSchreiben(f);
+  _gsKalRender();
+}
+function _gsKalFiltern(liste, f) {
+  f = f || _gsKalFilter();
+  var aus = (f && Array.isArray(f.aus)) ? f.aus : [];
+  var garten = f ? f.garten : null;
+  return (liste || []).filter(function (e) {
+    if (!e) return false;
+    if (aus.indexOf(e.art) >= 0) return false;
+    if (garten && e.garten_id && e.garten_id !== garten) return false;
+    return true;
+  });
+}
+window.GS_KAL_GRUPPEN = GS_KAL_GRUPPEN;
+window._gsKalFiltern = _gsKalFiltern;
+window._gsKalFilter = _gsKalFilter;
+window._gsKalArtGruppe = _gsKalArtGruppe;
+window.gsKalGruppeUmschalten = gsKalGruppeUmschalten;
+window.gsKalAlleZeigen = gsKalAlleZeigen;
+
 // ── Der Bildschirm: Monat oben, Tag darunter ──────────────────────────────
 var _gsKalStand = { monat: null, tag: null };
 // Zwei Oeffner: `gsKalenderOeffnen()` OHNE Parameter (heute) — so sehen ihn
@@ -29170,8 +29288,14 @@ function _gsKalRender() {
   var tageImMonat = new Date(y, m, 0).getDate();
   var start = (new Date(y, m - 1, 1).getDay() + 6) % 7;   // Montag = 0
   var von = mon + '-01', bis = mon + '-' + String(tageImMonat).padStart(2, '0');
+  // Rechnung → Pruefwerk (steckt in gsKalenderEreignisse) → SIEB → Anzeige.
+  // `ev` ist und bleibt die UNGEFILTERTE Wahrheit: die Chip-Zahlen und
+  // „(N ausgeblendet)“ kommen von dort, sonst zaehlt die Anzeige sich selbst.
   var ev = gsKalenderEreignisse(von, bis);
-  var proTag = {}; ev.forEach(function (e) { (proTag[e.datum] = proTag[e.datum] || []).push(e); });
+  var filt = _gsKalFilter();
+  var evS = _gsKalFiltern(ev, filt);
+  var proTagRoh = {}; ev.forEach(function (e) { (proTagRoh[e.datum] = proTagRoh[e.datum] || []).push(e); });
+  var proTag = {}; evS.forEach(function (e) { (proTag[e.datum] = proTag[e.datum] || []).push(e); });
   var heute = gsHeuteTag();
   var gewaehlt = _gsKalStand.tag || heute;
 
@@ -29185,8 +29309,10 @@ function _gsKalRender() {
   for (var i = 0; i < start; i++) raster += '<span class="gs-kal-leer" aria-hidden="true"></span>';
   for (var d = 1; d <= tageImMonat; d++) {
     var tag = mon + '-' + String(d).padStart(2, '0'); var l = proTag[tag] || [];
-    var arten = []; l.forEach(function (e) { if (arten.indexOf(e.art) < 0) arten.push(e.art); });
-    var punkte = arten.slice(0, 3).map(function (a) { return '<i class="gs-kal-p gs-kal-p-' + a + '"></i>'; }).join('');
+    // Die Punkte tragen die Farbe der GRUPPE (fuenf), nicht der Art (neun) —
+    // sonst erklaeren die vier Chips einen Farbcode mit neun Toenen nicht.
+    var gruppen = []; l.forEach(function (e) { var g = _gsKalArtGruppe(e.art) || 'andere'; if (gruppen.indexOf(g) < 0) gruppen.push(g); });
+    var punkte = gruppen.slice(0, 3).map(function (g) { return '<i class="gs-kal-p gs-kal-p-g-' + g + '"></i>'; }).join('');
     var ueberf = l.some(function (e) { return e.art === 'aufgabe' && e.faellig_seit < 0; });
     // v33.34: die ⚠-Ecke gilt nur fuer Hinweise MIT Satz. „Lange ueberfaellig“
     // hat keinen eigenen Satz und zeigt sich am roten Rand — zwei Zeichen fuer
@@ -29198,7 +29324,9 @@ function _gsKalRender() {
   }
   raster += '</div>';
 
-  var tl = (gewaehlt.slice(0, 7) === mon) ? (proTag[gewaehlt] || []) : gsKalenderEreignisse(gewaehlt, gewaehlt);
+  var tlRoh = (gewaehlt.slice(0, 7) === mon) ? (proTagRoh[gewaehlt] || []) : gsKalenderEreignisse(gewaehlt, gewaehlt);
+  var tl = (gewaehlt.slice(0, 7) === mon) ? (proTag[gewaehlt] || []) : _gsKalFiltern(tlRoh, filt);
+  var nVersteckt = tlRoh.length - tl.length;
   var zeilen = tl.length ? tl.map(function (e) {
     var kasten;
     if (e.art === 'aufgabe' && e.pflanze && (e.pflanze.liste === 'myPlants' || e.pflanze.liste === 'plantings'))
@@ -29228,16 +29356,34 @@ function _gsKalRender() {
       '<div class="gs-kal-txt"><b>' + esc(e.titel) + '</b><i>' + esc(sub) + '</i>' +
         (hSicht ? '<em class="gs-kal-hinweis">⚠ ' + hSicht + '</em>' : '') +
         '<small class="gs-kal-grund" hidden>' + grundTxt + '</small></div>' + kasten + '</div>';
-  }).join('') : '<div class="gs-kal-leerzeile">' + (_gsKalDatenlage().length ? _t('kal_nichts', 'Nichts an diesem Tag.') : _t('kal_keine_daten', 'Noch keine Daten — leg eine Pflanze an, dann füllt sich der Kalender.')) + '</div>';
+  }).join('') : '<div class="gs-kal-leerzeile">' + (
+      // Drei Wahrheiten, drei Saetze: ausgeblendet · Daten da, Tag leer · gar keine Quelle.
+      nVersteckt > 0
+        ? esc(nVersteckt === 1 ? _gsSatz('1 Eintrag ist ausgeblendet') : _gsSatz('{1} Einträge sind ausgeblendet', nVersteckt)) +
+          ' <button type="button" class="gs-kal-alle" onclick="gsKalAlleZeigen()">' + _t('kal_alle_zeigen', 'Alle zeigen') + '</button>'
+        : (_gsKalDatenlage().length ? _t('kal_nichts', 'Nichts an diesem Tag.') : _t('kal_keine_daten', 'Noch keine Daten — leg eine Pflanze an, dann füllt sich der Kalender.'))
+    ) + '</div>';
 
-  var legende = '<div class="gs-kal-legende">' + ['aufgabe', 'tagebuch', 'gepflanzt', 'ernte', 'messung', 'alarm'].map(function (a) { return '<span><i class="gs-kal-p gs-kal-p-' + a + '"></i>' + (_GS_KAL_ART[a] || a) + '</span>'; }).join('') + '</div>';
-  var nOffen = ev.filter(function (e) { return e.art === 'aufgabe' && e.datum <= heute; }).length;
+  // Die Chips ERSETZEN die Legende: sie tragen dieselbe Farbe wie die Punkte
+  // im Raster und sagen zugleich, was sie verbergen. Jede Zahl kommt aus der
+  // ungefilterten Liste des sichtbaren Monats — ein ausgeschalteter Chip sagt
+  // so, wie viel er zurueckhaelt, und die Zahl steht nur an DIESER Stelle.
+  var chips = '<div class="gs-kal-chips" role="group" aria-label="' + _t('kal_chips', 'Was der Kalender zeigt') + '">' + GS_KAL_GRUPPEN.map(function (g) {
+    var n = ev.filter(function (e) { return g.arten.indexOf(e.art) >= 0; }).length;
+    var an = !g.arten.every(function (a) { return filt.aus.indexOf(a) >= 0; });
+    return '<button type="button" class="gs-kal-chip" aria-pressed="' + (an ? 'true' : 'false') + '"' +
+      ' onclick="gsKalGruppeUmschalten(\'' + g.id + '\')">' +
+      '<i class="gs-kal-p gs-kal-p-g-' + g.id + '" aria-hidden="true"></i>' +
+      esc(_gsKalGruppeLabel(g.id)) + ' <b>' + n + '</b></button>';
+  }).join('') + '</div>';
+  var nOffen = evS.filter(function (e) { return e.art === 'aufgabe' && e.datum <= heute; }).length;
 
   mc.innerHTML = '<div class="gs-kal" style="padding:16px;">' +
     '<div class="gs-eg-kopf">📅 ' + _t('kal_titel', 'Kalender') + '</div>' +
     '<div class="gs-eg-unter">' + _t('kal_unter', 'Aufgaben, Tagebuch und Pflanzungen nach Tag — gerechnet aus deinen Pflanzen. Tippe eine Zeile an, um zu sehen, woher sie es weiss.') + '</div>' +
-    kopf + raster + legende +
-    '<div class="gs-kal-tagkopf">' + esc(_gsKalDatumLang(gewaehlt)) + (gewaehlt === heute ? ' · ' + _t('kal_heute', 'Heute') : '') + (tl.length ? ' <span>' + tl.length + '</span>' : '') + '</div>' +
+    kopf + raster + chips +
+    '<div class="gs-kal-tagkopf">' + esc(_gsKalDatumLang(gewaehlt)) + (gewaehlt === heute ? ' · ' + _t('kal_heute', 'Heute') : '') + (tl.length ? ' <span>' + tl.length + '</span>' : '') +
+      (nVersteckt > 0 ? ' <i>' + esc(_gsSatz('({1} ausgeblendet)', nVersteckt)) + '</i>' : '') + '</div>' +
     '<div class="gs-kal-liste">' + zeilen + '</div>' +
     (nOffen ? '<div class="gs-kal-fuss">' + nOffen + ' ' + (nOffen === 1 ? _t('kal_offen_1', 'offene Aufgabe bis heute') : _t('kal_offen_n', 'offene Aufgaben bis heute')) + '</div>' : '') +
   '</div>';
@@ -75247,6 +75393,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.35', date: '16.09.2026',
+    headline: 'Der Kalender zeigt, was du sehen willst — fünf Chips, und jede Zahl steht nur an einer Stelle',
+    summary: 'Zweite Scheibe von KALENDER-V2: das Sieb. Ein Filter sitzt auf dem ERGEBNIS, nie in der Rechnung — sonst zählt die Anzeige sich selbst und Lina wird blind. Gespeichert wird nach Art, gezeigt nach Gruppe: eine neue Ereignisart ist damit automatisch sichtbar. Die Punkte im Raster tragen jetzt die Farbe der Gruppe (fünf) statt der Art (neun), und die Legende entfällt, weil die Chips sie erklären.',
+    user_summary: 'Über dem Kalender stehen fünf Knöpfe: Zu tun, Säen & Ernten, Wetter, Rückblick, Messwerte. Jeder sagt, wie viel er zeigt — und ein ausgeschalteter sagt, wie viel er zurückhält. Messwerte sind von Anfang an ausgeblendet; alles andere siehst du. Deine Auswahl bleibt und reist auf dein zweites Gerät mit.',
+    user_items: [
+      {emoji: '🔘', bold: 'Fünf Knöpfe:', text: ' tippe eine Gruppe an, und sie verschwindet aus Raster und Tagesliste. Nochmal tippen holt sie zurück.'},
+      {emoji: '🔢', bold: 'Die Zahl am Knopf:', text: ' sie zählt den ganzen Monat, auch wenn die Gruppe gerade aus ist — so siehst du, was du nicht siehst.'},
+      {emoji: '🎨', bold: 'Farben, die etwas heissen:', text: ' der Punkt an einem Tag hat die Farbe seiner Gruppe. Die alte Legende mit sechs Einträgen ist weg.'},
+      {emoji: '📭', bold: 'Ein leerer Tag sagt jetzt warum:', text: ' „3 Einträge sind ausgeblendet" mit einem Knopf „Alle zeigen" — statt so auszusehen, als wäre nichts da.'}
+    ],
+    items: [
+      '_gsKalFiltern(liste, f) NACH dem Prüfwerk. Reihenfolge fest: Rechnung → Prüfwerk → Sieb → Anzeige; gsKalenderEreignisse liefert mit gesetztem Filter dieselbe Liste wie ohne (Fall F1).',
+      'gs_kal_filter = {aus:[Arten], garten} speichert die AUSGEBLENDETEN Arten — eine neue Art ist damit sichtbar statt stillschweigend verschluckt. In GS_USER_KEYS, im state-Blob HIN und RÜCK, markDirty(state) von Hand, Schreibversuch am Rückgabewert.',
+      'Fünf Gruppen statt vier: „Messwerte" hat eine eigene, weil die Vorgabe sie ausblendet — im Rückblick stünde dessen Chip von Anfang an halb aus, ein dritter Zustand, den niemand liest.',
+      'Die Chip-Zahlen kommen aus der UNGEFILTERTEN Liste des Monats; der Tageskopf sagt „(N ausgeblendet)" nur wenn > 0, und einen Monatsfuss mit drei Zahlen gibt es nicht.',
+      'Prüfstände: kalender_check 36 (6 neu, alle rot gegen v33.34). Gegenproben: Sieb in die Rechnung geschoben, Chip-Zahlen aus der gefilterten Liste, dritter Leerzustand ausgebaut, Punkte wieder nach Art → je rot.'
+    ]
+  },
+  {
     v: 'v33.34', date: '15.09.2026',
     headline: 'Der Kalender denkt: Frost trifft Aussaat, Regen übernimmt das Giessen, Ernte ohne Eintrag — und er sagt, woher er es weiss',
     summary: 'Erste Scheibe von KALENDER-V2. Der Kalender hält seine Ereignisse jetzt gegeneinander: ein Prüfwerk am Ende der einen Kalender-Funktion rechnet fünf Regeln mit je drei Zuständen (erfüllt · verletzt · nicht prüfbar) und schreibt Hinweise an die beteiligten Zeilen. Dazu ein gemessener Fehler: die Ernte-Schätzung erfand für jede unbekannte Pflanze ein Datum aus 60–90 Tagen — eine Monstera-Pflanzung bekam „Ernte voraussichtlich 16.10.". Jetzt nur mit Kulturdaten, und der Grund nennt die Zahlen.',
@@ -75775,7 +75940,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.34';
+var GS_VERSION = 'v33.35';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -82201,6 +82366,7 @@ var GS_USER_KEYS = [
   'gs_streak','gs_streak_sig','gs_streak_stamp','gs_last_active_day_iso','gs_last_active_day',
   'gs_xp','gs_xp_total','gs_login_streak','gs_last_login','gs_action_counts',
   'gs_dq_archive','gs_dq_stats','gs_quiz_points','gs_quiz_streak','gs_quiz_lastday',
+  'gs_kal_filter',    // v33.35: was der Kalender zeigt — eine Wahl der Person
   'gs_dq_training',   // v33.28: der Lernstand der Lernkarten
   'gs_notif_state','gs_lux_calib','gs_lux_calib_points','gs_light_pro10_latest',
   'gs_dead_plants','gs_social_posts','gs_my_bids','gs_purchases',
@@ -82463,7 +82629,7 @@ async function gsSyncUserDataOnLogin(){
             // Streak (siehe Kommentar bei _gsStreakApplyCloud).
             'gs_doctor_history': sd.doctor_history,
             'gs_ki_analyses': sd.ki_analyses,
-            'gs_dq_archive': sd.dq_archive, 'gs_dq_stats': sd.dq_stats, 'gs_dq_training': sd.dq_training, 'gs_quiz_streak': sd.quiz_streak,
+            'gs_dq_archive': sd.dq_archive, 'gs_dq_stats': sd.dq_stats, 'gs_dq_training': sd.dq_training, 'gs_kal_filter': sd.kal_filter, 'gs_quiz_streak': sd.quiz_streak,
             'gs_recipe_favs': sd.recipe_favs, 'gs_recent_searches': sd.recent_searches,
             'gs_geraete': sd.geraete, 'gs_geraete_regeln': sd.geraete_regeln,   // v32.48
             'ps_favs': sd.favs, 'ps_votes': sd.votes,
@@ -82897,6 +83063,7 @@ window.gsCloudSync = (function(){
     // Rueckweg (stateMap) hatte ihn zuerst, der Hinweg nicht: dann reist er nur
     // im Snapshot und geht bei einem gewoehnlichen Geraetewechsel verloren.
     try { data.dq_training = JSON.parse(localStorage.getItem('gs_dq_training')||'null'); } catch(_){}
+    try { data.kal_filter = JSON.parse(localStorage.getItem('gs_kal_filter')||'null'); } catch(_){}   // v33.35: beide Blobs, sonst reist die Wahl nur im Backup
     try { data.quiz_streak = JSON.parse(gsStore.get('gs_quiz_streak', null)||'null'); } catch(_){}
     // Rezepte/Suchen
     try { data.recipe_favs = JSON.parse(localStorage.getItem('gs_recipe_favs')||'[]'); } catch(_){}
@@ -83118,7 +83285,7 @@ window.gsCloudSync = (function(){
         'gs_last_login':'state',   // v31.14: gehört zu gs_login_streak — beide oder keiner
         'gs_last_active_day_iso':'state',
         'gs_doctor_history':'state','gs_ki_analyses':'state',
-        'gs_dq_archive':'state','gs_dq_stats':'state','gs_quiz_streak':'state','gs_dq_training':'state',
+        'gs_dq_archive':'state','gs_dq_stats':'state','gs_quiz_streak':'state','gs_dq_training':'state','gs_kal_filter':'state',
         'gs_recipe_favs':'state','gs_recent_searches':'state','gs_wissen_read':'state',
         'gs_geraete':'state','gs_geraete_regeln':'state',   // v32.48
         'ps_favs':'state','ps_votes':'state','gs_confirmed_species':'state',

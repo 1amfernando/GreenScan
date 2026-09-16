@@ -12,6 +12,66 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-16 (if) - v33.35: Das Sieb — der Kalender zeigt, was du sehen willst
+
+**Fernandos Auftrag (14.09.):** „intelligentes Filtersystem", „nicht
+vollgepumpt". Zweite Scheibe von KALENDER-V2 (§4).
+
+**Die Regel, und sie ist die Sache:** ein Filter ist ein **Sieb auf dem
+ERGEBNIS**, nie eine Bedingung in der Rechnung. Reihenfolge fest: Rechnung →
+Pruefwerk → Sieb → Anzeige. `gsKalenderEreignisse` liefert mit gesetztem
+Filter dieselbe Liste wie ohne — `kalender_check` F1 zaehlt beide. Wer aus
+Tempo eine Quelle ueberspringt, weil ein Chip aus ist, macht die Zahl am Chip
+falsch und Lina blind: sie liest die ungefilterte Liste.
+
+**Gespeichert wird nach ART, gezeigt nach GRUPPE.** `gs_kal_filter =
+{aus: ['messung'], garten: null}` traegt die AUSGEBLENDETEN Arten — damit ist
+eine neue Ereignisart automatisch SICHTBAR; eine Liste der erlaubten haette sie
+stillschweigend verschluckt. Der Schluessel steht in `GS_USER_KEYS`, reist im
+state-Blob HIN (`_buildStateBlob`) und RUECK (`stateMap`), ruft `markDirty`
+selbst (der Auto-Track ist verdeckt, v32.36) und prueft den Rueckgabewert des
+Schreibversuchs (§3.5).
+
+**Fuenf Chips, nicht vier — und warum.** Zu tun · Säen & Ernten · Wetter ·
+Rückblick · Messwerte. Der Entwurf sagte „vier" und nannte im selben Abschnitt
+„Messwerte 5" als Beispiel fuer einen ausgeschalteten Chip. Beides geht nicht:
+die Vorgabe blendet `messung` aus, und steckte sie im Rueckblick, stuende
+dessen Chip von Anfang an HALB aus — ein dritter Zustand, den niemand liest.
+Ein Chip ist an oder aus.
+
+**Die Zahl steht an EINER Stelle.** Jeder Chip traegt seine Zahl aus der
+UNGEFILTERTEN Liste des sichtbaren Monats — ein ausgeschalteter sagt so, was er
+zurueckhaelt. Der Tageskopf sagt „(N ausgeblendet)" nur, wenn es etwas zu
+sagen gibt; einen Monatsfuss mit „14 · 9 gezeigt · 5 ausgeblendet" gibt es
+nicht (drei Anzeigen derselben Zaehlung sind drei Stellen, die auseinander
+laufen koennen).
+
+**Die Punkte tragen die Farbe der GRUPPE** (fuenf) statt der Art (neun Arten,
+acht Farben, `aussaat` ohne Punkt) — damit erklaeren die Chips den Farbcode,
+und die Legende mit sechs Eintraegen ist ersatzlos weg. Eine Art ohne Gruppe
+bekommt einen grauen Punkt und wird GEZEIGT, nie versteckt.
+
+**Der dritte Leerzustand.** „3 Eintraege sind ausgeblendet" mit einem Knopf
+„Alle zeigen" — statt auszusehen, als waere nichts da. Jetzt sind es drei
+Saetze fuer drei Wahrheiten: ausgeblendet · Daten da, Tag leer · keine Quelle.
+
+**Pruefstaende:** `kalender_check` 36 Faelle (6 neu, alle sechs rot gegen
+v33.34). Vier Gegenproben, jede einzeln eingespielt: das Sieb in die Rechnung
+geschoben → F1 rot; Chip-Zahlen aus der gefilterten Liste → F2 rot; dritter
+Leerzustand ausgebaut → F4 rot; Punkte wieder nach Art → F5 rot. `sync_check`
+hat einen Probewert fuer den neuen Schluessel.
+
+> **Und ein Fall, der zuerst mit der FALSCHEN Regel gruen war.** F2 prueft, dass
+> die Chip-Zahlen aus der ungefilterten Liste kommen — mit leerem Filter
+> liefern beide Regeln aber DIESELBE Zahl. Die Gegenprobe (Zahlen aus der
+> gefilterten Liste) blieb gruen. Der Fall blendet jetzt zuerst eine Gruppe MIT
+> Ereignissen aus und misst dann. **Ein Fall, dessen zwei denkbare Regeln
+> zufaellig dasselbe Ergebnis liefern, prueft keine von beiden** (v33.28).
+
+**Naechste Scheibe:** die Inline-Changelog-Liste steht jetzt bei **20** — am
+Deckel. Wer v33.36 baut, verschiebt zuerst den aeltesten Eintrag an den ANFANG
+von `data/releases.v1.js` (CLAUDE.md §3.1), sonst meldet `robust_check`.
+
 ### 2026-09-16 (ie) - docs/memory: das Gedächtnis in Kurzform, fuer JEDE KI
 
 **Fernandos Auftrag (14.09.):** „Erstelle neue effiziente Memory-Dateien, die
@@ -13430,9 +13490,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.34` (Client) · SW-Cache `gs-v33.34` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.35` (Client) · SW-Cache `gs-v33.35` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **19**, Deckel 20 durch `robust_check` Fall 24).
+- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel, der nächste Bump verschiebt den ältesten ins Archiv).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
