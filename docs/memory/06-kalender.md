@@ -110,11 +110,20 @@ für Eintrag — und mit gesetztem Filter liefert die Rechnung dieselbe Zahl.
 
 ## Die drei Namen
 
-Mein Naturjahr liest seine Balken aus `gsKalenderEreignisse(1.1., 31.12.)`
-(V2 Scheibe 4) — bis dahin zählt es selbst (Arten ohne Jahresfilter, K1).
+Mein Naturjahr liest seine Balken und die vier Kacheln seit v33.38 aus
+`gsKalenderEreignisse(J-01-01, J-12-31)`: `scan`, `fund`, `gepflanzt` und
+`ernte` mit `quelle === 'hand'` — die Schätzung (`quelle: 'regel'`) zählt
+NICHT mit. Die Kachel heisst „Gepflanzt“, weil sie beide Wege zählt
+(Garten-Pflanzung und Aufnahme in „Meine Pflanzen“). Davor rechnete es
+selbst und lag zweimal daneben: „Funde“ stand IMMER auf 0 (gelesen wurde
+`ts/time/found_at`, geschrieben wird `date`), und „Arten“ war die einzige
+Kachel ohne Jahresfilter.
+
 Säkalender gibt Fenster (eigene Kulturen + Merkliste) und nimmt „als gesät
-eintragen" als Tagebuch-Ereignis. Garten-Timeline verschwindet — ihr
-Menüeintrag öffnet den Kalender mit der Gruppe „Rückblick".
+eintragen“ als Tagebuch-Ereignis. Die **Garten-Timeline ist seit v33.38 weg**
+(mit dem Parser entfernt, nicht mit einer Zeilensuche); `mi-timeline` heisst
+„Rückblick“ und ruft `gsKalRueckblick()` — Gruppe `rueckblick` einschalten,
+dann `gsKalenderOeffnen()`.
 
 Sechs unabhängige Aussaat-Listen gibt es im Repo (`GS_SAE_DB`, `SEASON_DATA`,
 `PLANT_DB`, `GARDEN_KNOWLEDGE.aussaatkalender`, `garden_tasks_catalog`,
@@ -124,7 +133,7 @@ Daten-Scheibe, keine Kalender-Logik.
 
 ## Prüfstände
 
-`kalender_check` (30 Fälle seit v33.34, Uhr gestellt auf 2025-09-01 12:00 UTC,
+`kalender_check` (45 Fälle, Stand v33.38, Uhr gestellt auf 2025-09-01 12:00 UTC,
 kein Fall hängt am echten Datum; je Regel gut · schlecht · nicht prüfbar, aus
 dem gerenderten HTML gelesen) · `sensor_check` (Messwerte, Alarme, Lina-Kalender-
 Zeilen) · `contrast_check` öffnet das Kalender-Fenster · `wiring_check` die

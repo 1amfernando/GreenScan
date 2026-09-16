@@ -914,31 +914,10 @@ const FAELLE = [
       }
     },
   },
-  {
-    // v33.33: die Garten-Timeline las den nackten Schluessel 'scan_history' —
-    // den schreibt niemand (kanonisch SCAN_HISTORY_KEY = gs_scan_history), und
-    // das Repo wusste es an zwei anderen Stellen (2620, 62064). Die dritte
-    // fehlte: seit jeher 0 Scans in der Timeline, „N Ereignisse" zaehlte eine
-    // Aktivitaet mit, die nie in der Liste war. Und die Ernte las {pflanze, menge},
-    // der Seed schrieb {plant, amount} — Seed-Falle Nr. 5.
-    name: 'Garten-Timeline · zeigt die Scans des Verlaufs (kein toter Schluessel) und die Ernte mit Name und Menge (Seed-Felder = App-Felder)',
-    lauf: () => {
-      const klagen = [];
-      const key = (typeof SCAN_HISTORY_KEY !== 'undefined') ? SCAN_HISTORY_KEY : 'gs_scan_history';
-      let hist = []; try { hist = JSON.parse(localStorage.getItem(key) || '[]'); } catch (_) {}
-      if (!Array.isArray(hist) || hist.length < 2) return { ok: false, warum: 'Beispieldaten ohne Scan-Verlauf (' + (hist.length || 0) + ') — der Fall misst nichts' };
-      gsOpenGardenTimeline();
-      const body = document.getElementById('gs-nl-body');
-      const t = (body && body.textContent) || '';
-      const scans = (t.match(/🔬 Scan:/g) || []).length;
-      if (scans !== hist.length) klagen.push(scans + ' Scan-Zeilen in der Timeline bei ' + hist.length + ' Eintraegen im Verlauf');
-      hist.forEach(h => { if (h && h.name && t.indexOf(h.name) < 0) klagen.push('Scan „' + h.name + '" fehlt'); });
-      if (!/🧺 Ernte: Tomate · 420 g/.test(t)) klagen.push('Ernte-Zeile falsch: ' + ((t.match(/🧺 Ernte:[^\n]{0,40}/) || ['(keine)'])[0]));
-      try { closeModal('gs-nl-modal'); } catch (_) {}
-      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
-      return { ok: true, info: scans + ' Scans (' + hist.map(h => h.name).join(', ') + ') · Ernte „Tomate · 420 g"' };
-    },
-  },  // ═══ KALENDER-V2 · das Pruefwerk (v33.34) ═══════════════════════════
+  // v33.38: der Fall „Garten-Timeline“ ist ersatzlos weg — mit der Funktion.
+  // Was er gemessen hat, messen jetzt N1 (Scans im Kalender) und N3 (Ernte
+  // mit Name und Menge); M2 hält fest, dass es die alte Oberfläche nicht mehr gibt.
+  // ═══ KALENDER-V2 · das Pruefwerk (v33.34) ═══════════════════════════
   // „Denken" heisst rechnen: _gsKalPruefwerk(liste) laeuft am Ende der einen
   // Funktion und schreibt hinweise[] an die beteiligten Ereignisse. Jede Regel
   // hat drei Zustaende, und jeder Fall misst alle drei — und liest die Zeile
@@ -1620,6 +1599,81 @@ const FAELLE = [
         if (altS == null) localStorage.removeItem('gs_scan_history'); else localStorage.setItem('gs_scan_history', altS);
         if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF);
       }
+    },
+  },
+  {
+    // v33.38 · KALENDER-V2 Scheibe 4b. „Mein Naturjahr" zaehlte vier Quellen
+    // SELBST — und damit anders als der Kalender: die Kachel „Arten" kannte
+    // keinen Jahresfilter (sie stand unter der Ueberschrift „Mein Naturjahr
+    // 2026" und zaehlte alle Scans, die es je gab), und „Funde" las ein Feld,
+    // das niemand schreibt (v33.37).
+    name: 'Naturjahr M1 · die Balken und die vier Kacheln kommen aus dem KALENDER — und „Arten" zählt nur dieses Jahr',
+    lauf: () => {
+      const jetzt = new Date(), J = jetzt.getFullYear();
+      const altS = localStorage.getItem('gs_scan_history'), altM = localStorage.getItem('greenscan_markers');
+      try {
+        const klagen = [];
+        const heuteMs = Date.now();
+        localStorage.setItem('gs_scan_history', JSON.stringify([
+          { name: 'Löwenzahn', ts: heuteMs - 3 * 864e5 },
+          { name: 'Löwenzahn', ts: heuteMs - 4 * 864e5 },
+          { name: 'Steinpilz', ts: heuteMs - 5 * 864e5 },
+          { name: 'Uralt-Art', ts: heuteMs - 800 * 864e5 }        // ein anderes Jahr
+        ]));
+        localStorage.setItem('greenscan_markers', JSON.stringify([
+          { id: 'mA', name: 'Bärlauch', lat: 47, lng: 8, date: heuteMs - 6 * 864e5 }
+        ]));
+        const ev = gsKalenderEreignisse(J + '-01-01', J + '-12-31');
+        const zaehl = (a) => ev.filter(e => e.art === a).length;
+        gsOpenNaturjahr();
+        const mc = document.getElementById('modal-content');
+        const txt = mc.textContent || '';
+        // Die vier Kacheln stehen als Zahl ueber ihrer Beschriftung.
+        const kachel = (label) => {
+          const el = Array.from(mc.querySelectorAll('div')).find(d => d.children.length === 0 && d.textContent.trim() === label);
+          if (!el || !el.previousElementSibling) return null;
+          return parseFloat(el.previousElementSibling.textContent.replace(',', '.'));
+        };
+        const nScans = kachel('Scans'), nFunde = kachel('Funde'), nPfl = kachel('Gepflanzt'), nArten = kachel('Arten');
+        if (nScans == null || nFunde == null) return { ok: false, warum: 'die Kacheln „Scans"/„Funde" sind nicht lesbar' };
+        if (nScans !== zaehl('scan')) klagen.push('Kachel „Scans" zeigt ' + nScans + ', der Kalender hat ' + zaehl('scan') + ' Scan-Ereignisse in ' + J);
+        if (nFunde !== zaehl('fund')) klagen.push('Kachel „Funde" zeigt ' + nFunde + ', der Kalender hat ' + zaehl('fund'));
+        if (nPfl !== zaehl('gepflanzt')) klagen.push('Kachel „Gepflanzt" zeigt ' + nPfl + ', der Kalender hat ' + zaehl('gepflanzt'));
+        if (nArten !== 2) klagen.push('Kachel „Arten" zeigt ' + nArten + ' statt 2 — der Scan aus einem anderen Jahr zählt für „Mein Naturjahr ' + J + '" nicht mit');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Scans ' + nScans + ' = Kalender · Funde ' + nFunde + ' = Kalender · Gepflanzt ' + nPfl + ' · Arten ' + nArten + ' (ohne das Vorjahr)' };
+      } finally {
+        if (altS == null) localStorage.removeItem('gs_scan_history'); else localStorage.setItem('gs_scan_history', altS);
+        if (altM == null) localStorage.removeItem('greenscan_markers'); else localStorage.setItem('greenscan_markers', altM);
+        try { closeModal('detail-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'Naturjahr M2 · die Garten-Timeline ist im Kalender aufgegangen: der Menüeintrag öffnet ihn mit dem Rückblick, die alte Funktion gibt es nicht mehr',
+    lauf: () => {
+      const klagen = [];
+      const altF = localStorage.getItem('gs_kal_filter');
+      try {
+        if (typeof window.gsOpenGardenTimeline === 'function') klagen.push('gsOpenGardenTimeline gibt es noch — zwei Oberflächen für dieselbe Frage');
+        const btn = document.getElementById('mi-timeline');
+        if (!btn) return { ok: false, warum: 'der Menüeintrag mi-timeline fehlt ganz — er soll zum Kalender führen, nicht verschwinden' };
+        const oc = btn.getAttribute('onclick') || '';
+        if (!/gsKalenderOeffnen|gsKalRueckblick/.test(oc)) klagen.push('der Menüeintrag führt nicht zum Kalender: „' + oc + '"');
+        const label = btn.querySelector('.menu-item-label');
+        if (label && /Timeline/i.test(label.textContent)) klagen.push('der Eintrag heisst noch „Garten-Timeline" — er öffnet jetzt den Kalender');
+        // Wirklich ausfuehren: der Rueckblick muss danach sichtbar sein
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: ['tagebuch', 'gepflanzt', 'fund'], garten: null }));
+        if (typeof gsKalRueckblick === 'function') {
+          gsKalRueckblick();
+          const f = JSON.parse(localStorage.getItem('gs_kal_filter') || 'null');
+          if (!f || ['tagebuch', 'gepflanzt', 'fund'].some(a => f.aus.indexOf(a) >= 0)) klagen.push('der Weg über den Menüeintrag schaltet den Rückblick nicht ein: ' + JSON.stringify(f));
+          const mc = document.getElementById('modal-content');
+          if (!mc || !mc.querySelector('.gs-kal-chip')) klagen.push('der Kalender geht dabei nicht auf');
+        } else klagen.push('gsKalRueckblick fehlt');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '„' + (btn.querySelector('.menu-item-label') || {}).textContent + '" → Kalender mit eingeschaltetem Rückblick' };
+      } finally { if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF); }
     },
   },
 ];
