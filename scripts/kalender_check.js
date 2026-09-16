@@ -752,12 +752,17 @@ const FAELLE = [
       const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch'), cloud: localStorage.getItem('gs_garden_diary_cache'),
         ger: localStorage.getItem('gs_geraete'), mw: localStorage.getItem('gs_messwerte'), rg: localStorage.getItem('gs_geraete_regeln'),
         pla: localStorage.getItem('gs_garden_plans'),   // v33.10: fuenfte Quelle — die Plaene
-        wc: localStorage.getItem('gs_weather_cache') };  // v33.34: sechste Quelle — der Wetter-Zwischenspeicher (seit dem Seed immer da)
+        wc: localStorage.getItem('gs_weather_cache'),   // v33.34: sechste Quelle — der Wetter-Zwischenspeicher (seit dem Seed immer da)
+        sh: localStorage.getItem('gs_scan_history'), mk: localStorage.getItem('greenscan_markers') };  // v33.37: siebte und achte
       try {
         myPlants = []; if (typeof plantings !== 'undefined') plantings = [];
         localStorage.setItem('gs_gartentagebuch', '[]'); gsTagebuchLoad(true);
         localStorage.removeItem('gs_garden_diary_cache');
-        ['gs_geraete', 'gs_messwerte', 'gs_geraete_regeln', 'gs_garden_plans', 'gs_weather_cache'].forEach(k => localStorage.removeItem(k));
+        // v33.37: zwei weitere Quellen (Scan-Verlauf, Karten-Fundorte). Wer
+        // eine anlegt und sie hier stehen laesst, macht den Fall rot — genau
+        // so ist es beim Cloud-Spiegel (v32.49) und beim Geraet (v32.52)
+        // passiert.
+        ['gs_geraete', 'gs_messwerte', 'gs_geraete_regeln', 'gs_garden_plans', 'gs_weather_cache', 'gs_scan_history', 'greenscan_markers'].forEach(k => localStorage.removeItem(k));
         const ev = gsKalenderEreignisse(gsHeuteTag(), _gsKalTagPlus(gsHeuteTag(), 30));
         if (ev.length) return { ok: false, warum: ev.length + ' Ereignisse ohne jede Datengrundlage' };
         gsKalenderOeffnen();
@@ -795,6 +800,8 @@ const FAELLE = [
         if (sichern.rg != null) localStorage.setItem('gs_geraete_regeln', sichern.rg);
         if (sichern.pla != null) localStorage.setItem('gs_garden_plans', sichern.pla);
         if (sichern.wc != null) localStorage.setItem('gs_weather_cache', sichern.wc);
+        if (sichern.sh != null) localStorage.setItem('gs_scan_history', sichern.sh);
+        if (sichern.mk != null) localStorage.setItem('greenscan_markers', sichern.mk);
       }
     },
   },
@@ -1488,6 +1495,131 @@ const FAELLE = [
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
         return { ok: true, info: 'mit Cache: Hitze 33 °C · ohne Cache: sagt es, statt zu entwarnen' };
       } finally { if (alt == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', alt); try { if (typeof closeModal === 'function') closeModal(); } catch (_) {} }
+    },
+  },
+  {
+    // v33.37 · KALENDER-V2 Scheibe 4a. Drei Quellen, die es in der App laengst
+    // gibt und die im Kalender fehlten: der Scan-Verlauf, die Karten-Fundorte
+    // und die WIRKLICHE Ernte (bisher gab es dort nur die Schaetzung).
+    name: 'Drei Namen N1 · der Scan-Verlauf steht im Kalender: je Scan ein Ereignis mit Art und Datum, in der Gruppe „Messwerte & Scans" (Vorgabe aus), ein Scan aus einem anderen Jahr zählt nicht mit',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('gs_scan_history'), altF = localStorage.getItem('gs_kal_filter');
+      try {
+        const klagen = [];
+        localStorage.setItem('gs_scan_history', JSON.stringify([
+          { name: 'Löwenzahn', lat: 'Taraxacum officinale', ts: Date.now() - 2 * 864e5, confidence: 91 },
+          { name: 'Steinpilz', timestamp: new Date(Date.now() - 5 * 864e5).toISOString() },
+          { name: 'Uralt', ts: Date.now() - 800 * 864e5 }
+        ]));
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: [], garten: null }));
+        const ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -10), heute).filter(e => e.art === 'scan');
+        if (ev.length !== 2) klagen.push(ev.length + ' Scan-Ereignisse in den letzten 10 Tagen statt 2 (' + ev.map(e => e.titel).join(' | ') + ')');
+        const lw = ev.find(e => /Löwenzahn/.test(e.titel));
+        if (!lw) klagen.push('der Löwenzahn-Scan fehlt');
+        else {
+          if (lw.datum !== _gsKalTagPlus(heute, -2)) klagen.push('der Scan steht am ' + lw.datum + ' statt am ' + _gsKalTagPlus(heute, -2));
+          if (!lw.grund) klagen.push('das Scan-Ereignis sagt nicht, woher es kommt');
+          if (!lw.verweis || !lw.verweis.fn) klagen.push('kein Weg vom Scan-Ereignis zur Art');
+        }
+        // Gruppe und Vorgabe
+        if (typeof _gsKalArtGruppe !== 'function' || _gsKalArtGruppe('scan') !== 'messung') klagen.push('die Art „scan" hängt an keiner Gruppe oder an der falschen: ' + (typeof _gsKalArtGruppe === 'function' ? _gsKalArtGruppe('scan') : '—'));
+        if (GS_KAL_AUS_VORGABE.indexOf('scan') < 0) klagen.push('„scan" ist von Anfang an sichtbar — die Vorgabe blendet Protokoll-Arten aus');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: ev.length + ' Scans im Bereich (der 800 Tage alte nicht) · Gruppe „' + _gsKalArtGruppe('scan') + '" · Vorgabe aus' };
+      } finally {
+        if (alt == null) localStorage.removeItem('gs_scan_history'); else localStorage.setItem('gs_scan_history', alt);
+        if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF);
+      }
+    },
+  },
+  {
+    name: 'Drei Namen N2 · Karten-Fundorte im Kalender — und der EINE Leser für ihre Zeit: die App schreibt `date`, gelesen wurde `ts/time/found_at/created_at`',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('greenscan_markers'), altF = localStorage.getItem('gs_kal_filter');
+      try {
+        const klagen = [];
+        if (typeof _gsFundZeit !== 'function') return { ok: false, warum: '_gsFundZeit fehlt — die Zeit eines Fundorts braucht EINEN Leser' };
+        // So schreibt die App (beide Schreiber): `date` in Millisekunden.
+        localStorage.setItem('greenscan_markers', JSON.stringify([
+          { id: 'm1', lat: 47.3, lng: 8.5, name: 'Bärlauch', cat: 'plant', date: Date.now() - 3 * 864e5 },
+          { id: 'm2', lat: 47.3, lng: 8.5, name: 'Alt', cat: 'plant', date: Date.now() - 900 * 864e5 }
+        ]));
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: [], garten: null }));
+        if (_gsFundZeit({ date: 1700000000000 }) !== 1700000000000) klagen.push('_gsFundZeit liest das Feld `date` nicht');
+        if (_gsFundZeit({}) !== null) klagen.push('_gsFundZeit gibt für einen Fundort ohne Zeit nicht null');
+        const ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -10), heute).filter(e => e.art === 'fund');
+        if (ev.length !== 1) klagen.push(ev.length + ' Fund-Ereignisse statt 1');
+        else {
+          if (!/Bärlauch/.test(ev[0].titel)) klagen.push('der Fund nennt die Art nicht: „' + ev[0].titel + '"');
+          if (ev[0].datum !== _gsKalTagPlus(heute, -3)) klagen.push('der Fund steht am ' + ev[0].datum);
+          if (_gsKalArtGruppe('fund') !== 'rueckblick') klagen.push('die Art „fund" gehört nicht zum Rückblick: ' + _gsKalArtGruppe('fund'));
+          if (GS_KAL_AUS_VORGABE.indexOf('fund') >= 0) klagen.push('Fundorte sind von Anfang an ausgeblendet — sie sind wenige und gewollt');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '1 Fund im Bereich (der 900 Tage alte nicht) · „' + ev[0].titel + '"' };
+      } finally {
+        if (alt == null) localStorage.removeItem('greenscan_markers'); else localStorage.setItem('greenscan_markers', alt);
+        if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF);
+      }
+    },
+  },
+  {
+    name: 'Drei Namen N3 · die WIRKLICHE Ernte steht im Kalender (quelle hand) und ist von der Schätzung (quelle regel) unterscheidbar — mit Menge und Einheit',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const alt = localStorage.getItem('gs_ernte_log'), altF = localStorage.getItem('gs_kal_filter');
+      try {
+        const klagen = [];
+        localStorage.setItem('gs_ernte_log', JSON.stringify([
+          { id: 'e1', pflanze: 'Zucchini', emoji: '🥒', menge: 1.4, unit: 'kg', ts: new Date(Date.now() - 4 * 864e5).toISOString() }
+        ]));
+        window._gsErnteLog = null;
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: [], garten: null }));
+        const ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -10), heute).filter(e => e.art === 'ernte' && e.quelle === 'hand');
+        if (ev.length !== 1) return { ok: false, warum: ev.length + ' Ernte-Ereignisse aus dem Log statt 1' };
+        if (!/Zucchini/.test(ev[0].titel)) klagen.push('die Pflanze fehlt im Titel: „' + ev[0].titel + '"');
+        if (!/1\.4|1,4/.test(ev[0].titel) || !/kg/.test(ev[0].titel)) klagen.push('Menge und Einheit fehlen im Titel: „' + ev[0].titel + '"');
+        if (ev[0].datum !== _gsKalTagPlus(heute, -4)) klagen.push('die Ernte steht am ' + ev[0].datum);
+        if (!ev[0].verweis || !ev[0].verweis.fn) klagen.push('kein Weg von der Ernte-Zeile zum Ernte-Fenster');
+        // Die Schaetzung bleibt eine andere Quelle
+        const regel = gsKalenderEreignisse(_gsKalTagPlus(heute, -120), _gsKalTagPlus(heute, 200)).filter(e => e.art === 'ernte' && e.quelle === 'regel');
+        if (!regel.length) klagen.push('keine Ernte-Schätzung mehr — die beiden Quellen sollen nebeneinander stehen');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '„' + ev[0].titel + '" (hand) · ' + regel.length + ' Schätzung(en) (regel) daneben' };
+      } finally {
+        if (alt == null) localStorage.removeItem('gs_ernte_log'); else localStorage.setItem('gs_ernte_log', alt);
+        window._gsErnteLog = null;
+        if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF);
+      }
+    },
+  },
+  {
+    name: 'Drei Namen N4 · die neuen Arten haben ihren Chip, ihre Farbe und ihren Namen — und der Chip „Messwerte & Scans" zählt beide',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const altS = localStorage.getItem('gs_scan_history'), altF = localStorage.getItem('gs_kal_filter');
+      try {
+        const klagen = [];
+        localStorage.removeItem('gs_kal_filter');
+        localStorage.setItem('gs_scan_history', JSON.stringify([{ name: 'Löwenzahn', ts: Date.now() }]));
+        // jede Art gehoert zu genau einer Gruppe — sonst faellt sie durch das Sieb
+        Object.keys(_GS_KAL_ART).forEach(a => { if (!_gsKalArtGruppe(a)) klagen.push('die Art „' + a + '" hängt an keiner Gruppe'); });
+        gsKalenderOeffnenAm(heute);
+        const mc = document.getElementById('modal-content');
+        const chip = Array.from(mc.querySelectorAll('.gs-kal-chip')).find(c => /Scan/i.test(c.textContent));
+        if (!chip) return { ok: false, warum: 'kein Chip, der die Scans nennt: ' + Array.from(mc.querySelectorAll('.gs-kal-chip')).map(c => c.textContent.trim()).join(' | ') };
+        if (chip.getAttribute('aria-pressed') !== 'false') klagen.push('der Protokoll-Chip ist ohne Zutun EIN');
+        const m = chip.textContent.match(/(\d+)\s*$/);
+        if (!m || +m[1] < 1) klagen.push('der Chip zählt den heutigen Scan nicht: „' + chip.textContent.trim() + '"');
+        if (!_GS_KAL_ART.scan || !_GS_KAL_ART.fund) klagen.push('die neuen Arten haben keinen Namen in _GS_KAL_ART');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '„' + chip.textContent.trim().replace(/\s+/g, ' ') + '" · alle ' + Object.keys(_GS_KAL_ART).length + ' Arten haben eine Gruppe' };
+      } finally {
+        if (altS == null) localStorage.removeItem('gs_scan_history'); else localStorage.setItem('gs_scan_history', altS);
+        if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF);
+      }
     },
   },
 ];

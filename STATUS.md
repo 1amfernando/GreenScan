@@ -12,6 +12,44 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-16 (ih) - v33.37: Scans, Fundorte und die wirkliche Ernte
+
+**KALENDER-V2 Scheibe 4, erster Teil („die drei Namen“).** Drei Quellen, die
+es in der App laengst gibt und die im Kalender fehlten: der Scan-Verlauf, die
+Karten-Fundorte und das Ernte-Buch. Bis hierher kannte der Kalender von der
+Ernte nur die SCHAETZUNG (`quelle: 'regel'`) — er sagte, wann etwas reif sein
+koennte, und nie, wann etwas geerntet wurde.
+
+**Und ein Fehler derselben Klasse zum dritten Mal in vier Scheiben.** Beide
+Schreiber der Karten-Fundorte (`gsAddMarker`, der Cloud-Abgleich) legen die
+Zeit als **`date`** in Millisekunden ab. `gsOpenNaturjahr` las
+`f.ts || f.time || f.found_at || f.created_at` — **keines davon schreibt
+jemand.** Die Kachel „Funde“ stand seit jeher auf 0, und kein Fund hat je
+einen Monatsbalken bewegt. Jetzt gibt es `_gsFundZeit(f)`, den EINEN Leser;
+die drei alten Namen bleiben als Rueckfall fuer Zeilen aus fremder Hand.
+Dieselbe Klasse wie `_gsScanZeit` (v33.33) und `ctx.harvests` (v33.34):
+**der Leser ist die Regel, nicht das Feld.**
+
+**Gruppen und Vorgabe, mit Grund:** `fund` gehoert in den Rueckblick und ist
+von Anfang an SICHTBAR (Fundorte sind wenige und gewollt); `scan` gehoert zu
+den Messwerten und ist AUS (bis 200 Scans wuerden das Raster zudecken). Der
+Chip heisst deshalb jetzt „Messwerte & Scans“.
+
+**Und die neuen Quellen zaehlen fuer die Datenlage.** Wer NUR gescannt hat,
+bekommt nicht mehr „Noch keine Daten“ — auch dann nicht, wenn sein Chip
+gerade aus ist. Der Fall „Ohne Daten“ raeumt jetzt acht Quellen; wer eine
+neunte anlegt und sie dort stehen laesst, macht ihn rot (so ist es beim
+Cloud-Spiegel in v32.49 und beim Geraet in v32.52 passiert).
+
+**Pruefstaende:** `kalender_check` 44 (4 neu, alle vier rot gegen v33.36).
+Drei Gegenproben: Scan-Zeit aus EINEM Feld statt dem Leser → N1 rot;
+`_gsFundZeit` ohne `date` → N2 rot; Ernte ohne Weg und ohne Grund → N3 rot.
+Changelog-Umzug: v33.17 ins Archiv.
+
+**Noch offen aus Scheibe 4:** Mein Naturjahr rechnet seine Balken weiter
+selbst (und zaehlt die Arten ohne Jahresfilter — gemessen, K1), und die
+Garten-Timeline ist noch nicht aufgehoben. Beides kommt als zweiter Teil.
+
 ### 2026-09-16 (ig) - v33.36: Ein Wetter für die ganze App
 
 **KALENDER-V2 Scheibe 3 (R6, R7).** Die vier Schwellen standen an ZWEI
@@ -13536,9 +13574,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.36` (Client) · SW-Cache `gs-v33.36` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.37` (Client) · SW-Cache `gs-v33.37` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; v33.36 hat v33.16 ins Archiv verschoben, der nächste Bump verschiebt v33.17).
+- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.17).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

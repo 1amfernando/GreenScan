@@ -1351,6 +1351,17 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > S5 (vier Rechnungen fuer dieselbe Frage). `_gsRegenUebernimmt(p)` ist die
 > eine, und `kalender_check` R2 zaehlt Startseite und Kalender gegeneinander.
 
+> **Dritte Instanz derselben Klasse in vier Auslieferungen: der Leser ist die
+> Regel, nicht das Feld** (v33.37). Die Karten-Fundorte werden von beiden
+> Schreibern mit `date` (ms) abgelegt; `gsOpenNaturjahr` las
+> `ts || time || found_at || created_at` — die Kachel „Funde“ stand seit jeher
+> auf 0. Vorher: `_gsScanZeit` (v33.33, drei Schreiber, drei Namen) und
+> `ctx.harvests` (v33.34, `h.name || h.crop || h.plant` gegen `pflanze`).
+> **Wer ein Feld aus fremder Hand liest, sucht ZUERST seine Schreiber**
+> (`grep -n "setItem('<key>'" -B15`) und baut dann EINEN Leser
+> (`_gsFundZeit`, `_gsScanZeit`). Ein Rueckfall auf weitere Namen ist in
+> Ordnung — aber der geschriebene Name steht zuerst.
+
 > **„Keine Daten“ ist nicht „keine Gefahr“ — und eine leere Liste sagt etwas
 > anderes als `null`** (v33.36). `gsOpenWeatherWarn` holte sein Wetter selbst,
 > und wenn die Antwort keine Tageswerte hatte, stand dort „Keine Warnungen —

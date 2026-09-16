@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.36.20260916">
+<meta name="app-version" content="33.37.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15069,7 +15069,7 @@ window.GS_I18N_JS_STRINGS = {
   'kal_g_saeen': 'Säen & Ernten',
   'kal_g_wetter': 'Wetter',
   'kal_g_rueckblick': 'Rückblick',
-  'kal_g_messung': 'Messwerte',
+  'kal_g_messung': 'Messwerte & Scans',
   'kal_alle_zeigen': 'Alle zeigen',
   'ww_titel': 'Wetter-Frühwarnung',
   'kal_hinweis_1': 'Hinweis',
@@ -28611,6 +28611,21 @@ function _gsKalTag(d) {
     return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
   } catch (_) { return null; }
 }
+// v33.37: die Zeit eines Karten-Fundorts — EIN Leser. Beide Schreiber der App
+// (`gsAddMarker` und der Cloud-Abgleich) legen `date` in Millisekunden ab;
+// `gsOpenNaturjahr` las `ts || time || found_at || created_at` und fand damit
+// KEINEN einzigen — die Kachel „Funde“ stand seit jeher auf 0, und kein Fund
+// hat je einen Monatsbalken bewegt. Dieselbe Klasse wie `_gsScanZeit` (v33.33)
+// und `ctx.harvests` (v33.34): **der Leser ist die Regel, nicht das Feld.**
+// Die drei alten Namen bleiben als Rueckfall — fuer Zeilen aus fremder Hand.
+function _gsFundZeit(f) {
+  if (!f) return null;
+  var roh = (f.date != null) ? f.date : (f.ts != null ? f.ts : (f.found_at != null ? f.found_at : f.created_at));
+  if (roh == null || roh === '') return null;
+  var t = (typeof roh === 'number') ? roh : new Date(roh).getTime();
+  return isFinite(t) ? t : null;
+}
+window._gsFundZeit = _gsFundZeit;
 function _gsKalTagPlus(tag, n) { var p = String(tag).split('-'); return _gsKalTag(new Date(+p[0], +p[1] - 1, +p[2] + (n || 0))); }
 function gsHeuteTag() { return _gsKalTag(new Date()); }
 function _gsKalZeit(ts) { try { var x = new Date(ts); if (isNaN(x.getTime())) return null; if (x.getHours() === 0 && x.getMinutes() === 0) return null; return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); } catch (_) { return null; } }
@@ -28618,7 +28633,7 @@ function _gsKalDatumKurz(ts) { try { var x = new Date(ts); return String(x.getDa
 var _GS_KAL_MON = gsMonate();
 var _GS_KAL_WT  = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 function _gsKalDatumLang(tag) { try { var p = tag.split('-'); var x = new Date(+p[0], +p[1] - 1, +p[2]); return _GS_KAL_WT[(x.getDay() + 6) % 7] + ', ' + x.getDate() + '. ' + _GS_KAL_MON[x.getMonth()]; } catch (_) { return tag; } }
-var _GS_KAL_ART = { aufgabe: 'Aufgabe', tagebuch: 'Tagebuch', gepflanzt: 'Gepflanzt', aussaat: 'Aussaatfenster', ernte: 'Erntefenster', erinnerung: 'Erinnerung', messung: 'Messwert', alarm: 'Alarm', wetter: 'Wetter' };
+var _GS_KAL_ART = { aufgabe: 'Aufgabe', tagebuch: 'Tagebuch', gepflanzt: 'Gepflanzt', aussaat: 'Aussaatfenster', ernte: 'Ernte', erinnerung: 'Erinnerung', messung: 'Messwert', alarm: 'Alarm', wetter: 'Wetter', scan: 'Scan', fund: 'Fundort' };
 var _GS_TB_EMOJI = { note: '📝', water: '💧', fertilize: '🌱', harvest: '🌾', plant: '🌱', pest: '🐛', weather: '🌦️', photo: '📸', repot: '🪴', prune: '✂️', check: '👀', mist: '💨', dust: '🧹', rotate: '🔄', observation: '👀' };
 
 // Tage bis faellig — mit Verschiebung. Wer eine Faelligkeit braucht, ruft das.
@@ -29048,6 +29063,61 @@ function gsKalenderEreignisse(von, bis) {
       });
     });
   } catch (_) {}
+  // 5c · Scan-Verlauf (v33.37) — jeder Scan ist ein Ereignis an seinem Tag.
+  //      Die Zeit kommt aus _gsScanZeit (v33.33: drei Schreiber, ein Leser);
+  //      ohne lesbare Zeit KEIN Ereignis statt eines auf „heute“.
+  try {
+    var sh = [];
+    try { sh = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]'); } catch (_) { sh = []; }
+    if (Array.isArray(sh)) sh.forEach(function (h, i) {
+      if (!h || !h.name) return;
+      var zt = (typeof _gsScanZeit === 'function') ? _gsScanZeit(h) : null;
+      if (zt == null) return;
+      var tag = _gsKalTag(zt); if (!tag || !im(tag)) return;
+      var konf = (h.conf != null) ? h.conf : h.confidence;
+      out.push({ id: 'scan:' + (h.id || (tag + ':' + i)), art: 'scan', datum: tag, zeit: _gsKalZeit(zt), ts: new Date(zt).toISOString(),
+        titel: _gsSatz('{1} gescannt', h.name), emoji: '🔬',
+        pflanze: null, garten_id: null, quelle: 'scan', status: 'info', faellig_seit: null,
+        verweis: (h.lat || h.name) ? { fn: 'gsSearchSpecies', args: [h.lat || h.name] } : null,
+        grund: (konf != null && isFinite(konf))
+          ? _gsSatz('Aus deinem Scan-Verlauf — die Erkennung war zu {1} % sicher', Math.round(konf))
+          : _gsSatz('Aus deinem Scan-Verlauf') });
+    });
+  } catch (_) {}
+  // 5d · Karten-Fundorte (v33.37) — dieselbe Regel, eigener Leser fuer die Zeit.
+  try {
+    var mk = [];
+    try { mk = JSON.parse(localStorage.getItem('greenscan_markers') || '[]'); } catch (_) { mk = []; }
+    if (Array.isArray(mk)) mk.forEach(function (f, i) {
+      if (!f || !f.name) return;
+      var zt = _gsFundZeit(f); if (zt == null) return;
+      var tag = _gsKalTag(zt); if (!tag || !im(tag)) return;
+      out.push({ id: 'fund:' + (f.id || (tag + ':' + i)), art: 'fund', datum: tag, zeit: _gsKalZeit(zt), ts: new Date(zt).toISOString(),
+        titel: _gsSatz('{1} gefunden', f.name), emoji: '📍',
+        pflanze: null, garten_id: null, quelle: 'hand', status: 'info', faellig_seit: null,
+        verweis: { fn: 'gsOpenMyFinds', args: [] },
+        grund: _gsSatz('Ein Fundort aus deiner Karte') });
+    });
+  } catch (_) {}
+  // 5e · Die WIRKLICHE Ernte (v33.37) — aus dem Ernte-Log, quelle `hand`.
+  //      Bis hierher kannte der Kalender nur die SCHAETZUNG (quelle `regel`,
+  //      Nr. 4): er sagte, wann etwas reif sein koennte, und nie, wann etwas
+  //      geerntet wurde. Beide stehen jetzt nebeneinander — R4 haelt sie
+  //      zusammen.
+  try {
+    var el = (typeof gsErnteLoad === 'function') ? (gsErnteLoad() || []) : [];
+    if (Array.isArray(el)) el.forEach(function (z, i) {
+      if (!z || !z.pflanze) return;
+      var tag = _gsKalTag(z.ts); if (!tag || !im(tag)) return;
+      var menge = (z.menge != null && isFinite(Number(z.menge))) ? Number(z.menge) : null;
+      out.push({ id: 'ernte-hand:' + (z.id || (tag + ':' + i)), art: 'ernte', datum: tag, zeit: _gsKalZeit(z.ts), ts: z.ts,
+        titel: menge != null ? _gsSatz('{1} geerntet: {2} {3}', z.pflanze, menge, z.unit || '') : _gsSatz('{1} geerntet', z.pflanze),
+        emoji: z.emoji || '🧺',
+        pflanze: null, garten_id: null, quelle: 'hand', status: 'info', faellig_seit: null,
+        verweis: { fn: 'openErnteTracking', args: [] },
+        grund: _gsSatz('Aus deinem Ernte-Buch') });
+    });
+  } catch (_) {}
   // 6 · Messwerte (Stufe 0 von Hand) — je Geraet und Tag EIN Ereignis — und
   //     verletzte Regeln als Alarm am heutigen Tag (OEKOSYSTEM-V1.md §6)
   try {
@@ -29247,6 +29317,11 @@ function _gsKalDatenlage() {
   try { if (typeof gsTagebuchAlle === 'function' && gsTagebuchAlle().length) q.push('tagebuch'); } catch (_) {}
   try { if (typeof gsGeraete === 'function' && gsGeraete().some(function (g) { return g && g.kind !== 'weather'; })) q.push('geraete'); } catch (_) {}
   try { var pl = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); if (Array.isArray(pl) && pl.length) q.push('plaene'); } catch (_) {}
+  // v33.37: zwei weitere Quellen. Wer NUR gescannt hat, hat Daten — ihm
+  // „Noch keine Daten“ zu sagen waere falsch, auch wenn sein Kalender-Chip
+  // „Messwerte & Scans“ gerade aus ist.
+  try { var sh = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]'); if (Array.isArray(sh) && sh.length) q.push('scans'); } catch (_) {}
+  try { var mk = JSON.parse(localStorage.getItem('greenscan_markers') || '[]'); if (Array.isArray(mk) && mk.length) q.push('funde'); } catch (_) {}
   // Die Wettervorhersage zaehlt NICHT, und das Pseudo-Geraet „Wetterdienst“
   // ebenso wenig: beide entstehen ohne Zutun der Person. „Noch keine Daten“
   // ist die Aufforderung, eine Pflanze anzulegen — eine Vorhersage, die von
@@ -29276,10 +29351,13 @@ var GS_KAL_GRUPPEN = [
   { id: 'zutun',      emoji: '✅', arten: ['aufgabe', 'alarm', 'erinnerung'] },
   { id: 'saeen',      emoji: '🌱', arten: ['aussaat', 'ernte'] },
   { id: 'wetter',     emoji: '🌦️', arten: ['wetter'] },
-  { id: 'rueckblick', emoji: '📖', arten: ['tagebuch', 'gepflanzt'] },
-  { id: 'messung',    emoji: '📊', arten: ['messung'] }
+  { id: 'rueckblick', emoji: '📖', arten: ['tagebuch', 'gepflanzt', 'fund'] },
+  { id: 'messung',    emoji: '📊', arten: ['messung', 'scan'] }
 ];
-var GS_KAL_AUS_VORGABE = ['messung'];
+// Vorgabe: alles an ausser dem PROTOKOLL. Messwerte und Scans entstehen in
+// Mengen (bis 30 Messwerte im Monat je Handgeraet, bis 200 Scans) und wuerden
+// das Raster zudecken; Fundorte sind wenige und gewollt — die bleiben an.
+var GS_KAL_AUS_VORGABE = ['messung', 'scan'];
 var GS_KAL_FILTER_KEY = 'gs_kal_filter';
 function _gsKalGruppeLabel(id) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
@@ -29287,7 +29365,7 @@ function _gsKalGruppeLabel(id) {
   if (id === 'saeen') return _t('kal_g_saeen', 'Säen & Ernten');
   if (id === 'wetter') return _t('kal_g_wetter', 'Wetter');
   if (id === 'rueckblick') return _t('kal_g_rueckblick', 'Rückblick');
-  if (id === 'messung') return _t('kal_g_messung', 'Messwerte');
+  if (id === 'messung') return _t('kal_g_messung', 'Messwerte & Scans');
   return '';
 }
 // Welche Gruppe traegt diese Art? `null` heisst: keine — dann wird sie GEZEIGT
@@ -75506,6 +75584,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.37', date: '16.09.2026',
+    headline: 'Scans, Fundorte und deine wirkliche Ernte stehen jetzt im Kalender',
+    summary: 'Vierte Scheibe von KALENDER-V2, erster Teil der drei Namen. Drei Quellen, die es in der App längst gibt und die im Kalender fehlten: der Scan-Verlauf, die Karten-Fundorte und das Ernte-Buch. Dabei gemessen: „Funde" in Mein Naturjahr stand seit jeher auf 0 — beide Schreiber legen die Zeit als `date` ab, gelesen wurde `ts/time/found_at/created_at`. Kein Fund hat je einen Monatsbalken bewegt.',
+    user_summary: 'Der Kalender zeigt dir jetzt auch, was du gescannt, gefunden und geerntet hast — an dem Tag, an dem es passiert ist. Scans sind zusammen mit den Messwerten hinter einem Knopf versteckt, weil es viele werden; Fundorte und Ernten siehst du sofort.',
+    user_items: [
+      {emoji: '🔬', bold: 'Deine Scans im Kalender:', text: ' jeder Scan steht an seinem Tag, mit der Art und wie sicher die Erkennung war. Antippen öffnet die Art.'},
+      {emoji: '📍', bold: 'Deine Fundorte:', text: ' was du auf der Karte markiert hast, steht jetzt auch im Kalender.'},
+      {emoji: '🧺', bold: 'Die wirkliche Ernte:', text: ' bisher zeigte der Kalender nur, wann etwas reif sein könnte. Jetzt steht daneben, was du tatsächlich geerntet hast — mit Menge.'},
+      {emoji: '🔍', bold: 'Ein Fehler, den niemand gemeldet hat:', text: ' die Kachel „Funde" in Mein Naturjahr zählte immer 0. Sie las ein Feld, das keiner schreibt.'}
+    ],
+    items: [
+      'Drei neue Quellen in gsKalenderEreignisse: scan (SCAN_HISTORY_KEY über _gsScanZeit), fund (greenscan_markers über den neuen _gsFundZeit), ernte quelle hand (gs_ernte_log). Ohne lesbare Zeit KEIN Ereignis statt eines auf „heute".',
+      '_gsFundZeit(f): EIN Leser für die Zeit eines Fundorts. Beide Schreiber legen `date` in Millisekunden ab; gsOpenNaturjahr las ts/time/found_at/created_at und fand keinen einzigen. Dieselbe Klasse wie _gsScanZeit (v33.33) und ctx.harvests (v33.34).',
+      'Gruppen: fund im Rückblick (Vorgabe an — Fundorte sind wenige und gewollt), scan bei den Messwerten (Vorgabe aus — bis 200 Scans würden das Raster zudecken). Der Chip heisst jetzt „Messwerte & Scans".',
+      '_gsKalDatenlage kennt die zwei neuen Quellen: wer NUR gescannt hat, bekommt nicht mehr „Noch keine Daten". Der Fall „Ohne Daten" räumt sie mit.',
+      'Prüfstände: kalender_check 44 (4 neu, alle vier rot gegen v33.36). Gegenproben: Scan-Zeit aus einem Feld statt dem Leser, _gsFundZeit ohne `date`, Ernte ohne Weg und Grund → je rot.'
+    ]
+  },
+  {
     v: 'v33.36', date: '16.09.2026',
     headline: 'Ein Wetter für die ganze App — Frost, Hitze, Starkregen und Sturm stehen im Kalender, und das Warnfenster rechnet mit denselben Zahlen',
     summary: 'Dritte Scheibe von KALENDER-V2 (R6, R7). Die vier Schwellen standen an zwei Stellen: eine Konstante für den Frost im Kalender und vier Literale im Warnfenster, das dazu einen eigenen Wetter-Abruf machte und einen alten Standort-Schlüssel las. Jetzt eine Tabelle, ein Zwischenspeicher, eine Rechnung. Und der teuerste Teil: hatte die Antwort keine Tageswerte, sagte das Warnfenster „alles im grünen Bereich" — Stille als Entwarnung, bei Frost der teuerste Fehler dieser App.',
@@ -75832,22 +75929,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'nutzung_check (33. Prüfstand):', text:' SQL im lokalen Postgres (11 Ereignisse, Fenster, Klemme, Gate, Idempotenz, keine Kennung) + App mit gestelltem sbFetch. backend_check kennt jetzt „bewusst offene" RPCs. Vier Gegenproben rot.'}
       ],
     },
-  {
-    v: 'v33.17', date: '10.09.2026',
-      headline: 'Konto löschen — vollständig und nachgemessen',
-      summary: 'Konto löschen räumt jetzt auch die Fotos in der Cloud, den Suchverlauf und die KI-Nutzung; wer eine Organisation erstellt hat, erfährt es vorher statt ein halb gelöschtes Konto zu behalten. Ein neuer Prüfstand hält die Liste gegen die Live-Datenbank.',
-      user_summary: '„Konto löschen" löscht jetzt wirklich alles, was der Dialog verspricht — auch deine Fotos in der Cloud. Wer eine Organisation erstellt hat, bekommt vorher einen klaren Satz.',
-      user_items: [
-        {emoji:'🗑️', text:'Deine Scan-Fotos, Artenbilder und Buch-PDFs in der Cloud werden mit dem Konto gelöscht — bisher blieben sie liegen.'},
-        {emoji:'🏫', text:'Hast du eine Organisation erstellt, sagt die App vorher „Übertrage oder lösche sie zuerst" — und löscht nichts, statt Konto und Login halb stehen zu lassen.'},
-        {emoji:'📋', text:'Der Dialog nennt jetzt auch Fotos in der Cloud, Lina-Verlauf, Suchverlauf und KI-Nutzung.'}
-      ],
-      items: [
-        {emoji:'📐', bold:'loeschung_regeln.mjs:', text:' USER_TABLES, BUCKETS, BEWUSST (mit Grund), loeschSperre, speicherPfade — von Deno (delete-user) und Node (Prüfstand) importiert. Live gemessen: 101 Nutzer-Spalten, 3 Buckets mit 169 Objekten, alle unter <uid>/.'},
-        {emoji:'🛡', bold:'delete-user v5:', text:' Sperre VOR dem ersten Schritt (409 org_creator — organizations.created_by ist NOT NULL + RESTRICT), Storage je Bucket seitenweise, ai_usage und species_search_log (user_id ohne FK). Muss von Fernando neu ausgeliefert werden (FUER-FERNANDO §15).'},
-        {emoji:'🧪', bold:'loeschung_check (32. Prüfstand):', text:' jede Nutzer-Spalte der datierten Momentaufnahme ist kaskade, explizit oder bewusst; Rechnung, Rand (Reihenfolge, 409, list+remove) und App (Satz nennt die Organisation, Knopf frei, lokal nichts gelöscht). Vier Gegenproben rot.'}
-      ],
-    },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76056,7 +76137,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.36';
+var GS_VERSION = 'v33.37';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
