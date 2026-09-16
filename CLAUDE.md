@@ -1417,6 +1417,36 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > keine einzige Zeile**. In einer Edge-Function wird der `error` GELESEN und
 > gesagt (`console.error`, `system_events`) — nie weggelassen.
 
+> **Und die Umkehrung: ein Fehler, den nur die KONSOLE sieht, ist kein
+> gemeldeter Fehler** (v33.46). `gsCloudSync` schrieb einen unvollstaendigen
+> Abgleich nach `console.warn` — die Person sah nichts. Die Statuszeile in den
+> Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen und
+> kannte keinen Unterschied zwischen einer Minute und drei Tagen.
+> `gsSyncStand()` ist die EINE Rechnung mit vier Zustaenden (`ok` ·
+> `unterwegs` · `klemmt` · `nicht_bekannt` mit Grund); der Tagesplan und die
+> Statuszeile lesen beide sie. **Und ein Zustand, der ein Alarm werden soll,
+> braucht alle seine Teile:** „klemmt" verlangt offen UND `canPush`
+> (angemeldet und online) UND aelter als `GS_SYNC_KLEMMT_H` — wer schlicht
+> offline ist, klemmt nicht, dafuer gibt es die Warteschlange. Eine Warnung,
+> die im Normalzustand aufleuchtet, ist die Zahl, die man zu ignorieren lernt
+> (v32.21). Pruefstand: `sync_check` (Faelle „Klemmt").
+
+> **Und eine Warnung, die freundlich aussieht, liest niemand als Warnung**
+> (v33.46). Beim Nachlesen der eigenen neuen Zeile gezaehlt — ueber ALLE
+> Toast-Aufrufe: `error` 142 · `info` 110 · `success` 96 · **`warn` 77** ·
+> `warning` 55. `'warn'` ist die einzige Schreibweise, die WEDER die
+> Icon-Tabelle in `_gsToastShowNow` kennt (`success` · `error` · `warning` ·
+> `info`) NOCH das CSS (`.gs-toast.warning` ist orange, `.gs-toast.warn` gibt
+> es nicht): 77 Meldungen standen mit dem Rueckfall-Symbol 🌿 auf der
+> NEUTRALEN Flaeche. Die Antwort ist EIN Tor an der Stelle, durch die alle
+> muessen (`toastType === 'warn'` → `'warning'`), nicht 77 Pflaster — dieselbe
+> Entscheidung wie die Tastatur-Nachruestung (v32.16) und das Kamera-Tor
+> (v32.33). Wer einen Typ-Namen einfuehrt, prueft ihn gegen BEIDE Tabellen,
+> die ihn lesen; `robust_check` B5b misst das gerenderte Symbol UND die
+> Flaechenfarbe. **Und die Gegenrichtung gehoert in den Fall:** ohne „info
+> sieht anders aus als warning" waere ein Toast, der alle Typen gleich
+> darstellt, ebenfalls gruen gewesen.
+
 > **Und eine Suche im eigenen Text findet zuerst den eigenen Text ueber die
 > Sache** (v33.41). Die Gegenprobe schnitt am ersten „UNION ALL" — und das
 > stand im KOMMENTAR der Migration, nicht im SQL; sie schnitt `CREATE VIEW`

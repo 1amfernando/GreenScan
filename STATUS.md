@@ -12,6 +12,110 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-16 (iq) - v33.46: Ein Sync, der klemmt, sagt es
+
+Fernandos „es soll viel mehr automatisiert und verbessert werden", erste
+Scheibe. Gemessen an v33.45: ein unvollständiger Cloud-Abgleich landet in
+**einer Zeile**, und die sieht niemand —
+
+```js
+console.warn('[gsCloudSync] Sync unvollstaendig — offen:', …)
+```
+
+Die Statuszeile in den Einstellungen sagt zwar das Richtige (v31.02: zuerst das
+Problem, dann die Beruhigung) — aber sie steht in den **Einstellungen**, und sie
+kennt keinen Unterschied zwischen „seit einer Minute offen" und „seit drei Tagen
+offen". Beides liest sich als „N Änderung(en) noch nicht gesichert".
+
+> **Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler.**
+> Dieselbe Klasse wie der wegdestrukturierte `error` im `daily-push-checker`
+> (v33.41, seit dem Bau keine einzige Zeile), `Prefer: return=minimal` beim
+> Quiz (v32.65, fünf Tage lang jede Antwort verworfen) und die dreizehn
+> Admin-Sektionen, die ihren Fehler schluckten (v33.42).
+
+**1 · `gsSyncStand()` — eine Rechnung, vier Zustände.** `ok` · `unterwegs` ·
+`klemmt` · `nicht_bekannt`, letzterer immer **mit Grund**. „Klemmt" verlangt
+**alle drei** Teile:
+
+1. es ist etwas offen (`dirty.length + pendingOps`),
+2. die App **könnte** senden (`canPush`: angemeldet UND online),
+3. die letzte vollständige Übertragung ist älter als `GS_SYNC_KLEMMT_H` (24 h)
+   — oder es gab **nie** eine.
+
+Ohne Teil 2 gibt es keine Meldung, und das ist der Punkt: **wer offline ist,
+klemmt nicht.** Genau dafür wurde die Warteschlange gebaut. Eine Warnung, die
+bei jedem Flugmodus aufleuchtet, ist die Zahl, die man zu ignorieren lernt
+(v32.21, die vier ständigen Falschmeldungen in `render_check`).
+
+**2 · Zwei Anzeigen, eine Rechnung.** `_gsDayPlanSync(esc)` rendert die Zeile im
+Tagesplan — nur bei `klemmt`, an allen drei Rückgaben von `gsRenderDayPlan`
+(ohne Pflanzen, alles versorgt, mit Aufgaben). Und `gsSyncStatusText` in den
+Einstellungen liest seit dieser Version **dieselbe Funktion**, statt die Frage
+ein zweites Mal zu beantworten. „Alles gesichert" wird bewusst **nicht**
+angezeigt: das ist keine Nachricht.
+
+**3 · Die Meldung kommt nach der Antwort.** `gsSyncJetztAusDayPlan()` wartet
+`gsCloudSync.syncNow()` ab und fragt dann **erneut** `gsSyncStand()` — „Gesichert."
+nur bei `ok`, sonst steht da, wie viel noch offen ist (`versprechen_check`,
+v32.28).
+
+**4 · `sync_stuck` im Vokabular.** Zwei Zahlen, `['stunden', 'offen']` — nie
+welche Daten, nie wohin; `stunden` ist `−1`, wenn noch nie vollständig
+übertragen wurde. **Einmal je Tag**, über `gs_sync_klemmt_tag` (in
+`GS_USER_KEYS`, geht also mit dem Konto). Ein Ereignis, das bei jedem Rendern
+des Tagesplans feuert, wäre Rauschen und kein Signal — und `_gsEventFiltern`
+lässt ohnehin nur diese zwei Zahlen durch (v33.11).
+
+**5 · `sync_check` 7 → 10 Fälle**, und die vier Gegenproben einzeln:
+
+| zurückgebaut | rot |
+|---|---|
+| `gsSyncStand` umbenannt | 3 |
+| `var lange = true` (die Frist ausgehängt) | 2 |
+| `if (false)` auf dem `canPush`-Zweig | 1 |
+| das Tagesgedächtnis entfernt | 1 |
+
+**6 · Und ein Fund, der beim Nachlesen der eigenen Zeile auffiel — 77 Warnungen,
+die nicht wie Warnungen aussahen.** Mein Toast beim unvollständigen Versuch lief
+zuerst mit Typ `'warn'`. Beim Nachsehen, ob das die Hausform ist, kam die
+Zählung über **alle** Toast-Aufrufe:
+
+```
+error 142 · info 110 · success 96 · warn 77 · warning 55
+```
+
+`'warn'` ist die **einzige** Schreibweise, die weder die Icon-Tabelle in
+`_gsToastShowNow` kennt (`success` · `error` · `warning` · `info`) **noch das
+CSS**: `.gs-toast.warning` ist orange, `.gs-toast.warn` gibt es nicht. Diese 77
+Meldungen standen also mit dem Rückfall-Symbol 🌿 auf der **neutralen** Fläche —
+sie sahen aus wie eine gewöhnliche Mitteilung. (Von den 60 Aufrufen mit festem
+Text beginnen 58 nicht mit einem Emoji, das sonst wenigstens das Symbol gerettet
+hätte; die übrigen 17 geben eine Variable und sind von hier aus nicht zählbar.)
+
+> **Eine Warnung, die freundlich aussieht, liest niemand als Warnung** — und die
+> Antwort ist EIN Tor an der Stelle, durch die alle müssen, nicht 77 Pflaster an
+> den Aufrufstellen. Dieselbe Entscheidung wie die Tastatur-Nachrüstung (v32.16)
+> und das Kamera-Tor (v32.33). Ein Sweep über 6 MB wäre ein Eingriff gewesen,
+> keine Aufräumarbeit (v32.25).
+
+Eine Zeile in `_gsToastShowNow`, `robust_check` **B5b** misst das GERENDERTE
+Ergebnis (Symbol UND Flächenfarbe, plus die Gegenrichtung „info sieht anders aus
+als warning" — ohne sie wäre ein Toast, der alle Typen gleich darstellt,
+ebenfalls grün). Gegenprobe: Normierung ausgebaut → `Symbol: 'warn' zeigt „🌿",
+'warning' zeigt „⚠️"`.
+
+> **Und eine Spekulation, die wieder rausflog:** meine erste Fassung normierte
+> auch `'err'` → `'error'`. Gemessen: **0 Vorkommen**. Eine Regel ohne Fall ist
+> Zierde — sie steht nicht im Code.
+
+**7 · Die feste Fläche, und ein Komma, das der Prüfstand gefunden hat.** Die
+helle Fläche `#fff8e1` der Sync-Zeile bekommt eine **feste** dunkle Schrift; ein
+Themen-Token kippt im Dunkelmodus (`contrast_check`, Regel aus v32.25). Und beim
+Verschieben von v33.26 ins Archiv hat mein Bump-Skript das trailing Komma
+mitgestrippt — zwei Objekte ohne Trennzeichen. **`robust_check` hat es sofort
+gemeldet** („Liste nicht auswertbar: Unexpected token '{'"), und genau dafür
+liest dieser Fall die Listen mit `eval` statt mit einer Zeilensuche.
+
 ### 2026-09-16 (ip) - v33.45: Was demnächst abläuft, steht jetzt auf dem Bildschirm
 
 v33.44 hat das Risiko-Inventar gebaut — und im selben Atemzug notiert, was
@@ -713,7 +817,7 @@ von `data/releases.v1.js` (CLAUDE.md §3.1), sonst meldet `robust_check`.
 man auch anderen KIs geben kann." Neun Dateien in `docs/memory/`, rund
 20 Minuten Lesezeit, 850 Zeilen — nichts darin setzt Claude Code voraus:
 README (Wegweiser) · 01 Projekt · 02 die zwoelf Regeln · 03 Daten und Eigner ·
-04 die 35 Pruefstaende · 05 die Fallen · 06 Kalender · 07 Lina ·
+04 die 38 Pruefstaende · 05 die Fallen · 06 Kalender · 07 Lina ·
 08 Arbeitsweise. `CLAUDE.md` bleibt das ausfuehrliche Tagebuch dahinter und
 verweist oben darauf; jede Regel dort nennt ihre Stelle hier.
 

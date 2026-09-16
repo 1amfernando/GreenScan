@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.45.20260916">
+<meta name="app-version" content="33.46.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5837,6 +5837,10 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-kal-fuss{font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:10px;}
 .gs-dp-woche{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;padding:9px 12px;min-height:40px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-sm);text-align:left;cursor:pointer;}
 .gs-dp-woche-txt{flex:1;min-width:0;}
+/* v33.46 · der klemmende Sync. Feste helle Flaeche → FESTE dunkle Schrift
+   (contrast_check: ein Themen-Token kippt im Dunkelmodus). */
+.gs-dp-sync{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;padding:9px 12px;min-height:40px;border:1px solid #e0b400;border-radius:var(--r-md);background:#fff8e1;color:#4a3b00;font-family:inherit;font-size:var(--fs-sm);text-align:left;cursor:pointer;}
+.gs-dp-sync-tun{flex-shrink:0;font-weight:800;color:#1f6b2f;}
 @media (prefers-reduced-motion: no-preference){ .gs-kal-tag{transition:background .15s,border-color .15s;} }
 .gs-s-tupfen{flex-shrink:0;display:inline-flex;gap:3px;margin-right:6px;align-items:center;}
 .gs-s-tupfen i{width:9px;height:9px;border-radius:50%;display:block;
@@ -30072,6 +30076,112 @@ var _GS_DP_KAL_ARTEN = { aussaat: 1, ernte: 1, erinnerung: 1, alarm: 1, wetter: 
 // v33.40 (R10): die Wochenzeile auf der Startseite — derselbe Satz wie im
 // Kalender-Fuss und in Linas Kontext, aus `_gsKalWocheZeile()`. Ohne Pflanzen
 // gibt es ihn nicht (die Funktion gibt dann '' zurueck).
+// ═══════════════════════════════════════════════════════════════════════════
+// v33.46 · Ein Sync, der KLEMMT, sagt es — und zwar dort, wo die Person ist
+//
+// Gemessen an v33.45: ein unvollstaendiger Sync landet in `console.warn` und
+// sonst nirgends —
+//     console.warn('[gsCloudSync] Sync unvollstaendig — offen:', …)
+// Die Statuszeile in den Einstellungen sagt zwar das Richtige (v31.02: das
+// Problem zuerst, nicht die Beruhigung), aber sie steht in den EINSTELLUNGEN.
+// Und sie kennt keinen Unterschied zwischen „seit einer Minute offen" und
+// „seit drei Tagen offen" — beides liest sich als „N Aenderungen noch nicht
+// gesichert".
+//
+// **Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler.**
+// Dieselbe Klasse wie der wegdestrukturierte Fehler im daily-push-checker
+// (v33.41), `Prefer: return=minimal` beim Quiz (v32.65) und die dreizehn
+// Admin-Sektionen (v33.42).
+//
+// `gsSyncStand()` ist die EINE Rechnung mit vier Zustaenden. „Klemmt" verlangt
+// alle drei Teile: es ist etwas offen, die App KOENNTE senden (angemeldet und
+// online), und die letzte vollstaendige Uebertragung ist aelter als
+// GS_SYNC_KLEMMT_H. Wer schlicht offline ist, klemmt nicht — das ist der
+// Normalfall, fuer den die Warteschlange gebaut wurde.
+// Pruefstand: scripts/sync_check.js (Faelle „Klemmt").
+// ═══════════════════════════════════════════════════════════════════════════
+var GS_SYNC_KLEMMT_H = 24;
+
+function gsSyncStand() {
+  var e = { zustand: 'nicht_bekannt', offen: 0, stunden: null, grund: '' };
+  try {
+    if (!window.gsCloudSync || typeof gsCloudSync.status !== 'function') {
+      e.grund = _gsSatz('Der Cloud-Abgleich ist auf diesem Gerät nicht geladen.');
+      return e;
+    }
+    var s = gsCloudSync.status();
+    if (!s) { e.grund = _gsSatz('Der Cloud-Abgleich sagt nichts.'); return e; }
+    e.offen = (s.dirty ? s.dirty.length : 0) + (s.pendingOps || 0);
+    e.stunden = (s.lastPushAgeSec == null) ? null : Math.floor(s.lastPushAgeSec / 3600);
+    if (!s.canPush) {
+      // Kein Fehler: abgemeldet oder ohne Netz. Die Warteschlange ist genau
+      // dafuer da, und die Einstellungen sagen es bereits.
+      e.grund = (s.online === false)
+        ? _gsSatz('Ohne Verbindung — die Änderungen warten.')
+        : _gsSatz('Nicht angemeldet — es gibt nichts abzugleichen.');
+      return e;
+    }
+    if (!e.offen) { e.zustand = 'ok'; return e; }
+    // Offen UND koennte senden. Wie lange schon?
+    var lange = (e.stunden === null) || (e.stunden >= GS_SYNC_KLEMMT_H);
+    e.zustand = lange ? 'klemmt' : 'unterwegs';
+    e.grund = (e.stunden === null)
+      ? _gsSatz('Noch nie vollständig übertragen.')
+      : _gsSatz('Zuletzt vollständig vor {1} Stunden.', e.stunden);
+    return e;
+  } catch (_) {
+    e.grund = _gsSatz('Der Stand liess sich nicht ermitteln.');
+    return e;
+  }
+}
+window.gsSyncStand = gsSyncStand;
+
+// Eine Zeile im Tagesplan — NUR wenn es klemmt. „Alles gesichert" ist keine
+// Nachricht; eine Warnung schon, und die gehoert dorthin, wo die Person ist.
+function _gsDayPlanSync(esc) {
+  try {
+    var st = gsSyncStand();
+    if (st.zustand !== 'klemmt') return '';
+    _gsSyncKlemmtMelden(st);
+    var txt = (st.offen === 1)
+      ? _gsSatz('1 Änderung ist seit über {1} Stunden nicht gesichert', GS_SYNC_KLEMMT_H)
+      : _gsSatz('{1} Änderungen sind seit über {2} Stunden nicht gesichert', st.offen, GS_SYNC_KLEMMT_H);
+    return '<button type="button" class="gs-dp-sync" onclick="gsSyncJetztAusDayPlan()" aria-label="' + esc(txt) + '">' +
+      '<span class="gs-dp-woche-txt"><span aria-hidden="true">⚠️</span> ' + esc(txt) + '</span>' +
+      '<span class="gs-dp-sync-tun">' + esc(_gsSatz('Jetzt sichern')) + '</span></button>';
+  } catch (_) { return ''; }
+}
+
+async function gsSyncJetztAusDayPlan() {
+  try {
+    if (typeof gsToast === 'function') gsToast(_gsSatz('Wird übertragen…'), 'info', 1800);
+    var st = null;
+    if (window.gsCloudSync && typeof gsCloudSync.syncNow === 'function') await gsCloudSync.syncNow();
+    st = gsSyncStand();
+    // Die Meldung kommt NACH der Antwort (versprechen_check, v32.28).
+    if (typeof gsToast === 'function') {
+      if (st.zustand === 'ok') gsToast(_gsSatz('Gesichert.'), 'success');
+      else gsToast(_gsSatz('Noch nicht vollständig — {1} offen.', st.offen), 'warning', 5000);
+    }
+    try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch (_) {}
+  } catch (_) {}
+}
+window.gsSyncJetztAusDayPlan = gsSyncJetztAusDayPlan;
+
+// Einmal je Tag, und nur mit Zustimmung (_gsEventFiltern laesst ohnehin nur
+// die zwei Zahlen durch). Ein Ereignis, das bei jedem Rendern feuert, waere
+// kein Signal, sondern Rauschen.
+function _gsSyncKlemmtMelden(st) {
+  try {
+    var tag = (typeof _gsDayKey === 'function') ? _gsDayKey() : new Date().toISOString().slice(0, 10);
+    if (localStorage.getItem('gs_sync_klemmt_tag') === tag) return;
+    localStorage.setItem('gs_sync_klemmt_tag', tag);
+    if (typeof gsTrackEvent === 'function') {
+      gsTrackEvent('sync_stuck', { stunden: (st.stunden === null ? -1 : st.stunden), offen: st.offen });
+    }
+  } catch (_) {}
+}
+
 function _gsDayPlanWoche(esc) {
   try {
     var z = (typeof _gsKalWocheZeile === 'function') ? _gsKalWocheZeile() : '';
@@ -30138,14 +30248,14 @@ window.gsRenderDayPlan = function(){
       '</div><button type="button" class="gs-dp-all" style="border-top:none;padding-left:2px;"' +
       ' onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\')">' +
       '<span>Erste Pflanze scannen</span><span aria-hidden="true">→</span></button>' +
-      _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: ein Plan-Termin oder Frost gilt auch ohne Pflanze
+      _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: ein Plan-Termin oder Frost gilt auch ohne Pflanze
     return;
   }
   if (!tasks.length) {
     el.innerHTML = head(0) +
       '<div class="gs-dp-empty"><b>Alles versorgt</b>In den nächsten Tagen steht nichts an — deine ' + nPlants +
       ' Pflanze' + (nPlants === 1 ? '' : 'n') + ' ' + (nPlants === 1 ? 'ist' : 'sind') + ' auf Kurs.</div>' +
-      _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: „auf Kurs" heisst nicht „nichts im Kalender"
+      _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: „auf Kurs" heisst nicht „nichts im Kalender"
     return;
   }
 
@@ -30175,7 +30285,7 @@ window.gsRenderDayPlan = function(){
       '<button type="button" class="gs-dp-all" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">' +
         '<span>Alle Aufgaben anzeigen</span><span aria-hidden="true">→</span></button>' +
     '</div>' +
-    _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40
+    _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40
 };
 
 
@@ -75904,6 +76014,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.46', date: '16.09.2026',
+      headline: 'Ein Sync, der klemmt, sagt es — dort, wo du bist',
+      summary: 'Ein unvollständiger Cloud-Abgleich landete bis hierher in der Browser-Konsole und sonst nirgends. Die Statuszeile in den Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen — und kannte keinen Unterschied zwischen „seit einer Minute offen" und „seit drei Tagen offen". gsSyncStand() ist jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie auf der Startseite.',
+      user_summary: 'Wenn deine Änderungen länger als einen Tag nicht in die Cloud kommen, obwohl du angemeldet und online bist, sagt es dir die Startseite — mit einem Knopf, der es sofort versucht. Bist du schlicht offline, passiert nichts: dafür ist die Warteschlange da.',
+      user_items: [
+        {emoji:'⚠️', bold:'Auf der Startseite:', text:' „3 Änderungen sind seit über 24 Stunden nicht gesichert" — mit „Jetzt sichern" daneben.'},
+        {emoji:'📶', bold:'Offline ist kein Fehler:', text:' ohne Verbindung oder abgemeldet warten die Änderungen einfach, und die App sagt nichts. Gemeldet wird nur, was klemmt, obwohl es gehen müsste.'},
+        {emoji:'✅', bold:'Die Antwort kommt nach dem Versuch:', text:' „Gesichert." erst, wenn es wirklich durch ist — sonst steht da, wie viel noch offen ist.'},
+        {emoji:'⚠️', bold:'Warnungen sehen wieder aus wie Warnungen:', text:' 77 Meldungen in der App standen mit einem Blatt-Symbol auf neutralem Grund, statt orange mit Warnzeichen. Das lag an einer Schreibweise im Code und ist an einer Stelle behoben.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsSyncStand():', text:' vier Zustände — ok · unterwegs · klemmt · nicht_bekannt MIT GRUND. „Klemmt" verlangt alle drei Teile: es ist etwas offen UND die App könnte senden (angemeldet und online) UND die letzte vollständige Übertragung ist älter als GS_SYNC_KLEMMT_H (24 h) oder es gab nie eine. Zwei Anzeigen, eine Rechnung: der Tagesplan und die Statuszeile in den Einstellungen lesen dieselbe Funktion.'},
+        {emoji:'🔇', bold:'Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler:', text:' dieselbe Klasse wie der wegdestrukturierte Fehler im daily-push-checker (v33.41), Prefer: return=minimal beim Quiz (v32.65) und die dreizehn Admin-Sektionen (v33.42).'},
+        {emoji:'🔕', bold:'Kein Alarm im Normalzustand:', text:' wer offline ist, klemmt nicht — genau dafür gibt es die Warteschlange. Eine Warnung, die bei jedem Flugmodus aufleuchtet, ist die Zahl, die man zu ignorieren lernt (v32.21).'},
+        {emoji:'📊', bold:'sync_stuck im Vokabular:', text:' zwei Zahlen (stunden, offen), nie welche Daten und nie wohin; stunden ist −1, wenn noch nie vollständig übertragen wurde. Einmal je Tag über gs_sync_klemmt_tag (in GS_USER_KEYS, geht mit dem Konto) — ein Ereignis bei jedem Rendern wäre Rauschen, kein Signal.'},
+        {emoji:'🧪', bold:'sync_check 7 → 10 Fälle:', text:' klemmt · unterwegs · offline klemmt NICHT · die Tages-Sperre. Vier Gegenproben, jede einzeln rot: Funktion umbenannt (3 rot), „lange" fest auf true (2 rot), der canPush-Zweig ausgehängt (1 rot), das Tagesgedächtnis entfernt (1 rot).'},
+        {emoji:'⚠️', bold:'Toast-Typ normiert (Nebenfund, beim Nachlesen der eigenen Zeile):', text:' gezählt über alle Aufrufe — error 142 · info 110 · success 96 · warn 77 · warning 55. „warn" ist die EINZIGE Schreibweise, die weder die Icon-Tabelle noch das CSS kennt (.gs-toast.warning ist orange, .gs-toast.warn gibt es nicht): 77 Warnungen trugen 🌿 auf neutralem Grund. EIN Tor in _gsToastShowNow statt 77 Pflaster (wie v32.16, v32.33); robust_check B5b misst Symbol UND Fläche, plus die Gegenrichtung.'}
+      ],
+    },
+  {
     v: 'v33.45', date: '16.09.2026',
       headline: 'Was demnächst abläuft, steht jetzt auf dem Bildschirm',
       summary: 'v33.44 hat das Risiko-Inventar gebaut und im selben Atemzug notiert, was daran fehlt: eine Liste, die niemand liest, ist Speicherplatz. GS_FRISTEN rechnet sechs Fristen selbst aus — fünf live auf dem Gerät, eine gemessen mit Datum — und das Admin-Panel zeigt sie.',
@@ -76230,22 +76360,6 @@ window.GS_RELEASES = [
         {emoji:'📤', bold:'_dqAntwortSenden — ein Schreibweg:', text:' der Zeitablauf sendet selected_option -1; der Trigger setzt is_correct false, xp 0 und kehrt vor der Formatpruefung zurueck, schreibt also keine Warnung. Sieben neue Faelle in quiz_check (20 statt 13), fuenf Gegenproben einzeln gestellt.'}
       ],
     },
-  {
-    v: 'v33.26', date: '12.09.2026',
-      headline: 'Ein Backup je Sitzung — und eine Regel statt zweier',
-      summary: 'Das automatische Backup läuft jetzt direkt nach dem ersten erfolgreichen Abgleich, nicht erst nach fünf Minuten — und nur, wenn sich seither etwas geändert hat. Der Tag ist der eigene, nicht UTC. Eine Migration schützt das bewusst angelegte Backup vor der Aufbewahrung.',
-      user_summary: 'Dein Cloud-Backup ist ab sofort schon kurz nach dem Öffnen aktuell, statt erst nach fünf Minuten. Kopien ohne Änderung legt die App nicht mehr an — damit bleibt Platz für die Stände, die wirklich etwas enthalten.',
-      user_items: [
-        {emoji:'💾', bold:'Früher da:', text:' das Backup dieser Sitzung entsteht direkt nach dem Abgleich beim Start.'},
-        {emoji:'🚫', bold:'Keine Kopien:', text:' ohne Änderung legt die App kein Backup an — das spart die Plätze für echte Stände.'},
-        {emoji:'📅', bold:'Dein Tag:', text:' „einmal am Tag" zählt jetzt deinen Kalendertag, nicht den in London.'}
-      ],
-      items: [
-        {emoji:'🧭', bold:'_gsSnapshotAutoFaellig():', text:' EINE Regel mit fünf Ausgängen und immer einem Grund — kein Backup · keine Änderung (gs_sync_last_push ≤ gs_snapshot_last) · neuer lokaler Tag (_gsDayKey) · älter als drei Stunden · frisch. _gsSnapshotAuto ist der eine Ausführer; der Tagesstempel wird nur nach einem BELEGTEN Snapshot gesetzt.'},
-        {emoji:'🗄', bold:'20260912_snapshot_retention_manual.sql (nicht angewandt):', text:' „manual" kommt in die geschützte Liste von fn_cleanup_user_snapshots — bis dahin konnte ein bewusst angelegtes Backup von automatischen Ständen verdrängt werden (live 11.09.: 18 auto_periodic · 14 auto_daily · 11 pre_migration · 0 manual).'},
-        {emoji:'🧪', bold:'backup_check.js (Prüfstand 34):', text:' Aufbewahrung im lokalen Postgres mit Reproduktion und Gegenprobe (ein manual, zehn Auslieferungen) · die Regel in fünf Zuständen mit gestellter Uhr UND Zeitzone (lokal 12.09. vs UTC 11.09.) · das Sitzungs-Backup nach dem Pull · Server sagt Nein → Stempel bleibt alt.'}
-      ],
-    },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76454,7 +76568,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.45';
+var GS_VERSION = 'v33.46';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -78161,6 +78275,20 @@ function _gsToastShowNow(msg, type, duration) {
   var title = opts ? opts.title : null;
   var body = opts ? opts.body : raw;
   var toastType = opts ? opts.type : type;
+  // v33.46: EIN Tor fuer die Schreibweise. Gemessen ueber alle Toast-Aufrufe:
+  // error 142 · info 110 · success 96 · warn 77 · warning 55 — 'warn' ist die
+  // EINZIGE Schreibweise, die WEDER die Icon-Tabelle unten kennt (success ·
+  // error · warning · info) NOCH das CSS: `.gs-toast.warning` ist orange,
+  // `.gs-toast.warn` gibt es nicht. Diese Warnungen standen also mit dem
+  // Blatt-Rueckfallsymbol 🌿 auf der neutralen Flaeche — sie sahen aus wie
+  // eine gewoehnliche Meldung. (Von den 60 Aufrufen mit festem Text beginnen
+  // 58 nicht mit einem Emoji, das sonst das Symbol gerettet haette; die
+  // uebrigen 17 geben eine Variable und sind von hier aus nicht zaehlbar.)
+  // Eine Warnung, die freundlich aussieht, liest niemand als Warnung.
+  // Die Antwort ist die Normierung an der EINEN Stelle, durch die alle muessen,
+  // nicht 77 Pflaster an den Aufrufstellen (dieselbe Entscheidung wie die
+  // Tastatur-Nachruestung v32.16 und das Kamera-Tor v32.33).
+  if (toastType === 'warn') toastType = 'warning';
   var dur = (opts && opts.duration) ? opts.duration : ((isFinite(+duration) && +duration > 0) ? +duration : 3500);   // v32.67 (Audit B5)
 
   // v30.18: Anzeige-Texte by-source-text in die aktuelle Sprache übersetzen (Toasts). DE/unbekannt/kein Treffer → unverändert.
@@ -82881,6 +83009,7 @@ var GS_USER_KEYS = [
   'gs_dq_archive','gs_dq_stats','gs_quiz_points','gs_quiz_streak','gs_quiz_lastday',
   'gs_kal_filter',    // v33.35: was der Kalender zeigt — eine Wahl der Person
   'gs_dq_training',   // v33.28: der Lernstand der Lernkarten
+  'gs_sync_klemmt_tag',   // v33.46: die Tages-Sperre der Klemm-Meldung - geht mit dem Konto
   'gs_notif_state','gs_lux_calib','gs_lux_calib_points','gs_light_pro10_latest',
   'gs_dead_plants','gs_social_posts','gs_my_bids','gs_purchases',
   'gs_garden_sync_queue','gs_garden_sync_last',
@@ -84438,7 +84567,12 @@ function gsSyncStatusText(){
     // soll das Problem lesen, nicht die Beruhigung.
     var _open = s.dirty.length + s.pendingOps;
     if (!s.ok && _open > 0) {
-      parts.push('⚠️ ' + _open + ' ' + T('sync_unsaved','Änderung(en) noch nicht gesichert'));
+      // v33.46: EINE Rechnung, zwei Anzeigen. Steht es schon lange, sagt die
+      // Zeile dasselbe wie der Tagesplan — vorher las sich „seit einer Minute"
+      // wie „seit drei Tagen".
+      var _st = (typeof gsSyncStand === 'function') ? gsSyncStand() : null;
+      if (_st && _st.zustand === 'klemmt') parts.push('⚠️ ' + _gsSatz('Seit über {1} Stunden nicht gesichert', GS_SYNC_KLEMMT_H));
+      else parts.push('⚠️ ' + _open + ' ' + T('sync_unsaved','Änderung(en) noch nicht gesichert'));
       if (s.lastPushAgeSec != null) {
         var mo = Math.round(s.lastPushAgeSec/60);
         parts.push('· ' + T('sync_last_ok_prefix','zuletzt vollständig vor') + ' ' + (mo <= 0 ? ('<1 ' + _min) : (mo + ' ' + _min)));
@@ -87059,7 +87193,11 @@ var GS_EVENTS = {
   // v33.28: eine Uebungsantwort. Nie die Art, nie die Frage, nie die Antwort —
   // nur ob sie sass, in welcher Box die Karte danach liegt und ob sie faellig
   // oder neu war.
-  training_answered: ['correct', 'box', 'quelle']
+  training_answered: ['correct', 'box', 'quelle'],
+  // v33.46: ein Sync, der seit über GS_SYNC_KLEMMT_H Stunden nicht durchkommt,
+  // obwohl die App senden könnte. Zwei Zahlen — nie welche Daten, nie wohin.
+  // `stunden` ist −1, wenn noch NIE vollständig übertragen wurde.
+  sync_stuck:     ['stunden', 'offen']
 };
 window.GS_EVENTS = GS_EVENTS;
 function _gsEventFiltern(event, props) {

@@ -73,6 +73,50 @@ const FAELLE = [
     },
   },
   {
+    name: 'B5b · Ein Warn-Toast SIEHT aus wie eine Warnung: gsToast(text, \'warn\') und \'warning\' geben dasselbe Symbol und dieselbe Flaeche',
+    lauf: async () => {
+      // v33.46. Gemessen an v33.45: von 380 Toast-Aufrufen geben 77 den Typ
+      // `'warn'` — eine Schreibweise, die WEDER die Icon-Tabelle in
+      // _gsToastShowNow kennt (success · error · warning · info) NOCH das CSS
+      // (.gs-toast.warning ist orange, .gs-toast.warn gibt es nicht). Diese
+      // Warnungen trugen damit das Rueckfall-Symbol 🌿 auf der neutralen
+      // Flaeche — sie sahen aus wie eine gewoehnliche Meldung. Die Reparatur
+      // normiert an der EINEN Stelle, durch die alle muessen; der Fall misst
+      // das GERENDERTE Ergebnis, nicht die Tabelle (planer_check seit v31.90).
+      const r = await __seite.evaluate(async () => {
+        const w = (ms) => new Promise(res => setTimeout(res, ms));
+        const frei = () => { try { if (window._gsToastTimer) clearTimeout(_gsToastTimer); if (window._gsToastEl) _gsToastEl.classList.remove('show'); window._gsToastActive = false; window._gsToastQueue.length = 0; window._gsToastCurKey = ''; } catch (_) {} };
+        const zeig = async (typ) => {
+          frei(); await w(120);
+          // Text OHNE fuehrendes Emoji: sonst gewinnt die Emoji-Erkennung und
+          // der Fall misst den Text statt den Typ.
+          gsToast('Etwas ist schiefgelaufen', typ);
+          await w(200);
+          const el = window._gsToastEl;
+          const ico = el ? el.querySelector('.gs-toast-ico') : null;
+          const o = {
+            ico: ico ? (ico.textContent || '').trim() : '',
+            bg: el ? getComputedStyle(el).backgroundColor : '',
+            klasse: el ? el.className : ''
+          };
+          frei();
+          return o;
+        };
+        return { warn: await zeig('warn'), warning: await zeig('warning'), info: await zeig('info') };
+      });
+      if (!r.warning.ico || !r.warning.bg) return { ok: false, warum: 'nichts messbar (Aufbau) — warning: ' + JSON.stringify(r.warning) };
+      if (r.warn.ico !== r.warning.ico)
+        return { ok: false, warum: "Symbol: 'warn' zeigt " + JSON.stringify(r.warn.ico) + ", 'warning' zeigt " + JSON.stringify(r.warning.ico) };
+      if (r.warn.bg !== r.warning.bg)
+        return { ok: false, warum: "Flaeche: 'warn' ist " + r.warn.bg + ", 'warning' ist " + r.warning.bg + " (die Warnfarbe fehlt)" };
+      // Gegenrichtung: ohne sie waere ein Toast, der ALLE Typen gleich
+      // darstellt, ebenfalls gruen.
+      if (r.info.bg === r.warning.bg || r.info.ico === r.warning.ico)
+        return { ok: false, warum: 'info und warning sehen gleich aus (' + r.info.ico + ' / ' + r.info.bg + ') — der Fall unterscheidet nichts' };
+      return { ok: true, info: "'warn' = 'warning' → " + r.warning.ico + ' auf ' + r.warning.bg + " · info bleibt " + r.info.ico + ' auf ' + r.info.bg };
+    },
+  },
+  {
     name: 'B6 · Escape schliesst NUR das oberste Fenster: zwei offen → eins offen → keins, Body-Scroll wieder frei',
     lauf: async () => {
       const r = await __seite.evaluate(async () => {

@@ -29,7 +29,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `offline_check` | haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13) |
 | `backend_check` | ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18) |
 | `storage_check` | was ueberlebt das Abmelden? (seit v32.21) |
-| `sync_check` | kommt zurueck, was hochgeladen wird? (seit v32.23) |
+| `sync_check` | kommt zurueck, was hochgeladen wird? (seit v32.23); seit v33.46 auch: sagt die App, wenn der Sync KLEMMT? (gsSyncStand, vier Zustaende — offline ist kein Alarm) |
 | `versprechen_check` | wer verspricht etwas, das niemand geprueft hat? (seit v32.28) |
 | `einstellungen_check` | haelt der Schalter, was er verspricht? (seit v32.33) |
 | `tour_check` | zeigt die App-Tour auf etwas, oder erzaehlt sie nur? (seit v32.39) |
