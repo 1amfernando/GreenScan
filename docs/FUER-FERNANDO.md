@@ -933,6 +933,60 @@ hier aus nicht.
 > Erklaerung da); und zwei gleiche Fragen aus derselben Lieferung kommen nicht
 > mehr beide durch.
 
+## 21 · Der denkende Kalender ist fertig (v33.34 – v33.41) — drei Migrationen warten auf dich
+
+Dein Auftrag vom 14.09. ist geliefert, in sieben Scheiben. Was dabei
+herauskam, ist unten in zwei Listen: **was jetzt anders ist** und **was du
+anfassen musst**. Alles darunter ist gemessen, nicht geschätzt — die Zahlen
+stehen in `STATUS.md` (Einträge id bis il) und in `docs/KALENDER-V2.md`.
+
+### Was jetzt anders ist (ohne dein Zutun, schon live)
+
+| | |
+|---|---|
+| **Der Kalender denkt** | Er hält seine Ereignisse gegeneinander: Frost trifft eine Aussaat draussen, Regen übernimmt das Giessen, eine Ernte-Schätzung ohne Eintrag, eine Aufgabe in deinen Stillen Tagen. Jede Regel hat drei Zustände — erfüllt, verletzt, **„Nicht bekannt" mit Grund**. Nie Stille. |
+| **Ein Sieb statt einer Flut** | Fünf Chips mit ihren Zahlen; Messwerte und Scans sind von Anfang an aus. Der Filter siebt das Ergebnis, die Rechnung bleibt vollständig — sonst wäre „N von M" falsch und Lina blind. |
+| **Ein Wetter für die ganze App** | Frost, Hitze, Starkregen, Sturm stehen in EINER Tabelle. Das Warnfenster liest denselben Zwischenspeicher wie der Kalender und sagt „keine Vorhersage" statt „alles im grünen Bereich". |
+| **Scans, Fundorte und die wirkliche Ernte** | Sie standen in der App und nicht im Kalender. Jetzt beides — und die Schätzung ist von der wirklichen Ernte unterscheidbar. |
+| **„Mein Naturjahr" stimmt** | Die Kachel „Funde" stand **seit jeher auf 0** (sie las ein Feld, das niemand schreibt), und „Arten" zählte ohne Jahresfilter. Beides kommt jetzt aus dem Kalender. Die Garten-Timeline ist darin aufgegangen — der Menüeintrag heisst „Rückblick". |
+| **Lina sieht den Kalender** | Drei Zeilen: heute, die Woche, die Hinweise. Sie darf einen Termin **vorschlagen**, den du bestätigst. Und ihr Kontext bricht nicht mehr mitten im Wort ab. |
+| **Die Woche an einer Stelle gerechnet** | „Diese Woche: 5 Aufgaben · 1 Aussaatfenster · Frost am 18.09. · 2 Hinweise." — auf der Startseite, im Kalender und bei Lina, immer dieselben Zahlen. |
+
+### Was du anfassen musst: drei Migrationen
+
+Alle drei liegen im Repo und sind **nicht angewandt** — DDL auf der
+Produktivdatenbank ist dein Handgriff, nicht meiner. Sie betreffen **dieselbe
+Sicht** und bauen aufeinander auf: **die letzte allein genügt**, sie enthält
+die anderen beiden.
+
+```
+supabase/migrations/20260916_plant_tasks_due_plantings.sql     ← diese eine reicht
+```
+
+**Warum das nicht warten sollte.** Live gemessen am 16.09.: du hast **15
+Pflanzungen in Beeten mit Pflege-Aufgaben**, und die Sicht, aus der der
+Erinnerungs-Cron liest, hatte **23 Zeilen — alle aus „Meine Pflanzen"**. Für
+keine einzige Beet-Pflanze ist je eine Erinnerung verschickt worden. Die App
+zählt beide Listen, der Server eine.
+
+> **Und eine Warnung, die ich dir schulde:** die zwei älteren Migrationen
+> (`20260903…snooze`, `20260904…vorgezogen`) standen seit Tagen in der Liste
+> als „bereit" — und **wären beim Anwenden gescheitert**. `CREATE OR REPLACE
+> VIEW` darf in Postgres Spalten nur anhängen, nie in der Mitte einfügen; das
+> tun beide. Ich habe es erst gemerkt, als ich sie in einer echten Datenbank
+> ausgeführt habe. Alle drei sind jetzt DROP + CREATE und laufen — zweimal
+> hintereinander geprüft. Nichts hängt an der Sicht (nachgesehen), der DROP
+> ist gefahrlos.
+
+### Und eine zweite Sache, die schon jetzt repariert ist
+
+Die **saisonale Erinnerung** („Saisonale Aufgabe: …") hat seit ihrem Bau
+**keine einzige** verschickt. Sie filterte auf eine Spalte namens `priority` —
+die gibt es in `garden_tasks_catalog` nicht (189 Zeilen, die Spalte heisst
+`importance`). Die Datenbank hat jedes Mal einen Fehler zurückgegeben, und der
+Code hat ihn weggeworfen, statt ihn zu melden. Das ist im Repo behoben; es
+wirkt, sobald du `daily-push-checker` neu auslieferst.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier
