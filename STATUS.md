@@ -4,13 +4,98 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.42` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.43` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (in) - v33.43: Der Zurück-Knopf — erster Schritt zur Android-App
+
+**Fernandos Auftrag:** „Ich will es auch langsam als apk für Android sowie
+haben." GreenScan wird als **TWA** zur Android-App — dieselbe PWA in einer
+Android-Hülle, keine zweite Codebasis. Alles funktioniert darin wie im
+Browser, mit EINER Ausnahme, und die ist die teuerste.
+
+**1 · Null Treffer.** Vor dem Bauen gemessen: `history.pushState` **0** ·
+`popstate` **0** · `history.back` **0** in der ganzen Datei. Der
+Android-Zurück-Knopf und die Wischgeste sprechen mit der Browser-History —
+und in die schrieb die App nichts. **Wer ein Fenster offen hatte und zurück
+drückte, schloss die ganze App.** Rund vierzig Fenster, elf Tabs. Im Browser
+fällt das nicht auf, weil es den Knopf dort nicht gibt.
+
+**2 · Die Regel gab es schon — sie hing an der falschen Taste.** Der
+Escape-Handler (v32.67) nimmt den Fenster-Stapel von oben ab, `gsGoBack`
+kennt den Tab-Stapel. `gsZurueck()` ist beides in EINER Funktion, und Escape
+wie `popstate` rufen sie. Mit einer bewussten Änderung: **ein Druck, eine
+Schicht** — Escape schloss bis v33.42 einen dynamischen Dialog UND das oberste
+gestapelte Fenster in einem Zug.
+
+**3 · Und der Fund, den ich beim Messen nicht erwartet hatte: NEUN
+Vollbild-Fenster, die Escape noch nie erreicht hat.** Sie schalten ihr eigenes
+`display` statt über `openModal` zu laufen — darunter das **Tagesquiz**,
+**„Ueben"** und der **Lichtmesser**. Der Zurück-Knopf hätte stattdessen den Tab
+gewechselt, während das Fenster offen stehen bleibt. Die acht mit eigener
+Schliess-Funktion stehen in `GS_VOLLBILD_OVERLAYS`; `gs-onboarding` ist mit
+Grund ausgenommen (eigene Schritt-Logik). **Die Liste ist die Prüfung** —
+`android_check` zählt die Vollbild-Fenster im HTML und verlangt, dass jedes
+entweder ein `.modal-overlay` ist, in der Liste steht oder einen Grund hat.
+
+**4 · Ein Prädikat statt zwei.** `gsLaeuftAlsApp()` — installierte PWA,
+iOS-Homescreen UND die Android-Hülle (`document.referrer` beginnt dort mit
+`android-app://`). Bis v33.42 kannte nur das Prädikat des Install-Banners die
+Hülle; `gsIsStandalonePWA` (Push-Weg) und der Druck-Rückfall hängen jetzt an
+derselben Rechnung. Vierte Instanz derselben Klasse (v33.33, v33.37, v33.39):
+**der Leser ist die Regel, nicht das Feld.**
+
+**5 · Genau EIN Verlaufs-Eintrag.** `_gsHistSync()` setzt ihn, solange es etwas
+zu schliessen gibt, und **nimmt ihn zurück**, wenn jemand per X schliesst —
+sonst wächst der Stapel bei jedem Öffnen, und jeder überzählige Eintrag ist
+ein Zurück-Druck ins Leere. Gemessen: zehnmal öffnen und schliessen →
+`history.length` unverändert.
+
+**6 · `scripts/android_check.js` — der 37. Prüfstand.** Neun Fragen, **acht
+davon rot gegen v33.42**; die neunte (`assetlinks.json`) steht auf **offen**,
+weil die Fingerabdrücke Platzhalter sind — sie kommen aus Play App Signing und
+sind Fernandos Handgriff, kein Code-Fehler (dritte Klasse wie in
+`backend_check`).
+
+> **Drei meiner eigenen Fälle massen nichts — die Gegenproben haben es
+> gezeigt.** (a) „popstate hört nicht mehr zu" blieb **grün**: meine Fälle
+> riefen `gsZurueck()` direkt auf statt `history.back()`, massen also die
+> Rechnung und nicht den DRAHT — und der Draht ist das, was der Android-Knopf
+> braucht. (b) „keine Rücknahme beim X-Schliessen" blieb grün: der Fall mass
+> die Wirkung von `gsZurueck`, nicht den Verlauf; er liest jetzt
+> `history.state`. (c) „die erste statt der obersten Schicht" blieb grün:
+> meine zwei Testfenster ergaben in beiden Regeln dieselbe Reihenfolge — die
+> Daten müssen die Regeln AUSEINANDERZIEHEN (v33.28), jetzt ein gestapeltes
+> Fenster (z 4000) und darüber ein Vollbild-Fenster (z 5600), das in der
+> Sammelreihenfolge hinten steht. Nach dem Schärfen gehen alle drei rot.
+
+**Zwei Nachbar-Prüfstände wurden rot, beide zu Recht:**
+
+- `robust_check` **B6** fand ein Vollbild-Fenster aus einem früheren Fall vor
+  (B1 lässt die Wetterwarnung offen) und meldete einen Fehler, der keiner war.
+  Er **stellt seinen Zustand jetzt selbst her** — dieselbe Falle wie v32.40.
+- `offline_check` zählte meinen Verlaufs-Eintrag als „Reload": `framenavigated`
+  feuert auch für `pushState`/`back` im selben Dokument. Gezählt werden jetzt
+  **Dokument-Ladungen** (`domcontentloaded`). **Eine Navigation im selben
+  Dokument ist kein Reload.**
+
+**Was bei Fernando liegt** (`docs/ANDROID-APK.md`): die zwei
+SHA-256-Fingerabdrücke aus der Play Console in `.well-known/assetlinks.json`,
+und **eine Entscheidung**: Googles Zahlungsrichtlinie verlangt für digitale
+Güter in Play-Apps grundsätzlich Play Billing — GreenScan verkauft über
+Stripe. Play Billing einbauen, die Bezahlfunktion in der App ausblenden
+(`gsLaeuftAlsApp()` steht dafür bereit) oder ohne Bezahlung einreichen. Das
+ist eine Geschäftsentscheidung, keine Code-Frage.
+
+**Ausdrücklich NICHT geliefert:** kein `twa-manifest.json`, kein APK-Bau.
+Bubblewrap liest `manifest.json` von der Live-Adresse; von hier aus ist sie
+nicht erreichbar, und ein Paket, das ich nicht bauen kann, würde ich auch
+nicht prüfen können.
 
 ### 2026-09-16 (im) - v33.42: Das Admin-Panel sagt, was es weiss
 
@@ -13931,11 +14016,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.42` (Client) · SW-Cache `gs-v33.42` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.43` (Client) · SW-Cache `gs-v33.43` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **94'540 Zeilen / 6,04 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **570 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.22).
+- **Frontend:** `index.html` **94'706 Zeilen / 6,05 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **570 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.22).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **220 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **36** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **37** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte

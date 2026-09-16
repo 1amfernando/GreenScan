@@ -80,6 +80,21 @@ const FAELLE = [
         const A = 'modal-post-picker', B = 'modal-post-comments';
         const esc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         const offen = (id) => document.getElementById(id).classList.contains('open');
+        // v33.43: den Zustand HERSTELLEN, nicht vorfinden. Seit gsZurueck die
+        // oberste Schicht ueber ALLE Familien nimmt, wuerde ein Vollbild-Fenster
+        // aus einem frueheren Fall (B1 laesst die Wetterwarnung offen) diesen
+        // Escape schlucken — und der Fall haette einen Fehler gemeldet, der
+        // keiner ist (dieselbe Falle wie v32.40).
+        try {
+          if (typeof gsDismissOrphanOverlays === 'function') gsDismissOrphanOverlays();
+          (window.GS_VOLLBILD_OVERLAYS || []).forEach(function (v) {
+            var e = document.getElementById(v.id); if (e) e.style.display = 'none';
+          });
+          document.querySelectorAll('.modal-overlay.open,.overlay-modal.open').forEach(function (m) {
+            m.classList.remove('open'); m.style.display = 'none';
+          });
+        } catch (_) {}
+        await w(60);
         openModal(A); await w(50); openModal(B); await w(50);
         const s0 = [offen(A), offen(B)];
         esc(); await w(300); const s1 = [offen(A), offen(B)];

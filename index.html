@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.42.20260916">
+<meta name="app-version" content="33.43.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26334,6 +26334,8 @@ function openModal(id){
   window._gsLastOpenModal = id;
   // v24.44: Focus-Trap aktivieren (WCAG 2.1.2)
   try { gsTrapFocus(m); } catch(_){}
+  // v33.43: ein Verlaufs-Eintrag, damit der Android-Zurueck-Knopf hier landet.
+  try { _gsHistSyncBald(); } catch(_){}
 }
 // v28.79 FIX (HIGH): WebGL-Context-Leak — die 3 Three.js-Szenen (Garten-Scan-3D + KI-Planer
 // inline + Vollbild) hatten zwar je eine dispose()-Methode, die wurde aber NUR bei Re-Init
@@ -26387,6 +26389,9 @@ function closeModal(id){
       // v28.79: kein Modal mehr offen → 3D-WebGL-Szenen freigeben (Context-Leak/Black-Screen).
       try { gsDispose3DScenes(); } catch(_){}
     }
+    // v33.43: Wer per X schliesst, hat den Zurueck-Eintrag nicht verbraucht —
+    // _gsHistSync nimmt ihn zurueck, sonst ist der naechste Druck ins Leere.
+    try { _gsHistSyncBald(); } catch(_){}
   };
   var _reduce = false;
   try { _reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(_){}
@@ -26495,24 +26500,171 @@ function gsDismissOrphanOverlays() {
 }
 window.gsDismissOrphanOverlays = gsDismissOrphanOverlays;
 
-// Close any open modal on Escape key
-document.addEventListener('keydown', e => {
-  if(e.key==='Escape'){
-    try { gsDismissOrphanOverlays(); } catch(_){}
-    // v32.67 (Audit B6): NUR das oberste Fenster. Vorher lief die Schleife über
-    // ALLE offenen Modale — das `return` verliess nur den Callback, nicht die
-    // Schleife. openModal stapelt ausdrücklich (z-index +1); Escape nimmt den
-    // Stapel von oben ab: zuletzt geöffnet, sonst höchster z-index, sonst das
-    // letzte im DOM. v29.35: über closeModal → sanftes Ausblenden.
-    var offen = Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.open,.overlay-modal.open'));
-    if (offen.length) {
-      var top = null, topZ = -1;
-      if (window._gsLastOpenModal) top = offen.filter(function(m){ return m.id === window._gsLastOpenModal; })[0] || null;
-      if (!top) offen.forEach(function(m){ var z = parseInt(getComputedStyle(m).zIndex, 10) || 0; if (z >= topZ) { top = m; topZ = z; } });
-      if (top.id && typeof closeModal === 'function') { try { closeModal(top.id); } catch(_){ top.classList.remove('open'); top.style.display='none'; } }
-      else { top.classList.remove('open'); top.style.display='none'; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v33.43 · ZURUECK — eine Regel, zwei Ausloeser
+//
+// Gemessen an v33.42: **0 Treffer** auf `history.pushState`, `popstate` und
+// `history.back` in der ganzen Datei. In einer Android-Huelle (TWA) sprechen
+// der Zurueck-Knopf und die Wischgeste mit der Browser-History — und in die
+// schrieb die App nichts. Wer ein Fenster offen hatte und zurueck drueckte,
+// **schloss die ganze App**. Rund vierzig Fenster, elf Tabs. Im Browser faellt
+// das nicht auf, weil es den Knopf dort nicht gibt.
+//
+// Die Regel dafuer gab es schon — sie hing nur an der falschen Taste: der
+// Escape-Handler (v32.67) nimmt den Fenster-Stapel von oben ab, `gsGoBack`
+// kennt den Tab-Stapel. `gsZurueck()` ist beides in EINER Funktion, und Escape
+// wie `popstate` rufen sie. Mit einer bewussten Aenderung: **ein Druck, eine
+// Schicht** — Escape schloss bis v33.42 einen dynamischen Dialog UND das
+// oberste gestapelte Fenster in einem Zug.
+// Pruefstand: scripts/android_check.js
+// ═══════════════════════════════════════════════════════════════════════════
+// Vollbild-Overlays, die NICHT ueber openModal/closeModal laufen: sie schalten
+// ihr eigenes `display` und bringen eine eigene Schliess-Funktion mit. Gemessen
+// an v33.42: NEUN solche Fenster, darunter das Tagesquiz, „Ueben" und der
+// Lichtmesser — Escape erreichte KEINES davon, und der Zurueck-Knopf haette
+// stattdessen den Tab gewechselt, waehrend das Fenster offen bleibt.
+// **Die Liste ist die Pruefung**: `android_check` zaehlt die Vollbild-Overlays
+// im HTML und verlangt, dass jedes entweder ein `.modal-overlay` ist, hier
+// steht, oder mit Grund in GS_VOLLBILD_OHNE_ZURUECK.
+var GS_VOLLBILD_OVERLAYS = [
+  { id: 'modal-daily-quiz',        zu: 'closeDailyQuiz' },
+  { id: 'modal-quiz-training',     zu: 'closeQuizTraining' },
+  { id: 'modal-dq-ranking',        zu: 'closeDqRanking' },
+  { id: 'modal-scan-history-full', zu: 'closeScanHistoryFull' },
+  { id: 'modal-weather-detail',    zu: 'closeWeatherDetail' },
+  { id: 'modal-light',             zu: 'closeLightMeter' },
+  { id: 'modal-light-pro10',       zu: 'gsLightPro10Close' },
+  { id: 'modal-lux-calib',         zu: 'gsLuxCloseCalibModal' }
+];
+var GS_VOLLBILD_OHNE_ZURUECK = {
+  'gs-onboarding': 'Der Erst-Start hat eine eigene Schritt-Logik. Ein Zurueck mitten darin liesse ein halb eingerichtetes Konto zurueck — er bringt seinen eigenen Zurueck-Schritt mit.'
+};
+window.GS_VOLLBILD_OVERLAYS = GS_VOLLBILD_OVERLAYS;
+
+function _gsSchichtZ(el) {
+  try { return parseInt(getComputedStyle(el).zIndex, 10) || 0; } catch (_) { return 0; }
+}
+function _gsSichtbar(el) {
+  try { return !!(el && el.parentNode && getComputedStyle(el).display !== 'none'); } catch (_) { return false; }
+}
+// Alle Schichten, die ein Zurueck-Druck abtragen koennte — aus DREI Familien.
+function _gsZurueckSchichten() {
+  var out = [];
+  try {
+    Array.prototype.slice.call(document.querySelectorAll('.gs-dyn-overlay')).forEach(function (el) {
+      out.push({ el: el, art: 'overlay', z: _gsSchichtZ(el) });
+    });
+    GS_DISMISSIBLE_OVERLAYS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.parentNode && !out.some(function (x) { return x.el === el; })) out.push({ el: el, art: 'overlay', z: _gsSchichtZ(el) });
+    });
+    Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.open,.overlay-modal.open')).forEach(function (el) {
+      out.push({ el: el, art: 'modal', z: _gsSchichtZ(el) });
+    });
+    GS_VOLLBILD_OVERLAYS.forEach(function (v) {
+      var el = document.getElementById(v.id);
+      if (_gsSichtbar(el)) out.push({ el: el, art: 'vollbild', z: _gsSchichtZ(el), zu: v.zu });
+    });
+  } catch (_) {}
+  return out;
+}
+
+function gsZurueck() {
+  // Die OBERSTE Schicht, ueber alle drei Familien hinweg — nicht die erste
+  // Familie, die etwas findet. Ein Lichtmesser ueber einem Fenster liegt
+  // hoeher als das Fenster, und genau der gehoert zuerst weg.
+  var schichten = _gsZurueckSchichten();
+  if (schichten.length) {
+    var top = schichten[0];
+    // Bei gleichem z-index gewinnt das zuletzt geoeffnete Fenster.
+    schichten.forEach(function (x) {
+      if (x.z > top.z) top = x;
+      else if (x.z === top.z && window._gsLastOpenModal && x.el.id === window._gsLastOpenModal) top = x;
+    });
+    try {
+      if (top.art === 'overlay') { _gsCloseOverlayGracefully(top.el); }
+      else if (top.art === 'vollbild') {
+        var fn = window[top.zu];
+        if (typeof fn === 'function') fn();
+        else { top.el.style.display = 'none'; document.body.style.overflow = ''; }
+      } else {
+        if (top.el.id && typeof closeModal === 'function') closeModal(top.el.id);
+        else { top.el.classList.remove('open'); top.el.style.display = 'none'; }
+      }
+    } catch (_) {}
+    try { if (!document.querySelector('.modal-overlay.open, .overlay-modal.open')) document.body.style.overflow = ''; } catch (_) {}
+    return top.art;
+  }
+  // Kein Fenster: ein Tab, der nicht die Startseite ist.
+  try {
+    if (typeof _gsCurrentTab !== 'undefined' && _gsCurrentTab && _gsCurrentTab !== 'home') {
+      if (typeof gsGoBack === 'function') gsGoBack();
+      else if (typeof switchTab === 'function') switchTab('home');
+      return 'tab';
     }
-    if(!document.querySelector('.modal-overlay.open, .overlay-modal.open')) document.body.style.overflow='';
+  } catch (_) {}
+  // Nichts mehr. In der Android-App heisst das: die App darf sich schliessen.
+  return 'app';
+}
+window.gsZurueck = gsZurueck;
+
+// Gibt es ueberhaupt etwas, das ein Zurueck-Druck schliessen koennte?
+function _gsEtwasZuSchliessen() {
+  try {
+    if (_gsZurueckSchichten().length) return true;
+    if (typeof _gsCurrentTab !== 'undefined' && _gsCurrentTab && _gsCurrentTab !== 'home') return true;
+  } catch (_) {}
+  return false;
+}
+
+// Genau EIN Eintrag im Verlauf, solange es etwas zu schliessen gibt — nie
+// zwei, nie einer je Fenster. Sonst waechst der Stapel bei jedem Oeffnen, und
+// jeder ueberzaehlige Eintrag ist ein Zurueck-Druck ins Leere.
+var _gsHistArmed = false, _gsHistIntern = false, _gsHistTimer = null;
+function _gsHistSync() {
+  var etwas = _gsEtwasZuSchliessen();
+  if (etwas && !_gsHistArmed) {
+    try { history.pushState({ gsBack: 1 }, ''); _gsHistArmed = true; } catch (_) {}
+  } else if (!etwas && _gsHistArmed) {
+    // Wer ein Fenster ueber sein X schliesst, hat den Eintrag nicht
+    // verbraucht — ohne diese Ruecknahme kostet der naechste Druck nichts.
+    _gsHistArmed = false; _gsHistIntern = true;
+    try { history.back(); } catch (_) { _gsHistIntern = false; }
+  }
+}
+window._gsHistSync = _gsHistSync;
+function _gsHistSyncBald() {
+  if (_gsHistTimer) return;
+  _gsHistTimer = setTimeout(function () { _gsHistTimer = null; _gsHistSync(); }, 120);
+}
+window._gsHistSyncBald = _gsHistSyncBald;
+
+window.addEventListener('popstate', function () {
+  if (_gsHistIntern) { _gsHistIntern = false; return; }   // unsere eigene Ruecknahme
+  _gsHistArmed = false;
+  try { gsZurueck(); } catch (_) {}
+  _gsHistSyncBald();
+});
+
+// Die drei Wege, auf denen sich der Zustand aendert: openModal/closeModal und
+// switchTab rufen _gsHistSyncBald selbst; die rund dreissig Dialoge, die per
+// document.body.appendChild entstehen, sieht dieser Beobachter — EIN Ort statt
+// dreissig Pflaster (dieselbe Entscheidung wie die Tastatur-Nachruestung,
+// v32.16, und das Kamera-Tor, v32.33).
+try {
+  var _gsHistMo = new MutationObserver(_gsHistSyncBald);
+  _gsHistMo.observe(document.body, { childList: true });
+} catch (_) {}
+
+// Escape ist seit v33.43 derselbe Weg wie der Android-Zurueck-Knopf: EINE
+// Regel (gsZurueck), zwei Ausloeser. Was hier frueher stand — erst alle
+// dynamischen Dialoge, dann zusaetzlich das oberste gestapelte Fenster — war
+// ZWEI Schichten in einem Druck.
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    try { gsZurueck(); } catch (_) {}
+    try { _gsHistSyncBald(); } catch (_) {}
   }
 });
 
@@ -26629,6 +26781,9 @@ function switchTab(t, btn) {
     _gsCurrentTab = t;
   }
   if (typeof updateFabVisibility === 'function') updateFabVisibility(t);
+  // v33.43: ein Tab abseits der Startseite ist auch eine Schicht, die der
+  // Zurueck-Knopf abtragen darf.
+  try { _gsHistSyncBald(); } catch(_){}
   // v31.54: hier wurde bei JEDEM Tabwechsel #cam-perm-dialog geschlossen — den
   // eigenen Erlaubnis-Dialog gibt es seit v31.50 nicht mehr (die Kamera fragt
   // der Browser selbst, mit vorangestellter Begruendung).
@@ -72641,7 +72796,7 @@ async function gsPPexportPDF() {
     }, 1500);
     showProfileToast && showProfileToast(isMobile ? '📄 Datei heruntergeladen — in „Dateien" öffnen + drucken' : '📄 Plan-HTML heruntergeladen — Datei öffnen + drucken/PDF');
     // Fallback bei Standalone-PWA: Modal mit Inline-View + manueller Drucken-Button
-    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+    if (typeof gsLaeuftAlsApp === 'function' && gsLaeuftAlsApp()) {
       var existing = document.getElementById('modal-pdf-fallback');
       if (existing) existing.remove();
       var m = document.createElement('div');
@@ -75746,6 +75901,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.43', date: '16.09.2026',
+      headline: 'Der Zurück-Knopf schliesst ein Fenster — nicht die ganze App',
+      summary: 'Erster Schritt zur Android-App: die App schrieb nichts in den Browser-Verlauf, also schloss der Android-Zurück-Knopf bei jedem offenen Fenster die ganze App. Jetzt gibt es EINE Zurück-Regel, an der Zurück-Taste und an Escape — und sie erreicht auch die acht Vollbild-Fenster (Tagesquiz, ‚Ueben‘, Lichtmesser), die Escape noch nie erreicht hat.',
+      user_summary: 'Escape (am Computer) und der Zurück-Knopf (am Handy) schliessen jetzt genau EIN Fenster — nicht zwei auf einmal, und nicht gleich die ganze App.',
+      user_items: [
+        {emoji:'↩️', text:'Zurück schliesst das oberste Fenster. Ist keines offen, geht es einen Tab zurück.'},
+        {emoji:'🧩', text:'Auch das Tagesquiz, ‚Ueben‘ und der Lichtmesser lassen sich so schliessen — vorher ging das nur über ihr eigenes X.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen an v33.42:', text:' null Treffer auf history.pushState, popstate und history.back in der ganzen Datei. In einer Android-Hülle (TWA) schliesst der Zurück-Knopf damit die App — rund vierzig Fenster, elf Tabs. Im Browser fällt das nicht auf, weil es den Knopf dort nicht gibt.'},
+        {emoji:'↩️', bold:'gsZurueck():', text:' die eine Regel. Nimmt die OBERSTE Schicht ab — über drei Familien hinweg (dynamische Dialoge, gestapelte Fenster, Vollbild-Fenster), danach den Tab. Escape und popstate rufen sie beide; ein Druck ist EINE Schicht (Escape schloss vorher zwei).'},
+        {emoji:'🧮', bold:'GS_VOLLBILD_OVERLAYS:', text:' acht Vollbild-Fenster laufen nicht über openModal und waren damit für Escape unsichtbar — Tagesquiz, Ueben, Rangliste, Scan-Verlauf, Wetter, Lichtmesser, Pro-Messung, Kalibrierung. Die Liste ist die Prüfung.'},
+        {emoji:'📱', bold:'gsLaeuftAlsApp():', text:' ein Prädikat statt zwei. Nur das des Install-Banners kannte die Android-Hülle (referrer android-app://); der Push-Weg und der Druck-Rückfall hängen jetzt an derselben Rechnung.'},
+        {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
+      ],
+    },
+  {
     v: 'v33.42', date: '16.09.2026',
       headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
       summary: 'Dreizehn von sechzehn Admin-Sektionen lasen den Fehler gar nicht: eine Ablehnung wurde zur leeren Liste, und auf dem Bildschirm stand ‚Keine offenen Meldungen‘. Sieben fragten nicht einmal, ob die Person Admin ist. Jetzt gibt es eine Liste, einen Weg und vier Zustände — dazu einen Überblick ganz oben und einen Aktualisieren-Knopf je Sektion.',
@@ -76070,20 +76242,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'nutzung_check „Aufbewahrung":', text:' 13 Zeilen → prune(180) löscht 2 → 11; prune(1) klemmt auf 30 → 10; anon und authenticated dürfen nicht; die App (GS_ANALYTICS_TAGE) nennt dieselbe Frist wie die Migration — eine Zahl, zwei Leser.'}
       ],
     },
-  {
-    v: 'v33.23', date: '11.09.2026',
-      headline: 'Lina kennt den letzten Scan',
-      summary: 'Wer Lina direkt nach einem Scan fragt „was war das gerade?", bekam bisher eine Gegenfrage. Jetzt steht der jüngste Eintrag des Scan-Verlaufs in ihrem Kontext — Name, lateinischer Name, Sicherheit, Alter. Nie das Foto; ohne Verlauf keine Zeile.',
-      user_summary: 'Frag Lina nach deinem letzten Scan — sie weiss, was es war, wie sicher die Bestimmung war und wann du fotografiert hast.',
-      user_items: [
-        {emoji:'🔬', text:'„Letzter Scan: Tomate (Solanum lycopersicum), 88 % sicher, heute." — Lina kann direkt darauf eingehen.'},
-        {emoji:'🔒', text:'Nur, wenn du den Scan-Verlauf speicherst (Einstellungen → Datenschutz); das Foto bleibt immer aussen vor.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'gsLinaZahlen:', text:' juengster Eintrag aus gs_scan_history (nach timestamp), Name/Latein je 40 Zeichen, Sicherheit nur wenn > 0, Alter heute/gestern/vor N Tagen. Vor den Kalenderzeilen, damit der Deckel sie nicht zuerst trifft.'},
-        {emoji:'🧪', bold:'sensor_check „Lina · letzter Scan":', text:' zwei Eintraege → der juengste, mit Latein, 88 %, heute, ohne base64 · ohne Verlauf keine Zeile · 5 Tage alt → „vor 5 Tagen". Zwei Gegenproben rot.'}
-      ],
-    },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76292,7 +76450,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.42';
+var GS_VERSION = 'v33.43';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76980,9 +77138,8 @@ async function gsHandleAuthRedirect(){
 // Cooldowns: „Später" → 7 Tage, „Nie" → forever, „Erfolg" → forever.
 (function _gsInstallInit(){
   function isInstalled(){
-    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-           window.navigator.standalone === true ||
-           document.referrer.startsWith('android-app://');
+    // v33.43: dieselbe Rechnung wie ueberall sonst — gsLaeuftAlsApp.
+    return (typeof gsLaeuftAlsApp === 'function') ? gsLaeuftAlsApp() : false;
   }
   function getCooldown(){ return parseInt(localStorage.getItem('gs_install_cooldown') || '0', 10); }
   function setCooldown(ms){ localStorage.setItem('gs_install_cooldown', String(Date.now() + ms)); }
@@ -86277,12 +86434,24 @@ function gsBase64UrlToUint8(b64){
 function gsIsIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
-function gsIsStandalonePWA() {
+// v33.43: EIN Praedikat fuer „laeuft als App“ — installierte PWA (Android,
+// Desktop), iOS-Homescreen UND die Android-Huelle (TWA). Gemessen an v33.42
+// gab es ZWEI Rechnungen, und nur die des Install-Banners kannte die Huelle:
+// `document.referrer` beginnt dort mit `android-app://`. Wer den Push-Weg oder
+// den Druck-Rueckfall an der anderen Rechnung haengen liess, behandelte die
+// Android-App wie einen gewoehnlichen Browser-Tab.
+// Der Leser ist die Regel, nicht das Feld (v33.33, v33.37, v33.39).
+function gsLaeuftAlsApp() {
   try {
-    return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true;
-  } catch(_) { return false; }
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
+    if (window.navigator.standalone === true) return true;
+    if (String(document.referrer || '').indexOf('android-app://') === 0) return true;
+  } catch(_) {}
+  return false;
 }
+window.gsLaeuftAlsApp = gsLaeuftAlsApp;
+function gsIsStandalonePWA() { return gsLaeuftAlsApp(); }
 function gsIOSVersion() {
   // Liefert Major.Minor als Float oder null. iOS 16.4 → 16.4.
   if (!gsIsIOS()) return null;

@@ -1,4 +1,4 @@
-# 04 · Die 36 Pruefstaende — welcher fragt was
+# 04 · Die 37 Pruefstaende — welcher fragt was
 
 Alle liegen in `scripts/`, alle laufen ohne Netz (`file://` + Playwright aus
 `scripts/package.json`); vier brauchen ein lokales Postgres
@@ -7,7 +7,7 @@ pruefbar" (Exit 2), nie gruen. Alle auf einmal:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: "36 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
+# Erwartung: "37 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
 ```
 
 Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
@@ -51,9 +51,10 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `schluessel_check` | verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68) |
 | `nutzersicht_check` | sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70) |
 | `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42) |
-| `pruefstaende` | ALLE 36 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
+| `android_check` | haelt die App, was eine Android-App verspricht? gsZurueck (eine Regel, zwei Ausloeser), GS_VOLLBILD_OVERLAYS, ein Verlaufs-Eintrag, gsLaeuftAlsApp, assetlinks (seit v33.43) |
+| `pruefstaende` | ALLE 37 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
 
-## Wie ein Fall gebaut wird (die Regeln, die alle 36 teilen)
+## Wie ein Fall gebaut wird (die Regeln, die alle 37 teilen)
 
 1. **Erst der Fall, dann der Code.** Gegen den alten Stand gefahren muss er
    rot sein. Erst danach wird repariert.
