@@ -124,7 +124,7 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 37 Prüfstände (§7.1) + pruefstaende.sh (alle 37, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 38 Prüfstände (§7.1) + pruefstaende.sh (alle 38, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -749,7 +749,8 @@ node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
-bash scripts/pruefstaende.sh     # ALLE 37 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44)
+bash scripts/pruefstaende.sh     # ALLE 38 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1535,6 +1536,35 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > `#gs-lina-input` ist danach abgehaengt, und ein frisch gerendertes Feld ist
 > LEER — wer davor den Text hineingeschrieben hat, sieht `gsLinaSend` gleich
 > darauf an `if (!text) return;` umkehren. Gilt im Code wie im Pruefstand.
+
+**`risiko_check.js` (seit v33.44) fragt, was SPÄTER schiefgeht.** Anlass war
+Fernandos „Detektiere probleme die später auftauchen könnte." Alle anderen
+Prüfstände fragen, ob die App HEUTE stimmt. Der Befund, der ihn ausgelöst hat:
+`WEEKLY_SEASONAL_FACTS` (521 Einträge) wird **nur nach Kalenderwoche**
+ausgewählt — die Liste wiederholt sich jedes Jahr, und elf Zeilen nannten ein
+Jahr im Sinn von „dieses Jahr". **Ab dem 1. Januar 2027 hätte die App in Woche
+13 von einer Pilzsaison erzählt, die vorbei ist.** Inventar: `docs/RISIKEN.md`.
+
+- **Eine Jahreszahl in einem wiederkehrenden Text ist nur als FESTER PUNKT
+  richtig** — ein Zieljahr, ein datierter Bericht, ein Ereignis. Was „dieses
+  Jahr" oder „nächstes Jahr" meint, ist ab Neujahr falsch. Der Unterschied
+  lässt sich nicht rechnen, also wird er in `GS_JAHR_FEST` ERKLÄRT (im
+  Prüfstand, nicht in der App — es ist eine Redaktions-Entscheidung).
+- **Jede Listen-Abfrage ohne `limit=` ist eingeordnet:** Katalog (wächst mit
+  dem Inhalt) · Einzelzeile · wächst-mit-der-Person (dann mit einem Grund,
+  warum kein Deckel richtig ist). Wer eine neue baut, ordnet sie ein.
+- **Was `docs/RISIKEN.md` als Zahl nennt, steht so auch im Quelltext** — in
+  beide Richtungen. Die Schreibweise ist `` `GS_X` = **n** ``. Eine Doku, die
+  nichts erzwingt, wächst nicht mit (v32.21).
+
+> **Zwei Messfehler in EINEM Skript, und beide sind Klassen** (v33.44). (a) Ein
+> Server-Pfad wird aus MEHREREN Literalen zusammengesetzt
+> (`'…&device_id=eq.' + id + '&limit=' + N`) — wer nur das erste liest, meldet
+> ein vorhandenes `limit=` als fehlend. Gelesen wird der ganze erste Parameter.
+> (b) Die Zeilennummer kam aus dem ORIGINALTEXT, der Treffer aus dem
+> kommentarfreien — die Nummern zeigten auf ganz andere Zeilen, und die
+> ersten drei „Funde" waren keine. **Eine Zeilennummer stammt aus demselben
+> Text wie ihr Treffer.**
 
 **`android_check.js` (seit v33.43) fragt, ob die App hält, was eine
 ANDROID-App verspricht.** Anlass war Fernandos „Ich will es auch langsam als

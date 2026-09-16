@@ -4,13 +4,74 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.43` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.44` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-16 (io) - v33.44: Was später schiefgeht — gemessen, bevor es passiert
+
+**Fernandos Auftrag:** „Detektiere probleme die später auftauchen könnte und
+bringe da 1a Lösungen." Die achtunddreissig anderen Prüfstände fragen, ob die
+App HEUTE stimmt. Dieser fragt, was an einem **Datum** oder an einer **Grösse**
+aufhört zu stimmen — und niemandem auffällt, weil es heute noch geht.
+
+**1 · Der Befund, der ihn ausgelöst hat.** `WEEKLY_SEASONAL_FACTS` hat **521
+Einträge** und wird **nur nach Kalenderwoche** ausgewählt (`gsGetKW` — kein
+Jahr im Filter). Die Liste wiederholt sich also jedes Jahr. **Elf Zeilen darin
+nannten ein Jahr im Sinn von „dieses Jahr":** „Pilzsaison 2026: Ausblick",
+„Jahresrückblick Natur 2026", „Was hat sich 2026 verändert?", „Planung für
+2027". **Ab dem 1. Januar 2027 hätte die App in Woche 13 von einer Saison
+erzählt, die vorbei ist** — und in Woche 13 des Jahres 2028 wieder.
+
+Fünf Jahresnennungen bleiben, weil sie **feste Punkte** sind: das Zieljahr 2030
+der Biodiversitätsstrategie und drei datierte Berichte. Der Unterschied lässt
+sich nicht rechnen, also wird er ERKLÄRT — `GS_JAHR_FEST` im Prüfstand nennt
+jeden mit Grund. **Die Liste ist die Prüfung.**
+
+**2 · `scripts/risiko_check.js` — der 38. Prüfstand**, drei Regeln:
+
+| | |
+|---|---|
+| **R1** | Kein „dieses Jahr" in einem Text, der jedes Jahr wiederkehrt |
+| **R2** | Jede Listen-Abfrage ohne `limit=` ist eingeordnet — **80 gedeckelt · 25 Katalog · 13 Einzelzeile · 13 wächst-mit-der-Person**, jede der letzten dreizehn mit einem Grund, warum sie keinen Deckel hat |
+| **R3** | Was `docs/RISIKEN.md` als Zahl nennt (`` `GS_X` = **n** ``), steht so auch im Quelltext — in BEIDE Richtungen |
+
+Vier Gegenproben, jede macht genau ihren Fall rot (Jahr zurück in einen
+Wochen-Text · Abfrage ohne Einordnung · falsche Zahl im Dokument · geänderte
+Zahl im Quelltext).
+
+**3 · `docs/RISIKEN.md`** hält vier Klassen auseinander, und das ist der Punkt:
+
+- **Was an einem DATUM aufhört.** Der Quiz-Vorrat ist am **16.06.2027**
+  erschöpft (gemessen 14.09.2026: 181 freie Fragen, −0,657/Tag) — danach
+  wiederholt `fn_get_daily_quiz` über ihren Rückfall, **ohne dass etwas
+  meldet**; die Migration, die es messen würde, ist nicht angewandt.
+- **Was mit der GRÖSSE aufhört.** Deckel, Archiv (571 Einträge, 1,2 MB),
+  Artenliste (2,1 MB), Bild-Cache (500 Kacheln, ~17 MB — in `sw.js`, also von
+  R3 **nicht** geprüft, und das steht so im Dokument).
+- **Was von ANDEREN abhängt.** pdf.js ist der **einzige** CDN-Rest (zwei
+  Adressen, nur bei Bedarf). Alles andere liegt selbst gehostet.
+- **Was eine ENTSCHEIDUNG braucht statt Code.** Stripe vs. Play Billing, die
+  offenen Migrationen, die zweite Auslieferung, die Datenschutz-Erklärung unter
+  eigener URL.
+
+> **Und ein Messfehler von mir, der sich wiederholen wird.** Mein erster Zähler
+> für ungedeckelte Abfragen las nur das **erste** Zeichenketten-Literal eines
+> Pfades — und meldete `device_readings` als „ohne Deckel", obwohl das
+> `limit=` im ZWEITEN Literal steht (`'…&device_id=eq.' + id + '&limit=' + N`).
+> Er las ausserdem die Zeilennummer aus dem ORIGINALTEXT, während der Treffer
+> aus dem kommentarfreien Text kam: die Nummern zeigten auf ganz andere Zeilen.
+> **Zwei Messfehler in einem Skript, beide erst beim Nachsehen aufgefallen.**
+> `risiko_check` liest den ganzen ersten Parameter von `sbFetch(` und nimmt
+> Zeilennummern aus demselben Text wie den Treffer.
+
+**Ausdrücklich NICHT geliefert:** keine Anzeige der Fristen in der App. Eine
+Liste, die niemand liest, ist Speicherplatz (v33.18) — sie gehört ins
+Admin-Panel, und das ist ein eigener Schnitt.
 
 ### 2026-09-16 (in) - v33.43: Der Zurück-Knopf — erster Schritt zur Android-App
 
@@ -14016,11 +14077,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.43` (Client) · SW-Cache `gs-v33.43` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.44` (Client) · SW-Cache `gs-v33.44` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **94'706 Zeilen / 6,05 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **570 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.22).
+- **Frontend:** `index.html` **94'709 Zeilen / 6,05 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **570 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.22).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **220 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **37** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **38** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
