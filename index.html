@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.38.20260916">
+<meta name="app-version" content="33.39.20260916">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20731,7 +20731,7 @@ function _gsBuildScanHistList() {
       name: h.name || 'Unbekannt',
       lat: h.latin || '',
       // v30.54 FIX: tolerant lesen — Writer/Cloud-Loader schreiben conf/ts, alte/andere Pfade confidence/timestamp.
-      conf: (typeof h.conf === 'number' ? h.conf : (typeof h.confidence === 'number' ? h.confidence : 0)),
+      conf: _gsScanKonfidenz(h),                       // v33.39: EIN Leser (0.94 und 94 ergeben beide 94)
       time: _gsScanZeit(h) || '',   // v33.33: EIN Leser fuer drei Zeitfelder
       emoji: h.emoji || '🔬',
       thumb: h.thumb || null,
@@ -20743,7 +20743,7 @@ function _gsBuildScanHistList() {
       uid: 'c_'+idx, source: 'confirmed',
       name: c.name || 'Unbekannt',
       lat: c.lat || '',
-      conf: (typeof c.conf === 'number' ? c.conf : (typeof c.confidence === 'number' ? c.confidence : 0)),
+      conf: _gsScanKonfidenz(c),                       // v33.39: EIN Leser
       time: c.ts || c.scannedAt || c.timestamp || '',
       emoji: c.emoji || '🔬',
       thumb: c.thumb || null,
@@ -20923,8 +20923,8 @@ function gsScanHistoryOpen(uidOrIdx) {
     var confirmed = [];
     try { confirmed = JSON.parse(localStorage.getItem('gs_confirmed_species')||'[]'); } catch(e){}
     all = [];
-    hist.forEach(function(h, i){ all.push({uid:'h_'+i, name:h.name, lat:h.latin||'', conf:(typeof h.conf==='number'?h.conf:(h.confidence||0)), time:h.ts||h.timestamp||h.scannedAt||'', emoji:h.emoji||'🔬', category:h.category||'', thumb:h.thumb||null}); }); // v30.54: tolerant conf/ts
-    confirmed.forEach(function(c, i){ all.push({uid:'c_'+i, name:c.name, lat:c.lat||'', conf:(typeof c.conf==='number'?c.conf:(c.confidence||0)), time:c.ts||c.scannedAt||c.timestamp||'', emoji:c.emoji||'🔬', dbId:c.id}); });
+    hist.forEach(function(h, i){ all.push({uid:'h_'+i, name:h.name, lat:h.latin||'', conf:_gsScanKonfidenz(h), time:h.ts||h.timestamp||h.scannedAt||'', emoji:h.emoji||'🔬', category:h.category||'', thumb:h.thumb||null}); }); // v30.54: tolerant conf/ts
+    confirmed.forEach(function(c, i){ all.push({uid:'c_'+i, name:c.name, lat:c.lat||'', conf:_gsScanKonfidenz(c), time:c.ts||c.scannedAt||c.timestamp||'', emoji:c.emoji||'🔬', dbId:c.id}); });
     all.sort(function(a,b){ var _m=function(t){ return typeof t==='number'?t:(t?(Date.parse(t)||0):0); }; return _m(b.time)-_m(a.time); }); // v30.54: typ-tolerant (time = ts-Zahl ODER ISO-String)
   }
 
@@ -21025,7 +21025,7 @@ function _gsGalleryItems(){
     var ts=h.ts||h.createdAt||0; if(!ts&&h.timestamp){ try{ ts=Date.parse(h.timestamp); }catch(_){ ts=0; } }
     out.push({ idx:i, name:h.name||'Unbekannt', lat:h.latin||'', img:img,
       cloud:!!(h.photoUrl||h._cloud), needsSync:!!h._needsPhotoSync,
-      conf:(typeof h.conf==='number'?h.conf:(h.confidence||0)),
+      conf:_gsScanKonfidenz(h),                        // v33.39: EIN Leser
       ts:ts||0, cat:String(h.category||'').toLowerCase(), emoji:h.emoji||'🔬' });
   }
   out.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
@@ -27094,7 +27094,7 @@ function gsCollectNotifs(){
         out.push({
           type:'scan', id:'scan_' + (e.ts||0), ts:e.ts||0,
           title: (e.name || 'Art erkannt'),
-          subtitle: 'Scan · ' + (e.conf||0) + '% Sicherheit',
+          subtitle: 'Scan · ' + (_gsScanKonfidenz(e) != null ? _gsScanKonfidenz(e) : 0) + '% Sicherheit',
           icon: e.emoji || '🌿',
           action: "closeMainMenu();setTimeout(function(){openScanHistory();},250);"
         });
@@ -28760,7 +28760,8 @@ function gsTagebuchAlle() {
       if (!pid && e.pflanze_id) pid = e.pflanze_id;
       out.push({ id: e.id, ts: ts, datum: _gsKalTag(ts), text: e.text || '', note: '', emoji: e.emoji || _GS_TB_EMOJI[e.cat] || '📝',
         cat: e.cat || 'note', plant: e.plant || '', pflanze_id: pid, photo: e.photo || null, weather: e.weather || '',
-        date: e.date || (ts ? new Date(ts).toLocaleDateString(gsLocale()) : ''), herkunft: 'garten', quelle: e.quelle || 'hand' });
+        date: e.date || (ts ? new Date(ts).toLocaleDateString(gsLocale()) : ''), herkunft: 'garten', quelle: e.quelle || 'hand',
+        bestaetigt_am: e.bestaetigt_am || null });   // v33.39: der Grund im Kalender nennt den Tag der Bestaetigung
     });
   } catch (_) {}
   try {
@@ -28999,7 +29000,10 @@ function gsKalenderEreignisse(von, bis) {
         pflanze: e.pflanze_id ? { id: e.pflanze_id, name: e.plant } : null, garten_id: null, quelle: e.quelle, status: 'info', faellig_seit: null,
         verweis: (e.pflanze_id && e.herkunft === 'pflanze') ? { fn: 'openPlantDiary', args: [e.pflanze_id] } : { fn: 'openGartenTagebuch', args: [] },
         sensor: best,
-        grund: (e.herkunft === 'pflanze' ? 'aus dem Pflanzentagebuch' + (e.quelle === 'regel' ? ' (abgehakt)' : '') : 'aus dem Gartentagebuch') + (best ? ' · Sensor: ' + best.text : '') });
+        grund: (e.quelle === 'lina'
+            ? 'von Lina vorgeschlagen, von dir bestätigt' + (e.bestaetigt_am ? ' am ' + _gsKalDatumKurz(e.bestaetigt_am) : '')
+            : (e.herkunft === 'pflanze' ? 'aus dem Pflanzentagebuch' + (e.quelle === 'regel' ? ' (abgehakt)' : '') : 'aus dem Gartentagebuch'))
+          + (best ? ' · Sensor: ' + best.text : '') });
     });
   } catch (_) {}
   // 3 · Gepflanzt / aufgenommen
@@ -29082,13 +29086,13 @@ function gsKalenderEreignisse(von, bis) {
       var zt = (typeof _gsScanZeit === 'function') ? _gsScanZeit(h) : null;
       if (zt == null) return;
       var tag = _gsKalTag(zt); if (!tag || !im(tag)) return;
-      var konf = (h.conf != null) ? h.conf : h.confidence;
+      var konf = _gsScanKonfidenz(h);                  // v33.39: EIN Leser
       out.push({ id: 'scan:' + (h.id || (tag + ':' + i)), art: 'scan', datum: tag, zeit: _gsKalZeit(zt), ts: new Date(zt).toISOString(),
         titel: _gsSatz('{1} gescannt', h.name), emoji: '🔬', name: h.name,
         pflanze: null, garten_id: null, quelle: 'scan', status: 'info', faellig_seit: null,
         verweis: (h.lat || h.name) ? { fn: 'gsSearchSpecies', args: [h.lat || h.name] } : null,
-        grund: (konf != null && isFinite(konf))
-          ? _gsSatz('Aus deinem Scan-Verlauf — die Erkennung war zu {1} % sicher', Math.round(konf))
+        grund: (konf != null)
+          ? _gsSatz('Aus deinem Scan-Verlauf — die Erkennung war zu {1} % sicher', konf)
           : _gsSatz('Aus deinem Scan-Verlauf') });
     });
   } catch (_) {}
@@ -36150,6 +36154,23 @@ function _gsScanZeit(h) {
   } catch (_) { return null; }
 }
 window._gsScanZeit = _gsScanZeit;
+// v33.39: und dasselbe fuer die SICHERHEIT. gsNormConfidence gibt es seit
+// v31.79 — mit sechs Aufrufern, und keiner davon war eine Anzeige. Gemessen
+// am 16.09.2026 gab es fuer dieselbe Frage DREI Antworten: die Verlaufsliste
+// zeigte den Rohwert („0.94%"), Linas Kontext rundete ihn („1 % sicher"),
+// und die eine Funktion haette 94 gesagt. Die Cloud schreibt `conf`, die App
+// `confidence`, und beide mal als Bruch (0–1), mal als Prozent (0–100).
+// Wer die Sicherheit eines Scans braucht, ruft das hier — nie ein Feld.
+function _gsScanKonfidenz(h) {
+  try {
+    if (!h) return null;
+    var roh = (h.conf != null && h.conf !== '') ? h.conf : ((h.confidence != null && h.confidence !== '') ? h.confidence : null);
+    if (roh == null) return null;
+    var n = (typeof gsNormConfidence === 'function') ? gsNormConfidence(roh) : null;
+    return (typeof n === 'number' && isFinite(n)) ? n : null;
+  } catch (_) { return null; }
+}
+window._gsScanKonfidenz = _gsScanKonfidenz;
 var MAX_SCAN_HISTORY = 50; // Cloud-Fetch-Limit (nur die jüngsten Cloud-Scans ziehen)
 var SCAN_HISTORY_LOCAL_CAP = 200; // v30.31: lokaler Write-back-Cap = identisch zu gsAddScanHistory (sonst kürzte jeder Cloud-Pull den lokalen Verlauf auf 50 → Datenverlust bei lokal-only Scans + Notizen)
 var _lastScanResult  = null;
@@ -75606,6 +75627,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.39', date: '16.09.2026',
+    headline: 'Lina sieht deinen Kalender — und sagt, wenn sie etwas nicht weiß',
+    summary: 'Fünfte Scheibe von KALENDER-V2. Lina bekommt drei Zeilen aus der einen Kalender-Funktion (was heute ansteht, was die Woche bringt, was das Prüfwerk dazu sagt) und darf einen Termin VORSCHLAGEN, den du bestätigst. Dabei gemessen und behoben: ihr Kontext wurde bei sechs Geräten mitten im Wort abgeschnitten, Geräte fielen stillschweigend weg, eine Regel ohne Messwerte stand als „keine verletzte Regel“ da — und die Sicherheit eines Scans hatte drei verschiedene Antworten (0.94 %, 1 %, 94 %).',
+    user_summary: 'Lina weiß jetzt, was heute und diese Woche ansteht, kann dir einen Termin eintragen — nach Rückfrage — und erfindet nichts mehr, wenn ihr Platz nicht reicht.',
+    user_items: [
+      {emoji: '📅', bold: 'Lina kennt deinen Kalender:', text: ' Sie sieht, was heute ansteht, was in den nächsten sieben Tagen kommt und worauf das Wetter Einfluss hat — dieselben Angaben, die auch im Kalender stehen.'},
+      {emoji: '✍️', bold: 'Sie darf einen Termin vorschlagen:', text: ' Frag sie nach einer Erinnerung, und sie fragt zurück: „Soll ich für den 12.10. eintragen: Rosen schneiden?“ Erst nach deinem Ja steht es im Kalender — mit dem Vermerk, dass sie es vorgeschlagen hat.'},
+      {emoji: '✂️', bold: 'Keine halben Sätze mehr:', text: ' Wenn Linas Platz nicht reicht, lässt sie ganze Zeilen weg und sagt es — statt mitten im Wort abzubrechen. Bei vielen Geräten steht jetzt „+2 weitere“ dabei.'},
+      {emoji: '🤔', bold: 'Sie sagt, wenn sie nichts weiß:', text: ' Eine Sensor-Regel ohne Messwerte hieß bei ihr „keine verletzte Regel“ — also Entwarnung ohne Messung. Jetzt sagt sie, dass sie es nicht prüfen konnte.'},
+      {emoji: '🎯', bold: 'Eine Zahl für die Treffsicherheit:', text: ' Dieselbe Erkennung stand an drei Stellen unterschiedlich da — im Verlauf „0.94%“, bei Lina „1 % sicher“. Überall steht jetzt 94 %.'}
+    ],
+  },
+  {
     v: 'v33.38', date: '16.09.2026',
     headline: '„Mein Naturjahr“ zählt jetzt dasselbe wie der Kalender — und die Garten-Timeline ist darin aufgegangen',
     summary: 'Zweiter Teil der vierten Scheibe. Der Jahresrückblick rechnete seine Zahlen selbst, mit eigenen Lesern — und lag daneben: die Kachel „Funde“ stand seit jeher auf 0, weil sie ein Feld las, das keine der drei Schreibstellen setzt, und „Arten“ zählte als einzige Kachel ohne Jahresfilter, unter der Überschrift „Mein Naturjahr 2026“. Beides kommt jetzt aus der einen Kalender-Funktion. Und die Garten-Timeline, die dieselbe Frage mit sechs eigenen Quellen beantwortet hat, ist ersatzlos weg: der Menüeintrag heisst „Rückblick“ und öffnet den Kalender mit eingeschalteter Rückblick-Gruppe.',
@@ -75933,20 +75967,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'scan_check „Aussaatkalender":', text:' Tomate → Zeile mit allen drei Fenstern und Knopf · Bärlauch mit season → nichts · Zucchini (KI-Name, Plural) → Zeile. Drei Gegenproben rot.'}
       ],
     },
-  {
-    v: 'v33.19', date: '10.09.2026',
-      headline: '„Heute im Kalender" auf der Startseite — Aussaatfenster, Plan-Termine und Frost unter „Heute zu tun"',
-      summary: 'Die Startseite zeigte nur Aufgaben; was der Kalender sonst für heute kennt — ein Aussaatfenster, ein Plan-Termin, Frost, ein Alarm — stand nur im Kalender. Jetzt eine Zeile darunter, aus derselben Kalenderfunktion.',
-      user_summary: 'Unter „Heute zu tun" siehst du jetzt, was der Kalender für heute sonst noch kennt — zum Beispiel „Feldsalat säen (draussen)" oder einen Termin aus deinem Plan. Antippen öffnet den Kalender am heutigen Tag.',
-      user_items: [
-        {emoji:'📅', text:'„Heute im Kalender: 🌱 Feldsalat säen (draussen) · 🌱 Spinat säen · +2 weitere Einträge" — nur, wenn es etwas gibt.'},
-        {emoji:'🧮', text:'Die Zahl im Titel bleibt die Zahl der Aufgaben — Kalender-Einträge werden nicht dazugezählt.'}
-      ],
-      items: [
-        {emoji:'📐', bold:'_gsDayPlanKalender:', text:' gsKalenderEreignisse(heute, heute), nur die Arten aussaat · ernte · erinnerung · alarm · wetter (keine Aufgaben, kein Rückblick), in allen drei Zuständen der Karte. Ohne Ereignis keine Zeile (KALENDER-V1 Regel 5).'},
-        {emoji:'🧪', bold:'kalender_check „Heute im Kalender":', text:' 6 Ereignisse → Zeile mit „+3 weitere", jeder Titel ein Kalender-Ereignis, Kopf zählt 0 Aufgaben · alle Quellen geräumt → keine Zeile · mit Aufgabe → Zeile unter der Karte. Drei Gegenproben rot.'}
-      ],
-    },
 
 ];
 
@@ -76156,7 +76176,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.38';
+var GS_VERSION = 'v33.39';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -85096,6 +85116,7 @@ var LINA_SYSTEM =
   '• search_species {"query":"..."} — öffnet die Arten-Suche mit dem Suchbegriff.\n' +
   // v33.22: Lina kennt den Kalender seit v33.14 — jetzt kann sie ihn auch oeffnen.
   '• open_calendar {"day":"JJJJ-MM-TT"} — öffnet den Kalender (Aufgaben, Aussaatfenster, Plan-Termine, Frost) an diesem Tag; ohne day heute.\n' +
+  '• add_calendar_note {"day":"JJJJ-MM-TT","text":"…","plantName":"…"} — SCHLAEGT einen Eintrag im Kalender vor; die Person bestaetigt ihn. Nur wenn sie nach einer Erinnerung oder einem Termin fragt.\n' +
   '• open_saekalender {} — öffnet den Säkalender (39 Kulturen: drinnen vorziehen, draussen säen, Ernte).\n' +
   '• prefill_form {"name":"...","emoji":"...","notes":"..."} — öffnet das Pflanze-Hinzufügen-Formular vorausgefüllt (der Nutzer tippt selbst auf Speichern).\n' +
   '• propose_add_plant {"name":"...","emoji":"...","notes":"..."} — schlägt vor, eine Pflanze zu Meine Pflanzen hinzuzufügen (Nutzer bestätigt mit einem Tipp).\n' +
@@ -85109,7 +85130,45 @@ var LINA_SYSTEM =
 // Kontext — und die Anweisung, nur daraus zu zitieren. Ein Prompt ist keine
 // Garantie (§4a.2); sensor_check haelt fest, dass jede Zahl im Kontext aus
 // einem Datensatz stammt. Deckel ~700 Zeichen: Kontext, kein Datenexport.
-var GS_LINA_ZAHLEN_MAX = 950;   // v33.14: zwei Kalenderzeilen dazu (vorher 700; die Messwerte-Zeile allein braucht ~600); sensor_check deckelt den ganzen Kontext bei 1'350 und jede Kalenderzeile bei 160
+var GS_LINA_ZAHLEN_MAX = 1000;  // v33.39: der Kalender-Block kommt dazu (heute · Woche · Hinweise); gemessen mit den Beispieldaten sind es 554 Zeichen in sechs Zeilen, mit Kulturen und Plaenen rund 820. Der Deckel schneidet seit v33.39 ZEILEN, nicht Zeichen — siehe _gsLinaDeckeln.
+// v33.39: der Deckel liess bis hierher einfach den Rest fallen
+// (`txt.slice(0, MAX - 1) + '…'`). Gemessen mit sechs Geraeten: der Kontext
+// endete mitten in „Taraxacum officinale…" — die Scan-Zeile war verstuemmelt,
+// Sicherheit und Alter weg, und nichts sagte, dass etwas fehlt. Ein halber
+// Satz im Kontext eines Sprachmodells ist schlimmer als eine fehlende Zeile:
+// er sieht aus wie eine Angabe. Deshalb fallen jetzt GANZE Zeilen, von hinten
+// nach der Reihenfolge, in der sie hier stehen (die wichtigsten zuerst), und
+// die Zahl der ausgelassenen steht am Ende.
+// Die Reihenfolge nach NUTZEN — sie bestimmt beides: was zuerst dasteht und
+// was zuerst faellt. Eine Liste, nicht zwei; sonst laufen Anzeige und Deckel
+// auseinander (die Klasse aus §4a.2). Was hier nicht steht, kommt hinten.
+var GS_LINA_ZEILEN_RANG = ['Fällig:', 'Hinweise:', 'Nächste 7 Tage:', 'Alarme:', 'Kalender heute:',
+                           'Nächste Aussaat', 'Plan (', 'Letzter Scan:', 'Geräte:', 'Messwerte:'];
+function _gsLinaRang(zeile) {
+  for (var i = 0; i < GS_LINA_ZEILEN_RANG.length; i++) if (String(zeile).indexOf(GS_LINA_ZEILEN_RANG[i]) === 0) return i;
+  return GS_LINA_ZEILEN_RANG.length;
+}
+function _gsLinaDeckeln(teile, max) {
+  try {
+    var liste = (teile || []).filter(function (t) { return t && String(t).trim(); }).map(String);
+    // stabil nach Rang sortieren: gleicher Rang behaelt die Reihenfolge des Aufbaus
+    liste = liste.map(function (t, i) { return { t: t, r: _gsLinaRang(t), i: i }; })
+                 .sort(function (x, y) { return (x.r - y.r) || (x.i - y.i); })
+                 .map(function (o) { return o.t; });
+    if (!liste.length) return '';
+    var m = (typeof max === 'number' && max > 0) ? max : GS_LINA_ZAHLEN_MAX;
+    var drin = liste.slice();
+    while (drin.length > 1) {
+      var weg = liste.length - drin.length;
+      var fuss = weg > 0 ? '\n(+' + weg + ' Zeile' + (weg === 1 ? '' : 'n') + ' ausgelassen)' : '';
+      if ((drin.join('\n') + fuss).length <= m) break;
+      drin.pop();
+    }
+    var weg2 = liste.length - drin.length;
+    return drin.join('\n') + (weg2 > 0 ? '\n(+' + weg2 + ' Zeile' + (weg2 === 1 ? '' : 'n') + ' ausgelassen)' : '');
+  } catch (_) { return (teile || []).join('\n'); }
+}
+window._gsLinaDeckeln = _gsLinaDeckeln;   // v33.14: zwei Kalenderzeilen dazu (vorher 700; die Messwerte-Zeile allein braucht ~600); sensor_check deckelt den ganzen Kontext bei 1'350 und jede Kalenderzeile bei 160
 var GS_LINA_KAL_TAGE = 60;
 function gsLinaZahlen(){
   try {
@@ -85124,10 +85183,15 @@ function gsLinaZahlen(){
     var ger = (typeof gsGeraete === 'function') ? gsGeraete() : [];
     if (!ger.length) teile.push('Geräte: keine — es liegen keine Messwerte vor.');
     else {
-      var alarme = [], zeilen = [], jetzt = Date.now();
-      ger.slice(0, 4).forEach(function(g){
-        gsRegelnPruefen(g.id).forEach(function(z){ if (z.zustand === 'verletzt' && alarme.length < 3) alarme.push(g.name + ': ' + z.text + ' — ' + z.grund); });
-        var metrics = (g.capabilities && Array.isArray(g.capabilities.metrics)) ? g.capabilities.metrics.slice(0, 3) : [];
+      var alarme = [], zeilen = [], jetzt = Date.now(), npRegeln = 0, mehrM = 0, mehrA = 0;
+      var GER_MAX = 4;
+      ger.slice(0, GER_MAX).forEach(function(g){
+        gsRegelnPruefen(g.id).forEach(function(z){
+          if (z.zustand === 'verletzt') { if (alarme.length < 3) alarme.push(g.name + ': ' + z.text + ' — ' + z.grund); else mehrA++; }
+          else if (z.zustand === 'nicht_pruefbar') npRegeln++;   // v33.39: der dritte Zustand zaehlt mit (OEKOSYSTEM Regel 2)
+        });
+        var alleM = (g.capabilities && Array.isArray(g.capabilities.metrics)) ? g.capabilities.metrics : [];
+        var metrics = alleM.slice(0, 3); if (alleM.length > 3) mehrM += alleM.length - 3;
         var st = metrics.map(function(mk){
           var k = _gsMetric(mk); if (!k) return null;
           var w = gsMesswerte(g.id, mk), plaus = w.filter(function(m){ return m.quality === 2; }), lp = plaus[plaus.length - 1], letzter = w[w.length - 1];
@@ -85140,8 +85204,15 @@ function gsLinaZahlen(){
         if (st.length) zeilen.push(g.name + ' [' + _gsGeraetArt(g).label + ']: ' + st.join(' · '));
         else zeilen.push(g.name + ': noch keine Werte');
       });
-      if (alarme.length) teile.push('Alarme: ' + alarme.join('; ') + '.'); else teile.push('Alarme: keine verletzte Regel.');
-      teile.push('Messwerte: ' + zeilen.join(' | ') + '.');
+      // v33.39 (OEKOSYSTEM-V1 Regel 2): eine Regel hat DREI Zustaende. Bis
+      // hierher hiess „nicht pruefbar" hier „keine verletzte Regel" — eine
+      // Entwarnung ohne Messung, dieselbe Klasse wie „alles im gruenen
+      // Bereich" im Warnfenster (v33.36). Gemessen: eine Regel ohne Werte.
+      if (alarme.length) teile.push('Alarme: ' + alarme.join('; ') + (mehrA > 0 ? '; +' + mehrA + ' weitere' : '') + '.');
+      else if (npRegeln > 0) teile.push('Alarme: ' + npRegeln + ' Regel' + (npRegeln === 1 ? '' : 'n') + ' nicht prüfbar (keine Werte) — keine Aussage über verletzte Regeln.');
+      else teile.push('Alarme: keine verletzte Regel.');
+      var mehrG = Math.max(0, ger.length - GER_MAX);
+      teile.push('Messwerte: ' + zeilen.join(' | ') + (mehrG > 0 ? ' | +' + mehrG + ' weitere' + (mehrM > 0 ? ' Geräte, +' + mehrM + ' weitere Messgrössen' : ' Geräte') : (mehrM > 0 ? ' | +' + mehrM + ' weitere Messgrössen' : '')) + '.');
     }
     // v33.14: Lina kennt den KALENDER — aus der EINEN Funktion (KALENDER-V1
     // Regel 1), nie aus einer zweiten Rechnung. Zwei Zeilen, beide mit
@@ -85149,6 +85220,40 @@ function gsLinaZahlen(){
     // Termine aus deinen Plaenen (v33.10), je 60 Tage weit, je hoechstens vier.
     // Ohne Treffer keine Zeile — ein „keine Aussaat" waere hier eine
     // Behauptung ueber Kulturen, die die App gar nicht kennt.
+    // v33.39 (KALENDER-V2 §7): der Kalender-Block — drei Zeilen aus der EINEN
+    // Funktion. Bis hierher kannte Lina nur die naechsten Aussaatfenster und
+    // Plan-Termine (v33.14); was HEUTE ansteht, was die WOCHE bringt und was
+    // das Pruefwerk dazu sagt, stand nirgends. Jede Zeile ist eine Anzeige der
+    // Rechnung, nie eine zweite Rechnung (KALENDER-V1 Regel 1).
+    try {
+      var kHeute = gsHeuteTag(), kWoche = _gsKalTagPlus(kHeute, 6);
+      var evW = gsKalenderEreignisse(kHeute, kWoche) || [];
+      var evH = evW.filter(function (e) { return e && e.datum === kHeute; });
+      // „Heute" meint, was zu tun oder zu wissen ist — der Rueckblick
+      // (Tagebuch, Pflanzungen, Fundorte) gehoert nicht hinein.
+      var RUECK = ['tagebuch', 'gepflanzt', 'fund'];
+      var heuteTun = evH.filter(function (e) { return RUECK.indexOf(e.art) < 0; });
+      if (heuteTun.length) {
+        var h3 = heuteTun.slice(0, 3).map(function (e) { return e.titel; });
+        teile.push('Kalender heute: ' + h3.join('; ') + (heuteTun.length > 3 ? '; +' + (heuteTun.length - 3) + ' weitere' : '') + '.');
+      }
+      // Die Woche: gezaehlt, nicht aufgezaehlt — und jede Zahl aus derselben Liste.
+      var nAufg = evW.filter(function (e) { return ['aufgabe', 'alarm', 'erinnerung'].indexOf(e.art) >= 0; }).length;
+      var nSaat = evW.filter(function (e) { return e.art === 'aussaat'; }).length;
+      var nWett = evW.filter(function (e) { return e.art === 'wetter'; }).length;
+      var nHinw = evW.filter(function (e) { return (e.hinweise || []).some(function (h) { return h.zustand === 'verletzt'; }); }).length;
+      var wStk = [];
+      if (nAufg) wStk.push(nAufg + ' Aufgabe' + (nAufg === 1 ? '' : 'n'));
+      if (nSaat) wStk.push(nSaat + ' Aussaatfenster');
+      if (nWett) wStk.push(nWett + ' Wetter-Ereignis' + (nWett === 1 ? '' : 'se'));
+      if (nHinw) wStk.push(nHinw + ' Hinweis' + (nHinw === 1 ? '' : 'e'));
+      if (wStk.length) teile.push('Nächste 7 Tage: ' + wStk.join(' · ') + '.');
+      // Die Hinweise des Pruefwerks — nur VERLETZTE. Ein `nicht_pruefbar`
+      // gehoert nicht hierher: es ist keine Aussage, sondern das Fehlen einer.
+      var hTexte = [];
+      evW.forEach(function (e) { (e.hinweise || []).forEach(function (h) { if (h && h.zustand === 'verletzt' && h.text && hTexte.indexOf(h.text) < 0) hTexte.push(h.text); }); });
+      if (hTexte.length) teile.push('Hinweise: ' + hTexte.slice(0, 3).join('; ') + (hTexte.length > 3 ? '; +' + (hTexte.length - 3) + ' weitere' : '') + '.');
+    } catch (_) {}
     // v33.23: der letzte Scan. Lina wird oft direkt danach gefragt („was war
     // das gerade?") — und wusste es nicht. Aus dem Scan-Verlauf
     // (gs_scan_history, nur wenn die Person ihn speichert): Name, Latein,
@@ -85161,9 +85266,9 @@ function gsLinaZahlen(){
         .sort(function (a, b) { return _gsScanZeit(b) - _gsScanZeit(a); })[0] : null;
       if (letzter) {
         var alterT = Math.max(0, Math.round((Date.now() - _gsScanZeit(letzter)) / 864e5));
-        var sicherT = (typeof letzter.confidence === 'number') ? letzter.confidence : (typeof letzter.conf === 'number') ? letzter.conf : 0;
+        var sicherT = _gsScanKonfidenz(letzter);       // v33.39: EIN Leser — vorher stand hier „1 % sicher" fuer 0.94
         teile.push('Letzter Scan: ' + String(letzter.name).slice(0, 40) + (letzter.latin ? ' (' + String(letzter.latin).slice(0, 40) + ')' : '') +
-          (sicherT > 0 ? ', ' + Math.round(sicherT) + ' % sicher' : '') + ', ' +
+          (sicherT != null && sicherT > 0 ? ', ' + sicherT + ' % sicher' : '') + ', ' +
           (alterT === 0 ? 'heute' : alterT === 1 ? 'gestern' : 'vor ' + alterT + ' Tagen') + '.');
       }
     } catch (_) {}
@@ -85180,9 +85285,7 @@ function gsLinaZahlen(){
       if (aus3.length) teile.push('Nächste Aussaat (Aussaatkalender, 400–800 m): ' + aus3.map(function (e) { return e.titel + ' ab ' + kurzT(e.datum); }).join('; ') + (aus.length > 3 ? '; +' + (aus.length - 3) : '') + '.');
       if (pla3.length) teile.push('Plan (' + GS_LINA_KAL_TAGE + ' Tage): ' + pla3.map(function (e) { return e.titel + ' ' + kurzT(e.datum); }).join('; ') + (pla.length > 3 ? '; +' + (pla.length - 3) : '') + '.');
     } catch (_) {}
-    var txt = teile.join('\n');
-    if (txt.length > GS_LINA_ZAHLEN_MAX) txt = txt.slice(0, GS_LINA_ZAHLEN_MAX - 1) + '…';
-    return txt;
+    return _gsLinaDeckeln(teile, GS_LINA_ZAHLEN_MAX);
   } catch(_){ return ''; }
 }
 window.gsLinaZahlen = gsLinaZahlen;
@@ -85849,6 +85952,39 @@ async function gsLinaDispatch(act){
         if (typeof setTaskInterval==='function') setTaskInterval(p.id, key, days);
         if (typeof gsToast==='function') gsToast('✅ Erinnerung eingerichtet.', 'success');
       } catch(_){ if (typeof gsToast==='function') gsToast('Konnte die Erinnerung nicht einrichten.', 'error'); }
+      return;
+    }
+    // v33.39 (KALENDER-V2 §7): Lina darf einen TERMIN vorschlagen — und nur
+    // vorschlagen. Ein Termin ist in dieser App ein datierter Tagebuch-Eintrag
+    // (V1 Regel 2: kein zweiter Speicher), also geht er durch denselben
+    // Schreibweg wie jeder andere, mit `quelle: 'lina'` daran. Die Rueckfrage
+    // steht in der FUNKTION, nicht am Aufrufort (v32.37), und der
+    // Schreibversuch wird am Rueckgabewert geprueft (§3.5).
+    case 'add_calendar_note': {
+      var txt = String(a.text || '').trim().slice(0, 120);
+      var tag = (typeof _gsKalTag === 'function') ? _gsKalTag(a.day) : null;
+      if (!txt || !tag) return;                                   // ohne Text oder ohne lesbares Datum: nichts
+      if (typeof gsConfirmModal !== 'function') return;
+      var pf = a.plantName ? gsLinaResolvePlant(null, a.plantName) : null;
+      var wann = (typeof _gsKalDatumKurz === 'function') ? _gsKalDatumKurz(tag) : tag;
+      var okN = await gsConfirmModal({
+        title: '📅 ' + _gsSatz('Eintragen?'),
+        message: _gsSatz('Soll ich für {1} eintragen: „{2}"?', wann, txt) + (pf ? ' (' + (pf.nick || pf.name) + ')' : ''),
+        ok: _gsSatz('Eintragen'), cancel: _gsSatz('Abbrechen'), kind: 'default'
+      });
+      if (!okN) return;
+      try {
+        // 12:00 Ortszeit: der Tag ist gemeint, nicht eine Uhrzeit.
+        var ts = new Date(tag + 'T12:00:00');
+        if (isNaN(ts.getTime())) return;
+        var liste = gsTagebuchLoad(true);
+        liste.unshift({ id: 'lina_' + Date.now(), ts: ts.toISOString(),
+          date: ts.toLocaleDateString(gsLocale()), text: txt, cat: 'note',
+          emoji: '📅', plant: pf ? (pf.nick || pf.name) : null, pflanze_id: pf ? pf.id : null,
+          quelle: 'lina', bestaetigt_am: new Date().toISOString() });
+        var gesichert = gsTagebuchSave();
+        if (typeof gsToast === 'function') gsToast(gesichert ? _gsSatz('📅 Eingetragen für {1}.', wann) : _gsSatz('Nicht eingetragen — der Speicher ist voll.'), gesichert ? 'success' : 'error');
+      } catch (_) { if (typeof gsToast === 'function') gsToast(_gsSatz('Nicht eingetragen.'), 'error'); }
       return;
     }
     default: return;  // unbekanntes Tool → ignorieren (kein Admin/Destruktiv-Pfad existiert)

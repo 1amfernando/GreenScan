@@ -963,8 +963,13 @@ const FAELLE = [
       const zahlen = Array.from(zeile.matchAll(/(\d+(?:\.\d+)?) (?:%|°C)/g)).map(m => m[1]);
       const fremd = zahlen.filter(z => !werte.has(z) && !werte.has(String(Number(z))));
       if (!zahlen.length || fremd.length) return { ok: false, warum: 'Zahlen im Kontext ohne Datensatz: ' + JSON.stringify(fremd) + ' von ' + JSON.stringify(zahlen) };
-      // v33.14: 1'100 → 1'350 — zwei Kalenderzeilen (je ≤ 160, siehe Fall „Lina · Kalender") kommen dazu.
-      if (ctx.length > 1350) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen — das ist ein Datenexport, kein Kontext' };
+      // v33.39: die Schranke wird GERECHNET, nicht geraten. Bis hierher stand hier
+      // 1'350 — eine Zahl, die zufaellig hielt: der Kontext ist gsLinaZahlen (Deckel
+      // GS_LINA_ZAHLEN_MAX) + die ARTEN-Zeile (Deckel GS_LINA_ARTEN_MAX) + drei feste
+      // Zeilen (gemessen 348 Zeichen). Mit dem Kalender-Block waere 1'350 gerissen,
+      // ohne dass irgendein Teil zu gross ist.
+      const schranke = GS_LINA_ZAHLEN_MAX + GS_LINA_ARTEN_MAX + 400;
+      if (ctx.length > schranke) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen (Schranke ' + schranke + ') — das ist ein Datenexport, kein Kontext' };
       const sichern = { g: localStorage.getItem('gs_geraete'), mp: myPlants, pl: plantings };
       try {
         localStorage.setItem('gs_geraete', '[]'); myPlants = []; plantings = [];
@@ -1006,7 +1011,8 @@ const FAELLE = [
             if (!titel.has(t)) klagen.push('„' + t + '" ist kein Ereignis der Kalenderfunktion');
           });
         });
-        if (ctx.length > 1350) klagen.push('Kontext ' + ctx.length + ' Zeichen — Datenexport statt Kontext');
+        const schranke = GS_LINA_ZAHLEN_MAX + GS_LINA_ARTEN_MAX + 400;   // v33.39: gerechnet, nicht geraten
+        if (ctx.length > schranke) klagen.push('Kontext ' + ctx.length + ' Zeichen (Schranke ' + schranke + ') — Datenexport statt Kontext');
         // Gegenrichtung: ohne Kulturen und Plaene keine dieser Zeilen — und kein erfundenes „keine"
         window.myPlants = [{ id: 'lk3', name: 'Monstera', tasks: {} }]; localStorage.removeItem('gs_garden_plans');
         const leer = gsLinaContext();
@@ -1682,6 +1688,331 @@ const FAELLE = [
       } finally { gsGeraetLoeschen(g && g.id); window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogin; window.gsToast = echtToast; if (echtGet) gsStore.get = echtGet; }
     },
   },
+  // ═══ KALENDER-V2 · Scheibe 5 (v33.39): Lina ═══════════════════════════════
+  // Gemessen am 16.09.2026 gegen v33.38, bevor eine Zeile Code geschrieben war:
+  // sechs Geraete → der Kontext endet mitten in „Taraxacum officinale…“, die
+  // Scan-Zeile ist verstuemmelt; vier von sechs Geraeten stehen drin, ohne dass
+  // die zwei fehlenden genannt werden; eine Regel im Zustand `nicht_pruefbar`
+  // ergibt „Alarme: keine verletzte Regel.“; und der Kontext kennt weder den
+  // heutigen Kalender noch die Woche noch die Hinweise des Pruefwerks.
+  {
+    name: 'Lina D1 · der Deckel laesst GANZE Zeilen weg und sagt es — er schneidet nie mitten im Wort',
+    lauf: () => {
+      const sichern = { g: localStorage.getItem('gs_geraete'), m: localStorage.getItem('gs_messwerte') };
+      try {
+        const klagen = [];
+        const vorlage = (JSON.parse(sichern.g || '[]') || [])[0];
+        if (!vorlage) return { ok: false, warum: 'die Beispieldaten haben kein Geraet — der Fall misst nichts' };
+        const mw = JSON.parse(sichern.m || '[]') || [];
+        const viele = [], kopiert = [];
+        for (let i = 0; i < 6; i++) {
+          const g = Object.assign({}, vorlage, { id: 'gd' + i, name: 'Messstelle ' + (i + 1) + ' Nordseite' });
+          viele.push(g);
+          mw.forEach(m => { if (m.geraet_id === vorlage.id) kopiert.push(Object.assign({}, m, { geraet_id: g.id })); });
+        }
+        localStorage.setItem('gs_geraete', JSON.stringify(viele));
+        localStorage.setItem('gs_messwerte', JSON.stringify(kopiert));
+        const txt = gsLinaZahlen();
+        if (txt.length > GS_LINA_ZAHLEN_MAX) klagen.push('Deckel gerissen: ' + txt.length + ' > ' + GS_LINA_ZAHLEN_MAX);
+        // Kein Schnitt mitten im Wort: jede Zeile endet auf . ! ? ) oder auf den Auslass-Satz
+        txt.split('\n').forEach(z => {
+          if (!z.trim()) return;
+          if (/\(\+\d+ Zeilen? ausgelassen\)$/.test(z)) return;
+          if (!/[.!?)\]]$/.test(z)) klagen.push('Zeile endet mitten drin: „…' + z.slice(-44) + '"');
+        });
+        if (/…$/.test(txt)) klagen.push('der Text endet mit einem harten Abschnitt („…") statt mit einer ganzen Zeile');
+        // Und er sagt, dass er etwas weggelassen hat
+        const ohne = (function () { const a = window.GS_LINA_ZAHLEN_MAX; window.GS_LINA_ZAHLEN_MAX = 99999; const g = gsLinaZahlen(); window.GS_LINA_ZAHLEN_MAX = a; return g; })();
+        const fehlend = ohne.split('\n').length - txt.split('\n').filter(z => !/ausgelassen\)$/.test(z)).length;
+        if (fehlend > 0 && !/\(\+\d+ Zeilen? ausgelassen\)/.test(txt)) klagen.push(fehlend + ' Zeile(n) fehlen, ohne dass es dasteht');
+        // Reihenfolge nach Nutzen: „Fällig" ueberlebt, „Messwerte" faellt zuerst
+        if (fehlend > 0) {
+          if (!/^Fällig:/m.test(txt)) klagen.push('die faelligen Aufgaben sind weggefallen — sie sind das Wichtigste');
+          if (/^Messwerte:/m.test(txt) && !/^Letzter Scan:/m.test(txt)) klagen.push('die Messwerte-Zeile ist geblieben, die Scan-Zeile gefallen — falsche Reihenfolge');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: txt.length + '/' + GS_LINA_ZAHLEN_MAX + ' Zeichen · ' + txt.split('\n').length + ' ganze Zeilen · ' + (fehlend > 0 ? fehlend + ' ausgelassen und benannt' : 'nichts ausgelassen') };
+      } finally {
+        if (sichern.g == null) localStorage.removeItem('gs_geraete'); else localStorage.setItem('gs_geraete', sichern.g);
+        if (sichern.m == null) localStorage.removeItem('gs_messwerte'); else localStorage.setItem('gs_messwerte', sichern.m);
+      }
+    },
+  },
+  {
+    name: 'Lina D2 · was nicht in die Zeile passt, wird GEZAEHLT: „+2 weitere" bei sechs Geraeten, nie stillschweigend weggelassen',
+    lauf: () => {
+      const sichern = { g: localStorage.getItem('gs_geraete'), m: localStorage.getItem('gs_messwerte') };
+      try {
+        const klagen = [];
+        const vorlage = (JSON.parse(sichern.g || '[]') || [])[0];
+        if (!vorlage) return { ok: false, warum: 'die Beispieldaten haben kein Geraet' };
+        const mw = JSON.parse(sichern.m || '[]') || [];
+        const viele = [], kopiert = [];
+        for (let i = 0; i < 6; i++) {
+          const g = Object.assign({}, vorlage, { id: 'gz' + i, name: 'M' + (i + 1) });
+          viele.push(g);
+          mw.forEach(m => { if (m.geraet_id === vorlage.id) kopiert.push(Object.assign({}, m, { geraet_id: g.id })); });
+        }
+        localStorage.setItem('gs_geraete', JSON.stringify(viele));
+        localStorage.setItem('gs_messwerte', JSON.stringify(kopiert));
+        const alt = window.GS_LINA_ZAHLEN_MAX; window.GS_LINA_ZAHLEN_MAX = 99999;
+        const txt = gsLinaZahlen(); window.GS_LINA_ZAHLEN_MAX = alt;
+        const z = (txt.match(/^Messwerte:[^\n]*/m) || [''])[0];
+        const genannt = (z.match(/\bM[1-6]\b/g) || []).length;
+        if (!z) return { ok: false, warum: 'keine Messwerte-Zeile bei sechs Geraeten' };
+        if (genannt >= 6) return { ok: true, info: 'alle sechs genannt (kein Deckel noetig)' };
+        if (!new RegExp('\\+' + (6 - genannt) + ' weitere').test(z)) klagen.push(genannt + ' von 6 Geraeten genannt, ohne „+' + (6 - genannt) + ' weitere": ' + z.slice(-60));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: genannt + ' von 6 genannt, „+' + (6 - genannt) + ' weitere" steht dabei' };
+      } finally {
+        if (sichern.g == null) localStorage.removeItem('gs_geraete'); else localStorage.setItem('gs_geraete', sichern.g);
+        if (sichern.m == null) localStorage.removeItem('gs_messwerte'); else localStorage.setItem('gs_messwerte', sichern.m);
+      }
+    },
+  },
+  {
+    // OEKOSYSTEM-V1 Regel 2: eine Regel hat DREI Zustaende. „nicht pruefbar"
+    // als „keine verletzte Regel" auszugeben ist eine Entwarnung ohne Messung
+    // — dieselbe Klasse wie „alles im gruenen Bereich" in v33.36.
+    name: 'Lina D3 · eine Regel ohne Werte ist NICHT PRUEFBAR — der Kontext sagt das, statt „keine verletzte Regel"',
+    lauf: () => {
+      const sichern = { g: localStorage.getItem('gs_geraete'), m: localStorage.getItem('gs_messwerte'), r: localStorage.getItem('gs_geraete_regeln') };
+      try {
+        const klagen = [];
+        const vorlage = (JSON.parse(sichern.g || '[]') || [])[0];
+        const regeln = JSON.parse(sichern.r || '[]') || [];
+        if (!vorlage || !regeln.length) return { ok: false, warum: 'Beispieldaten ohne Geraet oder ohne Regel' };
+        localStorage.setItem('gs_geraete', JSON.stringify([Object.assign({}, vorlage, { id: 'gnp', name: 'Ohne Werte' })]));
+        localStorage.setItem('gs_messwerte', '[]');
+        localStorage.setItem('gs_geraete_regeln', JSON.stringify(regeln.map(x => Object.assign({}, x, { geraet_id: 'gnp' }))));
+        const zust = gsRegelnPruefen('gnp').map(z => z.zustand);
+        if (zust.indexOf('nicht_pruefbar') < 0) return { ok: false, warum: 'der Zustand wurde nicht hergestellt: ' + JSON.stringify(zust) };
+        const z = (gsLinaZahlen().match(/^Alarme:[^\n]*/m) || [''])[0];
+        if (/keine verletzte Regel/.test(z)) klagen.push('sagt „keine verletzte Regel", obwohl keine Regel geprueft werden konnte: ' + z);
+        if (!/nicht prüfbar|nicht pruefbar/.test(z)) klagen.push('sagt nicht, dass nichts geprueft werden konnte: ' + z);
+        // Gegenrichtung: mit Werten und erfuellter Regel darf „keine verletzte Regel" stehen
+        localStorage.setItem('gs_geraete', sichern.g);
+        localStorage.setItem('gs_messwerte', sichern.m);
+        localStorage.setItem('gs_geraete_regeln', JSON.stringify(regeln.map(x => Object.assign({}, x, { schwelle: -999 }))));
+        const z2 = (gsLinaZahlen().match(/^Alarme:[^\n]*/m) || [''])[0];
+        if (/nicht prüfbar|nicht pruefbar/.test(z2)) klagen.push('mit Werten steht trotzdem „nicht prüfbar": ' + z2);
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'ohne Werte: „' + z.slice(0, 66) + '" · mit Werten: „' + z2.slice(0, 44) + '"' };
+      } finally {
+        ['gs_geraete', 'gs_messwerte', 'gs_geraete_regeln'].forEach((k, i) => {
+          const v = [sichern.g, sichern.m, sichern.r][i];
+          if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v);
+        });
+      }
+    },
+  },
+  {
+    name: 'Lina K1 · „Kalender heute": jeder Eintrag ist der Titel eines Ereignisses der EINEN Funktion, hoechstens drei plus „+N weitere", ohne Ereignis keine Zeile',
+    lauf: () => {
+      const klagen = [];
+      const heute = gsHeuteTag();
+      const ev = gsKalenderEreignisse(heute, heute);
+      const z = (gsLinaZahlen().match(/^Kalender heute:[^\n]*/m) || [''])[0];
+      if (!ev.length && z) return { ok: false, warum: 'Zeile ohne ein einziges Ereignis heute: ' + z };
+      if (ev.length && !z) return { ok: false, warum: ev.length + ' Ereignisse heute, aber keine Zeile' };
+      if (z) {
+        const titel = new Set(ev.map(e => e.titel));
+        const teile = z.replace(/^Kalender heute: /, '').replace(/\.$/, '').split('; ');
+        const echte = teile.filter(t => !/^\+\d+ weitere$/.test(t));
+        if (echte.length > 3) klagen.push(echte.length + ' Eintraege in der Zeile — hoechstens drei');
+        echte.forEach(t => { if (!titel.has(t)) klagen.push('„' + t + '" ist kein Ereignis der Kalenderfunktion'); });
+        // Rueckblick-Arten gehoeren nicht in „heute zu tun"
+        const rueck = new Set(ev.filter(e => ['tagebuch', 'gepflanzt', 'fund'].indexOf(e.art) >= 0).map(e => e.titel));
+        echte.forEach(t => { if (rueck.has(t)) klagen.push('„' + t + '" ist ein Rueckblick-Ereignis und gehoert nicht in „Kalender heute"'); });
+        const rest = ev.filter(e => ['tagebuch', 'gepflanzt', 'fund'].indexOf(e.art) < 0).length - echte.length;
+        if (rest > 0 && !new RegExp('\\+' + rest + ' weitere').test(z)) klagen.push(rest + ' weitere Ereignisse, ohne dass es dasteht: ' + z);
+        if (z.length > 200) klagen.push('Zeile zu lang (' + z.length + ')');
+      }
+      // Gegenrichtung: ohne alles keine Zeile und kein erfundenes „keine"
+      const s = { mp: myPlants, pl: plantings, g: localStorage.getItem('gs_geraete') };
+      try {
+        window.myPlants = []; window.plantings = []; localStorage.setItem('gs_geraete', '[]');
+        if (/^Kalender heute:/m.test(gsLinaZahlen())) klagen.push('ohne Daten steht trotzdem eine Kalender-heute-Zeile');
+      } finally { window.myPlants = s.mp; window.plantings = s.pl; if (s.g == null) localStorage.removeItem('gs_geraete'); else localStorage.setItem('gs_geraete', s.g); }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: (z || '(keine Ereignisse heute, keine Zeile)').slice(0, 120) };
+    },
+  },
+  {
+    name: 'Lina K2 · „Nächste 7 Tage": die Zahlen kommen aus derselben Rechnung — Aufgaben, Aussaatfenster, Wetter, Hinweise, eintragsgenau',
+    lauf: () => {
+      const klagen = [];
+      const heute = gsHeuteTag(), bis = _gsKalTagPlus(heute, 6);
+      const ev = gsKalenderEreignisse(heute, bis);
+      const z = (gsLinaZahlen().match(/^Nächste 7 Tage:[^\n]*/m) || [''])[0];
+      if (!z) return { ok: false, warum: 'keine Wochenzeile, obwohl ' + ev.length + ' Ereignisse in sieben Tagen liegen' };
+      const zahl = (was) => (z.match(new RegExp('(\\d+)\\s*' + was)) || [0, null])[1];
+      const aufg = ev.filter(e => ['aufgabe', 'alarm', 'erinnerung'].indexOf(e.art) >= 0).length;
+      const saat = ev.filter(e => e.art === 'aussaat').length;
+      const hinw = ev.filter(e => (e.hinweise || []).some(h => h.zustand === 'verletzt')).length;
+      const gAufg = zahl('Aufgabe'), gSaat = zahl('Aussaatfenster'), gHinw = zahl('Hinweis');
+      if (aufg && Number(gAufg) !== aufg) klagen.push('Aufgaben: Zeile sagt ' + gAufg + ', der Kalender hat ' + aufg);
+      if (saat && Number(gSaat) !== saat) klagen.push('Aussaatfenster: Zeile sagt ' + gSaat + ', der Kalender hat ' + saat);
+      if (hinw && Number(gHinw) !== hinw) klagen.push('Hinweise: Zeile sagt ' + gHinw + ', das Pruefwerk hat ' + hinw);
+      if (z.length > 200) klagen.push('Zeile zu lang (' + z.length + ')');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: z.slice(0, 140) };
+    },
+  },
+  {
+    name: 'Lina K3 · „Hinweise": nur VERLETZTE Regeln des Pruefwerks, hoechstens drei — eine nicht pruefbare Regel steht nie als Hinweis da',
+    lauf: () => {
+      // Der Zustand wird HERGESTELLT, nicht abgewartet: Regen heute laesst R2 an
+      // der Giess-Aufgabe der Zucchini (Balkon) anschlagen. Ohne das waere
+      // dieser Fall auch dann gruen, wenn es die Zeile gar nicht gibt — die
+      // Falle aus v32.51 (eine Frage, die nur die Verneinung kennt).
+      const heute = gsHeuteTag();
+      const altC = localStorage.getItem('gs_weather_cache');
+      const zucP = (typeof plantings !== 'undefined' ? plantings : []).find(x => x && x.id === 'plant_seed_1');
+      const merk = zucP && zucP.tasks && zucP.tasks.water ? zucP.tasks.water.lastDone : undefined;
+      const altMp = myPlants;
+      try {
+        const klagen = [];
+        // Feldsalat wird im Sep draussen gesaet: ohne Tagesvorhersage steht R1
+        // auf `nicht_pruefbar` MIT Grund („keine Wettervorhersage geladen"). Ohne
+        // diesen zweiten Zustand koennte der Fall gar nicht messen, dass nur
+        // VERLETZTE Hinweise in die Zeile kommen — die Gegenprobe bliebe gruen.
+        window.myPlants = (myPlants || []).concat([{ id: 'k3f', name: 'Feldsalat', tasks: {} }]);
+        if (zucP && zucP.tasks && zucP.tasks.water) zucP.tasks.water.lastDone = new Date(Date.now() - 3 * 864e5).toISOString();
+        const zeiten = [], regen = [];
+        for (let h = 0; h < 24; h++) { zeiten.push(heute + 'T' + String(h).padStart(2, '0') + ':00'); regen.push(h === 6 ? 3 : h === 9 ? 5 : 0); }
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { hourly: { time: zeiten, precipitation: regen } } }));
+        const bis = _gsKalTagPlus(heute, 6);
+        const ev = gsKalenderEreignisse(heute, bis);
+        const alle = [];
+        ev.forEach(e => (e.hinweise || []).forEach(h => { if (h.zustand === 'verletzt') alle.push(h.text); }));
+        if (!alle.length) return { ok: false, warum: 'der Zustand wurde nicht hergestellt — keine verletzte Regel trotz 8 mm Regen; der Fall misst nichts' };
+        const z = (gsLinaZahlen().match(/^Hinweise:[^\n]*/m) || [''])[0];
+        if (!z) klagen.push(alle.length + ' verletzte Regel(n), aber keine Hinweis-Zeile');
+        else {
+          const teile = z.replace(/^Hinweise: /, '').replace(/\.$/, '').split('; ').filter(t => !/^\+\d+ weitere$/.test(t));
+          if (teile.length > 3) klagen.push(teile.length + ' Hinweise in der Zeile — hoechstens drei');
+          // Ein Hinweis, der NICHT verletzt ist, gehoert nicht in die Zeile —
+          // weder mit seinem Text noch mit seinem Grund. Heute tragen nur
+          // verletzte Hinweise einen `text`; die anderen tragen einen `grund`,
+          // und genau der ist der naheliegende Fehlgriff (`h.text || h.grund`).
+          const fremd = [];
+          ev.forEach(e => (e.hinweise || []).forEach(h => {
+            if (h.zustand !== 'verletzt') { if (h.text) fremd.push(h.text); if (h.grund) fremd.push(h.grund); }
+          }));
+          if (!fremd.length) klagen.push('der zweite Zustand wurde nicht hergestellt — kein nicht-verletzter Hinweis mit Text oder Grund; die Frage misst nur die halbe Regel');
+          fremd.forEach(f => { if (z.indexOf(f) >= 0) klagen.push('ein Hinweis, der NICHT verletzt ist, steht in der Zeile: „' + String(f).slice(0, 60) + '"'); });
+          if (!teile.some(t => /Regen/i.test(t))) klagen.push('der hergestellte Regen-Hinweis fehlt in der Zeile: ' + z);
+          if (z.length > 240) klagen.push('Zeile zu lang (' + z.length + ')');
+        }
+        // Gegenrichtung: ohne Vorhersage keine verletzte Regen-Regel — und kein Hinweis dazu
+        localStorage.removeItem('gs_weather_cache');
+        const z2 = (gsLinaZahlen().match(/^Hinweise:[^\n]*/m) || [''])[0];
+        if (z2 && /Regen/i.test(z2)) klagen.push('ohne Vorhersage steht der Regen-Hinweis trotzdem da: ' + z2);
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: alle.length + ' verletzte Regel(n) hergestellt · Zeile: ' + z.slice(0, 110) + ' · ohne Vorhersage: ' + (z2 ? z2.slice(0, 40) : 'keine Zeile') };
+      } finally {
+        if (altC == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', altC);
+        if (zucP && zucP.tasks && zucP.tasks.water) zucP.tasks.water.lastDone = merk;
+        window.myPlants = altMp;
+      }
+    },
+  },
+  {
+    // v31.79 hat gsNormConfidence gebaut, „weil die Regel zweimal im Code stand
+    // und die Anzeige sie gar nicht benutzte". Gemessen am 16.09.2026 gibt es
+    // sie DREIMAL: gsNormConfidence(0.94) = 94, die Verlaufsliste zeigt
+    // „0.94%", und Linas Kontext sagt „1 % sicher". Und der Fall von v33.23
+    // konnte es nicht sehen, weil er `confidence: 88` einsetzt — eine Zahl,
+    // die schon in der Zielform ist.
+    name: 'Lina S1 · die Sicherheit eines Scans hat EINEN Leser: 0.94 und 94 ergeben beide „94 %" — im Kontext und in der Verlaufsliste',
+    lauf: () => {
+      const key = (typeof SCAN_HISTORY_KEY !== 'undefined') ? SCAN_HISTORY_KEY : 'gs_scan_history';
+      const vorher = localStorage.getItem(key);
+      try {
+        const klagen = [];
+        const zeile = (roh) => {
+          localStorage.setItem(key, JSON.stringify([{ id: 'sk', name: 'Löwenzahn', latin: 'Taraxacum officinale', confidence: roh, timestamp: new Date(Date.now() - 3600e3).toISOString() }]));
+          return (gsLinaZahlen().match(/^Letzter Scan:[^\n]*/m) || [''])[0];
+        };
+        const zBruch = zeile(0.94), zProzent = zeile(94);
+        if (!/94 % sicher/.test(zBruch)) klagen.push('0.94 wird nicht als 94 % gelesen: ' + zBruch);
+        if (!/94 % sicher/.test(zProzent)) klagen.push('94 wird nicht als 94 % gelesen: ' + zProzent);
+        // Und dieselbe Zahl in der Liste, die die Person sieht
+        localStorage.setItem(key, JSON.stringify([{ id: 'sk', name: 'Löwenzahn', latin: 'Taraxacum officinale', confidence: 0.94, timestamp: new Date(Date.now() - 3600e3).toISOString() }]));
+        try { if (typeof openScanHistory === 'function') openScanHistory(); } catch (_) {}
+        const txt = Array.from(document.querySelectorAll('#modal-content, #gs-nl-body, [id*="history"]')).map(e => e.textContent || '').join(' ');
+        if (/0\.94\s*%/.test(txt)) klagen.push('die Verlaufsliste zeigt den Rohwert „0.94%"');
+        else if (/Löwenzahn/.test(txt) && !/94\s*%/.test(txt)) klagen.push('die Verlaufsliste zeigt keine 94 %: ' + (txt.match(/Löwenzahn[^\n]{0,40}/) || [''])[0]);
+        try { closeModal('modal-content'); } catch (_) {}
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '0.94 → „94 % sicher" · 94 → „94 % sicher" · Liste ohne Rohwert' };
+      } finally { if (vorher == null) localStorage.removeItem(key); else localStorage.setItem(key, vorher); }
+    },
+  },
+  {
+    name: 'Lina T1 · add_calendar_note: Nein schreibt NICHTS, Ja schreibt GENAU EINEN Eintrag — mit quelle „lina", und er steht im Kalender',
+    lauf: async () => {
+      const key = 'gs_gartentagebuch';
+      const vorher = localStorage.getItem(key);
+      const echt = window.gsConfirmModal;
+      try {
+        const klagen = [];
+        const zahl = () => (JSON.parse(localStorage.getItem(key) || '[]') || []).length;
+        const vorZahl = zahl();
+        const tag = _gsKalTagPlus(gsHeuteTag(), 26);
+        window.gsConfirmModal = async () => false;
+        await gsLinaDispatch({ tool: 'add_calendar_note', args: { day: tag, text: 'Rosen schneiden' } });
+        if (zahl() !== vorZahl) klagen.push('bei Nein wurde geschrieben (' + vorZahl + ' → ' + zahl() + ')');
+        window.gsConfirmModal = async () => true;
+        await gsLinaDispatch({ tool: 'add_calendar_note', args: { day: tag, text: 'Rosen schneiden' } });
+        const nach = JSON.parse(localStorage.getItem(key) || '[]') || [];
+        if (nach.length !== vorZahl + 1) klagen.push('bei Ja wurden ' + (nach.length - vorZahl) + ' Eintraege geschrieben statt genau einem');
+        const neu = nach.filter(e => e && e.text === 'Rosen schneiden')[0];
+        if (!neu) klagen.push('der Eintrag steht nicht im Gartentagebuch');
+        else {
+          if (neu.quelle !== 'lina') klagen.push('quelle ist „' + neu.quelle + '" statt „lina"');
+          if (_gsKalTag(neu.ts) !== tag) klagen.push('Datum ' + _gsKalTag(neu.ts) + ' statt ' + tag);
+        }
+        const ev = gsKalenderEreignisse(tag, tag).filter(e => e.titel === 'Rosen schneiden');
+        if (!ev.length) klagen.push('der Eintrag steht nicht im Kalender');
+        else if (!/lina|vorgeschlagen/i.test(ev[0].grund || '')) klagen.push('der Grund sagt nicht, dass Lina es vorgeschlagen hat: ' + ev[0].grund);
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Nein → nichts · Ja → 1 Eintrag (quelle lina) · im Kalender am ' + tag + ': „' + ev[0].titel + '"' };
+      } finally { window.gsConfirmModal = echt; if (vorher == null) localStorage.removeItem(key); else localStorage.setItem(key, vorher); }
+    },
+  },
+  {
+    // Die zwei schreibenden Tools gibt es seit v23.x und sie hatten nie einen
+    // Fall. Beide fragen; geprueft wird, dass ein Nein WIRKLICH nichts tut.
+    name: 'Lina T2 · die zwei schreibenden Tools fragen zuerst: Nein legt keine Pflanze an und richtet keine Erinnerung ein, Ja genau eine',
+    lauf: async () => {
+      const echt = window.gsConfirmModal;
+      const sichern = { mp: JSON.stringify(myPlants || []) };
+      try {
+        const klagen = [];
+        window.gsConfirmModal = async () => false;
+        const vor = (myPlants || []).length;
+        await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: 'Testminze' } });
+        if ((myPlants || []).length !== vor) klagen.push('propose_add_plant hat bei Nein angelegt');
+        const ziel = (myPlants || [])[0];
+        if (!ziel) return { ok: false, warum: 'keine Pflanze in den Beispieldaten — der Fall misst nichts' };
+        const vorAktiv = !!(ziel.tasks && ziel.tasks.water && ziel.tasks.water.active);
+        if (ziel.tasks && ziel.tasks.water) ziel.tasks.water.active = false;
+        await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'water', plantName: ziel.name, intervalDays: 4 } });
+        if (ziel.tasks && ziel.tasks.water && ziel.tasks.water.active) klagen.push('propose_reminder hat bei Nein eingerichtet');
+        window.gsConfirmModal = async () => true;
+        await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'water', plantName: ziel.name, intervalDays: 4 } });
+        const t = (_gsPflanzeFinden(ziel.id) || {}).p;
+        if (!t || !t.tasks || !t.tasks.water || !t.tasks.water.active) klagen.push('propose_reminder hat bei Ja NICHT eingerichtet');
+        else if (t.tasks.water.intervalDays !== 4) klagen.push('Intervall ' + t.tasks.water.intervalDays + ' statt 4');
+        if (vorAktiv && t && t.tasks && t.tasks.water) t.tasks.water.active = true;
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Nein → keine Pflanze, keine Erinnerung · Ja → giessen alle 4 Tage an „' + ziel.name + '"' };
+      } finally { window.gsConfirmModal = echt; try { window.myPlants = JSON.parse(sichern.mp); } catch (_) {} }
+    },
+  },
+
 ];
 
 (async () => {

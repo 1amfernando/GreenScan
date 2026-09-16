@@ -18,6 +18,15 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   Funktion mit immer einem GRUND (`_gsSnapshotAutoFaellig`).
 - **v33.33** Drei Zeitfelder in der Scan-Historie, ein Leser verlangte genau
   eines — nach dem Cloud-Abgleich sah Lina null Scans. Regel: `_gsScanZeit(h)`.
+- **v33.38** „Mein Naturjahr“ rechnete seine Kacheln selbst: „Funde“ las ein
+  Feld, das niemand schreibt (immer 0), „Arten“ hatte als einzige keinen
+  Jahresfilter. Regel: eine Anzeige, die dieselbe Frage stellt wie eine
+  vorhandene Rechnung, RUFT sie (`gsKalenderEreignisse`).
+- **v33.39** Die Sicherheit eines Scans hatte DREI Antworten fuer denselben
+  Eintrag (`0.94` → Liste „0.94%“, Lina „1 % sicher“, `gsNormConfidence` 94).
+  Die eine Funktion gab es seit v31.79 — mit sechs Aufrufern, keiner davon
+  eine Anzeige. Regel: `_gsScanKonfidenz(h)`, und die ERZEUGER umstellen
+  (fuenf Stellen, eine Reparatur), nicht die Anzeigen einzeln flicken.
 
 ## B · Eine Ansicht, die nie etwas zeigen konnte
 
@@ -83,6 +92,15 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.32** Die Sicherung suchte ganze Woerter; der Fall enthielt genau
   diese. End-to-end gemessen: 8 von 9 echten Saetzen ohne Warnung. Regel: mit
   den GEMESSENEN Saetzen pruefen, nicht mit ausgewaehlten.
+- **v33.39** Der Fall zur Treffsicherheit eines Scans setzte `confidence: 88`
+  ein — eine Zahl, die schon in der Zielform ist; er konnte den Bruchwert
+  (`0.94`), den die App selbst schreibt, nie sehen. Regel: wer eine
+  Normalisierung prueft, fuettert BEIDE Formen.
+- **v33.39** Der Hinweis-Fall war gruen, weil die Beispieldaten in sieben
+  Tagen keine verletzte Regel haben; und seine Gegenprobe blieb gruen, weil
+  nur verletzte Hinweise einen `text` tragen — die Zustandspruefung war
+  durch `h.text` verdeckt. Regel: den Zustand SELBST herstellen, und den
+  naheliegenden Fehlgriff messen (hier `h.text || h.grund`).
 - **v32.23** `gsCloudSync.flushNow()` ging an `sbFetch` vorbei — die Attrappe
   sah nichts, „0 Tabellen gepusht" haette 47 Fehler gemeldet. Regel: erst
   pruefen, ob der Pruefstand ueberhaupt etwas sieht.
