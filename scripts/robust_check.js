@@ -901,6 +901,37 @@ const FAELLE = [
     },
   },
   {
+    // v33.34 — gemessen beim Bau des Kalender-Pruefwerks. `gs_weather_cache`
+    // hatte ZWEI Schreiber mit ZWEI Formen: der Wetter-Lader legt dort ein
+    // einzelnes `{ts, data, lat, lon}` ab (Frost, Regen, R1 und R2 lesen genau
+    // dieses `data`), der Planer eine KARTE `{"lat,lon": {ts, data}}` — und er
+    // liest seine Variable EINMAL beim Start und schreibt sie spaeter ganz
+    // zurueck. Wer den Planer benutzte, warf damit den frischen Wetterstand
+    // weg; die Frost- und Regenzeilen im Kalender verschwanden, ohne dass
+    // etwas meldet.
+    //
+    // Die Regel, die der Fall festhaelt und die ueber das Wetter hinausgeht:
+    // ein Schluessel, dessen Inhalt eine FORM hat, hat GENAU EINEN Schreiber.
+    // Wer eine zweite Form braucht, braucht einen zweiten Schluessel — und der
+    // muss in einer der Speicherlisten stehen (storage_check).
+    name: 'Wetter-Zwischenspeicher · ein Schlüssel, ein Schreiber — der Planer hat seinen eigenen, und der steht in der Speicherliste',
+    lauf: async () => {
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const ohneKommentar = idx.split('\n').filter(z => !z.trim().startsWith('//')).join('\n');
+      const zaehl = (re) => (ohneKommentar.match(re) || []).length;
+      const klagen = [];
+      const nSchreiber = zaehl(/setItem\(\s*'gs_weather_cache'/g);
+      if (nSchreiber !== 1) klagen.push(nSchreiber + ' Schreiber auf gs_weather_cache (erwartet: 1 — der Wetter-Lader)');
+      if (!/safeGetItem\(\s*'gs_weather_cache_planer'/.test(ohneKommentar)) klagen.push('der Planer liest gs_weather_cache_planer nicht');
+      if (!zaehl(/setItem\(\s*'gs_weather_cache_planer'/g)) klagen.push('der Planer schreibt gs_weather_cache_planer nicht');
+      // Ein neuer Schluessel, der das Abmelden ueberlebt, waere ein Fund fuer
+      // storage_check — hier gehoert er zu den Nutzerdaten.
+      if (!/'gs_weather_cache_planer'/.test((idx.match(/var GS_USER_KEYS = \[[\s\S]*?\n\];/) || [''])[0])) klagen.push('gs_weather_cache_planer steht nicht in GS_USER_KEYS');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'gs_weather_cache: 1 Schreiber · Planer auf gs_weather_cache_planer (gelesen, geschrieben, in GS_USER_KEYS)' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');

@@ -86,6 +86,19 @@ module.exports = () => { try {
   // hier standen {plant, amount}: Naturjahr rechnete NaN → 0, die Timeline
   // zeigte „🧺 Ernte: ? · 0 g". Seed-Falle Nr. 5 (v31.46/v32.46/v32.52/v33.02).
   set('gs_ernte_log', [{ id:'e1', pflanze:'Tomate', emoji:'🍅', menge:420, unit:'g', ts:new Date(now-3*D).toISOString() }]);
+  // v33.34: ein Wetter-Zwischenspeicher, RELATIV zum Anker — sieben Tage
+  // Tageswerte ohne Frost, ohne Regen. Nur `daily`: ein `hourly`-Block liesse
+  // gsWetterGeraetAbgleich ein Pseudo-Geraet „Wetterdienst" anlegen, und
+  // damit zaehlte jeder Pruefstand zwei Geraete statt eines. Folge fuer das
+  // Pruefwerk (KALENDER-V2 §3), genau nachgezaehlt: R1 (Frost) steht damit auf
+  // „erfuellt", R2 (Regen) auf „nicht pruefbar" — gsRegenGefallen braucht
+  // `hourly`, und das gibt es hier bewusst nicht. Frost und Regen stellen die
+  // Faelle selbst.
+  (function () {
+    var tg = [], tmin = [], tmax = [], psum = [], wind = [];
+    for (var i = 0; i < 7; i++) { var d = new Date(now + i * D); tg.push(d.toISOString().slice(0, 10)); tmin.push(6 + i); tmax.push(21 + i); psum.push(0); wind.push(14); }
+    set('gs_weather_cache', { ts: now, lat: 47.37, lon: 8.55, data: { daily: { time: tg, temperature_2m_min: tmin, temperature_2m_max: tmax, precipitation_sum: psum, windspeed_10m_max: wind } } });
+  })();
   set('gs_confirmed_species', ['Taraxacum officinale','Boletus edulis']);
   set('gs_wissen_read', ['alpen-1','voegel-2']);
   set('gs_last_active_day_iso', new Date(now).toISOString().slice(0,10));

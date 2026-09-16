@@ -751,18 +751,41 @@ const FAELLE = [
       // Fall rot (CLAUDE.md §7.1: „eine, die er stehen laesst, macht ihn rot").
       const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch'), cloud: localStorage.getItem('gs_garden_diary_cache'),
         ger: localStorage.getItem('gs_geraete'), mw: localStorage.getItem('gs_messwerte'), rg: localStorage.getItem('gs_geraete_regeln'),
-        pla: localStorage.getItem('gs_garden_plans') };   // v33.10: fuenfte Quelle — die Plaene
+        pla: localStorage.getItem('gs_garden_plans'),   // v33.10: fuenfte Quelle — die Plaene
+        wc: localStorage.getItem('gs_weather_cache') };  // v33.34: sechste Quelle — der Wetter-Zwischenspeicher (seit dem Seed immer da)
       try {
         myPlants = []; if (typeof plantings !== 'undefined') plantings = [];
         localStorage.setItem('gs_gartentagebuch', '[]'); gsTagebuchLoad(true);
         localStorage.removeItem('gs_garden_diary_cache');
-        ['gs_geraete', 'gs_messwerte', 'gs_geraete_regeln', 'gs_garden_plans'].forEach(k => localStorage.removeItem(k));
+        ['gs_geraete', 'gs_messwerte', 'gs_geraete_regeln', 'gs_garden_plans', 'gs_weather_cache'].forEach(k => localStorage.removeItem(k));
         const ev = gsKalenderEreignisse(gsHeuteTag(), _gsKalTagPlus(gsHeuteTag(), 30));
         if (ev.length) return { ok: false, warum: ev.length + ' Ereignisse ohne jede Datengrundlage' };
         gsKalenderOeffnen();
         const t = (document.getElementById('modal-content') || {}).textContent || '';
-        if (!/Nichts an diesem Tag/.test(t)) return { ok: false, warum: 'die leere Tagesliste sagt nichts' };
-        return { ok: true, info: '0 Ereignisse · „Nichts an diesem Tag."' };
+        // v33.34 (KALENDER-V2 R8): ohne jede Quelle ist der dritte Leerzustand
+        // faellig — „Noch keine Daten", nicht „Nichts an diesem Tag" (das
+        // hiesse: Daten da, Tag leer). Zwei Saetze fuer zwei Wahrheiten.
+        if (!/Noch keine Daten/.test(t)) return { ok: false, warum: 'ohne jede Datengrundlage sagt der Kalender nicht „Noch keine Daten": ' + (t.match(/Nichts an diesem Tag|Noch keine|ausgeblendet/) || ['(kein Leersatz)'])[0] };
+        if (/Nichts an diesem Tag/.test(t)) return { ok: false, warum: '„Nichts an diesem Tag" und „Noch keine Daten" gleichzeitig' };
+        // Und die Gegenrichtung zur sechsten Quelle: NUR eine Wettervorhersage
+        // (die von selbst geladen wird) macht aus „Noch keine Daten" kein
+        // „Nichts an diesem Tag" — sonst nimmt ein Abruf im Hintergrund der
+        // Person die Aufforderung weg, ihre erste Pflanze anzulegen.
+        // Der Zustand wird HERGESTELLT, nicht uebernommen: ein frueherer Fall
+        // („Ernte und Regen") raeumt den Wetter-Zwischenspeicher und legt ihn
+        // nicht zurueck — `sichern.wc` war hier NULL, und die Frage lief gar
+        // nicht. Eine Gegenprobe, deren Aufbau still fehlschlaegt, sieht aus
+        // wie eine bestandene (CLAUDE.md §7.1).
+        const tg = [], tmin = [];
+        for (let i = 0; i < 7; i++) { tg.push(_gsKalTagPlus(gsHeuteTag(), i)); tmin.push(8); }
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { daily: { time: tg, temperature_2m_min: tmin } } }));
+        const lage = _gsKalDatenlage();
+        gsKalenderOeffnen();
+        const t2 = (document.getElementById('modal-content') || {}).textContent || '';
+        localStorage.removeItem('gs_weather_cache');
+        if (lage.length) return { ok: false, warum: 'eine blosse Wettervorhersage gilt als Datengrundlage: ' + JSON.stringify(lage) };
+        if (!/Noch keine Daten/.test(t2)) return { ok: false, warum: 'mit einer Wettervorhersage (und sonst nichts) sagt der Kalender nicht mehr „Noch keine Daten": ' + (t2.match(/Nichts an diesem Tag|Noch keine Daten/) || ['(kein Leersatz)'])[0] };
+        return { ok: true, info: '0 Ereignisse · „Noch keine Daten" — auch mit einer Wettervorhersage (Datenlage [])' };
       } finally {
         myPlants = sichern.mp; if (sichern.pl) plantings = sichern.pl;
         if (sichern.tb != null) localStorage.setItem('gs_gartentagebuch', sichern.tb); gsTagebuchLoad(true);
@@ -771,6 +794,7 @@ const FAELLE = [
         if (sichern.mw != null) localStorage.setItem('gs_messwerte', sichern.mw);
         if (sichern.rg != null) localStorage.setItem('gs_geraete_regeln', sichern.rg);
         if (sichern.pla != null) localStorage.setItem('gs_garden_plans', sichern.pla);
+        if (sichern.wc != null) localStorage.setItem('gs_weather_cache', sichern.wc);
       }
     },
   },
@@ -906,6 +930,276 @@ const FAELLE = [
       try { closeModal('gs-nl-modal'); } catch (_) {}
       if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
       return { ok: true, info: scans + ' Scans (' + hist.map(h => h.name).join(', ') + ') · Ernte „Tomate · 420 g"' };
+    },
+  },  // ═══ KALENDER-V2 · das Pruefwerk (v33.34) ═══════════════════════════
+  // „Denken" heisst rechnen: _gsKalPruefwerk(liste) laeuft am Ende der einen
+  // Funktion und schreibt hinweise[] an die beteiligten Ereignisse. Jede Regel
+  // hat drei Zustaende, und jeder Fall misst alle drei — und liest die Zeile
+  // aus dem HTML (.gs-kal-hinweis), nicht nur das Objekt.
+  {
+    name: 'Prüfwerk · jedes Ereignis trägt hinweise[] (auch leer) und jedes Aussaat-Ereignis sein Fenster (indoor|outdoor)',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const ev = gsKalenderEreignisse(heute.slice(0, 4) + '-01-01', heute.slice(0, 4) + '-12-31');
+      const ohne = ev.filter(e => !Array.isArray(e.hinweise));
+      if (ohne.length) return { ok: false, warum: ohne.length + ' von ' + ev.length + ' Ereignissen ohne hinweise[] (z.B. ' + ohne[0].art + ' ' + ohne[0].datum + ')' };
+      const aus = ev.filter(e => e.art === 'aussaat');
+      const ohneF = aus.filter(e => e.fenster !== 'indoor' && e.fenster !== 'outdoor');
+      if (!aus.length) return { ok: false, warum: 'keine Aussaat-Ereignisse im Jahr — Grundlage fehlt' };
+      if (ohneF.length) return { ok: false, warum: ohneF.length + ' von ' + aus.length + ' Aussaat-Ereignissen ohne fenster (z.B. „' + ohneF[0].titel + '")' };
+      return { ok: true, info: ev.length + ' Ereignisse mit hinweise[] · ' + aus.length + ' Aussaaten mit Fenster (' + aus.filter(e => e.fenster === 'outdoor').length + ' draussen)' };
+    },
+  },
+  {
+    name: 'Prüfwerk R1 · Frost trifft Aussaat draussen: Feldsalat (Aug–Okt) + Frost am 3. → verletzt an BEIDEN Zeilen, im HTML; drei Frosttage → EIN Satz + „+2 weitere"; drinnen keiner; 5 °C → nichts; ohne Cache → „nicht bekannt", nie „kein Frost"',
+    lauf: () => {
+      const heute = gsHeuteTag(), mon = heute.slice(0, 7), tag3 = mon + '-03', m0 = +mon.slice(5, 7) - 1;
+      const altC = localStorage.getItem('gs_weather_cache'), n0 = myPlants.length;
+      const feld = { id: 'pR1', name: 'Feldsalat', emoji: '🥗', added: new Date(Date.now()).toISOString(), tasks: {} };
+      myPlants.push(feld);
+      // eine Kultur, die JETZT drinnen vorgezogen wird — falls es sie gibt
+      const drin = (typeof GS_SAE_DB !== 'undefined') ? GS_SAE_DB.find(x => x.indoor && x.indoor.indexOf(m0) >= 0) : null;
+      if (drin) myPlants.push({ id: 'pR1b', name: drin.n, emoji: drin.e, added: new Date(Date.now()).toISOString(), tasks: {} });
+      const cache = (t3) => { const tg = [], tmin = []; for (let i = 0; i < 7; i++) { tg.push(_gsKalTagPlus(heute, i)); tmin.push(i === 2 ? t3 : 6); } localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600000, data: { daily: { time: tg, temperature_2m_min: tmin } } })); };
+      const finde = (ev, f) => ev.find(f);
+      try {
+        const klagen = [];
+        cache(1.2);
+        let ev = gsKalenderEreignisse(mon + '-01', _gsKalTagPlus(heute, 6));
+        const aus = finde(ev, e => e.art === 'aussaat' && /Feldsalat/.test(e.titel) && e.fenster === 'outdoor');
+        if (!aus) return { ok: false, warum: 'kein Aussaat-Ereignis „Feldsalat" mit fenster=outdoor im Monat — Grundlage fehlt' };
+        const fr = finde(ev, e => e.art === 'wetter' && e.datum === tag3);
+        if (!fr) return { ok: false, warum: 'kein Frost-Ereignis am ' + tag3 };
+        const hA = (aus.hinweise || []).find(h => h.regel === 'frost_aussaat'), hF = (fr.hinweise || []).find(h => h.regel === 'frost_aussaat');
+        if (!hA || hA.zustand !== 'verletzt' || !/1\.2/.test(hA.text)) klagen.push('Aussaat-Zeile: ' + JSON.stringify(aus.hinweise || null));
+        if (!hF || hF.zustand !== 'verletzt' || !/Feldsalat/.test(hF.text)) klagen.push('Frost-Zeile nennt Feldsalat nicht: ' + JSON.stringify(fr.hinweise || null));
+        if (drin) { const di = finde(ev, e => e.art === 'aussaat' && e.fenster === 'indoor' && e.titel.indexOf(drin.n) === 0); if (di && (di.hinweise || []).some(h => h.regel === 'frost_aussaat' && h.zustand === 'verletzt')) klagen.push('drinnen vorziehen („' + drin.n + '") bekommt einen Frost-Hinweis'); }
+        // HTML: die Aussaat-Zeile am 1. traegt die Hinweiszeile, die Frost-Zeile am 3. nennt Feldsalat
+        gsKalenderOeffnenAm(mon + '-01');
+        let mc = document.getElementById('modal-content');
+        let z = Array.from(mc.querySelectorAll('.gs-kal-zeile')).find(x => /Feldsalat/.test(x.textContent) && /draussen/.test(x.textContent));
+        if (!z) klagen.push('Tagesblatt am 1. zeigt „Feldsalat … (draussen)" nicht');
+        else { const hz = z.querySelector('.gs-kal-hinweis'); if (!hz || !/Frost/.test(hz.textContent) || !/1\.2/.test(hz.textContent)) klagen.push('Hinweiszeile unter der Aussaat fehlt oder nennt den Frost nicht: „' + (hz ? hz.textContent : '(keine)') + '"'); }
+        gsKalenderOeffnenAm(tag3);
+        mc = document.getElementById('modal-content');
+        z = Array.from(mc.querySelectorAll('.gs-kal-zeile')).find(x => /Frost/.test(x.textContent));
+        if (!z) klagen.push('Tagesblatt am 3. zeigt den Frost nicht');
+        else { const hz = z.querySelector('.gs-kal-hinweis'); if (!hz || !/Feldsalat/.test(hz.textContent)) klagen.push('Hinweiszeile unter dem Frost nennt Feldsalat nicht: „' + (hz ? hz.textContent : '(keine)') + '"'); }
+        // Deckel: drei Frosttage ergeben DREI Hinweise an DERSELBEN Aussaat.
+        // Sichtbar ist einer, der Rest steht im Grund — ohne Deckel stuenden
+        // drei Saetze in einer 10-px-Zeile (im November sieben).
+        (function () { const tg = [], tmin = []; for (let i = 0; i < 7; i++) { tg.push(_gsKalTagPlus(heute, i)); tmin.push(i >= 1 && i <= 3 ? 1.2 : 6); } localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600000, data: { daily: { time: tg, temperature_2m_min: tmin } } })); })();
+        gsKalenderOeffnenAm(mon + '-01');
+        const mcD = document.getElementById('modal-content');
+        const zD = Array.from(mcD.querySelectorAll('.gs-kal-zeile')).find(x => /Feldsalat/.test(x.textContent) && /draussen/.test(x.textContent));
+        const hD = zD && zD.querySelector('.gs-kal-hinweis');
+        if (!hD) klagen.push('mit drei Frosttagen keine Hinweiszeile an der Aussaat');
+        else {
+          const nF = (hD.textContent.match(/Frost am/g) || []).length;
+          if (nF !== 1) klagen.push('die Hinweiszeile zeigt ' + nF + ' Frost-Sätze statt einen: „' + hD.textContent + '"');
+          if (!/\+2 weitere/.test(hD.textContent)) klagen.push('kein „+2 weitere" an der gedeckelten Hinweiszeile: „' + hD.textContent + '"');
+          const gD = zD.querySelector('.gs-kal-grund');
+          if (!gD || (gD.textContent.match(/Frost am/g) || []).length !== 2) klagen.push('die zwei weiteren Frost-Sätze stehen nicht im Grund: „' + (gD ? gD.textContent : '(keiner)') + '"');
+        }
+        // 5 °C: nichts verletzt
+        cache(5);
+        ev = gsKalenderEreignisse(mon + '-01', _gsKalTagPlus(heute, 6));
+        const a2 = finde(ev, e => e.art === 'aussaat' && /Feldsalat/.test(e.titel) && e.fenster === 'outdoor');
+        if (a2 && (a2.hinweise || []).some(h => h.regel === 'frost_aussaat' && h.zustand === 'verletzt')) klagen.push('bei 5 °C ein verletzter Frost-Hinweis');
+        // ohne Cache: nicht pruefbar mit Grund — nie „kein Frost"
+        localStorage.removeItem('gs_weather_cache');
+        ev = gsKalenderEreignisse(mon + '-01', _gsKalTagPlus(heute, 6));
+        const a3 = finde(ev, e => e.art === 'aussaat' && /Feldsalat/.test(e.titel) && e.fenster === 'outdoor');
+        const np = a3 && (a3.hinweise || []).find(h => h.regel === 'frost_aussaat');
+        if (!np || np.zustand !== 'nicht_pruefbar' || !/Wettervorhersage/.test(np.grund || np.text || '')) klagen.push('ohne Cache kein „nicht bekannt" mit Grund an der Aussaat: ' + JSON.stringify(a3 ? a3.hinweise : null));
+        if (np && /kein Frost/i.test((np.text || '') + (np.grund || ''))) klagen.push('ohne Cache behauptet der Hinweis „kein Frost"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Frost 1.2 °C am 3. → Hinweis an Aussaat UND Frost (HTML) · drinnen ' + (drin ? '(' + drin.n + ') ohne' : 'nicht prüfbar (keine Kultur mit Vorkultur in diesem Monat)') + ' · 5 °C nichts · ohne Cache nicht prüfbar' };
+      } finally { myPlants.length = n0; if (altC == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', altC); }
+    },
+  },
+  {
+    name: 'Prüfwerk R2 · Regen übernimmt das Giessen: EINE Rechnung — gsGetDueTasks und Kalender nennen dieselben Aufgaben; 8 mm → verletzt mit Zahl im HTML (draussen), drinnen kein Feld; 3 mm → nichts; ohne Cache → „nicht prüfbar", Standort unbekannt → „Standort unbekannt"',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const altC = localStorage.getItem('gs_weather_cache');
+      const zucP = plantings.find(x => x && x.id === 'plant_seed_1');
+      const merk = zucP && zucP.tasks && zucP.tasks.water ? zucP.tasks.water.lastDone : undefined;
+      const cache = (mm6, mm9) => { const zeiten = [], regen = []; for (let h = 0; h < 24; h++) { zeiten.push(heute + 'T' + String(h).padStart(2, '0') + ':00'); regen.push(h === 6 ? mm6 : h === 9 ? mm9 : 0); } localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { hourly: { time: zeiten, precipitation: regen } } })); };
+      try {
+        const klagen = [];
+        if (zucP && zucP.tasks && zucP.tasks.water) zucP.tasks.water.lastDone = new Date(Date.now() - 3 * 864e5).toISOString();
+        cache(3, 5);
+        let ev = gsKalenderEreignisse(heute, heute);
+        const zuc = ev.find(e => e.art === 'aufgabe' && e.key === 'water' && e.pflanze && e.pflanze.id === 'plant_seed_1');
+        const bas = ev.find(e => e.art === 'aufgabe' && e.key === 'water' && e.pflanze && e.pflanze.id === 'p1');
+        if (!zuc || !bas) return { ok: false, warum: 'Grundlage fehlt: Zucchini (Balkon) und Basilikum (drinnen) müssen heute eine Giess-Aufgabe haben' };
+        const hz = (zuc.hinweise || []).find(h => h.regel === 'regen');
+        if (!hz || hz.zustand !== 'verletzt' || !/8 mm/.test(hz.text)) klagen.push('Zucchini draussen bei 8 mm: ' + JSON.stringify(zuc.hinweise || null));
+        if ((bas.hinweise || []).some(h => h.regel === 'regen')) klagen.push('Basilikum (drinnen) trägt ein Regen-Feld — drinnen ist „gilt nicht", kein Zustand');
+        // dieselbe Zahl wie gsGetDueTasks (v31.84-Draht): Eintraege mit .regen === Kalender-Aufgaben mit verletztem regen-Hinweis
+        const nDue = gsGetDueTasks().filter(x => x.regen && x.days <= 0).length;
+        const nKal = ev.filter(e => e.art === 'aufgabe' && (e.hinweise || []).some(h => h.regel === 'regen' && h.zustand === 'verletzt')).length;
+        if (nDue !== nKal) klagen.push('gsGetDueTasks nennt ' + nDue + ' Regen-Aufgaben, der Kalender ' + nKal + ' — zwei Rechnungen');
+        // HTML
+        gsKalenderOeffnenAm(heute);
+        const mc = document.getElementById('modal-content');
+        const z = Array.from(mc.querySelectorAll('.gs-kal-zeile')).find(x => /Zucchini/.test(x.textContent) && /giessen/i.test(x.textContent));
+        const hh = z && z.querySelector('.gs-kal-hinweis');
+        if (!hh || !/8 mm/.test(hh.textContent)) klagen.push('Hinweiszeile „Regen übernimmt … 8 mm" fehlt im Tagesblatt: „' + (hh ? hh.textContent : '(keine)') + '"');
+        if (z && !z.querySelector('.gs-kal-box')) klagen.push('das Kästchen ist weg — Regen erledigt nichts, es übernimmt');
+        // 3 mm: nichts verletzt
+        cache(1, 2);
+        ev = gsKalenderEreignisse(heute, heute);
+        const z2 = ev.find(e => e.art === 'aufgabe' && e.key === 'water' && e.pflanze && e.pflanze.id === 'plant_seed_1');
+        if (z2 && (z2.hinweise || []).some(h => h.regel === 'regen' && h.zustand === 'verletzt')) klagen.push('bei 3 mm „Regen übernimmt"');
+        // ohne Cache: nicht pruefbar
+        localStorage.removeItem('gs_weather_cache');
+        ev = gsKalenderEreignisse(heute, heute);
+        const z3 = ev.find(e => e.art === 'aufgabe' && e.key === 'water' && e.pflanze && e.pflanze.id === 'plant_seed_1');
+        const np = z3 && (z3.hinweise || []).find(h => h.regel === 'regen');
+        if (!np || np.zustand !== 'nicht_pruefbar') klagen.push('ohne Cache kein „nicht prüfbar" an der Giess-Aufgabe draussen: ' + JSON.stringify(z3 ? z3.hinweise : null));
+        // Standort unbekannt: Pflanzung in einem Garten, den es nicht gibt
+        cache(3, 5);
+        const fremd = { id: 'plR2', gardenId: 'g_nicht_da', name: 'Salat', date: heute, added: new Date(Date.now()).toISOString(), tasks: { water: { active: true, intervalDays: 2, lastDone: new Date(Date.now() - 3 * 864e5).toISOString() } } };
+        plantings.push(fremd);
+        try {
+          ev = gsKalenderEreignisse(heute, heute);
+          const zf = ev.find(e => e.art === 'aufgabe' && e.key === 'water' && e.pflanze && e.pflanze.id === 'plR2');
+          const nf = zf && (zf.hinweise || []).find(h => h.regel === 'regen');
+          if (!nf || nf.zustand !== 'nicht_pruefbar' || !/Standort/.test(nf.grund || nf.text || '')) klagen.push('unbekannter Standort: ' + JSON.stringify(zf ? zf.hinweise : null));
+        } finally { plantings.splice(plantings.indexOf(fremd), 1); }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '8 mm → „Regen übernimmt" an Zucchini (HTML, Kästchen bleibt), Basilikum ohne Feld, gsGetDueTasks = Kalender (' + nDue + ') · 3 mm nichts · ohne Cache nicht prüfbar · fremder Garten „Standort unbekannt"' };
+      } finally {
+        if (zucP && zucP.tasks && zucP.tasks.water) { if (merk === undefined) delete zucP.tasks.water.lastDone; else zucP.tasks.water.lastDone = merk; }
+        if (altC == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', altC);
+      }
+    },
+  },
+  {
+    name: 'Prüfwerk R3 · Ernte-Schätzung nur mit Kulturdaten: Zucchini bekommt sie mit den Zahlen im Grund, eine Monstera-Pflanzung KEINE (heute: „Ernte voraussichtlich" aus dem 60–90-Tage-Rückfall)',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const mon = { id: 'plR3', gardenId: 'g1', name: 'Monstera', date: _gsKalTagPlus(heute, -30), added: new Date(Date.now() - 30 * 864e5).toISOString() };
+      plantings.push(mon);
+      try {
+        const klagen = [];
+        const ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -120), _gsKalTagPlus(heute, 200));
+        const em = ev.filter(e => e.art === 'ernte' && e.pflanze && e.pflanze.id === 'plR3');
+        if (em.length) klagen.push('Monstera-Pflanzung bekommt ' + em.length + ' Ernte-Ereignis(se) („' + em[0].titel + '") — aus dem Rückfall 60–90 Tage, den es für Monstera nicht gibt');
+        const ez = ev.find(e => e.art === 'ernte' && e.pflanze && e.pflanze.id === 'plant_seed_1');
+        if (!ez) klagen.push('Zucchini-Pflanzung ohne Ernte-Ereignis');
+        // Die ZAHLEN muessen dastehen, das Wort „Kulturdaten" nicht — es steht
+        // auf einem Nutzer-Bildschirm und heisst dort nichts.
+        else if (!/50/.test(ez.grund) || !/65/.test(ez.grund)) klagen.push('Zucchini-Grund nennt die Kulturdauer nicht (50 bis 65 Tage): „' + ez.grund + '"');
+        else if (/Kulturdaten|Mitte \d/.test(ez.grund)) klagen.push('Entwicklerwort im Grund: „' + ez.grund + '"');
+        if (ez) {
+          gsKalenderOeffnenAm(ez.datum);
+          const mc = document.getElementById('modal-content');
+          const z = Array.from(mc.querySelectorAll('.gs-kal-zeile')).find(x => /Zucchini/.test(x.textContent) && /Ernte/.test(x.textContent));
+          const g = z && z.querySelector('.gs-kal-grund');
+          if (!g || !/50/.test(g.textContent) || !/65/.test(g.textContent)) klagen.push('der Grund im Tagesblatt nennt 50–65 nicht');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Monstera: 0 Ernte-Ereignisse · Zucchini: „' + ez.grund.slice(0, 70) + '…"' };
+      } finally { plantings.splice(plantings.indexOf(mon), 1); }
+    },
+  },
+  {
+    name: 'Prüfwerk R4 · erntereif geschätzt, nichts eingetragen: 12 Tage nach der Schätzung → verletzt mit Tagen; Log-Zeile → erfüllt mit Menge im Grund; Log ohne Pflanzenangabe → „nicht prüfbar", nie „nichts eingetragen"',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const zucP = plantings.find(x => x && x.id === 'plant_seed_1');
+      if (!zucP) return { ok: false, warum: 'Beispieldaten ohne Zucchini-Pflanzung' };
+      const altD = zucP.date, altLog = localStorage.getItem('gs_ernte_log');
+      const log = (arr) => { localStorage.setItem('gs_ernte_log', JSON.stringify(arr)); window._gsErnteLog = null; };
+      try {
+        const klagen = [];
+        zucP.date = _gsKalTagPlus(heute, -70);   // Schaetzung ~58 Tage → vor ~12 Tagen
+        log([]);
+        let ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -60), heute);
+        let ez = ev.find(e => e.art === 'ernte' && e.pflanze && e.pflanze.id === 'plant_seed_1' && e.quelle === 'regel');
+        if (!ez) return { ok: false, warum: 'keine Ernte-Schätzung in den letzten 60 Tagen (Grundlage) — date=' + zucP.date };
+        let h = (ez.hinweise || []).find(x => x.regel === 'ernte_offen');
+        if (!h || h.zustand !== 'verletzt' || !/seit \d+ Tag/.test(h.text)) klagen.push('ohne Log kein „verletzt … seit N Tagen": ' + JSON.stringify(ez.hinweise || null));
+        gsKalenderOeffnenAm(ez.datum);
+        const mc = document.getElementById('modal-content');
+        const z = Array.from(mc.querySelectorAll('.gs-kal-zeile')).find(x => /Zucchini/.test(x.textContent) && /Ernte/.test(x.textContent));
+        const hh = z && z.querySelector('.gs-kal-hinweis');
+        if (!hh || !/eingetragen/.test(hh.textContent)) klagen.push('Hinweiszeile „… keine Ernte eingetragen" fehlt im Tagesblatt: „' + (hh ? hh.textContent : '(keine)') + '"');
+        // erfuellt: eine Ernte eingetragen
+        log([{ id: 'eR4', pflanze: 'Zucchini', emoji: '🥒', menge: 300, unit: 'g', ts: new Date(Date.now() - 3 * 864e5).toISOString() }]);
+        ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -60), heute);
+        ez = ev.find(e => e.art === 'ernte' && e.pflanze && e.pflanze.id === 'plant_seed_1' && e.quelle === 'regel');
+        h = ez && (ez.hinweise || []).find(x => x.regel === 'ernte_offen');
+        if (!h || h.zustand !== 'erfuellt' || !/300 g/.test(h.grund || h.text || '')) klagen.push('mit Log-Zeile kein „erfüllt" mit 300 g: ' + JSON.stringify(ez ? ez.hinweise : null));
+        // nicht pruefbar: Log-Zeile ohne pflanze (die Seed-Falle K5)
+        log([{ id: 'eX', plant: 'Zucchini', amount: 300, unit: 'g', ts: new Date(Date.now() - 3 * 864e5).toISOString() }]);
+        ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -60), heute);
+        ez = ev.find(e => e.art === 'ernte' && e.pflanze && e.pflanze.id === 'plant_seed_1' && e.quelle === 'regel');
+        h = ez && (ez.hinweise || []).find(x => x.regel === 'ernte_offen');
+        if (!h || h.zustand !== 'nicht_pruefbar') klagen.push('Log ohne Pflanzenangabe gilt als „' + (h ? h.zustand : 'nichts') + '" statt nicht prüfbar');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'ohne Log verletzt (HTML) · 300 g → erfüllt · Log ohne pflanze → nicht prüfbar' };
+      } finally { zucP.date = altD; if (altLog == null) localStorage.removeItem('gs_ernte_log'); else localStorage.setItem('gs_ernte_log', altLog); window._gsErnteLog = null; }
+    },
+  },
+  {
+    name: 'Prüfwerk R5 · Überfällig-Stufe: 11 Tage → „lange" als KLASSE, die Zahl nur in der Unterzeile (kein zweiter Satz); heute → keine Stufe; nie abgehakt → „noch nie abgehakt", nicht „seit 0 Tagen"',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const p1 = myPlants.find(p => p && p.id === 'p1'), p2 = myPlants.find(p => p && p.id === 'p2'), p3 = myPlants.find(p => p && p.id === 'p3');
+      if (!p1 || !p2 || !p3 || !p1.tasks.water || !p2.tasks.water || !p3.tasks.water) return { ok: false, warum: 'Beispieldaten ohne p1/p2/p3 mit Giess-Aufgabe' };
+      const alt1 = p1.tasks.water.lastDone, alt2 = p2.tasks.water.lastDone, alt3 = p3.tasks.water.lastDone;
+      try {
+        const klagen = [];
+        // Wer einen Zustand braucht, stellt ihn HER (v32.40): ein frueherer Fall
+        // hatte Tomates lastDone auf −30 Tage gesetzt — der erste Lauf meldete
+        // „Tomate (heute faellig) bekommt eine Stufe" mit faellig_seit −28. Die
+        // Regel war richtig, die Annahme ueber die Reihenfolge der Faelle nicht.
+        p1.tasks.water.lastDone = new Date(Date.now() - 14 * 864e5).toISOString();   // Intervall 3 → seit 11 Tagen
+        delete p2.tasks.water.lastDone;                                               // nie erledigt
+        p3.tasks.water.lastDone = new Date(Date.now() - 2 * 864e5).toISOString();    // Intervall 2 → heute
+        const ev = gsKalenderEreignisse(heute, heute);
+        const e1 = ev.find(e => e.art === 'aufgabe' && e.key === 'water' && e.pflanze && e.pflanze.id === 'p1');
+        const e2 = ev.find(e => e.art === 'aufgabe' && e.key === 'water' && e.pflanze && e.pflanze.id === 'p2');
+        const e3 = ev.find(e => e.art === 'aufgabe' && e.key === 'water' && e.pflanze && e.pflanze.id === 'p3');   // Tomate heute
+        if (!e1 || !e2) return { ok: false, warum: 'p1/p2 haben heute keine Giess-Aufgabe (Grundlage)' };
+        const h1 = (e1.hinweise || []).find(h => h.regel === 'ueberfaellig');
+        if (!h1 || h1.zustand !== 'verletzt' || !/Woche/.test(h1.grund || '')) klagen.push('11 Tage: ' + JSON.stringify(e1.hinweise || null));
+        if (h1 && h1.text) klagen.push('die Stufe schreibt einen eigenen Satz („' + h1.text + '") — die Unterzeile sagt es bereits');
+        const h2 = (e2.hinweise || []).find(h => h.regel === 'ueberfaellig');
+        if (!h2 || h2.zustand !== 'nicht_pruefbar' || !/nie abgehakt/.test(h2.text + (h2.grund || ''))) klagen.push('nie abgehakt: ' + JSON.stringify(e2.hinweise || null));
+        if (h2 && /seit 0/.test(h2.text + (h2.grund || ''))) klagen.push('„seit 0 Tagen" für eine nie abgehakte Aufgabe');
+        if (e3 && (e3.hinweise || []).some(h => h.regel === 'ueberfaellig' && h.zustand === 'verletzt')) klagen.push('Tomate (heute fällig) bekommt eine Stufe: faellig_seit=' + e3.faellig_seit + ' lastDone=' + JSON.stringify((myPlants.find(p => p.id === 'p3') || {}).tasks.water) + ' hinweise=' + JSON.stringify(e3.hinweise));
+        gsKalenderOeffnenAm(heute);
+        const mc = document.getElementById('modal-content');
+        const z = Array.from(mc.querySelectorAll('.gs-kal-zeile')).find(x => /Basilikum/.test(x.textContent) && /giessen/i.test(x.textContent));
+        if (!z || !z.classList.contains('gs-kal-lange')) klagen.push('die Basilikum-Zeile trägt die Klasse gs-kal-lange nicht');
+        // Die Zahl steht in der Unterzeile — und NUR dort. Zweimal
+        // „Seit 11 Tagen fällig" untereinander ist die Klasse aus v32.87.
+        const unter = z && z.querySelector('.gs-kal-txt i');
+        if (!unter || !/11 Tag/.test(unter.textContent)) klagen.push('die Unterzeile nennt die 11 Tage nicht: „' + (unter ? unter.textContent : '(keine)') + '"');
+        const hh = z && z.querySelector('.gs-kal-hinweis');
+        if (hh && /11 Tag/.test(hh.textContent)) klagen.push('„11 Tage" steht zweimal in derselben Zeile: Unterzeile UND Hinweiszeile („' + hh.textContent + '")');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '11 Tage → Klasse gs-kal-lange + Unterzeile, kein zweiter Satz · nie abgehakt → nicht prüfbar · heute → keine Stufe' };
+      } finally { p1.tasks.water.lastDone = alt1; if (alt2 === undefined) delete p2.tasks.water.lastDone; else p2.tasks.water.lastDone = alt2; p3.tasks.water.lastDone = alt3; }
+    },
+  },
+  {
+    name: 'Prüfwerk R8 · ein leerer Tag MIT Daten sagt „Nichts an diesem Tag" — und nicht „Noch keine Daten"',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      let leer = null;
+      for (let i = 1; i <= 40 && !leer; i++) { const t = _gsKalTagPlus(heute, i); if (!gsKalenderEreignisse(t, t).length) leer = t; }
+      if (!leer) return { ok: false, warum: 'in 40 Tagen kein leerer Tag — die Beispieldaten haben sich geändert' };
+      gsKalenderOeffnenAm(leer);
+      const t = (document.getElementById('modal-content') || {}).textContent || '';
+      if (!/Nichts an diesem Tag/.test(t)) return { ok: false, warum: 'leerer Tag mit Daten sagt nicht „Nichts an diesem Tag": ' + (t.match(/Noch keine Daten|ausgeblendet/) || ['(kein Leersatz)'])[0] };
+      if (/Noch keine Daten/.test(t)) return { ok: false, warum: 'leerer Tag mit Daten sagt „Noch keine Daten"' };
+      return { ok: true, info: leer + ' · „Nichts an diesem Tag" (Daten da, Tag leer)' };
     },
   },
 ];

@@ -525,6 +525,16 @@ erfundener Vorwurf.
 Grundregel für alles in diesem Bereich: **eine Anzeige, die etwas behauptet,
 muss sagen können, woher sie es weiss.**
 
+## 4c · Kalender — der Entwurf steht in `docs/KALENDER-V1.md` und `docs/KALENDER-V2.md`
+
+Wer Aufgaben, Termine, Saison, Naturjahr, Timeline oder Wetter anfasst, liest
+zuerst V1 (die eine Regel: EINE Frage, EINE Funktion `gsKalenderEreignisse`)
+und V2 (seit v33.34: das Pruefwerk `_gsKalPruefwerk` mit `hinweise[]`, das
+Sieb, die drei Namen aus Fernandos Auftrag, Lina, sieben Scheiben). Die eine
+neue Regel: **Rechnung → Pruefwerk
+→ Sieb → Anzeige** — ein Filter ist ein Sieb auf dem Ergebnis, nie eine
+Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
+
 ## 4b · KI-Planer — der Entwurf steht in `docs/PLANER-V3.md`
 
 Wer am Planer arbeitet, liest **zuerst** `docs/PLANER-V3.md`. Dort steht, was V3
@@ -710,7 +720,7 @@ node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt s
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
-node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch: zeigt die Garten-Timeline die Scans (kein toter Schluessel) und die Ernte mit den Feldern der App
+node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch: zeigt die Garten-Timeline die Scans (kein toter Schluessel) und die Ernte mit den Feldern der App; seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
@@ -1310,6 +1320,55 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > v33.31 nannte drei Dinge als geliefert, die in keinem Commit stehen
 > (`git log -S`: 0). Gefunden hat es ein Messender, nicht ich. Was als
 > „fertig" weitergeschrieben wird, wird vorher gegen `git show` gelesen.
+
+> **Ein Kalender, der „denkt", rechnet — mit drei Zustaenden und einem
+> Grund** (v33.34, KALENDER-V2). `_gsKalPruefwerk` haelt die Ereignisse der
+> einen Funktion gegeneinander (Frost × Aussaat draussen, Regen × Giessen,
+> Schaetzung × Ernte-Log, Ueberfaellig-Stufe) und schreibt `hinweise[]` an
+> die beteiligten. Wer eine Regel baut: drei Zustaende, `nicht_pruefbar` mit
+> Grund (nie Stille), kein Schreiben, ein Fall mit gut · schlecht · nicht
+> pruefbar aus dem HTML — und die Gegenprobe „Regel ausgebaut → rot".
+> Reihenfolge fest: Rechnung → Pruefwerk → Sieb → Anzeige.
+
+> **Ein Rueckfallwert mit plausiblem Grund ist eine Erfindung** (v33.34).
+> `getPlantInfo` gab fuer JEDEN unbekannten Namen {60, 90} Tage zurueck —
+> eine Monstera-Pflanzung bekam „Ernte voraussichtlich 16.10." mit dem Grund
+> „typische Kulturdauer". Jede Rechnung, die auf einen Rueckfall trifft, gibt
+> `null` zurueck und laesst das Ereignis weg; der Grund nennt Zahlen aus einer
+> Quelle (`_gsKulturZuPflanze`, exakt), nie aus einem Rueckfall. Dieselbe
+> Klasse wie das erfundene Plan-Jahr (v33.10).
+
+> **Zwei Aufrufer, eine Rechnung — und ein Fall, der beide Zahlen
+> vergleicht** (v33.34). `gsGetDueTasks` trug den Regen-Draht (`eintrag.regen`),
+> das Pruefwerk brauchte denselben; zwei Kopien waeren die Frost-Klasse aus
+> S5 (vier Rechnungen fuer dieselbe Frage). `_gsRegenUebernimmt(p)` ist die
+> eine, und `kalender_check` R2 zaehlt Startseite und Kalender gegeneinander.
+
+> **Ein Schluessel, dessen Inhalt eine FORM hat, hat GENAU EINEN Schreiber**
+> (v33.34). `gs_weather_cache` hatte zwei: der Wetter-Lader schreibt
+> `{ts, data, lat, lon}` (Frost, Regen und das Pruefwerk lesen genau dieses
+> `data`), der Planer eine Karte `{"lat,lon": {ts, data}}` — gelesen EINMAL
+> beim Start, spaeter ganz zurueckgeschrieben. Wer den Planer benutzte, warf
+> damit den frischen Wetterstand weg, und die Frost- und Regenzeilen im
+> Kalender verschwanden, ohne dass etwas meldet. Wer eine zweite Form
+> braucht, braucht einen zweiten Schluessel — und der gehoert in eine der
+> vier Speicherlisten. Pruefstand: `robust_check` „Wetter-Zwischenspeicher ·
+> ein Schluessel, ein Schreiber".
+
+> **Ein Hinweis steht EINMAL, und die Anzeige ist gedeckelt** (v33.34). R5
+> schrieb „seit 11 Tagen faellig" neben eine Unterzeile, die genau das schon
+> sagte (`_gsDayPlanWhen`) — die Klasse aus v32.87, nur in einer Zeile. Und
+> R1 schreibt je Frosttag einen Satz: sichtbar ist EINER, der Rest steht als
+> „+N weitere" im Grund. Auf dem Nutzer-Bildschirm heisst der dritte Zustand
+> „Nicht bekannt", nicht „Nicht pruefbar" — „pruefbar" ist das Wort der
+> Pruefstaende, und die Gruende sagen „Wetterdienst", nicht „Open-Meteo".
+
+> **Beispieldaten fuer das Wetter liegen RELATIV zur gestellten Uhr — und nur
+> `daily`** (v33.34). Ein `hourly`-Block im Seed liesse
+> `gsWetterGeraetAbgleich` ein Pseudo-Geraet „Wetterdienst" anlegen: jeder
+> Pruefstand zaehlte zwei Geraete statt eines. Regen und Frost stellen die
+> Faelle selbst; wer eine sechste Kalender-Quelle anlegt, zieht den Fall „Ohne
+> Daten" nach (er raeumt jetzt auch den Wetter-Zwischenspeicher).
 
 > **`gsLinaRender` baut das Panel NEU auf.** Jede gemerkte Referenz auf
 > `#gs-lina-input` ist danach abgehaengt, und ein frisch gerendertes Feld ist
