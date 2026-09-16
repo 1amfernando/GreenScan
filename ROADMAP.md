@@ -186,6 +186,32 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
+### Seit dem 16.09.2026 (v33.34 – v33.41) — der denkende Kalender, sieben Scheiben
+
+Fernandos Auftrag vom 14.09. Entwurf: `docs/KALENDER-V2.md`. Jede Scheibe ein
+eigener PR: Fälle zuerst (rot gegen den Vorgänger), Gegenprobe je Regel, volle
+Reihe grün, dann Bump.
+
+| Scheibe | Version | Was gemessen wurde, bevor gebaut wurde |
+|---|---|---|
+| 1 · Das Prüfwerk | v33.34 `60630f8` | `getPlantInfo` erfand für JEDEN unbekannten Namen {60, 90} Tage — eine Monstera bekam „Ernte voraussichtlich 16.10." mit dem Grund „typische Kulturdauer". Und `gs_weather_cache` hatte ZWEI Schreiber in zwei Formen: wer den Planer benutzte, warf den frischen Wetterstand weg. |
+| 2 · Das Sieb | v33.35 `4d875ff` | Der Kalender zeigte alles oder nichts. Der Filter ist ein Sieb auf dem ERGEBNIS — die Rechnung bleibt vollständig, sonst stimmt „N von M" nicht und Lina wird blind. |
+| 3 · Ein Wetter | v33.36 `0a29639` | Die vier Schwellen standen an ZWEI Stellen, und das Warnfenster sagte ohne Daten „alles im grünen Bereich!" — Stille als Entwarnung, bei Frost der teuerste Fehler dieser App. |
+| 4a · Die drei Namen | v33.37 `8e4e9ec` | Die Karten-Fundorte werden mit `date` geschrieben und mit `ts/time/found_at` gelesen. Scans, Fundorte und die wirkliche Ernte fehlten im Kalender ganz. |
+| 4b · … zweiter Teil | v33.38 `1e0f816` | „Mein Naturjahr" rechnete selbst: die Kachel „Funde" stand SEIT JEHER auf 0, „Arten" war die einzige Kachel ohne Jahresfilter. Die Garten-Timeline beantwortete dieselbe Frage mit sechs eigenen Quellen — sie ist ersatzlos weg (Parser, nicht Zeilensuche). |
+| 5 · Lina | v33.39 `be856fc` | Ihr Kontext brach bei sechs Geräten mitten in „Taraxacum officinale…" ab; vier von sechs Geräten fielen stillschweigend weg; eine Regel ohne Messwerte hiess „keine verletzte Regel". Und die Sicherheit eines Scans hatte DREI Antworten: „0.94%", „1 % sicher", 94. |
+| 6 · Die Woche | v33.40 `03ae42c` | Mit „Stillen Tagen" fielen SIEBEN Fälligkeiten in die Abwesenheit, ohne dass etwas es sagte. Und der Wochenrückblick schrieb der Person einen selbst notierten Tagebuch-Eintrag als ERLEDIGTE Aufgabe gut. |
+| 7 · Das Backend | v33.41 | Der Erinnerungs-Cron kannte nur eine Pflanzenliste (15 Beet-Pflanzungen mit Aufgaben, 0 Erinnerungen). Die saisonale Erinnerung filterte eine Spalte, die es nicht gibt, und der Fehler wurde verschluckt — sie hat seit dem Bau nie eine verschickt. Und zwei Migrationen, die als „bereit" in der Liste standen, wären beim Anwenden gescheitert. |
+
+**Die eine neue Regel, die über den Kalender hinausgeht:**
+**Rechnung → Prüfwerk → Sieb → Anzeige.** Ein Filter ist ein Sieb auf dem
+Ergebnis, nie eine Bedingung in der Rechnung. Jede Regel hat drei Zustände,
+und der dritte heisst „nicht bekannt" **mit Grund** — nie Stille.
+
+**Was bei Fernando liegt:** drei Migrationen (die letzte allein genügt), siehe
+`docs/FUER-FERNANDO.md` §21.
+
+
 ### Seit dem 10.09.2026 (v33.06 – v33.24) — der Aufbau: bauen, was die Entwürfe längst vorsahen
 
 Fernandos Auftrag: *„baue alles mehr auf, mach alles intelligenter, erweitere
