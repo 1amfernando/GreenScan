@@ -30,6 +30,19 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.24', date: '11.09.2026',
+      headline: 'Nutzungsmessung: Ereignisse werden nach 180 Tagen gelöscht',
+      summary: 'Eine Zählung, die nie endet, ist ein Archiv. Eine Migration (nicht angewandt) legt fn_analytics_prune an und plant den täglichen Cron; die Admin-Karte nennt die Frist. revDSG: Daten bleiben nur, solange der Zweck sie braucht.',
+      user_summary: 'Deine Nutzungsereignisse — falls du zugestimmt hast — werden nach 180 Tagen automatisch gelöscht. Die Frist steht in der Admin-Karte und gilt für alle gleich.',
+      user_items: [
+        {emoji:'🗓️', text:'180 Tage — danach ist ein Ereignis weg, nicht nur anonym.'}
+      ],
+      items: [
+        {emoji:'🗄', bold:'20260910_analytics_retention.sql (nicht angewandt):', text:' fn_analytics_prune(p_days, Vorgabe 180, geklemmt 30..730), nur service_role, Cron analytics-prune täglich 03:40 UTC — nur wenn pg_cron da ist.'},
+        {emoji:'🧪', bold:'nutzung_check „Aufbewahrung":', text:' 13 Zeilen → prune(180) löscht 2 → 11; prune(1) klemmt auf 30 → 10; anon und authenticated dürfen nicht; die App (GS_ANALYTICS_TAGE) nennt dieselbe Frist wie die Migration — eine Zahl, zwei Leser.'}
+      ],
+    },
+  {
     v: 'v33.23', date: '11.09.2026',
       headline: 'Lina kennt den letzten Scan',
       summary: 'Wer Lina direkt nach einem Scan fragt „was war das gerade?", bekam bisher eine Gegenfrage. Jetzt steht der jüngste Eintrag des Scan-Verlaufs in ihrem Kontext — Name, lateinischer Name, Sicherheit, Alter. Nie das Foto; ohne Verlauf keine Zeile.',
