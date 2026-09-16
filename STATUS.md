@@ -12,6 +12,38 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-16 (ie) - docs/memory: das Gedächtnis in Kurzform, fuer JEDE KI
+
+**Fernandos Auftrag (14.09.):** „Erstelle neue effiziente Memory-Dateien, die
+man auch anderen KIs geben kann." Neun Dateien in `docs/memory/`, rund
+20 Minuten Lesezeit, 850 Zeilen — nichts darin setzt Claude Code voraus:
+README (Wegweiser) · 01 Projekt · 02 die zwoelf Regeln · 03 Daten und Eigner ·
+04 die 35 Pruefstaende · 05 die Fallen · 06 Kalender · 07 Lina ·
+08 Arbeitsweise. `CLAUDE.md` bleibt das ausfuehrliche Tagebuch dahinter und
+verweist oben darauf; jede Regel dort nennt ihre Stelle hier.
+
+**Und ein Pruefstand dahinter** (`robust_check` „Memory", 27 Faelle): er
+liest jede Datei, zieht jeden in Backticks genannten Namen mit App-Praefix
+(`gs*`, `_gs*`, `dq*`, `sb*`, `GS_*`) und verlangt eine Definition im
+Quelltext. **Eine Gedaechtnisdatei, die einen Namen nennt, den es nicht
+gibt, ist schlimmer als keine — sie klingt sicher.** Gemessen: 129 Namen,
+0 ohne Definition. Zwei Namen mussten dafuer entschaerft werden
+(`GS_WETTER_GRENZEN` und `_gsKalFiltern` sind fuer die Scheiben 2/3 geplant
+und existieren noch nicht — sie stehen jetzt ohne Backticks mit dem Vermerk
+„geplant"). Zwei Gegenproben: eine Datei entfernt → rot; einen erfundenen
+Namen eingetragen → rot. Und der Fall prueft, dass er ueberhaupt etwas
+SIEHT (mindestens 60 Namen) — ein Gedaechtnis ohne Namen waere sonst
+ebenfalls gruen.
+
+**Zwei Ueberblicke nachgemessen, weil sie leise veraltet waren:** `README.md`
+stand auf „4'342 Arten", „~82k Zeilen", „117 Tabellen", „~30
+Edge-Functions", „195 Migrationen" — jede Zeile fuer sich plausibel, keine
+davon aktuell; es ist die erste Datei, die ein Mensch oder eine fremde KI
+auf GitHub sieht. Jetzt gemessen (3'136 Arten in 4'337 Eintraegen, 93'784
+Zeilen, 213 Objekte, 40 Edge-Verzeichnisse, 219 Migrationen) und mit dem
+Zeiger auf `docs/memory/` zuoberst. `STATUS.md` §1 stand auf `v33.29` —
+fuenf Versionen zurueck; ebenfalls nachgezogen. Kein Bump: kein Byte der App.
+
 ### 2026-09-15 (id) - v33.34: Der Kalender denkt — das Prüfwerk (KALENDER-V2, Scheibe 1)
 
 **Fernandos Auftrag (14.09.):** der intelligenteste Kalender, verknuepft mit
@@ -13389,7 +13421,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 14.09.2026** (davor am 09.09.). Er stand am 02.09. auf
+> **Nachgemessen am 16.09.2026** (davor am 14.09.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -13398,10 +13430,10 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.29` (Client) · SW-Cache `gs-v33.29` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.34` (Client) · SW-Cache `gs-v33.34` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'266 Zeilen / 5,7 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **563 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **12**, Deckel 20 durch `robust_check` Fall 24).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **218 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
+- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **19**, Deckel 20 durch `robust_check` Fall 24).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 

@@ -4,6 +4,13 @@
 > Cursor, externe Agenten) in diesem Repo. **Lies es zuerst, bevor du Code
 > editierst.** Es gehört zusammen mit `STATUS.md` (operativer Snapshot) und
 > `ROADMAP.md` (Meilensteine).
+>
+> **Zu lang? Dann `docs/memory/`** — neun Dateien, rund 20 Minuten, dieselben
+> Regeln in Kurzform, fuer JEDE KI (nichts darin setzt Claude Code voraus).
+> Dieses Dokument ist das ausfuehrliche Tagebuch dahinter: jede Regel dort
+> nennt ihre Stelle hier. Wer eine Regel aendert, aendert sie an BEIDEN
+> Stellen — `robust_check` „Memory" prueft, dass jeder dort genannte
+> Funktionsname im Quelltext existiert.
 
 ## 1 · Was ist GreenScan?
 
@@ -530,8 +537,8 @@ muss sagen können, woher sie es weiss.**
 Wer Aufgaben, Termine, Saison, Naturjahr, Timeline oder Wetter anfasst, liest
 zuerst V1 (die eine Regel: EINE Frage, EINE Funktion `gsKalenderEreignisse`)
 und V2 (seit v33.34: das Pruefwerk `_gsKalPruefwerk` mit `hinweise[]`, das
-Sieb, die drei Namen aus Fernandos Auftrag, Lina, sieben Scheiben). Die eine
-neue Regel: **Rechnung → Pruefwerk
+Sieb, die drei Namen aus Fernandos Auftrag, Lina, sieben Scheiben). Kurzform
+in `docs/memory/06-kalender.md`. Die eine neue Regel: **Rechnung → Pruefwerk
 → Sieb → Anzeige** — ein Filter ist ein Sieb auf dem Ergebnis, nie eine
 Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
 
