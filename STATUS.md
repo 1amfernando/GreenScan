@@ -12,6 +12,52 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-16 (ig) - v33.36: Ein Wetter für die ganze App
+
+**KALENDER-V2 Scheibe 3 (R6, R7).** Die vier Schwellen standen an ZWEI
+Stellen: `GS_FROST_GRENZE_C` (2) fuer den Kalender und vier Literale
+(2 / 30 / 20 / 40) in `gsOpenWeatherWarn`, das dazu einen EIGENEN
+Open-Meteo-Aufruf machte und den Legacy-Schluessel `userLocation` las. Jetzt
+EINE Tabelle (`GS_WETTER_GRENZEN`), EIN Zwischenspeicher, EINE Rechnung
+(`_gsWetterTage()`).
+
+**Der teuerste Teil war nicht die Doppelung.** Hatte die Antwort des
+Warnfensters keine Tageswerte — falsche Struktur, leere Antwort, ein
+umbenanntes Feld —, dann war `warnings` leer und dort stand: „Keine Warnungen
+für die nächsten 7 Tage — alles im grünen Bereich!“. **Stille als Entwarnung,
+bei Frost der teuerste Fehler dieser App.** `_gsWetterTage()` gibt deshalb
+`null` fuer „keine Vorhersage geladen“ und `[]` fuer „geladen, nichts
+ueberschritten“; das Fenster hat drei Zustaende statt zwei.
+
+**Vier Schwellen als Ereignis (R7).** Je Tag und Schwelle ein `wetter`-Info
+mit Feld `wert` und einem Grund, der Quelle, Messgroesse und Alter nennt —
+dazu ein Rat in einem ganzen Satz („Empfindliche Pflanzen abdecken oder
+hereinholen“). Ein Feld, das der Lader gar nicht geholt hat, erzeugt KEINE
+Aussage statt einer Null.
+
+**R6: Frost trifft frostempfindliche Pflanzen draussen.** `frost === -1` in
+den Kulturdaten (nachgezaehlt: 11 von 41 Kulturen; 30 tolerant, 0 ohne
+Angabe) UND `gsPflanzeDraussen === true`. Ohne Kulturangabe wird ueber die
+Pflanze nichts behauptet (eine Monstera steht in keiner Gemuese-Tabelle);
+Standort unbekannt heisst „nicht bekannt“, nicht „nicht betroffen“.
+
+**Pruefstaende:** `kalender_check` 40 (4 neu, alle vier rot gegen v33.35).
+Drei Gegenproben: `[]` statt `null` → W4 rot; nur Frost statt vier Schwellen
+→ W2 rot; Standort egal → W3 rot. Changelog-Umzug: v33.16 ins Archiv.
+
+> **Und zwei Faelle sind an einem deutschen Kompositum rot geworden — zu
+> Recht.** Mein erster Grund hiess „Wettervorhersage für deinen Standort“; der
+> alte Frost-Fall und der neue W2 pruefen auf „Vorhersage“ mit grossem V, und
+> das steckt dort mit KLEINEM v im Wort. Dieselbe Klasse wie `\bcat\b` in
+> „catégorie“ (v32.99). Der Satz heisst jetzt „Vorhersage vom Wetterdienst“ —
+> und liest sich nebenbei besser.
+
+> **Der Memory-Pruefstand hat seinen ersten echten Fund.** `robust_check`
+> „Memory" meldete `GS_FROST_GRENZE_C`: die Konstante war aufgeloest, das
+> Gedaechtnis nannte sie weiter. Genau dafuer gibt es den Fall — eine
+> Gedaechtnisdatei, die einen Namen nennt, den es nicht mehr gibt, ist
+> schlimmer als keine.
+
 ### 2026-09-16 (if) - v33.35: Das Sieb — der Kalender zeigt, was du sehen willst
 
 **Fernandos Auftrag (14.09.):** „intelligentes Filtersystem", „nicht
@@ -13490,9 +13536,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.35` (Client) · SW-Cache `gs-v33.35` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.36` (Client) · SW-Cache `gs-v33.36` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel, der nächste Bump verschiebt den ältesten ins Archiv).
+- **Frontend:** `index.html` **93'784 Zeilen / 5,99 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **559 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; v33.36 hat v33.16 ins Archiv verschoben, der nächste Bump verschiebt v33.17).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **219 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **35** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

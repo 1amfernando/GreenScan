@@ -30,6 +30,22 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.16', date: '10.09.2026',
+      headline: 'Scanner: jedes Foto gemessen, der dritte Blick — SCANNER-V3 Stufe 2b',
+      summary: 'Bei mehreren Fotos zählt das schärfste, und die Prüfung sagt, wie viele nichts beitragen. „Zweites Foto" nimmt alle Fotos des letzten Scans mit und wird zum dritten; drei sind das Maximum.',
+      user_summary: 'Der Scanner misst jetzt jedes Foto — und sagt dir, wenn eines zu unscharf ist, um zu helfen. Nach dem zweiten Foto kannst du ein drittes dazunehmen.',
+      user_items: [
+        {emoji:'📷', text:'„Das schärfste von 2 Fotos" steht in der Prüfung — und „eines davon ist zu unscharf", wenn es so ist.'},
+        {emoji:'3️⃣', text:'„Drittes Foto" nach dem zweiten; bei drei Fotos sagt die Prüfung, dass das Maximum erreicht ist.'},
+        {emoji:'🛑', text:'Die Rückfrage „Das Foto ist schwer zu lesen" kommt nur noch, wenn KEIN Foto lesbar ist — ein scharfes trägt ein unscharfes mit.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsQualitaetMehrere:', text:' Messung über alle Fotos, das schärfste zählt, `fotos/gemessen/schwach/alle` daneben. Ungemessen ist kein Lob mehr: „N Fotos kombiniert" ohne Messung gilt als nicht prüfbar, nicht als erfüllt.'},
+        {emoji:'🔁', bold:'Re-Scan nimmt alle Fotos mit', text:' (`_gsLastScanBilder`, neuestes zuerst, Deckel `GS_SCAN_FOTOS_MAX` = 3 — eine Zahl, drei Leser). „Trotzdem bestimmen" behält die zusätzlichen Fotos.'},
+        {emoji:'🧪', bold:'scan_check:', text:' S5b (Prüfwerk), „Ablauf · jedes Foto gemessen" (scharf trägt unscharf, keines lesbar → Rückfrage, Trotzdem mit beiden), „Dritter Blick" (1/2/3/3 Fotos, Knopf Zweites → Drittes → Maximum-Satz). Vier Gegenproben rot.'}
+      ],
+    },
+  {
     v: 'v33.15', date: '10.09.2026',
       headline: 'Der Plan altert und meldet sich — PLANER-V3 N4, erster Teil',
       summary: 'Ein Plan, dessen Jahr vorbei ist, sagt es jetzt auf seiner Kachel — und zeigt auf den Weg zur Jahresvorlage. Kein Automatismus: die Person entscheidet.',

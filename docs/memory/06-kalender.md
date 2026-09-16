@@ -41,8 +41,10 @@ Aufgaben beider Listen (`myPlants` + `plantings`, Vorgaben je Gartenart aus
 Gartentagebuch, `p.diary`, Cloud-Spiegel `gs_garden_diary_cache`; ein
 Eintrag in der Zukunft ist `erinnerung`) · gepflanzt/aufgenommen · Ernte-
 Schätzung (`calcHarvestDate` — V2 R3: nur mit Kulturdaten, nie aus dem
-Rückfall) · Regen heute (gemessen) · Frost aus der Vorhersage
-(`gs_weather_cache`, `GS_FROST_GRENZE_C` = 2, nur heute und später) ·
+Rückfall) · Regen heute (gemessen) · vier Wetter-Schwellen aus der Vorhersage
+(`gs_weather_cache` über `_gsWetterTage()`, `GS_WETTER_GRENZEN` = Frost 2 °C,
+Hitze 30 °C, Starkregen 20 mm, Sturm 40 km/h — nur heute und später; `null`
+heisst „keine Vorhersage geladen“ und ist NICHT die leere Liste) ·
 Messwerte je Gerät und Tag, Alarme aus `gsRegelnPruefen` · Plan-Termine
 (`gsPlanEreignisse`) · Aussaatfenster (`gsAussaatEreignisse` aus `GS_SAE_DB`,
 39 Kulturen — **nur für Kulturen, die die Person hat**; V2: plus Merkliste).
