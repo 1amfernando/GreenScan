@@ -186,6 +186,23 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
+### Seit dem 17.09.2026 (v33.48) — die Artenliste hat einen zweiten Versuch
+
+Das Script-Tag der 2,1-MB-Artenliste hatte kein `onerror`. Jetzt gibt es einen
+zweiten Ladeversuch mit Cache-Umgehung, und wenn auch der danebengeht, steht es
+auf der Startseite statt nur in der Scan-Karte (v33.47).
+
+**Zwei Dinge daraus, die über die Artenliste hinausgehen:**
+
+- **Ein zweiter Weg, der nicht tut, was der erste tut, ist ein zweiter
+  Zustand.** Gemessen: nachgeladen 4'342 Arten, normal 4'337 — `deduplicateDB`
+  war eine anonyme IIFE und lief nur beim Parsen. Jetzt benannt, beide Wege
+  rufen sie.
+- **Eine Liste mit einem Eintrag ist keine Liste, sondern Zeremonie.** Die
+  geplante `GS_SELBSTTEST`-Registry entfällt: von drei Kandidaten war einer
+  längst abgefangen, einer nicht messbar, einer echt — und der ist direkt
+  geschlossen.
+
 ### Seit dem 17.09.2026 (v33.47) — „Nicht geprüft" ist keine Entwarnung
 
 Gesucht war eine Selbstprüfung beim Start; die Messung fand etwas Dringenderes.
