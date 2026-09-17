@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.47.20260917">
+<meta name="app-version" content="33.48.20260917">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2346,7 +2346,59 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
        in Z.~13325 wurde entfernt, var DB = window.DB referenziert das Result.
        v26.11 Note: kein defer — Inline-Scripts Z.14082 erwarten window.DB
        synchron. Bei spaeter Migration auf async-DB-Load: gsLoadDB() Helper bauen. -->
-  <script src="data/plants.v1.js?v=1"></script>
+  <script>
+// ══════════════════════════════════════════════════════════════════════════
+// v33.48 — DIE ARTENLISTE HAT EINEN ZWEITEN VERSUCH
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Gemessen an v33.47: das Script-Tag darunter hatte KEIN `onerror` und keinen
+// Rueckfall. Faellt die 2,1-MB-Datei aus — ein Abbruch beim ersten Besuch,
+// eine geraeumte Cache-Zeile —, ist `window.DB` leer, und die App sagt beim
+// START nichts. Man merkt es erst, wenn man etwas oeffnet, das die Liste
+// braucht (seit v33.47 sagt es wenigstens die Scan-Karte).
+//
+// Zwei Dinge, und sie gehoeren zusammen:
+//   1. EIN zweiter Versuch, mit Cache-Umgehung — die wahrscheinlichste
+//      Ursache ist ein Abbruch, und der ist beim zweiten Mal weg.
+//   2. Geht auch der daneben, ist das ein ZUSTAND mit Grund, den die App
+//      aussprechen kann (`gsArtenStand()`), statt einer leeren Liste, die
+//      wie „keine Treffer" aussieht.
+//
+// Warum kein `defer`/`async`: die Inline-Scripts weiter unten erwarten
+// `window.DB` synchron (v26.11). Der zweite Versuch laeuft deshalb
+// zwangslaeufig NACH dem Start — wer ihn braucht, rendert danach neu.
+// ══════════════════════════════════════════════════════════════════════════
+window._gsArten = { stand: 'laedt', versuche: 1, grund: '' };
+window._gsArtenFehlstart = function () {
+  try {
+    if (window._gsArten.versuche >= 2) {   // der zweite Versuch ist auch daneben
+      window._gsArten.stand = 'fehlt';
+      window._gsArten.grund = 'Die Artenliste liess sich zweimal nicht laden.';
+      try { if (typeof gsArtenNachgeladen === 'function') gsArtenNachgeladen(); } catch (_) {}
+      return;
+    }
+    window._gsArten.versuche = 2;
+    var s = document.createElement('script');
+    // Cache umgehen: eine ANDERE Adresse, sonst liefert derselbe kaputte
+    // Cache-Eintrag noch einmal dasselbe.
+    s.src = 'data/plants.v1.js?v=1&r=' + Date.now();
+    s.onerror = window._gsArtenFehlstart;
+    s.onload = function () {
+      // Dieselbe Bereinigung wie der normale Weg — sonst laeuft die App nach
+      // einem Nachladen mit Duplikaten weiter (gemessen: 4'342 statt 4'337).
+      try { if (typeof window.deduplicateDB === 'function') window.deduplicateDB(); } catch (_) {}
+      window._gsArten.stand = (window.DB && window.DB.length) ? 'ok' : 'fehlt';
+      if (window._gsArten.stand === 'fehlt') window._gsArten.grund = 'Die Artenliste kam leer an.';
+      try { if (typeof gsArtenNachgeladen === 'function') gsArtenNachgeladen(); } catch (_) {}
+    };
+    document.head.appendChild(s);
+  } catch (e) {
+    window._gsArten.stand = 'fehlt';
+    window._gsArten.grund = 'Die Artenliste liess sich nicht nachladen.';
+  }
+};
+</script>
+  <script src="data/plants.v1.js?v=1" onerror="window._gsArtenFehlstart && window._gsArtenFehlstart()"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════════════
 // v31.89 — EIN WIDERSPRUCH AUF DERSELBEN KARTE
@@ -25151,7 +25203,13 @@ async function gsMergeCommunitySpecies(){
 setTimeout(function(){ try { gsMergeCommunitySpecies(); } catch(_){} }, 3500);
 setTimeout(function(){ try { if (typeof gsCloudTagebuchLaden === 'function') gsCloudTagebuchLaden(); } catch(_){} }, 6000);   // v32.49: Cloud-Tagebuch spiegeln
 
-(function deduplicateDB() {
+// v33.48: aus der IIFE eine benannte Funktion — der zweite Ladeversuch
+// (`_gsArtenFehlstart`) braucht GENAU dieselbe Bereinigung. Gemessen: die
+// Datei traegt 4'342 Eintraege, die App laeuft mit 4'337. Ohne diesen Aufruf
+// liefe eine nachgeladene Liste mit fuenf Duplikaten, die der normale Weg
+// entfernt — ein zweiter Weg, der nicht tut, was der erste tut.
+// Sie ist idempotent (ein Dedup auf einer dedupten Liste entfernt nichts).
+function deduplicateDB() {
   if (!DB || !Array.isArray(DB)) return;
   // STRENGE Logik: Duplikat nur wenn
   //   (1) gleiche ID  ODER
@@ -25189,7 +25247,9 @@ setTimeout(function(){ try { if (typeof gsCloudTagebuchLaden === 'function') gsC
   } else {
     console.info('[GreenScan] deduplicateDB: keine Duplikate, ' + DB.length + ' Arten.');
   }
-})();
+}
+window.deduplicateDB = deduplicateDB;
+deduplicateDB();
 
 // ══ Sichere Arten-Einfüge-Funktion (verhindert Duplikate) ════
 function gsAddSpecies(speciesArray) {
@@ -30100,6 +30160,79 @@ var _GS_DP_KAL_ARTEN = { aussaat: 1, ernte: 1, erinnerung: 1, alarm: 1, wetter: 
 // Normalfall, fuer den die Warteschlange gebaut wurde.
 // Pruefstand: scripts/sync_check.js (Faelle „Klemmt").
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// v33.48 · Fehlt die Artenliste, sagt es die App beim START
+//
+// `_gsArten` (im Kopf, vor dem Script-Tag) traegt den Ladeversuch.
+// `gsArtenStand()` ist die EINE Rechnung darueber — drei Zustaende, und der
+// dritte nennt seinen Grund:
+//   ok     · die Liste ist da
+//   laedt  · der zweite Versuch laeuft noch
+//   fehlt  · zweimal daneben (oder leer angekommen)
+//
+// Gemessen wird die LISTE, nicht die Absicht: `DB.length` entscheidet, nicht
+// der gemerkte Zustand. Kommt die Liste ueber einen Weg, den `_gsArten` nicht
+// kennt (Service-Worker-Cache nach einem spaeten Treffer), ist sie trotzdem
+// da — und dann gibt es nichts zu melden.
+// ═══════════════════════════════════════════════════════════════════════════
+function gsArtenStand() {
+  var e = { zustand: 'fehlt', anzahl: 0, grund: '' };
+  try {
+    e.anzahl = (typeof DB !== 'undefined' && DB && DB.length) ? DB.length : 0;
+    if (e.anzahl > 0) { e.zustand = 'ok'; return e; }
+    var a = window._gsArten || null;
+    if (!a) { e.grund = _gsSatz('Die Artenliste ist nicht geladen.'); return e; }
+    if (a.stand === 'laedt' || (a.stand !== 'fehlt' && a.versuche < 2)) {
+      e.zustand = 'laedt';
+      e.grund = _gsSatz('Die Artenliste wird noch geladen.');
+      return e;
+    }
+    e.grund = a.grund || _gsSatz('Die Artenliste ist nicht geladen.');
+    return e;
+  } catch (_) {
+    e.grund = _gsSatz('Die Artenliste ist nicht geladen.');
+    return e;
+  }
+}
+window.gsArtenStand = gsArtenStand;
+
+// Der zweite Versuch landet NACH dem Start — was inzwischen leer gerendert
+// wurde, wird hier nachgezogen. Sonst haette die Person eine geladene Liste
+// und eine Startseite, die noch die leere zeigt.
+function gsArtenNachgeladen() {
+  try {
+    var st = gsArtenStand();
+    if (st.zustand === 'ok') {
+      try { if (typeof gsToast === 'function') gsToast(_gsSatz('Artenliste nachgeladen.'), 'success'); } catch (_) {}
+    }
+    try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch (_) {}
+  } catch (_) {}
+}
+window.gsArtenNachgeladen = gsArtenNachgeladen;
+
+// Eine Zeile im Tagesplan — NUR wenn die Liste wirklich fehlt. „Wird noch
+// geladen" ist kein Alarm, und „ist da" ist keine Nachricht (v33.46).
+function _gsDayPlanArten(esc) {
+  try {
+    var st = gsArtenStand();
+    if (st.zustand !== 'fehlt') return '';
+    var txt = _gsSatz('Die Artenliste konnte nicht geladen werden — Bestimmen und Nachschlagen fehlt die Grundlage.');
+    return '<button type="button" class="gs-dp-sync" onclick="gsArtenNeuLaden()" aria-label="' + esc(txt) + '">' +
+      '<span class="gs-dp-woche-txt"><span aria-hidden="true">\u26a0\ufe0f</span> ' + esc(txt) + '</span>' +
+      '<span class="gs-dp-sync-tun">' + esc(_gsSatz('Neu laden')) + '</span></button>';
+  } catch (_) { return ''; }
+}
+
+function gsArtenNeuLaden() {
+  try {
+    if (window._gsArten) { window._gsArten.versuche = 1; window._gsArten.stand = 'laedt'; }
+    if (typeof gsToast === 'function') gsToast(_gsSatz('Wird geladen…'), 'info', 1800);
+    if (typeof window._gsArtenFehlstart === 'function') window._gsArtenFehlstart();
+    try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch (_) {}
+  } catch (_) {}
+}
+window.gsArtenNeuLaden = gsArtenNeuLaden;
+
 var GS_SYNC_KLEMMT_H = 24;
 
 function gsSyncStand() {
@@ -30248,14 +30381,14 @@ window.gsRenderDayPlan = function(){
       '</div><button type="button" class="gs-dp-all" style="border-top:none;padding-left:2px;"' +
       ' onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\')">' +
       '<span>Erste Pflanze scannen</span><span aria-hidden="true">→</span></button>' +
-      _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: ein Plan-Termin oder Frost gilt auch ohne Pflanze
+      _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: ein Plan-Termin oder Frost gilt auch ohne Pflanze
     return;
   }
   if (!tasks.length) {
     el.innerHTML = head(0) +
       '<div class="gs-dp-empty"><b>Alles versorgt</b>In den nächsten Tagen steht nichts an — deine ' + nPlants +
       ' Pflanze' + (nPlants === 1 ? '' : 'n') + ' ' + (nPlants === 1 ? 'ist' : 'sind') + ' auf Kurs.</div>' +
-      _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: „auf Kurs" heisst nicht „nichts im Kalender"
+      _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: „auf Kurs" heisst nicht „nichts im Kalender"
     return;
   }
 
@@ -30285,7 +30418,7 @@ window.gsRenderDayPlan = function(){
       '<button type="button" class="gs-dp-all" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">' +
         '<span>Alle Aufgaben anzeigen</span><span aria-hidden="true">→</span></button>' +
     '</div>' +
-    _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40
+    _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40
 };
 
 
@@ -76049,6 +76182,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.48', date: '17.09.2026',
+      headline: 'Die Artenliste hat einen zweiten Versuch',
+      summary: 'Das Script-Tag der 2,1-MB-Artenliste hatte kein onerror und keinen Rückfall: fiel die Datei aus, lief die App mit einer leeren Liste weiter und sagte beim Start nichts. Jetzt gibt es einen zweiten Ladeversuch mit Cache-Umgehung — und wenn auch der danebengeht, steht es auf der Startseite.',
+      user_summary: 'Wenn die Artenliste beim Laden einmal ausfällt, holt die App sie von selbst nach. Klappt auch das nicht, sagt sie es dir auf der Startseite — mit einem Knopf zum Nochmal-Versuchen, statt dass Suche und Bestimmung einfach leer bleiben.',
+      user_items: [
+        {emoji:'🔄', bold:'Zweiter Versuch von selbst:', text:' die häufigste Ursache ist ein abgebrochener Download, und der ist beim zweiten Mal weg.'},
+        {emoji:'⚠️', bold:'Und wenn nicht, steht es da:', text:' „Die Artenliste konnte nicht geladen werden" auf der Startseite, mit „Neu laden" daneben.'}
+      ],
+      items: [
+        {emoji:'🧩', bold:'Gemessen an v33.47:', text:' <script src="data/plants.v1.js?v=1"> ohne onerror. Mit blockierter Datei: DB.length = 0, und die Startseite sagte nichts — man merkte es erst beim Öffnen von etwas, das die Liste braucht.'},
+        {emoji:'🧮', bold:'Ein Weg, nicht zwei:', text:' die Datei trägt 4342 Einträge, die App läuft mit 4337 — deduplicateDB war eine anonyme IIFE und lief nur beim normalen Laden. Jetzt ist sie eine benannte Funktion, die der Nachlade-Weg GENAUSO ruft; sonst liefe die App nach einem Nachladen mit fünf Duplikaten weiter.'},
+        {emoji:'🚦', bold:'gsArtenStand():', text:' drei Zustände — ok · laedt · fehlt MIT Grund. Gemessen wird die Liste selbst (DB.length), nicht der gemerkte Ladeversuch: kommt sie über einen anderen Weg doch an, gibt es nichts zu melden.'},
+        {emoji:'🧪', bold:'offline_check 22 → 24 Fragen:', text:' der erste Versuch wird wirklich abgebrochen und der zweite durchgelassen (muss sich erholen, auf dieselbe Artenzahl), dann beide (muss es sagen) — mit der Gegenrichtung „im guten Fall keine Zeile". Drei Gegenproben, jede einzeln rot.'}
+      ],
+    },
+  {
     v: 'v33.47', date: '17.09.2026',
       headline: '„Nicht geprüft" ist keine Entwarnung',
       summary: 'Fällt die Artenliste beim Laden aus, konnte der Scanner nichts gegenprüfen — und sagte trotzdem „Nichts spricht dagegen", unter der Überschrift „Gegengeprüft mit unserer Artenliste". Für einen Knollenblätterpilz, den das Modell als essbar meldet, stand damit eine Entwarnung auf dem Bildschirm. Das Prüfwerk hat jetzt einen vierten Zustand.',
@@ -76376,24 +76525,6 @@ window.GS_RELEASES = [
         'Eine gegnerische Pruefung des fertigen Schnitts fand 13 Dinge, sechs davon ernst — darunter elf Emoji aus v33.27/v33.28, die gar keine Emoji waren, und ein Vokabular, das die Umlaute nicht kannte, die sein eigener Prompt provoziert.'
       ]
   },
-  {
-    v: 'v33.28', date: '12.09.2026',
-      headline: 'Üben — Lernkarten, die sich merken, was du nicht kannst',
-      summary: 'Neben der einen Tagesfrage gibt es jetzt „Üben": Lernkarten mit fünf Leitner-Boxen. Was du falsch hattest, kommt morgen wieder; was sitzt, erst in sechzehn Tagen. Eine Karte wird nie auf einem fehlenden Feld gebaut — 1\u2019435 Einträge hätten sonst „Ganzjährig" als richtige Antwort bekommen, weil ihre Saison leer ist.',
-      user_summary: 'Unter der Tagesfrage findest du „📚 Üben". Da kannst du so lange üben, wie du magst — und die App merkt sich, welche Arten dir schwerfallen, und fragt genau die wieder. Deine Serie und die Rangliste bleiben davon unberührt: die gehören der Tagesfrage.',
-      user_items: [
-        {emoji:'📚', bold:'Üben ohne Ende:', text:' Lernkarten zu Familie, Essbarkeit, Giftstufe, Saison und Standort — nach Gruppe filterbar. Fürs Erkennen auf dem Foto ist der Scanner da; Bilder hat die Artenliste keine.'},
-        {emoji:'🔁', bold:'Fünf Boxen:', text:' richtig → eine Stufe höher und später wieder (1 · 2 · 4 · 8 · 16 Tage). Falsch → zurück auf Box 1. Geraten hält also nicht lange.'},
-        {emoji:'\u2696\ufe0f', bold:'Getrennt von der Tagesfrage:', text:' Üben ändert weder deine Serie noch die Rangliste — sonst würde die Zahl neben deinem Namen nichts mehr bedeuten.'},
-        {emoji:'📍', bold:'Nach der Antwort:', text:' Binomen, Familie, Warnung und ein Knopf zur Art — und wann die Karte wiederkommt.'}
-      ],
-      items: [
-        {emoji:'🧭', bold:'_gsTrainingTypOk:', text:' ein Fragetyp wird nur gestellt, wenn die Art das Feld HAT. dqBuildQuestion fällt bei Saison und Standort auf einen Vorgabewert zurück — gemessen 12.09.2026: season bei 2\u2019902 von 4\u2019337, habitat bei 3\u2019386. Für ein Tagesquiz ist das ein Rückfall, für eine Lernkarte wäre es Auswendiglernen eines leeren Feldes.'},
-        {emoji:'🗃', bold:'gs_dq_training:', text:' Karte = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag — 657 Arten stehen mehrfach). Deckel 500; greift er, fliegt die HÖCHSTE Box, nicht die neueste. Karteileichen fallen beim Lesen weg. In GS_USER_KEYS, im Sync-Blob UND im Snapshot, markDirty(state) von Hand.'},
-        {emoji:'\u26a0\ufe0f', bold:'_gsWarnungEcht:', text:' „warning" trägt bei 1\u2019612 von 2\u2019927 Einträgen das Gegenteil einer Warnung („Keine bekannten Risiken"). Mit ⚠️ davor wird daraus ein Alarm, der keiner ist. Die vier anderen ⚠️-Stellen lesen Rezepte und die Wissensdatenbank — nachgesehen, bevor geändert.'},
-        {emoji:'🧪', bold:'quiz_check +7 (28 Fälle):', text:' Leitner mit Intervallen · fällig vor neu, immer mit Grund · 200 Karten, 0 auf einem leeren Feld · Üben rührt Serie/Rangliste/quiz_answers nicht an (Gegenrichtung: das Tagesquiz schon) · der Lernstand reist · der Deckel · die Warnzeile. Fünf Gegenproben einzeln gestellt.'}
-      ],
-    },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76602,7 +76733,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.47';
+var GS_VERSION = 'v33.48';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

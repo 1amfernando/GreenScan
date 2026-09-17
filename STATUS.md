@@ -12,6 +12,87 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-17 (is) - v33.48: Die Artenliste hat einen zweiten Versuch
+
+Dritte Scheibe zu Fernandos „es soll viel mehr automatisiert und verbessert
+werden" — und der Abschluss dessen, was v33.47 als AUTO-3 offengelassen hat.
+
+**1 · Der Befund, den v33.47 nur halb geschlossen hat.** Das Script-Tag der
+2,1-MB-Artenliste hat **kein `onerror`** und keinen Rückfall:
+
+```html
+<script src="data/plants.v1.js?v=1"></script>
+```
+
+Fällt die Datei aus — ein Abbruch beim ersten Besuch, eine geräumte
+Cache-Zeile —, ist `window.DB` leer. v33.47 hat die **Scan-Karte** ehrlich
+gemacht; die Startseite sagte weiterhin nichts. Man merkte es erst, wenn man
+etwas öffnete, das die Liste braucht.
+
+**2 · Zwei Dinge, und sie gehören zusammen.** Ein **zweiter Versuch** mit
+Cache-Umgehung (`?v=1&r=<ts>` — derselbe Cache-Eintrag liefert sonst noch
+einmal dasselbe), und wenn auch der danebengeht, ein **Zustand mit Grund**,
+den die App aussprechen kann. `gsArtenStand()`: `ok` · `laedt` · `fehlt` mit
+Grund. Gemessen wird die **Liste selbst** (`DB.length`), nicht der gemerkte
+Ladeversuch — kommt sie über einen Weg an, den `_gsArten` nicht kennt, gibt es
+nichts zu melden.
+
+**3 · Und der Fund beim Messen, der die Scheibe eigentlich rechtfertigt.**
+Der erste Durchlauf zeigte nach erfolgreichem Nachladen **4'342** Arten, der
+normale Weg **4'337**:
+
+| | Anfragen | `DB.length` |
+|---|---|---|
+| normal | 1 | 4'337 |
+| nach Ausfall, nachgeladen (erst) | 2 | **4'342** |
+| nach Ausfall, nachgeladen (jetzt) | 2 | 4'337 |
+
+Die Datei trägt 4'342 Einträge; `deduplicateDB` entfernt fünf. Und die war eine
+**anonyme IIFE** — sie läuft beim Parsen, einmal. Mein Nachlade-Weg konnte sie
+gar nicht rufen.
+
+> **Ein zweiter Weg, der nicht tut, was der erste tut, ist kein Rückfall,
+> sondern ein zweiter Zustand.** Die App wäre nach einem Nachladen mit fünf
+> Duplikaten weitergelaufen — und Duplikate sind in dieser App genau die
+> Stelle, an der die Sicherheitsangaben auseinandergehen (v32.43). Die IIFE
+> ist jetzt eine **benannte** Funktion, die beide Wege rufen; sie ist
+> idempotent (ein Dedup auf einer dedupten Liste entfernt nichts).
+
+**4 · `offline_check` 22 → 24 Fragen**, und beide fahren den echten Weg: der
+erste Ladeversuch wird **wirklich abgebrochen**, der zweite durchgelassen —
+die App muss sich erholen, und zwar auf **dieselbe Artenzahl**, nicht
+irgendwie. Danach beide abgebrochen: dann muss es auf der Startseite stehen.
+Mit der Gegenrichtung „im guten Fall und im erholten Fall **keine** Zeile" —
+ohne sie wäre eine Zeile, die immer erscheint, ebenfalls grün.
+
+| zurückgebaut | rot |
+|---|---|
+| `onerror` entfernt (kein zweiter Versuch) | 2 |
+| Nachlade-Weg ohne dieselbe Bereinigung | 1 (nur „gleichwertig") |
+| die Zeile im Tagesplan ausgehängt | 1 (nur „sagt es") |
+
+**5 · Zwei Messfehler von mir, beide in derselben Sitzung.** Der erste Versuch,
+einen unlesbaren `localStorage` nachzustellen, installierte die Attrappe
+**vor** dem Wrapper der App — sie wurde überschrieben und zählte **0**
+Leseversuche. Und die Tagesplan-Zeile galt zweimal als fehlend, weil ich
+**2'600 ms** gewartet habe; sie erscheint nach ~3'000 ms. **Eine Messung, die
+zu früh liest, meldet dasselbe wie ein Fehler.**
+
+**6 · Was NICHT gebaut wurde, und warum.** AUTO-3 war als `GS_SELBSTTEST`
+geplant — eine deklarierte Liste von Startprüfungen. Beim Messen blieb **eine
+einzige** übrig:
+
+- **Speicher unlesbar?** Die App fängt es längst ab — `localStorage.getItem`
+  ist seit v30.98 in `try/catch` und gibt `null`. Kein Fund, kein Eintrag.
+- **Version von Seite und Worker auseinander?** Liesse sich nur mit dem
+  vollen Server-und-Worker-Aufbau von `offline_check` messen; ungemessen
+  wäre der Eintrag geraten.
+
+> **Eine Liste mit einem Eintrag ist keine Liste, sondern Zeremonie.** Der
+> eine gemessene Fall ist direkt geschlossen. Kommt je ein zweiter dazu, wird
+> daraus eine Liste — nach derselben Regel wie `GS_ADM_SEKTIONEN` (v33.42)
+> und `GS_FRISTEN` (v33.45): die Liste ist dann die Prüfung.
+
 ### 2026-09-17 (ir) - v33.47: „Nicht geprüft" ist keine Entwarnung
 
 Zweite Scheibe zu Fernandos „es soll viel mehr automatisiert und verbessert

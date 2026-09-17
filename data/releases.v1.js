@@ -30,6 +30,24 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.28', date: '12.09.2026',
+      headline: 'Üben — Lernkarten, die sich merken, was du nicht kannst',
+      summary: 'Neben der einen Tagesfrage gibt es jetzt „Üben": Lernkarten mit fünf Leitner-Boxen. Was du falsch hattest, kommt morgen wieder; was sitzt, erst in sechzehn Tagen. Eine Karte wird nie auf einem fehlenden Feld gebaut — 1\u2019435 Einträge hätten sonst „Ganzjährig" als richtige Antwort bekommen, weil ihre Saison leer ist.',
+      user_summary: 'Unter der Tagesfrage findest du „📚 Üben". Da kannst du so lange üben, wie du magst — und die App merkt sich, welche Arten dir schwerfallen, und fragt genau die wieder. Deine Serie und die Rangliste bleiben davon unberührt: die gehören der Tagesfrage.',
+      user_items: [
+        {emoji:'📚', bold:'Üben ohne Ende:', text:' Lernkarten zu Familie, Essbarkeit, Giftstufe, Saison und Standort — nach Gruppe filterbar. Fürs Erkennen auf dem Foto ist der Scanner da; Bilder hat die Artenliste keine.'},
+        {emoji:'🔁', bold:'Fünf Boxen:', text:' richtig → eine Stufe höher und später wieder (1 · 2 · 4 · 8 · 16 Tage). Falsch → zurück auf Box 1. Geraten hält also nicht lange.'},
+        {emoji:'\u2696\ufe0f', bold:'Getrennt von der Tagesfrage:', text:' Üben ändert weder deine Serie noch die Rangliste — sonst würde die Zahl neben deinem Namen nichts mehr bedeuten.'},
+        {emoji:'📍', bold:'Nach der Antwort:', text:' Binomen, Familie, Warnung und ein Knopf zur Art — und wann die Karte wiederkommt.'}
+      ],
+      items: [
+        {emoji:'🧭', bold:'_gsTrainingTypOk:', text:' ein Fragetyp wird nur gestellt, wenn die Art das Feld HAT. dqBuildQuestion fällt bei Saison und Standort auf einen Vorgabewert zurück — gemessen 12.09.2026: season bei 2\u2019902 von 4\u2019337, habitat bei 3\u2019386. Für ein Tagesquiz ist das ein Rückfall, für eine Lernkarte wäre es Auswendiglernen eines leeren Feldes.'},
+        {emoji:'🗃', bold:'gs_dq_training:', text:' Karte = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag — 657 Arten stehen mehrfach). Deckel 500; greift er, fliegt die HÖCHSTE Box, nicht die neueste. Karteileichen fallen beim Lesen weg. In GS_USER_KEYS, im Sync-Blob UND im Snapshot, markDirty(state) von Hand.'},
+        {emoji:'\u26a0\ufe0f', bold:'_gsWarnungEcht:', text:' „warning" trägt bei 1\u2019612 von 2\u2019927 Einträgen das Gegenteil einer Warnung („Keine bekannten Risiken"). Mit ⚠️ davor wird daraus ein Alarm, der keiner ist. Die vier anderen ⚠️-Stellen lesen Rezepte und die Wissensdatenbank — nachgesehen, bevor geändert.'},
+        {emoji:'🧪', bold:'quiz_check +7 (28 Fälle):', text:' Leitner mit Intervallen · fällig vor neu, immer mit Grund · 200 Karten, 0 auf einem leeren Feld · Üben rührt Serie/Rangliste/quiz_answers nicht an (Gegenrichtung: das Tagesquiz schon) · der Lernstand reist · der Deckel · die Warnzeile. Fünf Gegenproben einzeln gestellt.'}
+      ],
+    },
+  {
     v: 'v33.27', date: '12.09.2026',
       headline: 'Das Quiz sagt, was stimmt — und der Zeitablauf zaehlt',
       summary: 'Die Giftstufe und die Essbarkeit im Quiz kommen jetzt von der ART, nicht vom einzelnen Eintrag: bei 130 von 4\u2019337 Eintraegen stand die falsche Giftstufen-Stufe als richtige Antwort, bei 133 die falsche Essbarkeit. Die Serie zaehlt wieder Tage. Der Countdown zeigt die Uhrzeit, zu der die naechste Frage wirklich kommt.',

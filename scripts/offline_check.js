@@ -631,8 +631,69 @@ function server(wunschPort) {
     s7.close();
   }
 
+  // ── 23/24 · v33.48: Die Artenliste hat einen ZWEITEN Versuch ────────
+  //
+  // Gemessen an v33.47: das Script-Tag hatte kein `onerror`. Faellt die
+  // 2,1-MB-Datei aus, ist `DB` leer — und die App sagte beim START nichts.
+  // Hier wirklich gefahren: der erste Versuch wird abgebrochen, der zweite
+  // durchgelassen (muss sich erholen), und danach beide (muss es SAGEN).
+  {
+    // Der Hauptserver ist zu diesem Zeitpunkt ZU (ein frueherer Fall geht
+    // absichtlich offline). Diese zwei Faelle brauchen ihn wieder — sonst
+    // messen sie einen Verbindungsfehler statt der Sache.
+    const { s: s8 } = await server(port);
+    const lade = async (blockBis) => {
+      const c = await br.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'block' });
+      const q = await c.newPage();
+      let n = 0;
+      await q.route('**/plants.v1.js*', r => { n++; return (n <= blockBis) ? r.abort() : r.continue(); });
+      await q.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await q.waitForTimeout(3200);
+      const o = await q.evaluate(() => {
+        const el = document.getElementById('home-dayplan');
+        const btn = el && el.querySelector('.gs-dp-sync');
+        const st = (typeof gsArtenStand === 'function') ? gsArtenStand() : null;
+        return {
+          db: (window.DB && DB.length) || 0,
+          stand: st ? st.zustand : '(fehlt)',
+          grund: st ? (st.grund || '') : '',
+          zeile: btn ? (btn.textContent || '').replace(/\s+/g, ' ').trim() : ''
+        };
+      });
+      o.anfragen = n;
+      await c.close();
+      return o;
+    };
+
+    const gut = await lade(0);      // nichts blockiert
+    const heil = await lade(1);     // nur der erste Versuch faellt aus
+    const weg  = await lade(99);    // beide Versuche fallen aus
+
+    // 23 · Der zweite Versuch holt die Liste WIRKLICH zurueck — und zwar
+    //      gleichwertig: dieselbe Zahl wie der normale Weg. Die Datei traegt
+    //      4'342 Eintraege, die App laeuft mit 4'337; ohne denselben
+    //      Dedup-Aufruf liefe der Nachlade-Weg mit fuenf Duplikaten weiter.
+    const erholt = heil.anfragen === 2 && heil.db > 0 && heil.db === gut.db && heil.stand === 'ok';
+    melde('Faellt die Artenliste aus, holt die App sie nach — gleichwertig, nicht nur irgendwie',
+      erholt,
+      erholt ? ('normal ' + gut.db + ' Arten in 1 Anfrage · nach Ausfall ' + heil.db + ' in ' + heil.anfragen)
+             : ('normal ' + gut.db + ' · nach Ausfall ' + heil.db + ' in ' + heil.anfragen + ' Anfragen, Stand ' + heil.stand));
+
+    // 24 · Geht auch der zweite daneben, ist das ein Zustand MIT Grund, der
+    //      auf dem Bildschirm steht — nicht eine leere Liste, die wie
+    //      „keine Treffer" aussieht. Gegenrichtung: im guten Fall NICHTS.
+    const sagtEs = weg.db === 0 && weg.stand === 'fehlt' && !!weg.grund
+                && /artenliste/i.test(weg.zeile) && !gut.zeile && !heil.zeile;
+    melde('Geht auch der zweite Versuch daneben, sagt es die Startseite — und sonst nie',
+      sagtEs,
+      sagtEs ? ('„' + weg.zeile.slice(0, 58) + '…" · Grund: ' + weg.grund + ' · gut und erholt: keine Zeile')
+             : ('weg: db=' + weg.db + ' stand=' + weg.stand + ' zeile=„' + weg.zeile.slice(0, 40) + '"'
+                + ' · gut: „' + gut.zeile.slice(0, 30) + '" · erholt: „' + heil.zeile.slice(0, 30) + '"'));
+    s8.close();
+  }
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 22 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 24 · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

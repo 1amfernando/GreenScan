@@ -1447,6 +1447,30 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > der Gegenrichtung „mit Liste unveraendert" — ohne sie waere ein Pruefwerk,
 > das immer „Nicht geprueft" sagt, ebenfalls gruen.
 
+> **Ein zweiter Weg, der nicht tut, was der erste tut, ist kein Rueckfall,
+> sondern ein zweiter Zustand** (v33.48). `data/plants.v1.js` haengt an einem
+> nackten `<script src>`; seit v33.48 holt ein `onerror` die Datei EINMAL nach
+> (`?v=1&r=<ts>` — derselbe Cache-Eintrag liefert sonst noch einmal dasselbe).
+> Beim Messen fiel auf: nachgeladen lief die App mit **4'342** Arten, normal
+> mit **4'337**. `deduplicateDB` war eine **anonyme IIFE** — sie laeuft beim
+> Parsen, und der Nachlade-Weg konnte sie gar nicht rufen. Duplikate sind in
+> dieser App genau die Stelle, an der die Sicherheitsangaben auseinandergehen
+> (v32.43). Wer einen zweiten Ladeweg baut, ruft JEDE Aufbereitung des ersten;
+> eine IIFE wird dafuer zur benannten Funktion (idempotent halten).
+> `gsArtenStand()` ist die eine Rechnung darueber — `ok` · `laedt` · `fehlt`
+> mit Grund, gemessen an `DB.length` und nicht am gemerkten Ladeversuch.
+> Pruefstand: `offline_check` (der erste Versuch wird WIRKLICH abgebrochen).
+
+> **Und eine Liste mit einem Eintrag ist keine Liste, sondern Zeremonie**
+> (v33.48). Geplant war `GS_SELBSTTEST` — eine deklarierte Liste von
+> Startpruefungen nach dem Muster `GS_ADM_SEKTIONEN` (v33.42) und `GS_FRISTEN`
+> (v33.45). Von drei Kandidaten blieb beim Messen EINER uebrig: „Speicher
+> unlesbar" faengt `localStorage.getItem` seit v30.98 selbst ab (try/catch →
+> `null`), und „Version von Seite und Worker auseinander" laesst sich nur mit
+> dem vollen Server-und-Worker-Aufbau von `offline_check` messen — ungemessen
+> waere der Eintrag geraten. Der eine echte Fall ist direkt geschlossen. **Eine
+> Registry lohnt ab dem zweiten Eintrag**; davor ist sie Aufwand ohne Nutzen.
+
 > **Und eine Warnung, die freundlich aussieht, liest niemand als Warnung**
 > (v33.46). Beim Nachlesen der eigenen neuen Zeile gezaehlt — ueber ALLE
 > Toast-Aufrufe: `error` 142 · `info` 110 · `success` 96 · **`warn` 77** ·
