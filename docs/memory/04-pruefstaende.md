@@ -26,7 +26,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `save_check` | kommt an, was gespeichert wird? (seit v31.85) |
 | `planer_check` | rechnet der Planer, was er behauptet? (seit v31.93) |
 | `scan_check` | glaubt der Scanner der KI aufs Wort? (seit v31.99) |
-| `offline_check` | haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13) |
+| `offline_check` | haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.48 auch: faellt die Artenliste aus, holt die App sie nach (gleichwertig — derselbe Dedup) und sagt es, wenn auch der zweite Versuch danebengeht |
 | `backend_check` | ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18) |
 | `storage_check` | was ueberlebt das Abmelden? (seit v32.21) |
 | `sync_check` | kommt zurueck, was hochgeladen wird? (seit v32.23); seit v33.46 auch: sagt die App, wenn der Sync KLEMMT? (gsSyncStand, vier Zustaende — offline ist kein Alarm) |
