@@ -186,6 +186,30 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
+### Seit dem 16.09.2026 (v33.46) — ein Sync, der klemmt, sagt es
+
+Fernandos „es soll viel mehr automatisiert und verbessert werden", erste
+Scheibe. Ein unvollständiger Cloud-Abgleich landete in `console.warn` und sonst
+nirgends; die ehrliche Statuszeile stand in den **Einstellungen** und kannte
+keinen Unterschied zwischen einer Minute und drei Tagen. `gsSyncStand()` ist
+jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie im
+Tagesplan — mit einem Knopf, der es sofort versucht.
+
+**Zwei Dinge daraus, die über den Sync hinausgehen:**
+
+- **Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler.**
+  Dieselbe Klasse wie der wegdestrukturierte `error` im `daily-push-checker`
+  (v33.41), `Prefer: return=minimal` beim Quiz (v32.65) und die dreizehn
+  Admin-Sektionen (v33.42).
+- **Ein Zustand, der ein Alarm werden soll, braucht alle seine Teile.**
+  „Klemmt" verlangt offen UND `canPush` UND älter als 24 h — wer schlicht
+  offline ist, klemmt nicht. Eine Warnung, die bei jedem Flugmodus aufleuchtet,
+  ist die Zahl, die man zu ignorieren lernt (v32.21).
+- **Und ein Nebenfund beim Nachlesen der eigenen Zeile:** `'warn'` ist die
+  einzige Toast-Schreibweise, die weder die Icon-Tabelle noch das CSS kennt —
+  **77 Warnungen** standen mit 🌿 auf neutralem Grund. EIN Tor statt 77
+  Pflaster; `robust_check` B5b misst Symbol und Fläche.
+
 ### Seit dem 16.09.2026 (v33.45) — und wer die Risiken liest
 
 v33.44 hat das Inventar gebaut und im selben Atemzug notiert, was fehlt: **eine

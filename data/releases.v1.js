@@ -30,6 +30,22 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.26', date: '12.09.2026',
+      headline: 'Ein Backup je Sitzung — und eine Regel statt zweier',
+      summary: 'Das automatische Backup läuft jetzt direkt nach dem ersten erfolgreichen Abgleich, nicht erst nach fünf Minuten — und nur, wenn sich seither etwas geändert hat. Der Tag ist der eigene, nicht UTC. Eine Migration schützt das bewusst angelegte Backup vor der Aufbewahrung.',
+      user_summary: 'Dein Cloud-Backup ist ab sofort schon kurz nach dem Öffnen aktuell, statt erst nach fünf Minuten. Kopien ohne Änderung legt die App nicht mehr an — damit bleibt Platz für die Stände, die wirklich etwas enthalten.',
+      user_items: [
+        {emoji:'💾', bold:'Früher da:', text:' das Backup dieser Sitzung entsteht direkt nach dem Abgleich beim Start.'},
+        {emoji:'🚫', bold:'Keine Kopien:', text:' ohne Änderung legt die App kein Backup an — das spart die Plätze für echte Stände.'},
+        {emoji:'📅', bold:'Dein Tag:', text:' „einmal am Tag" zählt jetzt deinen Kalendertag, nicht den in London.'}
+      ],
+      items: [
+        {emoji:'🧭', bold:'_gsSnapshotAutoFaellig():', text:' EINE Regel mit fünf Ausgängen und immer einem Grund — kein Backup · keine Änderung (gs_sync_last_push ≤ gs_snapshot_last) · neuer lokaler Tag (_gsDayKey) · älter als drei Stunden · frisch. _gsSnapshotAuto ist der eine Ausführer; der Tagesstempel wird nur nach einem BELEGTEN Snapshot gesetzt.'},
+        {emoji:'🗄', bold:'20260912_snapshot_retention_manual.sql (nicht angewandt):', text:' „manual" kommt in die geschützte Liste von fn_cleanup_user_snapshots — bis dahin konnte ein bewusst angelegtes Backup von automatischen Ständen verdrängt werden (live 11.09.: 18 auto_periodic · 14 auto_daily · 11 pre_migration · 0 manual).'},
+        {emoji:'🧪', bold:'backup_check.js (Prüfstand 34):', text:' Aufbewahrung im lokalen Postgres mit Reproduktion und Gegenprobe (ein manual, zehn Auslieferungen) · die Regel in fünf Zuständen mit gestellter Uhr UND Zeitzone (lokal 12.09. vs UTC 11.09.) · das Sitzungs-Backup nach dem Pull · Server sagt Nein → Stempel bleibt alt.'}
+      ],
+    },
+  {
     v: 'v33.25', date: '11.09.2026',
       headline: 'Updates kommen von selbst — an zwei Stellen, an denen niemand liest',
       summary: 'Ein wartendes Update wird beim Start oder beim Zurückkommen nach fünf Minuten Abwesenheit angewandt, nie mitten in einer Antwort, einem Scan oder einem Fenster. Vorher sichert die App; danach steht derselbe Tab wieder da. Der Banner ist nur noch Rückfall.',

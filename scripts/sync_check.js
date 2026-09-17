@@ -256,6 +256,82 @@ const melde = (frage, ok, wie) => {
     };
   }, { proben: PROBEN });
 
+  // ── v33.46: Ein Sync, der KLEMMT ───────────────────────────────────────
+  // Gemessen an v33.45: ein unvollstaendiger Sync landete in `console.warn`
+  // und sonst nirgends. Die Statuszeile in den Einstellungen kannte keinen
+  // Unterschied zwischen „seit einer Minute" und „seit drei Tagen".
+  // Der Zustand wird HERGESTELLT, nicht vorgefunden: gsCloudSync.status wird
+  // gestellt, damit die Rechnung gegen bekannte Zahlen laeuft.
+  const k = await page.evaluate(async () => {
+    const echt = window.gsCloudSync && window.gsCloudSync.status;
+    const stell = (o) => { window.gsCloudSync.status = () => o; };
+    const raus = {};
+    try {
+      if (typeof window.gsSyncStand !== 'function') return { fehlt: 'gsSyncStand' };
+      // a) nichts offen → ok
+      stell({ ok: true, dirty: [], pendingOps: 0, lastPush: '1', lastPushAgeSec: 60, canPush: true, online: true });
+      raus.leer = gsSyncStand().zustand;
+      // b) offen, aber jung → unterwegs (NICHT klemmt)
+      stell({ ok: false, dirty: ['state'], pendingOps: 1, lastPush: '1', lastPushAgeSec: 3600, canPush: true, online: true });
+      raus.jung = gsSyncStand().zustand;
+      // c) offen und ALT → klemmt
+      stell({ ok: false, dirty: ['state', 'plants'], pendingOps: 1, lastPush: '1', lastPushAgeSec: 3600 * 50, canPush: true, online: true });
+      const st = gsSyncStand();
+      raus.alt = st.zustand; raus.offen = st.offen; raus.stunden = st.stunden; raus.grund = st.grund || '';
+      // d) OFFLINE und alt → kein Alarm. Die Warteschlange ist genau dafuer da.
+      stell({ ok: false, dirty: ['state'], pendingOps: 0, lastPush: '1', lastPushAgeSec: 3600 * 50, canPush: false, online: false });
+      const off = gsSyncStand();
+      raus.offline = off.zustand; raus.offlineGrund = off.grund || '';
+      // e) Auf dem BILDSCHIRM: die Zeile erscheint nur im Fall „klemmt".
+      const zeile = (zustand) => {
+        stell(zustand);
+        try { localStorage.removeItem('gs_sync_klemmt_tag'); } catch (_) {}
+        const el = document.getElementById('home-dayplan');
+        if (el) el.innerHTML = '';
+        try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch (_) {}
+        const b2 = el ? el.querySelector('.gs-dp-sync') : null;
+        return b2 ? (b2.textContent || '').replace(/\s+/g, ' ').trim() : '';
+      };
+      raus.zeileKlemmt = zeile({ ok: false, dirty: ['state', 'plants'], pendingOps: 1, lastPush: '1', lastPushAgeSec: 3600 * 50, canPush: true, online: true });
+      raus.zeileJung   = zeile({ ok: false, dirty: ['state'], pendingOps: 0, lastPush: '1', lastPushAgeSec: 3600, canPush: true, online: true });
+      raus.zeileOk     = zeile({ ok: true, dirty: [], pendingOps: 0, lastPush: '1', lastPushAgeSec: 60, canPush: true, online: true });
+      // f) Das Ereignis: einmal je Tag, und nur die zwei erlaubten Zahlen.
+      const gesendet = [];
+      window.gsTrackEvent = (ev, props) => gesendet.push({ ev, props });
+      try { localStorage.removeItem('gs_sync_klemmt_tag'); } catch (_) {}
+      stell({ ok: false, dirty: ['state', 'plants'], pendingOps: 1, lastPush: '1', lastPushAgeSec: 3600 * 50, canPush: true, online: true });
+      const el2 = document.getElementById('home-dayplan');
+      for (let i = 0; i < 3; i++) { if (el2) el2.innerHTML = ''; try { gsRenderDayPlan(); } catch (_) {} }
+      raus.ereignisse = gesendet.filter(x => x.ev === 'sync_stuck').length;
+      raus.felder = gesendet.length ? Object.keys(gesendet[0].props || {}).sort().join(',') : '';
+      raus.imVokabular = !!(window.GS_EVENTS && GS_EVENTS.sync_stuck);
+      return raus;
+    } finally { if (echt) window.gsCloudSync.status = echt; }
+  });
+
+  if (k.fehlt) {
+    melde('Ein Sync, der klemmt, wird als solcher erkannt', false,
+      k.fehlt + ' fehlt — ein unvollständiger Sync landet dann nur in console.warn');
+    melde('Die Zeile steht auf dem Bildschirm, aber nur wenn es klemmt', false, k.fehlt + ' fehlt');
+    melde('Das Ereignis kommt einmal je Tag und trägt nur Zahlen', false, k.fehlt + ' fehlt');
+  } else {
+    const rOk = k.leer === 'ok' && k.jung === 'unterwegs' && k.alt === 'klemmt'
+      && k.offline === 'nicht_bekannt' && !!k.offlineGrund;
+    melde('Ein Sync, der klemmt, wird als solcher erkannt — und Offline ist kein Alarm', rOk,
+      rOk ? 'leer → ok · 1 h offen → unterwegs · 50 h offen → klemmt (' + k.offen + ' offen, ' + k.stunden + ' h) · offline → nicht_bekannt mit Grund'
+        : 'leer=' + k.leer + ' jung=' + k.jung + ' alt=' + k.alt + ' offline=' + k.offline + ' (Grund: ' + (k.offlineGrund || '—') + ')');
+
+    const zOk = !!k.zeileKlemmt && !k.zeileJung && !k.zeileOk;
+    melde('Die Zeile steht auf dem Bildschirm, aber nur wenn es klemmt', zOk,
+      zOk ? '„' + k.zeileKlemmt.slice(0, 70) + '“ · jung und ok: keine Zeile'
+        : 'klemmt=„' + (k.zeileKlemmt || '(nichts)') + '“ jung=„' + (k.zeileJung || '(nichts)') + '“ ok=„' + (k.zeileOk || '(nichts)') + '“');
+
+    const eOk = k.ereignisse === 1 && k.felder === 'offen,stunden' && k.imVokabular;
+    melde('Das Ereignis kommt einmal je Tag und trägt nur Zahlen', eOk,
+      eOk ? 'dreimal gerendert → 1 Ereignis, Felder: ' + k.felder + ', im Vokabular'
+        : k.ereignisse + ' Ereignis(se) bei drei Renderings, Felder: „' + k.felder + '“, im Vokabular: ' + k.imVokabular);
+  }
+
   await b.close();
 
   // ── Bericht ────────────────────────────────────────────────────────────
@@ -302,7 +378,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 7 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 10 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();
