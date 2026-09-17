@@ -37,6 +37,14 @@ jobs:
           node-version: 22
       - name: psql + python
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client python3
+      # v33.49: apk_check baut das Android-Paket WIRKLICH und sieht darin nach.
+      # Die Werkzeuge kommen aus dem Ubuntu-Archiv, NICHT von dl.google.com —
+      # das ist aus der Claude-Cloud gesperrt (403), und ein Pruefstand, der
+      # nur auf einer Maschine laeuft, ist keine Aussage ueber die Auslieferung
+      # (v32.xx, field_check: 32 von 32 CI-Laeufen rot, ohne dass es jemand sah).
+      # Ohne diese Zeile meldet apk_check „nicht pruefbar" (Exit 2), nie gruen.
+      - name: Android-Werkzeuge (aapt, dx, apksigner, android.jar)
+        run: sudo apt-get install -y -qq android-sdk-build-tools android-sdk-platform-23 dalvik-exchange unzip
       - name: Playwright (scripts/)
         working-directory: scripts
         run: |

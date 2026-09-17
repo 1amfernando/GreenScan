@@ -1,6 +1,6 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **08.09.2026** · geschrieben von Seros.
+> Stand **17.09.2026** · geschrieben von Seros.
 >
 > *(Der Kopf stand bis heute auf 03.09., obwohl die Abschnitte 7–12 vom
 > 07./08.09. sind — genau die Art veralteter Ueberschrift, die dieses Repo
@@ -986,6 +986,102 @@ die gibt es in `garden_tasks_catalog` nicht (189 Zeilen, die Spalte heisst
 `importance`). Die Datenbank hat jedes Mal einen Fehler zurückgegeben, und der
 Code hat ihn weggeworfen, statt ihn zu melden. Das ist im Repo behoben; es
 wirkt, sobald du `daily-push-checker` neu auslieferst.
+
+## 22 · Die Android-App ist da — ein Handgriff fehlt: dein Schlüssel (v33.49)
+
+**Du hast geschrieben:** „Ich hätte gerne eine Apk daraus erstellt. […] Es soll
+so eine Apk gemacht werden wie Whatsapp die man vom Internet aus herunterladen
+kann. Keine Web app mehr sondern eine richtige App die noch besser als die
+Webapp version funktioniert."
+
+**Das ist gebaut.** `bash android/build.sh` erzeugt hier ein fertiges,
+signiertes APK (4,6 MB). Es ist dieselbe App — aber die Dateien liegen **im
+Paket**: sie startet ohne Empfang, hat nie eine Adressleiste, und der Play
+Store kommt darin nicht vor.
+
+### Was ich NICHT gemacht habe, und warum
+
+**Ich habe keinen Signatur-Schlüssel für dich angelegt.** Der Schlüssel ist
+das eine Stück, das dir gehören muss:
+
+> Android lässt ein Update nur mit **derselben** Signatur zu. Wer den
+> Schlüssel hat, kann Updates für deine App ausliefern. Wer ihn verliert, kann
+> es nie mehr — jeder Nutzer müsste deinstallieren, und seine App-Daten wären
+> weg.
+
+Deshalb baut `build.sh` ohne `--release` mit einem **Wegwerf-Schlüssel** und
+nennt die Datei `greenscan-ENTWICKLUNG-v33.49.apk`. Die ist zum Ausprobieren
+gedacht. **Verteile sie nicht** — wenn du später auf deinen eigenen Schlüssel
+wechselst, zwingst du jeden, der sie installiert hat, zur Neuinstallation.
+
+### Drei Schritte
+
+**1 · Schlüssel anlegen** (einmal, dauert eine Minute):
+
+```bash
+keytool -genkeypair -v \
+  -keystore ~/greenscan-release.keystore \
+  -alias greenscan -keyalg RSA -keysize 4096 -validity 10000 \
+  -dname "CN=GreenScan, O=GreenScan, L=Zuerich, C=CH"
+```
+
+Lege die Datei und das Passwort an **zwei Orte, die nicht derselbe Ort sind**
+(z. B. Passwort-Manager + verschlüsselte Sicherung). Nicht ins Repo — der
+Prüfstand `apk_check` R7 wacht darüber.
+
+**2 · Damit bauen:**
+
+```bash
+GS_APK_KS=~/greenscan-release.keystore \
+GS_APK_KS_PASS='dein-passwort' \
+GS_APK_ALIAS=greenscan \
+bash android/build.sh --release
+```
+
+→ `android/build/greenscan-v33.49.apk`
+
+**3 · Hinlegen:** die Datei auf green-scan.ch verlinken (z. B.
+`green-scan.ch/app`). Wer sie auf dem Telefon öffnet, muss einmal
+„Aus dieser Quelle installieren" erlauben — das ist bei jeder App so, die nicht
+aus dem Play Store kommt. Der Bau nennt dir den **SHA-256 der Signatur**;
+schreib ihn daneben, dann kann jeder prüfen, dass die Datei von dir ist.
+
+### Was du beim ersten Start prüfen musst — und nur du kannst
+
+**Hier läuft kein Android.** Der Prüfstand prüft den Bau, die Rechnung und die
+Entscheidungen der App; wie sich ein echtes Telefon verhält, sagt er
+ausdrücklich **nicht**. Vier Dinge, in dieser Reihenfolge:
+
+1. **Flugmodus an, dann die App öffnen.** Startet sie? Sind Lexikon und Suche
+   voll? Das ist die Frage, für die das ganze Paket gebaut ist.
+2. **Einen Scan machen.** Die Kamera fragt beim ersten Mal nach Erlaubnis.
+3. **Zurück-Knopf:** ein Druck schliesst EIN Fenster, nicht die App.
+4. **Anmelden.** Die App ist zuerst leer — eine WebView hat ihren eigenen
+   Speicher, getrennt vom Browser. Nach dem Anmelden holt der Abgleich alles
+   aus der Cloud.
+
+Sag mir, was du siehst — besonders, wenn etwas davon **nicht** stimmt.
+
+### Was in der App noch nicht geht (und in der App auch so steht)
+
+| | Warum | Wann |
+|---|---|---|
+| **Erinnerungen (Push)** | hängt am Service Worker, den es in der Hülle nicht gibt | als **lokale** Android-Benachrichtigung möglich — nächste Scheibe |
+| **Export** (Backup, GPX, CSV, PDF) | eine WebView hat keinen Speicherweg für eine Datei aus dem Arbeitsspeicher | braucht eine schmale Brücke zur Android-Schicht — nächste Scheibe |
+| **Teilen an GreenScan** (aus einer anderen App) | eine WebView liest das Web-Manifest nicht | braucht einen `intent-filter` — nächste Scheibe |
+
+Alle drei **sagen** es in der App, statt still nichts zu tun. Im Browser auf
+green-scan.ch funktionieren sie weiter.
+
+### Und der Play Store?
+
+Bleibt möglich, **neben** diesem Paket: der Paketname `ch.greenscan.app` und
+`.well-known/assetlinks.json` sind derselbe. Dafür bräuchte es weiterhin die
+zwei Fingerabdrücke aus der Play Console (Punkt in `docs/ANDROID-APK.md`) —
+und die Entscheidung Stripe vs. Play Billing. **Für den Weg, den du wolltest,
+brauchst du davon nichts.**
+
+---
 
 ## Und wenn etwas schiefgeht
 

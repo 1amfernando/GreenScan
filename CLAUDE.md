@@ -124,7 +124,9 @@ GreenScan/
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
-├── scripts/             # 38 Prüfstände (§7.1) + pruefstaende.sh (alle 38, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
+│                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
+├── scripts/             # 39 Prüfstände (§7.1) + pruefstaende.sh (fährt 35, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -548,6 +550,66 @@ Pflanzenlisten (Migration, nicht angewandt). Die eine neue Regel: **Rechnung →
 → Sieb → Anzeige** — ein Filter ist ein Sieb auf dem Ergebnis, nie eine
 Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
 
+## 4d · Die Android-Huelle — `android/`, Anleitung in `android/README.md`
+
+Seit v33.49 gibt es GreenScan als **APK**. Wer daran arbeitet, muss vier Dinge
+wissen; alles weitere steht in `android/README.md` und im Kopf von
+`scripts/apk_check.js`.
+
+**1 · Es ist kein zweiter Quelltext.** Die Huelle ist eine nackte
+`android.webkit.WebView`, die dieselbe `index.html` **aus dem Paket** unter dem
+**echten** Ursprung `https://green-scan.ch` ausliefert
+(`WebViewClient.shouldInterceptRequest`). Deshalb gelten CORS, die
+Anmelde-Rueckkehr, Stripe und die CSP aus `_headers` unveraendert — **am
+Backend ist nichts zu aendern**. (Die CSP liest die Huelle aus dem
+mitgelieferten `_headers`; ohne das liefe die App im Paket ohne
+Content-Security-Policy, schwaecher als im Browser, und niemand wuerde es
+merken.) **Derselbe Ursprung heisst NICHT dieselben Daten:** eine WebView hat
+ihre eigene Ablage, getrennt von Chrome.
+
+**2 · Die eine Regel: fuer den EIGENEN Ursprung nie `null`.** `null` heisst in
+einer WebView „hol es aus dem Netz" — und damit waere die App wieder eine
+Webseite, die ohne Empfang leer bleibt und im schlimmsten Fall eine Datei aus
+dem Netz UEBER die aus dem Paket legt. Was das Paket nicht kennt, bekommt eine
+**404 aus dem Paket**. Fremde Urspruenge und `blob:`/`data:` geben `null` — das
+soll ins Netz bzw. macht die WebView selbst. Achtung auf die Form: bei
+`blob:https://green-scan.ch/uuid` ist das Schema `blob`, nicht `https`.
+
+**3 · Was in der Huelle anders ist, steht in `GS_HUELLE_ANDERS`** — fuenf
+Eintraege (`sw` · `push` · `update` · `download` · `zahlung`), jeder mit Grund.
+**Die Liste ist die Pruefung:** jeder Eintrag braucht eine Durchsetzungsstelle
+im Code (kenntlich am Kommentar `GS_HUELLE_ANDERS '<schl>'`) UND steht auf dem
+Bildschirm (Einstellungen › Ueber GreenScan); `apk_check` R8 und A5 halten
+beide Seiten gegeneinander. Wer etwas in der Huelle abschaltet, traegt es dort
+ein — ein stiller Unterschied ist ein Versprechen, das niemand geprueft hat.
+
+**4 · Die Rechnung liegt getrennt vom Rand.** `Pfade.java` hat **keine**
+Android-Abhaengigkeit und wird vom Pruefstand uebersetzt und AUSGEFUEHRT;
+`AssetServer.java` ist nur der Rand darum. Dieselbe Aufteilung wie
+`_shared/ingest_regeln.mjs` und aus demselben Grund: **eine Regel, die man
+nicht ausfuehren kann, hat man nicht geprueft** (v33.41). Wer eine Regel
+aendert, aendert sie in `Pfade.java` und im Fall — nie im Rand.
+
+> **Und was eine nackte WebView still NICHT tut, ist die eigentliche Arbeit**
+> (v33.49). Gemessen mit sieben Linsen ueber den Monolithen: `getUserMedia`,
+> `navigator.geolocation` und jedes `<input type="file">` brauchen einen
+> Rueckruf am `WebChromeClient`, sonst passiert **nichts** — kein Fehler, kein
+> Bild, kein Standort. `navigator.onLine` wird nicht gepflegt (die Huelle
+> treibt es aus einem `NetworkCallback`), beim Beenden feuert weder `pagehide`
+> noch `beforeunload` (`onPause` ruft `gsHuellePause()`), `window.open` benutzt
+> den LAUFENDEN Rahmen wieder (das Zahlungs-Popup haette die App
+> ueberschrieben), es gibt keinen Download-Weg (acht Export-Knoepfe, EIN Tor
+> am Klick auf `a[download]` — wie v32.33 und v32.16), und
+> `navigator.serviceWorker.ready` kommt ohne registrierten Worker **NIE**
+> zurueck (fuenf Stellen; `_gsSwReady` ist der eine Leser).
+>
+> **Und die Suche nach so etwas findet zuerst den eigenen Text UEBER die
+> Sache.** Drei der ersten Funde im eigenen Pruefstand waren der Parser: der
+> Klassenkommentar „Es gibt kein `addJavascriptInterface`", ein Kommentar ueber
+> `<use href="datei.svg#id">`, und ein Schnitt am Aufruf `imUrsprung(u)`, der
+> das `return null` fuer FREMDE Urspruenge mitzaehlte — das genau richtig ist.
+> Dieselbe Klasse wie v32.70 und v33.41.
+
 ## 4b · KI-Planer — der Entwurf steht in `docs/PLANER-V3.md`
 
 Wer am Planer arbeitet, liest **zuerst** `docs/PLANER-V3.md`. Dort steht, was V3
@@ -750,7 +812,8 @@ node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
-bash scripts/pruefstaende.sh     # ALLE 38 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen
+bash scripts/pruefstaende.sh     # ALLE 35 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein

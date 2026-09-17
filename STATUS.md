@@ -12,6 +12,144 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-17 (it) - v33.49: GreenScan ist jetzt eine Android-App
+
+Fernandos Auftrag, woertlich: „Ich haette gerne eine Apk daraus erstellt. […]
+Es soll so eine Apk gemacht werden wie Whatsapp die man vom Internet aus
+herunterladen kann. Keine Web app mehr sondern eine richtige App die noch
+besser als die Webapp version funktioniert."
+
+**Zuerst gemessen, dann entschieden.** Der Entwurf aus v33.43
+(`docs/ANDROID-APK.md`) sah eine **TWA** vor — und beantwortet den Auftrag
+nicht:
+
+- `dl.google.com` ist aus dieser Umgebung **gesperrt** (`403`, dieselbe Klasse
+  wie green-scan.ch selbst; Proxy: `connect_rejected · policy denial`). Damit
+  gibt es kein Google Maven, damit kein AndroidX — und damit **weder
+  Bubblewrap/TWA noch Capacitor**, denn beide haengen daran. Der Weg war hier
+  gar nicht baubar.
+- Eine TWA laedt green-scan.ch bei **jedem Start aus dem Netz** und zeigt ohne
+  gueltige Fingerabdruecke die **Adressleiste**. Das ist genau „die Webseite in
+  einer Huelle", die Fernando nicht wollte — und die zwei Fingerabdruecke
+  liegen seit drei Versionen bei ihm.
+
+**Erreichbar und gebaut** (Ubuntu-Archiv statt dl.google.com): `aapt`,
+`apksigner`, `zipalign`, `dalvik-exchange`, `android.jar` (API 23), JDK 21.
+Rauchprobe zuerst: ein signiertes, von `apksigner` verifiziertes APK laesst
+sich hier bauen. **Erst danach** wurde entworfen.
+
+**Was jetzt da ist: `android/`** — eine nackte `android.webkit.WebView`, die
+die App **aus dem Paket** unter dem **echten** Ursprung
+`https://green-scan.ch` ausliefert (`shouldInterceptRequest`). Kein zweiter
+Quelltext: es ist dieselbe `index.html`. Gebaut mit `bash android/build.sh`;
+Ergebnis **4,6 MB** (12 MB roh), 74 Dateien im Paket, `index.html` und
+`data/plants.v1.js` **byte-gleich** mit dem Repo.
+
+Warum der echte Ursprung: daran haengt alles. CORS von Supabase, die
+Rueckkehradressen der Anmeldung, Stripe, und die **CSP aus `_headers`** — die
+liest die Huelle aus der mitgelieferten Datei und setzt sie selbst; sonst liefe
+die App im Paket **ohne** Content-Security-Policy und niemand wuerde es merken.
+**Am Backend ist NICHTS zu aendern.**
+
+**Die eine Regel, die das Stueck traegt:** fuer eine Adresse INNERHALB des
+Ursprungs wird nie `null` zurueckgegeben. `null` heisst in einer WebView „hol
+es aus dem Netz" — und damit waere die App wieder eine Webseite, die ohne
+Empfang leer bleibt. Was das Paket nicht kennt, bekommt eine **404 aus dem
+Paket**. Alles Fremde (Supabase, KI, Wetter, Kacheln) und `blob:`/`data:`
+geben `null`, das soll ins Netz bzw. macht die WebView selbst.
+
+**Fuenf Dinge sind anders — `GS_HUELLE_ANDERS`**, jedes mit Grund, jedes mit
+einer Durchsetzungsstelle im Code UND auf dem Bildschirm (Einstellungen ›
+Ueber GreenScan). `apk_check` R8 haelt beide Seiten gegeneinander:
+`sw` (das Paket IST der Zwischenspeicher) · `push` (haengt am Service Worker) ·
+`update` (neue Fassung = neue Datei) · `download` (Export) · `zahlung`
+(Stripe im Browser des Telefons).
+
+**Drei Fehler, die ein Fan-out ueber den Monolithen gefunden hat** (sieben
+Linsen ueber 95'450 Zeilen — was eine nackte WebView still NICHT tut):
+
+1. **Acht stumme Export-Knoepfe.** Backup, GPX, Plan-PNG, PDF, zwei CSV,
+   Archiv und die zwei Rueckfaelle hinter `navigator.share` bauen sich je
+   ihren eigenen `a[download]`. Eine WebView hat dafuer keinen Speicherweg,
+   und `blob:` erreicht nicht einmal einen `DownloadListener`. Antwort: **EIN
+   Tor** am Klick auf `a[download]` — dieselbe Entscheidung wie das Kamera-Tor
+   (v32.33) und die Tastatur-Nachruestung (v32.16) —, und es **sagt** etwas,
+   statt nichts zu tun.
+2. **Das Zahlungs-Popup haette die App ueberschrieben.** `window.open` benutzt
+   in einer WebView ohne `setSupportMultipleWindows` den LAUFENDEN Rahmen
+   wieder; das folgende `popup.document.write` haette GreenScan selbst
+   ersetzt. `_gsCheckoutFenster` gibt in der Huelle `null`, der vorhandene
+   Rueckfall schickt die Adresse an den Browser.
+3. **`navigator.serviceWorker.ready` kommt ohne Worker NIE zurueck.** Fuenf
+   Stellen warteten darauf — der Test-Push haette fuer immer „⏳ Sende …"
+   angezeigt. Jetzt **EIN Leser** (`_gsSwReady`, `null` statt haengen) —
+   dieselbe Klasse wie `_gsScanZeit` (v33.33) und `_gsPflanzeFinden` (v32.47).
+
+Dazu zwei Dinge, die eine WebView **nicht von selbst** tut und die die Huelle
+uebernimmt: `navigator.onLine` wird aus einem `ConnectivityManager
+.NetworkCallback` getrieben (`setNetworkAvailable`) — sonst stuende die App im
+Wald dauerhaft auf „online", und die Warteschlange fuer offline angelegte
+Eintraege haengt daran; und beim Beenden der Activity feuert **weder**
+`pagehide` **noch** `beforeunload`, also ruft `onPause()` `gsHuellePause()`,
+das `pagehide` ausloest — kein sechster Sicherungsweg neben den fuenf
+vorhandenen.
+
+**Pruefstand: `scripts/apk_check.js`, 28 Faelle in vier Haelften**, dazu
+**18 Gegenproben** (jede rot, jede zurueckgebaut):
+
+- **RECHNUNG** — `Pfade.java` wird **uebersetzt und ausgefuehrt** (reines Java
+  ohne Android, dieselbe Aufteilung wie `_shared/ingest_regeln.mjs`): sechs
+  Ausbruchsversuche (roh, `%2f`, `%2e%2e`, doppelt kodiert, Backslash), die
+  Weiche fuer `blob:`/`data:`/`javascript:` und einen aehnlich aussehenden
+  Wirt, der geschlossene MIME-Katalog, und die Kopfzeilen aus dem echten
+  `_headers` (CSP identisch, HSTS bewusst nicht).
+- **PAKET** — `build.sh` laeuft wirklich, das APK wird aufgemacht: jede Datei,
+  die `index.html` und `SHELL_URLS` vom eigenen Ursprung laden, liegt darin;
+  fuenf Proben byte-gleich; `versionName`/`versionCode` aus `GS_VERSION`;
+  `targetSdk` hoch genug fuer Android 14/15.
+- **RAND** — kein `null` fuer den eigenen Ursprung, **0× `addJavascriptInterface`**,
+  fuenf Riegel gesetzt, dieselbe Marke auf beiden Seiten, jede Berechtigung mit
+  Anlass (und keine ohne), die drei Rueckrufe, der Zurueck-Knopf am Verlauf,
+  kein Schluessel im Repo.
+- **APP** — Playwright ueber **HTTP** (nicht `file:` — dort steigt
+  `gsRegisterServiceWorker` schon in Zeile 1 aus, ein Fall dort waere aus dem
+  falschen Grund gruen), **zweimal gefahren**: mit und ohne die Kennung der
+  Huelle.
+
+**Drei Messfehler im eigenen Pruefstand, alle dieselbe Klasse** — die Suche
+fand zuerst den eigenen Text UEBER die Sache: der Klassenkommentar „Es gibt
+kein `addJavascriptInterface`" zaehlte als eines, ein Kommentar ueber
+`<use href="datei.svg#id">` als fehlende Datei, und der Schnitt am Aufruf
+`imUrsprung(u)` zaehlte das `return null` fuer FREMDE Urspruenge mit, das genau
+richtig ist. Dieselbe Klasse wie die Jargon-Suche in v32.70 und der Schnitt am
+„UNION ALL" im Kommentar in v33.41. Ein Helfer entfernt jetzt Kommentare und
+fuehrt dabei Zeichenketten mit.
+
+**Und ein vierter, der die Gegenprobe betraf:** der Ersatz fuer
+`navigator.serviceWorker` hatte ein `ready`, das nie aufloest — damit mass der
+Fall den Ersatz statt die App und meldete „HAENGT" fuer den Browser. Ein
+Ersatz muss sich verhalten wie die Sache, die er ersetzt.
+
+**Die Grenze, und sie steht im Bericht des Pruefstands:** hier laeuft **kein
+Android**. Geprueft sind der BAU, die RECHNUNG und die ENTSCHEIDUNG der App —
+nicht, wie sich ein Telefon verhaelt. Der erste Start auf einem echten Geraet
+ist Fernandos Handgriff; worauf zu achten ist, steht in `android/README.md`.
+
+**Was Fernando tun muss:** einmal einen Signatur-Schluessel anlegen
+(`android/README.md` §1 — er ist unersetzlich, Android laesst ein Update nur
+mit derselben Signatur zu), damit `bash android/build.sh --release` bauen und
+die Datei zum Herunterladen hinlegen. **Keine Play Console, keine
+Fingerabdruecke, keine Google-Freigabe.**
+
+Dateien: `android/` (Manifest, `build.sh`, `README.md`, vier Java-Klassen,
+`res/`) · `index.html` (`gsAndroidHuelle`, `GS_HUELLE_ANDERS`, `gsHuelleStand`,
+`_gsHuelleHtml`, `_gsHuelleDownloadTor`, `_gsCheckoutFenster`, `_gsSwReady`,
+`gsHuellePause`; `gsLaeuftAlsApp`, `gsRegisterServiceWorker`,
+`gsPushSupportStatus`, `gsStartCheckout`, `gsOpenBillingPortal` angepasst) ·
+`scripts/apk_check.js` · `scripts/pruefstaende.sh` ·
+`.github/workflows/pruefstaende.yml` (Android-Werkzeuge) ·
+`docs/ANDROID-APK.md` (als TWA-Weg eingeordnet) · `.gitignore`.
+
 ### 2026-09-17 (is) - v33.48: Die Artenliste hat einen zweiten Versuch
 
 Dritte Scheibe zu Fernandos „es soll viel mehr automatisiert und verbessert
@@ -14384,11 +14522,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.48` (Client) · SW-Cache `gs-v33.48` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.49` (Client) · SW-Cache `gs-v33.49` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **95'221 Zeilen / 6,09 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **576 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.28).
+- **Frontend:** `index.html` **95'450 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **575 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.29).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **220 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **38** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **35** davon. Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte

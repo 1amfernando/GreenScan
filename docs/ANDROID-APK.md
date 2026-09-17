@@ -1,3 +1,27 @@
+> **VERALTET ab v33.49 — was die Auslieferung angeht.**
+>
+> Dieses Dokument beschreibt eine **TWA** (Chrome-Huelle, laedt green-scan.ch
+> aus dem Netz, braucht zwei Fingerabdruecke aus der Play Console). Gemessen am
+> 17.09.2026 ist der Weg aus dieser Umgebung **gar nicht baubar**:
+> `dl.google.com` ist gesperrt (403, dieselbe Klasse wie green-scan.ch selbst),
+> damit kein Google Maven, damit kein AndroidX, damit weder Bubblewrap noch
+> Capacitor. Und er beantwortet Fernandos Auftrag nicht: eine TWA ohne
+> gueltige Fingerabdruecke zeigt die Adressleiste — also genau die Webseite in
+> einer Huelle.
+>
+> **Gebaut ist seit v33.49 etwas anderes:** `android/` — eine nackte
+> `android.webkit.WebView`, die die App AUS DEM PAKET unter dem echten Ursprung
+> `https://green-scan.ch` ausliefert. Offline ab dem ersten Start, nie eine
+> Adressleiste, keine Fingerabdruecke noetig. Anleitung: **`android/README.md`**.
+> Pruefstand: **`scripts/apk_check.js`** (28 Faelle).
+>
+> **Was hier gueltig bleibt** und deshalb nicht geloescht wurde: der
+> Zurueck-Knopf (§ dazu unten — `gsZurueck`, `GS_VOLLBILD_OVERLAYS`,
+> `gsLaeuftAlsApp`), die Risikotabelle (Bezahlen, zwei Auslieferungen,
+> Datenschutz-Erklaerung) und der Play-Store-Weg selbst: der Paketname
+> `ch.greenscan.app` und `.well-known/assetlinks.json` sind derselbe, eine
+> TWA bleibt also spaeter moeglich, NEBEN dem Paket.
+
 # GreenScan als Android-App — Stand, Handgriffe, Risiken
 
 > **Kurz:** GreenScan wird als **TWA** (Trusted Web Activity) zur Android-App —

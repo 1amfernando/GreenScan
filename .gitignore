@@ -40,3 +40,7 @@ store/ios/package-lock.json
 # v32.69: Playwright fuer die Pruefstaende liegt in scripts/ (siehe scripts/package.json)
 /scripts/node_modules/
 /scripts/package-lock.json
+
+# Android-Huelle: Bauverzeichnis und der Wegwerf-Schluessel fuer die Entwicklung
+android/build/
+android/.keystore-dev/

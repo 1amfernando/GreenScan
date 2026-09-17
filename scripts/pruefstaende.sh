@@ -6,6 +6,7 @@
 #
 # Playwright: $GS_PW (Pfad zum playwright-Modul) — in CI scripts/node_modules/playwright,
 # in der Claude-Cloud /opt/node22/lib/node_modules/playwright (Vorgabe in den Pruefstaenden).
+# Android (apk_check): aapt/apksigner/zipalign/dalvik-exchange + android.jar (Ubuntu-Archiv, NICHT dl.google.com).
 # Postgres (quiz_check, schluessel_check, nutzung_check, backup_check, quiz_gen_check): $GS_PG_URL, sonst 127.0.0.1:54329 (scripts/_pg_local.sh).
 # Ohne Postgres melden diese beiden „nicht pruefbar" (Exit 2) — hier gilt das als Warnung, nicht als rot.
 set -u
@@ -58,6 +59,9 @@ run quizgen      node scripts/quiz_gen_check.js
 run nutzersicht  node scripts/nutzersicht_check.js
 run admin        node scripts/admin_check.js
 run android      node scripts/android_check.js
+# v33.49: baut das Android-Paket wirklich (~40 s) und sieht darin nach.
+# Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen.
+run apk          node scripts/apk_check.js
 run risiko       node scripts/risiko_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js

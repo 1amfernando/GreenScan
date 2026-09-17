@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.48.20260917">
+<meta name="app-version" content="33.49.20260917">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6965,6 +6965,8 @@ html, body{ scroll-behavior: smooth; }
             <div id="about-version" style="font-size:var(--fs-sm);color:var(--muted);font-weight:600;margin-top:2px;"></div>
           </div>
         </div>
+        <!-- v33.49: nur in der Android-Huelle gefuellt, sonst leer. -->
+        <div id="about-huelle"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <div style="background:var(--g-bg);border-radius:var(--r-md);padding:10px;text-align:center;">
             <div id="settings-db-total" style="font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);">–</div>
@@ -18981,10 +18983,10 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
 
   // v23.50: Popup SOFORT öffnen (muss im User-Gesture-Handler passieren,
   // sonst blockieren Browser). Später füllen wir die URL nach.
-  var popup = window.open('about:blank', 'greenscan_checkout',
-    'width=520,height=760,left=' + ((screen.width-520)/2) +
-    ',top=' + ((screen.height-760)/2) +
-    ',scrollbars=yes,resizable=yes');
+  // v33.49 (GS_HUELLE_ANDERS 'zahlung'): in der Android-Huelle gibt es kein
+  // zweites Fenster — `window.open` benutzt dort den LAUFENDEN Rahmen wieder,
+  // und das `popup.document.write` unten wuerde die App selbst ueberschreiben.
+  var popup = _gsCheckoutFenster('greenscan_checkout', 520, 760);
   if (popup) {
     try {
       popup.document.write(
@@ -18997,6 +18999,12 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
         '</body></html>'
       );
     } catch(e){}
+  } else if (gsAndroidHuelle()) {
+    // Kein Fehler, sondern der gebaute Weg — und die Person soll wissen,
+    // wohin sie geht und dass sie zurueckkommen soll.
+    gsToast({title: _gsSatz('Bezahlung im Browser'),
+      body: _gsSatz('Stripe oeffnet sich im Browser des Telefons. Danach zurueck zu GreenScan — dein Plan wird beim naechsten Abgleich uebernommen.'),
+      type:'info', duration:5500});
   } else {
     // Popup blockiert — Fallback mit Nutzer-Info (v24.44: Toast statt blockierender alert())
     gsToast({title:'Popup blockiert', body:'Bitte erlaube Popups für GreenScan und versuche es erneut. Alternativ öffnen wir Stripe im selben Fenster.', type:'warning', duration:5500});
@@ -19126,10 +19134,10 @@ async function gsOpenBillingPortal(flow) {
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
     gsToast('Bitte zuerst anmelden.', 'error'); return;
   }
-  var popup = window.open('about:blank', 'greenscan_portal',
-    'width=520,height=760,left=' + ((screen.width-520)/2) +
-    ',top=' + ((screen.height-760)/2) +
-    ',scrollbars=yes,resizable=yes');
+  // v33.49 (GS_HUELLE_ANDERS 'zahlung'): siehe gsStartCheckout — in der Huelle
+  // kein zweites Fenster, der Rueckfall unten schickt die Adresse an den
+  // Browser des Telefons.
+  var popup = _gsCheckoutFenster('greenscan_portal', 520, 760);
   if (popup) {
     try {
       popup.document.write('<html><head><title>GreenScan · Abo-Portal wird geladen…</title></head><body style="font-family:system-ui;background:#0d2e0d;color:#fff;display:flex;align-items:center;justify-content:center;height:100dvh;margin:0;"><div style="text-align:center;"><div style="font-size:40px;margin-bottom:10px;">⏳</div><p>Abo-Portal wird geladen…</p></div></body></html>');
@@ -38288,9 +38296,8 @@ function initPlantListDelegation(){
 // v30.77: prüft (async, gecacht) ob bereits eine Web-Push-Subscription besteht — steuert den Opt-in-Prompt.
 function _gsRefreshPushSubState(){
   try {
-    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.ready) return;
-    navigator.serviceWorker.ready
-      .then(function(reg){ return reg.pushManager.getSubscription(); })
+    _gsSwReady()
+      .then(function(reg){ return reg ? reg.pushManager.getSubscription() : null; })
       .then(function(sub){ window._gsHasPushSub = !!sub; })
       .catch(function(){});
   } catch(_){}
@@ -56013,6 +56020,14 @@ function initSettingsScreen() {
   // v23.71: Signature-Badges entfernt — waren für User bedeutungslos
   const verEl = document.getElementById('about-version');
   if (verEl) verEl.textContent = 'Version ' + GS_VERSION + ' · ' + new Date().getFullYear();
+  // v33.49 (GS_HUELLE_ANDERS 'update'): laeuft die App als Android-Paket, steht
+  // hier, WAS anders ist. Drei Dinge, jedes mit Grund — und der Satz ueber die
+  // Updates ist der wichtigste, weil er der einzige ist, den die Person selbst
+  // in die Hand nehmen muss.
+  try {
+    var _hb = document.getElementById('about-huelle');
+    if (_hb) _hb.innerHTML = _gsHuelleHtml();
+  } catch(_){}
   const vEl2 = document.getElementById('settings-version');
   if (vEl2) vEl2.textContent = GS_VERSION + ' · ' + new Date().toLocaleDateString(gsLocale());
 
@@ -76182,6 +76197,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.49', date: '17.09.2026',
+      headline: 'GreenScan ist jetzt eine Android-App',
+      summary: 'Es gibt ein APK zum Herunterladen — dieselbe App, aber die Dateien liegen IM Paket statt im Netz. Sie startet ohne Empfang, hat nie eine Adressleiste und braucht keinen Play Store. Fünf Dinge sind in der App anders als im Browser, und die App sagt jedes davon mit Grund.',
+      user_summary: 'GreenScan gibt es jetzt als richtige App zum Herunterladen. Sie startet auch ohne Empfang — die ganze Artenliste ist schon drin — und sieht nirgends mehr nach einer Webseite aus. Was in der App noch nicht geht, steht in der App.',
+      user_items: [
+        {emoji:'📱', bold:'Eine Datei, keine Anmeldung bei Google:', text:' herunterladen, einmal „Installieren erlauben“ antippen, fertig.'},
+        {emoji:'🌲', bold:'Der erste Start geht im Wald:', text:' die Artenliste und alle Bilder sind Teil der App, nicht ein Download beim ersten Öffnen.'},
+        {emoji:'↩️', bold:'Der Zurück-Knopf schliesst ein Fenster,', text:' nicht die ganze App.'},
+        {emoji:'🔎', bold:'Was noch nicht geht, sagt es:', text:' Erinnerungen und der Export von Backup/CSV/PDF kommen in der App später — im Browser auf green-scan.ch gehen sie weiter.'}
+      ],
+      items: [
+        {emoji:'📦', bold:'Nackte WebView statt TWA:', text:' dl.google.com ist aus dieser Umgebung gesperrt (403) — damit kein Google Maven, kein AndroidX, also weder Bubblewrap/TWA noch Capacitor. Und eine TWA ohne gültige Fingerabdrücke zeigt die Adressleiste, wäre also weiter eine Webseite in einer Hülle.'},
+        {emoji:'🌐', bold:'Derselbe Ursprung:', text:' shouldInterceptRequest liefert die Dateien unter https://green-scan.ch aus dem Paket. Deshalb gelten CORS, Anmelde-Rückkehr, Stripe und die CSP aus _headers unverändert — am Backend ist NICHTS zu ändern.'},
+        {emoji:'🚫', bold:'Nie null für den eigenen Ursprung:', text:' was das Paket nicht kennt, bekommt eine 404 aus dem Paket. null hiesse „hol es aus dem Netz“ — und dann wäre die App wieder eine Webseite.'},
+        {emoji:'📋', bold:'GS_HUELLE_ANDERS:', text:' fünf Einträge (kein Service Worker, kein Push, Update als Datei, kein Export, Bezahlen im Browser). Jeder hat eine Durchsetzungsstelle im Code UND steht auf dem Bildschirm; apk_check R8 hält beides gegeneinander.'},
+        {emoji:'🚪', bold:'Ein Tor statt acht Pflaster:', text:' acht Stellen bauen sich ihren eigenen Export-Anker. Das Tor sitzt am Klick auf a[download] — dieselbe Entscheidung wie das Kamera-Tor (v32.33) und die Tastatur-Nachrüstung (v32.16).'},
+        {emoji:'⏳', bold:'_gsSwReady:', text:' navigator.serviceWorker.ready kommt ohne registrierten Worker NIE zurück. Fünf Stellen warteten darauf — der Test-Push hätte für immer „⏳ Sende …“ gezeigt. Jetzt EIN Leser, der null liefert.'},
+        {emoji:'🧪', bold:'apk_check (28 Fälle, 18 Gegenproben):', text:' Pfade.java wird übersetzt und AUSGEFÜHRT (Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:), das Paket wird wirklich gebaut und aufgemacht (index.html byte-gleich), und die App läuft zweimal — mit und ohne die Kennung der Hülle.'},
+        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Bau, Rechnung und Entscheidung — nicht, wie sich ein Telefon verhält.'}
+      ]
+  },
+  {
     v: 'v33.48', date: '17.09.2026',
       headline: 'Die Artenliste hat einen zweiten Versuch',
       summary: 'Das Script-Tag der 2,1-MB-Artenliste hatte kein onerror und keinen Rückfall: fiel die Datei aus, lief die App mit einer leeren Liste weiter und sagte beim Start nichts. Jetzt gibt es einen zweiten Ladeversuch mit Cache-Umgehung — und wenn auch der danebengeht, steht es auf der Startseite.',
@@ -76504,27 +76541,6 @@ window.GS_RELEASES = [
         'Pruefstand: sensor_check +5 (36 Faelle), darunter einer, der den WEG misst statt der Funktionen — Notfall ohne KI-Aufruf, Kontext mit ARTEN-Zeile, Warnzeile ueber der Antwort, Antwort ohne Netz. Fuenf Gegenproben einzeln gestellt.'
       ]
   },
-  {
-    v: 'v33.29', date: '14.09.2026',
-      headline: 'Beim Quiz steht jetzt „Giftigkeit" statt „edible_toxic"',
-      summary: 'Die Zeile unter der Quizfrage zeigte den rohen Datenbanknamen — und dafuer gab es drei Quellen mit zusammen 35 verschiedenen Schreibweisen, darunter pilz und pilze nebeneinander. Jetzt gibt es zwoelf Kategorien in vier Sprachen, und der Fragen-Generator darf keine anderen mehr anlegen. Dazu eine Pruefung vor dem Anlegen (vier Antworten, richtige Antwort im Bereich, Erklaerung da) und eine Dublettensperre, die auch innerhalb einer Lieferung greift.',
-      user_summary: 'Unter jeder Quizfrage steht jetzt ein richtiges Wort statt eines Datenbanknamens — und in deiner Sprache. Unsichtbar dahinter: neue Fragen werden geprueft, bevor sie ins Quiz kommen.',
-      user_items: [
-        {emoji: '🏷\ufe0f', bold: 'Zwoelf Kategorien:', text: ' Bestimmen, Giftigkeit, Kueche, Heilkunde, Standort, Saison, Sammeln, Garten, Pilze, Tiere, Natur, Wissen — uebersetzt, statt „edible_toxic" oder „bestaeuber".'},
-        {emoji: '\u2705', bold: 'Geprueft, bevor es ins Quiz kommt:', text: ' genau vier Antworten, die richtige im Bereich, eine Erklaerung dabei, keine zwei gleichen Antworten. Was durchfaellt, kommt nicht hinein — und haelt den Rest nicht auf.'},
-        {emoji: '🔁', bold: 'Keine doppelten Fragen mehr:', text: ' verglichen wird ohne Gross-/Kleinschreibung und ohne Satzzeichen — und neu auch innerhalb einer Lieferung, nicht nur gegen das, was schon da ist.'},
-        {emoji: '📉', bold: 'Der Vorrat wird gezaehlt:', text: ' 181 Fragen sind noch nie drangekommen. Wird es knapp, meldet sich der Server rechtzeitig, statt still Fragen zu wiederholen.'}
-      ],
-      items: [
-        'Vokabular: supabase/functions/_shared/quiz_gen_regeln.mjs — zwoelf Kategorien, 31 Alias-Eintraege; jeder der 35 live gemessenen Slugs loest auf. Die App spiegelt die Listen (GS_QUIZ_KATEGORIEN / GS_QUIZ_KAT_ALIAS), gebunden durch quiz_gen_check.',
-        'Anzeige: _gsQuizKatLabel(slug) statt „Kategorie: " + slug. Unbekannt ergibt LEER — lieber keine Zeile als ein Datenbankwort. Zwoelf _t-Schluessel in GS_I18N_JS_STRINGS.',
-        'Generator: knowledge-bulk-gen importiert das Modul, der Prompt nennt das Vokabular statt einer eigenen Sechserliste, und die Antwort meldet rejected samt Grund.',
-        'Dubletten: die Menge der bekannten Fragen waechst waehrend des Stapels mit. Vorher wurde sie einmal aus der Datenbank gebaut und nie nachgezogen.',
-        'Vorrat: Migration 20260914_quiz_vorrat.sql (NICHT angewandt) mit fn_quiz_vorrat und einer taeglichen Warnung nach system_events ab 60 verbleibenden Tagen.',
-        'Pruefstand: scripts/quiz_gen_check.js — 23 Faelle (Rechnung in Node, Vorrat in einem lokalen Postgres, Anzeige in Playwright), zwanzig Gegenproben einzeln gestellt.',
-        'Eine gegnerische Pruefung des fertigen Schnitts fand 13 Dinge, sechs davon ernst — darunter elf Emoji aus v33.27/v33.28, die gar keine Emoji waren, und ein Vokabular, das die Umlaute nicht kannte, die sein eigener Prompt provoziert.'
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76733,7 +76749,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.48';
+var GS_VERSION = 'v33.49';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -78968,6 +78984,15 @@ function _gsUpdateNachher(){
 // Hintergrund-Updates. Sync-Tag „gs-sync-pending" für offline erstellte Daten.
 function gsRegisterServiceWorker() {
   if (location.protocol === 'file:') return;
+  // v33.49 (GS_HUELLE_ANDERS 'sw'): in der Android-Huelle liegen alle Dateien
+  // schon im Paket. Ein Service Worker daneben holte dieselben Dateien ein
+  // zweites Mal aus dem Netz und koennte eine alte Fassung UEBER die aus dem
+  // Paket legen — er wuerde die Auslieferung aus dem Paket uebernehmen, sobald
+  // er die Seite kontrolliert. Das Paket ist der Zwischenspeicher.
+  if (gsAndroidHuelle()) {
+    console.info('[GreenScan] Android-Huelle: kein Service Worker — das Paket ist der Zwischenspeicher');
+    return;
+  }
   if (!('serviceWorker' in navigator)) {
     console.info('[GreenScan] Service Worker nicht unterstützt');
     return;
@@ -86746,6 +86771,7 @@ function gsIsIOS() {
 // Der Leser ist die Regel, nicht das Feld (v33.33, v33.37, v33.39).
 function gsLaeuftAlsApp() {
   try {
+    if (gsAndroidHuelle()) return true;
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
     if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
     if (window.navigator.standalone === true) return true;
@@ -86754,6 +86780,197 @@ function gsLaeuftAlsApp() {
   return false;
 }
 window.gsLaeuftAlsApp = gsLaeuftAlsApp;
+
+// ---------------------------------------------------------------------------
+// v33.49: Die Android-Huelle.
+//
+// GreenScan gibt es seit v33.49 auch als Android-Paket (`android/`, gebaut mit
+// `android/build.sh`). Das ist KEINE zweite App und kein zweiter Quelltext: es
+// ist dieselbe `index.html`, die im Paket LIEGT und von der Huelle unter dem
+// ECHTEN Ursprung `https://green-scan.ch` ausgeliefert wird. Damit gilt drinnen
+// Zeichen fuer Zeichen dasselbe wie im Browser — derselbe localStorage, dieselbe
+// CORS-Antwort von Supabase, dieselben Rueckkehradressen der Anmeldung.
+//
+// DREI Dinge sind trotzdem anders, und jedes hat einen GRUND, den die App
+// aussprechen muss statt ihn zu verschlucken. Sie stehen in GS_HUELLE_ANDERS;
+// `apk_check` haelt jeden Eintrag gegen die Stelle, die ihn durchsetzt —
+// ein Eintrag ohne Durchsetzung waere eine Behauptung, eine Durchsetzung ohne
+// Eintrag waere eine Aenderung, die niemand erklaert bekommt.
+// ---------------------------------------------------------------------------
+
+// Erkennungszeichen, das die Huelle an die Kennung des Browsers haengt
+// (MainActivity.UA_MARKE). Eine Kennung, keine Bruecke: die Huelle macht
+// ausdruecklich KEIN addJavascriptInterface auf, also kann von hier aus auch
+// nichts in die Android-Schicht hineinrufen.
+var GS_HUELLE_MARKE = 'GreenScanApp';
+
+// Liefert die Version der Huelle ('33.49') oder null, wenn wir im Browser sind.
+function gsAndroidHuelle() {
+  try {
+    var m = String(navigator.userAgent || '').match(/GreenScanApp\/([0-9]+\.[0-9]+)/);
+    return m ? m[1] : null;
+  } catch(_) { return null; }
+}
+window.gsAndroidHuelle = gsAndroidHuelle;
+
+var GS_HUELLE_ANDERS = [
+  {
+    schl: 'sw',
+    titel: 'Kein Service Worker',
+    text: 'In der App IST das Paket der Zwischenspeicher — alle Dateien sind schon da, ab dem allerersten Start und ohne Empfang. Ein Service Worker daneben wuerde dieselben Dateien ein zweites Mal aus dem Netz holen und im schlimmsten Fall eine alte Fassung ueber die aus dem Paket legen.'
+  },
+  {
+    schl: 'push',
+    titel: 'Noch keine Push-Nachrichten',
+    text: 'Push haengt am Service Worker, den es hier nicht gibt. Erinnerungen an Giesstage kommen deshalb in der App noch nicht von selbst — im Browser auf green-scan.ch weiterhin schon.'
+  },
+  {
+    schl: 'update',
+    titel: 'Updates kommen als neue Datei',
+    text: 'Eine neue Fassung ist eine neue APK-Datei zum Herunterladen, wie bei jeder App ausserhalb eines Stores. Die App laedt sich nicht selbst nach.'
+  },
+  {
+    schl: 'download',
+    titel: 'Export noch nicht',
+    text: 'Backup, GPX, CSV und PDF legen die Datei im Arbeitsspeicher an; eine nackte WebView hat dafuer keinen Speicherweg. In der App sagt der Knopf das, statt nichts zu tun — im Browser auf green-scan.ch geht der Export. Deine Daten liegen ohnehin im Cloud-Backup.'
+  },
+  {
+    schl: 'zahlung',
+    titel: 'Bezahlen im Browser',
+    text: 'Die Abo-Bezahlung oeffnet Stripe im Browser des Telefons statt in einem Fenster der App — wie in jeder anderen App auch. Danach zurueck zu GreenScan; der Plan wird beim naechsten Abgleich uebernommen.'
+  }
+];
+window.GS_HUELLE_ANDERS = GS_HUELLE_ANDERS;
+
+/**
+ * Der eine Stand ueber die Huelle — mit Grund, nie stumm.
+ * { huelle:false } im Browser, sonst { huelle:true, version, anders:[…] }.
+ */
+function gsHuelleStand() {
+  var v = gsAndroidHuelle();
+  if (!v) return { huelle: false, version: null, anders: [] };
+  return { huelle: true, version: v, anders: GS_HUELLE_ANDERS };
+}
+window.gsHuelleStand = gsHuelleStand;
+
+/**
+ * Der sichtbare Teil: was in der App anders ist. Im Browser LEERE Zeichenkette
+ * — eine Karte „laeuft im Browser" waere eine Zeile ohne Aussage (dieselbe
+ * Regel wie _gsKalWocheZeile: wer nichts zu sagen hat, sagt '').
+ */
+function _gsHuelleHtml() {
+  var st = gsHuelleStand();
+  if (!st.huelle) return '';
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function(x){ return String(x == null ? '' : x); };
+  var h = '<div style="margin-top:12px;background:var(--g-bg);border-radius:var(--r-md);padding:12px 14px;">'
+        + '<div style="font-weight:800;color:var(--text);font-size:var(--fs-sm);">'
+        + '\ud83d\udcf1 ' + esc(_gsSatz('Als Android-App installiert')) + ' \u00b7 ' + esc(st.version) + '</div>'
+        + '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px;line-height:1.6;">'
+        + esc(_gsSatz('Alle Dateien liegen im Paket — die App braucht fuer sich selbst kein Netz.')) + '</div>';
+  for (var i = 0; i < st.anders.length; i++) {
+    var a = st.anders[i];
+    h += '<div style="margin-top:10px;">'
+       + '<div style="font-weight:700;color:var(--text);font-size:var(--fs-xs);">' + esc(_gsSatz(a.titel)) + '</div>'
+       + '<div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.6;">' + esc(_gsSatz(a.text)) + '</div>'
+       + '</div>';
+  }
+  return h + '</div>';
+}
+window._gsHuelleHtml = _gsHuelleHtml;
+
+/**
+ * GS_HUELLE_ANDERS 'download': EIN Tor statt acht Pflaster.
+ *
+ * Acht Stellen bauen sich ihren eigenen Anker mit `download` — Backup, GPX,
+ * Plan-PNG, PDF, zwei CSV, Archiv, und die zwei Rueckfaelle hinter
+ * `navigator.share`. In einer nackten WebView passiert bei JEDER davon
+ * NICHTS: es gibt keinen eingebauten Download-Weg, und `blob:` erreicht
+ * nicht einmal einen `DownloadListener`. Acht stumme Knoepfe.
+ *
+ * Das Tor sitzt deshalb an der einen Stelle, durch die alle muessen — dem
+ * Klick auf einem Element mit `download` (dieselbe Entscheidung wie das
+ * Kamera-Tor in v32.33 und die Tastatur-Nachruestung in v32.16). Die
+ * naechste Export-Stelle bringt den Fehler damit nicht wieder mit.
+ *
+ * Und es SAGT etwas. Ein Knopf, der nichts tut, ist die schlechteste aller
+ * Antworten — schlechter als einer, der erklaert, warum.
+ */
+function _gsHuelleDownloadTor() {
+  if (!gsAndroidHuelle()) return false;
+  document.addEventListener('click', function (ev) {
+    var a;
+    try { a = ev.target && ev.target.closest ? ev.target.closest('a[download]') : null; } catch (_) { return; }
+    if (!a) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    try {
+      gsToast({ title: _gsSatz('Export geht in der App noch nicht'),
+        body: _gsSatz('Oeffne green-scan.ch im Browser — dort laedt die Datei herunter. Deine Daten sind im Cloud-Backup sicher.'),
+        type: 'warning', duration: 6000 });
+    } catch (_) {}
+  }, true);   // Erfassungsphase: vor jedem eigenen Handler der acht Stellen
+  return true;
+}
+window._gsHuelleDownloadTor = _gsHuelleDownloadTor;
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _gsHuelleDownloadTor); else _gsHuelleDownloadTor(); } catch(_){}
+
+/**
+ * GS_HUELLE_ANDERS 'zahlung': kein Fenster im Fenster.
+ *
+ * Die Bezahlung oeffnet seit v23.50 SOFORT ein leeres Popup (im Klick, sonst
+ * sperrt der Browser es) und faellt spaeter die Stripe-Adresse hinein. Eine
+ * nackte WebView hat keine zweiten Fenster: `window.open` benutzt den
+ * LAUFENDEN Rahmen wieder — das folgende `popup.document.write` wuerde also
+ * die App selbst ueberschreiben. Deshalb gibt es hier gar kein Fenster; der
+ * vorhandene Rueckfall schickt die Adresse an `location.href`, und die
+ * Huelle reicht sie an den Browser des Telefons weiter.
+ */
+function _gsCheckoutFenster(name, breite, hoehe) {
+  if (gsAndroidHuelle()) return null;
+  try {
+    return window.open('about:blank', name,
+      'width=' + breite + ',height=' + hoehe +
+      ',left=' + ((screen.width - breite) / 2) + ',top=' + ((screen.height - hoehe) / 2) +
+      ',scrollbars=yes,resizable=yes');
+  } catch (_) { return null; }
+}
+window._gsCheckoutFenster = _gsCheckoutFenster;
+
+/**
+ * Der EINE Leser fuer die Service-Worker-Registrierung.
+ *
+ * `navigator.serviceWorker.ready` ist eine Zusage, die NIE zurueckkommt, wenn
+ * nie ein Worker registriert wurde — kein Fehler, keine Ablehnung, nur ein
+ * `await`, das haengt. In der Huelle registrieren wir bewusst keinen
+ * (GS_HUELLE_ANDERS 'sw'); fuenf Stellen warteten darauf, und der Test-Push
+ * haette fuer immer „⏳ Sende …" angezeigt.
+ *
+ * Die Antwort ist EIN Leser statt fuenf Waechter — dieselbe Entscheidung wie
+ * `_gsScanZeit` (v33.33) und `_gsPflanzeFinden` (v32.47): der Leser ist die
+ * Regel, nicht das Feld. `null` heisst „es gibt keine Registrierung"; wer
+ * ihn ruft, prueft auf `null` und sagt etwas.
+ */
+async function _gsSwReady() {
+  if (gsAndroidHuelle()) return null;
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker || !navigator.serviceWorker.ready) return null;
+  try { return await navigator.serviceWorker.ready; } catch (_) { return null; }
+}
+window._gsSwReady = _gsSwReady;
+
+/**
+ * Ruft die Android-Huelle, wenn die App in den Hintergrund geht.
+ *
+ * Eine WebView feuert beim Beenden der Activity weder `pagehide` noch
+ * `beforeunload`. Statt einen SECHSTEN Sicherungsweg neben die fuenf
+ * vorhandenen zu stellen, loest diese Funktion `pagehide` aus — damit sichern
+ * genau die Stellen, die es im Browser auch tun (Cloud-Abgleich, XP, Tracks,
+ * Scanner). Ein zweiter Weg waere ein zweiter Zustand.
+ */
+function gsHuellePause() {
+  try { window.dispatchEvent(new Event('pagehide')); } catch (_) {}
+  return true;
+}
+window.gsHuellePause = gsHuellePause;
 function gsIsStandalonePWA() { return gsLaeuftAlsApp(); }
 function gsIOSVersion() {
   // Liefert Major.Minor als Float oder null. iOS 16.4 → 16.4.
@@ -86763,6 +86980,17 @@ function gsIOSVersion() {
   return parseFloat(m[1] + '.' + m[2]);
 }
 function gsPushSupportStatus() {
+  // v33.49 (GS_HUELLE_ANDERS 'push'): ZUERST die Huelle. Push haengt an einer
+  // Service-Worker-Registrierung (reg.pushManager), und die gibt es in der
+  // Huelle bewusst nicht. Ohne diesen Zweig faende der Schalter zwar beide
+  // Schnittstellen vor (die WebView kennt sie) und liefe dann in ein
+  // `navigator.serviceWorker.ready`, das NIE zurueckkommt — ein Schalter, der
+  // sich dreht und nichts sagt.
+  var _h = gsAndroidHuelle();
+  if (_h) {
+    return { ok: false, reason: 'huelle',
+      message: _gsSatz('In der App gibt es noch keine Push-Nachrichten. Im Browser auf green-scan.ch bekommst du sie weiterhin.') };
+  }
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return { ok: false, reason: 'browser', message: 'Push wird auf diesem Browser nicht unterstuetzt' };
   }
@@ -86807,7 +87035,8 @@ async function gsSubscribeWebPush(){
     return null;
   }
   try {
-    var reg = await navigator.serviceWorker.ready;
+    var reg = await _gsSwReady();
+    if (!reg) { if (typeof showProfileToast === 'function') showProfileToast({title:_gsSatz('Push nicht moeglich'), body:_gsSatz('Es ist kein Service Worker registriert.'), type:'error'}); return null; }
     // Existing-Sub clearen wenn VAPID-Wechsel (sonst InvalidStateError)
     var existing = await reg.pushManager.getSubscription();
     if (existing) {
@@ -86839,9 +87068,9 @@ async function gsSubscribeWebPush(){
 }
 
 async function gsUnsubscribeWebPush(){
-  if (!('serviceWorker' in navigator)) return;
   try {
-    var reg = await navigator.serviceWorker.ready;
+    var reg = await _gsSwReady();
+    if (!reg) return;
     var sub = await reg.pushManager.getSubscription();
     if (sub) {
       var ep = sub.endpoint;
@@ -86971,8 +87200,8 @@ async function gsPushSettingsRefresh(){
   if (ld) ld.textContent = lead + ' h';
   // Echter Sub-Status vom Browser
   try {
-    if (!('serviceWorker' in navigator)) return;
-    var reg = await navigator.serviceWorker.ready;
+    var reg = await _gsSwReady();
+    if (!reg) return;
     var sub = await reg.pushManager.getSubscription();
     toggle.checked = !!sub;
     if (detail) detail.style.display = sub ? '' : 'none';
@@ -87018,8 +87247,8 @@ async function gsSendTestPush(){
       return;
     }
     // Sicherstellen, dass überhaupt eine aktive Subscription existiert
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      var reg = await navigator.serviceWorker.ready;
+    var reg = await _gsSwReady();
+    if (reg && 'PushManager' in window) {
       var existing = await reg.pushManager.getSubscription();
       if (!existing) {
         if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst Push aktivieren (Toggle oben)', 'info');
