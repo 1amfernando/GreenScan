@@ -186,6 +186,24 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
+### Seit dem 17.09.2026 (v33.47) — „Nicht geprüft" ist keine Entwarnung
+
+Gesucht war eine Selbstprüfung beim Start; die Messung fand etwas Dringenderes.
+Fällt `data/plants.v1.js` aus (nacktes `<script src>`, kein `onerror`), konnte
+der Scanner nichts gegenprüfen — und sagte trotzdem **„Nichts spricht dagegen"**
+unter der Überschrift **„Gegengeprüft mit unserer Artenliste"**. Für einen
+Knollenblätterpilz, den das Modell als essbar meldet, blieb die Giftstufe die
+ungeprüfte 0 der KI statt der 5 aus unserer Liste.
+
+**Zwei Dinge daraus, die über den Scanner hinausgehen:**
+
+- **Eine fehlende Verzweigung ist gefährlicher als eine falsche.** „Niemand
+  widerspricht" und „niemand konnte etwas sagen" fielen in denselben Zweig
+  (`warn === 0`). Der vierte Zustand steht jetzt davor.
+- **Stille als Entwarnung, diesmal als aktive Zusage** (v33.36 war die leise
+  Fassung). Eine Überschrift, die eine Prüfung behauptet, die nicht lief, ist
+  schlimmer als gar keine Überschrift.
+
 ### Seit dem 16.09.2026 (v33.46) — ein Sync, der klemmt, sagt es
 
 Fernandos „es soll viel mehr automatisiert und verbessert werden", erste

@@ -119,6 +119,73 @@ const FAELLE = [
     },
   },
   {
+    // v33.47. Gemessen an v33.46 mit blockiertem `data/plants.v1.js`: alle
+    // sieben Regeln `unbekannt`, Stufe „Nichts spricht dagegen" — eine
+    // ENTWARNUNG, obwohl nichts pruefen konnte. Der Zustand ist NUR ohne
+    // Artenliste erreichbar (mit Liste liefert S1 immer ok oder warn,
+    // gemessen an sieben Ergebnisformen) — also genau der Fehler, den kein
+    // Pruefstand vor der Auslieferung sieht.
+    name: 'P1 · Konnte KEINE Prüfung etwas sagen, ist das keine Entwarnung',
+    lauf: () => {
+      const res = () => ({ name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides',
+                           category: 'Pilze', confidence: 90, toxicity: 0, edible: true });
+      const echt = window.DB;
+      // Mit Liste: der bisherige Weg muss unveraendert bleiben.
+      const mit = _gsScanPruefwerk(res(), null);
+      let ohne = null, hergestellt = 0;
+      try {
+        window.DB = [];
+        hergestellt = (window.DB && window.DB.length) === 0 ? 1 : 0;
+        ohne = _gsScanPruefwerk(res(), null);
+      } finally { window.DB = echt; }
+      if (!hergestellt) return { ok: false, warum: 'Zustand nicht hergestellt: DB liess sich nicht leeren' };
+      if (!ohne || !ohne.stufe) return { ok: false, warum: 'ohne Liste keine Stufe' };
+      if (ohne.ok !== 0 || ohne.warn !== 0)
+        return { ok: false, warum: 'ohne Liste unerwartet ok=' + ohne.ok + ' warn=' + ohne.warn };
+      if (ohne.stufe.schl !== 'keine')
+        return { ok: false, warum: 'ohne Liste Stufe „' + ohne.stufe.label + '" (' + ohne.stufe.schl + ') statt „Nicht geprüft"' };
+      if (!/nicht geladen/i.test(ohne.stufe.text || ''))
+        return { ok: false, warum: 'der Grund nennt die fehlende Liste nicht: „' + (ohne.stufe.text || '') + '"' };
+      // Gegenrichtung: mit Liste darf sich NICHTS geaendert haben.
+      if (!mit || !mit.stufe || mit.stufe.schl === 'keine')
+        return { ok: false, warum: 'mit Liste faelschlich „Nicht geprüft" — der Fall unterscheidet nichts' };
+      if (window.DB !== echt || !window.DB.length)
+        return { ok: false, warum: 'Artenliste nicht wiederhergestellt' };
+      return { ok: true, info: 'ohne Liste: 0 von ' + ohne.regeln.length + ' konnten prüfen → „' + ohne.stufe.label
+        + '" · mit Liste unverändert „' + mit.stufe.label + '" (ok=' + mit.ok + ' warn=' + mit.warn + ')' };
+    },
+  },
+  {
+    // v31.90-Regel: was die Anzeige zeigt, wird aus dem gerenderten HTML
+    // gelesen. Die Ueberschrift stand fest im Code und behauptete
+    // „Gegengeprueft mit unserer Artenliste", auch wenn nichts gegengeprueft
+    // hatte — dort, wo jemand ueber Giftigkeit liest.
+    name: 'P2 · Die Karte behauptet nicht „gegengeprüft", wenn nichts geprüft werden konnte',
+    lauf: () => {
+      const res = () => ({ name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides',
+                           category: 'Pilze', confidence: 90, toxicity: 0, edible: true, description: 'T' });
+      const kopf = () => {
+        try { if (typeof switchTab === 'function') switchTab('scanner'); } catch (_) {}
+        showScanResult(res());
+        const el = document.getElementById('scan-result');
+        const k = el && el.querySelector('.sr2-pruef .sr2-card-lbl');
+        return k ? (k.textContent || '').trim() : '';
+      };
+      const echt = window.DB;
+      const mitKopf = kopf();
+      let ohneKopf = '';
+      try { window.DB = []; ohneKopf = kopf(); } finally { window.DB = echt; }
+      if (!mitKopf) return { ok: false, warum: 'keine Prüfkarte gerendert (Aufbau)' };
+      if (!/gegengepr/i.test(mitKopf))
+        return { ok: false, warum: 'mit Liste fehlt die Gegenprüf-Überschrift: „' + mitKopf + '"' };
+      if (/^\s*🔍/.test(ohneKopf) || !/nicht gegengepr/i.test(ohneKopf))
+        return { ok: false, warum: 'ohne Liste steht dort „' + ohneKopf + '"' };
+      if (mitKopf === ohneKopf)
+        return { ok: false, warum: 'beide Überschriften gleich — der Fall unterscheidet nichts' };
+      return { ok: true, info: 'mit Liste „' + mitKopf.slice(0, 40) + '" · ohne Liste „' + ohneKopf.slice(0, 40) + '"' };
+    },
+  },
+  {
     name: 'S5 · dünne Bildgrundlage wird benannt, gute nicht',
     lauf: () => {
       const mach = q => _gsScanPruefwerk(

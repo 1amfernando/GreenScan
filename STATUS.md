@@ -12,6 +12,80 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-17 (ir) - v33.47: „Nicht geprüft" ist keine Entwarnung
+
+Zweite Scheibe zu Fernandos „es soll viel mehr automatisiert und verbessert
+werden". Gesucht war eine Selbstprüfung beim Start; gefunden wurde beim Messen
+etwas Dringenderes.
+
+**1 · Der Befund, in den Worten der App selbst.** `data/plants.v1.js` hängt an
+einem nackten `<script src="…">` — **kein `onerror`, kein Rückfall**. Mit
+blockierter Datei gemessen:
+
+```
+DB.length = 0 · gsArtenZahlen() = {eintraege: 0, arten: 0}
+gsMatchScanToDb('Grüner Knollenblätterpilz','Amanita phalloides') → null
+```
+
+Und im Scan-Ergebnis für genau diese Art, die das Modell als **essbar** meldet:
+
+| | Kartenkopf | Stufe | `toxicity` |
+|---|---|---|---|
+| mit Liste | 🔍 Gegengeprüft mit unserer Artenliste | Ein Vorbehalt | 0 → **5** korrigiert |
+| ohne Liste | 🔍 Gegengeprüft mit unserer Artenliste | **Nichts spricht dagegen** | bleibt **0** |
+
+Alle sieben Regeln standen auf `unbekannt`. Der Text darunter war ehrlich
+(„Keine Prüfung widerspricht — aber 7 konnten nichts sagen"), aber die Zeile,
+die man LIEST, ist die Stufe — und die sagte, es spreche nichts dagegen. Unter
+einer Überschrift, die behauptete, es sei gegengeprüft worden.
+
+> **Dieselbe Klasse wie v33.36 („Keine Daten" ist nicht „keine Gefahr"), nur
+> lauter.** Dort war es Stille, die als Entwarnung gelesen wurde. Hier ist es
+> eine **aktive Zusage** über eine Prüfung, die nicht stattgefunden hat — auf
+> dem Bildschirm, auf dem jemand über Giftigkeit liest.
+
+**2 · Die Ursache war eine fehlende Verzweigung, nicht eine falsche.**
+
+```js
+else if (warn === 0)  p.stufe = { schl:'mittel', label:'Nichts spricht dagegen', … }
+```
+
+Es gab keinen Zweig für `ok === 0` — „niemand widerspricht" und „niemand konnte
+etwas sagen" fielen zusammen. Jetzt steht **davor**: `ok === 0 && warn === 0`
+→ `keine` / **„Nicht geprüft"**, mit Grund („Die Artenliste ist nicht geladen —
+… Lade die App neu, bevor du dich auf dieses Ergebnis verlässt."). Die
+Überschrift heisst dann **„⚠️ Nicht gegengeprüft"**.
+
+**3 · Wie selten, ehrlich gesagt.** Mit geladener Liste ist der Zustand **nicht
+erreichbar**: S1 liefert immer `ok` oder `warn` — an sieben Ergebnisformen
+gemessen, darunter „Art nicht in der Liste", „nur Name ohne Binomen" und „gar
+nichts erkannt" (alle `warn=1` oder `ok≥3`). Er gehört also genau dem Fehler
+**auf dem Gerät**, den kein Prüfstand vor der Auslieferung sieht — und das ist
+der Grund, ihn zu schliessen, nicht der Grund, ihn zu verschieben.
+
+**4 · Die Farbe kostete nichts.** `keine` trägt `--c-warn-d`, dasselbe Token
+wie `schwach` — in beiden Modi längst vermessen. `contrast_check` nach dem
+Umbau: **0 Stellen unter AA, hell und dunkel.** Keine neue Farbe auf Verdacht
+(v31.77).
+
+**5 · `scan_check` P1 und P2.** P1 rechnet die Stufe, P2 liest die
+**gerenderte** Überschrift (Regel aus v31.90). Beide tragen die Gegenrichtung
+„mit Liste unverändert" — ohne sie wäre ein Prüfwerk, das immer „Nicht
+geprüft" sagt, ebenfalls grün. P1 prüft ausserdem, dass der Zustand wirklich
+**hergestellt** wurde (v32.24) und die Liste danach wieder steht.
+
+| zurückgebaut | rot |
+|---|---|
+| der vierte Zustand (`if (false)`) | 2 (P1 und P2) |
+| die Überschrift wieder fest | 1 (nur P2) |
+
+**6 · Was NICHT drin ist, und warum es als eigene Scheibe offen bleibt.** Die
+ursprüngliche Absicht war eine **Selbstprüfung beim Start**. Die Messung zeigt,
+dass sie gebraucht wird — die Artenliste kann still ausfallen, und heute merkt
+man es erst, wenn man scannt. Sie braucht aber eine eigene Liste, eine eigene
+Anzeigestelle und einen eigenen Schlüssel; halb gebaut wäre sie eine Liste,
+die niemand liest (v33.45). Sie steht als AUTO-3 an.
+
 ### 2026-09-16 (iq) - v33.46: Ein Sync, der klemmt, sagt es
 
 Fernandos „es soll viel mehr automatisiert und verbessert werden", erste

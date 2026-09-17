@@ -30,6 +30,24 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.27', date: '12.09.2026',
+      headline: 'Das Quiz sagt, was stimmt — und der Zeitablauf zaehlt',
+      summary: 'Die Giftstufe und die Essbarkeit im Quiz kommen jetzt von der ART, nicht vom einzelnen Eintrag: bei 130 von 4\u2019337 Eintraegen stand die falsche Giftstufen-Stufe als richtige Antwort, bei 133 die falsche Essbarkeit. Die Serie zaehlt wieder Tage. Der Countdown zeigt die Uhrzeit, zu der die naechste Frage wirklich kommt.',
+      user_summary: 'Beim Quiz zaehlt ab sofort, was deine Artenliste ueber die ART sagt — nicht, welchen von mehreren Eintraegen die Frage zufaellig erwischt hat. Und „🔥 N Tage" heisst wieder N Tage hintereinander.',
+      user_items: [
+        {emoji:'\u2620\ufe0f', bold:'Richtig gewertet:', text:' „Wie giftig ist …?" und „Ist … essbar?" nehmen die vorsichtigste Angabe der Art. Bei der Echten Engelwurz stand „Nicht giftig" und „Essbar" — die Art fuehrt Stufe 1 und nicht essbar.'},
+        {emoji:'🔥', bold:'Serie nach Tagen:', text:' wer eine Woche aussetzt, faengt wieder bei 1 an. Vorher zaehlte die Serie einfach richtige Antworten weiter, egal wie lange dazwischen nichts war.'},
+        {emoji:'\u23f0', bold:'Richtige Uhrzeit:', text:' der Countdown sagt jetzt, wann die naechste Frage kommt — in der Schweiz um 02:00, nicht um Mitternacht.'},
+        {emoji:'\u23f1\ufe0f', bold:'Zeit abgelaufen zaehlt:', text:' ein Zeitablauf wird auch auf dem Server vermerkt. Auf einem zweiten Geraet gab es dieselbe Frage sonst noch einmal.'}
+      ],
+      items: [
+        {emoji:'🧭', bold:'dqBuildQuestion wertet nach der ART:', text:' _gsArtAnzeige als erste Zeile — damit auch gsBattleBuildQuestions und jeder kuenftige Aufrufer. Gemessen: 130 von 4\u2019337 Eintraegen mit anderer Giftstufen-Stufe, 133 mit anderer Essbarkeit. Name, Binomen, Kategorie, Saison und Standort bleiben die des Eintrags.'},
+        {emoji:'📅', bold:'dqSerie / dqStatsBuchen — eine Regel:', text:' die Serie sind Tage hintereinander (dqDayKey, gestempelt in stats.lastDay); neun Anzeigen lesen die LEBENDE Serie statt der gespeicherten Zahl. Der Jahreswechsel hing an answerDailyQuiz, dem lokalen Rueckfall — jetzt laeuft er auf beiden Wegen und beim Zeitablauf.'},
+        {emoji:'🗝', bold:'gs_dq_tag_<datum>:', text:' der „heute schon gespielt"-Schluessel stand in keiner der vier Speicherlisten und ueberlebte das Abmelden — auf einem geteilten Geraet sah die naechste Person das Ergebnis der vorigen. Er heisst jetzt anders, steht in GS_USER_PREFIXES und wird nach 30 Tagen weggeraeumt (vorher entstand einer je Tag, fuer immer).'},
+        {emoji:'📤', bold:'_dqAntwortSenden — ein Schreibweg:', text:' der Zeitablauf sendet selected_option -1; der Trigger setzt is_correct false, xp 0 und kehrt vor der Formatpruefung zurueck, schreibt also keine Warnung. Sieben neue Faelle in quiz_check (20 statt 13), fuenf Gegenproben einzeln gestellt.'}
+      ],
+    },
+  {
     v: 'v33.26', date: '12.09.2026',
       headline: 'Ein Backup je Sitzung — und eine Regel statt zweier',
       summary: 'Das automatische Backup läuft jetzt direkt nach dem ersten erfolgreichen Abgleich, nicht erst nach fünf Minuten — und nur, wenn sich seither etwas geändert hat. Der Tag ist der eigene, nicht UTC. Eine Migration schützt das bewusst angelegte Backup vor der Aufbewahrung.',
