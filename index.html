@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.46.20260916">
+<meta name="app-version" content="33.47.20260917">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35498,7 +35498,32 @@ function _gsScanPruefwerk(res, qual) {
     // v32.88: beide Saetze waren zusammengesetzt und damit fuer den Sammler
     // kein Satz — sie standen in allen vier Sprachen deutsch da, auf dem
     // Bildschirm, auf dem jemand ueber Giftigkeit liest.
-    if (warn === 0 && ok >= 4) p.stufe = { schl: 'stark', label: 'Gut belegt',
+    // ── v33.47 · Der vierte Zustand: NICHTS konnte pruefen ──────────────
+    // Gemessen an v33.46 mit blockiertem `data/plants.v1.js` (kein onerror,
+    // kein Rueckfall am Script-Tag): alle sieben Regeln `unbekannt`, und die
+    // Stufe fiel in den Zweig `warn === 0` — „Nichts spricht dagegen".
+    // Fuer einen Gruenen Knollenblaetterpilz, den das Modell als essbar
+    // meldet, stand damit eine ENTWARNUNG auf dem Bildschirm, unter der
+    // Ueberschrift „Gegengeprueft mit unserer Artenliste". Es hatte nichts
+    // gegengeprueft: `gsMatchScanToDb` gab `null`, die Giftstufe blieb die
+    // ungepruefte 0 der KI statt der 5 aus unserer Liste.
+    //
+    // Dieselbe Klasse wie v33.36 („Keine Daten" ist nicht „keine Gefahr"),
+    // nur lauter — dort war es Stille, hier eine aktive Zusage.
+    //
+    // Mit geladener Liste ist dieser Zustand NICHT erreichbar: S1 liefert
+    // immer `ok` oder `warn` (gemessen an sieben Ergebnisformen, darunter
+    // „gar nichts erkannt" und „Name ohne Binomen"). Er gehoert also genau
+    // dem Fehler, den kein Pruefstand vor der Auslieferung sieht — dem auf
+    // dem Geraet. Pruefstand: `scan_check` P1/P2.
+    if (ok === 0 && warn === 0) {
+      var _listeLeer = (typeof DB === 'undefined' || !DB || !DB.length);
+      p.stufe = { schl: 'keine', label: 'Nicht geprüft',
+        text: _listeLeer
+          ? _gsSatz('Die Artenliste ist nicht geladen — es konnte nichts gegengeprüft werden. Lade die App neu, bevor du dich auf dieses Ergebnis verlässt.')
+          : _gsSatz('Keine der {1} Prüfungen konnte etwas sagen.', p.regeln.length) };
+    }
+    else if (warn === 0 && ok >= 4) p.stufe = { schl: 'stark', label: 'Gut belegt',
       text: p.unbekannt
         ? _gsSatz('{1} unabhängige Prüfungen sprechen dafür, keine dagegen. {2} konnten nichts sagen.', ok, p.unbekannt)
         : _gsSatz('{1} unabhängige Prüfungen sprechen dafür, keine dagegen.', ok) };
@@ -35909,11 +35934,21 @@ function showScanResult(r){
   // der ganze Punkt.
   if (_pw && _pw.regeln && _pw.regeln.length) {
     var _stf = _pw.stufe || { schl: 'mittel', label: '', text: '' };
+    // v33.47: `keine` traegt die Warnfarbe — dasselbe Token wie `schwach`,
+    // also in beiden Modi schon vermessen (contrast_check seit v32.25).
     var _stFarbe = _stf.schl === 'stark' ? 'var(--c-success-d)'
-                 : _stf.schl === 'schwach' ? 'var(--c-warn-d)' : 'var(--text2)';
-    var _stIco = _stf.schl === 'stark' ? '\u2713' : _stf.schl === 'schwach' ? '\u26a0' : '\u2013';
+                 : (_stf.schl === 'schwach' || _stf.schl === 'keine') ? 'var(--c-warn-d)' : 'var(--text2)';
+    var _stIco = _stf.schl === 'stark' ? '\u2713'
+               : (_stf.schl === 'schwach' || _stf.schl === 'keine') ? '\u26a0' : '\u2013';
+    // v33.47: Die Ueberschrift behauptet nicht mehr, als geschehen ist.
+    // Konnte KEINE Regel etwas sagen, ist „Gegengeprueft mit unserer
+    // Artenliste" schlicht falsch — und zwar genau dort, wo jemand ueber
+    // Giftigkeit liest.
+    var _kopfTxt = (_stf.schl === 'keine')
+      ? '\u26a0\ufe0f ' + _gsSatz('Nicht gegengeprüft')
+      : '\ud83d\udd0d ' + _gsSatz('Gegengeprüft mit unserer Artenliste');
     body += '<div class="sr2-card sr2-pruef" style="margin-bottom:12px;">' +
-      '<div class="sr2-card-lbl">\ud83d\udd0d Gegengepr\u00fcft mit unserer Artenliste</div>' +
+      '<div class="sr2-card-lbl">' + esc(_kopfTxt) + '</div>' +
       '<div class="sr2-pruef-stufe" style="color:' + _stFarbe + ';">' + _stIco + ' ' + esc(_stf.label) + '</div>' +
       '<div class="sr2-card-body" style="margin-bottom:6px;">' + esc(_stf.text) + '</div>' +
       // ── v32.01: das Urteil wird handlungsfaehig ─────────────────────
@@ -76014,6 +76049,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.47', date: '17.09.2026',
+      headline: '„Nicht geprüft" ist keine Entwarnung',
+      summary: 'Fällt die Artenliste beim Laden aus, konnte der Scanner nichts gegenprüfen — und sagte trotzdem „Nichts spricht dagegen", unter der Überschrift „Gegengeprüft mit unserer Artenliste". Für einen Knollenblätterpilz, den das Modell als essbar meldet, stand damit eine Entwarnung auf dem Bildschirm. Das Prüfwerk hat jetzt einen vierten Zustand.',
+      user_summary: 'Wenn die Artenliste einmal nicht geladen werden konnte, sagt dir das Scan-Ergebnis das jetzt deutlich — statt so auszusehen, als sei alles gegengeprüft worden.',
+      user_items: [
+        {emoji:'⚠️', bold:'„Nicht gegengeprüft":', text:' steht als Überschrift auf der Karte, wenn keine einzige Prüfung laufen konnte — mit dem Hinweis, die App neu zu laden.'},
+        {emoji:'🛡️', bold:'Keine falsche Beruhigung:', text:' „Nichts spricht dagegen" gibt es nur noch, wenn wirklich geprüft wurde und nichts widersprochen hat.'}
+      ],
+      items: [
+        {emoji:'🔬', bold:'Gemessen, nicht vermutet:', text:' mit blockiertem data/plants.v1.js sind alle sieben Regeln „unbekannt", gsMatchScanToDb gibt null, die Giftstufe bleibt die ungeprüfte 0 der KI statt der 5 aus unserer Liste — und die Stufe fiel in den Zweig warn === 0.'},
+        {emoji:'🚦', bold:'Vierter Zustand im Prüfwerk:', text:' ok === 0 && warn === 0 ergibt jetzt „Nicht geprüft" MIT Grund (Artenliste nicht geladen), in der Warnfarbe — demselben Token wie „schwach", also in beiden Modi längst vermessen.'},
+        {emoji:'📛', bold:'Die Überschrift behauptet nicht mehr, als geschehen ist:', text:' sie stand fest im Code und sagte immer „Gegengeprüft mit unserer Artenliste", auch wenn nichts gegengeprüft hatte.'},
+        {emoji:'📍', bold:'Selten, aber genau der richtige Fehler:', text:' mit geladener Liste ist der Zustand nicht erreichbar — S1 liefert immer ok oder warn (an sieben Ergebnisformen gemessen, darunter „gar nichts erkannt"). Er gehört dem Fehler auf dem GERÄT, den kein Prüfstand vor der Auslieferung sieht.'},
+        {emoji:'🧪', bold:'scan_check P1 und P2:', text:' P1 rechnet die Stufe, P2 liest die GERENDERTE Überschrift (Regel aus v31.90). Beide mit Gegenrichtung „mit Liste unverändert"; zwei Gegenproben, einzeln rot (vierter Zustand ausgebaut → 2 rot, Überschrift wieder fest → 1 rot).'}
+      ],
+    },
+  {
     v: 'v33.46', date: '16.09.2026',
       headline: 'Ein Sync, der klemmt, sagt es — dort, wo du bist',
       summary: 'Ein unvollständiger Cloud-Abgleich landete bis hierher in der Browser-Konsole und sonst nirgends. Die Statuszeile in den Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen — und kannte keinen Unterschied zwischen „seit einer Minute offen" und „seit drei Tagen offen". gsSyncStand() ist jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie auf der Startseite.',
@@ -76342,24 +76394,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'quiz_check +7 (28 Fälle):', text:' Leitner mit Intervallen · fällig vor neu, immer mit Grund · 200 Karten, 0 auf einem leeren Feld · Üben rührt Serie/Rangliste/quiz_answers nicht an (Gegenrichtung: das Tagesquiz schon) · der Lernstand reist · der Deckel · die Warnzeile. Fünf Gegenproben einzeln gestellt.'}
       ],
     },
-  {
-    v: 'v33.27', date: '12.09.2026',
-      headline: 'Das Quiz sagt, was stimmt — und der Zeitablauf zaehlt',
-      summary: 'Die Giftstufe und die Essbarkeit im Quiz kommen jetzt von der ART, nicht vom einzelnen Eintrag: bei 130 von 4\u2019337 Eintraegen stand die falsche Giftstufen-Stufe als richtige Antwort, bei 133 die falsche Essbarkeit. Die Serie zaehlt wieder Tage. Der Countdown zeigt die Uhrzeit, zu der die naechste Frage wirklich kommt.',
-      user_summary: 'Beim Quiz zaehlt ab sofort, was deine Artenliste ueber die ART sagt — nicht, welchen von mehreren Eintraegen die Frage zufaellig erwischt hat. Und „🔥 N Tage" heisst wieder N Tage hintereinander.',
-      user_items: [
-        {emoji:'\u2620\ufe0f', bold:'Richtig gewertet:', text:' „Wie giftig ist …?" und „Ist … essbar?" nehmen die vorsichtigste Angabe der Art. Bei der Echten Engelwurz stand „Nicht giftig" und „Essbar" — die Art fuehrt Stufe 1 und nicht essbar.'},
-        {emoji:'🔥', bold:'Serie nach Tagen:', text:' wer eine Woche aussetzt, faengt wieder bei 1 an. Vorher zaehlte die Serie einfach richtige Antworten weiter, egal wie lange dazwischen nichts war.'},
-        {emoji:'\u23f0', bold:'Richtige Uhrzeit:', text:' der Countdown sagt jetzt, wann die naechste Frage kommt — in der Schweiz um 02:00, nicht um Mitternacht.'},
-        {emoji:'\u23f1\ufe0f', bold:'Zeit abgelaufen zaehlt:', text:' ein Zeitablauf wird auch auf dem Server vermerkt. Auf einem zweiten Geraet gab es dieselbe Frage sonst noch einmal.'}
-      ],
-      items: [
-        {emoji:'🧭', bold:'dqBuildQuestion wertet nach der ART:', text:' _gsArtAnzeige als erste Zeile — damit auch gsBattleBuildQuestions und jeder kuenftige Aufrufer. Gemessen: 130 von 4\u2019337 Eintraegen mit anderer Giftstufen-Stufe, 133 mit anderer Essbarkeit. Name, Binomen, Kategorie, Saison und Standort bleiben die des Eintrags.'},
-        {emoji:'📅', bold:'dqSerie / dqStatsBuchen — eine Regel:', text:' die Serie sind Tage hintereinander (dqDayKey, gestempelt in stats.lastDay); neun Anzeigen lesen die LEBENDE Serie statt der gespeicherten Zahl. Der Jahreswechsel hing an answerDailyQuiz, dem lokalen Rueckfall — jetzt laeuft er auf beiden Wegen und beim Zeitablauf.'},
-        {emoji:'🗝', bold:'gs_dq_tag_<datum>:', text:' der „heute schon gespielt"-Schluessel stand in keiner der vier Speicherlisten und ueberlebte das Abmelden — auf einem geteilten Geraet sah die naechste Person das Ergebnis der vorigen. Er heisst jetzt anders, steht in GS_USER_PREFIXES und wird nach 30 Tagen weggeraeumt (vorher entstand einer je Tag, fuer immer).'},
-        {emoji:'📤', bold:'_dqAntwortSenden — ein Schreibweg:', text:' der Zeitablauf sendet selected_option -1; der Trigger setzt is_correct false, xp 0 und kehrt vor der Formatpruefung zurueck, schreibt also keine Warnung. Sieben neue Faelle in quiz_check (20 statt 13), fuenf Gegenproben einzeln gestellt.'}
-      ],
-    },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76568,7 +76602,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.46';
+var GS_VERSION = 'v33.47';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

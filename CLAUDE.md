@@ -1431,6 +1431,22 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > die im Normalzustand aufleuchtet, ist die Zahl, die man zu ignorieren lernt
 > (v32.21). Pruefstand: `sync_check` (Faelle „Klemmt").
 
+> **Und „niemand widerspricht" ist nicht „niemand konnte etwas sagen"**
+> (v33.47). Im Scan-Pruefwerk gab es keinen Zweig fuer `ok === 0` — beide
+> Faelle landeten in `warn === 0` und damit auf der Stufe „Nichts spricht
+> dagegen". Mit blockiertem `data/plants.v1.js` (nacktes `<script src>`, KEIN
+> `onerror`) gemessen: alle sieben Regeln `unbekannt`, `gsMatchScanToDb` →
+> `null`, die Giftstufe blieb die ungepruefte 0 der KI statt der 5 aus der
+> Liste — und darueber stand „Gegengeprueft mit unserer Artenliste". **Eine
+> Ueberschrift, die eine Pruefung behauptet, die nicht gelaufen ist, ist
+> schlimmer als gar keine.** Wer eine Stufe, eine Note oder ein Urteil aus
+> Regeln rechnet, braucht den Zweig „nichts davon konnte pruefen" — mit
+> GRUND — und die Anzeige daneben darf nicht mehr behaupten, als geschehen
+> ist. Dieselbe Klasse wie v33.36 („Keine Daten" ist nicht „keine Gefahr"),
+> nur als aktive Zusage statt als Stille. Pruefstand: `scan_check` P1/P2, mit
+> der Gegenrichtung „mit Liste unveraendert" — ohne sie waere ein Pruefwerk,
+> das immer „Nicht geprueft" sagt, ebenfalls gruen.
+
 > **Und eine Warnung, die freundlich aussieht, liest niemand als Warnung**
 > (v33.46). Beim Nachlesen der eigenen neuen Zeile gezaehlt — ueber ALLE
 > Toast-Aufrufe: `error` 142 · `info` 110 · `success` 96 · **`warn` 77** ·
