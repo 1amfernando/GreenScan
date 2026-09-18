@@ -30,6 +30,27 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.29', date: '14.09.2026',
+      headline: 'Beim Quiz steht jetzt „Giftigkeit" statt „edible_toxic"',
+      summary: 'Die Zeile unter der Quizfrage zeigte den rohen Datenbanknamen — und dafuer gab es drei Quellen mit zusammen 35 verschiedenen Schreibweisen, darunter pilz und pilze nebeneinander. Jetzt gibt es zwoelf Kategorien in vier Sprachen, und der Fragen-Generator darf keine anderen mehr anlegen. Dazu eine Pruefung vor dem Anlegen (vier Antworten, richtige Antwort im Bereich, Erklaerung da) und eine Dublettensperre, die auch innerhalb einer Lieferung greift.',
+      user_summary: 'Unter jeder Quizfrage steht jetzt ein richtiges Wort statt eines Datenbanknamens — und in deiner Sprache. Unsichtbar dahinter: neue Fragen werden geprueft, bevor sie ins Quiz kommen.',
+      user_items: [
+        {emoji: '🏷\ufe0f', bold: 'Zwoelf Kategorien:', text: ' Bestimmen, Giftigkeit, Kueche, Heilkunde, Standort, Saison, Sammeln, Garten, Pilze, Tiere, Natur, Wissen — uebersetzt, statt „edible_toxic" oder „bestaeuber".'},
+        {emoji: '\u2705', bold: 'Geprueft, bevor es ins Quiz kommt:', text: ' genau vier Antworten, die richtige im Bereich, eine Erklaerung dabei, keine zwei gleichen Antworten. Was durchfaellt, kommt nicht hinein — und haelt den Rest nicht auf.'},
+        {emoji: '🔁', bold: 'Keine doppelten Fragen mehr:', text: ' verglichen wird ohne Gross-/Kleinschreibung und ohne Satzzeichen — und neu auch innerhalb einer Lieferung, nicht nur gegen das, was schon da ist.'},
+        {emoji: '📉', bold: 'Der Vorrat wird gezaehlt:', text: ' 181 Fragen sind noch nie drangekommen. Wird es knapp, meldet sich der Server rechtzeitig, statt still Fragen zu wiederholen.'}
+      ],
+      items: [
+        'Vokabular: supabase/functions/_shared/quiz_gen_regeln.mjs — zwoelf Kategorien, 31 Alias-Eintraege; jeder der 35 live gemessenen Slugs loest auf. Die App spiegelt die Listen (GS_QUIZ_KATEGORIEN / GS_QUIZ_KAT_ALIAS), gebunden durch quiz_gen_check.',
+        'Anzeige: _gsQuizKatLabel(slug) statt „Kategorie: " + slug. Unbekannt ergibt LEER — lieber keine Zeile als ein Datenbankwort. Zwoelf _t-Schluessel in GS_I18N_JS_STRINGS.',
+        'Generator: knowledge-bulk-gen importiert das Modul, der Prompt nennt das Vokabular statt einer eigenen Sechserliste, und die Antwort meldet rejected samt Grund.',
+        'Dubletten: die Menge der bekannten Fragen waechst waehrend des Stapels mit. Vorher wurde sie einmal aus der Datenbank gebaut und nie nachgezogen.',
+        'Vorrat: Migration 20260914_quiz_vorrat.sql (NICHT angewandt) mit fn_quiz_vorrat und einer taeglichen Warnung nach system_events ab 60 verbleibenden Tagen.',
+        'Pruefstand: scripts/quiz_gen_check.js — 23 Faelle (Rechnung in Node, Vorrat in einem lokalen Postgres, Anzeige in Playwright), zwanzig Gegenproben einzeln gestellt.',
+        'Eine gegnerische Pruefung des fertigen Schnitts fand 13 Dinge, sechs davon ernst — darunter elf Emoji aus v33.27/v33.28, die gar keine Emoji waren, und ein Vokabular, das die Umlaute nicht kannte, die sein eigener Prompt provoziert.'
+      ]
+  },
+  {
     v: 'v33.28', date: '12.09.2026',
       headline: 'Üben — Lernkarten, die sich merken, was du nicht kannst',
       summary: 'Neben der einen Tagesfrage gibt es jetzt „Üben": Lernkarten mit fünf Leitner-Boxen. Was du falsch hattest, kommt morgen wieder; was sitzt, erst in sechzehn Tagen. Eine Karte wird nie auf einem fehlenden Feld gebaut — 1\u2019435 Einträge hätten sonst „Ganzjährig" als richtige Antwort bekommen, weil ihre Saison leer ist.',

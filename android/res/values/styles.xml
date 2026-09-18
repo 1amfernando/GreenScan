@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Kein Titelbalken, und der Startbildschirm hat von der ersten Millisekunde
+       an die Markenfarbe aus manifest.json (background_color #1a3d1a) — sonst
+       blitzt beim Start Weiss auf. -->
+  <style name="GreenScanTheme" parent="@android:style/Theme.Material.NoActionBar">
+    <item name="android:windowBackground">@color/gs_background</item>
+    <item name="android:colorPrimary">@color/gs_background</item>
+    <item name="android:colorPrimaryDark">@color/gs_background</item>
+    <item name="android:statusBarColor">@color/gs_background</item>
+  </style>
+</resources>

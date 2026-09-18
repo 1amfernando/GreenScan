@@ -100,3 +100,32 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
   ueber `length` / `key(i)` zaehlen.
 - Eine Zeichenkettensuche in einem Kontext voller Zahlen ist keine Messung —
   den Wert unverwechselbar machen (`ZZGARTENZZ`, `4711`).
+
+- Eine Suche im Quelltext findet ZUERST den eigenen Text UEBER die Sache: der
+  Kommentar „Es gibt kein `addJavascriptInterface`" zaehlt als eines. Vor dem
+  Zaehlen Kommentare entfernen — und dabei Zeichenketten mitfuehren
+  (`accept="image/*"` traegt ein `/*`, das nie schliesst).
+- Ein Ersatz muss sich verhalten wie die Sache, die er ersetzt: ein
+  `navigator.serviceWorker`-Ersatz, dessen `ready` nie aufloest, misst den
+  Ersatz und nicht die App.
+- Ein Fall, der `gsRegisterServiceWorker` auf `file://` prueft, ist aus dem
+  falschen Grund gruen — die Funktion steigt dort schon in Zeile 1 aus. Wer
+  einen Service-Worker-Weg misst, braucht einen eigenen HTTP-Server
+  (`offline_check`, `apk_check`).
+
+## Die vier Haelften von `apk_check` (seit v33.49)
+
+Das Muster lohnt sich fuer jeden Pruefstand, dessen Sache ausserhalb des
+Browsers liegt:
+
+1. **RECHNUNG** — die Regeln stehen in einer Datei OHNE Umgebungs-Abhaengigkeit
+   (`Pfade.java`, `_shared/ingest_regeln.mjs`) und werden wirklich AUSGEFUEHRT.
+   Eine Regel, die man nicht ausfuehren kann, hat man nicht geprueft.
+2. **PAKET/ARTEFAKT** — das Ding wird wirklich gebaut und aufgemacht. „Das
+   Skript laeuft durch" ist keine Aussage darueber, was drin liegt.
+3. **RAND** — der Quelltext, der die Rechnung umgibt (kommentarfrei gelesen).
+4. **APP** — die Seite, zweimal gefahren: mit und ohne den Zustand, um den es
+   geht. Ohne die zweite Fahrt ist ein Zweig, der IMMER greift, ebenfalls gruen.
+
+Und die Grenze gehoert in den Bericht: `apk_check` prueft Bau, Rechnung und
+Entscheidung — **hier laeuft kein Android**.

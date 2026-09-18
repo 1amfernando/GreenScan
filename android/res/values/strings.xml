@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">GreenScan</string>
+  <string name="kein_ziel">Für diesen Link gibt es auf dem Gerät keine App.</string>
+</resources>
