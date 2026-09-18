@@ -604,11 +604,29 @@ aendert, aendert sie in `Pfade.java` und im Fall — nie im Rand.
 > zurueck (fuenf Stellen; `_gsSwReady` ist der eine Leser).
 >
 > **Und die Suche nach so etwas findet zuerst den eigenen Text UEBER die
-> Sache.** Drei der ersten Funde im eigenen Pruefstand waren der Parser: der
+> Sache.** VIER Funde im eigenen Pruefstand waren der Parser: der
 > Klassenkommentar „Es gibt kein `addJavascriptInterface`", ein Kommentar ueber
-> `<use href="datei.svg#id">`, und ein Schnitt am Aufruf `imUrsprung(u)`, der
-> das `return null` fuer FREMDE Urspruenge mitzaehlte — das genau richtig ist.
-> Dieselbe Klasse wie v32.70 und v33.41.
+> `<use href="datei.svg#id">`, ein Schnitt am Aufruf `imUrsprung(u)`, der das
+> `return null` fuer FREMDE Urspruenge mitzaehlte — das genau richtig ist —,
+> und zuletzt der CHANGELOG: der v33.49-Eintrag nennt
+> `navigator.serviceWorker.ready` im Fliesstext, R9 zaehlte ihn als rohen
+> Zugriff, **und CI wurde rot an dem Satz, der erklaert, warum der Pruefstand
+> gruen ist.** Dieselbe Klasse wie v32.70 und v33.41, dreimal in EINER
+> Scheibe.
+>
+> **Die Regel daraus, und sie gilt fuer jeden Pruefstand, der Namen ZAEHLT:**
+> Kommentare UND `GS_RELEASES` heraus (`ohneChangelog`) — der Changelog
+> beschreibt die Sache und enthaelt sie deshalb woertlich. Wer nach einer
+> Durchsetzungs-KENNUNG sucht (`apk_check` R8 sucht
+> `GS_HUELLE_ANDERS '<schl>'` im Kommentar), braucht beide und liest den rohen
+> Text. **Der Unterschied ist: zaehlst du Verwendungen oder suchst du eine
+> Markierung?**
+>
+> **Und der lokale Lauf hat es gefunden, nicht erst CI** — aber erst der
+> zweite: der Probelauf VOR dem Bump war gruen, weil es den Changelog-Eintrag
+> da noch nicht gab. **Ein Bump kann einen Pruefstand rot machen, ohne dass
+> Code sich geaendert hat.** Deshalb laufen die zwei Pflichtlaeufe NACH dem
+> Bump, nicht davor.
 
 ## 4b · KI-Planer — der Entwurf steht in `docs/PLANER-V3.md`
 

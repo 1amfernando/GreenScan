@@ -116,8 +116,18 @@ vorhandenen.
   falschen Grund gruen), **zweimal gefahren**: mit und ohne die Kennung der
   Huelle.
 
-**Drei Messfehler im eigenen Pruefstand, alle dieselbe Klasse** — die Suche
-fand zuerst den eigenen Text UEBER die Sache: der Klassenkommentar „Es gibt
+**VIER Messfehler im eigenen Pruefstand, alle dieselbe Klasse** — die Suche
+fand zuerst den eigenen Text UEBER die Sache. Der vierte kam erst nach dem
+Bump und machte **CI rot**: der Changelog-Eintrag zu v33.49 nennt
+`navigator.serviceWorker.ready` im Fliesstext, R9 zaehlte ihn als rohen
+Zugriff — der Pruefstand wurde rot an dem Satz, der erklaert, warum er gruen
+ist. `ohneChangelog()` schneidet `GS_RELEASES` jetzt heraus, wo Namen
+GEZAEHLT werden (R9, R10, R11); R8 liest weiter den rohen Text, weil die
+Durchsetzungs-Kennung bewusst im Kommentar steht. Gegenprobe: ein ECHTER
+roher Zugriff im Code wird weiter gemeldet. **Und die Lehre ueber den Fall
+hinaus: ein Bump kann einen Pruefstand rot machen, ohne dass Code sich
+geaendert hat** — der Probelauf davor war gruen, weil es den Eintrag noch
+nicht gab. Die drei anderen: der Klassenkommentar „Es gibt
 kein `addJavascriptInterface`" zaehlte als eines, ein Kommentar ueber
 `<use href="datei.svg#id">` als fehlende Datei, und der Schnitt am Aufruf
 `imUrsprung(u)` zaehlte das `return null` fuer FREMDE Urspruenge mit, das genau

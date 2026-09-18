@@ -101,6 +101,31 @@ function ohneKommentare(t) {
 
 const QUELLE_OHNE = ohneKommentare(QUELLE);
 
+/**
+ * Schneidet den `GS_RELEASES`-Block heraus.
+ *
+ * Dort steht die Beschreibung der Aenderung — und damit die API, um die es
+ * geht, woertlich im Fliesstext. Der Changelog-Eintrag zu v33.49 nennt
+ * `navigator.serviceWorker.ready`, und R9 zaehlte ihn als rohen Zugriff:
+ * der Pruefstand wurde rot an dem Satz, der erklaert, warum er gruen ist.
+ *
+ * Dieselbe Regel wie die Jargon-Suche in `nutzersicht_check` (v32.70) und der
+ * Schnitt am „UNION ALL" im Kommentar (v33.41) — DRITTES Vorkommen in dieser
+ * einen Scheibe, nach dem Klassenkommentar und dem Ursprungs-Waechter. **Wer
+ * im Quelltext nach einem Namen ZAEHLT, nimmt Kommentare UND den Changelog
+ * heraus; wer nach einer Durchsetzungs-Kennung sucht (R8), braucht sie.**
+ */
+function ohneChangelog(t) {
+  const a = t.indexOf('window.GS_RELEASES = [');
+  if (a < 0) return t;
+  const b = t.indexOf('\n];', a);
+  if (b < 0) return t;
+  return t.slice(0, a) + t.slice(b + 3);
+}
+
+/** Quelltext ohne Kommentare UND ohne Changelog — zum ZAEHLEN von Namen. */
+const QUELLE_CODE = ohneChangelog(QUELLE_OHNE);
+
 const F = [];   // Faelle: {name, r}
 let kaputt = 0, offen = 0;
 const md5 = (b) => require('crypto').createHash('md5').update(b).digest('hex');
@@ -405,8 +430,8 @@ function rand() {
   // R9 — EIN Leser fuer die Registrierung. `navigator.serviceWorker.ready` ist
   // eine Zusage, die ohne registrierten Worker NIE zurueckkommt; fuenf Stellen
   // warteten darauf, der Test-Push haette fuer immer „⏳ Sende …" gezeigt.
-  const readyRoh = (QUELLE_OHNE.match(/navigator\.serviceWorker\.ready/g) || []).length;
-  const leserRumpf = (QUELLE_OHNE.match(/async function _gsSwReady\(\) \{([\s\S]*?)\n\}/) || ['', ''])[1];
+  const readyRoh = (QUELLE_CODE.match(/navigator\.serviceWorker\.ready/g) || []).length;
+  const leserRumpf = (QUELLE_CODE.match(/async function _gsSwReady\(\) \{([\s\S]*?)\n\}/) || ['', ''])[1];
   const imLeser = (leserRumpf.match(/navigator\.serviceWorker\.ready/g) || []).length;
   F.push({
     name: 'R9 · serviceWorker.ready hat EINEN Leser — sonst haengt ein await fuer immer',
@@ -420,8 +445,8 @@ function rand() {
   // letzte Aenderung verloren, sobald jemand die App wegwischt.
   const rufImJava = /evaluateJavascript\("window\.gsHuellePause/.test(MAINACT_OHNE)
     && /protected void onPause\(\)[\s\S]{0,400}?gsHuellePause/.test(MAINACT_OHNE);
-  const funktionInApp = /function gsHuellePause\(\)/.test(QUELLE_OHNE)
-    && /new Event\('pagehide'\)/.test((QUELLE_OHNE.match(/function gsHuellePause\(\)[\s\S]{0,400}/) || [''])[0]);
+  const funktionInApp = /function gsHuellePause\(\)/.test(QUELLE_CODE)
+    && /new Event\('pagehide'\)/.test((QUELLE_CODE.match(/function gsHuellePause\(\)[\s\S]{0,400}/) || [''])[0]);
   F.push({
     name: 'R10 · Beim Verlassen sichert die App — die Huelle ruft, die App hoert (beide Haelften)',
     r: (rufImJava && funktionInApp)
@@ -436,7 +461,7 @@ function rand() {
         && /ACCESS_NETWORK_STATE/.test(MANIFEST))
       ? { ok: true, info: 'NetworkCallback → setNetworkAvailable, Berechtigung erklaert' }
       : { ok: false, warum: 'setNetworkAvailable oder registerNetworkCallback fehlt — ' +
-          (QUELLE_OHNE.match(/navigator\.onLine/g) || []).length + ' Stellen der App fragen navigator.onLine' },
+          (QUELLE_CODE.match(/navigator\.onLine/g) || []).length + ' Stellen der App fragen navigator.onLine' },
   });
 
   // R8 — die LISTE ist die Pruefung: ein Eintrag ohne Durchsetzung waere eine
