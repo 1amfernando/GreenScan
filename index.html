@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.49.20260917">
+<meta name="app-version" content="33.50.20260924">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75993,11 +75993,8 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
   }
   if (typeof sbFetch !== 'function') return false;
   try {
-    var r = await sbFetch('/rest/v1/rpc/fn_set_global_api_key', {
-      method: 'POST',
-      body: JSON.stringify({ _key: newKey, _provider: providerArg || 'anthropic', _enabled: enabledArg !== false })
-    });
-    if (r && !r.error) {
+    var r = await _gsAdmTun('global_api_key', { _key: newKey, _provider: providerArg || 'anthropic', _enabled: enabledArg !== false });
+    if (r.state === 'ok') {
       // Lokalen Cache + Set-Timestamp setzen
       window._gsGlobalKeyMem = newKey; try { localStorage.removeItem('gs_global_api_key'); } catch(_){}   // v32.68: nie mehr auf die Platte
       localStorage.setItem('gs_global_api_provider', providerArg || 'anthropic');
@@ -76016,7 +76013,7 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
       } catch(_){}
       return true;
     }
-    showProfileToast && showProfileToast('❌ ' + ((r && r.error && _gsFehlerText(r.error)) || 'RPC-Fehler'));
+    showProfileToast && showProfileToast('❌ ' + _gsAdmSagen(r));
     return false;
   } catch(e) {
     showProfileToast && showProfileToast('❌ ' + e.message);
@@ -76196,6 +76193,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v33.50', date: '24.09.2026',
+      headline: 'Das Admin-Panel sagt, was der Server wirklich getan hat',
+      summary: 'Fünfzehn Admin-Schreibwege (Sperren, Plan setzen, Gutscheine, Wissen, Meldungen, Broadcast) prüften nur „kein Fehler“ — und PostgREST meldet bei einer abgewiesenen Zeile KEINEN Fehler. Gemessen an der Live-Datenbank: zwei Knöpfe („Nutzer sperren“, „Globalen KI-Schlüssel setzen“) dürfen Admins gar nicht ausführen, und die App stellte trotzdem die Rückfrage „wirkt sofort“. Jetzt geht jeder Schreibweg durch EINE Funktion mit sechs Zuständen und Grund.',
+      user_summary: 'Für Admins: jede Aktion im Admin-Panel sagt jetzt, ob sie wirklich ausgeführt wurde — und wenn nicht, warum. Ein Knopf, der noch nicht freigeschaltet ist, sagt das, statt eine Rückfrage zu stellen und danach zu scheitern.',
+      user_items: [
+        {emoji:'✅', bold:'Bestätigung erst nach der Antwort:', text:' „Als erledigt markiert“ steht nur da, wenn der Server eine Zeile geändert hat.'},
+        {emoji:'🔒', bold:'Ein gesperrter Knopf nennt den Grund:', text:' „Noch nicht freigeschaltet — Migration … anwenden“ statt einer Rückfrage ins Leere.'},
+        {emoji:'📋', bold:'Der Überblick oben zählt es:', text:' welche Aktionen der Server noch nicht freigegeben hat, steht als Zeile über den Sektionen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen an der Live-DB (nur lesend):', text:' 12 von 13 Schreib-RPCs sind SECURITY DEFINER mit is_admin_user(), die RLS auf user_reports ist dicht. Aber fn_assign_role und fn_set_global_api_key tragen die ACL {postgres, service_role} — authenticated darf sie nicht ausführen. Zwei frühere Re-Grants (v29_20, v30_57) stehen im Repo und sind live nicht in Kraft; 20260924_admin_grants.sql (nicht angewandt) liefert sie nach.'},
+        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN — die Liste ist die Prüfung:', text:' 15 Aktionen, jede mit GENAU einem Ziel (rpc · pfad+method · fn) und optional der Migration, die sie freischaltet. _gsAdmTun ist der eine Weg; GS_ADM_LESE_RPC nennt die zwei POST-Abfragen, die nur lesen.'},
+        {emoji:'🚦', bold:'Sechs Zustände mit Grund:', text:' ok · abgelehnt (RLS, 401/403, {ok:false}, 0 Zeilen am Tabellenweg) · nicht_freigeschaltet („permission denied for function“ — die Sitzung merkt es sich) · nicht_verfuegbar (404/PGRST202: eine nicht angewandte Migration, kein Fehler des Admins) · fehler (Netz) · kein_zugriff (ohne Server-Ja geht keine Anfrage hinaus).'},
+        {emoji:'👁️', bold:'return=representation ist Pflicht am Tabellenweg:', text:' gsAdminReviewReport schickte return=minimal — die Ablehnung war damit unsichtbar, und „✅ Als erledigt markiert.“ stand für nichts da.'},
+        {emoji:'🔕', bold:'gsAdminToggleVoucher las die Antwort gar nicht:', text:' ein Gutschein, der nicht umgeschaltet wurde, sah nach dem Neuladen genauso aus wie vorher, ohne Satz.'},
+        {emoji:'🧪', bold:'admin_check 6 → 11 Fälle, fünf Gegenproben:', text:' ein Schreibweg am einen Weg vorbei · 0 Zeilen als ok · return=minimal · Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand — jede einzeln rot, mit dem richtigen Fall und den echten Zahlen.'},
+        {emoji:'📵', bold:'Grenze:', text:' der Server ist im Prüfstand gestellt. Geprüft ist, was die App aus einer Antwort MACHT — nicht, ob die RPC antwortet. Und versprechen_check bleibt hier blind, weil ein if (r.error) als Prüfung zählt — eigene Scheibe.'}
+      ]
+  },
   {
     v: 'v33.49', date: '17.09.2026',
       headline: 'GreenScan ist jetzt eine Android-App',
@@ -76519,28 +76536,6 @@ window.GS_RELEASES = [
         'Pruefstand: sensor_check +1 (39 Faelle) — jeder Eintrag in GS_LINA_SCREENS muss einem Bildschirm entsprechen, den es gibt, und es darf nur EINEN Chat geben. Eine Whitelist ist die Zusage, dass ihre Ziele existieren.'
       ]
   },
-  {
-    v: 'v33.30', date: '14.09.2026',
-      headline: 'Lina schaut in unsere Artenliste — und ruft bei einem Notfall sofort die Nummer',
-      summary: 'Lina hatte keinen Zugriff auf die Artenliste: wer sie nach einer Pflanze fragte, bekam die Antwort des Sprachmodells, nicht die der 4\'337 Eintraege, gegen die Scanner und Quiz laengst pruefen. Jetzt steht die erkannte Art im Kontext — und wenn mehrere Arten denselben Namen tragen, sagt Lina das, statt sich eine auszusuchen. Dazu: bei einem Vergiftungs-Notfall kommt sofort die 145, ohne Umweg ueber die KI, und ohne Internet antwortet sie aus der App-Liste statt gar nicht.',
-      user_summary: 'Frag Lina nach einer Pflanze, und sie schaut in unserer Artenliste nach, statt zu raten. Bei einem Notfall nennt sie sofort die Giftnotruf-Nummer. Und ohne Internet sagt sie jetzt, was sie weiss, statt dich wegzuschicken.',
-      user_items: [
-        {emoji: '🌿', bold: 'Sie schaut nach, statt zu raten:', text: ' nennst du eine Pflanze, stehen Giftigkeit und Essbarkeit aus unserer Liste in ihrer Antwort — dieselben Angaben wie im Scanner.'},
-        {emoji: '🤔', bold: 'Bei mehreren Arten fragt sie nach:', text: ' „Wacholder" sind acht Arten in unserer Liste, und sie sind nicht alle gleich. Dann sagt Lina das, statt sich eine auszusuchen.'},
-        {emoji: '🆘', bold: 'Notfall zuerst:', text: ' wer schreibt, dass jemand etwas gegessen hat, bekommt sofort Tox Info Suisse 145 — ohne auf die KI zu warten. In vier Sprachen.'},
-        {emoji: '📡', bold: 'Ohne Internet trotzdem eine Antwort:', text: ' Lina sagt, was in der App-Liste steht, statt dich auf spaeter zu vertroesten.'},
-        {emoji: '⚠️', bold: 'Und eine Gegenprobe:', text: ' behauptet die Antwort „essbar" ueber etwas, das unsere Liste als giftig fuehrt, steht eine Warnung darueber.'}
-      ],
-      items: [
-        '_gsArtenTreffer(text): ganzer Name oder ganzes Binomen an Wortgrenzen. Der grobe Vergleich aus getSmartAnswer nimmt IRGENDEIN Wort eines Namens — „Meine Tomaten haben braune Blaetter" ergab dort die Braune Krustenflechte, „echte Kamille" die Echte Engelwurz.',
-        'Deutsch dekliniert: „den Gruenen Knollenblaetterpilz" trifft ueber das letzte Wort des Namens. Gemessen: von 505 solchen Woertern mit >= 10 Zeichen zeigen 384 auf genau eine Art; die uebrigen laufen in dieselbe Mehrdeutigkeits-Regel.',
-        'Bei mehreren Arten wird KEINE ausgewaehlt. Sind sie sich einig (Rose: 19 Arten, keine giftig), wird geerdet; gehen sie auseinander (Wacholder: essbar nur manche), sagt die Zeile genau das.',
-        'Jede Angabe durch _gsArtAnzeige — die der ART, nicht des Eintrags. Gemessen: Beinwell steht als Eintrag auf Stufe 1, als Art auf 3 (ueberschreitet die Warnschwelle), Christrose 3 gegen 5.',
-        '_gsNotfallStufe aus getSmartAnswer herausgeloest: EIN Vokabular fuer beide Chats. Bei „dringend" steht die Nummer sofort da — VOR dem Doppel-Send-Riegel, damit sie auch waehrend einer laufenden Anfrage erscheint — und die Antwort kommt trotzdem: ein Fehlalarm darf der Person nicht die Auskunft wegnehmen.',
-        'Ohne Netz antwortet getSmartAnswer als Lina-Antwort; erst wenn auch von dort nichts kommt, bleibt der alte Hinweis.',
-        'Pruefstand: sensor_check +5 (36 Faelle), darunter einer, der den WEG misst statt der Funktionen — Notfall ohne KI-Aufruf, Kontext mit ARTEN-Zeile, Warnzeile ueber der Antwort, Antwort ohne Netz. Fuenf Gegenproben einzeln gestellt.'
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76749,7 +76744,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.49';
+var GS_VERSION = 'v33.50';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -87826,23 +87821,20 @@ async function _gsAdminRueckfrage(text) {
 
 async function gsAdminAssignRole(userId, role, note, opts) {
   if (!gsIsAdmin()) { showProfileToast && showProfileToast('🔐 Nur Admins'); return null; }
-  if (!(opts && opts.bestaetigt)) {
+  // v33.50: eine Aktion, von der die Sitzung weiss, dass der Server sie nicht
+  // freigegeben hat, bekommt KEINE Rueckfrage — eine Rueckfrage „wirklich
+  // SPERREN? wirkt sofort" fuer etwas, das danach scheitert, ist die
+  // schlechteste aller Antworten. Der Satz kommt aus _gsAdmTun.
+  if (!window._gsAdmGesperrt.assign_role && !(opts && opts.bestaetigt)) {
     var wort = (role === 'banned') ? 'SPERREN' : (role === 'admin') ? 'zum ADMIN machen' : ('auf „' + role + '" setzen');
     if (!(await _gsAdminRueckfrage('Diesen Nutzer wirklich ' + wort + '? Das wirkt sofort und ist nur von Hand rückgängig zu machen.'))) return null;
   }
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_assign_role', {
-      method: 'POST',
-      body: JSON.stringify({_user_id: userId, _role: role, _note: note || null})
-    });
-    if (r && !r.error) {
-      showProfileToast && showProfileToast(_gsSatz('✅ Rolle zugewiesen: {1}', role));
-      return r.data;
-    }
-    showProfileToast && showProfileToast('❌ ' + ((r.error && _gsFehlerText(r.error)) || 'Fehler'));
-  } catch(e) {
-    showProfileToast && showProfileToast('❌ ' + e.message);
+  var r = await _gsAdmTun('assign_role', {_user_id: userId, _role: role, _note: note || null});
+  if (r.state === 'ok') {
+    showProfileToast && showProfileToast(_gsSatz('✅ Rolle zugewiesen: {1}', role));
+    return r.daten || true;
   }
+  showProfileToast && showProfileToast('❌ ' + _gsAdmSagen(r));
   return null;
 }
 
@@ -87936,6 +87928,175 @@ async function _gsAdmHolen(schluessel, zusatz) {
 }
 window._gsAdmHole = _gsAdmHole;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// v33.50 · Admin-Panel: EIN Weg zu einer AKTION — und Zustaende, die es sagt
+//
+// v33.42 hat das LESEN auf einen Weg gebracht (_gsAdmHole + GS_ADM_SEKTIONEN).
+// Das SCHREIBEN hatte am 23.09.2026 noch siebzehn eigene Wege — und keiner
+// davon rief _gsSchreibOk. Zwei Befunde, beide gegen die Live-DB gemessen:
+//
+//   · gsAdminReviewReport schickte `Prefer: return=minimal` und prueft nur
+//     `.error`. RLS lehnt mit 0 Zeilen und OHNE Fehler ab — die Ablehnung war
+//     damit unsichtbar, und auf dem Bildschirm stand „✅ Als erledigt markiert."
+//   · Zwei RPCs darf `authenticated` gar nicht ausfuehren (fn_assign_role,
+//     fn_set_global_api_key — nur service_role). Der Knopf „🚫 Nutzer sperren"
+//     zeigte eine Rueckfrage („wirkt sofort") fuer eine Aktion, die danach
+//     scheitert. Eine Sperre, die nicht greift, sieht aus wie eine.
+//
+// Deshalb: GS_ADM_AKTIONEN ist die Liste, _gsAdmTun der eine Weg, und jede
+// Antwort hat einen ZUSTAND mit Grund — ok · abgelehnt · nicht_freigeschaltet ·
+// nicht_verfuegbar · fehler · kein_zugriff. `admin_check` haelt die Liste gegen
+// den Quelltext (kein Schreibweg daneben, jeder Eintrag wird gerufen).
+//
+// Eine Aktion hat GENAU EIN Ziel: `rpc` (POST /rest/v1/rpc/…) · `pfad`+`method`
+// (Tabelle, immer mit return=representation, sonst gibt es nichts zu zaehlen)
+// · `fn` (Edge-Function). `freigabe` nennt die Migration, die ein fehlendes
+// GRANT nachliefert — dann sagt der Zustand „nicht_freigeschaltet" den
+// Dateinamen statt „Fehler".
+// ═══════════════════════════════════════════════════════════════════════════
+var GS_ADM_AKTIONEN = {
+  moderate:          { titel:'Inhalt moderieren',           rpc:'fn_admin_moderate' },
+  set_tier:          { titel:'Plan setzen',                 rpc:'fn_admin_set_tier' },
+  assign_role:       { titel:'Rolle vergeben / sperren',    rpc:'fn_assign_role',                  freigabe:'20260924_admin_grants.sql' },
+  flag_set:          { titel:'Feature-Flag setzen',         rpc:'fn_admin_flag_set' },
+  voucher_create:    { titel:'Gutschein anlegen',           rpc:'fn_admin_create_voucher' },
+  voucher_toggle:    { titel:'Gutschein schalten',          rpc:'fn_admin_voucher_toggle' },
+  knowledge_save:    { titel:'Wissen speichern',            rpc:'fn_admin_knowledge_save' },
+  knowledge_delete:  { titel:'Wissen löschen',              rpc:'fn_admin_knowledge_delete' },
+  knowledge_publish: { titel:'Wissen veröffentlichen',      rpc:'fn_admin_knowledge_set_published' },
+  species_image:     { titel:'Foto-Beitrag prüfen',         rpc:'fn_admin_review_species_image' },
+  species_proposal:  { titel:'Arten-Vorschlag prüfen',      rpc:'fn_admin_review_species_proposal' },
+  integrity_scan:    { titel:'Integritäts-Scan',            rpc:'fn_admin_data_integrity' },
+  global_api_key:    { titel:'Globalen KI-Schlüssel setzen', rpc:'fn_set_global_api_key',          freigabe:'20260924_admin_grants.sql' },
+  report_review:     { titel:'Meldung erledigen',           pfad:'/rest/v1/user_reports', method:'PATCH' },
+  broadcast:         { titel:'Broadcast senden',            fn:'send-push' }
+};
+window.GS_ADM_AKTIONEN = GS_ADM_AKTIONEN;
+
+// Zwei Abfragen gehen per POST an eine RPC und LESEN nur (Nutzer-Detail,
+// Wissens-Liste) — ein POST ist hier kein Schreibvorgang. Sie stehen namentlich,
+// damit `admin_check` sie von einem Schreibweg unterscheiden kann, der am einen
+// Weg vorbeigeht. Wer eine dritte solche Abfrage baut, traegt sie hier ein —
+// oder macht sie zur Sektion in GS_ADM_SEKTIONEN, wenn sie auf den Bildschirm soll.
+var GS_ADM_LESE_RPC = ['fn_admin_user_detail', 'fn_admin_knowledge_list'];
+window.GS_ADM_LESE_RPC = GS_ADM_LESE_RPC;
+
+// Was die Sitzung ueber gesperrte Aktionen WEISS. Der Server sagt es beim
+// ersten Versuch (403 „permission denied for function"); danach fragt die App
+// nicht mehr nach einer Rueckfrage fuer etwas, das nicht gehen wird. Nur im
+// Arbeitsspeicher — nach dem Anwenden der Migration ist es beim naechsten
+// Start von selbst weg.
+window._gsAdmGesperrt = window._gsAdmGesperrt || {};
+function _gsAdmGesperrtLeeren() { window._gsAdmGesperrt = {}; }
+window._gsAdmGesperrtLeeren = _gsAdmGesperrtLeeren;
+
+/**
+ * Der eine Schreibweg. Gibt IMMER einen Umschlag { state, daten, key, grund }.
+ *   opts.filter  — Suffix an den Tabellenpfad (z. B. '?id=eq.…')
+ */
+async function _gsAdmTun(schluessel, body, opts) {
+  var a = GS_ADM_AKTIONEN[schluessel];
+  if (!a) return { state:'fehler', daten:null, key:schluessel, grund:_gsSatz('Unbekannte Aktion {1}', schluessel) };
+  // Der Server entscheidet (v32.74) — und ohne sein Ja geht gar keine Anfrage hinaus.
+  if (!(typeof gsIsAdmin === 'function' && gsIsAdmin()))
+    return { state:'kein_zugriff', daten:null, key:schluessel, grund:_gsSatz('Kein Admin-Zugang — der Server hat das Konto nicht bestätigt.') };
+  var g = window._gsAdmGesperrt[schluessel];
+  if (g) return { state:'nicht_freigeschaltet', daten:null, key:schluessel, grund:g.grund, gemerkt:true };
+
+  var pfad, o;
+  try {
+    if (a.rpc) {
+      pfad = '/rest/v1/rpc/' + a.rpc;
+      o = { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body || {}) };
+    } else if (a.pfad) {
+      pfad = a.pfad + ((opts && opts.filter) || '');
+      // return=representation ist PFLICHT: nur so zaehlt sich eine RLS-Ablehnung
+      // (0 Zeilen, kein Fehler) ueberhaupt. return=minimal macht sie unsichtbar.
+      o = { method: a.method || 'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify(body || {}) };
+    } else if (a.fn) {
+      pfad = '/functions/v1/' + a.fn;
+      o = { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body || {}) };
+    } else {
+      return { state:'fehler', daten:null, key:schluessel, grund:_gsSatz('Aktion {1} hat kein Ziel', schluessel) };
+    }
+    var r = await sbFetch(pfad, o);
+    return _gsAdmTunDeuten(schluessel, a, r);
+  } catch(e) {
+    return { state:'fehler', daten:null, key:schluessel,
+             grund:(typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : String((e && e.message) || e) };
+  }
+}
+window._gsAdmTun = _gsAdmTun;
+
+// Die Deutung — getrennt, damit sie sich fuer sich pruefen laesst.
+function _gsAdmTunDeuten(schluessel, a, r) {
+  var text = (typeof _gsFehlerText === 'function') ? _gsFehlerText : function(x){ return String((x && x.message) || x || ''); };
+  if (r && r.error) {
+    var m = String(r.error.message || '').toLowerCase();
+    var st = r.error.status || 0;
+    // Netz: kein Status, oder die typischen Saetze des Browsers.
+    if (st === 0 || /failed to fetch|networkerror|network error|timeout|abgebrochen|aborted/.test(m))
+      return { state:'fehler', daten:null, key:schluessel, grund:text(r.error) };
+    // Die RPC gibt es nicht — eine nicht angewandte Migration, kein Fehler des Admins.
+    if (st === 404 || /pgrst202|pgrst205|schema cache|could not find/.test(m))
+      return { state:'nicht_verfuegbar', daten:null, key:schluessel,
+               grund:_gsSatz('Diese Aktion gibt es auf dem Server (noch) nicht.') };
+    // Das GRANT fehlt: der Server kennt die Funktion, laesst uns aber nicht hinein.
+    // Genau die Antwort der Live-DB fuer fn_assign_role und fn_set_global_api_key.
+    if (/permission denied for function/.test(m)) {
+      var grund = a.freigabe
+        ? _gsSatz('Der Server hat diese Aktion noch nicht freigegeben — Migration {1} anwenden.', a.freigabe)
+        : _gsSatz('Der Server hat diese Aktion nicht freigegeben.');
+      window._gsAdmGesperrt[schluessel] = { grund: grund, freigabe: a.freigabe || null, seit: Date.now() };
+      return { state:'nicht_freigeschaltet', daten:null, key:schluessel, grund:grund };
+    }
+    // Ablehnung: RLS, abgelaufene Sitzung, 401/403.
+    if (st === 401 || st === 403 || /row-level security|\bjwt\b|not authenticated|forbidden|42501/.test(m))
+      return { state:'abgelehnt', daten:null, key:schluessel, grund:text(r.error) };
+    return { state:'fehler', daten:null, key:schluessel, grund:text(r.error) };
+  }
+  var d = (r && r.data !== undefined) ? r.data : null;
+  // Tabellenweg: 0 Zeilen SIND die Ablehnung (RLS meldet keinen Fehler).
+  if (a.pfad) {
+    if (!(typeof _gsSchreibOk === 'function' ? _gsSchreibOk(r) : (Array.isArray(d) && d.length)))
+      return { state:'abgelehnt', daten:d, key:schluessel,
+               grund:_gsSatz('Der Server hat nichts geändert (0 Zeilen) — vermutlich keine Berechtigung.') };
+    return { state:'ok', daten:d, key:schluessel, grund:'' };
+  }
+  // RPC / Edge-Function: manche antworten { ok:false, error:'…' } mit HTTP 200.
+  if (d && typeof d === 'object' && !Array.isArray(d) && d.ok === false) {
+    var E = { forbidden:'Keine Berechtigung', code_exists:'Code existiert bereits', invalid_reward:'Ungültige Belohnung', no_code:'Kein Code', not_found:'Nicht gefunden' };
+    var fe = String(d.error || '');
+    return { state:'abgelehnt', daten:d, key:schluessel, grund:(E[fe] ? _gsSatz(E[fe]) : (fe || _gsSatz('Der Server hat Nein gesagt.'))) };
+  }
+  return { state:'ok', daten:d, key:schluessel, grund:'' };
+}
+window._gsAdmTunDeuten = _gsAdmTunDeuten;
+
+// Der eine Satz je Zustand — fuer Toasts. `ok` gibt '' zurueck: was gut ging,
+// sagt der Aufrufer in seinen eigenen Worten (mit dem, was der Server zurueckgab).
+function _gsAdmSagen(r) {
+  if (!r || r.state === 'ok') return '';
+  var t = GS_ADM_AKTIONEN[r.key] ? _gsSatz(GS_ADM_AKTIONEN[r.key].titel) : '';
+  var kopf = (r.state === 'kein_zugriff') ? _gsSatz('Kein Admin-Zugang.')
+           : (r.state === 'nicht_freigeschaltet') ? _gsSatz('Noch nicht freigeschaltet.')
+           : (r.state === 'nicht_verfuegbar') ? _gsSatz('Auf dem Server nicht vorhanden.')
+           : (r.state === 'abgelehnt') ? _gsSatz('Abgelehnt — nichts geändert.')
+           : _gsSatz('Fehlgeschlagen.');
+  return (t ? t + ': ' : '') + kopf + (r.grund ? ' ' + r.grund : '');
+}
+window._gsAdmSagen = _gsAdmSagen;
+
+// Ein Satz an einem Knopf, dessen Aktion die Sitzung als gesperrt kennt — sonst ''.
+function _gsAdmAktionHinweisHtml(schluessel) {
+  var g = window._gsAdmGesperrt[schluessel];
+  if (!g) return '';
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s == null ? '' : s); };
+  return '<div class="gs-adm-gesperrt" style="margin-top:6px;padding:6px 9px;background:var(--bg-yellow-soft);border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--c-brown);line-height:1.5;">' +
+    '<span aria-hidden="true">⚠️</span> ' + esc(g.grund) + '</div>';
+}
+window._gsAdmAktionHinweisHtml = _gsAdmAktionHinweisHtml;
+
 // Der Zustand, den die Anzeige aussprechen MUSS — oder null, wenn Daten da sind.
 function _gsAdmZustand(x) {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
@@ -87980,9 +88141,19 @@ function _gsAdmUeberblickHtml() {
     return stand[k] && stand[k].state && stand[k].state !== 'daten';
   });
   var gesamt = Object.keys(stand).length;
+  // v33.50: was die Sitzung ueber gesperrte AKTIONEN weiss, steht hier mit —
+  // sonst erfaehrt der Admin es erst beim Klick, jedes Mal neu.
+  var gesperrt = Object.keys(window._gsAdmGesperrt || {}).filter(function(k){ return GS_ADM_AKTIONEN[k]; });
+  var aktZeile = gesperrt.length
+    ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,.08);color:var(--c-brown);">' +
+        '<span aria-hidden="true">🔒</span> ' + esc(_gsSatz('{1} Aktion(en) noch nicht freigegeben:', gesperrt.length)) + ' ' +
+        gesperrt.map(function(k){ return esc(_gsSatz(GS_ADM_AKTIONEN[k].titel)); }).join(' · ') +
+        (window._gsAdmGesperrt[gesperrt[0]].freigabe ? ' <span style="color:var(--muted);">(' + esc(window._gsAdmGesperrt[gesperrt[0]].freigabe) + ')</span>' : '') +
+      '</div>'
+    : '';
   var rahmen = function(inhalt){
     return '<div id="gs-admin-ueberblick-sec" style="margin-bottom:12px;padding:9px 11px;border-radius:var(--r-sm);background:' +
-      (offen.length ? 'var(--bg-yellow-soft)' : 'var(--bg-success-soft)') + ';font-size:var(--fs-sm);line-height:1.5;">' + inhalt + '</div>';
+      ((offen.length || gesperrt.length) ? 'var(--bg-yellow-soft)' : 'var(--bg-success-soft)') + ';font-size:var(--fs-sm);line-height:1.5;">' + inhalt + aktZeile + '</div>';
   };
   if (!gesamt) return rahmen('<span style="color:var(--muted);">' + esc(_gsSatz('Noch nichts abgefragt.')) + '</span>');
   if (!offen.length)
@@ -88101,15 +88272,13 @@ async function gsAdminSetTier(userId, tier, opts) {
   if (!(opts && opts.bestaetigt)) {
     if (!(await _gsAdminRueckfrage('Diesem Nutzer wirklich die Stufe „' + tier + '" geben? Das schaltet Bezahl-Funktionen frei.'))) return;
   }
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_set_tier', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_user_id: userId, p_tier: tier }) });
-    var d = (r && r.data) || {};
-    if (d.ok) {
-      if (typeof gsToast === 'function') gsToast(_gsSatz('💎 Tier gesetzt: {1}{2}', tier, (d.stripe_warning ? ' — ℹ️ User hat bereits ein aktives Stripe-Abo (Comp zusätzlich)' : ' — schaltet beim nächsten Öffnen frei')), d.stripe_warning ? 'info' : 'success', 4000);
-    } else {
-      if (typeof gsToast === 'function') gsToast(_gsSatz('Tier-Wechsel fehlgeschlagen: {1}', (d.error || 'unbekannt')), 'error');
-    }
-  } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
+  var r = await _gsAdmTun('set_tier', { p_user_id: userId, p_tier: tier });
+  if (r.state === 'ok') {
+    var d = r.daten || {};
+    if (typeof gsToast === 'function') gsToast(_gsSatz('💎 Tier gesetzt: {1}{2}', tier, (d.stripe_warning ? ' — ℹ️ User hat bereits ein aktives Stripe-Abo (Comp zusätzlich)' : ' — schaltet beim nächsten Öffnen frei')), d.stripe_warning ? 'info' : 'success', 4000);
+  } else {
+    if (typeof gsToast === 'function') gsToast(_gsAdmSagen(r), 'error');
+  }
 }
 window.gsAdminSetTier = gsAdminSetTier;
 
@@ -88122,12 +88291,9 @@ async function gsAdminEditFlag(key, currentValue) {
     ? await gsPromptModal({ title: '🚩 ' + key, message: 'Neuer Wert (leer = aus/deaktiviert):', value: currentValue || '' })
     : prompt('Neuer Wert für ' + key + ':', currentValue || '');
   if (nv === null) return;
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_flag_set', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_key: key, p_value: String(nv) }) });
-    var d = (r && r.data) || {};
-    if (d.ok) { if (typeof gsToast === 'function') gsToast('🚩 Flag gespeichert.', 'success'); openAdminPanel(); }
-    else { if (typeof gsToast === 'function') gsToast(_gsSatz('Fehler: {1}', (d.error || 'unbekannt')), 'error'); }
-  } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
+  var r = await _gsAdmTun('flag_set', { p_key: key, p_value: String(nv) });
+  if (r.state === 'ok') { if (typeof gsToast === 'function') gsToast('🚩 Flag gespeichert.', 'success'); openAdminPanel(); }
+  else { if (typeof gsToast === 'function') gsToast(_gsAdmSagen(r), 'error'); }
 }
 window.gsAdminEditFlag = gsAdminEditFlag;
 function _gsAdminFlagsHtml(flags) {
@@ -88239,11 +88405,9 @@ async function gsAdminSendBroadcast() {
     : confirm('Broadcast an alle senden?');
   if (!ok) return;
   try {
-    var r = await sbFetch('/functions/v1/send-push', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ broadcast: true, category: 'broadcast', title: title.slice(0,120), body: text.slice(0,200), url: '/', tag: 'gs-broadcast' })
-    });
-    var d = (r && r.data) || {};
+    var r = await _gsAdmTun('broadcast', { broadcast: true, category: 'broadcast', title: title.slice(0,120), body: text.slice(0,200), url: '/', tag: 'gs-broadcast' });
+    if (r.state !== 'ok') { if (typeof gsToast === 'function') gsToast(_gsAdmSagen(r), 'error', 4000); return; }
+    var d = r.daten || {};
     if (d.sent > 0 || d.ok) {
       if (typeof gsToast === 'function') gsToast(_gsSatz('📣 Gesendet: {1} Push(es) an {2} Nutzer ({3} fehlgeschlagen).', (d.sent||0), (d.users||0), (d.failed||0)), 'success', 5000);
       if (tEl) tEl.value = ''; if (bEl) bEl.value = '';
@@ -88598,10 +88762,9 @@ async function gsAdminModerate(type, id, action) {
       : (typeof confirm === 'function' ? confirm('Endgültig löschen?') : true);
     if (!ok) return;
   }
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_moderate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_type: type, p_id: id, p_action: action }) });
-    var res = r && r.data;
-    if (res && res.ok) {
+  var r = await _gsAdmTun('moderate', { p_type: type, p_id: id, p_action: action });
+  {
+    if (r.state === 'ok') {
       if (typeof gsToast==='function') gsToast('✅ ' + (action==='delete'?'Gelöscht':action==='hide'?'Versteckt':'Eingeblendet'), 'success');
       // v29.20 B-MOD-2: betroffene Quelle frisch aus der Cloud ziehen, damit Löschen/Verstecken/
       // Einblenden SOFORT + dauerhaft im Marktplatz/Feed wirkt (vorher nur im Admin-Panel gerefresht
@@ -88611,8 +88774,8 @@ async function gsAdminModerate(type, id, action) {
         else if ((type === 'post' || type === 'comment') && typeof loadSocialPosts === 'function') loadSocialPosts(true);
       } catch(_){}
     }
-    else { if (typeof gsToast==='function') gsToast('⚠️ ' + ((res && res.error) || 'Fehler'), 'error'); }
-  } catch(e) { if (typeof gsToast==='function') gsToast('⚠️ ' + (e && e.message || 'Fehler'), 'error'); }
+    else { if (typeof gsToast==='function') gsToast('⚠️ ' + _gsAdmSagen(r), 'error'); }
+  }
   await gsAdmSektionNeu('moderation');
 }
 
@@ -88688,6 +88851,9 @@ async function gsAdminOpenUserDetail(userId) {
         '<input id="admin-role-note" type="text" maxlength="200" placeholder="Begründung (die Person liest sie mit) — optional" aria-label="Begründung" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;background:var(--card);color:var(--text);margin-bottom:10px;">'
       ) +
       '<button onclick="gsAdminAssignRole(\'' + p.id + '\',\'' + (isBanned?'user':'banned') + '\').then(function(){gsAdminOpenUserDetail(\'' + p.id + '\');try{openAdminPanel();}catch(_){}})" style="width:100%;padding:9px;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;background:' + (isBanned?'#2e7d32':'#c62828') + ';color:#fff;">' + (isBanned?'✅ Entsperren':'🚫 Nutzer sperren') + '</button>' +
+      // v33.50: weiss die Sitzung, dass der Server diese Aktion nicht freigegeben
+      // hat, steht es HIER — am Knopf, nicht erst im Toast nach dem Klick.
+      _gsAdmAktionHinweisHtml('assign_role') +
     '</div></div>';
   document.body.appendChild(m);
 }
@@ -88728,20 +88894,17 @@ async function gsAdminCreateVoucher() {
   var maxV = (document.getElementById('gs-vc-max')||{}).value || '';
   var days = (document.getElementById('gs-vc-days')||{}).value || '';
   if (!code.trim()) { if (typeof gsToast==='function') gsToast('Code eingeben','warning'); return; }
-  try {
-    var r = await sbFetch('/rest/v1/rpc/fn_admin_create_voucher', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ p_code: code.trim(), p_reward_tier: tier, p_max_uses: (maxV?parseInt(maxV,10):null), p_valid_days: (days?parseInt(days,10):null), p_description: null }) });
-    var res = r && r.data;
-    if (res && res.ok) { if (typeof gsToast==='function') gsToast(_gsSatz('✅ Gutschein {1} erstellt', res.code), 'success'); }
-    else { var E={code_exists:'Code existiert bereits',invalid_reward:'Ungültige Belohnung',no_code:'Kein Code',forbidden:'Keine Berechtigung'}; if (typeof gsToast==='function') gsToast('⚠️ ' + (E[res&&res.error]||(res&&res.error)||'Fehler'), 'error'); }
-  } catch(e){ if (typeof gsToast==='function') gsToast('⚠️ ' + (e&&e.message||'Fehler'), 'error'); }
+  var r = await _gsAdmTun('voucher_create', { p_code: code.trim(), p_reward_tier: tier, p_max_uses: (maxV?parseInt(maxV,10):null), p_valid_days: (days?parseInt(days,10):null), p_description: null });
+  if (r.state === 'ok') { if (typeof gsToast==='function') gsToast(_gsSatz('✅ Gutschein {1} erstellt', (r.daten && r.daten.code) || code.trim()), 'success'); }
+  else { if (typeof gsToast==='function') gsToast('⚠️ ' + _gsAdmSagen(r), 'error'); }
   await gsAdmSektionNeu('vouchers');
 }
 async function gsAdminToggleVoucher(code, active) {
   if (!gsIsAdmin()) return;
-  try {
-    await sbFetch('/rest/v1/rpc/fn_admin_voucher_toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_code: code, p_active: !!active }) });
-  } catch(_){}
+  // v33.50: bis hierher ging die Antwort ins Leere — ein Gutschein, der nicht
+  // umgeschaltet wurde, sah nach dem Neuladen genauso aus wie vorher, ohne Satz.
+  var r = await _gsAdmTun('voucher_toggle', { p_code: code, p_active: !!active });
+  if (r.state !== 'ok') { if (typeof gsToast==='function') gsToast('⚠️ ' + _gsAdmSagen(r), 'error'); }
   await gsAdmSektionNeu('vouchers');
 }
 
@@ -88756,16 +88919,16 @@ async function gsAdminKnowledgeList(table) {
   try { var r = await sbFetch('/rest/v1/rpc/fn_admin_knowledge_list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_table: table, p_limit: 80 }) }); return (r && Array.isArray(r.data)) ? r.data : []; } catch(e) { return []; }
 }
 async function gsAdminKnowledgeSave(table, id, title, text, category, published) {
-  var r = await sbFetch('/rest/v1/rpc/fn_admin_knowledge_save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_table:table, p_id:id||'', p_title:title, p_text:text, p_category:category, p_published:!!published }) });
-  return r && r.data;
+  var r = await _gsAdmTun('knowledge_save', { p_table:table, p_id:id||'', p_title:title, p_text:text, p_category:category, p_published:!!published });
+  return (r.state === 'ok') ? (r.daten || { ok:true }) : { ok:false, error:_gsAdmSagen(r), state:r.state };
 }
 async function gsAdminKnowledgeDelete(table, id) {
-  var r = await sbFetch('/rest/v1/rpc/fn_admin_knowledge_delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_table:table, p_id:id }) });
-  return r && r.data;
+  var r = await _gsAdmTun('knowledge_delete', { p_table:table, p_id:id });
+  return (r.state === 'ok') ? (r.daten || { ok:true }) : { ok:false, error:_gsAdmSagen(r), state:r.state };
 }
 async function gsAdminKnowledgeSetPublished(table, id, published) {
-  var r = await sbFetch('/rest/v1/rpc/fn_admin_knowledge_set_published', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_table:table, p_id:id, p_published:!!published }) });
-  return r && r.data;
+  var r = await _gsAdmTun('knowledge_publish', { p_table:table, p_id:id, p_published:!!published });
+  return (r.state === 'ok') ? (r.daten || { ok:true }) : { ok:false, error:_gsAdmSagen(r), state:r.state };
 }
 function _gsKnErr(r){ var M={invalid_category:'Kategorie ungültig',no_title:'Titel fehlt',not_found:'Nicht gefunden',missing_required:'Pflichtfeld fehlt',forbidden:'Keine Berechtigung',invalid_table:'Tabelle ungültig'}; return M[r&&r.error]||(r&&r.error)||'Fehler'; }
 async function gsAdminOpenKnowledgeEditor(table) {
@@ -89087,11 +89250,8 @@ async function gsAdminReviewSpeciesImage(id, approve){
         // ok===true (2× JA) oder ok===null (Verify nicht möglich → Admin-Entscheidung) → weiter
       }
     }
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_review_species_image', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ p_id: id, p_approve: !!approve, p_make_primary: !!approve })
-    });
-    if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
+    var res = await _gsAdmTun('species_image', { p_id: id, p_approve: !!approve, p_make_primary: !!approve });
+    if (res.state !== 'ok') { try { gsToast(_gsAdmSagen(res), 'error'); } catch(_){} return; }
     try { gsToast(approve ? '✅ Freigegeben — wird als Arten-Bild gezeigt.' : '🗑️ Abgelehnt.', 'success'); } catch(_){}
     try { _spImgCache = {}; } catch(_){}
     await gsAdmSektionNeu('simg');
@@ -89155,13 +89315,10 @@ async function gsAdminReviewSpeciesProposal(id, approve){
         }
       }
     }
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_review_species_proposal', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ p_id: id, p_approve: !!approve, p_note: null })
-    });
-    if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
+    var res = await _gsAdmTun('species_proposal', { p_id: id, p_approve: !!approve, p_note: null });
+    if (res.state !== 'ok') { try { gsToast(_gsAdmSagen(res), 'error'); } catch(_){} return; }
     // v30.59: ehrliches Feedback je nach RPC-Ergebnis (neu aufgenommen vs. war bereits in der DB).
-    var rd = (res && res.data) || {};
+    var rd = (res && res.daten) || {};
     var msg = !approve ? '🗑️ Vorschlag abgelehnt.'
             : (rd.inserted === false ? '✅ War bereits in der Arten-DB — als geprüft markiert.'
                                      : '✅ Neu in die Arten-DB aufgenommen.');
@@ -89197,15 +89354,15 @@ function _gsAdminReportsHtml(list){
   '</div>';
 }
 async function gsAdminReviewReport(id, status){
-  try {
-    var res = await sbFetch('/rest/v1/user_reports?id=eq.' + encodeURIComponent(id), {
-      method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
-      body: JSON.stringify({ status: status, reviewed_at: new Date().toISOString() })
-    });
-    if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
-    try { gsToast(status==='reviewed' ? '✅ Als erledigt markiert.' : '🗑️ Verworfen.', 'success'); } catch(_){}
-    await gsAdmSektionNeu('reports');
-  } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
+  // v33.50: vorher `Prefer: return=minimal` + nur `.error` — RLS lehnt mit
+  // 0 Zeilen und OHNE Fehler ab, und auf dem Bildschirm stand
+  // „✅ Als erledigt markiert." fuer nichts. Jetzt return=representation
+  // (in _gsAdmTun), und die Zeilen werden gezaehlt.
+  var res = await _gsAdmTun('report_review', { status: status, reviewed_at: new Date().toISOString() },
+                            { filter: '?id=eq.' + encodeURIComponent(id) });
+  if (res.state !== 'ok') { try { gsToast(_gsAdmSagen(res), 'error'); } catch(_){} return; }
+  try { gsToast(status==='reviewed' ? '✅ Als erledigt markiert.' : '🗑️ Verworfen.', 'success'); } catch(_){}
+  await gsAdmSektionNeu('reports');
 }
 
 // ══ v29.30 Schicht 1 (Observability): Admin — Hintergrund-Jobs (Cron-Health) ══
@@ -89277,13 +89434,13 @@ function _gsAdminSystemEventsHtml(events){
 async function gsAdminRunIntegrityScan(){
   try {
     if (typeof gsToast==='function') gsToast('🔍 Prüfe Daten-Integrität…','info',2000);
-    var res = await sbFetch('/rest/v1/rpc/fn_admin_data_integrity', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-    var d = (res && res.data) || null;
+    var res = await _gsAdmTun('integrity_scan', {});
+    var d = (res.state === 'ok') ? (res.daten || null) : null;
     if (d) {
       var an = (d.anomalies && d.anomalies.length) ? ('⚠️ '+d.anomalies.join(', ')) : '✅ Keine Anomalien';
       if (typeof gsToast==='function') gsToast(an+' · '+(d.total_storage_objects||0)+' Dateien','success',5000);
     } else if (typeof gsToast==='function') {
-      gsToast('Integritäts-Check ohne Resultat','error',4000);
+      gsToast(res.state === 'ok' ? 'Integritäts-Check ohne Resultat' : _gsAdmSagen(res),'error',4000);
     }
     // System-Ereignisse-Sektion neu laden → der neue Scan erscheint sofort
     gsAdmSektionNeu('sysevents');

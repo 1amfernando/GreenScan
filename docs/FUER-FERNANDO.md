@@ -1083,6 +1083,60 @@ brauchst du davon nichts.**
 
 ---
 
+## 23 · Zwei Admin-Knöpfe sind tot — eine Migration schaltet sie frei (v33.50)
+
+**Du hast geschrieben:** „Zugleich möchte ich dass du den Admin-Panel noch
+besser, sauberer, sicherer und erweitert aufbaust."
+
+**Zuerst die gute Nachricht, gemessen an der Live-Datenbank (nur lesend):**
+das Admin-Panel ist **sicher**. Zwölf von dreizehn Schreib-Funktionen prüfen
+selbst, ob der Aufrufer Admin ist, und die Tabelle der Meldungen lässt nur
+Admins ändern. Ein Nicht-Admin kommt an keiner Stelle durch.
+
+**Die schlechte:** zwei Knöpfe tun seit Langem nichts —
+
+| Knopf | Funktion | Was passiert heute |
+|---|---|---|
+| „🚫 Nutzer sperren" / Rolle vergeben | `fn_assign_role` | Rückfrage „wirkt sofort" — danach `permission denied for function` |
+| „Globalen KI-Schlüssel setzen" | `fn_set_global_api_key` | dasselbe |
+
+Beide Funktionen dürfen nur `postgres` und `service_role` ausführen — ein
+angemeldeter Admin (Rolle `authenticated`) nicht. Im Repo liegen seit v29
+und v30 zwei Migrationen, die genau das nachliefern sollten; **live sind sie
+nicht in Kraft.** Ob sie nie angewandt wurden oder ein späteres REVOKE sie
+überholt hat, sagt die Datenbank nicht.
+
+### Was du tust
+
+Die Migration `supabase/migrations/20260924_admin_grants.sql` anwenden
+(Supabase-Dashboard → SQL-Editor, Inhalt einfügen, ausführen). Sie enthält
+genau zwei Zeilen Wirkung:
+
+```sql
+grant execute on function public.fn_assign_role(uuid, text, text)          to authenticated;
+grant execute on function public.fn_set_global_api_key(text, text, boolean) to authenticated;
+```
+
+**Das öffnet nichts.** Beide Funktionen prüfen `is_admin_user()` in ihrem
+Rumpf und lehnen jeden anderen ab — das GRANT macht diese Prüfung nur
+erreichbar. Idempotent: zweimal ausführen schadet nicht.
+
+### Was die App bis dahin tut
+
+Seit v33.50 sagt sie es an drei Stellen, statt eine Rückfrage zu stellen und
+danach zu scheitern: der Knopf trägt einen gelben Satz mit dem Dateinamen der
+Migration, die Rückfrage entfällt, und der Überblick oben im Panel zählt
+„🔒 2 Aktionen noch nicht freigegeben". Nach dem Anwenden ist das beim
+nächsten Öffnen von selbst weg — die App merkt sich die Sperre nur für die
+laufende Sitzung.
+
+### Und eine Sache, die ich gemessen und NICHT gebaut habe
+
+`gs_admin_log` wird bei jeder Admin-Aktion geschrieben — und **niemand liest
+es**. Dieselbe Klasse wie `analytics_events` bis v33.18. Wenn du willst, wird
+das eine Sektion im Panel („Was Admins zuletzt getan haben"); bis dahin ist
+es Speicherplatz. Sag es, dann kommt es.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

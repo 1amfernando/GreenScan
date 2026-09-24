@@ -228,6 +228,207 @@ const FAELLE = [
       return { ok: true, info: '3 von 16 benannt · erneut versuchen = 3 Anfragen · danach „Alle 16 Sektionen geladen"' };
     },
   },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // v33.50 · Die SCHREIB-Seite. v33.42 hat das Lesen auf EINEN Weg gebracht
+  // (_gsAdmHole + GS_ADM_SEKTIONEN). Gemessen am 23.09.2026: 17 schreibende
+  // Admin-Funktionen, 17 eigene Wege, 0× _gsSchreibOk. gsAdminReviewReport
+  // sagte „✅ Als erledigt markiert." mit `Prefer: return=minimal` — die
+  // Ablehnung UNSICHTBAR, die Zusage laut. Und zwei RPCs darf `authenticated`
+  // gar nicht ausfuehren (fn_assign_role, fn_set_global_api_key): der Knopf
+  // „Nutzer sperren" zeigte eine Rueckfrage fuer eine Aktion, die danach
+  // scheitert. Dieselbe Klasse wie v33.42, nur mit Folgen, die man nicht
+  // zuruecknehmen kann — eine Sperre, die nicht greift, sieht aus wie eine.
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    name: 'Aktionen · Die Liste ist die Prüfung: jeder Admin-Schreibweg geht durch _gsAdmTun, und jeder Eintrag in GS_ADM_AKTIONEN löst auf',
+    lauf: async () => {
+      if (typeof window.GS_ADM_AKTIONEN !== 'object' || typeof window._gsAdmTun !== 'function')
+        return { ok: false, warum: 'GS_ADM_AKTIONEN oder _gsAdmTun fehlt — es gibt keinen einen Weg' };
+      const A = window.GS_ADM_AKTIONEN;
+      const klagen = [];
+      // 1) Jeder Eintrag ist vollstaendig: Titel + genau EIN Ziel (rpc | pfad | fn).
+      for (const k of Object.keys(A)) {
+        const a = A[k];
+        const ziele = ['rpc', 'pfad', 'fn'].filter(z => a[z]);
+        if (!a.titel) klagen.push(k + ': kein Titel');
+        if (ziele.length !== 1) klagen.push(k + ': ' + ziele.length + ' Ziele statt eines');
+        if (a.pfad && !a.method) klagen.push(k + ': Tabellenweg ohne method');
+      }
+      // 2) Kein Admin-Schreibvorgang mehr am einen Weg vorbei. Der QUELLTEXT
+      //    wird gelesen, nicht das Dokument: ein Weg, der nur in einer
+      //    Funktion steht, die niemand ruft, ist trotzdem ein zweiter Weg.
+      const src = window.__QUELLE_OHNE || '';
+      if (!src) klagen.push('Quelltext nicht uebergeben');
+      else {
+        const fnRe = /(?:async\s+)?function\s+(gsAdmin[A-Za-z]*)\s*\([^)]*\)\s*\{/g;
+        let m; const roh = [];
+        while ((m = fnRe.exec(src))) {
+          // Rumpf bis zur schliessenden Klammer
+          let i = m.index + m[0].length - 1, d = 0, j = i;
+          for (; j < src.length && j < i + 12000; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (!d) break; } }
+          const r = src.slice(i, j + 1);
+          const schreibt = /sbFetch\([^;]{0,300}?method:\s*'(POST|PATCH|DELETE|PUT)'/.test(r);
+          if (!schreibt) continue;
+          // Ein POST an eine RPC, die nur LIEST, ist kein Schreibweg — aber nur,
+          // wenn sie namentlich als Lese-RPC gefuehrt ist (GS_ADM_LESE_RPC oder
+          // eine Sektion). Alles andere zaehlt.
+          const lese = new Set([].concat(window.GS_ADM_LESE_RPC || [],
+            Object.keys(window.GS_ADM_SEKTIONEN || {}).map(k => window.GS_ADM_SEKTIONEN[k].rpc).filter(Boolean)));
+          const rpcs = (r.match(/\/rest\/v1\/rpc\/([a-z_]+)/g) || []).map(x => x.replace(/.*\//, ''));
+          const nurLesen = rpcs.length > 0 && rpcs.every(x => lese.has(x)) && !/method:\s*'(PATCH|DELETE|PUT)'/.test(r);
+          if (!nurLesen) roh.push(m[1]);
+        }
+        if (roh.length) klagen.push(roh.length + ' Admin-Funktion(en) schreiben noch am einen Weg vorbei: ' + roh.slice(0, 4).join(', '));
+        // 3) Und die Umkehrung: jeder Eintrag der Liste wird auch GERUFEN.
+        for (const k of Object.keys(A)) {
+          const n = (src.match(new RegExp("_gsAdmTun\\(\\s*'" + k + "'", 'g')) || []).length;
+          if (!n) klagen.push(k + ': steht in der Liste, ruft aber niemand');
+        }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 4).join(' · ') + (klagen.length > 4 ? ' · +' + (klagen.length - 4) : '') };
+      return { ok: true, info: Object.keys(A).length + ' Aktionen, jede mit genau einem Ziel, 0 Schreibwege daneben' };
+    },
+  },
+  {
+    name: 'Aktionen · Sechs Zustände mit Grund: ok · abgelehnt · nicht_freigeschaltet · nicht_verfuegbar · fehler · kein_zugriff — und nie eine Zusage für 0 Zeilen',
+    lauf: async () => {
+      if (typeof window._gsAdmTun !== 'function') return { ok: false, warum: '_gsAdmTun fehlt' };
+      localStorage.setItem('gs_is_admin', '1');
+      const klagen = [];
+      const stell = (antwort) => { window.sbFetch = async () => antwort; };
+      const tun = async (k, body) => { try { return await window._gsAdmTun(k, body || {}); } catch (e) { return { __wirft: e.message }; } };
+      const erwarte = async (k, antwort, state, name) => {
+        // Die Sperr-Erinnerung ist je Sitzung klebrig — gewollt. Zwischen zwei
+        // gestellten Antworten muss sie deshalb geleert werden, sonst misst
+        // jedes Szenario nach dem ersten „GRANT fehlt" nur noch die Erinnerung.
+        try { window._gsAdmGesperrtLeeren(); } catch (_) {}
+        stell(antwort);
+        const r = await tun(k, { p_x: 1 });
+        if (!r || typeof r.state !== 'string') { klagen.push(name + ': kein Zustand (' + JSON.stringify(r).slice(0, 60) + ')'); return; }
+        if (r.state !== state) klagen.push(name + ': „' + r.state + '" statt „' + state + '"');
+        else if (state !== 'ok' && !r.grund) klagen.push(name + ': „' + state + '" ohne Grund');
+      };
+      const RPC = 'moderate';          // ein RPC-Weg
+      const TAB = 'report_review';     // der eine Tabellen-Weg (PATCH)
+      await erwarte(RPC, { data: null, error: { message: 'new row violates row-level security policy', status: 403 } }, 'abgelehnt', 'RLS');
+      await erwarte(RPC, { data: null, error: { message: 'permission denied for function fn_admin_moderate', status: 403 } }, 'nicht_freigeschaltet', 'GRANT fehlt');
+      await erwarte(RPC, { data: null, error: { message: 'Could not find the function public.fn_admin_moderate in the schema cache (PGRST202)', status: 404 } }, 'nicht_verfuegbar', 'RPC fehlt');
+      await erwarte(RPC, { data: null, error: { message: 'JWT expired', status: 401 } }, 'abgelehnt', 'Sitzung');
+      await erwarte(RPC, { data: null, error: { message: 'Failed to fetch', status: 0 } }, 'fehler', 'Netz');
+      await erwarte(RPC, { data: { ok: false, error: 'forbidden' }, error: null }, 'abgelehnt', 'RPC sagt {ok:false}');
+      await erwarte(RPC, { data: { ok: true }, error: null }, 'ok', 'RPC {ok:true}');
+      await erwarte(RPC, { data: { inserted: true }, error: null }, 'ok', 'RPC Objekt ohne ok-Feld');
+      // Der Tabellenweg: 0 Zeilen sind eine Ablehnung — das ist der Fall, den
+      // `if (r.error)` nie sieht und den return=minimal unsichtbar macht.
+      await erwarte(TAB, { data: [], error: null }, 'abgelehnt', 'PATCH 0 Zeilen');
+      await erwarte(TAB, { data: [{ id: 'x', status: 'reviewed' }], error: null }, 'ok', 'PATCH 1 Zeile');
+      // Ohne Server-Ja geht gar nichts hinaus.
+      localStorage.removeItem('gs_is_admin');
+      window.__adm = []; window.sbFetch = async (p) => { window.__adm.push(p); return { data: { ok: true }, error: null }; };
+      const kz = await tun(RPC, {});
+      if (!kz || kz.state !== 'kein_zugriff') klagen.push('ohne Admin: „' + (kz && kz.state) + '" statt „kein_zugriff"');
+      if (window.__adm.length) klagen.push('ohne Admin ging trotzdem eine Anfrage hinaus');
+      localStorage.setItem('gs_is_admin', '1');
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 4).join(' · ') + (klagen.length > 4 ? ' · +' + (klagen.length - 4) : '') };
+      return { ok: true, info: '11 Antworten des Servers, jede im richtigen Zustand, jede Nicht-ok mit Grund' };
+    },
+  },
+  {
+    name: 'Aktionen · Kein `return=minimal` an einem Admin-Schreibvorgang — was man nicht sieht, kann man nicht prüfen',
+    lauf: async () => {
+      const src = window.__QUELLE_OHNE || '';
+      if (!src) return { ok: false, warum: 'Quelltext nicht uebergeben' };
+      // Innerhalb des Admin-Blocks: jede Funktion gsAdmin* / _gsAdmTun
+      const fnRe = /(?:async\s+)?function\s+(gsAdmin[A-Za-z]*|_gsAdmTun)\s*\([^)]*\)\s*\{/g;
+      let m; const funde = [];
+      while ((m = fnRe.exec(src))) {
+        let i = m.index + m[0].length - 1, d = 0, j = i;
+        for (; j < src.length && j < i + 12000; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (!d) break; } }
+        if (/return=minimal/.test(src.slice(i, j + 1))) funde.push(m[1]);
+      }
+      if (funde.length) return { ok: false, warum: funde.length + '× return=minimal: ' + funde.join(', ') };
+      return { ok: true, info: '0× return=minimal in den Admin-Schreibwegen' };
+    },
+  },
+  {
+    name: 'Aktionen · Ein toter Knopf SAGT es: nach „nicht_freigeschaltet" keine Rückfrage mehr, der Knopf nennt die Migration, der Überblick zählt',
+    lauf: async () => {
+      localStorage.setItem('gs_is_admin', '1');
+      const klagen = [];
+      if (typeof window.gsAdminAssignRole !== 'function') return { ok: false, warum: 'gsAdminAssignRole fehlt' };
+      // Der Server sagt: GRANT fehlt (genau die Antwort der Live-DB, 23.09.2026).
+      window.sbFetch = async (p) => String(p).indexOf('fn_assign_role') >= 0
+        ? { data: null, error: { message: 'permission denied for function fn_assign_role', status: 403 } }
+        : { data: [], error: null };
+      let rueckfragen = 0;
+      window.gsConfirmModal = async () => { rueckfragen++; return true; };
+      let gesagt = [];
+      window.showProfileToast = (x) => { gesagt.push(typeof x === 'string' ? x : ((x && (x.title || '')) + ' ' + (x && (x.body || '')))); };
+      window.gsToast = (x) => { gesagt.push(typeof x === 'string' ? x : ((x && (x.title || '')) + ' ' + (x && (x.body || '')))); };
+      // Versuch 1: die Rueckfrage kommt (der Zustand ist noch unbekannt), dann scheitert es — und der Satz stimmt.
+      try { if (typeof window._gsAdmGesperrtLeeren === 'function') window._gsAdmGesperrtLeeren(); } catch (_) {}
+      const r1 = await window.gsAdminAssignRole('u-1', 'banned', null);
+      if (r1) klagen.push('Versuch 1 gibt Erfolg zurueck, obwohl der Server ablehnt');
+      const s1 = gesagt.join(' | ');
+      if (/Rolle zugewiesen|✅/.test(s1)) klagen.push('Versuch 1 sagt Erfolg: „' + s1.slice(0, 80) + '"');
+      if (!/freigegeben|freigeschaltet|Migration/i.test(s1)) klagen.push('Versuch 1 nennt weder „freigeschaltet" noch die Migration: „' + s1.slice(0, 90) + '"');
+      // Versuch 2: KEINE Rueckfrage mehr fuer eine Aktion, von der die Sitzung weiss, dass sie nicht geht.
+      const vorher = rueckfragen; gesagt = [];
+      await window.gsAdminAssignRole('u-1', 'banned', null);
+      if (rueckfragen > vorher) klagen.push('Versuch 2 stellt wieder die Rueckfrage — fuer eine Aktion, die nicht freigeschaltet ist');
+      if (!gesagt.length) klagen.push('Versuch 2 sagt gar nichts');
+      // Und im Nutzer-Detail steht es am Knopf.
+      if (typeof window.gsAdminOpenUserDetail === 'function') {
+        window.gsAdminUserDetail = async () => ({ profile: { id: 'u-1', role: 'user', tier: 'free', display_name: 'Test' }, subscription: null, counts: {} });
+        try { await window.gsAdminOpenUserDetail('u-1'); } catch (e) { klagen.push('Nutzer-Detail wirft: ' + e.message); }
+        const m = document.getElementById('modal-admin-userdetail');
+        const t = m ? (m.textContent || '').replace(/\s+/g, ' ') : '';
+        if (!m) klagen.push('Nutzer-Detail geht nicht auf');
+        else if (!/freigegeben|freigeschaltet|Migration/i.test(t)) klagen.push('das Nutzer-Detail sagt am Sperr-Knopf nichts: „' + t.slice(0, 100) + '"');
+        try { if (m) m.remove(); } catch (_) {}
+      }
+      // Und der Ueberblick oben zaehlt es.
+      try { await openAdminPanel(); } catch (e) { klagen.push('Panel wirft: ' + e.message); }
+      const u = document.querySelector('#modal-admin-panel #gs-admin-ueberblick-sec');
+      const ut = u ? (u.textContent || '').replace(/\s+/g, ' ') : '';
+      if (!u) klagen.push('kein Ueberblick');
+      else if (!/Aktion/.test(ut) || !/Rolle/.test(ut)) klagen.push('der Ueberblick nennt die gesperrte Aktion nicht: „' + ut.slice(0, 100) + '"');
+      try { const mp = document.getElementById('modal-admin-panel'); if (mp) mp.remove(); } catch (_) {}
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 4).join(' · ') + (klagen.length > 4 ? ' · +' + (klagen.length - 4) : '') };
+      return { ok: true, info: 'Rueckfrage 1× · danach 0× · Detail und Ueberblick nennen es' };
+    },
+  },
+  {
+    name: 'Aktionen · Die Meldung kommt NACH der Antwort und stimmt — in beide Richtungen (Meldung erledigt: 0 Zeilen ≠ 1 Zeile)',
+    lauf: async () => {
+      localStorage.setItem('gs_is_admin', '1');
+      if (typeof window.gsAdminReviewReport !== 'function') return { ok: false, warum: 'gsAdminReviewReport fehlt' };
+      const klagen = [];
+      let gesagt = [];
+      window.gsToast = (x) => { gesagt.push(typeof x === 'string' ? x : ((x && (x.title || '')) + ' ' + (x && (x.body || '')))); };
+      window.gsAdmSektionNeu = async () => {};
+      // a) RLS laesst 0 Zeilen durch (der Fall, den return=minimal verschluckte)
+      window.sbFetch = async () => ({ data: [], error: null });
+      await window.gsAdminReviewReport('r-1', 'reviewed');
+      const a = gesagt.join(' | ');
+      if (/erledigt markiert|✅/.test(a)) klagen.push('0 Zeilen → „' + a.slice(0, 70) + '" — eine Zusage fuer nichts');
+      if (!a) klagen.push('0 Zeilen → gar keine Meldung');
+      // b) Der Server bestaetigt eine Zeile → JETZT darf es das sagen
+      gesagt = [];
+      window.sbFetch = async (p, o) => {
+        // return=representation ist Pflicht, sonst gibt es nichts zu zaehlen
+        const h = (o && o.headers) || {};
+        if (!/representation/.test(String(h.Prefer || h.prefer || ''))) return { data: [], error: null };
+        return { data: [{ id: 'r-1', status: 'reviewed' }], error: null };
+      };
+      await window.gsAdminReviewReport('r-1', 'reviewed');
+      const b = gesagt.join(' | ');
+      if (!/erledigt/.test(b)) klagen.push('1 Zeile → keine Bestaetigung: „' + b.slice(0, 70) + '"');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '0 Zeilen: keine Zusage · 1 Zeile (return=representation): „erledigt"' };
+    },
+  },
 ];
 
 (async () => {
@@ -240,6 +441,25 @@ const FAELLE = [
   await p.addInitScript(SEED);
   await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
   await p.waitForTimeout(4000);
+  // v33.50: der Quelltext OHNE Kommentare und OHNE Changelog — zum ZAEHLEN von
+  // Namen (apk_check R9: der Changelog nennt die API, um die es geht, woertlich).
+  const QUELLE_OHNE = (function (t) {
+    let o = '', i = 0, n = t.length;
+    while (i < n) {
+      const c = t[i], c2 = t[i + 1];
+      if (c === '"' || c === "'" || c === '`') { const q = c; o += c; i++;
+        while (i < n && t[i] !== q) { if (t[i] === '\\') { o += t[i]; i++; } o += t[i]; i++; }
+        o += t[i] || ''; i++; continue; }
+      if (c === '/' && c2 === '/') { while (i < n && t[i] !== '\n') i++; continue; }
+      if (c === '/' && c2 === '*') { i += 2; while (i < n && !(t[i] === '*' && t[i + 1] === '/')) i++; i += 2; o += ' '; continue; }
+      if (c === '<' && t.substr(i, 4) === '<!--') { const e = t.indexOf('-->', i); i = (e < 0 ? n : e + 3); o += ' '; continue; }
+      o += c; i++;
+    }
+    const a = o.indexOf('window.GS_RELEASES = ['); if (a >= 0) { const b = o.indexOf('\n];', a); if (b >= 0) o = o.slice(0, a) + o.slice(b + 3); }
+    return o;
+  })(require('fs').readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'));
+  await p.evaluate((q) => { window.__QUELLE_OHNE = q; }, QUELLE_OHNE);
+
   await p.evaluate(() => {
     document.documentElement.classList.remove('gs-preauth');
     window.gsRequire = () => true; window.gsToast = () => {}; window.showProfileToast = () => {};

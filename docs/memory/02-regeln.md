@@ -75,6 +75,10 @@ Tagebuch in `CLAUDE.md`.
     (`constantTimeEquals`); Admin entscheidet nur der Server
     (`rpc/is_admin_user`, `gsIsAdmin()`); Push-Sender importieren
     `_shared/push_helfer.mjs`. *(§3.6, robust_check Faelle 12–14)*
+    Und jeder Admin-SCHREIBWEG geht durch `_gsAdmTun` (`GS_ADM_AKTIONEN`,
+    sechs Zustaende mit Grund; 0 Zeilen am Tabellenweg sind eine Ablehnung,
+    `return=minimal` gibt es dort nicht) — nie ueber rohes `sbFetch`.
+    *(§7.1 admin_check, v33.50)*
 
 ## Und drei Regeln ueber das Arbeiten selbst
 

@@ -4,13 +4,114 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-16 · **Branch**: `main` · **Version**: `v33.45` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-24 · **Branch**: `main` · **Version**: `v33.50` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-24 (iu) - v33.50: Das Admin-Panel sagt, was der Server wirklich getan hat
+
+Fernandos Auftrag: „Zugleich möchte ich dass du den Admin-Panel noch besser,
+sauberer, sicherer und erweitert aufbaust." — v33.42 hatte die LESE-Seite
+gebaut (sechzehn Sektionen, vier Zustände, `_gsAdmHole`). Diese Scheibe ist
+die SCHREIB-Seite.
+
+**Zuerst gemessen — an der Live-Datenbank, nur lesend (24.09.2026):**
+
+- **Die Sicherheit steht.** 12 von 13 Schreib-RPCs sind `SECURITY DEFINER`
+  mit `is_admin_user()` im Rumpf; die RLS auf `user_reports` (UPDATE) hat
+  `is_admin_user()` in USING **und** WITH CHECK. Ein Nicht-Admin kommt an
+  keiner Stelle durch — das war nicht die Frage.
+- **Zwei Knöpfe sind tot.** `fn_assign_role` und `fn_set_global_api_key`
+  tragen die ACL `{postgres=X, service_role=X}` — `authenticated` darf sie
+  nicht ausführen. Der Grund liegt im Repo: `v26_51b` hat REVOKEd, `v29_20`
+  und `v30_57` haben je ein Re-Grant geschrieben — und **keines davon ist
+  live in Kraft**. „🚫 Nutzer sperren" stellte die Rückfrage „wirkt sofort und
+  ist nur von Hand rückgängig zu machen" für eine Aktion, die danach mit
+  `permission denied for function` scheitert. **Eine Sperre, die nicht
+  greift, sieht aus wie eine.**
+- **Fünfzehn von fünfzehn Schreibwegen prüften nur `.error`.** PostgREST
+  meldet bei einer von RLS abgewiesenen Zeile **0 Zeilen und keinen Fehler**
+  (die `_gsSchreibOk`-Klasse aus v32.28) — `gsAdminReviewReport` schickte dazu
+  `Prefer: return=minimal`, womit die 0 Zeilen gar nicht erst ankommen, und
+  zeigte „✅ Als erledigt markiert." `gsAdminToggleVoucher` sah die Antwort
+  überhaupt nicht an. **`versprechen_check` war hier grün**, weil ein
+  `if (r.error)` für ihn als Prüfung zählt — das ist eine eigene Scheibe
+  (repo-weit rund 176 Stellen, nicht nebenbei).
+
+**Gebaut:**
+
+- **`GS_ADM_AKTIONEN` — die Liste ist die Prüfung** (dieselbe Bauform wie
+  `GS_ADM_SEKTIONEN`): 15 Aktionen, jede mit GENAU einem Ziel — `rpc` ·
+  `pfad`+`method` · `fn` (Edge-Function) — und optional `freigabe`, der
+  Migration, die ein fehlendes GRANT nachliefert. `GS_ADM_LESE_RPC` nennt
+  die zwei POST-Abfragen, die nur lesen (`fn_admin_user_detail`,
+  `fn_admin_knowledge_list`), damit der Prüfstand sie von einem Schreibweg
+  unterscheiden kann.
+- **`_gsAdmTun(schluessel, body, opts)` — der eine Weg.** Gibt IMMER einen
+  Umschlag `{state, daten, key, grund}` mit **sechs Zuständen**: `ok` ·
+  `abgelehnt` (RLS, 401/403, `{ok:false}`, und am Tabellenweg 0 Zeilen) ·
+  `nicht_freigeschaltet` (`permission denied for function` — die Sitzung
+  merkt es sich in `_gsAdmGesperrt`, nur Arbeitsspeicher) · `nicht_verfuegbar`
+  (404/PGRST202: eine nicht angewandte Migration, kein Fehler des Admins) ·
+  `fehler` (Netz) · `kein_zugriff` (ohne `gsIsAdmin()` geht keine Anfrage
+  hinaus). `_gsAdmTunDeuten` ist die Deutung — getrennt, damit sie sich für
+  sich prüfen lässt. Der Tabellenweg schickt IMMER `return=representation`.
+- **`_gsAdmSagen(r)` — der eine Satz je Zustand** für Toasts;
+  `_gsAdmAktionHinweisHtml(schluessel)` — der gelbe Satz an einem Knopf,
+  dessen Aktion die Sitzung als gesperrt kennt. `gsAdminAssignRole` stellt
+  für eine gesperrte Aktion **keine Rückfrage** mehr. Der Überblick oben
+  (`_gsAdmUeberblickHtml`) zählt: „🔒 N Aktion(en) noch nicht freigegeben"
+  mit Migrationsnamen.
+- **Alle 15 Schreibwege umgestellt** — Rolle, Plan, Flag, Moderation, zwei
+  Gutschein-Wege, drei Wissens-Wege, Foto-Beitrag, Arten-Vorschlag, Meldung,
+  Integritäts-Scan, globaler Schlüssel, Broadcast. Jede Bestätigung kommt
+  NACH der Antwort; was nicht `ok` ist, sagt `_gsAdmSagen`.
+- **Migration `20260924_admin_grants.sql`** (nicht angewandt): die zwei
+  GRANTs an `authenticated`, mit der Geschichte im Kopf (v26_51b, v29_20,
+  v30_57). Beide Funktionen prüfen `is_admin_user()` selbst — das GRANT
+  öffnet nichts, es macht die Prüfung erreichbar. `docs/FUER-FERNANDO.md` §23.
+
+**`admin_check` 6 → 11 Fälle, fünf Gegenproben, jede einzeln rot mit dem
+richtigen Fall:** ein Schreibweg am einen Weg vorbei (`gsAdminToggleVoucher`
+auf rohes `sbFetch` → „1 Admin-Funktion(en) schreiben noch am einen Weg
+vorbei … voucher_toggle: steht in der Liste, ruft aber niemand") · 0 Zeilen
+als `ok` (→ „PATCH 0 Zeilen: „ok" statt „abgelehnt"", **zwei** Fälle rot) ·
+`return=minimal` (→ „1× return=minimal: _gsAdmTun", und der Meldung-Fall
+gleich mit: „1 Zeile → keine Bestaetigung") · Rückfrage trotz Sperre (→
+„Versuch 2 stellt wieder die Rueckfrage") · Meldung ohne Blick auf den
+Zustand (→ „0 Zeilen → „✅ Als erledigt markiert." — eine Zusage fuer
+nichts"). Der Server ist gestellt (`sbFetch`), elf Antworten in den sechs
+Zuständen, `erwarte()` leert den Sperr-Speicher je Szenario.
+
+**Drei Lehren:**
+
+- **Ein `if (r.error)` ist keine Prüfung** — und der Prüfstand, der das
+  messen soll, hält es für eine. `versprechen_check` sucht eine Meldung
+  ohne Blick auf die Antwort; ein Blick auf `.error` allein ist ein halber
+  Blick, und PostgREST antwortet in genau dieser Hälfte nicht. Die
+  Verschärfung ist gemessen (rund 176 Stellen) und bewusst NICHT in dieser
+  Scheibe — ein Sweep über die 5,9-MB-Datei ist ein Eingriff (v32.25).
+- **Ein GRANT, das im Repo steht, ist live nicht in Kraft, bis jemand
+  nachsieht.** Zwei Migrationen mit demselben Zweck lagen seit v29/v30 im
+  Repo; die ACL sagt etwas anderes. Die dritte Datei erzählt ihre Geschichte
+  im Kopf, statt die zwei zu wiederholen.
+- **Ein toter Knopf braucht drei Antworten, nicht eine:** keine Rückfrage
+  mehr (die Sitzung weiss es), der Grund am Knopf (mit Migrationsnamen),
+  die Zahl im Überblick. Eine davon allein — nur der Toast danach — lässt die
+  Person dreimal dieselbe Rückfrage bestätigen.
+
+**Auch gemessen, nicht gebaut:** `gs_admin_log` wird geschrieben und von
+niemandem gelesen (dieselbe Klasse wie `analytics_events` bis v33.18) —
+notiert für eine spätere Sektion.
+
+**Grenze:** der Server ist im Prüfstand gestellt. Geprüft ist, was die App
+aus einer Antwort MACHT — nicht, ob die RPC antwortet (`backend_check`) und
+nicht, ob RLS sie durchlässt. Die zwei GRANTs wirken erst, wenn Fernando die
+Migration anwendet; bis dahin sagt es die App an drei Stellen.
 
 ### 2026-09-17 (it) - v33.49: GreenScan ist jetzt eine Android-App
 
@@ -14523,7 +14624,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 17.09.2026** (davor am 16.09.). Er stand am 02.09. auf
+> **Nachgemessen am 24.09.2026** (davor am 17.09.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -14532,11 +14633,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.49` (Client) · SW-Cache `gs-v33.49` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.50` (Client) · SW-Cache `gs-v33.50` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **95'450 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **575 Einträge**, wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt jetzt den ältesten ins Archiv, zuletzt v33.29).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **220 Migrationen** (13 davon bewusst nicht angewandt, Sektion 2 — neu seit 10.09.: `20260910_admin_analytics.sql`, `20260910_analytics_retention.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **35** davon. Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Frontend:** `index.html` **95'607 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **578 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.30).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **221 Migrationen** (14 davon bewusst nicht angewandt, Sektion 2 — neu seit 24.09.: `20260924_admin_grants.sql`, die zwei GRANTs für die toten Admin-Knöpfe). Advisor: **0 ERROR**.
+- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **35** davon. Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände, 11 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -14549,6 +14650,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
+| **Migration `20260924_admin_grants.sql`** | Zwei Admin-Knöpfe sind live tot: `fn_assign_role` („🚫 Nutzer sperren", Rolle vergeben) und `fn_set_global_api_key` (globaler KI-Schlüssel) tragen die ACL `{postgres, service_role}` — `authenticated` darf sie nicht ausführen (24.09.2026, nur lesend gemessen). Die zwei Re-Grants aus `v29_20` und `v30_57` sind live nicht in Kraft. Beide Funktionen prüfen `is_admin_user()` selbst; das GRANT macht die Prüfung erreichbar, es öffnet nichts. Bis dahin sagt es die App (`nicht_freigeschaltet`, mit Dateinamen). | `docs/FUER-FERNANDO.md` §23 · (iu) |
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. **Live nachgemessen 14.09.2026: die Spalte existiert nicht** (`42703`), waehrend die App sie seit v30.85 rendert — der Bildblock kann nie gefeuert haben. Mit `20260827_quiz_bilder_und_fragen_v30_85.sql` kaemen 43 Fragen (+43 Tage Vorrat). Seit v33.29 kennt das Kategorien-Vokabular ihre 12 eigenen Slugs, sie braechte also keine leeren Kategoriezeilen mit. | (2026-08-31 y), (hy) |
 | **Migration `20260914_quiz_vorrat.sql`** | `fn_quiz_vorrat()` + `fn_quiz_vorrat_pruefen()` + Cron `quiz-vorrat-daily` (v33.29): misst den Fragen-Vorrat und warnt nach `system_events`, sobald unter 60 freie Fragen uebrig sind. Aendert nichts am Quiz. Ohne sie bleibt der Vorrat ungemessen — **er ist am 16.06.2027 erschoepft**, und `fn_get_daily_quiz` wiederholt dann still. | (hy), FUER-FERNANDO §20 |
 | `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
