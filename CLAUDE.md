@@ -827,7 +827,7 @@ node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? F
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
-node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort
+node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, der Fuss unter dem Protokoll rechnet die Deckung, und eine SQL-Hälfte (lokales Postgres) spielt 20260925_admin_audit_vollstaendig.sql nach — ohne Postgres „nicht prüfbar" (Exit 2)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen
@@ -1876,13 +1876,72 @@ abgewiesene Zeile ohne Fehler (§3.5), `gsAdminReviewReport` schickte dazu
 > nachsieht.** Zwei Migrationen mit demselben Zweck lagen seit v29/v30 da;
 > die ACL sagte etwas anderes. `20260924_admin_grants.sql` (nicht angewandt)
 > erzählt die Geschichte im Kopf, statt die zwei zu wiederholen — und das
-> GRANT öffnet nichts: beide Funktionen prüfen `is_admin_user()` selbst.
+> GRANT öffnet nichts: beide Funktionen prüfen die Admin-Rolle selbst
+> (`fn_assign_role`: `profiles.role = 'admin'`; `fn_set_global_api_key`:
+> `fn_is_role('admin')` — v33.50 schrieb hier „`is_admin_user()`", das war
+> ungenau; gemessen v33.51, der Schluss bleibt).
 
 `admin_check` 6 → 11 Fälle, fünf Gegenproben einzeln rot mit dem richtigen
 Fall (ein Weg am einen Weg vorbei · 0 Zeilen als ok · `return=minimal` ·
 Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand). Der Server ist
 gestellt; `erwarte()` leert `_gsAdmGesperrt` je Szenario — sonst macht die
 (richtige) Sperr-Erinnerung jedes spätere Szenario zu `nicht_freigeschaltet`.
+
+**Seit v33.51 sagt jede Aktion, ob sie eine SPUR hinterlässt.** Gemessen
+(Live-DB, nur lesend, 25.09.2026): `audit_log` gibt es, das Panel liest es —
+aber 5 von 15 Aktionen kamen dort nie an, darunter Foto-Beitrag und
+Arten-Vorschlag prüfen (Moderationsentscheidungen) und „Meldung erledigen"
+(ein nackter PATCH, gar keine RPC); zwei Aktionen standen als roher Slug im
+Protokoll. `audit_log` hat KEINE INSERT-Policy — geschrieben wird nur aus
+SECURITY-DEFINER-Funktionen, und genau deshalb gehört die Spur in die
+FUNKTION, nicht in die App.
+
+- **Genau eines von dreien je Eintrag in `GS_ADM_AKTIONEN`:** `spur` (der
+  Server schreibt diesen `action`-Namen) · `spur_ab` (`{action, migration}` —
+  erst nach der nicht angewandten Migration) · `ohne_spur` (bewusst, mit
+  Grund). `spur_quelle` NUR, wenn der Name in keiner Migration steht — drei
+  Funktionen (`fn_assign_role`, `fn_admin_flag_set`, `fn_set_global_api_key`)
+  haben im Repo keinen `CREATE FUNCTION`; steht er eines Tages drin, meldet
+  `admin_check` die Angabe als überholt.
+- **Die Deckung ist eine Rechnung** (`_gsAdmSpurDeckung(rows)`), der Fuss
+  unter „Letzte Admin-Aktionen" (`_gsAdmSpurHtml`) nennt sie in drei Klassen —
+  und **„Spur gesehen" steht nur da, wenn eine solche Zeile geladen wurde**.
+  Die App kann den Server-Stand nicht wissen; sie sagt, was sie gesehen hat.
+- **Ein Ersatzweg gilt nur bei `nicht_verfuegbar`** (`GS_ADM_AKTIONEN[k].ersatz`,
+  in `_gsAdmTun`): fehlt die RPC auf dem Server, läuft der PATCH, und die
+  Antwort trägt `ersatz:true` plus den Satz „Ohne Protokolleintrag — Migration
+  … anwenden". Nie bei Ablehnung oder fehlendem GRANT — ein zweiter Weg, der
+  nicht tut, was der erste tut, ist ein zweiter Zustand (v33.48).
+- **`RAISE EXCEPTION` ist eine Ablehnung.** `Only admins can assign roles`
+  kommt als HTTP 400 (P0001); `_gsAdmTunDeuten` sagt `abgelehnt`, nicht
+  `fehler`.
+- **Die Beschriftung des Protokolls kommt aus der Liste** (Emoji + Titel je
+  `spur`/`spur_ab`); feste Zeilen nur für Ereignisse, die nicht aus dem Panel
+  kommen. Ein roher Slug auf dem Bildschirm ist ein Fehler (v33.29).
+
+> **Ein Prüfstand, der einen Weg an EINER Aktion misst, misst nichts mehr,
+> sobald diese Aktion einen anderen Weg bekommt** (v33.51). Zwei Fälle aus
+> v33.50 massen den Tabellenweg an `report_review` — das seit v33.51 zuerst
+> die RPC ruft. Beide wurden rot und stellen den Tabellenweg jetzt HER, indem
+> die RPC fehlt (404): der Weg, den es wirklich gibt. Und zum zweiten Mal
+> (v32.65): **`bool::text` ist `true`, `bool` allein ist `t`** — der
+> Idempotenz-Fall war im ersten Lauf an genau dieser Zeile rot.
+>
+> **Und ein Gegenproben-Treiber, der an einem Anführungszeichen stirbt,
+> lässt den Bruch STEHEN.** `bash` bricht beim Parsen der nächsten Zeile ab —
+> NACH dem Bruch, VOR der Wiederherstellung. Der md5-Vergleich am Ende hat es
+> gezeigt; ohne ihn wäre die kaputte Datei in den Bump gewandert. Wer eine
+> Reihe von Gegenproben fährt, prüft die Prüfsumme nach JEDER, nicht nur am
+> Schluss.
+
+`admin_check` 11 → 21 Fälle, davon fünf in Node: der statische Abgleich
+(jeder Aktionsname neben einem `audit_log`-INSERT in einer Migration, drei
+Klassen) und die **SQL-Hälfte** — `20260925_admin_audit_vollstaendig.sql`
+zweimal in ein lokales Postgres eingespielt (`auth.uid()`/`is_admin_user()`
+gestellt), als Admin vier Spuren mit GENAU den deklarierten Namen, als
+Nicht-Admin keine, `invalid_status`/`not_found` ohne Spur, und die eingebaute
+Gegenprobe (ohne die INSERT-Zeilen: 0 Spuren). Sieben Gegenproben einzeln rot.
+
 
 **`nutzersicht_check.js` (seit v32.70) fragt, was kein anderer fragt: sagt die
 App, was STIMMT, in der Sprache der Person?** (Audit E2–E5, E8.) Fünf Fälle,

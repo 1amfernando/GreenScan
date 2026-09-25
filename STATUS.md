@@ -4,13 +4,136 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-24 · **Branch**: `main` · **Version**: `v33.50` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-25 · **Branch**: `main` · **Version**: `v33.51` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-25 (iv) - v33.51: Das Admin-Protokoll kennt jede Aktion
+
+Zweite Scheibe zu Fernandos „Admin-Panel … sicherer und erweitert". v33.50
+hatte die Schreibwege auf EINEN Weg gebracht; diese Scheibe fragt, was von
+diesen Wegen im **Protokoll** ankommt — und ob das, was ankommt, lesbar ist.
+
+**Zuerst gemessen — Live-DB, nur lesend (25.09.2026):**
+
+- **`audit_log` gibt es, und das Panel liest es** (Sektion „Admin-Protokoll",
+  `fn_admin_audit_recent`). 193 Zeilen, 93 in 90 Tagen, neun verschiedene
+  Aktionen. Die Tabelle hat KEINE INSERT-Policy (RLS an, nur SELECT für
+  Admins) — geschrieben wird ausschliesslich aus SECURITY-DEFINER-Funktionen.
+  Das ist richtig so: eine Zeile darin ist eine Aussage des Servers, nicht
+  der App. Genau deshalb gehört die Spur in die FUNKTION.
+- **10 von 15 Aktionen hinterlassen eine Spur, 5 nicht** (`pg_proc.prosrc`
+  auf `audit_log` geprüft): Foto-Beitrag prüfen (`fn_admin_review_species_image`)
+  — nichts; Arten-Vorschlag prüfen — nur `system_events` beim Aufnehmen,
+  **nichts beim Ablehnen**, und `system_events` kennt keinen Handelnden;
+  „Meldung erledigen" — ein nackter PATCH aus der App, gar keine RPC;
+  Integritäts-Scan (liest nur) und Broadcast (`push_send_log`, je Empfänger
+  eine Zeile) bewusst ohne. **„Wer hat diesen Vorschlag abgelehnt, und wann?"
+  war nicht zu beantworten.**
+- **Zwei Aktionen standen als roher Slug im Protokoll:** `admin_flag_set` (2
+  Zeilen live) und `voucher_redeem` (2) hatten keine Beschriftung — die Klasse
+  aus v33.29.
+- **Drei Admin-Funktionen haben im Repo keinen Quelltext.** `fn_assign_role`,
+  `fn_admin_flag_set` und `fn_set_global_api_key` stehen in keiner Migration
+  als `CREATE FUNCTION` (nur in GRANT/REVOKE-Zeilen); ihre Rümpfe sind nur
+  live. Dieselbe Klasse wie `book-ingest` ohne Spiegel (STATUS §2). Notiert,
+  nicht behoben — ein `pg_get_functiondef` ins Repo zu kopieren wäre eine
+  Abschrift ohne Nachweis.
+- **Und eine Berichtigung zu (iu):** dort steht „beide Funktionen prüfen
+  `is_admin_user()` selbst". Gemessen: `fn_assign_role` prüft
+  `profiles.role = 'admin'`, `fn_set_global_api_key` ruft `fn_is_role('admin')`
+  — beides Admin-Prüfungen, keine davon `is_admin_user()`. **Der Schluss
+  bleibt richtig** (das GRANT öffnet nichts; beide Admin-Konten tragen
+  `role = 'admin'`, `is_admin = true` UND stehen in `admin_emails`), der
+  Wortlaut war falsch. Berichtigt in FUER-FERNANDO §23, CLAUDE.md und im Kopf
+  der Migration 20260924.
+- `gs_admin_log` (Gerätespeicher): zwei Schreiber, null Leser — beide
+  Ereignisse stehen ohnehin auf dem Server (`global_api_key_change`) oder
+  sind Geräte-Konfiguration (Supabase-Key). Weg, samt Listeneintrag.
+
+**Gebaut:**
+
+- **Jede Aktion sagt, ob sie eine Spur hinterlässt** — genau eines von
+  `spur` (der Server schreibt `audit_log` mit diesem Namen), `spur_ab`
+  (erst nach der genannten Migration) oder `ohne_spur` (bewusst, mit Grund)
+  in `GS_ADM_AKTIONEN`; dazu `spur_quelle` NUR für die drei Funktionen, deren
+  Name in keiner Migration steht (datierte Live-Messung). Die Deckung ist
+  eine **Rechnung** (`_gsAdmSpurDeckung(rows)`), keine Behauptung.
+- **Migration `20260925_admin_audit_vollstaendig.sql`** (nicht angewandt):
+  `fn_admin_review_species_image` und `fn_admin_review_species_proposal` mit
+  Rumpf wie live plus `audit_log`-Zeile (beim Vorschlag in BEIDEN Zweigen),
+  und NEU `fn_admin_review_report(p_id, p_status, p_note)` — `is_admin_user`-
+  Tor, Status-Vokabular wie der CHECK der Tabelle, `reviewed_by`/`reviewed_at`,
+  Spur `report_review` mit alt→neu. Idempotent, `anon` bekommt nichts.
+- **„Meldung erledigen" geht jetzt über die RPC — und fällt nur dann auf den
+  PATCH zurück, wenn die RPC auf dem Server FEHLT** (`nicht_verfuegbar`, nie
+  bei Ablehnung oder fehlendem GRANT). Der Ersatz sagt es: `r.ersatz` plus
+  „Ohne Protokolleintrag — Migration … anwenden." im Toast. Ein zweiter Weg,
+  der nicht tut, was der erste tut, ist kein Rückfall, sondern ein zweiter
+  Zustand (v33.48) — hier heisst der Unterschied genau „Spur".
+- **Ein `RAISE EXCEPTION` ist eine Ablehnung, kein Fehler.** `fn_assign_role`
+  sagt Nein per `Only admins can assign roles` (HTTP 400, P0001);
+  `_gsAdmTunDeuten` machte daraus `fehler`. Jetzt `abgelehnt`.
+- **Das Protokoll ist lesbar und vollständig beschriftet:** die Beschriftung
+  kommt aus `GS_ADM_AKTIONEN` (Emoji + Titel je `spur`/`spur_ab`), feste
+  Zeilen nur für Ereignisse, die nicht aus dem Panel kommen (Cron,
+  Gutschein-Einlösung, Konto löschen); `summ()` kennt Flag, Foto, Vorschlag,
+  Meldung und die Wissens-Aktionen; 30 statt 15 Zeilen. **Der Fuss nennt die
+  Deckung** in drei Klassen — „10 von 15 protokolliert der Server · 3 erst
+  nach Migration 20260925 · bewusst ohne: …" — und **„Spur gesehen" steht
+  nur da, wenn eine solche Zeile geladen wurde**; sind alle drei gesehen,
+  „Migration angewandt". Die App kann den Server-Stand nicht wissen; sie sagt,
+  was sie gesehen hat.
+- **Nach jeder Aktion mit Spur zieht die Sektion nach** (`_gsAdmProtokollNachziehen`,
+  eine Anfrage, nur wenn sie auf dem Bildschirm steht) — man sieht die eigene
+  Aktion ankommen.
+
+**`admin_check` 11 → 21 Fälle, davon fünf in Node:** Spur-Liste (genau eine
+Angabe je Aktion, Deckung rechnet, gesehen nur aus Zeilen) · Protokoll (13
+Aktionen ohne rohen Slug, Fuss mit Deckung, „Spur gesehen" nur mit Zeile,
+„angewandt" nur mit allen dreien) · Meldung erledigen (RPC zuerst; PATCH nur
+bei 404, mit representation, Filter und Status; GRANT fehlt → kein Ersatz; 0
+Zeilen → keine Zusage; der Toast sagt „Ohne Protokolleintrag") · P0001 →
+abgelehnt (und ein echter Fehler bleibt einer) · Node: jeder Aktionsname
+steht in einer Migration neben einem `audit_log`-INSERT — in drei Klassen: im
+Repo · nur live belegt (mit `spur_quelle`; steht der Name eines Tages im Repo,
+wird die Angabe als überholt gemeldet) · gar nicht · **SQL-Hälfte** im
+lokalen Postgres: Migration zweimal angewandt (idempotent, `authenticated`
+ja, `anon` nein), als Admin vier Spuren mit GENAU den deklarierten Namen
+(Foto, Vorschlag aufnehmen UND ablehnen, Meldung), als Nicht-Admin dreimal
+„admin only" und 0 Spuren, `invalid_status`/`not_found` ohne Spur, alt→neu
+im `diff`, und die eingebaute Gegenprobe: ohne die INSERT-Zeilen entstehen
+keine Spuren. Ohne Postgres: „nicht prüfbar" (Exit 2), nie grün.
+
+**Sieben Gegenproben, jede einzeln rot mit dem richtigen Fall:** Spur-Angabe
+entfernt · Beschriftung nicht aus der Liste · Ersatz auch bei Ablehnung ·
+P0001 wieder ein Fehler · Migration ohne die Spur der Meldung · falscher
+Aktionsname in der Deklaration (Liste UND SQL rot) · „angewandt" ohne
+gesehene Zeile.
+
+**Drei Lehren:**
+
+- **`bool::text` ist `true`, `bool` allein ist `t`** — zum zweiten Mal
+  (v32.65). Der Idempotenz-Fall war im ersten Lauf rot an genau dieser Zeile.
+  Wer eine Erwartung an psql schreibt, schreibt sie gegen die Form, die die
+  Abfrage liefert.
+- **Ein Prüfstand, der den Tabellenweg an EINER Aktion misst, misst nichts
+  mehr, sobald diese Aktion eine RPC wird.** Zwei Fälle aus v33.50 wurden rot,
+  weil `report_review` jetzt zuerst die RPC ruft; sie stellen den Tabellenweg
+  jetzt her, indem die RPC fehlt (404) — der Weg, den es wirklich gibt.
+- **Eine Funktion, die nur live steht, ist eine Angabe ohne Quelle im Repo.**
+  Statt sie stillschweigend als „belegt" zu zählen, trägt der Eintrag eine
+  datierte `spur_quelle`, der Prüfstand nennt die drei beim Namen — und
+  meldet die Angabe als überholt, sobald jemand den Rumpf ins Repo holt.
+
+**Grenze:** die SQL-Hälfte rechnet die Migration in einem lokalen Postgres
+mit gestelltem `auth.uid()`/`is_admin_user()` nach. Ob sie LIVE angewandt
+ist, sagt nur Fernando — und die App sagt es erst, wenn sie eine Spur
+gesehen hat.
 
 ### 2026-09-24 (iu) - v33.50: Das Admin-Panel sagt, was der Server wirklich getan hat
 
@@ -74,6 +197,8 @@ die SCHREIB-Seite.
   GRANTs an `authenticated`, mit der Geschichte im Kopf (v26_51b, v29_20,
   v30_57). Beide Funktionen prüfen `is_admin_user()` selbst — das GRANT
   öffnet nichts, es macht die Prüfung erreichbar. `docs/FUER-FERNANDO.md` §23.
+  *(Berichtigt in (iv): es sind `profiles.role = 'admin'` und
+  `fn_is_role('admin')`, nicht `is_admin_user()` — der Schluss bleibt.)*
 
 **`admin_check` 6 → 11 Fälle, fünf Gegenproben, jede einzeln rot mit dem
 richtigen Fall:** ein Schreibweg am einen Weg vorbei (`gsAdminToggleVoucher`
@@ -14624,7 +14749,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 24.09.2026** (davor am 17.09.). Er stand am 02.09. auf
+> **Nachgemessen am 25.09.2026** (davor am 24.09.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -14633,11 +14758,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.50` (Client) · SW-Cache `gs-v33.50` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.51` (Client) · SW-Cache `gs-v33.51` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **95'607 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **578 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.30).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **221 Migrationen** (14 davon bewusst nicht angewandt, Sektion 2 — neu seit 24.09.: `20260924_admin_grants.sql`, die zwei GRANTs für die toten Admin-Knöpfe). Advisor: **0 ERROR**.
-- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **35** davon. Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände, 11 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Frontend:** `index.html` **95706 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **579 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.31).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **222 Migrationen** (15 davon bewusst nicht angewandt, Sektion 2 — neu seit 25.09.: `20260925_admin_audit_vollstaendig.sql`, die Spur für drei Admin-Aktionen; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
+- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **35** davon. Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -14650,6 +14775,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
+| **Migration `20260925_admin_audit_vollstaendig.sql`** | Fünf von fünfzehn Admin-Aktionen hinterliessen keine Spur in `audit_log` (25.09.2026, nur lesend gemessen) — darunter Foto-Beitrag und Arten-Vorschlag prüfen (Moderation!) und „Meldung erledigen" (nackter PATCH, keine RPC). Die Datei gibt zwei Review-Funktionen die Spur (Rumpf wie live) und legt `fn_admin_review_report` an. Bis dahin fällt „Meldung erledigen" auf den PATCH zurück und sagt „ohne Protokolleintrag"; der Fuss unter dem Protokoll zählt „3 erst nach Migration". In `admin_check` in einem lokalen Postgres nachgespielt (zweimal, Admin/Nicht-Admin, Gegenprobe). | `docs/FUER-FERNANDO.md` §24 · (iv) |
 | **Migration `20260924_admin_grants.sql`** | Zwei Admin-Knöpfe sind live tot: `fn_assign_role` („🚫 Nutzer sperren", Rolle vergeben) und `fn_set_global_api_key` (globaler KI-Schlüssel) tragen die ACL `{postgres, service_role}` — `authenticated` darf sie nicht ausführen (24.09.2026, nur lesend gemessen). Die zwei Re-Grants aus `v29_20` und `v30_57` sind live nicht in Kraft. Beide Funktionen prüfen `is_admin_user()` selbst; das GRANT macht die Prüfung erreichbar, es öffnet nichts. Bis dahin sagt es die App (`nicht_freigeschaltet`, mit Dateinamen). | `docs/FUER-FERNANDO.md` §23 · (iu) |
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. **Live nachgemessen 14.09.2026: die Spalte existiert nicht** (`42703`), waehrend die App sie seit v30.85 rendert — der Bildblock kann nie gefeuert haben. Mit `20260827_quiz_bilder_und_fragen_v30_85.sql` kaemen 43 Fragen (+43 Tage Vorrat). Seit v33.29 kennt das Kategorien-Vokabular ihre 12 eigenen Slugs, sie braechte also keine leeren Kategoriezeilen mit. | (2026-08-31 y), (hy) |
 | **Migration `20260914_quiz_vorrat.sql`** | `fn_quiz_vorrat()` + `fn_quiz_vorrat_pruefen()` + Cron `quiz-vorrat-daily` (v33.29): misst den Fragen-Vorrat und warnt nach `system_events`, sobald unter 60 freie Fragen uebrig sind. Aendert nichts am Quiz. Ohne sie bleibt der Vorrat ungemessen — **er ist am 16.06.2027 erschoepft**, und `fn_get_daily_quiz` wiederholt dann still. | (hy), FUER-FERNANDO §20 |
@@ -14685,6 +14811,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Punkt | Stand |
 |---|---|
 | **Modell-Rückfallketten in 8 Edge-Functions** | Neun Stellen nennen genau EIN Modell ohne Ausweichmöglichkeit. Vorlage liegt im Repo (`book-ingest`, `CLAUDE_MODELS`). Ob ein Name heute noch auflöst, ist von hier aus nicht prüfbar. (df) |
+| **Drei Admin-Funktionen ohne Quelltext im Repo** | `fn_assign_role`, `fn_admin_flag_set`, `fn_set_global_api_key` stehen in keiner Migration als `CREATE FUNCTION` (nur in GRANT/REVOKE-Zeilen); ihre Rümpfe sind nur live (25.09.2026, `pg_proc.prosrc`). `GS_ADM_AKTIONEN` trägt für ihre Spur-Namen eine datierte `spur_quelle`, `admin_check` nennt die drei beim Namen und meldet die Angabe als überholt, sobald der Name in einer Migration steht. Der Weg ins Repo ist ein Dump aus der Datenbank (Fernando), keine Abschrift. (iv) |
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
