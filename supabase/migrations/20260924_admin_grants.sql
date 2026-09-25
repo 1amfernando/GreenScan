@@ -1,0 +1,47 @@
+-- v33.50 · Zwei Admin-Knoepfe, die nie funktionieren konnten — zum DRITTEN Mal.
+--
+-- Gemessen am 23.09.2026 in der Live-DB (nur lesend, has_function_privilege
+-- und pg_proc.proacl): von 28 RPCs, die das Admin-Panel aufruft, darf
+-- `authenticated` ZWEI nicht ausfuehren — die ACL ist
+-- {postgres=X/postgres,service_role=X/postgres}, sonst nichts:
+--
+--   fn_assign_role         → „🚫 Nutzer sperren" / „Entsperren" / Rolle vergeben
+--   fn_set_global_api_key  → globalen KI-Schluessel setzen
+--
+-- DIE GESCHICHTE, damit sie sich nicht wiederholt:
+--   v26_51b  REVOKE von authenticated auf vier admin-only Funktionen (LIVE,
+--            laut STATUS) — darunter diese zwei und is_admin_user.
+--   v29_20   GRANT fn_set_global_api_key an authenticated  → heute NICHT in Kraft.
+--   v30_57   GRANT fn_assign_role an authenticated, Kopfzeile sagt
+--            „Angewendet 2026-06-26 via MCP"                → heute NICHT in Kraft.
+--   is_admin_user hat authenticated=X — DIESES Grant hat ueberlebt.
+--
+-- Keine Migration im Repo droppt oder ersetzt die zwei Funktionen nach v30_57
+-- (grep ueber alle 221). Entweder wurden v29_20/v30_57 nie angewandt, oder
+-- v26_51b lief DANACH noch einmal — die Reihenfolge bei apply_migration ist
+-- die des Anwenders, nicht die des Dateinamens. Was davon stimmt, laesst sich
+-- von hier nicht sagen; die Live-ACL ist die Wahrheit, und sie sagt: weg.
+--
+-- Beide Funktionen sind SECURITY DEFINER und pruefen INTERN is_admin_user()
+-- (pg_get_functiondef, 23.09.2026). Das GRANT ist deshalb sicher; PostgREST
+-- antwortet einem Admin ohne das GRANT mit 403 „permission denied for
+-- function …", und die App zeigte vorher eine Rueckfrage („wirklich SPERREN?
+-- wirkt sofort") fuer eine Aktion, die danach scheitert. Seit v33.50 erkennt
+-- sie den Fall (`nicht_freigeschaltet`) und nennt DIESE Datei.
+--
+-- EINE Datei fuer beide, statt „wende v29_20 und v30_57 noch einmal an": ein
+-- Klick, ein Dateiname, der in der App steht. Idempotent — GRANT ist
+-- wiederholbar.
+--
+-- NICHT angewandt. DDL auf der Produktivdatenbank ist Fernandos Klick
+-- (CLAUDE.md §7.1: „Nachmessen: ja, jederzeit, nur lesend. Anwenden: nein.").
+
+grant execute on function public.fn_assign_role(uuid, text, text)          to authenticated;
+grant execute on function public.fn_set_global_api_key(text, text, boolean) to authenticated;
+-- anon bekommt bewusst nichts (v26_51b bleibt fuer anon in Kraft).
+
+-- Gegenprobe nach dem Anwenden (nur lesend):
+--   select proname, has_function_privilege('authenticated', oid, 'EXECUTE')
+--   from pg_proc where proname in ('fn_assign_role','fn_set_global_api_key');
+-- Erwartet: zweimal `true`. Danach verschwindet „noch nicht freigegeben" am
+-- Knopf und im Admin-Ueberblick beim naechsten App-Start von selbst.

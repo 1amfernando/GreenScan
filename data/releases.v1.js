@@ -30,6 +30,28 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.30', date: '14.09.2026',
+      headline: 'Lina schaut in unsere Artenliste — und ruft bei einem Notfall sofort die Nummer',
+      summary: 'Lina hatte keinen Zugriff auf die Artenliste: wer sie nach einer Pflanze fragte, bekam die Antwort des Sprachmodells, nicht die der 4\'337 Eintraege, gegen die Scanner und Quiz laengst pruefen. Jetzt steht die erkannte Art im Kontext — und wenn mehrere Arten denselben Namen tragen, sagt Lina das, statt sich eine auszusuchen. Dazu: bei einem Vergiftungs-Notfall kommt sofort die 145, ohne Umweg ueber die KI, und ohne Internet antwortet sie aus der App-Liste statt gar nicht.',
+      user_summary: 'Frag Lina nach einer Pflanze, und sie schaut in unserer Artenliste nach, statt zu raten. Bei einem Notfall nennt sie sofort die Giftnotruf-Nummer. Und ohne Internet sagt sie jetzt, was sie weiss, statt dich wegzuschicken.',
+      user_items: [
+        {emoji: '🌿', bold: 'Sie schaut nach, statt zu raten:', text: ' nennst du eine Pflanze, stehen Giftigkeit und Essbarkeit aus unserer Liste in ihrer Antwort — dieselben Angaben wie im Scanner.'},
+        {emoji: '🤔', bold: 'Bei mehreren Arten fragt sie nach:', text: ' „Wacholder" sind acht Arten in unserer Liste, und sie sind nicht alle gleich. Dann sagt Lina das, statt sich eine auszusuchen.'},
+        {emoji: '🆘', bold: 'Notfall zuerst:', text: ' wer schreibt, dass jemand etwas gegessen hat, bekommt sofort Tox Info Suisse 145 — ohne auf die KI zu warten. In vier Sprachen.'},
+        {emoji: '📡', bold: 'Ohne Internet trotzdem eine Antwort:', text: ' Lina sagt, was in der App-Liste steht, statt dich auf spaeter zu vertroesten.'},
+        {emoji: '⚠️', bold: 'Und eine Gegenprobe:', text: ' behauptet die Antwort „essbar" ueber etwas, das unsere Liste als giftig fuehrt, steht eine Warnung darueber.'}
+      ],
+      items: [
+        '_gsArtenTreffer(text): ganzer Name oder ganzes Binomen an Wortgrenzen. Der grobe Vergleich aus getSmartAnswer nimmt IRGENDEIN Wort eines Namens — „Meine Tomaten haben braune Blaetter" ergab dort die Braune Krustenflechte, „echte Kamille" die Echte Engelwurz.',
+        'Deutsch dekliniert: „den Gruenen Knollenblaetterpilz" trifft ueber das letzte Wort des Namens. Gemessen: von 505 solchen Woertern mit >= 10 Zeichen zeigen 384 auf genau eine Art; die uebrigen laufen in dieselbe Mehrdeutigkeits-Regel.',
+        'Bei mehreren Arten wird KEINE ausgewaehlt. Sind sie sich einig (Rose: 19 Arten, keine giftig), wird geerdet; gehen sie auseinander (Wacholder: essbar nur manche), sagt die Zeile genau das.',
+        'Jede Angabe durch _gsArtAnzeige — die der ART, nicht des Eintrags. Gemessen: Beinwell steht als Eintrag auf Stufe 1, als Art auf 3 (ueberschreitet die Warnschwelle), Christrose 3 gegen 5.',
+        '_gsNotfallStufe aus getSmartAnswer herausgeloest: EIN Vokabular fuer beide Chats. Bei „dringend" steht die Nummer sofort da — VOR dem Doppel-Send-Riegel, damit sie auch waehrend einer laufenden Anfrage erscheint — und die Antwort kommt trotzdem: ein Fehlalarm darf der Person nicht die Auskunft wegnehmen.',
+        'Ohne Netz antwortet getSmartAnswer als Lina-Antwort; erst wenn auch von dort nichts kommt, bleibt der alte Hinweis.',
+        'Pruefstand: sensor_check +5 (36 Faelle), darunter einer, der den WEG misst statt der Funktionen — Notfall ohne KI-Aufruf, Kontext mit ARTEN-Zeile, Warnzeile ueber der Antwort, Antwort ohne Netz. Fuenf Gegenproben einzeln gestellt.'
+      ]
+  },
+  {
     v: 'v33.29', date: '14.09.2026',
       headline: 'Beim Quiz steht jetzt „Giftigkeit" statt „edible_toxic"',
       summary: 'Die Zeile unter der Quizfrage zeigte den rohen Datenbanknamen — und dafuer gab es drei Quellen mit zusammen 35 verschiedenen Schreibweisen, darunter pilz und pilze nebeneinander. Jetzt gibt es zwoelf Kategorien in vier Sprachen, und der Fragen-Generator darf keine anderen mehr anlegen. Dazu eine Pruefung vor dem Anlegen (vier Antworten, richtige Antwort im Bereich, Erklaerung da) und eine Dublettensperre, die auch innerhalb einer Lieferung greift.',

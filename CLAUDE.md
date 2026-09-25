@@ -827,7 +827,7 @@ node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? F
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
-node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42)
+node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen
@@ -1829,6 +1829,60 @@ sechzehn neue Anfragen. Seither gilt für jede Admin-Sektion:
 > Gegenprobe wegnehmen will, **benennt sie im Quelltext um**. Dieselbe Klasse
 > wie die Gegenprobe, deren Skript nichts geändert hat (v32.24): nach jeder
 > Gegenprobe nachsehen, ob der Zustand wirklich hergestellt wurde.
+
+**Seit v33.50 hat das Admin-Panel auch eine SCHREIB-Seite — und dieselbe
+Bauform.** Gemessen an der Live-DB (nur lesend, 24.09.2026): die Sicherheit
+steht (12 von 13 Schreib-RPCs `SECURITY DEFINER` mit `is_admin_user()`, RLS
+auf `user_reports` dicht), aber **zwei Knöpfe sind tot** — `fn_assign_role`
+und `fn_set_global_api_key` tragen die ACL `{postgres, service_role}`, ein
+angemeldeter Admin darf sie nicht ausführen; die Re-Grants aus `v29_20` und
+`v30_57` liegen im Repo und sind live nicht in Kraft. Und **15 von 15
+Schreibwegen prüften nur `.error`** — PostgREST meldet eine von RLS
+abgewiesene Zeile ohne Fehler (§3.5), `gsAdminReviewReport` schickte dazu
+`return=minimal`, und `gsAdminToggleVoucher` sah die Antwort gar nicht an.
+
+- **Eine Liste, ein Weg — auch fürs Schreiben.** `GS_ADM_AKTIONEN` trägt je
+  Aktion Titel und GENAU ein Ziel (`rpc` · `pfad`+`method` · `fn`), optional
+  `freigabe` (die Migration, die ein GRANT nachliefert); `_gsAdmTun(schl,
+  body, opts)` ist der einzige Schreibweg und gibt IMMER `{state, daten, key,
+  grund}`. Ein POST, der nur liest, steht in `GS_ADM_LESE_RPC` — sonst meldet
+  der Prüfstand ihn als Schreibweg daneben. **Die Liste ist die Prüfung**
+  (`admin_check` „Die Liste ist die Prüfung": kein `gsAdmin*` schreibt mit
+  rohem `sbFetch`, jeder Eintrag wird gerufen).
+- **Sechs Zustände, jeder mit Grund:** `ok` · `abgelehnt` (RLS, 401/403,
+  `{ok:false}`, am Tabellenweg 0 Zeilen) · `nicht_freigeschaltet`
+  (`permission denied for function` — die Sitzung merkt es in
+  `_gsAdmGesperrt`) · `nicht_verfuegbar` (404/PGRST202 — eine nicht
+  angewandte Migration, kein Fehler des Admins) · `fehler` (Netz) ·
+  `kein_zugriff` (ohne `gsIsAdmin()` geht keine Anfrage hinaus).
+  `_gsAdmTunDeuten` ist die Deutung, getrennt vom Netz. `_gsAdmSagen(r)` der
+  eine Satz je Zustand.
+- **Der Tabellenweg schickt IMMER `return=representation`.** Mit `minimal`
+  kommen die 0 Zeilen gar nicht erst an, und die Ablehnung ist unsichtbar.
+- **Ein toter Knopf braucht drei Antworten:** keine Rückfrage mehr
+  (`gsAdminAssignRole` fragt `_gsAdmGesperrt` VOR der Rückfrage), der Grund
+  am Knopf mit Migrationsnamen (`_gsAdmAktionHinweisHtml`), die Zahl im
+  Überblick (`_gsAdmUeberblickHtml`). Nur der Toast danach liesse die Person
+  dreimal dieselbe Rückfrage „wirkt sofort" bestätigen.
+
+> **Ein `if (r.error)` ist keine Prüfung — und `versprechen_check` hält es
+> für eine** (v33.50). Er sucht eine Meldung ohne Blick auf die Antwort; ein
+> Blick auf `.error` allein ist ein halber Blick, und PostgREST antwortet in
+> genau dieser Hälfte nicht. Alle fünfzehn Admin-Wege waren dort grün. Die
+> Verschärfung ist gemessen — rund 176 Stellen repo-weit — und bewusst eine
+> eigene Scheibe: ein Sweep über die 5,9-MB-Datei ist ein Eingriff (v32.25).
+>
+> **Und ein GRANT, das im Repo steht, ist live nicht in Kraft, bis jemand
+> nachsieht.** Zwei Migrationen mit demselben Zweck lagen seit v29/v30 da;
+> die ACL sagte etwas anderes. `20260924_admin_grants.sql` (nicht angewandt)
+> erzählt die Geschichte im Kopf, statt die zwei zu wiederholen — und das
+> GRANT öffnet nichts: beide Funktionen prüfen `is_admin_user()` selbst.
+
+`admin_check` 6 → 11 Fälle, fünf Gegenproben einzeln rot mit dem richtigen
+Fall (ein Weg am einen Weg vorbei · 0 Zeilen als ok · `return=minimal` ·
+Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand). Der Server ist
+gestellt; `erwarte()` leert `_gsAdmGesperrt` je Szenario — sonst macht die
+(richtige) Sperr-Erinnerung jedes spätere Szenario zu `nicht_freigeschaltet`.
 
 **`nutzersicht_check.js` (seit v32.70) fragt, was kein anderer fragt: sagt die
 App, was STIMMT, in der Sprache der Person?** (Audit E2–E5, E8.) Fünf Fälle,
