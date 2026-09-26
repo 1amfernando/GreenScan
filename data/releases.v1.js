@@ -30,6 +30,24 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.31', date: '14.09.2026',
+      headline: 'Ein Chat statt zwei — und Lina schlaegt jetzt Fragen vor',
+      summary: 'Es gab einen zweiten Chat-Bildschirm, zu dem kein Weg mehr fuehrte: switchTab(\'ai\') kam im ganzen Quelltext null mal vor. Erreichbar war er nur noch ueber Linas eigene Navigations-Liste — und dort stand ein Chat OHNE Notfall-Erkennung, ohne Arten-Erdung und ohne die Sicherheitszeile aus v33.30. Der Bildschirm ist weg; seine fuenf Fragevorschlaege leben in Lina weiter.',
+      user_summary: 'Wenn du Lina oeffnest, schlaegt sie dir jetzt fuenf Fragen vor — die musst du nur antippen. Und es gibt nur noch EINEN Chat: den, der in unserer Artenliste nachschaut und bei einem Notfall sofort die Nummer nennt.',
+      user_items: [
+        {emoji: '💬', bold: 'Fuenf Vorschlaege zum Antippen:', text: ' „Was ist der giftigste Pilz der Schweiz?", „Baerlauch richtig bestimmen" und drei weitere — sie stehen da, solange das Gespraech leer ist.'},
+        {emoji: '🎯', bold: 'Nur noch ein Chat:', text: ' der zweite hatte weder die Notfall-Nummer noch den Blick in unsere Artenliste. Jetzt fuehrt jeder Weg zu Lina.'},
+        {emoji: '🧹', bold: 'Aufgeraeumt:', text: ' der alte Gespraechsverlauf im Geraetespeicher ist weg — Linas Verlauf liegt ohnehin in der Cloud und ist auf jedem Geraet da.'}
+      ],
+      items: [
+        'Gemessen: switchTab(\'ai\') 0 Treffer im ganzen Quelltext; die neun erreichbaren Tabs sind favs, garden, home, map, recipes, remedies, scanner, search, wissen. #screen-ai wurde nur an seiner eigenen Definition genannt — und stand trotzdem in GS_LINA_SCREENS.',
+        'Es war KEIN Rest: fuenf uebersetzte Vorschlaege, eine Begruessung, eine Eingabezeile. Etwas Fertiges wird nicht weggeworfen, weil niemand hinfuehrt — die Vorschlaege sind jetzt GS_LINA_VORSCHLAEGE und nutzen dieselben _t-Schluessel.',
+        'Entfernt: #screen-ai, sendAI, sendSug und fuenf Helfer, die danach null Aufrufer hatten (robust_check C2 hat sie gemeldet).',
+        'Der localStorage-Verlauf des alten Chats ist mitsamt seinen acht Eintraegen in den Speicher- und Sync-Listen verschwunden: ein Feld, das niemand mehr schreibt und niemand mehr liest.',
+        'Pruefstand: sensor_check +1 (39 Faelle) — jeder Eintrag in GS_LINA_SCREENS muss einem Bildschirm entsprechen, den es gibt, und es darf nur EINEN Chat geben. Eine Whitelist ist die Zusage, dass ihre Ziele existieren.'
+      ]
+  },
+  {
     v: 'v33.30', date: '14.09.2026',
       headline: 'Lina schaut in unsere Artenliste — und ruft bei einem Notfall sofort die Nummer',
       summary: 'Lina hatte keinen Zugriff auf die Artenliste: wer sie nach einer Pflanze fragte, bekam die Antwort des Sprachmodells, nicht die der 4\'337 Eintraege, gegen die Scanner und Quiz laengst pruefen. Jetzt steht die erkannte Art im Kontext — und wenn mehrere Arten denselben Namen tragen, sagt Lina das, statt sich eine auszusuchen. Dazu: bei einem Vergiftungs-Notfall kommt sofort die 145, ohne Umweg ueber die KI, und ohne Internet antwortet sie aus der App-Liste statt gar nicht.',

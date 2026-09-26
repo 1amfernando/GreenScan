@@ -22,8 +22,11 @@
 -- die des Anwenders, nicht die des Dateinamens. Was davon stimmt, laesst sich
 -- von hier nicht sagen; die Live-ACL ist die Wahrheit, und sie sagt: weg.
 --
--- Beide Funktionen sind SECURITY DEFINER und pruefen INTERN is_admin_user()
--- (pg_get_functiondef, 23.09.2026). Das GRANT ist deshalb sicher; PostgREST
+-- Beide Funktionen sind SECURITY DEFINER und pruefen INTERN die Admin-Rolle:
+-- fn_assign_role ueber profiles.role = 'admin', fn_set_global_api_key ueber
+-- fn_is_role('admin') (pg_get_functiondef, 25.09.2026 — v33.50 schrieb hier
+-- „is_admin_user()", das war ungenau; beide Admin-Konten bestehen beide
+-- Pruefungen). Das GRANT ist deshalb sicher; PostgREST
 -- antwortet einem Admin ohne das GRANT mit 403 „permission denied for
 -- function …", und die App zeigte vorher eine Rueckfrage („wirklich SPERREN?
 -- wirkt sofort") fuer eine Aktion, die danach scheitert. Seit v33.50 erkennt

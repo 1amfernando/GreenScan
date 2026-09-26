@@ -1117,9 +1117,12 @@ grant execute on function public.fn_assign_role(uuid, text, text)          to au
 grant execute on function public.fn_set_global_api_key(text, text, boolean) to authenticated;
 ```
 
-**Das öffnet nichts.** Beide Funktionen prüfen `is_admin_user()` in ihrem
-Rumpf und lehnen jeden anderen ab — das GRANT macht diese Prüfung nur
-erreichbar. Idempotent: zweimal ausführen schadet nicht.
+**Das öffnet nichts.** Beide Funktionen prüfen die Admin-Rolle in ihrem
+Rumpf und lehnen jeden anderen ab — `fn_assign_role` über
+`profiles.role = 'admin'`, `fn_set_global_api_key` über `fn_is_role('admin')`
+(berichtigt in v33.51: hier stand vorher „`is_admin_user()`"; dein Konto
+besteht beide Prüfungen). Das GRANT macht diese Prüfung nur erreichbar.
+Idempotent: zweimal ausführen schadet nicht.
 
 ### Was die App bis dahin tut
 
@@ -1130,12 +1133,73 @@ Migration, die Rückfrage entfällt, und der Überblick oben im Panel zählt
 nächsten Öffnen von selbst weg — die App merkt sich die Sperre nur für die
 laufende Sitzung.
 
-### Und eine Sache, die ich gemessen und NICHT gebaut habe
+### Und eine Sache, die ich gemessen hatte — und die in v33.51 anders ausging
 
-`gs_admin_log` wird bei jeder Admin-Aktion geschrieben — und **niemand liest
-es**. Dieselbe Klasse wie `analytics_events` bis v33.18. Wenn du willst, wird
-das eine Sektion im Panel („Was Admins zuletzt getan haben"); bis dahin ist
-es Speicherplatz. Sag es, dann kommt es.
+Hier stand: „`gs_admin_log` wird geschrieben und niemand liest es." Genauer
+gemessen (25.09.2026): das war das **gerätelokale** `gs_admin_log` (zwei
+Schreiber, null Leser — jetzt weg). Das **Server**-Protokoll `audit_log` liest
+dein Panel längst („Letzte Admin-Aktionen"). Was fehlte, war etwas anderes:
+fünf Aktionen kamen dort nie an. Siehe §24.
+
+## 24 · Das Admin-Protokoll kennt jetzt jede Aktion — eine Migration fehlt (v33.51)
+
+**Was ich gemessen habe (Live-DB, nur lesend, 25.09.2026):** dein Admin-Panel
+hat ein Protokoll („Letzte Admin-Aktionen", Tabelle `audit_log`) — aber fünf
+von fünfzehn Aktionen kamen dort nie an. Darunter zwei, bei denen es am
+meisten zählt: **einen Foto-Beitrag freigeben oder ablehnen** und **einen
+Arten-Vorschlag aufnehmen oder ablehnen**. „Wer hat das abgelehnt, und wann?"
+war nicht zu beantworten. Dazu „Meldung erledigen", das gar keine
+Server-Funktion hatte, sondern die Tabelle direkt änderte.
+
+Zwei bleiben bewusst ohne Eintrag: der Integritäts-Scan (liest nur) und der
+Broadcast (steht je Empfänger unter Push-Versand).
+
+### Was du tust
+
+Die Migration `supabase/migrations/20260925_admin_audit_vollstaendig.sql`
+anwenden (Supabase-Dashboard → SQL-Editor, Inhalt einfügen, ausführen). Sie
+ändert drei Funktionen:
+
+| Funktion | Was sich ändert |
+|---|---|
+| `fn_admin_review_species_image` | Rumpf wie heute, plus eine Protokollzeile `species_image_review` |
+| `fn_admin_review_species_proposal` | Rumpf wie heute, plus `species_proposal_review` — beim Aufnehmen UND beim Ablehnen |
+| `fn_admin_review_report` | **neu**: Meldung erledigen als Server-Funktion mit Admin-Prüfung und Protokollzeile `report_review` |
+
+Idempotent: zweimal ausführen schadet nicht. Der Prüfstand `admin_check`
+spielt die Datei in einem lokalen Postgres zweimal ein und ruft alle drei
+Funktionen als Admin und als Nicht-Admin — die Rechnung stimmt; ob sie bei
+dir läuft, siehst du so:
+
+### Woran du es erkennst
+
+Unter „Letzte Admin-Aktionen" steht seit v33.51 ein Fuss: **„Spur: 10 von 15
+Aktionen protokolliert der Server · 3 erst nach Migration 20260925 …"**.
+Sobald du nach dem Anwenden das erste Foto prüfst, einen Vorschlag
+entscheidest oder eine Meldung erledigst, steht dort **„Spur gesehen"** — und
+wenn alle drei einmal gelaufen sind, **„Migration angewandt"**. Die App sagt
+nur, was sie gesehen hat; sie rät den Server-Stand nicht.
+
+Bis dahin funktioniert „Meldung erledigen" weiter — über den alten Weg, und
+die Meldung sagt dann ehrlich „Ohne Protokolleintrag — Migration … anwenden".
+
+### Eine Berichtigung zu §23
+
+Dort steht, beide Funktionen prüften `is_admin_user()` selbst. Gemessen:
+`fn_assign_role` prüft `profiles.role = 'admin'`, `fn_set_global_api_key`
+ruft `fn_is_role('admin')`. Beides sind Admin-Prüfungen — **der Schluss
+bleibt: das GRANT öffnet nichts.** Und dein Konto besteht beide Prüfungen
+(Rolle `admin`, `is_admin`, in `admin_emails`). Nur der Satz war ungenau.
+
+### Und etwas, das ich notiert und nicht angefasst habe
+
+Drei Admin-Funktionen (`fn_assign_role`, `fn_admin_flag_set`,
+`fn_set_global_api_key`) haben **im Repo keinen Quelltext** — sie stehen nur
+in der Datenbank. Wenn die Datenbank je neu aufgesetzt werden müsste, wären
+sie weg. Der saubere Weg ist ein Dump aus deiner Datenbank
+(`supabase db dump --schema public` oder der SQL-Editor mit
+`pg_get_functiondef`), als Migration eingecheckt. Das ist ein Klick bei dir,
+keine Abschrift von mir — eine Abschrift ohne Nachweis wäre keine Quelle.
 
 ## Und wenn etwas schiefgeht
 

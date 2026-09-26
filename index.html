@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.50.20260924">
+<meta name="app-version" content="33.51.20260925">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75844,11 +75844,8 @@ async function gsAdminSaveSbKey() {
   if (newUrl) SB_URL = newUrl;
   closeModal('modal-recipe-detail');
   showProfileToast('✅ Supabase Key gespeichert und aktiviert!');
-  // Admin-Log
-  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-  log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
-    action: 'sb_key_changed', note: 'Key geändert auf: ' + newKey.slice(0,20) + '…' });
-  gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
+  // v33.51: das geraetelokale gs_admin_log (zwei Schreiber, null Leser seit
+  // v24) ist weg — das Admin-Protokoll ist audit_log auf dem Server.
 }
 
 // Stellt den Standard-Key wieder her
@@ -76006,11 +76003,8 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
       } else {
         showProfileToast && showProfileToast({type:'warn', icon:'⚠️', title:'Key gespeichert, aber Test fehlgeschlagen', body:'Grund: ' + h.reason + '. Bitte Key prüfen.', duration:8000});
       }
-      try {
-        var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-        log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null), action: 'global_api_key_set', note: 'Key: ' + newKey.slice(0,12) + '…' + ', healthOk: ' + h.ok });
-        gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
-      } catch(_){}
+      // v33.51: kein geraetelokales Protokoll mehr — der Server schreibt
+      // 'global_api_key_change' nach audit_log (fn_set_global_api_key).
       return true;
     }
     showProfileToast && showProfileToast('❌ ' + _gsAdmSagen(r));
@@ -76193,6 +76187,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v33.51', date: '25.09.2026',
+      headline: 'Das Admin-Protokoll kennt jetzt jede Aktion',
+      summary: 'Das Admin-Panel hat ein Protokoll auf dem Server — aber fünf von fünfzehn Aktionen kamen dort nie an, darunter das Freigeben und Ablehnen von Foto-Beiträgen und Arten-Vorschlägen. „Wer hat das abgelehnt, und wann?“ war nicht zu beantworten. Jetzt sagt jede Aktion, ob sie eine Spur hinterlässt, der Fuss unter dem Protokoll rechnet die Deckung, und eine Migration schliesst die drei Lücken.',
+      user_summary: 'Für Admins: unter „Letzte Admin-Aktionen“ steht jetzt, welche Aktionen protokolliert werden und welche noch nicht — und jede Zeile ist beschriftet statt als Datenbankname gezeigt. Nach einer Aktion zieht das Protokoll von selbst nach.',
+      user_items: [
+        {emoji:'📜', bold:'Jede Zeile hat einen Namen:', text:' „Feature-Flag setzen“ und „Gutschein eingelöst“ standen bisher als roher Datenbankname da.'},
+        {emoji:'🧮', bold:'Der Fuss sagt die Deckung:', text:' „10 von 15 Aktionen protokolliert der Server · 3 erst nach der Migration · 2 bewusst ohne“ — und „Spur gesehen“ erst, wenn eine solche Zeile wirklich da war.'},
+        {emoji:'🚩', bold:'Meldung erledigen sagt es ehrlich:', text:' solange die Migration fehlt, geht es den alten Weg und die Meldung sagt „ohne Protokolleintrag“.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen (Live-DB, nur lesend):', text:' audit_log hat 193 Zeilen und KEINE INSERT-Policy — geschrieben wird nur aus SECURITY-DEFINER-Funktionen, deshalb gehört die Spur in die Funktion. 10 von 15 Aktionen schreiben; species_image, species_proposal (nur system_events beim Aufnehmen, nichts beim Ablehnen) und report_review (nackter PATCH, keine RPC) nicht; integrity_scan und broadcast bewusst nicht.'},
+        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN: genau eines von spur · spur_ab · ohne_spur.', text:' spur_quelle nur für die drei Funktionen, die im Repo keinen CREATE FUNCTION haben (fn_assign_role, fn_admin_flag_set, fn_set_global_api_key — nur live). _gsAdmSpurDeckung rechnet, _gsAdmSpurHtml zeigt.'},
+        {emoji:'🧾', bold:'Migration 20260925_admin_audit_vollstaendig.sql (nicht angewandt):', text:' zwei Review-Funktionen mit Rumpf wie live plus audit_log-Zeile (Vorschlag in beiden Zweigen), NEU fn_admin_review_report mit is_admin_user-Tor, Status-Vokabular wie der CHECK, alt→neu im diff.'},
+        {emoji:'↩️', bold:'Ersatz nur bei nicht_verfuegbar:', text:' fehlt die RPC, läuft der PATCH mit return=representation und die Antwort trägt ersatz:true plus den Satz mit dem Dateinamen — nie bei Ablehnung oder fehlendem GRANT.'},
+        {emoji:'⚖️', bold:'RAISE EXCEPTION ist eine Ablehnung:', text:' „Only admins can assign roles“ kommt als HTTP 400 (P0001); vorher „fehler“, jetzt „abgelehnt“.'},
+        {emoji:'✏️', bold:'Berichtigung zu v33.50:', text:' fn_assign_role prüft profiles.role = admin, fn_set_global_api_key ruft fn_is_role — nicht is_admin_user(). Der Schluss bleibt: das GRANT öffnet nichts, beide Admin-Konten bestehen beide Prüfungen.'},
+        {emoji:'🧪', bold:'admin_check 11 → 21 Fälle, sieben Gegenproben:', text:' fünf davon in Node — der statische Abgleich in drei Klassen (im Repo · nur live belegt · gar nicht) und die SQL-Hälfte in einem lokalen Postgres: Migration zweimal, als Admin vier Spuren mit genau den deklarierten Namen, als Nicht-Admin keine, eingebaute Gegenprobe ohne INSERT. Ohne Postgres „nicht prüfbar“, nie grün.'},
+        {emoji:'🧹', bold:'gs_admin_log weg:', text:' zwei Schreiber, null Leser, beide Ereignisse ohnehin auf dem Server oder Geräte-Konfiguration.'},
+        {emoji:'📵', bold:'Grenze:', text:' die SQL-Hälfte rechnet mit gestelltem auth.uid() und is_admin_user(). Ob die Migration LIVE angewandt ist, sagt nur Fernando — und die App erst, wenn sie eine Spur gesehen hat.'}
+      ]
+  },
   {
     v: 'v33.50', date: '24.09.2026',
       headline: 'Das Admin-Panel sagt, was der Server wirklich getan hat',
@@ -76518,24 +76534,6 @@ window.GS_RELEASES = [
         'Pruefstand: sensor_check Fall mit den ZWOELF GEMESSENEN Saetzen statt ausgewaehlter — ein Fall, dessen Satz den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware. Drei Gegenproben: Wortliste zurueck (3 verpasst), Verzehr-Naehe aus (7 verpasst), Split am normierten Text (1 verpasst).'
       ]
   },
-  {
-    v: 'v33.31', date: '14.09.2026',
-      headline: 'Ein Chat statt zwei — und Lina schlaegt jetzt Fragen vor',
-      summary: 'Es gab einen zweiten Chat-Bildschirm, zu dem kein Weg mehr fuehrte: switchTab(\'ai\') kam im ganzen Quelltext null mal vor. Erreichbar war er nur noch ueber Linas eigene Navigations-Liste — und dort stand ein Chat OHNE Notfall-Erkennung, ohne Arten-Erdung und ohne die Sicherheitszeile aus v33.30. Der Bildschirm ist weg; seine fuenf Fragevorschlaege leben in Lina weiter.',
-      user_summary: 'Wenn du Lina oeffnest, schlaegt sie dir jetzt fuenf Fragen vor — die musst du nur antippen. Und es gibt nur noch EINEN Chat: den, der in unserer Artenliste nachschaut und bei einem Notfall sofort die Nummer nennt.',
-      user_items: [
-        {emoji: '💬', bold: 'Fuenf Vorschlaege zum Antippen:', text: ' „Was ist der giftigste Pilz der Schweiz?", „Baerlauch richtig bestimmen" und drei weitere — sie stehen da, solange das Gespraech leer ist.'},
-        {emoji: '🎯', bold: 'Nur noch ein Chat:', text: ' der zweite hatte weder die Notfall-Nummer noch den Blick in unsere Artenliste. Jetzt fuehrt jeder Weg zu Lina.'},
-        {emoji: '🧹', bold: 'Aufgeraeumt:', text: ' der alte Gespraechsverlauf im Geraetespeicher ist weg — Linas Verlauf liegt ohnehin in der Cloud und ist auf jedem Geraet da.'}
-      ],
-      items: [
-        'Gemessen: switchTab(\'ai\') 0 Treffer im ganzen Quelltext; die neun erreichbaren Tabs sind favs, garden, home, map, recipes, remedies, scanner, search, wissen. #screen-ai wurde nur an seiner eigenen Definition genannt — und stand trotzdem in GS_LINA_SCREENS.',
-        'Es war KEIN Rest: fuenf uebersetzte Vorschlaege, eine Begruessung, eine Eingabezeile. Etwas Fertiges wird nicht weggeworfen, weil niemand hinfuehrt — die Vorschlaege sind jetzt GS_LINA_VORSCHLAEGE und nutzen dieselben _t-Schluessel.',
-        'Entfernt: #screen-ai, sendAI, sendSug und fuenf Helfer, die danach null Aufrufer hatten (robust_check C2 hat sie gemeldet).',
-        'Der localStorage-Verlauf des alten Chats ist mitsamt seinen acht Eintraegen in den Speicher- und Sync-Listen verschwunden: ein Feld, das niemand mehr schreibt und niemand mehr liest.',
-        'Pruefstand: sensor_check +1 (39 Faelle) — jeder Eintrag in GS_LINA_SCREENS muss einem Bildschirm entsprechen, den es gibt, und es darf nur EINEN Chat geben. Eine Whitelist ist die Zusage, dass ihre Ziele existieren.'
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76744,7 +76742,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.50';
+var GS_VERSION = 'v33.51';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -83235,7 +83233,7 @@ var GS_USER_KEYS = [
   // ANMELDUNG. gs_auth_db traegt E-Mail-Adressen, gs_sb_user das ganze
   // Nutzerobjekt — sbClearSession() raeumte beide nicht.
   'gs_auth_db','gs_auth_session','gs_sb_user','gs_sb_display_name','gs_sb_session_only',
-  'gs_admin_pw_hash','gs_admin_log',
+  'gs_admin_pw_hash',
   // EIGENE INHALTE und noch nicht abgeschickte Warteschlangen. Eine
   // Warteschlange bekommt ihre user_id erst beim Flush — was von Nutzer A
   // liegen bleibt, landet im Konto von Nutzer B (dieselbe Klasse wie v31.04).
@@ -87874,7 +87872,7 @@ var GS_ADM_SEKTIONEN = {
   cron:       { titel:'Hintergrund-Jobs', sec:'gs-admin-cron-sec',       hol:'gsAdminFetchCronHealth',             html:'_gsAdminCronHealthHtml',        rpc:'fn_admin_cron_health',             leer:[] },
   sysevents:  { titel:'System-Ereignisse', sec:'gs-admin-sysevents-sec',  hol:'gsAdminFetchSystemEvents',           html:'_gsAdminSystemEventsHtml',      rpc:'fn_admin_system_events',           leer:[], body:{ p_limit: 30 } },
   vouchers:   { titel:'Gutscheine', sec:'gs-admin-vouchers-sec',   hol:'gsAdminFetchVouchers',               html:'_gsAdminVouchersHtml',          rpc:'fn_admin_vouchers_list',           leer:[] },
-  audit:      { titel:'Admin-Protokoll', sec:'gs-admin-audit-sec',      hol:'gsAdminFetchAudit',                  html:'_gsAdminAuditHtml',             rpc:'fn_admin_audit_recent',            leer:[], body:{ p_limit: 15 } },
+  audit:      { titel:'Admin-Protokoll', sec:'gs-admin-audit-sec',      hol:'gsAdminFetchAudit',                  html:'_gsAdminAuditHtml',             rpc:'fn_admin_audit_recent',            leer:[], body:{ p_limit: 30 } },
   users:      { titel:'Nutzer', sec:'gs-admin-users-sec',      hol:'gsAdminListUsers',                   html:'_gsAdminUsersHtml',             leer:[],
                 pfad:'/rest/v1/v_admin_users?select=*&order=role.asc,created_at.desc', opts:{ method:'GET' } }
 };
@@ -87955,21 +87953,38 @@ window._gsAdmHole = _gsAdmHole;
 // Dateinamen statt „Fehler".
 // ═══════════════════════════════════════════════════════════════════════════
 var GS_ADM_AKTIONEN = {
-  moderate:          { titel:'Inhalt moderieren',           rpc:'fn_admin_moderate' },
-  set_tier:          { titel:'Plan setzen',                 rpc:'fn_admin_set_tier' },
-  assign_role:       { titel:'Rolle vergeben / sperren',    rpc:'fn_assign_role',                  freigabe:'20260924_admin_grants.sql' },
-  flag_set:          { titel:'Feature-Flag setzen',         rpc:'fn_admin_flag_set' },
-  voucher_create:    { titel:'Gutschein anlegen',           rpc:'fn_admin_create_voucher' },
-  voucher_toggle:    { titel:'Gutschein schalten',          rpc:'fn_admin_voucher_toggle' },
-  knowledge_save:    { titel:'Wissen speichern',            rpc:'fn_admin_knowledge_save' },
-  knowledge_delete:  { titel:'Wissen löschen',              rpc:'fn_admin_knowledge_delete' },
-  knowledge_publish: { titel:'Wissen veröffentlichen',      rpc:'fn_admin_knowledge_set_published' },
-  species_image:     { titel:'Foto-Beitrag prüfen',         rpc:'fn_admin_review_species_image' },
-  species_proposal:  { titel:'Arten-Vorschlag prüfen',      rpc:'fn_admin_review_species_proposal' },
-  integrity_scan:    { titel:'Integritäts-Scan',            rpc:'fn_admin_data_integrity' },
-  global_api_key:    { titel:'Globalen KI-Schlüssel setzen', rpc:'fn_set_global_api_key',          freigabe:'20260924_admin_grants.sql' },
-  report_review:     { titel:'Meldung erledigen',           pfad:'/rest/v1/user_reports', method:'PATCH' },
-  broadcast:         { titel:'Broadcast senden',            fn:'send-push' }
+  // v33.51 · Jede Aktion sagt, ob sie eine SPUR im Server-Protokoll (audit_log)
+  // hinterlaesst — genau eines von dreien, gemessen in der Live-DB am 25.09.2026:
+  //   spur:      der Server schreibt audit_log mit diesem `action` (eine oder mehrere)
+  //   spur_ab:   erst nach der genannten Migration (nicht angewandt) — bis dahin ohne
+  //   ohne_spur: bewusst keine, mit Grund
+  //   spur_quelle: NUR wenn der Name in keiner Migration steht — drei Funktionen
+  //     (fn_assign_role, fn_admin_flag_set, fn_set_global_api_key) haben im Repo
+  //     keinen CREATE FUNCTION; ihr Rumpf ist nur live gemessen. Steht er eines
+  //     Tages im Repo, meldet admin_check die Angabe als ueberholt.
+  // admin_check haelt die Liste gegen die Migrationen (der Name steht neben einem
+  // audit_log-INSERT) und spielt die Migration in einem lokalen Postgres nach.
+  moderate:          { titel:'Inhalt moderieren',           emoji:'🛡️', rpc:'fn_admin_moderate',                   spur:'admin_moderate' },
+  set_tier:          { titel:'Plan setzen',                 emoji:'💎', rpc:'fn_admin_set_tier',                   spur:'admin_set_tier' },
+  assign_role:       { titel:'Rolle vergeben / sperren',    emoji:'👑', rpc:'fn_assign_role',                      spur:'role_assign',            freigabe:'20260924_admin_grants.sql', spur_quelle:'nur Live-DB (pg_proc.prosrc, 25.09.2026) — kein CREATE FUNCTION im Repo' },
+  flag_set:          { titel:'Feature-Flag setzen',         emoji:'🚩', rpc:'fn_admin_flag_set',                   spur:'admin_flag_set',         spur_quelle:'nur Live-DB (pg_proc.prosrc, 25.09.2026) — kein CREATE FUNCTION im Repo' },
+  voucher_create:    { titel:'Gutschein anlegen',           emoji:'🎟️', rpc:'fn_admin_create_voucher',             spur:'voucher_create' },
+  voucher_toggle:    { titel:'Gutschein schalten',          emoji:'🎟️', rpc:'fn_admin_voucher_toggle',             spur:'voucher_toggle' },
+  knowledge_save:    { titel:'Wissen speichern',            emoji:'📝', rpc:'fn_admin_knowledge_save',             spur:['knowledge_create','knowledge_update'] },
+  knowledge_delete:  { titel:'Wissen löschen',              emoji:'🗑️', rpc:'fn_admin_knowledge_delete',           spur:'knowledge_delete' },
+  knowledge_publish: { titel:'Wissen veröffentlichen',      emoji:'📣', rpc:'fn_admin_knowledge_set_published',    spur:'knowledge_publish' },
+  species_image:     { titel:'Foto-Beitrag prüfen',         emoji:'🖼️', rpc:'fn_admin_review_species_image',       spur_ab:{ action:'species_image_review',    migration:'20260925_admin_audit_vollstaendig.sql' } },
+  species_proposal:  { titel:'Arten-Vorschlag prüfen',      emoji:'🌿', rpc:'fn_admin_review_species_proposal',    spur_ab:{ action:'species_proposal_review', migration:'20260925_admin_audit_vollstaendig.sql' } },
+  integrity_scan:    { titel:'Integritäts-Scan',            emoji:'🔍', rpc:'fn_admin_data_integrity',             ohne_spur:'liest nur, ändert nichts' },
+  global_api_key:    { titel:'Globalen KI-Schlüssel setzen', emoji:'🔑', rpc:'fn_set_global_api_key',              spur:'global_api_key_change',  freigabe:'20260924_admin_grants.sql', spur_quelle:'nur Live-DB (pg_proc.prosrc, 25.09.2026) — kein CREATE FUNCTION im Repo' },
+  // Meldung erledigen: bis v33.50 ein nackter PATCH aus der App — keine RPC, keine
+  // Spur. Jetzt die RPC aus 20260925; solange sie auf dem Server fehlt, geht der
+  // PATCH als ERSATZ, und die Antwort sagt „ohne Protokolleintrag" (r.ersatz).
+  report_review:     { titel:'Meldung erledigen',           emoji:'🚩', rpc:'fn_admin_review_report',              spur_ab:{ action:'report_review',           migration:'20260925_admin_audit_vollstaendig.sql' },
+                       ersatz:{ pfad:'/rest/v1/user_reports', method:'PATCH',
+                                filter:function(b){ return '?id=eq.' + encodeURIComponent((b && b.p_id) || ''); },
+                                body:function(b){ return { status:(b && b.p_status) || 'reviewed', reviewed_at:new Date().toISOString() }; } } },
+  broadcast:         { titel:'Broadcast senden',            emoji:'📣', fn:'send-push',                            ohne_spur:'steht in push_send_log, je Empfänger eine Zeile' }
 };
 window.GS_ADM_AKTIONEN = GS_ADM_AKTIONEN;
 
@@ -88020,13 +88035,38 @@ async function _gsAdmTun(schluessel, body, opts) {
       return { state:'fehler', daten:null, key:schluessel, grund:_gsSatz('Aktion {1} hat kein Ziel', schluessel) };
     }
     var r = await sbFetch(pfad, o);
-    return _gsAdmTunDeuten(schluessel, a, r);
+    var res = _gsAdmTunDeuten(schluessel, a, r);
+    // v33.51: ein ERSATZ gilt nur, wenn die RPC auf dem Server FEHLT (eine nicht
+    // angewandte Migration) — nie bei Ablehnung oder Netzfehler. Und er sagt es:
+    // r.ersatz + Grund, damit die Meldung „ohne Protokolleintrag" dazusagen kann.
+    if (res.state === 'nicht_verfuegbar' && a.ersatz && a.ersatz.pfad) {
+      var e2 = a.ersatz;
+      var p2 = e2.pfad + ((typeof e2.filter === 'function') ? e2.filter(body) : '');
+      var o2 = { method: e2.method || 'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=representation'},
+                 body: JSON.stringify((typeof e2.body === 'function') ? e2.body(body) : (body || {})) };
+      var r2 = await sbFetch(p2, o2);
+      res = _gsAdmTunDeuten(schluessel, { pfad: e2.pfad }, r2);
+      res.ersatz = true;
+      if (res.state === 'ok') res.grund = _gsSatz('Ohne Protokolleintrag — Migration {1} anwenden.', (a.spur_ab && a.spur_ab.migration) || '');
+    }
+    if (res.state === 'ok' && (a.spur || a.spur_ab)) _gsAdmProtokollNachziehen();
+    return res;
   } catch(e) {
     return { state:'fehler', daten:null, key:schluessel,
              grund:(typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : String((e && e.message) || e) };
   }
 }
 window._gsAdmTun = _gsAdmTun;
+
+// v33.51: nach einer Aktion mit Spur zieht die Sektion „Letzte Admin-Aktionen"
+// nach — wenn sie gerade auf dem Bildschirm steht. Eine Anfrage, nicht sechzehn.
+function _gsAdmProtokollNachziehen() {
+  try {
+    if (!document.getElementById('gs-admin-audit-sec')) return;
+    if (typeof gsAdmSektionNeu !== 'function') return;
+    setTimeout(function(){ try { gsAdmSektionNeu('audit'); } catch(_){} }, 350);
+  } catch(_){}
+}
 
 // Die Deutung — getrennt, damit sie sich fuer sich pruefen laesst.
 function _gsAdmTunDeuten(schluessel, a, r) {
@@ -88052,6 +88092,11 @@ function _gsAdmTunDeuten(schluessel, a, r) {
     }
     // Ablehnung: RLS, abgelaufene Sitzung, 401/403.
     if (st === 401 || st === 403 || /row-level security|\bjwt\b|not authenticated|forbidden|42501/.test(m))
+      return { state:'abgelehnt', daten:null, key:schluessel, grund:text(r.error) };
+    // v33.51: fn_assign_role und fn_set_global_api_key sagen Nein per RAISE
+    // EXCEPTION ('Only admins can assign roles', 'admin only') — HTTP 400, P0001.
+    // Das ist eine Ablehnung, kein Fehler.
+    if (/only admins|admin only|not allowed|nicht erlaubt/.test(m))
       return { state:'abgelehnt', daten:null, key:schluessel, grund:text(r.error) };
     return { state:'fehler', daten:null, key:schluessel, grund:text(r.error) };
   }
@@ -88656,12 +88701,22 @@ function _gsAdminAuditHtml(audit) {
       '<div style="font-weight:800;font-size:var(--fs-sm);color:#37474f;">📜 Letzte Admin-Aktionen</div>' + _gsAdmNeuKnopf('audit') +
     '</div>' + _gsAdmNichtGeladenHtml(_z) + '</div>';
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  // v33.51: die Beschriftung kommt aus GS_ADM_AKTIONEN (spur / spur_ab) — jede
+  // Aktion der App hat damit eine, und ein neuer Eintrag bringt seine mit. Die
+  // festen Zeilen darunter sind Ereignisse, die NICHT aus dem Panel kommen
+  // (Cron, Gutschein-Einloesung, Konto loeschen). Ein roher Slug auf dem
+  // Bildschirm ist seit v33.29 ein Fehler; gemessen 25.09.2026: admin_flag_set
+  // und voucher_redeem standen so da.
   var ACT = {
-    admin_moderate:'🛡️ Moderation', admin_set_tier:'💎 Tier vergeben', role_assign:'👑 Rolle geändert',
-    voucher_create:'🎟️ Gutschein erstellt', voucher_toggle:'🎟️ Gutschein an/aus',
-    global_api_key_change:'🔑 API-Key geändert', knowledge_growth_daily:'📚 Wissens-Wachstum',
-    delete_user:'🗑️ Nutzer gelöscht', knowledge_save:'📝 Wissen gespeichert', knowledge_delete:'🗑️ Wissen gelöscht'
+    knowledge_growth_daily:'📚 Wissens-Wachstum (Cron)', voucher_redeem:'🎟️ Gutschein eingelöst',
+    delete_user:'🗑️ Nutzer gelöscht', knowledge_update:'📝 Wissen geändert', knowledge_create:'📝 Wissen angelegt'
   };
+  try {
+    Object.keys(GS_ADM_AKTIONEN || {}).forEach(function(k){
+      var a = GS_ADM_AKTIONEN[k]; var acts = [].concat(a.spur || [], (a.spur_ab && a.spur_ab.action) || []);
+      acts.forEach(function(x){ if (x && !ACT[x]) ACT[x] = (a.emoji ? a.emoji + ' ' : '') + _gsSatz(a.titel); });
+    });
+  } catch(_){}
   var TT = { profile:'Profil', user:'Nutzer', post:'Post', listing:'Inserat', comment:'Kommentar', voucher:'Gutschein', edge_function:'System', stripe_customer:'Stripe' };
   function summ(a){
     var d = a.diff || {};
@@ -88672,6 +88727,11 @@ function _gsAdminAuditHtml(audit) {
       if (a.action==='voucher_create')return esc(String(d.reward_tier||'')) + (d.max_uses?(' · '+d.max_uses+'×'):'');
       if (a.action==='voucher_toggle')return (d.is_active?'aktiviert':'deaktiviert');
       if (a.action==='knowledge_growth_daily') return esc(String(d.topic||''));
+      if (a.action==='admin_flag_set') return esc(String(a.target_id||'')) + ' = ' + esc(String(d.value||''));
+      if (a.action==='species_image_review') return (d.approve ? 'freigegeben' : 'abgelehnt') + (d.species ? (' · ' + esc(String(d.species))) : '');
+      if (a.action==='species_proposal_review') return (d.approve ? (d.inserted === false ? 'schon vorhanden' : 'aufgenommen') : 'abgelehnt') + (d.name ? (' · ' + esc(String(d.name))) : '');
+      if (a.action==='report_review') return '→ ' + esc(String(d.new||''));
+      if (/^knowledge_/.test(a.action||'')) return esc(String(d.title||'')) + (d.published === true ? ' · veröffentlicht' : (d.published === false ? ' · Entwurf' : ''));
       var s = JSON.stringify(d); return (s && s !== '{}') ? esc(s.slice(0,48)) : '';
     } catch(_){ return ''; }
   }
@@ -88691,8 +88751,44 @@ function _gsAdminAuditHtml(audit) {
     '</div>' +
     // Bis v33.41 verschwand die ganze Sektion bei einem leeren Protokoll —
     // und mit ihr der Weg, sie noch einmal zu holen.
-    (rows || ('<div style="font-size:var(--fs-sm);color:var(--muted);padding:4px 0;">' + esc(_gsSatz('Noch keine Admin-Aktion protokolliert.')) + '</div>')) + '</div>';
+    (rows || ('<div style="font-size:var(--fs-sm);color:var(--muted);padding:4px 0;">' + esc(_gsSatz('Noch keine Admin-Aktion protokolliert.')) + '</div>')) +
+    _gsAdmSpurHtml(Array.isArray(audit) ? audit : []) + '</div>';
 }
+
+// v33.51 · Der Fuss unter dem Protokoll: WELCHE Aktionen der App hinterlassen
+// hier eine Spur? Drei Klassen aus GS_ADM_AKTIONEN — protokolliert · erst nach
+// einer Migration · bewusst ohne (mit Grund). Und ob die Migration angewandt ist,
+// sagt die Anzeige nur, wenn sie eine solche Zeile GESEHEN hat — nie aus der
+// Liste allein (die App kann den Server-Stand nicht wissen).
+function _gsAdmSpurDeckung(rows) {
+  var A = GS_ADM_AKTIONEN || {}, keys = Object.keys(A);
+  var gesehen = {}; (rows || []).forEach(function(r){ if (r && r.action) gesehen[r.action] = true; });
+  var server = keys.filter(function(k){ return !!A[k].spur; });
+  var ab     = keys.filter(function(k){ return !!(A[k].spur_ab && A[k].spur_ab.action); });
+  var ohne   = keys.filter(function(k){ return !!A[k].ohne_spur; });
+  var abGesehen = ab.filter(function(k){ return gesehen[A[k].spur_ab.action]; });
+  var migrationen = []; ab.forEach(function(k){ var m = A[k].spur_ab.migration; if (m && migrationen.indexOf(m) < 0) migrationen.push(m); });
+  return { gesamt: keys.length, server: server, ab: ab, ohne: ohne, abGesehen: abGesehen, migrationen: migrationen };
+}
+function _gsAdmSpurHtml(rows) {
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s == null ? '' : s); };
+  var A = GS_ADM_AKTIONEN || {};
+  var d = _gsAdmSpurDeckung(rows);
+  var titel = function(k){ return esc(_gsSatz(A[k].titel)); };
+  var z = [];
+  z.push('<b>' + esc(_gsSatz('Spur')) + ':</b> ' + esc(_gsSatz('{1} von {2} Aktionen protokolliert der Server.', d.server.length, d.gesamt)));
+  if (d.ab.length) {
+    if (d.abGesehen.length === d.ab.length) {
+      z.push('✅ ' + esc(_gsSatz('Migration {1} angewandt — Spur gesehen für {2}.', d.migrationen.join(', '), d.ab.map(titel).join(', '))));
+    } else {
+      z.push('🔒 ' + esc(_gsSatz('{1} erst nach Migration {2}: {3}.', d.ab.length, d.migrationen.join(', '), d.ab.map(titel).join(', '))) +
+        (d.abGesehen.length ? ' ' + esc(_gsSatz('Spur gesehen für {1}.', d.abGesehen.map(titel).join(', '))) : ''));
+    }
+  }
+  if (d.ohne.length) z.push('— ' + esc(_gsSatz('Bewusst ohne')) + ': ' + d.ohne.map(function(k){ return titel(k) + ' (' + esc(_gsSatz(A[k].ohne_spur)) + ')'; }).join(', ') + '.');
+  return '<div class="gs-adm-spur" style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--border);font-size:var(--fs-xs);color:var(--muted);line-height:1.5;">' + z.join('<br>') + '</div>';
+}
+window._gsAdmSpurDeckung = _gsAdmSpurDeckung;
 
 // v29.00 Admin-Ausbau Schritt 3: Server-seitiges Client-Error-Log (alle User, gruppiert)
 async function gsAdminFetchClientErrors() { return _gsAdmHole('cerrs'); }
@@ -89358,10 +89454,12 @@ async function gsAdminReviewReport(id, status){
   // 0 Zeilen und OHNE Fehler ab, und auf dem Bildschirm stand
   // „✅ Als erledigt markiert." fuer nichts. Jetzt return=representation
   // (in _gsAdmTun), und die Zeilen werden gezaehlt.
-  var res = await _gsAdmTun('report_review', { status: status, reviewed_at: new Date().toISOString() },
-                            { filter: '?id=eq.' + encodeURIComponent(id) });
+  // v33.51: RPC fn_admin_review_report (mit Spur im Admin-Protokoll); fehlt sie
+  // auf dem Server, faellt _gsAdmTun auf den PATCH zurueck und sagt es (res.ersatz).
+  var res = await _gsAdmTun('report_review', { p_id: id, p_status: status, p_note: null });
   if (res.state !== 'ok') { try { gsToast(_gsAdmSagen(res), 'error'); } catch(_){} return; }
-  try { gsToast(status==='reviewed' ? '✅ Als erledigt markiert.' : '🗑️ Verworfen.', 'success'); } catch(_){}
+  var satz = (status==='reviewed' ? '✅ Als erledigt markiert.' : '🗑️ Verworfen.') + (res.ersatz ? (' ' + res.grund) : '');
+  try { gsToast(satz, res.ersatz ? 'warning' : 'success', res.ersatz ? 6000 : undefined); } catch(_){}
   await gsAdmSektionNeu('reports');
 }
 
