@@ -126,7 +126,7 @@ GreenScan/
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
-├── scripts/             # 39 Prüfstände (§7.1) + pruefstaende.sh (fährt 35, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 39 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 39, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -807,7 +807,7 @@ node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteh
 node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18)
 node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
 node scripts/sync_check.js       # kommt zurueck, was hochgeladen wird? (seit v32.23)
-node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft hat? (seit v32.28)
+node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft hat? (seit v32.28); seit v33.52 braucht ein PATCH mit Versprechen den Blick auf die ZEILEN (`.error` allein und `return=minimal` sind rot)
 node scripts/einstellungen_check.js # haelt der Schalter, was er verspricht? (seit v32.33)
 node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt sie nur? (seit v32.39)
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
@@ -817,7 +817,7 @@ node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie �
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
-node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026); seit v33.41 mit einer SQL-HAELFTE (lokales Postgres, ohne es „nicht pruefbar" statt gruen): die Sicht `v_plant_tasks_due` liest BEIDE Pflanzenlisten (App und Sicht zaehlen dieselben Aufgaben), der saisonale Push filtert eine Spalte, die es GIBT, und jede Sicht-Migration laesst sich WIRKLICH anwenden (CREATE OR REPLACE VIEW darf Spalten nur anhaengen)
+node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026); seit v33.41 mit einer SQL-HAELFTE (lokales Postgres, ohne es „nicht pruefbar" statt gruen): die Sicht `v_plant_tasks_due` liest BEIDE Pflanzenlisten (App und Sicht zaehlen dieselben Aufgaben), der saisonale Push filtert eine Spalte, die es GIBT, und jede Sicht-Migration laesst sich WIRKLICH anwenden (CREATE OR REPLACE VIEW darf Spalten nur anhaengen); seit v33.52 die Freundschafts-Naht: die App bietet „Annehmen" nur dem Empfaenger an, und der Server erlaubt es nur ihm (Live-Stand nachgespielt, vier Wege reproduziert, `20261006_friendships_nur_empfaenger.sql` zweimal, Gegenprobe)
 node scripts/loeschung_check.js  # raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17)
 node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18)
 node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
@@ -831,7 +831,7 @@ node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vie
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen
-bash scripts/pruefstaende.sh     # ALLE 35 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+bash scripts/pruefstaende.sh     # ALLE 39 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1871,6 +1871,8 @@ abgewiesene Zeile ohne Fehler (§3.5), `gsAdminReviewReport` schickte dazu
 > genau dieser Hälfte nicht. Alle fünfzehn Admin-Wege waren dort grün. Die
 > Verschärfung ist gemessen — rund 176 Stellen repo-weit — und bewusst eine
 > eigene Scheibe: ein Sweep über die 5,9-MB-Datei ist ein Eingriff (v32.25).
+> *(Berichtigt in v33.52: die 176 waren geschätzt, nicht gemessen. Die Klasse
+> ist PATCH, und es waren vier Stellen — siehe `versprechen_check` unten.)*
 >
 > **Und ein GRANT, das im Repo steht, ist live nicht in Kraft, bis jemand
 > nachsieht.** Zwei Migrationen mit demselben Zweck lagen seit v29/v30 da;
@@ -3420,6 +3422,24 @@ Urteil — wie bei `field_check.py`.
 > nie angesehen). **Eine Frage, die nur eine Bauform kennt, ist blind fuer
 > dieselbe Sache in einer anderen.** Die vier Faelle dazu stehen in
 > `speicher_check` (voller Speicher) und `save_check` SERVER_WEGE.
+
+> **Und ein `.error` ist bei einem PATCH nur die halbe Prüfung** (v33.52).
+> Ein UPDATE, das RLS abweist, filtert still auf 0 Zeilen — PostgREST
+> antwortet OHNE Fehler. Ein abgewiesenes INSERT wirft dagegen einen Fehler
+> (auch ein Upsert mit `merge-duplicates`), und ein DELETE mit 0 Zeilen heisst
+> „war schon weg" (v32.69). Gemessen: von 99 Schreibvorgängen ohne RPC sind
+> 20 PATCH, und vier davon sagten „gespeichert" nach nur `.error`, alle vier
+> mit `return=minimal` (Profilfeld, Freundschaft annehmen, zwei Foto-Wege).
+> Seither ist in `versprechen_check` ein PATCH mit Versprechen rot, wenn er
+> die Zeilen nicht ansieht (`_gsSchreibOk`, `data.length`) oder sie mit
+> `return=minimal` abbestellt. **`_gsSchreibOk` erkennt 0 Zeilen nur an einem
+> Array** — wer ihn nimmt, schickt `return=representation` mit, sonst ist die
+> Prüfung wieder halb.
+>
+> **Und die Zahl davor war keine Messung.** v33.50 schrieb „gemessen — rund
+> 176 Stellen"; es war eine Schätzung über alle `if (r.error)`. Gemessen an
+> der eigentlichen Klasse waren es vier. **Ein Wort wie „gemessen" gehört nur
+> vor eine Zahl, die eine Rechnung hinter sich hat.**
 
 **`sync_check.js` (seit v32.23) fragt die Umkehrung zu `save_check`:** dieser
 prueft, ob das Gespeicherte im Geraet ankommt — jener, ob es aus der Cloud

@@ -32,6 +32,19 @@
  * EIN TREFFER IST EIN VERDACHT, KEIN URTEIL — wie bei `field_check.py`. Der
  * erste Lauf fand vier; alle vier waren echt, drei davon eindeutig.
  *
+ * v33.52 · EIN `.error` IST BEI EINEM PATCH NUR DIE HALBE PRÜFUNG. Ein UPDATE,
+ * das RLS abweist, filtert still auf 0 Zeilen — PostgREST antwortet ohne
+ * Fehler. Bis v33.51 zählte `if (!r.error)` hier als „angesehen", und vier
+ * Stellen sagten „✅ Verbunden!", „✓ Gespeichert", „Foto gespeichert ✅" und
+ * „✅ Foto hinzugefügt" für eine Zeile, die der Server nie geändert hatte —
+ * alle vier mit `Prefer: return=minimal`, das die 0 Zeilen gar nicht erst
+ * zurückschickt. Seither gilt für einen PATCH mit Versprechen:
+ *   · die Prüfung muss die ZEILEN sehen (`_gsSchreibOk`, `data.length`, …)
+ *   · und `return=minimal` ist dort rot — was nicht zurückkommt, zählt niemand.
+ * Bewusst NUR für PATCH: ein INSERT, den RLS abweist, WIRFT einen Fehler (auch
+ * ein Upsert mit merge-duplicates), und ein DELETE mit 0 Zeilen heisst „war
+ * schon weg" (Regel v32.69) — dort reicht `.error`.
+ *
  * GRENZE: rein statisch. Wer die Antwort in einem Helfer prüft, den diese
  * Funktion aufruft, wird als rot gemeldet. Und RPC-Aufrufe sind ausgenommen —
  * dort ist POST das Protokoll, kein Schreiben (mein erster Zähler hat sie
@@ -112,6 +125,9 @@ const ABSAGE = /(\bnicht\b|fehlgeschlagen|misslungen|konnte nicht|'error'|"error
 // Was als „Antwort angesehen" zählt. Bewusst grosszügig: lieber eine echte
 // Prüfung übersehen als eine erfinden.
 const GEPRUEFT = /(_gsSchreibOk|\.error\b|\berror\s*\)|\.data\s*&&|\.data\s*\.\s*length|Array\.isArray\s*\(\s*\w+\.data|\bok\s*=|status\s*[<>=]|!\s*\w+\.error)/;
+// v33.52: was bei einem PATCH als Blick auf die ZEILEN zählt. `.error` allein
+// steht hier bewusst NICHT — siehe Kopf.
+const ZEILEN = /(_gsSchreibOk|\.data\s*&&|\.data\s*\.\s*length|Array\.isArray\s*\(\s*\w+\.data|\.length\s*[<>=!]=?\s*0|!\s*\w+\.data\b)/;
 // `_gsSchreibOk` steht ganz vorn: er IST die Prüfung (error + leeres data in
 // einer Zeile). Ohne ihn hier meldet der Prüfstand jede Stelle rot, die ihn
 // benutzt — Reparatur und Prüfung brauchen dieselbe Regel (Lehre aus v32.16).
@@ -123,7 +139,8 @@ while ((m = re.exec(Q))) {
   while (i < Q.length && i < m.index + 4000) { const c = Q[i]; if (c === '(') d++; else if (c === ')') { d--; if (!d) { ende = i; break; } } i++; }
   if (ende < 0) continue;
   const aufruf = Q.slice(m.index, ende + 1);
-  if (!/method:\s*'(POST|PATCH|DELETE|PUT)'/.test(aufruf)) continue;
+  const methode = (aufruf.match(/method:\s*'(POST|PATCH|DELETE|PUT)'/) || [])[1];
+  if (!methode) continue;
   if (aufruf.includes('/rest/v1/rpc/')) continue;     // POST ist dort das Protokoll
   const f = funktionUm(m.index);
   const zeile = QUELLE.slice(0, m.index).split('\n').length;
@@ -166,12 +183,21 @@ while ((m = re.exec(Q))) {
     }
     still.push({ zeile, name: f.name }); continue;
   }
-  (GEPRUEFT.test(danach.slice(0, 1200)) ? gruen : rot).push({ zeile, name: f.name, meldung });
+  const fenster = danach.slice(0, 1200);
+  if (!GEPRUEFT.test(fenster)) { rot.push({ zeile, name: f.name, meldung }); continue; }
+  // v33.52: ein PATCH braucht den Blick auf die Zeilen — und darf sie nicht abbestellen.
+  if (methode === 'PATCH' && /return=minimal/.test(aufruf)) {
+    rot.push({ zeile, name: f.name, meldung: 'PATCH mit return=minimal — 0 Zeilen sind unsichtbar: ' + meldung }); continue;
+  }
+  if (methode === 'PATCH' && !ZEILEN.test(fenster)) {
+    rot.push({ zeile, name: f.name, meldung: 'PATCH prüft nur .error — RLS lehnt mit 0 Zeilen OHNE Fehler ab: ' + meldung }); continue;
+  }
+  gruen.push({ zeile, name: f.name, meldung, methode });
 }
 
 console.log('=== versprechen_check — wer verspricht etwas, das niemand geprüft hat?');
 console.log('  Schreibvorgänge (POST/PATCH/DELETE, ohne RPC): ' + (rot.length + gruen.length + still.length));
-console.log('    grün  Antwort angesehen:                     ' + gruen.length);
+console.log('    grün  Antwort angesehen:                     ' + gruen.length + '   (davon PATCH mit Zeilen-Prüfung: ' + gruen.filter(o => o.methode === 'PATCH').length + ')');
 console.log('    still kein Versprechen (vertretbar):         ' + still.length);
 console.log('    ROT   Versprechen ohne Prüfung:              ' + rot.length);
 console.log('');

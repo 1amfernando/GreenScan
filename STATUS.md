@@ -4,13 +4,92 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-25 · **Branch**: `main` · **Version**: `v33.51` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-10-06 · **Branch**: `main` · **Version**: `v33.52` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-10-06 (iw) - v33.52: Vier Bestätigungen, die nur stimmten, wenn alles gut ging
+
+Fortsetzung der in v33.50 zurückgestellten Frage: `versprechen_check` hält
+ein blosses `if (r.error)` für eine Prüfung. **Zuerst gemessen, und die Zahl
+war eine andere als die, die ich genannt hatte.**
+
+**Gemessen (statisch über den Quelltext, und Live-DB nur lesend, 06.10.2026):**
+
+- **Die Klasse ist PATCH, nicht „jeder `.error`-Check".** Ein UPDATE, das RLS
+  abweist, filtert still auf 0 Zeilen — PostgREST antwortet ohne Fehler. Ein
+  abgewiesenes INSERT dagegen wirft einen Fehler (auch ein Upsert mit
+  `merge-duplicates`), und ein DELETE mit 0 Zeilen heisst „war schon weg"
+  (Regel v32.69). Von 99 Schreibvorgängen ohne RPC sind 20 PATCH.
+- **Vier davon versprachen Erfolg nach nur `.error`, alle vier mit
+  `return=minimal`:** `gsFriendsAccept` („✅ Verbunden!"),
+  `gsSaveProfileField` („✓ Gespeichert"), `_gsMyFindAddPhoto` („Foto
+  gespeichert ✅"), `gsRecipePhotoUpload` („✅ Foto hinzugefügt"). Live: alle
+  vier Tabellen filtern UPDATE per `USING` (`pg_policies`).
+- **Die „rund 176 Stellen" aus (iu) waren eine Schätzung über alle
+  `if (r.error)`, keine Messung dieser Klasse.** Dort stand „gemessen" — das
+  war falsch. Berichtigt in (iu), CLAUDE.md und ROADMAP; die Aufzeichnung
+  bleibt, mit Vermerk.
+- **Nebenfund an der Freundschaft:** `friendships_update` erlaubte beiden
+  Seiten das Ändern, ohne `WITH CHECK`, und `authenticated` hatte UPDATE auf
+  jede Spalte; `friendships_insert` prüfte den Status nicht. Drei Wege an der
+  Zustimmung vorbei: eine Zeile gleich als `accepted` anlegen, die eigene
+  Anfrage annehmen, `user_id`/`friend_id` auf einen Dritten umbiegen. Die App
+  bietet „Annehmen" nur dem Empfänger an (`kind === 'incoming'`) — der Server
+  nicht. Ehrlich gewichtet: live 0 Zeilen, und keine Policy und keine
+  Funktion ausser dem Benachrichtigungs-Trigger liest den Status.
+
+**Gebaut:**
+
+- **Vier Stellen, eine Regel:** `return=representation` plus `_gsSchreibOk`,
+  und bei 0 Zeilen ein eigener Satz („Nicht gespeichert — der Server hat
+  nichts geändert", „Diese Anfrage gibt es nicht mehr", „Foto hochgeladen,
+  aber dem Eintrag nicht zugeordnet"). `_gsSchreibOk` erkennt 0 Zeilen nur an
+  einem Array — mit `return=minimal` kommt keins, deshalb braucht es beides.
+- **`versprechen_check`:** ein PATCH mit Versprechen braucht den Blick auf die
+  ZEILEN (`_gsSchreibOk`, `data.length`, …); `.error` allein ist rot, und
+  `return=minimal` an einem solchen PATCH ebenfalls. POST und DELETE bleiben
+  bei `.error`, mit Begründung im Kopf. Zwei Gegenproben: gegen den alten
+  Stand genau die vier (Regel `return=minimal`); `_gsSchreibOk` allein
+  entfernt, `representation` belassen → eine (Regel „nur `.error`").
+- **`save_check` SERVER_WEGE +2** (23 Wege): Profilfeld und Freundschaft
+  annehmen mit gestelltem Server — Nein · leer · Ja, dazu Prefer und Pfad.
+  Gegen den alten Stand beide rot: „0 Zeilen → ✓ Gespeichert".
+- **Migration `20261006_friendships_nur_empfaenger.sql`** (nicht angewandt):
+  INSERT nur als Absender und nur `pending`; UPDATE nur der Empfänger, mit
+  `WITH CHECK`; UPDATE nur auf die Spalte `status` (Spaltenrecht).
+  Zurückziehen bleibt DELETE für beide.
+- **`naht_check` +1 Fall mit SQL-Hälfte:** App-Seite statisch (Knopf nur für
+  den Empfänger), dann der LIVE-Stand im lokalen Postgres, alle vier Wege
+  REPRODUZIERT (4 von 4 gehen durch), Migration zweimal, danach alle vier
+  verweigert bzw. 0 Zeilen, ein Dritter 0; Anfrage (mit und ohne Status),
+  Annehmen (updated_at zieht der Trigger ohne Spaltenrecht nach) und
+  Zurückziehen gehen weiter. Eingebaute Gegenprobe: ohne die zwei Zeilen zum
+  Spaltenrecht biegt B wieder um. Zwei weitere Gegenproben an der Datei
+  (INSERT ohne Status-Bedingung · UPDATE wieder für beide) einzeln rot.
+
+**Drei Lehren:**
+
+- **Eine Zahl, die man nicht gemessen hat, schreibt man nicht als
+  gemessen.** „Rund 176" stand in vier Dokumenten mit dem Wort „gemessen".
+  Die Messung der eigentlichen Klasse ergab vier. Ein Fehler in der
+  Schätzung wäre verzeihlich gewesen; das Wort davor nicht.
+- **Seit Postgres 15 zeigt `psql -c` die Ergebnisse ALLER Anweisungen.** Der
+  neue SQL-Fall zählte `set_config(...)` mit und las `NaN`. Wer mehrere
+  Anweisungen in einen Aufruf schreibt, nimmt die letzte Zeile.
+- **Eine Policy ohne `WITH CHECK` prüft die neue Zeile mit `USING`** — und
+  wenn `USING` „ich bin eine der beiden Seiten" heisst, darf jede Seite die
+  andere austauschen. Wer eine UPDATE-Regel schreibt, sagt auch, welche
+  SPALTEN sich ändern dürfen; hier tut es ein Spaltenrecht.
+
+**Grenze:** die zwei Foto-Wege laufen über eine Datei-Auswahl und sind nur
+statisch geprüft (`versprechen_check`). Die Policy-Rechnung läuft mit
+gestelltem `auth.uid()`; ob die Migration LIVE angewandt ist, sagt nur
+Fernando.
 
 ### 2026-09-25 (iv) - v33.51: Das Admin-Protokoll kennt jede Aktion
 
@@ -164,6 +243,8 @@ die SCHREIB-Seite.
   überhaupt nicht an. **`versprechen_check` war hier grün**, weil ein
   `if (r.error)` für ihn als Prüfung zählt — das ist eine eigene Scheibe
   (repo-weit rund 176 Stellen, nicht nebenbei).
+  *(Berichtigt in (iw): die 176 waren eine Schätzung, keine Messung — die
+  Klasse ist PATCH, und es waren vier Stellen.)*
 
 **Gebaut:**
 
@@ -218,7 +299,8 @@ Zuständen, `erwarte()` leert den Sperr-Speicher je Szenario.
   messen soll, hält es für eine. `versprechen_check` sucht eine Meldung
   ohne Blick auf die Antwort; ein Blick auf `.error` allein ist ein halber
   Blick, und PostgREST antwortet in genau dieser Hälfte nicht. Die
-  Verschärfung ist gemessen (rund 176 Stellen) und bewusst NICHT in dieser
+  Verschärfung ist gemessen (rund 176 Stellen) *(berichtigt in (iw): geschätzt,
+  nicht gemessen — gemessen waren es vier)* und bewusst NICHT in dieser
   Scheibe — ein Sweep über die 5,9-MB-Datei ist ein Eingriff (v32.25).
 - **Ein GRANT, das im Repo steht, ist live nicht in Kraft, bis jemand
   nachsieht.** Zwei Migrationen mit demselben Zweck lagen seit v29/v30 im
@@ -14749,7 +14831,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 25.09.2026** (davor am 24.09.). Er stand am 02.09. auf
+> **Nachgemessen am 06.10.2026** (davor am 25.09.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -14758,11 +14840,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.51` (Client) · SW-Cache `gs-v33.51` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.52` (Client) · SW-Cache `gs-v33.52` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **95706 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **579 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.31).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **222 Migrationen** (15 davon bewusst nicht angewandt, Sektion 2 — neu seit 25.09.: `20260925_admin_audit_vollstaendig.sql`, die Spur für drei Admin-Aktionen; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **35** davon. Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Frontend:** `index.html` **95'727 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **580 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.32).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
+- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 39** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -14775,6 +14857,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
+| **Migration `20261006_friendships_nur_empfaenger.sql`** | Live (06.10.2026, nur lesend): der Absender konnte die eigene Freundschafts-Anfrage annehmen, jeder eine Zeile gleich als `accepted` anlegen, und beide Seiten `user_id`/`friend_id` auf einen Dritten umbiegen (UPDATE ohne `WITH CHECK`, Tabellenrecht auf jede Spalte). Die Datei: INSERT nur `pending`, UPDATE nur der Empfänger, nur die Spalte `status`. Heute 0 Zeilen, und nichts sonst liest den Status — die Regel wird richtig, bevor etwas sie liest. In `naht_check` nachgespielt (Reproduktion, zweimal, Gegenprobe). | `docs/FUER-FERNANDO.md` §25 · (iw) |
 | **Migration `20260925_admin_audit_vollstaendig.sql`** | Fünf von fünfzehn Admin-Aktionen hinterliessen keine Spur in `audit_log` (25.09.2026, nur lesend gemessen) — darunter Foto-Beitrag und Arten-Vorschlag prüfen (Moderation!) und „Meldung erledigen" (nackter PATCH, keine RPC). Die Datei gibt zwei Review-Funktionen die Spur (Rumpf wie live) und legt `fn_admin_review_report` an. Bis dahin fällt „Meldung erledigen" auf den PATCH zurück und sagt „ohne Protokolleintrag"; der Fuss unter dem Protokoll zählt „3 erst nach Migration". In `admin_check` in einem lokalen Postgres nachgespielt (zweimal, Admin/Nicht-Admin, Gegenprobe). | `docs/FUER-FERNANDO.md` §24 · (iv) |
 | **Migration `20260924_admin_grants.sql`** | Zwei Admin-Knöpfe sind live tot: `fn_assign_role` („🚫 Nutzer sperren", Rolle vergeben) und `fn_set_global_api_key` (globaler KI-Schlüssel) tragen die ACL `{postgres, service_role}` — `authenticated` darf sie nicht ausführen (24.09.2026, nur lesend gemessen). Die zwei Re-Grants aus `v29_20` und `v30_57` sind live nicht in Kraft. Beide Funktionen prüfen `is_admin_user()` selbst; das GRANT macht die Prüfung erreichbar, es öffnet nichts. Bis dahin sagt es die App (`nicht_freigeschaltet`, mit Dateinamen). | `docs/FUER-FERNANDO.md` §23 · (iu) |
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. **Live nachgemessen 14.09.2026: die Spalte existiert nicht** (`42703`), waehrend die App sie seit v30.85 rendert — der Bildblock kann nie gefeuert haben. Mit `20260827_quiz_bilder_und_fragen_v30_85.sql` kaemen 43 Fragen (+43 Tage Vorrat). Seit v33.29 kennt das Kategorien-Vokabular ihre 12 eigenen Slugs, sie braechte also keine leeren Kategoriezeilen mit. | (2026-08-31 y), (hy) |

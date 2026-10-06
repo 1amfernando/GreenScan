@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v33.51 · App **live** auf green-scan.ch · released seit v26.0 · **und seit v33.49 als Android-APK** (`android/`, `android/README.md`).
+**Stand:** v33.52 · App **live** auf green-scan.ch · released seit v26.0 · **und seit v33.49 als Android-APK** (`android/`, `android/README.md`).
 **Zuletzt gegen die Produktionsdatenbank geprüft:** 07.09.2026 (nur lesend:
 `is_admin_user`, `profiles`-Policies, die drei Alt-Sensortabellen,
 `fn_species_search` + `species_search_cache`, `ai_usage`) · davor 02.09.2026
@@ -186,6 +186,24 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
+### Seit dem 06.10.2026 (v33.52) — vier Bestätigungen, die nur stimmten, wenn alles gut ging
+
+Die in v33.50 zurückgestellte Frage, gemessen: ein UPDATE, das RLS abweist,
+kommt als 0 Zeilen ohne Fehler an — die Klasse ist **PATCH**, und von 20
+PATCH sagten **vier** „gespeichert" nach nur `.error` (mit `return=minimal`).
+Die „rund 176" aus v33.50 waren eine Schätzung, keine Messung.
+
+- **Vier Stellen** mit `return=representation` + `_gsSchreibOk` und einem
+  eigenen Satz für 0 Zeilen: Profilfeld, Freundschaft annehmen, zwei
+  Foto-Wege.
+- **`versprechen_check`**: PATCH mit Versprechen braucht den Blick auf die
+  Zeilen; `return=minimal` dort rot. **`save_check`** +2 Wege mit gestelltem
+  Server.
+- **Migration `20261006_friendships_nur_empfaenger.sql`** (nicht angewandt):
+  live durfte der Absender die eigene Anfrage annehmen und jede Seite die
+  andere austauschen. **`naht_check`** spielt es im lokalen Postgres nach
+  (Reproduktion, zweimal, Gegenprobe).
+
 ### Seit dem 25.09.2026 (v33.51) — das Admin-Protokoll kennt jede Aktion
 
 Zweite Scheibe zu „sicherer und erweitert". Gemessen (Live-DB, nur lesend):
@@ -246,7 +264,8 @@ Zeile ohne Fehler; `gsAdminReviewReport` schickte dazu `return=minimal`.
 
 **Bewusst nicht in dieser Scheibe:** die Verschaerfung von
 `versprechen_check` (ein `if (r.error)` zaehlt dort als Pruefung — rund 176
-Stellen repo-weit) und ein Leser fuer `gs_admin_log`.
+Stellen repo-weit) und ein Leser fuer `gs_admin_log`. *(Berichtigt in v33.52:
+nicht gemessen, sondern geschaetzt — gemessen waren es vier.)*
 
 ### Seit dem 17.09.2026 (v33.49) — GreenScan ist eine Android-App
 
