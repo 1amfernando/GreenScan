@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.51.20260925">
+<meta name="app-version" content="33.52.20261006">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30938,14 +30938,22 @@ async function gsFriendsSendRequest(targetUid) {
 // Friend-Request akzeptieren
 async function gsFriendsAccept(friendshipId) {
   try {
-    var r = await sbFetch('/rest/v1/friendships?id=eq.' + friendshipId, {
+    // v33.52: return=representation + _gsSchreibOk. Ein PATCH, den RLS abweist,
+    // kommt als 0 Zeilen OHNE Fehler zurueck — mit return=minimal stand dann
+    // „✅ Verbunden!" fuer nichts da (z. B. wenn die Anfrage inzwischen
+    // zurueckgezogen wurde, oder wenn jemand anderes als der Empfaenger annimmt).
+    var r = await sbFetch('/rest/v1/friendships?id=eq.' + encodeURIComponent(friendshipId), {
       method: 'PATCH',
-      headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
+      headers: {'Content-Type':'application/json','Prefer':'return=representation'},
       body: JSON.stringify({status: 'accepted'})
     });
-    if (!r.error) {
+    if (_gsSchreibOk(r)) {
       showProfileToast && showProfileToast('✅ Verbunden!');
       return true;
+    }
+    if (r && !r.error) {
+      showProfileToast && showProfileToast('ℹ️ ' + _gsSatz('Diese Anfrage gibt es nicht mehr — sie wurde zurückgezogen oder schon beantwortet.'));
+      return false;
     }
     showProfileToast && showProfileToast('❌ ' + (_gsFehlerText(r.error)||'Fehler'));
   } catch(e) { showProfileToast && showProfileToast('❌ ' + e.message); }
@@ -53032,10 +53040,14 @@ async function gsRecipePhotoUpload(localId){
       if (!up.ok) { if(typeof gsToast==='function') gsToast(_gsSatz('⚠️ Upload fehlgeschlagen ({1})', up.status),'error'); return; }
       var url = SB_URL + '/storage/v1/object/public/recipe-photos/' + path;
       var arr = (Array.isArray(r.photo_urls)?r.photo_urls:[]).concat([url]).slice(0,5);
+      // v33.52: return=representation + _gsSchreibOk — eine von RLS abgewiesene
+      // Zeile (nur Admin/Experte darf aendern) kam als 0 Zeilen ohne Fehler an,
+      // und „✅ Foto hinzugefügt" stand da, obwohl der Eintrag das Foto nie bekam.
       var pr = await sbFetch('/rest/v1/' + tbl + '?id=eq.' + encodeURIComponent(r._cloud_id), {
-        method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({ photo_urls: arr })
+        method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ photo_urls: arr })
       });
       if (pr && pr.error) { if(typeof gsToast==='function') gsToast('⚠️ Speichern fehlgeschlagen.','error'); return; }
+      if (!_gsSchreibOk(pr)) { if(typeof gsToast==='function') gsToast('⚠️ ' + _gsSatz('Foto hochgeladen, aber dem Eintrag nicht zugeordnet — der Server hat nichts geändert.'),'error'); return; }
       r.photo_urls = arr;
       if (typeof gsHaptic==='function') { try{ gsHaptic('success'); }catch(_){} }
       if (typeof gsToast==='function') gsToast('✅ Foto hinzugefügt','success');
@@ -57580,12 +57592,15 @@ async function _gsMyFindAddPhoto(i){
       // PATCH Cloud-Row
       var ok = false;
       if (typeof sbFetch === 'function' && f.id && String(f.id).indexOf('local_') !== 0) {
-        var r = await sbFetch('/rest/v1/map_user_finds?id=eq.' + f.id, {
+        // v33.52: return=representation + _gsSchreibOk — ein fremder oder
+        // geloeschter Fund kam als 0 Zeilen ohne Fehler zurueck, und „Foto
+        // gespeichert ✅" stand da, obwohl die Zeile kein Foto bekam.
+        var r = await sbFetch('/rest/v1/map_user_finds?id=eq.' + encodeURIComponent(f.id), {
           method:'PATCH',
-          headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+          headers:{'Content-Type':'application/json','Prefer':'return=representation'},
           body: JSON.stringify({ photo_url: url, updated_at: new Date().toISOString() })
         });
-        ok = !!(r && !r.error);
+        ok = _gsSchreibOk(r);
       } else {
         // Pur lokaler Fund (offline-erstellt): direkt LS aktualisieren
         ok = true;
@@ -76188,6 +76203,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.52', date: '06.10.2026',
+      headline: 'Vier Bestätigungen, die nur stimmten, wenn alles gut ging',
+      summary: 'Profil speichern, Freundschaft annehmen und zwei Foto-Wege sagten „gespeichert“, sobald der Server keinen Fehler meldete. Bei einer Änderung, die der Server nicht erlaubt, meldet er aber keinen Fehler — er ändert einfach null Zeilen. Jetzt zählt die App die Zeilen. Dazu eine Regel auf dem Server, die beim Annehmen von Freundschaften zu grosszügig war.',
+      user_summary: 'Wenn du dein Profil änderst, eine Freundschaft annimmst oder einem Fund ein Foto gibst, sagt die App „gespeichert“ jetzt erst, wenn der Server es wirklich gespeichert hat. Hat er nichts geändert, sagt sie das — statt so zu tun, als sei alles gut.',
+      user_items: [
+        {emoji:'✓', bold:'„Gespeichert“ heisst jetzt gespeichert:', text:' bei abgelaufener Anmeldung stand bisher „✓ Gespeichert“, obwohl dein Profil unverändert blieb.'},
+        {emoji:'🤝', bold:'Eine zurückgezogene Anfrage sagt es:', text:' „Diese Anfrage gibt es nicht mehr“ statt „✅ Verbunden!“ für niemanden.'},
+        {emoji:'📸', bold:'Fotos an Funden und Rezepten:', text:' die Bestätigung kommt erst, wenn der Eintrag das Foto wirklich hat.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen, nicht geschätzt:', text:' von 99 Schreibvorgängen (ohne RPC) sind 20 PATCH; vier davon versprachen Erfolg nach nur `.error` und schickten dazu return=minimal. v33.50 hatte „rund 176 Stellen“ genannt — das war eine Schätzung über alle `if (r.error)`, keine Messung dieser Klasse.'},
+        {emoji:'🧮', bold:'Warum nur PATCH:', text:' ein UPDATE, das RLS abweist, filtert still auf 0 Zeilen; ein abgewiesenes INSERT wirft einen Fehler (auch ein Upsert), ein DELETE mit 0 Zeilen heisst „war schon weg“. Live gemessen: alle vier Tabellen filtern UPDATE per USING.'},
+        {emoji:'🔧', bold:'Vier Stellen, eine Regel:', text:' gsSaveProfileField, gsFriendsAccept, _gsMyFindAddPhoto, gsRecipePhotoUpload — return=representation plus _gsSchreibOk, und bei 0 Zeilen ein eigener Satz.'},
+        {emoji:'🧪', bold:'versprechen_check:', text:' ein PATCH mit Versprechen braucht jetzt den Blick auf die Zeilen, und return=minimal ist dort rot. Gegen den alten Stand: genau die vier. save_check fährt zwei davon mit gestelltem Server zu Ende (Nein · leer · Ja).'},
+        {emoji:'🤝', bold:'Migration 20261006_friendships_nur_empfaenger.sql (nicht angewandt):', text:' live durfte der Absender die eigene Anfrage annehmen, jeder eine Zeile gleich als „accepted“ anlegen und beide Seiten user_id/friend_id umschreiben. Danach: Anfrage nur als pending, Annehmen nur durch den Empfänger, ändern nur die Spalte status.'},
+        {emoji:'🐘', bold:'naht_check spielt es nach:', text:' lokales Postgres mit dem Live-Stand, alle vier Wege reproduziert, Migration zweimal, danach jeder verweigert und der richtige Weg weiter offen; Gegenprobe ohne Spaltenrecht biegt wieder um.'},
+        {emoji:'📵', bold:'Grenze:', text:' live hat friendships 0 Zeilen, und nichts sonst liest den Status — eine erzwungene Freundschaft öffnet heute nichts. Die zwei Foto-Wege sind nur statisch geprüft (Datei-Auswahl).'}
+      ]
+  },
+  {
     v: 'v33.51', date: '25.09.2026',
       headline: 'Das Admin-Protokoll kennt jetzt jede Aktion',
       summary: 'Das Admin-Panel hat ein Protokoll auf dem Server — aber fünf von fünfzehn Aktionen kamen dort nie an, darunter das Freigeben und Ablehnen von Foto-Beiträgen und Arten-Vorschlägen. „Wer hat das abgelehnt, und wann?“ war nicht zu beantworten. Jetzt sagt jede Aktion, ob sie eine Spur hinterlässt, der Fuss unter dem Protokoll rechnet die Deckung, und eine Migration schliesst die drei Lücken.',
@@ -76517,23 +76552,6 @@ window.GS_RELEASES = [
       'Berichtigung: die Zusammenfassung von v33.31 nannte „Verlauf neueste 100", „_gsPflanzeFinden/gsPflanzenZahl" und „Tools open_species/mark_done" — nichts davon war im Code. Eine Zusammenfassung ist kein Diff.'
     ]
   },
-  {
-    v: 'v33.32', date: '14.09.2026',
-      headline: 'Die Giftwarnung bei Lina greift jetzt wirklich',
-      summary: 'v33.30 hat eine Sicherung eingebaut: behauptet Lina „essbar\' ueber eine Art, die unsere Liste als giftig fuehrt, kommt eine Warnung darueber. Eine gegnerische Pruefung hat sie danach gegen die echte Artenliste gemessen — und 8 von 9 realistischen Saetzen kamen ohne Warnung durch, darunter ALLE drei nicht-deutschen. Der Ausloeser suchte ganze Woerter; „Ja, die kannst du roh essen\' oder „Das ist ein Speisepilz\' standen nicht darin. Jetzt Wortstaemme, ein Verzehr-Verb in der Naehe einer Zustimmung, und vier Sprachen.',
-      user_summary: 'Wenn Lina etwas als essbar bezeichnet, das in unserer Artenliste als giftig steht, steht jetzt zuverlaessig eine Warnung darueber — egal wie der Satz gebaut ist und in welcher der vier Sprachen du fragst.',
-      user_items: [
-        {emoji: '🛡️', bold: 'Die Warnung greift jetzt wirklich:', text: ' vorher nur bei „ist essbar\'. Jetzt auch bei „kannst du roh essen\', „Speisepilz\', „eignet sich zum Kochen\' — und auf Franzoesisch, Italienisch und Englisch.'},
-        {emoji: '🔤', bold: 'Ein Satz ist ein Satz:', text: ' warnt Lina im zweiten Satz vor dem Doppelgaenger, hebt das die Zusage im ersten nicht mehr auf.'},
-        {emoji: '🤫', bold: 'Und kein Fehlalarm:', text: ' wenn Lina selbst schon warnt, kommt keine zweite Warnung darueber.'}
-      ],
-      items: [
-        'Gemessen end-to-end gegen die echte Artenliste (Gruener Knollenblaetterpilz, tox 5): 8 von 9 Zusagen ohne Warnung, darunter fr/it/en 3 von 3 — dieselbe Klasse, die v32.99 schon einmal bezahlt hat.',
-        'Der Satz-Split war tot: _gsLinaNorm streicht .!? VOR dem split(), also wurde an nichts getrennt. Der Kommentar darueber behauptete das Gegenteil. Getrennt wird jetzt am ROHEN Text.',
-        'Staemme statt ganzer Woerter (essbar|geniess|verzehr|speise|comestib|commestib|edib) plus ein Verzehr-Verb in der Naehe einer Zustimmung (essen/kochen/roh/manger/mangiare/eat).',
-        'Pruefstand: sensor_check Fall mit den ZWOELF GEMESSENEN Saetzen statt ausgewaehlter — ein Fall, dessen Satz den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware. Drei Gegenproben: Wortliste zurueck (3 verpasst), Verzehr-Naehe aus (7 verpasst), Split am normierten Text (1 verpasst).'
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76742,7 +76760,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.51';
+var GS_VERSION = 'v33.52';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -85241,8 +85259,12 @@ async function gsSaveProfileField(field, val){
     var uid = gsStore.get('gs_sb_uid', null); if (!uid) return;
     if (field === 'bio' && typeof val === 'string' && val.length > 200) val = val.slice(0,200);
     var body = {}; body[field] = (val === '' ? null : val);
-    var r = await sbFetch('/rest/v1/profiles?id=eq.'+uid, { method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify(body) });
-    if (r && !r.error) { if (typeof gsToast==='function') gsToast('✓ Gespeichert','success',1200); }
+    // v33.52: return=representation + _gsSchreibOk. Ohne gueltige Sitzung laeuft
+    // die Anfrage als `anon`, RLS filtert auf 0 Zeilen OHNE Fehler — und
+    // „✓ Gespeichert" stand da, waehrend das Profil unveraendert blieb.
+    var r = await sbFetch('/rest/v1/profiles?id=eq.'+encodeURIComponent(uid), { method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify(body) });
+    if (_gsSchreibOk(r)) { if (typeof gsToast==='function') gsToast('✓ Gespeichert','success',1200); }
+    else if (r && !r.error) { if (typeof gsToast==='function') gsToast(_gsSatz('Nicht gespeichert — der Server hat nichts geändert. Bitte neu anmelden.'),'error'); }
     else if (typeof gsToast==='function') gsToast('Speichern fehlgeschlagen.','error');
   } catch(e){ console.warn('[gsSaveProfileField]', e && e.message); }
 }

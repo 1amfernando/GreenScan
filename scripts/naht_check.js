@@ -527,6 +527,113 @@ const FAELLE = [
     },
   },
 
+  {
+    // v33.52 · Eine Naht zwischen App und Server, die nicht dieselbe Regel meint.
+    // Die App bietet „Annehmen" NUR dem Empfaenger an (gsFriendsOpenModal,
+    // kind === 'incoming'); der Server erlaubte das UPDATE beiden Seiten, ohne
+    // WITH CHECK, auf JEDE Spalte — und das INSERT pruefte den Status nicht.
+    // Gemessen live (nur lesend, 06.10.2026). Hier wird der LIVE-Stand
+    // nachgespielt, jeder der drei Wege an der Zustimmung vorbei REPRODUZIERT,
+    // die Migration zweimal angewandt — und danach muss jeder Weg scheitern und
+    // der richtige weiter gehen.
+    name: 'Freundschaft · die App bietet „Annehmen" nur dem Empfänger an — und der Server erlaubt es nur ihm (lokales Postgres: Live-Stand, Reproduktion, Migration zweimal, Gegenprobe)',
+    lauf: () => {
+      // App-Seite zuerst (statisch, ohne Postgres): der Knopf steht nur im Zweig „incoming".
+      const klagenApp = [];
+      const aufrufe = (INDEX.match(/gsFriendsAccept\(/g) || []).length;
+      if (!/kind === 'incoming'\)\s*\{\s*actions = '<button onclick="gsFriendsAccept\(/.test(INDEX)) klagenApp.push('der Annehmen-Knopf steht nicht (nur) im Zweig kind === \'incoming\'');
+      if (aufrufe !== 2) klagenApp.push('gsFriendsAccept wird ' + (aufrufe - 1) + '-mal gerufen statt einmal');
+      if (!pgDa()) return klagenApp.length ? { ok: false, warum: klagenApp.join(' · ') } : { offen: true, warum: 'kein lokales Postgres erreichbar (GS_PG_URL) — die Policy wurde NICHT nachgespielt (App-Seite: Knopf nur fuer den Empfaenger)' };
+      const MIGF = 'supabase/migrations/20261006_friendships_nur_empfaenger.sql';
+      const DB = PG_DB + '_freund';
+      try { pgSql(PG_URL, 'drop database if exists ' + DB + ' with (force)'); pgSql(PG_URL, 'create database ' + DB); }
+      catch (e) { return { offen: true, warum: 'Datenbank nicht anlegbar: ' + e.message }; }
+      const U2 = PG_URL.replace(/\/[^/]*$/, '/' + DB);
+      const A = 'aaaaaaaa-0000-4000-8000-000000000001', B = 'bbbbbbbb-0000-4000-8000-000000000002', C = 'cccccccc-0000-4000-8000-000000000003';
+      const F1 = 'f1f1f1f1-0000-4000-8000-000000000001';
+      // Als wer laeuft die Anfrage? `set role authenticated` + auth.uid() aus einer Sitzungsvariable.
+      const als = (uid, q) => pgSql(U2, "set role authenticated; select set_config('gs.uid','" + uid + "',false); " + q);
+      // Seit Postgres 15 zeigt `psql -c` die Ergebnisse ALLER Anweisungen — vor der
+      // Zahl steht die Ausgabe von set_config. Gezaehlt wird die LETZTE Zeile.
+      const zeilen = (uid, upd) => { try { return Number(String(als(uid, 'with u as (' + upd + ' returning 1) select count(*) from u')).trim().split('\n').pop()); } catch (e) { return /permission denied|row-level security/i.test(e.message) ? 'verweigert' : 'FEHLER ' + e.message.slice(0, 80); } };
+      const neu = () => pgSql(U2, "delete from public.friendships; insert into public.friendships (id, user_id, friend_id, status, created_at, updated_at) values ('" + F1 + "','" + A + "','" + B + "','pending', timestamptz '2026-01-01', timestamptz '2026-01-01')");
+      try {
+        // Der Stand, wie er LIVE ist (information_schema, pg_policies, relacl — 06.10.2026).
+        pgSql(U2, `
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+          end $$;
+          create schema if not exists auth;
+          create or replace function auth.uid() returns uuid language sql stable as $f$ select nullif(current_setting('gs.uid', true), '')::uuid $f$;
+          grant usage on schema auth to anon, authenticated;
+          create table public.friendships (
+            id uuid primary key default gen_random_uuid(), user_id uuid not null, friend_id uuid not null,
+            status text default 'pending' check (status in ('pending','accepted','blocked')),
+            created_at timestamptz default now(), updated_at timestamptz default now(),
+            unique (user_id, friend_id), constraint no_self_friend check (user_id <> friend_id));
+          create or replace function public.fn_touch_updated_at() returns trigger language plpgsql as $f$ begin new.updated_at := now(); return new; end $f$;
+          create trigger trg_friendships_upd before update on public.friendships for each row execute function public.fn_touch_updated_at();
+          alter table public.friendships enable row level security;
+          create policy friendships_select on public.friendships for select using (((select auth.uid()) = user_id) or ((select auth.uid()) = friend_id));
+          create policy friendships_insert on public.friendships for insert with check ((select auth.uid()) = user_id);
+          create policy friendships_update on public.friendships for update using (((select auth.uid()) = friend_id) or ((select auth.uid()) = user_id));
+          create policy friendships_delete on public.friendships for delete using (((select auth.uid()) = user_id) or ((select auth.uid()) = friend_id));
+          grant select, insert, update, delete on public.friendships to anon, authenticated;`);
+        const klagen = klagenApp.slice();
+        // ── Reproduktion: alle drei Wege gehen LIVE durch. Sonst misst der Rest nichts.
+        neu();
+        const r1 = zeilen(A, "insert into public.friendships (user_id, friend_id, status) values ('" + A + "','" + C + "','accepted')");
+        neu(); const r2 = zeilen(A, "update public.friendships set status = 'accepted' where id = '" + F1 + "'");
+        neu(); const r3 = zeilen(A, "update public.friendships set friend_id = '" + C + "' where id = '" + F1 + "'");
+        neu(); const r4 = zeilen(B, "update public.friendships set user_id = '" + C + "' where id = '" + F1 + "'");
+        const repro = { 'A legt A→C als accepted an': r1, 'A nimmt die eigene Anfrage an': r2, 'A biegt friend_id auf C': r3, 'B biegt user_id auf C': r4 };
+        Object.keys(repro).forEach(k => { if (repro[k] !== 1) klagen.push('Reproduktion „' + k + '": ' + repro[k] + ' statt 1 — dann misst der Fall nicht den Live-Stand'); });
+        // ── Die Migration, zweimal
+        try { pgSql(U2, lies(MIGF)); pgSql(U2, lies(MIGF)); } catch (e) { klagen.push(MIGF + ': ' + String(e.message).slice(0, 120)); }
+        // ── Danach: jeder der drei Wege scheitert …
+        neu();
+        const n1 = zeilen(A, "insert into public.friendships (user_id, friend_id, status) values ('" + A + "','" + C + "','accepted')");
+        neu(); const n2 = zeilen(A, "update public.friendships set status = 'accepted' where id = '" + F1 + "'");
+        neu(); const n3 = zeilen(A, "update public.friendships set friend_id = '" + C + "' where id = '" + F1 + "'");
+        neu(); const n4 = zeilen(B, "update public.friendships set user_id = '" + C + "' where id = '" + F1 + "'");
+        neu(); const n5 = zeilen(C, "update public.friendships set status = 'accepted' where id = '" + F1 + "'");
+        if (n1 !== 'verweigert') klagen.push('nachher: A legt A→C als accepted an → ' + n1);
+        if (n2 !== 0) klagen.push('nachher: A nimmt die eigene Anfrage an → ' + n2 + ' (erwartet 0 Zeilen — genau die Antwort, die gsFriendsAccept seit v33.52 ausspricht)');
+        if (n3 !== 'verweigert') klagen.push('nachher: A biegt friend_id auf C → ' + n3);
+        if (n4 !== 'verweigert') klagen.push('nachher: B biegt user_id auf C → ' + n4);
+        if (n5 !== 0) klagen.push('nachher: ein Dritter nimmt an → ' + n5);
+        // … und der richtige Weg geht weiter.
+        neu();
+        const g1 = zeilen(A, "insert into public.friendships (user_id, friend_id, status) values ('" + A + "','" + C + "','pending')");
+        pgSql(U2, "delete from public.friendships where friend_id = '" + C + "'");
+        const g2 = zeilen(A, "insert into public.friendships (user_id, friend_id) values ('" + A + "','" + C + "')");
+        const g3 = zeilen(B, "update public.friendships set status = 'accepted' where id = '" + F1 + "'");
+        const neuAm = pgSql(U2, "select (updated_at > timestamptz '2026-01-02')::text from public.friendships where id = '" + F1 + "'");
+        neu(); const g4 = zeilen(A, "delete from public.friendships where id = '" + F1 + "'");
+        if (g1 !== 1) klagen.push('nachher: A schickt eine Anfrage (pending) → ' + g1);
+        if (g2 !== 1) klagen.push('nachher: A schickt eine Anfrage ohne Status (Vorgabe pending) → ' + g2);
+        if (g3 !== 1) klagen.push('nachher: B nimmt an → ' + g3);
+        if (neuAm !== 'true') klagen.push('updated_at nach dem Annehmen nicht nachgezogen (' + neuAm + ') — der Trigger braucht kein Spaltenrecht, sollte also laufen');
+        if (g4 !== 1) klagen.push('nachher: A zieht die Anfrage zurueck (DELETE) → ' + g4);
+        // ── Gegenprobe: ohne die zwei Zeilen zum Spaltenrecht biegt B wieder user_id um.
+        //    Jede Zeile der Migration traegt etwas — sonst waere sie Zeremonie.
+        const ohneSpalte = lies(MIGF).replace(/^REVOKE UPDATE[^\n]*\n/m, '').replace(/^GRANT UPDATE \(status\)[^\n]*\n/m, '');
+        if (ohneSpalte === lies(MIGF)) klagen.push('Gegenprobe hat nichts entfernt');
+        pgSql(U2, 'grant update on public.friendships to anon, authenticated');
+        pgSql(U2, ohneSpalte);
+        neu(); const gp = zeilen(B, "update public.friendships set user_id = '" + C + "' where id = '" + F1 + "'");
+        if (gp !== 1) klagen.push('Gegenprobe: ohne Spaltenrecht biegt B user_id NICHT um (' + gp + ') — dann misst n4 nichts');
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 4).join(' · ') + (klagen.length > 4 ? ' · +' + (klagen.length - 4) : '') };
+        return { ok: true, info: 'App: Knopf nur für den Empfänger · live: 4 von 4 Wegen an der Zustimmung vorbei gehen durch · nach der Migration (2×): alle 4 verweigert bzw. 0 Zeilen, ein Dritter 0 · Anfrage, Annehmen, Zurückziehen gehen weiter · Gegenprobe ohne Spaltenrecht: B biegt wieder um' };
+      } catch (e) {
+        return { ok: false, warum: 'SQL: ' + (e && e.message ? e.message : e) };
+      } finally {
+        try { pgSql(PG_URL, 'drop database if exists ' + DB + ' with (force)'); } catch (_) {}
+      }
+    },
+  },
+
 ];
 
 (async () => {

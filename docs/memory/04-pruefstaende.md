@@ -30,7 +30,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `backend_check` | ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18) |
 | `storage_check` | was ueberlebt das Abmelden? (seit v32.21) |
 | `sync_check` | kommt zurueck, was hochgeladen wird? (seit v32.23); seit v33.46 auch: sagt die App, wenn der Sync KLEMMT? (gsSyncStand, vier Zustaende — offline ist kein Alarm) |
-| `versprechen_check` | wer verspricht etwas, das niemand geprueft hat? (seit v32.28) |
+| `versprechen_check` | wer verspricht etwas, das niemand geprueft hat? (seit v32.28); seit v33.52 braucht ein PATCH mit Versprechen den Blick auf die ZEILEN (`_gsSchreibOk` + `return=representation`) — ein abgewiesenes UPDATE kommt als 0 Zeilen OHNE Fehler |
 | `einstellungen_check` | haelt der Schalter, was er verspricht? (seit v32.33) |
 | `tour_check` | zeigt die App-Tour auf etwas, oder erzaehlt sie nur? (seit v32.39) |
 | `kamera_check` | stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29) |
@@ -40,7 +40,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `sensor_check` | funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48) |
 | `ingest_check` | rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno) |
 | `sensor_push_check` | wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno) |
-| `naht_check` | passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026). **Seit v33.41 mit einer SQL-Haelfte** (lokales Postgres, GS_PG_URL): die Sicht `v_plant_tasks_due` liest BEIDE Pflanzenlisten, und jede Sicht-Migration laesst sich WIRKLICH anwenden (DROP + CREATE; `CREATE OR REPLACE VIEW` darf Spalten nur anhaengen). Ohne Postgres „nicht pruefbar" (Exit 2), nie gruen |
+| `naht_check` | passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026). **Seit v33.41 mit einer SQL-Haelfte** (lokales Postgres, GS_PG_URL): die Sicht `v_plant_tasks_due` liest BEIDE Pflanzenlisten, und jede Sicht-Migration laesst sich WIRKLICH anwenden (DROP + CREATE; `CREATE OR REPLACE VIEW` darf Spalten nur anhaengen). Ohne Postgres „nicht pruefbar" (Exit 2), nie gruen; seit v33.52 die Freundschafts-Naht: Knopf nur fuer den Empfaenger, und die Policy erlaubt es nur ihm (Live-Stand im lokalen Postgres nachgespielt, Reproduktion, Migration zweimal, Gegenprobe) |
 | `loeschung_check` | raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17) |
 | `nutzung_check` | liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18) |
 | `backup_check` | ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26) |
@@ -53,9 +53,9 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42); seit v33.50 die SCHREIB-Seite: jeder Admin-Schreibweg durch _gsAdmTun (GS_ADM_AKTIONEN, sechs Zustaende mit Grund, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es (_gsAdmGesperrt, _gsAdmAktionHinweisHtml), die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, die Deckung rechnet _gsAdmSpurDeckung, ein Ersatzweg nur bei nicht_verfuegbar, RAISE EXCEPTION = abgelehnt, und eine SQL-Haelfte spielt 20260925_admin_audit_vollstaendig.sql in einem lokalen Postgres nach (ohne: Exit 2) |
 | `android_check` | haelt die App, was eine Android-App verspricht? gsZurueck (eine Regel, zwei Ausloeser), GS_VOLLBILD_OVERLAYS, ein Verlaufs-Eintrag, gsLaeuftAlsApp, assetlinks (seit v33.43) |
 | `risiko_check` | was geht SPAETER schief? Jahreszahlen in jaehrlich wiederkehrenden Texten, ungedeckelte Listen-Abfragen (eingeordnet), die Zahlen in docs/RISIKEN.md gegen den Quelltext, und seit v33.45 die Fristen-Karte im Admin-Panel in BEIDE Richtungen (GS_FRISTEN, gsFristenStand) |
-| `pruefstaende` | ALLE 38 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
+| `pruefstaende` | ALLE 39 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
 
-## Wie ein Fall gebaut wird (die Regeln, die alle 38 teilen)
+## Wie ein Fall gebaut wird (die Regeln, die alle 39 teilen)
 
 1. **Erst der Fall, dann der Code.** Gegen den alten Stand gefahren muss er
    rot sein. Erst danach wird repariert.

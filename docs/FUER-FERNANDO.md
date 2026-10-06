@@ -1201,6 +1201,50 @@ sie weg. Der saubere Weg ist ein Dump aus deiner Datenbank
 `pg_get_functiondef`), als Migration eingecheckt. Das ist ein Klick bei dir,
 keine Abschrift von mir — eine Abschrift ohne Nachweis wäre keine Quelle.
 
+## 25 · Freundschaften: eine zu grosszügige Regel — eine kleine Migration (v33.52)
+
+**Was ich gemessen habe (Live-DB, nur lesend, 06.10.2026):** die App bietet
+„Annehmen" nur der Person an, die gefragt wurde. Der Server war grosszügiger:
+
+| Weg | ging live |
+|---|---|
+| Die eigene Anfrage selbst annehmen | ja |
+| Eine Zeile „A und C sind befreundet" gleich als angenommen anlegen — C erfährt nichts | ja |
+| Bei einer bestehenden Anfrage die andere Person gegen eine dritte austauschen | ja |
+
+**Wie schwer das wiegt, ehrlich:** die Tabelle hat heute **0 Zeilen**, und
+nichts auf dem Server liest den Freundschafts-Status. Eine erzwungene
+Freundschaft öffnet heute nichts, sie steht nur in einer Liste. Die Regel
+soll trotzdem richtig sein, bevor eines Tages etwas sie liest — etwa „Funde
+nur für Freunde sichtbar".
+
+### Was du tust
+
+Die Migration `supabase/migrations/20261006_friendships_nur_empfaenger.sql`
+anwenden (Supabase-Dashboard → SQL-Editor). Sie ändert drei Dinge:
+
+- eine Anfrage kann nur als „wartet" angelegt werden,
+- annehmen kann nur, wer gefragt wurde,
+- ändern lässt sich nur der Status, nie die beiden Personen.
+
+Zurückziehen bleibt für beide Seiten möglich. Die App schickt schon heute
+genau das, was danach erlaubt ist — an ihr ändert sich nichts. Der Prüfstand
+`naht_check` spielt den heutigen Stand in einem lokalen Postgres nach, zeigt
+alle drei Wege, wendet die Datei zweimal an und prüft, dass danach jeder der
+drei scheitert und Anfragen, Annehmen und Zurückziehen weiter gehen.
+
+### Und die eigentliche Arbeit dieser Version
+
+Vier Stellen sagten „gespeichert", sobald der Server keinen Fehler meldete —
+Profil speichern, Freundschaft annehmen und zwei Foto-Wege. Bei einer
+Änderung, die der Server nicht erlaubt, meldet er aber keinen Fehler, er
+ändert einfach null Zeilen. Das ist ohne dein Zutun repariert; die App zählt
+jetzt die Zeilen.
+
+**Und eine Berichtigung:** in v33.50 hatte ich „rund 176 Stellen" als
+gemessen genannt. Das war eine Schätzung über alle Fehler-Prüfungen, keine
+Messung. Gemessen sind es genau diese vier.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

@@ -689,6 +689,59 @@ const SERVER_WEGE = [
       }
     },
   },
+  {
+    // v33.52: ein PATCH, den RLS abweist, kommt als 0 Zeilen OHNE Fehler zurueck.
+    // gsSaveProfileField schickte return=minimal und pruefte nur .error — ohne
+    // gueltige Sitzung (Anfrage als anon) stand „✓ Gespeichert" fuer nichts da.
+    name: 'Profilfeld speichern (gsSaveProfileField → profiles PATCH)',
+    lauf: async () => {
+      const erg = { meldungen: [], prefer: [] };
+      const echtToast = window.gsToast, echtFetch = window.sbFetch, echtGet = gsStore.get;
+      window.gsToast = (m) => erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body)));
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : echtGet.call(gsStore, k, d));
+      if (typeof gsSaveProfileField !== 'function') return { ok: false, warum: 'gsSaveProfileField fehlt' };
+      const stell = (antwort) => { window.sbFetch = async (pf, o) => { erg.prefer.push(String(((o && o.headers) || {}).Prefer || '')); return antwort; }; };
+      try {
+        stell({ data: null, error: { message: 'permission denied for table profiles', status: 403 } });
+        await gsSaveProfileField('bio', 'Pilzfreund');
+        if (erg.meldungen.some(m => /Gespeichert/.test(m))) return { ok: false, warum: 'Ablehnung → ' + JSON.stringify(erg.meldungen) };
+        erg.meldungen.length = 0; stell({ data: [], error: null });
+        await gsSaveProfileField('bio', 'Pilzfreund');
+        if (erg.meldungen.some(m => /✓ Gespeichert/.test(m)) || !erg.meldungen.some(m => /Nicht gespeichert/.test(m))) return { ok: false, warum: '0 Zeilen → ' + JSON.stringify(erg.meldungen) + ' — eine Zusage fuer nichts' };
+        erg.meldungen.length = 0; stell({ data: [{ id: '00000000-0000-0000-0000-000000000001', bio: 'Pilzfreund' }], error: null });
+        await gsSaveProfileField('bio', 'Pilzfreund');
+        if (!erg.meldungen.some(m => /✓ Gespeichert/.test(m))) return { ok: false, warum: 'Bestaetigung → ' + JSON.stringify(erg.meldungen) };
+        if (erg.prefer.some(x => !/return=representation/.test(x))) return { ok: false, warum: 'Prefer: ' + JSON.stringify(erg.prefer) + ' — ohne representation kommen die 0 Zeilen nie an' };
+        return { ok: true, info: 'Ablehnung → kein „Gespeichert" · 0 Zeilen → „Nicht gespeichert" · 1 Zeile → „✓ Gespeichert" · immer return=representation' };
+      } finally { window.gsToast = echtToast; window.sbFetch = echtFetch; gsStore.get = echtGet; }
+    },
+  },
+  {
+    // v33.52: dieselbe Klasse an der Freundschaft. 0 Zeilen heisst hier meist
+    // „die Anfrage wurde zurueckgezogen" — und die Meldung sagt genau das.
+    name: 'Freundschaft annehmen (gsFriendsAccept → friendships PATCH)',
+    lauf: async () => {
+      const erg = { meldungen: [], prefer: [], pfad: [] };
+      const echtToast = window.showProfileToast, echtFetch = window.sbFetch;
+      window.showProfileToast = (m) => erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body)));
+      if (typeof gsFriendsAccept !== 'function') return { ok: false, warum: 'gsFriendsAccept fehlt' };
+      const stell = (antwort) => { window.sbFetch = async (pf, o) => { erg.pfad.push(pf); erg.prefer.push(String(((o && o.headers) || {}).Prefer || '')); return antwort; }; };
+      try {
+        stell({ data: null, error: { message: 'new row violates row-level security policy', status: 403 } });
+        let r = await gsFriendsAccept('f-1');
+        if (r !== false || erg.meldungen.some(m => /Verbunden/.test(m))) return { ok: false, warum: 'Ablehnung → ' + JSON.stringify({ r, m: erg.meldungen }) };
+        erg.meldungen.length = 0; stell({ data: [], error: null });
+        r = await gsFriendsAccept('f-1');
+        if (r !== false || erg.meldungen.some(m => /Verbunden/.test(m)) || !erg.meldungen.some(m => /gibt es nicht mehr/.test(m))) return { ok: false, warum: '0 Zeilen → ' + JSON.stringify({ r, m: erg.meldungen }) + ' — eine Zusage fuer nichts' };
+        erg.meldungen.length = 0; stell({ data: [{ id: 'f-1', status: 'accepted' }], error: null });
+        r = await gsFriendsAccept('f-1');
+        if (r !== true || !erg.meldungen.some(m => /✅ Verbunden/.test(m))) return { ok: false, warum: 'Bestaetigung → ' + JSON.stringify({ r, m: erg.meldungen }) };
+        if (erg.prefer.some(x => !/return=representation/.test(x))) return { ok: false, warum: 'Prefer: ' + JSON.stringify(erg.prefer) };
+        if (!erg.pfad.every(x => /^\/rest\/v1\/friendships\?id=eq\.f-1$/.test(x))) return { ok: false, warum: 'Pfad: ' + JSON.stringify(erg.pfad) };
+        return { ok: true, info: 'Ablehnung → false · 0 Zeilen → false + „gibt es nicht mehr" · 1 Zeile → true + „✅ Verbunden!" · return=representation' };
+      } finally { window.showProfileToast = echtToast; window.sbFetch = echtFetch; }
+    },
+  },
 ];
 
 (async () => {

@@ -30,6 +30,23 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.32', date: '14.09.2026',
+      headline: 'Die Giftwarnung bei Lina greift jetzt wirklich',
+      summary: 'v33.30 hat eine Sicherung eingebaut: behauptet Lina „essbar\' ueber eine Art, die unsere Liste als giftig fuehrt, kommt eine Warnung darueber. Eine gegnerische Pruefung hat sie danach gegen die echte Artenliste gemessen — und 8 von 9 realistischen Saetzen kamen ohne Warnung durch, darunter ALLE drei nicht-deutschen. Der Ausloeser suchte ganze Woerter; „Ja, die kannst du roh essen\' oder „Das ist ein Speisepilz\' standen nicht darin. Jetzt Wortstaemme, ein Verzehr-Verb in der Naehe einer Zustimmung, und vier Sprachen.',
+      user_summary: 'Wenn Lina etwas als essbar bezeichnet, das in unserer Artenliste als giftig steht, steht jetzt zuverlaessig eine Warnung darueber — egal wie der Satz gebaut ist und in welcher der vier Sprachen du fragst.',
+      user_items: [
+        {emoji: '🛡️', bold: 'Die Warnung greift jetzt wirklich:', text: ' vorher nur bei „ist essbar\'. Jetzt auch bei „kannst du roh essen\', „Speisepilz\', „eignet sich zum Kochen\' — und auf Franzoesisch, Italienisch und Englisch.'},
+        {emoji: '🔤', bold: 'Ein Satz ist ein Satz:', text: ' warnt Lina im zweiten Satz vor dem Doppelgaenger, hebt das die Zusage im ersten nicht mehr auf.'},
+        {emoji: '🤫', bold: 'Und kein Fehlalarm:', text: ' wenn Lina selbst schon warnt, kommt keine zweite Warnung darueber.'}
+      ],
+      items: [
+        'Gemessen end-to-end gegen die echte Artenliste (Gruener Knollenblaetterpilz, tox 5): 8 von 9 Zusagen ohne Warnung, darunter fr/it/en 3 von 3 — dieselbe Klasse, die v32.99 schon einmal bezahlt hat.',
+        'Der Satz-Split war tot: _gsLinaNorm streicht .!? VOR dem split(), also wurde an nichts getrennt. Der Kommentar darueber behauptete das Gegenteil. Getrennt wird jetzt am ROHEN Text.',
+        'Staemme statt ganzer Woerter (essbar|geniess|verzehr|speise|comestib|commestib|edib) plus ein Verzehr-Verb in der Naehe einer Zustimmung (essen/kochen/roh/manger/mangiare/eat).',
+        'Pruefstand: sensor_check Fall mit den ZWOELF GEMESSENEN Saetzen statt ausgewaehlter — ein Fall, dessen Satz den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware. Drei Gegenproben: Wortliste zurueck (3 verpasst), Verzehr-Naehe aus (7 verpasst), Split am normierten Text (1 verpasst).'
+      ]
+  },
+  {
     v: 'v33.31', date: '14.09.2026',
       headline: 'Ein Chat statt zwei — und Lina schlaegt jetzt Fragen vor',
       summary: 'Es gab einen zweiten Chat-Bildschirm, zu dem kein Weg mehr fuehrte: switchTab(\'ai\') kam im ganzen Quelltext null mal vor. Erreichbar war er nur noch ueber Linas eigene Navigations-Liste — und dort stand ein Chat OHNE Notfall-Erkennung, ohne Arten-Erdung und ohne die Sicherheitszeile aus v33.30. Der Bildschirm ist weg; seine fuenf Fragevorschlaege leben in Lina weiter.',
