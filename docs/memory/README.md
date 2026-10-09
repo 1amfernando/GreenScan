@@ -9,7 +9,7 @@
 | Datei | Beantwortet die Frage | Lies sie, wenn … |
 |---|---|---|
 | `01-projekt.md` | Was ist das, wo laeuft es, was kann ich von hier aus NICHT? | … immer, zuerst. 3 Minuten. |
-| `02-regeln.md` | Welche zwoelf Regeln gelten fuer jede Codezeile? | … du irgendetwas in `index.html` aenderst. |
+| `02-regeln.md` | Welche dreizehn Regeln gelten fuer jede Codezeile? | … du irgendetwas in `index.html` aenderst. |
 | `03-daten-eigner.md` | Wem gehoert welcher Zustand, und wer darf ihn schreiben? | … du einen Wert liest, speicherst, zaehlst oder synchronisierst. |
 | `04-pruefstaende.md` | Welcher der 35 Pruefstaende stellt welche Frage — und wie baue ich einen Fall? | … du etwas aenderst (immer) oder etwas behauptest („funktioniert"). |
 | `05-fallen.md` | Woran sind die Vorgaenger gescheitert — in je vier Zeilen? | … bevor du etwas fuer „offensichtlich" haeltst. |

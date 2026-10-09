@@ -1,6 +1,6 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **17.09.2026** · geschrieben von Seros.
+> Stand **09.10.2026** (Abschnitte bis §26) · geschrieben von Seros.
 >
 > *(Der Kopf stand bis heute auf 03.09., obwohl die Abschnitte 7–12 vom
 > 07./08.09. sind — genau die Art veralteter Ueberschrift, die dieses Repo
@@ -1244,6 +1244,35 @@ jetzt die Zeilen.
 **Und eine Berichtigung:** in v33.50 hatte ich „rund 176 Stellen" als
 gemessen genannt. Das war eine Schätzung über alle Fehler-Prüfungen, keine
 Messung. Gemessen sind es genau diese vier.
+
+## 26 · Export und Drucken in der Android-App — bitte einmal auf einem Telefon ansehen (v33.53)
+
+**Was jetzt geht:** in der Android-App speicherst du Backup, GPS-Spur,
+Pflanzen-, Tagebuch- und Messwerte-Tabelle, Archiv und das 3D-Foto über den
+Android-Dialog **„Speichern unter"** — du wählst den Ordner. Gartenplan und
+Giess-Zettel öffnen den **Druckdialog von Android**; dort gibt es oben
+„Als PDF speichern". Bisher taten diese Knöpfe in der App nichts, das Backup
+sagte trotzdem „heruntergeladen", und der Giess-Zettel überschrieb die App.
+
+**Was ich NICHT prüfen konnte:** hier läuft kein Android. Der Prüfstand fährt
+die Rechnung der Hülle, ihren Quelltext und die App mit einem echten
+Java-Prozess — aber nicht ein Telefon. Bitte einmal von Hand, am besten auf
+einem älteren und einem neuen Gerät:
+
+| Schritt | Was passieren soll |
+|---|---|
+| Menü → Suche „Daten exportieren“ → Ordner wählen → Speichern | Meldung „Backup gespeichert!", die Datei liegt im gewählten Ordner und lässt sich öffnen |
+| Dasselbe, aber im Dialog auf „Zurück" | „Nicht gespeichert — Der Dialog wurde geschlossen", **keine** Datei |
+| Eine vorhandene Backup-Datei ersetzen | die neue Datei ist vollständig (kein Rest der alten am Ende) |
+| KI-Planer → fertiger Plan → Knopf „PDF“ | der Druckdialog von Android öffnet; „Als PDF speichern" ergibt den Plan |
+| Menü → Suche „Giess-Zettel“ → Drucken | Druckdialog öffnet, die App bleibt stehen (wird NICHT überschrieben) |
+| Während „Speichern unter" offen ist, das Telefon drehen | danach wird trotzdem gespeichert, oder es steht „Nicht gespeichert" — nie eine leere Datei |
+
+Wenn etwas anders aussieht: ein Foto vom Bildschirm genügt, und dazu die
+Android-Version (Einstellungen → Über das Telefon).
+
+**Am Backend ist nichts zu tun** — kein Deploy, keine Migration. Es braucht
+nur eine neue APK (`bash android/build.sh`, mit deinem Schlüssel wie in §22).
 
 ## Und wenn etwas schiefgeht
 

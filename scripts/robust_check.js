@@ -592,6 +592,11 @@ const FAELLE = [
       const dateien = ['sw.js', 'install.html', 'offline.html'];
       const sammle = (d, re) => { try { fs.readdirSync(path.join(wurzel, d)).filter(f => re.test(f)).forEach(f => dateien.push(path.join(d, f))); } catch (_) {} };
       sammle('scripts', /\.(js|py)$/); sammle('supabase/migrations', /\.sql$/);
+      // v33.53: die Android-Huelle ruft zwei Funktionen der Seite — und NUR sie
+      // (gsHuellePause, gsHuelleDateiErgebnis, per evaluateJavascript). Ohne den
+      // Java-Quelltext zaehlte dieser Fall ihren einzigen echten Aufrufer nicht
+      // mit, und sie ueberlebten nur, weil ein Pruefstand sie zufaellig nennt.
+      sammle(path.join('android', 'src', 'ch', 'greenscan', 'app'), /\.java$/);
       // v32.96: DIESE Datei zaehlt nicht mit. Sie nennt jeden Namen, den sie in
       // BEWUSST/OHNE_EINSTIEG deklariert — eine Deklaration im Pruefstand waere
       // damit ihre eigene zweite Nennung, und der Fall meldete brav „0 ohne

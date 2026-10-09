@@ -2,6 +2,7 @@ package ch.greenscan.app;
 
 import android.content.res.AssetManager;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.webkit.WebResourceResponse;
 
 import java.io.ByteArrayInputStream;
@@ -51,9 +52,10 @@ final class AssetServer {
   /** Kopfzeilen aus dem mitgelieferten `_headers` — eine Quelle fuer Web und App. */
   private final Map<String, String> kopfzeilen;
 
-  AssetServer(AssetManager assets) {
+  AssetServer(AssetManager assets, Export.Sammler sammler) {
     this.assets = assets;
     this.kopfzeilen = kopfzeilenLesen(assets);
+    this.sammler = sammler;
   }
 
   /** Gehoert die Adresse zu unserem Ursprung? — die Regel steht in {@link Pfade}. */
@@ -63,10 +65,33 @@ final class AssetServer {
   }
 
   /**
-   * Beantwortet eine Anfrage. {@code null} NUR fuer fremde Urspruenge.
+   * Wohin eine fertig eingesammelte Datei geht — {@link MainActivity} setzt
+   * das Ziel und oeffnet den Dialog. Der Kanal selbst steht in {@link Export}.
    */
-  WebResourceResponse beantworte(Uri u) {
+  interface DateiZiel { void uebergeben(Export.Datei d); }
+
+  private volatile DateiZiel dateiZiel;
+  private final Export.Sammler sammler;
+
+  void setDateiZiel(DateiZiel z) { this.dateiZiel = z; }
+  Export.Sammler sammler() { return sammler; }
+
+  /**
+   * Beantwortet eine Anfrage. {@code null} NUR fuer fremde Urspruenge.
+   *
+   * <p>Die Adressen unter {@link Export#WURZEL} sind der Kanal fuer Export und
+   * Drucken (v33.53) — sie werden VOR der Suche im Paket beantwortet und
+   * bekommen nie {@code null}: auch eine abgewiesene Anfrage ist eine Antwort
+   * aus der Huelle, keine Einladung, es im Netz zu versuchen.
+   */
+  WebResourceResponse beantworte(Uri u, String methode, boolean hauptRahmen, Map<String, String> kopfzeilenDerAnfrage) {
     if (!imUrsprung(u)) return null;      // fremd -> ins Netz, so soll es sein
+
+    String roh = u.getEncodedPath();
+    if (roh != null && roh.startsWith(Export.WURZEL)) {
+      return kanal(Export.beantworte(sammler, methode, hauptRahmen, roh, u.getEncodedQuery(),
+          kopfzeilenDerAnfrage, SystemClock.elapsedRealtime()));   // monoton: eine verstellte Uhr blockiert nichts
+    }
 
     String pfad = pfadNormieren(u.getPath());
     if (pfad == null) return vierNullVier();   // Pfad wollte aus dem Paket heraus
@@ -93,6 +118,33 @@ final class AssetServer {
     } catch (IOException e) {
       return null;
     }
+  }
+
+  /**
+   * Die Antwort des Kanals. Traegt sie eine fertige Datei, geht die an
+   * {@link MainActivity} — ist dort (noch) niemand, wird der Vorgang sofort
+   * abgeschlossen und die Seite bekommt ein Nein, statt auf einen Dialog zu
+   * warten, den es nie geben wird.
+   */
+  private WebResourceResponse kanal(Export.Antwort a) {
+    if (a.datei != null) {
+      DateiZiel z = dateiZiel;
+      try {
+        if (z == null) throw new IllegalStateException("kein Ziel");
+        z.uebergeben(a.datei);
+      } catch (Throwable t) {
+        // Nie eine Ausnahme auf diesem Faden — sie beendete die ganze App.
+        sammler.abschliessen(a.datei.id);
+        a = Export.nein("huelle");
+      }
+    }
+    byte[] rumpf;
+    try { rumpf = a.json().getBytes("UTF-8"); } catch (java.io.UnsupportedEncodingException e) { rumpf = new byte[0]; }
+    Map<String, String> kopf = new HashMap<String, String>();
+    kopf.put("Cache-Control", "no-store");
+    kopf.put("X-Content-Type-Options", "nosniff");
+    String text = a.status == 200 ? "OK" : a.status == 403 ? "Forbidden" : a.status == 405 ? "Method Not Allowed" : "Not Found";
+    return new WebResourceResponse("application/json", "UTF-8", a.status, text, kopf, new ByteArrayInputStream(rumpf));
   }
 
   /**

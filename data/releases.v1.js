@@ -30,6 +30,27 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.33', date: '15.09.2026',
+    headline: 'Lina sagt, was stimmt: letzter Scan, Verlauf, Pflanzen — und die Garten-Timeline zeigt endlich Scans',
+    summary: 'Fuenf gemessene Fehler, alle mit Pruefstand-Fall zuerst. Lina verlor den letzten Scan, sobald der Cloud-Abgleich gelaufen war (drei Zeitfelder, ein Leser verlangte genau eines); sie lud die AELTESTEN hundert Nachrichten statt der neuesten; sie fand Garten-Pflanzungen nicht und traf beim Namen per Teilstring die falsche Pflanze; sie nannte einen Weg in der App, den es nicht gibt. Und die Garten-Timeline las seit jeher einen Schluessel, den niemand schreibt — null Scans, immer.',
+    user_summary: 'Lina weiss jetzt zuverlaessig, was du zuletzt gescannt hast, kennt den juengsten Teil eures Gespraechs, findet auch deine Garten-Pflanzungen — und schickt dich nicht mehr auf einen Weg, den es in der App nicht gibt. Die Garten-Timeline zeigt jetzt deine Scans.',
+    user_items: [
+      {emoji: '🔬', bold: 'Letzter Scan bleibt sichtbar:', text: ' auch nach dem Abgleich mit der Cloud und bei Scans von einem zweiten Geraet.'},
+      {emoji: '💬', bold: 'Das Gespraech geht weiter:', text: ' Lina laedt die neuesten hundert Nachrichten, nicht die aeltesten.'},
+      {emoji: '🌱', bold: 'Garten-Pflanzungen gefunden:', text: ' eine Erinnerung an die Zucchini im Beet geht jetzt — und „Mon" trifft nicht mehr die Monstera.'},
+      {emoji: '📆', bold: 'Garten-Timeline mit Scans:', text: ' sie zeigte bisher keine, weil sie am falschen Ort nachsah.'}
+    ],
+    items: [
+      '_gsScanZeit(h): EIN Leser fuer ts (Cloud, Scanner), timestamp (App) und createdAt (Merge). gsLinaZahlen, die Verlaufsliste, Mein Naturjahr und die Timeline lesen ihn; conf neben confidence.',
+      'gsOpenLina: order=created_at.desc&limit=100, fuer die Anzeige umgedreht. Vorher asc — ab Nachricht 101 fehlte der juengste Teil, still.',
+      'gsLinaResolvePlant ueber _gsPflanzeFinden (beide Listen), Name oder Spitzname exakt, kein indexOf. gsLinaContext nimmt gsPflanzenZahl().',
+      'LINA_SYSTEM: „Unter-Tab Scans" gestrichen (der Pflanzen-Tab hat Wohnung und Garten); nutzersicht_check E2 kennt das Phantom und prueft die Gegenrichtung.',
+      'Garten-Timeline: SCAN_HISTORY_KEY statt des nackten scan_history (0 Schreiber). _seed.js: Ernte-Log mit {pflanze, menge} wie die App — Seed-Falle Nr. 5.',
+      'Pruefstaende: sensor_check 44 (4 neu), nutzersicht_check E2 erweitert, kalender_check 23 (Timeline). Alle fuenf Faelle rot gegen v33.32, gruen danach; Gegenproben toter Schluessel / Seed-Felder rot.',
+      'Berichtigung: die Zusammenfassung von v33.31 nannte „Verlauf neueste 100", „_gsPflanzeFinden/gsPflanzenZahl" und „Tools open_species/mark_done" — nichts davon war im Code. Eine Zusammenfassung ist kein Diff.'
+    ]
+  },
+  {
     v: 'v33.32', date: '14.09.2026',
       headline: 'Die Giftwarnung bei Lina greift jetzt wirklich',
       summary: 'v33.30 hat eine Sicherung eingebaut: behauptet Lina „essbar\' ueber eine Art, die unsere Liste als giftig fuehrt, kommt eine Warnung darueber. Eine gegnerische Pruefung hat sie danach gegen die echte Artenliste gemessen — und 8 von 9 realistischen Saetzen kamen ohne Warnung durch, darunter ALLE drei nicht-deutschen. Der Ausloeser suchte ganze Woerter; „Ja, die kannst du roh essen\' oder „Das ist ein Speisepilz\' standen nicht darin. Jetzt Wortstaemme, ein Verzehr-Verb in der Naehe einer Zustimmung, und vier Sprachen.',

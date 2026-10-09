@@ -16,8 +16,17 @@ run() {
   local name="$1"; shift
   N=$((N+1))
   echo "##### $name"
-  "$@" 2>&1 | tail -${TAILN:-6}
-  local rc=${PIPESTATUS[0]}
+  local aus; aus=$(mktemp)
+  "$@" > "$aus" 2>&1
+  local rc=$?
+  tail -${TAILN:-6} "$aus"
+  # v33.53: bei Rot auch die ROTE Zeile zeigen, nicht nur das Ende. Sonst
+  # meldet CI „rot: 1" und niemand sieht, welcher Fall — die Zeile stand
+  # irgendwo weiter oben, und hier liefen nur die letzten sechs durch.
+  if [ "$rc" != 0 ] && [ "$rc" != 2 ]; then
+    awk '/^[[:space:]]*(!!|✗|FAIL)/ || (/^[[:space:]]*ROT[[:space:]]/ && !/:[[:space:]]+0$/) { print; if ((getline z) > 0) print z }' "$aus" | head -40 | sed 's/^/  | /'
+  fi
+  rm -f "$aus"
   if [ "$rc" = 2 ]; then WARN=$((WARN+1)); echo "EXIT=2 (nicht pruefbar)"; elif [ "$rc" != 0 ]; then ROT=$((ROT+1)); echo "EXIT=$rc  <<< ROT"; else echo "EXIT=0"; fi
 }
 SCHNELL=${1:-}

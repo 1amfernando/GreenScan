@@ -2,4 +2,9 @@
 <resources>
   <string name="app_name">GreenScan</string>
   <string name="kein_ziel">Für diesen Link gibt es auf dem Gerät keine App.</string>
+  <!-- Export (v33.53). Nur fuer den Fall, dass die Seite das Ergebnis nicht mehr
+       entgegennehmen kann (sie wurde neu geladen, waehrend der Dialog offen war) -
+       sonst sagt es die Seite selbst, in der Sprache der App. -->
+  <string name="export_gespeichert">Datei gespeichert.</string>
+  <string name="export_nicht_gespeichert">Die Datei wurde nicht gespeichert.</string>
 </resources>
