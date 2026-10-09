@@ -30,6 +30,31 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.34', date: '15.09.2026',
+    headline: 'Der Kalender denkt: Frost trifft Aussaat, Regen übernimmt das Giessen, Ernte ohne Eintrag — und er sagt, woher er es weiss',
+    summary: 'Erste Scheibe von KALENDER-V2. Der Kalender hält seine Ereignisse jetzt gegeneinander: ein Prüfwerk am Ende der einen Kalender-Funktion rechnet fünf Regeln mit je drei Zuständen (erfüllt · verletzt · nicht prüfbar) und schreibt Hinweise an die beteiligten Zeilen. Dazu ein gemessener Fehler: die Ernte-Schätzung erfand für jede unbekannte Pflanze ein Datum aus 60–90 Tagen — eine Monstera-Pflanzung bekam „Ernte voraussichtlich 16.10.". Jetzt nur mit Kulturdaten, und der Grund nennt die Zahlen.',
+    user_summary: 'Der Kalender warnt dich jetzt, wenn Frost in ein Aussaatfenster fällt, sagt dir, wenn Regen das Giessen übernommen hat, erinnert dich, wenn eine geschätzte Ernte reif sein müsste und nichts eingetragen ist, und hebt Aufgaben hervor, die länger als eine Woche fällig sind. Jede Warnung lässt sich antippen und sagt, woher sie kommt — und wenn er etwas nicht sicher weiß, schreibt er das hin, statt zu schweigen.',
+    user_items: [
+      {emoji: '❄️', bold: 'Frost trifft Aussaat:', text: ' steht ein Frosttag in der Vorhersage und ein Aussaatfenster draussen im selben Monat, tragen beide Zeilen den Hinweis.'},
+      {emoji: '🌧️', bold: 'Regen übernimmt:', text: ' ab 6 mm gemessenem Regen heute steht es an der Giess-Aufgabe deiner Pflanzen draussen — die Aufgabe bleibt, du entscheidest.'},
+      {emoji: '🧺', bold: 'Ernte ohne Eintrag:', text: ' ist eine geschätzte Ernte fällig und nichts im Ernte-Log, sagt der Kalender seit wie vielen Tagen.'},
+      {emoji: '⏰', bold: 'Länger als eine Woche fällig:', text: ' solche Aufgaben sind im Kalender hervorgehoben; eine nie abgehakte sagt das jetzt, statt wie „heute fällig" auszusehen.'},
+      {emoji: '🌦️', bold: 'Wetterzeilen bleiben:', text: ' wer den Planer benutzt hatte, bei dem verschwanden Frost- und Regenzeile im Kalender wieder — zwei Teile der App teilten sich einen Speicherplatz. Jeder hat jetzt seinen eigenen.'},
+      {emoji: '📭', bold: 'Zwei leere Zustände:', text: ' „Nichts an diesem Tag" heisst Daten da, Tag leer — „Noch keine Daten" heisst: es gibt noch nichts, woraus ein Kalender entstehen kann.'}
+    ],
+    items: [
+      'docs/KALENDER-V2.md: der Entwurf zu Fernandos Auftrag — fünf Entscheidungen, zehn Regeln, sieben Scheiben, auf gemessener Grundlage (eine Funktion, 13 Geschwister-Oberflächen, sechs unabhängige Aussaat-Listen im Repo).',
+      '_gsKalPruefwerk(liste) am Ende von gsKalenderEreignisse: hinweise[] an jedem Ereignis, fenster (indoor|outdoor) am Aussaat-Ereignis. Reihenfolge fest: Rechnung → Prüfwerk → Sieb → Anzeige; keine Regel schreibt.',
+      'R2 ist EINE Rechnung: _gsRegenUebernimmt(p) für gsGetDueTasks (eintrag.regen, v31.84) und das Prüfwerk — der Fall zählt beide gegeneinander.',
+      'R3: calcHarvestDate/getPlantInfo gab für jeden unbekannten Namen 60–90 Tage zurück; jetzt Tor _gsKulturZuPflanze, ohne Treffer kein Ereignis — und Datum wie Grund kommen aus DERSELBEN Quelle (kul.k), nicht aus zwei Rechnungen.',
+      'Zwei Schreiber, ein Schlüssel: der Planer hielt unter gs_weather_cache eine KARTE, der Wetter-Lader ein einzelnes {ts, data, lat, lon} — und der Planer schrieb seine beim Start gelesene Fassung ganz zurück. Frost, Regen, R1 und R2 wurden danach still. Jetzt gs_weather_cache_planer (in GS_USER_KEYS).',
+      'Der Planer-Kontext las die Ernten als h.name/h.crop/h.plant — kein Schreiber von gs_ernte_log kennt eines davon; ctx.harvests war immer leer.',
+      'Beispieldaten: Wetter-Zwischenspeicher RELATIV zum Anker, nur daily — ein hourly-Block liesse ein Pseudo-Gerät „Wetterdienst" entstehen und jeder Prüfstand zählte zwei Geräte. Folge: R1 steht im Seed auf erfüllt, R2 auf nicht prüfbar.',
+      'Anzeige aus der gegnerischen Prüfung: EIN Hinweissatz je Zeile sichtbar (Rest als „+N weitere" im Grund), die ⚠-Ecke nur für Hinweise mit Satz, „Nicht bekannt:" statt „Nicht prüfbar:", Gründe ohne Open-Meteo/Ernte-Log/Zwischenspeicher, keine Doppelung von „seit N Tagen fällig".',
+      'Prüfstände: kalender_check 30 (7 neu, alle rot gegen v33.33); Gegenproben R1–R4 je ausgebaut → rot; contrast_check misst das Kalender-Fenster über den REGEN (monatsunabhängig) und wirft, wenn keine Hinweiszeile entsteht.'
+    ]
+  },
+  {
     v: 'v33.33', date: '15.09.2026',
     headline: 'Lina sagt, was stimmt: letzter Scan, Verlauf, Pflanzen — und die Garten-Timeline zeigt endlich Scans',
     summary: 'Fuenf gemessene Fehler, alle mit Pruefstand-Fall zuerst. Lina verlor den letzten Scan, sobald der Cloud-Abgleich gelaufen war (drei Zeitfelder, ein Leser verlangte genau eines); sie lud die AELTESTEN hundert Nachrichten statt der neuesten; sie fand Garten-Pflanzungen nicht und traf beim Namen per Teilstring die falsche Pflanze; sie nannte einen Weg in der App, den es nicht gibt. Und die Garten-Timeline las seit jeher einen Schluessel, den niemand schreibt — null Scans, immer.',

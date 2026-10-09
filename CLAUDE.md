@@ -383,7 +383,7 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   |---|---|---|
   | Text oder Attributwert in HTML | `escHtml(s)` (kennt seit v32.66 auch `'`) | — |
   | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
-  | Fragment, das Auszeichnung TRAGEN darf (Übersetzung mit `<br>`, Chat-Zeile mit `<strong>`) | `gsSanitizeHtml(html)` — Allowlist in einem `<template>` | `escHtml` zerstört die Auszeichnung, `innerHTML = fremd` führt sie aus |
+  | Fragment, das Auszeichnung TRAGEN darf (Übersetzung mit `<br>`, Chat-Zeile mit `<strong>`) | `gsSanitizeHtml(html)` — Allowlist in einem `<template>`; ein `style` nur über `_gsStilSaeubern` (Erlaubnisliste je Deklaration, seit v33.54) | `escHtml` zerstört die Auszeichnung, `innerHTML = fremd` führt sie aus |
   | Adresse aus fremder Hand | `_gsSafeUrl(u)` für Bilder (https/data:image), `_gsSafeLink(l)` für Navigation (eigener Ursprung oder https), `swSafeUrl` im Service Worker (nur eigener Ursprung) | `javascript:` ist eine gültige URL |
   `innerHTML = <etwas Fremdes>` ohne einen davon gibt es nicht mehr. Wer eine
   neue Stelle baut, an der Text von ANDEREN ankommt (Community, `species`,
@@ -391,6 +391,15 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   Push-Nutzlasten), rendert sie einmal mit
   `<img src=x onerror="window.__pwned=1">` in `escape_check` — der Fall ist
   die Vorlage.
+
+  > **Eine Verbotsliste auf dem Rohtext ist keine Prüfung, sobald die Sprache
+  > Escapes kennt** (v33.54). Der `style`-Filter suchte `url(` im Text — CSS
+  > liest `u\72l(` als `url(`, und `image-set("…")` lädt eine Adresse ganz ohne
+  > `url(`. 6 von 6 bösen Stilen luden eine fremde Adresse. Jetzt eine
+  > ERLAUBNISliste je Deklaration (`_gsStilSaeubern`, `GS_SANITIZE_STIL`): nur
+  > die Eigenschaften, die Texte wirklich brauchen (gemessen), keine Escapes,
+  > keine Zeichenketten, Funktionen nur `rgb/hsl/var/calc`. Und der Fall misst
+  > die WIRKUNG — die Anfragen, die der Browser stellt —, nicht den Text.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.
@@ -865,7 +874,7 @@ node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreib
 node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
 node scripts/quiz_gen_check.js   # kommt nur eine Frage in die Tabelle, die man auch anzeigen kann? Regeln in Node + Vorrat in lokalem Postgres + Anzeige (seit v33.29)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server
-node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66)
+node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.54 A10b: boese Stile (CSS-Escapes, image-set) werden WIRKLICH ins Dokument gerendert und die Anfragen des Browsers gezaehlt (0), plus Ueberlagerung und die guten Stile der Uebersetzungen
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
