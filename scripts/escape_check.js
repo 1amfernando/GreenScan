@@ -219,6 +219,49 @@ const FAELLE = [
     },
   },
   {
+    // v33.54: der style-Filter war eine VERBOTSliste auf dem Rohtext
+    // (url\s*\( usw.). CSS-Escapes (u\72l, \75rl, u\rl) und image-set("…")
+    // laden eine fremde Adresse, ohne dass „url(" im Text steht — gefunden von der
+    // gegnerischen Pruefung zu v33.53, in Chromium nachgestellt. Der Fall rendert
+    // jeden Stil WIRKLICH ins Dokument und zaehlt die Anfragen, die der Browser
+    // stellt. Die Gegenrichtung gehoert dazu: die Stile, die die Uebersetzungen
+    // heute tragen (data-i18n-html), muessen unveraendert durchkommen.
+    name: 'A10b · gsSanitizeHtml: kein style laedt eine fremde Adresse (CSS-Escapes, image-set) — und die Stile der Uebersetzungen bleiben',
+    lauf: async () => {
+      const BOES = [
+        'background:u\\72l(https://evil.example/1.png)',
+        'background:\\75rl(https://evil.example/2.png)',
+        'background:u\\rl(https://evil.example/3.png)',
+        'background-image:image-set("https://evil.example/4.png" 1x)',
+        'border:10px solid;border-image:image-set("https://evil.example/5.png" 1x) 30 round',
+        'list-style:inside u\\72l(https://evil.example/6.png)',
+      ];
+      const GUT = ['color:var(--c-danger)', 'display:block', 'font-size:var(--fs-sm)', 'font-weight:700',
+        'margin:4px 0 4px', 'margin-bottom:4px', 'color:red', 'color:rgb(10, 20, 30)'];
+      __anfragen.length = 0;
+      const r = await __seite.evaluate(async ({ BOES, GUT }) => {
+        const box = document.createElement('div');
+        box.style.cssText = 'position:absolute;left:0;top:0;width:300px;';
+        box.innerHTML = BOES.map((st, i) => gsSanitizeHtml('<div style="' + st.replace(/"/g, '&quot;') + '">b' + i + '</div>')).join('')
+          + gsSanitizeHtml('<span style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999">deckt</span>')
+          + GUT.map(st => gsSanitizeHtml('<span style="' + st + '">g</span>')).join('');
+        document.body.appendChild(box);
+        await new Promise(r => setTimeout(r, 600));
+        const spans = box.querySelectorAll('span');
+        const ueberlagert = getComputedStyle(spans[0]).position === 'fixed';
+        const gut = GUT.map((st, i) => [st, spans[i + 1] ? spans[i + 1].getAttribute('style') : null]);
+        box.remove();
+        return { ueberlagert, gut };
+      }, { BOES, GUT });
+      const fremd = __anfragen.filter(u => /evil\.example/.test(u));
+      const gutKaputt = r.gut.filter(([st, ist]) => ist !== st);
+      if (fremd.length) return { ok: false, warum: fremd.length + ' Anfrage(n) an die fremde Adresse: ' + fremd.slice(0, 3).join(', ') };
+      if (r.ueberlagert) return { ok: false, warum: 'ein style legt sich mit position:fixed ueber die ganze App' };
+      if (gutKaputt.length) return { ok: false, warum: 'gute Stile veraendert: ' + gutKaputt.map(x => x[0] + ' → ' + x[1]).join(' · ') };
+      return { ok: true, info: BOES.length + ' boese Stile, 0 Anfragen an die fremde Adresse · Ueberlagerung entfernt · ' + GUT.length + ' gute Stile unveraendert' };
+    },
+  },
+  {
     name: 'A10 · Karte „Meine Funde": ein Foto mit javascript: bekommt kein <img>, eines mit https schon',
     lauf: async () => {
       const r = await __seite.evaluate(async () => {
@@ -240,12 +283,16 @@ const FAELLE = [
   },
 ];
 
+var __anfragen = [];
 (async () => {
   const br = await chromium.launch();
   const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
   const p = await ctx.newPage(); __seite = p;
   const errs = [];
   p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
+  // v33.54: jede Anfrage, die die Seite STELLT (auch die abgebrochenen) —
+  // ein style, der eine fremde Adresse laedt, faellt hier auf, nicht erst im Netz.
+  p.on('request', rq => { __anfragen.push(rq.url()); });
   await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
   await p.addInitScript(SEED);
   await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });

@@ -41,7 +41,9 @@ Tagebuch in `CLAUDE.md`.
    `_gsOcStr(s)` fuer Werte in `onclick="…"`, `gsSanitizeHtml(html)` fuer
    Fragmente mit erlaubter Auszeichnung, `_gsSafeUrl` / `_gsSafeLink` fuer
    Adressen. Wer eine neue Stelle baut, rendert sie einmal mit
-   `<img src=x onerror="window.__pwned=1">` in `escape_check`. *(§3.6)*
+   `<img src=x onerror="window.__pwned=1">` in `escape_check`. Ein `style` in
+   einem Fragment geht nur durch die Erlaubnisliste `_gsStilSaeubern` — eine
+   Verbotsliste auf dem Rohtext uebersieht CSS-Escapes (v33.54). *(§3.6)*
 
 7. **KI nur ueber `callAI` / `callVisionAI`.** Kontext in den `systemPrompt`
    (`gsLinaContext()`), nie in `opts.brain` (ist nur ein Log-Label). Kein

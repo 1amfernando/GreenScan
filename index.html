@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.53.20261009">
+<meta name="app-version" content="33.54.20261009">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76210,6 +76210,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.54', date: '09.10.2026',
+      headline: 'Ein Stil im Text lädt keine fremde Adresse mehr',
+      summary: 'Übersetzte Texte und Chat-Zeilen dürfen ein wenig Auszeichnung tragen — und dazu ein style-Attribut. Der Filter dafür war eine Verbotsliste auf dem Rohtext: er suchte „url(“. CSS kennt aber Escapes (u\\72l( liest der Browser als url(), und image-set("…") lädt eine Adresse ganz ohne url(. Die gegnerische Prüfung zu v33.53 hat in Chromium gezeigt, dass ein Satz damit eine fremde Adresse laden konnte. Jetzt geht jeder Stil durch eine Erlaubnisliste: nur bekannte Eigenschaften, keine Escapes, keine Zeichenketten, keine Funktion ausser rgb/hsl/var/calc.',
+      user_summary: 'Eine Sicherheitslücke ist geschlossen: ein Text aus fremder Hand (eine Übersetzung, eine Antwort im Chat) konnte über eine versteckte Stil-Angabe ein Bild von einer fremden Adresse nachladen — und damit verraten, dass du die Seite geöffnet hast. Das geht nicht mehr; normale Formatierungen bleiben, wie sie sind.',
+      user_items: [
+        {emoji:'🛡️', bold:'Keine versteckten Nachlader mehr:', text:' ein Text aus fremder Hand kann über eine Stil-Angabe nichts mehr von einer fremden Adresse laden.'},
+        {emoji:'🧱', bold:'Kein Text legt sich über die App:', text:' Stil-Angaben, die einen Satz über den ganzen Bildschirm spannen könnten, fallen weg.'},
+        {emoji:'✅', bold:'Formatierungen bleiben:', text:' Farben, Fettdruck, Grösse und Abstände in den Texten sehen aus wie bisher.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' sechs Stile (u\\72l, \\75rl, u\\rl, image-set im Hintergrund und im Rahmen, list-style) lösten durch gsSanitizeHtml je eine Anfrage an die fremde Adresse aus — 6 von 6.'},
+        {emoji:'🧾', bold:'Erlaubnisliste statt Verbotsliste:', text:' _gsStilSaeubern prüft jede Deklaration: kein Backslash, kein Anführungszeichen, kein Kommentar, kein @; nur Eigenschaften aus GS_SANITIZE_STIL; Funktionen nur rgb/rgba/hsl/hsla/var/calc; ein geschlossenes Alphabet. Was nicht passt, fällt allein.'},
+        {emoji:'📐', bold:'Was die Texte brauchen, bleibt:', text:' gemessen an den übersetzbaren Elementen — color (auch mit var()), display, font-size, font-weight, margin, margin-bottom. position, width und Co. fallen, sonst legt sich ein Satz über die App.'},
+        {emoji:'🧪', bold:'escape_check A10b:', text:' rendert die bösen Stile wirklich ins Dokument und zählt die Anfragen des Browsers (0), prüft die Überlagerung und acht gute Stile. Gegen v33.53 rot (6 Anfragen); drei Gegenproben einzeln rot.'}
+      ]
+  },
+  {
     v: 'v33.53', date: '09.10.2026',
       headline: 'Export und Drucken in der Android-App',
       summary: 'In der Android-App taten die Export-Knöpfe bisher nichts: eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und print() tut dort nichts. Das Backup meldete trotzdem „heruntergeladen“, und der Giess-Zettel schrieb sich über die laufende App. Jetzt gehen Backup, GPS-Spur, CSV, Archiv und 3D-Foto an den Android-Dialog „Speichern unter“, Gartenplan und Giess-Zettel an den Druckdialog von Android (mit „Als PDF speichern“). Ohne Brücke in die Android-Schicht: die Datei geht in Teilen an Adressen unter dem eigenen Ursprung, die nur die App-Hülle beantwortet. Und jede Meldung kommt erst, wenn die Datei wirklich da ist.',
@@ -76535,31 +76552,6 @@ window.GS_RELEASES = [
       'Prüfstände: kalender_check 36 (6 neu, alle rot gegen v33.34). Gegenproben: Sieb in die Rechnung geschoben, Chip-Zahlen aus der gefilterten Liste, dritter Leerzustand ausgebaut, Punkte wieder nach Art → je rot.'
     ]
   },
-  {
-    v: 'v33.34', date: '15.09.2026',
-    headline: 'Der Kalender denkt: Frost trifft Aussaat, Regen übernimmt das Giessen, Ernte ohne Eintrag — und er sagt, woher er es weiss',
-    summary: 'Erste Scheibe von KALENDER-V2. Der Kalender hält seine Ereignisse jetzt gegeneinander: ein Prüfwerk am Ende der einen Kalender-Funktion rechnet fünf Regeln mit je drei Zuständen (erfüllt · verletzt · nicht prüfbar) und schreibt Hinweise an die beteiligten Zeilen. Dazu ein gemessener Fehler: die Ernte-Schätzung erfand für jede unbekannte Pflanze ein Datum aus 60–90 Tagen — eine Monstera-Pflanzung bekam „Ernte voraussichtlich 16.10.". Jetzt nur mit Kulturdaten, und der Grund nennt die Zahlen.',
-    user_summary: 'Der Kalender warnt dich jetzt, wenn Frost in ein Aussaatfenster fällt, sagt dir, wenn Regen das Giessen übernommen hat, erinnert dich, wenn eine geschätzte Ernte reif sein müsste und nichts eingetragen ist, und hebt Aufgaben hervor, die länger als eine Woche fällig sind. Jede Warnung lässt sich antippen und sagt, woher sie kommt — und wenn er etwas nicht sicher weiß, schreibt er das hin, statt zu schweigen.',
-    user_items: [
-      {emoji: '❄️', bold: 'Frost trifft Aussaat:', text: ' steht ein Frosttag in der Vorhersage und ein Aussaatfenster draussen im selben Monat, tragen beide Zeilen den Hinweis.'},
-      {emoji: '🌧️', bold: 'Regen übernimmt:', text: ' ab 6 mm gemessenem Regen heute steht es an der Giess-Aufgabe deiner Pflanzen draussen — die Aufgabe bleibt, du entscheidest.'},
-      {emoji: '🧺', bold: 'Ernte ohne Eintrag:', text: ' ist eine geschätzte Ernte fällig und nichts im Ernte-Log, sagt der Kalender seit wie vielen Tagen.'},
-      {emoji: '⏰', bold: 'Länger als eine Woche fällig:', text: ' solche Aufgaben sind im Kalender hervorgehoben; eine nie abgehakte sagt das jetzt, statt wie „heute fällig" auszusehen.'},
-      {emoji: '🌦️', bold: 'Wetterzeilen bleiben:', text: ' wer den Planer benutzt hatte, bei dem verschwanden Frost- und Regenzeile im Kalender wieder — zwei Teile der App teilten sich einen Speicherplatz. Jeder hat jetzt seinen eigenen.'},
-      {emoji: '📭', bold: 'Zwei leere Zustände:', text: ' „Nichts an diesem Tag" heisst Daten da, Tag leer — „Noch keine Daten" heisst: es gibt noch nichts, woraus ein Kalender entstehen kann.'}
-    ],
-    items: [
-      'docs/KALENDER-V2.md: der Entwurf zu Fernandos Auftrag — fünf Entscheidungen, zehn Regeln, sieben Scheiben, auf gemessener Grundlage (eine Funktion, 13 Geschwister-Oberflächen, sechs unabhängige Aussaat-Listen im Repo).',
-      '_gsKalPruefwerk(liste) am Ende von gsKalenderEreignisse: hinweise[] an jedem Ereignis, fenster (indoor|outdoor) am Aussaat-Ereignis. Reihenfolge fest: Rechnung → Prüfwerk → Sieb → Anzeige; keine Regel schreibt.',
-      'R2 ist EINE Rechnung: _gsRegenUebernimmt(p) für gsGetDueTasks (eintrag.regen, v31.84) und das Prüfwerk — der Fall zählt beide gegeneinander.',
-      'R3: calcHarvestDate/getPlantInfo gab für jeden unbekannten Namen 60–90 Tage zurück; jetzt Tor _gsKulturZuPflanze, ohne Treffer kein Ereignis — und Datum wie Grund kommen aus DERSELBEN Quelle (kul.k), nicht aus zwei Rechnungen.',
-      'Zwei Schreiber, ein Schlüssel: der Planer hielt unter gs_weather_cache eine KARTE, der Wetter-Lader ein einzelnes {ts, data, lat, lon} — und der Planer schrieb seine beim Start gelesene Fassung ganz zurück. Frost, Regen, R1 und R2 wurden danach still. Jetzt gs_weather_cache_planer (in GS_USER_KEYS).',
-      'Der Planer-Kontext las die Ernten als h.name/h.crop/h.plant — kein Schreiber von gs_ernte_log kennt eines davon; ctx.harvests war immer leer.',
-      'Beispieldaten: Wetter-Zwischenspeicher RELATIV zum Anker, nur daily — ein hourly-Block liesse ein Pseudo-Gerät „Wetterdienst" entstehen und jeder Prüfstand zählte zwei Geräte. Folge: R1 steht im Seed auf erfüllt, R2 auf nicht prüfbar.',
-      'Anzeige aus der gegnerischen Prüfung: EIN Hinweissatz je Zeile sichtbar (Rest als „+N weitere" im Grund), die ⚠-Ecke nur für Hinweise mit Satz, „Nicht bekannt:" statt „Nicht prüfbar:", Gründe ohne Open-Meteo/Ernte-Log/Zwischenspeicher, keine Doppelung von „seit N Tagen fällig".',
-      'Prüfstände: kalender_check 30 (7 neu, alle rot gegen v33.33); Gegenproben R1–R4 je ausgebaut → rot; contrast_check misst das Kalender-Fenster über den REGEN (monatsunabhängig) und wirft, wenn keine Hinweiszeile entsteht.'
-    ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76768,7 +76760,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.53';
+var GS_VERSION = 'v33.54';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -90139,6 +90131,49 @@ var _gsRateLimit = {};
 // werden ausgepackt (der Text bleibt). href nur http(s)/mailto/gleicher
 // Ursprung, mit rel=noopener. style ohne url( / expression( / @import.
 // Geparst wird in einem <template> — dort führt ein onerror nichts aus.
+// v33.54: das style-Attribut geht durch eine ERLAUBNISliste, je Deklaration.
+// Bis v33.53 war es eine Verbotsliste auf dem Rohtext (url\s*\(, expression,
+// @import …) — und CSS kennt Escapes: `u\72l(` ist fuer den Browser `url(`,
+// steht aber nicht so im Text; `image-set("…")` laedt eine Adresse ganz ohne
+// `url(`. Die gegnerische Pruefung zu v33.53 hat beides in Chromium gezeigt:
+// ein Satz aus einer Uebersetzung oder einer Chat-Zeile konnte eine fremde
+// Adresse laden. Jetzt gilt:
+//   - kein Backslash, kein Anfuehrungszeichen, kein Kommentar, kein @, kein <>
+//     im ganzen Wert — damit gibt es weder Escapes noch Zeichenketten;
+//   - nur Eigenschaften aus GS_SANITIZE_STIL (was Texte wirklich brauchen —
+//     gemessen: color, display, font-size, font-weight, margin, margin-bottom);
+//     position/width/height und Co. fallen, sonst legt sich ein Satz ueber die App;
+//   - Funktionen nur rgb/rgba/hsl/hsla/var/calc — kein url, image-set, element …;
+//   - ein geschlossenes Alphabet fuer den Wert (kein Doppelpunkt: kein https:).
+// Eine Deklaration, die nicht passt, faellt allein; die anderen bleiben.
+var GS_SANITIZE_STIL = {
+  'color': 1, 'background-color': 1, 'font-weight': 1, 'font-style': 1, 'font-size': 1, 'font-variant': 1,
+  'text-decoration': 1, 'text-align': 1, 'text-transform': 1, 'line-height': 1, 'letter-spacing': 1, 'white-space': 1,
+  'display': 1, 'opacity': 1, 'vertical-align': 1,
+  'margin': 1, 'margin-top': 1, 'margin-right': 1, 'margin-bottom': 1, 'margin-left': 1,
+  'padding': 1, 'padding-top': 1, 'padding-right': 1, 'padding-bottom': 1, 'padding-left': 1,
+  'border-radius': 1
+};
+function _gsStilSaeubern(wert) {
+  var v = String(wert == null ? '' : wert);
+  if (/[\\"'<>@]|\/\*/.test(v)) return '';
+  var out = [];
+  v.split(';').forEach(function (d) {
+    d = d.trim();
+    if (!d) return;
+    var i = d.indexOf(':');
+    if (i <= 0) return;
+    var prop = d.slice(0, i).trim().toLowerCase(), w = d.slice(i + 1).trim();
+    if (!GS_SANITIZE_STIL.hasOwnProperty(prop) || !w) return;
+    var fns = w.match(/[a-z-]+\s*\(/gi) || [];
+    for (var j = 0; j < fns.length; j++) if (!/^(rgb|rgba|hsl|hsla|var|calc)\s*\($/i.test(fns[j])) return;
+    if (!/^[#\w\s.,%()+\-*\/!]*$/.test(w)) return;
+    out.push(prop + ':' + w);
+  });
+  return out.join(';');
+}
+window._gsStilSaeubern = _gsStilSaeubern;
+
 function gsSanitizeHtml(html) {
   var tpl = document.createElement('template');
   tpl.innerHTML = String(html == null ? '' : html);
@@ -90160,7 +90195,7 @@ function gsSanitizeHtml(html) {
       Array.prototype.slice.call(k.attributes).forEach(function (a) {
         var nm = a.name.toLowerCase(), v = String(a.value || '');
         if (!ATTR[nm]) { k.removeAttribute(a.name); return; }
-        if (nm === 'style' && /url\s*\(|expression\s*\(|@import|behavior\s*:|javascript:/i.test(v)) k.removeAttribute(a.name);
+        if (nm === 'style') { var st = _gsStilSaeubern(v); if (st) k.setAttribute('style', st); else k.removeAttribute(a.name); }
         if (nm === 'href') {
           if (!/^(https?:\/\/|mailto:|\/(?!\/)|#|\?)/i.test(v.trim())) { k.removeAttribute('href'); }
           else if (/^https?:/i.test(v.trim())) { k.setAttribute('target', '_blank'); k.setAttribute('rel', 'noopener noreferrer'); }

@@ -12,6 +12,49 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-10-09 (iy) - v33.54: Ein Stil im Text lädt keine fremde Adresse mehr
+
+Die erste Folge-Scheibe aus der gegnerischen Prüfung zu v33.53 (STATUS §2,
+„`gsSanitizeHtml`: CSS-Escapes im `style`-Attribut").
+
+**Gemessen (escape_check, Chromium):** `gsSanitizeHtml` liess ein `style`
+durch, solange der ROHTEXT kein `url(`, `expression(`, `@import`,
+`behavior:` oder `javascript:` enthielt. Sechs Stile, gerendert ins Dokument:
+`u\72l(…)`, `\75rl(…)`, `u\rl(…)`, `image-set("…")` im Hintergrund und im
+Rahmen, `list-style … u\72l(…)` — **6 von 6 lösten eine Anfrage an die fremde
+Adresse aus.** Dazu legte sich ein `position:fixed`-Satz über die ganze App.
+Betroffen: die zwei Aufrufer — Übersetzungen mit `data-i18n-html` und der
+Scan-Chat. Gebraucht werden dort (gemessen an den übersetzbaren Elementen)
+genau sechs Eigenschaften: color (auch mit `var()`), display, font-size,
+font-weight, margin, margin-bottom.
+
+**Gebaut:**
+
+- **`_gsStilSaeubern`** mit **`GS_SANITIZE_STIL`**: eine Erlaubnisliste je
+  Deklaration. Kein Backslash, kein Anführungszeichen, kein Kommentar, kein
+  `@`, kein `<>` im Wert; nur Eigenschaften aus der Liste (Text, Schrift,
+  Abstände, `display`, `opacity`, `border-radius` — kein `position`, keine
+  Grösse, kein Hintergrundbild); Funktionen nur `rgb/rgba/hsl/hsla/var/calc`;
+  ein geschlossenes Alphabet (kein Doppelpunkt, also kein `https:`). Was
+  nicht passt, fällt allein; der Rest bleibt.
+- **`escape_check` A10b:** rendert die bösen Stile WIRKLICH und zählt die
+  Anfragen, die der Browser stellt (`page.on('request')`), dazu die
+  Überlagerung und acht gute Stile aus den Übersetzungen. Gegen v33.53 rot
+  (6 Anfragen).
+
+**Gegenproben:** Filter ganz aus → 6 Anfragen (rot); nur die
+Eigenschaftsliste aus → die Überlagerung kommt durch (rot); `margin` aus der
+Liste → ein guter Stil geht kaputt (rot). Ehrlich dazu: die vier Riegel
+(Zeichen, Eigenschaft, Funktion, Alphabet) halten die Anfragen **jeder für
+sich** ab — einen einzelnen davon zu entfernen bleibt bei den Anfragen grün.
+Das ist Absicht (Tiefe), und gemessen wird es dort, wo ein einzelner Riegel
+den Unterschied macht.
+
+**Lehre:** **Eine Verbotsliste auf dem Rohtext ist keine Prüfung, sobald die
+Sprache Escapes kennt.** Und der Fall misst die WIRKUNG (die Anfrage des
+Browsers), nicht den Text — ein Textvergleich hätte dieselbe Lücke gehabt
+wie der Filter.
+
 ### 2026-10-09 (ix) - v33.53: Export und Drucken in der Android-App
 
 Fernando: „Bitte mit a anfangen" — A war der Export in der APK. Bis v33.52
@@ -14944,9 +14987,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.53` (Client) · SW-Cache `gs-v33.53` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.54` (Client) · SW-Cache `gs-v33.54` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **96'058 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **580 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.32).
+- **Frontend:** `index.html` **96'093 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **580 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.32).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 39** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -15003,7 +15046,6 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
-| **`gsSanitizeHtml`: CSS-Escapes im `style`-Attribut** | Die gegnerische Prüfung zu v33.53 hat in einem lokalen Chromium gezeigt, dass ein `style` mit Backslash-Escapes den Filter passiert und eine Anfrage an eine fremde Adresse auslöst (Tracking aus Übersetzungen, Chat-Zeilen, KI-Text). Eigene Scheibe mit Fall in `escape_check`. | (ix) |
 | **Teilen und Zwischenablage in der Hülle** | Vier Teilen-Wege (`gsAchShare`, `gsShareSpecies`, `gsShareApp`, `_gsShare`) fallen in einer WebView auf die Zwischenablage zurück; zwei Meldungen „kopiert" kommen vor dem `writeText`-Ergebnis. Ein Kanal-Ziel „teilen" (ACTION_SEND, Text) wäre die Antwort. | (ix) |
 | **Foto-Ansicht per `window.open(this.src)` in der Hülle** | Tagebuch- und Rezeptfotos öffnen den Browser des Telefons (die App wird verlassen); ein `blob:`/`data:`-Foto ergibt „kein Ziel". Gehört in eine Ansicht in der App. | (ix) |
 | **Kein SPA-Rückfall im Paket** | `_redirects` liefert im Web für jede unbekannte Adresse `index.html`; der AssetServer der Hülle antwortet 404. Ein relativer Link ohne `screen=` (Benachrichtigungen) endet in der App leer. | (ix) |
