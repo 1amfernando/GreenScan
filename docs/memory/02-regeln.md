@@ -1,4 +1,4 @@
-# 02 · Die zwoelf Regeln — fuer jede Codezeile
+# 02 · Die dreizehn Regeln — fuer jede Codezeile
 
 Jede Regel hat einen Grund, der einmal Geld gekostet hat (`05-fallen.md`), und
 einen Pruefstand, der sie haelt (`04-pruefstaende.md`). Kurzform hier, das
@@ -79,6 +79,13 @@ Tagebuch in `CLAUDE.md`.
     sechs Zustaende mit Grund; 0 Zeilen am Tabellenweg sind eine Ablehnung,
     `return=minimal` gibt es dort nicht) — nie ueber rohes `sbFetch`.
     *(§7.1 admin_check, v33.50)*
+13. **Eine Datei anbieten heisst `gsDateiSpeichern`, drucken heisst
+    `gsDrucken` — und gemeldet wird nach dem Zustand.** Nie ein eigener Anker
+    mit `download`, nie `window.open('')` + `document.write`, nie eine
+    „heruntergeladen"-Meldung vor `_gsDateiAngekommen(r)`. In der
+    Android-Huelle laufen beide ueber den Kanal `/__huelle/datei/` (ohne
+    Bruecke); eine neue Export-Stelle traegt sich in die Liste `EXPORTE` in
+    `apk_check` ein. *(§4d Punkt 5, apk_check E1–E10, v33.53)*
 
 ## Und drei Regeln ueber das Arbeiten selbst
 

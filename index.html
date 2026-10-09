@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.52.20261006">
+<meta name="app-version" content="33.53.20261009">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30125,6 +30125,13 @@ window.gsGiessZettelDrucken = function(){
       '<table><thead><tr><th>Tag</th><th>Pflanze</th><th>Ort</th><th>Aufgabe</th><th>Erledigt</th></tr></thead><tbody>' +
       zeilen.map(function(z){ return '<tr><td>' + esc(_gsZettelWochentag(z.datum) + ' ' + _gsZettelDatum(z.datum)) + '</td><td>' + esc(z.pflanze) + '</td><td>' + esc(z.ort || '—') + '</td><td>' + esc(z.aufgabe + ' (alle ' + z.intervall + ' Tage)') + '</td><td><span class="ok"></span></td></tr>'; }).join('') +
       '</tbody></table></body></html>';
+    // v33.53 (GS_HUELLE_ANDERS 'drucken'): in der Android-App liefert
+    // window.open('') den LAUFENDEN Rahmen — das document.write darunter
+    // schrieb den Zettel UEBER die App. Dort geht er an den Druckdialog.
+    if (gsAndroidHuelle()) {
+      gsDrucken(html, 'GreenScan Giess-Zettel').then(function (r) { if (!_gsDateiAngekommen(r)) _gsDateiNichtGespeichert(r, 'drucken'); });
+      return html;
+    }
     var pw = null; try { pw = window.open('', '_blank'); } catch(_){ pw = null; }
     if (pw && pw.document) { pw.document.write(html); pw.document.close(); try { pw.focus(); } catch(_){} setTimeout(function(){ try { pw.print(); } catch(_){} }, 300); }
     else if (typeof gsToast === 'function') gsToast('Das Druckfenster wurde blockiert — bitte Pop-ups für green-scan.ch erlauben.', 'warn', 5000);
@@ -56127,11 +56134,15 @@ window._gsBackupEinspielen = _gsBackupEinspielen;
 function exportUserData() {
   const data = _gsBackupDaten();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'GreenScan-Backup-' + new Date().toISOString().slice(0,10) + '.json';
-  a.click();
-  showMarketNotif('Backup erstellt und heruntergeladen!', '📤', '#2e7d32');
+  // v33.53: durch den EINEN Weg (gsDateiSpeichern) — bis v33.52 ein
+  // LOSGELOESTER Anker, den in der Android-App nichts sah, und danach stand
+  // trotzdem „heruntergeladen". Die Meldung kommt jetzt erst mit dem Zustand.
+  return gsDateiSpeichern(blob, 'GreenScan-Backup-' + new Date().toISOString().slice(0,10) + '.json', 'application/json')
+    .then(function (r) {
+      if (_gsDateiAngekommen(r)) showMarketNotif(r.state === 'gespeichert' ? 'Backup gespeichert!' : 'Backup erstellt und heruntergeladen!', '📤', '#2e7d32');
+      else _gsDateiNichtGespeichert(r);
+      return r;
+    });
 }
 
 function importUserData() {
@@ -58486,13 +58497,13 @@ function gsTrackExportGPX(idx) {
       }).join('\n') +
       '\n</trkseg></trk>\n</gpx>';
     var blob = new Blob([gpx], {type:'application/gpx+xml;charset=utf-8'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'greenscan-track-' + new Date(t.ts).toISOString().slice(0,10) + '.gpx';
-    document.body.appendChild(a); a.click();
-    setTimeout(function(){ try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(_){} }, 1500);
-    showProfileToast && showProfileToast('📥 GPX heruntergeladen');
+    // v33.53: der EINE Weg; gemeldet wird, was wirklich passiert ist.
+    return gsDateiSpeichern(blob, 'greenscan-track-' + new Date(t.ts).toISOString().slice(0,10) + '.gpx', 'application/gpx+xml')
+      .then(function (r) {
+        if (_gsDateiAngekommen(r)) { if (typeof showProfileToast === 'function') showProfileToast(r.state === 'gespeichert' ? '📥 GPX gespeichert' : '📥 GPX heruntergeladen'); }
+        else _gsDateiNichtGespeichert(r);
+        return r;
+      });
   } catch(e) { console.warn('[gsTrackExportGPX]', e); }
 }
 
@@ -69812,12 +69823,12 @@ function gsRenderGardenScan3D(container, analysis) {
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(oldPR);
       renderer.setSize(w, h, false);
-      // Trigger Download
-      var a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = 'greenscan-plan-' + new Date().toISOString().slice(0,10) + '.png';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      if (typeof gsToast === 'function') gsToast('📸 4K-Foto gespeichert', 'success');
+      // v33.53: der EINE Weg — die Meldung erst, wenn das Foto da ist.
+      gsDateiSpeichern(dataUrl, 'greenscan-plan-' + new Date().toISOString().slice(0,10) + '.png', 'image/png')
+        .then(function (r) {
+          if (_gsDateiAngekommen(r)) { if (typeof gsToast === 'function') gsToast('📸 4K-Foto gespeichert', 'success'); }
+          else _gsDateiNichtGespeichert(r);
+        });
     } catch(e) {
       console.warn('[3D photo]', e);
       if (typeof gsToast === 'function') gsToast('Foto-Export fehlgeschlagen', 'error');
@@ -70675,22 +70686,23 @@ function gsGardenScanExportPDF() {
   var warns = s.analysis.warnings || [];
   var monthNames = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','dez'];
   var monthLabels = gsMonate(true);
+  // v33.53: JEDES Feld aus der KI-Antwort wird escaped. Bis v33.52 standen
+  // Pflanzennamen, Kalender, Werkzeuge und Warnungen roh im Dokument — und das
+  // Dokument lag in einem iframe mit dem Ursprung der App: ein
+  // `<img src=x onerror=…>` in einer Antwort lief mit Zugriff auf den
+  // Speicher der App (CLAUDE.md §3.6 nennt KI-Ausgaben ausdruecklich).
+  var e = (typeof gsEscHtml === 'function') ? gsEscHtml : function(x){ return String(x == null ? '' : x).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
   var calRows = monthNames.map(function(m, i){
     var entries = cal[m] || cal[monthLabels[i].toLowerCase()] || [];
     if (!Array.isArray(entries)) entries = [];
     if (!entries.length) return '';
-    return '<tr><td style="font-weight:700;padding:4px 8px;border-bottom:1px solid #ddd;">' + monthLabels[i] + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + entries.join(' · ') + '</td></tr>';
+    return '<tr><td style="font-weight:700;padding:4px 8px;border-bottom:1px solid #ddd;">' + e(monthLabels[i]) + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + entries.map(e).join(' · ') + '</td></tr>';
   }).filter(Boolean).join('');
   var plantsList = rp.map(function(pl){
-    return '<li><strong>' + (pl.name||'') + '</strong>' + (pl.lat?' <em>('+pl.lat+')</em>':'') + (pl.qty?' · '+pl.qty+'x':'') + (pl.position?' · Pos. '+(pl.position.x||0)+','+(pl.position.y||0)+'m':'') + '</li>';
+    return '<li><strong>' + e(pl.name||'') + '</strong>' + (pl.lat?' <em>('+e(pl.lat)+')</em>':'') + (pl.qty?' · '+e(pl.qty)+'x':'') + (pl.position?' · Pos. '+e(pl.position.x||0)+','+e(pl.position.y||0)+'m':'') + '</li>';
   }).join('');
   var svgBlock = (typeof gsBuildGardenScanSvg === 'function') ? gsBuildGardenScanSvg(s.analysis) : '';
-  var iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;top:-9999px;left:0;width:1px;height:1px;border:none;';
-  document.body.appendChild(iframe);
-  var doc = iframe.contentDocument || iframe.contentWindow.document;
-  doc.open();
-  doc.write(
+  var html = (
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>GreenScan KI-Garten-Plan</title>' +
     '<style>' + GS_DOC_TOKENS +
     'body{font-family:-apple-system,system-ui,sans-serif;color:#222;padding:20px;max-width:800px;margin:0 auto;}' +
@@ -70702,27 +70714,21 @@ function gsGardenScanExportPDF() {
     '@media print { body{padding:8px;} h1{page-break-after:avoid;} h2{page-break-after:avoid;} svg{max-width:100%;height:auto;page-break-inside:avoid;} }' +
     '</style></head><body>' +
     '<h1>🌱 GreenScan — KI-Garten-Plan</h1>' +
-    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString(gsLocale()) + ' · ' + (sa.size_m2?sa.size_m2+' m²':'') + (sa.shape?' · '+sa.shape:'') + (sa.light&&sa.light.level?' · '+sa.light.level:'') + (s.plan_id?' · ID: '+String(s.plan_id).slice(0,8):'') + '</div>' +
+    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString(gsLocale()) + ' · ' + (sa.size_m2?e(sa.size_m2)+' m²':'') + (sa.shape?' · '+e(sa.shape):'') + (sa.light&&sa.light.level?' · '+e(sa.light.level):'') + (s.plan_id?' · ID: '+e(String(s.plan_id).slice(0,8)):'') + '</div>' +
     (svgBlock ? '<h2>📐 Plan-Skizze</h2>' + svgBlock.replace(/onclick="[^"]*"/g, '') : '') +
     '<h2>🌿 Empfohlene Pflanzen (' + rp.length + ')</h2><ol>' + plantsList + '</ol>' +
     (calRows ? '<h2>📅 Monatskalender</h2><table>' + calRows + '</table>' : '') +
-    (tools.length ? '<h2>🔧 Werkzeuge</h2><ul>' + tools.map(function(t){return '<li>'+t+'</li>';}).join('') + '</ul>' : '') +
-    (warns.length ? '<h2>⚠️ Warnungen</h2><ul>' + warns.map(function(w){return '<li>'+w+'</li>';}).join('') + '</ul>' : '') +
+    (Array.isArray(tools) && tools.length ? '<h2>🔧 Werkzeuge</h2><ul>' + tools.map(function(t){return '<li>'+e(t)+'</li>';}).join('') + '</ul>' : '') +
+    (Array.isArray(warns) && warns.length ? '<h2>⚠️ Warnungen</h2><ul>' + warns.map(function(w){return '<li>'+e(w)+'</li>';}).join('') + '</ul>' : '') +
     '<div class="meta" style="margin-top:30px;text-align:center;">https://green-scan.ch · KI-generiert</div>' +
     '</body></html>'
   );
-  doc.close();
-  // Kurze Verzögerung damit DOM rendert, dann print
-  setTimeout(function(){
-    try {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-    } catch(e) {
-      if (typeof gsToast === 'function') gsToast({title:'PDF-Export', body: 'Print-Dialog konnte nicht geöffnet werden: ' + (e.message||e), type:'error'});
-    }
-    // Cleanup nach 2s
-    setTimeout(function(){ try { iframe.remove(); } catch(_){} }, 2000);
-  }, 250);
+  // v33.53: der EINE Druckweg — im Browser das versteckte iframe wie bisher,
+  // in der Android-App der Druckdialog von Android (dort tat print() nichts).
+  return gsDrucken(html, 'GreenScan KI-Garten-Plan').then(function (r) {
+    if (!_gsDateiAngekommen(r)) _gsDateiNichtGespeichert(r, 'drucken');
+    return r;
+  });
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -73043,6 +73049,18 @@ async function gsPPexportPDF() {
   // Auf Mobile öffnet die Web Share API ein natives Sheet wo der User
   // "In Dateien speichern", "Drucken", "Mail senden" etc. wählen kann.
   try {
+    // v33.53 (GS_HUELLE_ANDERS 'drucken'): in der Android-App gibt es kein
+    // verlaessliches Teilen-Blatt, kein zweites Fenster und kein print() —
+    // bis v33.52 kam dort ein „heruntergeladen" ohne Datei und ein Fenster mit
+    // zwei Knoepfen, die nichts taten. Jetzt: das Dokument an den Druckdialog
+    // von Android, und dort „Als PDF speichern" — das PDF, das der Knopf verspricht.
+    if (gsAndroidHuelle()) {
+      return gsDrucken(html, 'GreenScan Garten-Plan').then(function (r) {
+        if (_gsDateiAngekommen(r)) { if (typeof showProfileToast === 'function') showProfileToast('📄 Druckdialog geöffnet — „Als PDF speichern" wählen'); }
+        else _gsDateiNichtGespeichert(r, 'drucken');
+        return r;
+      });
+    }
     var fname = 'greenscan-plan-' + new Date().toISOString().slice(0,10) + '.html';
     var blob = new Blob([html], {type:'text/html;charset=utf-8'});
 
@@ -73074,7 +73092,7 @@ async function gsPPexportPDF() {
     // v29.61: Desktop → echtes PDF via Browser-Druckdialog (statt klobigem .html-Download).
     // Öffnet den Plan in einem neuen Fenster + triggert window.print() → der User wählt
     // „Als PDF speichern". Bei Popup-Blocker Fallback auf den .html-Download unten.
-    if (!isMobile) {
+    if (!isMobile && !gsAndroidHuelle()) {
       var pw = null;
       try { pw = window.open('', '_blank'); } catch(_){ pw = null; }
       if (pw && pw.document) {
@@ -73092,19 +73110,8 @@ async function gsPPexportPDF() {
       }
     }
 
-    // Strategy 2: a.click-Download
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = fname;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){
-      try { document.body.removeChild(a); } catch(_){}
-      try { URL.revokeObjectURL(url); } catch(_){}
-    }, 1500);
+    // Strategy 2: der EINE Weg fuer eine Datei (v33.53, gsDateiSpeichern).
+    gsDateiSpeichern(blob, fname, 'text/html');
     showProfileToast && showProfileToast(isMobile ? '📄 Datei heruntergeladen — in „Dateien" öffnen + drucken' : '📄 Plan-HTML heruntergeladen — Datei öffnen + drucken/PDF');
     // Fallback bei Standalone-PWA: Modal mit Inline-View + manueller Drucken-Button
     if (typeof gsLaeuftAlsApp === 'function' && gsLaeuftAlsApp()) {
@@ -76203,6 +76210,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.53', date: '09.10.2026',
+      headline: 'Export und Drucken in der Android-App',
+      summary: 'In der Android-App taten die Export-Knöpfe bisher nichts: eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und print() tut dort nichts. Das Backup meldete trotzdem „heruntergeladen“, und der Giess-Zettel schrieb sich über die laufende App. Jetzt gehen Backup, GPS-Spur, CSV, Archiv und 3D-Foto an den Android-Dialog „Speichern unter“, Gartenplan und Giess-Zettel an den Druckdialog von Android (mit „Als PDF speichern“). Ohne Brücke in die Android-Schicht: die Datei geht in Teilen an Adressen unter dem eigenen Ursprung, die nur die App-Hülle beantwortet. Und jede Meldung kommt erst, wenn die Datei wirklich da ist.',
+      user_summary: 'In der Android-App kannst du jetzt exportieren und drucken: Backup, GPS-Spuren, Tabellen und Fotos speicherst du über „Speichern unter“ dort, wo du willst; Gartenplan und Giess-Zettel gehen an den Druckdialog, wo du sie auch als PDF speichern kannst. Schliesst du den Dialog, sagt die App „Nicht gespeichert“ — statt so zu tun, als wäre die Datei da.',
+      user_items: [
+        {emoji:'💾', bold:'Exportieren in der App:', text:' Backup, GPS-Spur, Pflanzen, Tagebuch, Messwerte, Archiv und das 3D-Foto speicherst du jetzt über den Android-Dialog „Speichern unter“.'},
+        {emoji:'🖨️', bold:'Drucken und PDF:', text:' Gartenplan und Giess-Zettel öffnen den Druckdialog von Android — dort gibt es „Als PDF speichern“.'},
+        {emoji:'✋', bold:'Abbrechen heisst nicht gespeichert:', text:' die Erfolgsmeldung kommt erst, wenn die Datei wirklich da ist.'},
+        {emoji:'🛡️', bold:'Sicherer Druck im Browser:', text:' Text aus der KI-Antwort steht im Garten-Scan-Druck jetzt als Text da und kann dort nichts mehr ausführen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' acht Export-Stellen bauten je einen eigenen Anker und sagten sofort „heruntergeladen“. In der Hülle passierte nichts; das Backup klickte einen LOSGELÖSTEN Anker, den das alte Tor gar nicht sah. window.open(\'\') liefert in einer WebView den laufenden Rahmen — der Giess-Zettel schrieb sich über die App.'},
+        {emoji:'🔌', bold:'Ein Kanal ohne Brücke:', text:' gsDateiSpeichern und gsDrucken sind die zwei Wege für alle. In der Hülle geht die Datei per fetch in Teilen an /__huelle/datei/… (start → teil → fertig), die Hülle sammelt sie in eine Spool-Datei und öffnet „Speichern unter“ bzw. den Druckdialog. Kein addJavascriptInterface.'},
+        {emoji:'🔑', bold:'Vier Riegel und ein Schlüssel:', text:' nur GET, nie eine Navigation, nur mit eigener Kopfzeile, nur vom eigenen Ursprung — und ein zufälliger Schlüssel, den nur lesen kann, wer start mit fetch gestellt hat. Ein <img> aus fremder Hand kommt nicht über start hinaus.'},
+        {emoji:'🧯', bold:'Was auf einem Telefon schiefgeht:', text:' Spool-Datei statt Arbeitsspeicher (Prozess stirbt bei offenem Dialog), "wt" statt "w" (Ersetzen kürzt), eine leere Datei wird wieder gelöscht, Schreiben im Hintergrund, Dialog nur von vorne, monotone Uhr, keine Ausnahme auf dem Faden von shouldInterceptRequest.'},
+        {emoji:'🖨️', bold:'Eine eigene Druckansicht:', text:' ohne JavaScript, ohne Netz, ohne Navigation, Grundadresse null, einmal drucken. GS_HUELLE_ANDERS hat einen sechsten Eintrag, „drucken“.'},
+        {emoji:'🛡️', bold:'Vorbestehende Lücke geschlossen:', text:' gsGardenScanExportPDF setzte Pflanzennamen, Kalender, Werkzeuge und Warnungen aus der KI-Antwort ROH in ein Dokument mit dem Ursprung der App. Jetzt escaped, im Browser wie in der App.'},
+        {emoji:'🧪', bold:'apk_check 28 → 68 Fälle:', text:' Export.java gegen android.jar 23 übersetzt und mit Grenzfällen ausgeführt; in der App-Hälfte läuft die Hülle unter https://green-scan.ch mit der CSP aus _headers, und der Kanal geht an einen Java-Prozess mit dem ECHTEN Sammler. Alle zehn Exporte über ihre echte Funktion, die Datei auf der Platte gelesen, byte-gleich mit dem Download im Browser. 16 Brüche als Gegenprobe, 18 Fälle rot, jeder mit dem richtigen Grund.'},
+        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Rechnung, Rand und Seite — ob ein echtes Telefon den Dialog so zeigt, sagt erst ein Gerät (Android 6, 10 und 14).'}
+      ]
+  },
+  {
     v: 'v33.52', date: '06.10.2026',
       headline: 'Vier Bestätigungen, die nur stimmten, wenn alles gut ging',
       summary: 'Profil speichern, Freundschaft annehmen und zwei Foto-Wege sagten „gespeichert“, sobald der Server keinen Fehler meldete. Bei einer Änderung, die der Server nicht erlaubt, meldet er aber keinen Fehler — er ändert einfach null Zeilen. Jetzt zählt die App die Zeilen. Dazu eine Regel auf dem Server, die beim Annehmen von Freundschaften zu grosszügig war.',
@@ -76531,27 +76560,6 @@ window.GS_RELEASES = [
       'Prüfstände: kalender_check 30 (7 neu, alle rot gegen v33.33); Gegenproben R1–R4 je ausgebaut → rot; contrast_check misst das Kalender-Fenster über den REGEN (monatsunabhängig) und wirft, wenn keine Hinweiszeile entsteht.'
     ]
   },
-  {
-    v: 'v33.33', date: '15.09.2026',
-    headline: 'Lina sagt, was stimmt: letzter Scan, Verlauf, Pflanzen — und die Garten-Timeline zeigt endlich Scans',
-    summary: 'Fuenf gemessene Fehler, alle mit Pruefstand-Fall zuerst. Lina verlor den letzten Scan, sobald der Cloud-Abgleich gelaufen war (drei Zeitfelder, ein Leser verlangte genau eines); sie lud die AELTESTEN hundert Nachrichten statt der neuesten; sie fand Garten-Pflanzungen nicht und traf beim Namen per Teilstring die falsche Pflanze; sie nannte einen Weg in der App, den es nicht gibt. Und die Garten-Timeline las seit jeher einen Schluessel, den niemand schreibt — null Scans, immer.',
-    user_summary: 'Lina weiss jetzt zuverlaessig, was du zuletzt gescannt hast, kennt den juengsten Teil eures Gespraechs, findet auch deine Garten-Pflanzungen — und schickt dich nicht mehr auf einen Weg, den es in der App nicht gibt. Die Garten-Timeline zeigt jetzt deine Scans.',
-    user_items: [
-      {emoji: '🔬', bold: 'Letzter Scan bleibt sichtbar:', text: ' auch nach dem Abgleich mit der Cloud und bei Scans von einem zweiten Geraet.'},
-      {emoji: '💬', bold: 'Das Gespraech geht weiter:', text: ' Lina laedt die neuesten hundert Nachrichten, nicht die aeltesten.'},
-      {emoji: '🌱', bold: 'Garten-Pflanzungen gefunden:', text: ' eine Erinnerung an die Zucchini im Beet geht jetzt — und „Mon" trifft nicht mehr die Monstera.'},
-      {emoji: '📆', bold: 'Garten-Timeline mit Scans:', text: ' sie zeigte bisher keine, weil sie am falschen Ort nachsah.'}
-    ],
-    items: [
-      '_gsScanZeit(h): EIN Leser fuer ts (Cloud, Scanner), timestamp (App) und createdAt (Merge). gsLinaZahlen, die Verlaufsliste, Mein Naturjahr und die Timeline lesen ihn; conf neben confidence.',
-      'gsOpenLina: order=created_at.desc&limit=100, fuer die Anzeige umgedreht. Vorher asc — ab Nachricht 101 fehlte der juengste Teil, still.',
-      'gsLinaResolvePlant ueber _gsPflanzeFinden (beide Listen), Name oder Spitzname exakt, kein indexOf. gsLinaContext nimmt gsPflanzenZahl().',
-      'LINA_SYSTEM: „Unter-Tab Scans" gestrichen (der Pflanzen-Tab hat Wohnung und Garten); nutzersicht_check E2 kennt das Phantom und prueft die Gegenrichtung.',
-      'Garten-Timeline: SCAN_HISTORY_KEY statt des nackten scan_history (0 Schreiber). _seed.js: Ernte-Log mit {pflanze, menge} wie die App — Seed-Falle Nr. 5.',
-      'Pruefstaende: sensor_check 44 (4 neu), nutzersicht_check E2 erweitert, kalender_check 23 (Timeline). Alle fuenf Faelle rot gegen v33.32, gruen danach; Gegenproben toter Schluessel / Seed-Felder rot.',
-      'Berichtigung: die Zusammenfassung von v33.31 nannte „Verlauf neueste 100", „_gsPflanzeFinden/gsPflanzenZahl" und „Tools open_species/mark_done" — nichts davon war im Code. Eine Zusammenfassung ist kein Diff.'
-    ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76760,7 +76768,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.52';
+var GS_VERSION = 'v33.53';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79304,12 +79312,11 @@ function gsRegisterServiceWorker() {
         return 0;
       }
       var blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'greenscan-archiv-' + new Date().toISOString().slice(0,10) + '.json';
-      document.body.appendChild(a); a.click();
-      setTimeout(function(){ try { URL.revokeObjectURL(a.href); a.remove(); } catch(_){} }, 1000);
-      if (typeof gsToast === 'function') gsToast('📦 ' + rows.length + ' archivierte Einträge heruntergeladen.', 'success');
+      // v33.53: der EINE Weg. Das Archiv gibt es NUR auf diesem Geraet —
+      // eine Meldung „heruntergeladen" ohne Datei waere hier am teuersten.
+      var r = await gsDateiSpeichern(blob, 'greenscan-archiv-' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
+      if (!_gsDateiAngekommen(r)) { _gsDateiNichtGespeichert(r); return 0; }
+      if (typeof gsToast === 'function') gsToast(_gsSatz('📦 {1} archivierte Einträge gespeichert.', rows.length), 'success');
       return rows.length;
     } catch(e){ console.warn('[gsArchiveExport]', e); return 0; }
   };
@@ -81156,27 +81163,17 @@ window.gsExportPlantsCSV = function(){
 
     // BOM für Excel-Kompatibilität
     var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    var url = URL.createObjectURL(blob);
     var dateStr = new Date().toISOString().slice(0, 10);
     var filename = 'greenscan-pflanzen-' + dateStr + '.csv';
-
-    // Web Share API wenn supported (Mobile-Sharing-Sheet)
-    if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'text/csv' })] })) {
-      var file = new File([blob], filename, { type: 'text/csv' });
-      navigator.share({
-        files: [file],
-        title: 'Meine GreenScan-Pflanzen',
-        text: _gsSatz('Export von {1} Pflanzen am {2}', plants.length, dateStr)
-      }).catch(function(){ _gsDownload(url, filename); }).finally(function(){ setTimeout(function(){ URL.revokeObjectURL(url); }, 1500); });
-    } else {
-      _gsDownload(url, filename);
-      setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
-    }
-    function _gsDownload(u, name){
-      var a = document.createElement('a');
-      a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-    }
-    if (typeof showProfileToast === 'function') showProfileToast({type:'success', icon:'📊', title:'Export erstellt', body:plants.length + ' Pflanzen als CSV', duration:3500});
+    // v33.53: der EINE Weg (Teilen-Blatt im Browser, „Speichern unter" in der
+    // App). Die Meldung kommt erst mit dem Zustand — und wer das Teilen
+    // abbricht, bekommt keinen Download hinterher.
+    return gsDateiSpeichern(blob, filename, 'text/csv', { teilen: { title: 'Meine GreenScan-Pflanzen', text: _gsSatz('Export von {1} Pflanzen am {2}', plants.length, dateStr) } })
+      .then(function (r) {
+        if (!_gsDateiAngekommen(r)) { _gsDateiNichtGespeichert(r); return r; }
+        if (typeof showProfileToast === 'function') showProfileToast({type:'success', icon:'📊', title:'Export erstellt', body:plants.length + ' Pflanzen als CSV', duration:3500});
+        return r;
+      });
   } catch(e) {
     console.warn('[gsExportPlantsCSV]', e);
     if (typeof showProfileToast === 'function') showProfileToast({type:'error', icon:'❌', title:'Export fehlgeschlagen', body:e.message, duration:3500});
@@ -81208,12 +81205,13 @@ window.gsExportDiaryCSV = function(){
       ].join(',') + '\r\n';
     });
     var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    var url = URL.createObjectURL(blob);
     var filename = 'greenscan-tagebuch-' + new Date().toISOString().slice(0,10) + '.csv';
-    var a = document.createElement('a');
-    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
-    if (typeof showProfileToast === 'function') showProfileToast({type:'success', icon:'📊', title:'Tagebuch exportiert', body:rows.length + ' Einträge', duration:3500});
+    // v33.53: der EINE Weg; gemeldet wird nach dem Zustand.
+    return gsDateiSpeichern(blob, filename, 'text/csv').then(function (r) {
+      if (!_gsDateiAngekommen(r)) { _gsDateiNichtGespeichert(r); return r; }
+      if (typeof showProfileToast === 'function') showProfileToast({type:'success', icon:'📊', title:'Tagebuch exportiert', body:rows.length + ' Einträge', duration:3500});
+      return r;
+    });
   } catch(e) {
     console.warn('[gsExportDiaryCSV]', e);
   }
@@ -81241,20 +81239,16 @@ window.gsExportMesswerteCSV = function(){
         esc(m.quality === 2 ? 'plausibel' : m.quality === 1 ? 'ausserhalb des Messbereichs' : 'Gerätefehler'), esc(m.quelle || '')].join(',') + '\r\n';
     });
     var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    var url = URL.createObjectURL(blob);
     var dateStr = new Date().toISOString().slice(0, 10);
     var filename = 'greenscan-messwerte-' + dateStr + '.csv';
-    // Der Download-Helfer der beiden aelteren Exporte ist dort LOKAL — hier ein eigener.
-    var herunterladen = function(u, name){ var a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); };
-    if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'text/csv' })] })) {
-      var file = new File([blob], filename, { type: 'text/csv' });
-      navigator.share({ files: [file], title: 'Meine GreenScan-Messwerte', text: _gsSatz('Export von {1} Messwerten am {2}', werte.length, dateStr) })
-        .catch(function(){ herunterladen(url, filename); }).finally(function(){ setTimeout(function(){ URL.revokeObjectURL(url); }, 1500); });
-    } else {
-      herunterladen(url, filename);
-      setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
-    }
-    if (typeof showProfileToast === 'function') showProfileToast({type:'success', icon:'📊', title:'Export erstellt', body:werte.length + ' Messwerte als CSV', duration:3000});
+    // v33.53: der EINE Weg. Die Funktion gibt weiter den TEXT zurueck (ein
+    // Pruefstand liest ihn); die Meldung haengt am Zustand. Messwerte von Hand
+    // gibt es nur auf diesem Geraet — „Export erstellt" ohne Datei waere teuer.
+    gsDateiSpeichern(blob, filename, 'text/csv', { teilen: { title: 'Meine GreenScan-Messwerte', text: _gsSatz('Export von {1} Messwerten am {2}', werte.length, dateStr) } })
+      .then(function (r) {
+        if (!_gsDateiAngekommen(r)) { _gsDateiNichtGespeichert(r); return; }
+        if (typeof showProfileToast === 'function') showProfileToast({type:'success', icon:'📊', title:'Export erstellt', body:werte.length + ' Messwerte als CSV', duration:3000});
+      });
     return csv;
   } catch(e) { if (typeof gsToast === 'function') gsToast(_gsSatz('Export fehlgeschlagen: {1}', e.message), 'error'); return ''; }
 };
@@ -86806,7 +86800,7 @@ window.gsLaeuftAlsApp = gsLaeuftAlsApp;
 // Zeichen fuer Zeichen dasselbe wie im Browser — derselbe localStorage, dieselbe
 // CORS-Antwort von Supabase, dieselben Rueckkehradressen der Anmeldung.
 //
-// DREI Dinge sind trotzdem anders, und jedes hat einen GRUND, den die App
+// Ein paar Dinge sind trotzdem anders, und jedes hat einen GRUND, den die App
 // aussprechen muss statt ihn zu verschlucken. Sie stehen in GS_HUELLE_ANDERS;
 // `apk_check` haelt jeden Eintrag gegen die Stelle, die ihn durchsetzt —
 // ein Eintrag ohne Durchsetzung waere eine Behauptung, eine Durchsetzung ohne
@@ -86846,8 +86840,13 @@ var GS_HUELLE_ANDERS = [
   },
   {
     schl: 'download',
-    titel: 'Export noch nicht',
-    text: 'Backup, GPX, CSV und PDF legen die Datei im Arbeitsspeicher an; eine nackte WebView hat dafuer keinen Speicherweg. In der App sagt der Knopf das, statt nichts zu tun — im Browser auf green-scan.ch geht der Export. Deine Daten liegen ohnehin im Cloud-Backup.'
+    titel: 'Export fragt nach dem Speicherort',
+    text: 'Backup, GPX, CSV und Bilder speichert die App über den Android-Dialog „Speichern unter“: du wählst den Ort, statt dass die Datei still im Download-Ordner landet. Schliesst du den Dialog, wird nichts gespeichert — und die App sagt das.'
+  },
+  {
+    schl: 'drucken',
+    titel: 'Drucken über Android',
+    text: 'Gartenplan und Giess-Zettel gehen an den Druckdialog von Android; dort gibt es auch „Als PDF speichern“. Ein zweites Browserfenster öffnet die App dafür nicht.'
   },
   {
     schl: 'zahlung',
@@ -86894,40 +86893,372 @@ function _gsHuelleHtml() {
 window._gsHuelleHtml = _gsHuelleHtml;
 
 /**
- * GS_HUELLE_ANDERS 'download': EIN Tor statt acht Pflaster.
+ * v33.53 — EIN Weg fuer eine Datei, EIN Weg fuers Drucken
+ * (GS_HUELLE_ANDERS 'download' und 'drucken').
  *
- * Acht Stellen bauen sich ihren eigenen Anker mit `download` — Backup, GPX,
- * Plan-PNG, PDF, zwei CSV, Archiv, und die zwei Rueckfaelle hinter
- * `navigator.share`. In einer nackten WebView passiert bei JEDER davon
- * NICHTS: es gibt keinen eingebauten Download-Weg, und `blob:` erreicht
- * nicht einmal einen `DownloadListener`. Acht stumme Knoepfe.
+ * Bis v33.52 bauten acht Stellen je ihren eigenen Anker mit `download` und
+ * sagten SOFORT „heruntergeladen". Im Browser geht das gut — der Browser legt
+ * die Datei gleich ab. In der Android-Huelle passierte nichts: eine nackte
+ * WebView hat keinen Download-Weg, `blob:` erreicht nicht einmal einen
+ * DownloadListener, `window.print()` tut nichts, und `window.open('')`
+ * liefert den LAUFENDEN Rahmen zurueck — der Giess-Zettel schrieb sich ueber
+ * die App. Das alte Tor fing nur angehaengte Anker ab; das Backup klickt einen
+ * LOSGELOESTEN, und dort stand nach nichts „Backup erstellt und
+ * heruntergeladen!".
  *
- * Das Tor sitzt deshalb an der einen Stelle, durch die alle muessen — dem
- * Klick auf einem Element mit `download` (dieselbe Entscheidung wie das
- * Kamera-Tor in v32.33 und die Tastatur-Nachruestung in v32.16). Die
- * naechste Export-Stelle bringt den Fehler damit nicht wieder mit.
+ * Jetzt gibt es zwei Funktionen, durch die alle muessen:
  *
- * Und es SAGT etwas. Ein Knopf, der nichts tut, ist die schlechteste aller
- * Antworten — schlechter als einer, der erklaert, warum.
+ *   gsDateiSpeichern(inhalt, name, typ, opts) → Promise<{state, grund?}>
+ *     Browser: der Anker, SYNCHRON im Aufruf (Prüfstände zaehlen den Klick
+ *              gleich danach) → 'angestossen'; mit opts.teilen zuerst das
+ *              Teilen-Blatt → 'geteilt' · 'abgebrochen'.
+ *     Huelle:  der Android-Dialog „Speichern unter" → 'gespeichert' ·
+ *              'abgebrochen' · 'fehler' · 'abgelehnt' (mit grund) · 'unbekannt'.
+ *   gsDrucken(html, titel) → Promise<{state, grund?}>
+ *     Browser: verstecktes iframe + print → 'angestossen'.
+ *     Huelle:  der Druckdialog von Android (mit „Als PDF speichern") →
+ *              'druck_offen' · 'abgelehnt' · 'fehler' · 'unbekannt'.
+ *
+ * Und die Regel dazu: eine Erfolgsmeldung haengt am ZUSTAND
+ * (`_gsDateiAngekommen`). Wer abbricht, liest „Nicht gespeichert", nicht
+ * „heruntergeladen".
+ *
+ * In der Huelle gibt es dafuer KEINE JavaScript-Bruecke (apk_check R2). Die
+ * Datei geht in Teilen per fetch an /__huelle/datei/… — Adressen unter dem
+ * eigenen Ursprung, die nur die Huelle beantwortet (android/…/Export.java):
+ *   start  → {huelle:1, ok, k}   (k: Schluessel, nur in dieser Antwort)
+ *   teil   → {huelle:1, ok}      (in Reihenfolge, mit k)
+ *   fertig → {huelle:1, ok}      (die Huelle oeffnet den Dialog)
+ * Das Ergebnis kommt ueber gsHuelleDateiErgebnis(id, zustand) zurueck, gerufen
+ * von der Huelle mit evaluateJavascript — dieselbe Bauform wie gsHuellePause.
+ * Eine Antwort OHNE die Marke `huelle:1` ist keine der Huelle (im Web waere es
+ * die Startseite als Rueckfall des Hosters) — dann geht nichts weiter.
  */
-function _gsHuelleDownloadTor() {
+var GS_HUELLE_KANAL = '/__huelle/datei/';           // = Export.WURZEL
+var GS_HUELLE_TEIL = 192 * 1024;                    // Bytes je Teil, roh — ≤ Export.MAX_TEIL_BYTES
+var GS_HUELLE_DATEI_MAX = 32 * 1024 * 1024;         // = Export.MAX_BYTES
+var GS_HUELLE_DRUCK_MAX = 8 * 1024 * 1024;          // = Export.MAX_DRUCK_BYTES
+var GS_HUELLE_ANTWORT_MS = 10 * 60 * 1000;          // = Export.DIALOG_VERWAIST_MS
+var _gsHuelleWartet = {};                           // id → fertig({state})
+var _gsHuelleLaeuft = false;                        // eine Datei zur Zeit, auch auf dieser Seite
+
+function _gsDateiId() {
+  var a = new Uint8Array(16), s = '', z = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  try { crypto.getRandomValues(a); } catch (_) { for (var j = 0; j < a.length; j++) a[j] = Math.floor(Math.random() * 256); }
+  for (var i = 0; i < a.length; i++) s += z[a[i] % z.length];
+  return s;
+}
+
+// base64url in Stuecken: `String.fromCharCode.apply` mit einem ganzen Teil
+// (192 KiB) wirft „Maximum call stack size exceeded".
+function _gsBase64url(u8) {
+  var s = '', SCHRITT = 0x8000;
+  for (var i = 0; i < u8.length; i += SCHRITT) s += String.fromCharCode.apply(null, u8.subarray(i, i + SCHRITT));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Blob · data:-Adresse · Zeichenkette → Bytes. Ein data:-Inhalt wird SELBST
+// dekodiert: connect-src kennt weder blob: noch data:, ein fetch darauf
+// scheiterte an der CSP.
+function _gsInhaltBytes(inhalt) {
+  try {
+    if (typeof Blob !== 'undefined' && inhalt instanceof Blob) {
+      return inhalt.arrayBuffer().then(function (b) { return new Uint8Array(b); });
+    }
+    var s = String(inhalt == null ? '' : inhalt);
+    var komma = s.indexOf(',');
+    if (/^data:/i.test(s) && komma > 0) {
+      var kopf = s.slice(5, komma), rumpf = s.slice(komma + 1);
+      if (/;base64$/i.test(kopf)) {
+        var bin = atob(rumpf), u8 = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        return Promise.resolve(u8);
+      }
+      return Promise.resolve(new TextEncoder().encode(decodeURIComponent(rumpf)));
+    }
+    return Promise.resolve(new TextEncoder().encode(s));
+  } catch (e) { return Promise.reject(e); }
+}
+
+function _gsHuelleAnfrage(schritt, felder) {
+  var q = Object.keys(felder).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(felder[k]); }).join('&');
+  return fetch(GS_HUELLE_KANAL + schritt + '?' + q, { headers: { 'X-GS-Huelle': 'datei' }, cache: 'no-store', credentials: 'omit' })
+    .then(function (r) { return r.text(); })
+    .then(function (t) {
+      var o = null;
+      try { o = JSON.parse(t); } catch (_) {}
+      // Nur eine Antwort MIT Marke ist eine der Huelle.
+      if (!o || o.huelle !== 1) return { ok: false, grund: 'keine_huelle' };
+      return o;
+    })
+    .catch(function () { return { ok: false, grund: 'netz' }; });
+}
+
+async function _gsHuelleDatei(ziel, u8, name, typ, quelle) {
+  if (_gsHuelleLaeuft) return { state: 'abgelehnt', grund: 'laeuft' };
+  if (!u8 || !u8.length) return { state: 'abgelehnt', grund: 'leer' };
+  var deckel = (ziel === 'drucken') ? GS_HUELLE_DRUCK_MAX : GS_HUELLE_DATEI_MAX;
+  if (u8.length > deckel) return { state: 'abgelehnt', grund: 'zu_gross' };
+  _gsHuelleLaeuft = true;
+  try {
+    var id = _gsDateiId(), teile = Math.ceil(u8.length / GS_HUELLE_TEIL);
+    var r = await _gsHuelleAnfrage('start', { id: id, ziel: ziel, name: name || '', typ: typ || '', bytes: u8.length, teile: teile, quelle: quelle || 'app' });
+    if (!r.ok || !/^[0-9a-f]{32}$/.test(String(r.k || ''))) return { state: 'abgelehnt', grund: r.grund || 'keine_huelle' };
+    var k = r.k;
+    for (var i = 0; i < teile; i++) {
+      r = await _gsHuelleAnfrage('teil', { id: id, k: k, i: i, d: _gsBase64url(u8.subarray(i * GS_HUELLE_TEIL, (i + 1) * GS_HUELLE_TEIL)) });
+      if (!r.ok) return { state: 'abgelehnt', grund: r.grund || 'keine_huelle' };
+    }
+    // Erst warten, DANN fertig melden: die Huelle kann sofort antworten.
+    var ergebnis = new Promise(function (fertig) {
+      _gsHuelleWartet[id] = fertig;
+      setTimeout(function () {
+        if (_gsHuelleWartet[id]) { delete _gsHuelleWartet[id]; fertig({ state: 'unbekannt' }); }
+      }, GS_HUELLE_ANTWORT_MS);
+    });
+    r = await _gsHuelleAnfrage('fertig', { id: id, k: k });
+    if (!r.ok) { delete _gsHuelleWartet[id]; return { state: 'abgelehnt', grund: r.grund || 'keine_huelle' }; }
+    return await ergebnis;
+  } finally {
+    _gsHuelleLaeuft = false;
+    // Jede Teil-Adresse traegt ~256 KiB — im Ressourcen-Protokoll der Seite
+    // blieben sie bis zum Neuladen liegen.
+    try { if (window.performance && performance.clearResourceTimings) performance.clearResourceTimings(); } catch (_) {}
+  }
+}
+
+// Die Huelle ruft hier an — mit einer Kennung und einem Zustand, die sie
+// vorher geprueft hat (Export.rueckruf). `false` heisst: niemand wartet mehr
+// (die Seite wurde neu geladen) — dann sagt es die Huelle selbst.
+function gsHuelleDateiErgebnis(id, zustand) {
+  var f = _gsHuelleWartet[id];
+  if (!f) return false;
+  delete _gsHuelleWartet[id];
+  f({ state: String(zustand) });
+  return true;
+}
+window.gsHuelleDateiErgebnis = gsHuelleDateiErgebnis;
+
+// Der Anker des Browsers — SYNCHRON, damit der Klick noch im Aufruf passiert.
+function _gsAnkerKlick(inhalt, name) {
+  var istBlob = (typeof Blob !== 'undefined' && inhalt instanceof Blob);
+  var url = istBlob ? URL.createObjectURL(inhalt) : String(inhalt);
+  var a = document.createElement('a');
+  a.href = url; a.download = name || 'greenscan-export'; a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  try { a.remove(); } catch (_) {}
+  if (istBlob) setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 1500);
+  return { state: 'angestossen' };
+}
+
+function gsDateiSpeichern(inhalt, name, typ, opts) {
+  opts = opts || {};
+  typ = String(typ || 'application/octet-stream');
+  // GS_HUELLE_ANDERS 'download': in der Huelle IMMER der Kanal — nie das
+  // Teilen-Blatt (eine WebView hat es nicht verlaesslich) und nie ein Anker.
+  if (gsAndroidHuelle()) {
+    return _gsInhaltBytes(inhalt)
+      .then(function (u8) { return _gsHuelleDatei('speichern', u8, name, typ, opts.quelle); })
+      .catch(function () { return { state: 'fehler' }; });
+  }
+  var istDaten = (typeof inhalt === 'string' && /^data:/i.test(inhalt));
+  var blob = (typeof Blob !== 'undefined' && inhalt instanceof Blob) ? inhalt
+    : (istDaten ? null : new Blob([inhalt == null ? '' : inhalt], { type: typ }));
+  if (opts.teilen && blob && navigator.canShare && navigator.share) {
+    try {
+      var datei = new File([blob], name, { type: typ.split(';')[0] });
+      if (navigator.canShare({ files: [datei] })) {
+        return navigator.share({ files: [datei], title: opts.teilen.title || '', text: opts.teilen.text || '' })
+          .then(function () { return { state: 'geteilt' }; },
+                function (e) {
+                  // Wer das Teilen-Blatt schliesst, hat abgebrochen — kein
+                  // Download hinterher, um den niemand gebeten hat.
+                  if (e && e.name === 'AbortError') return { state: 'abgebrochen' };
+                  return _gsAnkerKlick(blob, name);
+                });
+      }
+    } catch (_) {}
+  }
+  return Promise.resolve(_gsAnkerKlick(istDaten ? inhalt : blob, name));
+}
+window.gsDateiSpeichern = gsDateiSpeichern;
+
+function gsDrucken(html, titel) {
+  var t = String(titel || 'GreenScan');
+  if (gsAndroidHuelle()) {
+    // GS_HUELLE_ANDERS 'drucken': ein eigenes Dokument an den Druckdialog
+    // von Android — kein zweites Fenster, keine Druckansicht der App.
+    var u8;
+    try { u8 = new TextEncoder().encode(String(html || '')); } catch (_) { return Promise.resolve({ state: 'fehler' }); }
+    return _gsHuelleDatei('drucken', u8, t + '.html', 'text/html', 'app').catch(function () { return { state: 'fehler' }; });
+  }
+  try {
+    var f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true');
+    f.style.cssText = 'position:fixed;top:-9999px;left:0;width:1px;height:1px;border:none;';
+    document.body.appendChild(f);
+    var d = f.contentDocument || f.contentWindow.document;
+    d.open(); d.write(String(html || '')); d.close();
+    setTimeout(function () {
+      try { f.contentWindow.focus(); f.contentWindow.print(); } catch (_) {}
+      setTimeout(function () { try { f.remove(); } catch (_) {} }, 2000);
+    }, 250);
+    return Promise.resolve({ state: 'angestossen' });
+  } catch (_) {
+    return Promise.resolve({ state: 'fehler' });
+  }
+}
+window.gsDrucken = gsDrucken;
+
+// Ist die Datei angekommen — oder steht der Druckdialog? Nur dann darf eine
+// Erfolgsmeldung kommen.
+function _gsDateiAngekommen(r) {
+  var s = r && r.state;
+  return s === 'angestossen' || s === 'gespeichert' || s === 'geteilt' || s === 'druck_offen';
+}
+window._gsDateiAngekommen = _gsDateiAngekommen;
+
+// Ein Satz je Grund — ganze Saetze, damit der Uebersetzer sie findet; kein
+// roher Code auf dem Bildschirm.
+function _gsDateiGrundSatz(grund) {
+  switch (grund) {
+    case 'laeuft':
+    case 'beschaeftigt': return _gsSatz('Ein anderer Export ist noch offen — bitte zuerst abschliessen.');
+    case 'zu_gross':     return _gsSatz('Die Datei ist zu gross für die App. Im Browser auf green-scan.ch geht es.');
+    case 'leer':         return _gsSatz('Es gibt nichts zu speichern.');
+    case 'ablage':       return _gsSatz('Auf dem Gerät ist gerade kein Platz für die Datei.');
+    case 'typ':          return _gsSatz('Diese Art Datei kann die App nicht speichern.');
+    case 'netz':
+    case 'keine_huelle':
+    case 'herkunft':
+    case 'methode':
+    case 'pfad':
+    case 'huelle':       return _gsSatz('Die App konnte die Datei nicht übernehmen.');
+    default:             return _gsSatz('Beim Übergeben der Datei ist etwas schiefgegangen. Bitte noch einmal versuchen.');
+  }
+}
+window._gsDateiGrundSatz = _gsDateiGrundSatz;
+
+// Die Meldung, wenn NICHTS angekommen ist. Sagt nie etwas ueber eine Cloud:
+// Archiv und Messwerte gibt es nur auf dem Geraet. `art === 'drucken'` fuer
+// die Druckwege — dort ist „nicht gespeichert" das falsche Wort.
+function _gsDateiNichtGespeichert(r, art) {
+  var s = r && r.state, titel, text, typ;
+  if (art === 'drucken') {
+    titel = _gsSatz('Nicht gedruckt');
+    if (s === 'abgelehnt') { text = _gsDateiGrundSatz(r.grund); typ = 'warning'; }
+    else if (s === 'unbekannt') { text = _gsSatz('Vom Druckdienst kam keine Antwort.'); typ = 'warning'; }
+    else { text = _gsSatz('Der Druckdialog liess sich nicht öffnen.'); typ = 'error'; }
+  }
+  else if (s === 'abgebrochen') { titel = _gsSatz('Nicht gespeichert'); text = _gsSatz('Der Dialog wurde geschlossen — es wurde nichts gespeichert.'); typ = 'info'; }
+  else if (s === 'unbekannt') { titel = _gsSatz('Unklar, ob gespeichert'); text = _gsSatz('Vom Speichern-Dialog kam keine Antwort. Bitte im Dateien-Ordner nachsehen.'); typ = 'warning'; }
+  else if (s === 'abgelehnt') { titel = _gsSatz('Nicht gespeichert'); text = _gsDateiGrundSatz(r.grund); typ = 'warning'; }
+  else { titel = _gsSatz('Nicht gespeichert'); text = _gsSatz('Die Datei konnte nicht gespeichert werden.'); typ = 'error'; }
+  try { gsToast({ title: titel, body: text, type: typ, duration: 6000 }); } catch (_) {}
+  return text;
+}
+window._gsDateiNichtGespeichert = _gsDateiNichtGespeichert;
+
+// Fuer Wege ohne eigene Erfolgsmeldung (das Netz unten): ein Satz je Zustand.
+function _gsDateiMelden(r) {
+  if (!_gsDateiAngekommen(r)) return _gsDateiNichtGespeichert(r);
+  if (r.state === 'druck_offen') return '';
+  var t = _gsSatz('Gespeichert.');
+  try { gsToast({ title: t, type: 'success', duration: 3500 }); } catch (_) {}
+  return t;
+}
+window._gsDateiMelden = _gsDateiMelden;
+
+/**
+ * Das Netz fuer KUENFTIGE Stellen — nur in der Huelle.
+ *
+ * Wer eines Tages wieder einen eigenen Anker baut, statt gsDateiSpeichern zu
+ * rufen, soll nicht in die stumme Lage von v33.52 zurueckfallen. Drei Wege,
+ * auf denen ein Anker geklickt wird, und alle drei kommen hier an:
+ *   - ein Antippen eines angehaengten Ankers (Erfassungsphase auf document),
+ *   - `a.click()` auf einem angehaengten ODER losgeloesten Anker
+ *     (HTMLAnchorElement.prototype.click — das Ereignis erreicht document nie,
+ *     wenn der Anker nirgends haengt; genau so klickte das Backup).
+ * Der Blob wird SOFORT beim Klick genommen: die Stellen geben ihre Adresse
+ * nach 1–1,5 s frei. Die Liste der Blobs lebt in einer Closure, ist klein und
+ * vergisst nach 15 s — ein alter Link soll kein altes Backup speichern.
+ *
+ * Und zwei Fenster-Wege, die in einer WebView die App selbst treffen:
+ *   - window.open('') / 'about:blank' liefert dort den laufenden Rahmen —
+ *     ein document.write danach ueberschriebe die App. Hier: null.
+ *   - window.print() tut dort nichts. Hier: ein Satz statt Stille.
+ */
+function _gsHuelleNetz() {
   if (!gsAndroidHuelle()) return false;
+  var blobs = [];
+  var orgErzeugen = URL.createObjectURL, orgFreigeben = URL.revokeObjectURL;
+  URL.createObjectURL = function (o) {
+    var u = orgErzeugen.apply(URL, arguments);
+    try {
+      if (typeof Blob !== 'undefined' && o instanceof Blob) {
+        blobs.push({ url: u, blob: o, t: Date.now() });
+        if (blobs.length > 8) blobs.shift();
+      }
+    } catch (_) {}
+    return u;
+  };
+  URL.revokeObjectURL = function (u) {
+    for (var i = blobs.length - 1; i >= 0; i--) if (blobs[i].url === u) blobs.splice(i, 1);
+    return orgFreigeben.apply(URL, arguments);
+  };
+  function blobFuer(href) {
+    var jetzt = Date.now();
+    for (var i = blobs.length - 1; i >= 0; i--) {
+      if (blobs[i].url === href && jetzt - blobs[i].t < 15000) return blobs[i].blob;
+    }
+    return null;
+  }
+  function abfangen(a) {
+    var href = a.getAttribute('href') || '';
+    var name = a.getAttribute('download') || 'greenscan-export';
+    var inhalt = null, typ = '';
+    if (/^blob:/i.test(href)) {
+      var b = blobFuer(a.href);
+      if (b) { inhalt = b; typ = b.type; }
+    } else if (/^data:/i.test(href)) {
+      inhalt = href; typ = (href.match(/^data:([^;,]*)/i) || [])[1] || '';
+    } else {
+      return false;   // eine echte Adresse: das ist eine Navigation, kein Export
+    }
+    if (!inhalt) {
+      try { gsToast({ title: _gsSatz('Nicht gespeichert'), body: _gsSatz('Diese Datei ist nicht mehr da — bitte den Export noch einmal starten.'), type: 'warning', duration: 6000 }); } catch (_) {}
+      return true;
+    }
+    gsDateiSpeichern(inhalt, name, typ, { quelle: 'tor' }).then(_gsDateiMelden);
+    return true;
+  }
   document.addEventListener('click', function (ev) {
     var a;
     try { a = ev.target && ev.target.closest ? ev.target.closest('a[download]') : null; } catch (_) { return; }
     if (!a) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    try {
-      gsToast({ title: _gsSatz('Export geht in der App noch nicht'),
-        body: _gsSatz('Oeffne green-scan.ch im Browser — dort laedt die Datei herunter. Deine Daten sind im Cloud-Backup sicher.'),
-        type: 'warning', duration: 6000 });
-    } catch (_) {}
-  }, true);   // Erfassungsphase: vor jedem eigenen Handler der acht Stellen
+    if (abfangen(a)) { ev.preventDefault(); ev.stopPropagation(); }
+  }, true);
+  var orgKlick = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () {
+    if (this.hasAttribute && this.hasAttribute('download') && abfangen(this)) return;
+    return orgKlick.apply(this, arguments);
+  };
+  window.open = function (adresse) {
+    var u = String(adresse == null ? '' : adresse).trim();
+    if (!u || /^about:blank$/i.test(u)) return null;
+    // Eine echte Adresse: die Huelle reicht fremde nach draussen, eigene
+    // bleiben in der App — dieselbe Weiche wie bei jedem Link.
+    try { location.href = new URL(u, location.href).href; } catch (_) {}
+    return null;
+  };
+  window.print = function () {
+    try { gsToast({ title: _gsSatz('Drucken'), body: _gsSatz('In der App druckt der Knopf „Drucken“ im jeweiligen Fenster — dort gibt es auch „Als PDF speichern“.'), type: 'info', duration: 6000 }); } catch (_) {}
+  };
   return true;
 }
-window._gsHuelleDownloadTor = _gsHuelleDownloadTor;
-try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _gsHuelleDownloadTor); else _gsHuelleDownloadTor(); } catch(_){}
+window._gsHuelleNetz = _gsHuelleNetz;
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _gsHuelleNetz); else _gsHuelleNetz(); } catch(_){}
 
 /**
  * GS_HUELLE_ANDERS 'zahlung': kein Fenster im Fenster.

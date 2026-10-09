@@ -112,7 +112,7 @@ diese Sperre.
 
 ```
 GreenScan/
-├── index.html           # ~82k Zeilen Monolith (HTML + CSS + JS) — DIE App
+├── index.html           # ~96k Zeilen Monolith (HTML + CSS + JS) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push) — 21 KB seit v32.72; sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
@@ -127,6 +127,7 @@ GreenScan/
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
 ├── scripts/             # 39 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 39, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+│                        scripts/apk/ = zwei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -552,7 +553,7 @@ Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
 
 ## 4d · Die Android-Huelle — `android/`, Anleitung in `android/README.md`
 
-Seit v33.49 gibt es GreenScan als **APK**. Wer daran arbeitet, muss vier Dinge
+Seit v33.49 gibt es GreenScan als **APK**. Wer daran arbeitet, muss fuenf Dinge
 wissen; alles weitere steht in `android/README.md` und im Kopf von
 `scripts/apk_check.js`.
 
@@ -575,8 +576,9 @@ dem Netz UEBER die aus dem Paket legt. Was das Paket nicht kennt, bekommt eine
 soll ins Netz bzw. macht die WebView selbst. Achtung auf die Form: bei
 `blob:https://green-scan.ch/uuid` ist das Schema `blob`, nicht `https`.
 
-**3 · Was in der Huelle anders ist, steht in `GS_HUELLE_ANDERS`** — fuenf
-Eintraege (`sw` · `push` · `update` · `download` · `zahlung`), jeder mit Grund.
+**3 · Was in der Huelle anders ist, steht in `GS_HUELLE_ANDERS`** — sechs
+Eintraege (`sw` · `push` · `update` · `download` · `drucken` · `zahlung`, seit
+v33.53 mit `drucken`), jeder mit Grund.
 **Die Liste ist die Pruefung:** jeder Eintrag braucht eine Durchsetzungsstelle
 im Code (kenntlich am Kommentar `GS_HUELLE_ANDERS '<schl>'`) UND steht auf dem
 Bildschirm (Einstellungen › Ueber GreenScan); `apk_check` R8 und A5 halten
@@ -627,6 +629,37 @@ aendert, aendert sie in `Pfade.java` und im Fall — nie im Rand.
 > da noch nicht gab. **Ein Bump kann einen Pruefstand rot machen, ohne dass
 > Code sich geaendert hat.** Deshalb laufen die zwei Pflichtlaeufe NACH dem
 > Bump, nicht davor.
+
+**5 · Export und Drucken gehen durch EINEN Kanal — ohne Brücke** (seit v33.53).
+Eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und
+`window.print()` tut dort nichts. Wer eine Datei anbietet, ruft
+**`gsDateiSpeichern(inhalt, name, typ, opts)`**; wer druckt,
+**`gsDrucken(html, titel)`** — beide geben einen Zustand zurück, und eine
+Erfolgsmeldung hängt an `_gsDateiAngekommen(r)`, nie an den Aufruf. In der Hülle
+geht die Datei per `fetch` in Teilen an `/__huelle/datei/start|teil|fertig`
+(Adressen unter dem eigenen Ursprung, die nur die Hülle beantwortet,
+`Export.java`); die Hülle zeigt „Speichern unter" bzw. den Druckdialog und
+meldet über `gsHuelleDateiErgebnis` zurück. Vier Riegel plus ein Schlüssel aus
+der `start`-Antwort, weil `shouldInterceptRequest` JEDE Anfrage sieht — auch
+ein `<img src="/__huelle/…">` aus fremder Hand. Ein eigener Anker an einer neuen
+Stelle fällt in das Netz (`_gsHuelleNetz`) und wird in `apk_check` als „kam
+über das Netz" ROT gemeldet: **die Liste der Exporte in `apk_check` ist die
+Prüfung** — wer eine Export- oder Druckstelle baut, trägt sie dort ein.
+
+> **Ein Tor auf `document` sieht keinen Anker, der nirgends hängt** (v33.53).
+> Das Tor aus v33.49 hörte auf Klicks an `document`; das Backup klickte einen
+> LOSGELÖSTEN Anker, dessen Ereignis `document` nie erreicht — in der App
+> passierte nichts, und darunter stand „heruntergeladen". Wer etwas „an der
+> einen Stelle, durch die alle müssen" abfängt, prüft, dass wirklich alle dort
+> durchkommen. Und der Fall dazu war grün, weil er einen EIGENEN, angehängten
+> Anker klickte (Attrappe statt Ware, v33.00).
+>
+> **Und ein Prüfstand, der die Rechnung nachbaut, prüft die Nachbildung.** Der
+> Kanal hat zwei Hälften in zwei Sprachen. `apk_check` verbindet sie mit einem
+> ECHTEN Java-Prozess (`scripts/apk/KanalFahrer.java`) und lässt die App unter
+> `https://green-scan.ch` mit der CSP aus `_headers` laufen; Node stellt nur
+> den Dialog. Eine JavaScript-Kopie des Sammlers hätte eine Seite angenommen,
+> die das Telefon abweist — und wäre grün gewesen.
 
 ## 4b · KI-Planer — der Entwurf steht in `docs/PLANER-V3.md`
 
@@ -830,7 +863,7 @@ node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, der Fuss unter dem Protokoll rechnet die Deckung, und eine SQL-Hälfte (lokales Postgres) spielt 20260925_admin_audit_vollstaendig.sql nach — ohne Postgres „nicht prüfbar" (Exit 2)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
-node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen
+node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck)
 bash scripts/pruefstaende.sh     # ALLE 39 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet

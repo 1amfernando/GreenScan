@@ -129,3 +129,16 @@ Browsers liegt:
 
 Und die Grenze gehoert in den Bericht: `apk_check` prueft Bau, Rechnung und
 Entscheidung — **hier laeuft kein Android**.
+
+**Seit v33.53 eine fuenfte Regel daraus: zwei Haelften in zwei Sprachen
+verbindet der Pruefstand mit der ECHTEN anderen Haelfte, nie mit einer
+Nachbildung.** Der Kanal fuer Export und Drucken (`gsDateiSpeichern` /
+`gsDrucken` in der Seite, `Export.java` in der Huelle) wird in `apk_check` so
+gefahren: die App laeuft unter `https://green-scan.ch` (geroutet, mit der CSP
+aus `_headers`), jede Anfrage an `/__huelle/datei/` geht an einen Java-Prozess
+mit dem echten Sammler (`scripts/apk/KanalFahrer.java`), und nur der Dialog
+ist gestellt. Eine JavaScript-Kopie des Sammlers haette eine Seite
+angenommen, die das Telefon abweist. Und: **vor dem Ergebnis eines Dialogs
+darf keine Zusage stehen — in keinem Wortlaut**; der Fall sucht nicht nur
+den neuen Satz der Stelle (die Gegenprobe mit dem alten Backup zeigte
+„heruntergeladen" vor dem Dialog, und die erste Fassung sah es nicht).

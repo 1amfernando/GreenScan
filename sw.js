@@ -15,7 +15,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v33.52';
+const VERSION = 'gs-v33.53';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -327,6 +327,11 @@ self.addEventListener('fetch', (event) => {
 
   // Skip: chrome-extension, data:, blob:
   if (!url.startsWith('http')) return;
+
+  // v33.53: Der Kanal der Android-Huelle (/__huelle/datei/…) traegt Datei-
+  // Teile in der Adresse. Im Browser ruft ihn die App nie — und falls doch,
+  // gehoert nichts davon in einen Zwischenspeicher.
+  if (url.indexOf('/__huelle/') >= 0) return;
 
   // 1. Never-cache hosts (Supabase, Anthropic, Stripe, Wetter, IP-Geo) → Network only
   if (isNeverCache(url)) return;

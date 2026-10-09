@@ -44,7 +44,7 @@ Redirect-URL, keine Migration.
 > dass Browser und App sich einen Speicher teilen. (Dieselbe Support-Frage wie
 > bei der zweiten Auslieferung auf Netlify, `CLAUDE.md` §2.1.)
 
-### Fuenf Dinge sind anders
+### Sechs Dinge sind anders
 
 Sie stehen in der App in `GS_HUELLE_ANDERS` und auf dem Bildschirm unter
 *Einstellungen › Ueber GreenScan*. Jedes hat einen Grund, und jedes wird
@@ -53,10 +53,14 @@ gesagt statt verschluckt:
 1. **Kein Service Worker.** Das Paket IST der Zwischenspeicher.
 2. **Noch keine Push-Nachrichten.** Push haengt am Service Worker.
 3. **Updates kommen als neue Datei.** Eine neue Fassung ist eine neue APK.
-4. **Export (Backup, GPX, CSV, PDF) noch nicht.** Eine nackte WebView hat
-   keinen Speicherweg fuer eine Datei aus dem Arbeitsspeicher. Der Knopf sagt
-   das, statt nichts zu tun.
-5. **Bezahlen im Browser.** Stripe oeffnet im Browser des Telefons.
+4. **Export fragt nach dem Speicherort** (seit v33.53). Backup, GPX, CSV,
+   Archiv und das 3D-Foto gehen an den Android-Dialog „Speichern unter" —
+   statt still im Download-Ordner zu landen. Wer den Dialog schliesst, liest
+   „Nicht gespeichert".
+5. **Drucken ueber Android** (seit v33.53). Gartenplan und Giess-Zettel gehen
+   an den Druckdialog von Android, mit „Als PDF speichern". Ein zweites
+   Fenster oeffnet die App dafuer nicht.
+6. **Bezahlen im Browser.** Stripe oeffnet im Browser des Telefons.
 
 ---
 
@@ -150,3 +154,40 @@ Worauf beim ersten Start zu achten ist:
 - **Der Zurueck-Knopf:** ein Druck schliesst EIN Fenster, nicht die App.
 - **Sind deine Pflanzen da?** Nein — das Paket ist eine eigene Installation mit
   eigenem Speicher. Anmelden, dann holt der Abgleich alles aus der Cloud.
+- **Speichern und Drucken** (seit v33.53): ein Backup ueber „Speichern unter"
+  ablegen, einmal abbrechen (dann „Nicht gespeichert", keine Datei), einen
+  Plan als PDF drucken. Die Schritte stehen in `docs/FUER-FERNANDO.md` §26.
+
+---
+
+## Export und Drucken — ohne Bruecke (seit v33.53)
+
+Eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen
+(`blob:` erreicht nicht einmal einen DownloadListener), und `window.print()`
+tut dort nichts. Der uebliche Ausweg waere `addJavascriptInterface` — den gibt
+es hier bewusst nicht (`apk_check` R2). Statt dessen:
+
+```
+Seite                                   Huelle (Export.java · AssetServer · MainActivity)
+gsDateiSpeichern / gsDrucken
+  fetch /__huelle/datei/start   ──►   Riegel pruefen, Spool-Datei anlegen, Schluessel k
+  fetch /__huelle/datei/teil×n  ──►   in Reihenfolge anhaengen (mit k)
+  fetch /__huelle/datei/fertig  ──►   „Speichern unter" (ACTION_CREATE_DOCUMENT)
+                                      oder Druckdialog (DruckAnsicht)
+gsHuelleDateiErgebnis(id, z)    ◄──   evaluateJavascript(Export.rueckruf(id, z))
+```
+
+- **Die Rechnung liegt in `Export.java`** (kein Android, wie `Pfade.java`):
+  Namen saeubern, geschlossener Typen-Katalog, Teile einsammeln, drei Zustaende
+  (frei · sammeln · wartet), Deckel 32 MB (Drucken 8 MB). `apk_check`
+  uebersetzt sie gegen `android.jar` 23 und faehrt sie aus.
+- **Vier Riegel und ein Schluessel**, weil `shouldInterceptRequest` JEDE
+  Anfrage sieht: nur GET, nie eine Navigation, nur mit der Kopfzeile
+  `X-GS-Huelle`, nur vom eigenen Ursprung — und `teil`/`fertig` brauchen den
+  Schluessel aus der `start`-Antwort, die nur lesen kann, wer sie mit `fetch`
+  gestellt hat.
+- **Was auf einem Telefon schiefgehen kann, ist abgefangen:** die Teile liegen
+  in einer Spool-Datei (stirbt der Prozess bei offenem Dialog, wird ein leer
+  angelegtes Dokument wieder geloescht), geschrieben wird mit `"wt"` und im
+  Hintergrund, ein Dialog nur, wenn die App vorne ist.
+- **Keine neue Berechtigung.** „Speichern unter" und Drucken brauchen keine.

@@ -12,6 +12,99 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-10-09 (ix) - v33.53: Export und Drucken in der Android-App
+
+Fernando: „Bitte mit a anfangen" — A war der Export in der APK. Bis v33.52
+stand dort `GS_HUELLE_ANDERS 'download'`: „Export noch nicht". **Zuerst
+gemessen, und dabei kamen zwei Fehler heraus, die die Liste gar nicht
+nannte.**
+
+**Gemessen (am Quelltext, 08.10.2026):**
+
+- **Acht Export-Stellen** bauten je ihren eigenen Anker mit `download` und
+  sagten SOFORT „heruntergeladen": Backup, GPX, 3D-Foto, Gartenplan (.html),
+  Archiv, drei CSV. In der Hülle passierte bei allen nichts.
+- **Das Backup klickte einen LOSGELÖSTEN Anker** (`a.click()` ohne
+  `appendChild`). Das Tor aus v33.49 hörte auf `document` — ein Klick auf
+  einen Anker, der nirgends hängt, erreicht `document` nie. In der Hülle
+  passierte nichts, und darunter stand „Backup erstellt und
+  heruntergeladen!". `apk_check` A6 war grün, weil der Fall einen EIGENEN,
+  angehängten Anker klickte — die Attrappe, nicht die Ware (v33.00).
+- **Drei Druckwege**, und einer davon zerstörerisch: `gsGiessZettelDrucken`
+  öffnet `window.open('', '_blank')` und schreibt hinein — in einer WebView
+  ohne zweite Fenster ist das der LAUFENDE Rahmen. Der Zettel schrieb sich
+  über die App. `window.print()` und `iframe.print()` tun dort nichts.
+- **Der Hinweis log:** „Deine Daten sind im Cloud-Backup sicher" — für das
+  Archiv (gekürzte Einträge, auch in der Cloud weg) und die Messwerte von
+  Hand stimmt das nicht. Raus.
+
+**Vor dem Code:** eine gegnerische Prüfung des Entwurfs aus vier Blickwinkeln
+(Android-Verhalten, Sicherheit, Vollständigkeit, Prüfstand). Die wichtigsten
+Funde, alle eingebaut: ein `<img src="/__huelle/…">` aus fremder Hand hätte
+den Kanal ohne Skript ansprechen können (→ Kopfzeile + Schlüssel); eine
+Ausnahme auf dem Faden von `shouldInterceptRequest` beendet die ganze App
+(→ `beantworte` wirft nie); stirbt der Prozess bei offenem Dialog, bliebe
+eine leere Datei, die gespeichert aussieht (→ Spool-Datei, sonst Löschen);
+`"w"` kürzt beim Ersetzen nicht (→ `"wt"`); und der geplante Prüfstand hätte
+mit einer JavaScript-Nachbildung des Sammlers gemessen — grün, während das
+Telefon kaputt wäre (→ echter Java-Prozess).
+
+**Gebaut:**
+
+- **Ein Kanal ohne Brücke** (`android/…/Export.java`, reines Java): die Seite
+  schickt die Datei per `fetch` in Teilen an `/__huelle/datei/start|teil|fertig`
+  — Adressen unter dem eigenen Ursprung, die nur die Hülle beantwortet. Vier
+  Riegel (nur GET, nie Hauptrahmen, Kopfzeile `X-GS-Huelle`, eigener
+  Ursprung) und ein zufälliger Schlüssel, den nur `start` liefert. Teile in
+  Reihenfolge in eine Spool-Datei; drei Zustände frei · sammeln · wartet;
+  verdrängt wird nur, wer beim Sammeln stehen blieb, nie ein offener Dialog.
+  Weiterhin 0× `addJavascriptInterface`.
+- **Der Rand:** `MainActivity` öffnet `ACTION_CREATE_DOCUMENT` (keine neue
+  Berechtigung), schreibt im Hintergrund mit `"wt"`, löscht das angelegte
+  Dokument, wenn die Spool-Datei fehlt, öffnet einen Dialog nur von vorne
+  (Android 10+ verwirft ihn sonst still) und meldet über `Export.rueckruf`
+  zurück. `DruckAnsicht.java` druckt in einer eigenen WebView ohne
+  JavaScript, ohne Netz, ohne Navigation, Grundadresse `null`, einmal.
+- **Die Seite:** `gsDateiSpeichern` und `gsDrucken` sind die zwei Wege für
+  alle; alle zehn Stellen gehen durch sie, und jede Erfolgsmeldung hängt am
+  Zustand (`_gsDateiAngekommen`). Im Browser bleibt alles, wie es war — der
+  Anker klickt SYNCHRON im Aufruf. Das Netz für künftige Stellen fängt
+  angehängte UND losgelöste Anker ab, `window.open('')` liefert `null`,
+  `window.print()` sagt einen Satz. `GS_HUELLE_ANDERS` hat sechs Einträge
+  (neu: `drucken`). Der Service Worker lässt `/__huelle/` in Ruhe.
+- **Vorbestehende Lücke:** `gsGardenScanExportPDF` setzte KI-Text ROH in ein
+  Dokument mit dem Ursprung der App. Jetzt escaped.
+- **`apk_check` 28 → 68 Fälle:** RECHNUNG — `Export.java` gegen
+  `android.jar` 23 übersetzt (X0) und mit Grenzfällen ausgeführt (X1–X11,
+  darunter 3000 Unsinns-Anfragen ohne eine Ausnahme). RAND — R12–R16 (Weiche,
+  Druckansicht, „Speichern unter", zwei `evaluateJavascript`, die Naht
+  Java↔JS). APP — die Hülle läuft unter `https://green-scan.ch` mit der CSP
+  aus `_headers`, jede Anfrage an den Kanal geht an einen Java-Prozess mit
+  dem ECHTEN Sammler (`scripts/apk/KanalFahrer.java`); zehn Exporte über ihre
+  echte Funktion (E1–E10), drei Netz-Fälle (N1–N3), zehn Kanal-Fälle (K1–K10:
+  Abbruch, Fehler, viele Teile bis 5 MB, Grenzen, kein Download in der Hülle,
+  byte-gleich mit dem Browser, KI-Text im Browser-Druck).
+- **`robust_check`:** der Java-Quelltext der Hülle zählt jetzt als Aufrufer —
+  `gsHuellePause` und `gsHuelleDateiErgebnis` haben dort ihren einzigen echten.
+
+**Drei Lehren:**
+
+- **Ein Tor auf `document` sieht keinen Anker, der nirgends hängt.** Wer ein
+  Verhalten an der Stelle abfangen will, durch die „alle müssen", prüft, ob
+  wirklich alle dort durchkommen — `a.click()` auf einem losgelösten Element
+  hat keinen Ereignispfad über `document`.
+- **Ein Prüfstand, der die Rechnung nachbaut, prüft die Nachbildung.** Der
+  Kanal hat zwei Hälften in zwei Sprachen; der Fall verbindet sie mit dem
+  echten Java-Prozess, und Node stellt nur den Dialog.
+- **Ein Fall, der eine Prüfung „prüft", die vorher schon scheitert, misst sie
+  nicht.** Die Marke `huelle:1` war zuerst nur mit einer HTML-Antwort
+  getestet — die scheitert schon am `JSON.parse`. Erst gültiges JSON ohne
+  Marke misst die Marke.
+
+**Grenze:** hier läuft kein Android. Geprüft sind Rechnung, Rand und Seite —
+ob ein Telefon den Dialog so zeigt und das PDF so druckt, sagt erst ein
+Gerät (FUER-FERNANDO §26: Android 6, 10, 14).
+
 ### 2026-10-06 (iw) - v33.52: Vier Bestätigungen, die nur stimmten, wenn alles gut ging
 
 Fortsetzung der in v33.50 zurückgestellten Frage: `versprechen_check` hält
@@ -14831,7 +14924,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 06.10.2026** (davor am 25.09.). Er stand am 02.09. auf
+> **Nachgemessen am 09.10.2026** (davor am 06.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -14840,9 +14933,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.52` (Client) · SW-Cache `gs-v33.52` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.53` (Client) · SW-Cache `gs-v33.53` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **95'727 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **580 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.32).
+- **Frontend:** `index.html` **96'058 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **580 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.32).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 39** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -14853,6 +14946,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **APK auf einem Telefon ansehen: Export und Drucken** (v33.53) | Hier läuft kein Android. `apk_check` fährt Rechnung, Rand und Seite gegen einen echten Java-Sammler — ob ein Telefon „Speichern unter“ und den Druckdialog so zeigt, sagt erst ein Gerät (Android 6, 10, 14). Am Backend nichts zu tun, nur eine neue APK. | `docs/FUER-FERNANDO.md` §26 · (ix) |
 | **Neun Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `key-health-check`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `ai-proxy`, `garden-scan-analyze`, `plan-iterate`) | Audit A10/B2: konstantzeitiger Schlüsselvergleich über `_shared/auth_vergleich.mjs`, Triage nur Admins, CORS eng, 110-s-Abbruch. Im Repo, nicht ausgeliefert. | `docs/FUER-FERNANDO.md` §9 · (fl) |
 | **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
@@ -14898,6 +14992,10 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
+| **`gsSanitizeHtml`: CSS-Escapes im `style`-Attribut** | Die gegnerische Prüfung zu v33.53 hat in einem lokalen Chromium gezeigt, dass ein `style` mit Backslash-Escapes den Filter passiert und eine Anfrage an eine fremde Adresse auslöst (Tracking aus Übersetzungen, Chat-Zeilen, KI-Text). Eigene Scheibe mit Fall in `escape_check`. | (ix) |
+| **Teilen und Zwischenablage in der Hülle** | Vier Teilen-Wege (`gsAchShare`, `gsShareSpecies`, `gsShareApp`, `_gsShare`) fallen in einer WebView auf die Zwischenablage zurück; zwei Meldungen „kopiert" kommen vor dem `writeText`-Ergebnis. Ein Kanal-Ziel „teilen" (ACTION_SEND, Text) wäre die Antwort. | (ix) |
+| **Foto-Ansicht per `window.open(this.src)` in der Hülle** | Tagebuch- und Rezeptfotos öffnen den Browser des Telefons (die App wird verlassen); ein `blob:`/`data:`-Foto ergibt „kein Ziel". Gehört in eine Ansicht in der App. | (ix) |
+| **Kein SPA-Rückfall im Paket** | `_redirects` liefert im Web für jede unbekannte Adresse `index.html`; der AssetServer der Hülle antwortet 404. Ein relativer Link ohne `screen=` (Benachrichtigungen) endet in der App leer. | (ix) |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
 
 

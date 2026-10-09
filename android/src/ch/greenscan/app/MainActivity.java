@@ -13,6 +13,7 @@ import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.DocumentsContract;
 import android.view.ViewGroup;
 import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
@@ -25,8 +26,14 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
 /**
- * Die Huelle. Sie tut genau vier Dinge, und jedes davon, weil eine nackte
+ * Die Huelle. Sie tut genau fuenf Dinge, und jedes davon, weil eine nackte
  * WebView es NICHT von selbst tut:
  *
  * <ol>
@@ -38,6 +45,10 @@ import android.widget.Toast;
  *       und behaelt die eigenen drin.</li>
  *   <li>Sie legt den Zurueck-Knopf auf den Verlauf — und damit auf
  *       {@code gsZurueck()}, die seit v33.43 in der App steht.</li>
+ *   <li>Sie speichert und druckt, was die App ihr reicht (v33.53): den
+ *       Android-Dialog „Speichern unter" und den Druckdialog. Die Datei kommt
+ *       ueber Adressen unter dem eigenen Ursprung herein ({@link Export}),
+ *       nicht ueber eine Bruecke.</li>
  * </ol>
  *
  * <p>Was sie ausdruecklich NICHT tut: eine Bruecke nach JavaScript aufmachen.
@@ -64,12 +75,52 @@ public class MainActivity extends Activity {
   private static final int ANFRAGE_KAMERA = 71;
   private static final int ANFRAGE_ORT = 72;
   private static final int ANFRAGE_DATEI = 73;
+  private static final int ANFRAGE_SPEICHERN = 74;
+
+  /**
+   * Der Sammler fuer Export und Drucken — EINER je Prozess, nicht je Activity:
+   * dreht jemand das Telefon oder aendert die Schriftgroesse, waehrend der
+   * Dialog offen ist, entsteht eine neue Activity, und der Vorgang muss
+   * derselbe bleiben. Stirbt der Prozess, liegt die Datei noch in der
+   * Spool-Datei, und {@link #onActivityResult} findet sie ueber die Kennung
+   * aus {@link #onSaveInstanceState} wieder.
+   */
+  private static Export.Sammler sammler;
+
+  /** Der Vorgang, dessen Dialog „Speichern unter" gerade offen ist. */
+  private String wartetId;
+  private long wartetBytes;
+  /** Eine Datei, die ankam, waehrend die Activity nicht vorne war. */
+  private Export.Datei ausstehend;
+  /** Ist die Activity vorne? Einen Dialog oeffnet nur, wer vorne ist (Android 10+). */
+  private boolean vorne;
+  /** Die Druckansicht — eine eigene, geschlossene WebView (DruckAnsicht.java). */
+  private final DruckAnsicht druck = new DruckAnsicht();
 
   @Override
   protected void onCreate(Bundle zustand) {
     super.onCreate(zustand);
 
-    server = new AssetServer(getAssets());
+    File ablage = new File(getCacheDir(), "huelle-export");
+    if (sammler == null) sammler = new Export.Sammler(ablage);
+    if (zustand != null) {
+      wartetId = zustand.getString("gs_export_id");
+      wartetBytes = zustand.getLong("gs_export_bytes", 0);
+    }
+    // Was niemand mehr abholt, geht — ausser der Datei, auf deren Dialog
+    // gerade gewartet wird (auch ueber einen Prozesstod hinweg).
+    try {
+      Export.aufraeumen(ablage, wartetId != null ? wartetId : sammler.offeneId(), System.currentTimeMillis());
+    } catch (Throwable ignored) {}
+
+    server = new AssetServer(getAssets(), sammler);
+    server.setDateiZiel(new AssetServer.DateiZiel() {
+      @Override public void uebergeben(final Export.Datei d) {
+        // Kommt auf einem Hintergrund-Faden an (shouldInterceptRequest) —
+        // Dialoge und WebViews gibt es nur auf dem UI-Faden.
+        runOnUiThread(new Runnable() { @Override public void run() { anbieten(d); } });
+      }
+    });
 
     web = new WebView(this);
     web.setLayoutParams(new ViewGroup.LayoutParams(
@@ -106,7 +157,8 @@ public class MainActivity extends Activity {
     web.setWebViewClient(new WebViewClient() {
       @Override
       public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest anfrage) {
-        return server.beantworte(anfrage.getUrl());
+        return server.beantworte(anfrage.getUrl(), anfrage.getMethod(), anfrage.isForMainFrame(),
+            anfrage.getRequestHeaders());
       }
 
       /**
@@ -220,6 +272,10 @@ public class MainActivity extends Activity {
   protected void onSaveInstanceState(Bundle b) {
     super.onSaveInstanceState(b);
     if (web != null) web.saveState(b);
+    if (wartetId != null) {
+      b.putString("gs_export_id", wartetId);
+      b.putLong("gs_export_bytes", wartetBytes);
+    }
   }
 
   /**
@@ -237,6 +293,7 @@ public class MainActivity extends Activity {
    */
   @Override
   protected void onPause() {
+    vorne = false;
     if (web != null) {
       try { web.evaluateJavascript("window.gsHuellePause && window.gsHuellePause();", null); } catch (Throwable ignored) {}
       web.onPause();
@@ -245,7 +302,12 @@ public class MainActivity extends Activity {
   }
 
   @Override
-  protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+  protected void onResume() {
+    super.onResume();
+    vorne = true;
+    if (web != null) web.onResume();
+    if (ausstehend != null) { Export.Datei d = ausstehend; ausstehend = null; anbieten(d); }
+  }
 
   /**
    * Der Netzzustand.
@@ -321,6 +383,129 @@ public class MainActivity extends Activity {
     }
   }
 
+  // ------------------------------------------------- Export und Drucken
+
+  /**
+   * Eine fertig eingesammelte Datei anbieten: „Speichern unter" oder Drucken.
+   * Nur auf dem UI-Faden, und nur, wenn die Activity vorne ist — ab Android 10
+   * verwirft das System einen Dialog aus dem Hintergrund still, und der
+   * Vorgang stuende fuer immer auf „wartet".
+   */
+  private void anbieten(Export.Datei d) {
+    if (!vorne) { ausstehend = d; return; }
+    if ("drucken".equals(d.ziel)) { drucken(d); return; }
+    Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+    i.addCategory(Intent.CATEGORY_OPENABLE);
+    i.setType(d.typ);
+    i.putExtra(Intent.EXTRA_TITLE, d.name);
+    wartetId = d.id;
+    wartetBytes = d.bytes;
+    try {
+      startActivityForResult(i, ANFRAGE_SPEICHERN);
+    } catch (ActivityNotFoundException e) {
+      wartetId = null; wartetBytes = 0;
+      abschluss(d.id, "fehler");
+    }
+  }
+
+  /**
+   * Schreibt die Spool-Datei in das Dokument, das der Dialog angelegt hat.
+   *
+   * <p>Fehlt die Spool-Datei oder hat sie die falsche Laenge (Prozess
+   * gestorben, Speicher geraeumt), wird das angelegte Dokument wieder
+   * GELOESCHT: eine leere Datei unter dem Namen „Backup" sieht gespeichert aus
+   * und ist es nicht. Geschrieben wird mit {@code "wt"} — beim ERSETZEN einer
+   * vorhandenen Datei kuerzt {@code "w"} bei manchen Anbietern nicht, und der
+   * Rest der alten Datei bliebe hinten stehen.
+   */
+  private String schreiben(Uri ziel, File spool, long bytes) {
+    if (!Export.spoolPasst(spool, bytes)) { dokumentLoeschen(ziel); return "fehler"; }
+    InputStream in = null;
+    OutputStream out = null;
+    try {
+      try { out = getContentResolver().openOutputStream(ziel, "wt"); }
+      catch (IllegalArgumentException | UnsupportedOperationException | IOException e) { out = null; }
+      if (out == null) out = getContentResolver().openOutputStream(ziel, "w");
+      if (out == null) { dokumentLoeschen(ziel); return "fehler"; }
+      in = new FileInputStream(spool);
+      byte[] puffer = new byte[64 * 1024];
+      long geschrieben = 0;
+      int n;
+      while ((n = in.read(puffer)) > 0) { out.write(puffer, 0, n); geschrieben += n; }
+      out.flush();
+      if (geschrieben != bytes) { schliessen(out); out = null; dokumentLoeschen(ziel); return "fehler"; }
+      return "gespeichert";
+    } catch (Throwable e) {
+      schliessen(out); out = null;
+      dokumentLoeschen(ziel);
+      return "fehler";
+    } finally {
+      schliessen(in);
+      schliessen(out);
+    }
+  }
+
+  private void dokumentLoeschen(Uri u) {
+    try { DocumentsContract.deleteDocument(getContentResolver(), u); } catch (Throwable ignored) {}
+  }
+
+  private static void schliessen(java.io.Closeable c) {
+    if (c != null) try { c.close(); } catch (Throwable ignored) {}
+  }
+
+  /**
+   * Das Ergebnis an die Seite melden — mit einer Kennung und einem Zustand,
+   * die {@link Export#rueckruf} vorher geprueft hat. Antwortet die Seite mit
+   * {@code false} (sie wurde neu geladen, niemand wartet mehr), sagt es die
+   * Huelle selbst: sonst erfaehrt niemand, ob die Datei angekommen ist.
+   */
+  private void abschluss(final String id, final String zustand) {
+    if (sammler != null) sammler.abschliessen(id);
+    final String js = Export.rueckruf(id, zustand);
+    if (js == null || web == null) return;
+    web.post(new Runnable() {
+      @Override public void run() {
+        try {
+          web.evaluateJavascript(js, new ValueCallback<String>() {
+            @Override public void onReceiveValue(String antwort) {
+              if ("true".equals(antwort)) return;
+              if ("druck_offen".equals(zustand)) return;     // der Druckdialog steht ohnehin vorne
+              int text = "gespeichert".equals(zustand) ? R.string.export_gespeichert
+                                                       : R.string.export_nicht_gespeichert;
+              Toast.makeText(MainActivity.this, getString(text), Toast.LENGTH_LONG).show();
+            }
+          });
+        } catch (Throwable ignored) {}
+      }
+    });
+  }
+
+  /** Drucken geht durch die eigene Druckansicht — die Regeln stehen dort. */
+  private void drucken(final Export.Datei d) {
+    String titel = d.name.replaceAll("(?i)\\.html?$", "");
+    druck.starten(this, lesen(d.spool), titel, new DruckAnsicht.Ende() {
+      @Override public void ergebnis(String zustand) { abschluss(d.id, zustand); }
+    });
+  }
+
+  /** Liest die Spool-Datei als UTF-8 — oder {@code null}. Drucken ist auf MAX_DRUCK_BYTES gedeckelt. */
+  private static String lesen(File f) {
+    if (f == null || !f.isFile() || f.length() > Export.MAX_DRUCK_BYTES) return null;
+    InputStream in = null;
+    try {
+      in = new FileInputStream(f);
+      byte[] b = new byte[(int) f.length()];
+      int o = 0, n;
+      while (o < b.length && (n = in.read(b, o, b.length - o)) > 0) o += n;
+      if (o != b.length) return null;
+      return new String(b, "UTF-8");
+    } catch (IOException e) {
+      return null;
+    } finally {
+      schliessen(in);
+    }
+  }
+
   @Override
   public void onRequestPermissionsResult(int kennung, String[] rechte, int[] ergebnis) {
     boolean ja = false;
@@ -346,6 +531,27 @@ public class MainActivity extends Activity {
 
   @Override
   protected void onActivityResult(int kennung, int ergebnis, Intent daten) {
+    if (kennung == ANFRAGE_SPEICHERN) {
+      final String id = wartetId;
+      final long bytes = wartetBytes;
+      wartetId = null;
+      wartetBytes = 0;
+      final Uri ziel = (ergebnis == Activity.RESULT_OK && daten != null) ? daten.getData() : null;
+      if (id == null) {
+        // Ein Ergebnis ohne Vorgang: die Kennung ist verloren. Was der Dialog
+        // angelegt hat, ist leer — und wird wieder geloescht.
+        if (ziel != null) dokumentLoeschen(ziel);
+        return;
+      }
+      if (ziel == null) { abschluss(id, "abgebrochen"); return; }
+      final File spool = new File(new File(getCacheDir(), "huelle-export"), Export.spoolName(id));
+      // Schreiben auf einem eigenen Faden: ein Cloud-Anbieter (Drive) kann
+      // blockieren, und auf dem UI-Faden waere das nach 5 s ein ANR.
+      new Thread(new Runnable() {
+        @Override public void run() { abschluss(id, schreiben(ziel, spool, bytes)); }
+      }).start();
+      return;
+    }
     if (kennung == ANFRAGE_DATEI) {
       if (offeneDateiwahl == null) return;
       // Auch ein Abbruch wird beantwortet — sonst wartet das Feld fuer immer
