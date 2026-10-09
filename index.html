@@ -32577,8 +32577,19 @@ function uploadImage(){
 async function handleUpload(e){
   const file = e.target.files[0];
   if(!file) return;
-  document.getElementById('scan-status').textContent = 'Bild geladen – analysiere…';
   e.target.value = '';
+  return gsScanDatei(file);
+}
+
+// v33.55: EIN Weg von einer Bilddatei zum Scan — die Galerie (handleUpload),
+// das Teilen-Ziel der PWA und das Teilen in der Android-App gehen alle hier
+// durch. Ein zweiter Weg haette die EXIF-Lesung oder die Verkleinerung
+// vergessen (v33.48: ein zweiter Weg, der nicht tut, was der erste tut, ist
+// ein zweiter Zustand).
+async function gsScanDatei(file){
+  if(!file) return;
+  var st = document.getElementById('scan-status');
+  if (st) st.textContent = 'Bild geladen – analysiere…';
   // ── v32.00: EXIF VOR dem Komprimieren lesen ─────────────────────────
   // `gsCompressImage` zeichnet das Bild auf ein Canvas — dabei gehen die
   // EXIF-Daten verloren. Danach waere es zu spaet.
