@@ -660,6 +660,15 @@ Prüfung** — wer eine Export- oder Druckstelle baut, trägt sie dort ein.
 > `https://green-scan.ch` mit der CSP aus `_headers` laufen; Node stellt nur
 > den Dialog. Eine JavaScript-Kopie des Sammlers hätte eine Seite angenommen,
 > die das Telefon abweist — und wäre grün gewesen.
+>
+> **Und ein Prüfstand, der das Netz nicht kappt, misst auf zwei Maschinen zwei
+> Apps** (v33.53). Lokal zweimal grün, in CI K9 rot: der GitHub-Runner HAT Netz,
+> diese Umgebung nicht — im Browser-Lauf holte die App dort das Wetter, legte
+> Messwerte an, und der Export war 4675 statt 1908 B. Nachgestellt mit einem
+> Wetterdienst-Ersatz, dann kappt auch der Browser-Lauf alles ausser dem
+> eigenen Prüfserver. Wer einen Prüfstand mit zwei Fahrten baut, gibt beiden
+> DIESELBE Netzlage. Und `pruefstaende.sh` zeigt seither bei Rot die rote Zeile
+> mit — im ersten CI-Bericht stand nur „kaputt: 1".
 
 ## 4b · KI-Planer — der Entwurf steht in `docs/PLANER-V3.md`
 

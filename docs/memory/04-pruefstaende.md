@@ -142,3 +142,6 @@ angenommen, die das Telefon abweist. Und: **vor dem Ergebnis eines Dialogs
 darf keine Zusage stehen — in keinem Wortlaut**; der Fall sucht nicht nur
 den neuen Satz der Stelle (die Gegenprobe mit dem alten Backup zeigte
 „heruntergeladen" vor dem Dialog, und die erste Fassung sah es nicht).
+Und **zwei Fahrten bekommen dieselbe Netzlage**: CI hat Netz, diese Umgebung
+nicht — ein Browser-Lauf ohne Netzsperre holte dort das Wetter, und K9 war nur
+in CI rot.

@@ -1140,6 +1140,16 @@ async function app() {
     const downloads = []; p.on('download', d => downloads.push(d));
     const huelleAnfragen = []; p.on('request', rq => { if (rq.url().indexOf('/__huelle/') >= 0) huelleAnfragen.push(rq.url()); });
     if (alsHuelle && kanal) await huelleRouten(ctx, kanal);
+    else {
+      // Auch der Browser-Lauf kappt alles ausser dem eigenen Pruefserver. Der
+      // GitHub-Runner HAT Netz, diese Umgebung nicht: in CI holte die App das
+      // Wetter, legte daraus Messwerte an, und der Messwerte-Export war im
+      // Browser 4675 B gross, in der (gekappten) Huelle 1908 B — K9 rot in CI,
+      // gruen hier. Ein Pruefstand, der das Netz nicht kappt, misst auf zwei
+      // Maschinen zwei verschiedene Apps.
+      const eigen = 'http://127.0.0.1:' + port + '/';
+      await ctx.route('**/*', (r) => (r.request().url().startsWith(eigen) ? r.continue() : r.abort()));
+    }
     await p.clock.setFixedTime(UHR);
     // Die Registrierung wird GEZAEHLT statt ausgefuehrt — ein echter Worker
     // wuerde den zweiten Lauf beeinflussen.

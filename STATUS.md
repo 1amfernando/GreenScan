@@ -101,6 +101,17 @@ Telefon kaputt wäre (→ echter Java-Prozess).
   getestet — die scheitert schon am `JSON.parse`. Erst gültiges JSON ohne
   Marke misst die Marke.
 
+**Und eine vierte, die erst CI gezeigt hat:** lokal zweimal grün, in CI K9
+rot — der Messwerte-Export war im Browser-Lauf 4675 B gross, in der Hülle
+1908 B. Der GitHub-Runner HAT Netz, diese Umgebung nicht: im Browser-Lauf
+holte die App in CI das Wetter und legte daraus Messwerte an, die gekappte
+Hülle nicht. Nachgestellt mit einem Wetterdienst-Ersatz (K9 rot, E6), dann
+kappt auch der Browser-Lauf alles ausser dem eigenen Prüfserver (grün).
+**Ein Prüfstand, der das Netz nicht kappt, misst auf zwei Maschinen zwei
+verschiedene Apps** — und `pruefstaende.sh` zeigt seither bei Rot auch die
+rote Zeile, nicht nur die letzten sechs (welcher Fall rot war, stand im
+ersten CI-Bericht nirgends).
+
 **Grenze:** hier läuft kein Android. Geprüft sind Rechnung, Rand und Seite —
 ob ein Telefon den Dialog so zeigt und das PDF so druckt, sagt erst ein
 Gerät (FUER-FERNANDO §26: Android 6, 10, 14).
