@@ -80023,7 +80023,7 @@ var GS_GETEILT_MAX = 15 * 1024 * 1024;             // = GETEILT_MAX in sw.js
 var GS_GETEILT_FRISCH_MS = 10 * 60 * 1000;
 var GS_TEILEN_GRUENDE = ['bild', 'leer', 'gross', 'speicher', 'fehler', 'fremd', 'ohne-sw', 'text'];
 
-window._gsTeilenGrund = (function _gsTeilenAusAdresse(){
+window._gsTeilenGrund = (function(){
   try {
     var grund = null;
     var h = String(location.hash || '');
