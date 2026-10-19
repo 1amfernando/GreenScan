@@ -239,7 +239,11 @@ async function teilenAntwort(req) {
   const ziel = (g) => Response.redirect('/#teilen=' + g, 303);   // 303: der Browser holt per GET, nie ein zweiter POST
   try {
     // Eine fremde Seite darf kein Foto in die App schieben. Das ist nur ein
-    // halber Riegel (no-referrer sendet „null"); der ganze ist das Antippen.
+    // HALBER Riegel — gemessen (Chromium, v33.55): eine fremde Seite mit
+    // `<meta name="referrer" content="no-referrer">` schickt `Origin: null`,
+    // genau wie ein Teilen aus einer anderen App, und `Sec-Fetch-Site` sieht
+    // ein Worker gar nicht. Der ganze Riegel ist das Antippen: die Seite
+    // scannt nie von selbst und sagt in der Vorschau, woher das Foto kam.
     const herkunft = req.headers.get('Origin');
     if (herkunft && herkunft !== 'null' && herkunft !== self.location.origin) return ziel('fremd');
     const fd = await req.formData();
@@ -364,7 +368,9 @@ self.addEventListener('fetch', (event) => {
   if (req.method === 'POST') {
     try {
       const u = new URL(req.url);
-      if (u.origin === self.location.origin && u.pathname === '/teilen') {
+      // Nur eine Navigation der OBERSTEN Ebene ist ein Teilen — kein fetch(),
+      // kein Rahmen (der waere fuer die Person unsichtbar).
+      if (u.origin === self.location.origin && u.pathname === '/teilen' && req.mode === 'navigate' && req.destination === 'document') {
         event.respondWith(teilenAntwort(req));
         return;
       }

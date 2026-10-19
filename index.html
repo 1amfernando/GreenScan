@@ -32586,9 +32586,10 @@ async function handleUpload(e){
   return gsScanDatei(file);
 }
 
-// v33.55: EIN Weg von einer Bilddatei zum Scan — die Galerie (handleUpload),
-// das Teilen-Ziel der PWA und das Teilen in der Android-App gehen alle hier
-// durch. Ein zweiter Weg haette die EXIF-Lesung oder die Verkleinerung
+// v33.55: EIN Weg von einer Bilddatei zum Scan — die Galerie (handleUpload)
+// und das Teilen-Ziel der PWA (gsTeilenAbholen) gehen beide hier durch; das
+// Teilen in der Android-App gibt es noch nicht (GS_HUELLE_ANDERS 'teilen') und
+// soll denselben Weg nehmen. Ein zweiter Weg haette die EXIF-Lesung oder die Verkleinerung
 // vergessen (v33.48: ein zweiter Weg, der nicht tut, was der erste tut, ist
 // ein zweiter Zustand).
 async function gsScanDatei(file){
@@ -80125,6 +80126,10 @@ function _gsTeilenBereit(){
   return true;
 }
 function gsTeilenAbholen(){
+  // GS_HUELLE_ANDERS 'teilen': die Android-App hat (noch) kein Teilen-Ziel —
+  // kein Service Worker, also auch kein Foto im Cache, und das Teilen-Blatt
+  // bietet sie gar nicht an. Nichts abzuholen, nichts zu sagen.
+  try { if (typeof gsAndroidHuelle === 'function' && gsAndroidHuelle()) { window._gsTeilenGrund = null; window._gsTeilenOffen = false; return Promise.resolve({ zustand: 'nichts', grund: 'huelle' }); } } catch(_){}
   if (!_gsTeilenBereit()) {
     if (!window._gsTeilenWarten) {
       var versuche = Math.ceil(GS_GETEILT_FRISCH_MS / GS_TEILEN_WARTEN_MS);
@@ -80190,7 +80195,10 @@ function _gsTeilenVorschau(datei, anzahl){
     : '';
   ov.innerHTML =
     '<div style="background:var(--card);color:var(--text);border-radius:var(--r-lg,16px);max-width:420px;width:100%;max-height:100%;overflow:auto;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.35);">' +
-      '<div id="gs-teilen-titel" style="font-size:var(--fs-lg);font-weight:900;margin:0 0 10px;">' + escHtml(_gsSatz('Geteiltes Foto')) + '</div>' +
+      '<div id="gs-teilen-titel" style="font-size:var(--fs-lg);font-weight:900;margin:0 0 4px;">' + escHtml(_gsSatz('Geteiltes Foto')) + '</div>' +
+      // Woher es kam, kann die App nicht wissen (Origin „null" sendet auch eine
+      // fremde Seite, sw.js) — also sagt sie, was sie weiss, und wer entscheidet.
+      '<div style="font-size:var(--fs-sm);color:var(--text2);margin:0 0 10px;line-height:1.5;">' + escHtml(_gsSatz('Kam über „Teilen“ an. Wenn du nichts geteilt hast: verwerfen.')) + '</div>' +
       (url ? '<img src="' + escHtml(url) + '" alt="' + escHtml(_gsSatz('Geteiltes Foto')) + '" style="display:block;width:100%;max-height:50vh;object-fit:contain;border-radius:var(--r-md,12px);background:var(--bg2,#000);margin:0 0 12px;">' : '') +
       mehr +
       '<button type="button" id="gs-teilen-los" style="display:block;width:100%;min-height:48px;padding:12px;border:0;border-radius:var(--r-md,12px);background:var(--fill-brand);color:#fff;font-size:var(--fs-md);font-weight:800;font-family:inherit;cursor:pointer;margin:0 0 8px;">🔍 ' + escHtml(_gsSatz('Dieses Foto bestimmen')) + '</button>' +
@@ -87078,6 +87086,11 @@ var GS_HUELLE_ANDERS = [
     schl: 'drucken',
     titel: 'Drucken über Android',
     text: 'Gartenplan und Giess-Zettel gehen an den Druckdialog von Android; dort gibt es auch „Als PDF speichern“. Ein zweites Browserfenster öffnet die App dafür nicht.'
+  },
+  {
+    schl: 'teilen',
+    titel: 'Noch kein „Teilen → GreenScan“',
+    text: 'Im Browser installiert nimmt GreenScan ein Foto aus dem Teilen-Menü einer anderen App an. Die Android-App bietet sich dort noch nicht an — das ist in Arbeit. Bis dahin: im Scanner auf „Galerie“ tippen und das Foto dort wählen.'
   },
   {
     schl: 'zahlung',
