@@ -15312,6 +15312,7 @@ window.GS_I18N_JS_STRINGS = {
   'upd_grund_fenster':         'Ein Fenster ist offen',
   'upd_grund_scan':            'Das Scan-Ergebnis ist offen',
   'upd_grund_eingabe':         'Ein Feld enthält noch Text',
+  'upd_grund_teilen':          'Ein geteiltes Foto wartet',
   'upd_grund_unklar':          'Der Zustand ist gerade unklar',
   // ── v29.13 Gutschein einlösen ──
   'voucher_redeem_title':      '🎟️ Gutschein einlösen',
@@ -26864,8 +26865,12 @@ function switchTab(t, btn) {
 
   // Start scanner camera when entering scanner tab
   if (t === 'scanner') {
+    // v33.55: ein geteiltes Foto ist schon da — die Kamera bleibt aus
+    // (gsTeilenAbholen setzt die Marke, sie gilt fuer genau EINEN Wechsel).
+    var _ohneKamera = !!window._gsScanOhneKamera;
+    window._gsScanOhneKamera = false;
     setTimeout(() => {
-      if (typeof initScanner === 'function') initScanner();
+      if (!_ohneKamera && typeof initScanner === 'function') initScanner();
       // v23.65: API-Key-Chip sichtbar machen wenn kein Key gesetzt
       try {
         var chip = document.getElementById('sr-apikey-chip');
@@ -78750,6 +78755,7 @@ var GS_UPDATE_GRUENDE = {
   'fenster': ['upd_grund_fenster', 'Ein Fenster ist offen'],
   'scan-ergebnis': ['upd_grund_scan', 'Das Scan-Ergebnis ist offen'],
   'eingabe': ['upd_grund_eingabe', 'Ein Feld enthält noch Text'],
+  'teilen': ['upd_grund_teilen', 'Ein geteiltes Foto wartet'],
   'unklar': ['upd_grund_unklar', 'Der Zustand ist gerade unklar']
 };
 function _gsUpdateGrundText(grund){
@@ -78801,6 +78807,7 @@ function _gsAppRuhig(){
     if (document.querySelector('.modal-overlay.open, .overlay-modal.open')) g.push('fenster');
     if (_gsSichtbar(document.getElementById('scan-result'))) g.push('scan-ergebnis');
     if (_gsEingabeOffen()) g.push('eingabe');
+    if (window._gsTeilenOffen) g.push('teilen');   // v33.55: ein geteiltes Foto wartet
   } catch(_){ g.push('unklar'); }
   return { ruhig: g.length === 0, grund: g.join(', ') };
 }
@@ -79992,27 +79999,202 @@ function gsRegisterServiceWorker() {
   window.gsVibSuccess = function(){ window.gsVibrate([60]); };
 })();
 
-// v24.36: ═══ SHARE-TARGET HANDLER ═══════════════════════════════════════
-// Manifest deklariert share_target. Wenn ?share=1 vorhanden ist, springe
-// zu Scanner und gib Hinweis. Web-Share-Target POST-Bilder kommen über SW.
-(function _gsShareTargetInit(){
-  document.addEventListener('DOMContentLoaded', function(){
-    setTimeout(function(){
-      try {
-        var p = new URLSearchParams(location.search);
-        if (p.get('share') === '1') {
-          // Wenn Bild über Web-Share-Target empfangen → wir kriegen das im SW.
-          // Vorerst: navigiere zu Scanner und zeige Hinweis-Toast.
-          // v24.42 BUGFIX: navTo/showScreen existieren nicht → switchTab nutzen.
-          if (typeof switchTab === 'function') switchTab('scanner');
-          if (typeof showProfileToast === 'function') {
-            showProfileToast({type:'info', icon:'📤', title:'Bild geteilt', body:'Wähle ein Bild oder mache ein Foto zum Bestimmen.', duration:4500});
-          }
-        }
-      } catch(e){}
-    }, 1200);
-  });
+// ═══ v33.55 · EIN FOTO TEILEN → GREENSCAN ═══════════════════════════════
+// Bis v33.54 nahm das Teilen-Ziel (manifest.json share_target) nur Text und
+// Links an — per GET, ohne Dateien. Android bot GreenScan im Teilen-Blatt
+// deshalb fuer KEIN Foto an, und wer einen Link teilte, las „Bild geteilt —
+// Wähle ein Bild …", obwohl nie ein Bild ankam.
+//
+// Seit v33.55: POST /teilen, multipart, Feld „bild". Der Service Worker legt
+// das Foto unter EINEM festen Schluessel in den Cache `gs-geteilt` und leitet
+// auf `/#teilen=<grund>` um (sw.js `teilenAntwort`). Die Seite liest den Grund
+// beim PARSEN und raeumt die Adresse sofort auf — ein Neuladen teilt nicht ein
+// zweites Mal. Dann zeigt sie das Foto als VORSCHAU. Gescannt wird erst nach
+// dem Antippen: ein Scan kostet Kontingent, und ein Foto, das eine andere App
+// schickt, hat die Person in GreenScan noch nicht gesehen.
+//
+// Ohne Service Worker (erster Besuch, Worker abgemeldet) landet der POST beim
+// Hoster; `_redirects` leitet ihn auf `/?teilen=ohne-sw` — und die Seite sagt,
+// warum kein Foto da ist, statt still nichts zu tun.
+// Pruefstand: scripts/offline_check.js (echter Worker, echter multipart-POST).
+var GS_GETEILT_CACHE = 'gs-geteilt';               // = GETEILT_CACHE in sw.js
+var GS_GETEILT_SCHLUESSEL = '/__geteilt/letztes';  // = GETEILT_SCHLUESSEL in sw.js
+var GS_GETEILT_MAX = 15 * 1024 * 1024;             // = GETEILT_MAX in sw.js
+var GS_GETEILT_FRISCH_MS = 10 * 60 * 1000;
+var GS_TEILEN_GRUENDE = ['bild', 'leer', 'gross', 'speicher', 'fehler', 'fremd', 'ohne-sw', 'text'];
+
+window._gsTeilenGrund = (function _gsTeilenAusAdresse(){
+  try {
+    var grund = null;
+    var h = String(location.hash || '');
+    var m = h.match(/^#teilen=([a-z-]{1,12})$/);
+    if (m && GS_TEILEN_GRUENDE.indexOf(m[1]) >= 0) grund = m[1];
+    var qs = new URLSearchParams(location.search || '');
+    var altesZiel = qs.get('share') === '1';   // das GET-Ziel bis v33.54: Text oder Link
+    if (!grund && qs.get('teilen') === 'ohne-sw') grund = 'ohne-sw';
+    if (!grund && altesZiel) grund = 'text';
+    var weg = ['share', 'teilen'].concat(altesZiel ? ['title', 'text', 'url'] : []);
+    var hashWeg = /^#teilen=/.test(h);
+    if (hashWeg || weg.some(function(k){ return qs.has(k); })) {
+      weg.forEach(function(k){ qs.delete(k); });
+      var rest = qs.toString();
+      history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + (hashWeg ? '' : h));
+    }
+    // Solange das Foto wartet, laedt „Update ohne Klick" (v33.25) nicht neu.
+    if (grund) window._gsTeilenOffen = true;
+    return grund;
+  } catch(_){ return null; }
 })();
+
+// Welches Bild ist das wirklich? Der Typ aus dem Teilen-Blatt ist eine Angabe
+// der sendenden App; die ersten Bytes sind die Datei. Rueckgabe: ein Typ, den
+// der Scanner liest, 'heic' (eigener Satz) oder null.
+function _gsBildTyp(b){
+  if (!b || b.length < 12) return null;
+  var s = function(i, n){ var t = ''; for (var k = i; k < i + n; k++) t += String.fromCharCode(b[k]); return t; };
+  if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return 'image/jpeg';
+  if (b[0] === 0x89 && s(1, 3) === 'PNG' && b[4] === 0x0D && b[5] === 0x0A && b[6] === 0x1A && b[7] === 0x0A) return 'image/png';
+  if (s(0, 4) === 'GIF8') return 'image/gif';
+  if (s(0, 4) === 'RIFF' && s(8, 4) === 'WEBP') return 'image/webp';
+  if (s(4, 4) === 'ftyp' && /^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/.test(s(8, 4))) return 'heic';
+  return null;
+}
+window._gsBildTyp = _gsBildTyp;
+
+// Ein Satz je Grund — jeder ein ganzer Satz, damit ihn der Uebersetzer kennt.
+function _gsTeilenSatz(g){
+  switch (g) {
+    case 'leer':      return _gsSatz('Es ist kein Foto angekommen. Teile bitte ein Bild aus der Galerie oder der Kamera.');
+    case 'gross':     return _gsSatz('Das Foto ist grösser als 15 MB. So grosse Bilder nimmt GreenScan nicht an.');
+    case 'speicher':  return _gsSatz('Das Foto liess sich nicht zwischenspeichern — vermutlich ist der Gerätespeicher voll.');
+    case 'fremd':     return _gsSatz('Eine fremde Seite wollte ein Foto an GreenScan schicken. Das wurde nicht angenommen.');
+    case 'ohne-sw':   return _gsSatz('Das Foto ist nicht angekommen: GreenScan war noch nicht bereit. Öffne die App einmal und teile es dann noch einmal.');
+    case 'text':      return _gsSatz('Geteilt wurde ein Text oder Link. Zum Bestimmen braucht GreenScan ein Foto.');
+    case 'weg':       return _gsSatz('Das geteilte Foto ist nicht mehr da. Bitte noch einmal teilen.');
+    case 'kein_bild': return _gsSatz('Die geteilte Datei ist kein Foto, das GreenScan lesen kann.');
+    case 'heic':      return _gsSatz('Das Foto liegt im HEIC-Format vor. Das kann GreenScan noch nicht lesen — bitte als JPEG teilen.');
+    default:          return _gsSatz('Das geteilte Foto ist nicht angekommen. Bitte noch einmal teilen.');
+  }
+}
+function _gsTeilenSagen(g){
+  try { if (typeof gsToast === 'function') gsToast(_gsTeilenSatz(g), g === 'text' ? 'info' : 'warning', 8000); } catch(_){}
+}
+
+// Der eine Leser des Caches. `caches.has` zuerst: `caches.open` legte sonst
+// bei JEDEM Start einen leeren Cache an.
+function _gsTeilenEintrag(){
+  try {
+    if (!('caches' in window)) return Promise.resolve(null);
+    return caches.has(GS_GETEILT_CACHE).then(function(da){
+      if (!da) return null;
+      return caches.open(GS_GETEILT_CACHE).then(function(c){ return c.match(GS_GETEILT_SCHLUESSEL); }).then(function(r){
+        if (!r) return null;
+        var zeit = parseInt(r.headers.get('X-Zeit') || '', 10);
+        var anzahl = parseInt(r.headers.get('X-Anzahl') || '1', 10) || 1;
+        return r.blob().then(function(blob){ return { blob: blob, zeit: zeit, anzahl: anzahl }; });
+      });
+    }).catch(function(){ return null; });
+  } catch(_){ return Promise.resolve(null); }
+}
+function _gsTeilenLoeschen(){
+  try {
+    if (!('caches' in window)) return Promise.resolve(false);
+    return caches.delete(GS_GETEILT_CACHE).catch(function(){ return false; });
+  } catch(_){ return Promise.resolve(false); }
+}
+window._gsTeilenLoeschen = _gsTeilenLoeschen;
+
+// Holt das geteilte Foto ab. Rueckgabe {zustand, grund?} — zustand:
+// 'vorschau' · 'gesagt' (mit grund) · 'nichts'.
+// Auch OHNE Grund in der Adresse wird ein FRISCHES Foto angeboten: lud die App
+// zwischen Teilen und Abholen neu (ein Update), ist die Adresse schon sauber,
+// das Foto aber noch da.
+function gsTeilenAbholen(){
+  var g = window._gsTeilenGrund || null;
+  window._gsTeilenGrund = null;
+  if (g && g !== 'bild') {
+    window._gsTeilenOffen = false;
+    _gsTeilenSagen(g);
+    return Promise.resolve({ zustand: 'gesagt', grund: g });
+  }
+  return _gsTeilenEintrag().then(function(e){
+    var ende = function(grund){
+      window._gsTeilenOffen = false;
+      return _gsTeilenLoeschen().then(function(){
+        if (!grund) return { zustand: 'nichts' };
+        _gsTeilenSagen(grund);
+        return { zustand: 'gesagt', grund: grund };
+      });
+    };
+    if (!e) { window._gsTeilenOffen = false; if (g) _gsTeilenSagen('weg'); return g ? { zustand: 'gesagt', grund: 'weg' } : { zustand: 'nichts' }; }
+    var alter = Date.now() - e.zeit;
+    if (!(alter >= 0 && alter <= GS_GETEILT_FRISCH_MS)) return ende(g ? 'weg' : null);   // abgelaufen oder Uhr zurueckgestellt
+    if (!e.blob || !e.blob.size) return ende(g ? 'leer' : null);
+    if (e.blob.size > GS_GETEILT_MAX) return ende('gross');
+    // GANZ in den Arbeitsspeicher (≤ 15 MB): die Datei haengt danach nicht
+    // mehr am Cache-Eintrag, der beim Verlassen der Vorschau geloescht wird.
+    return e.blob.arrayBuffer().then(function(ab){
+      var typ = _gsBildTyp(new Uint8Array(ab, 0, Math.min(16, ab.byteLength)));
+      if (typ === 'heic') return ende('heic');
+      if (!typ) return ende('kein_bild');
+      // Die Datei bekommt den GEMESSENEN Typ, nicht den angegebenen.
+      var datei;
+      try { datei = new File([ab], 'geteilt', { type: typ }); } catch(_){ datei = new Blob([ab], { type: typ }); }
+      _gsTeilenVorschau(datei, e.anzahl);
+      return { zustand: 'vorschau' };
+    });
+  }).catch(function(){ window._gsTeilenOffen = false; return { zustand: 'nichts' }; });
+}
+window.gsTeilenAbholen = gsTeilenAbholen;
+
+function _gsTeilenVorschau(datei, anzahl){
+  var alt = document.getElementById('gs-teilen-vorschau');
+  if (alt) gsDismissOverlay(alt);
+  window._gsTeilenOffen = true;
+  var url = '';
+  try { url = URL.createObjectURL(datei); } catch(_){}
+  var ov = document.createElement('div');
+  ov.id = 'gs-teilen-vorschau';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.setAttribute('aria-labelledby', 'gs-teilen-titel');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+  var mehr = anzahl > 1
+    ? '<div style="font-size:var(--fs-sm);color:var(--text2);margin:0 0 12px;line-height:1.5;">' + escHtml(_gsSatz('Du hast {1} Fotos geteilt — bestimmt wird das erste.', anzahl)) + '</div>'
+    : '';
+  ov.innerHTML =
+    '<div style="background:var(--card);color:var(--text);border-radius:var(--r-lg,16px);max-width:420px;width:100%;max-height:100%;overflow:auto;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.35);">' +
+      '<div id="gs-teilen-titel" style="font-size:var(--fs-lg);font-weight:900;margin:0 0 10px;">' + escHtml(_gsSatz('Geteiltes Foto')) + '</div>' +
+      (url ? '<img src="' + escHtml(url) + '" alt="' + escHtml(_gsSatz('Geteiltes Foto')) + '" style="display:block;width:100%;max-height:50vh;object-fit:contain;border-radius:var(--r-md,12px);background:var(--bg2,#000);margin:0 0 12px;">' : '') +
+      mehr +
+      '<button type="button" id="gs-teilen-los" style="display:block;width:100%;min-height:48px;padding:12px;border:0;border-radius:var(--r-md,12px);background:var(--fill-brand);color:#fff;font-size:var(--fs-md);font-weight:800;font-family:inherit;cursor:pointer;margin:0 0 8px;">🔍 ' + escHtml(_gsSatz('Dieses Foto bestimmen')) + '</button>' +
+      '<button type="button" id="gs-teilen-weg" data-gs-close style="display:block;width:100%;min-height:44px;padding:10px;border:1.5px solid var(--border);border-radius:var(--r-md,12px);background:transparent;color:var(--text);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;">' + escHtml(_gsSatz('Verwerfen')) + '</button>' +
+    '</div>';
+  var zu = false;
+  var aufraeumen = function(){
+    if (zu) return; zu = true;
+    window._gsTeilenOffen = false;
+    try { if (url) URL.revokeObjectURL(url); } catch(_){}
+    // Wer die Vorschau verlaesst — Verwerfen, Escape, Zurueck, ein anderer
+    // Tab —, hat das Foto gesehen und sich entschieden. Es bleibt nicht liegen.
+    _gsTeilenLoeschen();
+  };
+  gsRegisterOverlay(ov, aufraeumen);
+  document.body.appendChild(ov);
+  ov.querySelector('#gs-teilen-weg').addEventListener('click', function(){ gsDismissOverlay(ov); });
+  ov.querySelector('#gs-teilen-los').addEventListener('click', function(){
+    gsDismissOverlay(ov);
+    // Zum Scanner, aber OHNE Kamera: das Foto ist schon da.
+    window._gsScanOhneKamera = true;
+    try { if (typeof switchTab === 'function') switchTab('scanner'); } catch(_){}
+    try { gsScanDatei(datei); } catch(_){}
+  });
+  try { ov.querySelector('#gs-teilen-los').focus(); } catch(_){}
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  setTimeout(function(){ try { gsTeilenAbholen(); } catch(_){} }, 900);
+});
 
 // v24.36: ═══ STORAGE-MANAGEMENT ════════════════════════════════════════
 // Cache-Size, Quota, Persistent-Storage, Clear-Cache.
@@ -83315,6 +83497,9 @@ function gsClearUserDataKeys(){
     try { marketListings = []; } catch(_){}
     try { farmState = (typeof _gsFarmDefault === 'function') ? _gsFarmDefault() : farmState; } catch(_){}
     try { if (typeof _gsDev !== 'undefined' && _gsDev) _gsDev.registry = {}; } catch(_){}
+    // v33.55: ein geteiltes Foto, das noch nicht abgeholt wurde, gehoert der
+    // Person, die es geteilt hat — nicht der naechsten am Geraet.
+    try { if (typeof _gsTeilenLoeschen === 'function') _gsTeilenLoeschen(); } catch(_){}
   } catch(e){ console.warn('[gsClearUserDataKeys]', e); }
 }
 
