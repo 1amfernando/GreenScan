@@ -823,6 +823,11 @@ function server(wunschPort) {
       gum: window.__gum,
       toasts: (window.__toasts || []).slice(),
       ruhig: (typeof _gsAppRuhig === 'function') ? _gsAppRuhig().grund : '(fehlt)',
+    })).catch(e => ({
+      // Eine Fehlerseite (Navigation gescheitert) hat kein `caches` — das ist
+      // ein Befund, kein Absturz des Pruefstands.
+      vorschau: false, bild: false, adresse: '(keine App-Seite: ' + String(e.message).split('\n')[0].slice(0, 60) + ')',
+      cache: null, eintrag: false, gescannt: false, gum: null, toasts: [], ruhig: '(unbekannt)',
     }));
     const verwerfen = (seite) => seite.evaluate(() => { const b = document.getElementById('gs-teilen-weg'); if (b) b.click(); }).catch(() => {});
 
@@ -986,13 +991,17 @@ function server(wunschPort) {
     // 34 · Ein neuer Worker WARTET, waehrend geteilt wird (Auslieferungen kommen fast taeglich).
     //      Der Start wendet sonst wartende Worker an (v33.25) — mit dem Foto im Cache darf er
     //      das nicht: keine zweite Ladung, die Vorschau steht, das Update sagt „teilen".
+    // Die Ausgangsseite HERSTELLEN, nicht voraussetzen: ein gescheiterter Fall
+    // davor kann t auf einer Fehlerseite zurueckgelassen haben.
+    await t.goto(basis + '/', { waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => {});
+    await t.waitForTimeout(1500);
     versionErsatz = 'vTEST3';
     const w34 = await t.evaluate(async () => {
       const reg = await navigator.serviceWorker.getRegistration();
       try { await reg.update(); } catch (_) {}
       for (let i = 0; i < 60 && !reg.waiting; i++) await new Promise(z => setTimeout(z, 300));
       return !!reg.waiting;
-    });
+    }).catch(() => false);
     const ladVor = ladungenT;
     await teile(t, { jpeg: true });
     await warteAuf(t, () => !!document.getElementById('gs-teilen-vorschau'));
