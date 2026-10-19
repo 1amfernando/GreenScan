@@ -734,12 +734,14 @@ function server(wunschPort) {
   // der Hoster), das alte Text-Ziel, kein Empfang, ein wartender Worker, Abmelden.
   {
     const { s: s9 } = await server(port);
+    let ctxT = null;
+    try {
     const ziel = JSON.parse(fs.readFileSync(path.join(WURZEL, 'manifest.json'), 'utf8')).share_target || {};
     const formular = {
       action: ziel.action, method: ziel.method, enctype: ziel.enctype,
       feld: ((ziel.params && ziel.params.files) || [])[0] ? ziel.params.files[0].name : null,
     };
-    const ctxT = await br.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'allow' });
+    ctxT = await br.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'allow' });
     const SPAEHER = () => {
       // Kamera-Zaehler UNTER dem Tor der App (v32.33): jede Anfrage kommt hier an.
       window.__gum = 0;
@@ -840,6 +842,8 @@ function server(wunschPort) {
 
     // 26 · Antippen → der Scanner bekommt GENAU diese Bytes, ohne Kamera; der Eintrag ist weg.
     const nach = await t.evaluate(async () => {
+      // Ohne Vorschau gibt es nichts anzutippen — dann MELDEN, nicht abstuerzen.
+      if (!document.getElementById('gs-teilen-los')) return { dateien: [], fehler: 'keine Vorschau zum Antippen' };
       window.__dateien = []; window.__analyse = 0;
       const orig = window.gsScanDatei;
       window.gsScanDatei = async function (f) {
@@ -868,7 +872,7 @@ function server(wunschPort) {
               && nach.gum === 0 && nach.init === 0 && nach.tab === 'scanner' && !nach.cache && !nach.vorschau && !/teilen/.test(nach.ruhig);
     melde('Teilen: „Bestimmen" gibt dem Scanner GENAU die geteilten Bytes — ohne Kamera, und der Eintrag ist danach weg', ok26,
           ok26 ? ('SHA-256 gleich (' + String(shaGeteilt).slice(0, 12) + '…) · ' + d0.groesse + ' Bytes · analyzeImage 1× · initScanner 0× · getUserMedia 0× · Tab scanner · Cache geraeumt')
-               : ('Dateien ' + JSON.stringify(nach.dateien) + ' (erwartet sha ' + shaGeteilt + ') · analyzeImage ' + nach.analyse + ' · initScanner ' + nach.init + ' · getUserMedia ' + nach.gum
+               : ((nach.fehler ? nach.fehler + ' · ' : '') + 'Dateien ' + JSON.stringify(nach.dateien) + ' (erwartet sha ' + shaGeteilt + ') · analyzeImage ' + nach.analyse + ' · initScanner ' + nach.init + ' · getUserMedia ' + nach.gum
                   + ' · Tab ' + nach.tab + ' · Cache ' + nach.cache + ' · Vorschau ' + nach.vorschau + ' · ruhig „' + nach.ruhig + '"'));
 
     // 27 · Neu laden teilt nicht ein zweites Mal.
@@ -1017,19 +1021,30 @@ function server(wunschPort) {
       }
       return { keys: await caches.keys() };
     }).catch(e => ({ fehler: 'Seite hat neu geladen: ' + String(e.message).slice(0, 60) }));
+    // Die App laedt nach einem Worker-Wechsel unter Umstaenden selbst neu
+    // (Zweit-Tab-Regel, v33.25) — diese Ladung erst abwarten, sonst laufen
+    // zwei Navigationen gegeneinander.
+    await t.waitForEvent('domcontentloaded', { timeout: 8000 }).catch(() => {});
     await t.waitForTimeout(1500);
     const keys35 = await t.evaluate(() => caches.keys()).catch(() => []);
-    await t.goto(basis + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    let nav35 = null;
+    try { await t.goto(basis + '/', { waitUntil: 'domcontentloaded', timeout: 120000 }); }
+    catch (e) { nav35 = String(e.message).split('\n')[0].slice(0, 80); }
     await warteAuf(t, () => !!document.getElementById('gs-teilen-vorschau'));
-    const v35 = await stand(t);
+    const v35 = await stand(t).catch(() => ({ vorschau: false, adresse: '(keine Seite)' }));
     const ok35 = keys35.includes('gs-geteilt') && keys35.some(k => k.indexOf('gs-vTEST3') === 0) && v35.vorschau && v35.adresse === '/';
     melde('Teilen: ein Worker-Wechsel loescht das wartende Foto nicht — und die App bietet es danach an', ok35,
           ok35 ? ('Caches danach: gs-geteilt + ' + keys35.filter(k => k.indexOf('gs-vTEST3') === 0).length + '× neue Version · Vorschau nach Neuladen ohne Marke')
-               : ('Antwort ' + JSON.stringify(u35).slice(0, 160) + ' · Caches ' + JSON.stringify(keys35) + ' · Vorschau ' + v35.vorschau));
+               : ((nav35 ? 'Neuladen scheiterte: ' + nav35 + ' · ' : '') + 'Antwort ' + JSON.stringify(u35).slice(0, 160) + ' · Caches ' + JSON.stringify(keys35) + ' · Vorschau ' + v35.vorschau));
     await verwerfen(t);
-    versionErsatz = null;
-    await ctxT.close();
-    s9.close();
+    } catch (e) {
+      // Ein Pruefstand, der abstuerzt, hat nichts gemessen — er MELDET es.
+      melde('Teilen: der Block lief nicht zu Ende', false, String(e.message || e).split('\n')[0].slice(0, 160));
+    } finally {
+      versionErsatz = null;
+      if (ctxT) await ctxT.close().catch(() => {});
+      s9.close();
+    }
   }
 
   console.log('  ---');
