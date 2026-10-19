@@ -28,11 +28,12 @@
  * Kontext. `file://` ist keiner, `http://127.0.0.1` schon — deshalb 30
  * Zeilen statischer Server statt eines weiteren npm-Pakets.
  *
- *   25–36. Ein Foto per „Teilen → GreenScan" (v33.55): der multipart-POST aus
+ *   25–38. Ein Foto per „Teilen → GreenScan" (v33.55): der multipart-POST aus
  *       dem echten share_target geht durch den Worker, die Seite zeigt eine
  *       VORSCHAU (kein Scan, keine Kamera), „Bestimmen" gibt dem Scanner genau
  *       die Bytes; dazu kein Bild · HEIC · leer · fremde Seite · altes Text-Ziel
- *       · ohne Worker (`_redirects`) · ohne Empfang · ein wartender Worker.
+ *       · ohne Worker (`_redirects`) · ohne Empfang · ein wartender Worker ·
+ *       die App schliesst die Vorschau selbst · abgemeldet geteilt.
  *
  *   11. Versionswechsel OHNE Klick (v33.25): ein neuer sw.js wartet — die App
  *       sichert, wendet ihn beim Zurueckkommen nach Abwesenheit an, laedt
@@ -721,7 +722,7 @@ function server(wunschPort) {
     s8.close();
   }
 
-  // ── 25–36 · v33.55: Ein Foto per „Teilen → GreenScan" ───────────────
+  // ── 25–38 · v33.55: Ein Foto per „Teilen → GreenScan" ───────────────
   //
   // Gemessen an v33.54: das Teilen-Ziel nahm nur Text und Links an (GET, keine
   // Dateien), der Worker kannte kein Teilen, und die Seite sagte „Bild geteilt",
@@ -731,7 +732,8 @@ function server(wunschPort) {
   // die Naht Manifest ↔ Worker mitgeprueft ist —, unter einem echten Worker.
   // Die Gegenrichtungen stellen ihren Zustand her: keine Bilddatei, HEIC, leeres
   // Feld, fremde Seite, kein Worker (der Pruefserver wendet `_redirects` an wie
-  // der Hoster), das alte Text-Ziel, kein Empfang, ein wartender Worker, Abmelden.
+  // der Hoster), das alte Text-Ziel, kein Empfang, ein wartender Worker, Abmelden,
+  // die App selbst schliesst die Vorschau, abgemeldet geteilt.
   {
     const { s: s9 } = await server(port);
     let ctxT = null;
@@ -935,6 +937,10 @@ function server(wunschPort) {
       const n = await c.newPage();
       n.on('pageerror', e => fehler.push('Teilen ohne Worker: ' + e.message.split('\n')[0]));
       await n.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
+      // Angemeldet — der Fall ist „installiert, aber der Worker ist weg". Ohne
+      // Anmeldung wartet der Satz (richtig) auf das Ende des Anmeldebildschirms.
+      await n.evaluate(() => { const bis = Date.now() + 3600 * 1000; localStorage.setItem('gs_sb_token', 'x.y.z'); localStorage.setItem('gs_sb_uid', 'u-teilen'); localStorage.setItem('gs_sb_expires', String(bis)); localStorage.setItem('gs_sb_expires_at', new Date(bis).toISOString()); });
+      await n.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
       await n.waitForTimeout(800);
       const vor = ANKUNFT.length;
       await teile(n, { jpeg: true });
@@ -962,6 +968,68 @@ function server(wunschPort) {
     const ok32 = z32.zustand === 'vorschau' && z32.offen && z32.mehr && z32.art === 'overlay' && z32.zu && !z32.cache && !/teilen/.test(z32.ruhig);
     melde('Teilen: Zurueck schliesst die Vorschau als EINE Schicht und raeumt das Foto; zwei geteilte Fotos werden gesagt', ok32,
           ok32 ? 'gsZurueck → overlay · Cache geraeumt · „2 Fotos geteilt — bestimmt wird das erste"' : JSON.stringify(z32));
+
+    // 37 · Schliesst die APP die Vorschau (jedes switchTab raeumt Dialoge ab — etwa die
+    //      Tab-Wiederherstellung nach einem Update), ist das keine Entscheidung der Person:
+    //      sie kommt wieder, das Foto bleibt. Ein Tipp daneben schliesst nichts. Und
+    //      „Bestimmen" bei schon offenem Scanner laesst keine scharfe Kamera-Marke zurueck.
+    const z37 = await t.evaluate(async () => {
+      const warte = (ms) => new Promise(z => setTimeout(z, ms));
+      const da = () => !!document.getElementById('gs-teilen-vorschau');
+      const c = await caches.open('gs-geteilt');
+      const jpg = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, 0x4A, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1]);
+      await c.put('/__geteilt/letztes', new Response(new Blob([jpg], { type: 'image/jpeg' }), { headers: { 'X-Zeit': String(Date.now()), 'X-Anzahl': '1' } }));
+      await gsTeilenAbholen();
+      const vorher = da();
+      const ov = document.getElementById('gs-teilen-vorschau');
+      ov && ov.dispatchEvent(new MouseEvent('click', { bubbles: true }));   // Tipp auf den abgedunkelten Rand
+      await warte(400);
+      const nachDaneben = da();
+      switchTab('wissen');
+      const sofort = da();
+      await warte(900);
+      const zurueck = da() && await caches.has('gs-geteilt');
+      switchTab('scanner');
+      await warte(900);
+      window.analyzeImage = async function () {};
+      const b = document.getElementById('gs-teilen-los'); if (b) b.click();
+      await warte(400);
+      const marke = window._gsScanOhneKamera;
+      return { vorher, nachDaneben, sofort, zurueck, marke, tab: _gsCurrentTab, cache: await caches.has('gs-geteilt') };
+    }).catch(e => ({ fehler: String(e.message).slice(0, 100) }));
+    const ok37 = z37.vorher && z37.nachDaneben && !z37.sofort && z37.zurueck && z37.marke === false && z37.tab === 'scanner' && !z37.cache;
+    melde('Teilen: schliesst die APP die Vorschau, kommt sie wieder — ein Tipp daneben schliesst nichts, die Kamera-Marke bleibt nicht scharf', ok37,
+          ok37 ? 'Tipp daneben: bleibt · switchTab(wissen): weg, nach 900 ms wieder da (Foto im Cache) · Bestimmen bei offenem Scanner: Marke false, Cache geraeumt' : JSON.stringify(z37));
+
+    // 38 · Abgemeldet geteilt: der Anmeldebildschirm liegt ueber allem. Die Vorschau
+    //      kommt NICHT darunter (dort wuerde der erste Zurueck-Druck das Foto verwerfen),
+    //      sondern nach der Anmeldung.
+    {
+      const ctxL = await br.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'allow' });
+      await ctxL.addInitScript(SPAEHER);
+      const l = await ctxL.newPage();
+      l.on('pageerror', e => fehler.push('Teilen abgemeldet: ' + e.message.split('\n')[0]));
+      await l.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await l.evaluate(() => Promise.race([navigator.serviceWorker.ready, new Promise(z => setTimeout(z, 20000))]));
+      await l.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await l.waitForTimeout(2000);
+      await teile(l, { jpeg: true });
+      await l.waitForTimeout(2500);
+      const vor = await l.evaluate(async () => ({
+        preauth: document.documentElement.classList.contains('gs-preauth'),
+        vorschau: !!document.getElementById('gs-teilen-vorschau'),
+        wartet: !!window._gsTeilenWarten,
+        eintrag: await caches.has('gs-geteilt'),
+      })).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
+      // „Anmelden": derselbe Schritt, den der Anmeldeweg am Ende geht.
+      await l.evaluate(() => { localStorage.setItem('gs_sb_token', 'x.y.z'); gsOnboardingHide(); }).catch(() => {});
+      await warteAuf(l, () => !!document.getElementById('gs-teilen-vorschau'), 20);
+      const nach38 = await stand(l);
+      const ok38 = vor.preauth && !vor.vorschau && vor.wartet && vor.eintrag && nach38.vorschau && nach38.bild;
+      melde('Teilen abgemeldet: keine Vorschau unter dem Anmeldebildschirm — sie kommt nach der Anmeldung', ok38,
+            ok38 ? 'vor der Anmeldung: wartet, Foto im Cache, keine Vorschau · danach: Vorschau mit Bild' : ('vorher ' + JSON.stringify(vor) + ' · nachher Vorschau ' + nach38.vorschau + ' · Adresse „' + nach38.adresse + '"'));
+      await ctxL.close();
+    }
 
     // 36 · Abmelden raeumt ein Foto, das noch nicht abgeholt wurde — es gehoert der Person,
     //      die es geteilt hat, nicht der naechsten am Geraet. Gegenrichtung: ohne Abmelden bleibt es.
@@ -1057,7 +1125,7 @@ function server(wunschPort) {
   }
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 36 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 38 · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

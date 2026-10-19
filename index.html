@@ -80040,8 +80040,9 @@ window._gsTeilenGrund = (function(){
       var rest = qs.toString();
       history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + (hashWeg ? '' : h));
     }
-    // Solange das Foto wartet, laedt „Update ohne Klick" (v33.25) nicht neu.
-    if (grund) window._gsTeilenOffen = true;
+    // Solange ein FOTO wartet, laedt „Update ohne Klick" (v33.25) nicht neu.
+    // Nur dann: ein Satz („kein Foto angekommen") verliert nichts beim Neuladen.
+    if (grund === 'bild') window._gsTeilenOffen = true;
     return grund;
   } catch(_){ return null; }
 })();
@@ -80109,7 +80110,32 @@ window._gsTeilenLoeschen = _gsTeilenLoeschen;
 // Auch OHNE Grund in der Adresse wird ein FRISCHES Foto angeboten: lud die App
 // zwischen Teilen und Abholen neu (ein Update), ist die Adresse schon sauber,
 // das Foto aber noch da.
+// Steht der Anmeldebildschirm (`html.gs-preauth` / `#gs-onboarding`), liegt
+// alles darunter: die Vorschau waere unsichtbar, und der erste Zurueck-Druck
+// verwuerfe das Foto, das die Person nie gesehen hat. Dann WARTET die Abholung
+// und kommt nach der Anmeldung — gezaehlt in Versuchen, nicht an der Uhr
+// (v32.61), hoechstens so lange, wie ein Foto frisch ist.
+var GS_TEILEN_WARTEN_MS = 1000;
+function _gsTeilenBereit(){
+  try {
+    if (document.documentElement.classList.contains('gs-preauth')) return false;
+    var ob = document.getElementById('gs-onboarding');
+    if (ob && getComputedStyle(ob).display !== 'none') return false;
+  } catch(_){}
+  return true;
+}
 function gsTeilenAbholen(){
+  if (!_gsTeilenBereit()) {
+    if (!window._gsTeilenWarten) {
+      var versuche = Math.ceil(GS_GETEILT_FRISCH_MS / GS_TEILEN_WARTEN_MS);
+      window._gsTeilenWarten = setInterval(function(){
+        if (--versuche > 0 && !_gsTeilenBereit()) return;
+        clearInterval(window._gsTeilenWarten); window._gsTeilenWarten = null;
+        try { gsTeilenAbholen(); } catch(_){}
+      }, GS_TEILEN_WARTEN_MS);
+    }
+    return Promise.resolve({ zustand: 'wartet', grund: 'anmeldung' });
+  }
   var g = window._gsTeilenGrund || null;
   window._gsTeilenGrund = null;
   if (g && g !== 'bild') {
@@ -80170,23 +80196,40 @@ function _gsTeilenVorschau(datei, anzahl){
       '<button type="button" id="gs-teilen-los" style="display:block;width:100%;min-height:48px;padding:12px;border:0;border-radius:var(--r-md,12px);background:var(--fill-brand);color:#fff;font-size:var(--fs-md);font-weight:800;font-family:inherit;cursor:pointer;margin:0 0 8px;">🔍 ' + escHtml(_gsSatz('Dieses Foto bestimmen')) + '</button>' +
       '<button type="button" id="gs-teilen-weg" data-gs-close style="display:block;width:100%;min-height:44px;padding:10px;border:1.5px solid var(--border);border-radius:var(--r-md,12px);background:transparent;color:var(--text);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;">' + escHtml(_gsSatz('Verwerfen')) + '</button>' +
     '</div>';
-  var zu = false;
+  // Eine ENTSCHEIDUNG trifft nur die Person: „Bestimmen", „Verwerfen" — und
+  // Zurueck/Escape, die ueber `_gsCloseOverlayGracefully` genau diesen Knopf
+  // druecken (data-gs-close). Schliesst die APP die Vorschau (jedes switchTab
+  // raeumt dynamische Dialoge ab, v30.85 — etwa die Tab-Wiederherstellung nach
+  // einem Update), ist das keine Entscheidung: dann kommt sie wieder, solange
+  // das Foto noch im Cache liegt. Nach dem Abmelden liegt es dort nicht mehr.
+  var entschieden = false, zu = false;
   var aufraeumen = function(){
     if (zu) return; zu = true;
-    window._gsTeilenOffen = false;
     try { if (url) URL.revokeObjectURL(url); } catch(_){}
-    // Wer die Vorschau verlaesst — Verwerfen, Escape, Zurueck, ein anderer
-    // Tab —, hat das Foto gesehen und sich entschieden. Es bleibt nicht liegen.
-    _gsTeilenLoeschen();
+    if (entschieden) { window._gsTeilenOffen = false; _gsTeilenLoeschen(); return; }
+    setTimeout(function(){
+      _gsTeilenEintrag().then(function(e){
+        if (e && !document.getElementById('gs-teilen-vorschau')) _gsTeilenVorschau(datei, anzahl);
+        else if (!e) window._gsTeilenOffen = false;
+      });
+    }, 300);
   };
+  // Kein Schliessen per Tipp daneben: die Antwort, die das Foto wegwirft, darf
+  // nicht die bequemste sein (v32.37). gsRegisterOverlay bindet ihn sonst.
+  ov._gsBackdropBound = true;
   gsRegisterOverlay(ov, aufraeumen);
   document.body.appendChild(ov);
-  ov.querySelector('#gs-teilen-weg').addEventListener('click', function(){ gsDismissOverlay(ov); });
+  ov.querySelector('#gs-teilen-weg').addEventListener('click', function(){ entschieden = true; gsDismissOverlay(ov); });
   ov.querySelector('#gs-teilen-los').addEventListener('click', function(){
+    entschieden = true;
     gsDismissOverlay(ov);
-    // Zum Scanner, aber OHNE Kamera: das Foto ist schon da.
+    // Zum Scanner, aber OHNE Kamera: das Foto ist schon da. Die Marke liest
+    // switchTab sofort — danach weg, auch wenn der Scanner schon offen war
+    // (dann laeuft der Zweig gar nicht, und die Marke bliebe sonst scharf).
     window._gsScanOhneKamera = true;
     try { if (typeof switchTab === 'function') switchTab('scanner'); } catch(_){}
+    window._gsScanOhneKamera = false;
+    try { if (typeof _gsSrLoadingShow === 'function') _gsSrLoadingShow(_gsSatz('Das geteilte Foto wird bestimmt…'), _gsSatz('Die Kamera bleibt dafür aus.')); } catch(_){}
     try { gsScanDatei(datei); } catch(_){}
   });
   try { ov.querySelector('#gs-teilen-los').focus(); } catch(_){}
