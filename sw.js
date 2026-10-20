@@ -252,15 +252,22 @@ async function teilenAntwort(req) {
     if (!dateien.length) return ziel('leer');
     const f = dateien[0];
     if (f.size > GETEILT_MAX) return ziel('gross');
+    // Ein Einmal-Schluessel bindet das Foto an GENAU diese Navigation: die
+    // Seite merkt ihn sich je Tab (sessionStorage) und bietet nur ein Foto an,
+    // dessen Schluessel passt. Ein Foto, das eine fremde Seite abgelegt hat und
+    // dessen Tab geschlossen wurde, kommt beim naechsten Start nicht als
+    // „Geteiltes Foto" daher (gegnerische Pruefung v33.55).
+    const nonce = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, '0')).join('');
     const c = await caches.open(GETEILT_CACHE);
     try {
       await c.put(GETEILT_SCHLUESSEL, new Response(f, { headers: {
         'Content-Type': f.type || 'application/octet-stream',
         'X-Zeit': String(Date.now()),
         'X-Anzahl': String(dateien.length),
+        'X-Nonce': nonce,
       } }));
     } catch (e) { return ziel('speicher'); }
-    return ziel('bild');
+    return ziel('bild.' + nonce);
   } catch (e) {
     return ziel('fehler');
   }

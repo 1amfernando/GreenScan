@@ -28,7 +28,7 @@
  * Kontext. `file://` ist keiner, `http://127.0.0.1` schon — deshalb 30
  * Zeilen statischer Server statt eines weiteren npm-Pakets.
  *
- *   25–38. Ein Foto per „Teilen → GreenScan" (v33.55): der multipart-POST aus
+ *   25–39. Ein Foto per „Teilen → GreenScan" (v33.55): der multipart-POST aus
  *       dem echten share_target geht durch den Worker, die Seite zeigt eine
  *       VORSCHAU (kein Scan, keine Kamera), „Bestimmen" gibt dem Scanner genau
  *       die Bytes; dazu kein Bild · HEIC · leer · fremde Seite · altes Text-Ziel
@@ -722,7 +722,7 @@ function server(wunschPort) {
     s8.close();
   }
 
-  // ── 25–38 · v33.55: Ein Foto per „Teilen → GreenScan" ───────────────
+  // ── 25–39 · v33.55: Ein Foto per „Teilen → GreenScan" ───────────────
   //
   // Gemessen an v33.54: das Teilen-Ziel nahm nur Text und Links an (GET, keine
   // Dateien), der Worker kannte kein Teilen, und die Seite sagte „Bild geteilt",
@@ -869,18 +869,23 @@ function server(wunschPort) {
       document.getElementById('gs-teilen-los').click();
       await new Promise(r => setTimeout(r, 1500));
       window.initScanner = initOrig;
-      return { dateien: window.__dateien, analyse: window.__analyse, gum: window.__gum, init: window.__init,
+      // Das Foto bleibt, bis ein ERGEBNIS dasteht — ein gescheiterter Scan
+      // (kein Netz, KI nicht erreichbar) verloere es sonst.
+      const bisErgebnis = await caches.has('gs-geteilt');
+      try { showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', family: 'Amaryllidaceae', confidence: 80, alternatives: [], toxicity: 0, edible: true }); } catch (_) {}
+      await new Promise(r => setTimeout(r, 400));
+      return { dateien: window.__dateien, analyse: window.__analyse, gum: window.__gum, init: window.__init, bisErgebnis,
                tab: (typeof _gsCurrentTab !== 'undefined') ? _gsCurrentTab : null,
                cache: await caches.has('gs-geteilt'), vorschau: !!document.getElementById('gs-teilen-vorschau'),
                ruhig: _gsAppRuhig().grund };
     });
     const d0 = nach.dateien[0] || {};
     const ok26 = nach.dateien.length === 1 && d0.sha === shaGeteilt && d0.typ === 'image/jpeg' && nach.analyse === 1
-              && nach.gum === 0 && nach.init === 0 && nach.tab === 'scanner' && !nach.cache && !nach.vorschau && !/teilen/.test(nach.ruhig);
-    melde('Teilen: „Bestimmen" gibt dem Scanner GENAU die geteilten Bytes — ohne Kamera, und der Eintrag ist danach weg', ok26,
-          ok26 ? ('SHA-256 gleich (' + String(shaGeteilt).slice(0, 12) + '…) · ' + d0.groesse + ' Bytes · analyzeImage 1× · initScanner 0× · getUserMedia 0× · Tab scanner · Cache geraeumt')
+              && nach.gum === 0 && nach.init === 0 && nach.tab === 'scanner' && nach.bisErgebnis && !nach.cache && !nach.vorschau && !/teilen/.test(nach.ruhig);
+    melde('Teilen: „Bestimmen" gibt dem Scanner GENAU die geteilten Bytes — ohne Kamera; das Foto bleibt bis zum Ergebnis, dann ist es weg', ok26,
+          ok26 ? ('SHA-256 gleich (' + String(shaGeteilt).slice(0, 12) + '…) · ' + d0.groesse + ' Bytes · analyzeImage 1× · initScanner 0× · getUserMedia 0× · Tab scanner · Foto bleibt bis zum Ergebnis, dann geraeumt')
                : ((nach.fehler ? nach.fehler + ' · ' : '') + 'Dateien ' + JSON.stringify(nach.dateien) + ' (erwartet sha ' + shaGeteilt + ') · analyzeImage ' + nach.analyse + ' · initScanner ' + nach.init + ' · getUserMedia ' + nach.gum
-                  + ' · Tab ' + nach.tab + ' · Cache ' + nach.cache + ' · Vorschau ' + nach.vorschau + ' · ruhig „' + nach.ruhig + '"'));
+                  + ' · Tab ' + nach.tab + ' · bis zum Ergebnis ' + nach.bisErgebnis + ' · Cache danach ' + nach.cache + ' · Vorschau ' + nach.vorschau + ' · ruhig „' + nach.ruhig + '"'));
 
     // 27 · Neu laden teilt nicht ein zweites Mal.
     await t.goto(basis + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -957,17 +962,23 @@ function server(wunschPort) {
     const z32 = await t.evaluate(async () => {
       const c = await caches.open('gs-geteilt');
       const png = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0x0D, 0x49, 0x48, 0x44, 0x52]);
-      await c.put('/__geteilt/letztes', new Response(new Blob([png], { type: 'image/png' }), { headers: { 'Content-Type': 'image/png', 'X-Zeit': String(Date.now()), 'X-Anzahl': '2' } }));
+      sessionStorage.setItem('gs_teilen_nonce', '0123456789abcdef'); window._gsTeilenNonce = '0123456789abcdef';
+      // Neun Minuten alt: noch frisch. Gezeigt beginnt die Frist neu.
+      await c.put('/__geteilt/letztes', new Response(new Blob([png], { type: 'image/png' }), { headers: { 'Content-Type': 'image/png', 'X-Zeit': String(Date.now() - 9 * 60 * 1000), 'X-Anzahl': '2', 'X-Nonce': '0123456789abcdef' } }));
       const r = await gsTeilenAbholen();
+      await new Promise(z => setTimeout(z, 300));
+      const neu = await c.match('/__geteilt/letztes');
+      const alterNachZeigen = neu ? Date.now() - parseInt(neu.headers.get('X-Zeit') || '0', 10) : null;
       const ov = document.getElementById('gs-teilen-vorschau');
       const mehr = /2 Fotos geteilt/.test((ov || {}).textContent || '');
       const art = gsZurueck();
       await new Promise(z => setTimeout(z, 400));
-      return { zustand: r && r.zustand, offen: !!ov, mehr, art, zu: !document.getElementById('gs-teilen-vorschau'), cache: await caches.has('gs-geteilt'), ruhig: _gsAppRuhig().grund };
+      return { zustand: r && r.zustand, offen: !!ov, mehr, art, alterNachZeigen, zu: !document.getElementById('gs-teilen-vorschau'), cache: await caches.has('gs-geteilt'), ruhig: _gsAppRuhig().grund };
     });
-    const ok32 = z32.zustand === 'vorschau' && z32.offen && z32.mehr && z32.art === 'overlay' && z32.zu && !z32.cache && !/teilen/.test(z32.ruhig);
-    melde('Teilen: Zurueck schliesst die Vorschau als EINE Schicht und raeumt das Foto; zwei geteilte Fotos werden gesagt', ok32,
-          ok32 ? 'gsZurueck → overlay · Cache geraeumt · „2 Fotos geteilt — bestimmt wird das erste"' : JSON.stringify(z32));
+    const ok32 = z32.zustand === 'vorschau' && z32.offen && z32.mehr && z32.art === 'overlay' && z32.zu && !z32.cache && !/teilen/.test(z32.ruhig)
+              && z32.alterNachZeigen !== null && z32.alterNachZeigen < 60 * 1000;
+    melde('Teilen: Zurueck schliesst die Vorschau als EINE Schicht und raeumt das Foto; zwei geteilte Fotos werden gesagt; gezeigt beginnt die Frist neu', ok32,
+          ok32 ? ('gsZurueck → overlay · Cache geraeumt · „2 Fotos geteilt — bestimmt wird das erste" · 9 min alt gezeigt → Frist neu (' + Math.round(z32.alterNachZeigen / 1000) + ' s)') : JSON.stringify(z32));
 
     // 37 · Schliesst die APP die Vorschau (jedes switchTab raeumt Dialoge ab — etwa die
     //      Tab-Wiederherstellung nach einem Update), ist das keine Entscheidung der Person:
@@ -978,7 +989,8 @@ function server(wunschPort) {
       const da = () => !!document.getElementById('gs-teilen-vorschau');
       const c = await caches.open('gs-geteilt');
       const jpg = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, 0x4A, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1]);
-      await c.put('/__geteilt/letztes', new Response(new Blob([jpg], { type: 'image/jpeg' }), { headers: { 'X-Zeit': String(Date.now()), 'X-Anzahl': '1' } }));
+      window._gsTeilenNonce = '0123456789abcdef';
+      await c.put('/__geteilt/letztes', new Response(new Blob([jpg], { type: 'image/jpeg' }), { headers: { 'X-Zeit': String(Date.now()), 'X-Anzahl': '1', 'X-Nonce': '0123456789abcdef' } }));
       await gsTeilenAbholen();
       const vorher = da();
       const ov = document.getElementById('gs-teilen-vorschau');
@@ -995,6 +1007,8 @@ function server(wunschPort) {
       const b = document.getElementById('gs-teilen-los'); if (b) b.click();
       await warte(400);
       const marke = window._gsScanOhneKamera;
+      _gsTeilenScanFertig();   // so, als stuende das Ergebnis da
+      await warte(300);
       return { vorher, nachDaneben, sofort, zurueck, marke, tab: _gsCurrentTab, cache: await caches.has('gs-geteilt') };
     }).catch(e => ({ fehler: String(e.message).slice(0, 100) }));
     const ok37 = z37.vorher && z37.nachDaneben && !z37.sofort && z37.zurueck && z37.marke === false && z37.tab === 'scanner' && !z37.cache;
@@ -1031,6 +1045,28 @@ function server(wunschPort) {
       await ctxL.close();
     }
 
+    // 39 · Ein Foto mit FREMDEM Einmal-Schluessel (abgelegt von einer anderen
+    //      Navigation — etwa einer fremden Seite, deren Tab zu ist) wird beim
+    //      naechsten Start verworfen, nie als „Geteiltes Foto" angeboten.
+    //      Gegenrichtung: mit dem Schluessel DIESES Tabs kommt es (Fall 35).
+    const z39 = await t.evaluate(async () => {
+      window._gsTeilenNonce = ''; sessionStorage.setItem('gs_teilen_nonce', 'aaaaaaaaaaaaaaaa');
+      const c = await caches.open('gs-geteilt');
+      const jpg = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, 0x4A, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1]);
+      await c.put('/__geteilt/letztes', new Response(new Blob([jpg], { type: 'image/jpeg' }), { headers: { 'X-Zeit': String(Date.now()), 'X-Nonce': 'bbbbbbbbbbbbbbbb' } }));
+      const fremd = await gsTeilenAbholen();
+      const nachFremd = { vorschau: !!document.getElementById('gs-teilen-vorschau'), cache: await caches.has('gs-geteilt') };
+      await c.put('/__geteilt/letztes', new Response(new Blob([jpg], { type: 'image/jpeg' }), { headers: { 'X-Zeit': String(Date.now()) } }));
+      const ohne = await gsTeilenAbholen();
+      const nachOhne = { vorschau: !!document.getElementById('gs-teilen-vorschau'), cache: await caches.has('gs-geteilt') };
+      sessionStorage.removeItem('gs_teilen_nonce');
+      return { fremd: fremd && fremd.zustand, nachFremd, ohne: ohne && ohne.zustand, nachOhne };
+    }).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
+    const ok39 = z39.fremd === 'nichts' && z39.nachFremd && !z39.nachFremd.vorschau && !z39.nachFremd.cache
+              && z39.ohne === 'nichts' && !z39.nachOhne.vorschau && !z39.nachOhne.cache;
+    melde('Teilen: ein Foto mit fremdem oder fehlendem Einmal-Schluessel wird verworfen, nicht angeboten', ok39,
+          ok39 ? 'fremder Schluessel: keine Vorschau, Cache geraeumt · ohne Schluessel: ebenso' : JSON.stringify(z39));
+
     // 36 · Abmelden raeumt ein Foto, das noch nicht abgeholt wurde — es gehoert der Person,
     //      die es geteilt hat, nicht der naechsten am Geraet. Gegenrichtung: ohne Abmelden bleibt es.
     const a36 = await t.evaluate(async () => {
@@ -1050,11 +1086,20 @@ function server(wunschPort) {
     await teile(t, { jpeg: true });
     await warteAuf(t, () => !!document.getElementById('gs-teilen-vorschau'));
     const o33 = await stand(t);
+    // „Bestimmen" ohne Empfang: die Vorschau bleibt offen und sagt es — das Foto
+    // geht nicht in einen Scan, der nur scheitern kann.
+    const t33 = await t.evaluate(async () => {
+      window.__analyse33 = 0; window.analyzeImage = async function () { window.__analyse33++; };
+      const b = document.getElementById('gs-teilen-los'); if (b) b.click();
+      await new Promise(z => setTimeout(z, 500));
+      const hw = document.getElementById('gs-teilen-hinweis');
+      return { offen: !!document.getElementById('gs-teilen-vorschau'), hinweis: hw ? hw.textContent : '', analyse: window.__analyse33, cache: await caches.has('gs-geteilt') };
+    }).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
     await verwerfen(t);
     await ctxT.setOffline(false);
-    const ok33 = o33.vorschau && o33.bild && o33.adresse === '/';
-    melde('Teilen ohne Empfang: das Foto kommt trotzdem als Vorschau an', ok33,
-          ok33 ? 'offline geteilt → Vorschau mit Bild, Adresse „/"' : ('Vorschau ' + o33.vorschau + ' · Adresse „' + o33.adresse + '" · Meldungen ' + JSON.stringify(o33.toasts)));
+    const ok33 = o33.vorschau && o33.bild && o33.adresse === '/' && t33.offen && /Ohne Empfang/.test(t33.hinweis) && t33.analyse === 0 && t33.cache;
+    melde('Teilen ohne Empfang: das Foto kommt als Vorschau an — und „Bestimmen" sagt, dass es Netz braucht, statt es zu verlieren', ok33,
+          ok33 ? 'offline geteilt → Vorschau mit Bild · Bestimmen: Vorschau bleibt, Satz da, analyzeImage 0×, Foto im Cache' : ('Vorschau ' + o33.vorschau + ' · Adresse „' + o33.adresse + '" · nach Antippen ' + JSON.stringify(t33)));
 
     // 34 · Ein neuer Worker WARTET, waehrend geteilt wird (Auslieferungen kommen fast taeglich).
     //      Der Start wendet sonst wartende Worker an (v33.25) — mit dem Foto im Cache darf er
@@ -1125,7 +1170,7 @@ function server(wunschPort) {
   }
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 38 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 39 · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

@@ -35941,6 +35941,9 @@ window._gsAltTox = _gsAltTox;
 window._gsAltGefahr = _gsAltGefahr;
 
 function showScanResult(r){
+  // v33.55: ein Ergebnis ist da — ein geteiltes Foto, das darauf gewartet
+  // hat, wird jetzt geraeumt (vorher nicht: ein gescheiterter Scan verloere es).
+  try { if (typeof _gsTeilenScanFertig === 'function') _gsTeilenScanFertig(); } catch(_){}
   // ── v31.99: das Pruefwerk laeuft ZUERST ──────────────────────────────
   //
   // Und zwar aus einem konkreten Grund: es kann `r.toxicity` nach oben
@@ -80028,8 +80031,14 @@ window._gsTeilenGrund = (function(){
   try {
     var grund = null;
     var h = String(location.hash || '');
-    var m = h.match(/^#teilen=([a-z-]{1,12})$/);
-    if (m && GS_TEILEN_GRUENDE.indexOf(m[1]) >= 0) grund = m[1];
+    var m = h.match(/^#teilen=([a-z-]{1,12})(?:\.([0-9a-f]{16}))?$/);
+    if (m && GS_TEILEN_GRUENDE.indexOf(m[1]) >= 0) {
+      grund = m[1];
+      // Der Einmal-Schluessel aus sw.js: je Tab gemerkt, damit ein Neuladen
+      // DIESES Tabs (etwa ein Update) das Foto wieder anbietet — ein anderer
+      // Start aber nicht.
+      if (m[2]) { window._gsTeilenNonce = m[2]; try { sessionStorage.setItem('gs_teilen_nonce', m[2]); } catch(_){} }
+    }
     var qs = new URLSearchParams(location.search || '');
     var altesZiel = qs.get('share') === '1';   // das GET-Ziel bis v33.54: Text oder Link
     if (!grund && qs.get('teilen') === 'ohne-sw') grund = 'ohne-sw';
@@ -80093,7 +80102,8 @@ function _gsTeilenEintrag(){
         if (!r) return null;
         var zeit = parseInt(r.headers.get('X-Zeit') || '', 10);
         var anzahl = parseInt(r.headers.get('X-Anzahl') || '1', 10) || 1;
-        return r.blob().then(function(blob){ return { blob: blob, zeit: zeit, anzahl: anzahl }; });
+        var nonce = r.headers.get('X-Nonce') || '';
+        return r.blob().then(function(blob){ return { blob: blob, zeit: zeit, anzahl: anzahl, nonce: nonce }; });
       });
     }).catch(function(){ return null; });
   } catch(_){ return Promise.resolve(null); }
@@ -80158,6 +80168,12 @@ function gsTeilenAbholen(){
       });
     };
     if (!e) { window._gsTeilenOffen = false; if (g) _gsTeilenSagen('weg'); return g ? { zustand: 'gesagt', grund: 'weg' } : { zustand: 'nichts' }; }
+    // Nur ein Foto, dessen Einmal-Schluessel zu DIESEM Tab gehoert. Sonst hat
+    // es eine andere Navigation abgelegt — vielleicht eine fremde Seite, deren
+    // Tab laengst zu ist. Dann wird es verworfen, nie als „geteilt" angeboten.
+    var meins = window._gsTeilenNonce || '';
+    if (!meins) { try { meins = sessionStorage.getItem('gs_teilen_nonce') || ''; } catch(_){} }
+    if (!e.nonce || e.nonce !== meins) return ende(g ? 'weg' : null);
     var alter = Date.now() - e.zeit;
     if (!(alter >= 0 && alter <= GS_GETEILT_FRISCH_MS)) return ende(g ? 'weg' : null);   // abgelaufen oder Uhr zurueckgestellt
     if (!e.blob || !e.blob.size) return ende(g ? 'leer' : null);
@@ -80171,6 +80187,15 @@ function gsTeilenAbholen(){
       // Die Datei bekommt den GEMESSENEN Typ, nicht den angegebenen.
       var datei;
       try { datei = new File([ab], 'geteilt', { type: typ }); } catch(_){ datei = new Blob([ab], { type: typ }); }
+      // Gezeigt heisst: die Frist beginnt neu. Sonst verschwaende eine schon
+      // gesehene, noch nicht entschiedene Vorschau nach einem Neuladen still,
+      // nur weil das Teilen laenger als zehn Minuten her ist.
+      try {
+        caches.open(GS_GETEILT_CACHE).then(function(c){
+          return c.put(GS_GETEILT_SCHLUESSEL, new Response(new Blob([ab], { type: typ }), { headers: {
+            'Content-Type': typ, 'X-Zeit': String(Date.now()), 'X-Anzahl': String(e.anzahl), 'X-Nonce': e.nonce } }));
+        }).catch(function(){});
+      } catch(_){}
       _gsTeilenVorschau(datei, e.anzahl);
       return { zustand: 'vorschau' };
     });
@@ -80201,6 +80226,7 @@ function _gsTeilenVorschau(datei, anzahl){
       '<div style="font-size:var(--fs-sm);color:var(--text2);margin:0 0 10px;line-height:1.5;">' + escHtml(_gsSatz('Kam über „Teilen“ an. Wenn du nichts geteilt hast: verwerfen.')) + '</div>' +
       (url ? '<img src="' + escHtml(url) + '" alt="' + escHtml(_gsSatz('Geteiltes Foto')) + '" style="display:block;width:100%;max-height:50vh;object-fit:contain;border-radius:var(--r-md,12px);background:var(--bg2,#000);margin:0 0 12px;">' : '') +
       mehr +
+      '<div id="gs-teilen-hinweis" role="status" style="display:none;font-size:var(--fs-sm);color:var(--text);background:var(--bg2,rgba(0,0,0,.05));border-radius:var(--r-md,12px);padding:10px 12px;margin:0 0 10px;line-height:1.5;"></div>' +
       '<button type="button" id="gs-teilen-los" style="display:block;width:100%;min-height:48px;padding:12px;border:0;border-radius:var(--r-md,12px);background:var(--fill-brand);color:#fff;font-size:var(--fs-md);font-weight:800;font-family:inherit;cursor:pointer;margin:0 0 8px;">🔍 ' + escHtml(_gsSatz('Dieses Foto bestimmen')) + '</button>' +
       '<button type="button" id="gs-teilen-weg" data-gs-close style="display:block;width:100%;min-height:44px;padding:10px;border:1.5px solid var(--border);border-radius:var(--r-md,12px);background:transparent;color:var(--text);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;">' + escHtml(_gsSatz('Verwerfen')) + '</button>' +
     '</div>';
@@ -80210,11 +80236,19 @@ function _gsTeilenVorschau(datei, anzahl){
   // raeumt dynamische Dialoge ab, v30.85 — etwa die Tab-Wiederherstellung nach
   // einem Update), ist das keine Entscheidung: dann kommt sie wieder, solange
   // das Foto noch im Cache liegt. Nach dem Abmelden liegt es dort nicht mehr.
-  var entschieden = false, zu = false;
+  var entschieden = false, bestimmen = false, zu = false;
   var aufraeumen = function(){
     if (zu) return; zu = true;
     try { if (url) URL.revokeObjectURL(url); } catch(_){}
-    if (entschieden) { window._gsTeilenOffen = false; _gsTeilenLoeschen(); return; }
+    if (entschieden) {
+      window._gsTeilenOffen = false;
+      // „Bestimmen": das Foto bleibt, bis ein ERGEBNIS dasteht (showScanResult
+      // ruft _gsTeilenScanFertig). Scheitert der Scan (kein Netz, KI nicht
+      // erreichbar), ist es nicht verloren — ein Neuladen dieses Tabs bietet es
+      // wieder an. „Verwerfen" loescht sofort.
+      if (bestimmen) window._gsTeilenScanLaeuft = true; else _gsTeilenLoeschen();
+      return;
+    }
     setTimeout(function(){
       _gsTeilenEintrag().then(function(e){
         if (e && !document.getElementById('gs-teilen-vorschau')) _gsTeilenVorschau(datei, anzahl);
@@ -80229,7 +80263,14 @@ function _gsTeilenVorschau(datei, anzahl){
   document.body.appendChild(ov);
   ov.querySelector('#gs-teilen-weg').addEventListener('click', function(){ entschieden = true; gsDismissOverlay(ov); });
   ov.querySelector('#gs-teilen-los').addEventListener('click', function(){
-    entschieden = true;
+    // Ohne Empfang bestimmt die KI nichts — dann bleibt die Vorschau offen und
+    // sagt das, statt das Foto in einen Scan zu geben, der nur scheitern kann.
+    if (navigator.onLine === false) {
+      var hw = ov.querySelector('#gs-teilen-hinweis');
+      if (hw) { hw.textContent = _gsSatz('Ohne Empfang kann GreenScan nicht bestimmen. Das Foto bleibt hier — tippe noch einmal, sobald du wieder Netz hast.'); hw.style.display = 'block'; }
+      return;
+    }
+    entschieden = true; bestimmen = true;
     gsDismissOverlay(ov);
     // Zum Scanner, aber OHNE Kamera: das Foto ist schon da. Die Marke liest
     // switchTab sofort — danach weg, auch wenn der Scanner schon offen war
@@ -80241,6 +80282,13 @@ function _gsTeilenVorschau(datei, anzahl){
     try { gsScanDatei(datei); } catch(_){}
   });
   try { ov.querySelector('#gs-teilen-los').focus(); } catch(_){}
+}
+
+// Ein Ergebnis steht da — das geteilte Foto, das dafuer gewartet hat, darf weg.
+function _gsTeilenScanFertig(){
+  if (!window._gsTeilenScanLaeuft) return;
+  window._gsTeilenScanLaeuft = false;
+  _gsTeilenLoeschen();
 }
 
 document.addEventListener('DOMContentLoaded', function(){
