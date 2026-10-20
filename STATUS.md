@@ -4,13 +4,129 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-10-06 · **Branch**: `main` · **Version**: `v33.52` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-10-20 · **Branch**: `main` · **Version**: `v33.55` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-10-20 (iz) - v33.55: Ein Foto teilen — GreenScan zeigt es und bestimmt es auf Antippen
+
+Fernandos „weiter" nach A (Export) und dem Sanitizer: das Teilen-Ziel. Die
+PWA-Hälfte zuerst; die APK-Hälfte (`ACTION_SEND`) ist die nächste Scheibe.
+
+**Gemessen (am Quelltext, 09.10.2026):**
+
+- `manifest.json` `share_target`: `GET /?share=1` mit `title`/`text`/`url` —
+  **keine Dateien**. Android bot GreenScan im Teilen-Menü für ein Foto gar
+  nicht an.
+- `sw.js` kannte kein Teilen (0 Treffer); ein POST lief am Worker vorbei.
+- `_gsShareTargetInit` sagte bei `?share=1` „Bild geteilt — Wähle ein Bild …",
+  obwohl nie ein Bild ankam (geteilt wurde ja Text oder ein Link).
+- `CLAUDE.md` §2 nannte „Share-Target" im Worker und ein `file_handlers` im
+  Manifest — beides gab es nicht.
+
+**Vor dem Code:** eine gegnerische Prüfung des Entwurfs (PWA- und
+Android-Blick, mit einem Prototyp in Chromium). Eingebaut: `activate` löschte
+`gs-geteilt` (Prototyp: vor dem Update `[shell, gs-geteilt]`, danach nur noch
+`shell`) und das Update beim Start lief 1,1 s VOR dem Abholen; je Adresse
+läge eine weitere 6-MB-Kopie der Seite im Shell-Cache; ohne Worker landet der
+POST beim Hoster; kein Scan ohne Antippen; kein HEIC in der Annahmeliste.
+
+**Gebaut:**
+
+- **Der Weg:** `POST /teilen`, multipart, Feld `bild` → `sw.js`
+  `teilenAntwort` (VOR „nur GET", `respondWith` synchron, nur Navigationen der
+  obersten Ebene) legt das erste Foto unter EINEM Schlüssel in `gs-geteilt`
+  (`X-Zeit`, `X-Anzahl`, `X-Nonce`) und leitet mit 303 auf
+  `/#teilen=<grund>`. `activate` lässt `gs-geteilt` stehen. Ohne Worker:
+  `_redirects` `/teilen → /?teilen=ohne-sw 303`.
+- **Die Seite:** liest den Grund beim Parsen und räumt die Adresse auf (andere
+  Parameter bleiben), prüft die ersten Bytes (`_gsBildTyp`), zeigt eine
+  **Vorschau** (`_gsTeilenVorschau`) und bestimmt erst nach „Dieses Foto
+  bestimmen" — über `gsScanDatei`, den einen Weg von einer Bilddatei zum Scan
+  (aus `handleUpload` herausgezogen), ohne Kamera. Ein Satz je Grund (leer ·
+  zu gross · Speicher · fremd · ohne Worker · Text/Link · weg · kein Foto ·
+  HEIC), alle über `_gsSatz`.
+- **Nichts geht verloren:** `_gsAppRuhig` meldet `teilen`, solange ein Foto
+  wartet; das Foto bleibt bis zum ERGEBNIS (`showScanResult` →
+  `_gsTeilenScanFertig`); ohne Empfang bleibt die Vorschau offen und sagt es;
+  beim Zeigen beginnt die Frist (10 min) neu; Abmelden räumt.
+
+**Nach dem Code:** eine zweite gegnerische Prüfung des fertigen Diffs (vier
+Blickwinkel). Die Gegenprüfer fielen am Sitzungslimit aus — die vier schweren
+Funde sind deshalb NICHT von ihnen bestätigt, sondern von mir nachgemessen:
+
+- **Jedes `switchTab` räumt dynamische Dialoge ab** (v30.85) — auch die
+  Tab-Wiederherstellung nach einem Update. Meine Aufräum-Funktion löschte
+  dabei das Foto. Jetzt entscheidet nur die Person (Knöpfe; Zurück/Escape
+  drücken „Verwerfen"); schliesst die App die Vorschau, kommt sie wieder. Ein
+  Tipp daneben schliesst nichts.
+- **Abgemeldet** lag die Vorschau unter dem Anmeldebildschirm, und der erste
+  Zurück-Druck verwarf das Foto. Jetzt wartet die Abholung (in Versuchen
+  gezählt, v32.61) und kommt nach der Anmeldung.
+- **`Origin: null`** — gemessen in Chromium: eine fremde Seite mit
+  `<meta name="referrer" content="no-referrer">` schickt genau das, und
+  `Sec-Fetch-Site` sieht ein Worker nicht. Der Riegel bleibt, aber der Schutz
+  ist das Antippen, ein Satz in der Vorschau („Kam über „Teilen" an. Wenn du
+  nichts geteilt hast: verwerfen.") und ein **Einmal-Schlüssel**: der Worker
+  gibt jedem Foto eine Zufallskennung mit, die Seite merkt sie sich je Tab —
+  ein Foto aus einer anderen Navigation (eine fremde Seite, deren Tab zu ist)
+  wird verworfen, nie angeboten.
+- Dazu fünf kleine: der Satz-Grund blockierte das Update unnötig (jetzt nur
+  bei einem Foto), die Kamera-Marke blieb scharf, wenn der Scanner schon offen
+  war (`switchTab` kehrt beim selben Tab früh zurück), „Kamera wird
+  vorbereitet…" stand ohne Kamera da, offline verlor „Bestimmen" das Foto,
+  eine gezeigte Vorschau verschwand nach zehn Minuten still.
+- **Android:** das Teilen gibt es in der Hülle noch nicht — jetzt als
+  `GS_HUELLE_ANDERS 'teilen'` gesagt (sieben Einträge, `apk_check` R8/A5).
+
+**Prüfstände:**
+
+- **`offline_check` 24 → 39 Fälle:** ein echter multipart-POST als Navigation,
+  gebaut aus dem `share_target` der `manifest.json` (die Naht Manifest ↔
+  Worker), durch den echten Worker; der Prüfserver wendet `_redirects` an wie
+  der Hoster und zählt, was ihn erreicht (ein POST an `/teilen` unter aktivem
+  Worker: 0). Gegenrichtungen: kein Bild · HEIC · leeres Feld · fremde Seite ·
+  altes Text-Ziel · ohne Worker · ohne Empfang · wartender Worker ·
+  Worker-Wechsel · die App schliesst die Vorschau · abgemeldet · fremder
+  Einmal-Schlüssel · Abmelden.
+- **`contrast_check`:** die Vorschau mass zuerst **0 Textstellen**. `#app` ist
+  ein fester, deckender Kasten über allem, und `verdeckt()` fragte nicht, wer
+  oben liegt — **kein Dialog am `<body>` war je vermessen.** Jetzt mit
+  Stapelreihenfolge; in jedem Fenster kamen rund sechs Stellen dazu, es bleibt
+  bei 0 unter AA.
+- **Gegenproben: 22 Brüche, jeder in einer eigenen Arbeitskopie, und jeder
+  macht genau den Fall rot, der ihn bewacht** — kein POST-Zweig, `activate`
+  löscht, kein `teilen`-Grund, Auto-Scan, keine Byte-Prüfung, kein
+  Ursprungs-Riegel, keine Weiterleitung, Adresse bleibt, Kamera trotzdem,
+  Abmelden/Verwerfen räumen nicht, HEIC ohne Satz, ohne Marke nichts, altes
+  Ziel „Bild", keine Wiederkehr, kein Warten auf die Anmeldung, kein
+  Einmal-Schlüssel, kein Offline-Riegel, kein Ergebnis-Haken, sofort löschen,
+  Marke bleibt scharf, Frist nicht neu. Ehrlich dazu: bei vier parallelen
+  Läufen verliert Fall 35 (Worker-Wechsel) manchmal die Seite, und Fall 11g
+  oder 24 wackeln — einzeln laufen alle grün. Zwei Gegenproben hatten den
+  Prüfstand zuerst ABSTÜRZEN lassen statt rot zu melden; beide Fälle melden
+  jetzt, und der Block hat ein Sicherheitsnetz.
+
+**Lehren:**
+
+- **Ein Ursprungs-Riegel, den die Gegenseite abschalten kann, ist keiner** —
+  vorher messen, ob sie es kann (CLAUDE.md §4e).
+- **Was die App selbst schliesst, hat die Person nicht entschieden.** Eine
+  Folge (Löschen, Senden) hängt nie an einem Schliessen, dessen Auslöser man
+  nicht kennt.
+- **Ein Fühler, den die App beim Start anlegt, ist immer da** — „nichts
+  gescannt" prüfte `typeof _gsLastScanB64 !== 'undefined'`, und die App legt
+  die Marke mit `null` an. Zuerst gegen den Ruhezustand halten.
+- **Ein Prüfstand, der abstürzt, hat nichts gemessen** — zwei Gegenproben
+  liessen ihn an `null.click` und an `caches` auf einer Fehlerseite sterben;
+  jetzt melden beide Fälle rot.
+- **Ein Zwischenstand gehört gepusht.** Der Container wurde mitten in der
+  Scheibe neu aufgesetzt; alles Nicht-Gepushte war weg, ebenso die
+  nachinstallierten Android-Werkzeuge.
 
 ### 2026-10-09 (iy) - v33.54: Ein Stil im Text lädt keine fremde Adresse mehr
 
@@ -14978,7 +15094,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 09.10.2026** (davor am 06.10.). Er stand am 02.09. auf
+> **Nachgemessen am 20.10.2026** (davor am 09.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -14987,9 +15103,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.54` (Client) · SW-Cache `gs-v33.54` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.55` (Client) · SW-Cache `gs-v33.55` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **96'093 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **580 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.32).
+- **Frontend:** `index.html` **96'395 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **583 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 39** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -15000,6 +15116,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
 | **APK auf einem Telefon ansehen: Export und Drucken** (v33.53) | Hier läuft kein Android. `apk_check` fährt Rechnung, Rand und Seite gegen einen echten Java-Sammler — ob ein Telefon „Speichern unter“ und den Druckdialog so zeigt, sagt erst ein Gerät (Android 6, 10, 14). Am Backend nichts zu tun, nur eine neue APK. | `docs/FUER-FERNANDO.md` §26 · (ix) |
 | **Neun Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `key-health-check`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `ai-proxy`, `garden-scan-analyze`, `plan-iterate`) | Audit A10/B2: konstantzeitiger Schlüsselvergleich über `_shared/auth_vergleich.mjs`, Triage nur Admins, CORS eng, 110-s-Abbruch. Im Repo, nicht ausgeliefert. | `docs/FUER-FERNANDO.md` §9 · (fl) |
 | **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
@@ -15046,6 +15163,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
+| **Fotos an die Android-App teilen** (`ACTION_SEND`) | Die PWA nimmt seit v33.55 Fotos aus dem Teilen-Menü an; die Hülle liest das Manifest nicht und hat keinen Intent-Filter — sie steht dort gar nicht. Gesagt als `GS_HUELLE_ANDERS 'teilen'`. Entwurf liegt vor (reines `Geteilt.java` wie `Export.java`, Abholung per `GET /__huelle/geteilt/holen`, dasselbe `gsScanDatei`). Nächste Scheibe, v33.56. | (iz) |
 | **Teilen und Zwischenablage in der Hülle** | Vier Teilen-Wege (`gsAchShare`, `gsShareSpecies`, `gsShareApp`, `_gsShare`) fallen in einer WebView auf die Zwischenablage zurück; zwei Meldungen „kopiert" kommen vor dem `writeText`-Ergebnis. Ein Kanal-Ziel „teilen" (ACTION_SEND, Text) wäre die Antwort. | (ix) |
 | **Foto-Ansicht per `window.open(this.src)` in der Hülle** | Tagebuch- und Rezeptfotos öffnen den Browser des Telefons (die App wird verlassen); ein `blob:`/`data:`-Foto ergibt „kein Ziel". Gehört in eine Ansicht in der App. | (ix) |
 | **Kein SPA-Rückfall im Paket** | `_redirects` liefert im Web für jede unbekannte Adresse `index.html`; der AssetServer der Hülle antwortet 404. Ein relativer Link ohne `screen=` (Benachrichtigungen) endet in der App leer. | (ix) |

@@ -114,10 +114,10 @@ diese Sperre.
 GreenScan/
 ├── index.html           # ~96k Zeilen Monolith (HTML + CSS + JS) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
-├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push) — 21 KB seit v32.72; sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
+├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
 ├── supabase/migrations/ # 219 SQL-Migrationen (alle idempotent)
-├── manifest.json        # PWA-Manifest (share_target, file_handlers, etc.)
+├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
 ├── install.html         # Marketing-Landingpage für PWA-Installation
@@ -585,9 +585,9 @@ dem Netz UEBER die aus dem Paket legt. Was das Paket nicht kennt, bekommt eine
 soll ins Netz bzw. macht die WebView selbst. Achtung auf die Form: bei
 `blob:https://green-scan.ch/uuid` ist das Schema `blob`, nicht `https`.
 
-**3 · Was in der Huelle anders ist, steht in `GS_HUELLE_ANDERS`** — sechs
-Eintraege (`sw` · `push` · `update` · `download` · `drucken` · `zahlung`, seit
-v33.53 mit `drucken`), jeder mit Grund.
+**3 · Was in der Huelle anders ist, steht in `GS_HUELLE_ANDERS`** — sieben
+Eintraege (`sw` · `push` · `update` · `download` · `drucken` · `teilen` ·
+`zahlung`; `drucken` seit v33.53, `teilen` seit v33.55), jeder mit Grund.
 **Die Liste ist die Pruefung:** jeder Eintrag braucht eine Durchsetzungsstelle
 im Code (kenntlich am Kommentar `GS_HUELLE_ANDERS '<schl>'`) UND steht auf dem
 Bildschirm (Einstellungen › Ueber GreenScan); `apk_check` R8 und A5 halten
@@ -678,6 +678,59 @@ Prüfung** — wer eine Export- oder Druckstelle baut, trägt sie dort ein.
 > eigenen Prüfserver. Wer einen Prüfstand mit zwei Fahrten baut, gibt beiden
 > DIESELBE Netzlage. Und `pruefstaende.sh` zeigt seither bei Rot die rote Zeile
 > mit — im ersten CI-Bericht stand nur „kaputt: 1".
+
+## 4e · Ein Foto teilen — `manifest.json` · `sw.js` `teilenAntwort` · `gsTeilenAbholen` (seit v33.55)
+
+Wer am Teilen-Ziel arbeitet, muss sechs Dinge wissen; der Pruefstand ist
+`offline_check` 25–39.
+
+1. **Der Weg.** Android schickt einen multipart-POST an `/teilen` (Feld
+   `bild`). Der Worker nimmt ihn VOR „nur GET" an (`respondWith` synchron),
+   legt das erste Foto unter EINEM Schluessel in den Cache `gs-geteilt`
+   (`X-Zeit`, `X-Anzahl`, `X-Nonce`) und leitet mit **303** auf
+   `/#teilen=<grund>` — der Grund im ANKER, weil jede Abfrage-Adresse eine
+   weitere Kopie der Seite im Shell-Cache waere. Ohne Worker faengt `_redirects`
+   den POST ab (`/teilen → /?teilen=ohne-sw 303`), und die Seite sagt warum.
+2. **Gescannt wird nie von selbst.** Die Seite liest den Grund beim PARSEN,
+   raeumt die Adresse auf und zeigt eine VORSCHAU; erst „Dieses Foto
+   bestimmen" ruft `gsScanDatei` — derselbe Weg wie die Galerie. Ein Scan
+   kostet Kontingent, und das Foto hat die Person in GreenScan noch nicht
+   gesehen.
+3. **Eine Entscheidung trifft nur die Person.** Schliesst die APP die
+   Vorschau (jedes `switchTab` raeumt dynamische Dialoge ab), kommt sie wieder,
+   solange das Foto im Cache liegt; ein Tipp daneben schliesst nichts. Steht
+   der Anmeldebildschirm, WARTET die Abholung (in Versuchen gezaehlt).
+4. **Das Foto bleibt, bis ein Ergebnis dasteht** (`showScanResult` →
+   `_gsTeilenScanFertig`) — ohne Empfang sagt „Bestimmen" das, statt das Foto
+   in einen Scan zu geben, der nur scheitern kann. „Verwerfen", Zurueck,
+   Escape und Abmelden raeumen sofort.
+5. **Ein Foto gehoert genau EINER Navigation.** Der Worker gibt ihm einen
+   Einmal-Schluessel mit (im Anker, je Tab in `sessionStorage`); ein Eintrag
+   ohne passenden Schluessel wird verworfen, nie angeboten. Grund: `Origin`
+   und `Referer` kann eine fremde Seite abschalten (gemessen: `no-referrer`
+   ergibt `Origin: null`, und `Sec-Fetch-Site` sieht ein Worker nicht).
+6. **Nichts geht verloren, weil etwas anderes laeuft.** `activate` laesst
+   `gs-geteilt` stehen, `_gsAppRuhig` meldet `teilen`, solange ein Foto wartet
+   (nur dann — ein Satz verliert nichts beim Neuladen), und beim Zeigen beginnt
+   die Frist (10 min) neu. In der Android-Huelle gibt es das Teilen noch nicht
+   (`GS_HUELLE_ANDERS 'teilen'`).
+
+> **Ein Ursprungs-Riegel, den die Gegenseite abschalten kann, ist keiner**
+> (v33.55). Der erste Entwurf wies POSTs mit fremdem `Origin` ab und liess
+> `null` durch — ein Teilen aus einer anderen App kommt so an. Gemessen in
+> Chromium: eine fremde Seite mit `<meta name="referrer" content="no-referrer">`
+> schickt ebenfalls `null`. Der Riegel blieb (er kostet nichts), aber der
+> Schutz liegt woanders: kein Scan ohne Antippen, ein Satz, der sagt, woher
+> das Foto kam, und der Einmal-Schluessel. **Wer einen Riegel baut, misst
+> zuerst, ob die Gegenseite ihn umgehen kann.**
+>
+> **Und was die App selbst schliesst, hat die Person nicht entschieden.** Die
+> erste Fassung loeschte das Foto in der Aufraeum-Funktion des Dialogs —
+> und die laeuft auch, wenn `switchTab` alle Dialoge abraeumt (die
+> Tab-Wiederherstellung nach einem Update tut das 900 ms nach dem Start).
+> Ein Foto, das niemand verworfen hat, waere still verschwunden. Wer eine
+> Aufraeum-Funktion an eine Folge haengt (Loeschen, Senden, Bezahlen), fragt,
+> WER sie ausgeloest hat.
 
 ## 4b · KI-Planer — der Entwurf steht in `docs/PLANER-V3.md`
 
@@ -843,7 +896,7 @@ tatsächliche Reihenfolge im DOM auslesen.
 Zwei weitere Prüfstände liegen daneben:
 
 ```bash
-node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi
+node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge — vorher galt jeder Text in einem Dialog am <body> als von #app verdeckt und wurde nie vermessen
 node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
 node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
 node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
@@ -852,7 +905,7 @@ node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (se
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
 node scripts/scan_check.js       # glaubt der Scanner der KI aufs Wort? (seit v31.99)
-node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13)
+node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.55 das TEILEN-ZIEL (Faelle 25–39): ein echter multipart-POST als Navigation aus dem share_target der manifest.json, unter einem echten Worker — Vorschau statt Scan, genau die Bytes an gsScanDatei, kein Bild · HEIC · leer · fremde Seite · altes Text-Ziel · ohne Worker (der Pruefserver wendet `_redirects` an) · ohne Empfang · wartender Worker · Worker-Wechsel · die App schliesst die Vorschau · abgemeldet · fremder Einmal-Schluessel · Abmelden
 node scripts/a11y_check.js       # bedienbar ohne Augen und ohne Maus? (seit v32.16)
 node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteht? (seit v32.17)
 node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18)
@@ -3626,6 +3679,19 @@ zurueckgeholt werden. **Eine Suchen-und-Ersetzen-Aktion ueber eine 5-MB-Datei
 ist keine Aufraeumarbeit, sondern ein Eingriff** — jede Ersetzung braucht eine
 erwartete Trefferzahl, gegen die sie prueft (`viele(alt, neu, name, 7)`), und
 Farben werden nur geaendert, wo ein Messwert vorliegt.
+
+> **Ein fester Kasten ueber allem macht jede Schicht darueber unmessbar**
+> (v33.55). Die neue Teilen-Vorschau mass in `contrast_check` **0 Textstellen**,
+> obwohl sie offen war. `verdeckt()` sammelt jeden festen, deckenden Kasten —
+> und `#app` IST einer, ueber den ganzen Bildschirm. Gefragt wurde nur, ob er
+> den Text ueberlappt, nicht, ob er UNTER ihm liegt: damit galt jeder Text in
+> einem Dialog, der direkt am `<body>` haengt, als verdeckt. **Keiner dieser
+> Dialoge war je vermessen.** Seither ordnet die Pruefung zwei feste Schichten
+> auf oberster Ebene nach `z-index` (bei Gleichstand nach Dokument-Reihenfolge);
+> in JEDEM Fenster kamen rund sechs Stellen dazu (`gsShowMushroomSeason` 0 → 14),
+> und es blieb bei 0 unter AA. Dieselbe Klasse wie v31.78 („ein Fenster, das
+> gar nicht aufging, sieht aus wie eines ohne Fehler") — gefunden, weil der
+> Bericht die Zahl je Fenster nennt.
 
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen

@@ -44,7 +44,7 @@ Redirect-URL, keine Migration.
 > dass Browser und App sich einen Speicher teilen. (Dieselbe Support-Frage wie
 > bei der zweiten Auslieferung auf Netlify, `CLAUDE.md` §2.1.)
 
-### Sechs Dinge sind anders
+### Sieben Dinge sind anders
 
 Sie stehen in der App in `GS_HUELLE_ANDERS` und auf dem Bildschirm unter
 *Einstellungen › Ueber GreenScan*. Jedes hat einen Grund, und jedes wird
@@ -60,7 +60,13 @@ gesagt statt verschluckt:
 5. **Drucken ueber Android** (seit v33.53). Gartenplan und Giess-Zettel gehen
    an den Druckdialog von Android, mit „Als PDF speichern". Ein zweites
    Fenster oeffnet die App dafuer nicht.
-6. **Bezahlen im Browser.** Stripe oeffnet im Browser des Telefons.
+6. **Noch kein „Teilen → GreenScan"** (seit v33.55). Die installierte PWA
+   nimmt ein Foto aus dem Teilen-Menue einer anderen App an (`manifest.json`
+   `share_target`, `sw.js` `teilenAntwort`). Die Huelle liest das Manifest
+   nicht und hat keinen `ACTION_SEND`-Filter — sie steht im Teilen-Menue gar
+   nicht. Das ist die naechste Scheibe; bis dahin waehlt man das Foto im
+   Scanner ueber „Galerie".
+7. **Bezahlen im Browser.** Stripe oeffnet im Browser des Telefons.
 
 ---
 

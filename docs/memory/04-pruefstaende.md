@@ -17,7 +17,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 |---|---|
 | `render_check` | sieht jeder der elf Tabs aus wie vorher? Vergleich zweier Staende (Radius, Schrift, Groesse, Farbe), verdaechtige Texte (`undefined`, `NaN`) muessen 0 sein |
 | `render_check` | aktuellen Stand vermessen |
-| `contrast_check` | WCAG-Kontrast jeder Textstelle, beide Modi |
+| `contrast_check` | WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge (Dialoge am `<body>` werden vermessen, nicht als „von #app verdeckt" uebersprungen) |
 | `touch_check` | Antippflächen unter 24×24 px (WCAG 2.5.8) |
 | `perf_check` | Kaltstart unter Telefon-Drosselung (1×/4×/6×) |
 | `wiring_check` | Verdrahtung: kommt an, was angetippt wird? (seit v31.45) |
@@ -26,7 +26,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `save_check` | kommt an, was gespeichert wird? (seit v31.85) |
 | `planer_check` | rechnet der Planer, was er behauptet? (seit v31.93) |
 | `scan_check` | glaubt der Scanner der KI aufs Wort? (seit v31.99) |
-| `offline_check` | haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.48 auch: faellt die Artenliste aus, holt die App sie nach (gleichwertig — derselbe Dedup) und sagt es, wenn auch der zweite Versuch danebengeht |
+| `offline_check` | haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.48 auch: faellt die Artenliste aus, holt die App sie nach (gleichwertig — derselbe Dedup) und sagt es, wenn auch der zweite Versuch danebengeht; seit v33.55 das Teilen-Ziel (25–39): echter multipart-POST aus dem share_target, Vorschau statt Scan, genau die Bytes an `gsScanDatei`, und die Gegenrichtungen (kein Bild, HEIC, fremde Seite, ohne Worker, ohne Empfang, wartender Worker, abgemeldet, fremder Einmal-Schluessel) |
 | `backend_check` | ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18) |
 | `storage_check` | was ueberlebt das Abmelden? (seit v32.21) |
 | `sync_check` | kommt zurueck, was hochgeladen wird? (seit v32.23); seit v33.46 auch: sagt die App, wenn der Sync KLEMMT? (gsSyncStand, vier Zustaende — offline ist kein Alarm) |

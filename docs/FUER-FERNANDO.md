@@ -1,6 +1,6 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **09.10.2026** (Abschnitte bis §26) · geschrieben von Seros.
+> Stand **20.10.2026** (Abschnitte bis §27) · geschrieben von Seros.
 >
 > *(Der Kopf stand bis heute auf 03.09., obwohl die Abschnitte 7–12 vom
 > 07./08.09. sind — genau die Art veralteter Ueberschrift, die dieses Repo
@@ -1273,6 +1273,46 @@ Android-Version (Einstellungen → Über das Telefon).
 
 **Am Backend ist nichts zu tun** — kein Deploy, keine Migration. Es braucht
 nur eine neue APK (`bash android/build.sh`, mit deinem Schlüssel wie in §22).
+
+## 27 · „Teilen → GreenScan" für Fotos — bitte einmal auf einem Telefon ansehen (v33.55)
+
+**Was jetzt geht:** in der installierten App (green-scan.ch über Chrome „Zum
+Startbildschirm hinzufügen") steht GreenScan im Teilen-Menü der Galerie. Ein
+geteiltes Foto erscheint als **Vorschau** mit „🔍 Dieses Foto bestimmen" und
+„Verwerfen" — gescannt wird erst nach dem Antippen. Bisher bot sich GreenScan
+dort für Fotos gar nicht an, und wer einen Link teilte, las „Bild geteilt",
+obwohl nie ein Bild ankam.
+
+**Am Backend ist nichts zu tun** — kein Deploy, keine Migration. Es geht mit
+dem Merge live (Cloudflare Pages und Netlify lesen dieselbe `_redirects`).
+
+**Eine Sache braucht Geduld:** Chrome übernimmt eine geänderte
+`manifest.json` in die installierte App nicht sofort, sondern erst bei einer
+späteren Prüfung beim Start. Am schnellsten: die App vom Startbildschirm
+entfernen und neu hinzufügen (deine Pflanzen kommen nach der Anmeldung aus der
+Cloud zurück). Bis dahin steht GreenScan im Teilen-Menü nur für Text und Links
+— und sagt dann ehrlich, dass es ein Foto braucht.
+
+**Was ich NICHT prüfen konnte:** hier gibt es kein Android und keinen Zugang
+zu green-scan.ch. Der Prüfstand fährt den echten Weg im Browser (ein
+multipart-POST an `/teilen` durch den echten Service Worker), aber nicht das
+Teilen-Menü eines Telefons und nicht, was Cloudflare oder Netlify auf einen
+POST antworten. Bitte einmal von Hand:
+
+| Schritt | Was passieren soll |
+|---|---|
+| Galerie → ein Foto → Teilen → GreenScan | GreenScan öffnet sich mit der Vorschau; „Kam über „Teilen“ an …" steht darunter |
+| „Dieses Foto bestimmen" | Scanner öffnet sich **ohne Kamera**, das Ergebnis kommt wie bei „Galerie" |
+| Zwei Fotos auf einmal teilen | Vorschau sagt „Du hast 2 Fotos geteilt — bestimmt wird das erste." |
+| Flugmodus an, Foto teilen, „Bestimmen" | Vorschau bleibt offen: „Ohne Empfang kann GreenScan nicht bestimmen …"; das Foto ist noch da |
+| Abgemeldet ein Foto teilen | erst die Anmeldung, danach erscheint die Vorschau |
+| Ein Video teilen | GreenScan sollte im Menü **nicht** erscheinen (die App nimmt nur JPEG, PNG, WebP, GIF) |
+| Ein Foto im HEIC-Format (manche Telefone speichern so) | entweder erscheint GreenScan nicht, oder die App sagt „Das Foto liegt im HEIC-Format vor …" |
+
+Wenn etwas anders aussieht: ein Foto vom Bildschirm und die Android-Version
+genügen. **In der Android-APK gibt es das Teilen noch nicht** — sie steht nicht
+im Teilen-Menü; das ist die nächste Scheibe (v33.56) und steht bis dahin in
+der App unter *Einstellungen › Über GreenScan*.
 
 ## Und wenn etwas schiefgeht
 

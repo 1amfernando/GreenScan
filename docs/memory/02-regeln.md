@@ -1,4 +1,4 @@
-# 02 · Die dreizehn Regeln — fuer jede Codezeile
+# 02 · Die vierzehn Regeln — fuer jede Codezeile
 
 Jede Regel hat einen Grund, der einmal Geld gekostet hat (`05-fallen.md`), und
 einen Pruefstand, der sie haelt (`04-pruefstaende.md`). Kurzform hier, das
@@ -88,6 +88,12 @@ Tagebuch in `CLAUDE.md`.
     Android-Huelle laufen beide ueber den Kanal `/__huelle/datei/` (ohne
     Bruecke); eine neue Export-Stelle traegt sich in die Liste `EXPORTE` in
     `apk_check` ein. *(§4d Punkt 5, apk_check E1–E10, v33.53)*
+14. **Was von aussen kommt, wird GEZEIGT, nicht ausgefuehrt.** Ein Foto aus dem
+    Teilen-Menue (oder je eine Eingabe aus fremder Hand) loest nie selbst einen
+    Scan, ein Senden oder eine Zahlung aus: Vorschau, ein Satz, woher es kam,
+    und ein Antippen. Gehoert es nicht zu DIESER Navigation (Einmal-Schluessel),
+    wird es verworfen. Und eine Folge haengt nie an einem Schliessen, das die
+    App selbst ausgeloest hat. *(§4e, offline_check 25–39, v33.55)*
 
 ## Und drei Regeln ueber das Arbeiten selbst
 

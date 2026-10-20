@@ -104,6 +104,16 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v32.23** `gsCloudSync.flushNow()` ging an `sbFetch` vorbei — die Attrappe
   sah nichts, „0 Tabellen gepusht" haette 47 Fehler gemeldet. Regel: erst
   pruefen, ob der Pruefstand ueberhaupt etwas sieht.
+- **v33.55** `contrast_check` mass in der Teilen-Vorschau 0 Textstellen: `#app`
+  ist ein fester, deckender Kasten ueber allem, und `verdeckt()` fragte nicht,
+  wer OBEN liegt — kein Dialog am `<body>` war je vermessen. Regel: ein Deckel
+  verdeckt nur, was unter ihm liegt (z-index, dann Dokument-Reihenfolge).
+- **v33.55** „Nichts gescannt" pruefte `typeof _gsLastScanB64 !== 'undefined'`
+  — die App legt die Marke beim Start mit `null` an, der Fuehler war immer
+  wahr. Regel: einen Fuehler zuerst gegen den Ruhezustand halten.
+- **v33.55** Zwei Gegenproben liessen den Pruefstand ABSTUERZEN (`null.click`,
+  `caches` auf einer Fehlerseite) statt rot zu melden. Regel: jede Frage meldet
+  auch dann, wenn die Funktion dahinter kaputt ist.
 
 ## F · Die richtige Ursache, die falsche Abhilfe
 
@@ -146,3 +156,10 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.17** „Konto loeschen" versprach „alle Scans & Bilder" und loeschte
   kein einziges Storage-Objekt (169). Regel: gegen die Datenbank messen,
   nicht gegen die Liste im Code.
+- **v33.55** Das Teilen-Ziel wies fremde `Origin` ab und liess `null` durch —
+  eine fremde Seite mit `no-referrer` schickt genau `null` (gemessen). Regel:
+  erst messen, ob die Gegenseite einen Riegel abschalten kann; der Schutz ist
+  dann das Antippen, ein ehrlicher Satz und ein Einmal-Schluessel je Navigation.
+- **v33.55** Die Aufraeum-Funktion der Teilen-Vorschau loeschte das Foto — und
+  sie laeuft auch, wenn `switchTab` alle Dialoge abraeumt. Regel: wer eine
+  Folge (Loeschen, Senden) an ein Schliessen haengt, fragt, WER geschlossen hat.

@@ -70,9 +70,35 @@ const STELLEN = () => {
     if (!deckend) return;
     deckel.push({ el: el, r: r });
   });
-  const verdeckt = (el, r) => deckel.some(d =>
-    d.el !== el && !d.el.contains(el) && !el.contains(d.el) &&
-    r.left < d.r.right - 1 && r.right > d.r.left + 1 && r.top < d.r.bottom - 1 && r.bottom > d.r.top + 1);
+  // v33.55: ein Deckel verdeckt nur, was UNTER ihm liegt. `#app` ist selbst
+  // ein fester, deckender Kasten ueber dem ganzen Bildschirm — ohne diese
+  // Frage galt JEDER Text in einem Dialog, der direkt am <body> haengt
+  // (Rueckfragen, Teilen-Vorschau, …), als verdeckt, und keiner davon wurde
+  // je vermessen. Zwei feste Schichten auf oberster Ebene ordnet der z-index,
+  // bei Gleichstand die Reihenfolge im Dokument. Innerhalb von #app aendert
+  // sich nichts: dort liegen Text und Deckel in derselben Schicht.
+  const zahl = (e) => { const z = parseInt(getComputedStyle(e).zIndex, 10); return isNaN(z) ? 0 : z; };
+  const schicht = (e) => {
+    let w = null;
+    for (let q = e; q && q !== document.documentElement; q = q.parentElement) if (getComputedStyle(q).position === 'fixed') w = q;
+    return w;
+  };
+  const verdeckt = (el, r) => {
+    const sEl = schicht(el);
+    return deckel.some(d => {
+      if (d.el === el || d.el.contains(el) || el.contains(d.el)) return false;
+      if (!(r.left < d.r.right - 1 && r.right > d.r.left + 1 && r.top < d.r.bottom - 1 && r.bottom > d.r.top + 1)) return false;
+      if (sEl && !sEl.contains(d.el)) {
+        const sD = schicht(d.el) || d.el;
+        if (sD !== sEl) {
+          const zE = zahl(sEl), zD = zahl(sD);
+          if (zE > zD) return false;
+          if (zE === zD && (sD.compareDocumentPosition(sEl) & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+        }
+      }
+      return true;
+    });
+  };
 
   document.querySelectorAll('*').forEach(el => {
     const cs = getComputedStyle(el);
@@ -415,6 +441,18 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (dm) { dm.style.display = ''; dm.classList.add('active'); }
         return mc;
       }],
+      // v33.55: die Vorschau eines geteilten Fotos. Sie ist ein dynamischer
+      // Dialog (kein Oeffner mit openModal), der automatische Durchgang sieht
+      // sie also nie. Zwei Fotos, damit auch die Hinweiszeile dasteht.
+      ['teilen-vorschau', () => {
+        const b = atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+        const u8 = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u8[i] = b.charCodeAt(i);
+        _gsTeilenVorschau(new File([u8], 'geteilt', { type: 'image/png' }), 2);
+        const ov = document.getElementById('gs-teilen-vorschau');
+        if (!ov) throw new Error('teilen-vorschau: kein #gs-teilen-vorschau');
+        if (!/2 Fotos/.test(ov.textContent)) throw new Error('teilen-vorschau: Hinweiszeile fehlt — der Fall stellt seinen Zustand nicht her');
+        return ov.firstElementChild;
+      }],
     ];
 
     // v32.25: der Messvorgang als FUNKTION — er wird jetzt von zwei Seiten
@@ -486,6 +524,10 @@ async function medianFarben(leser, pngBuffer, punkte) {
             const m = document.getElementById(id);
             if (m) { try { m.classList.remove('active'); m.style.display = 'none'; } catch(_){} }
           });
+          // v33.55: die Teilen-Vorschau liegt auf z-index 99990 ueber allem —
+          // stehen gelassen, verdeckte sie jedes weitere Fenster.
+          const tv = document.getElementById('gs-teilen-vorschau');
+          if (tv && typeof gsDismissOverlay === 'function') { try { gsDismissOverlay(tv); } catch(_){} }
         });
       } catch (e) { console.log('  (Fenster ' + fname + ' uebersprungen: ' + e.message.split('\n')[0] + ')'); }
     }

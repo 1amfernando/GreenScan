@@ -119,6 +119,14 @@ git fetch origin main && git reset --hard origin/main
 git push --force-with-lease -u origin claude/<thema>-<id>
 ```
 
+**Und Zwischenstaende werden gepusht, nicht nur gespeichert** (v33.55). Der
+Container einer Cloud-Sitzung wird zwischendurch neu aufgesetzt — mitten in
+v33.55 waren danach Worker, Manifest, `_redirects`, der Seiten-Block und elf
+Pruefstands-Faelle weg; nur der gepushte Zwischenstand-Commit stand noch, und
+mit ihm verschwanden auch die nachinstallierten Android-Werkzeuge (`apk_check`
+sagt dann „nicht pruefbar", nie gruen). Ein Commit + Push je fertigem Teil
+kostet nichts; der Merge buendelt sie ohnehin.
+
 Nie direkt auf `main`. Nie DDL auf der Produktivdatenbank — Migrationen
 liegen in `supabase/migrations/` und heissen „nicht angewandt", bis Fernando
 sie anwendet. Nie „live verifiziert" schreiben, ohne zu sagen womit — die

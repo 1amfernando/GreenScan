@@ -15,7 +15,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v33.54';
+const VERSION = 'gs-v33.55';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -214,7 +214,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(
-        keys.filter((k) => !k.startsWith(VERSION)).map((k) => {
+        // v33.55: das geteilte Foto (GETEILT_CACHE) gehoert keiner Version — ein
+        // Update zwischen „geteilt" und „abgeholt" loeschte es sonst still.
+        keys.filter((k) => !k.startsWith(VERSION) && k !== GETEILT_CACHE).map((k) => {
           console.log('[SW] Lösche alten Cache:', k);
           return caches.delete(k);
         })
@@ -222,6 +224,54 @@ self.addEventListener('activate', (event) => {
       .then(() => self.clients.claim()) // Nimm sofort Kontrolle aller Tabs
   );
 });
+
+// ─── TEILEN-ZIEL (v33.55) ────────────────────────────────────
+// manifest.json share_target: POST /teilen, multipart, Feld „bild". Der Worker
+// legt das Foto unter EINEM festen Schluessel ab und leitet auf `/#teilen=<grund>`
+// um — der Grund steht im ANKER: eine eigene Abfrage-Adresse waere eine weitere
+// Kopie der 6-MB-Seite im Shell-Cache (networkFirst legt je URL ab), `/` liegt
+// dort ohnehin. Gescannt wird NICHTS ohne Antippen — das entscheidet die Seite.
+const GETEILT_CACHE = 'gs-geteilt';
+const GETEILT_SCHLUESSEL = '/__geteilt/letztes';
+const GETEILT_MAX = 15 * 1024 * 1024;   // = GS_GETEILT_MAX in index.html
+
+async function teilenAntwort(req) {
+  const ziel = (g) => Response.redirect('/#teilen=' + g, 303);   // 303: der Browser holt per GET, nie ein zweiter POST
+  try {
+    // Eine fremde Seite darf kein Foto in die App schieben. Das ist nur ein
+    // HALBER Riegel — gemessen (Chromium, v33.55): eine fremde Seite mit
+    // `<meta name="referrer" content="no-referrer">` schickt `Origin: null`,
+    // genau wie ein Teilen aus einer anderen App, und `Sec-Fetch-Site` sieht
+    // ein Worker gar nicht. Der ganze Riegel ist das Antippen: die Seite
+    // scannt nie von selbst und sagt in der Vorschau, woher das Foto kam.
+    const herkunft = req.headers.get('Origin');
+    if (herkunft && herkunft !== 'null' && herkunft !== self.location.origin) return ziel('fremd');
+    const fd = await req.formData();
+    // Ein leeres Dateifeld schickt einen 0-Byte-Teil — der zaehlt nicht.
+    const dateien = fd.getAll('bild').filter((f) => f && typeof f === 'object' && f.size > 0);
+    if (!dateien.length) return ziel('leer');
+    const f = dateien[0];
+    if (f.size > GETEILT_MAX) return ziel('gross');
+    // Ein Einmal-Schluessel bindet das Foto an GENAU diese Navigation: die
+    // Seite merkt ihn sich je Tab (sessionStorage) und bietet nur ein Foto an,
+    // dessen Schluessel passt. Ein Foto, das eine fremde Seite abgelegt hat und
+    // dessen Tab geschlossen wurde, kommt beim naechsten Start nicht als
+    // „Geteiltes Foto" daher (gegnerische Pruefung v33.55).
+    const nonce = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, '0')).join('');
+    const c = await caches.open(GETEILT_CACHE);
+    try {
+      await c.put(GETEILT_SCHLUESSEL, new Response(f, { headers: {
+        'Content-Type': f.type || 'application/octet-stream',
+        'X-Zeit': String(Date.now()),
+        'X-Anzahl': String(dateien.length),
+        'X-Nonce': nonce,
+      } }));
+    } catch (e) { return ziel('speicher'); }
+    return ziel('bild.' + nonce);
+  } catch (e) {
+    return ziel('fehler');
+  }
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────
 function isNeverCache(url) {
@@ -320,6 +370,20 @@ async function staleWhileRevalidate(req, cacheName) {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
+  // v33.55: das Teilen-Ziel — VOR „nur GET", und die Entscheidung faellt
+  // synchron (respondWith nach einem await wirft InvalidStateError).
+  if (req.method === 'POST') {
+    try {
+      const u = new URL(req.url);
+      // Nur eine Navigation der OBERSTEN Ebene ist ein Teilen — kein fetch(),
+      // kein Rahmen (der waere fuer die Person unsichtbar).
+      if (u.origin === self.location.origin && u.pathname === '/teilen' && req.mode === 'navigate' && req.destination === 'document') {
+        event.respondWith(teilenAntwort(req));
+        return;
+      }
+    } catch (_) {}
+  }
+
   // Nur GET cachen (POST/PUT/DELETE direkt durchreichen)
   if (req.method !== 'GET') return;
 
@@ -331,7 +395,7 @@ self.addEventListener('fetch', (event) => {
   // v33.53: Der Kanal der Android-Huelle (/__huelle/datei/…) traegt Datei-
   // Teile in der Adresse. Im Browser ruft ihn die App nie — und falls doch,
   // gehoert nichts davon in einen Zwischenspeicher.
-  if (url.indexOf('/__huelle/') >= 0) return;
+  if (url.indexOf('/__huelle/') >= 0 || url.indexOf('/__geteilt/') >= 0) return;
 
   // 1. Never-cache hosts (Supabase, Anthropic, Stripe, Wetter, IP-Geo) → Network only
   if (isNeverCache(url)) return;
