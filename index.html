@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.54.20261009">
+<meta name="app-version" content="33.55.20261020">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76230,6 +76230,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.55', date: '20.10.2026',
+      headline: 'Ein Foto teilen — GreenScan zeigt es und bestimmt es auf Antippen',
+      summary: 'Bis v33.54 nahm das Teilen-Ziel der installierten App nur Text und Links an (GET, keine Dateien); Android bot GreenScan für ein Foto gar nicht an, und wer einen Link teilte, las „Bild geteilt“, obwohl nie ein Bild ankam. Jetzt: POST /teilen mit dem Foto, der Service Worker legt es ab und leitet um, die App zeigt eine Vorschau und bestimmt erst nach dem Antippen — mit denselben Schritten wie die Galerie. Eine gegnerische Prüfung des Entwurfs und eine des fertigen Diffs haben sieben Lücken gezeigt, die vor dem Ausliefern geschlossen sind (Update beim Start, die App schliesst die Vorschau selbst, Anmeldebildschirm, fremde Seiten, kein Empfang, Kamera-Marke, Frist).',
+      user_summary: 'In der installierten App steht GreenScan jetzt im Teilen-Menü der Galerie: ein geteiltes Foto erscheint als Vorschau, und mit „Dieses Foto bestimmen“ wird es bestimmt — ohne dass die Kamera angeht. Ohne Empfang sagt die App, dass sie Netz braucht, und das Foto bleibt. In der Android-App kommt das Teilen als Nächstes.',
+      user_items: [
+        {emoji:'📤', bold:'Teilen → GreenScan:', text:' ein Foto aus der Galerie oder einer anderen App kommt als Vorschau an; bestimmt wird erst, wenn du tippst.'},
+        {emoji:'📷', bold:'Ohne Kamera:', text:' der Scanner öffnet sich für das geteilte Foto, die Kamera bleibt aus.'},
+        {emoji:'📡', bold:'Ohne Empfang:', text:' die Vorschau bleibt offen und sagt, dass zum Bestimmen Netz nötig ist — das Foto geht nicht verloren.'},
+        {emoji:'🛡️', bold:'Nichts Fremdes:', text:' ein Foto, das nicht zu diesem Teilen gehört, wird verworfen statt angeboten; die Vorschau sagt, woher es kam.'},
+        {emoji:'💬', bold:'Ehrliche Sätze:', text:' ein geteilter Link, eine Datei, die kein Foto ist, oder ein HEIC-Foto bekommen je einen eigenen Satz statt „Bild geteilt“.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' manifest.json share_target war GET mit title/text/url, sw.js kannte kein Teilen (0 Treffer), _gsShareTargetInit sagte „Bild geteilt“ ohne Bild, CLAUDE.md nannte ein file_handlers, das es nie gab.'},
+        {emoji:'🔁', bold:'Der Weg:', text:' POST /teilen (multipart, Feld „bild“) → sw.js teilenAntwort legt das erste Foto unter einem Schlüssel in gs-geteilt ab (Zeit, Anzahl, Einmal-Schlüssel) → 303 auf /#teilen=<grund>; ohne Worker leitet _redirects auf /?teilen=ohne-sw. activate lässt gs-geteilt stehen.'},
+        {emoji:'🖼️', bold:'Die Seite:', text:' liest den Grund beim Parsen, räumt die Adresse auf, prüft die ersten Bytes (_gsBildTyp: JPEG, PNG, GIF, WebP; HEIC mit eigenem Satz) und zeigt die Vorschau; gsScanDatei ist der eine Weg von einer Bilddatei zum Scan (Galerie und Teilen).'},
+        {emoji:'🤝', bold:'Entscheiden tut die Person:', text:' schliesst die App die Vorschau (ein switchTab), kommt sie wieder; ein Tipp daneben schliesst nichts; hinter dem Anmeldebildschirm wartet sie; das Foto bleibt bis zum Ergebnis (showScanResult), _gsAppRuhig meldet „teilen“.'},
+        {emoji:'🔑', bold:'Ein Foto, eine Navigation:', text:' gemessen — eine fremde Seite mit no-referrer schickt Origin null wie ein echtes Teilen. Deshalb nur Navigationen der obersten Ebene, ein ehrlicher Satz in der Vorschau und ein Einmal-Schlüssel je Tab.'},
+        {emoji:'🧪', bold:'offline_check 24 → 39 Fälle:', text:' ein echter multipart-POST aus dem share_target durch den echten Worker; 22 Brüche als Gegenprobe. contrast_check kennt jetzt die Stapelreihenfolge — kein Dialog am <body> war je vermessen.'}
+      ]
+  },
+  {
     v: 'v33.54', date: '09.10.2026',
       headline: 'Ein Stil im Text lädt keine fremde Adresse mehr',
       summary: 'Übersetzte Texte und Chat-Zeilen dürfen ein wenig Auszeichnung tragen — und dazu ein style-Attribut. Der Filter dafür war eine Verbotsliste auf dem Rohtext: er suchte „url(“. CSS kennt aber Escapes (u\\72l( liest der Browser als url(), und image-set("…") lädt eine Adresse ganz ohne url(. Die gegnerische Prüfung zu v33.53 hat in Chromium gezeigt, dass ein Satz damit eine fremde Adresse laden konnte. Jetzt geht jeder Stil durch eine Erlaubnisliste: nur bekannte Eigenschaften, keine Escapes, keine Zeichenketten, keine Funktion ausser rgb/hsl/var/calc.',
@@ -76553,25 +76574,6 @@ window.GS_RELEASES = [
       'Prüfstände: kalender_check 40 (4 neu, alle rot gegen v33.35). Gegenproben: [] statt null, nur Frost statt vier Schwellen, Standort egal → je rot. Changelog-Umzug: v33.16 ins Archiv (Deckel 20).'
     ]
   },
-  {
-    v: 'v33.35', date: '16.09.2026',
-    headline: 'Der Kalender zeigt, was du sehen willst — fünf Chips, und jede Zahl steht nur an einer Stelle',
-    summary: 'Zweite Scheibe von KALENDER-V2: das Sieb. Ein Filter sitzt auf dem ERGEBNIS, nie in der Rechnung — sonst zählt die Anzeige sich selbst und Lina wird blind. Gespeichert wird nach Art, gezeigt nach Gruppe: eine neue Ereignisart ist damit automatisch sichtbar. Die Punkte im Raster tragen jetzt die Farbe der Gruppe (fünf) statt der Art (neun), und die Legende entfällt, weil die Chips sie erklären.',
-    user_summary: 'Über dem Kalender stehen fünf Knöpfe: Zu tun, Säen & Ernten, Wetter, Rückblick, Messwerte. Jeder sagt, wie viel er zeigt — und ein ausgeschalteter sagt, wie viel er zurückhält. Messwerte sind von Anfang an ausgeblendet; alles andere siehst du. Deine Auswahl bleibt und reist auf dein zweites Gerät mit.',
-    user_items: [
-      {emoji: '🔘', bold: 'Fünf Knöpfe:', text: ' tippe eine Gruppe an, und sie verschwindet aus Raster und Tagesliste. Nochmal tippen holt sie zurück.'},
-      {emoji: '🔢', bold: 'Die Zahl am Knopf:', text: ' sie zählt den ganzen Monat, auch wenn die Gruppe gerade aus ist — so siehst du, was du nicht siehst.'},
-      {emoji: '🎨', bold: 'Farben, die etwas heissen:', text: ' der Punkt an einem Tag hat die Farbe seiner Gruppe. Die alte Legende mit sechs Einträgen ist weg.'},
-      {emoji: '📭', bold: 'Ein leerer Tag sagt jetzt warum:', text: ' „3 Einträge sind ausgeblendet" mit einem Knopf „Alle zeigen" — statt so auszusehen, als wäre nichts da.'}
-    ],
-    items: [
-      '_gsKalFiltern(liste, f) NACH dem Prüfwerk. Reihenfolge fest: Rechnung → Prüfwerk → Sieb → Anzeige; gsKalenderEreignisse liefert mit gesetztem Filter dieselbe Liste wie ohne (Fall F1).',
-      'gs_kal_filter = {aus:[Arten], garten} speichert die AUSGEBLENDETEN Arten — eine neue Art ist damit sichtbar statt stillschweigend verschluckt. In GS_USER_KEYS, im state-Blob HIN und RÜCK, markDirty(state) von Hand, Schreibversuch am Rückgabewert.',
-      'Fünf Gruppen statt vier: „Messwerte" hat eine eigene, weil die Vorgabe sie ausblendet — im Rückblick stünde dessen Chip von Anfang an halb aus, ein dritter Zustand, den niemand liest.',
-      'Die Chip-Zahlen kommen aus der UNGEFILTERTEN Liste des Monats; der Tageskopf sagt „(N ausgeblendet)" nur wenn > 0, und einen Monatsfuss mit drei Zahlen gibt es nicht.',
-      'Prüfstände: kalender_check 36 (6 neu, alle rot gegen v33.34). Gegenproben: Sieb in die Rechnung geschoben, Chip-Zahlen aus der gefilterten Liste, dritter Leerzustand ausgebaut, Punkte wieder nach Art → je rot.'
-    ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76780,7 +76782,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.54';
+var GS_VERSION = 'v33.55';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

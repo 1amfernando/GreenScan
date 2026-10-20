@@ -30,6 +30,25 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.35', date: '16.09.2026',
+    headline: 'Der Kalender zeigt, was du sehen willst — fünf Chips, und jede Zahl steht nur an einer Stelle',
+    summary: 'Zweite Scheibe von KALENDER-V2: das Sieb. Ein Filter sitzt auf dem ERGEBNIS, nie in der Rechnung — sonst zählt die Anzeige sich selbst und Lina wird blind. Gespeichert wird nach Art, gezeigt nach Gruppe: eine neue Ereignisart ist damit automatisch sichtbar. Die Punkte im Raster tragen jetzt die Farbe der Gruppe (fünf) statt der Art (neun), und die Legende entfällt, weil die Chips sie erklären.',
+    user_summary: 'Über dem Kalender stehen fünf Knöpfe: Zu tun, Säen & Ernten, Wetter, Rückblick, Messwerte. Jeder sagt, wie viel er zeigt — und ein ausgeschalteter sagt, wie viel er zurückhält. Messwerte sind von Anfang an ausgeblendet; alles andere siehst du. Deine Auswahl bleibt und reist auf dein zweites Gerät mit.',
+    user_items: [
+      {emoji: '🔘', bold: 'Fünf Knöpfe:', text: ' tippe eine Gruppe an, und sie verschwindet aus Raster und Tagesliste. Nochmal tippen holt sie zurück.'},
+      {emoji: '🔢', bold: 'Die Zahl am Knopf:', text: ' sie zählt den ganzen Monat, auch wenn die Gruppe gerade aus ist — so siehst du, was du nicht siehst.'},
+      {emoji: '🎨', bold: 'Farben, die etwas heissen:', text: ' der Punkt an einem Tag hat die Farbe seiner Gruppe. Die alte Legende mit sechs Einträgen ist weg.'},
+      {emoji: '📭', bold: 'Ein leerer Tag sagt jetzt warum:', text: ' „3 Einträge sind ausgeblendet" mit einem Knopf „Alle zeigen" — statt so auszusehen, als wäre nichts da.'}
+    ],
+    items: [
+      '_gsKalFiltern(liste, f) NACH dem Prüfwerk. Reihenfolge fest: Rechnung → Prüfwerk → Sieb → Anzeige; gsKalenderEreignisse liefert mit gesetztem Filter dieselbe Liste wie ohne (Fall F1).',
+      'gs_kal_filter = {aus:[Arten], garten} speichert die AUSGEBLENDETEN Arten — eine neue Art ist damit sichtbar statt stillschweigend verschluckt. In GS_USER_KEYS, im state-Blob HIN und RÜCK, markDirty(state) von Hand, Schreibversuch am Rückgabewert.',
+      'Fünf Gruppen statt vier: „Messwerte" hat eine eigene, weil die Vorgabe sie ausblendet — im Rückblick stünde dessen Chip von Anfang an halb aus, ein dritter Zustand, den niemand liest.',
+      'Die Chip-Zahlen kommen aus der UNGEFILTERTEN Liste des Monats; der Tageskopf sagt „(N ausgeblendet)" nur wenn > 0, und einen Monatsfuss mit drei Zahlen gibt es nicht.',
+      'Prüfstände: kalender_check 36 (6 neu, alle rot gegen v33.34). Gegenproben: Sieb in die Rechnung geschoben, Chip-Zahlen aus der gefilterten Liste, dritter Leerzustand ausgebaut, Punkte wieder nach Art → je rot.'
+    ]
+  },
+  {
     v: 'v33.34', date: '15.09.2026',
     headline: 'Der Kalender denkt: Frost trifft Aussaat, Regen übernimmt das Giessen, Ernte ohne Eintrag — und er sagt, woher er es weiss',
     summary: 'Erste Scheibe von KALENDER-V2. Der Kalender hält seine Ereignisse jetzt gegeneinander: ein Prüfwerk am Ende der einen Kalender-Funktion rechnet fünf Regeln mit je drei Zuständen (erfüllt · verletzt · nicht prüfbar) und schreibt Hinweise an die beteiligten Zeilen. Dazu ein gemessener Fehler: die Ernte-Schätzung erfand für jede unbekannte Pflanze ein Datum aus 60–90 Tagen — eine Monstera-Pflanzung bekam „Ernte voraussichtlich 16.10.". Jetzt nur mit Kulturdaten, und der Grund nennt die Zahlen.',
