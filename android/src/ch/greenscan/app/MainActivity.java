@@ -3,6 +3,8 @@ package ch.greenscan.app;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -13,6 +15,8 @@ import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Parcelable;
+import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.view.ViewGroup;
 import android.webkit.GeolocationPermissions;
@@ -31,6 +35,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 
 /**
  * Die Huelle. Sie tut genau fuenf Dinge, und jedes davon, weil eine nackte
@@ -97,6 +102,18 @@ public class MainActivity extends Activity {
   /** Die Druckansicht — eine eigene, geschlossene WebView (DruckAnsicht.java). */
   private final DruckAnsicht druck = new DruckAnsicht();
 
+  /**
+   * Das Fach fuer ein geteiltes Foto (v33.56) — EINES je Prozess, aus demselben
+   * Grund wie der Sammler: dreht jemand das Telefon, entsteht eine neue
+   * Activity, und das Foto muss dasselbe bleiben. Die Rechnung steht in
+   * {@link Geteilt}; hier ist nur der Rand.
+   */
+  private static final Geteilt.Fach fach = new Geteilt.Fach();
+  /** Monoton — eine verstellte Uhr laesst kein Foto vorzeitig verfallen. */
+  private static final Geteilt.Uhr UHR = new Geteilt.Uhr() {
+    @Override public long jetzt() { return SystemClock.elapsedRealtime(); }
+  };
+
   @Override
   protected void onCreate(Bundle zustand) {
     super.onCreate(zustand);
@@ -113,7 +130,7 @@ public class MainActivity extends Activity {
       Export.aufraeumen(ablage, wartetId != null ? wartetId : sammler.offeneId(), System.currentTimeMillis());
     } catch (Throwable ignored) {}
 
-    server = new AssetServer(getAssets(), sammler);
+    server = new AssetServer(getAssets(), sammler, fach);
     server.setDateiZiel(new AssetServer.DateiZiel() {
       @Override public void uebergeben(final Export.Datei d) {
         // Kommt auf einem Hintergrund-Faden an (shouldInterceptRequest) —
@@ -238,6 +255,16 @@ public class MainActivity extends Activity {
 
     netzBeobachten();
 
+    // v33.56: wurde die App MIT einem geteilten Foto gestartet? Nie bei einer
+    // wiederhergestellten Activity und nie aus der Liste der letzten Apps —
+    // Android liefert dort die alte Absicht noch einmal. Danach traegt die
+    // Activity eine neutrale Absicht, damit ein Neuaufbau nicht noch einmal annimmt.
+    if (Geteilt.sollAnnehmen(zustand != null, getIntent().getFlags(), getIntent().getAction(),
+        Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)) {
+      geteiltAnnehmen(getIntent());
+      setIntent(new Intent(Intent.ACTION_MAIN));
+    }
+
     if (zustand == null) {
       // `source=app` statt `source=pwa`: dieselbe Datei, aber die Herkunft ist
       // in der Statistik unterscheidbar.
@@ -266,6 +293,88 @@ public class MainActivity extends Activity {
   public void onBackPressed() {
     if (web != null && web.canGoBack()) { web.goBack(); return; }
     super.onBackPressed();
+  }
+
+  /**
+   * Ein geteiltes Foto, waehrend die App schon laeuft ({@code singleTask}).
+   * Auch ein Tipp auf das Symbol kommt hier an — der ist KEIN Teilen und tut
+   * nichts ({@link Geteilt#sollAnnehmen}).
+   */
+  @Override
+  protected void onNewIntent(Intent neu) {
+    super.onNewIntent(neu);
+    if (neu != null && Geteilt.sollAnnehmen(false, neu.getFlags(), neu.getAction(),
+        Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)) {
+      geteiltAnnehmen(neu);
+      setIntent(new Intent(Intent.ACTION_MAIN));
+    }
+  }
+
+  /**
+   * Nimmt ein geteiltes Foto an. Der Rand liefert nur, was die Rechnung nicht
+   * haben kann: die Adresse aus der Absicht, einen Oeffner und einen Faden.
+   * Die Abfolge selbst (Quelle pruefen, mit Deckel kopieren, Typ an den Bytes,
+   * ablegen oder Grund) steht in {@link Geteilt#annehmen} und wird vom
+   * Pruefstand gefahren.
+   *
+   * <p>Die Adresse kommt zuerst aus {@code ClipData}: dort haengt die
+   * Leseerlaubnis, die die sendende App mitgibt. {@code EXTRA_STREAM} ist der
+   * Rueckfall. Gelesen wird SOFORT (die Erlaubnis gilt, solange diese
+   * Activity lebt) — und nicht auf dem UI-Faden.
+   */
+  private void geteiltAnnehmen(Intent i) {
+    try {
+      Uri u = null;
+      int anzahl = 1;
+      ClipData c = i.getClipData();
+      if (c != null && c.getItemCount() > 0) { u = c.getItemAt(0).getUri(); anzahl = c.getItemCount(); }
+      if (u == null) {
+        if (Intent.ACTION_SEND_MULTIPLE.equals(i.getAction())) {
+          ArrayList<Parcelable> liste = i.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+          if (liste != null && !liste.isEmpty() && liste.get(0) instanceof Uri) { u = (Uri) liste.get(0); anzahl = liste.size(); }
+        } else {
+          Parcelable p = i.getParcelableExtra(Intent.EXTRA_STREAM);
+          if (p instanceof Uri) u = (Uri) p;
+        }
+      }
+      final Uri uri = u;
+      final int wieviele = Math.max(1, anzahl);
+      final ContentResolver cr = getApplicationContext().getContentResolver();
+      final String paket = getPackageName();
+      new Thread(new Runnable() {
+        @Override public void run() {
+          try {
+            Geteilt.annehmen(fach, uri == null ? null : uri.getScheme(), uri == null ? null : uri.getAuthority(),
+                uri != null, paket, wieviele, new Geteilt.Oeffner() {
+                  @Override public InputStream oeffnen() throws Exception { return cr.openInputStream(uri); }
+                }, UHR);
+          } catch (Throwable ignored) {
+          } finally {
+            geteiltAnstossen();
+          }
+        }
+      }, "gs-geteilt").start();
+    } catch (Throwable t) {
+      // Extras aus fremder Hand koennen schon beim Auspacken werfen.
+      try { Geteilt.annehmenGescheitert(fach, UHR); } catch (Throwable ignored) {}
+      geteiltAnstossen();
+    }
+  }
+
+  /**
+   * Stoesst die Seite an: ein FESTER Text ({@link Geteilt#rueckruf}) ohne
+   * Daten — was die Seite braucht, holt sie sich unter /__huelle/geteilt/.
+   * Steht die Seite noch nicht, tut der Anstoss nichts; sie fragt beim Start
+   * ohnehin selbst.
+   */
+  private void geteiltAnstossen() {
+    final WebView w = web;
+    if (w == null) return;
+    w.post(new Runnable() {
+      @Override public void run() {
+        try { if (web != null) web.evaluateJavascript(Geteilt.rueckruf(), null); } catch (Throwable ignored) {}
+      }
+    });
   }
 
   @Override

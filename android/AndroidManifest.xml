@@ -78,6 +78,30 @@
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
+      <!--
+        v33.56: „Teilen → GreenScan" fuer Fotos — dieselben vier Typen wie das
+        Teilen-Ziel der PWA (manifest.json share_target). Kein image/*, kein
+        HEIC: was die App nicht lesen kann, bietet sie nicht an. Ein Galerie-
+        Teilen mit „image/*" (gemischte Auswahl) passt trotzdem; die Huelle
+        misst den Typ an den Bytes (Geteilt.typ) und sagt es bei HEIC.
+      -->
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="image/jpeg" />
+        <data android:mimeType="image/png" />
+        <data android:mimeType="image/webp" />
+        <data android:mimeType="image/gif" />
+      </intent-filter>
+      <!-- Mehrere Fotos: bestimmt wird das erste, die Vorschau sagt es (wie in der PWA). -->
+      <intent-filter>
+        <action android:name="android.intent.action.SEND_MULTIPLE" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="image/jpeg" />
+        <data android:mimeType="image/png" />
+        <data android:mimeType="image/webp" />
+        <data android:mimeType="image/gif" />
+      </intent-filter>
     </activity>
 
   </application>

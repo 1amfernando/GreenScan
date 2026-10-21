@@ -630,8 +630,16 @@ public final class Export {
     return v;
   }
 
-  static boolean kopfOk(Map<String, String> kopf) {
-    if (kopf == null) return false;
+  static boolean kopfOk(Map<String, String> kopf) { return kopfOk(kopf, KOPF_WERT); }
+
+  /**
+   * Dieselben Riegel fuer jeden Weg der Huelle — mit GENAU dem Wert, der zu
+   * diesem Weg gehoert ({@code datei} fuer Export und Drucken, {@code geteilt}
+   * fuer das Abholen eines geteilten Fotos, {@link Geteilt}). Ein Wert gilt nie
+   * fuer den anderen Weg.
+   */
+  static boolean kopfOk(Map<String, String> kopf, String wert) {
+    if (kopf == null || wert == null) return false;
     String marke = null, origin = null, referer = null;
     for (Map.Entry<String, String> e : kopf.entrySet()) {
       if (e.getKey() == null) continue;
@@ -640,7 +648,7 @@ public final class Export {
       else if (k.equals("origin")) origin = e.getValue();
       else if (k.equals("referer")) referer = e.getValue();
     }
-    if (!KOPF_WERT.equals(marke)) return false;
+    if (!wert.equals(marke)) return false;
     if (origin != null && !Pfade.ORIGIN.equalsIgnoreCase(origin.trim())) return false;
     if (referer != null) {
       String r = referer.trim();

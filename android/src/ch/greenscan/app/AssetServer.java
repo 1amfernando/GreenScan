@@ -52,10 +52,11 @@ final class AssetServer {
   /** Kopfzeilen aus dem mitgelieferten `_headers` — eine Quelle fuer Web und App. */
   private final Map<String, String> kopfzeilen;
 
-  AssetServer(AssetManager assets, Export.Sammler sammler) {
+  AssetServer(AssetManager assets, Export.Sammler sammler, Geteilt.Fach fach) {
     this.assets = assets;
     this.kopfzeilen = kopfzeilenLesen(assets);
     this.sammler = sammler;
+    this.fach = fach;
   }
 
   /** Gehoert die Adresse zu unserem Ursprung? — die Regel steht in {@link Pfade}. */
@@ -72,6 +73,8 @@ final class AssetServer {
 
   private volatile DateiZiel dateiZiel;
   private final Export.Sammler sammler;
+  /** Das Fach fuer ein geteiltes Foto (v33.56) — EINES je Prozess, siehe {@link Geteilt}. */
+  private final Geteilt.Fach fach;
 
   void setDateiZiel(DateiZiel z) { this.dateiZiel = z; }
   Export.Sammler sammler() { return sammler; }
@@ -91,6 +94,11 @@ final class AssetServer {
     if (roh != null && roh.startsWith(Export.WURZEL)) {
       return kanal(Export.beantworte(sammler, methode, hauptRahmen, roh, u.getEncodedQuery(),
           kopfzeilenDerAnfrage, SystemClock.elapsedRealtime()));   // monoton: eine verstellte Uhr blockiert nichts
+    }
+    // v33.56: das Abholen eines geteilten Fotos — ebenfalls VOR der Suche im
+    // Paket und nie null (dieselben Riegel, ein eigener Kopfzeilen-Wert).
+    if (roh != null && roh.startsWith(Geteilt.WURZEL)) {
+      return geteilt(Geteilt.beantworte(fach, methode, hauptRahmen, roh, kopfzeilenDerAnfrage, SystemClock.elapsedRealtime()));
     }
 
     String pfad = pfadNormieren(u.getPath());
@@ -145,6 +153,29 @@ final class AssetServer {
     kopf.put("X-Content-Type-Options", "nosniff");
     String text = a.status == 200 ? "OK" : a.status == 403 ? "Forbidden" : a.status == 405 ? "Method Not Allowed" : "Not Found";
     return new WebResourceResponse("application/json", "UTF-8", a.status, text, kopf, new ByteArrayInputStream(rumpf));
+  }
+
+  /**
+   * Die Antwort auf {@code /__huelle/geteilt/}: die Bytes des Fotos mit dem
+   * GEMESSENEN Typ — ohne Zeichensatz, es ist kein Text — oder eine kleine
+   * JSON-Antwort mit Grund. Nie eine Ausnahme auf diesem Faden.
+   */
+  private WebResourceResponse geteilt(Geteilt.Antwort a) {
+    Map<String, String> kopf = new HashMap<String, String>();
+    kopf.put("Cache-Control", "no-store");
+    kopf.put("X-Content-Type-Options", "nosniff");
+    try {
+      if (a.daten != null && a.typ != null) {
+        kopf.put("X-Anzahl", String.valueOf(a.anzahl));
+        return new WebResourceResponse(a.typ, null, 200, "OK", kopf, new ByteArrayInputStream(a.daten));
+      }
+      byte[] rumpf = a.json().getBytes("UTF-8");
+      String text = a.status == 200 ? "OK" : a.status == 403 ? "Forbidden" : a.status == 405 ? "Method Not Allowed" : "Not Found";
+      return new WebResourceResponse("application/json", "UTF-8", a.status, text, kopf, new ByteArrayInputStream(rumpf));
+    } catch (Throwable t) {
+      byte[] leer = "{\"huelle\":1,\"ok\":false,\"grund\":\"fehler\"}".getBytes();
+      return new WebResourceResponse("application/json", "UTF-8", 200, "OK", kopf, new ByteArrayInputStream(leer));
+    }
   }
 
   /**
