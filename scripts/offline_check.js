@@ -866,6 +866,7 @@ function server(wunschPort) {
       window.__init = 0;
       const initOrig = window.initScanner;
       window.initScanner = function () { window.__init++; };
+      for (let i = 0; i < 60 && (document.getElementById('gs-teilen-los') || {}).disabled; i++) await new Promise(r => setTimeout(r, 50));   // die Antipp-Sperre (Fall 40)
       document.getElementById('gs-teilen-los').click();
       await new Promise(r => setTimeout(r, 1500));
       window.initScanner = initOrig;
@@ -1004,6 +1005,7 @@ function server(wunschPort) {
       switchTab('scanner');
       await warte(900);
       window.analyzeImage = async function () {};
+      for (let i = 0; i < 60 && (document.getElementById('gs-teilen-los') || {}).disabled; i++) await new Promise(r => setTimeout(r, 50));   // die Antipp-Sperre (Fall 40)
       const b = document.getElementById('gs-teilen-los'); if (b) b.click();
       await warte(400);
       const marke = window._gsScanOhneKamera;
@@ -1081,6 +1083,90 @@ function server(wunschPort) {
     melde('Teilen: Abmelden raeumt ein nicht abgeholtes Foto', a36.vorher && !a36.nachher,
           a36.vorher && !a36.nachher ? 'vorher da, nach gsClearUserDataKeys weg' : JSON.stringify(a36));
 
+    // 40 · Die Vorschau kommt, weil eine ANDERE App etwas geschickt hat. Wer dort
+    //      gerade tippt, loest mit demselben Finger keinen Scan aus: „Bestimmen"
+    //      hat keinen Fokus und nimmt erst nach GS_TEILEN_ANTIPP_MS an. Beide
+    //      Richtungen — ein Knopf, der NIE annimmt, waere ebenfalls „sicher".
+    await teile(t, { jpeg: true });
+    await warteAuf(t, () => !!document.getElementById('gs-teilen-vorschau'), 60);
+    const t40 = await t.evaluate(async () => {
+      const b = document.getElementById('gs-teilen-los');
+      if (!b) return { fehler: 'keine Vorschau' };
+      window.__scan40 = 0;
+      const orig = window.gsScanDatei;
+      window.gsScanDatei = async function () { window.__scan40++; };
+      const fokus = document.activeElement === b;
+      const sofortGesperrt = b.disabled === true;
+      b.click();                                            // der Tipp, der fuer die andere App gedacht war
+      b.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      const frueh = window.__scan40;
+      const offenFrueh = !!document.getElementById('gs-teilen-vorschau');
+      let n = 0;
+      while (b.disabled && n < 60) { await new Promise(r => setTimeout(r, 50)); n++; }
+      const spaeter = !b.disabled;
+      b.click();
+      await new Promise(r => setTimeout(r, 300));
+      const sp = window.__scan40;
+      window.gsScanDatei = orig;
+      try { _gsTeilenScanFertig(); } catch (_) {}
+      return { fokus, sofortGesperrt, frueh, offenFrueh, spaeter, spaeterScan: sp, warteMs: n * 50, ms: window.GS_TEILEN_ANTIPP_MS };
+    }).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
+    const ok40 = !t40.fehler && !t40.fokus && t40.sofortGesperrt && t40.frueh === 0 && t40.offenFrueh && t40.spaeter && t40.spaeterScan === 1;
+    melde('Teilen: „Bestimmen" hat keinen Fokus und nimmt erst nach ' + (t40.ms || '?') + ' ms an — ein fremder Tipp loest keinen Scan aus, ein spaeterer schon', ok40,
+          ok40 ? ('sofort: gesperrt, Tipp + Enter → 0 Scans, Vorschau bleibt · nach ~' + t40.warteMs + ' ms frei → 1 Scan')
+               : JSON.stringify(t40).slice(0, 220));
+    await verwerfen(t);
+    await t.waitForTimeout(400);
+
+    // 41 · Wie gross wird das Bild ENTPACKT? 15 MB sagen nichts: ein PNG traegt in
+    //      wenigen Bytes einen Kopf mit 40'000 × 40'000 Bildpunkten. Gelesen wird der
+    //      Kopf — gemessen an ECHTEN Bildern des Browsers (JPEG, PNG, WebP) und an
+    //      gebauten Koepfen (GIF, VP8L, VP8X), dazu: ein unlesbarer Kopf ist kein Nein.
+    const m41 = await t.evaluate(async () => {
+      const bild = async (typ, w, h, q) => {
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const g = c.getContext('2d'); g.fillStyle = '#2e7d32'; g.fillRect(0, 0, w, h);
+        const blob = await new Promise(r => c.toBlob(r, typ, q));
+        return new Uint8Array(await blob.arrayBuffer());
+      };
+      const roh = (a) => { const u = new Uint8Array(64); a.forEach((v, i) => { u[i] = v; }); return u; };
+      const asc = (t) => Array.from(t).map(c => c.charCodeAt(0));
+      const faelle = [];
+      const pruef = (name, u, w, h) => { const m = _gsBildMasse(u); faelle.push({ name, ok: w == null ? m === null : !!m && m.w === w && m.h === h, m }); };
+      pruef('JPEG 64×48', await bild('image/jpeg', 64, 48, 0.9), 64, 48);
+      pruef('JPEG 301×7', await bild('image/jpeg', 301, 7, 0.5), 301, 7);
+      pruef('PNG 300×200', await bild('image/png', 300, 200), 300, 200);
+      const webp = await bild('image/webp', 123, 45, 0.8);
+      const webpArt = String.fromCharCode(webp[12], webp[13], webp[14], webp[15]);
+      pruef('WebP (' + webpArt.trim() + ') 123×45', webp, 123, 45);
+      pruef('GIF 640×480', roh(asc('GIF89a').concat([0x80, 0x02, 0xE0, 0x01])), 640, 480);
+      // VP8L: Signatur 0x2F, dann 14 Bit Breite-1, 14 Bit Hoehe-1 (999×333)
+      const vp8l = (() => { const w = 999 - 1, h = 333 - 1, bits = (w | (h << 14)) >>> 0;
+        return roh(asc('RIFF').concat([0, 0, 0, 0]).concat(asc('WEBPVP8L')).concat([0, 0, 0, 0, 0x2F, bits & 255, (bits >>> 8) & 255, (bits >>> 16) & 255, (bits >>> 24) & 255])); })();
+      pruef('WebP VP8L 999×333', vp8l, 999, 333);
+      const vp8x = roh(asc('RIFF').concat([0, 0, 0, 0]).concat(asc('WEBPVP8X')).concat([10, 0, 0, 0, 0x10, 0, 0, 0, 0x0F, 0x27, 0x00, 0x9F, 0x86, 0x01]));
+      pruef('WebP VP8X 10000×100000', vp8x, 10000, 100000);
+      // VP8 (verlustbehaftet, ohne VP8X): Rahmen-Kennung 9D 01 2A, dann 14 Bit Breite, 14 Bit Hoehe (500×250)
+      pruef('WebP VP8 500×250', roh(asc('RIFF').concat([0, 0, 0, 0]).concat(asc('WEBPVP8 ')).concat([0, 0, 0, 0, 0, 0, 0, 0x9D, 0x01, 0x2A, 0xF4, 0x01, 0xFA, 0x00])), 500, 250);
+      pruef('PNG ohne IHDR → null', roh([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13].concat(asc('XXXX'))), null, null);
+      pruef('JPEG ohne SOF → null', roh([0xFF, 0xD8, 0xFF, 0xDA, 0, 8]), null, null);
+      pruef('zu kurz → null', new Uint8Array([0xFF, 0xD8, 0xFF]), null, null);
+      return { faelle, max: window.GS_GETEILT_PIXEL_MAX };
+    }).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
+    // Die Bombe: ein PNG-Kopf mit 40'000 × 40'000 (1,6 Milliarden Bildpunkte), 33 Bytes gross.
+    const bombe = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52,
+                   0, 0, 0x9C, 0x40, 0, 0, 0x9C, 0x40, 8, 6, 0, 0, 0, 0, 0, 0, 0];
+    await t.evaluate(() => { window.__toasts = []; }).catch(() => {});
+    await teile(t, { bytes: bombe, name: 'bombe.png', typ: 'image/png' });
+    await warteAuf(t, () => (window.__toasts || []).length > 0 || !!document.getElementById('gs-teilen-vorschau'), 40);
+    const b41 = await stand(t);
+    const masseOk = !m41.fehler && m41.faelle.every(f => f.ok);
+    const ok41 = masseOk && !b41.vorschau && !b41.eintrag && b41.toasts.some(x => /200 Megapixel/.test(x));
+    melde('Teilen: ein Bild mit mehr als 200 Megapixeln wird am KOPF erkannt und abgelehnt — der Kopf stimmt fuer JPEG, PNG, WebP und GIF', ok41,
+          ok41 ? (m41.faelle.length + ' Koepfe richtig gelesen (' + m41.faelle.map(f => f.name).join(' · ') + ') · Bombe 40000×40000: keine Vorschau, Eintrag weg, Satz gesagt')
+               : ((m41.fehler || m41.faelle.filter(f => !f.ok).map(f => f.name + ' → ' + JSON.stringify(f.m)).join(' · ') || 'Koepfe ok') + ' · Bombe: Vorschau ' + b41.vorschau + ' · Eintrag ' + b41.eintrag + ' · Meldungen ' + JSON.stringify(b41.toasts)));
+    await verwerfen(t);
+
     // 33 · Im Wald: geteilt OHNE Empfang. Der Worker braucht kein Netz dafuer.
     await ctxT.setOffline(true);
     await teile(t, { jpeg: true });
@@ -1090,6 +1176,7 @@ function server(wunschPort) {
     // geht nicht in einen Scan, der nur scheitern kann.
     const t33 = await t.evaluate(async () => {
       window.__analyse33 = 0; window.analyzeImage = async function () { window.__analyse33++; };
+      for (let i = 0; i < 60 && (document.getElementById('gs-teilen-los') || {}).disabled; i++) await new Promise(r => setTimeout(r, 50));   // die Antipp-Sperre (Fall 40)
       const b = document.getElementById('gs-teilen-los'); if (b) b.click();
       await new Promise(z => setTimeout(z, 500));
       const hw = document.getElementById('gs-teilen-hinweis');
@@ -1170,7 +1257,7 @@ function server(wunschPort) {
   }
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 39 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 41 · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

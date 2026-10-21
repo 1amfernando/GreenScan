@@ -98,7 +98,8 @@ final class AssetServer {
     // v33.56: das Abholen eines geteilten Fotos — ebenfalls VOR der Suche im
     // Paket und nie null (dieselben Riegel, ein eigener Kopfzeilen-Wert).
     if (roh != null && roh.startsWith(Geteilt.WURZEL)) {
-      return geteilt(Geteilt.beantworte(fach, methode, hauptRahmen, roh, kopfzeilenDerAnfrage, SystemClock.elapsedRealtime()));
+      return geteilt(Geteilt.beantworte(fach, methode, hauptRahmen, roh, u.getEncodedQuery(),
+          kopfzeilenDerAnfrage, SystemClock.elapsedRealtime()));
     }
 
     String pfad = pfadNormieren(u.getPath());
@@ -167,6 +168,7 @@ final class AssetServer {
     try {
       if (a.daten != null && a.typ != null) {
         kopf.put("X-Anzahl", String.valueOf(a.anzahl));
+        kopf.put("X-Nummer", String.valueOf(a.nummer));
         return new WebResourceResponse(a.typ, null, 200, "OK", kopf, new ByteArrayInputStream(a.daten));
       }
       byte[] rumpf = a.json().getBytes("UTF-8");

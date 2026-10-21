@@ -137,9 +137,13 @@ public final class Geteilt {
    * ein altes — jedes bekommt eine Nummer ({@link #kommt}), und eine Kopie,
    * die zu spaet fertig wird, ueberschreibt kein neueres Foto.
    *
-   * <p>Abgeholt wird EINMAL ({@link #holen}): danach ist das Fach leer. Ein
-   * Fehler wird ebenfalls genau einmal gemeldet. Die Uhr kommt als Parameter
-   * herein (monoton, vom Rand) — der Pruefstand stellt sie.
+   * <p>Abgeholt wird in ZWEI Schritten: {@link #holen} liefert das Foto (oder den
+   * Grund) und verbraucht nichts, {@link #quittieren} leert das Fach — aber nur,
+   * wenn die Nummer passt. In der Huelle bleibt die Seite ueber mehrere Teilen
+   * hinweg geladen (anders als in der PWA, wo jedes Teilen eine Navigation
+   * ist): ohne Nummer raeumte das Ende eines Scans ein NEUERES Foto mit ab,
+   * das gerade erst angekommen ist. Die Uhr kommt als Parameter herein
+   * (monoton, vom Rand) — der Pruefstand stellt sie.
    */
   public static final class Fach {
     private String zustand = LEER;
@@ -207,25 +211,42 @@ public final class Geteilt {
       ablaufen(jetzt);
       if (BEREIT.equals(zustand)) {
         seit = jetzt;
-        return new Antwort(200, true, null, daten, typ, anzahl);
+        return new Antwort(200, true, null, daten, typ, anzahl, nummer);
       }
-      if (FEHLER.equals(zustand)) return nein(grund);
+      if (FEHLER.equals(zustand)) return new Antwort(200, false, grund, null, null, 0, nummer);
       return nein(KOMMT.equals(zustand) ? KOMMT : "nichts");
     }
 
-    /** Die Seite ist fertig (bestimmt, verworfen, Grund gesagt): das Fach wird leer. */
-    public synchronized Antwort quittieren(long jetzt) {
+    /**
+     * Die Seite ist fertig (bestimmt, verworfen, Grund gesagt): das Fach wird
+     * leer — wenn {@code n} das Foto ist, das sie gezeigt hat. Ein neueres
+     * bleibt liegen. {@code n <= 0} raeumt ALLES, auch eine laufende Kopie
+     * (Abmelden: was noch ankommt, gehoert nicht der naechsten Person).
+     */
+    public synchronized Antwort quittieren(long jetzt, int n) {
       ablaufen(jetzt);
-      if (BEREIT.equals(zustand) || FEHLER.equals(zustand)) {
+      if (n <= 0) {
+        if (KOMMT.equals(zustand)) nummer++;            // die laufende Kopie legt nichts mehr ab
+        zustand = LEER; grund = null; daten = null; typ = null; anzahl = 0;
+      } else if (n == nummer && (BEREIT.equals(zustand) || FEHLER.equals(zustand))) {
         zustand = LEER; grund = null; daten = null; typ = null; anzahl = 0;
       }
-      return new Antwort(200, true, null, null, null, 0);
+      return new Antwort(200, true, null, null, null, 0, 0);
     }
 
+    /** Die Nummer des neuesten Teilens (fuer den Pruefstand). */
+    public synchronized int nummer() { return nummer; }
+
+    /**
+     * Fristen. Wer in {@code fehler} wechselt, bekommt eine NEUE Frist ({@code
+     * seit = jetzt}) — sonst laege der Grund schon beim Entstehen hinter seiner
+     * eigenen Frist, und „nicht mehr da" verschwaende beim naechsten Nachsehen,
+     * bevor die Seite es sagen konnte.
+     */
     private void ablaufen(long jetzt) {
       long alter = jetzt - seit;
-      if (BEREIT.equals(zustand) && (alter < 0 || alter > FRIST_MS)) { zustand = FEHLER; grund = "weg"; daten = null; }
-      else if (KOMMT.equals(zustand) && (alter < 0 || alter > KOMMT_MAX_MS)) { zustand = FEHLER; grund = "fehler"; }
+      if (BEREIT.equals(zustand) && (alter < 0 || alter > FRIST_MS)) { zustand = FEHLER; grund = "weg"; daten = null; typ = null; seit = jetzt; }
+      else if (KOMMT.equals(zustand) && (alter < 0 || alter > KOMMT_MAX_MS)) { zustand = FEHLER; grund = "fehler"; seit = jetzt; }
       else if (FEHLER.equals(zustand) && (alter < 0 || alter > FRIST_MS)) { zustand = LEER; grund = null; }
     }
   }
@@ -245,16 +266,36 @@ public final class Geteilt {
     public final byte[] daten;
     public final String typ;
     public final int anzahl;
-    Antwort(int status, boolean ok, String grund, byte[] daten, String typ, int anzahl) {
+    /** Welches Teilen das ist — die Seite gibt sie beim Quittieren zurueck (0: keines). */
+    public final int nummer;
+    Antwort(int status, boolean ok, String grund, byte[] daten, String typ, int anzahl, int nummer) {
       this.status = status; this.ok = ok; this.grund = grund; this.daten = daten; this.typ = typ; this.anzahl = anzahl;
+      this.nummer = nummer;
     }
     public String json() {
-      return ok ? "{\"huelle\":1,\"ok\":true}" : "{\"huelle\":1,\"ok\":false,\"grund\":\"" + (grundOk(grund) ? grund : "fehler") + "\"}";
+      String n = nummer > 0 ? ",\"n\":" + nummer : "";
+      return ok ? "{\"huelle\":1,\"ok\":true}" : "{\"huelle\":1,\"ok\":false,\"grund\":\"" + (grundOk(grund) ? grund : "fehler") + "\"" + n + "}";
     }
   }
 
-  static Antwort nein(String g) { return new Antwort(200, false, g, null, null, 0); }
-  static Antwort http(int status, String g) { return new Antwort(status, false, g, null, null, 0); }
+  static Antwort nein(String g) { return new Antwort(200, false, g, null, null, 0, 0); }
+  static Antwort http(int status, String g) { return new Antwort(status, false, g, null, null, 0, 0); }
+
+  /**
+   * Die Nummer aus {@code n=<ziffern>} — sonst 0. Nur Ziffern, hoechstens neun:
+   * eine Angabe aus der Seite wird gelesen, nicht geglaubt.
+   */
+  static int nummerAus(String query) {
+    if (query == null) return 0;
+    for (String teil : query.split("&")) {
+      if (teil.startsWith("n=")) {
+        String z = teil.substring(2);
+        if (z.matches("[0-9]{1,9}")) return Integer.parseInt(z);
+        return -1;                                       // da, aber keine Nummer → nichts raeumen
+      }
+    }
+    return 0;
+  }
 
   /**
    * Beantwortet eine Anfrage an {@link #WURZEL}. Wirft NIE — eine Ausnahme auf
@@ -265,7 +306,7 @@ public final class Geteilt {
    * GENAU dem Wert {@link #KOPF_WERT} (der Wert des Export-Kanals gilt hier
    * nicht), {@code Origin}/{@code Referer} nur vom eigenen Ursprung.
    */
-  public static Antwort beantworte(Fach f, String methode, boolean hauptRahmen, String pfad,
+  public static Antwort beantworte(Fach f, String methode, boolean hauptRahmen, String pfad, String query,
                                    Map<String, String> kopf, long jetzt) {
     try {
       if (f == null) return nein("fehler");
@@ -275,7 +316,11 @@ public final class Geteilt {
       if (!Export.kopfOk(kopf, KOPF_WERT)) return http(403, "herkunft");
       String schritt = pfad.substring(WURZEL.length());
       if ("holen".equals(schritt)) return f.holen(jetzt);
-      if ("quittieren".equals(schritt)) return f.quittieren(jetzt);
+      if ("quittieren".equals(schritt)) {
+        int n = nummerAus(query);
+        if (n < 0) return nein("fehler");                // eine kaputte Nummer raeumt nie ALLES
+        return f.quittieren(jetzt, n);
+      }
       return http(404, "pfad");
     } catch (Throwable t) {
       return nein("fehler");
