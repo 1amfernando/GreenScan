@@ -80329,6 +80329,10 @@ function _gsTeilenAuspacken(e, ende, gezeigt){
 // hier — die haelt das Fach (Geteilt.FRIST_MS, an einer monotonen Uhr). EIN
 // Durchgang zur Zeit: ein Anstoss waehrend eines laufenden merkt sich nur,
 // dass danach noch einmal nachgesehen wird.
+// GS_HUELLE_ANDERS 'teilen': das Fach lebt im Prozess der Huelle. Beendet
+// Android ihn, ist das Foto weg, und dieser Weg findet beim naechsten Start
+// `nichts` — still, weil es nichts mehr zu wissen gibt. Das steht deshalb auf
+// dem Bildschirm (Einstellungen › Ueber GreenScan), nicht erst hier.
 function _gsHuelleTeilenAbholen(){
   if (window._gsTeilenHolt) { window._gsTeilenNochmal = true; return Promise.resolve({ zustand: 'laeuft' }); }
   window._gsTeilenHolt = true;
@@ -87332,6 +87336,11 @@ var GS_HUELLE_ANDERS = [
     schl: 'drucken',
     titel: 'Drucken über Android',
     text: 'Gartenplan und Giess-Zettel gehen an den Druckdialog von Android; dort gibt es auch „Als PDF speichern“. Ein zweites Browserfenster öffnet die App dafür nicht.'
+  },
+  {
+    schl: 'teilen',
+    titel: 'Ein geteiltes Foto wartet nur, solange die App läuft',
+    text: '„Teilen → GreenScan“ funktioniert wie im Browser — nur liegt das Foto in der App im Arbeitsspeicher statt zehn Minuten im Zwischenspeicher. Beendet Android die App, bevor du es bestimmt hast, ist es weg; dann einfach noch einmal teilen.'
   },
   {
     schl: 'zahlung',

@@ -472,7 +472,8 @@ function paket() {
     ['B1 · Die Liste ist das Paket: alles, was die App vom eigenen Ursprung laedt, liegt darin',
      'B2 · Das Paket enthaelt die ECHTEN Dateien (byte-gleich)',
      'B3 · Die Version ist EINE Zahl — GS_VERSION steht im Paket',
-     'B4 · targetSdk laesst sich auf einem aktuellen Telefon installieren'].forEach(n => F.push({ name: n, r: w }));
+     'B4 · targetSdk laesst sich auf einem aktuellen Telefon installieren',
+     'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA'].forEach(n => F.push({ name: n, r: w }));
     return null;
   }
   const bau = spawnSync('bash', [path.join(ANDROID, 'build.sh')], { encoding: 'utf8', cwd: WURZEL, timeout: 600000 });
@@ -548,6 +549,26 @@ function paket() {
     r: (tgt >= 24 && min >= 23)
       ? { ok: true, info: 'minSdk ' + min + ' (Laufzeitrechte ab 23) · targetSdk ' + tgt }
       : { ok: false, warum: 'minSdk ' + min + ' / targetSdk ' + tgt + ' — Android 14 verweigert die Installation unter targetSdk 23, Android 15 unter 24' },
+  });
+  // B5 — was das GEBAUTE Paket Android ueber das Teilen sagt (v33.56). Gelesen
+  // wird der uebersetzte Baum, nicht die Quelldatei: aapt koennte einen Filter
+  // verwerfen oder umbauen, und dann boete sich die App im Teilen-Blatt nicht an.
+  const baum = String(spawnSync('aapt', ['dump', 'xmltree', apk, 'AndroidManifest.xml'], { encoding: 'utf8' }).stdout);
+  const filterImPaket = baum.split(/E: intent-filter/).slice(1).map(blk => ({
+    aktionen: [...blk.matchAll(/android:name\([^)]*\)="(android\.intent\.(?:action|category)\.[A-Z_]+)"/g)].map(x => x[1]),
+    typen: [...blk.matchAll(/android:mimeType\([^)]*\)="([^"]+)"/g)].map(x => x[1]).sort(),
+  }));
+  const typenWebB = (() => { try { return JSON.parse(fs.readFileSync(path.join(WURZEL, 'manifest.json'), 'utf8')).share_target.params.files[0].accept.slice().sort(); } catch (_) { return []; } })();
+  const b5 = ['SEND', 'SEND_MULTIPLE'].map(akt => {
+    const f = filterImPaket.find(x => x.aktionen.indexOf('android.intent.action.' + akt) >= 0);
+    if (!f) return akt + ' fehlt im Paket';
+    if (f.aktionen.indexOf('android.intent.category.DEFAULT') < 0) return akt + ' ohne DEFAULT';
+    return JSON.stringify(f.typen) === JSON.stringify(typenWebB) ? null : akt + ': ' + f.typen.join(',');
+  }).filter(Boolean);
+  F.push({
+    name: 'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA',
+    r: b5.length ? { ok: false, warum: b5.join(' · ') + ' (erwartet ' + typenWebB.join(',') + ')' }
+                 : { ok: true, info: filterImPaket.length + ' Filter im Paket · SEND + SEND_MULTIPLE · ' + typenWebB.join(', ') },
   });
   return apk;
 }
@@ -741,18 +762,23 @@ function rand() {
     r: r14.length ? { ok: false, warum: r14.join(' · ') } : { ok: true, info: codes.map(x => x[0] + '=' + x[1]).join(', ') },
   });
 
-  // R15 — genau ZWEI Stellen fuehren JavaScript in der Seite aus: der
-  // Pausen-Anstoss und der Rueckruf — und der Rueckruf kommt aus
-  // Export.rueckruf (geprueft), nie aus einer zusammengesetzten Zeichenkette.
+  // R15 — genau DREI Stellen fuehren JavaScript in der Seite aus: der
+  // Pausen-Anstoss, der Rueckruf des Exports — aus Export.rueckruf (geprueft),
+  // nie aus einer zusammengesetzten Zeichenkette — und (seit v33.56) der
+  // Anstoss fuer ein geteiltes Foto, ein fester Text aus Geteilt.rueckruf.
   const evals = (MAINACT_OHNE.match(/evaluateJavascript\(/g) || []).length;
-  const evalsAndere = [AS_OHNE, DR, ohneKommentare(EXPORT_JAVA)].map(t => (t.match(/evaluateJavascript\(/g) || []).length).reduce((x, y) => x + y, 0);
+  const GT_OHNE = ohneKommentare(GETEILT_JAVA);
+  const evalsAndere = [AS_OHNE, DR, ohneKommentare(EXPORT_JAVA), GT_OHNE].map(t => (t.match(/evaluateJavascript\(/g) || []).length).reduce((x, y) => x + y, 0);
   const rueckrufWeg = /final String js = Export\.rueckruf\(id, zustand\);\s*if \(js == null \|\| web == null\) return;/.test(MAINACT_OHNE)
     && /web\.evaluateJavascript\(js, /.test(MAINACT_OHNE);
+  const anstossWeg = /web\.evaluateJavascript\(Geteilt\.rueckruf\(\), null\)/.test(MAINACT_OHNE)
+    && /public static String rueckruf\(\) \{\s*return "[^"+]*";\s*\}/.test(GT_OHNE);
   F.push({
-    name: 'R15 · Genau zwei Stellen fuehren JavaScript aus — der Rueckruf nur aus Export.rueckruf',
-    r: (evals === 2 && evalsAndere === 0 && rueckrufWeg)
-      ? { ok: true, info: 'gsHuellePause + Export.rueckruf, sonst keine' }
-      : { ok: false, warum: evals + '× evaluateJavascript in MainActivity, ' + evalsAndere + '× anderswo' + (rueckrufWeg ? '' : ' · der Rueckruf kommt nicht (nur) aus Export.rueckruf') },
+    name: 'R15 · Genau drei Stellen fuehren JavaScript aus — der Rueckruf nur aus Export.rueckruf, der Anstoss nur aus Geteilt.rueckruf (fester Text)',
+    r: (evals === 3 && evalsAndere === 0 && rueckrufWeg && anstossWeg)
+      ? { ok: true, info: 'gsHuellePause + Export.rueckruf + Geteilt.rueckruf, sonst keine' }
+      : { ok: false, warum: evals + '× evaluateJavascript in MainActivity, ' + evalsAndere + '× anderswo' + (rueckrufWeg ? '' : ' · der Rueckruf kommt nicht (nur) aus Export.rueckruf')
+          + (anstossWeg ? '' : ' · der Anstoss kommt nicht aus Geteilt.rueckruf, oder der Text ist zusammengesetzt') },
   });
 
   // R16 — die NAHT: was Java und JavaScript voneinander erwarten, steht auf
@@ -789,6 +815,70 @@ function rand() {
                    : { ok: true, info: paramJ.length + ' Parameter (' + paramJ.join(',') + '), ' + zustaende.length + ' Zustaende, Rueckruf ' + rueckName },
   });
 
+  // R17 — die NAHT des Teilens (v33.56): Adresse, Kopfzeile, Deckel, Fristen,
+  // Schritte, Nummer, Antwort-Kopfzeilen und Anstoss stehen auf beiden Seiten
+  // gleich. Eine Umbenennung auf einer Seite liesse jedes geteilte Foto still
+  // liegen — die Seite saehe „kanal" und sagte nichts.
+  const gj = (re) => (GT_OHNE.match(re) || [])[1];
+  const n17 = [];
+  if (gj(/WURZEL = "([^"]+)"/) !== js(/var GS_HUELLE_GETEILT = '([^']+)'/)) n17.push('Adresse: Java ' + gj(/WURZEL = "([^"]+)"/) + ' · JS ' + js(/var GS_HUELLE_GETEILT = '([^']+)'/));
+  const gWert = gj(/KOPF_WERT = "([^"]+)"/);
+  if (!gWert || gWert === wertJ || !new RegExp("headers: \\{ '" + kopfJ + "': '" + gWert + "' \\}").test(QUELLE_CODE)) n17.push('Kopfzeile ' + kopfJ + ': ' + gWert + ' setzt die Seite nicht (oder sie ist dieselbe wie die des Exports)');
+  if (zahlJ(gj(/MAX_BYTES = ([^;]+);/)) !== zahlJ(js(/var GS_GETEILT_MAX = ([^;]+);/))) n17.push('Deckel verschieden');
+  if (zahlJ(gj(/FRIST_MS = ([^;]+);/)) !== zahlJ(js(/var GS_GETEILT_FRISCH_MS = ([^;]+);/))) n17.push('Frist verschieden');
+  if (zahlJ(gj(/KOMMT_MAX_MS = ([^;]+);/)) !== zahlJ(js(/var GS_HUELLE_KOMMT_MAX_MS = ([^;]+);/))) n17.push('Wartezeit fuer eine laufende Kopie verschieden');
+  const schritteJ = [...GT_OHNE.matchAll(/"(holen|quittieren)"\.equals\(schritt\)/g)].map(x => x[1]);
+  if (schritteJ.length !== 2 || !/_gsHuelleGeteiltFrage\('holen'\)/.test(QUELLE_CODE) || !/_gsHuelleGeteiltFrage\('quittieren'/.test(QUELLE_CODE)) n17.push('Schritte holen/quittieren nicht auf beiden Seiten');
+  if (!/teil\.startsWith\("n="\)/.test(GT_OHNE) || !/'\?n=' \+ n/.test(QUELLE_CODE)) n17.push('die Nummer n= geht nicht von der Seite an die Huelle');
+  ['X-Anzahl', 'X-Nummer'].forEach(h => {
+    if (AS_OHNE.indexOf('kopf.put("' + h + '"') < 0 || QUELLE_CODE.indexOf("r.headers.get('" + h + "')") < 0) n17.push('Antwort-Kopfzeile ' + h + ' nicht auf beiden Seiten');
+  });
+  const anstossName = (GT_OHNE.match(/window\.(gs\w+) && window\.\1\(\)/) || [])[1];
+  if (!anstossName || !new RegExp('window\\.' + anstossName + ' = function\\(\\)').test(QUELLE_CODE)) n17.push('der Anstoss ' + anstossName + ' hat in der Seite keine Funktion');
+  F.push({
+    name: 'R17 · Die Naht des Teilens: Adresse, eigene Kopfzeile, Deckel, Fristen, Schritte, Nummer, Antwort-Kopfzeilen und Anstoss stehen auf beiden Seiten gleich',
+    r: n17.length ? { ok: false, warum: n17.join(' · ') } : { ok: true, info: gj(/WURZEL = "([^"]+)"/) + ' · X-GS-Huelle: ' + gWert + ' · holen/quittieren?n= · X-Anzahl/X-Nummer · ' + anstossName },
+  });
+
+  // R18 — der RAND des Teilens: was die Huelle annimmt, wie sie liest, und wann
+  // nicht. Die Rechnung (Geteilt.java) faehrt G1–G9; hier steht, dass der Rand
+  // sie auch RUFT — eine Regel, die der Rand umgeht, gilt nicht.
+  const r18 = [];
+  const filter = [...MANIFEST.matchAll(/<intent-filter>([\s\S]*?)<\/intent-filter>/g)].map(x => x[1]);
+  const typenWeb = (() => { try { return JSON.parse(fs.readFileSync(path.join(WURZEL, 'manifest.json'), 'utf8')).share_target.params.files[0].accept.slice().sort(); } catch (_) { return null; } })();
+  ['SEND', 'SEND_MULTIPLE'].forEach(akt => {
+    const f = filter.find(x => new RegExp('android\\.intent\\.action\\.' + akt + '"').test(x));
+    if (!f) { r18.push('kein intent-filter fuer ' + akt); return; }
+    if (!/android\.intent\.category\.DEFAULT/.test(f)) r18.push(akt + ' ohne CATEGORY_DEFAULT (dann bietet Android die App nicht an)');
+    const typen = [...f.matchAll(/android:mimeType="([^"]+)"/g)].map(x => x[1]).sort();
+    if (JSON.stringify(typen) !== JSON.stringify(typenWeb)) r18.push(akt + ': Typen ' + typen.join(',') + ' — manifest.json nimmt ' + (typenWeb || []).join(','));
+  });
+  if (/android:mimeType="image\/\*"/.test(MANIFEST)) r18.push('image/* angeboten — auch HEIC, das die App nicht lesen kann');
+  if (!/android:launchMode="singleTask"/.test(MANIFEST)) r18.push('kein singleTask — ein Teilen bei laufender App kaeme nie in onNewIntent an');
+  if (!/Geteilt\.sollAnnehmen\(zustand != null, getIntent\(\)\.getFlags\(\), getIntent\(\)\.getAction\(\),\s*Intent\.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY\)/.test(MAINACT_OHNE)) r18.push('onCreate fragt sollAnnehmen nicht (wiederhergestellt / aus der Liste der letzten Apps)');
+  const neuRumpf = (MAINACT_OHNE.match(/protected void onNewIntent\(Intent neu\) \{([\s\S]*?)\n  \}/) || ['', ''])[1];
+  if (!/Geteilt\.sollAnnehmen\(false, neu\.getFlags\(\), neu\.getAction\(\),\s*Intent\.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY\)/.test(neuRumpf)) r18.push('onNewIntent fragt sollAnnehmen nicht');
+  if ((MAINACT_OHNE.match(/setIntent\(new Intent\(Intent\.ACTION_MAIN\)\)/g) || []).length < 2) r18.push('nach dem Annehmen traegt die Activity weiter die SEND-Absicht (ein Neuaufbau naehme noch einmal an)');
+  const annehmen = (MAINACT_OHNE.match(/private void geteiltAnnehmen\(Intent i\) \{([\s\S]*?)\n  \}/) || ['', ''])[1];
+  const iClip = annehmen.indexOf('getClipData()'), iExtra = annehmen.indexOf('EXTRA_STREAM');
+  if (!(iClip >= 0 && iExtra > iClip)) r18.push('die Adresse kommt nicht zuerst aus ClipData (dort haengt die Leseerlaubnis)');
+  if (!/new Thread\(new Runnable\(\) \{[\s\S]*?Geteilt\.annehmen\(fach,[\s\S]*?cr\.openInputStream\(uri\)[\s\S]*?\} finally \{\s*geteiltAnstossen\(\);/.test(annehmen)) r18.push('nicht: auf eigenem Faden Geteilt.annehmen mit openInputStream, Anstoss im finally');
+  if (!/catch \(Throwable t\) \{[\s\S]*?Geteilt\.annehmenGescheitert\(fach, UHR\)[\s\S]*?geteiltAnstossen\(\);/.test(annehmen)) r18.push('ein Teilen, das sich nicht auspacken laesst, endet nicht in annehmenGescheitert + Anstoss');
+  if (/new File\(|getPath\(\)|openFileInput|FileInputStream/.test(annehmen)) r18.push('der Rand liest Dateien selbst (nur ContentResolver.openInputStream ist erlaubt)');
+  if (!/private static final Geteilt\.Fach fach = new Geteilt\.Fach\(\);/.test(MAINACT_OHNE)) r18.push('das Fach ist nicht EINES je Prozess (static final)');
+  if (!/return SystemClock\.elapsedRealtime\(\);/.test(MAINACT_OHNE)) r18.push('die Uhr des Fachs ist nicht monoton');
+  const anstossRumpf = (MAINACT_OHNE.match(/private void geteiltAnstossen\(\) \{([\s\S]*?)\n  \}/) || ['', ''])[1];
+  if (!/\b(?:w|web)\.post\(/.test(anstossRumpf)) r18.push('der Anstoss kommt nicht auf den UI-Faden (web.post)');
+  const iGeteilt = asRumpf.indexOf('startsWith(Geteilt.WURZEL)');
+  if (!(iGeteilt > 0 && iPaket > iGeteilt)) r18.push('der Weg /__huelle/geteilt/ steht nicht VOR der Suche im Paket');
+  if (!/Geteilt\.beantworte\(fach, methode, hauptRahmen, roh, u\.getEncodedQuery\(\),\s*kopfzeilenDerAnfrage, SystemClock\.elapsedRealtime\(\)\)/.test(asRumpf)) r18.push('AssetServer reicht Methode/Hauptrahmen/kodierte Adresse/Kopfzeilen/monotone Uhr nicht durch');
+  const geteiltRumpf = (AS_OHNE.match(/private WebResourceResponse geteilt\(Geteilt\.Antwort a\) \{([\s\S]*?)\n  \}/) || ['', ''])[1];
+  if (!geteiltRumpf || /return null;/.test(geteiltRumpf) || !/catch \(Throwable/.test(geteiltRumpf) || !/"no-store"/.test(geteiltRumpf) || !/"nosniff"/.test(geteiltRumpf)) r18.push('geteilt(): null, keine Ausnahme gefangen, oder ohne no-store/nosniff');
+  F.push({
+    name: 'R18 · Der Rand des Teilens: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, Anstoss im finally, nie eine Datei selbst gelesen, Weg vor dem Paket',
+    r: r18.length ? { ok: false, warum: r18.join(' · ') } : { ok: true, info: 'SEND + SEND_MULTIPLE · ' + (typenWeb || []).join(', ') + ' · singleTask · Fach static final, Uhr monoton' },
+  });
+
   // R8 — die LISTE ist die Pruefung: ein Eintrag ohne Durchsetzung waere eine
   // Behauptung, eine Durchsetzung ohne Eintrag eine Aenderung, die niemand
   // erklaert bekommt. Gemessen wird der kommentarfreie Quelltext NICHT — die
@@ -799,12 +889,19 @@ function rand() {
     const n = (QUELLE.match(new RegExp("GS_HUELLE_ANDERS '" + k + "'", 'g')) || []).length;
     return n < 1;
   });
+  // Und die Gegenrichtung (v33.56): eine Durchsetzungs-Kennung, deren Eintrag
+  // es nicht (mehr) gibt, ist eine Stelle, die etwas abschaltet, das niemand
+  // erklaert bekommt — oder ein Rest, der eine erledigte Sperre behauptet.
+  // Gesucht im rohen Text (die Kennung steht im Kommentar), aber OHNE den
+  // Changelog: der erzaehlt von Eintraegen, die es einmal gab.
+  const kennungen = [...new Set([...ohneChangelog(QUELLE).matchAll(/GS_HUELLE_ANDERS '([a-z_]+)'/g)].map(m => m[1]))];
+  const verwaist = kennungen.filter(k => andersSchl.indexOf(k) < 0);
   F.push({
-    name: 'R8 · Die Liste ist die Pruefung: jeder Eintrag in GS_HUELLE_ANDERS hat eine Durchsetzungsstelle',
-    r: (andersSchl.length >= 3 && !ohneStelle.length)
-      ? { ok: true, info: andersSchl.length + ' Eintraege: ' + andersSchl.join(', ') }
+    name: 'R8 · Die Liste ist die Pruefung: jeder Eintrag in GS_HUELLE_ANDERS hat eine Durchsetzungsstelle — und jede Kennung einen Eintrag',
+    r: (andersSchl.length >= 3 && !ohneStelle.length && !verwaist.length)
+      ? { ok: true, info: andersSchl.length + ' Eintraege: ' + andersSchl.join(', ') + ' · ' + kennungen.length + ' Kennungen im Code, keine verwaist' }
       : { ok: false, warum: andersSchl.length < 3 ? 'nur ' + andersSchl.length + ' Eintraege gefunden — liest die Suche die Liste noch?'
-          : 'ohne Durchsetzung: ' + ohneStelle.join(', ') },
+          : [ohneStelle.length ? 'ohne Durchsetzung: ' + ohneStelle.join(', ') : '', verwaist.length ? 'Kennung ohne Eintrag: ' + verwaist.join(', ') : ''].filter(Boolean).join(' · ') },
   });
 
   // R7 — der Schluessel verlaesst das Repo nicht.
@@ -1227,6 +1324,9 @@ async function teilenFaelle(p, k) {
     bild: !!document.querySelector('#gs-teilen-vorschau img'),
     meldungen: (window.__meldungen || []).map(m => m.t),
     caches: window.__geteiltCaches || 0,
+    // Steht der Anmeldebildschirm, WARTET die Abholung (richtig so, PWA-Fall 36) —
+    // dann misst ein Fall die Sperre, nicht das Teilen. Deshalb steht es dabei.
+    anmeldung: (function () { var o = document.getElementById('gs-onboarding'); return document.documentElement.classList.contains('gs-preauth') || !!(o && getComputedStyle(o).display !== 'none'); })(),
   }));
   const neuLaden = async () => {
     R.caches += (await p.evaluate(() => window.__geteiltCaches || 0).catch(() => 0));
@@ -1255,6 +1355,19 @@ async function teilenFaelle(p, k) {
   const ruhe = async () => { await p.evaluate(() => { try { switchTab('home'); } catch (_) {} window.__meldungen = []; }); await p.waitForTimeout(500); };
 
   const A = await bild('#2e7d32'), B = await bild('#c62828');
+  // Angemeldet ist, wer Token UND Kennung hat (sbIsLoggedIn). _seed.js setzt nur
+  // einen Token gegen den Flash-Guard, und der hat keine drei Teile —
+  // gsSecurityInit raeumt ihn 500 ms nach dem Start ab (gemessen, 21.10.2026),
+  // und nach ein paar Sekunden steht der Anmeldebildschirm. Jede Abholung
+  // wartet dann (zu Recht, PWA-Fall 36) — und ein Fall maesse die Sperre statt
+  // des Teilens. Deshalb ein Init-Skript NACH dem Seed: der Seed schreibt
+  // seinen Token bei JEDEM Laden neu.
+  await p.addInitScript(() => {
+    const bis = Date.now() + 3600 * 1000;
+    localStorage.setItem('gs_sb_token', 'pruef.teilen.huelle');
+    localStorage.setItem('gs_sb_uid', 'u-teilen');
+    localStorage.setItem('gs_sb_expires', String(bis)); localStorage.setItem('gs_sb_expires_at', new Date(bis).toISOString());
+  });
 
   // T0 — nichts geteilt: der Start fragt nach, und es bleibt still.
   await k.java('UHR\t0');
