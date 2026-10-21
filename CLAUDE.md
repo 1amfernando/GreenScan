@@ -127,7 +127,7 @@ GreenScan/
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
 ├── scripts/             # 39 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 39, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
-│                        scripts/apk/ = zwei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53)
+│                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
@@ -587,7 +587,9 @@ soll ins Netz bzw. macht die WebView selbst. Achtung auf die Form: bei
 
 **3 · Was in der Huelle anders ist, steht in `GS_HUELLE_ANDERS`** — sieben
 Eintraege (`sw` · `push` · `update` · `download` · `drucken` · `teilen` ·
-`zahlung`; `drucken` seit v33.53, `teilen` seit v33.55), jeder mit Grund.
+`zahlung`; `drucken` seit v33.53, `teilen` seit v33.55 — bis v33.55 hiess es
+„noch kein Teilen", seit v33.56 „das Foto wartet nur, solange die App laeuft"),
+jeder mit Grund.
 **Die Liste ist die Pruefung:** jeder Eintrag braucht eine Durchsetzungsstelle
 im Code (kenntlich am Kommentar `GS_HUELLE_ANDERS '<schl>'`) UND steht auf dem
 Bildschirm (Einstellungen › Ueber GreenScan); `apk_check` R8 und A5 halten
@@ -679,10 +681,10 @@ Prüfung** — wer eine Export- oder Druckstelle baut, trägt sie dort ein.
 > DIESELBE Netzlage. Und `pruefstaende.sh` zeigt seither bei Rot die rote Zeile
 > mit — im ersten CI-Bericht stand nur „kaputt: 1".
 
-## 4e · Ein Foto teilen — `manifest.json` · `sw.js` `teilenAntwort` · `gsTeilenAbholen` (seit v33.55)
+## 4e · Ein Foto teilen — `manifest.json` · `sw.js` `teilenAntwort` · `gsTeilenAbholen` (seit v33.55) · Huelle `Geteilt.java` (seit v33.56)
 
-Wer am Teilen-Ziel arbeitet, muss sechs Dinge wissen; der Pruefstand ist
-`offline_check` 25–39.
+Wer am Teilen-Ziel arbeitet, muss sieben Dinge wissen; die Pruefstaende sind
+`offline_check` 25–41 (PWA) und `apk_check` G1–G9, R17/R18, B5, T0–T9 (Huelle).
 
 1. **Der Weg.** Android schickt einen multipart-POST an `/teilen` (Feld
    `bild`). Der Worker nimmt ihn VOR „nur GET" an (`respondWith` synchron),
@@ -712,8 +714,25 @@ Wer am Teilen-Ziel arbeitet, muss sechs Dinge wissen; der Pruefstand ist
 6. **Nichts geht verloren, weil etwas anderes laeuft.** `activate` laesst
    `gs-geteilt` stehen, `_gsAppRuhig` meldet `teilen`, solange ein Foto wartet
    (nur dann — ein Satz verliert nichts beim Neuladen), und beim Zeigen beginnt
-   die Frist (10 min) neu. In der Android-Huelle gibt es das Teilen noch nicht
-   (`GS_HUELLE_ANDERS 'teilen'`).
+   die Frist (10 min) neu. „Bestimmen" hat keinen Fokus und nimmt erst nach
+   `GS_TEILEN_ANTIPP_MS` (700 ms) an — wer in der ANDEREN App gerade tippt,
+   loest mit demselben Finger keinen Scan aus. Und ein Bild, dessen Kopf mehr
+   als `GS_GETEILT_PIXEL_MAX` (200 Megapixel) nennt, wird abgelehnt, bevor es
+   jemand entpackt (`_gsBildMasse`; ein unlesbarer Kopf ist kein Nein).
+7. **In der Android-Huelle derselbe Weg, eine andere Ablage** (seit v33.56).
+   Android schickt `ACTION_SEND`/`SEND_MULTIPLE` (dieselben vier Typen wie
+   `share_target`); die Huelle prueft die Quelle (nur `content://`, nie die
+   eigene App), kopiert auf einem Faden mit Deckel in EIN Fach im
+   Arbeitsspeicher (`Geteilt.annehmen`, Typ an den Bytes) und stoesst die
+   Seite mit `gsHuelleGeteilt()` an — ein fester Text. Die Seite holt selbst:
+   `GET /__huelle/geteilt/holen` (verbraucht nichts) und
+   `…/quittieren?n=<nummer>` (leert nur das gezeigte Foto), Kopfzeile
+   `X-GS-Huelle: geteilt` — ein eigener Wert, nicht der des Export-Kanals.
+   `_gsTeilenEintrag`/`_gsTeilenLoeschen` sind damit dieselben zwei Schritte
+   wie in der PWA, alles darueber laeuft unveraendert. Was es dort nicht gibt:
+   Grund in der Adresse, Einmal-Schluessel, Frist in der Seite — die Frist
+   haelt das Fach an einer monotonen Uhr. Und das Fach lebt im Prozess:
+   beendet Android ihn, ist das Foto weg (`GS_HUELLE_ANDERS 'teilen'`).
 
 > **Ein Ursprungs-Riegel, den die Gegenseite abschalten kann, ist keiner**
 > (v33.55). Der erste Entwurf wies POSTs mit fremdem `Origin` ab und liess
@@ -723,6 +742,25 @@ Wer am Teilen-Ziel arbeitet, muss sechs Dinge wissen; der Pruefstand ist
 > Schutz liegt woanders: kein Scan ohne Antippen, ein Satz, der sagt, woher
 > das Foto kam, und der Einmal-Schluessel. **Wer einen Riegel baut, misst
 > zuerst, ob die Gegenseite ihn umgehen kann.**
+>
+> **In der Huelle bleibt die Seite ueber mehrere Teilen hinweg geladen — also
+> braucht jedes Foto eine Nummer** (v33.56). In der PWA ist jedes Teilen eine
+> Navigation, ein neues Foto ersetzt die ganze Seite. In der Huelle kommt es
+> per `onNewIntent` in eine LAUFENDE Seite: ohne Nummer haette das Ende eines
+> Scans (`_gsTeilenScanFertig`) ein neueres Foto mitgeraeumt, das gerade erst
+> angekommen ist. Jetzt traegt `holen` die Nummer (`X-Nummer`), `quittieren`
+> nimmt sie, und ein `holen` mit der Nummer, die schon gezeigt wird, baut
+> nichts neu (sonst flackert die Vorschau, und die Antipp-Sperre beginnt von
+> vorn). **Wer einen Ablauf aus der PWA in die Huelle traegt, fragt, welche
+> Annahme die Navigation still erfuellt hat.**
+>
+> **Und ein Zustand, der den Grund traegt, braucht eine EIGENE Frist.** Der
+> erste Entwurf des Fachs liess `seit` stehen, wenn ein abgelaufenes Foto zu
+> `fehler`/`weg` wurde — damit lag der Grund schon bei seiner Entstehung
+> hinter seiner Frist, und das naechste `holen` machte daraus `nichts`, bevor
+> die Seite „nicht mehr da" sagen konnte. Gefunden beim Bau des Fahrers, und
+> der erste Fall dazu haette den Fehler NICHT gesehen (er wartete die Frist
+> ab); `Z:weg_bleibt` fragt sofort ein zweites Mal.
 >
 > **Und was die App selbst schliesst, hat die Person nicht entschieden.** Die
 > erste Fassung loeschte das Foto in der Aufraeum-Funktion des Dialogs —
@@ -905,7 +943,7 @@ node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (se
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
 node scripts/scan_check.js       # glaubt der Scanner der KI aufs Wort? (seit v31.99)
-node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.55 das TEILEN-ZIEL (Faelle 25–39): ein echter multipart-POST als Navigation aus dem share_target der manifest.json, unter einem echten Worker — Vorschau statt Scan, genau die Bytes an gsScanDatei, kein Bild · HEIC · leer · fremde Seite · altes Text-Ziel · ohne Worker (der Pruefserver wendet `_redirects` an) · ohne Empfang · wartender Worker · Worker-Wechsel · die App schliesst die Vorschau · abgemeldet · fremder Einmal-Schluessel · Abmelden
+node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.55 das TEILEN-ZIEL (Faelle 25–41): ein echter multipart-POST als Navigation aus dem share_target der manifest.json, unter einem echten Worker — Vorschau statt Scan, genau die Bytes an gsScanDatei, kein Bild · HEIC · leer · fremde Seite · altes Text-Ziel · ohne Worker (der Pruefserver wendet `_redirects` an) · ohne Empfang · wartender Worker · Worker-Wechsel · die App schliesst die Vorschau · abgemeldet · fremder Einmal-Schluessel · Abmelden; seit v33.56 die Antipp-Sperre (kein Fokus, 700 ms, ein fremder Tipp loest nichts aus) und der Bildpunkt-Deckel (eine 40'000×40'000-Bombe am Kopf erkannt, die Koepfe gemessen an echten Bildern des Browsers)
 node scripts/a11y_check.js       # bedienbar ohne Augen und ohne Maus? (seit v32.16)
 node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteht? (seit v32.17)
 node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18)
@@ -934,7 +972,7 @@ node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, der Fuss unter dem Protokoll rechnet die Deckung, und eine SQL-Hälfte (lokales Postgres) spielt 20260925_admin_audit_vollstaendig.sql nach — ohne Postgres „nicht prüfbar" (Exit 2)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
-node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck)
+node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T9 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA)
 bash scripts/pruefstaende.sh     # ALLE 39 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet

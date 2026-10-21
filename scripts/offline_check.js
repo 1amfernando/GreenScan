@@ -1104,14 +1104,15 @@ function server(wunschPort) {
       let n = 0;
       while (b.disabled && n < 60) { await new Promise(r => setTimeout(r, 50)); n++; }
       const spaeter = !b.disabled;
+      const fokusSpaeter = document.activeElement === b;   // auch NACH der Sperre kein Fokus: sonst taete es ein Enter
       b.click();
       await new Promise(r => setTimeout(r, 300));
       const sp = window.__scan40;
       window.gsScanDatei = orig;
       try { _gsTeilenScanFertig(); } catch (_) {}
-      return { fokus, sofortGesperrt, frueh, offenFrueh, spaeter, spaeterScan: sp, warteMs: n * 50, ms: window.GS_TEILEN_ANTIPP_MS };
+      return { fokus, fokusSpaeter, sofortGesperrt, frueh, offenFrueh, spaeter, spaeterScan: sp, warteMs: n * 50, ms: window.GS_TEILEN_ANTIPP_MS };
     }).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
-    const ok40 = !t40.fehler && !t40.fokus && t40.sofortGesperrt && t40.frueh === 0 && t40.offenFrueh && t40.spaeter && t40.spaeterScan === 1;
+    const ok40 = !t40.fehler && !t40.fokus && !t40.fokusSpaeter && t40.sofortGesperrt && t40.frueh === 0 && t40.offenFrueh && t40.spaeter && t40.spaeterScan === 1;
     melde('Teilen: „Bestimmen" hat keinen Fokus und nimmt erst nach ' + (t40.ms || '?') + ' ms an — ein fremder Tipp loest keinen Scan aus, ein spaeterer schon', ok40,
           ok40 ? ('sofort: gesperrt, Tipp + Enter → 0 Scans, Vorschau bleibt · nach ~' + t40.warteMs + ' ms frei → 1 Scan')
                : JSON.stringify(t40).slice(0, 220));

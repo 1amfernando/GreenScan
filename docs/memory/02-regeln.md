@@ -93,7 +93,12 @@ Tagebuch in `CLAUDE.md`.
     Scan, ein Senden oder eine Zahlung aus: Vorschau, ein Satz, woher es kam,
     und ein Antippen. Gehoert es nicht zu DIESER Navigation (Einmal-Schluessel),
     wird es verworfen. Und eine Folge haengt nie an einem Schliessen, das die
-    App selbst ausgeloest hat. *(§4e, offline_check 25–39, v33.55)*
+    App selbst ausgeloest hat. Und der Knopf, der die Folge ausloest, nimmt
+    erst nach einer kurzen Sperre an und hat keinen Fokus — der Tipp, der fuer
+    die andere App gedacht war, zaehlt nicht. In der Android-Huelle derselbe
+    Weg mit einer anderen Ablage (das Fach in `Geteilt.java`, zwei Schritte
+    holen/quittieren, je Foto eine Nummer). *(§4e, offline_check 25–41,
+    apk_check G1–G9/T0–T9, v33.55/v33.56)*
 
 ## Und drei Regeln ueber das Arbeiten selbst
 

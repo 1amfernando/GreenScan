@@ -418,8 +418,8 @@ function rechnungGeteilt() {
   const HER = '403 {"huelle":1,"ok":false,"grund":"herkunft"}';
   F.push({ name: NAMEN[0], r: pruef({
     'Q:content': 'true', 'Q:CONTENT': 'true', 'Q:aehnlich': 'true', 'Q:file': 'false', 'Q:file_eigen': 'false', 'Q:http': 'false',
-    'Q:eigen': 'false', 'Q:eigen_gross': 'false', 'Q:eigen_unter': 'false', 'Q:at': 'false', 'Q:leer': 'false', 'Q:null': 'false', 'Q:null_aut': 'false',
-  }, '3 angenommen (auch ch.greenscan.apps — ein fremdes Paket), 10 abgewiesen') });
+    'Q:file_localhost': 'false', 'Q:eigen': 'false', 'Q:eigen_gross': 'false', 'Q:eigen_unter': 'false', 'Q:at': 'false', 'Q:leer': 'false', 'Q:null': 'false', 'Q:null_aut': 'false',
+  }, '3 angenommen (auch ch.greenscan.apps — ein fremdes Paket), 11 abgewiesen (auch file://localhost)') });
   F.push({ name: NAMEN[1], r: pruef({
     'T:jpeg': 'image/jpeg', 'T:png': 'image/png', 'T:gif': 'image/gif', 'T:webp': 'image/webp', 'T:heic': 'heic', 'T:mif1': 'heic',
     'T:png_kaputt': 'null', 'T:wav': 'null', 'T:avif': 'null', 'T:mp4': 'null', 'T:kurz': 'null', 'T:n_kurz': 'null', 'T:html': 'null', 'T:null': 'null',
@@ -435,7 +435,7 @@ function rechnungGeteilt() {
   F.push({ name: NAMEN[4], r: pruef({
     'Z:kommt_grenze': 'kommt', 'Z:kommt_zu_lang': J('fehler', 1), 'Z:spaet_ablegen': 'false', 'Z:laufend': '0',
     'Z:holen1': '200 bytes image/jpeg 2000 x1 n2', 'Z:holen2': '200 bytes image/jpeg 2000 x1 n2', 'Z:frisch': 'bereit',
-    'Z:weg': J('weg', 2), 'Z:weg_dann_nichts': J('nichts'), 'Z:rueckwaerts': J('weg', 3),
+    'Z:weg': J('weg', 2), 'Z:weg_bleibt': J('weg', 2), 'Z:weg_dann_nichts': J('nichts'), 'Z:rueckwaerts': J('weg', 3),
     'Z:quitt_alt': OK + ' 200 bytes image/jpeg 77 x1 n2', 'Z:quitt_neu': OK + ' leer',
     'Z:quitt_alles_waehrend_kopie': OK + ' leer', 'Z:kopie_nach_abmelden': 'false leer 0',
     'Z:fehler_bleibt_bis_quittiert': J('gross', 5) + ' | ' + J('gross', 5), 'Z:fehler_quittiert': J('nichts'),
@@ -1396,6 +1396,14 @@ async function teilenFaelle(p, k) {
 
   // T2 — eine langsame Kopie: die Seite fragt in VERSUCHEN nach, bis das Foto da ist; der echte Anstoss danach macht keine zweite Vorschau.
   k.geteilt = [];
+  // Gezaehlt wird, wie oft eine Vorschau ENTSTEHT — nicht, wie viele dastehen:
+  // eine zweite ersetzt die erste, und „1 da" waere auch beim Flackern wahr.
+  await p.evaluate(() => {
+    window.__vorschauNeu = 0;
+    if (window.__vorschauBeob) window.__vorschauBeob.disconnect();
+    window.__vorschauBeob = new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.id === 'gs-teilen-vorschau') window.__vorschauNeu++; })));
+    window.__vorschauBeob.observe(document.body, { childList: true });
+  });
   R.t2 = { start: await k.java('LANGSAM\t2500\t' + B.b64) };
   await p.evaluate(() => gsHuelleGeteilt());
   R.t2.vorschau = !!(await bis(() => !!document.getElementById('gs-teilen-vorschau'), null, 80));
@@ -1403,6 +1411,7 @@ async function teilenFaelle(p, k) {
   await anstoss();
   await p.waitForTimeout(900);
   R.t2.s = await seite();
+  R.t2.neu = await p.evaluate(() => window.__vorschauNeu);
   await verwerfen();
   await p.waitForTimeout(500);
   R.t2.nachher = await zustand();
@@ -1462,7 +1471,9 @@ async function teilenFaelle(p, k) {
   const GRUENDE = [
     ['leer', () => teilen('-', '-', '-', '0'), /kein Foto angekommen/],
     ['heic', () => teilen(heic), /HEIC/],
-    ['quelle', () => teilen(A.b64, 'file', '-'), /darf diese Datei nicht lesen/],
+    // file://localhost/… — MIT Autoritaet: sonst hielte schon „keine Autoritaet",
+    // und eine Huelle, die file:// annimmt, waere hier ebenfalls gruen.
+    ['quelle', () => teilen(A.b64, 'file', 'localhost'), /darf diese Datei nicht lesen/],
     ['kein_bild', () => teilen(text), /kein Foto, das GreenScan lesen kann/],
     ['pixel', () => teilen(bombe), /200 Megapixel/],
   ];
@@ -1809,8 +1820,8 @@ async function app() {
       ? { ok: true, info: 'Anstoss vor der Seite ohne Fehler · Vorschau mit Bild · SHA-256 gleich · quittieren?n=' + t1.nummer + ' → leer' }
       : { ok: false, warum: JSON.stringify(t1).slice(0, 400) } });
     const t2 = T.t2;
-    F.push({ name: TN[2], r: (t2.start === 'gestartet' && t2.vorschau && t2.holen >= 3 && t2.s.vorschau === 1 && t2.nachher[0] === 'leer')
-      ? { ok: true, info: t2.holen + '× holen, bis die Kopie (2,5 s) fertig war · 1 Vorschau nach dem Anstoss · verworfen → leer' }
+    F.push({ name: TN[2], r: (t2.start === 'gestartet' && t2.vorschau && t2.holen >= 3 && t2.s.vorschau === 1 && t2.neu === 1 && t2.nachher[0] === 'leer')
+      ? { ok: true, info: t2.holen + '× holen, bis die Kopie (2,5 s) fertig war · die Vorschau entstand 1× (auch nach dem Anstoss) · verworfen → leer' }
       : { ok: false, warum: JSON.stringify(t2).slice(0, 300) } });
     const t3 = T.t3;
     F.push({ name: TN[3], r: (t3.vorher && t3.wieder === 1 && t3.zustand === 'bereit' && t3.nachher === 'leer' && t3.quitt.indexOf('n=' + t3.n) >= 0)

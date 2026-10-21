@@ -104,6 +104,19 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v32.23** `gsCloudSync.flushNow()` ging an `sbFetch` vorbei — die Attrappe
   sah nichts, „0 Tabellen gepusht" haette 47 Fehler gemeldet. Regel: erst
   pruefen, ob der Pruefstand ueberhaupt etwas sieht.
+- **v33.56** Fuenf Teilen-Faelle in `apk_check` waren rot, und keiner wegen
+  des Teilens: `_seed.js` setzt einen Token ohne drei Teile, `gsSecurityInit`
+  raeumt ihn 500 ms nach dem Start ab, und der Anmeldebildschirm kam — die
+  Abholung wartete dahinter, wie sie soll. Regel: ein Fall, der eine Anmeldung
+  braucht, stellt sie her (Init-Skript NACH dem Seed) und schreibt den
+  Zustand in sein Ergebnis (`anmeldung`), sonst misst er die Sperre.
+- **v33.56** „Keine zweite Vorschau" zaehlte die Elemente — eine zweite
+  ersetzt die erste, also stand auch beim Flackern genau eine da. Regel:
+  zaehlen, wie oft etwas ENTSTEHT (MutationObserver), nicht, wie viel dasteht.
+- **v33.56** Der erste Fall zur Frist im Fach wartete die Frist ab — und waere
+  mit dem Fehler (kein neues `seit` beim Wechsel nach `fehler`) ebenso gruen
+  gewesen. Regel: ein Fall muss die Reparatur vom Fehler UNTERSCHEIDEN koennen
+  (hier: sofort ein zweites Mal fragen).
 - **v33.55** `contrast_check` mass in der Teilen-Vorschau 0 Textstellen: `#app`
   ist ein fester, deckender Kasten ueber allem, und `verdeckt()` fragte nicht,
   wer OBEN liegt — kein Dialog am `<body>` war je vermessen. Regel: ein Deckel

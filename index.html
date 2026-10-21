@@ -80381,6 +80381,11 @@ function _gsHuelleTeilenAbholen(){
     }
     if (e.grund) return ende(e.grund);
     if (!e.blob || !e.blob.size) return ende('leer');
+    // Dasselbe Foto steht schon da (der Anstoss nach einer Kopie, auf die die
+    // Seite schon gewartet hat): nichts neu bauen — sonst flackert die
+    // Vorschau, und die Antipp-Sperre beginnt von vorn.
+    var offen = document.getElementById('gs-teilen-vorschau');
+    if (offen && e.nummer && offen.getAttribute('data-nummer') === String(e.nummer)) return { zustand: 'vorschau', grund: 'schon' };
     return _gsTeilenAuspacken(e, ende, null);
   }).then(fertig, function(){ window._gsTeilenOffen = false; return fertig({ zustand: 'nichts' }); });
 }
@@ -80405,6 +80410,7 @@ function _gsTeilenVorschau(datei, anzahl, nummer){
   ov.setAttribute('aria-modal', 'true');
   ov.setAttribute('aria-labelledby', 'gs-teilen-titel');
   ov.tabIndex = -1;
+  if (nummer) ov.setAttribute('data-nummer', String(nummer));
   ov.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;outline:none;';
   var mehr = anzahl > 1
     ? '<div style="font-size:var(--fs-sm);color:var(--text2);margin:0 0 12px;line-height:1.5;">' + escHtml(_gsSatz('Du hast {1} Fotos geteilt — bestimmt wird das erste.', anzahl)) + '</div>'

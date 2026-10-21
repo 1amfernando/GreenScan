@@ -82,6 +82,8 @@ public class GeteiltFahrer {
     p("Q:CONTENT", Geteilt.quelleOk("CONTENT", "media", PAKET));
     p("Q:file", Geteilt.quelleOk("file", "", PAKET));
     p("Q:file_eigen", Geteilt.quelleOk("file", null, PAKET));
+    // file://localhost/… hat eine Autoritaet — hier haelt NUR die Schema-Regel.
+    p("Q:file_localhost", Geteilt.quelleOk("file", "localhost", PAKET));
     p("Q:http", Geteilt.quelleOk("https", "green-scan.ch", PAKET));
     p("Q:eigen", Geteilt.quelleOk("content", "ch.greenscan.app", PAKET));
     p("Q:eigen_gross", Geteilt.quelleOk("content", "CH.GreenScan.App", PAKET));
@@ -190,6 +192,7 @@ public class GeteiltFahrer {
     p("Z:frisch", z.zustand(u.t));
     u.t += Geteilt.FRIST_MS + 1;
     p("Z:weg", kurz(z.holen(u.t)));
+    p("Z:weg_bleibt", kurz(z.holen(u.t)));               // „weg" bleibt stehen, bis die Seite es gesagt hat
     u.t += Geteilt.FRIST_MS + 1;
     p("Z:weg_dann_nichts", kurz(z.holen(u.t)));
     int zr = z.kommt(u.t); z.ablegen(zr, JPEG, 1, u.t);

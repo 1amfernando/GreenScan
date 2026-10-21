@@ -60,12 +60,12 @@ gesagt statt verschluckt:
 5. **Drucken ueber Android** (seit v33.53). Gartenplan und Giess-Zettel gehen
    an den Druckdialog von Android, mit „Als PDF speichern". Ein zweites
    Fenster oeffnet die App dafuer nicht.
-6. **Noch kein „Teilen → GreenScan"** (seit v33.55). Die installierte PWA
-   nimmt ein Foto aus dem Teilen-Menue einer anderen App an (`manifest.json`
-   `share_target`, `sw.js` `teilenAntwort`). Die Huelle liest das Manifest
-   nicht und hat keinen `ACTION_SEND`-Filter — sie steht im Teilen-Menue gar
-   nicht. Das ist die naechste Scheibe; bis dahin waehlt man das Foto im
-   Scanner ueber „Galerie".
+6. **Ein geteiltes Foto wartet nur, solange die App laeuft** (seit v33.56;
+   bis v33.55 stand hier „noch kein Teilen"). „Teilen → GreenScan"
+   funktioniert wie in der PWA — Vorschau, ein Antippen, derselbe Scanner.
+   Nur liegt das Foto in der App im Arbeitsspeicher (EIN Fach je Prozess)
+   statt zehn Minuten im Zwischenspeicher des Browsers: beendet Android die
+   App, bevor man bestimmt hat, ist es weg. Siehe unten.
 7. **Bezahlen im Browser.** Stripe oeffnet im Browser des Telefons.
 
 ---
@@ -165,6 +165,43 @@ Worauf beim ersten Start zu achten ist:
   Plan als PDF drucken. Die Schritte stehen in `docs/FUER-FERNANDO.md` §26.
 
 ---
+
+## Ein Foto teilen — ohne Bruecke (seit v33.56)
+
+Dieselbe Bauform wie Export und Drucken, in die andere Richtung:
+
+```
+andere App                Huelle (Geteilt.java · MainActivity · AssetServer)          Seite
+ACTION_SEND (Foto)  ──►   sollAnnehmen? (nie wiederhergestellt, nie „letzte Apps")
+                          Adresse aus ClipData (dort haengt die Leseerlaubnis)
+                          Faden: quelleOk (nur content://, nie die eigene App)
+                                 kopieren (≤ 15 MB, selbst gezaehlt)
+                                 Typ an den Bytes → EIN Fach, mit Nummer
+                          evaluateJavascript(Geteilt.rueckruf())  ─────────►  gsHuelleGeteilt()
+                          GET /__huelle/geteilt/holen        ◄── X-GS-Huelle: geteilt ──  Vorschau
+                          GET /__huelle/geteilt/quittieren?n ◄── nach „Bestimmen"-Ergebnis,
+                                                                 „Verwerfen", Abmelden
+```
+
+- **Die Rechnung liegt in `Geteilt.java`** (kein Android): Quelle, Typ,
+  Kopie mit Deckel, das Fach mit Nummern und Fristen, die Weiche, die ganze
+  Annahme (`annehmen`, wirft nie). `apk_check` uebersetzt sie gegen
+  `android.jar` 23 und faehrt sie aus (G1–G9); die Seite holt in T0–T9 durch
+  ein ECHTES Fach im `KanalFahrer`.
+- **Ein eigener Kopfzeilen-Wert:** `X-GS-Huelle: geteilt`. Der Wert des
+  Exports (`datei`) gilt hier nicht, und umgekehrt.
+- **`holen` verbraucht nichts, `quittieren` nimmt die Nummer.** In der Huelle
+  bleibt die Seite ueber mehrere Teilen geladen; ohne Nummer raeumte das Ende
+  eines Scans ein neueres Foto mit ab.
+- **Kein Lesen von Dateien:** `file://` wird nie geoeffnet (eine fremde App
+  koennte sonst die privaten Dateien von GreenScan als „Foto" schicken), nur
+  `ContentResolver.openInputStream` auf `content://` eines fremden Anbieters.
+- **Grenzen, ehrlich:** das Fach lebt im Prozess — beendet Android die App,
+  ist das Foto weg, und die App sagt beim naechsten Start nichts (es gibt
+  nichts mehr zu wissen). Eine Kopie, die nie endet, blockiert einen von zwei
+  Plaetzen, bis der Prozess endet (`KOPIEN_MAX`). Und hier laeuft kein
+  Android: ob ein bestimmtes Telefon `ClipData` oder nur `EXTRA_STREAM`
+  schickt, zeigt erst ein Geraet.
 
 ## Export und Drucken — ohne Bruecke (seit v33.53)
 

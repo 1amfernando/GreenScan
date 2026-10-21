@@ -1310,9 +1310,42 @@ POST antworten. Bitte einmal von Hand:
 | Ein Foto im HEIC-Format (manche Telefone speichern so) | entweder erscheint GreenScan nicht, oder die App sagt „Das Foto liegt im HEIC-Format vor …" |
 
 Wenn etwas anders aussieht: ein Foto vom Bildschirm und die Android-Version
-genügen. **In der Android-APK gibt es das Teilen noch nicht** — sie steht nicht
-im Teilen-Menü; das ist die nächste Scheibe (v33.56) und steht bis dahin in
-der App unter *Einstellungen › Über GreenScan*.
+genügen. *(Bis v33.55 stand hier: in der Android-APK gibt es das Teilen noch
+nicht. Seit v33.56 gibt es es — siehe §28.)*
+
+## 28 · „Teilen → GreenScan" in der Android-APK — bitte einmal auf einem Telefon ansehen (v33.56)
+
+Dasselbe wie §27, diesmal in der installierten APK statt der Browser-App. Die
+Hülle steht jetzt im Teilen-Menü (für JPEG, PNG, WebP und GIF — dieselben vier
+wie die Browser-App), nimmt das Foto an und zeigt dieselbe Vorschau. Gescannt
+wird weiterhin erst nach dem Antippen.
+
+**Was neu ist, auch für die Browser-App:** „Dieses Foto bestimmen" nimmt erst
+nach 0,7 Sekunden an und ist nicht vorausgewählt. Wer gerade in einer anderen
+App tippt, wenn GreenScan aufspringt, löst so keinen Scan aus. Und ein Bild
+mit mehr als 200 Megapixeln wird abgelehnt, bevor die App es öffnet (ein
+präpariertes Bild könnte sonst ein günstiges Telefon zum Absturz bringen).
+
+**Was ich NICHT prüfen konnte:** hier läuft kein Android. `apk_check` fährt die
+Rechnung (`Geteilt.java`) und die Seite gegen ein echtes Fach in Java, und es
+prüft die Filter im gebauten Paket — aber nicht, wie dein Telefon das
+Teilen-Menü zeigt, und nicht, ob deine Galerie das Foto so übergibt, wie ich
+es erwarte (`ClipData`, sonst `EXTRA_STREAM`). Bitte mit der APK von Hand:
+
+| Schritt | Was passieren soll |
+|---|---|
+| Galerie → ein Foto → Teilen | **GreenScan** steht im Menü (die APK, nicht nur die Browser-App) |
+| GreenScan antippen, App war **zu** | GreenScan startet und zeigt nach kurzer Zeit die Vorschau mit dem Foto |
+| dasselbe, App war **offen** | die Vorschau erscheint in der laufenden App |
+| sofort auf „Bestimmen" tippen | in den ersten Bruchteilen einer Sekunde passiert nichts, danach öffnet sich der Scanner **ohne Kamera** |
+| zwei Fotos auf einmal teilen | „Du hast 2 Fotos geteilt — bestimmt wird das erste." |
+| ein Video teilen | GreenScan erscheint **nicht** im Menü |
+| ein Foto aus einer Cloud-App (Google Fotos, Dropbox) | entweder die Vorschau, oder ein Satz, warum nicht — nie Stille |
+| Foto teilen, dann zu einer anderen App wechseln und lange warten, zurück | entweder die Vorschau ist noch da, oder (wenn Android die App beendet hat) nichts — das steht so unter *Einstellungen › Über GreenScan* |
+
+Am nützlichsten ist die Cloud-Zeile: dort weicht jede App ein wenig anders ab.
+Wenn dort ein Satz statt der Vorschau steht, schick mir den Satz und den
+Namen der App.
 
 ## Und wenn etwas schiefgeht
 
