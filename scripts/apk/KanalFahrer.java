@@ -23,6 +23,8 @@ import java.util.*;
  *   LANGSAM \t ms \t base64  → gestartet   (dieselbe Annahme auf einem Faden;
  *       die Quelle braucht ms Millisekunden, bevor sie Bytes liefert)
  *   UHR \t ms            → neuer Versatz  (die monotone Uhr springt vor)
+ *   LOS                  → laufend       (beendet alle LANGSAM-Kopien: ihr Schlaf
+ *       wird unterbrochen, annehmen endet in `fehler`, die Plaetze werden frei)
  *   ZUSTAND              → zustand \t nummer \t laufend
  *   ANSTOSS              → js            (Geteilt.rueckruf)
  * "-" steht fuer „fehlt".
@@ -32,6 +34,7 @@ public class KanalFahrer {
   static volatile long versatz = 0;
   static long jetzt() { return (System.nanoTime() - null0) / 1000000L + versatz; }
   static final Geteilt.Uhr UHR = new Geteilt.Uhr() { public long jetzt() { return KanalFahrer.jetzt(); } };
+  static final List<Thread> langsam = new ArrayList<Thread>();
 
   static Map<String, String> kopf(String[] f) {
     Map<String, String> kopf = new LinkedHashMap<String, String>();
@@ -82,11 +85,18 @@ public class KanalFahrer {
           final long ms = Long.parseLong(f[1]);
           final byte[] d = Base64.getDecoder().decode(f[2]);
           final int n = fach.kommt(jetzt());                 // wie der Rand: die Nummer auf DIESEM Faden
-          new Thread(new Runnable() { public void run() {
+          Thread th = new Thread(new Runnable() { public void run() {
             Geteilt.annehmen(fach, n, "content", "media", true, "ch.greenscan.app", 1, new Geteilt.Oeffner() {
               public InputStream oeffnen() throws Exception { Thread.sleep(ms); return new ByteArrayInputStream(d); } }, UHR);
-          } }).start();
+          } });
+          langsam.add(th);
+          th.start();
           out.println("gestartet");
+        } else if ("LOS".equals(f[0])) {
+          for (Thread th : langsam) th.interrupt();
+          for (Thread th : langsam) th.join(5000);
+          langsam.clear();
+          out.println(String.valueOf(fach.laufend()));
         } else if ("UHR".equals(f[0])) {
           versatz += Long.parseLong(f[1]);
           out.println(String.valueOf(versatz));

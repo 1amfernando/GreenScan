@@ -1037,7 +1037,7 @@ async function huelleRouten(ctx, k) {
       }
       // v33.56: das Abholen eines geteilten Fotos — an das ECHTE Geteilt.Fach.
       if (pfad.startsWith('/__huelle/geteilt/') && k.modus === 'java') {
-        k.geteilt.push({ schritt: pfad.slice('/__huelle/geteilt/'.length), abfrage, marke: a.marke, haupt: a.haupt, methode: a.methode });
+        k.geteilt.push({ schritt: pfad.slice('/__huelle/geteilt/'.length), abfrage, marke: a.marke, haupt: a.haupt, methode: a.methode, t: Date.now() });
         const g = (await k.java(['REQG', req.method(), pfad, abfrage || '-', a.haupt ? '1' : '0',
           a.marke || '-', a.origin || '-', a.referer || '-'].join('\t'))).split('\t');
         if (g[0] === 'AUSNAHME') return route.fulfill({ status: 500, body: g.join(' ') });
@@ -1485,6 +1485,47 @@ async function teilenFaelle(p, k) {
   R.t10.nachher = (await zustand())[0];
   await ruhe();
 
+  // T12/T13 — gleich nach T10, solange die Seite frisch ist: am Ende des Laufs
+  // (nach Neuladen, Abmelden und zwei Minuten anderer Faelle) kostete EIN Hin
+  // und Her durch den Pruefstand gemessen 1,5 s statt unter 0,5 s, und die
+  // Frist des Fachs lief mitten im Fall ab. Die zwei Kopien halten je zwei
+  // Minuten — `LOS` beendet sie danach, damit die folgenden Faelle ihre Plaetze
+  // haben.
+  // Der Takt des Nachfragens wird auf 5 ms gestellt (GS_TEILEN_KOMMT_MS ist
+  // eine globale Variable): die Versuche sind dieselben, nur schneller.
+  // T12: gibt die Seite auf (eine Kopie, die laenger braucht als ihr Deckel),
+  // sagt sie es — und raeumt NICHTS: quittieren ohne Nummer leerte das Fach
+  // samt einer laufenden Kopie (gegnerische Pruefung v33.56).
+  // Der Deckel der Seite ist 2 × GS_HUELLE_KOMMT_MAX_MS / GS_TEILEN_KOMMT_MS (im
+  // Betrieb 240 Versuche). Verkleinert auf 2 × 2000 / 20 = 200: genug Abstand,
+  // damit T13 sein zweites Teilen sicher VOR dem Deckel einschiebt, und kurz
+  // genug, dass die Frist des Fachs (Java, 60 s) waehrend des Falls NICHT
+  // ablaeuft — sonst maesse er sie statt der Seite. Dieselbe Regel, schneller.
+  const budget = await p.evaluate(() => { window.__meldungen = []; window.__kommtTakt = [GS_TEILEN_KOMMT_MS, GS_HUELLE_KOMMT_MAX_MS]; GS_TEILEN_KOMMT_MS = 20; GS_HUELLE_KOMMT_MAX_MS = 2000;
+    return 2 * Math.ceil(GS_HUELLE_KOMMT_MAX_MS / GS_TEILEN_KOMMT_MS); });
+  k.geteilt = [];
+  const t12ab = Date.now();
+  await k.java('LANGSAM\t120000\t' + A.b64);
+  const t12z0 = await zustand();
+  await p.evaluate(() => gsHuelleGeteilt());
+  await bis(() => (window.__meldungen || []).some(m => /nicht angekommen/.test(m.t)) ? true : null, null, 400);
+  R.t12 = { budget, ms: Date.now() - t12ab, z0: t12z0, s: await seite(), zustand: await zustand(), holen: k.geteilt.filter(x => x.schritt === 'holen').length,
+            quitt: k.geteilt.filter(x => x.schritt === 'quittieren').map(x => x.abfrage) };
+  // T13: ein zweites Teilen waehrend „kommt" beginnt die Versuche von vorn (die
+  // Nummer kommt mit) — sonst gaebe die Seite schon nach dem Deckel des ERSTEN auf.
+  await p.evaluate(() => { window.__meldungen = []; });
+  k.geteilt = [];
+  await p.evaluate(() => gsHuelleGeteilt());
+  await bis((h) => window._gsTeilenKommt && window._gsTeilenKommt.n >= h ? true : null, Math.round(budget * 0.6), 400);
+  R.t13 = { budget, vorher: await p.evaluate(() => window._gsTeilenKommt ? window._gsTeilenKommt.n : null) };
+  await k.java('LANGSAM\t120000\t' + B.b64);
+  await bis(() => (window.__meldungen || []).some(m => /nicht angekommen/.test(m.t)) ? true : null, null, 500);
+  R.t13.holen = k.geteilt.filter(x => x.schritt === 'holen').length;
+  R.t13.s = await seite();
+  await p.evaluate(() => { GS_TEILEN_KOMMT_MS = window.__kommtTakt[0]; GS_HUELLE_KOMMT_MAX_MS = window.__kommtTakt[1]; });
+  R.t13.los = await k.java('LOS');                     // die zwei Kopien enden (fehler), die Plaetze sind frei
+  await k.java('REQG\tGET\t/__huelle/geteilt/quittieren\t-\t0\tgeteilt\t-\t-');   // wie Abmelden: das Fach leer
+  await ruhe();
   // T5 — die Frist laeuft ab, waehrend die Vorschau steht: kein stilles Verschwinden, ein Satz.
   await teilen(A.b64); await anstoss();
   R.t5 = { vorher: !!(await bis(() => !!document.getElementById('gs-teilen-vorschau'))) };
@@ -1555,31 +1596,6 @@ async function teilenFaelle(p, k) {
   await p.waitForTimeout(2000);
   R.t8.kopie = await zustand();
 
-  // T12/T13 — ZULETZT, weil die zwei Kopien hier 30 s lang Plaetze belegen.
-  // Der Takt des Nachfragens wird auf 5 ms gestellt (GS_TEILEN_KOMMT_MS ist
-  // eine globale Variable): die Versuche sind dieselben, nur schneller.
-  // T12: gibt die Seite auf (eine Kopie, die laenger braucht als ihr Deckel),
-  // sagt sie es — und raeumt NICHTS: quittieren ohne Nummer leerte das Fach
-  // samt einer laufenden Kopie (gegnerische Pruefung v33.56).
-  await p.evaluate(() => { window.__meldungen = []; window.__kommtTakt = GS_TEILEN_KOMMT_MS; GS_TEILEN_KOMMT_MS = 5; });
-  k.geteilt = [];
-  await k.java('LANGSAM\t30000\t' + A.b64);
-  await p.evaluate(() => gsHuelleGeteilt());
-  await bis(() => (window.__meldungen || []).some(t => /nicht angekommen/.test(t)) ? true : null, null, 200);
-  R.t12 = { s: await seite(), zustand: await zustand(), holen: k.geteilt.filter(x => x.schritt === 'holen').length,
-            quitt: k.geteilt.filter(x => x.schritt === 'quittieren').map(x => x.abfrage) };
-  // T13: ein zweites Teilen waehrend „kommt" beginnt die Versuche von vorn (die
-  // Nummer kommt mit) — sonst gaebe die Seite schon nach dem Deckel des ERSTEN auf.
-  await p.evaluate(() => { window.__meldungen = []; });
-  k.geteilt = [];
-  await p.evaluate(() => gsHuelleGeteilt());
-  await bis(() => window._gsTeilenKommt && window._gsTeilenKommt.n >= 150 ? true : null, null, 200);
-  R.t13 = { vorher: await p.evaluate(() => window._gsTeilenKommt ? window._gsTeilenKommt.n : null) };
-  await k.java('LANGSAM\t30000\t' + B.b64);
-  await bis(() => (window.__meldungen || []).some(t => /nicht angekommen/.test(t)) ? true : null, null, 300);
-  R.t13.holen = k.geteilt.filter(x => x.schritt === 'holen').length;
-  R.t13.s = await seite();
-  await p.evaluate(() => { GS_TEILEN_KOMMT_MS = window.__kommtTakt; });
   R.caches += (await p.evaluate(() => window.__geteiltCaches || 0).catch(() => 0));
   return R;
 }
@@ -1925,12 +1941,14 @@ async function app() {
     F.push({ name: TN[11], r: (t11.html.vorschau === 0 && t11.html.meldungen.some(t => /nicht angekommen/.test(t)) && t11.start.vorschau === 0 && keinSatz(t11.start.meldungen))
       ? { ok: true, info: 'HTML nach Anstoss: „' + t11.html.meldungen.filter(t => /nicht angekommen/.test(t))[0] + '" · JSON ohne Marke beim Start: still' } : { ok: false, warum: JSON.stringify(t11).slice(0, 300) } });
     const t12 = T.t12, t13 = T.t13;
-    // Der Deckel der Seite: 2 × KOMMT_MAX_MS / Takt-Vorgabe 500 ms = 240 Versuche.
+    // Der Deckel der Seite: 2 × 60 000 / 500 = 240 Versuche (im Fall verkleinert: 2 × 600 / 5).
+    // „Raeumt nichts" heisst: weder leer noch eine neue Nummer — quittieren ohne
+    // Nummer machte beides (nummer++, leer), die laufende Kopie legte danach nichts ab.
     F.push({ name: TN[12], r: (t12.s.meldungen.some(t => /nicht angekommen/.test(t)) && t12.zustand[0] === 'kommt' && t12.zustand[2] === '1'
-        && t12.quitt.length === 0 && t12.holen >= 240 && t12.s.vorschau === 0)
-      ? { ok: true, info: t12.holen + '× holen, dann der Satz · Fach weiter „kommt", 1 Kopie laeuft · 0× quittieren' } : { ok: false, warum: JSON.stringify(t12).slice(0, 300) } });
-    F.push({ name: TN[13], r: (typeof t13.vorher === 'number' && t13.vorher >= 150 && t13.holen >= t13.vorher + 240 && t13.s.meldungen.some(t => /nicht angekommen/.test(t)))
-      ? { ok: true, info: 'nach ' + t13.vorher + ' Versuchen ein zweites Teilen → ' + t13.holen + ' Versuche bis zum Satz (≥ ' + (t13.vorher + 240) + ')' } : { ok: false, warum: JSON.stringify(t13).slice(0, 300) } });
+        && t12.quitt.length === 0 && t12.holen >= t12.budget && t12.s.vorschau === 0)
+      ? { ok: true, info: t12.holen + '× holen (Deckel ' + t12.budget + '), dann der Satz · Fach weiter „kommt" (Nummer ' + t12.zustand[1] + '), 1 Kopie laeuft · 0× quittieren' } : { ok: false, warum: JSON.stringify(t12).slice(0, 300) } });
+    F.push({ name: TN[13], r: (typeof t13.vorher === 'number' && t13.vorher >= Math.round(t13.budget * 0.6) && t13.holen >= t13.vorher + t13.budget && t13.s.meldungen.some(t => /nicht angekommen/.test(t)) && t13.los === '0')
+      ? { ok: true, info: 'nach ' + t13.vorher + ' Versuchen ein zweites Teilen → ' + t13.holen + ' Versuche bis zum Satz (≥ ' + (t13.vorher + t13.budget) + ')' } : { ok: false, warum: JSON.stringify(t13).slice(0, 300) } });
     F.push({ name: TN[9], r: (T.caches === 0 && b.geteiltCaches > 0)
       ? { ok: true, info: 'Huelle 0× · Browser ' + b.geteiltCaches + '×' } : { ok: false, warum: 'Huelle ' + T.caches + '× · Browser ' + b.geteiltCaches + '×' } });
   }
