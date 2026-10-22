@@ -88,7 +88,13 @@ behoben. Behoben:
   frei nach 700 ms, ein echtes Enter und ein Tipp davor lösen nichts aus),
   Bildpunkt-Deckel mit 14 Köpfen (echte JPEG/PNG/WebP des Browsers, GIF mit
   Rahmen, VP8L/VP8X/VP8, JPEG mit Fremdbyte) und einer 40'000×40'000-Bombe;
-  Fall 38 prüft dazu, dass abgemeldet ohne Foto kein Zeitgeber läuft.
+  Fall 38 prüft dazu, dass abgemeldet ohne Foto kein Zeitgeber läuft. Und
+  eine **Gesamtfrist** (25 min): in einem Suite-Lauf hing `offline_check`
+  einmal 27 min ohne Rechenzeit, allein und in zwei weiteren vollen Läufen
+  nicht nachstellbar. Statt die Suite still anzuhalten, meldet er jetzt, nach
+  welchem Fall er stand, und endet rot. Die Ursache ist NICHT gefunden.
+- **Volle Suite zweimal nach dem Bump:** 39 Prüfstände, rot 0, nicht prüfbar
+  0, Prüfsumme davor und danach gleich (`apk_check` 94/0, `offline_check` 41/0).
 - **Gegenproben: 50 Brüche, jeder rot mit dem erwarteten Fall** — 41 gegen
   `apk_check` (Rechnung, Rand, Seite; je Bruch eine Kopie des Repos, der Bau
   ausgelassen) und 9 gegen `offline_check` (Antipp-Sperre, Bildpunkt-Köpfe,
