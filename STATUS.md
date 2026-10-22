@@ -89,7 +89,14 @@ behoben. Behoben:
   Bildpunkt-Deckel mit 14 Köpfen (echte JPEG/PNG/WebP des Browsers, GIF mit
   Rahmen, VP8L/VP8X/VP8, JPEG mit Fremdbyte) und einer 40'000×40'000-Bombe;
   Fall 38 prüft dazu, dass abgemeldet ohne Foto kein Zeitgeber läuft.
-- **Gegenproben:** @@GEGENPROBEN@@
+- **Gegenproben: 50 Brüche, jeder rot mit dem erwarteten Fall** — 41 gegen
+  `apk_check` (Rechnung, Rand, Seite; je Bruch eine Kopie des Repos, der Bau
+  ausgelassen) und 9 gegen `offline_check` (Antipp-Sperre, Bildpunkt-Köpfe,
+  Warten). Zwei der PWA-Brüche (Sperre weg, Deckel weg) endeten zusätzlich an
+  der Zeitgrenze des Laufs — rot hatten sie da schon gemeldet. Die erste Runde
+  vor der gegnerischen Prüfung (28 Brüche) war ebenfalls ganz rot; einer davon
+  (`file://` erlaubt) machte T6 erst rot, nachdem der Fall eine Autorität mitgab
+  (`file://localhost/…`) — sonst hielt schon „keine Autorität".
 
 **Zwei Fallen aus dem Bau, beide allgemein:**
 
