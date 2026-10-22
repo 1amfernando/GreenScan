@@ -30,6 +30,25 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.36', date: '16.09.2026',
+    headline: 'Ein Wetter für die ganze App — Frost, Hitze, Starkregen und Sturm stehen im Kalender, und das Warnfenster rechnet mit denselben Zahlen',
+    summary: 'Dritte Scheibe von KALENDER-V2 (R6, R7). Die vier Schwellen standen an zwei Stellen: eine Konstante für den Frost im Kalender und vier Literale im Warnfenster, das dazu einen eigenen Wetter-Abruf machte und einen alten Standort-Schlüssel las. Jetzt eine Tabelle, ein Zwischenspeicher, eine Rechnung. Und der teuerste Teil: hatte die Antwort keine Tageswerte, sagte das Warnfenster „alles im grünen Bereich" — Stille als Entwarnung, bei Frost der teuerste Fehler dieser App.',
+    user_summary: 'Der Kalender zeigt dir jetzt nicht nur Frost, sondern auch Hitze, Starkregen und Sturm — je Tag, mit der Zahl und einem Rat, was zu tun ist. Das Warnfenster im Menü zeigt dasselbe, ohne neu zu laden. Und wenn noch keine Vorhersage da ist, sagt es das, statt Entwarnung zu geben.',
+    user_items: [
+      {emoji: '❄️', bold: 'Vier Warnungen statt einer:', text: ' Frost ab 2 °C, Hitze ab 30 °C, Starkregen ab 20 mm, Sturm ab 40 km/h — jede mit ihrer Zahl und einem Rat.'},
+      {emoji: '🥶', bold: 'Frost trifft deine Pflanzen:', text: ' steht Frost an und hast du eine frostempfindliche Pflanze draussen, nennt der Kalender sie beim Namen.'},
+      {emoji: '🤷', bold: 'Keine Vorhersage heisst nicht „keine Gefahr":', text: ' das Warnfenster sagt jetzt, wenn es nichts weiss.'},
+      {emoji: '📖', bold: 'Die Grenzen stehen dabei:', text: ' unter der Liste steht, ab welchem Wert gewarnt wird — damit du sie einordnen kannst.'}
+    ],
+    items: [
+      'GS_WETTER_GRENZEN {frost:2, hitze:30, starkregen:20, sturm:40} — eine Tabelle; GS_FROST_GRENZE_C löst sich darin auf (3 Lesestellen).',
+      '_gsWetterTage(): EINE Rechnung für Kalender (Nr. 5b) und Warnfenster. Gibt null für „keine Vorhersage geladen" und [] für „geladen, nichts überschritten" — genau diese Verwechslung liess das Warnfenster entwarnen, wenn es nichts wusste.',
+      'R6: Frost-Ereignis × beide Pflanzenlisten mit frost === -1 (11 von 41 Kulturen) und gsPflanzeDraussen === true. Ohne Kulturangabe keine Behauptung, Standort unbekannt → „nicht bekannt".',
+      'gsOpenWeatherWarn: kein eigener Open-Meteo-Aufruf mehr, kein Legacy-Schlüssel userLocation, keine eigenen Zahlen — und es ist nicht mehr async.',
+      'Prüfstände: kalender_check 40 (4 neu, alle rot gegen v33.35). Gegenproben: [] statt null, nur Frost statt vier Schwellen, Standort egal → je rot. Changelog-Umzug: v33.16 ins Archiv (Deckel 20).'
+    ]
+  },
+  {
     v: 'v33.35', date: '16.09.2026',
     headline: 'Der Kalender zeigt, was du sehen willst — fünf Chips, und jede Zahl steht nur an einer Stelle',
     summary: 'Zweite Scheibe von KALENDER-V2: das Sieb. Ein Filter sitzt auf dem ERGEBNIS, nie in der Rechnung — sonst zählt die Anzeige sich selbst und Lina wird blind. Gespeichert wird nach Art, gezeigt nach Gruppe: eine neue Ereignisart ist damit automatisch sichtbar. Die Punkte im Raster tragen jetzt die Farbe der Gruppe (fünf) statt der Art (neun), und die Legende entfällt, weil die Chips sie erklären.',

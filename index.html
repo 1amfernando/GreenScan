@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.55.20261020">
+<meta name="app-version" content="33.56.20261022">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76230,6 +76230,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.56', date: '22.10.2026',
+      headline: 'Teilen → GreenScan auch in der Android-App',
+      summary: 'Bis v33.55 stand die Android-App nicht im Teilen-Menü: die Hülle liest das Manifest der Web-App nicht und hatte keinen ACTION_SEND-Filter. Jetzt nimmt sie Fotos an (dieselben vier Typen wie die Web-App), kopiert sie in ein Fach im Arbeitsspeicher und stösst die Seite an; die Seite holt das Foto selbst ab und zeigt dieselbe Vorschau wie im Browser — bestimmt wird erst nach dem Antippen. Ohne JavaScript-Brücke: zwei Adressen unter dem eigenen Ursprung (holen, quittieren), mit eigenem Kopfzeilen-Wert. Neu für beide: „Bestimmen“ nimmt erst nach 0,7 Sekunden an, und ein Bild mit mehr als 200 Megapixeln wird am Dateikopf abgelehnt. Eine gegnerische Prüfung fand zwölf Lücken — acht von unabhängigen Gegenprüfern bestätigt (Reihenfolge zweier Teilen, eine hängende Kopie, GIF- und JPEG-Bomben …), vier Prüfstands-Lücken von mir nachgeprüft, weil ihre Gegenprüfer am Nutzungslimit ausfielen. Alle vor dem Ausliefern geschlossen.',
+      user_summary: 'In der Android-App steht GreenScan jetzt im Teilen-Menü der Galerie: ein Foto erscheint als Vorschau und wird bestimmt, wenn du tippst — wie in der Browser-App. Damit kein Tipp aus Versehen einen Scan auslöst, nimmt „Dieses Foto bestimmen“ erst nach einem kurzen Moment an.',
+      user_items: [
+        {emoji:'📤', bold:'Teilen → GreenScan in der App:', text:' ein Foto aus der Galerie oder einer anderen App kommt als Vorschau an; bestimmt wird erst, wenn du tippst.'},
+        {emoji:'⏳', bold:'Kein Tipp aus Versehen:', text:' „Dieses Foto bestimmen“ nimmt erst nach einem kurzen Moment an und ist nicht vorausgewählt.'},
+        {emoji:'🛡️', bold:'Keine Riesenbilder:', text:' ein Bild mit mehr als 200 Megapixeln wird abgelehnt, bevor die App es öffnet — so stürzt sie nicht ab.'},
+        {emoji:'💬', bold:'Ehrliche Sätze:', text:' kommt ein Foto nicht an, ist es zu gross, im HEIC-Format oder nicht mehr da, sagt die App genau das.'},
+        {emoji:'📱', bold:'Ein Unterschied bleibt:', text:' in der App wartet ein geteiltes Foto nur, solange die App läuft — beendet Android sie vorher, einfach noch einmal teilen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' die Hülle hatte keinen ACTION_SEND-Filter und stand im Teilen-Menü gar nicht; GS_HUELLE_ANDERS sagte das als „teilen“.'},
+        {emoji:'🧮', bold:'Die Rechnung in Geteilt.java:', text:' Quelle (nur content://, nie die eigene App), Typ an den Bytes, Kopie mit Deckel 15 MiB, EIN Fach mit Nummern und Fristen, die Weiche mit eigenem Kopfzeilen-Wert, die ganze Annahme — ohne Android, im Prüfstand übersetzt und ausgeführt (G1–G9).'},
+        {emoji:'🔁', bold:'Zwei Schritte:', text:' GET /__huelle/geteilt/holen liefert das Foto und verbraucht nichts, quittieren?n= leert nur das gezeigte Foto — in der Hülle bleibt die Seite über mehrere Teilen geladen, ohne Nummer räumte das Ende eines Scans ein neueres Foto mit ab.'},
+        {emoji:'🔍', bold:'Gegnerische Prüfung, zwölf Funde:', text:' die Nummer vergibt jetzt der UI-Faden (Reihenfolge der Absichten), die Seite wird beim Start der Kopie angestossen, ein hängender Strom wird nach 60 s geschlossen, „kommt“ trägt die Nummer, ein Platz wird je Nummer einmal frei; GIF liest den ersten Bildrahmen, JPEG überspringt Fremdbytes wie libjpeg.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' apk_check G1–G9, R17 (Naht), R18 (Rand), B5 (Filter im gebauten Paket), R8 auch rückwärts, T0–T13 gegen ein echtes Fach im KanalFahrer; offline_check 39 → 41 (Antipp-Sperre in der Seite gemessen, Kopf-Bomben). 50 Brüche als Gegenprobe, jeder rot.'},
+        {emoji:'🧭', bold:'Bewusst nicht:', text:' setFilterTouchesWhenObscured — es schützte vor einer App mit Overlay-Recht, machte GreenScan aber für jede App mit Bildschirmfilter unbedienbar. Steht in android/README.md.'}
+      ]
+  },
+  {
     v: 'v33.55', date: '20.10.2026',
       headline: 'Ein Foto teilen — GreenScan zeigt es und bestimmt es auf Antippen',
       summary: 'Bis v33.54 nahm das Teilen-Ziel der installierten App nur Text und Links an (GET, keine Dateien); Android bot GreenScan für ein Foto gar nicht an, und wer einen Link teilte, las „Bild geteilt“, obwohl nie ein Bild ankam. Jetzt: POST /teilen mit dem Foto, der Service Worker legt es ab und leitet um, die App zeigt eine Vorschau und bestimmt erst nach dem Antippen — mit denselben Schritten wie die Galerie. Eine gegnerische Prüfung des Entwurfs und eine des fertigen Diffs haben sieben Lücken gezeigt, die vor dem Ausliefern geschlossen sind (Update beim Start, die App schliesst die Vorschau selbst, Anmeldebildschirm, fremde Seiten, kein Empfang, Kamera-Marke, Frist).',
@@ -76555,25 +76576,6 @@ window.GS_RELEASES = [
       'Prüfstände: kalender_check 44 (4 neu, alle vier rot gegen v33.36). Gegenproben: Scan-Zeit aus einem Feld statt dem Leser, _gsFundZeit ohne `date`, Ernte ohne Weg und Grund → je rot.'
     ]
   },
-  {
-    v: 'v33.36', date: '16.09.2026',
-    headline: 'Ein Wetter für die ganze App — Frost, Hitze, Starkregen und Sturm stehen im Kalender, und das Warnfenster rechnet mit denselben Zahlen',
-    summary: 'Dritte Scheibe von KALENDER-V2 (R6, R7). Die vier Schwellen standen an zwei Stellen: eine Konstante für den Frost im Kalender und vier Literale im Warnfenster, das dazu einen eigenen Wetter-Abruf machte und einen alten Standort-Schlüssel las. Jetzt eine Tabelle, ein Zwischenspeicher, eine Rechnung. Und der teuerste Teil: hatte die Antwort keine Tageswerte, sagte das Warnfenster „alles im grünen Bereich" — Stille als Entwarnung, bei Frost der teuerste Fehler dieser App.',
-    user_summary: 'Der Kalender zeigt dir jetzt nicht nur Frost, sondern auch Hitze, Starkregen und Sturm — je Tag, mit der Zahl und einem Rat, was zu tun ist. Das Warnfenster im Menü zeigt dasselbe, ohne neu zu laden. Und wenn noch keine Vorhersage da ist, sagt es das, statt Entwarnung zu geben.',
-    user_items: [
-      {emoji: '❄️', bold: 'Vier Warnungen statt einer:', text: ' Frost ab 2 °C, Hitze ab 30 °C, Starkregen ab 20 mm, Sturm ab 40 km/h — jede mit ihrer Zahl und einem Rat.'},
-      {emoji: '🥶', bold: 'Frost trifft deine Pflanzen:', text: ' steht Frost an und hast du eine frostempfindliche Pflanze draussen, nennt der Kalender sie beim Namen.'},
-      {emoji: '🤷', bold: 'Keine Vorhersage heisst nicht „keine Gefahr":', text: ' das Warnfenster sagt jetzt, wenn es nichts weiss.'},
-      {emoji: '📖', bold: 'Die Grenzen stehen dabei:', text: ' unter der Liste steht, ab welchem Wert gewarnt wird — damit du sie einordnen kannst.'}
-    ],
-    items: [
-      'GS_WETTER_GRENZEN {frost:2, hitze:30, starkregen:20, sturm:40} — eine Tabelle; GS_FROST_GRENZE_C löst sich darin auf (3 Lesestellen).',
-      '_gsWetterTage(): EINE Rechnung für Kalender (Nr. 5b) und Warnfenster. Gibt null für „keine Vorhersage geladen" und [] für „geladen, nichts überschritten" — genau diese Verwechslung liess das Warnfenster entwarnen, wenn es nichts wusste.',
-      'R6: Frost-Ereignis × beide Pflanzenlisten mit frost === -1 (11 von 41 Kulturen) und gsPflanzeDraussen === true. Ohne Kulturangabe keine Behauptung, Standort unbekannt → „nicht bekannt".',
-      'gsOpenWeatherWarn: kein eigener Open-Meteo-Aufruf mehr, kein Legacy-Schlüssel userLocation, keine eigenen Zahlen — und es ist nicht mehr async.',
-      'Prüfstände: kalender_check 40 (4 neu, alle rot gegen v33.35). Gegenproben: [] statt null, nur Frost statt vier Schwellen, Standort egal → je rot. Changelog-Umzug: v33.16 ins Archiv (Deckel 20).'
-    ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76782,7 +76784,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.55';
+var GS_VERSION = 'v33.56';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
