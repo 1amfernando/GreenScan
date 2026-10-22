@@ -26,7 +26,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `save_check` | kommt an, was gespeichert wird? (seit v31.85) |
 | `planer_check` | rechnet der Planer, was er behauptet? (seit v31.93) |
 | `scan_check` | glaubt der Scanner der KI aufs Wort? (seit v31.99) |
-| `offline_check` | haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.48 auch: faellt die Artenliste aus, holt die App sie nach (gleichwertig — derselbe Dedup) und sagt es, wenn auch der zweite Versuch danebengeht; seit v33.55 das Teilen-Ziel (25–39): echter multipart-POST aus dem share_target, Vorschau statt Scan, genau die Bytes an `gsScanDatei`, und die Gegenrichtungen (kein Bild, HEIC, fremde Seite, ohne Worker, ohne Empfang, wartender Worker, abgemeldet, fremder Einmal-Schluessel) |
+| `offline_check` | haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.48 auch: faellt die Artenliste aus, holt die App sie nach (gleichwertig — derselbe Dedup) und sagt es, wenn auch der zweite Versuch danebengeht; seit v33.55 das Teilen-Ziel (25–41): echter multipart-POST aus dem share_target, Vorschau statt Scan, genau die Bytes an `gsScanDatei`, und die Gegenrichtungen (kein Bild, HEIC, fremde Seite, ohne Worker, ohne Empfang, wartender Worker, abgemeldet, fremder Einmal-Schluessel); seit v33.56 die Antipp-Sperre und der Bildpunkt-Deckel (Koepfe an echten Bildern gemessen) |
 | `backend_check` | ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18) |
 | `storage_check` | was ueberlebt das Abmelden? (seit v32.21) |
 | `sync_check` | kommt zurueck, was hochgeladen wird? (seit v32.23); seit v33.46 auch: sagt die App, wenn der Sync KLEMMT? (gsSyncStand, vier Zustaende — offline ist kein Alarm) |
@@ -129,6 +129,17 @@ Browsers liegt:
 
 Und die Grenze gehoert in den Bericht: `apk_check` prueft Bau, Rechnung und
 Entscheidung — **hier laeuft kein Android**.
+
+**Seit v33.56 faehrt `apk_check` auch das Teilen in der Huelle** — dieselbe
+Bauform: `Geteilt.java` (ohne Android) wird uebersetzt und vom
+`GeteiltFahrer` mit gestellter Uhr und Attrappen-Quellen gefahren (G1–G9);
+der `KanalFahrer` haelt ein ECHTES `Geteilt.Fach`, Node spielt die andere App
+(`TEILEN`, `LANGSAM`, `UHR`, `ANSTOSS`), und die Seite holt durch die echte
+Klasse ab (T0–T13). Eine Falle aus dem Bau: die Beispieldaten melden NICHT an —
+ihr Token hat keine drei Teile, `gsSecurityInit` raeumt ihn nach 500 ms ab,
+und nach ein paar Sekunden steht der Anmeldebildschirm; jede Abholung wartete
+dahinter (zu Recht). Ein Fall, der eine Anmeldung braucht, stellt sie mit
+einem Init-Skript NACH dem Seed her.
 
 **Seit v33.53 eine fuenfte Regel daraus: zwei Haelften in zwei Sprachen
 verbindet der Pruefstand mit der ECHTEN anderen Haelfte, nie mit einer

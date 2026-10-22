@@ -1,0 +1,471 @@
+package ch.greenscan.app;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * Die RECHNUNG hinter „Teilen → GreenScan" in der Huelle (v33.56) — ohne eine
+ * einzige Android-Abhaengigkeit, aus demselben Grund wie {@link Pfade} und
+ * {@link Export}: hier laeuft kein Android, und eine Regel, die man nicht
+ * AUSFUEHREN kann, hat man nicht geprueft (v33.41). `apk_check.js` uebersetzt
+ * diese Klasse und faehrt sie gegen echte Faelle; {@link MainActivity} und
+ * {@link AssetServer} sind nur der Rand darum.
+ *
+ * <p><b>Der Weg.</b> Eine andere App schickt ein Foto per {@code ACTION_SEND}.
+ * Die Huelle prueft die Quelle ({@link #quelleOk}), kopiert die Bytes mit
+ * Deckel ({@link #kopieren}) in EIN Fach im Arbeitsspeicher und stoesst die
+ * Seite an ({@link #rueckruf} — ein fester Text ohne Daten). Die Seite holt
+ * das Foto selbst ab: {@code GET /__huelle/geteilt/holen}, mit denselben
+ * Riegeln wie der Export-Kanal — und QUITTIERT es, wenn sie fertig ist
+ * ({@code GET /__huelle/geteilt/quittieren}). Zwei Schritte statt „einmal
+ * abholen": so laeuft in der Huelle DIESELBE Logik wie in der PWA (die
+ * Vorschau kommt wieder, wenn die App sie selbst schliesst; das Foto bleibt
+ * bis zum Ergebnis) — dort ist es der Cache-Eintrag, hier das Fach.
+ *
+ * <p>Es gibt keine Bruecke und keinen Lesezugriff auf Dateien: die Seite
+ * bekommt genau die Bytes, die die Person geteilt hat, und sonst nichts.
+ */
+public final class Geteilt {
+
+  private Geteilt() {}
+
+  /** Wurzel im Pfad — alles darunter beantwortet {@link #beantworte}. */
+  public static final String WURZEL = "/__huelle/geteilt/";
+  /** Wert der Kopfzeile {@link Export#KOPF} fuer diesen Weg — NICHT der des Export-Kanals. */
+  public static final String KOPF_WERT = "geteilt";
+  /** = GS_GETEILT_MAX in index.html, = GETEILT_MAX in sw.js. */
+  public static final long MAX_BYTES = 15L * 1024 * 1024;
+  /** Wie lange ein abgelegtes Foto abgeholt werden kann (= GS_GETEILT_FRISCH_MS). */
+  public static final long FRIST_MS = 10L * 60 * 1000;
+  /** Wie lange eine Kopie „kommt", bevor sie als gescheitert gilt (eine Quelle, die nie endet). */
+  public static final long KOMMT_MAX_MS = 60L * 1000;
+  /**
+   * Hoechstens so viele Kopien gleichzeitig. Ein Lesen, das nie zurueckkommt,
+   * laesst sich nicht abbrechen — ohne Deckel haeufte eine fremde App mit
+   * einer Quelle, die nie endet, Faeden und Speicher an.
+   */
+  public static final int KOPIEN_MAX = 2;
+
+  // ------------------------------------------------------------- Quelle
+
+  /**
+   * Darf die Huelle von dieser Adresse lesen? Nur {@code content://} mit einer
+   * Autoritaet, die nicht zur eigenen App gehoert.
+   *
+   * <p>{@code file://} NIE: eine fremde App koennte sonst
+   * {@code file:///data/data/ch.greenscan.app/…} schicken — die Huelle laese
+   * ihre EIGENEN privaten Dateien und zeigte sie als „Foto" (und schickte sie
+   * auf Antippen an die KI). Mit {@code content://} liest sie nur, was ein
+   * fremder Anbieter ausdruecklich herausgibt.
+   */
+  public static boolean quelleOk(String schema, String autoritaet, String eigenesPaket) {
+    if (schema == null || !"content".equals(schema.toLowerCase(Locale.ROOT))) return false;
+    if (autoritaet == null) return false;
+    String a = autoritaet.trim().toLowerCase(Locale.ROOT);
+    if (a.length() == 0 || a.indexOf('@') >= 0) return false;
+    if (eigenesPaket != null) {
+      String p = eigenesPaket.toLowerCase(Locale.ROOT);
+      if (a.equals(p) || a.startsWith(p + ".")) return false;
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------- Typ
+
+  /**
+   * Welches Bild ist das wirklich? Dieselbe Regel wie {@code _gsBildTyp} in
+   * index.html: der Typ, den die sendende App angibt, ist eine Angabe — die
+   * ersten Bytes sind die Datei. Rueckgabe: ein Bildtyp, {@code "heic"}
+   * (eigener Satz) oder {@code null}.
+   */
+  public static String typ(byte[] b, int n) {
+    if (b == null || n < 12 || b.length < 12) return null;
+    if ((b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) return "image/jpeg";
+    if ((b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G'
+        && b[4] == 0x0D && b[5] == 0x0A && b[6] == 0x1A && b[7] == 0x0A) return "image/png";
+    if (b[0] == 'G' && b[1] == 'I' && b[2] == 'F' && b[3] == '8') return "image/gif";
+    if (b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+        && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') return "image/webp";
+    if (b[4] == 'f' && b[5] == 't' && b[6] == 'y' && b[7] == 'p') {
+      String marke = new String(b, 8, 4, java.nio.charset.StandardCharsets.ISO_8859_1);
+      if (marke.matches("heic|heix|hevc|hevx|heim|heis|mif1|msf1")) return "heic";
+    }
+    return null;
+  }
+
+  // ------------------------------------------------------------- Kopie
+
+  /** Die Quelle ist groesser als {@link #MAX_BYTES}. */
+  public static final class ZuGross extends IOException {
+    public ZuGross() { super("zu gross"); }
+  }
+
+  /**
+   * Liest hoechstens {@code max} Bytes. Gezaehlt wird SELBST: Groesse und
+   * Typ, die ein Anbieter nennt, sind Angaben, keine Masse.
+   */
+  public static byte[] kopieren(InputStream in, long max) throws IOException {
+    if (in == null) throw new IOException("keine Quelle");
+    ByteArrayOutputStream out = new ByteArrayOutputStream(64 * 1024);
+    byte[] puffer = new byte[64 * 1024];
+    long gesamt = 0;
+    int r;
+    while ((r = in.read(puffer)) != -1) {
+      gesamt += r;
+      if (gesamt > max) throw new ZuGross();
+      out.write(puffer, 0, r);
+    }
+    return out.toByteArray();
+  }
+
+  // -------------------------------------------------------------- Fach
+
+  /**
+   * Die Zustaende des Fachs. Achtung auf die Namen: {@code LEER} heisst „nichts
+   * geteilt" und wird der Seite als Grund {@code nichts} gemeldet — der Grund
+   * {@code leer} heisst wie in der PWA „ein Teilen kam an, aber ohne Foto".
+   * Zwei Bedeutungen fuer ein Wort meldeten sonst bei JEDEM Start „kein Foto
+   * angekommen" (Entwurfspruefung v33.56).
+   */
+  public static final String LEER = "leer", KOMMT = "kommt", BEREIT = "bereit", FEHLER = "fehler";
+
+  /**
+   * EIN Platz fuer EIN geteiltes Foto, je Prozess. Ein neues Teilen ersetzt
+   * ein altes — jedes bekommt eine Nummer ({@link #kommt}), und eine Kopie,
+   * die zu spaet fertig wird, ueberschreibt kein neueres Foto.
+   *
+   * <p>Abgeholt wird in ZWEI Schritten: {@link #holen} liefert das Foto (oder den
+   * Grund) und verbraucht nichts, {@link #quittieren} leert das Fach — aber nur,
+   * wenn die Nummer passt. In der Huelle bleibt die Seite ueber mehrere Teilen
+   * hinweg geladen (anders als in der PWA, wo jedes Teilen eine Navigation
+   * ist): ohne Nummer raeumte das Ende eines Scans ein NEUERES Foto mit ab,
+   * das gerade erst angekommen ist. Die Uhr kommt als Parameter herein
+   * (monoton, vom Rand) — der Pruefstand stellt sie.
+   */
+  public static final class Fach {
+    private String zustand = LEER;
+    private String grund;
+    private byte[] daten;
+    private String typ;
+    private int anzahl;
+    private long seit;
+    private int nummer;
+    /**
+     * Die Nummern der Kopien, die gerade laufen. Ein Platz wird je Nummer
+     * GENAU EINMAL frei (ablegen ODER fehler) — ein nackter Zaehler senkte bei
+     * einer Ausnahme nach dem Senken ein zweites Mal und hebelte den Deckel aus.
+     */
+    private final java.util.HashSet<Integer> aktiv = new java.util.HashSet<Integer>();
+
+    /**
+     * Ein Teilen beginnt. Gibt die Nummer zurueck, unter der es abgelegt wird —
+     * oder 0, wenn schon {@link #KOPIEN_MAX} Kopien laufen (dann ist das Fach
+     * im Zustand {@code fehler}/{@code beschaeftigt}, und es wird nichts gelesen).
+     * Zu JEDEM {@code kommt} mit Nummer gehoert genau ein {@link #ablegen} oder
+     * {@link #fehler} — der Rand ruft es im {@code finally}.
+     */
+    public synchronized int kommt(long jetzt) {
+      if (aktiv.size() >= KOPIEN_MAX) {
+        nummer++;
+        fehlerIntern("beschaeftigt", jetzt);
+        return 0;
+      }
+      nummer++;
+      aktiv.add(nummer);
+      zustand = KOMMT; grund = null; daten = null; typ = null; anzahl = 0; seit = jetzt;
+      return nummer;
+    }
+
+    /** Wie viele Kopien gerade laufen (fuer den Pruefstand). */
+    public synchronized int laufend() { return aktiv.size(); }
+
+    /**
+     * Legt die Bytes ab — nur, wenn {@code n} noch das neueste Teilen ist UND
+     * seine Frist nicht vorbei ist. Eine Kopie, die nach {@link #KOMMT_MAX_MS}
+     * fertig wird, kommt zu spaet: die Seite hat dann schon „nicht angekommen"
+     * gesagt, und eine Vorschau Minuten spaeter waere eine zweite Antwort.
+     */
+    public synchronized boolean ablegen(int n, byte[] d, int wieviele, long jetzt) {
+      aktiv.remove(n);
+      ablaufen(jetzt);
+      if (n != nummer || !KOMMT.equals(zustand)) return false;
+      String t = d == null ? null : typ(d, d.length);
+      if ("heic".equals(t)) return fehlerIntern("heic", jetzt);
+      if (t == null) return fehlerIntern("kein_bild", jetzt);
+      zustand = BEREIT; daten = d; typ = t; anzahl = Math.max(1, wieviele); seit = jetzt;
+      return true;
+    }
+
+    /** Das Teilen {@code n} ist gescheitert ({@code gross} · {@code quelle} · {@code fehler}). */
+    public synchronized boolean fehler(int n, String g, long jetzt) {
+      aktiv.remove(n);
+      ablaufen(jetzt);
+      if (n != nummer || !KOMMT.equals(zustand)) return false;
+      return fehlerIntern(g, jetzt);
+    }
+
+    private boolean fehlerIntern(String g, long jetzt) {
+      zustand = FEHLER; grund = grundOk(g) ? g : "fehler"; daten = null; typ = null; anzahl = 0; seit = jetzt;
+      return true;
+    }
+
+    public synchronized String zustand(long jetzt) { ablaufen(jetzt); return zustand; }
+
+    /**
+     * Abholen, OHNE zu verbrauchen: BEREIT liefert die Bytes (und die Frist
+     * beginnt neu — gezeigt heisst frisch), FEHLER den Grund. Erst
+     * {@link #quittieren} leert das Fach.
+     */
+    public synchronized Antwort holen(long jetzt) {
+      ablaufen(jetzt);
+      if (BEREIT.equals(zustand)) {
+        seit = jetzt;
+        return new Antwort(200, true, null, daten, typ, anzahl, nummer);
+      }
+      if (FEHLER.equals(zustand)) return new Antwort(200, false, grund, null, null, 0, nummer);
+      // Auch „kommt" traegt die Nummer: die Seite zaehlt ihre Versuche JE Teilen,
+      // sonst liefe ihr Zaehler ueber ein zweites Teilen hinweg weiter.
+      if (KOMMT.equals(zustand)) return new Antwort(200, false, KOMMT, null, null, 0, nummer);
+      return nein("nichts");
+    }
+
+    /**
+     * Die Seite ist fertig (bestimmt, verworfen, Grund gesagt): das Fach wird
+     * leer — wenn {@code n} das Foto ist, das sie gezeigt hat. Ein neueres
+     * bleibt liegen. {@code n <= 0} raeumt ALLES, auch eine laufende Kopie
+     * (Abmelden: was noch ankommt, gehoert nicht der naechsten Person).
+     */
+    public synchronized Antwort quittieren(long jetzt, int n) {
+      ablaufen(jetzt);
+      if (n <= 0) {
+        if (KOMMT.equals(zustand)) nummer++;            // die laufende Kopie legt nichts mehr ab
+        zustand = LEER; grund = null; daten = null; typ = null; anzahl = 0;
+      } else if (n == nummer && (BEREIT.equals(zustand) || FEHLER.equals(zustand))) {
+        zustand = LEER; grund = null; daten = null; typ = null; anzahl = 0;
+      }
+      return new Antwort(200, true, null, null, null, 0, 0);
+    }
+
+    /** Die Nummer des neuesten Teilens (fuer den Pruefstand). */
+    public synchronized int nummer() { return nummer; }
+
+    /**
+     * Fristen. Wer in {@code fehler} wechselt, bekommt eine NEUE Frist ({@code
+     * seit = jetzt}) — sonst laege der Grund schon beim Entstehen hinter seiner
+     * eigenen Frist, und „nicht mehr da" verschwaende beim naechsten Nachsehen,
+     * bevor die Seite es sagen konnte.
+     */
+    private void ablaufen(long jetzt) {
+      long alter = jetzt - seit;
+      if (BEREIT.equals(zustand) && (alter < 0 || alter > FRIST_MS)) { zustand = FEHLER; grund = "weg"; daten = null; typ = null; seit = jetzt; }
+      else if (KOMMT.equals(zustand) && (alter < 0 || alter > KOMMT_MAX_MS)) { zustand = FEHLER; grund = "fehler"; seit = jetzt; }
+      else if (FEHLER.equals(zustand) && (alter < 0 || alter > FRIST_MS)) { zustand = LEER; grund = null; }
+    }
+  }
+
+  /** Die Gruende, die die Seite kennt — eine geschlossene Liste. */
+  static boolean grundOk(String g) {
+    return g != null && g.matches("nichts|leer|kommt|gross|kein_bild|heic|quelle|beschaeftigt|fehler|weg|methode|herkunft|pfad");
+  }
+
+  // ----------------------------------------------------------- Antwort
+
+  /** Antwort auf {@code holen}: entweder die Bytes oder ein Grund. */
+  public static final class Antwort {
+    public final int status;
+    public final boolean ok;
+    public final String grund;
+    public final byte[] daten;
+    public final String typ;
+    public final int anzahl;
+    /** Welches Teilen das ist — die Seite gibt sie beim Quittieren zurueck (0: keines). */
+    public final int nummer;
+    Antwort(int status, boolean ok, String grund, byte[] daten, String typ, int anzahl, int nummer) {
+      this.status = status; this.ok = ok; this.grund = grund; this.daten = daten; this.typ = typ; this.anzahl = anzahl;
+      this.nummer = nummer;
+    }
+    /** Traegt die Antwort das Foto (sonst einen Grund als JSON)? */
+    public boolean foto() { return daten != null && typ != null; }
+
+    /** Der Inhaltstyp: das Foto mit dem GEMESSENEN Typ, sonst JSON. */
+    public String mime() { return foto() ? typ : "application/json"; }
+
+    /**
+     * Die Kopfzeilen der Antwort — EINE Stelle fuer den Rand (AssetServer) und
+     * den Pruefstand (KanalFahrer). Baute jeder seine eigenen, pruefte der
+     * Pruefstand eine Nachbildung: eine falsche X-Nummer im Rand liesse jedes
+     * zweite Teilen nie leer werden, und kein Fall saehe es (Pruefung v33.56).
+     */
+    public Map<String, String> kopfzeilen() {
+      Map<String, String> k = new java.util.LinkedHashMap<String, String>();
+      k.put("Cache-Control", "no-store");
+      k.put("X-Content-Type-Options", "nosniff");
+      if (foto()) {
+        k.put("X-Anzahl", String.valueOf(anzahl));
+        k.put("X-Nummer", String.valueOf(nummer));
+      }
+      return k;
+    }
+
+    public String json() {
+      String n = nummer > 0 ? ",\"n\":" + nummer : "";
+      return ok ? "{\"huelle\":1,\"ok\":true}" : "{\"huelle\":1,\"ok\":false,\"grund\":\"" + (grundOk(grund) ? grund : "fehler") + "\"" + n + "}";
+    }
+  }
+
+  static Antwort nein(String g) { return new Antwort(200, false, g, null, null, 0, 0); }
+  static Antwort http(int status, String g) { return new Antwort(status, false, g, null, null, 0, 0); }
+
+  /**
+   * Die Nummer aus {@code n=<ziffern>} — sonst 0. Nur Ziffern, hoechstens neun:
+   * eine Angabe aus der Seite wird gelesen, nicht geglaubt.
+   */
+  static int nummerAus(String query) {
+    if (query == null) return 0;
+    for (String teil : query.split("&")) {
+      if (teil.startsWith("n=")) {
+        String z = teil.substring(2);
+        if (z.matches("[0-9]{1,9}")) return Integer.parseInt(z);
+        return -1;                                       // da, aber keine Nummer → nichts raeumen
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * Beantwortet eine Anfrage an {@link #WURZEL}. Wirft NIE — eine Ausnahme auf
+   * dem Faden von {@code shouldInterceptRequest} beendete die ganze App.
+   *
+   * <p>Dieselben Riegel wie der Export-Kanal ({@link Export#beantworte}): nur
+   * {@code GET}, nie der Hauptrahmen, die Kopfzeile {@code X-GS-Huelle} mit
+   * GENAU dem Wert {@link #KOPF_WERT} (der Wert des Export-Kanals gilt hier
+   * nicht), {@code Origin}/{@code Referer} nur vom eigenen Ursprung.
+   */
+  public static Antwort beantworte(Fach f, String methode, boolean hauptRahmen, String pfad, String query,
+                                   Map<String, String> kopf, long jetzt) {
+    try {
+      if (f == null) return nein("fehler");
+      if (pfad == null || !pfad.startsWith(WURZEL)) return http(404, "pfad");
+      if (!"GET".equalsIgnoreCase(methode)) return http(405, "methode");
+      if (hauptRahmen) return http(403, "herkunft");
+      if (!Export.kopfOk(kopf, KOPF_WERT)) return http(403, "herkunft");
+      String schritt = pfad.substring(WURZEL.length());
+      if ("holen".equals(schritt)) return f.holen(jetzt);
+      if ("quittieren".equals(schritt)) {
+        int n = nummerAus(query);
+        if (n < 0) return nein("fehler");                // eine kaputte Nummer raeumt nie ALLES
+        return f.quittieren(jetzt, n);
+      }
+      return http(404, "pfad");
+    } catch (Throwable t) {
+      return nein("fehler");
+    }
+  }
+
+  // ---------------------------------------------------------- Abfolge
+
+  /** Oeffnet die geteilte Adresse — der Rand reicht ContentResolver herein, der Pruefstand eine Attrappe. */
+  public interface Oeffner { InputStream oeffnen() throws Exception; }
+
+  /**
+   * Soll die Huelle diese Absicht annehmen? NUR {@code SEND}/{@code SEND_MULTIPLE},
+   * nie eine wiederhergestellte Activity ({@code zustand != null}) und nie ein
+   * Start aus der Liste der letzten Apps — Android liefert dort die ALTE
+   * Absicht noch einmal ({@code FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY}), und
+   * dasselbe Foto kaeme jedes Mal wieder.
+   */
+  public static boolean sollAnnehmen(boolean wiederhergestellt, int flags, String aktion, int flagAusDerListe) {
+    if (wiederhergestellt) return false;
+    if ((flags & flagAusDerListe) != 0) return false;
+    return "android.intent.action.SEND".equals(aktion) || "android.intent.action.SEND_MULTIPLE".equals(aktion);
+  }
+
+  /**
+   * Die ganze Annahme eines geteilten Fotos — EINE Stelle, vom Rand auf einem
+   * Hintergrund-Faden gerufen und vom Pruefstand mit Attrappen gefahren.
+   * Wirft NIE und laesst das Fach nie in {@code kommt}: jede Ausnahme (auch
+   * {@code SecurityException} eines Anbieters ohne Leserecht, ein
+   * {@code OutOfMemoryError}) endet in {@link Fach#fehler}.
+   *
+   * <p>Die Nummer {@code n} hat der Rand VORHER vergeben ({@link Fach#kommt}),
+   * auf dem UI-Faden, in der Reihenfolge der Absichten. Vergaebe sie dieser
+   * Faden, entschiede die Reihenfolge der Faeden, welches Foto als „neuer"
+   * gilt — zwei schnell geteilte Fotos koennten vertauscht ankommen.
+   *
+   * <p>Und ein Strom, der nicht endet, wird nach {@code wachMs} GESCHLOSSEN
+   * (Android weckt dabei den blockierten Lesevorgang,
+   * {@code IoBridge.closeAndSignalBlockedThreads}): sonst belegte ein
+   * haengender Anbieter einen der {@link #KOPIEN_MAX} Plaetze bis zum Ende
+   * des Prozesses, und nach zweien waere jedes weitere Teilen „beschaeftigt".
+   *
+   * @param uri    {@code false}, wenn das Teilen gar keine Adresse trug (→ {@code leer})
+   * @return der Zustand des Fachs danach
+   */
+  public static String annehmen(final Fach f, final int n, String schema, String autoritaet, boolean uri, String eigenesPaket,
+                                int anzahl, Oeffner o, Uhr uhr, long wachMs) {
+    if (f == null) return FEHLER;
+    if (n <= 0) return f.zustand(uhr.jetzt());              // kein Platz vergeben (KOPIEN_MAX)
+    InputStream in = null;
+    final boolean[] fertig = { false };
+    try {
+      if (!uri) { f.fehler(n, "leer", uhr.jetzt()); return f.zustand(uhr.jetzt()); }
+      if (!quelleOk(schema, autoritaet, eigenesPaket)) { f.fehler(n, "quelle", uhr.jetzt()); return f.zustand(uhr.jetzt()); }
+      in = o.oeffnen();
+      if (in != null && wachMs > 0) {
+        final InputStream strom = in;
+        final long frist = wachMs;
+        Thread waechter = new Thread(new Runnable() {
+          @Override public void run() {
+            try { Thread.sleep(frist); } catch (InterruptedException e) { return; }
+            synchronized (fertig) { if (fertig[0]) return; }
+            try { strom.close(); } catch (Throwable ignored) {}
+          }
+        }, "gs-geteilt-waechter");
+        waechter.setDaemon(true);
+        waechter.start();
+      }
+      byte[] d = kopieren(in, MAX_BYTES);
+      f.ablegen(n, d, anzahl, uhr.jetzt());
+    } catch (ZuGross e) {
+      f.fehler(n, "gross", uhr.jetzt());
+    } catch (Throwable t) {
+      f.fehler(n, "fehler", uhr.jetzt());
+    } finally {
+      synchronized (fertig) { fertig[0] = true; }
+      if (in != null) try { in.close(); } catch (Throwable ignored) {}
+    }
+    return f.zustand(uhr.jetzt());
+  }
+
+  /** Wie {@link #annehmen(Fach, int, String, String, boolean, String, int, Oeffner, Uhr, long)} mit dem Waechter nach {@link #KOMMT_MAX_MS}. */
+  public static String annehmen(Fach f, int n, String schema, String autoritaet, boolean uri, String eigenesPaket,
+                                int anzahl, Oeffner o, Uhr uhr) {
+    return annehmen(f, n, schema, autoritaet, uri, eigenesPaket, anzahl, o, uhr, KOMMT_MAX_MS);
+  }
+
+  /**
+   * Das Teilen liess sich gar nicht erst auspacken (Extras aus fremder Hand
+   * werfen beim Entpacken, z. B. {@code BadParcelableException}). Auch das ist
+   * ein Teilen, das die Seite erfahren soll — als {@code fehler}, nie als Stille.
+   */
+  public static String annehmenGescheitert(Fach f, Uhr uhr) {
+    if (f == null) return FEHLER;
+    int n = f.kommt(uhr.jetzt());
+    if (n != 0) f.fehler(n, "fehler", uhr.jetzt());
+    return f.zustand(uhr.jetzt());
+  }
+
+  /** Die Uhr — monoton im Rand ({@code SystemClock.elapsedRealtime}), gestellt im Pruefstand. */
+  public interface Uhr { long jetzt(); }
+
+  /**
+   * Der Anstoss an die Seite. Ein FESTER Text ohne Daten — was die Seite
+   * braucht, holt sie sich selbst ueber {@link #beantworte}.
+   */
+  public static String rueckruf() {
+    return "window.gsHuelleGeteilt && window.gsHuelleGeteilt();";
+  }
+}

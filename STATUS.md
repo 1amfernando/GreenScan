@@ -4,13 +4,123 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-10-20 · **Branch**: `main` · **Version**: `v33.55` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-10-22 · **Branch**: `main` · **Version**: `v33.56` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-10-22 (ja) - v33.56: Teilen → GreenScan auch in der Android-App
+
+Die zweite Hälfte von v33.55: die APK steht jetzt im Teilen-Menü und nimmt
+Fotos an (`ACTION_SEND` / `SEND_MULTIPLE`, dieselben vier Typen wie
+`share_target`). Ohne JavaScript-Brücke, nach der Bauform des Export-Kanals
+(v33.53).
+
+**Gemessen (am Quelltext):** die Hülle hatte keinen Intent-Filter für
+`SEND`, stand im Teilen-Menü also gar nicht; `GS_HUELLE_ANDERS 'teilen'` sagte
+das, und `gsTeilenAbholen` stieg in der Hülle sofort aus.
+
+**Gebaut:**
+
+- **`Geteilt.java`** (keine Android-Abhängigkeit, wie `Pfade`/`Export`):
+  Quelle (`content://`, nie die eigene App, nie `file://`), Typ an den Bytes,
+  Kopie mit Deckel 15 MiB, EIN Fach mit Nummern und Fristen (`KOMMT_MAX_MS`
+  60 s, `FRIST_MS` 10 min, monotone Uhr), höchstens zwei Kopien, die Weiche
+  (`/__huelle/geteilt/holen|quittieren`, Kopfzeile `X-GS-Huelle: geteilt` — ein
+  eigener Wert), die ganze Annahme (`annehmen`, wirft nie) mit Wächter, der
+  einen Strom schliesst, der nicht endet.
+- **Rand:** Intent-Filter im Manifest; `MainActivity` vergibt die Nummer auf
+  dem UI-Faden, stösst die Seite beim START und am Ende der Kopie an
+  (`Geteilt.rueckruf()`, ein fester Text), liest auf einem eigenen Faden
+  über `ContentResolver`; `AssetServer` antwortet mit Typ und Kopfzeilen aus
+  `Geteilt.Antwort` (dieselben, die der Prüfstand liefert).
+- **Seite:** `_gsTeilenEintrag`/`_gsTeilenLoeschen` sprechen in der Hülle mit
+  dem Fach statt mit dem Cache — derselbe Ablauf wie in der PWA (Vorschau,
+  Wiederkehr, Foto bis zum Ergebnis). Eigenes in der Hülle: Nummern
+  (`data-nummer`, `quittieren?n=`), Nachfragen bei „kommt" je Nummer, ein
+  Durchgang zur Zeit, kein zweites Angebot während des eigenen Scans.
+- **Für beide:** „Bestimmen" ohne Fokus und erst nach 700 ms
+  (`GS_TEILEN_ANTIPP_MS`); Bilder mit mehr als 200 Megapixeln werden am Kopf
+  abgelehnt (`_gsBildMasse`, `GS_GETEILT_PIXEL_MAX`); hinter dem
+  Anmeldebildschirm wartet die Abholung nur, wenn etwas wartet.
+- `GS_HUELLE_ANDERS 'teilen'` heisst jetzt „Ein geteiltes Foto wartet nur,
+  solange die App läuft" (das Fach lebt im Prozess).
+
+**Gegnerische Prüfung (vier Blickwinkel, ein Gegenprüfer je Fund):** acht
+Funde bestätigt, zwei als Entwurfsentscheid widerlegt (beide trotzdem
+gehärtet bzw. teilweise übernommen — die Begründung der zweiten hat meinen
+Entwurf korrigiert: ein Warten, das nach zehn Minuten endet, hätte den Satz
+„nicht mehr da" nach einer späten Anmeldung verschluckt), fünf ungeprüft (die
+Gegenprüfer fielen am Nutzungslimit aus) — vier davon Prüfstands-Lücken,
+selbst nachgeprüft und geschlossen, einer (Overlay-Apps) bewusst nicht
+behoben. Behoben:
+
+- `kommt` trug keine Nummer, und beim Aufgeben quittierte die Seite ohne
+  Nummer — das leerte das Fach samt einer neueren, laufenden Kopie.
+- Der Anstoss kam erst nach der Kopie: eine hängende Kopie blieb in einer
+  laufenden App still.
+- Die Nummer vergab der Hintergrund-Faden (die Reihenfolge der Fäden statt
+  der Absichten entschied, welches Foto „neuer" war); ein Platz konnte zweimal
+  frei werden; eine späte Kopie wurde ohne Nachfrage noch angenommen.
+- Ein Anstoss bot das Foto während seines eigenen Scans noch einmal an.
+- **GIF-Bombe** (Chromium nimmt den ersten Bildrahmen, nicht den logischen
+  Bildschirm) und **JPEG-Bombe** (ein Fremdbyte vor dem SOF; libjpeg
+  überspringt es) — beide von den Gegenprüfern im Chromium dieses Repos
+  nachgestellt.
+- Prüfstands-Lücken: `AssetServer.geteilt()` lief nie (der Prüfstand baute die
+  Kopfzeilen selbst), R18 sah nicht, ob `geteiltAnnehmen` überhaupt gerufen
+  wird, der „Kanal antwortet nicht"-Zweig lief nie, Fall 40 band die Dauer
+  nicht (und sein `dispatchEvent('keydown')` hätte nie etwas ausgelöst).
+
+**Prüfstände:**
+
+- **`apk_check` 87 → 94 Fälle:** G1–G9 (`scripts/apk/GeteiltFahrer.java`,
+  gestellte Uhr, Attrappen-Quellen, 8 Fäden, 3000 Unsinns-Anfragen, Wächter
+  gegen einen Strom, der nie endet), R15 (drei `evaluateJavascript`), R17 (die
+  Naht), R18 (der Rand), B5 (die Filter im GEBAUTEN Paket, `aapt dump
+  xmltree`), R8 rückwärts (keine Kennung ohne Eintrag), T0–T13 gegen ein
+  echtes `Geteilt.Fach` im `KanalFahrer` (`TEILEN`, `LANGSAM`, `UHR`,
+  `ZUSTAND`, `ANSTOSS`, `LOS`).
+- **`offline_check` 39 → 41 Fälle:** Antipp-Sperre (in der Seite gemessen:
+  frei nach 700 ms, ein echtes Enter und ein Tipp davor lösen nichts aus),
+  Bildpunkt-Deckel mit 14 Köpfen (echte JPEG/PNG/WebP des Browsers, GIF mit
+  Rahmen, VP8L/VP8X/VP8, JPEG mit Fremdbyte) und einer 40'000×40'000-Bombe;
+  Fall 38 prüft dazu, dass abgemeldet ohne Foto kein Zeitgeber läuft. Und
+  eine **Gesamtfrist** (25 min): in einem Suite-Lauf hing `offline_check`
+  einmal 27 min ohne Rechenzeit, allein und in zwei weiteren vollen Läufen
+  nicht nachstellbar. Statt die Suite still anzuhalten, meldet er jetzt, nach
+  welchem Fall er stand, und endet rot. Die Ursache ist NICHT gefunden.
+- **Volle Suite zweimal nach dem Bump:** 39 Prüfstände, rot 0, nicht prüfbar
+  0, Prüfsumme davor und danach gleich (`apk_check` 94/0, `offline_check` 41/0).
+- **Gegenproben: 50 Brüche, jeder rot mit dem erwarteten Fall** — 41 gegen
+  `apk_check` (Rechnung, Rand, Seite; je Bruch eine Kopie des Repos, der Bau
+  ausgelassen) und 9 gegen `offline_check` (Antipp-Sperre, Bildpunkt-Köpfe,
+  Warten). Zwei der PWA-Brüche (Sperre weg, Deckel weg) endeten zusätzlich an
+  der Zeitgrenze des Laufs — rot hatten sie da schon gemeldet. Die erste Runde
+  vor der gegnerischen Prüfung (28 Brüche) war ebenfalls ganz rot; einer davon
+  (`file://` erlaubt) machte T6 erst rot, nachdem der Fall eine Autorität mitgab
+  (`file://localhost/…`) — sonst hielt schon „keine Autorität".
+
+**Zwei Fallen aus dem Bau, beide allgemein:**
+
+- **Die Beispieldaten melden nicht an.** `_seed.js` setzt einen Token ohne
+  drei Teile; `gsSecurityInit` räumt ihn 500 ms nach dem Start ab, nach ein
+  paar Sekunden steht der Anmeldebildschirm. Fünf Teilen-Fälle massen die
+  (richtige) Wartesperre statt des Teilens. Der Fall stellt die Anmeldung
+  jetzt selbst her; ob andere Prüfstände unter dem Anmeldebildschirm messen,
+  ist als eigene Aufgabe vorgeschlagen (Sektion 2).
+- **Eine Warteschleife, die Objekte mit einer Regex prüft, wartet bis zur
+  Frist.** `__meldungen` hält `{fn, t, typ}`; mein Fall testete das Objekt und
+  wartete jedes Mal 60 s — gemessen wurde es erst mit Zeitstempeln je Anfrage
+  (alle 41 Anfragen der Seite in einer halben Sekunde, danach 60 s Stille).
+
+**Nicht geprüft, ehrlich:** hier läuft kein Android. Wie ein Telefon das
+Teilen-Menü zeigt, ob eine Galerie `ClipData` oder nur `EXTRA_STREAM`
+schickt, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem
+Gerät wirklich weckt — das zeigt erst ein Gerät (`docs/FUER-FERNANDO.md` §28).
 
 ### 2026-10-20 (iz) - v33.55: Ein Foto teilen — GreenScan zeigt es und bestimmt es auf Antippen
 
@@ -15094,7 +15204,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 20.10.2026** (davor am 09.10.). Er stand am 02.09. auf
+> **Nachgemessen am 22.10.2026** (davor am 20.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -15103,9 +15213,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.55` (Client) · SW-Cache `gs-v33.55` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.56` (Client) · SW-Cache `gs-v33.56` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **96'395 Zeilen / 5,9 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **583 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
+- **Frontend:** `index.html` **96'660 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **583 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 39** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -15116,6 +15226,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
 | **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
 | **APK auf einem Telefon ansehen: Export und Drucken** (v33.53) | Hier läuft kein Android. `apk_check` fährt Rechnung, Rand und Seite gegen einen echten Java-Sammler — ob ein Telefon „Speichern unter“ und den Druckdialog so zeigt, sagt erst ein Gerät (Android 6, 10, 14). Am Backend nichts zu tun, nur eine neue APK. | `docs/FUER-FERNANDO.md` §26 · (ix) |
 | **Neun Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `key-health-check`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `ai-proxy`, `garden-scan-analyze`, `plan-iterate`) | Audit A10/B2: konstantzeitiger Schlüsselvergleich über `_shared/auth_vergleich.mjs`, Triage nur Admins, CORS eng, 110-s-Abbruch. Im Repo, nicht ausgeliefert. | `docs/FUER-FERNANDO.md` §9 · (fl) |
@@ -15163,7 +15274,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
-| **Fotos an die Android-App teilen** (`ACTION_SEND`) | Die PWA nimmt seit v33.55 Fotos aus dem Teilen-Menü an; die Hülle liest das Manifest nicht und hat keinen Intent-Filter — sie steht dort gar nicht. Gesagt als `GS_HUELLE_ANDERS 'teilen'`. Entwurf liegt vor (reines `Geteilt.java` wie `Export.java`, Abholung per `GET /__huelle/geteilt/holen`, dasselbe `gsScanDatei`). Nächste Scheibe, v33.56. | (iz) |
+| **Overlay-Apps über der Teilen-Vorschau** | Gegen eine App mit Overlay-Recht (`SYSTEM_ALERT_WINDOW`) hilft die Antipp-Sperre von 0,7 s nicht. `setFilterTouchesWhenObscured` würde jede App mit Bildschirmfilter (Blaulicht, Dimmer) GreenScan ganz unbedienbar machen — bewusst nicht gesetzt; der Schaden wäre ein Scan auf das eigene Kontingent. Ein gezielter Schutz bräuchte einen Weg von der Seite zur Hülle nur für die Dauer der Vorschau. | (ja) |
+| **Beispieldaten melden nicht an** | `_seed.js` setzt einen Token ohne drei Teile; `gsSecurityInit` räumt ihn 500 ms nach dem Start ab, und nach ein paar Sekunden steht der Anmeldebildschirm (gemessen 21.10.2026). Ob Prüfstände dahinter messen (render/contrast/touch/a11y), ist nicht nachgeprüft; als eigene Aufgabe vorgeschlagen. `apk_check` T0–T13 stellen die Anmeldung selbst her. | (ja) |
+| **Ein geteiltes Foto in der APK überlebt den Prozess nicht** | Das Fach liegt im Arbeitsspeicher; beendet Android die App vor dem Bestimmen, ist das Foto weg und die App sagt beim nächsten Start nichts. Steht als `GS_HUELLE_ANDERS 'teilen'` auf dem Bildschirm. Eine Ablage in `getCacheDir()` wäre die Abhilfe, wenn es auf Telefonen auffällt. | (ja) |
 | **Teilen und Zwischenablage in der Hülle** | Vier Teilen-Wege (`gsAchShare`, `gsShareSpecies`, `gsShareApp`, `_gsShare`) fallen in einer WebView auf die Zwischenablage zurück; zwei Meldungen „kopiert" kommen vor dem `writeText`-Ergebnis. Ein Kanal-Ziel „teilen" (ACTION_SEND, Text) wäre die Antwort. | (ix) |
 | **Foto-Ansicht per `window.open(this.src)` in der Hülle** | Tagebuch- und Rezeptfotos öffnen den Browser des Telefons (die App wird verlassen); ein `blob:`/`data:`-Foto ergibt „kein Ziel". Gehört in eine Ansicht in der App. | (ix) |
 | **Kein SPA-Rückfall im Paket** | `_redirects` liefert im Web für jede unbekannte Adresse `index.html`; der AssetServer der Hülle antwortet 404. Ein relativer Link ohne `screen=` (Benachrichtigungen) endet in der App leer. | (ix) |

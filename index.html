@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.55.20261020">
+<meta name="app-version" content="33.56.20261022">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32587,9 +32587,9 @@ async function handleUpload(e){
 }
 
 // v33.55: EIN Weg von einer Bilddatei zum Scan — die Galerie (handleUpload)
-// und das Teilen-Ziel der PWA (gsTeilenAbholen) gehen beide hier durch; das
-// Teilen in der Android-App gibt es noch nicht (GS_HUELLE_ANDERS 'teilen') und
-// soll denselben Weg nehmen. Ein zweiter Weg haette die EXIF-Lesung oder die Verkleinerung
+// und das Teilen (gsTeilenAbholen: in der PWA aus dem Cache, seit v33.56 in
+// der Android-App aus dem Fach der Huelle) gehen alle hier durch. Ein zweiter
+// Weg haette die EXIF-Lesung oder die Verkleinerung
 // vergessen (v33.48: ein zweiter Weg, der nicht tut, was der erste tut, ist
 // ein zweiter Zustand).
 async function gsScanDatei(file){
@@ -76230,6 +76230,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.56', date: '22.10.2026',
+      headline: 'Teilen → GreenScan auch in der Android-App',
+      summary: 'Bis v33.55 stand die Android-App nicht im Teilen-Menü: die Hülle liest das Manifest der Web-App nicht und hatte keinen ACTION_SEND-Filter. Jetzt nimmt sie Fotos an (dieselben vier Typen wie die Web-App), kopiert sie in ein Fach im Arbeitsspeicher und stösst die Seite an; die Seite holt das Foto selbst ab und zeigt dieselbe Vorschau wie im Browser — bestimmt wird erst nach dem Antippen. Ohne JavaScript-Brücke: zwei Adressen unter dem eigenen Ursprung (holen, quittieren), mit eigenem Kopfzeilen-Wert. Neu für beide: „Bestimmen“ nimmt erst nach 0,7 Sekunden an, und ein Bild mit mehr als 200 Megapixeln wird am Dateikopf abgelehnt. Eine gegnerische Prüfung fand zwölf Lücken — acht von unabhängigen Gegenprüfern bestätigt (Reihenfolge zweier Teilen, eine hängende Kopie, GIF- und JPEG-Bomben …), vier Prüfstands-Lücken von mir nachgeprüft, weil ihre Gegenprüfer am Nutzungslimit ausfielen. Alle vor dem Ausliefern geschlossen.',
+      user_summary: 'In der Android-App steht GreenScan jetzt im Teilen-Menü der Galerie: ein Foto erscheint als Vorschau und wird bestimmt, wenn du tippst — wie in der Browser-App. Damit kein Tipp aus Versehen einen Scan auslöst, nimmt „Dieses Foto bestimmen“ erst nach einem kurzen Moment an.',
+      user_items: [
+        {emoji:'📤', bold:'Teilen → GreenScan in der App:', text:' ein Foto aus der Galerie oder einer anderen App kommt als Vorschau an; bestimmt wird erst, wenn du tippst.'},
+        {emoji:'⏳', bold:'Kein Tipp aus Versehen:', text:' „Dieses Foto bestimmen“ nimmt erst nach einem kurzen Moment an und ist nicht vorausgewählt.'},
+        {emoji:'🛡️', bold:'Keine Riesenbilder:', text:' ein Bild mit mehr als 200 Megapixeln wird abgelehnt, bevor die App es öffnet — so stürzt sie nicht ab.'},
+        {emoji:'💬', bold:'Ehrliche Sätze:', text:' kommt ein Foto nicht an, ist es zu gross, im HEIC-Format oder nicht mehr da, sagt die App genau das.'},
+        {emoji:'📱', bold:'Ein Unterschied bleibt:', text:' in der App wartet ein geteiltes Foto nur, solange die App läuft — beendet Android sie vorher, einfach noch einmal teilen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' die Hülle hatte keinen ACTION_SEND-Filter und stand im Teilen-Menü gar nicht; GS_HUELLE_ANDERS sagte das als „teilen“.'},
+        {emoji:'🧮', bold:'Die Rechnung in Geteilt.java:', text:' Quelle (nur content://, nie die eigene App), Typ an den Bytes, Kopie mit Deckel 15 MiB, EIN Fach mit Nummern und Fristen, die Weiche mit eigenem Kopfzeilen-Wert, die ganze Annahme — ohne Android, im Prüfstand übersetzt und ausgeführt (G1–G9).'},
+        {emoji:'🔁', bold:'Zwei Schritte:', text:' GET /__huelle/geteilt/holen liefert das Foto und verbraucht nichts, quittieren?n= leert nur das gezeigte Foto — in der Hülle bleibt die Seite über mehrere Teilen geladen, ohne Nummer räumte das Ende eines Scans ein neueres Foto mit ab.'},
+        {emoji:'🔍', bold:'Gegnerische Prüfung, zwölf Funde:', text:' die Nummer vergibt jetzt der UI-Faden (Reihenfolge der Absichten), die Seite wird beim Start der Kopie angestossen, ein hängender Strom wird nach 60 s geschlossen, „kommt“ trägt die Nummer, ein Platz wird je Nummer einmal frei; GIF liest den ersten Bildrahmen, JPEG überspringt Fremdbytes wie libjpeg.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' apk_check G1–G9, R17 (Naht), R18 (Rand), B5 (Filter im gebauten Paket), R8 auch rückwärts, T0–T13 gegen ein echtes Fach im KanalFahrer; offline_check 39 → 41 (Antipp-Sperre in der Seite gemessen, Kopf-Bomben). 50 Brüche als Gegenprobe, jeder rot.'},
+        {emoji:'🧭', bold:'Bewusst nicht:', text:' setFilterTouchesWhenObscured — es schützte vor einer App mit Overlay-Recht, machte GreenScan aber für jede App mit Bildschirmfilter unbedienbar. Steht in android/README.md.'}
+      ]
+  },
+  {
     v: 'v33.55', date: '20.10.2026',
       headline: 'Ein Foto teilen — GreenScan zeigt es und bestimmt es auf Antippen',
       summary: 'Bis v33.54 nahm das Teilen-Ziel der installierten App nur Text und Links an (GET, keine Dateien); Android bot GreenScan für ein Foto gar nicht an, und wer einen Link teilte, las „Bild geteilt“, obwohl nie ein Bild ankam. Jetzt: POST /teilen mit dem Foto, der Service Worker legt es ab und leitet um, die App zeigt eine Vorschau und bestimmt erst nach dem Antippen — mit denselben Schritten wie die Galerie. Eine gegnerische Prüfung des Entwurfs und eine des fertigen Diffs haben sieben Lücken gezeigt, die vor dem Ausliefern geschlossen sind (Update beim Start, die App schliesst die Vorschau selbst, Anmeldebildschirm, fremde Seiten, kein Empfang, Kamera-Marke, Frist).',
@@ -76555,25 +76576,6 @@ window.GS_RELEASES = [
       'Prüfstände: kalender_check 44 (4 neu, alle vier rot gegen v33.36). Gegenproben: Scan-Zeit aus einem Feld statt dem Leser, _gsFundZeit ohne `date`, Ernte ohne Weg und Grund → je rot.'
     ]
   },
-  {
-    v: 'v33.36', date: '16.09.2026',
-    headline: 'Ein Wetter für die ganze App — Frost, Hitze, Starkregen und Sturm stehen im Kalender, und das Warnfenster rechnet mit denselben Zahlen',
-    summary: 'Dritte Scheibe von KALENDER-V2 (R6, R7). Die vier Schwellen standen an zwei Stellen: eine Konstante für den Frost im Kalender und vier Literale im Warnfenster, das dazu einen eigenen Wetter-Abruf machte und einen alten Standort-Schlüssel las. Jetzt eine Tabelle, ein Zwischenspeicher, eine Rechnung. Und der teuerste Teil: hatte die Antwort keine Tageswerte, sagte das Warnfenster „alles im grünen Bereich" — Stille als Entwarnung, bei Frost der teuerste Fehler dieser App.',
-    user_summary: 'Der Kalender zeigt dir jetzt nicht nur Frost, sondern auch Hitze, Starkregen und Sturm — je Tag, mit der Zahl und einem Rat, was zu tun ist. Das Warnfenster im Menü zeigt dasselbe, ohne neu zu laden. Und wenn noch keine Vorhersage da ist, sagt es das, statt Entwarnung zu geben.',
-    user_items: [
-      {emoji: '❄️', bold: 'Vier Warnungen statt einer:', text: ' Frost ab 2 °C, Hitze ab 30 °C, Starkregen ab 20 mm, Sturm ab 40 km/h — jede mit ihrer Zahl und einem Rat.'},
-      {emoji: '🥶', bold: 'Frost trifft deine Pflanzen:', text: ' steht Frost an und hast du eine frostempfindliche Pflanze draussen, nennt der Kalender sie beim Namen.'},
-      {emoji: '🤷', bold: 'Keine Vorhersage heisst nicht „keine Gefahr":', text: ' das Warnfenster sagt jetzt, wenn es nichts weiss.'},
-      {emoji: '📖', bold: 'Die Grenzen stehen dabei:', text: ' unter der Liste steht, ab welchem Wert gewarnt wird — damit du sie einordnen kannst.'}
-    ],
-    items: [
-      'GS_WETTER_GRENZEN {frost:2, hitze:30, starkregen:20, sturm:40} — eine Tabelle; GS_FROST_GRENZE_C löst sich darin auf (3 Lesestellen).',
-      '_gsWetterTage(): EINE Rechnung für Kalender (Nr. 5b) und Warnfenster. Gibt null für „keine Vorhersage geladen" und [] für „geladen, nichts überschritten" — genau diese Verwechslung liess das Warnfenster entwarnen, wenn es nichts wusste.',
-      'R6: Frost-Ereignis × beide Pflanzenlisten mit frost === -1 (11 von 41 Kulturen) und gsPflanzeDraussen === true. Ohne Kulturangabe keine Behauptung, Standort unbekannt → „nicht bekannt".',
-      'gsOpenWeatherWarn: kein eigener Open-Meteo-Aufruf mehr, kein Legacy-Schlüssel userLocation, keine eigenen Zahlen — und es ist nicht mehr async.',
-      'Prüfstände: kalender_check 40 (4 neu, alle rot gegen v33.35). Gegenproben: [] statt null, nur Frost statt vier Schwellen, Standort egal → je rot. Changelog-Umzug: v33.16 ins Archiv (Deckel 20).'
-    ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76782,7 +76784,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.55';
+var GS_VERSION = 'v33.56';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80027,6 +80029,17 @@ var GS_GETEILT_CACHE = 'gs-geteilt';               // = GETEILT_CACHE in sw.js
 var GS_GETEILT_SCHLUESSEL = '/__geteilt/letztes';  // = GETEILT_SCHLUESSEL in sw.js
 var GS_GETEILT_MAX = 15 * 1024 * 1024;             // = GETEILT_MAX in sw.js
 var GS_GETEILT_FRISCH_MS = 10 * 60 * 1000;
+// Wie viele Bildpunkte ein geteiltes Foto ENTPACKT haben darf. 15 MB sagen
+// nichts darueber: ein PNG aus einer fremden App kann in 15 MB eine Milliarde
+// Bildpunkte tragen, und das Entpacken fuer die Vorschau naehme einem
+// guenstigen Telefon den Speicher (in der Android-App beendete das die App).
+// 200 Megapixel liegen ueber jedem Kamerabild, das in 15 MB passt.
+var GS_GETEILT_PIXEL_MAX = 200 * 1000 * 1000;
+// Wie lange „Dieses Foto bestimmen" nach dem Erscheinen nicht antippbar ist.
+// Die Vorschau kommt, weil eine ANDERE App etwas geschickt hat — wer dort
+// gerade tippt, soll nicht mit demselben Finger einen Scan ausloesen.
+// performance.now/setTimeout, nicht Date: die Pruefstaende stellen die Uhr.
+var GS_TEILEN_ANTIPP_MS = 700;
 var GS_TEILEN_GRUENDE = ['bild', 'leer', 'gross', 'speicher', 'fehler', 'fremd', 'ohne-sw', 'text'];
 
 window._gsTeilenGrund = (function(){
@@ -80074,6 +80087,77 @@ function _gsBildTyp(b){
 }
 window._gsBildTyp = _gsBildTyp;
 
+// Wie gross wird das Bild ENTPACKT? Gelesen aus dem Kopf der Datei — {w, h}
+// oder null, wenn er sich nicht lesen laesst. null ist kein Nein: verworfen
+// wird nur, was sich begruenden laesst (v32.12), also ein Kopf, der MEHR als
+// GS_GETEILT_PIXEL_MAX nennt.
+function _gsBildMasse(b){
+  try {
+    if (!b || b.length < 24) return null;
+    var be16 = function(i){ return (b[i] << 8) | b[i + 1]; };
+    var le16 = function(i){ return b[i] | (b[i + 1] << 8); };
+    var be32 = function(i){ return b[i] * 16777216 + ((b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]); };
+    var le24 = function(i){ return b[i] | (b[i + 1] << 8) | (b[i + 2] << 16); };
+    var masse = function(w, h){ return (w > 0 && h > 0) ? { w: w, h: h } : null; };
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) {            // PNG: IHDR ist der erste Block
+      if (b[12] === 0x49 && b[13] === 0x48 && b[14] === 0x44 && b[15] === 0x52) return masse(be32(16), be32(20));
+      return null;
+    }
+    if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) {                              // GIF
+      // Der logische Bildschirm (6–9) ist eine Angabe; Chromium vergroessert die
+      // Flaeche auf den ersten Bildrahmen, wenn der groesser ist (auch bei 0×0).
+      // Gemessen wird deshalb der groessere von beiden.
+      var gw = le16(6), gh = le16(8), j = 13;
+      if (b[10] & 0x80) j += 3 * (1 << ((b[10] & 0x07) + 1));                         // globale Farbtabelle
+      while (j < b.length) {
+        if (b[j] === 0x2C && j + 9 < b.length) {                                        // Bildrahmen
+          gw = Math.max(gw, le16(j + 1) + le16(j + 5)); gh = Math.max(gh, le16(j + 3) + le16(j + 7));
+          break;
+        }
+        if (b[j] === 0x21 && j + 2 < b.length) {                                        // Erweiterung: Unterbloecke bis 0
+          j += 2;
+          while (j < b.length && b[j] !== 0) j += b[j] + 1;
+          j++;
+          continue;
+        }
+        break;                                                                          // Ende (0x3B) oder unlesbar
+      }
+      return masse(gw, gh);
+    }
+    if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+        b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {            // WebP
+      var art = String.fromCharCode(b[12], b[13], b[14], b[15]);
+      if (art === 'VP8X' && b.length >= 30) return masse(le24(24) + 1, le24(27) + 1);
+      if (art === 'VP8L' && b.length >= 25 && b[20] === 0x2F) {
+        var bits = (b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24)) >>> 0;
+        return masse((bits & 0x3FFF) + 1, ((bits >>> 14) & 0x3FFF) + 1);
+      }
+      if (art === 'VP8 ' && b.length >= 30 && b[23] === 0x9D && b[24] === 0x01 && b[25] === 0x2A) return masse(le16(26) & 0x3FFF, le16(28) & 0x3FFF);
+      return null;
+    }
+    if (b[0] === 0xFF && b[1] === 0xD8) {                                                // JPEG: Segmente bis zum ersten SOF
+      var i = 2;
+      while (i + 8 < b.length) {
+        // Fremde Bytes zwischen zwei Segmenten ueberspringt libjpeg mit einer
+        // Warnung und dekodiert weiter — also hier auch, bis zum naechsten 0xFF.
+        // Wer an dieser Stelle aufgaebe (null = kein Nein), liesse eine
+        // JPEG-Bombe mit einem einzigen Fuellbyte durch (gegnerische Pruefung v33.56).
+        if (b[i] !== 0xFF) { i++; continue; }
+        var m = b[i + 1];
+        if (m === 0xFF) { i++; continue; }                                               // Fuellbyte
+        if (m === 0x01 || (m >= 0xD0 && m <= 0xD8)) { i += 2; continue; }                // ohne Laenge
+        if (m === 0xD9 || m === 0xDA) return null;                                       // Bilddaten vor jedem SOF
+        if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) return masse(be16(i + 7), be16(i + 5));
+        var len = be16(i + 2);
+        if (len < 2) return null;
+        i += 2 + len;
+      }
+    }
+  } catch(_){}
+  return null;
+}
+window._gsBildMasse = _gsBildMasse;
+
 // Ein Satz je Grund — jeder ein ganzer Satz, damit ihn der Uebersetzer kennt.
 function _gsTeilenSatz(g){
   switch (g) {
@@ -80086,6 +80170,9 @@ function _gsTeilenSatz(g){
     case 'weg':       return _gsSatz('Das geteilte Foto ist nicht mehr da. Bitte noch einmal teilen.');
     case 'kein_bild': return _gsSatz('Die geteilte Datei ist kein Foto, das GreenScan lesen kann.');
     case 'heic':      return _gsSatz('Das Foto liegt im HEIC-Format vor. Das kann GreenScan noch nicht lesen — bitte als JPEG teilen.');
+    case 'pixel':     return _gsSatz('Das Foto hat mehr als 200 Megapixel. So grosse Bilder nimmt GreenScan nicht an.');
+    case 'quelle':    return _gsSatz('GreenScan darf diese Datei nicht lesen. Teile das Foto bitte direkt aus der Galerie oder der Kamera-App.');
+    case 'beschaeftigt': return _gsSatz('GreenScan nimmt gerade schon ein Foto an. Warte einen Moment und teile es dann noch einmal.');
     default:          return _gsSatz('Das geteilte Foto ist nicht angekommen. Bitte noch einmal teilen.');
   }
 }
@@ -80093,9 +80180,57 @@ function _gsTeilenSagen(g){
   try { if (typeof gsToast === 'function') gsToast(_gsTeilenSatz(g), g === 'text' ? 'info' : 'warning', 8000); } catch(_){}
 }
 
+// v33.56: in der Android-App liegt das geteilte Foto nicht im Cache — dort
+// gibt es keinen Service Worker (siehe GS_HUELLE_ANDERS, Eintrag sw) —, sondern in EINEM
+// Fach der Huelle (android/…/Geteilt.java). Zwei Adressen unter dem eigenen
+// Ursprung, die nur die Huelle beantwortet:
+//   holen       → die Bytes (Typ an den Bytes gemessen, X-Anzahl, X-Nummer)
+//                 oder {huelle:1, ok:false, grund, n?} — verbraucht NICHTS
+//   quittieren  → leert das Fach, wenn ?n= das gezeigte Foto ist
+// Damit sind `_gsTeilenEintrag` und `_gsTeilenLoeschen` dieselben zwei
+// Schritte wie in der PWA, und alles darueber (Vorschau, Wiederkehr, Foto bis
+// zum Ergebnis) laeuft unveraendert. Die Kopfzeile traegt `geteilt`, nicht
+// den Wert des Export-Kanals: ein Riegel je Weg. Die Huelle stoesst die Seite
+// mit gsHuelleGeteilt() an — ein fester Text ohne Daten.
+var GS_HUELLE_GETEILT = '/__huelle/geteilt/';       // = Geteilt.WURZEL
+var GS_HUELLE_KOMMT_MAX_MS = 60 * 1000;            // = Geteilt.KOMMT_MAX_MS
+var GS_TEILEN_KOMMT_MS = 500;
+function _gsTeilenInHuelle(){
+  try { return typeof gsAndroidHuelle === 'function' && !!gsAndroidHuelle(); } catch(_){ return false; }
+}
+function _gsHuelleGeteiltFrage(schritt){
+  return fetch(GS_HUELLE_GETEILT + schritt, { headers: { 'X-GS-Huelle': 'geteilt' }, cache: 'no-store', credentials: 'omit' });
+}
+// {blob, anzahl, nummer} · {grund, nummer?} · null (nichts geteilt). Eine
+// Antwort ohne die Marke der Huelle ist `kanal` — ein Fehler im Bau, kein Satz
+// an die Person, solange sie nichts geteilt hat (gsTeilenAbholen).
+function _gsHuelleGeteiltEintrag(){
+  return _gsHuelleGeteiltFrage('holen').then(function(r){
+    var typ = String(r.headers.get('Content-Type') || '');
+    if (r.status === 200 && /^image\//i.test(typ)) {
+      var anzahl = parseInt(r.headers.get('X-Anzahl') || '1', 10) || 1;
+      var nummer = parseInt(r.headers.get('X-Nummer') || '0', 10) || 0;
+      return r.blob().then(function(blob){ return { huelle: true, blob: blob, anzahl: anzahl, nummer: nummer }; });
+    }
+    return r.text().then(function(t){
+      var o = null;
+      try { o = JSON.parse(t); } catch(_){}
+      if (!o || o.huelle !== 1 || r.status !== 200) return { huelle: true, grund: 'kanal' };
+      if (o.grund === 'nichts') return null;
+      return { huelle: true, grund: String(o.grund || 'fehler'), nummer: parseInt(o.n, 10) || 0 };
+    });
+  }).catch(function(){ return { huelle: true, grund: 'kanal' }; });
+}
+function _gsHuelleGeteiltQuittieren(nummer){
+  var n = parseInt(nummer, 10);
+  return _gsHuelleGeteiltFrage('quittieren' + (n > 0 ? '?n=' + n : ''))
+    .then(function(){ return true; }).catch(function(){ return false; });
+}
+
 // Der eine Leser des Caches. `caches.has` zuerst: `caches.open` legte sonst
 // bei JEDEM Start einen leeren Cache an.
 function _gsTeilenEintrag(){
+  if (_gsTeilenInHuelle()) return _gsHuelleGeteiltEintrag();
   try {
     if (!('caches' in window)) return Promise.resolve(null);
     return caches.has(GS_GETEILT_CACHE).then(function(da){
@@ -80110,7 +80245,10 @@ function _gsTeilenEintrag(){
     }).catch(function(){ return null; });
   } catch(_){ return Promise.resolve(null); }
 }
-function _gsTeilenLoeschen(){
+// `nummer` gilt nur in der Huelle: ohne sie raeumt das Quittieren alles
+// (Abmelden), mit ihr nur das Foto, das gezeigt wurde.
+function _gsTeilenLoeschen(nummer){
+  if (_gsTeilenInHuelle()) return _gsHuelleGeteiltQuittieren(nummer);
   try {
     if (!('caches' in window)) return Promise.resolve(false);
     return caches.delete(GS_GETEILT_CACHE).catch(function(){ return false; });
@@ -80127,7 +80265,8 @@ window._gsTeilenLoeschen = _gsTeilenLoeschen;
 // alles darunter: die Vorschau waere unsichtbar, und der erste Zurueck-Druck
 // verwuerfe das Foto, das die Person nie gesehen hat. Dann WARTET die Abholung
 // und kommt nach der Anmeldung — gezaehlt in Versuchen, nicht an der Uhr
-// (v32.61), hoechstens so lange, wie ein Foto frisch ist.
+// (v32.61) — in Fenstern von GS_GETEILT_FRISCH_MS, solange etwas wartet; ob das
+// Foto dann noch frisch ist, entscheidet der Eintrag bzw. das Fach.
 var GS_TEILEN_WARTEN_MS = 1000;
 function _gsTeilenBereit(){
   try {
@@ -80138,21 +80277,33 @@ function _gsTeilenBereit(){
   return true;
 }
 function gsTeilenAbholen(){
-  // GS_HUELLE_ANDERS 'teilen': die Android-App hat (noch) kein Teilen-Ziel —
-  // kein Service Worker, also auch kein Foto im Cache, und das Teilen-Blatt
-  // bietet sie gar nicht an. Nichts abzuholen, nichts zu sagen.
-  try { if (typeof gsAndroidHuelle === 'function' && gsAndroidHuelle()) { window._gsTeilenGrund = null; window._gsTeilenOffen = false; return Promise.resolve({ zustand: 'nichts', grund: 'huelle' }); } } catch(_){}
   if (!_gsTeilenBereit()) {
-    if (!window._gsTeilenWarten) {
+    if (window._gsTeilenWarten) return Promise.resolve({ zustand: 'wartet', grund: 'anmeldung' });
+    // Gewartet wird nur, wenn etwas wartet (ein Grund in der Adresse oder ein
+    // Eintrag) — sonst liefe bei jedem Start ohne Anmeldung ein Zeitgeber, der
+    // nichts zu tun hat. Steht danach noch etwas da, wird er in Fenstern von
+    // GS_GETEILT_FRISCH_MS erneuert, solange der Anmeldebildschirm steht: wer
+    // sich spaet anmeldet, liest so noch „nicht mehr da", statt dass das Foto
+    // ohne ein Wort verschwindet (gegnerische Pruefung v33.56). Ob das Foto
+    // noch frisch ist, entscheidet danach der Eintrag bzw. das Fach.
+    window._gsTeilenWarten = 'pruefe';
+    return _gsTeilenEintrag().then(function(e){
+      if ((!e || e.grund === 'kanal') && !window._gsTeilenGrund) { window._gsTeilenWarten = null; window._gsTeilenOffen = false; return { zustand: 'nichts' }; }
       var versuche = Math.ceil(GS_GETEILT_FRISCH_MS / GS_TEILEN_WARTEN_MS);
       window._gsTeilenWarten = setInterval(function(){
-        if (--versuche > 0 && !_gsTeilenBereit()) return;
+        if (_gsTeilenBereit()) {
+          clearInterval(window._gsTeilenWarten); window._gsTeilenWarten = null;
+          try { gsTeilenAbholen(); } catch(_){}
+          return;
+        }
+        if (--versuche > 0) return;
         clearInterval(window._gsTeilenWarten); window._gsTeilenWarten = null;
-        try { gsTeilenAbholen(); } catch(_){}
+        try { gsTeilenAbholen(); } catch(_){}                                          // wartet noch etwas? dann neu
       }, GS_TEILEN_WARTEN_MS);
-    }
-    return Promise.resolve({ zustand: 'wartet', grund: 'anmeldung' });
+      return { zustand: 'wartet', grund: 'anmeldung' };
+    }, function(){ window._gsTeilenWarten = null; return { zustand: 'nichts' }; });
   }
+  if (_gsTeilenInHuelle()) return _gsHuelleTeilenAbholen();
   var g = window._gsTeilenGrund || null;
   window._gsTeilenGrund = null;
   if (g && g !== 'bild') {
@@ -80179,33 +80330,134 @@ function gsTeilenAbholen(){
     var alter = Date.now() - e.zeit;
     if (!(alter >= 0 && alter <= GS_GETEILT_FRISCH_MS)) return ende(g ? 'weg' : null);   // abgelaufen oder Uhr zurueckgestellt
     if (!e.blob || !e.blob.size) return ende(g ? 'leer' : null);
-    if (e.blob.size > GS_GETEILT_MAX) return ende('gross');
-    // GANZ in den Arbeitsspeicher (≤ 15 MB): die Datei haengt danach nicht
-    // mehr am Cache-Eintrag, der beim Verlassen der Vorschau geloescht wird.
-    return e.blob.arrayBuffer().then(function(ab){
-      var typ = _gsBildTyp(new Uint8Array(ab, 0, Math.min(16, ab.byteLength)));
-      if (typ === 'heic') return ende('heic');
-      if (!typ) return ende('kein_bild');
-      // Die Datei bekommt den GEMESSENEN Typ, nicht den angegebenen.
-      var datei;
-      try { datei = new File([ab], 'geteilt', { type: typ }); } catch(_){ datei = new Blob([ab], { type: typ }); }
+    return _gsTeilenAuspacken(e, ende, function(ab, typ){
       // Gezeigt heisst: die Frist beginnt neu. Sonst verschwaende eine schon
       // gesehene, noch nicht entschiedene Vorschau nach einem Neuladen still,
-      // nur weil das Teilen laenger als zehn Minuten her ist.
+      // nur weil das Teilen laenger als zehn Minuten her ist. (In der Huelle
+      // tut `holen` das selbst.)
       try {
         caches.open(GS_GETEILT_CACHE).then(function(c){
           return c.put(GS_GETEILT_SCHLUESSEL, new Response(new Blob([ab], { type: typ }), { headers: {
             'Content-Type': typ, 'X-Zeit': String(Date.now()), 'X-Anzahl': String(e.anzahl), 'X-Nonce': e.nonce } }));
         }).catch(function(){});
       } catch(_){}
-      _gsTeilenVorschau(datei, e.anzahl);
-      return { zustand: 'vorschau' };
     });
   }).catch(function(){ window._gsTeilenOffen = false; return { zustand: 'nichts' }; });
 }
 window.gsTeilenAbholen = gsTeilenAbholen;
 
-function _gsTeilenVorschau(datei, anzahl){
+// Vom Eintrag zur Vorschau — EIN Weg fuer PWA und Huelle. Gemessen wird an den
+// Bytes (Typ, Bildpunkte), nie an einer Angabe der sendenden App.
+function _gsTeilenAuspacken(e, ende, gezeigt){
+  if (e.blob.size > GS_GETEILT_MAX) return ende('gross');
+  // GANZ in den Arbeitsspeicher (≤ 15 MB): die Datei haengt danach nicht
+  // mehr am Cache-Eintrag bzw. am Fach, das beim Verlassen geleert wird.
+  return e.blob.arrayBuffer().then(function(ab){
+    var typ = _gsBildTyp(new Uint8Array(ab, 0, Math.min(16, ab.byteLength)));
+    if (typ === 'heic') return ende('heic');
+    if (!typ) return ende('kein_bild');
+    var m = _gsBildMasse(new Uint8Array(ab));
+    if (m && m.w * m.h > GS_GETEILT_PIXEL_MAX) return ende('pixel');
+    // Die Datei bekommt den GEMESSENEN Typ, nicht den angegebenen.
+    var datei;
+    try { datei = new File([ab], 'geteilt', { type: typ }); } catch(_){ datei = new Blob([ab], { type: typ }); }
+    if (gezeigt) gezeigt(ab, typ);
+    _gsTeilenVorschau(datei, e.anzahl, e.nummer || 0);
+    return { zustand: 'vorschau' };
+  });
+}
+
+// Die Huelle: kein Grund in der Adresse, kein Einmal-Schluessel, keine Frist
+// hier — die haelt das Fach (Geteilt.FRIST_MS, an einer monotonen Uhr). EIN
+// Durchgang zur Zeit: ein Anstoss waehrend eines laufenden merkt sich nur,
+// dass danach noch einmal nachgesehen wird.
+// GS_HUELLE_ANDERS 'teilen': das Fach lebt im Prozess der Huelle. Beendet
+// Android ihn, ist das Foto weg, und dieser Weg findet beim naechsten Start
+// `nichts` — still, weil es nichts mehr zu wissen gibt. Das steht deshalb auf
+// dem Bildschirm (Einstellungen › Ueber GreenScan), nicht erst hier.
+function _gsHuelleTeilenAbholen(){
+  if (window._gsTeilenHolt) { window._gsTeilenNochmal = true; return Promise.resolve({ zustand: 'laeuft' }); }
+  // EIN Nachsehen zur Zeit: steht noch ein Wiederholungs-Zeitgeber aus, ersetzt
+  // dieser Durchgang ihn — sonst liefen ein Anstoss und der Zeitgeber als zwei
+  // Ketten nebeneinander, und der Versuchszaehler stiege doppelt so schnell.
+  if (window._gsTeilenKommtZeit) { clearTimeout(window._gsTeilenKommtZeit); window._gsTeilenKommtZeit = null; }
+  window._gsTeilenHolt = true;
+  window._gsTeilenGrund = null;
+  var fertig = function(r){
+    window._gsTeilenHolt = false;
+    if (r && r.zustand !== 'kommt') window._gsHuelleAngestossen = false;
+    if (window._gsTeilenNochmal) {
+      window._gsTeilenNochmal = false;
+      setTimeout(function(){ try { gsTeilenAbholen(); } catch(_){} }, 0);
+    }
+    return r;
+  };
+  return _gsTeilenEintrag().then(function(e){
+    var ende = function(grund){
+      window._gsTeilenOffen = false;
+      return _gsTeilenLoeschen(e && e.nummer).then(function(){
+        if (!grund) return { zustand: 'nichts' };
+        _gsTeilenSagen(grund);
+        return { zustand: 'gesagt', grund: grund };
+      });
+    };
+    if (!e) { window._gsTeilenOffen = false; window._gsTeilenKommt = null; return { zustand: 'nichts' }; }
+    if (e.grund === 'kommt') {
+      // Die Huelle kopiert noch (eine grosse Datei, ein langsamer Anbieter).
+      // Nachgesehen wird in VERSUCHEN (v32.61), JE Teilen (die Nummer): ein
+      // zweites Teilen beginnt von vorn. Das Fach macht aus einer Kopie, die
+      // laenger als GS_HUELLE_KOMMT_MAX_MS braucht, selbst `fehler` — das kommt
+      // hier an. Der eigene Deckel liegt doppelt so hoch und ist nur die
+      // Sicherung dahinter: er sagt den Satz und raeumt NICHTS (eine laufende
+      // Kopie eines neueren Teilens bliebe sonst auf der Strecke).
+      var k = window._gsTeilenKommt;
+      if (!k || k.nummer !== e.nummer) k = window._gsTeilenKommt = { nummer: e.nummer, n: 0 };
+      if (++k.n <= 2 * Math.ceil(GS_HUELLE_KOMMT_MAX_MS / GS_TEILEN_KOMMT_MS)) {
+        window._gsTeilenKommtZeit = setTimeout(function(){ window._gsTeilenKommtZeit = null; try { gsTeilenAbholen(); } catch(_){} }, GS_TEILEN_KOMMT_MS);
+        return { zustand: 'kommt' };
+      }
+      window._gsTeilenKommt = null;
+      window._gsTeilenOffen = false;
+      _gsTeilenSagen('fehler');
+      return { zustand: 'gesagt', grund: 'fehler' };
+    }
+    window._gsTeilenKommt = null;
+    if (e.grund === 'kanal') {
+      // Der Kanal antwortet nicht wie die Huelle — ein Fehler im Bau. Gesagt
+      // wird er nur, wenn die Huelle gerade ein Teilen gemeldet hat; bei
+      // jedem Start „nicht angekommen" zu lesen, waere die Warnung, die man
+      // zu ignorieren lernt (v32.21).
+      window._gsTeilenOffen = false;
+      try { console.warn('[gsTeilenAbholen] Kanal der Huelle antwortet nicht'); } catch(_){}
+      if (window._gsHuelleAngestossen) { _gsTeilenSagen('fehler'); return { zustand: 'gesagt', grund: 'fehler' }; }
+      return { zustand: 'nichts', grund: 'kanal' };
+    }
+    if (e.grund) return ende(e.grund);
+    if (!e.blob || !e.blob.size) return ende('leer');
+    // Dasselbe Foto steht schon da (der Anstoss nach einer Kopie, auf die die
+    // Seite schon gewartet hat): nichts neu bauen — sonst flackert die
+    // Vorschau, und die Antipp-Sperre beginnt von vorn.
+    var offen = document.getElementById('gs-teilen-vorschau');
+    if (offen && e.nummer && offen.getAttribute('data-nummer') === String(e.nummer)) return { zustand: 'vorschau', grund: 'schon' };
+    // Und dasselbe Foto wird gerade bestimmt (es bleibt bis zum Ergebnis im
+    // Fach): nicht noch einmal anbieten — ein zweites Antippen waere ein
+    // zweiter Scan desselben Fotos. Ein Anstoss kommt auch von einer Kopie,
+    // die zu spaet fertig wurde und gar nichts abgelegt hat.
+    var lauf = window._gsTeilenScanLaeuft;
+    if (lauf && e.nummer && lauf.nummer === e.nummer) return { zustand: 'laeuft', grund: 'scan' };
+    return _gsTeilenAuspacken(e, ende, null);
+  }).then(fertig, function(){ window._gsTeilenOffen = false; return fertig({ zustand: 'nichts' }); });
+}
+
+// Der Anstoss der Huelle (Geteilt.rueckruf): „im Fach liegt etwas". Kommt er,
+// bevor die Seite bereit ist, faengt ihn der Start ab (DOMContentLoaded).
+window.gsHuelleGeteilt = function(){
+  if (!_gsTeilenInHuelle()) return;
+  window._gsHuelleAngestossen = true;
+  try { gsTeilenAbholen(); } catch(_){}
+};
+
+function _gsTeilenVorschau(datei, anzahl, nummer){
   var alt = document.getElementById('gs-teilen-vorschau');
   if (alt) gsDismissOverlay(alt);
   window._gsTeilenOffen = true;
@@ -80216,7 +80468,9 @@ function _gsTeilenVorschau(datei, anzahl){
   ov.setAttribute('role', 'dialog');
   ov.setAttribute('aria-modal', 'true');
   ov.setAttribute('aria-labelledby', 'gs-teilen-titel');
-  ov.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.tabIndex = -1;
+  if (nummer) ov.setAttribute('data-nummer', String(nummer));
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;outline:none;';
   var mehr = anzahl > 1
     ? '<div style="font-size:var(--fs-sm);color:var(--text2);margin:0 0 12px;line-height:1.5;">' + escHtml(_gsSatz('Du hast {1} Fotos geteilt — bestimmt wird das erste.', anzahl)) + '</div>'
     : '';
@@ -80229,7 +80483,7 @@ function _gsTeilenVorschau(datei, anzahl){
       (url ? '<img src="' + escHtml(url) + '" alt="' + escHtml(_gsSatz('Geteiltes Foto')) + '" style="display:block;width:100%;max-height:50vh;object-fit:contain;border-radius:var(--r-md,12px);background:var(--bg2,#000);margin:0 0 12px;">' : '') +
       mehr +
       '<div id="gs-teilen-hinweis" role="status" style="display:none;font-size:var(--fs-sm);color:var(--text);background:var(--bg2,rgba(0,0,0,.05));border-radius:var(--r-md,12px);padding:10px 12px;margin:0 0 10px;line-height:1.5;"></div>' +
-      '<button type="button" id="gs-teilen-los" style="display:block;width:100%;min-height:48px;padding:12px;border:0;border-radius:var(--r-md,12px);background:var(--fill-brand);color:#fff;font-size:var(--fs-md);font-weight:800;font-family:inherit;cursor:pointer;margin:0 0 8px;">🔍 ' + escHtml(_gsSatz('Dieses Foto bestimmen')) + '</button>' +
+      '<button type="button" id="gs-teilen-los" disabled style="display:block;width:100%;min-height:48px;padding:12px;border:0;border-radius:var(--r-md,12px);background:var(--fill-brand);color:#fff;font-size:var(--fs-md);font-weight:800;font-family:inherit;cursor:pointer;margin:0 0 8px;">🔍 ' + escHtml(_gsSatz('Dieses Foto bestimmen')) + '</button>' +
       '<button type="button" id="gs-teilen-weg" data-gs-close style="display:block;width:100%;min-height:44px;padding:10px;border:1.5px solid var(--border);border-radius:var(--r-md,12px);background:transparent;color:var(--text);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;">' + escHtml(_gsSatz('Verwerfen')) + '</button>' +
     '</div>';
   // Eine ENTSCHEIDUNG trifft nur die Person: „Bestimmen", „Verwerfen" — und
@@ -80248,13 +80502,19 @@ function _gsTeilenVorschau(datei, anzahl){
       // ruft _gsTeilenScanFertig). Scheitert der Scan (kein Netz, KI nicht
       // erreichbar), ist es nicht verloren — ein Neuladen dieses Tabs bietet es
       // wieder an. „Verwerfen" loescht sofort.
-      if (bestimmen) window._gsTeilenScanLaeuft = true; else _gsTeilenLoeschen();
+      if (bestimmen) window._gsTeilenScanLaeuft = { nummer: nummer || 0 }; else _gsTeilenLoeschen(nummer);
       return;
     }
     setTimeout(function(){
       _gsTeilenEintrag().then(function(e){
-        if (e && !document.getElementById('gs-teilen-vorschau')) _gsTeilenVorschau(datei, anzahl);
-        else if (!e) window._gsTeilenOffen = false;
+        if (document.getElementById('gs-teilen-vorschau')) return;
+        // Dasselbe Foto liegt noch da → dieselbe Vorschau. In der Huelle kann
+        // es inzwischen ein NEUERES sein (andere Nummer) oder ein Grund (die
+        // Frist lief ab, waehrend die Vorschau stand): dann der eine Weg, der
+        // zeigt bzw. den Satz sagt — nie ein stilles Verschwinden.
+        if (e && e.blob && (!e.huelle || e.nummer === nummer)) _gsTeilenVorschau(datei, anzahl, nummer);
+        else if (e && e.huelle) gsTeilenAbholen();
+        else window._gsTeilenOffen = false;
       });
     }, 300);
   };
@@ -80283,14 +80543,19 @@ function _gsTeilenVorschau(datei, anzahl){
     try { if (typeof _gsSrLoadingShow === 'function') _gsSrLoadingShow(_gsSatz('Das geteilte Foto wird bestimmt…'), _gsSatz('Die Kamera bleibt dafür aus.')); } catch(_){}
     try { gsScanDatei(datei); } catch(_){}
   });
-  try { ov.querySelector('#gs-teilen-los').focus(); } catch(_){}
+  // Kein Fokus auf „Bestimmen", und der Knopf nimmt erst nach
+  // GS_TEILEN_ANTIPP_MS an: ein Enter oder ein Tipp, der fuer die ANDERE App
+  // gedacht war, loest keinen Scan aus. Der Fokus geht auf den Dialog selbst.
+  try { ov.focus(); } catch(_){}
+  setTimeout(function(){ var b = ov.querySelector('#gs-teilen-los'); if (b) b.disabled = false; }, GS_TEILEN_ANTIPP_MS);
 }
 
 // Ein Ergebnis steht da — das geteilte Foto, das dafuer gewartet hat, darf weg.
 function _gsTeilenScanFertig(){
-  if (!window._gsTeilenScanLaeuft) return;
+  var lauf = window._gsTeilenScanLaeuft;
+  if (!lauf) return;
   window._gsTeilenScanLaeuft = false;
-  _gsTeilenLoeschen();
+  _gsTeilenLoeschen(lauf.nummer);
 }
 
 document.addEventListener('DOMContentLoaded', function(){
@@ -87139,8 +87404,8 @@ var GS_HUELLE_ANDERS = [
   },
   {
     schl: 'teilen',
-    titel: 'Noch kein „Teilen → GreenScan“',
-    text: 'Im Browser installiert nimmt GreenScan ein Foto aus dem Teilen-Menü einer anderen App an. Die Android-App bietet sich dort noch nicht an — das ist in Arbeit. Bis dahin: im Scanner auf „Galerie“ tippen und das Foto dort wählen.'
+    titel: 'Ein geteiltes Foto wartet nur, solange die App läuft',
+    text: '„Teilen → GreenScan“ funktioniert wie im Browser — nur liegt das Foto in der App im Arbeitsspeicher statt zehn Minuten im Zwischenspeicher. Beendet Android die App, bevor du es bestimmt hast, ist es weg; dann einfach noch einmal teilen.'
   },
   {
     schl: 'zahlung',

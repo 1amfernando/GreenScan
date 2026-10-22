@@ -104,6 +104,35 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v32.23** `gsCloudSync.flushNow()` ging an `sbFetch` vorbei — die Attrappe
   sah nichts, „0 Tabellen gepusht" haette 47 Fehler gemeldet. Regel: erst
   pruefen, ob der Pruefstand ueberhaupt etwas sieht.
+- **v33.56** Der Bildpunkt-Deckel las beim GIF nur den logischen Bildschirm
+  (Chromium nimmt den groesseren ersten Rahmen) und gab beim JPEG am ersten
+  Fremdbyte auf (libjpeg ueberspringt es). Regel: wer einen Dateikopf als
+  Schutz liest, liest so nachsichtig wie der Dekoder danach — sonst ist
+  „unlesbar" der Weg vorbei.
+- **v33.56** Die Nummer eines geteilten Fotos vergab der Hintergrund-Faden —
+  die Reihenfolge der Faeden entschied, welches Foto „neuer" war. Regel: wer
+  eine Reihenfolge verspricht, vergibt die Nummer dort, wo die Reihenfolge
+  entsteht (hier der UI-Faden, Absicht fuer Absicht).
+- **v33.56** Die gegnerische Pruefung fand vier Pruefstands-Luecken, alle
+  „gruen fuer nichts": die Antwort-Kopfzeilen baute der Pruefstand SELBST
+  (der Rand lief nie), ein `dispatchEvent('keydown')` loest keinen Knopf aus,
+  die Dauer der Antipp-Sperre war ungebunden, und der „Kanal antwortet
+  nicht"-Zweig lief nie. Regel: eine Haelfte, die der Pruefstand nachbaut,
+  hat er nicht geprueft — Kopfzeilen kommen aus derselben Java-Methode wie im
+  Rand (`Geteilt.Antwort.kopfzeilen`).
+- **v33.56** Fuenf Teilen-Faelle in `apk_check` waren rot, und keiner wegen
+  des Teilens: `_seed.js` setzt einen Token ohne drei Teile, `gsSecurityInit`
+  raeumt ihn 500 ms nach dem Start ab, und der Anmeldebildschirm kam — die
+  Abholung wartete dahinter, wie sie soll. Regel: ein Fall, der eine Anmeldung
+  braucht, stellt sie her (Init-Skript NACH dem Seed) und schreibt den
+  Zustand in sein Ergebnis (`anmeldung`), sonst misst er die Sperre.
+- **v33.56** „Keine zweite Vorschau" zaehlte die Elemente — eine zweite
+  ersetzt die erste, also stand auch beim Flackern genau eine da. Regel:
+  zaehlen, wie oft etwas ENTSTEHT (MutationObserver), nicht, wie viel dasteht.
+- **v33.56** Der erste Fall zur Frist im Fach wartete die Frist ab — und waere
+  mit dem Fehler (kein neues `seit` beim Wechsel nach `fehler`) ebenso gruen
+  gewesen. Regel: ein Fall muss die Reparatur vom Fehler UNTERSCHEIDEN koennen
+  (hier: sofort ein zweites Mal fragen).
 - **v33.55** `contrast_check` mass in der Teilen-Vorschau 0 Textstellen: `#app`
   ist ein fester, deckender Kasten ueber allem, und `verdeckt()` fragte nicht,
   wer OBEN liegt — kein Dialog am `<body>` war je vermessen. Regel: ein Deckel
