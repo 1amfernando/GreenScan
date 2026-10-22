@@ -754,14 +754,17 @@ function server(wunschPort) {
       // Wann ENTSTAND die Teilen-Vorschau, und wann nahm „Bestimmen" an? Gemessen
       // in der Seite (performance.now), nicht am Takt eines Abfrage-Kreises:
       // nur so laesst sich die Dauer der Antipp-Sperre binden (Fall 40).
+      // Beobachtet wird `document` selbst: beim Init-Skript gibt es noch kein
+      // documentElement (der erste Anlauf warf dort — und nahm den Meldungs-
+      // Spaeher darunter mit, sechs Faelle wurden rot ohne jeden Bezug).
       window.__vorschauZeiten = [];
-      new MutationObserver(ms => ms.forEach(m => {
+      try { new MutationObserver(ms => ms.forEach(m => {
         if (m.type === 'childList') m.addedNodes.forEach(n => { if (n.id === 'gs-teilen-vorschau') window.__vorschauZeiten.push({ ab: performance.now(), los: null }); });
         else if (m.target && m.target.id === 'gs-teilen-los' && !m.target.disabled) {
           const z = window.__vorschauZeiten[window.__vorschauZeiten.length - 1];
           if (z && z.los == null) z.los = performance.now();
         }
-      })).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+      })).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] }); } catch (_) {}
       // Jede Meldung, die je auf dem Bildschirm stand — nicht nur die letzte.
       window.__toasts = [];
       document.addEventListener('DOMContentLoaded', () => {

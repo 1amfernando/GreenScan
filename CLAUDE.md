@@ -733,6 +733,13 @@ Wer am Teilen-Ziel arbeitet, muss sieben Dinge wissen; die Pruefstaende sind
    Grund in der Adresse, Einmal-Schluessel, Frist in der Seite — die Frist
    haelt das Fach an einer monotonen Uhr. Und das Fach lebt im Prozess:
    beendet Android ihn, ist das Foto weg (`GS_HUELLE_ANDERS 'teilen'`).
+   Drei Regeln aus der gegnerischen Pruefung: die **Nummer vergibt der Rand
+   auf dem UI-Faden** (`fach.kommt` vor dem Faden — sonst entschiede die
+   Reihenfolge der Faeden, welches Foto „neuer" ist); die Seite wird beim
+   **START** der Kopie angestossen (sonst bliebe eine haengende Kopie in einer
+   laufenden App still), und ein Strom, der nicht endet, wird nach
+   `KOMMT_MAX_MS` **geschlossen** (sonst belegten zwei haengende Anbieter
+   beide Plaetze bis zum Ende des Prozesses).
 
 > **Ein Ursprungs-Riegel, den die Gegenseite abschalten kann, ist keiner**
 > (v33.55). Der erste Entwurf wies POSTs mit fremdem `Origin` ab und liess
@@ -753,6 +760,16 @@ Wer am Teilen-Ziel arbeitet, muss sieben Dinge wissen; die Pruefstaende sind
 > nichts neu (sonst flackert die Vorschau, und die Antipp-Sperre beginnt von
 > vorn). **Wer einen Ablauf aus der PWA in die Huelle traegt, fragt, welche
 > Annahme die Navigation still erfuellt hat.**
+>
+> **Ein Kopf, der sich nicht lesen laesst, ist kein Nein — aber der Leser muss
+> so viel lesen wie der Dekoder** (v33.56). Der Bildpunkt-Deckel las beim GIF
+> nur den logischen Bildschirm; Chromium vergroessert die Flaeche auf den
+> ersten Bildrahmen (auch bei 0×0). Und beim JPEG gab er beim ersten Fremdbyte
+> zwischen zwei Segmenten auf — libjpeg ueberspringt es mit einer Warnung und
+> dekodiert die volle Groesse. Beide Bomben kamen damit durch, gemessen von
+> der gegnerischen Pruefung im Chromium dieses Repos. **Wer eine Angabe aus
+> einem Dateikopf als Schutz nimmt, liest sie so nachsichtig wie der Dekoder,
+> der danach kommt** — sonst ist „unlesbar" der Weg vorbei.
 >
 > **Und ein Zustand, der den Grund traegt, braucht eine EIGENE Frist.** Der
 > erste Entwurf des Fachs liess `seit` stehen, wenn ein abgelaufenes Foto zu

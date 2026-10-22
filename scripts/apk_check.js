@@ -883,7 +883,7 @@ function rand() {
   if (!geteiltRumpf || /return null;/.test(geteiltRumpf) || !/catch \(Throwable/.test(geteiltRumpf)) r18.push('geteilt(): null oder keine Ausnahme gefangen');
   // Der Rand baut Typ und Kopfzeilen NICHT selbst — er nimmt die aus Geteilt.Antwort,
   // die auch der Pruefstand der Seite liefert (sonst prueften T0–T10 eine Nachbildung).
-  if (!/Map<String, String> kopf = a\.kopfzeilen\(\);/.test(geteiltRumpf) || (geteiltRumpf.match(/a\.mime\(\)/g) || []).length < 2 || /kopf\.put\("X-/.test(geteiltRumpf)) r18.push('geteilt(): Typ/Kopfzeilen nicht aus Geteilt.Antwort (mime/kopfzeilen) — der Pruefstand saehe sie nie');
+  if (!/Map<String, String> kopf = a\.kopfzeilen\(\);/.test(geteiltRumpf) || (geteiltRumpf.match(/a\.mime\(\)/g) || []).length < 2 || /kopf\.put\("X-(Anzahl|Nummer)"/.test(geteiltRumpf)) r18.push('geteilt(): Typ/Kopfzeilen nicht aus Geteilt.Antwort (mime/kopfzeilen) — der Pruefstand saehe sie nie');
   if (!/k\.put\("Cache-Control", "no-store"\)/.test(GT_OHNE) || !/k\.put\("X-Content-Type-Options", "nosniff"\)/.test(GT_OHNE)) r18.push('Geteilt.Antwort.kopfzeilen ohne no-store/nosniff');
   // Und der Rand nimmt das Teilen WIRKLICH an: geteiltAnnehmen im sollAnnehmen-Zweig,
   // VOR dem Zuruecksetzen der Absicht — und der AssetServer bekommt DASSELBE Fach.
@@ -1554,6 +1554,32 @@ async function teilenFaelle(p, k) {
   await p.evaluate(() => { try { gsClearUserDataKeys(); } catch (_) {} });
   await p.waitForTimeout(2000);
   R.t8.kopie = await zustand();
+
+  // T12/T13 — ZULETZT, weil die zwei Kopien hier 30 s lang Plaetze belegen.
+  // Der Takt des Nachfragens wird auf 5 ms gestellt (GS_TEILEN_KOMMT_MS ist
+  // eine globale Variable): die Versuche sind dieselben, nur schneller.
+  // T12: gibt die Seite auf (eine Kopie, die laenger braucht als ihr Deckel),
+  // sagt sie es — und raeumt NICHTS: quittieren ohne Nummer leerte das Fach
+  // samt einer laufenden Kopie (gegnerische Pruefung v33.56).
+  await p.evaluate(() => { window.__meldungen = []; window.__kommtTakt = GS_TEILEN_KOMMT_MS; GS_TEILEN_KOMMT_MS = 5; });
+  k.geteilt = [];
+  await k.java('LANGSAM\t30000\t' + A.b64);
+  await p.evaluate(() => gsHuelleGeteilt());
+  await bis(() => (window.__meldungen || []).some(t => /nicht angekommen/.test(t)) ? true : null, null, 200);
+  R.t12 = { s: await seite(), zustand: await zustand(), holen: k.geteilt.filter(x => x.schritt === 'holen').length,
+            quitt: k.geteilt.filter(x => x.schritt === 'quittieren').map(x => x.abfrage) };
+  // T13: ein zweites Teilen waehrend „kommt" beginnt die Versuche von vorn (die
+  // Nummer kommt mit) — sonst gaebe die Seite schon nach dem Deckel des ERSTEN auf.
+  await p.evaluate(() => { window.__meldungen = []; });
+  k.geteilt = [];
+  await p.evaluate(() => gsHuelleGeteilt());
+  await bis(() => window._gsTeilenKommt && window._gsTeilenKommt.n >= 150 ? true : null, null, 200);
+  R.t13 = { vorher: await p.evaluate(() => window._gsTeilenKommt ? window._gsTeilenKommt.n : null) };
+  await k.java('LANGSAM\t30000\t' + B.b64);
+  await bis(() => (window.__meldungen || []).some(t => /nicht angekommen/.test(t)) ? true : null, null, 300);
+  R.t13.holen = k.geteilt.filter(x => x.schritt === 'holen').length;
+  R.t13.s = await seite();
+  await p.evaluate(() => { GS_TEILEN_KOMMT_MS = window.__kommtTakt; });
   R.caches += (await p.evaluate(() => window.__geteiltCaches || 0).catch(() => 0));
   return R;
 }
@@ -1855,6 +1881,8 @@ async function app() {
     "T9 · In der Huelle fasst die Seite den Cache des Teilen-Ziels nie an — im Browser schon (die PWA-Haelfte)",
     'T10 · Waehrend ein geteiltes Foto bestimmt wird, bietet ein weiterer Anstoss es nicht noch einmal an',
     'T11 · Antwortet der Kanal nicht wie die Huelle: nach einem Anstoss ein Satz, beim Start ohne Anstoss Stille',
+    'T12 · Gibt die Seite das Nachfragen auf, sagt sie es — und raeumt nichts (eine laufende Kopie bleibt)',
+    'T13 · Ein zweites Teilen waehrend „kommt" beginnt die Versuche von vorn',
   ];
   if (!T) {
     TN.forEach(n => F.push({ name: n, r: KANAL_KLASSEN ? { ok: false, warum: 'die Teilen-Faelle liefen nicht: ' + (h.teilenFehler || 'ohne Ergebnis') }
@@ -1896,6 +1924,13 @@ async function app() {
     const t11 = T.t11;
     F.push({ name: TN[11], r: (t11.html.vorschau === 0 && t11.html.meldungen.some(t => /nicht angekommen/.test(t)) && t11.start.vorschau === 0 && keinSatz(t11.start.meldungen))
       ? { ok: true, info: 'HTML nach Anstoss: „' + t11.html.meldungen.filter(t => /nicht angekommen/.test(t))[0] + '" · JSON ohne Marke beim Start: still' } : { ok: false, warum: JSON.stringify(t11).slice(0, 300) } });
+    const t12 = T.t12, t13 = T.t13;
+    // Der Deckel der Seite: 2 × KOMMT_MAX_MS / Takt-Vorgabe 500 ms = 240 Versuche.
+    F.push({ name: TN[12], r: (t12.s.meldungen.some(t => /nicht angekommen/.test(t)) && t12.zustand[0] === 'kommt' && t12.zustand[2] === '1'
+        && t12.quitt.length === 0 && t12.holen >= 240 && t12.s.vorschau === 0)
+      ? { ok: true, info: t12.holen + '× holen, dann der Satz · Fach weiter „kommt", 1 Kopie laeuft · 0× quittieren' } : { ok: false, warum: JSON.stringify(t12).slice(0, 300) } });
+    F.push({ name: TN[13], r: (typeof t13.vorher === 'number' && t13.vorher >= 150 && t13.holen >= t13.vorher + 240 && t13.s.meldungen.some(t => /nicht angekommen/.test(t)))
+      ? { ok: true, info: 'nach ' + t13.vorher + ' Versuchen ein zweites Teilen → ' + t13.holen + ' Versuche bis zum Satz (≥ ' + (t13.vorher + 240) + ')' } : { ok: false, warum: JSON.stringify(t13).slice(0, 300) } });
     F.push({ name: TN[9], r: (T.caches === 0 && b.geteiltCaches > 0)
       ? { ok: true, info: 'Huelle 0× · Browser ' + b.geteiltCaches + '×' } : { ok: false, warum: 'Huelle ' + T.caches + '× · Browser ' + b.geteiltCaches + '×' } });
   }

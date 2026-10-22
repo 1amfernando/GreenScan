@@ -196,12 +196,28 @@ ACTION_SEND (Foto)  ──►   sollAnnehmen? (nie wiederhergestellt, nie „let
 - **Kein Lesen von Dateien:** `file://` wird nie geoeffnet (eine fremde App
   koennte sonst die privaten Dateien von GreenScan als „Foto" schicken), nur
   `ContentResolver.openInputStream` auf `content://` eines fremden Anbieters.
+- **Die Nummer vergibt der Rand auf dem UI-Faden**, in der Reihenfolge der
+  Absichten, und stoesst die Seite sofort an: sie sieht „kommt" und fragt
+  nach, bis das Foto da ist oder das Fach nach `KOMMT_MAX_MS` „nicht
+  angekommen" daraus macht. Eine Kopie, die danach fertig wird, legt nichts
+  mehr ab.
+- **Ein Strom, der nicht endet, wird nach `KOMMT_MAX_MS` geschlossen**
+  (`annehmen`, Waechter-Faden): ohne das belegten zwei haengende Anbieter die
+  beiden Plaetze (`KOPIEN_MAX`) bis zum Ende des Prozesses, und jedes weitere
+  Teilen hiesse „beschaeftigt". Android weckt beim Schliessen einen
+  blockierten Lesevorgang (libcore signalisiert dem Faden) — auf einem Geraet
+  NICHT geprueft. Haengt schon das Oeffnen (`openInputStream`), hilft der
+  Waechter nicht; dann bleibt der Platz belegt.
 - **Grenzen, ehrlich:** das Fach lebt im Prozess — beendet Android die App,
   ist das Foto weg, und die App sagt beim naechsten Start nichts (es gibt
-  nichts mehr zu wissen). Eine Kopie, die nie endet, blockiert einen von zwei
-  Plaetzen, bis der Prozess endet (`KOPIEN_MAX`). Und hier laeuft kein
-  Android: ob ein bestimmtes Telefon `ClipData` oder nur `EXTRA_STREAM`
-  schickt, zeigt erst ein Geraet.
+  nichts mehr zu wissen). Gegen eine App mit **Overlay-Recht**
+  (`SYSTEM_ALERT_WINDOW`, das die Person ausdruecklich erteilen muss) hilft
+  die Antipp-Sperre von 0,7 s nicht: sie kann ein Fenster ueber „Bestimmen"
+  legen. `setFilterTouchesWhenObscured` wuerde das verhindern — und jede App
+  mit Bildschirmfilter (Blaulicht, Dimmer) machte GreenScan dann ganz
+  unbedienbar; bewusst nicht gesetzt, der Schaden waere ein Scan auf das
+  eigene Kontingent. Und hier laeuft kein Android: ob ein bestimmtes Telefon
+  `ClipData` oder nur `EXTRA_STREAM` schickt, zeigt erst ein Geraet.
 
 ## Export und Drucken — ohne Bruecke (seit v33.53)
 
