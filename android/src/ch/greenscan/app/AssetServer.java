@@ -162,19 +162,18 @@ final class AssetServer {
    * JSON-Antwort mit Grund. Nie eine Ausnahme auf diesem Faden.
    */
   private WebResourceResponse geteilt(Geteilt.Antwort a) {
-    Map<String, String> kopf = new HashMap<String, String>();
-    kopf.put("Cache-Control", "no-store");
-    kopf.put("X-Content-Type-Options", "nosniff");
     try {
-      if (a.daten != null && a.typ != null) {
-        kopf.put("X-Anzahl", String.valueOf(a.anzahl));
-        kopf.put("X-Nummer", String.valueOf(a.nummer));
-        return new WebResourceResponse(a.typ, null, 200, "OK", kopf, new ByteArrayInputStream(a.daten));
-      }
+      // Typ und Kopfzeilen kommen aus Geteilt.Antwort — dieselben, die der
+      // Pruefstand der Seite liefert (KanalFahrer REQG).
+      Map<String, String> kopf = a.kopfzeilen();
+      if (a.foto()) return new WebResourceResponse(a.mime(), null, 200, "OK", kopf, new ByteArrayInputStream(a.daten));
       byte[] rumpf = a.json().getBytes("UTF-8");
       String text = a.status == 200 ? "OK" : a.status == 403 ? "Forbidden" : a.status == 405 ? "Method Not Allowed" : "Not Found";
-      return new WebResourceResponse("application/json", "UTF-8", a.status, text, kopf, new ByteArrayInputStream(rumpf));
+      return new WebResourceResponse(a.mime(), "UTF-8", a.status, text, kopf, new ByteArrayInputStream(rumpf));
     } catch (Throwable t) {
+      Map<String, String> kopf = new HashMap<String, String>();
+      kopf.put("Cache-Control", "no-store");
+      kopf.put("X-Content-Type-Options", "nosniff");
       byte[] leer = "{\"huelle\":1,\"ok\":false,\"grund\":\"fehler\"}".getBytes();
       return new WebResourceResponse("application/json", "UTF-8", 200, "OK", kopf, new ByteArrayInputStream(leer));
     }

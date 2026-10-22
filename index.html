@@ -80101,7 +80101,27 @@ function _gsBildMasse(b){
       if (b[12] === 0x49 && b[13] === 0x48 && b[14] === 0x44 && b[15] === 0x52) return masse(be32(16), be32(20));
       return null;
     }
-    if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return masse(le16(6), le16(8));   // GIF: logischer Bildschirm
+    if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) {                              // GIF
+      // Der logische Bildschirm (6–9) ist eine Angabe; Chromium vergroessert die
+      // Flaeche auf den ersten Bildrahmen, wenn der groesser ist (auch bei 0×0).
+      // Gemessen wird deshalb der groessere von beiden.
+      var gw = le16(6), gh = le16(8), j = 13;
+      if (b[10] & 0x80) j += 3 * (1 << ((b[10] & 0x07) + 1));                         // globale Farbtabelle
+      while (j < b.length) {
+        if (b[j] === 0x2C && j + 9 < b.length) {                                        // Bildrahmen
+          gw = Math.max(gw, le16(j + 1) + le16(j + 5)); gh = Math.max(gh, le16(j + 3) + le16(j + 7));
+          break;
+        }
+        if (b[j] === 0x21 && j + 2 < b.length) {                                        // Erweiterung: Unterbloecke bis 0
+          j += 2;
+          while (j < b.length && b[j] !== 0) j += b[j] + 1;
+          j++;
+          continue;
+        }
+        break;                                                                          // Ende (0x3B) oder unlesbar
+      }
+      return masse(gw, gh);
+    }
     if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
         b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {            // WebP
       var art = String.fromCharCode(b[12], b[13], b[14], b[15]);
@@ -80116,7 +80136,11 @@ function _gsBildMasse(b){
     if (b[0] === 0xFF && b[1] === 0xD8) {                                                // JPEG: Segmente bis zum ersten SOF
       var i = 2;
       while (i + 8 < b.length) {
-        if (b[i] !== 0xFF) return null;
+        // Fremde Bytes zwischen zwei Segmenten ueberspringt libjpeg mit einer
+        // Warnung und dekodiert weiter — also hier auch, bis zum naechsten 0xFF.
+        // Wer an dieser Stelle aufgaebe (null = kein Nein), liesse eine
+        // JPEG-Bombe mit einem einzigen Fuellbyte durch (gegnerische Pruefung v33.56).
+        if (b[i] !== 0xFF) { i++; continue; }
         var m = b[i + 1];
         if (m === 0xFF) { i++; continue; }                                               // Fuellbyte
         if (m === 0x01 || (m >= 0xD0 && m <= 0xD8)) { i += 2; continue; }                // ohne Laenge
@@ -80239,7 +80263,8 @@ window._gsTeilenLoeschen = _gsTeilenLoeschen;
 // alles darunter: die Vorschau waere unsichtbar, und der erste Zurueck-Druck
 // verwuerfe das Foto, das die Person nie gesehen hat. Dann WARTET die Abholung
 // und kommt nach der Anmeldung — gezaehlt in Versuchen, nicht an der Uhr
-// (v32.61), hoechstens so lange, wie ein Foto frisch ist.
+// (v32.61) — in Fenstern von GS_GETEILT_FRISCH_MS, solange etwas wartet; ob das
+// Foto dann noch frisch ist, entscheidet der Eintrag bzw. das Fach.
 var GS_TEILEN_WARTEN_MS = 1000;
 function _gsTeilenBereit(){
   try {
@@ -80251,15 +80276,30 @@ function _gsTeilenBereit(){
 }
 function gsTeilenAbholen(){
   if (!_gsTeilenBereit()) {
-    if (!window._gsTeilenWarten) {
+    if (window._gsTeilenWarten) return Promise.resolve({ zustand: 'wartet', grund: 'anmeldung' });
+    // Gewartet wird nur, wenn etwas wartet (ein Grund in der Adresse oder ein
+    // Eintrag) — sonst liefe bei jedem Start ohne Anmeldung ein Zeitgeber, der
+    // nichts zu tun hat. Steht danach noch etwas da, wird er in Fenstern von
+    // GS_GETEILT_FRISCH_MS erneuert, solange der Anmeldebildschirm steht: wer
+    // sich spaet anmeldet, liest so noch „nicht mehr da", statt dass das Foto
+    // ohne ein Wort verschwindet (gegnerische Pruefung v33.56). Ob das Foto
+    // noch frisch ist, entscheidet danach der Eintrag bzw. das Fach.
+    window._gsTeilenWarten = 'pruefe';
+    return _gsTeilenEintrag().then(function(e){
+      if ((!e || e.grund === 'kanal') && !window._gsTeilenGrund) { window._gsTeilenWarten = null; window._gsTeilenOffen = false; return { zustand: 'nichts' }; }
       var versuche = Math.ceil(GS_GETEILT_FRISCH_MS / GS_TEILEN_WARTEN_MS);
       window._gsTeilenWarten = setInterval(function(){
-        if (--versuche > 0 && !_gsTeilenBereit()) return;
+        if (_gsTeilenBereit()) {
+          clearInterval(window._gsTeilenWarten); window._gsTeilenWarten = null;
+          try { gsTeilenAbholen(); } catch(_){}
+          return;
+        }
+        if (--versuche > 0) return;
         clearInterval(window._gsTeilenWarten); window._gsTeilenWarten = null;
-        try { gsTeilenAbholen(); } catch(_){}
+        try { gsTeilenAbholen(); } catch(_){}                                          // wartet noch etwas? dann neu
       }, GS_TEILEN_WARTEN_MS);
-    }
-    return Promise.resolve({ zustand: 'wartet', grund: 'anmeldung' });
+      return { zustand: 'wartet', grund: 'anmeldung' };
+    }, function(){ window._gsTeilenWarten = null; return { zustand: 'nichts' }; });
   }
   if (_gsTeilenInHuelle()) return _gsHuelleTeilenAbholen();
   var g = window._gsTeilenGrund || null;
@@ -80335,6 +80375,10 @@ function _gsTeilenAuspacken(e, ende, gezeigt){
 // dem Bildschirm (Einstellungen › Ueber GreenScan), nicht erst hier.
 function _gsHuelleTeilenAbholen(){
   if (window._gsTeilenHolt) { window._gsTeilenNochmal = true; return Promise.resolve({ zustand: 'laeuft' }); }
+  // EIN Nachsehen zur Zeit: steht noch ein Wiederholungs-Zeitgeber aus, ersetzt
+  // dieser Durchgang ihn — sonst liefen ein Anstoss und der Zeitgeber als zwei
+  // Ketten nebeneinander, und der Versuchszaehler stiege doppelt so schnell.
+  if (window._gsTeilenKommtZeit) { clearTimeout(window._gsTeilenKommtZeit); window._gsTeilenKommtZeit = null; }
   window._gsTeilenHolt = true;
   window._gsTeilenGrund = null;
   var fertig = function(r){
@@ -80355,20 +80399,27 @@ function _gsHuelleTeilenAbholen(){
         return { zustand: 'gesagt', grund: grund };
       });
     };
-    if (!e) { window._gsTeilenOffen = false; window._gsTeilenKommtN = 0; return { zustand: 'nichts' }; }
+    if (!e) { window._gsTeilenOffen = false; window._gsTeilenKommt = null; return { zustand: 'nichts' }; }
     if (e.grund === 'kommt') {
       // Die Huelle kopiert noch (eine grosse Datei, ein langsamer Anbieter).
-      // Nachgesehen wird in VERSUCHEN (v32.61) — etwas laenger, als die Huelle
-      // selbst wartet; danach meldet sie `fehler`, und das kommt hier an.
-      window._gsTeilenKommtN = (window._gsTeilenKommtN || 0) + 1;
-      if (window._gsTeilenKommtN <= Math.ceil(GS_HUELLE_KOMMT_MAX_MS / GS_TEILEN_KOMMT_MS) + 4) {
-        setTimeout(function(){ try { gsTeilenAbholen(); } catch(_){} }, GS_TEILEN_KOMMT_MS);
+      // Nachgesehen wird in VERSUCHEN (v32.61), JE Teilen (die Nummer): ein
+      // zweites Teilen beginnt von vorn. Das Fach macht aus einer Kopie, die
+      // laenger als GS_HUELLE_KOMMT_MAX_MS braucht, selbst `fehler` — das kommt
+      // hier an. Der eigene Deckel liegt doppelt so hoch und ist nur die
+      // Sicherung dahinter: er sagt den Satz und raeumt NICHTS (eine laufende
+      // Kopie eines neueren Teilens bliebe sonst auf der Strecke).
+      var k = window._gsTeilenKommt;
+      if (!k || k.nummer !== e.nummer) k = window._gsTeilenKommt = { nummer: e.nummer, n: 0 };
+      if (++k.n <= 2 * Math.ceil(GS_HUELLE_KOMMT_MAX_MS / GS_TEILEN_KOMMT_MS)) {
+        window._gsTeilenKommtZeit = setTimeout(function(){ window._gsTeilenKommtZeit = null; try { gsTeilenAbholen(); } catch(_){} }, GS_TEILEN_KOMMT_MS);
         return { zustand: 'kommt' };
       }
-      window._gsTeilenKommtN = 0;
-      return ende('fehler');
+      window._gsTeilenKommt = null;
+      window._gsTeilenOffen = false;
+      _gsTeilenSagen('fehler');
+      return { zustand: 'gesagt', grund: 'fehler' };
     }
-    window._gsTeilenKommtN = 0;
+    window._gsTeilenKommt = null;
     if (e.grund === 'kanal') {
       // Der Kanal antwortet nicht wie die Huelle — ein Fehler im Bau. Gesagt
       // wird er nur, wenn die Huelle gerade ein Teilen gemeldet hat; bei
@@ -80386,6 +80437,12 @@ function _gsHuelleTeilenAbholen(){
     // Vorschau, und die Antipp-Sperre beginnt von vorn.
     var offen = document.getElementById('gs-teilen-vorschau');
     if (offen && e.nummer && offen.getAttribute('data-nummer') === String(e.nummer)) return { zustand: 'vorschau', grund: 'schon' };
+    // Und dasselbe Foto wird gerade bestimmt (es bleibt bis zum Ergebnis im
+    // Fach): nicht noch einmal anbieten — ein zweites Antippen waere ein
+    // zweiter Scan desselben Fotos. Ein Anstoss kommt auch von einer Kopie,
+    // die zu spaet fertig wurde und gar nichts abgelegt hat.
+    var lauf = window._gsTeilenScanLaeuft;
+    if (lauf && e.nummer && lauf.nummer === e.nummer) return { zustand: 'laeuft', grund: 'scan' };
     return _gsTeilenAuspacken(e, ende, null);
   }).then(fertig, function(){ window._gsTeilenOffen = false; return fertig({ zustand: 'nichts' }); });
 }

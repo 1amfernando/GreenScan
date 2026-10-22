@@ -751,6 +751,17 @@ function server(wunschPort) {
         const md = navigator.mediaDevices;
         if (md) md.getUserMedia = function () { window.__gum++; return Promise.reject(new DOMException('nein', 'NotAllowedError')); };
       } catch (_) {}
+      // Wann ENTSTAND die Teilen-Vorschau, und wann nahm „Bestimmen" an? Gemessen
+      // in der Seite (performance.now), nicht am Takt eines Abfrage-Kreises:
+      // nur so laesst sich die Dauer der Antipp-Sperre binden (Fall 40).
+      window.__vorschauZeiten = [];
+      new MutationObserver(ms => ms.forEach(m => {
+        if (m.type === 'childList') m.addedNodes.forEach(n => { if (n.id === 'gs-teilen-vorschau') window.__vorschauZeiten.push({ ab: performance.now(), los: null }); });
+        else if (m.target && m.target.id === 'gs-teilen-los' && !m.target.disabled) {
+          const z = window.__vorschauZeiten[window.__vorschauZeiten.length - 1];
+          if (z && z.los == null) z.los = performance.now();
+        }
+      })).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
       // Jede Meldung, die je auf dem Bildschirm stand — nicht nur die letzte.
       window.__toasts = [];
       document.addEventListener('DOMContentLoaded', () => {
@@ -1029,6 +1040,9 @@ function server(wunschPort) {
       await l.evaluate(() => Promise.race([navigator.serviceWorker.ready, new Promise(z => setTimeout(z, 20000))]));
       await l.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
       await l.waitForTimeout(2000);
+      // Abgemeldet und NICHTS geteilt: kein Zeitgeber — sonst liefe bei jedem
+      // Start ohne Anmeldung einer, der nichts zu tun hat (Pruefung v33.56).
+      const ohneFoto = await l.evaluate(() => ({ warten: window._gsTeilenWarten || null, preauth: document.documentElement.classList.contains('gs-preauth') })).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
       await teile(l, { jpeg: true });
       await l.waitForTimeout(2500);
       const vor = await l.evaluate(async () => ({
@@ -1041,9 +1055,9 @@ function server(wunschPort) {
       await l.evaluate(() => { localStorage.setItem('gs_sb_token', 'x.y.z'); gsOnboardingHide(); }).catch(() => {});
       await warteAuf(l, () => !!document.getElementById('gs-teilen-vorschau'), 20);
       const nach38 = await stand(l);
-      const ok38 = vor.preauth && !vor.vorschau && vor.wartet && vor.eintrag && nach38.vorschau && nach38.bild;
-      melde('Teilen abgemeldet: keine Vorschau unter dem Anmeldebildschirm — sie kommt nach der Anmeldung', ok38,
-            ok38 ? 'vor der Anmeldung: wartet, Foto im Cache, keine Vorschau · danach: Vorschau mit Bild' : ('vorher ' + JSON.stringify(vor) + ' · nachher Vorschau ' + nach38.vorschau + ' · Adresse „' + nach38.adresse + '"'));
+      const ok38 = ohneFoto.preauth && ohneFoto.warten === null && vor.preauth && !vor.vorschau && vor.wartet && vor.eintrag && nach38.vorschau && nach38.bild;
+      melde('Teilen abgemeldet: keine Vorschau unter dem Anmeldebildschirm — sie kommt nach der Anmeldung; ohne Foto wartet auch nichts', ok38,
+            ok38 ? 'ohne Foto: kein Zeitgeber · vor der Anmeldung: wartet, Foto im Cache, keine Vorschau · danach: Vorschau mit Bild' : ('ohne Foto ' + JSON.stringify(ohneFoto) + ' · vorher ' + JSON.stringify(vor) + ' · nachher Vorschau ' + nach38.vorschau + ' · Adresse „' + nach38.adresse + '"'));
       await ctxL.close();
     }
 
@@ -1089,16 +1103,22 @@ function server(wunschPort) {
     //      Richtungen — ein Knopf, der NIE annimmt, waere ebenfalls „sicher".
     await teile(t, { jpeg: true });
     await warteAuf(t, () => !!document.getElementById('gs-teilen-vorschau'), 60);
-    const t40 = await t.evaluate(async () => {
+    const v40 = await t.evaluate(() => {
       const b = document.getElementById('gs-teilen-los');
       if (!b) return { fehler: 'keine Vorschau' };
       window.__scan40 = 0;
-      const orig = window.gsScanDatei;
+      window.__scan40Orig = window.gsScanDatei;
       window.gsScanDatei = async function () { window.__scan40++; };
-      const fokus = document.activeElement === b;
-      const sofortGesperrt = b.disabled === true;
+      return { fokus: document.activeElement === b, sofortGesperrt: b.disabled === true };
+    }).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
+    // Ein ECHTER Tastendruck (ein dispatchEvent ist nicht vertrauenswuerdig und
+    // loeste ohnehin nie einen Knopf aus — er haette nichts gemessen).
+    await t.keyboard.press('Enter').catch(() => {});
+    const t40 = await t.evaluate(async (v) => {
+      const b = document.getElementById('gs-teilen-los');
+      if (!b || v.fehler) return { fehler: v.fehler || 'keine Vorschau' };
+      const fokus = v.fokus, sofortGesperrt = v.sofortGesperrt;
       b.click();                                            // der Tipp, der fuer die andere App gedacht war
-      b.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       const frueh = window.__scan40;
       const offenFrueh = !!document.getElementById('gs-teilen-vorschau');
       let n = 0;
@@ -1108,13 +1128,18 @@ function server(wunschPort) {
       b.click();
       await new Promise(r => setTimeout(r, 300));
       const sp = window.__scan40;
-      window.gsScanDatei = orig;
+      window.gsScanDatei = window.__scan40Orig;
       try { _gsTeilenScanFertig(); } catch (_) {}
-      return { fokus, fokusSpaeter, sofortGesperrt, frueh, offenFrueh, spaeter, spaeterScan: sp, warteMs: n * 50, ms: window.GS_TEILEN_ANTIPP_MS };
-    }).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
-    const ok40 = !t40.fehler && !t40.fokus && !t40.fokusSpaeter && t40.sofortGesperrt && t40.frueh === 0 && t40.offenFrueh && t40.spaeter && t40.spaeterScan === 1;
+      const z = window.__vorschauZeiten[window.__vorschauZeiten.length - 1] || {};
+      return { fokus, fokusSpaeter, sofortGesperrt, frueh, offenFrueh, spaeter, spaeterScan: sp,
+               dauer: (z.los != null && z.ab != null) ? Math.round(z.los - z.ab) : null, ms: window.GS_TEILEN_ANTIPP_MS };
+    }, v40).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
+    // Die Dauer ist GEBUNDEN: an die Konstante UND an eine feste Untergrenze —
+    // eine halbierte Sperre (350 ms) waere sonst gruen geblieben (Pruefung v33.56).
+    const dauerOk = typeof t40.dauer === 'number' && t40.dauer >= Math.max(600, (t40.ms || 0) - 50) && t40.dauer <= (t40.ms || 0) + 800;
+    const ok40 = !t40.fehler && !t40.fokus && !t40.fokusSpaeter && t40.sofortGesperrt && t40.frueh === 0 && t40.offenFrueh && t40.spaeter && t40.spaeterScan === 1 && dauerOk;
     melde('Teilen: „Bestimmen" hat keinen Fokus und nimmt erst nach ' + (t40.ms || '?') + ' ms an — ein fremder Tipp loest keinen Scan aus, ein spaeterer schon', ok40,
-          ok40 ? ('sofort: gesperrt, Tipp + Enter → 0 Scans, Vorschau bleibt · nach ~' + t40.warteMs + ' ms frei → 1 Scan')
+          ok40 ? ('sofort: gesperrt, Tipp + echtes Enter → 0 Scans, Vorschau bleibt · frei nach ' + t40.dauer + ' ms (gemessen in der Seite) → 1 Scan')
                : JSON.stringify(t40).slice(0, 220));
     await verwerfen(t);
     await t.waitForTimeout(400);
@@ -1149,6 +1174,18 @@ function server(wunschPort) {
       pruef('WebP VP8X 10000×100000', vp8x, 10000, 100000);
       // VP8 (verlustbehaftet, ohne VP8X): Rahmen-Kennung 9D 01 2A, dann 14 Bit Breite, 14 Bit Hoehe (500×250)
       pruef('WebP VP8 500×250', roh(asc('RIFF').concat([0, 0, 0, 0]).concat(asc('WEBPVP8 ')).concat([0, 0, 0, 0, 0, 0, 0, 0x9D, 0x01, 0x2A, 0xF4, 0x01, 0xFA, 0x00])), 500, 250);
+      // GIF mit Bildschirm 0×0, globaler Farbtabelle, einer Erweiterung und einem
+      // Bildrahmen 40000×40000: Chromium nimmt den RAHMEN (Pruefung v33.56).
+      pruef('GIF 0×0, Rahmen 40000×40000', roh(asc('GIF89a').concat([0, 0, 0, 0, 0x80, 0, 0, 1, 2, 3, 4, 5, 6,
+        0x21, 0xF9, 0x04, 0, 0, 0, 0, 0x00, 0x2C, 0, 0, 0, 0, 0x40, 0x9C, 0x40, 0x9C, 0])), 40000, 40000);
+      // JPEG mit einem Fuellbyte vor dem SOF: libjpeg ueberspringt es und
+      // dekodiert die volle Groesse — die Pruefung darf daran nicht aufgeben.
+      pruef('JPEG, Fuellbyte vor SOF 40000×40000', roh([0xFF, 0xD8, 0xFF, 0xE0, 0, 4, 0, 0, 0x00, 0xFF, 0xC0, 0, 17, 8, 0x9C, 0x40, 0x9C, 0x40, 3]), 40000, 40000);
+      const echt = await bild('image/jpeg', 64, 48, 0.9);
+      const mitFuell = new Uint8Array(echt.length + 1);
+      const app0 = 4 + ((echt[4] << 8) | echt[5]);                    // Ende des ersten Segments (APP0)
+      mitFuell.set(echt.subarray(0, app0), 0); mitFuell[app0] = 0x00; mitFuell.set(echt.subarray(app0), app0 + 1);
+      pruef('echtes JPEG mit Fuellbyte 64×48', mitFuell, 64, 48);
       pruef('PNG ohne IHDR → null', roh([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13].concat(asc('XXXX'))), null, null);
       pruef('JPEG ohne SOF → null', roh([0xFF, 0xD8, 0xFF, 0xDA, 0, 8]), null, null);
       pruef('zu kurz → null', new Uint8Array([0xFF, 0xD8, 0xFF]), null, null);

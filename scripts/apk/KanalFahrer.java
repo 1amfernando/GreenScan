@@ -15,8 +15,9 @@ import java.util.*;
  *   CB  \t id \t zustand → js | NULL             (Export.rueckruf)
  *
  *   REQG \t methode \t pfad \t abfrage \t haupt \t marke \t origin \t referer
- *       → status \t json \t -                     (Geteilt.beantworte, ein Grund)
- *       → status \t BYTES \t typ \t anzahl \t nummer \t base64   (das Foto)
+ *       → status \t mime \t Name:Wert|Name:Wert \t base64(Rumpf)
+ *         (Geteilt.beantworte; Typ und Kopfzeilen aus Geteilt.Antwort — dieselben,
+ *          die AssetServer setzt, keine Nachbildung)
  *   TEILEN \t schema \t autoritaet \t uri(0/1) \t anzahl \t base64|-
  *       → zustand            (Geteilt.annehmen, wie der Faden der Huelle)
  *   LANGSAM \t ms \t base64  → gestartet   (dieselbe Annahme auf einem Faden;
@@ -64,22 +65,25 @@ public class KanalFahrer {
           out.println(js == null ? "NULL" : js);
         } else if ("REQG".equals(f[0])) {
           Geteilt.Antwort r = Geteilt.beantworte(fach, f[1], "1".equals(f[4]), f[2], "-".equals(f[3]) ? null : f[3], kopf(f), jetzt());
-          if (r.daten != null && r.typ != null) {
-            out.println(r.status + "\tBYTES\t" + r.typ + "\t" + r.anzahl + "\t" + r.nummer + "\t" + Base64.getEncoder().encodeToString(r.daten));
-          } else {
-            out.println(r.status + "\t" + r.json() + "\t-");
+          StringBuilder k = new StringBuilder();
+          for (Map.Entry<String, String> e : r.kopfzeilen().entrySet()) {
+            if (k.length() > 0) k.append('|');
+            k.append(e.getKey()).append(':').append(e.getValue());
           }
+          byte[] rumpf = r.foto() ? r.daten : r.json().getBytes("UTF-8");
+          out.println(r.status + "\t" + r.mime() + "\t" + k + "\t" + Base64.getEncoder().encodeToString(rumpf));
         } else if ("TEILEN".equals(f[0])) {
           final byte[] d = "-".equals(f[5]) ? new byte[0] : Base64.getDecoder().decode(f[5]);
-          String zu = Geteilt.annehmen(fach, "-".equals(f[1]) ? null : f[1], "-".equals(f[2]) ? null : f[2], "1".equals(f[3]),
+          String zu = Geteilt.annehmen(fach, fach.kommt(jetzt()), "-".equals(f[1]) ? null : f[1], "-".equals(f[2]) ? null : f[2], "1".equals(f[3]),
               "ch.greenscan.app", Integer.parseInt(f[4]), new Geteilt.Oeffner() {
                 public InputStream oeffnen() { return new ByteArrayInputStream(d); } }, UHR);
           out.println(zu);
         } else if ("LANGSAM".equals(f[0])) {
           final long ms = Long.parseLong(f[1]);
           final byte[] d = Base64.getDecoder().decode(f[2]);
+          final int n = fach.kommt(jetzt());                 // wie der Rand: die Nummer auf DIESEM Faden
           new Thread(new Runnable() { public void run() {
-            Geteilt.annehmen(fach, "content", "media", true, "ch.greenscan.app", 1, new Geteilt.Oeffner() {
+            Geteilt.annehmen(fach, n, "content", "media", true, "ch.greenscan.app", 1, new Geteilt.Oeffner() {
               public InputStream oeffnen() throws Exception { Thread.sleep(ms); return new ByteArrayInputStream(d); } }, UHR);
           } }).start();
           out.println("gestartet");

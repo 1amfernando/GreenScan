@@ -323,6 +323,7 @@ public class MainActivity extends Activity {
    * Activity lebt) — und nicht auf dem UI-Faden.
    */
   private void geteiltAnnehmen(Intent i) {
+    int nr = 0;
     try {
       Uri u = null;
       int anzahl = 1;
@@ -341,10 +342,19 @@ public class MainActivity extends Activity {
       final int wieviele = Math.max(1, anzahl);
       final ContentResolver cr = getApplicationContext().getContentResolver();
       final String paket = getPackageName();
+      // Die Nummer HIER, auf dem UI-Faden: in der Reihenfolge der Absichten.
+      nr = fach.kommt(UHR.jetzt());
+      // Und die Seite sofort anstossen — sie sieht „kommt" und fragt nach, bis
+      // das Foto da ist oder die Frist (KOMMT_MAX_MS) einen Satz daraus macht.
+      // Kaeme der Anstoss erst nach der Kopie, bliebe eine haengende Kopie in
+      // einer laufenden App still.
+      geteiltAnstossen();
+      if (nr == 0) return;                                   // schon KOPIEN_MAX unterwegs: „beschaeftigt"
+      final int n = nr;
       new Thread(new Runnable() {
         @Override public void run() {
           try {
-            Geteilt.annehmen(fach, uri == null ? null : uri.getScheme(), uri == null ? null : uri.getAuthority(),
+            Geteilt.annehmen(fach, n, uri == null ? null : uri.getScheme(), uri == null ? null : uri.getAuthority(),
                 uri != null, paket, wieviele, new Geteilt.Oeffner() {
                   @Override public InputStream oeffnen() throws Exception { return cr.openInputStream(uri); }
                 }, UHR);
@@ -355,8 +365,9 @@ public class MainActivity extends Activity {
         }
       }, "gs-geteilt").start();
     } catch (Throwable t) {
-      // Extras aus fremder Hand koennen schon beim Auspacken werfen.
-      try { Geteilt.annehmenGescheitert(fach, UHR); } catch (Throwable ignored) {}
+      // Extras aus fremder Hand koennen schon beim Auspacken werfen — oder der
+      // Faden liess sich nicht starten. Ein vergebener Platz wird freigegeben.
+      try { if (nr > 0) fach.fehler(nr, "fehler", UHR.jetzt()); else Geteilt.annehmenGescheitert(fach, UHR); } catch (Throwable ignored) {}
       geteiltAnstossen();
     }
   }

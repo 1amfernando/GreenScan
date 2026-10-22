@@ -49,6 +49,18 @@ public class GeteiltFahrer {
     }
     @Override public void close() { zu = true; }
   }
+  /** Ein Strom, der nie Daten liefert und erst beim Schliessen aufgibt — wie ein haengender Anbieter. */
+  static final class Haengt extends InputStream {
+    final java.util.concurrent.CountDownLatch los = new java.util.concurrent.CountDownLatch(1);
+    volatile boolean zu;
+    @Override public int read() throws IOException {
+      try { los.await(); } catch (InterruptedException e) { throw new IOException("unterbrochen"); }
+      throw new IOException("geschlossen");
+    }
+    @Override public int read(byte[] b, int o, int l) throws IOException { return read(); }
+    @Override public void close() { zu = true; los.countDown(); }
+  }
+
   /** Liefert jeweils hoechstens `schritt` Bytes — wie ein Rohr. */
   static final class Tropfen extends InputStream {
     final byte[] b; int i; final int schritt;
@@ -134,6 +146,12 @@ public class GeteiltFahrer {
     p("F:a_spaet", f.ablegen(a, JPEG, 1, u.t));           // das alte ueberschreibt das neue nicht
     p("F:b", f.ablegen(b, JPEG, 3, u.t) + " " + kurz(f.holen(u.t)));
     p("F:laufend_null", f.laufend());
+    // Ein Platz wird je Nummer GENAU EINMAL frei: ablegen UND danach fehler fuer
+    // dieselbe Nummer duerfen eine ANDERE laufende Kopie nicht mitzaehlen.
+    Geteilt.Fach e1 = new Geteilt.Fach();
+    int e1a = e1.kommt(u.t), e1b = e1.kommt(u.t);
+    e1.ablegen(e1a, JPEG, 1, u.t); e1.fehler(e1a, "fehler", u.t);
+    p("F:einmal_frei", e1.laufend() + " " + (e1b > 0));
     // KOPIEN_MAX: zwei laufen, das dritte wird abgewiesen — und es wird nichts gelesen
     Geteilt.Fach g = new Geteilt.Fach();
     int g1 = g.kommt(u.t), g2 = g.kommt(u.t), g3 = g.kommt(u.t);
@@ -183,6 +201,11 @@ public class GeteiltFahrer {
     p("Z:kommt_zu_lang", kurz(z.holen(u.t)));
     p("Z:spaet_ablegen", z.ablegen(zn, JPEG, 1, u.t));   // die Kopie, die doch noch fertig wird, kommt nicht mehr an
     p("Z:laufend", z.laufend());
+    // Eine Kopie, die nach der Frist fertig wird, OHNE dass jemand dazwischen
+    // gefragt hat: auch dann kommt sie zu spaet (ablegen sieht selbst auf die Frist).
+    Geteilt.Fach sp = new Geteilt.Fach();
+    int spn = sp.kommt(u.t);
+    p("Z:spaet_ohne_fragen", sp.ablegen(spn, JPEG, 1, u.t + Geteilt.KOMMT_MAX_MS + 1) + " " + sp.zustand(u.t + Geteilt.KOMMT_MAX_MS + 1));
     z.quittieren(u.t, 0);
     int zb = z.kommt(u.t); z.ablegen(zb, JPEG, 1, u.t);
     u.t += Geteilt.FRIST_MS - 1;
@@ -261,31 +284,49 @@ public class GeteiltFahrer {
     // ---------------------------------------------------- G7 Annehmen
     Geteilt.Fach an = new Geteilt.Fach();
     final Strom s1 = new Strom(JPEG);
-    p("A:gut", Geteilt.annehmen(an, "content", "media", true, PAKET, 4, new Geteilt.Oeffner() {
+    p("A:gut", Geteilt.annehmen(an, an.kommt(u.t), "content", "media", true, PAKET, 4, new Geteilt.Oeffner() {
       public InputStream oeffnen() { return s1; } }, u) + " " + kurz(an.holen(u.t)) + " zu=" + s1.zu);
-    p("A:ohne_uri", Geteilt.annehmen(an, null, null, false, PAKET, 1, null, u) + " " + kurz(an.holen(u.t)));
+    p("A:ohne_uri", Geteilt.annehmen(an, an.kommt(u.t), null, null, false, PAKET, 1, null, u) + " " + kurz(an.holen(u.t)));
     final int[] geoeffnet = { 0 };
     Geteilt.Oeffner zaehler = new Geteilt.Oeffner() { public InputStream oeffnen() { geoeffnet[0]++; return new Strom(JPEG); } };
-    p("A:file", Geteilt.annehmen(an, "file", "", true, PAKET, 1, zaehler, u) + " " + kurz(an.holen(u.t)) + " geoeffnet=" + geoeffnet[0]);
-    p("A:eigen", Geteilt.annehmen(an, "content", PAKET + ".provider", true, PAKET, 1, zaehler, u) + " " + kurz(an.holen(u.t)) + " geoeffnet=" + geoeffnet[0]);
-    p("A:security", Geteilt.annehmen(an, "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+    p("A:file", Geteilt.annehmen(an, an.kommt(u.t), "file", "", true, PAKET, 1, zaehler, u) + " " + kurz(an.holen(u.t)) + " geoeffnet=" + geoeffnet[0]);
+    p("A:eigen", Geteilt.annehmen(an, an.kommt(u.t), "content", PAKET + ".provider", true, PAKET, 1, zaehler, u) + " " + kurz(an.holen(u.t)) + " geoeffnet=" + geoeffnet[0]);
+    p("A:security", Geteilt.annehmen(an, an.kommt(u.t), "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
       public InputStream oeffnen() { throw new SecurityException("keine Leseerlaubnis"); } }, u) + " " + kurz(an.holen(u.t)));
     final WirftNach oom = new WirftNach(40, new OutOfMemoryError("voll"));
-    p("A:oom", Geteilt.annehmen(an, "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+    p("A:oom", Geteilt.annehmen(an, an.kommt(u.t), "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
       public InputStream oeffnen() { return oom; } }, u) + " " + kurz(an.holen(u.t)) + " zu=" + oom.zu);
     final WirftNach rt = new WirftNach(40, new IllegalStateException("kaputt"));
-    p("A:runtime", Geteilt.annehmen(an, "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+    p("A:runtime", Geteilt.annehmen(an, an.kommt(u.t), "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
       public InputStream oeffnen() { return rt; } }, u) + " " + kurz(an.holen(u.t)) + " zu=" + rt.zu);
-    p("A:null_strom", Geteilt.annehmen(an, "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+    p("A:null_strom", Geteilt.annehmen(an, an.kommt(u.t), "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
       public InputStream oeffnen() { return null; } }, u) + " " + kurz(an.holen(u.t)));
     final Strom gr = new Strom(new byte[(int) Geteilt.MAX_BYTES + 1]);
-    p("A:gross", Geteilt.annehmen(an, "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+    p("A:gross", Geteilt.annehmen(an, an.kommt(u.t), "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
       public InputStream oeffnen() { return gr; } }, u) + " " + kurz(an.holen(u.t)) + " zu=" + gr.zu);
-    p("A:heic", Geteilt.annehmen(an, "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+    p("A:heic", Geteilt.annehmen(an, an.kommt(u.t), "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
       public InputStream oeffnen() { return new Strom(ascii("\0\0\0\u0018ftypheic", 64)); } }, u) + " " + kurz(an.holen(u.t)));
     p("A:laufend", an.laufend());
     p("A:gescheitert", Geteilt.annehmenGescheitert(an, u) + " " + kurz(an.holen(u.t)) + " " + an.laufend());
-    p("A:null_fach", Geteilt.annehmen(null, "content", "media", true, PAKET, 1, zaehler, u));
+    p("A:null_fach", Geteilt.annehmen(null, 1, "content", "media", true, PAKET, 1, zaehler, u));
+    p("A:ohne_nummer", Geteilt.annehmen(an, 0, "content", "media", true, PAKET, 1, zaehler, u) + " geoeffnet=" + geoeffnet[0]);
+    // Der Waechter: ein Strom, der NIE endet, wird nach wachMs geschlossen — der
+    // Platz ist danach frei und das Fach sagt `fehler`, statt bis zum Ende des
+    // Prozesses „kommt" zu sein.
+    final Haengt h1 = new Haengt();
+    Geteilt.Fach wf = new Geteilt.Fach();
+    long t0 = System.nanoTime();
+    String wz = Geteilt.annehmen(wf, wf.kommt(u.t), "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+      public InputStream oeffnen() { return h1; } }, u, 300);
+    long ms = (System.nanoTime() - t0) / 1000000L;
+    p("A:waechter", wz + " " + wf.laufend() + " zu=" + h1.zu + " " + (ms >= 250 && ms < 5000));
+    // … und eine Kopie, die rechtzeitig fertig ist, bleibt bereit, auch wenn die
+    // Waechter-Frist danach ablaeuft (der Waechter hat dann nichts mehr zu tun).
+    Geteilt.Fach wg = new Geteilt.Fach();
+    String wz2 = Geteilt.annehmen(wg, wg.kommt(u.t), "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+      public InputStream oeffnen() { return new Strom(JPEG); } }, u, 300);
+    Thread.sleep(500);
+    p("A:waechter_still", wz2 + " " + wg.zustand(u.t));
 
     // -------------------------------------------- G8 Welche Absicht zaehlt
     final int AUS_DER_LISTE = 0x00100000;   // Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY

@@ -389,10 +389,10 @@ function rechnungGeteilt() {
     'G1 · Quelle: nur content://, nie file://, nie der eigene Anbieter (auch nicht als Unter-Name), nie ein @ in der Autoritaet',
     'G2 · Typ an den BYTES: JPEG/PNG/GIF/WebP, HEIC mit eigenem Grund — WAV, AVIF, MP4, HTML und Kurzes sind kein Bild',
     'G3 · Kopie mit Deckel: genau 15 MiB gehen, ein Byte mehr nicht; ein Rohr in kleinen Stuecken kommt byte-gleich an',
-    'G4 · Fach: ein spaetes Teilen ueberschreibt kein neueres, hoechstens zwei Kopien, 8 Faeden ohne Ausnahme',
+    'G4 · Fach: ein spaetes Teilen ueberschreibt kein neueres, hoechstens zwei Kopien, ein Platz wird je Nummer einmal frei, 8 Faeden ohne Ausnahme',
     'G5 · Fristen und zwei Schritte: holen verbraucht nichts, gezeigt heisst frisch, „weg" wird gesagt, quittiert wird nur das gezeigte Foto',
     'G6 · Die Weiche: nur GET, nie Hauptrahmen, nur mit X-GS-Huelle: geteilt — der Wert des Export-Kanals gilt hier nicht und umgekehrt',
-    'G7 · Annehmen: jede Ausnahme der Quelle (auch SecurityException, OutOfMemoryError) endet in einem Grund, der Strom wird geschlossen',
+    'G7 · Annehmen: jede Ausnahme der Quelle (auch SecurityException, OutOfMemoryError) endet in einem Grund, der Strom wird geschlossen — auch einer, der nie endet',
     'G8 · Nur SEND und SEND_MULTIPLE — nie eine wiederhergestellte Activity, nie ein Start aus der Liste der letzten Apps',
     'G9 · Der Anstoss an die Seite ist ein fester Text ohne Daten',
   ];
@@ -428,12 +428,12 @@ function rechnungGeteilt() {
     'K:genau': '100', 'K:eins_zu_viel': 'ZuGross', 'K:tropfen_gleich': 'true', 'K:wirft': 'IOException', 'K:null': 'IOException', 'K:max': '15728640',
   }, '3 MiB in Stuecken zu 1013 Bytes byte-gleich · Deckel 15 728 640') });
   F.push({ name: NAMEN[3], r: pruef({
-    'F:anfang': 'leer ' + J('nichts'), 'F:kommt': 'kommt ' + J('kommt'), 'F:a_spaet': 'false', 'F:b': 'true 200 bytes image/jpeg 2000 x3 n2',
-    'F:laufend_null': '0', 'F:dritte': '0 fehler ' + J('beschaeftigt', 3), 'F:danach_laufend': '0 fehler', 'F:wieder_frei': 'true 1',
+    'F:anfang': 'leer ' + J('nichts'), 'F:kommt': 'kommt ' + J('kommt', 1), 'F:a_spaet': 'false', 'F:b': 'true 200 bytes image/jpeg 2000 x3 n2',
+    'F:laufend_null': '0', 'F:einmal_frei': '1 true', 'F:dritte': '0 fehler ' + J('beschaeftigt', 3), 'F:danach_laufend': '0 fehler', 'F:wieder_frei': 'true 1',
     'F:heic': J('heic', 1), 'F:kein_bild': J('kein_bild', 2), 'F:grund_fremd': J('fehler', 3), 'F:faeden': '0 0 true',
   }, '„leer" heisst nichts geteilt (Grund nichts) — der Grund „leer" ist ein Teilen ohne Foto · 400 Teilen auf 8 Faeden') });
   F.push({ name: NAMEN[4], r: pruef({
-    'Z:kommt_grenze': 'kommt', 'Z:kommt_zu_lang': J('fehler', 1), 'Z:spaet_ablegen': 'false', 'Z:laufend': '0',
+    'Z:kommt_grenze': 'kommt', 'Z:kommt_zu_lang': J('fehler', 1), 'Z:spaet_ablegen': 'false', 'Z:laufend': '0', 'Z:spaet_ohne_fragen': 'false fehler',
     'Z:holen1': '200 bytes image/jpeg 2000 x1 n2', 'Z:holen2': '200 bytes image/jpeg 2000 x1 n2', 'Z:frisch': 'bereit',
     'Z:weg': J('weg', 2), 'Z:weg_bleibt': J('weg', 2), 'Z:weg_dann_nichts': J('nichts'), 'Z:rueckwaerts': J('weg', 3),
     'Z:quitt_alt': OK + ' 200 bytes image/jpeg 77 x1 n2', 'Z:quitt_neu': OK + ' leer',
@@ -455,7 +455,8 @@ function rechnungGeteilt() {
     'A:security': 'fehler ' + J('fehler', 5), 'A:oom': 'fehler ' + J('fehler', 6) + ' zu=true', 'A:runtime': 'fehler ' + J('fehler', 7) + ' zu=true',
     'A:null_strom': 'fehler ' + J('fehler', 8), 'A:gross': 'fehler ' + J('gross', 9) + ' zu=true', 'A:heic': 'fehler ' + J('heic', 10),
     'A:laufend': '0', 'A:gescheitert': 'fehler ' + J('fehler', 11) + ' 0', 'A:null_fach': 'fehler',
-  }, 'eine abgewiesene Quelle wird gar nicht erst geoeffnet · laufend am Ende 0') });
+    'A:ohne_nummer': 'fehler geoeffnet=0', 'A:waechter': 'fehler 0 zu=true true', 'A:waechter_still': 'bereit bereit',
+  }, 'eine abgewiesene Quelle wird gar nicht erst geoeffnet · laufend am Ende 0 · ein haengender Strom wird nach der Frist geschlossen, der Platz ist frei') });
   F.push({ name: NAMEN[7], r: pruef({
     'S:send': 'true', 'S:multiple': 'true', 'S:main': 'false', 'S:view': 'false', 'S:null': 'false', 'S:wiederhergestellt': 'false', 'S:aus_der_liste': 'false',
   }) });
@@ -831,8 +832,9 @@ function rand() {
   if (schritteJ.length !== 2 || !/_gsHuelleGeteiltFrage\('holen'\)/.test(QUELLE_CODE) || !/_gsHuelleGeteiltFrage\('quittieren'/.test(QUELLE_CODE)) n17.push('Schritte holen/quittieren nicht auf beiden Seiten');
   if (!/teil\.startsWith\("n="\)/.test(GT_OHNE) || !/'\?n=' \+ n/.test(QUELLE_CODE)) n17.push('die Nummer n= geht nicht von der Seite an die Huelle');
   ['X-Anzahl', 'X-Nummer'].forEach(h => {
-    if (AS_OHNE.indexOf('kopf.put("' + h + '"') < 0 || QUELLE_CODE.indexOf("r.headers.get('" + h + "')") < 0) n17.push('Antwort-Kopfzeile ' + h + ' nicht auf beiden Seiten');
+    if (GT_OHNE.indexOf('k.put("' + h + '"') < 0 || QUELLE_CODE.indexOf("r.headers.get('" + h + "')") < 0) n17.push('Antwort-Kopfzeile ' + h + ' nicht auf beiden Seiten');
   });
+  if (!/k\.put\("X-Anzahl", String\.valueOf\(anzahl\)\)/.test(GT_OHNE) || !/k\.put\("X-Nummer", String\.valueOf\(nummer\)\)/.test(GT_OHNE)) n17.push('X-Anzahl/X-Nummer tragen nicht Anzahl bzw. Nummer');
   const anstossName = (GT_OHNE.match(/window\.(gs\w+) && window\.\1\(\)/) || [])[1];
   if (!anstossName || !new RegExp('window\\.' + anstossName + ' = function\\(\\)').test(QUELLE_CODE)) n17.push('der Anstoss ' + anstossName + ' hat in der Seite keine Funktion');
   F.push({
@@ -862,7 +864,12 @@ function rand() {
   const annehmen = (MAINACT_OHNE.match(/private void geteiltAnnehmen\(Intent i\) \{([\s\S]*?)\n  \}/) || ['', ''])[1];
   const iClip = annehmen.indexOf('getClipData()'), iExtra = annehmen.indexOf('EXTRA_STREAM');
   if (!(iClip >= 0 && iExtra > iClip)) r18.push('die Adresse kommt nicht zuerst aus ClipData (dort haengt die Leseerlaubnis)');
-  if (!/new Thread\(new Runnable\(\) \{[\s\S]*?Geteilt\.annehmen\(fach,[\s\S]*?cr\.openInputStream\(uri\)[\s\S]*?\} finally \{\s*geteiltAnstossen\(\);/.test(annehmen)) r18.push('nicht: auf eigenem Faden Geteilt.annehmen mit openInputStream, Anstoss im finally');
+  if (!/new Thread\(new Runnable\(\) \{[\s\S]*?Geteilt\.annehmen\(fach, n,[\s\S]*?cr\.openInputStream\(uri\)[\s\S]*?\} finally \{\s*geteiltAnstossen\(\);/.test(annehmen)) r18.push('nicht: auf eigenem Faden Geteilt.annehmen mit openInputStream, Anstoss im finally');
+  const iKommt = annehmen.indexOf('nr = fach.kommt(UHR.jetzt());'), iFaden = annehmen.indexOf('new Thread(');
+  const zwischen = iKommt >= 0 && iFaden > iKommt ? annehmen.slice(iKommt, iFaden) : '';
+  if (!(iKommt >= 0 && iFaden > iKommt)) r18.push('die Nummer wird nicht VOR dem Faden vergeben (die Reihenfolge der Faeden entschiede, welches Foto neuer ist)');
+  else if (!/geteiltAnstossen\(\);/.test(zwischen)) r18.push('kein Anstoss beim START der Kopie (eine haengende Kopie bliebe in einer laufenden App still)');
+  if (!/if \(nr > 0\) fach\.fehler\(nr, "fehler", UHR\.jetzt\(\)\); else Geteilt\.annehmenGescheitert\(fach, UHR\);/.test(annehmen)) r18.push('ein vergebener Platz wird bei einer Ausnahme nicht freigegeben');
   if (!/catch \(Throwable t\) \{[\s\S]*?Geteilt\.annehmenGescheitert\(fach, UHR\)[\s\S]*?geteiltAnstossen\(\);/.test(annehmen)) r18.push('ein Teilen, das sich nicht auspacken laesst, endet nicht in annehmenGescheitert + Anstoss');
   if (/new File\(|getPath\(\)|openFileInput|FileInputStream/.test(annehmen)) r18.push('der Rand liest Dateien selbst (nur ContentResolver.openInputStream ist erlaubt)');
   if (!/private static final Geteilt\.Fach fach = new Geteilt\.Fach\(\);/.test(MAINACT_OHNE)) r18.push('das Fach ist nicht EINES je Prozess (static final)');
@@ -873,7 +880,16 @@ function rand() {
   if (!(iGeteilt > 0 && iPaket > iGeteilt)) r18.push('der Weg /__huelle/geteilt/ steht nicht VOR der Suche im Paket');
   if (!/Geteilt\.beantworte\(fach, methode, hauptRahmen, roh, u\.getEncodedQuery\(\),\s*kopfzeilenDerAnfrage, SystemClock\.elapsedRealtime\(\)\)/.test(asRumpf)) r18.push('AssetServer reicht Methode/Hauptrahmen/kodierte Adresse/Kopfzeilen/monotone Uhr nicht durch');
   const geteiltRumpf = (AS_OHNE.match(/private WebResourceResponse geteilt\(Geteilt\.Antwort a\) \{([\s\S]*?)\n  \}/) || ['', ''])[1];
-  if (!geteiltRumpf || /return null;/.test(geteiltRumpf) || !/catch \(Throwable/.test(geteiltRumpf) || !/"no-store"/.test(geteiltRumpf) || !/"nosniff"/.test(geteiltRumpf)) r18.push('geteilt(): null, keine Ausnahme gefangen, oder ohne no-store/nosniff');
+  if (!geteiltRumpf || /return null;/.test(geteiltRumpf) || !/catch \(Throwable/.test(geteiltRumpf)) r18.push('geteilt(): null oder keine Ausnahme gefangen');
+  // Der Rand baut Typ und Kopfzeilen NICHT selbst — er nimmt die aus Geteilt.Antwort,
+  // die auch der Pruefstand der Seite liefert (sonst prueften T0–T10 eine Nachbildung).
+  if (!/Map<String, String> kopf = a\.kopfzeilen\(\);/.test(geteiltRumpf) || (geteiltRumpf.match(/a\.mime\(\)/g) || []).length < 2 || /kopf\.put\("X-/.test(geteiltRumpf)) r18.push('geteilt(): Typ/Kopfzeilen nicht aus Geteilt.Antwort (mime/kopfzeilen) — der Pruefstand saehe sie nie');
+  if (!/k\.put\("Cache-Control", "no-store"\)/.test(GT_OHNE) || !/k\.put\("X-Content-Type-Options", "nosniff"\)/.test(GT_OHNE)) r18.push('Geteilt.Antwort.kopfzeilen ohne no-store/nosniff');
+  // Und der Rand nimmt das Teilen WIRKLICH an: geteiltAnnehmen im sollAnnehmen-Zweig,
+  // VOR dem Zuruecksetzen der Absicht — und der AssetServer bekommt DASSELBE Fach.
+  if (!/Intent\.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY\)\) \{\s*geteiltAnnehmen\(getIntent\(\)\);\s*setIntent\(new Intent\(Intent\.ACTION_MAIN\)\);/.test(MAINACT_OHNE)) r18.push('onCreate: geteiltAnnehmen(getIntent()) fehlt im sollAnnehmen-Zweig oder steht nach setIntent (dann laese es die MAIN-Absicht)');
+  if (!/Intent\.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY\)\) \{\s*geteiltAnnehmen\(neu\);\s*setIntent\(new Intent\(Intent\.ACTION_MAIN\)\);/.test(neuRumpf)) r18.push('onNewIntent: geteiltAnnehmen(neu) fehlt oder steht nach setIntent');
+  if (!/new AssetServer\(getAssets\(\), sammler, fach\)/.test(MAINACT_OHNE)) r18.push('der AssetServer bekommt nicht dasselbe Fach');
   F.push({
     name: 'R18 · Der Rand des Teilens: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, Anstoss im finally, nie eine Datei selbst gelesen, Weg vor dem Paket',
     r: r18.length ? { ok: false, warum: r18.join(' · ') } : { ok: true, info: 'SEND + SEND_MULTIPLE · ' + (typenWeb || []).join(', ') + ' · singleTask · Fach static final, Uhr monoton' },
@@ -1025,12 +1041,11 @@ async function huelleRouten(ctx, k) {
         const g = (await k.java(['REQG', req.method(), pfad, abfrage || '-', a.haupt ? '1' : '0',
           a.marke || '-', a.origin || '-', a.referer || '-'].join('\t'))).split('\t');
         if (g[0] === 'AUSNAHME') return route.fulfill({ status: 500, body: g.join(' ') });
-        const kopf = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
-        if (g[1] === 'BYTES') {
-          return route.fulfill({ status: +g[0], contentType: g[2], headers: Object.assign({ 'x-anzahl': g[3], 'x-nummer': g[4] }, kopf),
-            body: Buffer.from(g[5], 'base64') });
-        }
-        return route.fulfill({ status: +g[0], contentType: 'application/json', headers: kopf, body: g[1] });
+        // Typ und Kopfzeilen GENAU so, wie Geteilt.Antwort sie baut (dieselben
+        // setzt AssetServer) — keine eigene Liste hier.
+        const kopf = {};
+        (g[2] || '').split('|').filter(Boolean).forEach(z => { const i = z.indexOf(':'); kopf[z.slice(0, i).toLowerCase()] = z.slice(i + 1); });
+        return route.fulfill({ status: +g[0], contentType: g[1], headers: kopf, body: Buffer.from(g[3] || '', 'base64') });
       }
       if (/\/start$/.test(pfad)) {
         const q = {}; abfrage.split('&').forEach(p => { const i = p.indexOf('='); if (i > 0) { try { q[decodeURIComponent(p.slice(0, i))] = decodeURIComponent(p.slice(i + 1)); } catch (_) {} } });
@@ -1452,6 +1467,24 @@ async function teilenFaelle(p, k) {
   R.t4.nB = zB[1]; R.t4.shaA = A.sha; R.t4.shaB = B.sha;
   await ruhe();
 
+  // T10 — dasselbe Foto wird gerade bestimmt (es bleibt bis zum Ergebnis im Fach):
+  // ein Anstoss — etwa von einer Kopie, die zu spaet fertig wurde — bietet es
+  // NICHT noch einmal an. Ein zweites Antippen waere ein zweiter Scan.
+  await p.evaluate(() => { window.__teilenScans = []; });
+  await teilen(A.b64); await anstoss();
+  await bis(() => !!document.getElementById('gs-teilen-vorschau'));
+  R.t10 = { best: await bestimmen() };
+  await p.evaluate(() => { window.__vorschauNeu = 0; });
+  await anstoss();
+  await p.waitForTimeout(1200);
+  R.t10.neu = await p.evaluate(() => window.__vorschauNeu);
+  R.t10.s = await seite();
+  R.t10.zustand = (await zustand())[0];
+  await p.evaluate(() => { try { _gsTeilenScanFertig(); } catch (_) {} });
+  await p.waitForTimeout(400);
+  R.t10.nachher = (await zustand())[0];
+  await ruhe();
+
   // T5 — die Frist laeuft ab, waehrend die Vorschau steht: kein stilles Verschwinden, ein Satz.
   await teilen(A.b64); await anstoss();
   R.t5 = { vorher: !!(await bis(() => !!document.getElementById('gs-teilen-vorschau'))) };
@@ -1488,6 +1521,20 @@ async function teilenFaelle(p, k) {
     await verwerfen();
   }
   await ruhe();
+
+  // T11 — antwortet der Kanal NICHT wie die Huelle (HTML, JSON ohne Marke — eine
+  // falsche Weiche, ein falscher Kopfzeilen-Wert): nach einem Anstoss ein Satz,
+  // beim Start OHNE Anstoss Stille (sonst stuende er bei jedem Start da).
+  k.modus = 'html';
+  await p.evaluate(() => { window.__meldungen = []; });
+  await anstoss();
+  await bis(() => (window.__meldungen || []).length > 0 ? true : null, null, 20);
+  R.t11 = { html: await seite() };
+  k.modus = 'ohne_marke';
+  await neuLaden();
+  await p.waitForTimeout(2500);
+  R.t11.start = await seite();
+  k.modus = 'java';
 
   // T7 — jeder Grund, den Geteilt.java kennt und der bei der Seite ankommen kann, hat einen eigenen ganzen Satz.
   const javaGruende = ((GETEILT_JAVA.match(/g\.matches\("([a-z_|]+)"\)/) || [])[1] || '').split('|')
@@ -1806,6 +1853,8 @@ async function app() {
     'T7 · Jeder Grund, den Geteilt.java kennt, hat einen eigenen ganzen Satz',
     'T8 · Abmelden leert das Fach — auch eine Kopie, die noch laeuft, legt danach nichts mehr ab',
     "T9 · In der Huelle fasst die Seite den Cache des Teilen-Ziels nie an — im Browser schon (die PWA-Haelfte)",
+    'T10 · Waehrend ein geteiltes Foto bestimmt wird, bietet ein weiterer Anstoss es nicht noch einmal an',
+    'T11 · Antwortet der Kanal nicht wie die Huelle: nach einem Anstoss ein Satz, beim Start ohne Anstoss Stille',
   ];
   if (!T) {
     TN.forEach(n => F.push({ name: n, r: KANAL_KLASSEN ? { ok: false, warum: 'die Teilen-Faelle liefen nicht: ' + (h.teilenFehler || 'ohne Ergebnis') }
@@ -1841,6 +1890,12 @@ async function app() {
                                                                        : { ok: false, warum: JSON.stringify(t7schlecht.length ? t7schlecht : T.t7).slice(0, 300) } });
     F.push({ name: TN[8], r: (T.t8.liegend === 'leer' && T.t8.kopie[0] === 'leer' && T.t8.kopie[2] === '0')
       ? { ok: true, info: 'liegendes Foto → leer · laufende Kopie → leer, laufend 0' } : { ok: false, warum: JSON.stringify(T.t8) } });
+    const t10 = T.t10;
+    F.push({ name: TN[10], r: (t10.best.scans && t10.best.scans.length === 1 && t10.neu === 0 && t10.s.vorschau === 0 && t10.zustand === 'bereit' && t10.nachher === 'leer')
+      ? { ok: true, info: 'Foto bleibt waehrend des Scans im Fach (bereit), ein Anstoss baut 0 Vorschauen · Ergebnis → leer' } : { ok: false, warum: JSON.stringify(t10).slice(0, 300) } });
+    const t11 = T.t11;
+    F.push({ name: TN[11], r: (t11.html.vorschau === 0 && t11.html.meldungen.some(t => /nicht angekommen/.test(t)) && t11.start.vorschau === 0 && keinSatz(t11.start.meldungen))
+      ? { ok: true, info: 'HTML nach Anstoss: „' + t11.html.meldungen.filter(t => /nicht angekommen/.test(t))[0] + '" · JSON ohne Marke beim Start: still' } : { ok: false, warum: JSON.stringify(t11).slice(0, 300) } });
     F.push({ name: TN[9], r: (T.caches === 0 && b.geteiltCaches > 0)
       ? { ok: true, info: 'Huelle 0× · Browser ' + b.geteiltCaches + '×' } : { ok: false, warum: 'Huelle ' + T.caches + '× · Browser ' + b.geteiltCaches + '×' } });
   }

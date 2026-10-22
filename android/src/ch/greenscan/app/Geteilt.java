@@ -153,7 +153,12 @@ public final class Geteilt {
     private int anzahl;
     private long seit;
     private int nummer;
-    private int laufend;
+    /**
+     * Die Nummern der Kopien, die gerade laufen. Ein Platz wird je Nummer
+     * GENAU EINMAL frei (ablegen ODER fehler) — ein nackter Zaehler senkte bei
+     * einer Ausnahme nach dem Senken ein zweites Mal und hebelte den Deckel aus.
+     */
+    private final java.util.HashSet<Integer> aktiv = new java.util.HashSet<Integer>();
 
     /**
      * Ein Teilen beginnt. Gibt die Nummer zurueck, unter der es abgelegt wird —
@@ -163,23 +168,29 @@ public final class Geteilt {
      * {@link #fehler} — der Rand ruft es im {@code finally}.
      */
     public synchronized int kommt(long jetzt) {
-      if (laufend >= KOPIEN_MAX) {
+      if (aktiv.size() >= KOPIEN_MAX) {
         nummer++;
         fehlerIntern("beschaeftigt", jetzt);
         return 0;
       }
-      laufend++;
       nummer++;
+      aktiv.add(nummer);
       zustand = KOMMT; grund = null; daten = null; typ = null; anzahl = 0; seit = jetzt;
       return nummer;
     }
 
     /** Wie viele Kopien gerade laufen (fuer den Pruefstand). */
-    public synchronized int laufend() { return laufend; }
+    public synchronized int laufend() { return aktiv.size(); }
 
-    /** Legt die Bytes ab — nur, wenn {@code n} noch das neueste Teilen ist. */
+    /**
+     * Legt die Bytes ab — nur, wenn {@code n} noch das neueste Teilen ist UND
+     * seine Frist nicht vorbei ist. Eine Kopie, die nach {@link #KOMMT_MAX_MS}
+     * fertig wird, kommt zu spaet: die Seite hat dann schon „nicht angekommen"
+     * gesagt, und eine Vorschau Minuten spaeter waere eine zweite Antwort.
+     */
     public synchronized boolean ablegen(int n, byte[] d, int wieviele, long jetzt) {
-      if (n > 0 && laufend > 0) laufend--;
+      aktiv.remove(n);
+      ablaufen(jetzt);
       if (n != nummer || !KOMMT.equals(zustand)) return false;
       String t = d == null ? null : typ(d, d.length);
       if ("heic".equals(t)) return fehlerIntern("heic", jetzt);
@@ -190,7 +201,8 @@ public final class Geteilt {
 
     /** Das Teilen {@code n} ist gescheitert ({@code gross} · {@code quelle} · {@code fehler}). */
     public synchronized boolean fehler(int n, String g, long jetzt) {
-      if (n > 0 && laufend > 0) laufend--;
+      aktiv.remove(n);
+      ablaufen(jetzt);
       if (n != nummer || !KOMMT.equals(zustand)) return false;
       return fehlerIntern(g, jetzt);
     }
@@ -214,7 +226,10 @@ public final class Geteilt {
         return new Antwort(200, true, null, daten, typ, anzahl, nummer);
       }
       if (FEHLER.equals(zustand)) return new Antwort(200, false, grund, null, null, 0, nummer);
-      return nein(KOMMT.equals(zustand) ? KOMMT : "nichts");
+      // Auch „kommt" traegt die Nummer: die Seite zaehlt ihre Versuche JE Teilen,
+      // sonst liefe ihr Zaehler ueber ein zweites Teilen hinweg weiter.
+      if (KOMMT.equals(zustand)) return new Antwort(200, false, KOMMT, null, null, 0, nummer);
+      return nein("nichts");
     }
 
     /**
@@ -272,6 +287,29 @@ public final class Geteilt {
       this.status = status; this.ok = ok; this.grund = grund; this.daten = daten; this.typ = typ; this.anzahl = anzahl;
       this.nummer = nummer;
     }
+    /** Traegt die Antwort das Foto (sonst einen Grund als JSON)? */
+    public boolean foto() { return daten != null && typ != null; }
+
+    /** Der Inhaltstyp: das Foto mit dem GEMESSENEN Typ, sonst JSON. */
+    public String mime() { return foto() ? typ : "application/json"; }
+
+    /**
+     * Die Kopfzeilen der Antwort — EINE Stelle fuer den Rand (AssetServer) und
+     * den Pruefstand (KanalFahrer). Baute jeder seine eigenen, pruefte der
+     * Pruefstand eine Nachbildung: eine falsche X-Nummer im Rand liesse jedes
+     * zweite Teilen nie leer werden, und kein Fall saehe es (Pruefung v33.56).
+     */
+    public Map<String, String> kopfzeilen() {
+      Map<String, String> k = new java.util.LinkedHashMap<String, String>();
+      k.put("Cache-Control", "no-store");
+      k.put("X-Content-Type-Options", "nosniff");
+      if (foto()) {
+        k.put("X-Anzahl", String.valueOf(anzahl));
+        k.put("X-Nummer", String.valueOf(nummer));
+      }
+      return k;
+    }
+
     public String json() {
       String n = nummer > 0 ? ",\"n\":" + nummer : "";
       return ok ? "{\"huelle\":1,\"ok\":true}" : "{\"huelle\":1,\"ok\":false,\"grund\":\"" + (grundOk(grund) ? grund : "fehler") + "\"" + n + "}";
@@ -352,19 +390,43 @@ public final class Geteilt {
    * {@code SecurityException} eines Anbieters ohne Leserecht, ein
    * {@code OutOfMemoryError}) endet in {@link Fach#fehler}.
    *
-   * @param uri    {@code null}, wenn das Teilen gar keine Adresse trug (→ {@code leer})
+   * <p>Die Nummer {@code n} hat der Rand VORHER vergeben ({@link Fach#kommt}),
+   * auf dem UI-Faden, in der Reihenfolge der Absichten. Vergaebe sie dieser
+   * Faden, entschiede die Reihenfolge der Faeden, welches Foto als „neuer"
+   * gilt — zwei schnell geteilte Fotos koennten vertauscht ankommen.
+   *
+   * <p>Und ein Strom, der nicht endet, wird nach {@code wachMs} GESCHLOSSEN
+   * (Android weckt dabei den blockierten Lesevorgang,
+   * {@code IoBridge.closeAndSignalBlockedThreads}): sonst belegte ein
+   * haengender Anbieter einen der {@link #KOPIEN_MAX} Plaetze bis zum Ende
+   * des Prozesses, und nach zweien waere jedes weitere Teilen „beschaeftigt".
+   *
+   * @param uri    {@code false}, wenn das Teilen gar keine Adresse trug (→ {@code leer})
    * @return der Zustand des Fachs danach
    */
-  public static String annehmen(Fach f, String schema, String autoritaet, boolean uri, String eigenesPaket,
-                                int anzahl, Oeffner o, Uhr uhr) {
+  public static String annehmen(final Fach f, final int n, String schema, String autoritaet, boolean uri, String eigenesPaket,
+                                int anzahl, Oeffner o, Uhr uhr, long wachMs) {
     if (f == null) return FEHLER;
-    int n = f.kommt(uhr.jetzt());
-    if (n == 0) return f.zustand(uhr.jetzt());               // schon KOPIEN_MAX unterwegs
+    if (n <= 0) return f.zustand(uhr.jetzt());              // kein Platz vergeben (KOPIEN_MAX)
     InputStream in = null;
+    final boolean[] fertig = { false };
     try {
       if (!uri) { f.fehler(n, "leer", uhr.jetzt()); return f.zustand(uhr.jetzt()); }
       if (!quelleOk(schema, autoritaet, eigenesPaket)) { f.fehler(n, "quelle", uhr.jetzt()); return f.zustand(uhr.jetzt()); }
       in = o.oeffnen();
+      if (in != null && wachMs > 0) {
+        final InputStream strom = in;
+        final long frist = wachMs;
+        Thread waechter = new Thread(new Runnable() {
+          @Override public void run() {
+            try { Thread.sleep(frist); } catch (InterruptedException e) { return; }
+            synchronized (fertig) { if (fertig[0]) return; }
+            try { strom.close(); } catch (Throwable ignored) {}
+          }
+        }, "gs-geteilt-waechter");
+        waechter.setDaemon(true);
+        waechter.start();
+      }
       byte[] d = kopieren(in, MAX_BYTES);
       f.ablegen(n, d, anzahl, uhr.jetzt());
     } catch (ZuGross e) {
@@ -372,9 +434,16 @@ public final class Geteilt {
     } catch (Throwable t) {
       f.fehler(n, "fehler", uhr.jetzt());
     } finally {
+      synchronized (fertig) { fertig[0] = true; }
       if (in != null) try { in.close(); } catch (Throwable ignored) {}
     }
     return f.zustand(uhr.jetzt());
+  }
+
+  /** Wie {@link #annehmen(Fach, int, String, String, boolean, String, int, Oeffner, Uhr, long)} mit dem Waechter nach {@link #KOMMT_MAX_MS}. */
+  public static String annehmen(Fach f, int n, String schema, String autoritaet, boolean uri, String eigenesPaket,
+                                int anzahl, Oeffner o, Uhr uhr) {
+    return annehmen(f, n, schema, autoritaet, uri, eigenesPaket, anzahl, o, uhr, KOMMT_MAX_MS);
   }
 
   /**
