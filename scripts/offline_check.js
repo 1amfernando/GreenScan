@@ -128,6 +128,7 @@ function server(wunschPort) {
   });
 }
 
+let zuletzt = '';   // der zuletzt gemeldete Fall — fuer die Gesamtfrist
 (async () => {
   const { s, port } = await server();
   const basis = 'http://127.0.0.1:' + port;
@@ -140,9 +141,20 @@ function server(wunschPort) {
   console.log('\n=== offline_check — hält die PWA, was sie ohne Empfang verspricht?');
   let kaputt = 0;
   const melde = (name, ok, info) => {
+    zuletzt = name;
     if (ok) console.log('  ok   ' + name + (info ? '   [' + info + ']' : ''));
     else { kaputt++; console.log('  !!   ' + name + '\n         → ' + info); }
   };
+  // Eine Gesamtfrist: ein Pruefstand, der HAENGT, hat nichts gemessen und haelt
+  // die ganze Suite an (v33.56: einmal 27 min ohne Rechenzeit, allein danach
+  // nicht nachstellbar). Statt zu warten, sagt er, nach welchem Fall er stand,
+  // und endet rot.
+  const GESAMTFRIST_MS = 25 * 60 * 1000;
+  setTimeout(() => {
+    console.log('  !!   Zeitgrenze: der Pruefstand hing laenger als ' + Math.round(GESAMTFRIST_MS / 60000) + ' min'
+      + '\n         → zuletzt gemeldet: „' + (zuletzt || '(noch kein Fall)') + '" — der haengende Schritt kommt danach');
+    process.exit(3);
+  }, GESAMTFRIST_MS).unref();
 
   // ── 1 · Installiert sich der Service Worker? ─────────────────────────
   await p.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
