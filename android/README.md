@@ -186,7 +186,7 @@ ACTION_SEND (Foto)  ──►   sollAnnehmen? (nie wiederhergestellt, nie „let
 - **Die Rechnung liegt in `Geteilt.java`** (kein Android): Quelle, Typ,
   Kopie mit Deckel, das Fach mit Nummern und Fristen, die Weiche, die ganze
   Annahme (`annehmen`, wirft nie). `apk_check` uebersetzt sie gegen
-  `android.jar` 23 und faehrt sie aus (G1–G9); die Seite holt in T0–T9 durch
+  `android.jar` 23 und faehrt sie aus (G1–G9); die Seite holt in T0–T13 durch
   ein ECHTES Fach im `KanalFahrer`.
 - **Ein eigener Kopfzeilen-Wert:** `X-GS-Huelle: geteilt`. Der Wert des
   Exports (`datei`) gilt hier nicht, und umgekehrt.

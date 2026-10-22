@@ -98,7 +98,7 @@ Tagebuch in `CLAUDE.md`.
     die andere App gedacht war, zaehlt nicht. In der Android-Huelle derselbe
     Weg mit einer anderen Ablage (das Fach in `Geteilt.java`, zwei Schritte
     holen/quittieren, je Foto eine Nummer). *(§4e, offline_check 25–41,
-    apk_check G1–G9/T0–T9, v33.55/v33.56)*
+    apk_check G1–G9/T0–T13, v33.55/v33.56)*
 
 ## Und drei Regeln ueber das Arbeiten selbst
 

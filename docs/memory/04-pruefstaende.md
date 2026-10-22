@@ -135,7 +135,7 @@ Bauform: `Geteilt.java` (ohne Android) wird uebersetzt und vom
 `GeteiltFahrer` mit gestellter Uhr und Attrappen-Quellen gefahren (G1–G9);
 der `KanalFahrer` haelt ein ECHTES `Geteilt.Fach`, Node spielt die andere App
 (`TEILEN`, `LANGSAM`, `UHR`, `ANSTOSS`), und die Seite holt durch die echte
-Klasse ab (T0–T9). Eine Falle aus dem Bau: die Beispieldaten melden NICHT an —
+Klasse ab (T0–T13). Eine Falle aus dem Bau: die Beispieldaten melden NICHT an —
 ihr Token hat keine drei Teile, `gsSecurityInit` raeumt ihn nach 500 ms ab,
 und nach ein paar Sekunden steht der Anmeldebildschirm; jede Abholung wartete
 dahinter (zu Recht). Ein Fall, der eine Anmeldung braucht, stellt sie mit
