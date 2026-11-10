@@ -3,8 +3,9 @@
 // Reines ESM ohne Typen, damit Deno (Edge-Functions) und Node (Prüfstand
 // `modell_check`) dieselbe Datei laden — dasselbe Muster wie auth_vergleich.mjs.
 //
-// Anlass (10.11.2026, gemessen): neun Stellen in acht Edge-Functions nannten
-// genau EIN Modell ohne Ausweichmöglichkeit (STATUS §2, „technische Schuld").
+// Anlass (10.11.2026, gemessen): neun Edge-Functions nannten ihre Modelle als
+// Zeichenkette — acht davon genau EINES, ohne Ausweichmöglichkeit, und ai-proxy
+// eine Freigabeliste, in der sieben von acht Namen abgeschaltet sind oder es werden.
 //   • `claude-sonnet-4-20250514` ist seit dem 15.06.2026 abgeschaltet — damit
 //     waren plant-doctor-diagnose, garden-scan-analyze und plan-iterate live
 //     tot, fünf Monate lang, ohne dass etwas meldete (`plant_doctor_history`
@@ -23,7 +24,14 @@
 export const MODELL_KETTEN = {
   // Bilder verstehen, Pläne rechnen, lange Antworten: Scanner, Pflanzendoktor,
   // Garten-Analyse, Lina.
-  vision: ['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-sonnet-4-6'],
+  // Vorn steht Sonnet 4.6 — der direkte Nachfolger des Modells, auf dem diese App
+  // gebaut und abgestimmt wurde (4.5): es antwortet ohne vorgelagertes Nachdenken,
+  // zählt Token wie bisher und liest Bilder in derselben Auflösung. Anthropic
+  // schaltet es frühestens am 17.02.2027 ab; dann übernimmt Sonnet 5.5 von selbst,
+  // mit den Einstellungen aus `modellZusatz`. Wer 5.5 vorher will (genauere
+  // Bilder, dafür rund 2,5-mal so viele Bild-Token und mehr abgelehnte Anfragen):
+  // Secret GS_MODEL_VISION=claude-sonnet-5-5 — ohne neuen Quelltext.
+  vision: ['claude-sonnet-4-6', 'claude-sonnet-5-5', 'claude-sonnet-5'],
   // Kurze, häufige Aufrufe: Pilz- und Schädlings-Vorprüfung, Übersetzung,
   // Quiz-Generator. Das bisherige Modell bleibt vorn, solange es antwortet —
   // ob das neuere Pilze gleich gut einordnet, hat hier niemand gemessen.
@@ -72,15 +80,9 @@ export function modellKette(rolle, ueberschreibung) {
   return kette.length ? kette : basis.slice();
 }
 
-// Alle Namen, die ein CLIENT verlangen darf (ai-proxy): die Modelle beider
-// Ketten plus die aus den Secrets. Teurere Modelle stehen in keiner Kette und
-// lassen sich damit nicht erzwingen.
-export function modelleErlaubt(ueberschreibungVision, ueberschreibungSchnell) {
-  const alle = modellKette('vision', ueberschreibungVision).concat(modellKette('schnell', ueberschreibungSchnell));
-  return alle.filter((m, i) => alle.indexOf(m) === i);
-}
-
-// Was tun mit dem Modell, das ein Client verlangt?
+// Was tun mit dem Modell, das ein Client verlangt (ai-proxy)? Erlaubt sind die
+// Modelle der zwei Ketten plus die aus den Secrets — teurere stehen in keiner
+// Kette und lassen sich damit nicht erzwingen.
 //   • erlaubt  → es steht vorn, dahinter der Rest der Kette SEINER Rolle
 //   • sonst    → die Kette der Vorgabe-Rolle, und `ersetzt` sagt es mit Grund
 // Nie still: wer ein anderes Modell bekommt als verlangt, kann es am Grund sehen.
@@ -100,6 +102,80 @@ export function modellFuerAnfrage(gewuenscht, rolle, ueberschreibungVision, uebe
     ersetzt: true,
     grund: tot ? ('abgeschaltet seit ' + MODELLE_ABGESCHALTET[w]) : 'nicht freigegeben',
   };
+}
+
+// ── Was ein Modell im Rumpf ZUSÄTZLICH braucht ──────────────────────────────
+// Diese App ist für Modelle gebaut, die OHNE vorgelagertes Nachdenken antworten:
+// ein Scan bittet um 900 Token und liest die Antwort als Text. Seit Claude
+// Sonnet 5 denkt ein Modell von sich aus nach, wenn die Anfrage nichts dazu sagt.
+// Das Nachdenken zählt gegen `max_tokens` (aus 900 Token JSON wird ein
+// abgeschnittenes JSON), und die Antwort kann mit einem `thinking`-Block beginnen
+// (`content[0].text` ist dann leer). Dazu zählt derselbe Text auf den neuen
+// Modellen rund 30 % mehr Token. Ein Modellname allein ist also keine Umstellung.
+// Quelle: Anthropic, „Migrating to Claude Sonnet 5.5" und „Claude Haiku 5.5
+// migration guide" (gelesen am 10.11.2026):
+//   Sonnet 5.5   denkt ohne Angabe · aus: thinking {type:'between_tools'} · 'disabled' → 400
+//   Sonnet 5     denkt ohne Angabe · aus: thinking {type:'disabled'}
+//   Haiku 5.5    denkt ohne Angabe · kein Aus-Schalter, gesteuert über output_config.effort
+//   Sonnet 4.6, Haiku 4.5   denken ohne Angabe nicht, zählen Token wie bisher
+const NEUER_TOKENIZER = 1.35;   // „about 30 percent more tokens" plus etwas Luft
+const DENK_LUFT = 2048;         // Platz für ein Nachdenken, das sich nicht abschalten lässt
+
+export function modellZusatz(modell) {
+  const m = sauber(modell);
+  if (/^claude-sonnet-5-5(-|$)/.test(m)) return { felder: { thinking: { type: 'between_tools' } }, faktor: NEUER_TOKENIZER, luft: 0 };
+  if (/^claude-sonnet-5(-\d{8})?$/.test(m)) return { felder: { thinking: { type: 'disabled' } }, faktor: NEUER_TOKENIZER, luft: 0 };
+  if (/^claude-haiku-5-5(-|$)/.test(m)) return { felder: { output_config: { effort: 'low' } }, faktor: NEUER_TOKENIZER, luft: DENK_LUFT };
+  if (/^claude-(sonnet|haiku|opus)-4-/.test(m) || /^claude-3-/.test(m)) return { felder: {}, faktor: 1, luft: 0 };
+  // Unbekannt (ein Name aus einem Secret, ein künftiges Modell): keine Einstellung
+  // raten — aber mit dem Platz rechnen, den ein Modell braucht, das von sich aus denkt.
+  return { felder: {}, faktor: NEUER_TOKENIZER, luft: DENK_LUFT };
+}
+
+// Der Rumpf, wie er an DIESES Modell geht: sein Zusatz, sein Token-Budget, sein Name.
+// `ohneZusatz` ist der zweite Versuch, wenn das Modell die Angabe nicht annimmt —
+// dann denkt es womöglich doch, und das Budget lässt Platz dafür.
+export function rumpfFuerModell(rumpf, modell, ohneZusatz) {
+  const z = modellZusatz(modell);
+  const hatZusatz = Object.keys(z.felder).length > 0;
+  const r = Object.assign({}, rumpf || {}, ohneZusatz ? {} : z.felder);
+  const luft = (ohneZusatz && hatZusatz) ? Math.max(z.luft, DENK_LUFT) : z.luft;
+  r.max_tokens = Math.ceil((Number(r.max_tokens) || 1024) * z.faktor) + luft;
+  r.model = modell;                 // die Kette entscheidet — ein `model` im Rumpf verliert
+  return r;
+}
+
+// Lehnt das Modell unsere Angabe zum Nachdenken ab? (Ein Name, den die Regel oben
+// falsch einordnet, oder eine Einstellung, die Anthropic später umbenennt.)
+export function istZusatzFehler(status, text) {
+  return status === 400 && /thinking|output_config|effort|between_tools/i.test(String(text == null ? '' : text));
+}
+
+// Die Antwort ohne `thinking`-Blöcke. Diese App schickt sie nie zurück (keine
+// Werkzeug-Schleife), und jeder Leser von `content[0].text` — auch eine ältere,
+// noch nicht aktualisierte App — bekommt damit wieder den Text an erster Stelle.
+// Gibt es nichts zu entfernen, bleibt die Antwort Byte für Byte, wie sie kam.
+export function ohneDenkBloecke(text) {
+  let d;
+  try { d = JSON.parse(text); } catch (_) { return text; }
+  if (!d || typeof d !== 'object' || !Array.isArray(d.content)) return text;
+  const bleibt = d.content.filter((b) => !(b && (b.type === 'thinking' || b.type === 'redacted_thinking')));
+  if (bleibt.length === d.content.length) return text;
+  d.content = bleibt;
+  return JSON.stringify(d);
+}
+
+// EIN Modell rufen. `sende(rumpf)` schickt den fertigen Rumpf und liefert
+// `{ status, text }`. Nimmt das Modell die Angabe zum Nachdenken nicht an, geht
+// derselbe Aufruf einmal ohne sie — mit einem Satz für das Log.
+export async function rufeModell(modell, rumpf, sende, sagen) {
+  let a = await sende(rumpfFuerModell(rumpf, modell, false));
+  if (istZusatzFehler(a.status, a.text) && Object.keys(modellZusatz(modell).felder).length) {
+    if (typeof sagen === 'function') sagen('KI-Einstellung abgelehnt: ' + modell + ' nimmt die Angabe zum Nachdenken nicht (400) → derselbe Aufruf ohne sie');
+    a = await sende(rumpfFuerModell(rumpf, modell, true));
+  }
+  const gut = a.status >= 200 && a.status < 300;
+  return { status: a.status, text: gut ? ohneDenkBloecke(a.text) : a.text };
 }
 
 // Sagt Anthropic „dieses Modell gibt es nicht (mehr)"? Dann — und nur dann —
@@ -136,32 +212,9 @@ export async function mitModellRueckfall(kette, ruf, sagen) {
   return { status: letzte ? letzte.status : 0, text: letzte ? letzte.text : '', modell: kette[kette.length - 1] || '', versuche };
 }
 
-// Der eine Aufruf für Functions, die Anthropic selbst rufen (alles ausser
-// ai-proxy): Rolle nennen, Rumpf OHNE `model` mitgeben, Antwort lesen.
-// `fetchFn` und `sagen` sind stellbar, damit Node den Weg ohne Netz fährt.
-export async function anthropicNachricht(opts) {
-  const o = opts || {};
-  const kette = modellKette(o.rolle, o.ueberschreibung);
-  const fetchFn = o.fetchFn || fetch;
-  const erg = await mitModellRueckfall(kette, async (modell) => {
-    const r = await fetchFn('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': o.schluessel, 'anthropic-version': '2023-06-01' },
-      // Die Kette entscheidet: ein `model` im Rumpf wird ueberschrieben, nie umgekehrt.
-      body: JSON.stringify(Object.assign({}, o.rumpf || {}, { model: modell })),
-      signal: o.signal,
-    });
-    return { status: r.status, text: await r.text() };
-  }, o.sagen);
-  let daten = null;
-  try { daten = JSON.parse(erg.text); } catch (_) { daten = null; }
-  return { ok: erg.status >= 200 && erg.status < 300, status: erg.status, text: erg.text, daten, modell: erg.modell, versuche: erg.versuche };
-}
-
 // Liest ein Secret, ohne dass das Modul Deno voraussetzt (Node faehrt den Pruefstand).
 function umgebung(name) {
   try {
-    // deno-lint-ignore no-explicit-any
     const d = globalThis.Deno;
     if (d && d.env && typeof d.env.get === 'function') return d.env.get(name) || '';
   } catch (_) { /* kein Zugriff → kein Secret */ }
@@ -179,9 +232,11 @@ export function modellSecret(rolle) {
 
 // Ersatz für `fetch('https://api.anthropic.com/v1/messages', init)` an einer
 // bestehenden Aufrufstelle: dieselbe `init`, nur ohne `model` im Rumpf — die
-// Rolle bestimmt die Kette. Zurück kommt eine echte Response (ok · status ·
-// json() · text() wie gewohnt); `gsModell` nennt das Modell, das geantwortet
-// hat, `gsVersuche` die davor. Jeder Rückfall steht im Log der Function.
+// Rolle bestimmt die Kette, und jedes Modell bekommt seinen Zusatz und sein
+// Token-Budget (`rufeModell`). Zurück kommt eine echte Response (ok · status ·
+// json() · text() wie gewohnt) ohne `thinking`-Blöcke; `gsModell` nennt das
+// Modell, das geantwortet hat, `gsVersuche` die davor. Jeder Rückfall steht im
+// Log der Function.
 export async function anthropicFetch(rolle, init, opts) {
   const o = opts || {};
   const fetchFn = o.fetchFn || fetch;
@@ -189,12 +244,15 @@ export async function anthropicFetch(rolle, init, opts) {
   let rumpf = {};
   try { rumpf = JSON.parse(String(start.body || '{}')); } catch (_) { rumpf = {}; }
   const kette = modellKette(rolle, o.ueberschreibung !== undefined ? o.ueberschreibung : modellSecret(rolle));
-  const erg = await mitModellRueckfall(kette, async (modell) => {
-    const r = await fetchFn('https://api.anthropic.com/v1/messages',
-      Object.assign({}, start, { body: JSON.stringify(Object.assign({}, rumpf, { model: modell })) }));
+  const sagen = o.sagen || ((zeile) => console.warn(zeile));
+  const sende = async (fertig) => {
+    const r = await fetchFn('https://api.anthropic.com/v1/messages', Object.assign({}, start, { body: JSON.stringify(fertig) }));
     return { status: r.status, text: await r.text() };
-  }, o.sagen || ((zeile) => console.warn(zeile)));
-  const antwort = new Response(erg.text, { status: erg.status, headers: { 'Content-Type': 'application/json' } });
+  };
+  const erg = await mitModellRueckfall(kette, (modell) => rufeModell(modell, rumpf, sende, sagen), sagen);
+  // Eine Response nimmt nur 200–599 an; alles andere wäre ein Fehler dieses Moduls, kein Erfolg.
+  const status = (erg.status >= 200 && erg.status <= 599) ? erg.status : 502;
+  const antwort = new Response(erg.text, { status, headers: { 'Content-Type': 'application/json' } });
   antwort.gsModell = erg.modell;
   antwort.gsVersuche = erg.versuche;
   return antwort;

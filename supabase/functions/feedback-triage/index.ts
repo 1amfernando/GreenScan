@@ -1,15 +1,18 @@
 // ══════════════════════════════════════════════════════════════════════════
 // SPIEGEL — wortgetreu aus der laufenden Auslieferung gezogen am 02.09.2026
 // (v32.19). version 3 · verify_jwt=true · ezbr_sha256 1bca0016…
-// Keine Überarbeitung.
+// Bis v33.56 keine Überarbeitung. v33.57 (10.11.2026): Punkt 1 unten ist behoben —
+// das Modell kommt aus der Kette der Rolle „vision" (_shared/modelle.mjs).
 //
-// ZWEI DINGE, DIE BEIM SPIEGELN AUFGEFALLEN SIND (nicht geändert, nur notiert):
+// ZWEI DINGE, DIE BEIM SPIEGELN AUFGEFALLEN SIND (damals nicht geändert, nur notiert):
 //
 // 1. `model: "claude-sonnet-4-6"` steht hier FEST und ohne Rückfall. Das
 //    Frontend geht für dieselbe Frage eine KETTE durch (index.html ~Z. 27079:
 //    sonnet-4-6 → sonnet-4-5 → sonnet-4-5-20250929 → sonnet-4-20250514 →
 //    3-5-sonnet) — hier gibt es das nicht. Fällt der eine Name weg, endet
 //    jeder Aufruf in „llm failed", und niemand merkt es.
+//    → v33.57: kein Modellname mehr in dieser Datei; fällt eines weg, ist das nächste dran,
+//      und der Rückfall steht im Log der Function.
 //    Ob der Name heute noch auflöst, ist von hier aus NICHT prüfbar: die
 //    Netz-Richtlinie dieser Umgebung lässt keine Anfrage an Anthropic zu.
 //

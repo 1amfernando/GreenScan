@@ -7,7 +7,12 @@
 // Wahrheit für den eigenen Server-Teil.
 //
 // Stand beim Ziehen: version 1 · verify_jwt=false · ezbr_sha256 4e31d64e…
-// Unverändert übernommen — dies ist ein Abbild, keine Überarbeitung.
+// Beim Ziehen ein Abbild. Seither überarbeitet, und der Kopf sagt es jetzt auch:
+//   zuvor   Cron-Secret/Service-Key über _shared/auth_vergleich.mjs (zeitkonstant; die Regel
+//           gilt seit v32.72, CLAUDE.md §7.1)
+//   v33.57  der Schlüssel kommt ZUERST aus dem Edge-Secret ANTHROPIC_API_KEY, erst danach
+//           aus app_settings — so prüft der Wächter denselben Schlüssel wie ai-proxy.
+//           Ausgeliefert am 10.11.2026 als version 2 (verify_jwt=false).
 // ══════════════════════════════════════════════════════════════════════════
 // v28.04 Block C — Globaler-Anthropic-Key Health-Check.
 // verify_jwt=false; Custom-Auth via x-cron-secret (app_settings.push_cron_secret) ODER service-role.

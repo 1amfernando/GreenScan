@@ -8,7 +8,8 @@
 // Endpoint: POST https://<project>.supabase.co/functions/v1/ai-proxy
 //   Header: Authorization: Bearer <user-jwt>
 //   Body:   { messages, system, max_tokens, model }
-// Response: 1:1 von Anthropic durchgereicht (nicht streamend).
+// Response: wie von Anthropic (nicht streamend) — seit v33.57 ohne `thinking`-Bloecke, damit
+//   `content[0].text` auch fuer eine aeltere, noch nicht aktualisierte App der Text bleibt.
 //
 // v30.37 (2026-06-25): CORS-Allowlist um die KANONISCHE Domain green-scan.ch (MIT
 //   Bindestrich) ergänzt — vorher nur greenscan.ch → Prod wäre CORS-geblockt.
@@ -17,7 +18,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 // v33.57: Modelle, Freigabe und Rueckfall kommen aus EINEM Modul (auch fuer die anderen Functions).
-import { modellFuerAnfrage, mitModellRueckfall, modellSecret } from "../_shared/modelle.mjs";
+import { modellFuerAnfrage, mitModellRueckfall, modellSecret, rufeModell } from "../_shared/modelle.mjs";
 
 // CORS auf vertrauenswürdige Origins beschränken. green-scan.ch (kanonisch, mit
 // Bindestrich) + greenscan.ch (Alt) + *.pages.dev (CF-Previews) + localhost (Dev).
@@ -66,9 +67,10 @@ const TIER_LIMITS: Record<string, number> = {
 };
 
 const MAX_TOKENS_CAP = 4096;
-// v33.57: eine Anfrage ohne Grenze ist ein Speicher- und Kostenhebel. 12 MB decken drei Fotos
-// zu je rund 3 MB als Base64 (GS_SCAN_FOTOS_MAX = 3) mit Abstand.
-const MAX_BODY_ZEICHEN = 12_000_000;
+// v33.57: eine Anfrage ohne Grenze ist ein Speicher- und Kostenhebel. Die App verkleinert jedes
+// Foto vor dem Senden (laengste Seite 1920 px, JPEG) — drei Fotos bleiben weit unter dieser Zahl.
+// Der Deckel soll Unsinn abweisen, nicht den Normalfall vermessen; Anthropic selbst nimmt 32 MB.
+const MAX_BODY_ZEICHEN = 20_000_000;
 
 function jsonResp(payload: unknown, status = 200, origin: string | null = null) {
   return new Response(JSON.stringify(payload), {
@@ -113,11 +115,20 @@ Deno.serve(async (req) => {
   let istAdmin = false, rolle = "";
   try {
     // v33.57: dieselbe Zeile traegt auch Rolle und Admin-Merkmal — eine Abfrage, drei Antworten.
-    const { data: ent } = await supa.from("v_user_entitlements").select("tier, is_admin, role").eq("user_id", user.id).maybeSingle();
+    // Der Fehler wird GELESEN (v33.41): supabase-js wirft nicht, und ein weggelassener Fehler
+    // haette jede bezahlte Stufe still auf „free" gesetzt. Scheitert die breite Abfrage, gilt
+    // die schmale von vorher — die Stufe geht nie an einer neuen Spalte verloren.
+    let { data: ent, error: entErr } = await supa.from("v_user_entitlements").select("tier, is_admin, role").eq("user_id", user.id).maybeSingle();
+    if (entErr) {
+      console.error("[ai-proxy] v_user_entitlements (tier, is_admin, role): " + entErr.message);
+      const schmal = await supa.from("v_user_entitlements").select("tier").eq("user_id", user.id).maybeSingle();
+      if (schmal.error) console.error("[ai-proxy] v_user_entitlements (tier): " + schmal.error.message);
+      ent = schmal.data as typeof ent;
+    }
     if (ent?.tier) tier = String(ent.tier);
     istAdmin = ent?.is_admin === true;
     rolle = String(ent?.role || "");
-  } catch (_) { /* View evtl. nicht da → free */ }
+  } catch (e) { console.error("[ai-proxy] v_user_entitlements: " + (e as Error).message); /* → free */ }
   // v33.57: ein gesperrtes Konto bekommt keine KI — fn_get_global_api_key sagte das schon immer,
   // der Proxy fragte nie danach.
   if (rolle === "banned") {
@@ -141,10 +152,11 @@ Deno.serve(async (req) => {
   // 3) Body validieren
   let body: Record<string, unknown>;
   let roh = "";
+  const zuGross = () => jsonResp({ error: { type: "request_too_large", message: "Anfrage zu gross — bitte weniger oder kleinere Fotos." } }, 413, origin);
+  // Erst die Angabe im Kopf (kostet nichts), dann das Gelesene (die Angabe kann fehlen oder luegen).
+  if (Number(req.headers.get("content-length") || 0) > MAX_BODY_ZEICHEN) return zuGross();
   try { roh = await req.text(); } catch { return jsonResp({ error: { message: "Bad Request" } }, 400, origin); }
-  if (roh.length > MAX_BODY_ZEICHEN) {
-    return jsonResp({ error: { type: "request_too_large", message: "Anfrage zu gross — bitte weniger oder kleinere Fotos." } }, 413, origin);
-  }
+  if (roh.length > MAX_BODY_ZEICHEN) return zuGross();
   try { body = JSON.parse(roh); } catch { return jsonResp({ error: { message: "Bad JSON" } }, 400, origin); }
   if (!body || typeof body !== "object") return jsonResp({ error: { message: "Bad JSON" } }, 400, origin);
 
@@ -180,14 +192,20 @@ Deno.serve(async (req) => {
 
   let antwort: { status: number; text: string; modell: string; versuche: unknown[] };
   try {
-    antwort = await mitModellRueckfall(wahl.kette, async (m: string) => {
+    // Jedes Modell bekommt SEINEN Rumpf (rufeModell): Sonnet 5.5 und 5 denken sonst von sich aus
+    // nach — das zaehlt gegen max_tokens und stellt einen thinking-Block vor den Text. Der Rumpf
+    // traegt ausschliesslich diese vier Felder plus den Zusatz des Modells; alles andere, was ein
+    // Client mitschickt, geht nie an Anthropic.
+    const sagen = (zeile: string) => console.warn("[ai-proxy] " + zeile);
+    const sende = async (rumpf: Record<string, unknown>) => {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: m, max_tokens: maxTokens, system, messages }),
+        body: JSON.stringify(rumpf),
       });
       return { status: r.status, text: await r.text() };
-    }, (zeile: string) => console.warn("[ai-proxy] " + zeile));
+    };
+    antwort = await mitModellRueckfall(wahl.kette, (m: string) => rufeModell(m, { max_tokens: maxTokens, system, messages }, sende, sagen), sagen);
   } catch (e) {
     return jsonResp({ error: { message: "Upstream-Fehler: " + (e as Error).message } }, 502, origin);
   }
@@ -202,7 +220,8 @@ Deno.serve(async (req) => {
     supaAdmin.from("ai_usage").insert({ user_id: user.id, day: today, model, tokens_in: tokensIn, tokens_out: tokensOut }).then(() => {}, () => {});
   }
 
-  // 6) 1:1 weiterleiten (gleiche Shape wie api.anthropic.com → Frontend-Parsing unverändert)
+  // 6) Weiterleiten (gleiche Shape wie api.anthropic.com → Frontend-Parsing unverändert;
+  //    thinking-Bloecke hat rufeModell schon entfernt)
   return new Response(upstreamText, {
     status: upstream.status,
     headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
