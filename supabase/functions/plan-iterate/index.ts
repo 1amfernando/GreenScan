@@ -8,7 +8,7 @@
 // Sitzung nachprüfen kann, ob der Spiegel noch stimmt (neu ziehen und
 // vergleichen). Bis v33.56 keine Überarbeitung.
 //
-// v33.57 (10.11.2026) — KEIN Abbild mehr: das ausgelieferte nannte genau ein Modell,
+// v33.58 (10.11.2026) — KEIN Abbild mehr: das ausgelieferte nannte genau ein Modell,
 // `claude-sonnet-4-20250514`, und das ist seit dem 15.06.2026 abgeschaltet. Jeder
 // „Plan anpassen"-Aufruf endete seither im Fehler. Das Modell kommt jetzt aus der
 // Kette der Rolle „vision" (_shared/modelle.mjs), mit Rückfall.
@@ -17,7 +17,7 @@
 // Region-aware: liest scan_input.region_used aus garden_plans, lädt regional_garden_calendars als Constraint.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// v33.57: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const corsHeaders = {

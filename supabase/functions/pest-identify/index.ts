@@ -16,7 +16,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// v33.57: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
   const authHdr = req.headers.get("authorization") || "";
   const userToken = authHdr.replace(/^Bearer\s+/i, "").trim();
   if (!userToken) return json(401, { error: "unauthorized" });
-  // v33.57: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
+  // v33.58: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
   // ohne Argument — ein Client ohne Sitzung und ohne eigenen Authorization-Header; neuere
   // supabase-js-Fassungen antworten darauf mit „Auth session missing" statt den Schluessel als
   // Bearer zu schicken, und `jsr:@supabase/supabase-js@2` zieht beim Ausliefern die neueste.

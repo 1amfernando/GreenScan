@@ -8,7 +8,7 @@
 // Endpoint: POST https://<project>.supabase.co/functions/v1/ai-proxy
 //   Header: Authorization: Bearer <user-jwt>
 //   Body:   { messages, system, max_tokens, model }
-// Response: wie von Anthropic (nicht streamend) — seit v33.57 ohne `thinking`-Bloecke, damit
+// Response: wie von Anthropic (nicht streamend) — seit v33.58 ohne `thinking`-Bloecke, damit
 //   `content[0].text` auch fuer eine aeltere, noch nicht aktualisierte App der Text bleibt.
 //
 // v30.37 (2026-06-25): CORS-Allowlist um die KANONISCHE Domain green-scan.ch (MIT
@@ -17,7 +17,7 @@
 //   Frontend ruft den Proxy hinter Feature-Flag localStorage.gs_feat_aiproxy.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// v33.57: Modelle, Freigabe und Rueckfall kommen aus EINEM Modul (auch fuer die anderen Functions).
+// v33.58: Modelle, Freigabe und Rueckfall kommen aus EINEM Modul (auch fuer die anderen Functions).
 import { modellFuerAnfrage, mitModellRueckfall, modellSecret, rufeModell } from "../_shared/modelle.mjs";
 
 // CORS auf vertrauenswürdige Origins beschränken. green-scan.ch (kanonisch, mit
@@ -47,7 +47,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
   };
 }
 
-// v33.57: die Freigabeliste steht nicht mehr hier. Bis v33.56 nannte sie acht Namen, von denen
+// v33.58: die Freigabeliste steht nicht mehr hier. Bis v33.56 nannte sie acht Namen, von denen
 // sieben abgeschaltet sind oder es am 30.11.2026 werden, und JEDES andere Modell wurde still auf
 // den Vorgabewert umgeschrieben — der selbst am 30.11. endet (ai_usage: 37 von 37 Aufrufen).
 // Jetzt: ein Client darf die Modelle der zwei Ketten verlangen (_shared/modelle.mjs); verlangt er
@@ -55,7 +55,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
 // mit „gibt es nicht", ist das naechste dran. Teurere Modelle stehen in keiner Kette.
 
 // Tier → Tageslimit (KI-Calls). free 15 = Sync mit Frontend GS_PLANS.free.
-// v33.57: `basic` und `premium` fehlten — v_user_entitlements kennt beide, und wer eines davon
+// v33.58: `basic` und `premium` fehlten — v_user_entitlements kennt beide, und wer eines davon
 // bezahlte, fiel hier auf die 15 Aufrufe der Gratis-Stufe.
 const TIER_LIMITS: Record<string, number> = {
   free: 15,
@@ -67,7 +67,7 @@ const TIER_LIMITS: Record<string, number> = {
 };
 
 const MAX_TOKENS_CAP = 4096;
-// v33.57: eine Anfrage ohne Grenze ist ein Speicher- und Kostenhebel. Die App verkleinert jedes
+// v33.58: eine Anfrage ohne Grenze ist ein Speicher- und Kostenhebel. Die App verkleinert jedes
 // Foto vor dem Senden (laengste Seite 1920 px, JPEG) — drei Fotos bleiben weit unter dieser Zahl.
 // Der Deckel soll Unsinn abweisen, nicht den Normalfall vermessen; Anthropic selbst nimmt 32 MB.
 const MAX_BODY_ZEICHEN = 20_000_000;
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
   let tier = "free";
   let istAdmin = false, rolle = "";
   try {
-    // v33.57: dieselbe Zeile traegt auch Rolle und Admin-Merkmal — eine Abfrage, drei Antworten.
+    // v33.58: dieselbe Zeile traegt auch Rolle und Admin-Merkmal — eine Abfrage, drei Antworten.
     // Der Fehler wird GELESEN (v33.41): supabase-js wirft nicht, und ein weggelassener Fehler
     // haette jede bezahlte Stufe still auf „free" gesetzt. Scheitert die breite Abfrage, gilt
     // die schmale von vorher — die Stufe geht nie an einer neuen Spalte verloren.
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
     istAdmin = ent?.is_admin === true;
     rolle = String(ent?.role || "");
   } catch (e) { console.error("[ai-proxy] v_user_entitlements: " + (e as Error).message); /* → free */ }
-  // v33.57: ein gesperrtes Konto bekommt keine KI — fn_get_global_api_key sagte das schon immer,
+  // v33.58: ein gesperrtes Konto bekommt keine KI — fn_get_global_api_key sagte das schon immer,
   // der Proxy fragte nie danach.
   if (rolle === "banned") {
     return jsonResp({ error: { type: "account_banned", message: "Dieses Konto ist gesperrt." } }, 403, origin);
@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
   }
   if (!ANTHROPIC_API_KEY) return jsonResp({ error: { message: "Server: Anthropic-Key fehlt." } }, 503, origin);
 
-  // v33.57: der Notschalter gilt auch hier. `global_api_enabled = false` stoppte bisher nur die
+  // v33.58: der Notschalter gilt auch hier. `global_api_enabled = false` stoppte bisher nur die
   // Auskunft an die App (fn_get_global_api_key) — wer den Proxy direkt rief, bekam weiter Antworten.
   try {
     const { data: an } = await supaAdmin.from("app_settings").select("value").eq("key", "global_api_enabled").maybeSingle();

@@ -5,7 +5,7 @@
 //   fn_check_rate_limit. Fail-open (Rate-Limit-Fehler blockiert den Dienst nicht).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// v33.57: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const corsHeaders = {

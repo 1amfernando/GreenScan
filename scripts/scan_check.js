@@ -655,7 +655,7 @@ const FAELLE = [
       return { ok: true, info: gesehen.filter(x => /^erg/.test(x)).join(' · ') };
     },
   },
-  // ── v33.57 · der GETEILTE Scan-Cache ist aus ─────────────────────────
+  // ── v33.58 · der GETEILTE Scan-Cache ist aus ─────────────────────────
   // Gemessen an der Live-DB (10.11.2026, nur lesend): `scan_cache` ist EINE
   // Tabelle fuer alle Konten, der Schluessel ein 64-Bit-dHash aus 9×8
   // Bildpunkten, und `fn_scan_cache_put` nimmt von jedem angemeldeten Konto

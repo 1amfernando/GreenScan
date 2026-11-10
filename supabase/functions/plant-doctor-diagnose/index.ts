@@ -24,7 +24,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// v33.57: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -152,7 +152,7 @@ Bitte Foto analysieren und vollständige Diagnose + Behandlung im JSON-Format zu
     treatment_plan: parsed.treatment_plan,
     tokens_in: j?.usage?.input_tokens || 0,
     tokens_out: j?.usage?.output_tokens || 0,
-    // v33.57: das Modell, das WIRKLICH geantwortet hat — fuer die Kostenbuchung und den Verlauf.
+    // v33.58: das Modell, das WIRKLICH geantwortet hat — fuer die Kostenbuchung und den Verlauf.
     modell: String(j?.model || (r as any).gsModell || modellKette("vision", modellSecret("vision"))[0])
   };
 }
@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
     const userToken = authHdr.replace(/^Bearer\s+/i, "");
     if (!userToken) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
 
-    // v33.57: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
+    // v33.58: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
     // ohne Argument — ein Client ohne Sitzung und ohne eigenen Authorization-Header; neuere
     // supabase-js-Fassungen antworten darauf mit „Auth session missing" statt den Schluessel als
     // Bearer zu schicken, und `jsr:@supabase/supabase-js@2` zieht beim Ausliefern die neueste.

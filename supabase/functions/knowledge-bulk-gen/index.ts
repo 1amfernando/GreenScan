@@ -2,7 +2,7 @@
 // 35 Topics gesamt: 4 Wave-13 (alpine_garden_plants, forest_garden_design, indoor_houseplants, urban_balcony_design).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// v33.57: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 // v33.29: die RECHNENDEN Regeln fuer Quizfragen stehen in einem reinen
 // ESM-Modul, das Deno UND Node importieren (Bauform wie ingest_regeln.mjs) —
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
   try {
     const apiKey = await getAnthropicKey(admin);
     if (!apiKey) return new Response(JSON.stringify({ error: "No Anthropic key" }), { status: 503, headers: { "Content-Type": "application/json" } });
-    // v33.57: `model` im Auftrag bleibt moeglich (der Aufrufer ist Cron oder Admin), kommt aber nur VOR die Kette —
+    // v33.58: `model` im Auftrag bleibt moeglich (der Aufrufer ist Cron oder Admin), kommt aber nur VOR die Kette —
     // ein abgeschalteter Name faellt heraus, und antwortet Anthropic „gibt es nicht", ist das naechste Modell dran.
     const { topic, count = 12, focus_topics, model = "" } = await req.json();
     const schema = SCHEMAS[topic];

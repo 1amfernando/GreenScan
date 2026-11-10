@@ -10,7 +10,7 @@
 // Beim Ziehen ein Abbild. Seither überarbeitet, und der Kopf sagt es jetzt auch:
 //   zuvor   Cron-Secret/Service-Key über _shared/auth_vergleich.mjs (zeitkonstant; die Regel
 //           gilt seit v32.72, CLAUDE.md §7.1)
-//   v33.57  der Schlüssel kommt ZUERST aus dem Edge-Secret ANTHROPIC_API_KEY, erst danach
+//   v33.58  der Schlüssel kommt ZUERST aus dem Edge-Secret ANTHROPIC_API_KEY, erst danach
 //           aus app_settings — so prüft der Wächter denselben Schlüssel wie ai-proxy.
 //           Ausgeliefert am 10.11.2026 als version 2 (verify_jwt=false).
 // ══════════════════════════════════════════════════════════════════════════
@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Globalen Key holen ──
-    // v33.57: derselbe Leseweg wie ai-proxy — zuerst das Edge-Secret ANTHROPIC_API_KEY,
+    // v33.58: derselbe Leseweg wie ai-proxy — zuerst das Edge-Secret ANTHROPIC_API_KEY,
     // erst dann app_settings. Sobald der Schluessel nur noch als Secret liegt (und die Zeile
     // in app_settings geleert ist), meldete diese Pruefung sonst „invalid", waehrend die KI laeuft.
     let apiKey = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim();

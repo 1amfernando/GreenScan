@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// v33.57: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 // v29 i18n-translate — DE → {en,fr,it,es} Bulk-Übersetzung via Anthropic Haiku 4.5.
@@ -205,7 +205,7 @@ Deno.serve(async (req: Request) => {
             source_hash: orig.hash,
             translated_text: tr.translated,
             context_note: context || null,
-            // v33.57: das erste Modell der Kette — nominell; ein Rueckfall steht im Log der Function.
+            // v33.58: das erste Modell der Kette — nominell; ein Rueckfall steht im Log der Function.
             model: modellKette("schnell", modellSecret("schnell"))[0],
             tokens_in: Math.round(result.tokens_in / slice.length),
             tokens_out: Math.round(result.tokens_out / slice.length)

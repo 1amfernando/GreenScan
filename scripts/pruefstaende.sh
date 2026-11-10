@@ -51,7 +51,7 @@ TAILN=8 run perf  node scripts/perf_check.js
 run field        python3 scripts/field_check.py
 run planer       node scripts/planer_check.js
 run scan         node scripts/scan_check.js
-# v33.57: zeigt ein Rezept auf die gemeinte Art und nie auf eine giftige? (reines Node, keine Seite)
+# v33.58: zeigt ein Rezept auf die gemeinte Art und nie auf eine giftige? (reines Node, keine Seite)
 run rezept       node scripts/rezept_link_check.js
 run ingest       node scripts/ingest_check.js
 run sensor_push  node scripts/sensor_push_check.js

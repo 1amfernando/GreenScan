@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// rezept_link_check.js — zeigt ein Rezept auf die Art, die gemeint ist, und nie auf eine giftige? (seit v33.57)
+// rezept_link_check.js — zeigt ein Rezept auf die Art, die gemeint ist, und nie auf eine giftige? (seit v33.58)
 //
 //   node scripts/rezept_link_check.js                         # index.html + data/plants.v1.js des Repos
 //   node scripts/rezept_link_check.js <index.html> <plants.js> [--verbose]
@@ -8,7 +8,7 @@
 // Namens-Teilsuche. Gemessen an v33.56: 524 Eintraege, bei 239 zeigte der Link auf eine
 // andere Art als die Hauptzutat, bei 84 auf eine als giftig gefuehrte, 17 davon mit
 // Giftstufe >= 3 (Pfifferling-Rahmsauce → Maigloeckchen, Morchel → Herbstzeitlose).
-// Gegen v33.56 meldet dieser Pruefstand 699 Verstoesse, gegen v33.57 keinen.
+// Gegen v33.56 meldet dieser Pruefstand 699 Verstoesse, gegen v33.58 keinen.
 //
 // Exit 0 = alles gut, Exit 1 = Verstoss gefunden, Exit 2 = Dateien nicht lesbar.
 // Geprueft wird jedes Rezept aus DEFAULT_RECIPES und DEFAULT_REMEDIES:
