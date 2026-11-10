@@ -145,6 +145,63 @@ const K = [
     }),
   },
   {
+    // v33.57: der Fall darueber ruft callAI und callVisionAI DIREKT — und war gruen, waehrend der
+    // Scanner jedem Nutzer ohne Schluessel „KI gerade nicht erreichbar" sagte. Ein Fall, der die
+    // Funktion direkt ruft, misst die Rechnung, nicht den Draht (v33.43). Dieser geht den Weg davor.
+    name: 'Ohne Schluessel im Browser · der WEG DAVOR: der Scanner (analyzeImage) fragt die KI ueber den Proxy statt „KI gerade nicht erreichbar" zu zeigen, der Scan-Chat ebenso — und gsKiVerfuegbar sagt in beide Richtungen die Wahrheit',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__sk; A.reset({ mode: 'proxy', mem: '' });
+      if (typeof gsKiVerfuegbar !== 'function') return { ok: false, warum: 'gsKiVerfuegbar gibt es nicht — der Scanner fragt noch nach einem Schluessel im Browser' };
+      // 1 · das Praedikat, beide Richtungen
+      const lang = 'sk-ant-' + 'x'.repeat(90);
+      const p1 = gsKiVerfuegbar();                                             // Proxy-Modus, kein Schluessel → ja
+      localStorage.removeItem('gs_global_api_mode'); const p2 = gsKiVerfuegbar();   // weder noch → nein
+      localStorage.setItem('ps_api_key', lang); const p3 = gsKiVerfuegbar();        // persoenlicher Schluessel → ja
+      localStorage.removeItem('ps_api_key');
+      localStorage.setItem('gs_global_api_mode', 'proxy');
+      const echtLog = window.sbIsLoggedIn; window.sbIsLoggedIn = () => false; const p4 = gsKiVerfuegbar(); window.sbIsLoggedIn = echtLog;   // abgemeldet → nein
+      if (p1 !== true || p2 !== false || p3 !== true || p4 !== false) return { ok: false, warum: 'gsKiVerfuegbar: proxy ' + p1 + ' · nichts ' + p2 + ' · persoenlich ' + p3 + ' · abgemeldet ' + p4 };
+      // 2 · der Scanner. Sperren gestellt wie in scan_check — NUR der Schluessel nicht.
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#1d5c22'; g.lineWidth = 2; for (let i = 0; i < 12; i++) { g.beginPath(); g.moveTo(10 + i * 12, 150); g.lineTo(60 + i * 8, 20); g.stroke(); }
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+      window.stopCamera = () => {}; window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true); window.gsAddToScanHistory = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Oktober', season: 'Herbst', monthNum: 10, canton: 'ZH' });
+      window._gsScanDHash = async () => 'hash-schluessel-check'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsQuotaPeek = async () => ({ allowed: true, unlimited: false, used: 0, limit: 15 }); window.gsQuotaConsume = () => {};
+      A.text = JSON.stringify({ name: 'Löwenzahn', latin: 'Taraxacum officinale', confidence: 91, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      try { if (typeof switchTab === 'function') switchTab('scanner'); } catch (_) {}
+      await analyzeImage(b64, 'image/jpeg');
+      const karte = ((document.getElementById('scan-result') || {}).textContent || '').replace(/\s+/g, ' ');
+      const scanRufe = A.rufe.filter(r => /\/functions\/v1\/ai-proxy$/.test(r.url));
+      if (/KI gerade nicht erreichbar|API-Key wird ben/.test(karte)) return { ok: false, warum: 'der Scanner bricht ab: „' + karte.slice(0, 90).trim() + '…" — Aufrufe an den Proxy: ' + scanRufe.length };
+      if (scanRufe.length !== 1) return { ok: false, warum: 'der Scanner hat den Proxy ' + scanRufe.length + '× gerufen statt 1× — Karte: „' + karte.slice(0, 80).trim() + '…"' };
+      const sb = JSON.parse(scanRufe[0].init.body);
+      const hatBild = JSON.stringify(sb.messages || []).indexOf('"type":"image"') >= 0;
+      const kopf = scanRufe[0].init.headers || {};
+      if (!hatBild || !/^Bearer /.test(kopf.Authorization || '') || kopf['x-api-key']) return { ok: false, warum: 'Scan-Anfrage: Bild ' + hatBild + ' · Header ' + JSON.stringify(Object.keys(kopf)) };
+      if (A.rufe.some(r => /anthropic\.com/.test(r.url))) return { ok: false, warum: 'der Scan ging direkt an Anthropic' };
+      if (!/L.wenzahn/.test(karte)) return { ok: false, warum: 'die Antwort steht nicht auf der Karte: „' + karte.slice(0, 80).trim() + '…"' };
+      // 3 · der Scan-Chat
+      const vorher = A.rufe.length;
+      A.text = 'Ja, die jungen Blätter.';
+      const inp = document.getElementById('scan-chat-input');
+      if (!inp) return { ok: false, warum: '#scan-chat-input fehlt — der Fall stellt den Chat nicht her' };
+      inp.value = 'Kann man den essen?';
+      await sendScanChat();
+      const chatRufe = A.rufe.slice(vorher).filter(r => /\/functions\/v1\/ai-proxy$/.test(r.url));
+      if (A.toasts.some(t => /API-Key/.test(t))) return { ok: false, warum: 'der Scan-Chat sagt „' + A.toasts.find(t => /API-Key/.test(t)) + '" und fragt nicht' };
+      if (chatRufe.length !== 1) return { ok: false, warum: 'der Scan-Chat hat den Proxy ' + chatRufe.length + '× gerufen statt 1× (Meldungen: ' + JSON.stringify(A.toasts) + ')' };
+      const log = ((document.getElementById('scan-chat-log') || {}).textContent || '');
+      if (!/jungen Bl.tter/.test(log)) return { ok: false, warum: 'die Antwort steht nicht im Chat' };
+      return { ok: true, info: 'gsKiVerfuegbar ja·nein·ja·nein · Scanner 1× Proxy mit Bild, Karte „Löwenzahn" · Scan-Chat 1× Proxy, Antwort im Verlauf' };
+    }),
+  },
+  {
     name: 'Pull legt nichts auf die Platte · alter Server (mit key) → nur Arbeitsspeicher, Altbestand in localStorage wird geraeumt; neuer Server (ohne key) → mode proxy, kein Schluessel; enabled false → alles weg',
     lauf: async () => __seite.evaluate(async (KEY) => {
       const A = window.__sk; A.reset({ mode: null, mem: '' });
@@ -249,7 +306,7 @@ const K = [
   await p.waitForTimeout(4000);
   await p.evaluate(() => {
     document.documentElement.classList.remove('gs-preauth');
-    window.gsRequire = () => true; window.gsToast = () => {}; window.showProfileToast = () => {}; window.gsHaptic = () => {};
+    window.gsRequire = () => true; window.gsToast = (m) => { try { window.__sk.toasts.push(String(m)); } catch (_) {} }; window.showProfileToast = () => {}; window.gsHaptic = () => {};
     window.sbIsLoggedIn = () => true; window.sbGetConfig = () => true;
     window.gsStore = window.gsStore || {}; const echtGet = gsStore.get;
     gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : k === 'gs_sb_token' ? 'pruefstand-kein-echter-token' : (echtGet ? echtGet.call(gsStore, k, d) : d));
@@ -261,7 +318,7 @@ const K = [
         if (A.proxy === 'netz') throw new TypeError('Failed to fetch');
         if (A.proxy === 503) return antwort(503, { error: { message: 'Server: Anthropic-Key fehlt.' } });
         if (A.proxy === 429) return antwort(429, { error: { type: 'quota_exceeded', message: 'Tageslimit erreicht (15/15). Upgrade für mehr KI-Calls.', tier: 'free', used: 15, limit: 15 } });
-        return antwort(200, { content: [{ type: 'text', text: 'proxy-ok' }], usage: { input_tokens: 1, output_tokens: 1 }, model: 'claude-sonnet-4-5' });
+        return antwort(200, { content: [{ type: 'text', text: A.text || 'proxy-ok' }], usage: { input_tokens: 1, output_tokens: 1 }, model: 'claude-sonnet-4-5' });
       }
       if (/api\.anthropic\.com/.test(String(url))) return antwort(200, { content: [{ type: 'text', text: 'direkt-ok' }], usage: { input_tokens: 1, output_tokens: 1 } });
       return antwort(200, {});
@@ -270,7 +327,7 @@ const K = [
       if (/fn_get_global_api_key/.test(path)) return { data: A.rpc, error: null };
       return { data: [], error: null };
     };
-    A.reset = (o) => { A.rufe.length = 0; A.proxy = 'ok';
+    A.reset = (o) => { A.rufe.length = 0; A.proxy = 'ok'; A.text = ''; A.toasts = [];
       try { localStorage.removeItem('gs_global_api_key'); localStorage.removeItem('ps_api_key'); localStorage.removeItem('gs_feat_aiproxy'); localStorage.removeItem('gs_ai_proxy_down_ts'); } catch (_) {}
       if (o.mode) localStorage.setItem('gs_global_api_mode', o.mode); else localStorage.removeItem('gs_global_api_mode');
       window._gsGlobalKeyMem = o.mem || ''; window._gsApiKeyPullPromise = null; window._gsProxyDownTs = 0; };

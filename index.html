@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.56.20261022">
+<meta name="app-version" content="33.57.20261110">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31937,6 +31937,23 @@ function _gsAiTarget(key, source){
 function _gsAiDirekt(key){
   return { url: 'https://api.anthropic.com/v1/messages', headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'}, proxy: false };
 }
+// v33.57: EINE Frage — „kann diese Person gerade die KI benutzen?" — und EINE Antwort.
+// Bis v33.56 fragten vier Stellen statt dessen `if (!key)`: der Scanner (analyzeImage),
+// der Scan-Chat, die Hintergrund-Recherche einer neuen Art und der Verbindungs-Test.
+// Seit v32.68 geht der globale Schluessel durch den Proxy; mit der Migration
+// 20260907_global_api_key_nur_proxy (angewandt am 10.11.2026) hat kein Nutzer mehr einen
+// Schluessel im Browser — und genau diese vier Stellen sagten ihm „KI gerade nicht
+// erreichbar" bzw. „API-Key noetig", waehrend callVisionAI eine Zeile weiter laengst ueber
+// den Proxy gegangen waere. schluessel_check mass callAI und callVisionAI direkt, nie den
+// Weg davor; und scan_check stellte in jedem Fall einen Schluessel hin.
+// Wer wissen will, ob die KI da ist, ruft DIESE Funktion — nie `getApiConfig().key`.
+function gsKiVerfuegbar(cfg){
+  try {
+    var c = cfg || getApiConfig();
+    return !!(c && (c.key || _gsAiTarget(c.key, c.source)));
+  } catch(_){ return false; }
+}
+window.gsKiVerfuegbar = gsKiVerfuegbar;
 // v32.68: EINE Anfrage an das Ziel — mit dem Uebergangs-Rueckfall. Schweigt der
 // Proxy (Netzfehler, 404 = nicht ausgeliefert, 5xx = Server-Fehler; NICHT 429
 // Quota, NICHT 401/400) und liegt noch ein Schluessel im Arbeitsspeicher, geht
@@ -33921,16 +33938,18 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // v28.05: Früher LS-Scan-Gate (5/Tag) ENTFERNT — die server-authoritative Per-Feature-Quota
   // (callVisionAI mit quotaFeature:'scan', free 15/Tag) gilt jetzt UND nur bei echtem Claude-Call
   // (Cache-Treffer sind frei → kosten keine Quota). Warme Limit-UI via gsShowQuotaCountdown.
-  let {key} = getApiConfig();
-  // v30.92: Key EINMAL frisch nachziehen, bevor wir abbrechen. callAI/callVisionAI machen das
+  // v33.57: gefragt wird, ob die KI ERREICHBAR ist (Schluessel ODER Proxy) — nicht, ob ein
+  // Schluessel im Browser liegt. Nach der Migration „nur Proxy" hat ihn kein Nutzer mehr.
+  let _kiDa = gsKiVerfuegbar();
+  // v30.92: EINMAL frisch nachziehen, bevor wir abbrechen. callAI/callVisionAI machen das
   // laengst (mit Backoff) — analyzeImage brach als einzige Stelle sofort ab. Direkt nach dem
   // Login gab es dadurch ein Zeitfenster, in dem der erste Scan mit "API-Key wird benoetigt"
   // scheiterte, obwohl der globale Key Sekundenbruchteile spaeter da war.
-  if (!key) {
+  if (!_kiDa) {
     try { if (typeof gsPullGlobalApiKey === 'function') await gsPullGlobalApiKey(); } catch(_){}
-    try { key = getApiConfig().key; } catch(_){}
+    _kiDa = gsKiVerfuegbar();
   }
-  if(!key){
+  if(!_kiDa){
     // v23.72: Klares UI-Feedback statt stummem Dialog-Pop
     const rdN = document.getElementById('scan-result');
     if (rdN) {
@@ -34399,7 +34418,7 @@ async function gsAutoEnrichNewSpecies(r){
 
     // Nicht blockierend: im Hintergrund laufen lassen
     var apiCfg = (typeof getApiConfig === 'function') ? getApiConfig() : {};
-    if (!apiCfg.key) return;
+    if (!gsKiVerfuegbar(apiCfg)) return;   // v33.57: Schluessel ODER Proxy
 
     if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('🔬 Recherchiere neue Art: {1}…', r.name));
 
@@ -36688,7 +36707,8 @@ async function sendScanChat() {
   var msg = inp ? inp.value.trim() : '';
   if (!msg) return;
   var {key, source} = getApiConfig();
-  if (!key) { gsToast('API-Key nötig', 'warn'); return; }
+  // v33.57: dieselbe Frage wie der Scanner — der Proxy braucht keinen Schluessel im Browser.
+  if (!gsKiVerfuegbar({ key: key, source: source })) { gsToast('Die KI ist gerade nicht erreichbar — bitte gleich nochmal versuchen.', 'warning'); return; }
   
   inp.value = '';
   addScanChatMsg('user', msg, false);
@@ -63904,8 +63924,14 @@ window.gsPPTestConnection = async function(btnEl) {
   if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Teste …'; }
   var results = [];
   var cfg = (typeof getApiConfig === 'function') ? getApiConfig() : {provider:'?', key:''};
-  // 1) Hat User einen Key?
-  results.push({ ok: !!cfg.key, label: 'API-Key gesetzt', detail: cfg.key ? (cfg.provider + ' · ' + cfg.key.slice(0,8) + '…') : 'Kein Key — bitte oben rechts eintragen' });
+  // 1) Hat User einen Key — oder laeuft die KI ueber den GreenScan-Server?
+  // v33.57: ohne Schluessel im Browser ist das der Normalfall, kein Fehler. Vorher stand hier
+  // fuer jeden Nutzer „Kein Key — bitte oben rechts eintragen", und eintragen darf ihn niemand.
+  if (!cfg.key && gsKiVerfuegbar(cfg)) {
+    results.push({ ok: true, label: 'KI-Zugang', detail: 'Über den GreenScan-Server — auf diesem Gerät liegt kein Schlüssel, und das ist richtig so.' });
+  } else {
+    results.push({ ok: !!cfg.key, label: 'API-Key gesetzt', detail: cfg.key ? (cfg.provider + ' · ' + cfg.key.slice(0,8) + '…') : 'Kein Zugang zur KI — bitte neu anmelden.' });
+  }
   // 2) Internet allgemein erreichbar?
   try {
     var t0 = Date.now();
@@ -76230,6 +76256,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.57', date: '10.11.2026',
+      headline: 'Scanner und Scan-Chat laufen auch ohne Schlüssel im Browser',
+      summary: 'Am 10.11.2026 wurde die Migration 20260907_global_api_key_nur_proxy angewandt: der Server gibt den Anthropic-Schlüssel nur noch Admins heraus, alle anderen rufen die KI über den Proxy. Vier Stellen fragten aber weiter „liegt ein Schlüssel im Browser?“ statt „ist die KI erreichbar?“. Der Scanner (analyzeImage) zeigte damit jedem Nutzer ohne Admin-Rolle „KI gerade nicht erreichbar“, der Scan-Chat „API-Key nötig“ — im Prüfstand nachgestellt: 0 Aufrufe an den Proxy. Jetzt beantwortet EINE Funktion die Frage (gsKiVerfuegbar: Schlüssel ODER Proxy), und alle vier Stellen rufen sie. Warum es niemand sah: schluessel_check mass callAI und callVisionAI direkt, nie den Weg davor, und scan_check stellte in jedem Fall einen Schlüssel hin.',
+      user_summary: 'Die Bestimmung per Foto und die Rückfragen zu einem Scan funktionieren wieder für alle angemeldeten Nutzer. Nach einer Sicherheits-Umstellung auf dem Server hatte der Scanner fälschlich „KI gerade nicht erreichbar“ gemeldet.',
+      user_items: [
+        {emoji:'📷', bold:'Scanner:', text:' bestimmt wieder. Die Meldung „KI gerade nicht erreichbar“ kam fälschlich, obwohl die KI erreichbar war.'},
+        {emoji:'💬', bold:'Fragen zum Scan:', text:' der Chat unter dem Ergebnis antwortet wieder, statt nach einem API-Key zu fragen.'},
+        {emoji:'🔒', bold:'Sicherer:', text:' der KI-Schlüssel liegt nicht mehr auf deinem Gerät — alle Anfragen laufen über den GreenScan-Server.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' schluessel_check „Der Weg davor“ im Proxy-Modus ohne Schlüssel, zwei Gegenproben: mit dem alten Scanner-Tor zeigt die Karte „KI gerade nicht erreichbar“ bei 0 Aufrufen an den Proxy, mit dem alten Chat-Tor kommt die Meldung „API-Key nötig“.'},
+        {emoji:'🧩', bold:'gsKiVerfuegbar(cfg):', text:' wahr bei Schlüssel ODER Proxy-Ziel (_gsAiTarget), falsch ohne beides und ohne Anmeldung. Aufrufer: analyzeImage, sendScanChat, die Hintergrund-Recherche einer neuen Art und gsPPTestConnection (zeigt „KI-Zugang über den GreenScan-Server“ statt „Kein Key — bitte oben rechts eintragen“).'},
+        {emoji:'🧪', bold:'Prüfstand:', text:' schluessel_check 10 → 11 Fälle. Der neue geht den Weg, den ein Scan wirklich geht — Sperren gestellt wie in scan_check, nur der Schlüssel nicht; der gestellte Proxy antwortet mit stellbarem Text, Meldungen werden mitgeschrieben.'},
+        {emoji:'⚠️', bold:'Ursache, ehrlich:', text:' die Migration galt seit v32.68 als verträglich; geprüft war das an callAI und callVisionAI, nicht am Scanner davor. Zwischen dem Anwenden (10.11.2026, 22:15 Uhr) und dieser Auslieferung war der Scanner für Nutzer ohne Admin-Rolle nicht benutzbar.'},
+        {emoji:'🛠️', bold:'Datenbank (am 10.11.2026 angewandt):', text:' 20260907_global_api_key_nur_proxy, 20260831_rollen_leak_fix_v30_95 und 20260924_admin_grants; v31_36_mkt_views_auth_guard war schon seit dem 01.09.2026 in Kraft und wurde unverändert noch einmal eingespielt.'}
+      ]
+  },
+  {
     v: 'v33.56', date: '22.10.2026',
       headline: 'Teilen → GreenScan auch in der Android-App',
       summary: 'Bis v33.55 stand die Android-App nicht im Teilen-Menü: die Hülle liest das Manifest der Web-App nicht und hatte keinen ACTION_SEND-Filter. Jetzt nimmt sie Fotos an (dieselben vier Typen wie die Web-App), kopiert sie in ein Fach im Arbeitsspeicher und stösst die Seite an; die Seite holt das Foto selbst ab und zeigt dieselbe Vorschau wie im Browser — bestimmt wird erst nach dem Antippen. Ohne JavaScript-Brücke: zwei Adressen unter dem eigenen Ursprung (holen, quittieren), mit eigenem Kopfzeilen-Wert. Neu für beide: „Bestimmen“ nimmt erst nach 0,7 Sekunden an, und ein Bild mit mehr als 200 Megapixeln wird am Dateikopf abgelehnt. Eine gegnerische Prüfung fand zwölf Lücken — acht von unabhängigen Gegenprüfern bestätigt (Reihenfolge zweier Teilen, eine hängende Kopie, GIF- und JPEG-Bomben …), vier Prüfstands-Lücken von mir nachgeprüft, weil ihre Gegenprüfer am Nutzungslimit ausfielen. Alle vor dem Ausliefern geschlossen.',
@@ -76557,25 +76601,6 @@ window.GS_RELEASES = [
       {emoji: '📆', bold: 'Rückblick statt Timeline:', text: ' Der Menüeintrag „Garten-Timeline“ heisst jetzt „Rückblick“ und öffnet den Kalender — mit Tagebuch, Pflanzungen und Fundorten eingeschaltet. Eine Ansicht statt zwei, und diese denkt mit.'}
     ],
   },
-  {
-    v: 'v33.37', date: '16.09.2026',
-    headline: 'Scans, Fundorte und deine wirkliche Ernte stehen jetzt im Kalender',
-    summary: 'Vierte Scheibe von KALENDER-V2, erster Teil der drei Namen. Drei Quellen, die es in der App längst gibt und die im Kalender fehlten: der Scan-Verlauf, die Karten-Fundorte und das Ernte-Buch. Dabei gemessen: „Funde" in Mein Naturjahr stand seit jeher auf 0 — beide Schreiber legen die Zeit als `date` ab, gelesen wurde `ts/time/found_at/created_at`. Kein Fund hat je einen Monatsbalken bewegt.',
-    user_summary: 'Der Kalender zeigt dir jetzt auch, was du gescannt, gefunden und geerntet hast — an dem Tag, an dem es passiert ist. Scans sind zusammen mit den Messwerten hinter einem Knopf versteckt, weil es viele werden; Fundorte und Ernten siehst du sofort.',
-    user_items: [
-      {emoji: '🔬', bold: 'Deine Scans im Kalender:', text: ' jeder Scan steht an seinem Tag, mit der Art und wie sicher die Erkennung war. Antippen öffnet die Art.'},
-      {emoji: '📍', bold: 'Deine Fundorte:', text: ' was du auf der Karte markiert hast, steht jetzt auch im Kalender.'},
-      {emoji: '🧺', bold: 'Die wirkliche Ernte:', text: ' bisher zeigte der Kalender nur, wann etwas reif sein könnte. Jetzt steht daneben, was du tatsächlich geerntet hast — mit Menge.'},
-      {emoji: '🔍', bold: 'Ein Fehler, den niemand gemeldet hat:', text: ' die Kachel „Funde" in Mein Naturjahr zählte immer 0. Sie las ein Feld, das keiner schreibt.'}
-    ],
-    items: [
-      'Drei neue Quellen in gsKalenderEreignisse: scan (SCAN_HISTORY_KEY über _gsScanZeit), fund (greenscan_markers über den neuen _gsFundZeit), ernte quelle hand (gs_ernte_log). Ohne lesbare Zeit KEIN Ereignis statt eines auf „heute".',
-      '_gsFundZeit(f): EIN Leser für die Zeit eines Fundorts. Beide Schreiber legen `date` in Millisekunden ab; gsOpenNaturjahr las ts/time/found_at/created_at und fand keinen einzigen. Dieselbe Klasse wie _gsScanZeit (v33.33) und ctx.harvests (v33.34).',
-      'Gruppen: fund im Rückblick (Vorgabe an — Fundorte sind wenige und gewollt), scan bei den Messwerten (Vorgabe aus — bis 200 Scans würden das Raster zudecken). Der Chip heisst jetzt „Messwerte & Scans".',
-      '_gsKalDatenlage kennt die zwei neuen Quellen: wer NUR gescannt hat, bekommt nicht mehr „Noch keine Daten". Der Fall „Ohne Daten" räumt sie mit.',
-      'Prüfstände: kalender_check 44 (4 neu, alle vier rot gegen v33.36). Gegenproben: Scan-Zeit aus einem Feld statt dem Leser, _gsFundZeit ohne `date`, Ernte ohne Weg und Grund → je rot.'
-    ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76784,7 +76809,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.56';
+var GS_VERSION = 'v33.57';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

@@ -287,6 +287,11 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   `callAI`/`callVisionAI` — ein `fetch('https://api.anthropic.com/…')` mit
   `getApiConfig().key` funktioniert für Nutzer nicht mehr (kein Schlüssel).
   Prüfstand: `schluessel_check`.
+- **Seit v33.57 hat „ist die KI da?" EINE Antwort: `gsKiVerfuegbar(cfg)`** —
+  wahr bei Schlüssel ODER Proxy-Ziel. Ein `if (!key)` vor einem KI-Weg ist seit
+  der Migration „nur Proxy" (angewandt am 10.11.2026) für jeden Nutzer ohne
+  Admin-Rolle wahr — der Scanner zeigte damit „KI gerade nicht erreichbar",
+  während `callVisionAI` eine Zeile weiter über den Proxy gegangen wäre.
 
 ### 3.5 · Daten-Speicherung
 - Lokal: `localStorage` mit `safeGetItem(key, fallback)` Wrapper benutzen.
@@ -984,7 +989,7 @@ node scripts/quiz_gen_check.js   # kommt nur eine Frage in die Tabelle, die man 
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.54 A10b: boese Stile (CSS-Escapes, image-set) werden WIRKLICH ins Dokument gerendert und die Anfragen des Browsers gezaehlt (0), plus Ueberlagerung und die guten Stile der Uebersetzungen
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
-node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
+node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68); seit v33.57 der WEG DAVOR: Scanner (analyzeImage) und Scan-Chat laufen ohne Schluessel im Browser ueber den Proxy, gsKiVerfuegbar in beide Richtungen
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, der Fuss unter dem Protokoll rechnet die Deckung, und eine SQL-Hälfte (lokales Postgres) spielt 20260925_admin_audit_vollstaendig.sql nach — ohne Postgres „nicht prüfbar" (Exit 2)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
@@ -2159,6 +2164,21 @@ ausgeliefert und nie benutzt. Deshalb ist der Direktweg im Übergang ein
 Rückfall und keine Option: erst wenn `select count(*) from ai_usage` nach
 einem echten Aufruf wächst, wird die Migration angewandt (FUER-FERNANDO §8).
 **Ein Umschalter, den niemand je umgelegt hat, ist kein Sicherheitsnetz.**
+
+> **Und eine Vorbedingung, die nur EINE Seite der Naht misst, ist eine halbe**
+> (v33.57). Am 10.11.2026 wurde die Migration angewandt — `ai_usage` hatte 37
+> Zeilen, der Proxy lief, die Bedingung oben war erfüllt. Danach war der
+> Scanner für jeden Nutzer ohne Admin-Rolle tot: `analyzeImage` fragte
+> `if (!key)` und zeigte „KI gerade nicht erreichbar", **0 Aufrufe an den
+> Proxy**; der Scan-Chat sagte „API-Key nötig". Der Fall „Ohne Schlüssel im
+> Browser" war grün, weil er `callAI` und `callVisionAI` **direkt** rief — den
+> Weg davor ging er nie (v33.43: *die Rechnung, nicht der Draht*). Und
+> `scan_check` stellt in jedem Fall einen Schlüssel hin: die eine Sperre, auf
+> die es ankam, war in 76 Fällen weggestellt. **Wer eine Sperre im Prüfstand
+> stellt, braucht EINEN Fall, der sie nicht stellt** — sonst weiss niemand, was
+> sie im Betrieb tut. Seither: `gsKiVerfuegbar()` ist die eine Frage, vier
+> Stellen rufen sie, und `schluessel_check` „Der Weg davor" fährt den Scan und
+> den Chat wirklich durch.
 
 **Seit v32.72 gilt für Geheimnisse in Edge-Functions EINE Regel:**
 `supabase/functions/_shared/auth_vergleich.mjs` (`constantTimeEquals`,

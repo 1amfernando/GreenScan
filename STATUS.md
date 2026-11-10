@@ -4,13 +4,74 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-10-22 · **Branch**: `main` · **Version**: `v33.56` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-10 · **Branch**: `main` · **Version**: `v33.57` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-10 (jb) - v33.57: Scanner und Scan-Chat laufen auch ohne Schlüssel im Browser
+
+**Eine Reparatur an etwas, das ich am selben Abend selbst ausgelöst habe.** Am
+10.11.2026 um 22:15 Uhr habe ich — mit Fernandos Freigabe „Sicherheit + Fixes" —
+die Migration `20260907_global_api_key_nur_proxy.sql` auf der Live-Datenbank
+angewandt. Seither gibt `fn_get_global_api_key` den Anthropic-Schlüssel nur noch
+Admins heraus; alle anderen bekommen `mode: proxy`. Die Vorbedingung aus §2 war
+erfüllt (`ai_usage` hat 37 Zeilen, der Proxy lief). **Trotzdem war der Scanner
+danach für jeden Nutzer ohne Admin-Rolle tot.**
+
+**Gemessen (schluessel_check, im Proxy-Modus ohne Schlüssel, gegen v33.56):**
+
+- `analyzeImage` fragte `if (!key)` — und zeigte „📡 KI gerade nicht erreichbar",
+  **0 Aufrufe an den Proxy**. `callVisionAI` eine Zeile weiter wäre über den
+  Proxy gegangen.
+- `sendScanChat` meldete „API-Key nötig" und fragte nicht.
+- Die Hintergrund-Recherche einer neuen Art stieg still aus; der Verbindungs-Test
+  im Planer sagte „Kein Key — bitte oben rechts eintragen" (eintragen darf ihn
+  niemand).
+
+**Gebaut:** `gsKiVerfuegbar(cfg)` — EINE Antwort auf „kann diese Person gerade die
+KI benutzen?": wahr bei Schlüssel ODER Proxy-Ziel (`_gsAiTarget`). Alle vier
+Stellen rufen sie. Wer wissen will, ob die KI da ist, fragt nie mehr
+`getApiConfig().key`.
+
+**Warum es niemand sah — und das ist die Lehre:**
+
+- `schluessel_check` hatte den Fall „Ohne Schlüssel im Browser" — er rief
+  `callAI` und `callVisionAI` **direkt**. Der Weg davor (das Tor im Scanner) war
+  nie Teil der Messung. Dieselbe Klasse wie v33.43: *ein Fall, der die Funktion
+  direkt ruft, misst die Rechnung, nicht den Draht.*
+- `scan_check` stellt in jedem Fall `getApiConfig = () => ({ key: 'k' })` hin
+  („Sperren stellen"). Damit war die eine Sperre, auf die es ankam, in 76 Fällen
+  weggestellt.
+- Die Zeile in §2 nannte die Reihenfolge („erst prüfen, dass `ai_usage` wächst")
+  — sie prüfte den **Proxy**, nicht die **App vor dem Proxy**. Eine Vorbedingung,
+  die nur eine Hälfte der Naht misst, ist eine halbe Vorbedingung.
+
+**Prüfstand:** `schluessel_check` 10 → 11 Fälle. Der neue geht den Weg, den ein
+Scan wirklich geht (Sperren gestellt wie in `scan_check`, nur der Schlüssel
+nicht), dann den Scan-Chat, und hält `gsKiVerfuegbar` in beide Richtungen fest
+(Proxy ja · nichts nein · persönlicher Schlüssel ja · abgemeldet nein). Zwei
+Gegenproben einzeln rot, mit dem Satz vom Bildschirm daneben.
+
+**Dauer des Ausfalls:** vom 10.11.2026 22:15 Uhr bis zur Auslieferung dieser
+Version, für Nutzer ohne Admin-Rolle. Zurückgenommen habe ich die Migration
+bewusst nicht: sie schliesst das Loch, durch das jeder angemeldete Nutzer den
+bezahlten Schlüssel lesen konnte.
+
+**Datenbank, am 10.11.2026 angewandt** (jede einzeln gegen die Live-DB
+nachgelesen): `20260907_global_api_key_nur_proxy` · `20260831_rollen_leak_fix_v30_95`
+· `20260924_admin_grants`. `v31_36_mkt_views_auth_guard` stand seit dem 01.09.2026
+schon in `schema_migrations` und wurde unverändert noch einmal eingespielt
+(idempotent, keine Wirkung). **Nicht angewandt:** `20261006_friendships_nur_empfaenger`
+— Supabase verlangt dafür eine Bestätigung im Dialog, und die blieb aus.
+
+**Nicht geprüft von hier:** der echte Proxy mit einem echten Konto. Die
+Functions-Adresse ist aus dieser Umgebung gesperrt; `ai_usage` wächst erst mit
+dem nächsten echten Scan — `select model, count(*), max(created_at) from ai_usage
+group by 1` zeigt es.
 
 ### 2026-10-22 (ja) - v33.56: Teilen → GreenScan auch in der Android-App
 
@@ -15213,7 +15274,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.56` (Client) · SW-Cache `gs-v33.56` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.57` (Client) · SW-Cache `gs-v33.57` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **96'660 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **583 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
@@ -15230,15 +15291,14 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
 | **APK auf einem Telefon ansehen: Export und Drucken** (v33.53) | Hier läuft kein Android. `apk_check` fährt Rechnung, Rand und Seite gegen einen echten Java-Sammler — ob ein Telefon „Speichern unter“ und den Druckdialog so zeigt, sagt erst ein Gerät (Android 6, 10, 14). Am Backend nichts zu tun, nur eine neue APK. | `docs/FUER-FERNANDO.md` §26 · (ix) |
 | **Neun Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `key-health-check`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `ai-proxy`, `garden-scan-analyze`, `plan-iterate`) | Audit A10/B2: konstantzeitiger Schlüsselvergleich über `_shared/auth_vergleich.mjs`, Triage nur Admins, CORS eng, 110-s-Abbruch. Im Repo, nicht ausgeliefert. | `docs/FUER-FERNANDO.md` §9 · (fl) |
-| **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
+| **`deploy ai-proxy`** (die Migration `20260907_global_api_key_nur_proxy.sql` ist seit dem **10.11.2026** angewandt) | Audit A1 ist damit zu: `fn_get_global_api_key` gibt nur noch Admins den Schlüssel, Nutzer bekommen „mode: proxy“ — und v33.57 hat die vier Stellen repariert, die danach noch nach einem Schlüssel im Browser fragten (jb). **Offen bleibt die Auslieferung von `ai-proxy`:** live läuft die Fassung vom 25.06.2026, deren Freigabeliste jedes Modell auf `claude-sonnet-4-5` umschreibt — und das schaltet Anthropic am **30.11.2026** ab. | `docs/FUER-FERNANDO.md` §8 · (fh), (jb) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
 | **Migration `20261006_friendships_nur_empfaenger.sql`** | Live (06.10.2026, nur lesend): der Absender konnte die eigene Freundschafts-Anfrage annehmen, jeder eine Zeile gleich als `accepted` anlegen, und beide Seiten `user_id`/`friend_id` auf einen Dritten umbiegen (UPDATE ohne `WITH CHECK`, Tabellenrecht auf jede Spalte). Die Datei: INSERT nur `pending`, UPDATE nur der Empfänger, nur die Spalte `status`. Heute 0 Zeilen, und nichts sonst liest den Status — die Regel wird richtig, bevor etwas sie liest. In `naht_check` nachgespielt (Reproduktion, zweimal, Gegenprobe). | `docs/FUER-FERNANDO.md` §25 · (iw) |
 | **Migration `20260925_admin_audit_vollstaendig.sql`** | Fünf von fünfzehn Admin-Aktionen hinterliessen keine Spur in `audit_log` (25.09.2026, nur lesend gemessen) — darunter Foto-Beitrag und Arten-Vorschlag prüfen (Moderation!) und „Meldung erledigen" (nackter PATCH, keine RPC). Die Datei gibt zwei Review-Funktionen die Spur (Rumpf wie live) und legt `fn_admin_review_report` an. Bis dahin fällt „Meldung erledigen" auf den PATCH zurück und sagt „ohne Protokolleintrag"; der Fuss unter dem Protokoll zählt „3 erst nach Migration". In `admin_check` in einem lokalen Postgres nachgespielt (zweimal, Admin/Nicht-Admin, Gegenprobe). | `docs/FUER-FERNANDO.md` §24 · (iv) |
-| **Migration `20260924_admin_grants.sql`** | Zwei Admin-Knöpfe sind live tot: `fn_assign_role` („🚫 Nutzer sperren", Rolle vergeben) und `fn_set_global_api_key` (globaler KI-Schlüssel) tragen die ACL `{postgres, service_role}` — `authenticated` darf sie nicht ausführen (24.09.2026, nur lesend gemessen). Die zwei Re-Grants aus `v29_20` und `v30_57` sind live nicht in Kraft. Beide Funktionen prüfen `is_admin_user()` selbst; das GRANT macht die Prüfung erreichbar, es öffnet nichts. Bis dahin sagt es die App (`nicht_freigeschaltet`, mit Dateinamen). | `docs/FUER-FERNANDO.md` §23 · (iu) |
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. **Live nachgemessen 14.09.2026: die Spalte existiert nicht** (`42703`), waehrend die App sie seit v30.85 rendert — der Bildblock kann nie gefeuert haben. Mit `20260827_quiz_bilder_und_fragen_v30_85.sql` kaemen 43 Fragen (+43 Tage Vorrat). Seit v33.29 kennt das Kategorien-Vokabular ihre 12 eigenen Slugs, sie braechte also keine leeren Kategoriezeilen mit. | (2026-08-31 y), (hy) |
 | **Migration `20260914_quiz_vorrat.sql`** | `fn_quiz_vorrat()` + `fn_quiz_vorrat_pruefen()` + Cron `quiz-vorrat-daily` (v33.29): misst den Fragen-Vorrat und warnt nach `system_events`, sobald unter 60 freie Fragen uebrig sind. Aendert nichts am Quiz. Ohne sie bleibt der Vorrat ungemessen — **er ist am 16.06.2027 erschoepft**, und `fn_get_daily_quiz` wiederholt dann still. | (hy), FUER-FERNANDO §20 |
-| `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
+| `fn_is_role` / `fn_role_at_least` für `anon` sperren | **Entschärft am 10.11.2026:** `20260831_rollen_leak_fix_v30_95` ist angewandt — beide antworten über ein FREMDES Konto nur noch Staff und Admins. Das EXECUTE-Recht für `anon` steht noch (am 10.11. nachgelesen: `has_function_privilege('anon', …)` = wahr). | (de), (jb) |
 | Leaked-Password-Protection | Ein Dashboard-Klick. | (2026-08-31 y) |
 | **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). **Seit v33.41 DROP + CREATE** — sie wäre vorher beim Anwenden gescheitert (`CREATE OR REPLACE VIEW` darf Spalten nur anhängen; nachgerechnet in einem lokalen Postgres, `naht_check`). | `docs/FUER-FERNANDO.md` §5 · (ei), (il) |
 | Migration `20260905_device_daily.sql` | Tagesaggregat als Tabelle (§11 Idee 17) — sonst verschwindet das Aggregat mit dem Prune nach 400 Tagen. Nach `20260903_oekosystem_v1_geraete.sql`. | `docs/FUER-FERNANDO.md` §6 · (ex) |
