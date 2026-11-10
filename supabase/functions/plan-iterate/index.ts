@@ -18,7 +18,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 // v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
-import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
+import { anthropicFetch } from "../_shared/modelle.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -3,7 +3,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 // v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
-import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
+import { anthropicFetch, modellSecret } from "../_shared/modelle.mjs";
 // v33.29: die RECHNENDEN Regeln fuer Quizfragen stehen in einem reinen
 // ESM-Modul, das Deno UND Node importieren (Bauform wie ingest_regeln.mjs) —
 // nur so lassen sie sich ohne Deno pruefen: scripts/quiz_gen_check.js.
