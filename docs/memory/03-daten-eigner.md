@@ -27,7 +27,7 @@ Kurzform; dort steht zu jeder Zeile die Geschichte.
 | Der Garten-Zwilling? | `gs_garden_twin` | `gsTwinGet` / `gsTwinSave`; `gsTwinNormalize` klemmt | direkt parsen; Meter (`x_m`) aufs Foto (`ix`) legen |
 | Mischkultur? | Supabase `plant_companion_matrix` / `v_companion_lookup` | Planer (`_gsZuNah` ist die eine Abstandsregel) | eine Nachbarschaftstabelle im Code |
 | Darf getrackt werden? | `gs_consent.analytics` (Opt-in) | `_gsAnalyticsErlaubt()`; Ereignisse nur aus `GS_EVENTS` | `analytics_events` ohne Ja; Fotos, Standort, Namen, Eingabetext |
-| Der KI-Schluessel? | Server (`ai-proxy`); persoenlich `ps_api_key` | `_gsAiTarget`, `_gsAiAnfrage`; `getApiConfig()` gibt ohne Anmeldung nichts | ein globaler Schluessel im `localStorage` |
+| Der KI-Schluessel? | Server (`ai-proxy`); persoenlich `ps_api_key` | `_gsAiTarget`, `_gsAiAnfrage`; `getApiConfig()` gibt ohne Anmeldung nichts; „ist die KI da?" → `gsKiVerfuegbar()` | ein globaler Schluessel im `localStorage` |
 
 ## Die vier Speicherlisten — jeder neue Schluessel steht in genau einer
 
