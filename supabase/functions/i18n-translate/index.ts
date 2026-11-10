@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 // v29 i18n-translate — DE → {en,fr,it,es} Bulk-Übersetzung via Anthropic Haiku 4.5.
 // Cached in i18n_translations (UNIQUE (src_lang,tgt_lang,hash)).
@@ -113,7 +115,7 @@ Antwort-Format: NUR JSON-Array mit { "key": "<key>", "translated": "<übersetzun
   const userMsg = `Übersetze diese ${items.length} UI-Strings:\n\n` +
     items.map((it, i) => `${i+1}. key=${it.key}\n   text=${JSON.stringify(it.text)}`).join("\n\n");
 
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const r = await anthropicFetch("schnell", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -121,7 +123,6 @@ Antwort-Format: NUR JSON-Array mit { "key": "<key>", "translated": "<übersetzun
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
       system: sys,
       messages: [{ role: "user", content: userMsg }]
@@ -204,7 +205,8 @@ Deno.serve(async (req: Request) => {
             source_hash: orig.hash,
             translated_text: tr.translated,
             context_note: context || null,
-            model: "claude-haiku-4-5-20251001",
+            // v33.58: das erste Modell der Kette — nominell; ein Rueckfall steht im Log der Function.
+            model: modellKette("schnell", modellSecret("schnell"))[0],
             tokens_in: Math.round(result.tokens_in / slice.length),
             tokens_out: Math.round(result.tokens_out / slice.length)
           });

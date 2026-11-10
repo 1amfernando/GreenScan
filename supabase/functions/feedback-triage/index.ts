@@ -1,15 +1,18 @@
 // ══════════════════════════════════════════════════════════════════════════
 // SPIEGEL — wortgetreu aus der laufenden Auslieferung gezogen am 02.09.2026
 // (v32.19). version 3 · verify_jwt=true · ezbr_sha256 1bca0016…
-// Keine Überarbeitung.
+// Bis v33.56 keine Überarbeitung. v33.58 (10.11.2026): Punkt 1 unten ist behoben —
+// das Modell kommt aus der Kette der Rolle „vision" (_shared/modelle.mjs).
 //
-// ZWEI DINGE, DIE BEIM SPIEGELN AUFGEFALLEN SIND (nicht geändert, nur notiert):
+// ZWEI DINGE, DIE BEIM SPIEGELN AUFGEFALLEN SIND (damals nicht geändert, nur notiert):
 //
 // 1. `model: "claude-sonnet-4-6"` steht hier FEST und ohne Rückfall. Das
 //    Frontend geht für dieselbe Frage eine KETTE durch (index.html ~Z. 27079:
 //    sonnet-4-6 → sonnet-4-5 → sonnet-4-5-20250929 → sonnet-4-20250514 →
 //    3-5-sonnet) — hier gibt es das nicht. Fällt der eine Name weg, endet
 //    jeder Aufruf in „llm failed", und niemand merkt es.
+//    → v33.58: kein Modellname mehr in dieser Datei; fällt eines weg, ist das nächste dran,
+//      und der Rückfall steht im Log der Function.
 //    Ob der Name heute noch auflöst, ist von hier aus NICHT prüfbar: die
 //    Netz-Richtlinie dieser Umgebung lässt keine Anfrage an Anthropic zu.
 //
@@ -23,6 +26,8 @@
 // feedback-triage: Analysiert einzelne oder viele Feedback-Items mit Claude
 // Nur Admin/Expert-Accounts dürfen triggern. Schreibt in public.feedback_analysis.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -58,7 +63,7 @@ Keine Einleitung, kein Text ausserhalb des Arrays.`;
   const userMsg = "Bewerte folgende Feedback-Items (IDs bitte 1:1 zurückgeben):\n\n" +
     items.map(it => `ID: ${it.id}\nKind: ${it.kind}\nApp: ${it.app_version || '-'}\nText: ${it.content}`).join("\n---\n");
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await anthropicFetch("vision", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -66,7 +71,6 @@ Keine Einleitung, kein Text ausserhalb des Arrays.`;
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
       max_tokens: 2000,
       system,
       messages: [{ role: "user", content: userMsg }],
@@ -168,7 +172,8 @@ Deno.serve(async (req) => {
     rationale: a.rationale || null,
     actionable: !!a.actionable,
     suggested_action: a.suggested_action || null,
-    model: "claude-sonnet-4-6",
+    // v33.58: das erste Modell der Kette — nominell; ein Rueckfall steht im Log der Function.
+    model: modellKette("vision", modellSecret("vision"))[0],
     analyzed_at: new Date().toISOString(),
   })).filter(r => r.feedback_id);
 

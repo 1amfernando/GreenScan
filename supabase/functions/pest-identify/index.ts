@@ -16,6 +16,8 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -56,8 +58,11 @@ Deno.serve(async (req) => {
   const authHdr = req.headers.get("authorization") || "";
   const userToken = authHdr.replace(/^Bearer\s+/i, "").trim();
   if (!userToken) return json(401, { error: "unauthorized" });
-  const sbUser = createClient(SUPABASE_URL, userToken, { auth: { persistSession: false } });
-  const { data: userData, error: userErr } = await sbUser.auth.getUser();
+  // v33.58: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
+  // ohne Argument — ein Client ohne Sitzung und ohne eigenen Authorization-Header; neuere
+  // supabase-js-Fassungen antworten darauf mit „Auth session missing" statt den Schluessel als
+  // Bearer zu schicken, und `jsr:@supabase/supabase-js@2` zieht beim Ausliefern die neueste.
+  const { data: userData, error: userErr } = await admin.auth.getUser(userToken);
   if (userErr || !userData?.user) return json(401, { error: "invalid token" });
   const userId = userData.user.id;
 
@@ -109,7 +114,7 @@ Deno.serve(async (req) => {
 
   let aiJson: any;
   try {
-    const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
+    const aiResp = await anthropicFetch("schnell", {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
@@ -117,7 +122,6 @@ Deno.serve(async (req) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
         max_tokens: 800,
         system: systemPrompt,
         messages: [{
@@ -160,7 +164,7 @@ Deno.serve(async (req) => {
       p_tokens_in: aiJson?.usage?.input_tokens || 0,
       p_tokens_out: aiJson?.usage?.output_tokens || 0,
       // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
-      p_model: aiJson?.model || 'claude-haiku-4-5-20251001',
+      p_model: aiJson?.model || modellKette('schnell', modellSecret('schnell'))[0],
     });
   } catch (_) { /* nicht-blockierend */ }
 
