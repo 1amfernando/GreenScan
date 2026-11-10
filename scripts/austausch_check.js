@@ -263,7 +263,7 @@ const FAELLE = [
     },
   },
   {
-    name: 'A5 · Uebergabe · zur laufenden Version gibt es GENAU EINE gueltige Uebergabe (eine ersetzte zaehlt nicht), und sie sagt etwas ueber Offenes — zwei waeren zwei Sitzungen mit derselben Versionsnummer',
+    name: 'A5 · Uebergabe · zur laufenden Version gibt es eine gueltige Uebergabe (eine ersetzte zaehlt nicht), und hoechstens EINE davon liefert die Version aus — zwei ausliefernde waeren zwei Sitzungen mit derselben Versionsnummer',
     lauf: () => {
       const m = lies('index.html').match(/\bGS_VERSION\s*=\s*'(v\d+\.\d+)'/);
       if (!m) return { ok: false, warum: 'GS_VERSION in index.html nicht gefunden' };
@@ -272,20 +272,22 @@ const FAELLE = [
       if (!ueb.length) return { ok: false, warum: 'keine Uebergabe fuer ' + m[1] + ' — der Bump verlangt sie wie den GS_RELEASES-Eintrag: node scripts/austausch.js hilfe uebergabe' };
       // Fortgezaehlte Versionen kollidieren unter Parallelitaet (v33.08 wurde viermal vergeben).
       // Zwei gueltige Uebergaben fuer EINE Version sind genau dieser Fall — oder eine Korrektur ohne „ersetzt".
-      if (ueb.length > 1) return { ok: false, warum: ueb.length + ' gueltige Uebergaben fuer ' + m[1] + ' (' + ueb.map(e => e.id + ' von ' + e.von).join(' · ') + ') — haben zwei Sitzungen dieselbe Version vergeben? Sonst die aeltere ersetzen: neu uebergabe … --bezug ersetzt:<id>' };
-      const u = ueb[0];
+      // Eine Sitzung OHNE Bump (Doku, Routine-Lauf) darf zur selben Version eine Uebergabe hinterlassen — sie liefert nicht aus.
+      const lief = ueb.filter(e => e.liefert === true);
+      if (lief.length > 1) return { ok: false, warum: lief.length + ' Uebergaben liefern ' + m[1] + ' aus (' + lief.map(e => e.id + ' von ' + e.von).join(' · ') + ') — haben zwei Sitzungen dieselbe Version vergeben? Eine nimmt die naechste (node scripts/austausch.js version). War es eine Korrektur: neu uebergabe … --bezug ersetzt:<id>' };
+      const u = ueb[ueb.length - 1];
       const n = ['offen', 'naechster_schritt', 'nicht_geprueft'].reduce((s, k) => s + A.alsListe(u[k]).length, 0);
-      return { ok: true, info: m[1] + ' · ' + u.id + ' · ' + (n ? n + ' offene Punkte genannt' : 'nichts offen: ' + String(u.nichts_offen || '').slice(0, 60)) };
+      return { ok: true, info: m[1] + ' · ' + ueb.length + ' gueltige Uebergabe(n), ' + lief.length + ' ausliefernd · juengste ' + u.id + ': ' + (n ? n + ' offene Punkte genannt' : 'nichts offen: ' + String(u.nichts_offen || '').slice(0, 60)) };
     },
   },
   {
-    name: 'A6 · Kein offener Anspruch im Baum · „ich bin dran" lebt auf dem Branch der Sitzung; vor dem PR wird er geschlossen — gemergt stuende er fuer immer als „in Arbeit" auf main',
+    name: 'A6 · Kein offener Anspruch im Baum · „ich bin dran" lebt auf dem Branch der Sitzung; die Uebergabe derselben Sitzung schliesst ihn — ohne sie gemergt, stuende er fuer immer als „in Arbeit" auf main',
     lauf: () => {
       const b = brett();
       if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
       const zu = A.ableiten(b.eintraege).zustand;
       const offen = b.eintraege.filter(e => e.art === 'anspruch' && zu.get(e.id).z === 'offen');
-      if (offen.length) return { ok: false, warum: offen.length + ' offene Ansprueche: ' + offen.map(e => e.id + ' „' + String(e.titel).slice(0, 60) + '" (' + e.von + ')').join(' · ') + ' — fertig? `node scripts/austausch.js schliesse <id> --ergebnis erledigt --wohin "vXX.YY"`. Noch dran? Dann ist das hier richtig rot, bis der PR kommt.' };
+      if (offen.length) return { ok: false, warum: offen.length + ' offene Ansprueche: ' + offen.map(e => e.id + ' „' + String(e.titel).slice(0, 60) + '" (' + e.von + ')').join(' · ') + ' — fertig? Die Uebergabe DEINER Sitzung schliesst ihn (node scripts/austausch.js hilfe uebergabe). Aufgegeben? `schliesse <id> --ergebnis verworfen --text "…"`. Noch dran? Dann ist das hier richtig rot, bis die Uebergabe steht.' };
       const alle = b.eintraege.filter(e => e.art === 'anspruch').length;
       return { ok: true, info: alle + ' Ansprueche im Baum, alle geschlossen' };
     },
@@ -398,7 +400,7 @@ const FAELLE = [
   },
   // ───────────────────────────── C · die Regel selbst
   {
-    name: 'C1 · Die Pruefung sieht Fehler · 28 gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und fuenf gute kommen ohne Einwand durch',
+    name: 'C1 · Die Pruefung sieht Fehler · 30 gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und fuenf gute kommen ohne Einwand durch',
     lauf: () => {
       const lang = 'x'.repeat(A.TITEL_MAX + 1);
       const SCHLECHT = [
@@ -429,6 +431,8 @@ const FAELLE = [
         ['Anker zu kurz', gut({ anker: [{ datei: 'index.html', text: 'x = 1' }] }), /anker\[0\]: text braucht/],
         ['Anker aus dem Repo hinaus', gut({ anker: [{ datei: '../geheim.txt', text: 'ein langes Stueck Text' }] }), /muss ein Pfad im Repo sein/],
         ['Zaehlung ohne ganze Zahl', gut({ zaehle: [{ datei: 'index.html', text: 'ein Stueck', n: -1 }] }), /zaehle\[0\]: n ist eine ganze Zahl ab 0/],
+        ['Anspruch mit krummer Version', gut({ art: 'anspruch', beleg: undefined, bereich: 'b', version: '33.57' }), /version hat nicht die Form/],
+        ['liefert an einem Befund', gut({ liefert: true }), /liefert \(true\/false\) gehoert an eine Uebergabe/],
         ['Anker an einem Abschluss', gut({ art: 'abschluss', beleg: undefined, ergebnis: 'verworfen', text: 'weil', anker: [{ datei: 'a.js', text: 'ein langes Stueck Text' }], bezug: [{ art: 'schliesst', id: '2026-11-10-bbbb' }] }), /anker gehoert an einen Befund/],
       ];
       const GUT = [
@@ -478,16 +482,16 @@ const FAELLE = [
         // Schliessen ist streng — aber nur beim BEFUND, und nur bei „erledigt".
         const zu = (extra) => gut(Object.assign({ id: '2026-11-10-c001', art: 'abschluss', beleg: undefined, titel: 'zu', ergebnis: 'erledigt', wohin: 'v9', bezug: [{ art: 'schliesst', id: '2026-11-10-aaaa' }] }, extra));
         const idee = gut({ id: '2026-11-10-d001', art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'p', titel: 'Eine Idee' });
-        const streng = (liste) => A.brettPruefen(brettAus(liste)).map(x => x.grund).filter(x => /braucht „(bewacht|geschwister)"/.test(x)).length;
-        const ist = [streng([gut(), zu()]), streng([gut(), zu({ bewacht: 'x_check · Fall', geschwister: 'gesucht: grep → 0' })]), streng([gut(), zu({ bewacht: 'keiner, weil Doku', geschwister: 'nicht gesucht, weil Einzelfall' })]),
+        const streng = (liste) => A.brettPruefen(brettAus(liste)).map(x => x.grund).filter(x => /braucht „(bewacht|geschwister|gegenprobe)"/.test(x)).length;
+        const ist = [streng([gut(), zu()]), streng([gut(), zu({ bewacht: 'x_check · Fall', geschwister: 'gesucht: grep → 0', gegenprobe: 'zurueckgebaut → x_check Fall rot' })]), streng([gut(), zu({ bewacht: 'keiner, weil Doku', geschwister: 'nicht gesucht, weil Einzelfall', gegenprobe: 'keine, weil nur Text' })]),
           streng([gut(), zu({ ergebnis: 'verworfen', wohin: undefined, text: 'stimmt nicht' })]), streng([idee, zu({ bezug: [{ art: 'schliesst', id: '2026-11-10-d001' }] })])].join(' ');
-        if (ist !== '2 0 0 0 0') return { ok: false, warum: 'strenges Schliessen: ' + ist + ' — erwartet 2 0 0 0 0 (behobener Befund ohne Angaben: 2 Maengel · mit Angaben · mit ausgesprochenem „keiner/nicht gesucht" · verworfen · eine Idee: je 0)' };
-        return { ok: true, info: 'sauberes Brett: 0 Meldungen · vier eingebaute Schaeden: 4 von 4 gemeldet · behobener Befund ohne „bewacht/geschwister": 2 Maengel, mit: 0, verworfen und Idee: 0' };
+        if (ist !== '3 0 0 0 0') return { ok: false, warum: 'strenges Schliessen: ' + ist + ' — erwartet 3 0 0 0 0 (behobener Befund ohne Angaben: 3 Maengel · mit Angaben · mit ausgesprochenem „keiner/nicht gesucht/keine" · verworfen · eine Idee: je 0)' };
+        return { ok: true, info: 'sauberes Brett: 0 Meldungen · vier eingebaute Schaeden: 4 von 4 gemeldet · behobener Befund ohne „bewacht/geschwister/gegenprobe": 3 Maengel, mit: 0, verworfen und Idee: 0' };
       } finally { weg(d); }
     },
   },
   {
-    name: 'C3 · Zustand wird gerechnet · Frage mit Antwort ist beantwortet, Befund mit Abschluss geschlossen, ein ersetzter ersetzt — und der unberuehrte Nachbar bleibt offen',
+    name: 'C3 · Zustand wird gerechnet · Frage mit Antwort ist beantwortet, Befund mit Abschluss geschlossen, ein ersetzter ersetzt, ein Anspruch durch die Uebergabe seiner Sitzung geschlossen — und der unberuehrte Nachbar bleibt offen',
     lauf: () => {
       const b = brettAus([
         gut({ id: '2026-11-10-0001', titel: 'Befund, den jemand schliesst' }),
@@ -503,7 +507,14 @@ const FAELLE = [
       const ist = ['0001', '0002', '0003', '0004', '0005', '0006', '0007', '0008'].map(k => z.get('2026-11-10-' + k).z).join(' ');
       const soll = 'geschlossen offen beantwortet offen ersetzt notiz notiz offen';
       if (ist !== soll) return { ok: false, warum: 'gerechnet: ' + ist + ' — erwartet: ' + soll };
-      return { ok: true, info: ist };
+      // Die Uebergabe schliesst den Anspruch IHRER Sitzung — nicht den einer anderen, und nicht rueckwirkend einen spaeteren.
+      const an = (id, von) => gut({ id, von, art: 'anspruch', beleg: undefined, bereich: 'b', titel: 'Anspruch ' + id.slice(-2) });
+      const ue = (id, von) => gut({ id, von, art: 'uebergabe', beleg: undefined, version: 'v9.01', nichts_offen: 'x', titel: 'Uebergabe ' + id.slice(-2) });
+      const c = brettAus([an('2026-11-10-0001', 'sitzung/a'), an('2026-11-10-0002', 'sitzung/b'), ue('2026-11-10-0003', 'sitzung/a'), an('2026-11-10-0004', 'sitzung/a')]);
+      const zc = A.ableiten(c.eintraege).zustand;
+      const ist2 = ['0001', '0002', '0004'].map(k => zc.get('2026-11-10-' + k).z).join(' ');
+      if (ist2 !== 'geschlossen offen offen') return { ok: false, warum: 'Anspruch × Uebergabe: ' + ist2 + ' — erwartet geschlossen offen offen (eigener frueherer · fremder · eigener spaeterer)' };
+      return { ok: true, info: ist + ' · Anspruch: von der Uebergabe derselben Sitzung geschlossen, der fremde und der spaetere bleiben offen' };
     },
   },
   {
@@ -536,7 +547,7 @@ const FAELLE = [
     },
   },
   {
-    name: 'C4e · Zaehlung · beim Schreiben wird nachgerechnet (eine falsche Zahl wird mit der ECHTEN abgewiesen, nichts geschrieben); aendert sich die Datei, meldet der Anstoss „war 3, heute 1" — bei gleicher Zahl und bei geschlossenem Eintrag nicht',
+    name: 'C4e · Zaehlung · beim Schreiben wird nachgerechnet (eine falsche Zahl wird mit der ECHTEN abgewiesen); „erledigt" geht erst, wenn sich die Zahl bewegt hat; aendert sich die Datei, meldet der Anstoss „war 3, heute 1" — bei gleicher Zahl und bei geschlossenem Eintrag nicht',
     lauf: () => {
       const d = tmp('zaehle');
       try {
@@ -554,13 +565,19 @@ const FAELLE = [
         if (b.eintraege[0].zaehle[0].n !== 3) return { ok: false, warum: 'gespeicherte Zahl: ' + b.eintraege[0].zaehle[0].n + ' (erwartet 3)' };
         const bew = () => A.anstoesse(A.brettLesen(d, {}).eintraege, null, lesen).filter(x => x.art === 'zahl_bewegt').map(x => x.satz.replace(/^.*: war /, 'war ').replace(/ — .*$/, '')).join('|');
         const gleich = bew();
+        // „Behoben" ist eine Zaehlung, die sich bewegt hat: solange sie bei 3 steht, laesst sich der Befund nicht als erledigt schliessen.
+        const zuArgs = ['schliesse', b.eintraege[0].id, '--ergebnis', 'erledigt', '--wohin', 'v99.02', '--bewacht', 'keiner, weil Probe', '--geschwister', 'nicht gesucht, weil Probe', '--gegenprobe', 'keine, weil Probe', '--nur-lokal'];
+        r = werkzeug(d, zuArgs);
+        if (r.code !== 1 || anzahl() !== 1 || r.aus.indexOf('unveraendert') < 0) return { ok: false, warum: 'schliessen bei unveraenderter Zahl: Exit ' + r.code + ', ' + anzahl() + ' Dateien (erwartet Exit 1, weiter 1)' };
         fs.writeFileSync(path.join(d, 'code.js'), "a.toLocaleString(loc());\nb.toLocaleString(loc());\nc.toLocaleString('de-CH');\n");
         const weniger = bew();
         const st = A.zahlenStand(A.brettLesen(d, {}).eintraege, lesen);
-        r = werkzeug(d, ['schliesse', b.eintraege[0].id, '--ergebnis', 'verworfen', '--text', 'Probe', '--nur-lokal']);
+        r = werkzeug(d, zuArgs);
+        const abschl = A.brettLesen(d, {}).eintraege.find(x => x.art === 'abschluss');
         const zu = bew();
+        if (r.code !== 0 || !abschl || !abschl.zaehle || abschl.zaehle[0].n !== 1) return { ok: false, warum: 'schliessen nach der Aenderung: Exit ' + r.code + ', Stand im Abschluss: ' + JSON.stringify(abschl && abschl.zaehle) + ' — ' + r.aus.slice(0, 160) };
         if (gleich !== '' || weniger !== 'war 3, heute 1' || zu !== '' || st.length !== 1 || st[0].heute !== 1) return { ok: false, warum: 'gleich: „' + gleich + '" · geaendert: „' + weniger + '" · geschlossen: „' + zu + '" · Stand: ' + JSON.stringify(st.map(x => [x.n, x.heute])) };
-        return { ok: true, info: '5 statt 3: abgewiesen mit „steht 3-mal", 0 Dateien · ohne Zahl selbst gezaehlt: 3 · Datei geaendert: „war 3, heute 1" · gleich und geschlossen: still' };
+        return { ok: true, info: '5 statt 3: abgewiesen mit „steht 3-mal", 0 Dateien · ohne Zahl selbst gezaehlt: 3 · „erledigt" bei unveraenderter Zahl: abgewiesen · Datei geaendert: „war 3, heute 1" · danach schliessbar, der Abschluss traegt „heute 1" · geschlossen: still' };
       } finally { weg(d); }
     },
   },
@@ -568,27 +585,51 @@ const FAELLE = [
     name: 'C4f · Drei weitere Anstoesse · zwei Ideen verschiedener Schreiber auf denselben Fund; zwei offene Ansprueche am selben Stichwort; ein verworfener Irrweg wird dem naechsten Schreiber gezeigt — und je die Gegenrichtung bleibt still',
     lauf: () => {
       const idee = (id, von, extra) => gut(Object.assign({ id, von, art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'p', titel: 'Idee ' + id.slice(-2) }, extra));
-      const anspr = (id, von, sw) => gut({ id, von, art: 'anspruch', beleg: undefined, bereich: 'b', titel: 'Anspruch ' + id.slice(-2), stichworte: sw });
+      const anspr = (id, von, sw, version) => gut({ id, von, art: 'anspruch', beleg: undefined, bereich: 'b', titel: 'Anspruch ' + id.slice(-2), stichworte: sw, version });
       const b = brettAus([
         gut({ id: '2026-11-10-0001', von: 'a', titel: 'Der Fund', ohne_klasse: 'Einzelfall' }),
         idee('2026-11-10-0002', 'b', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
         idee('2026-11-10-0003', 'c', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
         idee('2026-11-10-0004', 'b', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
-        anspr('2026-11-10-0005', 'x', ['Kalender']), anspr('2026-11-10-0006', 'y', ['kalender']), anspr('2026-11-10-0007', 'x', ['kalender']), anspr('2026-11-10-0008', 'z', ['scanner']),
+        anspr('2026-11-10-0005', 'x', ['Kalender']), anspr('2026-11-10-0006', 'y', ['kalender']), anspr('2026-11-10-0007', 'x', ['kalender']), anspr('2026-11-10-0008', 'z', ['scanner'], 'v9.57'), anspr('2026-11-10-0011', 'w', ['karte'], 'v9.57'), anspr('2026-11-10-0012', 'v', ['quiz'], 'v9.58'),
         gut({ id: '2026-11-10-0009', von: 'q', titel: 'Ein verworfener Versuch', stichworte: ['kalender'], ohne_klasse: 'x' }),
         gut({ id: '2026-11-10-0010', von: 'q', art: 'abschluss', beleg: undefined, ergebnis: 'verworfen', text: 'bricht den Offline-Fall', titel: 'zu', bezug: [{ art: 'schliesst', id: '2026-11-10-0009' }] }),
       ]);
       const an = A.anstoesse(b.eintraege, null).filter(x => x.art === 'zwei_ideen' || x.art === 'anspruch_kollision').map(x => x.art + ':' + x.ids.slice(0, 2).map(i => i.slice(-2)).join('+')).sort().join(' ');
-      // 02×03 und 03×04 (verschiedene Schreiber); 02×04 nicht (beide von b). 05×06 und 06×07; 05×07 nicht (beide von x); 08 allein.
-      const soll = 'anspruch_kollision:05+06 anspruch_kollision:06+07 zwei_ideen:02+03 zwei_ideen:03+04';
+      // 02×03 und 03×04 (verschiedene Schreiber); 02×04 nicht (beide von b). 05×06 und 06×07; 05×07 nicht (beide von x).
+      // 08×11: kein gemeinsames Stichwort, aber DIESELBE Version; 12 hat eine andere.
+      const soll = 'anspruch_kollision:05+06 anspruch_kollision:06+07 anspruch_kollision:08+11 zwei_ideen:02+03 zwei_ideen:03+04';
       if (an !== soll) return { ok: false, warum: 'gerechnet: ' + an + ' — erwartet: ' + soll };
-      const neu = gut({ id: '2026-11-11-0011', datum: '2026-11-11', von: 'neu', titel: 'Derselbe Weg noch einmal', stichworte: ['kalender'] });
+      const neu = gut({ id: '2026-11-11-0021', datum: '2026-11-11', von: 'neu', titel: 'Derselbe Weg noch einmal', stichworte: ['kalender'] });
       const nb = A.nachbarn(neu, b.eintraege.concat([neu]));
       const irr = nb.filter(x => x.irrweg).map(x => x.eintrag.id.slice(-2) + ':' + x.grund).join('|');
       if (irr !== '09:bricht den Offline-Fall') return { ok: false, warum: 'Irrweg: „' + irr + '" — erwartet 09 mit seinem Grund' };
-      const fremd = gut({ id: '2026-11-11-0012', datum: '2026-11-11', von: 'neu', titel: 'Ganz woanders', stichworte: ['marktplatz'] });
+      const fremd = gut({ id: '2026-11-11-0022', datum: '2026-11-11', von: 'neu', titel: 'Ganz woanders', stichworte: ['marktplatz'] });
       if (A.nachbarn(fremd, b.eintraege.concat([fremd])).length) return { ok: false, warum: 'Nachbarn oder Irrwege gezeigt, obwohl kein Stichwort geteilt wird' };
-      return { ok: true, info: 'zwei Ideen: 02×03, 03×04 (nicht 02×04, derselbe Schreiber) · Ansprueche: 05×06, 06×07 (nicht 05×07; 08 allein) · Irrweg 09 mit Grund gezeigt · fremdes Stichwort: nichts' };
+      return { ok: true, info: 'zwei Ideen: 02×03, 03×04 (nicht 02×04, derselbe Schreiber) · Ansprueche: 05×06, 06×07 (nicht 05×07), 08×11 dieselbe Version (12 nicht) · Irrweg 09 mit Grund gezeigt · fremdes Stichwort: nichts' };
+    },
+  },
+  {
+    name: 'C4g · Version, Vorwissen, Dublette · die freie Versionsnummer wird ueber laufende App, Uebergaben und OFFENE Ansprueche gerechnet (auch ueber den Hunderter); ein Name, der schon im Tagebuch steht, wird mit seinem Abschnitt gezeigt; derselbe Anker eines anderen Schreibers gilt als Dublette',
+    lauf: () => {
+      const an = (id, von, version) => gut({ id, von, art: 'anspruch', beleg: undefined, bereich: 'b', titel: 'A', version });
+      const ue = (id, von, version) => gut({ id, von, art: 'uebergabe', beleg: undefined, version, nichts_offen: 'x', titel: 'U' });
+      const v = (liste, laufend) => A.naechsteVersion(brettAus(liste).eintraege, laufend).frei;
+      const ist = [v([], 'v33.56'), v([an('2026-11-10-0001', 'a', 'v33.57')], 'v33.56'), v([an('2026-11-10-0001', 'a', 'v33.57'), ue('2026-11-10-0002', 'b', 'v33.58')], 'v33.56'),
+        // ein Anspruch, den die Uebergabe derselben Sitzung geschlossen hat, belegt nichts mehr — die Uebergabe schon
+        v([an('2026-11-10-0001', 'a', 'v33.60'), ue('2026-11-10-0002', 'a', 'v33.57')], 'v33.56'), v([], 'v33.99'), String(A.naechsteVersion([], null).frei)].join(' ');
+      if (ist !== 'v33.57 v33.58 v33.59 v33.58 v34.00 null') return { ok: false, warum: 'frei: ' + ist + ' — erwartet v33.57 v33.58 v33.59 v33.58 v34.00 null' };
+      const tagebuch = '# STATUS\n\n### 2026-09-12 (hv) - v33.27: Quiz\n\nHier steht gsBeispielSchonBekannt und noch einmal gsBeispielSchonBekannt.\n\n### 2026-09-01 (aa) - v32.01: Alt\n\ngsBeispielSchonBekannt\n';
+      const vw = A.vorwissen(gut({ stichworte: ['gsBeispielSchonBekannt', 'gsBeispielNochNie', 'kachel'] }), { 'STATUS.md': tagebuch, 'CLAUDE.md': null });
+      if (vw.length !== 1 || vw[0].stellen !== 3 || vw[0].abschnitt.indexOf('(hv)') < 0) return { ok: false, warum: 'Vorwissen: ' + JSON.stringify(vw) + ' — erwartet 1 Name, 3 Stellen, juengster Abschnitt (hv)' };
+      const anker = [{ datei: 'index.html', text: 'ein woertliches Stueck' }];
+      const alt = gut({ id: '2026-11-10-0001', von: 'a', titel: 'Der erste Fund', anker });
+      const neu = gut({ id: '2026-11-11-0002', datum: '2026-11-11', von: 'b', titel: 'Derselbe Fund, andere Sitzung', anker });
+      const eigen = gut({ id: '2026-11-11-0003', datum: '2026-11-11', von: 'a', titel: 'Derselbe Schreiber', anker });
+      const d1 = A.nachbarn(neu, [alt, neu].map(x => brettAus([x]).eintraege[0])).filter(x => x.gleicherAnker).length;
+      const d2 = A.nachbarn(eigen, [alt, eigen].map(x => brettAus([x]).eintraege[0])).filter(x => x.gleicherAnker).length;
+      if (d1 !== 1 || d2 !== 0) return { ok: false, warum: 'Dublette: fremder Schreiber ' + d1 + ' (erwartet 1), derselbe Schreiber ' + d2 + ' (erwartet 0)' };
+      return { ok: true, info: 'frei: ' + ist + ' · Vorwissen: 1 von 3 Stichworten steht im Tagebuch (3 Stellen, juengster Abschnitt genannt) · Dublette: fremder Schreiber ja, derselbe nein' };
     },
   },
   {
@@ -691,6 +732,12 @@ const FAELLE = [
         const idee = b.eintraege.find(x => x.titel === 'Stapel-Idee'), bef = b.eintraege.find(x => x.titel === 'Stapel-Befund');
         if (!idee || !bef || idee.bezug[0].id !== bef.id) return { ok: false, warum: 'Stapel-Bezug „@b1" nicht auf die vergebene id aufgeloest' };
         if (A.brettPruefen(b).length) return { ok: false, warum: 'Brett nach dem Stapel: ' + A.brettPruefen(b)[0].grund };
+        // Die ERSTE Uebergabe zu einer Version liefert sie aus; die zweite ist ein Nachtrag ohne Bump.
+        r = werkzeug(d, ['neu', 'uebergabe', '--version', 'v99.01', '--titel', 'v99.01: erste', '--nichts-offen', 'Probe', '--nur-lokal'], 'pruefstand/a');
+        const r2 = werkzeug(d, ['neu', 'uebergabe', '--version', 'v99.01', '--titel', 'Doku zu v99.01', '--nichts-offen', 'Probe', '--nur-lokal'], 'pruefstand/b');
+        const ueb = A.brettLesen(d, {}).eintraege.filter(x => x.art === 'uebergabe').map(x => x.von.slice(-1) + ':' + x.liefert).sort().join(' ');
+        if (r.code !== 0 || r2.code !== 0 || ueb !== 'a:true b:false') return { ok: false, warum: 'Uebergaben: ' + ueb + ' (erwartet a:true b:false) — Exit ' + r.code + '/' + r2.code };
+        for (const f of fs.readdirSync(dir)) if (/-uebergabe-/.test(f)) fs.unlinkSync(path.join(dir, f));
         // Lesen schreibt nichts — und sagt es.
         r = werkzeug(d, ['--nur-lokal']);
         if (r.code !== 0 || anzahl() !== 4 || r.aus.indexOf('Nichts geschrieben.') < 0 || r.aus.indexOf('keine Uebergabe') < 0) return { ok: false, warum: 'lesen: Exit ' + r.code + ', ' + anzahl() + ' Dateien, Schlusssatz/Uebergabe-Hinweis fehlt' };

@@ -12,6 +12,7 @@
 //   node scripts/austausch.js schliesse <id> --ergebnis erledigt|verworfen|aufgestiegen --wohin "v33.57" [--text "…"]
 //                                                  (ein behobener BEFUND dazu: --bewacht "<pruefstand> · <Fall>" --geschwister "gesucht: … → N")
 //   node scripts/austausch.js einspielen <datei.json>   # ein Stapel auf einmal (z.B. das Ergebnis einer Agenten-Runde)
+//   node scripts/austausch.js version              # welche Versionsnummer ist frei? (laufende App, Uebergaben, offene Ansprueche — ueber alle Branches)
 //   node scripts/austausch.js ernten               # was nur auf anderen Branches liegt, in den Arbeitsbaum holen (→ naechster PR → main)
 //   node scripts/austausch.js pruefen              # dieselbe Pruefung wie austausch_check, nur das Brett
 //   node scripts/austausch.js hilfe [art]          # Arten, Felder, ein Beispiel
@@ -153,10 +154,10 @@ function lesen() {
     const jetzt = Date.now();
     anspr.slice(0, deckel).forEach(e => {
       const tage = Math.floor((jetzt - Date.parse(e.datum + 'T00:00:00Z')) / 864e5);
-      aus(zeile(e, ab) + '\n        ' + e.von + (e.branch ? ' · Branch ' + e.branch : '') + ' · Bereich: ' + kurz(e.bereich, 80) + ' · ' + (tage <= 0 ? 'seit heute' : 'seit ' + tage + (tage === 1 ? ' Tag' : ' Tagen')) + (tage > 14 ? '  ← ALT: lebt die Sitzung noch? Nachfragen oder mit Grund schliessen' : ''));
+      aus(zeile(e, ab) + '\n        ' + e.von + (e.branch ? ' · Branch ' + e.branch : '') + ' · Bereich: ' + kurz(e.bereich, 80) + (e.version ? ' · beansprucht ' + e.version : '') + ' · ' + (tage <= 0 ? 'seit heute' : 'seit ' + tage + (tage === 1 ? ' Tag' : ' Tagen')) + (tage > 14 ? '  ← ALT: lebt die Sitzung noch? Nachfragen oder mit Grund schliessen' : ''));
     });
     if (anspr.length > deckel) aus('    … +' + (anspr.length - deckel) + ' weitere — `--alles` zeigt sie');
-    aus('    Fertig oder aufgegeben? `schliesse <id> --ergebnis …` — ein offener Anspruch haelt andere fern, und austausch_check laesst ihn nicht nach main.');
+    aus('    Die Uebergabe schliesst den Anspruch ihrer Sitzung von selbst. Aufgegeben? `schliesse <id> --ergebnis verworfen --text "…"` — ein offener Anspruch haelt andere fern.');
   }
   block('FRAGEN', neuZuerst(sicht.filter(e => e.art === 'frage')));
   block('BEFUNDE', neuZuerst(sicht.filter(e => e.art === 'befund')));
@@ -208,12 +209,13 @@ function ganz(e, ab) {
    ['an', 'An'], ['haengt_daran', 'Haengt daran'], ['bereich', 'Bereich'], ['branch', 'Branch'], ['regel', 'Regel'], ['instanzen', 'Instanzen'],
    ['suchmuster', 'Suchmuster (Geschwister)'], ['gesucht', 'Gesucht'], ['waechter', 'Waechter'], ['ohne_waechter', 'Ohne Waechter'],
    ['version', 'Version'], ['gebaut', 'Gebaut'], ['offen', 'Offen'], ['naechster_schritt', 'Naechster Schritt'], ['nicht_geprueft', 'Nicht geprueft'],
-   ['nichts_offen', 'Nichts offen'], ['ergebnis', 'Ergebnis'], ['wohin', 'Wohin'], ['bewacht', 'Bewacht von'], ['geschwister', 'Geschwister'], ['details_bei', 'Einzelheiten bei'], ['stichworte', 'Stichworte']].forEach(x => feld(x[0], x[1]));
+   ['nichts_offen', 'Nichts offen'], ['ergebnis', 'Ergebnis'], ['wohin', 'Wohin'], ['bewacht', 'Bewacht von'], ['geschwister', 'Geschwister'], ['gegenprobe', 'Gegenprobe'], ['details_bei', 'Einzelheiten bei'], ['stichworte', 'Stichworte']].forEach(x => feld(x[0], x[1]));
   const zl = A.zaehleWirksam(e, ab.rueck);
   if (zl.length) { aus('  Zaehlung (nachgerechnet):'); zl.forEach(x => { const h = A.wieOft(liesRel(x.datei), x.text); aus('    - ' + x.datei + ' :: ' + x.text + '  → beim Eintrag ' + x.n + ', heute ' + (h == null ? 'Datei nicht lesbar' : h) + (h != null && h !== x.n ? '   ← BEWEGT' : '')); }); }
   const anker = A.ankerWirksam(e, ab.rueck);
   if (anker.length) { aus('  Anker (wer diese Stelle aendert, wird im eigenen Lauf rot und liest diesen Eintrag):'); anker.forEach(x => aus('    - ' + x.datei + ' :: ' + x.text)); }
   if (e.sicherheit) aus('  Sicherheit: ja — Einzelheiten stehen bewusst nicht hier (public Repo)');
+  if (e.art === 'uebergabe') aus('  ' + (e.liefert ? 'Liefert die Version aus (Bump).' : 'Kein Bump — ein Nachtrag zu dieser Version.'));
   for (const bz of A.alsListe(e.bezug)) { const ziel = ab.proId.get(bz.id); aus('  → ' + bz.art + ' ' + bz.id + (ziel ? '  ' + kurz(ziel.titel, 90) : '  (fehlt)')); }
   for (const r of (ab.rueck.get(e.id) || [])) aus('  ← ' + r.art + ' von ' + r.von.id + '  ' + kurz(r.von.titel, 90) + '  [' + r.von.von + ']');
 }
@@ -256,7 +258,9 @@ function ausFlags(art) {
   const e = { art };
   const text = (k, flag) => { const v = o[flag || k]; if (v != null && v !== true) e[k] = String([].concat(v).join('\n')); };
   ['titel', 'text', 'stand', 'nutzen', 'pruefbar', 'falle', 'aufwand', 'an', 'haengt_daran', 'vorschlag', 'bereich', 'branch', 'regel',
-   'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister', 'ohne_klasse', 'datum'].forEach(k => text(k));
+   'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister', 'gegenprobe', 'ohne_klasse', 'datum'].forEach(k => text(k));
+  if (art === 'uebergabe' && o.liefert) e.liefert = true;
+  if (art === 'uebergabe' && o.kein_bump) e.liefert = false;
   // --zaehle "datei::text" zaehlt selbst; mit "datei::text::n" wird die Angabe nachgerechnet.
   if (liste(o.zaehle).length) e.zaehle = liste(o.zaehle).map(w => {
     const teile = String(w).split('::');
@@ -305,6 +309,17 @@ function schreiben(e) {
   const b2 = brett(), neuE = b2.eintraege.find(x => x.id === g.id);
   if (neuE) {
     const nb = A.nachbarn(neuE, b2.eintraege);
+    const dubl = nb.filter(x => x.gleicherAnker && !x.irrweg && x.eintrag.art === neuE.art);
+    if (dubl.length) {
+      aus('\nDUBLETTE? Derselbe Anker steht schon an einem offenen Eintrag — dann ist deiner eine BESTAETIGUNG (eine zweite, unabhaengige Messung), kein neuer Fund:');
+      dubl.forEach(x => aus('  ' + x.eintrag.id + '  [' + x.eintrag.von + ']  ' + kurz(x.eintrag.titel, 100) + '\n      besser: antworte ' + x.eintrag.id.slice(-4) + ' --text "bestaetigt: <deine Messung>"  — und den eigenen mit `schliesse ' + g.id.slice(-4) + ' --ergebnis verworfen --text "Dublette von ' + x.eintrag.id + '"`'));
+    }
+    const vw = A.vorwissen(neuE, { 'STATUS.md': liesRel('STATUS.md'), 'CLAUDE.md': liesRel('CLAUDE.md') });
+    if (vw.length) {
+      aus('\nVORWISSEN — im Tagebuch steht dazu schon etwas (juengste Stelle zuerst; lies sie, bevor du neu misst):');
+      vw.slice(0, 5).forEach(x => aus('  ' + kurz(x.name, 50) + '  → ' + x.datei + ', ' + x.stellen + ' Stelle' + (x.stellen === 1 ? '' : 'n') + (x.abschnitt ? ' · „' + kurz(x.abschnitt, 90) + '"' : '')));
+      if (vw.length > 5) aus('  … +' + (vw.length - 5) + ' weitere');
+    }
     const irr = nb.filter(x => x.irrweg), offenN = nb.filter(x => !x.irrweg);
     if (offenN.length) {
       aus('\nNACHBARN — offene Eintraege anderer an denselben Stichworten (' + offenN.length + '). Gemeinsame Ursache? Dann `--bezug baut_auf:<id>` bzw. `antworte <id>`:');
@@ -382,6 +397,17 @@ function erntenBefehl() {
   if (r.uebergangen.length) { aus('Uebergangen (ungueltig — bleibt auf seinem Branch): ' + r.uebergangen.length); r.uebergangen.forEach(u => aus('  ' + u.id + '  [' + u.quelle + ']  ' + u.grund)); }
   aus(r.geholt.length ? '\nJetzt im Arbeitsbaum. Mit dem naechsten Commit und PR kommen sie auf main an.' : '\nNichts geschrieben.');
 }
+function versionBefehl() {
+  const b = brett(), v = laufendeVersion(quelltext());
+  const r = A.naechsteVersion(b.eintraege, v);
+  kopf(b, A.ableiten(b.eintraege));
+  if (!r.frei) { aus('\nDie laufende Version ist nicht lesbar (GS_VERSION in index.html) — keine Aussage.\nNichts geschrieben.'); return; }
+  aus('\nLaufende App: ' + v);
+  if (r.belegt.length) { aus('Darueber schon belegt:'); r.belegt.forEach(x => aus('  ' + x.version + '  durch ' + x.durch)); }
+  aus('FREI: ' + r.frei);
+  aus('\nBeanspruchen, BEVOR du bumpst (und sofort pushen): node scripts/austausch.js neu anspruch --titel "…" --bereich "…" --version ' + r.frei);
+  aus('Gerechnet aus dem, was git lokal kennt — vorher `holen`. Die Nummer wird beim Bump vergeben, nicht beim Start.\nNichts geschrieben.');
+}
 function holen() {
   // Eine Tiefe von 1 reicht: gelesen wird der Baum der Spitze, nicht die Geschichte.
   const r = A.git(WURZEL, ['fetch', '--quiet', '--depth=1', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
@@ -402,11 +428,11 @@ const BEISPIELE = {
   befund: 'neu befund --titel "Die Kachel X zaehlt drei Tage, die Zeile daneben nur heute" --klasse <id der Fehlerklasse> --anker "index.html::<ein woertliches Stueck der Stelle>" --zaehle "index.html::<woertlicher Text, dessen Vorkommen das Werkzeug zaehlt>" --beleg "index.html: `grep -n allDue.length` → 2 Stellen" --beleg "nutzersicht_check E10 misst nur die Startkarte" --stichwort meine-pflanzen,faellig-kachel --vorschlag "die Kachel ueber dieselbe Rechnung filtern wie die Zeile"',
   idee: 'neu idee --titel "Die Wochenzeile auch in der Glocke" --nutzen "eine Rechnung, vier Anzeigen statt drei" --pruefbar "kalender_check R10b um die Glocke erweitern" --aufwand klein --bezug baut_auf:a3f9',
   frage: 'neu frage --titel "Laufen die geplanten Routine-Sitzungen noch?" --an fernando --haengt-daran "ob das Brett Sitzungen bedienen muss, die nie mergen"',
-  anspruch: 'neu anspruch --titel "Offline-Warteschlange: Eigentum am Archiv" --bereich "Offline-Warteschlange, offline_check 6–9"   (danach SOFORT committen und pushen)',
+  anspruch: 'neu anspruch --titel "Offline-Warteschlange: Eigentum am Archiv" --bereich "Offline-Warteschlange, offline_check 6–9" --stichwort offline_check,warteschlange [--version v33.57]   (danach SOFORT committen und pushen; die Uebergabe schliesst ihn von selbst. Freie Version: node scripts/austausch.js version)',
   klasse: 'einspielen <datei.json> — eine Klasse hat Listen (instanzen, waechter); als JSON ist sie leichter zu schreiben. Felder: regel, instanzen[], suchmuster, gesucht, waechter[{datei, fall}] oder ohne_waechter',
-  uebergabe: 'neu uebergabe --version v33.57 --titel "v33.57: …" --gebaut "ein Satz" --offen "…" --naechster-schritt "…" --nicht-geprueft "…"   (oder --nichts-offen "Grund")',
+  uebergabe: 'neu uebergabe --version v33.57 --titel "v33.57: …" --gebaut "ein Satz" --offen "…" --naechster-schritt "…" --nicht-geprueft "…"   (oder --nichts-offen "Grund". Die erste Uebergabe zu einer Version gilt als die ausliefernde; --kein-bump / --liefert uebersteuern)',
   antwort: 'antworte a3f9 --text "Nachgemessen: …" --beleg "…"     (bei einer Frage: beantwortet; sonst baut_auf; mit --widerspricht: widerspricht; mit --anker "datei::text": neu verankern)',
-  abschluss: 'schliesse a3f9 --ergebnis erledigt --wohin "v33.57" --bewacht "scan_check · D1f" --geschwister "gesucht: grep -c … → 4 Stellen, alle umgestellt"     (bewacht/geschwister nur bei einem BEFUND; „keiner, weil …" und „nicht gesucht, weil …" sind erlaubt. verworfen braucht --text mit dem Grund; aufgestiegen nennt das Dokument)',
+  abschluss: 'schliesse a3f9 --ergebnis erledigt --wohin "v33.57" --bewacht "scan_check · D1f" --geschwister "gesucht: grep -c … → 4 Stellen, alle umgestellt" --gegenprobe "Reparatur zurueckgebaut → scan_check D1f rot"     (die drei nur bei einem BEFUND; „keiner, weil …", „nicht gesucht, weil …", „keine, weil …" sind erlaubt. Hat der Befund eine Zaehlung, muss sie sich bewegt haben. verworfen braucht --text mit dem Grund; aufgestiegen nennt das Dokument)',
 };
 function hilfe() {
   const art = o._[0];
@@ -419,7 +445,7 @@ function hilfe() {
     return;
   }
   aus('\nAustausch — das Brett fuer alle KI-Sitzungen und ihre Unteragenten (docs/austausch/README.md)\n');
-  aus('  LESEN     node scripts/austausch.js [holen|anstoss|zeige <id>|suche <wort>|klasse <wort>]   [--art x] [--stichwort x] [--an x] [--alles] [--json] [--nur-lokal]');
+  aus('  LESEN     node scripts/austausch.js [holen|anstoss|zeige <id>|suche <wort>|klasse <wort>|version]   [--art x] [--stichwort x] [--an x] [--alles] [--json] [--nur-lokal]');
   aus('  SCHREIBEN node scripts/austausch.js neu <art> … | antworte <id> … | schliesse <id> … | einspielen <datei.json> | ernten\n');
   aus('  Arten:');
   for (const k of Object.keys(A.ARTEN)) aus('    ' + (k + '          ').slice(0, 11) + A.ARTEN[k].sinn);
@@ -430,7 +456,7 @@ function hilfe() {
   aus('  Ein Beispiel je Art: node scripts/austausch.js hilfe <art>\n\nNichts geschrieben.');
 }
 
-const BEFEHLE = { lesen, holen, anstoss, zeige, suche, klasse, neu, antworte, schliesse, einspielen: einspielenBefehl, ernten: erntenBefehl, pruefen, hilfe };
+const BEFEHLE = { lesen, holen, anstoss, zeige, suche, klasse, neu, antworte, schliesse, einspielen: einspielenBefehl, ernten: erntenBefehl, version: versionBefehl, pruefen, hilfe };
 if (!BEFEHLE[befehl]) {
   aus('Unbekannter Befehl „' + befehl + '". Bekannt: ' + Object.keys(BEFEHLE).join(' | '));
   process.exit(2);

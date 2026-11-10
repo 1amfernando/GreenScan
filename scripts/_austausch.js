@@ -59,8 +59,9 @@ const ERGEBNISSE = ['erledigt', 'verworfen', 'aufgestiegen'];
 const AUFWAND = ['klein', 'mittel', 'gross'];
 const LISTENFELDER = ['beleg', 'stichworte', 'instanzen', 'offen', 'naechster_schritt', 'nicht_geprueft'];
 const TEXTFELDER = ['titel', 'text', 'von', 'stand', 'nutzen', 'pruefbar', 'falle', 'aufwand', 'an', 'haengt_daran', 'vorschlag',
-  'bereich', 'branch', 'regel', 'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister', 'ohne_klasse'];
-const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'zaehle', 'sicherheit', 'schluessel'].concat(LISTENFELDER, TEXTFELDER));
+  'bereich', 'branch', 'regel', 'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister', 'gegenprobe', 'ohne_klasse'];
+const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'zaehle', 'sicherheit', 'liefert', 'schluessel'].concat(LISTENFELDER, TEXTFELDER));
+const VERSION_FORM = /^v\d+\.\d+$/;
 const ANKER_MIN = 8, ANKER_MAX = 300;
 const TITEL_MAX = 200;
 const ID_FORM = /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$/;
@@ -126,6 +127,8 @@ function eintragPruefen(e, dateiname) {
     if (!Array.isArray(e[k]) || e[k].some(x => typeof x !== 'string' || !x.trim())) f.push(k + ' muss eine Liste nicht-leerer Texte sein');
   }
   if (e.sicherheit != null && typeof e.sicherheit !== 'boolean') f.push('sicherheit muss true oder false sein');
+  if (e.liefert != null && (typeof e.liefert !== 'boolean' || e.art !== 'uebergabe')) f.push('liefert (true/false) gehoert an eine Uebergabe: hat DIESE Sitzung die Version ausgeliefert?');
+  if (e.art === 'anspruch' && e.version != null && !VERSION_FORM.test(e.version)) f.push('version hat nicht die Form vNN.NN');
   if (dateiname != null && ID_FORM.test(String(e.id || '')) && art) {
     const soll = e.id + '-' + e.art + '-';
     if (dateiname.indexOf(soll) !== 0 || !/\.json$/.test(dateiname)) f.push('Dateiname muss mit „' + soll + '" beginnen und auf .json enden');
@@ -157,7 +160,7 @@ function eintragPruefen(e, dateiname) {
     if ((e.ergebnis === 'erledigt' || e.ergebnis === 'aufgestiegen') && !(e.wohin && e.wohin.trim())) f.push(e.ergebnis + ' ohne „wohin" (Version, Commit oder Dokument-Stelle)');
   }
   if (e.art === 'uebergabe') {
-    if (e.version != null && !/^v\d+\.\d+$/.test(e.version)) f.push('version hat nicht die Form vNN.NN');
+    if (e.version != null && !VERSION_FORM.test(e.version)) f.push('version hat nicht die Form vNN.NN');
     const sagtEtwas = ['offen', 'naechster_schritt', 'nicht_geprueft'].some(k => alsListe(e[k]).length) || (e.nichts_offen && e.nichts_offen.trim());
     if (!sagtEtwas) f.push('Uebergabe sagt nichts ueber Offenes: offen / naechster_schritt / nicht_geprueft — oder nichts_offen mit Grund');
   }
@@ -189,7 +192,7 @@ function eintragPruefen(e, dateiname) {
       if (x.text.length < 3 || x.text.length > ANKER_MAX || /\n/.test(x.text)) f.push('zaehle[' + i + ']: text ist EINE Zeile mit 3 bis ' + ANKER_MAX + ' Zeichen');
       if (!Number.isInteger(x.n) || x.n < 0) f.push('zaehle[' + i + ']: n ist eine ganze Zahl ab 0');
     });
-    if (e.art === 'abschluss' || e.art === 'uebergabe' || e.art === 'anspruch') f.push('zaehle gehoert an einen Befund, eine Idee, eine Frage, eine Fehlerklasse — oder an eine Antwort darauf (neu gezaehlt)');
+    if (e.art === 'uebergabe' || e.art === 'anspruch') f.push('zaehle gehoert an einen Befund, eine Idee, eine Frage, eine Fehlerklasse, an eine Antwort darauf (neu gezaehlt) oder an den Abschluss (der Stand beim Schliessen)');
   }
   // Ein Waechter steht an einer Fehlerklasse — oder an einer ANTWORT darauf
   // (Nachtrag: die Klasse selbst wird nicht umgeschrieben, siehe klasseWirksam).
@@ -292,6 +295,7 @@ function ableiten(eintraege) {
     rueck.get(b.id).push({ von: e, art: b.art });
   }
   const zustand = new Map();
+  const uebergaben = eintraege.filter(e => e.art === 'uebergabe');
   for (const e of eintraege) {
     const r = rueck.get(e.id) || [];
     const zu = r.find(x => x.art === 'schliesst'), ers = r.find(x => x.art === 'ersetzt');
@@ -299,6 +303,10 @@ function ableiten(eintraege) {
     if (zu) { z = 'geschlossen'; durch = zu.von; }
     else if (ers) { z = 'ersetzt'; durch = ers.von; }
     else if (e.art === 'frage' && r.some(x => x.art === 'beantwortet')) { z = 'beantwortet'; durch = r.find(x => x.art === 'beantwortet').von; }
+    // Die Uebergabe schliesst den Anspruch ihrer Sitzung — ohne eigenen Handgriff.
+    // Ein Anspruch, der VOR dem PR von Hand geschlossen werden muesste, verschwaende
+    // genau in dem Fenster vom Branch, in dem die Kollision entsteht (Suite + PR).
+    else if (e.art === 'anspruch' && uebergaben.some(u => u.von === e.von && String(u.id) > String(e.id))) { z = 'geschlossen'; durch = uebergaben.filter(u => u.von === e.von && String(u.id) > String(e.id))[0]; }
     else if (!ARTEN[e.art] || !ARTEN[e.art].offenbar) z = 'notiz';   // Antwort, Abschluss, Uebergabe: kein offener Punkt
     zustand.set(e.id, { z, durch });
   }
@@ -322,6 +330,7 @@ function bezugsRegeln(e, proId) {
     if (b.art === 'schliesst' && ziel.art === 'befund' && e.art === 'abschluss' && e.ergebnis === 'erledigt') {
       if (!(e.bewacht && e.bewacht.trim())) f.push('ein behobener Befund (' + b.id + ') braucht „bewacht": welcher Pruefstand-Fall haelt ihn kuenftig — oder „keiner, weil …"');
       if (!(e.geschwister && e.geschwister.trim())) f.push('ein behobener Befund (' + b.id + ') braucht „geschwister": „gesucht: <wie> → N Treffer" — oder „nicht gesucht, weil …"');
+      if (!(e.gegenprobe && e.gegenprobe.trim())) f.push('ein behobener Befund (' + b.id + ') braucht „gegenprobe": „<was zurueckgebaut wurde> → <pruefstand> · <Fall> rot" — oder „keine, weil …"');
     }
   }
   return f;
@@ -426,6 +435,47 @@ function zahlenStand(eintraege, liesDatei) {
   return aus;
 }
 
+// ── Welche Versionsnummer ist frei? Fortgezaehlte Kennungen kollidieren unter
+//    Parallelitaet (v33.08 viermal, v30.80 auf ueber fuenfzig Branch-Spitzen).
+//    Belegt ist eine Version durch die laufende App, durch eine Uebergabe oder
+//    durch einen offenen Anspruch — auf irgendeinem Branch, den git kennt.
+function versionZahl(v) { const m = String(v || '').match(/^v(\d+)\.(\d+)$/); return m ? Number(m[1]) * 100 + Number(m[2]) : null; }
+function versionText(n) { return 'v' + Math.floor(n / 100) + '.' + String(n % 100).padStart(2, '0'); }
+function naechsteVersion(eintraege, laufende) {
+  const { zustand } = ableiten(eintraege);
+  const belegt = [];
+  if (versionZahl(laufende) != null) belegt.push({ version: laufende, durch: 'die laufende App (GS_VERSION)' });
+  for (const e of eintraege) {
+    if (versionZahl(e.version) == null) continue;
+    if (e.art === 'uebergabe') belegt.push({ version: e.version, durch: 'Uebergabe ' + e.id + ' [' + e.von + ']' });
+    else if (e.art === 'anspruch' && zustand.get(e.id).z === 'offen') belegt.push({ version: e.version, durch: 'Anspruch ' + e.id + ' [' + e.von + ']' });
+  }
+  if (!belegt.length) return { frei: null, belegt };
+  const hoechste = Math.max.apply(null, belegt.map(b => versionZahl(b.version)));
+  return { frei: versionText(hoechste + 1), belegt: belegt.filter(b => versionZahl(b.version) > versionZahl(laufende)).sort((a, b) => versionZahl(a.version) - versionZahl(b.version)) };
+}
+
+// ── Vorwissen: das Tagebuch wird Suchflaeche statt Lesepflicht. Fuer jeden
+//    App-Namen in den Stichworten und jeden Ankertext eines neuen Eintrags: wo
+//    steht das schon? Gezeigt wird die Ueberschrift des juengsten Abschnitts
+//    (STATUS.md §0 ist neueste-zuerst), dazu die Zahl der Stellen.
+function vorwissen(e, texte) {
+  const namen = appNamen(e).concat(alsListe(e.anker).map(a => a && a.text).filter(Boolean));
+  const aus = [];
+  for (const name of new Set(namen)) {
+    for (const datei of Object.keys(texte)) {
+      const t = texte[datei]; if (!t) continue;
+      const n = wieOft(t, name); if (!n) continue;
+      const i = t.indexOf(name);
+      const kopf = t.lastIndexOf('\n### ', i), kopf2 = t.lastIndexOf('\n## ', i);
+      const k = Math.max(kopf, kopf2);
+      const zeile = k < 0 ? '' : t.slice(k + 1, t.indexOf('\n', k + 1)).replace(/^#+\s*/, '');
+      aus.push({ name, datei, stellen: n, abschnitt: zeile });
+    }
+  }
+  return aus.sort((a, b) => a.stellen - b.stellen);
+}
+
 // ── Lesen ist ins Schreiben eingebaut: wer einen Eintrag anlegt, bekommt die
 //    offenen Eintraege ANDERER Schreiber mit denselben Stichworten gezeigt —
 //    ohne eigene Lesepflicht. (Gemessen: „beim Start lesen" war eine Bitte,
@@ -433,7 +483,8 @@ function zahlenStand(eintraege, liesDatei) {
 function nachbarn(e, eintraege) {
   const { zustand } = ableiten(eintraege);
   const meine = new Set(alsListe(e.stichworte).map(x => String(x).trim().toLowerCase()).filter(Boolean));
-  if (!meine.size) return [];
+  const meineAnker = new Set(alsListe(e.anker).filter(Boolean).map(a => a.datei + '::' + a.text));
+  if (!meine.size && !meineAnker.size) return [];
   const aus = [];
   for (const x of eintraege) {
     if (x.id === e.id || x.art === 'klasse' || x.art === 'antwort' || x.art === 'abschluss' || x.art === 'uebergabe') continue;
@@ -443,9 +494,10 @@ function nachbarn(e, eintraege) {
     const irrweg = z.z === 'geschlossen' && z.durch && z.durch.ergebnis === 'verworfen';
     if (!irrweg && (z.z !== 'offen' || x.von === e.von)) continue;
     const gemeinsam = alsListe(x.stichworte).map(s => String(s).trim()).filter(s => meine.has(s.toLowerCase()));
-    if (gemeinsam.length) aus.push({ eintrag: x, gemeinsam, irrweg, grund: irrweg ? (z.durch.text || '') : '' });
+    const gleicherAnker = alsListe(x.anker).some(a => a && meineAnker.has(a.datei + '::' + a.text));
+    if (gemeinsam.length || gleicherAnker) aus.push({ eintrag: x, gemeinsam, irrweg, gleicherAnker, grund: irrweg ? (z.durch.text || '') : '' });
   }
-  return aus.sort((a, b) => b.gemeinsam.length - a.gemeinsam.length || b.eintrag.id.localeCompare(a.eintrag.id));
+  return aus.sort((a, b) => (b.gleicherAnker ? 1 : 0) - (a.gleicherAnker ? 1 : 0) || b.gemeinsam.length - a.gemeinsam.length || b.eintrag.id.localeCompare(a.eintrag.id));
 }
 // Welche Fehlerklasse koennte es sein? Wortueberdeckung zwischen dem Eintrag
 // und der Klasse — ein VORSCHLAG zum Nachschlagen, kein Urteil.
@@ -575,6 +627,8 @@ function anstoesse(eintraege, quelltext, liesDatei) {
     const sa = new Set(alsListe(a.stichworte).map(x => String(x).trim().toLowerCase()).filter(Boolean));
     const gem = alsListe(b.stichworte).map(x => String(x).trim()).filter(x => sa.has(x.toLowerCase()));
     if (gem.length) aus.push({ art: 'anspruch_kollision', ids: [a.id, b.id], satz: '„' + gem.join(', ') + '": ' + zeige(a) + ' [' + a.von + ']  ×  ' + zeige(b) + ' [' + b.von + '] — absprechen, bevor beide dasselbe bauen' });
+    // Dieselbe Versionsnummer: v33.08 wurde am 10.09.2026 viermal vergeben.
+    else if (a.version && a.version === b.version) aus.push({ art: 'anspruch_kollision', ids: [a.id, b.id], satz: 'beide beanspruchen ' + a.version + ': ' + zeige(a) + ' [' + a.von + ']  ×  ' + zeige(b) + ' [' + b.von + '] — eine nimmt die naechste (node scripts/austausch.js version)' });
   }
   // Beruehrung: zwei offene Eintraege VERSCHIEDENER Schreiber teilen ein
   // Stichwort und kennen einander nicht. Uebergaben zaehlen nicht (sie nennen
@@ -664,6 +718,33 @@ function einspielen(wurzel, roh, opts) {
     if (ist == null) fehler.push({ wo: 'Eintrag ' + (i + 1), grund: 'zaehle[' + k + ']: ' + z.datei + ' ist nicht lesbar' });
     else if (ist !== z.n) fehler.push({ wo: 'Eintrag ' + (i + 1), grund: 'zaehle[' + k + ']: „' + z.text.slice(0, 60) + '" steht ' + ist + '-mal in ' + z.datei + ', nicht ' + z.n + '-mal' });
   }));
+  // Die ERSTE Uebergabe zu einer Version ist die, die sie ausliefert; jede weitere
+  // ist ein Nachtrag ohne Bump (eine Doku-Sitzung, ein Routine-Lauf). Zwei
+  // ausliefernde fuer dieselbe Version sind zwei Sitzungen mit derselben Nummer —
+  // das sieht der Pruefstand beim Zusammenfuehren.
+  fertig.forEach((e, i) => {
+    if (e.art !== 'uebergabe' || e.liefert != null) return;
+    e.liefert = !brett.eintraege.concat(fertig.slice(0, i)).some(x => x.art === 'uebergabe' && x.version === e.version);
+  });
+  // „Behoben" ist eine Zaehlung, die sich bewegt hat. Wer einen Befund MIT
+  // Zaehlung als erledigt schliesst, waehrend die Zahl noch dieselbe ist, hat
+  // ihn nicht behoben — das Werkzeug zaehlt nach und traegt den Stand beim
+  // Schliessen selbst ein (gemessen statt behauptet).
+  {
+    const abAlle = ableiten(alle);
+    fertig.forEach((e, i) => {
+      if (e.art !== 'abschluss' || e.ergebnis !== 'erledigt') return;
+      for (const b of alsListe(e.bezug)) {
+        const ziel = b && b.art === 'schliesst' && abAlle.proId.get(b.id);
+        if (!ziel || ziel.art !== 'befund') continue;
+        const zl = zaehleWirksam(ziel, abAlle.rueck);
+        if (!zl.length) continue;
+        const stand = zl.map(z => { let t = null; try { t = fs.readFileSync(path.join(wurzel, z.datei), 'utf8'); } catch (_) {} return { datei: z.datei, text: z.text, n: z.n, heute: wieOft(t, z.text) }; });
+        if (stand.every(z => z.heute === z.n)) fehler.push({ wo: 'Eintrag ' + (i + 1), grund: 'die Zaehlung des Befunds ' + ziel.id + ' steht unveraendert (' + stand.map(z => z.n + '× in ' + z.datei).join(', ') + ') — behoben ist er erst, wenn sie sich bewegt hat. Stimmt die Zaehlung nicht mehr zur Sache: `antworte ' + ziel.id.slice(-4) + ' --zaehle …`; ist der Befund falsch: --ergebnis verworfen' });
+        else if (!e.zaehle) e.zaehle = stand.filter(z => z.heute != null).map(z => ({ datei: z.datei, text: z.text, n: z.heute }));
+      }
+    });
+  }
   if (!fehler.length) {
     // Die Bezugs-Regeln des ganzen Bretts (beantwortet → Frage, strenges Schliessen) gelten auch hier.
     const proId = new Map(alle.map(e => [e.id, e]));
@@ -710,4 +791,5 @@ module.exports = {
   slug, alsListe, textVon, datumGueltig, eintragPruefen, brettLesen, brettPruefen, ableiten,
   appNamen, nameImQuelltext, anstoesse, einspielen, heute, git, klasseWirksam, nachbarn, klassenVorschlag, ernten,
   ankerWirksam, ankerPruefen, bezugsRegeln, ANKER_MIN, ANKER_MAX, wieOft, zaehleWirksam, zahlenStand,
+  naechsteVersion, versionZahl, versionText, vorwissen, VERSION_FORM,
 };

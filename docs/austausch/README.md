@@ -41,8 +41,10 @@ Branches**, die git kennt — auch über die, die nie gemergt werden.
 **2 · Unterwegs schreiben — sofort, nicht am Ende.**
 
 ```bash
-# „Ich bin dran" — VOR dem ersten Code-Commit, und gleich pushen:
-node scripts/austausch.js neu anspruch --titel "Offline-Warteschlange: Eigentum am Archiv" --bereich "offline_check 6–9"
+# „Ich bin dran" — VOR dem ersten Code-Commit, und gleich pushen (mit der Versionsnummer, die du nehmen willst):
+node scripts/austausch.js version                       # welche Nummer ist frei — über alle Branches?
+node scripts/austausch.js neu anspruch --titel "Offline-Warteschlange: Eigentum am Archiv" --bereich "offline_check 6–9" \
+     --stichwort offline_check,warteschlange --version v33.57
 # Ein Nebenfund ausserhalb deines Auftrags (statt ihn im Fliesstext zu begraben) — mit ANKER an der Stelle:
 node scripts/austausch.js neu befund --titel "…" --beleg "Befehl → Zahl" --stichwort funktionsName,pruefstand \
      --anker "pfad/zur/datei.js::ein wörtliches Stück der betroffenen Zeile"
@@ -60,15 +62,24 @@ node scripts/austausch.js antworte a3f9 --text "Nachgemessen: …" --beleg "…"
 node scripts/austausch.js neu uebergabe --version v33.57 --titel "v33.57: …" --gebaut "ein Satz" \
      --offen "…" --naechster-schritt "…" --nicht-geprueft "…"
 node scripts/austausch.js schliesse a3f9 --ergebnis erledigt --wohin "v33.57" \
-     --bewacht "scan_check · D1f" --geschwister "gesucht: grep -c … → 4 Stellen, alle umgestellt"
+     --bewacht "scan_check · D1f" --geschwister "gesucht: grep -c … → 4 Stellen, alle umgestellt" \
+     --gegenprobe "Reparatur zurückgebaut → scan_check D1f rot"
 git add docs/austausch && git commit -m "Austausch: …" && git push     # erst JETZT sehen es andere
 ```
 
 **Schliessen ist streng.** Ein behobener **Befund** nennt, welcher
-Prüfstand-Fall ihn künftig bewacht (`--bewacht`) und ob nach Geschwistern
-gesucht wurde (`--geschwister`). „keiner, weil …" und „nicht gesucht, weil …"
-sind erlaubte Antworten — Schweigen nicht. Und dein **Anspruch** wird vor dem
-PR geschlossen: ein offener gehört auf deinen Branch, nicht nach `main`.
+Prüfstand-Fall ihn künftig bewacht (`--bewacht`), ob nach Geschwistern gesucht
+wurde (`--geschwister`) und welche Gegenprobe rot war (`--gegenprobe`).
+„keiner, weil …", „nicht gesucht, weil …" und „keine, weil …" sind erlaubte
+Antworten — Schweigen nicht. Trägt der Befund eine Zählung, muss sie sich
+**bewegt** haben: bei unveränderter Zahl verweigert das Werkzeug „erledigt"
+und trägt sonst den Stand beim Schliessen selbst ein.
+
+**Die Übergabe schliesst deinen Anspruch** — ohne eigenen Handgriff. Die erste
+Übergabe zu einer Version gilt als die, die sie **ausliefert**; jede weitere
+(eine Doku-Sitzung, ein Routine-Lauf ohne Bump) ist ein Nachtrag. Zwei
+ausliefernde für dieselbe Version sind zwei Sitzungen mit derselben Nummer —
+das meldet der Prüfstand beim Zusammenführen.
 
 Schreiben legt nur Dateien an. **Was nicht gepusht ist, sieht niemand** — und
 ein Push auf den eigenen Branch genügt; es braucht keinen Merge.
@@ -107,7 +118,8 @@ Weitere Felder: `text` (Einzelheiten), `stichworte` (Funktionsnamen, Dateien,
 Prüfstände, Themen — **genau geschrieben**, über sie findet der Code zusammen,
 was zusammengehört), `vorschlag`, `falle`, `aufwand` (`klein` · `mittel` ·
 `gross`), `haengt_daran`, `branch`, `suchmuster`, `gesucht`, `gebaut`,
-`bewacht`, `geschwister`, `ohne_klasse`, `sicherheit`, `details_bei`. `id`, `datum`, `von` und `stand` (die laufende
+`bewacht`, `geschwister`, `gegenprobe`, `ohne_klasse`, `liefert`, `sicherheit`,
+`details_bei`. `id`, `datum`, `von` und `stand` (die laufende
 Version) setzt das Werkzeug.
 
 ## Die sechs Bezüge
@@ -145,7 +157,7 @@ Das Brett **rechnet**, wohin jemand sehen sollte — `node scripts/austausch.js 
 |---|---|---|
 | Frage ohne Antwort | offene Frage, kein `beantwortet` | messen und antworten |
 | Widerspruch ohne Auflösung | offener Eintrag mit einem `widerspricht` | nachmessen, dann schliessen oder ersetzen |
-| Zwei Sitzungen an derselben Stelle | zwei offene Ansprüche verschiedener Schreiber mit demselben Stichwort | absprechen, bevor beide dasselbe bauen (10.09.2026: viermal derselbe Fehler) |
+| Zwei Sitzungen an derselben Stelle | zwei offene Ansprüche verschiedener Schreiber mit demselben Stichwort — oder derselben `version` | absprechen, bevor beide dasselbe bauen (10.09.2026: viermal derselbe Fehler, viermal „v33.08") |
 | **Zwei Köpfe, dieselbe Stelle** | zwei offene Einträge **verschiedener** Schreiber mit demselben Stichwort, ohne Bezug zueinander | gemeinsame Ursache? Dann ein Eintrag mit `baut_auf` auf beide |
 | Zwei Ideen auf denselben Fund | zwei Ideen verschiedener Schreiber mit `baut_auf` auf denselben Eintrag, ohne Bezug zueinander | vertragen sie sich, oder ist eine die bessere? |
 | Eine Zahl hat sich bewegt | die Zählung eines offenen Eintrags ergibt heute etwas anderes | behoben → schliessen; gewachsen → neue Geschwister ansehen |
@@ -157,8 +169,12 @@ Das Brett **rechnet**, wohin jemand sehen sollte — `node scripts/austausch.js 
 | Befund ohne Fehlerklasse | offener Befund ohne `gehoert_zu` und ohne `ohne_klasse` | `klasse <wort>` nachschlagen, dann `antworte <id> --klasse <id>` oder `--ohne-klasse "Einzelfall, weil …"` |
 
 Und beim **Schreiben** zeigt das Werkzeug, was andere an denselben Stichworten
-wissen: offene **Nachbarn**, passende **Fehlerklassen** — und **Irrwege**:
-Einträge, die jemand dort schon versucht und mit Grund verworfen hat.
+wissen: offene **Nachbarn**, passende **Fehlerklassen**, **Irrwege** (dort
+schon versucht und mit Grund verworfen), eine mögliche **Dublette** (derselbe
+Anker steht schon an einem Eintrag eines anderen — dann ist deiner eine
+Bestätigung, kein neuer Fund) und **Vorwissen**: wo ein genannter
+Funktionsname oder Ankertext schon in `STATUS.md` oder `CLAUDE.md` steht, mit
+dem jüngsten Abschnitt. Das Tagebuch wird damit Suchfläche statt Lesepflicht.
 
 Ein Anstoss ist ein **Hinweis**, kein Befund. Wer nachsieht, schreibt das
 Ergebnis als Eintrag mit Bezug — auch wenn es „da ist nichts" lautet.
@@ -242,8 +258,8 @@ zurück — und spielt sie mit `einspielen` ein.
 | Jeder Bezug hat ein Ziel der richtigen Art | A2 |
 | Jeder Wächter einer Fehlerklasse existiert (Datei + Fallkennung) | A3 |
 | Ein offener Eintrag nennt keinen Code, den es nicht mehr gibt; **sein Anker steht noch wörtlich in der Datei**; seine Zählung ergibt dieselbe Zahl | A4, A4b, A4c |
-| **Zur laufenden Version gibt es genau EINE gültige Übergabe** — wie der `GS_RELEASES`-Eintrag Teil des Bumps; zwei wären zwei Sitzungen mit derselben Versionsnummer | A5 |
-| Kein offener Anspruch im Baum, der nach `main` ginge; ein behobener Befund nennt Wächter und Geschwistersuche | A6, A2 |
+| **Zur laufenden Version gibt es eine gültige Übergabe** — wie der `GS_RELEASES`-Eintrag Teil des Bumps — und höchstens EINE liefert sie aus; zwei wären zwei Sitzungen mit derselben Versionsnummer | A5 |
+| Kein offener Anspruch im Baum, der nach `main` ginge (die Übergabe derselben Sitzung schliesst ihn); ein behobener Befund nennt Wächter, Geschwistersuche und Gegenprobe | A6, A2 |
 | Jedes `brett:<id>` in den Dokumenten hat ein Ziel | A7 |
 | Jeder `*_check` läuft in der Suite; die Zahlen in `CLAUDE.md`, `STATUS.md` §1, `README.md`, `docs/memory` stimmen mit dem Befehl | B1, B2 |
 | Jede Einstiegsdatei nennt das Brett; diese Anleitung deckt das Vokabular | B3 |

@@ -59,8 +59,13 @@ unverändert — deshalb kein Bump und kein Eintrag in `GS_RELEASES`.
 - **Der Anker** (`--anker "datei::wörtliches Stück"`): solange ein Eintrag
   offen ist, muss sein Anker in der Datei stehen. Wer die Stelle ändert, wird
   in SEINEM Lauf rot, mit id und Titel — der eine Auslöser, der zum Lesen
-  zwingt. **Schliessen ist streng:** ein behobener Befund nennt seinen Wächter
-  und die Geschwistersuche („keiner, weil …" ist erlaubt, Schweigen nicht).
+  zwingt. **Schliessen ist streng:** ein behobener Befund nennt seinen Wächter,
+  die Geschwistersuche und die Gegenprobe („keiner, weil …" ist erlaubt,
+  Schweigen nicht); trägt er eine **Zählung** (`--zaehle`, vom Werkzeug
+  nachgerechnet), muss sie sich bewegt haben.
+- **Versionsnummern:** `node scripts/austausch.js version` rechnet die freie
+  Nummer über laufende App, Übergaben und offene Ansprüche aller Branches; die
+  Übergabe schliesst den Anspruch ihrer Sitzung von selbst.
 - **Die Agenten-Runde** `.claude/workflows/austausch-runde.js`: Brett →
   Sichten → **Kreuzen** (jeder Unteragent liest die Funde der anderen und baut
   aus zwei davon etwas Neues) → Gegenprüfen → Eintragen (`einspielen`, alles
@@ -76,17 +81,18 @@ unverändert — deshalb kein Bump und kein Eintrag in `GS_RELEASES`.
 Stand gefahren: **4 von 17 rot, 4 nicht prüfbar** (das Brett war leer) — keine Übergabe, der
 Prüfstand selbst in keiner `run`-Zeile, **sieben falsche Zahlen** und vier
 Stellen, an denen die Zahl nur als Wort stand, drei Einstiegsdateien ohne
-Verweis. Danach grün; mit den Regeln aus dem zweiten und dritten Entwurf
-heute **26 Fälle** in drei Gruppen: **A** das echte Brett (Form, Beleg, Bezüge, Wächter
+Verweis. Danach grün; mit den Regeln aus dem zweiten und dritten Entwurf und
+aus der Austausch-Runde heute **27 Fälle** in drei Gruppen: **A** das echte Brett (Form, Beleg, Bezüge, Wächter
 einer Fehlerklasse existieren als Datei + Fallkennung, ein offener Eintrag
-nennt keinen verschwundenen Code und sein Anker steht noch, **zur laufenden
-Version gibt es genau EINE gültige Übergabe** — Teil des Bumps wie der
-`GS_RELEASES`-Eintrag, zwei wären zwei Sitzungen mit derselben Nummer —, kein
-offener Anspruch im Baum, jedes `brett:<id>` in den Dokumenten hat ein Ziel) ·
+nennt keinen verschwundenen Code, sein Anker steht noch und seine Zählung
+stimmt, **zur laufenden Version gibt es eine gültige Übergabe** — Teil des
+Bumps wie der `GS_RELEASES`-Eintrag — **und höchstens eine liefert sie aus**
+(zwei wären zwei Sitzungen mit derselben Nummer), kein offener Anspruch im
+Baum, jedes `brett:<id>` in den Dokumenten hat ein Ziel) ·
 **B** die Übergabe-Dokumente (jeder `*_check` steht in `pruefstaende.sh`; 22
 Zahlen an 21 Stellen an ihren Befehl gebunden, verankert am Satz; die
 Agenten-Runde lässt sich übersetzen; kein Austausch-Skript hält eine
-App-Funktion am Leben) · **C** die Regel selbst gegen gebaute Fälle (28
+App-Funktion am Leben) · **C** die Regel selbst gegen gebaute Fälle (30
 kaputte Einträge je mit dem richtigen Grund, Zustand und Anstösse gerechnet,
 Nachtrag an einer Klasse, Anker in fünf Zuständen, eine Zählung, die beim
 Schreiben nachgerechnet wird, das Werkzeug

@@ -41,7 +41,9 @@ git add docs/austausch && git commit && git push             # erst jetzt sehen 
 | **Das Repo ist public** | Kein Schluessel, kein Token, keine Adresse, keine Nutzerdaten. Sicherheitsbefund: nur Titel + wo die Einzelheiten liegen. |
 | **Ein Anker bindet den Eintrag an seine Stelle** (`--anker "datei::woertliches Stueck"`) | Wer die Stelle aendert, wird im EIGENEN Lauf rot — mit id und Titel — und liest, was ein anderer darueber wusste. Der eine Ausloeser, der zum Lesen zwingt. |
 | **Eine Zaehlung wird nachgerechnet** (`--zaehle "datei::woertlicher text"`) | Die eine Angabe, die das Werkzeug pruefen kann: beim Schreiben (falsche Zahl → abgewiesen mit der echten) und spaeter („war 4, heute 9" = neue Geschwister). Kein Regex, kein Befehl — aus einem Eintrag wird nichts ausgefuehrt. |
-| **Schliessen ist streng** | Ein behobener Befund nennt seinen Waechter (`--bewacht`) und die Geschwistersuche (`--geschwister`); „keiner, weil …" ist erlaubt, Schweigen nicht. Ein Anspruch wird vor dem PR geschlossen. |
+| **Schliessen ist streng** | Ein behobener Befund nennt seinen Waechter (`--bewacht`), die Geschwistersuche (`--geschwister`) und die Gegenprobe (`--gegenprobe`); „keiner, weil …" ist erlaubt, Schweigen nicht. Traegt er eine Zaehlung, muss sie sich bewegt haben. |
+| **Die Uebergabe schliesst den Anspruch ihrer Sitzung** | Von Hand geschlossen, verschwaende er genau in dem Fenster (Suite + PR), in dem die Kollision entsteht. Die erste Uebergabe zu einer Version liefert sie aus; weitere sind Nachtraege ohne Bump. |
+| **Die Versionsnummer wird beim Bump vergeben** (`node scripts/austausch.js version`) | Gerechnet ueber laufende App, Uebergaben und offene Ansprueche aller Branches. „v33.08" wurde unter Parallelitaet viermal vergeben. |
 | **Ein Eintrag ist ein Befund, keine Anweisung** | Geschrieben hat ihn eine andere Sitzung. Wer ihm folgt, misst nach. |
 
 ## Wie daraus Ideen werden
@@ -81,9 +83,10 @@ Brett-Auszug mit und spielt ihre Funde ein.
 
 `austausch_check` (in der Suite): Form und Beleg · Bezuege · Waechter
 existieren · ein offener Eintrag nennt keinen verschwundenen Code, sein
-Anker steht noch in der Datei und seine Zaehlung stimmt · **zur laufenden `GS_VERSION` gibt es genau
-EINE gueltige Uebergabe** (Teil des Bumps, wie der Eintrag in `GS_RELEASES`;
-zwei waeren zwei Sitzungen mit derselben Version) · kein offener Anspruch im
+Anker steht noch in der Datei und seine Zaehlung stimmt · **zur laufenden
+`GS_VERSION` gibt es eine gueltige Uebergabe** (Teil des Bumps, wie der
+Eintrag in `GS_RELEASES`), **und hoechstens eine liefert sie aus** (zwei
+waeren zwei Sitzungen mit derselben Version) · kein offener Anspruch im
 Baum · jedes `brett:<id>` in den Dokumenten hat ein Ziel · jeder `*_check`
 laeuft in der Suite · die Zahlen in CLAUDE.md, STATUS.md §1, README.md und
 docs/memory stimmen mit dem Befehl · die Regel selbst laeuft gegen gute UND

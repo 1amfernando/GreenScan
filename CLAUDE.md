@@ -863,10 +863,12 @@ weiss, muss der nächste finden. Der Ort dafür ist **das Brett**:
    Brett: zuerst die **Anstösse** (gerechnet, siehe unten), dann wer woran
    sitzt, offene Fragen, Befunde, Ideen, die letzte Übergabe.
 3. **Sag, woran du sitzt**, bevor du Code änderst — und push es sofort:
-   `node scripts/austausch.js neu anspruch --titel "…" --bereich "…"`. Ein
-   Anspruch ist Sichtbarkeit, keine Sperre — und er wird vor dem PR
-   geschlossen: ein offener gehört auf deinen Branch, nicht nach `main`
-   (`austausch_check` A6).
+   `node scripts/austausch.js neu anspruch --titel "…" --bereich "…"
+   --stichwort … --version vXX.YY` (die freie Nummer zeigt
+   `node scripts/austausch.js version`, über alle Branches gerechnet). Ein
+   Anspruch ist Sichtbarkeit, keine Sperre. Deine **Übergabe schliesst ihn von
+   selbst** — von Hand geschlossen, verschwände er genau in dem Fenster (Suite
+   + PR), in dem die Kollision entsteht.
 4. `STATUS.md` §1 und §2 (am **Ende** der Datei) für Stand und offene Punkte.
    §0 ist das Tagebuch — über 15'000 Zeilen, nicht der Einstieg.
 
@@ -907,14 +909,17 @@ weiss, muss der nächste finden. Der Ort dafür ist **das Brett**:
 3. **Die Übergabe auf dem Brett** — was offen bleibt, der nächste Schritt, was
    du NICHT geprüft hast: `node scripts/austausch.js neu uebergabe --version
    vXX.YY …`. Sie gehört zum Bump wie der Eintrag in `GS_RELEASES`
-   (`austausch_check` A5 — genau EINE je Version; zwei wären zwei Sitzungen
+   (`austausch_check` A5: die erste Übergabe zu einer Version liefert sie aus,
+   weitere sind Nachträge ohne Bump; zwei ausliefernde wären zwei Sitzungen
    mit derselben Versionsnummer). Was du erledigt hast, schliesst du — und
    **Schliessen ist streng**: ein behobener Befund nennt, welcher
-   Prüfstand-Fall ihn künftig bewacht und ob nach Geschwistern gesucht wurde:
+   Prüfstand-Fall ihn künftig bewacht, ob nach Geschwistern gesucht wurde und
+   welche Gegenprobe rot war:
    `node scripts/austausch.js schliesse <id> --ergebnis erledigt --wohin vXX.YY
-   --bewacht "<prüfstand> · <Fall>" --geschwister "gesucht: … → N Treffer"`.
-   „keiner, weil …" und „nicht gesucht, weil …" sind erlaubte Antworten;
-   Schweigen nicht. So bekommt „eine Fehlerklasse ist erst geschlossen, wenn
+   --bewacht "<prüfstand> · <Fall>" --geschwister "gesucht: … → N Treffer"
+   --gegenprobe "<zurückgebaut> → <Fall> rot"`. „keiner, weil …" und „nicht
+   gesucht, weil …" sind erlaubte Antworten; Schweigen nicht. Trägt der Befund
+   eine Zählung, muss sie sich bewegt haben. So bekommt „eine Fehlerklasse ist erst geschlossen, wenn
    man sie GESUCHT hat" (v32.87) seinen Auslöser.
 4. Commit-Message gemäß Konvention in 3.1 — und **pushen**: was nicht gepusht
    ist, sieht niemand.
@@ -931,7 +936,10 @@ Fehlerklasse ohne Wächter oder nie gesucht · Eintrag über Code, den es nicht
 mehr gibt · Befund ohne Fehlerklasse. Und wer schreibt, bekommt im selben Zug
 gezeigt, was ANDERE an denselben Stichworten wissen — offene Nachbarn,
 passende Fehlerklassen und **Irrwege** (dort schon versucht, mit Grund
-verworfen): **Lesen ist ins Schreiben eingebaut**. Eine **Zählung**
+verworfen), eine mögliche **Dublette** (derselbe Anker steht schon bei einem
+anderen — dann ist deiner eine Bestätigung) und **Vorwissen** (wo der Name
+schon in `STATUS.md` oder dieser Datei steht): **Lesen ist ins Schreiben
+eingebaut**, und das Tagebuch wird Suchfläche statt Lesepflicht. Eine **Zählung**
 (`--zaehle "datei::wörtlicher Text"`) rechnet das Werkzeug nach — beim
 Schreiben und danach: „war 4, heute 9" heisst neue Geschwister. Deshalb zählen
 die Stichworte: genau geschriebene Funktionsnamen, Dateien, Prüfstände.
