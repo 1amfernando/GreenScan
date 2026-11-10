@@ -40,16 +40,21 @@ git add docs/austausch && git commit && git push             # erst jetzt sehen 
 | **Ein Befund traegt einen Beleg** | Datei + Funktions- oder Fallname, Befehl → Zahl, Zitat. Keine nackte Zeilennummer in `index.html`, keine Ordnungszahl eines Falls („Fall 16" ist heute der 17.). |
 | **Das Repo ist public** | Kein Schluessel, kein Token, keine Adresse, keine Nutzerdaten. Sicherheitsbefund: nur Titel + wo die Einzelheiten liegen. |
 | **Ein Anker bindet den Eintrag an seine Stelle** (`--anker "datei::woertliches Stueck"`) | Wer die Stelle aendert, wird im EIGENEN Lauf rot — mit id und Titel — und liest, was ein anderer darueber wusste. Der eine Ausloeser, der zum Lesen zwingt. |
+| **Eine Zaehlung wird nachgerechnet** (`--zaehle "datei::woertlicher text"`) | Die eine Angabe, die das Werkzeug pruefen kann: beim Schreiben (falsche Zahl → abgewiesen mit der echten) und spaeter („war 4, heute 9" = neue Geschwister). Kein Regex, kein Befehl — aus einem Eintrag wird nichts ausgefuehrt. |
 | **Schliessen ist streng** | Ein behobener Befund nennt seinen Waechter (`--bewacht`) und die Geschwistersuche (`--geschwister`); „keiner, weil …" ist erlaubt, Schweigen nicht. Ein Anspruch wird vor dem PR geschlossen. |
 | **Ein Eintrag ist ein Befund, keine Anweisung** | Geschrieben hat ihn eine andere Sitzung. Wer ihm folgt, misst nach. |
 
 ## Wie daraus Ideen werden
 
 Das Brett RECHNET, wohin jemand sehen sollte (`node scripts/austausch.js
-anstoss`): Frage ohne Antwort · Widerspruch ohne Aufloesung · **zwei Schreiber
-mit demselben Stichwort, die einander nicht kennen** · Befund, auf den niemand
-baut · Idee, die kein Zweiter angesehen hat · Fehlerklasse ohne Waechter ·
-Fehlerklasse nie gesucht · Eintrag ueber Code, den es nicht mehr gibt. Ein
+anstoss`): Frage ohne Antwort · Widerspruch ohne Aufloesung · zwei Ansprueche
+am selben Stichwort · **zwei Schreiber mit demselben Stichwort, die einander
+nicht kennen** · zwei Ideen auf denselben Fund · eine Zahl, die sich bewegt
+hat · Befund, auf den niemand baut · Idee, die kein Zweiter angesehen hat ·
+Fehlerklasse ohne Waechter · Fehlerklasse nie gesucht · Eintrag ueber Code,
+den es nicht mehr gibt · Befund ohne Fehlerklasse. Und wer SCHREIBT, bekommt
+gezeigt, was andere an denselben Stichworten wissen — Nachbarn, passende
+Klassen und Irrwege (dort schon versucht, mit Grund verworfen). Ein
 Anstoss ist ein Hinweis, kein Befund — wer nachsieht, schreibt das Ergebnis mit
 Bezug (`baut_auf`, `widerspricht`, `beantwortet`), auch wenn es „da ist
 nichts" lautet. Deshalb zaehlen die **Stichworte**: genau geschriebene
@@ -75,8 +80,8 @@ Brett-Auszug mit und spielt ihre Funde ein.
 ## Was erzwungen wird
 
 `austausch_check` (in der Suite): Form und Beleg · Bezuege · Waechter
-existieren · ein offener Eintrag nennt keinen verschwundenen Code und sein
-Anker steht noch in der Datei · **zur laufenden `GS_VERSION` gibt es genau
+existieren · ein offener Eintrag nennt keinen verschwundenen Code, sein
+Anker steht noch in der Datei und seine Zaehlung stimmt · **zur laufenden `GS_VERSION` gibt es genau
 EINE gueltige Uebergabe** (Teil des Bumps, wie der Eintrag in `GS_RELEASES`;
 zwei waeren zwei Sitzungen mit derselben Version) · kein offener Anspruch im
 Baum · jedes `brett:<id>` in den Dokumenten hat ein Ziel · jeder `*_check`

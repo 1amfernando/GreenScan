@@ -59,8 +59,8 @@ const ERGEBNISSE = ['erledigt', 'verworfen', 'aufgestiegen'];
 const AUFWAND = ['klein', 'mittel', 'gross'];
 const LISTENFELDER = ['beleg', 'stichworte', 'instanzen', 'offen', 'naechster_schritt', 'nicht_geprueft'];
 const TEXTFELDER = ['titel', 'text', 'von', 'stand', 'nutzen', 'pruefbar', 'falle', 'aufwand', 'an', 'haengt_daran', 'vorschlag',
-  'bereich', 'branch', 'regel', 'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister'];
-const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'sicherheit', 'schluessel'].concat(LISTENFELDER, TEXTFELDER));
+  'bereich', 'branch', 'regel', 'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister', 'ohne_klasse'];
+const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'zaehle', 'sicherheit', 'schluessel'].concat(LISTENFELDER, TEXTFELDER));
 const ANKER_MIN = 8, ANKER_MAX = 300;
 const TITEL_MAX = 200;
 const ID_FORM = /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$/;
@@ -174,6 +174,22 @@ function eintragPruefen(e, dateiname) {
       if (/\n/.test(x.text)) f.push('anker[' + i + ']: text ist EINE Zeile');
     });
     if (e.art === 'abschluss' || e.art === 'uebergabe' || e.art === 'anspruch') f.push('anker gehoert an einen Befund, eine Idee, eine Frage, eine Fehlerklasse — oder an eine Antwort darauf (neu verankern)');
+  }
+  // Eine ZAEHLUNG ist die eine Angabe, die das Werkzeug nachrechnen kann:
+  // {datei, text, n} — wie oft steht `text` WOERTLICH in `datei`? Bewusst kein
+  // Regex und kein Befehl: ein Eintrag ist Text aus fremder Hand, und nichts
+  // daraus wird ausgefuehrt. Beim Schreiben wird nachgezaehlt (eine falsche
+  // Zahl wird mit der echten abgewiesen); spaeter meldet ein Anstoss, wenn sie
+  // sich bewegt hat.
+  if (e.zaehle != null) {
+    if (!Array.isArray(e.zaehle) || !e.zaehle.length) f.push('zaehle muss eine nicht-leere Liste von {datei, text, n} sein');
+    else e.zaehle.forEach((x, i) => {
+      if (!x || typeof x.datei !== 'string' || typeof x.text !== 'string' || !x.datei.trim()) { f.push('zaehle[' + i + ']: {datei, text, n} verlangt'); return; }
+      if (/(^|\/)\.\.(\/|$)/.test(x.datei) || path.isAbsolute(x.datei)) f.push('zaehle[' + i + ']: datei muss ein Pfad im Repo sein');
+      if (x.text.length < 3 || x.text.length > ANKER_MAX || /\n/.test(x.text)) f.push('zaehle[' + i + ']: text ist EINE Zeile mit 3 bis ' + ANKER_MAX + ' Zeichen');
+      if (!Number.isInteger(x.n) || x.n < 0) f.push('zaehle[' + i + ']: n ist eine ganze Zahl ab 0');
+    });
+    if (e.art === 'abschluss' || e.art === 'uebergabe' || e.art === 'anspruch') f.push('zaehle gehoert an einen Befund, eine Idee, eine Frage, eine Fehlerklasse — oder an eine Antwort darauf (neu gezaehlt)');
   }
   // Ein Waechter steht an einer Fehlerklasse — oder an einer ANTWORT darauf
   // (Nachtrag: die Klasse selbst wird nicht umgeschrieben, siehe klasseWirksam).
@@ -382,6 +398,34 @@ function ankerPruefen(eintraege, liesDatei) {
   return aus;
 }
 
+// ── Zaehlungen. `wieOft` zaehlt woertliche, nicht ueberlappende Vorkommen.
+function wieOft(text, stueck) {
+  if (text == null || !stueck) return null;
+  let n = 0, i = 0;
+  while ((i = text.indexOf(stueck, i)) >= 0) { n++; i += stueck.length; }
+  return n;
+}
+function zaehleWirksam(e, rueck) {
+  let z = alsListe(e.zaehle);
+  const nach = ((rueck && rueck.get(e.id)) || []).filter(r => r.von.art === 'antwort' && alsListe(r.von.zaehle).length)
+    .sort((x, y) => String(x.von.id).localeCompare(String(y.von.id)));
+  if (nach.length) z = alsListe(nach[nach.length - 1].von.zaehle);
+  return z;
+}
+// Fuer jeden OFFENEN Eintrag: was sagt die Zaehlung, was steht heute da?
+function zahlenStand(eintraege, liesDatei) {
+  const { rueck, zustand } = ableiten(eintraege);
+  const aus = [], cache = new Map();
+  for (const e of eintraege) {
+    if (zustand.get(e.id).z !== 'offen') continue;
+    for (const x of zaehleWirksam(e, rueck)) {
+      if (!cache.has(x.datei)) cache.set(x.datei, liesDatei(x.datei));
+      aus.push({ id: e.id, titel: e.titel, datei: x.datei, text: x.text, n: x.n, heute: wieOft(cache.get(x.datei), x.text) });
+    }
+  }
+  return aus;
+}
+
 // ── Lesen ist ins Schreiben eingebaut: wer einen Eintrag anlegt, bekommt die
 //    offenen Eintraege ANDERER Schreiber mit denselben Stichworten gezeigt —
 //    ohne eigene Lesepflicht. (Gemessen: „beim Start lesen" war eine Bitte,
@@ -392,9 +436,14 @@ function nachbarn(e, eintraege) {
   if (!meine.size) return [];
   const aus = [];
   for (const x of eintraege) {
-    if (x.id === e.id || x.von === e.von || zustand.get(x.id).z !== 'offen' || x.art === 'klasse') continue;
+    if (x.id === e.id || x.art === 'klasse' || x.art === 'antwort' || x.art === 'abschluss' || x.art === 'uebergabe') continue;
+    const z = zustand.get(x.id);
+    // Ein IRRWEG ist ein Eintrag, den jemand mit Grund verworfen hat — „schon
+    // versucht, darum nicht". Er wird auch dem eigenen Schreiber gezeigt.
+    const irrweg = z.z === 'geschlossen' && z.durch && z.durch.ergebnis === 'verworfen';
+    if (!irrweg && (z.z !== 'offen' || x.von === e.von)) continue;
     const gemeinsam = alsListe(x.stichworte).map(s => String(s).trim()).filter(s => meine.has(s.toLowerCase()));
-    if (gemeinsam.length) aus.push({ eintrag: x, gemeinsam });
+    if (gemeinsam.length) aus.push({ eintrag: x, gemeinsam, irrweg, grund: irrweg ? (z.durch.text || '') : '' });
   }
   return aus.sort((a, b) => b.gemeinsam.length - a.gemeinsam.length || b.eintrag.id.localeCompare(a.eintrag.id));
 }
@@ -456,16 +505,20 @@ function nameImQuelltext(quelltext, name) {
 //    (CLAUDE.md §4b: was der Code ausrechnen kann, entscheidet nie die KI allein).
 //    Jeder Anstoss nennt seine Eintraege und EINEN Satz, was zu tun waere.
 const ANSTOSS_ARTEN = {
-  frage_offen:     'Frage ohne Antwort',
-  widerspruch:     'Widerspruch ohne Aufloesung',
-  beruehrung:      'Zwei Koepfe, dieselbe Stelle',
-  befund_ohne:     'Befund, auf den niemand baut',
-  idee_ungeprueft: 'Idee, die noch kein Zweiter angesehen hat',
-  klasse_ohne:     'Fehlerklasse ohne Waechter',
-  klasse_suchen:   'Fehlerklasse nie gesucht',
-  ueberholt:       'Nennt Code, den es nicht mehr gibt',
+  frage_offen:        'Frage ohne Antwort',
+  widerspruch:        'Widerspruch ohne Aufloesung',
+  anspruch_kollision: 'Zwei Sitzungen an derselben Stelle',
+  beruehrung:         'Zwei Koepfe, dieselbe Stelle',
+  zwei_ideen:         'Zwei Ideen auf denselben Fund',
+  zahl_bewegt:        'Eine Zahl hat sich bewegt',
+  befund_ohne:        'Befund, auf den niemand baut',
+  idee_ungeprueft:    'Idee, die noch kein Zweiter angesehen hat',
+  klasse_ohne:        'Fehlerklasse ohne Waechter',
+  klasse_suchen:      'Fehlerklasse nie gesucht',
+  ueberholt:          'Nennt Code, den es nicht mehr gibt',
+  ohne_klasse:        'Befund ohne Fehlerklasse',
 };
-function anstoesse(eintraege, quelltext) {
+function anstoesse(eintraege, quelltext, liesDatei) {
   const { rueck, zustand } = ableiten(eintraege);
   const offen = eintraege.filter(e => zustand.get(e.id).z === 'offen');
   const aus = [];
@@ -480,7 +533,14 @@ function anstoesse(eintraege, quelltext) {
       const w = r.filter(x => x.art === 'widerspricht').map(x => x.von.id);
       aus.push({ art: 'widerspruch', ids: [e.id].concat(w), satz: zeige(e) + '  ← widersprochen von ' + w.join(', ') + ' — nachmessen und abschliessen oder ersetzen' });
     }
-    if (e.art === 'befund' && !r.length) aus.push({ art: 'befund_ohne', ids: [e.id], satz: zeige(e) + (e.vorschlag ? '  (Vorschlag steht dabei)' : '') });
+    // Ein eigener Nachtrag (Anker gesetzt, neu gezaehlt) ist kein „jemand baut darauf":
+    // es zaehlt, was ein ANDERER dazu schreibt, oder alles ausser einer Antwort (Idee, Abschluss, Anspruch).
+    if (e.art === 'befund' && !r.some(x => x.von.art !== 'antwort' || x.von.von !== e.von)) aus.push({ art: 'befund_ohne', ids: [e.id], satz: zeige(e) + (e.vorschlag ? '  (Vorschlag steht dabei)' : '') });
+    // Die Klassenfrage gehoert zum Fund: Instanz einer Klasse (gehoert_zu) — oder ausgesprochen keine.
+    if (e.art === 'befund' && !alsListe(e.bezug).some(b => b && b.art === 'gehoert_zu') && !(e.ohne_klasse && e.ohne_klasse.trim()) &&
+        !r.some(x => x.von.art === 'antwort' && (alsListe(x.von.bezug).some(b => b && b.art === 'gehoert_zu') || (x.von.ohne_klasse && x.von.ohne_klasse.trim())))) {
+      aus.push({ art: 'ohne_klasse', ids: [e.id], satz: zeige(e) + '  → `klasse <wort>` nachschlagen; dann `antworte ' + e.id.slice(-4) + ' --klasse <id>` oder `--ohne-klasse "Einzelfall, weil …"`' });
+    }
     if (e.art === 'idee' && !r.some(x => x.von.von !== e.von)) aus.push({ art: 'idee_ungeprueft', ids: [e.id], satz: zeige(e) + '  → pruefbar: ' + (e.pruefbar || '?') });
     if (e.art === 'klasse') {
       const k = klasseWirksam(e, rueck), n = k.instanzen.length + k.befunde.length;
@@ -491,6 +551,30 @@ function anstoesse(eintraege, quelltext) {
       const weg = appNamen(e).filter(n => !nameImQuelltext(quelltext, n));
       if (weg.length) aus.push({ art: 'ueberholt', ids: [e.id], satz: zeige(e) + '  → nicht mehr im Quelltext: ' + weg.join(', ') });
     }
+  }
+  // Eine Zaehlung, die heute etwas anderes ergibt als beim Schreiben: behoben? gewachsen?
+  if (liesDatei) for (const z of zahlenStand(eintraege, liesDatei)) {
+    if (z.heute == null) aus.push({ art: 'zahl_bewegt', ids: [z.id], satz: z.id + ' ' + z.titel + '  → ' + z.datei + ' ist nicht mehr lesbar (gezaehlt waren ' + z.n + ')' });
+    else if (z.heute !== z.n) aus.push({ art: 'zahl_bewegt', ids: [z.id], satz: z.id + ' ' + z.titel + '  → „' + z.text.slice(0, 50) + '" in ' + z.datei + ': war ' + z.n + ', heute ' + z.heute + ' — ' + (z.heute === 0 ? 'behoben? Dann schliessen' : (z.heute > z.n ? 'gewachsen: neue Geschwister' : 'geschrumpft: der Rest steht noch')) });
+  }
+  // Zwei Ideen verschiedener Schreiber bauen auf DENSELBEN Eintrag und kennen einander nicht.
+  for (const [ziel, liste] of rueck) {
+    const ideen = liste.filter(x => x.art === 'baut_auf' && x.von.art === 'idee' && zustand.get(x.von.id).z === 'offen').map(x => x.von);
+    for (let i = 0; i < ideen.length; i++) for (let j = i + 1; j < ideen.length; j++) {
+      const a = ideen[i], b = ideen[j];
+      if (a.von === b.von || verbunden(a, b)) continue;
+      aus.push({ art: 'zwei_ideen', ids: [a.id, b.id, ziel], satz: zeige(a) + '  ×  ' + zeige(b) + ' — beide bauen auf ' + ziel + ': vertragen sie sich, oder ist eine die bessere?' });
+    }
+  }
+  // Zwei offene Ansprueche verschiedener Sitzungen am selben Stichwort: genau der Fall
+  // vom 10.09.2026 (derselbe Fehler viermal behoben), diesmal sichtbar, BEVOR beide fertig sind.
+  const anspr = offen.filter(e => e.art === 'anspruch');
+  for (let i = 0; i < anspr.length; i++) for (let j = i + 1; j < anspr.length; j++) {
+    const a = anspr[i], b = anspr[j];
+    if (a.von === b.von) continue;
+    const sa = new Set(alsListe(a.stichworte).map(x => String(x).trim().toLowerCase()).filter(Boolean));
+    const gem = alsListe(b.stichworte).map(x => String(x).trim()).filter(x => sa.has(x.toLowerCase()));
+    if (gem.length) aus.push({ art: 'anspruch_kollision', ids: [a.id, b.id], satz: '„' + gem.join(', ') + '": ' + zeige(a) + ' [' + a.von + ']  ×  ' + zeige(b) + ' [' + b.von + '] — absprechen, bevor beide dasselbe bauen' });
   }
   // Beruehrung: zwei offene Eintraege VERSCHIEDENER Schreiber teilen ein
   // Stichwort und kennen einander nicht. Uebergaben zaehlen nicht (sie nennen
@@ -570,6 +654,16 @@ function einspielen(wurzel, roh, opts) {
     for (const g of eintragPruefen(e)) fehler.push({ wo: 'Eintrag ' + (i + 1) + ' (' + (e.titel || '?').slice(0, 50) + ')', grund: g });
     for (const b of alsListe(e.bezug)) if (b && ID_FORM.test(String(b.id || '')) && !ids.has(b.id)) fehler.push({ wo: 'Eintrag ' + (i + 1), grund: 'Bezug auf ' + b.id + ' — den Eintrag gibt es nicht (auch auf keinem Branch, den git kennt)' });
   });
+  // Eine Zaehlung wird beim Schreiben NACHGERECHNET. Wer eine falsche Zahl
+  // eintraegt, bekommt die echte — das Tor gegen „Aussage ohne Messung",
+  // die ein Austausch zwischen Agenten sonst nur schneller verbreitet.
+  fertig.forEach((e, i) => alsListe(e.zaehle).forEach((z, k) => {
+    if (!z || typeof z.datei !== 'string' || typeof z.text !== 'string') return;
+    let t = null; try { t = fs.readFileSync(path.join(wurzel, z.datei), 'utf8'); } catch (_) {}
+    const ist = wieOft(t, z.text);
+    if (ist == null) fehler.push({ wo: 'Eintrag ' + (i + 1), grund: 'zaehle[' + k + ']: ' + z.datei + ' ist nicht lesbar' });
+    else if (ist !== z.n) fehler.push({ wo: 'Eintrag ' + (i + 1), grund: 'zaehle[' + k + ']: „' + z.text.slice(0, 60) + '" steht ' + ist + '-mal in ' + z.datei + ', nicht ' + z.n + '-mal' });
+  }));
   if (!fehler.length) {
     // Die Bezugs-Regeln des ganzen Bretts (beantwortet → Frage, strenges Schliessen) gelten auch hier.
     const proId = new Map(alle.map(e => [e.id, e]));
@@ -615,5 +709,5 @@ module.exports = {
   ORDNER, ARTEN, BEZUEGE, ERGEBNISSE, AUFWAND, ANSTOSS_ARTEN, ID_FORM, APP_NAME, TITEL_MAX,
   slug, alsListe, textVon, datumGueltig, eintragPruefen, brettLesen, brettPruefen, ableiten,
   appNamen, nameImQuelltext, anstoesse, einspielen, heute, git, klasseWirksam, nachbarn, klassenVorschlag, ernten,
-  ankerWirksam, ankerPruefen, bezugsRegeln, ANKER_MIN, ANKER_MAX,
+  ankerWirksam, ankerPruefen, bezugsRegeln, ANKER_MIN, ANKER_MAX, wieOft, zaehleWirksam, zahlenStand,
 };

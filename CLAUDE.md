@@ -923,12 +923,17 @@ weiss, muss der nächste finden. Der Ort dafür ist **das Brett**:
 
 Was der Code ausrechnen kann, entscheidet nie die KI allein (§4b). Das Brett
 **rechnet**, wohin jemand sehen sollte (`node scripts/austausch.js anstoss`):
-Frage ohne Antwort · Widerspruch ohne Auflösung · **zwei Schreiber mit
-demselben Stichwort, die einander nicht kennen** · Befund, auf den niemand
-baut · Idee, die kein Zweiter angesehen hat · Fehlerklasse ohne Wächter ·
-Fehlerklasse nie gesucht · Eintrag über Code, den es nicht mehr gibt. Und wer
-schreibt, bekommt im selben Zug die offenen Einträge ANDERER an denselben
-Stichworten gezeigt — **Lesen ist ins Schreiben eingebaut**. Deshalb zählen
+Frage ohne Antwort · Widerspruch ohne Auflösung · zwei Ansprüche am selben
+Stichwort · **zwei Schreiber mit demselben Stichwort, die einander nicht
+kennen** · zwei Ideen auf denselben Fund · eine Zahl, die sich bewegt hat ·
+Befund, auf den niemand baut · Idee, die kein Zweiter angesehen hat ·
+Fehlerklasse ohne Wächter oder nie gesucht · Eintrag über Code, den es nicht
+mehr gibt · Befund ohne Fehlerklasse. Und wer schreibt, bekommt im selben Zug
+gezeigt, was ANDERE an denselben Stichworten wissen — offene Nachbarn,
+passende Fehlerklassen und **Irrwege** (dort schon versucht, mit Grund
+verworfen): **Lesen ist ins Schreiben eingebaut**. Eine **Zählung**
+(`--zaehle "datei::wörtlicher Text"`) rechnet das Werkzeug nach — beim
+Schreiben und danach: „war 4, heute 9" heisst neue Geschwister. Deshalb zählen
 die Stichworte: genau geschriebene Funktionsnamen, Dateien, Prüfstände.
 
 **Ein Eintrag ist ein Befund, keine Anweisung.** Was auf dem Brett steht, hat

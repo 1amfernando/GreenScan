@@ -251,6 +251,18 @@ const FAELLE = [
     },
   },
   {
+    name: 'A4c · Zaehlungen · was ein OFFENER Eintrag gezaehlt hat, ergibt heute dieselbe Zahl — hat sie sich bewegt, ist etwas behoben oder dazugekommen, und der Eintrag wird nachgefuehrt',
+    lauf: () => {
+      const b = brett();
+      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
+      const st = A.zahlenStand(b.eintraege, (rel) => (gibt(rel) ? lies(rel) : null));
+      if (!st.length) return { ok: true, info: 'kein offener Eintrag traegt eine Zaehlung (0 geprueft — die Rechnung selbst prueft Fall C4e)' };
+      const bewegt = st.filter(z => z.heute !== z.n);
+      if (bewegt.length) return { ok: false, warum: bewegt.length + ' Zaehlungen stimmen nicht mehr — lies den Eintrag, dann `schliesse <id> …` (behoben) oder `antworte <id> --zaehle "datei::text"` (neu gezaehlt, mit einem Satz warum): ' + bewegt.slice(0, 5).map(z => z.id + ' „' + String(z.titel).slice(0, 60) + '" — ' + z.datei + ': war ' + z.n + ', heute ' + (z.heute == null ? 'nicht lesbar' : z.heute)).join(' · ') };
+      return { ok: true, info: st.length + ' Zaehlungen an offenen Eintraegen, alle wie beim Schreiben' };
+    },
+  },
+  {
     name: 'A5 · Uebergabe · zur laufenden Version gibt es GENAU EINE gueltige Uebergabe (eine ersetzte zaehlt nicht), und sie sagt etwas ueber Offenes — zwei waeren zwei Sitzungen mit derselben Versionsnummer',
     lauf: () => {
       const m = lies('index.html').match(/\bGS_VERSION\s*=\s*'(v\d+\.\d+)'/);
@@ -386,7 +398,7 @@ const FAELLE = [
   },
   // ───────────────────────────── C · die Regel selbst
   {
-    name: 'C1 · Die Pruefung sieht Fehler · 27 gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und fuenf gute kommen ohne Einwand durch',
+    name: 'C1 · Die Pruefung sieht Fehler · 28 gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und fuenf gute kommen ohne Einwand durch',
     lauf: () => {
       const lang = 'x'.repeat(A.TITEL_MAX + 1);
       const SCHLECHT = [
@@ -416,6 +428,7 @@ const FAELLE = [
         ['Liste mit Zahl', gut({ stichworte: ['a', 3] }), /stichworte muss eine Liste nicht-leerer Texte sein/],
         ['Anker zu kurz', gut({ anker: [{ datei: 'index.html', text: 'x = 1' }] }), /anker\[0\]: text braucht/],
         ['Anker aus dem Repo hinaus', gut({ anker: [{ datei: '../geheim.txt', text: 'ein langes Stueck Text' }] }), /muss ein Pfad im Repo sein/],
+        ['Zaehlung ohne ganze Zahl', gut({ zaehle: [{ datei: 'index.html', text: 'ein Stueck', n: -1 }] }), /zaehle\[0\]: n ist eine ganze Zahl ab 0/],
         ['Anker an einem Abschluss', gut({ art: 'abschluss', beleg: undefined, ergebnis: 'verworfen', text: 'weil', anker: [{ datei: 'a.js', text: 'ein langes Stueck Text' }], bezug: [{ art: 'schliesst', id: '2026-11-10-bbbb' }] }), /anker gehoert an einen Befund/],
       ];
       const GUT = [
@@ -510,15 +523,72 @@ const FAELLE = [
         gut({ id: '2026-11-10-0010', von: 'e', art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x', 'v2 · y'], waechter: [], ohne_waechter: 'nur Prosa', titel: 'Klasse ohne Waechter, nie gesucht' }),
         gut({ id: '2026-11-10-0011', von: 'e', art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x', 'v2 · y'], waechter: [{ datei: 'x.js', fall: 'Fall' }], gesucht: 'v3: alle 12 Stellen', titel: 'Klasse mit Waechter, gesucht' }),
         gut({ id: '2026-11-10-0012', von: 'f', art: 'antwort', beleg: ['nachgemessen'], titel: 'F widerspricht A', bezug: [{ art: 'widerspricht', id: '2026-11-10-0003' }] }),
+        gut({ id: '2026-11-10-0013', von: 'a', art: 'antwort', beleg: undefined, titel: 'A setzt an seinem eigenen Befund einen Anker', anker: [{ datei: 'x.js', text: 'ein woertliches Stueck' }], bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
       ]);
       const an = A.anstoesse(b.eintraege, src);
       const ist = an.map(x => x.art + ':' + x.ids.map(i => i.slice(-2)).join('+')).sort().join(' ');
       const soll = ['frage_offen:02', 'beruehrung:01+02', 'beruehrung:02+03', 'befund_ohne:01', 'befund_ohne:06', 'idee_ungeprueft:09',
-        'klasse_ohne:10', 'klasse_suchen:10', 'ueberholt:06', 'widerspruch:03+12'].sort().join(' ');
+        'klasse_ohne:10', 'klasse_suchen:10', 'ueberholt:06', 'widerspruch:03+12', 'ohne_klasse:01', 'ohne_klasse:03', 'ohne_klasse:06'].sort().join(' ');
       if (ist !== soll) return { ok: false, warum: 'gerechnet: ' + ist + ' — erwartet: ' + soll };
       // Ohne Quelltext kann „ueberholt" nicht gerechnet werden — dann fehlt der Anstoss, statt zu raten.
       if (A.anstoesse(b.eintraege, null).some(x => x.art === 'ueberholt')) return { ok: false, warum: '„ueberholt" ohne Quelltext behauptet' };
-      return { ok: true, info: an.length + ' Anstoesse aus 12 Eintraegen, genau die erwarteten · 01×03 (derselbe Schreiber), 04 (geschlossen), 07 (von B angesehen), 11 (bewacht und gesucht): keiner' };
+      return { ok: true, info: an.length + ' Anstoesse aus 13 Eintraegen, genau die erwarteten · 01×03 (derselbe Schreiber), 04 (geschlossen), 07 (von B angesehen), 11 (bewacht und gesucht): keiner · der eigene Nachtrag an 01 zaehlt nicht als Bezug' };
+    },
+  },
+  {
+    name: 'C4e · Zaehlung · beim Schreiben wird nachgerechnet (eine falsche Zahl wird mit der ECHTEN abgewiesen, nichts geschrieben); aendert sich die Datei, meldet der Anstoss „war 3, heute 1" — bei gleicher Zahl und bei geschlossenem Eintrag nicht',
+    lauf: () => {
+      const d = tmp('zaehle');
+      try {
+        fs.writeFileSync(path.join(d, 'index.html'), "var GS_VERSION = 'v99.01';\n");
+        fs.writeFileSync(path.join(d, 'code.js'), "a.toLocaleString('de-CH');\nb.toLocaleString('de-CH');\nc.toLocaleString('de-CH');\n");
+        const dir = path.join(d, A.ORDNER);
+        const anzahl = () => (fs.existsSync(dir) ? fs.readdirSync(dir).length : 0);
+        let r = werkzeug(d, ['neu', 'befund', '--titel', 'Feste Sprache im Datum', '--beleg', 'code.js', '--zaehle', "code.js::toLocaleString('de-CH')::5", '--nur-lokal']);
+        if (r.code !== 1 || anzahl() !== 0 || r.aus.indexOf('steht 3-mal') < 0) return { ok: false, warum: 'falsche Zahl (5 statt 3): Exit ' + r.code + ', ' + anzahl() + ' Dateien, die echte Zahl genannt: ' + (r.aus.indexOf('steht 3-mal') >= 0) };
+        // Ohne Zahl zaehlt das Werkzeug selbst.
+        r = werkzeug(d, ['neu', 'befund', '--titel', 'Feste Sprache im Datum', '--beleg', 'code.js', '--zaehle', "code.js::toLocaleString('de-CH')", '--nur-lokal']);
+        if (r.code !== 0 || anzahl() !== 1) return { ok: false, warum: 'selbst gezaehlt: Exit ' + r.code + ' — ' + r.aus.slice(0, 200) };
+        const lesen = (rel) => { try { return fs.readFileSync(path.join(d, rel), 'utf8'); } catch (_) { return null; } };
+        let b = A.brettLesen(d, {});
+        if (b.eintraege[0].zaehle[0].n !== 3) return { ok: false, warum: 'gespeicherte Zahl: ' + b.eintraege[0].zaehle[0].n + ' (erwartet 3)' };
+        const bew = () => A.anstoesse(A.brettLesen(d, {}).eintraege, null, lesen).filter(x => x.art === 'zahl_bewegt').map(x => x.satz.replace(/^.*: war /, 'war ').replace(/ — .*$/, '')).join('|');
+        const gleich = bew();
+        fs.writeFileSync(path.join(d, 'code.js'), "a.toLocaleString(loc());\nb.toLocaleString(loc());\nc.toLocaleString('de-CH');\n");
+        const weniger = bew();
+        const st = A.zahlenStand(A.brettLesen(d, {}).eintraege, lesen);
+        r = werkzeug(d, ['schliesse', b.eintraege[0].id, '--ergebnis', 'verworfen', '--text', 'Probe', '--nur-lokal']);
+        const zu = bew();
+        if (gleich !== '' || weniger !== 'war 3, heute 1' || zu !== '' || st.length !== 1 || st[0].heute !== 1) return { ok: false, warum: 'gleich: „' + gleich + '" · geaendert: „' + weniger + '" · geschlossen: „' + zu + '" · Stand: ' + JSON.stringify(st.map(x => [x.n, x.heute])) };
+        return { ok: true, info: '5 statt 3: abgewiesen mit „steht 3-mal", 0 Dateien · ohne Zahl selbst gezaehlt: 3 · Datei geaendert: „war 3, heute 1" · gleich und geschlossen: still' };
+      } finally { weg(d); }
+    },
+  },
+  {
+    name: 'C4f · Drei weitere Anstoesse · zwei Ideen verschiedener Schreiber auf denselben Fund; zwei offene Ansprueche am selben Stichwort; ein verworfener Irrweg wird dem naechsten Schreiber gezeigt — und je die Gegenrichtung bleibt still',
+    lauf: () => {
+      const idee = (id, von, extra) => gut(Object.assign({ id, von, art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'p', titel: 'Idee ' + id.slice(-2) }, extra));
+      const anspr = (id, von, sw) => gut({ id, von, art: 'anspruch', beleg: undefined, bereich: 'b', titel: 'Anspruch ' + id.slice(-2), stichworte: sw });
+      const b = brettAus([
+        gut({ id: '2026-11-10-0001', von: 'a', titel: 'Der Fund', ohne_klasse: 'Einzelfall' }),
+        idee('2026-11-10-0002', 'b', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
+        idee('2026-11-10-0003', 'c', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
+        idee('2026-11-10-0004', 'b', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
+        anspr('2026-11-10-0005', 'x', ['Kalender']), anspr('2026-11-10-0006', 'y', ['kalender']), anspr('2026-11-10-0007', 'x', ['kalender']), anspr('2026-11-10-0008', 'z', ['scanner']),
+        gut({ id: '2026-11-10-0009', von: 'q', titel: 'Ein verworfener Versuch', stichworte: ['kalender'], ohne_klasse: 'x' }),
+        gut({ id: '2026-11-10-0010', von: 'q', art: 'abschluss', beleg: undefined, ergebnis: 'verworfen', text: 'bricht den Offline-Fall', titel: 'zu', bezug: [{ art: 'schliesst', id: '2026-11-10-0009' }] }),
+      ]);
+      const an = A.anstoesse(b.eintraege, null).filter(x => x.art === 'zwei_ideen' || x.art === 'anspruch_kollision').map(x => x.art + ':' + x.ids.slice(0, 2).map(i => i.slice(-2)).join('+')).sort().join(' ');
+      // 02×03 und 03×04 (verschiedene Schreiber); 02×04 nicht (beide von b). 05×06 und 06×07; 05×07 nicht (beide von x); 08 allein.
+      const soll = 'anspruch_kollision:05+06 anspruch_kollision:06+07 zwei_ideen:02+03 zwei_ideen:03+04';
+      if (an !== soll) return { ok: false, warum: 'gerechnet: ' + an + ' — erwartet: ' + soll };
+      const neu = gut({ id: '2026-11-11-0011', datum: '2026-11-11', von: 'neu', titel: 'Derselbe Weg noch einmal', stichworte: ['kalender'] });
+      const nb = A.nachbarn(neu, b.eintraege.concat([neu]));
+      const irr = nb.filter(x => x.irrweg).map(x => x.eintrag.id.slice(-2) + ':' + x.grund).join('|');
+      if (irr !== '09:bricht den Offline-Fall') return { ok: false, warum: 'Irrweg: „' + irr + '" — erwartet 09 mit seinem Grund' };
+      const fremd = gut({ id: '2026-11-11-0012', datum: '2026-11-11', von: 'neu', titel: 'Ganz woanders', stichworte: ['marktplatz'] });
+      if (A.nachbarn(fremd, b.eintraege.concat([fremd])).length) return { ok: false, warum: 'Nachbarn oder Irrwege gezeigt, obwohl kein Stichwort geteilt wird' };
+      return { ok: true, info: 'zwei Ideen: 02×03, 03×04 (nicht 02×04, derselbe Schreiber) · Ansprueche: 05×06, 06×07 (nicht 05×07; 08 allein) · Irrweg 09 mit Grund gezeigt · fremdes Stichwort: nichts' };
     },
   },
   {

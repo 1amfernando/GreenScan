@@ -76,8 +76,8 @@ unverändert — deshalb kein Bump und kein Eintrag in `GS_RELEASES`.
 Stand gefahren: **4 von 17 rot, 4 nicht prüfbar** (das Brett war leer) — keine Übergabe, der
 Prüfstand selbst in keiner `run`-Zeile, **sieben falsche Zahlen** und vier
 Stellen, an denen die Zahl nur als Wort stand, drei Einstiegsdateien ohne
-Verweis. Danach grün; mit den Regeln aus dem zweiten Entwurf heute **23
-Fälle** in drei Gruppen: **A** das echte Brett (Form, Beleg, Bezüge, Wächter
+Verweis. Danach grün; mit den Regeln aus dem zweiten und dritten Entwurf
+heute **26 Fälle** in drei Gruppen: **A** das echte Brett (Form, Beleg, Bezüge, Wächter
 einer Fehlerklasse existieren als Datei + Fallkennung, ein offener Eintrag
 nennt keinen verschwundenen Code und sein Anker steht noch, **zur laufenden
 Version gibt es genau EINE gültige Übergabe** — Teil des Bumps wie der
@@ -86,9 +86,10 @@ offener Anspruch im Baum, jedes `brett:<id>` in den Dokumenten hat ein Ziel) ·
 **B** die Übergabe-Dokumente (jeder `*_check` steht in `pruefstaende.sh`; 22
 Zahlen an 21 Stellen an ihren Befehl gebunden, verankert am Satz; die
 Agenten-Runde lässt sich übersetzen; kein Austausch-Skript hält eine
-App-Funktion am Leben) · **C** die Regel selbst gegen gebaute Fälle (27
+App-Funktion am Leben) · **C** die Regel selbst gegen gebaute Fälle (28
 kaputte Einträge je mit dem richtigen Grund, Zustand und Anstösse gerechnet,
-Nachtrag an einer Klasse, Anker in fünf Zuständen, das Werkzeug
+Nachtrag an einer Klasse, Anker in fünf Zuständen, eine Zählung, die beim
+Schreiben nachgerechnet wird, das Werkzeug
 alles-oder-nichts, **zwei echte gebaute Branches**: ein Eintrag vom nie
 gemergten Ast erscheint, wird beantwortet und reist mit).
 

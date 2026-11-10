@@ -95,11 +95,19 @@ zwingt: wer den Code anfasst, erfährt, was ein anderer darüber wusste. Danach:
 `schliesse <id> …` (behoben oder überholt) oder `antworte <id> --anker
 "datei::neuer text"` (gilt weiter, neu verankert).
 
+**Die Zählung** (`zaehle`, optional): `{datei, text, n}` — wie oft `text`
+wörtlich in `datei` steht. Das ist die eine Angabe, die das Werkzeug
+**nachrechnet**: beim Schreiben (`--zaehle "datei::text"` zählt selbst; eine
+falsch angegebene Zahl wird mit der echten abgewiesen) und danach bei jedem
+Lesen — „war 4, heute 9" heisst: neue Geschwister; „heute 0": behoben, also
+schliessen. Bewusst kein Regex und kein Befehl: aus einem Eintrag wird nichts
+ausgeführt.
+
 Weitere Felder: `text` (Einzelheiten), `stichworte` (Funktionsnamen, Dateien,
 Prüfstände, Themen — **genau geschrieben**, über sie findet der Code zusammen,
 was zusammengehört), `vorschlag`, `falle`, `aufwand` (`klein` · `mittel` ·
 `gross`), `haengt_daran`, `branch`, `suchmuster`, `gesucht`, `gebaut`,
-`bewacht`, `geschwister`, `sicherheit`, `details_bei`. `id`, `datum`, `von` und `stand` (die laufende
+`bewacht`, `geschwister`, `ohne_klasse`, `sicherheit`, `details_bei`. `id`, `datum`, `von` und `stand` (die laufende
 Version) setzt das Werkzeug.
 
 ## Die sechs Bezüge
@@ -137,12 +145,20 @@ Das Brett **rechnet**, wohin jemand sehen sollte — `node scripts/austausch.js 
 |---|---|---|
 | Frage ohne Antwort | offene Frage, kein `beantwortet` | messen und antworten |
 | Widerspruch ohne Auflösung | offener Eintrag mit einem `widerspricht` | nachmessen, dann schliessen oder ersetzen |
+| Zwei Sitzungen an derselben Stelle | zwei offene Ansprüche verschiedener Schreiber mit demselben Stichwort | absprechen, bevor beide dasselbe bauen (10.09.2026: viermal derselbe Fehler) |
 | **Zwei Köpfe, dieselbe Stelle** | zwei offene Einträge **verschiedener** Schreiber mit demselben Stichwort, ohne Bezug zueinander | gemeinsame Ursache? Dann ein Eintrag mit `baut_auf` auf beide |
+| Zwei Ideen auf denselben Fund | zwei Ideen verschiedener Schreiber mit `baut_auf` auf denselben Eintrag, ohne Bezug zueinander | vertragen sie sich, oder ist eine die bessere? |
+| Eine Zahl hat sich bewegt | die Zählung eines offenen Eintrags ergibt heute etwas anderes | behoben → schliessen; gewachsen → neue Geschwister ansehen |
 | Befund, auf den niemand baut | offener Befund ohne jeden Bezug | beheben, eine Idee daraus machen — oder verwerfen |
 | Idee, die kein Zweiter angesehen hat | Idee ohne Bezug von einem anderen Schreiber | prüfen, was sie voraussetzt |
 | Fehlerklasse ohne Wächter | Klasse ohne Prüfstand-Fall | Kandidat für einen Fall |
 | Fehlerklasse nie gesucht | ≥ 2 Instanzen, kein `gesucht` | das Suchmuster fahren |
 | Nennt Code, den es nicht mehr gibt | Stichwort mit App-Präfix fehlt im Quelltext | Eintrag ist überholt: schliessen |
+| Befund ohne Fehlerklasse | offener Befund ohne `gehoert_zu` und ohne `ohne_klasse` | `klasse <wort>` nachschlagen, dann `antworte <id> --klasse <id>` oder `--ohne-klasse "Einzelfall, weil …"` |
+
+Und beim **Schreiben** zeigt das Werkzeug, was andere an denselben Stichworten
+wissen: offene **Nachbarn**, passende **Fehlerklassen** — und **Irrwege**:
+Einträge, die jemand dort schon versucht und mit Grund verworfen hat.
 
 Ein Anstoss ist ein **Hinweis**, kein Befund. Wer nachsieht, schreibt das
 Ergebnis als Eintrag mit Bezug — auch wenn es „da ist nichts" lautet.
@@ -225,7 +241,7 @@ zurück — und spielt sie mit `einspielen` ein.
 | Form, Pflichtfelder, Beleg am Befund, nichts Geheimes | A1 |
 | Jeder Bezug hat ein Ziel der richtigen Art | A2 |
 | Jeder Wächter einer Fehlerklasse existiert (Datei + Fallkennung) | A3 |
-| Ein offener Eintrag nennt keinen Code, den es nicht mehr gibt; **sein Anker steht noch wörtlich in der Datei** | A4, A4b |
+| Ein offener Eintrag nennt keinen Code, den es nicht mehr gibt; **sein Anker steht noch wörtlich in der Datei**; seine Zählung ergibt dieselbe Zahl | A4, A4b, A4c |
 | **Zur laufenden Version gibt es genau EINE gültige Übergabe** — wie der `GS_RELEASES`-Eintrag Teil des Bumps; zwei wären zwei Sitzungen mit derselben Versionsnummer | A5 |
 | Kein offener Anspruch im Baum, der nach `main` ginge; ein behobener Befund nennt Wächter und Geschwistersuche | A6, A2 |
 | Jedes `brett:<id>` in den Dokumenten hat ein Ziel | A7 |

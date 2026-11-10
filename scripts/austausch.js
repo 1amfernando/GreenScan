@@ -59,6 +59,7 @@ const liste = (v) => v == null || v === true ? [] : [].concat(v);
 const kurz = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const aus = (s) => process.stdout.write(s + '\n');
 
+function liesRel(rel) { try { return fs.readFileSync(path.join(WURZEL, rel), 'utf8'); } catch (_) { return null; } }
 function quelltext() {
   try { return fs.readFileSync(path.join(WURZEL, 'index.html'), 'utf8'); } catch (_) { return null; }
 }
@@ -132,7 +133,7 @@ function lesen() {
     if (fuss) aus('    ' + fuss);
   };
   if (!filter.length) {
-    const an = A.anstoesse(b.eintraege, src);
+    const an = A.anstoesse(b.eintraege, src, liesRel);
     if (an.length) {
       aus('\nANSTOESSE — gerechnet; hier kann aus dem Wissen des einen beim anderen eine Idee werden (' + an.length + ')');
       const proArt = {};
@@ -170,7 +171,7 @@ function lesen() {
       teil('offen:', 'offen'); teil('naechster Schritt:', 'naechster_schritt'); teil('nicht geprueft:', 'nicht_geprueft');
       if (ueb.nichts_offen) aus('    nichts offen: ' + kurz(ueb.nichts_offen, 170));
     }
-    const ap = A.ankerPruefen(b.eintraege.filter(e => e._quelle === 'Arbeitsbaum'), (rel) => { try { return fs.readFileSync(path.join(WURZEL, rel), 'utf8'); } catch (_) { return null; } });
+    const ap = A.ankerPruefen(b.eintraege.filter(e => e._quelle === 'Arbeitsbaum'), liesRel);
     if (ap.verloren.length) {
       aus('\n  !! ' + ap.verloren.length + ' Anker stehen nicht mehr an ihrer Stelle — die Stelle wurde geaendert, der Eintrag ist zu lesen:');
       ap.verloren.slice(0, 8).forEach(x => aus('     ' + x.id + '  ' + kurz(x.titel, 80) + '\n        ' + x.datei + ' :: ' + kurz(x.text, 90)));
@@ -182,7 +183,7 @@ function lesen() {
 }
 
 function anstoss() {
-  const b = brett(), an = A.anstoesse(b.eintraege, quelltext());
+  const b = brett(), an = A.anstoesse(b.eintraege, quelltext(), liesRel);
   kopf(b, A.ableiten(b.eintraege));
   if (!an.length) { aus('\n  Keine Anstoesse — entweder ist alles beantwortet und verbunden, oder das Brett ist leer.\n\nNichts geschrieben.'); return; }
   let art = null;
@@ -208,6 +209,8 @@ function ganz(e, ab) {
    ['suchmuster', 'Suchmuster (Geschwister)'], ['gesucht', 'Gesucht'], ['waechter', 'Waechter'], ['ohne_waechter', 'Ohne Waechter'],
    ['version', 'Version'], ['gebaut', 'Gebaut'], ['offen', 'Offen'], ['naechster_schritt', 'Naechster Schritt'], ['nicht_geprueft', 'Nicht geprueft'],
    ['nichts_offen', 'Nichts offen'], ['ergebnis', 'Ergebnis'], ['wohin', 'Wohin'], ['bewacht', 'Bewacht von'], ['geschwister', 'Geschwister'], ['details_bei', 'Einzelheiten bei'], ['stichworte', 'Stichworte']].forEach(x => feld(x[0], x[1]));
+  const zl = A.zaehleWirksam(e, ab.rueck);
+  if (zl.length) { aus('  Zaehlung (nachgerechnet):'); zl.forEach(x => { const h = A.wieOft(liesRel(x.datei), x.text); aus('    - ' + x.datei + ' :: ' + x.text + '  → beim Eintrag ' + x.n + ', heute ' + (h == null ? 'Datei nicht lesbar' : h) + (h != null && h !== x.n ? '   ← BEWEGT' : '')); }); }
   const anker = A.ankerWirksam(e, ab.rueck);
   if (anker.length) { aus('  Anker (wer diese Stelle aendert, wird im eigenen Lauf rot und liest diesen Eintrag):'); anker.forEach(x => aus('    - ' + x.datei + ' :: ' + x.text)); }
   if (e.sicherheit) aus('  Sicherheit: ja — Einzelheiten stehen bewusst nicht hier (public Repo)');
@@ -253,7 +256,16 @@ function ausFlags(art) {
   const e = { art };
   const text = (k, flag) => { const v = o[flag || k]; if (v != null && v !== true) e[k] = String([].concat(v).join('\n')); };
   ['titel', 'text', 'stand', 'nutzen', 'pruefbar', 'falle', 'aufwand', 'an', 'haengt_daran', 'vorschlag', 'bereich', 'branch', 'regel',
-   'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister', 'datum'].forEach(k => text(k));
+   'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister', 'ohne_klasse', 'datum'].forEach(k => text(k));
+  // --zaehle "datei::text" zaehlt selbst; mit "datei::text::n" wird die Angabe nachgerechnet.
+  if (liste(o.zaehle).length) e.zaehle = liste(o.zaehle).map(w => {
+    const teile = String(w).split('::');
+    const datei = (teile[0] || '').trim(), hatN = teile.length >= 3 && /^\d+$/.test(teile[teile.length - 1].trim());
+    const stueck = (hatN ? teile.slice(1, -1) : teile.slice(1)).join('::');
+    let n = hatN ? Number(teile[teile.length - 1]) : null;
+    if (n == null) { let t = null; try { t = fs.readFileSync(path.join(WURZEL, datei), 'utf8'); } catch (_) {} n = A.wieOft(t, stueck); if (n == null) n = -1; }
+    return { datei, text: stueck, n };
+  });
   if (liste(o.anker).length) e.anker = liste(o.anker).map(w => { const i = String(w).indexOf('::'); return i < 0 ? { datei: String(w), text: '' } : { datei: w.slice(0, i).trim(), text: w.slice(i + 2) }; });
   if (liste(o.beleg).length) e.beleg = liste(o.beleg);
   const sw = liste(o.stichwort).concat(liste(o.stichworte)).join(',').split(',').map(s => s.trim()).filter(Boolean);
@@ -268,11 +280,12 @@ function ausFlags(art) {
   return e;
 }
 function bezuege(b) {
-  return liste(o.bezug).map(x => {
+  const kl = liste(o.klasse).map(k => ({ art: 'gehoert_zu', id: finde(b, k).id }));
+  return kl.concat(liste(o.bezug).map(x => {
     const i = String(x).indexOf(':');
     if (i < 0) { aus('--bezug erwartet art:id (z.B. baut_auf:a3f9). Arten: ' + Object.keys(A.BEZUEGE).join(' · ')); process.exit(2); }
     return { art: x.slice(0, i).trim(), id: finde(b, x.slice(i + 1)).id };
-  });
+  }));
 }
 function schreiben(e) {
   const src = quelltext();
@@ -292,10 +305,15 @@ function schreiben(e) {
   const b2 = brett(), neuE = b2.eintraege.find(x => x.id === g.id);
   if (neuE) {
     const nb = A.nachbarn(neuE, b2.eintraege);
-    if (nb.length) {
-      aus('\nNACHBARN — offene Eintraege anderer an denselben Stichworten (' + nb.length + '). Gemeinsame Ursache? Dann `--bezug baut_auf:<id>` bzw. `antworte <id>`:');
-      nb.slice(0, 6).forEach(x => aus('  ' + x.eintrag.id + '  (' + x.eintrag.art + ', ' + x.gemeinsam.join(', ') + ')  ' + kurz(x.eintrag.titel, 100)));
-      if (nb.length > 6) aus('  … +' + (nb.length - 6) + ' weitere — `node scripts/austausch.js --stichwort <wort>`');
+    const irr = nb.filter(x => x.irrweg), offenN = nb.filter(x => !x.irrweg);
+    if (offenN.length) {
+      aus('\nNACHBARN — offene Eintraege anderer an denselben Stichworten (' + offenN.length + '). Gemeinsame Ursache? Dann `--bezug baut_auf:<id>` bzw. `antworte <id>`:');
+      offenN.slice(0, 6).forEach(x => aus('  ' + x.eintrag.id + '  (' + x.eintrag.art + ', ' + x.gemeinsam.join(', ') + ')  ' + kurz(x.eintrag.titel, 100)));
+      if (offenN.length > 6) aus('  … +' + (offenN.length - 6) + ' weitere — `node scripts/austausch.js --stichwort <wort>`');
+    }
+    if (irr.length) {
+      aus('\nIRRWEGE — an denselben Stichworten schon versucht und mit Grund VERWORFEN (' + irr.length + '). Lies den Grund, bevor du denselben Weg gehst:');
+      irr.slice(0, 4).forEach(x => aus('  ' + x.eintrag.id + '  ' + kurz(x.eintrag.titel, 90) + '\n      verworfen, weil: ' + kurz(x.grund, 160)));
     }
     if (neuE.art === 'befund' && !A.alsListe(neuE.bezug).some(x => x.art === 'gehoert_zu')) {
       const kv = A.klassenVorschlag(neuE, b2.eintraege), ab2 = A.ableiten(b2.eintraege);
@@ -381,7 +399,7 @@ function pruefen() {
 }
 
 const BEISPIELE = {
-  befund: 'neu befund --titel "Die Kachel X zaehlt drei Tage, die Zeile daneben nur heute" --anker "index.html::<ein woertliches Stueck der Stelle>" --beleg "index.html: `grep -n allDue.length` → 2 Stellen" --beleg "nutzersicht_check E10 misst nur die Startkarte" --stichwort meine-pflanzen,faellig-kachel --vorschlag "die Kachel ueber dieselbe Rechnung filtern wie die Zeile"',
+  befund: 'neu befund --titel "Die Kachel X zaehlt drei Tage, die Zeile daneben nur heute" --klasse <id der Fehlerklasse> --anker "index.html::<ein woertliches Stueck der Stelle>" --zaehle "index.html::<woertlicher Text, dessen Vorkommen das Werkzeug zaehlt>" --beleg "index.html: `grep -n allDue.length` → 2 Stellen" --beleg "nutzersicht_check E10 misst nur die Startkarte" --stichwort meine-pflanzen,faellig-kachel --vorschlag "die Kachel ueber dieselbe Rechnung filtern wie die Zeile"',
   idee: 'neu idee --titel "Die Wochenzeile auch in der Glocke" --nutzen "eine Rechnung, vier Anzeigen statt drei" --pruefbar "kalender_check R10b um die Glocke erweitern" --aufwand klein --bezug baut_auf:a3f9',
   frage: 'neu frage --titel "Laufen die geplanten Routine-Sitzungen noch?" --an fernando --haengt-daran "ob das Brett Sitzungen bedienen muss, die nie mergen"',
   anspruch: 'neu anspruch --titel "Offline-Warteschlange: Eigentum am Archiv" --bereich "Offline-Warteschlange, offline_check 6–9"   (danach SOFORT committen und pushen)',
