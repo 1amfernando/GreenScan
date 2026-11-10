@@ -269,6 +269,45 @@ const K = [
     }, KEY),
   },
   {
+    // v33.58: ein Modellname allein ist keine Umstellung. Sonnet 5.5 und 5 denken von sich aus nach —
+    // das zaehlt gegen max_tokens und stellt einen thinking-Block vor den Text. Der Proxy setzt den
+    // Zusatz selbst; auf dem DIREKTWEG (persoenlicher Schluessel) muss ihn die App setzen.
+    name: 'Direktweg · Sonnet 5.5 bekommt seinen Zusatz (Nachdenken aus, 900 → 1215 Token), Sonnet 4.6 bleibt unveraendert, der Rumpf an den PROXY bleibt, wie die App ihn baut — eine Antwort mit thinking-Block wird als Text gelesen, und eine Ablehnung wird gesagt',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__sk; const lang = 'sk-ant-' + 'x'.repeat(90);
+      const direkt = async (modell, antwort) => {
+        A.reset({ mode: null, mem: '' }); localStorage.setItem('ps_api_key', lang); A.direkt = antwort || null;
+        try { gsStore.set('gs_claude_model', modell); } catch (_) {} window._gsClaudeModel = modell;
+        let t = null, fehler = null;
+        try { t = await callAI([{ role: 'user', content: 'ping' }], 'sys', 900, { retries: 0, timeout: 3000 }); } catch (e) { fehler = e; }
+        const d = A.rufe.filter(r => /api\.anthropic\.com\/v1\/messages/.test(r.url));
+        return { t, fehler, n: d.length, b: d[0] ? JSON.parse(d[0].init.body) : null };
+      };
+      const a = await direkt('claude-sonnet-5-5');
+      if (!a.b || a.b.model !== 'claude-sonnet-5-5' || !a.b.thinking || a.b.thinking.type !== 'between_tools' || a.b.max_tokens !== 1215)
+        return { ok: false, warum: 'Rumpf direkt an Sonnet 5.5: ' + JSON.stringify(a.b && { model: a.b.model, thinking: a.b.thinking, max_tokens: a.b.max_tokens }) };
+      const b = await direkt('claude-sonnet-5');
+      if (!b.b || !b.b.thinking || b.b.thinking.type !== 'disabled' || b.b.max_tokens !== 1215) return { ok: false, warum: 'Rumpf direkt an Sonnet 5: ' + JSON.stringify(b.b && { thinking: b.b.thinking, max_tokens: b.b.max_tokens }) };
+      const c = await direkt('claude-sonnet-4-6');
+      if (!c.b || c.b.thinking !== undefined || c.b.output_config !== undefined || c.b.max_tokens !== 900) return { ok: false, warum: 'Sonnet 4.6 wurde veraendert: ' + JSON.stringify(c.b && { thinking: c.b.thinking, max_tokens: c.b.max_tokens }) };
+      // Der Proxy-Rumpf bleibt, wie die App ihn baut — den Zusatz setzt der Server.
+      A.reset({ mode: 'proxy', mem: '' }); try { gsStore.set('gs_claude_model', 'claude-sonnet-5-5'); } catch (_) {} window._gsClaudeModel = 'claude-sonnet-5-5';
+      await callAI([{ role: 'user', content: 'ping' }], 'sys', 900, { retries: 0, timeout: 3000 });
+      const pb = JSON.parse(A.rufe.filter(r => /ai-proxy$/.test(r.url))[0].init.body);
+      if (pb.thinking !== undefined || pb.max_tokens !== 900) return { ok: false, warum: 'der Rumpf an den Proxy wurde geformt: ' + JSON.stringify({ thinking: pb.thinking, max_tokens: pb.max_tokens }) };
+      // Eine Antwort, die mit einem thinking-Block beginnt, wird als Text gelesen.
+      const d = await direkt('claude-sonnet-5-5', { stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '', signature: 's' }, { type: 'text', text: 'Teil 1 ' }, { type: 'text', text: 'Teil 2' }], usage: { input_tokens: 1, output_tokens: 1 } });
+      if (d.t !== 'Teil 1 Teil 2') return { ok: false, warum: 'aus [thinking, text, text] wird: ' + JSON.stringify(d.t) + (d.fehler ? ' · ' + d.fehler.message : '') };
+      // Eine Ablehnung ist kein leerer Treffer: sie wird gesagt, und sie zaehlt nicht als Erfolg.
+      const e = await direkt('claude-sonnet-5-5', { stop_reason: 'refusal', content: [], usage: { input_tokens: 1, output_tokens: 0 } });
+      if (!e.fehler || e.fehler.code !== 'ai_refusal' || !/abgelehnt/.test(e.fehler.message) || e.t !== null) return { ok: false, warum: 'Ablehnung: Text ' + JSON.stringify(e.t) + ' · Fehler ' + (e.fehler ? e.fehler.code + ' „' + e.fehler.message + '"' : 'keiner') };
+      if (e.n !== 1) return { ok: false, warum: 'eine Ablehnung wurde ' + e.n + '× gesendet — sie wird nicht mit einem anderen Modell wiederholt' };
+      try { gsStore.set('gs_claude_model', 'claude-sonnet-4-6'); } catch (_) {} window._gsClaudeModel = 'claude-sonnet-4-6';
+      localStorage.removeItem('ps_api_key');
+      return { ok: true, info: '5.5: between_tools, 1215 · 5: disabled, 1215 · 4.6: 900 ohne Zusatz · Proxy-Rumpf unveraendert · [thinking, text, text] → „Teil 1 Teil 2" · refusal → ein Satz, 1 Aufruf' };
+    }),
+  },
+  {
     name: 'Abmelden raeumt · Schluessel im Speicher und mode werden beim Logout entfernt (gsOnLogout); getApiConfig danach none',
     lauf: async () => __seite.evaluate(async (KEY) => {
       const A = window.__sk; A.reset({ mode: 'proxy', mem: KEY });
@@ -318,16 +357,16 @@ const K = [
         if (A.proxy === 'netz') throw new TypeError('Failed to fetch');
         if (A.proxy === 503) return antwort(503, { error: { message: 'Server: Anthropic-Key fehlt.' } });
         if (A.proxy === 429) return antwort(429, { error: { type: 'quota_exceeded', message: 'Tageslimit erreicht (15/15). Upgrade für mehr KI-Calls.', tier: 'free', used: 15, limit: 15 } });
-        return antwort(200, { content: [{ type: 'text', text: A.text || 'proxy-ok' }], usage: { input_tokens: 1, output_tokens: 1 }, model: 'claude-sonnet-4-5' });
+        return antwort(200, A.proxyAntwort || { content: [{ type: 'text', text: A.text || 'proxy-ok' }], usage: { input_tokens: 1, output_tokens: 1 }, model: 'claude-sonnet-4-6' });
       }
-      if (/api\.anthropic\.com/.test(String(url))) return antwort(200, { content: [{ type: 'text', text: 'direkt-ok' }], usage: { input_tokens: 1, output_tokens: 1 } });
+      if (/api\.anthropic\.com/.test(String(url))) return antwort(200, A.direkt || { content: [{ type: 'text', text: 'direkt-ok' }], usage: { input_tokens: 1, output_tokens: 1 } });
       return antwort(200, {});
     };
     window.sbFetch = async (path, opts) => {
       if (/fn_get_global_api_key/.test(path)) return { data: A.rpc, error: null };
       return { data: [], error: null };
     };
-    A.reset = (o) => { A.rufe.length = 0; A.proxy = 'ok'; A.text = ''; A.toasts = [];
+    A.reset = (o) => { A.rufe.length = 0; A.proxy = 'ok'; A.text = ''; A.toasts = []; A.direkt = null; A.proxyAntwort = null;
       try { localStorage.removeItem('gs_global_api_key'); localStorage.removeItem('ps_api_key'); localStorage.removeItem('gs_feat_aiproxy'); localStorage.removeItem('gs_ai_proxy_down_ts'); } catch (_) {}
       if (o.mode) localStorage.setItem('gs_global_api_mode', o.mode); else localStorage.removeItem('gs_global_api_mode');
       window._gsGlobalKeyMem = o.mem || ''; window._gsApiKeyPullPromise = null; window._gsProxyDownTs = 0; };

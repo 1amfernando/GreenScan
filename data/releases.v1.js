@@ -30,6 +30,17 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.38', date: '16.09.2026',
+    headline: '„Mein Naturjahr“ zählt jetzt dasselbe wie der Kalender — und die Garten-Timeline ist darin aufgegangen',
+    summary: 'Zweiter Teil der vierten Scheibe. Der Jahresrückblick rechnete seine Zahlen selbst, mit eigenen Lesern — und lag daneben: die Kachel „Funde“ stand seit jeher auf 0, weil sie ein Feld las, das keine der drei Schreibstellen setzt, und „Arten“ zählte als einzige Kachel ohne Jahresfilter, unter der Überschrift „Mein Naturjahr 2026“. Beides kommt jetzt aus der einen Kalender-Funktion. Und die Garten-Timeline, die dieselbe Frage mit sechs eigenen Quellen beantwortet hat, ist ersatzlos weg: der Menüeintrag heisst „Rückblick“ und öffnet den Kalender mit eingeschalteter Rückblick-Gruppe.',
+    user_summary: 'Dein Jahresrückblick zeigt jetzt die richtigen Zahlen — und die Garten-Timeline findest du als „Rückblick“ im Kalender.',
+    user_items: [
+      {emoji: '📍', bold: 'Funde zählen wieder:', text: ' Die Kachel „Funde“ in „Mein Naturjahr“ stand immer auf 0, egal wie viele Fundorte du auf der Karte hattest. Jetzt steht dort, was der Kalender auch zeigt.'},
+      {emoji: '🌿', bold: 'Arten zählen dein Jahr:', text: ' Unter „Mein Naturjahr 2026“ zählte die Arten-Kachel alle Scans, die du je gemacht hast. Jetzt zählt sie die dieses Jahres.'},
+      {emoji: '📆', bold: 'Rückblick statt Timeline:', text: ' Der Menüeintrag „Garten-Timeline“ heisst jetzt „Rückblick“ und öffnet den Kalender — mit Tagebuch, Pflanzungen und Fundorten eingeschaltet. Eine Ansicht statt zwei, und diese denkt mit.'}
+    ],
+  },
+  {
     v: 'v33.37', date: '16.09.2026',
     headline: 'Scans, Fundorte und deine wirkliche Ernte stehen jetzt im Kalender',
     summary: 'Vierte Scheibe von KALENDER-V2, erster Teil der drei Namen. Drei Quellen, die es in der App längst gibt und die im Kalender fehlten: der Scan-Verlauf, die Karten-Fundorte und das Ernte-Buch. Dabei gemessen: „Funde" in Mein Naturjahr stand seit jeher auf 0 — beide Schreiber legen die Zeit als `date` ab, gelesen wurde `ts/time/found_at/created_at`. Kein Fund hat je einen Monatsbalken bewegt.',

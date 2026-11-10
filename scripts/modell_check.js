@@ -602,6 +602,24 @@ const QUELLTEXT = [
       return { ok: true, info: 'App: ' + app.join(' → ') + ' · Server (vision): ' + M.MODELL_KETTEN.vision.join(' → ') };
     },
   },
+  {
+    name: 'Ein Zusatz, zwei Orte · die App (_gsModellZusatz, Direktweg) und der Server (modellZusatz) geben jedem Modell dieselbe Angabe und dasselbe Token-Budget',
+    lauf: (M) => {
+      const html = fs.readFileSync(path.join(WURZEL, 'index.html'), 'utf8');
+      const a = html.indexOf('function _gsModellZusatz(');
+      if (a < 0) return { ok: false, warum: '_gsModellZusatz fehlt in index.html — auf dem Direktweg (persoenlicher Schluessel, Proxy-Ausfall) bekaeme Sonnet 5.5 keinen Zusatz' };
+      let tiefe = 0, e = -1;
+      for (let i = html.indexOf('{', a); i < html.length; i++) { if (html[i] === '{') tiefe++; else if (html[i] === '}') { tiefe--; if (tiefe === 0) { e = i + 1; break; } } }
+      let app;
+      try { app = new Function(html.slice(a, e) + '\nreturn _gsModellZusatz;')(); } catch (x) { return { ok: false, warum: 'die Funktion der App laesst sich nicht auswerten: ' + x.message }; }
+      const namen = M.MODELL_KETTEN.vision.concat(M.MODELL_KETTEN.schnell, ['claude-sonnet-5-20260301', 'claude-sonnet-5-5-20260928', 'claude-sonnet-6', 'claude-opus-4-8', 'claude-3-5-sonnet-latest', '', ' claude-sonnet-5-5 ']);
+      const anders = namen.filter((n) => z(app(n)) !== z(M.modellZusatz(n)));
+      if (anders.length) return { ok: false, warum: 'App und Server weichen ab bei: ' + anders.map((n) => '„' + n + '" (App ' + z(app(n)) + ' · Server ' + z(M.modellZusatz(n)) + ')').join(' · ') };
+      if (!/_gsAiRumpfDirekt\(body\)/.test(ohneKommentare(html.slice(html.indexOf('async function _gsAiAnfrageRoh('), html.indexOf('function _gsProxyAusfall(')))))
+        return { ok: false, warum: '_gsAiAnfrageRoh schickt den Rumpf direkt an Anthropic, ohne _gsAiRumpfDirekt' };
+      return { ok: true, info: namen.length + ' Namen gleich eingeordnet — darunter beide Ketten, ein datiertes Sonnet 5, ein unbekanntes Modell und der leere Name' };
+    },
+  },
 ];
 
 (async () => {
