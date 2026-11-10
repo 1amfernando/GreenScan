@@ -13,6 +13,8 @@
 //
 // Drei Haelften, wie bei apk_check:
 //   RECHNUNG  supabase/functions/_shared/modelle.mjs laeuft in Node — Ketten, Freigabe,
+//             der Zusatz je Modell (Sonnet 5.5 und 5 denken sonst von sich aus nach — das
+//             zaehlt gegen max_tokens und stellt einen thinking-Block vor den Text),
 //             „ist das ein Modellfehler?", Rueckfall, der Ersatz fuer fetch.
 //   RAND      der ECHTE Handler von ai-proxy wird ausgefuehrt: Typen entfernt
 //             (node:module stripTypeScriptTypes), Deno/Supabase/Anthropic gestellt. Eine
@@ -153,7 +155,8 @@ async function fahre(szen, anfrage) {
   const fetchAlt = globalThis.fetch, warnAlt = console.warn, errAlt = console.error;
   globalThis.fetch = async (url, o) => {
     const rumpf = JSON.parse(o.body);
-    stub.prot.upstream.push({ url: String(url), modell: rumpf.model, max_tokens: rumpf.max_tokens, key: o.headers['x-api-key'], felder: Object.keys(rumpf).sort().join(',') });
+    stub.prot.upstream.push({ url: String(url), modell: rumpf.model, max_tokens: rumpf.max_tokens, key: o.headers['x-api-key'], felder: Object.keys(rumpf).sort().join(','),
+      denken: rumpf.thinking ? rumpf.thinking.type : (rumpf.output_config ? 'effort:' + rumpf.output_config.effort : '') });
     const r = (stub.szen.upstream || USAGE_OK)(rumpf.model, stub.prot.upstream.length);
     if (r && r.wirft) throw new Error(r.wirft);
     return new Response(r.text, { status: r.status, headers: { 'Content-Type': 'application/json' } });
@@ -242,6 +245,83 @@ const RECHNUNG = [
       tot.kette.push('x');
       if (M.MODELL_KETTEN.vision.indexOf('x') >= 0) return { ok: false, warum: 'die Rueckgabe IST die eingebaute Liste' };
       return { ok: true, info: 'claude-sonnet-4-5 → ' + v[0] + ' („' + tot.grund + '") · claude-opus-5-5 → ' + v[0] + ' („' + teuer.grund + '")' };
+    },
+  },
+  {
+    name: 'Zusatz je Modell · Sonnet 5.5 und 5 denken sonst von sich aus nach: jedes Modell bekommt SEINE Angabe und SEIN Token-Budget — und die bisherigen Modelle bleiben, wie sie waren',
+    lauf: (M) => {
+      const tab = [
+        ['claude-sonnet-4-6', '{}', 900],
+        ['claude-haiku-4-5-20251001', '{}', 900],
+        ['claude-sonnet-5-5', '{"thinking":{"type":"between_tools"}}', 1215],
+        ['claude-sonnet-5', '{"thinking":{"type":"disabled"}}', 1215],
+        ['claude-sonnet-5-20260301', '{"thinking":{"type":"disabled"}}', 1215],
+        ['claude-haiku-5-5', '{"output_config":{"effort":"low"}}', 3263],
+        ['claude-sonnet-6', '{}', 3263],
+      ];
+      for (const [m, felder, budget] of tab) {
+        const zu = M.modellZusatz(m);
+        const r = M.rumpfFuerModell({ max_tokens: 900, messages: [{ role: 'user', content: 'x' }], model: 'claude-sonnet-4-5' }, m, false);
+        if (z(zu.felder) !== felder) return { ok: false, warum: m + ': Zusatz ' + z(zu.felder) + ' statt ' + felder };
+        if (r.max_tokens !== budget) return { ok: false, warum: m + ': max_tokens ' + r.max_tokens + ' statt ' + budget };
+        if (r.model !== m) return { ok: false, warum: m + ': ein `model` im Rumpf hat gewonnen (' + r.model + ')' };
+      }
+      // Sonnet 5.5 nimmt 'disabled' NICHT (400), Sonnet 5 nimmt 'between_tools' nicht — die zwei duerfen nie dieselbe Angabe bekommen.
+      if (z(M.modellZusatz('claude-sonnet-5-5').felder) === z(M.modellZusatz('claude-sonnet-5').felder)) return { ok: false, warum: 'Sonnet 5.5 und Sonnet 5 bekommen dieselbe Angabe' };
+      const ein = { max_tokens: 900, messages: [] };
+      const aus = M.rumpfFuerModell(ein, 'claude-sonnet-5-5', false);
+      if (ein.model !== undefined || ein.thinking !== undefined || ein.max_tokens !== 900 || aus === ein) return { ok: false, warum: 'der uebergebene Rumpf wurde veraendert: ' + z(ein) };
+      const ohne = M.rumpfFuerModell(ein, 'claude-sonnet-5-5', true);
+      if (ohne.thinking !== undefined || ohne.max_tokens !== 1215 + 2048) return { ok: false, warum: 'zweiter Versuch ohne Angabe: ' + z(ohne) };
+      const ohneAlt = M.rumpfFuerModell(ein, 'claude-sonnet-4-6', true);
+      if (ohneAlt.max_tokens !== 900) return { ok: false, warum: 'ein Modell ohne Angabe bekommt Denk-Luft: ' + ohneAlt.max_tokens };
+      if (M.rumpfFuerModell({ messages: [] }, 'claude-sonnet-4-6', false).max_tokens !== 1024) return { ok: false, warum: 'ohne max_tokens: kein Vorgabewert' };
+      return { ok: true, info: '900 Token: 4.6 → 900 · 5.5 → 1215 mit between_tools · 5 → 1215 mit disabled · Haiku 5.5 → 3263 mit effort low · unbekannt → 3263 ohne Angabe' };
+    },
+  },
+  {
+    name: 'Denk-Bloecke · eine Antwort, die mit `thinking` beginnt, kommt ohne ihn an — der Rest bleibt; und eine Antwort ohne ihn bleibt Byte fuer Byte',
+    lauf: (M) => {
+      const mit = z({ id: 'm1', model: 'claude-sonnet-5-5', stop_reason: 'end_turn', usage: { input_tokens: 5, output_tokens: 9 },
+        content: [{ type: 'thinking', thinking: '', signature: 'sig' }, { type: 'redacted_thinking', data: 'x' }, { type: 'text', text: '{"name":"Bärlauch"}' }] });
+      const a = JSON.parse(M.ohneDenkBloecke(mit));
+      if (a.content.length !== 1 || a.content[0].type !== 'text' || a.content[0].text !== '{"name":"Bärlauch"}') return { ok: false, warum: 'content: ' + z(a.content) };
+      if (a.usage.output_tokens !== 9 || a.stop_reason !== 'end_turn' || a.model !== 'claude-sonnet-5-5' || a.id !== 'm1') return { ok: false, warum: 'der Rest wurde veraendert: ' + z(a) };
+      const ohne = '{ "content": [ { "type": "text", "text": "ok" } ],   "usage": {"output_tokens": 1} }';
+      if (M.ohneDenkBloecke(ohne) !== ohne) return { ok: false, warum: 'eine Antwort ohne thinking wurde neu geschrieben' };
+      const werkzeug = z({ content: [{ type: 'thinking', thinking: '' }, { type: 'tool_use', id: 't', name: 'n', input: {} }] });
+      const w = JSON.parse(M.ohneDenkBloecke(werkzeug));
+      if (w.content.length !== 1 || w.content[0].type !== 'tool_use') return { ok: false, warum: 'ein tool_use-Block ging verloren: ' + z(w.content) };
+      const nur = JSON.parse(M.ohneDenkBloecke(z({ stop_reason: 'max_tokens', content: [{ type: 'thinking', thinking: '' }] })));
+      if (!Array.isArray(nur.content) || nur.content.length !== 0 || nur.stop_reason !== 'max_tokens') return { ok: false, warum: 'nur thinking: ' + z(nur) };
+      for (const roh of ['kein json', '', '{"error":{"type":"x"}}', '[1,2]', 'null']) if (M.ohneDenkBloecke(roh) !== roh) return { ok: false, warum: 'veraendert: ' + roh };
+      return { ok: true, info: '[thinking, redacted_thinking, text] → [text] · usage/stop_reason/model bleiben · ohne thinking: dieselbe Zeichenkette · tool_use bleibt' };
+    },
+  },
+  {
+    name: 'Ein Modell rufen · nimmt es die Angabe zum Nachdenken nicht an (400), geht derselbe Aufruf EINMAL ohne sie, mit Platz zum Denken und einem Satz; ein anderes 400 wird nicht wiederholt',
+    lauf: async (M) => {
+      const rufe = []; const saetze = [];
+      const sende = (plan) => async (rumpf) => { rufe.push(rumpf); return plan(rumpf, rufe.length); };
+      const gut = z({ content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: 'T' }] });
+      const a = await M.rufeModell('claude-sonnet-5-5', { max_tokens: 900, messages: [] }, sende((r) => (r.thinking
+        ? { status: 400, text: '{"type":"error","error":{"type":"invalid_request_error","message":"thinking.type: unknown value between_tools"}}' }
+        : { status: 200, text: gut })), (x) => saetze.push(x));
+      if (a.status !== 200 || rufe.length !== 2 || rufe[0].thinking === undefined || rufe[1].thinking !== undefined) return { ok: false, warum: 'status ' + a.status + ' · Aufrufe ' + rufe.length + ' · ' + z(rufe.map((r) => r.thinking)) };
+      if (rufe[1].max_tokens !== 1215 + 2048 || rufe[1].model !== 'claude-sonnet-5-5') return { ok: false, warum: 'zweiter Aufruf: ' + z({ m: rufe[1].model, t: rufe[1].max_tokens }) };
+      if (JSON.parse(a.text).content.length !== 1 || JSON.parse(a.text).content[0].text !== 'T') return { ok: false, warum: 'thinking-Block nicht entfernt: ' + a.text };
+      if (saetze.length !== 1 || !/claude-sonnet-5-5/.test(saetze[0])) return { ok: false, warum: 'kein Satz dazu: ' + z(saetze) };
+      rufe.length = 0;
+      const b = await M.rufeModell('claude-sonnet-5-5', { max_tokens: 900, messages: [] }, sende(() => ({ status: 400, text: '{"error":{"message":"messages: at least one message is required"}}' })), null);
+      if (b.status !== 400 || rufe.length !== 1) return { ok: false, warum: 'ein anderes 400 wurde wiederholt: ' + rufe.length + ' Aufrufe' };
+      rufe.length = 0;
+      const c = await M.rufeModell('claude-sonnet-4-6', { max_tokens: 900, messages: [] }, sende(() => ({ status: 400, text: '{"error":{"message":"thinking is weird"}}' })), null);
+      if (rufe.length !== 1) return { ok: false, warum: 'ein Modell OHNE Angabe wurde ein zweites Mal gerufen' };
+      rufe.length = 0;
+      const fehlerText = '{"type":"error","error":{"type":"overloaded_error"},"content":[{"type":"thinking"}]}';
+      const d = await M.rufeModell('claude-sonnet-5', { max_tokens: 10, messages: [] }, sende(() => ({ status: 529, text: fehlerText })), null);
+      if (d.text !== fehlerText || d.status !== 529) return { ok: false, warum: 'eine Fehlerantwort wurde umgeschrieben' };
+      return { ok: true, info: '400 „thinking…" → 2. Aufruf ohne Angabe mit 3263 Token → 200, Text an erster Stelle · anderes 400: 1 Aufruf · „' + saetze[0].slice(0, 60) + '…"' };
     },
   },
   {
@@ -349,6 +429,29 @@ const RAND = [
       const d = await fahre({}, { body: { model: v[0], max_tokens: 999999, messages: [{ role: 'user', content: 'x' }] } });
       if (d.up[0].max_tokens !== 4096) return { ok: false, warum: 'max_tokens nicht gedeckelt: ' + d.up[0].max_tokens };
       return { ok: true, info: letzter + ' bleibt · claude-opus-5-5 → ' + v[0] + ' · max_tokens 999999 → 4096' };
+    },
+  },
+  {
+    name: 'ai-proxy · Sonnet 5.5 bekommt seinen Rumpf (Nachdenken aus, 900 → 1215 Token), und was mit einem thinking-Block zurueckkommt, erreicht die App als Text an erster Stelle — auch eine alte, die content[0].text liest',
+    lauf: async (M) => {
+      const mitDenken = (m) => ({ status: 200, text: z({ id: 'msg_2', model: m, stop_reason: 'end_turn',
+        content: [{ type: 'thinking', thinking: '', signature: 's' }, { type: 'text', text: '{"name":"Bärlauch"}' }], usage: { input_tokens: 20, output_tokens: 30 } }) });
+      const a = await fahre({ upstream: mitDenken }, { body: { model: 'claude-sonnet-5-5', max_tokens: 900, system: 'S', messages: [{ role: 'user', content: 'x' }], temperature: 0.2, thinking: { type: 'enabled', budget_tokens: 9999 }, tools: [{ name: 'x' }] } });
+      if (a.status !== 200 || a.up.length !== 1) return { ok: false, warum: 'status ' + a.status + ' · Aufrufe ' + a.up.length };
+      const u = a.up[0];
+      if (u.modell !== 'claude-sonnet-5-5' || u.denken !== 'between_tools' || u.max_tokens !== 1215) return { ok: false, warum: 'Rumpf an Sonnet 5.5: ' + z(u) };
+      if (u.felder !== 'max_tokens,messages,model,system,thinking') return { ok: false, warum: 'es ging mehr an Anthropic als die vier Felder plus der Zusatz: ' + u.felder };
+      if (!a.daten || !Array.isArray(a.daten.content) || a.daten.content.length !== 1 || a.daten.content[0].text !== '{"name":"Bärlauch"}') return { ok: false, warum: 'bei der App kommt an: ' + z(a.daten && a.daten.content) };
+      if (a.ins.length !== 1 || a.ins[0].zeile.model !== 'claude-sonnet-5-5' || a.ins[0].zeile.tokens_out !== 30) return { ok: false, warum: 'ai_usage: ' + z(a.ins) };
+      const b = await fahre({}, { body: { model: 'claude-sonnet-5', max_tokens: 4096, messages: [{ role: 'user', content: 'x' }] } });
+      if (b.up[0].denken !== 'disabled' || b.up[0].max_tokens !== 5530) return { ok: false, warum: 'Rumpf an Sonnet 5: ' + z(b.up[0]) };
+      const c = await fahre({ upstream: (m, n) => (n === 1 ? { status: 400, text: '{"type":"error","error":{"type":"invalid_request_error","message":"thinking.type: Input should be \'adaptive\'"}}' } : mitDenken(m)) },
+        { body: { model: 'claude-sonnet-5-5', max_tokens: 900, messages: [{ role: 'user', content: 'x' }] } });
+      if (c.status !== 200 || c.up.length !== 2 || c.up[1].denken !== '' || c.up[1].max_tokens !== 3263 || c.up[1].modell !== 'claude-sonnet-5-5') return { ok: false, warum: 'Angabe abgelehnt: status ' + c.status + ' · ' + z(c.up.map((x) => [x.modell, x.denken, x.max_tokens])) };
+      if (c.daten.content.length !== 1 || !c.log.some((l) => /KI-Einstellung abgelehnt/.test(l))) return { ok: false, warum: 'zweiter Versuch: content ' + z(c.daten.content) + ' · Log ' + z(c.log) };
+      const d = await fahre({}, { body: { model: M.MODELL_KETTEN.vision[0], max_tokens: 900, messages: [{ role: 'user', content: 'x' }] } });
+      if (d.up[0].denken !== '' || d.up[0].max_tokens !== 900 || d.up[0].felder !== 'max_tokens,messages,model,system') return { ok: false, warum: 'das bisherige Modell wurde veraendert: ' + z(d.up[0]) };
+      return { ok: true, info: '5.5: between_tools, 1215 Token, [thinking, text] → [text] · 5: disabled, 4096 → 5530 · Angabe abgelehnt → 2. Aufruf mit 3263 · ' + M.MODELL_KETTEN.vision[0] + ' unveraendert (900, kein Zusatz)' };
     },
   },
   {
