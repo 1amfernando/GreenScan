@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-10-a214",
+  "art": "frage",
+  "datum": "2026-11-10",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.56",
+  "titel": "Die tägliche geplante Aufgabe „AGENT 007“ schreibt ihre Übergaben ausserhalb des Repos und kann das Brett nicht lesen — soll sie angeschlossen werden?",
+  "an": "fernando",
+  "text": "Gemessen am 10.11.2026: Es gibt eine geplante Aufgabe „AGENT 007“ (täglich 09:53 Zürich, je Lauf eine frische Sitzung). Ihr Lauf vom 10.11. hat ein Übergabeprotokoll in einer privaten Dateiablage abgelegt, nicht im Repo, und vermerkt selbst, dass ihr GitHub-Zugang ungültig ist. Sie misst täglich den Live-Stand und kennt die Abschalt-Frist der KI-Modelle; die Code-Sitzungen im Repo wussten davon nichts, und die Routine weiss nichts von STATUS.md, vom Branch mit den Rückfallketten oder von diesem Brett. Zwei Kanäle, die einander nicht sehen. Damit die Routine das Brett lesen und beschreiben kann, braucht ihre Umgebung Zugriff auf das Repo, und ihr Auftrag müsste das Brett nennen — beides ist Fernandos Entscheid. Private Live-Einzelheiten (Sicherheitsstand) gehören weiterhin NICHT in das öffentliche Repo.",
+  "haengt_daran": "Ob Fristen und Live-Messungen der Routine die Code-Sitzungen erreichen — und ob die Agenten, die die Routine startet, ihr Wissen an einem Ort hinterlassen, den die nächsten finden.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-10-ad10"
+    }
+  ],
+  "stichworte": [
+    "geplante-aufgabe",
+    "agent-007",
+    "uebergabe",
+    "modell-rueckfallkette",
+    "austausch"
+  ]
+}

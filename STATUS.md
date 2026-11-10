@@ -4,13 +4,116 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-10-22 · **Branch**: `main` · **Version**: `v33.56` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-10 · **Branch**: `main` · **Version**: `v33.56` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-10 (jb) - Austausch: ein Brett für alle Agenten — kein Bump
+
+Fernando: *„Alle Agenten müssen sich austauschen und die Informationen so
+weiter geben dass unter einander neue ideen enstehen können und die
+intelligenz gefördert wird. Fehler sollen so auch noch effizienter verbessert
+und die App wächst dann schneller."* Die App (`index.html`, `sw.js`) ist
+unverändert — deshalb kein Bump und kein Eintrag in `GS_RELEASES`.
+
+**Gemessen** (sechs Leser-Agenten; die tragenden Zahlen selbst nachgefahren):
+
+- **125 nie gemergte Branches** (`git branch -r`: 127 Refs, 123 davon
+  `claude/lucid-cerf-*`), **101** mit eigenem STATUS-Eintrag, den auf main
+  niemand gelesen hat. Am 10.09. wurde derselbe Fehler **viermal** behoben
+  (drei Branch-Spitzen „v33.08" + main); ein kritischer Fund wurde zwischen
+  21.07. und 27.08. **13-mal** auf Branch-Spitzen „bestätigt".
+- `CLAUDE.md` §5 verwies auf „In Progress", „File Locks", „Recently shipped",
+  „Known issues" in dieser Datei — `grep -ci`: je **0**. Für „ich bin dran"
+  gab es keinen Ort. Aufgefallen ist es nicht, weil 318 von 319 PRs aus EINER
+  Sitzungslinie kamen (zwei Leser unabhängig, GitHub-API).
+- In §0 (312 Einträge) hat **keiner** eine feste Form für Idee, Frage oder
+  nächsten Schritt; das einzige Etikett dafür („Followup naechste Session")
+  steht fünfmal, alle im Mai.
+- Dieselbe Zahl stand viermal verschieden: **30 · 35 · 38 · 39** Prüfstände in
+  sechs Dateien, 219 Migrationen bei 223, „vier/fünf brauchen Postgres" bei
+  sieben. Genau EINE Übergabe-Pflicht hatte einen Auslöser (`robust_check`
+  „Memory", nur Namen).
+
+**Gebaut:**
+
+- **Das Brett** `docs/austausch/` — eine JSON-Datei je Eintrag, nie
+  umgeschrieben; acht Arten (`befund` · `idee` · `frage` · `anspruch` ·
+  `klasse` · `uebergabe` · `antwort` · `abschluss`), sechs Bezüge. Der Zustand
+  (offen · beantwortet · geschlossen · ersetzt) steht in keiner Datei, er wird
+  aus den Bezügen gerechnet. Gelesen wird der Arbeitsbaum **plus jeder
+  Remote-Ref** — ein Eintrag auf einem Branch, der nie gemergt wird, ist nach
+  einem Push für alle sichtbar und beantwortbar.
+- **Das Werkzeug** `scripts/austausch.js` (reines Node, Modul
+  `scripts/_austausch.js`): `holen` · `anstoss` · `zeige` · `suche` · `klasse`
+  · `neu` · `antworte` · `schliesse` · `einspielen` · `ernten` · `pruefen`.
+  Es **rechnet Anstösse** (Frage ohne Antwort, zwei Schreiber am selben
+  Stichwort ohne Bezug zueinander, Befund, auf den niemand baut, Fehlerklasse
+  ohne Wächter oder nie gesucht, Eintrag über Code, den es nicht mehr gibt),
+  und wer schreibt, bekommt im selben Zug die offenen Einträge ANDERER an
+  denselben Stichworten und passende Fehlerklassen gezeigt.
+- **Die Agenten-Runde** `.claude/workflows/austausch-runde.js`: Brett →
+  Sichten → **Kreuzen** (jeder Unteragent liest die Funde der anderen und baut
+  aus zwei davon etwas Neues) → Gegenprüfen → Eintragen (`einspielen`, alles
+  oder nichts).
+- **Einstieg:** `CLAUDE.md` §5 neu geschrieben, `docs/memory/09-austausch.md`,
+  `AGENTS.md` (Zeiger für KIs, die `CLAUDE.md` nicht von selbst laden),
+  `docs/memory/08-arbeitsweise.md` Schritt 0/1/8.
+- **Berichtigt:** die Prüfstand-Zahl an elf Stellen (jetzt 40), Migrationen
+  (223), „7 brauchen Postgres", drei fehlende Zeilen in der Tabelle von
+  `docs/memory/04-pruefstaende.md` (`a11y_check`, `i18n_check`, `apk_check`).
+
+**Prüfstand zuerst:** `scripts/austausch_check.js` (der 40.), gegen den alten
+Stand gefahren: **4 von 17 rot, 4 nicht prüfbar** (das Brett war leer) — keine Übergabe, der
+Prüfstand selbst in keiner `run`-Zeile, **sieben falsche Zahlen** und vier
+Stellen, an denen die Zahl nur als Wort stand, drei Einstiegsdateien ohne
+Verweis. Danach grün. Drei Gruppen: **A** das echte Brett (Form, Beleg,
+Bezüge, Wächter einer Fehlerklasse existieren als Datei + Fallkennung, ein
+offener Eintrag nennt keinen verschwundenen Code, **zur laufenden Version gibt
+es eine Übergabe** — Teil des Bumps wie der `GS_RELEASES`-Eintrag) · **B** die
+Übergabe-Dokumente (jeder `*_check` steht in `pruefstaende.sh`; 22 Zahlen an
+21 Stellen an ihren Befehl gebunden, verankert am Satz) · **C** die Regel
+selbst gegen gebaute Fälle (24 kaputte Einträge je mit dem richtigen Grund,
+Zustand und Anstösse gerechnet, das Werkzeug alles-oder-nichts, **zwei echte
+gebaute Branches**: ein Eintrag vom nie gemergten Ast erscheint, wird
+beantwortet und reist mit).
+
+**Der erste Fund über das Brett** (und der Grund, warum es das braucht): die
+tägliche geplante Aufgabe „AGENT 007" legt ihre Übergaben ausserhalb des Repos
+ab und kennt die Abschalt-Frist der KI-Modelle — das Repo kannte sie nicht.
+Nachgemessen: `garden-scan-analyze`, `plan-iterate` und
+`plant-doctor-diagnose` nennen als einziges Modell eines, das Anthropic im
+Juni abgeschaltet hat; `ai-proxy` fällt auf `claude-sonnet-4-5` zurück,
+**Abschaltung 30.11.2026**. Die Rückfallketten dafür liegen seit dem 09.09.
+fertig auf einem nie gemergten Branch (`e74c453`), während Sektion 2 sie als
+offene Schuld führt. Drei Stellen wussten je ein Drittel. Steht als Befund auf
+dem Brett; **behoben ist es nicht.**
+
+**Drei Lehren:**
+
+- **Ein Bezug über die Branch-Grenze nimmt sein Ziel mit.** Das Werkzeug liest
+  alle Branches, der Prüfstand nur den Arbeitsbaum — eine Antwort auf einen
+  Eintrag vom fremden Ast wäre in CI ein Bezug ins Leere gewesen. Gefunden
+  beim Bau des Falls mit zwei echten Branches.
+- **Bevor man eine Regel erzwingt, misst man, ob sie erfüllbar ist.** Der Fall
+  „kein Austausch-Skript nennt einen App-Funktionsnamen" wäre nie grün
+  geworden: die App definiert Funktionen namens `k`, `n`, `text`, `regel`.
+- **Ein Anker, der zweimal trifft, bindet nichts** — und §0 dieser Datei
+  zitiert alte Stände wörtlich. Gebunden ist deshalb nur §1.
+
+**Nicht geprüft:** ob Claude Code einen Workflow aus `.claude/workflows/` in
+einer Cloud-Sitzung per Namen auflöst (nicht dokumentiert; `scriptPath` geht
+immer); ob die Hoster `.claude/` ausliefern; ob die ausgelieferten
+Edge-Functions dem Repo entsprechen.
+
+**Für Fernando:** `node scripts/austausch.js --an fernando` zeigt, was auf dich
+wartet. Zwei Dinge: die Modell-Frist **30.11.2026**, und ob „AGENT 007" ans
+Brett angeschlossen werden soll (dafür braucht ihre Umgebung Zugriff auf das
+Repo, und ihr Auftrag müsste das Brett nennen).
 
 ### 2026-10-22 (ja) - v33.56: Teilen → GreenScan auch in der Android-App
 
@@ -15217,7 +15320,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **96'660 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **583 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 39** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **40** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung) und `austausch.js` (das Brett-Werkzeug, `CLAUDE.md` §5). `scripts/pruefstaende.sh` fährt **alle 40** — seit 10.11.2026 hält `austausch_check` B1/B2 diese Zahl und die der Migrationen und Edge-Verzeichnisse an ihrem Befehl fest (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -15264,6 +15367,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Zwei Oberflächen ohne Einstieg** | *(waren sechs — v33.05 hat jeden Eintrag einzeln auf seine WIRKUNG geprüft: zwei verdrahtet, zwei überholte entfernt, siehe (gx).)* Es bleiben `gsSafetyDefaults` — verdrahten ändert den **Sicherheitstext** vieler Detailseiten, das entscheidet kein Prüfstand — und `gsAROpen`: `ar_models` hat 30 Zeilen, davon **0 mit `gltf_url` und 0 mit `low_poly_url`** (09.09.2026, nur lesend gemessen). Es gibt kein einziges 3D-Modell; die Frage ist damit keine Code-Frage mehr, sondern ob Modelle beschafft werden. |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
 | Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
+| **Fragen an Fernando auf dem Brett** | Seit 10.11.2026 stehen Fragen, die eine Sitzung nicht selbst entscheiden kann, auch auf dem Brett: `node scripts/austausch.js --an fernando`. Stand heute: ob die geplante Aufgabe „AGENT 007“ ans Brett angeschlossen wird; dazu der Befund zur Modell-Abschaltung am **30.11.2026**. (jb) |
 
 ### Technische Schuld, benannt und bewusst offen
 

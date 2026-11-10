@@ -22,12 +22,13 @@
 index.html            die App (Funktions-Praefixe: gs* oeffentlich · _gs* intern · sb* Supabase · dq* Quiz)
 data/plants.v1.js     Artenliste · data/releases.v1.js  Changelog-Archiv
 sw.js                 Service Worker (Cache-Version = App-Version)
-scripts/              35 Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh (alle)
+scripts/              40 Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh (alle) + austausch.js (das Brett)
 supabase/functions/   Edge-Functions; _shared/*.mjs = Regeln, die Deno UND Node importieren
 supabase/migrations/  SQL, alle idempotent; „nicht angewandt" steht dabei, bis es angewandt ist
 docs/                 lebende Doku (KALENDER-V1, PLANER-V3, SCANNER-V3, OEKOSYSTEM-V1, FUER-FERNANDO)
 docs/_archiv/         52 historische Auftraege — nicht die Gegenwart
-CLAUDE.md             das ausfuehrliche Tagebuch (1'400 Zeilen) · STATUS.md  was laeuft · ROADMAP.md  was kommt
+docs/austausch/       das Brett: was Sitzungen und Agenten einander hinterlassen (09-austausch.md)
+CLAUDE.md             das ausfuehrliche Tagebuch · STATUS.md  was laeuft · ROADMAP.md  was kommt
 ```
 
 `docs/`, `scripts/`, `supabase/` werden mit ausgeliefert (Web-Root = Repo) —

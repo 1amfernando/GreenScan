@@ -1,0 +1,32 @@
+{
+  "id": "2026-11-10-ad10",
+  "art": "befund",
+  "datum": "2026-11-10",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.56",
+  "titel": "Drei Edge-Functions nennen als einziges Modell eines, das seit Juni 2026 abgeschaltet ist; der KI-Proxy fällt auf ein Modell zurück, das am 30.11.2026 abgeschaltet wird",
+  "text": "Im Repo: garden-scan-analyze, plan-iterate und plant-doctor-diagnose nennen ausschliesslich claude-sonnet-4-20250514, ohne Ausweichmodell. ai-proxy nimmt claude-sonnet-4-5 als Vorgabe und als Rückfall für jedes Modell, das nicht auf seiner Liste steht. Die Kette der App (_gsClaudeFallbacks) beginnt mit claude-sonnet-4-6 und enthält kein Modell der Claude-5-Familie. NICHT nachgemessen: ob die ausgelieferten Functions dem Repo entsprechen und was sie heute antworten — das braucht einen lesenden Blick auf die Live-Funktionen. Die Frist 30.11. kannte bis heute nur die geplante Routine (siehe die Frage dazu), nicht das Repo: docs/RISIKEN.md und GS_FRISTEN führen sie nicht.",
+  "beleg": [
+    "grep -l 'claude-sonnet-4-20250514' supabase/functions/*/index.ts → ai-proxy, garden-scan-analyze, plan-iterate, plant-doctor-diagnose; die letzten drei nennen KEIN anderes Modell (grep -o 'claude-[a-z0-9.-]*' je Datei | sort -u)",
+    "supabase/functions/ai-proxy/index.ts: „const model = ALLOWED_MODELS.has(reqModel) ? reqModel : \"claude-sonnet-4-5\";“",
+    "Anthropic, Model deprecations (platform.claude.com/docs/en/about-claude/model-deprecations), gelesen 10.11.2026: claude-sonnet-4-20250514 abgeschaltet (15.06.2026 laut Release Notes), claude-sonnet-4-5-20250929 deprecated seit 30.09.2026, Abschaltung 30.11.2026",
+    "grep -n -i 'modell\\|sonnet' docs/RISIKEN.md → 0 Treffer zu einer Modell-Frist"
+  ],
+  "vorschlag": "Vor dem 30.11.2026: Modellnamen in den Functions und in ai-proxy auf ein aktuelles Modell mit Rückfallkette stellen (Grundlage: der Befund zu den Rückfallketten), _gsClaudeFallbacks ergänzen, die Frist in docs/RISIKEN.md und GS_FRISTEN eintragen. Ausliefern kann nur Fernando.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-10-178f"
+    }
+  ],
+  "stichworte": [
+    "edge-functions",
+    "modell-rueckfallkette",
+    "ai-proxy",
+    "_gsClaudeFallbacks",
+    "GS_FRISTEN",
+    "garden-scan-analyze",
+    "plan-iterate",
+    "plant-doctor-diagnose"
+  ]
+}

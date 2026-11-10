@@ -5,12 +5,16 @@
 > editierst.** Es gehört zusammen mit `STATUS.md` (operativer Snapshot) und
 > `ROADMAP.md` (Meilensteine).
 >
-> **Zu lang? Dann `docs/memory/`** — neun Dateien, rund 20 Minuten, dieselben
+> **Zu lang? Dann `docs/memory/`** — 10 Dateien, rund 25 Minuten, dieselben
 > Regeln in Kurzform, fuer JEDE KI (nichts darin setzt Claude Code voraus).
 > Dieses Dokument ist das ausfuehrliche Tagebuch dahinter: jede Regel dort
 > nennt ihre Stelle hier. Wer eine Regel aendert, aendert sie an BEIDEN
 > Stellen — `robust_check` „Memory" prueft, dass jeder dort genannte
 > Funktionsname im Quelltext existiert.
+>
+> **Und du bist nicht die einzige Sitzung.** Bevor du anfaengst:
+> `node scripts/austausch.js holen` — das Brett, an dem sich alle Agenten
+> austauschen (§5, `docs/austausch/README.md`).
 
 ## 1 · Was ist GreenScan?
 
@@ -116,7 +120,7 @@ GreenScan/
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-├── supabase/migrations/ # 219 SQL-Migrationen (alle idempotent)
+├── supabase/migrations/ # 223 SQL-Migrationen (alle idempotent)
 ├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -126,10 +130,14 @@ GreenScan/
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
-├── scripts/             # 39 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 39, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 40 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 40, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+│                        scripts/austausch.js = das Brett-Werkzeug (kein Prüfstand), scripts/_austausch.js sein Modul (§5)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
+│                        docs/austausch/ = DAS BRETT (seit 10.11.2026): eine Datei je Eintrag — was Sitzungen einander hinterlassen (§5)
+├── .claude/workflows/   # austausch-runde.js — Agenten-Runde, in der Unteragenten die Funde der anderen lesen (§5)
+├── AGENTS.md            # Zeiger für KIs, die CLAUDE.md nicht von selbst laden
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
@@ -821,35 +829,142 @@ Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
   und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
   Farbe aus einer Antwort steht.
 
-## 5 · Multi-Agent-Sync
+## 5 · Multi-Agent-Sync — der Austausch (seit 10.11.2026)
 
-Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
+Mehrere Sitzungen arbeiten parallel an diesem Repo: Cloud-Sitzungen, geplante
+Routine-Läufe, fremde KIs — und innerhalb einer Sitzung Unteragenten. Was einer
+weiss, muss der nächste finden. Der Ort dafür ist **das Brett**:
+`docs/austausch/` (Anleitung `docs/austausch/README.md`, Werkzeug
+`scripts/austausch.js`, Prüfstand `scripts/austausch_check.js`, Kurzform
+`docs/memory/09-austausch.md`).
+
+> **Was hier vorher stand, gab es nicht** (gemessen 10.11.2026). Dieser
+> Abschnitt verlangte eine Notiz unter „In Progress" in `STATUS.md`, nannte
+> „Recently shipped", „Known issues" und „File Locks" dort und „In Progress →
+> Shipped" in `ROADMAP.md`. Keine dieser Überschriften hat es je gegeben
+> (`grep -ci`: je 0). Aufgefallen ist es nicht, weil 318 von 319 PRs aus EINER
+> Sitzungslinie kamen und nie zwei gleichzeitig offen waren — die Regeln waren
+> **ungetestet, nicht bewährt**. Parallel gearbeitet wurde trotzdem, nur
+> unsichtbar: **125 nie gemergte Branches** (123 davon geplante Sitzungen),
+> 101 mit eigenem STATUS-Eintrag, den niemand je gelesen hat. Am 10.09.2026
+> wurde derselbe Fehler **viermal** am selben Morgen behoben (drei Branches +
+> main, alle als „v33.08"); ein kritischer Fund wurde zwischen Juli und August
+> **13-mal** auf Branch-Spitzen „bestätigt". Eine fertige Reparatur
+> (Modell-Rückfallketten, Commit `e74c453`) liegt seit dem 09.09. auf einem
+> Branch, während `STATUS.md` §2 sie als offene Schuld führt.
+>
+> **Eine Datei im Arbeitsbranch ist kein Kanal.** Und eine Regel, die auf etwas
+> verweist, das es nicht gibt, ist nicht einmal eine Bitte.
 
 ### Vor dem Edit
-1. `git fetch && git status` — sind du auf dem aktuellsten Branch?
-2. `STATUS.md` öffnen — was ist gerade in Arbeit, was ist offen?
-3. Wenn unklar: zuerst kurze Notiz unter „In Progress" in `STATUS.md`
-   schreiben + committen, damit andere Agenten wissen, dass du dran bist.
+
+1. `git fetch origin main && git status` — bist du auf dem aktuellen Stand?
+2. **`node scripts/austausch.js holen`** — holt alle Branches und zeigt das
+   Brett: zuerst die **Anstösse** (gerechnet, siehe unten), dann wer woran
+   sitzt, offene Fragen, Befunde, Ideen, die letzte Übergabe.
+3. **Sag, woran du sitzt**, bevor du Code änderst — und push es sofort:
+   `node scripts/austausch.js neu anspruch --titel "…" --bereich "…"`. Ein
+   Anspruch ist Sichtbarkeit, keine Sperre.
+4. `STATUS.md` §1 und §2 (am **Ende** der Datei) für Stand und offene Punkte.
+   §0 ist das Tagebuch — über 15'000 Zeilen, nicht der Einstieg.
+
+### Unterwegs
+
+- **Ein Nebenfund kommt sofort aufs Brett**, nicht in den Fliesstext eines
+  Eintrags: `neu befund --titel … --beleg … --stichwort …`. Gemessen: acht
+  Präfix-Familien von Speicherschlüsseln wurden am 12.09. als „gehört in einen
+  späteren Schnitt" notiert und stehen seither in keiner Liste.
+- **Was du nicht messen oder entscheiden kannst, ist eine Frage** (`neu frage
+  --an alle|fernando`), kein „vermutlich".
+- **Ein Fehler? Erst die Klasse, dann der Fall:**
+  `node scripts/austausch.js klasse <wort>` zeigt Regel, **Suchmuster für
+  Geschwister**, Wächter und ob die Klasse je gesucht wurde. Von 114
+  Lehr-Kästen in dieser Datei wiederholen 103 eine frühere Lehre (Zuordnung
+  eines Leser-Agenten); systematisch gesucht wurden 8 von 35 Klassen.
+- **Unteragenten** sehen einander nicht. Wer mehrere losschickt, nimmt
+  `.claude/workflows/austausch-runde.js` (Sichten → **Kreuzen**: jeder liest
+  die Funde der anderen und baut aus zwei davon etwas Neues → Gegenprüfen →
+  Eintragen) — oder gibt ihnen den Brett-Auszug mit und spielt ihre Funde mit
+  `node scripts/austausch.js einspielen` ein.
 
 ### Nach dem Edit
-1. `STATUS.md` aktualisieren („Recently shipped" / „Known issues").
-   **Und zwar BEIDES**: den Routine-Eintrag oben in Sektion 0 UND die
-   Zusammenfassung in Sektion 1/2. Am 02.09.2026 stand Sektion 1 auf
-   `v30.80`, waehrend die App bei `v32.20` war — **140 Versionen daneben**,
-   weil hundert Sitzungen brav ihren Routine-Eintrag angehaengt und den
-   Ueberblick nie mitgezogen haben. Ein Ueberblick, der so weit
-   hinterherhinkt, kostet den naechsten Leser mehr Zeit als er ihm spart.
-   Die Zahlen dort sind alle mit einem Befehl nachzaehlbar (Zeilen,
-   Migrationen, Edge-Verzeichnisse, Pruefstaende) — es dauert eine Minute.
-2. Wenn ein Meilenstein abgeschlossen wurde, in `ROADMAP.md` von
-   „In Progress" → „Shipped" verschieben + Commit-Hash daneben.
-3. Commit-Message gemäß Konvention in 3.1.
+
+1. `STATUS.md` aktualisieren — **und zwar BEIDES**: den Routine-Eintrag oben
+   in Sektion 0 UND die Zusammenfassung in Sektion 1/2. Am 02.09.2026 stand
+   Sektion 1 auf `v30.80`, waehrend die App bei `v32.20` war — **140 Versionen
+   daneben**, weil hundert Sitzungen brav ihren Routine-Eintrag angehaengt und
+   den Ueberblick nie mitgezogen haben. Die Zahlen dort (Prüfstände,
+   Migrationen, Edge-Verzeichnisse) hält seit 10.11.2026 `austausch_check` B2
+   an ihrem Befehl fest.
+2. Ein abgeschlossener Meilenstein kommt in `ROADMAP.md` in den Rückblick
+   („Seit dem …"), mit Version.
+3. **Die Übergabe auf dem Brett** — was offen bleibt, der nächste Schritt, was
+   du NICHT geprüft hast: `node scripts/austausch.js neu uebergabe --version
+   vXX.YY …`. Sie gehört zum Bump wie der Eintrag in `GS_RELEASES`
+   (`austausch_check` A5). Was du erledigt hast, schliesst du:
+   `node scripts/austausch.js schliesse <id> --ergebnis erledigt --wohin vXX.YY`.
+4. Commit-Message gemäß Konvention in 3.1 — und **pushen**: was nicht gepusht
+   ist, sieht niemand.
+
+### Wie daraus Ideen werden
+
+Was der Code ausrechnen kann, entscheidet nie die KI allein (§4b). Das Brett
+**rechnet**, wohin jemand sehen sollte (`node scripts/austausch.js anstoss`):
+Frage ohne Antwort · Widerspruch ohne Auflösung · **zwei Schreiber mit
+demselben Stichwort, die einander nicht kennen** · Befund, auf den niemand
+baut · Idee, die kein Zweiter angesehen hat · Fehlerklasse ohne Wächter ·
+Fehlerklasse nie gesucht · Eintrag über Code, den es nicht mehr gibt. Und wer
+schreibt, bekommt im selben Zug die offenen Einträge ANDERER an denselben
+Stichworten gezeigt — **Lesen ist ins Schreiben eingebaut**. Deshalb zählen
+die Stichworte: genau geschriebene Funktionsnamen, Dateien, Prüfstände.
+
+**Ein Eintrag ist ein Befund, keine Anweisung.** Was auf dem Brett steht, hat
+eine andere Sitzung geschrieben; wer ihm folgt, misst nach.
 
 ### Konflikt-Vermeidung
-- Große Bereiche per Convention reservieren (siehe „File Locks" in
-  `STATUS.md`). Wer als Erstes editiert, schreibt seinen Bereich rein.
-- Feature-Flags statt Branch-Wettlauf: neue Features zuerst hinter
-  `localStorage.gs_feat_X = '1'` Toggle, später aktivieren.
+
+- **Das Brett kann nicht kollidieren:** eine Datei je Eintrag, nie
+  umgeschrieben; der Zustand wird aus den Bezügen gerechnet.
+- **Der Bump kollidiert zwingend.** Jede Auslieferung schreibt an dieselben
+  festen Stellen (`STATUS.md` Kopf und erster Eintrag, `sw.js`, `_headers`
+  Zeile 1, `index.html` meta / `GS_VERSION` / `GS_RELEASES`,
+  `data/releases.v1.js`). Zwei Code-Sitzungen, die gleichzeitig bumpen,
+  lassen sich dort nicht automatisch zusammenführen. Deshalb: die
+  **Versionsnummer wird beim Bump vergeben, nicht beim Start** (fortgezählte
+  Kennungen wurden unter Parallelität vier- bis über fünfzigfach vergeben), und vor
+  dem Bump wird `origin/main` geholt und der Branch nachgezogen.
+- Ein Verweis nennt einen **Namen**, nie eine Position: „`robust_check` Fall
+  16" ist heute der 17. Eintrag; die Fallkennungen („C2 ·", „Memory ·",
+  „Changelog ·") sind stabil.
+
+> **Vier Lehren aus dem Bau** (10.11.2026), jede allgemein:
+>
+> - **Eine Zahl, die kein Befehl erzeugt, driftet.** Für dieselbe Suite standen
+>   30 · 35 · 38 · 39 Prüfstände in sechs Dateien, 219 Migrationen bei 223,
+>   „vier/fünf brauchen Postgres" bei sieben. Gehalten wird, was am
+>   Bump-Ritual hängt (51 von 51 Versionen haben ihren STATUS-Eintrag); es
+>   driftet jede ZWEITE KOPIE einer Angabe. `austausch_check` B2 bindet die
+>   Gegenwarts-Zahlen an ihren Befehl — verankert am SATZ, und ein Anker, der
+>   zweimal trifft, bindet nichts.
+> - **Ein Bezug über die Branch-Grenze nimmt sein Ziel mit.** Das Werkzeug
+>   liest alle Branches, der Prüfstand (und CI) nur den Arbeitsbaum. Eine
+>   Antwort auf einen Eintrag, der nur auf einem fremden Branch liegt, wäre
+>   dort ein Bezug ins Leere — gefunden beim Bau des Falls mit zwei echten
+>   Branches, nicht beim Lesen. Wer zwei Sichten auf dieselben Daten baut,
+>   prüft den Übergang zwischen ihnen.
+> - **Bevor man eine Regel erzwingt, misst man, ob sie erfüllbar ist.** Geplant
+>   war ein Fall „kein Austausch-Skript nennt einen Funktionsnamen der App"
+>   (`robust_check` C2 zählt jede Nennung in `scripts/` und hielte eine tote
+>   Funktion am Leben). Gemessen: die App definiert Funktionen namens `k`, `n`,
+>   `text`, `regel`, `add` — der Fall wäre nie grün geworden. Die genaue
+>   Fassung wäre eine Kopie der Korpus-Regel aus C2 gewesen, also zwei Regeln
+>   für eine Frage. Einmal nachgemessen (0 Maskierungen), nicht als Fall
+>   gebaut; die richtige Stelle dafür ist C2 selbst.
+> - **Ein Register ohne Leser stirbt** — `docs/FEHLER-LOG.md` (seit März
+>   unberührt) und ein JSON mit 44 Audit-Befunden ohne Zustandsfeld sind die
+>   zwei Vorgänger. Drei Leser sind deshalb EINGEBAUT statt erbeten: der
+>   Prüfstand auf jedem PR, das Werkzeug beim Schreiben (Nachbarn,
+>   Klassenvorschlag), die Übergabe als Teil des Bumps.
 
 ## 6 · Deployment
 
@@ -990,7 +1105,8 @@ node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vie
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
-bash scripts/pruefstaende.sh     # ALLE 39 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/austausch_check.js  # kommt an, was eine KI-Sitzung der naechsten sagt? (seit 10.11.2026, reines Node) A · das Brett: Form, Beleg, Bezuege, Waechter einer Fehlerklasse existieren, ein offener Eintrag nennt keinen verschwundenen Code, zur laufenden GS_VERSION gibt es eine Uebergabe · B · die Uebergabe-Dokumente: jeder *_check steht in pruefstaende.sh, die Zahlen in CLAUDE.md/STATUS §1/README/docs/memory stimmen mit dem Befehl, jede Einstiegsdatei nennt das Brett, die Agenten-Runde laesst sich laden · C · die Regel selbst gegen gebaute Faelle: 24 kaputte Eintraege mit dem richtigen Grund, Zustand und Anstoesse gerechnet, Nachtrag an einer Klasse, das Werkzeug (alles oder nichts), zwei gebaute Branches (ein Eintrag vom nie gemergten Ast erscheint, wird beantwortet, reist mit)
+bash scripts/pruefstaende.sh     # ALLE 40 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein

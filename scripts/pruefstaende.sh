@@ -72,6 +72,10 @@ run android      node scripts/android_check.js
 # Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen.
 run apk          node scripts/apk_check.js
 run risiko       node scripts/risiko_check.js
+# 10.11.2026: kommt an, was eine KI-Sitzung der naechsten sagt? Das Brett
+# (docs/austausch) und die Zahlen der Uebergabe-Dokumente. Reines Node, unter
+# 2 s; der Fall mit den zwei Branches braucht git, sonst „nicht pruefbar".
+run austausch    node scripts/austausch_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js
   TAILN=14 run einstellungen node scripts/einstellungen_check.js

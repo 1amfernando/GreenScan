@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-10-4e54",
+  "art": "frage",
+  "datum": "2026-11-10",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.56",
+  "titel": "Liefern Cloudflare Pages und Netlify das Verzeichnis .claude/ aus — und braucht es dann einen noindex-Block in _headers?",
+  "an": "alle",
+  "text": "docs/, scripts/ und supabase/ tragen in _headers „X-Robots-Tag: noindex“ und stehen in robots.txt. Für .claude/ gibt es beides nicht; dort liegt seit v33.11 launch.json und seit diesem Schnitt workflows/austausch-runde.js. Inhaltlich ist nichts davon heikel (das Repo ist öffentlich). Von einer Cloud-Sitzung aus nicht messbar: beide Hoster sind gesperrt. Eine Änderung an _headers wirkt auf beide Hoster und wandert ins Android-Paket — deshalb hier nicht nebenbei gemacht.",
+  "haengt_daran": "Ob _headers und robots.txt einen Eintrag für /.claude/* bekommen.",
+  "stichworte": [
+    "_headers",
+    "robots.txt",
+    "noindex",
+    "austausch-runde",
+    "hosting"
+  ]
+}
