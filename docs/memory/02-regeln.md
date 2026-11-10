@@ -53,6 +53,10 @@ Tagebuch in `CLAUDE.md`.
    Ob die KI erreichbar ist, fragt `gsKiVerfuegbar()` (Schluessel ODER Proxy)
    — nie `if (!key)`: seit dem 10.11.2026 hat kein Nutzer mehr einen Schluessel
    im Browser, und der Scanner sagte damit jedem „KI nicht erreichbar" (v33.57).
+   Ein Modellname steht nur in `_gsClaudeFallbacks` (App) und `MODELL_KETTEN`
+   (`_shared/modelle.mjs`); die Antwort liest `_gsAiText(data)`, nie
+   `content[0].text`; ein neues Modell braucht seinen Zusatz (`modellZusatz` /
+   `_gsModellZusatz`) — Sonnet 5.5 und 5 denken sonst von sich aus nach (v33.58).
    *(§3.4; schluessel_check, sensor_check „Lina · handeln")*
 
 8. **Texte in vier Sprachen.** `_t(key, 'Deutsch')` mit Eintrag in
