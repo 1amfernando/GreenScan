@@ -12,6 +12,8 @@
 // Region-aware: liest scan_input.region_used aus garden_plans, lädt regional_garden_calendars als Constraint.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// v33.57: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,7 +107,7 @@ Deno.serve(async (req) => {
     // Jetzt bricht der Server nach 110 s ab (Edge-Function-Limit 150 s), der Client wartet 120 s.
     let anthropicRes: Response;
     try {
-      anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      anthropicRes = await anthropicFetch("vision", {
       method: "POST",
       signal: AbortSignal.timeout(110_000),
       headers: {
@@ -114,7 +116,6 @@ Deno.serve(async (req) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
         max_tokens: 8000,
         system: buildSystemPrompt(regionalContext),
         messages,

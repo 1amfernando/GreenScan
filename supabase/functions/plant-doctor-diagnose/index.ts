@@ -24,6 +24,8 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// v33.57: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -120,7 +122,7 @@ User-Notiz: ${userNote || "keine"}
 
 Bitte Foto analysieren und vollständige Diagnose + Behandlung im JSON-Format zurückgeben.`;
 
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const r = await anthropicFetch("vision", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -128,7 +130,6 @@ Bitte Foto analysieren und vollständige Diagnose + Behandlung im JSON-Format zu
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
       system: sys,
       messages: [{
@@ -150,7 +151,9 @@ Bitte Foto analysieren und vollständige Diagnose + Behandlung im JSON-Format zu
     diagnosis: parsed.diagnosis,
     treatment_plan: parsed.treatment_plan,
     tokens_in: j?.usage?.input_tokens || 0,
-    tokens_out: j?.usage?.output_tokens || 0
+    tokens_out: j?.usage?.output_tokens || 0,
+    // v33.57: das Modell, das WIRKLICH geantwortet hat — fuer die Kostenbuchung und den Verlauf.
+    modell: String(j?.model || (r as any).gsModell || modellKette("vision", modellSecret("vision"))[0])
   };
 }
 
@@ -169,8 +172,11 @@ Deno.serve(async (req: Request) => {
     const userToken = authHdr.replace(/^Bearer\s+/i, "");
     if (!userToken) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
 
-    const sbUser = createClient(SUPABASE_URL, userToken, { auth: { persistSession: false } });
-    const { data: userData, error: userErr } = await sbUser.auth.getUser();
+    // v33.57: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
+    // ohne Argument — ein Client ohne Sitzung und ohne eigenen Authorization-Header; neuere
+    // supabase-js-Fassungen antworten darauf mit „Auth session missing" statt den Schluessel als
+    // Bearer zu schicken, und `jsr:@supabase/supabase-js@2` zieht beim Ausliefern die neueste.
+    const { data: userData, error: userErr } = await sbAdmin.auth.getUser(userToken);
     if (userErr || !userData.user) return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
     const userId = userData.user.id;
 
@@ -210,7 +216,7 @@ Deno.serve(async (req: Request) => {
       await sbAdmin.rpc("fn_log_ai_usage", {
         p_edge_fn: "plant-doctor-diagnose",
         // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
-        p_model: "claude-sonnet-4-20250514",
+        p_model: result.modell,
         p_tokens_in: result.tokens_in,
         p_tokens_out: result.tokens_out
       });
@@ -231,7 +237,7 @@ Deno.serve(async (req: Request) => {
         treatment_plan: result.treatment_plan,
         status: "open",
         followup_due_at: followupDue,
-        model: "claude-sonnet-4-20250514",
+        model: result.modell,
         tokens_in: result.tokens_in,
         tokens_out: result.tokens_out
       }).select("id").single();

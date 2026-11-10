@@ -32,14 +32,22 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Globalen Key holen ──
-    const { data: keyRow } = await sb.from('app_settings').select('value').eq('key', 'global_anthropic_api_key').maybeSingle();
-    const apiKey = (keyRow?.value || '').trim();
+    // v33.57: derselbe Leseweg wie ai-proxy — zuerst das Edge-Secret ANTHROPIC_API_KEY,
+    // erst dann app_settings. Sobald der Schluessel nur noch als Secret liegt (und die Zeile
+    // in app_settings geleert ist), meldete diese Pruefung sonst „invalid", waehrend die KI laeuft.
+    let apiKey = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
+    let quelle = 'secret';
+    if (!apiKey) {
+      const { data: keyRow } = await sb.from('app_settings').select('value').eq('key', 'global_anthropic_api_key').maybeSingle();
+      apiKey = (keyRow?.value || '').trim();
+      quelle = 'app_settings';
+    }
 
     let status = 'unknown';
     let message = '';
     if (!apiKey) {
       status = 'invalid';
-      message = 'Kein globaler Anthropic-Key hinterlegt';
+      message = 'Kein globaler Anthropic-Key hinterlegt (weder als Edge-Secret noch in app_settings)';
     } else {
       try {
         const r = await fetch('https://api.anthropic.com/v1/models?limit=1', {
@@ -48,7 +56,7 @@ Deno.serve(async (req: Request) => {
         });
         if (r.status === 200) {
           status = 'ok';
-          message = 'Key gültig · ' + new Date().toISOString().slice(0, 16).replace('T', ' ');
+          message = 'Key gültig (' + quelle + ') · ' + new Date().toISOString().slice(0, 16).replace('T', ' ');
         } else if (r.status === 401 || r.status === 403) {
           status = 'invalid';
           message = 'Key ungültig/abgelaufen (HTTP ' + r.status + ')';
