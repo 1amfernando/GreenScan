@@ -50,6 +50,9 @@ Tagebuch in `CLAUDE.md`.
    `fetch('https://api.anthropic.com')` ausserhalb von `gsTestApiKey`. Der
    Anthropic-Aufruf kennt KEIN Tool-Use — Lina handelt ueber eine Textzeile
    und `gsLinaDispatch` (Whitelist, Schreiben nur nach `gsConfirmModal`).
+   Ob die KI erreichbar ist, fragt `gsKiVerfuegbar()` (Schluessel ODER Proxy)
+   — nie `if (!key)`: seit dem 10.11.2026 hat kein Nutzer mehr einen Schluessel
+   im Browser, und der Scanner sagte damit jedem „KI nicht erreichbar" (v33.57).
    *(§3.4; schluessel_check, sensor_check „Lina · handeln")*
 
 8. **Texte in vier Sprachen.** `_t(key, 'Deutsch')` mit Eintrag in

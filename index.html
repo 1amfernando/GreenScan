@@ -32082,6 +32082,23 @@ function _gsAiTarget(key, source){
 function _gsAiDirekt(key){
   return { url: 'https://api.anthropic.com/v1/messages', headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'}, proxy: false };
 }
+// v33.57: EINE Frage — „kann diese Person gerade die KI benutzen?" — und EINE Antwort.
+// Bis v33.56 fragten vier Stellen statt dessen `if (!key)`: der Scanner (analyzeImage),
+// der Scan-Chat, die Hintergrund-Recherche einer neuen Art und der Verbindungs-Test.
+// Seit v32.68 geht der globale Schluessel durch den Proxy; mit der Migration
+// 20260907_global_api_key_nur_proxy (angewandt am 10.11.2026) hat kein Nutzer mehr einen
+// Schluessel im Browser — und genau diese vier Stellen sagten ihm „KI gerade nicht
+// erreichbar" bzw. „API-Key noetig", waehrend callVisionAI eine Zeile weiter laengst ueber
+// den Proxy gegangen waere. schluessel_check mass callAI und callVisionAI direkt, nie den
+// Weg davor; und scan_check stellte in jedem Fall einen Schluessel hin.
+// Wer wissen will, ob die KI da ist, ruft DIESE Funktion — nie `getApiConfig().key`.
+function gsKiVerfuegbar(cfg){
+  try {
+    var c = cfg || getApiConfig();
+    return !!(c && (c.key || _gsAiTarget(c.key, c.source)));
+  } catch(_){ return false; }
+}
+window.gsKiVerfuegbar = gsKiVerfuegbar;
 // v32.68: EINE Anfrage an das Ziel — mit dem Uebergangs-Rueckfall. Schweigt der
 // Proxy (Netzfehler, 404 = nicht ausgeliefert, 5xx = Server-Fehler; NICHT 429
 // Quota, NICHT 401/400) und liegt noch ein Schluessel im Arbeitsspeicher, geht
@@ -34077,16 +34094,18 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // v28.05: Früher LS-Scan-Gate (5/Tag) ENTFERNT — die server-authoritative Per-Feature-Quota
   // (callVisionAI mit quotaFeature:'scan', free 15/Tag) gilt jetzt UND nur bei echtem Claude-Call
   // (Cache-Treffer sind frei → kosten keine Quota). Warme Limit-UI via gsShowQuotaCountdown.
-  let {key} = getApiConfig();
-  // v30.92: Key EINMAL frisch nachziehen, bevor wir abbrechen. callAI/callVisionAI machen das
+  // v33.57: gefragt wird, ob die KI ERREICHBAR ist (Schluessel ODER Proxy) — nicht, ob ein
+  // Schluessel im Browser liegt. Nach der Migration „nur Proxy" hat ihn kein Nutzer mehr.
+  let _kiDa = gsKiVerfuegbar();
+  // v30.92: EINMAL frisch nachziehen, bevor wir abbrechen. callAI/callVisionAI machen das
   // laengst (mit Backoff) — analyzeImage brach als einzige Stelle sofort ab. Direkt nach dem
   // Login gab es dadurch ein Zeitfenster, in dem der erste Scan mit "API-Key wird benoetigt"
   // scheiterte, obwohl der globale Key Sekundenbruchteile spaeter da war.
-  if (!key) {
+  if (!_kiDa) {
     try { if (typeof gsPullGlobalApiKey === 'function') await gsPullGlobalApiKey(); } catch(_){}
-    try { key = getApiConfig().key; } catch(_){}
+    _kiDa = gsKiVerfuegbar();
   }
-  if(!key){
+  if(!_kiDa){
     // v23.72: Klares UI-Feedback statt stummem Dialog-Pop
     const rdN = document.getElementById('scan-result');
     if (rdN) {
@@ -34555,7 +34574,7 @@ async function gsAutoEnrichNewSpecies(r){
 
     // Nicht blockierend: im Hintergrund laufen lassen
     var apiCfg = (typeof getApiConfig === 'function') ? getApiConfig() : {};
-    if (!apiCfg.key) return;
+    if (!gsKiVerfuegbar(apiCfg)) return;   // v33.57: Schluessel ODER Proxy
 
     if (typeof showProfileToast === 'function') showProfileToast(_gsSatz('🔬 Recherchiere neue Art: {1}…', r.name));
 
@@ -36844,7 +36863,8 @@ async function sendScanChat() {
   var msg = inp ? inp.value.trim() : '';
   if (!msg) return;
   var {key, source} = getApiConfig();
-  if (!key) { gsToast('API-Key nötig', 'warn'); return; }
+  // v33.57: dieselbe Frage wie der Scanner — der Proxy braucht keinen Schluessel im Browser.
+  if (!gsKiVerfuegbar({ key: key, source: source })) { gsToast('Die KI ist gerade nicht erreichbar — bitte gleich nochmal versuchen.', 'warning'); return; }
   
   inp.value = '';
   addScanChatMsg('user', msg, false);
@@ -64053,8 +64073,14 @@ window.gsPPTestConnection = async function(btnEl) {
   if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Teste …'; }
   var results = [];
   var cfg = (typeof getApiConfig === 'function') ? getApiConfig() : {provider:'?', key:''};
-  // 1) Hat User einen Key?
-  results.push({ ok: !!cfg.key, label: 'API-Key gesetzt', detail: cfg.key ? (cfg.provider + ' · ' + cfg.key.slice(0,8) + '…') : 'Kein Key — bitte oben rechts eintragen' });
+  // 1) Hat User einen Key — oder laeuft die KI ueber den GreenScan-Server?
+  // v33.57: ohne Schluessel im Browser ist das der Normalfall, kein Fehler. Vorher stand hier
+  // fuer jeden Nutzer „Kein Key — bitte oben rechts eintragen", und eintragen darf ihn niemand.
+  if (!cfg.key && gsKiVerfuegbar(cfg)) {
+    results.push({ ok: true, label: 'KI-Zugang', detail: 'Über den GreenScan-Server — auf diesem Gerät liegt kein Schlüssel, und das ist richtig so.' });
+  } else {
+    results.push({ ok: !!cfg.key, label: 'API-Key gesetzt', detail: cfg.key ? (cfg.provider + ' · ' + cfg.key.slice(0,8) + '…') : 'Kein Zugang zur KI — bitte neu anmelden.' });
+  }
   // 2) Internet allgemein erreichbar?
   try {
     var t0 = Date.now();
@@ -76378,25 +76404,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 window.GS_RELEASES = [
   {
     v: 'v33.57', date: '10.11.2026',
-      headline: 'Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus',
-      summary: 'Fünf Dinge, alle gemessen. (1) Rezept → Art: 524 Einträge geprüft, bei 239 zeigte der Link auf eine andere Art als die Hauptzutat, bei 84 auf eine als giftig geführte, 17 davon mit Giftstufe 3 oder höher (Pfifferling-Rahmsauce → Maiglöckchen, Morchel → Herbstzeitlose). Die Verknüpfung lief über eine Namens-Teilsuche; jetzt trägt jedes Rezept geprüfte Arten-Ids, und eine giftige Art wird aus einem Rezept nie geöffnet. (2) Fruchtfolge: GS_TRACHTEN_IDS führte Knollensellerie zum Grünen Knollenblätterpilz (Giftstufe 5) und Rettich zum Rettichfälbling; alle 37 Kulturen einzeln gegen die Artenliste gehalten. (3) KI-Modelle: claude-sonnet-4-5 wird am 30.11.2026 abgeschaltet, vier weitere Namen der Rückfallkette sind es schon; es gibt jetzt EINE Liste mit drei gültigen Modellen. (4) Der geteilte Scan-Cache ist aus: eine Tabelle für alle Konten, ein 64-Bit-Hash aus 9×8 Bildpunkten, der erste Eintrag gewinnt — ein fremder Treffer hätte die Bestimmung ersetzt. (5) Vier Fehler aus dem Wochenplan KW45: „Keine bekannten Risiken“ stand als Warnung da, der Ersatz-Ort Zürich wurde gespeichert und sperrte danach das GPS, der Zurück-Knopf im Geräte-Dashboard warf einen Fehler, und ohne Website-Speicher startete die App nicht. Auf der Datenbank am selben Tag: der globale KI-Schlüssel geht nur noch an Admins, Rollenfragen zu fremden Konten nur noch an Staff, und die zwei toten Admin-Knöpfe sind freigeschaltet.',
-      user_summary: 'Ein Rezept führt jetzt nur noch zu der Pflanze, die wirklich gemeint ist — und nie zu einer giftigen. Dasselbe gilt für die Fruchtfolge. Die KI ist auf die aktuellen Modelle umgestellt, damit der Scanner Ende November nicht ausfällt, und jeder Scan wird frisch bestimmt.',
+      headline: 'Scanner und Scan-Chat laufen auch ohne Schlüssel im Browser',
+      summary: 'Am 10.11.2026 wurde die Migration 20260907_global_api_key_nur_proxy angewandt: der Server gibt den Anthropic-Schlüssel nur noch Admins heraus, alle anderen rufen die KI über den Proxy. Vier Stellen fragten aber weiter „liegt ein Schlüssel im Browser?“ statt „ist die KI erreichbar?“. Der Scanner (analyzeImage) zeigte damit jedem Nutzer ohne Admin-Rolle „KI gerade nicht erreichbar“, der Scan-Chat „API-Key nötig“ — im Prüfstand nachgestellt: 0 Aufrufe an den Proxy. Jetzt beantwortet EINE Funktion die Frage (gsKiVerfuegbar: Schlüssel ODER Proxy), und alle vier Stellen rufen sie. Warum es niemand sah: schluessel_check mass callAI und callVisionAI direkt, nie den Weg davor, und scan_check stellte in jedem Fall einen Schlüssel hin.',
+      user_summary: 'Die Bestimmung per Foto und die Rückfragen zu einem Scan funktionieren wieder für alle angemeldeten Nutzer. Nach einer Sicherheits-Umstellung auf dem Server hatte der Scanner fälschlich „KI gerade nicht erreichbar“ gemeldet.',
       user_items: [
-        {emoji:'🍄', bold:'Rezepte zeigen auf die richtige Art:', text:' bei 239 Rezepten führte der Link zu einer anderen Pflanze als der Hauptzutat, bei einigen zu einer giftigen. Das ist berichtigt, und eine giftige Art wird aus einem Rezept nie mehr geöffnet.'},
-        {emoji:'🥬', bold:'Fruchtfolge:', text:' „Knollensellerie“ führte zum Grünen Knollenblätterpilz, „Rettich“ zu einem Giftpilz. Alle 37 Kulturen zeigen jetzt auf die richtige Pflanze.'},
-        {emoji:'🤖', bold:'Die KI bleibt erreichbar:', text:' das bisherige KI-Modell wird Ende November abgeschaltet. GreenScan fragt jetzt die aktuellen.'},
-        {emoji:'🔬', bold:'Jeder Scan wird frisch bestimmt:', text:' ein Zwischenspeicher, den alle Konten teilten, ist abgeschaltet — ein fremdes Ergebnis kann nie an die Stelle deiner Bestimmung treten.'},
-        {emoji:'✅', bold:'Kein falscher Alarm:', text:' „Keine bekannten Risiken“ steht nicht mehr mit Warnzeichen da.'},
-        {emoji:'📍', bold:'Standort:', text:' ohne GPS-Freigabe zeigt die App weiter das Wetter für Zürich, merkt sich diesen Ersatz aber nicht mehr — sobald du den Standort erlaubst, gilt deiner.'}
+        {emoji:'📷', bold:'Scanner:', text:' bestimmt wieder. Die Meldung „KI gerade nicht erreichbar“ kam fälschlich, obwohl die KI erreichbar war.'},
+        {emoji:'💬', bold:'Fragen zum Scan:', text:' der Chat unter dem Ergebnis antwortet wieder, statt nach einem API-Key zu fragen.'},
+        {emoji:'🔒', bold:'Sicherer:', text:' der KI-Schlüssel liegt nicht mehr auf deinem Gerät — alle Anfragen laufen über den GreenScan-Server.'}
       ],
       items: [
-        {emoji:'📏', bold:'Gemessen, Rezepte:', text:' recipe_link_check gegen v33.56 meldet 699 Verstösse (17 doppelte Rezept-Ids, 17 Links auf Giftstufe ≥ 3, 68 auf als giftig geführte Arten, 31 nicht essbare Ziele, 12 Ids ohne Art, 25 äusserliche Anwendungen als Lebensmittel); gegen v33.57 keinen.'},
-        {emoji:'🔗', bold:'Verknüpfung nur per Id:', text:' plantIds, plantKw und plantIdsBlocked je Rezept; die Sperre gilt, sobald EIN Eintrag der Art giftig geführt ist; 43 Rezepte haben bewusst keinen Link (34 gesperrt, 9 ohne eindeutige Art). 17 doppelte Rezept-Ids tragen jetzt die Endung _2.'},
-        {emoji:'🧭', bold:'GS_TRACHTEN_IDS:', text:' 37 Kulturen, jede Id gegen data/plants.v1.js gehalten (Name, Binomen, Kategorie, Giftstufe); zwei ohne passende Art bleiben ohne Link.'},
-        {emoji:'🤖', bold:'Eine Modellliste:', text:' window._gsClaudeFallbacks = claude-sonnet-5-5, claude-sonnet-5, claude-sonnet-4-6; gsTestApiKey, Scan-Chat und der Schlüssel-Wächter lesen daraus, und die Kette springt am Ende an den Anfang. Quelle: Anthropic-Abkündigungsseite, gelesen am 10.11.2026.'},
-        {emoji:'🗄️', bold:'GS_SCAN_CACHE_GETEILT = false:', text:' scan_check stellt einen fremden Treffer unter den Hash des Fotos — gegen v33.56 stand er als Bestimmung da, und die KI wurde 0× gefragt.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' scan_check 76 → 77 (Cache), robust_check unverändert grün; die Rezept-Prüfung liegt als scripts/rezept_link_check.js im Repo und läuft in pruefstaende.sh.'},
-        {emoji:'🛠️', bold:'Datenbank (am 10.11.2026 angewandt):', text:' 20260907_global_api_key_nur_proxy, 20260831_rollen_leak_fix_v30_95, v31_36_mkt_views_auth_guard, 20260924_admin_grants.'}
+        {emoji:'📏', bold:'Gemessen:', text:' schluessel_check „Der Weg davor“ im Proxy-Modus ohne Schlüssel, zwei Gegenproben: mit dem alten Scanner-Tor zeigt die Karte „KI gerade nicht erreichbar“ bei 0 Aufrufen an den Proxy, mit dem alten Chat-Tor kommt die Meldung „API-Key nötig“.'},
+        {emoji:'🧩', bold:'gsKiVerfuegbar(cfg):', text:' wahr bei Schlüssel ODER Proxy-Ziel (_gsAiTarget), falsch ohne beides und ohne Anmeldung. Aufrufer: analyzeImage, sendScanChat, die Hintergrund-Recherche einer neuen Art und gsPPTestConnection (zeigt „KI-Zugang über den GreenScan-Server“ statt „Kein Key — bitte oben rechts eintragen“).'},
+        {emoji:'🧪', bold:'Prüfstand:', text:' schluessel_check 10 → 11 Fälle. Der neue geht den Weg, den ein Scan wirklich geht — Sperren gestellt wie in scan_check, nur der Schlüssel nicht; der gestellte Proxy antwortet mit stellbarem Text, Meldungen werden mitgeschrieben.'},
+        {emoji:'⚠️', bold:'Ursache, ehrlich:', text:' die Migration galt seit v32.68 als verträglich; geprüft war das an callAI und callVisionAI, nicht am Scanner davor. Zwischen dem Anwenden (10.11.2026, 22:15 Uhr) und dieser Auslieferung war der Scanner für Nutzer ohne Admin-Rolle nicht benutzbar.'},
+        {emoji:'🛠️', bold:'Datenbank (am 10.11.2026 angewandt):', text:' 20260907_global_api_key_nur_proxy, 20260831_rollen_leak_fix_v30_95 und 20260924_admin_grants; v31_36_mkt_views_auth_guard war schon seit dem 01.09.2026 in Kraft und wurde unverändert noch einmal eingespielt.'}
       ]
   },
   {
