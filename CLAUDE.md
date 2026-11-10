@@ -864,14 +864,20 @@ weiss, muss der nächste finden. Der Ort dafür ist **das Brett**:
    sitzt, offene Fragen, Befunde, Ideen, die letzte Übergabe.
 3. **Sag, woran du sitzt**, bevor du Code änderst — und push es sofort:
    `node scripts/austausch.js neu anspruch --titel "…" --bereich "…"`. Ein
-   Anspruch ist Sichtbarkeit, keine Sperre.
+   Anspruch ist Sichtbarkeit, keine Sperre — und er wird vor dem PR
+   geschlossen: ein offener gehört auf deinen Branch, nicht nach `main`
+   (`austausch_check` A6).
 4. `STATUS.md` §1 und §2 (am **Ende** der Datei) für Stand und offene Punkte.
    §0 ist das Tagebuch — über 15'000 Zeilen, nicht der Einstieg.
 
 ### Unterwegs
 
 - **Ein Nebenfund kommt sofort aufs Brett**, nicht in den Fliesstext eines
-  Eintrags: `neu befund --titel … --beleg … --stichwort …`. Gemessen: acht
+  Eintrags: `neu befund --titel … --beleg … --stichwort … --anker
+  "datei::wörtliches Stück der Stelle"`. Der **Anker** ist der eine Auslöser,
+  der zum LESEN zwingt: wer die Stelle später ändert, wird in seinem eigenen
+  Prüfstand-Lauf rot (`austausch_check` A4b), mit id und Titel deines Befunds
+  — und muss ihn schliessen oder neu verankern. Gemessen: acht
   Präfix-Familien von Speicherschlüsseln wurden am 12.09. als „gehört in einen
   späteren Schnitt" notiert und stehen seither in keiner Liste.
 - **Was du nicht messen oder entscheiden kannst, ist eine Frage** (`neu frage
@@ -901,8 +907,15 @@ weiss, muss der nächste finden. Der Ort dafür ist **das Brett**:
 3. **Die Übergabe auf dem Brett** — was offen bleibt, der nächste Schritt, was
    du NICHT geprüft hast: `node scripts/austausch.js neu uebergabe --version
    vXX.YY …`. Sie gehört zum Bump wie der Eintrag in `GS_RELEASES`
-   (`austausch_check` A5). Was du erledigt hast, schliesst du:
-   `node scripts/austausch.js schliesse <id> --ergebnis erledigt --wohin vXX.YY`.
+   (`austausch_check` A5 — genau EINE je Version; zwei wären zwei Sitzungen
+   mit derselben Versionsnummer). Was du erledigt hast, schliesst du — und
+   **Schliessen ist streng**: ein behobener Befund nennt, welcher
+   Prüfstand-Fall ihn künftig bewacht und ob nach Geschwistern gesucht wurde:
+   `node scripts/austausch.js schliesse <id> --ergebnis erledigt --wohin vXX.YY
+   --bewacht "<prüfstand> · <Fall>" --geschwister "gesucht: … → N Treffer"`.
+   „keiner, weil …" und „nicht gesucht, weil …" sind erlaubte Antworten;
+   Schweigen nicht. So bekommt „eine Fehlerklasse ist erst geschlossen, wenn
+   man sie GESUCHT hat" (v32.87) seinen Auslöser.
 4. Commit-Message gemäß Konvention in 3.1 — und **pushen**: was nicht gepusht
    ist, sieht niemand.
 
@@ -935,7 +948,8 @@ eine andere Sitzung geschrieben; wer ihm folgt, misst nach.
   dem Bump wird `origin/main` geholt und der Branch nachgezogen.
 - Ein Verweis nennt einen **Namen**, nie eine Position: „`robust_check` Fall
   16" ist heute der 17. Eintrag; die Fallkennungen („C2 ·", „Memory ·",
-  „Changelog ·") sind stabil.
+  „Changelog ·") sind stabil. Einen Brett-Eintrag zitiert man ausserhalb des
+  Bretts als `brett:<id>` — `austausch_check` A7 verlangt, dass es ihn gibt.
 
 > **Vier Lehren aus dem Bau** (10.11.2026), jede allgemein:
 >
@@ -956,10 +970,10 @@ eine andere Sitzung geschrieben; wer ihm folgt, misst nach.
 >   war ein Fall „kein Austausch-Skript nennt einen Funktionsnamen der App"
 >   (`robust_check` C2 zählt jede Nennung in `scripts/` und hielte eine tote
 >   Funktion am Leben). Gemessen: die App definiert Funktionen namens `k`, `n`,
->   `text`, `regel`, `add` — der Fall wäre nie grün geworden. Die genaue
->   Fassung wäre eine Kopie der Korpus-Regel aus C2 gewesen, also zwei Regeln
->   für eine Frage. Einmal nachgemessen (0 Maskierungen), nicht als Fall
->   gebaut; die richtige Stelle dafür ist C2 selbst.
+>   `text`, `regel`, `add` — der Fall wäre nie grün geworden. Erfüllbar ist die
+>   engere Fassung: kein Name **mit App-Präfix** (`gs…`, `_gs…`, `dq…`, `sb…`),
+>   den die App definiert (B5) — und sie trifft genau die Namen, die in
+>   Beispielen und Bausteinen stehen würden.
 > - **Ein Register ohne Leser stirbt** — `docs/FEHLER-LOG.md` (seit März
 >   unberührt) und ein JSON mit 44 Audit-Befunden ohne Zustandsfeld sind die
 >   zwei Vorgänger. Drei Leser sind deshalb EINGEBAUT statt erbeten: der

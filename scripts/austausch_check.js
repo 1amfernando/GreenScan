@@ -17,7 +17,8 @@
 // eine Bitte" (CLAUDE.md §3.1, v33.01) — hier ist der Ausloeser.
 //
 // Drei Gruppen:
-//   A · die WARE: das echte Brett (Form, Bezuege, Waechter, App-Namen, Uebergabe)
+//   A · die WARE: das echte Brett (Form, Bezuege, Waechter, Anker und App-Namen, genau eine
+//       Uebergabe je Version, kein offener Anspruch im Baum, Verweise aus den Dokumenten)
 //   B · die UEBERGABE-DOKUMENTE: Zahlen an einen Befehl gebunden, Suite vollstaendig
 //   C · die REGEL selbst: jede Pruefung laeuft gegen einen guten UND einen
 //       schlechten gebauten Fall — eine Pruefung, die alles annimmt, wird hier rot.
@@ -108,6 +109,40 @@ function zahlenPruefen(wurzel, liste) {
     }
   }
   return { fehler: f, stellen, mess };
+}
+
+// ── `brett:<id>` ist die Zitierform ausserhalb des Bretts. Ein Zitat, das auf
+//    nichts zeigt, ist ein Verweis ins Leere (dieselbe Klasse wie „Fall 16").
+function zitatePruefen(wurzel, ids) {
+  const dateien = [];
+  const sammle = (rel) => { try { fs.readdirSync(path.join(wurzel, rel)).filter(f => /\.md$/.test(f)).forEach(f => dateien.push(path.posix.join(rel, f))); } catch (_) {} };
+  sammle('.'); sammle('docs'); sammle('docs/memory'); sammle('docs/austausch');
+  const fehlt = []; let gefunden = 0, mit = 0;
+  for (const d of dateien) {
+    let t; try { t = fs.readFileSync(path.join(wurzel, d), 'utf8'); } catch (_) { continue; }
+    const z = [...t.matchAll(/\bbrett:(\d{4}-\d{2}-\d{2}-[0-9a-f]{4})\b/g)].map(m => m[1]);
+    if (z.length) mit++;
+    for (const id of z) { gefunden++; if (!ids.has(id)) fehlt.push(d + ' → brett:' + id); }
+  }
+  return { fehlt, gefunden, dateien: mit };
+}
+// ── Haelt ein Austausch-Skript eine App-Funktion am Leben? robust_check C2 zaehlt
+//    JEDEN Bezeichner in scripts/*.js als Nennung. Geprueft werden Namen mit
+//    App-Praefix (gs…, _gs…, dq…, sb…) — die allgemeine Fassung („kein Bezeichner,
+//    den die App definiert") ist nicht erfuellbar: die App definiert Funktionen
+//    namens k, n, text, regel.
+function maskierungPruefen(quelltextApp, skripte) {
+  const defs = new Set();
+  for (const m of quelltextApp.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)) defs.add(m[1]);
+  for (const m of quelltextApp.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function/g)) defs.add(m[1]);
+  const PRAEFIX = /^(_?gs[A-Z]|dq[A-Z]|sb[A-Z]|_gs[a-z])/;
+  const treffer = [];
+  for (const [name, text] of skripte) {
+    // Dieselbe Sicht wie robust_check: ganze Kommentarzeilen zaehlen nicht.
+    const t = text.replace(/^[ \t]*\/\/.*$/gm, '');
+    for (const w of new Set(t.match(/[A-Za-z_$][\w$]*/g) || [])) if (PRAEFIX.test(w) && defs.has(w)) treffer.push(name + ': ' + w);
+  }
+  return { treffer, defs: defs.size };
 }
 
 // ── Bausteine fuer die gebauten Faelle.
@@ -204,15 +239,53 @@ const FAELLE = [
     },
   },
   {
-    name: 'A5 · Uebergabe · zur laufenden Version gibt es eine Uebergabe, und sie sagt etwas ueber Offenes (oder ausdruecklich, dass nichts offen ist)',
+    name: 'A4b · Anker · die Stelle, an die ein OFFENER Eintrag gebunden ist, steht noch woertlich in ihrer Datei — wer sie aendert, liest den Eintrag (und schliesst ihn oder verankert neu)',
+    lauf: () => {
+      const b = brett();
+      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
+      const r = A.ankerPruefen(b.eintraege, (rel) => (gibt(rel) ? lies(rel) : null));
+      if (r.verloren.length) return { ok: false, warum: r.verloren.length + ' Anker verloren — du hast eine Stelle geaendert, zu der ein offener Eintrag gehoert. Lies ihn (node scripts/austausch.js zeige <id>), dann: `schliesse <id> …` (behoben/ueberholt) oder `antworte <id> --anker "datei::neuer text"` (gilt weiter). ' + r.verloren.slice(0, 5).map(x => x.id + ' „' + String(x.titel).slice(0, 70) + '" — ' + x.datei + ': ' + x.grund).join(' · ') };
+      // Gegenrichtung: ein Brett, auf dem KEIN Eintrag einen Anker traegt, haette hier nichts gemessen.
+      if (!r.geprueft) return { offen: true, warum: 'kein offener Eintrag traegt einen Anker — es gibt nichts zu pruefen' };
+      return { ok: true, info: r.geprueft + ' Anker an ' + r.eintraege + ' offenen Eintraegen, alle stehen woertlich in ihrer Datei' };
+    },
+  },
+  {
+    name: 'A5 · Uebergabe · zur laufenden Version gibt es GENAU EINE gueltige Uebergabe (eine ersetzte zaehlt nicht), und sie sagt etwas ueber Offenes — zwei waeren zwei Sitzungen mit derselben Versionsnummer',
     lauf: () => {
       const m = lies('index.html').match(/\bGS_VERSION\s*=\s*'(v\d+\.\d+)'/);
       if (!m) return { ok: false, warum: 'GS_VERSION in index.html nicht gefunden' };
-      const ueb = brett().eintraege.filter(e => e.art === 'uebergabe' && e.version === m[1]);
+      const b = brett(), zu = A.ableiten(b.eintraege).zustand;
+      const ueb = b.eintraege.filter(e => e.art === 'uebergabe' && e.version === m[1] && zu.get(e.id).z === 'notiz');
       if (!ueb.length) return { ok: false, warum: 'keine Uebergabe fuer ' + m[1] + ' — der Bump verlangt sie wie den GS_RELEASES-Eintrag: node scripts/austausch.js hilfe uebergabe' };
-      const u = ueb[ueb.length - 1];
+      // Fortgezaehlte Versionen kollidieren unter Parallelitaet (v33.08 wurde viermal vergeben).
+      // Zwei gueltige Uebergaben fuer EINE Version sind genau dieser Fall — oder eine Korrektur ohne „ersetzt".
+      if (ueb.length > 1) return { ok: false, warum: ueb.length + ' gueltige Uebergaben fuer ' + m[1] + ' (' + ueb.map(e => e.id + ' von ' + e.von).join(' · ') + ') — haben zwei Sitzungen dieselbe Version vergeben? Sonst die aeltere ersetzen: neu uebergabe … --bezug ersetzt:<id>' };
+      const u = ueb[0];
       const n = ['offen', 'naechster_schritt', 'nicht_geprueft'].reduce((s, k) => s + A.alsListe(u[k]).length, 0);
       return { ok: true, info: m[1] + ' · ' + u.id + ' · ' + (n ? n + ' offene Punkte genannt' : 'nichts offen: ' + String(u.nichts_offen || '').slice(0, 60)) };
+    },
+  },
+  {
+    name: 'A6 · Kein offener Anspruch im Baum · „ich bin dran" lebt auf dem Branch der Sitzung; vor dem PR wird er geschlossen — gemergt stuende er fuer immer als „in Arbeit" auf main',
+    lauf: () => {
+      const b = brett();
+      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
+      const zu = A.ableiten(b.eintraege).zustand;
+      const offen = b.eintraege.filter(e => e.art === 'anspruch' && zu.get(e.id).z === 'offen');
+      if (offen.length) return { ok: false, warum: offen.length + ' offene Ansprueche: ' + offen.map(e => e.id + ' „' + String(e.titel).slice(0, 60) + '" (' + e.von + ')').join(' · ') + ' — fertig? `node scripts/austausch.js schliesse <id> --ergebnis erledigt --wohin "vXX.YY"`. Noch dran? Dann ist das hier richtig rot, bis der PR kommt.' };
+      const alle = b.eintraege.filter(e => e.art === 'anspruch').length;
+      return { ok: true, info: alle + ' Ansprueche im Baum, alle geschlossen' };
+    },
+  },
+  {
+    name: 'A7 · Verweise · jedes `brett:<id>` in STATUS.md, ROADMAP.md, CLAUDE.md, docs/ und docs/memory/ meint einen Eintrag, den es gibt',
+    lauf: () => {
+      const b = brett();
+      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
+      const r = zitatePruefen(WURZEL, new Set(b.eintraege.map(e => e.id)));
+      if (r.fehlt.length) return { ok: false, warum: r.fehlt.length + ' Verweise ins Leere: ' + r.fehlt.slice(0, 6).join(' · ') };
+      return { ok: true, info: r.gefunden + ' Verweise in ' + r.dateien + ' Dateien, alle mit Ziel' };
     },
   },
   // ───────────────────────────── B · die Uebergabe-Dokumente
@@ -265,7 +338,7 @@ const FAELLE = [
     },
   },
   {
-    name: 'B4 · Agenten-Runde · der Workflow fuer Unteragenten ist da, laesst sich laden (meta zuerst, Phasen stimmen, nichts Verbotenes) und endet im Brett',
+    name: 'B4 · Agenten-Runde · der Workflow fuer Unteragenten ist da, laesst sich uebersetzen (meta zuerst, Phasen stimmen, nichts Verbotenes) und endet im Brett',
     lauf: () => {
       const rel = '.claude/workflows/austausch-runde.js';
       if (!gibt(rel)) return { ok: false, warum: rel + ' fehlt' };
@@ -287,13 +360,33 @@ const FAELLE = [
       const ohneKommentar = t.replace(/^[ \t]*\/\/.*$/gm, '');
       for (const [re, was] of [[/\bDate\.now\s*\(/, 'Date.now()'], [/\bMath\.random\s*\(/, 'Math.random()'], [/\bnew Date\s*\(\s*\)/, 'new Date()'], [/\bimport\s*\(/, 'import()']]) if (re.test(ohneKommentar)) f.push('ruft ' + was);
       if (t.indexOf('scripts/austausch.js') < 0 || t.indexOf('einspielen') < 0) f.push('endet nicht im Brett (kein `scripts/austausch.js einspielen`) — die Runde waere nach der Sitzung verloren');
+      // Und er muss sich UEBERSETZEN lassen: als Rumpf einer async-Funktion, so wie das
+      // Werkzeug ihn faehrt — ohne ihn auszufuehren. Ein Tippfehler faellt sonst erst auf,
+      // wenn eine Sitzung die Runde startet.
+      try {
+        const Async = Object.getPrototypeOf(async function () {}).constructor;
+        new Async('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow', t.replace(/^export const meta/, 'const meta'));
+      } catch (e) { f.push('laesst sich nicht uebersetzen: ' + String(e.message).split('\n')[0]); }
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: rel + ' · ' + (meta.phases || []).length + ' Phasen: ' + (meta.phases || []).map(p => p.title).join(' → ') };
     },
   },
+  {
+    name: 'B5 · Keine Maskierung · Werkzeug, Modul und Pruefstand nennen keinen Funktionsnamen der App mit App-Praefix (robust_check C2 zaehlt jede Nennung in scripts/ — eine tote Funktion lebte sonst hier weiter)',
+    lauf: () => {
+      const skripte = ['scripts/austausch.js', 'scripts/_austausch.js', 'scripts/austausch_check.js'].map(d => [d, lies(d)]);
+      const r = maskierungPruefen(lies('index.html'), skripte);
+      if (r.defs < 1000) return { ok: false, warum: 'nur ' + r.defs + ' Definitionen in index.html gefunden — das Muster greift nicht' };
+      if (r.treffer.length) return { ok: false, warum: 'gleichnamig mit App-Funktionen — in den Beispielen und Bausteinen erfundene Namen nehmen: ' + r.treffer.join(' · ') };
+      // Gegenrichtung an einem gebauten Skript: ein definierter Name MUSS auffallen, ein erfundener nicht.
+      const probe = maskierungPruefen('function gsProbeDefiniert() {}\n'.repeat(1), [['a.js', "x('gsProbeDefiniert'); y('gsProbeErfunden');\n// gsProbeDefiniert in einer Kommentarzeile zaehlt nicht"]]);
+      if (probe.treffer.join() !== 'a.js: gsProbeDefiniert') return { ok: false, warum: 'die Rechnung sieht den gebauten Fall nicht: ' + JSON.stringify(probe.treffer) };
+      return { ok: true, info: r.defs + ' App-Definitionen · 0 mit App-Praefix in den drei Austausch-Skripten · gebauter Fall: definierter Name gemeldet, erfundener nicht' };
+    },
+  },
   // ───────────────────────────── C · die Regel selbst
   {
-    name: 'C1 · Die Pruefung sieht Fehler · 24 gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und vier gute kommen ohne Einwand durch',
+    name: 'C1 · Die Pruefung sieht Fehler · 27 gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und fuenf gute kommen ohne Einwand durch',
     lauf: () => {
       const lang = 'x'.repeat(A.TITEL_MAX + 1);
       const SCHLECHT = [
@@ -321,12 +414,16 @@ const FAELLE = [
         ['Uebergabe mit falscher Version', gut({ art: 'uebergabe', beleg: undefined, version: '33.56', offen: ['x'] }), /version hat nicht die Form/],
         ['Klasse ohne Waechter und ohne Grund', gut({ art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x'], waechter: [] }), /ohne Waechter braucht „ohne_waechter"/],
         ['Liste mit Zahl', gut({ stichworte: ['a', 3] }), /stichworte muss eine Liste nicht-leerer Texte sein/],
+        ['Anker zu kurz', gut({ anker: [{ datei: 'index.html', text: 'x = 1' }] }), /anker\[0\]: text braucht/],
+        ['Anker aus dem Repo hinaus', gut({ anker: [{ datei: '../geheim.txt', text: 'ein langes Stueck Text' }] }), /muss ein Pfad im Repo sein/],
+        ['Anker an einem Abschluss', gut({ art: 'abschluss', beleg: undefined, ergebnis: 'verworfen', text: 'weil', anker: [{ datei: 'a.js', text: 'ein langes Stueck Text' }], bezug: [{ art: 'schliesst', id: '2026-11-10-bbbb' }] }), /anker gehoert an einen Befund/],
       ];
       const GUT = [
         ['Befund', gut()],
         ['Commit-Hash und noreply-Adresse sind kein Geheimnis', gut({ beleg: ['Commit e74c453a9b1c0d2e3f4a5b6c7d8e9f0a1b2c3d4e auf origin/claude/x', 'git -c user.email="seros@users.noreply.github.com" commit'] })],
         ['Sicherheitsbefund ohne Weg', gut({ sicherheit: true, details_bei: 'docs/FUER-FERNANDO.md §8' })],
         ['Klasse ausdruecklich ohne Waechter', gut({ art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x'], waechter: [], ohne_waechter: 'Verfahrensregel, kein Fall' })],
+        ['Befund mit Anker', gut({ anker: [{ datei: 'supabase/functions/x/index.ts', text: 'model: "ein-modell-name"' }] })],
       ];
       const f = [];
       for (const [name, e, re] of SCHLECHT) {
@@ -345,7 +442,7 @@ const FAELLE = [
     },
   },
   {
-    name: 'C2 · Das ganze Brett · ein Bezug ins Leere, „beantwortet" auf einen Befund, dieselbe id in zwei Dateien und eine unlesbare Datei werden gemeldet — ein sauberes Brett nicht',
+    name: 'C2 · Das ganze Brett · ein Bezug ins Leere, „beantwortet" auf einen Befund, dieselbe id in zwei Dateien, eine unlesbare Datei und ein behobener Befund ohne Waechter-Angabe werden gemeldet — ein sauberes Brett nicht',
     lauf: () => {
       const d = tmp('brett');
       try {
@@ -365,7 +462,14 @@ const FAELLE = [
         const soll = [/Bezug auf 2026-11-10-9999 — den Eintrag gibt es nicht/, /„beantwortet" zeigt auf 2026-11-10-aaaa, das keine Frage ist/, /dieselbe id 2026-11-10-aaaa in zwei Dateien/, /kein gueltiges JSON/];
         const fehlt = soll.filter(re => !g.some(x => re.test(x)));
         if (fehlt.length) return { ok: false, warum: fehlt.length + ' von 4 nicht gemeldet: ' + fehlt.map(r => r.source.slice(0, 40)).join(' · ') + ' — gemeldet wurde: ' + g.join(' | ').slice(0, 200) };
-        return { ok: true, info: 'sauberes Brett: 0 Meldungen · vier eingebaute Schaeden: 4 von 4 gemeldet' };
+        // Schliessen ist streng — aber nur beim BEFUND, und nur bei „erledigt".
+        const zu = (extra) => gut(Object.assign({ id: '2026-11-10-c001', art: 'abschluss', beleg: undefined, titel: 'zu', ergebnis: 'erledigt', wohin: 'v9', bezug: [{ art: 'schliesst', id: '2026-11-10-aaaa' }] }, extra));
+        const idee = gut({ id: '2026-11-10-d001', art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'p', titel: 'Eine Idee' });
+        const streng = (liste) => A.brettPruefen(brettAus(liste)).map(x => x.grund).filter(x => /braucht „(bewacht|geschwister)"/.test(x)).length;
+        const ist = [streng([gut(), zu()]), streng([gut(), zu({ bewacht: 'x_check · Fall', geschwister: 'gesucht: grep → 0' })]), streng([gut(), zu({ bewacht: 'keiner, weil Doku', geschwister: 'nicht gesucht, weil Einzelfall' })]),
+          streng([gut(), zu({ ergebnis: 'verworfen', wohin: undefined, text: 'stimmt nicht' })]), streng([idee, zu({ bezug: [{ art: 'schliesst', id: '2026-11-10-d001' }] })])].join(' ');
+        if (ist !== '2 0 0 0 0') return { ok: false, warum: 'strenges Schliessen: ' + ist + ' — erwartet 2 0 0 0 0 (behobener Befund ohne Angaben: 2 Maengel · mit Angaben · mit ausgesprochenem „keiner/nicht gesucht" · verworfen · eine Idee: je 0)' };
+        return { ok: true, info: 'sauberes Brett: 0 Meldungen · vier eingebaute Schaeden: 4 von 4 gemeldet · behobener Befund ohne „bewacht/geschwister": 2 Maengel, mit: 0, verworfen und Idee: 0' };
       } finally { weg(d); }
     },
   },
@@ -436,6 +540,41 @@ const FAELLE = [
       // Ein Waechter an einem Befund ist ein Formfehler.
       if (!A.eintragPruefen(gut({ waechter: [{ datei: 'a', fall: 'b' }] })).some(x => /waechter gehoert an eine Fehlerklasse/.test(x))) return { ok: false, warum: 'waechter an einem Befund ANGENOMMEN' };
       return { ok: true, info: 'Klasse 01: 1 Waechter, gesucht, Suchmuster, 3 + 1 Instanzen — aus dem Nachtrag gerechnet, die Datei unveraendert · Klasse 02: beide Anstoesse bleiben' };
+    },
+  },
+  {
+    name: 'C4c · Anker · der Text steht in der Datei: still; die Stelle wird geaendert: gemeldet mit id und Titel; der Eintrag wird geschlossen oder neu verankert: wieder still',
+    lauf: () => {
+      const d = tmp('anker');
+      try {
+        fs.writeFileSync(path.join(d, 'code.js'), 'const model = "altes-modell-2025";\nconst andere = 1;\n');
+        const lesen = (rel) => { try { return fs.readFileSync(path.join(d, rel), 'utf8'); } catch (_) { return null; } };
+        const bef = gut({ anker: [{ datei: 'code.js', text: 'model = "altes-modell-2025"' }] });
+        const n = (liste) => { const r = A.ankerPruefen(brettAus(liste).eintraege, lesen); return r.geprueft + '/' + r.verloren.length; };
+        const vorher = n([bef]);
+        fs.writeFileSync(path.join(d, 'code.js'), 'const model = "neues-modell-2026";\nconst andere = 1;\n');
+        const geaendert = n([bef]);
+        const geschlossen = n([bef, gut({ id: '2026-11-10-c001', art: 'abschluss', beleg: undefined, titel: 'zu', ergebnis: 'erledigt', wohin: 'v9', bewacht: 'x', geschwister: 'y', bezug: [{ art: 'schliesst', id: bef.id }] })]);
+        const neuVerankert = n([bef, gut({ id: '2026-11-11-c002', datum: '2026-11-11', art: 'antwort', beleg: undefined, titel: 'gilt weiter', anker: [{ datei: 'code.js', text: 'model = "neues-modell-2026"' }], bezug: [{ art: 'baut_auf', id: bef.id }] })]);
+        const dateiWeg = n([gut({ anker: [{ datei: 'gibt-es-nicht.js', text: 'irgendein langer Text' }] })]);
+        const ist = [vorher, geaendert, geschlossen, neuVerankert, dateiWeg].join(' ');
+        if (ist !== '1/0 1/1 0/0 1/0 1/1') return { ok: false, warum: 'geprueft/verloren: ' + ist + ' — erwartet 1/0 1/1 0/0 1/0 1/1' };
+        return { ok: true, info: 'Text da: 1/0 · Stelle geaendert: 1/1 · geschlossen: nicht mehr geprueft · neu verankert per Antwort: 1/0 · Datei weg: 1/1' };
+      } finally { weg(d); }
+    },
+  },
+  {
+    name: 'C4d · Zitate · ein `brett:<id>` in einem Dokument, das auf einen vorhandenen Eintrag zeigt, ist still — eines ins Leere wird mit Datei und id gemeldet',
+    lauf: () => {
+      const d = tmp('zitate');
+      try {
+        fs.mkdirSync(path.join(d, 'docs'));
+        fs.writeFileSync(path.join(d, 'STATUS.md'), 'Offen: siehe brett:2026-11-10-aaaa und brett:2026-11-10-9999.\n');
+        fs.writeFileSync(path.join(d, 'docs', 'X.md'), 'Kein Verweis hier, nur das Wort brett.\n');
+        const r = zitatePruefen(d, new Set(['2026-11-10-aaaa']));
+        if (r.gefunden !== 2 || r.fehlt.join() !== 'STATUS.md → brett:2026-11-10-9999') return { ok: false, warum: 'gefunden ' + r.gefunden + ', ins Leere: ' + JSON.stringify(r.fehlt) };
+        return { ok: true, info: '2 Zitate gefunden · eines mit Ziel still · eines ins Leere gemeldet' };
+      } finally { weg(d); }
     },
   },
   {

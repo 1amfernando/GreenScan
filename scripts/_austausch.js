@@ -59,8 +59,9 @@ const ERGEBNISSE = ['erledigt', 'verworfen', 'aufgestiegen'];
 const AUFWAND = ['klein', 'mittel', 'gross'];
 const LISTENFELDER = ['beleg', 'stichworte', 'instanzen', 'offen', 'naechster_schritt', 'nicht_geprueft'];
 const TEXTFELDER = ['titel', 'text', 'von', 'stand', 'nutzen', 'pruefbar', 'falle', 'aufwand', 'an', 'haengt_daran', 'vorschlag',
-  'bereich', 'branch', 'regel', 'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei'];
-const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'sicherheit', 'schluessel'].concat(LISTENFELDER, TEXTFELDER));
+  'bereich', 'branch', 'regel', 'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister'];
+const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'sicherheit', 'schluessel'].concat(LISTENFELDER, TEXTFELDER));
+const ANKER_MIN = 8, ANKER_MAX = 300;
 const TITEL_MAX = 200;
 const ID_FORM = /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$/;
 // Namen, die wie App-Code aussehen — dieselbe Form, die robust_check „Memory" prueft.
@@ -159,6 +160,20 @@ function eintragPruefen(e, dateiname) {
     if (e.version != null && !/^v\d+\.\d+$/.test(e.version)) f.push('version hat nicht die Form vNN.NN');
     const sagtEtwas = ['offen', 'naechster_schritt', 'nicht_geprueft'].some(k => alsListe(e[k]).length) || (e.nichts_offen && e.nichts_offen.trim());
     if (!sagtEtwas) f.push('Uebergabe sagt nichts ueber Offenes: offen / naechster_schritt / nicht_geprueft — oder nichts_offen mit Grund');
+  }
+  // Ein ANKER bindet einen Eintrag an eine Stelle im Repo: {datei, text}, der
+  // Text steht WOERTLICH in der Datei. Wer die Stelle aendert, entfernt den
+  // Anker — und der Pruefstand wird in SEINEM Lauf rot, mit id und Titel. Das
+  // ist der eine Ausloeser, der zum LESEN zwingt (Entwurf „Ausloeser zuerst").
+  if (e.anker != null) {
+    if (!Array.isArray(e.anker) || !e.anker.length) f.push('anker muss eine nicht-leere Liste von {datei, text} sein');
+    else e.anker.forEach((x, i) => {
+      if (!x || typeof x.datei !== 'string' || typeof x.text !== 'string' || !x.datei.trim()) { f.push('anker[' + i + ']: {datei, text} verlangt'); return; }
+      if (/(^|\/)\.\.(\/|$)/.test(x.datei) || path.isAbsolute(x.datei)) f.push('anker[' + i + ']: datei muss ein Pfad im Repo sein');
+      if (x.text.length < ANKER_MIN || x.text.length > ANKER_MAX) f.push('anker[' + i + ']: text braucht ' + ANKER_MIN + ' bis ' + ANKER_MAX + ' Zeichen (ein woertliches Stueck der Stelle, kein ganzer Absatz)');
+      if (/\n/.test(x.text)) f.push('anker[' + i + ']: text ist EINE Zeile');
+    });
+    if (e.art === 'abschluss' || e.art === 'uebergabe' || e.art === 'anspruch') f.push('anker gehoert an einen Befund, eine Idee, eine Frage, eine Fehlerklasse — oder an eine Antwort darauf (neu verankern)');
   }
   // Ein Waechter steht an einer Fehlerklasse — oder an einer ANTWORT darauf
   // (Nachtrag: die Klasse selbst wird nicht umgeschrieben, siehe klasseWirksam).
@@ -274,6 +289,28 @@ function ableiten(eintraege) {
   return { proId, rueck, zustand };
 }
 
+// ── Was ein Bezug darf — EINE Regel fuer den Pruefstand und fuer das Schreiben.
+function bezugsRegeln(e, proId) {
+  const f = [];
+  for (const b of alsListe(e.bezug)) {
+    const ziel = b && proId.get(b.id);
+    if (!ziel) continue;
+    if (b.art === 'beantwortet' && ziel.art !== 'frage') f.push('„beantwortet" zeigt auf ' + b.id + ', das keine Frage ist (' + ziel.art + ')');
+    if (b.art === 'gehoert_zu' && ziel.art !== 'klasse') f.push('„gehoert_zu" zeigt auf ' + b.id + ', das keine Fehlerklasse ist (' + ziel.art + ')');
+    if ((b.art === 'schliesst' || b.art === 'ersetzt') && (ziel.art === 'abschluss' || ziel.art === 'antwort')) f.push('„' + b.art + '" zeigt auf ' + b.id + ' (' + ziel.art + ') — geschlossen wird der urspruengliche Eintrag, nicht die Antwort darauf');
+    // Schliessen ist streng: ein BEHOBENER Befund nennt, welcher Pruefstand-Fall
+    // ihn kuenftig bewacht, und ob nach Geschwistern gesucht wurde. „Eine
+    // Fehlerklasse ist erst geschlossen, wenn man sie GESUCHT hat" (v32.87) —
+    // hier bekommt der Satz seinen Ausloeser. Ein ausgesprochenes „keiner, weil …"
+    // bzw. „nicht gesucht, weil …" ist erlaubt; Schweigen nicht.
+    if (b.art === 'schliesst' && ziel.art === 'befund' && e.art === 'abschluss' && e.ergebnis === 'erledigt') {
+      if (!(e.bewacht && e.bewacht.trim())) f.push('ein behobener Befund (' + b.id + ') braucht „bewacht": welcher Pruefstand-Fall haelt ihn kuenftig — oder „keiner, weil …"');
+      if (!(e.geschwister && e.geschwister.trim())) f.push('ein behobener Befund (' + b.id + ') braucht „geschwister": „gesucht: <wie> → N Treffer" — oder „nicht gesucht, weil …"');
+    }
+  }
+  return f;
+}
+
 // ── Das ganze Brett pruefen (Bezuege, Dubletten). Einzelpruefung je Eintrag
 //    kommt aus eintragPruefen.
 function brettPruefen(brett) {
@@ -287,15 +324,8 @@ function brettPruefen(brett) {
       if (b && ID_FORM.test(String(b.id || '')) && !ids.has(b.id)) f.push({ wo: e._datei || e.id, grund: 'Bezug auf ' + b.id + ' — den Eintrag gibt es nicht' });
     }
   }
-  // Was nur eine bestimmte Art schliessen/beantworten kann.
   const proId = new Map(brett.eintraege.map(e => [e.id, e]));
-  for (const e of brett.eintraege) for (const b of alsListe(e.bezug)) {
-    const ziel = b && proId.get(b.id);
-    if (!ziel) continue;
-    if (b.art === 'beantwortet' && ziel.art !== 'frage') f.push({ wo: e._datei || e.id, grund: '„beantwortet" zeigt auf ' + b.id + ', das keine Frage ist (' + ziel.art + ')' });
-    if (b.art === 'gehoert_zu' && ziel.art !== 'klasse') f.push({ wo: e._datei || e.id, grund: '„gehoert_zu" zeigt auf ' + b.id + ', das keine Fehlerklasse ist (' + ziel.art + ')' });
-    if ((b.art === 'schliesst' || b.art === 'ersetzt') && (ziel.art === 'abschluss' || ziel.art === 'antwort')) f.push({ wo: e._datei || e.id, grund: '„' + b.art + '" zeigt auf ' + b.id + ' (' + ziel.art + ') — geschlossen wird der urspruengliche Eintrag, nicht die Antwort darauf' });
-  }
+  for (const e of brett.eintraege) for (const g of bezugsRegeln(e, proId)) f.push({ wo: e._datei || e.id, grund: g });
   return f;
 }
 
@@ -319,6 +349,37 @@ function klasseWirksam(e, rueck) {
     for (const i of alsListe(x.instanzen)) if (k.instanzen.indexOf(i) < 0) k.instanzen.push(i);
   }
   return k;
+}
+
+// ── Die Anker, wie sie HEUTE gelten: die juengste Antwort, die welche traegt,
+//    ersetzt die des Eintrags (neu verankern, ohne den Eintrag umzuschreiben).
+function ankerWirksam(e, rueck) {
+  let a = alsListe(e.anker);
+  const nach = ((rueck && rueck.get(e.id)) || []).filter(r => r.von.art === 'antwort' && alsListe(r.von.anker).length)
+    .sort((x, y) => String(x.von.id).localeCompare(String(y.von.id)));
+  if (nach.length) a = alsListe(nach[nach.length - 1].von.anker);
+  return a;
+}
+// Welche Anker offener Eintraege stehen nicht mehr an ihrer Stelle?
+// `liesDatei(rel)` gibt den Text zurueck oder null (Datei fehlt).
+function ankerPruefen(eintraege, liesDatei) {
+  const { rueck, zustand } = ableiten(eintraege);
+  const aus = { geprueft: 0, eintraege: 0, verloren: [] };
+  const cache = new Map();
+  for (const e of eintraege) {
+    if (zustand.get(e.id).z !== 'offen') continue;
+    const anker = ankerWirksam(e, rueck);
+    if (!anker.length) continue;
+    aus.eintraege++;
+    for (const x of anker) {
+      aus.geprueft++;
+      if (!cache.has(x.datei)) cache.set(x.datei, liesDatei(x.datei));
+      const t = cache.get(x.datei);
+      if (t == null) aus.verloren.push({ id: e.id, titel: e.titel, datei: x.datei, text: x.text, grund: 'Datei fehlt' });
+      else if (t.indexOf(x.text) < 0) aus.verloren.push({ id: e.id, titel: e.titel, datei: x.datei, text: x.text, grund: 'Text steht nicht mehr in der Datei' });
+    }
+  }
+  return aus;
 }
 
 // ── Lesen ist ins Schreiben eingebaut: wer einen Eintrag anlegt, bekommt die
@@ -364,8 +425,12 @@ function ernten(wurzel) {
   const brett = brettLesen(wurzel, { alleRefs: true });
   const dir = path.join(wurzel, ORDNER);
   const geholt = [], uebergangen = [];
+  const zustandAlle = ableiten(brett.eintraege).zustand;
   for (const e of brett.eintraege) {
     if (e._quelle === 'Arbeitsbaum') continue;
+    // Ein offener Anspruch gehoert auf den Branch seiner Sitzung, nie nach main:
+    // gemergt stuende er dort fuer immer als „in Arbeit".
+    if (e.art === 'anspruch' && zustandAlle.get(e.id).z === 'offen') { uebergangen.push({ id: e.id, quelle: e._quelle, grund: 'offener Anspruch — bleibt auf seinem Branch' }); continue; }
     const g = eintragPruefen(e, e._datei);
     if (g.length) { uebergangen.push({ id: e.id, quelle: e._quelle, grund: g[0] }); continue; }
     fs.mkdirSync(dir, { recursive: true });
@@ -506,15 +571,9 @@ function einspielen(wurzel, roh, opts) {
     for (const b of alsListe(e.bezug)) if (b && ID_FORM.test(String(b.id || '')) && !ids.has(b.id)) fehler.push({ wo: 'Eintrag ' + (i + 1), grund: 'Bezug auf ' + b.id + ' — den Eintrag gibt es nicht (auch auf keinem Branch, den git kennt)' });
   });
   if (!fehler.length) {
-    // Die Bezugs-Regeln des ganzen Bretts (beantwortet → Frage usw.) gelten auch hier.
+    // Die Bezugs-Regeln des ganzen Bretts (beantwortet → Frage, strenges Schliessen) gelten auch hier.
     const proId = new Map(alle.map(e => [e.id, e]));
-    fertig.forEach((e, i) => alsListe(e.bezug).forEach(b => {
-      const ziel = proId.get(b.id);
-      if (!ziel) return;
-      if (b.art === 'beantwortet' && ziel.art !== 'frage') fehler.push({ wo: 'Eintrag ' + (i + 1), grund: '„beantwortet" zeigt auf ' + b.id + ', das keine Frage ist' });
-      if (b.art === 'gehoert_zu' && ziel.art !== 'klasse') fehler.push({ wo: 'Eintrag ' + (i + 1), grund: '„gehoert_zu" zeigt auf ' + b.id + ', das keine Fehlerklasse ist' });
-      if ((b.art === 'schliesst' || b.art === 'ersetzt') && (ziel.art === 'abschluss' || ziel.art === 'antwort')) fehler.push({ wo: 'Eintrag ' + (i + 1), grund: '„' + b.art + '" zeigt auf eine Antwort/einen Abschluss' });
-    }));
+    fertig.forEach((e, i) => bezugsRegeln(e, proId).forEach(g => fehler.push({ wo: 'Eintrag ' + (i + 1), grund: g })));
   }
   if (fehler.length) return { ok: false, fehler, geschrieben: [] };
   const dir = path.join(wurzel, ORDNER);
@@ -556,4 +615,5 @@ module.exports = {
   ORDNER, ARTEN, BEZUEGE, ERGEBNISSE, AUFWAND, ANSTOSS_ARTEN, ID_FORM, APP_NAME, TITEL_MAX,
   slug, alsListe, textVon, datumGueltig, eintragPruefen, brettLesen, brettPruefen, ableiten,
   appNamen, nameImQuelltext, anstoesse, einspielen, heute, git, klasseWirksam, nachbarn, klassenVorschlag, ernten,
+  ankerWirksam, ankerPruefen, bezugsRegeln, ANKER_MIN, ANKER_MAX,
 };

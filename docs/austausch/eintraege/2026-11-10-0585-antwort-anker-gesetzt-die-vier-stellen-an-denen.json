@@ -1,0 +1,33 @@
+{
+  "id": "2026-11-10-0585",
+  "art": "antwort",
+  "datum": "2026-11-10",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.56",
+  "titel": "Anker gesetzt: die vier Stellen, an denen ein abgeschaltetes oder auslaufendes Modell steht",
+  "text": "Wer eine dieser Zeilen ändert, bekommt diesen Befund im eigenen Prüfstand-Lauf gezeigt und schliesst ihn (oder verankert neu).",
+  "anker": [
+    {
+      "datei": "supabase/functions/ai-proxy/index.ts",
+      "text": "ALLOWED_MODELS.has(reqModel) ? reqModel : \"claude-sonnet-4-5\""
+    },
+    {
+      "datei": "supabase/functions/plan-iterate/index.ts",
+      "text": "model: \"claude-sonnet-4-20250514\""
+    },
+    {
+      "datei": "supabase/functions/garden-scan-analyze/index.ts",
+      "text": "model: \"claude-sonnet-4-20250514\""
+    },
+    {
+      "datei": "supabase/functions/plant-doctor-diagnose/index.ts",
+      "text": "model: \"claude-sonnet-4-20250514\""
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-10-ad10"
+    }
+  ]
+}

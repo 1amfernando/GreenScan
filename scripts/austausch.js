@@ -10,6 +10,7 @@
 //   node scripts/austausch.js neu <art> --titel "…" [--beleg "…"] [--stichwort a,b] [--bezug art:id] …
 //   node scripts/austausch.js antworte <id> --text "…" [--beleg "…"]
 //   node scripts/austausch.js schliesse <id> --ergebnis erledigt|verworfen|aufgestiegen --wohin "v33.57" [--text "…"]
+//                                                  (ein behobener BEFUND dazu: --bewacht "<pruefstand> · <Fall>" --geschwister "gesucht: … → N")
 //   node scripts/austausch.js einspielen <datei.json>   # ein Stapel auf einmal (z.B. das Ergebnis einer Agenten-Runde)
 //   node scripts/austausch.js ernten               # was nur auf anderen Branches liegt, in den Arbeitsbaum holen (→ naechster PR → main)
 //   node scripts/austausch.js pruefen              # dieselbe Pruefung wie austausch_check, nur das Brett
@@ -101,6 +102,7 @@ function kopf(b, ab) {
   const offen = b.eintraege.filter(e => ab.zustand.get(e.id).z === 'offen').length;
   aus('\n=== Austausch — das Brett   ' + b.eintraege.length + ' Eintraege · ' + offen + ' offen · gelesen: ' + b.quellen.join(', ')
     + (b.gitDa === false ? ' · git nicht verfuegbar: NUR der Arbeitsbaum' : (b.gitDa ? ' · ' + b.refs + ' Remote-Refs durchgesehen' : '')));
+  if (b.gitDa && b.refs <= 1 && !o.nur_lokal) aus('  !! git kennt hoechstens EINEN Remote-Ref — Eintraege anderer Branches sind von hier aus NICHT zu sehen: `node scripts/austausch.js holen`');
   const geholt = alterDesHolens();
   if (b.gitDa && geholt) aus('  zuletzt geholt: ' + geholt + ' — `node scripts/austausch.js holen` holt alle Branches neu');
   if (b.unlesbar.length) aus('  !! ' + b.unlesbar.length + ' unlesbare Datei(en): ' + b.unlesbar.map(u => u.datei + ' [' + u.quelle + ']').join(', '));
@@ -144,7 +146,17 @@ function lesen() {
     }
   } else aus('\n  Filter: ' + filter.join(' · '));
   const neuZuerst = (l) => l.slice().sort((x, y) => y.id.localeCompare(x.id));
-  block('IN ARBEIT — wer gerade woran sitzt', neuZuerst(sicht.filter(e => e.art === 'anspruch')), 'Fertig oder aufgegeben? `schliesse <id> --ergebnis …` — ein offener Anspruch haelt andere fern.');
+  const anspr = neuZuerst(sicht.filter(e => e.art === 'anspruch'));
+  if (anspr.length) {
+    aus('\nIN ARBEIT — wer gerade woran sitzt (' + anspr.length + ')');
+    const jetzt = Date.now();
+    anspr.slice(0, deckel).forEach(e => {
+      const tage = Math.floor((jetzt - Date.parse(e.datum + 'T00:00:00Z')) / 864e5);
+      aus(zeile(e, ab) + '\n        ' + e.von + (e.branch ? ' · Branch ' + e.branch : '') + ' · Bereich: ' + kurz(e.bereich, 80) + ' · ' + (tage <= 0 ? 'seit heute' : 'seit ' + tage + (tage === 1 ? ' Tag' : ' Tagen')) + (tage > 14 ? '  ← ALT: lebt die Sitzung noch? Nachfragen oder mit Grund schliessen' : ''));
+    });
+    if (anspr.length > deckel) aus('    … +' + (anspr.length - deckel) + ' weitere — `--alles` zeigt sie');
+    aus('    Fertig oder aufgegeben? `schliesse <id> --ergebnis …` — ein offener Anspruch haelt andere fern, und austausch_check laesst ihn nicht nach main.');
+  }
   block('FRAGEN', neuZuerst(sicht.filter(e => e.art === 'frage')));
   block('BEFUNDE', neuZuerst(sicht.filter(e => e.art === 'befund')));
   block('IDEEN', neuZuerst(sicht.filter(e => e.art === 'idee')));
@@ -157,6 +169,11 @@ function lesen() {
       const teil = (wort, k) => A.alsListe(ueb[k]).forEach(x => aus('    ' + wort + ' ' + kurz(x, 170)));
       teil('offen:', 'offen'); teil('naechster Schritt:', 'naechster_schritt'); teil('nicht geprueft:', 'nicht_geprueft');
       if (ueb.nichts_offen) aus('    nichts offen: ' + kurz(ueb.nichts_offen, 170));
+    }
+    const ap = A.ankerPruefen(b.eintraege.filter(e => e._quelle === 'Arbeitsbaum'), (rel) => { try { return fs.readFileSync(path.join(WURZEL, rel), 'utf8'); } catch (_) { return null; } });
+    if (ap.verloren.length) {
+      aus('\n  !! ' + ap.verloren.length + ' Anker stehen nicht mehr an ihrer Stelle — die Stelle wurde geaendert, der Eintrag ist zu lesen:');
+      ap.verloren.slice(0, 8).forEach(x => aus('     ' + x.id + '  ' + kurz(x.titel, 80) + '\n        ' + x.datei + ' :: ' + kurz(x.text, 90)));
     }
     const v = laufendeVersion(src);
     if (v && !b.eintraege.some(e => e.art === 'uebergabe' && e.version === v)) aus('\n  !! Zur laufenden Version ' + v + ' gibt es keine Uebergabe — austausch_check wird rot: node scripts/austausch.js hilfe uebergabe');
@@ -190,7 +207,9 @@ function ganz(e, ab) {
    ['an', 'An'], ['haengt_daran', 'Haengt daran'], ['bereich', 'Bereich'], ['branch', 'Branch'], ['regel', 'Regel'], ['instanzen', 'Instanzen'],
    ['suchmuster', 'Suchmuster (Geschwister)'], ['gesucht', 'Gesucht'], ['waechter', 'Waechter'], ['ohne_waechter', 'Ohne Waechter'],
    ['version', 'Version'], ['gebaut', 'Gebaut'], ['offen', 'Offen'], ['naechster_schritt', 'Naechster Schritt'], ['nicht_geprueft', 'Nicht geprueft'],
-   ['nichts_offen', 'Nichts offen'], ['ergebnis', 'Ergebnis'], ['wohin', 'Wohin'], ['details_bei', 'Einzelheiten bei'], ['stichworte', 'Stichworte']].forEach(x => feld(x[0], x[1]));
+   ['nichts_offen', 'Nichts offen'], ['ergebnis', 'Ergebnis'], ['wohin', 'Wohin'], ['bewacht', 'Bewacht von'], ['geschwister', 'Geschwister'], ['details_bei', 'Einzelheiten bei'], ['stichworte', 'Stichworte']].forEach(x => feld(x[0], x[1]));
+  const anker = A.ankerWirksam(e, ab.rueck);
+  if (anker.length) { aus('  Anker (wer diese Stelle aendert, wird im eigenen Lauf rot und liest diesen Eintrag):'); anker.forEach(x => aus('    - ' + x.datei + ' :: ' + x.text)); }
   if (e.sicherheit) aus('  Sicherheit: ja — Einzelheiten stehen bewusst nicht hier (public Repo)');
   for (const bz of A.alsListe(e.bezug)) { const ziel = ab.proId.get(bz.id); aus('  → ' + bz.art + ' ' + bz.id + (ziel ? '  ' + kurz(ziel.titel, 90) : '  (fehlt)')); }
   for (const r of (ab.rueck.get(e.id) || [])) aus('  ← ' + r.art + ' von ' + r.von.id + '  ' + kurz(r.von.titel, 90) + '  [' + r.von.von + ']');
@@ -234,7 +253,8 @@ function ausFlags(art) {
   const e = { art };
   const text = (k, flag) => { const v = o[flag || k]; if (v != null && v !== true) e[k] = String([].concat(v).join('\n')); };
   ['titel', 'text', 'stand', 'nutzen', 'pruefbar', 'falle', 'aufwand', 'an', 'haengt_daran', 'vorschlag', 'bereich', 'branch', 'regel',
-   'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'datum'].forEach(k => text(k));
+   'suchmuster', 'gesucht', 'ohne_waechter', 'version', 'gebaut', 'nichts_offen', 'ergebnis', 'wohin', 'details_bei', 'bewacht', 'geschwister', 'datum'].forEach(k => text(k));
+  if (liste(o.anker).length) e.anker = liste(o.anker).map(w => { const i = String(w).indexOf('::'); return i < 0 ? { datei: String(w), text: '' } : { datei: w.slice(0, i).trim(), text: w.slice(i + 2) }; });
   if (liste(o.beleg).length) e.beleg = liste(o.beleg);
   const sw = liste(o.stichwort).concat(liste(o.stichworte)).join(',').split(',').map(s => s.trim()).filter(Boolean);
   if (sw.length) e.stichworte = sw;
@@ -361,14 +381,14 @@ function pruefen() {
 }
 
 const BEISPIELE = {
-  befund: 'neu befund --titel "Die Kachel X zaehlt drei Tage, die Zeile daneben nur heute" --beleg "index.html: `grep -n allDue.length` → 2 Stellen" --beleg "nutzersicht_check E10 misst nur die Startkarte" --stichwort meine-pflanzen,faellig-kachel --vorschlag "die Kachel ueber dieselbe Rechnung filtern wie die Zeile"',
+  befund: 'neu befund --titel "Die Kachel X zaehlt drei Tage, die Zeile daneben nur heute" --anker "index.html::<ein woertliches Stueck der Stelle>" --beleg "index.html: `grep -n allDue.length` → 2 Stellen" --beleg "nutzersicht_check E10 misst nur die Startkarte" --stichwort meine-pflanzen,faellig-kachel --vorschlag "die Kachel ueber dieselbe Rechnung filtern wie die Zeile"',
   idee: 'neu idee --titel "Die Wochenzeile auch in der Glocke" --nutzen "eine Rechnung, vier Anzeigen statt drei" --pruefbar "kalender_check R10b um die Glocke erweitern" --aufwand klein --bezug baut_auf:a3f9',
   frage: 'neu frage --titel "Laufen die geplanten Routine-Sitzungen noch?" --an fernando --haengt-daran "ob das Brett Sitzungen bedienen muss, die nie mergen"',
   anspruch: 'neu anspruch --titel "Offline-Warteschlange: Eigentum am Archiv" --bereich "Offline-Warteschlange, offline_check 6–9"   (danach SOFORT committen und pushen)',
   klasse: 'einspielen <datei.json> — eine Klasse hat Listen (instanzen, waechter); als JSON ist sie leichter zu schreiben. Felder: regel, instanzen[], suchmuster, gesucht, waechter[{datei, fall}] oder ohne_waechter',
   uebergabe: 'neu uebergabe --version v33.57 --titel "v33.57: …" --gebaut "ein Satz" --offen "…" --naechster-schritt "…" --nicht-geprueft "…"   (oder --nichts-offen "Grund")',
-  antwort: 'antworte a3f9 --text "Nachgemessen: …" --beleg "…"     (bei einer Frage: beantwortet; sonst baut_auf; mit --widerspricht: widerspricht)',
-  abschluss: 'schliesse a3f9 --ergebnis erledigt --wohin "v33.57, Commit abc1234"     (verworfen braucht --text mit dem Grund; aufgestiegen nennt das Dokument)',
+  antwort: 'antworte a3f9 --text "Nachgemessen: …" --beleg "…"     (bei einer Frage: beantwortet; sonst baut_auf; mit --widerspricht: widerspricht; mit --anker "datei::text": neu verankern)',
+  abschluss: 'schliesse a3f9 --ergebnis erledigt --wohin "v33.57" --bewacht "scan_check · D1f" --geschwister "gesucht: grep -c … → 4 Stellen, alle umgestellt"     (bewacht/geschwister nur bei einem BEFUND; „keiner, weil …" und „nicht gesucht, weil …" sind erlaubt. verworfen braucht --text mit dem Grund; aufgestiegen nennt das Dokument)',
 };
 function hilfe() {
   const art = o._[0];

@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-10-b4fb",
+  "art": "antwort",
+  "datum": "2026-11-10",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.56",
+  "titel": "Anker gesetzt: die Liste, in die die acht Präfix-Familien gehören (oder bewusst nicht)",
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_','gs_dq_tag_'];"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-10-5491"
+    }
+  ]
+}

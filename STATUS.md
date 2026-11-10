@@ -56,6 +56,11 @@ unverändert — deshalb kein Bump und kein Eintrag in `GS_RELEASES`.
   ohne Wächter oder nie gesucht, Eintrag über Code, den es nicht mehr gibt),
   und wer schreibt, bekommt im selben Zug die offenen Einträge ANDERER an
   denselben Stichworten und passende Fehlerklassen gezeigt.
+- **Der Anker** (`--anker "datei::wörtliches Stück"`): solange ein Eintrag
+  offen ist, muss sein Anker in der Datei stehen. Wer die Stelle ändert, wird
+  in SEINEM Lauf rot, mit id und Titel — der eine Auslöser, der zum Lesen
+  zwingt. **Schliessen ist streng:** ein behobener Befund nennt seinen Wächter
+  und die Geschwistersuche („keiner, weil …" ist erlaubt, Schweigen nicht).
 - **Die Agenten-Runde** `.claude/workflows/austausch-runde.js`: Brett →
   Sichten → **Kreuzen** (jeder Unteragent liest die Funde der anderen und baut
   aus zwei davon etwas Neues) → Gegenprüfen → Eintragen (`einspielen`, alles
@@ -71,16 +76,21 @@ unverändert — deshalb kein Bump und kein Eintrag in `GS_RELEASES`.
 Stand gefahren: **4 von 17 rot, 4 nicht prüfbar** (das Brett war leer) — keine Übergabe, der
 Prüfstand selbst in keiner `run`-Zeile, **sieben falsche Zahlen** und vier
 Stellen, an denen die Zahl nur als Wort stand, drei Einstiegsdateien ohne
-Verweis. Danach grün. Drei Gruppen: **A** das echte Brett (Form, Beleg,
-Bezüge, Wächter einer Fehlerklasse existieren als Datei + Fallkennung, ein
-offener Eintrag nennt keinen verschwundenen Code, **zur laufenden Version gibt
-es eine Übergabe** — Teil des Bumps wie der `GS_RELEASES`-Eintrag) · **B** die
-Übergabe-Dokumente (jeder `*_check` steht in `pruefstaende.sh`; 22 Zahlen an
-21 Stellen an ihren Befehl gebunden, verankert am Satz) · **C** die Regel
-selbst gegen gebaute Fälle (24 kaputte Einträge je mit dem richtigen Grund,
-Zustand und Anstösse gerechnet, das Werkzeug alles-oder-nichts, **zwei echte
-gebaute Branches**: ein Eintrag vom nie gemergten Ast erscheint, wird
-beantwortet und reist mit).
+Verweis. Danach grün; mit den Regeln aus dem zweiten Entwurf heute **23
+Fälle** in drei Gruppen: **A** das echte Brett (Form, Beleg, Bezüge, Wächter
+einer Fehlerklasse existieren als Datei + Fallkennung, ein offener Eintrag
+nennt keinen verschwundenen Code und sein Anker steht noch, **zur laufenden
+Version gibt es genau EINE gültige Übergabe** — Teil des Bumps wie der
+`GS_RELEASES`-Eintrag, zwei wären zwei Sitzungen mit derselben Nummer —, kein
+offener Anspruch im Baum, jedes `brett:<id>` in den Dokumenten hat ein Ziel) ·
+**B** die Übergabe-Dokumente (jeder `*_check` steht in `pruefstaende.sh`; 22
+Zahlen an 21 Stellen an ihren Befehl gebunden, verankert am Satz; die
+Agenten-Runde lässt sich übersetzen; kein Austausch-Skript hält eine
+App-Funktion am Leben) · **C** die Regel selbst gegen gebaute Fälle (27
+kaputte Einträge je mit dem richtigen Grund, Zustand und Anstösse gerechnet,
+Nachtrag an einer Klasse, Anker in fünf Zuständen, das Werkzeug
+alles-oder-nichts, **zwei echte gebaute Branches**: ein Eintrag vom nie
+gemergten Ast erscheint, wird beantwortet und reist mit).
 
 **Der erste Fund über das Brett** (und der Grund, warum es das braucht): die
 tägliche geplante Aufgabe „AGENT 007" legt ihre Übergaben ausserhalb des Repos
@@ -102,6 +112,7 @@ dem Brett; **behoben ist es nicht.**
 - **Bevor man eine Regel erzwingt, misst man, ob sie erfüllbar ist.** Der Fall
   „kein Austausch-Skript nennt einen App-Funktionsnamen" wäre nie grün
   geworden: die App definiert Funktionen namens `k`, `n`, `text`, `regel`.
+  Erfüllbar ist die engere Fassung (nur Namen mit App-Präfix) — sie ist gebaut.
 - **Ein Anker, der zweimal trifft, bindet nichts** — und §0 dieser Datei
   zitiert alte Stände wörtlich. Gebunden ist deshalb nur §1.
 
