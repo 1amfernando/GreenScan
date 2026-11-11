@@ -58,6 +58,29 @@ für jede Änderung an Auslieferungs-Dateien wichtig ist.
   Adresse sein.
 - Der Anon-Key ist öffentlich by design und die Daten sind über RLS geschützt;
   eine zweite Auslieferung ist deshalb **kein** Datenrisiko.
+- **Seit v33.59 kennt die Zahlung nur EINEN Ursprung als Rückkehr.**
+  `EIGENE_URSPRUENGE` / `eigenerUrsprung` in
+  `supabase/functions/_shared/zahlung_regeln.mjs` nimmt die Netlify-Adresse
+  bewusst nicht auf: eine Stripe-Rückkehr von dort endet auf `green-scan.ch`.
+  Soll die Netlify-Produktion bleiben, gehört sie dort hinein — sonst
+  abschalten (Entscheidung, STATUS §2).
+
+  > **COOP `same-origin-allow-popups` heisst: auf der Rückkehrseite ist
+  > `window.opener` `null`** (v33.59, Gegenprüfung r2, in Chromium
+  > nachgestellt). Ein Fenster, das über einen fremden Ursprung (Stripe) auf eine
+  > Seite des eigenen Ursprungs zurückkehrt, hat danach keinen Opener mehr — für
+  > den eigenen Ursprung wie für die Netlify-Adresse; ohne COOP ist er da. Der
+  > Rückkehr-Handler in `index.html` verlangte `popup=1` UND `window.opener` —
+  > damit schloss sich das Stripe-Fenster nie, es lud die ganze App. Seit v33.59
+  > erkennt er das Fenster an `popup=1` allein (die App setzt es nur, wenn sie
+  > wirklich ein Fenster geöffnet hat; kehrt das Hauptfenster selbst zurück, sagt
+  > es die Marke `gs_billing_selbes_fenster` in `sessionStorage`), meldet über
+  > `BroadcastChannel('gs-billing')` an das Hauptfenster (`_gsBillingMeldung`) und
+  > schliesst sich. Ein `BroadcastChannel` gilt nur innerhalb EINES Ursprungs —
+  > von der Netlify-Adresse aus erfährt das Hauptfenster die Rückkehr erst, wenn
+  > das Fenster zu ist. Wer einen Ablauf über ein zweites Fenster baut, prüft ihn
+  > mit der COOP aus `_headers`, nicht ohne — und wer eine Kopfzeile setzt, sucht
+  > die Stellen im Code, die von ihr abhängen.
 
 **Teilweise beantwortet (01.09.2026).** Der Netlify-Bot kommentiert an jedem PR
 mit einer Deploy-Preview-Adresse der Form
@@ -112,11 +135,18 @@ diese Sperre.
 
 ```
 GreenScan/
-├── index.html           # ~96k Zeilen Monolith (HTML + CSS + JS) — DIE App
+├── index.html           # 98'168 Zeilen Monolith (HTML + CSS + JS) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
+├── assets/              # Bibliotheken, SELBST gehostet (§3.8): Leaflet, Three.js,
+│                        assets/pdfjs/4.0.379/ (pdf.js, Version im Pfad, seit v33.59 — vorher cdnjs),
+│                        assets/fonts/ (DM Sans + Playfair Display als woff2, seit v33.59 — vorher Google Fonts);
+│                        Lizenztexte liegen daneben (LICENSE-*.txt, OFL 1.1 bzw. Apache-2.0)
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-├── supabase/migrations/ # 219 SQL-Migrationen (alle idempotent)
+│                        _shared/ = zehn reine ESM-Module, von Deno UND Node importierbar (§7.1 edge_check):
+│                        auth_vergleich · ingest_regeln · loeschung_regeln · push_helfer · quiz_gen_regeln ·
+│                        sensor_push_regeln · modelle (v33.58) · ki_tor · zahlung_regeln · markt_regeln (alle drei v33.59)
+├── supabase/migrations/ # 229 SQL-Migrationen (alle idempotent; die 20261110_* sind NICHT angewandt — §3.6, FUER-FERNANDO §30)
 ├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -126,10 +156,16 @@ GreenScan/
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
-├── scripts/             # 41 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 41, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 44 Prüfstände (§7.1) + pruefstaende.sh (fährt 44, seit v32.94 mit perf) + package.json
+│                        UND package-lock.json (Playwright, NICHT im Root; das Lockfile ist seit v33.59 eingecheckt — CI fährt `npm ci`)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
-├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
-├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
+│                        scripts/sicherheit/, scripts/edge/, scripts/rls/ = die Fall-Dateien von sicherheit_check,
+│                        edge_check und rls_check (seit v33.59; eine Datei mit `_` vorn ist ein Helfer, kein Fall)
+├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml — seit v33.59
+│                        Fremd-Actions auf vollen Commit-SHAs (nicht Tags), `persist-credentials: false`,
+│                        `npm ci` gegen das Lockfile; `pruefstaende.yml` nur `contents: read`,
+│                        `weekly-cleanup.yml` ohne Rechte auf Workflow-Ebene (nur am Job)
+├── docs/                # lebende Doku · docs/_archiv/ = 55 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
@@ -140,6 +176,20 @@ werden von beiden Hostern ausgeliefert. Seit v32.69 tragen diese Pfade
 `X-Robots-Tag: noindex` (`_headers`) und stehen in `robots.txt` — ein 404
 lässt sich auf Cloudflare Pages per `_redirects` nicht erzwingen. Neue
 interne Dateien gehören nach `docs/`, nie in den Root.
+
+Aus demselben Grund stehen seit v33.59 `.env`, `.env.*`, `*.key`,
+`supabase/.env` und `**/service-account*.json` in `.gitignore`: eine Datei mit
+Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
+öffentlichen Repo, sondern auch unter `https://green-scan.ch/.env` abrufbar.
+
+> **`.gitignore` kann eine Pflichtdatei verschlucken — und `git add -A`
+> schweigt dazu** (v33.59). Der Workflow fuhr ab v33.59 `npm ci`, das ein
+> Lockfile verlangt; `/scripts/package-lock.json` stand aber in
+> `.gitignore` (gleich unter dem Eintrag für `node_modules`), und das Lockfile kam deshalb nie im Repo an — ohne Warnung,
+> ohne Fehler beim Commit. Erst der Lauf ohne Datei zeigte es. **Wer eine Datei
+> zur Pflicht macht, sieht nach, ob sie wirklich eingecheckt ist**
+> (`git ls-files <pfad>`), nicht nur, ob sie lokal daliegt. Und wer eine Zeile
+> in `.gitignore` schreibt, fragt, ob je eine Pflichtdatei darunter fallen kann.
 
 ## 3 · Konventionen
 
@@ -262,6 +312,13 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 | Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
 | „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
+| KI-Grenzen je Plan und Function (seit v33.59) | `KI_GRENZEN` in `supabase/functions/_shared/ki_tor.mjs` — Tageslimit je Plan, Gesamt- und Bilddeckel, Texte, `max_tokens`; gebucht über `kiTor` → `fn_ai_kontingent_reservieren` (Migration `20261110_sicherheit_ki_kontingent.sql`), zurück über `kiFreigeben`, wenn der Anbieter nicht gerechnet hat (`kiFreigabeNoetig`) | keine Zahl in einer `index.ts`; der Plan wird mit dem TOKEN der Person gelesen (mit Service-Role sieht `v_user_entitlements` keine Zeile — alles wäre still `free`); ein bezahlter Plan bekommt nie weniger als vorher (§3.4) |
+| Feste Fehlersätze des KI-Proxys (seit v33.59) | `KI_SAETZE` / `kiFehlerCode` in `ki_tor.mjs`; die App kennt die Typen in `GS_KI_PROXY_SAETZE` und zeigt den Satz des Servers (`_gsAiProxySatz`) | keinen Satz aus dem HTTP-Status raten („API Key ungültig" für ein gesperrtes Konto); ein neuer Typ steht in BEIDEN Listen — `sicherheit_check` 98_schluss_b hält sie gegeneinander |
+| Bezahl-Regeln (seit v33.59) | `supabase/functions/_shared/zahlung_regeln.mjs` — Preis (`preisErlaubt`), Rückkehr-Adresse (`EIGENE_URSPRUENGE`, `rueckkehrAdresse`), Startangebot (`launchAngebot`), Gratistage, Reihenfolge der Ereignisse (`ereignisIstNeuer`), Entzug einer Lifetime, Experten-Zahlung | nie ein Preis, eine Adresse oder ein Flag aus dem Rumpf der Anfrage übernehmen; eine Zahlung setzt nie einen Zustand, den ein MENSCH bestätigen soll (`expertenZahlungFelder` schreibt nie `verified`) |
+| Erfolgsmeldung nach einer Zahlung (seit v33.59) | `_gsBillingPruefen()` — erst wenn `v_user_entitlements` einen bezahlten Plan zeigt | nie `?billing=success` oder eine Popup-Nachricht als Beleg nehmen |
+| Push-Dienste (seit v33.59) | `PUSH_HOSTS` / `pushEndpunktOk` in `_shared/push_helfer.mjs`, gebunden an den CHECK `push_subscriptions_endpoint_push_dienst` der Migration `20261110_sicherheit_konto_speicher.sql`; Abos je Nutzer `ABOS_JE_NUTZER` (10) = Deckel `fn_push_subs_deckel` | an einen Endpunkt senden, den keine der beiden Listen kennt — den Endpunkt schreibt die Person selbst; eine der zwei Zahlen allein ändern (`edge_check` 30_push hält beide) |
+| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage), bis DASSELBE Konto wiederkommt | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist |
+| Bild eines ANDEREN Nutzers (seit v33.59) | `_gsFremdBild(u)` — nur der eigene Supabase-Speicher (`SB_URL_DEFAULT` + `/storage/v1/object/public/`) oder `data:image`; serverseitig dieselbe Regel in `fn_gs_bild_url_ok` (Migration `20261110_sicherheit_community_markt.sql`, nicht angewandt) | `_gsSafeUrl` für fremde Bilder — es prüft nur das Schema, und ein fremder Host zählt jeden Betrachter mit |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -300,6 +357,42 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   `thinking`-Block stehen). Und wer ein Modell hinzufügt, trägt es an BEIDEN Orten ein
   und gibt ihm in `modellZusatz` / `_gsModellZusatz` seine Einstellungen — ein Modellname
   allein ist keine Umstellung (§7.1, `modell_check`).
+- **Seit v33.59 steht vor JEDER KI-Edge-Function dasselbe Tor:** `kiTor` aus
+  `supabase/functions/_shared/ki_tor.mjs` (`ai-proxy`, `plan-iterate`,
+  `garden-scan-analyze`, `plant-doctor-diagnose`, `pest-identify`,
+  `mushroom-identify`; `knowledge-bulk-gen` und `feedback-triage` nehmen die
+  Prompt- und Zeilenregeln daraus). Anmeldung über `getUser(token)`, Plan mit dem
+  Token der Person, Eingabegrenzen (`kiEingabeOk` / `kiProxyEingabe`), die
+  Reservierung VOR dem Aufruf in einer Anweisung, die Rückgabe, wenn der Anbieter
+  nicht gerechnet hat. Der Modellaufruf aus v33.58 (`anthropicFetch`,
+  `rufeModell`) steht HINTER dem Tor. **Es ist fail-closed:** ohne die Migration
+  `20261110_sicherheit_ki_kontingent.sql` antwortet jede dieser Functions mit 503
+  — auch der Pilz-Scanner. Deshalb gilt beim Ausliefern: **erst die Migration,
+  dann die Functions** (FUER-FERNANDO §30). Stand 11.11.2026: weder die Migration
+  angewandt noch eine Function mit Tor ausgeliefert; live laufen die sechs
+  KI-Functions von v33.58 ohne Tor.
+- **Eine KI-Zeile, die in eine Tabelle geht, läuft durch eine Erlaubnisliste der
+  Spalten** (`kiSchemaSpalten`, `kiZeileOk`) — gelesen aus dem Schema-TEXT, mit
+  dem das Modell angewiesen wird, nicht aus einer zweiten Liste daneben.
+  `knowledge-bulk-gen` setzt die Essbarkeit eines Pilzes nie selbst
+  (`'unbekannt'`, bis ein Mensch freigibt), und das optionale `model` im Auftrag
+  gilt nur, wenn es in einer der zwei Modellketten steht (`modellFuerAnfrage`).
+
+> **Eine Sicherheitsreparatur darf einem zahlenden Kunden nicht still weniger
+> geben** (v33.59). Die erste Fassung des KI-Tors setzte Tageslimits für
+> Plus/Pro, die zum Teil UNTER dem lagen, was diese Pläne vorher bekamen (eine
+> Stundenbremse von 20 bzw. 30 Aufrufen, also bis zu 480 bzw. 720 am Tag) —
+> während die App an mehreren Stellen „unbegrenzte KI-Nutzung" verspricht. Die
+> Schlussprüfung hat es gefunden, kein Prüfstand: die Zahlen standen in EINER
+> Datei und waren „gesetzt, nicht gemessen". Seither ist die Grenze eines
+> bezahlten Plans an den Bild-Functions die alte Stundenbremse × 24 (`BREMSE`
+> in `ki_tor.mjs`), und `ai-proxy` hat die Zahlen, die live schon galten.
+> **Wer ein Kontingent einführt, misst es gegen das, was ein zahlender Kunde
+> bisher BEKAM und was ihm die Texte der App ZUSAGEN** — und zwei Stellen, die
+> dieselbe Grenze kennen (Lauf-Deckel und Datenbank-Trigger), hängen an EINER
+> Zahl, die ein Fall gegeneinander hält (`ABOS_JE_NUTZER` ↔ `fn_push_subs_deckel`).
+> Ob „unbegrenzt" in den Texten der App bleiben darf, ist eine Entscheidung von
+> Fernando, keine Code-Frage.
 
 ### 3.5 · Daten-Speicherung
 - Lokal: `localStorage` mit `safeGetItem(key, fallback)` Wrapper benutzen.
@@ -351,6 +444,10 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   **Es wirft nicht** (kein einziges `throw` im Rumpf, jeder Weg gibt ein Objekt
   zurück — auch der Netzfehler). Ein `.catch()` daran ist deshalb von Bauart
   tot; seit v32.82 zählt `robust_check` Fall 20 sie und lässt keine zu.
+  Dasselbe gilt für ein `try/catch` UM einen `sbFetch`-Aufruf, das auf den
+  Fehlerfall wartet: der Offline-Rückfall der Wissenssuche hing an genau so
+  einem `catch` und lief nie (gefunden v33.59, `sicherheit_check`
+  95_nebenbefunde). Wer einen Rückfall braucht, prüft `r.error`.
   Wer eine Antwort auswerten will, nimmt `.then` oder `await` — und prüft
   `_gsSchreibOk(r)` (Ablehnung ODER 0 Zeilen), nie nur `r.error`.
   **Ein Nein ist nicht immer ein Fehler:** `fn_achievements_showcase_set` gibt
@@ -376,12 +473,39 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 > window._gsAchShowcase || []` ist dasselbe Array, und eine Rücknahme darauf
 > läuft, ohne etwas zu tun.
 
+> **Ein Upsert nennt seinen Schlüssel selbst** (v33.59). `Prefer:
+> resolution=merge-duplicates` ohne `?on_conflict=` löst auf dem
+> PRIMÄRSCHLÜSSEL auf. An einer Tabelle mit eigenem UNIQUE-Schlüssel
+> (`feedback_votes`: `item_id, voter_key` · `push_subscriptions`:
+> `user_id, endpoint` · `weather_log_per_garden`: `user_id, date`) scheitert
+> damit der ZWEITE Schreibversuch mit 23505 — das Umstimmen einer Idee und das
+> erneute Abonnieren desselben Geräts gingen deshalb nie. Im lokalen Postgres
+> nachgerechnet; alle 16 `merge-duplicates`-Aufrufe sind durchgezählt
+> (`sicherheit_check` 98_schluss_d).
+
 ### 3.6 · Sicherheit (Pflicht!)
 - **NIE** API-Keys, Secrets, Tokens hardcoden. NVIDIA-Demo-Key war geleakt
   (jetzt entfernt + Migration-Hook). Wenn du je einen Demo-Key brauchst,
-  pack ihn hinter einen Server-Proxy.
+  pack ihn hinter einen Server-Proxy. **Entfernt heisst nicht widerrufen**
+  (nachgemessen v33.59): der Schlüssel (`nvapi-Pr2M…usrB`) steht weiter in der
+  git-Historie dieses öffentlichen Repos, und dass er beim Anbieter widerrufen
+  wurde, ist nirgends belegt. Das ist nur ausserhalb des Repos lösbar (STATUS §2,
+  FUER-FERNANDO §30); eine umgeschriebene Historie ersetzt den Widerruf nicht.
+  Dasselbe gilt für ein Geheimnis im RUMPF einer Datenbank-Funktion: die
+  Migration `20261110_sicherheit_funktionen.sql` nimmt es aus
+  `fn_knowledge_grow` heraus, aber was einmal im Repo oder in einem lesbaren
+  Rumpf stand, wird gewechselt, nicht nur entfernt.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
+  **Seit v33.59 ist sie eng:** `default-src 'self'`, `object-src 'none'`, kein
+  cdnjs und kein Google Fonts mehr, `connect-src` nur, was der Code anspricht —
+  EIN Supabase-Projekt (`vowbiueikwrauuceilhc`), die Kachel-Hosts, die der Worker
+  selbst holt (`KACHEL_HOSTS` in `sw.js`), Anthropic, Open-Meteo, Nominatim,
+  Wikipedia. „Allowlist erweitern" heisst damit: die Direktive, die die neue
+  Anfrage wirklich braucht, und denselben Host in `scripts/sicherheit/97_empfaenger.js`
+  und in beiden Datenschutztexten (§3.7). Ein `fetch()` IM Service Worker wird
+  gegen DESSEN `connect-src` geprüft — die CSP aus `_headers` gilt auch für
+  `/sw.js`.
 - **innerHTML mit User-Input**: NIEMALS ungeprüft. Nutze `gsEscHtml(s)` zum
   HTML-Escapen einzelner Werte, `gsSanitizeHtml(html)` für ganze Fragmente
   (das ältere `gsSanitize` hatte keinen Aufrufer und ist seit v32.77 weg):
@@ -398,6 +522,19 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
   | Fragment, das Auszeichnung TRAGEN darf (Übersetzung mit `<br>`, Chat-Zeile mit `<strong>`) | `gsSanitizeHtml(html)` — Allowlist in einem `<template>`; ein `style` nur über `_gsStilSaeubern` (Erlaubnisliste je Deklaration, seit v33.54) | `escHtml` zerstört die Auszeichnung, `innerHTML = fremd` führt sie aus |
   | Adresse aus fremder Hand | `_gsSafeUrl(u)` für Bilder (https/data:image), `_gsSafeLink(l)` für Navigation (eigener Ursprung oder https), `swSafeUrl` im Service Worker (nur eigener Ursprung) | `javascript:` ist eine gültige URL |
+  Seit v33.59 ist `window._gsOcArg` nur noch ein Name für `_gsOcStr` — die
+  alte Fassung liess `&` stehen. Und die Bauform ist als KLASSE geschlossen:
+  jeder eingesetzte Wert in einem JS-String eines `on*`-Attributs geht durch
+  `_gsOcStr` (bzw. `_gsOcJson`), und `sicherheit_check` 92_onclick sucht die
+  Bauform im ganzen `index.html` (`scripts/sicherheit/_onclick_suche.js`). Ein
+  JS-Fragment, das erst in einer Variablen entsteht und später in
+  `onclick="' + x + '"` landet, steht in keiner Zeile mit `on…=`; solche
+  Stellen stehen namentlich mit Grund in `OHNE_HANDLER`. **Nicht abgedeckt** ist
+  die UNZITIERTE Form `f(' + x + ')`: bei der Gegenprüfung 65 Stellen, per Hand
+  durchgesehen, alle Zahlen oder Konstanten — heute keine Lücke, aber kein Deckel.
+  Ausgenommen wird nur, was nachweislich eine Zahl ist (`i`, `idx`,
+  `Number(…)`); die erste Fassung hielt `k` und `tag` für Zähler, beides sind
+  Schlüssel aus Daten.
   `innerHTML = <etwas Fremdes>` ohne einen davon gibt es nicht mehr. Wer eine
   neue Stelle baut, an der Text von ANDEREN ankommt (Community, `species`,
   Mitteilungen aus SECURITY-DEFINER-Triggern, Übersetzungen, KI-Ausgaben,
@@ -413,6 +550,111 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   > die Eigenschaften, die Texte wirklich brauchen (gemessen), keine Escapes,
   > keine Zeichenketten, Funktionen nur `rgb/hsl/var/calc`. Und der Fall misst
   > die WIRKUNG — die Anfragen, die der Browser stellt —, nicht den Text.
+- **Seit v33.59 kommen zwölf Kontexte dazu — wieder jeder mit GENAU einem Helfer**
+  (Sicherheitsprüfung vom 10.11.2026, Prüfstand `sicherheit_check`). Bis dahin
+  hat jede Stelle diese Kontexte selbst gelöst, und zwar verschieden; die
+  häufigsten Ursachen der Funde waren ein Feld, das „nur ein Emoji" ist,
+  selbstgebautes onclick-Escaping (`JSON.stringify(x).replace(/"/g,'&quot;')`),
+  eine fremde Bild-Adresse in `background-image:url('…')` nur mit `encodeURI`,
+  eine Id, die harmlos aussieht, und Bilder fremder Nutzer von beliebigen Hosts.
+  | Kontext | Helfer | Warum nicht der andere |
+  |---|---|---|
+  | ein beliebiger Wert (Objekt, Liste, Text) als Argument in einem `on*`-Attribut: `onclick="fn(' + _gsOcJson(x) + ')"` | `_gsOcJson(x)` — erst JSON, dann HTML-Escape | `_gsOcStr` kennt nur einen Text in `'…'`; das selbstgebaute `JSON.stringify(x).replace(/"/g,'&quot;')` lässt ein `&quot;` IM Wert vom HTML-Parser zu `"` werden und den JS-String beenden |
+  | Bild eines ANDEREN Nutzers (Beitrag, Inserat, Avatar, Kartenfund, Arten-Foto) | `_gsFremdBild(u)` — nur `SB_URL_DEFAULT/storage/v1/object/public/…` oder `data:image` (png/jpeg/webp/gif, base64) | `_gsSafeUrl` prüft nur das Schema: ein fremder Host zählt jeden Betrachter mit (IP, Zeit) und kann das Bild nach der Moderation austauschen. Eigene Bilder (Meine Funde, Tagebuch) bleiben bei `_gsSafeUrl` |
+  | Adresse in `url('…')` in einem `style`-Attribut | `_gsCssUrl(u)` — Schema http(s) oder `data:image`, danach wird alles prozent-kodiert, was CSS oder das Attribut beenden kann; `''` heisst: Deklaration weglassen | `escHtml` hält den Wert im Attribut, nicht im CSS-String; `encodeURI` lässt `'` und `)` stehen. **Kein `blob:`** — wer ein `blob:`-Vorschaubild braucht, entscheidet das an der Stelle |
+  | kurzes Emoji aus fremder Hand (KI, Backup, Server, Lina) | `_gsEmoji(e, rueckfall)` — höchstens 16 UTF-16-Einheiten, keine Auszeichnungs-, Anführungs- und Trennzeichen; sonst der Rückfall; das Ergebnis darf in Text UND Attribut | `escHtml` liesse einen langen Text als „Emoji" stehen; das Feld wird an Dutzenden Stellen ohne Escape eingesetzt, weil es „nur ein Emoji" ist |
+  | Id (uuid, `p1`, `cloud_<uuid>`, Zahl) in einem Attribut oder JS-String | `_gsIdSicher(id)` — nur `[A-Za-z0-9_\-:.]`, höchstens 128 Zeichen | eine echte Id verliert dabei nichts, eine präparierte findet danach schlicht keinen Datensatz — sicherer als jedes Escape, weil nichts übrig bleibt, das ein Parser deuten könnte |
+  | Feld einer Wissens-Tabelle (Text, Zahl, Liste, Objekt `{name, qty}`) | `_gsKbText(x)` — EINE Lesart als Text, escapen bleibt Sache der Anzeige | `String(x)` zeigt `[object Object]`, `String(x\|\|'')` verschluckt die `0` |
+  | Farbe aus einer Wissens-Tabelle in `style="background:…"` | `_gsKbFarbe(c)` — nur `#hex`, ein Farbwort oder `rgb/hsl(…)`; sonst `''` | ein escaptes Attribut ist noch kein sicherer Wert (Kasten unten) |
+  | zurückgespielte EIGENE Daten (Backup-Import, Cloud-Pull: Gärten, Pflanzungen, Pflanzen, Tagebuch, Pläne, Geräte) | `_gsSiebListe(liste, idPraefix)` / `_gsSiebEintrag(o)` — Ids über `_gsIdSicher` (unbrauchbar → neue Id mit Präfix), Zahlenfelder als Zahl, Fotofelder nur in bekannter Form, Emoji über `_gsEmoji`, Aufgaben-Schlüssel aus einem festen Alphabet | ein Backup ist eine Datei aus fremder Hand, auch wenn es „eigene" Daten sind; ohne Sieb ist jeder Renderer, der `p.id` in ein `onclick` setzt, ein Weg hinein |
+  | eine Art aus fremder Hand in die Laufzeit-Artenliste (Community-Art, bestätigter Scan, KI-Anreicherung) | `_gsArtEingang(c)` — Name/Latein/Familie mit `< > " \` \\` werden verworfen, Texte ohne `<`/`>`, Längen gedeckelt, `tox` 0–5 oder `null`, `cat` aus `GS_ART_KATEGORIEN`, unbekannte Felder fallen weg; der Aufrufer setzt `_unverified` | hunderte Stellen rendern `DB` als vertrauten Katalog; ein KI-Profil ist kein Beleg für die Bestimmung derselben KI |
+  | eine Übersetzung aus der Datenbank, dem Cache oder der Edge-Function | `_i18nWert(v)` in der Sprachschicht — am EINGANG: ohne `<` nur typografische Anführungszeichen, mit `<` durch `gsSanitizeHtml` und danach nur ein `style` ohne Leerraum | rund 900 Stellen setzen `_t(…)` roh in HTML oder in einen Attributwert; an jeder Senke einzeln zu escapen war nicht zu halten |
+  | eine Zelle eines CSV-Exports | `_gsCsvZelle(wert)` — Anführung verdoppeln, ein `'` vor `= + - @`, Tab und CR | ein Pflanzenname aus KI oder Sync würde in Excel/LibreOffice sonst als FORMEL ausgewertet; Zahlen bleiben Zahlen |
+  | Nachschlag in einer Tabelle, deren Schlüssel aus fremder Hand kommt (`EMOJI[zeile.kategorie]`, `LABEL[item.status]`) | `_gsNachschlag(tabelle, schluessel, rueckfall)` — nur EIGENE Einträge (`hasOwnProperty`), für einen Objekt-Schlüssel der Rückfall | `tabelle[wert] \|\| rueckfall` liefert für `constructor` eine Funktion und für `__proto__` ein Objekt — beides wahr, der Rückfall greift nie |
+- **Und fünf Regeln für Wege, die keine Senke sind** (v33.59):
+  - **Ein Token aus der Adresse wird nie zur Sitzung.** Bis v33.58 schrieb jeder
+    Link mit `type=recovery` seinen Token als Sitzung — wer einen solchen Link
+    unterschob, meldete sein Gegenüber in SEIN Konto an. Seither prüft
+    `_gsAuthRecovery` den Token zuerst beim Server, hält ihn nur im
+    Arbeitsspeicher und nimmt Konto und E-Mail aus der Antwort des SERVERS; ist
+    jemand anderes angemeldet, entscheidet die Person. Der Magic-Link-Knopf ist
+    entfernt (die Rückkehr kam nie an; der Weg dorthin wäre PKCE — eine
+    Entscheidung, STATUS §2).
+  - **Die Backend-Adresse kommt nicht aus dem Speicher.** `SB_URL` ist
+    `SB_URL_DEFAULT`; `gs_sb_url` / `gs_sb_key` werden nie mehr gelesen und beim
+    Aufräumen entfernt. Ein Schlüssel, den niemand mehr lesen darf, wird nicht
+    bewacht, sondern entfernt — jeder Leser, auch ein `|| localStorage.getItem(…)`
+    als Rückfall, ist sonst die nächste Hintertür.
+  - **`?screen=` nur für Bildschirme, die es gibt** — die Liste aus dem Manifest
+    oder ein `.screen` im Dokument; alles andere wird aus der Adresse entfernt.
+  - **Eine Erfolgsmeldung nach einer Zahlung erst nach der Bestätigung des
+    Servers** (`_gsBillingPruefen`, §3.3). Die Rückkehr-Adresse und die
+    Popup-Nachricht sagen nur, dass jemand von Stripe zurückkam.
+  - **Eine Zahlung ist eine Anfrage, nie ein Urteil.** Was ein Mensch bestätigen
+    soll (die Experten-Verifikation), setzt kein Webhook nach dem Zahlungseingang;
+    der Knopf ist bis zu einem Datenmodell für die Anfrage aus
+    (`GS_EXPERTEN_ANFRAGE_AKTIV`).
+
+  > **Ein escaptes Attribut ist noch kein sicherer Wert** (v33.59). `escHtml`
+  > hält einen Wert in `style="…"` fest — aber `red;background-image:url(…)`
+  > ist danach immer noch CSS und lädt eine fremde Adresse, ganz ohne ein
+  > einziges `"`. Ein Wert in einem CSS-Kontext braucht eine ERLAUBNISliste
+  > (`_gsKbFarbe`), keine Escape-Funktion — dieselbe Lehre wie `_gsStilSaeubern`
+  > (v33.54), eine Ebene tiefer. Gefunden hat es ein Fall, der die Feldnamen aus
+  > dem Quelltext der Renderer liest und JEDES Feld feindlich macht; er fand dazu
+  > drei „harmlose Zahlen" (`prep_time_min`, `altitude_m_min` …), die roh
+  > eingesetzt waren und die kein Finder genannt hatte.
+  >
+  > **Und ein bereinigtes Fragment ist nur im HTML-Kontext harmlos.** Landet eine
+  > Übersetzung mit Auszeichnung in einem Attributwert, beendet das erste `"`
+  > ihrer EIGENEN Attribute das äussere — `title` oder `href` im Fragment werden
+  > dort zu Ereignis-Attributen. Deshalb lässt `_i18nWert` nur `style` stehen (ohne
+  > Leerraum, ohne `/`), und `gsSanitizeHtml` kennt seit v33.59 kein `class` mehr.
+  >
+  > **`escHtml(0)` ist `''`** — der Escaper beginnt mit `String(s||'')`. Im
+  > Ops-Cockpit verschwand damit jeder Wert 0, sobald die Reparatur die bis
+  > dahin roh eingesetzten Zahlen durch `escHtml` schickte (Schlussprüfung, i6).
+  > Eine ZAHL, die escaped werden soll, braucht `String(n)` davor (oder einen
+  > Helfer, der die 0 kennt — `_gsKbText`, `_z` in den Prüfwerk-Zeilen).
+  > `escHtml` selbst blieb, wie es ist: rund 360 Aufrufe in `index.html`, und ein
+  > `null` soll dort weiter leer bleiben.
+  >
+  > **Ein Sieb ändert Ids — und was unter der ALTEN Id gespeichert ist, muss
+  > danach noch gefunden werden.** Die neue Community-Art-Id wich für Slugs mit
+  > einem Bindestrich am Rand von der alten ab: Favoriten und Sammlungen hätten
+  > die Art verloren, ohne dass etwas meldet (Schlussprüfung, i2). Wer eine Id
+  > säubert oder neu bildet, sucht zuerst alle Stellen, die sie als SCHLÜSSEL
+  > ablegen (Favoriten, Sammlungen, Tagebuch, Aufgaben), und prüft, dass die
+  > bisherigen Ids unverändert durchgehen.
+  >
+  > **Und ein Feld, das „nur ein Emoji" ist, ist Fremdtext wie jedes andere.**
+  > Es kam aus der KI, aus dem Scan-Cache eines FREMDEN Kontos, aus Lina-Aktionen
+  > und aus Backups an rund zwei Dutzend Senken an, und keine davon hat es
+  > escaped. Sobald ein Cache-Treffer den KI-Aufruf ersetzt, gilt er als
+  > Bestimmung — ein geteilter, von jedem beschreibbarer Cache ist darum kein
+  > Sparhebel, sondern eine Bestimmung durch Fremde (bei Pilzen). Die App liest
+  > und schreibt `scan_cache` seit v33.59 nicht mehr; die Rechte auf dem Server
+  > nimmt erst `20261110_sicherheit_funktionen.sql` weg.
+- **Die Server-Seite dieser Reparatur ist NICHT live** (Stand 11.11.2026, nur
+  lesend gemessen: 0 von 23 neuen Funktionsnamen existieren). Sechs Migrationen
+  `supabase/migrations/20261110_*.sql` und die überarbeiteten Edge-Functions
+  liegen im Repo; bis Fernando sie anwendet bzw. ausliefert, sind die Lücken,
+  die ihre Köpfe beschreiben, live offen — und das Repo ist öffentlich. Was
+  welche Datei schliesst und in welcher Reihenfolge, steht im KOPF jeder
+  Migration und in FUER-FERNANDO §30. **Wer eine weitere Migration dieser Art
+  schreibt, beschreibt die Lücke so, dass der Betreiber weiss, was zu tun ist —
+  nie mit einer fertigen Anfrage, die sie ausnutzt.**
+- **Eine ältere, nicht angewandte Migration darf eine neue Reparatur nicht
+  still zurückdrehen.** `20260831_kosten_und_cron_wachhund_v30_95.sql` und
+  `20260907_quiz_antwort_formate.sql` ersetzten dieselben Funktionen wie zwei
+  der neuen Dateien; nach ihnen eingespielt, stand wieder der alte Rumpf. Beide
+  tragen jetzt einen Wächter auf eine MARKE im Rumpf der neuen Fassung
+  (`prosrc LIKE`), und die neue Fassung trägt, was die alte wollte — EINE Fassung,
+  gleich in welcher Reihenfolge (`rls_check` 70_reihenfolge und 20_quiz spielen
+  beide Reihenfolgen und vergleichen den Endstand Rumpf für Rumpf). Dazu die
+  Falle der Dateinamen: die alten `v28_*`/`v29_*`-Migrationen sortieren
+  alphabetisch NACH `2026…` — wer nach Dateinamen nachspielt, dreht damit
+  mehrere Reparaturen zurück.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.
@@ -442,19 +684,87 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   aus der CSP) — wer den Standort verweigert, bekommt Zürich mit Hinweis.
 - Daten landen in Supabase EU-Region. Datenschutz-Erklärung verlinkt im
   Footer-Modal.
+- **Seit v33.59 verlässt kein Foto das Gerät mit Metadaten** (EXIF, GPS).
+  `_gsBildOhneMeta(x, opts)` kodiert neu bzw. erkennt ein schon sauberes Bild
+  und gibt sonst `null` — und `null` heisst: NICHT hochladen, nie roh als
+  Rückfall. Es sitzt an den zwei Toren, durch die jeder Upload muss
+  (`gsUploadImage`, `gsUploadPhotoToBucket`), und in `callVisionAI`. Wer einen
+  dritten Weg baut, der Bytes nach draussen schickt, geht durch eines dieser
+  Tore. **Nicht** abgedeckt sind die Bestandsobjekte in den Buckets: was vor
+  v33.59 hochgeladen wurde, trägt seine Metadaten weiter und braucht einen
+  einmaligen Lauf auf dem Server (STATUS §2).
+- **Ein Standort geht an Dritte nur gerundet** — `_gsOrtGrob(lat, lng)`, zwei
+  Nachkommastellen (rund 1 km), `null` ohne Zahl. Das gilt für jede öffentliche
+  Zeile (ein freigegebener Fund, mit Rückfrage vorher) und für Open-Meteo und
+  Nominatim; serverseitig rundet `daily-push-checker` ebenso (nicht ausgeliefert).
+  Der Kartenlink im Scan-Ergebnis (OSM, nur auf Knopfdruck der Person) bleibt
+  genau — so vorgeschlagen, als Entscheidung offen.
+- **Der öffentliche Name ist nie die E-Mail und nie ihr lokaler Teil.**
+  `_gsOeffentlicherName(gewaehlt, opts)` ist der eine Leser für Beiträge,
+  Kommentare und Rangliste; an der Quelle legen `sbSaveSession` und
+  `sbRegister` den lokalen Teil nicht mehr als Vorgabe ab. Serverseitig nimmt
+  `fn_handle_new_user` ihn ohne Namen in den Metadaten weiter als
+  `display_name` — live und auch in der Fassung der Migration; ob der Signup
+  stattdessen einen neutralen Namen setzt, ist eine Entscheidung für Fernando
+  (STATUS §2).
+- **Wer einen neuen externen Host einbaut**, trägt ihn in
+  `scripts/sicherheit/97_empfaenger.js` (`HOSTS`) ein und nennt ihn in BEIDEN
+  Datenschutztexten: `privacy.html` §4 und die Erklärung in der App. Der Fall
+  liest jeden `https://`-Host aus `index.html` und `sw.js` und hält ihn gegen
+  beide; ein Host ohne Eintrag ist rot. Eine Adresse, die nur die PERSON öffnet
+  (ein Link), steht dort als `link`, nicht als Empfänger.
+
+  > **Wer etwas an einen Dritten nur gerundet schickt, rundet die ADRESSE der
+  > Anfrage, nicht den gespeicherten Wert** (v33.59). Sonst stimmt der Vergleich
+  > im Wetter-Zwischenspeicher nicht mehr, und die App fragt bei jedem Start neu
+  > — der Fall prüft deshalb drei Dinge: die Adresse ist grob, der Speicher genau,
+  > und ein zweiter Aufruf mit demselben Ort fragt nicht noch einmal.
+  >
+  > **Ein Name, den eine Funktion als VORGABE ablegt, ist für jeden späteren
+  > Leser nicht von einem gewählten zu unterscheiden.** `gs_sb_display_name`
+  > trug nach der Anmeldung den lokalen Teil der E-Mail, und fünf Schreibwege
+  > gaben ihn als „gewählten" Namen weiter. Die Regel gehört an den einen Leser
+  > UND an die Quelle, nicht an jeden Schreibweg.
+  >
+  > **Ein Canvas-JPEG aus Chromium ist nicht „nur JFIF"** — es trägt ein
+  > APP2-ICC-Profil. Wer „sauber" an der Dateistruktur erkennt, prüft die Regel
+  > zuerst an einem ECHTEN Canvas-Bild; sonst wird jedes schon saubere Foto ein
+  > zweites Mal kodiert (gefunden vom Fall „sauberes Bild byte-gleich").
 
 ### 3.8 · Code-Style
 - Vanilla JS, ES6+. Kein TypeScript, kein React. Externe Bibliotheken —
-  **alle selbst gehostet** unter `assets/`, keine CDN-Abhängigkeit:
+  **alle selbst gehostet** unter `assets/`, keine CDN-Abhängigkeit (seit
+  v33.59 wirklich: bis dahin kamen pdf.js von cdnjs und die Schriften von
+  Google Fonts):
   | | | |
   |---|---|---|
   | **Leaflet** | 147 KB | Karte |
   | **Three.js** | 603 KB | 3D-Modelle (Planer + Garten-Zwilling) |
-  | **pdf.js** | CDN (cdnjs), **nur bei Bedarf** seit v32.79 (`_gsPdfjsLaden`) | Book-Ingest (Admin), PDF einlesen |
+  | **pdf.js 4.0.379** | `assets/pdfjs/4.0.379/` — 306 KB + Worker 1'029 KB, **nur bei Bedarf** seit v32.79 (`_gsPdfjsLaden`), selbst gehostet seit v33.59 (npm `pdfjs-dist`, Apache-2.0) | Book-Ingest (Admin), PDF einlesen |
+  | **Schriften** | `assets/fonts/` — DM Sans und Playfair Display, 16 woff2-Dateien, zusammen 215 KB (`@fontsource` 5.3.0, SIL OFL 1.1), seit v33.59 | ganze App |
 
-  Three.js fehlte hier bis v31.57, obwohl es die grösste der drei ist. Es wird
+  Three.js fehlte hier bis v31.57. Es wird
   **erst bei Bedarf** geladen (`_gsLoadThree()`), nie beim Start — wer nie ein
   3D-Modell öffnet, lädt die 603 KB nie.
+
+  **Die Version steht im PFAD** (`assets/pdfjs/<version>/`), und `/assets/*`
+  wird ein Jahr lang `immutable` ausgeliefert. Eine Datei, die sich unter
+  derselben Adresse ändert, bekäme also niemand. `robust_check` („Adressen
+  ziehen mit") hält deshalb für jede Datei unter `/data` und `/assets` eine
+  Prüfsumme fest: wer eine Bibliothek oder Schrift austauscht, gibt ihr eine
+  neue Adresse (neuer Versionsordner bzw. `?v=`, in `index.html` UND `sw.js`)
+  und trägt die Prüfsumme dort nach. Die Lizenztexte liegen daneben und werden
+  mit ausgeliefert (Lizenzpflicht); `android/build.sh` packt die woff2-Dateien
+  und die pdf.js-Module mit ins APK.
+
+  > **Was ein Prüfstand nicht laden kann, misst er nicht — er misst den
+  > Rückfall** (v33.59). Die Prüfstände brechen jede Anfrage ausserhalb von
+  > `file:` ab, also auch Google Fonts: jahrelang wurde eine andere Schrift
+  > vermessen, als die Nutzer sahen. Seit die Schriften im Repo liegen, laden
+  > die Prüfstände die ECHTEN — und ein `render_check`-Vergleich gegen einen
+  > Stand davor meldet deshalb rund 1'400 Grössenänderungen, die nur die
+  > Schrift-Metrik sind. Wer so einen Vergleich über diese Grenze zieht, liest
+  > ihn nicht als Layout-Fehler.
 - Defensive try/catch um nicht-essenzielle Operations (z.B. localStorage,
   Notifications). User darf nie wegen einer Sub-Funktion ein Crash sehen.
 - Funktions-Prefixes:
@@ -597,6 +907,28 @@ dem Netz UEBER die aus dem Paket legt. Was das Paket nicht kennt, bekommt eine
 **404 aus dem Paket**. Fremde Urspruenge und `blob:`/`data:` geben `null` — das
 soll ins Netz bzw. macht die WebView selbst. Achtung auf die Form: bei
 `blob:https://green-scan.ch/uuid` ist das Schema `blob`, nicht `https`.
+
+**Seit v33.59 hat die Regel drei Ränder mehr** (Gruppe a1, alle in `Pfade.java`
+und damit vom Prüfstand ausgeführt):
+- **Ein Ursprung ist Schema, Wirt UND Port** (`imUrsprung(schema, wirt, port)`):
+  nur kein Port oder 443 ist der eigene. Ohne Port bekäme
+  `https://green-scan.ch:8443` die App aus dem Paket — unter einem zweiten
+  Ursprung mit eigenem Speicher.
+- **Ein fremder HAUPTRAHMEN bekommt nie das Netz** (`weiche(…)` → `"nein"`, eine
+  leere 403 aus der Hülle), und `onPageStarted` prüft ein zweites Mal
+  (`hauptRahmenOk`): ein Formular-POST geht an `shouldOverrideUrlLoading`
+  vorbei, und eine fremde Seite im Rahmen der Hülle könnte dann Kamera und
+  Standort erfragen. Kamera und Standort gibt die Hülle nur dem eigenen Ursprung.
+- **Nach draussen nur `https`, `http`, `mailto:`, `tel:`** (`darfNachDraussen`),
+  als VIEW-Intent mit `CATEGORY_BROWSABLE`; `intent:`, `market:`, `file:`,
+  `content:` und fremde Schemata wären ein Sprungbrett in eine andere App.
+
+Und das Signier-Passwort geht seit v33.59 nur noch über die Umgebung
+(`GS_APK_KS_PASS`, `apksigner --ks-pass env:…`), nie als Argument — `argv` ist
+für jedes Konto der Maschine lesbar. Was erst ein echtes Telefon zeigt (die
+gängigen Bildquellen liefern `content://`, die Kamera bekommt der Scanner
+weiter, `tel:`/`mailto:` werden angenommen), ist nicht geprüft: hier läuft
+kein Android.
 
 **3 · Was in der Huelle anders ist, steht in `GS_HUELLE_ANDERS`** — sieben
 Eintraege (`sw` · `push` · `update` · `download` · `drucken` · `teilen` ·
@@ -753,6 +1085,16 @@ Wer am Teilen-Ziel arbeitet, muss sieben Dinge wissen; die Pruefstaende sind
    laufenden App still), und ein Strom, der nicht endet, wird nach
    `KOMMT_MAX_MS` **geschlossen** (sonst belegten zwei haengende Anbieter
    beide Plaetze bis zum Ende des Prozesses).
+   **Seit v33.59 gilt die Quellen-Regel für JEDE Antwort einer fremden App**,
+   nicht nur für das Teilen: die Dateiauswahl (`GET_CONTENT`) und „Speichern
+   unter" (`CREATE_DOCUMENT`) sind ebenfalls implizite Intents, ihre Antwort
+   kommt von irgendeiner App. Wer einen neuen `startActivityForResult` baut,
+   schickt das Ergebnis durch `Geteilt.quelleOk` bzw. `Geteilt.auswahl` (eine
+   Liste). Alte Apps, die `file://` liefern, werden damit abgewiesen — ob die
+   gängigen Bildquellen alle `content://` liefern, zeigt erst ein Telefon.
+   Offen aus der Gegenprüfung: alle haengenden Stroeme teilen EINEN
+   Waechter-Faden — haengt `close()` bei einem Anbieter, werden die uebrigen
+   nicht mehr nach `KOMMT_MAX_MS` geschlossen.
 
 > **Ein Ursprungs-Riegel, den die Gegenseite abschalten kann, ist keiner**
 > (v33.55). Der erste Entwurf wies POSTs mit fremdem `Origin` ab und liess
@@ -843,6 +1185,10 @@ Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
 2. `STATUS.md` öffnen — was ist gerade in Arbeit, was ist offen?
 3. Wenn unklar: zuerst kurze Notiz unter „In Progress" in `STATUS.md`
    schreiben + committen, damit andere Agenten wissen, dass du dran bist.
+4. **Und noch einmal VOR dem Bump** (`git fetch`, `git log HEAD..origin/main`).
+   Wer lange auf einem Zweig arbeitet, sieht sonst nicht, dass eine andere
+   Sitzung dieselben Dateien geändert — oder live ausgeliefert — hat (v33.59:
+   neun Function-Dateien und vier Stellen in `index.html`, §7.1).
 
 ### Nach dem Edit
 1. `STATUS.md` aktualisieren („Recently shipped" / „Known issues").
@@ -881,6 +1227,16 @@ Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
 - Die Cache-Version in `sw.js` ist Teil JEDES Bumps: ohne neuen Worker gibt es
   kein `updatefound` und damit kein Update — `robust_check` Fall 24 hält
   `VERSION === 'gs-' + GS_VERSION` und die meta app-version zusammen.
+- **Ein Push auf `main` liefert nur die statischen Dateien aus** — nie eine
+  Migration, nie eine Edge-Function. Beides geschieht von Hand, durch
+  Fernando. Für v33.59 heisst das: der Client wirkt mit dem Merge, die
+  Server-Seite erst nach dem Anwenden bzw. Ausliefern, und zwar in einer
+  festen Reihenfolge (FUER-FERNANDO §30). Zwei Reihenfolgen tragen eine
+  Wirkung: `20261110_sicherheit_ki_kontingent.sql` VOR den KI-Functions (sonst
+  503 für alle), und einige Migrationen erst NACH der App, die die alten Aufrufe
+  nicht mehr macht — was davon zutrifft, steht im Kopf jeder Migration. Wer eine
+  Migration schreibt, die eine Client-Änderung voraussetzt, schreibt das in
+  ihren Kopf, nicht nur in STATUS.
 
 ## 7 · Hilfe-Adressen
 
@@ -907,16 +1263,28 @@ Zwei Dinge, die man wissen muss:
   der Login-Flash-Guard (`index.html` ~Z. 1836) ohne diesen Schlüssel
   `html.gs-preauth` setzt und damit `#app{display:none!important}`. Ohne Token
   misst man 11 Elemente statt 2'596.
+  **Seit v33.59 ist es eine Sitzung, die bleibt** (Token in JWT-Form,
+  `gs_sb_uid`, `gs_sb_email`, `gs_sb_expires` in `scripts/_seed.js`). Bis dahin
+  hatte der Token keine drei Teile; `gsSecurityInit` räumte ihn 500 ms nach dem
+  Start ab, und jeder Prüfstand vermass danach eine ABGEMELDETE App, über die
+  sich nach rund drei Sekunden der Anmeldebildschirm legte. Der erste volle
+  Lauf mit bleibender Sitzung fand zwei Fehler, die abgemeldet nie messbar
+  waren (Kasten bei `backup_check`).
 - **Der Gast-Modus ist kein Weg hinein.** Er wurde in v25.33 abgeschaltet,
   `gsActivateGuestMode` ist ein leerer Rumpf.
 
-**Und eine Sperre, über die jeder Prüfstand stolpert:** viele Speicherwege
-beginnen mit `gsRequire('…')` und brechen ohne echte Anmeldung ab — der
-Pseudo-Token aus `_seed.js` reicht dafür nicht. Ein Test, der ein Speichern
-prüft, muss `window.gsRequire = function(){ return true; };` setzen, sonst
-misst er eine Funktion, die gar nicht gelaufen ist. Beim Bau von v31.82
+**Und eine Sperre, über die jeder Prüfstand stolperte:** viele Speicherwege
+beginnen mit `gsRequire('…')` und brechen ohne Anmeldung ab. Bis v33.58 reichte
+der Pseudo-Token aus `_seed.js` dafür nicht; ein Test, der ein Speichern
+prüfte, musste `window.gsRequire = function(){ return true; };` setzen, sonst
+mass er eine Funktion, die gar nicht gelaufen ist. Beim Bau von v31.82
 hat mich das eine halbe Stunde gekostet: die Gartenart kam nie im Speicher
 an, und der Fehler lag nicht im neuen Code, sondern in der Anmelde-Sperre.
+**Seit v33.59 geht `gsRequire('save_garden')` mit der Sitzung aus dem Seed
+durch** (gemessen 11.11.2026). Drei Prüfstände überbrücken die Sperre weiter
+(`save_check`, `planer_check`, `contrast_check`) — es schadet nicht. Wer
+umgekehrt einen ABGEMELDETEN Weg prüft, räumt die Sitzung im Fall ausdrücklich
+ab, statt sich auf den Seed zu verlassen.
 
 Faustregel für die Auswertung: eine reine Farb- oder Radius-Änderung **muss**
 `GROESSE geaendert: 0` ergeben. Steht dort etwas anderes, verschiebt die
@@ -1005,7 +1373,10 @@ node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wied
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
 node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
 node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
-bash scripts/pruefstaende.sh     # ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/sicherheit_check.js # kommt Fremdes als TEXT an, ueber ALLE Wege? (seit v33.59) Fall-Dateien in scripts/sicherheit/ (je Themengruppe EINE Datei, `_`-Dateien sind Helfer), je Datei eine FRISCH geladene App mit einer angemeldeten Sitzung; jeder Fall rendert die echte Funktion mit h.BOESE / h.OC / h.OCQ / h.ATTR und misst ZWEI Dinge: window.__pwned bleibt unberuehrt UND der Wert steht sichtbar da; dazu die Empfaenger-Liste (97_empfaenger), die onclick-Bauform als Klasse (92_onclick), die Schlusspruefung (98/99). `node scripts/sicherheit_check.js scan markt` faehrt nur passende Dateien
+node scripts/edge_check.js       # halten die Edge-Functions, was sie ueber ihre Tore sagen? (seit v33.59) Ohne Deno: die Rechnung der _shared/*.mjs (ki_tor, zahlung_regeln, push_helfer, markt_regeln …) wird in Node AUSGEFUEHRT, der Rand (index.ts) am Quelltext geprueft — fuer die Zahlungs-Functions laeuft die ECHTE index.ts in Node 22 (Typen gestrichen, npm:/jsr:/esm.sh auf gestellte Module umgelenkt) gegen eine Supabase-Attrappe, die sich wie PostgREST verhaelt (scripts/edge/_live_schema.mjs: Live-Spalten und -Fremdschluessel, PGRST200 / 42703); 40_lieferkette: jede Import-Angabe exakt versioniert, ein Paket ueberall dieselbe Version
+node scripts/rls_check.js        # haelt die Datenbank, was die App ueber sie annimmt? (seit v33.59) Lokales Postgres (`bash scripts/_pg_local.sh start`, CI: GS_PG_URL); je Fall ein AUSSCHNITT des Live-Stands im Wortlaut (datiert) → Angriff MUSS vorher gelingen → Migration zweimal → Angriff scheitert, der Weg der App geht weiter → Gegenprobe; 05_fixture_policies haelt jeden Nachbau gegen scripts/rls/live_policies.json, 70_reihenfolge spielt beide Reihenfolgen alter und neuer Migrationen. Ohne Postgres: „nicht pruefbar" (Exit 2), nie gruen
+bash scripts/pruefstaende.sh     # ALLE 44 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1435,6 +1806,21 @@ waren das vierzehn an einem Tag. Die Migration
 `20260912_snapshot_retention_manual.sql` schliesst das und ist **nicht
 angewandt** — der Pruefstand rechnet sie in einem lokalen Postgres nach, mit
 Reproduktion (alte Fassung frisst das `manual`) und Gegenprobe.
+
+> **Ein Stempel „zuletzt gesichert" ist eine Aussage — er gehoert hinter einen
+> wirklichen Schreibvorgang** (v33.59). `gsCloudSync` stempelte
+> `gs_sync_last_push` nach JEDEM Flush, auch wenn nichts hochzuladen war.
+> `_gsSnapshotAutoFaellig` und `_gsUpdateSichern` lesen den Stempel als „seit
+> dem letzten Backup wurde etwas gepusht" — angemeldet hielt die App damit
+> jeden Stand fuer geaendert, und je Auslieferung entstand eine Sicherung ohne
+> Aenderung; die Regel aus v33.26 wirkte nur ABGEMELDET. Gefunden hat es der
+> erste Lauf, in dem die Beispieldaten wirklich anmelden (§7.1): solange jeder
+> Pruefstand eine abgemeldete App vermass, lief der Flush nie. Der Stempel
+> kommt jetzt nur nach einem wirklichen Hochladen (oder wenn er noch fehlt);
+> `backup_check` zaehlt dafuer die Schreibvorgaenge nach `user_plants` /
+> `user_gardens` / `user_app_state`. **Ein Pruefstand, der einen Zustand nie
+> herstellt, in dem die App im Betrieb fast immer ist, hat den Betrieb nicht
+> gemessen.**
 
 **`quiz_gen_check.js` (seit v33.29) fragt, was vor `quiz_check` kommt: WOHER
 kommen die Fragen, und was laesst sie hinein?** Drei Regeln, die ueber das Quiz
@@ -2248,6 +2634,285 @@ rot; gegen den alten Proxy sind sechs der sieben Rand-Fälle rot.
 > („Ungültige Session.", „invalid token"), nicht vom Gateway. Derselbe Test zeigte, dass
 > `pest-identify` und `mushroom-identify` vorher mit „missing image_base64" antworteten:
 > sie nahmen den öffentlichen Schlüssel ohne Konto an.
+
+### Die Sicherheitsreparatur v33.59 und ihre drei Prüfstände
+
+Anlass war Fernandos Auftrag vom 10.11.2026: „Alle Sicherheitslücken sollten
+behoben werden." Vorgegangen wurde in dieser Reihenfolge, und die Reihenfolge
+ist die Lehre: Basislauf aller Prüfstände und eine nur LESENDE Momentaufnahme
+der Live-DB → 27 Finder mit je einem Blickwinkel (209 Rohfunde) → je Fund ein
+Widerleger (187 bestätigt, 4 widerlegt, 13 ungeprüft — die haben die Reparateure
+selbst nachgestellt) → 24 Reparaturgruppen, jede im eigenen
+Arbeitsbaum, jede mit einem Fall, der gegen den alten Stand ROT ist, und einer
+Gegenprüfung durch einen zweiten Agenten, der den Diff gegen den Bericht liest
+und selbst angreift → eine Vollständigkeits-Kritik (33 Funde ohne zugeordneten
+Bericht einzeln nachgeprüft: 24 behoben, 6 teilweise, 2 offen, 1 nur ausserhalb
+des Repos lösbar) → eine Schlussprüfung des ZUSAMMENGEFÜHRTEN Diffs mit zwölf
+Linsen und je einem Widerleger → Reparatur dieser Funde in sechs weiteren
+Gruppen → Zusammenführung mit `main` → Bump. Zusammen 215 Fund-Einträge
+in 30 Gruppen: 186 behoben, 24 teilweise, 5 offen (4 bewusst,
+1 nicht nachstellbar). Je Eintrag
+steht der Stand in STATUS (jd) und §2.
+
+**Von der Server-Seite ist nichts live** (§3.6): keine der Migrationen
+`20261110_*` angewandt, keine der überarbeiteten Edge-Functions ausgeliefert.
+Was die drei Prüfstände unten grün melden, ist der REPO-Stand.
+
+> **Die Schlussprüfung des zusammengeführten Diffs hat einen kritischen Fehler
+> der Reparatur selbst gefunden** — und ohne sie wäre er ausgeliefert worden.
+> Der überarbeitete `stripe-webhook` bettete `stripe_products(tier)` in eine
+> Abfrage auf `stripe_prices` ein; live gibt es dafür keinen Fremdschlüssel
+> (nachgemessen 11.11.2026: 0). Ausgeliefert hätte er **jedes Abo- und
+> Rechnungsereignis und jeden Lifetime-Kauf mit 500 beantwortet.** Der
+> Prüfstand war grün. Dazu fand sie: Dialoge, die bei Abgemeldeten UNTER dem
+> Anmeldebildschirm lagen; Tageslimits unter dem bisherigen Stand zahlender
+> Kunden (§3.4); eine ältere Migration, die eine Reparatur zurückgedreht hätte
+> (§3.6); ein eigener neuer Helfer (`_gsCssUrl`), der `data:image`-Fotos
+> zerstörte. **Jede Gruppe war für sich gegengeprüft.** Was erst im Zusammenspiel
+> oder erst gegen den Live-Stand auffällt, sieht nur ein Blick auf das Ganze.
+
+> **Zwei Sitzungen auf demselben Stand sehen einander nicht — vor dem Bump
+> wird geholt** (v33.59). Während hier repariert wurde, hat eine andere Sitzung
+> auf `main` v33.57 und v33.58 gebaut, dieselben KI-Functions umgebaut und sechs
+> davon LIVE ausgeliefert. Erst `git fetch` vor dem Bump zeigte es: Konflikte in
+> neun Function-Dateien und an vier Stellen von `index.html`. Vereint wurde,
+> nicht ersetzt — der Modellaufruf von `main` steht hinter dem Tor, EINE Tabelle
+> der Grenzen mit den Zahlen, die live schon galten, und die Prüfstände beider
+> Seiten an die vereinte Form angepasst, nicht ruhiggestellt. **Wer lange auf
+> einem Zweig arbeitet, holt VOR dem Bump** (§5), und wer live ausliefert,
+> schreibt es in STATUS, bevor er weitermacht — sonst baut die andere Sitzung
+> auf einer Annahme über die Live-Lage, die nicht mehr stimmt. Im Kleinen gilt
+> dasselbe für Prüfstände: `quiz_check` benutzt einen festen Datenbanknamen,
+> zwei parallele Läufe löschen einander die Datenbank.
+
+**`sicherheit_check.js` (seit v33.59) fragt, ob Fremdes als TEXT ankommt —
+über ALLE Wege.** `escape_check` deckt die Stellen aus dem Audit vom 06.09.2026;
+hier stehen die Wege, die seither niemand gerendert hatte: die Pflanzenkarte
+mit einem Emoji aus der KI, der Scan-Verlauf, die Karte mit dem Fund eines
+FREMDEN, die Marktplatz-Galerie, gespeicherte Pläne, der Pflanzendoktor,
+Übersetzungen aus der Datenbank, ein Backup aus fremder Hand, ein Link mit
+einem untergeschobenen Token. 174 Fälle in 22 Dateien.
+
+- **Bauform.** Die Fälle liegen als Module in `scripts/sicherheit/` — je
+  Themengruppe EINE Datei, damit mehrere Reparaturen nebeneinander entstehen
+  konnten, ohne dieselbe Datei anzufassen. Eine Datei, deren Name mit `_`
+  beginnt, ist ein Helfer (`_onclick_suche.js`) und wird nicht gefahren.
+- **Je Datei eine FRISCH geladene App.** Ein Fall, der `window.sbFetch` oder
+  `callAI` stellt und nicht zurücknimmt, färbt sonst die nächste Datei —
+  gemessen: die Wissens-Suche „ohne Netz" bekam einen gestellten Server aus
+  einer anderen Datei und wurde rot, ohne dass am Code etwas falsch war.
+- **Eine ANGEMELDETE Sitzung.** Beim Bau dieses Prüfstands fiel auf: der Token
+  aus `scripts/_seed.js` hatte keine drei Teile; `gsSecurityInit` räumte ihn
+  nach 500 ms ab, und der Anmeldebildschirm legte sich über die App — jeder
+  Fall mass einen verdeckten Bildschirm. Der Läufer setzte zuerst eine eigene
+  Sitzung; inzwischen legt `_seed.js` sie für ALLE Prüfstände an (§7.1 oben).
+- **`h` trägt die feindlichen Werte:** `h.BOESE` (ein `<img … onerror>`),
+  `h.OC` (bricht einen `'`-JS-String), `h.OCQ` (bricht ihn erst NACH dem
+  HTML-Parser, über `&#39;`), `h.ATTR` (bricht ein `"`-Attribut); dazu
+  `h.pwned()`, `h.anfragen()` (jede Adresse, die die Seite anfragen WOLLTE) und
+  `h.frisch()`.
+- **Jeder Fall misst beide Seiten:** `window.__pwned` bleibt unberührt UND der
+  gutartige Wert steht sichtbar da — ein Escaper, der alles verschluckt, wäre
+  sonst auch grün. Und `onerror` feuert erst, wenn das Bild wirklich
+  fehlschlägt: vor der Messung warten (`h.warte(350)`).
+- **Grenze:** geprüft ist der CLIENT mit gestellten Daten. Was der Server
+  annimmt, prüfen `rls_check` und `edge_check` — oder nur die lebende Datenbank.
+
+> **Ein Dialog unter dem Onboarding existiert, ohne dass ihn jemand sieht**
+> (v33.59). Wer einen Link zur Passwort-Wiederherstellung öffnet, ist meist
+> ABGEMELDET — und dann liegt der Anmeldebildschirm (`z-index` 9999999, unter
+> `html.gs-preauth` mit `!important`) über jedem Dialog und jedem Toast. Der Fall
+> dazu war grün, weil er die Dialoge durch ZÄHLER ersetzte: „wurde aufgerufen"
+> stimmte. **Ein Dialog ist erst bedienbar, wenn ihn an seiner Stelle nichts
+> überdeckt** — `document.elementFromPoint` an der Stelle des Dialogs misst das,
+> ein Zähler für den Aufruf nicht. Dasselbe gilt für den Start-Bildschirm
+> (`#gs-splash`). Seither legt `_gsAuthBeiseite` den Anmeldebildschirm für die
+> Dauer der Dialoge weg.
+>
+> **Ein Bild mit `loading="lazy"` in einem verborgenen Bildschirm lädt nie** —
+> also feuert auch sein `onerror` nie. Ein XSS-Fall für eine Karte oder einen
+> Tab muss den Bildschirm wirklich ZEIGEN (`switchTab`), sonst ist er grün,
+> obwohl die Senke roh ist. Ebenso ein Foto-Verlauf: die Standardansicht zeigt
+> nur das neueste Foto, und der Fall war mit der kaputten Senke grün, bis er auf
+> Bild 0 und den Vergleich schaltete.
+>
+> **Ein Fall mit Server-Mitteilungen muss den Nachzug stellen** (`gsNotifPull`),
+> sonst ersetzt der Nachzug die gestellte Liste, und der Fall misst nur die
+> Hälfte. Und wer im Prüfstand einen Eintrag in `DB` legt und einen anderen
+> entfernt, sucht in einem veralteten Index (`_gsSearchIdx` prüft nur
+> `DB.length`) — vorher `_gsSearchIdx = null`.
+>
+> **Wer im Prüfstand eine zweite Seite derselben Herkunft öffnet, teilt mit ihr
+> den `localStorage`.** Entfernt sie den Token, ist danach auch die Hauptseite
+> abgemeldet, und spätere Fälle messen einen anderen Zustand. Danach also
+> `h.frisch()`.
+>
+> **`TABELLE[wert]` mit einem Wert aus fremder Hand ist ein Nachschlag in der
+> Prototypkette.** `{obst:'🍎'}['constructor']` ist eine FUNKTION — auf dem
+> Bildschirm stand ihr Quelltext (`function Object() { [native code] }`), mit
+> `__proto__` ein `[object Object]`. Kein Code, der läuft, aber Fremdtext, der
+> sich als Beschriftung ausgibt. `_gsNachschlag(tabelle, schluessel, rueckfall)`
+> nimmt nur EIGENE Einträge (`hasOwnProperty`). Die Gegenprüfung fand danach
+> dieselbe Bauform als Objekt-Literal (`{…}[wert]`), die die erste Suche nicht
+> kannte — **eine Bauform hat mehr als eine Schreibweise**.
+>
+> **Ein Fall, der eine Senke UND ihre Quellen absichert, prüft oft nur die
+> Quellen** (Gegenprüfung k1): die Mitteilungs-Glocke setzt `_gsEmoji(n.icon)`
+> an der Senke, der Fall blieb aber auch ohne diese Zeile grün, weil die
+> Quellen schon normalisieren. Das ist kein Fehler, aber ein ungemessener
+> Schutz — so steht er in der Gegenprüfung, nicht als „geprüft".
+
+**`edge_check.js` (seit v33.59) fragt, ob die Edge-Functions halten, was sie
+über ihre Tore sagen.** 58 Fälle in `scripts/edge/`. Deno gibt es hier
+nicht; deshalb dieselbe Aufteilung wie bei `device-ingest` (v32.61): was sich
+RECHNEN lässt (wer darf, welches Kontingent, welche Adresse, welcher Preis),
+steht in einem Modul unter `supabase/functions/_shared/*.mjs` und wird in Node
+AUSGEFÜHRT; die `index.ts` ist der Rand und wird am Quelltext geprüft (ruft sie
+das Modul? vor der teuren Arbeit? liest sie den Fehler?) — ohne Kommentare, und
+die Suche ankert an der FORM eines Aufrufs, nicht an der blossen Erwähnung.
+
+- **Für die Zahlungs-Functions läuft die ECHTE `index.ts`.** Node 22 streicht
+  die TypeScript-Typen selbst, und ein Lade-Haken (`module.register`) lenkt
+  `npm:` / `jsr:` / `esm.sh`-Importe auf gestellte Module um
+  (`scripts/edge/_zahlung_rand.js`, `_zahlung_stripe.mjs`,
+  `_zahlung_supabase.mjs`); `Deno.serve` fängt den Handler. Danach gehen echte
+  Request-Objekte hinein.
+- **Die Supabase-Attrappe verhält sich wie PostgREST.**
+  `scripts/edge/_live_schema.mjs` trägt die Live-Spalten und die
+  Live-Fremdschlüssel der Relationen, die eine Function anspricht (gelesen
+  10.11.2026, nur lesend, mit Datum); eine Einbettung ohne Fremdschlüssel
+  antwortet mit `PGRST200`, eine unbekannte Spalte mit `42703`. Wer eine Spalte
+  per Migration anlegt, trägt sie dort NICHT ein — dort steht, was live IST.
+- **`40_lieferkette`:** jede Import-Angabe unter `supabase/functions` nennt eine
+  EXAKTE Version (MAJOR.MINOR.PATCH), und ein Paket hat überall dieselbe — mit
+  EINER benannten Ausnahme (`stripe-create-connect-account` bleibt auf
+  `esm.sh/stripe@18.5.0`: ohne `apiVersion` bestimmt die Hauptversion der
+  Bibliothek, mit welcher Stripe-API die Function spricht).
+- **Grenze:** geprüft ist der Repo-Stand. Ob die ausgelieferte Function ihm
+  entspricht, sagt nur die Auslieferung; ob sie in Deno startet und was Stripe,
+  Anthropic und die Push-Dienste antworten, ist von hier nicht messbar. Und ohne
+  Lockfile liegt nur das Paket fest, nicht seine Abhängigkeiten (`deno.lock`
+  erzeugen braucht Deno — STATUS §2).
+
+> **Eine Attrappe, die mehr kann als das Original, prüft die Attrappe**
+> (v33.59). Die erste Supabase-Attrappe beantwortete JEDE Einbettung und JEDE
+> Spalte — der Webhook, der live bei jeder Zahlung mit 500 gescheitert wäre,
+> war damit grün (Kasten oben). Sie braucht die Live-Fremdschlüssel und
+> -Spalten als datierte Momentaufnahme und muss scheitern, wie PostgREST
+> scheitert. **Und sie muss so treu sein wie das Original, auch in dem, was es
+> NICHT hat:** der Abfrage-Bauer von supabase-js hat ein `then`, aber kein
+> `catch`. Eine Attrappe, die ein echtes Promise zurückgibt, hätte einen
+> `TypeError` in fünf Webhook-Zweigen grün gelassen. Bekannte Rest-Grenze: zwei
+> Fremdschlüssel zwischen denselben Tabellen löst die Attrappe zum ersten auf,
+> PostgREST antwortet `PGRST201` — heute bettet keine Function so ein.
+>
+> **Eine Spalte, die ein Trigger besitzt, taugt nicht als Träger für einen
+> eigenen Wert.** Der Webhook legte den „Stand vor dem Abruf" in `updated_at` ab
+> — und `fn_touch_updated_at` überschreibt die Spalte bei jedem UPDATE mit
+> `now()`. Der Reihenfolge-Fall prüfte eine Datenbank ohne Trigger und war grün.
+> Der Stand steht jetzt in `metadata.gs_stripe_stand`, und die Attrappe spielt
+> den Trigger nach.
+>
+> **Eine Bibliotheks-Version kann ein Verhalten tragen, das nirgends im Code
+> steht.** Eine Stripe-Function ohne `apiVersion` spricht die Standard-API ihrer
+> Hauptversion — ein Wechsel von 18 auf 17 hätte still die Stripe-API dieser
+> Function geändert. Wer Versionen vereinheitlicht, sucht zuerst diese stillen
+> Abhängigkeiten.
+>
+> **Ein Rand-Fall, der nur prüft, ob eine Bedingung DASTEHT, prüft nicht, was
+> danach geschieht** (Gegenprüfung e2): „jede KI-Function ruft das Tor" sucht
+> `if (!tor.erlaubt)`; ein `if (!tor.erlaubt) console.log(…)` wäre ebenfalls
+> grün. Gegen den alten Stand ist der Fall trotzdem rot, weil dort der Import
+> fehlt. Wer einen Rand am Quelltext prüft, nennt diese Grenze im Fall.
+
+**`rls_check.js` (seit v33.59) fragt, ob die Datenbank hält, was die App über
+sie annimmt** — Rechte, Policies, RPCs. 43 Fälle in `scripts/rls/`. Die
+Live-Datenbank wurde nur LESEND vermessen; was dabei auffiel, lässt sich von
+hier nicht an ihr zeigen, aber NACHSPIELEN — dieselbe Bauform wie `quiz_check`
+(v32.65), `naht_check` „Freundschaft" (v33.52) und `admin_check` „Spur"
+(v33.51):
+
+- **Ein Ausschnitt des Live-Stands im WORTLAUT** (Tabelle mit ihren Spalten,
+  Policy bzw. Funktion wie live, mit Datum), in einem lokalen Wegwerf-Postgres
+  (`bash scripts/_pg_local.sh start`; CI: Service `postgres:16`, `GS_PG_URL`).
+- **Der Angriff MUSS vorher gelingen** — sonst misst der Fall nichts. Dann die
+  Migration aus `supabase/migrations/`, ZWEIMAL (Idempotenz); danach scheitert
+  der Angriff, und der Weg, den die App wirklich geht, geht weiter. Dazu eine
+  Gegenprobe.
+- **`05_fixture_policies` hält jeden Nachbau gegen
+  `scripts/rls/live_policies.json`** (`pg_policies`, 10.11.2026), in beiden
+  Richtungen: jede Live-Policy einer nachgespielten Tabelle steht im Nachbau
+  (mit demselben Befehl) oder namentlich mit Grund in
+  `BEWUSST_NICHT_NACHGESPIELT`; eine Policy, die es nur im Nachbau gibt, steht
+  in `NUR_IM_NACHBAU`. **Wer eine Migration anwendet, zieht
+  `live_policies.json` nach** — sonst meldet der Fall künftig Abweichungen gegen
+  einen veralteten Stand.
+- **`70_reihenfolge`** (und `20_quiz` für das Quiz) spielt eine ältere, nicht
+  angewandte Migration und die neue in BEIDEN Reihenfolgen und vergleicht den
+  Endstand Rumpf für Rumpf (§3.6).
+- **`50_ki_kontingent`** zeigt die Reservierung unter Last: 20 gleichzeitige
+  Anfragen bei Limit 15 ergeben genau 15 Zusagen.
+- **Ohne Postgres: „nicht prüfbar" (Exit 2), nie grün.**
+- **Grenze:** nachgespielt ist ein AUSSCHNITT eines datierten Stands. Was die
+  Momentaufnahme nicht kennt (etwa den Trigger auf `auth.users`), kennt auch
+  der Fall nicht. Ob die Migration live dasselbe tut, zeigt erst das Anwenden —
+  und das gehört Fernando.
+
+> **Eine Fixture, der eine Live-Policy fehlt, lässt die Reparatur daran
+> vorbeigehen** (v33.59). Der Fall „besitzerlose Zeilen" war grün — und
+> `feedback_votes_update_own` (UPDATE, `roles=public`: anon durfte jede
+> anonyme Stimme umschreiben) fehlte im Nachbau. PERMISSIVE-Policies werden
+> ODER-verknüpft: eine offene Policy, die der Nachbau nicht kennt, macht JEDE
+> Migration „dicht". Gefunden hat es die Schlussprüfung; seither gibt es
+> `05_fixture_policies`, mit eingebauter Gegenprobe (die Policy aus dem Nachbau
+> gestrichen → der Fall meldet sie).
+>
+> **Ein `CHECK … NOT VALID` schützt bestehende Zeilen nur beim Anlegen — geprüft
+> wird er danach bei JEDEM Update der Zeile.** Ein alter fremder Avatar hätte
+> jedes XP- und `last_login`-Update des Profils scheitern lassen. Wer nur NEUE
+> Werte binden will, nimmt einen Trigger, der nur geänderte Werte prüft
+> (`fn_gs_bild_pruefen`); der Fall misst genau das (alter fremder Avatar,
+> Namens-Update geht).
+>
+> **Ein BEFORE-INSERT-Trigger läuft auch bei einem Upsert auf eine vorhandene
+> Zeile — VOR der Konfliktprüfung.** Wer beim Anlegen Spalten auf ihre
+> Vorgaben setzt, fragt zuerst, ob die Zeile schon existiert; sonst setzt
+> `ON CONFLICT DO UPDATE` den bestehenden Wert still zurück.
+>
+> **Ein Trigger, der als SECURITY INVOKER eine andere Tabelle schreibt, rechnet
+> mit den RLS-Rechten der Person, die ihn auslöst.** Fehlt ihr die
+> UPDATE-Policy, schreibt er still 0 Zeilen: die Rechnung ist richtig und kommt
+> nie an. So zählte eine Stimme im Feedback für normale Nutzer nie
+> (`20261110_feedback_stimmen_zaehlen.sql`). Umgekehrt hält ein Spalten-Wächter
+> auf einer Tabelle auch den Zähler fest, den ein INVOKER-Trigger dort pflegt —
+> der Zähler-Trigger muss dann SECURITY DEFINER werden. Und eine Policy ohne
+> `WITH CHECK` nimmt ihr `USING` als Prüfung — das hat einen Angriff aus den
+> Funden (Besitzer umschreiben) live schon verhindert.
+>
+> **Ein REVOKE reicht nur, wenn ALLE erlaubten Aufrufer als Eigentümer laufen**
+> (Trigger, DEFINER-Funktionen, `pg_cron` als `postgres`) oder `service_role`
+> sind — je Funktion aus den Cron-Jobs, den Triggern und den Rümpfen BELEGT,
+> nicht angenommen. Und ein Name, der in einer SECURITY-DEFINER-Funktion
+> entsteht (der Signup über `fn_handle_new_user`), läuft an jedem Wächter
+> vorbei, der an `current_user = 'authenticated'` hängt — wer eine Regel für
+> Nutzerwerte baut, sucht auch die Definer-Wege, die denselben Wert aus
+> Nutzerhand schreiben.
+>
+> **Rollen sind im lokalen Postgres clusterweit.** `service_role` war dort von
+> früher OHNE `bypassrls` angelegt; ein Fall misst den Service-Weg deshalb über
+> das Tabellenrecht plus Schreiben als Eigentümer, nicht mit
+> `set role service_role`. In der CI (frischer Service) legt das Grundgerüst
+> die Rolle mit `bypassrls` an.
+>
+> **Das Schreibwerkzeug hat Escapes für Richtungs- und Nullbreitenzeichen in
+> ECHTE unsichtbare Zeichen verwandelt** — in einer Migration und in einem
+> Prüfstand. Beide liefen trotzdem, und die Gegenprobe fand die Zeile nicht
+> mehr. Wer solche Escapes schreibt, prüft danach per Byte-Suche, dass sie als
+> Escape im Quelltext stehen (Trojan-Source).
+>
+> **Wer Quelltext nach `create policy` durchsucht, findet zuerst die Zeilen, die
+> eine Gegenprobe zitiert** — dieselbe Klasse wie v32.70 und v33.41: ankern an
+> der FORM, nicht an der Zeichenkette.
 
 **Seit v32.72 gilt für Geheimnisse in Edge-Functions EINE Regel:**
 `supabase/functions/_shared/auth_vergleich.mjs` (`constantTimeEquals`,

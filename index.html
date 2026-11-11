@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.58.20261111">
+<meta name="app-version" content="33.59.20261111">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://api.anthropic.com">
@@ -77182,6 +77182,40 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.59', date: '11.11.2026',
+      headline: 'Was von anderen kommt, bleibt Text — und der Server prüft selbst nach',
+      summary: 'Eine Sicherheitsprüfung über die ganze App, gemessen und nicht geschätzt: 27 Prüfer haben Client, Service Worker, Edge-Functions, Datenbank-Regeln und die Android-Hülle gelesen und 209 Stellen gemeldet; 187 davon hat ein zweiter Prüfer nachgestellt und bestätigt. Behoben in 24 Gruppen, jede mit eigener Gegenprüfung, danach eine Schlussprüfung des Ganzen mit zwölf Blickwinkeln (34 Meldungen, 32 bestätigt, darunter ein Zahlungs-Empfänger, der nach der Auslieferung jedes Abo-Ereignis mit einem Fehler beantwortet hätte) und sechs weitere Gruppen für deren Funde. Im Client: jeder Wert aus fremder Hand — Beitrag, Inserat, Kartenfund, Community-Art, KI-Antwort, Übersetzung, Backup — kommt als Text an, über zehn Helfer mit je genau einem Kontext; ein Link aus einer E-Mail wird nie mehr still zur Sitzung; Fotos verlassen das Gerät ohne Ortsangabe in der Datei; Wetter- und Ortsdienste bekommen den Standort auf etwa 1 km gerundet; Schriften und pdf.js liegen im Repo statt bei Dritten; die Kopfzeilen erlauben nur noch, was die App wirklich anspricht. Für den Server liegen sechs Migrationen und die überarbeiteten Edge-Functions bereit — sie sind NICHT angewandt und NICHT ausgeliefert (docs/FUER-FERNANDO.md §30). Drei neue Prüfstände halten es fest: sicherheit_check (174 Fälle), edge_check (58) und rls_check (43, spielt die Migrationen in einem lokalen Postgres nach).',
+      user_summary: 'GreenScan ist gründlich auf Sicherheit geprüft worden. Texte und Bilder von anderen können der App nichts mehr unterschieben, deine Fotos tragen beim Hochladen keinen versteckten Ort mehr, und dein Standort geht nur noch ungefähr an Wetter- und Kartendienste.',
+      user_items: [
+        {emoji:'🛡️', bold:'Fremde Inhalte bleiben Inhalte:', text:' Beiträge, Inserate, Kartenfunde, Arten aus der Community, Antworten der KI und Übersetzungen werden als Text gezeigt — sie können in der App nichts auslösen.'},
+        {emoji:'📷', bold:'Fotos ohne versteckte Angaben:', text:' bevor ein Foto das Gerät verlässt, entfernt die App Ort, Gerät und Aufnahmezeit aus der Datei. Das gilt für Scans, Beiträge, Inserate, Tagebuch und Funde.'},
+        {emoji:'📍', bold:'Dein Standort bleibt ungefähr:', text:' Wetter- und Ortsdienste bekommen ihn auf etwa 1 km gerundet. Gibst du einen Fund für die Community frei, wird sein Ort ebenso gerundet — und die App sagt es dir vorher.'},
+        {emoji:'🔑', bold:'Sicherere Anmeldung:', text:' ein Link aus einer E-Mail meldet dich nie mehr still in einem fremden Konto an. Das Fenster für ein neues Passwort ist jetzt auch sichtbar, wenn du abgemeldet bist.'},
+        {emoji:'🔤', bold:'Nichts mehr von Google beim Start:', text:' die Schriften liegen bei GreenScan selbst. Die App fragt beim Öffnen keinen fremden Dienst mehr an.'},
+        {emoji:'🧹', bold:'Abmelden räumt gründlicher auf:', text:' gespeicherte Pläne und Zwischenspeicher gehen mit. Ein Plan, den du ohne Empfang gespeichert hast, wird für dich aufgehoben, bis du dich wieder anmeldest.'},
+        {emoji:'💾', bold:'Sicherungen nur, wenn sich etwas geändert hat:', text:' die App legte bei jedem Update eine Sicherung an, auch ohne Änderung — ältere Stände wurden dadurch früher verdrängt. Jetzt entsteht eine Sicherung nur noch, wenn es etwas zu sichern gibt.'},
+        {emoji:'🧭', bold:'Dinge, die nie richtig gingen:', text:' die Wissens-Suche antwortet ohne Empfang aus dem Zwischenspeicher, das Foto im Tagebuch erscheint, und „kopiert“ steht erst da, wenn wirklich kopiert wurde.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' 27 Finder, 209 Rohfunde, 187 bestätigt, 4 widerlegt, 13 ungeprüft (von den Reparateuren selbst nachgestellt). 30 Reparaturgruppen mit 215 Fund-Einträgen: 186 behoben, 24 teilweise (der Rest braucht den Server oder eine Entscheidung), 4 bewusst offen, 1 nicht nachstellbar. Jede Gruppe: Fall rot gesehen, behoben, Geschwisterstellen gesucht, Gegenprüfung durch einen zweiten Agenten.'},
+        {emoji:'🧰', bold:'Zehn Helfer, je ein Kontext:', text:' escHtml (Text und Attribut), _gsOcStr (Wert in einem JS-String eines on*-Attributs), _gsOcJson (JSON-Argument dort), gsSanitizeHtml (Fragment mit Auszeichnung), _gsSafeUrl / _gsSafeLink (Adresse), _gsFremdBild (Bild eines ANDEREN: nur der eigene Speicher), _gsCssUrl (url(…) in einem style), _gsEmoji, _gsIdSicher. Tabelle in CLAUDE.md §3.6.'},
+        {emoji:'🧷', bold:'Die onclick-Bauform als Klasse:', text:' 197 Stellen setzten einen Wert roh in einen JS-String eines on*-Attributs; alle gehen durch _gsOcStr. sicherheit_check 92 sucht die Bauform im Quelltext und meldet jede neue.'},
+        {emoji:'🗝️', bold:'Sitzung und Start:', text:' ein Token aus dem Anker der Adresse wird nie mehr als Sitzung gespeichert — eine Passwort-Wiederherstellung prüft ihn beim Server und fragt, wenn ein anderes Konto angemeldet ist. Die Backend-Adresse kommt nicht mehr aus dem Speicher. ?screen= gilt nur für Bildschirme, die es gibt; ?billing=success sagt nichts, bevor der Server das Abo bestätigt. Der Knopf „Anmelden per E-Mail-Link“ ist entfernt: seine Rückkehr hat die App nie verarbeitet.'},
+        {emoji:'🖼️', bold:'EXIF:', text:' _gsBildOhneMeta liest JPEG, PNG und WebP so nachsichtig wie ein Dekoder und kodiert alles neu, was mehr als Bilddaten trägt. Zwei Tore (gsUploadImage, gsUploadPhotoToBucket) und callVisionAI; ein unlesbares Bild wird nie roh hochgeladen. Ein älteres Fund-Foto wird beim Freigeben neu kodiert.'},
+        {emoji:'🧱', bold:'Kopfzeilen und Worker:', text:' default-src self, object-src none, connect-src auf das eigene Supabase-Projekt, kein cdnjs und kein Google Fonts mehr (Schriften und pdf.js 4.0.379 unter assets/, Prüfsummen in robust_check). Der Worker legt nur noch eigene Antworten und Kartenkacheln ab, deckelt den Runtime-Cache und räumt beim Abmelden.'},
+        {emoji:'💳', bold:'Zahlung (Edge-Functions, nicht ausgeliefert):', text:' Preis, Kunde, Rückkehr-Adresse und Startangebot entscheidet der Server; ein laufendes Abo wird vor dem Löschen des Kontos gekündigt; der Webhook ordnet Ereignisse und entzieht Lifetime bei voller Rückerstattung. Die Schlussprüfung fand eine Einbettung ohne Fremdschlüssel in der Live-Datenbank — der Webhook hätte auf jedes Abo-Ereignis mit 500 geantwortet. Die Attrappe des Prüfstands verhält sich seither wie PostgREST.'},
+        {emoji:'🤖', bold:'KI-Tor (nicht ausgeliefert):', text:' ein Aufruf wird VOR dem Aufruf reserviert, in einer Anweisung (20 gleichzeitige Anfragen bei Limit 15 ergeben genau 15 Zusagen), und zurückgegeben, wenn der Anbieter nicht gerechnet hat. Bezahlte Pläne bekommen nie weniger als bisher.'},
+        {emoji:'🗃️', bold:'Sechs Migrationen (nicht angewandt):', text:' Funktionen, die einem Parameter vertrauten oder zu weit offen waren · Quiz, Punkte, Rangliste, Battles · Community und Marktplatz (Sperre, Blockieren, Chat, Anzeigename) · Konto, Speicher-Buckets, Push-Abos, Startangebot · KI-Kontingent · Feedback-Stimmen. Jede zweimal in ein lokales Postgres eingespielt, mit dem Angriff davor und danach.'},
+        {emoji:'📦', bold:'Lieferkette:', text:' Actions auf Commit-SHAs, npm ci gegen ein eingechecktes Lockfile (es fehlte: eine Zeile in .gitignore schloss es aus), 68 Import-Angaben der Edge-Functions auf exakte Versionen, das Keystore-Passwort der Android-Hülle nicht mehr auf der Befehlszeile.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' neu sicherheit_check (174 Fälle in 22 Dateien, je Datei eine frisch geladene App), edge_check (58 Fälle: die Rechnung der Edge-Functions in Node, der Rand am Quelltext) und rls_check (43 Fälle im lokalen Postgres; ohne Postgres „nicht prüfbar“, nie grün). pruefstaende.sh fährt 44.'},
+        {emoji:'🔦', bold:'Die Prüfstände messen jetzt eine angemeldete App:', text:' der Token der Beispieldaten hatte keine JWT-Form und wurde 500 ms nach dem Start abgeräumt — alle Prüfstände vermassen eine abgemeldete App. Der erste Lauf mit bleibender Sitzung fand zwei Fehler, die so nie messbar waren: ein Flush ohne Änderung stempelte „zuletzt gesichert“, wodurch das Backup jeden Stand für geändert hielt (die Regel aus v33.26 wirkte nur abgemeldet), und der Schliessen-Knopf der Push-Frage blieb in jeder Sprache deutsch.'},
+        {emoji:'🧵', bold:'Was die Gegenprüfungen als Übergabe hinterliessen:', text:' Pflanzendoktor, Schädlings-, Pilz- und Garten-Scan schicken ihr Foto verkleinert und ohne EXIF (vorher 6,84 MB Base64 bei einem gewöhnlichen Handyfoto, über dem 5-MB-Tor). Das Stripe-Fenster schliesst sich nach der Rückkehr — wegen der Kopfzeile COOP ist window.opener dort null, die Meldung geht jetzt über einen BroadcastChannel. Drei Upserts nennen ihren Schlüssel selbst (on_conflict): ohne ihn scheiterten das Umstimmen einer Idee und das erneute Einschalten von Push auf demselben Gerät. Der Hinweis bei erreichtem KI-Limit richtet sich nach dem Plan. _gsNachschlag ist der eine Leser für eine Tabelle mit einem Schlüssel aus fremder Hand — mit dem Wert constructor stand sonst der Quelltext einer Funktion auf dem Bildschirm.'},
+        {emoji:'🔀', bold:'Zusammengeführt mit v33.57 und v33.58:', text:' eine andere Sitzung hatte parallel dieselben KI-Functions umgebaut und ausgeliefert. Vereint statt ersetzt: ihr Modellaufruf (anthropicFetch, Modellkette) hinter dem Tor dieser Reparatur; eine Tabelle der Grenzen, in der ein bezahlter Plan nie weniger bekommt als live.'},
+        {emoji:'📅', bold:'Eine Frist mehr auf dem Bildschirm:', text:' am 31.12.2026 um 23:00 UTC vergibt ein Cron ein Jahr Pro an die drei Ersten der Quiz-Rangliste. Solange die Quiz-Migration fehlt, zählt dafür jede richtige Antwort auf jede Frage. Der Termin steht jetzt in GS_FRISTEN (Admin-Panel, „Läuft demnächst ab“) und in docs/RISIKEN.md.'},
+        {emoji:'🧯', bold:'Nicht von hier messbar:', text:' ob die Migrationen live dasselbe tun wie im Nachbau, und ob die Edge-Functions in Deno laufen (hier gibt es kein Deno). Beides zeigt erst das Anwenden — Reihenfolge und Handgriffe in docs/FUER-FERNANDO.md §30.'}
+      ]
+  },
+  {
     v: 'v33.58', date: '11.11.2026',
       headline: 'Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus',
       summary: 'Sechs Dinge, alle gemessen. (1) Rezept → Art: 524 Einträge geprüft, bei 239 zeigte der Link auf eine andere Art als die Hauptzutat, bei 84 auf eine als giftig geführte, 17 davon mit Giftstufe 3 oder höher (Pfifferling-Rahmsauce → Maiglöckchen, Morchel → Herbstzeitlose). Die Verknüpfung lief über eine Namens-Teilsuche; jetzt trägt jedes Rezept geprüfte Arten-Ids, und eine giftige Art wird aus einem Rezept nie geöffnet. (2) Fruchtfolge: GS_TRACHTEN_IDS führte Knollensellerie zum Grünen Knollenblätterpilz (Giftstufe 5) und Rettich zum Rettichfälbling; alle 37 Kulturen einzeln gegen die Artenliste gehalten. (3) KI-Modelle: Anthropic schaltet claude-sonnet-4-5 am 30.11.2026 ab — der Proxy schrieb JEDES Modell darauf um (37 von 37 Aufrufen), ab dann wäre jeder Scan gescheitert. Und claude-sonnet-4-20250514 ist seit dem 15.06.2026 weg: Pflanzendoktor, Garten-Analyse und „Plan anpassen“ nannten genau dieses eine Modell und waren fünf Monate tot, ohne dass etwas meldete. Jetzt gibt es eine Kette (Sonnet 4.6 → 5.5 → 5), in der App und auf dem Server, mit Rückfall — und jedes Modell bekommt seine Einstellungen: Sonnet 5.5 und 5 denken sonst von sich aus nach, das zählt gegen max_tokens und stellt einen thinking-Block vor den Text. (4) Der geteilte Scan-Cache ist aus: eine Tabelle für alle Konten, ein 64-Bit-Hash aus 9×8 Bildpunkten, der erste Eintrag gewinnt — ein fremder Treffer hätte die Bestimmung ersetzt. (5) Der Scan-Chat geht über callAI wie jede andere KI-Anfrage; eine abgelehnte Anfrage wird gesagt statt als leere Antwort gezeigt. (6) Vier Fehler aus dem Wochenplan KW45: „Keine bekannten Risiken“ stand als Warnung da, der Ersatz-Ort Zürich wurde gespeichert und sperrte danach das GPS, der Zurück-Knopf im Geräte-Dashboard warf einen Fehler, und ohne Website-Speicher startete die App nicht.',
@@ -77531,19 +77565,6 @@ window.GS_RELEASES = [
       {emoji: '❄️', bold: 'Keine Vorhersage ist keine Entwarnung:', text: ' Fehlt das Wetter, steht „Frost: keine Vorhersage“ — nicht „kein Frost“.'}
     ],
   },
-  {
-    v: 'v33.39', date: '16.09.2026',
-    headline: 'Lina sieht deinen Kalender — und sagt, wenn sie etwas nicht weiß',
-    summary: 'Fünfte Scheibe von KALENDER-V2. Lina bekommt drei Zeilen aus der einen Kalender-Funktion (was heute ansteht, was die Woche bringt, was das Prüfwerk dazu sagt) und darf einen Termin VORSCHLAGEN, den du bestätigst. Dabei gemessen und behoben: ihr Kontext wurde bei sechs Geräten mitten im Wort abgeschnitten, Geräte fielen stillschweigend weg, eine Regel ohne Messwerte stand als „keine verletzte Regel“ da — und die Sicherheit eines Scans hatte drei verschiedene Antworten (0.94 %, 1 %, 94 %).',
-    user_summary: 'Lina weiß jetzt, was heute und diese Woche ansteht, kann dir einen Termin eintragen — nach Rückfrage — und erfindet nichts mehr, wenn ihr Platz nicht reicht.',
-    user_items: [
-      {emoji: '📅', bold: 'Lina kennt deinen Kalender:', text: ' Sie sieht, was heute ansteht, was in den nächsten sieben Tagen kommt und worauf das Wetter Einfluss hat — dieselben Angaben, die auch im Kalender stehen.'},
-      {emoji: '✍️', bold: 'Sie darf einen Termin vorschlagen:', text: ' Frag sie nach einer Erinnerung, und sie fragt zurück: „Soll ich für den 12.10. eintragen: Rosen schneiden?“ Erst nach deinem Ja steht es im Kalender — mit dem Vermerk, dass sie es vorgeschlagen hat.'},
-      {emoji: '✂️', bold: 'Keine halben Sätze mehr:', text: ' Wenn Linas Platz nicht reicht, lässt sie ganze Zeilen weg und sagt es — statt mitten im Wort abzubrechen. Bei vielen Geräten steht jetzt „+2 weitere“ dabei.'},
-      {emoji: '🤔', bold: 'Sie sagt, wenn sie nichts weiß:', text: ' Eine Sensor-Regel ohne Messwerte hieß bei ihr „keine verletzte Regel“ — also Entwarnung ohne Messung. Jetzt sagt sie, dass sie es nicht prüfen konnte.'},
-      {emoji: '🎯', bold: 'Eine Zahl für die Treffsicherheit:', text: ' Dieselbe Erkennung stand an drei Stellen unterschiedlich da — im Verlauf „0.94%“, bei Lina „1 % sicher“. Überall steht jetzt 94 %.'}
-    ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -77754,7 +77775,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.58';
+var GS_VERSION = 'v33.59';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -90671,6 +90692,20 @@ var GS_FRISTEN = [
     quelle: 'Anthropic, „Model deprecations“: claude-sonnet-4-6 wird frühestens an diesem Tag abgeschaltet; dahinter stehen claude-sonnet-5-5 und claude-sonnet-5',
     was: 'Fällt das erste Modell weg, übernimmt das nächste von selbst — es denkt aber anders, zählt Token anders und lehnt mehr Anfragen ab.',
     tun: 'Vorher einmal mit dem nächsten Modell scannen (Edge-Secret GS_MODEL_VISION=claude-sonnet-5-5), die Abkündigungsseite neu lesen und das Datum hier und in docs/RISIKEN.md nachziehen.'
+  },
+  {
+    // v33.59: am 31.12. um 23:00 UTC vergibt der Cron quiz-top3-yearend ein Jahr Pro an die
+    // drei Ersten der Rangliste. Bis zur Migration 20261110_sicherheit_quiz_punkte.sql zaehlt
+    // der Server dafuer jede richtige Antwort auf jede Frage — die Rangliste ist faelschbar.
+    // Das Datum gehoert in eine Liste, die jemand liest (v33.58, ki_modelle).
+    id: 'quiz_jahrespro',
+    titel: 'Jahres-Pro für die Quiz-Top-3',
+    art: 'datum',
+    datum: '2026-12-31',
+    gemessen: '10.11.2026',
+    quelle: 'Live-Datenbank, nur lesend: Cron quiz-top3-yearend (31.12., 23:00 UTC) ruft fn_grant_quiz_top3_pro',
+    was: 'Die drei Ersten der Quiz-Rangliste bekommen ein Jahr Pro. Solange die Migration fehlt, zählt dafür jede richtige Antwort auf jede Frage — nicht nur die Frage des Tages.',
+    tun: 'Vorher die Migration 20261110_sicherheit_quiz_punkte.sql anwenden (docs/FUER-FERNANDO.md §30). Danach das Datum hier und in docs/RISIKEN.md auf das nächste Jahr ziehen.'
   },
   {
     id: 'quiz_vorrat',
