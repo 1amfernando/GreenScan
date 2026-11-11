@@ -77,6 +77,9 @@ run android      node scripts/android_check.js
 # Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen.
 run apk          node scripts/apk_check.js
 run risiko       node scripts/risiko_check.js
+# Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
+# stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
+run austausch    node scripts/austausch_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js
   TAILN=14 run einstellungen node scripts/einstellungen_check.js

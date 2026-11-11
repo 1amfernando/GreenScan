@@ -1,0 +1,75 @@
+{
+  "id": "2026-11-11-b51a",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Gelesen wird, was es nicht gibt — eine Ansicht, die nie etwas zeigen konnte",
+  "regel": "Vor jedem Lesen steht der Nachweis, dass Feld, Schlüssel, Spalte oder Element irgendwo ENTSTEHT — sonst zeigt die Ansicht still nichts, und der Zähler daneben meldet brav 0.",
+  "text": "Eine neue Instanz erkennt man an einer Anzeige oder Regel, die für JEDEN Datensatz leer bleibt, an einem Zähler, der immer 0 zeigt, an einem Fenster, das nie aufgeht, oder an einem Rückfallwert, der immer greift — ohne Absturz, ohne Meldung. Ursache ist ein Name, den kein Schreiber kennt: ein Feld der Artenliste, ein Feld in einem gespeicherten Objekt, ein Speicher-Schlüssel, eine Spalte, eine id oder Klasse. Bewacht sind Artenfelder (data_check), ids und Klassen-Ketten (wiring_check), Tabellen, RPCs und Spalten (backend_check, naht_check) und der Blob-Rückweg (sync_check); NICHT bewacht sind Schlüssel-Literale und Felder in gespeicherten Objekten — dort lagen v32.51 und v33.33, beide als Einzelfund.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 202 Speicher-Schlüssel werden mit festem Namen gelesen, 24 davon nie mit festem Namen geschrieben (10.11.2026). Kein Fund sind mindestens sieben: vier werden über eine Konstante geschrieben (gs_kal_filter, gs_dq_training, gs_scan_history, gs_sync_last_push), drei über die Pull-Tabelle (gs_reminder_prefs, gs_achievements, gs_recent_searches). Kandidaten sind die, deren Name sonst nur in der Abmelde-Liste oder einem removeItem steht: gs_quiz_points, gs_quiz_lastday, gs_user_region (Rückfall 'ZH' — geschrieben wird gs_region), gs_weather_loc_manual, gs_scan_mode, gs_lux_calib, gs_harvest_log, gs_push_prompt_dismissed, gs_install_declined, gs_auth_prompt_skip_until, gs_last_active_day.",
+  "instanzen": [
+    "v31.44 · Rückfall-Kategorie ohne label — „undefined“ stand auf 22 Karten",
+    "v31.46 · renderCemetery schrieb in #cemetery-list, das es nicht gab — der Pflanzenfriedhof hatte keine Anzeige",
+    "v31.78 · der Blühkalender fragte s.bloom ab — ein Feld, das keine der damals 4'342 Arten hat; Zähler 0",
+    "v31.95 · querySelector('.modal-title') in #modal-recipe-detail — die Klasse gab es nicht, vier Bildschirme öffneten nie",
+    "v31.98 · der dritte s.bloom, hinter einer Zeile, die wegen falscher Beispieldaten unerreichbar war",
+    "v32.23 · gs_reminder_prefs stand im Blob, aber in keiner Zeile des Rückwegs — 46 von 47 kamen zurück",
+    "v32.51 · gsPflanzeDraussen las p.location, das keine Speicherstelle schreibt — der Regen-Hinweis erschien 66 Versionen lang nie",
+    "v33.33 · die Garten-Timeline las 'scan_history' ohne gs_ — null Scans seit v23.57",
+    "06.09.2026 · expires_at stand im Vertrag, im Regel-Modul und im Empfänger — und in keiner Tabelle",
+    "v33.41 · daily-push-checker filterte garden_tasks_catalog.priority, eine Spalte, die es nicht gibt — die saisonale Erinnerung hatte nie eine Zeile"
+  ],
+  "suchmuster": "node -e 'const s=require(\"fs\").readFileSync(\"index.html\",\"utf8\"),R=new Set,W=new Set;let m;const r=/(?:getItem|safeGetItem|gsStore\\.get)\\(\\s*\\x27([\\w:.-]+)\\x27/g,w=/(?:setItem|gsStore\\.set)\\(\\s*\\x27([\\w:.-]+)\\x27/g;while(m=r.exec(s))R.add(m[1]);while(m=w.exec(s))W.add(m[1]);const o=[...R].filter(k=>!W.has(k)).sort();console.log(R.size+\" Schluessel gelesen, \"+o.length+\" davon nie mit festem Namen geschrieben:\\n\"+o.join(\"\\n\"))'",
+  "stichworte": [
+    "leser-ohne-schreiber",
+    "data_check",
+    "wiring_check",
+    "backend_check",
+    "naht_check",
+    "gsPflanzeDraussen"
+  ],
+  "gesucht": "In Teilen: v31.80 data_check — jeder Feldzugriff auf die Artenliste im Durchlauf (26'000 Zugriffe); v32.18 backend_check — 97 RPCs und 111 Tabellen/Views gegen die Momentaufnahme; v32.23 sync_check — 47 Blob-Schlüssel, 46 kamen zurück; v32.84 wiring_check — ungesicherte id-Nachschlagungen, Liste leer. NICHT gesucht: Felder in gespeicherten Objekten und Schlüssel-Literale (v32.51 und v33.33 waren Einzelfunde).",
+  "waechter": [
+    {
+      "datei": "scripts/data_check.js",
+      "fall": "ZUGRIFFE INS LEERE (Feld existiert bei KEINER der"
+    },
+    {
+      "datei": "scripts/wiring_check.js",
+      "fall": "Klassen-Ketten ohne Element (werfen sofort)"
+    },
+    {
+      "datei": "scripts/wiring_check.js",
+      "fall": "davon nie erzeugt"
+    },
+    {
+      "datei": "scripts/render_check.js",
+      "fall": "verdaechtige Textstellen (undefined/NaN/[object Object]/…)"
+    },
+    {
+      "datei": "scripts/backend_check.js",
+      "fall": "Jede angesprochene Tabelle/View existiert"
+    },
+    {
+      "datei": "scripts/naht_check.js",
+      "fall": "Empfänger → device_readings · die Zeilen aus pruefeBatch"
+    },
+    {
+      "datei": "scripts/naht_check.js",
+      "fall": "Katalog · der saisonale Push filtert eine Spalte, die es GIBT"
+    },
+    {
+      "datei": "scripts/sync_check.js",
+      "fall": "Jedes Feld der drei Blobs kommt nach dem Pull zurück"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Ernte und Regen · Schätzung mit Grund, Wetter nur mit Messwert"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Drei Namen N1 · der Scan-Verlauf steht im Kalender"
+    }
+  ]
+}

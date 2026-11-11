@@ -3,7 +3,7 @@
 > Du bist eine KI (Claude, Cursor, Codex, Gemini, …) und sollst an diesem Repo
 > arbeiten. Diese acht Dateien sind alles, was du VOR der ersten Aenderung
 > wissen musst. Lesezeit fuer alle zusammen: rund 20 Minuten. `CLAUDE.md`
-> (1'400 Zeilen) ist das ausfuehrliche Tagebuch dahinter — lies es, wenn eine
+> ist das ausfuehrliche Tagebuch dahinter — lies es, wenn eine
 > Regel hier dir zu kurz vorkommt; jede Regel hier nennt ihre Stelle dort.
 
 | Datei | Beantwortet die Frage | Lies sie, wenn … |
@@ -11,7 +11,7 @@
 | `01-projekt.md` | Was ist das, wo laeuft es, was kann ich von hier aus NICHT? | … immer, zuerst. 3 Minuten. |
 | `02-regeln.md` | Welche vierzehn Regeln gelten fuer jede Codezeile? | … du irgendetwas in `index.html` aenderst. |
 | `03-daten-eigner.md` | Wem gehoert welcher Zustand, und wer darf ihn schreiben? | … du einen Wert liest, speicherst, zaehlst oder synchronisierst. |
-| `04-pruefstaende.md` | Welcher der 35 Pruefstaende stellt welche Frage — und wie baue ich einen Fall? | … du etwas aenderst (immer) oder etwas behauptest („funktioniert"). |
+| `04-pruefstaende.md` | Welcher Pruefstand stellt welche Frage — und wie baue ich einen Fall? | … du etwas aenderst (immer) oder etwas behauptest („funktioniert"). |
 | `05-fallen.md` | Woran sind die Vorgaenger gescheitert — in je vier Zeilen? | … bevor du etwas fuer „offensichtlich" haeltst. |
 | `06-kalender.md` | Die eine Frage, die eine Funktion, die Ereignisarten, die Filter. | … du Aufgaben, Termine, Saison, Naturjahr, Timeline oder Wetter anfasst. |
 | `07-lina.md` | Was Lina sieht, was sie tun darf, wie sie geerdet ist. | … du am KI-Coach, an Prompts oder an `callAI` arbeitest. |
@@ -26,6 +26,17 @@
 3. **Der Pruefstand kommt VOR dem Code.** Ein Fall, der gegen den alten Stand
    nicht rot wird, misst nichts. Gegenprobe: die Reparatur zurueckbauen, der
    Fall muss rot werden — mit der echten Zahl daneben.
+
+## Du bist nicht die einzige Sitzung
+
+```
+node scripts/austausch.mjs holen     # vor der Arbeit: Befunde, Fragen, Ideen aller Sitzungen und Branches
+```
+
+Diese Dateien sagen, was BLEIBT. Was andere Sitzungen gerade gefunden, gefragt
+oder vorgeschlagen haben, steht auf dem Brett (`docs/austausch/README.md`) —
+und was du findest, gehoert dorthin, nicht in einen Bericht, den nach dir
+niemand liest.
 
 ## Fuer wen diese Dateien sind
 

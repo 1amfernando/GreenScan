@@ -1,0 +1,89 @@
+{
+  "id": "2026-11-11-e196",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Stille ist kein „erfüllt“ — „keine Daten“ ist null mit Grund, nie 0, [], {} oder ein Rückfallwert",
+  "regel": "Jede Rechnung hat drei Zustände — erfüllt · verletzt · nicht prüfbar —, und „keine Daten“ ist null MIT Grund: nie 0, {}, [], ein Rückfallwert, ein catch → [] oder Schweigen, und die Anzeige daneben behauptet nicht mehr, als gerechnet wurde.",
+  "text": "Eine neue Instanz erkennt man an einer beruhigenden Aussage („alles in Ordnung“, „keine Warnungen“, „gegengeprüft“, „0 Aufgaben“, eine leere Liste), die auch dann dasteht, wenn die Rechnung gar nichts wusste: Abfrage abgelehnt, Liste nicht geladen, Feld fehlt, Rückfallwert gegriffen. Im Code ist es ein catch → return [], ein x || 0, ein Vorgabewert mit plausiblem Grund oder ein fehlender Zweig für „nichts konnte prüfen“. Die Wächter prüfen je EIN Regelwerk (Planer, Scan-Prüfwerk, Kalender, Sensor-Regeln, Admin-Sektionen, Sync, Quiz-Vorrat); eine neue Rechnung ohne dritten Zustand fängt keiner.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 80 catch-Blöcke geben einen Leerwert zurück ([] · {} · 0 · ''), 17 davon nach einem Netz- oder Server-Aufruf (10.11.2026): dqLoadLeaderboardTop, gsFriendsSearchUsers, gsLoadRegionalCalendars, gsLoadLearningCards, gsLoadFertilizationSchedules, gsLoadGardenLayouts, gsHarvestStatsLoad, gsPPloadAgronomy, gsLoadPollinators, gsLoadDiseases, gsLoadSeasonalTasks, gsLoadCompanionsFor, gsKnowledgeGetAll, gsAdminKnowledgeList u.a. Kandidaten: der Aufrufer kann „konnte nicht laden“ nicht von „nichts da“ unterscheiden — gsLoadDiseases etwa macht aus einer Antwort ohne data ein [] und legt es in den Zwischenspeicher. Ein Treffer (gsRegeln) ist ein reiner Speicher-Leser, kein Fund.",
+  "instanzen": [
+    "v31.57 · Garten-Zwilling: ix/iy sind null, nicht 0 — sonst zeigt der Marker auf „links oben“ (CLAUDE.md §4a.1)",
+    "v31.75 · Planer-Prüfwerk: nie {} oder 0 für „keine Daten“ — das läse sich als „alles in Ordnung“",
+    "v32.12 · Vorauswahl: null ist nicht false — 3'465 der damals 4'342 Arten haben keine Höhenangabe",
+    "v32.48 · Sensor-Regel ohne plausiblen Wert ist „nicht prüfbar“ — Stille ist kein „erfüllt“",
+    "v33.16 · ein Mehrfach-Scan kam ungemessen durch und hiess „die beste Grundlage, die der Scanner kennt“",
+    "v33.29 · quizVorrat gibt nie 0 für „keine Daten“, sondern null mit Grund",
+    "v33.34 · getPlantInfo-Rückfall {60, 90}: eine Monstera-Pflanzung bekam „Ernte voraussichtlich 16.10.“",
+    "v33.36 · „Keine Warnungen — alles im grünen Bereich!“ ohne Tageswerte; _gsWetterTage trennt null von []",
+    "v33.40 · ohne Daten gibt die Wochenzeile '' zurück, nicht eine Zeile mit „0 Aufgaben“",
+    "v33.42 · 13 von 16 Admin-Sektionen: catch → []; „✅ Alle Jobs laufen“ auch bei abgelehnter Abfrage",
+    "v33.46 · ein unvollständiger Sync stand nur in console.warn — gsSyncStand mit vier Zuständen",
+    "v33.47 · Scan-Prüfwerk ohne Zweig für ok === 0: „Gegengeprüft“ und „Nichts spricht dagegen“ ohne geladene Artenliste"
+  ],
+  "suchmuster": "node -e 'const s=require(\"fs\").readFileSync(\"index.html\",\"utf8\"),re=/catch\\s*\\(\\w*\\)\\s*\\{\\s*return\\s*(\\[\\]|\\{\\}|0|\\x27\\x27);?\\s*\\}/g;let m,a=0,o=[];while(m=re.exec(s)){a++;if(/sbFetch\\(|\\bfetch\\(|callAI\\(/.test(s.slice(Math.max(0,m.index-1500),m.index)))o.push(s.slice(0,m.index).split(\"\\n\").length+\": \"+m[0].replace(/\\s+/g,\" \"))}console.log(a+\" catch→leer, davon \"+o.length+\" nach einem Netz-/Server-Aufruf:\\n\"+o.join(\"\\n\"))'",
+  "stichworte": [
+    "stille-ist-kein-erfuellt",
+    "_gsKalPruefwerk",
+    "_gsPlanPruefwerk",
+    "_gsWetterTage",
+    "_gsAdmHole",
+    "gsSyncStand"
+  ],
+  "gesucht": "Nur ein Teil: v33.42 — alle 16 Admin-Sektionen durchgezählt, 13 lasen den Fehler nicht (catch → []). Ausserhalb des Admin-Panels ist keine Durchsicht belegt; jede andere Instanz war ein Einzelfund.",
+  "waechter": [
+    {
+      "datei": "scripts/planer_check.js",
+      "fall": "Drei Zustände · ohne Daten ist jede Regel null, nie {} oder 0"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "P1 · Konnte KEINE Prüfung etwas sagen, ist das keine Entwarnung"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "P2 · Die Karte behauptet nicht „gegengeprüft\""
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "S5b · mehrere Fotos: das schärfste zählt"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "Vorauswahl · schliesst nur aus, was sich begründen lässt"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Regel · drei Zustände: verletzt, erfüllt, und ohne Werte „nicht prüfbar\""
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina D3 · eine Regel ohne Werte ist NICHT PRUEFBAR"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Prüfwerk R3 · Ernte-Schätzung nur mit Kulturdaten"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Wetter W4 · das Warnfenster liest denselben Zwischenspeicher"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt"
+    },
+    {
+      "datei": "scripts/admin_check.js",
+      "fall": "Drei Zustände · JEDE Sektion unterscheidet „keine Einträge\" von „konnte nicht laden\""
+    },
+    {
+      "datei": "scripts/admin_check.js",
+      "fall": "Auf dem Bildschirm · eine Sektion, die nicht laden konnte, SAGT es"
+    },
+    {
+      "datei": "scripts/quiz_gen_check.js",
+      "fall": "Vorrat · drei Zustaende, und „keine Daten\" ist NIE eine 0"
+    }
+  ]
+}

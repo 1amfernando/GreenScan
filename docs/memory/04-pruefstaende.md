@@ -1,4 +1,4 @@
-# 04 · Die 38 Pruefstaende — welcher fragt was
+# 04 · Die Pruefstaende — welcher fragt was
 
 Alle liegen in `scripts/`, alle laufen ohne Netz (`file://` + Playwright aus
 `scripts/package.json`); vier brauchen ein lokales Postgres
@@ -7,7 +7,7 @@ pruefbar" (Exit 2), nie gruen. Alle auf einmal:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: "38 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
+# Erwartung: "N Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
 ```
 
 Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
@@ -55,9 +55,10 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42); seit v33.50 die SCHREIB-Seite: jeder Admin-Schreibweg durch _gsAdmTun (GS_ADM_AKTIONEN, sechs Zustaende mit Grund, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es (_gsAdmGesperrt, _gsAdmAktionHinweisHtml), die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, die Deckung rechnet _gsAdmSpurDeckung, ein Ersatzweg nur bei nicht_verfuegbar, RAISE EXCEPTION = abgelehnt, und eine SQL-Haelfte spielt 20260925_admin_audit_vollstaendig.sql in einem lokalen Postgres nach (ohne: Exit 2) |
 | `android_check` | haelt die App, was eine Android-App verspricht? gsZurueck (eine Regel, zwei Ausloeser), GS_VOLLBILD_OVERLAYS, ein Verlaufs-Eintrag, gsLaeuftAlsApp, assetlinks (seit v33.43) |
 | `risiko_check` | was geht SPAETER schief? Jahreszahlen in jaehrlich wiederkehrenden Texten, ungedeckelte Listen-Abfragen (eingeordnet), die Zahlen in docs/RISIKEN.md gegen den Quelltext, und seit v33.45 die Fristen-Karte im Admin-Panel in BEIDE Richtungen (GS_FRISTEN, gsFristenStand) |
-| `pruefstaende` | ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
+| `austausch_check` | kommt an, was eine KI-Sitzung der naechsten sagt? Das Brett (docs/austausch), die zwei Uebergabe-Zeilen in STATUS.md §0, die Zahlen in STATUS.md §1 (seit 11.11.2026; nur Node und git) |
+| `pruefstaende` | ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
 
-## Wie ein Fall gebaut wird (die Regeln, die alle 39 teilen)
+## Wie ein Fall gebaut wird (die Regeln, die alle teilen)
 
 1. **Erst der Fall, dann der Code.** Gegen den alten Stand gefahren muss er
    rot sein. Erst danach wird repariert.

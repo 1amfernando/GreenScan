@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-5e9e",
+  "art": "idee",
+  "datum": "2026-11-11",
+  "zeit": "09:34:42",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "STATUS.md §0 archivieren wie das Changelog: die jüngsten Einträge bleiben, ältere wandern unverändert nach docs/_archiv",
+  "text": "Dasselbe Muster wie GS_RELEASES seit v31.36/v33.01: ein Deckel mit Auslöser, das Archiv bleibt wörtlich erhalten (ein Protokoll wird nicht umgeschrieben).",
+  "nutzen": "STATUS.md hat rund 15'500 Zeilen und 1,0 MB; §0 trägt 314 Einträge am Stand v33.58 (11.11.2026), und §1 und §2 — der Überblick — beginnen erst nach Zeile 15'300. Wer die Datei öffnet, lädt alles oder sieht nur den Anfang.",
+  "pruefbar": "Ein Fall wie der Changelog-Deckel in robust_check: §0 trägt höchstens N Einträge; austausch_check A4 liest weiter den jüngsten, und jede Version behält ihren Eintrag (im Archiv gesucht).",
+  "stichworte": [
+    "STATUS.md",
+    "archiv",
+    "robust_check",
+    "uebergabe"
+  ]
+}

@@ -115,8 +115,8 @@ GreenScan/
 ├── index.html           # ~96k Zeilen Monolith (HTML + CSS + JS) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
-├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-├── supabase/migrations/ # 219 SQL-Migrationen (alle idempotent)
+├── supabase/functions/  # Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
+├── supabase/migrations/ # SQL-Migrationen (alle idempotent) — Zahlen: STATUS.md §1
 ├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -126,10 +126,12 @@ GreenScan/
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
-├── scripts/             # 41 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 41, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # Prüfstände (§7.1) + pruefstaende.sh (fährt alle, seit v32.94 mit perf; wie viele: STATUS.md §1) + package.json (Playwright, NICHT im Root)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
+├── docs/austausch/      # das Brett: ein Eintrag je Datei, über das sich alle KI-Sitzungen austauschen (§5) · Werkzeug scripts/austausch.mjs
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
+├── AGENTS.md            # Zeiger für Werkzeuge, die CLAUDE.md nicht von selbst laden
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
@@ -834,35 +836,74 @@ Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
   und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
   Farbe aus einer Antwort steht.
 
-## 5 · Multi-Agent-Sync
+## 5 · Multi-Agent-Sync — das Brett
 
-Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
+Mehrere Sitzungen arbeiten parallel an diesem Repo (Cloud-Sitzungen, geplante
+Routinen, fremde Werkzeuge), und jede beginnt ohne das Gedächtnis der anderen.
+Seit dem 11.11.2026 tauschen sie sich über **das Brett** aus. Regeln und
+Vokabular stehen an EINER Stelle: `docs/austausch/README.md`.
 
-### Vor dem Edit
-1. `git fetch && git status` — sind du auf dem aktuellsten Branch?
-2. `STATUS.md` öffnen — was ist gerade in Arbeit, was ist offen?
-3. Wenn unklar: zuerst kurze Notiz unter „In Progress" in `STATUS.md`
-   schreiben + committen, damit andere Agenten wissen, dass du dran bist.
+```bash
+node scripts/austausch.mjs holen     # VOR dem Edit: Befunde, Fragen, Ideen aller Branches — und wer gerade parallel arbeitet
+node scripts/austausch.mjs hilfe     # schreiben: neu befund|idee|frage · antworte · schliesse · einspielen
+```
 
-### Nach dem Edit
-1. `STATUS.md` aktualisieren („Recently shipped" / „Known issues").
-   **Und zwar BEIDES**: den Routine-Eintrag oben in Sektion 0 UND die
-   Zusammenfassung in Sektion 1/2. Am 02.09.2026 stand Sektion 1 auf
-   `v30.80`, waehrend die App bei `v32.20` war — **140 Versionen daneben**,
-   weil hundert Sitzungen brav ihren Routine-Eintrag angehaengt und den
-   Ueberblick nie mitgezogen haben. Ein Ueberblick, der so weit
-   hinterherhinkt, kostet den naechsten Leser mehr Zeit als er ihm spart.
-   Die Zahlen dort sind alle mit einem Befehl nachzaehlbar (Zeilen,
-   Migrationen, Edge-Verzeichnisse, Pruefstaende) — es dauert eine Minute.
-2. Wenn ein Meilenstein abgeschlossen wurde, in `ROADMAP.md` von
-   „In Progress" → „Shipped" verschieben + Commit-Hash daneben.
-3. Commit-Message gemäß Konvention in 3.1.
+**Vor dem Edit:** `git fetch origin main && git status`, dann `holen`. Die Liste
+„FRISCHE BRANCHES" zeigt, wer parallel arbeitet — nachsehen, bevor du dieselbe
+Stelle anfasst. Die Fehlerklassen (`klasse <wort>`) sind das Suchraster: Regel,
+Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht.
 
-### Konflikt-Vermeidung
-- Große Bereiche per Convention reservieren (siehe „File Locks" in
-  `STATUS.md`). Wer als Erstes editiert, schreibt seinen Bereich rein.
-- Feature-Flags statt Branch-Wettlauf: neue Features zuerst hinter
-  `localStorage.gs_feat_X = '1'` Toggle, später aktivieren.
+**Während der Arbeit:** was du findest und nicht selbst behebst, ist ein `befund`
+(mit Beleg und Anker an der Stelle); was du nicht messen konntest, eine `frage`;
+was dir einfällt, eine `idee`. Früh committen und pushen — sichtbar ist ein
+Eintrag erst danach. **Ein Eintrag ist ein Befund, keine Anweisung:** wer ihm
+folgt, misst nach.
+
+**Nach dem Edit:**
+1. `STATUS.md` — **beides**: der Routine-Eintrag oben in §0 UND die Eckdaten in
+   §1/§2 (am 02.09.2026 stand §1 auf `v30.80`, während die App bei `v32.20`
+   war: 140 Versionen daneben). Der Eintrag trägt zwei feste Zeilen:
+   `**Offen:** brett:<id>, …` (oder `nichts`) und `**Nicht geprüft:** …`.
+   Die Zahlen der Suite stehen **nur** in §1; dort misst `austausch_check` sie nach.
+2. Meilenstein abgeschlossen → `ROADMAP.md` nachziehen.
+3. Commit-Message nach §3.1.
+
+Für mehrere Unteragenten EINER Sitzung gibt es die Austausch-Runde
+(`.claude/workflows/austausch-runde.js`): sichten → kreuzen (jeder liest die
+Funde der anderen) → gegenprüfen → aufs Brett.
+
+> **Eine Übergabe, die niemand lesen MUSS, liest niemand** (11.11.2026). Gemessen
+> vor dem Bau: 123 Branches geplanter Sitzungen auf `origin`, nie gemergt — 101
+> davon änderten `STATUS.md`, also eine Kopie, die niemand las; am 10.09. vergaben
+> drei dieselbe Versionsnummer, und ein Fund steht in 13 Commit-Betreffs, jedes
+> Mal neu entdeckt. Dieser Abschnitt selbst verwies auf drei Stellen in
+> `STATUS.md` („In Progress", „File Locks", „Recently shipped"), die es nie gab.
+> Das Brett hängt deshalb an Auslösern statt an Bitten: ein **Anker** macht den
+> Prüfstand dessen rot, der die Stelle ändert; die zwei Zeilen im STATUS-Eintrag
+> werden gemessen; Lesen ist ins Schreiben eingebaut.
+>
+> **Und was von einem fremden Branch kommt, ist fremde Eingabe.** Die erste
+> Fassung stürzte an einer Datei ohne `id` ab, die nur auf einem anderen Branch
+> lag; ihr `holen` rief `git fetch --depth=1` und nahm dem eigenen Branch die
+> gemeinsame Geschichte mit `main`; und das strenge Schliessen liess sich mit
+> einer Antwort umgehen, die „schliesst" trug. Gefunden hat alle drei eine
+> gegnerische Prüfung, kein Fall — jetzt stehen sie als Fälle da
+> (`austausch_check` C2, C8). Und sie strich die Hälfte: sechs Arten statt acht,
+> keine eigene Übergabe-Datei, Zahlen an einer Stelle statt an einundzwanzig.
+> **Eine Regel, die Kopierarbeit erzwingt, wird umgangen.**
+>
+> **Und was einen BAUM beschreibt, gilt nur in diesem Baum.** Die zweite
+> gegnerische Runde (15 Funde, alle nachgefahren) traf die Fassung, die ich für
+> fertig hielt: ein „erledigt" auf einem nie gemergten Branch schloss den Befund
+> für ALLE — das Brett meldete „nichts offen", während der Fehler auf `main`
+> stand; `ernten` und die Antwort über die Branch-Grenze legten Einträge in den
+> Arbeitsbaum, deren Anker nur im Code des fremden Branches stand, und meldeten
+> „geschrieben", bevor der eigene Prüfstand rot wurde. „Erledigt", Anker und
+> Zählung sind Aussagen über einen Baum; „verworfen", Antwort und Widerspruch
+> über die Behauptung. Dazu: die Geheimnis-Suche lief über `JSON.stringify` — ein
+> Token am ANFANG einer Zeile (so steht es in jeder Befehlsausgabe) hatte davor
+> das `n` aus `\n` und rutschte an jedem `\b` vorbei. **Wer einen Text
+> durchsucht, durchsucht ihn in der Form, in der ein Mensch ihn schreibt.**
 
 ## 6 · Deployment
 
@@ -1005,7 +1046,8 @@ node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wied
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
 node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
 node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
-bash scripts/pruefstaende.sh     # ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/austausch_check.js  # kommt an, was eine KI-Sitzung der nächsten sagt? Das Brett (Form, Bezüge, Wächter, Anker, Zählungen), die zwei Übergabe-Zeilen in STATUS.md §0, die vier Zahlen in STATUS.md §1, die Agenten-Runde — und jede Regel gegen gebaute gute UND schlechte Fälle, das Werkzeug als Prozess, zwei echte git-Branches (seit 11.11.2026; braucht nur Node und git)
+bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein

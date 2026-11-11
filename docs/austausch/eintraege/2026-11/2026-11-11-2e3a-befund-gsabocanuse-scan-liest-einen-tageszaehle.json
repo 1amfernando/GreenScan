@@ -1,0 +1,33 @@
+{
+  "id": "2026-11-11-2e3a",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "09:34:42",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "gsAboCanUse('scan') liest einen Tageszähler gs_scans_<Datum>, den keine Stelle schreibt — und der Zweig hat selbst keinen Aufrufer",
+  "text": "Die Funktion kennt zwei Merkmale. Für 'ai_call' wird sie an zwei Stellen gerufen. Der Zweig 'scan' liest localStorage unter gs_scans_<Datum> und vergleicht mit dem Scan-Limit des Plans (GS_PLANS[plan].scans) — der Schlüssel wird aber nirgends geschrieben, und kein Aufruf übergibt 'scan'. Ob das Scan-Limit der Pläne an anderer Stelle durchgesetzt wird (Server), ist hier nicht gemessen.",
+  "beleg": [
+    "grep -n \"gs_scans\" index.html → 1 Zeile (ein getItem über die Variable key)",
+    "grep -c \"gsAboCanUse('scan')\" index.html scripts/*.js → 0"
+  ],
+  "vorschlag": "Entscheiden: den Zweig entfernen (dann sagt die Funktion nichts mehr über Scans) oder den Zähler dort schreiben, wo ein Scan gezählt werden soll — und in dem Fall die Familie in GS_USER_PREFIXES eintragen.",
+  "stichworte": [
+    "gsAboCanUse",
+    "GS_PLANS",
+    "localStorage",
+    "scan-limit"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var key = 'gs_scans_' + today;"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-b51a"
+    }
+  ]
+}
