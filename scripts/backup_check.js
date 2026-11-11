@@ -367,6 +367,135 @@ const kaputtHelfer = (r) => (r && r.ok) ? null : ((r && r.warum) || 'unbekannt')
       : { ok: false, warum: 'ohne ' + JSON.stringify(update.ohne) + ' · mit ' + JSON.stringify(update.mit) },
   });
 
+  // ── v33.59: KEINE Frage mehr beim Start — still zurueckholen ─────────────
+  // Gemeldet am 10. und 11.11.2026: der Banner „Daten wiederherstellen?" stand
+  // bei JEDEM Start da, und gefragt werden will die Person gar nicht. Der
+  // Server ist gestellt (Liste + neuester Snapshot), jede Anfrage und jede
+  // Meldung wird gezaehlt; jeder Zustand wird HERGESTELLT.
+  const still = await page.evaluate(async () => {
+    window.sbIsLoggedIn = () => true;
+    localStorage.setItem('gs_sb_uid', 'nutzer-backup');
+    const EXKL = ['gs_soil_profile','gs_pp_garden_location','gs_scan_corrections','gs_purchases','gs_my_bids','gs_action_counts',
+                  'gs_market_ratings','gs_market_reported','gs_recipes','gs_remedies','gs_prefs','gs_reminder_prefs'];
+    let snap = null, snapId = 's1', zaehl = { liste: 0, latest: 0 }, toasts = [];
+    window.gsToast = function (t, typ) { toasts.push({ t: String(t), typ: typ }); };
+    window.sbFetch = async function (pfad) {
+      if (String(pfad).indexOf('fn_user_snapshots_list') >= 0) { zaehl.liste++; return { data: snap ? [{ id: snapId, taken_at: '2026-09-11T20:00:00Z' }] : [], error: null, status: 200 }; }
+      if (String(pfad).indexOf('fn_user_snapshot_latest') >= 0) { zaehl.latest++; return { data: snap, error: null, status: 200 }; }
+      return { data: [], error: null, status: 200 };
+    };
+    const frisch = () => {
+      EXKL.concat(['gs_restore_geprueft', 'gs_restore_abgelehnt', 'gs_snapshot_had']).forEach(k => localStorage.removeItem(k));
+      zaehl = { liste: 0, latest: 0 }; toasts = [];
+    };
+    // Ein Dialog, ein Banner, irgendetwas mit Knopf, das nach dem Backup fragt?
+    const fragt = () => !!document.getElementById('gs-restore-banner')
+      || Array.from(document.querySelectorAll('button')).some(b => b.offsetParent !== null && /^(Wiederherstellen|Nicht nötig)$/.test((b.innerText || '').trim()));
+    const pflanzen = JSON.parse(localStorage.getItem('ps_myplants') || '[]').length;
+    const out = { pflanzen };
+    const kopie = () => ({ zaehl: Object.assign({}, zaehl), toasts: toasts.slice(), fragt: fragt() });
+
+    // W1 · der gemeldete Fall: Pflanzen da, exklusive Bereiche leer — und das Backup hat dort AUCH nichts.
+    frisch(); snap = { plants: [{ id: 1 }], soil_profile: null, purchases: [], prefs: {} };
+    const z1 = await gsSnapshotAutoWiederherstellen();
+    out.w1 = Object.assign({ z: z1 }, kopie());
+    await gsSnapshotAutoWiederherstellen();
+    out.w1b = kopie();
+
+    // W2 · VERLOREN: das Backup haelt Bodenprofil und eigene Rezepte, lokal leer, KEINE Spur auf dem Geraet.
+    frisch(); snapId = 's2'; snap = { plants: [{ id: 1 }], soil_profile: { ph: 6.5 }, user_recipes: [{ id: 'r1', name: 'Test' }] };
+    const z2 = await gsSnapshotAutoWiederherstellen();
+    out.w2 = Object.assign({ z: z2, boden: localStorage.getItem('gs_soil_profile'), rezepte: localStorage.getItem('gs_recipes') }, kopie());
+    // … und der naechste Start tut nichts mehr und sagt nichts mehr.
+    toasts = [];
+    const z2b = await gsSnapshotAutoWiederherstellen();
+    out.w2b = Object.assign({ z: z2b }, kopie());
+
+    // W3 · GELEERT: die Spur sagt, das Bodenprofil war beim letzten Backup auf DIESEM Geraet da — jetzt ist es leer.
+    frisch(); snapId = 's3'; snap = { plants: [{ id: 1 }], soil_profile: { ph: 6.5 } };
+    localStorage.setItem('gs_snapshot_had', JSON.stringify({ gs_soil_profile: 1 }));
+    const z3 = await gsSnapshotAutoWiederherstellen();
+    out.w3 = Object.assign({ z: z3, boden: localStorage.getItem('gs_soil_profile'), abg: localStorage.getItem('gs_restore_abgelehnt'),
+                             haeltAn: await _gsSnapshotWouldLoseData() }, kopie());
+
+    // W4 · beides zugleich: das Bodenprofil ist geleert (W3), dazu fehlen jetzt Kaeufe OHNE Spur → nur die Kaeufe kommen.
+    snapId = 's4'; snap = Object.assign({}, snap, { purchases: [{ id: 'k1' }] }); toasts = [];
+    const z4 = await gsSnapshotAutoWiederherstellen();
+    out.w4 = Object.assign({ z: z4, boden: localStorage.getItem('gs_soil_profile'), kaeufe: localStorage.getItem('gs_purchases') }, kopie());
+    // … und VON HAND kommt auch das Geleerte zurueck (ausdruecklicher Wille).
+    window.gsConfirmModal = async () => true;
+    await gsSnapshotRestoreManual();
+    out.w4.nachHand = localStorage.getItem('gs_soil_profile');
+
+    // W5 · der Speicher nimmt nichts an: EIN Versuch, keine Erfolgsmeldung, beim naechsten Start kein zweiter.
+    frisch(); snapId = 's5'; snap = { plants: [{ id: 1 }], soil_profile: { ph: 6.5 } };
+    const echtSet = localStorage.setItem; let abgewiesen = 0;
+    localStorage.setItem = function (k, v) { if (k === 'gs_soil_profile') { abgewiesen++; return false; } return echtSet.call(localStorage, k, v); };
+    const z5 = await gsSnapshotAutoWiederherstellen();
+    const nach1 = abgewiesen;
+    const z5b = await gsSnapshotAutoWiederherstellen();
+    localStorage.setItem = echtSet;
+    out.w5 = Object.assign({ z: z5, zb: z5b, nach1, nach2: abgewiesen, boden: localStorage.getItem('gs_soil_profile') }, kopie());
+
+    // W6 · drei Zustaende ohne Wirkung, jeder mit eigenem Grund — und ein Fehler wird NICHT als Ergebnis gemerkt.
+    frisch(); snap = null; const k = await gsSnapshotAutoWiederherstellen();
+    frisch(); const alt = window.sbFetch; window.sbFetch = async () => ({ data: null, error: { message: 'netz' } });
+    const n = await gsSnapshotAutoWiederherstellen(); const nMemo = localStorage.getItem('gs_restore_geprueft');
+    window.sbFetch = async (pfad) => String(pfad).indexOf('list') >= 0 ? { data: [{ id: 's6' }], error: null } : { data: null, error: { message: 'kaputt' } };
+    const u = await gsSnapshotAutoWiederherstellen(); const uMemo = localStorage.getItem('gs_restore_geprueft');
+    window.sbFetch = alt;
+    out.w6 = Object.assign({ k, n, u, nMemo, uMemo }, kopie());
+    frisch();
+    return out;
+  });
+  const _grund = z => (z && z.grund) || '(kein Grund)';
+  const _n = z => (z && Array.isArray(z.geholt)) ? z.geholt.length : -1;
+  K.push({
+    name: 'W1 · Pflanzen da, exklusive Bereiche leer, das Backup hat dort AUCH nichts → nichts geschieht (der gemeldete Fall): keine Frage, keine Meldung, ein Grund — und der naechste Start holt den Snapshot nicht noch einmal',
+    r: (still.pflanzen > 0 && !still.w1.fragt && still.w1.toasts.length === 0 && _n(still.w1.z) === 0 && /nichts, was hier fehlt/.test(_grund(still.w1.z))
+        && still.w1.zaehl.latest === 1 && !still.w1b.fragt && still.w1b.zaehl.latest === 1 && still.w1b.zaehl.liste === 2)
+      ? { ok: true, info: still.pflanzen + ' Pflanzen · „' + _grund(still.w1.z) + '" · Snapshot 1× geholt, beim zweiten Start nur die Liste' }
+      : { ok: false, warum: (still.w1.fragt ? 'ES WIRD GEFRAGT · ' : '') + JSON.stringify(still.w1.z) + ' · Meldungen ' + still.w1.toasts.length + ' · Anfragen ' + JSON.stringify(still.w1.zaehl) + ' → ' + JSON.stringify(still.w1b.zaehl) },
+  });
+  K.push({
+    name: 'W2 · VERLOREN (keine Spur auf dem Geraet): Bodenprofil und eigene Rezepte kommen von selbst zurueck — keine Frage, GENAU EINE Meldung, die beide nennt; der naechste Start schweigt',
+    r: (!still.w2.fragt && _n(still.w2.z) === 2 && /6\.5/.test(still.w2.boden || '') && /r1/.test(still.w2.rezepte || '')
+        && still.w2.toasts.length === 1 && /Bodenprofil/.test(still.w2.toasts[0].t) && /eigene Rezepte/.test(still.w2.toasts[0].t)
+        && still.w2.zaehl.latest === 1 && _n(still.w2b.z) === 0 && still.w2b.toasts.length === 0 && !still.w2b.fragt)
+      ? { ok: true, info: '„' + still.w2.toasts[0].t + '" · 1 Snapshot-Abruf · danach „' + _grund(still.w2b.z) + '"' }
+      : { ok: false, warum: JSON.stringify({ z: still.w2.z, boden: still.w2.boden, rezepte: still.w2.rezepte, toasts: still.w2.toasts, zaehl: still.w2.zaehl, fragt: still.w2.fragt, danach: still.w2b }) },
+  });
+  K.push({
+    name: 'W3 · GELEERT (die Spur sagt: war beim letzten Backup auf diesem Geraet da): bleibt leer, keine Frage, keine Meldung — und die automatischen Backups halten deswegen nicht an',
+    r: (!still.w3.fragt && _n(still.w3.z) === 0 && !still.w3.boden && still.w3.toasts.length === 0 && still.w3.haeltAn === false
+        && /gs_soil_profile/.test(still.w3.abg || '') && /geleert/.test(_grund(still.w3.z)))
+      ? { ok: true, info: '„' + _grund(still.w3.z) + '" · gemerkt: ' + still.w3.abg }
+      : { ok: false, warum: JSON.stringify(still.w3) },
+  });
+  K.push({
+    name: 'W4 · Geleert UND verloren zugleich: nur das Verlorene (Käufe) kommt zurueck, das Geleerte bleibt leer — von Hand (Einstellungen) kommt auch das zurueck',
+    r: (!still.w4.fragt && _n(still.w4.z) === 1 && still.w4.z.geholt[0].key === 'gs_purchases' && /k1/.test(still.w4.kaeufe || '') && !still.w4.boden
+        && still.w4.toasts.length === 1 && /Käufe/.test(still.w4.toasts[0].t) && !/Bodenprofil/.test(still.w4.toasts[0].t) && /6\.5/.test(still.w4.nachHand || ''))
+      ? { ok: true, info: '„' + still.w4.toasts[0].t + '" · Bodenprofil bleibt leer · von Hand: ' + still.w4.nachHand }
+      : { ok: false, warum: JSON.stringify(still.w4) },
+  });
+  K.push({
+    name: 'W5 · Der Speicher nimmt nichts an: EIN Versuch, keine Erfolgsmeldung — und beim naechsten Start kein zweiter (keine Schleife)',
+    r: (still.w5.nach1 >= 1 && still.w5.nach2 === still.w5.nach1 && _n(still.w5.z) === 0 && !still.w5.boden
+        && !still.w5.toasts.some(t => /ergänzt/.test(t.t)) && /schon versucht/.test(_grund(still.w5.zb)) && !still.w5.fragt)
+      ? { ok: true, info: still.w5.nach1 + ' abgewiesener Schreibversuch · „' + _grund(still.w5.z) + '" · danach „' + _grund(still.w5.zb) + '"' }
+      : { ok: false, warum: JSON.stringify(still.w5) },
+  });
+  K.push({
+    name: 'W6 · Drei Zustaende ohne Wirkung, jeder mit eigenem Grund (kein Backup · Liste nicht erreichbar · Backup nicht lesbar) — und ein Fehler wird NICHT als Ergebnis gemerkt',
+    r: (() => {
+      const g = [still.w6.k, still.w6.n, still.w6.u].map(_grund);
+      const ok = !still.w6.fragt && still.w6.toasts.length === 0 && [still.w6.k, still.w6.n, still.w6.u].every(z => _n(z) === 0)
+        && /kein Backup/.test(g[0]) && /nicht erreichbar/.test(g[1]) && /nicht lesbar/.test(g[2]) && !still.w6.nMemo && !still.w6.uMemo;
+      return ok ? { ok: true, info: g.join(' · ') } : { ok: false, warum: JSON.stringify(still.w6) };
+    })(),
+  });
+
   console.log('  [App — Playwright, gestellte Uhr (11.09.2026 22:30 UTC) und Zeitzone Pacific/Auckland]');
   for (const f of K) {
     const w = kaputtHelfer(f.r);

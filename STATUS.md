@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.58` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.59` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-11 (jd) - v33.59: Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App von selbst
+
+**Anlass:** Fernando, 10.11.2026 (Bildschirmfoto): „Das kommt die ganze Zeit" — und 11.11.2026: „Keine Lust, dass
+jedes Mal ein Pop-up kommt und nach dem Backup fragt."
+
+**Ursache des Dauerbanners (am Quelltext gemessen):** `gsSnapshotMaybeOfferRestore` fragte seit v30.97 nur, ob lokal
+IRGENDEINER der zwölf snapshot-exklusiven Bereiche leer ist — der Normalzustand. Die Cloud-Seite wurde nur auf
+„gibt es einen Snapshot?" geprüft, und das × war nirgends gemerkt.
+
+**Was jetzt gilt — es wird nicht mehr gefragt:**
+- Der Banner ist ENTFERNT (`_gsShowRestoreBanner`, `gsSnapshotMaybeOfferRestore`, `_gsSnapshotHasExclusiveGap`).
+- **Eine Rechnung:** `_gsSnapshotFehlt(st, mitHaupt)` — ein Bereich zählt nur, wenn der Snapshot dort Inhalt HAT
+  und er lokal LEER ist. Die Hauptbereiche (`_GS_SNAPSHOT_HAUPT`) zählen nur, wenn lokal gar kein Inhalt da ist.
+- **`gsSnapshotAutoWiederherstellen()`** holt das still zurück (`gsSnapshotRestore({still, st, ohne})` — schreibt
+  nur in leere Bereiche) und sagt danach EINEN Satz („Aus deinem Cloud-Backup ergänzt: …"). Rückgabe immer
+  `{geholt, grund}` (`window._gsRestoreStand`).
+- **Verloren oder geleert?** Steht ein Bereich in `gs_snapshot_had` (war beim letzten Backup auf DIESEM Gerät da)
+  und ist jetzt leer, wurde er hier geleert: er bleibt leer, kommt in `gs_restore_abgelehnt` und hält die
+  automatischen Backups nicht mehr an. Ohne Spur (Browserdaten gelöscht, neues Gerät, neu angemeldet) ist es ein
+  Verlust und wird zurückgeholt. Hat ein geleerter Bereich wieder Inhalt, verfällt der Eintrag.
+- **Von Hand** (Einstellungen › „Aus Cloud-Backup wiederherstellen") kommt alles zurück, auch Geleertes.
+- **Kosten:** je Start die Liste; der ganze Snapshot nur bei neuem Snapshot oder geänderten Lücken
+  (`gs_restore_geprueft`: Id, Lücken-Signatur, Ergebnis, `versucht`). EIN Versuch je Stand — keine Schleife bei
+  vollem Speicher. Ein Netzfehler wird nicht als Ergebnis gemerkt.
+- Beide neuen Schlüssel stehen in `GS_USER_KEYS`. Der FAQ-Satz dazu ist angepasst.
+
+**Zwei Preise, benannt:** (1) Wer einen Bereich hier leert, dessen altes Backup wird von neueren verdrängt
+(Aufbewahrung: 6 + je Anlass der neueste) — vorher stoppten die automatischen Backups in dem Fall still für
+immer. (2) Die Unterscheidung hängt an der lokalen Spur: verliert ein Gerät EINEN Bereich und behält die Spur
+(kein bekannter Weg ausser Programmfehler), gilt er als geleert; die manuelle Wiederherstellung holt ihn.
+
+**Prüfstand:** `backup_check` W1–W6 (gestellter Server; Anfragen, Meldungen und „fragt etwas?" gezählt).
+Gegenprobe: die Verloren/Geleert-Unterscheidung ausgebaut → W3 und W4 rot. Gegen `origin/main` (v33.58) bricht
+der Prüfstand an den Fällen ab (die Funktion gibt es dort nicht) — die Reproduktion des Dauerbanners stammt aus
+dem ersten Stand dieses PRs („Banner STEHT DA"). `pruefstaende.sh schnell` (TZ=UTC): 37 · rot 0 · nicht prüfbar 8
+(kein lokales Postgres / keine Android-Werkzeuge hier); die vier langsamen laufen in der CI.
+
+**Nicht geprüft:** das echte Gerät und die Live-Datenbank. `GS_RELEASES`: v33.39 ist ins Archiv umgezogen.
 
 ### 2026-11-11 (jc) - v33.58: Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus
 
@@ -15383,7 +15422,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.58` (Client) · SW-Cache `gs-v33.58` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.59` (Client) · SW-Cache `gs-v33.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **97'094 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **586 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
