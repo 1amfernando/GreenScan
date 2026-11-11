@@ -1,0 +1,28 @@
+{
+  "id": "2026-11-11-74c4",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "11:43:53",
+  "von": "sitzung/claude/scan-fotos-signiert",
+  "stand": "v33.59",
+  "titel": "Eine tote Zeile schickte zwei private Kontaktangaben in base64 an jedes Telefon — die Reparatur lag seit 31.07. auf einem nie gemergten Branch",
+  "text": "Bei der Sichtung der 123 claude/lucid-cerf-*-Branches gegen die Sicherheitsreparatur (Methode aus 2026-11-11-453a: entfernte Zeilen, die im Zielbaum noch wörtlich stehen) blieb eine echte Lücke: ein „Admin-Check (verschlüsselt)“ aus der Zeit vor Supabase-Auth dekodierte ein base64-Literal mit zwei Kontaktangaben und setzte window._gsIsAdmin, das niemand liest. Admin entscheidet seit v28 der Server. Behoben auf claude/scan-fotos-signiert (Block entfernt, Kommentar an der Stelle); Wächter: scripts/sicherheit/94_verpackte_adressen.js V1 dekodiert jedes base64-Literal der ausgelieferten Dateien, mit Gegenrichtung.",
+  "beleg": [
+    "grep -c _gsIsAdmin index.html (vor der Reparatur) → 1 Schreiber, 0 Leser",
+    "node -e 'require(\"./scripts/sicherheit/94_verpackte_adressen.js\")[0].lauf()' → vorher rot (1 Literal, index.html), nachher grün",
+    "git log -S auf origin/claude/lucid-cerf-xf8w1q → die Entfernung steht dort seit fe52402 (31.07.2026)"
+  ],
+  "stichworte": [
+    "base64",
+    "_gsIsAdmin",
+    "datenschutz",
+    "lucid-cerf",
+    "branches"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-453a"
+    }
+  ]
+}

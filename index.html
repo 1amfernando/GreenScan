@@ -92489,23 +92489,12 @@ function gsRunSplash(onDone) {
   setTimeout(nextStep, 150);
 }
 
-// ── Admin-Konfiguration (verschlüsselt) ──────────────────────
-(function() {
-  var _a = atob('ZmVybmFuZG8ucmFua3dpbGVyMTk5N0BnbWFpbC5jb218d3d3LkdyZWVuU2NhbkBnbWFpbC5jb20=').split('|');
-  var _adm = _a;
-  // Admin-Check: nur bestätigte Accounts können IS_ADMIN aktivieren
-  var _sess = localStorage.getItem('gs_auth_session');
-  if (_sess) {
-    try {
-      var _uid = JSON.parse(_sess).uid;
-      var _db = JSON.parse(localStorage.getItem('gs_auth_db') || '{}');
-      var _acct = _db[_uid];
-      if (_acct && _adm.indexOf(_acct.email) >= 0) {
-        window._gsIsAdmin = true;
-      }
-    } catch(e) {}
-  }
-})();
+// v33.6x: hier stand ein „Admin-Check“ aus der Zeit vor Supabase-Auth — zwei private
+// E-Mail-Adressen in base64 („verschlüsselt“ hiess es), verglichen mit einer lokalen
+// Konto-Ablage, Ergebnis in window._gsIsAdmin. Gelesen hat _gsIsAdmin niemand (0 Leser,
+// gemessen 11.11.2026); Admin entscheidet seit v28 der Server (is_admin_user, gsIsAdmin).
+// Entfernt, weil eine tote Zeile die Adressen mit jeder Auslieferung an jedes Telefon schickte.
+// Die Reparatur lag seit dem 31.07.2026 auf claude/lucid-cerf-xf8w1q und kam nie an.
 
 // ══ GreenScan Error Log & Known Fixes ════════════════════════
 // Dieses Objekt dokumentiert alle bekannten Bugs und deren Fixes.
