@@ -395,6 +395,10 @@ export const KI_SICHERHEIT = {
   remedies: { dosage: null, is_published: false },
   indoor_houseplants: { toxic_to_pets: null, toxic_to_children: null },
 };
+// Die Quelle einer KI-Zeile (v33.59, Austausch-Runde offen-b5): KI_NIE nimmt der KI die Spalte,
+// aber live tragen 15 Quellen-Spalten eine kuratierte Vorgabe ('VAPKO Schweiz' …) — ohne eigenen
+// Wert stuende sie nach dem Insert auch an der KI-Zeile. Gesetzt nur, wo das Schema `source` nennt.
+export const KI_QUELLE = "KI-Entwurf, ungeprüft";
 // Spalten, die die Datenbank vergibt bzw. die eine Herkunft behaupten.
 const KI_NIE = ["id", "created_at", "updated_at", "user_id", "source", "sources", "is_verified", "verified", "geprueft"];
 
@@ -446,7 +450,46 @@ export function kiZeileOk(tabelle, zeile, spalten, pflicht) {
   }
   const sicher = KI_SICHERHEIT[tabelle];
   if (sicher) for (const k of Object.keys(sicher)) aus[k] = sicher[k];
+  if (Object.prototype.hasOwnProperty.call(spalten, "source")) aus.source = KI_QUELLE;
   return { ok: true, zeile: aus, grund: "", weg };
+}
+
+// ─── plant-doctor-diagnose: Krankheits-Kontext aus plant_diseases ───────────
+
+// v33.59 (Austausch-Runde, offen-b2): die Function waehlte name_lat/symptoms/affects_plants/treatment —
+// Spalten, die es live nicht gibt (PostgREST 42703, Kontext still leer). Die Live-Namen
+// (Momentaufnahme 10.11.2026) stehen HIER, damit Abfrage und Prompt dieselbe Liste lesen.
+export const KRANKHEIT_SPALTEN = "name, scientific_name, symptoms_de, symptoms_visual, affected_species_lat, treatment_organic, treatment_chemical, prevention";
+
+function kiTexte(x) {
+  if (typeof x === "string") return x ? [x] : [];
+  return Array.isArray(x) ? x.filter((v) => typeof v === "string" && v) : [];
+}
+
+/** Zeilen aus plant_diseases → Prompt-Block (hoechstens 8 Zeilen). Passende zuerst: Art in
+ *  affected_species_lat oder ein Symptom in symptoms_de/symptoms_visual; sonst die ersten 8. */
+export function kiKrankheitsKontext(zeilen, speciesLat, symptoms) {
+  const liste = Array.isArray(zeilen) ? zeilen.filter((d) => d && typeof d === "object") : [];
+  if (!liste.length) return "";
+  const art = typeof speciesLat === "string" ? speciesLat.trim().toLowerCase() : "";
+  const sym = (Array.isArray(symptoms) ? symptoms : []).filter((s) => typeof s === "string" && s.trim()).map((s) => s.trim().toLowerCase());
+  const passt = liste.filter((d) => {
+    if (art && kiTexte(d.affected_species_lat).some((p) => p.toLowerCase().includes(art))) return true;
+    if (sym.length) {
+      const sLow = kiTexte(d.symptoms_de).concat(kiTexte(d.symptoms_visual)).join(" ").toLowerCase();
+      return sym.some((s) => sLow.includes(s));
+    }
+    return false;
+  });
+  const top = (passt.length ? passt : liste).slice(0, 8);
+  return top.map((d) => {
+    const symptome = kiTexte(d.symptoms_de).concat(kiTexte(d.symptoms_visual)).join(", ").slice(0, 300);
+    const bio = kiTexte(d.treatment_organic).join(" ").slice(0, 200);
+    const chem = kiTexte(d.treatment_chemical).join(" ").slice(0, 120);
+    const vor = kiTexte(d.prevention).join(" ").slice(0, 120);
+    return "- " + kiTexte(d.name).join("") + " (" + (kiTexte(d.scientific_name).join("") || "?") + "): " + symptome + "." +
+      (bio ? " Behandlung (bio): " + bio : "") + (chem ? " Chemisch (letzte Option): " + chem : "") + (vor ? " Vorbeugen: " + vor : "");
+  }).join("\n");
 }
 
 // ─── feedback-triage ────────────────────────────────────────────────────────

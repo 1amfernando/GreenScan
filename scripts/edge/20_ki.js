@@ -220,7 +220,7 @@ module.exports = [
       if (!r.ok) return { ok: false, warum: 'Zeile verworfen: ' + r.grund };
       const z = r.zeile;
       if (z.edibility !== 'unbekannt' || z.vapko_klasse !== null) return { ok: false, warum: 'Sicherheitsangabe von der KI: ' + JSON.stringify({ e: z.edibility, v: z.vapko_klasse }) };
-      for (const k of ['id', 'created_at', 'source', 'geprueft', 'fremde_spalte', 'cap_color']) if (k in z) return { ok: false, warum: 'Spalte durchgekommen: ' + k };
+      for (const k of ['id', 'created_at', 'geprueft', 'fremde_spalte', 'cap_color']) if (k in z) return { ok: false, warum: 'Spalte durchgekommen: ' + k };
       if (z.common_name_de !== "Grüner Täubling's Bruder" || z.habitat[0] !== 'Buchenwald' || z.smell !== 'mild') return { ok: false, warum: 'gute Werte verloren: ' + JSON.stringify(z) };
       const ohne = m.kiZeileOk('mushroom_register', { common_name_de: 'x' }, sp, ['slug']);
       if (ohne.ok) return { ok: false, warum: 'Zeile ohne Pflichtspalte angenommen' };
@@ -233,6 +233,81 @@ module.exports = [
       if (!/constantTimeEquals\s*\(/.test(rand) || /!==\s*expectedSecret/.test(rand)) return { ok: false, warum: 'Admin-Secret nicht zeitkonstant verglichen' };
       if (/\{\s*topic\s*,\s*count\s*=\s*12\s*,\s*focus_topics\s*,\s*model\s*=/.test(rand) && !/KB_MODELLE/.test(rand)) return { ok: false, warum: 'model frei waehlbar' };
       return { ok: true, info: schemas.length + ' echte Schemata gelesen · Essbarkeit→unbekannt, VAPKO→null, Dosis→null, unveroeffentlicht · id/source/fremde Spalte/falsche Form weg · gute Werte bleiben' };
+    },
+  },
+  {
+    // v33.59 (Austausch-Runde, offen-b5): KI_NIE nimmt der KI die Quelle — aber 19 Tabellen haben live
+    // eine Quellen-Spalte, 15 davon mit kuratierter Vorgabe ('VAPKO Schweiz' …). Ohne eigenen Wert
+    // bekam eine KI-Pilzzeile beim Insert dieselbe Quelle wie eine amtlich gepflegte.
+    name: 'knowledge-bulk-gen · eine KI-Zeile traegt die Quelle „KI-Entwurf" — nie die Vorgabe der Spalte (VAPKO …) und nie, was die KI behauptet; ohne Quellen-Spalte bleibt sie weg',
+    lauf: async (h) => {
+      const m = await h.modul(TOR);
+      const L = await import(require('url').pathToFileURL(require('path').join(__dirname, '_live_schema.mjs')).href);
+      const src = h.lies('knowledge-bulk-gen/index.ts');
+      const re = /^\s*(\w+):\s*\{\s*table:\s*"(\w+)",\s*(?:uniqKey:\s*"(\w+)"|compositeUniq:\s*\[([^\]]*)\]),\s*system:\s*`([^`]*)`/gm;
+      const schemas = []; let mm;
+      while ((mm = re.exec(src))) schemas.push({ table: mm[2], uniq: mm[3] ? [mm[3]] : mm[4].replace(/["\s]/g, '').split(','), system: mm[5] });
+      if (schemas.length < 30) return { ok: false, warum: 'nur ' + schemas.length + ' Schemata gelesen' };
+      const Q = m.KI_QUELLE;
+      if (typeof Q !== 'string' || !/KI/.test(Q) || !/ungepr/i.test(Q)) return { ok: false, warum: 'kein ehrlicher Quellen-Wert exportiert (KI_QUELLE = ' + JSON.stringify(Q) + ')' };
+      let mit = 0, ohne = 0;
+      for (const s of schemas) {
+        const sp = m.kiSchemaSpalten(s.system);
+        const zeile = {}; for (const u of s.uniq) zeile[u] = 'x-' + u;
+        for (const behauptet of [undefined, 'VAPKO Schweiz (geprueft)']) {
+          const z = Object.assign({}, zeile); if (behauptet) z.source = behauptet;
+          const r = m.kiZeileOk(s.table, z, sp, s.uniq);
+          if (!r.ok) return { ok: false, warum: s.table + ': Zeile verworfen: ' + r.grund };
+          const live = L.SPALTEN[s.table];
+          if (sp.source) {
+            if (r.zeile.source !== Q) return { ok: false, warum: s.table + ': Zeile geht mit source=' + JSON.stringify(r.zeile.source) + ' hinaus — die Spaltenvorgabe (bzw. die KI) behauptet die Quelle' };
+            if (!live) return { ok: false, warum: s.table + ': Quellen-Spalte gesetzt, Tabelle fehlt in _live_schema.mjs' };
+            if (live.indexOf('source') < 0) return { ok: false, warum: s.table + ': source gesetzt, live gibt es die Spalte nicht (42703)' };
+          } else if ('source' in r.zeile) return { ok: false, warum: s.table + ': source gesetzt, obwohl das Schema keine Quelle kennt' };
+          // Gegenrichtung (Gegenpruefung s5): hat die Tabelle live eine Quellen-Spalte, das Schema nennt sie
+          // aber nicht, bekaeme die KI-Zeile still die kuratierte Vorgabe — genau der Fund offen-b5.
+          else if (live && live.indexOf('source') >= 0) return { ok: false, warum: s.table + ': live gibt es source (Vorgabe kuratiert), das Schema nennt sie nicht — die KI-Zeile bekaeme die Vorgabe' };
+        }
+        if (sp.source) mit++; else ohne++;
+      }
+      // gute Werte bleiben: Name mit Apostroph und Umlaut
+      const pilz = schemas.find(s => s.table === 'mushroom_register');
+      const r = m.kiZeileOk('mushroom_register', { slug: 'p', common_name_de: "Grüner Täubling's Bruder" }, m.kiSchemaSpalten(pilz.system), ['slug']);
+      if (r.zeile.common_name_de !== "Grüner Täubling's Bruder") return { ok: false, warum: 'guter Name verloren' };
+      return { ok: true, info: mit + ' Tabellen mit Quellen-Spalte tragen „' + Q + '" (auch wenn die KI „VAPKO" schickt oder nichts) · ' + ohne + ' ohne Quelle bleiben ohne · jede gesetzte Spalte gibt es live' };
+    },
+  },
+  {
+    // v33.59 (Austausch-Runde, offen-b2): loadDiseaseContext waehlte name_lat/symptoms/affects_plants/treatment —
+    // live 42703, Fehler wegdestrukturiert, Kontext still leer. Jetzt Live-Namen aus EINER Liste, Fehler gelesen.
+    name: 'plant-doctor-diagnose · der Krankheits-Kontext liest die LIVE-Spalten von plant_diseases (Art, Symptome, Behandlung bio/chemisch) und sagt, wenn die Abfrage scheitert',
+    lauf: async (h) => {
+      const m = await h.modul(TOR);
+      const L = await import(require('url').pathToFileURL(require('path').join(__dirname, '_live_schema.mjs')).href);
+      if (typeof m.kiKrankheitsKontext !== 'function' || typeof m.KRANKHEIT_SPALTEN !== 'string') return { ok: false, warum: 'kiKrankheitsKontext/KRANKHEIT_SPALTEN fehlen in ki_tor.mjs' };
+      const live = L.SPALTEN.plant_diseases;
+      const fehlt = m.KRANKHEIT_SPALTEN.split(',').map(x => x.trim()).filter(x => live.indexOf(x) < 0);
+      if (fehlt.length) return { ok: false, warum: 'KRANKHEIT_SPALTEN nennt Spalten, die es live nicht gibt: ' + fehlt.join(', ') };
+      // Zeilen in der LIVE-Form (symptoms_de Text, symptoms_visual jsonb-Liste, affected_species_lat text[])
+      const zeilen = [
+        { name: 'Mehltau', scientific_name: 'Erysiphales', symptoms_de: 'Weisser Belag auf Blaettern', symptoms_visual: ['weiss'], affected_species_lat: ['Cucurbita pepo'], treatment_organic: 'Milch 1:9 spruehen', treatment_chemical: null, prevention: 'Luftig pflanzen' },
+        { name: 'Kraut- und Braunfaeule', scientific_name: 'Phytophthora infestans', symptoms_de: 'Braune Flecken, Frucht faul', symptoms_visual: ['braun', 'gelb'], affected_species_lat: ['Solanum lycopersicum', 'Solanum tuberosum'], treatment_organic: 'Befallene Blaetter entfernen', treatment_chemical: 'Kupfer (letzte Option)', prevention: 'Regendach' },
+        { name: "Grauschimmel d'été", scientific_name: null, symptoms_de: 'Grauer Pelz', symptoms_visual: null, affected_species_lat: null, treatment_organic: null, treatment_chemical: null, prevention: null },
+      ];
+      const k = m.kiKrankheitsKontext(zeilen, 'Solanum lycopersicum', []);
+      if (!/^- Kraut- und Braunfaeule \(Phytophthora infestans\): Braune Flecken, Frucht faul, braun, gelb\. Behandlung \(bio\): Befallene Blaetter entfernen Chemisch \(letzte Option\): Kupfer/.test(k) || /Mehltau/.test(k)) return { ok: false, warum: 'Art-Treffer falsch: ' + JSON.stringify(k) };
+      const s = m.kiKrankheitsKontext(zeilen, null, ['WEISS']);
+      if (!/Mehltau/.test(s) || /Braunfaeule/.test(s)) return { ok: false, warum: 'Symptom-Treffer (symptoms_visual, Gross/klein) falsch: ' + JSON.stringify(s) };
+      const alle = m.kiKrankheitsKontext(zeilen, 'Abies alba', ['nichts']);
+      if (alle.split('\n').length !== 3 || /undefined|null|\[object/.test(alle) || !/Grauschimmel d'été \(\?\): Grauer Pelz\./.test(alle)) return { ok: false, warum: 'Rueckfall/Leerwerte: ' + JSON.stringify(alle) };
+      if (m.kiKrankheitsKontext(null, 'x', []) !== '' || m.kiKrankheitsKontext([], 'x', []) !== '') return { ok: false, warum: 'ohne Zeilen nicht leer' };
+      // Rand: die Function waehlt die Liste und liest den Fehler
+      const rand = h.ohneKommentare(h.lies('plant-doctor-diagnose/index.ts'));
+      const fn = rand.slice(rand.indexOf('async function loadDiseaseContext'), rand.indexOf('async function loadHistoryContext'));
+      if (!/\.select\(\s*KRANKHEIT_SPALTEN\s*\)/.test(fn)) return { ok: false, warum: 'loadDiseaseContext waehlt nicht KRANKHEIT_SPALTEN' };
+      if (!/\{\s*data\s*,\s*error\s*\}/.test(fn) || !/if\s*\(\s*error\s*\)\s*\{\s*console\.error\(/.test(fn)) return { ok: false, warum: 'Fehler der Abfrage wird nicht gelesen (wegdestrukturiert)' };
+      if (!/kiKrankheitsKontext\(\s*data\s*,/.test(fn)) return { ok: false, warum: 'Prompt-Bau nicht ueber kiKrankheitsKontext' };
+      return { ok: true, info: '8 Live-Spalten · Art vor Symptom vor Rueckfall · Behandlung bio/chemisch/Vorbeugen · Leerwerte ohne „undefined" · Rand: Fehler gelesen (console.error)' };
     },
   },
   {

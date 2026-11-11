@@ -30,7 +30,7 @@ import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mj
 // Server, Tageskontingent atomar reserviert (fail-closed), Eingabe gedeckelt
 // (vorher: Foto ohne Obergrenze, Notiz/Name ungedeckelt, 30/h fail-open).
 // Die Reservierung gilt fuer den ganzen anthropicFetch — ein Modell-Rueckfall bucht nichts dazu.
-import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiToken, kiTor } from "../_shared/ki_tor.mjs";
+import { KRANKHEIT_SPALTEN, kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiKrankheitsKontext, kiToken, kiTor } from "../_shared/ki_tor.mjs";
 
 const KI_FN = "plant-doctor-diagnose";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -48,23 +48,14 @@ async function getAnthropicKey(): Promise<string | null> {
 }
 
 async function loadDiseaseContext(speciesLat: string | null, symptoms: string[]): Promise<string> {
-  const { data } = await sbAdmin
+  // v33.59 (Austausch-Runde, offen-b2): Live-Spaltennamen aus EINER Liste (KRANKHEIT_SPALTEN), und der
+  // Fehler wird gelesen — vorher 42703, wegdestrukturiert, Kontext still leer.
+  const { data, error } = await sbAdmin
     .from("plant_diseases")
-    .select("name, name_lat, symptoms, affects_plants, treatment, prevention")
+    .select(KRANKHEIT_SPALTEN)
     .limit(20);
-  if (!data || !data.length) return "";
-  const filtered = data.filter((d: any) => {
-    if (speciesLat && Array.isArray(d.affects_plants) && d.affects_plants.some((p: string) => p.includes(speciesLat))) return true;
-    if (symptoms && symptoms.length && Array.isArray(d.symptoms)) {
-      const sLow = (d.symptoms as string[]).join(" ").toLowerCase();
-      return symptoms.some(s => sLow.includes(s.toLowerCase()));
-    }
-    return false;
-  });
-  const top = filtered.length ? filtered.slice(0, 8) : data.slice(0, 8);
-  return top.map((d: any) =>
-    `- ${d.name} (${d.name_lat || "?"}): ${(d.symptoms||[]).join(", ")}. Behandlung: ${(d.treatment||"").slice(0, 200)}`
-  ).join("\n");
+  if (error) { console.error("plant-doctor-diagnose plant_diseases", error.code, error.message); return ""; }
+  return kiKrankheitsKontext(data, speciesLat, symptoms);
 }
 
 // v26.96: Verlaufs-Kontext — letzte 3 Diagnosen derselben Pflanze für den User
