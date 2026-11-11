@@ -1395,7 +1395,10 @@ betreffen:
 
 Alle zehn stehen in `docs/AUDIT-2026-11-11.md` (edge-1 bis edge-10) mit dem
 vorgeschlagenen Fix. Zwei davon lassen sich ausnutzen; ihre Einzelheiten
-stehen deshalb nicht im Repo, sondern im Aufgabenvorschlag aus der Sitzung.
+stehen deshalb nicht im Repo, sondern in der Übergabe-Datei
+„GreenScan-Folgeaufgaben-2026-11-11.md", die du in der Sitzung bekommen hast
+(Aufgabe 1 — als Auftragstext für eine neue Sitzung geschrieben; bitte nicht
+ins Repo legen).
 
 **Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
 ESLint (über `scripts/package.json`). Dafür ist nichts zu tun.
