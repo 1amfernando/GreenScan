@@ -153,7 +153,7 @@ async function scan(browser, file) {
   await page.waitForTimeout(3500);
   // Der Token ist nicht echt, also zeigt gsCheckOnboarding trotzdem das
   // Onboarding — aber ohne gs-preauth laesst es sich normal schliessen.
-  // v33.59: erst wegblenden, wenn es DA ist (scripts/_seed.js anmeldebildWeg) —
+  // v33.60: erst wegblenden, wenn es DA ist (scripts/_seed.js anmeldebildWeg) —
   // kam es nach dem Wegblenden, lag es ueber allen elf Tabs und wurde
   // mitgezaehlt (3'283 statt 3'063 Elemente), und die Zeile unten sagte „nein".
   await SEED.anmeldebildWeg(page);
@@ -176,7 +176,7 @@ async function scan(browser, file) {
     perTab[t] = c.length;
     rows.push(...c.map(o => ({ ...o, key: t + '::' + o.key })));
   }
-  // v33.59: und am ENDE noch einmal — die Zeile „Onboarding blockiert noch"
+  // v33.60: und am ENDE noch einmal — die Zeile „Onboarding blockiert noch"
   // fragte nur direkt nach dem Laden, ein spaeter erschienenes Bild sah sie nie.
   const onbEnde = await page.evaluate(SEED.ANMELDEBILD_STEHT);
   await ctx.close();

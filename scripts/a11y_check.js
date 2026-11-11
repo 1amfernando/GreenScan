@@ -163,7 +163,7 @@ const PRUEFUNG = () => {
   await p.addInitScript(SEED);
   await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
   await p.waitForTimeout(3500);
-  // v33.59: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js).
+  // v33.60: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js).
   await SEED.anmeldebildWeg(p);
   await p.waitForTimeout(400);
 
@@ -388,7 +388,7 @@ const PRUEFUNG = () => {
   console.log('  je Tab (mit Wiederholungen): ' + TABS.map(t => t + '=' + jeTab[t]).join(' '));
   console.log('  je Fenster: ' + Object.keys(jeFenster).map(k => k + ' → ' + jeFenster[k]).join(' · '));
   console.log('  JS-Fehler: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
-  // v33.59: drei Zustaende — ein Lauf hinter dem Anmeldebildschirm ist weder gruen noch rot.
+  // v33.60: drei Zustaende — ein Lauf hinter dem Anmeldebildschirm ist weder gruen noch rot.
   const anmeldebildStand = await p.evaluate(SEED.ANMELDEBILD_STEHT).catch(() => false);
   await br.close();
   process.exitCode = (summe || verhaltenRot || rot || errs.length) ? 1 : 0;

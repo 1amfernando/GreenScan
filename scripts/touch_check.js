@@ -15,7 +15,7 @@
  *   node scripts/touch_check.js
  */
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
-// v33.59: nur die drei Helfer zum Anmeldebildschirm — die Beispieldaten dieses
+// v33.60: nur die drei Helfer zum Anmeldebildschirm — die Beispieldaten dieses
 // Pruefstands bleiben seine eigenen (SEED unten).
 const { anmeldebildWeg, ANMELDEBILD_STEHT, ANMELDEBILD_SATZ } = require('./_seed.js');
 const TABS=['home','garden','wissen','favs','search','social','market','recipes','remedies','map','scanner'];
@@ -226,7 +226,7 @@ const BREITEN = [412, 320];
   await p.addInitScript(SEED);
   await p.goto('file://' + require('path').join(__dirname,'..','index.html'),{waitUntil:'domcontentloaded',timeout:90000});
   await p.waitForTimeout(3500);
-  // v33.59: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js).
+  // v33.60: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js).
   await anmeldebildWeg(p);
   for(const t of TABS){ try{await p.evaluate(t=>switchTab(t),t)}catch(e){}
     await p.waitForTimeout(600);
@@ -271,7 +271,7 @@ const BREITEN = [412, 320];
   rausL.slice(0,15).forEach(o=>console.log(`   ${String(o.fehlt).padStart(3)}px draussen  ${(o.br+'px').padEnd(6)} ${o.tab.padEnd(9)} ${o.el.slice(0,40).padEnd(41)} „${o.txt}"`));
   await br.close();
   process.exitCode = (list.length + rausL.length) ? 1 : 0;
-  // v33.59: drei Zustaende — ein Lauf hinter dem Anmeldebildschirm ist weder
+  // v33.60: drei Zustaende — ein Lauf hinter dem Anmeldebildschirm ist weder
   // gruen noch rot.
   if (anmeldebildStand) { console.log('!! ' + ANMELDEBILD_SATZ); process.exitCode = 2; }
 })();

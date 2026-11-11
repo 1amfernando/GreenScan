@@ -126,7 +126,7 @@ module.exports = () => { try {
     for_minutes:0, action:'notify', cooldown_minutes:720, enabled:true, created_at:iso(now-6*D) }]);
 } catch(e){} };
 
-// ── v33.59: der Anmeldebildschirm — WARTEN, bis er da ist, dann wegblenden ──
+// ── v33.60: der Anmeldebildschirm — WARTEN, bis er da ist, dann wegblenden ──
 // Die Beispieldaten oben melden NICHT an: der Token hat keine drei Teile
 // (gsSecurityInit raeumt ihn ~450 ms nach DOMContentLoaded ab), und ohne
 // gs_sb_uid ist sbIsLoggedIn() von Anfang an false. Nach dem Splash

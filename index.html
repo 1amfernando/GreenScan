@@ -25580,7 +25580,7 @@ const TOX = [
   // Weiss auf dunkelrot statt dunkelrot auf rot.
   {sym:'☠️', label:'Tödlich giftig', color:'#ffffff',bg:'#8e1414',voll:'#8e1414'},
 ];
-// v33.59: `color` und `bg` sind ein PAAR — die Schrift gilt nur auf IHRER
+// v33.60: `color` und `bg` sind ein PAAR — die Schrift gilt nur auf IHRER
 // Flaeche. v31.99 hat Stufe 5 auf Weiss-auf-Dunkelrot gedreht; openDetail nahm
 // `color` aber allein (als Schrift auf der Karte und als Fuellung der
 // Skala-Punkte) — „Tödlich giftig" stand damit WEISS auf fast weisser Karte,
@@ -38627,7 +38627,7 @@ function openDetail(id){
       '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_toxicity','☠️ Toxizität & Sicherheit') + '</h3>',
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">',
           '<span style="font-size:var(--fs-3xl);">'+t.sym+'</span>',
-          // v33.59: Plakette aus dem PAAR bg+color (siehe TOX) — lesbar auf heller
+          // v33.60: Plakette aus dem PAAR bg+color (siehe TOX) — lesbar auf heller
           // UND dunkler Karte. Ohne `bg` (Einstufung offen) bleibt es Text in
           // einer Themenfarbe, die mit dem Modus kippt.
           '<div><div style="font-weight:800;font-size:var(--fs-lg);color:'+t.color+';'+(t.bg?'display:inline-block;background:'+t.bg+';padding:1px 10px;border-radius:var(--r-sm);margin-bottom:2px;':'')+'">'+t.label+'</div>',
@@ -38652,7 +38652,7 @@ function openDetail(id){
         return '<div style="background:'+(isFatal?'#ffebee':'#fff8e1')+';border:2px solid '+(isFatal?'#ef9a9a':'#ffe082')+';border-radius:var(--r-md);padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
           '<span style="font-size:var(--fs-xl);flex-shrink:0;">'+(isFatal?'☠️':'⚠️')+'</span>' +
           '<div><div style="font-size:var(--fs-md);font-weight:800;color:'+(isFatal?'#c62828':'#e65100')+';margin-bottom:2px;">'+(isFatal?_t('tox_strong','STARK GIFTIG'):_t('tox_caution','VORSICHT: GIFTIG'))+'</div>' +
-          // v33.59: `var(--text2)` kippt im Dunkelmodus auf hell — auf dieser FEST
+          // v33.60: `var(--text2)` kippt im Dunkelmodus auf hell — auf dieser FEST
           // hellen Flaeche 1,18:1 gemessen (der Warntext einer toedlichen Art).
           // Eine feste Flaeche braucht eine feste Schrift (CLAUDE.md §7.1, v32.25).
           '<div style="font-size:var(--fs-sm);color:'+(isFatal?'#4a1212':'#4a3200')+';line-height:1.5;">'+(!gsWarnungLeer(sp.warning)?escHtml(sp.warning):_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +

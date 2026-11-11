@@ -36,7 +36,7 @@ const TABS = ['home','garden','wissen','favs','search','social','market','recipe
 // gerendert und in Bildschirmhoehen durchgescrollt.
 const SEED_MOD = require('./_seed.js');
 const W = 412, H = 915;
-// v33.59: ein TEIL-Lauf zum Entwickeln eines Falls. Der ganze Pruefstand
+// v33.60: ein TEIL-Lauf zum Entwickeln eines Falls. Der ganze Pruefstand
 // braucht rund vier Minuten; wer ein Fenster dazubaut, faehrt Rot, Gruen und
 // jede Gegenprobe sonst je einmal ganz. `GS_KONTRAST_NUR=<regex>` misst nur
 // die Fenster, deren Name passt (keine Tabs) — und der Bericht SAGT es, damit
@@ -223,7 +223,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
     await p.addInitScript(SEED);
     await p.goto('file://' + FILE, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await p.waitForTimeout(3500);
-    // v33.59: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js
+    // v33.60: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js
     // anmeldebildWeg). Kam er danach, lag er auf z-index 9999999 ueber allem:
     // jedes Fenster meldete dann seine eigenen „12 Textstellen" (69 von 102
     // Zeilen), und der eine echte Fund des Dunkelmodus verschwand.
@@ -451,7 +451,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (dm) { dm.style.display = ''; dm.classList.add('active'); }
         return mc;
       }],
-      // v33.59: das ARTENDETAIL. `openDetail(id)` nimmt einen Parameter — der
+      // v33.60: das ARTENDETAIL. `openDetail(id)` nimmt einen Parameter — der
       // automatische Durchgang (Oeffner OHNE Parameter) hat es deshalb nie
       // geoeffnet, und das Fenster, in dem jemand nachliest, ob eine Art giftig
       // ist, war in keinem Modus vermessen. Gefunden beim ANSEHEN (Agent SICHT,
@@ -644,7 +644,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
     console.log('  automatisch geoeffnet: ' + autoLauf.length + ' Fenster' +
                 (autoGemessen ? ' · davon mit Befund: ' + autoGemessen : ' · ohne Befund'));
 
-    // v33.59: stand der Anmeldebildschirm am Ende (wieder)? Dann ist dieser
+    // v33.60: stand der Anmeldebildschirm am Ende (wieder)? Dann ist dieser
     // Modus nicht gemessen — drei Zustaende, nicht zwei.
     const anmeldebildStand = await p.evaluate(SEED_MOD.ANMELDEBILD_STEHT);
 
