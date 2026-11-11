@@ -1996,13 +1996,18 @@ const FAELLE = [
         'ma fille a mangé des baies', 'mon fils a mangé un champignon',
         'mon chien a mangé cette plante', 'empoisonnement', 'au secours il a avalé une baie',
         'mia figlia ha mangiato delle bacche', 'mio figlio ha mangiato un fungo', 'avvelenamento',
-        'my daughter ate berries', 'my son ate a mushroom', 'poisoning', 'my dog ate this plant'];
+        'my daughter ate berries', 'my son ate a mushroom', 'poisoning', 'my dog ate this plant',
+        // v33.61 (brett df0b) — Spanisch ist die fuenfte App-Sprache: 0 von 8.
+        'mi hija ha comido bayas', 'mi hijo ha comido una seta', 'envenenamiento por setas', 'intoxicación',
+        'mi perro ha comido una planta venenosa', 'el gato ha mordido la planta', 'ayuda mi bebé ha tragado una baya',
+        'tengo náuseas después de comer setas'];
       const HARMLOS = ['kann man löwenzahn essen', 'ist bärlauch essbar', 'welche pilze sind essbar',
         'darf man brennnessel essen', 'wie schmeckt giersch', 'wann kann ich tomaten ernten',
         'ist die pflanze giftig', 'wie giftig ist der efeu', 'welche beeren sind essbar',
         'rezept mit bärlauch', 'wann blüht der holunder', 'wie pflege ich basilikum',
         'ist maiglöckchen giftig', 'giftige pflanzen im garten', 'was ist essbar im wald',
         'quand fleurit le sureau', 'quali funghi sono commestibili', 'which berries are edible',
+        '¿se puede comer el diente de león?', '¿qué setas son comestibles?', '¿es venenosa la hiedra?', 'cuándo florece el saúco',
         // Scharfe Kante: `\bcat\b` traefe auch „catégorie" — in JS ist „é" kein
         // Wortzeichen, die Grenze sitzt mitten im Wort. Die Nachschau haelt es.
         'dans quelle catégorie ranger cette plante'];
@@ -2021,6 +2026,110 @@ const FAELLE = [
       if (r.h.length) f.push(r.h.length + ' harmlose Frage(n) MIT Notfall-Text: „' + r.h.slice(0, 3).join('" · „') + '"');
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: DRINGEND.length + ' Notfall-Sätze bringen die 145 · ' + HARMLOS.length + ' harmlose Fragen bleiben ohne' };
+    },
+  },
+
+  // ── v33.61 · Paket „Sicherheit der vier Hauptfunktionen" ───────────────
+  {
+    name: 'D1j · Die Art-Korrektur macht keinen Eintrag ESSBARER, als er selbst sagt (brett fcaf)',
+    lauf: () => {
+      var mehr = [], weniger = 0;
+      DB.forEach(function (sp) {
+        var a = _gsArtAnzeige(sp);
+        if (!sp.edible && a.edible) mehr.push(sp.id + ' ' + sp.name);
+        if (sp.edible && !a.edible) weniger++;
+      });
+      if (mehr.length) return { ok: false, warum: mehr.length + ' Eintraege werden durch die Korrektur essbar: ' + mehr.slice(0, 3).join(' · ') };
+      if (!weniger) return { ok: false, warum: 'die Korrektur nimmt nirgends ein „essbar" weg — der Fall misst nichts' };
+      return { ok: true, info: '0 werden essbarer · ' + weniger + ' verlieren „essbar" (gewollt)' };
+    },
+  },
+  {
+    name: 'F1 · Die Filter „Essbar", „Giftig", „Ungiftig" fragen die ART — und „Ungiftig" nimmt keinen ungeprueften Eintrag',
+    lauf: () => {
+      var vorher = currentFilter, f = [];
+      var com = { id: 'COM_f1', name: 'Zzz Ungeprueft', lat: 'Ignota ignota', cat: 'wildpflanze', edible: true, toxic: false, tox: null, _community: true, _unverified: true };
+      DB.push(com);
+      try {
+        var roh = { essbar: 0, ungiftig: 0, giftig: 0 };
+        currentFilter = 'essbar';
+        DB.forEach(function (sp) { var a = _gsArtAnzeige(sp); if (_gsPassCat(sp) && (!a.edible || sp._unverified)) f.push('Essbar zeigt ' + sp.name); if (sp.edible && !_gsPassCat(sp)) roh.essbar++; });
+        currentFilter = 'ungiftig';
+        DB.forEach(function (sp) { var a = _gsArtAnzeige(sp); if (_gsPassCat(sp) && (a.toxic || a.tox > 0 || sp._unverified)) f.push('Ungiftig zeigt ' + sp.name + ' (Art tox ' + a.tox + ')'); if (!(sp.toxic || sp.tox > 0) && !_gsPassCat(sp)) roh.ungiftig++; });
+        currentFilter = 'giftig';
+        DB.forEach(function (sp) { var a = _gsArtAnzeige(sp); if (a.tox >= 3 && !_gsPassCat(sp)) f.push('Giftig laesst ' + sp.name + ' aus (Art tox ' + a.tox + ')'); if (!sp.toxic && _gsPassCat(sp)) roh.giftig++; });
+      } finally { currentFilter = vorher; var i = DB.indexOf(com); if (i >= 0) DB.splice(i, 1); }
+      if (f.length) return { ok: false, warum: f.length + ' Abweichungen: ' + f.slice(0, 3).join(' · ') };
+      if (!roh.essbar || !roh.ungiftig) return { ok: false, warum: 'Art und Eintrag liefern dieselben Listen — der Fall misst nichts: ' + JSON.stringify(roh) };
+      return { ok: true, info: 'gegen den Roheintrag: ' + roh.essbar + ' weniger unter Essbar · ' + roh.ungiftig + ' weniger unter Ungiftig · ' + roh.giftig + ' mehr unter Giftig' };
+    },
+  },
+  {
+    name: 'F2 · Die Menue-Eintraege „Giftige / Essbare Pflanzen / Heilpflanzen" setzen den FILTER statt ein Wort zu suchen',
+    lauf: async () => {
+      var eintraege = MENU_ITEMS.filter(function (m) { return /Giftige Pflanzen|Essbare Pflanzen|Heilpflanzen/.test(m.label); });
+      if (eintraege.length !== 3) return { ok: false, warum: eintraege.length + ' statt 3 Eintraege gefunden' };
+      var schlecht = eintraege.filter(function (m) { return /search-input'\)\.value=/.test(m.action) || !/gsZeigeEigenschaft\(/.test(m.action); });
+      if (schlecht.length) return { ok: false, warum: 'tippt weiter ein Wort in die Suche: ' + schlecht.map(function (m) { return m.label; }).join(', ') };
+      var vorher = currentFilter;
+      try {
+        gsZeigeEigenschaft('giftig');
+        await new Promise(function (r) { setTimeout(r, 400); });
+        var inp = document.getElementById('search-input');
+        if (currentFilter !== 'giftig') return { ok: false, warum: 'Filter steht auf „' + currentFilter + '"' };
+        if (inp && inp.value) return { ok: false, warum: 'im Suchfeld steht „' + inp.value + '"' };
+        var liste = (window._lastSearchResults || []);
+        if (!liste.length) return { ok: false, warum: 'die Liste ist leer' };
+        var harmlos = liste.filter(function (sp) { var a = _gsArtAnzeige(sp); return !(a.toxic || a.tox >= 2); });
+        if (harmlos.length) return { ok: false, warum: harmlos.length + ' nicht giftige Arten in der Liste, z.B. ' + harmlos[0].name };
+        // Gegenrichtung: die alte Wortsuche haette essbare Arten gebracht.
+        var alt = DB.filter(function (s) { return gsIstEssbar(s) && /giftig/i.test([s.name, s.desc, s.lookalike, s.warning].join(' ')); }).length;
+        return { ok: true, info: liste.length + ' Arten, alle giftig · die Wortsuche „giftig" traefe auch ' + alt + ' essbare' };
+      } finally { try { gsFilter('', null); } catch (_) {} currentFilter = vorher; }
+    },
+  },
+  {
+    name: 'SC1 · Der Scan-Chat hat Linas Schutz: Notfallnummer sofort, Warnzeile ueber einer Essbar-Zusage zu einer Giftart',
+    lauf: async () => {
+      var gift = DB.find(function (s) { return s.tox >= 5 && s.lat && _gsArtenTreffer(s.name + ' ' + s.lat).zahl; });
+      if (!gift) return { ok: false, warum: 'keine Art mit Stufe 5 gefunden' };
+      var zusage = 'Ja, den kannst du essen, er ist ein guter Speisepilz.';
+      var soll = _gsLinaSicherheit(zusage, _gsArtenTreffer(gift.name + ' ' + gift.lat));
+      if (!soll) return { ok: false, warum: 'die Sicherung selbst schlaegt bei „' + gift.name + '" nicht an — der Fall misst nichts' };
+      var echtAI = callAI, echtKi = gsKiVerfuegbar, echtScan = _lastScanResult, rufe = 0;
+      callAI = async function () { rufe++; return zusage; };
+      try {
+        _lastScanResult = { name: gift.name, latin: gift.lat, toxicity: 5, confidence: 90, emoji: '🍄' };
+        gsKiVerfuegbar = function () { return true; };
+        openScanChat();
+        var inp = document.getElementById('scan-chat-input'), log = document.getElementById('scan-chat-log');
+        if (!inp || !log) return { ok: false, warum: 'der Scan-Chat hat kein Eingabefeld' };
+        inp.value = 'Kann ich den essen?';
+        await sendScanChat();
+        var t1 = log.textContent || '';
+        if (!rufe) return { ok: false, warum: 'die KI wurde nicht gefragt' };
+        if (t1.indexOf(soll.replace(/\*\*/g, '').split('\n')[0].slice(0, 40)) < 0) return { ok: false, warum: 'die Warnzeile fehlt ueber der Zusage: „' + t1.slice(-160) + '"' };
+        if (t1.indexOf(zusage) < 0) return { ok: false, warum: 'die Antwort wurde verschluckt' };
+        if (/\*\*/.test(t1)) return { ok: false, warum: 'Sternchen stehen roh im Chat' };
+        // Notfall — auch OHNE KI.
+        gsKiVerfuegbar = function () { return false; };
+        var vor = rufe;
+        inp.value = 'mein kind hat davon gegessen';
+        await sendScanChat();
+        var t2 = (log.textContent || '').slice(t1.length);
+        if (!/145/.test(t2)) return { ok: false, warum: 'ohne KI kommt die Notfallnummer nicht: „' + t2.slice(0, 120) + '"' };
+        if (rufe !== vor) return { ok: false, warum: 'ohne KI wurde trotzdem gefragt' };
+        // Gegenrichtung: eine harmlose Frage bekommt weder Nummer noch Warnung.
+        gsKiVerfuegbar = function () { return true; };
+        callAI = async function () { rufe++; return 'Er waechst im Laubwald.'; };
+        _lastScanResult = { name: 'Zzz Unbekannt', latin: '', toxicity: 0 };
+        openScanChat();
+        inp.value = 'Wo waechst er?';
+        await sendScanChat();
+        var t3 = log.textContent || '';
+        if (/145|Tox Info/.test(t3.replace(/^[\s\S]*?Wo waechst er\?/, ''))) return { ok: false, warum: 'eine harmlose Frage bekommt den Notfalltext' };
+        return { ok: true, info: 'Warnzeile ueber der Zusage zu „' + gift.name + '" · 145 auch ohne KI · harmlose Frage ohne beides' };
+      } finally { callAI = echtAI; gsKiVerfuegbar = echtKi; _lastScanResult = echtScan; try { closeScanChat(); } catch (_) {} }
     },
   },
 
@@ -2064,7 +2173,8 @@ const FAELLE = [
       // Eigener Massstab — NICHT gsIstEssbar. Ein Fall, der mit der Funktion
       // misst, die er pruefen soll, faellt gegen einen alten Stand nur mit
       // „is not defined" durch und hat die falsche ZAHL nie gesehen.
-      var essbar = function (sp) { return !!(sp && sp.edible); };
+      // v33.61: die Frage gilt der ART (_gsArtAnzeige) — derselbe Massstab wie die Karte in der Liste.
+      var essbar = function (sp) { return !!(sp && !sp._unverified && _gsArtAnzeige(sp).edible); };
       var soll = DB.filter(essbar).length;
       var alt  = DB.filter(function (s) { return s.tox === 0 && (s.cat === 'wildpflanze' || s.cat === 'kraut'); }).length;
       if (gezeigt === alt && alt !== soll) return { ok: false, warum: 'nennt die UNGIFTIGEN: ' + gezeigt + ' statt ' + soll };

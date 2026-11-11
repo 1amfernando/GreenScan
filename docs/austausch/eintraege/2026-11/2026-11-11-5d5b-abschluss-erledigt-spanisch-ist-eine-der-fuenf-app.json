@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-5d5b",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "10:55:19",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "erledigt: Spanisch ist eine der fünf App-Sprachen, aber die Notfall-Erkennung beider Chats erkennt keinen spanischen Vergiftungssatz (0 von 8 gemessen)",
+  "ergebnis": "erledigt",
+  "wohin": "v33.61",
+  "geschwister": "gesucht: grep -n _gsNotfallStufe index.html → zwei Rufer (Lina, Offline-Chat), der Scan-Chat hatte keinen und ruft sie jetzt (scan_check SC1); weitere Sprachen ausser de/en/fr/it/es fuehrt SUPPORTED nicht",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-df0b"
+    }
+  ]
+}
