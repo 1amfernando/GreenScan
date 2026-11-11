@@ -59,6 +59,10 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 ## Offen — Suche
 
+> **Gebaut auf Branch `claude/hauptfunktionen-suche`** (11.11.2026, noch ohne Version, wartet
+> hinter v33.61): Punkte 2, 3, 4, 6, 7 und die toten Reste aus 9. Prüfstand: `scan_check`
+> SU1–SU3, Gegenprobe gegen den Stand davor rot. Offen bleiben 1, 5, 8, 10 (Ranking).
+
 1. **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
    `currentFilter` — „Pilz + giftig" geht nicht.
 2. **Tippfehler-Suche ist schwach** (`getFiltered`, `_gsLeven`): läuft nur bei 0 Treffern,
