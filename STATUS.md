@@ -218,43 +218,44 @@ waren es wert (drei Blickwinkel sind unabhängig an denselben Stellen angekommen
 Code-Arbeit nur zum Teil — `docs/memory/08-arbeitsweise.md` §11 hält fest, wie ein nächster Lauf aussehen
 müsste (kleiner, mit Übergabe vor dem Limit, Datenbank-Messungen vorab).
 
-### 2026-11-11 (jd) - v33.59: „Daten wiederherstellen?“ nur noch, wenn im Backup wirklich etwas liegt, das hier fehlt
+### 2026-11-11 (jd) - v33.59: Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App von selbst
 
-**Anlass:** Fernando, 10.11.2026, mit Bildschirmfoto der Startseite: „Das kommt die ganze Zeit".
+**Anlass:** Fernando, 10.11.2026 (Bildschirmfoto): „Das kommt die ganze Zeit" — und 11.11.2026: „Keine Lust, dass
+jedes Mal ein Pop-up kommt und nach dem Backup fragt."
 
-**Ursache (am Quelltext gemessen, mit Reproduktion):** `gsSnapshotMaybeOfferRestore` fragte seit v30.97
-`_gsSnapshotHasExclusiveGap()` — ist lokal IRGENDEINE der zwölf snapshot-exklusiven Domänen leer? Das ist der
-Normalzustand (wer hat Bodenprofil, Käufe, Gebote UND eigene Heilmittel?). Die Cloud-Seite wurde nur auf
-„gibt es überhaupt einen Snapshot?" geprüft. Folge: Banner bei jedem Start, auch direkt nach „Wiederherstellen"
-(ein Bereich, den das Backup nicht hat, bleibt leer), und das × war nirgends gemerkt.
-`backup_check` W1 gegen v33.58: „Banner STEHT DA", obwohl das gestellte Backup nichts enthält, was fehlt.
+**Ursache des Dauerbanners (am Quelltext gemessen):** `gsSnapshotMaybeOfferRestore` fragte seit v30.97 nur, ob lokal
+IRGENDEINER der zwölf snapshot-exklusiven Bereiche leer ist — der Normalzustand. Die Cloud-Seite wurde nur auf
+„gibt es einen Snapshot?" geprüft, und das × war nirgends gemerkt.
 
-**Was jetzt gilt:**
-- **Eine Rechnung:** `_gsSnapshotFehlt(st, mitHaupt)` — eine Domäne zählt nur, wenn der Snapshot dort Inhalt HAT
-  und sie lokal LEER ist. Banner und Verdrängungs-Schutz (`_gsSnapshotWouldLoseData`) fragen beide sie;
-  `_gsSnapshotHasExclusiveGap` ist entfernt. Die Hauptdomänen (`_GS_SNAPSHOT_HAUPT`) zählen nur, wenn lokal gar
-  kein Inhalt da ist.
-- **Zustand mit Grund:** `gsSnapshotMaybeOfferRestore()` gibt `{zeigen, grund, fehlt}` zurück
-  (`window._gsRestoreAngebot`).
-- **Der Banner nennt, was zurückkäme** (höchstens vier Namen, dann „und N weitere"), zwei Knöpfe ≥ 44 px,
-  sitzt über der unteren Leiste.
-- **„Nicht nötig" wird je Domäne gemerkt** (`gs_restore_abgelehnt`); fehlt später etwas ANDERES, kommt das
-  Angebot wieder. Hat eine abgelehnte Domäne wieder Inhalt, verfällt die Ablehnung (`_gsRestoreAbgelehntPflegen`
-  in `_gsSnapshotMarkHad`).
-- **Kosten:** je Start die Liste; der ganze Snapshot nur bei neuem Snapshot oder geänderten lokalen Lücken
-  (`gs_restore_geprueft`). Ein Netzfehler wird nicht als Ergebnis gemerkt.
-- Beide neuen Schlüssel stehen in `GS_USER_KEYS`.
+**Was jetzt gilt — es wird nicht mehr gefragt:**
+- Der Banner ist ENTFERNT (`_gsShowRestoreBanner`, `gsSnapshotMaybeOfferRestore`, `_gsSnapshotHasExclusiveGap`).
+- **Eine Rechnung:** `_gsSnapshotFehlt(st, mitHaupt)` — ein Bereich zählt nur, wenn der Snapshot dort Inhalt HAT
+  und er lokal LEER ist. Die Hauptbereiche (`_GS_SNAPSHOT_HAUPT`) zählen nur, wenn lokal gar kein Inhalt da ist.
+- **`gsSnapshotAutoWiederherstellen()`** holt das still zurück (`gsSnapshotRestore({still, st, ohne})` — schreibt
+  nur in leere Bereiche) und sagt danach EINEN Satz („Aus deinem Cloud-Backup ergänzt: …"). Rückgabe immer
+  `{geholt, grund}` (`window._gsRestoreStand`).
+- **Verloren oder geleert?** Steht ein Bereich in `gs_snapshot_had` (war beim letzten Backup auf DIESEM Gerät da)
+  und ist jetzt leer, wurde er hier geleert: er bleibt leer, kommt in `gs_restore_abgelehnt` und hält die
+  automatischen Backups nicht mehr an. Ohne Spur (Browserdaten gelöscht, neues Gerät, neu angemeldet) ist es ein
+  Verlust und wird zurückgeholt. Hat ein geleerter Bereich wieder Inhalt, verfällt der Eintrag.
+- **Von Hand** (Einstellungen › „Aus Cloud-Backup wiederherstellen") kommt alles zurück, auch Geleertes.
+- **Kosten:** je Start die Liste; der ganze Snapshot nur bei neuem Snapshot oder geänderten Lücken
+  (`gs_restore_geprueft`: Id, Lücken-Signatur, Ergebnis, `versucht`). EIN Versuch je Stand — keine Schleife bei
+  vollem Speicher. Ein Netzfehler wird nicht als Ergebnis gemerkt.
+- Beide neuen Schlüssel stehen in `GS_USER_KEYS`. Der FAQ-Satz dazu ist angepasst.
 
-**Eine bewusste Verhaltensänderung:** eine abgelehnte Domäne hält die automatischen Backups nicht mehr an.
-Vorher stoppte der Verdrängungs-Schutz sie nach einem × stillschweigend für immer. Der Preis: wer „Nicht nötig"
-sagt, dessen altes Backup mit diesen Daten wird von neueren verdrängt (Aufbewahrung: 6 + je Anlass der neueste).
+**Zwei Preise, benannt:** (1) Wer einen Bereich hier leert, dessen altes Backup wird von neueren verdrängt
+(Aufbewahrung: 6 + je Anlass der neueste) — vorher stoppten die automatischen Backups in dem Fall still für
+immer. (2) Die Unterscheidung hängt an der lokalen Spur: verliert ein Gerät EINEN Bereich und behält die Spur
+(kein bekannter Weg ausser Programmfehler), gilt er als geleert; die manuelle Wiederherstellung holt ihn.
 
-**Prüfstand:** `backup_check` W1–W6 (gestellter Server, Anfragen gezählt). Gegenprobe: gegen `HEAD:index.html`
-(v33.58) sind alle sechs rot. `pruefstaende.sh schnell` (TZ=UTC): 37 Prüfstände · rot 0 · nicht prüfbar 8
-(kein lokales Postgres / keine Android-Werkzeuge in dieser Sitzung). Die vier langsamen liefen hier NICHT.
+**Prüfstand:** `backup_check` W1–W6 (gestellter Server; Anfragen, Meldungen und „fragt etwas?" gezählt).
+Gegenprobe: die Verloren/Geleert-Unterscheidung ausgebaut → W3 und W4 rot. Gegen `origin/main` (v33.58) bricht
+der Prüfstand an den Fällen ab (die Funktion gibt es dort nicht) — die Reproduktion des Dauerbanners stammt aus
+dem ersten Stand dieses PRs („Banner STEHT DA"). `pruefstaende.sh schnell` (TZ=UTC): 37 · rot 0 · nicht prüfbar 8
+(kein lokales Postgres / keine Android-Werkzeuge hier); die vier langsamen laufen in der CI.
 
-**Nicht geprüft:** das echte Gerät und die Live-Datenbank — der Server war gestellt. `GS_RELEASES`: v33.39 ist
-ins Archiv umgezogen (Deckel 20).
+**Nicht geprüft:** das echte Gerät und die Live-Datenbank. `GS_RELEASES`: v33.39 ist ins Archiv umgezogen.
 
 ### 2026-11-11 (jc) - v33.58: Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus
 
