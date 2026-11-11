@@ -35,6 +35,12 @@ const TABS = ['home','garden','wissen','favs','search','social','market','recipe
 // gerendert und in Bildschirmhoehen durchgescrollt.
 const SEED_MOD = require('./_seed.js');
 const W = 412, H = 915;
+// v33.59: ein TEIL-Lauf zum Entwickeln eines Falls. Der ganze Pruefstand
+// braucht rund vier Minuten; wer ein Fenster dazubaut, faehrt Rot, Gruen und
+// jede Gegenprobe sonst je einmal ganz. `GS_KONTRAST_NUR=<regex>` misst nur
+// die Fenster, deren Name passt (keine Tabs) — und der Bericht SAGT es, damit
+// niemand einen Teil-Lauf fuer das Ganze haelt.
+const NUR = process.env.GS_KONTRAST_NUR ? new RegExp(process.env.GS_KONTRAST_NUR) : null;
 
 const lum = c => { const s = c.map(v => { v /= 255; return v <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4); });
                    return .2126*s[0] + .7152*s[1] + .0722*s[2]; };
@@ -215,16 +221,18 @@ async function medianFarben(leser, pngBuffer, punkte) {
     await p.addInitScript(SEED);
     await p.goto('file://' + FILE, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await p.waitForTimeout(3500);
+    // v33.59: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js
+    // anmeldebildWeg). Kam er danach, lag er auf z-index 9999999 ueber allem:
+    // jedes Fenster meldete dann seine eigenen „12 Textstellen" (69 von 102
+    // Zeilen), und der eine echte Fund des Dunkelmodus verschwand.
+    await SEED_MOD.anmeldebildWeg(p);
     await p.evaluate(d => {
-      document.documentElement.classList.remove('gs-preauth');
-      const o = document.getElementById('gs-onboarding');
-      if (o) o.style.setProperty('display', 'none', 'important');
       document.querySelectorAll('[class*="toast"],[id*="toast"]').forEach(e => e.remove());
       document.body.classList.toggle('dark', d);
     }, dark);
 
     const gefunden = new Map();
-    for (const t of TABS) {
+    for (const t of (NUR ? [] : TABS)) {
       try { await p.evaluate(t => switchTab(t), t); } catch (e) {}
       await p.waitForTimeout(600);
       await p.evaluate(() => window.scrollTo(0, 0));
@@ -441,6 +449,39 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (dm) { dm.style.display = ''; dm.classList.add('active'); }
         return mc;
       }],
+      // v33.59: das ARTENDETAIL. `openDetail(id)` nimmt einen Parameter — der
+      // automatische Durchgang (Oeffner OHNE Parameter) hat es deshalb nie
+      // geoeffnet, und das Fenster, in dem jemand nachliest, ob eine Art giftig
+      // ist, war in keinem Modus vermessen. Gefunden beim ANSEHEN (Agent SICHT,
+      // 11.11.2026): „Tödlich giftig" stand hell WEISS auf fast weisser Karte —
+      // TOX[5] ist seit v31.99 {color:'#ffffff', bg:'#8e1414'}, und openDetail
+      // nahm `color` allein. Dunkel stand der Warntext des Giftkastens hell auf
+      // fest hellem Grund, und „Ungiftig" dunkelgruen auf dunkler Karte.
+      // Zwei Arten, damit beide Enden der Skala in beiden Modi dastehen: F024
+      // (Stufe 5, mit Giftkasten) und P001 (Stufe 0). Der Fall wirft, wenn die
+      // Einstufung nicht gerendert ist — ein Fenster ohne Messung saehe sonst
+      // aus wie eines ohne Funde (v32.35).
+      ['artendetail-toedlich', () => {
+        if (typeof openDetail !== 'function') return 0;
+        openDetail('F024');
+        const mc = document.getElementById('modal-content');
+        if (!mc) throw new Error('artendetail-toedlich: kein #modal-content');
+        if (!/Tödlich giftig/.test(mc.textContent)) throw new Error('artendetail-toedlich: die Einstufung „Tödlich giftig" steht nicht im Fenster — der Fall stellt seinen Zustand nicht her');
+        if (!/STARK GIFTIG/.test(mc.textContent)) throw new Error('artendetail-toedlich: der Giftkasten fehlt');
+        const dm = document.getElementById('detail-modal');
+        if (dm) { dm.style.display = 'flex'; dm.classList.add('open'); }
+        return mc;
+      }],
+      ['artendetail-ungiftig', () => {
+        if (typeof openDetail !== 'function') return 0;
+        openDetail('P001');
+        const mc = document.getElementById('modal-content');
+        if (!mc) throw new Error('artendetail-ungiftig: kein #modal-content');
+        if (!/Ungiftig/.test(mc.textContent) || !/Bärlauch/.test(mc.textContent)) throw new Error('artendetail-ungiftig: Bärlauch mit „Ungiftig" steht nicht im Fenster');
+        const dm = document.getElementById('detail-modal');
+        if (dm) { dm.style.display = 'flex'; dm.classList.add('open'); }
+        return mc;
+      }],
       // v33.55: die Vorschau eines geteilten Fotos. Sie ist ein dynamischer
       // Dialog (kein Oeffner mit openModal), der automatische Durchgang sieht
       // sie also nie. Zwei Fotos, damit auch die Hinweiszeile dasteht.
@@ -534,6 +575,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
 
     // ── Durchgang 1: die Fenster, die gestellte Daten brauchen ────────────
     for (const [fname, oeffnen] of FENSTER) {
+      if (NUR && !NUR.test(fname)) continue;
       await messeFenster(fname, oeffnen.toString(), fname === 'planer'
         ? { plan: JSON.parse(JSON.stringify(SEED_MOD.MUSTERPLAN)), agro: SEED_MOD.AGRONOMIE }
         : null);
@@ -590,19 +632,25 @@ async function medianFarben(leser, pngBuffer, punkte) {
     })`;
 
     let autoGemessen = 0, autoLeer = 0;
-    for (const name of autoNamen) {
+    const autoLauf = NUR ? autoNamen.filter(n => NUR.test(n)) : autoNamen;
+    for (const name of autoLauf) {
       const vorher = gefunden.size;
       await messeFenster(name, AUTO_OEFFNER, name, 3);
       if (gefunden.size > vorher) autoGemessen++;
       else autoLeer++;
     }
-    console.log('  automatisch geoeffnet: ' + autoNamen.length + ' Fenster' +
+    console.log('  automatisch geoeffnet: ' + autoLauf.length + ' Fenster' +
                 (autoGemessen ? ' · davon mit Befund: ' + autoGemessen : ' · ohne Befund'));
 
+    // v33.59: stand der Anmeldebildschirm am Ende (wieder)? Dann ist dieser
+    // Modus nicht gemessen — drei Zustaende, nicht zwei.
+    const anmeldebildStand = await p.evaluate(SEED_MOD.ANMELDEBILD_STEHT);
 
     await ctx.close();
 
     const liste = [...gefunden.values()].sort((a, b) => a.r - b.r);
+    if (NUR) console.log('  (TEIL-LAUF: nur Fenster /' + NUR.source + '/ — keine Tabs, kein Urteil ueber das Ganze)');
+    if (anmeldebildStand) { console.log('  !! ' + SEED_MOD.ANMELDEBILD_SATZ); process.exitCode = 2; }
     console.log('\n=== ' + (dark ? 'DUNKELMODUS' : 'HELLMODUS') + ' — ' + liste.length + ' Textstellen unter AA');
     liste.slice(0, 70).forEach(o => console.log(
       `  ${String(o.r).padStart(5)}:1 (soll ${o.min})  ${o.tab.padEnd(9)} ${o.sel.slice(0,32).padEnd(33)} ` +

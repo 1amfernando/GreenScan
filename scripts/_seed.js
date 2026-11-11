@@ -126,6 +126,65 @@ module.exports = () => { try {
     for_minutes:0, action:'notify', cooldown_minutes:720, enabled:true, created_at:iso(now-6*D) }]);
 } catch(e){} };
 
+// ── v33.59: der Anmeldebildschirm — WARTEN, bis er da ist, dann wegblenden ──
+// Die Beispieldaten oben melden NICHT an: der Token hat keine drei Teile
+// (gsSecurityInit raeumt ihn ~450 ms nach DOMContentLoaded ab), und ohne
+// gs_sb_uid ist sbIsLoggedIn() von Anfang an false. Nach dem Splash
+// (150 + 8×200 + 350 + 600 ms) ruft die App gsCheckOnboarding, und 400 ms
+// spaeter setzt _doCheck `#gs-onboarding { display:flex }` — gemessen am
+// 11.11.2026: 3'201 ms nach DOMContentLoaded.
+//
+// render_check, contrast_check, touch_check und a11y_check warteten fest
+// 3'500 ms und blendeten das Bild dann weg. Der Abstand war 320 ms. Unter Last
+// (CPU-Drossel 4×: 1 von 2 Laeufen, 6×: 2 von 2; und am selben Morgen bei
+// Last 5,3 auf zwei Kernen ein echter Lauf) kommt das Bild NACH dem
+// Wegblenden — `el.style.display = 'flex'` ueberschreibt das `!important` —
+// und alle vier vermessen den Anmeldebildschirm: render_check zaehlte 3'283
+// statt 3'063 Elemente und sagte „Onboarding blockiert noch: nein",
+// contrast_check meldete in 69 von 102 Fenstern genau „12 Textstellen" und
+// „0 unter AA" statt 1. Keiner wurde rot.
+//
+// Deshalb EIN Helfer fuer alle vier (keine vier Kopien einer Wartezeit):
+// er wartet, bis das Bild wirklich DA ist (hoechstens `maxMs`), und blendet
+// es erst dann weg. Gezaehlt wird in VERSUCHEN, nicht mit Date.now() —
+// kalender_check und sensor_check stellen die Uhr (v32.61). Wer wirklich
+// angemeldet ist (eigenes Init-Skript nach dem Seed), bekommt kein Bild; dann
+// kehrt der Helfer zurueck, sobald der Splash weg ist.
+//
+// Rueckgabe { da, versuche }: `da:false` heisst „in der Frist nicht
+// erschienen" — der Aufrufer prueft am ENDE seiner Messung mit
+// ANMELDEBILD_STEHT nach und meldet dann „nicht pruefbar" (Exit 2), nie gruen.
+module.exports.anmeldebildWeg = async function (page, maxMs) {
+  const versucheMax = Math.ceil((maxMs || 20000) / 100);
+  let da = false, versuche = 0;
+  for (; versuche < versucheMax; versuche++) {
+    const st = await page.evaluate(() => {
+      const o = document.getElementById('gs-onboarding');
+      return {
+        bild: !!(o && (o.style.display === 'flex' || getComputedStyle(o).display !== 'none')),
+        splash: !!document.getElementById('gs-splash'),
+        angemeldet: (typeof sbIsLoggedIn === 'function') && !!sbIsLoggedIn(),
+      };
+    });
+    if (st.bild) { da = true; break; }
+    if (st.angemeldet && !st.splash) break;
+    await page.waitForTimeout(100);
+  }
+  await page.evaluate(() => {
+    try { document.documentElement.classList.remove('gs-preauth'); } catch (e) {}
+    const o = document.getElementById('gs-onboarding');
+    if (o) o.style.setProperty('display', 'none', 'important');
+  });
+  return { da, versuche };
+};
+// Laeuft IN der Seite (page.evaluate): steht der Anmeldebildschirm (wieder)?
+module.exports.ANMELDEBILD_STEHT = () => {
+  const o = document.getElementById('gs-onboarding');
+  return !!(o && getComputedStyle(o).display !== 'none' && o.getBoundingClientRect().height > 10);
+};
+// Der eine Satz dazu, fuer alle vier Berichte gleich.
+module.exports.ANMELDEBILD_SATZ = 'NICHT PRUEFBAR: der Anmeldebildschirm stand waehrend der Messung — dieser Lauf hat (auch) ihn vermessen und sagt nichts ueber die App. Wiederholen; steht er wieder: scripts/_seed.js „anmeldebildWeg".';
+
 // ── v31.77: ein Musterplan fuer den KI-Planer ────────────────────────────
 // Damit `contrast_check.js` auch messen kann, was in einem FENSTER steckt.
 // Bis hierher galt die Grenze aus CLAUDE.md §7.1: „beide vermessen, was auf
