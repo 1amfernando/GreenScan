@@ -24,10 +24,10 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `i18n_check` | kommt in vier Sprachen an, was deutsch dasteht? `_t`-Schluessel ohne Eintrag in `GS_I18N_JS_STRINGS`, Tabelle = Aufrufort, die Schicht mit untergeschobenem Sprachpaket (seit v32.17) |
 | `apk_check` | ist die Android-App dieselbe App? Rechnung (`Pfade.java`, `Export.java`, `Geteilt.java` uebersetzt und ausgefuehrt) · Paket (`build.sh` laeuft wirklich) · Rand · App mit und ohne Kennung der Huelle (seit v33.49); seit v33.60 A9: ein Foto oeffnet IN der App (`gsFotoAnsicht`) |
 | `stripe_check` | kommt an, was bezahlt wurde — und nur das? Rechnung (`_shared/stripe_regeln.mjs`) + die ECHTEN Handler von stripe-webhook, -checkout und -portal in Node + SQL (lokales Postgres) + Quelltext (seit v33.60). Die gestellte Datenbank traegt Spalten, Schluessel, Fremdschluessel und CHECKs **wie live gemessen** (Datum im Kopf) — der erste Entwurf war 40 von 40 gruen gegen eine ausgedachte, und drei Wege waeren live gescheitert |
-| `contrast_check` | WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge (Dialoge am `<body>` werden vermessen, nicht als „von #app verdeckt" uebersprungen). **Seit v33.60 ein Tor** (Exit 1 bei einer Stelle unter AA — im CI-Lauf von v33.59 stand „1 unter AA" und darunter EXIT=0), mit dem Artendetail in beiden Enden der Giftskala und den gerechneten Farbpaaren der Statusbox; `GS_KONTRAST_NUR=<regex>` fuer einen Teil-Lauf |
+| `contrast_check` | WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge (Dialoge am `<body>` werden vermessen, nicht als „von #app verdeckt" uebersprungen). **Seit v33.60 ein Tor** (Exit 1 bei einer Stelle unter AA — im CI-Lauf von v33.59 stand „1 unter AA" und darunter EXIT=0), mit dem Artendetail in beiden Enden der Giftskala und den gerechneten Farbpaaren der Statusbox; `GS_KONTRAST_NUR=<regex>` fuer einen Teil-Lauf. **Seit v33.60 auch: ganze Tabs** (in Bildschirmhoehen, Deckel 12, eine Zeile je Tab — vorher EIN Bildschirm je Tab), **alle elf** (vorher neun: `map` und `scanner` fehlten), **Oeffner ueber `_gsNlOpen(`** (15 Fenster mehr), und ein Fenster, das nicht aufgeht, heisst „ging nicht auf" statt „N Textstellen vermessen"; `GS_KONTRAST_TABS=home,map` misst nur diese Tabs |
 | `touch_check` | Antippflächen unter 24×24 px (WCAG 2.5.8) |
 | `perf_check` | Kaltstart unter Telefon-Drosselung (1×/4×/6×) |
-| `wiring_check` | Verdrahtung: kommt an, was angetippt wird? (seit v31.45) |
+| `wiring_check` | Verdrahtung: kommt an, was angetippt wird? (seit v31.45); seit v33.60 Richtung 6 — ein Funktionsname als Zeichenkette in einem Feld (`fn` · `hol` · `html` · `tap` · `zu`, gefunden statt aufgezaehlt) muss eine Funktion sein —, die Benachrichtigungs-Ziele zaehlen im Exit-Code mit, und die Oeffner ueber `_gsNlOpen(` werden aufgerufen (59 statt 43) |
 | `field_check` | Formularfelder, die niemand liest (seit v31.74) |
 | `data_check` | liest der Code Felder, die es nicht gibt? (seit v31.80) |
 | `save_check` | kommt an, was gespeichert wird? (seit v31.85) |
@@ -43,7 +43,7 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `kamera_check` | stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29) |
 | `arten_quellen_vergleich` | was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung) |
 | `speicher_check` | was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44) |
-| `kalender_check` | beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46) |
+| `kalender_check` | beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.60 der Pflegeverlauf: der ECHTE Knopf auf der Pflanzenkarte schreibt einen Eintrag, „Alle erledigt ✓" zaehlt als erledigt, jeder Eintrag hat seine eigene Zeit — und N5: jeder Verweis fuehrt irgendwohin, der Knopf „›" wird angetippt |
 | `sensor_check` | funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48) |
 | `ingest_check` | rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno) |
 | `sensor_push_check` | wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno) |
@@ -53,12 +53,12 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `backup_check` | ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26) |
 | `quiz_gen_check` | kommt nur eine Frage in die Tabelle, die man auch anzeigen kann? Regeln in Node + Vorrat in lokalem Postgres + Anzeige (seit v33.29) |
 | `quiz_check` | zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server |
-| `escape_check` | kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66) |
+| `escape_check` | kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.60 die Foto-Ansicht und das Pflanzentagebuch (Titel und Foto-Adresse aus dem Bestand) |
 | `robust_check` | kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch; seit v33.34 „ein Schluessel, ein Schreiber" (Wetter-Zwischenspeicher) |
 | `modell_check` | antwortet die KI noch, wenn Anthropic ein Modell abschaltet? Rechnung (`_shared/modelle.mjs`) + der echte Handler von `ai-proxy` in Node + Quelltext (seit v33.58) |
 | `rezept_link_check` | zeigt ein Rezept auf die gemeinte Art und nie auf eine giftige? Reines Node (seit v33.58) |
 | `schluessel_check` | verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68); seit v33.57 der Weg DAVOR (Scanner, Scan-Chat) ohne Schluessel im Browser |
-| `nutzersicht_check` | sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70) |
+| `nutzersicht_check` | sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70); seit v33.60 E12–E16: Saatgut-Knopf, „hast du schon" ist kein Fehler, „Abo verwalten", der Notfall in der Menue-Suche (20 Eingaben hin, 10 her) und keine Zahlungsart, die die App nicht kennt |
 | `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42); seit v33.50 die SCHREIB-Seite: jeder Admin-Schreibweg durch _gsAdmTun (GS_ADM_AKTIONEN, sechs Zustaende mit Grund, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es (_gsAdmGesperrt, _gsAdmAktionHinweisHtml), die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, die Deckung rechnet _gsAdmSpurDeckung, ein Ersatzweg nur bei nicht_verfuegbar, RAISE EXCEPTION = abgelehnt, und eine SQL-Haelfte spielt 20260925_admin_audit_vollstaendig.sql in einem lokalen Postgres nach (ohne: Exit 2) |
 | `android_check` | haelt die App, was eine Android-App verspricht? gsZurueck (eine Regel, zwei Ausloeser), GS_VOLLBILD_OVERLAYS, ein Verlaufs-Eintrag, gsLaeuftAlsApp, assetlinks (seit v33.43) |
 | `risiko_check` | was geht SPAETER schief? Jahreszahlen in jaehrlich wiederkehrenden Texten, ungedeckelte Listen-Abfragen (eingeordnet), die Zahlen in docs/RISIKEN.md gegen den Quelltext, und seit v33.45 die Fristen-Karte im Admin-Panel in BEIDE Richtungen (GS_FRISTEN, gsFristenStand) |
@@ -115,6 +115,13 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
   ueber `length` / `key(i)` zaehlen.
 - Eine Zeichenkettensuche in einem Kontext voller Zahlen ist keine Messung —
   den Wert unverwechselbar machen (`ZZGARTENZZ`, `4711`).
+- Unter gestellter Uhr tragen zwei Eintraege aus zwei Faellen dieselbe Zeit
+  und damit dieselbe Id (`pd:<pflanze>:<ts>`) — neue Eintraege ueber die LAENGE
+  zaehlen, nicht ueber „Ids, die es vorher nicht gab".
+- Ein Fenster, das nicht rollt, hat die Hoehe 0 — „offen" nie aus einer
+  Groesse ableiten.
+- Die Startseite traegt einen WAAGRECHTEN Kartenstapel: was dort ausserhalb
+  des Bildes liegt (x > Breite), vermisst kein Pruefstand.
 
 - Eine Suche im Quelltext findet ZUERST den eigenen Text UEBER die Sache: der
   Kommentar „Es gibt kein `addJavascriptInterface`" zaehlt als eines. Vor dem

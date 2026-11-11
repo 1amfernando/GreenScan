@@ -27,6 +27,13 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   Die eine Funktion gab es seit v31.79 — mit sechs Aufrufern, keiner davon
   eine Anzeige. Regel: `_gsScanKonfidenz(h)`, und die ERZEUGER umstellen
   (fuenf Stellen, eine Reparatur), nicht die Anzeigen einzeln flicken.
+- **v33.60** Abgehakt wird auf drei Wegen. Der Knopf AUF der Pflanzenkarte
+  rief eine eigene Fassung (`doneTask`): `lastDone` ja, Verlaufseintrag nein
+  (mit dem echten Knopf gemessen: Tagebuch 5 → 5, Woche „erledigt" 3 → 3).
+  Und „Alle erledigt ✓" setzt einen anderen Merker (`done_all_due`) als das
+  Einzel-Abhaken (`quick_done`) — der Leser kannte nur einen, die Woche
+  zaehlte solche Eintraege als Notizen. Regel: abhaken heisst `gsQuickDone`,
+  „wurde abgehakt" fragt `_gsTbAbgehakt(e)`, den Titel liest `_gsTbTitel(e)`.
 
 ## B · Eine Ansicht, die nie etwas zeigen konnte
 
@@ -41,6 +48,17 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v32.38** `gsGetLocationFor('weather')` funktionierte seit v28.03 — es rief
   nur niemand. Der Schalter setzte einen Haken und zeigte einen Toast. Regel:
   eine Wahl, die bestaetigt und nicht umgesetzt wird, ist schlimmer als keine.
+- **v33.60** Der Knopf „›" an JEDER Scan-Zeile des Kalenders nannte eine
+  Funktion, die es nie gab; `gsKalHin` prueft `typeof` und tat dann nichts.
+  Der Fall dazu fragte, ob der Verweis GESETZT ist — eine Zeichenkette ist
+  immer gesetzt. Regel: ein Funktionsname in einem Feld (`fn`, `zu`, `tap`,
+  `hol`, `html`) wird gesucht (`wiring_check` Richtung 6), und der Knopf wird
+  im Fall ANGETIPPT (`kalender_check` N5).
+- **v33.60** Die Menue-Suche fand zu „Notfall", „145", „Tox Info" nichts;
+  „gegessen" fuehrte zu den Rezepten. Regel: `gsNotfallOeffnen` ist der eine
+  Ort der Nummern (`GS_NOTFALL_NUMMERN`, mit Quelle und Pruefdatum), der
+  Eintrag hat seine eigene Trefferregel (`_gsMenuNotfallTrifft`) — und kein
+  Satz Erste Hilfe ohne Quelle.
 
 ## C · Beispieldaten, die gruen luegen
 
@@ -171,6 +189,35 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   Abo, das weiter abbucht, ein gemerkter Kunde aus dem Testmodus, ein
   Launch-Platz, der nach der Erstattung belegt blieb. Regel: jeder Weg
   bekommt den Fall „schon vorhanden" und den Fall „veraltete Id".
+- **v33.60** `contrast_check` mass je Tab EINEN Bildschirm (`scrollTo(0,0)`),
+  NEUN von elf Tabs und nur Fenster, deren Oeffner `openModal(` selbst ruft.
+  Im Handbuch stand „jede Textstelle". Darunter lagen: der Tagesquiz-Knopf
+  der Startseite mit 2,19:1 im Dunkelmodus, die Karte („Bitte kurz warten"
+  2,61:1), 14 Stellen in fuenf Fenstern hinter dem Helfer `_gsNlOpen`. Regel:
+  **ein Pruefstand nennt, WIE VIEL er vermessen hat** (Zeile je Tab und je
+  Fenster) — und wer „alle" schreibt, zaehlt nach. Was er weiter nicht sieht,
+  steht in STATUS §2 (waagrecht verschobene Karten, Rezepte ueber dem Deckel).
+- **v33.60** Ein Fenster, das nicht aufging, meldete „29 Textstellen
+  vermessen" — vermessen war die Seite dahinter. Und der erste Anlauf der
+  Reparatur (`if (!hoch)`) hielt 21 OFFENE Fenster fuer geschlossen: ein
+  Fenster, das nicht rollt, hat die Hoehe 0. Regel: „offen" ist eine eigene
+  Antwort des Oeffners (−1), nie aus einer Groesse abgeleitet.
+- **v33.60** `_gsNotfallStufe` sagt Nein mit dem WORT `'keiner'`. `!!…` darauf
+  ist immer wahr — der Notfall-Eintrag stand bei „tomate" und „pilz" oben.
+  Gefunden hat es die Gegenrichtung im Fall. Regel: bei einer Funktion mit
+  mehreren Zustaenden vergleicht man den Zustand, nicht die Wahrheit (dieselbe
+  Klasse wie `fn_achievements_showcase_set`, das mit `false` ablehnt).
+- **v33.60** Die Gegenprobe „eigene Trefferregel ausgebaut" blieb GRUEN: die
+  gewoehnliche Punktzahl stellte den Notfall bei allen 17 Einzelwoertern
+  zufaellig auch nach vorn. Erst drei ganze Saetze und vier schwache
+  Teiltreffer („giftig", „a") trennten die zwei Regeln (v33.28: zwei Regeln,
+  die bei den gewaehlten Daten dasselbe liefern, prueft keine).
+- **v33.60** „Jeder Eintrag bekommt seine eigene Zeit — eine Millisekunde
+  SPAETER": der Kalender liest alles nach jetzt als Erinnerung, die Woche
+  zaehlte die eben abgehakten Aufgaben als kommende. Gefunden nur, weil
+  `kalender_check` die Uhr stellt. Regel: eine eigene Zeit liegt in der
+  Vergangenheit, und wer Zeiten vergibt, laesst den Fall unter gestellter Uhr
+  laufen.
 
 ## F · Die richtige Ursache, die falsche Abhilfe
 
@@ -220,3 +267,10 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.55** Die Aufraeum-Funktion der Teilen-Vorschau loeschte das Foto — und
   sie laeuft auch, wenn `switchTab` alle Dialoge abraeumt. Regel: wer eine
   Folge (Loeschen, Senden) an ein Schliessen haengt, fragt, WER geschlossen hat.
+- **v33.60** Das Pflanzentagebuch setzte den Titel eines Eintrags roh ins
+  `innerHTML` und die Foto-Adresse roh ins `src` — beides kommt aus dem
+  gesyncten Blob oder einem eingespielten Backup. Regel: eigene Daten, die
+  gereist sind, sind Fremdtext (`escHtml`, `_gsSafeUrl`, `gsFotoAnsicht`).
+- **v33.60** Im Menue stand unter „Premium freischalten" „TWINT · Karte ·
+  IBAN". Welche Zahlungsarten erscheinen, entscheidet das Stripe-Dashboard.
+  Regel: die App nennt nichts, was nur ein fremdes System weiss.

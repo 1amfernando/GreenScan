@@ -1952,7 +1952,7 @@ const FAELLE = [
     // nennt eine Funktion, die es gibt; (b) der echte Knopf an der Scan-Zeile wird angetippt,
     // und danach steht ein Fenster da. Ohne (b) waere ein gsKalHin, der gar nichts mehr ruft,
     // ebenfalls gruen (v33.43: der Draht, nicht die Rechnung).
-    name: 'Drei Namen N5 · jeder Verweis im Kalender führt irgendwohin: die genannte Funktion gibt es — und der Knopf „›" an einer Scan-Zeile öffnet den Scan-Verlauf',
+    name: 'Drei Namen N5 · jeder Verweis im Kalender führt irgendwohin: die genannte Funktion gibt es, der Knopf „›" an einer Scan-Zeile öffnet den Scan-Verlauf — und der an einem Tagebuch-Eintrag einer GARTEN-Pflanzung öffnet ein Fenster, in dem der Eintrag steht',
     lauf: async () => {
       const heute = gsHeuteTag();
       const altS = localStorage.getItem('gs_scan_history'), altF = localStorage.getItem('gs_kal_filter'), altM = localStorage.getItem('greenscan_markers');
@@ -1988,8 +1988,34 @@ const FAELLE = [
           if (!offen()) klagen.push('der Knopf „›" an der Scan-Zeile wurde angetippt — und es steht kein Scan-Verlauf da (onclick: ' + (zeile.b.getAttribute('onclick') || '').replace(/^event\.stopPropagation\(\);/, '').slice(0, 70) + ')');
           else if (!/Löwenzahn/.test(verlauf.textContent || '')) klagen.push('der Scan-Verlauf ist offen, nennt den angetippten Scan aber nicht');
         }
+        // (c) ein Tagebuch-Eintrag einer GARTEN-Pflanzung. Die Funktion `openPlantDiary` GIBT es —
+        // sie sucht die Pflanze aber nur in „Meine Pflanzen" und kehrt fuer eine Pflanzung still um
+        // (gemessen am 11.11.2026: der Knopf an „Zucchini · Giessen" tat nichts). (a) sieht das nicht.
+        try { if (offen()) closeScanHistoryFull(); } catch (_) {}
+        await new Promise(r => setTimeout(r, 350));
+        const zPl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.find(x => x && x.id === 'plant_seed_1') : null;
+        if (!zPl || !zPl.tasks || !zPl.tasks.water) klagen.push('die Garten-Pflanzung plant_seed_1 mit Giess-Aufgabe fehlt — Teil (c) misst nichts');
+        else {
+          gsQuickDone('plant_seed_1', 'water');
+          gsKalenderOeffnenAm(heute);
+          const mc2 = document.getElementById('modal-content');
+          const zz = Array.from(mc2.querySelectorAll('.gs-kal-hin')).map(b => ({ b, z: b.parentElement }))
+            .find(x => x.z && /Giessen/.test(x.z.textContent || '') && /Zucchini/.test(x.z.textContent || ''));
+          if (!zz) klagen.push('im Kalender steht keine Zeile „Giessen · Zucchini" mit einem Knopf „›"');
+          else {
+            const vorher = (mc2.textContent || '').length;
+            zz.b.click();
+            await new Promise(r => setTimeout(r, 450));
+            const dm = document.getElementById('detail-modal'), pdm = document.getElementById('plant-diary-modal');
+            const auf = (dm && dm.classList.contains('open')) ? (document.getElementById('modal-content').textContent || '') : (pdm ? (pdm.textContent || '') : '');
+            if (!auf) klagen.push('der Knopf „›" am Tagebuch-Eintrag der Garten-Pflanzung wurde angetippt — und kein Fenster steht da (onclick: ' + (zz.b.getAttribute('onclick') || '').replace(/^event\.stopPropagation\(\);/, '').slice(0, 60) + ')');
+            else if (/gs-kal-tag/.test((document.getElementById('modal-content') || {}).innerHTML || '')) klagen.push('nach dem Antippen steht weiter der Kalender da — der Knopf hat nichts geöffnet');
+            else if (!/Zucchini/.test(auf) || !/Giessen/.test(auf)) klagen.push('das geöffnete Fenster zeigt den Eintrag „Giessen · Zucchini" nicht');
+            if (pdm) { try { pdm.remove(); } catch (_) {} }
+          }
+        }
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
-        return { ok: true, info: mit.length + ' Ereignisse mit Verweis in ' + Object.keys(arten).length + ' Arten (' + Object.keys(arten).join(', ') + '), jede Funktion vorhanden · „›" an der Scan-Zeile öffnet den Scan-Verlauf' };
+        return { ok: true, info: mit.length + ' Ereignisse mit Verweis in ' + Object.keys(arten).length + ' Arten (' + Object.keys(arten).join(', ') + '), jede Funktion vorhanden · „›" an der Scan-Zeile öffnet den Scan-Verlauf · „›" am Tagebuch-Eintrag der Garten-Pflanzung öffnet ein Fenster mit dem Eintrag' };
       } finally {
         try { if (offen()) closeScanHistoryFull(); } catch (_) {}
         try { closeModal('detail-modal'); } catch (_) {}

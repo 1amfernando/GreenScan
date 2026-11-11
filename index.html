@@ -29701,7 +29701,12 @@ function gsKalenderEreignisse(von, bis) {
       try { if (!zukunft && e.cat === 'water' && e.pflanze_id && typeof gsGiessBestaetigung === 'function') { var bf = _gsPflanzeFinden(e.pflanze_id); if (bf && bf.p) { best = gsGiessBestaetigung(bf.p, e.ts); if (best && best.ohne_geraet) best = null; } } } catch (_) { best = null; }
       out.push({ id: 'tagebuch:' + e.id, art: zukunft ? 'erinnerung' : 'tagebuch', datum: e.datum, zeit: _gsKalZeit(e.ts), ts: e.ts, titel: e.text, emoji: zukunft ? '⏰' : e.emoji,
         pflanze: e.pflanze_id ? { id: e.pflanze_id, name: e.plant } : null, garten_id: null, quelle: e.quelle, status: 'info', faellig_seit: null,
-        verweis: (e.pflanze_id && e.herkunft === 'pflanze') ? { fn: 'openPlantDiary', args: [e.pflanze_id] } : { fn: 'openGartenTagebuch', args: [] },
+        // v33.60: das Pflanzentagebuch (openPlantDiary) kennt nur „Meine Pflanzen“ — fuer eine
+        // GARTEN-Pflanzung kehrte es still um, und der Knopf „›“ tat nichts (gemessen an
+        // „Giessen · Zucchini“). Ein Eintrag einer Pflanzung oeffnet deshalb das Gartentagebuch:
+        // dort steht er (gsTagebuchAlle liest beide Listen). Pruefstand: kalender_check N5.
+        verweis: (e.pflanze_id && e.herkunft === 'pflanze' && ((typeof _gsPflanzeFinden === 'function' ? _gsPflanzeFinden(e.pflanze_id) : null) || {}).liste === 'myPlants')
+          ? { fn: 'openPlantDiary', args: [e.pflanze_id] } : { fn: 'openGartenTagebuch', args: [] },
         sensor: best,
         grund: (e.quelle === 'lina'
             ? 'von Lina vorgeschlagen, von dir bestätigt' + (e.bestaetigt_am ? ' am ' + _gsKalDatumKurz(e.bestaetigt_am) : '')

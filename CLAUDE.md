@@ -261,6 +261,8 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 | Quiz-Kategorie | `supabase/functions/_shared/quiz_gen_regeln.mjs` (`QUIZ_KATEGORIEN` + `QUIZ_KAT_ALIAS`), in der App gespiegelt als `GS_QUIZ_KATEGORIEN` / `GS_QUIZ_KAT_ALIAS`; angezeigt **nur** über `_gsQuizKatLabel(slug)` | nie `quiz.category` roh anzeigen (es gab 35 Schreibweisen aus drei Quellen), nie eine Kategorie erfinden — was das Vokabular nicht kennt, wird verworfen bzw. bleibt leer |
 | Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
 | „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
+| Abhaken („erledigt") | `p.tasks[key].lastDone` UND ein Eintrag in `p.diary` mit `source` — geschrieben von `gsQuickDone(id, key)` (dorthin gehen auch `doneTask`, die Fällig-Karte und der Kalender) und von `gsDoneAllDue()`; gelesen über `_gsTbAbgehakt(e)` (beide Merker) und `_gsTbTitel(e)` | nie `lastDone` setzen ohne Verlaufseintrag (der Knopf auf der Pflanzenkarte tat das bis v33.59), nie `e.source === 'quick_done'` an einer neuen Stelle, nie `e.title` roh anzeigen |
+| Notfall-Nummern | `GS_NOTFALL_NUMMERN` (145 · Ausland · 144 · 112, mit Prüfdatum; Quelle Tox Info Suisse) — gezeigt von `gsNotfallOeffnen()`, gefunden über `_gsMenuNotfallTrifft(q, tags)` | keine Nummer als Literal an einer neuen Stelle; kein Erste-Hilfe-Satz ohne Quelle; `_gsNotfallStufe` sagt Nein mit dem WORT `'keiner'` — den Zustand vergleichen, nicht die Wahrheit |
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
 
 ### 3.4 · KI-Calls
@@ -964,10 +966,10 @@ tatsächliche Reihenfolge im DOM auslesen.
 Zwei weitere Prüfstände liegen daneben:
 
 ```bash
-node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi — seit v33.60 ein TOR (Exit 1 bei einem Fund; render_check ebenso), mit dem Artendetail und den gerechneten Farbpaaren der Statusbox; seit v33.55 mit Stapelreihenfolge — vorher galt jeder Text in einem Dialog am <body> als von #app verdeckt und wurde nie vermessen
+node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi — seit v33.60 ein TOR (Exit 1 bei einem Fund; render_check ebenso), mit dem Artendetail und den gerechneten Farbpaaren der Statusbox; seit v33.55 mit Stapelreihenfolge — vorher galt jeder Text in einem Dialog am <body> als von #app verdeckt und wurde nie vermessen; seit v33.60 GANZE Tabs (in Bildschirmhoehen, Deckel 12, eine Zeile je Tab — vorher ein Bildschirm je Tab), ALLE elf (vorher neun), Oeffner ueber `_gsNlOpen(` (59 statt 43), „ging nicht auf" statt einer Zahl fuer ein Fenster, das es nicht gab; `GS_KONTRAST_TABS=home,map` fuer einen Teil-Lauf
 node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
 node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
-node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
+node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45); seit v33.60 Richtung 6 (ein Funktionsname als Zeichenkette in einem Feld — fn · hol · html · tap · zu — muss eine Funktion sein), die Benachrichtigungs-Ziele zaehlen im Exit-Code, und die Oeffner ueber `_gsNlOpen(` werden aufgerufen
 python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
 node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
@@ -985,7 +987,7 @@ node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt s
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
-node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch die Scan-Zeit aus EINEM Leser (die Garten-Timeline, an der es gemessen wurde, ist seit v33.38 weg — M2); seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML; seit v33.35 das SIEB (§4): Filter auf dem Ergebnis (die Rechnung bleibt), fuenf Gruppen-Chips mit ihren Zahlen aus der UNGEFILTERTEN Liste, Zustand ueberlebt, Punkte nach Gruppe, dritter Leerzustand; seit v33.36 EIN WETTER (GS_WETTER_GRENZEN, vier Schwellen, R6/R7, dasselbe im Warnfenster); seit v33.37 die DREI QUELLEN, die es laengst gab (Scan-Verlauf, Karten-Fundorte mit _gsFundZeit, die wirkliche Ernte quelle hand neben der Schaetzung); seit v33.38 zaehlt „Mein Naturjahr“ aus dem KALENDER (M1) und die Garten-Timeline ist darin aufgegangen (M2)
+node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch die Scan-Zeit aus EINEM Leser (die Garten-Timeline, an der es gemessen wurde, ist seit v33.38 weg — M2); seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML; seit v33.35 das SIEB (§4): Filter auf dem Ergebnis (die Rechnung bleibt), fuenf Gruppen-Chips mit ihren Zahlen aus der UNGEFILTERTEN Liste, Zustand ueberlebt, Punkte nach Gruppe, dritter Leerzustand; seit v33.36 EIN WETTER (GS_WETTER_GRENZEN, vier Schwellen, R6/R7, dasselbe im Warnfenster); seit v33.37 die DREI QUELLEN, die es laengst gab (Scan-Verlauf, Karten-Fundorte mit _gsFundZeit, die wirkliche Ernte quelle hand neben der Schaetzung); seit v33.38 zaehlt „Mein Naturjahr“ aus dem KALENDER (M1) und die Garten-Timeline ist darin aufgegangen (M2); seit v33.60 der Pflegeverlauf (der ECHTE Knopf auf der Pflanzenkarte schreibt einen Eintrag, „Alle erledigt ✓" zaehlt als erledigt und nicht als Notiz, jeder Eintrag hat seine eigene Zeit, kein „(Quick)"/„(Bulk)") und N5: jeder Verweis des Kalenders nennt eine Funktion, die es gibt, und der Knopf „›" wird angetippt
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
@@ -995,10 +997,10 @@ node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreib
 node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
 node scripts/quiz_gen_check.js   # kommt nur eine Frage in die Tabelle, die man auch anzeigen kann? Regeln in Node + Vorrat in lokalem Postgres + Anzeige (seit v33.29)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server
-node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.54 A10b: boese Stile (CSS-Escapes, image-set) werden WIRKLICH ins Dokument gerendert und die Anfragen des Browsers gezaehlt (0), plus Ueberlagerung und die guten Stile der Uebersetzungen
+node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.54 A10b: boese Stile (CSS-Escapes, image-set) werden WIRKLICH ins Dokument gerendert und die Anfragen des Browsers gezaehlt (0), plus Ueberlagerung und die guten Stile der Uebersetzungen; seit v33.60 die Foto-Ansicht (gsFotoAnsicht) und das Pflanzentagebuch (Titel und Foto-Adresse aus dem Bestand)
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68); seit v33.57 der WEG DAVOR: Scanner (analyzeImage) und Scan-Chat laufen ohne Schluessel im Browser ueber den Proxy, gsKiVerfuegbar in beide Richtungen
-node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
+node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70); seit v33.60 E12–E16: Saatgut-Knopf, „hast du schon" ist kein Fehler, „Abo verwalten", der Notfall in der Menue-Suche, keine Zahlungsart, die die App nicht kennt
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, der Fuss unter dem Protokoll rechnet die Deckung, und eine SQL-Hälfte (lokales Postgres) spielt 20260925_admin_audit_vollstaendig.sql nach — ohne Postgres „nicht prüfbar" (Exit 2)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
@@ -1213,9 +1215,29 @@ steht NICHT auf `window`.** `window.socialPosts = […]` legt eine zweite,
 unbenutzte Eigenschaft an; `renderSocialFeed` meldet danach „Noch keine Posts".
 In `page.evaluate` ohne `window.` zuweisen.
 
-**Richtung 3 (seit v31.98): geht das Fenster ueberhaupt auf?** Alle 43
-Oeffner ohne Parameter (`open…` / `gsOpen…` / `show…` mit `openModal(` im
-Rumpf) werden **wirklich aufgerufen**. Zwei Regeln stecken drin, beide im
+**Richtung 6 (seit v33.60): ein Funktionsname als Zeichenkette in einem Feld.**
+Dieselbe Klasse wie `MENU_ITEMS` und `GS_NOTIF_ZIELE`, nur verstreut: ein Ziel
+steht als NAME in einem Feld (`verweis: { fn: 'openPlantDiary' }`,
+`{ id: …, zu: 'closeDailyQuiz' }`, `tap: 'gsOpenSeedInventory'`) und wird
+ueber `window[name]` gerufen; jeder Leser prueft `typeof` und tut sonst
+**nichts**. Gemessen am 11.11.2026: der Kalender haengte an JEDE Scan-Zeile
+einen Knopf „›" mit einer Funktion, die es nie gab — Richtung 1 sah es nicht
+(im `onclick` steht `gsKalHin`, und das gibt es), `kalender_check` N1 auch
+nicht (er fragte, ob der Verweis GESETZT ist). Die Felder werden nicht
+aufgezaehlt, sondern **gefunden**: ein Feld gilt, sobald einer seiner Werte
+eine Funktion der Seite ist — heute `fn` · `hol` · `html` · `tap` · `zu`,
+58 Namen. Und seit v33.60 zaehlen die Benachrichtigungs-Ziele im Exit-Code
+mit: „davon kaputt: N" stand dort bis dahin nur im Bericht.
+
+> **Ein Fall, der fragt, ob etwas GESETZT ist, prueft die Vorlage** — eine
+> Zeichenkette ist immer gesetzt. Wer einen Verweis prueft, loest ihn auf
+> UND tippt den Knopf an (`kalender_check` N5: mit `gsKalHin`, der nichts
+> mehr ruft, ist nur die zweite Haelfte rot).
+
+**Richtung 3 (seit v31.98): geht das Fenster ueberhaupt auf?** Alle
+Oeffner ohne Parameter (`open…` / `gsOpen…` / `show…` / `gs…Oeffnen` mit
+`openModal(` — oder seit v33.60 `_gsNlOpen(` — im Rumpf; 59 statt 43) werden
+**wirklich aufgerufen**. Zwei Regeln stecken drin, beide im
 ersten Lauf gelernt: **Sperren werden erfuellt, nicht umgangen** (vier Oeffner
 brechen ohne Anmeldung oder Admin-Rechte ab — das ist richtig), und
 **bewusstes Ablehnen ist kein Fehler** — unterschieden wird daran, ob die
@@ -2346,6 +2368,36 @@ zeigt nur ein Probekauf im Testmodus.
 > 41), drei Prüfstände in keiner Zeile des Gedächtnisses. `robust_check` „Memory" zählt jetzt
 > die Läufe in `pruefstaende.sh` und hält jede Zahl dagegen. **Eine Zahl, die jemand von Hand
 > fortschreiben muss, braucht einen, der nachzählt.**
+
+> **Und ein Prüfstand, der EINEN Bildschirm misst, misst nicht den Tab** (v33.60, beim
+> Schreiben dieses Eintrags). Oben steht „WCAG-Kontrast jeder Textstelle". Gemessen wurde je
+> Tab der erste Bildschirm (`window.scrollTo(0, 0)`, ein Bild von 412×915), in NEUN von elf
+> Tabs, und nur Fenster, deren Öffner `openModal(` selbst ruft. Darunter lagen: der
+> Tagesquiz-Knopf der Startseite (hellviolett auf fest heller Fläche, 2,19:1 im Dunkelmodus),
+> die Karte („Bitte kurz warten" 2,61:1), und 14 Stellen in fünf von fünfzehn Fenstern, die
+> `openModal` nur über den Helfer `_gsNlOpen` erreichen. Jetzt: ganze Tabs in Bildschirmhöhen
+> (Deckel 12 Abschnitte, **eine Zeile je Tab mit Textstellen/Abschnitten**), alle elf, und
+> dieselbe Öffner-Entdeckung in `wiring_check`. **Wer „alle" oder „jede" schreibt, lässt den
+> Prüfstand die Zahl dazu drucken** — „home 81/3 · search 248/11 · recipes 235/12+" sagt, was
+> vermessen wurde, und das „+", was nicht.
+>
+> **Was er weiter nicht sieht**, damit es niemand neu entdecken muss: Karten, die WAAGRECHT
+> ausserhalb des Bildes liegen (der Kartenstapel der Startseite — die Saison-Karte stand
+> weiss auf `--g-main`, im Dunkelmodus 2,36:1; gefunden durch Nachrechnen, nicht durch den
+> Stand), Rezepte und Heilmittel jenseits des Deckels (über 10'000 px, wiederholte Vorlagen),
+> und drei Öffner, die im Prüfstand ablehnen, weil die Beispieldaten keine Konto-Id tragen
+> (Profil-Einstellungen, Organisationen, Experten-Antrag).
+>
+> **Und drei Fehler in der Reparatur selbst**, jeder von einem Fall oder einer Gegenprobe
+> gefunden, keiner beim Lesen: (1) „ging nicht auf" hing an `if (!hoch)` — ein Fenster, das
+> nicht rollt, hat die Höhe 0, und 21 OFFENE Fenster galten als geschlossen. „Offen" ist eine
+> eigene Antwort des Öffners (−1), nie aus einer Grösse abgeleitet. (2) Der Notfall-Eintrag
+> der Menü-Suche fragte `!!_gsNotfallStufe(q)` — die Funktion sagt Nein mit dem WORT
+> `'keiner'`, und der Eintrag stand bei „tomate" oben. **Bei einer Funktion mit mehreren
+> Zuständen vergleicht man den Zustand, nicht die Wahrheit.** (3) „Jeder Verlaufseintrag
+> bekommt seine eigene Zeit, eine Millisekunde SPÄTER": der Kalender liest alles nach jetzt als
+> Erinnerung (⏰), die Woche zählte die eben abgehakten Aufgaben als kommende. **Eine eigene
+> Zeit liegt in der Vergangenheit** — gefunden nur, weil `kalender_check` die Uhr stellt.
 
 **Seit v32.72 gilt für Geheimnisse in Edge-Functions EINE Regel:**
 `supabase/functions/_shared/auth_vergleich.mjs` (`constantTimeEquals`,
