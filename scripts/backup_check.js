@@ -343,6 +343,59 @@ const kaputtHelfer = (r) => (r && r.ok) ? null : ((r && r.warum) || 'unbekannt')
       : { ok: false, warum: JSON.stringify(stempel) + ' — erwartet {versuche:1, id:null, stempel:"2000-01-01"}' },
   });
 
+  // v33.59: der Stempel, an dem die Regel „kein Backup ohne Aenderung" haengt
+  // (gs_sync_last_push), darf sich nur bewegen, wenn WIRKLICH etwas hinausging.
+  // Bis v33.58 stempelte jeder Flush ohne Aenderung „jetzt" — und zwar nur bei
+  // angemeldeter Sitzung (_canPush), also nie in einem Pruefstand: _seed.js meldete
+  // die App bis v33.58 nach 500 ms ab. Der Fall braucht deshalb die Sitzung aus dem Seed.
+  const stempelFlush = await page.evaluate(async () => {
+    const warte = (ms) => new Promise(r => setTimeout(r, ms));
+    const echt = window.sbFetch; let schreibt = 0;
+    window.sbFetch = async function (pfad, opts) {
+      const m = (opts && opts.method) || 'GET';
+      // gezaehlt werden nur die drei Blobs des Abgleichs — andere Schreiber der App (Profil,
+      // Einstellungen) laufen daneben und haben mit dem Stempel nichts zu tun
+      if (m !== 'GET') { if (/user_plants|user_gardens|user_app_state/.test(String(pfad))) schreibt++; return { data: [{ ok: true }], error: null }; }
+      return { data: [], error: null };
+    };
+    window._gsInitialSyncDone = true;
+    const out = { angemeldet: (typeof sbIsLoggedIn === 'function') && !!sbIsLoggedIn() };
+    try {
+      // (1) eine echte Aenderung: der Stempel bewegt sich
+      localStorage.setItem('gs_sync_last_push', '2000-01-01T00:00:00.000Z');
+      gsCloudSync.markDirty('state');
+      await warte(1500);
+      out.nachAenderung = localStorage.getItem('gs_sync_last_push');
+      out.schreibt = schreibt;
+      // (2) nichts mehr offen: drei Flushes aendern den Stempel NICHT
+      localStorage.setItem('gs_sync_last_push', '2001-01-01T00:00:00.000Z');
+      const vorher = schreibt;
+      gsCloudSync.flushNow(); await warte(150);
+      gsCloudSync.flushNow(); await warte(150);
+      if (gsCloudSync.flushDebounced) { gsCloudSync.flushDebounced(); await warte(900); }
+      out.nachLeerlauf = localStorage.getItem('gs_sync_last_push');
+      out.schreibtLeerlauf = schreibt - vorher;
+      // (3) fehlt der Stempel ganz, darf „alles oben" ihn setzen (erste Sitzung)
+      localStorage.removeItem('gs_sync_last_push');
+      gsCloudSync.flushNow(); await warte(150);
+      out.ersteSitzung = localStorage.getItem('gs_sync_last_push');
+      // (4) die Folge fuer das Backup: unveraendert seit dem letzten Backup → nicht faellig
+      localStorage.setItem('gs_sync_last_push', '2001-01-01T00:00:00.000Z');
+      localStorage.setItem('gs_snapshot_last', new Date().toISOString());
+      gsCloudSync.flushNow(); await warte(150);
+      out.faellig = _gsSnapshotAutoFaellig();
+    } finally { window.sbFetch = echt; }
+    return out;
+  });
+  K.push({
+    name: 'Ein Flush OHNE Aenderung stempelt nicht „zuletzt gesichert" — sonst haelt das Backup jeden Stand fuer geaendert (v33.59, nur angemeldet messbar)',
+    r: (stempelFlush.angemeldet && stempelFlush.schreibt >= 1 && stempelFlush.nachAenderung > '2000-01-02'
+        && stempelFlush.nachLeerlauf === '2001-01-01T00:00:00.000Z' && stempelFlush.schreibtLeerlauf === 0
+        && !!stempelFlush.ersteSitzung && stempelFlush.faellig && stempelFlush.faellig.faellig === false)
+      ? { ok: true, info: 'mit Aenderung: ' + stempelFlush.schreibt + ' Schreibvorgang/-gaenge, Stempel neu · 3 Flushes ohne Aenderung: Stempel unveraendert, 0 Schreibvorgaenge · erste Sitzung: gesetzt · Backup: „' + stempelFlush.faellig.grund + '"' }
+      : { ok: false, warum: JSON.stringify(stempelFlush) },
+  });
+
   // Und der Update-Weg (v33.25) fragt dieselbe zweite Stufe: ohne Aenderung
   // kein pre_migration. Gemessen am echten _gsUpdateSichern.
   const update = await page.evaluate(async () => {

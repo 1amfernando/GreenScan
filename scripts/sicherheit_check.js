@@ -68,17 +68,9 @@ const dateien = fs.existsSync(DIR)
     seite.on('dialog', d => { d.dismiss().catch(() => {}); });
     await seite.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
     await seite.addInitScript(SEED);
-    // Eine ANGEMELDETE Sitzung: der Token aus _seed.js hat keine drei Teile,
-    // gsSecurityInit raeumt ihn nach 500 ms ab und der Anmeldebildschirm legt
-    // sich ueber die App (gemessen 10.11.2026). Hier steht eine Sitzung, die bleibt.
-    await seite.addInitScript(() => { try {
-      const bis = Date.now() + 30 * 86400000;
-      localStorage.setItem('gs_sb_token', 'pruef.stand.token');
-      localStorage.setItem('gs_sb_uid', '00000000-0000-4000-8000-000000000001');
-      localStorage.setItem('gs_sb_email', 'pruefstand@example.invalid');
-      localStorage.setItem('gs_sb_expires', String(bis));
-      localStorage.setItem('gs_sb_expires_at', new Date(bis).toISOString());
-    } catch (e) {} });
+    // Die angemeldete Sitzung kommt seit v33.59 aus scripts/_seed.js (Token in JWT-Form,
+    // uid, E-Mail) — vorher musste dieser Pruefstand sie selbst nachlegen, weil der Seed-Token
+    // nach 500 ms abgeraeumt wurde.
     await seite.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
     await seite.waitForTimeout(4000);
     await seite.evaluate(() => {
