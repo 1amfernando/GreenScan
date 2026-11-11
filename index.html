@@ -16412,6 +16412,17 @@ window.GS_I18N_JS_STRINGS = {
   'tox_mid_short':             '⚠️ Giftig',
   'tox_light':                 '🟡 Leicht giftig',
   'scan_edible':               '🥗 Essbar',
+  // ── Die Verzehr-Zeile der Gegenprobe (`_gsGegenprobeVerzehr`) ──────────
+  // Bis v33.58 stand sie fest deutsch im Code. Der Satz zur Pilzkontrolle ist
+  // `mush_vapko_body` — derselbe wie im Pilz-Kalender, nicht ein zweiter.
+  'scan_gp_vz_ja':             'Beide Blicke halten den Verzehr für vertretbar, und unsere Artenliste führt die Art als essbar und ungiftig — die Verantwortung bleibt bei dir.',
+  'scan_gp_vz_nein':           'Nicht verzehren.',
+  'scan_gp_vz_fach':           'Nur nach Prüfung durch eine Fachperson verzehren.',
+  'scan_gp_vz_giftig':         'Unsere Artenliste führt diese Art als giftig.',
+  'scan_gp_vz_nicht_essbar':   'Unsere Artenliste führt diese Art nicht als essbar.',
+  'scan_gp_vz_bedingt':        'Unsere Artenliste führt diese Art als essbar, aber nicht als ungiftig.',
+  'scan_gp_vz_kein_eintrag':   'Nicht gegengeprüft: Unsere Artenliste hat zu dieser Art keinen geprüften Eintrag — das ist keine Zustimmung.',
+  'scan_gp_vz_ohne_liste':     'Nicht gegengeprüft: Die Artenliste ist nicht geladen — das ist keine Zustimmung. Lade die App neu.',
   'scan_date_label':           '📅 Datum:',
   'scan_location_label':       '📍 Standort:',
   'scan_own_note':             '📝 Eigene Notiz',
@@ -34711,6 +34722,17 @@ async function gsAutoEnrichNewSpecies(r){
     enriched.sourceScan = { confidence: r.confidence, original_name: r.name };
     enriched.isUserAdded = true;
     enriched.enrichedByAI = true;
+    // Ein Eintrag, den die KI geschrieben hat, ist kein Beleg gegen die KI.
+    // Gemessen am 11.11.2026: dieser Eintrag (und der aus `gsSaveConfirmedScan`)
+    // kam OHNE `_unverified` in die Artenliste — beim naechsten Blick sagte das
+    // Pruefwerk „In unserer Artenliste vorhanden" und „Giftigkeit stimmt mit
+    // unserer Artenliste überein", und `openDetail` zeigte die gruenen Plaketten
+    // „Essbar"/„Ungiftig" aus den Angaben der KI. Der Mechanismus dafuer ist seit
+    // v30.66 da (Community-Arten) und seit v31.90 auf die Buch-Einlese angewandt;
+    // hier fehlte er. Mit dem Vermerk gilt ueberall dieselbe Regel: verlinken ja,
+    // als Beleg zaehlen nein (`_gsScanArtFinden`), „KI-Einschätzung · nicht
+    // fachlich geprüft" im Detail. Pruefstand: scan_check V5.
+    enriched._unverified = true;
 
     // In User-DB speichern
     userDb.unshift(enriched);
@@ -34811,6 +34833,9 @@ function gsSaveConfirmedScan(r) {
     scannedAt: new Date().toISOString(),
     isUserScan: true,
     inMainDB: !!already,
+    // Die Angaben oben stammen aus der Antwort der KI — der Eintrag ist kein
+    // Beleg gegen sie (siehe `gsAutoEnrichNewSpecies`, scan_check V5).
+    _unverified: true,
   };
 
   confirmed.unshift(newSpecies);
@@ -34866,6 +34891,21 @@ function gsPickAlternative(altKey) {
     // Felder aus DB anreichern falls Art existiert
     _userPicked: true
   });
+  // Was die Pruefung und die Gegenprobe ueber die VORIGE Art gesagt haben,
+  // gehoert nicht zur neuen. `Object.assign({}, original, …)` kopiert auch die
+  // Vermerke mit `_` davor — gemessen am 11.11.2026: Baerlauch gescannt,
+  // Gegenprobe „bestaetigt" + „ja", dann die Alternative „Herbstzeitlose"
+  // angetippt → auf der Karte „Herbstzeitlose · ☠️ Tödlich giftig" stand weiter
+  // „Zwei unabhängige Blicke, dasselbe Ergebnis … Beide Blicke halten den
+  // Verzehr für vertretbar". Und umgekehrt blieb „stuft diese Art als giftiger
+  // ein (5 von 5)" auf der Karte der harmlosen Art stehen. Dieselbe Regel wie
+  // v30.72 weiter unten (HL#24), nur fuer die Felder, die es damals noch nicht
+  // gab: `_gegenprobe` (v32.10), `_tox_korrigiert`/`_essbar_korrigiert` (v31.99).
+  // `_altGefahr` rechnet `showScanResult` ohnehin neu. Pruefstand: scan_check V4.
+  delete newRes._gegenprobe;
+  delete newRes._tox_korrigiert;
+  delete newRes._essbar_korrigiert;
+  delete newRes._altGefahr;
   // DB-Match für die neue Art suchen und Felder übernehmen (v30.72: einheitlicher latein-verankerter Matcher)
   try {
     var dbMatch = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(alt.name, alt.latin) : null;
@@ -34879,6 +34919,9 @@ function gsPickAlternative(altKey) {
       newRes.lookalike_warning = dbMatch.lookalike || newRes.lookalike_warning;
       newRes.toxicity   = (dbMatch.tox != null) ? dbMatch.tox : newRes.toxicity;
       newRes.edible     = (dbMatch.edible != null) ? dbMatch.edible : newRes.edible;
+      // `toxic` gehoert zum selben Sicherheitsprofil: sonst traegt das Edelweiss
+      // den Chip „☠️ Giftig" der Herbstzeitlose weiter (gemessen, scan_check V4).
+      newRes.toxic      = (dbMatch.toxic != null) ? !!dbMatch.toxic : ((Number(dbMatch.tox) || 0) >= 3);
       newRes.family     = dbMatch.fam || newRes.family;
     } else {
       // v30.72 SICHERHEIT (HL#24): KEINE DB-Bestätigung → das Sicherheitsprofil der VORIGEN Art darf NICHT
@@ -35265,6 +35308,56 @@ function _gsScanArtFinden(res) {
     return t._unverified ? { _nur_ungeprueft: true, art: t } : t;
   } catch (_) { return null; }
 }
+
+// ══ EINE FRAGE, EINE FUNKTION: WAS SAGT DIE ARTENLISTE ZUM ESSEN DIESER ART? ══
+//
+// Gemessen am 11.11.2026 (Befund IDEE-B, dann die Geschwister gesucht): vier
+// Stellen der Scan-Karte machten eine Aussage zum Essen ALLEIN aus einem Feld
+// der KI-Antwort — die Schlusszeile der Gegenprobe (`g.verzehr`), der Chip
+// „✅ Essbar Ja" (`r.edible`), die Marke „🍽️ essbar" an einer Alternative
+// (`a.edible`) und die Plakette „✅ Ungiftig" (`r.toxicity`). Die Liste wurde
+// nur dort gelesen, wo sie WIDERSPRACH; konnte sie nichts sagen (Art nicht in
+// der Liste, nur ein ungepruefter Eintrag, Liste nicht geladen), blieb die
+// Behauptung der KI als gruene Zusage stehen — ohne Liste fuer den Gruenen
+// Knollenblaetterpilz unter der Ueberschrift „Nicht gegengeprüft".
+//
+// CLAUDE.md §4b: was der Code rechnen kann, entscheidet nie die KI allein.
+// Das hier ist die eine Antwort, und sie hat FUENF Zustaende, nicht zwei:
+//
+//   essbar         geprueft · essbar · Giftstufe 0 · nicht als giftig gefuehrt
+//   bedingt        geprueft · essbar, aber Giftstufe 1–2 oder als giftig markiert
+//                  (Holunder, Morchel: die Liste sagt „essbar" UND „leicht giftig")
+//   nicht_essbar   geprueft · nicht als essbar gefuehrt, Giftstufe < 3
+//   giftig         geprueft · Giftstufe ≥ 3
+//   nicht_pruefbar mit Grund: liste_fehlt · kein_eintrag · ungeprueft
+//
+// Der Weg ist der des Pruefwerks, kein eigener: `_gsScanArtFinden`
+// (= `gsMatchScanToDb`, ein ungepruefter Eintrag ist kein Beleg) und danach
+// `_gsArtAnzeige` — die Sicherheitsangaben der ART, nicht des Eintrags.
+// `pilz` ist wahr, wenn die Liste ODER die KI „Pilz" sagt: das Feld der KI darf
+// die Antwort vorsichtiger machen, nie nachgiebiger.
+// Pruefstand: `scan_check` V1–V8.
+function _gsListeZumEssen(res) {
+  var kiPilz = false;
+  try { kiPilz = /pilz|fung/i.test(String((res && res.category) || '')); } catch (_) {}
+  function aus(zustand, grund, art, pilz) { return { zustand: zustand, grund: grund, art: art || null, pilz: !!pilz }; }
+  try {
+    if (typeof DB === 'undefined' || !DB || !DB.length) return aus('nicht_pruefbar', 'liste_fehlt', null, kiPilz);
+    var t = _gsScanArtFinden(res);
+    if (!t) return aus('nicht_pruefbar', 'kein_eintrag', null, kiPilz);
+    if (t._nur_ungeprueft) return aus('nicht_pruefbar', 'ungeprueft', null, kiPilz || !!(t.art && t.art.cat === 'pilz'));
+    var a = (typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(t) : t) || t;
+    var pilz = kiPilz || a.cat === 'pilz';
+    // Ohne Giftstufe als Zahl gibt es nichts, worauf sich „ungiftig" stuetzen
+    // koennte — `Number(null)` waere 0 und damit eine erfundene Entwarnung.
+    if (a._unverified || typeof a.tox !== 'number' || !isFinite(a.tox)) return aus('nicht_pruefbar', 'ungeprueft', null, pilz);
+    if (a.tox >= 3) return aus('giftig', 'liste', a, pilz);
+    if (!gsIstEssbar(a)) return aus('nicht_essbar', 'liste', a, pilz);
+    if (a.tox >= 1 || a.toxic === true) return aus('bedingt', 'liste', a, pilz);
+    return aus('essbar', 'liste', a, pilz);
+  } catch (_) { return aus('nicht_pruefbar', 'kein_eintrag', null, kiPilz); }
+}
+window._gsListeZumEssen = _gsListeZumEssen;
 
 // Monatsliste aus einer Saison-Angabe („Apr–Jun", „Mär-Mai"). Es gibt dafuer
 // bereits `gsSaisonMonate` — hier nur der sichere Durchreicher.
@@ -35768,23 +35861,37 @@ function _gsScanPruefwerk(res, qual) {
     // ── S2 · Sicherheit — hier gewinnt IMMER die vorsichtigere Angabe ────
     var kiTox = (res.toxicity != null) ? Number(res.toxicity) : (res.toxic ? 3 : null);
     var dbTox = db && db.tox != null ? Number(db.tox) : null;
-    if (db && dbTox != null && kiTox != null && isFinite(kiTox)) {
-      if (dbTox > kiTox) {
-        p.warnung = 'Unsere Artenliste stuft ' + (db.name || res.name) + ' als giftiger ein (' + dbTox + ' von 5) als die Bestimmung (' + kiTox + '). Es gilt die vorsichtigere Angabe.';
-        regel('gift', 'warn', p.warnung);
-        // Die Anzeige rechnet mit dem hoeheren Wert weiter — nicht mit dem
-        // gemeldeten. Eine Warnung, die man wegklicken kann, ist zu wenig.
-        res.toxicity = dbTox;
-        res._tox_korrigiert = { von: kiTox, auf: dbTox };
-        if (dbTox >= 3) { res.edible = false; res.toxic = true; }
-      } else {
-        regel('gift', 'ok', 'Giftigkeit stimmt mit unserer Artenliste überein (' + dbTox + ' von 5).');
-      }
-    } else if (db && db.edible === false && res.edible === true) {
-      p.warnung = 'Unsere Artenliste führt ' + (db.name || res.name) + ' NICHT als essbar. Es gilt die vorsichtigere Angabe.';
-      regel('gift', 'warn', p.warnung);
+    var _toxVergleich = !!(db && dbTox != null && kiTox != null && isFinite(kiTox));
+    var _toxHoeher = _toxVergleich && dbTox > kiTox;
+    if (_toxHoeher) {
+      p.warnung = 'Unsere Artenliste stuft ' + (db.name || res.name) + ' als giftiger ein (' + dbTox + ' von 5) als die Bestimmung (' + kiTox + '). Es gilt die vorsichtigere Angabe.';
+      // Die Anzeige rechnet mit dem hoeheren Wert weiter — nicht mit dem
+      // gemeldeten. Eine Warnung, die man wegklicken kann, ist zu wenig.
+      res.toxicity = dbTox;
+      res._tox_korrigiert = { von: kiTox, auf: dbTox };
+      if (dbTox >= 3) { res.edible = false; res.toxic = true; }
+    }
+    // ── Die Essbarkeit wird IMMER gegengehalten ─────────────────────────────
+    // Bis v33.58 stand dieser Vergleich hinter einem `else if` und lief nur,
+    // wenn die KI KEINE Giftstufe mitlieferte — der Auftrag verlangt sie aber
+    // in jeder Antwort („toxicity = Zahl 0..5"). Gemessen (11.11.2026): Edelweiss
+    // (Liste: nicht essbar, Giftstufe 0) mit „essbar, Giftstufe 0" der KI blieb
+    // „✅ Essbar Ja", und die Regel sagte „Giftigkeit stimmt mit unserer
+    // Artenliste überein". Ueber die Liste gerechnet: 1'456 von 1'489
+    // gepruefte, nicht essbare Arten blieben „essbar", sobald die KI es sagte
+    // (Arnika, Johanniskraut, Wiesenkerbel). Der Zweig hatte keinen Fall.
+    // Zwei Fragen, zwei Vergleiche — und EINE Regel in der Bilanz.
+    var _essbarWeg = !!(db && db.edible === false && res.edible === true);
+    if (_essbarWeg) {
+      var _essbarSatz = 'Unsere Artenliste führt ' + (db.name || res.name) + ' NICHT als essbar. Es gilt die vorsichtigere Angabe.';
+      p.warnung = p.warnung ? (p.warnung + ' ' + _essbarSatz) : _essbarSatz;
       res.edible = false;
       res._essbar_korrigiert = true;
+    }
+    if (_toxHoeher || _essbarWeg) {
+      regel('gift', 'warn', p.warnung);
+    } else if (_toxVergleich) {
+      regel('gift', 'ok', 'Giftigkeit stimmt mit unserer Artenliste überein (' + dbTox + ' von 5).');
     } else if (!db) {
       regel('gift', 'unbekannt', 'Ohne Eintrag in unserer Artenliste lässt sich die Sicherheitsangabe nicht gegenprüfen.');
     } else {
@@ -36064,18 +36171,106 @@ async function gsScanGegenprobe() {
 }
 window.gsScanGegenprobe = gsScanGegenprobe;
 
+// ══ DIE VERZEHR-ZEILE DER GEGENPROBE WIRD GERECHNET ═════════════════════
+//
+// Gemessen am 11.11.2026 an v33.58 (Befund IDEE-B, nachgefahren): Kopf und
+// Satz der Karte folgten `g.urteil`, die Schlusszeile ALLEIN `g.verzehr` —
+// zwei Felder derselben KI-Antwort, die niemand gegeneinander hielt, und die
+// Art (`r`) wurde dafuer nicht gelesen. Von 54 Kombinationen (Urteil × Verzehr
+// × Art) zeigten 18 „Beide Blicke halten den Verzehr für vertretbar", in 12
+// Karten stand das unter „Iss das nicht" bzw. „nicht verzehren", und ein Pilz
+// bekam die Zusage ohne ein Wort von der Pilzkontrolle. `scan_check` kannte
+// nur die zwei stimmigen Paare.
+//
+// Die Regel — und sie ist eine ERLAUBNISliste, keine Verbotsliste: eine
+// Zustimmung gibt es nur, wenn ALLES zutrifft:
+//   Urteil genau „bestaetigt"  ·  Verzehr genau „ja"
+//   ·  die Artenliste fuehrt die Art als essbar und ungiftig (`_gsListeZumEssen`)
+//   ·  es ist kein Pilz (dort gilt der Satz zur Pilzkontrolle, `mush_vapko_body`).
+// Jeder andere Fall bekommt die vorsichtigere Zeile; widersprechen sich die
+// Felder, gewinnt die Vorsicht, und die Karte sagt nur EINES. „Nicht pruefbar"
+// (Art nicht in der Liste, nur ungeprueft, Liste nicht geladen) ist ein
+// eigener, ausgesprochener Zustand mit Grund — keine Zustimmung (v33.47:
+// „Nicht geprüft ist keine Entwarnung").
+//
+// EIN Leser fuer die zwei Felder, damit Kopf und Zeile nie verschieden lesen:
+// Gross-/Kleinschreibung, Umlaute („bestätigt") und Satzzeichen („Nein.")
+// zaehlen nicht; alles, was danach nicht GENAU einer der bekannten Werte ist,
+// ist die vorsichtige Lesart (Urteil → zweifel, Verzehr → Fachpruefung).
+function _gsGegenprobeLesen(g) {
+  var glatt = function (x) {
+    return String(x == null ? '' : x).toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+      .replace(/[^a-z]+/g, ' ').trim().replace(/ /g, '_');
+  };
+  var u = glatt(g && g.urteil), v = glatt(g && g.verzehr);
+  return {
+    urteil: (u === 'bestaetigt' || u === 'widerlegt') ? u : 'zweifel',
+    verzehr: v === 'ja' ? 'ja' : v === 'nein' ? 'nein' : 'fachpruefung'
+  };
+}
+// Rueckgabe { zustand, grund, symbol, text }:
+//   zustimmung · pilzkontrolle · fachpruefung · nein · nicht_pruefbar
+// Die Saetze gehen durch `_t` (GS_I18N_JS_STRINGS) — bis v33.58 stand die
+// Zeile in allen Sprachen deutsch da.
+function _gsGegenprobeVerzehr(g, r) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var gl = _gsGegenprobeLesen(g);
+  var L = _gsListeZumEssen(r);
+  var NEIN = _t('scan_gp_vz_nein', 'Nicht verzehren.');
+  // Die vorsichtige Anweisung: bei Pilzen die Pilzkontrolle, sonst eine Fachperson.
+  var vorsicht = L.pilz
+    ? _t('mush_vapko_body', 'Lass JEDEN gesammelten Pilz von einer offiziellen Pilzkontrollstelle prüfen, bevor du ihn isst. Diese App ist Information, keine Verzehr-Garantie.')
+    : _t('scan_gp_vz_fach', 'Nur nach Prüfung durch eine Fachperson verzehren.');
+  var vz = L.pilz ? 'pilzkontrolle' : 'fachpruefung', vs = L.pilz ? '🍄' : '🏥';
+  function aus(zustand, grund, symbol, text) {
+    return { zustand: zustand, grund: grund, symbol: symbol, text: text, urteil: gl.urteil, verzehr: gl.verzehr, liste: L.zustand };
+  }
+  // 1 · Ein Nein gewinnt immer — vom Zweitgutachter oder aus der Liste.
+  if (gl.urteil === 'widerlegt') return aus('nein', 'urteil', '⛔', NEIN);
+  if (gl.verzehr === 'nein')     return aus('nein', 'verzehr', '⛔', NEIN);
+  if (L.zustand === 'giftig')       return aus('nein', 'liste_giftig', '⛔', _t('scan_gp_vz_giftig', 'Unsere Artenliste führt diese Art als giftig.') + ' ' + NEIN);
+  if (L.zustand === 'nicht_essbar') return aus('nein', 'liste_nicht_essbar', '⛔', _t('scan_gp_vz_nicht_essbar', 'Unsere Artenliste führt diese Art nicht als essbar.') + ' ' + NEIN);
+  // 2 · Zweifel oder ein Vorbehalt des Zweitgutachters: die vorsichtige Anweisung.
+  if (gl.urteil !== 'bestaetigt') return aus(vz, 'urteil', vs, vorsicht);
+  if (gl.verzehr !== 'ja')        return aus(vz, 'verzehr', vs, vorsicht);
+  // 3 · Beide Blicke sagen ja. Ab hier entscheidet die LISTE, nicht mehr die KI.
+  if (L.zustand === 'nicht_pruefbar') return aus('nicht_pruefbar', L.grund, '⚠️',
+    (L.grund === 'liste_fehlt'
+      ? _t('scan_gp_vz_ohne_liste', 'Nicht gegengeprüft: Die Artenliste ist nicht geladen — das ist keine Zustimmung. Lade die App neu.')
+      : _t('scan_gp_vz_kein_eintrag', 'Nicht gegengeprüft: Unsere Artenliste hat zu dieser Art keinen geprüften Eintrag — das ist keine Zustimmung.'))
+    + ' ' + vorsicht);
+  if (L.zustand === 'bedingt') return aus(vz, 'liste_bedingt', vs,
+    _t('scan_gp_vz_bedingt', 'Unsere Artenliste führt diese Art als essbar, aber nicht als ungiftig.') + ' ' + vorsicht);
+  if (L.pilz) return aus('pilzkontrolle', 'pilz', '🍄', vorsicht);
+  if (L.zustand === 'essbar') return aus('zustimmung', 'einig', '🍽️',
+    _t('scan_gp_vz_ja', 'Beide Blicke halten den Verzehr für vertretbar, und unsere Artenliste führt die Art als essbar und ungiftig — die Verantwortung bleibt bei dir.'));
+  // Ein Zustand der Liste, den diese Regel nicht kennt, ist keine Zustimmung.
+  return aus(vz, 'unklar', vs, vorsicht);
+}
+window._gsGegenprobeLesen = _gsGegenprobeLesen;
+window._gsGegenprobeVerzehr = _gsGegenprobeVerzehr;
+
 // Die Anzeige. Sie sagt zuerst, ob die zwei Blicke sich EINIG sind — das ist
 // die Aussage, auf die es ankommt.
 function gsGegenprobeRender(g, r) {
   var host = document.getElementById('gs-gegenprobe');
   if (!host) return;
   var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x || ''); };
-  var u = String(g.urteil || '').toLowerCase();
+  g = g || {};
+  // Die Schlusszeile ist GERECHNET (`_gsGegenprobeVerzehr`) — und der Kopf liest
+  // das Urteil aus DERSELBEN Rechnung, damit die Karte nur EINES sagt.
+  var vz = _gsGegenprobeVerzehr(g, r);
+  var u = vz.urteil;
   var kopf, farbe, satz;
   if (u === 'bestaetigt') {
     kopf = '✓ Zwei unabhängige Blicke, dasselbe Ergebnis';
     farbe = 'var(--c-success-d)';
-    satz = 'Der Zweitgutachter kommt — mit dem ausdrücklichen Auftrag zu widerlegen — zum selben Schluss. Das ist der stärkste Beleg, den diese App liefern kann. <b>Ein Beweis ist es nicht.</b>';
+    // „Der stärkste Beleg, den diese App liefern kann" stimmt nur, wenn auch die
+    // Artenliste pruefen konnte — sonst stuende er ueber „Nicht gegengeprüft".
+    satz = 'Der Zweitgutachter kommt — mit dem ausdrücklichen Auftrag zu widerlegen — zum selben Schluss. ' +
+      (vz.liste !== 'nicht_pruefbar' ? 'Das ist der stärkste Beleg, den diese App liefern kann. ' : '') +
+      '<b>Ein Beweis ist es nicht.</b>';
   } else if (u === 'widerlegt') {
     kopf = '☠️ Der zweite Blick WIDERSPRICHT';
     farbe = 'var(--c-danger-d)';
@@ -36090,7 +36285,11 @@ function gsGegenprobeRender(g, r) {
     return '<div class="gs-gp-block"><b>' + ico + ' ' + titel + '</b><ul>' +
       arr.slice(0, 4).map(function (x) { return '<li>' + esc(String(x)) + '</li>'; }).join('') + '</ul></div>';
   }
-  var verzehr = String(g.verzehr || '').toLowerCase();
+  // Die Farbe der Schlusszeile folgt IHREM Zustand, nicht dem Kopf: ein gruener
+  // Rahmen um „Nicht gegengeprüft" waere dieselbe Karte mit zwei Aussagen. Die
+  // drei Farben sind dieselben Text-Token wie im Kopf (in beiden Modi vermessen,
+  // contrast_check).
+  var vzFarbe = vz.zustand === 'zustimmung' ? 'var(--c-success-d)' : vz.zustand === 'nein' ? 'var(--c-danger-d)' : 'var(--c-warn-d)';
   host.innerHTML =
     '<div class="sr2-card-lbl" style="color:' + farbe + ';">' + kopf + '</div>' +
     '<div class="sr2-card-body">' + satz + '</div>' +
@@ -36102,10 +36301,8 @@ function gsGegenprobeRender(g, r) {
         esc(g.bessere_erklaerung.name) + (g.bessere_erklaerung.latin ? ' <i>(' + esc(g.bessere_erklaerung.latin) + ')</i>' : '') +
         (g.bessere_erklaerung.warum ? ' — ' + esc(g.bessere_erklaerung.warum) : '') + '</div></div>'
       : '') +
-    '<div class="gs-gp-verzehr" style="border-color:' + farbe + ';color:' + farbe + ';">' +
-      (verzehr === 'ja' ? '🍽️ Beide Blicke halten den Verzehr für vertretbar — die Verantwortung bleibt bei dir.'
-       : verzehr === 'nein' ? '⛔ Nicht verzehren.'
-       : '🏥 Nur nach Prüfung durch eine Fachperson verzehren.') +
+    '<div class="gs-gp-verzehr" data-gp-verzehr="' + vz.zustand + '" style="border-color:' + vzFarbe + ';color:' + vzFarbe + ';">' +
+      vz.symbol + ' ' + esc(vz.text) +
     '</div>' +
     '<div class="gs-gp-fuss">⚖️ Zweite, unabhängige Bestimmung desselben Fotos — mit dem Auftrag zu widerlegen, nicht zu bestätigen.</div>';
 }
@@ -36228,7 +36425,23 @@ function showScanResult(r){
         : 'nicht möglich');
     }
   } catch (_) {}
-  const t = toxInfo(r.toxicity||0);
+  // ── Nicht geprueft ist keine Entwarnung — auch nicht als Plakette ──────
+  // v33.47 hat fuer „nichts konnte pruefen" die Ueberschrift und die Stufe
+  // berichtigt. Die zwei GRUENEN Zusagen derselben Karte blieben: gemessen am
+  // 11.11.2026 stand fuer eine unbekannte Art, fuer einen nur ungeprueften
+  // Eintrag und — ohne Liste — fuer den Gruenen Knollenblaetterpilz weiter
+  // „✅ Ungiftig" im Kopf und „✅ Essbar Ja" bei den Fakten, beides allein aus
+  // den Feldern der KI. Dieselbe Regel wie `openDetail` seit v31.90:
+  // zurueckgehalten wird nur die ENTWARNUNG; eine Warnung der KI (Giftstufe ≥ 1)
+  // bleibt stehen. `_essen` ist die eine Antwort der Liste (`_gsListeZumEssen`),
+  // der Chip weiter unten liest dieselbe. Pruefstand: scan_check V7.
+  const _essen = (typeof _gsListeZumEssen === 'function') ? _gsListeZumEssen(r) : { zustand: 'nicht_pruefbar', grund: 'kein_eintrag', pilz: false };
+  const _ungeprueft = _essen.zustand === 'nicht_pruefbar';
+  const _i18n = function (k, f) { return (typeof _lt === 'function') ? _lt(k, f) : f; };
+  let t = toxInfo(r.toxicity||0);
+  if (_ungeprueft && !((Number(r.toxicity) || 0) >= 1) && r.toxic !== true) {
+    t = { sym: '❔', label: _i18n('tox_open', 'Einstufung offen'), color: 'var(--text2)', bg: 'var(--surface2)' };
+  }
   const conf = r.confidence||0;
   // v31.99: die drei Farben waren fuer FLAECHEN gedacht und standen als
   // TEXT auf fast weissem Grund — „Wahrscheinlich" in `#f9a825` sind 1,87:1
@@ -36534,9 +36747,16 @@ function showScanResult(r){
   // ── 2) QUICK-FACTS-STRIP — 4 Chips auf einen Blick ─────────
   var facts = [];
   // Essbar / Giftig Ampel
-  if (r.edible === true) facts.push({ico:'✅', lbl:'Essbar', val:'Ja', bg:'#e8f5e9', fg:'#1b5e20'});
+  // „✅ Essbar Ja" ist eine Zusage — sie steht nur da, wenn die Artenliste die
+  // Art als essbar fuehrt (`_essen`, oben). Sagt es nur die KI, weil die Liste
+  // nichts pruefen konnte, heisst der Chip „Essbar · nicht geprüft" und ist
+  // neutral (dieselben zwei Farben wie „Nicht essbar"). Fuehrt die Liste die Art
+  // NICHT als essbar, hat das Pruefwerk `r.edible` schon berichtigt (S2).
+  var _listeEssbar = (_essen.zustand === 'essbar' || _essen.zustand === 'bedingt');
+  if (r.edible === true && _listeEssbar) facts.push({ico:'✅', lbl:'Essbar', val:'Ja', bg:'#e8f5e9', fg:'#1b5e20'});
+  else if (r.edible === true && _ungeprueft) facts.push({ico:'❔', lbl:'Essbar', val:esc(_i18n('tag_unverified', 'nicht geprüft')), bg:'#eceff1', fg:'#455a64'});
   else if (r.toxic === true || (r.toxicity||0) >= 1) facts.push({ico:'☠️', lbl:'Giftig', val:(r.toxicity||'?')+'/5', bg:'#ffebee', fg:'#b71c1c'});
-  else if (r.edible === false) facts.push({ico:'⚪', lbl:'Nicht essbar', val:'—', bg:'#eceff1', fg:'#455a64'});
+  else if (r.edible === false || r.edible === true) facts.push({ico:'⚪', lbl:'Nicht essbar', val:'—', bg:'#eceff1', fg:'#455a64'});
   // Saison
   if (r.season) facts.push({ico:'📅', lbl:'Saison', val:esc(String(r.season).slice(0,18)), bg:'#f3e5f5', fg:'#6a1b9a'});
   // Habitat kurz
@@ -36706,7 +36926,12 @@ function showScanResult(r){
             // Die Giftigkeit steht AM NAMEN, nicht in einer Fussnote.
             (atox != null && atox >= 3
               ? ' <span class="sr2-alt-gift">' + (atox >= 5 ? '\u2620\ufe0f t\u00f6dlich' : atox >= 4 ? '\u2620\ufe0f stark giftig' : '\u26a0\ufe0f giftig') + '</span>'
-              : (atox === 0 && a.edible === true ? ' <span class="sr2-alt-ok">\ud83c\udf7d\ufe0f essbar</span>' : '')) +
+              // \u201eessbar" ist eine Zusage: sie kommt aus der LISTE (essbar und
+              // ungiftig, geprueft), nie allein aus dem Feld der KI. Gemessen am
+              // 11.11.2026: \u201eZzz Fantasiekraut \ud83c\udf7d\ufe0f essbar" (die Art gibt es nicht)
+              // und \u201eEdelweiss \ud83c\udf7d\ufe0f essbar" (Liste: nicht essbar). scan_check V8.
+              : (atox === 0 && a.edible === true && _gsListeZumEssen({ name: a.name, latin: a.latin }).zustand === 'essbar'
+                  ? ' <span class="sr2-alt-ok">\ud83c\udf7d\ufe0f essbar</span>' : '')) +
           '</div>' +
           (alt.latin ? '<div class="sr2-alt-lat">' + esc(alt.latin) + '</div>' : '') +
           (alt.distinguishing_feature ? '<div class="sr2-alt-reason">→ ' + esc(alt.distinguishing_feature) + '</div>' : '') +
