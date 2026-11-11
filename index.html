@@ -2828,6 +2828,8 @@ window._gsArtenFehlstart = function () {
   // v31.03: repariert jetzt zuerst, sichert vollstaendig, und loescht nur mit
   // zurueckgelesener Sicherung (siehe Kommentar im catch-Zweig).
   // Wird einmal beim Laden ausgeführt. Defekte Einträge werden als Backup gesichert, dann entfernt.
+  var GS_CORRUPT_BAK_MAX = 5;   // v33.59: hoechstens so viele Sicherungen beschaedigter Schluessel
+  window.GS_CORRUPT_BAK_MAX = GS_CORRUPT_BAK_MAX;
   window.gsStorageIntegrityCheck = function() {
     try { window.localStorage.getItem('gs__probe'); } catch (_gsLsErr) { return { fixed: 0, backedUp: 0, skipped: 'no-storage' }; } /* v33.58 · P1-11 */
     // v28.76 C2-1: kanonischer Scan-History-Key ist 'gs_scan_history' (SCAN_HISTORY_KEY).
@@ -2835,6 +2837,7 @@ window._gsArtenFehlstart = function () {
     var jsonKeys = ['ps_feedback','ps_votes','ps_myplants','gs_scan_history','gs_ki_analyses',
                     'gs_scan_corrections','ps_diary','gs_garden_plan_current','gs_streak','userLocation'];
     var fixed = 0, backedUp = 0;
+    var _bakDieseRunde = [];   // Sicherungen dieses Laufs: ihr Original ist schon weg, also nie unter den Deckel
     for (var i=0; i<jsonKeys.length; i++) {
       var k = jsonKeys[i];
       try {
@@ -2880,6 +2883,18 @@ window._gsArtenFehlstart = function () {
         if (bakOk) {
           try { localStorage.removeItem(k); } catch(_){}
           fixed++; backedUp++;
+          _bakDieseRunde.push(bakKey);
+          // v33.59: Deckel — es bleiben die GS_CORRUPT_BAK_MAX neuesten Sicherungen (sie tragen
+          // Nutzerdaten, gehen beim Abmelden mit, GS_USER_PREFIXES); vorher wuchs die Familie ohne Ende.
+          try {
+            var _baks = [];
+            for (var _bi = 0; _bi < localStorage.length; _bi++) {
+              var _bk = localStorage.key(_bi);
+              if (_bk && _bk.indexOf('gs_corrupt_bak__') === 0) _baks.push(_bk);
+            }
+            _baks.sort(function(a, b){ return (parseInt(b.split('__').pop(), 10) || 0) - (parseInt(a.split('__').pop(), 10) || 0); });
+            _baks.slice(GS_CORRUPT_BAK_MAX).forEach(function(x){ if (_bakDieseRunde.indexOf(x) < 0) { try { localStorage.removeItem(x); } catch(_){} } });
+          } catch(_){}
           console.warn('[GS-Integrity] ' + k + ' war korrupt — vollstaendig gesichert unter ' + bakKey + ' und entfernt.');
           try { persistError({ t: Date.now(), type: 'storage_repair', msg: 'corrupt ' + k + ' -> ' + bakKey }); } catch(_){}
         } else {
@@ -12033,6 +12048,20 @@ function gsBlToggleBee() {
 
 
 // ══ FROST-WARNUNG ═════════════════════════════════════════════
+// v33.59: Tagesschluessel (gs_frost_logged_, gs_weather_logged_, gs_score_logged_,
+// gs_aicalls_) — gelesen wird nur der von HEUTE. Vorher entstand je Tag ein neuer
+// Schluessel und niemand raeumte einen; beim Schreiben gehen jetzt die anderen Tage.
+function _gsNurHeuteBehalten(praefix, heuteKey) {
+  var weg = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k !== heuteKey && k.indexOf(praefix) === 0) weg.push(k);
+    }
+    weg.forEach(function(k){ try { localStorage.removeItem(k); } catch(_){} });
+  } catch(_){}
+  return weg.length;
+}
 function gsCheckFrostWarning() {
   if (!_gsWeatherData) return;
   var daily = _gsWeatherData.daily;
@@ -12066,7 +12095,7 @@ function gsCheckFrostWarning() {
             notes: frostDays.join(' · ')
           })
         });
-        try { localStorage.setItem(dailyKey, '1'); } catch(_){}
+        try { localStorage.setItem(dailyKey, '1'); _gsNurHeuteBehalten('gs_frost_logged_', dailyKey); } catch(_){}
       }
     } catch(_){}
   }
@@ -12373,7 +12402,7 @@ async function loadGardenWeather(forceReload) {
               raw_data: { code: data.current_weather.weathercode }
             })
           });
-          try { localStorage.setItem(todayKey, '1'); } catch(_){}
+          try { localStorage.setItem(todayKey, '1'); _gsNurHeuteBehalten('gs_weather_logged_', todayKey); } catch(_){}
         }
       }
     } catch(_){}
@@ -17951,13 +17980,9 @@ function gsAboCanUse(feature) {
     return true;
   }
   var plan = localStorage.getItem('gs_abo_plan') || 'free';
-  if (feature === 'scan') {
-    var today = new Date().toDateString();
-    var key = 'gs_scans_' + today;
-    var used = parseInt(localStorage.getItem(key) || '0');
-    var limit = GS_PLANS[plan] ? GS_PLANS[plan].scans : 5;
-    return limit === -1 || used < limit;
-  }
+  // v33.59: der Zweig 'scan' ist weg — er las einen Zaehler gs_scans_<Tag>, den keine Stelle
+  // schrieb, und niemand rief ihn. Das Scan-Kontingent gilt an EINER Stelle: callVisionAI mit
+  // opts.quotaFeature 'scan' (gsQuotaPeek vor dem Aufruf, gsQuotaConsume nach Erfolg).
   // v24.22: ai_call — geteilte Tagesquota für ALLE callAI/callVisionAI-Aufrufe.
   // Greift nur wenn globaler Key benutzt wird (BYO-Key umgeht den Check, weil User selbst zahlt).
   if (feature === 'ai_call') {
@@ -17980,6 +18005,7 @@ function gsAboTrackAICall() {
   var key = 'gs_aicalls_' + today;
   var used = parseInt(localStorage.getItem(key) || '0');
   localStorage.setItem(key, String(used + 1));
+  _gsNurHeuteBehalten('gs_aicalls_', key);   // v33.59: gelesen wird nur heute (gsAboCanUse, gsAboGetAIQuota)
 }
 
 // v24.22: Quota-Status für Free-User (für UI-Anzeige + Limit-Toasts)
@@ -18681,7 +18707,7 @@ window.gsLogGardenScore = async function() {
         harvest_total_kg: result.harvest_total_kg
       })
     });
-    try { localStorage.setItem(todayKey, '1'); } catch(_){}
+    try { localStorage.setItem(todayKey, '1'); _gsNurHeuteBehalten('gs_score_logged_', todayKey); } catch(_){}
     // v26.95: täglich 1× Login-Streak als Achievement-Metric setzen (SET)
     try {
       if (typeof gsAchBump === 'function') {
@@ -85141,7 +85167,13 @@ var GS_USER_KEYS = [
 // gsOnLogout() raeumte bisher genau drei Bereiche ('plants','garden','state')
 // — jeder weitere blieb liegen.
 // v33.27: `gs_dq_tag_<datum>` — „heute schon gespielt" ist ein Nutzerdatum.
-var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_','gs_dq_tag_'];
+// v33.59: fuenf Familien, die den Namen erst in einer Variablen bauen und deshalb in keiner
+// Liste standen: die drei Tages-Merker „heute schon an den Server gemeldet" (Frost, Wetter,
+// Garten-Score — haengen am Konto, das gemeldet hat; je nur heute, _gsNurHeuteBehalten),
+// die Sperrfrist eines Sensor-Alarms (Geraet der Person) und die Sicherung beschaedigter
+// Schluessel (traegt deren Inhalt, also Pflanzen, Tagebuch, Standort — gedeckelt).
+var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_','gs_dq_tag_',
+  'gs_frost_logged_','gs_weather_logged_','gs_score_logged_','gs_sh_lastalert_','gs_corrupt_bak__'];
 
 function gsClearUserDataKeys(){
   try {
@@ -97338,6 +97370,16 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     var lastTs = parseInt(localStorage.getItem(key) || '0', 10);
     if (Date.now() - lastTs < ALERT_DEDUPE_MS) return;
     try { localStorage.setItem(key, String(Date.now())); } catch(_){}
+    // v33.59: Eintraege, deren Sperrfrist vorbei ist, sagen nichts mehr — sonst bleibt je Sensor einer liegen.
+    try {
+      var _alt = [];
+      for (var _ai = 0; _ai < localStorage.length; _ai++) {
+        var _ak = localStorage.key(_ai);
+        if (_ak && _ak !== key && _ak.indexOf('gs_sh_lastalert_') === 0
+            && Date.now() - (parseInt(localStorage.getItem(_ak) || '0', 10) || 0) >= ALERT_DEDUPE_MS) _alt.push(_ak);
+      }
+      _alt.forEach(function(x){ try { localStorage.removeItem(x); } catch(_){} });
+    } catch(_){}
     // Toast
     if (typeof showProfileToast === 'function') {
       showProfileToast({type:'warn', icon:'🔔', title:'Sensor-Alarm: ' + s.name, body:message, duration:6500});
