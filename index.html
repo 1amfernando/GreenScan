@@ -39098,6 +39098,186 @@ function _gsFremdBild(u) {
 }
 window._gsFremdBild = _gsFremdBild;
 
+// ═══ v33.6x: Private Fotos — EIN Tor fuer signierte Adressen ═══════════════
+// Der Bucket `scan-images` (Scan-Fotos UND Pflanzen-Profilfotos, je <uid>/…) war
+// oeffentlich: wer eine Adresse kannte, sah das Foto ohne Anmeldung (Fernando,
+// 11.11.2026: „privat stellen"). Gespeichert ist die Adresse an vielen Orten —
+// user_scans.thumb (93), species_proposals (19), Scan-Verlauf, myPlants, Backups.
+// Diese Adressen bleiben, was sie sind: eine KENNUNG. Erst beim Anzeigen macht
+// dieses Tor daraus eine signierte, ablaufende Adresse. Darum braucht es keine
+// Datenmigration, und die App laeuft vor UND nach dem Umschalten des Buckets.
+//
+// Der eine Ort, durch den alle muessen, ist das DOKUMENT (dieselbe Entscheidung
+// wie das Verlaufs-Tor v33.43 und das Kamera-Tor v32.33): ein MutationObserver
+// sieht jedes <img src> und jedes style="…url(…)" mit einer solchen Adresse, egal
+// welcher der rund vierzig Renderer es geschrieben hat. Wer Bytes per fetch()
+// holt (nicht ueber das Dokument), ruft gsPrivatBildUrl(u) — `_gsPhotoToB64` tut es.
+//
+// Rueckfall: ohne Anmeldung oder wenn das Signieren scheitert, bleibt die
+// Original-Adresse stehen (solange der Bucket oeffentlich ist, zeigt sie das Foto;
+// danach greift das onerror des Renderers wie bei jedem fehlenden Bild).
+// Die Liste ist die Pruefung: ein weiterer privater Bucket ist ein Eintrag hier
+// (und eine Leseregel fuer den Eigentuemer auf storage.objects).
+var GS_PRIVAT_BUCKETS = ['scan-images'];
+var GS_PRIVAT_GUELTIG_S = 3600;            // so lange gilt eine signierte Adresse
+var GS_PRIVAT_RESERVE_MS = 120000;         // knapp davor wird neu signiert
+var GS_PRIVAT_STAPEL_MAX = 100;            // Pfade je Anfrage an /object/sign
+var GS_PRIVAT_PLATZHALTER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+var _gsPrivatCache = {};                   // '<uid>|<bucket>/<pfad>' → { url, bis }
+var _gsPrivatWarte = {};                   // derselbe Schluessel → [{ fertig, roh }]
+var _gsPrivatStapel = null;
+
+function _gsPrivatBasis() {
+  try { return String((typeof SB_URL === 'string' && SB_URL) || (typeof SB_URL_DEFAULT === 'string' && SB_URL_DEFAULT) || '').replace(/\/+$/, ''); }
+  catch (e) { return ''; }
+}
+function _gsPrivatMuster(global) {
+  var b = _gsPrivatBasis();
+  if (!b) return null;
+  var esc = function (s) { return s.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'); };
+  return new RegExp(esc(b) + '\\/storage\\/v1\\/object\\/(?:public|authenticated)\\/(' +
+    GS_PRIVAT_BUCKETS.map(esc).join('|') + ')\\/([^?#\\s"\'<>\\\\`()&;]+)', global ? 'g' : '');
+}
+// Adresse → { bucket, pfad } oder null. Nur der EIGENE Supabase-Ursprung, nur
+// die Buckets der Liste, kein Pfad mit . oder .. als Glied.
+function _gsPrivatPfad(u) {
+  var s = String(u == null ? '' : u);
+  if (s.indexOf('/storage/v1/object/') < 0) return null;
+  var re = _gsPrivatMuster(false);
+  var m = re && s.match(re);
+  if (!m || m.index !== 0) return null;
+  var pfad = m[2];
+  try { pfad = decodeURIComponent(pfad); } catch (e) { return null; }
+  if (/(^|\/)\.\.?(\/|$)/.test(pfad) || /[\u0000-\u001f]/.test(pfad)) return null;
+  return { bucket: m[1], pfad: pfad, roh: m[0] };
+}
+function _gsPrivatUid() {
+  try { return (typeof gsStore !== 'undefined' && gsStore.get('gs_sb_uid', null)) || ''; } catch (e) { return ''; }
+}
+// Die EINE Frage: wie zeige ich diese Adresse an? Gibt immer eine Zeichenkette
+// zurueck — die signierte Adresse oder (Rueckfall) das Original.
+function gsPrivatBildUrl(u) {
+  var p = _gsPrivatPfad(u);
+  if (!p) return Promise.resolve(u);
+  var uid = _gsPrivatUid();
+  var eingeloggt = false;
+  try { eingeloggt = (typeof sbIsLoggedIn === 'function') ? !!sbIsLoggedIn() : !!uid; } catch (e) { eingeloggt = false; }
+  if (!uid || !eingeloggt) return Promise.resolve(u);
+  var k = uid + '|' + p.bucket + '/' + p.pfad;
+  var c = _gsPrivatCache[k];
+  // Eine signierte Adresse gilt bis kurz vor Ablauf; eine Ablehnung (url '') ihre Minute lang.
+  if (c && (c.url ? c.bis - Date.now() > GS_PRIVAT_RESERVE_MS : c.bis > Date.now())) return Promise.resolve(c.url || u);
+  return new Promise(function (fertig) {
+    (_gsPrivatWarte[k] = _gsPrivatWarte[k] || []).push({ fertig: fertig, roh: u });
+    if (!_gsPrivatStapel) _gsPrivatStapel = setTimeout(_gsPrivatSigniere, 0);
+  });
+}
+window.gsPrivatBildUrl = gsPrivatBildUrl;
+
+async function _gsPrivatSigniere() {
+  _gsPrivatStapel = null;
+  var warte = _gsPrivatWarte; _gsPrivatWarte = {};
+  var jeBucket = {};
+  Object.keys(warte).forEach(function (k) {
+    var rest = k.slice(k.indexOf('|') + 1), i = rest.indexOf('/');
+    var b = rest.slice(0, i);
+    (jeBucket[b] = jeBucket[b] || []).push({ k: k, pfad: rest.slice(i + 1) });
+  });
+  var basis = _gsPrivatBasis();
+  var aufloesen = function (k, url, gueltigMs) {
+    _gsPrivatCache[k] = { url: url, bis: Date.now() + gueltigMs };
+    (warte[k] || []).forEach(function (w) { try { w.fertig(url || w.roh); } catch (e) {} });
+  };
+  for (var b in jeBucket) {
+    var liste = jeBucket[b];
+    for (var s = 0; s < liste.length; s += GS_PRIVAT_STAPEL_MAX) {
+      var teil = liste.slice(s, s + GS_PRIVAT_STAPEL_MAX);
+      var r = null;
+      try {
+        r = await sbFetch('/storage/v1/object/sign/' + encodeURIComponent(b), {
+          method: 'POST',
+          body: JSON.stringify({ expiresIn: GS_PRIVAT_GUELTIG_S, paths: teil.map(function (t) { return t.pfad; }) })
+        });
+      } catch (e) { r = { error: { message: String(e && e.message || e) } }; }
+      var antwort = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+      var nachPfad = {};
+      antwort.forEach(function (z) { if (z && typeof z.path === 'string') nachPfad[z.path] = z; });
+      teil.forEach(function (t) {
+        var z = nachPfad[t.pfad];
+        var rel = z && !z.error && typeof z.signedURL === 'string' ? z.signedURL : '';
+        // Nur eine Antwort in der erwarteten Form wird zur Bildadresse — derselbe
+        // Bucket, derselbe Pfad, kein anderer Host.
+        var erwartet = '/object/sign/' + b + '/';
+        if (rel && rel.indexOf(erwartet) === 0 && !/[\s"'<>\\`]/.test(rel)) {
+          aufloesen(t.k, basis + '/storage/v1' + rel, GS_PRIVAT_GUELTIG_S * 1000);
+        } else {
+          // Kein Sturm bei Ablehnung: eine Minute lang gilt das Original.
+          aufloesen(t.k, '', 60000);
+        }
+      });
+    }
+  }
+}
+
+function _gsPrivatTorElement(el) {
+  if (!el || el.nodeType !== 1) return;
+  if (el.tagName === 'IMG') {
+    var src = el.getAttribute('src') || '';
+    // Steht das Original schon in data-gs-privat, hat das Tor hier den Rueckfall
+    // gesetzt — sonst liefe Rueckfall → Tor → Rueckfall endlos.
+    if (src.indexOf('/storage/v1/object/') >= 0 && el.getAttribute('data-gs-privat') !== src && _gsPrivatPfad(src)) {
+      el.setAttribute('data-gs-privat', src);
+      el.setAttribute('src', GS_PRIVAT_PLATZHALTER);
+      gsPrivatBildUrl(src).then(function (neu) {
+        if (el.getAttribute('data-gs-privat') === src && el.getAttribute('src') === GS_PRIVAT_PLATZHALTER) el.setAttribute('src', neu);
+      });
+    }
+  }
+  var st = el.getAttribute('style');
+  if (st && st.indexOf('/storage/v1/object/') >= 0 && el.getAttribute('data-gs-privat-stil') !== st) {
+    var re = _gsPrivatMuster(true);
+    var treffer = re ? (st.match(re) || []) : [];
+    if (!treffer.length) return;
+    el.setAttribute('data-gs-privat-stil', st);
+    var ohne = st;
+    treffer.forEach(function (t) { ohne = ohne.split(t).join(GS_PRIVAT_PLATZHALTER); });
+    el.setAttribute('style', ohne);
+    Promise.all(treffer.map(gsPrivatBildUrl)).then(function (urls) {
+      if (el.getAttribute('data-gs-privat-stil') !== st) return;
+      var fertig = st;
+      treffer.forEach(function (t, i) { fertig = fertig.split(t).join(urls[i]); });
+      el.setAttribute('style', fertig);
+    });
+  }
+}
+function _gsPrivatPruefe(knoten) {
+  if (!knoten || knoten.nodeType !== 1) return;
+  _gsPrivatTorElement(knoten);
+  if (!knoten.firstElementChild) return;
+  var bilder = knoten.getElementsByTagName('img');
+  for (var i = 0; i < bilder.length; i++) {
+    if ((bilder[i].getAttribute('src') || '').indexOf('/storage/v1/object/') >= 0) _gsPrivatTorElement(bilder[i]);
+  }
+  var stile = knoten.querySelectorAll('[style*="/storage/v1/object/"]');
+  for (var j = 0; j < stile.length; j++) _gsPrivatTorElement(stile[j]);
+}
+(function _gsPrivatTorStarten() {
+  try {
+    if (typeof MutationObserver !== 'function' || !document.documentElement) return;
+    new MutationObserver(function (liste) {
+      for (var i = 0; i < liste.length; i++) {
+        var rec = liste[i];
+        if (rec.type === 'childList') {
+          for (var n = 0; n < rec.addedNodes.length; n++) _gsPrivatPruefe(rec.addedNodes[n]);
+        } else if (rec.type === 'attributes') {
+          _gsPrivatTorElement(rec.target);
+        }
+      }
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'style'] });
+    _gsPrivatPruefe(document.documentElement);
+  } catch (e) { /* ohne Tor bleibt die Original-Adresse — wie vor v33.6x */ }
+})();
+
 function togglePlantCard(id){
   const expand = document.getElementById('expand-' + id);
   const chev   = document.getElementById('chev-' + id);
@@ -73009,6 +73189,8 @@ async function _gsPhotoToB64(src) {
   }
   // Remote-URL (Storage) → fetch → dataURL → base64
   try {
+    // v33.6x: ein privates Foto (scan-images) holt nur eine signierte Adresse
+    if (typeof _gsPrivatPfad === 'function' && _gsPrivatPfad(src)) src = await gsPrivatBildUrl(src);
     var resp = await (typeof _gsFetch === 'function' ? _gsFetch(src, {}, 15000) : fetch(src));
     if (!resp || !resp.ok) return null;
     var blob = await resp.blob();

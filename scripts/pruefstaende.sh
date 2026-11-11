@@ -86,6 +86,8 @@ run risiko       node scripts/risiko_check.js
 run sicherheit   node scripts/sicherheit_check.js
 run edge         node scripts/edge_check.js
 run rls          node scripts/rls_check.js
+#   scanfoto   — zeigt die App ein privates Foto nur signiert? (Playwright + lokales Postgres, seit v33.6x)
+run scanfoto     node scripts/scan_foto_check.js
 # Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
 # stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
 run austausch    node scripts/austausch_check.js
