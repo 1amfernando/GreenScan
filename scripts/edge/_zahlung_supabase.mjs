@@ -96,6 +96,8 @@ function ausfuehren(op) {
   const z = Z();
   z.ops.push(op);
   if (z.fehler && z.fehler[op.table]) return { data: null, error: z.fehler[op.table], count: null };
+  // v33.59 (Brett fe36): ein Fehler nur fuer EINE Operationsart — 'tabelle:select|insert|upsert|update|delete'.
+  if (z.fehler && z.fehler[op.table + ':' + op.art]) return { data: null, error: z.fehler[op.table + ':' + op.art], count: null };
   if (op.art === 'rpc') {
     const f = z.rpc && z.rpc[op.table];
     return f ? f(op.args) : { data: null, error: { code: 'PGRST202', message: 'function not found' } };

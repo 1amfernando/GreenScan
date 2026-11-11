@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+import { constantTimeEquals } from "../_shared/auth_vergleich.mjs";
 import webpush from "npm:web-push@3.6.7";
 import { sendPush, abosAuswaehlen, abarbeiten } from "../_shared/push_helfer.mjs";
 
@@ -49,14 +50,8 @@ async function loadVapid() {
   };
 }
 
-// v30.87: Constant-Time-Vergleich (Muster aus daily-push, dem staerksten
-// Guard im Repo). Verhindert Timing-Rueckschluesse auf den Service-Key.
-function constantTimeEquals(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return mismatch === 0;
-}
+// v33.59 (Brett 4515): der Vergleich kommt aus EINEM Modul (_shared/auth_vergleich.mjs) statt
+// aus einer eigenen Kopie — dort sind zwei leere Werte kein Treffer.
 
 // v30.87: Ersetzt das alte, ungeprüfte `decodeJwt`. Liefert entweder einen
 // nachgewiesenen Service-Aufruf oder eine serverseitig verifizierte User-ID.

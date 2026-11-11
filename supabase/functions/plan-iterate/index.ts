@@ -28,6 +28,8 @@ import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mj
 // (Modellkette; ein Rueckfall darin bucht nichts zusaetzlich — reserviert ist EINMAL) →
 // bei Ablehnung/Netzfehler Freigabe ueber kiFreigabeNoetig.
 import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiToken, kiTor } from "../_shared/ki_tor.mjs";
+// v33.59 (Brett 9d96): stop_reason und Form der Antwort, BEVOR sie den Plan ersetzt.
+import { planAntwortPruefen } from "../_shared/plan_antwort.mjs";
 
 const KI_FN = "plan-iterate";
 // plan: der Satz am Limit haengt vom Plan ab (v33.59 — kein Abo-Angebot an Zahlende).
@@ -168,19 +170,35 @@ Deno.serve(async (req) => {
     }
 
     const anthropicData = await anthropicRes.json();
-    const rawText = anthropicData.content?.[0]?.text || "";
 
-    let newAnalysis: any = null;
-    let changeSummary: string = "";
-    try {
-      const cleaned = rawText.replace(/^```(?:json)?\s*/, "").replace(/\s*```\s*$/, "").trim();
-      newAnalysis = JSON.parse(cleaned);
-      changeSummary = newAnalysis.change_summary || "";
-      delete newAnalysis.change_summary;
-    } catch (parseErr) {
-      console.error("plan-iterate parse", rawText.slice(0, 800));
+    // v26.50: Log usage (nicht-blockierend) — auch wenn die Antwort danach verworfen wird:
+    // der Anbieter hat gerechnet.
+    const nutzungBuchen = async () => {
+      try {
+        await admin.rpc("fn_log_ai_usage", {
+          p_edge_fn: "plan-iterate",
+          // v33.59: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig, vgl. v30.95).
+          p_model: anthropicData?.model || modellKette("vision", modellSecret("vision"))[0],
+          p_tokens_in: anthropicData?.usage?.input_tokens || 0,
+          p_tokens_out: anthropicData?.usage?.output_tokens || 0,
+        });
+      } catch (_) { /* nicht-blockierend */ }
+    };
+
+    // v33.59 (Brett 9d96): abgeschnitten → nichts schreiben, klarer Satz. Die Reservierung
+    // bleibt (kiFreigabeNoetig gilt nur, wenn der Anbieter NICHT gerechnet hat). Und eine
+    // Antwort in falscher Form ersetzt den Plan nie (planAntwortPruefen).
+    const pruef = planAntwortPruefen(anthropicData);
+    if (pruef.zustand !== "ok") {
+      console.error("plan-iterate antwort", pruef.zustand, pruef.grund);
+      await nutzungBuchen();
+      if (pruef.zustand === "abgeschnitten") {
+        return new Response(JSON.stringify({ error: { code: "abgeschnitten", message: "Die Antwort der KI war zu lang und wurde abgeschnitten. Dein Plan ist unverändert — bitte den Wunsch kürzer fassen." } }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       return fehler("parse", 502);
     }
+    const newAnalysis: any = pruef.analyse;
+    const changeSummary: string = pruef.zusammenfassung;
 
     const newIteration = {
       ts: new Date().toISOString(),
@@ -205,16 +223,7 @@ Deno.serve(async (req) => {
       return fehler("db", 500);
     }
 
-    // v26.50: Log usage (fire-and-forget) — Sonnet-Modell
-    try {
-      await admin.rpc("fn_log_ai_usage", {
-        p_edge_fn: "plan-iterate",
-        // v33.59: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig, vgl. v30.95).
-        p_model: anthropicData?.model || modellKette("vision", modellSecret("vision"))[0],
-        p_tokens_in: anthropicData?.usage?.input_tokens || 0,
-        p_tokens_out: anthropicData?.usage?.output_tokens || 0,
-      });
-    } catch (_) { /* nicht-blockierend */ }
+    await nutzungBuchen();
 
     return new Response(JSON.stringify({
       ok: true,

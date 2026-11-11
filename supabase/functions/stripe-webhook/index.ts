@@ -33,7 +33,8 @@ async function getWebhookSecret(): Promise<string | null> {
   const fromEnv = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   if (fromEnv) { cachedWebhookSecret = fromEnv; return fromEnv; }
   try {
-    const { data } = await admin.from("app_settings").select("value").eq("key", "stripe_webhook_secret").maybeSingle();
+    const { data, error } = await admin.from("app_settings").select("value").eq("key", "stripe_webhook_secret").maybeSingle();
+    if (error) console.warn("[webhook] app_settings stripe_webhook_secret lesen fehlgeschlagen", error.message ?? error);
     if (data?.value) { cachedWebhookSecret = data.value; return data.value; }
   } catch (_) {}
   return null;
@@ -216,11 +217,13 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
 // v10-Refinements: expliziter Pre-Check, konservativeres disabled-Mapping.
 async function handleAccountUpdated(account: Stripe.Account) {
   // Pre-Check: existiert ein marketplace_sellers-Eintrag fuer diesen Account?
-  const { data: existing } = await admin
+  // v33.59 (Brett fe36): ein Lesefehler ist kein „unbekanntes Konto" — werfen, Stripe wiederholt.
+  const { data: existing, error: vorErr } = await admin
     .from("marketplace_sellers")
     .select("user_id, status")
     .eq("stripe_account_id", account.id)
     .maybeSingle();
+  if (vorErr) throw new Error("marketplace_sellers lesen: " + (vorErr.message ?? vorErr));
 
   if (!existing) {
     console.warn(`[webhook] account.updated for unknown stripe_account_id=${account.id} — skip`);
@@ -245,7 +248,8 @@ async function handleAccountUpdated(account: Stripe.Account) {
     newStatus = "restricted";
   }
 
-  await admin.from("marketplace_sellers").update({
+  // v33.59 (Brett fe36): Pflicht — der Status entscheidet, ob ein Konto verkaufen darf.
+  pruefe(await admin.from("marketplace_sellers").update({
     status: newStatus,
     charges_enabled: account.charges_enabled ?? false,
     payouts_enabled: account.payouts_enabled ?? false,
@@ -253,7 +257,7 @@ async function handleAccountUpdated(account: Stripe.Account) {
     business_type: account.business_type ?? null,
     requirements: requirements as any,
     updated_at: new Date().toISOString(),
-  }).eq("stripe_account_id", account.id);
+  }).eq("stripe_account_id", account.id), "marketplace_sellers account.updated");
 
   console.log(`[webhook] account.updated ${account.id} → status=${newStatus} charges=${account.charges_enabled} payouts=${account.payouts_enabled}`);
 }
@@ -268,12 +272,13 @@ async function handleAccountDeauthorized(event: Stripe.Event) {
     console.warn("[webhook] account.application.deauthorized without account-id");
     return;
   }
-  await admin.from("marketplace_sellers").update({
+  // v33.59 (Brett fe36): Pflicht — ein getrenntes Konto darf nicht weiter als aktiv gelten.
+  pruefe(await admin.from("marketplace_sellers").update({
     status: "disabled",
     charges_enabled: false,
     payouts_enabled: false,
     updated_at: new Date().toISOString(),
-  }).eq("stripe_account_id", acctId);
+  }).eq("stripe_account_id", acctId), "marketplace_sellers deauthorized");
   console.log(`[webhook] account.application.deauthorized ${acctId} → disabled`);
 }
 
@@ -281,11 +286,12 @@ async function handleAccountDeauthorized(event: Stripe.Event) {
 // Wir erzeugen eine Notification + UPDATE stripe_subscriptions.trial_will_end_notified_at.
 async function handleTrialWillEnd(sub: Stripe.Subscription) {
   const customerId = sub.customer as string;
-  const { data: existing } = await admin
+  const { data: existing, error: lesErr } = await admin
     .from("stripe_subscriptions")
     .select("user_id")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
+  warne({ error: lesErr }, "stripe_subscriptions lesen (trial_will_end)");   // Nebenweg: nur die Erinnerung
   const userId = existing?.user_id;
   if (!userId) {
     console.warn(`[webhook] trial_will_end without user mapping for customer ${customerId}`);
@@ -355,11 +361,12 @@ async function handleChargeDispute(dispute: Stripe.Dispute) {
 // v26.55 — Customer.updated (Email/Address-Sync zu profiles).
 async function handleCustomerUpdated(customer: Stripe.Customer) {
   if (!customer.email) return;
-  const { data: sub } = await admin
+  const { data: sub, error: lesErr } = await admin
     .from("stripe_subscriptions")
     .select("user_id")
     .eq("stripe_customer_id", customer.id)
     .maybeSingle();
+  warne({ error: lesErr }, "stripe_subscriptions lesen (customer.updated)");   // Nebenweg: nur die E-Mail
   if (!sub?.user_id) return;
   // Email aktualisieren — aber NICHT auth.users (das macht der User via Auth-Update).
   // Nur in profiles syncen falls dort separat gehalten.
@@ -389,9 +396,20 @@ Deno.serve(async (req) => {
     return new Response(`Webhook signature verification failed: ${(e as Error).message}`, { status: 400 });
   }
 
-  const { data: existing } = await admin.from("stripe_webhook_events").select("processed_at").eq("id", event.id).maybeSingle();
+  // v33.59 (Brett fe36): Duplikat-Blick und Vorab-Eintrag sind Pflicht. Scheitert einer, ist
+  // weder „schon verarbeitet" noch das spaetere processed_at verlaesslich — 500 VOR jeder
+  // Verbuchung, Stripe stellt erneut zu.
+  const { data: existing, error: dupErr } = await admin.from("stripe_webhook_events").select("processed_at").eq("id", event.id).maybeSingle();
+  if (dupErr) {
+    console.error("[webhook] stripe_webhook_events lesen fehlgeschlagen", dupErr.message ?? dupErr);
+    return new Response(JSON.stringify({ error: "event_store_unavailable" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
   if (existing?.processed_at) return new Response("Already processed", { status: 200 });
-  await admin.from("stripe_webhook_events").upsert({ id: event.id, type: event.type, payload: event as any });
+  const vorab = await admin.from("stripe_webhook_events").upsert({ id: event.id, type: event.type, payload: event as any });
+  if (vorab.error) {
+    console.error("[webhook] stripe_webhook_events eintragen fehlgeschlagen", vorab.error.message ?? vorab.error);
+    return new Response(JSON.stringify({ error: "event_store_unavailable" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
 
   try {
     switch (event.type) {
@@ -456,10 +474,14 @@ Deno.serve(async (req) => {
         }), "audit_log stripe_payment_method_attached");
         break;
     }
-    await admin.from("stripe_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id);
+    // v33.59 (Brett fe36): NACH der Verbuchung ist ein Fehler hier ein Nebenweg — 200, aber laut.
+    // Eine 500 wuerde eine geschehene Verbuchung als gescheitert melden; stellt Stripe trotzdem
+    // erneut zu, ist die Wiederholung idempotent (Upserts auf feste Schluessel, Reihenfolge ueber
+    // gs_stripe_stand — edge_check 70_reste misst es an einem Lifetime-Kauf).
+    warne(await admin.from("stripe_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id), "stripe_webhook_events processed_at");
     return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (e) {
-    await admin.from("stripe_webhook_events").update({ error: String(e) }).eq("id", event.id);
+    warne(await admin.from("stripe_webhook_events").update({ error: String(e) }).eq("id", event.id), "stripe_webhook_events error");
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 });

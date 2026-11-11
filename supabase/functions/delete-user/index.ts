@@ -30,7 +30,7 @@
 import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.7.0";
 import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
-import { USER_TABLES, BUCKETS, loeschSperre, sperreMeldung, speicherRaeumen, aboSperre, aboSperreMeldung } from "../_shared/loeschung_regeln.mjs";
+import { USER_TABLES, BUCKETS, loeschSperre, sperreMeldung, speicherRaeumen, aboSperre, aboSperreMeldung, orgAbfrageSperre } from "../_shared/loeschung_regeln.mjs";
 import { zuKuendigendeAbos } from "../_shared/zahlung_regeln.mjs";
 
 const corsHeaders = {
@@ -95,24 +95,30 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, svcKey);
 
     // 0) Sperre — VOR dem ersten Loeschschritt, damit nie ein halbes Konto bleibt.
-    try {
-      const { data: orgs, error: orgErr } = await admin
-        .from("organizations")
-        .select("id,name")
-        .eq("created_by", targetUid);
-      if (!orgErr) {
-        const sperre = loeschSperre(orgs ?? []);
-        if (sperre.gesperrt) {
-          return json(409, {
-            ok: false,
-            error: sperre.error,
-            organizations: sperre.organizations,
-            message: sperreMeldung(sperre),   // sbFetch reicht nur `message` weiter
-          });
-        }
+    // v33.59 (Brett cde7): nur eine fehlende Tabelle (42P01) heisst „keine Sperre"; jeder
+    // andere Fehler bricht ab (orgAbfrageSperre) — vorher wurde die Sperre still uebersprungen.
+    {
+      let orgs: any[] | null = null, orgErr: any = null;
+      try {
+        const r = await admin.from("organizations").select("id,name").eq("created_by", targetUid);
+        orgs = r.data; orgErr = r.error;
+      } catch (e) {
+        orgErr = { message: (e as Error)?.message ?? String(e) };
       }
-    } catch {
-      // Tabelle fehlt → keine Sperre noetig
+      const pruef = orgAbfrageSperre(orgErr);
+      if (pruef.gesperrt) {
+        console.error("[delete-user] organizations", orgErr?.message ?? orgErr);
+        return json(pruef.status, { ok: false, error: pruef.error, message: pruef.message });
+      }
+      const sperre = loeschSperre(orgErr ? [] : (orgs ?? []));
+      if (sperre.gesperrt) {
+        return json(409, {
+          ok: false,
+          error: sperre.error,
+          organizations: sperre.organizations,
+          message: sperreMeldung(sperre),   // sbFetch reicht nur `message` weiter
+        });
+      }
     }
 
     // 0b) Laufende Stripe-Abos kuendigen — ebenfalls VOR dem ersten Loeschschritt.

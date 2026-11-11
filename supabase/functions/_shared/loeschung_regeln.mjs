@@ -133,6 +133,23 @@ export function loeschSperre(organisationen) {
            organizations: liste.map(o => String(o.name || o.id)) };
 }
 
+// v33.59 (Brett cde7): die Organisations-Abfrage selbst kann scheitern. Nur eine
+// FEHLENDE Tabelle (42P01) heisst „keine Organisation, keine Sperre" — jeder andere
+// Fehler (Netz, Rechte, Zeitlimit) heisst „nicht pruefbar", und dann wird NICHTS
+// geloescht: sonst bleibt bei einem Ersteller wieder ein halbes Konto stehen
+// (RESTRICT greift erst beim letzten Schritt). Dasselbe Muster wie die Abo-Tabelle.
+// Die Meldung ist ein fester Satz — der Rohtext der Datenbank geht nur ins Log. Status 409
+// wie die zwei anderen Sperren: bei 5xx ersetzt die App (_gsFehlerText) jeden Satz durch
+// „Server hat ein Problem", und „es wurde nichts gelöscht" ginge verloren; ≤ 120 Zeichen,
+// sonst kuerzt sie.
+export const ORG_PRUEFUNG_MELDUNG = 'Ob dir eine Organisation gehört, liess sich nicht prüfen. Es wurde nichts gelöscht — bitte später nochmals.';
+export function orgAbfrageSperre(fehler) {
+  if (!fehler) return { gesperrt: false };
+  // 42P01 aus Postgres; PostgREST ab v12 meldet eine fehlende Tabelle als PGRST205 (404).
+  if (fehler.code === '42P01' || fehler.code === 'PGRST205') return { gesperrt: false };
+  return { gesperrt: true, status: 409, error: 'org_pruefung', message: ORG_PRUEFUNG_MELDUNG };
+}
+
 // Aus einer `storage.list(uid)`-Antwort die vollen Pfade zum Entfernen.
 // Ordner-Eintraege (id null) werden uebersprungen — die App legt flach unter
 // `<uid>/<datei>` ab; ein Unterordner waere ein Zeichen, dass jemand die Ablage
