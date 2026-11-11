@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-2816",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "10:28:43",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "erledigt: android/ (14 Dateien), .claude/ und A_Z_AUDIT_FINDINGS_v28.95.json im Wurzelverzeichnis werden ohne noindex ausgeliefert",
+  "ergebnis": "erledigt",
+  "wohin": "v33.59",
+  "geschwister": "gesucht: jedes Verzeichnis und jede Datei im Wurzelverzeichnis (git ls-files, erste Pfadstufe) gegen die noindex-Bloecke in _headers und die Disallow-Zeilen in robots.txt gehalten → 12 Verzeichnisse: 4 Auslieferung mit Grund (assets, data, icons, .well-known), 8 intern mit beidem; neu dazu /android/*, /store-assets/*, /.github/*, /.claude/*. A_Z_AUDIT_FINDINGS_v28.95.json liegt jetzt in docs/_archiv/. Waechter: robust_check Fall „Web-Root“ — ein neues Verzeichnis ohne Block oder ohne Grund macht ihn rot. Weiter NICHT geprueft: ob Cloudflare Pages und Netlify ein Punkt-Verzeichnis ueberhaupt ausliefern",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-e383"
+    }
+  ]
+}

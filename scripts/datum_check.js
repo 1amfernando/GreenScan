@@ -199,6 +199,74 @@ const SEITE = [
     },
   },
   {
+    name: 'T7 · Die Kalenderwoche ist die ISO-Woche: am Mittwoch, 11.11.2026 ist KW 46 — auf der Startseite UND im Planer-Kalender, und am 1. Januar 2027 noch KW 53',
+    lauf: async () => {
+      // v33.59 (Audit datum-5). Gemessen wird das VERHALTEN — gsGetKW() und die
+      // im Planer hervorgehobene Woche — gegen eine eigene ISO-Rechnung (Ordinaltag
+      // und Wochentag, nicht der Donnerstags-Trick der App). Die Uhr wird fuer
+      // jeden Probetag in der Seite gestellt und danach zurueckgegeben.
+      const Echt = Date;
+      const stell = (j, m, t, h) => { const ms = new Echt(j, m - 1, t, h, 0, 0).getTime(); window.Date = class extends Echt { constructor(...a) { if (a.length) super(...a); else super(ms); } static now() { return ms; } }; };
+      const iso = (j, m, t) => {
+        const d = new Echt(Echt.UTC(j, m - 1, t)), wt = d.getUTCDay() || 7;
+        const ord = Math.round((d - new Echt(Echt.UTC(j, 0, 1))) / 864e5) + 1;
+        let w = Math.floor((ord - wt + 10) / 7);
+        const wochen = (y) => { const p = (z) => (z + Math.floor(z / 4) - Math.floor(z / 100) + Math.floor(z / 400)) % 7; return (p(y) === 4 || p(y - 1) === 3) ? 53 : 52; };
+        if (w < 1) w = wochen(j - 1); else if (w > wochen(j)) w = 1;
+        return w;
+      };
+      const tage = [[2026, 11, 9, 8, 'Mo 09.11.2026'], [2026, 11, 11, 0, 'Mi 11.11.2026 00:30'], [2026, 11, 12, 8, 'Do 12.11.2026'], [2026, 3, 29, 12, 'So 29.03.2026 (Zeitumstellung)'], [2026, 12, 31, 8, 'Do 31.12.2026'], [2027, 1, 1, 8, 'Fr 01.01.2027'], [2027, 1, 4, 8, 'Mo 04.01.2027'], [2027, 1, 8, 8, 'Fr 08.01.2027']];
+      const out = [];
+      try {
+        for (const [j, m, t, h, name] of tage) {
+          stell(j, m, t, h);
+          const soll = iso(j, m, t);
+          const kw = gsGetKW();
+          const html = gsBuildPlanCalendar({ weekly_calendar: [soll - 1, soll, soll + 1].filter(w => w >= 1).map(w => ({ week_nr: w, actions: ['Probe ' + w] })) });
+          const d = document.createElement('div'); d.innerHTML = html;
+          const hervor = [...d.querySelectorAll('div')].filter(x => /background:\s*#1b5e20/i.test(x.getAttribute('style') || '')).map(x => parseInt((x.textContent || '').replace(/\D+/g, ' ').trim().split(' ')[0], 10));
+          out.push({ name, soll, kw, planer: hervor });
+        }
+        // KW 53 hat keine eigenen Fakten (die Liste kennt 1–52). Beide Anzeigen der
+        // Startseite muessen dann dieselbe Nachbarwoche nehmen — die davor.
+        stell(2026, 12, 31, 8);
+        const liste = (typeof WEEKLY_SEASONAL_FACTS !== 'undefined') ? WEEKLY_SEASONAL_FACTS : [];
+        var k53 = { hat53: liste.some(f => f.kw === 53), n52: liste.filter(f => f.kw === 52).length };
+        const dt = document.getElementById('daily-title'), ft = document.getElementById('fact-text');
+        const altT = dt ? dt.textContent : null;
+        try { window._dynF = null; gsInitWeekFacts(); } catch (e) { k53.fehlerKarte = e.message; }
+        // Titel kommen in mehreren Wochen vor (Nachbarwochen teilen Texte) — gefragt
+        // wird deshalb die ZUGEHOERIGKEIT: steht die Karte unter den Eintraegen der KW 52?
+        const in52 = (html) => liste.some(x => x.kw === 52 && html.indexOf(x.title) >= 0 && html.indexOf(x.text) >= 0);
+        k53.karten = (window._dynF || []).length;
+        k53.kartenIn52 = (window._dynF || []).filter(in52).length;
+        try { if (typeof initHomeBoard === 'function') initHomeBoard(); } catch (e) { k53.fehlerTag = e.message; }
+        await new Promise(res => setTimeout(res, 50));
+        const titelTag = dt ? dt.textContent.trim() : '';
+        k53.tagTitel = titelTag.slice(0, 60);
+        k53.tagIn52 = !!titelTag && liste.some(x => x.kw === 52 && titelTag.indexOf(x.title) >= 0);
+        k53.tagIn1 = !!titelTag && liste.some(x => x.kw === 1 && titelTag.indexOf(x.title) >= 0);
+        k53.altTitel = altT;
+      } finally { window.Date = Echt; }
+      return { out, k53, uhrZurueck: new Date().getFullYear() === 2026 && new Date().getMonth() === 6 };
+    },
+    urteil: (r) => {
+      if (!r.uhrZurueck) return { ok: false, warum: 'die gestellte Uhr wurde nicht zurueckgegeben — die Faelle danach messen einen anderen Tag' };
+      if (r.out.length !== 8 || r.out[0].soll !== 46 || r.out[4].soll !== 53 || r.out[5].soll !== 53 || r.out[6].soll !== 1) return { ok: false, warum: 'der eigene Massstab stimmt nicht: ' + r.out.map(x => x.name + '→' + x.soll).join(', ') };
+      const f = [];
+      r.out.forEach((x) => {
+        if (x.kw !== x.soll) f.push(x.name + ': gsGetKW() sagt KW ' + x.kw + ', es ist KW ' + x.soll);
+        if (x.planer.length !== 1 || x.planer[0] !== x.soll) f.push(x.name + ': der Planer hebt KW ' + (x.planer.join('+') || 'keine') + ' hervor, es ist KW ' + x.soll);
+      });
+      const k = r.k53 || {};
+      if (k.hat53 || !(k.n52 > 0)) return { ok: false, warum: 'die Faktenliste hat inzwischen eine KW 53 (oder keine KW 52) — der Rueckfall-Teil des Falls misst nichts mehr: ' + JSON.stringify(k).slice(0, 200) };
+      if (!k.karten || k.kartenIn52 !== k.karten) f.push('31.12.2026 (KW 53): von ' + k.karten + ' Fakten-Karten stammen ' + k.kartenIn52 + ' aus der KW 52');
+      if (!k.tagIn52) f.push('31.12.2026 (KW 53): die Tages-Info zeigt „' + k.tagTitel + '" — kein Text der KW 52' + (k.tagIn1 ? ' (sondern einer der KW 1: ein Januar-Text im Dezember)' : ''));
+      if (f.length) return { ok: false, warum: f.slice(0, 6).join(' · ') + (f.length > 6 ? ' · … (' + f.length + ')' : '') };
+      return { ok: true, info: r.out.map(x => x.name.replace(/ \(.*\)/, '') + ' → KW ' + x.kw).join(' · ') + ' · KW 53: Karte und Tages-Info nehmen beide die KW 52 („' + k.tagTitel.slice(0, 30) + '")' };
+    },
+  },
+  {
     name: 'T6 · Der Giess-Banner im Garten beantwortet dieselbe Frage wie „Heute zu tun": er erscheint, nennt genau die heute faelligen Pflanzen — und bleibt weg, wenn nichts faellig ist',
     lauf: async () => {
       const mp0 = JSON.stringify(myPlants), pl0 = JSON.stringify(plantings);
@@ -272,7 +340,7 @@ const SEITE = [
   console.log('  ---');
   console.log('  Faelle geprueft: ' + (SEITE.length + 1) + ' · davon kaputt: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
-  console.log('  Grenze: geprueft sind diese sechs Stellen und der Deckel. Die Faelligkeit ueber die Zeitumstellung');
+  console.log('  Grenze: geprueft sind diese sieben Stellen und der Deckel. Die Faelligkeit ueber die Zeitumstellung');
   console.log('  (29.03. / 25.10.) und zwoelf Tages-Riegel in UTC stehen als offene Punkte in STATUS Sektion 2.');
   process.exitCode = (kaputt || errs.length) ? 1 : 0;
 })();

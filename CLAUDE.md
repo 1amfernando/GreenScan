@@ -882,9 +882,11 @@ Pruefstaende: `statik_check`, `datum_check`, `robust_check` („Zweite Sitzung",
 > jeden, der sich selbst an den `<body>` haengt (Durchgang 3).
 >
 > **5 · Ein Pruefstand, der nie rot werden kann, ist ein Bericht — und das muss
-> dastehen.** `contrast_check` und `render_check` endeten IMMER mit 0; „N unter
-> AA" haette die Suite als gruen gemeldet. Beide urteilen jetzt. Nur
-> `perf_check` und `field_check` sind bewusst Berichte.
+> dastehen.** `contrast_check`, `render_check` und `field_check` endeten IMMER
+> mit 0; „N unter AA" haette die Suite als gruen gemeldet. Alle drei urteilen
+> jetzt (`field_check` mit einer Liste `BEWUSST`: ein gepruefter Verdacht
+> bekommt dort seinen Grund). Nur `perf_check` ist bewusst ein Bericht — und
+> so steht es in seinem Kopf.
 >
 > **6 · Alle Pruefstaende laufen in UTC, die Nutzer nicht.** Ein
 > `toISOString().slice(0, 10)` ist in der Schweiz nachts der Vortag, und in UTC

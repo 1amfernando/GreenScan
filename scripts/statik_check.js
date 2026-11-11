@@ -427,6 +427,137 @@ async function s7() {
   return { ok: true, info: an.funktionen.length + ' Funktionen · ' + an.unaufgeloest.length + ' fremde Namen, alle aus dem Worker-Umfeld · 0 Regeltreffer · kein window/document/localStorage' };
 }
 
+// ── S8 · calc(): ein binaeres + oder − braucht Leerraum auf BEIDEN Seiten ──────
+// v33.59 (Audit „CSS/HTML"). `height:calc(var(--st)+var(--top-h))` ist ungueltig:
+// CSS verlangt Leerraum um + und −. Weil var() darin steht, faellt die
+// Deklaration erst beim Berechnen weg — die Eigenschaft wird `unset`, ohne
+// Meldung. Gemessen in Chromium: die Kopfleiste war 39 statt 56 px hoch, die
+// Bottom-Sheets hatten 0 statt 20 px Fuss, und der Knopf „Rezept hinzufuegen"
+// (`bottom:calc(…)` → auto) stand 10'499 px unter dem Bildschirm — eigene
+// Rezepte liessen sich nie anlegen. Sieben Stellen, alle seit jeher.
+function calcAusdruecke(html) {
+  // CSS-Kommentare NUR in <style>-Bloecken leeren (im Rest der Datei steht `/*`
+  // auch in Zeichenketten — accept="image/*").
+  const text = html.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (m) => m.replace(/\/\*[\s\S]*?\*\//g, (k) => k.replace(/[^\n]/g, ' ')));
+  const aus = [];
+  const re = /\bcalc\(/g; let m;
+  while ((m = re.exec(text))) {
+    let i = m.index + m[0].length, tiefe = 1;
+    for (; i < text.length && tiefe > 0; i++) { const c = text[i]; if (c === '(') tiefe++; else if (c === ')') tiefe--; else if (c === '\n' && i - m.index > 400) break; }
+    if (tiefe !== 0) continue;
+    const rumpf = text.slice(m.index + m[0].length, i - 1);
+    const zeile = text.slice(0, m.index).split('\n').length;
+    aus.push({ rumpf, zeile, zusammengesetzt: /['"`]|\$\{/.test(rumpf) });
+  }
+  return aus;
+}
+function calcFehler(rumpf) {
+  // var(--x) / env(safe-area-inset-top) tragen Bindestriche, die keine Operatoren sind.
+  let t = rumpf;
+  for (let i = 0; i < 6; i++) t = t.replace(/\b(?:var|env|constant)\(\s*[A-Za-z0-9_-]+(?:\s*,[^()]*)?\s*\)/g, '§');
+  const f = [];
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c !== '+' && c !== '-') continue;
+    const vor = t.slice(0, i), vorZ = vor.slice(-1), nachZ = t[i + 1] || '';
+    const letzter = vor.replace(/\s+$/, '').slice(-1);
+    if (letzter === '' || /[(,*/+-]/.test(letzter)) continue;          // Vorzeichen, kein Operator
+    if (/[0-9]e$/i.test(vor) && /[0-9]/.test(nachZ)) continue;            // 1e-3
+    const links = /(?:[0-9.]+[a-z%]*|\)|§)$/i.test(vor), rechts = /[0-9.(§]/.test(nachZ);
+    if (c === '-' && !/\s/.test(vorZ) && !(links && rechts)) continue;     // Bindestrich in einem Namen (min-content)
+    if (/\s/.test(vorZ) && /\s/.test(nachZ)) continue;                     // sauber
+    if (c === '-' && /\s/.test(vorZ) && !/\s/.test(nachZ) && !rechts) continue;
+    f.push('„' + c + '" ohne Leerraum');
+  }
+  return f;
+}
+async function s8() {
+  const klagen = []; let n = 0, dyn = 0;
+  for (const seite of ['index.html', 'install.html', 'offline.html', 'privacy.html']) {
+    const p = path.join(WURZEL, seite);
+    if (!fs.existsSync(p)) continue;
+    for (const a of calcAusdruecke(fs.readFileSync(p, 'utf8'))) {
+      if (a.zusammengesetzt) { dyn++; continue; }
+      n++;
+      const f = calcFehler(a.rumpf);
+      if (f.length) klagen.push(seite + ' Z. ' + a.zeile + ': calc(' + a.rumpf.replace(/\s+/g, ' ').slice(0, 60) + ') — ' + f[0]);
+    }
+  }
+  if (n < 25) return { ok: false, warum: 'nur ' + n + ' calc()-Ausdruecke gefunden — der Fall misst offenbar etwas anderes' };
+  // Die Regel selbst, in beide Richtungen (ein Pruefer, der alles durchlaesst, waere auch gruen):
+  const gut = ['var(--st) + var(--top-h)', '100% - 20px', '-1 * var(--x)', 'var(--sb) + 20px', '100vh - env(safe-area-inset-top)', '(100% - 2 * var(--pad)) / 3', '50% + -4px', 'min-content'];
+  const schlecht = ['var(--st)+var(--top-h)', 'var(--sb)+20px', '100%-20px', 'var(--a) +var(--b)', '10px+ 5px', 'var(--sb)+var(--tab-h)+14px'];
+  const g = gut.filter(x => calcFehler(x).length), b = schlecht.filter(x => !calcFehler(x).length);
+  if (g.length || b.length) return { ok: false, warum: 'die Regel irrt sich: ' + (g.length ? 'gueltig gemeldet als falsch: ' + g.join(' | ') : '') + (b.length ? ' ungueltig durchgelassen: ' + b.join(' | ') : '') };
+  if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · … (' + klagen.length + ')' : '') };
+  return { ok: true, info: n + ' calc()-Ausdruecke in vier Seiten, jeder mit Leerraum um + und − · ' + dyn + ' in JS zusammengesetzt (nicht pruefbar) · Regel gegen ' + gut.length + ' gueltige und ' + schlecht.length + ' ungueltige Formen gehalten' };
+}
+
+// ── S9 · Stapel: jedes statische Tag wird geschlossen ──────────────────────────
+// v33.59 (Audit „CSS/HTML"). `<div id="app">` wurde nie geschlossen — der Browser
+// tut es bei </body>, also sah man nichts. Die Folge war strukturell: rund 70
+// statische Fenster sind damit Nachfahren von #app und verschwinden mit
+// `html.gs-preauth #app{display:none!important}` — daran hingen die Rechtstexte
+// auf dem Anmeldebildschirm (robust_check „Rechtstexte vor der Anmeldung").
+function stapelPruefung(src) {
+  const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+  const ROH = new Set(['script', 'style', 'textarea', 'title']);
+  const OPTIONAL = ['p', 'li', 'option', 'tr', 'td', 'th', 'tbody', 'thead', 'dd', 'dt'];
+  const SVG_LEER = ['path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'use', 'stop', 'fegaussianblur', 'animate', 'animatetransform', 'feoffset', 'feblend', 'fecolormatrix', 'femergenode'];
+  const n = src.length, stapel = [], klagen = [];
+  let i = 0, zeile = 1, tags = 0;
+  const vor = (bis) => { for (; i < bis; i++) if (src.charCodeAt(i) === 10) zeile++; };
+  while (i < n) {
+    const lt = src.indexOf('<', i); if (lt < 0) break; vor(lt);
+    if (src.startsWith('<!--', i)) { const e = src.indexOf('-->', i + 4); vor(e < 0 ? n : e + 3); continue; }
+    if (src.startsWith('<!', i)) { const e = src.indexOf('>', i); vor(e < 0 ? n : e + 1); continue; }
+    const m = /^<(\/?)([a-zA-Z][a-zA-Z0-9-]*)/.exec(src.slice(i, i + 80));
+    if (!m) { vor(i + 1); continue; }
+    const zu = m[1] === '/', tag = m[2].toLowerCase(), z0 = zeile;
+    let j = i + m[0].length, q = null;
+    for (; j < n; j++) { const c = src[j]; if (q) { if (c === q) q = null; } else if (c === '"' || c === "'") q = c; else if (c === '>') break; }
+    const tagText = src.slice(i, j + 1);
+    vor(j + 1); tags++;
+    if (zu) {
+      let k = stapel.length - 1; while (k >= 0 && stapel[k].tag !== tag) k--;
+      if (k < 0) { klagen.push('ueberzaehliges </' + tag + '> Z. ' + z0); continue; }
+      const dazwischen = stapel.slice(k + 1).filter(x => !OPTIONAL.includes(x.tag));
+      if (dazwischen.length) klagen.push('</' + tag + '> Z. ' + z0 + ' schliesst ueber offene: ' + dazwischen.map(x => x.tag + (x.id ? '#' + x.id : '') + ' (Z. ' + x.zeile + ')').join(', '));
+      stapel.length = k;
+      continue;
+    }
+    const idm = /\sid=["']([^"']+)["']/.exec(tagText);
+    const selbst = /\/>$/.test(tagText);
+    if (VOID.has(tag) || (selbst && SVG_LEER.includes(tag))) continue;
+    if (selbst && stapel.some(x => x.tag === 'svg')) continue;
+    if (ROH.has(tag)) {
+      const mm = new RegExp('</' + tag + '\\s*>', 'i').exec(src.slice(i));
+      if (!mm) { klagen.push('offenes <' + tag + '> Z. ' + z0); break; }
+      vor(i + mm.index + mm[0].length); continue;
+    }
+    stapel.push({ tag, zeile: z0, id: idm ? idm[1] : null });
+  }
+  stapel.filter(x => !OPTIONAL.includes(x.tag)).forEach(x => klagen.push('nie geschlossen: <' + x.tag + (x.id ? ' id="' + x.id + '"' : '') + '> Z. ' + x.zeile));
+  return { klagen, tags };
+}
+async function s9() {
+  const klagen = []; let tags = 0;
+  for (const seite of ['index.html', 'install.html', 'offline.html', 'privacy.html']) {
+    const p = path.join(WURZEL, seite);
+    if (!fs.existsSync(p)) continue;
+    const r = stapelPruefung(fs.readFileSync(p, 'utf8'));
+    tags += r.tags;
+    if (seite === 'index.html' && r.tags < 3000) klagen.push('index.html: nur ' + r.tags + ' Tags gelesen — der Fall misst offenbar etwas anderes');
+    r.klagen.forEach(k => klagen.push(seite + ': ' + k));
+  }
+  // Gegenrichtung: die Pruefung muss ein fehlendes </div> SEHEN.
+  const probe = stapelPruefung('<html><body><div id="a"><p>x<div id="b"></div></body></html>');
+  if (!probe.klagen.some(k => /div#a/.test(k))) klagen.push('die Pruefung selbst sieht ein offenes <div id="a"> nicht (' + JSON.stringify(probe.klagen) + ')');
+  if (stapelPruefung('<html><body><div><ul><li>a<li>b</ul><p>x</div></body></html>').klagen.length) klagen.push('die Pruefung meldet erlaubte ausgelassene End-Tags (li, p) als Fehler');
+  if (klagen.length) return { ok: false, warum: klagen.slice(0, 6).join(' · ') + (klagen.length > 6 ? ' · … (' + klagen.length + ')' : '') };
+  return { ok: true, info: tags + ' statische Tags in vier Seiten, jedes geschlossen (ausgelassene End-Tags von p, li, td … sind erlaubt) · ein offenes <div> in einer Probe wird gemeldet' };
+}
+
 const FAELLE = [
   { name: 'S0 · Alles parst — jedes Inline-Skript einzeln, sw.js, die Datendateien, die kleinen Seiten, jeder Prüfstand', lauf: s0 },
   { name: 'S1 · Keine Funktion ist zweimal deklariert (die spätere gewönne still, für alle Aufrufer)', lauf: s1 },
@@ -436,6 +567,8 @@ const FAELLE = [
   { name: 'S5 · Keine Funktion, deren einzige weitere Nennungen im eigenen Rumpf stehen (ein Selbstaufruf ist kein Aufrufer)', lauf: s5 },
   { name: 'S6 · Jede benutzte CSS-Variable ist definiert — sonst ist der Rückfall eine feste Farbe, die im Dunkelmodus nicht kippt', lauf: s6 },
   { name: 'S7 · sw.js: dieselben Regeln mit den Namen eines Service Workers — und kein window, document, localStorage', lauf: s7 },
+  { name: 'S8 · calc(): jedes + und − hat Leerraum auf beiden Seiten — sonst ist der Ausdruck ungültig und die Eigenschaft fällt still weg', lauf: s8 },
+  { name: 'S9 · Stapel: jedes statische Tag wird geschlossen — ein offenes <div> macht alles dahinter zu seinem Nachfahren', lauf: s9 },
 ];
 
 (async () => {

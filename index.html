@@ -429,7 +429,7 @@ body{height:100%;background:var(--g-bg);color:var(--text);font-family:"DM Sans",
 
 .topbar{
   position:fixed;top:0;left:0;right:0;
-  height:calc(var(--st)+var(--top-h));
+  height:calc(var(--st) + var(--top-h));   /* v33.59: ohne Leerraum um das Plus ist calc() UNGUELTIG — die Leiste war 39 statt 56 px hoch (statik_check S8) */
   padding-top:var(--st);
   /* v31.43 — Die Kopfleiste war in BEIDEN Modi dunkelgruen (--fill-dark) und
      stand damit als letztes dunkles Element gegen die inzwischen durchgehend
@@ -459,7 +459,7 @@ body{height:100%;background:var(--g-bg);color:var(--text);font-family:"DM Sans",
    mit dem Modus mit: weiss im Hellmodus, dunkel im Dunkelmodus. Damit fallen
    auch die festen Beschriftungsfarben aus v31.27 weg — die waren noetig, WEIL
    die Flaeche nicht mitkippte. */
-.tabs{ position:fixed; bottom:0; left:0; right:0; height:calc(var(--sb)+var(--tab-h)); background:var(--card); border-top:1px solid var(--border); display:flex; z-index:var(--z-overlay); box-shadow:0 -2px 12px rgba(0,0,0,.06); }
+.tabs{ position:fixed; bottom:0; left:0; right:0; height:calc(var(--sb) + var(--tab-h)); background:var(--card); border-top:1px solid var(--border); display:flex; z-index:var(--z-overlay); box-shadow:0 -2px 12px rgba(0,0,0,.06); }
 /* v31.28 — Gartenwetter als ruhige Karte. Der alte blaue Verlauf war das
    lauteste Element der Startseite und in beiden Modi derselbe harte Block;
    auf der warmen Creme-Flaeche wirkte er wie ein Fremdkoerper. Gleiches
@@ -1091,7 +1091,7 @@ input[type=range].gs-regler::-moz-range-thumb {
 
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:var(--z-modal);display:none;align-items:flex-end;}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--card);border-radius:var(--r-xl) var(--r-xl) 0 0;width:100%;max-height:90vh;max-height:90dvh;overflow-y:auto;padding-bottom:calc(var(--sb)+20px);}
+.modal{background:var(--card);border-radius:var(--r-xl) var(--r-xl) 0 0;width:100%;max-height:90vh;max-height:90dvh;overflow-y:auto;padding-bottom:calc(var(--sb) + 20px);}
 /* v29.35: smoothere Modal-Übergänge (Öffnen + Schliessen). Nur GPU-Properties (opacity/
    transform) → kein Layout-Reflow. gs-closing hält display:flex während des Fade-out
    (closeModal entfernt .open sofort für die Logik, verzögert display:none um 200ms).
@@ -1185,7 +1185,7 @@ details > summary::marker { content: ''; }
 
 .menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;opacity:0;transition:opacity var(--dur-slow);}
 .menu-overlay.open{display:flex;align-items:flex-end;opacity:1;overscroll-behavior:contain;}
-.menu-panel{background:var(--card);border-radius:28px 28px 0 0;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--sb)+16px);transform:translateY(100%);transition:transform var(--dur-slow) cubic-bezier(.34,1.3,.64,1);overscroll-behavior:contain;}
+.menu-panel{background:var(--card);border-radius:28px 28px 0 0;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--sb) + 16px);transform:translateY(100%);transition:transform var(--dur-slow) cubic-bezier(.34,1.3,.64,1);overscroll-behavior:contain;}
 .menu-overlay.open .menu-panel{transform:translateY(0);}
 .menu-handle{width:40px;height:4px;background:#ddd;border-radius:var(--r-xs);margin:14px auto 6px;}
 .menu-title{font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:800;color:var(--g-dark);padding:4px 20px 14px;text-align:center;}
@@ -1356,7 +1356,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .post-type-pick-btn{display:flex;align-items:center;gap:13px;width:100%;padding:13px 15px;border:none;border-radius:var(--r-lg);cursor:pointer;text-align:left;font-family:inherit;transition:var(--dur);}
 .post-type-pick-btn:active{transform:scale(.97);filter:brightness(.95);}
 
-.new-post-btn{position:fixed;bottom:calc(var(--sb)+var(--tab-h)+16px);right:18px;width:56px;height:56px;background:linear-gradient(135deg,#43a047,var(--g-main));border:none;border-radius:50%;color:#fff;font-size:var(--fs-3xl);cursor:pointer;box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);z-index:90;display:flex;align-items:center;justify-content:center;transition:var(--dur);animation:fab-pulse 2.5s infinite;}
+.new-post-btn{position:fixed;bottom:calc(var(--sb) + var(--tab-h) + 16px);right:18px;width:56px;height:56px;background:linear-gradient(135deg,#43a047,var(--g-main));border:none;border-radius:50%;color:#fff;font-size:var(--fs-3xl);cursor:pointer;box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);z-index:90;display:flex;align-items:center;justify-content:center;transition:var(--dur);animation:fab-pulse 2.5s infinite;}
 .new-post-btn:active{transform:scale(.88);}
 @keyframes fab-pulse{0%,100%{box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);}50%{box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 8px rgba(45,138,45,.0);}}
 
@@ -1454,7 +1454,7 @@ body.dark #screen-recipes .recipe-card-img{background:linear-gradient(135deg,#3a
 /* Heilmittel-Card-Image: sanft-lila */
 #screen-remedies .recipe-card-img{background:linear-gradient(135deg,#f3e5f5,#e1bee7);}
 body.dark #screen-remedies .recipe-card-img{background:linear-gradient(135deg,#311b92,#1a237e);}
-.recipe-fab{position:fixed;bottom:calc(var(--sb)+var(--tab-h)+14px);right:16px;width:52px;height:52px;border:none;border-radius:50%;color:#fff;font-size:var(--fs-3xl);cursor:pointer;box-shadow:var(--elev-2);z-index:90;display:flex;align-items:center;justify-content:center;transition:var(--dur);}
+.recipe-fab{position:fixed;bottom:calc(var(--sb) + var(--tab-h) + 14px);right:16px;width:52px;height:52px;border:none;border-radius:50%;color:#fff;font-size:var(--fs-3xl);cursor:pointer;box-shadow:var(--elev-2);z-index:90;display:flex;align-items:center;justify-content:center;transition:var(--dur);}
 .recipe-fab:active{transform:scale(.92);}
 .recipe-step{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f0;}
 .recipe-step:last-child{border-bottom:none;}
@@ -1486,7 +1486,7 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .mkt-chat-msg-name{font-size:var(--fs-xs);font-weight:700;opacity:.7;margin-bottom:3px;}
 .mkt-chat-msg-time{font-size:var(--fs-xs);opacity:.6;margin-top:3px;text-align:right;}
 .mkt-chat-input-bar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #f0f0f0;background:var(--card);position:sticky;bottom:0;}
-.market-notif{position:fixed;top:calc(var(--st)+var(--top-h)+8px);left:50%;transform:translateX(-50%);background:#1b5e20;color:#fff;padding:10px 18px;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;z-index:500;box-shadow:var(--elev-3);max-width:90vw;text-align:center;animation:slideDown .3s ease;}
+.market-notif{position:fixed;top:calc(var(--st) + var(--top-h) + 8px);left:50%;transform:translateX(-50%);background:#1b5e20;color:#fff;padding:10px 18px;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;z-index:500;box-shadow:var(--elev-3);max-width:90vw;text-align:center;animation:slideDown .3s ease;}
 @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .purchases-list{padding:10px 16px 24px;}
 .purchase-card{background:var(--card);border-radius:var(--r-md);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-sm);display:flex;gap:10px;align-items:center;}
@@ -23521,7 +23521,39 @@ const WEEKLY_SEASONAL_FACTS = [
   {kw:52,emoji:'💧',title:'Winterlichkeit und Wasser',text:'Zufrierender Seen: Bodensee gefriert selten (zuletzt 1963). Klimawandel macht das fast unmöglich.',fact:'💡 Der Bodensee (Seegfrörni) ist eingefroren wenn -13°C über 2 Wochen anhalten. Das passiert kaum noch.',cat:'wissen'},
 ];
 
-function gsGetKW(){var n=new Date(),s=new Date(n.getFullYear(),0,1),d=n-s;return Math.max(1,Math.ceil(d/(7*24*60*60*1000)));}
+// v33.59: die Kalenderwoche nach ISO 8601 — Montag bis Sonntag, KW 1 ist die
+// Woche mit dem ersten Donnerstag des Jahres. Vorher gab es ZWEI Rechnungen
+// (hier und im Planer-Kalender), beide zaehlten Sieben-Tage-Bloecke ab dem
+// 1. Januar. Das stimmt nur in Jahren, die an einem Montag beginnen: 2026
+// (1. Januar = Donnerstag) lag die Woche von Montag bis Mittwoch um eins
+// zurueck — am Mittwoch, 11.11.2026 zeigte die Startseite die Fakten der KW 45
+// und der Planer hob KW 45 hervor; es war KW 46. Die Wochen eines KI-Plans
+// (`week_nr`) und die 52 Wochen der Fakten sind Kalenderwochen. Gerechnet wird
+// am Kalendertag als UTC-Datum — ohne Sommerzeit-Stunde. (datum_check T7)
+function gsIsoKW(d) {
+  var x = (d instanceof Date && !isNaN(d.getTime())) ? d : new Date();
+  var t = new Date(Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));          // der Donnerstag dieser Woche
+  var j1 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t - j1) / 86400000 + 1) / 7);
+}
+function gsGetKW(){ return gsIsoKW(); }
+// v33.59: die Fakten EINER Kalenderwoche — mit EINEM Rueckfall. Die Liste kennt
+// KW 1 bis 52; die ISO-Woche 53 (2026: 28.12. bis 03.01.) hat keinen Eintrag.
+// Die Fakten-Karte suchte dann die Nachbarwochen ab (→ KW 52), die Tages-Info
+// auf derselben Startseite nahm die ersten zehn Eintraege der Datei — das sind
+// die Januar-Texte der KW 1 („Im Januar schlafen die meisten Pflanzen"). Zwei
+// Anzeigen derselben Liste, zwei Rueckfaelle. (datum_check T7)
+function _gsWochenFakten(kw) {
+  var facts = (typeof WEEKLY_SEASONAL_FACTS !== 'undefined' && WEEKLY_SEASONAL_FACTS && WEEKLY_SEASONAL_FACTS.length) ? WEEKLY_SEASONAL_FACTS : (window.WEEKLY_SEASONAL_FACTS || []);
+  if (!facts.length) return [];
+  var w = facts.filter(function(f) { return f.kw === kw; });
+  for (var d = 1; !w.length && d <= 5; d++) {
+    w = facts.filter(function(f) { return f.kw === kw - d; });           // zuerst die Woche DAVOR: KW 53 gehoert zum Dezember
+    if (!w.length) w = facts.filter(function(f) { return f.kw === kw + d; });
+  }
+  return w.length ? w : facts.slice(0, 10);
+}
 function gsInitWeekFacts() {
   try {
     var facts = (typeof WEEKLY_SEASONAL_FACTS !== 'undefined' && WEEKLY_SEASONAL_FACTS.length) ? WEEKLY_SEASONAL_FACTS : (window.WEEKLY_SEASONAL_FACTS || []);
@@ -23532,15 +23564,8 @@ function gsInitWeekFacts() {
       setTimeout(gsInitWeekFacts, 500);
       return;
     }
-    var kw = (typeof gsGetKW === 'function') ? gsGetKW() : 1;
-    var weekFacts = facts.filter(function(f) { return f.kw === kw; });
-    if (!weekFacts.length) {
-      for (var d = 1; d <= 5; d++) {
-        weekFacts = facts.filter(function(f){ return f.kw === kw-d || f.kw === kw+d; });
-        if (weekFacts.length) break;
-      }
-    }
-    if (!weekFacts.length) weekFacts = facts.slice(0, 10);
+    var kw = gsGetKW();
+    var weekFacts = _gsWochenFakten(kw);   // v33.59: ein Rueckfall fuer beide Anzeigen
     // Deterministisch mischen
     var arr = weekFacts.slice(), seed = kw * 1337;
     for (var i = arr.length-1; i > 0; i--) {
@@ -25099,10 +25124,9 @@ function initHomeBoard() {
       try {
         var facts = (typeof WEEKLY_SEASONAL_FACTS !== 'undefined') ? WEEKLY_SEASONAL_FACTS : (window.WEEKLY_SEASONAL_FACTS || []);
         if (!facts || !facts.length) return _dailyFallback();
-        var kw = (typeof gsGetKW === 'function') ? gsGetKW() : Math.ceil(((now - new Date(now.getFullYear(),0,1))/(7*86400000)));
+        var kw = gsGetKW();   // v33.59: der Rueckfall daneben war eine dritte Kopie der alten Rechnung — gsGetKW gibt es immer
         var dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
-        var weekFacts = facts.filter(function(f) { return f.kw === kw; });
-        if (!weekFacts.length) weekFacts = facts.slice(0, 10);
+        var weekFacts = _gsWochenFakten(kw);   // v33.59: derselbe Rueckfall wie die Fakten-Karte (KW 53 → KW 52, nicht die Januar-Texte)
         var info = weekFacts[dayOfYear % weekFacts.length];
         if (!info) return _dailyFallback();
         var titleEl = document.getElementById('daily-title');
@@ -70350,7 +70374,7 @@ function gsBuildPlanCalendar(analysis){
   if (!Array.isArray(wc) || !wc.length) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:var(--fs-sm);">Kein Wochen-Kalender in diesem Plan (älterer Plan?).</div>';
   var weeks = wc.filter(function(w){ return w && Array.isArray(w.actions) && w.actions.length; }).sort(function(a,b){ return (a.week_nr||0)-(b.week_nr||0); });
   if (!weeks.length) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:var(--fs-sm);">Keine geplanten Aktionen.</div>';
-  var now = new Date(), soy = new Date(now.getFullYear(),0,1), curWeek = Math.ceil((Math.floor((now - soy)/86400000)+1)/7);
+  var curWeek = gsIsoKW();   // v33.59: EINE Kalenderwoche (ISO) — vorher eine eigene Rechnung, Montag bis Mittwoch eine Woche zurueck
   var out = '<div style="padding:4px 0;"><div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px;">📅 ' + weeks.length + ' aktive Wochen · 🥕 Wurzel · 🥬 Blatt · 🌸 Blüte · 🍅 Frucht</div>';
   out += weeks.map(function(w){
     var lm = _gsPlanLunarMeta(w.lunar_focus), isCur = (w.week_nr === curWeek);
@@ -94009,12 +94033,17 @@ if (typeof window.gsGoBack !== 'function') {
 <!-- ─── SCAN-CHAT MODAL ──────────────────────────────────── -->
 <div class="modal-overlay" id="scan-chat-modal" style="z-index:4500;" onclick="if(event.target===this)closeScanChat()">
   <div class="modal" style="max-width:440px;height:80vh;display:flex;flex-direction:column;">
-    <div class="modal-header" style="flex-shrink:0;">
+    <!-- v33.59 (Audit „CSS/HTML"): fuer .modal-header und .modal-close gibt es keine
+         CSS-Regel — der Kopf stand ohne Innenabstand da, das ✕ als nackter Knopf
+         in einer eigenen Zeile links UNTER dem Titel, im Dunkelmodus als heller Fleck
+         (schwarz auf Hellgrau). Der Kopf traegt seinen Abstand jetzt selbst und ist der
+         Bezug (position:relative) fuer den ueblichen .modal-close-btn rechts oben. -->
+    <div class="modal-header" style="flex-shrink:0;position:relative;padding:14px 64px 12px 16px;border-bottom:1px solid var(--border);">
       <div>
         <div class="modal-title" data-i18n="modal_ki_expert_title" data-i18n-fallback="🤖 KI-Experte befragen">🤖 KI-Experte befragen</div>
         <div style="font-size:var(--fs-sm);color:var(--muted);" id="scan-chat-subtitle">Über die identifizierte Art</div>
       </div>
-      <button class="modal-close" onclick="closeScanChat()">✕</button>
+      <button class="modal-close-btn" aria-label="Schliessen" onclick="closeScanChat()">✕</button>
     </div>
     <div id="scan-chat-log" style="flex:1;overflow-y:auto;padding:14px;background:var(--surface);"></div>
     <div style="padding:10px 12px;border-top:1px solid var(--border);background:var(--surface2);display:flex;gap:8px;flex-shrink:0;">
@@ -94051,33 +94080,6 @@ if (typeof window.gsGoBack !== 'function') {
     </div>
     <div style="padding:10px 18px 18px;">
       <button onclick="initQuizModal()" style="width:100%;padding:11px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:var(--r-md);color:#fff;font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">➡️ Nächste Frage</button>
-    </div>
-  </div>
-</div>
-
-<!-- ─── SUPABASE SCHEMA MODAL ─────────────────────────────── -->
-<div class="modal-overlay" id="supabase-schema-modal" style="z-index:4900;" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal" style="max-width:500px;">
-    <div class="modal-header">
-      <div class="modal-title">📋 Supabase SQL-Schema</div>
-      <button class="modal-close" onclick="document.getElementById('supabase-schema-modal').classList.remove('open')">✕</button>
-    </div>
-    <div style="padding:12px;font-size:var(--fs-sm);overflow-y:auto;max-height:60vh;">
-      <p style="color:var(--muted);margin-bottom:8px;">Führe dieses SQL in deinem Supabase SQL Editor aus:</p>
-      <pre style="background:var(--surface2);padding:12px;border-radius:var(--r-sm);font-size:var(--fs-xs);overflow-x:auto;white-space:pre;border:1px solid var(--border);">CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  display_name TEXT, avatar_emoji TEXT DEFAULT '🌿',
-  xp INTEGER DEFAULT 0, login_streak INTEGER DEFAULT 0,
-  longest_streak INTEGER DEFAULT 0, last_login_date TEXT,
-  total_logins INTEGER DEFAULT 0, max_level_reached INTEGER DEFAULT 1,
-  milestones TEXT[] DEFAULT '{}', stats JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
-);
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "sel" ON profiles FOR SELECT TO authenticated USING (auth.uid()=id);
-CREATE POLICY "ins" ON profiles FOR INSERT TO authenticated WITH CHECK (auth.uid()=id);
-CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id);</pre>
-      <button onclick="navigator.clipboard&&navigator.clipboard.writeText(document.querySelector('#supabase-schema-modal pre').textContent).then(function(){gsToast('Kopiert!', 'success')})" style="margin-top:8px;padding:7px 14px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);cursor:pointer;font-size:var(--fs-sm);font-family:inherit;">📋 Kopieren</button>
     </div>
   </div>
 </div>
@@ -97040,5 +97042,6 @@ window._gsTPloadSaved = async function(payload){
 })();
 </script>
 
+</div><!-- /#app — v33.59: das <div id="app"> wurde nie geschlossen; der Browser tat es hier still (statik_check S9). Das DOM bleibt dasselbe. -->
 </body>
 </html>

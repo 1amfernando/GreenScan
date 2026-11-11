@@ -1259,6 +1259,62 @@ const FAELLE = [
     },
   },
   {
+    name: 'Web-Root · jedes Verzeichnis und jede Datei im Wurzelverzeichnis ist entweder Auslieferung (mit Grund) oder traegt noindex in _headers UND Disallow in robots.txt',
+    lauf: async () => {
+      // v33.59 (brett:2026-11-11-e383). Der Web-Root IST das Repo (kein Build).
+      // Seit v32.69 tragen docs/, supabase/, scripts/ und store/ `noindex` — eine
+      // Liste, die niemand nachzog: android/ (v33.49), store-assets/, .claude/
+      // und .github/ kamen ohne Block dazu, und im Wurzelverzeichnis lag eine
+      // interne Audit-Datei als JSON, die `/*.md` nicht erfasst. Dieser Fall
+      // haelt das Wurzelverzeichnis gegen zwei Listen: was die App braucht
+      // (mit Grund), und was `_headers` UND `robots.txt` fernhalten.
+      const wurzel = path.resolve(__dirname, '..');
+      const OEFFENTLICH = {
+        'assets': 'Leaflet, Three.js und Schriften — index.html laedt sie',
+        'data': 'Artenliste und Changelog-Archiv',
+        'icons': 'PWA-Icons aus manifest.json',
+        '.well-known': 'assetlinks.json — die Android-App weist sich damit aus',
+      };
+      const DATEI_OEFFENTLICH = /^(index\.html|install\.html|offline\.html|privacy\.html|manifest\.json|sw\.js|robots\.txt|sitemap\.xml|_headers|_redirects|favicon\.ico|favicon-\d+\.png|apple-touch-icon\.png)$/;
+      const OHNE_BELANG = { '.gitignore': 'eine Liste von Dateinamen, kein Inhalt' };
+      let eintraege;
+      try {
+        const aus = require('child_process').execFileSync('git', ['ls-files'], { cwd: wurzel, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
+        eintraege = [...new Set(aus.split('\n').filter(Boolean).map(z => z.split('/')[0] + (z.includes('/') ? '/' : '')))];
+      } catch (_) {
+        eintraege = fs.readdirSync(wurzel, { withFileTypes: true }).filter(d => d.name !== '.git' && d.name !== 'node_modules').map(d => d.name + (d.isDirectory() ? '/' : ''));
+      }
+      if (eintraege.length < 20) return { ok: false, warum: 'nur ' + eintraege.length + ' Eintraege im Wurzelverzeichnis gefunden — der Fall misst offenbar etwas anderes' };
+      const kopf = fs.readFileSync(path.join(wurzel, '_headers'), 'utf8').split('\n');
+      const noindex = new Set();
+      for (let i = 0; i < kopf.length; i++) {
+        if (!/^\//.test(kopf[i])) continue;
+        for (let j = i + 1; j < kopf.length && /^\s+\S/.test(kopf[j]); j++) if (/X-Robots-Tag:\s*noindex/i.test(kopf[j])) noindex.add(kopf[i].trim());
+      }
+      const robots = fs.readFileSync(path.join(wurzel, 'robots.txt'), 'utf8');
+      const ab = robots.lastIndexOf('User-agent: *');
+      const sperren = new Set([...robots.slice(ab).matchAll(/^Disallow:\s*(\S+)/gm)].map(m => m[1]));
+      const f = []; let dirs = 0, intern = 0;
+      eintraege.forEach((e) => {
+        if (e.endsWith('/')) {
+          dirs++;
+          const d = e.slice(0, -1);
+          if (OEFFENTLICH[d]) return;
+          intern++;
+          if (!noindex.has('/' + d + '/*')) f.push(d + '/ hat keinen noindex-Block in _headers (und steht nicht mit Grund in OEFFENTLICH)');
+          if (!sperren.has('/' + d + '/')) f.push(d + '/ fehlt als Disallow in robots.txt');
+        } else {
+          if (DATEI_OEFFENTLICH.test(e) || OHNE_BELANG[e]) return;
+          const end = (e.match(/\.[A-Za-z0-9]+$/) || [''])[0];
+          if (!end || !noindex.has('/*' + end) || !sperren.has('/*' + end + '$')) f.push('Datei ' + e + ' im Wurzelverzeichnis: weder Auslieferung noch von einem Muster in _headers UND robots.txt erfasst — interne Dateien gehoeren nach docs/');
+        }
+      });
+      Object.keys(OEFFENTLICH).forEach((d) => { if (eintraege.indexOf(d + '/') < 0) f.push('OEFFENTLICH nennt ' + d + '/, das es nicht gibt'); if (noindex.has('/' + d + '/*')) f.push(d + '/ steht in OEFFENTLICH und traegt zugleich noindex'); });
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: dirs + ' Verzeichnisse: ' + Object.keys(OEFFENTLICH).length + ' Auslieferung (mit Grund), ' + intern + ' intern mit noindex + Disallow · keine interne Datei ausserhalb der Muster' };
+    },
+  },
+  {
     name: 'Deep-Link · ein ?screen=-Wert ohne Bildschirm fuehrt auf die Startseite statt ins Leere — und Sitemap wie Manifest nennen nur Werte, die es gibt',
     lauf: async () => {
       // v33.59 (Audit „Auslieferung"). `?screen=light` stand in sitemap.xml;

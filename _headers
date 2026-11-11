@@ -39,6 +39,16 @@
   X-Robots-Tag: noindex, nofollow
 /store/*
   X-Robots-Tag: noindex, nofollow
+# v33.59 (brett:2026-11-11-e383): dieselbe Regel fuer die Verzeichnisse, die seit
+# v32.69 dazugekommen sind — die Android-Huelle, das Store-Bildmaterial und die
+# CI-Konfiguration. robust_check „Web-Root" haelt jedes Verzeichnis im
+# Wurzelverzeichnis gegen diese Liste: Auslieferung (mit Grund) oder noindex.
+/android/*
+  X-Robots-Tag: noindex, nofollow
+/store-assets/*
+  X-Robots-Tag: noindex, nofollow
+/.github/*
+  X-Robots-Tag: noindex, nofollow
 /*.md
   X-Robots-Tag: noindex, nofollow
 /*.sql

@@ -127,9 +127,9 @@ Tagebuch in `CLAUDE.md`.
 - **Lokal gemeint heisst `_gsDayKey()` / `_gsKalTag(d)`** — nie
   `toISOString().slice(0, 10)`; das ist in der Schweiz nachts der Vortag, und
   in UTC (hier, in CI) sieht man es nie. *(datum_check)*
-- **Ein Pruefstand urteilt oder heisst Bericht.** `contrast_check` und
-  `render_check` endeten immer mit 0; nur `perf_check` und `field_check` sind
-  bewusst Berichte.
+- **Ein Pruefstand urteilt oder heisst Bericht.** `contrast_check`,
+  `render_check` und `field_check` endeten immer mit 0 und urteilen seit
+  v33.59; nur `perf_check` ist bewusst ein Bericht.
 
 ## Und drei Regeln ueber das Arbeiten selbst
 

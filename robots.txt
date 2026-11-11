@@ -86,6 +86,9 @@ Disallow: /supabase/
 Disallow: /scripts/
 Disallow: /.claude/
 Disallow: /store/
+Disallow: /android/
+Disallow: /store-assets/
+Disallow: /.github/
 Disallow: /*.md$
 Disallow: /*.sql$
 Crawl-delay: 10
