@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-11-699a",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "10:48:06",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Zwei Branches tragen v33.59 — welcher wird zuerst gemergt: die Sicherheitsreparatur (ccr-5e705a36-jveaak) oder PR #324 (claude/restore-banner-nur-bei-bedarf)?",
+  "an": "fernando",
+  "text": "Stand 11.11.2026, 10:50 UTC. ccr-5e705a36-jveaak (Sicherheitsreparatur, STATUS (je)): main 2ba302e ist eingemergt, noch KEIN PR; in Arbeit sind die Funde der Austausch-Runde (Rückspiel-Wege durch das Sieb, gsPlans.parken, drei Prüfstände mit Sitzung, COOP-Fall mit echten Kopfzeilen, Edge-Spalten, APK-Lizenzen) und sieben übernommene Befunde des Bretts — fertig ist der Branch erst nach zwei vollen Läufen am Endstand. claude/restore-banner-nur-bei-bedarf: PR #324 ist offen, Basis v33.58. Im Text kollidiert nur der Kopf von GS_RELEASES (ein Block in index.html) und STATUS.md; in der Sache berühren sich die Rechenwege nicht (hier: Anlegen eines Backups; dort: Zurückholen). Eine Naht gibt es: PR #324 ruft gsSnapshotRestore beim Start von selbst — die Sicherheitsreparatur führt genau diesen Weg gerade durch das Sieb für zurückgespielte Listen (in _gsRestoreKey, ohne die Signatur zu ändern), das greift nach dem Zusammenführen auch für den neuen Aufruf. Regel des Koordinators: die Nummer gehört dem PR, der zuerst gemergt wird; der andere zieht main nach und nimmt v33.60. Diese Sitzung nimmt v33.60, wenn #324 zuerst kommt.",
+  "haengt_daran": "GS_VERSION, sw.js VERSION, meta app-version, GS_RELEASES[0] und der STATUS-Buchstabe des zweiten Branches; robust_check „Changelog“ wird rot, wenn beide Einträge v33.59 tragen. Und die Dringlichkeit: der Branch der Sicherheitsreparatur beschreibt Lücken, die live offen sind, bis er gemergt und seine Server-Seite angewandt ist (docs/FUER-FERNANDO.md §30).",
+  "stichworte": [
+    "GS_VERSION",
+    "GS_RELEASES",
+    "v33.59",
+    "merge-reihe",
+    "gsSnapshotRestore",
+    "ccr-5e705a36-jveaak",
+    "claude/restore-banner-nur-bei-bedarf"
+  ]
+}
