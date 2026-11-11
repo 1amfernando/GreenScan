@@ -53,9 +53,10 @@ Tagebuch in `CLAUDE.md`.
    aus der Erlaubnisliste — ein escaptes Attribut ist noch kein sicherer Wert),
    `_gsSiebListe` / `_gsSiebEintrag` (Backup und Cloud-Pull), `_gsArtEingang`
    (Arten aus fremder Hand), die Sprachschicht bereinigt Uebersetzungen am
-   Eingang, `_gsCsvZelle` (keine Formel im Export), `_gsNachschlag(tabelle,
-   schluessel, rueckfall)` (Tabelle mit einem Schluessel aus fremder Hand — nur
-   eigene Eintraege, sonst liefert `constructor` eine Funktion). `escHtml(0)` ist `''` — eine
+   Eingang, `_gsCsvZelle` (keine Formel im Export),
+   `_gsNachschlag(tabelle, schluessel, rueckfall)` (Tabelle mit einem Schluessel
+   aus fremder Hand — nur eigene Eintraege, sonst liefert der Wert
+   „constructor“ eine Funktion). `escHtml(0)` ist `''` — eine
    Zahl braucht `String(n)`. Neue Stellen rendern sich zusaetzlich in
    `sicherheit_check`. *(§3.6; escape_check, sicherheit_check)*
 

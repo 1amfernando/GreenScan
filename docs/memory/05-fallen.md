@@ -237,9 +237,9 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   loest auf dem Primaerschluessel auf — an `feedback_votes` und
   `push_subscriptions` (eigener UNIQUE-Schluessel) scheiterte der zweite
   Schreibversuch mit 23505. Regel: ein Upsert nennt seinen Schluessel selbst.
-- **v33.59** `EMOJI[zeile.kategorie]` mit dem Wert `constructor` zeigte den
-  Quelltext einer Funktion. Regel: `_gsNachschlag(tabelle, schluessel,
-  rueckfall)` — nur eigene Eintraege.
+- **v33.59** Ein Nachschlag `EMOJI[zeile.kategorie]` mit dem Wert „constructor“
+  zeigte den Quelltext einer Funktion. Regel:
+  `_gsNachschlag(tabelle, schluessel, rueckfall)` — nur eigene Eintraege.
 - **v33.59** COOP `same-origin-allow-popups` macht `window.opener` auf der
   Rueckkehrseite aus Stripe zu `null` — der Handler wartete darauf, das
   Fenster schloss sich nie. Regel: wer eine Kopfzeile setzt, sucht die Stellen

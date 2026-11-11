@@ -633,8 +633,9 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   > escaped. Sobald ein Cache-Treffer den KI-Aufruf ersetzt, gilt er als
   > Bestimmung — ein geteilter, von jedem beschreibbarer Cache ist darum kein
   > Sparhebel, sondern eine Bestimmung durch Fremde (bei Pilzen). Die App liest
-  > und schreibt `scan_cache` seit v33.59 nicht mehr; die Rechte auf dem Server
-  > nimmt erst `20261110_sicherheit_funktionen.sql` weg.
+  > und schreibt `scan_cache` seit v33.58 nicht mehr (v33.59 hat den Code dazu
+  > entfernt); die Rechte auf dem Server nimmt erst
+  > `20261110_sicherheit_funktionen.sql` weg.
 - **Die Server-Seite dieser Reparatur ist NICHT live** (Stand 11.11.2026, nur
   lesend gemessen: 0 von 23 neuen Funktionsnamen existieren). Sechs Migrationen
   `supabase/migrations/20261110_*.sql` und die überarbeiteten Edge-Functions
