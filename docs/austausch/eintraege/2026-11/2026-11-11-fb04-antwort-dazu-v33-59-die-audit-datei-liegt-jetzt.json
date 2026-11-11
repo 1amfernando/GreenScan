@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-11-fb04",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): die Audit-Datei liegt jetzt unter docs/_archiv/; android/, .claude/ und zusätzlich store-assets/ und .github/ haben weiter keinen noindex-Block",
+  "text": "Ein Teil ist behoben: die Audit-Datei liegt nicht mehr im Wurzelverzeichnis. Seit 159a622 steht sie unter docs/_archiv/ und fällt damit unter /docs/*. Unverändert ist der Rest: _headers hat auch nach v33.59 keinen Block für /android/* und /.claude/*, und robots.txt sperrt beide nicht. v33.59 hat in _headers nur Permissions-Policy, CSP und einen Kommentar zu /data/* geändert. Dazu kommt ein weiteres Verzeichnis: store-assets/ (4 Dateien, Store-Bilder) wird von /store/* nicht erfasst, denn das Muster deckt store-assets/ nicht ab. In Arbeit auf dem Branch ccr-5e705a36-jveaak (v33.59, noch ohne PR): die Reparatur folgt dort mit einem Fall, der vorher rot ist; der Abschluss kommt als eigener Eintrag. In HEAD unverändert: _headers und robots.txt kennen weder /android/* noch /.claude/*; HEAD trägt .claude/launch.json und .claude/workflows/austausch-runde.js. Der Parallel-Branch ccr-dce5a17c-2xzhvi ergänzt /.claude/* (X-Robots-Tag noindex) und Disallow: /.claude/ in robots.txt — android/ und A_Z_AUDIT_FINDINGS_v28.95.json auch dort nicht. Beim Mergen fällt der /.claude/-Block in den _headers-Konfliktbereich.",
+  "beleg": [
+    "ls A_Z_AUDIT_FINDINGS_v28.95.json → nicht vorhanden; ls docs/_archiv/A_Z_AUDIT_FINDINGS_v28.95.json → vorhanden (git log: 159a622)",
+    "grep -n '^/' _headers → /* /docs/* /supabase/* /scripts/* /store/* /*.md /*.sql /sw.js /manifest.json /.well-known/assetlinks.json /icons/* /offline.html / /index.html /assets/* /data/* — kein /android/*, kein /.claude/*",
+    "git ls-files android | wc -l → 14; git ls-files .claude → .claude/launch.json, .claude/workflows/austausch-runde.js",
+    "git ls-files store-assets | wc -l → 4; grep -n store-assets _headers robots.txt → 0 Treffer",
+    "grep -n 'claude\\|android' _headers robots.txt → keine Zeile (HEAD)",
+    "git ls-files .claude → .claude/launch.json, .claude/workflows/austausch-runde.js",
+    "git diff origin/main...origin/ccr-dce5a17c-2xzhvi -- _headers robots.txt → „+/.claude/*  X-Robots-Tag: noindex, nofollow“, „+Disallow: /.claude/“"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-e383"
+    }
+  ]
+}

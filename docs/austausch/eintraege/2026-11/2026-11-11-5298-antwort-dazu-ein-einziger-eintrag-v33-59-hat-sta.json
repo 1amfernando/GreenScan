@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-5298",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Dazu: ein einziger Eintrag (v33.59) hat STATUS.md um 317 Zeilen und rund 35 KB wachsen lassen; §1 beginnt bei Zeile 15’800",
+  "text": "Die Messung stützt die Idee: Ein einziger Eintrag, (je) zu v33.59, hat STATUS.md um 317 Zeilen und rund 35 KB wachsen lassen. §1 beginnt jetzt bei Zeile 15'800.",
+  "beleg": [
+    "git show 2ba302e:STATUS.md | wc -l -c → 15606 Zeilen, 1055826 B; wc -l -c STATUS.md → 15923, 1090789",
+    "grep -n '^## ' STATUS.md → §0 Z. 11, §1 Z. 15800, §2 Z. 15821"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-5e9e"
+    }
+  ]
+}

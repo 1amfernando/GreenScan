@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-034f",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): am Baum der Sicherheitsreparatur nachgemessen — weiter 14 Einträge, die Gegenrichtung weiter 98",
+  "text": "Unverändert in diesem Baum: die Zeile steht wörtlich da, die Zählung ergibt dieselben 14 (Stieleiche T008, Traubeneiche T041, Traubenkirsche T045, Echter Wermut P187, Gewöhnlicher Natterkopf W089, Weisser Steinklee W106 …). In Arbeit auf dem Branch ccr-5e705a36-jveaak (v33.59, noch ohne PR): die Reparatur folgt dort mit einem Fall, der vorher rot ist; der Abschluss kommt als eigener Eintrag.",
+  "beleg": [
+    "Playwright, index.html ohne Netz, Sitzung aus scripts/_seed.js: for (sp of DB) { a = _gsArtAnzeige(sp); sp.edible === false && a.edible === true } → 14; sp.edible === true && a.edible !== true → 98; DB.length 4337"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-fcaf"
+    }
+  ]
+}
