@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-0821",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:38:59",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "Zwei Zweige vergeben v33.59: PR #324 (kein Backup-Banner) und der Sicherheitszweig ccr-5e705a36-jveaak",
+  "beleg": [
+    "git log --format=%s -3 origin/claude/restore-banner-nur-bei-bedarf → „v33.59: kein Banner mehr …“",
+    "git log --format=%s -6 origin/ccr-5e705a36-jveaak → „v33.59: Was von anderen kommt, bleibt Text …“ (beides gelesen am 11.11.2026)"
+  ],
+  "text": "Wer als Zweiter auf main kommt, nummeriert um (fünf Marken und der Eintrag in GS_RELEASES). Der Zweig claude/zahlungsweg-nachgemessen-011L7G enthält #324 und trägt v33.60; sein STATUS-Eintrag heisst (jf), weil (je) auf dem Sicherheitszweig vergeben ist.",
+  "stichworte": [
+    "versionsnummer",
+    "GS_VERSION",
+    "v33.59",
+    "STATUS.md"
+  ]
+}

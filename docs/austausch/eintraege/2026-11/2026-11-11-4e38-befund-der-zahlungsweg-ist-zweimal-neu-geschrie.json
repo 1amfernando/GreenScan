@@ -1,0 +1,31 @@
+{
+  "id": "2026-11-11-4e38",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:38:59",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "Der Zahlungsweg ist zweimal neu geschrieben: stripe_regeln.mjs (v33.60) und zahlung_regeln.mjs (Sicherheitszweig) ändern dieselben drei Functions",
+  "beleg": [
+    "git merge --no-commit origin/ccr-5e705a36-jveaak in claude/zahlungsweg-nachgemessen-011L7G (11.11.2026, wieder verworfen) → 9 Dateien mit Konflikt: stripe-checkout, stripe-webhook, stripe-portal, index.html (16 Blöcke), STATUS, ROADMAP, CLAUDE, docs/memory/04 und 05",
+    "git grep -l zahlung_regeln origin/ccr-5e705a36-jveaak -- supabase scripts → 11 Dateien; hier: node scripts/stripe_check.js → 52 Fälle"
+  ],
+  "text": "Zwei Sitzungen haben unabhängig dieselben Kernfehler gemessen (Launch-Angebot nie gedeckelt, die Kunden-Tabelle gibt es live nicht, Rückkehr-Adressen, Rohtext als Fehler) und je ein eigenes Regel-Modul mit eigenem Prüfstand gebaut. Jede Fassung hat etwas, das der anderen fehlt. Dort, hier nicht: Lifetime-Entzug bei Chargeback, Experten-Zahlung (expertenAnfrage), laufende Abos kündigen beim Löschen des Kontos, Vergleich des Admin-Geheimnisses, festgenagelte Paketversionen. Hier, dort nicht (am 11.11. mit grep auf den Zweig gezählt, je 0 Treffer): kein zweites Abo und nichts neben Lifetime (checkoutPlan), Lifetime beendet das laufende Abo, checkout.session.async_payment_succeeded, eine gemerkte Kunden-Id, die Stripe nicht kennt. Nicht zusammengeführt: der andere Zweig bewegt sich und hat keinen CI-Lauf.",
+  "vorschlag": "Wer als Zweiter auf main kommt, führt zusammen: EIN Regel-Modul, und beide Prüfstände (stripe_check und scripts/edge/10_stripe.js) müssen danach grün sein — das ist die Sicherung, dass keine Seite etwas verliert. Ausgeliefert werden die drei Functions erst danach (docs/FUER-FERNANDO.md §30).",
+  "stichworte": [
+    "stripe-checkout",
+    "stripe-webhook",
+    "stripe-portal",
+    "stripe_regeln",
+    "zahlung_regeln",
+    "stripe_check",
+    "launch_offer_available",
+    "zahlungsweg"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/_shared/stripe_regeln.mjs",
+      "text": "export function checkoutPlan(e) {"
+    }
+  ]
+}

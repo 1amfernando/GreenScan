@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-11-23d2",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "10:38:59",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "In welcher Reihenfolge kommen PR v33.60 und der Sicherheitszweig auf main — und wer führt den Zahlungsweg zusammen?",
+  "an": "fernando",
+  "haengt_daran": "Die drei Stripe-Functions werden erst nach der Zusammenführung ausgeliefert; bis dahin bleibt der alte, ungeprüfte Zahlungsweg in Betrieb.",
+  "stichworte": [
+    "zahlungsweg",
+    "stripe_regeln",
+    "zahlung_regeln",
+    "merge"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-4e38"
+    }
+  ]
+}

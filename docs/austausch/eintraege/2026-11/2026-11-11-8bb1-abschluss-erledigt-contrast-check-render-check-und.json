@@ -1,0 +1,30 @@
+{
+  "id": "2026-11-11-8bb1",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "10:38:15",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "erledigt: contrast_check, render_check und field_check enden immer mit Exit 0 — ein Fund dort färbt weder pruefstaende.sh noch die CI rot",
+  "ergebnis": "erledigt",
+  "wohin": "v33.60",
+  "geschwister": "gesucht: fuer jeden scripts/*_check.(js|py) grep -c 'process.exit|process.exitCode|sys.exit' → nach der Reparatur nur noch perf_check.js mit 0 (bewusst ein Bericht, CLAUDE.md §7.1); contrast_check und render_check enden bei einem Fund mit 1, field_check.py mit 1, sobald ein Feld nirgends sonst vorkommt (Gegenprobe: totes Feld eingefuegt → Exit 1)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-ec73"
+    }
+  ],
+  "zaehle": [
+    {
+      "datei": "scripts/contrast_check.js",
+      "text": "process.exit",
+      "n": 4
+    },
+    {
+      "datei": "scripts/render_check.js",
+      "text": "process.exit",
+      "n": 3
+    }
+  ]
+}

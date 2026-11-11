@@ -907,6 +907,29 @@ Funde der anderen) → gegenprüfen → aufs Brett.
 > das `n` aus `\n` und rutschte an jedem `\b` vorbei. **Wer einen Text
 > durchsucht, durchsucht ihn in der Form, in der ein Mensch ihn schreibt.**
 
+> **Und wer zwölf Stunden allein an einem Zweig arbeitet, arbeitet nicht allein** (11.11.2026, v33.60).
+> Dieser Zweig holte `main` am Anfang und dann nicht mehr. Beim Zusammenführen vor dem Bump stand da:
+> `main` hatte das Brett bekommen (#325), PR #324 einen zweiten Commit — und ein dritter Zweig
+> (`ccr-5e705a36-jveaak`) hatte **denselben Zahlungsweg unabhängig neu geschrieben**, mit eigenem
+> Regel-Modul und eigenem Prüfstand. Zwei Sitzungen, dieselben drei Functions, dieselben Kernfehler
+> gemessen, zwei Fassungen; der Probe-Merge ergab neun Dateien mit Konflikt. Gesehen hat es `holen`
+> („Frische Branches"), in einer Minute — zwölf Stunden zu spät. Drei Regeln daraus:
+> **(1) `git fetch` und `holen` vor JEDER Scheibe, nicht nur vor der ersten** — eine Scheibe ist die
+> Einheit, nicht die Sitzung. **(2) Früh pushen, auch Unfertiges:** ein Zweig, den niemand sieht, kann
+> niemand umgehen; „zwei Köpfe an derselben Stelle" rechnet das Brett nur aus Zweigen, die auf `origin`
+> liegen. **(3) Zwei Fassungen derselben Sache werden von EINER Sitzung zusammengeführt, und beide
+> Prüfstände müssen danach grün sein** — wer nur seine eigene Fassung behält, verliert, was die andere
+> gemessen hat (hier: der Lifetime-Entzug bei einem Chargeback dort, das zweite Abo hier). Und das Gute
+> daran: **zwei unabhängige Messungen mit demselben Ergebnis sind der stärkste Beleg, den dieses Repo
+> je für einen Befund hatte** — das Brett sollte solche Doppel sichtbar machen, nicht nur verhindern.
+>
+> **Und ein Befund auf dem Brett hat an einem Tag zwei Lücken im eigenen neuen Code gefunden.** A3 wurde
+> rot, weil dieser Zweig zwei der drei genannten Prüfstände zum Tor gemacht hatte und den dritten
+> (`field_check`) nicht kannte; und der Befund „Spanisch ist die fünfte App-Sprache" traf den neuen
+> Notfall-Eintrag der Menü-Suche, der gerade erst mit vier Sprachen gebaut worden war. **Wer etwas Neues
+> baut, sucht auf dem Brett nach der KLASSE, zu der es gehört** (`klasse <wort>`, `suche <wort>`) — der
+> Fehler, den ein anderer gestern gemessen hat, steckt mit einiger Wahrscheinlichkeit auch im Neuen.
+
 ## 6 · Deployment
 
 - Push auf `main` → Cloudflare Pages baut automatisch (kein Build-Step).
@@ -1011,7 +1034,7 @@ node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi �
 node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
 node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
 node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45); seit v33.60 Richtung 6 (ein Funktionsname als Zeichenkette in einem Feld — fn · hol · html · tap · zu — muss eine Funktion sein), die Benachrichtigungs-Ziele zaehlen im Exit-Code, und die Oeffner ueber `_gsNlOpen(` werden aufgerufen
-python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
+python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74); seit v33.60 ein TOR (Exit 1, sobald ein Feld nirgends sonst vorkommt — die mittlere Klasse „zusammengesetzt nachgeschlagen" zaehlt nicht)
 node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)

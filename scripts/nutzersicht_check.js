@@ -729,7 +729,7 @@ const FAELLE = [
     // „Tomate" oder „essbar" tippt, bekommt ihn NICHT (ein Eintrag, der immer oben steht, ist einer,
     // den man zu ueberlesen lernt, v32.98). Dazu das Fenster: genau die vier Nummern, die die App
     // schon nennt bzw. Tox Info Suisse selbst angibt — und kein Rat, was man tun soll.
-    name: 'E15 · Notfall: die Menü-Suche findet „Notfall", „145", „Tox", „Vergiftung", „gegessen" (auch fr/it/en) ZUERST — „Tomate" und „essbar" nicht; das Fenster ruft 145, die Auslandnummer, 144 und 112 an und gibt keinen Erste-Hilfe-Rat',
+    name: 'E15 · Notfall: die Menü-Suche findet „Notfall", „145", „Tox", „Vergiftung", „gegessen" (auch fr/it/en/es) ZUERST — „Tomate" und „essbar" nicht; das Fenster ruft 145, die Auslandnummer, 144 und 112 an und gibt keinen Erste-Hilfe-Rat',
     lauf: async () => __seite.evaluate(async () => {
       const klagen = [];
       const res = () => Array.from(document.querySelectorAll('#menu-search-results .menu-search-result'));
@@ -742,7 +742,9 @@ const FAELLE = [
         // Ohne sie blieb die Gegenprobe „eigene Trefferregel ausgebaut" gruen — die gewoehnliche
         // Punktzahl stellte den Eintrag bei allen 17 Einzelwoertern zufaellig auch nach vorn.
         const ja = ['notfall', 'Notfall', '145', 'tox', 'tox info', 'vergiftung', 'vergiftet', 'gift', 'gegessen', 'verschluckt', 'giftnotruf', 'urgence', 'empoisonnement', 'emergenza', 'avvelenamento', 'emergency', 'poison',
-          'mein kind hat beeren gegessen', 'hund hat pilz gefressen', 'mon enfant a mangé des baies'];
+          'mein kind hat beeren gegessen', 'hund hat pilz gefressen', 'mon enfant a mangé des baies',
+          // v33.60 (brett:2026-11-11-df0b): Spanisch ist die fuenfte App-Sprache — das Menue kennt ihre Woerter
+          'emergencia', 'envenenamiento', 'veneno', 'intoxicación', 'intoxicacion'];
         const fehlt = ja.filter(q => !/Notfall/.test(erster(q)));
         if (fehlt.length) klagen.push(fehlt.length + ' von ' + ja.length + ' Notfall-Wörtern führen nicht zuerst zum Notfall: ' + fehlt.slice(0, 8).map(q => '„' + q + '" → „' + (erster(q).slice(0, 28) || 'nichts') + '"').join(' · '));
         // (b) die Gegenrichtung

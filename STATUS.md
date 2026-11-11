@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.59` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.60` · **Release**: ✅ live seit v26.0
 
 ---
 
@@ -12,7 +12,7 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-11 (je) - v33.60: Der Zahlungsweg bekommt einen Prüfstand, der Kontrast-Stand misst die ganze App — und was eine Nacht mit zehn Agenten wirklich gebracht hat
+### 2026-11-11 (jf) - v33.60: Der Zahlungsweg bekommt einen Prüfstand, der Kontrast-Stand misst die ganze App — und was eine Nacht mit zehn Agenten wirklich gebracht hat
 
 **Auftrag (Fernando, 10./11.11.2026):** „Baue die App auf. Zwischen allen Agenten sollen Kommunikationen
 stattfinden. Sie sollen so Ideen schaffen, die aus einer anderen Welt sind. […] Du bist der Head." —
@@ -52,8 +52,8 @@ Lesbarkeit verlässt, mass je Tab einen Bildschirm, neun von elf Tabs, und endet
   ist ein Fremdschlüssel, `user_id` verweist auf `auth.users`: ein fremder Preis und ein gelöschtes Konto
   hätten bei jeder Wiederholung 500 geliefert, drei Tage lang. `processed` setzte nie jemand;
   `post_id`/`expert_id` sind `uuid`; `checkout.session.async_payment_succeeded` fehlte.
-- **Der Launch-Zähler gehört dem Server:** die Policy `launch_offer_insert_own` lässt jedes Konto sich
-  selbst eintragen — hundert Konten, und das Lifetime-Angebot ist ausverkauft, ohne einen Kauf.
+- **Der Launch-Zähler gehört dem Server:** die Policy `launch_offer_insert_own` lässt den Zähler aus dem
+  Browser beschreiben, ohne dass ein Kauf dahintersteht.
   `20261111_launch_offer_usage_nur_server.sql` (**nicht angewandt**), im lokalen Postgres nachgespielt:
   Loch reproduziert, Migration zweimal, danach abgelehnt.
 - **Zweites Lesen, gegen Stripes eigene Referenz** (gelesen am 11.11.2026) **und gegen die eine Zeile, die
@@ -174,7 +174,7 @@ Die Ideenrunde liegt als **Rohmaterial** in `docs/ideen/2026-11-11/` — mit dem
 nicht nachgemessen sind. Die Reihenfolge daraus steht in `ROADMAP.md` („🧭 Meilensteine ab v33.60").
 
 **Prüfstände** (`bash scripts/pruefstaende.sh`, TZ=UTC, lokales Postgres, Android-Werkzeuge):
-__SUITE__
+**Suite (11.11.2026, lokal, `TZ=UTC`, Postgres 16): 43 Prüfstände · rot 0 · nicht prüfbar 0** — `apk_check` mit gebautem Paket, `stripe_check` mit SQL-Hälfte.
 
 **Gegenproben, jede einzeln rot, die Prüfsumme der Datei nach jeder gleich:** Zahlungsweg 43 (19 alte gegen
 den neuen Stand, 24 neue) · E13 8 · E14 7 · Scanner V1–V8 gegen den alten Stand · Artennamen-Selbsttest 5 ·
@@ -189,7 +189,7 @@ auf" hing an einer Höhe (21 offene Fenster galten als geschlossen) · der Notfa
 Funktion, die Nein mit dem Wort `'keiner'` sagt · „eine eigene Zeit, eine Millisekunde später" machte aus
 abgehakten Aufgaben Erinnerungen in der Zukunft.
 
-**Nicht geprüft — und das ist die Grenze dieses Eintrags:**
+**Was von hier aus nicht messbar war — die Grenze dieses Eintrags:**
 - **Stripe selbst.** Kein Aufruf ging an Stripe. Die Form der Antworten stammt aus der Referenz und aus
   veröffentlichten rohen Antworten. Ob TWINT im Abo-Checkout erscheint (Stripe: seit 27.05.2026 für
   wiederkehrende Zahlungen, API-Version `2026-05-27.dahlia`; die Functions nennen `2024-12-18.acacia`), sagt
@@ -217,6 +217,33 @@ jede erst durch einzelnes Nachmessen. Die Ideen
 waren es wert (drei Blickwinkel sind unabhängig an denselben Stellen angekommen), die parallele
 Code-Arbeit nur zum Teil — `docs/memory/08-arbeitsweise.md` §11 hält fest, wie ein nächster Lauf aussehen
 müsste (kleiner, mit Übergabe vor dem Limit, Datenbank-Messungen vorab).
+
+**Zusammengeführt (11.11.2026, mittags) — und was dabei sichtbar wurde.** Dieser Zweig enthält `main` bis
+#325 (das Brett) und PR #324 mit beiden Commits. Sieben Doku-Dateien hatten Konflikte; die Zahl der
+Prüfstände steht seither nur noch in §1 (dort misst `austausch_check`). Das Brett hat getan, wofür es gebaut
+ist: `austausch_check` A3 wurde rot, weil dieser Zweig `contrast_check` und `render_check` zum Tor gemacht
+hat — der Befund brett:2026-11-11-ec73 nannte als dritten `field_check`, der weiter immer mit 0 endete. Jetzt
+endet auch er mit 1, sobald ein Feld nirgends sonst vorkommt (Gegenprobe: ein totes Feld eingefügt → Exit 1);
+der Befund ist geschlossen. Und brett:2026-11-11-df0b (Spanisch ist die fünfte App-Sprache) traf den neuen
+Notfall-Eintrag der Menü-Suche: fr/it/en kannte er, Spanisch nicht — nachgetragen, `nutzersicht_check` E15
+mit fünf spanischen Eingaben (zuerst rot). Die Erkennung in den beiden Chats bleibt der Befund der anderen
+Sitzung.
+
+**Zwei Köpfe an derselben Stelle.** `holen` zeigt einen frischen Zweig `ccr-5e705a36-jveaak`
+(„Sicherheitsreparatur v33.59", kein PR): 157 Dateien, 29 Edge-Functions, fünf Sicherheits-Migrationen — und
+ein eigenes Regel-Modul für denselben Zahlungsweg (`_shared/zahlung_regeln.mjs`, `scripts/edge/10_stripe.js`).
+Beide Sitzungen haben unabhängig dieselben Kernfehler gemessen; jede hat etwas, das der anderen fehlt (dort:
+Lifetime-Entzug bei Chargeback, Experten-Zahlung, Abos kündigen beim Löschen des Kontos, Vergleich des
+Admin-Geheimnisses · hier: kein zweites Abo, Lifetime beendet das laufende Abo, gemerkter Kunde aus dem
+anderen Modus, verzögerte Zahlungsart). Probe-Merge (wieder verworfen): 9 Dateien mit Konflikt, 16 Stellen in
+`index.html`, alle drei Functions. Nicht zusammengeführt — der Zweig bewegt sich und hat keinen CI-Lauf. Die
+Überschneidung steht auf dem Brett; **ausgeliefert werden die drei Functions erst nach der Zusammenführung.**
+Und zwei Zweige tragen v33.59 (#324 und der Sicherheitszweig).
+
+**Nachtrag 13.11.2026:** `main` unverändert seit #325. Neu offen: #326 (v33.61, Filter „Essbar/Giftig" an der Art, spanische Notfall-Erkennung in den Chats — ergänzt den Menü-Eintrag hier, keine Überschneidung in der Sache), #327 (der Sicherheitszweig, jetzt als PR — die Überschneidung im Zahlungsweg bleibt brett:2026-11-11-4e38), #328 (Agenten-Netz, nur Doku).
+
+**Offen:** brett:2026-11-11-4e38, brett:2026-11-11-0821, brett:2026-11-11-63c8, brett:2026-11-11-2714, brett:2026-11-11-4a99, brett:2026-11-11-23d2, brett:2026-11-11-3ba5, brett:2026-11-11-7f36 — der Zahlungsweg in zwei Fassungen, die doppelte v33.59, drei geparkte Scheiben, drei Fragen an Fernando
+**Nicht geprüft:** Stripe selbst (kein Aufruf ging dorthin) · ob Stripe je im Live-Modus lief · das echte Gerät, die Live-Seite, ein echtes Modell · die Zahlen der Ideenrunde ausser den hier genannten · der Sicherheitszweig (nur gelesen und zur Probe zusammengeführt, nichts davon ausgeführt)
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
@@ -15764,11 +15791,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.59` (Client) · SW-Cache `gs-v33.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
-- **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **97'094 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **586 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **42** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.58: `modell_check`, `rezept_link_check`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 42** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Version:** `v33.60` (Client) · SW-Cache `gs-v33.60` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Release:** ✅ live seit v26.0. **Stripe: ob je im Live-Modus bezahlt wurde, ist nicht belegt** — in `app_settings` steht ein Test-Schlüssel, `stripe_webhook_events` hat 0 Zeilen, `stripe_subscriptions` eine (Admin-Konto, `trialing`); gemessen am 11.11.2026, nur lesend. Bis v33.59 stand hier „Live-Mode aktiv seit v26.40" — dafür gibt es keinen Beleg.
+- **Frontend:** `index.html` **97'897 Zeilen / 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **588 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.40).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **224 Migrationen** (17 davon bewusst nicht angewandt, Sektion 2 — neu seit 11.11.: `20261111_launch_offer_usage_nur_server.sql`, der Launch-Zähler wird nur noch vom Server geschrieben; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
+- **Prüfstände:** **43** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.60: `stripe_check`; neu in v33.58: `modell_check`, `rezept_link_check`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 43** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -15777,6 +15804,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **PR v33.60 mergen** (enthält #324) | Nur Fernando mergt nach `main`. Am einfachsten: nur diesen PR mergen und #324 schliessen; wird #324 zuerst gemergt, braucht dieser PR einen Nachzug (Konflikt in den Versionszeilen). | `docs/FUER-FERNANDO.md` §30 Punkt 1 · (jf) |
+| **Zahlungsweg: zwei Fassungen zusammenführen, DANN ausliefern** | `stripe-checkout`, `stripe-webhook`, `stripe-portal` sind zweimal neu geschrieben (dieser Zweig: `stripe_regeln.mjs` + `stripe_check`; Zweig `ccr-5e705a36-jveaak`: `zahlung_regeln.mjs` + `scripts/edge/10_stripe.js`). Wer als Zweiter auf `main` kommt, führt zusammen; beide Prüfstände müssen grün sein. Erst danach `supabase functions deploy` (Webhook mit `--no-verify-jwt`). Das Verhalten ändert sich (kein zweites Abo, Lifetime beendet das laufende Abo, volle Erstattung gibt den Launch-Platz frei, „Fortsetzen" öffnet das gewöhnliche Portal). | `docs/FUER-FERNANDO.md` §30 · brett:2026-11-11-4e38 · (jf) |
+| **Migration `20261111_launch_offer_usage_nur_server.sql`** | Nicht angewandt (DDL auf der Live-Datenbank). Der Launch-Zähler wird danach nur noch vom Server geschrieben; im lokalen Postgres nachgespielt (`stripe_check`, SQL-Hälfte). | `docs/FUER-FERNANDO.md` §30 Punkt 4 · (jf) |
+| **Stripe-Dashboard: Modus, Endpunkt, Zahlungsmethoden, Portal — und ein Probekauf** | Von hier ging kein Aufruf an Stripe. Gemessen ist nur die Datenbank (11.11.2026, lesend): Test-Schlüssel in `app_settings`, 0 Zeilen in `stripe_webhook_events`, eine Abo-Zeile (Admin-Konto, seit 23.05. über die Probezeit hinaus `trialing`). Der Endpunkt braucht 16 Ereignisse, neu `checkout.session.async_payment_succeeded`. Ob TWINT im Abo-Checkout erscheint, zeigt erst der Probekauf. | `docs/FUER-FERNANDO.md` §30 Punkte 2, 5, 6 · (jf) |
+| **Drei Entscheidungen** (Datumsschranke für alte Probe-Abos · Huflattich, Natternkopf, Borretsch als „essbar"? · Reihenfolge der Meilensteine) | Fachlich bzw. geschäftlich, nicht messbar. Die Artenliste wird nicht ohne Quelle und nicht ohne Fernando geändert. | `docs/FUER-FERNANDO.md` §30 · brett:2026-11-11-23d2 · brett:2026-11-11-3ba5 · brett:2026-11-11-7f36 · (jf) |
 | **Eine geplante Routine ohne Repo-Zugang ans Repo und ans Brett anschliessen?** | Sie schreibt ihre Übergaben ausserhalb des Repos — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Welche Aufgabe es ist und was ihr fehlt, ging direkt an Fernando (nicht in dieses öffentliche Repo). Im Auftrag der Aufgabe bräuchte es `node scripts/austausch.mjs holen` am Anfang und Einträge am Ende. Nicht verändert. | brett:2026-11-11-669d · (jd) |
 | **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
@@ -15837,7 +15869,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Beispieldaten melden nicht an** | `_seed.js` setzt einen Token ohne drei Teile; `gsSecurityInit` räumt ihn 500 ms nach dem Start ab, und nach ein paar Sekunden steht der Anmeldebildschirm (gemessen 21.10.2026). Ob Prüfstände dahinter messen (render/contrast/touch/a11y), ist nicht nachgeprüft; als eigene Aufgabe vorgeschlagen. `apk_check` T0–T13 stellen die Anmeldung selbst her. | (ja) |
 | **Ein geteiltes Foto in der APK überlebt den Prozess nicht** | Das Fach liegt im Arbeitsspeicher; beendet Android die App vor dem Bestimmen, ist das Foto weg und die App sagt beim nächsten Start nichts. Steht als `GS_HUELLE_ANDERS 'teilen'` auf dem Bildschirm. Eine Ablage in `getCacheDir()` wäre die Abhilfe, wenn es auf Telefonen auffällt. | (ja) |
 | **Teilen und Zwischenablage in der Hülle** | Vier Teilen-Wege (`gsAchShare`, `gsShareSpecies`, `gsShareApp`, `_gsShare`) fallen in einer WebView auf die Zwischenablage zurück; zwei Meldungen „kopiert" kommen vor dem `writeText`-Ergebnis. Ein Kanal-Ziel „teilen" (ACTION_SEND, Text) wäre die Antwort. | (ix) |
-| **Foto-Ansicht per `window.open(this.src)` in der Hülle** | Tagebuch- und Rezeptfotos öffnen den Browser des Telefons (die App wird verlassen); ein `blob:`/`data:`-Foto ergibt „kein Ziel". Gehört in eine Ansicht in der App. | (ix) |
+| ~~Foto-Ansicht per `window.open(this.src)` in der Hülle~~ — **erledigt in v33.60** (`gsFotoAnsicht`, `escape_check`) | Tagebuch- und Rezeptfotos öffnen den Browser des Telefons (die App wird verlassen); ein `blob:`/`data:`-Foto ergibt „kein Ziel". Gehört in eine Ansicht in der App. | (ix) |
 | **Kein SPA-Rückfall im Paket** | `_redirects` liefert im Web für jede unbekannte Adresse `index.html`; der AssetServer der Hülle antwortet 404. Ein relativer Link ohne `screen=` (Benachrichtigungen) endet in der App leer. | (ix) |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
 

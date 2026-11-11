@@ -9,7 +9,7 @@ anderen Welt sind."
 
 **Was das NICHT ist.** Ein geprüfter Befund. Die Zahlen in diesen Dateien haben die Agenten selbst
 gezählt (die Skripte dazu liegen in `zaehlskripte/`); der Head hat sie **nicht einzeln
-nachgemessen**. Nachgemessen ist nur, was in `STATUS.md` (je) oder in einem Prüfstand steht. Wer aus
+nachgemessen**. Nachgemessen ist nur, was in `STATUS.md` (jf) oder in einem Prüfstand steht. Wer aus
 einer Idee etwas baut, misst ihre Zahl zuerst selbst — das ist die Regel dieses Repos (CLAUDE.md
 §7.1: *messen → Fall zuerst rot → Code → Gegenprobe*).
 

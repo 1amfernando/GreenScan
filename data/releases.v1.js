@@ -30,6 +30,18 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.40', date: '16.09.2026',
+    headline: 'Die Woche auf einen Blick — und deine Stillen Tage stehen im Kalender',
+    summary: 'Sechste Scheibe von KALENDER-V2. Eine Zeile sagt, was die Woche bringt — auf der Startseite, im Kalender und in Linas Kontext, aus DERSELBEN Rechnung. Und wenn du Stille Tage eingestellt hast, sagt jede Aufgabe, die hineinfällt, dass sie hineinfällt. Dabei gemessen: mit Stillen Tagen bis zum 11.9. fielen SIEBEN Fälligkeiten in die Abwesenheit, und kein Ereignis sagte es; und der Wochenrückblick zählte einen selbst notierten Tagebuch-Eintrag als erledigte Aufgabe.',
+    user_summary: 'Eine Zeile zeigt dir die Woche — Aufgaben, Aussaatfenster, Frost, Hinweise. Und Aufgaben, die in deine Stillen Tage fallen, sagen es dir, mit dem Weg zum Giess-Zettel.',
+    user_items: [
+      {emoji: '📆', bold: 'Diese Woche:', text: ' „Diese Woche: 5 Aufgaben · 1 Aussaatfenster · Frost am 18.09. · 2 Hinweise.“ — auf der Startseite, unter dem Kalender und bei Lina. Immer dieselben Zahlen, weil es dieselbe Rechnung ist.'},
+      {emoji: '✈️', bold: 'Stille Tage im Kalender:', text: ' Hast du eine Pause eingestellt, trägt jede Aufgabe, die hineinfällt, den Hinweis — mit dem Enddatum und einem Tipp auf den Giess-Zettel für die Nachbarin.'},
+      {emoji: '✅', bold: 'Erledigt heisst abgehakt:', text: ' Der Wochenrückblick schrieb dir auch eine Aufgabe gut, die du nur ins Tagebuch notiert hattest. Jetzt zählt er, was du wirklich abgehakt hast.'},
+      {emoji: '❄️', bold: 'Keine Vorhersage ist keine Entwarnung:', text: ' Fehlt das Wetter, steht „Frost: keine Vorhersage“ — nicht „kein Frost“.'}
+    ],
+  },
+  {
     v: 'v33.39', date: '16.09.2026',
     headline: 'Lina sieht deinen Kalender — und sagt, wenn sie etwas nicht weiß',
     summary: 'Fünfte Scheibe von KALENDER-V2. Lina bekommt drei Zeilen aus der einen Kalender-Funktion (was heute ansteht, was die Woche bringt, was das Prüfwerk dazu sagt) und darf einen Termin VORSCHLAGEN, den du bestätigst. Dabei gemessen und behoben: ihr Kontext wurde bei sechs Geräten mitten im Wort abgeschnitten, Geräte fielen stillschweigend weg, eine Regel ohne Messwerte stand als „keine verletzte Regel“ da — und die Sicherheit eines Scans hatte drei verschiedene Antworten (0.94 %, 1 %, 94 %).',

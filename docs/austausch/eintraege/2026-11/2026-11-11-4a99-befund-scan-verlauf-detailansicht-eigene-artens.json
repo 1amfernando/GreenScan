@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-4a99",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:38:59",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "Scan-Verlauf, Detailansicht: eigene Artensuche und eine eingefrorene Giftplakette — sie geht nicht durch _gsArtAnzeige",
+  "beleg": [
+    "Gelesen am 11.11.2026 (Agenten-Scheibe SICHT, vom Head nicht zu Ende gebaut): die Detailansicht eines Verlaufseintrags sucht die Art mit einem eigenen DB.find und zeigt die Giftstufe, die beim Scan gespeichert wurde — STATUS.md (jf), ROADMAP.md „Stufe 3“"
+  ],
+  "vorschlag": "Wie openDetail seit v32.92: _gsArtAnzeige als erste Zeile; Fall in scan_check mit einer Art, deren Einträge sich widersprechen.",
+  "stichworte": [
+    "scan-verlauf",
+    "openScanHistory",
+    "_gsArtAnzeige",
+    "tox",
+    "DB.find"
+  ]
+}

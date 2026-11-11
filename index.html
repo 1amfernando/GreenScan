@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.59.20261111">
+<meta name="app-version" content="33.60.20261111">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57350,7 +57350,7 @@ window._gsMenuNotfallTrifft = _gsMenuNotfallTrifft;
 
 const MENU_ITEMS = [
   // v33.60: der Notfall — `vorrang` heisst: eigene Trefferregel (_gsMenuNotfallTrifft), und bei einem Treffer zuerst.
-  {label:'🆘 Notfall: Vergiftung', sub:'Tox Info Suisse 145 · rund um die Uhr', action:"closeMainMenu();gsNotfallOeffnen()", vorrang:true, tags:['notfall','notruf','vergiftung','vergiftet','vergiften','gift','giftnotruf','145','144','112','tox','tox info','toxinfo','gegessen','verschluckt','geschluckt','erbrechen','urgence','empoisonnement','intoxication','emergenza','avvelenamento','veleno','emergency','poison','poisoning','poisoned']},
+  {label:'🆘 Notfall: Vergiftung', sub:'Tox Info Suisse 145 · rund um die Uhr', action:"closeMainMenu();gsNotfallOeffnen()", vorrang:true, tags:['notfall','notruf','vergiftung','vergiftet','vergiften','gift','giftnotruf','145','144','112','tox','tox info','toxinfo','gegessen','verschluckt','geschluckt','erbrechen','urgence','empoisonnement','intoxication','emergenza','avvelenamento','veleno','emergency','poison','poisoning','poisoned','emergencia','urgencia','envenenamiento','envenenado','veneno','intoxicación','intoxicacion']},
   // Navigation
   // v31.70: Die sieben Eintraege der Gruppe „Wissen & Werkzeuge" aus
   // „Mein Garten". Fernando: „gehört nicht in Mein Garten" — richtig, es
@@ -77128,6 +77128,34 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.60', date: '11.11.2026',
+      headline: 'Abhaken zählt überall, der Notfall ist findbar, „Tödlich giftig“ ist lesbar — und der Zahlungsweg hat zum ersten Mal einen Prüfstand',
+      summary: 'Auftrag von Fernando (10./11.11.2026): die App mit mehreren Agenten aufbauen, jede Funktion durchdenken, alles hinterfragen. Zehn Agenten liefen 66 Minuten, dann stoppte das Nutzungslimit — zwei Scheiben waren übergeben, fünf nicht, geprüft war keine. Fertig geworden ist jede erst danach, einzeln nachgemessen. Was dabei herauskam: (1) Der Zahlungsweg hatte nie einen Prüfstand. stripe_check fährt jetzt die drei echten Functions in Node gegen eine Datenbank-Nachbildung, deren Spalten, Schlüssel und Fremdschlüssel an der echten gemessen sind (52 Fälle). Die drei Functions sind im Repo neu gebaut und NICHT ausgeliefert; eine Migration zum Launch-Zähler ist nicht angewandt. Gegen Stripe selbst ging kein Aufruf. (2) Der Scanner rechnet die Zeile „Verzehr vertretbar“: sie steht nur noch da, wenn Gegenprobe, KI und Artenliste dasselbe sagen, und nie bei einem Pilz. (3) Im Artendetail stand „Tödlich giftig“ weiss auf fast weisser Karte (1,05:1, 72 Einträge). (4) Der Knopf auf der Pflanzenkarte hakte ab, ohne einen Verlaufseintrag zu schreiben; „Alle erledigt“ zählte als Notiz. (5) Die Menü-Suche fand zu „Notfall“, „145“ oder „Vergiftung“ nichts. (6) contrast_check mass je Tab einen Bildschirm, in neun von elf Tabs; jetzt ganze Tabs, alle elf, und rund 20 Stellen unter dem Mindestkontrast sind behoben. contrast_check, render_check und field_check enden bei einem Fund nicht mehr mit 0. Zusammengeführt mit dem Brett (main, #325) und v33.59 (#324).',
+      user_summary: 'Was du abhakst, zählt jetzt überall — im Tagebuch, im Kalender und im Wochenrückblick. Die Giftnotruf-Nummer findest du über die Menü-Suche. Und mehrere Warnungen und Knöpfe, die schlecht lesbar waren oder nichts taten, sind in Ordnung gebracht.',
+      user_items: [
+        {emoji:'✅', bold:'Abhaken zählt überall:', text:' auch der Knopf direkt auf der Pflanzenkarte und „Alle erledigt“ schreiben jetzt ins Pflanzentagebuch. Kalender und Wochenrückblick zählen sie als erledigt.'},
+        {emoji:'🆘', bold:'Notfall schnell finden:', text:' im Menü nach „Notfall“, „145“ oder „Vergiftung“ suchen. Ein Fenster zeigt Tox Info Suisse 145, die Nummer aus dem Ausland, 144 und 112 zum Antippen.'},
+        {emoji:'☠️', bold:'„Tödlich giftig“ ist lesbar:', text:' die Warnung im Artendetail stand weiss auf fast weissem Grund. Jetzt ist sie in beiden Modi klar zu lesen.'},
+        {emoji:'🍄', bold:'Der Scanner ist vorsichtiger:', text:' „Verzehr vertretbar“ steht nur noch da, wenn drei Prüfungen übereinstimmen — und nie bei einem Pilz.'},
+        {emoji:'🌱', bold:'Saatgut zur richtigen Zeit:', text:' die Leiste „Jetzt dran“ las den Kalender einen Monat versetzt. Bei Frost steht jetzt der Frost da.'},
+        {emoji:'🖼️', bold:'Fotos öffnen in der App:', text:' Tagebuch- und Rezeptfotos gehen nicht mehr in ein neues Fenster. Fotos im Pflanzentagebuch werden wieder gezeigt.'},
+        {emoji:'📅', bold:'Zwei Knöpfe im Kalender:', text:' der Pfeil an einem Scan öffnet den Scan-Verlauf, der an einem Garten-Eintrag das Gartentagebuch. Beide taten vorher nichts.'},
+        {emoji:'🔆', bold:'Besser lesbar:', text:' rund zwanzig Stellen mit zu wenig Kontrast, darunter der Knopf des Tagesquiz im Dunkelmodus und die Karte.'}
+      ],
+      items: [
+        {emoji:'💳', bold:'Zahlungsweg (im Repo, nicht ausgeliefert):', text:' _shared/stripe_regeln.mjs trägt die Rechnung, stripe-webhook, -checkout und -portal sind der Rand. Der Stand eines Abos wird bei Stripe geholt; jede Datenbank-Antwort geht durch dbMuss; kein Abo neben einem laufenden, nichts neben Lifetime; Lifetime beendet das laufende Abo zum Periodenende; eine volle Erstattung gibt den Launch-Platz frei; eine gemerkte Kunden-Id, die Stripe nicht kennt, wird gesucht statt gemeldet. Prüfstand stripe_check (52 Fälle, SQL-Hälfte im lokalen Postgres).'},
+        {emoji:'🔁', bold:'Zwei Fassungen:', text:' ein paralleler Zweig (Sicherheitsreparatur) hat denselben Zahlungsweg unabhängig neu gebaut. Beide fanden dieselben Kernfehler. Ausgeliefert wird erst nach der Zusammenführung; die Überschneidung steht auf dem Brett.'},
+        {emoji:'🧮', bold:'Verzehr-Zeile gerechnet:', text:' die Gegenprobe-Karte zeigte „Iss das nicht“ und „Verzehr vertretbar“ nebeneinander. Die Zeile kommt jetzt aus einer Rechnung mit fünf Zuständen (Zustimmung, Pilzkontrolle, Fachprüfung, Nein, nicht prüfbar); ein Nein gewinnt immer, und ein Pilz bekommt nie eine Zustimmung.'},
+        {emoji:'📓', bold:'Ein Weg zum Abhaken:', text:' doneTask geht durch gsQuickDone. Gelesen wird über _gsTbAbgehakt und _gsTbTitel; jeder Verlaufseintrag hat eine eigene Zeit in der Vergangenheit; „(Quick)“ und „(Bulk)“ stehen nicht mehr im Titel.'},
+        {emoji:'☎️', bold:'Notfall-Nummern an einer Stelle:', text:' GS_NOTFALL_NUMMERN mit Prüfdatum und Quelle (Tox Info Suisse), gsNotfallOeffnen, _gsMenuNotfallTrifft. Die Menü-Suche kennt die Wörter in fünf Sprachen; kein Erste-Hilfe-Rat ohne Quelle.'},
+        {emoji:'🧭', bold:'Verweise, die ins Leere zeigen:', text:' wiring_check Richtung 6 findet Funktionsnamen, die als Zeichenkette in einem Feld stehen (58 Namen, 0 ins Leere). Gefunden hat es zwei tote Knöpfe im Kalender.'},
+        {emoji:'📏', bold:'Kontrast misst die ganze App:', text:' ganze Tabs in Bildschirmhöhen, alle elf, und 59 Öffner statt 43. „Ging nicht auf“ steht da, statt einer Zahl für ein Fenster, das es nicht gab.'},
+        {emoji:'🚦', bold:'Drei Berichte sind jetzt Tore:', text:' contrast_check, render_check und field_check enden bei einem Fund mit 1. Der Befund dazu stand auf dem Brett und ist geschlossen.'},
+        {emoji:'🌿', bold:'Artennamen gemessen, nichts geändert:', text:' die lateinischen Namen gegen zwei botanische Listen gehalten; das Ergebnis liegt als Tabelle in docs/arten-namen-pruefung.csv.'},
+        {emoji:'🗺️', bold:'Meilensteine:', text:' ROADMAP.md nennt ab v33.60 drei Stufen — zuerst ausliefern, dann fünf Fundamente, dann zehn Meilensteine aus der Ideenrunde (docs/ideen/2026-11-11).'}
+      ]
+  },
+  {
     v: 'v33.59', date: '11.11.2026',
       headline: 'Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App von selbst aus dem Backup',
       summary: 'Gemeldet von Fernando, zweimal: der Banner „Daten wiederherstellen?“ stand bei jedem Start da, und er will beim Öffnen gar nicht gefragt werden. Ursache des Dauerbanners, am Quelltext gemessen: seit v30.97 wurde nur die LOKALE Seite gefragt — ist irgendeiner der zwölf snapshot-exklusiven Bereiche leer (Bodenprofil, Käufe, Gebote, eigene Heilmittel …)? Das ist der Normalzustand, also war die Antwort bei fast jedem Konto „ja“, und das × war nirgends gemerkt. Jetzt gibt es den Banner nicht mehr. EINE Rechnung (_gsSnapshotFehlt) sagt, was eine Wiederherstellung zurückbrächte: der Snapshot hat dort Inhalt UND lokal ist es leer. Ist das so, holt gsSnapshotAutoWiederherstellen es still zurück (schreibt nur in leere Bereiche, überschreibt nie) und sagt danach einen Satz. Verloren und bewusst geleert werden unterschieden: stand ein Bereich beim letzten Backup auf DIESEM Gerät noch da (gs_snapshot_had) und ist jetzt leer, wurde er hier geleert — er bleibt leer und hält die automatischen Backups nicht an. Ein Versuch je Backup-Stand, keine Schleife bei vollem Speicher.',
@@ -77485,18 +77513,6 @@ window.GS_RELEASES = [
       {emoji: '🧱', bold: 'Zwei Datenbank-Aenderungen waren gar nicht anwendbar:', text: ' Sie standen seit Tagen als „bereit" da und waeren beim ersten Versuch gescheitert. Jetzt sind sie es wirklich — nachgerechnet in einer echten Datenbank.'}
     ],
   },
-  {
-    v: 'v33.40', date: '16.09.2026',
-    headline: 'Die Woche auf einen Blick — und deine Stillen Tage stehen im Kalender',
-    summary: 'Sechste Scheibe von KALENDER-V2. Eine Zeile sagt, was die Woche bringt — auf der Startseite, im Kalender und in Linas Kontext, aus DERSELBEN Rechnung. Und wenn du Stille Tage eingestellt hast, sagt jede Aufgabe, die hineinfällt, dass sie hineinfällt. Dabei gemessen: mit Stillen Tagen bis zum 11.9. fielen SIEBEN Fälligkeiten in die Abwesenheit, und kein Ereignis sagte es; und der Wochenrückblick zählte einen selbst notierten Tagebuch-Eintrag als erledigte Aufgabe.',
-    user_summary: 'Eine Zeile zeigt dir die Woche — Aufgaben, Aussaatfenster, Frost, Hinweise. Und Aufgaben, die in deine Stillen Tage fallen, sagen es dir, mit dem Weg zum Giess-Zettel.',
-    user_items: [
-      {emoji: '📆', bold: 'Diese Woche:', text: ' „Diese Woche: 5 Aufgaben · 1 Aussaatfenster · Frost am 18.09. · 2 Hinweise.“ — auf der Startseite, unter dem Kalender und bei Lina. Immer dieselben Zahlen, weil es dieselbe Rechnung ist.'},
-      {emoji: '✈️', bold: 'Stille Tage im Kalender:', text: ' Hast du eine Pause eingestellt, trägt jede Aufgabe, die hineinfällt, den Hinweis — mit dem Enddatum und einem Tipp auf den Giess-Zettel für die Nachbarin.'},
-      {emoji: '✅', bold: 'Erledigt heisst abgehakt:', text: ' Der Wochenrückblick schrieb dir auch eine Aufgabe gut, die du nur ins Tagebuch notiert hattest. Jetzt zählt er, was du wirklich abgehakt hast.'},
-      {emoji: '❄️', bold: 'Keine Vorhersage ist keine Entwarnung:', text: ' Fehlt das Wetter, steht „Frost: keine Vorhersage“ — nicht „kein Frost“.'}
-    ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -77705,7 +77721,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.59';
+var GS_VERSION = 'v33.60';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

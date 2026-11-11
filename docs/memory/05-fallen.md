@@ -274,3 +274,12 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.60** Im Menue stand unter „Premium freischalten" „TWINT · Karte ·
   IBAN". Welche Zahlungsarten erscheinen, entscheidet das Stripe-Dashboard.
   Regel: die App nennt nichts, was nur ein fremdes System weiss.
+- **v33.60** Ein Zweig holte `main` nur am Anfang; zwoelf Stunden spaeter hatte
+  ein anderer denselben Zahlungsweg unabhaengig neu geschrieben (neun Dateien
+  mit Konflikt). Regel: `git fetch` und `node scripts/austausch.mjs holen` vor
+  JEDER Scheibe, frueh pushen — und zwei Fassungen fuehrt EINE Sitzung zusammen,
+  bis beide Pruefstaende gruen sind.
+- **v33.60** Der neue Notfall-Eintrag der Menue-Suche kannte vier Sprachen —
+  das Brett fuehrte seit dem Morgen den Befund „Spanisch ist die fuenfte".
+  Regel: vor dem Bauen auf dem Brett nach der Klasse suchen, zu der das Neue
+  gehoert.

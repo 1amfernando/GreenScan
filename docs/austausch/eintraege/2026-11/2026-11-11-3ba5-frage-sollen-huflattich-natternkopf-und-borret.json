@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-3ba5",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "10:38:59",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "Sollen Huflattich, Natternkopf und Borretsch in der Artenliste weiter als „essbar“ stehen?",
+  "an": "fernando",
+  "text": "Alle drei bilden Pyrrolizidinalkaloide; das deutsche Bundesinstitut für Risikobewertung nennt Borretsch und Huflattich und empfiehlt, die Aufnahme so gering wie möglich zu halten (Stellungnahmen 017/2019 und 026/2020, nachgelesen 11.11.2026). In data/plants.v1.js: Borretsch viermal essbar (tox 0/1, mit Warnhinweis), Huflattich und Natternkopf je nach Eintrag essbar oder nicht.",
+  "haengt_daran": "Eine fachliche Entscheidung; die Artenliste wird nicht ohne Quelle geändert. Vor einer solchen Berichtigung sollte der Meilenstein „Rückruf“ stehen (ROADMAP.md M2).",
+  "stichworte": [
+    "plants.v1.js",
+    "edible",
+    "huflattich",
+    "borretsch",
+    "natternkopf",
+    "pyrrolizidinalkaloide"
+  ]
+}
