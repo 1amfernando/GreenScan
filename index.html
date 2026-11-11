@@ -10576,6 +10576,9 @@ function openGartenTagebuch() {
   
   // ── Timeline ──
   var monthNames = gsMonate();
+  // v33.60: das Vorschaubild ist ein Bedienelement (es oeffnet die Foto-Ansicht)
+  // — alt UND aria-label, weil die Tastatur-Nachruestung ihm role=button gibt.
+  var _tbFotoName = escHtml(_gsSatz('Foto vergrössern'));
   var timelineHtml = '';
   if (Object.keys(groups).length === 0) {
     timelineHtml = entries.length === 0
@@ -10600,8 +10603,13 @@ function openGartenTagebuch() {
           '<div style="flex:1;min-width:0;">' +
             (e.plant ? '<div style="font-size:var(--fs-sm);font-weight:800;color:' + cat.c + ';margin-bottom:1px;">' + escHtml(e.plant) + '</div>' : '') +
             '<div style="font-size:var(--fs-sm);color:var(--text);line-height:1.45;word-wrap:break-word;">' + escHtml(e.text) + '</div>' +
-            // v29.47: Tagebuch-Foto anzeigen (photo_url aus garden-diary-photos-Bucket; vorher gar nicht gerendert)
-            (e.photo_url ? '<div style="margin-top:6px;"><img src="' + ((typeof gsHTMLEscape==='function')?gsHTMLEscape(e.photo_url):e.photo_url) + '" loading="lazy" onclick="window.open(this.src,\'_blank\')" style="max-width:100%;max-height:160px;border-radius:var(--r-sm);object-fit:cover;cursor:zoom-in;" alt="">' + '</div>' : '') +
+            // v29.47: Tagebuch-Foto anzeigen (aus dem garden-diary-photos-Bucket).
+            // v33.60: `gsTagebuchAlle()` liefert das Feld `photo` (Garten-,
+            // Pflanzen- und Cloud-Tagebuch) — hier stand `e.photo_url`, das seit
+            // v32.46 kein Eintrag mehr traegt: gemessen 0 Bilder bei einem Eintrag
+            // MIT Foto. Die Adresse geht durch _gsSafeUrl, und das Bild oeffnet in
+            // der App (gsFotoAnsicht) statt per window.open.
+            (_gsSafeUrl(e.photo) ? '<div style="margin-top:6px;"><img src="' + _gsSafeUrl(e.photo) + '" loading="lazy" onclick="gsFotoAnsicht(this.src)" style="max-width:100%;max-height:160px;border-radius:var(--r-sm);object-fit:cover;cursor:zoom-in;" alt="' + _tbFotoName + '" aria-label="' + _tbFotoName + '">' + '</div>' : '') +
             '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:3px;">' + escHtml(e.date||'') + (e.weather ? ' · ' + escHtml(e.weather) : '') + '</div>' +
           '</div>' +
           '<button onclick="gsTbDelete(' + (Number(e.id) || 0) + ')" style="background:none;border:none;color:var(--muted);font-size:var(--fs-md);cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
@@ -25856,6 +25864,27 @@ function _gsSafeLink(l) {
   return '';
 }
 window._gsSafeLink = _gsSafeLink;
+// v33.60: Welche Adresse laedt die Foto-Ansicht (`gsFotoAnsicht`)? Dieselbe
+// Regel wie fuer jedes fremd befuellte Bild (`_gsSafeUrl`: http(s) oder
+// data:image/) — dazu ein blob: DIESER Seite (ein Foto aus dem Ausgangskorb,
+// `gsResolvePhotosIn`). Bei `blob:https://green-scan.ch/<uuid>` ist das Schema
+// `blob`, nicht `https` (dieselbe Falle wie Pfade.imUrsprung in der
+// Android-Huelle) — verglichen wird deshalb der Anfang der GANZEN Adresse,
+// und zwar mit `self.origin`: unter file:// (die Pruefstaende) ist
+// `location.origin` „file://", ein Blob heisst dort aber `blob:null/<uuid>`
+// (gemessen) — `self.origin` sagt in beiden Faellen dasselbe wie der Blob.
+// Rueckgabe: die Adresse ROH (sie wird per DOM gesetzt, nie in HTML
+// eingesetzt) oder ''.
+function _gsFotoAdresse(u) {
+  var s = String(u == null ? '' : u).trim();
+  if (!s) return '';
+  try {
+    var eigen = (typeof self.origin === 'string' && self.origin) ? self.origin : location.origin;
+    if (s.indexOf('blob:' + eigen + '/') === 0) return s;
+  } catch (_) {}
+  return _gsSafeUrl(s) ? s : '';
+}
+window._gsFotoAdresse = _gsFotoAdresse;
 function _catEmoji(c) { return {produkte:'🍅',samen:'🌰',zubehor:'🔧',dienst:'🤝',tausch:'🔄'}[c] || '🌿'; }
 function _catLabel(c) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -26764,6 +26793,119 @@ function gsDismissOrphanOverlays() {
   } catch(_){}
 }
 window.gsDismissOrphanOverlays = gsDismissOrphanOverlays;
+
+// ═══ v33.60 · FOTO-ANSICHT — ein Foto oeffnet IN der App ═════════════════
+// Gemessen am 11.11.2026: zwei Stellen oeffneten ein Foto mit `window.open`
+// (Rezept, Garten-Tagebuch). Im Browser ist das ein neuer Tab. In der
+// Android-App macht `_gsHuelleNetz` daraus eine Navigation: ein fremdes
+// https-Foto verlaesst die App (der Browser des Telefons geht auf), ein
+// blob:/data:-Foto ergibt „kein Ziel", und ein Foto vom EIGENEN Ursprung
+// ersetzte die App durch das Bild.
+//
+// EIN Weg fuer PWA und Huelle: ein Dialog am <body>, angemeldet bei
+// `gsRegisterOverlay`. Damit ist er eine Schicht der Zurueck-Regel
+// (`gsZurueck`: Android-Zurueck, Escape, ✕, Tipp daneben, jeder Tab-Wechsel),
+// und `_gsHistSync` sieht ihn ueber den Beobachter am <body> — kein eigener
+// Verlaufs-Eintrag, keine eigene Taste. Der Fokus geht hinein und beim
+// Schliessen zurueck (`gsTrapFocus` / `gsReleaseFocusTrap`, wie bei openModal).
+//
+// Wer ein Foto vergroessern will, schreibt `onclick="gsFotoAnsicht(this.src)"`
+// — nie `window.open`, und nie die Adresse als Zeichenkette ins onclick: der
+// Wert durchliefe zwei Parser (v32.66; gemessen: ein Apostroph in der Adresse
+// eines Rezeptfotos lief als Code).
+// Die Ansicht liegt EINS ueber den anderen dynamischen Dialogen: `gsZurueck`
+// nimmt die Schicht mit dem hoechsten z-index ab, und bei Gleichstand die
+// erste im Dokument — das waere der Dialog darunter.
+// Vergroessern ohne Gesten-Rechnung: das Bild wird breiter als sein Feld, und
+// das Feld rollt. (Die WebView der Android-App kennt kein Zwei-Finger-Zoomen.)
+// Pruefstand: android_check (Schicht), escape_check (Adressen), apk_check A9.
+function gsFotoAnsicht(adresse, beschriftung) {
+  var u = _gsFotoAdresse(adresse);
+  if (!u) {
+    try { gsToast(_gsSatz('Dieses Foto lässt sich hier nicht öffnen.'), 'warning', 4000); } catch (_) {}
+    return false;
+  }
+  try {
+    var schon = document.getElementById('gs-foto-ansicht');
+    if (schon) gsDismissOverlay(schon);
+    var w = document.createElement('div');
+    w.id = 'gs-foto-ansicht';
+    w.setAttribute('role', 'dialog');
+    w.setAttribute('aria-modal', 'true');
+    w.setAttribute('aria-label', _gsSatz('Foto'));
+    w.style.cssText = 'position:fixed;inset:0;z-index:calc(var(--z-image-overlay,99999) + 1);background:rgba(0,0,0,.94);display:flex;';
+    var feld = document.createElement('div');
+    feld.style.cssText = 'flex:1;min-width:0;overflow:auto;display:flex;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;';
+    var bild = document.createElement('img');
+    bild.alt = String(beschriftung == null ? '' : beschriftung).trim() || _gsSatz('Foto in voller Grösse');
+    // margin:auto statt align-items:center — sonst waere beim vergroesserten
+    // Bild der obere und linke Rand nicht mehr erreichbar.
+    // flex:0 0 auto — ein Flex-Kind darf sonst SCHRUMPFEN, und sein Mindestmass
+    // ist die natuerliche Breite: ein kleines Foto bliebe vergroessert auf
+    // Bildschirmbreite stehen, und es gaebe nichts zu verschieben (gemessen:
+    // 8×6 → Inhalt 412 px in 412 px).
+    bild.style.cssText = 'flex:0 0 auto;margin:auto;display:block;max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in;';
+    var leiste = document.createElement('div');
+    leiste.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:10px;display:flex;flex-direction:row-reverse;gap:8px;';
+    var knopf = function (zeichen, name) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', name);
+      b.textContent = zeichen;
+      b.style.cssText = 'width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.65);color:#fff;font-size:var(--fs-xl);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0;-webkit-tap-highlight-color:transparent;';
+      return b;
+    };
+    // ✕ zuerst im Dokument (dorthin geht der Fokus), rechts aussen auf dem Bildschirm (row-reverse).
+    var zu = knopf('\u2715', _gsSatz('Schliessen'));
+    zu.setAttribute('data-gs-close', '1');           // _gsCloseOverlayGracefully drueckt genau diesen Knopf
+    var lupe = knopf('\ud83d\udd0d', _gsSatz('Vergrössern'));
+    lupe.setAttribute('aria-pressed', 'false');
+    var gross = false;
+    var zoomen = function () {
+      gross = !gross;
+      bild.style.maxWidth = gross ? 'none' : '100%';
+      bild.style.maxHeight = gross ? 'none' : '100%';
+      bild.style.width = gross ? '250%' : '';
+      bild.style.cursor = gross ? 'zoom-out' : 'zoom-in';
+      lupe.setAttribute('aria-label', gross ? _gsSatz('Verkleinern') : _gsSatz('Vergrössern'));
+      lupe.setAttribute('aria-pressed', gross ? 'true' : 'false');
+    };
+    lupe.addEventListener('click', zoomen);
+    bild.addEventListener('click', zoomen);
+    zu.addEventListener('click', function () { gsDismissOverlay(w); });
+    // Ein Tipp neben das Bild schliesst — das Feld fuellt den ganzen Dialog,
+    // der Rand-Klick aus gsRegisterOverlay (ev.target === w) traefe nie.
+    feld.addEventListener('click', function (ev) { if (ev.target === feld) gsDismissOverlay(w); });
+    // Laedt das Foto nicht, steht ein Satz da — kein zerbrochenes Bildsymbol,
+    // und ohne Empfang der Grund (ein Foto aus der Cloud braucht ihn).
+    bild.addEventListener('error', function () {
+      try {
+        var t = document.createElement('div');
+        t.setAttribute('role', 'status');
+        t.style.cssText = 'margin:auto;padding:24px;color:#fff;font-size:var(--fs-md);text-align:center;line-height:1.5;';
+        t.textContent = (navigator.onLine === false)
+          ? _gsSatz('Ohne Empfang lässt sich dieses Foto nicht laden.')
+          : _gsSatz('Dieses Foto liess sich nicht laden.');
+        feld.replaceChild(t, bild);
+        lupe.style.display = 'none';
+      } catch (_) {}
+    });
+    feld.appendChild(bild);
+    leiste.appendChild(zu);
+    leiste.appendChild(lupe);
+    w.appendChild(feld);
+    w.appendChild(leiste);
+    document.body.appendChild(w);
+    gsRegisterOverlay(w, function () { try { gsReleaseFocusTrap(w); } catch (_) {} });
+    try { gsTrapFocus(w); } catch (_) {}
+    bild.src = u;
+    return true;
+  } catch (e) {
+    try { var kaputt = document.getElementById('gs-foto-ansicht'); if (kaputt) gsDismissOverlay(kaputt); } catch (_) {}
+    return false;
+  }
+}
+window.gsFotoAnsicht = gsFotoAnsicht;
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -53496,7 +53638,11 @@ function openRecipeDetail(id) {
   // v28.10 B-009: Foto-Galerie (admin-kuratiert, public-read). Lazy-load, horizontal scrollbar.
   var _photoHtml = (Array.isArray(r.photo_urls) && r.photo_urls.length)
     ? '<div style="display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;-webkit-overflow-scrolling:touch;">' +
-        r.photo_urls.map(function(u){ var su=(typeof gsHTMLEscape==='function')?gsHTMLEscape(u):u; return '<img loading="lazy" src="'+su+'" onclick="window.open(\''+su+'\',\'_blank\')" style="height:130px;border-radius:var(--r-md);object-fit:cover;flex:0 0 auto;cursor:zoom-in;box-shadow:var(--shadow-sm);">'; }).join('') +
+        // v33.60: die Adresse stand als Zeichenkette im onclick (zwei Parser —
+        // ein Apostroph lief als Code) und oeffnete per window.open. Jetzt:
+        // _gsSafeUrl fuer src, die Ansicht bekommt `this.src`, und das Bild hat einen Namen.
+        // alt UND aria-label: die Tastatur-Nachruestung gibt dem Bild role=button.
+        r.photo_urls.map(function(u){ var su=_gsSafeUrl(u), nm=escHtml(_gsSatz('Foto vergrössern')); return su ? '<img loading="lazy" src="'+su+'" onclick="gsFotoAnsicht(this.src)" style="height:130px;border-radius:var(--r-md);object-fit:cover;flex:0 0 auto;cursor:zoom-in;box-shadow:var(--shadow-sm);" alt="'+nm+'" aria-label="'+nm+'">' : ''; }).join('') +
       '</div>'
     : '';
   const body =

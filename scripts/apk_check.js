@@ -1600,6 +1600,124 @@ async function teilenFaelle(p, k) {
   return R;
 }
 
+// ===========================================================================
+// APP · die Foto-Ansicht (11.11.2026) — derselbe Weg in der Huelle und im Browser
+// ===========================================================================
+// Gemessen davor: Rezeptfotos oeffneten per window.open. In der Huelle macht
+// `_gsHuelleNetz` daraus `location.href = adresse` — ein fremdes https-Foto
+// verlaesst die App (ACTION_VIEW), ein blob:/data:-Foto ergibt „kein Ziel", und
+// ein Foto vom EIGENEN Ursprung ersetzt die App durch das Bild. Und das
+// Tagebuchfoto wurde gar nicht gerendert (`e.photo_url` statt `e.photo`).
+//
+// Eine EIGENE Seite im selben Kontext: navigiert der alte Stand die Seite weg,
+// reisst das nicht die Kanal- und Teilen-Faelle mit.
+const FOTO_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAEUlEQVR4nGPQqzXCihgGUgIAJFopcWysNWAAAAAASUVORK5CYII=';
+async function fotoFaelle(ctx, adresse, SEED) {
+  const p = await ctx.newPage();
+  const out = { dokumente: 0, fehler: [] };
+  p.on('pageerror', e => out.fehler.push(e.message.split('\n')[0]));
+  // Dokument-Ladungen, nicht framenavigated: das feuert auch fuer pushState (v33.43).
+  p.on('domcontentloaded', () => { out.dokumente++; });
+  try {
+    await p.addInitScript(SEED);
+    await p.goto(adresse, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await p.waitForTimeout(3500);
+    const start = out.dokumente;
+    out.r = await p.evaluate(async (PNG) => {
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      document.documentElement.classList.remove('gs-preauth');
+      window.gsRequire = () => true;
+      const R = { quellen: {}, huelle: (typeof gsAndroidHuelle === 'function') ? gsAndroidHuelle() : null };
+      // window.open zaehlen — UEBER dem, was die Seite daraus gemacht hat (in der
+      // Huelle ist es schon der Ersatz aus _gsHuelleNetz); gerufen wird es NICHT
+      // weiter, sonst navigierte der alte Stand diese Seite weg.
+      let hinaus = 0; window.open = function () { hinaus++; return null; };
+      const ansicht = () => document.getElementById('gs-foto-ansicht');
+      const zu = async () => { const a = ansicht(); if (a) { try { gsDismissOverlay(a); } catch (_) { a.remove(); } } await warte(80); };
+      const messen = async (vorschau) => {
+        const e = { vorschau: !!vorschau };
+        if (!vorschau) return e;
+        const vorher = hinaus;
+        vorschau.click();
+        await warte(350);
+        const a = ansicht();
+        e.hinaus = hinaus - vorher;
+        e.offen = !!a;
+        const gross = a && a.querySelector('img');
+        if (gross) { for (let i = 0; i < 40 && !(gross.complete && gross.naturalWidth); i++) await warte(50); }
+        e.geladen = !!(gross && gross.naturalWidth > 0);
+        e.gleich = !!(gross && gross.src === vorschau.src);
+        // der ECHTE Rueckweg: history.back → popstate → gsZurueck
+        if (a) { history.back(); await warte(500); e.zurueckZu = !ansicht(); }
+        await zu();
+        return e;
+      };
+      const blob = URL.createObjectURL(new Blob([Uint8Array.from(atob(PNG.split(',')[1]), c => c.charCodeAt(0))], { type: 'image/png' }));
+      const QUELLEN = { 'https (eigener Ursprung)': location.origin + '/icons/icon-192.png', 'data:': PNG };
+      const rz = recipesData[0];
+      for (const name of Object.keys(QUELLEN)) {
+        rz.photo_urls = [QUELLEN[name]];
+        openRecipeDetail(rz.id);
+        await warte(450);
+        R.quellen[name] = await messen(document.querySelector('#recipe-detail-body img'));
+        try { closeModal('modal-recipe-detail'); } catch (_) {}
+        await warte(350);
+      }
+      // blob: — so sieht ein Foto aus dem Ausgangskorb aus, nachdem
+      // gsResolvePhotosIn den Platzhalter ersetzt hat. Heute traegt kein
+      // Vorschaubild mit Antippen eine solche Adresse (Rezept und Tagebuch
+      // lassen nur http(s) und data:image zu); gemessen wird deshalb die
+      // Ansicht an einem Bild mit genau dem onclick, den die zwei Stellen setzen.
+      const korb = document.createElement('img');
+      korb.setAttribute('onclick', 'gsFotoAnsicht(this.src)');
+      korb.src = blob;
+      document.body.appendChild(korb);
+      R.quellen['blob: (wie aus dem Ausgangskorb)'] = await messen(korb);
+      korb.remove();
+      // Das Tagebuch: ein Cloud-Eintrag MIT Foto (der Spiegel, den gsTagebuchAlle liest).
+      localStorage.setItem('gs_garden_diary_cache', JSON.stringify([{ id: 'pruef-foto', entry_type: 'photo', title: 'ZZFOTOZZ', text: '', species_lat: '', harvest_kg: null,
+        photo_url: PNG, created_at: new Date().toISOString() }]));
+      window.gsCloudTagebuchLaden = async () => null;
+      localStorage.removeItem('gs_tb_filter'); localStorage.removeItem('gs_tb_search');
+      openGartenTagebuch();
+      await warte(500);
+      const mc = document.getElementById('modal-content');
+      R.tagebuchText = !!(mc && /ZZFOTOZZ/.test(mc.textContent));
+      R.tagebuch = await messen(mc ? Array.from(mc.querySelectorAll('img')).find(i => i.getAttribute('src') === PNG) : null);
+      try { closeModal('detail-modal'); } catch (_) {}
+      R.hinaus = hinaus;
+      R.ort = location.pathname + location.search;
+      return R;
+    }, FOTO_PNG);
+    await p.waitForTimeout(400);
+    out.neuGeladen = out.dokumente - start;
+  } catch (e) { out.ausnahme = e.message.split('\n')[0]; }
+  await p.close().catch(() => {});
+  return out;
+}
+
+function fotoUrteil(f) {
+  if (!f) return 'lief nicht';
+  if (f.ausnahme) return 'Ausnahme: ' + f.ausnahme + (f.dokumente > 1 ? ' — die Seite wurde ' + (f.dokumente - 1) + '× neu geladen/wegnavigiert' : '');
+  const k = [];
+  const r = f.r || {};
+  Object.keys(r.quellen || {}).forEach(n => {
+    const e = r.quellen[n];
+    if (!e.vorschau) { k.push(n + ': kein Vorschaubild'); return; }
+    if (e.hinaus) k.push(n + ': ' + e.hinaus + '× window.open');
+    if (!e.offen) k.push(n + ': keine Foto-Ansicht in der App');
+    else if (!e.geladen || !e.gleich) k.push(n + ': die Ansicht zeigt das Foto nicht (geladen ' + e.geladen + ', dasselbe ' + e.gleich + ')');
+    else if (!e.zurueckZu) k.push(n + ': Zurueck schliesst die Ansicht nicht');
+  });
+  if (Object.keys(r.quellen || {}).length !== 3) k.push('nur ' + Object.keys(r.quellen || {}).length + ' von 3 Quellen gemessen');
+  if (!r.tagebuchText) k.push('Tagebuch: der Eintrag steht nicht da — der Fall misst nichts');
+  else if (!r.tagebuch || !r.tagebuch.vorschau) k.push('Tagebuch: der Eintrag hat ein Foto, das Tagebuch zeigt keines');
+  else if (r.tagebuch.hinaus || !r.tagebuch.offen || !r.tagebuch.geladen || !r.tagebuch.zurueckZu) k.push('Tagebuch: ' + JSON.stringify(r.tagebuch));
+  if (f.neuGeladen) k.push('die Seite wurde ' + f.neuGeladen + '× neu geladen');
+  if (f.fehler && f.fehler.length) k.push('JS-Fehler: ' + f.fehler[0]);
+  return k.length ? k.join(' · ') : null;
+}
+
 async function browserFaelle(p, SEED) {
   const out = { dateien: {} };
   await p.evaluate(() => { document.documentElement.classList.remove('gs-preauth'); window.gsRequire = () => true; });
@@ -1744,6 +1862,8 @@ async function app() {
       catch (e) { r.teilenFehler = e.message.split('\n')[0]; }
     }
     r.downloads = downloads.length; r.huelleAnfragen = huelleAnfragen.length;
+    try { r.foto = await fotoFaelle(ctx, (alsHuelle && kanal) ? 'https://green-scan.ch/?source=app' : 'http://127.0.0.1:' + port + '/?source=app', SEED); }
+    catch (e) { r.foto = { ausnahme: e.message.split('\n')[0] }; }
     await ctx.close();
     return r;
   }
@@ -1952,6 +2072,18 @@ async function app() {
     F.push({ name: TN[9], r: (T.caches === 0 && b.geteiltCaches > 0)
       ? { ok: true, info: 'Huelle 0× · Browser ' + b.geteiltCaches + '×' } : { ok: false, warum: 'Huelle ' + T.caches + '× · Browser ' + b.geteiltCaches + '×' } });
   }
+  // ---------------------------------------------------------------- 11.11.2026
+  // A9 — die Foto-Ansicht: EIN Weg fuer PWA und Huelle. Beide Fahrten muessen
+  // dasselbe ergeben; ohne die Browser-Fahrt waere ein Zweig, der nur in der
+  // Huelle greift, ebenfalls gruen.
+  const fh = fotoUrteil(h.foto), fb = fotoUrteil(b.foto);
+  F.push({
+    name: 'A9 · Ein Foto oeffnet IN der App — Rezept (https · data:), Tagebuch und ein blob: aus dem Ausgangskorb, in der Huelle wie im Browser: 0× window.open, kein Neuladen, Zurueck schliesst',
+    r: (!fh && !fb && h.foto.r.huelle && !b.foto.r.huelle)
+      ? { ok: true, info: 'Huelle ' + h.foto.r.huelle + ' und Browser: je 2 Rezeptfotos, 1 blob: und 1 Tagebuchfoto in der Ansicht geladen, ' + (h.foto.r.hinaus + b.foto.r.hinaus) + '× window.open, 0× neu geladen' }
+      : { ok: false, warum: [fh ? 'Huelle — ' + fh : '', fb ? 'Browser — ' + fb : '',
+          (!fh && !fb) ? 'die Fahrten sind nicht Huelle/Browser: ' + JSON.stringify([h.foto.r.huelle, b.foto.r.huelle]) : ''].filter(Boolean).join(' ║ ') },
+  });
   F.push({
     name: "A8 · _gsSwReady haengt nicht: in der Huelle null, im Browser eine Antwort",
     r: (h.ready === 'null' && b.ready !== 'HAENGT')
