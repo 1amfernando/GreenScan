@@ -41,8 +41,10 @@ export function rueckkehrAdresse(url, vorgabe) {
 
 // v33.59 (Schlusspruefung d1 #3): kam die verworfene Adresse aus dem Stripe-FENSTER (popup=1,
 // z.B. von der Netlify-Auslieferung oder localhost), traegt die Vorgabe es weiter — sonst laedt
-// das Fenster die ganze App, statt sich zu schliessen (Rueckkehr-Handler in index.html prueft
-// popup=1 UND window.opener). Uebernommen wird nur dieses eine Merkmal, nie die Adresse.
+// das Fenster die ganze App, statt sich zu schliessen. Der Rueckkehr-Handler in index.html
+// erkennt das Fenster an popup=1 ALLEIN: window.opener ist dort wegen
+// Cross-Origin-Opener-Policy same-origin-allow-popups immer null; die Meldung geht ueber
+// BroadcastChannel ans Hauptfenster. Uebernommen wird nur dieses eine Merkmal, nie die Adresse.
 function mitPopup(u, vorgabe) {
   if (typeof vorgabe !== 'string' || !vorgabe || u.searchParams.get('popup') !== '1') return vorgabe;
   if (/[?&]popup=1(&|$)/.test(vorgabe)) return vorgabe;

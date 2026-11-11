@@ -9779,7 +9779,7 @@ window.gsAddFindToCollection = function(i){
   if (!f || f.id == null){ if (typeof gsToast === 'function') gsToast('Fund nicht gefunden', 'warn'); return; }
   if (String(f.id).indexOf('local_') === 0){ if (typeof gsToast === 'function') gsToast('Fund erst mit der Cloud synchronisieren (einloggen + online), dann sammelbar.', 'info'); return; }
   var catEmoji = { pilz:'🍄', pflanze:'🌿', baum:'🌲', kraut:'🌿', beere:'🫐', heil:'🌿', poi:'📍', sonstiges:'📍' };
-  var emo = catEmoji[f.category] || '📍';
+  var emo = _gsNachschlag(catEmoji, f.category, null) || '📍';
   gsAddToCollection('find', f.id, f.species_name || 'Fund', emo);
 };
 
@@ -12351,7 +12351,7 @@ async function loadGardenWeather(forceReload) {
         var uid2 = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
         if (uid2 && data.current_weather && data.daily) {
           var todayDateIso = new Date().toISOString().slice(0,10);
-          sbFetch('/rest/v1/weather_log_per_garden', {
+          sbFetch('/rest/v1/weather_log_per_garden?on_conflict=user_id,date', {   // v33.59: UNIQUE(user_id, date), nicht die id
             method: 'POST',
             headers: { 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
             body: JSON.stringify({
@@ -14555,7 +14555,7 @@ async function dqAskKIExplain() {
     var msg = (err && err.message) || 'KI-Fehler';
     // Klar formulierte Fehler-Meldungen je nach Ursache
     if (msg.toLowerCase().indexOf('quota') >= 0 || msg.toLowerCase().indexOf('limit') >= 0) {
-      msg = '⚠️ Tageslimit erreicht (Free: 15 KI-Aufrufe/Tag). Mit Pro oder eigenem Anthropic-Key: unbegrenzt.';
+      msg = '⚠️ ' + _gsKiQuotaSatz(err, 'Tageslimit erreicht (Free: 15 KI-Aufrufe/Tag). Mit Pro oder eigenem Anthropic-Key: unbegrenzt.').satz;   // v33.59: am Plan
     } else if (msg.toLowerCase().indexOf('key') >= 0) {
       msg = '⚠️ KI temporär nicht verfügbar — versuche es später nochmal.';
     }
@@ -16169,6 +16169,9 @@ window.GS_I18N_JS_STRINGS = {
   'detail_modal_missing':      'Detail-Modal nicht gefunden',
   'toast_please_login':        '🔑 Bitte einloggen',
   'err_own_listings_only':     'Nur eigene Inserate',
+  'mkt_status_gesperrt':       'Dein Konto ist gesperrt – Inserate lassen sich nicht mehr ändern.',
+  'mkt_status_nicht_gefunden': 'Dieses Inserat gibt es nicht mehr.',
+  'mkt_status_ungueltig':      'Diesen Status gibt es nicht.',
   'status_prefix':             'Status:',
   'toast_network_short':       '⚠️ Netzwerkfehler',
   'err_generic':               'Fehler',
@@ -18874,10 +18877,10 @@ window._gsAchRenderMine = function() {
   var groups = {}, order = [];
   rows.forEach(function(r){ var c=r.category||'sonstige'; if(!groups[c]){groups[c]=[];order.push(c);} groups[c].push(r); });
   order.forEach(function(cat){
-    html += '<div style="padding:12px 18px 4px;font-size:var(--fs-md);font-weight:800;color:var(--text);">'+(catLabels[cat]||esc(cat))+'</div>';
+    html += '<div style="padding:12px 18px 4px;font-size:var(--fs-md);font-weight:800;color:var(--text);">'+(_gsNachschlag(catLabels, cat, null)||esc(cat))+'</div>';
     groups[cat].forEach(function(r){
       var i = rows.indexOf(r);
-      var meta = rar[r.rarity] || rar.common;
+      var meta = _gsNachschlag(rar, r.rarity, null) || rar.common;
       var cur = Number(r.current_value||0), thr = Number(r.threshold||1);
       var pct = Math.min(100, Math.round(cur/Math.max(1,thr)*100));
       var inShow = (window._gsAchShowcase||[]).indexOf(r.slug) >= 0;
@@ -18957,7 +18960,7 @@ window._gsAchRenderFeed = async function() {
   }
   var html = '<div style="padding:10px 18px;font-size:var(--fs-sm);color:var(--muted);">Letzte 7 Tage · ungewöhnlich und seltener</div>';
   feed.forEach(function(f){
-    var meta = rar[f.rarity] || rar.common;
+    var meta = _gsNachschlag(rar, f.rarity, null) || rar.common;
     var when = '';
     try { when = new Date(f.unlocked_at).toLocaleDateString(gsLocale()); } catch(_){}
     html += '<div style="margin:0 18px 8px;border:1px solid var(--border);border-left:3px solid '+meta.c+';border-radius:var(--r-md);padding:9px 12px;display:flex;align-items:center;gap:10px;">' +
@@ -19243,6 +19246,7 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
   // v33.49 (GS_HUELLE_ANDERS 'zahlung'): in der Android-Huelle gibt es kein
   // zweites Fenster — `window.open` benutzt dort den LAUFENDEN Rahmen wieder,
   // und das `popup.document.write` unten wuerde die App selbst ueberschreiben.
+  try { sessionStorage.removeItem('gs_billing_selbes_fenster'); } catch(_){}   // v33.59: siehe Rueckkehr-Handler
   var popup = _gsCheckoutFenster('greenscan_checkout', 520, 760);
   if (popup) {
     try {
@@ -19326,8 +19330,10 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
         var b = {
           price_id: price.id,
           claim_launch_offer: !!claimLaunchOffer,
-          success_url: root + '?billing=success&popup=1',
-          cancel_url:  root + '?billing=cancel&popup=1'
+          // v33.59: popup=1 NUR, wenn es ein Fenster gibt — sonst (Popup blockiert, Android-Huelle)
+          // kehrt das HAUPTfenster mit popup=1 zurueck, und der Handler laedt die App nicht.
+          success_url: root + '?billing=success' + ((popup && !popup.closed) ? '&popup=1' : ''),
+          cancel_url:  root + '?billing=cancel' + ((popup && !popup.closed) ? '&popup=1' : '')
         };
         // v25.7 A3: Trial-Days optional weitergeben (Backend cap't auf max 30 + first-sub)
         if (trialDays && Number(trialDays) > 0) b.trial_days = Number(trialDays);
@@ -19354,7 +19360,9 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
       // Safety timeout: 15 Min
       setTimeout(function(){ try { clearInterval(checkClosed); } catch(e){} window._gsBillingPopup = false; }, 15*60*1000);
     } else {
-      // Popup-Fallback: normaler Redirect
+      // Popup-Fallback: normaler Redirect. v33.59: das Fenster merkt sich, dass ES zurueckkommt
+      // (falls das Popup erst nach dem Bau der Adresse geschlossen wurde und sie popup=1 traegt).
+      try { sessionStorage.setItem('gs_billing_selbes_fenster', '1'); } catch(_){}
       location.href = data.url;
     }
   } catch(e) {
@@ -19394,6 +19402,7 @@ async function gsOpenBillingPortal(flow) {
   // v33.49 (GS_HUELLE_ANDERS 'zahlung'): siehe gsStartCheckout — in der Huelle
   // kein zweites Fenster, der Rueckfall unten schickt die Adresse an den
   // Browser des Telefons.
+  try { sessionStorage.removeItem('gs_billing_selbes_fenster'); } catch(_){}   // v33.59: siehe Rueckkehr-Handler
   var popup = _gsCheckoutFenster('greenscan_portal', 520, 760);
   if (popup) {
     try {
@@ -19404,7 +19413,7 @@ async function gsOpenBillingPortal(flow) {
     // v28.02: frischen Token erzwingen (Stripe-Portal-Robustheit, Block C)
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || '');
     var base  = (typeof SB_URL !== 'undefined') ? SB_URL : '';
-    var bodyObj = { return_url: location.origin + (location.pathname||'/') + '?billing=return&popup=1' };
+    var bodyObj = { return_url: location.origin + (location.pathname||'/') + '?billing=return' + ((popup && !popup.closed) ? '&popup=1' : '') };   // v33.59: wie gsStartCheckout
     if (flow === 'cancel' || flow === 'reactivate') bodyObj.flow = flow;
     var resp = await (window._gsFetch || fetch)(base + '/functions/v1/stripe-portal', {
       method: 'POST',
@@ -19437,6 +19446,7 @@ async function gsOpenBillingPortal(flow) {
         }
       }, 800);
     } else {
+      try { sessionStorage.setItem('gs_billing_selbes_fenster', '1'); } catch(_){}   // v33.59: wie gsStartCheckout
       location.href = data.url;
     }
   } catch(e) {
@@ -19884,26 +19894,49 @@ window._gsBillingPruefen = _gsBillingPruefen;
     var qs = new URLSearchParams(location.search || '');
     var b = qs.get('billing');
     if (!b) return;
-    var isPopup = qs.get('popup') === '1' && window.opener && !window.opener.closed;
+    // v33.59: das Popup erkennt sich an popup=1 ALLEIN. _headers setzt
+    // Cross-Origin-Opener-Policy: same-origin-allow-popups — nach dem Umweg ueber
+    // Stripe ist window.opener IMMER null; die alte Bedingung hielt das Fenster nie
+    // fuer ein Popup, es lud die ganze App im kleinen Fenster und schloss sich nie.
+    // Gemeldet wird ueber BroadcastChannel (derselbe Ursprung, kein opener noetig);
+    // das Hauptfenster entscheidet ueber _gsBillingPruefen — Erfolg erst nach dem Server.
+    var _selbes = false;
+    try { _selbes = sessionStorage.getItem('gs_billing_selbes_fenster') === '1'; if (_selbes) sessionStorage.removeItem('gs_billing_selbes_fenster'); } catch(_){}
+    var isPopup = qs.get('popup') === '1' && !_selbes;   // _selbes: das Hauptfenster selbst kam zurueck
 
     if (isPopup) {
-      // Bridge-Page Verhalten: Parent informieren → Popup schließen
-      try {
-        window.opener.postMessage({ type:'gs_billing', result: b, ts: Date.now() }, location.origin);
-      } catch(e){}
-      // Zeige kurze Status-Seite, dann schließen
+      window.__gsBillingIstPopup = true;
+      var _meldung = { type:'gs_billing', result: String(b).slice(0, 20), ts: Date.now() };
+      try { var _bc = new BroadcastChannel('gs-billing'); _bc.postMessage(_meldung); _bc.close(); } catch(e){}
+      try { if (window.opener && !window.opener.closed) window.opener.postMessage(_meldung, location.origin); } catch(e){}
+      // Die App selbst wird hier NICHT geladen: der Parser haelt an (window.stop), die
+      // Seite zeigt nur den Satz.
+      try { window.stop(); } catch(e){}
+      var _ok = (b === 'success'), _ret = (b === 'return');
+      var _kopf = _ok ? 'Zurück zu GreenScan' : (_ret ? 'Zurück zu GreenScan' : 'Zahlung abgebrochen');
+      var _text = _ok ? 'GreenScan prüft deine Zahlung im Hauptfenster. Dieses Fenster schließt sich automatisch…'
+                : (_ret ? 'Deine Abo-Einstellungen werden im Hauptfenster aktualisiert.' : 'Kein Abo aktiviert. Du kannst es jederzeit später versuchen.');
       try {
         document.body.innerHTML =
-          '<div style="font-family:-apple-system,system-ui,sans-serif;background:'+(b==='success'?'#0d2e0d':'#1c1c1c')+';color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;margin:0;text-align:center;padding:20px;">' +
-            '<div style="font-size:68px;margin-bottom:12px;">' + (b==='success'?'✅':'↩️') + '</div>' +
-            '<h1 style="font-size:var(--fs-2xl);margin:0 0 8px;font-family:\'Playfair Display\',serif;">' + (b==='success'?'Zurück zu GreenScan':'Zahlung abgebrochen') + '</h1>' +
-            '<p style="font-size:var(--fs-md);opacity:.75;margin:0 0 24px;max-width:320px;line-height:1.55;">' +
-              (b==='success'?'GreenScan prüft deine Zahlung. Dieses Fenster schließt sich automatisch…':'Kein Abo aktiviert. Du kannst es jederzeit später versuchen.') +
-            '</p>' +
-            '<div style="font-size:var(--fs-sm);opacity:.45;">Schließe gleich automatisch…</div>' +
+          '<div style="font-family:-apple-system,system-ui,sans-serif;background:'+(_ok?'#0d2e0d':'#1c1c1c')+';color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;margin:0;text-align:center;padding:20px;">' +
+            '<div style="font-size:68px;margin-bottom:12px;">' + (_ok?'✅':'↩️') + '</div>' +
+            '<h1 style="font-size:24px;margin:0 0 8px;">' + _kopf + '</h1>' +
+            '<p style="font-size:16px;opacity:.85;margin:0 0 24px;max-width:320px;line-height:1.55;">' + _text + '</p>' +
+            '<div id="gs-popup-schluss" style="font-size:14px;opacity:.75;">Schließe gleich automatisch…</div>' +
           '</div>';
       } catch(e){}
-      setTimeout(function(){ try { window.close(); } catch(e){} }, 1500);
+      setTimeout(function(){
+        try { window.close(); } catch(e){}
+        // close() ist verweigert, wenn das Fenster nicht per Skript geoeffnet wurde
+        // (oder der Browser es sonst ablehnt) — dann ein ruhiger Satz statt Warten.
+        setTimeout(function(){
+          try {
+            if (window.closed) return;
+            var el = document.getElementById('gs-popup-schluss');
+            if (el) { el.textContent = 'Du kannst dieses Fenster schließen.'; el.style.opacity = '1'; el.setAttribute('role', 'status'); }
+          } catch(e){}
+        }, 400);
+      }, 1500);
       return;
     }
 
@@ -19933,12 +19966,17 @@ window._gsBillingPruefen = _gsBillingPruefen;
 })();
 
 // v23.50: Parent-Listener für Popup-Checkout-Ergebnis
-window.addEventListener('message', function(ev) {
+// v33.59: zwei Wege, ein Empfaenger — postMessage (falls ein opener da ist) und
+// BroadcastChannel 'gs-billing' (der Regelfall: COOP trennt den opener). Dieselbe
+// Meldung (ts) wird nur einmal verarbeitet.
+var _gsBillingGesehen = {};
+function _gsBillingMeldung(data) {
   try {
-    if (!ev || !ev.data || ev.data.type !== 'gs_billing') return;
-    // Origin prüfen
-    if (ev.origin && ev.origin !== location.origin) return;
-    var result = ev.data.result;
+    if (!data || data.type !== 'gs_billing') return;
+    var _id = String(data.result) + '|' + String(data.ts);
+    if (_gsBillingGesehen[_id]) return;
+    _gsBillingGesehen[_id] = 1;
+    var result = data.result;
     if (result === 'success') {
       // v33.59: Erfolg sagt erst der Server (siehe _gsBillingPruefen).
       try { _gsBillingPruefen(); } catch(_){}
@@ -19953,7 +19991,18 @@ window.addEventListener('message', function(ev) {
       if (typeof gsRefreshSubInfoCardRetry === 'function') gsRefreshSubInfoCardRetry();
     }
   } catch(e){}
+}
+window.addEventListener('message', function(ev) {
+  if (!ev || !ev.data) return;
+  if (ev.origin && ev.origin !== location.origin) return;   // Origin prüfen
+  _gsBillingMeldung(ev.data);
 });
+try {
+  if ('BroadcastChannel' in window && !window.__gsBillingIstPopup) {
+    window._gsBillingKanal = new BroadcastChannel('gs-billing');
+    window._gsBillingKanal.onmessage = function(ev){ _gsBillingMeldung(ev && ev.data); };
+  }
+} catch(_){}
 
 // ══ DB LÜCKEN AUTO-FILL ══════════════════════════════════════
 var GS_USES_TEMPLATES = {
@@ -23897,7 +23946,7 @@ function gsRenderWisdom(w) {
     umstritten:                  { lbl:'🟠 Umstritten',bg:'#ffe0b2', col:'#bf360c' },
     aberglaube_widerlegt:        { lbl:'🔴 Mythos',    bg:'#ffcdd2', col:'#b71c1c' }
   };
-  var v = validityMap[w.validity] || { lbl:'?', bg:'#eee', col:'#555' };
+  var v = _gsNachschlag(validityMap, w.validity, null) || { lbl:'?', bg:'#eee', col:'#555' };
 
   var badge = document.getElementById('wisdom-validity-badge');
   if (badge) {
@@ -25476,15 +25525,30 @@ setTimeout(function(){
 // gedeckelt, tox als Zahl 0–5 (oder null), cat aus dem Katalog, emoji ueber
 // _gsEmoji. Unbekannte Felder fallen weg. Rueckgabe: neues Objekt oder null.
 var GS_ART_KATEGORIEN = { wildpflanze:1, baum:1, kraut:1, pilz:1, moos:1, flechte:1, alge:1, hauspflanze:1, gemuese:1 };
+// v33.59: WARUM eine Art verworfen wird — null, wenn sie durchgeht. _gsArtEingang
+// entscheidet nur hierueber; die Warnung im Admin-Panel nennt denselben Grund.
+//   'name_fehlt' (kein Text, leer, nur Leerraum) · 'auszeichnung' (< > " ` \ oder
+//   Steuerzeichen in Name/Latein/Familie) · 'ueberlang' (ueber 120 Zeichen)
+function _gsArtEingangGrund(c) {
+  if (!c || typeof c !== 'object' || !c.name || typeof c.name !== 'string') return 'name_fehlt';
+  var felder = [c.name, c.lat, c.fam], zeichen = /[<>"`\\\u0000-\u001f\u007f]/;
+  for (var i = 0; i < felder.length; i++) {
+    var v = felder[i];
+    if (v == null) continue;
+    if (typeof v === 'object') return 'auszeichnung';
+    if (zeichen.test(String(v))) return 'auszeichnung';
+  }
+  for (var j = 0; j < felder.length; j++) if (felder[j] != null && String(felder[j]).length > 120) return 'ueberlang';
+  if (!String(c.name).replace(/\s+/g, ' ').trim()) return 'name_fehlt';
+  return null;
+}
+window._gsArtEingangGrund = _gsArtEingangGrund;
 function _gsArtEingang(c) {
-  if (!c || typeof c !== 'object' || !c.name || typeof c.name !== 'string') return null;
+  if (_gsArtEingangGrund(c)) return null;
   var txt = function(s, max){
     if (s == null || typeof s === 'object') return '';
     return String(s).replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
   };
-  // " ` \ auch: ein Latein im title="…" (gsWissenPlantChip) braucht kein < fuer einen Ausbruch
-  var nameOk = function(s){ return s == null || (typeof s !== 'object' && !/[<>"`\\\u0000-\u001f\u007f]/.test(String(s)) && String(s).length <= 120); };
-  if (!nameOk(c.name) || !nameOk(c.lat) || !nameOk(c.fam)) return null;
   var nm = txt(c.name, 80);
   if (!nm) return null;
   var kat = GS_ART_KATEGORIEN[String(c.cat || '').toLowerCase()] ? String(c.cat).toLowerCase() : 'wildpflanze';
@@ -25728,7 +25792,7 @@ function getEmoji(sp){
 }
 function getCatLabel(c){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-  return {
+  return _gsNachschlag({   // v33.59: c kommt aus fremder Hand — nur eigene Eintraege
     gemuese:     _t('spcat_gemuese','Gemüse'),
     wildpflanze: _t('spcat_wildpflanze','Wildpflanze'),
     baum:        _t('spcat_baum','Baum/Strauch'),
@@ -25737,7 +25801,7 @@ function getCatLabel(c){
     moos:        _t('spcat_moos','Moos'),
     flechte:     _t('spcat_flechte','Flechte'),
     alge:        _t('spcat_alge','Alge')
-  }[c] || escHtml(c);   // v33.59: der Rueckfall ist ein Wert aus fremder Hand (Community-Art) und landet in innerHTML
+  }, c, null) || escHtml(c);   // v33.59: der Rueckfall ist ein Wert aus fremder Hand (Community-Art) und landet in innerHTML
 }
 
 // ═══ NAVIGATION ═══════════════════════════════════════
@@ -25997,16 +26061,16 @@ function _gsSafeLink(l) {
   return '';
 }
 window._gsSafeLink = _gsSafeLink;
-function _catEmoji(c) { return {produkte:'🍅',samen:'🌰',zubehor:'🔧',dienst:'🤝',tausch:'🔄'}[c] || '🌿'; }
+function _catEmoji(c) { return _gsNachschlag({produkte:'🍅',samen:'🌰',zubehor:'🔧',dienst:'🤝',tausch:'🔄'}, c, null) || '🌿'; }   // v33.59: l.cat aus fremder Hand
 function _catLabel(c) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-  return {
+  return _gsNachschlag({   // v33.59: l.cat aus fremder Hand
     produkte: _t('cat_produkte','Naturprodukte'),
     samen:    _t('cat_samen','Samen & Setzlinge'),
     zubehor:  _t('cat_zubehor','Garten-Zubehör'),
     dienst:   _t('cat_dienst','Dienstleistung'),
     tausch:   _t('cat_tausch','Tausch')
-  }[c] || _t('cat_all','Alle');
+  }, c, null) || _t('cat_all','Alle');
 }
 function _priceLabel(l) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -27688,7 +27752,7 @@ function gsCollectNotifs(){
           type:'feedback', id:'fb_' + (f.ts||0), ts:f.ts||0,
           title:'Neues Community-Feedback',
           subtitle: String(f.body||f.title||'').slice(0,70),
-          icon: iconMap[f.type] || '💬',
+          icon: _gsNachschlag(iconMap, f.type, null) || '💬',
           action: "closeMainMenu();setTimeout(function(){document.getElementById('feedback-section') && document.getElementById('feedback-section').scrollIntoView({behavior:gsScrollBehavior()});},300);"
         });
       }
@@ -29365,7 +29429,7 @@ function gsTagebuchAlle() {
     gsCloudTagebuchCache().forEach(function (d) {
       if (!d || !d.created_at) return;
       var pf = _gsPflanzeAusLatein(d.species_lat);
-      var em = _GS_CLOUD_TB_EMOJI[d.entry_type] || '📝';
+      var em = _gsNachschlag(_GS_CLOUD_TB_EMOJI, d.entry_type, null) || '📝';
       out.push({ id: 'cd:' + d.id, ts: d.created_at, datum: _gsKalTag(d.created_at), text: d.title || d.text || (em + ' Eintrag'), note: d.title ? (d.text || '') : '', emoji: em,
         cat: d.entry_type || 'general', plant: pf ? (pf.name || '') : (d.species_lat || ''), pflanze_id: pf ? pf.id : null, photo: d.photo_url || null, weather: '',
         date: new Date(d.created_at).toLocaleDateString(gsLocale()), herkunft: 'cloud', quelle: 'hand' });
@@ -32410,6 +32474,20 @@ function _gsAiQuotaFehler(data){
   }
   return null;
 }
+// v33.59: der Satz zu einem erreichten Tageslimit haengt am PLAN — ein bezahlter Plan
+// (die Stufe, die der Server mit dem 429 meldet, sonst der lokale Stand) liest kein
+// „Mit Pro: unbegrenzt". Hat die App/der Server einen eigenen Satz geliefert
+// (code free_quota_reached), steht DER da. Rueckgabe {satz, bezahlt}.
+function _gsKiQuotaSatz(e, freiSatz) {
+  var tier = (e && e.quota && e.quota.tier != null) ? String(e.quota.tier).toLowerCase() : '';
+  var bezahlt = tier ? tier !== 'free' : (typeof gsIsPaid === 'function' && gsIsPaid());
+  if (e && e.code === 'free_quota_reached' && e.message) {
+    var s = String(e.message).replace(/^\s*🚫\s*/, '').trim();
+    if (s) return { satz: s, bezahlt: bezahlt };
+  }
+  return { satz: bezahlt ? 'Das Tageskontingent für KI-Aufrufe ist erreicht. Morgen geht es weiter.' : freiSatz, bezahlt: bezahlt };
+}
+window._gsKiQuotaSatz = _gsKiQuotaSatz;
 // v33.59: die Tor-Entscheidungen des ai-proxy kommen mit einem FESTEN Satz
 // ({error:{type, message}}, Liste KI_SAETZE in _shared/ki_tor.mjs). Der Status allein
 // sagt das Falsche („API Key ungültig" fuer ein gesperrtes Konto, „Bild zu gross" fuer
@@ -37240,7 +37318,7 @@ window.gsAddScanToMyPlants = async function(){
     }
     var now = Date.now();
     var nowIso = new Date().toISOString();
-    var emoji = _gsEmoji(r.emoji, '') || (r.category && (typeof EMOJI_BY_CAT === 'object') ? (EMOJI_BY_CAT[r.category] || '🌿') : '🌿');   // v33.59: r.emoji ist KI-Ausgabe
+    var emoji = _gsEmoji(r.emoji, '') || (r.category && (typeof EMOJI_BY_CAT === 'object') ? (_gsNachschlag(EMOJI_BY_CAT, r.category, null) || '🌿') : '🌿');   // v33.59: r.emoji ist KI-Ausgabe
     var newPlant = {
       id: 'mp_' + now + '_scan',
       name: r.name,
@@ -38384,13 +38462,13 @@ function openDetail(id){
       // Verwechslungen
       (function(){
   var lk = (sp.lookalike && sp.lookalike!=='–' && sp.lookalike!=='') ? sp.lookalike :
-    ({'wildpflanze':_t('lookalike_wild','Ähnliche Wildpflanzen möglich. Im Zweifel Experten fragen.'),
+    (_gsNachschlag({'wildpflanze':_t('lookalike_wild','Ähnliche Wildpflanzen möglich. Im Zweifel Experten fragen.'),
       'pilz':_t('lookalike_pilz','Viele Pilzarten ähnlich! Nur essen wenn 100% sicher. Vergiftung: Tox 145.'),
       'baum':_t('lookalike_baum','Ähnliche Baumarten. Auf Rinde, Blatt und Früchte achten.'),
       'kraut':_t('lookalike_kraut','Ähnliche Kräuter möglich. Geruch und Struktur prüfen.'),
       'heilkraut':_t('lookalike_heilkraut','Verwechslung möglich. Vorsicht bei der Ernte.'),
       'hauspflanze':_t('lookalike_haus','Ähnliche Zierpflanzen möglich. Auf Blattform achten.')
-    }[sp.cat] || _t('lookalike_default','Auf ähnliche Arten achten.'));
+    }, sp.cat, null) || _t('lookalike_default','Auf ähnliche Arten achten.'));
   return '<div class="dsec" style="margin-bottom:9px;background:var(--bg-warn-soft);"><h3>' + _t('detail_confusion','👀 Verwechslungsgefahr') + '</h3><p style="color:var(--c-warn-d);font-weight:600;">'+escHtml(lk)+'</p></div>';
 })(),
       // Bookmark / Buch
@@ -38952,6 +39030,17 @@ function _gsEmoji(e, rueckfall) {
   return s;
 }
 window._gsEmoji = _gsEmoji;
+
+// v33.59: eine feste Tabelle mit einem Wert aus fremder Hand (Cloud, KI) nachschlagen.
+// tab[k] allein liefert fuer 'constructor' / '__proto__' / 'toString' eine Funktion
+// bzw. Object.prototype — auf dem Bildschirm stand dann Funktions-Quelltext oder
+// „[object Object]". Nur EIGENE Eintraege zaehlen; sonst der Rueckfall.
+function _gsNachschlag(tab, k, rueckfall) {
+  if (tab == null || k == null || typeof k === 'object') return rueckfall;
+  k = String(k);
+  return Object.prototype.hasOwnProperty.call(tab, k) ? tab[k] : rueckfall;
+}
+window._gsNachschlag = _gsNachschlag;
 
 // (2) Ein beliebiger Wert als JSON-Literal in einem on*-Attribut:
 //   onclick="fn(' + _gsOcJson(obj) + ')"
@@ -39528,7 +39617,7 @@ function openPlantDiary(plantId) {
   var entriesHtml = entries.length ? entries.map(function(e){
     var dt = new Date(e.ts || Date.now());
     var dateStr = dt.toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'numeric'}) + ' · ' + dt.toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'});
-    var actionEmoji = {water:'💧', fertilize:'🌱', repot:'🪴', prune:'✂️', check:'👀', mist:'💨', dust:'🧹', rotate:'🔄', note:'📝', photo:'📸'}[e.action] || '📝';
+    var actionEmoji = _gsNachschlag({water:'💧', fertilize:'🌱', repot:'🪴', prune:'✂️', check:'👀', mist:'💨', dust:'🧹', rotate:'🔄', note:'📝', photo:'📸'}, e.action, null) || '📝';
     return '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:8px;">'+
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'+
         '<span style="font-size:var(--fs-xl);">'+actionEmoji+'</span>'+
@@ -41236,8 +41325,8 @@ function renderFeedback(){
     const ageMs = now_ts - new Date(item.ts||0).getTime();
     const ageDays = ageMs / (1000*60*60*24);
     const recency = Math.max(0, 30 - ageDays) / 10;
-    const tw = typeW[item.type] || 1;
-    const sw = statusW[item.ki_status||'pending'] || 0;
+    const tw = _gsNachschlag(typeW, item.type, null) || 1;
+    const sw = _gsNachschlag(statusW, item.ki_status||'pending', null) || 0;
     const kiPrio = Number(item.ki_priority||0);
     item._prio = Math.round((votes * 2 + recency + tw + sw + kiPrio) * 10) / 10;
     return item;
@@ -41381,7 +41470,7 @@ function renderFeedback(){
     } catch(_){}
     return '<div class="fb-card">' +
       '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px;">'+
-        '<div class="fb-tag '+safeType+'" style="margin:0;">'+escHtml(typeLabels[fb.type]||fb.type||'')+'</div>'+
+        '<div class="fb-tag '+safeType+'" style="margin:0;">'+escHtml(_gsNachschlag(typeLabels, fb.type, null)||fb.type||'')+'</div>'+
         statusBadge(fb)+
         authorLabel+
         reanalyzeBtn+
@@ -41601,7 +41690,9 @@ function vote(id, dir){
         if (typeof gsToast === 'function') gsToast(_gsSatz('Stimme nicht gespeichert: {1}', _gsFehlerText(r.error)), 'warn', 5000);
       };
       if (_cur === 'up' || _cur === 'down') {
-        sbFetch('/rest/v1/feedback_votes', {
+        // v33.59: on_conflict auf den UNIQUE-Schluessel — ohne ihn nimmt PostgREST den
+        // Primaerschluessel (id), und ein Umstimmen scheitert an UNIQUE(item_id, voter_key) (23505).
+        sbFetch('/rest/v1/feedback_votes?on_conflict=item_id,voter_key', {
           method: 'POST',
           headers: { 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
           body: JSON.stringify({ item_id: fb.sb_id, dir: _cur, voter_key: _vk })
@@ -41676,8 +41767,8 @@ async function gsRefreshGlobalFeedback(showToast){
       var ctx = r.context || {};
       // Titel aus Inhalt generieren wenn nicht vorhanden
       var text = String(r.content||'');
-      var fbType = ctx.type || kindToType[r.kind] || 'idea';
-      var titlePrefix = {bug:'Fehler: ', idea:'Idee: ', data:'Daten: ', ui:'Design: '}[fbType] || '';
+      var fbType = ctx.type || _gsNachschlag(kindToType, r.kind, null) || 'idea';
+      var titlePrefix = _gsNachschlag({bug:'Fehler: ', idea:'Idee: ', data:'Daten: ', ui:'Design: '}, fbType, null) || '';   // v33.59: ctx.type aus der Cloud
       var localId = ctx.local_id || ('fb_sb_'+sbId);
       var existing = localBySbId[sbId] || localById[localId];
       // v23.73: Defensive Feldzugriffe — optional chaining
@@ -42421,7 +42512,7 @@ Antworte NUR mit dem JSON-Objekt, kein Text davor/danach.`;
       moderate: {cls:'sev-moderate', icon:'🟠', label:'Mittleres Problem'},
       severe:   {cls:'sev-severe',   icon:'🔴', label:'Ernstes Problem'},
     };
-    const sev = sevMap[diag.severity] || sevMap.mild;
+    const sev = _gsNachschlag(sevMap, diag.severity, null) || sevMap.mild;
     const urgColors = {sofort:'#c62828', bald:'#e65100', gering:'#2e7d32'};
     const urgIcon = {sofort:'🚨', bald:'⚠️', gering:'ℹ️'};
 
@@ -43060,7 +43151,11 @@ async function gsDoctorLoadPhoto(input) {
     return;
   }
   try {
-    var b64 = await gsFileToBase64(file);
+    // v33.59: das Foto geht verkleinert, neu kodiert und OHNE EXIF (GPS) hinaus — derselbe
+    // Weg wie die Community-Fotos (_gsFotoOhneMeta). Unlesbar: ein Satz, nichts Rohes.
+    window._gsDoctorPhotoB64 = null;
+    var b64 = await _gsFotoOhneMeta(file);
+    if (!b64) { var _pv = document.getElementById('doctor-photo-preview'); if (_pv) { _pv.innerHTML = ''; _pv.style.display = 'none'; } return; }
     window._gsDoctorPhotoB64 = b64;
     var preview = document.getElementById('doctor-photo-preview');
     if (preview) {
@@ -43362,9 +43457,9 @@ async function gsDoctorShowHistory(plantLocalId) {
     rows.forEach(function(d){
       var dt = d.diagnosed_at ? String(d.diagnosed_at).slice(0, 10) : '?';
       var top = (d.ai_diagnosis && d.ai_diagnosis.top) || d.species_name || 'Diagnose';
-      var st = statusMap[d.status] || statusMap.open;
+      var st = _gsNachschlag(statusMap, d.status, null) || statusMap.open;
       var stepCnt = d.treatment_steps_count || 0;
-      var fu = d.followup_result ? (fuMap[d.followup_result] || d.followup_result) : '';
+      var fu = d.followup_result ? (_gsNachschlag(fuMap, d.followup_result, null) || d.followup_result) : '';
       html += '<div style="background:var(--card);border-radius:var(--r-md);padding:11px 13px;margin-bottom:8px;border-left:3px solid ' + st.c + ';">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
           '<div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">' + esc(top) + '</div>' +
@@ -43877,7 +43972,11 @@ async function gsPestLoadPhoto(input) {
     return;
   }
   try {
-    var b64 = await gsFileToBase64(file);
+    // v33.59: das Foto geht verkleinert, neu kodiert und OHNE EXIF (GPS) hinaus — derselbe
+    // Weg wie die Community-Fotos (_gsFotoOhneMeta). Unlesbar: ein Satz, nichts Rohes.
+    window._gsPestPhotoB64 = null;
+    var b64 = await _gsFotoOhneMeta(file);
+    if (!b64) { var _pv = document.getElementById('pest-photo-preview'); if (_pv) { _pv.innerHTML = ''; _pv.style.display = 'none'; } return; }
     window._gsPestPhotoB64 = b64;
     var preview = document.getElementById('pest-photo-preview');
     if (preview) {
@@ -44085,7 +44184,11 @@ async function gsMushroomLoadPhoto(input) {
     return;
   }
   try {
-    var b64 = await gsFileToBase64(file);
+    // v33.59: das Foto geht verkleinert, neu kodiert und OHNE EXIF (GPS) hinaus — derselbe
+    // Weg wie die Community-Fotos (_gsFotoOhneMeta). Unlesbar: ein Satz, nichts Rohes.
+    window._gsMushroomPhotoB64 = null;
+    var b64 = await _gsFotoOhneMeta(file);
+    if (!b64) { var _pv = document.getElementById('mushroom-photo-preview'); if (_pv) { _pv.innerHTML = ''; _pv.style.display = 'none'; } return; }
     window._gsMushroomPhotoB64 = b64;
     var preview = document.getElementById('mushroom-photo-preview');
     if (preview) {
@@ -44786,7 +44889,7 @@ async function gsOpenSaisonPilze() {
       var m = x.m;
       var nm = m ? _gsMushName(m) : (x.raw.charAt(0).toUpperCase()+x.raw.slice(1));
       var lvl = m && m.beginner_level;
-      var amp = (lvl && GS_BEGINNER_AMPEL[lvl]) ? GS_BEGINNER_AMPEL[lvl] : null;
+      var amp = lvl ? _gsNachschlag(GS_BEGINNER_AMPEL, lvl, null) : null;
       var dataMush = ed(m ? (m.common_name_de||x.raw) : x.raw);
       var border = amp ? amp.c : 'var(--border)';
       var la = m && laSum[m.slug]; var gw = m && growth[m.slug];
@@ -44873,8 +44976,8 @@ async function gsOpenMushroomLearnCard(nameOrSlug) {
     var mc = document.getElementById('modal-content'); if (!mc) return;
     var ampHtml = '';
     var lvl = m && m.beginner_level;
-    if (lvl && GS_BEGINNER_AMPEL[lvl]) {
-      var a = GS_BEGINNER_AMPEL[lvl];
+    if (lvl && _gsNachschlag(GS_BEGINNER_AMPEL, lvl, null)) {
+      var a = _gsNachschlag(GS_BEGINNER_AMPEL, lvl, null);
       ampHtml = '<div style="padding:10px 16px;background:' + a.bg + ';border-bottom:2px solid ' + a.c + ';display:flex;align-items:center;gap:10px;">'
         + '<span style="font-size:var(--fs-xl);">' + a.e + '</span>'
         + '<div><div style="font-size:var(--fs-md);font-weight:900;color:' + a.c + ';">' + ed(_lt(a.k, a.l)) + '</div>'
@@ -45100,7 +45203,7 @@ async function gsRenderRegionalMushrooms(zone) {
       var chips = (Array.isArray(rg.good_mushrooms) ? rg.good_mushrooms : []).map(function(g){
         var m = _gsMatchRegistry(g, reg);
         var lvl = (m && m.beginner_level) || 'unbekannt';
-        var amp = (typeof GS_BEGINNER_AMPEL !== 'undefined' && GS_BEGINNER_AMPEL[lvl]) ? GS_BEGINNER_AMPEL[lvl] : { e:'❔', c:'#6a1b9a', bg:'#fff' };
+        var amp = (typeof GS_BEGINNER_AMPEL !== 'undefined' && _gsNachschlag(GS_BEGINNER_AMPEL, lvl, null)) || { e:'❔', c:'#6a1b9a', bg:'#fff' };
         var inSeason = m && Array.isArray(m.season_months) && m.season_months.map(Number).indexOf(curIdx+1) !== -1;
         return '<span data-mush="' + ed(g) + '" style="cursor:pointer;display:inline-flex;align-items:center;min-height:34px;box-sizing:border-box;background:' + amp.bg + ';color:' + amp.c + ';border:1px solid ' + amp.c + '55;padding:4px 11px;border-radius:var(--r-sm);margin:4px 4px 4px 0;font-size:var(--fs-sm);white-space:nowrap;font-weight:' + (inSeason?'800':'600') + ';-webkit-tap-highlight-color:transparent;">' + amp.e + ' ' + ed(g) + (inSeason ? ' · ' + ed(_lt('mush_season_now','jetzt in Saison')) : '') + ' ›</span>';
       }).join('');
@@ -45646,7 +45749,11 @@ async function gsDiaryLoadPhoto(input) {
     return;
   }
   try {
-    var b64 = await gsFileToBase64(file);
+    // v33.59: das Foto geht verkleinert, neu kodiert und OHNE EXIF (GPS) hinaus — derselbe
+    // Weg wie die Community-Fotos (_gsFotoOhneMeta). Unlesbar: ein Satz, nichts Rohes.
+    window._gsDiaryState.photoB64 = null;
+    var b64 = await _gsFotoOhneMeta(file);
+    if (!b64) { var _pv = document.getElementById('diary-photo-preview'); if (_pv) { _pv.innerHTML = ''; _pv.style.display = 'none'; } return; }
     window._gsDiaryState.photoB64 = b64;
     var preview = document.getElementById('diary-photo-preview');
     if (preview) {
@@ -47390,7 +47497,7 @@ function gsMarketShowDetail(l) {
     sold:     { label: _t('status_sold_txt','Verkauft'),   emoji: '✅', bg: '#eceff1', fg: '#455a64' },
     archived: { label: _t('status_archived_txt','Archiviert'), emoji: '📦', bg: '#f5f5f5', fg: '#90a4ae' }
   };
-  var st = statusMeta[l.status] || null;
+  var st = _gsNachschlag(statusMeta, l.status, null);
   var statusChip = (st && l.status !== 'active')
     ? '<span style="background:' + st.bg + ';color:' + st.fg + ';padding:4px 10px;border-radius:var(--r-lg);font-size:var(--fs-sm);font-weight:800;">' + st.emoji + ' ' + st.label + '</span>'
     : '';
@@ -47491,8 +47598,19 @@ async function gsMktSetStatus(lid, status) {
     });
     var res = r && r.data ? r.data : null;
     if (!res || res.ok !== true) {
-      var err = res && res.error ? res.error : (r && r.error ? _gsFehlerText(r.error) : _t('err_generic','Fehler'));
-      if (typeof gsToast === 'function') gsToast('⚠️ ' + (err === 'forbidden' ? _t('err_own_listings_only','Nur eigene Inserate') : err), 'error');
+      // v33.59: der Server antwortet mit einem CODE (forbidden, banned, …) — der wird auf einen
+      // eigenen Satz abgebildet, nie woertlich gezeigt (ein Slug bzw. ein deutscher Servertext).
+      var _code = res ? (res.code || res.error) : null;
+      var _saetze = {
+        forbidden: _t('err_own_listings_only','Nur eigene Inserate'),
+        banned: _t('mkt_status_gesperrt','Dein Konto ist gesperrt – Inserate lassen sich nicht mehr ändern.'),
+        not_found: _t('mkt_status_nicht_gefunden','Dieses Inserat gibt es nicht mehr.'),
+        not_authenticated: _t('toast_please_login','🔑 Bitte einloggen'),
+        invalid_status: _t('mkt_status_ungueltig','Diesen Status gibt es nicht.')
+      };
+      var err = _code ? _gsNachschlag(_saetze, _code, _t('err_generic','Fehler'))
+        : (r && r.error ? _gsFehlerText(r.error) : _t('err_generic','Fehler'));
+      if (typeof gsToast === 'function') gsToast('⚠️ ' + err, 'error');
       return;
     }
     // Lokalen Pool aktualisieren
@@ -53255,7 +53373,7 @@ function buildRecipeCard(r, isRemedy) {
   // unbekannten Kategorie undefined, und catInfo.label landete woertlich als
   // „undefined" im Chip. Der Rueckfall weiter unten (Detailansicht) hatte
   // label:'' und war deshalb unauffaellig. Jetzt beide gleich.
-  const catInfo = cats[r.cat] || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32', label:''};
+  const catInfo = _gsNachschlag(cats, r.cat, null) || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32', label:''};
   var preview = '';
   if (Array.isArray(r.ingredients)) preview = r.ingredients.slice(0,3).join(', ');
   else if (typeof r.ingredients === 'string') preview = r.ingredients.split('\n').slice(0,3).join(', ');
@@ -53280,7 +53398,7 @@ function buildRecipeCard(r, isRemedy) {
       '<div class="recipe-card-title">' + escHtml(r.title) + '</div>' +
       '<div class="recipe-card-meta">' +
         (r.time ? '<span>⏱️ ' + escHtml(r.time) + '</span>' : '') +
-        (r.diff ? '<span>' + escHtml(DIFF_LABELS[r.diff]||r.diff) + '</span>' : '') +
+        (r.diff ? '<span>' + escHtml(_gsNachschlag(DIFF_LABELS, r.diff, r.diff)) + '</span>' : '') +
         (r.plant ? '<span>🌿 ' + escHtml(r.plant) + '</span>' : '') +
       '</div>' +
       '<div class="recipe-card-desc">' + escHtml(preview) + (preview.length > 60 ? '…' : '') + '</div>' +
@@ -53486,7 +53604,7 @@ function openRecipeDetail(id) {
   const isRemedy = !!remediesData.find(x=>x.id===id);
   try { if (typeof gsAchBump === 'function') gsAchBump(isRemedy ? 'remedy_used' : 'recipe_used', 1, false); } catch(_){} // v30.39: first_recipe/first_remedy
   const cats = isRemedy ? REMEDY_CATS : RECIPE_CATS;
-  const catInfo = cats[r.cat] || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32', label:''};
+  const catInfo = _gsNachschlag(cats, r.cat, null) || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32', label:''};
 
   // GS_RECIPE_LINKS v1: Zutaten-Links nur noch per geprüfter ID (r.plantIds)
   function _gsLinkIngredient(name) { return _gsIngLinkHtml(r, name); }
@@ -53522,7 +53640,7 @@ function openRecipeDetail(id) {
         '<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">' +
           '<span style="padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:800;background:' + catInfo.bg + ';color:' + catInfo.color + ';">' + catInfo.label + '</span>' +
           (r.time ? '<span style="font-size:var(--fs-sm);color:var(--muted);font-weight:600;">⏱️ ' + escHtml(r.time) + '</span>' : '') +
-          (r.diff ? '<span style="font-size:var(--fs-sm);color:var(--muted);font-weight:600;">' + escHtml(DIFF_LABELS[r.diff]||r.diff) + '</span>' : '') +
+          (r.diff ? '<span style="font-size:var(--fs-sm);color:var(--muted);font-weight:600;">' + escHtml(_gsNachschlag(DIFF_LABELS, r.diff, r.diff)) + '</span>' : '') +
         '</div></div>' +
       '</div>' +
       _photoHtml +
@@ -54745,7 +54863,7 @@ window.gsRenderWissenWave9 = async function(section) {
             insekt_schaedlich:'🐛 Schädlich-Insekt', reptil:'🦎 Reptil',
             amphibie:'🐸 Amphibie', fledermaus:'🦇 Fledermaus', sonstige:'🪱 Sonstige'
           };
-          return m[c] || c;
+          return _gsNachschlag(m, c, c);
         })(r.category));
         if (r.red_list_status && String(r.red_list_status).indexOf('nicht gef') < 0) bits.push('⚠️ ' + r.red_list_status);
         return bits.filter(Boolean).join(' · ');
@@ -54966,7 +55084,7 @@ function _gsWave9RenderMushroom(r, ed) {
     speisepilz: '✅ ' + _lt('mush_ed_speise','Speisepilz'),
     ungeniessbar: '⊘ ' + _lt('mush_ed_ungeniessbar','Ungeniessbar')
   };
-  var ediLbl = lblMap[r.edibility] || (r.edibility || '?');
+  var ediLbl = _gsNachschlag(lblMap, r.edibility, null) || (r.edibility || '?');
 
   var html = _gsWave9HeaderHtml('🍄', _gsMushName(r), r.scientific_name + (r.family ? ' · ' + r.family : ''), gradient, ed);
 
@@ -55181,7 +55299,7 @@ function _gsWave9RenderWater(r, ed) {
     teich_design: { e:'🌳', l:'Teich-Design' },
     wassertier: { e:'🐸', l:'Wassertier' }
   };
-  var t = typeMap[r.feature_type] || { e:'💧', l: r.feature_type || '?' };
+  var t = _gsNachschlag(typeMap, r.feature_type, null) || { e:'💧', l: r.feature_type || '?' };
   var isInvasive = r.invasive_in_ch === true;
   var gradient = isInvasive ? 'linear-gradient(135deg,#c62828,#7f0000)'
               : r.feature_type === 'teich_design' ? 'linear-gradient(135deg,#1565c0,#0d47a1)'
@@ -55483,7 +55601,7 @@ function _gsWave9RenderVisitor(r, ed) {
     saeugetier: 'Säugetier', insekt_nuetzling: 'Nützling-Insekt', insekt_schaedlich: 'Schädling-Insekt',
     reptil: 'Reptil', amphibie: 'Amphibie', fledermaus: 'Fledermaus', sonstige: 'Sonstige'
   };
-  var emoji = catEmojiMap[r.category] || '🦔';
+  var emoji = _gsNachschlag(catEmojiMap, r.category, null) || '🦔';
   var gradient = isDanger ? 'linear-gradient(135deg,#c62828,#7f0000)'
               : isModerate ? 'linear-gradient(135deg,#e65100,#bf360c)'
               : isEndangered ? 'linear-gradient(135deg,#b71c1c,#7f0000)'
@@ -55495,13 +55613,13 @@ function _gsWave9RenderVisitor(r, ed) {
   if (isEndangered) html += '<div style="background:#b71c1c;color:#fff;padding:11px 14px;text-align:center;font-weight:900;font-size:var(--fs-md);line-height:1.5;">⚠ ' + ed(r.red_list_status) + ' — Schutz prioritär!</div>';
   else if (isVulnerable) html += '<div style="background:#e65100;color:#fff;padding:9px 14px;text-align:center;font-weight:700;font-size:var(--fs-sm);">⚠ ' + ed(r.red_list_status) + '</div>';
   // Nützling-Highlight als grünes Banner
-  if (isBeneficial && !isEndangered && !isVulnerable) html += '<div style="background:#2e7d32;color:#fff;padding:10px 14px;text-align:center;font-weight:800;font-size:var(--fs-sm);line-height:1.5;">🌿 NÜTZLING IM GARTEN · ' + ed(catLblMap[r.category] || r.category) + '</div>';
+  if (isBeneficial && !isEndangered && !isVulnerable) html += '<div style="background:#2e7d32;color:#fff;padding:10px 14px;text-align:center;font-weight:800;font-size:var(--fs-sm);line-height:1.5;">🌿 NÜTZLING IM GARTEN · ' + ed(_gsNachschlag(catLblMap, r.category, null) || r.category) + '</div>';
 
   html += '<div style="padding:16px 18px 20px;">';
 
   // Badges
   var badges = '';
-  badges += '<span style="background:var(--bg-info-soft);color:#01579b;padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;margin-right:4px;">' + emoji + ' ' + ed(catLblMap[r.category] || r.category) + '</span>';
+  badges += '<span style="background:var(--bg-info-soft);color:#01579b;padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;margin-right:4px;">' + emoji + ' ' + ed(_gsNachschlag(catLblMap, r.category, null) || r.category) + '</span>';
   if (r.size_cm != null) badges += '<span style="background:var(--bg-yellow-soft);color:#827717;padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;margin-right:4px;">📏 ' + ed(r.size_cm) + ' cm</span>';
   if (r.swiss_native) badges += '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
   if (r.protected_status) badges += '<span style="background:var(--bg-violet-soft);color:var(--c-violet);padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;margin-right:4px;">🔒 ' + ed(r.protected_status) + '</span>';
@@ -55827,7 +55945,7 @@ window.gsRenderKnowledge = async function(section) {
         var evidenceColor = r.evidence_level==='strong_clinical'?'#2e7d32':r.evidence_level==='clinical'?'#558b2f':r.evidence_level==='folk'?'#f57c00':'#9e9e9e';
         var evidenceLabel = {strong_clinical:'starke klinische Evidenz',clinical:'klinisch belegt',folk:'volkstümlich',traditional:'tradiert'};
         return '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow-sm);">' +
-          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' + (r.emoji?'<span style="font-size:var(--fs-2xl);">'+ed(r.emoji)+'</span>':'') + '<strong style="font-size:var(--fs-lg);">' + ed(r.title) + '</strong>' + (r.evidence_level?'<span style="font-size:var(--fs-xs);background:'+evidenceColor+';color:#fff;padding:2px 6px;border-radius:var(--r-xs);">' + ed(evidenceLabel[r.evidence_level]||r.evidence_level) + '</span>':'') + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' + (r.emoji?'<span style="font-size:var(--fs-2xl);">'+ed(r.emoji)+'</span>':'') + '<strong style="font-size:var(--fs-lg);">' + ed(r.title) + '</strong>' + (r.evidence_level?'<span style="font-size:var(--fs-xs);background:'+evidenceColor+';color:#fff;padding:2px 6px;border-radius:var(--r-xs);">' + ed(_gsNachschlag(evidenceLabel, r.evidence_level, null)||r.evidence_level) + '</span>':'') + '</div>' +
           (r.ailment?'<div style="font-size:var(--fs-sm);color:var(--g-dark);font-weight:700;margin-bottom:5px;">🎯 ' + ed(r.ailment) + '</div>':'') +
           (r.description?'<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;margin-bottom:6px;">' + ed(r.description) + '</div>':'') +
           (r.preparation?'<div style="font-size:var(--fs-sm);margin-bottom:4px;"><b>Zubereitung:</b> ' + ed(r.preparation) + '</div>':'') +
@@ -58130,7 +58248,7 @@ window.gsMapFinds = {
         var payload = {
           user_id: __uluid,
           species_name: m.name || 'Fundort',
-          category: catMap[m.cat] || 'sonstiges',
+          category: _gsNachschlag(catMap, m.cat, null) || 'sonstiges',
           lat: Number(m.lat), lng: Number(m.lng),
           note: m.note || null,
           // v33.59: ein lokaler Platzhalter (gsphoto://) oder ein data:-Bild ist keine
@@ -58142,7 +58260,8 @@ window.gsMapFinds = {
         // v33.59: eine oeffentliche Zeile traegt den Ort nur gerundet (_gsOrtGrob).
         if (payload.is_private === false) { var _og = _gsOrtGrob(payload.lat, payload.lng); if (!_og) continue; payload.lat = _og.lat; payload.lng = _og.lng; }
         // v33.59: … und ein altes Foto geht nur ohne Metadaten mit (sonst ohne Foto, der lokale Marker behaelt es).
-        if (payload.is_private === false && payload.photo_url) { var _fs = await _gsFundFotoSaeubern(payload.photo_url); if (_fs.neu) payload.photo_url = _fs.neu; else if (_fs.fehler) payload.photo_url = null; }
+        var _fs = null;
+        if (payload.is_private === false && payload.photo_url) { _fs = await _gsFundFotoSaeubern(payload.photo_url); if (_fs.neu) payload.photo_url = _fs.neu; else if (_fs.fehler) payload.photo_url = null; }
         var r = await sbFetch('/rest/v1/map_user_finds', {
           method:'POST',
           headers:{'Content-Type':'application/json','Prefer':'return=representation'},
@@ -58154,10 +58273,17 @@ window.gsMapFinds = {
           try {
             var local = gsGetSavedMarkers();
             for (var k = 0; k < local.length; k++) {
-              if (local[k].id === m.id) { local[k].cloud_id = row.id; break; }
+              if (local[k].id === m.id) {
+                local[k].cloud_id = row.id;
+                // v33.59: der Marker zeigt auf das neu kodierte Foto (das alte wird gleich entfernt)
+                if (_fs && _fs.neu && local[k].photo_url === _fs.alt) local[k].photo_url = _fs.neu;
+                break;
+              }
             }
             localStorage.setItem('greenscan_markers', JSON.stringify(local));
           } catch(_){}
+          // v33.59: wie togglePrivacy — nach dem Ersetzen das alte Objekt (mit EXIF) entfernen.
+          if (_fs && _fs.neu && _fs.alt) _gsFundFotoAltWeg(_fs.alt);
           uploaded++;
         }
       } catch(e) { console.warn('[v26.85] _uploadLocalOnly', e && e.message); }
@@ -58273,7 +58399,7 @@ async function gsOpenMyFinds(){
     // v26.85: Badge "💾 nur lokal" wenn _local_only-Flag gesetzt (offline erstellter Fund, noch nicht in Cloud).
     listEl.innerHTML = finds.map(function(f, i){
       var d = new Date(f.found_at || f.created_at || Date.now());
-      var emo = catEmoji[f.category] || '📍';
+      var emo = _gsNachschlag(catEmoji, f.category, null) || '📍';
       var pub = (f.is_private === false);
       var _pu = _gsSafeUrl(f.photo_url);   // v32.66 (Audit A10)
       var thumb = _pu
@@ -60473,7 +60599,7 @@ async function runKiImprove(){
       const ageMs = Date.now() - new Date(item.ts||0).getTime();
       const ageDays = ageMs / (1000*60*60*24);
       const recency = Math.max(0, 30 - ageDays) / 10;
-      const typeW = ({bug:3,data:2,idea:1,ui:1}[item.type] || 1);
+      const typeW = (_gsNachschlag({bug:3,data:2,idea:1,ui:1}, item.type, null) || 1);
       const kiPrio = Number(item.ki_priority||3);
       return { ...item, _score: Math.round((voteDelta*2 + recency + typeW + kiPrio) * 10) / 10 };
     }).sort((a,b)=>b._score - a._score);
@@ -64720,8 +64846,11 @@ async function gsPPrun(opts) {
     var isParse   = /JSON|parse|unexpected token/i.test(msg);
     var isRef     = /not defined|is not a function|undefined/i.test(msg);
     var icon      = isQuota ? '🚫' : isTimeout ? '⏱️' : isAuth ? '🔑' : isRate ? '🚦' : isNet ? '📡' : isParse ? '🧩' : isRef ? '🐛' : '⚠️';
+    // v33.59: der Hinweis haengt am PLAN (_gsKiQuotaSatz) — kein „Mit Pro" fuer einen Pro-Kunden.
+    var _q = isQuota ? _gsKiQuotaSatz(e, 'Tageslimit erreicht — Free-Plan: 15 KI-Aufrufe pro Tag. Mit Pro: unbegrenzt. Oder eigenen Anthropic-Key in den Einstellungen → KI & Scanner hinterlegen — dann kein Limit.') : null;
+    var _bezahlt = !!(_q && _q.bezahlt);
     var hint      = isQuota
-      ? 'Tageslimit erreicht — Free-Plan: 15 KI-Aufrufe pro Tag. Mit Pro: unbegrenzt. Oder eigenen Anthropic-Key in den Einstellungen → KI & Scanner hinterlegen — dann kein Limit.'
+      ? _q.satz
       : isTimeout
       ? 'Die KI antwortet aktuell sehr langsam (>3 Min). Versuche es mit einem kompakten Plan — der ist schneller fertig.'
       : isAuth
@@ -64739,7 +64868,7 @@ async function gsPPrun(opts) {
     var compactBtn = isTimeout ? '<button onclick="gsPPrun({compact:true})" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;border-radius:var(--r-md);font-weight:800;font-size:var(--fs-md);cursor:pointer;font-family:inherit;margin-bottom:8px;">⚡ Kompakten Plan generieren (~25 s)</button>' : '';
     var retryBtn = '<button onclick="gsPPrun()" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:var(--r-md);font-weight:800;font-size:var(--fs-md);cursor:pointer;font-family:inherit;margin-bottom:8px;">🔄 Erneut versuchen</button>';
     // v26.82: bei Quota → Abo-Upgrade-Button, bei Auth/Net → Connection-Test. Keinen "API-Key eintragen"-Button mehr (Personal-Key admin-only seit v26.67).
-    var upgradeBtn = isQuota ? '<button onclick="closeModal(\'modal-planner-pro\');if(typeof gsShowAboScreen===\'function\')setTimeout(gsShowAboScreen,200)" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:var(--r-md);font-weight:800;font-size:var(--fs-md);cursor:pointer;font-family:inherit;margin-bottom:8px;">🌟 Upgrade auf Pro — keine Limits</button>' : '';
+    var upgradeBtn = (isQuota && !_bezahlt) ? '<button onclick="closeModal(\'modal-planner-pro\');if(typeof gsShowAboScreen===\'function\')setTimeout(gsShowAboScreen,200)" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:var(--r-md);font-weight:800;font-size:var(--fs-md);cursor:pointer;font-family:inherit;margin-bottom:8px;">🌟 Upgrade auf Pro — keine Limits</button>' : '';
     var keyBtn = '';
     // v24.16: Connection-Test-Button bei Netzwerk-Fehler
     var testBtn = isNet ? '<button onclick="gsPPTestConnection(this)" style="display:block;width:100%;padding:11px;background:#4527a0;color:#fff;border:none;border-radius:var(--r-md);font-weight:800;font-size:var(--fs-md);cursor:pointer;font-family:inherit;margin-bottom:8px;">📡 Verbindung testen</button>' : '';
@@ -69407,8 +69536,12 @@ function gsGardenScanCapture(slotIdx) {
     var f = ev.target.files && ev.target.files[0];
     if (!f) { try { inp.remove(); } catch(_){} return; }
     try {
-      var b64 = await gsPPfileToB64(f);
-      window._gsGardenScan.photos[slotIdx] = { b64: b64, mime: f.type || 'image/jpeg', label: 'slot_' + slotIdx };
+      // v33.59: an garden-scan-analyze geht es an callVisionAI vorbei — also hier verkleinert,
+      // neu kodiert, ohne EXIF (gsPPfileToB64 schickte bei einem Lesefehler die rohe Datei).
+      var _rein = await _gsFotoOhneMeta(f);
+      if (!_rein) return;
+      var b64 = _rein.slice(_rein.indexOf('base64,') + 7);
+      window._gsGardenScan.photos[slotIdx] = { b64: b64, mime: 'image/jpeg', label: 'slot_' + slotIdx };
       _gsGardenScanRefresh();
     } catch(e) {
       if (typeof gsToast === 'function') gsToast({title:'Foto-Fehler', body:(e && e.message)||'Konnte Foto nicht laden', type:'error'});
@@ -76415,7 +76548,7 @@ function gsFbValidate() {
 function _gsFeedbackBuildPayload(fb){
   var kindMap = {bug:'bug', idea:'idea', data:'bug', ui:'idea'};
   var payload = {
-    kind: kindMap[fb.type] || 'idea',
+    kind: _gsNachschlag(kindMap, fb.type, null) || 'idea',
     content: fb.body || '',
     app_version: (typeof GS_VERSION !== 'undefined') ? GS_VERSION : null,
     context: {
@@ -88389,7 +88522,9 @@ async function gsRegisterPushSubscription(subscription){
     // Push-Settings aus localStorage-Cache (Defaults true)
     var s = {};
     try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
-    var _r = await sbFetch('/rest/v1/push_subscriptions', {
+    // v33.59: on_conflict auf UNIQUE(user_id, endpoint) (sonst 23505 beim erneuten Abonnieren
+    // desselben Geraets) und updated_at mit — „neuestes Abo" heisst damit „zuletzt genutzt".
+    var _r = await sbFetch('/rest/v1/push_subscriptions?on_conflict=user_id,endpoint', {
       method:'POST',
       headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'},
       body: JSON.stringify({
@@ -88412,7 +88547,8 @@ async function gsRegisterPushSubscription(subscription){
         notify_doctor: s.doctor !== false,
         notify_battle: s.battle !== false,
         quiet_start_hour: (typeof s.quietStart === 'number') ? s.quietStart : 22,
-        quiet_end_hour:   (typeof s.quietEnd === 'number')   ? s.quietEnd   : 7
+        quiet_end_hour:   (typeof s.quietEnd === 'number')   ? s.quietEnd   : 7,
+        updated_at: new Date().toISOString()
       })
     });
     return _gsSchreibOk(_r);
@@ -89401,7 +89537,7 @@ function gsWxRender(){
     return;
   }
   var cards = rows.map(function(a, i){
-    var st = _GS_WX_STYLE[a.severity] || _GS_WX_STYLE.warning;
+    var st = _gsNachschlag(_GS_WX_STYLE, a.severity, null) || _GS_WX_STYLE.warning;
     var ackTxt = _t('wx_seen','✓ Gesehen');
     return '<div style="border:1px solid ' + st.br + ';background:' + st.bg + ';border-radius:var(--r-lg);padding:12px 13px;margin-bottom:10px;'
       + (a.acknowledged ? 'opacity:.62;' : '') + '">'
@@ -90790,8 +90926,8 @@ function _gsAdminAuditHtml(audit) {
     } catch(_){ return ''; }
   }
   var rows = (Array.isArray(audit) ? audit : []).map(function(a){
-    var label = ACT[a.action] || esc(String(a.action||''));
-    var tt = TT[a.target_type] || (a.target_type ? esc(String(a.target_type)) : '');
+    var label = _gsNachschlag(ACT, a.action, null) || esc(String(a.action||''));
+    var tt = _gsNachschlag(TT, a.target_type, null) || (a.target_type ? esc(String(a.target_type)) : '');
     var sm = summ(a);
     var who = esc((a.actor_email||'System').split('@')[0]);
     return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:var(--fs-sm);color:var(--text);line-height:1.4;">' +
@@ -90890,7 +91026,7 @@ function _gsAdminModerationHtml(feed) {
         + '<button onclick="gsAdminModerate(\'' + _gsOcStr(it.kind) + '\',\'' + _gsOcStr(it.id) + '\',\'delete\')" style="padding:4px 9px;margin-left:5px;background:#c62828;color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">🗑️</button>';
     }
     return '<div style="padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-start;">' +
-      '<span style="font-size:var(--fs-lg);flex-shrink:0;">' + (ICON[it.kind] || '•') + '</span>' +
+      '<span style="font-size:var(--fs-lg);flex-shrink:0;">' + (_gsNachschlag(ICON, it.kind, null) || '•') + '</span>' +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-size:var(--fs-sm);color:var(--text);"><b>' + esc(it.author || '?') + '</b> ' + badge + '</div>' +
         '<div style="font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(String(it.snippet||'').slice(0,90)) + '</div>' +
@@ -91463,7 +91599,9 @@ function _gsAdminSpeciesProposalHtml(queue){
     // v33.59: „die App verwirft" nur, wenn _gsArtEingang es wirklich tut (Name/Latein/Familie);
     // Klammern in einer Beschreibung oder ein Name ueber 80 Zeichen sind ein Hinweis — die App behaelt
     // die Art dann (Klammern entfernt, Name gekuerzt).
-    var verwirft = (typeof _gsArtEingang === 'function') && _gsArtEingang({ name: p.name, lat: p.latin, fam: p.family }) === null;
+    // v33.59: der Grund kommt aus derselben Regel (_gsArtEingangGrund) — die Warnung sagt, was zutrifft.
+    var _grund = (typeof _gsArtEingangGrund === 'function') ? _gsArtEingangGrund({ name: p.name, lat: p.latin, fam: p.family }) : null;
+    var verwirft = !!_grund;
     var auffaellig = !verwirft && (_FELDER.map(function(f){ return f[0]; }).some(function(k){ var v = wert(k); return v != null && /[<>]/.test(String(v)); })
                   || String(p.name||'').length > 80 || String(p.latin||'').length > 80);
     var felderHtml = _FELDER.map(function(f){
@@ -91481,7 +91619,11 @@ function _gsAdminSpeciesProposalHtml(queue){
       img +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);word-break:break-word;">'+_e(p.name||'—')+warnBadge+'</div>' +
-        (verwirft ? '<div style="font-size:var(--fs-xs);font-weight:800;color:var(--c-danger-d);margin:2px 0;">⛔ Name, Latein oder Familie enthält Auszeichnung (&lt; &gt; &quot; ` \\) oder ist überlang — kein Pflanzenname. Ablehnen; die App würde die Art verwerfen.</div>'
+        (verwirft ? '<div style="font-size:var(--fs-xs);font-weight:800;color:var(--c-danger-d);margin:2px 0;">⛔ ' + ({
+          name_fehlt: 'Der Name fehlt (leer oder nur Leerzeichen).',
+          auszeichnung: 'Name, Latein oder Familie enthält Auszeichnung (&lt; &gt; &quot; ` \\ oder Steuerzeichen) oder ist kein Text — kein Pflanzenname.',
+          ueberlang: 'Name, Latein oder Familie ist überlang (über 120 Zeichen) — kein Pflanzenname.'
+        })[_grund] + ' Ablehnen; die App würde die Art verwerfen.</div>'
           : auffaellig ? '<div style="font-size:var(--fs-xs);font-weight:800;color:var(--c-warn-d);margin:2px 0;">⚠️ Spitze Klammern in einem Text oder ein sehr langer Name — bitte genau prüfen.</div>' : '') +
         felderHtml +
         '<div style="font-size:var(--fs-xs);color:var(--muted);">KI '+conf+'</div>' +
@@ -91541,7 +91683,7 @@ function _gsAdminReportsHtml(list){
     var dt = ''; try { dt = r.created_at ? new Date(r.created_at).toLocaleDateString(gsLocale()) : ''; } catch(_){}
     return '<div style="display:flex;gap:9px;align-items:center;padding:8px;background:var(--card);border-radius:var(--r-sm);margin-bottom:6px;">' +
       '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);">' + (typeLabel[r.target_type] || _e(r.target_type)) + '</div>' +
+        '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);">' + (_gsNachschlag(typeLabel, r.target_type, null) || _e(r.target_type)) + '</div>' +
         '<div style="font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _e(r.target_ref||'') + (r.reason?(' · '+_e(r.reason)):'') + (dt?(' · '+dt):'') + '</div>' +
       '</div>' +
       '<button onclick="gsAdminReviewReport(\''+_gsOcStr(r.id)+'\',\'reviewed\')" title="Erledigt" style="padding:6px 10px;border:none;border-radius:var(--r-sm);background:#2e7d32;color:#fff;font-size:var(--fs-md);cursor:pointer;flex-shrink:0;">✓</button>' +
@@ -97247,9 +97389,25 @@ function deckeln(a){
     .sort(function(x,y){ return new Date(y.created||0) - new Date(x.created||0); })
     .filter(function(e){ je[e.uid] = (je[e.uid]||0) + 1; return je[e.uid] <= WARTEND_MAX; });
 }
+// v33.59: Plaene von VOR dem Stempel (ohne uid) liegen auf dem Geraet der Person, die
+// sie gespeichert hat — beim ersten Lesen mit Anmeldung bekommen sie deren uid; danach
+// gilt fuer sie dieselbe Regel (parken, nachschieben). Ohne Anmeldung: nichts.
+// Beim Parken (Abmelden, Kontowechsel) ist es das Konto, dessen Sitzung das Geraet
+// zuletzt hatte (gs_last_active_uid) — nie das gerade neu angemeldete.
+function stempeln(wer){
+  try {
+    var u = wer || (loggedIn() ? uid() : null); if (!u || typeof u !== 'string') return 0;
+    var l = readLS(), n = 0;
+    l.forEach(function(e){ if (e && !e.legacy && !e.uid) { e.uid = u; n++; } });
+    if (n && !writeLS(l)) return 0;
+    return n;
+  } catch(_){ return 0; }
+}
 // Synchron, aus gsClearUserDataKeys VOR dem Leeren: nur lokale, gestempelte Plaene parken.
 function parken(){
   try {
+    var _vorher = null; try { _vorher = localStorage.getItem('gs_last_active_uid'); } catch(_){}
+    stempeln(_vorher || (loggedIn() ? uid() : null));
     var weg = readLS().filter(function(e){ return e && !e.cloud && !e.legacy && typeof e.uid==='string' && e.uid; });
     if (!weg.length) return 0;
     var alt = readWartend(), da = {};
@@ -97329,7 +97487,8 @@ async function save(p){
 
 async function list(){
   var byKey = {};
-  if (abholen()) { try { nachschieben(); } catch(_){} }   // v33.59: wartende Plaene dieses Kontos
+  var _gest = stempeln();   // v33.59: Altplaene ohne uid → dieses Konto
+  if (abholen() || _gest) { try { nachschieben(); } catch(_){} }   // v33.59: wartende Plaene dieses Kontos
   readLS().forEach(function(e){ if(e && meins(e)) byKey[e.id||e.localId] = e; });
   if (loggedIn() && uid()){
     try {
@@ -97376,7 +97535,7 @@ async function star(id, on){
 
 // v33.59: der Spiegel im Arbeitsspeicher gehoert dem Konto wie der Speicher (gsClearUserDataKeys).
 function reset(){ _lastList = []; }
-window.gsPlans = { save:save, list:list, load:loadEntry, del:del, star:star, reset:reset, parken:parken, nachschieben:nachschieben };
+window.gsPlans = { save:save, list:list, load:loadEntry, del:del, star:star, reset:reset, parken:parken, nachschieben:nachschieben, stempeln:stempeln };
 
 /* ── Unified „Meine Pläne" Vollbild-Liste ── */
 window.gsPlansOpen = async function(filterType){
@@ -97398,7 +97557,7 @@ window.gsPlansOpen = async function(filterType){
     var d = '';
     try { d = new Date(p.created).toLocaleDateString(gsLocale(),{day:'2-digit',month:'short',year:'numeric'}); } catch(_){}
     return '<div style="background:var(--card);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;">'
-      + '<div onclick="window._gsPlansLoad(\''+_gsOcStr(p.id)+'\')" style="font-size:var(--fs-3xl);flex-shrink:0;cursor:pointer;">'+(ICON[p.type]||'📋')+'</div>'
+      + '<div onclick="window._gsPlansLoad(\''+_gsOcStr(p.id)+'\')" style="font-size:var(--fs-3xl);flex-shrink:0;cursor:pointer;">'+(_gsNachschlag(ICON, p.type, null)||'📋')+'</div>'
       + '<div onclick="window._gsPlansLoad(\''+_gsOcStr(p.id)+'\')" style="flex:1;min-width:0;cursor:pointer;">'
       + '<div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">'+ed(p.title)+(p.cloud?' <span title="Cloud" style="font-size:var(--fs-xs);">☁️</span>':'')+'</div>'
       + (p.summary?'<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.45;max-height:32px;overflow:hidden;">'+ed(p.summary)+'</div>':'')
