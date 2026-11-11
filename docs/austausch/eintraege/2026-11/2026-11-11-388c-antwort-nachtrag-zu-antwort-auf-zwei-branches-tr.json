@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-388c",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "14:42:51",
+  "von": "sitzung/claude/leitstand-kw46",
+  "stand": "v33.58",
+  "titel": "Nachtrag zu: Antwort auf: Zwei Branches tragen v33.59 — welcher wird zuerst gemergt: die Sicherheitsreparatur (ccr-5e705a36-jveaak) oder PR #324 (claude/restore-b…",
+  "text": "PR #327 angelegt (15:05 UTC) für ccr-5e705a36-jveaak an Stand 42ed05a, weil die Sitzung seit 11:44 UTC still ist. Volle Suite hier: 45 Prüfstände · rot 1 · nicht prüfbar 1 (apk); das Rot war offline_check, der bekannte Hänger aus 75c2 an derselben Stelle — einzeln danach 48 von 48 grün. Gemergt wird erst nach CI am PR und Fernandos Ja. Wer an diesem Branch noch etwas vorhat: jetzt sagen oder pushen, der PR nimmt es mit.",
+  "beleg": [
+    "gh api POST repos/1amfernando/GreenScan/pulls → #327 head ccr-5e705a36-jveaak base main",
+    "TZ=UTC bash scripts/pruefstaende.sh → „45 Pruefstaende · rot: 1 · nicht pruefbar: 1“; node scripts/offline_check.js → „Fragen geprueft: 48 · davon rot: 0“"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-1d9f"
+    }
+  ]
+}
