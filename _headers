@@ -6,14 +6,24 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
-  Permissions-Policy: camera=(self), microphone=(), geolocation=(self), payment=(self), accelerometer=(), gyroscope=(), magnetometer=(), usb=(), interest-cohort=()
+  # v33.59: Mikrofon (Sprachmodus, SpeechRecognition) und die Lagesensoren (Kompass der Karte,
+  # Neigung im Lichtmesser — deviceorientation) ruft die App selbst; mit () waren sie still tot.
+  # Eingebettet wird die Seite nie (frame-ancestors 'none'), (self) oeffnet also keinem Dritten etwas.
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=(self), payment=(self), accelerometer=(self), gyroscope=(self), magnetometer=(self), usb=(), browsing-topics=()
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cross-Origin-Resource-Policy: same-origin
   X-DNS-Prefetch-Control: on
   # v32.71 (Audit A8): kein 'unsafe-eval' (0 eval/new Function im App-Code), worker-src kennt cdnjs
   # (sonst fiel der pdf.js-Worker still auf den Hauptthread), frame-ancestors 'none' (die App wird
   # nie eingebettet; X-Frame-Options DENY fuer aeltere Browser), ipapi.co raus (Audit A9).
-  Content-Security-Policy: default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' https://*.supabase.co https://api.anthropic.com https://api.stripe.com https://js.stripe.com https://*.openstreetmap.org https://nominatim.openstreetmap.org https://api.open-meteo.com https://geocoding-api.open-meteo.com https://*.tile.openstreetmap.org https://wmts.geo.admin.ch https://*.geo.admin.ch https://server.arcgisonline.com https://*.tile.opentopomap.org https://*.fastly.net https://en.wikipedia.org https://www.google.com wss://*.supabase.co; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; worker-src 'self' blob: https://cdnjs.cloudflare.com; manifest-src 'self'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; upgrade-insecure-requests
+  # v33.59: object-src 'none' und default-src 'self' (jede gebrauchte Art hat ihre eigene Direktive);
+  # kein cdnjs mehr (pdf.js liegt unter assets/pdfjs/); connect-src nur, was der Code anspricht — EIN
+  # Supabase-Projekt, die Kachel-Hosts, die der Worker selbst holt (sw.js KACHEL_HOSTS), keine
+  # Schriften mehr (selbst gehostet, assets/fonts/). Gestrichen mit 0 Aufrufern: api.stripe.com,
+  # js.stripe.com (Checkout ist Navigation/Rahmen), *.fastly.net (der Worker holt die Stamen-Ebene
+  # nicht mehr), www.google.com (Verbindungstest fragt jetzt Supabase), *.openstreetmap.org (nur
+  # nominatim), *.tile.openstreetmap.org (Kacheln laufen am Worker vorbei, img-src), *.geo.admin.ch.
+  Content-Security-Policy: default-src 'self'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' https://vowbiueikwrauuceilhc.supabase.co wss://vowbiueikwrauuceilhc.supabase.co https://api.anthropic.com https://nominatim.openstreetmap.org https://api.open-meteo.com https://geocoding-api.open-meteo.com https://wmts.geo.admin.ch https://server.arcgisonline.com https://*.tile.opentopomap.org https://en.wikipedia.org; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; worker-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; upgrade-insecure-requests
 
 # v32.69 (Audit D3): der Web-Root ist das Repo. Interne Dateien (Doku, Migrationen,
 # Pruefstaende, Store-Material) werden ausgeliefert, weil kein Build sie aussortiert —
@@ -70,5 +80,8 @@
   Cache-Control: public, max-age=31536000, immutable
 
 # v26.16 PLANT_DB ist versioned (?v=N). Long-Cache, bumpt bei v=N+1.
+# v33.59: das Changelog-Archiv aendert sich bei JEDEM Bump — es wird mit ?v=<GS_VERSION>
+# geladen (gsLoadReleaseArchive); robust_check haelt die Pruefsummen der uebrigen Dateien
+# unter /data und /assets gegen ihr ?v= (Datei geaendert → neue Adresse).
 /data/*
   Cache-Control: public, max-age=31536000, immutable

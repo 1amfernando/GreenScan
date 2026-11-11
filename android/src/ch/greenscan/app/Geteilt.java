@@ -5,6 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Die RECHNUNG hinter „Teilen → GreenScan" in der Huelle (v33.56) — ohne eine
@@ -71,6 +75,23 @@ public final class Geteilt {
       if (a.equals(p) || a.startsWith(p + ".")) return false;
     }
     return true;
+  }
+
+  /**
+   * Dieselbe Regel fuer die LISTE, die eine fremde App auf eine Dateiauswahl
+   * ({@code GET_CONTENT}) zurueckgibt (v33.59): die Indizes der Adressen, die
+   * die WebView sehen darf. Eine Antwort {@code file:///data/data/ch.greenscan.app/…}
+   * liesse sie sonst die eigenen Privatdateien lesen — mit der Sitzung darin.
+   * Ungleich lange Listen sind kein Ergebnis, sondern ein Fehler: nichts.
+   */
+  public static int[] auswahl(String[] schemata, String[] autoritaeten, String eigenesPaket) {
+    if (schemata == null || autoritaeten == null || schemata.length != autoritaeten.length) return new int[0];
+    int[] tmp = new int[schemata.length];
+    int n = 0;
+    for (int i = 0; i < schemata.length; i++) if (quelleOk(schemata[i], autoritaeten[i], eigenesPaket)) tmp[n++] = i;
+    int[] ok = new int[n];
+    System.arraycopy(tmp, 0, ok, 0, n);
+    return ok;
   }
 
   // ---------------------------------------------------------------- Typ
@@ -409,6 +430,7 @@ public final class Geteilt {
     if (f == null) return FEHLER;
     if (n <= 0) return f.zustand(uhr.jetzt());              // kein Platz vergeben (KOPIEN_MAX)
     InputStream in = null;
+    ScheduledFuture<?> waechter = null;
     final boolean[] fertig = { false };
     try {
       if (!uri) { f.fehler(n, "leer", uhr.jetzt()); return f.zustand(uhr.jetzt()); }
@@ -416,16 +438,15 @@ public final class Geteilt {
       in = o.oeffnen();
       if (in != null && wachMs > 0) {
         final InputStream strom = in;
-        final long frist = wachMs;
-        Thread waechter = new Thread(new Runnable() {
+        // v33.59: EIN gemeinsamer Zeitgeber statt je Teilen ein Faden, der die
+        // ganze Frist schlaeft — 500 schnelle Teilen hinterliessen 500 Faeden.
+        // Die Frist wird im finally abgesagt, sobald die Kopie fertig ist.
+        waechter = WAECHTER.schedule(new Runnable() {
           @Override public void run() {
-            try { Thread.sleep(frist); } catch (InterruptedException e) { return; }
             synchronized (fertig) { if (fertig[0]) return; }
             try { strom.close(); } catch (Throwable ignored) {}
           }
-        }, "gs-geteilt-waechter");
-        waechter.setDaemon(true);
-        waechter.start();
+        }, wachMs, TimeUnit.MILLISECONDS);
       }
       byte[] d = kopieren(in, MAX_BYTES);
       f.ablegen(n, d, anzahl, uhr.jetzt());
@@ -435,10 +456,33 @@ public final class Geteilt {
       f.fehler(n, "fehler", uhr.jetzt());
     } finally {
       synchronized (fertig) { fertig[0] = true; }
+      if (waechter != null) waechter.cancel(false);
       if (in != null) try { in.close(); } catch (Throwable ignored) {}
     }
     return f.zustand(uhr.jetzt());
   }
+
+  /**
+   * Der eine Zeitgeber fuer alle Waechter (v33.59): ein Daemon-Faden, und eine
+   * abgesagte Frist verschwindet sofort aus der Warteschlange
+   * ({@code setRemoveOnCancelPolicy}) statt bis zu ihrem Ablauf dazuliegen.
+   */
+  private static final ScheduledThreadPoolExecutor WAECHTER = waechterBauen();
+
+  private static ScheduledThreadPoolExecutor waechterBauen() {
+    ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1, new ThreadFactory() {
+      @Override public Thread newThread(Runnable r) {
+        Thread t = new Thread(r, "gs-geteilt-waechter");
+        t.setDaemon(true);
+        return t;
+      }
+    });
+    e.setRemoveOnCancelPolicy(true);
+    return e;
+  }
+
+  /** Wie viele Fristen gerade laufen — fuer den Pruefstand (G10). */
+  public static int waechterOffen() { return WAECHTER.getQueue().size(); }
 
   /** Wie {@link #annehmen(Fach, int, String, String, boolean, String, int, Oeffner, Uhr, long)} mit dem Waechter nach {@link #KOMMT_MAX_MS}. */
   public static String annehmen(Fach f, int n, String schema, String autoritaet, boolean uri, String eigenesPaket,

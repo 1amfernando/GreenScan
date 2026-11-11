@@ -60,10 +60,21 @@ const SHELL_URLS = [
   '/assets/three.min.js',
   '/assets/leaflet-images/marker-icon.png',
   '/assets/leaflet-images/marker-icon-2x.png',
-  '/assets/leaflet-images/marker-shadow.png'
+  '/assets/leaflet-images/marker-shadow.png',
+  // v33.59: die Schriften liegen selbst gehostet unter /assets/fonts/ — die
+  // latin-Schnitte braucht schon der erste Bildschirm (latin-ext nur bei Bedarf).
+  '/assets/fonts/dm-sans-latin-300-normal.woff2',
+  '/assets/fonts/dm-sans-latin-400-normal.woff2',
+  '/assets/fonts/dm-sans-latin-500-normal.woff2',
+  '/assets/fonts/dm-sans-latin-600-normal.woff2',
+  '/assets/fonts/dm-sans-latin-700-normal.woff2',
+  '/assets/fonts/playfair-display-latin-700-normal.woff2',
+  '/assets/fonts/playfair-display-latin-800-normal.woff2',
+  '/assets/fonts/playfair-display-latin-900-normal.woff2'
   // v32.79: pdf.js NICHT mehr vorgeladen — 1,5 MB bei jedem Install für ein
   // Admin-Werkzeug (Book-Ingest). Die App holt es beim ersten PDF
-  // (_gsPdfjsLaden); IMAGE_HOSTS kennt cdnjs, der Runtime-Cache behält es.
+  // (_gsPdfjsLaden) — seit v33.59 vom eigenen Ursprung (assets/pdfjs/), danach im
+  // gedeckelten Runtime-Cache.
 ];
 
 // v32.13: Dieselbe Liste noch einmal als PFADE — daran erkennt der
@@ -130,6 +141,14 @@ const IMAGE_CACHE_MAX = 500;        // ~35 KB je Kachel → grob 17 MB
 const IMAGE_CACHE_INTERVALL = 50;   // so oft wird nachgesehen
 let _bildZaehler = 0;               // nicht bei jedem Bild `keys()` aufrufen
 
+// v33.59: derselbe Deckel fuer den Runtime-Cache. Seit dem Fremd-Riegel unten
+// landen dort nur noch Dateien des EIGENEN Ursprungs (Changelog-Archiv, Doku) —
+// aber jede neue Abfrage-Adresse ist ein neuer Eintrag, und bis v33.56 gab es
+// keine Obergrenze (Nominatim-Antworten mit GPS-Koordinaten lagen dort ohne Ende).
+const RUNTIME_CACHE_MAX = 60;
+const RUNTIME_CACHE_INTERVALL = 10;
+let _laufZaehler = 0;
+
 async function deckelCache(cacheName, max) {
   try {
     const c = await caches.open(cacheName);
@@ -138,7 +157,7 @@ async function deckelCache(cacheName, max) {
     // `keys()` liefert die EINFUEGEreihenfolge — vorne steht das Aelteste.
     const weg = keys.slice(0, keys.length - max);
     await Promise.all(weg.map((k) => c.delete(k)));
-    console.log('[SW] Bild-Cache gedeckelt: ' + weg.length + ' entfernt, ' + max + ' behalten');
+    console.log('[SW] ' + cacheName + ' gedeckelt: ' + weg.length + ' entfernt, ' + max + ' behalten');
     return weg.length;
   } catch (e) { return 0; }
 }
@@ -155,29 +174,34 @@ async function ausShell(req) {
   } catch (e) { return null; }
 }
 
-// Domains, die NIE gecached werden (immer Network)
-const NEVER_CACHE_HOSTS = [
-  'supabase.co',
-  'supabase.in',
-  'api.anthropic.com',
-  'api.stripe.com',
-  'js.stripe.com',
-  'm.stripe.network',
-  'open-meteo.com',
-  'api.open-meteo.com',
-  'ipapi.co',
-  'tile.openstreetmap.org',
-  'plausible.io',
-  'analytics.google.com'
+// v33.59: FREMDE Urspruenge faengt der Worker nur noch fuer die Kartenkacheln
+// ab, die er bewusst zwischenspeichert (offline-Karte). Alles andere — Supabase,
+// Anthropic, Nominatim, Open-Meteo, Wikipedia, Bilder fremder
+// Hosts — holt der BROWSER selbst. Zwei Gruende, beide gemessen:
+//   · ein fetch() im Worker wird gegen DESSEN connect-src geprueft (die CSP aus
+//     _headers gilt auch fuer /sw.js): Stylesheet, Modul und Bild eines Hosts,
+//     der nur in style-/script-/img-src steht, scheiterten unter dem Worker;
+//   · die Default-Regel legte jede fremde API-Antwort im Runtime-Cache ab —
+//     Nominatim mit den GPS-Koordinaten auf sechs Stellen, ohne Deckel, und das
+//     Abmelden raeumte sie nicht.
+// Ein Host gilt nur mit Punktgrenze (`a.tile.opentopomap.org`, nie
+// `boese-tile.opentopomap.org.example`). OpenStreetMap-Kacheln stehen bewusst
+// NICHT hier (deren Nutzungsregeln verbieten das Zwischenspeichern auf Vorrat).
+// Jeder Host hier steht auch in connect-src (_headers) — der Worker holt ihn selbst.
+const KACHEL_HOSTS = [
+  'wmts.geo.admin.ch',
+  'server.arcgisonline.com',
+  'tile.opentopomap.org',
 ];
-
-// Bild-Hosts: Stale-While-Revalidate
-// v25.36 SELF-HOST: unpkg.com entfernt — Leaflet+Three sind jetzt /assets/-lokal.
-const IMAGE_HOSTS = [
-  'fonts.gstatic.com',
-  'fonts.googleapis.com',
-  'cdnjs.cloudflare.com'  // bleibt fuer pdf.js
-];
+function istKachel(req) {
+  try {
+    const h = new URL(req.url).hostname;
+    return isImageRequest(req) && KACHEL_HOSTS.some((k) => h === k || h.endsWith('.' + k));
+  } catch (e) { return false; }
+}
+function eigenerUrsprung(url) {
+  try { return new URL(url).origin === self.location.origin; } catch (e) { return false; }
+}
 
 // ─── INSTALL ─────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
@@ -229,7 +253,7 @@ self.addEventListener('activate', (event) => {
 // manifest.json share_target: POST /teilen, multipart, Feld „bild". Der Worker
 // legt das Foto unter EINEM festen Schluessel ab und leitet auf `/#teilen=<grund>`
 // um — der Grund steht im ANKER: eine eigene Abfrage-Adresse waere eine weitere
-// Kopie der 6-MB-Seite im Shell-Cache (networkFirst legt je URL ab), `/` liegt
+// Kopie der 6-MB-Seite im Shell-Cache (bis v33.56 je URL, seit v33.59 navSchluessel), `/` liegt
 // dort ohnehin. Gescannt wird NICHTS ohne Antippen — das entscheidet die Seite.
 const GETEILT_CACHE = 'gs-geteilt';
 const GETEILT_SCHLUESSEL = '/__geteilt/letztes';
@@ -274,18 +298,6 @@ async function teilenAntwort(req) {
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────
-function isNeverCache(url) {
-  try {
-    const u = new URL(url);
-    return NEVER_CACHE_HOSTS.some((h) => u.hostname.endsWith(h));
-  } catch (e) { return false; }
-}
-function isImageHost(url) {
-  try {
-    const u = new URL(url);
-    return IMAGE_HOSTS.some((h) => u.hostname.endsWith(h));
-  } catch (e) { return false; }
-}
 function isImageRequest(req) {
   return req.destination === 'image' || /\.(png|jpg|jpeg|gif|webp|avif|svg|ico)(\?|$)/i.test(req.url);
 }
@@ -296,6 +308,53 @@ function isHTMLNav(req) {
   return req.mode === 'navigate' || (req.method === 'GET' && req.headers.get('accept')?.includes('text/html'));
 }
 
+// v33.59: EINE Shell je Seite. networkFirst legte jede Navigation unter ihrer
+// vollen Adresse ab — `/?x=<zufall>` oder `/<pfad>` war je eine weitere Kopie der
+// 6-MB-Seite, ohne Deckel, bis zum naechsten Versionswechsel (gemessen: 18 → 53 MB
+// nach sechs Adressen). Der Hoster liefert fuer jeden Pfad ohne Endung dieselbe
+// index.html (SPA-Fallback) — sie gehoert unter `/`; die drei eigenen Seiten unter
+// ihren Pfad; eine echte Datei (`/docs/x.md`) gar nicht in den Shell-Cache.
+const NAV_SEITEN = {
+  '/install': '/install.html', '/install.html': '/install.html',
+  '/offline': '/offline.html', '/offline.html': '/offline.html',
+  '/privacy': '/privacy.html', '/datenschutz': '/privacy.html', '/privacy.html': '/privacy.html',
+};
+const NAV_KEINE_SHELL = /^\/(assets|icons|data|docs|scripts|supabase|android|store|store-assets|\.well-known|\.github|\.claude)(\/|$)/;
+function navSchluessel(req) {
+  try {
+    const u = new URL(req.url);
+    if (u.origin !== self.location.origin) return null;
+    if (NAV_SEITEN[u.pathname]) return NAV_SEITEN[u.pathname];
+    // Unter den Verzeichnissen des Repos liefert der Hoster ECHTE Dateien aus — auch
+    // ohne Endung (Clean URLs: `/assets/icons/preview` → preview.html). Eine solche
+    // Seite unter `/` abzulegen, ersetzte die App-Shell fuer den naechsten Offline-Start.
+    if (NAV_KEINE_SHELL.test(u.pathname)) return null;
+    if (u.pathname === '/' || u.pathname === '/index.html' || !/\.[A-Za-z0-9]+$/.test(u.pathname)) return '/';
+    return null;
+  } catch (e) { return null; }
+}
+
+async function navigationFirst(req) {
+  const cache = await caches.open(SHELL_CACHE);
+  const key = navSchluessel(req);
+  try {
+    const fresh = await fetch(req);
+    if (key && fresh && fresh.status === 200 && fresh.type !== 'opaqueredirect'
+        && /text\/html/i.test(fresh.headers.get('content-type') || '')) {
+      cache.put(key, fresh.clone()).catch(() => {});
+    }
+    return fresh;
+  } catch (err) {
+    const cached = (key && await cache.match(key)) || await ausShell(req);
+    if (cached) return cached;
+    const fallback = await cache.match('/index.html') || await cache.match('/');
+    if (fallback) return fallback;
+    const offlinePage = await cache.match('/offline.html');
+    if (offlinePage) return offlinePage;
+    throw err;
+  }
+}
+
 // Fetch-Strategien
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
@@ -303,6 +362,9 @@ async function networkFirst(req, cacheName) {
     const fresh = await fetch(req);
     if (fresh && fresh.status === 200 && fresh.type !== 'opaqueredirect') {
       cache.put(req, fresh.clone()).catch(() => {});
+      if (cacheName === RUNTIME_CACHE && (++_laufZaehler % RUNTIME_CACHE_INTERVALL) === 0) {
+        deckelCache(RUNTIME_CACHE, RUNTIME_CACHE_MAX);
+      }
     }
     return fresh;
   } catch (err) {
@@ -397,12 +459,14 @@ self.addEventListener('fetch', (event) => {
   // gehoert nichts davon in einen Zwischenspeicher.
   if (url.indexOf('/__huelle/') >= 0 || url.indexOf('/__geteilt/') >= 0) return;
 
-  // 1. Never-cache hosts (Supabase, Anthropic, Stripe, Wetter, IP-Geo) → Network only
-  if (isNeverCache(url)) return;
+  // 1. v33.59: fremde Urspruenge holt der Browser selbst — ausser den Kartenkacheln
+  //    (siehe KACHEL_HOSTS). Kein respondWith: dann gilt die CSP der SEITE.
+  if (!eigenerUrsprung(url) && !istKachel(req)) return;
 
-  // 2. App-Shell HTML-Navigation → Network-First (immer aktuell, bei offline aus Cache)
+  // 2. App-Shell HTML-Navigation → Network-First, EINE Shell je Seite (navSchluessel)
   if (isHTMLNav(req)) {
-    event.respondWith(networkFirst(req, SHELL_CACHE));
+    if (!eigenerUrsprung(url)) return;
+    event.respondWith(navigationFirst(req));
     return;
   }
 
@@ -432,8 +496,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. Fonts → Cache-First (Fonts ändern sich selten)
-  if (isFontRequest(req) || isImageHost(url)) {
+  // 5. Fonts → Cache-First (Fonts ändern sich selten; seit v33.59 nur noch eigene)
+  if (isFontRequest(req)) {
     event.respondWith(cacheFirst(req, STATIC_CACHE));
     return;
   }
@@ -454,6 +518,19 @@ self.addEventListener('message', (event) => {
         .then(() => {
           if (event.source) event.source.postMessage({ type: 'CACHES_CLEARED' });
         })
+    );
+  } else if (data.type === 'GS_ABMELDEN') {
+    // v33.59: beim Abmelden (gsClearUserDataKeys) raeumt die Seite, was der
+    // Worker fuer die Person abgelegt hat: Runtime (Antworten), Bilder (Kartenkacheln
+    // = wo sie war) und ein nicht abgeholtes geteiltes Foto. Nur von einem FENSTER
+    // des eigenen Ursprungs — die Shell und die Schriften bleiben (kein Nutzerdatum).
+    const q = event.source;
+    let eigen = false;
+    try { eigen = !!(q && q.type === 'window' && new URL(q.url).origin === self.location.origin); } catch (_) {}
+    if (!eigen) return;
+    event.waitUntil(
+      Promise.all([RUNTIME_CACHE, IMAGE_CACHE, GETEILT_CACHE].map((n) => caches.delete(n).catch(() => false)))
+        .then((r) => { try { q.postMessage({ type: 'GS_ABGEMELDET', geloescht: r.filter(Boolean).length }); } catch (_) {} })
     );
   } else if (data.type === 'GET_VERSION') {
     // v33.25: Antwort ueber den mitgeschickten Port (auch ein WARTENDER Worker

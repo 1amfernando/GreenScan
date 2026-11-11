@@ -328,6 +328,36 @@ public class GeteiltFahrer {
     Thread.sleep(500);
     p("A:waechter_still", wz2 + " " + wg.zustand(u.t));
 
+    // ------------------------------------------- G10 Waechter (v33.59, android-huelle#6)
+    // 200 Teilen nacheinander, jedes in Millisekunden fertig, mit der ECHTEN Frist
+    // (60 s): danach darf kein Waechter je Teilen weiterleben — gezaehlt werden die
+    // lebenden Faeden, deren Name mit gs-geteilt-waechter beginnt.
+    Geteilt.Fach wv = new Geteilt.Fach();
+    int angenommen = 0;
+    for (int i = 0; i < 200; i++) {
+      int nv = wv.kommt(u.t);
+      String zv = Geteilt.annehmen(wv, nv, "content", "media", true, PAKET, 1, new Geteilt.Oeffner() {
+        public InputStream oeffnen() { return new Strom(JPEG); } }, u);
+      if ("bereit".equals(zv)) angenommen++;
+    }
+    Thread.sleep(300);
+    int lebend = 0;
+    for (Thread t : Thread.getAllStackTraces().keySet()) if (t.isAlive() && t.getName().startsWith("gs-geteilt-waechter")) lebend++;
+    p("V:faeden", angenommen + " " + (lebend <= 1 ? "hoechstens1" : lebend + "_lebend"));
+    p("V:offen", Geteilt.waechterOffen());
+
+    // ---------------------------------------- G11 Dateiauswahl (v33.59, android-huelle#1)
+    // Dieselbe Quellen-Regel wie beim Teilen, fuer die Liste, die eine fremde App
+    // aus GET_CONTENT zurueckgibt: nur content://, nie die eigene Autoritaet, nie file://.
+    String[] sch = { "content", "file", "content", "content", "content", "CONTENT", null, "https", "content" };
+    String[] aut = { "com.android.providers.media.documents", "", "ch.greenscan.app", "ch.greenscan.app.fileprovider",
+                     "com.google.android.apps.photos.contentprovider", "media", null, "green-scan.ch", "evil@media" };
+    p("D:auswahl", Arrays.toString(Geteilt.auswahl(sch, aut, PAKET)));
+    p("D:nur_file", Arrays.toString(Geteilt.auswahl(new String[]{ "file" }, new String[]{ "" }, PAKET)));
+    p("D:null", Arrays.toString(Geteilt.auswahl(null, null, PAKET)));
+    p("D:ungleich", Arrays.toString(Geteilt.auswahl(new String[]{ "content", "content" }, new String[]{ "media" }, PAKET)));
+    p("D:leer", Arrays.toString(Geteilt.auswahl(new String[0], new String[0], PAKET)));
+
     // -------------------------------------------- G8 Welche Absicht zaehlt
     final int AUS_DER_LISTE = 0x00100000;   // Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY
     p("S:send", Geteilt.sollAnnehmen(false, 0, "android.intent.action.SEND", AUS_DER_LISTE));

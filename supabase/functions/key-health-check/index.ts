@@ -12,7 +12,7 @@
 // v28.04 Block C — Globaler-Anthropic-Key Health-Check.
 // verify_jwt=false; Custom-Auth via x-cron-secret (app_settings.push_cron_secret) ODER service-role.
 // Prüft den globalen Key gegen Anthropic /v1/models und schreibt Status in app_status.
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'jsr:@supabase/supabase-js@2.119.0';
 import { cronOderService } from "../_shared/auth_vergleich.mjs";
 
 Deno.serve(async (req: Request) => {

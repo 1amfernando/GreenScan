@@ -12,7 +12,7 @@
 // Sicherheit ist das Geraete-Token (§3.2). Vorbild fuer verify_jwt=false mit
 // eigener Pruefung: key-health-check, engagement-push-checker.
 // ═══════════════════════════════════════════════════════════════════════════
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'jsr:@supabase/supabase-js@2.119.0';
 import { pruefeBatch, rateLimit, befehleAufbereiten, acksAuswerten, antwort, naechsterKontaktS, erwartetBis } from '../_shared/ingest_regeln.mjs';
 
 const json = (o: unknown, status = 200, extra: Record<string, string> = {}) =>

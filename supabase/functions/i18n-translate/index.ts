@@ -1,5 +1,5 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 
 // v29 i18n-translate — DE → {en,fr,it,es} Bulk-Übersetzung via Anthropic Haiku 4.5.
 // Cached in i18n_translations (UNIQUE (src_lang,tgt_lang,hash)).

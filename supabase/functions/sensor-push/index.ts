@@ -14,12 +14,12 @@
 // Deploy: `supabase functions deploy sensor-push` (verify_jwt bleibt an; der
 // Cron schickt das x-cron-secret wie bei daily-push-checker).
 // ═══════════════════════════════════════════════════════════════════════════
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import { cronOderService } from "../_shared/auth_vergleich.mjs";
-import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden } from "../_shared/push_helfer.mjs";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden, abosAuswaehlen, abarbeiten } from "../_shared/push_helfer.mjs";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 import webpush from "npm:web-push@3.6.7";
-import { KATEGORIE, FENSTER_MS, FEHLSCHLAEGE_MAX, planen, nutzlast, protokollZeile, stummZeile } from "../_shared/sensor_push_regeln.mjs";
+import { KATEGORIE, FENSTER_MS, FEHLSCHLAEGE_MAX, LADE_SEITE, planen, nutzlast, protokollZeile, stummZeile, meldungenLaden } from "../_shared/sensor_push_regeln.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -45,12 +45,23 @@ Deno.serve(async (req: Request) => {
     const now = Date.now();
     const seit = new Date(now - FENSTER_MS).toISOString();
 
-    // 1 · frische Inbox-Zeilen der Art sensor_alert (der Cron hat sie geschrieben)
-    const { data: meldungen, error: e1 } = await sb.from("notifications")
-      .select("id,user_id,kind,title,body,link,created_at")
-      .eq("kind", KATEGORIE).gte("created_at", seit).order("created_at", { ascending: true }).limit(500);
-    if (e1) throw e1;
-    if (!meldungen || !meldungen.length) {
+    // 1 · frische Inbox-Zeilen der Art sensor_alert (der Cron hat sie geschrieben).
+    // v33.59 (Sicherheitspruefung 10.11.2026): `notifications` darf jede Person fuer sich
+    // beschreiben — vorher die 500 AELTESTEN Zeilen, und 500 eigene verdraengten jeden echten
+    // Alarm. Jetzt neueste zuerst, je Nutzer gedeckelt, Gedeckelte in der naechsten Runde aussen vor.
+    const lade = async (aus: string[], vor: string | null) => {
+      let q = sb.from("notifications")
+        .select("id,user_id,kind,title,body,link,created_at")
+        .eq("kind", KATEGORIE).gte("created_at", seit);
+      if (vor) q = q.lte("created_at", vor);   // <=: Gleichstand an der Seitengrenze (meldungenLaden)
+      if (aus.length) q = q.not("user_id", "in", "(" + aus.join(",") + ")");
+      const { data, error } = await q.order("created_at", { ascending: false }).limit(LADE_SEITE);
+      if (error) throw error;
+      return data || [];
+    };
+    const geladen = await meldungenLaden(lade);
+    const meldungen = geladen.meldungen;
+    if (!meldungen.length) {
       return new Response(JSON.stringify({ ok: true, dry_run: dryRun, meldungen: 0, geplant: 0, gesendet: 0 }), { headers: cors });
     }
 
@@ -66,7 +77,9 @@ Deno.serve(async (req: Request) => {
     if (e3) throw e3;
 
     // 4 · die Rechnung — geprueft in scripts/sensor_push_check.js
-    const plan = planen({ meldungen, protokoll: protokoll || [], abos: abos || [], now, stunde: zurichHour() });
+    // v33.59: nur bekannte Push-Dienste, je Nutzer die neuesten ABOS_JE_NUTZER
+    const auswahl = abosAuswaehlen(abos || []);
+    const plan = planen({ meldungen, protokoll: protokoll || [], abos: auswahl.abos, now, stunde: zurichHour() });
 
     // 5 · stumm protokollieren (Stille, Pause) — nicht nachholen, die Inbox hat die Zeile
     if (!dryRun) {
@@ -74,9 +87,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // 6 · senden und protokollieren; 410/404 raeumt das Abonnement
-    let gesendet = 0, fehlgeschlagen = 0;
+    let gesendet = 0, fehlgeschlagen = 0, lauf: any = null;
     if (!dryRun) {
-      for (const s of plan.senden) {
+      lauf = await abarbeiten(plan.senden, async (s: any) => {
         const r = await sendPush(s.abo, nutzlast(s.meldung), settings.vapid);
         await sb.from("push_send_log").insert(protokollZeile(s.meldung, s.abo,
           r.ok ? { result: "sent", status: r.status } : { result: "failed", status: r.status, error: r.error }));
@@ -85,14 +98,16 @@ Deno.serve(async (req: Request) => {
           await sb.from("push_subscriptions").update({ last_push_sent_at: new Date(now).toISOString(), push_failure_count: 0 }).eq("id", s.abo.id);
         } else {
           fehlgeschlagen++;
-          if (r.status === 410 || r.status === 404) await sb.from("push_subscriptions").delete().eq("endpoint", s.abo.endpoint);
+          if (r.status === 410 || r.status === 404) await sb.from("push_subscriptions").delete().eq("id", s.abo.id);   // v33.59: je Abo, nie je Endpunkt
           else await sb.from("push_subscriptions").update({ push_failure_count: (s.abo.push_failure_count || 0) + 1 }).eq("id", s.abo.id);
         }
-      }
+      });
     }
 
     return new Response(JSON.stringify({
       ok: true, dry_run: dryRun, meldungen: meldungen.length,
+      lade_runden: geladen.runden, lade_vollstaendig: geladen.vollstaendig, nutzer_gedeckelt: geladen.gedeckelt.length,
+      abgewiesen: auswahl.abgewiesen.length, abgebrochen: lauf ? lauf.abgebrochen : false,
       geplant: plan.senden.length, gesendet, fehlgeschlagen,
       stumm: plan.stumm.length, uebersprungen: plan.uebersprungen.length,
       gruende: plan.uebersprungen.slice(0, 20).map((u) => u.grund),

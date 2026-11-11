@@ -553,5 +553,86 @@
   "analytics_events": 0,
   "client_errors": 2
  },
- "hinweis": "Wer eine Tabelle mit einer Nutzer-Spalte anlegt oder einen Bucket, zieht diese Momentaufnahme nach (dieselben zwei Abfragen, nur lesend) und traegt das Datum ein — loeschung_check nennt das Datum in jedem Bericht."
+ "hinweis": "Wer eine Tabelle mit einer Nutzer-Spalte anlegt oder einen Bucket, zieht diese Momentaufnahme nach (dieselben zwei Abfragen, nur lesend) und traegt das Datum ein — loeschung_check nennt das Datum in jedem Bericht.",
+ "buckets_alle": {
+  "stand": "2026-11-10",
+  "wie": "storage.buckets (id, public) und pg_policies auf storage.objects, NUR LESEND; uid_ordner = eine Policy verlangt (storage.foldername(name))[1] = auth.uid(). Die Objekt-Zaehlung je Bucket (buckets, oben) ist vom 10.09.2026.",
+  "liste": [
+   {
+    "bucket": "avatars",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "book-pdfs",
+    "public": false,
+    "uid_ordner": false
+   },
+   {
+    "bucket": "books-raw",
+    "public": false,
+    "uid_ordner": false
+   },
+   {
+    "bucket": "garden-diary-photos",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "garden-photos",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "garden-scans",
+    "public": false,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "map-find-photos",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "marketplace-photos",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "plant-3d-models",
+    "public": true,
+    "uid_ordner": false
+   },
+   {
+    "bucket": "post-images",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "recipe-photos",
+    "public": true,
+    "uid_ordner": false
+   },
+   {
+    "bucket": "scan-images",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "species-images",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "user-plant-photos",
+    "public": true,
+    "uid_ordner": true
+   },
+   {
+    "bucket": "user-uploads",
+    "public": false,
+    "uid_ordner": true
+   }
+  ]
+ }
 }

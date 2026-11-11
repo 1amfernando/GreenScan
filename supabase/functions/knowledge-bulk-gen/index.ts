@@ -1,12 +1,23 @@
 // knowledge-bulk-gen v11 (v26.50 ai_daily_usage Logging) — v10-base + RPC-Log vor success-Return.
 // 35 Topics gesamt: 4 Wave-13 (alpine_garden_plants, forest_garden_design, indoor_houseplants, urban_balcony_design).
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 // v33.29: die RECHNENDEN Regeln fuer Quizfragen stehen in einem reinen
 // ESM-Modul, das Deno UND Node importieren (Bauform wie ingest_regeln.mjs) —
 // nur so lassen sie sich ohne Deno pruefen: scripts/quiz_gen_check.js.
 // Wer eine Regel aendert, aendert das Modul und den Fall, nie nur diese Datei.
 import { quizStapelFiltern, quizNormFrage, QUIZ_KATEGORIEN } from "../_shared/quiz_gen_regeln.mjs";
+// v33.59 (Sicherheitspruefung 10.11.2026): jede KI-Zeile geht durch eine
+// Erlaubnisliste der Spalten, gelesen aus dem Schema-Text, mit dem das Modell
+// angewiesen wird (kiSchemaSpalten/kiZeileOk). Vorher wurde das rohe Objekt aus
+// der Modellantwort per Service-Role eingefuegt — jede Spalte, die das Modell
+// nannte, wurde gesetzt; mushroom_register.edibility ging als gruene
+// Sicherheitsangabe an den Pilz-Scanner. Sicherheitsangaben setzt jetzt nie die KI.
+import { kiFehlerCode, kiSchemaSpalten, kiZeileOk } from "../_shared/ki_tor.mjs";
+import { constantTimeEquals } from "../_shared/auth_vergleich.mjs";
+
+// v33.59: nur diese Modelle — der Rumpf kam bisher frei aus der Anfrage.
+const KB_MODELLE = new Set(["claude-haiku-4-5-20251001", "claude-sonnet-4-5", "claude-sonnet-4-20250514"]);
 
 // v29 (HL#19): Admin-Secret NICHT mehr hardcodiert (war im public Repo lesbar) — wird zur Laufzeit
 // aus app_settings.knowledge_gen_secret gelesen (nur admin/service-role lesbar, nie im Repo).
@@ -86,12 +97,17 @@ Deno.serve(async (req) => {
   // v29 (HL#19): Admin-Secret aus app_settings statt hardcoded (war im public Repo lesbar).
   const { data: _sec } = await admin.from("app_settings").select("value").eq("key", "knowledge_gen_secret").maybeSingle();
   const expectedSecret = _sec?.value || "";
-  if (!expectedSecret || req.headers.get("X-Admin-Secret") !== expectedSecret) return new Response("Forbidden", { status: 403 });
+  // v33.59: zeitkonstant verglichen (_shared/auth_vergleich.mjs), nicht mit !==.
+  if (!expectedSecret || !constantTimeEquals(req.headers.get("X-Admin-Secret") || "", expectedSecret)) return new Response("Forbidden", { status: 403 });
   try {
     const apiKey = await getAnthropicKey(admin);
     if (!apiKey) return new Response(JSON.stringify({ error: "No Anthropic key" }), { status: 503, headers: { "Content-Type": "application/json" } });
-    const { topic, count = 12, focus_topics, model = "claude-haiku-4-5-20251001" } = await req.json();
-    const schema = SCHEMAS[topic];
+    const anfrage = await req.json();
+    const topic = anfrage?.topic;
+    const count = Math.min(Math.max(parseInt(String(anfrage?.count ?? 12), 10) || 12, 1), 30);
+    const focus_topics = Array.isArray(anfrage?.focus_topics) ? anfrage.focus_topics.filter((x: unknown) => typeof x === "string").slice(0, 10).map((x: string) => x.slice(0, 80)) : null;
+    const model = typeof anfrage?.model === "string" && KB_MODELLE.has(anfrage.model) ? anfrage.model : "claude-haiku-4-5-20251001";
+    const schema = Object.prototype.hasOwnProperty.call(SCHEMAS, topic) ? SCHEMAS[topic] : undefined;
     if (!schema) return new Response(JSON.stringify({ error: `Unknown topic. Available: ${Object.keys(SCHEMAS).join(", ")}` }), { status: 400, headers: { "Content-Type": "application/json" } });
     let existKeys = new Set<string>();
     if (schema.uniqKey) {
@@ -109,12 +125,12 @@ Deno.serve(async (req) => {
     }
     const userMsg = `Generiere genau ${count} ${topic}-Einträge. Schweizer Kontext, Deutsch.${focus_topics ? " Fokus: " + focus_topics.join(", ") : ""} Antworte mit reinem JSON-Array.`;
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" }, body: JSON.stringify({ model, max_tokens: 8000, system: schema.system, messages: [{ role: "user", content: userMsg }] }) });
-    if (!anthropicRes.ok) { const errBody = await anthropicRes.text(); return new Response(JSON.stringify({ error: "Anthropic", status: anthropicRes.status, detail: errBody.slice(0, 500) }), { status: 502, headers: { "Content-Type": "application/json" } }); }
+    if (!anthropicRes.ok) { console.error("knowledge-bulk-gen anthropic", anthropicRes.status, (await anthropicRes.text()).slice(0, 500)); return new Response(JSON.stringify({ error: kiFehlerCode(anthropicRes.status === 429 ? "upstream_limit" : "upstream"), status: anthropicRes.status }), { status: 502, headers: { "Content-Type": "application/json" } }); }
     const aiData = await anthropicRes.json();
     const rawText = aiData.content?.[0]?.text || "";
     const stopReason = aiData.stop_reason || "";
     const entries = salvageJsonArray(rawText);
-    if (!entries.length) return new Response(JSON.stringify({ error: "JSON salvage produced 0 entries", stop_reason: stopReason, raw_preview: rawText.slice(0, 600) }), { status: 502, headers: { "Content-Type": "application/json" } });
+    if (!entries.length) { console.error("knowledge-bulk-gen parse", rawText.slice(0, 600)); return new Response(JSON.stringify({ error: "JSON salvage produced 0 entries", stop_reason: stopReason }), { status: 502, headers: { "Content-Type": "application/json" } }); }
     const mapped = schema.mapper ? entries.map(schema.mapper) : entries;
     // v33.29: Quizfragen gehen durch quizStapelFiltern — Struktur (vier
     // Optionen, Index im Bereich, Erklaerung da, keine zwei gleichen
@@ -129,10 +145,18 @@ Deno.serve(async (req) => {
       const gefiltert = quizStapelFiltern(mapped, existKeys);
       newEntries = gefiltert.neu; verworfen = gefiltert.verworfen;
     } else {
-      newEntries = mapped.filter((e: any) => { if (schema.uniqKey) return e[schema.uniqKey] && !existKeys.has(e[schema.uniqKey]); if (schema.compositeUniq) { const key = schema.compositeUniq.map((k) => e[k]).join("||"); return schema.compositeUniq.every((k) => e[k]) && !existKeys.has(key); } return true; });
+      // v33.59: zuerst die Erlaubnisliste (Spalten, Formen, Sicherheitsangaben), dann die Dubletten.
+      const spalten = kiSchemaSpalten(schema.system);
+      const pflicht = schema.uniqKey ? [schema.uniqKey] : (schema.compositeUniq || []);
+      const sauber: any[] = [];
+      for (const e of mapped) {
+        const r = kiZeileOk(schema.table, e, spalten, pflicht);
+        if (r.ok) sauber.push(r.zeile); else verworfen.push({ grund: r.grund });
+      }
+      newEntries = sauber.filter((e: any) => { if (schema.uniqKey) return e[schema.uniqKey] && !existKeys.has(e[schema.uniqKey]); if (schema.compositeUniq) { const key = schema.compositeUniq.map((k) => e[k]).join("||"); return schema.compositeUniq.every((k) => e[k]) && !existKeys.has(key); } return true; });
     }
     let inserted = 0; const errors: any[] = [];
-    for (const row of newEntries) { const { error } = await admin.from(schema.table).insert(row); if (error) { if (errors.length < 5) errors.push({ row_preview: JSON.stringify(row).slice(0, 80), error: error.message }); } else inserted++; }
+    for (const zeile of newEntries) { const { error } = await admin.from(schema.table).insert(zeile); if (error) { console.error("knowledge-bulk-gen insert", error); if (errors.length < 5) errors.push({ row_preview: JSON.stringify(zeile).slice(0, 80), error: error.code || "db" }); } else inserted++; }
     const { count: total } = await admin.from(schema.table).select("*", { count: "exact", head: true });
 
     // v33.29: ein Lauf, der NICHTS liefert, sieht in der Antwort aus wie ein
@@ -172,5 +196,5 @@ Deno.serve(async (req) => {
     } catch (_) { /* nicht-blockierend */ }
 
     return new Response(JSON.stringify({ ok: errors.length === 0, topic, generated: entries.length, salvaged: stopReason !== "end_turn", stop_reason: stopReason, new_unique: newEntries.length, inserted, total_in_db: total, rejected: verworfen.length, rejected_detail: verworfen.slice(0, 10), tokens: aiData.usage, errors }, null, 2), { status: 200, headers: { "Content-Type": "application/json" } });
-  } catch (e) { return new Response(JSON.stringify({ error: String((e as any)?.message ?? e) }), { status: 500, headers: { "Content-Type": "application/json" } }); }
+  } catch (e) { console.error("knowledge-bulk-gen", e); return new Response(JSON.stringify({ error: kiFehlerCode("intern") }), { status: 500, headers: { "Content-Type": "application/json" } }); }
 });

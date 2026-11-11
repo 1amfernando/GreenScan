@@ -62,7 +62,7 @@ final class AssetServer {
   /** Gehoert die Adresse zu unserem Ursprung? — die Regel steht in {@link Pfade}. */
   static boolean imUrsprung(Uri u) {
     if (u == null) return false;
-    return Pfade.imUrsprung(u.getScheme(), u.getHost());
+    return Pfade.imUrsprung(u.getScheme(), u.getHost(), u.getPort());   // v33.59: der Port zaehlt mit
   }
 
   /**
@@ -88,6 +88,9 @@ final class AssetServer {
    * aus der Huelle, keine Einladung, es im Netz zu versuchen.
    */
   WebResourceResponse beantworte(Uri u, String methode, boolean hauptRahmen, Map<String, String> kopfzeilenDerAnfrage) {
+    // v33.59: ein FREMDER Hauptrahmen (ein POST geht an shouldOverrideUrlLoading
+    // vorbei) bekommt eine leere 403 aus der Huelle, nie das Netz.
+    if (u != null && "nein".equals(Pfade.weiche(hauptRahmen, u.getScheme(), u.getHost(), u.getPort()))) return verweigert();
     if (!imUrsprung(u)) return null;      // fremd -> ins Netz, so soll es sein
 
     String roh = u.getEncodedPath();
@@ -183,6 +186,12 @@ final class AssetServer {
    * Die Antwort auf „gibt es im Paket nicht". Bewusst eine ECHTE Antwort und
    * kein {@code null} — siehe Klassenkommentar.
    */
+  private WebResourceResponse verweigert() {
+    Map<String, String> kopf = new HashMap<String, String>();
+    kopf.put("Cache-Control", "no-store");
+    return new WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", kopf, new ByteArrayInputStream(new byte[0]));
+  }
+
   private WebResourceResponse vierNullVier() {
     byte[] leer = new byte[0];
     Map<String, String> kopf = new HashMap<String, String>();
@@ -213,7 +222,7 @@ final class AssetServer {
       // Kein Rueckfall auf „gar keine Kopfzeilen": lieber eine harte,
       // mitgelieferte Mindestregel als stillschweigend ohne CSP laufen.
       Map<String, String> not = new LinkedHashMap<String, String>();
-      not.put("Content-Security-Policy", "default-src 'self' https: data: blob:; frame-ancestors 'none'; base-uri 'self'");
+      not.put("Content-Security-Policy", "default-src 'self' https: data: blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com");
       not.put("X-Content-Type-Options", "nosniff");
       return not;
     } finally {

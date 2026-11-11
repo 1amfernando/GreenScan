@@ -15,7 +15,11 @@
 //   Modernisiert auf Deno.serve (std/http/server serve ist deprecated).
 //   Frontend ruft den Proxy hinter Feature-Flag localStorage.gs_feat_aiproxy.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.59: das Tor vor dem KI-Aufruf (Kontingent, Plan, Sperre, Deckel) — eine Rechnung fuer alle sechs KI-Functions.
+import { KI_GRENZEN, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiMaxTokens, kiProxyEingabe, kiToken, kiTor } from "../_shared/ki_tor.mjs";
+
+const KI_FN = "ai-proxy";
 
 // CORS auf vertrauenswürdige Origins beschränken. green-scan.ch (kanonisch, mit
 // Bindestrich) + greenscan.ch (Alt) + *.pages.dev (CF-Previews) + localhost (Dev).
@@ -56,15 +60,7 @@ const ALLOWED_MODELS = new Set([
   "claude-3-5-haiku-latest",
 ]);
 
-// Tier → Tageslimit (KI-Calls). free 15 = Sync mit Frontend GS_PLANS.free.
-const TIER_LIMITS: Record<string, number> = {
-  free: 15,
-  plus: 200,
-  pro: 2000,
-  lifetime: 2000,
-};
-
-const MAX_TOKENS_CAP = 4096;
+// v33.59: Tageslimits und max_tokens-Deckel stehen in _shared/ki_tor.mjs (KI_GRENZEN).
 
 function jsonResp(payload: unknown, status = 200, origin: string | null = null) {
   return new Response(JSON.stringify(payload), {
@@ -90,53 +86,52 @@ Deno.serve(async (req) => {
     return jsonResp({ error: { message: "Server: Supabase-Config fehlt." } }, 503, origin);
   }
 
+  // v33.59 (Sicherheitspruefung 10.11.2026): Nutzer MIT Token pruefen; Plan und
+  // Sperre vom Server; Eingabe deckeln; Kontingent VOR dem Aufruf atomar
+  // reservieren (fail-closed). Vorher: zaehlen → rufen → danach buchen, nicht
+  // abgewartet — parallele Anfragen lasen alle denselben Stand, ein Fehler galt als 0.
+  const token = kiToken(authHeader);
   const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
+    global: { headers: { Authorization: "Bearer " + token } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const supaAdmin = SUPABASE_SERVICE_ROLE_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
-    : supa;
+  if (!SUPABASE_SERVICE_ROLE_KEY) return jsonResp({ error: { type: "config", message: kiFehlerCode("config").message } }, 503, origin);
+  const supaAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  const { data: userRes, error: userErr } = await supa.auth.getUser();
+  const { data: userRes, error: userErr } = await supa.auth.getUser(token);
   const user = userRes?.user;
   if (userErr || !user) {
     return jsonResp({ error: { message: "Ungültige Session." } }, 401, origin);
   }
 
-  // 2) Entitlements + Quota (ai_usage, Tageszähler)
-  let tier = "free";
-  try {
-    const { data: ent } = await supa.from("v_user_entitlements").select("tier").eq("user_id", user.id).maybeSingle();
-    if (ent?.tier) tier = String(ent.tier);
-  } catch (_) { /* View evtl. nicht da → free */ }
-  const limit = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
-
-  const today = new Date().toISOString().slice(0, 10);
-  let usedToday = 0;
-  try {
-    const { count } = await supa.from("ai_usage").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("day", today);
-    usedToday = count ?? 0;
-  } catch (_) { /* Tabelle evtl. nicht da → konservativ 0 */ }
-
-  if (usedToday >= limit) {
-    return jsonResp({
-      error: { type: "quota_exceeded", message: `Tageslimit erreicht (${limit}/${limit}). Upgrade für mehr KI-Calls.`, tier, used: usedToday, limit },
-    }, 429, origin);
-  }
+  // 2) Body lesen und deckeln (vor der Reservierung — eine abgewiesene Eingabe kostet nichts)
+  let roh = "";
+  try { roh = await req.text(); } catch { return jsonResp({ error: { message: "Bad JSON" } }, 400, origin); }
+  if (roh.length > KI_GRENZEN["ai-proxy"].bytes) return jsonResp({ error: { type: "zu_gross", message: kiFehlerCode("zu_gross").message } }, 413, origin);
+  let body: Record<string, unknown>;
+  try { body = JSON.parse(roh); } catch { return jsonResp({ error: { message: "Bad JSON" } }, 400, origin); }
+  if (!body || typeof body !== "object") return jsonResp({ error: { message: "Bad JSON" } }, 400, origin);
+  const pruef = kiProxyEingabe(body, roh.length);
+  if (!pruef.ok) return jsonResp({ error: { type: pruef.code, message: kiFehlerCode(pruef.code).message } }, pruef.status, origin);
 
   // 3) Body validieren
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return jsonResp({ error: { message: "Bad JSON" } }, 400, origin); }
-
   const reqModel = typeof body.model === "string" ? body.model : "claude-sonnet-4-5";
   const model = ALLOWED_MODELS.has(reqModel) ? reqModel : "claude-sonnet-4-5";
-  const maxTokens = Math.min(Math.max(Number(body.max_tokens) || 1200, 1), MAX_TOKENS_CAP);
+  const maxTokens = kiMaxTokens(KI_FN, Number(body.max_tokens) || 1200);
   const messages = Array.isArray(body.messages) ? body.messages : [];
   // system kann String ODER Anthropic-Block-Array (mit cache_control) sein → beides durchreichen.
   const system = (typeof body.system === "string" || Array.isArray(body.system)) ? body.system : "";
 
   if (messages.length === 0) return jsonResp({ error: { message: "messages[] required" } }, 400, origin);
+
+  // 3b) Tor: Plan + Sperre + Reservierung (Service-Role, atomar)
+  const tor = await kiTor({ fn: KI_FN, userClient: supa, admin: supaAdmin, userId: user.id });
+  if (!tor.erlaubt) {
+    // v33.59: der Satz haengt vom Plan ab — kein „Upgrade" an Zahlende.
+    const msg = kiFehlerCode({ code: tor.code, plan: tor.plan }).message;
+    return jsonResp({ error: { type: tor.code, message: msg, tier: tor.plan, used: tor.code === "quota_exceeded" ? tor.limit : undefined, limit: tor.limit } }, tor.status, origin);
+  }
+  const today = new Date().toISOString().slice(0, 10);
 
   // 4) Forward an Anthropic. Key aus env ODER (Fallback) aus app_settings.global_anthropic_api_key
   //    (service-role) — so braucht der Proxy KEIN manuelles Edge-Secret; der Key bleibt server-seitig.
@@ -147,7 +142,10 @@ Deno.serve(async (req) => {
       if (ks?.value) ANTHROPIC_API_KEY = String(ks.value);
     } catch (_) { /* best-effort */ }
   }
-  if (!ANTHROPIC_API_KEY) return jsonResp({ error: { message: "Server: Anthropic-Key fehlt." } }, 503, origin);
+  if (!ANTHROPIC_API_KEY) {
+    await kiFreigeben({ fn: KI_FN, admin: supaAdmin, userId: user.id });
+    return jsonResp({ error: { message: "Server: Anthropic-Key fehlt." } }, 503, origin);
+  }
 
   let upstream: Response;
   try {
@@ -157,16 +155,25 @@ Deno.serve(async (req) => {
       body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
     });
   } catch (e) {
-    return jsonResp({ error: { message: "Upstream-Fehler: " + (e as Error).message } }, 502, origin);
+    console.error("ai-proxy upstream", e);
+    if (kiFreigabeNoetig(e)) await kiFreigeben({ fn: KI_FN, admin: supaAdmin, userId: user.id });
+    return jsonResp({ error: { type: "upstream", message: kiFehlerCode("upstream").message } }, 502, origin);
   }
 
   const upstreamText = await upstream.text();
 
-  // 5) Usage tracken (best-effort, nur bei Erfolg, service-role)
+  // 5) Usage protokollieren (Service-Role, abgewartet). Das Kontingent ist schon
+  //    reserviert; hat der Anbieter gar nicht gerechnet (429/5xx), geht es zurueck.
   if (upstream.ok) {
     let tokensIn = 0, tokensOut = 0;
     try { const parsed = JSON.parse(upstreamText); tokensIn = parsed?.usage?.input_tokens ?? 0; tokensOut = parsed?.usage?.output_tokens ?? 0; } catch (_) {}
-    supaAdmin.from("ai_usage").insert({ user_id: user.id, day: today, model, tokens_in: tokensIn, tokens_out: tokensOut }).then(() => {}, () => {});
+    const { error: logErr } = await supaAdmin.from("ai_usage").insert({ user_id: user.id, day: today, model, tokens_in: tokensIn, tokens_out: tokensOut });
+    if (logErr) console.error("ai-proxy ai_usage", logErr);
+  } else {
+    // Jede Ablehnung zurueck: der Anbieter rechnet sie nicht, und der Client probiert bei
+    // 404 („Modell unbekannt") das naechste Modell — sonst kostete EIN Aufruf bis zu vier.
+    // Dieselbe Regel wie die fuenf Bild-/Plan-Functions (kiFreigabeNoetig, v33.59).
+    if (kiFreigabeNoetig(upstream)) await kiFreigeben({ fn: KI_FN, admin: supaAdmin, userId: user.id });
   }
 
   // 6) 1:1 weiterleiten (gleiche Shape wie api.anthropic.com → Frontend-Parsing unverändert)

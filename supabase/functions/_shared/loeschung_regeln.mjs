@@ -70,7 +70,35 @@ export const USER_TABLES = [
 // scan-images 92, species-images 10, book-pdfs 67 Objekte — ALLE mit uid-Praefix).
 // `recipe-photos` steht als Ziel in der App; gibt es den Bucket nicht, meldet
 // der Zaehler „error: Bucket not found", sonst nichts.
-export const BUCKETS = ['scan-images', 'species-images', 'book-pdfs', 'recipe-photos'];
+//
+// v33.59 (Sicherheitspruefung 10.11.2026): es waren VIER von fuenfzehn. Die App legt
+// auch Pflanzen-, Tagebuch-, Fundort- (GPS!), Beitrags- und Inseratfotos unter <uid>/
+// ab — alle in OEFFENTLICHEN Buckets —, und sie blieben nach „Konto loeschen" abrufbar.
+// Gemessen an live/buckets.json + den storage-Policies (uid-Ordner) und an den
+// Schreibern (gsUploadPhotoToBucket, gsUploadImage, marketplace-publish).
+// Jeder Bucket steht HIER oder mit Grund in BUCKETS_BEWUSST — loeschung_check haelt
+// beide gegen die Momentaufnahme (docs/loeschung-inventar.json, buckets_alle).
+export const BUCKETS = [
+  'avatars',               // uid-Ordner-Policy, oeffentlich
+  'book-pdfs',             // Admin-Buch-Ingest, Objekte unter <uid>/ (gemessen 67/67)
+  'garden-diary-photos',   // gsUploadPhotoToBucket — Tagebuchfotos, oeffentlich
+  'garden-photos',         // uid-Ordner-Policy, oeffentlich
+  'garden-scans',          // uid-Ordner-Policy
+  'map-find-photos',       // gsUploadPhotoToBucket — Fundort-Fotos (Standortbezug), oeffentlich
+  'marketplace-photos',    // marketplace-publish: <uid>/<inserat>_<n>.jpg, oeffentlich
+  'post-images',           // gsUploadImage — Community-Beitraege, oeffentlich
+  'recipe-photos',         // nur Admins schreiben; list(<uid>) ist leer, wenn nichts da ist
+  'scan-images',           // gsUploadImage — Scan-Fotos
+  'species-images',        // gsUploadImage — beigetragene Arten-Fotos (siehe BEWUSST: species_images.contributed_by)
+  'user-plant-photos',     // gsUploadPhotoToBucket — Pflanzenfotos, oeffentlich
+  'user-uploads',          // uid-Ordner-Policy
+];
+
+// Buckets, die beim Konto-Loeschen bewusst NICHT nach <uid>/ durchsucht werden.
+export const BUCKETS_BEWUSST = {
+  'books-raw':       'keine Policy, kein uid-Ordner — nur der Service-Schluessel schreibt (Roh-PDFs des Buch-Ingest, Gemeingut)',
+  'plant-3d-models': 'keine uid-Ordner-Policy, kein Schreiber in der App — 3D-Katalog (Gemeingut)',
+};
 
 // Spalten, die mit Grund NICHT geraeumt werden. Schluessel `tabelle.spalte`.
 export const BEWUSST = {
@@ -117,6 +145,49 @@ export function speicherPfade(uid, eintraege) {
     .map(e => u + '/' + String(e.name));
 }
 
+// v33.59: Unterordner. Die uid-Ordner-Policies erlauben `<uid>/a/b.jpg`; `list(uid)`
+// liefert davon nur den Ordner (id null), und speicherPfade ueberspringt ihn — Dateien
+// darin blieben liegen. Aus derselben Antwort die Ordner, die noch zu durchsuchen sind.
+export function speicherOrdner(prefix, eintraege) {
+  const p = String(prefix || '');
+  if (!p) return [];
+  return (Array.isArray(eintraege) ? eintraege : [])
+    .filter(e => e && e.name && (e.id === null || e.id === undefined) && e.name !== '.' && e.name !== '..' && String(e.name).indexOf('/') < 0)
+    .map(e => p + '/' + String(e.name));
+}
+
+export const SPEICHER_ORDNER_MAX = 200;   // so viele Ordner je Bucket und Konto, danach wird es gesagt
+
+// Raeumt alles unter <uid>/ eines Buckets, auch Unterordner. `storage` ist
+// `admin.storage` (Parameter, damit der Pruefstand es ohne Netz faehrt).
+// Gibt die Zahl der entfernten Objekte oder einen Satz „error: …" zurueck. Wirft nie.
+export async function speicherRaeumen(storage, bucket, uid) {
+  const u = String(uid || '');
+  if (!u) return 'error: keine uid';
+  const offen = [u], gesehen = new Set([u]);
+  let entfernt = 0, ordner = 0;
+  try {
+    while (offen.length) {
+      if (++ordner > SPEICHER_ORDNER_MAX) return 'error: mehr als ' + SPEICHER_ORDNER_MAX + ' Ordner — ' + entfernt + ' entfernt';
+      const o = offen.shift();
+      for (let runde = 0; runde < 50; runde++) {
+        const { data: liste, error: listErr } = await storage.from(bucket).list(o, { limit: 1000 });
+        if (listErr) return 'error: ' + (listErr.message || listErr);
+        // jede Runde: list() liefert hoechstens 1000, ein Ordner kann erst spaeter auftauchen
+        speicherOrdner(o, liste || []).forEach(x => { if (!gesehen.has(x)) { gesehen.add(x); offen.push(x); } });
+        const pfade = speicherPfade(o, liste || []);
+        if (!pfade.length) break;
+        const { error: rmErr } = await storage.from(bucket).remove(pfade);
+        if (rmErr) return 'error: ' + (rmErr.message || rmErr);
+        entfernt += pfade.length;
+      }
+    }
+  } catch (e) {
+    return 'exception: ' + ((e && e.message) || e);
+  }
+  return entfernt;
+}
+
 // Klassifiziert jede Nutzer-Spalte der Momentaufnahme. `inventar.spalten`:
 // [{tabelle, spalte, fk: 'c'|'n'|'r'|null}]. Rueckgabe: [{tabelle, spalte, klasse, grund}].
 export function klassifiziere(inventar) {
@@ -140,4 +211,20 @@ export const SPERRE_PRAEFIX = 'org_creator: ';
 export function sperreMeldung(sperre) {
   if (!sperre || !sperre.gesperrt) return '';
   return SPERRE_PRAEFIX + (sperre.organizations || []).join(', ');
+}
+
+// v33.59: ein laufendes Stripe-Abo wird VOR dem Loeschen gekuendigt (delete-user,
+// Regel zuKuendigendeAbos in zahlung_regeln.mjs). Gelingt das nicht fuer jedes,
+// wird NICHTS geloescht — sonst bucht Stripe weiter ab, und die App kennt das
+// Abo nicht mehr. Dieselbe Bauform wie die Organisations-Sperre: 409, fester
+// Praefix in `message`, weil sbFetch nur message und status weiterreicht.
+export const ABO_SPERRE_PRAEFIX = 'abo_kuendigung: ';
+export function aboSperre(nichtGekuendigt) {
+  const liste = Array.isArray(nichtGekuendigt) ? nichtGekuendigt.filter(Boolean).map(String) : [];
+  if (!liste.length) return { gesperrt: false };
+  return { gesperrt: true, status: 409, error: 'abo_kuendigung', anzahl: liste.length };
+}
+export function aboSperreMeldung(sperre) {
+  if (!sperre || !sperre.gesperrt) return '';
+  return ABO_SPERRE_PRAEFIX + sperre.anzahl;
 }

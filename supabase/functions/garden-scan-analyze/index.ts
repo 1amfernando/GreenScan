@@ -3,8 +3,14 @@
 // NEU v7: Multi-Year (1-3 Jahre) · Klima-adaptiv (climate_scenarios_ch) · Constraints (Budget/Pflege/Erfahrung/Permakultur/Kinder-Haustiere/Bio) · Simulations-Modus · yearly_outputs
 // v9 (v29.37): Server-Rate-Limit (KI-Kostenschutz) — max 20 Garten-Analysen/Stunde/User via
 //   fn_check_rate_limit. Fail-open (Rate-Limit-Fehler blockiert den Dienst nicht).
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.59 (Sicherheitspruefung 10.11.2026): das Tor vor dem KI-Aufruf — Plan vom
+// Server, Tageskontingent atomar reserviert (fail-closed), Eingabe gedeckelt.
+// Vorher nur 20/h fail-open, 3 Fotos ohne Groessengrenze, metadata ungedeckelt.
+import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiToken, kiTor } from "../_shared/ki_tor.mjs";
+
+const KI_FN = "garden-scan-analyze";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -178,33 +184,44 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
+    const token = kiToken(req.headers.get("Authorization"));
+    if (!token) return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: "Bearer " + token } } });
+    const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const admin = createClient(supabaseUrl, svcKey);
+    const fehler = (code: string, status: number, plan?: string) => new Response(JSON.stringify({ error: kiFehlerCode({ code, plan }) }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    // v29.37: Server-Rate-Limit (KI-Kostenschutz) — max 20 Garten-Analysen/Stunde/User. Fail-open:
-    // ein Fehler im Rate-Limit-Check darf den Dienst nicht blockieren.
-    try {
-      const { data: rlOk } = await admin.rpc("fn_check_rate_limit", { p_bucket: user.id, p_action: "garden_scan", p_max_per_hour: 20 });
-      if (rlOk === false) {
-        return new Response(JSON.stringify({ error: "rate_limited", message: "Zu viele Garten-Analysen in kurzer Zeit — bitte etwas später erneut." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-    } catch (_) { /* fail-open */ }
+    const roh = await req.text();
+    let body: any;
+    try { body = JSON.parse(roh); } catch (_) { return fehler("eingabe", 400); }
+    const { photos, metadata, save_as_plan, plan_title } = body || {};
+    if (!Array.isArray(photos) || photos.length === 0 || photos.length > 3) {
+      return new Response(JSON.stringify({ error: "photos must be array of 1-3 base64 strings" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const deckel = kiEingabeOk("garden-scan-analyze", {
+      bytes: roh.length, bilder: photos,
+      texte: { metadata: metadata ?? null, constraints: body.constraints ?? null, plan_title: plan_title ?? null },
+    });
+    if (!deckel.ok) return fehler(deckel.code, deckel.status);
+
+    // v29.37: Server-Rate-Limit — max 20 Garten-Analysen/Stunde/User. v33.59: fail-CLOSED
+    // (ein Fehler der RPC lieferte data=null und liess durch).
+    const { data: rlOk, error: rlErr } = await admin.rpc("fn_check_rate_limit", { p_bucket: user.id, p_action: "garden_scan", p_max_per_hour: 20 });
+    if (rlErr || rlOk !== true) {
+      return new Response(JSON.stringify({ error: rlErr ? kiFehlerCode("kontingent_unbekannt") : "rate_limited", message: "Zu viele Garten-Analysen in kurzer Zeit — bitte etwas später erneut." }), { status: rlErr ? 503 : 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const apiKey = await getAnthropicKey(admin);
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "Anthropic API key not configured" }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const body = await req.json();
-    const { photos, metadata, save_as_plan, plan_title } = body;
-    if (!Array.isArray(photos) || photos.length === 0 || photos.length > 3) {
-      return new Response(JSON.stringify({ error: "photos must be array of 1-3 base64 strings" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const tor = await kiTor({ fn: KI_FN, userClient, admin, userId: user.id });
+    if (!tor.erlaubt) return fehler(tor.code, tor.status, tor.plan);
 
     // v7: neue Parameter (validiert/geclamped)
     let horizonYears = parseInt(String(body.planning_horizon_years ?? metadata?.planning_horizon_years ?? 1), 10);
@@ -323,14 +340,16 @@ Deno.serve(async (req) => {
     });
     } catch (e) {
       const zuLang = e && (e.name === "TimeoutError" || e.name === "AbortError");
-      return new Response(JSON.stringify({ error: { code: zuLang ? "timeout" : "upstream", message: zuLang
-        ? "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — bitte mit weniger Fotos oder kuerzerem Horizont erneut versuchen."
-        : ("Verbindung zur KI fehlgeschlagen: " + String((e && e.message) || e).slice(0, 120)) } }), { status: zuLang ? 504 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("garden-scan-analyze upstream", e);
+      if (kiFreigabeNoetig(e)) await kiFreigeben({ fn: KI_FN, admin, userId: user.id });
+      return new Response(JSON.stringify({ error: zuLang ? { code: "timeout", message: "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — bitte mit weniger Fotos oder kuerzerem Horizont erneut versuchen." } : kiFehlerCode("upstream") }), { status: zuLang ? 504 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!anthropicRes.ok) {
-      const errBody = await anthropicRes.text();
-      return new Response(JSON.stringify({ error: "Anthropic API error", status: anthropicRes.status, detail: errBody.slice(0, 500) }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("garden-scan-analyze anthropic", anthropicRes.status, (await anthropicRes.text()).slice(0, 500));
+      // v33.59: jede Ablehnung geht zurueck (der Anbieter rechnet sie nicht) — EINE Regel, kiFreigabeNoetig.
+      if (kiFreigabeNoetig(anthropicRes)) await kiFreigeben({ fn: KI_FN, admin, userId: user.id });
+      return fehler(anthropicRes.status === 429 ? "upstream_limit" : "upstream", 502);
     }
 
     const anthropicData = await anthropicRes.json();
@@ -341,10 +360,8 @@ Deno.serve(async (req) => {
       const cleaned = rawText.replace(/^```(?:json)?\s*/, "").replace(/\s*```\s*$/, "").trim();
       analysis = JSON.parse(cleaned);
     } catch (parseErr) {
-      return new Response(JSON.stringify({
-        error: "Failed to parse JSON response",
-        raw_preview: rawText.slice(0, 800),
-      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("garden-scan-analyze parse", rawText.slice(0, 800));
+      return fehler("parse", 502);
     }
 
     // v7: yearly_outputs normalisieren (defensiv)
@@ -396,6 +413,7 @@ Deno.serve(async (req) => {
       planner_version: "v7",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String((e as any)?.message ?? e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("garden-scan-analyze", e);
+    return new Response(JSON.stringify({ error: kiFehlerCode("intern") }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

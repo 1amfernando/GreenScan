@@ -155,7 +155,7 @@ const FAELLE = [
     },
   },
   {
-    name: 'A8 · CSP (_headers): kein unsafe-eval — und kein eval/new Function im App-Code; worker-src kennt cdnjs (pdf.js-Worker); frame-ancestors none; ipapi.co nirgends mehr',
+    name: 'A8 · CSP (_headers): kein unsafe-eval — und kein eval/new Function im App-Code; pdf.js aus dem eigenen Ursprung, kein cdnjs (v33.59); frame-ancestors none; ipapi.co nirgends mehr',
     lauf: async () => {
       const h = fs.readFileSync(path.join(__dirname, '..', '_headers'), 'utf8');
       const csp = (h.match(/Content-Security-Policy: (.*)/) || ['', ''])[1];
@@ -169,12 +169,19 @@ const FAELLE = [
       if (/unsafe-eval/.test(csp)) falsch.push("'unsafe-eval' steht noch in der CSP");
       if (evalTreffer) falsch.push(evalTreffer + '× eval/new Function im App-Code — dann braucht die CSP unsafe-eval wieder');
       const worker = (csp.match(/worker-src ([^;]*)/) || ['', ''])[1];
-      if (!/cdnjs\.cloudflare\.com/.test(worker)) falsch.push('worker-src ohne cdnjs: ' + worker);
+      // v33.59: pdf.js liegt selbst gehostet (assets/pdfjs/<version>/) — kein cdnjs mehr in der
+      // CSP (ganz cdnjs waere die naechste Luecke, sobald 'unsafe-inline' faellt: AngularJS & Co.
+      // liegen dort), der Worker kommt aus 'self'.
+      const pdfUrl = (idx.match(/window\._gsPdfjsUrl = '([^']+)'/) || [])[1] || '';
+      if (!/^assets\/pdfjs\/\d+\.\d+\.\d+\//.test(pdfUrl)) falsch.push('_gsPdfjsUrl nicht selbst gehostet mit Version im Pfad: ' + pdfUrl);
+      if (worker.split(/\s+/).indexOf("'self'") < 0) falsch.push("worker-src ohne 'self': " + worker);
+      if (/cdnjs/.test(csp)) falsch.push('cdnjs steht noch in der CSP');
+      if (!/object-src 'none'/.test(csp)) falsch.push("object-src nicht 'none'");
       if (!/frame-ancestors 'none'/.test(csp)) falsch.push('frame-ancestors nicht none');
       if (/ipapi\.co/.test(csp) || /ipapi\.co/.test(code)) falsch.push('ipapi.co noch da');
       if (!/X-Frame-Options: DENY/.test(h)) falsch.push('X-Frame-Options nicht DENY');
       if (falsch.length) return { ok: false, warum: falsch.join(' · ') };
-      return { ok: true, info: 'kein unsafe-eval · 0 eval/new Function · worker-src + cdnjs · frame-ancestors none · DENY · ipapi.co 0×' };
+      return { ok: true, info: "kein unsafe-eval · 0 eval/new Function · pdf.js selbst gehostet, kein cdnjs · object-src 'none' · frame-ancestors none · DENY · ipapi.co 0×" };
     },
   },
   {
@@ -508,7 +515,8 @@ const FAELLE = [
       // sendPush mit gestelltem web-push
       const rufe = [];
       const wp = { setVapidDetails: (...a) => rufe.push(['vapid', a]), sendNotification: async (sub, payload, opts) => { rufe.push(['send', sub, JSON.parse(payload), opts]); return { statusCode: 201 }; } };
-      const r1 = await M.sendPush(wp, { endpoint: 'https://push.example/x', p256dh: 'P', auth_secret: 'A' }, { title: 'T', body: 'B', url: '/?screen=garden', tag: 'gs-t' }, { subject: 'mailto:info@greenscan.ch', publicKey: 'PUB', privateKey: 'PRIV' });
+      const r1 = await M.sendPush(wp, { endpoint: 'https://fcm.googleapis.com/fcm/send/x',   // v33.59: nur bekannte Push-Dienste (pushEndpunktOk)
+         p256dh: 'P', auth_secret: 'A' }, { title: 'T', body: 'B', url: '/?screen=garden', tag: 'gs-t' }, { subject: 'mailto:info@greenscan.ch', publicKey: 'PUB', privateKey: 'PRIV' });
       const send = rufe.find(x => x[0] === 'send');
       if (!r1.ok || r1.status !== 201) f.push('sendPush ok: ' + JSON.stringify(r1));
       if (!send || send[1].keys.p256dh !== 'P' || send[1].keys.auth !== 'A' || send[3].TTL !== 3600) f.push('sendPush Abo/TTL: ' + JSON.stringify(send && [send[1], send[3]]));
@@ -516,7 +524,7 @@ const FAELLE = [
       const p2 = M.pushPayload({ title: 'x', body: 'y', url: '/' });
       if (!/^gs-\d+$/.test(p2.tag)) f.push('tag-Rueckfall: ' + p2.tag);
       const wpWeg = { setVapidDetails: () => {}, sendNotification: async () => { const e = new Error('Gone'); e.statusCode = 410; throw e; } };
-      const r2 = await M.sendPush(wpWeg, { endpoint: 'e', p256dh: 'P', auth_secret: 'A' }, { title: 't', body: 'b', url: '/' }, { subject: 's', publicKey: 'p', privateKey: 'k' });
+      const r2 = await M.sendPush(wpWeg, { endpoint: 'https://fcm.googleapis.com/fcm/send/e', p256dh: 'P', auth_secret: 'A' }, { title: 't', body: 'b', url: '/' }, { subject: 's', publicKey: 'p', privateKey: 'k' });
       if (r2.ok || r2.status !== 410 || !/Gone/.test(r2.error)) f.push('sendPush 410: ' + JSON.stringify(r2));
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: '4 Sender importieren, 0 Kopien, 0 private Adressen in ' + alle.length + ' Functions · Zuerich 12/0 · Settings PUB/PRIV/S, Rueckfall info@greenscan.ch, fehlend → Ausnahme · Push 201, TTL 3600, Nutzlast vollstaendig · 410 → ok:false' };
@@ -629,7 +637,53 @@ const FAELLE = [
     },
   },
   {
-    name: 'pdf.js nur bei Bedarf · beim Start keine Anfrage an cdnjs, kein statisches <script> und kein Precache im Service Worker; _gsPdfjsLaden holt es beim ersten PDF genau einmal und sagt ehrlich, wenn es nicht kommt',
+    name: 'Adressen ziehen mit · jede Datei unter /data und /assets (ein Jahr immutable) hat die Pruefsumme, mit der ihre Adresse gilt — geaendert heisst: neue Adresse (?v= oder Name), dann hier nachtragen',
+    lauf: async () => {
+      // v33.59: `_headers` liefert /data/* und /assets/* ein Jahr `immutable`. Eine Datei, die
+      // sich unter DERSELBEN Adresse aendert, erreicht wiederkehrende Nutzer nie — auch der
+      // Install eines neuen Workers liest sie aus dem HTTP-Cache. Das Changelog-Archiv traegt
+      // deshalb ?v=<GS_VERSION>; fuer alles andere ist diese Tabelle der Ausloeser.
+      const crypto = require('crypto');
+      const W = path.join(__dirname, '..');
+      const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(path.join(W, f))).digest('hex').slice(0, 16);
+      const familie = (d) => {
+        const h = crypto.createHash('sha256');
+        fs.readdirSync(path.join(W, d)).filter(n => !/^LICENSE/.test(n) && fs.statSync(path.join(W, d, n)).isFile()).sort()
+          .forEach(n => h.update(n + ':' + sha(d + '/' + n) + '\n'));
+        return h.digest('hex').slice(0, 16);
+      };
+      const TAFEL = [
+        ['data/plants.v1.js', 'b7ea58e8e5c4437a', 'data/plants.v1.js?v=1'],
+        ['assets/leaflet.js', 'db49d009c841f5ca', '/assets/leaflet.js'],
+        ['assets/leaflet.css', 'a783710282418482', '/assets/leaflet.css'],
+        ['assets/three.min.js', '9274bbcec8d96168', '/assets/three.min.js'],
+        ['assets/fonts/', 'ed100ee5cbb55bdb', 'assets/fonts/'],
+        ['assets/icons/', '9c766ffbe7e9d2a8', 'assets/icons/'],
+        ['assets/leaflet-images/', '75565fe18566449e', 'assets/leaflet-images/'],
+        ['assets/pdfjs/4.0.379/', '4f120dde84ade124', 'assets/pdfjs/4.0.379/'],   // npm pdfjs-dist@4.0.379 (Apache-2.0)
+      ];
+      const code = fs.readFileSync(path.join(W, 'index.html'), 'utf8') + fs.readFileSync(path.join(W, 'sw.js'), 'utf8');
+      const f = [];
+      TAFEL.forEach(([d, soll, adr]) => {
+        const ist = d.endsWith('/') ? familie(d.slice(0, -1)) : sha(d);
+        if (ist !== soll) f.push(d + ' geaendert (' + ist + ' statt ' + soll + ') unter derselben Adresse ' + adr + ' — ?v= erhoehen bzw. neuen Namen vergeben (index.html UND sw.js), dann die Pruefsumme hier nachtragen');
+        if (code.indexOf(adr) < 0) f.push('Adresse ' + adr + ' steht nicht mehr im Code — Tafel nachziehen');
+      });
+      // Und nichts unter /data oder /assets ohne Eintrag (ausser dem Archiv, das mit der Version laeuft).
+      const bekannt = TAFEL.map(t => t[0]);
+      ['data', 'assets'].forEach(d => fs.readdirSync(path.join(W, d)).forEach(n => {
+        const rel = d + '/' + n + (fs.statSync(path.join(W, d, n)).isDirectory() ? '/' : '');
+        if (rel === 'data/releases.v1.js') return;
+        if (!bekannt.some(b => b === rel || (rel.endsWith('/') && b.indexOf(rel) === 0))) f.push(rel + ' ohne Eintrag in der Tafel');
+      }));
+      const idx = fs.readFileSync(path.join(W, 'index.html'), 'utf8');
+      if (!/sc\.src = 'data\/releases\.v1\.js\?v=' \+ encodeURIComponent\(/.test(idx)) f.push('das Changelog-Archiv wird nicht mit der laufenden Version geladen');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: TAFEL.length + ' Eintraege, jede Pruefsumme gilt · Archiv laeuft mit ?v=<GS_VERSION>' };
+    },
+  },
+  {
+    name: 'pdf.js nur bei Bedarf · selbst gehostet (v33.59), beim Start keine Anfrage, kein statisches <script> und kein Precache im Service Worker; _gsPdfjsLaden holt es beim ersten PDF genau einmal und sagt ehrlich, wenn es nicht kommt',
     lauf: async () => {
       const f = [];
       const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -641,24 +695,38 @@ const FAELLE = [
       if (!/await window\._gsPdfjsLaden\(\)/.test(ext)) f.push('extractPdfText wartet nicht auf _gsPdfjsLaden');
       const shell = sw.slice(sw.indexOf('SHELL_URLS'), sw.indexOf('];', sw.indexOf('SHELL_URLS')));
       if (/pdf\.min\.mjs/.test(shell)) f.push('sw.js laedt pdf.js beim Install vor');
-      if (!/'cdnjs\.cloudflare\.com'/.test(sw)) f.push('sw.js kennt cdnjs nicht mehr fuer den Runtime-Cache');
+      // v33.59: umgekehrt — der Worker reicht cdnjs NICHT mehr durch (sein fetch() lief gegen
+      // connect-src und scheiterte); pdf.js holt der Browser unter script-src der Seite.
+      const kachel = (sw.match(/const KACHEL_HOSTS = \[([\s\S]*?)\];/) || ['', ''])[1];
+      if (!kachel) f.push('sw.js ohne KACHEL_HOSTS — wer entscheidet, was der Worker fremd abfaengt?');
+      if (/cdnjs/.test(kachel)) f.push('sw.js faengt cdnjs ab — sein fetch() scheitert an connect-src');
       // Gemessen: die App ist gebootet (der Pruefstand hat sie geladen) — wie viele Anfragen gingen an cdnjs?
-      const vorher = __anfragen.filter(u => /cdnjs\.cloudflare\.com/.test(u)).length;
+      // v33.59: pdf.js liegt unter assets/pdfjs/ — gezaehlt wird die Anfrage dorthin, und an cdnjs geht nie eine.
+      const istPdf = (u) => /assets\/pdfjs\/[\d.]+\/pdf\.min\.mjs/.test(u);
+      const vorher = __anfragen.filter(istPdf).length;
       const r = await __seite.evaluate(async () => {
         const o = { vorLib: !!window._pdfjsLib };
         try { await window._gsPdfjsLaden(); o.fehler = null; } catch (e) { o.fehler = String(e && e.message); }
         try { await window._gsPdfjsLaden(); } catch (_) {}
         o.nachLib = !!window._pdfjsLib;
+        // v33.59: die Datei liegt jetzt im Repo — ob file:// ein Modul laedt, ist Sache des
+        // Browsers. Die EHRLICHKEIT wird deshalb an einer Adresse gemessen, die es nicht gibt.
+        const echt = { url: window._gsPdfjsUrl, lib: window._pdfjsLib };
+        window._pdfjsLib = null; window._gsPdfjsLadenLauf = null; window._gsPdfjsUrl = 'assets/pdfjs/0.0.0/fehlt.min.mjs';
+        try { await window._gsPdfjsLaden(); o.fehlerOhne = null; } catch (e) { o.fehlerOhne = String(e && e.message); }
+        window._gsPdfjsUrl = echt.url; window._pdfjsLib = echt.lib; window._gsPdfjsLadenLauf = null;
         return o;
       });
-      const nachher = __anfragen.filter(u => /cdnjs\.cloudflare\.com/.test(u)).length;
-      if (vorher !== 0) f.push('beim Start ' + vorher + ' Anfrage(n) an cdnjs');
+      const nachher = __anfragen.filter(istPdf).length;
+      if (vorher !== 0) f.push('beim Start ' + vorher + ' Anfrage(n) an pdf.js');
+      if (__anfragen.some(u => /cdnjs\.cloudflare\.com/.test(u))) f.push('eine Anfrage ging an cdnjs');
       if (r.vorLib) f.push('_pdfjsLib schon beim Start da');
       // Der Pruefstand blockt jedes Netz: der Import scheitert — und die Meldung muss das sagen, nicht „nicht geladen" nach 500 ms Warten
-      if (!r.fehler || !/pdf\.js konnte nicht geladen werden/.test(r.fehler)) f.push('Fehlertext: ' + JSON.stringify(r.fehler));
-      if (nachher - vorher < 1) f.push('bei Bedarf keine Anfrage an cdnjs (' + (nachher - vorher) + ')');
+      if (!r.nachLib && !/pdf\.js konnte nicht geladen werden/.test(String(r.fehler))) f.push('weder geladen noch ehrlich: ' + JSON.stringify(r.fehler));
+      if (!r.fehlerOhne || !/pdf\.js konnte nicht geladen werden/.test(r.fehlerOhne)) f.push('Fehlertext ohne Datei: ' + JSON.stringify(r.fehlerOhne));
+      if (nachher - vorher < 1) f.push('bei Bedarf keine Anfrage an assets/pdfjs (' + (nachher - vorher) + ')');
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: 'Start: 0 Anfragen an cdnjs · kein <script>, kein Precache · bei Bedarf ' + (nachher - vorher) + ' Anfrage(n), ohne Netz ehrlich: „' + r.fehler.slice(0, 40) + '…"' };
+      return { ok: true, info: 'Start: 0 Anfragen an pdf.js, 0 an cdnjs · kein <script>, kein Precache · bei Bedarf ' + (nachher - vorher) + ' Anfrage(n), ' + (r.nachLib ? 'geladen' : 'unter file:// nicht ladbar') + ' · ohne Datei ehrlich: „' + r.fehlerOhne.slice(0, 40) + '…"' };
     },
   },
   {
