@@ -20747,13 +20747,24 @@ window.gsAddScanToGarden = gsAddScanToGarden;
 function gsHighlight(text, query) {
   if (!query || !text) return escHtml(text || '');
   try {
-    // v33.61: der Name kann aus der Community kommen (Fremdtext) — erst escapen, dann markieren.
-    // Gesucht wird die ESCAPTE Anfrage im escapten Text, sonst traefe „&" nie.
-    var safe = escHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return escHtml(text).replace(
-      new RegExp('(' + safe + ')', 'gi'),
-      '<mark style="background:rgba(255,235,59,.45);color:var(--text);border-radius:var(--r-xs);padding:0 1px;font-weight:800;">$1</mark>'
-    );
+    // v33.61: gesucht wird am ROHEN Text, escaped wird stueckweise — sonst markiert „amp" das
+    // „&amp;" eines Namens. Und die Markierung faltet Umlaute wie die Suche selbst
+    // (_gsSearchNorm): „barlauch" findet den Bärlauch und markierte bisher nichts.
+    var roh = String(text);
+    var teile = _gsSearchNorm(query).split(/\s+/).filter(function (w) { return w.length >= 2; });
+    if (!teile.length) return escHtml(roh);
+    var falt = { a:'[aäàáâ]', o:'[oöòóô]', u:'[uüùúû]', e:'[eèéêë]', i:'[iìíîï]', c:'[cç]', n:'[nñ]' };
+    var muster = teile.map(function (w) {
+      return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ss/g, '(?:ss|ß)').replace(/[aoueicn]/g, function (ch) { return falt[ch]; });
+    }).join('|');
+    var re = new RegExp(muster, 'gi'), aus = '', pos = 0, m;
+    while ((m = re.exec(roh))) {
+      if (!m[0]) { re.lastIndex++; continue; }
+      aus += escHtml(roh.slice(pos, m.index)) +
+        '<mark style="background:rgba(255,235,59,.45);color:var(--text);border-radius:var(--r-xs);padding:0 1px;font-weight:800;">' + escHtml(m[0]) + '</mark>';
+      pos = m.index + m[0].length;
+    }
+    return aus + escHtml(roh.slice(pos));
   } catch(e) { return escHtml(text); }
 }
 

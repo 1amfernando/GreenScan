@@ -119,7 +119,9 @@ const FAELLE = [
           currentFilter = ''; doSearch('qqliste');
           await new Promise(r => setTimeout(r, 600));
           const mit = zaehl();
-          return { pwned: window.__pwned, ohne, seite2, mit };
+          // Die Markierung sucht am ROHEN Text: „amp" darf das &amp; eines Namens nicht zerreissen.
+          const amp = gsHighlight('A&B', 'amp');
+          return { pwned: window.__pwned, ohne, seite2, mit, amp };
         } finally {
           neu.forEach(s => { const i = DB.indexOf(s); if (i >= 0) DB.splice(i, 1); });
           currentFilter = ''; searchText = ''; try { doSearch(''); } catch (_) {}
@@ -132,6 +134,7 @@ const FAELLE = [
       }
       if (r.seite2.karten <= r.ohne.karten) return { ok: false, warum: 'Seite 2 kam nicht dazu — der Fall misst sie nicht' };
       if (!r.mit.mark) return { ok: false, warum: 'die Hervorhebung des Suchworts ist weg' };
+      if (r.amp !== 'A&amp;B') return { ok: false, warum: 'die Markierung zerreisst eine Entity: ' + r.amp };
       return { ok: true, info: 'ohne Suchwort ' + r.ohne.karten + ' Karten · Seite 2 ' + r.seite2.karten + ' · mit Suchwort ' + r.mit.karten + ' (' + r.mit.mark + ' Markierungen) · 0 <img>' };
     },
   },
