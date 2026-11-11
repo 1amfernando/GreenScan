@@ -146,7 +146,7 @@ Datum aus §1 hat einen Eintrag.
 
 ## 7 · Was die Sicherheitsreparatur v33.59 offen lässt
 
-Die Reparatur selbst steht in `STATUS.md` (jd), die Handgriffe in
+Die Reparatur selbst steht in `STATUS.md` (je), die Handgriffe in
 `docs/FUER-FERNANDO.md` §30. Hier steht nur, was **mit der Zeit** teurer wird oder
 **ein Datum** hat. Keine dieser Zeilen ist maschinell geprüft — die Live-Lage misst von
 hier niemand fortlaufend; jede Zahl trägt ihr Messdatum.

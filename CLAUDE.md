@@ -2653,7 +2653,7 @@ Linsen und je einem Widerleger → Reparatur dieser Funde in sechs weiteren
 Gruppen → Zusammenführung mit `main` → Bump. Zusammen 215 Fund-Einträge
 in 30 Gruppen: 186 behoben, 24 teilweise, 5 offen (4 bewusst,
 1 nicht nachstellbar). Je Eintrag
-steht der Stand in STATUS (jd) und §2.
+steht der Stand in STATUS (je) und §2.
 
 **Von der Server-Seite ist nichts live** (§3.6): keine der Migrationen
 `20261110_*` angewandt, keine der überarbeiteten Edge-Functions ausgeliefert.

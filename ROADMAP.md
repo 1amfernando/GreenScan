@@ -8,7 +8,7 @@
 **Stand:** v33.59 · App **live** auf green-scan.ch · released seit v26.0 · **und seit v33.49 als Android-APK** (`android/`, `android/README.md`).
 **Zuletzt gegen die Produktionsdatenbank geprüft:** 11.11.2026 (nur lesend:
 `pg_proc`, `pg_policies`, `schema_migrations`, Liste der Edge-Functions — für die
-Sicherheitsreparatur v33.59, `STATUS.md` (jd)) · davor 07.09.2026 (nur lesend:
+Sicherheitsreparatur v33.59, `STATUS.md` (je)) · davor 07.09.2026 (nur lesend:
 `is_admin_user`, `profiles`-Policies, die drei Alt-Sensortabellen,
 `fn_species_search` + `species_search_cache`, `ai_usage`) · davor 02.09.2026
 (P0-1, P1-1, P1-2 — siehe unten).
