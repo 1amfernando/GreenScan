@@ -45,6 +45,7 @@ Kurzform; dort steht zu jeder Zeile die Geschichte.
 | `GS_USER_KEYS` | wird beim Abmelden geraeumt | `grep -n 'var GS_USER_KEYS' index.html` |
 | `GS_KEEP_ON_LOGOUT` | ueberlebt das Abmelden — namentlich, mit Grund | `grep -n 'var GS_KEEP_ON_LOGOUT' index.html` |
 | `GS_USER_PREFIXES` / `GS_KEEP_PREFIXES` | Familien wie `gs_aicalls_<datum>` | daneben |
+| `GS_LISTEN_EINGANG` | die Listen, die aus Cloud, Snapshot oder Backup zurueckkommen — geschrieben NUR ueber `_gsListeEinspielen` (Sieb, Speicher, Variable) | `grep -n 'GS_LISTEN_EINGANG' index.html` |
 | Form statt Praefix | wenn ein Praefix Nachbarn mitnaehme (`GS_DQ_ALT = /^gs_dq_\d{4}-\d{2}-\d{2}$/`) | `gsClearUserDataKeys` |
 
 `storage_check` meldet jeden Schluessel, der das Abmelden ueberlebt und in

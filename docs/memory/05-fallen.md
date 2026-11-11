@@ -245,3 +245,27 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   Fenster schloss sich nie. Regel: wer eine Kopfzeile setzt, sucht die Stellen
   im Code, die von ihr abhaengen; die Meldung geht ueber einen
   `BroadcastChannel` (`_gsBillingMeldung`).
+- **v33.59** Der Login-Abgleich schrieb Gaerten aus der Cloud in den Speicher,
+  setzte aber die Variable nicht — das naechste Rendern sah eine leere Liste,
+  legte „Mein Garten“ an und speicherte darueber (Datenverlust; dieselbe Form
+  in der Snapshot-Wiederherstellung). Und zwei von vier Rueckspiel-Wegen
+  siebten nicht. Regel: EIN Eingang, `_gsListeEinspielen` — Sieb, Speicher und
+  Variable zusammen; die Variable nur nach gelungenem Schreiben.
+- **v33.59** `gsPlans.parken` legte beim Abmelden eine zweite Kopie an und sah
+  den Schreibversuch nicht an — bei vollem Speicher war der Plan still weg.
+  Regel: die erste Kopie erst wegwerfen, wenn der Rettungsweg „geschrieben“
+  meldet; vorher den Platz freiraeumen, den man ohnehin raeumen wollte.
+- **v33.59** `_gsArtAnzeige` uebernahm die ganze Fassung der vorsichtigsten
+  Dublette — 14 Eintraege wurden dadurch ESSBARER, als sie selbst sagen.
+  Regel: jede Angabe einzeln nur zur vorsichtigen Seite (Maximum, ODER, UND).
+- **v33.59** Spanisch war App-Sprache, die Notfall-Erkennung kannte kein
+  spanisches Wort; die erste Reparatur machte dafuer italienische Pflegefragen
+  zum Notfall („come“). Regel: ein neues Vokabular gegen die harmlosen Saetze
+  der ANDEREN Sprachen messen.
+- **v33.59** `contrast_check`, `touch_check`, `perf_check` hatten einen eigenen
+  Seed und massen eine abgemeldete App; mit Sitzung und Daten kamen zehn
+  Stellen unter AA zum Vorschein. Regel: erst die Sitzung, dann ein Exit-Code.
+- **v33.59** `plant-doctor-diagnose` las live vier Spalten, die es nicht gibt —
+  der Kontext war still leer. Regel: jede Spalte einer Edge-Function gegen
+  die Live-Spalten (`edge_check` 60_spalten), und EINE Liste, was ausgeliefert
+  wird (`supabase/functions/AUSLIEFERUNG.json`).

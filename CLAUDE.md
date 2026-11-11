@@ -80,7 +80,14 @@ für jede Änderung an Auslieferungs-Dateien wichtig ist.
   > von der Netlify-Adresse aus erfährt das Hauptfenster die Rückkehr erst, wenn
   > das Fenster zu ist. Wer einen Ablauf über ein zweites Fenster baut, prüft ihn
   > mit der COOP aus `_headers`, nicht ohne — und wer eine Kopfzeile setzt, sucht
-  > die Stellen im Code, die von ihr abhängen.
+  > die Stellen im Code, die von ihr abhängen. **Gemessen ist das seit dem
+  > Nachzug unter der ECHTEN Kopfzeile** (`sicherheit_check` 98_schluss_d, zwei
+  > Prüfserver, einer spielt Stripe; `scripts/sicherheit/_kopfzeilen.js` liefert
+  > das Repo mit allen Kopfzeilen aus `_headers` aus): der Opener ist null — ohne
+  > die Kopfzeile nicht —, die Meldung über den `BroadcastChannel` kommt genau
+  > einmal an, das Fenster schliesst sich. Der erste Fall spielte die Folge mit
+  > `noopener` auf EINEM Ursprung nach: er mass die Rechnung, nicht die
+  > Kopfzeile. Gemessen ist Chromium; Safari und Firefox von hier nicht.
 
 **Teilweise beantwortet (01.09.2026).** Der Netlify-Bot kommentiert an jedem PR
 mit einer Deploy-Preview-Adresse der Form
@@ -319,7 +326,8 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Bezahl-Regeln (seit v33.59) | `supabase/functions/_shared/zahlung_regeln.mjs` — Preis (`preisErlaubt`), Rückkehr-Adresse (`EIGENE_URSPRUENGE`, `rueckkehrAdresse`), Startangebot (`launchAngebot`), Gratistage, Reihenfolge der Ereignisse (`ereignisIstNeuer`), Entzug einer Lifetime, Experten-Zahlung | nie ein Preis, eine Adresse oder ein Flag aus dem Rumpf der Anfrage übernehmen; eine Zahlung setzt nie einen Zustand, den ein MENSCH bestätigen soll (`expertenZahlungFelder` schreibt nie `verified`) |
 | Erfolgsmeldung nach einer Zahlung (seit v33.59) | `_gsBillingPruefen()` — erst wenn `v_user_entitlements` einen bezahlten Plan zeigt | nie `?billing=success` oder eine Popup-Nachricht als Beleg nehmen |
 | Push-Dienste (seit v33.59) | `PUSH_HOSTS` / `pushEndpunktOk` in `_shared/push_helfer.mjs`, gebunden an den CHECK `push_subscriptions_endpoint_push_dienst` der Migration `20261110_sicherheit_konto_speicher.sql`; Abos je Nutzer `ABOS_JE_NUTZER` (10) = Deckel `fn_push_subs_deckel` | an einen Endpunkt senden, den keine der beiden Listen kennt — den Endpunkt schreibt die Person selbst; eine der zwei Zahlen allein ändern (`edge_check` 30_push hält beide) |
-| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage), bis DASSELBE Konto wiederkommt | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist |
+| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage ab Anlage), bis DASSELBE Konto wiederkommt; `gsPlans.parken` gibt −1 zurück, wenn der Schreibversuch scheitert — dann räumt `gsClearUserDataKeys` zuerst alles andere, parkt ein zweites Mal und lässt sonst nur liegen, was `gsPlans.bewahrbar()` zulässt (jeder Eintrag trägt eine uid) | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist; die einzige Kopie löschen, bevor der Rettungsweg „geschrieben“ gemeldet hat |
+| Eigene Listen aus fremder Hand (seit v33.59) | `_gsListeEinspielen(schluessel, liste, opts)` mit der Tabelle `GS_LISTEN_EINGANG` — Sieb, Speicher UND Variable in einem Schritt; die Variable wird nur gesetzt, wenn der Schreibversuch gelang. Backup-Import, Login-Abgleich (alle Zweige), Snapshot (`_gsRestoreKey`), `gsGardenSync.pullAll` gehen hindurch | eine Liste (`gs_gardens`, `gs_plantings`, `ps_myplants`, `gs_gartentagebuch`, `gs_ernte_log`, `gs_garden_plans`, `gs_dead_plants`) aus Cloud, Snapshot oder Datei direkt schreiben — oder nur die Variable setzen (`gardens = d.gardens`); `sicherheit_check` 98_schluss_e findet jeden Schreiber |
 | Bild eines ANDEREN Nutzers (seit v33.59) | `_gsFremdBild(u)` — nur der eigene Supabase-Speicher (`SB_URL_DEFAULT` + `/storage/v1/object/public/`) oder `data:image`; serverseitig dieselbe Regel in `fn_gs_bild_url_ok` (Migration `20261110_sicherheit_community_markt.sql`, nicht angewandt) | `_gsSafeUrl` für fremde Bilder — es prüft nur das Schema, und ein fremder Host zählt jeden Betrachter mit |
 
 ### 3.4 · KI-Calls
@@ -379,6 +387,20 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   `knowledge-bulk-gen` setzt die Essbarkeit eines Pilzes nie selbst
   (`'unbekannt'`, bis ein Mensch freigibt), und das optionale `model` im Auftrag
   gilt nur, wenn es in einer der zwei Modellketten steht (`modellFuerAnfrage`).
+  Die QUELLE einer KI-Zeile setzt der Server selbst (`KI_QUELLE`, „KI-Entwurf,
+  ungeprüft“): eine Spalte, die der KI verboten ist, ist nicht leer — hat sie
+  live eine Vorgabe (`mushroom_register.source`: „VAPKO Schweiz“), stünde nach
+  dem Insert die kuratierte Quelle an der KI-Zeile. **Wer der KI ein Feld
+  wegnimmt, setzt dort einen eigenen, ehrlichen Wert.**
+- **Was ausgeliefert wird, steht in EINER Liste:**
+  `supabase/functions/AUSLIEFERUNG.json` — je Verzeichnis `live` · `ausliefern` ·
+  `erst_nach` (mit der Migration) · `nicht` (mit Grund). `edge_check` 60_spalten
+  hält sie gegen die Verzeichnisse und verlangt für alles ausser `nicht` den
+  Spalten-Scan: jede `.from("t")`-Kette gegen die Live-Spalten in
+  `scripts/edge/_live_schema.mjs` (drei Klassen: stimmt · bekannt kaputt ·
+  nicht prüfbar). Anlass: `plant-doctor-diagnose` las live vier Spalten, die es
+  nicht gibt — der Krankheits-Kontext war still leer. Wer eine Function anlegt
+  oder eine Tabelle per Migration ändert, zieht beide Dateien nach.
 
 > **Eine Sicherheitsreparatur darf einem zahlenden Kunden nicht still weniger
 > geben** (v33.59). Die erste Fassung des KI-Tors setzte Tageslimits für
@@ -568,7 +590,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   | Id (uuid, `p1`, `cloud_<uuid>`, Zahl) in einem Attribut oder JS-String | `_gsIdSicher(id)` — nur `[A-Za-z0-9_\-:.]`, höchstens 128 Zeichen | eine echte Id verliert dabei nichts, eine präparierte findet danach schlicht keinen Datensatz — sicherer als jedes Escape, weil nichts übrig bleibt, das ein Parser deuten könnte |
   | Feld einer Wissens-Tabelle (Text, Zahl, Liste, Objekt `{name, qty}`) | `_gsKbText(x)` — EINE Lesart als Text, escapen bleibt Sache der Anzeige | `String(x)` zeigt `[object Object]`, `String(x\|\|'')` verschluckt die `0` |
   | Farbe aus einer Wissens-Tabelle in `style="background:…"` | `_gsKbFarbe(c)` — nur `#hex`, ein Farbwort oder `rgb/hsl(…)`; sonst `''` | ein escaptes Attribut ist noch kein sicherer Wert (Kasten unten) |
-  | zurückgespielte EIGENE Daten (Backup-Import, Cloud-Pull: Gärten, Pflanzungen, Pflanzen, Tagebuch, Pläne, Geräte) | `_gsSiebListe(liste, idPraefix)` / `_gsSiebEintrag(o)` — Ids über `_gsIdSicher` (unbrauchbar → neue Id mit Präfix), Zahlenfelder als Zahl, Fotofelder nur in bekannter Form, Emoji über `_gsEmoji`, Aufgaben-Schlüssel aus einem festen Alphabet | ein Backup ist eine Datei aus fremder Hand, auch wenn es „eigene" Daten sind; ohne Sieb ist jeder Renderer, der `p.id` in ein `onclick` setzt, ein Weg hinein |
+  | zurückgespielte EIGENE Daten (Backup-Import, Cloud-Pull: Gärten, Pflanzungen, Pflanzen, Tagebuch, Pläne, Geräte) | `_gsSiebListe(liste, idPraefix)` / `_gsSiebEintrag(o)` — Ids über `_gsIdSicher` (unbrauchbar → neue Id mit Präfix), Zahlenfelder als Zahl, Fotofelder nur in bekannter Form, Emoji über `_gsEmoji`, Aufgaben-Schlüssel aus einem festen Alphabet | ein Backup ist eine Datei aus fremder Hand, auch wenn es „eigene" Daten sind; ohne Sieb ist jeder Renderer, der `p.id` in ein `onclick` setzt, ein Weg hinein. **Aufgerufen wird das Sieb über EINEN Eingang: `_gsListeEinspielen`** (§3.3) — nie an der Schreibstelle selbst |
   | eine Art aus fremder Hand in die Laufzeit-Artenliste (Community-Art, bestätigter Scan, KI-Anreicherung) | `_gsArtEingang(c)` — Name/Latein/Familie mit `< > " \` \\` werden verworfen, Texte ohne `<`/`>`, Längen gedeckelt, `tox` 0–5 oder `null`, `cat` aus `GS_ART_KATEGORIEN`, unbekannte Felder fallen weg; der Aufrufer setzt `_unverified` | hunderte Stellen rendern `DB` als vertrauten Katalog; ein KI-Profil ist kein Beleg für die Bestimmung derselben KI |
   | eine Übersetzung aus der Datenbank, dem Cache oder der Edge-Function | `_i18nWert(v)` in der Sprachschicht — am EINGANG: ohne `<` nur typografische Anführungszeichen, mit `<` durch `gsSanitizeHtml` und danach nur ein `style` ohne Leerraum | rund 900 Stellen setzen `_t(…)` roh in HTML oder in einen Attributwert; an jeder Senke einzeln zu escapen war nicht zu halten |
   | eine Zelle eines CSV-Exports | `_gsCsvZelle(wert)` — Anführung verdoppeln, ein `'` vor `= + - @`, Tab und CR | ein Pflanzenname aus KI oder Sync würde in Excel/LibreOffice sonst als FORMEL ausgewertet; Zahlen bleiben Zahlen |
@@ -757,8 +779,13 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   Prüfsumme fest: wer eine Bibliothek oder Schrift austauscht, gibt ihr eine
   neue Adresse (neuer Versionsordner bzw. `?v=`, in `index.html` UND `sw.js`)
   und trägt die Prüfsumme dort nach. Die Lizenztexte liegen daneben und werden
-  mit ausgeliefert (Lizenzpflicht); `android/build.sh` packt die woff2-Dateien
-  und die pdf.js-Module mit ins APK.
+  mit ausgeliefert (Lizenzpflicht) — auch im APK: `android/build.sh` legt jeden
+  `LICENSE*` / `COPYING*` / `NOTICE*` unter `assets/` am selben Pfad ins Paket,
+  `apk_check` B6 vergleicht sie byte-gleich (bis v33.59 kamen nur die woff2 und
+  die pdf.js-Module mit: **eine Lizenzpflicht hängt an der Weitergabe, nicht
+  daran, ob die App die Datei liest**). Leaflet und Three.js hatten gar keinen
+  Lizenztext im Repo; `assets/LICENSE-leaflet.txt` und `assets/LICENSE-three.txt`
+  stammen aus den npm-Paketen, deren Dateien byte-gleich mit `assets/` sind.
 
   > **Was ein Prüfstand nicht laden kann, misst er nicht — er misst den
   > Rückfall** (v33.59). Die Prüfstände brechen jede Anfrage ausserhalb von
@@ -1444,9 +1471,16 @@ bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code
 > „Beispieldaten" ist rot. In der CI (UTC) nie; lokal `TZ=UTC` davorsetzen. Steht als
 > benannte Schuld in STATUS §2.
 
-Siebzehn der zweiundzwanzig JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+Die Playwright-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
-Quelltext und braucht keine.
+Quelltext und braucht keine. **Seit v33.59 gilt das auch für `contrast_check`,
+`touch_check` und `perf_check`:** sie brachten einen eigenen Seed mit, dessen
+Token `gsSecurityInit` nach 500 ms abräumte, und vermassen eine abgemeldete App
+(`contrast_check` verbarg den Anmeldebildschirm dafür von Hand). Die erste
+Messung mit Sitzung UND Daten fand zehn Stellen unter AA, die nur mit Daten zu
+sehen sind (Tagebuch-Einträge, Naturjahr, Abo, Inserat). `robust_check`
+„Pruefstands-Sitzung“ hält jeden `gs_sb_token` in `scripts/` gegen die Regel aus
+`gsSecurityInit`; wer BEWUSST abgemeldet misst, steht dort namentlich.
 
 `planer_check.js` fährt die rechnenden Regeln des Planers gegen konstruierte
 Fälle. Anlass: das Prüfwerk hatte dreizehn Regeln und **keinen** Prüfstand —
@@ -3460,6 +3494,13 @@ mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
 > `/\bcat\b/.test('catégorie')` ist `true`, weil `\b` nur `[A-Za-z0-9_]`
 > kennt — die Grenze sitzt mitten im Wort.
 >
+> **Und noch eine Sprache weiter** (v33.59, Brett df0b): Spanisch ist die fünfte
+> App-Sprache, erkannt wurden **0 von 14** Sätzen. Die erste Fassung der
+> Reparatur machte dafür italienische und englische Pflegefragen zum Notfall —
+> „come“ heisst spanisch „isst“, italienisch „wie“ und englisch „komm“. **Wer ein
+> Vokabular um eine Sprache erweitert, misst die HARMLOSEN Sätze der anderen
+> Sprachen mit** (`scan_check` N1, drei Klassen: dringend · Hinweis · harmlos).
+>
 > **Und ein Fall wandert nicht zwischen Pruefstaenden.** `scan_check` fuehrt
 > seine Faelle IN der Seite aus (`p.evaluate` ueber den Funktionsrumpf),
 > `robust_check` in Node mit Zugriff auf `__seite`. Ein kopierter Fall stirbt
@@ -3554,6 +3595,13 @@ neue Strategie hinzufuegt, gibt ihr Ergebnis durch
 > `openDetail`. Wer eine neue Ansicht einer Art baut, ruft sie — und ruft sie
 > als ERSTE Zeile: beim ersten Anlauf stand sie nach `toxInfo` und den
 > Plaketten, der Rand wurde orange und das gruene „✅ Essbar" blieb stehen.
+> **Eine Korrektur „zur vorsichtigeren Seite“ bewegt jede Angabe EINZELN**
+> (v33.59, Brett fcaf): `tox` als Maximum, `toxic` als ODER, `edible` als UND.
+> `_gsArtAnzeige` übernahm die ganze Fassung der vorsichtigsten Dublette — und
+> machte damit genau die Felder nachgiebiger, in denen diese Fassung zufällig
+> nachgiebiger war: 14 Einträge, die selbst „nicht essbar“ tragen, standen als
+> essbar da, 3 verloren ihr „giftig“. `scan_check` D1j hält beide Richtungen.
+>
 > **Eine Reparatur an einer Anzeige ist erst fertig, wenn ALLE Teile dieser
 > Anzeige sie sehen.** Und die Klasse war mit Liste und Detail nicht
 > geschlossen (v32.93): sechs Anzeigen lesen `tox`/`edible` aus einem
@@ -4635,6 +4683,11 @@ richtig (5,6:1) und dunkel falsch (2,8:1). Für Text auf Themenflächen die
 Variablen nehmen (`--c-warn-d`, `--c-success-d`, `--text`); umgekehrt braucht
 eine **fest helle** Fläche eine **fest dunkle** Schrift — dort wird
 `var(--c-success-d)` im Dunkelmodus zu Hellgrün auf Hellgrün.
+
+**Seit v33.59 ist `contrast_check` ein Tor** (Exit 1 unter AA) — in dieser
+Reihenfolge: erst die Sitzung und die Daten aus `_seed.js`, dann der Exit-Code.
+Ein Tor über einer abgemeldeten App hiesse „der Anmeldebildschirm ist lesbar“.
+`render_check` und `field_check` urteilen weiter nicht (Brett ec73).
 
 Beide sollen **0** melden. Wenn nicht, ist es entweder ein echter Fund oder
 eine Falschmeldung des Prüfstands — und die zweite Möglichkeit ist schon
