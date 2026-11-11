@@ -162,9 +162,9 @@ GreenScan/
 │                        scripts/sicherheit/, scripts/edge/, scripts/rls/ = die Fall-Dateien von sicherheit_check,
 │                        edge_check und rls_check (seit v33.59; eine Datei mit `_` vorn ist ein Helfer, kein Fall)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml — seit v33.59
-│                        Fremd-Actions auf vollen Commit-SHAs (nicht Tags), `persist-credentials: false`,
-│                        `npm ci` gegen das Lockfile; `pruefstaende.yml` nur `contents: read`,
-│                        `weekly-cleanup.yml` ohne Rechte auf Workflow-Ebene (nur am Job)
+│                        Fremd-Actions auf vollen Commit-SHAs (nicht Tags); `pruefstaende.yml`: `persist-credentials: false`,
+│                        `npm ci` gegen das Lockfile, nur `contents: read`; `weekly-cleanup.yml` ohne Rechte auf
+│                        Workflow-Ebene (nur am Job) — es BEHÄLT die Zugangsdaten bewusst (`git push --delete`)
 ├── docs/austausch/      # das Brett: ein Eintrag je Datei, über das sich alle KI-Sitzungen austauschen (§5) · Werkzeug scripts/austausch.mjs
 ├── docs/                # lebende Doku · docs/_archiv/ = 55 historische Aufträge/Audits (seit v32.69 aus dem Root)
 ├── AGENTS.md            # Zeiger für Werkzeuge, die CLAUDE.md nicht von selbst laden
