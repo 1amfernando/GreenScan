@@ -175,7 +175,7 @@ public class Fahrer {
       "/../_headers", "/..%2f_headers", "/%2e%2e/x", "/%252e%252e/x",
       "/a/../../b", "/a\\\\b", "//index.html" };
     for (String p : pfade) z("N:" + p, Pfade.normieren(p));
-    String[] typen = { "a.html", "a.js", "a.mjs", "a.css", "a.json", "a.png", "a.svg", "a.bin", "a", "a.JS" };
+    String[] typen = { "a.html", "a.js", "a.mjs", "a.css", "a.json", "a.png", "a.svg", "a.bin", "a", "a.JS", "a.txt", "a.woff2" };
     for (String t : typen) z("M:" + t, Pfade.mimeTyp(t));
     String[][] urspruenge = {
       {"https","green-scan.ch"}, {"HTTPS","GREEN-SCAN.CH"}, {"https","www.green-scan.ch"},
@@ -298,7 +298,9 @@ public class Fahrer {
 
   const erwartetM = { 'M:a.html': 'text/html', 'M:a.js': 'text/javascript', 'M:a.mjs': 'text/javascript',
     'M:a.css': 'text/css', 'M:a.json': 'application/json', 'M:a.png': 'image/png', 'M:a.svg': 'image/svg+xml',
-    'M:a.bin': 'application/octet-stream', 'M:a': 'application/octet-stream', 'M:a.JS': 'text/javascript' };
+    'M:a.bin': 'application/octet-stream', 'M:a': 'application/octet-stream', 'M:a.JS': 'text/javascript',
+    // v33.59: die Lizenztexte im Paket (B6) und die Schriften — beide antworten mit ihrem Typ, nicht octet-stream.
+    'M:a.txt': 'text/plain', 'M:a.woff2': 'font/woff2' };
   const falschM = Object.keys(erwartetM).filter(k => m[k] !== erwartetM[k]);
   F.push({
     name: 'P3 · mimeTyp ist eine GESCHLOSSENE Liste (Unbekanntes wird nicht geraten)',
@@ -529,6 +531,19 @@ function rechnungGeteilt() {
 // ===========================================================================
 // PAKET · build.sh wirklich laufen lassen und im APK nachsehen
 // ===========================================================================
+const B6_NAME = 'B6 · Die Lizenztexte der mitgelieferten Fremd-Dateien liegen im Paket (byte-gleich, am Web-Pfad)';
+// Jeder Lizenztext unter assets/, relativ zur Wurzel (dieselben Pfade wie im Web).
+function lizenzDateien() {
+  const aus = [];
+  (function lauf(d) {
+    fs.readdirSync(path.join(WURZEL, d), { withFileTypes: true }).forEach(e => {
+      const rel = d + '/' + e.name;
+      if (e.isDirectory()) lauf(rel);
+      else if (/^(licen[cs]e|copying|notice)/i.test(e.name) || /^licen[cs]e-/i.test(e.name)) aus.push(rel);
+    });
+  })('assets');
+  return aus.sort();
+}
 function paket() {
   if (!BAU_DA) {
     const w = { offen: true, warum: 'Android-Werkzeuge fehlen (aapt/zipalign/apksigner/dexer/android.jar) — das Paket wurde NICHT gebaut. '
@@ -537,7 +552,8 @@ function paket() {
      'B2 · Das Paket enthaelt die ECHTEN Dateien (byte-gleich)',
      'B3 · Die Version ist EINE Zahl — GS_VERSION steht im Paket',
      'B4 · targetSdk laesst sich auf einem aktuellen Telefon installieren',
-     'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA'].forEach(n => F.push({ name: n, r: w }));
+     'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA',
+     B6_NAME].forEach(n => F.push({ name: n, r: w }));
     return null;
   }
   const bau = spawnSync('bash', [path.join(ANDROID, 'build.sh')], { encoding: 'utf8', cwd: WURZEL, timeout: 600000 });
@@ -633,6 +649,23 @@ function paket() {
     name: 'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA',
     r: b5.length ? { ok: false, warum: b5.join(' · ') + ' (erwartet ' + typenWebB.join(',') + ')' }
                  : { ok: true, info: filterImPaket.length + ' Filter im Paket · SEND + SEND_MULTIPLE · ' + typenWebB.join(', ') },
+  });
+  // B6 — die Lizenztexte reisen mit (v33.59). Die Pflicht haengt an der
+  // WEITERGABE, nicht daran, ob die App die Datei liest: wer Schriften (OFL 1.1)
+  // und pdf.js (Apache-2.0) im APK verteilt, legt den Lizenztext dazu. Gesucht
+  // wird jeder Lizenztext unter assets/ (nicht eine feste Liste) — eine neue
+  // Bibliothek mit LICENSE daneben ist damit ab dem ersten Bau geprueft.
+  const lizenzen = lizenzDateien();
+  const b6 = lizenzen.filter(f => {
+    if (!imPaket.has(f)) return true;
+    const aus = spawnSync('unzip', ['-p', apk, 'assets/www/' + f], { maxBuffer: 1 << 24 });
+    return md5(aus.stdout) !== md5(fs.readFileSync(path.join(WURZEL, f)));
+  });
+  F.push({
+    name: B6_NAME,
+    r: !lizenzen.length ? { ok: false, warum: 'kein Lizenztext unter assets/ gefunden — die Suche misst nichts' }
+      : b6.length ? { ok: false, warum: b6.length + ' von ' + lizenzen.length + ' fehlen im Paket oder weichen ab: ' + b6.join(', ') }
+      : { ok: true, info: lizenzen.length + ' Lizenztexte byte-gleich an ihrem Web-Pfad: ' + lizenzen.join(', ') },
   });
   return apk;
 }

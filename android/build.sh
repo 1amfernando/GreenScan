@@ -75,7 +75,7 @@ for d in icons assets/icons assets/leaflet-images; do
   mkdir -p "$BAU/assets/www/$d"
   cp -r "$REPO/$d/." "$BAU/assets/www/$d/"
 done
-# v33.59: die selbst gehosteten Schriften (nur die woff2 — die Lizenztexte liest die App nicht).
+# v33.59: die selbst gehosteten Schriften.
 mkdir -p "$BAU/assets/www/assets/fonts"
 cp "$REPO"/assets/fonts/*.woff2 "$BAU/assets/www/assets/fonts/"
 # v33.59: pdf.js liegt selbst gehostet unter assets/pdfjs/<version>/ (vorher cdnjs) —
@@ -83,6 +83,13 @@ cp "$REPO"/assets/fonts/*.woff2 "$BAU/assets/www/assets/fonts/"
 for f in "$REPO"/assets/pdfjs/*/*.mjs; do
   rel="${f#$REPO/}"; mkdir -p "$BAU/assets/www/$(dirname "$rel")"; cp "$f" "$BAU/assets/www/$rel"
 done
+
+# v33.59: die Lizenztexte reisen mit — die Pflicht haengt an der WEITERGABE,
+# nicht daran, ob die App sie liest (Schriften: SIL OFL 1.1, pdf.js: Apache-2.0).
+# Jeder Lizenztext unter assets/, an DEMSELBEN Pfad wie im Web; apk_check B6.
+while IFS= read -r -d '' f; do
+  rel="${f#$REPO/}"; mkdir -p "$BAU/assets/www/$(dirname "$rel")"; cp "$f" "$BAU/assets/www/$rel"
+done < <(find "$REPO/assets" -type f \( -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' \) -print0)
 
 PAKET_MB="$(du -sm "$BAU/assets/www" | cut -f1)"
 echo "-- Paketinhalt: $(find "$BAU/assets/www" -type f | wc -l) Dateien, ${PAKET_MB} MB roh"

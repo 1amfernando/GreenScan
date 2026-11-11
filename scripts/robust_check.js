@@ -674,6 +674,9 @@ const FAELLE = [
       ['data', 'assets'].forEach(d => fs.readdirSync(path.join(W, d)).forEach(n => {
         const rel = d + '/' + n + (fs.statSync(path.join(W, d, n)).isDirectory() ? '/' : '');
         if (rel === 'data/releases.v1.js') return;
+        // Lizenztexte laedt die App nicht (wie in `familie` oben): sie brauchen keine Adresse im Code.
+        // Dass sie im APK liegen, haelt apk_check B6 — byte-gleich mit dem Repo.
+        if (/^LICENSE/.test(n)) return;
         if (!bekannt.some(b => b === rel || (rel.endsWith('/') && b.indexOf(rel) === 0))) f.push(rel + ' ohne Eintrag in der Tafel');
       }));
       const idx = fs.readFileSync(path.join(W, 'index.html'), 'utf8');
