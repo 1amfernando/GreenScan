@@ -37,6 +37,18 @@
   X-Robots-Tag: noindex, nofollow
 /store/*
   X-Robots-Tag: noindex, nofollow
+# v33.59 (Brett 2026-11-11-e383): vier Verzeichnisse lagen ohne Block im Web-Root — die
+# Android-Huelle (Quelltext), die Store-Bilder und zwei Punkt-Verzeichnisse. Ob beide Hoster
+# ein Punkt-Verzeichnis ueberhaupt ausliefern, ist nicht gemessen; der Block schadet nicht.
+# robust_check „Web-Root“ haelt jedes Verzeichnis gegen diese Bloecke und robots.txt.
+/android/*
+  X-Robots-Tag: noindex, nofollow
+/store-assets/*
+  X-Robots-Tag: noindex, nofollow
+/.claude/*
+  X-Robots-Tag: noindex, nofollow
+/.github/*
+  X-Robots-Tag: noindex, nofollow
 /*.md
   X-Robots-Tag: noindex, nofollow
 /*.sql
