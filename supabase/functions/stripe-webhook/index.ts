@@ -1,7 +1,8 @@
 // Stripe Webhook Handler
 // v13 (2026-11-11): der erste Stand mit einem Prüfstand (scripts/stripe_check.js). Gemessen
-//   an v12: `stripe_webhook_events` hatte 0 Zeilen — der Weg ist nie gelaufen —, und er
-//   hätte auch nicht gehalten:
+//   an v12: `stripe_webhook_events` hat 0 Zeilen, und die eine Abo-Zeile (16.05.2026) steht seit
+//   dem Ende ihrer Probezeit auf „trialing" — kein Ereignis hat sie fortgeschrieben. Der Weg
+//   konnte auch nicht halten:
 //   • Sechsmal hing `.catch()` an einem supabase-js-Bauer. Der hat `then`, aber kein `catch`
 //     (gemessen an @supabase/postgrest-js 2.119.0): trial_will_end, charge.failed,
 //     charge.dispute.created und payment_method.attached endeten IMMER mit 500.
@@ -15,6 +16,16 @@
 //   Jetzt: die Regeln stehen in ../_shared/stripe_regeln.mjs (in Node geprüft), dieser Handler
 //   ist der Rand. Jede Antwort der Datenbank wird gelesen (`dbMuss`); sagt sie Nein, bekommt
 //   Stripe 500 und versucht es wieder. Der Stand eines Abos wird bei Stripe GEHOLT.
+//   Und gegen die ECHTE Datenbank gehalten (pg_constraint, 11.11.2026), was der erste Entwurf
+//   von v13 nur gegen eine Nachbildung mass:
+//   • `stripe_subscriptions.price_id` ist ein Fremdschlüssel auf stripe_prices — ein Abo mit
+//     einem Preis, den die Tabelle nicht kennt, wäre bei JEDER Wiederholung abgelehnt worden.
+//     Jetzt bleibt `price_id` dann leer, und der Grund steht in der Ereigniszeile.
+//   • `user_id` verweist auf auth.users: ein spätes Ereignis für ein GELÖSCHTES Konto ist
+//     „nicht zuordenbar", kein Fehler, den Stripe drei Tage lang wiederholt.
+//   • Die Admin-Übersicht zählt `processed = false` als „unverarbeitet" — das Feld setzte
+//     noch nie jemand. Jetzt steht es mit `processed_at`.
+//   • Eine verzögerte Zahlungsart meldet „bezahlt" erst mit checkout.session.async_payment_succeeded.
 // v11 (2026-05-30): trial_will_end, charge.failed, dispute, customer.updated, payment_method.attached.
 // v10 (2026-05-22): account.application.deauthorized; 'disabled' nur bei disabled_reason 'rejected…'.
 // v9 (2026-05-22): account.updated für Marketplace-Connect. v7: Experten-Verifikation.
@@ -24,7 +35,7 @@ import Stripe from "npm:stripe@17";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { constantTimeEquals } from "../_shared/auth_vergleich.mjs";
 import {
-  aboIdAusRechnung, aboPreisId, aboZeile, dbMuss, ereignisWirkung, erstattungWirkung, idVon,
+  aboIdAusRechnung, aboPreisId, aboZeile, dbMuss, ereignisWirkung, erstattungWirkung, idVon, istNutzerWeg, istUuid,
   nutzerAusMetadaten, preisIntervall, probeEndeMitteilung, signaturPruefen, SIGNATUR_GRUND_TEXT,
 } from "../_shared/stripe_regeln.mjs";
 
@@ -96,12 +107,15 @@ async function nutzerFuer(stripe: Stripe, obj: { metadata?: unknown; customer?: 
 async function preisZeile(preisId: string) {
   return dbMuss(await admin.from("stripe_prices").select("id, product_id, recurring, metadata").eq("id", preisId).maybeSingle(), "stripe_prices lesen");
 }
-async function tierFuerPreis(preisId: string | null): Promise<string | null> {
-  if (!preisId) return null;
+// Steht der Preis in stripe_prices — und welches Tier hat sein Produkt? Zwei Fragen, weil die
+// erste entscheidet, ob `price_id` in die Abo-Zeile darf (Fremdschlüssel).
+async function preisUndTier(preisId: string | null): Promise<{ bekannt: boolean; tier: string | null }> {
+  if (!preisId) return { bekannt: false, tier: null };
   const preis = await preisZeile(preisId);
-  if (!preis || !preis.product_id) return null;
+  if (!preis) return { bekannt: false, tier: null };
+  if (!preis.product_id) return { bekannt: true, tier: null };
   const produkt = dbMuss(await admin.from("stripe_products").select("tier").eq("id", preis.product_id).maybeSingle(), "stripe_products lesen");
-  return produkt && typeof produkt.tier === "string" && produkt.tier ? produkt.tier : null;
+  return { bekannt: true, tier: produkt && typeof produkt.tier === "string" && produkt.tier ? produkt.tier : null };
 }
 
 // ── Abo: der Stand bei Stripe, nicht der im Ereignis ─────────────────────────
@@ -114,13 +128,17 @@ async function aboNachziehen(stripe: Stripe, aboId: string): Promise<Ergebnis> {
   const userId = await nutzerFuer(stripe, sub);
   if (!userId) return ohneZuordnung(`Abo ${sub.id} ohne supabase_user_id (weder am Abo noch am Kunden)`);
   const preisId = aboPreisId(sub);
-  const tier = await tierFuerPreis(preisId);
-  const z = aboZeile(sub, { userId, tier, jetztMs: Date.now() });
+  const p = await preisUndTier(preisId);
+  const z = aboZeile(sub, { userId, tier: p.tier, preisBekannt: p.bekannt, jetztMs: Date.now() });
   if (!z.ok) return ohneZuordnung(z.grund);
   dbMuss(await admin.from("stripe_subscriptions").upsert(z.zeile, { onConflict: "id" }), "stripe_subscriptions schreiben");
   // Der Status ist eine Tatsache und wird geschrieben. Aber ein Abo, dessen Preis nicht in
-  // stripe_prices steht, hat kein Tier — das darf nicht still „free" heissen.
-  return tier ? OK : { art: "ok", hinweis: `Preis ${preisId} von Abo ${sub.id} steht nicht in stripe_prices/stripe_products — Zeile ohne Pro geschrieben` };
+  // stripe_prices steht, hat kein Tier — das darf nicht still „free" heissen. Und der fremde
+  // Preis steht dann im Hinweis, nicht in der Zeile (dort wäre er ein verletzter Fremdschlüssel).
+  if (p.tier) return OK;
+  return { art: "ok", hinweis: p.bekannt
+    ? `Preis ${preisId} von Abo ${sub.id} hat in stripe_products kein Tier — Zeile ohne Pro geschrieben`
+    : `Preis ${preisId} von Abo ${sub.id} steht nicht in stripe_prices — Zeile ohne Preis und ohne Pro geschrieben` };
 }
 
 // ── Checkout fertig ──────────────────────────────────────────────────────────
@@ -130,11 +148,14 @@ async function abschluss(stripe: Stripe, session: Stripe.Checkout.Session): Prom
     return aboId ? await aboNachziehen(stripe, aboId) : ohneZuordnung(`Abschluss ${session.id} ohne Abo`);
   }
   if (session.mode !== "payment") return NICHTS;
-  if (session.payment_status !== "paid") return ohneZuordnung(`Einmalzahlung ${session.id} ist nicht bezahlt (${session.payment_status})`);
+  // „unpaid" ist bei einer verzögerten Zahlungsart der gewöhnliche Stand von „completed": bezahlt
+  // meldet später checkout.session.async_payment_succeeded — und kommt dann hier wieder an.
+  if (session.payment_status !== "paid") return NICHTS;
 
   if (session.metadata?.kind === "expert_verification") {
     const postId = session.metadata.post_id, expertId = session.metadata.expert_id;
-    if (!postId || !expertId) return ohneZuordnung(`Experten-Gebühr ${session.id} ohne post_id/expert_id`);
+    // Beide Spalten sind uuid: mit etwas anderem lehnte die Datenbank bei jeder Wiederholung ab (22P02).
+    if (!istUuid(postId) || !istUuid(expertId)) return ohneZuordnung(`Experten-Gebühr ${session.id} ohne gültige post_id/expert_id`);
     const zeilen = dbMuss(await admin.from("expert_verifications").update({
       status: "verified",
       fee_paid_chf: (session.amount_total ?? 0) / 100,
@@ -151,7 +172,7 @@ async function abschluss(stripe: Stripe, session: Stripe.Checkout.Session): Prom
   const preis = preisId ? await preisZeile(preisId) : null;
   // Lifetime gibt es für den Lifetime-PREIS — nicht für jede bezahlte Einmalzahlung.
   if (!preis || preisIntervall(preis) !== "lifetime") return ohneZuordnung(`Einmalzahlung ${session.id}: Preis ${preisId} ist kein Lifetime-Preis in stripe_prices`);
-  const tier = (await tierFuerPreis(preisId)) ?? "pro";
+  const tier = (await preisUndTier(preisId)).tier ?? "pro";
   const subId = `lifetime_${userId}`;
   dbMuss(await admin.from("stripe_subscriptions").upsert({
     id: subId,
@@ -177,7 +198,7 @@ async function abschluss(stripe: Stripe, session: Stripe.Checkout.Session): Prom
 async function zahlungGelungen(pi: Stripe.PaymentIntent): Promise<Ergebnis> {
   if (pi.metadata?.kind !== "expert_verification") return NICHTS;
   const postId = pi.metadata.post_id, expertId = pi.metadata.expert_id;
-  if (!postId || !expertId) return ohneZuordnung(`Experten-Gebühr ${pi.id} ohne post_id/expert_id`);
+  if (!istUuid(postId) || !istUuid(expertId)) return ohneZuordnung(`Experten-Gebühr ${pi.id} ohne gültige post_id/expert_id`);
   const zeilen = dbMuss(await admin.from("expert_verifications").update({
     status: "verified",
     fee_paid_chf: pi.amount_received / 100,
@@ -275,6 +296,7 @@ async function verarbeite(stripe: Stripe, event: Stripe.Event): Promise<Ergebnis
       return aboId ? await aboNachziehen(stripe, aboId) : NICHTS;   // eine Rechnung ohne Abo (Einmalzahlung)
     }
     case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded":
       return await abschluss(stripe, o as Stripe.Checkout.Session);
     case "payment_intent.succeeded":
       return await zahlungGelungen(o as Stripe.PaymentIntent);
@@ -336,10 +358,19 @@ Deno.serve(async (req) => {
     if (vorher?.processed_at) return new Response("Already processed", { status: 200 });
     dbMuss(await admin.from("stripe_webhook_events").upsert({ id: event.id, type: event.type, payload: event as unknown }, { onConflict: "id" }), "stripe_webhook_events festhalten");
 
-    const erg = ereignisWirkung(event.type) === null ? NICHTS : await verarbeite(stripe, event);
+    let erg: Ergebnis;
+    try {
+      erg = ereignisWirkung(event.type) === null ? NICHTS : await verarbeite(stripe, event);
+    } catch (e) {
+      // Das Konto gibt es nicht mehr (gelöscht): die Datenbank lehnt jede Zeile für diese Person ab,
+      // heute und bei jeder Wiederholung. Bestätigt wird trotzdem — mit dem Grund in der Ereigniszeile.
+      if (!istNutzerWeg(e)) throw e;
+      erg = ohneZuordnung("das Konto zu diesem Ereignis gibt es nicht mehr (" + String((e as Error).message) + ")");
+    }
     const vermerk = erg.art === "nicht_zuordenbar" ? "nicht zuordenbar: " + erg.grund : (erg.art === "ok" && erg.hinweis ? "Hinweis: " + erg.hinweis : null);
     if (vermerk) console.warn(`[stripe-webhook] ${event.type} ${event.id} — ${vermerk}`);
-    dbMuss(await admin.from("stripe_webhook_events").update({ processed_at: new Date().toISOString(), error: vermerk }).eq("id", event.id), "stripe_webhook_events abschliessen");
+    // `processed` liest die Admin-Übersicht (fn_admin_stripe_overview: „unverarbeitet"), `processed_at` dieser Handler.
+    dbMuss(await admin.from("stripe_webhook_events").update({ processed: true, processed_at: new Date().toISOString(), error: vermerk }).eq("id", event.id), "stripe_webhook_events abschliessen");
     return json(200, { received: true, wirkung: erg.art, ...(vermerk ? { vermerk } : {}) });
   } catch (e) {
     const text = String((e as Error)?.message ?? e);

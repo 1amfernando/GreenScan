@@ -3,7 +3,7 @@
 //
 //   node scripts/stripe_check.js
 //   GS_STRIPE_CHECK_WEBHOOK=<alt/index.ts> node scripts/stripe_check.js     # Gegenprobe am Rand
-//   (ebenso GS_STRIPE_CHECK_CHECKOUT, GS_STRIPE_CHECK_PORTAL, GS_STRIPE_CHECK_MODUL)
+//   (ebenso GS_STRIPE_CHECK_CHECKOUT, GS_STRIPE_CHECK_PORTAL, GS_STRIPE_CHECK_MODUL, GS_STRIPE_CHECK_APP für index.html)
 //   GS_STRIPE_PAKET=<pfad/zu/node_modules/stripe> node scripts/stripe_check.js   # Fremdmassstab: Stripes eigene Bibliothek
 //
 // Anlass (11.11.2026, gemessen): `stripe_webhook_events` hat 0 Zeilen — der Zahlungsweg ist
@@ -35,6 +35,16 @@
 // annimmt (kein Netz dorthin), ob die ausgelieferten Functions denen im Repo entsprechen, und
 // die Sicht `v_user_entitlements` samt Trigger — beide sind hier in JavaScript NACHGEBAUT
 // (aus den Migrationen 20260504 und v29_16) und nur über den Quelltext an sie gebunden.
+//
+// Und die Lehre aus dem Bau (11.11.2026): der erste Stand dieses Prüfstands war 40 von 40 grün —
+// gegen eine Datenbank, die er sich selbst ausgedacht hatte. Gegen die echte gehalten (nur lesend:
+// information_schema, pg_constraint, pg_get_functiondef) waren drei Wege kaputt, die hier grün
+// waren: `launch_offer_available` antwortet mit einem Objekt und rechnet mit auth.uid() (gestellt
+// war `true` — der neue Checkout hätte JEDEN Lifetime-Kauf abgelehnt); `price_id` ist ein
+// Fremdschlüssel (ein fremder Preis → 500 bei jeder Wiederholung); `user_id` verweist auf
+// auth.users (ein gelöschtes Konto → ebenso). EINE NACHBILDUNG IST NUR SO VIEL WERT WIE DIE MESSUNG,
+// AUS DER SIE STAMMT — darum tragen SPALTEN, EINDEUTIG, FREMD, CHECK und die gestellte Funktion
+// jetzt ihr Messdatum, und der Fall „Die Naht" lehnt jede Tabelle ohne gemessene Spalten ab.
 'use strict';
 const path = require('path');
 const fs = require('fs');
@@ -51,6 +61,7 @@ const DATEI = {
   checkout: von('GS_STRIPE_CHECK_CHECKOUT', path.join(FUNKTIONEN, 'stripe-checkout', 'index.ts')),
   portal: von('GS_STRIPE_CHECK_PORTAL', path.join(FUNKTIONEN, 'stripe-portal', 'index.ts')),
 };
+const APP = von('GS_STRIPE_CHECK_APP', path.join(WURZEL, 'index.html'));   // für Gegenproben an einer Kopie
 const z = (o) => JSON.stringify(o);
 const klon = (o) => (o === undefined ? undefined : JSON.parse(JSON.stringify(o)));
 
@@ -126,18 +137,54 @@ const GEHEIMNIS_DB = 'geheimnis-des-pruefstands-aus-app-settings';
 const ENV_VORGABE = { SUPABASE_URL: 'https://stub.supabase.co', SUPABASE_ANON_KEY: 'anon', SUPABASE_SERVICE_ROLE_KEY: 'service', STRIPE_SECRET_KEY: 'stripe-schluessel-des-pruefstands', STRIPE_WEBHOOK_SECRET: GEHEIMNIS };
 const TAG = 86400;
 
-// Spalten, live gemessen am 11.11.2026 (information_schema.columns, nur lesend, durch den Head).
-// Tabellen ohne Eintrag prüft der Prüfstand nicht auf Spalten — das steht im Bericht.
+// Spalten, live gemessen am 11.11.2026 (information_schema.columns, nur lesend) — für JEDE
+// Tabelle, die eine der drei Functions anfasst. Eine Tabelle ohne Eintrag lehnt der Prüfstand ab
+// (Fall „Die Naht"): sonst prüfte er dort gar nichts und meldete trotzdem grün.
 const SPALTEN = {
   stripe_webhook_events: ['id', 'type', 'payload', 'processed', 'error', 'created_at', 'processed_at'],
   stripe_subscriptions: ['id', 'user_id', 'customer_id', 'status', 'price_id', 'current_period_end', 'cancel_at_period_end', 'metadata', 'created_at', 'updated_at', 'is_lifetime', 'tier', 'trial_end', 'canceled_at', 'ended_at', 'current_period_start', 'stripe_customer_id'],
   stripe_prices: ['id', 'product_id', 'lookup_key', 'currency', 'unit_amount', 'recurring', 'active', 'metadata', 'updated_at'],
   stripe_products: ['id', 'name', 'description', 'active', 'tier', 'metadata', 'created_at', 'updated_at'],
   launch_offer_usage: ['user_id', 'subscription_id', 'claimed_at'],
+  notifications: ['id', 'user_id', 'kind', 'title', 'body', 'link', 'dedup_key', 'is_read', 'read_at', 'created_at'],
+  audit_log: ['id', 'actor_id', 'action', 'target_type', 'target_id', 'diff', 'ip_hash', 'created_at'],
+  expert_verifications: ['id', 'post_id', 'expert_id', 'status', 'verification_text', 'fee_paid_chf', 'fee_paid_at', 'stripe_payment_intent_id', 'created_at', 'updated_at'],
+  marketplace_sellers: ['user_id', 'stripe_account_id', 'status', 'charges_enabled', 'payouts_enabled', 'details_submitted', 'requirements', 'country', 'default_currency', 'business_type', 'display_name', 'created_at', 'updated_at'],
+  app_settings: ['key', 'value', 'description', 'updated_at', 'updated_by'],
+  profiles: ['id', 'email', 'display_name', 'avatar_emoji', 'bio', 'xp', 'level', 'login_streak', 'longest_streak', 'total_logins', 'last_login', 'stats', 'milestones', 'tier', 'is_expert', 'is_admin', 'created_at', 'updated_at', 'role', 'role_assigned_at', 'role_assigned_by', 'role_note', 'scan_count', 'last_scan_at', 'is_lifetime', 'showcase_achievements', 'opt_in_achievement_feed', 'quiz_elo', 'battles_won', 'battles_lost', 'battles_tied', 'avatar_url', 'profile_visibility', 'show_finds_public', 'show_plants_count', 'show_achievements', 'show_marketplace', 'opt_in_feed', 'region', 'bio_emoji', 'comp_tier', 'comp_expires_at', 'comp_granted_by', 'comp_granted_at'],
 };
-const SCHLUESSEL = { stripe_webhook_events: ['id'], stripe_subscriptions: ['id'], stripe_prices: ['id'], stripe_products: ['id'], launch_offer_usage: ['user_id'], profiles: ['id'], marketplace_sellers: ['user_id'], app_settings: ['key'] };
-const PFLICHT = { stripe_webhook_events: ['id', 'type', 'payload'], stripe_subscriptions: ['id', 'user_id'] };
+// Was eine Spaltenliste NICHT sagt — live gemessen am 11.11.2026 (pg_constraint, pg_indexes, nur
+// lesend). Der erste Stand dieses Prüfstands kannte davon nichts und war 40 von 40 grün, während
+// drei Wege an der echten Datenbank gescheitert wären: ein Abo mit einem Preis, den stripe_prices
+// nicht kennt (Fremdschlüssel → 500 bei jeder Wiederholung), ein spätes Ereignis für ein gelöschtes
+// Konto (ebenso) und eine Experten-Gebühr mit einer Beitrags-Id, die keine UUID ist.
+const SCHLUESSEL = { stripe_webhook_events: ['id'], stripe_subscriptions: ['id'], stripe_prices: ['id'], stripe_products: ['id'], launch_offer_usage: ['user_id'], profiles: ['id'], marketplace_sellers: ['user_id'], app_settings: ['key'], notifications: ['id'], audit_log: ['id'], expert_verifications: ['id'] };
+// Worauf ON CONFLICT zeigen darf: nur auf eine VOLLE eindeutige Einschränkung (ein Teil-Index zählt nicht → 42P10).
+const EINDEUTIG = {
+  stripe_webhook_events: [['id']], stripe_subscriptions: [['id']], stripe_prices: [['id'], ['lookup_key']], stripe_products: [['id']],
+  launch_offer_usage: [['user_id']], notifications: [['id'], ['dedup_key']], marketplace_sellers: [['user_id'], ['stripe_account_id']],
+  expert_verifications: [['id'], ['post_id', 'expert_id']], app_settings: [['key']], profiles: [['id']], audit_log: [['id']],
+};
+// NOT NULL ohne Vorgabewert.
+const PFLICHT = { stripe_webhook_events: ['id', 'type', 'payload'], stripe_subscriptions: ['id', 'user_id'], notifications: ['user_id', 'title'], audit_log: ['action'], launch_offer_usage: ['user_id'], expert_verifications: ['post_id', 'expert_id'], marketplace_sellers: ['user_id'] };
+// Fremdschlüssel: 'nutzer' = auth.users (ON DELETE CASCADE), sonst die Tabelle, deren `id` gemeint ist.
+const FREMD = {
+  stripe_subscriptions: { user_id: 'nutzer', price_id: 'stripe_prices' },
+  notifications: { user_id: 'nutzer' },
+  launch_offer_usage: { user_id: 'nutzer' },
+  marketplace_sellers: { user_id: 'nutzer' },
+  expert_verifications: { expert_id: 'nutzer', post_id: 'social_posts' },
+};
+const FREMD_NAME = { 'stripe_subscriptions.user_id': 'stripe_subscriptions_user_id_fkey1', 'stripe_subscriptions.price_id': 'stripe_subscriptions_price_id_fkey1' };
+const CHECK = {
+  marketplace_sellers: { status: ['pending', 'active', 'restricted', 'disabled'] },
+  expert_verifications: { status: ['pending', 'verified', 'rejected', 'expired'] },
+  profiles: { tier: ['free', 'pro', 'lifetime'] },
+};
+const UUID_SPALTEN = { stripe_subscriptions: ['user_id'], notifications: ['id', 'user_id'], launch_offer_usage: ['user_id'], expert_verifications: ['id', 'post_id', 'expert_id'], marketplace_sellers: ['user_id'], profiles: ['id'], audit_log: ['actor_id'] };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const U3 = '33333333-3333-4333-8333-333333333333';   // Cleo — hat ihr Konto gelöscht: es gibt sie in auth.users nicht mehr
+const POST1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', POST2 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2';
 // Was die festgenagelte API-Version an „Create a Checkout Session" annimmt (stripe@17.7.0,
 // types/Checkout/SessionsResource.d.ts, 41 Felder) — alles andere lehnt Stripe mit 400 ab.
 const STRIPE_CHECKOUT_PARAMETER = ['adaptive_pricing', 'after_expiration', 'allow_promotion_codes', 'automatic_tax', 'billing_address_collection', 'cancel_url', 'client_reference_id', 'consent_collection', 'currency', 'custom_fields', 'custom_text', 'customer', 'customer_creation', 'customer_email', 'customer_update', 'discounts', 'expand', 'expires_at', 'invoice_creation', 'line_items', 'locale', 'metadata', 'mode', 'payment_intent_data', 'payment_method_collection', 'payment_method_configuration', 'payment_method_data', 'payment_method_options', 'payment_method_types', 'phone_number_collection', 'redirect_on_completion', 'return_url', 'saved_payment_method_options', 'setup_intent_data', 'shipping_address_collection', 'shipping_options', 'submit_type', 'subscription_data', 'success_url', 'tax_id_collection', 'ui_mode'];
@@ -156,7 +203,12 @@ function neueWelt(o) {
       nein: [],                                       // gestellte Ablehnungen: { tabelle, op? }
       prot: [],
       trigger: a.trigger !== false,                   // fn_sync_lifetime_to_profile, nachgebaut (Migration 20260504)
-      rpc: { launch_offer_available: true },
+      nutzer: new Set([U1, U2]),                      // auth.users — worauf jedes user_id verweist
+      // 'live' = die Funktion, wie sie am 11.11.2026 in der Datenbank steht (pg_get_functiondef):
+      // sie antwortet mit einem OBJEKT und rechnet mit auth.uid(). Der erste Stand dieses Prüfstands
+      // stellte hier `true` hin — eine Antwort, die es nie gab; daran war ein Checkout grün, der
+      // live jeden Lifetime-Kauf abgelehnt hätte.
+      rpc: { launch_offer_available: 'live' },
       t: {
         app_settings: [{ key: 'stripe_webhook_secret', value: GEHEIMNIS_DB }],
         profiles: [
@@ -175,7 +227,7 @@ function neueWelt(o) {
           { id: 'price_alt', product_id: 'prod_plus', lookup_key: 'plus_monthly', currency: 'chf', unit_amount: 390, recurring: { interval: 'month' }, active: false, metadata: { lookup_key: 'plus_monthly', interval: 'month' } },
         ],
         stripe_subscriptions: [], stripe_webhook_events: [], notifications: [], audit_log: [], launch_offer_usage: [],
-        expert_verifications: [], marketplace_sellers: [], social_posts: [],
+        expert_verifications: [], marketplace_sellers: [], social_posts: [{ id: POST1 }],
       },
     },
     stripe: {
@@ -195,6 +247,14 @@ const stripeRufe = (was) => W.stripe.rufe.filter((r) => r.was === was);
 function triggerSync(neu) {
   const p = tab('profiles').find((x) => x.id === neu.user_id);
   if (!p) return;
+  const tierVorher = p.tier;
+  try { triggerSyncRechnen(neu, p); } finally {
+    // profiles_tier_check (live): free · pro · lifetime. Setzte der Trigger etwas anderes, scheiterte
+    // die ganze Anweisung auf stripe_subscriptions — der Aufrufer bekommt 23514.
+    if (CHECK.profiles.tier.indexOf(p.tier) < 0) { const falsch = p.tier; p.tier = tierVorher; throw { dbFehler: dbFehler('23514', 'new row for relation "profiles" violates check constraint "profiles_tier_check" (tier = ' + falsch + ')') }; }
+  }
+}
+function triggerSyncRechnen(neu, p) {
   if (neu.is_lifetime === true) { p.tier = 'lifetime'; p.is_lifetime = true; }
   else if (neu.status === 'active' || neu.status === 'trialing') {
     const sp = tab('stripe_prices').find((x) => x.id === neu.price_id);
@@ -223,7 +283,7 @@ function sichtTier(uid, jetztS) {
 }
 
 // ── supabase-js, gestellt ─────────────────────────────────────────────────────
-const dbFehler = (code, message, status) => ({ data: null, error: { code, message, details: null, hint: null }, count: null, status: status || 400, statusText: 'Bad Request' });
+const dbFehler = (code, message, status, details) => ({ data: null, error: { code, message, details: details || null, hint: null }, count: null, status: status || 400, statusText: 'Bad Request' });
 function colsLesen(cols) {
   // "a, b, stripe_products(tier)" → { einfach: ['a','b'], eingebettet: [{ name, cols }] }
   const aus = { einfach: [], eingebettet: [] };
@@ -251,17 +311,39 @@ function dbAusfuehren(q) {
     }
   }
   const spalten = SPALTEN[q.tabelle];
+  if (!spalten) { W.ohneSpalten = (W.ohneSpalten || new Set()).add(q.tabelle); }
   const t = tab(q.tabelle);
   const passt = (zeile) => q.filter.every(([c, v]) => zeile[c] === v || (zeile[c] != null && v != null && String(zeile[c]) === String(v)));
-  if (spalten) for (const [c] of q.filter) if (spalten.indexOf(c) < 0) return dbFehler('42703', 'column ' + q.tabelle + '.' + c + ' does not exist');
+  const uuidSpalten = UUID_SPALTEN[q.tabelle] || [];
+  for (const [c, v] of q.filter) {
+    if (spalten && spalten.indexOf(c) < 0) return dbFehler('42703', 'column ' + q.tabelle + '.' + c + ' does not exist');
+    if (uuidSpalten.indexOf(c) >= 0 && !UUID.test(String(v))) return dbFehler('22P02', 'invalid input syntax for type uuid: "' + v + '"');
+  }
   const koerper = q.body == null ? [] : (Array.isArray(q.body) ? q.body : [q.body]);
   if (q.op !== 'select' && q.op !== 'delete') {
     for (const k of koerper) {
       if (spalten) for (const c of Object.keys(k)) if (spalten.indexOf(c) < 0) return dbFehler('PGRST204', "Could not find the '" + c + "' column of '" + q.tabelle + "' in the schema cache");
-      if (q.tabelle === 'stripe_subscriptions' && 'user_id' in k && !UUID.test(String(k.user_id))) return dbFehler('22P02', 'invalid input syntax for type uuid: "' + k.user_id + '"');
+      for (const c of uuidSpalten) if (k[c] != null && !UUID.test(String(k[c]))) return dbFehler('22P02', 'invalid input syntax for type uuid: "' + k[c] + '"');
       if (q.op !== 'update') for (const c of PFLICHT[q.tabelle] || []) if (k[c] == null) return dbFehler('23502', 'null value in column "' + c + '" of relation "' + q.tabelle + '" violates not-null constraint');
+      for (const [c, erlaubt] of Object.entries(CHECK[q.tabelle] || {})) if (k[c] != null && erlaubt.indexOf(k[c]) < 0) return dbFehler('23514', 'new row for relation "' + q.tabelle + '" violates check constraint "' + q.tabelle + '_' + c + '_check"');
+      for (const [c, ziel] of Object.entries(FREMD[q.tabelle] || {})) {
+        if (k[c] == null) continue;
+        const da = ziel === 'nutzer' ? D.nutzer.has(String(k[c])) : tab(ziel).some((x) => x.id === k[c]);
+        if (!da) return dbFehler('23503', 'insert or update on table "' + q.tabelle + '" violates foreign key constraint "' + (FREMD_NAME[q.tabelle + '.' + c] || q.tabelle + '_' + c + '_fkey') + '"', 409, 'Key (' + c + ')=(' + k[c] + ') is not present in table "' + (ziel === 'nutzer' ? 'users' : ziel) + '".');
+      }
+    }
+    if (q.op === 'upsert') {
+      const konflikt = q.opts && q.opts.onConflict ? String(q.opts.onConflict).split(',').map((x) => x.trim()) : (SCHLUESSEL[q.tabelle] || ['id']);
+      const eindeutig = EINDEUTIG[q.tabelle];
+      if (eindeutig && !eindeutig.some((e) => e.length === konflikt.length && e.every((c) => konflikt.indexOf(c) >= 0))) return dbFehler('42P10', 'there is no unique or exclusion constraint matching the ON CONFLICT specification');
     }
   }
+  // Eine Anweisung gilt ganz oder gar nicht — auch wenn erst der Trigger scheitert.
+  const standVorher = q.op === 'select' ? null : klon(D.t);
+  try { return dbSchreibenLesen(q, D, t, spalten, passt, koerper); }
+  catch (e) { if (e && e.dbFehler) { D.t = standVorher; return e.dbFehler; } throw e; }
+}
+function dbSchreibenLesen(q, D, t, spalten, passt, koerper) {
   const nachSchreiben = (zeile) => { if (q.tabelle === 'stripe_subscriptions' && D.trigger) triggerSync(zeile); };
   const vorgaben = (k) => {
     const jetztIso = new Date().toISOString();
@@ -323,6 +405,8 @@ function createClientStub(_url, key, opts) {
     const u = TOKEN[String(token || '').replace(/^Bearer\s+/i, '')];
     return u ? { data: { user: klon(u) }, error: null } : { data: { user: null }, error: { message: 'invalid JWT' } };
   };
+  const dienst = key === ENV_VORGABE.SUPABASE_SERVICE_ROLE_KEY;
+  const uid = () => { if (dienst) return null; const u = TOKEN[String(auth || '').replace(/^Bearer\s+/i, '')]; return u ? u.id : null; };   // auth.uid()
   return {
     auth: { getUser: async (token) => nutzer(token !== undefined ? token : auth) },
     from(tabelle) {
@@ -347,10 +431,18 @@ function createClientStub(_url, key, opts) {
       const k = {
         then(ja, nein) {
           return Promise.resolve().then(() => {
-            W.db.prot.push({ tabelle: 'rpc/' + name, op: 'rpc', body: klon(args) });
+            W.db.prot.push({ tabelle: 'rpc/' + name, op: 'rpc', body: klon(args), dienst, uid: uid() });
             for (const n of W.db.nein) if (n.tabelle === 'rpc/' + name) return dbFehler('42501', 'permission denied for function ' + name, 403);
             if (!Object.prototype.hasOwnProperty.call(W.db.rpc, name)) return dbFehler('PGRST202', 'Could not find the function public.' + name + ' in the schema cache', 404);
-            return { data: W.db.rpc[name], error: null, count: null, status: 200, statusText: 'OK' };
+            let daten = W.db.rpc[name];
+            if (name === 'launch_offer_available' && daten === 'live') {
+              // public.launch_offer_available(), Wort für Wort (live gelesen am 11.11.2026):
+              //   IF auth.uid() IS NULL THEN RETURN {available: true, logged_in: false};
+              //   RETURN {available: (count < 100) AND NOT used, logged_in: true, claimed: count}
+              const ich = uid(), zeilen = tab('launch_offer_usage');
+              daten = ich === null ? { available: true, logged_in: false } : { available: zeilen.length < 100 && !zeilen.some((x) => x.user_id === ich), logged_in: true, claimed: zeilen.length };
+            }
+            return { data: klon(daten), error: null, count: null, status: 200, statusText: 'OK' };
           }).then(ja, nein);
         },
       };
@@ -551,7 +643,7 @@ const RECHNUNG = [
     },
   },
   {
-    name: 'Ereignisliste · fünfzehn Ereignisse, jedes mit einer Wirkung aus dem Vokabular; „nichts" nur mit Grund; Unbekanntes ist unbekannt',
+    name: 'Ereignisliste · sechzehn Ereignisse, jedes mit einer Wirkung aus dem Vokabular; „nichts" nur mit Grund; Unbekanntes ist unbekannt',
     lauf: (M) => {
       const arten = ['abo', 'abschluss', 'erstattung', 'mitteilung', 'protokoll', 'marktplatz', 'nichts'];
       const namen = Object.keys(M.STRIPE_EREIGNISSE);
@@ -559,7 +651,8 @@ const RECHNUNG = [
       if (falsch.length) return { ok: false, warum: 'ohne gültige Wirkung: ' + falsch.join(', ') };
       const ohneGrund = namen.filter((n) => M.STRIPE_EREIGNISSE[n].wirkung === 'nichts' && !M.STRIPE_EREIGNISSE[n].grund);
       if (ohneGrund.length) return { ok: false, warum: '„nichts" ohne Grund: ' + ohneGrund.join(', ') };
-      const muss = ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'invoice.paid', 'invoice.payment_failed', 'charge.refunded', 'customer.subscription.trial_will_end'];
+      if (namen.length !== 16) return { ok: false, warum: namen.length + ' Ereignisse statt 16 — den Namen dieses Falls und die Liste in docs/FUER-FERNANDO nachziehen' };
+      const muss = ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'invoice.paid', 'invoice.payment_failed', 'charge.refunded', 'customer.subscription.trial_will_end'];
       const fehlt = muss.filter((n) => M.ereignisWirkung(n) === null);
       if (fehlt.length) return { ok: false, warum: 'fehlt in der Liste: ' + fehlt.join(', ') };
       if (M.ereignisWirkung('customer.created') !== null || M.ereignisWirkung('toString') !== null || M.ereignisWirkung('') !== null) return { ok: false, warum: 'ein unbekanntes Ereignis gilt als bekannt' };
@@ -595,19 +688,26 @@ const RECHNUNG = [
     lauf: (M) => {
       neueWelt();
       const P = (id) => tab('stripe_prices').find((x) => x.id === id);
-      const plan = (e) => M.checkoutPlan(Object.assign({ ersterAbschluss: true, launchFrei: true }, e));
+      const plan = (e) => M.checkoutPlan(Object.assign({ ersterAbschluss: true, launchStand: 'frei' }, e));
       const a = plan({ preisZeile: P('price_monat') });
       if (!a.ok || a.modus !== 'subscription' || a.probeTage !== 7 || a.launch !== false) return { ok: false, warum: 'Monat: ' + z(a) };
       const b = plan({ preisZeile: P('price_leben') });
       if (!b.ok || b.modus !== 'payment' || b.probeTage !== 0 || b.launch !== true) return { ok: false, warum: 'Lifetime: ' + z(b) };
       const nein = [[plan({ preisZeile: null }), 400, 'preis_unbekannt'], [plan({ preisZeile: P('price_alt') }), 400, 'preis_inaktiv'], [plan({ preisZeile: { id: 'p', active: true, recurring: null, metadata: {} } }), 400, 'preis_ohne_intervall'],
-        [plan({ preisZeile: P('price_leben'), launchFrei: false }), 410, 'launch_ausverkauft'], [plan({ preisZeile: P('price_leben'), launchFrei: undefined }), 410, 'launch_ausverkauft']];
+        [plan({ preisZeile: P('price_leben'), launchStand: 'ausverkauft' }), 410, 'launch_ausverkauft'], [plan({ preisZeile: P('price_leben'), launchStand: 'schon_gekauft' }), 409, 'launch_schon_gekauft'],
+        [plan({ preisZeile: P('price_leben'), launchStand: null }), 503, 'launch_unklar'], [plan({ preisZeile: P('price_leben'), launchStand: undefined }), 503, 'launch_unklar'], [plan({ preisZeile: P('price_leben'), launchStand: true }), 503, 'launch_unklar']];
       for (const [r, status, grund] of nein) if (r.ok || r.status !== status || r.grund !== grund) return { ok: false, warum: 'erwartet ' + status + ' ' + grund + ', bekommen ' + z(r) };
-      if (!plan({ preisZeile: P('price_monat'), launchFrei: false }).ok) return { ok: false, warum: 'ein gewöhnlicher Preis hängt am Launch-Zähler' };
+      if (!plan({ preisZeile: P('price_monat'), launchStand: 'ausverkauft' }).ok || !plan({ preisZeile: P('price_monat'), launchStand: null }).ok) return { ok: false, warum: 'ein gewöhnlicher Preis hängt am Launch-Zähler' };
+      // Die Antwort der Datenbankfunktion, wie sie live aussieht — und wie sie NICHT gelesen werden darf.
+      const ls = [[{ available: true, logged_in: true, claimed: 0 }, 'frei'], [{ available: true, logged_in: true, claimed: 99 }, 'frei'], [{ available: false, logged_in: true, claimed: 100 }, 'ausverkauft'], [{ available: false, logged_in: true, claimed: 140 }, 'ausverkauft'],
+        [{ available: false, logged_in: true, claimed: 7 }, 'schon_gekauft'], [{ available: false, logged_in: true }, 'ausverkauft'], [{ available: true, logged_in: false }, null], [{ available: true }, null], [true, null], [false, null], [null, null], [undefined, null],
+        ['true', null], [[{ available: true, logged_in: true }], null], [{ available: 'true', logged_in: true }, null], [{ logged_in: true }, null]];
+      for (const [antwort, soll] of ls) { const ist = M.launchStand(antwort); if (ist !== soll) return { ok: false, warum: 'launchStand(' + z(antwort) + ') = ' + z(ist) + ' statt ' + z(soll) }; }
+      if (M.LAUNCH_PLAETZE !== 100) return { ok: false, warum: 'Plätze: ' + M.LAUNCH_PLAETZE + ' — die Datenbankfunktion zählt bis 100' };
       const t = [[undefined, true, 7], [null, true, 7], [3, true, 3], [30, true, 7], [7, true, 7], [0, true, 0], [-2, true, 0], ['7', true, 0], [6.9, true, 6], [0.5, true, 0], [NaN, true, 0], [undefined, false, 0], [7, false, 0]];
       for (const [wunsch, erst, soll] of t) { const ist = M.probeTage({ modus: 'subscription', ersterAbschluss: erst, wunsch }); if (ist !== soll) return { ok: false, warum: 'Probezeit bei Wunsch ' + z(wunsch) + (erst ? '' : ' (nicht das erste Abo)') + ': ' + ist + ' statt ' + soll }; }
       if (M.probeTage({ modus: 'payment', ersterAbschluss: true, wunsch: 7 }) !== 0) return { ok: false, warum: 'eine Einmalzahlung bekommt eine Probezeit' };
-      return { ok: true, info: 'Monat → Abo mit 7 Tagen · Lifetime → Einmalzahlung, Launch · inaktiv/unbekannt 400 · ausverkauft 410 · ' + t.length + ' Probezeit-Fälle (30 → 7, 0.5 → 0)' };
+      return { ok: true, info: 'Monat → Abo mit 7 Tagen · Lifetime → Einmalzahlung, Launch · inaktiv/unbekannt 400 · ausverkauft 410 · schon gekauft 409 · nicht feststellbar 503 · ' + ls.length + ' Antworten der Datenbankfunktion (ein blosses `true` ist KEIN „frei") · ' + t.length + ' Probezeit-Fälle (30 → 7, 0.5 → 0)' };
     },
   },
   {
@@ -686,7 +786,13 @@ const RECHNUNG = [
       const m = M.probeEndeMitteilung(mz), ohne = M.probeEndeMitteilung(null);
       if (m.body.indexOf('24.5.2026') < 0 || /Karte|Trial/i.test(m.title + m.body + ohne.body) || ohne.body.indexOf('bald') < 0 || !/kündigen/.test(m.body)) return { ok: false, warum: 'Mitteilung: ' + z(m) + ' / ' + z(ohne) };
       if (M.nutzerAusMetadaten({ supabase_user_id: U1.toUpperCase() }) !== U1 || M.nutzerAusMetadaten({ supabase_user_id: 'anna' }) !== null || M.nutzerAusMetadaten(null) !== null || M.idVon({ id: 'x' }) !== 'x' || M.idVon('') !== null) return { ok: false, warum: 'Nutzer/Id aus Metadaten' };
-      return { ok: true, info: '„' + geworfen + '" · 23.05. 22:30 UTC → ' + M.datumSchweiz(mz) + ' · „' + m.body.slice(0, 62) + '…"' };
+      // Die Datenbank sagt „diese Person gibt es nicht" — mit den Texten, die PostgREST wirklich schickt.
+      const fk = (spalte, tabelle) => { try { M.dbMuss(dbFehler('23503', 'insert or update on table "stripe_subscriptions" violates foreign key constraint "stripe_subscriptions_' + spalte + '_fkey1"', 409, 'Key (' + spalte + ')=(x) is not present in table "' + tabelle + '".'), 's'); } catch (e) { return e; } return null; };
+      let anderer = null; try { M.dbMuss(dbFehler('42501', 'permission denied for table stripe_subscriptions (user_id)'), 's'); } catch (e) { anderer = e; }
+      if (M.istNutzerWeg(fk('user_id', 'users')) !== true || M.istNutzerWeg(fk('price_id', 'stripe_prices')) !== false || M.istNutzerWeg(anderer) !== false || M.istNutzerWeg(new Error('23503 user_id')) !== false || M.istNutzerWeg(null) !== false) return { ok: false, warum: 'istNutzerWeg: ein verletzter user_id-Fremdschlüssel ist „Konto weg" — ein fremder Preis, eine Ablehnung oder ein blosser Text sind es nicht' };
+      const sp = [['fr', 'fr'], ['IT', 'it'], ['de-CH', 'de'], ['en_US', 'en'], [' de ', 'de'], ['rm', 'auto'], ['', 'auto'], [undefined, 'auto'], [null, 'auto'], [7, 'auto'], [{}, 'auto'], ['auto', 'auto']];
+      for (const [wunsch, soll] of sp) if (M.stripeSprache(wunsch) !== soll) return { ok: false, warum: 'stripeSprache(' + z(wunsch) + ') = ' + M.stripeSprache(wunsch) + ' statt ' + soll };
+      return { ok: true, info: '„' + geworfen + '" · 23.05. 22:30 UTC → ' + M.datumSchweiz(mz) + ' · „' + m.body.slice(0, 62) + '…" · gelöschtes Konto erkannt (nur am user_id-Fremdschlüssel) · ' + sp.length + ' Sprach-Fälle' };
     },
   },
 ];
@@ -1028,15 +1134,18 @@ const WEBHOOK = [
       W.stripe.posten.cs_k = [{ id: 'li_k', price: { id: 'price_leben' } }];
       const c2 = await liefere(ereignis('checkout.session.completed', { id: 'cs_k', object: 'checkout.session', mode: 'payment', payment_status: 'paid', customer: 'cus_niemand', payment_intent: 'pi_k', metadata: { supabase_user_id: 'anna', claim_launch_offer: '1' } }));
       if (c2.status !== 200 || tab('stripe_subscriptions').some((x) => x.is_lifetime)) return { ok: false, warum: 'Lifetime-Kauf mit einem Nutzer, der keine UUID ist: status ' + c2.status + ' — ' + c2.text.slice(0, 110) };
-      // Unbekannter Preis: die Zeile wird geschrieben (der Status ist eine Tatsache), aber ohne Pro — und es steht da
+      // Unbekannter Preis: die Zeile wird geschrieben (der Status ist eine Tatsache), aber ohne Pro — und es steht da.
+      // `price_id` ist live ein Fremdschlüssel auf stripe_prices: der fremde Preis darf NICHT in die Zeile (sonst 500
+      // bei jeder Wiederholung) — er steht im Grund.
       W.stripe.kunden.cus_anna = { id: 'cus_anna', metadata: { supabase_user_id: U1 } };
       W.stripe.abos.sub_p = abo({ id: 'sub_p', preis: 'price_fremd' });
       const e4 = ereignis('customer.subscription.created', W.stripe.abos.sub_p);
       const d = await liefere(e4);
       const z4 = ereignisZeile(e4.id);
-      if (d.status !== 200 || !aboZeile('sub_p') || aboZeile('sub_p').tier !== 'free' || sichtTier(U1) === 'pro') return { ok: false, warum: 'unbekannter Preis: status ' + d.status + ' · tier ' + (aboZeile('sub_p') && aboZeile('sub_p').tier) + ' · ' + sichtTier(U1) };
+      if (d.status !== 200 || !aboZeile('sub_p') || aboZeile('sub_p').tier !== 'free' || sichtTier(U1) === 'pro') return { ok: false, warum: 'unbekannter Preis: status ' + d.status + ' · Zeile ' + !!aboZeile('sub_p') + ' · tier ' + (aboZeile('sub_p') && aboZeile('sub_p').tier) + ' · ' + sichtTier(U1) + ' — ' + d.text.slice(0, 150) };
+      if (aboZeile('sub_p').price_id !== null || aboZeile('sub_p').status !== 'active' || aboZeile('sub_p').stripe_customer_id !== 'cus_anna') return { ok: false, warum: 'unbekannter Preis: die Zeile trägt ' + z({ price_id: aboZeile('sub_p').price_id, status: aboZeile('sub_p').status }) + ' — erwartet price_id null, Status und Kunde wie bei Stripe' };
       if (!z4.error || !/price_fremd/.test(z4.error)) return { ok: false, warum: 'ein zahlendes Abo ohne Tier, und nichts sagt es: ' + z(z4.error) };
-      return { ok: true, info: 'ohne Nutzer: 200, „' + z1.error.slice(0, 52) + '…" · Nutzer am Kunden → zugeordnet · keine UUID → 200 ohne Zeile · fremder Preis → Zeile ohne Pro, „' + z4.error.slice(0, 40) + '…"' };
+      return { ok: true, info: 'ohne Nutzer: 200, „' + z1.error.slice(0, 52) + '…" · Nutzer am Kunden → zugeordnet · keine UUID → 200 ohne Zeile · fremder Preis → Zeile ohne Preis und ohne Pro, „' + z4.error.slice(0, 40) + '…"' };
     },
   },
   {
@@ -1076,6 +1185,66 @@ const WEBHOOK = [
     },
   },
   {
+    name: 'Gelöschtes Konto · ein spätes Ereignis für eine Person, die es nicht mehr gibt, wird bestätigt und begründet — nicht drei Tage lang mit 500 beantwortet; ein ANDERES Nein der Datenbank bleibt 500',
+    lauf: async () => {
+      // Cleo (U3) hat ihr Konto gelöscht: auth.users kennt sie nicht mehr, ihr Stripe-Abo läuft noch aus.
+      const welt = () => { neueWelt(); W.stripe.kunden.cus_cleo = { id: 'cus_cleo', object: 'customer', metadata: { supabase_user_id: U3 } }; W.stripe.abos.sub_c = abo({ id: 'sub_c', nutzer: U3, kunde: 'cus_cleo', status: 'canceled', canceled_at: W.jetzt, ended_at: W.jetzt }); };
+      welt();
+      const e1 = ereignis('customer.subscription.deleted', W.stripe.abos.sub_c);
+      const a = await liefere(e1);
+      const z1 = ereignisZeile(e1.id);
+      if (a.status !== 200) return { ok: false, warum: 'Kündigung für ein gelöschtes Konto: status ' + a.status + ' — Stripe wiederholt das drei Tage lang · ' + a.text.slice(0, 160) };
+      if (tab('stripe_subscriptions').length || !z1 || z1.processed !== true || !z1.error || !/Konto/.test(z1.error)) return { ok: false, warum: 'gelöschtes Konto: Abo-Zeilen ' + tab('stripe_subscriptions').length + ' · Ereigniszeile ' + z(z1 && { processed: z1.processed, error: z1.error }) };
+      welt(); W.stripe.abos.sub_c = abo({ id: 'sub_c', nutzer: U3, kunde: 'cus_cleo', status: 'trialing', trial_end: W.jetzt + 3 * TAG });
+      const b = await liefere(ereignis('customer.subscription.trial_will_end', W.stripe.abos.sub_c));
+      if (b.status !== 200 || tab('notifications').length) return { ok: false, warum: '„Probezeit endet" für ein gelöschtes Konto: status ' + b.status + ' · Mitteilungen ' + tab('notifications').length };
+      welt(); W.stripe.posten.cs_c = [{ id: 'li_c', price: { id: 'price_leben' } }];
+      const e3 = ereignis('checkout.session.completed', { id: 'cs_c', object: 'checkout.session', mode: 'payment', payment_status: 'paid', customer: 'cus_cleo', payment_intent: 'pi_c', metadata: { supabase_user_id: U3, claim_launch_offer: '1' } });
+      const c = await liefere(e3);
+      if (c.status !== 200 || tab('stripe_subscriptions').length || tab('launch_offer_usage').length || !/Konto/.test(String(ereignisZeile(e3.id).error))) return { ok: false, warum: 'Lifetime-Kauf für ein gelöschtes Konto: status ' + c.status + ' · Zeilen ' + tab('stripe_subscriptions').length + '/' + tab('launch_offer_usage').length + ' · Grund ' + z(ereignisZeile(e3.id).error) };
+      // Gegenrichtung: ein fremder PREIS in der Lifetime-Zeile wäre auch 23503 — das ist KEIN gelöschtes Konto
+      neueWelt(); ANNA_KUNDE(); W.stripe.abos.sub_1 = abo();
+      W.db.nein.push({ tabelle: 'stripe_subscriptions', op: 'schreiben', code: '23503', message: 'insert or update on table "stripe_subscriptions" violates foreign key constraint "stripe_subscriptions_price_id_fkey1"' });
+      const d = await liefere(ereignis('customer.subscription.created', W.stripe.abos.sub_1));
+      if (d.status < 500) return { ok: false, warum: 'ein verletzter Fremdschlüssel, der NICHT user_id ist, wurde als „Konto weg" bestätigt: status ' + d.status };
+      return { ok: true, info: 'Kündigung, „Probezeit endet" und Lifetime-Kauf für ein gelöschtes Konto → je 200, 0 Zeilen, Grund: „' + String(z1.error).slice(0, 58) + '…" · ein anderer Fremdschlüssel bleibt ' + d.status };
+    },
+  },
+  {
+    name: 'Buchführung · ein verarbeitetes Ereignis trägt `processed = true` (das liest die Admin-Übersicht als „unverarbeitet"), ein gescheitertes nicht',
+    lauf: async () => {
+      neueWelt(); ANNA_KUNDE(); W.stripe.abos.sub_1 = abo();
+      const e1 = ereignis('customer.subscription.created', W.stripe.abos.sub_1), e2 = ereignis('customer.created', { id: 'cus_x', object: 'customer' });
+      await liefere(e1); await liefere(e2);
+      const offen = tab('stripe_webhook_events').filter((e) => e.processed !== true || !e.processed_at);
+      if (tab('stripe_webhook_events').length !== 2 || offen.length) return { ok: false, warum: offen.length + ' von ' + tab('stripe_webhook_events').length + ' verarbeiteten Ereignissen stehen auf processed = ' + z(offen.map((e) => e.processed)) + ' — fn_admin_stripe_overview zählt sie als „unverarbeitet", für immer' };
+      const e3 = ereignis('customer.subscription.updated', W.stripe.abos.sub_1);
+      W.db.nein.push({ tabelle: 'stripe_subscriptions', op: 'schreiben' });
+      const f = await liefere(e3);
+      const z3 = ereignisZeile(e3.id);
+      if (f.status < 500 || !z3 || z3.processed === true || z3.processed_at) return { ok: false, warum: 'ein GESCHEITERTES Ereignis gilt als verarbeitet: ' + z(z3 && { processed: z3.processed, processed_at: z3.processed_at }) };
+      const sicht = fs.readFileSync(path.join(WURZEL, 'supabase', 'migrations', 'v28_65_admin_stripe_overview_rpc.sql'), 'utf8');
+      if (!/WHERE processed=false/.test(sicht)) return { ok: false, warum: 'fn_admin_stripe_overview liest `processed` nicht mehr so — diesen Fall nachziehen' };
+      return { ok: true, info: '2 verarbeitet → processed = true · 1 gescheitert → processed bleibt false, Stripe bekommt ' + f.status };
+    },
+  },
+  {
+    name: 'Verzögerte Zahlungsart · „Checkout fertig" kommt UNBEZAHLT und schaltet nichts frei — ohne einen Fehler zu behaupten; erst „Zahlung eingegangen" schaltet Lifetime frei',
+    lauf: async () => {
+      neueWelt(); ANNA_KUNDE();
+      W.stripe.posten.cs_v = [{ id: 'li_v', price: { id: 'price_leben' } }];
+      const sitzung = (bezahlt) => ({ id: 'cs_v', object: 'checkout.session', mode: 'payment', payment_status: bezahlt ? 'paid' : 'unpaid', customer: 'cus_anna', payment_intent: 'pi_v', amount_total: 4560, metadata: { supabase_user_id: U1, claim_launch_offer: '1' } });
+      const e1 = ereignis('checkout.session.completed', sitzung(false));
+      const a = await liefere(e1);
+      if (a.status !== 200 || sichtTier(U1) !== 'free' || tab('stripe_subscriptions').length) return { ok: false, warum: 'unbezahlt: status ' + a.status + ' · ' + sichtTier(U1) };
+      if (ereignisZeile(e1.id).error) return { ok: false, warum: 'der gewöhnliche Stand einer verzögerten Zahlung steht als Fehler in der Ereigniszeile: ' + z(ereignisZeile(e1.id).error) };
+      const b = await liefere(ereignis('checkout.session.async_payment_succeeded', sitzung(true)));
+      const zeile = aboZeile('lifetime_' + U1);
+      if (b.status !== 200 || !zeile || zeile.is_lifetime !== true || sichtTier(U1) !== 'lifetime' || tab('launch_offer_usage').length !== 1) return { ok: false, warum: 'nach „Zahlung eingegangen": status ' + b.status + ' · Zeile ' + !!zeile + ' · ' + sichtTier(U1) + ' — bezahlt, aber nie freigeschaltet' };
+      return { ok: true, info: 'completed/unpaid → 200, free, kein Vermerk · async_payment_succeeded → lifetime, Launch-Zähler 1' };
+    },
+  },
+  {
     name: 'Marktplatz und Experten-Gebühr · der Status eines Verkäufer-Kontos folgt Stripe; die bezahlte Gebühr bestätigt genau diese Verifikation — und eine Zahlung ohne Eintrag sagt es',
     lauf: async () => {
       const konto = async (felder, start) => {
@@ -1098,17 +1267,24 @@ const WEBHOOK = [
       const weg = await liefere(ereignis('account.application.deauthorized', { id: 'ca_1', object: 'application' }, { account: 'acct_1' }));
       if (weg.status !== 200 || tab('marketplace_sellers')[0].status !== 'disabled' || tab('marketplace_sellers')[0].charges_enabled !== false) return { ok: false, warum: 'getrennt: ' + z(tab('marketplace_sellers')[0]) };
       // Experten-Gebühr
-      neueWelt(); tab('expert_verifications').push({ post_id: 'post-1', expert_id: U2, status: 'pending', fee_paid_chf: 0 });
+      neueWelt(); tab('expert_verifications').push({ post_id: POST1, expert_id: U2, status: 'pending', fee_paid_chf: 0 });
       const sitzung = (post) => ereignis('checkout.session.completed', { id: 'cs_e_' + post, object: 'checkout.session', mode: 'payment', payment_status: 'paid', payment_intent: 'pi_e', amount_total: 50, metadata: { kind: 'expert_verification', supabase_user_id: U1, post_id: post, expert_id: U2 } });
-      const e1 = await liefere(sitzung('post-1'));
+      const e1 = await liefere(sitzung(POST1));
       const v = tab('expert_verifications')[0];
       if (e1.status !== 200 || v.status !== 'verified' || v.fee_paid_chf !== 0.5 || v.stripe_payment_intent_id !== 'pi_e') return { ok: false, warum: 'Gebühr: status ' + e1.status + ' · ' + z(v) };
       if (tab('stripe_subscriptions').length || sichtTier(U1) !== 'free') return { ok: false, warum: 'die Experten-Gebühr hat ein Abo oder Lifetime angelegt' };
-      const ev2 = sitzung('post-gibt-es-nicht');
+      const ev2 = sitzung(POST2);
       const e2 = await liefere(ev2);
       const ez = ereignisZeile(ev2.id);
       if (e2.status !== 200 || !ez.error) return { ok: false, warum: 'bezahlt, aber keine Verifikation dazu — und die Ereigniszeile schweigt: status ' + e2.status + ' · ' + z(ez.error) };
-      return { ok: true, info: t.length + ' Konto-Zustände · unbekanntes Konto unberührt · getrennt → disabled · Gebühr 0.50 CHF → verified · Zahlung ohne Eintrag: „' + String(ez.error).slice(0, 50) + '…"' };
+      // post_id und expert_id sind live uuid: etwas anderes lehnte die Datenbank bei JEDER Wiederholung ab (22P02)
+      const ev3 = sitzung('beitrag-nummer-eins');
+      const e3 = await liefere(ev3);
+      const ez3 = ereignisZeile(ev3.id);
+      if (e3.status !== 200 || !ez3 || !ez3.error || W.db.prot.some((p) => p.tabelle === 'expert_verifications' && p.filter.some((f) => f[1] === 'beitrag-nummer-eins'))) return { ok: false, warum: 'eine Beitrags-Id, die keine UUID ist: status ' + e3.status + ' (500 hiesse: Stripe wiederholt drei Tage lang) · Grund ' + z(ez3 && ez3.error) };
+      const pi = await liefere(ereignis('payment_intent.succeeded', { id: 'pi_q', object: 'payment_intent', amount_received: 50, metadata: { kind: 'expert_verification', post_id: 'x', expert_id: U2 } }));
+      if (pi.status !== 200) return { ok: false, warum: 'dieselbe Gebühr über einen PaymentIntent mit einer Id, die keine UUID ist: status ' + pi.status };
+      return { ok: true, info: t.length + ' Konto-Zustände · unbekanntes Konto unberührt · getrennt → disabled · Gebühr 0.50 CHF → verified · Zahlung ohne Eintrag: „' + String(ez.error).slice(0, 50) + '…" · Id ohne UUID-Form → 200 mit Grund, keine Anfrage an die Datenbank' };
     },
   },
 ];
@@ -1143,11 +1319,18 @@ const CHECKOUT = [
       if (p.mode !== 'subscription' || z(p.line_items) !== z([{ price: 'price_monat', quantity: 1 }]) || p.subscription_data.trial_period_days !== 7 || p.payment_method_collection !== 'always') return { ok: false, warum: 'Aufruf: ' + z(p) };
       if (p.metadata.supabase_user_id !== U1 || p.subscription_data.metadata.supabase_user_id !== U1) return { ok: false, warum: 'der Nutzer reist nicht mit: ' + z(p.metadata) };
       if (r.daten.mode !== 'subscription' || r.daten.trial_days !== 7) return { ok: false, warum: 'Antwort: ' + z(r.daten) };
+      if (p.locale !== 'auto') return { ok: false, warum: 'ohne Angabe der App entscheidet der Browser (auto) — an Stripe ging „' + p.locale + '"' };
+      for (const [wunsch, soll] of [['fr', 'fr'], ['it', 'it'], ['en', 'en'], ['de', 'de'], ['xx', 'auto'], [42, 'auto']]) {
+        await rufe('checkout', { body: { price_id: 'price_monat', locale: wunsch } });
+        const letzte = stripeRufe('checkout.sessions.create').slice(-1)[0].arg;
+        if (letzte.locale !== soll) return { ok: false, warum: 'Sprache ' + z(wunsch) + ': an Stripe ging „' + letzte.locale + '" statt „' + soll + '"' };
+      }
+      W.stripe.rufe = W.stripe.rufe.filter((x) => x.was !== 'checkout.sessions.create').concat(s);
       const j = await rufe('checkout', { body: { price_id: 'price_jahr', trial_days: 7 } });
       const l = await rufe('checkout', { body: { price_id: 'price_leben', claim_launch_offer: true } });
       const pl = stripeRufe('checkout.sessions.create')[2] && stripeRufe('checkout.sessions.create')[2].arg;
       if (j.status !== 200 || l.status !== 200 || !pl || pl.mode !== 'payment' || pl.subscription_data || z(pl.line_items) !== z([{ price: 'price_leben', quantity: 1 }])) return { ok: false, warum: 'Jahr ' + j.status + ' · Lifetime ' + l.status + ' · ' + z(pl) };
-      return { ok: true, info: '3 Käufe (Monat, Jahr, Lifetime) → 3 Sitzungen · Parameter: ' + Object.keys(p).sort().join(', ') };
+      return { ok: true, info: '3 Käufe (Monat, Jahr, Lifetime) → 3 Sitzungen · Sprache der App reist mit (fr/it/en/de, sonst auto) · Parameter: ' + Object.keys(p).sort().join(', ') };
     },
   },
   {
@@ -1217,24 +1400,48 @@ const CHECKOUT = [
     },
   },
   {
-    name: 'Launch-Angebot · ob es noch frei ist, entscheidet der PREIS und der Zähler — nicht ein Feld der Anfrage; ausverkauft heisst 410 und keine Sitzung',
+    name: 'Launch-Angebot · ob es noch frei ist, entscheidet der PREIS und der Zähler der Datenbank — gefragt als die PERSON, gelesen als das Objekt, das die Funktion wirklich schickt; ausverkauft 410, schon gekauft 409, nicht feststellbar 503 — nie eine Sitzung',
     lauf: async () => {
-      neueWelt(); W.db.rpc.launch_offer_available = false;
+      const andere = (n) => { for (let i = 0; i < n; i++) tab('launch_offer_usage').push({ user_id: '9' + String(i).padStart(7, '0') + '-0000-4000-8000-000000000000', subscription_id: 'lifetime_x' + i }); };
+      // frei: der erste Lifetime-Kauf kommt zustande — genau der Fall, den ein Vergleich mit `true` ablehnte
+      neueWelt();
+      const frei = await rufe('checkout', { body: { price_id: 'price_leben', claim_launch_offer: false } });
+      const p = stripeRufe('checkout.sessions.create')[0] && stripeRufe('checkout.sessions.create')[0].arg;
+      if (frei.status !== 200 || !p || p.mode !== 'payment' || p.metadata.claim_launch_offer !== '1') return { ok: false, warum: 'frei (0 von 100 vergeben): status ' + frei.status + ' · ' + frei.text.slice(0, 120) + ' · Marke ' + z(p && p.metadata) + ' — ohne die Marke zählt der Webhook den Kauf nicht' };
+      const frage = W.db.prot.filter((x) => x.tabelle === 'rpc/launch_offer_available');
+      if (frage.length !== 1 || frage[0].dienst !== false || frage[0].uid !== U1) return { ok: false, warum: 'die Datenbankfunktion wurde ' + frage.length + '× gefragt, als ' + z(frage[0] && { dienst: frage[0].dienst, uid: frage[0].uid }) + ' — mit dem Service-Schlüssel ist auth.uid() leer und die Antwort immer „frei"' };
+      // 99 vergeben: noch frei · 100 vergeben: ausverkauft, in jeder Schreibweise der Anfrage
+      neueWelt(); andere(99);
+      const knapp = await rufe('checkout', { body: { price_id: 'price_leben' } });
+      if (knapp.status !== 200) return { ok: false, warum: '99 von 100 vergeben: status ' + knapp.status };
+      neueWelt(); andere(100);
       const a = await rufe('checkout', { body: { price_id: 'price_leben', claim_launch_offer: true } });
       const b = await rufe('checkout', { body: { price_id: 'price_leben', claim_launch_offer: false } });
       const c = await rufe('checkout', { body: { price_id: 'price_leben' } });
-      if (a.status !== 410 || b.status !== 410 || c.status !== 410 || stripeRufe('checkout.sessions.create').length) return { ok: false, warum: 'ausverkauft: mit Feld ' + a.status + ' · Feld auf false ' + b.status + ' · ohne Feld ' + c.status + ' · Sitzungen ' + stripeRufe('checkout.sessions.create').length + ' — wer das Feld weglässt, kauft das Angebot nach dem hundertsten Mal' };
+      if (a.status !== 410 || b.status !== 410 || c.status !== 410 || stripeRufe('checkout.sessions.create').length) return { ok: false, warum: 'ausverkauft (100 vergeben): mit Feld ' + a.status + ' · Feld auf false ' + b.status + ' · ohne Feld ' + c.status + ' · Sitzungen ' + stripeRufe('checkout.sessions.create').length + ' — wer das Feld weglässt, kauft das Angebot nach dem hundertsten Mal' };
+      if (!a.daten || a.daten.grund !== 'launch_ausverkauft') return { ok: false, warum: 'ausverkauft ohne Grund-Kennung für die App: ' + a.text.slice(0, 120) };
       const m = await rufe('checkout', { body: { price_id: 'price_monat', claim_launch_offer: true } });
       if (m.status !== 200) return { ok: false, warum: 'ein gewöhnliches Abo scheitert am Launch-Zähler: ' + m.status };
       if (stripeRufe('checkout.sessions.create')[0].arg.metadata.claim_launch_offer !== '0') return { ok: false, warum: 'ein Abo trägt die Launch-Marke aus der Anfrage' };
-      neueWelt(); W.db.rpc.launch_offer_available = true;
-      const d = await rufe('checkout', { body: { price_id: 'price_leben', claim_launch_offer: false } });
-      const p = stripeRufe('checkout.sessions.create')[0] && stripeRufe('checkout.sessions.create')[0].arg;
-      if (d.status !== 200 || !p || p.metadata.claim_launch_offer !== '1') return { ok: false, warum: 'frei: status ' + d.status + ' · Marke ' + z(p && p.metadata) + ' — ohne die Marke zählt der Webhook den Kauf nicht' };
+      if (W.db.prot.some((x) => x.tabelle === 'rpc/launch_offer_available' && x.uid === U1) === false) return { ok: false, warum: 'die Funktion wurde nicht als Anna gefragt' };
+      // schon gekauft: Anna hat ihren Platz — das ist nicht „ausverkauft"
+      neueWelt(); andere(3); tab('launch_offer_usage').push({ user_id: U1, subscription_id: 'lifetime_' + U1 });
+      const schon = await rufe('checkout', { body: { price_id: 'price_leben' } });
+      if (schon.status !== 409 || !schon.daten || schon.daten.grund !== 'launch_schon_gekauft' || stripeRufe('checkout.sessions.create').length) return { ok: false, warum: 'schon gekauft: status ' + schon.status + ' · ' + schon.text.slice(0, 120) };
+      const ben = await rufe('checkout', { token: 'jwt-ben', body: { price_id: 'price_leben' } });
+      if (ben.status !== 200) return { ok: false, warum: 'Annas Kauf sperrt Ben aus: status ' + ben.status };
+      // nicht feststellbar: die Funktion ist nicht lesbar, oder sie antwortet in einer Form, die niemand gemessen hat
       neueWelt(); W.db.nein.push({ tabelle: 'rpc/launch_offer_available' });
       const e = await rufe('checkout', { body: { price_id: 'price_leben' } });
       if (e.status < 500 || stripeRufe('checkout.sessions.create').length) return { ok: false, warum: 'der Zähler ist nicht lesbar, verkauft wird trotzdem: status ' + e.status };
-      return { ok: true, info: 'ausverkauft → 410 in allen drei Schreibweisen, 0 Sitzungen · frei → 200 mit Marke „1" · Zähler nicht lesbar → ' + e.status };
+      const formen = [true, false, 'true', null, [], { available: true }, { available: 1, logged_in: true }, { frei: true }];
+      for (const form of formen) {
+        neueWelt(); W.db.rpc.launch_offer_available = form;
+        const r = await rufe('checkout', { body: { price_id: 'price_leben' } });
+        if (r.status < 500 || stripeRufe('checkout.sessions.create').length) return { ok: false, warum: 'die Funktion antwortet ' + z(form) + ' (so sah sie nie aus): status ' + r.status + ' · Sitzungen ' + stripeRufe('checkout.sessions.create').length + ' — geraten statt gelesen' };
+        if (!r.daten || r.daten.grund !== 'launch_unklar') return { ok: false, warum: 'Antwort ' + z(form) + ': „nicht feststellbar" ohne Grund-Kennung — ' + r.text.slice(0, 100) };
+      }
+      return { ok: true, info: 'frei → 200 mit Marke „1", gefragt als Anna · 99 → frei · 100 → 410 in drei Schreibweisen, 0 Sitzungen · schon gekauft → 409 (Ben kauft trotzdem) · nicht lesbar → ' + e.status + ' · ' + formen.length + ' ungemessene Antwortformen → 503, nie verkauft' };
     },
   },
   {
@@ -1350,8 +1557,9 @@ const PORTAL = [
       const a = await rufe('portal', { body: { return_url: 'https://boese.example/zurueck' } });
       const p = stripeRufe('billingPortal.sessions.create')[0] && stripeRufe('billingPortal.sessions.create')[0].arg;
       if (a.status !== 200 || !p || new URL(p.return_url).origin !== 'https://green-scan.ch') return { ok: false, warum: 'fremde Rückkehr-Adresse: status ' + a.status + ' · an Stripe ging „' + (p && p.return_url) + '"' };
-      const b = await rufe('portal', { body: { return_url: 'https://green-scan.ch/?billing=return&popup=1' } });
+      const b = await rufe('portal', { body: { return_url: 'https://green-scan.ch/?billing=return&popup=1', locale: 'it' } });
       if (b.status !== 200 || stripeRufe('billingPortal.sessions.create')[1].arg.return_url !== 'https://green-scan.ch/?billing=return&popup=1') return { ok: false, warum: 'die eigene Adresse wurde ersetzt' };
+      if (p.locale !== 'auto' || stripeRufe('billingPortal.sessions.create')[1].arg.locale !== 'it') return { ok: false, warum: 'Sprache des Portals: ohne Angabe „' + p.locale + '" (erwartet auto), mit „it" „' + stripeRufe('billingPortal.sessions.create')[1].arg.locale + '"' };
       const c = await rufe('portal', { body: { flow: 'cancel' } });
       const pc = stripeRufe('billingPortal.sessions.create')[2].arg;
       if (c.status !== 200 || !pc.flow_data || pc.flow_data.type !== 'subscription_cancel' || pc.flow_data.subscription_cancel.subscription !== 'sub_a' || new URL(pc.flow_data.after_completion.redirect.return_url).origin !== 'https://green-scan.ch') return { ok: false, warum: 'kündigen: ' + z(pc) };
@@ -1443,7 +1651,7 @@ const QUELLTEXT = [
   {
     name: 'Was der Abo-Bildschirm verspricht · Preise, Rabatt und Probezeit der App sind die der Function; und die App schickt die Felder, die stripe-checkout liest',
     lauf: (M) => {
-      const html = fs.readFileSync(path.join(WURZEL, 'index.html'), 'utf8');
+      const html = fs.readFileSync(APP, 'utf8');
       const boot = fs.readFileSync(path.join(FUNKTIONEN, 'stripe-bootstrap', 'index.ts'), 'utf8');
       const kat = /var GS_PRICE_CATALOG = \[([\s\S]*?)\];/.exec(html);
       if (!kat) return { ok: false, warum: 'GS_PRICE_CATALOG nicht gefunden' };
@@ -1453,7 +1661,8 @@ const QUELLTEXT = [
       for (const [key, rappen] of app) { const s = server.find((x) => x[0] === key); if (!s || s[1] !== rappen) return { ok: false, warum: key + ': die App nennt ' + rappen + ' Rappen, stripe-bootstrap ' + (s ? s[1] : 'nichts') }; }
       const monat = server.find((x) => x[0] === 'pro_monthly')[1], jahr = server.find((x) => x[0] === 'pro_yearly')[1];
       const rabatt = Math.round((1 - jahr / (12 * monat)) * 100);
-      const schirm = html.slice(html.indexOf('function gsShowAboScreen('), html.indexOf('async function gsCheckLaunchAvailable('));
+      const schirm = html.slice(html.indexOf('function gsShowAboScreen('), html.indexOf('var GS_LAUNCH_PLAETZE = '));
+      if (schirm.length < 2000) return { ok: false, warum: 'der Abo-Bildschirm ist im Quelltext nicht mehr so abgegrenzt (gsShowAboScreen … GS_LAUNCH_PLAETZE) — diesen Fall nachziehen' };
       const amSchirm = [...schirm.matchAll(/−(\d+)%/g)].map((m) => Number(m[1])).concat([...kat[1].matchAll(/(\d+)% Rabatt/g)].map((m) => Number(m[1])));
       if (!amSchirm.length || amSchirm.some((n) => n !== rabatt)) return { ok: false, warum: 'Rabatt: gerechnet ' + rabatt + ' %, auf dem Bildschirm ' + z(amSchirm) };
       const tage = [...schirm.matchAll(/gsStartCheckout\(\\'pro_(?:monthly|yearly)\\',\s*false,\s*(\d+)\)/g)].map((m) => Number(m[1]));
@@ -1461,10 +1670,59 @@ const QUELLTEXT = [
       if (!new RegExp(M.PROBE_TAGE_VORGABE + ' Tage gratis').test(schirm)) return { ok: false, warum: 'der Bildschirm nennt die Probezeit nicht mit ' + M.PROBE_TAGE_VORGABE + ' Tagen' };
       const start = html.slice(html.indexOf('async function gsStartCheckout('), html.indexOf('async function gsOpenBillingPortal('));
       const fn = ohneKommentare(fs.readFileSync(DATEI.checkout, 'utf8'));
-      const felder = ['price_id', 'claim_launch_offer', 'success_url', 'cancel_url', 'trial_days'];
+      const felder = ['price_id', 'claim_launch_offer', 'success_url', 'cancel_url', 'trial_days', 'locale'];
       const nichtGeschickt = felder.filter((f) => !new RegExp('\\b' + f + '\\s*[:=]').test(start)), nichtGelesen = felder.filter((f) => f !== 'claim_launch_offer' && !new RegExp('\\b' + f + '\\b').test(fn));
       if (nichtGeschickt.length || nichtGelesen.length) return { ok: false, warum: 'die App schickt nicht: ' + (nichtGeschickt.join(', ') || '—') + ' · die Function liest nicht: ' + (nichtGelesen.join(', ') || '—') };
       return { ok: true, info: app.map((a) => a[0] + ' ' + (a[1] / 100).toFixed(2)).join(' · ') + ' CHF in App und Function · Rabatt ' + rabatt + ' % nachgerechnet · ' + tage[0] + ' Tage Probezeit · ' + felder.length + ' Felder über die Naht' };
+    },
+  },
+  {
+    name: 'Zwei Leser, eine Antwort · die App liest rpc/launch_offer_available wie stripe-checkout — an der Form, die die Datenbank wirklich schickt; und ein Grund des Servers wird in der App ein Satz',
+    lauf: async (M) => {
+      const html = fs.readFileSync(APP, 'utf8');
+      const von = html.indexOf('var GS_LAUNCH_PLAETZE = '), bis = html.indexOf('\n}\n', html.indexOf('function _gsCheckoutGrund('));
+      if (von < 0 || bis < von) return { ok: false, warum: 'GS_LAUNCH_PLAETZE … _gsCheckoutGrund stehen nicht mehr so in index.html' };
+      const vm = require('node:vm');
+      const welt = { sbFetch: null, _gsSatz: (v, a) => String(v).replace('{1}', a) };
+      vm.createContext(welt);
+      vm.runInContext(html.slice(von, bis + 2) + '\nthis.aus = _gsLaunchStandAus; this.stand = gsLaunchStand; this.grund = _gsCheckoutGrund; this.plaetze = GS_LAUNCH_PLAETZE;', welt);
+      if (welt.plaetze !== M.LAUNCH_PLAETZE) return { ok: false, warum: 'Plätze: App ' + welt.plaetze + ', Function ' + M.LAUNCH_PLAETZE };
+      const antworten = [{ available: true, logged_in: true, claimed: 0 }, { available: false, logged_in: true, claimed: 100 }, { available: false, logged_in: true, claimed: 12 }, { available: false, logged_in: true }, { available: true, logged_in: false },
+        { available: true }, true, false, null, undefined, 'true', [], [{ available: true, logged_in: true }], { available: 'ja', logged_in: true }];
+      const anders = antworten.filter((a) => welt.aus(a) !== M.launchStand(a));
+      if (anders.length) return { ok: false, warum: 'App und Function lesen dieselbe Antwort verschieden: ' + anders.map((a) => z(a) + ' → App ' + z(welt.aus(a)) + ', Function ' + z(M.launchStand(a))).join(' · ') };
+      // … und durch den echten Aufruf: die Antwort, wie sie live aussieht, ausverkauft → 'ausverkauft' (nicht: „immer frei")
+      const mit = async (antwort) => { welt.sbFetch = async () => antwort; return welt.stand(); };
+      const t = [[await mit({ data: { available: false, logged_in: true, claimed: 100 }, error: null }), 'ausverkauft'], [await mit({ data: { available: false, logged_in: true, claimed: 4 }, error: null }), 'schon_gekauft'],
+        [await mit({ data: { available: true, logged_in: true, claimed: 4 }, error: null }), 'frei'], [await mit({ data: null, error: { message: 'x' } }), null], [await mit({ data: true, error: null }), null]];
+      for (const [ist, soll] of t) if (ist !== soll) return { ok: false, warum: 'gsLaunchStand: ' + z(ist) + ' statt ' + z(soll) };
+      welt.sbFetch = async () => { throw new Error('offline'); };
+      if (await welt.stand() !== null) return { ok: false, warum: 'ohne Netz: nicht „nicht feststellbar"' };
+      // jede Kennung, die stripe-checkout nennen kann, wird ein deutscher Satz — keine englische Serverzeile
+      const kennungen = ['preis_unbekannt', 'preis_inaktiv', 'preis_ohne_intervall', 'launch_ausverkauft', 'launch_schon_gekauft', 'launch_unklar'];
+      const modul = ohneKommentare(fs.readFileSync(MODUL, 'utf8'));
+      const planVon = modul.indexOf('export function checkoutPlan('), plan = modul.slice(planVon, modul.indexOf('\n}\n', planVon));
+      const imModul = planVon < 0 ? [] : [...plan.matchAll(/grund:\s*'([a-z_]+)'/g)].map((m) => m[1]).filter((k, i, a) => a.indexOf(k) === i);
+      const ohneSatz = imModul.filter((k) => kennungen.indexOf(k) < 0 || welt.grund({ grund: k, error: 'ENGLISCH' }, 400) === 'ENGLISCH');
+      if (imModul.length < 6 || ohneSatz.length) return { ok: false, warum: 'checkoutPlan nennt ' + imModul.length + ' Kennungen; ohne eigenen Satz in der App: ' + (ohneSatz.join(', ') || '—') };
+      if (welt.grund({ error: 'Stripe sagt etwas' }, 500) !== 'Stripe sagt etwas' || !/401|Anmeldung/.test(welt.grund({}, 401)) || !/502/.test(welt.grund(null, 502))) return { ok: false, warum: 'Rückfall: ' + z([welt.grund({ error: 'x' }, 500), welt.grund({}, 401), welt.grund(null, 502)]) };
+      return { ok: true, info: antworten.length + ' Antworten, App = Function · live-Form ausverkauft → „ausverkauft" (bis v33.59: immer „frei") · ' + imModul.length + ' Kennungen → ' + imModul.length + ' Sätze' };
+    },
+  },
+  {
+    name: 'Die Naht · jede Tabelle, die eine der drei Functions anfasst, trägt gemessene Spalten — und keine Spalte daneben',
+    lauf: () => {
+      // Welche Tabellen nennen die drei Functions und das Modul im Quelltext?
+      const genannt = new Set();
+      for (const pfad of [DATEI.webhook, DATEI.checkout, DATEI.portal, MODUL]) for (const m of ohneKommentare(fs.readFileSync(pfad, 'utf8')).matchAll(/\.from\(\s*["']([a-z_]+)["']\s*\)/g)) genannt.add(m[1]);
+      const ohne = [...genannt].filter((t) => !SPALTEN[t]);
+      if (ohne.length) return { ok: false, warum: 'ohne gemessene Spalten: ' + ohne.join(', ') + ' — dort prüft der Prüfstand nichts (information_schema.columns nachmessen und in SPALTEN eintragen)' };
+      if (genannt.size < 9) return { ok: false, warum: 'nur ' + genannt.size + ' Tabellen im Quelltext gefunden — die Suche sieht etwas nicht' };
+      const nieBenutzt = Object.keys(SPALTEN).filter((t) => !genannt.has(t));
+      if (nieBenutzt.length) return { ok: false, warum: 'in SPALTEN, aber von keiner Function angefasst: ' + nieBenutzt.join(', ') + ' — eine Momentaufnahme, die niemand braucht, veraltet unbemerkt' };
+      for (const [t, fk] of Object.entries(FREMD)) for (const c of Object.keys(fk)) if (SPALTEN[t].indexOf(c) < 0) return { ok: false, warum: 'FREMD nennt ' + t + '.' + c + ', die Spalte steht nicht in SPALTEN' };
+      for (const [t, e] of Object.entries(EINDEUTIG)) for (const gruppe of e) for (const c of gruppe) if (!SPALTEN[t] || SPALTEN[t].indexOf(c) < 0) return { ok: false, warum: 'EINDEUTIG nennt ' + t + '.' + c + ', die Spalte steht nicht in SPALTEN' };
+      return { ok: true, info: genannt.size + ' Tabellen im Quelltext = ' + Object.keys(SPALTEN).length + ' mit gemessenen Spalten (11.11.2026) · ' + Object.values(FREMD).reduce((n, o) => n + Object.keys(o).length, 0) + ' Fremdschlüssel, ' + Object.values(CHECK).reduce((n, o) => n + Object.keys(o).length, 0) + ' CHECKs, ON CONFLICT nur auf volle eindeutige Einschränkungen' };
     },
   },
   {
@@ -1555,8 +1813,10 @@ async function fremdmassstab(M) {
   console.log('  Fälle geprüft: ' + geprueft + ' · davon kaputt: ' + kaputt + (nichtPruefbar ? ' · nicht prüfbar: ' + nichtPruefbar : ''));
   console.log('  Grenze: ob Stripe diese Aufrufe HEUTE annimmt und ob TWINT im Abo-Checkout erscheint, ist von hier');
   console.log('  nicht messbar (kein Netz dorthin) — das zeigt nur ein Probekauf im Testmodus. Die Sicht');
-  console.log('  v_user_entitlements und ihr Trigger sind hier NACHGEBAUT (Migrationen v29_16, 20260504), nicht');
-  console.log('  ausgeführt; Spalten kennt der Prüfstand nur für die fünf Stripe-Tabellen (live gemessen 11.11.2026).');
+  console.log('  v_user_entitlements und ihr Trigger sind hier NACHGEBAUT (Migrationen v29_16, 20260504; am 11.11.2026');
+  console.log('  gegen pg_get_viewdef/pg_get_functiondef gelesen: gleich), nicht ausgeführt. Spalten, Schlüssel,');
+  console.log('  Fremdschlüssel und CHECKs der ' + Object.keys(SPALTEN).length + ' berührten Tabellen sind eine MOMENTAUFNAHME der Live-Datenbank vom');
+  console.log('  11.11.2026 — wer eine dieser Tabellen ändert, zieht sie hier nach (Abfragen im Kopf von SPALTEN).');
   console.log('  Und ob die ausgelieferten Functions denen im Repo entsprechen, sagt nur ein Blick in Supabase.');
   process.exitCode = kaputt ? 1 : (nichtPruefbar ? 2 : 0);
 })();

@@ -10,7 +10,11 @@
 //   • Der Preis kam aus der Anfrage und ging ungeprüft an Stripe; war er in `stripe_prices`
 //     nicht zu finden, wurde trotzdem verkauft. Jetzt nur ein AKTIVER Preis der eigenen Tabelle.
 //   • Ob das Launch-Angebot noch frei ist, hing an einem Feld der Anfrage — wer es wegliess,
-//     kaufte auch nach dem hundertsten Mal. Jetzt entscheidet der Preis.
+//     kaufte auch nach dem hundertsten Mal. Jetzt entscheidet der Preis. Und gefragt wird als
+//     die PERSON: rpc/launch_offer_available rechnet mit auth.uid() und antwortet mit einem
+//     Objekt (live gelesen am 11.11.2026) — v8 nahm es als „wahr" (nie ausverkauft), der erste
+//     Entwurf von v9 verglich es mit `true` (immer ausverkauft: kein einziger Lifetime-Kauf).
+//   • Die Stripe-Seite erscheint in der Sprache der App (de · fr · it · en), sonst in der des Browsers.
 //   • success_url/cancel_url gingen ungeprüft an Stripe. Jetzt nur der eigene Ursprung.
 //   Die Regeln stehen in ../_shared/stripe_regeln.mjs (in Node geprüft), dieser Handler ist der Rand.
 // v8 (2026-06-14): keine feste Liste von Zahlungsarten mehr (damals mit dem falschen Parameter).
@@ -19,7 +23,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
-  APP_URSPRUNG, checkoutParameter, checkoutPlan, dbMuss, istLaunchAngebot, kundeFinden, rueckkehrAdresse,
+  APP_URSPRUNG, checkoutParameter, checkoutPlan, dbMuss, istLaunchAngebot, kundeFinden, launchStand, rueckkehrAdresse,
 } from "../_shared/stripe_regeln.mjs";
 
 const corsHeaders = {
@@ -44,9 +48,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") return json(400, { error: "Invalid request" });
-    // Aus der Anfrage wird GENAU das gelesen: welches Angebot, wohin zurück, wie lange probieren.
-    // Betrag, Währung, Modus, Kunde und Nutzer kommen nie von dort.
-    const { price_id, lookup_key, success_url, cancel_url, trial_days } = body as Record<string, unknown>;
+    // Aus der Anfrage wird GENAU das gelesen: welches Angebot, wohin zurück, wie lange probieren, in
+    // welcher Sprache. Betrag, Währung, Modus, Kunde und Nutzer kommen nie von dort.
+    const { price_id, lookup_key, success_url, cancel_url, trial_days, locale } = body as Record<string, unknown>;
 
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
@@ -63,11 +67,12 @@ Deno.serve(async (req) => {
 
     // Wer schon einmal ein Abo hatte, bekommt keine zweite Probezeit.
     const kunde = await kundeFinden({ admin, stripe, userId: user.id });
-    const launchFrei = preis && istLaunchAngebot(preis)
-      ? dbMuss(await admin.rpc("launch_offer_available"), "launch_offer_available fragen") === true
-      : true;
+    // Das Launch-Angebot: gefragt wird als die PERSON (die Funktion rechnet mit auth.uid()).
+    const stand = preis && istLaunchAngebot(preis)
+      ? launchStand(dbMuss(await userClient.rpc("launch_offer_available"), "launch_offer_available fragen"))
+      : "frei";
 
-    const plan = checkoutPlan({ preisZeile: preis, wunschProbeTage: trial_days, ersterAbschluss: kunde.zeilen.length === 0, launchFrei });
+    const plan = checkoutPlan({ preisZeile: preis, wunschProbeTage: trial_days, ersterAbschluss: kunde.zeilen.length === 0, launchStand: stand });
     if (!plan.ok) return json(plan.status, { error: plan.text, grund: plan.grund });
 
     let kundeId = kunde.kundeId;
@@ -84,7 +89,7 @@ Deno.serve(async (req) => {
 
     const session = await stripe.checkout.sessions.create(checkoutParameter({
       kundeId, preisId: preis.id, modus: plan.modus, probeTage: plan.probeTage, userId: user.id, launch: plan.launch,
-      erfolgUrl: erfolg.url, abbruchUrl: abbruch.url,
+      erfolgUrl: erfolg.url, abbruchUrl: abbruch.url, sprache: locale,
     }));
 
     return json(200, {

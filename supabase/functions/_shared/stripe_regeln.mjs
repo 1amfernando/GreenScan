@@ -4,8 +4,12 @@
 // Reines ESM ohne Typen, damit Deno (Edge-Functions) und Node (Prüfstand
 // `stripe_check`) dieselbe Datei laden — dasselbe Muster wie modelle.mjs.
 //
-// Anlass (11.11.2026, gemessen): der Zahlungsweg ist nie Ende-zu-Ende gelaufen
-// (`stripe_webhook_events`: 0 Zeilen), und er konnte es auch nicht:
+// Anlass (11.11.2026, gemessen, nur lesend): `stripe_webhook_events` hat 0 Zeilen, und
+// die EINE Zeile in `stripe_subscriptions` (angelegt am 16.05.2026) steht seit dem Ende
+// ihrer Probezeit am 23.05. auf „trialing" — kein Ereignis hat sie je fortgeschrieben.
+// Ob je im Live-Modus verkauft wurde, ist von hier nicht feststellbar (der in
+// `app_settings` hinterlegte öffentliche Schlüssel ist ein Test-Schlüssel). Sicher ist,
+// dass der Weg, wie er im Repo und ausgeliefert stand, nicht halten konnte:
 //   • stripe-checkout schickte `automatic_payment_methods` an Checkout — den
 //     Parameter gibt es dort nicht (API-Referenz „Create a Checkout Session":
 //     0 Treffer; stripe@17.7.0 `types/Checkout/SessionsResource.d.ts`: 0 Treffer,
@@ -40,8 +44,23 @@ export function dbNein(antwort) {
 }
 export function dbMuss(antwort, schritt) {
   const nein = dbNein(antwort);
-  if (nein) throw new Error(String(schritt || 'Datenbank') + ': ' + nein);
+  if (nein) {
+    const fehler = new Error(String(schritt || 'Datenbank') + ': ' + nein);
+    const e = antwort && antwort.error;
+    if (e && typeof e === 'object') { fehler.dbCode = e.code || null; fehler.dbDetails = e.details || null; fehler.dbMessage = e.message || null; }
+    throw fehler;
+  }
   return antwort.data;
+}
+// Die Datenbank sagt: diese Person gibt es nicht (mehr). `user_id` verweist in
+// stripe_subscriptions, notifications und launch_offer_usage auf auth.users (ON DELETE
+// CASCADE — live gemessen am 11.11.2026, pg_constraint). Wer sein Konto löscht, für den
+// kommt ein spätes Ereignis (Kündigung, Erstattung, „Probezeit endet") ins Leere: Postgres
+// meldet 23503 mit „Key (user_id)=(…) is not present in table "users"". Wiederholen hilft
+// dann nicht — ohne diese Unterscheidung bekäme Stripe drei Tage lang 500.
+export function istNutzerWeg(fehler) {
+  if (!fehler || fehler.dbCode !== '23503') return false;
+  return /\(user_id\)/.test(String(fehler.dbDetails || '')) || /user_id_fkey/.test(String(fehler.dbMessage || ''));
 }
 
 // ── 1 · Signatur ─────────────────────────────────────────────────────────────
@@ -126,6 +145,9 @@ export const SIGNATUR_GRUND_TEXT = {
 //   nichts      bewusst ohne Wirkung — mit Grund
 export const STRIPE_EREIGNISSE = {
   'checkout.session.completed': { wirkung: 'abschluss' },
+  // Bei einer verzögerten Zahlungsart ist „completed" noch UNBEZAHLT; bezahlt meldet erst dieses
+  // Ereignis. Ohne es bliebe ein solcher Lifetime-Kauf bezahlt, aber nie freigeschaltet.
+  'checkout.session.async_payment_succeeded': { wirkung: 'abschluss' },
   'customer.subscription.created': { wirkung: 'abo' },
   'customer.subscription.updated': { wirkung: 'abo' },
   'customer.subscription.deleted': { wirkung: 'abo' },
@@ -189,6 +211,10 @@ export function aboEndetVonSelbst(sub) {
   return laeuft && zahl(sub.cancel_at) !== null;
 }
 // → { ok: true, zeile }  oder  { ok: false, grund }
+// `preisBekannt: false` heisst: der Preis des Abos steht nicht in stripe_prices. Dann bleibt
+// `price_id` LEER — die Spalte ist ein Fremdschlüssel auf stripe_prices(id) (live gemessen am
+// 11.11.2026), und mit dem fremden Preis lehnte die Datenbank die ganze Zeile ab, bei jeder
+// Wiederholung.
 export function aboZeile(sub, opts) {
   const o = opts || {};
   if (!sub || typeof sub !== 'object' || !idVon(sub)) return { ok: false, grund: 'kein Abo im Ereignis' };
@@ -202,7 +228,7 @@ export function aboZeile(sub, opts) {
       id: sub.id,
       user_id: o.userId,
       stripe_customer_id: idVon(sub.customer),
-      price_id: aboPreisId(sub),
+      price_id: o.preisBekannt === false ? null : aboPreisId(sub),
       tier: typeof o.tier === 'string' && o.tier ? o.tier : 'free',
       status: sub.status,
       cancel_at_period_end: aboEndetVonSelbst(sub),
@@ -252,12 +278,27 @@ export function probeTage(e) {
   return Math.min(Math.floor(a.wunsch), PROBE_TAGE_MAX);
 }
 
-// Was darf gekauft werden, und wie? { preisZeile, wunschProbeTage, ersterAbschluss, launchFrei }
+// Das Launch-Angebot. rpc/launch_offer_available antwortet mit einem OBJEKT
+// { available, logged_in, claimed } und rechnet mit auth.uid() (live gemessen am 11.11.2026,
+// pg_get_functiondef): gefragt wird sie deshalb als die PERSON — mit dem Service-Schlüssel
+// ist auth.uid() leer und die Antwort immer „frei", ohne dass der Zähler angesehen wird.
+// Zwei Fassungen lasen die Antwort falsch: v8 nahm das Objekt als „wahr" (nie ausverkauft),
+// der erste Entwurf von v9 verglich es mit `true` (IMMER ausverkauft — kein Lifetime-Kauf).
+//   → 'frei' · 'ausverkauft' · 'schon_gekauft' · null (nicht feststellbar: dann wird nicht verkauft)
+export const LAUNCH_PLAETZE = 100;
+export function launchStand(antwort) {
+  if (!antwort || typeof antwort !== 'object' || Array.isArray(antwort)) return null;
+  if (antwort.logged_in !== true || typeof antwort.available !== 'boolean') return null;
+  if (antwort.available) return 'frei';
+  return typeof antwort.claimed === 'number' && antwort.claimed < LAUNCH_PLAETZE ? 'schon_gekauft' : 'ausverkauft';
+}
+
+// Was darf gekauft werden, und wie? { preisZeile, wunschProbeTage, ersterAbschluss, launchStand }
 //   → { ok: true, modus: 'subscription' | 'payment', probeTage, launch }
 //   → { ok: false, status, grund, text }
-// `launchFrei` ist die Antwort von rpc/launch_offer_available — gefragt wird sie
-// anhand des PREISES, nicht anhand eines Feldes der Anfrage: wer `claim_launch_offer`
-// wegliess, kaufte das Launch-Angebot bisher auch nach dem hundertsten Mal.
+// `launchStand` ist das Ergebnis von launchStand() — gefragt wird anhand des PREISES, nicht
+// anhand eines Feldes der Anfrage: wer `claim_launch_offer` wegliess, kaufte das
+// Launch-Angebot bisher auch nach dem hundertsten Mal. Für jeden anderen Preis zählt es nicht.
 export function checkoutPlan(e) {
   const a = e || {};
   const p = a.preisZeile;
@@ -267,7 +308,11 @@ export function checkoutPlan(e) {
   if (!intervall) return { ok: false, status: 400, grund: 'preis_ohne_intervall', text: 'Price has no interval' };
   const modus = intervall === 'lifetime' ? 'payment' : 'subscription';
   const launch = istLaunchAngebot(p);
-  if (launch && a.launchFrei !== true) return { ok: false, status: 410, grund: 'launch_ausverkauft', text: 'Launch offer fully booked' };
+  if (launch && a.launchStand !== 'frei') {
+    if (a.launchStand === 'ausverkauft') return { ok: false, status: 410, grund: 'launch_ausverkauft', text: 'Launch offer fully booked' };
+    if (a.launchStand === 'schon_gekauft') return { ok: false, status: 409, grund: 'launch_schon_gekauft', text: 'Launch offer already claimed by this account' };
+    return { ok: false, status: 503, grund: 'launch_unklar', text: 'Launch offer availability could not be determined' };
+  }
   return { ok: true, modus, launch, probeTage: probeTage({ modus, ersterAbschluss: a.ersterAbschluss === true, wunsch: a.wunschProbeTage }) };
 }
 
@@ -290,7 +335,15 @@ export const CHECKOUT_PARAMETER = [
 export function checkoutParameterFremd(params) {
   return Object.keys(params || {}).filter((k) => params[k] !== undefined && CHECKOUT_PARAMETER.indexOf(k) < 0);
 }
-// { kundeId, preisId, modus, probeTage, userId, launch, erfolgUrl, abbruchUrl } → das Objekt für checkout.sessions.create
+// Die Sprache der Stripe-Seiten (Checkout und Portal): die der App, wenn sie eine der vier
+// nennt — sonst entscheidet Stripe nach dem Browser ('auto'). Bis v8 stand fest 'de' da, auch
+// für jemanden, der die App auf Französisch benutzt.
+export const STRIPE_SPRACHEN = ['de', 'fr', 'it', 'en'];
+export function stripeSprache(wunsch) {
+  const s = typeof wunsch === 'string' ? wunsch.trim().toLowerCase().slice(0, 2) : '';
+  return STRIPE_SPRACHEN.indexOf(s) >= 0 ? s : 'auto';
+}
+// { kundeId, preisId, modus, probeTage, userId, launch, erfolgUrl, abbruchUrl, sprache } → das Objekt für checkout.sessions.create
 export function checkoutParameter(e) {
   const a = e || {};
   const p = {
@@ -301,7 +354,7 @@ export function checkoutParameter(e) {
     cancel_url: a.abbruchUrl,
     metadata: { supabase_user_id: a.userId, claim_launch_offer: a.launch ? '1' : '0' },
     allow_promotion_codes: true,
-    locale: 'de',
+    locale: stripeSprache(a.sprache),
   };
   if (a.modus === 'subscription') {
     p.subscription_data = { metadata: { supabase_user_id: a.userId } };

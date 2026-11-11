@@ -16,7 +16,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { APP_URSPRUNG, kundeFinden, portalZiel, rueckkehrAdresse } from "../_shared/stripe_regeln.mjs";
+import { APP_URSPRUNG, kundeFinden, portalZiel, rueckkehrAdresse, stripeSprache } from "../_shared/stripe_regeln.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,9 +37,10 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
     if (authErr || !user) return json(401, { error: "Not authenticated" });
 
-    // Aus der Anfrage wird GENAU das gelesen: wohin zurück, und ob gekündigt oder fortgesetzt werden soll.
+    // Aus der Anfrage wird GENAU das gelesen: wohin zurück, ob gekündigt oder fortgesetzt werden soll,
+    // und in welcher Sprache das Portal erscheint (de · fr · it · en, sonst die des Browsers).
     const body = await req.json().catch(() => ({}));
-    const { return_url, flow } = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    const { return_url, flow, locale } = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
 
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
@@ -57,7 +58,7 @@ Deno.serve(async (req) => {
 
     const zurueck = rueckkehrAdresse(return_url, `${APP_URSPRUNG}/?billing=return`);
     if (zurueck.ersetzt) console.warn(`[stripe-portal] Rückkehr-Adresse ersetzt (${zurueck.grund})`);
-    const portalParams: Record<string, unknown> = { customer: kunde.kundeId, return_url: zurueck.url };
+    const portalParams: Record<string, unknown> = { customer: kunde.kundeId, return_url: zurueck.url, locale: stripeSprache(locale) };
 
     const ziel = portalZiel(kunde.zeilen, flow);
     if (ziel && flow === "cancel") {
