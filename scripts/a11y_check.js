@@ -163,11 +163,8 @@ const PRUEFUNG = () => {
   await p.addInitScript(SEED);
   await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
   await p.waitForTimeout(3500);
-  await p.evaluate(() => {
-    try { document.documentElement.classList.remove('gs-preauth'); } catch (e) {}
-    const o = document.getElementById('gs-onboarding');
-    if (o) o.style.setProperty('display', 'none', 'important');
-  });
+  // v33.59: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js).
+  await SEED.anmeldebildWeg(p);
   await p.waitForTimeout(400);
 
   console.log('\n=== a11y_check — bedienbar ohne Augen und ohne Maus?');
@@ -374,6 +371,9 @@ const PRUEFUNG = () => {
   console.log('  je Tab (mit Wiederholungen): ' + TABS.map(t => t + '=' + jeTab[t]).join(' '));
   console.log('  je Fenster: ' + Object.keys(jeFenster).map(k => k + ' → ' + jeFenster[k]).join(' · '));
   console.log('  JS-Fehler: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
+  // v33.59: drei Zustaende — ein Lauf hinter dem Anmeldebildschirm ist weder gruen noch rot.
+  const anmeldebildStand = await p.evaluate(SEED.ANMELDEBILD_STEHT).catch(() => false);
   await br.close();
   process.exitCode = (summe || verhaltenRot || rot || errs.length) ? 1 : 0;
+  if (anmeldebildStand) { console.log('  !! ' + SEED.ANMELDEBILD_SATZ); process.exitCode = 2; }
 })();

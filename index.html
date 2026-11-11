@@ -25561,16 +25561,23 @@ let myVotes = safeGetItem('ps_votes', {});
 // derselbe Fehler wie beim Sicherheitswort in v31.99. Neue Werte, alle
 // ueber 4,5:1, die Flaechen unveraendert.
 const TOX = [
-  {sym:'✅',label:'Ungiftig',        color:'#1b7a43',bg:'#e8f5e9'},   /* 4,77:1 */
-  {sym:'🟡',label:'Leicht giftig',   color:'#7a5200',bg:'#fff8e1'},   /* 6,51:1 */
-  {sym:'🟠',label:'Mässig giftig',   color:'#9a4500',bg:'#fff3e0'},   /* 5,94:1 */
-  {sym:'⚠️', label:'Giftig',         color:'#a81b1b',bg:'#ffebee'},   /* 6,47:1 */
-  {sym:'🔴',label:'Stark giftig',    color:'#8c1414',bg:'#ffcdd2'},   /* 6,70:1 */
+  {sym:'✅',label:'Ungiftig',        color:'#1b7a43',bg:'#e8f5e9',voll:'#1b7a43'},   /* 4,77:1 */
+  {sym:'🟡',label:'Leicht giftig',   color:'#7a5200',bg:'#fff8e1',voll:'#7a5200'},   /* 6,51:1 */
+  {sym:'🟠',label:'Mässig giftig',   color:'#9a4500',bg:'#fff3e0',voll:'#9a4500'},   /* 5,94:1 */
+  {sym:'⚠️', label:'Giftig',         color:'#a81b1b',bg:'#ffebee',voll:'#a81b1b'},   /* 6,47:1 */
+  {sym:'🔴',label:'Stark giftig',    color:'#8c1414',bg:'#ffcdd2',voll:'#8c1414'},   /* 6,70:1 */
   // v31.99: war `#4a0000` auf `#d32f2f` — 3,27:1, gemessen. Ausgerechnet
   // die wichtigste Angabe der ganzen Karte war die am schlechtesten lesbare.
   // Weiss auf dunkelrot statt dunkelrot auf rot.
-  {sym:'☠️', label:'Tödlich giftig', color:'#ffffff',bg:'#8e1414'},
+  {sym:'☠️', label:'Tödlich giftig', color:'#ffffff',bg:'#8e1414',voll:'#8e1414'},
 ];
+// v33.59: `color` und `bg` sind ein PAAR — die Schrift gilt nur auf IHRER
+// Flaeche. v31.99 hat Stufe 5 auf Weiss-auf-Dunkelrot gedreht; openDetail nahm
+// `color` aber allein (als Schrift auf der Karte und als Fuellung der
+// Skala-Punkte) — „Tödlich giftig" stand damit WEISS auf fast weisser Karte,
+// 1,05:1 gemessen, bei 72 Eintraegen. Wer die Einstufung zeigt, nimmt BEIDE
+// (Plakette); wer eine Flaeche FUELLT (Punkt, Balken), nimmt `voll` — die
+// kraeftige der zwei Farben, die Weiss traegt.
 function toxInfo(l){var n=Math.round(Number(l));if(!isFinite(n))n=0;return TOX[Math.max(0,Math.min(5,n))];} // v29.48: KI liefert toxicity gelegentlich als String ("hoch"/"3/5") → numerisch coercen, sonst TOX[NaN]=undefined → Render-Crash + verschwendeter Gratis-Scan
 function getEmoji(sp){
   if(typeof gsCatEmoji==='function') return gsCatEmoji(sp);
@@ -38320,7 +38327,7 @@ function openDetail(id){
   // Toxizitäts-Skala
   const dots = Array.from({length:6},(_,i)=>{
     const act=(typeof sp.tox==='number')&&i<=sp.tox;
-    return '<div class="td"'+(act?' style="background:'+t.color+';color:#fff;box-shadow:0 2px 6px '+t.color+'66"':'')+'>'+( act?t.sym:'·' )+'</div>';
+    return '<div class="td"'+(act?' style="background:'+(t.voll||t.color)+';color:#fff;box-shadow:0 2px 6px '+(t.voll||t.color)+'66"':'')+'>'+( act?t.sym:'·' )+'</div>';
   }).join('');
 
   // Warnbox
@@ -38444,7 +38451,10 @@ function openDetail(id){
       '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_toxicity','☠️ Toxizität & Sicherheit') + '</h3>',
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">',
           '<span style="font-size:var(--fs-3xl);">'+t.sym+'</span>',
-          '<div><div style="font-weight:800;font-size:var(--fs-lg);color:'+t.color+';">'+t.label+'</div>',
+          // v33.59: Plakette aus dem PAAR bg+color (siehe TOX) — lesbar auf heller
+          // UND dunkler Karte. Ohne `bg` (Einstufung offen) bleibt es Text in
+          // einer Themenfarbe, die mit dem Modus kippt.
+          '<div><div style="font-weight:800;font-size:var(--fs-lg);color:'+t.color+';'+(t.bg?'display:inline-block;background:'+t.bg+';padding:1px 10px;border-radius:var(--r-sm);margin-bottom:2px;':'')+'">'+t.label+'</div>',
           '<div style="font-size:var(--fs-sm);color:var(--muted);">' + (_unv ? _t('tox_unverified','Noch nicht geprüft') : (_t('tox_scale','Skala 0–5 · Stufe') + ' '+sp.tox))+'</div></div>',
         '</div>',
         '<div class="tox-scale">'+dots+'</div>',
@@ -38466,7 +38476,10 @@ function openDetail(id){
         return '<div style="background:'+(isFatal?'#ffebee':'#fff8e1')+';border:2px solid '+(isFatal?'#ef9a9a':'#ffe082')+';border-radius:var(--r-md);padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
           '<span style="font-size:var(--fs-xl);flex-shrink:0;">'+(isFatal?'☠️':'⚠️')+'</span>' +
           '<div><div style="font-size:var(--fs-md);font-weight:800;color:'+(isFatal?'#c62828':'#e65100')+';margin-bottom:2px;">'+(isFatal?_t('tox_strong','STARK GIFTIG'):_t('tox_caution','VORSICHT: GIFTIG'))+'</div>' +
-          '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">'+(!gsWarnungLeer(sp.warning)?escHtml(sp.warning):_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
+          // v33.59: `var(--text2)` kippt im Dunkelmodus auf hell — auf dieser FEST
+          // hellen Flaeche 1,18:1 gemessen (der Warntext einer toedlichen Art).
+          // Eine feste Flaeche braucht eine feste Schrift (CLAUDE.md §7.1, v32.25).
+          '<div style="font-size:var(--fs-sm);color:'+(isFatal?'#4a1212':'#4a3200')+';line-height:1.5;">'+(!gsWarnungLeer(sp.warning)?escHtml(sp.warning):_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
           '</div></div>';
       })(),
       // Vollständigkeits-Indikator
