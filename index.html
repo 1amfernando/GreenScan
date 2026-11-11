@@ -15398,6 +15398,7 @@ window.GS_I18N_JS_STRINGS = {
   'garden_plant_now':         'Pflanze einsetzen',
   'garden_add_plant':         'Pflanze hinzufügen',
   'garden_plan_for':          'Plan für diesen Garten',
+  'seed_add_btn':             '+ Hinzufügen',
   'action_edit':              'Bearbeiten',
   'profile_loading':          'Profil wird geladen…',
   'prof_danger_zone':         '⚠️ Erweitert — Konto dauerhaft löschen',
@@ -29327,13 +29328,35 @@ function _gsSaeZuPflanze(p) {
   } catch (_) { return null; }
 }
 window._gsSaeZuPflanze = _gsSaeZuPflanze;
-function gsAussaatEreignisse(von, bis) {
+// Saatgut heisst nach dem eigenen Formular „Kultur Sorte" („Tomate Ochsenherz",
+// gsOpenSeedInventory). Zugeordnet wird deshalb ueber die FUEHRENDEN WOERTER,
+// die laengste Folge zuerst — jede durch den EINEN Matcher oben (exakt ±n,
+// Schweizer Namen ueber die Bruecke). Kein Teilstring: die Saatgut-Leiste
+// ordnete bis hierher selbst zu, per Praefix. Gemessen an 86 Tueten-Namen
+// (11.11.2026): „Rote Zwiebeln" und „Rote Melde" trafen die Rote Bete,
+// „Salatgurke" den Salat, „Knoblauchsrauke" den Knoblauch — und „Rüebli",
+// „Karotten", „Lauch", „Randen" fanden gar nichts. Ohne Treffer keine Kultur:
+// eine erfundene Aussaatzeit waere schlimmer als keine.
+function _gsSaeZuSaatgut(e) {
+  try {
+    var w = String((e && e.name) || '').trim().split(/\s+/);
+    for (var i = w.length; i >= 1; i--) { var k = _gsSaeZuPflanze({ name: w.slice(0, i).join(' ') }); if (k) return k; }
+  } catch (_) {}
+  return null;
+}
+window._gsSaeZuSaatgut = _gsSaeZuSaatgut;
+// EINE Rechnung fuer „welches Aussaatfenster faellt in [von, bis]?" (11.11.2026).
+// Bis hierher stand sie zweimal im Code: hier, mit dem Monat ab 0 wie in
+// GS_SAE_DB — und in der Saatgut-Leiste „Jetzt dran" (gsSaatgutJetzt) mit
+// `getMonth() + 1`. 108 von 468 Kultur×Monat-Paaren sagten dort etwas anderes
+// als der Kalender: „Jetzt ins Beet: Tomaten, Gurken, Buschbohnen" im April,
+// einen Monat vor den Eisheiligen. Jetzt rufen beide diese Funktion. `dinge`
+// sind Pflanzen (Kalender) oder Tueten (Leiste), `zuordnen(ding)` nennt die
+// Kultur aus GS_SAE_DB oder null. Pruefstand: kalender_check „Saatgut-Leiste L1".
+function _gsAussaatFenster(dinge, zuordnen, von, bis) {
   var out = [];
   try {
-    var listen = [];
-    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) { listen.push({ p: p, liste: 'myPlants' }); });
-    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { listen.push({ p: p, liste: 'plantings' }); });
-    if (!listen.length) return out;
+    if (!Array.isArray(dinge) || !dinge.length || typeof zuordnen !== 'function') return out;
     var j0 = +String(von).slice(0, 4), j1 = +String(bis).slice(0, 4); if (!isFinite(j0) || !isFinite(j1)) return out;
     var im = function (tag) { return !!tag && tag >= von && tag <= bis; };
     var monKurz = (typeof gsMonate === 'function') ? gsMonate(true) : null;
@@ -29344,9 +29367,9 @@ function gsAussaatEreignisse(von, bis) {
     // die Zeile sagt, welche Pflanzen sie betrifft. (Der Pruefstand hat es
     // gezeigt: die Beispieldaten haben zwei Zucchini, eine je Liste.)
     var kulturen = {}, reihenfolge = [];
-    listen.forEach(function (x) {
-      var p = x.p; if (!p || !p.name) return;
-      var k = _gsSaeZuPflanze(p); if (!k) return;
+    dinge.forEach(function (p) {
+      if (!p || !p.name) return;
+      var k = zuordnen(p); if (!k) return;
       if (!kulturen[k.n]) { kulturen[k.n] = { k: k, pflanzen: [] }; reihenfolge.push(k.n); }
       var ort = p.nick || p.location || '';
       kulturen[k.n].pflanzen.push(p.name + (ort && ort !== p.name ? ' (' + ort + ')' : ''));
@@ -29365,6 +29388,7 @@ function gsAussaatEreignisse(von, bis) {
             var tag = _gsKalTag(new Date(j, m, 1)); if (!im(tag)) continue;
             out.push({ id: 'aussaat:' + _gsSaeNorm(k.n) + ':' + art[0] + ':' + tag, art: 'aussaat', datum: tag, zeit: null, ts: null,
               titel: k.n + art[1], emoji: art[2], fenster: art[0],   // v33.34: 'indoor' | 'outdoor' — das Pruefwerk fragt das Feld, nie den Titel
+              kultur: k.n,                                           // der Name der Kultur allein — die Saatgut-Leiste nennt ihn, ohne den Titel zu zerlegen
               pflanze: null, garten_id: null,
               quelle: 'kulturdaten', status: 'info', faellig_seit: null,
               verweis: { fn: 'openSaekalender', args: [] }, grund: grundKopf });
@@ -29374,6 +29398,16 @@ function gsAussaatEreignisse(von, bis) {
     });
   } catch (_) {}
   return out;
+}
+window._gsAussaatFenster = _gsAussaatFenster;
+// Der Kalender fragt fuer die Kulturen, die die Person HAT (beide Pflanzenlisten).
+function gsAussaatEreignisse(von, bis) {
+  var dinge = [];
+  try {
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) dinge = dinge.concat(myPlants);
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) dinge = dinge.concat(plantings);
+  } catch (_) {}
+  return _gsAussaatFenster(dinge, _gsSaeZuPflanze, von, bis);
 }
 window.gsAussaatEreignisse = gsAussaatEreignisse;
 
@@ -55945,15 +55979,13 @@ function renderAussaat() {
 
   monthKeys.forEach((mKey, i) => {
     const data = cal.monate[mKey];
-    // Rough month check
-    const isCurrentApprox = (i === 0 && (curMonth <= 1)) ||
-                             (i === 1 && curMonth === 2) ||
-                             (i === 2 && curMonth === 3) ||
-                             (i === 3 && curMonth === 4) ||
-                             (i === 4 && (curMonth === 5 || curMonth === 6)) ||
-                             (i === 5 && curMonth === 7) ||
-                             (i === 6 && (curMonth === 8 || curMonth === 9)) ||
-                             (i === 7 && curMonth >= 10);
+    // Der Block ist „jetzt", wenn sein NAME den laufenden Monat nennt — gelesen mit
+    // dem einen Parser fuer Monatsworte (gsSaisonMonate: „Jan/Feb" → 0,1 ·
+    // „Okt–Dez" → 9,10,11). Bis zum 11.11.2026 stand hier eine Index-Tabelle
+    // („Rough month check"), die nicht zu den acht Schluesseln passte: im Juli
+    // war „Juni" markiert, im August „Juli", im Oktober „Aug/Sep" — 3 von 12
+    // Monaten (kalender_check „Wissen-Aussaatkalender").
+    const isCurrentApprox = ((typeof gsSaisonMonate === 'function' && gsSaisonMonate(mKey)) || []).indexOf(curMonth) >= 0;
 
     html += '<div style="background:var(--card);border-radius:var(--r-lg);margin-bottom:9px;box-shadow:var(--shadow-sm);' + (isCurrentApprox ? 'outline:3px solid var(--g-main);' : '') + '">' +
       '<div style="padding:10px 14px 8px;background:' + (isCurrentApprox ? 'var(--g-main)' : '#f5f5f5') + ';color:' + (isCurrentApprox ? '#fff' : 'var(--text)') + ';border-radius:var(--r-lg) var(--r-lg) 0 0;display:flex;align-items:center;justify-content:space-between;">' +
@@ -74632,31 +74664,56 @@ function calcHarvestDate(planting, weather) {
 // GS_SAE_DB (39 Kulturen mit Vorkultur-, Auspflanz- und Erntemonaten).
 // Was sich nicht zuordnen laesst, faellt weg — eine erfundene Aussaatzeit
 // waere schlimmer als keine.
+//
+// 11.11.2026 — die Leiste rechnet NICHTS mehr selbst. Bis hierher las sie die
+// Monatslisten mit `getMonth() + 1` (die Listen zaehlen ab 0: 108 von 468
+// Kultur×Monat-Paaren falsch, „Jetzt ins Beet: Tomaten" im April), nannte von
+// zwei Fenstern im selben Monat nur das erste (Salat im Maerz: „vorziehen",
+// das Beet verschwiegen) und ordnete die Namen mit einem eigenen
+// Praefix-Vergleich zu. Jetzt drei Fragen, drei vorhandene Antworten:
+//   welche Kultur?   _gsSaeZuSaatgut   (der Matcher des Kalenders)
+//   welches Fenster? _gsAussaatFenster (die Rechnung des Kalenders, dieser Monat)
+//   Frost?           _gsKalPruefwerk   (R1 des Kalenders, GS_WETTER_GRENZEN.frost)
+// Rueckgabe: drinnen/draussen sind Aussaat-EREIGNISSE (je Kultur eines, mit
+// `kultur`), frost hat drei Zustaende — erfuellt · verletzt · nicht_pruefbar.
 function gsSaatgutJetzt() {
   try {
     var lager = JSON.parse(localStorage.getItem('gs_seed_inventory') || '[]');
     if (!Array.isArray(lager) || !lager.length) return null;
     if (typeof GS_SAE_DB === 'undefined' || !Array.isArray(GS_SAE_DB)) return null;
-    var m = new Date().getMonth() + 1;
-    var heute = new Date();
-    var drinnen = [], draussen = [], abgelaufen = [];
+    var jetzt = new Date(), heute = gsHeuteTag();
+    var von = _gsKalTag(new Date(jetzt.getFullYear(), jetzt.getMonth(), 1));
+    var bis = _gsKalTag(new Date(jetzt.getFullYear(), jetzt.getMonth() + 1, 0));
+    var brauchbar = [], abgelaufen = [];
     lager.forEach(function (e) {
-      var n = _gsNorm(e && e.name);
-      if (!n) return;
-      var w = n.split(' ')[0];
-      var k = null;
-      for (var i = 0; i < GS_SAE_DB.length; i++) {
-        var c = _gsNorm(GS_SAE_DB[i].n);
-        if (c === n || c === w || c.indexOf(w) === 0 || n.indexOf(c) === 0) { k = GS_SAE_DB[i]; break; }
-      }
-      var exp = _gsPD(e && e.expires);
-      if (exp && exp < heute) { abgelaufen.push(e.name); return; }   // abgelaufenes Saatgut nicht empfehlen
-      if (!k) return;
-      if (Array.isArray(k.indoor)  && k.indoor.indexOf(m)  >= 0) drinnen.push({ name: e.name, kultur: k.n, emoji: k.e });
-      else if (Array.isArray(k.outdoor) && k.outdoor.indexOf(m) >= 0) draussen.push({ name: e.name, kultur: k.n, emoji: k.e });
+      if (!e || !_gsNorm(e.name)) return;
+      var exp = _gsPD(e.expires);
+      if (exp && exp < jetzt) { abgelaufen.push(e.name); return; }   // abgelaufenes Saatgut nicht empfehlen
+      brauchbar.push(e);
     });
+    var ev = _gsAussaatFenster(brauchbar, _gsSaeZuSaatgut, von, bis);
+    var drinnen = ev.filter(function (x) { return x.fenster === 'indoor'; });
+    var draussen = ev.filter(function (x) { return x.fenster === 'outdoor'; });
     if (!drinnen.length && !draussen.length && !abgelaufen.length) return null;
-    return { monat: m, drinnen: drinnen, draussen: draussen, abgelaufen: abgelaufen, lager: lager.length };
+    // „Jetzt ins Beet" bei angesagtem Frost waere derselbe Schaden auf anderem
+    // Weg. Gemessen: −1.5 °C in zwei Tagen — der Kalender warnt an „Tomaten
+    // säen (draussen)", die Leiste sagte „Jetzt ins Beet: Tomaten". Sie legt
+    // ihre Fenster deshalb zusammen mit den Frost-Ereignissen des Kalenders dem
+    // Pruefwerk vor: eine Schwelle, ein Satz. Alle Fenster der Leiste liegen im
+    // selben Monat, R1 urteilt je Monat — das Urteil des ersten gilt fuer alle.
+    var frost = null;
+    if (draussen.length) {
+      frost = { zustand: 'nicht_pruefbar', text: '', mehr: 0, grund: _gsSatz('Frost: nicht geprüft') };
+      try {
+        var fr = gsKalenderEreignisse(heute, bis).filter(function (x) { return x && x.art === 'wetter' && /^frost:/.test(x.id); });
+        _gsKalPruefwerk(ev.concat(fr), von, bis, heute);
+        var h = (draussen[0].hinweise || []).filter(function (x) { return x && x.regel === 'frost_aussaat'; });
+        var v = h.filter(function (x) { return x.zustand === 'verletzt' && x.text; });
+        if (v.length) frost = { zustand: 'verletzt', text: v[0].text, mehr: v.length - 1, grund: v[0].grund || '' };
+        else if (h.length && (h[0].zustand === 'erfuellt' || h[0].grund || h[0].text)) frost = { zustand: h[0].zustand, text: '', mehr: 0, grund: h[0].grund || h[0].text || '' };
+      } catch (_) {}
+    }
+    return { drinnen: drinnen, draussen: draussen, abgelaufen: abgelaufen, lager: lager.length, frost: frost };
   } catch (_) { return null; }
 }
 window.gsSaatgutJetzt = gsSaatgutJetzt;
@@ -74693,17 +74750,33 @@ window.gsJetztDranRender = function () {
 
     var s = gsSaatgutJetzt();
     if (s) {
+      var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+      // Gedeckelt heisst „und N weitere" — je Kultur EIN Name (drei Tomaten-Tueten sind einmal „Tomaten").
+      var namen = function (liste) {
+        return esc(liste.slice(0, 4).map(function (x) { return x.kultur; }).join(', ')) +
+          (liste.length > 4 ? ' ' + esc(_gsSatz('und {1} weitere', liste.length - 4)) : '');
+      };
       if (s.drinnen.length) {
-        zeilen.push({ icon: '🌱', txt: '<b>Jetzt vorziehen:</b> ' +
-          esc(s.drinnen.slice(0, 4).map(function (x) { return x.kultur; }).join(', ')) +
-          (s.drinnen.length > 4 ? ' und ' + (s.drinnen.length - 4) + ' weitere' : '') +
-          ' — Saatgut hast du.', tap: 'gsOpenSeedInventory' });
+        zeilen.push({ icon: '🌱', txt: '<b>' + esc(_gsSatz('Jetzt vorziehen:')) + '</b> ' + namen(s.drinnen) +
+          ' — ' + esc(_gsSatz('Saatgut hast du.')), tap: 'gsOpenSeedInventory' });
       }
       if (s.draussen.length) {
-        zeilen.push({ icon: '🌤️', txt: '<b>Jetzt ins Beet:</b> ' +
-          esc(s.draussen.slice(0, 4).map(function (x) { return x.kultur; }).join(', ')) +
-          (s.draussen.length > 4 ? ' und ' + (s.draussen.length - 4) + ' weitere' : '') +
-          ' — Saatgut hast du.', tap: 'gsOpenSeedInventory' });
+        // Drei Zustaende aus R1 des Kalenders (gsSaatgutJetzt). „Jetzt" steht nur,
+        // wenn die Vorhersage geladen ist und keinen Frost nennt; bei Frost steht
+        // der Satz des Kalenders fuer den ERSTEN Frosttag, die uebrigen sind
+        // gezaehlt („+2 weitere Frosttage") — „danach" heisst nach dem letzten.
+        // Ohne Vorhersage: „Nicht bekannt" mit Grund. Stille ist kein „kein Frost".
+        var f = s.frost || { zustand: 'nicht_pruefbar', grund: '' };
+        if (f.zustand === 'verletzt') {
+          zeilen.push({ icon: '❄️', txt: '<b>' + esc(_gsSatz('Diesen Monat ins Beet:')) + '</b> ' + namen(s.draussen) +
+            ' — ⚠ ' + esc(f.text) + (f.mehr > 0 ? ' · ' + esc(f.mehr === 1 ? _gsSatz('+1 weiterer Frosttag') : _gsSatz('+{1} weitere Frosttage', f.mehr)) : ''), tap: 'gsOpenSeedInventory' });
+        } else if (f.zustand === 'erfuellt') {
+          zeilen.push({ icon: '🌤️', txt: '<b>' + esc(_gsSatz('Jetzt ins Beet:')) + '</b> ' + namen(s.draussen) +
+            ' — ' + esc(_gsSatz('Saatgut hast du.')), tap: 'gsOpenSeedInventory' });
+        } else {
+          zeilen.push({ icon: '🌤️', txt: '<b>' + esc(_gsSatz('Diesen Monat ins Beet:')) + '</b> ' + namen(s.draussen) +
+            ' — ' + esc(_gsSatz('Saatgut hast du.')) + ' ' + esc(_t('kal_nicht_bekannt', 'Nicht bekannt:')) + ' ' + esc(f.grund), tap: 'gsOpenSeedInventory' });
+        }
       }
       if (s.abgelaufen.length) {
         zeilen.push({ icon: '⚠️', txt: '<b>Abgelaufen:</b> ' + esc(s.abgelaufen.slice(0, 3).join(', ')) +
@@ -92156,6 +92229,7 @@ function gsOpenHarvestTracker(){
 
 // ── 3. SAATGUT-INVENTAR ───────────────────────────────────────────
 function gsOpenSeedInventory(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var items = _gsNlSafeItems('gs_seed_inventory');
   var expiring = items.filter(function(i){
     if (!i.expires) return false;
@@ -92171,11 +92245,15 @@ function gsOpenSeedInventory(){
     // v23.71: Stacked Layout — Name auf eigener Zeile (voll), dann Anzahl+Datum+Button
     '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">' +
       '<input id="gs-s-name" placeholder="Sorte (z.B. Tomate Ochsenherz)" style="padding:11px 12px;border:1px solid var(--border);border-radius:var(--r-md);font-family:inherit;font-size:var(--fs-md);box-sizing:border-box;width:100%;">' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;">' +
+      // 11.11.2026: der Knopf hiess „+ Add" — als einziger englischer in einer deutschen
+      // Oberflaeche — und stand als dritte Spalte neben Menge und Datum. Mit dem deutschen
+      // Wort in derselben Zeile blieben dem Datumsfeld bei 360 px Breite 64 px (gemessen);
+      // er steht deshalb in einer eigenen Zeile, wie die anderen Hauptknoepfe dieses Fensters.
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
         '<input id="gs-s-qty" placeholder="Anzahl g/Stk" style="padding:11px 12px;border:1px solid var(--border);border-radius:var(--r-md);font-family:inherit;font-size:var(--fs-md);min-width:0;box-sizing:border-box;">' +
         '<input id="gs-s-exp" type="date" style="padding:11px 12px;border:1px solid var(--border);border-radius:var(--r-md);font-family:inherit;font-size:var(--fs-md);min-width:0;box-sizing:border-box;">' +
-        '<button onclick="gsSeedAdd()" style="padding:11px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-weight:800;cursor:pointer;font-family:inherit;font-size:var(--fs-lg);white-space:nowrap;">+ Add</button>' +
       '</div>' +
+      '<button onclick="gsSeedAdd()" style="width:100%;padding:11px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-weight:800;cursor:pointer;font-family:inherit;font-size:var(--fs-lg);white-space:nowrap;">' + escHtml(_t('seed_add_btn', '+ Hinzufügen')) + '</button>' +
     '</div>' +
     '<div id="gs-s-list" style="max-height:42vh;overflow-y:auto;">' +
       (items.length ? items.slice().reverse().map(function(i,idx){
