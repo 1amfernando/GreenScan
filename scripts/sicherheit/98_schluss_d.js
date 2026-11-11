@@ -15,6 +15,8 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { baueJpegMitExif } = require('../_exifjpeg.js');
+const { repoServer } = require('./_kopfzeilen.js');
+const SEED = require('../_seed.js');
 
 const APP1 = Array.from(baueJpegMitExif({ datum: '2026:07:14 09:33:12', lat: 46.8182, lng: 8.2275 })).slice(2, -2);
 const NUR_META = Array.from(baueJpegMitExif({ datum: '2026:07:14 09:33:12', lat: 46.8182, lng: 8.2275 }));
@@ -74,6 +76,81 @@ function server() {
     });
     s.listen(0, '127.0.0.1', () => res(s));
   });
+}
+
+// v33.59 (Austausch-Runde klassen-b2/f1/i1): die Stripe-Rueckkehr so, wie sie ausgeliefert
+// wird. A ist der eigene Ursprung und liefert das Repo MIT den Kopfzeilen aus _headers
+// (_kopfzeilen.js), B spielt Stripe (anderer Port = fremder Ursprung) und leitet per Skript
+// auf A/?billing=success&popup=1 zurueck. Das Hauptfenster (A, Sitzung aus dem Seed) geht den
+// Weg der App: gsStartCheckout → _gsCheckoutFenster → popup.location = url der Function.
+// Gemessen wird im zurueckgekehrten Fenster beim Start (Bindung, vor jedem App-Skript).
+async function stripeRueckkehr(seite, mitCoop) {
+  const ankunftB = [];
+  const A = await repoServer(mitCoop ? {} : { ohne: ['Cross-Origin-Opener-Policy'] });
+  const B = await new Promise((fertig) => {
+    const s = http.createServer((rq, rs) => {
+      ankunftB.push(rq.url);
+      rs.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      rs.end('<!doctype html><title>Stripe (gestellt)</title><p>Zahlung …</p><script>setTimeout(function(){ location.href = ' +
+        JSON.stringify(A.basis + '?billing=success&popup=1') + '; }, 300);</script>');
+    });
+    s.listen(0, '127.0.0.1', () => fertig({ s, basis: 'http://127.0.0.1:' + s.address().port + '/' }));
+  });
+  const br = seite.context().browser();
+  const ctx = await br.newContext({ serviceWorkers: 'block', viewport: { width: 412, height: 915 } });
+  await ctx.route('**', r => (r.request().url().startsWith(A.basis) || r.request().url().startsWith(B.basis)) ? r.continue() : r.abort());
+  const meldungen = [];
+  await ctx.exposeBinding('__gsRueckkehrMeldung', (_q, m) => { meldungen.push(m); });
+  await ctx.addInitScript(() => {
+    if (!/[?&]popup=1/.test(location.search)) return;
+    const opener = window.opener !== null;
+    window.__gsRueckkehrMeldung({ phase: 'start', opener, href: location.href });
+    // Gegenpruefung s4: „laedt die App nicht" wird am SCHREIBEN von gsPlans gemessen (ein
+    // spaeteres <script>, das window.stop() nie erreichen laesst) — ein Blick nach 1200 ms sah
+    // es unter Last nicht, und das Fenster schliesst sich schon nach 1500 ms.
+    try {
+      Object.defineProperty(window, 'gsPlans', { configurable: true, get() { return undefined; }, set(v) {
+        try { window.__gsRueckkehrMeldung({ phase: 'app' }); } catch (e) {}
+        Object.defineProperty(window, 'gsPlans', { value: v, writable: true, configurable: true, enumerable: true });
+      } });
+    } catch (e) {}
+    setTimeout(() => { try { window.__gsRueckkehrMeldung({ phase: 'spaeter', opener: window.opener !== null, app: typeof window.gsPlans !== 'undefined', text: String((document.body && document.body.innerText) || '').slice(0, 300) }); } catch (e) {} }, 1200);
+  });
+  try {
+    const haupt = await ctx.newPage();
+    await haupt.addInitScript(SEED);
+    await haupt.goto(A.basis, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await haupt.waitForTimeout(4000);
+    const kopf = await haupt.evaluate(async () => { const r = await fetch(location.href, { method: 'HEAD' }).catch(() => null); return r ? r.headers.get('cross-origin-opener-policy') : 'unbekannt'; });
+    const zu = ctx.waitForEvent('page', { timeout: 15000 });
+    await haupt.evaluate((stripe) => {
+      document.documentElement.classList.remove('gs-preauth');
+      window.__pruef = [];
+      window._gsBillingPruefen = async () => { window.__pruef.push(Date.now()); return false; };
+      window.gsHaptic = () => {}; window.gsToast = () => {}; window.sbIsLoggedIn = () => true;
+      window._gsFreshToken = async () => 'pruef.stand.token';
+      window.sbFetch = async () => ({ data: [{ id: 'price_x', metadata: { lookup_key: 'pro_monthly' } }], error: null });
+      const echt = window.fetch;
+      window.fetch = async (url, init) => {
+        if (String(url).indexOf('/functions/v1/stripe-checkout') >= 0) {
+          window.__rumpf = init && init.body;
+          return { ok: true, status: 200, json: async () => ({ url: stripe + 'checkout/cs_test' }) };
+        }
+        return echt(url, init);
+      };
+      gsStartCheckout('pro_monthly');
+    }, B.basis);
+    const pop = await zu;
+    const geschlossen = await new Promise(res => { const t = setTimeout(() => res(false), 9000); pop.on('close', () => { clearTimeout(t); res(true); }); });
+    if (!geschlossen) await haupt.waitForTimeout(500);
+    const haupt2 = await haupt.evaluate(() => ({ n: window.__pruef.length, rumpf: String(window.__rumpf || '') }));
+    let rest = null;
+    if (!geschlossen) rest = await pop.evaluate(() => ({ text: document.body.innerText, app: typeof window.gsPlans !== 'undefined' })).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
+    return { kopf, ankunftB, meldungen, geschlossen, n: haupt2.n, rumpf: haupt2.rumpf, rest };
+  } finally {
+    await ctx.close().catch(() => {});
+    await A.schliessen(); try { B.s.closeAllConnections(); } catch (e) {} B.s.close();
+  }
 }
 
 module.exports = [
@@ -157,7 +234,34 @@ module.exports = [
 
   // ── B · Stripe-Fenster ───────────────────────────────────────────────
   {
-    name: 'B · Rueckkehr aus Stripe ohne opener (COOP): das Hauptfenster bekommt die Meldung (BroadcastChannel) und ruft _gsBillingPruefen; das Popup schliesst sich bzw. sagt „Du kannst dieses Fenster schliessen" — und laedt die App nicht',
+    name: 'B · Rueckkehr aus Stripe unter der ECHTEN COOP aus _headers (zwei Ursprunge, Weg der App): opener im zurueckgekehrten Fenster null — ohne die Kopfzeile nicht; das Hauptfenster bekommt die Meldung (BroadcastChannel ueber die Gruppengrenze) und ruft _gsBillingPruefen 1×; das Fenster schliesst sich und laedt die App nicht',
+    lauf: async (seite) => {
+      const mit = await stripeRueckkehr(seite, true);
+      const ohne = await stripeRueckkehr(seite, false);
+      const kurz = (x) => JSON.stringify({ kopf: x.kopf, B: x.ankunftB, m: x.meldungen, zu: x.geschlossen, n: x.n, rest: x.rest }).slice(0, 700);
+      for (const [x, wer] of [[mit, 'mit COOP'], [ohne, 'ohne COOP']]) {
+        if (!x.ankunftB.some(u => /^\/checkout\//.test(u))) return { ok: false, warum: wer + ': das Fenster kam nie bei „Stripe" (B) an — der Fall misst nichts: ' + kurz(x) };
+        if (!/popup=1/.test(x.rumpf)) return { ok: false, warum: wer + ': die Rueckkehr-Adresse traegt kein popup=1: ' + x.rumpf.slice(0, 200) };
+        if (!x.meldungen.some(m => m.phase === 'start')) return { ok: false, warum: wer + ': das Fenster kam nie auf A zurueck: ' + kurz(x) };
+      }
+      if (mit.kopf !== 'same-origin-allow-popups') return { ok: false, warum: 'A liefert die COOP aus _headers nicht aus: ' + mit.kopf };
+      if (ohne.kopf) return { ok: false, warum: 'die Gegenprobe liefert doch eine COOP: ' + ohne.kopf };
+      const oMit = mit.meldungen.find(m => m.phase === 'start').opener, oOhne = ohne.meldungen.find(m => m.phase === 'start').opener;
+      if (oMit) return { ok: false, warum: 'unter der COOP ist window.opener nach dem Umweg ueber Stripe NICHT null — der Fall stellt die Auslieferung nicht nach: ' + kurz(mit) };
+      if (!oOhne) return { ok: false, warum: 'Gegenprobe: auch OHNE COOP ist opener null — dann misst der Fall die Kopfzeile nicht: ' + kurz(ohne) };
+      for (const [x, wer] of [[mit, 'mit COOP'], [ohne, 'ohne COOP']]) {
+        if (x.n !== 1) return { ok: false, warum: wer + ': das Hauptfenster rief _gsBillingPruefen ' + x.n + '× (erwartet 1) — die Meldung kam nicht an: ' + kurz(x) };
+        const sp = x.meldungen.find(m => m.phase === 'spaeter');
+        if ((sp && sp.app) || x.meldungen.some(m => m.phase === 'app')) return { ok: false, warum: wer + ': das zurueckgekehrte Fenster laedt die ganze App (gsPlans geschrieben): ' + kurz(x) };
+        // per Skript geoeffnet → close() muss wirken, auch nach dem Gruppenwechsel durch die COOP
+        // (der Satz „Du kannst … schliessen" ist der Weg fuer ein NICHT per Skript geoeffnetes Fenster)
+        if (!x.geschlossen) return { ok: false, warum: wer + ': das per Skript geoeffnete Fenster schliesst sich nicht: ' + kurz(x) };
+      }
+      return { ok: true, info: 'mit COOP: opener null, Meldung 1× angekommen (BroadcastChannel), Fenster geschlossen, App nie geladen · ohne COOP: opener da, Meldung 1×, Fenster geschlossen' };
+    },
+  },
+  {
+    name: 'B · Rechnung (ein Ursprung, ohne Kopfzeilen, Fenster mit noopener): das Hauptfenster bekommt die Meldung; close() verweigert → ein Satz statt der App; ohne popup=1 laedt die App wie bisher',
     lauf: async (seite) => {
       const srv = await server();
       const port = srv.address().port, basis = 'http://127.0.0.1:' + port + '/';
@@ -179,7 +283,8 @@ module.exports = [
         const p2 = await ctx.newPage();
         await p2.goto(basis + 'robots.txt');
         await p2.goto(basis + '?billing=cancel&popup=1', { waitUntil: 'commit' });   // window.stop(): kein domcontentloaded
-        await p2.waitForTimeout(2600);
+        // Gegenpruefung s4: auf den Satz WARTEN (bis 8 s) statt fester 2600 ms — unter Last kam er spaeter
+        await p2.waitForFunction(() => /Du kannst dieses Fenster schlie/i.test((document.body && document.body.innerText) || ''), null, { timeout: 8000 }).catch(() => {});
         const z2 = await p2.evaluate(() => ({ text: document.body.innerText, app: !!document.getElementById('app') && document.getElementById('app').getBoundingClientRect().height > 0, tab: !!document.querySelector('.tab-bar, #tab-bar'), spaet: typeof window.gsPlans !== 'undefined' }));   // gsPlans steht in einem SPAETEREN Skript
         const n2 = await haupt.evaluate(() => window.__pruef.length);
         // (3) ohne popup=1 unveraendert: die Seite laedt die App
