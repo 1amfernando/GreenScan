@@ -1366,6 +1366,44 @@ const FAELLE = [
     },
   },
   {
+    // v33.57. `_gsKalFilterSchreiben` rief `if (typeof markDirty === 'function')
+    // markDirty('state')` — eine globale `markDirty` gibt es nicht, sie heisst
+    // `gsCloudSync.markDirty`. Der Schutz war immer falsch: die Wahl wurde
+    // gespeichert und NIE zum Sync vorgemerkt. F6 misst, dass der Filter im
+    // Blob STEHT; dass ihn jemand auf den Weg schickt, mass niemand.
+    name: 'Sieb F7 · eine Filterwahl wird zum Sync vorgemerkt (gsCloudSync.markDirty) — und bei vollem Speicher NICHT, denn dann gibt es nichts zu schicken',
+    lauf: () => {
+      const cs = window.gsCloudSync;
+      if (!cs || typeof cs.markDirty !== 'function') return { ok: false, warum: 'gsCloudSync.markDirty nicht erreichbar — der Fall kann nichts messen' };
+      if (typeof _gsKalFilterSchreiben !== 'function') return { ok: false, warum: '_gsKalFilterSchreiben fehlt' };
+      const alt = localStorage.getItem('gs_kal_filter');
+      const echt = cs.markDirty, echtSet = localStorage.setItem, echtToast = window.gsToast;
+      const rufe = [];
+      cs.markDirty = function (scope) { rufe.push(String(scope)); };
+      window.gsToast = function () {};
+      try {
+        localStorage.removeItem('gs_kal_filter');
+        const ok = _gsKalFilterSchreiben({ aus: ['wetter'], garten: null });
+        let gesp = null; try { gesp = JSON.parse(localStorage.getItem('gs_kal_filter') || 'null'); } catch (_) {}
+        if (ok !== true || !gesp || !Array.isArray(gesp.aus) || gesp.aus[0] !== 'wetter') return { ok: false, warum: 'die Wahl wurde nicht gespeichert (' + JSON.stringify(gesp) + ') — der Fall misst nichts' };
+        const nachSpeichern = rufe.slice();
+        if (nachSpeichern.indexOf('state') < 0) return { ok: false, warum: 'gespeichert, aber NICHT zum Sync vorgemerkt — markDirty-Rufe: ' + JSON.stringify(nachSpeichern) + ' (erwartet "state")' };
+        // Gegenrichtung: voller Speicher. setItem liefert false (CLAUDE.md §3.5) —
+        // dann ist nichts gespeichert und es darf nichts vorgemerkt werden.
+        rufe.length = 0;
+        localStorage.setItem = function () { return false; };
+        const voll = _gsKalFilterSchreiben({ aus: ['alarm'], garten: null });
+        localStorage.setItem = echtSet;
+        if (voll !== false) return { ok: false, warum: 'bei vollem Speicher meldet _gsKalFilterSchreiben ' + JSON.stringify(voll) + ' statt false' };
+        if (rufe.length) return { ok: false, warum: 'bei vollem Speicher wurde trotzdem vorgemerkt: ' + JSON.stringify(rufe) };
+        return { ok: true, info: 'gespeichert → markDirty(' + JSON.stringify(nachSpeichern) + ') · voller Speicher → false und kein Vormerken' };
+      } finally {
+        cs.markDirty = echt; localStorage.setItem = echtSet; window.gsToast = echtToast;
+        if (alt == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', alt);
+      }
+    },
+  },
+  {
     // v33.36 · KALENDER-V2 R7. Bis hierher standen die vier Schwellen an ZWEI
     // Stellen: GS_FROST_GRENZE_C (2) im Kalender und vier Literale (2/30/20/40)
     // in gsOpenWeatherWarn — das dazu einen EIGENEN Open-Meteo-Aufruf machte

@@ -208,6 +208,14 @@ async function medianFarben(leser, pngBuffer, punkte) {
   const leser = await (await br.newContext()).newPage();   // nur zum Pixel-Lesen
   await leser.goto('data:text/html,<title>px</title>');
 
+  // v33.57: dieser Pruefstand URTEILT. Bis v33.56 endete er IMMER mit 0 — er
+  // druckte „N Textstellen unter AA" und die Suite meldete trotzdem „rot: 0";
+  // in ihrem Auszug (die letzten zwoelf Zeilen) stand die Zahl des Hellmodus
+  // nicht einmal. CLAUDE.md §7.1 sagte „soll 0 melden" — und nichts erzwang
+  // es. Eine Regel ohne Ausloeser ist eine Bitte (v33.01). Rot ist jetzt:
+  // eine Textstelle unter AA, ein von Hand gestelltes Fenster, das nicht
+  // aufging, ein dynamischer Dialog, der nicht aufging.
+  let unterAA = 0, dynFehler = 0, uebersprungen = [];
   for (const dark of [false, true]) {
     const ctx = await br.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
     const p = await ctx.newPage();
@@ -453,6 +461,43 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (!/2 Fotos/.test(ov.textContent)) throw new Error('teilen-vorschau: Hinweiszeile fehlt — der Fall stellt seinen Zustand nicht her');
         return ov.firstElementChild;
       }],
+      // v33.57: die Rueckfrage. `gsConfirmModal` hat 49 Aufrufstellen und war nie
+      // vermessen — sie braucht Parameter, der automatische Durchgang ruft nur
+      // Oeffner ohne. Gemessen im Dunkelmodus: Titel, Text und „Abbrechen" mit
+      // 1,06:1 (`color:var(--fg,#1a1a1a)`, und `--fg` gab es nie). Jede
+      // „Wirklich loeschen?"-Frage der App war schwarz auf schwarz.
+      ['rueckfrage', () => {
+        gsConfirmModal({ title: 'Pflanze löschen?', message: 'Die Pflanze und ihr Tagebuch werden entfernt. Das lässt sich nicht rückgängig machen.', ok: 'Endgültig löschen', cancel: 'Abbrechen', kind: 'danger' });
+        const w = document.getElementById('gs-confirm-modal');
+        if (!w || !w.firstElementChild) throw new Error('rueckfrage: kein #gs-confirm-modal');
+        if (!/Tagebuch/.test(w.textContent)) throw new Error('rueckfrage: der Text steht nicht da — der Fall stellt seinen Zustand nicht her');
+        return w.firstElementChild;
+      }],
+      ['eingabe', () => {
+        gsPromptModal({ title: 'Name der Pflanze', message: 'Wie soll sie heissen?', value: 'Monstera', ok: 'Speichern', cancel: 'Abbrechen' });
+        const w = document.getElementById('gs-prompt-modal');
+        if (!w || !w.firstElementChild) throw new Error('eingabe: kein #gs-prompt-modal');
+        return w.firstElementChild;
+      }],
+      // Eine Battle-Runde: vier Antwortknoepfe auf `var(--card-bg,#fff)` — auch
+      // diesen Namen gab es nie, im Dunkelmodus stand helle Schrift auf Weiss.
+      ['battle-runde', () => {
+        window.sbFetch = async () => ({ data: [{}] });
+        gsBattleStartPlay('b-kontrast', 'challenger', [
+          { q: 'Welche dieser Arten ist tödlich giftig?', options: ['Bärlauch', 'Herbstzeitlose', 'Löwenzahn', 'Brennnessel'], correct_idx: 1 },
+          { q: 'Zweite Frage', options: ['a', 'b', 'c', 'd'], correct_idx: 0 }]);
+        gsBattleRenderRound();
+        const m = document.getElementById('gs-nl-modal');
+        const b = document.getElementById('gs-nl-body');
+        if (!m || !b || !/Herbstzeitlose/.test(b.textContent)) throw new Error('battle-runde: die Runde steht nicht da');
+        return b;
+      }],
+      ['track-wiederherstellen', () => {
+        _gsTrackRecoveryChoice(42, 17);
+        const w = document.getElementById('gs-track-recover');
+        if (!w || !w.firstElementChild) throw new Error('track-wiederherstellen: kein #gs-track-recover');
+        return w.firstElementChild;
+      }],
     ];
 
     // v32.25: der Messvorgang als FUNKTION — er wird jetzt von zwei Seiten
@@ -465,6 +510,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
       deckel = deckel || 8;
       try {
         const hoch = await p.evaluate(([fn, arg]) => {
+          window.__gsBodyVor = [].slice.call(document.body.children);   // v33.57: fuers Aufraeumen danach
           const res = (new Function('return (' + fn + ')'))()(arg);
           if (!res || !res.getBoundingClientRect) return 0;
           let sc = res;
@@ -528,8 +574,34 @@ async function medianFarben(leser, pngBuffer, punkte) {
           // stehen gelassen, verdeckte sie jedes weitere Fenster.
           const tv = document.getElementById('gs-teilen-vorschau');
           if (tv && typeof gsDismissOverlay === 'function') { try { gsDismissOverlay(tv); } catch(_){} }
+          // v33.57: Rueckfrage und Eingabe geben ein Promise zurueck — „Abbrechen"
+          // loest es sauber auf. Die Battle-Runde schliesst ueber closeModal (das
+          // haelt auch ihren Zaehler an, v32.97).
+          ['gs-confirm-cancel', 'gs-prompt-cancel'].forEach(id => { const b = document.getElementById(id); if (b) { try { b.click(); } catch(_){} } });
+          try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
+          // Und alles, was der Oeffner an den <body> gehaengt hat und den
+          // Bildschirm ueberdeckt: stehen gelassen, verdeckte es jedes weitere Fenster.
+          const vor = window.__gsBodyVor;
+          if (vor) {
+            [].slice.call(document.body.children).forEach(el => {
+              if (vor.indexOf(el) >= 0) return;
+              let cs; try { cs = getComputedStyle(el); } catch(_) { return; }
+              if (cs.position !== 'fixed') return;
+              const r = el.getBoundingClientRect();
+              if (r.width * r.height < innerWidth * innerHeight * 0.5) return;
+              try { if (typeof gsDismissOverlay === 'function') gsDismissOverlay(el); } catch(_){}
+              try { if (el.parentNode) el.parentNode.removeChild(el); } catch(_){}
+            });
+            window.__gsBodyVor = null;
+          }
         });
-      } catch (e) { console.log('  (Fenster ' + fname + ' uebersprungen: ' + e.message.split('\n')[0] + ')'); }
+      } catch (e) {
+        console.log('  (Fenster ' + fname + ' uebersprungen: ' + e.message.split('\n')[0] + ')');
+        // Ein Fenster, das nicht aufging, ist nicht vermessen — fuer die von Hand
+        // gestellten ist das rot (bei den automatisch gefundenen lehnt mancher
+        // Oeffner bewusst ab; das zaehlt wiring_check Richtung 3).
+        if (deckel === 8) uebersprungen.push((dark ? 'dunkel' : 'hell') + ':' + fname);
+      }
     }
 
     // ── Durchgang 1: die Fenster, die gestellte Daten brauchen ────────────
@@ -599,6 +671,85 @@ async function medianFarben(leser, pngBuffer, punkte) {
     console.log('  automatisch geoeffnet: ' + autoNamen.length + ' Fenster' +
                 (autoGemessen ? ' · davon mit Befund: ' + autoGemessen : ' · ohne Befund'));
 
+    // ── Durchgang 3 (v33.57): Dialoge, die sich SELBST an den <body> haengen ──
+    //
+    // Durchgang 2 findet nur Oeffner, deren Rumpf `openModal(` enthaelt. Rund
+    // ein Dutzend Dialoge bauen ihr Fenster aber selbst (`document.body
+    // .appendChild` mit `position:fixed`) — Scan-Tipps, Sprachmodus,
+    // Passwort aendern, Konto loeschen, Avatar-Wahl, Wetterwarnungen. Sie
+    // waren nie vermessen; der Knopf „Alles klar" der Scan-Tipps stand mit
+    // 2,36:1 da. Dieselbe Entdeckung, andere Bauform: jede Funktion OHNE
+    // Parameter, deren Rumpf ein festes Fenster an den <body> haengt.
+    // Was kein Dialog ist (Start-Routinen, Banner, Abzeichen), steht mit
+    // Grund in DYN_AUS — die Liste ist die Pruefung: ein Name darin, den es
+    // nicht mehr gibt, wird gemeldet.
+    const DYN_AUS = {
+      gsCheckPastDueBanner: 'Banner bei ueberfaelliger Zahlung — erscheint nur mit einem Abo-Zustand vom Server',
+      loadHomeWeather: 'laedt das Wetter der Startseite; das Fenster darin ist ein Fehlerfall ohne Netz',
+      _gsBattleMaybeOfferResume: 'bietet nur an, wenn eine unterbrochene Runde im Speicher liegt',
+      _gsInstallInit: 'Start-Routine (Install-Banner)',
+      _gsAuthPrompt: 'Anmelde-Aufforderung — erscheint nur ohne Sitzung, der Pruefstand ist angemeldet',
+      _gsOfflineEngineInit: 'Start-Routine (Offline-Anzeige)',
+      _gsStatusBadgeInit: 'Start-Routine (Status-Abzeichen)',
+      ensureBadge: 'Hilfsfunktion des Status-Abzeichens, kein Dialog',
+      _gsStorageMgmtInit: 'Start-Routine (Speicherverwaltung)',
+      _gsUniversalSearchInit: 'Start-Routine (Suche)',
+      _gsWhatsNewInit: 'Start-Routine — den Dialog selbst misst nutzersicht_check E4',
+      showWhatsNew: 'innere Funktion von _gsWhatsNewInit, von aussen nicht erreichbar',
+      _gsShowRestoreBanner: 'Banner nach einer Wiederherstellung — braucht deren Zustand',
+      _gsMaintenanceBannerBoot: 'Start-Routine (Wartungs-Banner)',
+      gsPPshow3DCad: 'braucht einen offenen Plan und laedt Three.js — der Planer wird oben von Hand gestellt',
+    };
+    const dynNamen = await p.evaluate((quelleTxt) => {
+      const out = [];
+      const re = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{/g;
+      let m;
+      while ((m = re.exec(quelleTxt))) {
+        let d = 0, i = re.lastIndex - 1, ende = -1;
+        while (i < quelleTxt.length && i < re.lastIndex + 40000) {
+          const c = quelleTxt[i];
+          if (c === '{') d++;
+          else if (c === '}') { d--; if (d === 0) { ende = i; break; } }
+          i++;
+        }
+        if (ende < 0) continue;
+        const rumpf = quelleTxt.slice(re.lastIndex, ende);
+        if (/document\.body\.appendChild\(/.test(rumpf) && /position:\s*fixed/.test(rumpf) && rumpf.indexOf('openModal(') < 0) out.push(m[1]);
+      }
+      return [...new Set(out)].sort();
+    }, require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8'));
+    const DYN_OEFFNER = `(function(name){
+      window.sbIsLoggedIn = function(){ return true; };
+      window.gsIsAdmin = function(){ return true; };
+      window.gsIsStaff = function(){ return true; };
+      window.gsRequire = function(){ return true; };
+      window._sbProfile = window._sbProfile || { id:'u1', email:'p@r.ch', role:'admin' };
+      var vor = [].slice.call(document.body.children);
+      var f = window[name];
+      if (typeof f !== 'function') return 0;
+      try { f(); } catch(_) { return 0; }
+      var neu = [].slice.call(document.body.children).filter(function(el){
+        if (vor.indexOf(el) >= 0) return false;
+        var cs = getComputedStyle(el);
+        return cs.position === 'fixed' && cs.display !== 'none' && (el.textContent||'').trim().length > 12;
+      });
+      window.__gsDynOffen = neu.length;
+      return neu.length ? neu[neu.length - 1] : 0;
+    })`;
+    const dynUeberholt = Object.keys(DYN_AUS).filter(n => dynNamen.indexOf(n) < 0);
+    if (dynUeberholt.length) { console.log('  !! DYN_AUS nennt Namen, die es so nicht mehr gibt: ' + dynUeberholt.join(', ')); dynFehler++; }
+    let dynOffen = 0; const dynZu = [];
+    for (const name of dynNamen) {
+      if (DYN_AUS[name]) continue;
+      await messeFenster(name, DYN_OEFFNER, name, 3);
+      const n = await p.evaluate(() => { const v = window.__gsDynOffen | 0; window.__gsDynOffen = 0; return v; });
+      if (n) dynOffen++; else dynZu.push(name);
+    }
+    console.log('  dynamische Dialoge: ' + dynNamen.length + ' gefunden · ' + Object.keys(DYN_AUS).length + ' ausgenommen (mit Grund) · ' + dynOffen + ' geoeffnet und vermessen' +
+                (dynZu.length ? ' · NICHT aufgegangen: ' + dynZu.join(', ') : ''));
+    // Ein Dialog, der nicht aufgeht, ist nicht vermessen — und das ist kein Gruen.
+    if (dynZu.length) dynFehler++;
+
 
     await ctx.close();
 
@@ -608,6 +759,11 @@ async function medianFarben(leser, pngBuffer, punkte) {
       `  ${String(o.r).padStart(5)}:1 (soll ${o.min})  ${o.tab.padEnd(9)} ${o.sel.slice(0,32).padEnd(33)} ` +
       `rgb(${o.fg})@${o.alpha.toFixed(2)} auf rgb(${o.bg})  „${o.t}"`));
     if (liste.length > 70) console.log(`  … und ${liste.length-70} weitere`);
+    unterAA += liste.length;
   }
   await br.close();
+  console.log('\n  ---');
+  console.log('  unter AA (hell + dunkel): ' + unterAA + ' · von Hand gestellte Fenster nicht aufgegangen: ' + uebersprungen.length +
+              (uebersprungen.length ? ' (' + uebersprungen.join(', ') + ')' : '') + ' · dynamische Dialoge nicht vermessen: ' + dynFehler);
+  process.exitCode = (unterAA || uebersprungen.length || dynFehler) ? 1 : 0;
 })();

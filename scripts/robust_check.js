@@ -21,6 +21,7 @@ const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/
 const SEED = require('./_seed.js');
 
 let __seite = null;
+let __browser = null;   // v33.57: fuer Faelle, die eine EIGENE Sitzung brauchen (Zweite Sitzung)
 const __anfragen = [];
 const FAELLE = [
   {
@@ -585,36 +586,20 @@ const FAELLE = [
         gsAROpen:         'AR-Ansicht einer Art. Nicht verdrahtet, und das ist GEMESSEN begruendet: ar_models hat 30 Zeilen, davon 0 mit gltf_url und 0 mit low_poly_url (09.09.2026, nur lesend). Es gibt kein einziges Modell — ein Knopf zeigte fuer JEDE Art nur den Rueckfall. Erst Modelle, dann Knopf.',
       };
       const wurzel = path.join(__dirname, '..');
-      const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');
+      // v33.57: der Korpus steht in scripts/_korpus.js — statik_check S5 stellt
+      // dieselbe Frage von der anderen Seite (stehen ALLE weiteren Nennungen im
+      // eigenen Rumpf?) und muss denselben Text zaehlen. Die Regeln sind
+      // unveraendert: ganze Kommentarzeilen heraus, die eigene Ausfuhr
+      // `window.X = X;` ist keine Nennung (v32.96), die Java-Quellen der Huelle
+      // zaehlen mit (v33.53), und DIESE Datei zaehlt nicht — sie nennt jeden
+      // Namen, den sie in BEWUSST/OHNE_EINSTIEG deklariert, und waere sonst ihre
+      // eigene zweite Nennung (v32.96).
+      const { nennungsKorpus } = require('./_korpus.js');
+      const selbst = path.join('scripts', path.basename(__filename));
+      const { zaehl, dateien, index: idx } = nennungsKorpus(wurzel, [selbst]);
       const defs = new Set();
       for (const m of idx.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)) defs.add(m[1]);
       for (const m of idx.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function/g)) defs.add(m[1]);
-      const dateien = ['sw.js', 'install.html', 'offline.html'];
-      const sammle = (d, re) => { try { fs.readdirSync(path.join(wurzel, d)).filter(f => re.test(f)).forEach(f => dateien.push(path.join(d, f))); } catch (_) {} };
-      sammle('scripts', /\.(js|py)$/); sammle('supabase/migrations', /\.sql$/);
-      // v33.53: die Android-Huelle ruft zwei Funktionen der Seite — und NUR sie
-      // (gsHuellePause, gsHuelleDateiErgebnis, per evaluateJavascript). Ohne den
-      // Java-Quelltext zaehlte dieser Fall ihren einzigen echten Aufrufer nicht
-      // mit, und sie ueberlebten nur, weil ein Pruefstand sie zufaellig nennt.
-      sammle(path.join('android', 'src', 'ch', 'greenscan', 'app'), /\.java$/);
-      // v32.96: DIESE Datei zaehlt nicht mit. Sie nennt jeden Namen, den sie in
-      // BEWUSST/OHNE_EINSTIEG deklariert — eine Deklaration im Pruefstand waere
-      // damit ihre eigene zweite Nennung, und der Fall meldete brav „0 ohne
-      // zweite Nennung". Ein Pruefstand, der durch das Eintragen still wird,
-      // misst nur noch sich selbst. (Gefunden beim Eintragen der sieben.)
-      const selbst = path.join('scripts', path.basename(__filename));
-      for (let i = dateien.length - 1; i >= 0; i--) if (dateien[i] === selbst) dateien.splice(i, 1);
-      try { fs.readdirSync(path.join(wurzel, 'supabase', 'functions')).forEach(f => { const p = path.join('supabase', 'functions', f, 'index.ts'); if (fs.existsSync(path.join(wurzel, p))) dateien.push(p); }); } catch (_) {}
-      let korpus = idx;
-      for (const f of dateien) { try { korpus += '\n' + fs.readFileSync(path.join(wurzel, f), 'utf8'); } catch (_) {} }
-      korpus = korpus.replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\*.*$/gm, '');
-      // v32.96: die eigene Ausfuhr ist keine Nennung. `window.gsSafetyDefaults =
-      // gsSafetyDefaults;` nennt den Namen ZWEIMAL in einer Zeile — eine Funktion,
-      // die sonst niemand ruft, kam damit auf 3 und fiel durch das Raster.
-      // gsSafetyDefaults (86 Zeilen Warntexte) lag so seit v27.x unbemerkt.
-      korpus = korpus.replace(/window\.([A-Za-z_$][\w$]*)\s*=\s*\1\s*;?/g, '');
-      const zaehl = new Map();
-      for (const m of korpus.matchAll(/[A-Za-z_$][\w$]*/g)) zaehl.set(m[0], (zaehl.get(m[0]) || 0) + 1);
       const tot = [...defs].filter(d => (zaehl.get(d) || 0) <= 1).sort();
       const unbegruendet = tot.filter(d => !BEWUSST[d] && !OHNE_EINSTIEG[d]);
       const ohneEinstieg = tot.filter(d => OHNE_EINSTIEG[d]);
@@ -1031,6 +1016,67 @@ const FAELLE = [
     },
   },
   {
+    name: 'Zweite Sitzung · die Artenliste sieht beim zweiten Start aus wie beim ersten — keine Aufbereitung im Arbeitsspeicher haengt an einem Schalter im Geraetespeicher',
+    lauf: async () => {
+      // v33.57. Gemessen: `gsNormalizeCatEmojis` und `gsAutoFillLookalikes` bereiten
+      // die Artenliste IM ARBEITSSPEICHER auf — und stiegen aus, sobald ein
+      // Schalter im Geraetespeicher stand (`gs_emoji_normalized_v2`,
+      // `gs_lookalike_filled`), den sie beim ersten Lauf selbst setzten. Die
+      // Liste wird aber bei jedem Start frisch aus data/plants.v1.js gebaut.
+      // Folge: erste Sitzung 160 Arten mit generischem Symbol und 0 ohne
+      // Verwechslungshinweis — ab der zweiten 1'971 und 1'435. Und JEDER
+      // Pruefstand beginnt mit leerem Speicher, misst also immer die erste.
+      // Dieser Fall laedt die App zweimal im SELBEN Speicher und haelt beide
+      // Listen Eintrag fuer Eintrag gegeneinander.
+      const ctx = await __browser.newContext({ viewport: { width: 412, height: 915 } });
+      try {
+        const p = await ctx.newPage();
+        await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+        await p.addInitScript(SEED);
+        const url = 'file://' + path.resolve(__dirname, '..', 'index.html');
+        const bild = async () => {
+          // Die Aufbereitung laeuft zeitversetzt (2 s und 4 s nach dem Start).
+          // Gewartet wird auf die LISTE, dann eine feste Spanne dahinter.
+          for (let i = 0; i < 80; i++) {
+            const da = await p.evaluate(() => typeof DB !== 'undefined' && DB.length > 100);
+            if (da) break;
+            await p.waitForTimeout(250);
+          }
+          await p.waitForTimeout(6500);
+          return p.evaluate(() => {
+            const gen = ['🌿', '⬜', '', '🔬'];
+            const zeile = (s) => [s.id, s.emoji, s.lookalike || '', s.warning || '', s.uses || '', s.tox, s.edible ? 1 : 0].join('|');
+            const schalter = [];
+            for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/_filled|_normalized/.test(k)) schalter.push(k); }
+            return {
+              n: DB.length,
+              generisch: DB.filter(s => gen.includes(s.emoji)).length,
+              ohneHinweis: DB.filter(s => !s.lookalike || s.lookalike === '–').length,
+              zeilen: DB.map(zeile),
+              schalter,
+            };
+          });
+        };
+        await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
+        const eins = await bild();
+        await p.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
+        const zwei = await bild();
+        if (eins.n < 4000 || zwei.n < 4000) return { ok: false, warum: 'Artenliste nicht geladen (' + eins.n + ' / ' + zwei.n + ') — der Fall hat nichts gemessen' };
+        const anders = [];
+        for (let i = 0; i < eins.zeilen.length; i++) if (eins.zeilen[i] !== zwei.zeilen[i]) anders.push(i);
+        if (eins.n !== zwei.n || anders.length) {
+          return { ok: false, warum: 'zweite Sitzung weicht ab: ' + anders.length + ' von ' + eins.n + ' Eintraegen anders · generisches Symbol ' + eins.generisch + ' → ' + zwei.generisch +
+            ' · ohne Verwechslungshinweis ' + eins.ohneHinweis + ' → ' + zwei.ohneHinweis + ' · z.B. „' + String(eins.zeilen[anders[0]]).slice(0, 60) + '" → „' + String(zwei.zeilen[anders[0]]).slice(0, 60) + '"' };
+        }
+        // Gegenrichtung: die Aufbereitung muss ueberhaupt etwas getan haben, sonst
+        // waeren zwei unaufbereitete Listen ebenfalls gleich.
+        if (eins.generisch > 500 || eins.ohneHinweis > 0) return { ok: false, warum: 'die Aufbereitung ist in KEINER Sitzung gelaufen (generisch ' + eins.generisch + ', ohne Hinweis ' + eins.ohneHinweis + ') — zwei gleiche, unaufbereitete Listen' };
+        if (zwei.schalter.length) return { ok: false, warum: 'im Geraetespeicher steht wieder ein Schalter fuer eine Aufbereitung im Arbeitsspeicher: ' + zwei.schalter.join(', ') };
+        return { ok: true, info: eins.n + ' Eintraege, zweimal im selben Speicher geladen — alle gleich · generisches Symbol ' + zwei.generisch + ' · ohne Verwechslungshinweis ' + zwei.ohneHinweis + ' · kein Aufbereitungs-Schalter im Speicher' };
+      } finally { await ctx.close(); }
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
@@ -1194,7 +1240,7 @@ const FAELLE = [
 ];
 
 (async () => {
-  const br = await chromium.launch();
+  const br = await chromium.launch(); __browser = br;
   const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
   const p = await ctx.newPage(); __seite = p;
   const errs = [];

@@ -281,6 +281,217 @@ const FAELLE = [
       return { ok: true, info: '1 Bild (https), javascript: ohne <img>, beide Funde in der Liste' };
     },
   },
+  {
+    // v33.57 (Audit „escape", jeder Fund gegengeprueft). Sieben Stellen, an
+    // denen ein Wert aus fremder Hand als Code ankam oder einen Knopf zerbrach.
+    name: 'Karten-Popup · die Foto-Adresse eines FREMDEN Fundes (map_user_finds.photo_url) wird kein Attribut: x" onerror=… bekommt kein <img>, https und der lokale Platzhalter schon',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        if (typeof _gsBuildFindPopup !== 'function') return { fehlt: true };
+        const meta = { emoji: '🍄', color: '#2e7d32', label: 'Pilz' };
+        const box = document.createElement('div'); document.body.appendChild(box);
+        delete window.__pwned;
+        const bau = (u) => { box.innerHTML = _gsBuildFindPopup(meta, 'Steinpilz', 'am Waldrand', new Date(), u); return Array.from(box.querySelectorAll('img')).map(i => ({ src: i.getAttribute('src'), on: i.getAttribute('onerror') })); };
+        try {
+          const boese = bau('x" onerror="window.__pwned=1');
+          await new Promise(res => setTimeout(res, 350));          // onerror feuert erst, wenn das Bild fehlschlaegt
+          const pw = window.__pwned;
+          const js = bau('javascript:window.__pwned=2');
+          const https = bau('https://bilder.example/fund.jpg?a=1&b=2');
+          const lokal = bau('gsphoto://7');
+          const text = box.textContent;
+          return { boese, pw, js, https, lokal, name: /Steinpilz/.test(text) };
+        } finally { box.remove(); delete window.__pwned; }
+      });
+      if (r.fehlt) return { ok: false, warum: '_gsBuildFindPopup fehlt' };
+      if (r.pw !== undefined) return { ok: false, warum: 'Code lief: window.__pwned = ' + r.pw + ' (die Adresse wurde zu einem onerror-Attribut: ' + JSON.stringify(r.boese) + ')' };
+      if (r.boese.some(i => i.on)) return { ok: false, warum: 'das <img> traegt ein onerror-Attribut: ' + JSON.stringify(r.boese) };
+      if (r.boese.length || r.js.length) return { ok: false, warum: 'eine verworfene Adresse bekam trotzdem ein <img>: ' + JSON.stringify(r.boese.concat(r.js)) };
+      if (r.https.length !== 1 || r.https[0].src !== 'https://bilder.example/fund.jpg?a=1&b=2') return { ok: false, warum: 'https-Foto fehlt oder ist veraendert: ' + JSON.stringify(r.https) };
+      if (r.lokal.length !== 1) return { ok: false, warum: 'der lokale Platzhalter gsphoto://7 bekam kein <img> — eigene Fotos waeren weg' };
+      if (!r.name) return { ok: false, warum: 'der Name steht nicht mehr im Popup' };
+      return { ok: true, info: 'x" onerror=… und javascript: → kein <img>, nichts lief · https exakt · gsphoto://7 bleibt' };
+    },
+  },
+  {
+    name: 'Marktplatz-Detail · die Foto-Adressen eines FREMDEN Inserats stehen in keinem onclick: &#39;-Ausbruch laeuft nicht, ein Tipp aufs Vorschaubild setzt genau dessen Adresse, javascript: bekommt keines',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        if (typeof gsMarketShowDetail !== 'function') return { fehlt: true };
+        delete window.__pwned;
+        const l = { id: 'l-esc', title: 'Tomaten', description: 'frisch', price: 5, currency: 'CHF', cat: 'produkte', seller: 'Anna', sellerId: 'u-fremd',
+          images: ['https://a.example/1.jpg', "https://a.example/2.jpg?x=&#39;;window.__pwned=1;//", 'javascript:window.__pwned=3', 'https://a.example/4.jpg'] };
+        try {
+          gsMarketShowDetail(l);
+          await new Promise(res => setTimeout(res, 250));
+          const haupt = document.getElementById('mklist-main-img');
+          if (!haupt) return { keinBild: true };
+          const daumen = Array.from(haupt.parentElement.querySelectorAll('img')).filter(i => i !== haupt);
+          const klicks = [];
+          for (const d of daumen) {
+            let fehler = null;
+            try { new Function(d.getAttribute('onclick') || ''); } catch (e) { fehler = 'Parser: ' + e.message; }
+            try { d.click(); } catch (e) { fehler = fehler || String(e.message); }
+            klicks.push({ soll: d.getAttribute('src'), ist: haupt.getAttribute('src'), gleich: haupt.src === d.src, fehler, on: d.getAttribute('onclick') });
+          }
+          return { n: daumen.length, klicks, pw: window.__pwned };
+        } finally { try { closeModal('detail-modal'); } catch (_) {} delete window.__pwned; }
+      });
+      if (r.fehlt) return { ok: false, warum: 'gsMarketShowDetail fehlt' };
+      if (r.keinBild) return { ok: false, warum: 'kein #mklist-main-img — der Fall stellt seinen Zustand nicht her' };
+      if (r.pw !== undefined) return { ok: false, warum: 'Code lief beim Antippen eines Vorschaubilds: window.__pwned = ' + r.pw };
+      const mitWert = r.klicks.filter(k => /https?:|javascript:/.test(k.on || ''));
+      if (mitWert.length) return { ok: false, warum: mitWert.length + ' Vorschaubild(er) tragen die Adresse im onclick: ' + String(mitWert[0].on).slice(0, 110) };
+      const kaputt = r.klicks.filter(k => k.fehler || !k.gleich);
+      if (kaputt.length) return { ok: false, warum: 'ein Tipp setzt nicht die Adresse des Vorschaubilds: ' + JSON.stringify(kaputt[0]).slice(0, 220) };
+      if (r.n !== 3) return { ok: false, warum: r.n + ' Vorschaubilder statt 3 (javascript: darf keines bekommen, die drei https-Adressen schon)' };
+      return { ok: true, info: '3 Vorschaubilder (javascript: keines) · jedes setzt per this.src genau seine Adresse · kein Wert im onclick · nichts lief' };
+    },
+  },
+  {
+    name: '_gsOcArg · der alte Helfer IST _gsOcStr: &#39; im Wert, einsames \\r und \\r\\n kommen exakt an (vorher: Parser-Fehler oder Ausbruch) — und jeder Aufrufer bekommt denselben',
+    lauf: async () => __seite.evaluate(() => {
+      if (typeof _gsOcArg !== 'function' || typeof _gsOcStr !== 'function') return { ok: false, warum: '_gsOcArg/_gsOcStr fehlt' };
+      const werte = ['5 &#39; lang', "x');window.__pwned=1;//", 'cr\rmitte', 'crlf\r\nende', 'sep zeile', "O'Brien & Söhne"];
+      const box = document.createElement('div'); document.body.appendChild(box);
+      const got = []; window.__cap = (v) => got.push(v); delete window.__pwned;
+      try {
+        const klagen = [];
+        werte.forEach((v) => {
+          box.innerHTML = '<button onclick="window.__cap(\'' + _gsOcArg(v) + '\')"></button>';
+          const b = box.querySelector('button'); const vorher = got.length;
+          try { new Function(b.getAttribute('onclick')); b.click(); } catch (e) { klagen.push(JSON.stringify(v) + ' → Parser-Fehler'); return; }
+          if (got.length === vorher || got[got.length - 1] !== v) klagen.push(JSON.stringify(v) + ' → ' + JSON.stringify(got[got.length - 1]));
+        });
+        if (window.__pwned !== undefined) klagen.unshift('Code lief (window.__pwned = ' + window.__pwned + ')');
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 4).join(' · ') };
+        if (_gsOcArg !== _gsOcStr) return { ok: false, warum: '_gsOcArg ist eine EIGENE Funktion — zwei Helfer fuer einen Kontext laufen auseinander' };
+        return { ok: true, info: werte.length + ' Werte exakt zurueck (auch &#39;, \\r, \\r\\n, U+2028) · _gsOcArg === _gsOcStr' };
+      } finally { box.remove(); delete window.__cap; delete window.__pwned; }
+    }),
+  },
+  {
+    name: 'Garten-Scan · das Detail einer Pflanze zeigt KI-Felder als TEXT: Name, lat. Name, Begruendung und jede Tabellenzeile — kein Tag aus der Antwort wird ein Element',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        if (typeof gsGardenScanShowPlant !== 'function') return { fehlt: true };
+        const alt = window._gsGardenScan; delete window.__pwned;
+        const boese = '<img src=x onerror="window.__pwned=1">';
+        window._gsGardenScan = { plan_id: 'p-esc', analysis: { recommended_plants: [{
+          name: boese + 'Tomate', lat: 'Solanum <b>lyco</b>', reason: 'sonnig ' + boese, category: '<i>gemuese</i>', qty: 2,
+          sow_date: '<u>April</u>', companion_plants: ['<s>Basilikum</s>'], incompatible_plants: ['Kartoffel'], care_intensity: 'mittel' }] } };
+        try {
+          gsGardenScanShowPlant(0);
+          await new Promise(res => setTimeout(res, 400));
+          const mc = document.getElementById('modal-content');
+          const t = mc ? mc.textContent : '';
+          return { da: !!mc, pw: window.__pwned, fremd: mc ? mc.querySelectorAll('img, b, i, u, s').length : -1,
+            em: mc ? mc.querySelectorAll('em').length : -1,
+            text: /<img src=x onerror=/.test(t) && /Solanum <b>lyco<\/b>/.test(t) && /<u>April<\/u>/.test(t) && /<s>Basilikum<\/s>/.test(t) };
+        } finally { window._gsGardenScan = alt; try { if (typeof gsGardenScanCloseDetail === 'function') gsGardenScanCloseDetail(); } catch (_) {} try { closeModal('detail-modal'); } catch (_) {} delete window.__pwned; }
+      });
+      if (r.fehlt) return { ok: false, warum: 'gsGardenScanShowPlant fehlt' };
+      if (!r.da) return { ok: false, warum: 'kein #modal-content' };
+      if (r.pw !== undefined) return { ok: false, warum: 'Code lief (window.__pwned = ' + r.pw + ')' };
+      if (r.fremd) return { ok: false, warum: r.fremd + ' Element(e) aus der KI-Antwort im Dokument (img/b/i/u/s)' };
+      if (!r.text) return { ok: false, warum: 'die Werte stehen nicht als sichtbarer Text da — ein Escaper, der den Text verschluckt, waere auch „sicher"' };
+      if (r.em !== 1) return { ok: false, warum: 'der lateinische Name steht nicht mehr kursiv da (' + r.em + ' <em>)' };
+      return { ok: true, info: 'fuenf Felder mit Tags → 0 fremde Elemente, alles als Text sichtbar · lat. Name weiter kursiv (das <em> setzt die Ausgabe)' };
+    },
+  },
+  {
+    name: 'Rezept-Detail · Foto-Adressen stehen in keinem onclick: ein Apostroph im Dateinamen macht das Foto nicht tot, javascript: bekommt kein Bild, ein Tipp oeffnet genau die Adresse',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        if (typeof openRecipeDetail !== 'function' || typeof recipesData === 'undefined' || !recipesData.length) return { fehlt: true };
+        const rez = recipesData[0]; const alt = rez.photo_urls; const echtOpen = window.open; const auf = []; delete window.__pwned;
+        rez.photo_urls = ["https://a.example/l'ete.jpg", "https://a.example/x.jpg?');window.__pwned=1;//", 'javascript:window.__pwned=2', 'https://a.example/ok.jpg'];
+        window.open = function (u) { auf.push(String(u)); return null; };
+        try {
+          openRecipeDetail(rez.id);
+          await new Promise(res => setTimeout(res, 300));
+          const imgs = Array.from(document.querySelectorAll('#modal-recipe-detail img, #detail-modal img, .modal-overlay.open img')).filter(i => /a\.example|javascript:/.test(i.getAttribute('src') || ''));
+          const klagen = [];
+          imgs.forEach(i => { try { new Function(i.getAttribute('onclick') || ''); i.click(); } catch (e) { klagen.push((i.getAttribute('src') || '').slice(0, 40) + ' → ' + e.message); } });
+          return { n: imgs.length, srcs: imgs.map(i => i.src), auf, klagen, pw: window.__pwned, on: imgs.map(i => i.getAttribute('onclick')) };
+        } finally { rez.photo_urls = alt; window.open = echtOpen; try { closeModal('modal-recipe-detail'); } catch (_) {} delete window.__pwned; }
+      });
+      if (r.fehlt) return { ok: false, warum: 'openRecipeDetail/recipesData fehlt' };
+      if (r.pw !== undefined) return { ok: false, warum: 'Code lief (window.__pwned = ' + r.pw + ')' };
+      if (r.klagen.length) return { ok: false, warum: 'ein Foto ist tot: ' + r.klagen[0] };
+      if (r.n !== 3) return { ok: false, warum: r.n + ' Fotos statt 3 (javascript: darf keines bekommen)' };
+      if (r.on.some(o => /a\.example/.test(o || ''))) return { ok: false, warum: 'die Adresse steht im onclick: ' + String(r.on.find(o => /a\.example/.test(o || ''))).slice(0, 100) };
+      if (r.auf.length !== 3 || r.auf.some((u, i) => u !== r.srcs[i])) return { ok: false, warum: 'ein Tipp oeffnet nicht die Adresse des Fotos: ' + JSON.stringify(r.auf).slice(0, 200) };
+      return { ok: true, info: '3 Fotos (javascript: keines) · Apostroph im Dateinamen: Foto lebt · jeder Tipp oeffnet genau seine Adresse · nichts lief' };
+    },
+  },
+  {
+    name: 'Diagnose-Kamera · die Pflanzenauswahl zeigt Name und Spitzname als TEXT — ein < verschluckt nichts, und der gewaehlte Wert ist weiter die id',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        if (typeof openDiagnosisCamera !== 'function') return { fehlt: true };
+        const mp0 = JSON.stringify(myPlants);
+        const echtGUM = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+        try { if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = async () => { throw new Error('keine Kamera im Pruefstand'); }; } catch (_) {}
+        try {
+          myPlants = [{ id: 'esc-1', name: 'R&D <3', nick: 'Fenster <links>', tasks: {} }, { id: 'esc-2', name: 'Tomate', nick: '', tasks: {} }];
+          try { openDiagnosisCamera(); } catch (_) {}
+          await new Promise(res => setTimeout(res, 300));
+          const sel = document.getElementById('diag-plant-sel');
+          if (!sel) return { keinSel: true };
+          const opts = Array.from(sel.querySelectorAll('option'));
+          return { texte: opts.map(o => o.textContent), werte: opts.map(o => o.value), fremd: Array.from(sel.querySelectorAll('*')).filter(e => e.tagName !== 'OPTION').length };
+        } finally {
+          try { myPlants = JSON.parse(mp0); } catch (_) {}
+          try { if (echtGUM) navigator.mediaDevices.getUserMedia = echtGUM; } catch (_) {}
+          try { if (typeof closeDiagnosisCamera === 'function') closeDiagnosisCamera(); } catch (_) {}
+          document.querySelectorAll('.modal-overlay.open').forEach(m => { try { closeModal(m.id); } catch (_) {} });
+        }
+      });
+      if (r.fehlt) return { ok: false, warum: 'openDiagnosisCamera fehlt' };
+      if (r.keinSel) return { ok: false, warum: 'kein #diag-plant-sel — der Fall stellt seinen Zustand nicht her' };
+      if (r.fremd) return { ok: false, warum: r.fremd + ' fremde(s) Element(e) in der Auswahl' };
+      if (r.texte[1] !== 'R&D <3 – Fenster <links>') return { ok: false, warum: 'Option 1 heisst „' + r.texte[1] + '" statt „R&D <3 – Fenster <links>"' };
+      if (r.werte[1] !== 'esc-1' || r.werte[2] !== 'esc-2') return { ok: false, warum: 'die Werte sind nicht mehr die ids: ' + JSON.stringify(r.werte) };
+      return { ok: true, info: '„R&D <3 – Fenster <links>" steht woertlich da · Werte bleiben die ids · kein fremdes Element' };
+    },
+  },
+  {
+    name: 'Registrierung · eine Adresse mit Apostroph (o\'neil@…) zerbricht den Knopf „Zur Anmeldung" nicht und steht als Text da',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        if (typeof profileDoRegister !== 'function') return { fehlt: true };
+        const adresse = "o'neil@example.ch";
+        const neu = []; const mach = (tag, id, wert, typ) => { let el = document.getElementById(id); if (!el) { el = document.createElement(tag); el.id = id; if (typ) el.type = typ; document.body.appendChild(el); neu.push(el); } if (wert != null) el.value = wert; return el; };
+        const e2 = mach('input', 'prof-email2', adresse, 'text'), p2 = mach('input', 'prof-pw2', 'geheim-geheim-1', 'password'), p2b = mach('input', 'prof-pw2b', 'geheim-geheim-1', 'password');
+        const ziel = mach('input', 'prof-email', '', 'text');
+        let mc = document.getElementById('profile-modal-content'); if (!mc) { mc = document.createElement('div'); mc.id = 'profile-modal-content'; document.body.appendChild(mc); neu.push(mc); }
+        const mc0 = mc.innerHTML;
+        const echtReg = window.sbRegister, echtTab = window.profSwitchTab;
+        window.sbRegister = async function () { return { ok: true, user: { id: 'u-neu' } }; };   // ohne access_token: Bestaetigungs-Mail noetig
+        window.profSwitchTab = function () {};
+        try {
+          await profileDoRegister();
+          await new Promise(res => setTimeout(res, 200));
+          const knopf = Array.from(mc.querySelectorAll('button')).find(b => /prof-email/.test(b.getAttribute('onclick') || ''));
+          if (!knopf) return { keinKnopf: true, html: mc.textContent.slice(0, 120) };
+          let parser = null; try { new Function(knopf.getAttribute('onclick')); } catch (e) { parser = e.message; }
+          try { knopf.click(); } catch (_) {}
+          const z = document.getElementById('prof-email');
+          return { parser, wert: z ? z.value : null, text: mc.textContent.indexOf(adresse) >= 0, strong: mc.querySelectorAll('strong *').length };
+        } finally {
+          window.sbRegister = echtReg; window.profSwitchTab = echtTab; mc.innerHTML = mc0;
+          neu.forEach(el => { try { el.remove(); } catch (_) {} });
+        }
+      });
+      if (r.fehlt) return { ok: false, warum: 'profileDoRegister fehlt' };
+      if (r.keinKnopf) return { ok: false, warum: 'der Hinweisbildschirm kam nicht — der Fall stellt seinen Zustand nicht her („' + r.html + '")' };
+      if (r.parser) return { ok: false, warum: 'der Knopf „Zur Anmeldung" ist tot: ' + r.parser };
+      if (r.wert !== "o'neil@example.ch") return { ok: false, warum: 'das Anmeldefeld bekommt „' + r.wert + '" statt der Adresse' };
+      if (!r.text) return { ok: false, warum: 'die Adresse steht nicht als Text auf dem Bildschirm' };
+      return { ok: true, info: "o'neil@example.ch → Knopf parst, Feld bekommt genau die Adresse, Anzeige als Text" };
+    },
+  },
 ];
 
 var __anfragen = [];
