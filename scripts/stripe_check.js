@@ -16,7 +16,7 @@
 //   • kein Schreibaufruf las `error` — Stripe bekam „ok", auch wenn die Datenbank Nein sagte;
 //   • checkout und portal lasen `stripe_customers` — die Tabelle gibt es nicht.
 //
-// Drei Hälften, wie bei modell_check:
+// Vier Teile (die ersten drei wie bei modell_check):
 //   RECHNUNG  supabase/functions/_shared/stripe_regeln.mjs läuft in Node: Signatur (gegen
 //             node:crypto als eigenen Massstab), Abo-Zeile in beiden API-Formen, Preis und
 //             Probezeit, Checkout-Parameter, Rückkehr-Adressen, Portal-Ziel, Erstattung.
@@ -27,6 +27,10 @@
 //             es nicht gibt, wird abgelehnt wie von PostgREST; ein Bauer hat `then`, aber kein
 //             `catch` (gemessen an @supabase/postgrest-js 2.119.0); Stripe lehnt einen
 //             unbekannten Parameter ab (Liste aus stripe@17.7.0).
+//   SQL       ein lokales Postgres (GS_PG_URL, sonst scripts/_pg_local.sh): die gestellte
+//             Funktion launch_offer_available antwortet wie die aus der Migration; die Migration
+//             20261111_launch_offer_usage_nur_server.sql wird gegen den Live-Stand nachgespielt.
+//             Ohne Postgres: „nicht prüfbar" (Exit 2), nie grün.
 //   QUELLTEXT kein `.catch()` an einer supabase-js-Kette in irgendeiner Edge-Function; jeder
 //             Datenbank-Aufruf der drei Functions geht durch `dbMuss`; die Ereignisliste und
 //             der Handler meinen dieselben Ereignisse; was der Abo-Bildschirm verspricht.
@@ -51,6 +55,18 @@ const fs = require('fs');
 const os = require('os');
 const nodeCrypto = require('node:crypto');
 const { pathToFileURL } = require('url');
+const { spawnSync } = require('child_process');
+// Die SQL-Hälfte (dieselbe Bauform wie naht_check und backup_check): ein lokales Postgres,
+// ohne es „nicht prüfbar" (Exit 2) statt grün.
+const PG_URL = process.env.GS_PG_URL || 'postgresql://postgres@127.0.0.1:54329/postgres';
+const PG_DB = 'gs_stripe_check';
+function psql(url, args) { return spawnSync('psql', [url, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-A', '-t', '-F', '\t', ...args], { encoding: 'utf8' }); }
+function pgLetzte(r) {
+  const zl = String((r.stderr || r.stdout || '')).trim().split('\n').map((x) => x.trim()).filter(Boolean);
+  return (zl.find((x) => /^(ERROR|FEHLER|DETAIL|HINT)/i.test(x)) || zl[0] || '').slice(0, 200);
+}
+function pgSql(url, q) { const r = psql(url, ['-c', q]); if (r.status !== 0) throw new Error(pgLetzte(r)); return (r.stdout || '').trim(); }
+function pgDa() { return psql(PG_URL, ['-c', 'select 1']).status === 0; }
 
 const WURZEL = path.resolve(__dirname, '..');
 const FUNKTIONEN = path.join(WURZEL, 'supabase', 'functions');
@@ -1577,6 +1593,82 @@ const PORTAL = [
   },
 ];
 
+// ══ SQL · das, was dieser Prüfstand sonst nur nachbaut, einmal ausgeführt ═══════
+// Die Funktion kommt aus der Migration v30_32 (am 11.11.2026 gegen pg_get_functiondef der
+// Live-DB gelesen: gleich), die Policies sind der Live-Stand (pg_policy, 11.11.2026).
+const SQL = [
+  {
+    name: 'Launch-Zähler · SQL: die gestellte Datenbankfunktion antwortet wie die echte; das Loch im Zähler ist reproduziert; die Migration schliesst es, zweimal anwendbar — und der Webhook-Weg schreibt weiter',
+    lauf: async (M) => {
+      if (!pgDa()) return { offen: true, warum: 'kein lokales Postgres erreichbar (GS_PG_URL) — die Funktion und die Migration wurden NICHT ausgeführt' };
+      const mig = fs.readFileSync(path.join(WURZEL, 'supabase', 'migrations', 'v30_32_audit2_readpath_fixes.sql'), 'utf8');
+      const fn = /CREATE OR REPLACE FUNCTION public\.launch_offer_available\(\)[\s\S]*?\$function\$;/.exec(mig);
+      if (!fn) return { ok: false, warum: 'launch_offer_available() steht nicht mehr so in v30_32_audit2_readpath_fixes.sql — diesen Fall nachziehen' };
+      const neu = fs.readFileSync(path.join(WURZEL, 'supabase', 'migrations', '20261111_launch_offer_usage_nur_server.sql'), 'utf8');
+      const url = PG_URL.replace(/\/[^/]*$/, '/' + PG_DB);
+      try {
+        pgSql(PG_URL, 'drop database if exists ' + PG_DB); pgSql(PG_URL, 'create database ' + PG_DB);
+        pgSql(url, `
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+          end $$;
+          create schema if not exists auth;
+          create or replace function auth.uid() returns uuid language sql stable as $f$ select nullif(current_setting('gs.uid', true), '')::uuid $f$;
+          grant usage on schema auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;
+          create table public.launch_offer_usage (user_id uuid primary key, subscription_id text, claimed_at timestamptz default now());
+          alter table public.launch_offer_usage enable row level security;
+          grant all on public.launch_offer_usage to anon, authenticated;
+          create policy launch_offer_insert_own on public.launch_offer_usage for insert with check ((select auth.uid()) = user_id);
+          create policy launch_offer_usage_select on public.launch_offer_usage for select using ((select auth.uid()) = user_id);
+          ${fn[0]}
+          grant execute on function public.launch_offer_available() to anon, authenticated;`);
+      } catch (e) { return { ok: false, warum: 'der Live-Stand lässt sich lokal nicht aufbauen: ' + e.message }; }
+      const als = (uid, q) => { const r = psql(url, ['-c', "set gs.uid = '" + (uid || '') + "'; set role " + (uid ? 'authenticated' : 'anon') + '; ' + q]); return { ok: r.status === 0, aus: (r.stdout || '').trim(), fehler: r.status === 0 ? '' : pgLetzte(r) }; };
+      const frage = (uid) => { const r = als(uid, 'select public.launch_offer_available()::text'); return r.ok ? JSON.parse(r.aus) : { fehler: r.fehler }; };
+      const nr = (i) => '9' + String(i).padStart(7, '0') + '-0000-4000-8000-000000000000';
+      // 1 · Dieselben Fragen an die echte Funktion und an die gestellte (rpc 'live' in createClientStub)
+      const gestellt = (uid, zeilen) => (uid === null ? { available: true, logged_in: false } : { available: zeilen.length < 100 && zeilen.indexOf(uid) < 0, logged_in: true, claimed: zeilen.length });
+      const lagen = [[null, 0, false], [U1, 0, false], [U1, 3, false], [U1, 3, true], [U1, 99, false], [U1, 100, false], [U1, 100, true]];
+      for (const [uid, andere, selbst] of lagen) {
+        pgSql(url, 'truncate public.launch_offer_usage');
+        const zeilen = []; for (let i = 0; i < andere - (selbst ? 1 : 0); i++) zeilen.push(nr(i));
+        if (selbst) zeilen.push(U1);
+        if (zeilen.length) pgSql(url, 'insert into public.launch_offer_usage(user_id) values ' + zeilen.map((x) => "('" + x + "')").join(','));
+        const echt = frage(uid), soll = gestellt(uid, zeilen);
+        // jsonb ordnet seine Schlüssel selbst — verglichen wird der Inhalt, nicht die Reihenfolge
+        const kanon = (o) => z(Object.keys(o).sort().map((k) => [k, o[k]]));
+        if (kanon(echt) !== kanon(soll)) return { ok: false, warum: 'die echte Funktion antwortet anders als die gestellte (' + z({ uid: uid ? 'Anna' : null, vergeben: zeilen.length, selbst }) + '): echt ' + z(echt) + ' · gestellt ' + z(soll) };
+        if (M.launchStand(echt) !== M.launchStand(soll)) return { ok: false, warum: 'launchStand liest die echte Antwort anders als die gestellte' };
+      }
+      // 2 · Das Loch (Live-Stand): ein Konto trägt sich selbst ein, ohne zu kaufen — hundert davon, und es ist ausverkauft
+      pgSql(url, 'truncate public.launch_offer_usage');
+      const selbst = als(U1, "insert into public.launch_offer_usage(user_id) values ('" + U1 + "')");
+      if (!selbst.ok) return { ok: false, warum: 'das Loch lässt sich nicht reproduzieren (der Live-Stand ist anders als hier nachgebaut): ' + selbst.fehler };
+      const fremd = als(U1, "insert into public.launch_offer_usage(user_id) values ('" + U2 + "')");
+      if (fremd.ok) return { ok: false, warum: 'ein Konto kann eine Zeile für ein ANDERES Konto schreiben — das wäre mehr als gemessen' };
+      for (let i = 0; i < 99; i++) { const r = als(nr(i), "insert into public.launch_offer_usage(user_id) values ('" + nr(i) + "')"); if (!r.ok) return { ok: false, warum: 'Konto ' + i + ': ' + r.fehler }; }
+      const voll = frage(U2);
+      if (voll.available !== false || voll.claimed !== 100 || M.launchStand(voll) !== 'ausverkauft') return { ok: false, warum: 'nach 100 selbst eingetragenen Zeilen: ' + z(voll) };
+      // 3 · Die Migration — zweimal
+      for (const mal of [1, 2]) { const r = psql(url, ['-c', neu]); if (r.status !== 0) return { ok: false, warum: 'die Migration scheitert beim ' + mal + '. Anwenden: ' + pgLetzte(r) }; }
+      pgSql(url, 'truncate public.launch_offer_usage');
+      const danach = als(U1, "insert into public.launch_offer_usage(user_id) values ('" + U1 + "')");
+      if (danach.ok) return { ok: false, warum: 'nach der Migration kann sich ein Konto weiter selbst in den Zähler schreiben' };
+      const anonDanach = als(null, "insert into public.launch_offer_usage(user_id) values ('" + U2 + "')");
+      if (anonDanach.ok) return { ok: false, warum: 'nach der Migration schreibt ein nicht angemeldeter Aufrufer in den Zähler' };
+      // … der Server schreibt weiter (hier: der Besitzer der Tabelle, wie der Service-Schlüssel an RLS vorbei), die Person liest ihre Zeile, die Funktion zählt
+      try { pgSql(url, "insert into public.launch_offer_usage(user_id, subscription_id) values ('" + U1 + "', 'lifetime_" + U1 + "')"); } catch (e) { return { ok: false, warum: 'nach der Migration kann auch der Server nicht mehr schreiben: ' + e.message }; }
+      const lesen = als(U1, 'select count(*) from public.launch_offer_usage'), lesenBen = als(U2, 'select count(*) from public.launch_offer_usage');
+      if (!lesen.ok || lesen.aus !== '1' || !lesenBen.ok || lesenBen.aus !== '0') return { ok: false, warum: 'Lesen nach der Migration: Anna ' + z(lesen) + ' · Ben ' + z(lesenBen) };
+      const a = frage(U1), b = frage(U2);
+      if (M.launchStand(a) !== 'schon_gekauft' || M.launchStand(b) !== 'frei') return { ok: false, warum: 'die Funktion nach der Migration: Anna ' + z(a) + ' · Ben ' + z(b) };
+      try { pgSql(PG_URL, 'drop database if exists ' + PG_DB); } catch (_) { /* egal */ }
+      return { ok: true, info: lagen.length + ' Lagen: echte Funktion = gestellte · Loch reproduziert (1 Konto trägt sich ein, 100 → ausverkauft ohne Kauf) · Migration 2× · danach: Konto und Anonym abgelehnt („' + danach.fehler.slice(0, 40) + '…"), Server schreibt, Anna liest 1 Zeile, Ben 0' };
+    },
+  },
+];
+
 // ══ QUELLTEXT ═════════════════════════════════════════════════════════════════
 const QUELLTEXT = [
   {
@@ -1786,6 +1878,7 @@ async function fremdmassstab(M) {
     for (const f of liste) {
       let r;
       try { r = await f.lauf(arg); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + String(e && e.message).split('\n')[0] }; }
+      if (r && r.offen) { nichtPruefbar++; console.log('  ??   ' + f.name + '\n         → nicht prüfbar: ' + r.warum); continue; }
       geprueft++;
       if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
       else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
@@ -1807,6 +1900,7 @@ async function fremdmassstab(M) {
       else if (lader.fehler) { kaputt++; console.log('  ' + kopf + '\n  !!   ' + titel + ' lässt sich nicht laden: ' + lader.fehler); }
       else { nichtPruefbar += liste.length; console.log('  ' + kopf + '\n  ??   nicht prüfbar (' + liste.length + ' Fälle): ' + lader.grund); }
     }
+    await fahreListe('SQL · lokales Postgres (' + PG_URL.replace(/\/\/[^@]*@/, '//') + ')', SQL, M);
     await fahreListe('QUELLTEXT · Edge-Functions, Migrationen und index.html', QUELLTEXT, M);
   }
   console.log('  ---');
