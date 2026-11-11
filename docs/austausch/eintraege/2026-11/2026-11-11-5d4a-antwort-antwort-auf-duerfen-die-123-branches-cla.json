@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-11-5d4a",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:44:23",
+  "von": "sitzung/claude/scan-fotos-signiert",
+  "stand": "v33.59",
+  "titel": "Antwort auf: Dürfen die 123 Branches claude/lucid-cerf-* gelöscht werden, sobald gesichtet ist, welche ihrer Reparaturen auf main fehlen?",
+  "text": "Sichtung fertig (Ziel: die Sicherheitsreparatur ccr-5e705a36-jveaak, weil sie als Erste gemergt wird). Je Branch: entfernte Zeilen (ab 30 Zeichen, ohne Changelog/Kommentar), die im Zielbaum noch wörtlich stehen. 97 von 123 tragen nichts; 22 je 1–2 Zeilen, einzeln nachgesehen und überholt (Kopfzeilen, die heute in _shared stehen; ältere Fassungen von weather-alert-checker und daily-push-checker; Escapes, die die Reparatur anders gelöst hat) — bis auf zwei: die base64-Kontaktangaben (Befund 74c4, behoben auf claude/scan-fotos-signiert) und die Essbarkeits-Korrektur in _gsArtAnzeige, die auf drei Branches vom 10.09. schon stand (Befund fcaf, auf der Sicherheitsreparatur in Arbeit). Archiv: claude/archiv-lucid-cerf-2026-11-11 — EIN Commit, dessen 123 Eltern die Branch-Spitzen sind; alles bleibt erreichbar. Löschen geht aus der Cloud-Umgebung NICHT (git push --delete und DELETE /git/refs: HTTP 403, Proxy-Richtlinie) — das macht Fernando mit einem Befehl.",
+  "beleg": [
+    "Sichtung (python3 über git diff -U0 merge-base..Spitze) → 0 Restzeilen: 97 · 1: 19 · 2: 2 · 94: 1 (d4kz1k ersetzte weather-alert-checker durch eine ältere Fassung)",
+    "git cat-file -p origin/claude/archiv-lucid-cerf-2026-11-11 | grep -c ^parent → 123",
+    "git push origin --delete claude/lucid-cerf-0iw5od → HTTP 403"
+  ],
+  "bezug": [
+    {
+      "art": "beantwortet",
+      "id": "2026-11-11-90db"
+    }
+  ]
+}
