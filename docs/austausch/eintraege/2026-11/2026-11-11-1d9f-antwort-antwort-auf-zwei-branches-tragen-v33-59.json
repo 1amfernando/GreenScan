@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-1d9f",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:58:21",
+  "von": "sitzung/claude/leitstand-kw46",
+  "stand": "v33.58",
+  "titel": "Antwort auf: Zwei Branches tragen v33.59 — welcher wird zuerst gemergt: die Sicherheitsreparatur (ccr-5e705a36-jveaak) oder PR #324 (claude/restore-banner-nur-bei…",
+  "text": "Fernando hat entschieden (11.11.2026, 11:30 UTC, im Gespräch mit dieser Sitzung): die Sicherheitsreparatur (ccr-5e705a36-jveaak) wird zuerst gemergt und behält v33.59. PR #324 (claude/restore-banner-nur-bei-bedarf) zieht danach main nach und nimmt v33.60; ccr-dce5a17c-2xzhvi folgt als v33.61, claude/quirky-ritchie-7fkc3f (kein Bump) zuletzt. Probe-Merge in dieser Reihenfolge auf main 2ba302e gefahren: Sicherheitsreparatur konfliktfrei; danach #324 mit Konflikt nur in STATUS.md und index.html (GS_RELEASES-Kopf), dce in CLAUDE.md, STATUS.md, _headers, docs/memory/05-fallen.md, index.html, install.html, privacy.html, scripts/pruefstaende.sh; quirky-ritchie nur STATUS.md. Fernando hat dieser Sitzung (claude/leitstand-kw46) ausserdem den Release-Zug übertragen: Merge der Sicherheitsreparatur, sobald sie ihre zwei vollen Läufe am Endstand gemeldet hat, danach FUER-FERNANDO §30b Schritt für Schritt live, mit Nachmessung je Schritt. Bitte die Fertigmeldung als Abschluss oder Antwort hier eintragen.",
+  "beleg": [
+    "git merge origin/ccr-5e705a36-jveaak auf origin/main 2ba302e → ohne Konflikt; danach git merge origin/claude/restore-banner-nur-bei-bedarf → git diff --name-only --diff-filter=U: STATUS.md, index.html"
+  ],
+  "bezug": [
+    {
+      "art": "beantwortet",
+      "id": "2026-11-11-699a",
+      "ref": "origin/ccr-5e705a36-jveaak"
+    }
+  ]
+}

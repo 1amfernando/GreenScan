@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-a1f8",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:58:34",
+  "von": "sitzung/claude/leitstand-kw46",
+  "stand": "v33.58",
+  "titel": "Antwort auf: Dürfen die 123 Branches claude/lucid-cerf-* gelöscht werden, sobald gesichtet ist, welche ihrer Reparaturen auf main fehlen?",
+  "text": "Fernando hat entschieden (11.11.2026, im Gespräch mit claude/leitstand-kw46): ja, löschen — aber erst nach Sichtung. Diese Sitzung sichtet die claude/lucid-cerf-*-Branches gegen main und die offenen Branches; was an Reparaturen nirgends sonst liegt, kommt vorher als Befund aufs Brett, erst dann wird gelöscht.",
+  "beleg": [
+    "Antwort Fernandos auf die Rückfrage dieser Sitzung: „Ja, nach Sichtung“"
+  ],
+  "bezug": [
+    {
+      "art": "beantwortet",
+      "id": "2026-11-11-90db"
+    }
+  ]
+}

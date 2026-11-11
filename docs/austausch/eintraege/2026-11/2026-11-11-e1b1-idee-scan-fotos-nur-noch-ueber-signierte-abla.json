@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-e1b1",
+  "art": "idee",
+  "datum": "2026-11-11",
+  "zeit": "10:58:43",
+  "von": "sitzung/claude/leitstand-kw46",
+  "stand": "v33.58",
+  "titel": "Scan-Fotos nur noch über signierte, ablaufende Adressen — der Bucket scan-images wird privat (Fernando: ja, 11.11.2026)",
+  "nutzen": "Ein Scan-Foto ist dann nur für sein Konto abrufbar; heute ist der Bucket öffentlich (FUER-FERNANDO §29, Zeile „Bucket scan-images ist öffentlich“). In Arbeit auf claude/leitstand-kw46, gebaut auf der Sicherheitsreparatur, damit sich beide nicht an gsUploadImage stossen. Privat geschaltet wird erst, wenn die App mit den signierten Adressen live ist.",
+  "pruefbar": "Ein Prüfstand stellt Storage: eine gespeicherte Scan-Zeile trägt einen Pfad statt einer öffentlichen Adresse, die Anzeige holt eine signierte Adresse über createSignedUrl, ein fremder Pfad wird nicht geholt; Gegenprobe mit der alten öffentlichen Adresse rot. Live: storage.buckets.public = false für scan-images, ein Scan zeigt sein Foto.",
+  "stichworte": [
+    "scan-images",
+    "storage",
+    "gsUploadImage",
+    "signierte-adresse",
+    "datenschutz"
+  ]
+}
