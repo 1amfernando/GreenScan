@@ -238,6 +238,24 @@ Sitzung jede Scheibe einzeln nachgemessen, übernommen oder mit Namen geparkt.
 Stripe-Dashboard, ein Probekauf — alles bei Fernando (`docs/FUER-FERNANDO.md`
 §30). Die Ideenrunde liegt als Rohmaterial in `docs/ideen/2026-11-11/`.
 
+### Seit dem 11.11.2026 (kein Bump) — das Brett: wie sich alle KI-Sitzungen austauschen
+
+Auftrag: „Alle Agenten müssen sich austauschen …, dass untereinander neue Ideen entstehen können."
+Gemessen: 123 nie gemergte Branches geplanter Sitzungen, 312 Routine-Einträge ohne feste Zeile für
+„offen", dieselbe Suite mit vier verschiedenen Zahlen in sechs Dateien.
+
+- **`docs/austausch/`** — ein Eintrag je Datei, nie umgeschrieben; gelesen wird die Vereinigung über
+  alle Branches. `node scripts/austausch.mjs holen` zeigt Anstösse, Offenes und wer parallel arbeitet.
+- **Auslöser statt Bitten:** Anker und Zählungen machen den Prüfstand dessen rot, der die Stelle
+  ändert; der jüngste STATUS-Eintrag trägt `**Offen:**` und `**Nicht geprüft:**`.
+- **14 Fehlerklassen** aus dem Tagebuch als Suchraster (Regel, Suchmuster, Wächter), acht
+  nachgemessene Befunde, zwei Fragen an Fernando, zwei Ideen.
+- **Was einen Baum beschreibt, gilt nur dort:** ein „erledigt" auf einem anderen Branch
+  schliesst hier nichts; `ernten` holt nur, was im eigenen Baum stimmt. Zwei gegnerische
+  Runden (8 und 15 Funde) stehen als Fälle im Prüfstand.
+- **Austausch-Runde** für Unteragenten (`.claude/workflows/austausch-runde.js`).
+- Prüfstand `austausch_check` (17 Fälle). Offen: `STATUS.md` (jd).
+
 ### Seit dem 11.11.2026 (v33.59) — „Daten wiederherstellen?" nur noch, wenn im Backup etwas liegt, das hier fehlt
 
 Der Banner kam bei jedem Start: gefragt wurde, ob lokal IRGENDEINE von zwölf

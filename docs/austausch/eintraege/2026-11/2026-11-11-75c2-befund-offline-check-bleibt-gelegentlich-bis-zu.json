@@ -1,0 +1,28 @@
+{
+  "id": "2026-11-11-75c2",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "04:22:34",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "offline_check bleibt gelegentlich bis zu seiner 25-Minuten-Zeitgrenze hängen — im Schritt nach „Teilen mit wartendem Worker“; einzeln wiederholt ist er grün",
+  "text": "Im Suite-Lauf dieses Schnitts (v33.58 plus das Brett, an App und Service Worker nichts geändert) meldete offline_check 40 Fälle grün, hing dann und endete mit Exit 3. Der hängende Schritt ist der Fall, der auf „Teilen mit wartendem Worker“ folgt (Worker-Wechsel). Direkt danach einzeln gefahren: 41 von 41 grün. Die Ursache ist nicht gefunden. Ein gelegentlicher Hänger kostet in der CI 25 Minuten und färbt einen PR rot, der nichts damit zu tun hat.",
+  "vorschlag": "Den Fall „Worker-Wechsel“ mit einer eigenen Frist je Schritt versehen und beim Hängen sagen, worauf er wartet (controllerchange? Cache-Eintrag?) — eine Frist, die Versuche zählt statt die Uhr zu fragen (CLAUDE.md §7.1, v32.61).",
+  "beleg": [
+    "bash scripts/pruefstaende.sh am 11.11.2026: „42 Pruefstaende · rot: 1 · nicht pruefbar: 1“ — rot war offline (Exit 3, „Zeitgrenze: der Pruefstand hing laenger als 25 min“), nicht prüfbar apk",
+    "node scripts/offline_check.js unmittelbar danach: „Fragen geprueft: 41 · davon rot: 0“, Exit 0"
+  ],
+  "stichworte": [
+    "offline_check",
+    "service-worker",
+    "teilen",
+    "haenger",
+    "ci"
+  ],
+  "anker": [
+    {
+      "datei": "scripts/offline_check.js",
+      "text": "Teilen: ein Worker-Wechsel loescht das wartende Foto nicht"
+    }
+  ]
+}

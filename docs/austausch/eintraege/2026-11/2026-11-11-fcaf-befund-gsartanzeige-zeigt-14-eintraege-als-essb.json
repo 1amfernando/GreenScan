@@ -1,0 +1,35 @@
+{
+  "id": "2026-11-11-fcaf",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "_gsArtAnzeige zeigt 14 Einträge als essbar, die selbst „nicht essbar\" tragen — die Korrektur übernimmt edible von der Art auch dann, wenn nur die Giftstufe höher ist",
+  "text": "Die Funktion ersetzt die Sicherheitsangaben eines Eintrags durch die der vorsichtigsten Fassung seiner Art, sobald deren Giftstufe höher ist ODER der Eintrag „essbar\" sagt und die Art nicht. Im ersten Fall wird `edible` mit übernommen — auch wenn der angetippte Eintrag selbst `edible: false` trägt und die Art-Fassung `true`. Beispiele: Stieleiche (T008), Traubeneiche (T041), Traubenkirsche (T045), Echter Wermut (P187), Gewöhnlicher Natterkopf (W089), Weisser Steinklee (W106). Betroffen ist alles, was durch `_gsArtAnzeige` geht: Artendetail, Trefferliste, Quiz, Sammlungen, Lina.",
+  "beleg": [
+    "In der laufenden App gemessen (Playwright, index.html ohne Netz, v33.58): for (sp of DB) { a = _gsArtAnzeige(sp); zähle sp.edible === false && a.edible === true } → 14",
+    "Gegenrichtung (Eintrag sagt essbar, Art nicht → nicht essbar): 98 — das ist die gewollte Korrektur",
+    "Die Zeile: `tox: v.tox, toxic: v.toxic, edible: v.edible,` in function _gsArtAnzeige"
+  ],
+  "vorschlag": "`edible` nur zur vorsichtigeren Seite bewegen: `edible: !!sp.edible && !!v.edible`. Dazu ein Fall in scan_check (Familie D1) mit der Gegenrichtung: kein Eintrag wird durch die Korrektur essbarer, als er selbst sagt.",
+  "stichworte": [
+    "_gsArtAnzeige",
+    "_gsVorsichtigste",
+    "edible",
+    "scan_check",
+    "artenliste"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "tox: v.tox, toxic: v.toxic, edible: v.edible,"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-36ad"
+    }
+  ]
+}

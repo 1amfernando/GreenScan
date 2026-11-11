@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-90db",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "Dürfen die 123 Branches claude/lucid-cerf-* gelöscht werden, sobald gesichtet ist, welche ihrer Reparaturen auf main fehlen?",
+  "an": "fernando",
+  "text": "Auf origin liegen 127 Branches, 123 davon heissen claude/lucid-cerf-* (07.06. bis 23.09.2026, von geplanten Sitzungen), keiner hatte je einen Pull-Request; weekly-cleanup.yml erfasst sie deshalb nicht. 101 der 123 Spitzen ändern STATUS.md. Sie enthalten Reparaturen, von denen niemand weiss, ob main sie inzwischen hat — und solange sie liegen, liest das Brett sie bei jedem `holen` mit.",
+  "haengt_daran": "Ob die Sichtung sich lohnt (siehe die Idee dazu) und ob danach aufgeräumt wird. Löschen ist nicht umkehrbar — deshalb eine Frage und kein Handgriff.",
+  "stichworte": [
+    "branches",
+    "routine",
+    "weekly-cleanup",
+    "aufraeumen"
+  ]
+}

@@ -83,6 +83,9 @@ run android      node scripts/android_check.js
 # Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen.
 run apk          node scripts/apk_check.js
 run risiko       node scripts/risiko_check.js
+# Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
+# stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
+run austausch    node scripts/austausch_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   # v33.60: contrast_check und render_check sind ein TOR (Exit 1 bei einem Fund) — bis v33.59 endeten
   # beide immer mit 0, und „1 Textstelle unter AA" stand in jedem CI-Lauf gruen da.

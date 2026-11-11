@@ -218,6 +218,142 @@ waren es wert (drei Blickwinkel sind unabhängig an denselben Stellen angekommen
 Code-Arbeit nur zum Teil — `docs/memory/08-arbeitsweise.md` §11 hält fest, wie ein nächster Lauf aussehen
 müsste (kleiner, mit Übergabe vor dem Limit, Datenbank-Messungen vorab).
 
+### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
+
+**Auftrag (Fernando, 10.11.2026):** „Alle Agenten müssen sich austauschen und die
+Informationen so weiter geben dass unter einander neue ideen enstehen können und die
+intelligenz gefördert wird. Fehler sollen so auch noch effizienter verbessert und die App
+wächst dann schneller." Die App ist unverändert — deshalb kein Bump.
+
+**Gemessen, bevor etwas gebaut wurde** (10./11.11.2026). Wissen ging nicht verloren, weil
+niemand schrieb, sondern weil nichts es zum nächsten Leser trug:
+
+- **123 Branches geplanter Sitzungen** auf `origin` (`claude/lucid-cerf-*`, 07.06.–23.09.),
+  nie gemergt, ohne PR. 101 davon ändern `STATUS.md` — jede schrieb in eine Kopie, die
+  niemand las. Am 10.09. vergaben drei dieselbe Versionsnummer; ein Fund steht in 13
+  Commit-Betreffs, jedes Mal neu entdeckt.
+- **Dieser Abschnitt:** 312 Einträge, keine feste Zeile für „was bleibt offen".
+- **Dieselbe Suite, vier Zahlen:** 35 · 38 · 39 · 41 Prüfstände in sechs Dateien, 219
+  Migrationen bei 223 — jede Sitzung zog die Zahl dort nach, wo sie gerade war.
+- **`CLAUDE.md` §5** verwies auf drei Stellen hier („In Progress", „File Locks",
+  „Recently shipped"), die es nie gab.
+- **Unteragenten** einer Sitzung sehen einander nicht; was nicht in den Schlussbericht
+  passt, ist mit dem Container weg.
+
+**Was es jetzt gibt.**
+
+- **Das Brett** (`docs/austausch/`, Regeln nur in `docs/austausch/README.md`): ein Eintrag
+  je Datei, nie umgeschrieben — Antwort, Nachtrag und Abschluss sind neue Einträge mit
+  Bezug, der Zustand wird gerechnet. Sechs Arten: Befund (mit Beleg) · Idee · Frage ·
+  Fehlerklasse · Antwort · Abschluss. Gelesen wird die **Vereinigung über alle Branches**,
+  die git kennt: ein Eintrag auf einem nie gemergten Branch ist für jede Sitzung sichtbar.
+- **Ein Befehl:** `node scripts/austausch.mjs holen` zeigt gerechnete **Anstösse** über
+  mehrere Einträge hinweg (Widerspruch · zwei Köpfe an derselben Stelle · zwei Ideen auf
+  einen Fund · verlorener Anker · bewegte Zahl), jeden offenen Eintrag einmal, und die
+  **frischen Branches** — wer parallel arbeitet, gerechnet aus den Branch-Spitzen.
+- **Auslöser statt Bitten.** Ein **Anker** bindet einen Befund an ein wörtliches Stück
+  seiner Stelle: wer sie ändert, wird im eigenen Prüfstand-Lauf rot und liest den Eintrag.
+  Eine **Zählung** hält fest, wie oft ein Muster vorkommt: „erledigt" geht erst, wenn sie
+  sich bewegt hat. Wer einen Befund schliesst, sagt, ob er nach Geschwistern gesucht hat.
+- **Was einen Baum beschreibt, gilt nur in diesem Baum.** „Erledigt", Anker und Zählung
+  sind Aussagen über den Code eines Branches: ein „erledigt" auf einem anderen Branch lässt
+  den Befund hier offen und sagt, wo die Reparatur liegt. „Verworfen", Antwort und
+  Widerspruch gelten über alle Branches. Eine Antwort über die Branch-Grenze kopiert nichts
+  herüber — ihr Bezug nennt den Branch.
+- **Lesen ist ins Schreiben eingebaut:** nach jedem Eintrag zeigt das Werkzeug Nachbarn an
+  denselben Stichworten, verworfene Irrwege mit ihrem Grund, passende Fehlerklassen und
+  Vorwissen im Tagebuch.
+- **Übergabe in zwei festen Zeilen** an jedem Eintrag hier (siehe unten) — offene Arbeit
+  steht als Eintrag auf dem Brett statt im Fliesstext. Fragen an Fernando stehen zusätzlich
+  mit `brett:<id>` in §2.
+- **Zahlen an einer Stelle:** die Zahl der Prüfstände, Migrationen und Edge-Verzeichnisse
+  steht nur noch in §1 und wird dort nachgemessen; `CLAUDE.md`, `README.md` und
+  `docs/memory` nennen keine mehr.
+- **Für Unteragenten** die Austausch-Runde (`.claude/workflows/austausch-runde.js`):
+  sichten → kreuzen (jeder liest die Funde der anderen) → gegenprüfen → aufs Brett.
+- **Prüfstand `austausch_check`** (17 Fälle): die Ware (Brett, Wächter, Anker, Übergabe,
+  Zitate), der Einstieg (Suite, Zahlen, Wegweiser, Runde) und jede Regel gegen gebaute
+  gute UND schlechte Fälle — das Werkzeug als Prozess, zwei echte git-Branches.
+- `CLAUDE.md` §5 neu (die drei toten Verweise sind weg), `AGENTS.md` als Zeiger für
+  Werkzeuge, die `CLAUDE.md` nicht laden, Wegweiser in `docs/memory`.
+
+**Die Saat: 26 Einträge.** Acht Befunde, zwei Fragen an Fernando und zwei Ideen, jeder am
+Stand v33.58 nachgemessen · 14 Fehlerklassen aus dem Tagebuch (Regel, Instanzen, Suchmuster
+für Geschwister, 107 Wächter-Adressen — jede am Stand v33.58 genau einmal in ihrer Datei;
+die Zahlen ihrer Suchläufe stammen vom 10.11., Stand v33.56, und stehen so in ihrem Text;
+acht Klassen wurden nie systematisch gesucht). Die Befunde: `_gsArtAnzeige` zeigt 14
+Einträge als essbar, die selbst „nicht essbar" tragen; 0 von 8 spanischen Notfallsätzen
+erkannt; fünf Schlüsselfamilien im `localStorage` in keiner Speicherliste; `gsAboCanUse`
+liest einen Scan-Zähler, den nichts schreibt; drei Prüfstände enden immer mit Exit 0;
+`android/` und `.claude/` ohne noindex; sieben Verweise „robust_check Fall N" ohne Ziel;
+`offline_check` bleibt gelegentlich an seiner Zeitgrenze hängen (siehe „Suite").
+Behoben ist davon **nichts** — sie stehen auf dem Brett, damit die Sitzung, die
+an der Stelle arbeitet, sie findet.
+
+**Zwei Fassungen — und was die gegnerische Prüfung fand.** Die erste Fassung lag am 10.11.
+auf diesem Branch. Zwei Prüfer dagegen: einer suchte Fehler und fand acht — `holen` rief
+`git fetch --depth=1` und nahm dem eigenen Branch die gemeinsame Geschichte mit `main`; eine
+Datei ohne `id` auf einem fremden Branch liess `lesen` abstürzen; das strenge Schliessen
+liess sich mit einer Antwort umgehen; ein Feld mit Unterstrich umging die Geheimnis-Suche;
+das Werkzeug meldete „geschrieben" für Einträge, die der Prüfstand danach verwarf. Der
+andere strich: acht Arten → sechs, keine eigene Übergabe-Datei, Zahlen an einer Stelle statt
+an 21, jeder offene Eintrag einmal statt dreimal. Alle acht Fehler stehen als Fälle da.
+
+**Und eine zweite Runde gegen die zweite Fassung** (drei Sucher, je ein Skeptiker, der jeden
+Fund in einer eigenen Kopie nachfuhr): **15 Funde, alle bestätigt, alle behoben.** Die
+gewichtigen: (1) Die Geheimnis-Suche lief über `JSON.stringify` — ein Token am Anfang einer
+Zeile (so steht es in jeder Befehlsausgabe) ging durch, bei sieben von neun Formen. (2) Ein
+„erledigt" auf einem nie gemergten Branch schloss den Befund für alle: „nichts offen",
+während der Fehler auf `main` stand; fremde Anker wurden gegen den eigenen Baum gemessen.
+(3) `ernten` und die Antwort über die Branch-Grenze meldeten „geschrieben" und hinterliessen
+einen roten Arbeitsbaum. (4) Eine von Hand falsch geformte Datei auf irgendeinem Branch
+liess `lesen` in jeder Sitzung abstürzen. (5) Ein Sicherheitsbefund konnte Beleg, Vorschlag
+und Anker tragen, und die Agenten-Runde hängte die Nachstellung des Skeptikers an den
+öffentlichen Beleg. Dazu: `origin/HEAD` zählte als Branch namens „origin"; die Runde schrieb
+Antworten ungeprüft; und der Prüfstand las nie zurück, was das Werkzeug stempelt und bewirkt
+(UTC, „beantwortet", `schliesse`, `einspielen` als Prozess). In der Saat stimmten drei
+Zahlen nicht, und die Frage zur geplanten Routine trug Einzelheiten aus Fernandos Konto —
+vier Einträge sind vor dem ersten Merge ersetzt, einer neu.
+
+**Parallel:** während des Baus hat eine andere Sitzung v33.57 und v33.58 ausgeliefert
+(Einträge jb, jc). Dieser Schnitt sitzt auf v33.58; zwei Saat-Einträge der ersten Fassung
+zur Modell-Abschaltung sind entfallen, weil v33.58 sie behoben hat. Eine Koordinator-Sitzung
+hat für diesen Branch PR #325 geöffnet (laut ihr auf Fernandos Entscheidung vom 11.11.);
+diese Sitzung hat keinen PR geöffnet und merged nichts.
+
+**Gegenproben** (je einzeln hergestellt, der erwartete Fall rot, zurückgebaut, Prüfsumme
+verglichen): **33 von 33.** Achtzehn aus der ersten Runde — verankerte Zeile geändert → A3
+nennt den Befund · `**Offen:**` entfernt → A4 · Frage an Fernando in §2 nicht zitiert → A5 ·
+run-Zeile entfernt, eine Migration zu viel in §1 → B1 · bewachter Fall umbenannt → A2 ·
+README ohne einen Bezug → B2 · die Runde schreibt ein unbekanntes Feld → B3 · Feld mit
+Unterstrich erlaubt → C1, C6 · Schliessen nicht streng → C2 · Datei ohne `id` als Eintrag →
+C2, C8 · Nachträge nach der id → C3 · Changelog zählt mit → C5, C6 · Zahl beim Schreiben
+nicht nachgerechnet → C6 · Wert mit „--" als Schalter → C7 · `holen` flach → C8 · eine
+Adresse auf dem echten Brett → A1. Fünfzehn für die zweite Runde — Geheimnis-Suche wieder
+über `JSON.stringify` → C1, C6 · „erledigt" gilt über alle Branches → C3, C8 · ein fremder
+Anker-Nachtrag gilt hier → C3, C8 · fremder Branch gegen diesen Baum gemessen → C3, C4, C8 ·
+falsch geformte Dateien gerechnet → C2, C8 · `origin/HEAD` als Branch → C8 · Sicherheitsbefund
+mit Beleg → C1, C6 · `ernten` holt ein fremdes „erledigt" bzw. prüft den Anker nicht → C8 ·
+leere Zählung im Abschluss → C6, C8 · Bezug ins Leere ungemeldet → C2, C8 · die Runde schreibt
+den Beleg eines Sicherheitsbefunds bzw. Antworten ohne Urteil → B3 · Ortszeit statt UTC → C7 ·
+`antworte` beantwortet nicht → C7, C8 · geerbte Namen als Art → C1, C7, C8. Danach wieder
+17 von 17.
+
+**Suite:** `bash scripts/pruefstaende.sh` mit lokalem Postgres — **42 Prüfstände · rot: 1 · nicht
+prüfbar: 1.** Nicht prüfbar ist `apk_check` (hier fehlen die Android-Werkzeuge; die CI hat
+sie). Rot war `offline_check`: 40 Fälle grün, dann hing er bis zu seiner 25-Minuten-Zeitgrenze
+(Exit 3) im Schritt nach „Teilen mit wartendem Worker". An App und Service Worker ändert
+dieser Schnitt nichts; **direkt danach einzeln gefahren: 41 von 41 grün.** Der Hänger ist
+also gelegentlich, seine Ursache nicht gefunden — er steht als Befund auf dem Brett
+(brett:2026-11-11-75c2), statt hier als „grün" durchzugehen. **Die CI am PR #325 (Stand
+f2d1015, vor der zweiten Runde) war grün — alle 42, auch `offline_check` und `apk_check`.**
+Nach den Korrekturen der zweiten Runde lokal: `austausch_check` 17 von 17, `robust_check`
+grün; die übrigen Prüfstände berührt die Änderung nicht (App, Service Worker und die anderen
+Skripte sind unverändert) — ihr Lauf für diesen Stand ist der CI-Lauf am PR.
+
+**Offen:** brett:2026-11-11-fcaf, brett:2026-11-11-df0b, brett:2026-11-11-030e, brett:2026-11-11-2e3a, brett:2026-11-11-ec73, brett:2026-11-11-e383, brett:2026-11-11-9f91, brett:2026-11-11-75c2 (acht Befunde, keiner behoben) · brett:2026-11-11-669d, brett:2026-11-11-90db (zwei Fragen an Fernando, §2) · acht Fehlerklassen ohne Suche (`node scripts/austausch.mjs klasse`)
+**Nicht geprüft:** ob eine geplante Routine das Brett wirklich liest (dazu muss ihr Auftrag `CLAUDE.md` laden und sie das Repo erreichen, brett:2026-11-11-669d); ob `Workflow({ name: 'austausch-runde' })` den Namen in einer Cloud-Sitzung auflöst (mit `scriptPath` geht es in jedem Fall), und die Runde selbst ist nach ihrem Umbau nicht gelaufen — geprüft ist, dass sie sich übersetzen lässt und nur Felder schreibt, die das Brett annimmt; das Verhalten mit einer neueren git-Fassung als 2.43. Die Funde der ersten Agenten-Runde, die ich nicht selbst nachmessen konnte, stehen NICHT auf dem Brett.
+
 ### 2026-11-11 (jd) - v33.59: Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App von selbst
 
 **Anlass:** Fernando, 10.11.2026 (Bildschirmfoto): „Das kommt die ganze Zeit" — und 11.11.2026: „Keine Lust, dass
@@ -15632,7 +15768,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **97'094 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **586 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **41** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 41** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **42** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.58: `modell_check`, `rezept_link_check`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 42** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -15641,6 +15777,8 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **Eine geplante Routine ohne Repo-Zugang ans Repo und ans Brett anschliessen?** | Sie schreibt ihre Übergaben ausserhalb des Repos — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Welche Aufgabe es ist und was ihr fehlt, ging direkt an Fernando (nicht in dieses öffentliche Repo). Im Auftrag der Aufgabe bräuchte es `node scripts/austausch.mjs holen` am Anfang und Einträge am Ende. Nicht verändert. | brett:2026-11-11-669d · (jd) |
+| **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
 | **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
 | **APK auf einem Telefon ansehen: Export und Drucken** (v33.53) | Hier läuft kein Android. `apk_check` fährt Rechnung, Rand und Seite gegen einen echten Java-Sammler — ob ein Telefon „Speichern unter“ und den Druckdialog so zeigt, sagt erst ein Gerät (Android 6, 10, 14). Am Backend nichts zu tun, nur eine neue APK. | `docs/FUER-FERNANDO.md` §26 · (ix) |

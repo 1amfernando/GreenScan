@@ -1,0 +1,65 @@
+{
+  "id": "2026-11-11-36ad",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Eintrag statt Art — die Vorsicht hängt an der Art, nicht am angetippten Eintrag",
+  "regel": "Sicherheitsangaben (`tox`, `edible`) gehören der ART, nicht dem einzelnen Eintrag der Artenliste: alles, was sie anzeigt, wertet, zählt, filtert oder einordnet, geht durch `_gsArtAnzeige(sp)` bzw. `_gsVorsichtigste(_gsArtGruppe(hit))` — nie durch `DB.find` oder ein Feld des Eintrags.",
+  "text": "Eine neue Instanz erkennt man an einer Stelle, die `sp.tox` oder `sp.edible` aus einem Eintrag liest, den ein `DB.find`, ein Namensvergleich oder ein Antippen geliefert hat: die Liste führt 657 Arten mehrfach, 167 Gruppen widersprechen sich, und wo sie es tun, nennt der einzelne Eintrag die HARMLOSERE Stufe (186 Einträge, nie umgekehrt). Betroffen ist nicht nur, was anzeigt — auch was wertet (Quiz), einordnet (Sammlung), zählt (Lexikon) oder einen Freitext erdet (Lina). Jeder Wächter bewacht genau EINE Anzeige; einen neuen Leser fängt keiner — v33.27 und v33.30 kamen nach der Zählung von v32.96. Und `_gsArtAnzeige` gehört in die ERSTE Zeile der Funktion, sonst sehen Teile der Anzeige die Korrektur nicht.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 157 Lesungen von `.tox`/`.edible` hinter 51 Funktionsköpfen (v32.96 waren es 150); 29 Abschnitte mit zusammen 64 Lesungen rufen keinen der vier Art-Helfer. Der grösste Posten (7 Lesungen ab Z. 53750) ist die Buch-Bibliothek, in v32.93 bewusst nicht umgestellt; `regel` (6) ist das Scan-Prüfwerk, viele weitere lesen das KI-Ergebnis eines Scans. Anzusehen sind die, die einen Eintrag der Artenliste lesen — etwa `_gsPassCat` (der Filter der Trefferliste entscheidet nach dem Eintrag, die Karte zeigt die Art), `gsFindSimilar`, `_gsCollGatherSourceItems` und `gsPPbuildDBContext` (in v32.96 nachgemessen und belassen). Kandidaten, keine Befunde — und der genannte Funktionskopf ist der letzte VOR der Lesung, nicht immer die umschliessende Funktion.",
+  "instanzen": [
+    "v32.43 · jede Nachschlagung war ein `DB.find` — der erste Treffer in Dateireihenfolge entschied die Giftstufe; 167 Gruppen widersprechen sich, 1'194 von 4'311 Selbstabfragen landeten auf einer anderen Art",
+    "v32.45 · zwei Korrekturen an der Regel: eine Unterart ist nicht die Art (Kleiner Perlpilz, tox 4, gewann jeden Perlpilz-Scan), und ein Platzhalter-Rumpf ist keine Vorsicht (94 Namens-Abfragen)",
+    "v32.91/92 · openDetail zeigte die Angaben des angetippten Eintrags: 186 Einträge mit niedrigerer Giftstufe als ihre Art (nie umgekehrt), 98 mit „essbar“ gegen die Art",
+    "v32.93 · das Quiz wertete nach dem Eintrag: 269 Arten hätten die Zahl des Eintrags als „richtig“ gehabt, 7 davon eine harmlose Stufe für eine Art der Stufe 3",
+    "v32.95 · Sammlung „Giftige“ filterte über den Eintrag: 22 Einträge / 16 Arten fehlten, 98 Einträge / 67 Arten standen in „Essbare“",
+    "v32.96 · vier weitere Leser: Symbol in der Sammlung (134 Einträge), Wissens-Zeile (22), Offline-Chat (269 — „giftig“ statt „TÖDLICH“), und der Lexikon-Zähler „Giftig“ liess 131 Einträge der Stufen 4 und 5 aus",
+    "v33.27 · dqBuildQuestion las `sp.tox`/`sp.edible` aus dem Eintrag: 130 von 4'337 Einträgen mit anderer Giftstufe gewertet, 133 mit anderer Essbarkeit",
+    "v33.30 · Lina-Freitext: „Ist Holunder essbar?“ traf den einen Eintrag dieses Namens (tox 2, essbar) — die Liste führt 18 Sambucus-Einträge bis tox 4"
+  ],
+  "suchmuster": "node -e 'const z=require(\"fs\").readFileSync(\"index.html\",\"utf8\").split(\"\\n\"),kopf=/^\\s*(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)\\s*\\(|^\\s*(?:window\\.)?([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s+)?function\\b/,f={};let name=\"(oberste Ebene)\";z.forEach((l,i)=>{const m=l.match(kopf);if(m)name=m[1]||m[2];const o=f[name]=f[name]||{n:0,art:false,z:0};if(/_gsArtAnzeige\\(|_gsVorsichtigste\\(|_gsArtGruppe\\(|gsMatchScanToDb\\(/.test(l))o.art=true;const k=(l.replace(/\\/\\/.*$/,\"\").match(/\\.(tox|edible)\\b/g)||[]).length;if(k&&!o.z)o.z=i+1;o.n+=k});const alle=Object.entries(f).filter(([,o])=>o.n),ohne=alle.filter(([,o])=>!o.art).sort((a,b)=>b[1].n-a[1].n);console.log(alle.reduce((s,[,o])=>s+o.n,0)+\" Lesungen von .tox/.edible hinter \"+alle.length+\" Funktionskoepfen; \"+ohne.length+\" davon ohne _gsArtAnzeige/_gsVorsichtigste/_gsArtGruppe/gsMatchScanToDb im selben Abschnitt (\"+ohne.reduce((s,[,o])=>s+o.n,0)+\" Lesungen):\");ohne.forEach(([k,o])=>console.log(\"  \"+o.n+\"x nach function \"+k+\" · erste Lesung Z. \"+o.z))'",
+  "stichworte": [
+    "eintrag-statt-art",
+    "_gsArtAnzeige",
+    "_gsVorsichtigste",
+    "_gsArtGruppe",
+    "gsMatchScanToDb",
+    "scan_check"
+  ],
+  "gesucht": "v32.93: sechs Anzeigen, die `tox`/`edible` aus einem Eintrag lesen, durchgegangen (zwei bewusst nicht umgestellt: Buch-Einlese-Vorschläge, Admin-Bildwerkzeug). v32.96: 150 Lesungen nach umschliessender Funktion gezählt, vier weitere Stellen umgestellt (Lexikon-Zähler 131 Einträge, Symbol 134, Wissens-Zeile 22, Offline-Chat 269), zwei Verdachtsfälle nachgemessen und belassen (Planer-Pool, Plan/Tier des Kontos). Danach kamen trotzdem v33.27 und v33.30 — die Zählung findet vorhandene Leser, keine neuen.",
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "Dubletten · bei Widerspruch gewinnt die vorsichtigere Angabe"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "Unterart · entscheidet nicht über die Art"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "D1b · Artendetail · die Karte zeigt die vorsichtigere Angabe UND sagt es"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "D1d · Das Quiz wertet nach der ART"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "D1f · Die Sammlung"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "D1i · Fakten-Zeile und Offline-Chat nennen die Stufe der ART"
+    },
+    {
+      "datei": "scripts/quiz_check.js",
+      "fall": "Die Wertung folgt der ART"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · der Umgangsname zieht seine Familie mit"
+    }
+  ]
+}
