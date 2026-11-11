@@ -100,6 +100,30 @@ Tagebuch in `CLAUDE.md`.
     holen/quittieren, je Foto eine Nummer). *(§4e, offline_check 25–41,
     apk_check G1–G9/T0–T13, v33.55/v33.56)*
 
+## Sechs Regeln aus v33.57 (CLAUDE.md §4f)
+
+- **Ein Pull frischt auch den Arbeitsspeicher auf.** Wer in einem Pull-Zweig
+  in den Speicher schreibt, weist dort auch die Variable zu (`gardens`,
+  `plantings`, wie `myPlants` seit v28.22). Sonst legt `initDefaultGarden`
+  „Mein Garten" ueber das Geholte. *(sync_check)*
+- **Eine Aufbereitung im Arbeitsspeicher haengt nie an einem Schalter im
+  Geraetespeicher.** Die Artenliste wird bei jedem Start frisch gebaut; jeder
+  Pruefstand beginnt mit leerem Speicher und misst die ERSTE Sitzung.
+  *(robust_check „Zweite Sitzung")*
+- **Beim Parsen wird formsicher gelesen:** `_gsListeLesen(key)`,
+  `_gsObjektLesen(key)`, `safeGetItem(key, vorgabe)` haelt die Form der
+  Vorgabe. `JSON.parse(x || '[]')` faengt weder `null` noch `{}`.
+  *(robust_check „Kaputter Speicher")*
+- **Jede benutzte CSS-Variable ist definiert.** `var(--x, rueckfall)` ohne
+  Definition ist eine feste Farbe, die im Dunkelmodus nicht kippt.
+  *(statik_check S6, contrast_check Durchgang 3)*
+- **Lokal gemeint heisst `_gsDayKey()` / `_gsKalTag(d)`** — nie
+  `toISOString().slice(0, 10)`; das ist in der Schweiz nachts der Vortag, und
+  in UTC (hier, in CI) sieht man es nie. *(datum_check)*
+- **Ein Pruefstand urteilt oder heisst Bericht.** `contrast_check` und
+  `render_check` endeten immer mit 0; nur `perf_check` und `field_check` sind
+  bewusst Berichte.
+
 ## Und drei Regeln ueber das Arbeiten selbst
 
 - **Beispieldaten sind die Messgrundlage von allem.** `scripts/_seed.js` wird

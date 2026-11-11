@@ -126,10 +126,12 @@ GreenScan/
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
-├── scripts/             # 39 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 39, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 41 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 41, seit v32.94 mit perf) + package.json (Playwright + ESLint, NICHT im Root)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
-├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
+├── .claude/             # workflows/greenscan-audit.js (acht Audit-Blickwinkel, jeder Fund gegengeprüft — seit v33.57) ·
+│                        agents/gs-auditor.md + gs-gegenpruefer.md (nur lesend) · launch.json
+├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root) · docs/AUDIT-2026-11-11.md = 45 gegengeprüfte Funde, davon offen: Edge-Functions, drei im Service Worker
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
@@ -382,7 +384,7 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   | Kontext | Helfer | Warum nicht der andere |
   |---|---|---|
   | Text oder Attributwert in HTML | `escHtml(s)` (kennt seit v32.66 auch `'`) | — |
-  | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
+  | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` (seit v33.57 ist `_gsOcArg` derselbe — der alte halbe Helfer liess `&#39;` stehen) | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
   | Fragment, das Auszeichnung TRAGEN darf (Übersetzung mit `<br>`, Chat-Zeile mit `<strong>`) | `gsSanitizeHtml(html)` — Allowlist in einem `<template>`; ein `style` nur über `_gsStilSaeubern` (Erlaubnisliste je Deklaration, seit v33.54) | `escHtml` zerstört die Auszeichnung, `innerHTML = fremd` führt sie aus |
   | Adresse aus fremder Hand | `_gsSafeUrl(u)` für Bilder (https/data:image), `_gsSafeLink(l)` für Navigation (eigener Ursprung oder https), `swSafeUrl` im Service Worker (nur eigener Ursprung) | `javascript:` ist eine gültige URL |
   `innerHTML = <etwas Fremdes>` ohne einen davon gibt es nicht mehr. Wer eine
@@ -464,8 +466,11 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 > `gsOpenLina` lädt die letzte Konversation aus der Cloud, `gsLinaSend` persistiert).
 > Pflanzen-/Garten-Kontext kommt aus `myPlants`/`gardens` (bereits cloud-synced).
 >
-> Die historischen No-Op-`gsBrain.observe`-Call-Sites können bei Gelegenheit
-> ersatzlos entfernt werden (reine Hygiene, kein funktionaler Effekt).
+> **v33.57: die Aufrufstellen sind entfernt** (14 Bloecke). Die fuenfzehnte war
+> kein No-Op, sondern ein Versprechen: der Sprachmodus sagte „Ich habe deinen
+> Wunsch gespeichert", und der einzige Schreiber war `gsBrain.observe`.
+> `statik_check` S3 meldet jeden neuen `typeof`-Schutz vor einem Namen, den es
+> nicht gibt.
 
 ## 4a · Garten-Zwilling und Planer — die zwei Fallen
 
@@ -821,6 +826,60 @@ Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
   und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
   Farbe aus einer Antwort steht.
 
+## 4f · Sechs Regeln aus dem Audit vom 11.11.2026 (v33.57)
+
+Pruefstaende: `statik_check`, `datum_check`, `robust_check` („Zweite Sitzung",
+„Kaputter Speicher"), `sync_check` (Garten-Pull), `contrast_check` (Durchgang 3).
+
+> **v33.57 — sechs Regeln aus einem Durchgang mit zehn Agenten** (das Protokoll:
+> `docs/AUDIT-2026-11-11.md`, 45 Funde, jeder gegengeprueft).
+>
+> **1 · Ein Pull frischt auch den ARBEITSSPEICHER auf.** Der Login-Pull schrieb
+> `gardens`/`plantings` nur in den Geraetespeicher; `renderGarden()` am Ende des
+> Pulls rief `initDefaultGarden()`, sah eine leere Variable, legte „Mein Garten"
+> an und speicherte ihn UEBER das Geholte — auf jedem frischen Geraet, auch in
+> der Android-App. Fuer Pflanzen stand `myPlants = pd.plants` seit v28.22 da.
+> Wer einen Pull-Zweig baut, der in den Speicher schreibt, weist im selben Zweig
+> die Variable zu; `sync_check` stellt dafuer ein LEERES Geraet her (die
+> Beispieldaten hatten den Fehler verdeckt).
+>
+> **2 · Eine Aufbereitung im Arbeitsspeicher haengt nie an einem Schalter im
+> Geraetespeicher.** Die Artenliste wird bei jedem Start frisch gebaut; zwei
+> Aufbereitungen setzten nach dem ersten Lauf `gs_…_filled` und stiegen danach
+> aus. Erste Sitzung 160 generische Symbole, jede spaetere 1'971. **Jeder
+> Pruefstand beginnt mit leerem Speicher und misst die erste Sitzung** —
+> `robust_check` „Zweite Sitzung" laedt zweimal im selben Speicher. Eine
+> Einmal-Migration aendert etwas GESPEICHERTES; alles andere laeuft immer.
+>
+> **3 · Was beim PARSEN gelesen wird, wird formsicher gelesen.** Ein
+> `JSON.parse(stored)` auf oberster Ebene ohne Halt beendet das ganze Skript:
+> der Ladebildschirm bleibt stehen. Wer eine Liste braucht, ruft
+> `_gsListeLesen(key)` (bzw. `_gsListeLesen(key, true)` fuer Zeichenketten), wer
+> ein Objekt braucht `_gsObjektLesen(key)`; `safeGetItem(key, vorgabe)` haelt
+> seit v33.57 die FORM der Vorgabe. `JSON.parse(x || '[]')` faengt weder `null`
+> noch `{}`. Die Integritaetspruefung laeuft VOR dem Hauptskript.
+>
+> **4 · `var(--x, rueckfall)` mit einem Namen, den niemand definiert, ist eine
+> feste Farbe.** `color:var(--fg,#1a1a1a)` machte den zentralen Rueckfrage-Dialog
+> im Dunkelmodus unlesbar (1,06:1) — 49 Aufrufstellen, nie vermessen, weil er
+> Parameter braucht. `statik_check` S6 haelt jede benutzte Variable gegen ihre
+> Definition; `contrast_check` stellt Dialoge mit Parametern von Hand und oeffnet
+> jeden, der sich selbst an den `<body>` haengt (Durchgang 3).
+>
+> **5 · Ein Pruefstand, der nie rot werden kann, ist ein Bericht — und das muss
+> dastehen.** `contrast_check` und `render_check` endeten IMMER mit 0; „N unter
+> AA" haette die Suite als gruen gemeldet. Beide urteilen jetzt. Nur
+> `perf_check` und `field_check` sind bewusst Berichte.
+>
+> **6 · Alle Pruefstaende laufen in UTC, die Nutzer nicht.** Ein
+> `toISOString().slice(0, 10)` ist in der Schweiz nachts der Vortag, und in UTC
+> sieht man es nie. Lokal gemeint: `_gsDayKey()` / `_gsKalTag(d)`. Bewusst UTC
+> (Quiz-Tag, Dateinamen): dann den Deckel in `datum_check` T0 mit Grund erhoehen.
+>
+> Und zum Werkzeug selbst: **acht lose Agenten rissen zweimal am Nutzungslimit,
+> bevor einer berichtet hatte.** Ein Workflow mit Zwischenspeicher je Agent
+> ueberlebt das; und jeder Auditor schreibt seine Funde ZUERST in eine Datei.
+
 ## 5 · Multi-Agent-Sync
 
 Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
@@ -990,7 +1049,9 @@ node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vie
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
-bash scripts/pruefstaende.sh     # ALLE 39 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/statik_check.js     # was sagt ein PARSER ueber die App? (seit v33.57) ESLint nur als Parser mit Geltungsbereichen: alles parst · keine Funktion doppelt deklariert · kein Name, den es nirgends gibt · kein typeof-Schutz vor etwas, das es nie gibt · 41 Korrektheitsregeln mit null Treffern · keine Funktion, deren Nennungen alle im EIGENEN Rumpf stehen · jede benutzte CSS-Variable ist definiert · sw.js mit den Namen eines Workers. Ohne ESLint: „nicht pruefbar" (Exit 2). Laeuft als ERSTER (14 s)
+node scripts/datum_check.js      # stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.57) Europe/Zurich, Uhr auf 01:30 gestellt — alle anderen laufen in UTC, wo lokaler und UTC-Tag dasselbe sind: Vorgabe in Datumsfeldern, EXIF-Datum, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner; T0 deckelt die UTC-Tagesschnitte (32)
+bash scripts/pruefstaende.sh     # ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein

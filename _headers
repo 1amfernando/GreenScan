@@ -35,6 +35,8 @@
   X-Robots-Tag: noindex, nofollow
 /scripts/*
   X-Robots-Tag: noindex, nofollow
+/.claude/*
+  X-Robots-Tag: noindex, nofollow
 /store/*
   X-Robots-Tag: noindex, nofollow
 /*.md

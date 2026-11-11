@@ -4,13 +4,157 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-10-22 · **Branch**: `main` · **Version**: `v33.56` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.57` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-11 (jb) - v33.57: Ein grosser Durchgang — zehn Agenten, zwei neue Prüfstände, und der Garten überlebt das neue Gerät
+
+Fernandos Auftrag: „Checke alle Fehler, unschöne Programmierungen und
+ähnliches … erstelle neue Agenten." Drei Spuren: (1) die App wird zum ersten
+Mal als PROGRAMM gelesen (ein Parser statt Textsuche), (2) ein Audit-Workflow
+mit zehn Agenten — fünf Blickwinkel, jeder Fund von einem Gegenprüfer zu
+widerlegen versucht —, (3) jeder bestätigte Fund, der in dieser Scheibe
+behoben wurde, hat einen Fall, der gegen v33.56 rot ist.
+
+**Der schwerste Fund — Datenverlust bei den Gärten (bestätigt, nachgestellt):**
+der Login-Pull schrieb `gardens`/`plantings` nur in den Gerätespeicher. Am
+Ende des Pulls steht `renderGarden()`, dessen erste Zeile `initDefaultGarden()`
+ist: die Variable im Arbeitsspeicher ist auf einem frischen Gerät leer →
+„Mein Garten" anlegen → `saveGardenData()` schreibt DIESE Liste über das gerade
+Geholte und merkt sie zum Hochladen vor. Gemessen in `sync_check`: Cloud
+„Hochbeet Süd, Balkon West" + 2 Pflanzungen → danach „Mein Garten" + 0
+Pflanzungen, vorgemerkt: ja. Betroffen ist jede Anmeldung auf einem zweiten
+Gerät, nach „Alle Daten löschen", nach einer Neuinstallation — und in der
+Android-App (eine WebView hat ihre eigene Ablage, v33.49). Für Pflanzen stand
+die Zeile seit v28.22 da (`myPlants = pd.plants`), für Gärten nie. `sync_check`
+sah es nicht, weil der Arbeitsspeicher dort von den Beispieldaten gefüllt war.
+Behoben: der Pull frischt den Arbeitsspeicher auf (nur im Zweig ohne
+ungesendete lokale Änderung), und `initDefaultGarden` übernimmt zuerst, was im
+Speicher liegt.
+
+**Gemessen und behoben (App):**
+
+- **Zweite Sitzung.** `gsNormalizeCatEmojis` und `gsAutoFillLookalikes`
+  bereiten die Artenliste im ARBEITSSPEICHER auf und hingen an Schaltern im
+  Gerätespeicher (`gs_emoji_normalized_v2`, `gs_lookalike_filled`), die sie
+  beim ersten Lauf selbst setzten. Erste Sitzung: 160 Arten mit generischem
+  Symbol, 0 ohne Verwechslungshinweis. Jede spätere: **1'971** und **1'435**.
+  Jeder Prüfstand beginnt mit leerem Speicher — alle 39 massen die erste
+  Sitzung, die ein Mensch genau einmal sieht.
+- **Kaputter Speicher.** `gs_market`, `gs_recipes`, `gs_remedies` wurden beim
+  Parsen mit `JSON.parse` ohne Halt und `arr.map` ohne Formprüfung gelesen:
+  ein kaputter Wert liess das Hauptskript sterben, `GS_VERSION` blieb
+  undefiniert, der Ladebildschirm stand (gemessen mit sieben Formen, in jeder).
+  Die Integritätsprüfung lief 1,5 s NACH dem Lesen und kannte die Schlüssel
+  nicht. Jetzt: Prüfung vor dem Hauptskript, `_gsListeLesen` /
+  `_gsObjektLesen`, `safeJsonParse` hält die Form seiner Vorgabe.
+- **Dunkelmodus.** `color:var(--fg,#1a1a1a)` — `--fg` gab es nie. Rückfrage-
+  und Eingabe-Dialog (49 + 12 Aufrufstellen) und „Track fortsetzen?" zeigten
+  Titel, Text und „Abbrechen" mit 1,06:1; die vier Antworten einer
+  Battle-Runde standen hell auf Weiss (`--card-bg`). Dazu Scan-Tipps (2,36:1),
+  Passwort ändern, Konto löschen, Wetterwarnungen.
+- **Escaping (sieben Stellen, in vier lief der Probecode wirklich):**
+  Karten-Popup (`map_user_finds.photo_url` FREMDER öffentlicher Funde roh im
+  `src`), Marktplatz-Vorschaubilder (`_gsOcArg` liess `&#39;` stehen),
+  Garten-Scan-Detail (KI-Felder roh), Rezept-Fotos, Registrierung (Adresse mit
+  Apostroph), Diagnose-Auswahl. `_gsOcArg` ist jetzt `_gsOcStr`.
+- **Datum (Zeitzone).** EXIF-Aufnahmedatum IMMER einen Tag zu früh;
+  Vorgabe-Datum in vier Formularen nachts der Vortag; Tagebuch-Serie und
+  Ernte-Tracker in UTC-Tagen; eine Ernte mit reinem Datum trug eine erfundene
+  Uhrzeit (14:00/13:00); der Giess-Banner im Garten ist NIE erschienen
+  (ISO-Zeichenkette + Zahl).
+- **Was der Parser fand:** `_gsSichtbar` zweimal deklariert (die spätere
+  gewinnt still — der Zurück-Knopf rechnete seit v33.43 mit der Regel des
+  Update-Wächters); `markDirty('state')` im Kalender-Filter hinter einem
+  `typeof`-Schutz, den es nie erfüllen konnte (die Wahl wurde nie zum Sync
+  vorgemerkt); `_communityLoading` nie deklariert; `gartenTip` (Tippfehler,
+  legte eine Globale an); vier weitere tote Schütze (`EMOJI_BY_CAT`: jede aus
+  einem Scan übernommene Pflanze bekam 🌿; `gsUserPosition`: die Kalibrierung
+  sagte immer „Aktiviere GPS"; `updateSettingsUI`; `GS_SUPABASE_URL`).
+- **Sechs Funktionen ohne Aufrufer ausser sich selbst** (rund 300 Zeilen):
+  `gsAutoFillDBGaps` (+ drei Vorlagen-Tabellen; las `HABITAT_TEMPLATES`, das
+  es nie gab), `setRecipeFilter`, `initDailyQuiz` (noch in v32.93 und v33.27
+  gepflegt), `gsAddSpecies`, `sbParseResponse`, `gsPushSensorReading`; dazu
+  `gsAnswerQuiz` und der `openRecipeDetail`-Override. `robust_check` C2 hielt
+  den eigenen Wiederholungs-Timer im Rumpf für einen Aufruf.
+- **14 `gsBrain`-Reste entfernt** (CLAUDE.md §4). Der fünfzehnte war ein
+  Versprechen: der Sprachmodus antwortete auf „erinnere mich …" mit „Ich habe
+  deinen Wunsch gespeichert" — gespeichert wurde nichts.
+- **Kleiner:** Community-Suche zeigte einen Serverfehler als „Keine Treffer.";
+  der Backup-Import nahm jede Form an und meldete Erfolg; der Baum-Planer sagte
+  „Gespeichert", ohne die Rückgabe zu lesen; `?screen=light` (Sitemap) führte
+  auf eine leere Fläche; das Changelog-Archiv hatte eine feste Adresse unter
+  einer Ein-Jahres-Cache-Regel; `Permissions-Policy` sperrte Mikrofon und
+  Lagesensoren auch für die App selbst; `connect-src` kannte vier Hosts nicht,
+  die der Worker selbst holt; `install.html` versprach „ohne Account",
+  gsBrain, iNaturalist und „alle Daten in der EU".
+
+**Prüfstände (39 → 41):**
+
+- **Neu `statik_check.js` (8 Fälle)** — ESLint nur als Parser mit
+  Geltungsbereichen; die Browser-Namen kommen aus einem echten Chromium in
+  einem sicheren Kontext. Erster Lauf gegen v33.56: 6 von 8 rot. Läuft als
+  ERSTER in der Suite (14 s).
+- **Neu `datum_check.js` (7 Fälle)** — Europe/Zurich, Uhr auf 15.07.2026
+  23:30 UTC = 16.07. 01:30 gestellt. Gegen v33.56: 7 von 7 rot.
+- `robust_check` 28 → 32 (Zweite Sitzung · Kaputter Speicher · Drei kleine
+  Zusagen · Deep-Link), `escape_check` 8 → 15, `sync_check` 10 → 11,
+  `kalender_check` 49 → 50 (F7), `nutzersicht_check` 9 → 12 (E11–E13).
+- **`contrast_check` und `render_check` URTEILEN jetzt.** Beide endeten immer
+  mit 0; „N Textstellen unter AA" hätte die Suite als „rot: 0" gemeldet.
+  `contrast_check` misst dazu vier Dialoge, die Parameter brauchen, und neun,
+  die sich selbst an den `<body>` hängen (Durchgang 3). Gegen v33.56: 22
+  Stellen unter AA, Exit 1.
+- `scripts/_korpus.js`: der eine Text, in dem eine Nennung gezählt wird
+  (`robust_check` C2 und `statik_check` S5).
+- **Gegenprobe:** jeder neue Fall ist gegen den unveränderten Stand v33.56
+  gefahren und war rot mit der echten Zahl; einzelne Rückbauten je Reparatur
+  sind NICHT gemacht.
+
+**Die Agenten:** der erste Anlauf (acht lose Agenten) und der zweite (drei
+fortgesetzt) rissen beide am Nutzungslimit, bevor ein Bericht kam. Der dritte
+lief als Workflow: fünf Auditoren, fünf Gegenprüfer, 339 Werkzeugaufrufe, **45
+Funde — 31 bestätigt, 14 teilweise (der Kern stimmt; Schwere oder Fix nicht
+ganz), keiner widerlegt.** Das Protokoll steht in `docs/AUDIT-2026-11-11.md`. Drei Blickwinkel
+(CSS, Datenform, Android-Hülle) habe ich selbst bzw. gar nicht gefahren: CSS
+und doppelte ids mit einem Skript (4 undefinierte Variablen, 0 doppelte ids),
+die Datenform und die Hülle NICHT.
+
+**Und die Agenten bleiben:** der Workflow liegt als
+`.claude/workflows/greenscan-audit.js` im Repo (acht Blickwinkel, wählbar über
+`args.linsen`; die drei ungefahrenen heissen `css`, `daten`, `android`), dazu
+zwei Rollen für einzelne Aufträge: `.claude/agents/gs-auditor.md` (sucht EINE
+Fehlerklasse, nur lesend) und `gs-gegenpruefer.md` (versucht jede Behauptung zu
+widerlegen, im Zweifel „widerlegt"). Der Workflow ist auf Syntax geprüft, in
+der gespeicherten Fassung aber NICHT gelaufen — gelaufen ist die Sitzungs-
+Fassung mit fünf Blickwinkeln, aus der er entstanden ist.
+
+**Fallen aus dem Bau:**
+
+- **Ein Fall, der ein Fenster öffnet, das auf einen Tipp wartet, hängt.** E13
+  rief `gsAddScanToMyPlants`, das zuerst „Wohnung oder Garten?" fragt — zehn
+  Minuten Stille, bis die Frist des Aufrufs griff.
+- **Eine Suche im eigenen Text findet zuerst den Text über die Sache** (v33.41,
+  zum vierten Mal): der Baum-Planer-Fall suchte `local_failed` und fand meinen
+  Kommentar vor dem Aufruf.
+- **Eine Zahl, die man nicht gezählt hat.** Der Deckel in `datum_check` stand
+  zuerst auf 27 — geschätzt. Gezählt waren es 32.
+- **Ein Probewert in alter Form.** `sync_check` schickte eine Pflanzung ohne
+  `tasks`; seit der Pull den Arbeitsspeicher auffrischt, rüstet die App sie
+  nach und speichert — der Probewert kam zu Recht verändert zurück.
+
+**Nicht geprüft, ehrlich:** hier läuft kein Android und kein echtes Supabase.
+Die zehn Funde in den Edge-Functions sind gelesen und zum Teil mit den echten
+Rümpfen in Node ausgeführt, aber NICHT behoben (Sektion 2). Die Annahme, dass
+ein `fetch()` im Worker gegen `connect-src` geprüft wird, ist aus der
+Spezifikation gelesen, nicht im Browser gemessen. Die Datenschutzerklärung ist
+an einer Stelle berichtigt (Nutzungsdaten sind nicht „anonym") — bitte
+gegenlesen (`docs/FUER-FERNANDO.md` §29).
 
 ### 2026-10-22 (ja) - v33.56: Teilen → GreenScan auch in der Android-App
 
@@ -15204,7 +15348,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 22.10.2026** (davor am 20.10.). Er stand am 02.09. auf
+> **Nachgemessen am 11.11.2026** (davor am 22.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -15213,11 +15357,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.56` (Client) · SW-Cache `gs-v33.56` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.57` (Client) · SW-Cache `gs-v33.57` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **96'660 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **583 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
+- **Frontend:** `index.html` **96'574 Zeilen / 5,9 MB** (v33.57: rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **585 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.37).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **39** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 39** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **41** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung). Neu seit v33.57: `statik_check.js` (liest die App als Programm — ESLint nur als Parser) und `datum_check.js` (Europe/Zurich, gestellte Uhr); `contrast_check` und `render_check` urteilen seither (vorher immer Exit 0). `scripts/pruefstaende.sh` fährt **alle 41** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -15226,6 +15370,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **Datenschutzerklärung gegenlesen** (v33.57) | `privacy.html` nannte Nutzungs- und Fehlerdaten „anonym"; beide tragen die Konto-Kennung (`client_errors.user_id`, `analytics_events.user_id` + `session_id`). Der Satz ist berichtigt („mit deinem Konto verknüpft"). Ein Rechtstext gehört von dir gelesen; zwei Empfänger (Netlify, Wikipedia für Artbilder) fehlen dort weiterhin. | `docs/FUER-FERNANDO.md` §29 · (jb) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
 | **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
 | **APK auf einem Telefon ansehen: Export und Drucken** (v33.53) | Hier läuft kein Android. `apk_check` fährt Rechnung, Rand und Seite gegen einen echten Java-Sammler — ob ein Telefon „Speichern unter“ und den Druckdialog so zeigt, sagt erst ein Gerät (Android 6, 10, 14). Am Backend nichts zu tun, nur eine neue APK. | `docs/FUER-FERNANDO.md` §26 · (ix) |
@@ -15261,7 +15406,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 |---|---|
 | ~~Artenzahl gegen Eintragszahl~~ | **Erledigt in v33.04.** `gsArtenZahlen()` ist die eine Quelle; fünf Live-Anzeigen und siebzehn feste Texte berichtigt, `nutzersicht_check` E9 hält Zahl und Wort zusammen. (gw) |
 | **Arten-Daten vervollständigen** | 78 % der 4'342 Arten haben keine verwertbare Farb- oder Höhenangabe. Drei Wege abgegangen (`docs/ARTEN-DATEN.md`): keine Quelle von hier aus; vier Nebentabellen in der Datenbank (114 Arten, zwei Tabellen nur live); **167 Dubletten-Gruppen mit widersprüchlicher Giftstufe** in `docs/arten-widersprueche.csv` — brauchen eine Flora, keinen Code. Seit v32.43 gewinnt bei Widerspruch die vorsichtigere Angabe (v32.45 korrigiert: Unterarten, Platzhalter). |
-| **Zwei Oberflächen ohne Einstieg** | *(waren sechs — v33.05 hat jeden Eintrag einzeln auf seine WIRKUNG geprüft: zwei verdrahtet, zwei überholte entfernt, siehe (gx).)* Es bleiben `gsSafetyDefaults` — verdrahten ändert den **Sicherheitstext** vieler Detailseiten, das entscheidet kein Prüfstand — und `gsAROpen`: `ar_models` hat 30 Zeilen, davon **0 mit `gltf_url` und 0 mit `low_poly_url`** (09.09.2026, nur lesend gemessen). Es gibt kein einziges 3D-Modell; die Frage ist damit keine Code-Frage mehr, sondern ob Modelle beschafft werden. |
+| **Zwei Oberflächen ohne Einstieg** | *(waren sechs — v33.05 hat jeden Eintrag einzeln auf seine WIRKUNG geprüft: zwei verdrahtet, zwei überholte entfernt, siehe (gx). v33.57: die ZWEITE nie verdrahtete Fassung derselben Idee — `gsAutoFillDBGaps` mit drei Vorlagen-Tabellen — ist entfernt; die Entscheidung hat damit einen Kandidaten, siehe (jb).)* Es bleiben `gsSafetyDefaults` — verdrahten ändert den **Sicherheitstext** vieler Detailseiten, das entscheidet kein Prüfstand — und `gsAROpen`: `ar_models` hat 30 Zeilen, davon **0 mit `gltf_url` und 0 mit `low_poly_url`** (09.09.2026, nur lesend gemessen). Es gibt kein einziges 3D-Modell; die Frage ist damit keine Code-Frage mehr, sondern ob Modelle beschafft werden. |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
 | Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
 
@@ -15269,13 +15414,18 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Stand |
 |---|---|
+| **Edge-Functions: zehn Funde aus dem Audit vom 11.11.2026, keiner behoben** | Alle zehn gegengeprüft (7 bestätigt, 3 teilweise), zum Teil mit den echten Rümpfen in Node ausgeführt. Die schwersten: `stripe-webhook` liest bei 16 Schreibaufrufen keinen Datenbankfehler (200 und `processed_at`, obwohl nichts verbucht wurde); `delete-user` löscht die Abo-Zeilen und kündigt bei Stripe nichts (das Abo läuft weiter); vier Functions prüfen den Aufrufer mit `getUser()` ohne Token (`mushroom-identify`, `pest-identify`, `plant-doctor-diagnose`, `stripe-expert-checkout`); `daily-push-checker` warnt vor dem Frost von heute früh statt vor dem der kommenden Nacht und sperrt damit den richtigen Alarm. Zwei weitere sind ausnutzbar und stehen deshalb NICHT im Repo (der Web-Root ist öffentlich). Eine eigene Scheibe — Zahlungs- und Auth-Code ohne Fahrer anzufassen wäre geraten. | `docs/AUDIT-2026-11-11.md` (edge-1 … edge-10) · (jb) |
+| **Service Worker: drei bestätigte Funde, nicht behoben** | (1) Die Navigation wartet bei schwachem Empfang unbegrenzt aufs Netz, obwohl die App im Cache liegt (`networkFirst` ohne Frist — der Rückfall greift nur bei einer ABLEHNUNG). (2) Jede Navigations-Adresse (`/?source=pwa`, vier Shortcuts, jeder Mitteilungs-Link) legt eine eigene 5,9-MB-Kopie der Seite in den Shell-Cache. (3) Ein Tipp auf eine Push-Mitteilung lädt die laufende App neu, ohne `_gsAppRuhig()` zu fragen — ein offenes Scan-Ergebnis ist weg. Jeder braucht Fälle in `offline_check`. | `docs/AUDIT-2026-11-11.md` (sw-4, sw-5, sw-6) · (jb) |
+| **Fälligkeit über die Zeitumstellung** | `getDaysUntilDue` und `gsSnoozeTask` rechnen 24-Stunden-Blöcke: in den Nächten vom 28./29.03. und 24./25.10. liegt eine Aufgabe, die in der Umstellungsstunde erledigt oder verschoben wird, um einen Tag daneben (ausgeführt vom Gegenprüfer). Dazu die Kalenderwoche des Planers (Mo–Mi eine KW zurück), sieben Tag-des-Jahres-Rechnungen und das Wetter-Tagesprotokoll (Datum UTC, Werte Zürcher Tag). `datum_check` T0 deckelt die UTC-Tagesschnitte bei 32 (25 bewusst, 7 offen). | `docs/AUDIT-2026-11-11.md` (datum-3, -5, -8, -9) · (jb) |
+| **Drei Suchen beim Tippen ohne Anfrage-Zähler** | `gsCommunitySearch`, `gsKnowledgeGlobalSearch`, `gsFriendsSearchTrigger`: kommt die ältere Antwort nach der neueren, stehen die Treffer für „to" unter dem Feld „tomate". | `docs/AUDIT-2026-11-11.md` (robust-5) · (jb) |
+| **Zwei Audit-Blickwinkel nicht gefahren** | Datenform der Artenliste (Typen, Wertebereiche, Schreibweisen je Feld) und die Android-Hülle (Java). Beide waren geplant; der Lauf mit acht Agenten riss zweimal am Nutzungslimit, der dritte lief mit fünf. | (jb) |
 | **Modell-Rückfallketten in 8 Edge-Functions** | Neun Stellen nennen genau EIN Modell ohne Ausweichmöglichkeit. Vorlage liegt im Repo (`book-ingest`, `CLAUDE_MODELS`). Ob ein Name heute noch auflöst, ist von hier aus nicht prüfbar. (df) |
 | **Drei Admin-Funktionen ohne Quelltext im Repo** | `fn_assign_role`, `fn_admin_flag_set`, `fn_set_global_api_key` stehen in keiner Migration als `CREATE FUNCTION` (nur in GRANT/REVOKE-Zeilen); ihre Rümpfe sind nur live (25.09.2026, `pg_proc.prosrc`). `GS_ADM_AKTIONEN` trägt für ihre Spur-Namen eine datierte `spur_quelle`, `admin_check` nennt die drei beim Namen und meldet die Angabe als überholt, sobald der Name in einer Migration steht. Der Weg ins Repo ist ein Dump aus der Datenbank (Fernando), keine Abschrift. (iv) |
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
 | **Overlay-Apps über der Teilen-Vorschau** | Gegen eine App mit Overlay-Recht (`SYSTEM_ALERT_WINDOW`) hilft die Antipp-Sperre von 0,7 s nicht. `setFilterTouchesWhenObscured` würde jede App mit Bildschirmfilter (Blaulicht, Dimmer) GreenScan ganz unbedienbar machen — bewusst nicht gesetzt; der Schaden wäre ein Scan auf das eigene Kontingent. Ein gezielter Schutz bräuchte einen Weg von der Seite zur Hülle nur für die Dauer der Vorschau. | (ja) |
-| **Beispieldaten melden nicht an** | `_seed.js` setzt einen Token ohne drei Teile; `gsSecurityInit` räumt ihn 500 ms nach dem Start ab, und nach ein paar Sekunden steht der Anmeldebildschirm (gemessen 21.10.2026). Ob Prüfstände dahinter messen (render/contrast/touch/a11y), ist nicht nachgeprüft; als eigene Aufgabe vorgeschlagen. `apk_check` T0–T13 stellen die Anmeldung selbst her. | (ja) |
+| **Beispieldaten melden nicht an** *(weiter offen, v33.57 nicht angefasst)* | `_seed.js` setzt einen Token ohne drei Teile; `gsSecurityInit` räumt ihn 500 ms nach dem Start ab, und nach ein paar Sekunden steht der Anmeldebildschirm (gemessen 21.10.2026). Ob Prüfstände dahinter messen (render/contrast/touch/a11y), ist nicht nachgeprüft; als eigene Aufgabe vorgeschlagen. `apk_check` T0–T13 stellen die Anmeldung selbst her. | (ja) |
 | **Ein geteiltes Foto in der APK überlebt den Prozess nicht** | Das Fach liegt im Arbeitsspeicher; beendet Android die App vor dem Bestimmen, ist das Foto weg und die App sagt beim nächsten Start nichts. Steht als `GS_HUELLE_ANDERS 'teilen'` auf dem Bildschirm. Eine Ablage in `getCacheDir()` wäre die Abhilfe, wenn es auf Telefonen auffällt. | (ja) |
 | **Teilen und Zwischenablage in der Hülle** | Vier Teilen-Wege (`gsAchShare`, `gsShareSpecies`, `gsShareApp`, `_gsShare`) fallen in einer WebView auf die Zwischenablage zurück; zwei Meldungen „kopiert" kommen vor dem `writeText`-Ergebnis. Ein Kanal-Ziel „teilen" (ACTION_SEND, Text) wäre die Antwort. | (ix) |
 | **Foto-Ansicht per `window.open(this.src)` in der Hülle** | Tagebuch- und Rezeptfotos öffnen den Browser des Telefons (die App wird verlassen); ein `blob:`/`data:`-Foto ergibt „kein Ziel". Gehört in eine Ansicht in der App. | (ix) |

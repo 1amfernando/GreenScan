@@ -70,7 +70,7 @@ ALLE:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: „35 Pruefstaende · rot: 0 · nicht pruefbar: 0"
+# Erwartung: „41 Pruefstaende · rot: 0 · nicht pruefbar: 0"
 ```
 
 Dauer 15–25 Minuten. `perf_check` misst nur und urteilt nie.
@@ -109,7 +109,7 @@ git push -u origin claude/<thema>-<id>
 ```
 
 Commit-Betreff `vXX.YY: <Satz>`, Rumpf mit Bereichs-Bullets. PR gegen `main`;
-**CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle 35 mit
+**CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle 41 mit
 Postgres). Ein gruener Lauf auf der eigenen Maschine ist keine Aussage ueber
 den Runner (v33.x: 32 von 32 rot, weil ein Pfad fest verdrahtet war). Squash-
 Merge, dann den Branch nachziehen:
@@ -131,6 +131,24 @@ Nie direkt auf `main`. Nie DDL auf der Produktivdatenbank — Migrationen
 liegen in `supabase/migrations/` und heissen „nicht angewandt", bis Fernando
 sie anwendet. Nie „live verifiziert" schreiben, ohne zu sagen womit — die
 Live-Seite ist aus einer Cloud-Sitzung nicht erreichbar (`CONNECT … 403`).
+
+## 9b · Ein breiter Audit ist ein Workflow, nicht acht lose Agenten
+
+Seit v33.57 liegt er im Repo: `.claude/workflows/greenscan-audit.js` — acht
+Blickwinkel (`robust` · `escape` · `datum` · `edge` · `sw` · `css` · `daten` ·
+`android`), je ein Auditor (nur lesend) und ein Gegenpruefer, der jeden Fund zu
+widerlegen versucht. `args.linsen` waehlt aus, `args.scratch` sagt, wohin die
+Agenten schreiben (nie ins Repo). Fuer EINEN Auftrag gibt es zwei Rollen:
+`.claude/agents/gs-auditor.md` und `gs-gegenpruefer.md`. Das ist Werkzeug von
+Claude Code; eine andere KI liest die Dateien als Auftragstext — die Regeln
+darin gelten fuer jede.
+
+Warum ein Workflow: acht lose Agenten rissen am 11.11.2026 zweimal am
+Nutzungslimit, bevor einer berichtet hatte. Ein Workflow merkt sich jeden
+fertigen Agenten und laesst sich fortsetzen. Und jeder Auditor schreibt seine
+Funde ZUERST in eine Datei. Was der Audit findet, wird NICHT ungeprueft
+behoben: ein Fund ist erst einer, wenn ein Fall ihn gegen den alten Stand rot
+zeigt (`docs/AUDIT-2026-11-11.md`: 45 Funde, 31 bestaetigt, 14 teilweise).
 
 ## 10 · Was eine Zusammenfassung ist
 

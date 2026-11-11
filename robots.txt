@@ -84,6 +84,7 @@ Allow: /
 Disallow: /docs/
 Disallow: /supabase/
 Disallow: /scripts/
+Disallow: /.claude/
 Disallow: /store/
 Disallow: /*.md$
 Disallow: /*.sql$

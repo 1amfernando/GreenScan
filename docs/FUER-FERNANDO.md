@@ -1347,6 +1347,59 @@ Am nützlichsten ist die Cloud-Zeile: dort weicht jede App ein wenig anders ab.
 Wenn dort ein Satz statt der Vorschau steht, schick mir den Satz und den
 Namen der App.
 
+## 29 · Der grosse Durchgang (v33.57) — was du tun musst, und was noch offen ist
+
+**Für die App selbst musst du nichts einspielen.** Keine Migration, keine
+Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
+
+**Was sich für dich sichtbar ändert:**
+
+- Wer sich auf einem neuen Gerät anmeldet (oder in der Android-App), behält
+  seine Gärten und Pflanzungen. Vorher ersetzte die App sie dort durch einen
+  leeren „Mein Garten" — und schob das beim nächsten Abgleich hoch. **Wenn dir
+  oder jemandem genau das schon passiert ist:** die App legt je Sitzung einen
+  Stand in `user_state_snapshots` ab (v33.26) — darin kann der Garten von
+  vorher noch stehen. Sag Bescheid, bevor du etwas versuchst; ich sehe mit dir
+  nach, welcher Stand der richtige ist.
+- Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar.
+- Symbole und Verwechslungshinweise der Arten sind bei jedem Start da, nicht
+  nur beim allerersten.
+
+**Bitte einmal gegenlesen — die Datenschutzerklärung** (`privacy.html`,
+Tabelle in §2). Dort stand „Anonyme Nutzungs- & Fehlerdaten". Beide tragen
+aber deine Konto-Kennung. Ich habe den Satz berichtigt („mit deinem Konto
+verknüpft, keine Fotos, kein Standort, kein Eingabetext"). Zwei Empfänger
+fehlen in §4 weiterhin: Netlify (zweiter Hoster) und Wikipedia (lädt das
+Artbild, bekommt dabei nur den Artnamen). Das ist dein Text — sag mir, wie du
+ihn haben willst.
+
+**Die Landingpage** (`install.html`) versprach vier Dinge, die es nicht gibt:
+„funktioniert ohne Account", „gsBrain", „iNaturalist-Bridge" und „alle Daten
+in der EU". Sie sagt jetzt, was stimmt (kostenloses Konto nötig; Lina; Fotos
+zur Bestimmung gehen an Anthropic in den USA).
+
+**Offen und wichtig — die Edge-Functions.** Der Audit hat dort zehn Fehler
+gefunden und jeden gegengeprüft; behoben ist KEINER, weil das Zahlungs- und
+Anmeldecode ist, den ich hier nicht ausführen kann. Die zwei, die Geld
+betreffen:
+
+1. **Konto löschen kündigt das Abo nicht.** `delete-user` löscht die
+   Abo-Zeilen in der Datenbank, sagt Stripe aber nichts — die Abbuchung läuft
+   weiter, und das Konto, über das man kündigen könnte, ist weg. Bis das
+   repariert ist: wenn jemand mit Abo sein Konto löscht, das Abo bitte im
+   Stripe-Dashboard von Hand beenden.
+2. **Der Stripe-Webhook liest keine Datenbankfehler.** Scheitert das Verbuchen
+   einer Zahlung, antwortet er Stripe trotzdem mit „erledigt". Stripe versucht
+   es dann nicht noch einmal, und die Person hat bezahlt, ohne freigeschaltet
+   zu sein.
+
+Alle zehn stehen in `docs/AUDIT-2026-11-11.md` (edge-1 bis edge-10) mit dem
+vorgeschlagenen Fix. Zwei davon lassen sich ausnutzen; ihre Einzelheiten
+stehen deshalb nicht im Repo, sondern im Aufgabenvorschlag aus der Sitzung.
+
+**Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
+ESLint (über `scripts/package.json`). Dafür ist nichts zu tun.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

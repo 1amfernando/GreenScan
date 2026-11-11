@@ -1,4 +1,4 @@
-# 04 · Die 38 Pruefstaende — welcher fragt was
+# 04 · Die 41 Pruefstaende — welcher fragt was
 
 Alle liegen in `scripts/`, alle laufen ohne Netz (`file://` + Playwright aus
 `scripts/package.json`); vier brauchen ein lokales Postgres
@@ -7,7 +7,7 @@ pruefbar" (Exit 2), nie gruen. Alle auf einmal:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: "38 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
+# Erwartung: "41 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
 ```
 
 Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
@@ -15,6 +15,8 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 
 | Pruefstand | Die Frage, die er stellt |
 |---|---|
+| `statik_check` | was sagt ein PARSER ueber die App? (seit v33.57) ESLint nur als Parser: doppelte Funktionen, Namen, die es nirgends gibt, tote `typeof`-Schuetze, Korrektheitsregeln, Funktionen ohne Aufrufer ausser sich selbst, undefinierte CSS-Variablen, sw.js. Laeuft als ERSTER; ohne ESLint „nicht pruefbar" |
+| `datum_check` | stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.57) Europe/Zurich mit gestellter Uhr — alle anderen laufen in UTC; T0 deckelt die UTC-Tagesschnitte |
 | `render_check` | sieht jeder der elf Tabs aus wie vorher? Vergleich zweier Staende (Radius, Schrift, Groesse, Farbe), verdaechtige Texte (`undefined`, `NaN`) muessen 0 sein |
 | `render_check` | aktuellen Stand vermessen |
 | `contrast_check` | WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge (Dialoge am `<body>` werden vermessen, nicht als „von #app verdeckt" uebersprungen) |
@@ -53,9 +55,9 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42); seit v33.50 die SCHREIB-Seite: jeder Admin-Schreibweg durch _gsAdmTun (GS_ADM_AKTIONEN, sechs Zustaende mit Grund, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es (_gsAdmGesperrt, _gsAdmAktionHinweisHtml), die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, die Deckung rechnet _gsAdmSpurDeckung, ein Ersatzweg nur bei nicht_verfuegbar, RAISE EXCEPTION = abgelehnt, und eine SQL-Haelfte spielt 20260925_admin_audit_vollstaendig.sql in einem lokalen Postgres nach (ohne: Exit 2) |
 | `android_check` | haelt die App, was eine Android-App verspricht? gsZurueck (eine Regel, zwei Ausloeser), GS_VOLLBILD_OVERLAYS, ein Verlaufs-Eintrag, gsLaeuftAlsApp, assetlinks (seit v33.43) |
 | `risiko_check` | was geht SPAETER schief? Jahreszahlen in jaehrlich wiederkehrenden Texten, ungedeckelte Listen-Abfragen (eingeordnet), die Zahlen in docs/RISIKEN.md gegen den Quelltext, und seit v33.45 die Fristen-Karte im Admin-Panel in BEIDE Richtungen (GS_FRISTEN, gsFristenStand) |
-| `pruefstaende` | ALLE 39 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
+| `pruefstaende` | ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
 
-## Wie ein Fall gebaut wird (die Regeln, die alle 39 teilen)
+## Wie ein Fall gebaut wird (die Regeln, die alle 41 teilen)
 
 1. **Erst der Fall, dann der Code.** Gegen den alten Stand gefahren muss er
    rot sein. Erst danach wird repariert.

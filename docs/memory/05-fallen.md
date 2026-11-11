@@ -192,3 +192,19 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.55** Die Aufraeum-Funktion der Teilen-Vorschau loeschte das Foto — und
   sie laeuft auch, wenn `switchTab` alle Dialoge abraeumt. Regel: wer eine
   Folge (Loeschen, Senden) an ein Schliessen haengt, fragt, WER geschlossen hat.
+- **v33.57** `_gsSichtbar` stand zweimal als Funktion in derselben Datei — die
+  spaetere gewinnt still, fuer ALLE Aufrufer. Regel: kein Lauf zeigt das, ein
+  Parser in einer Sekunde (`statik_check` S1).
+- **v33.57** `if (typeof markDirty === 'function') markDirty('state')` — die
+  Funktion heisst `gsCloudSync.markDirty`. Ein `typeof`-Schutz vor einem Namen,
+  den es nicht gibt, ist ein toter Zweig, der wie Sorgfalt aussieht
+  (`statik_check` S3). Vier weitere lagen so da.
+- **v33.57** Ein Fall rief `gsAddScanToMyPlants`, das zuerst „Wohnung oder
+  Garten?" fragt und auf einen Tipp WARTET — zehn Minuten Stille. Regel: wer
+  einen Weg faehrt, der eine Rueckfrage stellt, stellt die Antwort.
+- **v33.57** Der Deckel in `datum_check` stand zuerst auf 27 (geschaetzt);
+  gezaehlt waren es 32. Regel: „gemessen" steht nur vor einer Zahl, hinter der
+  eine Rechnung steht (wie v33.52).
+- **v33.57** Acht lose Agenten rissen zweimal am Nutzungslimit, bevor einer
+  berichtet hatte. Regel: ein Workflow mit Zwischenspeicher je Agent, und jeder
+  Auditor schreibt seine Funde ZUERST in eine Datei.
