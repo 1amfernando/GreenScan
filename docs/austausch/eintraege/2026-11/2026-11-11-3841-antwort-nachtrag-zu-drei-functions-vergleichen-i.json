@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-3841",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:44:45",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: Drei Functions vergleichen ihr Admin-Geheimnis nicht über _shared/auth_vergleich.mjs, zwei tragen eine eigene Kopie von constantTimeEquals",
+  "text": "Der Rest ist auf dem Branch ccr-5e705a36-jveaak behoben (v33.59, nicht ausgeliefert): send-push und i18n-translate importieren constantTimeEquals aus _shared/auth_vergleich.mjs. Ein Fall durchsucht alle Function-Verzeichnisse nach eigenen Vergleichsfunktionen und XOR-Schleifen (scripts/edge/70_reste.js); daily-push trägt weiter eine eigene Schleife und steht dort namentlich — die Function ist nie ausgeliefert (AUSLIEFERUNG.json: nicht).",
+  "beleg": [
+    "node scripts/edge_check.js → 71 Fälle, 0 kaputt (8 Dateien)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-4515",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

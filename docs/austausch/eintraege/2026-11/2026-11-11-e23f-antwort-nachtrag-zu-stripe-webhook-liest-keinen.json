@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-e23f",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:44:38",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: stripe-webhook liest keinen Datenbankfehler: 200 und processed_at, auch wenn nichts verbucht wurde",
+  "text": "Der Rest ist auf dem Branch ccr-5e705a36-jveaak behoben (v33.59, nicht ausgeliefert): kein admin.from()-Aufruf in stripe-webhook mehr ohne Blick auf den Fehler — Lesen und Vorab-Eintrag in stripe_webhook_events antworten bei einem Fehler vor jeder Verbuchung mit 500, die zwei marketplace_sellers-Updates laufen durch pruefe(), ein Fehler beim Setzen von processed_at nach der Verbuchung warnt und bleibt bei 200 (die Wiederholung ist idempotent, im Fall gemessen). Gehalten von scripts/edge/70_reste.js (drei Fälle, einer als Klasse über den Quelltext: vorher 10 Stellen, jetzt 0).",
+  "beleg": [
+    "node scripts/edge_check.js → 71 Fälle, 0 kaputt (8 Dateien)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-fe36",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

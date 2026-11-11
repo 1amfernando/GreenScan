@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-610f",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:44:43",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: plan-iterate: die Antwort wird nicht auf Abbruch geprüft, ersetzt den Plan ohne Formprüfung, und die Kosten werden mit 0 gebucht",
+  "text": "Der Rest ist auf dem Branch ccr-5e705a36-jveaak behoben (v33.59, nicht ausgeliefert): plan-iterate liest stop_reason und prüft die Form vor dem Update (_shared/plan_antwort.mjs: ok · abgeschnitten · kein_json · struktur) — eine abgeschnittene oder falsch geformte Antwort ersetzt den Plan nicht; die Reservierung bleibt, weil der Anbieter gerechnet hat. Nicht gemessen: garden-scan-analyze schreibt ebenfalls eine KI-Antwort nach garden_plans und könnte dieselbe Prüfung nutzen.",
+  "beleg": [
+    "node scripts/edge_check.js → 71 Fälle, 0 kaputt (8 Dateien)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-9d96",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

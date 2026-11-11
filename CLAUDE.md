@@ -150,9 +150,10 @@ GreenScan/
 │                        Lizenztexte liegen daneben (LICENSE-*.txt, OFL 1.1 bzw. Apache-2.0)
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-│                        _shared/ = zehn reine ESM-Module, von Deno UND Node importierbar (§7.1 edge_check):
+│                        _shared/ = elf reine ESM-Module, von Deno UND Node importierbar (§7.1 edge_check):
 │                        auth_vergleich · ingest_regeln · loeschung_regeln · push_helfer · quiz_gen_regeln ·
-│                        sensor_push_regeln · modelle (v33.58) · ki_tor · zahlung_regeln · markt_regeln (alle drei v33.59)
+│                        sensor_push_regeln · modelle (v33.58) · ki_tor · zahlung_regeln · markt_regeln ·
+│                        plan_antwort (die vier letzten v33.59) — AUSLIEFERUNG.json: was ausgeliefert wird
 ├── supabase/migrations/ # SQL-Migrationen (alle idempotent; die 20261110_* sind NICHT angewandt — §3.6, FUER-FERNANDO §30) — Zahlen: STATUS.md §1
 ├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
