@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-5a38",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "11:43:30",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "erledigt: Fünf Schlüsselfamilien im localStorage stehen in keiner der vier Speicherlisten — drei davon wachsen um einen Schlüssel je Tag und werden nie geräumt",
+  "ergebnis": "erledigt",
+  "wohin": "v33.59 auf dem Branch ccr-5e705a36-jveaak: alle fünf Familien stehen in GS_USER_PREFIXES und sind beim Schreiben gedeckelt (_gsNurHeuteBehalten für die Tagesfamilien, GS_CORRUPT_BAK_MAX = 5 für die Sicherungen)",
+  "geschwister": "gesucht mit der neuen Erkennung in storage_check (Bauform „Name in einer Variablen“): genau sechs Präfixe — die fünf des Befunds und gs_aicalls_, das schon in der Liste stand, aber ohne Deckel um einen Schlüssel je Tag wuchs → mitbehoben. Die zwei sessionStorage-Familien sind nicht betroffen. Kein Präfix ist Anfang eines anderen Schlüssels im Quelltext",
+  "bewacht": "scripts/storage_check.js Teil A (Präfixe aus der Bauform) und Teil F (Deckel; Gegenprobe: Präfix aus der Liste genommen → rot)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-030e"
+    }
+  ]
+}
