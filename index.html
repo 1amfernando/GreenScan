@@ -2132,7 +2132,8 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
    EINE Karte, getrennte Zeilen, rechts ein Kaestchen. Keine Prioritaets-
    Plaketten, keine zweite Hervorhebung darunter. „Hochwertig und sehr simpel"
    heisst hier: weglassen, bis nur noch das uebrig ist, was man antippt. */
-.gs-dp-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 0 10px;}
+/* v33.59: flex-wrap — mit Beispieldaten (Zaehler „N Aufgaben · M in den nächsten Tagen“, nowrap) ragte der 📅-Knopf bei 320 px 19 px aus dem Bild (touch_check). */
+.gs-dp-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 0 10px;}
 .gs-dp-head h3{font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:800;color:var(--text);margin:0;letter-spacing:-.015em;}
 .gs-dp-count{font-size:var(--fs-sm);font-weight:700;color:var(--muted);white-space:nowrap;}
 .gs-dp-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--elev-1);overflow:hidden;}
@@ -4655,7 +4656,7 @@ window._gsArtenFehlstart = function () {
           </div>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:var(--bg-yellow-soft);border-radius:var(--r-sm);border:1px solid #ffcc80;">
             <input type="checkbox" id="listing-pestfree" style="accent-color:#f57c00;width:16px;height:16px;">
-            <div><div style="font-size:var(--fs-sm);font-weight:700;">🚫 Pestizid-frei</div><div style="font-size:var(--fs-sm);color:var(--muted);">Eigene Aussage (ohne Zertifikat)</div></div>
+            <div><div style="font-size:var(--fs-sm);font-weight:700;color:var(--c-warn-d);">🚫 Pestizid-frei</div><div style="font-size:var(--fs-sm);color:var(--muted);">Eigene Aussage (ohne Zertifikat)</div></div>
           </label>
         </div>
       </div>
@@ -4829,11 +4830,11 @@ window._gsArtenFehlstart = function () {
   <div class="modal" style="position:relative;max-height:92vh;overflow-y:auto;">
     <div class="mhandle"></div>
     <button class="modal-close-btn" onclick="closeModal('modal-layouts')" aria-label="Schliessen">&#x2715;</button>
-    <div class="mhdr" style="background:linear-gradient(135deg,#388e3c,#2e7d32);color:#fff;">
+    <div class="mhdr" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;">
       <span class="memoji">📐</span>
       <div>
         <h2 data-i18n="layouts_title" data-i18n-fallback="Beet-Layouts" style="color:#fff;">Beet-Layouts</h2>
-        <p data-i18n="layouts_sub" data-i18n-fallback="10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit" style="color:rgba(255,255,255,.85);">10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit</p>
+        <p data-i18n="layouts_sub" data-i18n-fallback="10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit" style="color:#fff;">10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit</p>
       </div>
     </div>
     <div id="layouts-filter" style="padding:10px 18px 4px;"></div>
@@ -10568,8 +10569,9 @@ function openGartenTagebuch() {
   var CATS = [
     {id:'all',     l:'Alle',       e:'📋', c:'#455a64'},
     {id:'sowed',   l:'Gesät',      e:'🌱', c:'#2e7d32'},
-    {id:'planted', l:'Gepflanzt',  e:'🪴', c:'#558b2f'},
-    {id:'harvest', l:'Geerntet',   e:'🧺', c:'#ef6c00'},
+    // v33.59: c ist auch FUELLUNG mit weisser Schrift (aktiver Chip) — #558b2f trug 4,10:1, #ef6c00 3,08:1.
+    {id:'planted', l:'Gepflanzt',  e:'🪴', c:'#33691e'},
+    {id:'harvest', l:'Geerntet',   e:'🧺', c:'#bf360c'},
     {id:'care',    l:'Gepflegt',   e:'💧', c:'#0277bd'},
     {id:'observe', l:'Beobachtet', e:'👁️', c:'#6a1b9a'},
     {id:'note',    l:'Notiz',      e:'📝', c:'#455a64'}
@@ -10593,8 +10595,8 @@ function openGartenTagebuch() {
   var quickHtml = '';
   if (entries.length > 0) {
     quickHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' +
-      '<button onclick="gsTbQuick(\'care\',\'Gegossen\')\" style="padding:4px 10px;background:#e1f5fe;color:#0277bd;border:1px solid #b3e5fc;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">💧 Gegossen</button>' +
-      '<button onclick="gsTbQuick(\'care\',\'Gedüngt\')\" style="padding:4px 10px;background:var(--bg-warn-soft);color:#ef6c00;border:1px solid #ffe0b2;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Gedüngt</button>' +
+      '<button onclick="gsTbQuick(\'care\',\'Gegossen\')\" style="padding:4px 10px;background:#e1f5fe;color:#01579b;border:1px solid #b3e5fc;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">💧 Gegossen</button>' +
+      '<button onclick="gsTbQuick(\'care\',\'Gedüngt\')\" style="padding:4px 10px;background:var(--bg-warn-soft);color:var(--c-warn-d);border:1px solid #ffe0b2;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Gedüngt</button>' +
       '<button onclick="gsTbQuick(\'care\',\'Gejätet\')\" style="padding:4px 10px;background:var(--bg-lime-soft);color:var(--c-lime-d);border:1px solid #dcedc8;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌿 Gejätet</button>' +
       '<button onclick="gsTbQuick(\'observe\',\'Blattläuse entdeckt\')" style="padding:4px 10px;background:var(--bg-pink-soft);color:var(--c-pink);border:1px solid #f8bbd0;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🐞 Schädling</button>' +
     '</div>';
@@ -10617,14 +10619,15 @@ function openGartenTagebuch() {
       var label = parts[0] && parts[1] ? monthNames[parseInt(parts[0])-1] + ' ' + parts[1] : k;
       var monthCount = groups[k].length;
       timelineHtml += '<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 6px;">' +
-        '<span>' + label + '</span><span style="opacity:.6;">' + monthCount + ' Einträge</span>' +
+        '<span>' + label + '</span><span>' + monthCount + ' Einträge</span>' +   // v33.59: opacity:.6 auf --muted war 2,75:1 (hell) / 3,31:1 (dunkel)
       '</div>';
       groups[k].forEach(function(e) {
         var cat = CATS.find(function(c){return c.id===e.cat;}) || CATS[CATS.length-1];
         timelineHtml += '<div style="display:flex;gap:10px;padding:9px 11px;background:var(--card);border:1px solid var(--border);border-left:3px solid ' + cat.c + ';border-radius:var(--r-sm);margin-bottom:5px;">' +
           '<span style="font-size:var(--fs-lg);flex-shrink:0;">' + escHtml(cat.e) + '</span>' +
           '<div style="flex:1;min-width:0;">' +
-            (e.plant ? '<div style="font-size:var(--fs-sm);font-weight:800;color:' + cat.c + ';margin-bottom:1px;">' + escHtml(e.plant) + '</div>' : '') +
+            // v33.59: der Name als TEXT in --text — die Kategorie-Farbe (fest) stand auf der Themen-Karte: #ef6c00 3,08:1 hell, #455a64 2,15:1 dunkel. Die Kategorie zeigen Rand und Emoji.
+            (e.plant ? '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--text);margin-bottom:1px;">' + escHtml(e.plant) + '</div>' : '') +
             '<div style="font-size:var(--fs-sm);color:var(--text);line-height:1.45;word-wrap:break-word;">' + escHtml(e.text) + '</div>' +
             // v29.47: Tagebuch-Foto anzeigen. v33.59: gsTagebuchAlle nennt das Feld `photo`
             // (alle drei Quellen; Cloud: photo_url → photo) — hier stand e.photo_url, das
@@ -18340,7 +18343,7 @@ function gsShowAboScreen() {
       (!paid ?
         '<div style="display:flex;gap:8px;margin-top:12px;">' +
           '<button onclick="gsStartCheckout(\'pro_monthly\', false, 7)" style="flex:1;padding:11px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">7 Tage gratis · 7.90/Mt</button>' +
-          '<button onclick="gsStartCheckout(\'pro_yearly\', false, 7)" style="flex:1;padding:11px;background:#fff;color:var(--c-indigo);border:1.5px solid #1a237e;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">Jährlich 79.- · −17%</button>' +
+          '<button onclick="gsStartCheckout(\'pro_yearly\', false, 7)" style="flex:1;padding:11px;background:#fff;color:#283593;border:1.5px solid #1a237e;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">Jährlich 79.- · −17%</button>' +
         '</div>' : '') +
     '</div>';
 
@@ -21982,7 +21985,7 @@ function gsOpenNaturjahr(){
   var bars = months.map(function(v,i){ var h=Math.round((v/maxMonth)*44)+2; var cur=(i===CURM);
     return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">'+
       '<div style="width:100%;max-width:16px;height:'+h+'px;background:'+(v>0?'linear-gradient(180deg,#66bb6a,#1b5e20)':'var(--border)')+';border-radius:var(--r-xs);'+(cur?'outline:2px solid #43a047;outline-offset:1px;':'')+'"></div>'+
-      '<div style="font-size:var(--fs-xs);color:'+(cur?'#43a047':'var(--muted)')+';font-weight:'+(cur?'800':'400')+';">'+monNames[i]+'</div></div>'; }).join('');
+      '<div style="font-size:var(--fs-xs);color:'+(cur?'var(--g-dark)':'var(--muted)')+';font-weight:'+(cur?'800':'400')+';">'+monNames[i]+'</div></div>'; }).join('');
 
   var topHtml = topSpecies.length ? ('<div style="margin-top:14px;"><div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">'+_t('nj_top_species','🌟 Deine Top-Arten')+'</div>'+
     topSpecies.map(function(nm,i){ return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:var(--fs-md);"><span style="font-weight:800;color:var(--g-main);flex-shrink:0;">'+(i+1)+'.</span><span style="flex:1;min-width:0;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(nm)+'</span><span style="color:var(--muted);font-size:var(--fs-sm);flex-shrink:0;">'+speciesCount[nm]+'×</span></div>'; }).join('')+'</div>') : '';
@@ -26012,7 +26015,7 @@ function renderMarket() {
     var reportBadge = (l.reports||0) >= 3 ? '<span style="background:var(--bg-warn-soft);color:var(--c-warn-d);font-size:var(--fs-xs);padding:1px 5px;border-radius:var(--r-xs);font-weight:800;margin-left:4px;">' + _t('badge_reported','⚠️ Gemeldet') + '</span>' : '';
     // v26.36: Bio + Pestizid-frei-Badges
     var bioBadge = l.organic_certified ? '<span style="background:var(--bg-success-soft);color:var(--c-success-d);font-size:var(--fs-xs);padding:1px 6px;border-radius:var(--r-xs);font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + _esc(l.certification_label) : '') + '">' + _t('badge_bio','🌱 Bio') + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
-    var pfBadge = (!l.organic_certified && l.pesticide_free) ? '<span style="background:var(--bg-yellow-soft);color:#bf360c;font-size:var(--fs-xs);padding:1px 6px;border-radius:var(--r-xs);font-weight:800;margin-left:3px;" title="Pestizid-frei (eigene Aussage)">' + _t('badge_pestfree','🚫 Pestizid-frei') + '</span>' : '';
+    var pfBadge = (!l.organic_certified && l.pesticide_free) ? '<span style="background:var(--bg-yellow-soft);color:var(--c-warn-d);font-size:var(--fs-xs);padding:1px 6px;border-radius:var(--r-xs);font-weight:800;margin-left:3px;" title="Pestizid-frei (eigene Aussage)">' + _t('badge_pestfree','🚫 Pestizid-frei') + '</span>' : '';
     var regionText = l.region && l.region !== 'other' ? l.region : '';
     var timeAgo = _timeAgo(l.createdAt);
     // v26.92: Status-Badge (reserved / sold / archived)
@@ -26317,7 +26320,7 @@ function openNewListing() {
         '<option value="Sonstiges">📋 Sonstiges</option>' +
       '</select>' +
     '</div>' +
-    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 11px;background:var(--bg-yellow-soft);border:1px solid #ffcc80;border-radius:var(--r-sm);margin-bottom:14px;"><input type="checkbox" id="nl-pestfree" style="accent-color:#f57c00;width:16px;height:16px;"><div><div style="font-size:var(--fs-sm);font-weight:700;color:#bf360c;">🚫 Pestizid-frei</div><div style="font-size:var(--fs-sm);color:var(--muted);">Eigene Aussage (ohne Zertifikat)</div></div></label>' +
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 11px;background:var(--bg-yellow-soft);border:1px solid #ffcc80;border-radius:var(--r-sm);margin-bottom:14px;"><input type="checkbox" id="nl-pestfree" style="accent-color:#f57c00;width:16px;height:16px;"><div><div style="font-size:var(--fs-sm);font-weight:700;color:var(--c-warn-d);">🚫 Pestizid-frei</div><div style="font-size:var(--fs-sm);color:var(--muted);">Eigene Aussage (ohne Zertifikat)</div></div></label>' +
 
     // Info
     '<div style="background:var(--g-bg);border-radius:var(--r-sm);padding:9px 11px;font-size:var(--fs-sm);color:var(--g-dark);line-height:1.45;margin-bottom:14px;">' +
@@ -32001,7 +32004,7 @@ function gsShowTrialEndingBanner(hoursLeft) {
       '<div style="font-size:var(--fs-sm);opacity:.95;">Jetzt verlängern und alle Pro-Features behalten.</div>' +
     '</div>' +
     '<button onclick="(function(){try{document.getElementById(\'gs-trial-banner\').remove();}catch(_){};if(typeof gsShowAboScreen===\'function\')gsShowAboScreen();})()" ' +
-            'style="background:#fff;color:var(--c-warn-d);border:none;border-radius:var(--r-md);padding:8px 12px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;" aria-label="Abo verlängern">Verlängern</button>' +
+            'style="background:#fff;color:#bf360c;border:none;border-radius:var(--r-md);padding:8px 12px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;" aria-label="Abo verlängern">Verlängern</button>' +
     '<button onclick="try{document.getElementById(\'gs-trial-banner\').remove();}catch(_){}" ' +
             'style="background:transparent;color:#fff;border:none;font-size:var(--fs-xl);cursor:pointer;padding:0 4px;flex-shrink:0;" aria-label="Schliessen">×</button>';
   document.body.appendChild(banner);
@@ -38821,7 +38824,7 @@ function _gsPushPromptHtml(){
     return '<div id="gs-push-prompt" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:10px;background:linear-gradient(135deg,rgba(46,138,45,.12),rgba(46,138,45,.03));border:1px solid var(--g-light,#a5d6a7);border-radius:var(--r-md);">' +
       '<span style="font-size:var(--fs-2xl);flex-shrink:0;">🔔</span>' +
       '<div style="flex:1;min-width:0;font-size:var(--fs-sm);line-height:1.4;color:var(--text);"><b>' + escHtml(_gsSatz('Erinnerungen aufs Handy?')) + '</b><br><span style="color:var(--muted);">' + escHtml(_gsSatz('Werde benachrichtigt, wenn Pflege ansteht — auch wenn die App zu ist.')) + '</span></div>' +
-      '<button onclick="event.stopPropagation();gsSubscribeWebPush();" style="flex-shrink:0;padding:8px 12px;background:var(--g-main,#1f6b2f);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">' + escHtml(_gsSatz('Aktivieren')) + '</button>' +
+      '<button onclick="event.stopPropagation();gsSubscribeWebPush();" style="flex-shrink:0;padding:8px 12px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">' + escHtml(_gsSatz('Aktivieren')) + '</button>' +
       // v33.59: aria-label steht hier AUSDRUECKLICH. Vorher trug der Knopf nur title="Schliessen"; die
       // Tastatur-Nachruestung kopierte ihn NACH dem Sprachdurchgang ins aria-label — in fr/it/en blieb
       // er deutsch. Gefunden vom ersten Pruefstandslauf mit angemeldeter Sitzung (die Frage erscheint
@@ -40292,7 +40295,7 @@ function displayLuxResult(lux, warnText) {
   if (lux < 100) { cat = '🌑 Dunkel'; bg = '#e3f2fd'; pc = '#1565c0'; }
   else if (lux < 500) { cat = '🌥️ Halbschatten'; bg = '#e8f5e9'; pc = '#2e7d32'; }
   else if (lux < 2000) { cat = '🌤️ Hell (indirekt)'; bg = '#fff8e1'; pc = '#ef6c00'; }
-  else if (lux < 10000) { cat = '☀️ Hell (direkt)'; bg = '#fff3e0'; pc = '#e65100'; }
+  else if (lux < 10000) { cat = '☀️ Hell (direkt)'; bg = '#fff3e0'; pc = '#bf360c'; }   // v33.59: #e65100 auf #fff3e0 war 3,46:1
   else { cat = '🔥 Volle Sonne'; bg = '#ffebee'; pc = '#c62828'; }
   if (catEl) {
     catEl.textContent = cat;
@@ -43798,7 +43801,7 @@ function _gsBattleMaybeOfferResume(){
     b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#5e35b1,#7e57c2);color:#fff;border-radius:var(--r-lg);padding:12px 14px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;';
     b.innerHTML = '<div style="font-size:var(--fs-2xl);flex-shrink:0;">⚔️</div>'
       + '<div style="flex:1;min-width:0;font-size:var(--fs-md);line-height:1.35;"><b>Battle fortsetzen?</b><br><span style="opacity:.9;font-size:var(--fs-sm);">Du warst bei Runde ' + ((s.idx||0)+1) + ' / ' + s.questions.length + '.</span></div>'
-      + '<button onclick="gsBattleResume()" style="background:#fff;color:var(--c-violet);border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">Weiter</button>'
+      + '<button onclick="gsBattleResume()" style="background:#fff;color:#311b92;border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">Weiter</button>'
       + '<button onclick="(function(){try{sessionStorage.removeItem(\'gs_battle_ip\');}catch(_){}var e=document.getElementById(\'gs-battle-resume-banner\');if(e)e.remove();})()" aria-label="Schließen" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:var(--r-sm);width:30px;height:30px;font-size:var(--fs-lg);cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
     document.body.appendChild(b);
   } catch(e){ console.warn('[gsBattleResumeOffer]', e && e.message); }
@@ -44438,7 +44441,7 @@ function gsShowMushroomDangerOverlay(j) {
         _t('mush_deadly_warning','NICHT ESSEN, NICHT BERÜHREN. Bei Verdacht auf Verzehr SOFORT Notfall-Nummer wählen.') :
         _t('mush_toxic_warning','NICHT ESSEN. Bei Symptomen umgehend Tox-Info anrufen.')) +
     '</div>' +
-    '<a href="tel:145" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;color:var(--c-danger-d);padding:14px 26px;border-radius:var(--r-lg);font-weight:900;font-size:var(--fs-xl);text-decoration:none;margin-bottom:14px;min-width:240px;">' +
+    '<a href="tel:145" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;color:#b71c1c;padding:14px 26px;border-radius:var(--r-lg);font-weight:900;font-size:var(--fs-xl);text-decoration:none;margin-bottom:14px;min-width:240px;">' +
       _t('mush_toxinfo_145','☎️ Tox-Info: 145') +
     '</a>' +
     '<button onclick="document.getElementById(\'gs-mushroom-danger\').remove();document.getElementById(\'gs-mushroom-pulse-style\') && document.getElementById(\'gs-mushroom-pulse-style\').remove();" ' +
@@ -62001,7 +62004,8 @@ function openLocationSettings() {
       stEl.innerHTML = '✅ Aktuell: <strong>' + escHtml(userLocation.name||'') + '</strong>' +
         (userLocation.canton ? ' (' + escHtml(userLocation.canton) + ')' : '');
     } else {
-      stEl.style.background='#f0f7ee'; stEl.style.color='var(--g-dark)';
+      // v33.59: feste helle Flaeche → feste Schrift. var(--g-dark) kippt im Dunkelmodus zu #a5d6a7: 1,51:1 (contrast_check, Konto ohne Standort).
+      stEl.style.background='#f0f7ee'; stEl.style.color='#1a3d1a';
       stEl.textContent = 'Noch kein Standort. GPS tippen oder Ort eingeben.';
     }
   }
@@ -62427,7 +62431,7 @@ function autoDetectLocation() {
   }
 
   if (btn) { btn.innerHTML = '<span>⏳</span> Ermittlung…'; btn.disabled = true; }
-  setStatus('#fff3e0', '#e65100', '📡 GPS wird ermittelt…', false);
+  setStatus('#fff3e0', '#bf360c', '📡 GPS wird ermittelt…', false);   // v33.59: #e65100 auf #fff3e0 war 3,46:1
 
   // Zentrales GPS-System mit Permission-Handling
   gsGetPosition(
@@ -62457,7 +62461,7 @@ async function saveManualLocation() {
   var name = (inp ? inp.value : '').trim();
   if (!name) { try { gsToast('Bitte einen Ort eingeben.', 'warn'); } catch(_){ } return; }
   var stEl = document.getElementById('loc-status');
-  if (stEl) { stEl.style.background='#fff3e0'; stEl.style.color='#e65100'; stEl.textContent='🔍 Suche "'+name+'"…'; }
+  if (stEl) { stEl.style.background='#fff3e0'; stEl.style.color='#bf360c'; stEl.textContent='🔍 Suche "'+name+'"…'; }   // v33.59: #e65100 war 3,46:1
 
   // Callback-basiert — kein await (iOS Safari sicher)
   (window._gsFetch || fetch)('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=5&language=de&format=json', {}, 10000)
@@ -80228,7 +80232,7 @@ function _gsUpdateBannerZeigen(grund){
     '<div style="flex:1;min-width:0;font-size:var(--fs-md);line-height:1.35;">' +
       '<b>' + T('sw_update_title', 'Neue Version verfügbar') + '</b><br><span style="opacity:.85;font-size:var(--fs-sm);">' + sub + '</span>' +
     '</div>' +
-    '<button id="gs-sw-reload-btn" style="background:#fff;color:var(--c-info);border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">' + T('sw_reload', 'Neu laden') + '</button>' +
+    '<button id="gs-sw-reload-btn" style="background:#fff;color:#1565c0;border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">' + T('sw_reload', 'Neu laden') + '</button>' +
     '<button id="gs-sw-later-btn" aria-label="' + T('sw_later', 'Später') + '" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:var(--r-sm);width:30px;height:30px;font-size:var(--fs-lg);cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
   document.body.appendChild(b);
   document.getElementById('gs-sw-reload-btn').onclick = function(){
@@ -86539,7 +86543,7 @@ function _gsShowRestoreBanner(){
       '<div style="flex:1;min-width:0;font-size:var(--fs-md);line-height:1.35;">' +
         '<b>Daten wiederherstellen?</b><br><span style="opacity:.9;font-size:var(--fs-sm);">Wir haben ein Cloud-Backup deiner Pflanzen, Pläne &amp; Funde gefunden.</span>' +
       '</div>' +
-      '<button id="gs-restore-btn" style="background:#fff;color:var(--c-success);border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">Wiederherstellen</button>' +
+      '<button id="gs-restore-btn" style="background:#fff;color:#2e7d32;border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">Wiederherstellen</button>' +
       '<button id="gs-restore-x" aria-label="Schließen" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:var(--r-sm);width:30px;height:30px;font-size:var(--fs-lg);cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
     document.body.appendChild(b);
     document.getElementById('gs-restore-btn').onclick = function(){
@@ -86968,7 +86972,7 @@ function gsProfileMore(uid){
   if (typeof gsConfirmModal !== 'function') { gsBlockToggleProfile(uid); return; }
   var d = window._gsProfileCur || {};
   var h = '<div style="padding:6px 0;">';
-  h += '<button onclick="gsBlockToggleProfile(\''+_gsOcStr(uid)+'\')" style="width:100%;padding:12px;margin-bottom:8px;border-radius:var(--r-md);border:1.5px solid #ef9a9a;background:#fff;color:var(--c-danger);font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">'+_gsCommT('comm_block','🚫 Blockieren')+'</button>';
+  h += '<button onclick="gsBlockToggleProfile(\''+_gsOcStr(uid)+'\')" style="width:100%;padding:12px;margin-bottom:8px;border-radius:var(--r-md);border:1.5px solid #ef9a9a;background:#fff;color:#c62828;font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">'+_gsCommT('comm_block','🚫 Blockieren')+'</button>';
   h += '<button onclick="gsReportUser(\''+_gsOcStr(uid)+'\')" style="width:100%;padding:12px;border-radius:var(--r-md);border:1.5px solid var(--border);background:var(--card);color:var(--text);font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">'+_gsCommT('comm_report','🚩 Melden')+'</button>';
   h += '</div>';
   _gsNlOpen('<div style="font-size:var(--fs-lg);font-weight:800;margin-bottom:10px;">'+_gsCEsc(d.display_name||'Nutzer')+'</div>'+h);
@@ -87290,7 +87294,7 @@ function _gsRenderOrgDetail(d){
   }).join('');
   h += '<div style="display:flex;gap:8px;margin-top:14px;">';
   h += '<button onclick="gsOpenOrgs()" style="flex:1;padding:10px;border:none;background:transparent;color:var(--muted);font-size:var(--fs-md);cursor:pointer;font-family:inherit;">'+_gsOrgT('org_all_orgs','‹ Alle Orgs')+'</button>';
-  h += '<button onclick="gsOrgLeave(\''+_gsOcStr(orgId)+'\')" style="flex:1;padding:10px;border:1.5px solid #ef9a9a;border-radius:var(--r-md);background:#fff;color:var(--c-danger);font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">'+_gsOrgT('org_leave_btn','Org verlassen')+'</button></div>';
+  h += '<button onclick="gsOrgLeave(\''+_gsOcStr(orgId)+'\')" style="flex:1;padding:10px;border:1.5px solid #ef9a9a;border-radius:var(--r-md);background:#fff;color:#c62828;font-weight:700;font-size:var(--fs-md);cursor:pointer;font-family:inherit;">'+_gsOrgT('org_leave_btn','Org verlassen')+'</button></div>';
   _gsNlOpen(h);
 }
 function d_isSelf(uid){ try { return uid === gsStore.get('gs_sb_uid', null); } catch(_){ return false; } }

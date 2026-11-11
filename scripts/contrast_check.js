@@ -40,13 +40,13 @@ const lum = c => { const s = c.map(v => { v /= 255; return v <= .03928 ? v/12.92
                    return .2126*s[0] + .7152*s[1] + .0722*s[2]; };
 const cr = (a, b) => { const l1 = lum(a), l2 = lum(b); return (Math.max(l1,l2)+.05) / (Math.min(l1,l2)+.05); };
 
-const SEED = () => { try {
-  const set = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
-  set('gs_sb_token', 'pruefstand');
-  set('gs_sb_expires', String(Date.now() + 2592000000));
-  set('gs_sb_display_name', 'Testnutzerin');
-  set('gs_lang', 'de');
-} catch (e) {} };
+// v33.59: die gemeinsamen Beispieldaten aus _seed.js, mit ihrer Sitzung. Bis hierher
+// stand ein eigener kleiner Seed da („nur Anmeldung und Sprache") mit einem Token ohne
+// drei Teile — gsSecurityInit raeumte ihn nach 500 ms ab, und jeder Tab wurde ABGEMELDET
+// vermessen (Anmeldebildschirm von Hand verborgen). Der volle Seed statt nur der Sitzung:
+// gemessen soll die App sein, wie eine Person mit Pflanzen, Aufgaben und Geraet sie sieht
+// — mit dem Leerzustand allein fehlten genau die Karten mit den meisten Farben.
+const SEED = SEED_MOD;
 
 // Alle Textstellen im sichtbaren Bereich mit Kasten, Farbe und Deckkraft
 const STELLEN = () => {
@@ -208,6 +208,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
   const leser = await (await br.newContext()).newPage();   // nur zum Pixel-Lesen
   await leser.goto('data:text/html,<title>px</title>');
 
+  let unterAA = 0;   // beide Modi zusammen (Exit-Code am Ende)
   for (const dark of [false, true]) {
     const ctx = await br.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
     const p = await ctx.newPage();
@@ -215,10 +216,20 @@ async function medianFarben(leser, pngBuffer, punkte) {
     await p.addInitScript(SEED);
     await p.goto('file://' + FILE, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await p.waitForTimeout(3500);
+    const _anm = await p.evaluate(() => { const o = document.getElementById('gs-onboarding');
+      return { token: !!localStorage.getItem('gs_sb_token'), preauth: document.documentElement.classList.contains('gs-preauth'),
+               onb: !!(o && getComputedStyle(o).display !== 'none' && o.getBoundingClientRect().height > 0) }; });
+    console.log('  Sitzung nach dem Start: Token ' + (_anm.token ? 'da' : 'WEG') + ' · gs-preauth ' + _anm.preauth + ' · Anmeldebildschirm sichtbar ' + _anm.onb);
+    // v33.59: bis hierher wurde #gs-onboarding von Hand verborgen und gs-preauth entfernt —
+    // gemessen wurde damit der Bildschirm UNTER der Anmeldung einer abgemeldeten App. Mit der
+    // Sitzung aus _seed.js ist beides nach dem Start frei (gemessen: Token da, preauth false,
+    // Anmeldebildschirm unsichtbar, hell und dunkel). Steht er doch da, stimmt die Sitzung
+    // nicht — dann LAUT abbrechen, statt ihn zu verstecken.
+    if (!_anm.token || _anm.preauth || _anm.onb) {
+      console.log('  !! Die Sitzung aus _seed.js steht nicht — gemessen wuerde eine abgemeldete App. Abbruch.');
+      process.exitCode = 1; await br.close(); return;
+    }
     await p.evaluate(d => {
-      document.documentElement.classList.remove('gs-preauth');
-      const o = document.getElementById('gs-onboarding');
-      if (o) o.style.setProperty('display', 'none', 'important');
       document.querySelectorAll('[class*="toast"],[id*="toast"]').forEach(e => e.remove());
       document.body.classList.toggle('dark', d);
     }, dark);
@@ -231,6 +242,10 @@ async function medianFarben(leser, pngBuffer, punkte) {
       await p.waitForTimeout(150);
 
       const stellen = await p.evaluate(STELLEN);
+      // v33.59: die Zahl je Tab steht im Bericht wie die je Fenster — ohne sie
+      // sieht ein abgemeldeter Tab (Anmeldebildschirm davor) aus wie ein Tab
+      // ohne Funde.
+      console.log('  Tab ' + t + ': ' + stellen.length + ' Textstellen vermessen');
       if (!stellen.length) continue;
       const stil = await p.evaluate(() => {
         const s = document.createElement('style');
@@ -453,6 +468,21 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (!/2 Fotos/.test(ov.textContent)) throw new Error('teilen-vorschau: Hinweiszeile fehlt — der Fall stellt seinen Zustand nicht her');
         return ov.firstElementChild;
       }],
+      // v33.59: das Standort-Fenster OHNE Standort. Mit dem kleinen Seed (ohne Ort) mass
+      // der automatische Durchgang diesen Zustand zufaellig — und fand 1,51:1 im
+      // Dunkelmodus (var(--g-dark) auf fest hellem #f0f7ee). Der volle Seed hat einen Ort;
+      // ohne diesen Eintrag waere der Zustand nie mehr vermessen. Der Ort kommt sofort
+      // zurueck, der Text ist dann schon gerendert.
+      ['standort-ohne-ort', () => {
+        if (typeof openLocationSettings !== 'function') return 0;
+        let alt = null;
+        try { alt = userLocation; userLocation = null; } catch (_) {}
+        try { openLocationSettings(); } finally { try { userLocation = alt; } catch (_) {} }
+        const st = document.getElementById('loc-status');
+        if (!st || !/Noch kein Standort/.test(st.textContent)) throw new Error('standort-ohne-ort: Zustand nicht hergestellt');
+        const m = document.getElementById('modal-location');
+        return m ? (m.querySelector('.obox, .modal, .mpanel') || m) : 0;
+      }],
     ];
 
     // v32.25: der Messvorgang als FUNKTION — er wird jetzt von zwei Seiten
@@ -608,6 +638,11 @@ async function medianFarben(leser, pngBuffer, punkte) {
       `  ${String(o.r).padStart(5)}:1 (soll ${o.min})  ${o.tab.padEnd(9)} ${o.sel.slice(0,32).padEnd(33)} ` +
       `rgb(${o.fg})@${o.alpha.toFixed(2)} auf rgb(${o.bg})  „${o.t}"`));
     if (liste.length > 70) console.log(`  … und ${liste.length-70} weitere`);
+    unterAA += liste.length;
   }
   await br.close();
+  // Gegenpruefung s3: seit der Messung MIT Sitzung und Daten ist die Grundlinie 0/0 —
+  // ab hier ist eine Stelle unter AA rot, nicht nur eine Zeile im Bericht. Ohne das
+  // blieb der Lauf gegen den alten Stand (14 Stellen) mit Exit 0 gruen.
+  if (unterAA && !process.exitCode) process.exitCode = 1;
 })();

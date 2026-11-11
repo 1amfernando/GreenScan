@@ -1325,6 +1325,80 @@ const FAELLE = [
       return { ok: true, info: Object.entries(r).map(([k, v]) => k + ' ' + v[1]).join(' · ') + ' · davon ' + t.ueberfaellig + ' ueberfaellig, ' + t.heute + ' heute' };
     },
   },
+  {
+    // v33.59 (Austausch-Runde, bestand-b1). Die Reparatur von _seed.js (eine Sitzung,
+    // die BLEIBT) kam bei drei Pruefstaenden mit EIGENEM Seed nie an: contrast_check,
+    // touch_check und perf_check setzten einen Token ohne drei Teile, gsSecurityInit
+    // raeumte ihn nach 500 ms ab, und alle drei vermassen eine ABGEMELDETE App.
+    // Der Fall „Beispieldaten" oben misst nur _seed.js. Dieser liest jede Stelle in
+    // scripts/, die gs_sb_token SETZT, und haelt jede Zeichenkette darin gegen DIESELBE
+    // Regel, die die App anwendet (aus index.html gelesen, nicht nachgebaut). Dazu der
+    // Schluessel 'myPlants' (v31.46: die App liest ps_myplants).
+    name: 'Pruefstands-Sitzung · jeder gs_sb_token in scripts/ hat die Form, die gsSecurityInit stehen laesst — sonst misst der Pruefstand eine abgemeldete App',
+    lauf: async () => {
+      const idx = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+      // Die Regel der App. Aendert sie sich, muss der Fall nachgezogen werden — laut, nicht still.
+      if (!/var token = gsStore\.get\('gs_sb_token', null\);\s*if \(token && token\.split\('\.'\)\.length !== 3\)/.test(idx))
+        return { ok: false, warum: 'die Token-Pruefung in gsSecurityInit hat eine andere Form — Fall an die neue Regel anpassen' };
+      const regelHaelt = (t) => t.split('.').length === 3;
+      // Bewusst abgemeldete Stellen: Datei → Grund. Heute keine.
+      const AUSNAHMEN = {};
+      // Setzen ohne Literal: Datei → Grund (der Wert wird gelesen und zurueckgestellt).
+      const OHNE_LITERAL = {
+        'scripts/sicherheit/98_schluss_d.js': 'stellt den vorher GELESENEN Token zurueck (alt.tok) — keine eigene Sitzung',
+      };
+      const dateien = [];
+      const sammle = (dir) => fs.readdirSync(dir, { withFileTypes: true }).forEach(e => {
+        const f = path.join(dir, e.name);
+        if (e.isDirectory()) { if (e.name !== 'node_modules') sammle(f); }
+        else if (/\.(c|m)?js$/.test(e.name)) dateien.push(f);
+      });
+      sammle(__dirname);
+      const SCHL = 'gs_sb' + '_token';   // zusammengesetzt: dieser Fall soll sich nicht selbst finden
+      const reSetzen = new RegExp('(?:setItem|\\bset)\\(\\s*([\'"])' + SCHL + '\\1\\s*,', 'g');
+      const reMyPlants = new RegExp('(?:setItem|\\bset)\\(\\s*([\'"])my' + 'Plants\\1', 'g');
+      const funde = [], stellen = [], plantsFunde = [];
+      for (const f of dateien) {
+        const rel = path.relative(path.resolve(__dirname, '..'), f);
+        const txt = fs.readFileSync(f, 'utf8');
+        let m;
+        reSetzen.lastIndex = 0;
+        while ((m = reSetzen.exec(txt))) {
+          // das Argument bis zur schliessenden Klammer auf Tiefe 0
+          let i = reSetzen.lastIndex, tiefe = 0, arg = '';
+          for (; i < txt.length && i < reSetzen.lastIndex + 300; i++) {
+            const c = txt[i];
+            if (c === '(') tiefe++;
+            else if (c === ')') { if (tiefe === 0) break; tiefe--; }
+            arg += c;
+          }
+          const zeile = txt.slice(0, m.index).split('\n').length;
+          const lits = (arg.match(/'[^'\n]*'|"[^"\n]*"/g) || []).map(s => s.slice(1, -1));
+          stellen.push(rel + ':' + zeile);
+          lits.filter(t => !regelHaelt(t)).forEach(t => {
+            if (!AUSNAHMEN[rel]) funde.push(rel + ':' + zeile + " '" + t + "'");
+          });
+          // Gegenpruefung s3: ein Wert OHNE Literal (Variable, Konstante) entzieht sich der
+          // Regel — eine Konstante als Wert (statt des Literals) waere sonst gruen.
+          // Erlaubt nur namentlich mit Grund.
+          if (!lits.length && !OHNE_LITERAL[rel]) funde.push(rel + ':' + zeile + ' (Wert ohne Literal: ' + arg.trim().slice(0, 40) + ')');
+        }
+        // Gegenpruefung s3: die Zuweisungsform am Speicher-Objekt geht an setItem vorbei.
+        const reZuw = new RegExp('(?:localStorage|sessionStorage)\\s*(?:\\.\\s*' + SCHL + '|\\[\\s*([\'"])' + SCHL + '\\1\\s*\\])\\s*=(?!=)', 'g');
+        while ((m = reZuw.exec(txt))) funde.push(rel + ':' + txt.slice(0, m.index).split('\n').length + ' (Zuweisung am Speicher statt setItem — von diesem Fall nicht pruefbar)');
+        reMyPlants.lastIndex = 0;
+        while ((m = reMyPlants.exec(txt))) plantsFunde.push(rel + ':' + txt.slice(0, m.index).split('\n').length);
+      }
+      if (!stellen.length) return { ok: false, warum: 'keine einzige Stelle gefunden, die gs_sb_token setzt — die Suche misst nichts (mindestens _seed.js muss dastehen)' };
+      if (!stellen.some(s => s.startsWith('scripts/_seed.js:'))) return { ok: false, warum: '_seed.js nicht unter den Fundstellen — die Suche misst nicht, was sie behauptet' };
+      if (funde.length) return { ok: false, warum: funde.length + ' Token ohne drei Teile (gsSecurityInit raeumt sie nach 500 ms samt uid ab, der Pruefstand misst danach abgemeldet): ' + funde.join(' · ') };
+      if (plantsFunde.length) return { ok: false, warum: "Beispieldaten unter 'myPlants' — die App liest 'ps_myplants' (v31.46): " + plantsFunde.join(' · ') };
+      // Und die Wirkung an DIESER Seite: die Sitzung aus _seed.js steht nach dem Start noch.
+      const s = await __seite.evaluate(() => ({ tok: localStorage.getItem('gs_sb_token'), uid: localStorage.getItem('gs_sb_uid'), drin: typeof sbIsLoggedIn === 'function' ? !!sbIsLoggedIn() : null }));
+      if (!s.tok || !s.uid || s.drin !== true) return { ok: false, warum: 'die Sitzung aus _seed.js ist nach dem Start weg: ' + JSON.stringify(s) };
+      return { ok: true, info: stellen.length + ' Stellen in ' + new Set(stellen.map(x => x.split(':')[0])).size + ' Dateien setzen den Token, alle in JWT-Form · Sitzung aus _seed.js steht nach 4 s, sbIsLoggedIn = true' };
+    },
+  },
 ];
 
 (async () => {
