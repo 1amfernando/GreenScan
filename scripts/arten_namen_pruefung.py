@@ -24,6 +24,15 @@ Die Listen gehoeren NICHT ins Repo (zusammen 69 MB). Abrufweg:
 
   python3 scripts/arten_namen_pruefung.py --selbsttest     # die Regeln allein, ohne jede Liste
 
+  docs/arten-namen-pruefung.csv ist MIT der dritten, freiwilligen Liste entstanden (--ncbi, siehe
+  unten). Wer den Vergleich ohne sie faehrt, bekommt „ROT: weicht in 974 Zeilen ab" — das ist dann
+  die fehlende Hinweisspalte, kein anderer Befund (nachgefahren am 11.11.2026: ohne --ncbi 480
+  unbekannt / 986 nicht pruefbar, mit --ncbi 477 / 989 und GRUEN). Der Aufruf, der die Datei genau
+  wiedergibt:
+
+  pip install --no-deps --target /tmp/listen/ncbi ncbi-taxon-db marisa-trie
+  python3 scripts/arten_namen_pruefung.py --wcvp /tmp/listen/wcvp/wcvp_names.rda --lcvp /tmp/listen/lcvp/tab_lcvp.rda --ncbi /tmp/listen/ncbi
+
 Danach laeuft alles OHNE Netz. Ohne --schreiben wird docs/arten-namen-pruefung.csv nur
 VERGLICHEN (Exit 1 bei Abweichung); ohne eine Liste ist das Ergebnis „nicht pruefbar"
 (Exit 2), nie gruen.
