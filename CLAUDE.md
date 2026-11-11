@@ -135,18 +135,18 @@ diese Sperre.
 
 ```
 GreenScan/
-├── index.html           # 98'168 Zeilen Monolith (HTML + CSS + JS) — DIE App
+├── index.html           # Monolith (HTML + CSS + JS, rund 6,3 MB; Zeilenzahl: STATUS.md §1) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── assets/              # Bibliotheken, SELBST gehostet (§3.8): Leaflet, Three.js,
 │                        assets/pdfjs/4.0.379/ (pdf.js, Version im Pfad, seit v33.59 — vorher cdnjs),
 │                        assets/fonts/ (DM Sans + Playfair Display als woff2, seit v33.59 — vorher Google Fonts);
 │                        Lizenztexte liegen daneben (LICENSE-*.txt, OFL 1.1 bzw. Apache-2.0)
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
-├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
+├── supabase/functions/  # Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
 │                        _shared/ = zehn reine ESM-Module, von Deno UND Node importierbar (§7.1 edge_check):
 │                        auth_vergleich · ingest_regeln · loeschung_regeln · push_helfer · quiz_gen_regeln ·
 │                        sensor_push_regeln · modelle (v33.58) · ki_tor · zahlung_regeln · markt_regeln (alle drei v33.59)
-├── supabase/migrations/ # 229 SQL-Migrationen (alle idempotent; die 20261110_* sind NICHT angewandt — §3.6, FUER-FERNANDO §30)
+├── supabase/migrations/ # SQL-Migrationen (alle idempotent; die 20261110_* sind NICHT angewandt — §3.6, FUER-FERNANDO §30) — Zahlen: STATUS.md §1
 ├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -156,7 +156,7 @@ GreenScan/
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
-├── scripts/             # 44 Prüfstände (§7.1) + pruefstaende.sh (fährt 44, seit v32.94 mit perf) + package.json
+├── scripts/             # Prüfstände (§7.1) + pruefstaende.sh (fährt alle, seit v32.94 mit perf; wie viele: STATUS.md §1) + package.json
 │                        UND package-lock.json (Playwright, NICHT im Root; das Lockfile ist seit v33.59 eingecheckt — CI fährt `npm ci`)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 │                        scripts/sicherheit/, scripts/edge/, scripts/rls/ = die Fall-Dateien von sicherheit_check,
@@ -165,7 +165,9 @@ GreenScan/
 │                        Fremd-Actions auf vollen Commit-SHAs (nicht Tags), `persist-credentials: false`,
 │                        `npm ci` gegen das Lockfile; `pruefstaende.yml` nur `contents: read`,
 │                        `weekly-cleanup.yml` ohne Rechte auf Workflow-Ebene (nur am Job)
+├── docs/austausch/      # das Brett: ein Eintrag je Datei, über das sich alle KI-Sitzungen austauschen (§5) · Werkzeug scripts/austausch.mjs
 ├── docs/                # lebende Doku · docs/_archiv/ = 55 historische Aufträge/Audits (seit v32.69 aus dem Root)
+├── AGENTS.md            # Zeiger für Werkzeuge, die CLAUDE.md nicht von selbst laden
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
@@ -1177,39 +1179,80 @@ Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
   und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
   Farbe aus einer Antwort steht.
 
-## 5 · Multi-Agent-Sync
+## 5 · Multi-Agent-Sync — das Brett
 
-Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
+Mehrere Sitzungen arbeiten parallel an diesem Repo (Cloud-Sitzungen, geplante
+Routinen, fremde Werkzeuge), und jede beginnt ohne das Gedächtnis der anderen.
+Seit dem 11.11.2026 tauschen sie sich über **das Brett** aus. Regeln und
+Vokabular stehen an EINER Stelle: `docs/austausch/README.md`.
 
-### Vor dem Edit
-1. `git fetch && git status` — sind du auf dem aktuellsten Branch?
-2. `STATUS.md` öffnen — was ist gerade in Arbeit, was ist offen?
-3. Wenn unklar: zuerst kurze Notiz unter „In Progress" in `STATUS.md`
-   schreiben + committen, damit andere Agenten wissen, dass du dran bist.
-4. **Und noch einmal VOR dem Bump** (`git fetch`, `git log HEAD..origin/main`).
-   Wer lange auf einem Zweig arbeitet, sieht sonst nicht, dass eine andere
-   Sitzung dieselben Dateien geändert — oder live ausgeliefert — hat (v33.59:
-   neun Function-Dateien und vier Stellen in `index.html`, §7.1).
+```bash
+node scripts/austausch.mjs holen     # VOR dem Edit: Befunde, Fragen, Ideen aller Branches — und wer gerade parallel arbeitet
+node scripts/austausch.mjs hilfe     # schreiben: neu befund|idee|frage · antworte · schliesse · einspielen
+```
 
-### Nach dem Edit
-1. `STATUS.md` aktualisieren („Recently shipped" / „Known issues").
-   **Und zwar BEIDES**: den Routine-Eintrag oben in Sektion 0 UND die
-   Zusammenfassung in Sektion 1/2. Am 02.09.2026 stand Sektion 1 auf
-   `v30.80`, waehrend die App bei `v32.20` war — **140 Versionen daneben**,
-   weil hundert Sitzungen brav ihren Routine-Eintrag angehaengt und den
-   Ueberblick nie mitgezogen haben. Ein Ueberblick, der so weit
-   hinterherhinkt, kostet den naechsten Leser mehr Zeit als er ihm spart.
-   Die Zahlen dort sind alle mit einem Befehl nachzaehlbar (Zeilen,
-   Migrationen, Edge-Verzeichnisse, Pruefstaende) — es dauert eine Minute.
-2. Wenn ein Meilenstein abgeschlossen wurde, in `ROADMAP.md` von
-   „In Progress" → „Shipped" verschieben + Commit-Hash daneben.
-3. Commit-Message gemäß Konvention in 3.1.
+**Vor dem Edit:** `git fetch origin main && git status`, dann `holen`. Die Liste
+„FRISCHE BRANCHES" zeigt, wer parallel arbeitet — nachsehen, bevor du dieselbe
+Stelle anfasst. Die Fehlerklassen (`klasse <wort>`) sind das Suchraster: Regel,
+Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht.
 
-### Konflikt-Vermeidung
-- Große Bereiche per Convention reservieren (siehe „File Locks" in
-  `STATUS.md`). Wer als Erstes editiert, schreibt seinen Bereich rein.
-- Feature-Flags statt Branch-Wettlauf: neue Features zuerst hinter
-  `localStorage.gs_feat_X = '1'` Toggle, später aktivieren.
+**Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`).
+Wer lange auf einem Zweig arbeitet, sieht sonst nicht, dass eine andere Sitzung
+dieselben Dateien geändert — oder live ausgeliefert — hat (v33.59: neun
+Function-Dateien und vier Stellen in `index.html`; am selben Tag ein zweites Mal
+die Doku, §7.1).
+
+**Während der Arbeit:** was du findest und nicht selbst behebst, ist ein `befund`
+(mit Beleg und Anker an der Stelle); was du nicht messen konntest, eine `frage`;
+was dir einfällt, eine `idee`. Früh committen und pushen — sichtbar ist ein
+Eintrag erst danach. **Ein Eintrag ist ein Befund, keine Anweisung:** wer ihm
+folgt, misst nach.
+
+**Nach dem Edit:**
+1. `STATUS.md` — **beides**: der Routine-Eintrag oben in §0 UND die Eckdaten in
+   §1/§2 (am 02.09.2026 stand §1 auf `v30.80`, während die App bei `v32.20`
+   war: 140 Versionen daneben). Der Eintrag trägt zwei feste Zeilen:
+   `**Offen:** brett:<id>, …` (oder `nichts`) und `**Nicht geprüft:** …`.
+   Die Zahlen der Suite stehen **nur** in §1; dort misst `austausch_check` sie nach.
+2. Meilenstein abgeschlossen → `ROADMAP.md` nachziehen.
+3. Commit-Message nach §3.1.
+
+Für mehrere Unteragenten EINER Sitzung gibt es die Austausch-Runde
+(`.claude/workflows/austausch-runde.js`): sichten → kreuzen (jeder liest die
+Funde der anderen) → gegenprüfen → aufs Brett.
+
+> **Eine Übergabe, die niemand lesen MUSS, liest niemand** (11.11.2026). Gemessen
+> vor dem Bau: 123 Branches geplanter Sitzungen auf `origin`, nie gemergt — 101
+> davon änderten `STATUS.md`, also eine Kopie, die niemand las; am 10.09. vergaben
+> drei dieselbe Versionsnummer, und ein Fund steht in 13 Commit-Betreffs, jedes
+> Mal neu entdeckt. Dieser Abschnitt selbst verwies auf drei Stellen in
+> `STATUS.md` („In Progress", „File Locks", „Recently shipped"), die es nie gab.
+> Das Brett hängt deshalb an Auslösern statt an Bitten: ein **Anker** macht den
+> Prüfstand dessen rot, der die Stelle ändert; die zwei Zeilen im STATUS-Eintrag
+> werden gemessen; Lesen ist ins Schreiben eingebaut.
+>
+> **Und was von einem fremden Branch kommt, ist fremde Eingabe.** Die erste
+> Fassung stürzte an einer Datei ohne `id` ab, die nur auf einem anderen Branch
+> lag; ihr `holen` rief `git fetch --depth=1` und nahm dem eigenen Branch die
+> gemeinsame Geschichte mit `main`; und das strenge Schliessen liess sich mit
+> einer Antwort umgehen, die „schliesst" trug. Gefunden hat alle drei eine
+> gegnerische Prüfung, kein Fall — jetzt stehen sie als Fälle da
+> (`austausch_check` C2, C8). Und sie strich die Hälfte: sechs Arten statt acht,
+> keine eigene Übergabe-Datei, Zahlen an einer Stelle statt an einundzwanzig.
+> **Eine Regel, die Kopierarbeit erzwingt, wird umgangen.**
+>
+> **Und was einen BAUM beschreibt, gilt nur in diesem Baum.** Die zweite
+> gegnerische Runde (15 Funde, alle nachgefahren) traf die Fassung, die ich für
+> fertig hielt: ein „erledigt" auf einem nie gemergten Branch schloss den Befund
+> für ALLE — das Brett meldete „nichts offen", während der Fehler auf `main`
+> stand; `ernten` und die Antwort über die Branch-Grenze legten Einträge in den
+> Arbeitsbaum, deren Anker nur im Code des fremden Branches stand, und meldeten
+> „geschrieben", bevor der eigene Prüfstand rot wurde. „Erledigt", Anker und
+> Zählung sind Aussagen über einen Baum; „verworfen", Antwort und Widerspruch
+> über die Behauptung. Dazu: die Geheimnis-Suche lief über `JSON.stringify` — ein
+> Token am ANFANG einer Zeile (so steht es in jeder Befehlsausgabe) hatte davor
+> das `n` aus `\n` und rutschte an jedem `\b` vorbei. **Wer einen Text
+> durchsucht, durchsucht ihn in der Form, in der ein Mensch ihn schreibt.**
 
 ## 6 · Deployment
 
@@ -1377,7 +1420,8 @@ node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Mod
 node scripts/sicherheit_check.js # kommt Fremdes als TEXT an, ueber ALLE Wege? (seit v33.59) Fall-Dateien in scripts/sicherheit/ (je Themengruppe EINE Datei, `_`-Dateien sind Helfer), je Datei eine FRISCH geladene App mit einer angemeldeten Sitzung; jeder Fall rendert die echte Funktion mit h.BOESE / h.OC / h.OCQ / h.ATTR und misst ZWEI Dinge: window.__pwned bleibt unberuehrt UND der Wert steht sichtbar da; dazu die Empfaenger-Liste (97_empfaenger), die onclick-Bauform als Klasse (92_onclick), die Schlusspruefung (98/99). `node scripts/sicherheit_check.js scan markt` faehrt nur passende Dateien
 node scripts/edge_check.js       # halten die Edge-Functions, was sie ueber ihre Tore sagen? (seit v33.59) Ohne Deno: die Rechnung der _shared/*.mjs (ki_tor, zahlung_regeln, push_helfer, markt_regeln …) wird in Node AUSGEFUEHRT, der Rand (index.ts) am Quelltext geprueft — fuer die Zahlungs-Functions laeuft die ECHTE index.ts in Node 22 (Typen gestrichen, npm:/jsr:/esm.sh auf gestellte Module umgelenkt) gegen eine Supabase-Attrappe, die sich wie PostgREST verhaelt (scripts/edge/_live_schema.mjs: Live-Spalten und -Fremdschluessel, PGRST200 / 42703); 40_lieferkette: jede Import-Angabe exakt versioniert, ein Paket ueberall dieselbe Version
 node scripts/rls_check.js        # haelt die Datenbank, was die App ueber sie annimmt? (seit v33.59) Lokales Postgres (`bash scripts/_pg_local.sh start`, CI: GS_PG_URL); je Fall ein AUSSCHNITT des Live-Stands im Wortlaut (datiert) → Angriff MUSS vorher gelingen → Migration zweimal → Angriff scheitert, der Weg der App geht weiter → Gegenprobe; 05_fixture_policies haelt jeden Nachbau gegen scripts/rls/live_policies.json, 70_reihenfolge spielt beide Reihenfolgen alter und neuer Migrationen. Ohne Postgres: „nicht pruefbar" (Exit 2), nie gruen
-bash scripts/pruefstaende.sh     # ALLE 44 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/austausch_check.js  # kommt an, was eine KI-Sitzung der nächsten sagt? Das Brett (Form, Bezüge, Wächter, Anker, Zählungen), die zwei Übergabe-Zeilen in STATUS.md §0, die vier Zahlen in STATUS.md §1, die Agenten-Runde — und jede Regel gegen gebaute gute UND schlechte Fälle, das Werkzeug als Prozess, zwei echte git-Branches (seit 11.11.2026; braucht nur Node und git)
+bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein

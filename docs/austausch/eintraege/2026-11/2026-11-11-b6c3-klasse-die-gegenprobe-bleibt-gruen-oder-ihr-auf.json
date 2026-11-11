@@ -1,0 +1,37 @@
+{
+  "id": "2026-11-11-b6c3",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Die Gegenprobe bleibt grün — oder ihr Aufbau schlägt still fehl",
+  "regel": "Eine Gegenprobe gilt erst, wenn dreierlei nachgesehen ist — der Bruch steht wirklich im Quelltext, der ERWARTETE Fall wird rot (kein Absturz, kein anderer Fall), und nach dem Rückbau ist die Datei bytegleich; bleibt sie grün, misst die Frage nichts.",
+  "text": "Eine neue Instanz zeigt eines von vier Zeichen: die Gegenprobe bleibt grün; sie wird rot, aber als Absturz oder an einem ANDEREN Fall als dem erwarteten; `git diff` ist nach dem Bruch leer (das Skript änderte nichts, `delete window.X` entfernte nichts, der Zustand stammte aus einem früheren Fall); oder die Prüfsumme weicht nach der Reihe ab, weil ein Bruch stehen blieb. Meist liegt es nicht am Bruch, sondern am FALL: er misst im falschen Zustand, ruft die Funktion statt des Drahts, oder seine Daten ziehen die zwei denkbaren Regeln nicht auseinander. Kein Fall der Suite bewacht das — eine Gegenprobe ist ein Handgriff ausserhalb der Suite.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: Der Befehl am Ende nennt heute 12 von 40 Prüfstand-Dateien, in denen weder „Gegenprobe“ noch „Gegenrichtung“ vorkommt (a11y, backend, data, i18n, ingest, kamera, nutzung, perf, render, schluessel, sensor_push, versprechen) — dort lief jede Gegenprobe höchstens einmal von Hand und wird nie wiederholt. `git status --porcelain | wc -l` im Arbeitsbaum: 0. Kandidaten, keine Befunde: manche dieser Prüfstände prüfen beide Richtungen, ohne das Wort zu benutzen.",
+  "instanzen": [
+    "v32.07 · touch_check: `width:600px` wurde vom Flex-Container auf 380 px gestaucht — der Fall ragte nie hinaus (erst `min-width:600px` stellt ihn her)",
+    "v32.21 · a11y_check: `aria-label` entfernt → kein Fund, weil ein umschliessendes `<label>` das Feld schon benennt — die Gegenprobe stellte den Fall nicht her",
+    "v32.24 · wiring_check: das Skript, das die Anker-id entfernen sollte, änderte nichts — die Gegenprobe meldete grün",
+    "v32.35 · einstellungen_check: die Frage mass im ZUGEKLAPPTEN Zustand (9 statt 31 Elemente); aufgefallen nur, weil die Gegenprobe grün blieb",
+    "v32.89 · gsWetterGeraetAbgleich: der Messversuch ersetzte die reparierte Funktion selbst durch einen Stub — die alte Ausgabe stand auch NACH der Reparatur da",
+    "v33.28 · quiz_check Deckel-Fall: alle Karten mit demselben Fälligkeitsdatum — zwei denkbare Regeln, dieselbe Reihenfolge, die umgedrehte Regel blieb grün",
+    "v33.34 · kalender_check: eine Gegenprobe wollte den Wetter-Zwischenspeicher aus `sichern.wc` wiederherstellen, der war `null` — die Frage lief nie und meldete grün",
+    "v33.39 · Hinweis-Fall: die Gegenprobe blieb grün, weil nur verletzte Hinweise einen `text` tragen — `h.text` verdeckte die Zustandsprüfung",
+    "v33.42 · admin_check: `delete window.X` entfernt keine Funktionsdeklaration — das delete schlug still fehl, der Fall blieb grün",
+    "v33.43 · android_check: die Fälle riefen `gsZurueck()` direkt — die Gegenprobe „popstate hört nicht mehr zu“ blieb grün",
+    "v33.45 · risiko_check R4: „eine Frist aus der Liste entfernt“ änderte BEIDE Seiten derselben Liste — grün",
+    "v33.51 · admin_check: der Gegenproben-Treiber starb an einem Anführungszeichen, der Bruch blieb STEHEN — erst der md5-Vergleich am Ende zeigte es",
+    "v33.55 · Teilen-Ziel: zwei Gegenproben liessen den Prüfstand abstürzen (`null.click`, `caches` auf einer Fehlerseite) statt rot zu melden"
+  ],
+  "suchmuster": "Von Hand: nach JEDER Gegenprobe drei Blicke — (1) `git diff --stat` nennt die Zieldatei (der Bruch steht wirklich da); (2) der Prüfstand endet mit Exit 1 und nennt den ERWARTETEN Fall rot, kein Absturz und kein anderer Fall; (3) nach dem Rückbau liefert `git status --porcelain | wc -l` wieder 0 bzw. `md5sum index.html` den Wert von vorher. Wo eine Gegenprobe bisher nur ein einmaliger Handgriff war: grep -ciE 'gegenprobe|gegenrichtung' scripts/*_check.js scripts/field_check.py | grep ':0$'",
+  "stichworte": [
+    "gegenprobe-bleibt-gruen",
+    "einstellungen_check",
+    "admin_check",
+    "risiko_check",
+    "android_check",
+    "kalender_check"
+  ],
+  "waechter": [],
+  "ohne_waechter": "Eine Gegenprobe ist ein Handgriff AUSSERHALB der Suite (Quelltext brechen, Prüfstand fahren, zurückbauen) — kein Fall kann sehen, ob eine Sitzung ihren Bruch hergestellt und zurückgenommen hat. Eingebaute Gegenproben (storage_check „Gegenprobe A/C“, quiz_check, naht_check, austausch_check C1–C7) schützen je ihren eigenen Fall, nicht das Verfahren. Kandidat für einen Fall: ein Treiber, der Bruch → erwarteter roter Fall → Rückbau → Prüfsumme in einem Zug hält."
+}

@@ -1,4 +1,4 @@
-# 04 · Die 44 Pruefstaende — welcher fragt was
+# 04 · Die Pruefstaende — welcher fragt was
 
 Alle liegen in `scripts/`, alle laufen ohne Netz (`file://` + Playwright aus
 `scripts/package.json`, seit v33.59 per `npm ci` gegen das eingecheckte
@@ -8,7 +8,7 @@ Postgres (`bash scripts/_pg_local.sh start`, Port 54329) und melden ohne es
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: "44 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
+# Erwartung: "N Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
 ```
 
 Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
@@ -56,10 +56,11 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42); seit v33.50 die SCHREIB-Seite: jeder Admin-Schreibweg durch _gsAdmTun (GS_ADM_AKTIONEN, sechs Zustaende mit Grund, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es (_gsAdmGesperrt, _gsAdmAktionHinweisHtml), die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, die Deckung rechnet _gsAdmSpurDeckung, ein Ersatzweg nur bei nicht_verfuegbar, RAISE EXCEPTION = abgelehnt, und eine SQL-Haelfte spielt 20260925_admin_audit_vollstaendig.sql in einem lokalen Postgres nach (ohne: Exit 2) |
 | `android_check` | haelt die App, was eine Android-App verspricht? gsZurueck (eine Regel, zwei Ausloeser), GS_VOLLBILD_OVERLAYS, ein Verlaufs-Eintrag, gsLaeuftAlsApp, assetlinks (seit v33.43) |
 | `risiko_check` | was geht SPAETER schief? Jahreszahlen in jaehrlich wiederkehrenden Texten, ungedeckelte Listen-Abfragen (eingeordnet), die Zahlen in docs/RISIKEN.md gegen den Quelltext, und seit v33.45 die Fristen-Karte im Admin-Panel in BEIDE Richtungen (GS_FRISTEN, gsFristenStand) |
-| `sicherheit_check` | kommt Fremdes als TEXT an, ueber ALLE Wege? (seit v33.59) Fall-Dateien in `scripts/sicherheit/` (`_`-Dateien sind Helfer), je Datei eine frisch geladene App mit einer ANGEMELDETEN Sitzung (der Seed-Token haelt nicht: `gsSecurityInit` raeumt ihn nach 500 ms ab); feindliche Werte `h.BOESE` / `h.OC` / `h.OCQ` / `h.ATTR`; gemessen wird `window.__pwned` UND dass der gutartige Wert sichtbar dasteht |
+| `sicherheit_check` | kommt Fremdes als TEXT an, ueber ALLE Wege? (seit v33.59) Fall-Dateien in `scripts/sicherheit/` (`_`-Dateien sind Helfer), je Datei eine frisch geladene App mit einer ANGEMELDETEN Sitzung (seit v33.59 legt `_seed.js` sie fuer alle Pruefstaende an); feindliche Werte `h.BOESE` / `h.OC` / `h.OCQ` / `h.ATTR`; gemessen wird `window.__pwned` UND dass der gutartige Wert sichtbar dasteht |
 | `edge_check` | halten die Edge-Functions, was sie ueber ihre Tore sagen? (seit v33.59) Rechnung der `_shared/*.mjs` in Node, Rand am Quelltext; die Zahlungs-Functions laufen als ECHTE `index.ts` in Node 22 gegen eine Attrappe, die sich wie PostgREST verhaelt (`scripts/edge/_live_schema.mjs`: Live-Spalten und -Fremdschluessel, `PGRST200` / `42703`); `40_lieferkette`: jede Abhaengigkeit mit exakter Version |
 | `rls_check` | haelt die Datenbank, was die App ueber sie annimmt? (seit v33.59, lokales Postgres) Live-AUSSCHNITTE im Wortlaut → Angriff gelingt → Migration zweimal → Angriff scheitert, App-Weg geht weiter → Gegenprobe; `05_fixture_policies` haelt jeden Nachbau gegen `scripts/rls/live_policies.json`, `70_reihenfolge` spielt beide Reihenfolgen alter und neuer Migrationen |
-| `pruefstaende` | ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
+| `austausch_check` | kommt an, was eine KI-Sitzung der naechsten sagt? Das Brett (docs/austausch), die zwei Uebergabe-Zeilen in STATUS.md §0, die Zahlen in STATUS.md §1 (seit 11.11.2026; nur Node und git) |
+| `pruefstaende` | ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
 
 ## Wie ein Fall gebaut wird (die Regeln, die alle teilen)
 

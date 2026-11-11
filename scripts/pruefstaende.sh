@@ -86,6 +86,9 @@ run risiko       node scripts/risiko_check.js
 run sicherheit   node scripts/sicherheit_check.js
 run edge         node scripts/edge_check.js
 run rls          node scripts/rls_check.js
+# Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
+# stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
+run austausch    node scripts/austausch_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js
   TAILN=14 run einstellungen node scripts/einstellungen_check.js

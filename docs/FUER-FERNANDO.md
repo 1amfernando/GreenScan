@@ -1512,7 +1512,7 @@ v33.57/v33.58 der anderen Sitzung (§29) → Bump. Über alle 30 Gruppen stehen
 `scripts/edge/` — führt die echten `index.ts` mit gestellten Diensten aus) und
 `rls_check` (43 Fälle, `scripts/rls/` — spielt jede neue Migration gegen den
 Live-Stand vom 10.11. in einem lokalen Postgres nach, zweimal, mit Gegenprobe).
-`bash scripts/pruefstaende.sh` fährt jetzt 44.
+`bash scripts/pruefstaende.sh` fährt sie mit (wie viele es insgesamt sind, steht seit dem 11.11. nur noch in `STATUS.md` §1).
 
 ### 30a · In einem Absatz: was schon wirkt und was auf dich wartet
 

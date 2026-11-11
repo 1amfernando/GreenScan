@@ -1,0 +1,28 @@
+{
+  "id": "2026-11-11-e383",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "android/ (14 Dateien), .claude/ und A_Z_AUDIT_FINDINGS_v28.95.json im Wurzelverzeichnis werden ohne noindex ausgeliefert",
+  "text": "Seit v32.69 tragen docs/, supabase/, scripts/ und store/ `X-Robots-Tag: noindex`, dazu /*.md und /*.sql. Für android/ (seit v33.49), für .claude/ (seit diesem Schnitt: die Agenten-Runde) und für die interne Audit-Datei im Wurzelverzeichnis gibt es keinen Block. Nicht geprüft: ob Cloudflare Pages und Netlify ein Punkt-Verzeichnis überhaupt ausliefern.",
+  "beleg": [
+    "grep -n '^/' _headers → /* · /docs/* · /supabase/* · /scripts/* · /store/* · /*.md · /*.sql · … — kein /android/*, kein /.claude/*",
+    "find android -type f | wc -l → 14",
+    "ls A_Z_AUDIT_FINDINGS_v28.95.json → liegt im Wurzelverzeichnis (JSON, von /*.md nicht erfasst)"
+  ],
+  "vorschlag": "Zwei Blöcke in _headers (/android/*, /.claude/*), die Audit-Datei nach docs/_archiv/ — und ein Fall, der jedes Verzeichnis im Wurzelverzeichnis gegen die Blöcke hält (Vorbild: storage_check „jeder Schlüssel in einer Liste\").",
+  "stichworte": [
+    "_headers",
+    "noindex",
+    "android",
+    "robots.txt"
+  ],
+  "anker": [
+    {
+      "datei": "_headers",
+      "text": "/scripts/*"
+    }
+  ]
+}

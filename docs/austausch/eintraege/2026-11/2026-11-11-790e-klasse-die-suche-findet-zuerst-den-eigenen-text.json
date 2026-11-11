@@ -1,0 +1,46 @@
+{
+  "id": "2026-11-11-790e",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Die Suche findet zuerst den eigenen Text über die Sache — Kommentar, Changelog, Prüfstand, eigene Datei",
+  "regel": "Wer im Quelltext Namen zählt oder an einem Schlüsselwort schneidet, nimmt Kommentare, `GS_RELEASES`, Zeichenketten, Prüfstände und die eigene Datei aus dem Korpus, ankert an der FORM der Stelle statt am blossen Wort — und liest Zeilennummer und Treffer aus demselben Text.",
+  "text": "Eine neue Instanz erkennt man daran, dass ein zählender oder schneidender Prüfstand (a) rot wird an einem Satz, der die Sache nur BESCHREIBT — Kommentar, Release-Notiz, eigene Fehlermeldung —, oder (b) still wird, sobald man etwas in ihn einträgt: die Erwähnung im Prüfstand, in einer Liste oder im Changelog ist dann die „zweite Nennung“. Die Unterscheidung lautet: zählst du VERWENDUNGEN (dann Kommentare und Changelog heraus) oder suchst du eine MARKIERUNG (dann brauchst du den rohen Text)? Die drei Wächter bewachen je EINE Instanz (die drei Austausch-Skripte, R9 am Changelog-Satz, die Jargon-Suche). robust_check C2 nimmt seit v32.96 nur die EIGENE Datei aus — jede Nennung in einem anderen Prüfstand zählt dort weiter als Aufrufer.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 10 von 2'482 Funktionen stehen im Code der App nur einmal (ihre Definition) und haben eine zweite Nennung nur in scripts/ — keine nur in GS_RELEASES. Drei davon sind in robust_check C2 namentlich erklärt (closeAbout, gsAROpen, gsSafetyDefaults); sieben hält allein ein Prüfstand am Leben: mktDelete, gsGetExpertInfo, gsIsVerifiedExpert, gsOpenExpertApplication (save_check), gsResetZoom (kamera_check), gsIsStaff (in contrast_check, touch_check und wiring_check als Attrappe überschrieben), _gsAdmGesperrtLeeren (admin_check). C2 zählt sie als gerufen; ob ein Knopf fehlt oder die Funktion ein Rest ist, ist je Eintrag offen. Kandidaten, keine Befunde.",
+  "instanzen": [
+    "v31.45 · wiring_check meldete die eigene Fehlerdokumentation als Fehler; das `/*` in `image/*` (eine Zeichenkette) öffnete einen Scheinkommentar, elf echte Funde verschwanden",
+    "v32.28 · versprechen_check: „Eintrag NICHT gespeichert“ zählte als Versprechen — die Suche nach Wortstämmen fand die eigenen Absagen",
+    "v32.40 · einstellungen_check: die Zählung nach `gs_perm_geolocation` zählte Kommentare und Aufräumlisten statt des Schreibers — rot für eine Reparatur, die schon da war",
+    "v32.70 · nutzersicht_check: die Jargon-Suche fand ihre eigenen Release-Notizen (dort steht der Jargon als Zitat dessen, was raus ist)",
+    "v32.96 · robust_check C2: die eigene Deklarationsliste war die zweite Nennung („0 ohne zweite Nennung“), und `window.X = X;` nennt den Namen zweimal — sieben Funktionen lagen so unbemerkt",
+    "v33.41 · naht_check: die Gegenprobe schnitt am ersten „UNION ALL“ — es stand im KOMMENTAR der Migration; eine lazy Suche nach `if (tasks` trifft `if (tasksErr)` zuerst",
+    "v33.44 · risiko_check: Treffer aus dem kommentarfreien Text, Zeilennummer aus dem Original — die ersten drei „Funde“ zeigten auf andere Zeilen",
+    "v33.49 · apk_check: vier Funde waren der Parser (Klassenkommentar, Kommentar über `<use href>`, Schnitt an `imUrsprung(u)`, Changelog) — CI rot an dem Satz, der erklärt, warum der Prüfstand grün ist",
+    "v33.53 · robust_check C2: `gsHuellePause` und `gsHuelleDateiErgebnis` haben ihren einzigen echten Aufrufer im Java-Quelltext, der nicht mitzählte — sie überlebten nur über eine Nennung in einem Prüfstand (STATUS „(ix)“, Kommentar im Fall)",
+    "10.11.2026 · C2 zählt jede Nennung in scripts/ — ein App-Funktionsname in einem Austausch-Skript hielte eine tote Funktion am Leben (CLAUDE.md §5, seither austausch_check B5)"
+  ],
+  "suchmuster": "node -e 'const fs=require(\"fs\"),p=require(\"path\"),lies=f=>{try{return fs.readFileSync(f,\"utf8\")}catch(_){return\"\"}},sauber=t=>t.replace(/^[ \\t]*\\/\\/.*$/gm,\"\").replace(/^[ \\t]*\\*.*$/gm,\"\").replace(/window\\.([A-Za-z_$][\\w$]*)\\s*=\\s*\\1\\s*;?/g,\"\"),idx=lies(\"index.html\"),a=idx.indexOf(\"window.GS_RELEASES = [\"),b=idx.indexOf(\"\\n];\",a),log=idx.slice(a,b),code=idx.slice(0,a)+idx.slice(b+3),defs=new Set();for(const m of idx.matchAll(/^\\s*(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)\\s*\\(/gm))defs.add(m[1]);for(const m of idx.matchAll(/window\\.([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s+)?function/g))defs.add(m[1]);const dir=(d,re)=>{try{return fs.readdirSync(d).filter(f=>re.test(f)).map(f=>p.join(d,f))}catch(_){return[]}},appF=[\"sw.js\",\"install.html\",\"offline.html\"].concat(dir(\"supabase/migrations\",/\\.sql$/),dir(\"android/src/ch/greenscan/app\",/\\.java$/),dir(\"supabase/functions\",/./).map(d=>p.join(d,\"index.ts\"))),zaehle=t=>{const z=new Map();for(const m of t.matchAll(/[A-Za-z_$][\\w$]*/g))z.set(m[0],(z.get(m[0])||0)+1);return z},app=zaehle(sauber(code+\"\\n\"+appF.map(lies).join(\"\\n\"))),zl=zaehle(log),skr={};for(const f of dir(\"scripts\",/\\.(js|py)$/)){const z=zaehle(sauber(lies(f)));for(const d of defs)if(z.get(d))(skr[d]=skr[d]||[]).push(p.basename(f).replace(/\\.(js|py)$/,\"\"))}const nur=[...defs].filter(d=>(app.get(d)||0)<=1&&(skr[d]||zl.get(d))).sort();console.log(defs.size+\" Funktionen in index.html; im Code der App nur 1x (die Definition), eine zweite Nennung nur als Text UEBER sie: \"+nur.length);nur.forEach(d=>console.log(\"  \"+d+\"  <- \"+[zl.get(d)?\"GS_RELEASES\":\"\"].concat(skr[d]||[]).filter(Boolean).join(\",\")))'",
+  "stichworte": [
+    "suche-findet-eigenen-text",
+    "robust_check",
+    "apk_check",
+    "nutzersicht_check",
+    "versprechen_check",
+    "wiring_check"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/apk_check.js",
+      "fall": "R9 · serviceWorker.ready hat EINEN Leser"
+    },
+    {
+      "datei": "scripts/nutzersicht_check.js",
+      "fall": "E5 · kein Entwickler-Jargon auf Nutzerseiten (Quelltext ohne Kommentare)"
+    },
+    {
+      "datei": "scripts/austausch_check.js",
+      "fall": "C5 · Gemessen wird die SACHE"
+    }
+  ]
+}

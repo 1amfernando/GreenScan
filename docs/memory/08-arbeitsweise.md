@@ -10,7 +10,14 @@ hat eine Ausgabe, die man vorzeigen kann.
 ```
 git fetch origin main && git status         # bist du auf dem aktuellen Stand?
 sed -n '1,40p' STATUS.md                     # was ist gerade in Arbeit?
+node scripts/austausch.mjs holen             # was haben ANDERE Sitzungen gefunden, gefragt, vorgeschlagen — und wer arbeitet parallel?
 ```
+
+Du bist nicht die einzige Sitzung. Was du findest und nicht selbst behebst,
+was du nicht messen konntest und was dir einfaellt, gehoert aufs Brett
+(`node scripts/austausch.mjs hilfe`, Regeln: `docs/austausch/README.md`) —
+und der STATUS-Eintrag am Ende traegt zwei feste Zeilen: `**Offen:**` (mit
+`brett:<id>` oder „nichts") und `**Nicht geprüft:**`.
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines
@@ -70,7 +77,7 @@ ALLE:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: „44 Pruefstaende · rot: 0 · nicht pruefbar: 0"
+# Erwartung: „N Pruefstaende · rot: 0 · nicht pruefbar: 0"
 ```
 
 Dauer 15–25 Minuten. `perf_check` misst nur und urteilt nie.
@@ -115,7 +122,7 @@ git push -u origin claude/<thema>-<id>
 ```
 
 Commit-Betreff `vXX.YY: <Satz>`, Rumpf mit Bereichs-Bullets. PR gegen `main`;
-**CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle 44 mit
+**CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle mit
 Postgres; Actions auf vollen Commit-SHAs, `npm ci` gegen das eingecheckte
 Lockfile — eine Pflichtdatei mit `git ls-files` nachsehen, `.gitignore` hat das
 Lockfile einmal still verschluckt, v33.59). Ein gruener Lauf auf der eigenen Maschine ist keine Aussage ueber

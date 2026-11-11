@@ -6,10 +6,11 @@
   (`data/plants.v1.js`; Pflanzen, Pilze, Baeume, Kraeuter, Moose, Flechten,
   Algen). Dazu: Meine Pflanzen mit Pflege-Aufgaben, Garten mit Beeten und
   Pflanzungen, Kalender, KI-Planer, Quiz, Community, Marktplatz, Lina (KI-Coach).
-- **Ein Monolith**: `index.html` (98'168 Zeilen, HTML + CSS + JS),
+- **Ein Monolith**: `index.html` (rund 6 MB, HTML + CSS + JS; Zeilenzahl: `STATUS.md` §1),
   kein Build, kein npm im Root. Editieren = ausliefern.
-- **Backend**: Supabase (Auth, Storage, Postgres mit RLS), 40 Edge-Functions
-  (Deno) in `supabase/functions/`, 229 Migrationen in `supabase/migrations/`.
+- **Backend**: Supabase (Auth, Storage, Postgres mit RLS), Edge-Functions
+  (Deno) in `supabase/functions/`, Migrationen in `supabase/migrations/`
+  (wie viele: `STATUS.md` §1 — die eine Stelle, an der die Zahlen nachgemessen werden).
   **Seit v33.59 liegt eine Sicherheitsreparatur im Repo, deren Server-Seite NICHT
   live ist** (sechs Migrationen `20261110_*`, die ueberarbeiteten Functions) —
   bis Fernando sie anwendet bzw. ausliefert, sind die Luecken aus ihren Koepfen
@@ -26,7 +27,7 @@
 index.html            die App (Funktions-Praefixe: gs* oeffentlich · _gs* intern · sb* Supabase · dq* Quiz)
 data/plants.v1.js     Artenliste · data/releases.v1.js  Changelog-Archiv
 sw.js                 Service Worker (Cache-Version = App-Version)
-scripts/              44 Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh (alle)
+scripts/              Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh (alle)
                       + package-lock.json (eingecheckt, CI faehrt `npm ci`)
 scripts/sicherheit/ · scripts/edge/ · scripts/rls/   Fall-Dateien der drei Sicherheits-Pruefstaende (v33.59)
 assets/               Leaflet, Three.js, pdf.js (assets/pdfjs/<version>/), Schriften (assets/fonts/) — alles selbst gehostet
@@ -34,7 +35,7 @@ supabase/functions/   Edge-Functions; _shared/*.mjs = Regeln, die Deno UND Node 
 supabase/migrations/  SQL, alle idempotent; „nicht angewandt" steht dabei, bis es angewandt ist
 docs/                 lebende Doku (KALENDER-V1, PLANER-V3, SCANNER-V3, OEKOSYSTEM-V1, FUER-FERNANDO)
 docs/_archiv/         55 historische Auftraege — nicht die Gegenwart
-CLAUDE.md             das ausfuehrliche Tagebuch (1'400 Zeilen) · STATUS.md  was laeuft · ROADMAP.md  was kommt
+CLAUDE.md             das ausfuehrliche Tagebuch · STATUS.md  was laeuft · ROADMAP.md  was kommt
 ```
 
 `docs/`, `scripts/`, `supabase/` werden mit ausgeliefert (Web-Root = Repo) —
