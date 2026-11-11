@@ -2133,6 +2133,89 @@ const FAELLE = [
     },
   },
 
+  // ── SUCHE-2 · Die Artensuche findet, was Menschen tippen ────────────────
+  {
+    name: 'SU1 · Suche: ein Vertipper findet die Art, ein exakter Name bleibt oben, Unsinn findet nichts',
+    lauf: () => {
+      var vorF = currentFilter, vorS = searchText, f = [];
+      var such = function (w) { currentFilter = ''; searchText = w; return getFiltered(); };
+      try {
+        var ex = such('giersch');
+        if (!ex.length || !/^giersch/i.test(ex[0].name)) f.push('„giersch" bringt zuerst „' + (ex[0] && ex[0].name) + '"');
+        [['bärlauhc', /bärlauch/i], ['barlauch', /bärlauch/i], ['löwenzan', /löwenzahn/i], ['brenessel', /brennnessel/i], ['fliegenpils', /fliegenpilz/i], ['taraxacun', /taraxacum/i]].forEach(function (p) {
+          var r = such(p[0]).slice(0, 5);
+          if (!r.some(function (sp) { return p[1].test(sp.name + ' ' + (sp.lat || '')); })) f.push('„' + p[0] + '" → ' + (r.length ? '„' + r[0].name + '"' : 'nichts'));
+        });
+        var un = such('xqzwvkj');
+        if (un.length) f.push('Unsinn „xqzwvkj" findet ' + un.length + ' Eintraege, z.B. „' + un[0].name + '"');
+        // Gegenrichtung: ein Vertipper darf keinen echten Namenstreffer verdraengen.
+        var tom = such('tomate');
+        if (!tom.length || !/tomate/i.test(tom[0].name)) f.push('„tomate" bringt zuerst „' + (tom[0] && tom[0].name) + '"');
+      } finally { currentFilter = vorF; searchText = vorS; }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '6 Vertipper finden ihre Art unter den ersten fuenf · exakte Namen zuerst · Unsinn: 0 Treffer' };
+    },
+  },
+  {
+    name: 'SU2 · Suche: mehrere Woerter und der Anfang eines Synonyms',
+    lauf: () => {
+      var vorF = currentFilter, vorS = searchText, f = [], info = [];
+      var such = function (w) { currentFilter = ''; searchText = w; return getFiltered(); };
+      try {
+        var sp = DB.find(function (s) { return /^Bärlauch/.test(s.name) && /Allium ursinum/.test(s.lat || ''); });
+        if (!sp) return { ok: false, warum: 'kein Baerlauch-Eintrag — der Fall misst nichts' };
+        var r = such('bärlauch allium');
+        if (!r.some(function (x) { return x.id === sp.id; })) f.push('„bärlauch allium" findet den Baerlauch nicht (' + r.length + ' Treffer)');
+        var gegen = such('bärlauch xqzwvkj');
+        if (gegen.length) f.push('„bärlauch xqzwvkj" findet ' + gegen.length + ' — ein Wort allein darf nicht reichen');
+        info.push('zwei Woerter: ' + r.length + ' Treffer');
+        var zam = DB.some(function (s) { return /zamioculcas/i.test(s.lat || ''); });
+        if (zam) {
+          var syn = such('glücksfe');
+          if (!syn.some(function (x) { return /zamioculcas/i.test(x.lat || ''); })) f.push('„glücksfe" findet die Zamioculcas nicht');
+          info.push('Synonym-Anfang: ' + syn.length);
+        } else info.push('Synonym nicht pruefbar (keine Zamioculcas in der Liste)');
+      } finally { currentFilter = vorF; searchText = vorS; }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: info.join(' · ') };
+    },
+  },
+  {
+    name: 'SU3 · Suche: die Markierung faltet Umlaute, zerreisst kein &amp; — Statuszeile und Leerzustand nennen den Filter beim Namen',
+    lauf: async () => {
+      var f = [];
+      var h1 = gsHighlight('Bärlauch & Co', 'barlauch');
+      if (!/<mark[^>]*>Bärlauch<\/mark>/.test(h1)) f.push('„barlauch" markiert den Bärlauch nicht: ' + h1.replace(/ style="[^"]*"/g, ''));
+      if (h1.indexOf('&amp; Co') < 0) f.push('das & ist nicht escaped');
+      var h2 = gsHighlight('A&B', 'amp');
+      if (/<mark/.test(h2) || h2 !== 'A&amp;B') f.push('„amp" markiert im &amp;: ' + h2);
+      var h3 = gsHighlight('<img src=x onerror=1>', 'img');
+      if (/<img/i.test(h3)) f.push('ein Tag im Namen bleibt ein Tag');
+      var vorF = currentFilter, vorS = searchText;
+      try {
+        switchTab('search');
+        currentFilter = 'geschuetzt'; searchText = ''; renderList();
+        var st = (document.getElementById('search-status') || {}).textContent || '';
+        if (/geschuetzt/.test(st) || !/Geschützt/.test(st)) f.push('Statuszeile: „' + st + '"');
+        searchText = 'xqzwvkj'; renderList();
+        var knopf = document.querySelector('#results-list button[onclick*="gsSucheOhneFilter"]');
+        if (!knopf) f.push('der Leerzustand bietet nicht an, ohne Filter zu suchen');
+        else {
+          if (!/Geschützt/.test(knopf.textContent)) f.push('der Knopf nennt den Filter nicht: „' + knopf.textContent + '"');
+          searchText = 'enzian'; knopf.click();
+          await new Promise(function (r) { setTimeout(r, 200); });
+          if (currentFilter) f.push('nach dem Knopf steht der Filter noch: ' + currentFilter);
+          if (searchText !== 'enzian') f.push('das Suchwort ging verloren: „' + searchText + '"');
+        }
+        // Gegenrichtung: ohne Filter gibt es den Knopf nicht.
+        currentFilter = ''; searchText = 'xqzwvkj'; renderList();
+        if (document.querySelector('#results-list button[onclick*="gsSucheOhneFilter"]')) f.push('der Knopf steht auch ohne Filter da');
+      } finally { currentFilter = vorF; searchText = vorS; try { gsResetFilter(); } catch (_) {} }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Markierung mit Umlaut, & und Tag · Status „Geschützt" · Knopf nur mit Filter, Suchwort bleibt' };
+    },
+  },
+
   // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
   // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
   // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`

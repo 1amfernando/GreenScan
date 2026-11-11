@@ -20685,7 +20685,6 @@ function gsUpdateHomeScanStat() {
 }
 
 // ══ DEBOUNCE SUCHE ════════════════════════════════════════════
-var _gsSearchDebounce = null;
 
 // ══ WETTER WIDGET ════════════════════════════════════════════
 
@@ -37745,6 +37744,17 @@ function getFiltered(){
   var idx = window._gsSearchIdx || [];
   var q = _gsSearchNorm(searchText);
   var synLat = (window.GS_SYNONYMS && window.GS_SYNONYMS[q]) || null; // v30.72: Trivialnamen-Synonym → Latein
+  // SUCHE-2: ein Synonym galt nur bei EXAKT gleicher Eingabe — „glücksfe" fand nichts, „glücksfeder"
+  // die Zamioculcas. Ab vier Zeichen zaehlt der Wortanfang, wenn er auf GENAU ein Ziel zeigt.
+  if (!synLat && q.length >= 4 && window.GS_SYNONYMS) {
+    var _synZiele = {};
+    Object.keys(window.GS_SYNONYMS).forEach(function (k) { if (k.indexOf(q) === 0) _synZiele[window.GS_SYNONYMS[k]] = 1; });
+    var _synListe = Object.keys(_synZiele);
+    if (_synListe.length === 1) synLat = _synListe[0];
+  }
+  // SUCHE-2: mehrere Woerter. „giersch wald" wurde als EIN Stueck gesucht und fand nichts, obwohl
+  // beide Woerter im Eintrag stehen. Greift nur, wenn das ganze Stueck nichts trifft.
+  var teile = q.split(/\s+/).filter(function (w) { return w.length >= 2; });
   var scored = [];
   for (var i=0;i<idx.length;i++){
     var e=idx[i]; if(!_gsPassCat(e.sp)) continue;
@@ -37757,17 +37767,42 @@ function getFiltered(){
     else if (e.lat.indexOf(q)>=0) sc=300;
     else if (e.fam.indexOf(q)>=0) sc=200;
     else if (e.blob.indexOf(q)>=0) sc=100;
+    else if (teile.length > 1) {
+      var _nl = e.name + ' ' + e.lat;
+      if (teile.every(function (w) { return e.name.indexOf(w) >= 0; })) sc = 450;
+      else if (teile.every(function (w) { return _nl.indexOf(w) >= 0; })) sc = 250;
+      else if (teile.every(function (w) { return e.blob.indexOf(w) >= 0; })) sc = 90;
+    }
     // v30.72: Synonym-Boost (ergänzt, überschreibt keinen stärkeren echten Namens-Treffer)
     if (synLat && e.lat){ var _sl = e.lat.indexOf(synLat); if (_sl===0) sc=Math.max(sc,620); else if (_sl>0) sc=Math.max(sc,600); }
     if (sc>0){ sc -= Math.min(50, e.name.length); scored.push({sp:e.sp, sc:sc}); }
   }
-  if (!scored.length && q.length>=4){  // Tippfehler-Fallback nur bei 0 Treffern
+  // SUCHE-2: Tippfehler. Bis hierher lief der Rueckfall nur bei NULL Treffern — ein einziger
+  // Treffer irgendwo in einer Beschreibung schaltete ihn ab („bärlauhc" fand einen Fliesstext, nicht
+  // den Bärlauch) — und er verglich die Eingabe mit dem GANZEN Namen: „Bärlauch / Wilder Knoblauch"
+  // ist zwanzig Zeichen laenger als „barlauhc", der Vergleich brach sofort ab. Jetzt: sobald kein
+  // Treffer im NAMEN, im Binomen oder in der Familie liegt (sc >= 200), wird die Eingabe gegen jedes
+  // Namens-Segment und jedes Wort des Binomens gehalten — und gegen deren Anfang, damit ein
+  // Vertipper mitten im Wort nicht erst am Wortende zaehlt. Ein Vertipper bei kurzen Woertern
+  // (bis 7 Zeichen), zwei darueber.
+  var _namensTreffer = scored.some(function (x) { return x.sc >= 150; });
+  if (!_namensTreffer && q.length >= 4 && teile.length <= 1) {
+    var _max = q.length >= 8 ? 2 : 1, _schon = {};
+    scored.forEach(function (x) { _schon[x.sp.id] = 1; });
     for (var k=0;k<idx.length;k++){
-      var e2=idx[k]; if(!_gsPassCat(e2.sp)) continue;
-      var d=_gsLeven(q, e2.name, 2);
-      if (d<=2) scored.push({sp:e2.sp, sc:(50-d)});
+      var e2=idx[k]; if(_schon[e2.sp.id] || !_gsPassCat(e2.sp)) continue;
+      var _w = e2.segs.concat(e2.lat ? e2.lat.split(' ') : []), _best = _max + 1;
+      for (var w=0; w<_w.length && _best>0; w++){
+        var _wort = _w[w]; if (_wort.length < 4) continue;
+        var d = _gsLeven(q, _wort, _max);
+        if (d > _max && _wort.length > q.length) d = _gsLeven(q, _wort.slice(0, q.length), _max);
+        if (d < _best) _best = d;
+      }
+      // 130 − d·10: ueber einem blossen Volltext-Treffer (100), unter jedem echten Namenstreffer.
+      if (_best <= _max) scored.push({sp:e2.sp, sc:(130 - _best*10), tipp:true});
     }
   }
+  window._gsSucheTippfehler = scored.some(function (x) { return x.tipp; }) && !scored.some(function (x) { return !x.tipp && x.sc >= 150; });
   // v31.91: Bei GLEICHER Relevanz kommt der geprüfte Eintrag zuerst.
   //
   // „Ampfer" trifft 28 Einträge mit demselben Trivialnamen, „Brennnessel"
@@ -37792,6 +37827,26 @@ function getFiltered(){
 var _listPage = 1;
 var _LIST_PAGE_SIZE = 80;
 
+// SUCHE-2: der Name eines Filters, wie er auf seinem Knopf steht. Die Statuszeile zeigte den
+// internen Schluessel („· geschuetzt").
+function _gsFilterLabel(wert) {
+  try {
+    var b = document.querySelector('.sf-btn[onclick*="\'' + String(wert).replace(/[^a-z_]/gi, '') + '\'"]');
+    var t = b ? String(b.textContent || '').trim() : '';
+    return t || String(wert || '');
+  } catch (_) { return String(wert || ''); }
+}
+// Der Filter faellt, das Suchwort bleibt.
+function gsSucheOhneFilter() {
+  var wort = searchText;
+  try { gsResetFilter(); } catch (_) { currentFilter = ''; }
+  searchText = wort || '';
+  var inp = document.getElementById('search-input');
+  if (inp && wort) inp.value = wort;
+  renderList();
+}
+window.gsSucheOhneFilter = gsSucheOhneFilter;
+
 function renderList(){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const res = getFiltered();
@@ -37814,7 +37869,8 @@ function renderList(){
     } else if (total === 0) {
       rcEl.textContent = _t('search_no_hits','Keine Treffer');
     } else {
-      rcEl.textContent = total + ' ' + _t('market_hits','Treffer') + (currentFilter ? ' · ' + currentFilter : '') + (searchText ? ' · "' + searchText + '"' : '');
+      rcEl.textContent = total + ' ' + _t('market_hits','Treffer') + (currentFilter ? ' · ' + _gsFilterLabel(currentFilter) : '') + (searchText ? ' · "' + searchText + '"' : '')
+        + (window._gsSucheTippfehler ? ' · ' + _gsSatz('ähnliche Namen') : '');
     }
   }
   
@@ -37823,7 +37879,10 @@ function renderList(){
       '<div style="text-align:center;padding:50px 20px;">' +
       '<div style="font-size:44px;margin-bottom:12px;">🔍</div>' +
       '<div style="font-size:var(--fs-lg);font-weight:700;color:var(--text);margin-bottom:6px;">' + _t('search_empty_title','Keine Einträge gefunden') + '</div>' +
-      '<div style="font-size:var(--fs-md);color:var(--muted);">' + _t('search_empty_hint','Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.') + '</div></div>';
+      '<div style="font-size:var(--fs-md);color:var(--muted);">' + _t('search_empty_hint','Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.') + '</div>' +
+      // SUCHE-2: steht ein Filter, sagt der Leerzustand welcher — und bietet an, ohne ihn zu suchen.
+      (currentFilter ? '<button type="button" class="btn btn-secondary" onclick="gsSucheOhneFilter()" style="margin-top:14px;">' +
+        escHtml(_gsSatz('Ohne Filter „{1}“ suchen', _gsFilterLabel(currentFilter))) + '</button>' : '') + '</div>';
     return;
   }
   
@@ -37934,7 +37993,6 @@ function loadMoreList() {
 }
 
 // Reset beim Filtern
-const _origGetFiltered = getFiltered;
 
 // ═══ DETAIL MODAL ════════════════════════════════════
 
