@@ -282,7 +282,7 @@ const FAELLE = [
     },
   },
   {
-    // v33.57 (Audit „escape", jeder Fund gegengeprueft). Sieben Stellen, an
+    // v33.59 (Audit „escape", jeder Fund gegengeprueft). Sieben Stellen, an
     // denen ein Wert aus fremder Hand als Code ankam oder einen Knopf zerbrach.
     name: 'Karten-Popup · die Foto-Adresse eines FREMDEN Fundes (map_user_finds.photo_url) wird kein Attribut: x" onerror=… bekommt kein <img>, https und der lokale Platzhalter schon',
     lauf: async () => {

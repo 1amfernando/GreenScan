@@ -1,4 +1,4 @@
-// greenscan-audit — der Audit-Workflow aus v33.57 (STATUS (jb), docs/AUDIT-2026-11-11.md).
+// greenscan-audit — der Audit-Workflow aus v33.59 (STATUS (jb), docs/AUDIT-2026-11-11.md).
 //
 // Acht Blickwinkel, je ein Auditor (nur lesend) und ein Gegenpruefer, der jeden
 // Fund zu WIDERLEGEN versucht. Am 11.11.2026 liefen fuenf davon (robust, escape,

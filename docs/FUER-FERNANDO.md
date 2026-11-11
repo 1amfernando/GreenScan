@@ -1347,7 +1347,7 @@ Am nützlichsten ist die Cloud-Zeile: dort weicht jede App ein wenig anders ab.
 Wenn dort ein Satz statt der Vorschau steht, schick mir den Satz und den
 Namen der App.
 
-## 29 · Der grosse Durchgang (v33.57) — was du tun musst, und was noch offen ist
+## 29 · Der grosse Durchgang (v33.59) — was du tun musst, und was noch offen ist
 
 **Für die App selbst musst du nichts einspielen.** Keine Migration, keine
 Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.

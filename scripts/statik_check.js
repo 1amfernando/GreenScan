@@ -3,7 +3,7 @@
 //
 //   node scripts/statik_check.js
 //
-// Anlass (v33.57): Fernandos „Checke alle Fehler, unschöne Programmierungen
+// Anlass (v33.59): Fernandos „Checke alle Fehler, unschöne Programmierungen
 // und ähnliches." Die 39 anderen Pruefstaende FAHREN die App oder suchen mit
 // Mustern im Text. Keiner LIEST sie als Programm. Ein Parser sieht in einer
 // Sekunde, was ein Lauf nur zeigt, wenn er zufaellig durch die Zeile kommt:

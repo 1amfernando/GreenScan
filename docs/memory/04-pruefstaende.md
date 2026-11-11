@@ -15,8 +15,8 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 
 | Pruefstand | Die Frage, die er stellt |
 |---|---|
-| `statik_check` | was sagt ein PARSER ueber die App? (seit v33.57) ESLint nur als Parser: doppelte Funktionen, Namen, die es nirgends gibt, tote `typeof`-Schuetze, Korrektheitsregeln, Funktionen ohne Aufrufer ausser sich selbst, undefinierte CSS-Variablen, sw.js. Laeuft als ERSTER; ohne ESLint „nicht pruefbar" |
-| `datum_check` | stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.57) Europe/Zurich mit gestellter Uhr — alle anderen laufen in UTC; T0 deckelt die UTC-Tagesschnitte |
+| `statik_check` | was sagt ein PARSER ueber die App? (seit v33.59) ESLint nur als Parser: doppelte Funktionen, Namen, die es nirgends gibt, tote `typeof`-Schuetze, Korrektheitsregeln, Funktionen ohne Aufrufer ausser sich selbst, undefinierte CSS-Variablen, sw.js. Laeuft als ERSTER; ohne ESLint „nicht pruefbar" |
+| `datum_check` | stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.59) Europe/Zurich mit gestellter Uhr — alle anderen laufen in UTC; T0 deckelt die UTC-Tagesschnitte |
 | `render_check` | sieht jeder der elf Tabs aus wie vorher? Vergleich zweier Staende (Radius, Schrift, Groesse, Farbe), verdaechtige Texte (`undefined`, `NaN`) muessen 0 sein |
 | `render_check` | aktuellen Stand vermessen |
 | `contrast_check` | WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge (Dialoge am `<body>` werden vermessen, nicht als „von #app verdeckt" uebersprungen) |

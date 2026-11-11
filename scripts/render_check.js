@@ -189,7 +189,7 @@ async function scan(browser, file) {
   for (const f of files) res.push([f, await scan(browser, f)]);
   await browser.close();
 
-  // v33.57: im Ein-Datei-Modus URTEILT dieser Pruefstand. Bis v33.56 endete er
+  // v33.59: im Ein-Datei-Modus URTEILT dieser Pruefstand. Bis v33.56 endete er
   // immer mit 0: „verdaechtige Textstellen: 3" haette die Suite als „rot: 0"
   // gemeldet. CLAUDE.md §7.1 sagt „diese Zahl muss 0 sein" — und nichts erzwang
   // es (dieselbe Luecke wie in contrast_check). Im Vergleichsmodus (zwei

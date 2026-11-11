@@ -3,7 +3,7 @@
 //
 //   node scripts/datum_check.js
 //
-// Anlass (v33.57): alle anderen Pruefstaende laufen in der Zeitzone der
+// Anlass (v33.59): alle anderen Pruefstaende laufen in der Zeitzone der
 // Maschine — hier und auf dem GitHub-Runner ist das UTC. Die Nutzer sitzen in
 // der Schweiz (UTC+1 / UTC+2). `new Date().toISOString().slice(0, 10)` ist der
 // UTC-Tag: zwischen 00:00 und 02:00 Ortszeit ist das GESTERN. In UTC sind

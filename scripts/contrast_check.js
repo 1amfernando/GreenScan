@@ -208,7 +208,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
   const leser = await (await br.newContext()).newPage();   // nur zum Pixel-Lesen
   await leser.goto('data:text/html,<title>px</title>');
 
-  // v33.57: dieser Pruefstand URTEILT. Bis v33.56 endete er IMMER mit 0 — er
+  // v33.59: dieser Pruefstand URTEILT. Bis v33.56 endete er IMMER mit 0 — er
   // druckte „N Textstellen unter AA" und die Suite meldete trotzdem „rot: 0";
   // in ihrem Auszug (die letzten zwoelf Zeilen) stand die Zahl des Hellmodus
   // nicht einmal. CLAUDE.md §7.1 sagte „soll 0 melden" — und nichts erzwang
@@ -461,7 +461,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (!/2 Fotos/.test(ov.textContent)) throw new Error('teilen-vorschau: Hinweiszeile fehlt — der Fall stellt seinen Zustand nicht her');
         return ov.firstElementChild;
       }],
-      // v33.57: die Rueckfrage. `gsConfirmModal` hat 49 Aufrufstellen und war nie
+      // v33.59: die Rueckfrage. `gsConfirmModal` hat 49 Aufrufstellen und war nie
       // vermessen — sie braucht Parameter, der automatische Durchgang ruft nur
       // Oeffner ohne. Gemessen im Dunkelmodus: Titel, Text und „Abbrechen" mit
       // 1,06:1 (`color:var(--fg,#1a1a1a)`, und `--fg` gab es nie). Jede
@@ -510,7 +510,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
       deckel = deckel || 8;
       try {
         const hoch = await p.evaluate(([fn, arg]) => {
-          window.__gsBodyVor = [].slice.call(document.body.children);   // v33.57: fuers Aufraeumen danach
+          window.__gsBodyVor = [].slice.call(document.body.children);   // v33.59: fuers Aufraeumen danach
           const res = (new Function('return (' + fn + ')'))()(arg);
           if (!res || !res.getBoundingClientRect) return 0;
           let sc = res;
@@ -574,7 +574,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
           // stehen gelassen, verdeckte sie jedes weitere Fenster.
           const tv = document.getElementById('gs-teilen-vorschau');
           if (tv && typeof gsDismissOverlay === 'function') { try { gsDismissOverlay(tv); } catch(_){} }
-          // v33.57: Rueckfrage und Eingabe geben ein Promise zurueck — „Abbrechen"
+          // v33.59: Rueckfrage und Eingabe geben ein Promise zurueck — „Abbrechen"
           // loest es sauber auf. Die Battle-Runde schliesst ueber closeModal (das
           // haelt auch ihren Zaehler an, v32.97).
           ['gs-confirm-cancel', 'gs-prompt-cancel'].forEach(id => { const b = document.getElementById(id); if (b) { try { b.click(); } catch(_){} } });
@@ -671,7 +671,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
     console.log('  automatisch geoeffnet: ' + autoNamen.length + ' Fenster' +
                 (autoGemessen ? ' · davon mit Befund: ' + autoGemessen : ' · ohne Befund'));
 
-    // ── Durchgang 3 (v33.57): Dialoge, die sich SELBST an den <body> haengen ──
+    // ── Durchgang 3 (v33.59): Dialoge, die sich SELBST an den <body> haengen ──
     //
     // Durchgang 2 findet nur Oeffner, deren Rumpf `openModal(` enthaelt. Rund
     // ein Dutzend Dialoge bauen ihr Fenster aber selbst (`document.body

@@ -100,7 +100,7 @@ Tagebuch in `CLAUDE.md`.
     holen/quittieren, je Foto eine Nummer). *(§4e, offline_check 25–41,
     apk_check G1–G9/T0–T13, v33.55/v33.56)*
 
-## Sechs Regeln aus v33.57 (CLAUDE.md §4f)
+## Sechs Regeln aus v33.59 (CLAUDE.md §4f)
 
 - **Ein Pull frischt auch den Arbeitsspeicher auf.** Wer in einem Pull-Zweig
   in den Speicher schreibt, weist dort auch die Variable zu (`gardens`,

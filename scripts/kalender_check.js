@@ -1366,7 +1366,7 @@ const FAELLE = [
     },
   },
   {
-    // v33.57. `_gsKalFilterSchreiben` rief `if (typeof markDirty === 'function')
+    // v33.59. `_gsKalFilterSchreiben` rief `if (typeof markDirty === 'function')
     // markDirty('state')` — eine globale `markDirty` gibt es nicht, sie heisst
     // `gsCloudSync.markDirty`. Der Schutz war immer falsch: die Wahl wurde
     // gespeichert und NIE zum Sync vorgemerkt. F6 misst, dass der Filter im

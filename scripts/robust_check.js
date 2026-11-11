@@ -21,7 +21,7 @@ const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/
 const SEED = require('./_seed.js');
 
 let __seite = null;
-let __browser = null;   // v33.57: fuer Faelle, die eine EIGENE Sitzung brauchen (Zweite Sitzung)
+let __browser = null;   // v33.59: fuer Faelle, die eine EIGENE Sitzung brauchen (Zweite Sitzung)
 const __anfragen = [];
 const FAELLE = [
   {
@@ -586,7 +586,7 @@ const FAELLE = [
         gsAROpen:         'AR-Ansicht einer Art. Nicht verdrahtet, und das ist GEMESSEN begruendet: ar_models hat 30 Zeilen, davon 0 mit gltf_url und 0 mit low_poly_url (09.09.2026, nur lesend). Es gibt kein einziges Modell — ein Knopf zeigte fuer JEDE Art nur den Rueckfall. Erst Modelle, dann Knopf.',
       };
       const wurzel = path.join(__dirname, '..');
-      // v33.57: der Korpus steht in scripts/_korpus.js — statik_check S5 stellt
+      // v33.59: der Korpus steht in scripts/_korpus.js — statik_check S5 stellt
       // dieselbe Frage von der anderen Seite (stehen ALLE weiteren Nennungen im
       // eigenen Rumpf?) und muss denselben Text zaehlen. Die Regeln sind
       // unveraendert: ganze Kommentarzeilen heraus, die eigene Ausfuhr
@@ -1018,7 +1018,7 @@ const FAELLE = [
   {
     name: 'Zweite Sitzung · die Artenliste sieht beim zweiten Start aus wie beim ersten — keine Aufbereitung im Arbeitsspeicher haengt an einem Schalter im Geraetespeicher',
     lauf: async () => {
-      // v33.57. Gemessen: `gsNormalizeCatEmojis` und `gsAutoFillLookalikes` bereiten
+      // v33.59. Gemessen: `gsNormalizeCatEmojis` und `gsAutoFillLookalikes` bereiten
       // die Artenliste IM ARBEITSSPEICHER auf — und stiegen aus, sobald ein
       // Schalter im Geraetespeicher stand (`gs_emoji_normalized_v2`,
       // `gs_lookalike_filled`), den sie beim ersten Lauf selbst setzten. Die
@@ -1079,7 +1079,7 @@ const FAELLE = [
   {
     name: 'Kaputter Speicher · kein einzelner Wert im Geraetespeicher verhindert den Start — abgeschnittenes JSON, null, {} und [null] in JEDEM gelesenen Schluessel: die App startet und laeuft fehlerfrei durch alle Tabs',
     lauf: async () => {
-      // v33.57 (Audit „robust", nachgestellt). Das Hauptskript las gs_market,
+      // v33.59 (Audit „robust", nachgestellt). Das Hauptskript las gs_market,
       // gs_recipes und gs_remedies beim PARSEN mit `JSON.parse(stored)` ohne Halt
       // und `arr.map(…)` ohne Formpruefung. EIN kaputter Wert (voller Speicher
       // mitten im Schreiben, ein Backup in alter Form) liess das ganze Skript
@@ -1133,7 +1133,7 @@ const FAELLE = [
   {
     name: 'Drei kleine Zusagen · die Community-Suche unterscheidet „nicht geladen" von „keine Treffer", der Backup-Import nimmt keine falsche Form an, und der Baum-Planer sagt „Gespeichert" erst nach dem Blick auf die Antwort',
     lauf: async () => {
-      // v33.57 (Audit „robust", alle drei bestaetigt).
+      // v33.59 (Audit „robust", alle drei bestaetigt).
       const r = await __seite.evaluate(async () => {
         const o = {};
         // ── Community-Suche: Fehler · leer · ein Treffer ──
@@ -1179,7 +1179,7 @@ const FAELLE = [
   {
     name: 'Deep-Link · ein ?screen=-Wert ohne Bildschirm fuehrt auf die Startseite statt ins Leere — und Sitemap wie Manifest nennen nur Werte, die es gibt',
     lauf: async () => {
-      // v33.57 (Audit „Auslieferung"). `?screen=light` stand in sitemap.xml;
+      // v33.59 (Audit „Auslieferung"). `?screen=light` stand in sitemap.xml;
       // gsHandleShortcutUrl reichte den Wert roh an switchTab, das ALLE Bildschirme
       // ausblendet und keinen zeigt, wenn es `screen-<wert>` nicht gibt.
       const wurzel = path.resolve(__dirname, '..');

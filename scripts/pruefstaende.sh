@@ -31,7 +31,7 @@ run() {
   if [ "$rc" = 2 ]; then WARN=$((WARN+1)); echo "EXIT=2 (nicht pruefbar)"; elif [ "$rc" != 0 ]; then ROT=$((ROT+1)); echo "EXIT=$rc  <<< ROT"; else echo "EXIT=0"; fi
 }
 SCHNELL=${1:-}
-# v33.57: statik_check zuerst — er LIEST die App als Programm (14 s) und meldet
+# v33.59: statik_check zuerst — er LIEST die App als Programm (14 s) und meldet
 # einen Syntaxfehler, eine doppelte Funktion oder einen Namen, den es nicht gibt,
 # bevor 39 andere eine halbe Stunde lang eine kaputte Seite vermessen.
 # Ohne ESLint: „nicht pruefbar" (Exit 2), nie gruen.
@@ -78,7 +78,7 @@ run android      node scripts/android_check.js
 # Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen.
 run apk          node scripts/apk_check.js
 run risiko       node scripts/risiko_check.js
-# v33.57: datum_check laeuft in Europe/Zurich mit gestellter Uhr (01:30 nachts) —
+# v33.59: datum_check laeuft in Europe/Zurich mit gestellter Uhr (01:30 nachts) —
 # alle anderen laufen in der Zeitzone der Maschine (hier und in CI: UTC), wo
 # „lokaler Tag" und „UTC-Tag" dasselbe sind.
 TAILN=10 run datum      node scripts/datum_check.js

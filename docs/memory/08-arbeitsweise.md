@@ -134,7 +134,7 @@ Live-Seite ist aus einer Cloud-Sitzung nicht erreichbar (`CONNECT … 403`).
 
 ## 9b · Ein breiter Audit ist ein Workflow, nicht acht lose Agenten
 
-Seit v33.57 liegt er im Repo: `.claude/workflows/greenscan-audit.js` — acht
+Seit v33.59 liegt er im Repo: `.claude/workflows/greenscan-audit.js` — acht
 Blickwinkel (`robust` · `escape` · `datum` · `edge` · `sw` · `css` · `daten` ·
 `android`), je ein Auditor (nur lesend) und ein Gegenpruefer, der jeden Fund zu
 widerlegen versucht. `args.linsen` waehlt aus, `args.scratch` sagt, wohin die
