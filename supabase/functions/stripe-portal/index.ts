@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       return json(502, { error: "Stripe customer lookup failed", detail: kunde.sucheFehler });
     }
     if (!kunde.kundeId) {
-      return json(404, { error: "No Stripe customer found", hint: "Noch kein Abo gestartet — das Portal gibt es erst nach dem ersten Kauf." });
+      return json(404, { error: "No Stripe customer found", grund: "kein_kunde", hint: "Noch kein Abo gestartet — das Portal gibt es erst nach dem ersten Kauf." });
     }
 
     const zurueck = rueckkehrAdresse(return_url, `${APP_URSPRUNG}/?billing=return`);

@@ -655,6 +655,72 @@ const FAELLE = [
       }
     }),
   },
+  {
+    name: 'E14 · „Abo verwalten" sagt nur, was die App weiss: wer nie gekauft hat, liest einen Satz ohne „Support"; ein geschlossenes Portal-Fenster ist keine Kündigung und keine Reaktivierung; ein echter Fehler nennt den Support einmal — und ein Objekt wird nie zu „[object Object]"',
+    lauf: async () => __seite.evaluate(async () => {
+      const alt = { fetch: window.fetch, sbIsLoggedIn: window.sbIsLoggedIn, tok: window._gsFreshToken, fenster: window._gsCheckoutFenster, toast: window.gsToast, laden: window.gsLoadEntitlements, karte: window.gsRefreshSubInfoCardRetry };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const toasts = [], klagen = [], gesendet = [];
+      let antwort = null, popup = null;
+      const text = (t) => (t && typeof t === 'object') ? String(t.title || '') + ' | ' + String(t.body || '') : String(t);
+      try {
+        window.sbIsLoggedIn = () => true;
+        window._gsFreshToken = async () => 'pruefstand';
+        window._gsCheckoutFenster = () => { popup = { closed: false, document: { write() {}, body: {} }, location: {}, close() { this.closed = true; } }; return popup; };
+        window.gsToast = (m) => { toasts.push(m); };
+        window.gsLoadEntitlements = async () => null;
+        window.gsRefreshSubInfoCardRetry = () => {};
+        window.fetch = async (url, init) => {
+          if (String(url).indexOf('/functions/v1/stripe-portal') < 0) throw new Error('kein Netz im Pruefstand');
+          try { gesendet.push(JSON.parse(init.body)); } catch (_) { gesendet.push(null); }
+          return { ok: antwort.status < 400, status: antwort.status, json: async () => antwort.body };
+        };
+        const oeffne = async (flow, a) => { toasts.length = 0; popup = null; antwort = a; await gsOpenBillingPortal(flow); await warte(60); };
+
+        // 1 · nie gekauft (die neue Function nennt die Kennung): ein Satz, kein „Support", keine Fehlermeldung
+        await oeffne(undefined, { status: 404, body: { error: 'No Stripe customer found', grund: 'kein_kunde', hint: 'Noch kein Abo gestartet — das Portal gibt es erst nach dem ersten Kauf.' } });
+        const t1 = toasts[toasts.length - 1];
+        if (!t1 || t1.type !== 'info' || /info@|Support|nicht verfügbar|No Stripe/.test(text(t1)) || !/ersten Kauf/.test(text(t1))) klagen.push('nie gekauft: „' + text(t1) + '" (Art ' + (t1 && t1.type) + ')');
+        if (!popup || popup.closed !== true) klagen.push('nie gekauft: das Fenster bleibt offen');
+        // … und die Function bis v5 (ohne Kennung) wird gleich gelesen
+        await oeffne(undefined, { status: 404, body: { error: 'No Stripe customer found', hint: 'User hat noch kein Abo gestartet. Erst Plus/Pro buchen, dann Portal verfügbar.' } });
+        const t1b = toasts[toasts.length - 1];
+        if (!t1b || t1b.type !== 'info' || /Plus\/Pro|User hat/.test(text(t1b))) klagen.push('nie gekauft, alte Function: „' + text(t1b) + '"');
+        // … ein ANDERES 404 (die Function gibt es nicht) ist kein „nie gekauft"
+        await oeffne(undefined, { status: 404, body: { code: 'NOT_FOUND', message: 'Requested function was not found' } });
+        const t1c = toasts[toasts.length - 1];
+        if (!t1c || t1c.type !== 'error' || /ersten Kauf/.test(text(t1c))) klagen.push('die Function fehlt: „' + text(t1c) + '" (Art ' + (t1c && t1c.type) + ') — als „nie gekauft" gemeldet');
+
+        // 2 · Stripe kennt den Kunden nicht mehr: der Support steht EINMAL da
+        await oeffne(undefined, { status: 404, body: { error: 'No Stripe customer found', grund: 'kunde_unbekannt', hint: 'Zu diesem Konto gibt es bei Stripe keinen Kunden (mehr) — bitte melde dich beim Support.' } });
+        const t2 = toasts[toasts.length - 1];
+        if (!t2 || t2.type !== 'error' || (text(t2).match(/info@greenscan\.ch/g) || []).length !== 1 || !/Bitte schreib uns/.test(text(t2)) || /melde dich beim Support/.test(text(t2))) klagen.push('Kunde unbekannt: „' + text(t2) + '" (erwartet der Satz der App, mit der Adresse genau einmal)');
+
+        // 3 · ein Fehler mit einem OBJEKT (so antwortet das Gateway): ein Satz mit der Nummer
+        await oeffne(undefined, { status: 500, body: { error: { message: 'boom' } } });
+        const t3 = toasts[toasts.length - 1];
+        if (!t3 || /object Object/.test(text(t3)) || !/500/.test(text(t3)) || !/info@greenscan\.ch/.test(text(t3))) klagen.push('Objekt als Fehler: „' + text(t3) + '"');
+
+        // 4 · das Portal ging auf und wurde geschlossen: die App behauptet weder Kündigung noch Reaktivierung
+        for (const flow of ['reactivate', 'cancel']) {
+          await oeffne(flow, { status: 200, body: { url: 'https://billing.stripe.com/p/session/pruefstand', flow: 'default' } });
+          if (!popup || popup.location.href !== 'https://billing.stripe.com/p/session/pruefstand') { klagen.push(flow + ': das Fenster zeigt nicht auf das Portal'); continue; }
+          if (!gesendet.length || gesendet[gesendet.length - 1].flow !== flow || !gesendet[gesendet.length - 1].locale) klagen.push(flow + ': gesendet ' + JSON.stringify(gesendet[gesendet.length - 1]));
+          popup.closed = true;
+          await warte(1100);
+          const t4 = toasts[toasts.length - 1];
+          if (!t4) klagen.push(flow + ': nach dem Schliessen sagt die App nichts');
+          else if (/wird verarbeitet|Reaktivierung|Kündigung/.test(text(t4))) klagen.push(flow + ': nach dem blossen Schliessen des Fensters steht „' + text(t4) + '" — das hat niemand nachgesehen');
+          else if (!/neu geladen/.test(text(t4))) klagen.push(flow + ': „' + text(t4) + '"');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'nie gekauft → „' + text(t1).slice(0, 60) + '" (Hinweis, kein Support) · alte Function gleich gelesen · fehlende Function bleibt ein Fehler · Kunde unbekannt → Support einmal · Objekt → Satz mit 500 · Fenster geschlossen → „' + text(toasts[toasts.length - 1]).slice(0, 44) + '…"' };
+      } finally {
+        window.fetch = alt.fetch; window.sbIsLoggedIn = alt.sbIsLoggedIn; window._gsFreshToken = alt.tok; window._gsCheckoutFenster = alt.fenster; window.gsToast = alt.toast; window.gsLoadEntitlements = alt.laden; window.gsRefreshSubInfoCardRetry = alt.karte;
+        window._gsBillingPopup = false;
+      }
+    }),
+  },
 ];
 
 (async () => {

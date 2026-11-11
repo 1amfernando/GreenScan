@@ -19386,7 +19386,9 @@ async function gsOpenBillingPortal(flow) {
     }, 20000);
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || !data || !data.url) {
-      throw new Error((data && (data.hint||data.error||data.message)) || 'Portal nicht verfügbar');
+      var neinP = new Error(_gsPortalGrund(data, resp.status));
+      neinP.grund = _gsPortalKennung(data, resp.status);
+      throw neinP;
     }
     if (popup && !popup.closed) {
       popup.location.href = data.url;
@@ -19400,8 +19402,10 @@ async function gsOpenBillingPortal(flow) {
           // damit Kündigung/Reaktivierung sofort sichtbar wird statt stillem "Aktiv".
           if (typeof gsRefreshSubInfoCardRetry === 'function') gsRefreshSubInfoCardRetry();
           try {
-            if (flow === 'cancel') gsToast('Kündigung wird verarbeitet — der Status aktualisiert sich in wenigen Sekunden.', 'info', 5000);
-            else if (flow === 'reactivate') gsToast('Reaktivierung wird verarbeitet — gleich aktualisiert.', 'info', 4000);
+            // v33.60: was im Portal geschah, weiss die App nicht — ein geschlossenes Fenster ist keine
+            // Kündigung und keine Reaktivierung („wird verarbeitet" stand hier auch nach einem blossen
+            // Wegklicken). Sie sagt, was sie TUT; was gilt, zeigt danach die Abo-Karte.
+            if (flow === 'cancel' || flow === 'reactivate') gsToast(_gsSatz('Dein Abo-Stand wird neu geladen — das kann ein paar Sekunden dauern.'), 'info', 5000);
           } catch(_){}
         }
       }, 800);
@@ -19410,8 +19414,32 @@ async function gsOpenBillingPortal(flow) {
     }
   } catch(e) {
     try { if (popup && !popup.closed) popup.close(); } catch(_){}
-    gsToast({title:'Stripe-Portal nicht verfügbar', body:(e.message||e) + ' — Bitte wende dich an info@greenscan.ch', type:'error', duration:6000});
+    // v33.60: „noch nie gekauft" ist kein Fehler und braucht keinen Support.
+    if (e && e.grund === 'kein_kunde') {
+      gsToast({title: _gsSatz('Noch kein Abo'), body: e.message, type: 'info', duration: 5000});
+      return;
+    }
+    gsToast({title: _gsSatz('Stripe-Portal nicht verfügbar'), body: (e && e.message) || String(e), type: 'error', duration: 6000});
   }
+}
+// Warum das Portal nicht aufging — als Satz in der Sprache der App. stripe-portal nennt seit v6 eine
+// Kennung (`grund`); ohne sie (die alte Function, ein Fehler davor) bleibt die Serverzeile — wenn sie
+// ein Text ist — mit dem Hinweis auf den Support.
+// Die Kennung: die der Function — oder, bei der Fassung bis v5 (ohne Kennung), ihr einziges 404:
+// „No Stripe customer found" hiess dort „noch nie gekauft". Ein anderes 404 (die Function gibt es
+// nicht) ist KEIN „nie gekauft".
+function _gsPortalKennung(data, status) {
+  if (data && typeof data.grund === 'string' && data.grund) return data.grund;
+  if (status === 404 && data && data.error === 'No Stripe customer found') return 'kein_kunde';
+  return null;
+}
+function _gsPortalGrund(data, status) {
+  var g = _gsPortalKennung(data, status);
+  if (g === 'kein_kunde') return _gsSatz('Das Portal gibt es erst nach dem ersten Kauf.');
+  if (g === 'kunde_unbekannt') return _gsSatz('Zu diesem Konto gibt es bei Stripe keinen Kunden mehr. Bitte schreib uns: info@greenscan.ch');
+  if (status === 401) return _gsSatz('Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.');
+  var roh = data && (data.hint || data.error || data.message);
+  return ((typeof roh === 'string' && roh) ? roh : _gsSatz('Das Portal ist gerade nicht erreichbar (Fehler {1}).', status)) + ' — ' + _gsSatz('Bitte wende dich an info@greenscan.ch');
 }
 
 // ── Kauf wiederherstellen: Entitlements neu laden ─────────────

@@ -1812,7 +1812,7 @@ const PORTAL = [
     lauf: async () => {
       neueWelt();
       const a = await rufe('portal', { body: {} });
-      if (a.status !== 404 || stripeRufe('billingPortal.sessions.create').length || stripeRufe('customers.create').length) return { ok: false, warum: 'nie gekauft: status ' + a.status + ' · Portal-Sitzungen ' + stripeRufe('billingPortal.sessions.create').length + ' · neue Kunden ' + stripeRufe('customers.create').length };
+      if (a.status !== 404 || !a.daten || a.daten.grund !== 'kein_kunde' || stripeRufe('billingPortal.sessions.create').length || stripeRufe('customers.create').length) return { ok: false, warum: 'nie gekauft: status ' + a.status + ' · Kennung ' + z(a.daten && a.daten.grund) + ' (erwartet kein_kunde — die App macht daraus einen Satz ohne „Support") · Portal-Sitzungen ' + stripeRufe('billingPortal.sessions.create').length + ' · neue Kunden ' + stripeRufe('customers.create').length };
       neueWelt(); ANNA_KUNDE();
       const b = await rufe('portal', { body: {} });
       if (b.status !== 200 || stripeRufe('billingPortal.sessions.create')[0].arg.customer !== 'cus_anna') return { ok: false, warum: 'nur bei Stripe bekannt: status ' + b.status };
