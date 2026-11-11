@@ -101,6 +101,41 @@ const FAELLE = [
     },
   },
   {
+    name: 'A3b · Trefferliste: Name und lateinischer Name einer Community-Art stehen als Text — mit und ohne Suchwort, auch auf Seite 2',
+    lauf: async () => {
+      const r = await __seite.evaluate(async (BOESE) => {
+        const neu = [];
+        for (let i = 0; i < 100; i++) neu.push({ id: 'COM_l' + i, name: 'Qqliste ' + i + ' ' + BOESE, lat: BOESE + ' lat' + i, cat: 'qqkat', emoji: '🌿', edible: false, toxic: false, tox: null, _community: true, _unverified: true });
+        neu.forEach(s => DB.push(s));
+        const zaehl = () => { const l = document.getElementById('results-list'); return { imgs: Array.from(l.querySelectorAll('img')).filter(i => i.getAttribute('src') === 'x').length, karten: l.querySelectorAll('.sp-card').length, text: (l.textContent || '').indexOf('<img src=x') >= 0, mark: l.querySelectorAll('mark').length }; };
+        try {
+          switchTab('search');
+          currentFilter = 'qqkat'; searchText = ''; renderList();
+          await new Promise(r => setTimeout(r, 350));
+          const ohne = zaehl();
+          loadMoreList();
+          await new Promise(r => setTimeout(r, 350));
+          const seite2 = zaehl();
+          currentFilter = ''; doSearch('qqliste');
+          await new Promise(r => setTimeout(r, 600));
+          const mit = zaehl();
+          return { pwned: window.__pwned, ohne, seite2, mit };
+        } finally {
+          neu.forEach(s => { const i = DB.indexOf(s); if (i >= 0) DB.splice(i, 1); });
+          currentFilter = ''; searchText = ''; try { doSearch(''); } catch (_) {}
+        }
+      }, BOESE);
+      if (r.pwned !== undefined) return { ok: false, warum: 'Code lief (__pwned)' };
+      for (const k of ['ohne', 'seite2', 'mit']) {
+        if (r[k].imgs) return { ok: false, warum: k + ': ' + r[k].imgs + ' <img> gerendert' };
+        if (!r[k].karten || !r[k].text) return { ok: false, warum: k + ': der Wert steht nicht als Text da (' + JSON.stringify(r[k]) + ')' };
+      }
+      if (r.seite2.karten <= r.ohne.karten) return { ok: false, warum: 'Seite 2 kam nicht dazu — der Fall misst sie nicht' };
+      if (!r.mit.mark) return { ok: false, warum: 'die Hervorhebung des Suchworts ist weg' };
+      return { ok: true, info: 'ohne Suchwort ' + r.ohne.karten + ' Karten · Seite 2 ' + r.seite2.karten + ' · mit Suchwort ' + r.mit.karten + ' (' + r.mit.mark + ' Markierungen) · 0 <img>' };
+    },
+  },
+  {
     name: '_gsOcStr · Rundreise durch HTML- und JS-Parser fuer 7 Werte (Apostroph, Anfuehrungszeichen, Backslash, &#39;, Tag, Zeilenumbruch, &amp;) — und escHtml allein scheitert am Apostroph (Gegenprobe)',
     lauf: async () => __seite.evaluate(() => {
       const werte = ["O'Brien", 'a"b', 'back\\slash', '&#39;x', '<b>y</b>', 'line\nbreak', '&amp; und &'];

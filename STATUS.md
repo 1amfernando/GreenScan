@@ -4,13 +4,45 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.58` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-11 (je) - v33.61: Was „Essbar" und „Ungiftig" heisst, gilt überall gleich — und der Scan-Chat warnt wie Lina
+
+**Auftrag (Fernando, 11.11.2026):** eine Sitzung nur für die vier Hauptfunktionen — Home,
+Scanner, Suche, Lina. Erstes Paket: die Sicherheitsfunde aus der Bestandsaufnahme. Die
+Arbeitsliste für alles Weitere steht in `docs/HAUPTFUNKTIONEN.md`.
+
+**Gemessen und behoben** (Zahlen aus `scan_check` am Stand dieses Commits):
+
+- **Filter fragten den Eintrag, nicht die Art.** `_gsPassCat` las `sp.edible`/`sp.toxic` roh
+  und kannte `_unverified` nicht. 167 Einträge standen unter „Essbar", deren Karte in
+  derselben Liste kein „Essbar" trug; 1'476 unter „Ungiftig", die meisten davon die
+  ungeprüften Einlese-Einträge (v31.90) ohne Giftangabe. `gsIstEssbar` und `_gsPassCat`
+  gehen jetzt durch `_gsArtAnzeige`; ungeprüft ist weder essbar noch ungiftig. Die
+  Startkachel „Essbar" zählt damit 1'062 statt 1'228.
+- **`_gsArtAnzeige` machte 14 Einträge essbarer, als sie selbst sagen** (brett fcaf): `edible`
+  bewegt sich nur noch zur vorsichtigen Seite.
+- **Menü „Giftige / Essbare Pflanzen / Heilpflanzen"** tippte das Wort in die Volltextsuche —
+  „giftig" traf 222 essbare Arten. Jetzt `gsZeigeEigenschaft(wert)`, derselbe Weg wie die
+  Startkachel.
+- **Trefferliste:** `sp.name`/`sp.lat` standen roh im HTML, auch Community-Namen; `gsHighlight`
+  escapte nicht. Jetzt `escHtml` an allen vier Stellen (Seite 1, Seite 2, mit und ohne Suchwort).
+- **Notfall-Erkennung ohne Spanisch** (brett df0b): 0 von 8 Sätzen; Vokabular ergänzt, vier
+  harmlose spanische Fragen bleiben ohne Nummer.
+- **Scan-Chat ohne Linas Schutz:** kein `_gsNotfallStufe`, kein `_gsLinaSicherheit`. Beide
+  jetzt drin, die Nummer kommt vor der Frage „ist die KI da?", und `**fett**` wird dargestellt.
+
+**Prüfstände:** `scan_check` +4 (D1j, F1, F2, SC1), N1 um 8 + 4 spanische Sätze, E1b misst an
+der Art; `escape_check` +1 (A3b).
+
+**Offen:** nichts
+**Nicht geprüft:** ob die spanischen Sätze für Muttersprachler natürlich sind (aus dem Brett-Befund und eigener Auswahl, kein Korpus); die Gegenprobe im Scan-Chat nur mit gestellter KI-Antwort — eine echte Antwort ist von hier nicht erreichbar; Gegenproben (Reparatur zurückgebaut → rot) nur für F2 gesehen (roter Erstlauf), nicht für jeden neuen Fall einzeln.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
@@ -15519,7 +15551,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.58` (Client) · SW-Cache `gs-v33.58` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.61` (Client) · SW-Cache `gs-v33.61` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **97'094 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **586 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.

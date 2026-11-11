@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.58.20261111">
+<meta name="app-version" content="33.61.20261111">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9441,17 +9441,24 @@ function gsUpdateGartenWidgets() {
 // Baeume und Pilze fehlten, nicht essbare Wildpflanzen standen drin).
 // Gedrueckt wird der ECHTE Filterknopf, damit es KEINE zweite Filterregel gibt
 // und der sichtbare Zustand der Leiste zur Liste passt.
-function gsZeigeEssbare() {
+function gsZeigeEssbare() { gsZeigeEigenschaft('essbar'); }
+window.gsZeigeEssbare = gsZeigeEssbare;
+// v33.61: derselbe Weg fuer JEDE Eigenschaft. Die Menue-Eintraege „Giftige Pflanzen",
+// „Essbare Pflanzen" und „Heilpflanzen" tippten bis v33.58 das WORT in die Suche — die
+// Volltextsuche traf damit auch „ungeniessbar", „nicht giftig" und jeden essbaren Eintrag,
+// dessen Verwechslungshinweis „giftige Doppelgaenger" nennt.
+function gsZeigeEigenschaft(wert) {
+  if (['essbar','giftig','ungiftig','heilpflanze','geschuetzt'].indexOf(wert) < 0) return;
   try { switchTab('search', document.querySelectorAll('.tab')[2]); } catch (_) {}
   var row = document.getElementById('sf-props-row');
   if (row && row.style.display === 'none') { try { gsTogglePropFilter(); } catch (_) {} }
-  var btn = document.querySelector('.sf-btn.sf-prop[onclick*="\'essbar\'"]');
+  var btn = document.querySelector('.sf-btn.sf-prop[onclick*="\'' + wert + '\'"]');
   if (btn) { btn.click(); return; }
   // Ohne den Knopf bleibt der Weg ueber den Filterwert — dieselbe Regel
-  // (_gsPassCat kennt 'essbar'), nur ohne sichtbare Markierung.
-  try { gsFilter('essbar', null); } catch (_) {}
+  // (_gsPassCat), nur ohne sichtbare Markierung.
+  try { gsFilter(wert, null); } catch (_) {}
 }
-window.gsZeigeEssbare = gsZeigeEssbare;
+window.gsZeigeEigenschaft = gsZeigeEigenschaft;
 
 function gsTogglePropFilter() {
   var row = document.getElementById('sf-props-row');
@@ -17667,7 +17674,15 @@ function _gsArtGruppe(sp, abfrageLat) {
 // „Edelweiss: Nur fotografieren, nicht pfluecken").
 // Wer nach essbar fragt, fragt hier — und nirgends mit einer eigenen Regel.
 // Dasselbe Praedikat wie der Filter „✅ Essbar" (_gsPassCat: `!sp.edible`).
-function gsIstEssbar(sp) { return !!(sp && sp.edible); }
+// v33.61: die Frage gilt der ART, nicht dem Eintrag (dieselbe Regel wie v32.91-95), und ein
+// ungepruefter Community-Eintrag ist keine Zusage. Vorher las der Filter „✅ Essbar" den
+// Roheintrag: ein Eintrag mit `edible:true`, dessen Art die Liste als nicht essbar fuehrt,
+// stand im Filter — waehrend seine Karte in derselben Liste KEIN „Essbar" trug.
+function gsIstEssbar(sp) {
+  if (!sp || sp._unverified) return false;
+  var a = (typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(sp) || sp) : sp;
+  return !!a.edible;
+}
 window.gsIstEssbar = gsIstEssbar;
 
 // v32.92 — Die Sicherheitsangaben, die eine ANZEIGE zeigen darf.
@@ -17699,7 +17714,11 @@ function _gsArtAnzeige(sp) {
         var hoeher = (v.tox || 0) > (sp.tox || 0);
         var essbarWeg = !!sp.edible && !v.edible;
         if (hoeher || essbarWeg) erg = Object.assign({}, sp, {
-          tox: v.tox, toxic: v.toxic, edible: v.edible,
+          tox: v.tox, toxic: v.toxic,
+          // v33.61 (brett:2026-11-11-fcaf): `edible` bewegt sich NUR zur vorsichtigen Seite.
+          // Vorher uebernahm die Korrektur das `edible` der Art auch, wenn nur die Giftstufe
+          // hoeher war — 14 Eintraege mit eigenem `edible:false` standen danach als essbar da.
+          edible: !!sp.edible && !!v.edible,
           warning: sp.warning || v.warning,
           lookalike: sp.lookalike || v.lookalike,
           _korrigiert: { vonTox: sp.tox, aufTox: v.tox, hoeher: hoeher, essbarWeg: essbarWeg }
@@ -20726,14 +20745,16 @@ window.gsAddScanToGarden = gsAddScanToGarden;
 
 // ══ SUCH-HIGHLIGHTING ════════════════════════════════════════
 function gsHighlight(text, query) {
-  if (!query || !text) return text || '';
+  if (!query || !text) return escHtml(text || '');
   try {
-    var safe = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return String(text).replace(
+    // v33.61: der Name kann aus der Community kommen (Fremdtext) — erst escapen, dann markieren.
+    // Gesucht wird die ESCAPTE Anfrage im escapten Text, sonst traefe „&" nie.
+    var safe = escHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return escHtml(text).replace(
       new RegExp('(' + safe + ')', 'gi'),
       '<mark style="background:rgba(255,235,59,.45);color:var(--text);border-radius:var(--r-xs);padding:0 1px;font-weight:800;">$1</mark>'
     );
-  } catch(e) { return text; }
+  } catch(e) { return escHtml(text); }
 }
 
 // ══ SMARTER SAISON-TIPP ══════════════════════════════════════
@@ -36904,7 +36925,9 @@ function addScanChatMsg(role, text, isHtml) {
   var avatarEmoji = isUser ? '👤' : (_lastScanResult && _lastScanResult.emoji ? (_lastScanResult.emoji||'🌿') : '🌿');
   div.innerHTML = '<div style="font-size:var(--fs-xl);flex-shrink:0;margin-top:2px;">' + avatarEmoji + '</div>' +
     '<div style="background:' + (isUser?'var(--g-main)':'var(--surface2)') + ';color:' + (isUser?'#fff':'var(--text)') + ';border-radius:var(--r-md);padding:9px 13px;max-width:82%;font-size:var(--fs-md);line-height:1.55;">' +
-    (isHtml ? gsSanitizeHtml(text) : text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')) + '</div>';   // v32.66 (Audit A10): HTML nur durch die Allowlist
+    // v33.61: **fett** und Zeilenumbrueche werden dargestellt statt als Sternchen gezeigt — erst
+    // escapen, dann die zwei Auszeichnungen setzen, dann durch die Allowlist.
+    (isHtml ? gsSanitizeHtml(text) : gsSanitizeHtml(escHtml(text).replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>'))) + '</div>';   // v32.66 (Audit A10): HTML nur durch die Allowlist
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
 }
@@ -36914,12 +36937,28 @@ async function sendScanChat() {
   var msg = inp ? inp.value.trim() : '';
   if (!msg) return;
   var {key, source} = getApiConfig();
+  // v33.61: der Notfall geht VOR der Frage, ob die KI da ist — die Nummer braucht keine KI.
+  var _scTn = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  var _scStufe = 'keiner';
+  try { _scStufe = (typeof _gsNotfallStufe === 'function') ? _gsNotfallStufe(msg.toLowerCase()) : 'keiner'; } catch(_){}
+  var _scNummer = _scTn('notfall_sofort', '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\n\nNotruf: **144** | EU: **112**\n\nBeschreibe welche Pflanze/Pilz, wann und wie viel.');
+  if (_scStufe === 'dringend' && !gsKiVerfuegbar({ key: key, source: source })) {
+    inp.value = '';
+    addScanChatMsg('user', msg, false);
+    addScanChatMsg('assistant', _scNummer, false);
+    return;
+  }
   // v33.57: dieselbe Frage wie der Scanner — der Proxy braucht keinen Schluessel im Browser.
   if (!gsKiVerfuegbar({ key: key, source: source })) { gsToast('Die KI ist gerade nicht erreichbar — bitte gleich nochmal versuchen.', 'warning'); return; }
   
   inp.value = '';
   addScanChatMsg('user', msg, false);
   _scanChatHistory.push({role:'user', content: msg});
+  // v33.61: derselbe Schutz wie bei Lina (v33.30) — EIN Notfall-Vokabular, EINE Gegenprobe.
+  // Der Scan-Chat ist der Ort, an dem jemand „kann ich den essen?" fragt, mit dem Pilz in
+  // der Hand; bis v33.58 hatte er weder die Nummer noch die Warnzeile. Die Nummer kommt
+  // sofort, die Antwort trotzdem (ein Fehlalarm nimmt der Person die Antwort nicht weg).
+  if (_scStufe === 'dringend') addScanChatMsg('assistant', _scNummer, false);
   
   // Lade-Indikator
   var loadDiv = document.createElement('div');
@@ -36944,6 +36983,16 @@ async function sendScanChat() {
     while (_chatMsgs.length && _chatMsgs[0].role !== 'user') _chatMsgs.shift();
     var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat' });
     if (!answer) answer = _gsSatz('Darauf kam keine Antwort — bitte noch einmal fragen.');
+    // v33.61: die Gegenprobe NACH der Antwort — gegen die gescannte Art UND jede, die in der
+    // Frage steht. Sagt die Antwort „essbar" ueber eine Art mit Giftstufe >= 3, steht die
+    // Warnzeile DARUEBER; die Antwort selbst bleibt.
+    try {
+      var _scText = (r ? (r.name || '') + ' ' + (r.latin || '') + ' ' : '') + msg;
+      var _scTreffer = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(_scText) : null;
+      var _scWarn = (typeof _gsLinaSicherheit === 'function') ? _gsLinaSicherheit(answer, _scTreffer) : '';
+      if (_scWarn) answer = _scWarn + '\n\n' + answer;
+      if (_scStufe === 'hinweis') answer = _scTn('notfall_hinweis', '⚠️ Wenn jemand etwas gegessen hat und sich unwohl fühlt: **Tox Info Suisse 145** (rund um die Uhr).') + '\n\n' + answer;
+    } catch(_){}
     var ld = document.getElementById('scan-chat-loading');
     if (ld) ld.remove();
     addScanChatMsg('assistant', answer, false);
@@ -37662,9 +37711,15 @@ function _gsLeven(a,b,max){
 }
 function _gsPassCat(sp){
   var t=currentFilter;
-  if(t==='essbar'     && !sp.edible) return false;
-  if(t==='giftig'     && !sp.toxic) return false;
-  if(t==='ungiftig'   && (sp.toxic||sp.tox>0)) return false;
+  // v33.61: die drei Sicherheits-Filter fragen die ART (_gsArtAnzeige) — wie die Karte, die
+  // sie danach zeigt. „Ungiftig" ist eine Zusage: ein ungepruefter Community-Eintrag
+  // (tox:null, toxic:false) gehoert nicht hinein, er hat nur keine Angabe.
+  if(t==='essbar'||t==='giftig'||t==='ungiftig'){
+    var a=(typeof _gsArtAnzeige==='function')?(_gsArtAnzeige(sp)||sp):sp;
+    if(t==='essbar'   && !gsIstEssbar(sp)) return false;
+    if(t==='giftig'   && !(a.toxic||a.tox>=2)) return false;
+    if(t==='ungiftig' && (sp._unverified||a.toxic||a.tox>0)) return false;
+  }
   if(t==='geschuetzt' && !sp.protected) return false;
   if(t==='heilpflanze'&& !sp.medicinal) return false;
   if(t && !['essbar','giftig','ungiftig','geschuetzt','heilpflanze'].includes(t) && sp.cat!==t) return false;
@@ -37787,8 +37842,8 @@ function renderList(){
       '<div class="sp-inner">' +
         '<div class="sp-emoji">' + (typeof getEmoji==='function'?getEmoji(sp):(sp.emoji||'🌿')) + '</div>' +
         '<div class="sp-info">' +
-          '<div class="sp-name">' + (searchText && typeof gsHighlight==='function' ? gsHighlight(sp.name, searchText) : sp.name) + '</div>' +
-          '<div class="sp-lat">' + latName + '</div>' +
+          '<div class="sp-name">' + (searchText && typeof gsHighlight==='function' ? gsHighlight(sp.name, searchText) : escHtml(sp.name)) + '</div>' +
+          '<div class="sp-lat">' + escHtml(latName) + '</div>' +
           '<div class="sp-tags">' + tagsHtml + '</div>' +
         '</div>' +
         '<div class="sp-tox">' + t.sym + '</div>' +
@@ -37850,7 +37905,7 @@ function loadMoreList() {
         '<div class="sp-emoji">' + emoji + '</div>' +
         '<div class="sp-info">' +
           '<div class="sp-name">' + name + '</div>' +
-          '<div class="sp-lat">' + latName + '</div>' +
+          '<div class="sp-lat">' + escHtml(latName) + '</div>' +
           '<div class="sp-tags">' + tagsHtml + '</div>' +
         '</div>' +
         '<div class="sp-tox">' + t.sym + '</div>' +
@@ -56771,9 +56826,9 @@ const MENU_ITEMS = [
   {label:'🌲 Bäume', cat:'baum', sub:'Arten', action:"menuNav('search');setFilter('baum',null)", tags:['baum','strauch','wald','holz','bäume']},
   {label:'🪴 Hauspflanzen', cat:'hauspflanze', sub:'Arten', action:"menuNav('search');setFilter('hauspflanze',null)", tags:['hauspflanze','zimmer','topf','indoor','zimmerpflanze']},
   // Specific topics
-  {label:'⚠️ Giftige Pflanzen', sub:'Gefährliche Arten', action:"menuNav('search');document.getElementById('search-input').value='giftig';doSearch()", tags:['giftig','gefährlich','vergiftung','toxic']},
-  {label:'🍽️ Essbare Pflanzen', sub:'Essbare Wildpflanzen', action:"menuNav('search');document.getElementById('search-input').value='essbar';doSearch()", tags:['essbar','essen','speisepilz','wildgemüse','sammeln']},
-  {label:'💊 Heilpflanzen', sub:'Medizinische Arten', action:"menuNav('search');document.getElementById('search-input').value='heilpflanze';doSearch()", tags:['heilpflanze','medizin','tee','naturheilkunde','heilmittel']},
+  {label:'⚠️ Giftige Pflanzen', sub:'Gefährliche Arten', action:"menuNav('search');gsZeigeEigenschaft('giftig')", tags:['giftig','gefährlich','vergiftung','toxic']},
+  {label:'🍽️ Essbare Pflanzen', sub:'Essbare Wildpflanzen', action:"menuNav('search');gsZeigeEigenschaft('essbar')", tags:['essbar','essen','speisepilz','wildgemüse','sammeln']},
+  {label:'💊 Heilpflanzen', sub:'Medizinische Arten', action:"menuNav('search');gsZeigeEigenschaft('heilpflanze')", tags:['heilpflanze','medizin','tee','naturheilkunde','heilmittel']},
 
   // ── v23.53: neue Einträge + Feature-Discovery ──────────────────
   {label:'🤖 KI-Gartenplaner PRO', sub:'Bepflanzungsplan mit Ernte-Prognose', action:"openGardenAI()", tags:['ki','agent','planer','garten','bepflanzung','plan','mischkultur','ernte','prognose','skizze','fläche']},
@@ -59725,18 +59780,19 @@ function _gsNotfallStufe(t) {
     // 0 von 12 franzoesischen, italienischen und englischen Notfallsaetzen,
     // nicht einmal „empoisonnement", „avvelenamento", „poisoning".
     // Die Nummern (145/144/112) gelten ohnehin fuer alle.
-    var AKUT = /vergift|notfall|notruf|empoisonn|intoxicat|avvelenament|poisoning|poisoned|emergency/;
-    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt|mangé|manger|avalé|ingéré|croqué|mangiato|ingerito|inghiottito|\bate\b|eaten|swallow|swallowed|bit into|chewed/;
-    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht|vomi|nausée|diarrhée|mal au ventre|vertige|vomit|nausea|diarrea|mal di pancia|capogir|vomiting|nauseous|diarrhea|stomach ache|dizzy/;
+    // v33.61 (brett:2026-11-11-df0b): Spanisch ist die fuenfte App-Sprache — 0 von 8 Saetzen wurden erkannt.
+    var AKUT = /vergift|notfall|notruf|empoisonn|intoxica|avvelenament|poisoning|poisoned|emergency|envenenam|emergencia/;
+    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt|mangé|manger|avalé|ingéré|croqué|mangiato|ingerito|inghiottito|\bate\b|eaten|swallow|swallowed|bit into|chewed|comido|comió|tragado|tragó|ingerido|mordido|masticado/;
+    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht|vomi|nausée|diarrhée|mal au ventre|vertige|vomit|nausea|diarrea|mal di pancia|capogir|vomiting|nauseous|diarrhea|stomach ache|dizzy|vómit|náusea|dolor de (barriga|estómago|estomago|tripa)|mareo|maread/;
     // `\bcat\b` allein traefe auch „catégorie": in JS ist „é" KEIN Wortzeichen,
     // die Grenze sitzt also mitten im Wort. Deshalb die Nachschau.
-    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig|enfant|fille|fils|bébé|chien|chat|accident|bambin|figlia|figlio|cane|gatto|child|daughter|son|dog|\bcat\b(?![a-zà-ÿ])|toddler/;
-    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend|au secours|à l'aide|que faire|aiuto|che fare|help|what (should|do) i do|urgent/;
-    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete|toxique|baie|champignon|plante|feuille|fruit|graine|velenos|tossic|bacca|fungo|pianta|foglia|poison|berry|berries|mushroom|plant|leaf|leaves|seed/;
+    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig|enfant|fille|fils|bébé|chien|chat|accident|bambin|figlia|figlio|cane|gatto|child|daughter|son|dog|\bcat\b(?![a-zà-ÿ])|toddler|niñ[oa]|\bhij[oa]\b|bebé|\bperr[oa]\b|\bgat[oa]\b|sin querer/;
+    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend|au secours|à l'aide|que faire|aiuto|che fare|help|what (should|do) i do|urgent|qu[eé] hago|qu[eé] hacer|ayuda|socorro/;
+    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete|toxique|baie|champignon|plante|feuille|fruit|graine|velenos|tossic|bacca|fungo|pianta|foglia|poison|berry|berries|mushroom|plant|leaf|leaves|seed|venenos|tóxic|\bbayas?\b|\bsetas?\b|\bhongos?\b|\bhojas?\b|\bfrutos?\b|semilla/;
     if (AKUT.test(t)) return 'dringend';
     if (SYMPTOM.test(t) && KONTEXT.test(t)) return 'dringend';
     if (VERZEHR.test(t) && (BETROFFEN.test(t) || SYMPTOM.test(t) || HILFE.test(t))) return 'dringend';
-    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr|manger|mangia|\beat\b|\beats\b|eating/.test(t)) return 'dringend';
+    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr|manger|mangia|\beat\b|\beats\b|eating|\bcomer\b|comiendo/.test(t)) return 'dringend';
     if (VERZEHR.test(t)) return 'hinweis';
     return 'keiner';
 }
@@ -76450,6 +76506,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.61', date: '11.11.2026',
+      headline: 'Was „Essbar“ und „Ungiftig“ heisst, gilt jetzt überall gleich — und der Scan-Chat warnt wie Lina',
+      summary: 'Erstes Paket für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen. (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da (Brett fcaf). (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter (gsZeigeEigenschaft). (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community; jetzt escaped, auch in der Hervorhebung und auf Seite 2. (5) Die Notfall-Erkennung kannte kein Spanisch, die fünfte App-Sprache: 0 von 8 Sätzen (Brett df0b). (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage; er nutzt jetzt dieselben zwei Funktionen wie Lina, die Nummer kommt auch ohne erreichbare KI, und fette Schrift wird dargestellt statt als Sternchen gezeigt. Prüfstände: scan_check D1j, F1, F2, SC1, N1 um Spanisch erweitert; escape_check A3b.',
+      user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt in Suche, Filter und Startseite dasselbe wie auf der Karte einer Art. Der Chat zum Scan-Ergebnis warnt, wenn eine Antwort eine giftige Art essbar nennt, und zeigt bei einem Notfall sofort die Nummer 145.',
+      user_items: [
+        {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
+        {emoji:'☠️', bold:'„Giftige Pflanzen“ im Menü:', text:' der Eintrag öffnet jetzt die Liste der giftigen Arten. Vorher suchte er nur nach dem Wort und zeigte auch essbare Pflanzen.'},
+        {emoji:'💬', bold:'Chat zum Scan-Ergebnis:', text:' nennt eine Antwort eine giftige Art essbar, steht eine Warnung darüber. Schreibst du von einem Notfall, kommt sofort die Nummer von Tox Info Suisse.'},
+        {emoji:'🆘', bold:'Notfall auf Spanisch:', text:' Lina und der Scan-Chat erkennen jetzt auch spanische Sätze wie „mi hija ha comido bayas“.'},
+        {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
+      ],
+  },
+  {
     v: 'v33.58', date: '11.11.2026',
       headline: 'Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus',
       summary: 'Sechs Dinge, alle gemessen. (1) Rezept → Art: 524 Einträge geprüft, bei 239 zeigte der Link auf eine andere Art als die Hauptzutat, bei 84 auf eine als giftig geführte, 17 davon mit Giftstufe 3 oder höher (Pfifferling-Rahmsauce → Maiglöckchen, Morchel → Herbstzeitlose). Die Verknüpfung lief über eine Namens-Teilsuche; jetzt trägt jedes Rezept geprüfte Arten-Ids, und eine giftige Art wird aus einem Rezept nie geöffnet. (2) Fruchtfolge: GS_TRACHTEN_IDS führte Knollensellerie zum Grünen Knollenblätterpilz (Giftstufe 5) und Rettich zum Rettichfälbling; alle 37 Kulturen einzeln gegen die Artenliste gehalten. (3) KI-Modelle: Anthropic schaltet claude-sonnet-4-5 am 30.11.2026 ab — der Proxy schrieb JEDES Modell darauf um (37 von 37 Aufrufen), ab dann wäre jeder Scan gescheitert. Und claude-sonnet-4-20250514 ist seit dem 15.06.2026 weg: Pflanzendoktor, Garten-Analyse und „Plan anpassen“ nannten genau dieses eine Modell und waren fünf Monate tot, ohne dass etwas meldete. Jetzt gibt es eine Kette (Sonnet 4.6 → 5.5 → 5), in der App und auf dem Server, mit Rückfall — und jedes Modell bekommt seine Einstellungen: Sonnet 5.5 und 5 denken sonst von sich aus nach, das zählt gegen max_tokens und stellt einen thinking-Block vor den Text. (4) Der geteilte Scan-Cache ist aus: eine Tabelle für alle Konten, ein 64-Bit-Hash aus 9×8 Bildpunkten, der erste Eintrag gewinnt — ein fremder Treffer hätte die Bestimmung ersetzt. (5) Der Scan-Chat geht über callAI wie jede andere KI-Anfrage; eine abgelehnte Anfrage wird gesagt statt als leere Antwort gezeigt. (6) Vier Fehler aus dem Wochenplan KW45: „Keine bekannten Risiken“ stand als Warnung da, der Ersatz-Ort Zürich wurde gespeichert und sperrte danach das GPS, der Zurück-Knopf im Geräte-Dashboard warf einen Fehler, und ohne Website-Speicher startete die App nicht.',
@@ -76799,19 +76868,6 @@ window.GS_RELEASES = [
       {emoji: '❄️', bold: 'Keine Vorhersage ist keine Entwarnung:', text: ' Fehlt das Wetter, steht „Frost: keine Vorhersage“ — nicht „kein Frost“.'}
     ],
   },
-  {
-    v: 'v33.39', date: '16.09.2026',
-    headline: 'Lina sieht deinen Kalender — und sagt, wenn sie etwas nicht weiß',
-    summary: 'Fünfte Scheibe von KALENDER-V2. Lina bekommt drei Zeilen aus der einen Kalender-Funktion (was heute ansteht, was die Woche bringt, was das Prüfwerk dazu sagt) und darf einen Termin VORSCHLAGEN, den du bestätigst. Dabei gemessen und behoben: ihr Kontext wurde bei sechs Geräten mitten im Wort abgeschnitten, Geräte fielen stillschweigend weg, eine Regel ohne Messwerte stand als „keine verletzte Regel“ da — und die Sicherheit eines Scans hatte drei verschiedene Antworten (0.94 %, 1 %, 94 %).',
-    user_summary: 'Lina weiß jetzt, was heute und diese Woche ansteht, kann dir einen Termin eintragen — nach Rückfrage — und erfindet nichts mehr, wenn ihr Platz nicht reicht.',
-    user_items: [
-      {emoji: '📅', bold: 'Lina kennt deinen Kalender:', text: ' Sie sieht, was heute ansteht, was in den nächsten sieben Tagen kommt und worauf das Wetter Einfluss hat — dieselben Angaben, die auch im Kalender stehen.'},
-      {emoji: '✍️', bold: 'Sie darf einen Termin vorschlagen:', text: ' Frag sie nach einer Erinnerung, und sie fragt zurück: „Soll ich für den 12.10. eintragen: Rosen schneiden?“ Erst nach deinem Ja steht es im Kalender — mit dem Vermerk, dass sie es vorgeschlagen hat.'},
-      {emoji: '✂️', bold: 'Keine halben Sätze mehr:', text: ' Wenn Linas Platz nicht reicht, lässt sie ganze Zeilen weg und sagt es — statt mitten im Wort abzubrechen. Bei vielen Geräten steht jetzt „+2 weitere“ dabei.'},
-      {emoji: '🤔', bold: 'Sie sagt, wenn sie nichts weiß:', text: ' Eine Sensor-Regel ohne Messwerte hieß bei ihr „keine verletzte Regel“ — also Entwarnung ohne Messung. Jetzt sagt sie, dass sie es nicht prüfen konnte.'},
-      {emoji: '🎯', bold: 'Eine Zahl für die Treffsicherheit:', text: ' Dieselbe Erkennung stand an drei Stellen unterschiedlich da — im Verlauf „0.94%“, bei Lina „1 % sicher“. Überall steht jetzt 94 %.'}
-    ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -77020,7 +77076,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.58';
+var GS_VERSION = 'v33.61';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
