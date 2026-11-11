@@ -235,13 +235,18 @@ const FAELLE = [
       for (const [re, was] of [[/\bDate\.now\s*\(/, 'Date.now()'], [/\bMath\.random\s*\(/, 'Math.random()'], [/\bnew Date\s*\(\s*\)/, 'new Date()'], [/\bimport\s*\(/, 'import()']]) if (re.test(ohneKommentar)) f.push('ruft ' + was + ' (ein Workflow laesst sich sonst nicht fortsetzen)');
       if (ohneKommentar.indexOf('scripts/austausch.mjs einspielen') < 0) f.push('endet nicht im Brett (kein `scripts/austausch.mjs einspielen`) — die Runde waere nach der Sitzung verloren');
       // Jeder Befehl, den die Runde ihre Agenten tippen laesst, muss einer sein, den das Werkzeug kennt.
-      const werk = lies('scripts/austausch.mjs'), bm = werk.match(/const BEFEHLE = \{([^}]*)\}/);
+      const werk = lies('scripts/austausch.mjs'), bm = werk.match(/const BEFEHLE = [^{]*\{([^}]*)\}/);
       const kennt = new Set(bm ? bm[1].split(',').map(s => s.split(':')[0].trim()) : []);
       for (const x of ohneKommentar.matchAll(/scripts\/austausch\.mjs ([a-z]+)/g)) if (!kennt.has(x[1])) f.push('nennt den Befehl „' + x[1] + '", den scripts/austausch.mjs nicht kennt');
       if (/scripts\/austausch\.js\b/.test(ohneKommentar)) f.push('nennt noch scripts/austausch.js (das Werkzeug heisst austausch.mjs)');
       // … und jedes Feld, das der Stapel traegt, eines, das eintragPruefen annimmt.
       const felder = new Set(A.FELDER);
       for (const x of ohneKommentar.matchAll(/stapel\.push\(sauber\(([\s\S]*?)\)\)\n/g)) for (const k of x[1].matchAll(/[{,]\s*([a-z_]+):/g)) if (!felder.has(k[1])) f.push('schreibt das Feld „' + k[1] + '" in den Stapel — das Brett kennt es nicht und lehnt den ganzen Stapel ab');
+      // Ein Sicherheitsbefund geht mit Titel und details_bei aufs Brett — nie mit Beleg, Text, Vorschlag, Anker oder dem Urteil des Skeptikers.
+      const sich = [...ohneKommentar.matchAll(/stapel\.push\(sauber\(([\s\S]*?)\)\)\n/g)].map(x => x[1]).filter(x => /sicherheit: true/.test(x));
+      if (sich.length !== 1) f.push('erwartet genau EINEN eigenen Zweig fuer Sicherheitsbefunde (stapel.push mit sicherheit: true), gefunden ' + sich.length);
+      else { const zuviel = ['beleg', 'text', 'vorschlag', 'anker', 'zaehle'].filter(k => new RegExp('[{,]\\s*' + k + '\\s*[:,}]').test(sich[0])); if (zuviel.length) f.push('der Sicherheits-Zweig schreibt ' + zuviel.join(', ') + ' aufs oeffentliche Brett'); }
+      if (!/const ua = urteile\.get\(a\.schluessel\)\s*\n\s*if \(!ua \|\| ua\.haelt !== true\) \{[^\n]*continue \}/.test(ohneKommentar)) f.push('Antworten aus der Phase Kreuzen gehen ohne bestaetigendes Urteil des Skeptikers aufs Brett');
       try {
         const Async = Object.getPrototypeOf(async function () {}).constructor;
         new Async('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow', t.replace(/^export const meta/, 'const meta'));
@@ -251,12 +256,12 @@ const FAELLE = [
     },
   },
   {
-    name: 'C1 · Die Pruefung sieht Fehler · gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und sechs gute (einer je Art) kommen ohne Grund durch',
+    name: 'C1 · Die Pruefung sieht Fehler · gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt, gute kommen durch — und jede bekannte Form eines Geheimnisses wird erkannt, auch am Anfang einer Zeile',
     lauf: () => {
       const bf = mk('befund'), fr = mk('frage');
       const gut = [bf, mk('idee'), fr, mk('klasse'), mk('klasse', { ohne_waechter: undefined, waechter: [{ datei: 'scripts/x_check.js', fall: 'E10 · Zahl' }] }),
         mk('antwort', { bezug: [bz('beantwortet', fr)] }), mk('abschluss', { bezug: [bz('schliesst', bf)] }),
-        mk('befund', { sicherheit: true, details_bei: 'Fernando' }), mk('befund', { anker: [{ datei: 'index.html', text: 'function gsEins(){' }], zaehle: [{ datei: 'index.html', text: 'gsEins()', n: 3 }] })];
+        mk('befund', { sicherheit: true, details_bei: 'Fernando', beleg: undefined }), mk('frage', { sicherheit: true, details_bei: 'Fernando' }), mk('antwort', { bezug: [{ art: 'beantwortet', id: fr.id, ref: 'origin/claude/anderswo' }] }), mk('befund', { anker: [{ datei: 'index.html', text: 'function gsEins(){' }], zaehle: [{ datei: 'index.html', text: 'gsEins()', n: 3 }] })];
       for (const e of gut) { const r = A.eintragPruefen(e); if (r.length) return { ok: false, warum: 'ein GUTER Eintrag (' + e.art + ') wird abgelehnt: ' + r[0] }; }
       const schlecht = [
         [mk('befund', { beleg: undefined }), /Befund ohne „beleg"/], [mk('befund', { beleg: [] }), /Befund ohne „beleg"/], [mk('befund', { beleg: ['ok', ' '] }), /beleg muss eine Liste nicht-leerer Texte/],
@@ -272,7 +277,10 @@ const FAELLE = [
         [mk('befund', { bezug: [{ art: 'mag', id: bf.id }] }), /art „mag" gibt es nicht/], [mk('befund', { bezug: [{ art: 'baut_auf', id: 'x' }] }), /id fehlt oder hat die falsche Form/],
         [mk('befund', { anker: [{ datei: 'index.html', text: 'kurz' }] }), /anker\[0\]: text ist EINE Zeile mit 8 bis 300/], [mk('befund', { anker: [{ datei: '/etc/passwd', text: 'ein langes Stueck' }] }), /datei muss ein Pfad im Repo sein/],
         [mk('befund', { zaehle: [{ datei: 'index.html', text: 'gsEins()', n: -1 }] }), /n ist eine ganze Zahl ab 0/], [mk('abschluss', { bezug: [bz('schliesst', bf)], anker: [{ datei: 'index.html', text: 'function gsEins(){' }] }), /anker gehoert an einen Befund/],
-        [mk('befund', { sicherheit: true, text: 'so geht es', details_bei: 'Fernando' }), /sicherheit: true — kein „text"/], [mk('befund', { sicherheit: true }), /braucht „details_bei"/],
+        [mk('befund', { sicherheit: true, beleg: undefined, text: 'so geht es', details_bei: 'Fernando' }), /sicherheit: true — nur Titel, Stichworte und „details_bei" .* nicht: text/], [mk('befund', { sicherheit: true, details_bei: 'Fernando' }), /sicherheit: true — nur Titel.* nicht: beleg/],
+        [mk('befund', { sicherheit: true, beleg: undefined, details_bei: 'Fernando', vorschlag: 'so schliesst man es', anker: [{ datei: 'index.html', text: 'function gsEins(){' }] }), /nicht: vorschlag, anker/], [mk('befund', { sicherheit: true, beleg: undefined }), /braucht „details_bei"/],
+        [mk('klasse', { sicherheit: true, details_bei: 'Fernando' }), /sicherheit: true gibt es nur an einem Befund oder einer Frage/],
+        [mk('befund', { art: 'constructor' }), /art „constructor" gibt es nicht/], [mk('befund', { bezug: [{ art: 'toString', id: bf.id }] }), /art „toString" gibt es nicht/], [mk('antwort', { bezug: [{ art: 'baut_auf', id: bf.id, ref: 7 }] }), /ref nennt den Branch/],
         [mk('befund', { text: 'Schluessel sk-ant-' + 'abcdefgh12345678' }), /Anthropic-Schluessel/], [mk('befund', { beleg: ['user ' + '0f8fad5b-d9cb-469f-a165-' + '70867728950e'] }), /UUID/],
         [mk('befund', { text: 'schreib an ' + 'jemand' + '@' + 'firma.ch' }), /E-Mail-Adresse/], [mk('befund', { _x: 'ghp_' + 'a'.repeat(24) }), /GitHub-Token/],
         [mk('befund', { beleg: ['siehe /tmp' + '/lauf/log.txt'] }), /nur auf einer Maschine stimmt/],
@@ -282,8 +290,20 @@ const FAELLE = [
         if (!r.some(x => re.test(x))) return { ok: false, warum: 'ein kaputter Eintrag wird NICHT mit dem erwarteten Grund abgelehnt (' + re.source + '): ' + (r.length ? r.join(' | ') : 'keine Ablehnung') };
       }
       if (A.eintragPruefen(mk('befund', { text: 'Absender ' + 'noreply' + '@' + 'anthropic.com' })).length) return { ok: false, warum: 'eine erlaubte Adresse (noreply) wird als Geheimnis abgelehnt' };
+      // Jede Form, in jeder Stellung: mitten in der Zeile, allein im Feld — und am ANFANG einer Zeile, wie sie in jeder Befehlsausgabe steht.
+      const FORMEN = [['sk-ant-' + 'abcdefgh12345678', /Anthropic-Schluessel/], ['eyJ' + 'hbGciOiJIUzI1' + '.' + 'eyJyb2xlIjoi' + '.' + 'c2lnbmF0dXJl', /JWT/], ['sk_' + 'live_' + 'abcdefgh1234', /Stripe-Schluessel/], ['whsec_' + 'abcdefgh1234', /Webhook-Geheimnis/],
+        ['sb_' + 'secret_' + 'abcdefgh1234', /Supabase-Geheimnis/], ['ghp_' + 'a'.repeat(24), /GitHub-Token/], ['-----BEGIN ' + 'RSA PRIVATE KEY-----', /privater Schluessel/], ['0f8fad5b-d9cb-469f-a165-' + '70867728950e', /UUID/], ['jemand' + '@' + 'firma.ch', /E-Mail-Adresse/]];
+      if (FORMEN.length !== A.GEHEIM_FORMEN()) return { ok: false, warum: 'das Modul kennt ' + A.GEHEIM_FORMEN() + ' Geheimnis-Formen, dieser Fall hat Proben fuer ' + FORMEN.length + ' — eine neue Form braucht hier ihre Probe' };
+      const STELLUNGEN = [['mitten in der Zeile', 'siehe '], ['allein im Feld', ''], ['nach einem Zeilenumbruch', 'Ausgabe:\n'], ['nach einem Tabulator', 'Ausgabe:\t'], ['nach CR LF', 'Ausgabe:\r\n']];
+      for (const [probe, re] of FORMEN) for (const [wo, davor] of STELLUNGEN) for (const feld of ['beleg', 'text']) {
+        const x = A.eintragPruefen(mk('befund', feld === 'beleg' ? { beleg: [davor + probe] } : { text: davor + probe + ' und weiter' }));
+        if (!x.some(y => re.test(y))) return { ok: false, warum: 'ein Geheimnis (' + re.source + ') ' + wo + ' im Feld ' + feld + ' geht durch — das Repo ist oeffentlich' };
+      }
+      for (const wurzel of ['/tmp', '/root', '/home', '/Users', '/var/folders']) for (const davor of ['siehe ', 'Ausgabe:\n', '']) {
+        if (!A.eintragPruefen(mk('befund', { beleg: [davor + wurzel + '/lauf/log.txt'] })).some(y => /nur auf einer Maschine stimmt/.test(y))) return { ok: false, warum: 'ein Pfad unter ' + wurzel + ' (' + JSON.stringify(davor) + ' davor) geht als Beleg durch' };
+      }
       if (!A.eintragPruefen(bf, 'falsch.json').some(x => /Dateiname muss mit/.test(x)) || A.eintragPruefen(bf, bf.id + '-befund-x.json').length) return { ok: false, warum: 'die Pruefung des Dateinamens greift nicht in beide Richtungen' };
-      return { ok: true, info: schlecht.length + ' kaputte je mit dem richtigen Grund abgelehnt · ' + gut.length + ' gute still · ein Feld mit Unterstrich ist kein Versteck (unbekannt UND durchsucht)' };
+      return { ok: true, info: schlecht.length + ' kaputte je mit dem richtigen Grund abgelehnt · ' + gut.length + ' gute still · ' + FORMEN.length + ' Geheimnis-Formen × 5 Stellungen × 2 Felder und 5 Pfad-Wurzeln erkannt (auch am Zeilenanfang) · ein Sicherheitsbefund traegt nur Titel und details_bei · ein Feld mit Unterstrich ist kein Versteck' };
     },
   },
   {
@@ -311,16 +331,20 @@ const FAELLE = [
         const a = mk('befund'), c = mk('befund');
         ablegen(d, a); ablegen(d, Object.assign({}, c, { id: a.id }), a.id + '-befund-y.json');
         ablegen(d, '{ kaputt', '2026-01-01-eeee-befund-z.json'); ablegen(d, JSON.stringify({ art: 'befund', titel: 'ohne id' }), 'ohne-id.json');
+        // Von Hand geschrieben und falsch geformt — jede dieser Dateien liess die erste Fassung mit einem Stacktrace enden.
+        const falsch = [{ anker: [null] }, { zaehle: [{ datei: 'a.js', n: 3 }] }, { gesucht: 4 }, { bezug: [{ art: 'baut_auf', id: a.id }, null] }, { stichworte: 'kachel' }, { waechter: [{ datei: 'x.js' }] }, { zaehle: [{ datei: 'a.js', text: 'abc', n: 'drei' }] }, { text: ['ein', 'Feld'] }];
+        falsch.forEach((x, i) => ablegen(d, JSON.stringify(Object.assign(mk('antwort', { id: '2026-01-01-f' + String(i).padStart(3, '0'), bezug: [bz('baut_auf', a)] }), x)), '2026-01-01-f' + String(i).padStart(3, '0') + '-antwort-falsch.json'));
+        fs.mkdirSync(path.join(d, A.ORDNER, '2026-01', 'ein-ordner.json'));
         const b = A.brettLesen(d, { alleRefs: false }), r = A.brettPruefen(b);
-        if (b.eintraege.length !== 1 || b.doppelt.length !== 1 || b.unlesbar.length !== 2) return { ok: false, warum: 'gebautes Verzeichnis: ' + b.eintraege.length + ' Eintraege (erwartet 1), ' + b.doppelt.length + ' doppelt (1), ' + b.unlesbar.length + ' unlesbar (2)' };
+        if (b.eintraege.length !== 1 || b.doppelt.length !== 1 || b.unlesbar.length !== 3 + falsch.length || b.unlesbar.filter(u => /falsch geformt/.test(u.grund)).length !== falsch.length) return { ok: false, warum: 'gebautes Verzeichnis: ' + b.eintraege.length + ' Eintraege (erwartet 1), ' + b.doppelt.length + ' doppelt (1), ' + b.unlesbar.length + ' unlesbar (erwartet ' + (3 + falsch.length) + ': kaputtes JSON, ohne id, ein Ordner namens .json, ' + falsch.length + ' falsch geformte) — ' + b.unlesbar.map(u => u.grund).join(' | ') };
         if (!r.some(x => /dieselbe id/.test(x.grund)) || !r.some(x => /kein gueltiges JSON/.test(x.grund)) || !r.some(x => /ohne id der Form/.test(x.grund))) return { ok: false, warum: 'doppelte id, kaputtes JSON oder fehlende id NICHT gemeldet: ' + r.map(x => x.grund).join(' | ') };
-        A.ableiten(b.eintraege); A.anstoesse(b.eintraege, liesOderNull(d));
+        const ablB = A.ableiten(b.eintraege); A.anstoesse(b.eintraege, liesOderNull(d)); b.eintraege.forEach(e => { A.marken(e, ablB, ''); A.klasseWirksam(e, ablB.rueck); A.nachbarn(e, b.eintraege); });
       } finally { weg(d); }
-      return { ok: true, info: faelle.length + ' Regelbrueche je mit Grund gemeldet · zwei Umgehungen des strengen Schliessens wirkungslos · doppelte id, kaputtes JSON, Datei ohne id: gemeldet, kein Absturz' };
+      return { ok: true, info: faelle.length + ' Regelbrueche je mit Grund gemeldet · zwei Umgehungen des strengen Schliessens wirkungslos · doppelte id, kaputtes JSON, Datei ohne id, ein Ordner namens .json und acht falsch geformte Dateien: gemeldet, kein Absturz' };
     },
   },
   {
-    name: 'C3 · Zustand wird gerechnet · Frage mit Antwort ist beantwortet, Befund mit Abschluss geschlossen, ein ersetzter ersetzt, Antwort und Abschluss sind Notizen — und von zwei Nachtraegen am selben Tag gilt der SPAETERE (Uhrzeit, nicht die zufaellige id)',
+    name: 'C3 · Zustand wird gerechnet · Frage mit Antwort ist beantwortet, Befund mit Abschluss geschlossen, ein ersetzter ersetzt; von zwei Nachtraegen am selben Tag gilt der SPAETERE (Uhrzeit, nicht die zufaellige id) — und „erledigt" gilt nur in dem Baum, in dem es liegt',
     lauf: () => {
       const fr = mk('frage'), bf = mk('befund'), alt = mk('idee'), offen = mk('befund', { anker: [{ datei: 'a.js', text: 'der erste Anker' }], zaehle: [{ datei: 'a.js', text: 'abc', n: 1 }] });
       const an = mk('antwort', { bezug: [bz('beantwortet', fr)] }), zu = mk('abschluss', { bezug: [bz('schliesst', bf)] }), neu = mk('idee', { bezug: [bz('ersetzt', alt)] });
@@ -334,7 +358,16 @@ const FAELLE = [
       if (ank !== 'der spaetere Anker' || n !== 5) return { ok: false, warum: 'von zwei Nachtraegen am selben Tag gilt „' + ank + '" / n=' + n + ' — erwartet der von 15:00 (die id entscheidet nicht)' };
       const kl = mk('klasse'), k = A.klasseWirksam(kl, A.ableiten([kl, mk('antwort', { bezug: [bz('baut_auf', kl)], gesucht: 'v1.01: 4 Stellen', waechter: [{ datei: 'scripts/x_check.js', fall: 'E10 · Zahl' }], suchmuster: 'grep -n x' }), mk('befund', { bezug: [bz('gehoert_zu', kl)] })]).rueck);
       if (k.gesucht.length !== 1 || k.waechter.length !== 1 || k.suchmuster !== 'grep -n x' || k.befunde.length !== 1) return { ok: false, warum: 'der Nachtrag an einer Fehlerklasse kommt nicht an: ' + JSON.stringify({ gesucht: k.gesucht, waechter: k.waechter.length, suchmuster: k.suchmuster, befunde: k.befunde.length }) };
-      return { ok: true, info: 'sieben Zustaende wie erwartet · der Nachtrag von 15:00 gilt vor dem von 11:00, obwohl seine id kleiner ist · eine Klasse wird durch Antworten ergaenzt, nie umgeschrieben' };
+      // Was von einem FREMDEN Branch kommt und einen Baum beschreibt, gilt hier nicht.
+      const fremd = (e) => { Object.defineProperty(e, '_quelle', { value: 'origin/claude/anderswo', enumerable: false }); return e; };
+      const hier = mk('befund', { anker: [{ datei: 'a.js', text: 'der Anker in diesem Baum' }] }), irr = mk('idee');
+      const dort = [fremd(mk('abschluss', { ergebnis: 'erledigt', wohin: 'v9', geschwister: 'gesucht: 0', bezug: [bz('schliesst', hier)] })), fremd(mk('antwort', { zeit: '23:00:00', bezug: [bz('baut_auf', hier)], anker: [{ datei: 'a.js', text: 'der Anker auf dem anderen Branch' }] })), fremd(mk('abschluss', { bezug: [bz('schliesst', irr)] }))];
+      const ab2 = A.ableiten([hier, irr].concat(dort)), zh = ab2.zustand.get(hier.id);
+      if (zh.z !== 'offen' || !zh.anderswo || ab2.zustand.get(irr.id).z !== 'geschlossen') return { ok: false, warum: 'ein „erledigt" von einem fremden Branch macht den Befund hier „' + zh.z + '" (erwartet offen, mit Hinweis) · ein „verworfen" von dort macht die Idee „' + ab2.zustand.get(irr.id).z + '" (erwartet geschlossen)' };
+      if (A.ankerWirksam(hier, ab2.rueck)[0].text !== 'der Anker in diesem Baum' || !A.marken(hier, ab2, '').some(x => /als erledigt geschlossen .* in diesem Baum noch nicht/.test(x))) return { ok: false, warum: 'der Anker-Nachtrag eines fremden Branches gilt in diesem Baum, oder die Marke „anderswo erledigt" fehlt' };
+      const selbst = A.ableiten([hier, mk('abschluss', { ergebnis: 'erledigt', wohin: 'v9', geschwister: 'gesucht: 0', bezug: [bz('schliesst', hier)] })]);
+      if (selbst.zustand.get(hier.id).z !== 'geschlossen') return { ok: false, warum: 'ein „erledigt" aus DIESEM Baum schliesst nicht mehr' };
+      return { ok: true, info: 'sieben Zustaende wie erwartet · der Nachtrag von 15:00 gilt vor dem von 11:00, obwohl seine id kleiner ist · eine Klasse wird durch Antworten ergaenzt · „erledigt" von einem fremden Branch laesst den Befund hier offen (mit Hinweis), aus diesem Baum schliesst es; „verworfen" gilt ueberall' };
     },
   },
   {
@@ -379,7 +412,14 @@ const FAELLE = [
       const zuB = mk('befund', { anker: [{ datei: 'index.html', text: 'laengst entfernt' }] }), zu = mk('abschluss', { bezug: [bz('schliesst', zuB)] });
       const r = A.ankerPruefen([da, kom, log, fehlt, zuB, zu], l), ids = r.verloren.map(x => x.id).sort().join();
       if (ids !== [kom.id, log.id, fehlt.id].sort().join() || r.geprueft !== 4) return { ok: false, warum: 'verloren gemeldet: ' + r.verloren.map(x => x.text).join(' | ') + ' (erwartet: Kommentar, Changelog, fehlende Datei — nicht der vorhandene, nicht der geschlossene)' };
-      return { ok: true, info: 'Kommentarzeile und GS_RELEASES-Block zaehlen nicht (js · sql · sh) · vorhandener Anker still · drei verlorene gemeldet · der geschlossene Eintrag bleibt ungemessen' };
+      // Die zwei Auswege, die A3 der Sitzung nennt — neu verankern, schliessen — in der MESSUNG, nicht nur in der Rechnung:
+      const tot = mk('befund', { anker: [{ datei: 'index.html', text: 'function gsWeg(){ return 0; }' }], zaehle: [{ datei: 'index.html', text: 'gsEins()', n: 9 }] });
+      const nachtrag = mk('antwort', { zeit: '12:00:00', bezug: [bz('baut_auf', tot)], anker: [{ datei: 'index.html', text: 'function gsZwei(){' }], zaehle: [{ datei: 'index.html', text: 'gsEins()', n: 3 }] });
+      const zuZ = mk('befund', { zaehle: [{ datei: 'index.html', text: 'gsEins()', n: 9 }] }), zuA = mk('abschluss', { bezug: [bz('schliesst', zuZ)] });
+      if (A.ankerPruefen([tot], l).verloren.length !== 1 || A.zahlenStand([tot], l)[0].heute === A.zahlenStand([tot], l)[0].n) return { ok: false, warum: 'Aufbau: der tote Anker bzw. die falsche Zahl wird ohne Nachtrag nicht gemeldet' };
+      const zs = A.zahlenStand([tot, nachtrag, zuZ, zuA], l);
+      if (A.ankerPruefen([tot, nachtrag], l).verloren.length !== 0 || zs.length !== 1 || zs[0].n !== 3 || zs[0].heute !== 3) return { ok: false, warum: 'nach dem Nachtrag: ' + A.ankerPruefen([tot, nachtrag], l).verloren.length + ' verlorene Anker (erwartet 0), Zaehlungen: ' + JSON.stringify(zs.map(z => [z.n, z.heute])) + ' (erwartet genau eine, 3/3 — die des geschlossenen Befunds zaehlt nicht mehr)' };
+      return { ok: true, info: 'Kommentarzeile und GS_RELEASES-Block zaehlen nicht (js · sql · sh) · vorhandener Anker still · drei verlorene gemeldet · nach einem Nachtrag gilt der neue Anker und die neue Zahl · ein geschlossener Eintrag wird weder am Anker noch an der Zahl gemessen' };
     },
   },
   {
@@ -416,98 +456,210 @@ const FAELLE = [
           nein([{ art: 'antwort', titel: 'Schliesst als Antwort', text: 't', bezug: [{ art: 'baut_auf', id: befund.id }, { art: 'schliesst', id: befund.id }] }], /„schliesst" darf nur ein Abschluss tragen/, 'Schliessen mit einer Antwort'),
           nein([{ art: 'abschluss', titel: 'Behoben', ergebnis: 'erledigt', wohin: 'v1.01', geschwister: 'gesucht: 0 weitere', bezug: [{ art: 'schliesst', id: befund.id }] }], /Zaehlung des Befunds .* steht unveraendert/, 'erledigt bei unveraenderter Zaehlung'),
           nein([{ art: 'befund', titel: 'Feld mit Unterstrich', beleg: ['x'], _notiz: 'x' }], /unbekanntes Feld „_notiz"/, 'Feld mit Unterstrich'),
+          nein([{ art: 'klasse', titel: 'Waechter in fehlender Datei', regel: 'r', instanzen: ['i'], waechter: [{ datei: 'scripts/gibt_es_nicht.js', fall: 'E10 · Zahl' }] }], /scripts\/gibt_es_nicht\.js gibt es nicht/, 'Waechter in einer Datei, die es nicht gibt'),
+          nein([{ art: 'befund', titel: 'Token am Zeilenanfang', beleg: ['curl liefert:\n' + 'ghp_' + 'b'.repeat(24)] }], /GitHub-Token/, 'Geheimnis am Zeilenanfang'),
+          nein([{ art: 'befund', titel: 'Sicherheit mit Beleg', sicherheit: true, details_bei: 'Fernando', beleg: ['so geht es'] }], /sicherheit: true — nur Titel/, 'Sicherheitsbefund mit Beleg'),
         ].filter(Boolean);
+        // Ein Schreibfehler MITTEN im Stapel hinterlaesst keinen halben: der erste Eintrag geht in den Monat 2026-03, der zweite in 2026-05 — und dort liegt eine Datei statt eines Ordners.
+        fs.writeFileSync(path.join(d, A.ORDNER, '2026-05'), 'kein Ordner');
+        const vorM = A.brettLesen(d, { alleRefs: false }).eintraege.length, halb = A.einspielen(d, [{ art: 'befund', titel: 'Erster im Stapel', beleg: ['x'] }, { art: 'befund', titel: 'Zweiter im Stapel', beleg: ['x'], datum: '2026-05-06' }], o);
+        if (halb.ok || !/nichts geschrieben/.test((halb.fehler[0] || {}).grund || '') || A.brettLesen(d, { alleRefs: false }).eintraege.length !== vorM) pruefe.push('Schreibfehler mitten im Stapel: ' + (halb.ok ? 'als geschrieben gemeldet' : (A.brettLesen(d, { alleRefs: false }).eintraege.length - vorM) + ' Datei(en) blieben liegen'));
+        fs.unlinkSync(path.join(d, A.ORDNER, '2026-05'));
+        const sich = A.einspielen(d, [{ art: 'befund', titel: 'Ein Sicherheitsbefund ohne Einzelheiten', sicherheit: true, details_bei: 'Fernando', stichworte: ['rls'] }], o);
+        if (!sich.ok) pruefe.push('ein Sicherheitsbefund NUR mit Titel und details_bei wird abgelehnt: ' + sich.fehler.map(x => x.grund).join(' | '));
         if (pruefe.length) return { ok: false, warum: pruefe.join(' · ') };
         // Die Stelle wird behoben: die Zaehlung bewegt sich, jetzt geht „erledigt" — und der Abschluss traegt die neue Zahl.
         fs.writeFileSync(path.join(d, 'index.html'), QUELLE.replace('return gsEins() + gsEins();', 'return 2;'));
         const zu = A.einspielen(d, [{ art: 'abschluss', titel: 'Behoben', ergebnis: 'erledigt', wohin: 'v1.01', geschwister: 'gesucht: 0 weitere', bezug: [{ art: 'schliesst', id: befund.id }] }], Object.assign({}, o, { zeit: '09:00:00' }));
         const b3 = A.brettLesen(d, { alleRefs: false }), ab = b3.eintraege.find(e => e.art === 'abschluss');
         if (!zu.ok || !ab || !ab.zaehle || ab.zaehle[0].n !== 1 || A.ableiten(b3.eintraege).zustand.get(befund.id).z !== 'geschlossen' || A.brettPruefen(b3).length) return { ok: false, warum: 'nach der Reparatur: ' + (zu.ok ? 'Abschluss ohne neue Zahl oder Befund nicht geschlossen' : zu.fehler.map(x => x.grund).join(' | ')) };
-        return { ok: true, info: 'Stapel von 3 mit @-Bezug geschrieben (eintraege/2026-03/) · elf Maengel je mit Grund abgewiesen, jedes Mal 0 Dateien · nach der Reparatur schliesst „erledigt" und traegt die neue Zahl (3 → 1)' };
+        // Die gezaehlte Datei verschwindet ganz: „erledigt" geht — und der Abschluss traegt KEINE leere Zaehlung (die waere ungueltig).
+        fs.writeFileSync(path.join(d, 'alt.txt'), 'alt_eins() alt_eins()\n');
+        const altB = A.einspielen(d, [{ art: 'befund', titel: 'Eine alte Hilfsdatei', beleg: ['x'], zaehle: [{ datei: 'alt.txt', text: 'alt_eins()', n: 2 }] }], Object.assign({}, o, { zeit: '10:00:00' }));
+        fs.unlinkSync(path.join(d, 'alt.txt'));
+        const altZu = A.einspielen(d, [{ art: 'abschluss', titel: 'Datei entfernt', ergebnis: 'erledigt', wohin: 'v1.02', geschwister: 'gesucht: 0 weitere', bezug: [{ art: 'schliesst', id: altB.geschrieben[0].id }] }], Object.assign({}, o, { zeit: '11:00:00' }));
+        const b4 = A.brettLesen(d, { alleRefs: false });
+        if (!altZu.ok || A.brettPruefen(b4).length || b4.eintraege.some(e => Array.isArray(e.zaehle) && !e.zaehle.length)) return { ok: false, warum: 'die gezaehlte Datei ist geloescht: ' + (altZu.ok ? 'der Abschluss traegt eine leere Zaehlung — ' + ((A.brettPruefen(b4)[0] || {}).grund || '') : altZu.fehler.map(x => x.grund).join(' | ')) };
+        return { ok: true, info: 'Stapel von 3 mit @-Bezug geschrieben (eintraege/2026-03/) · vierzehn Maengel je mit Grund abgewiesen, jedes Mal 0 Dateien · ein Schreibfehler mitten im Stapel raeumt den ersten Eintrag wieder weg · ein Sicherheitsbefund nur mit Titel geht · nach der Reparatur schliesst „erledigt" und traegt die neue Zahl (3 → 1) · ist die gezaehlte Datei weg, traegt der Abschluss keine leere Zaehlung' };
       } finally { weg(d); }
     },
   },
   {
-    name: 'C7 · Das Werkzeug als Prozess · ein Wert, der mit „--" beginnt, kommt an; `--k=v` geht; ein unbekannter Schalter ist Exit 2; ohne erkennbaren Schreiber wird nicht geschrieben; eine Antwort ohne Inhalt auch nicht; Lesen schreibt nichts — auch im echten Repo',
+    name: 'C7 · Das Werkzeug als Prozess · ein Wert, der mit „--" beginnt, kommt an; `--k=v` geht; gestempelt wird UTC; Fehlbedienung ist Exit 2 und schreibt nichts; `antworte` beantwortet, `--widerspricht` widerspricht, `schliesse` schliesst, `einspielen` ist alles oder nichts; die drei Warnungen im Kopf erscheinen; Lesen schreibt nichts — auch im echten Repo',
     lauf: () => {
-      const d = repo('werkzeug');
+      const d = repo('werkzeug'), ex = tmp('stapel');
       try {
         const f = [], dateien = () => { const p = path.join(d, A.ORDNER); return fs.existsSync(p) ? fs.readdirSync(p, { recursive: true }).filter(n => /\.json$/.test(n)).length : 0; };
-        let r = werkzeug(d, ['neu', 'befund', '--titel', 'Flacher Abruf schneidet die Geschichte ab', '--beleg', '--depth=1 kuerzt origin/main auf einen Commit', '--stichwort=holen,kachel', '--zaehle', 'index.html::gsEins()']);
-        const b = A.brettLesen(d, { alleRefs: false }), e = b.eintraege[0];
+        const brettD = () => A.brettLesen(d, { alleRefs: false }), zustand = (id) => { const b = brettD(); return (A.ableiten(b.eintraege).zustand.get(id) || {}).z; };
+        // In einer Zeitzone 14 Stunden vor UTC gestartet: gestempelt wird trotzdem UTC.
+        let r = werkzeug(d, ['neu', 'befund', '--titel', 'Flacher Abruf schneidet die Geschichte ab', '--beleg', '--depth=1 kuerzt origin/main auf einen Commit', '--stichwort=holen,kachel', '--zaehle', 'index.html::gsEins()'], { TZ: 'Pacific/Kiritimati' });
+        const e = brettD().eintraege[0];
         if (r.code !== 0 || !e || e.beleg[0].indexOf('--depth=1') !== 0 || e.stichworte.join() !== 'holen,kachel' || e.von !== 'sitzung/claude/arbeit' || e.stand !== 'v1.00' || e.zaehle[0].n !== 3) f.push('neu: Exit ' + r.code + ' · ' + (e ? JSON.stringify({ beleg: e.beleg, stichworte: e.stichworte, von: e.von, stand: e.stand, zaehle: e.zaehle }) : kurz(r.aus, 200)));
-        if (e && A.brettPruefen(b).length) f.push('was `neu` schrieb, lehnt die Pruefung ab: ' + A.brettPruefen(b)[0].grund);
+        if (e && A.brettPruefen(brettD()).length) f.push('was `neu` schrieb, lehnt die Pruefung ab: ' + A.brettPruefen(brettD())[0].grund);
+        const gestempelt = e ? Date.parse(e.datum + 'T' + e.zeit + 'Z') : NaN;
+        if (!(Math.abs(Date.now() - gestempelt) < 3 * 60 * 1000)) f.push('Stempel „' + (e && e.datum + ' ' + e.zeit) + '" liegt nicht bei der UTC-Zeit ' + new Date().toISOString().slice(0, 19) + ' (gestartet mit TZ=Pacific/Kiritimati) — zwei Sitzungen in zwei Zeitzonen ordneten sich falsch');
         const vor = dateien();
         r = werkzeug(d, ['neu', 'befund', '--titel', 'x', '--beleg', 'y', '--gibtsnicht', 'z']); if (r.code !== 2 || !/Unbekannter Schalter/.test(r.aus)) f.push('unbekannter Schalter: Exit ' + r.code);
         r = werkzeug(d, ['neu', 'befund', '--titel', 'Ohne Beleg']); if (r.code !== 1 || !/NICHT geschrieben/.test(r.aus) || !/Befund ohne „beleg"/.test(r.aus)) f.push('ohne Beleg: Exit ' + r.code);
         r = werkzeug(d, ['neu', 'befund', '--titel']); if (r.code !== 2) f.push('Schalter ohne Wert: Exit ' + r.code);
         r = werkzeug(d, ['antworte', e ? e.id.slice(-4) : 'x']); if (r.code !== 2 || !/braucht Inhalt/.test(r.aus)) f.push('Antwort ohne Inhalt: Exit ' + r.code);
         r = werkzeug(d, ['wasanderes']); if (r.code !== 2) f.push('unbekannter Befehl: Exit ' + r.code);
+        for (const name of ['constructor', 'toString']) {
+          r = werkzeug(d, ['hilfe', name]); if (r.code !== 0 || /TypeError/.test(r.aus)) f.push('`hilfe ' + name + '`: Exit ' + r.code + ' (ein geerbter Name ist keine Art)');
+          r = werkzeug(d, ['neu', name, '--titel', 'x']); if (r.code !== 2 || /TypeError/.test(r.aus)) f.push('`neu ' + name + '`: Exit ' + r.code);
+          r = werkzeug(d, [name]); if (r.code !== 2 || /TypeError/.test(r.aus)) f.push('Befehl `' + name + '`: Exit ' + r.code);
+        }
+        r = werkzeug(d, ['neu', 'befund', '--titel', 'Bezug mit geerbtem Namen', '--beleg', 'y', '--bezug', 'toString:' + (e ? e.id : 'x')]); if (r.code !== 1 || !/art „toString" gibt es nicht/.test(r.aus)) f.push('Bezug der Art toString: Exit ' + r.code);
         g(d, ['checkout', '-q', '--detach']);
         r = werkzeug(d, ['neu', 'frage', '--titel', 'Wer schreibt hier?', '--an', 'alle']); if (r.code !== 2 || !/Wer schreibt\?/.test(r.aus)) f.push('losgeloester HEAD ohne --von: Exit ' + r.code + ' (ein Schreiber „sitzung/HEAD" sagt nichts)');
+        g(d, ['checkout', '-q', '-b', 'main']);
+        r = werkzeug(d, ['neu', 'frage', '--titel', 'Wer schreibt hier?', '--an', 'alle']); if (r.code !== 2 || !/Wer schreibt\?/.test(r.aus)) f.push('auf main ohne --von: Exit ' + r.code);
+        g(d, ['checkout', '-q', 'claude/arbeit']);
         if (dateien() !== vor) f.push('ein abgelehnter Aufruf hat geschrieben (' + vor + ' → ' + dateien() + ' Dateien)');
         r = werkzeug(d, ['neu', 'frage', '--titel', 'Wer liest die Kachel?', '--an', 'alle', '--stichwort', 'kachel', '--von', 'sitzung/zwei']);
         if (r.code !== 0 || !/NACHBARN/.test(r.aus) || !/Noch NICHT sichtbar/.test(r.aus)) f.push('zweiter Schreiber: Exit ' + r.code + ', Nachbarn ' + (/NACHBARN/.test(r.aus) ? 'gezeigt' : 'NICHT gezeigt'));
+        const frage = brettD().eintraege.find(x => x.art === 'frage');
         const stand = dateien();
         for (const a of [[], ['--nur-lokal'], ['zeige', e ? e.id : 'x'], ['suche', 'kachel'], ['klasse'], ['hilfe'], ['hilfe', 'befund'], ['--json']]) {
           r = werkzeug(d, a);
           if (r.code !== 0 || (a[0] !== '--json' && !/Nichts geschrieben\.\s*$/.test(r.aus))) f.push('`' + (a.join(' ') || 'lesen') + '`: Exit ' + r.code + ', Schlusszeile „Nichts geschrieben." ' + (/Nichts geschrieben\./.test(r.aus) ? 'da' : 'fehlt'));
         }
         if (dateien() !== stand) f.push('ein Lese-Befehl hat geschrieben');
-        r = werkzeug(d, []); if (!/ZWEI KOEPFE, DIESELBE STELLE/.test(r.aus) || !/ohne Antwort/.test(r.aus) || (r.aus.match(/Flacher Abruf schneidet/g) || []).length !== 2) f.push('lesen zeigt den Anstoss, die Marke oder den Befund nicht wie erwartet (einmal im Anstoss, einmal in der Liste)');
+        r = werkzeug(d, []);
+        if (!/ZWEI KOEPFE, DIESELBE STELLE/.test(r.aus) || !/ohne Antwort/.test(r.aus) || (r.aus.match(/Flacher Abruf schneidet/g) || []).length !== 2) f.push('lesen zeigt den Anstoss, die Marke oder den Befund nicht wie erwartet (einmal im Anstoss, einmal in der Liste)');
+        if (!/Hoechstens EIN Remote-Ref/.test(r.aus)) f.push('ohne einen einzigen Remote-Branch fehlt die Warnung „Hoechstens EIN Remote-Ref sichtbar"');
+        r = werkzeug(d, ['holen']); if (r.code !== 0 || !/Holen hat NICHT geklappt/.test(r.aus)) f.push('holen ohne origin sagt nicht, dass das Holen nicht geklappt hat (Exit ' + r.code + ')');
+        // Was die Befehle BEWIRKEN — zurueckgelesen, nicht geglaubt.
+        r = werkzeug(d, ['antworte', frage ? frage.id.slice(-4) : 'x', '--text', 'Gemessen: zwei Anzeigen lesen sie', '--von', 'sitzung/drei']);
+        if (r.code !== 0 || zustand(frage && frage.id) !== 'beantwortet') f.push('`antworte` auf eine Frage: Exit ' + r.code + ', Zustand „' + zustand(frage && frage.id) + '" (erwartet beantwortet)');
+        r = werkzeug(d, ['antworte', e ? e.id.slice(-4) : 'x', '--widerspricht', '--text', 'Nachgemessen: es bleibt die ganze Geschichte', '--von', 'sitzung/drei']);
+        const wid = brettD().eintraege.find(x => x.art === 'antwort' && /^Widerspruch zu:/.test(x.titel));
+        if (r.code !== 0 || !wid || wid.bezug[0].art !== 'widerspricht' || !/WIDERSPRUCH OHNE AUFLOESUNG/.test(werkzeug(d, []).aus)) f.push('`antworte --widerspricht`: Exit ' + r.code + ', Bezug „' + (wid ? wid.bezug[0].art : 'kein Eintrag') + '" (erwartet widerspricht, und der Anstoss in lesen)');
+        r = werkzeug(d, ['neu', 'idee', '--titel', 'Die Kachel ganz streichen', '--nutzen', 'eine Anzeige weniger', '--pruefbar', 'render_check', '--stichwort', 'kachel', '--von', 'sitzung/zwei']);
+        const idee = brettD().eintraege.find(x => x.art === 'idee');
+        r = werkzeug(d, ['schliesse', idee ? idee.id.slice(-4) : 'x', '--ergebnis', 'verworfen', '--text', 'sie ist der einzige Weg zur Liste', '--von', 'sitzung/drei']);
+        if (r.code !== 0 || zustand(idee && idee.id) !== 'geschlossen') f.push('`schliesse --ergebnis verworfen`: Exit ' + r.code + ', Zustand „' + zustand(idee && idee.id) + '" (erwartet geschlossen)');
+        r = werkzeug(d, ['schliesse', e ? e.id.slice(-4) : 'x', '--ergebnis', 'erledigt', '--wohin', 'v1.01', '--von', 'sitzung/drei']);
+        if (r.code !== 1 || !/braucht „geschwister"/.test(r.aus) || !/steht unveraendert/.test(r.aus)) f.push('`schliesse --ergebnis erledigt` ohne Geschwister-Suche und bei unveraenderter Zaehlung: Exit ' + r.code + ' (erwartet 1 mit beiden Gruenden)');
+        const gut = path.join(ex, 'gut.json'), schlecht = path.join(ex, 'schlecht.json'), n0 = dateien();
+        fs.writeFileSync(gut, JSON.stringify([{ schluessel: 'a', art: 'befund', von: 'runde/x', titel: 'Aus dem Stapel', beleg: ['x'] }, { art: 'idee', von: 'runde/x', titel: 'Dazu eine Idee', nutzen: 'n', pruefbar: 'p', bezug: [{ art: 'baut_auf', id: '@a' }] }]));
+        fs.writeFileSync(schlecht, JSON.stringify([{ art: 'befund', von: 'runde/x', titel: 'Gut', beleg: ['x'] }, { art: 'befund', von: 'runde/x', titel: 'Ohne Beleg' }]));
+        r = werkzeug(d, ['einspielen', schlecht]); if (r.code !== 1 || !/NICHTS geschrieben/.test(r.aus) || dateien() !== n0) f.push('`einspielen` mit einem Mangel: Exit ' + r.code + ', ' + (dateien() - n0) + ' Dateien geschrieben (erwartet Exit 1 und 0)');
+        r = werkzeug(d, ['einspielen', gut]); if (r.code !== 0 || dateien() !== n0 + 2 || A.brettPruefen(brettD()).length) f.push('`einspielen` eines guten Stapels: Exit ' + r.code + ', ' + (dateien() - n0) + ' Dateien (erwartet 2), Pruefung: ' + ((A.brettPruefen(brettD())[0] || {}).grund || 'still'));
+        // Kein stiller Deckel: 13 offene Fragen → zwoelf stehen da, eine wird gezaehlt.
+        const viele = A.einspielen(d, Array.from({ length: 13 }, (_, i) => ({ art: 'frage', an: 'alle', titel: 'Offene Frage Nummer ' + (i + 1) })), { von: 'sitzung/viele', alleRefs: false });
+        const offeneFragen = brettD().eintraege.filter(x => x.art === 'frage' && zustand(x.id) === 'offen').length;
+        r = werkzeug(d, ['--art', 'frage']);
+        if (!viele.ok || offeneFragen <= 12 || !new RegExp('FRAGEN \\(' + offeneFragen + '\\)').test(r.aus) || !new RegExp('\\+' + (offeneFragen - 12) + ' weitere').test(r.aus)) f.push('Deckel: ' + offeneFragen + ' offene Fragen — erwartet „FRAGEN (' + offeneFragen + ')" und „+' + (offeneFragen - 12) + ' weitere" (kein stilles Abschneiden)');
+        // Eine Kurz-id, die zwei Eintraege trifft, waehlt keinen aus.
+        ablegen(d, mk('befund', { id: '2026-01-01-aa11' })); ablegen(d, mk('befund', { id: '2026-01-02-aa11', datum: '2026-01-02' }));
+        r = werkzeug(d, ['zeige', 'aa11']); if (r.code !== 2 || !/nicht eindeutig/.test(r.aus)) f.push('mehrdeutige Kurz-id: Exit ' + r.code + ' (erwartet 2, „nicht eindeutig")');
+        // Ein geerbter roter Stand steht im Kopf — bevor die Sitzung etwas anfasst.
+        const kaputt = ablegen(d, '{ kaputt', '2026-01-03-dddd-befund-kaputt.json');
+        r = werkzeug(d, []); if (r.code !== 0 || !/schon rot/.test(r.aus)) f.push('ein kaputter Eintrag im Arbeitsbaum: lesen sagt nicht „schon rot" (Exit ' + r.code + ')');
+        fs.unlinkSync(kaputt);
         // Die Ware: im echten Repo liest das Werkzeug, ohne etwas anzufassen.
         const echt = () => { const p = path.join(WURZEL, A.ORDNER); return fs.existsSync(p) ? fs.readdirSync(p, { recursive: true }).join('|') : ''; };
         const vorher = echt(), w = cp.spawnSync(process.execPath, [WERKZEUG, '--nur-lokal'], { encoding: 'utf8', env: Object.assign({}, process.env, { AUSTAUSCH_WURZEL: '' }) });
+        // (Ob das echte Brett rot ist, sagen A1 und A3 — hier zaehlt nur: es liest, und es fasst nichts an.)
         if (w.status !== 0 || !/Nichts geschrieben\.\s*$/.test(w.stdout) || echt() !== vorher) f.push('im echten Repo: Exit ' + w.status + (echt() !== vorher ? ', der Ordner hat sich geaendert' : ''));
         if (f.length) return { ok: false, warum: f.join(' · ') };
-        return { ok: true, info: '„--depth=1 …" als Wert angekommen · --stichwort=a,b · Zaehlung selbst gerechnet (3) · sechs Fehlbedienungen mit Exit 2 bzw. 1 und 0 Dateien · acht Lese-Befehle enden mit „Nichts geschrieben." · im echten Repo unveraendert' };
-      } finally { weg(d); }
+        return { ok: true, info: '„--depth=1 …" als Wert · --stichwort=a,b · Stempel in UTC (gestartet 14 h davor) · 14 Fehlbedienungen ohne Datei und ohne Stacktrace · antworte → beantwortet · --widerspricht → Anstoss · schliesse → geschlossen; „erledigt" ohne Suche und Bewegung: nein · einspielen 2/0 Dateien · ' + offeneFragen + ' Fragen: 12 gezeigt, Rest gezaehlt · mehrdeutige Kurz-id: Exit 2 · drei Kopf-Warnungen · im echten Repo unveraendert' };
+      } finally { weg(d); weg(ex); }
     },
   },
   {
-    name: 'C8 · Ueber Branches · ein Eintrag, der NUR auf einem nie gemergten Branch liegt, steht im Brett; eine Datei ohne id oder mit einer unbekannten Art auf einem fremden Branch stuerzt nichts; ein dort umgeschriebener Eintrag wird gemeldet; eine Antwort ueber die Branch-Grenze nimmt ihr Ziel mit; `ernten` holt den Rest; `holen` laesst die gemeinsame Geschichte stehen',
+    name: 'C8 · Ueber Branches · was NUR auf einem nie gemergten Branch liegt, steht im Brett; falsch geformte Dateien dort stuerzen nichts; origin/HEAD ist kein Branch; ein Bezug ueber die Branch-Grenze nennt seinen Branch (nichts wird herueberkopiert); „erledigt" und ein Nachtrag mit Anker gelten nur in IHREM Baum; `ernten` holt, was hier stimmt, und laesst den Arbeitsbaum gruen; `holen` laesst die gemeinsame Geschichte stehen',
     lauf: () => {
       const bare = tmp('origin'), d = tmp('klon');
       try {
+        const f = [], lokalL = liesOderNull(d);
         cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
         g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', bare]);
         fs.writeFileSync(path.join(d, 'index.html'), QUELLE);
         const o = { von: 'sitzung/main', datum: '2026-02-01', zeit: '08:00:00', alleRefs: false };
-        const r0 = A.einspielen(d, [{ art: 'befund', titel: 'Auf main bekannt', beleg: ['x'], stichworte: ['kachel'] }], o);
+        const r0 = A.einspielen(d, [{ art: 'befund', titel: 'Auf main bekannt', beleg: ['x'], stichworte: ['kachel'], anker: [{ datei: 'index.html', text: 'function gsZwei(){ return gsEins() + gsEins(); }' }] }], o);
         for (let i = 1; i <= 3; i++) { fs.writeFileSync(path.join(d, 'n' + i), String(i)); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'main ' + i]); }
         g(d, ['push', '-q', 'origin', 'main']);
+        const id0 = r0.geschrieben[0].id, p0 = path.join(d, r0.geschrieben[0].datei);
         // Branch 1: zwei Eintraege, nie gemergt.
         g(d, ['checkout', '-q', '-b', 'claude/nie-gemergt']);
         const r1 = A.einspielen(d, [{ schluessel: 'f', art: 'frage', titel: 'Wer liest die Kachel?', an: 'alle', stichworte: ['kachel'] }, { art: 'idee', titel: 'Kachel aus einer Funktion', nutzen: 'n', pruefbar: 'p', bezug: [{ art: 'baut_auf', id: '@f' }] }], Object.assign({}, o, { von: 'sitzung/nie-gemergt' }));
         g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'zwei Eintraege']); g(d, ['push', '-q', 'origin', 'claude/nie-gemergt']);
-        // Branch 2: eine Datei ohne id — und der Eintrag von main, umgeschrieben.
+        // Branch 2: fremde Eingabe — von Hand geschriebene Dateien, jede auf ihre Art falsch, und der Eintrag von main umgeschrieben.
         g(d, ['checkout', '-q', '-b', 'claude/kaputt', 'main']);
+        const hand = (id, rest) => ablegen(d, JSON.stringify(Object.assign({ id, art: 'antwort', datum: '2026-02-01', von: 'sitzung/hand', titel: 'von Hand', bezug: [{ art: 'baut_auf', id: id0 }] }, rest)), id + '-antwort-hand.json');
         ablegen(d, JSON.stringify({ art: 'befund', titel: 'ohne id' }), 'ohne-id.json');
+        hand('2026-02-01-0a01', { anker: [null] }); hand('2026-02-01-0a02', { zaehle: [{ datei: 'index.html', n: 3 }] }); hand('2026-02-01-0a03', { gesucht: 4 });
+        hand('2026-02-01-0a04', { bezug: [{ art: 'baut_auf', id: id0 }, null] }); hand('2026-02-01-0a05', { stichworte: 'kachel' });
         ablegen(d, { id: '2026-02-01-0f0f', art: 'zukunft', datum: '2026-02-01', von: 'sitzung/spaeter', titel: 'Eine Art, die dieses Modul noch nicht kennt' });
-        const p0 = path.join(d, r0.geschrieben[0].datei); fs.writeFileSync(p0, fs.readFileSync(p0, 'utf8').replace('Auf main bekannt', 'Auf main bekannt — nachtraeglich geaendert'));
+        ablegen(d, { id: '2026-02-01-0f1f', art: 'constructor', datum: '2026-02-01', von: 'sitzung/spaeter', titel: 'Eine Art mit einem geerbten Namen' });
+        fs.writeFileSync(p0, fs.readFileSync(p0, 'utf8').replace('Auf main bekannt', 'Auf main bekannt — nachtraeglich geaendert'));
         g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'kaputt']); g(d, ['push', '-q', 'origin', 'claude/kaputt']);
-        g(d, ['checkout', '-q', '-b', 'claude/arbeit', 'main']); g(d, ['fetch', '-q', 'origin']);
-        const lokal = A.brettLesen(d, { alleRefs: false }), alle = A.brettLesen(d, { alleRefs: true });
-        if (lokal.eintraege.length !== 1 || alle.eintraege.length !== 4) return { ok: false, warum: 'nur Arbeitsbaum: ' + lokal.eintraege.length + ' (erwartet 1) · mit Remote-Refs: ' + alle.eintraege.length + ' (erwartet 4)' };
-        const zk = werkzeug(d, ['zeige', '0f0f']);
-        if (zk.code !== 0 || !/UNBEKANNTE ART/.test(zk.aus)) return { ok: false, warum: 'ein Eintrag mit einer unbekannten Art von einem fremden Branch: `zeige` endet mit Exit ' + zk.code + ' — ' + kurz(zk.aus, 160) };
-        if (alle.unlesbar.length !== 1 || alle.abweichend.length !== 1 || alle.abweichend[0].gilt !== 'Arbeitsbaum') return { ok: false, warum: 'Datei ohne id: ' + alle.unlesbar.length + ' unlesbar (erwartet 1) · umgeschriebener Eintrag: ' + alle.abweichend.length + ' gemeldet (erwartet 1, es gilt der Arbeitsbaum)' };
+        // Branch 3: behebt bei SICH, schliesst den Befund von main als erledigt, verankert ihn neu — und traegt einen Befund an Code, den es nur dort gibt.
+        g(d, ['checkout', '-q', '-b', 'claude/feature', 'main']);
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE.replace('function gsZwei(){ return gsEins() + gsEins(); }', 'function gsZwei(){ return 2; }\nfunction gsNeueKachel(){ return 7; }'));
+        const r3 = A.einspielen(d, [
+          { art: 'befund', titel: 'Die neue Kachel zaehlt fest sieben', beleg: ['x'], anker: [{ datei: 'index.html', text: 'function gsNeueKachel(){ return 7; }' }] },
+          { art: 'abschluss', titel: 'Behoben auf dem Feature-Branch', ergebnis: 'erledigt', wohin: 'v1.01 (Branch claude/feature)', geschwister: 'gesucht: 0 weitere', bezug: [{ art: 'schliesst', id: id0 }] },
+          { art: 'antwort', titel: 'Neu verankert', text: 'die Stelle heisst hier anders', anker: [{ datei: 'index.html', text: 'function gsZwei(){ return 2; }' }], bezug: [{ art: 'baut_auf', id: id0 }] },
+          { schluessel: 'irr', art: 'idee', titel: 'Die Kachel cachen', nutzen: 'n', pruefbar: 'p', stichworte: ['kachel'] },
+          { art: 'abschluss', titel: 'Verworfen', ergebnis: 'verworfen', text: 'kostet 40 ms je Start', bezug: [{ art: 'schliesst', id: '@irr' }] },
+        ], Object.assign({}, o, { von: 'sitzung/feature', zeit: '09:00:00' }));
+        if (!r3.ok) return { ok: false, warum: 'Aufbau: der Feature-Branch konnte seine Eintraege nicht schreiben: ' + r3.fehler.map(x => x.grund).join(' | ') };
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'feature']); g(d, ['push', '-q', 'origin', 'claude/feature']);
+        g(d, ['checkout', '-q', '-b', 'claude/arbeit', 'main']); g(d, ['fetch', '-q', 'origin']); g(d, ['remote', 'set-head', 'origin', 'main']);
+        // ── Lesen
+        const lokal = A.brettLesen(d, { alleRefs: false }), alle = A.brettLesen(d, { alleRefs: true }), abl = A.ableiten(alle.eintraege);
+        if (lokal.eintraege.length !== 1 || alle.eintraege.length !== 10) f.push('nur Arbeitsbaum: ' + lokal.eintraege.length + ' (erwartet 1) · mit Remote-Refs: ' + alle.eintraege.length + ' (erwartet 10: 1 + 2 nie-gemergt + 2 unbekannte Arten + 5 feature)');
+        if (alle.refs !== 4) f.push('gezaehlte Remote-Refs: ' + alle.refs + ' (erwartet 4 — origin/HEAD ist kein Branch)');
+        if (alle.unlesbar.length !== 6 || !alle.unlesbar.every(u => /ohne id|falsch geformt/.test(u.grund))) f.push('unlesbar: ' + alle.unlesbar.length + ' (erwartet 6: ohne id und fuenf falsch geformte) — ' + alle.unlesbar.map(u => u.grund).join(' | '));
+        if (alle.abweichend.length !== 1 || alle.abweichend[0].gilt !== 'Arbeitsbaum') f.push('umgeschriebener Eintrag: ' + alle.abweichend.length + ' gemeldet (erwartet 1, es gilt der Arbeitsbaum)');
+        const fz = A.frischeZweige(d, Date.now(), 14) || [];
+        if (fz.some(z => z.ref === 'origin' || /HEAD$/.test(z.ref)) || fz.length !== 3) f.push('frische Branches: ' + fz.map(z => z.ref).join(', ') + ' (erwartet die drei Branches, nicht „origin")');
+        // main gilt vor einem Branch: fehlt der Eintrag im Arbeitsbaum, gewinnt origin/main gegen die umgeschriebene Fassung.
+        fs.unlinkSync(p0);
+        const ohne = A.brettLesen(d, { alleRefs: true }), e0 = ohne.eintraege.find(x => x.id === id0);
+        if (!e0 || e0._quelle !== 'origin/main' || e0.titel !== 'Auf main bekannt' || (ohne.abweichend[0] || {}).gilt !== 'origin/main') f.push('fehlt der Eintrag im Arbeitsbaum, gilt nicht origin/main, sondern ' + (e0 ? e0._quelle + ' („' + e0.titel + '")' : 'nichts'));
+        g(d, ['checkout', '-q', '--', '.']);
+        // ── „Erledigt" und ein Nachtrag mit Anker gelten nur in ihrem Baum.
+        const z0 = abl.zustand.get(id0), irr = alle.eintraege.find(x => x.titel === 'Die Kachel cachen');
+        if (z0.z !== 'offen' || !z0.anderswo || abl.zustand.get(irr.id).z !== 'geschlossen') f.push('der Befund von main ist nach einem „erledigt" auf einem fremden Branch „' + z0.z + '" (erwartet offen, mit Hinweis) · die dort VERWORFENE Idee ist „' + abl.zustand.get(irr.id).z + '" (erwartet geschlossen: verworfen gilt ueberall)');
+        if (A.ankerWirksam(alle.eintraege.find(x => x.id === id0), abl.rueck)[0].text.indexOf('gsEins() + gsEins()') < 0) f.push('der Nachtrag vom fremden Branch verankert den Befund in DIESEM Baum neu');
+        const an = A.anstoesse(alle.eintraege, lokalL);
+        if (an.some(x => x.art === 'anker_verloren' || x.art === 'zahl_bewegt')) f.push('Code eines fremden Branches wird gegen diesen Baum gemessen: ' + an.filter(x => /anker|zahl/.test(x.art)).map(x => kurz(x.satz, 90)).join(' | '));
         let r = werkzeug(d, []);
-        if (r.code !== 0 || !/unlesbare Datei/.test(r.aus) || !/sehen auf einem Branch anders aus/.test(r.aus) || !/\{origin\/claude\/nie-gemergt\}/.test(r.aus) || !/FRISCHE BRANCHES/.test(r.aus)) return { ok: false, warum: 'lesen ueber Branches: Exit ' + r.code + ' — erwartet Hinweise auf die unlesbare Datei, den abweichenden Eintrag, die Herkunft {origin/…} und die frischen Branches: ' + kurz(r.aus, 300) };
+        if (r.code !== 0 || /TypeError|at file:|\.mjs:\d+/.test(r.aus)) f.push('lesen ueber Branches: Exit ' + r.code + (/TypeError/.test(r.aus) ? ' mit Stacktrace' : ''));
+        for (const [re, was] of [[/unlesbare Datei/, 'die unlesbaren Dateien'], [/sehen auf einem Branch anders aus/, 'den abweichenden Eintrag'], [/\{origin\/claude\/nie-gemergt\}/, 'die Herkunft {origin/…}'], [/FRISCHE BRANCHES/, 'die frischen Branches'], [/als erledigt geschlossen \(v1\.01 \(Branch claude\/feature\)\) — in diesem Baum noch nicht/, 'den Hinweis „anderswo erledigt"'], [/· 4 Remote-Refs/, '„4 Remote-Refs"']]) if (!re.test(r.aus)) f.push('lesen nennt ' + was + ' nicht');
+        if (/^    origin   /m.test(r.aus) || /Hoechstens EIN/.test(r.aus)) f.push('lesen fuehrt „origin" als frischen Branch oder warnt bei vier Refs vor einem einzigen');
+        for (const a of [['klasse'], ['zeige', '0f0f'], ['zeige', '0f1f'], ['zeige', id0], ['suche', 'kachel'], ['--json']]) { const x = werkzeug(d, a); if (x.code !== 0 || /TypeError/.test(x.aus)) f.push('`' + a.join(' ') + '` mit fremder Eingabe auf einem Branch: Exit ' + x.code); }
+        if (!/UNBEKANNTE ART/.test(werkzeug(d, ['zeige', '0f0f']).aus)) f.push('`zeige` nennt die unbekannte Art nicht');
+        // ── Antwort ueber die Branch-Grenze: der Bezug nennt den Branch, nichts wird kopiert.
         const frageId = r1.geschrieben[0].id;
         r = werkzeug(d, ['antworte', frageId.slice(-4), '--text', 'Gemessen: zwei Anzeigen lesen sie']);
-        const nach = A.brettLesen(d, { alleRefs: false });
-        if (r.code !== 0 || !/Mitgenommen/.test(r.aus) || nach.eintraege.length !== 3 || A.brettPruefen(nach).length) return { ok: false, warum: 'Antwort ueber die Branch-Grenze: Exit ' + r.code + ', ' + nach.eintraege.length + ' Eintraege im Arbeitsbaum (erwartet 3: Befund, mitgenommene Frage, Antwort), Pruefung: ' + ((A.brettPruefen(nach)[0] || {}).grund || 'still') };
+        const nach = A.brettLesen(d, { alleRefs: false }), antw = nach.eintraege.find(x => x.art === 'antwort');
+        if (r.code !== 0 || !/Bezug ueber die Branch-Grenze/.test(r.aus) || nach.eintraege.length !== 2 || A.brettPruefen(nach).length || !antw || antw.bezug[0].ref !== 'origin/claude/nie-gemergt') f.push('Antwort ueber die Branch-Grenze: Exit ' + r.code + ', ' + nach.eintraege.length + ' Eintraege im Arbeitsbaum (erwartet 2: Befund und Antwort — die Frage bleibt auf ihrem Branch), ref „' + (antw && antw.bezug[0].ref) + '", Pruefung: ' + ((A.brettPruefen(nach)[0] || {}).grund || 'still'));
+        const mit = A.brettLesen(d, { alleRefs: true });
+        if (A.ableiten(mit.eintraege).zustand.get(frageId).z !== 'beantwortet') f.push('die Frage auf dem fremden Branch gilt nach der Antwort nicht als beantwortet');
+        // Ein Bezug OHNE die Angabe bleibt ein Bezug ins Leere.
+        if (!A.brettPruefen(brettAus([Object.assign({}, antw, { bezug: [{ art: 'beantwortet', id: frageId }] })])).some(x => /den Eintrag gibt es nicht/.test(x.grund))) f.push('ein Bezug ohne `ref` auf einen Eintrag, der nicht im Baum liegt, wird nicht gemeldet');
+        // ── Ernten: was hier stimmt, kommt; was einen anderen Baum beschreibt, bleibt — und der Arbeitsbaum ist danach gruen.
         r = werkzeug(d, ['ernten']);
-        const geerntet = A.brettLesen(d, { alleRefs: false });
-        if (r.code !== 0 || geerntet.eintraege.length !== 4 || A.brettPruefen(geerntet).length || (r.aus.match(/^  \S+  \{origin\/claude\/kaputt\}/gm) || []).length !== 2) return { ok: false, warum: 'ernten: Exit ' + r.code + ', ' + geerntet.eintraege.length + ' Eintraege (erwartet 4: die unbekannte Art und die Datei ohne id bleiben auf ihrem Branch), die Datei ohne id ' + (/Uebergangen/.test(r.aus) ? 'uebergangen' : 'NICHT als uebergangen genannt') };
-        // holen: die gemeinsame Geschichte bleibt (ein flacher Abruf wuerde sie kappen).
+        const ge = A.brettLesen(d, { alleRefs: false }), titel = ge.eintraege.map(x => x.titel);
+        const soll = ['Auf main bekannt', 'Wer liest die Kachel?', 'Kachel aus einer Funktion', 'Die Kachel cachen', 'Verworfen'], nicht = ['Die neue Kachel zaehlt fest sieben', 'Behoben auf dem Feature-Branch', 'Neu verankert'];
+        if (r.code !== 0 || /TypeError/.test(r.aus) || soll.some(t => titel.indexOf(t) < 0) || nicht.some(t => titel.indexOf(t) >= 0) || ge.eintraege.length !== 6) f.push('ernten: Exit ' + r.code + ', im Arbeitsbaum: ' + titel.join(' | ') + ' — erwartet die fuenf, die hier stimmen, plus die Antwort; NICHT: ' + nicht.join(' | '));
+        for (const [re, was] of [[/sein Anker steht in diesem Baum nicht/, 'den Befund an fremdem Code'], [/„erledigt" beschreibt den Baum von origin\/claude\/feature/, 'den Abschluss „erledigt"'], [/Nachtrag mit Anker oder Zaehlung beschreibt den Baum/, 'den Nachtrag mit Anker'], [/falsch geformt/, 'die falsch geformten Dateien'], [/art „zukunft" gibt es nicht/, 'die unbekannte Art']]) if (!re.test(r.aus)) f.push('ernten uebergeht ' + was + ' nicht mit Grund');
+        if (A.brettPruefen(ge).length || A.ankerPruefen(ge.eintraege, lokalL).verloren.length || A.ableiten(ge.eintraege).zustand.get(id0).z !== 'offen') f.push('nach dem Ernten ist der Arbeitsbaum nicht gruen oder der Befund nicht mehr offen: ' + ((A.brettPruefen(ge)[0] || {}).grund || '') + ' · verlorene Anker: ' + A.ankerPruefen(ge.eintraege, lokalL).verloren.length);
+        const md = fs.readFileSync(p0, 'utf8'); werkzeug(d, ['ernten']);
+        if (fs.readFileSync(p0, 'utf8') !== md) f.push('ein zweites Ernten hat eine vorhandene Datei ueberschrieben');
+        // ── holen: die gemeinsame Geschichte bleibt (ein flacher Abruf wuerde sie kappen).
         const vorher = g(d, ['rev-list', '--count', 'origin/main']).trim();
         r = werkzeug(d, ['holen']);
         const flach = g(d, ['rev-parse', '--is-shallow-repository']).trim(), nachher = g(d, ['rev-list', '--count', 'origin/main']).trim();
         let basis = ''; try { basis = g(d, ['merge-base', 'HEAD', 'origin/main']).trim(); } catch (_) {}
-        if (r.code !== 0 || !/Alle Branches geholt/.test(r.aus) || flach !== 'false' || nachher !== vorher || !basis) return { ok: false, warum: 'holen: Exit ' + r.code + ', flach=' + flach + ', origin/main ' + vorher + ' → ' + nachher + ' Commits, merge-base ' + (basis ? 'da' : 'FEHLT') };
-        return { ok: true, info: 'Arbeitsbaum 1 · mit Remote-Refs 4 · Datei ohne id und eine unbekannte Art: gemeldet bzw. gezeigt, kein Absturz · umgeschriebener Eintrag gemeldet (es gilt der Arbeitsbaum) · Antwort nimmt die Frage mit · ernten holt den vierten · holen: ' + nachher + ' Commits auf origin/main wie zuvor, merge-base da' };
+        if (r.code !== 0 || !/Alle Branches geholt/.test(r.aus) || flach !== 'false' || nachher !== vorher || !basis) f.push('holen: Exit ' + r.code + ', flach=' + flach + ', origin/main ' + vorher + ' → ' + nachher + ' Commits, merge-base ' + (basis ? 'da' : 'FEHLT'));
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'Arbeitsbaum 1 · mit 4 Remote-Refs 10 (origin/HEAD zaehlt nicht) · 6 Dateien fremder Hand unlesbar gemeldet, 2 unbekannte Arten gezeigt, kein Stacktrace · main gilt vor dem Branch · „erledigt" vom Feature-Branch laesst den Befund hier offen (mit Hinweis), „verworfen" schliesst · sein Anker-Nachtrag gilt hier nicht · Antwort nennt den Branch (2 im Baum) · ernten: 4 geholt, 3 bleiben mit Grund, Baum gruen, nichts ueberschrieben · holen: ' + nachher + ' Commits wie zuvor' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(bare); weg(d); }
     },
   },

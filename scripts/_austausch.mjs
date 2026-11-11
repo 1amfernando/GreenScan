@@ -26,22 +26,22 @@ import crypto from 'node:crypto';
 export const ORDNER = 'docs/austausch/eintraege';
 
 // ── Das Vokabular. Die Liste ist die Pruefung.
-export const ARTEN = {
+export const ARTEN = Object.assign(Object.create(null), {
   befund:    { wort: 'Befund',       pflicht: ['beleg'], offenbar: true,  sinn: 'etwas GEMESSENES: ein Fehler, eine Luecke, ein Widerspruch — mit Beleg' },
   idee:      { wort: 'Idee',         pflicht: ['nutzen', 'pruefbar'], offenbar: true, sinn: 'ein Vorschlag, der noch keinen Meilenstein verdient — mit Nutzen und woran man ihn pruefen koennte' },
   frage:     { wort: 'Frage',        pflicht: ['an'], offenbar: true,     sinn: 'was die schreibende Sitzung nicht messen oder entscheiden konnte' },
   klasse:    { wort: 'Fehlerklasse', pflicht: ['regel', 'instanzen'], offenbar: true, sinn: 'ein Fehler-MUSTER: Regel, Instanzen, Suchmuster fuer Geschwister, der Pruefstand-Fall, der es bewacht' },
   antwort:   { wort: 'Antwort',      pflicht: [], offenbar: false, brauchtBezug: ['beantwortet', 'baut_auf', 'widerspricht'], sinn: 'Antwort, Ergaenzung, Widerspruch oder Nachtrag (neuer Anker, neue Zaehlung, „gesucht") zu einem Eintrag' },
   abschluss: { wort: 'Abschluss',    pflicht: ['ergebnis'], offenbar: false, brauchtBezug: ['schliesst'], sinn: 'schliesst einen Eintrag: erledigt (wohin) · verworfen (Grund) · aufgestiegen (wohin)' },
-};
-export const BEZUEGE = {
+});
+export const BEZUEGE = Object.assign(Object.create(null), {
   baut_auf:     'nimmt den anderen Eintrag als Grundlage — so entsteht aus zwei Koepfen eine Idee',
   widerspricht: 'haelt den anderen Eintrag fuer falsch oder unvollstaendig, mit Beleg',
   beantwortet:  'beantwortet eine Frage',
   schliesst:    'der andere Eintrag ist erledigt, verworfen oder aufgestiegen (nur ein Abschluss schliesst)',
   ersetzt:      'der andere Eintrag DERSELBEN Art ist ueberholt; dieser gilt an seiner Stelle',
   gehoert_zu:   'ist eine Instanz dieser Fehlerklasse',
-};
+});
 export const ERGEBNISSE = ['erledigt', 'verworfen', 'aufgestiegen'];
 export const AN = ['alle', 'fernando'];
 const LISTENFELDER = ['beleg', 'stichworte', 'instanzen'];
@@ -49,6 +49,8 @@ const TEXTFELDER = ['titel', 'text', 'von', 'stand', 'zeit', 'nutzen', 'pruefbar
   'gesucht', 'ohne_waechter', 'ergebnis', 'wohin', 'geschwister', 'bewacht', 'details_bei'];
 const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'zaehle', 'sicherheit', 'schluessel'].concat(LISTENFELDER, TEXTFELDER));
 export const FELDER = [...BEKANNT];
+const SICHERHEIT_NICHT = ['text', 'beleg', 'vorschlag', 'anker', 'zaehle', 'haengt_daran', 'nutzen', 'pruefbar', 'regel', 'instanzen', 'suchmuster', 'gesucht', 'geschwister', 'bewacht', 'waechter', 'ohne_waechter', 'wohin'];
+export const GEHEIM_FORMEN = () => GEHEIM.length;
 export const TITEL_MAX = 200, STUECK_MIN = 8, STUECK_MAX = 300;
 export const ID_FORM = /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$/;
 // Namen, die wie App-Code aussehen — dieselbe Form, die robust_check „Memory" prueft.
@@ -74,7 +76,23 @@ export function slug(s) {
 export function alsListe(v) { return v == null ? [] : (Array.isArray(v) ? v : [v]); }
 // Alles, was an einem Eintrag GELESEN wird — jedes Feld, auch ein unbekanntes
 // (ein Geheimnis in `_notiz` ist auch eines).
-export function textVon(e) { return JSON.stringify(e); }
+export function textVon(e) {
+  // NICHT JSON.stringify: dort ist ein Zeilenumbruch die zwei Zeichen „\\" und „n" — das n
+  // ist ein Wortzeichen, und ein Token am ANFANG einer Zeile (so steht es in jeder
+  // Befehlsausgabe) rutschte an jedem Muster mit \b vorbei.
+  const teile = [];
+  const geh = (v) => {
+    if (v == null) return;
+    if (typeof v === 'string') teile.push(v);
+    else if (Array.isArray(v)) v.forEach(geh);
+    else if (typeof v === 'object') for (const k of Object.keys(v)) { teile.push(k); geh(v[k]); }
+    else teile.push(String(v));
+  };
+  geh(e);
+  return teile.join('\n');
+}
+// Was im ARBEITSBAUM liegt. Ein Eintrag von einem fremden Branch beschreibt einen anderen Baum.
+function imBaum(e) { return !e._quelle || e._quelle === 'Arbeitsbaum'; }
 export function datumGueltig(d) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d))) return false;
   const [j, m, t] = String(d).split('-').map(Number);
@@ -111,6 +129,7 @@ export function eintragPruefen(e, dateiname) {
       if (!b || typeof b !== 'object' || !ID_FORM.test(String(b.id || ''))) f.push('bezug[' + i + ']: id fehlt oder hat die falsche Form');
       else if (b.id === e.id) f.push('bezug[' + i + ']: ein Eintrag bezieht sich nicht auf sich selbst');
       if (!b || !BEZUEGE[b.art]) f.push('bezug[' + i + ']: art „' + (b && b.art) + '" gibt es nicht (erlaubt: ' + Object.keys(BEZUEGE).join(' · ') + ')');
+      if (b && b.ref != null && (typeof b.ref !== 'string' || !b.ref.trim())) f.push('bezug[' + i + ']: ref nennt den Branch, auf dem das Ziel liegt (Text)');
     });
   }
   // Anker und Zaehlung: {datei, text[, n]} — ein WOERTLICHES Stueck einer Datei im Repo.
@@ -133,6 +152,7 @@ export function eintragPruefen(e, dateiname) {
   }
   if (!art) return f;
   for (const k of art.pflicht) {
+    if (e.sicherheit === true && k === 'beleg') continue;   // der Beleg eines Sicherheitsbefunds steht nicht auf dem Brett
     const v = e[k];
     if (v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length)) f.push(art.wort + ' ohne „' + k + '"');
   }
@@ -147,8 +167,11 @@ export function eintragPruefen(e, dateiname) {
     f.push('Fehlerklasse ohne Waechter braucht „ohne_waechter" mit Grund (kein Pruefstand-Fall bewacht sie — das ist eine Aussage, keine Luecke im Formular)');
   }
   // Ein Sicherheitsbefund steht in einem PUBLIC Repo: nur der Titel, kein Weg.
+  //   Gesperrt ist jedes Feld, in dem ein Weg stehen kann — nicht nur „text": ein Beleg IST der Weg.
   if (e.sicherheit === true) {
-    if (e.text && e.text.trim()) f.push('sicherheit: true — kein „text" (das Repo ist public; Details gehen an Fernando, nicht aufs Brett)');
+    if (e.art !== 'befund' && e.art !== 'frage') f.push('sicherheit: true gibt es nur an einem Befund oder einer Frage');
+    const zuviel = SICHERHEIT_NICHT.filter(k => e[k] != null && !(typeof e[k] === 'string' && !e[k].trim()) && !(Array.isArray(e[k]) && !e[k].length));
+    if (zuviel.length) f.push('sicherheit: true — nur Titel, Stichworte und „details_bei" stehen auf dem Brett (das Repo ist public); nicht: ' + zuviel.join(', '));
     if (!(e.details_bei && e.details_bei.trim())) f.push('sicherheit: true braucht „details_bei" (wo die Einzelheiten liegen)');
   }
   const roh = textVon(e);
@@ -170,8 +193,22 @@ function lies(roh, datei, quelle, unlesbar) {
   // Ohne brauchbare id kann nichts auf den Eintrag zeigen und nichts ihn ordnen.
   // Ein solcher Eintrag — auch von einem fremden Branch — ist unlesbar, nicht Teil des Bretts.
   if (!ID_FORM.test(String(e.id || '')) || typeof e.art !== 'string') { unlesbar.push({ datei, quelle, grund: 'ohne id der Form JJJJ-MM-TT-xxxx oder ohne art' }); return null; }
+  // Falsch geformte Felder (anker: [null], gesucht: 4, bezug: [null] …) wuerden spaeter
+  // jede Rechnung abstuerzen lassen — und zwar in JEDER Sitzung, die den Branch liest.
+  const ff = formFehler(e);
+  if (ff) { unlesbar.push({ datei, quelle, grund: 'falsch geformt: ' + ff }); return null; }
   for (const [k, v] of [['_datei', datei], ['_quelle', quelle], ['_roh', roh]]) Object.defineProperty(e, k, { value: v, enumerable: false });
   return e;
+}
+function formFehler(e) {
+  for (const k of TEXTFELDER) if (e[k] != null && typeof e[k] !== 'string') return k + ' ist kein Text';
+  for (const k of LISTENFELDER) if (e[k] != null && (!Array.isArray(e[k]) || e[k].some(x => typeof x !== 'string'))) return k + ' ist keine Liste von Texten';
+  if (e.bezug != null && (!Array.isArray(e.bezug) || e.bezug.some(b => !b || typeof b !== 'object' || typeof b.id !== 'string' || typeof b.art !== 'string' || (b.ref != null && typeof b.ref !== 'string')))) return 'bezug ist keine Liste von {art, id}';
+  for (const [k, feld] of [['anker', 'text'], ['zaehle', 'text'], ['waechter', 'fall']]) {
+    if (e[k] != null && (!Array.isArray(e[k]) || e[k].some(x => !x || typeof x !== 'object' || typeof x.datei !== 'string' || typeof x[feld] !== 'string'))) return k + ' ist keine Liste von {datei, ' + feld + '}';
+  }
+  if (e.zaehle != null && e.zaehle.some(x => !Number.isInteger(x.n))) return 'zaehle ohne ganze Zahl n';
+  return null;
 }
 export function brettLesen(wurzel, opts) {
   opts = opts || {};
@@ -192,25 +229,36 @@ export function brettLesen(wurzel, opts) {
   const liesOrdner = (d) => { for (const n of fs.readdirSync(d).sort()) {
     const p = path.join(d, n);
     if (/^\d{4}-\d{2}$/.test(n) && fs.statSync(p).isDirectory()) liesOrdner(p);
-    else if (/\.json$/.test(n)) nimm(lies(fs.readFileSync(p, 'utf8'), n, 'Arbeitsbaum', aus.unlesbar));
+    else if (/\.json$/.test(n)) {
+      let roh = null;
+      try { roh = fs.readFileSync(p, 'utf8'); } catch (x) { aus.unlesbar.push({ datei: n, quelle: 'Arbeitsbaum', grund: 'nicht lesbar: ' + String(x.message).split('\n')[0] }); }
+      if (roh != null) nimm(lies(roh, n, 'Arbeitsbaum', aus.unlesbar));
+    }
   } };
   if (fs.existsSync(dir)) liesOrdner(dir);
   if (opts.alleRefs) {
-    const refs = git(wurzel, ['for-each-ref', '--format=%(refname:short)', 'refs/remotes']);
+    // Der VOLLE Name: `refname:short` macht aus refs/remotes/origin/HEAD den Namen „origin" —
+    // der zaehlte dann als eigener Branch (und stand als „frisch" in der Liste).
+    const refs = git(wurzel, ['for-each-ref', '--format=%(refname)', 'refs/remotes']);
     aus.gitDa = refs != null;
     if (refs != null) {
       // main zuerst: weicht ein Branch von main ab, gilt main.
       const liste = refs.split('\n').map(s => s.trim()).filter(s => s && !/\/HEAD$/.test(s))
         .sort((a, b) => (/\/main$/.test(b) ? 1 : 0) - (/\/main$/.test(a) ? 1 : 0) || a.localeCompare(b));
-      for (const ref of liste) {
+      // Derselbe Blob ist derselbe Inhalt: einmal lesen genuegt. (Ohne das kostet das Lesen
+      // Branches × Eintraege git-Prozesse, sobald Branches von einem main mit Brett abzweigen.)
+      const blobGesehen = new Set();
+      for (const voll of liste) {
+        const ref = voll.replace(/^refs\/remotes\//, '');
         aus.refs++;
         // -z: Dateinamen mit Sonderzeichen kommen unveraendert an.
-        const ls = git(wurzel, ['ls-tree', '-r', '-z', ref, '--', ORDNER + '/']);
+        const ls = git(wurzel, ['ls-tree', '-r', '-z', voll, '--', ORDNER + '/']);
         if (!ls) continue;
         let neu = 0;
         for (const zeile of ls.split('\0')) {
           const m = zeile.match(/^\d+ blob ([0-9a-f]+)\t(.+\.json)$/);
-          if (!m) continue;
+          if (!m || blobGesehen.has(m[1])) continue;
+          blobGesehen.add(m[1]);
           const name = path.posix.basename(m[2]);
           const roh = git(wurzel, ['cat-file', 'blob', m[1]]);
           if (roh != null && nimm(lies(roh, name, ref, aus.unlesbar))) neu++;
@@ -226,12 +274,13 @@ export function brettLesen(wurzel, opts) {
 // etwas schreiben (die geplanten Sitzungen, die am 10.09.2026 denselben Fehler
 // viermal behoben, haetten keinen Anspruch angelegt). `jetzt` in ms; nur Anzeige.
 export function frischeZweige(wurzel, jetzt, tage) {
-  const roh = git(wurzel, ['for-each-ref', '--sort=-committerdate', '--format=%(refname:short)\t%(committerdate:unix)\t%(subject)', 'refs/remotes']);
+  const roh = git(wurzel, ['for-each-ref', '--sort=-committerdate', '--format=%(refname)\t%(committerdate:unix)\t%(subject)', 'refs/remotes']);
   if (roh == null) return null;
   const kopf = (git(wurzel, ['rev-parse', '--abbrev-ref', 'HEAD']) || '').trim();
   const aus = [];
   for (const z of roh.split('\n')) {
-    const [ref, t, ...rest] = z.split('\t');
+    const [voll, t, ...rest] = z.split('\t');
+    const ref = String(voll || '').replace(/^refs\/remotes\//, '');
     if (!ref || /\/HEAD$/.test(ref) || /\/main$/.test(ref) || ref.replace(/^[^/]+\//, '') === kopf) continue;
     const alter = Math.floor((jetzt - Number(t) * 1000) / 864e5);
     if (alter <= tage) aus.push({ ref, tage: Math.max(0, alter), betreff: rest.join('\t') });
@@ -253,13 +302,19 @@ export function ableiten(eintraege) {
   for (const e of eintraege) {
     const r = rueck.get(e.id) || [];
     // Nur ein ABSCHLUSS schliesst; nur ein Eintrag DERSELBEN Art ersetzt.
-    const zu = r.find(x => x.art === 'schliesst' && x.von.art === 'abschluss'), ers = r.find(x => x.art === 'ersetzt' && x.von.art === e.art);
+    // „Erledigt" ist eine Aussage ueber einen BAUM: ein Abschluss „erledigt", der nur auf einem
+    // anderen Branch liegt, schliesst hier nichts — sonst meldete das Brett „nichts offen",
+    // waehrend der Fehler in diesem Baum steht. „Verworfen" und „aufgestiegen" sind Aussagen
+    // ueber die BEHAUPTUNG und gelten ueber alle Branches.
+    const schluss = r.filter(x => x.art === 'schliesst' && x.von.art === 'abschluss');
+    const zu = schluss.find(x => x.von.ergebnis !== 'erledigt' || imBaum(x.von)), ers = r.find(x => x.art === 'ersetzt' && x.von.art === e.art);
+    const anderswo = zu ? null : (schluss.find(x => x.von.ergebnis === 'erledigt') || {}).von || null;
     let z = 'offen', durch = null;
     if (zu) { z = 'geschlossen'; durch = zu.von; }
     else if (ers) { z = 'ersetzt'; durch = ers.von; }
     else if (e.art === 'frage' && r.some(x => x.art === 'beantwortet')) { z = 'beantwortet'; durch = r.find(x => x.art === 'beantwortet').von; }
     else if (!ARTEN[e.art] || !ARTEN[e.art].offenbar) z = 'notiz';
-    zustand.set(e.id, { z, durch });
+    zustand.set(e.id, { z, durch, anderswo });
   }
   return { proId, rueck, zustand };
 }
@@ -291,7 +346,7 @@ export function brettPruefen(brett) {
   const proId = new Map(brett.eintraege.map(e => [e.id, e]));
   for (const e of brett.eintraege) {
     for (const g of eintragPruefen(e, e._datei)) f.push({ wo: e._datei || e.id, grund: g });
-    for (const b of alsListe(e.bezug)) if (b && ID_FORM.test(String(b.id || '')) && !proId.has(b.id)) f.push({ wo: e._datei || e.id, grund: 'Bezug auf ' + b.id + ' — den Eintrag gibt es nicht' });
+    for (const b of alsListe(e.bezug)) if (b && ID_FORM.test(String(b.id || '')) && !proId.has(b.id) && !b.ref) f.push({ wo: e._datei || e.id, grund: 'Bezug auf ' + b.id + ' — den Eintrag gibt es nicht' });
     for (const g of bezugsRegeln(e, proId)) f.push({ wo: e._datei || e.id, grund: g });
   }
   return f;
@@ -300,8 +355,10 @@ export function brettPruefen(brett) {
 // ── Nachtraege: ein Eintrag wird nie umgeschrieben; eine ANTWORT mit `anker`,
 //    `zaehle`, `gesucht`, `suchmuster`, `waechter` oder `instanzen` ergaenzt ihn.
 //    Es gilt der JUENGSTE Nachtrag (Reihenfolge: Datum, Zeit, id).
+//    Ein Nachtrag mit Anker oder Zaehlung beschreibt den Baum, in dem er liegt: einer von
+//    einem fremden Branch gilt hier nicht (sonst wuerde dessen Code gegen diesen Baum gemessen).
 function nachtraege(e, rueck, feld) {
-  return ((rueck && rueck.get(e.id)) || []).filter(r => r.von.art === 'antwort' && (Array.isArray(r.von[feld]) ? r.von[feld].length : (r.von[feld] && String(r.von[feld]).trim()))).map(r => r.von);
+  return ((rueck && rueck.get(e.id)) || []).filter(r => r.von.art === 'antwort' && imBaum(r.von) && (Array.isArray(r.von[feld]) ? r.von[feld].length : (r.von[feld] && String(r.von[feld]).trim()))).map(r => r.von);
 }
 export function ankerWirksam(e, rueck) { const n = nachtraege(e, rueck, 'anker'); return n.length ? alsListe(n[n.length - 1].anker) : alsListe(e.anker); }
 export function zaehleWirksam(e, rueck) { const n = nachtraege(e, rueck, 'zaehle'); return n.length ? alsListe(n[n.length - 1].zaehle) : alsListe(e.zaehle); }
@@ -345,9 +402,7 @@ export function wieOft(text, stueck) {
   return n;
 }
 function leser(liesDatei) { const c = new Map(); return (rel) => { if (!c.has(rel)) c.set(rel, messtext(rel, liesDatei(rel))); return c.get(rel); }; }
-// Nur was im ARBEITSBAUM liegt, wird gegen den Arbeitsbaum gemessen: ein Eintrag
-// von einem fremden Branch beschreibt einen anderen Baum.
-const imBaum = (e) => !e._quelle || e._quelle === 'Arbeitsbaum';
+// Nur was im ARBEITSBAUM liegt, wird gegen den Arbeitsbaum gemessen (imBaum).
 export function ankerPruefen(eintraege, liesDatei) {
   const { rueck, zustand } = ableiten(eintraege), lies1 = leser(liesDatei);
   const aus = { geprueft: 0, eintraege: 0, verloren: [] };
@@ -441,7 +496,8 @@ export function anstoesse(eintraege, liesDatei) {
 }
 // Marken an EINEM offenen Eintrag (kurz, fuer die Liste).
 export function marken(e, abl, quelltext) {
-  const r = abl.rueck.get(e.id) || [], m = [];
+  const r = abl.rueck.get(e.id) || [], m = [], zs = abl.zustand.get(e.id);
+  if (zs && zs.anderswo) m.push('auf ' + (zs.anderswo._quelle || 'einem anderen Branch') + ' als erledigt geschlossen (' + (zs.anderswo.wohin || '?') + ') — in diesem Baum noch nicht');
   if (e.art === 'frage') m.push('ohne Antwort' + (e.an === 'fernando' ? ' · an Fernando' : ''));
   // Ein eigener Nachtrag ist kein Echo: es zaehlt, was ein ANDERER schreibt — oder alles ausser einer Antwort.
   if (e.art === 'befund' && !r.some(x => x.von.art !== 'antwort' || x.von.von !== e.von)) m.push('noch niemand dazu');
@@ -527,8 +583,8 @@ export function einspielen(wurzel, roh, opts) {
   const brett = brettLesen(wurzel, { alleRefs: opts.alleRefs !== false });
   const belegt = new Set(brett.eintraege.map(e => e.id));
   const jetzt = heute(), datum = opts.datum || jetzt.datum;
-  const fehler = [], fertig = [], proSchluessel = new Map();
-  if (!Array.isArray(roh) || !roh.length) return { ok: false, fehler: [{ wo: 'Eingabe', grund: 'erwartet wird eine nicht-leere Liste von Eintraegen' }], geschrieben: [], mitgenommen: [] };
+  const fehler = [], fertig = [], proSchluessel = new Map(), auswaerts = [];
+  if (!Array.isArray(roh) || !roh.length) return { ok: false, fehler: [{ wo: 'Eingabe', grund: 'erwartet wird eine nicht-leere Liste von Eintraegen' }], geschrieben: [], auswaerts: [] };
   roh.forEach((r, i) => {
     const wo = 'Eintrag ' + (i + 1);
     if (!r || typeof r !== 'object' || Array.isArray(r)) { fehler.push({ wo, grund: 'kein JSON-Objekt' }); return; }
@@ -554,6 +610,11 @@ export function einspielen(wurzel, roh, opts) {
         if (!ziel) { fehler.push({ wo: 'Eintrag ' + (i + 1), grund: 'Stapel-Bezug ' + b.id + ' zeigt auf keinen Eintrag dieses Stapels' }); return b; }
         return Object.assign({}, b, { id: ziel });
       }
+      // Das Ziel liegt nur auf einem anderen Branch: der Bezug sagt es (`ref`). Der Pruefstand
+      // sieht nur den Arbeitsbaum — ohne die Angabe waere es dort ein Bezug ins Leere, und das
+      // Ziel herueberzukopieren hiesse, den Code EINES ANDEREN Baums gegen diesen zu messen.
+      const fremd = b && brett.eintraege.find(x => x.id === b.id);
+      if (fremd && !imBaum(fremd)) { if (!auswaerts.some(a => a.id === fremd.id)) auswaerts.push({ id: fremd.id, quelle: fremd._quelle, titel: fremd.titel }); return Object.assign({}, b, { ref: fremd._quelle }); }
       return b;
     });
     delete e.schluessel;
@@ -567,64 +628,72 @@ export function einspielen(wurzel, roh, opts) {
     for (const g of eintragPruefen(e)) fehler.push({ wo, grund: g });
     for (const b of alsListe(e.bezug)) if (b && ID_FORM.test(String(b.id || '')) && !proId.has(b.id)) fehler.push({ wo, grund: 'Bezug auf ' + b.id + ' — den Eintrag gibt es nicht (auch auf keinem Branch, den git kennt)' });
     for (const g of bezugsRegeln(e, proId)) fehler.push({ wo, grund: g });
-    // Dieselben Messungen, die der Pruefstand faehrt — das Werkzeug meldet nie
-    // „geschrieben" fuer etwas, das die Suite danach verwirft.
+    // Dieselben Messungen, die der Pruefstand faehrt: was hier durchgeht, nimmt er an.
     for (const a of alsListe(e.anker)) { if (!a || typeof a.text !== 'string') continue; const t = liesRel(a.datei); if (t == null) fehler.push({ wo, grund: 'anker: ' + a.datei + ' ist nicht lesbar' }); else if (t.indexOf(a.text) < 0) fehler.push({ wo, grund: 'anker: „' + a.text.slice(0, 60) + '" steht nicht woertlich in ' + a.datei + ' (mit grep -F pruefen; Kommentarzeilen und der Changelog zaehlen nicht)' }); }
     for (const z of alsListe(e.zaehle)) { if (!z || typeof z.text !== 'string') continue; const ist = wieOft(liesRel(z.datei), z.text); if (ist == null) fehler.push({ wo, grund: 'zaehle: ' + z.datei + ' ist nicht lesbar' }); else if (ist !== z.n) fehler.push({ wo, grund: 'zaehle: „' + z.text.slice(0, 60) + '" steht ' + ist + '-mal in ' + z.datei + ', nicht ' + z.n + '-mal' }); }
     for (const g of waechterPruefen(e.waechter, liesRoh)) fehler.push({ wo, grund: 'waechter: ' + g });
     // „Behoben" ist eine Zaehlung, die sich bewegt hat.
     if (e.art === 'abschluss' && e.ergebnis === 'erledigt') for (const b of alsListe(e.bezug)) {
       const ziel = b && b.art === 'schliesst' && proId.get(b.id);
-      if (!ziel || ziel.art !== 'befund') continue;
+      if (!ziel || ziel.art !== 'befund' || !imBaum(ziel)) continue;
       const stand = zaehleWirksam(ziel, abl.rueck).map(z => ({ datei: z.datei, text: z.text, n: z.n, heute: wieOft(liesRel(z.datei), z.text) }));
+      const neu = stand.filter(z => z.heute != null).map(z => ({ datei: z.datei, text: z.text, n: z.heute }));
       if (stand.length && stand.every(z => z.heute === z.n)) fehler.push({ wo, grund: 'die Zaehlung des Befunds ' + ziel.id + ' steht unveraendert (' + stand.map(z => z.n + '× in ' + z.datei).join(', ') + ') — behoben ist er erst, wenn sie sich bewegt hat' });
-      else if (stand.length && !e.zaehle) e.zaehle = stand.filter(z => z.heute != null).map(z => ({ datei: z.datei, text: z.text, n: z.heute }));
+      else if (neu.length && !e.zaehle) e.zaehle = neu;   // nie eine leere Liste (die Datei kann ganz weg sein)
     }
   });
-  if (fehler.length) return { ok: false, fehler, geschrieben: [], mitgenommen: [] };
-  const dir = path.join(wurzel, ORDNER), angelegt = [], geschrieben = [], mitgenommen = [];
+  if (fehler.length) return { ok: false, fehler, geschrieben: [], auswaerts: [] };
+  const dir = path.join(wurzel, ORDNER), angelegt = [], geschrieben = [];
   try {
-    // Ein Bezug ueber die Branch-Grenze nimmt sein Ziel MIT (und dessen Ziele):
-    // der Pruefstand sieht nur den Arbeitsbaum; ein Bezug auf einen Eintrag, der
-    // nur auf einem anderen Branch liegt, waere dort ein Bezug ins Leere.
-    const offenIds = fertig.reduce((l, e) => l.concat(alsListe(e.bezug).map(b => b.id)), []), gesehen = new Set();
-    while (offenIds.length) {
-      const id = offenIds.pop();
-      if (gesehen.has(id)) continue;
-      gesehen.add(id);
-      const ziel = brett.eintraege.find(x => x.id === id);
-      if (!ziel) continue;
-      alsListe(ziel.bezug).forEach(b => { if (b && b.id) offenIds.push(b.id); });
-      if (ziel._quelle === 'Arbeitsbaum') continue;
-      const p = ablage(dir, ziel.id, ziel._datei);
-      fs.writeFileSync(p, ziel._roh); angelegt.push(p);
-      mitgenommen.push({ id: ziel.id, quelle: ziel._quelle, datei: path.posix.join(ORDNER, ziel.id.slice(0, 7), ziel._datei), titel: ziel.titel });
-    }
     for (const e of fertig) {
       const name = e.id + '-' + e.art + '-' + slug(e.titel) + '.json', geordnet = {};
       for (const k of ['id', 'art', 'datum', 'zeit', 'von', 'stand', 'titel']) if (e[k] != null) geordnet[k] = e[k];
       for (const k of Object.keys(e)) if (!(k in geordnet) && e[k] != null) geordnet[k] = e[k];
       const p = ablage(dir, e.id, name);
-      fs.writeFileSync(p, JSON.stringify(geordnet, null, 2) + '\n'); angelegt.push(p);
+      fs.writeFileSync(p, JSON.stringify(geordnet, null, 2) + '\n', { flag: 'wx' }); angelegt.push(p);   // wx: nie ueber eine vorhandene Datei
       geschrieben.push({ id: e.id, datei: path.posix.join(ORDNER, e.id.slice(0, 7), name), art: e.art, titel: e.titel });
     }
   } catch (x) {
     // Alles oder nichts: ein Schreibfehler mitten im Stapel hinterlaesst keinen halben.
     for (const p of angelegt) { try { fs.unlinkSync(p); } catch (_) {} }
-    return { ok: false, fehler: [{ wo: 'Schreiben', grund: String(x.message).split('\n')[0] + ' — nichts geschrieben' }], geschrieben: [], mitgenommen: [] };
+    return { ok: false, fehler: [{ wo: 'Schreiben', grund: String(x.message).split('\n')[0] + ' — nichts geschrieben' }], geschrieben: [], auswaerts: [] };
   }
-  return { ok: true, fehler: [], geschrieben, mitgenommen };
+  return { ok: true, fehler: [], geschrieben, auswaerts };
 }
-// ── Ernten: was nur auf einem anderen Branch liegt, in den Arbeitsbaum holen,
-//    damit es mit dem naechsten PR auf main ankommt. Ungueltiges bleibt, wo es ist.
+// ── Ernten: was nur auf einem anderen Branch liegt, in den Arbeitsbaum holen, damit es
+//    mit dem naechsten PR auf main ankommt. Geholt wird WISSEN, das in diesem Baum stimmt:
+//    was einen anderen Baum beschreibt („erledigt", ein Nachtrag mit Anker oder Zaehlung,
+//    ein Anker auf Code, den es hier nicht gibt), bleibt auf seinem Branch und kommt mit
+//    dessen Merge. Danach ist der Arbeitsbaum so gruen wie davor — sonst waere „geerntet" gelogen.
 export function ernten(wurzel) {
   const brett = brettLesen(wurzel, { alleRefs: true }), dir = path.join(wurzel, ORDNER);
+  const liesRoh = (rel) => { try { return fs.readFileSync(path.join(wurzel, rel), 'utf8'); } catch (_) { return null; } }, liesRel = leser(liesRoh);
+  const imTree = new Set(brett.eintraege.filter(imBaum).map(e => e.id)), proId = new Map(brett.eintraege.map(e => [e.id, e]));
   const geholt = [], uebergangen = brett.unlesbar.filter(u => u.quelle !== 'Arbeitsbaum').map(u => ({ id: u.datei, quelle: u.quelle, grund: u.grund }));
+  let kand = [];
   for (const e of brett.eintraege) {
-    if (e._quelle === 'Arbeitsbaum') continue;
-    const g = eintragPruefen(e, e._datei);
-    if (g.length) { uebergangen.push({ id: e.id, quelle: e._quelle, grund: g[0] }); continue; }
-    fs.writeFileSync(ablage(dir, e.id, e._datei), e._roh);
+    if (imBaum(e)) continue;
+    let grund = eintragPruefen(e, e._datei)[0] || bezugsRegeln(e, proId)[0] || null;
+    if (!grund && e.art === 'abschluss' && e.ergebnis === 'erledigt') grund = '„erledigt" beschreibt den Baum von ' + e._quelle + ' — es kommt mit dessen Merge, nicht durch Ernten';
+    if (!grund && e.art === 'antwort' && (alsListe(e.anker).length || alsListe(e.zaehle).length)) grund = 'ein Nachtrag mit Anker oder Zaehlung beschreibt den Baum von ' + e._quelle;
+    if (!grund) for (const a of alsListe(e.anker)) { const t = liesRel(a.datei); if (t == null || t.indexOf(a.text) < 0) { grund = 'sein Anker steht in diesem Baum nicht (' + a.datei + ') — er beschreibt ' + e._quelle; break; } }
+    if (!grund) for (const z of alsListe(e.zaehle)) { if (wieOft(liesRel(z.datei), z.text) !== z.n) { grund = 'seine Zaehlung stimmt in diesem Baum nicht (' + z.datei + ') — er beschreibt ' + e._quelle; break; } }
+    if (!grund && e.art === 'klasse') { const w = waechterPruefen(e.waechter, liesRoh); if (w.length) grund = 'Waechter: ' + w[0]; }
+    if (grund) uebergangen.push({ id: e.id, quelle: e._quelle, grund }); else kand.push(e);
+  }
+  // Ein Bezug darf nach dem Ernten nicht ins Leere zeigen: sein Ziel liegt im Baum, kommt mit — oder der Bezug nennt seinen Branch.
+  for (let weiter = true; weiter;) {
+    weiter = false;
+    const ids = new Set(kand.map(e => e.id));
+    kand = kand.filter(e => {
+      const fehlt = alsListe(e.bezug).find(b => !b.ref && !imTree.has(b.id) && !ids.has(b.id));
+      if (!fehlt) return true;
+      uebergangen.push({ id: e.id, quelle: e._quelle, grund: 'bezieht sich auf ' + fehlt.id + ', der nicht mitkommt' }); weiter = true; return false;
+    });
+  }
+  for (const e of kand) {
+    const p = ablage(dir, e.id, e._datei);
+    try { fs.writeFileSync(p, e._roh, { flag: 'wx' }); } catch (x) { uebergangen.push({ id: e.id, quelle: e._quelle, grund: 'eine Datei dieses Namens liegt schon im Arbeitsbaum' }); continue; }
     geholt.push({ id: e.id, quelle: e._quelle, datei: path.posix.join(ORDNER, e.id.slice(0, 7), e._datei), titel: e.titel });
   }
   return { geholt, uebergangen, gitDa: brett.gitDa, refs: brett.refs };

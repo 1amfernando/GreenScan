@@ -891,6 +891,19 @@ Funde der anderen) → gegenprüfen → aufs Brett.
 > (`austausch_check` C2, C8). Und sie strich die Hälfte: sechs Arten statt acht,
 > keine eigene Übergabe-Datei, Zahlen an einer Stelle statt an einundzwanzig.
 > **Eine Regel, die Kopierarbeit erzwingt, wird umgangen.**
+>
+> **Und was einen BAUM beschreibt, gilt nur in diesem Baum.** Die zweite
+> gegnerische Runde (15 Funde, alle nachgefahren) traf die Fassung, die ich für
+> fertig hielt: ein „erledigt" auf einem nie gemergten Branch schloss den Befund
+> für ALLE — das Brett meldete „nichts offen", während der Fehler auf `main`
+> stand; `ernten` und die Antwort über die Branch-Grenze legten Einträge in den
+> Arbeitsbaum, deren Anker nur im Code des fremden Branches stand, und meldeten
+> „geschrieben", bevor der eigene Prüfstand rot wurde. „Erledigt", Anker und
+> Zählung sind Aussagen über einen Baum; „verworfen", Antwort und Widerspruch
+> über die Behauptung. Dazu: die Geheimnis-Suche lief über `JSON.stringify` — ein
+> Token am ANFANG einer Zeile (so steht es in jeder Befehlsausgabe) hatte davor
+> das `n` aus `\n` und rutschte an jedem `\b` vorbei. **Wer einen Text
+> durchsucht, durchsucht ihn in der Form, in der ein Mensch ihn schreibt.**
 
 ## 6 · Deployment
 

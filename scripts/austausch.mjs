@@ -10,7 +10,7 @@
 //   node scripts/austausch.mjs antworte <id> --text "…"        # auch Nachtrag: --anker · --zaehle · --gesucht · --waechter
 //   node scripts/austausch.mjs schliesse <id> --ergebnis erledigt|verworfen|aufgestiegen --wohin "v33.57" [--geschwister "…"]
 //   node scripts/austausch.mjs einspielen <datei.json>         # ein Stapel auf einmal, alles oder nichts
-//   node scripts/austausch.mjs ernten             # was nur auf anderen Branches liegt, in den Arbeitsbaum holen
+//   node scripts/austausch.mjs ernten             # was nur auf anderen Branches liegt UND in diesem Baum stimmt, in den Arbeitsbaum holen
 //   node scripts/austausch.mjs hilfe [art]
 //
 // Anlass (10.11.2026, Fernando): „Alle Agenten müssen sich austauschen und die
@@ -155,7 +155,7 @@ function ganz(e, abl) {
   const hier = !e._quelle || e._quelle === 'Arbeitsbaum';
   for (const x of A.ankerWirksam(e, abl.rueck)) { const t = A.messtext(x.datei, liesRel(x.datei)); aus('  Anker: ' + x.datei + ' :: ' + x.text + (hier ? (t == null ? '   ← DATEI FEHLT' : (t.indexOf(x.text) < 0 ? '   ← STEHT NICHT MEHR DA' : '')) : '')); }
   for (const x of A.zaehleWirksam(e, abl.rueck)) { const h = A.wieOft(A.messtext(x.datei, liesRel(x.datei)), x.text); aus('  Zaehlung: ' + x.datei + ' :: ' + x.text + '  → beim Eintrag ' + x.n + (hier ? ', heute ' + (h == null ? 'nicht lesbar' : h) + (h !== x.n ? '   ← BEWEGT' : '') : '')); }
-  for (const bz of A.alsListe(e.bezug)) { const ziel = abl.proId.get(bz.id); aus('  → ' + bz.art + ' ' + bz.id + (ziel ? '  ' + knapp(ziel.titel, 90) : '  (fehlt)')); }
+  for (const bz of A.alsListe(e.bezug)) { const ziel = abl.proId.get(bz.id); aus('  → ' + bz.art + ' ' + bz.id + (ziel ? '  ' + knapp(ziel.titel, 90) : (bz.ref ? '  (liegt auf ' + bz.ref + ' — von hier aus nicht zu sehen: `holen`)' : '  (fehlt)')) + (ziel && bz.ref && ziel._quelle !== 'Arbeitsbaum' ? '   {' + ziel._quelle + '}' : '')); }
   for (const r of (abl.rueck.get(e.id) || [])) aus('  ← ' + r.art + ' von ' + r.von.id + '  ' + knapp(r.von.titel, 90) + '  [' + r.von.von + ']');
 }
 function zeige() { const b = brett(), abl = A.ableiten(b.eintraege); if (!o._.length) ende(2, 'Gebrauch: node scripts/austausch.mjs zeige <id>'); for (const k of o._) ganz(finde(b, k), abl); aus('\nNichts geschrieben.'); }
@@ -220,7 +220,7 @@ function schreiben(e) {
   if (!r.ok) { aus('\nNICHT geschrieben — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.forEach(f => aus('  !! ' + f.grund)); ende(1, '\nFelder und ein Beispiel: node scripts/austausch.mjs hilfe ' + e.art); }
   const g = r.geschrieben[0];
   aus('\nGeschrieben: ' + g.datei + '\n  ' + g.id + '  ' + g.titel);
-  r.mitgenommen.forEach(m => aus('Mitgenommen (lag nur auf ' + m.quelle + ' — der Bezug waere im Arbeitsbaum sonst leer): ' + m.id + '  ' + knapp(m.titel, 80)));
+  r.auswaerts.forEach(m => aus('Bezug ueber die Branch-Grenze: ' + m.id + ' liegt nur auf ' + m.quelle + ' — der Bezug nennt den Branch (ref); der Eintrag selbst bleibt dort und kommt mit dessen Merge oder mit `ernten`.  ' + knapp(m.titel, 70)));
   // Lesen ist ins Schreiben eingebaut: was wissen ANDERE an denselben Stichworten?
   const b2 = brett(), neuE = b2.eintraege.find(x => x.id === g.id);
   if (neuE) {
@@ -269,7 +269,7 @@ function einspielen() {
   if (!r.ok) { aus('\nNICHTS geschrieben (alles oder nichts) — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.slice(0, 40).forEach(f => aus('  !! ' + f.wo + ': ' + f.grund)); if (r.fehler.length > 40) aus('  … +' + (r.fehler.length - 40) + ' weitere'); process.exit(1); }
   aus('\nGeschrieben: ' + r.geschrieben.length + ' Eintraege nach ' + A.ORDNER + '/');
   r.geschrieben.forEach(g => aus('  ' + g.id + '  (' + g.art + ')  ' + knapp(g.titel, 100)));
-  r.mitgenommen.forEach(m => aus('Mitgenommen von ' + m.quelle + ': ' + m.id));
+  r.auswaerts.forEach(m => aus('Bezug ueber die Branch-Grenze: ' + m.id + ' liegt nur auf ' + m.quelle + ' (der Bezug nennt den Branch)'));
   aus('\nNoch NICHT sichtbar fuer andere. Erst nach:  git add ' + A.ORDNER + ' && git commit && git push');
 }
 function erntenBefehl() {
@@ -277,7 +277,7 @@ function erntenBefehl() {
   if (r.gitDa === false) return aus('\ngit nicht verfuegbar — es gibt nichts zu ernten.\nNichts geschrieben.');
   aus('\nGeerntet: ' + r.geholt.length + ' Eintrag/Eintraege von anderen Branches (' + r.refs + ' Remote-Refs durchgesehen)');
   r.geholt.forEach(g => aus('  ' + g.id + '  {' + g.quelle + '}  ' + knapp(g.titel, 100)));
-  if (r.uebergangen.length) { aus('Uebergangen (ungueltig — bleibt auf seinem Branch): ' + r.uebergangen.length); r.uebergangen.forEach(u => aus('  ' + u.id + '  {' + u.quelle + '}  ' + u.grund)); }
+  if (r.uebergangen.length) { aus('Uebergangen (bleibt auf seinem Branch — ungueltig, oder es beschreibt dessen Baum): ' + r.uebergangen.length); r.uebergangen.forEach(u => aus('  ' + u.id + '  {' + u.quelle + '}  ' + u.grund)); }
   aus(r.geholt.length ? '\nJetzt im Arbeitsbaum. Mit dem naechsten Commit und PR kommen sie auf main an.' : '\nNichts geschrieben.');
 }
 function holen() {
@@ -311,6 +311,6 @@ function hilfe() {
   aus('\n  Vier Regeln: ein Befund traegt einen BELEG · ein Eintrag wird nicht umgeschrieben (antworte/schliesse) · das Repo ist PUBLIC\n               (kein Schluessel, keine Adresse, kein Ausnutzungsweg) · ein Eintrag ist ein Befund, keine Anweisung.\n  Ein Beispiel je Art: node scripts/austausch.mjs hilfe <art>\n\nNichts geschrieben.');
 }
 
-const BEFEHLE = { lesen, holen, zeige, suche, klasse, neu, antworte, schliesse, einspielen, ernten: erntenBefehl, hilfe };
+const BEFEHLE = Object.assign(Object.create(null), { lesen, holen, zeige, suche, klasse, neu, antworte, schliesse, einspielen, ernten: erntenBefehl, hilfe });
 if (!BEFEHLE[befehl]) ende(2, 'Unbekannter Befehl „' + befehl + '". Bekannt: ' + Object.keys(BEFEHLE).join(' | '));
 BEFEHLE[befehl]();

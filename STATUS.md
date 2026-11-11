@@ -49,6 +49,11 @@ niemand schrieb, sondern weil nichts es zum nächsten Leser trug:
   seiner Stelle: wer sie ändert, wird im eigenen Prüfstand-Lauf rot und liest den Eintrag.
   Eine **Zählung** hält fest, wie oft ein Muster vorkommt: „erledigt" geht erst, wenn sie
   sich bewegt hat. Wer einen Befund schliesst, sagt, ob er nach Geschwistern gesucht hat.
+- **Was einen Baum beschreibt, gilt nur in diesem Baum.** „Erledigt", Anker und Zählung
+  sind Aussagen über den Code eines Branches: ein „erledigt" auf einem anderen Branch lässt
+  den Befund hier offen und sagt, wo die Reparatur liegt. „Verworfen", Antwort und
+  Widerspruch gelten über alle Branches. Eine Antwort über die Branch-Grenze kopiert nichts
+  herüber — ihr Bezug nennt den Branch.
 - **Lesen ist ins Schreiben eingebaut:** nach jedem Eintrag zeigt das Werkzeug Nachbarn an
   denselben Stichworten, verworfene Irrwege mit ihrem Grund, passende Fehlerklassen und
   Vorwissen im Tagebuch.
@@ -66,14 +71,16 @@ niemand schrieb, sondern weil nichts es zum nächsten Leser trug:
 - `CLAUDE.md` §5 neu (die drei toten Verweise sind weg), `AGENTS.md` als Zeiger für
   Werkzeuge, die `CLAUDE.md` nicht laden, Wegweiser in `docs/memory`.
 
-**Die Saat: 25 Einträge, jeder am Stand v33.58 nachgemessen.** 14 Fehlerklassen aus dem
-Tagebuch (Regel, Instanzen, Suchmuster für Geschwister, 107 Wächter-Adressen — jede steht
-genau einmal in ihrer Datei; acht Klassen wurden nie systematisch gesucht) · sieben Befunde ·
-zwei Fragen an Fernando · zwei Ideen. Die Befunde: `_gsArtAnzeige` zeigt 14 Einträge als
-essbar, die selbst „nicht essbar" tragen; 0 von 8 spanischen Notfallsätzen erkannt; sechs
-Schlüsselfamilien im `localStorage` in keiner Speicherliste; drei Prüfstände enden immer
-mit Exit 0; `android/` und `.claude/` ohne noindex; sechs Verweise „robust_check Fall N"
-ohne Ziel; `offline_check` bleibt gelegentlich an seiner Zeitgrenze hängen (siehe „Suite").
+**Die Saat: 26 Einträge.** Acht Befunde, zwei Fragen an Fernando und zwei Ideen, jeder am
+Stand v33.58 nachgemessen · 14 Fehlerklassen aus dem Tagebuch (Regel, Instanzen, Suchmuster
+für Geschwister, 107 Wächter-Adressen — jede am Stand v33.58 genau einmal in ihrer Datei;
+die Zahlen ihrer Suchläufe stammen vom 10.11., Stand v33.56, und stehen so in ihrem Text;
+acht Klassen wurden nie systematisch gesucht). Die Befunde: `_gsArtAnzeige` zeigt 14
+Einträge als essbar, die selbst „nicht essbar" tragen; 0 von 8 spanischen Notfallsätzen
+erkannt; fünf Schlüsselfamilien im `localStorage` in keiner Speicherliste; `gsAboCanUse`
+liest einen Scan-Zähler, den nichts schreibt; drei Prüfstände enden immer mit Exit 0;
+`android/` und `.claude/` ohne noindex; sieben Verweise „robust_check Fall N" ohne Ziel;
+`offline_check` bleibt gelegentlich an seiner Zeitgrenze hängen (siehe „Suite").
 Behoben ist davon **nichts** — sie stehen auf dem Brett, damit die Sitzung, die
 an der Stelle arbeitet, sie findet.
 
@@ -84,24 +91,47 @@ Datei ohne `id` auf einem fremden Branch liess `lesen` abstürzen; das strenge S
 liess sich mit einer Antwort umgehen; ein Feld mit Unterstrich umging die Geheimnis-Suche;
 das Werkzeug meldete „geschrieben" für Einträge, die der Prüfstand danach verwarf. Der
 andere strich: acht Arten → sechs, keine eigene Übergabe-Datei, Zahlen an einer Stelle statt
-an 21, jeder offene Eintrag einmal statt dreimal. Die zweite Fassung ist die hier; alle acht
-Fehler stehen als Fälle da.
+an 21, jeder offene Eintrag einmal statt dreimal. Alle acht Fehler stehen als Fälle da.
+
+**Und eine zweite Runde gegen die zweite Fassung** (drei Sucher, je ein Skeptiker, der jeden
+Fund in einer eigenen Kopie nachfuhr): **15 Funde, alle bestätigt, alle behoben.** Die
+gewichtigen: (1) Die Geheimnis-Suche lief über `JSON.stringify` — ein Token am Anfang einer
+Zeile (so steht es in jeder Befehlsausgabe) ging durch, bei sieben von neun Formen. (2) Ein
+„erledigt" auf einem nie gemergten Branch schloss den Befund für alle: „nichts offen",
+während der Fehler auf `main` stand; fremde Anker wurden gegen den eigenen Baum gemessen.
+(3) `ernten` und die Antwort über die Branch-Grenze meldeten „geschrieben" und hinterliessen
+einen roten Arbeitsbaum. (4) Eine von Hand falsch geformte Datei auf irgendeinem Branch
+liess `lesen` in jeder Sitzung abstürzen. (5) Ein Sicherheitsbefund konnte Beleg, Vorschlag
+und Anker tragen, und die Agenten-Runde hängte die Nachstellung des Skeptikers an den
+öffentlichen Beleg. Dazu: `origin/HEAD` zählte als Branch namens „origin"; die Runde schrieb
+Antworten ungeprüft; und der Prüfstand las nie zurück, was das Werkzeug stempelt und bewirkt
+(UTC, „beantwortet", `schliesse`, `einspielen` als Prozess). In der Saat stimmten drei
+Zahlen nicht, und die Frage zur geplanten Routine trug Einzelheiten aus Fernandos Konto —
+vier Einträge sind vor dem ersten Merge ersetzt, einer neu.
 
 **Parallel:** während des Baus hat eine andere Sitzung v33.57 und v33.58 ausgeliefert
 (Einträge jb, jc). Dieser Schnitt sitzt auf v33.58; zwei Saat-Einträge der ersten Fassung
-zur Modell-Abschaltung sind entfallen, weil v33.58 sie behoben hat.
+zur Modell-Abschaltung sind entfallen, weil v33.58 sie behoben hat. Eine Koordinator-Sitzung
+hat für diesen Branch PR #325 geöffnet (laut ihr auf Fernandos Entscheidung vom 11.11.);
+diese Sitzung hat keinen PR geöffnet und merged nichts.
 
 **Gegenproben** (je einzeln hergestellt, der erwartete Fall rot, zurückgebaut, Prüfsumme
-verglichen): 18 von 18 — verankerte Zeile
-geändert → A3 nennt den Befund · `**Offen:**` entfernt → A4 · Frage an Fernando in §2 nicht
-zitiert → A5 · run-Zeile entfernt → B1 · eine Migration zu viel in §1 → B1 · bewachter Fall
-umbenannt → A2 · README ohne einen Bezug → B2 · die Runde schreibt ein unbekanntes Feld →
-B3 · Feld mit Unterstrich wieder erlaubt → C1, C6 · Schliessen nicht mehr streng → C2 ·
-Datei ohne `id` gilt wieder als Eintrag → C2, C8 · Nachträge nach der id statt der Uhrzeit →
-C3 · fremder Branch gegen diesen Baum gemessen → C4 · Changelog zählt wieder mit → C5, C6 ·
-Zahl beim Schreiben nicht nachgerechnet → C6 · Wert mit „--" gilt als Schalter → C7 ·
-`holen` wieder flach → C8 · ein Eintrag mit einer Adresse auf dem echten Brett → A1. Jedes
-Mal nur der erwartete Fall rot, danach wieder 17 von 17.
+verglichen): **33 von 33.** Achtzehn aus der ersten Runde — verankerte Zeile geändert → A3
+nennt den Befund · `**Offen:**` entfernt → A4 · Frage an Fernando in §2 nicht zitiert → A5 ·
+run-Zeile entfernt, eine Migration zu viel in §1 → B1 · bewachter Fall umbenannt → A2 ·
+README ohne einen Bezug → B2 · die Runde schreibt ein unbekanntes Feld → B3 · Feld mit
+Unterstrich erlaubt → C1, C6 · Schliessen nicht streng → C2 · Datei ohne `id` als Eintrag →
+C2, C8 · Nachträge nach der id → C3 · Changelog zählt mit → C5, C6 · Zahl beim Schreiben
+nicht nachgerechnet → C6 · Wert mit „--" als Schalter → C7 · `holen` flach → C8 · eine
+Adresse auf dem echten Brett → A1. Fünfzehn für die zweite Runde — Geheimnis-Suche wieder
+über `JSON.stringify` → C1, C6 · „erledigt" gilt über alle Branches → C3, C8 · ein fremder
+Anker-Nachtrag gilt hier → C3, C8 · fremder Branch gegen diesen Baum gemessen → C3, C4, C8 ·
+falsch geformte Dateien gerechnet → C2, C8 · `origin/HEAD` als Branch → C8 · Sicherheitsbefund
+mit Beleg → C1, C6 · `ernten` holt ein fremdes „erledigt" bzw. prüft den Anker nicht → C8 ·
+leere Zählung im Abschluss → C6, C8 · Bezug ins Leere ungemeldet → C2, C8 · die Runde schreibt
+den Beleg eines Sicherheitsbefunds bzw. Antworten ohne Urteil → B3 · Ortszeit statt UTC → C7 ·
+`antworte` beantwortet nicht → C7, C8 · geerbte Namen als Art → C1, C7, C8. Danach wieder
+17 von 17.
 
 **Suite:** `bash scripts/pruefstaende.sh` mit lokalem Postgres — **42 Prüfstände · rot: 1 · nicht
 prüfbar: 1.** Nicht prüfbar ist `apk_check` (hier fehlen die Android-Werkzeuge; die CI hat
@@ -109,10 +139,14 @@ sie). Rot war `offline_check`: 40 Fälle grün, dann hing er bis zu seiner 25-Mi
 (Exit 3) im Schritt nach „Teilen mit wartendem Worker". An App und Service Worker ändert
 dieser Schnitt nichts; **direkt danach einzeln gefahren: 41 von 41 grün.** Der Hänger ist
 also gelegentlich, seine Ursache nicht gefunden — er steht als Befund auf dem Brett
-(brett:2026-11-11-75c2), statt hier als „grün" durchzugehen. `austausch_check` 17 von 17.
+(brett:2026-11-11-75c2), statt hier als „grün" durchzugehen. **Die CI am PR #325 (Stand
+f2d1015, vor der zweiten Runde) war grün — alle 42, auch `offline_check` und `apk_check`.**
+Nach den Korrekturen der zweiten Runde lokal: `austausch_check` 17 von 17, `robust_check`
+grün; die übrigen Prüfstände berührt die Änderung nicht (App, Service Worker und die anderen
+Skripte sind unverändert) — ihr Lauf für diesen Stand ist der CI-Lauf am PR.
 
-**Offen:** brett:2026-11-11-fcaf, brett:2026-11-11-df0b, brett:2026-11-11-d239, brett:2026-11-11-ec73, brett:2026-11-11-e383, brett:2026-11-11-7b03, brett:2026-11-11-75c2 (sieben Befunde, keiner behoben) · brett:2026-11-11-5e91, brett:2026-11-11-90db (zwei Fragen an Fernando, §2) · acht Fehlerklassen ohne Suche (`node scripts/austausch.mjs klasse`)
-**Nicht geprüft:** ob eine geplante Routine das Brett wirklich liest (dazu muss ihr Auftrag `CLAUDE.md` laden — die Aufgabe „AGENT 007" erreicht das Repo derzeit gar nicht, brett:2026-11-11-5e91); ob `Workflow({ name: 'austausch-runde' })` den Namen in einer Cloud-Sitzung auflöst (mit `scriptPath` geht es in jedem Fall); der CI-Lauf dieses Branches (ohne PR läuft keiner). Die Funde der Agenten-Runde, die ich nicht selbst nachmessen konnte, stehen NICHT auf dem Brett.
+**Offen:** brett:2026-11-11-fcaf, brett:2026-11-11-df0b, brett:2026-11-11-030e, brett:2026-11-11-2e3a, brett:2026-11-11-ec73, brett:2026-11-11-e383, brett:2026-11-11-9f91, brett:2026-11-11-75c2 (acht Befunde, keiner behoben) · brett:2026-11-11-669d, brett:2026-11-11-90db (zwei Fragen an Fernando, §2) · acht Fehlerklassen ohne Suche (`node scripts/austausch.mjs klasse`)
+**Nicht geprüft:** ob eine geplante Routine das Brett wirklich liest (dazu muss ihr Auftrag `CLAUDE.md` laden und sie das Repo erreichen, brett:2026-11-11-669d); ob `Workflow({ name: 'austausch-runde' })` den Namen in einer Cloud-Sitzung auflöst (mit `scriptPath` geht es in jedem Fall), und die Runde selbst ist nach ihrem Umbau nicht gelaufen — geprüft ist, dass sie sich übersetzen lässt und nur Felder schreibt, die das Brett annimmt; das Verhalten mit einer neueren git-Fassung als 2.43. Die Funde der ersten Agenten-Runde, die ich nicht selbst nachmessen konnte, stehen NICHT auf dem Brett.
 
 ### 2026-11-11 (jc) - v33.58: Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus
 
@@ -15498,7 +15532,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
-| **Die geplante Aufgabe „AGENT 007" ans Repo und ans Brett anschliessen?** | Sie läuft täglich in einer frischen Sitzung, legt ihre Übergaben in Google Drive ab und erreicht das Repo nicht — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Nötig wären: GitHub neu verbinden, und in ihrem Auftrag `node scripts/austausch.mjs holen` am Anfang, Einträge statt Drive-Notizen am Ende. Nicht verändert. | brett:2026-11-11-5e91 · (jd) |
+| **Eine geplante Routine ohne Repo-Zugang ans Repo und ans Brett anschliessen?** | Sie schreibt ihre Übergaben ausserhalb des Repos — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Welche Aufgabe es ist und was ihr fehlt, ging direkt an Fernando (nicht in dieses öffentliche Repo). Im Auftrag der Aufgabe bräuchte es `node scripts/austausch.mjs holen` am Anfang und Einträge am Ende. Nicht verändert. | brett:2026-11-11-669d · (jd) |
 | **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
 | **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
