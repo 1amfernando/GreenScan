@@ -13,7 +13,7 @@ module.exports = [
       const r = await seite.evaluate(async () => {
         const base = SB_URL_DEFAULT + '/storage/v1/object/public/marketplace-photos/u1/';
         const imgs = [base + '1.jpg', 'https://bilder.example/2.jpg?x=&#39;;window.__pwned=1;//', base + '3-b_c.jpg?v=1&w=2', base + '4.jpg'];
-        gsMarketShowDetail({ id: '11111111-1111-4111-8111-111111111111', title: 'Galerie', desc: 'd', images: imgs, price: 5, priceMode: 'fix', status: 'active', cat: 'pflanzen' });
+        gsMarketShowDetail({ id: '11111111-1111-4111-8111-111111111111', title: 'Galerie', desc: 'd', images: imgs, price: 5, priceMode: 'fix', status: 'active', cat: 'samen' });
         await new Promise(res => setTimeout(res, 150));
         const main = document.getElementById('mklist-main-img');
         if (!main) return { main: false };
@@ -44,9 +44,11 @@ module.exports = [
         const alt = window.sbFetch;
         window._gsMktHomeCache = null;
         window.sbFetch = async () => ({ error: null, data: [
-          { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', title: 'Gut', category: 'pflanzen', photo_urls: [base + 'g.jpg'] },
-          { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', title: 'Boese', category: 'pflanzen', photo_urls: [boese] },
-          { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', title: 'Fremd', category: 'pflanzen', photo_url: 'https://evil.example/f.jpg' },
+          { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', title: 'Gut', category: 'samen', photo_urls: [base + 'g.jpg'] },
+          { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', title: 'Boese', category: 'samen', photo_urls: [boese] },
+          // v33.59 (Austausch-Runde, klassen-b1): ECHTE Markt-Kategorien — 'pflanzen' kannte keine Tabelle
+          { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', title: 'Fremd', category: 'samen', photo_url: 'https://evil.example/f.jpg' },
+          { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', title: 'Prototyp', category: 'constructor' },
         ] });
         try { await gsHomeRenderTopPicks(); } finally { window.sbFetch = alt; window._gsMktHomeCache = null; }
         const list = document.getElementById('home-mkt-live-list');
@@ -57,13 +59,16 @@ module.exports = [
         });
       });
       const a = h.anfragen().filter(u => /evil\.example/.test(u));
-      if (r.length !== 3) return { ok: false, warum: 'drei Zeilen erwartet: ' + JSON.stringify(r) };
+      if (r.length !== 4) return { ok: false, warum: 'vier Zeilen erwartet: ' + JSON.stringify(r) };
       if (r.some(z => z.pos !== 'static')) return { ok: false, warum: 'Vorschau ist nicht mehr statisch: ' + JSON.stringify(r) };
       if (r.some(z => /evil\.example/.test(z.bg)) || a.length) return { ok: false, warum: 'fremder Host angefragt: ' + JSON.stringify({ r, a }) };
       if (!/storage\/v1\/object\/public\/marketplace-photos\/u1\/g\.jpg/.test(r[0].bg)) return { ok: false, warum: 'Speicher-Bild fehlt: ' + r[0].bg };
       if (r[1].bg !== 'none' && !/a\.png/.test(r[1].bg)) return { ok: false, warum: 'unerwarteter Hintergrund: ' + r[1].bg };
       if (r[2].bg !== 'none' || !r[2].txt) return { ok: false, warum: 'fremdes Bild ohne Platzhalter: ' + JSON.stringify(r[2]) };
-      return { ok: true, info: '3 Zeilen statisch · 0 Anfragen an evil.example · Speicher-Bild da · fremdes → Emoji' };
+      // Die Markt-Kategorie wird in der MARKT-Tabelle nachgeschlagen (_catEmoji), nicht in der der Arten.
+      if (r[2].txt.trim() !== '🌰') return { ok: false, warum: 'Kategorie „samen" zeigt „' + r[2].txt.trim() + '" statt 🌰 — falsche Tabelle' };
+      if (/function|native code|\[object/.test(r[3].txt) || !r[3].txt.trim()) return { ok: false, warum: 'Kategorie „constructor" zeigt: ' + r[3].txt.slice(0, 60) };
+      return { ok: true, info: '4 Zeilen statisch · 0 Anfragen an evil.example · Speicher-Bild da · fremdes → 🌰 (samen) · constructor → „' + r[3].txt.trim() + '"' };
     },
   },
   {

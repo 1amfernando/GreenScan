@@ -9596,10 +9596,12 @@ function gsNewPlantCard(p) {
 
   // Nächste Aufgabe Badge
   var urgentBadge = '';
-  if (urgent && TASK_DEFS[urgent.key]) {
+  // v33.59: Schluessel aus p.tasks (Cloud, Backup) — _gsNachschlag, sonst traf 'constructor' die Prototypkette.
+  var _udef = urgent ? _gsNachschlag(TASK_DEFS, urgent.key, null) : null;
+  if (_udef) {
     var lbl = getDueLabel(urgent.days);
     urgentBadge = '<div class="plant-card-next-task ' + lbl.cls + '">' +
-      TASK_DEFS[urgent.key].icon + ' ' + TASK_DEFS[urgent.key].name + ' · ' + lbl.text +
+      _udef.icon + ' ' + _udef.name + ' · ' + lbl.text +
     '</div>';
   }
 
@@ -13091,7 +13093,9 @@ async function gsHomeRenderTopPicks(){
       // v33.59: die Adresse stammt aus einem fremden Inserat — encodeURI liess ' ( ) ; stehen, ein
       // angehaengtes CSS legte eine Vollbild-Flaeche ueber die App. Nur eigener Speicher, CSS-kodiert.
       var img = _gsCssUrl(_gsFremdBild((Array.isArray(l.photo_urls) && l.photo_urls[0]) ? l.photo_urls[0] : (l.photo_url || '')));
-      var emoji = (typeof CAT_EMOJIS !== 'undefined' && CAT_EMOJIS[l.category]) ? CAT_EMOJIS[l.category] : '🛒';
+      // v33.59: eine MARKT-Kategorie (produkte|samen|…) — CAT_EMOJIS ist die Tabelle der Arten und
+      // traf nie, mit 'constructor' stand Funktions-Quelltext da. _catEmoji schlaegt sicher nach.
+      var emoji = _catEmoji(l.category);
       var thumb = img
         ? '<div style="width:40px;height:40px;border-radius:var(--r-sm);background-size:cover;background-position:center;flex-shrink:0;background-image:url(\'' + img + '\');"></div>'
         : '<div style="width:40px;height:40px;border-radius:var(--r-sm);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xl);flex-shrink:0;">' + emoji + '</div>';
@@ -25730,6 +25734,10 @@ const TASK_DEFS = {
   prune:  { icon:'✂️', name:'Schneiden',    intervals:[{v:30,l:'Monatlich'},{v:90,l:'Alle 3 Monate'},{v:180,l:'Alle 6 Monate'},{v:365,l:'Jährlich'}] },
   check:  { icon:'🔍', name:'Schädlinge prüfen', intervals:[{v:7,l:'Wöchentlich'},{v:14,l:'Alle 2 Wochen'},{v:30,l:'Monatlich'}] },
 };
+// v33.59 (Gegenpruefung s2): ohne Prototyp — rund zwanzig Stellen schlagen TASK_DEFS[k] mit einem
+// Schluessel aus p.tasks (Cloud, Backup, Lina) nach; 'constructor' lieferte dort Object
+// („undefined Object" in „Heute zu tun"). So trifft jeder Schluessel nur einen eigenen Eintrag.
+Object.setPrototypeOf(TASK_DEFS, null);
 let feedbackItems = safeGetItem('ps_feedback', []);
 let myVotes = safeGetItem('ps_votes', {});
 
@@ -27977,7 +27985,7 @@ function gsPflanzeDraussen(p) {
     // Gartenart → weiter unten, notfalls null — nie geraten.
     if (p && p.gardenId && typeof gardens !== 'undefined' && Array.isArray(gardens)) {
       var g = gardens.find(function (x) { return x && x.id === p.gardenId; });
-      var art = (g && g.kind && typeof GS_GARTEN_ARTEN !== 'undefined') ? GS_GARTEN_ARTEN[g.kind] : null;
+      var art = (g && g.kind && typeof GS_GARTEN_ARTEN !== 'undefined') ? _gsNachschlag(GS_GARTEN_ARTEN, g.kind, null) : null;   // v33.59: g.kind aus Cloud/Backup
       if (art && typeof art.unter_glas === 'boolean') return !art.unter_glas;
     }
     var s = String((p && (p.location || p.standort || p.place)) || '').toLowerCase();
@@ -31192,9 +31200,11 @@ function gsNcRender(){
         myPlants.forEach(function(p){
           if (!p || !Array.isArray(p.diary)) return;
           p.diary.forEach(function(d){
-            if (!d || !d.action || typeof TASK_DEFS === 'undefined' || !TASK_DEFS[d.action]) return;
+            // v33.59: d.action aus dem Tagebuch (Cloud, Backup) — nur eigene Eintraege der Tabelle
+            var _def = (d && d.action && typeof TASK_DEFS !== 'undefined') ? _gsNachschlag(TASK_DEFS, d.action, null) : null;
+            if (!_def) return;
             var ts = d.ts ? new Date(d.ts).getTime() : 0;
-            doneTasks.push({ plant:p, def:TASK_DEFS[d.action], ts:ts });
+            doneTasks.push({ plant:p, def:_def, ts:ts });
           });
         });
         doneTasks.sort(function(a,b){ return b.ts - a.ts; });
@@ -38671,7 +38681,8 @@ function gsFavsRenderOutdoor(){
         try { if (p.date) dStr = new Date(p.date).toLocaleDateString(gsLocale()); } catch(_){}
         // v32.47: die dringendste Pflege-Aufgabe der Pflanzung — dieselbe Rechnung wie in „Wohnung"
         var _u = (typeof gsGetMostUrgentTask === 'function') ? gsGetMostUrgentTask(p) : null;
-        var _uTxt = (_u && typeof TASK_DEFS !== 'undefined' && TASK_DEFS[_u.key]) ? ' · ' + TASK_DEFS[_u.key].icon + ' ' + TASK_DEFS[_u.key].name + ' ' + (typeof getDueLabel === 'function' ? getDueLabel(_u.days).text : '') : '';
+        var _udef = (_u && typeof TASK_DEFS !== 'undefined') ? _gsNachschlag(TASK_DEFS, _u.key, null) : null;   // v33.59: Prototypkette
+        var _uTxt = _udef ? ' · ' + _udef.icon + ' ' + _udef.name + ' ' + (typeof getDueLabel === 'function' ? getDueLabel(_u.days).text : '') : '';
         html += '<div class="planting-row" onclick="if(typeof openPlantingDetail===\'function\')openPlantingDetail(\'' + _gsOcStr(p.id) + '\')">';
         html += '<div class="planting-emoji">' + emoji + '</div>';
         html += '<div class="planting-info"><div class="planting-name">' + esc(p.name||'') + '</div><div class="planting-meta">' + esc(_uTxt).replace(/^ · /, '') + (_uTxt && dStr ? ' · ' : '') + (dStr ? _t('planting_date_label','Gepflanzt:') + ' ' + dStr : '') + '</div></div>';
@@ -41531,7 +41542,7 @@ var GS_TRIAGE_AUS = { expert_application: 1, species_correction: 1 };
 
 async function _gsFeedbackTriageOne(fb){
   if(!fb || !fb.body) return null;
-  if(GS_TRIAGE_AUS[fb.type]) return null;
+  if(_gsNachschlag(GS_TRIAGE_AUS, fb.type, 0)) return null;   // v33.59: fb.type vom Server — 'constructor' war „aus"
   if(typeof callAI !== 'function') return null;
   try {
     const prompt =
@@ -45228,7 +45239,7 @@ async function gsRenderRegionalMushrooms(zone) {
       if (inMo.length) {
         html += '<div style="padding:4px 12px 10px 12px;">';
         inMo.forEach(function(s){
-          var edi = s.reg && EDI[s.reg.edibility];
+          var edi = s.reg && _gsNachschlag(EDI, s.reg.edibility, null);   // v33.59: Feld vom Server
           var badge = edi ? '<span style="opacity:.85;font-size:var(--fs-xs);">' + edi.e + '</span> ' : '';
           var vk = (s.reg && s.reg.vapko_klasse) ? ' <span style="font-size:var(--fs-xs);color:var(--muted);">VAPKO ' + ed(s.reg.vapko_klasse) + '</span>' : '';
           html += '<div data-mush="' + ed(s.name) + '" style="cursor:pointer;font-size:var(--fs-sm);color:var(--text2);line-height:1.7;padding:6px 4px;border-radius:var(--r-sm);-webkit-tap-highlight-color:transparent;">' + badge + ed(s.name) + vk + ' ›</div>';
@@ -75853,7 +75864,7 @@ function openPlantingDetail(plantingId) {
       _pflegeHtml = '<div style="background:var(--surface2);border-radius:var(--r-md);padding:12px;margin-bottom:10px;">' +
         '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🧑‍🌾 Pflege</div>' +
         _rows +
-        (p._aufgaben_vorgabe ? '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;">Intervalle sind die Vorgabe für „' + escHtml((GS_GARTEN_ARTEN[p._aufgaben_vorgabe] || {}).label || p._aufgaben_vorgabe) + '" — keine Aussage über diese Art. Anpassen: in „Meine Pflanzen" die Pflanzung antippen.</div>' : '') +
+        (p._aufgaben_vorgabe ? '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;">Intervalle sind die Vorgabe für „' + escHtml((_gsNachschlag(GS_GARTEN_ARTEN, p._aufgaben_vorgabe, null) || {}).label || p._aufgaben_vorgabe) + '" — keine Aussage über diese Art. Anpassen: in „Meine Pflanzen" die Pflanzung antippen.</div>' : '') +
       '</div>';
     }
   } catch(_){}
@@ -76768,7 +76779,7 @@ async function gsRunServerTriage() {
       var html = '<div style="font-size:var(--fs-md);margin-bottom:10px;"><b>' + escHtml(data.analyzed) + '</b> neue Items bewertet:</div>';
       items.forEach(function(it){
         var pColor = (it.priority||0) >= 4 ? '#c62828' : (it.priority||0) >= 3 ? '#ef6c00' : '#2e7d32';
-        var effIcon = {trivial:'🟢', low:'🟢', medium:'🟡', high:'🟠', huge:'🔴'}[it.implementation_effort] || '⚪';
+        var effIcon = _gsNachschlag({trivial:'🟢', low:'🟢', medium:'🟡', high:'🟠', huge:'🔴'}, it.implementation_effort, '⚪');   // v33.59: KI-Feld
         html += '<div style="background:var(--surface2);border-left:3px solid ' + pColor + ';border-radius:var(--r-sm);padding:9px 12px;margin-bottom:8px;font-size:var(--fs-sm);">' +
           // v32.66 (Audit A10): alles hier ist KI-Ausgabe aus feedback-triage — escapen.
           '<div style="font-weight:800;color:' + pColor + ';margin-bottom:3px;">P' + escHtml(it.priority||'?') + ' · ' + escHtml(it.category||'?') + ' · ' + effIcon + ' ' + escHtml(it.implementation_effort||'?') + '</div>' +
@@ -76972,11 +76983,12 @@ window.gsDailyKeyHealthCheck = async function() {
       var lastAlert = parseInt(localStorage.getItem('gs_global_api_key_last_alert') || '0', 10);
       if (Date.now() - lastAlert < ONE_DAY) return; // dedupe Alert
       localStorage.setItem('gs_global_api_key_last_alert', String(Date.now()));
-      var reasonMsg = {
+      // v33.59: h.reason vom Server — _gsNachschlag, sonst traf 'constructor' die Prototypkette.
+      var reasonMsg = _gsNachschlag({
         no_valid_key: 'Kein Anthropic-Key in app_settings — bitte einen sk-ant-Key eintragen.',
         key_invalid:  'Key wird von Anthropic abgelehnt (401/403). Bitte erneuern.',
         network:      'Netzwerk-Fehler beim Test (' + (h.detail||'') + ') — eventuell vorübergehend.'
-      }[h.reason] || ('Health-Check fehlgeschlagen: ' + h.reason);
+      }, h.reason, null) || ('Health-Check fehlgeschlagen: ' + h.reason);
       setTimeout(function(){
         if (typeof showProfileToast === 'function') {
           showProfileToast({ type:'warn', icon:'⚠️', title:'API-Key Health-Check ❌', body:reasonMsg, duration:12000 });
@@ -85084,8 +85096,11 @@ var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_','
 function gsClearUserDataKeys(){
   try {
     // v33.59: nur lokal gespeicherte Plaene warten gestempelt (gs_plans_wartend), statt mit gs_plans_v2 zu gehen.
-    try { if (window.gsPlans && typeof gsPlans.parken === 'function') gsPlans.parken(); } catch(_){}
-    GS_USER_KEYS.forEach(function(k){ localStorage.removeItem(k); });
+    // v33.59: parken() sagt, ob es geschrieben hat (-1 = nein). Dann bleibt gs_plans_v2 zuerst
+    // liegen: die uebrigen Schluessel geben Platz frei, und es wird noch einmal geparkt.
+    var _plaene = 0;
+    try { if (window.gsPlans && typeof gsPlans.parken === 'function') _plaene = gsPlans.parken(); } catch(_){ _plaene = -1; }
+    GS_USER_KEYS.forEach(function(k){ if (k === 'gs_plans_v2' && _plaene === -1) return; localStorage.removeItem(k); });
     // Praefix-Familien: einmal ueber den Speicher, Namen VORHER einsammeln
     // (waehrend des Loeschens verschiebt sich der Index von localStorage.key).
     try {
@@ -85104,6 +85119,22 @@ function gsClearUserDataKeys(){
       }
       weg.forEach(function(k){ localStorage.removeItem(k); });
     } catch(_){}
+    if (_plaene === -1) {
+      // v33.59: zweiter Versuch mit dem frei gewordenen Platz. Scheitert auch er, bleibt
+      // gs_plans_v2 nur liegen, wenn jeder Eintrag gestempelt ist (sonst saehe ihn das
+      // naechste Konto) — und die Person erfaehrt beides in einem Satz.
+      var _p2 = -1; try { _p2 = gsPlans.parken(); } catch(_){}
+      var _bleibt = false;
+      if (_p2 === -1) { try { _bleibt = typeof gsPlans.bewahrbar === 'function' && gsPlans.bewahrbar(); } catch(_){} }
+      if (!_bleibt) localStorage.removeItem('gs_plans_v2');
+      if (_p2 === -1) {
+        try {
+          if (typeof gsToast === 'function') gsToast(_bleibt
+            ? 'Speicher voll: dein nur auf dem Gerät gespeicherter Plan bleibt hier liegen, sichtbar nur für dein Konto.'
+            : 'Speicher voll: ein nur auf dem Gerät gespeicherter Plan konnte beim Abmelden nicht aufbewahrt werden.', 'warning');
+        } catch(_){}
+      }
+    }
     if (typeof myPlants !== 'undefined') myPlants = [];
     if (typeof feedbackItems !== 'undefined') feedbackItems = [];
     if (typeof _gsTagebuch !== 'undefined') window._gsTagebuch = null;
@@ -90946,7 +90977,7 @@ function _gsAdminAuditHtml(audit) {
   function summ(a){
     var d = a.diff || {};
     try {
-      if (a.action==='admin_moderate') return ({hide:'versteckt',unhide:'eingeblendet',delete:'gelöscht'}[d.action] || esc(String(d.action||'')));
+      if (a.action==='admin_moderate') return (_gsNachschlag({hide:'versteckt',unhide:'eingeblendet',delete:'gelöscht'}, d.action, null) || esc(String(d.action||'')));   // v33.59: Prototypkette
       if (a.action==='admin_set_tier') return 'auf ' + esc(String(d.tier||d.new||'?'));
       if (a.action==='role_assign')   return '→ ' + esc(String(d.new||d.role||'?'));
       if (a.action==='voucher_create')return esc(String(d.reward_tier||'')) + (d.max_uses?(' · '+d.max_uses+'×'):'');
@@ -91115,7 +91146,7 @@ async function gsAdminOpenUserDetail(userId) {
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
   var p = d.profile || {}, s = d.subscription || null, c = d.counts || {};
   var fmt = function(x){ try { return x ? new Date(x).toLocaleDateString(gsLocale(),{day:'2-digit',month:'2-digit',year:'numeric'}) : '—'; } catch(_){ return '—'; } };
-  var tierBadge = { free:'🌱 Free', pro:'💎 Pro', lifetime:'♾️ Lifetime' }[p.tier] || esc(p.tier||'?');
+  var tierBadge = _gsNachschlag({ free:'🌱 Free', pro:'💎 Pro', lifetime:'♾️ Lifetime' }, p.tier, null) || esc(p.tier||'?');   // v33.59: Prototypkette
   var subTxt = s ? (esc(s.status||'?') + (s.tier?(' · '+esc(s.tier)):'') + (s.current_period_end?(' · bis '+fmt(s.current_period_end)):'') + (s.cancel_at_period_end?' · kündigt z. Periodenende':'') + (s.trial_end?(' · Trial bis '+fmt(s.trial_end)):'')) : '— kein Stripe-Abo';
   var row = function(label, val){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:var(--fs-sm);"><span style="color:var(--muted);">' + label + '</span><span style="color:var(--text);font-weight:600;text-align:right;">' + val + '</span></div>'; };
   var isBanned = (p.role === 'banned');
@@ -91186,7 +91217,8 @@ function _gsAdminVouchersHtml(vouchers) {
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
   var _z = _gsAdmZustand(vouchers); vouchers = _gsAdmNutzlast(vouchers, []);
   var rows = (vouchers && vouchers.length) ? vouchers.map(function(v){
-    var rew = (v.reward && v.reward.tier) ? ({pro:'💎 Pro',lifetime:'♾️ Lifetime'}[v.reward.tier] || esc(v.reward.tier)) : '—';
+    // v33.59: reward.tier vom Server — _gsNachschlag (Prototypkette)
+    var rew = (v.reward && v.reward.tier) ? (_gsNachschlag({pro:'💎 Pro',lifetime:'♾️ Lifetime'}, v.reward.tier, null) || esc(v.reward.tier)) : '—';
     var uses = (v.used_count||0) + (v.max_uses ? ('/' + v.max_uses) : '/∞');
     var until = v.valid_until ? new Date(v.valid_until).toLocaleDateString(gsLocale()) : '∞';
     var active = !!v.is_active;
@@ -97442,15 +97474,30 @@ function stempeln(wer){
 function parken(){
   try {
     var _vorher = null; try { _vorher = localStorage.getItem('gs_last_active_uid'); } catch(_){}
-    stempeln(_vorher || (loggedIn() ? uid() : null));
-    var weg = readLS().filter(function(e){ return e && !e.cloud && !e.legacy && typeof e.uid==='string' && e.uid; });
+    var wer = _vorher || (loggedIn() ? uid() : null);
+    stempeln(wer);
+    // v33.59: der Stempel auch im Arbeitsspeicher — scheitert das Schreiben von gs_plans_v2
+    // (voller Speicher), traegt ihn die geparkte Kopie trotzdem.
+    var l = readLS();
+    if (wer && typeof wer === 'string') l.forEach(function(e){ if (e && !e.legacy && !e.uid) e.uid = wer; });
+    var weg = l.filter(function(e){ return e && !e.cloud && !e.legacy && typeof e.uid==='string' && e.uid; });
     if (!weg.length) return 0;
     var alt = readWartend(), da = {};
     alt.forEach(function(e){ da[e.uid+'|'+e.localId] = 1; });
     weg.forEach(function(e){ if (!da[e.uid+'|'+e.localId]) alt.push(e); });
-    localStorage.setItem('gs_plans_wartend', JSON.stringify(deckeln(alt)));
+    // v33.59: am Rueckgabewert (CLAUDE.md §3.5) — -1 heisst NICHT geparkt; der Aufrufer
+    // darf gs_plans_v2 dann nicht als einzige Kopie wegwerfen (gsClearUserDataKeys).
+    if (localStorage.setItem('gs_plans_wartend', JSON.stringify(deckeln(alt))) === false) return -1;
     return weg.length;
-  } catch(_){ return 0; }
+  } catch(_){ return -1; }
+}
+// v33.59: darf gs_plans_v2 nach gescheitertem Parken liegen bleiben? Nur wenn ein lokaler
+// Plan darin liegt UND jeder Eintrag einem Konto gestempelt ist — list()/loadEntry zeigen
+// dann nur dem eigenen Konto etwas (meins), und stempeln() nimmt keinen Eintrag mit uid.
+function bewahrbar(){
+  var l = readLS();
+  return l.some(function(e){ return e && !e.cloud && !e.legacy; }) &&
+    l.every(function(e){ return e && typeof e.uid === 'string' && !!e.uid; });
 }
 // Beim Lesen als angemeldetes Konto: die eigenen wartenden zurueck in die Liste.
 function abholen(){
@@ -97570,7 +97617,7 @@ async function star(id, on){
 
 // v33.59: der Spiegel im Arbeitsspeicher gehoert dem Konto wie der Speicher (gsClearUserDataKeys).
 function reset(){ _lastList = []; }
-window.gsPlans = { save:save, list:list, load:loadEntry, del:del, star:star, reset:reset, parken:parken, nachschieben:nachschieben, stempeln:stempeln };
+window.gsPlans = { save:save, list:list, load:loadEntry, del:del, star:star, reset:reset, parken:parken, bewahrbar:bewahrbar, nachschieben:nachschieben, stempeln:stempeln };
 
 /* ── Unified „Meine Pläne" Vollbild-Liste ── */
 window.gsPlansOpen = async function(filterType){
@@ -98062,7 +98109,7 @@ function tpRenderList(){
   }
   el.innerHTML = recHtml + list.map(function(t){
     var slug=t.slug;   // v33.59: _gsOcStr genau EINMAL, im onclick (zwei Parser) — doppelt kam der Slug verfaelscht an
-    var tox = TOXEMO[t.toxicity]||'';
+    var tox = _gsNachschlag(TOXEMO, t.toxicity, '');   // v33.59: Feld der Baum-Tabelle (Server)
     var hM = (t.mature_height_m_min!=null?t.mature_height_m_min+'–':'')+(t.mature_height_m_max!=null?t.mature_height_m_max+' m':'');
     return '<div onclick="window._gsTPpick&&_gsTPpick(\''+_gsOcStr(slug)+'\')" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--r-md);cursor:pointer;border-bottom:1px solid rgba(0,0,0,.06);">'
       + '<div style="font-size:var(--fs-2xl);flex-shrink:0;">'+(t.category==='nadelbaum'?'🌲':(t.category==='obstbaum'?'🍎':(t.category==='beerenstrauch'?'🫐':'🌳')))+'</div>'
@@ -98110,7 +98157,7 @@ async function tpRenderPlan(){
     var sevBg = (t.toxicity==='toedlich'||t.toxicity==='stark')?'#ffebee':'#fff8e1';
     var sevCol= (t.toxicity==='toedlich'||t.toxicity==='stark')?'#b71c1c':'#8a6d00';
     h += '<div style="background:'+sevBg+';border:1px solid '+sevCol+'33;border-radius:var(--r-lg);padding:14px;margin-bottom:12px;">'
-      + '<div style="font-size:var(--fs-md);font-weight:800;color:'+sevCol+';margin-bottom:6px;">'+(t.toxicity==='toedlich'?'☠️':'⚠️')+' '+ed(L('tp_safety','Sicherheit'))+': '+ed(TOXLBL[t.toxicity]||'')+'</div>'
+      + '<div style="font-size:var(--fs-md);font-weight:800;color:'+sevCol+';margin-bottom:6px;">'+(t.toxicity==='toedlich'?'☠️':'⚠️')+' '+ed(L('tp_safety','Sicherheit'))+': '+ed(_gsNachschlag(TOXLBL, t.toxicity, '')||'')+'</div>'
       + (toxNote?'<div style="font-size:var(--fs-sm);color:var(--text);line-height:1.5;margin-bottom:4px;">'+ed(toxNote)+'</div>':'')
       + (t.child_pet_safe===false?'<div style="font-size:var(--fs-sm);font-weight:700;color:'+sevCol+';">👶🐕 '+ed(L('tp_notsafe','Nicht geeignet bei Kindern/Haustieren'))+'</div>':'')
       + '</div>';

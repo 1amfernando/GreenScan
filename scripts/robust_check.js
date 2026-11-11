@@ -1036,6 +1036,69 @@ const FAELLE = [
     },
   },
   {
+    // v33.59 (Austausch-Runde, klassen-i2): TABELLE[x.feld] schlaegt in der Prototypkette nach —
+    // fuer 'constructor' / 'toString' liefert eine feste Tabelle eine FUNKTION (truthy), und auf
+    // dem Bildschirm steht Funktions-Quelltext (v33.00 it.bold, v33.59 EMOJI[kategorie], danach
+    // gsHomeRenderTopPicks mit CAT_EMOJIS[l.category]). Gesucht wird die BAUFORM: eine Tabelle
+    // in Grossbuchstaben oder ein Objekt-Literal, nachgeschlagen mit einem FELD. Wer ein Feld aus
+    // Server-, KI- oder Fremddaten nachschlaegt, nimmt _gsNachschlag(tab, k, rueckfall); was hier
+    // bleibt, steht namentlich mit Grund in der Liste. Grenze: ein Schluessel in einer einfachen
+    // Variablen (TAB[k]) und eine kleingeschriebene Tabelle (m[x.y]) sieht die Suche nicht.
+    name: 'Prototypkette · keine Tabelle wird mit einem Feld aus fremder Hand nachgeschlagen — jede verbliebene Stelle steht mit Grund in der Liste',
+    lauf: async () => {
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      // Schluessel: der Treffer, wie er im Quelltext steht → Grund.
+      const BEWUSST = {
+        'WMO_ICONS[cw.weathercode]': 'Wettercode-ZAHL von Open-Meteo; Rueckfall 🌡️',
+        'GS_TRAINING_INTERVALLE[k.b]': 'eigene Leitner-Box (Zahl 1–5), von gsTrainingBuchen gesetzt',
+        'GS_USES_TEMPLATES[sp.cat]': 'sp.cat der Artenliste; fremde Arten gehen durch _gsArtEingang (cat aus GS_ART_KATEGORIEN)',
+        'GS_LOOKALIKE_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
+        'GS_WARNING_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
+        'HABITAT_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
+        'CAT_COLORS_W[w.cat]': 'w aus GS_WISSEN, einer festen Liste im Code',
+        'CAT_BG_W[w.cat]': 'w aus GS_WISSEN',
+        'CAT_LABELS_W[w.cat]': 'w aus GS_WISSEN',
+        'WEATHER_CODE_MAP[c.weather_code]': 'Wettercode-ZAHL von Open-Meteo; Rueckfall 🌤️',
+        'GS_WETTER_GRENZEN[a.k]': 'a aus einer festen Liste daneben',
+        'GS_FARBE_HEX[f.name]': 'f aus der eigenen Farbmessung (gsBildFarben), Namen aus derselben Tabelle',
+        'PFLANZ_BODEN_INFO[plant.name]': 'Offline-Chat, plant aus PLANT_DB im Code',
+        'BODENTYPEN[info.idealBoden]': 'info aus PFLANZ_BODEN_INFO im Code',
+        'MOON_TYPES[moon.type]': 'moon aus der eigenen Mondrechnung',
+        'MOON_TYPES[m.type]': 'm aus der eigenen Mondrechnung',
+        'FARM_CROPS[plot.crop]': 'eigener Hof (gs_farm), crop nur ueber FARM_CROPS gepflanzt; Rueckfall ?.growMinutes || 5',
+        'GS_ADM_AKTIONEN[r.key]': 'r.key ist der Schluessel, mit dem _gsAdmTun gerufen wurde',
+        '}[p.mondtyp]': 'p aus PLANT_DB im Code',
+      };
+      // ohne ganze Kommentarzeilen und ohne den Changelog (er beschreibt die Sache und enthaelt sie)
+      const a = idx.indexOf('window.GS_RELEASES = ['), b = a >= 0 ? idx.indexOf('\n];', a) : -1;
+      const text = (a >= 0 && b > a) ? idx.slice(0, a) + '\n'.repeat(idx.slice(a, b).split('\n').length - 1) + idx.slice(b) : idx;
+      const funde = [], gesehen = new Set();
+      const muster = [/\b[A-Z][A-Z0-9_]{2,}\[[\w$]+(?:\.[\w$]+)+\]/g, /\}\)?\[[\w$]+(?:\.[\w$]+)+\]/g];
+      text.split('\n').forEach((z, i) => {
+        const t = z.trim(); if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
+        muster.forEach(re => { (z.match(re) || []).forEach(m => {
+          const k = m.replace(/^\}\)?/, '}'); gesehen.add(k);
+          if (!Object.prototype.hasOwnProperty.call(BEWUSST, k)) funde.push((i + 1) + ': ' + m);
+        }); });
+      });
+      // Die Grenze der Suche (TAB[k] mit einfacher Variable) an der groessten Tabelle dieser Art
+      // geschlossen: TASK_DEFS[k] mit k aus p.tasks steht an rund zwanzig Stellen. In der laufenden
+      // App eine Pflanze mit der Aufgabe 'constructor' — sie darf in „faellig" nicht erscheinen.
+      const lebend = await __seite.evaluate(() => {
+        const pl = { id: 'proto-probe', name: 'Probe', tasks: { constructor: { active: true, intervalDays: 1, lastDone: null } } };
+        myPlants.push(pl);
+        try { return gsGetDueTasks().filter(x => x && x.plant === pl).map(x => String(x.key) + ':' + String(x.def && x.def.name)); }
+        finally { myPlants.splice(myPlants.indexOf(pl), 1); }
+      });
+      if (lebend.length) return { ok: false, warum: 'Aufgabe „constructor" aus p.tasks erscheint als fällig: ' + lebend.join(', ') + ' — TASK_DEFS[k] trifft die Prototypkette' };
+      const ueberholt = Object.keys(BEWUSST).filter(k => !gesehen.has(k));
+      if (funde.length) return { ok: false, warum: funde.length + ' Nachschlag(e) an _gsNachschlag vorbei, ohne Grund in der Liste: ' + funde.slice(0, 8).join(' | ') };
+      if (ueberholt.length) return { ok: false, warum: 'Eintraege ohne Treffer (ueberholt, aus der Liste nehmen): ' + ueberholt.join(', ') };
+      const n = (idx.match(/_gsNachschlag\(/g) || []).length - 1;
+      return { ok: true, info: gesehen.size + ' Bauformen gesehen · alle mit Grund in der Liste · _gsNachschlag ' + n + '× gerufen' };
+    },
+  },
+  {
     // v33.34 — gemessen beim Bau des Kalender-Pruefwerks. `gs_weather_cache`
     // hatte ZWEI Schreiber mit ZWEI Formen: der Wetter-Lader legt dort ein
     // einzelnes `{ts, data, lat, lon}` ab (Frost, Regen, R1 und R2 lesen genau

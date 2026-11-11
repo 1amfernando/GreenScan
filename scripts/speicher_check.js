@@ -223,6 +223,59 @@ const FAELLE = [
       }
     },
   },
+  {
+    // v33.59 (Austausch-Runde, uebergabe-b4): gsPlans.parken las seinen Schreibversuch nicht,
+    // und gsClearUserDataKeys warf danach gs_plans_v2 weg — die einzige Kopie. Drei Lagen:
+    // voll + gestempelt (bleibt, nur fuer A, Satz) · voll + ungestempelt (geht, Satz — sonst
+    // saehe ihn das naechste Konto) · Speicher frei (geparkt, kein Satz). Steht zuletzt: das
+    // Abmelden raeumt die Beispieldaten ab.
+    name: 'Abmelden mit vollem Speicher und lokalem Plan · nicht still weg, und nie für ein anderes Konto',
+    lauf: () => {
+      if (!window.gsPlans || typeof gsClearUserDataKeys !== 'function') return { ok: false, warum: 'gsPlans oder gsClearUserDataKeys fehlt' };
+      const A = 'aaaaaaaa-0000-4000-8000-00000000000a', B = 'bbbbbbbb-0000-4000-8000-00000000000b';
+      const plan = (id, mitUid) => ({ localId: id, id: id, uid: mitUid ? A : undefined, type: 'garden', title: 'Plan ohne Empfang ' + id, summary: '', payload: {}, created: new Date().toISOString(), starred: false, cloud: false });
+      const lage = (eintrag, voll) => {
+        localStorage.removeItem('gs_plans_wartend');
+        localStorage.setItem('gs_plans_v2', JSON.stringify([eintrag]));
+        localStorage.setItem('gs_last_active_uid', A);
+        __voll(!!voll); if (!voll) { window.__VOLL_LOG = []; window.__TOASTS = []; }
+        gsClearUserDataKeys(); const log = window.__VOLL_LOG.slice(); __voll(false);
+        const v2 = JSON.parse(localStorage.getItem('gs_plans_v2') || '[]');
+        const w = JSON.parse(localStorage.getItem('gs_plans_wartend') || '[]');
+        return { versuche: log.filter(k => k === 'gs_plans_wartend').length, v2, w, satz: window.__TOASTS.filter(t => /Plan/.test(t) && /Speicher voll/.test(t)) };
+      };
+      const sieht = (wer, id) => { const echt = gsStore.get; gsStore.get = (k, f) => k === 'gs_sb_uid' ? wer : echt.call(gsStore, k, f); try { return !!gsPlans.load(id); } finally { gsStore.get = echt; } };
+      // 1 · voll, gestempelt
+      const r1 = lage(plan('l-voll-1', true), true);
+      if (r1.versuche < 1) return { ok: false, warum: 'kein Schreibversuch auf gs_plans_wartend — Fall nicht hergestellt' };
+      const da1 = r1.v2.concat(r1.w).some(e => e.localId === 'l-voll-1' && e.uid === A);
+      if (!da1 && !r1.satz.length) return { ok: false, warum: 'der Plan ist nach dem Abmelden weg, und nichts sagt es (' + r1.versuche + ' gescheiterte Versuche)' };
+      if (!da1) return { ok: false, warum: 'der gestempelte Plan ist weg (Satz: „' + r1.satz[0] + '")' };
+      if (!r1.satz.length) return { ok: false, warum: 'Plan liegt noch da, aber keine Meldung an die Person' };
+      if (sieht(B, 'l-voll-1')) return { ok: false, warum: 'ein ANDERES Konto sieht den liegengebliebenen Plan' };
+      if (!sieht(A, 'l-voll-1')) return { ok: false, warum: 'das eigene Konto sieht seinen Plan nicht mehr' };
+      // 2 · voll, Altplan OHNE Stempel: der Stempel laesst sich nicht schreiben → darf nicht
+      // liegen bleiben (das naechste Konto stempelte ihn als seinen), und die Person erfaehrt es
+      const r2 = lage(plan('l-voll-2', false), true);
+      if (r2.v2.length) return { ok: false, warum: 'ungestempelter Plan bleibt liegen — das naechste Konto bekaeme ihn (' + JSON.stringify(r2.v2).slice(0, 80) + ')' };
+      if (!r2.satz.length) return { ok: false, warum: 'ungestempelter Plan still weg — kein Satz' };
+      // 3 · Gegenrichtung: Speicher frei → geparkt, gs_plans_v2 weg, kein Satz
+      const r3 = lage(plan('l-frei-3', true), false);
+      if (!r3.w.some(e => e.localId === 'l-frei-3' && e.uid === A)) return { ok: false, warum: 'bei freiem Speicher nicht geparkt' };
+      if (r3.v2.length) return { ok: false, warum: 'bei freiem Speicher ueberlebt gs_plans_v2 das Abmelden' };
+      if (r3.satz.length) return { ok: false, warum: 'Meldung ohne Anlass: „' + r3.satz[0] + '"' };
+      // 4 · der Normalfall auf einem echten Geraet: der ERSTE Versuch scheitert, das Raeumen der
+      // uebrigen Schluessel macht Platz, der zweite gelingt → geparkt, gs_plans_v2 weg, kein Satz
+      const echt = localStorage.setItem; let n4 = 0;
+      localStorage.setItem = function (k, v) { if (k === 'gs_plans_wartend' && n4++ === 0) return false; return echt.call(localStorage, k, v); };
+      let r4; try { r4 = lage(plan('l-zwei-4', false), false); } finally { localStorage.setItem = echt; }
+      if (n4 < 2) return { ok: false, warum: 'kein zweiter Versuch nach dem Raeumen (' + n4 + ' Versuch)' };
+      if (!r4.w.some(e => e.localId === 'l-zwei-4' && e.uid === A)) return { ok: false, warum: 'zweiter Versuch: Plan nicht geparkt' };
+      if (r4.v2.length || r4.satz.length) return { ok: false, warum: 'zweiter Versuch gelungen, aber gs_plans_v2 bleibt oder Satz: ' + JSON.stringify(r4).slice(0, 120) };
+      localStorage.removeItem('gs_plans_wartend');
+      return { ok: true, info: 'voll: bleibt nur fuer A + Satz · ungestempelt: weg + Satz · frei: geparkt, still · zweiter Versuch nach dem Raeumen: geparkt, still' };
+    },
+  },
 ];
 
 (async () => {
