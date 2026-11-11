@@ -2299,10 +2299,42 @@ die drei Functions sind der Rand):
   stehen nicht im Aufruf; was im Stripe-Dashboard eingeschaltet ist, erscheint.
 - **Ein neues Ereignis** ist ein Eintrag in `STRIPE_EREIGNISSE` UND ein Zweig im Webhook
   UND ein Haken am Endpunkt im Stripe-Dashboard (`docs/FUER-FERNANDO.md` §30).
+- **Was das Konto schon HAT, entscheidet der Server** (`checkoutPlan` mit `lifetime` /
+  `aboLaeuft`): kein Abo neben einem laufenden Abo, nichts neben Lifetime. Die App bietet es
+  aus `gs_abo_plan` an — Gerätespeicher, kann alt sein. Ob ein Abo WIRKLICH läuft, fragt der
+  Rand bei Stripe (eine veraltete Zeile sperrt niemanden aus). Die App macht aus der Kennung
+  einen Satz und holt den Stand neu (`_gsCheckoutKeinFehler`): „hast du schon" ist kein Fehler.
+- **Lifetime beendet das laufende Abo** zum Periodenende (`abosBeenden` im Webhook) — sonst
+  bucht Stripe weiter ab. Und die volle Erstattung gibt den Platz im Launch-Angebot frei.
+- **Eine gemerkte Id kann bei Stripe fehlen** (`stripeKenntNicht`): im Dashboard gelöscht, oder
+  sie stammt aus dem anderen Modus. Test und Live sind getrennte Welten — wer umstellt, hat
+  in `stripe_subscriptions` Kunden, die es dort nicht gibt. Checkout und Portal suchen dann,
+  statt mit „No such customer" zu enden; der Webhook sagt einen Satz, wenn Ereignis und
+  Schlüssel nicht aus demselben Modus stammen (`modusPasst`).
+- **Im Portal hat nur „kündigen" einen direkten Weg** (`portalZiel`). Lehnt Stripe ihn ab,
+  öffnet sich das gewöhnliche Portal.
 
 Was er NICHT prüft, und das steht im Bericht: ob Stripe die Aufrufe heute annimmt, ob TWINT
 im Abo-Checkout erscheint, ob die ausgelieferten Functions denen im Repo entsprechen. Das
 zeigt nur ein Probekauf im Testmodus.
+
+> **Ein Fall, der festhält, was der Code TUT, prüft die Abschrift — nicht die Absicht**
+> (v33.60, beim zweiten Lesen des eigenen Stands). „Fortsetzen" schickte seit v3 den Weg
+> `subscription_update` an das Stripe-Portal; der neue Prüfstand übernahm das als Erwartung
+> („fortsetzen → sub_a") und war grün. Stripes eigene Doku nennt diesen Weg die Seite zum
+> **Wechseln des Plans** („upgrading or downgrading to another plan") — eine Kündigung nimmt
+> dort niemand zurück, und er setzt eine Portal-Einstellung voraus, die niemand gemessen hat.
+> **Was ein fremder Dienst tut, steht in SEINER Doku, nicht im eigenen Code.** Wer das Verhalten
+> gegenüber einem Dienst prüft, den er nicht aufrufen kann, liest zuerst dessen Referenz (mit
+> Datum) — und schreibt in den Fall, woher die Erwartung stammt.
+>
+> Dieselbe Runde, vier weitere Funde, alle nur durch die Frage „und was, wenn die Person das
+> schon HAT / wenn die Id nicht mehr stimmt?": ein zweites Abo neben dem ersten (die Sperre
+> stand nur im Gerätespeicher), Lifetime neben einem Abo, das weiter abbucht, ein gemerkter
+> Kunde aus dem Testmodus (in der Live-Datenbank steht genau so eine Zeile), und ein Platz im
+> Launch-Angebot, der nach der Erstattung belegt blieb. **Ein Weg, der nur den ersten Kauf
+> eines neuen Kontos kennt, ist ein halber Weg** — die Fälle dazu heissen „Was das Konto
+> schon hat" und „Der gemerkte Kunde fehlt bei Stripe".
 
 > **Ein Prüfstand, der nicht rot werden kann, ist ein Bericht — und einen Bericht liest
 > niemand** (v33.60). `contrast_check` und `render_check` endeten immer mit 0. Im CI-Lauf von

@@ -159,6 +159,18 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   und darunter „EXIT=0" — gruen, in jedem Lauf. Regel: **ein Pruefstand, der
   nicht rot werden kann, ist ein Bericht** — und einen Bericht liest niemand.
   Wer „muss 0 sein" schreibt, haengt den Exit-Code daran.
+- **v33.60** „Fortsetzen" schickte seit v3 `subscription_update` an das
+  Stripe-Portal; der Fall dazu hielt genau das als Erwartung fest und war
+  gruen. Stripes Doku nennt den Weg die Seite zum WECHSELN des Plans. Regel:
+  ein Fall, der festhaelt, was der Code tut, prueft die Abschrift. Was ein
+  fremder Dienst tut, steht in SEINER Doku — erst lesen (mit Datum), dann
+  erwarten (CLAUDE.md §7.1, `stripe_check`).
+- **v33.60** Der Zahlungsweg kannte nur den ERSTEN Kauf eines neuen Kontos.
+  Vier Funde mit einer Frage („und wenn die Person das schon hat / die Id
+  nicht mehr stimmt?"): zweites Abo neben dem ersten, Lifetime neben einem
+  Abo, das weiter abbucht, ein gemerkter Kunde aus dem Testmodus, ein
+  Launch-Platz, der nach der Erstattung belegt blieb. Regel: jeder Weg
+  bekommt den Fall „schon vorhanden" und den Fall „veraltete Id".
 
 ## F · Die richtige Ursache, die falsche Abhilfe
 

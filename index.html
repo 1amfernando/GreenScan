@@ -18332,10 +18332,14 @@ function gsShowAboScreen() {
     var card = document.getElementById('abo-lifetime-card');
     var note = document.getElementById('abo-launch-note');
     if ((stand === 'ausverkauft' || stand === 'schon_gekauft') && card) {
-      card.style.filter = 'grayscale(1)';
-      if (note) note.textContent = stand === 'schon_gekauft'
+      // Wer Lifetime HAT, liest auf seiner eigenen Karte nicht „ausverkauft" (sind alle Plätze vergeben,
+      // kann die Datenbankfunktion „schon gekauft" und „ausverkauft" nicht unterscheiden) — und seine
+      // Karte wird nicht grau: sie ist sein aktiver Plan, nicht ein gesperrtes Angebot.
+      var schon = stand === 'schon_gekauft' || isLife;
+      if (!isLife) card.style.filter = 'grayscale(1)';
+      if (note) note.textContent = schon
         ? _gsSatz('✅ Dieses Angebot hast du schon gekauft')
-        : _gsSatz('❌ Ausverkauft · alle 100 Plätze sind vergeben');
+        : _gsSatz('❌ Ausverkauft · alle {1} Plätze sind vergeben', GS_LAUNCH_PLAETZE);
       var btn = card.querySelector('button[onclick*="pro_lifetime"]');
       if (btn) { btn.disabled = true; btn.style.cursor='not-allowed'; }
     }
@@ -18365,17 +18369,32 @@ async function gsLaunchStand() {
     return _gsLaunchStandAus(res.data);
   } catch(e) { return null; }
 }
+// Kennungen von stripe-checkout, die KEIN Fehler sind (Kennung → Titel der Meldung): das Konto hat es
+// schon, oder das Angebot ist vergeben. gsStartCheckout zeigt dann einen Satz und zeichnet den
+// Abo-Bildschirm mit dem frischen Stand neu — statt „Checkout fehlgeschlagen · Support kontaktieren".
+//   → der Titel der Meldung, oder '' (dann ist es ein Fehler)
+function _gsCheckoutKeinFehler(grund) {
+  if (grund === 'abo_laeuft' || grund === 'lifetime_vorhanden' || grund === 'launch_schon_gekauft') return _gsSatz('Schon freigeschaltet');
+  if (grund === 'launch_ausverkauft') return _gsSatz('Ausverkauft');
+  return '';
+}
 // Warum ein Kauf nicht zustande kam — als Satz in der Sprache der App. stripe-checkout nennt
 // seit v9 eine Kennung (`grund`); bis dahin stand die englische Serverzeile im Dialog
 // („Launch offer fully booked"). Unbekanntes bleibt, was der Server sagte.
 function _gsCheckoutGrund(data, status) {
   var g = data && data.grund;
-  if (g === 'launch_ausverkauft') return _gsSatz('Das Lifetime-Angebot ist ausverkauft — alle 100 Plätze sind vergeben.');
+  if (g === 'launch_ausverkauft') return _gsSatz('Das Lifetime-Angebot ist ausverkauft — alle {1} Plätze sind vergeben.', GS_LAUNCH_PLAETZE);
   if (g === 'launch_schon_gekauft') return _gsSatz('Du hast das Lifetime-Angebot schon gekauft.');
   if (g === 'launch_unklar') return _gsSatz('Ob das Lifetime-Angebot noch frei ist, lässt sich gerade nicht feststellen. Bitte versuche es später noch einmal.');
   if (g === 'preis_unbekannt' || g === 'preis_inaktiv' || g === 'preis_ohne_intervall') return _gsSatz('Dieses Angebot gibt es so nicht mehr. Bitte lade die App neu und versuche es noch einmal.');
+  // Was das Konto schon hat, entscheidet der Server — `gs_abo_plan` auf diesem Gerät kann alt sein.
+  if (g === 'abo_laeuft') return _gsSatz('Du hast bereits ein laufendes Abo. Ändern oder kündigen kannst du es unter «Abo verwalten».');
+  if (g === 'lifetime_vorhanden') return _gsSatz('Du hast Pro bereits auf Lebenszeit — ein weiterer Kauf ist nicht nötig.');
   if (status === 401) return _gsSatz('Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.');
-  return (data && (data.error || data.message)) || _gsSatz('Der Kauf konnte nicht gestartet werden (Fehler {1}).', status);
+  // Eine Kennung, die diese Fassung nicht kennt, oder die alte Function (nur `error`): die Serverzeile,
+  // wenn sie ein Text ist — nie ein Objekt („[object Object]").
+  var roh = data && (data.error || data.message);
+  return (typeof roh === 'string' && roh) ? roh : _gsSatz('Der Kauf konnte nicht gestartet werden (Fehler {1}).', status);
 }
 
 // ── v24.44: Universal Toast-/Confirm-Helpers (iOS-PWA-safe) ───
@@ -19267,7 +19286,9 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
     }), 15000, 'Stripe-Checkout antwortet nicht (Timeout). Bitte später nochmals versuchen.');
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || !data || !data.url) {
-      throw new Error(_gsCheckoutGrund(data, resp.status));
+      var nein = new Error(_gsCheckoutGrund(data, resp.status));
+      nein.grund = (data && typeof data.grund === 'string') ? data.grund : null;
+      throw nein;
     }
     // 3) Popup navigieren (oder Fallback: selbes Fenster)
     if (popup && !popup.closed) {
@@ -19289,6 +19310,22 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
       location.href = data.url;
     }
   } catch(e) {
+    // v33.60: „Das hast du schon" und „ausverkauft" sind keine Fehler. Der Bildschirm bot etwas an,
+    // das es für dieses Konto nicht (mehr) gibt — sein Stand kam aus dem Gerätespeicher und war alt
+    // (zweites Gerät, Tab von gestern); gemerkt hat es der Server. Dann: Fenster zu, den Stand NEU
+    // holen, den Bildschirm neu zeichnen und es in einem Satz sagen — kein „Checkout fehlgeschlagen",
+    // kein Angebot, dem Support zu schreiben.
+    var keinFehler = _gsCheckoutKeinFehler(e && e.grund);
+    if (keinFehler) {
+      try { if (popup && !popup.closed) popup.close(); } catch(_){}
+      btns.forEach(function(b){ b.disabled = false; b.style.opacity = '1'; });
+      gsToast({title: keinFehler, body: e.message, type: 'info', duration: 6500});
+      try {
+        await gsLoadEntitlements();
+        if (document.getElementById('abo-lifetime-card')) gsShowAboScreen();
+      } catch(_){}
+      return;
+    }
     // v23.60: Fehler IM Popup anzeigen statt stillem Loading-Hang
     try { _gsPopupError(popup, e && e.message || String(e)); } catch(_){}
     btns.forEach(function(b){ b.disabled = false; b.style.opacity = '1'; });

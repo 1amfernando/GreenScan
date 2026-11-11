@@ -11,12 +11,20 @@
 //     `lifetime_<uuid>`, und Stripe antwortet „No such subscription" (500). Jetzt: das echte,
 //     laufende Abo, sonst das Portal ohne Ziel.
 //   • Sagt die Datenbank Nein, ist das ein Fehler (500) — kein „nie gekauft" (404).
+//   • „Fortsetzen" öffnete die Seite zum WECHSELN des Plans (`subscription_update`) — so nennt
+//     Stripe sie selbst; eine Kündigung nimmt man dort nicht zurück. Jetzt das gewöhnliche Portal.
+//   • Lehnt Stripe den direkten Weg ab (Portal-Einstellung, das Abo sieht dort anders aus),
+//     öffnet sich das gewöhnliche Portal statt einer Fehlermeldung.
+//   • Kennt Stripe den gemerkten Kunden nicht (gelöscht, oder aus dem anderen Modus Test ↔ Live),
+//     wird dort gesucht — und sonst gesagt, dass es keinen gibt (404), nicht 500.
 // v4 (2026-06-01): Kunden-Id aus stripe_subscriptions.stripe_customer_id statt stripe_customers.
 // v3 (2026-05-10): flow-Parameter für Cancel/Reactivate Direct-Flow + green-scan.ch URL-Fix
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { APP_URSPRUNG, kundeFinden, portalZiel, rueckkehrAdresse, stripeSprache } from "../_shared/stripe_regeln.mjs";
+import {
+  APP_URSPRUNG, kundeFinden, portalZiel, rueckkehrAdresse, stripeKenntNicht, stripeLehntAb, stripeSprache,
+} from "../_shared/stripe_regeln.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,24 +66,47 @@ Deno.serve(async (req) => {
 
     const zurueck = rueckkehrAdresse(return_url, `${APP_URSPRUNG}/?billing=return`);
     if (zurueck.ersetzt) console.warn(`[stripe-portal] Rückkehr-Adresse ersetzt (${zurueck.grund})`);
-    const portalParams: Record<string, unknown> = { customer: kunde.kundeId, return_url: zurueck.url, locale: stripeSprache(locale) };
+    // Der direkte Weg gibt es nur fürs Kündigen (portalZiel); alles andere ist das gewöhnliche Portal.
+    let ziel = portalZiel(kunde.zeilen, flow);
+    const oeffne = (kundeId: string, zielAbo: string | null) => {
+      const p: Record<string, unknown> = { customer: kundeId, return_url: zurueck.url, locale: stripeSprache(locale) };
+      if (zielAbo) {
+        p.flow_data = {
+          type: "subscription_cancel",
+          subscription_cancel: { subscription: zielAbo },
+          after_completion: { type: "redirect", redirect: { return_url: `${APP_URSPRUNG}/?billing=canceled` } },
+        };
+      }
+      return stripe.billingPortal.sessions.create(p as Stripe.BillingPortal.SessionCreateParams);
+    };
 
-    const ziel = portalZiel(kunde.zeilen, flow);
-    if (ziel && flow === "cancel") {
-      portalParams.flow_data = {
-        type: "subscription_cancel",
-        subscription_cancel: { subscription: ziel },
-        after_completion: { type: "redirect", redirect: { return_url: `${APP_URSPRUNG}/?billing=canceled` } },
-      };
-    } else if (ziel && flow === "reactivate") {
-      portalParams.flow_data = {
-        type: "subscription_update",
-        subscription_update: { subscription: ziel },
-        after_completion: { type: "redirect", redirect: { return_url: `${APP_URSPRUNG}/?billing=reactivated` } },
-      };
+    let session;
+    try {
+      session = await oeffne(kunde.kundeId, ziel);
+    } catch (err) {
+      if (kunde.quelle === "abo" && stripeKenntNicht(err, "customer")) {
+        // Stripe kennt den GEMERKTEN Kunden nicht. Die gemerkten Abos gehören zu ihm — also ohne Ziel.
+        const zweit = await kundeFinden({ admin, stripe, userId: user.id, ohneGemerkte: true });
+        if (!zweit.kundeId && zweit.sucheFehler) {
+          console.error("[stripe-portal] Kunde bei Stripe nicht feststellbar: " + zweit.sucheFehler);
+          return json(502, { error: "Stripe customer lookup failed", detail: zweit.sucheFehler });
+        }
+        if (!zweit.kundeId || zweit.kundeId === kunde.kundeId) {
+          console.warn("[stripe-portal] Stripe kennt den gemerkten Kunden " + kunde.kundeId + " nicht, und die Suche findet keinen anderen");
+          return json(404, { error: "No Stripe customer found", grund: "kunde_unbekannt", hint: "Zu diesem Konto gibt es bei Stripe keinen Kunden (mehr) — bitte melde dich beim Support." });
+        }
+        console.warn("[stripe-portal] Stripe kennt den gemerkten Kunden " + kunde.kundeId + " nicht — weiter mit " + zweit.kundeId);
+        ziel = null;
+        session = await oeffne(zweit.kundeId, null);
+      } else if (ziel && stripeLehntAb(err)) {
+        // Der direkte Weg geht nicht — dann das gewöhnliche Portal, in dem sich dasselbe erledigen lässt.
+        console.warn("[stripe-portal] direkter Weg „" + String(flow) + "\" abgelehnt (" + String((err as { message?: string })?.message ?? err) + ") — gewöhnliches Portal");
+        ziel = null;
+        session = await oeffne(kunde.kundeId, null);
+      } else {
+        throw err;
+      }
     }
-
-    const session = await stripe.billingPortal.sessions.create(portalParams as Stripe.BillingPortal.SessionCreateParams);
     return json(200, { url: session.url, flow: ziel ? flow : "default" });
   } catch (e) {
     const text = String((e as { message?: string })?.message ?? e);

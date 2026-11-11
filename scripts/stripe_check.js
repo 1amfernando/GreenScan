@@ -472,7 +472,13 @@ function createClientStub(_url, key, opts) {
 function unterschrift(rumpf, geheimnis, t) {
   return 't=' + t + ',v1=' + nodeCrypto.createHmac('sha256', geheimnis).update(Buffer.concat([Buffer.from(t + '.'), Buffer.isBuffer(rumpf) ? rumpf : Buffer.from(String(rumpf), 'utf8')])).digest('hex');
 }
-function stripeFehler(message, statusCode) { const e = new Error(message); e.type = 'StripeInvalidRequestError'; e.statusCode = statusCode || 400; return e; }
+function stripeFehler(message, statusCode, extra) { const e = new Error(message); e.type = 'StripeInvalidRequestError'; e.statusCode = statusCode || 400; if (extra) Object.assign(e, extra); return e; }
+// „No such <ding>" — mit Kennung und Parameter, wie Stripe es meldet: 400 (beim Anlegen mit einer
+// unbekannten Id) bzw. 404 (beim Holen), `code: resource_missing`, `param`. Die Form stammt aus Stripes
+// Fehler-Referenz und aus rohen Antworten, die Betroffene veröffentlicht haben (gelesen am 11.11.2026) —
+// gegen Stripe GEMESSEN ist sie von hier nicht. Der Fall „Was Stripe nicht kennt" fährt deshalb auch
+// die Formen ohne Kennung und ohne Text.
+const stripeFehlt = (ding, id, status, param) => stripeFehler('No such ' + ding + ': ' + id, status || 400, { code: 'resource_missing', param: param || ding });
 class StripeStub {
   constructor(key, opts) {
     this._key = key; this._api = opts && opts.apiVersion;
@@ -491,11 +497,21 @@ class StripeStub {
       },
     };
     this.subscriptions = {
-      retrieve: async (id) => { ruf('subscriptions.retrieve', id); if (S().abosWerfen) throw new Error('Stripe ist gerade nicht erreichbar'); const a = S().abos[id]; if (!a) throw stripeFehler('No such subscription: ' + id, 404); return klon(a); },
+      retrieve: async (id) => { ruf('subscriptions.retrieve', id); if (S().abosWerfen) throw new Error('Stripe ist gerade nicht erreichbar'); const a = S().abos[id]; if (!a) throw stripeFehlt('subscription', id, 404, 'id'); return klon(a); },
+      update: async (id, p) => {
+        ruf('subscriptions.update', { id, p });
+        if (S().abosWerfen) throw new Error('Stripe ist gerade nicht erreichbar');
+        const a = S().abos[id];
+        if (!a) throw stripeFehlt('subscription', id, 404, 'id');
+        // Ein beendetes Abo lässt sich nicht mehr ändern — wer es trotzdem versucht, soll es hier merken.
+        if (a.status === 'canceled' || a.status === 'incomplete_expired') throw stripeFehler('This subscription has been canceled and can no longer be updated.');
+        Object.assign(a, klon(p));
+        return klon(a);
+      },
     };
     this.customers = {
       create: async (p) => { ruf('customers.create', p); const id = 'cus_neu_' + (++S().n); S().kunden[id] = { id, object: 'customer', email: p && p.email, metadata: (p && p.metadata) || {} }; return klon(S().kunden[id]); },
-      retrieve: async (id) => { ruf('customers.retrieve', id); const k = S().kunden[id]; if (!k) throw stripeFehler('No such customer: ' + id, 404); return klon(k); },
+      retrieve: async (id) => { ruf('customers.retrieve', id); const k = S().kunden[id]; if (!k) throw stripeFehlt('customer', id, 404, 'id'); return klon(k); },
       search: async (p) => {
         ruf('customers.search', p);
         if (S().sucheWirft) throw stripeFehler('Search is not available right now', 503);
@@ -512,11 +528,11 @@ class StripeStub {
           if (fremd.length) throw stripeFehler('Received unknown parameter: ' + fremd[0]);
           const preis = p.line_items && p.line_items[0] && p.line_items[0].price;
           const art = S().preise[preis];
-          if (!art) throw stripeFehler('No such price: ' + preis);
+          if (!art) throw stripeFehlt('price', preis, 400, 'line_items[0][price]');
           if (p.mode === 'subscription' && art !== 'recurring') throw stripeFehler('You specified `subscription` mode but passed a one-time price.');
           if (p.mode === 'payment' && art !== 'one_time') throw stripeFehler('You specified `payment` mode but passed a recurring price.');
           if (!/^https?:\/\//.test(String(p.success_url))) throw stripeFehler('Invalid URL: success_url');
-          if (p.customer && !S().kunden[p.customer]) throw stripeFehler('No such customer: ' + p.customer);
+          if (p.customer && !S().kunden[p.customer]) throw stripeFehlt('customer', p.customer, 400, 'customer');
           const id = 'cs_pruefstand_' + (++S().n);
           return { id, object: 'checkout.session', url: 'https://checkout.stripe.com/c/pay/' + id };
         },
@@ -529,10 +545,14 @@ class StripeStub {
           ruf('billingPortal.sessions.create', p);
           const fremd = Object.keys(p || {}).filter((k) => p[k] !== undefined && STRIPE_PORTAL_PARAMETER.indexOf(k) < 0);
           if (fremd.length) throw stripeFehler('Received unknown parameter: ' + fremd[0]);
-          if (!S().kunden[p.customer]) throw stripeFehler('No such customer: ' + p.customer);
+          if (S().portalWirft) throw new Error('Stripe ist gerade nicht erreichbar');
+          if (!S().kunden[p.customer]) throw stripeFehlt('customer', p.customer, 400, 'customer');
           const f = p.flow_data;
           const ziel = f && ((f.subscription_cancel && f.subscription_cancel.subscription) || (f.subscription_update && f.subscription_update.subscription));
-          if (f && !S().abos[ziel]) throw stripeFehler('No such subscription: ' + ziel);
+          // `wegNein`: der direkte Weg ist im Portal nicht eingeschaltet. Der Wortlaut ist GESTELLT —
+          // gemessen ist nur, dass Stripe solche Anfragen mit 400 ablehnt (invalid_request_error).
+          if (f && S().wegNein) throw stripeFehler('This type of flow is not enabled in the portal configuration.');
+          if (f && !S().abos[ziel]) throw stripeFehlt('subscription', ziel, 400, 'flow_data[subscription_cancel][subscription]');
           return { id: 'bps_pruefstand_' + (++S().n), object: 'billing_portal.session', url: 'https://billing.stripe.com/p/session/pruefstand_' + S().n };
         },
       },
@@ -771,7 +791,8 @@ const RECHNUNG = [
     lauf: (M) => {
       const zl = [{ id: 'lifetime_' + U1, status: 'active', is_lifetime: true, cancel_at_period_end: false }, { id: 'sub_alt', status: 'canceled', cancel_at_period_end: false }, { id: 'sub_neu', status: 'active', cancel_at_period_end: false }];
       if (M.portalZiel(zl, 'cancel') !== 'sub_neu' || M.portalZiel(zl, 'reactivate') !== null || M.portalZiel(zl, undefined) !== null || M.portalZiel(zl.slice(0, 2), 'cancel') !== null || M.portalZiel(null, 'cancel') !== null) return { ok: false, warum: 'Ziel: ' + z([M.portalZiel(zl, 'cancel'), M.portalZiel(zl, 'reactivate'), M.portalZiel(zl.slice(0, 2), 'cancel')]) };
-      if (M.portalZiel([{ id: 'sub_k', status: 'active', cancel_at_period_end: true }], 'reactivate') !== 'sub_k' || M.portalZiel([{ id: 'sub_k', status: 'active', cancel_at_period_end: true }], 'cancel') !== null) return { ok: false, warum: 'ein gekündigtes Abo: fortsetzen ja, noch einmal kündigen nein' };
+      // „Fortsetzen" hat keinen direkten Weg: `subscription_update` ist bei Stripe die Seite zum Wechseln des Plans.
+      if (M.portalZiel([{ id: 'sub_k', status: 'active', cancel_at_period_end: true }], 'reactivate') !== null || M.portalZiel([{ id: 'sub_k', status: 'active', cancel_at_period_end: true }], 'cancel') !== null) return { ok: false, warum: 'ein gekündigtes Abo: weder ein direkter Weg fürs Fortsetzen noch ein zweites Kündigen — ' + z([M.portalZiel([{ id: 'sub_k', status: 'active', cancel_at_period_end: true }], 'reactivate'), M.portalZiel([{ id: 'sub_k', status: 'active', cancel_at_period_end: true }], 'cancel')]) };
       const zeile = { id: 'lifetime_' + U1, user_id: U1, is_lifetime: true, metadata: { payment_intent: 'pi_leben' } };
       const w = (c, zz) => M.erstattungWirkung(c, zz === undefined ? zeile : zz).wirkung;
       const t = [
@@ -809,6 +830,59 @@ const RECHNUNG = [
       const sp = [['fr', 'fr'], ['IT', 'it'], ['de-CH', 'de'], ['en_US', 'en'], [' de ', 'de'], ['rm', 'auto'], ['', 'auto'], [undefined, 'auto'], [null, 'auto'], [7, 'auto'], [{}, 'auto'], ['auto', 'auto']];
       for (const [wunsch, soll] of sp) if (M.stripeSprache(wunsch) !== soll) return { ok: false, warum: 'stripeSprache(' + z(wunsch) + ') = ' + M.stripeSprache(wunsch) + ' statt ' + soll };
       return { ok: true, info: '„' + geworfen + '" · 23.05. 22:30 UTC → ' + M.datumSchweiz(mz) + ' · „' + m.body.slice(0, 62) + '…" · gelöschtes Konto erkannt (nur am user_id-Fremdschlüssel) · ' + sp.length + ' Sprach-Fälle' };
+    },
+  },
+  {
+    name: 'Was die Person schon hat, und was Stripe nicht kennt · kein Abo neben einem laufenden, nichts neben Lifetime — Lifetime neben einem Abo aber schon; „No such customer" wird an Kennung ODER Text erkannt (und nie mit einem fehlenden Preis verwechselt); Ereignis und Schlüssel aus demselben Modus',
+    lauf: (M) => {
+      const monat = { id: 'price_monat', active: true, recurring: { interval: 'month' }, metadata: {} };
+      const leben = { id: 'price_leben', active: true, recurring: null, metadata: { interval: 'lifetime', is_launch_offer: true } };
+      const leben2 = { id: 'price_leben2', active: true, recurring: null, metadata: { interval: 'lifetime' } };
+      const plan = (o) => { const r = M.checkoutPlan(o); return r.ok ? 'ok:' + r.modus : r.status + ':' + r.grund; };
+      const p = [
+        [plan({ preisZeile: monat, aboLaeuft: true }), '409:abo_laeuft', 'Abo neben laufendem Abo'],
+        [plan({ preisZeile: monat, aboLaeuft: false }), 'ok:subscription', 'kein laufendes Abo'],
+        [plan({ preisZeile: monat }), 'ok:subscription', 'ohne Angabe'],
+        [plan({ preisZeile: leben, launchStand: 'frei', aboLaeuft: true }), 'ok:payment', 'Lifetime neben laufendem Abo'],
+        [plan({ preisZeile: monat, lifetime: true }), '409:lifetime_vorhanden', 'Abo neben Lifetime'],
+        [plan({ preisZeile: leben2, lifetime: true }), '409:lifetime_vorhanden', 'Lifetime neben Lifetime'],
+        [plan({ preisZeile: leben, launchStand: 'schon_gekauft', lifetime: true }), '409:launch_schon_gekauft', 'Launch-Angebot schon gekauft (der genauere Grund zuerst)'],
+        [plan({ preisZeile: leben, launchStand: 'ausverkauft', lifetime: false }), '410:launch_ausverkauft', 'ausverkauft bleibt ausverkauft'],
+        [plan({ preisZeile: { id: 'price_x', active: false, recurring: { interval: 'month' } }, aboLaeuft: true }), '400:preis_inaktiv', 'ein alter Preis: der Preis zuerst'],
+      ];
+      for (const [ist, soll, was] of p) if (ist !== soll) return { ok: false, warum: was + ': ' + ist + ' statt ' + soll };
+      const zeilen = [{ id: 'lifetime_' + U1, status: 'active', is_lifetime: true }, { id: 'sub_a', status: 'active', cancel_at_period_end: false }, { id: 'sub_k', status: 'trialing', cancel_at_period_end: true },
+        { id: 'sub_u', status: 'past_due' }, { id: 'sub_e', status: 'canceled' }, { id: 'sub_i', status: 'incomplete' }, null, { status: 'active' }];
+      if (z(M.laufendeAboIds(zeilen)) !== z(['sub_a', 'sub_k', 'sub_u']) || z(M.laufendeAboIds(zeilen, true)) !== z(['sub_a', 'sub_u']) || M.laufendeAboIds(null).length || M.laufendeAboIds('x').length) return { ok: false, warum: 'laufende Abos: ' + z(M.laufendeAboIds(zeilen)) + ' · die sich noch verlängern: ' + z(M.laufendeAboIds(zeilen, true)) };
+      if (M.hatLifetime(zeilen) !== true || M.hatLifetime([{ id: 'lifetime_x', status: 'canceled', is_lifetime: false }]) !== false || M.hatLifetime([{ id: 'lifetime_x', status: 'canceled', is_lifetime: true }]) !== false || M.hatLifetime(null) !== false || M.hatLifetime([{ id: 'sub_a', status: 'active', is_lifetime: false }]) !== false) return { ok: false, warum: 'Lifetime: nur die Zeile mit is_lifetime UND active zählt' };
+      const f = (o) => Object.assign(new Error(o.message || ''), o);
+      const kennt = [
+        [M.stripeKenntNicht(f({ code: 'resource_missing', param: 'customer', message: "No such customer: 'cus_1'", statusCode: 400 }), 'customer'), true, 'wie Stripe es meldet'],
+        [M.stripeKenntNicht(f({ message: 'No such customer: cus_1; a similar object exists in test mode, but a live mode key was used to make this request.' }), 'customer'), true, 'nur der Text, mit dem Zusatz zum anderen Modus'],
+        [M.stripeKenntNicht(f({ code: 'resource_missing', param: 'customer' }), 'customer'), true, 'nur Kennung und Parameter'],
+        [M.stripeKenntNicht(f({ code: 'resource_missing', param: 'id', message: "No such subscription: 'sub_1'", statusCode: 404 }), 'subscription'), true, 'ein Abo, geholt (param id)'],
+        [M.stripeKenntNicht(f({ code: 'resource_missing', param: 'id', message: "No such subscription: 'sub_1'" }), 'customer'), false, 'ein Abo ist kein Kunde'],
+        [M.stripeKenntNicht(f({ code: 'resource_missing', param: 'line_items[0][price]', message: 'No such price: price_x' }), 'customer'), false, 'ein fehlender PREIS ist kein fehlender Kunde'],
+        [M.stripeKenntNicht(f({ code: 'resource_missing', param: 'line_items[0][price]', message: 'No such price: price_x' })), true, 'ohne Angabe: irgendetwas fehlt'],
+        [M.stripeKenntNicht(f({ code: 'card_declined', message: 'Your card was declined.' }), 'customer'), false, 'eine abgelehnte Karte'],
+        [M.stripeKenntNicht(new Error('Stripe ist gerade nicht erreichbar'), 'customer'), false, 'nicht erreichbar'],
+        [M.stripeKenntNicht(null, 'customer'), false, 'kein Fehler'],
+        [M.stripeKenntNicht('No such customer: cus_1', 'customer'), false, 'eine Zeichenkette ist kein Fehlerobjekt'],
+        [M.stripeLehntAb(f({ type: 'StripeInvalidRequestError' })), true, 'abgelehnt (Typ)'],
+        [M.stripeLehntAb(f({ statusCode: 400 })), true, 'abgelehnt (400)'],
+        [M.stripeLehntAb(f({ statusCode: 500 })), false, 'Stripe hat ein Problem'],
+        [M.stripeLehntAb(new Error('fetch failed')), false, 'nicht erreichbar'],
+      ];
+      for (const [ist, soll, was] of kennt) if (ist !== soll) return { ok: false, warum: was + ': ' + ist + ' statt ' + soll };
+      const modus = [[M.schluesselModus('sk_live_pruefstand'), 'live'], [M.schluesselModus('rk_live_pruefstand'), 'live'], [M.schluesselModus('sk_test_pruefstand'), 'test'], [M.schluesselModus('rk_test_pruefstand'), 'test'],
+        [M.schluesselModus('pk_live_pruefstand'), null], [M.schluesselModus('stripe-schluessel'), null], [M.schluesselModus(undefined), null], [M.schluesselModus(''), null]];
+      for (const [ist, soll] of modus) if (ist !== soll) return { ok: false, warum: 'Modus eines Schlüssels: ' + z(ist) + ' statt ' + z(soll) };
+      const passt = [[M.modusPasst(true, 'sk_live_pruefstand').art, 'ok'], [M.modusPasst(false, 'sk_test_pruefstand').art, 'ok'], [M.modusPasst(true, 'sk_test_pruefstand').art, 'fehler'], [M.modusPasst(false, 'sk_live_pruefstand').art, 'ignorieren'],
+        [M.modusPasst(undefined, 'sk_live_pruefstand').art, 'ok'], [M.modusPasst('true', 'sk_test_pruefstand').art, 'ok'], [M.modusPasst(true, 'stripe-schluessel').art, 'ok'], [M.modusPasst(true, undefined).art, 'ok']];
+      for (const [ist, soll] of passt) if (ist !== soll) return { ok: false, warum: 'Ereignis und Schlüssel: ' + ist + ' statt ' + soll };
+      const satz = M.modusPasst(true, 'sk_test_pruefstand').text;
+      if (!/LIVE/.test(satz) || !/TEST/.test(satz) || /sk_test_pruefstand/.test(satz)) return { ok: false, warum: 'der Satz zum Modus nennt nicht beide Seiten — oder den Schlüssel: ' + satz };
+      return { ok: true, info: p.length + ' Kaufwünsche (neben Abo kein Abo, neben Lifetime nichts, Lifetime neben Abo ja) · ' + kennt.length + ' Fehlerformen · ' + modus.length + ' Schlüssel · ' + passt.length + ' Paare Ereignis/Schlüssel' };
     },
   },
 ];
@@ -1032,9 +1106,15 @@ const WEBHOOK = [
       if (tab('launch_offer_usage').length !== 1 || tab('launch_offer_usage')[0].user_id !== U1) return { ok: false, warum: 'das Launch-Angebot wurde nicht gezählt: ' + z(tab('launch_offer_usage')) };
       const voll = await liefere(ereignis('charge.refunded', { id: 'ch_l', object: 'charge', customer: 'cus_anna', payment_intent: 'pi_leben', amount: 4560, amount_refunded: 4560, refunded: true, metadata: { supabase_user_id: U1, kind: 'lifetime' } }));
       if (voll.status !== 200 || sichtTier(U1) !== 'free') return { ok: false, warum: 'nach der vollen Erstattung: status ' + voll.status + ' · Berechtigung ' + sichtTier(U1) + ' — Geld zurück, Lifetime behalten' };
+      // … und der Platz im Launch-Angebot ist wieder frei: wer nichts mehr hat, hat nicht „schon gekauft"
+      if (tab('launch_offer_usage').length !== 0) return { ok: false, warum: 'nach der vollen Erstattung ist der Platz im Launch-Angebot noch belegt: ' + z(tab('launch_offer_usage')) + ' — die Person liest „schon gekauft", obwohl sie nichts mehr hat' };
+      const kasse = await lade('checkout');   // dieser Fall läuft, bevor stripe-checkout an der Reihe ist
+      if (!kasse.ok) return { ok: false, warum: 'stripe-checkout lässt sich nicht laden: ' + (kasse.grund || '') };
+      const wieder = await rufe('checkout', { handler: kasse.handler, body: { price_id: 'price_leben' } });
+      if (wieder.status !== 200) return { ok: false, warum: 'nach der Erstattung noch einmal kaufen: status ' + wieder.status + ' · ' + wieder.text.slice(0, 140) };
       await kauf();
       const teil = await liefere(ereignis('charge.refunded', { id: 'ch_l', object: 'charge', customer: 'cus_anna', payment_intent: 'pi_leben', amount: 4560, amount_refunded: 1000, refunded: false, metadata: { kind: 'lifetime' } }));
-      if (teil.status !== 200 || sichtTier(U1) !== 'lifetime') return { ok: false, warum: 'nach einer Teil-Erstattung: ' + sichtTier(U1) };
+      if (teil.status !== 200 || sichtTier(U1) !== 'lifetime' || tab('launch_offer_usage').length !== 1) return { ok: false, warum: 'nach einer Teil-Erstattung: ' + sichtTier(U1) + ' · Plätze belegt ' + tab('launch_offer_usage').length + ' (erwartet 1)' };
       const fremd = await liefere(ereignis('charge.refunded', { id: 'ch_a', object: 'charge', customer: 'cus_anna', payment_intent: 'pi_abo', amount: 790, amount_refunded: 790, refunded: true }));
       if (fremd.status !== 200 || sichtTier(U1) !== 'lifetime') return { ok: false, warum: 'die Erstattung einer ANDEREN Zahlung nahm Lifetime zurück: ' + sichtTier(U1) };
       // Erstattung einer Abo-Rechnung: das Abo bleibt, wie Stripe es sagt
@@ -1042,7 +1122,7 @@ const WEBHOOK = [
       await liefere(ereignis('customer.subscription.created', W.stripe.abos.sub_1));
       const abo1 = await liefere(ereignis('charge.refunded', { id: 'ch_b', object: 'charge', customer: 'cus_anna', payment_intent: 'pi_abo', amount: 790, amount_refunded: 790, refunded: true }));
       if (abo1.status !== 200 || sichtTier(U1) !== 'pro') return { ok: false, warum: 'Erstattung einer Abo-Rechnung: ' + sichtTier(U1) };
-      return { ok: true, info: 'Kauf → lifetime, Launch-Zähler 1 · volle Erstattung → free · Teil-Erstattung und fremde Zahlung → bleibt lifetime · Abo-Rechnung erstattet → bleibt pro' };
+      return { ok: true, info: 'Kauf → lifetime, Launch-Zähler 1 · volle Erstattung → free, Platz wieder frei, erneuter Kauf 200 · Teil-Erstattung und fremde Zahlung → bleibt lifetime (Platz bleibt belegt) · Abo-Rechnung erstattet → bleibt pro' };
     },
   },
   {
@@ -1303,6 +1383,112 @@ const WEBHOOK = [
       return { ok: true, info: t.length + ' Konto-Zustände · unbekanntes Konto unberührt · getrennt → disabled · Gebühr 0.50 CHF → verified · Zahlung ohne Eintrag: „' + String(ez.error).slice(0, 50) + '…" · Id ohne UUID-Form → 200 mit Grund, keine Anfrage an die Datenbank' };
     },
   },
+  {
+    name: 'Lifetime neben einem laufenden Abo · das Abo endet zum Periodenende — einmal, nach dem Stand bei STRIPE; ein schon gekündigtes, ein beendetes, ein unbekanntes und das Abo einer anderen Person bleiben unberührt; ist Stripe nicht erreichbar, wiederholt Stripe',
+    lauf: async () => {
+      const kauf = () => ereignis('checkout.session.completed', { id: 'cs_l', object: 'checkout.session', mode: 'payment', payment_status: 'paid', customer: 'cus_anna', payment_intent: 'pi_leben', amount_total: 4560, metadata: { supabase_user_id: U1, claim_launch_offer: '1' } });
+      // abos(): [{ stripe: <das Abo bei Stripe> | null, zeile: <die Zeile in stripe_subscriptions> | null }]
+      const welt = (abos) => {
+        neueWelt(); ANNA_KUNDE(); W.stripe.posten.cs_l = [{ id: 'li_1', price: { id: 'price_leben' } }];
+        for (const a of abos()) {
+          if (a.stripe) W.stripe.abos[a.stripe.id] = a.stripe;
+          if (a.zeile) tab('stripe_subscriptions').push(Object.assign({ user_id: U1, stripe_customer_id: 'cus_anna', price_id: 'price_monat', tier: 'pro', status: 'active', is_lifetime: false, cancel_at_period_end: false, created_at: '2026-10-01T00:00:00Z' }, a.zeile));
+        }
+      };
+      const aufrufe = () => stripeRufe('subscriptions.update');
+      const vermerk = (ev) => { const e = ereignisZeile(ev.id); return e ? e.error : undefined; };
+      // 1 · ein laufendes Abo
+      welt(() => [{ stripe: abo({ id: 'sub_1' }), zeile: { id: 'sub_1' } }]);
+      const ev = kauf();
+      const a = await liefere(ev);
+      if (a.status !== 200 || aufrufe().length !== 1 || aufrufe()[0].arg.id !== 'sub_1' || z(aufrufe()[0].arg.p) !== z({ cancel_at_period_end: true })) return { ok: false, warum: 'ein laufendes Abo, Lifetime gekauft: status ' + a.status + ' · Aufrufe an Stripe ' + z(aufrufe().map((r) => r.arg)) + ' — das Abo bucht weiter ab' };
+      if (sichtTier(U1) !== 'lifetime') return { ok: false, warum: 'nach dem Kauf: ' + sichtTier(U1) };
+      if (!ereignisZeile(ev.id) || ereignisZeile(ev.id).processed !== true || !/sub_1 endet zum Periodenende/.test(String(vermerk(ev)))) return { ok: false, warum: 'die Ereigniszeile sagt nicht, dass das Abo endet: ' + z(vermerk(ev)) };
+      await liefere(ev);
+      if (aufrufe().length !== 1) return { ok: false, warum: 'dasselbe Ereignis zweimal: ' + aufrufe().length + ' Aufrufe' };
+      // 2 · in der Probezeit
+      welt(() => [{ stripe: abo({ id: 'sub_p', status: 'trialing', trial_end: W.jetzt + 5 * TAG }), zeile: { id: 'sub_p', status: 'trialing' } }]);
+      await liefere(kauf());
+      if (aufrufe().length !== 1 || aufrufe()[0].arg.id !== 'sub_p') return { ok: false, warum: 'Abo in der Probezeit: ' + aufrufe().length + ' Aufrufe — nach der Probezeit würde abgebucht' };
+      // 3 · bei Stripe schon gekündigt (die Zeile weiss es noch nicht)
+      welt(() => [{ stripe: abo({ id: 'sub_k', kuendigtZumEnde: true }), zeile: { id: 'sub_k' } }]);
+      const c = await liefere(kauf());
+      const c1 = aufrufe().length;
+      // 4 · bei Stripe beendet (die Zeile sagt „aktiv")
+      welt(() => [{ stripe: abo({ id: 'sub_e', status: 'canceled' }), zeile: { id: 'sub_e' } }]);
+      const d = await liefere(kauf());
+      if (c.status !== 200 || c1 !== 0 || d.status !== 200 || aufrufe().length !== 0) return { ok: false, warum: 'schon gekündigt: ' + c1 + ' Aufrufe (status ' + c.status + ') · beendet: ' + aufrufe().length + ' Aufrufe (status ' + d.status + ') — erwartet 0 und 0' };
+      // 5 · die Zeile nennt ein Abo, das Stripe nicht kennt (anderer Modus, gelöscht)
+      welt(() => [{ stripe: null, zeile: { id: 'sub_weg', status: 'trialing' } }]);
+      const ev5 = kauf();
+      const e = await liefere(ev5);
+      if (e.status !== 200 || aufrufe().length !== 0 || sichtTier(U1) !== 'lifetime' || !/sub_weg kennt Stripe nicht/.test(String(vermerk(ev5)))) return { ok: false, warum: 'ein Abo, das Stripe nicht kennt: status ' + e.status + ' · Aufrufe ' + aufrufe().length + ' · Berechtigung ' + sichtTier(U1) + ' · Ereigniszeile ' + z(vermerk(ev5)) };
+      // 6 · das Abo einer ANDEREN Person
+      welt(() => [{ stripe: abo({ id: 'sub_b', nutzer: U2, kunde: 'cus_ben' }), zeile: { id: 'sub_b', user_id: U2, stripe_customer_id: 'cus_ben' } }]);
+      await liefere(kauf());
+      if (aufrufe().length !== 0 || stripeRufe('subscriptions.retrieve').some((r) => r.arg === 'sub_b')) return { ok: false, warum: 'Anna kauft Lifetime, und Bens Abo wird angefasst: ' + z(W.stripe.rufe.map((r) => r.was + ' ' + z(r.arg)).filter((x) => /sub_b/.test(x))) };
+      // 7 · Stripe nicht erreichbar: kein „ok" — und die Wiederholung beendet das Abo
+      welt(() => [{ stripe: abo({ id: 'sub_1' }), zeile: { id: 'sub_1' } }]);
+      W.stripe.abosWerfen = true;
+      const ev7 = kauf();
+      const g1 = await liefere(ev7);
+      W.stripe.abosWerfen = false;
+      const g2 = await liefere(ev7);
+      if (g1.status < 500 || g2.status !== 200 || aufrufe().length !== 1) return { ok: false, warum: 'Stripe nicht erreichbar: status ' + g1.status + ' (erwartet 5xx) · Wiederholung ' + g2.status + ' · Aufrufe ' + aufrufe().length };
+      // 8 · zwei laufende Abos (soll es nicht geben): beide enden
+      welt(() => [{ stripe: abo({ id: 'sub_1' }), zeile: { id: 'sub_1' } }, { stripe: abo({ id: 'sub_2' }), zeile: { id: 'sub_2', created_at: '2026-10-02T00:00:00Z' } }]);
+      await liefere(kauf());
+      if (z(aufrufe().map((r) => r.arg.id).sort()) !== z(['sub_1', 'sub_2'])) return { ok: false, warum: 'zwei laufende Abos: beendet ' + z(aufrufe().map((r) => r.arg.id)) };
+      // 9 · kein Abo: kein Aufruf, kein Hinweis
+      welt(() => []);
+      const ev9 = kauf();
+      await liefere(ev9);
+      if (aufrufe().length !== 0 || vermerk(ev9)) return { ok: false, warum: 'ohne Abo: Aufrufe ' + aufrufe().length + ' · Ereigniszeile ' + z(vermerk(ev9)) };
+      return { ok: true, info: 'laufend → 1 Aufruf { cancel_at_period_end: true }, Satz in der Ereigniszeile, Wiederholung 0 · Probezeit → 1 · schon gekündigt 0 · beendet 0 · bei Stripe unbekannt 0 (mit Satz) · fremdes Abo 0 · nicht erreichbar → ' + g1.status + ', dann 1 · zwei Abos → 2 · keines → 0' };
+    },
+  },
+  {
+    name: 'Test und Live · ein Live-Ereignis an einer Function mit Test-Schlüssel wird nicht verarbeitet und SAGT warum (kein „ok": nach dem Beheben kommt es an); ein Test-Ereignis an einem Live-Schlüssel wird bestätigt, ohne etwas zu schreiben; passt der Modus oder ist er nicht erkennbar, ändert sich nichts',
+    lauf: async () => {
+      const mit = async (schluessel) => { const h = await lade('webhook', { STRIPE_SECRET_KEY: schluessel }); if (!h.ok) throw new Error('Laden: ' + h.grund); return h.handler; };
+      const welt = (schluessel) => { neueWelt(schluessel ? { env: { STRIPE_SECRET_KEY: schluessel } } : undefined); ANNA_KUNDE(); W.stripe.abos.sub_1 = abo(); };
+      const test = await mit('sk_test_pruefstand'), live = await mit('sk_live_pruefstand');
+      const abo1 = (livemode) => { const ev = ereignis('customer.subscription.created', W.stripe.abos.sub_1); if (livemode === undefined) delete ev.livemode; else ev.livemode = livemode; return ev; };
+      // 1 · Live-Ereignis, Test-Schlüssel
+      welt('sk_test_pruefstand');
+      const ev = abo1(true);
+      const a = await liefere(ev, { handler: test });
+      const ez = ereignisZeile(ev.id);
+      if (a.status < 500 || aboZeile('sub_1') || stripeRufe('subscriptions.retrieve').length) return { ok: false, warum: 'Live-Ereignis, Test-Schlüssel: status ' + a.status + ' · Abo-Zeile ' + z(!!aboZeile('sub_1')) + ' · Aufrufe an Stripe ' + stripeRufe('subscriptions.retrieve').length + ' — verarbeitet (oder mit „No such subscription" gescheitert), statt den Grund zu sagen' };
+      if (!/LIVE/.test(a.text) || !/TEST/.test(a.text) || !ez || !/LIVE/.test(String(ez.error)) || ez.processed === true) return { ok: false, warum: 'der Grund steht nicht in Antwort und Ereigniszeile: ' + a.text.slice(0, 160) + ' · Zeile ' + z(ez && { error: ez.error, processed: ez.processed }) };
+      if (/sk_test_pruefstand/.test(a.text + W.log.join(' ') + z(ez))) return { ok: false, warum: 'der Schlüssel steht in der Antwort, im Log oder in der Ereigniszeile' };
+      // … behoben (jetzt mit dem Live-Schlüssel): dasselbe Ereignis kommt an
+      const a2 = await liefere(ev, { handler: live });
+      if (a2.status !== 200 || !aboZeile('sub_1') || ereignisZeile(ev.id).processed !== true) return { ok: false, warum: 'nach dem Beheben: status ' + a2.status + ' · Abo-Zeile ' + z(!!aboZeile('sub_1')) };
+      // 2 · Test-Ereignis, Live-Schlüssel
+      welt('sk_live_pruefstand');
+      const ev2 = abo1(false);
+      const b = await liefere(ev2, { handler: live });
+      const ez2 = ereignisZeile(ev2.id);
+      if (b.status !== 200 || aboZeile('sub_1') || stripeRufe('subscriptions.retrieve').length || !ez2 || ez2.processed !== true || !/Test-Ereignis/.test(String(ez2.error))) return { ok: false, warum: 'Test-Ereignis, Live-Schlüssel: status ' + b.status + ' · Abo-Zeile ' + z(!!aboZeile('sub_1')) + ' · Ereigniszeile ' + z(ez2 && { error: ez2.error, processed: ez2.processed }) };
+      // 3 · der Modus passt
+      welt('sk_live_pruefstand');
+      const c = await liefere(abo1(true), { handler: live });
+      const cDa = !!aboZeile('sub_1');
+      welt('sk_test_pruefstand');
+      const d = await liefere(abo1(false), { handler: test });
+      if (c.status !== 200 || !cDa || d.status !== 200 || !aboZeile('sub_1')) return { ok: false, warum: 'der Modus passt: live/live ' + c.status + ' (Zeile ' + cDa + ') · test/test ' + d.status + ' (Zeile ' + z(!!aboZeile('sub_1')) + ')' };
+      // 4 · nicht erkennbar: der Schlüssel des Prüfstands sagt nichts über seinen Modus
+      welt();
+      const e = await liefere(abo1(true));
+      const eDa = !!aboZeile('sub_1');
+      // 5 · ein Ereignis ohne `livemode`
+      welt('sk_test_pruefstand');
+      const f = await liefere(abo1(undefined), { handler: test });
+      if (e.status !== 200 || !eDa || f.status !== 200 || !aboZeile('sub_1')) return { ok: false, warum: 'Modus nicht erkennbar: ' + e.status + ' (Zeile ' + eDa + ') · Ereignis ohne livemode: ' + f.status + ' (Zeile ' + z(!!aboZeile('sub_1')) + ')' };
+      return { ok: true, info: 'live an Test-Schlüssel → ' + a.status + ' mit Satz, nichts geschrieben; mit dem richtigen Schlüssel kommt dasselbe Ereignis an · test an Live-Schlüssel → 200, nichts geschrieben, Grund in der Ereigniszeile · passend → verarbeitet · nicht erkennbar → verarbeitet' };
+    },
+  },
 ];
 
 // ══ RAND · stripe-checkout ════════════════════════════════════════════════════
@@ -1508,6 +1694,88 @@ const CHECKOUT = [
       return { ok: true, info: 'Preise nicht lesbar → ' + a.status + ' · Abos nicht lesbar → ' + b.status + ' · ohne Schlüssel 503 · kaputtes JSON 400 — jedes Mal 0 Sitzungen' };
     },
   },
+  {
+    name: 'Was das Konto schon hat, entscheidet der Server · neben einem laufenden Abo kein zweites (409, keine Sitzung), neben Lifetime nichts; Lifetime NEBEN einem Abo geht; und eine veraltete Zeile sperrt niemanden aus — gefragt wird Stripe',
+    lauf: async () => {
+      // abos(): was BEI STRIPE steht · zeilen: was in stripe_subscriptions steht
+      const welt = (zeilen, abos) => {
+        neueWelt(); ANNA_KUNDE();
+        Object.assign(W.stripe.abos, abos ? abos() : {});
+        for (const zl of zeilen) tab('stripe_subscriptions').push(Object.assign({ user_id: U1, stripe_customer_id: 'cus_anna', is_lifetime: false, cancel_at_period_end: false, created_at: '2026-10-01T00:00:00Z' }, zl));
+      };
+      const sitzungen = () => stripeRufe('checkout.sessions.create').length;
+      // 1 · ein laufendes Abo (aktiv, in der Probezeit, überfällig): kein zweites
+      for (const status of ['active', 'trialing', 'past_due']) {
+        welt([{ id: 'sub_1', status }], () => ({ sub_1: abo({ status }) }));
+        const r = await rufe('checkout', { body: { price_id: 'price_jahr' } });
+        if (r.status !== 409 || !r.daten || r.daten.grund !== 'abo_laeuft' || sitzungen() || stripeRufe('customers.create').length) return { ok: false, warum: 'Abo „' + status + '" läuft, ein zweites wird verlangt: status ' + r.status + ' · Grund ' + z(r.daten && r.daten.grund) + ' · Sitzungen ' + sitzungen() + ' — zwei Abos, zwei Abbuchungen' };
+      }
+      // 2 · Lifetime neben dem laufenden Abo: geht (der Webhook beendet das Abo dann) — und dafür wird Stripe nicht nach dem Abo gefragt
+      welt([{ id: 'sub_1', status: 'active' }], () => ({ sub_1: abo() }));
+      const b = await rufe('checkout', { body: { price_id: 'price_leben' } });
+      if (b.status !== 200 || sitzungen() !== 1 || stripeRufe('checkout.sessions.create')[0].arg.mode !== 'payment' || stripeRufe('subscriptions.retrieve').length) return { ok: false, warum: 'Lifetime neben einem laufenden Abo: status ' + b.status + ' · ' + b.text.slice(0, 120) + ' · Fragen nach dem Abo ' + stripeRufe('subscriptions.retrieve').length };
+      // 3 · die Zeile sagt „aktiv", bei Stripe ist das Abo beendet: verkauft wird
+      welt([{ id: 'sub_1', status: 'active' }], () => ({ sub_1: abo({ status: 'canceled' }) }));
+      const c = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      // 4 · die Zeile nennt ein Abo, das Stripe nicht kennt (anderer Modus, gelöscht): verkauft wird
+      const cS = sitzungen();
+      welt([{ id: 'sub_weg', status: 'trialing' }]);
+      const d = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      if (c.status !== 200 || cS !== 1 || d.status !== 200 || sitzungen() !== 1) return { ok: false, warum: 'veraltete Zeile: bei Stripe beendet → status ' + c.status + ' · bei Stripe unbekannt → status ' + d.status + ' (' + d.text.slice(0, 100) + ') — ausgesperrt von einer Zeile, die nicht mehr stimmt' };
+      // 5 · Stripe ist nicht erreichbar: nicht geraten
+      welt([{ id: 'sub_1', status: 'active' }], () => ({ sub_1: abo() }));
+      W.stripe.abosWerfen = true;
+      const e = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      if (e.status < 500 || sitzungen()) return { ok: false, warum: 'Stripe nicht erreichbar: status ' + e.status + ' · Sitzungen ' + sitzungen() + ' — „läuft nicht" wäre geraten' };
+      // 6 · Lifetime: nichts mehr — weder ein Abo noch ein zweites Lifetime
+      welt([{ id: 'lifetime_' + U1, status: 'active', is_lifetime: true }]);
+      const f1 = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      const f2 = await rufe('checkout', { body: { price_id: 'price_leben' } });
+      if (f1.status !== 409 || f1.daten.grund !== 'lifetime_vorhanden' || f2.status !== 409 || f2.daten.grund !== 'lifetime_vorhanden' || sitzungen()) return { ok: false, warum: 'neben Lifetime: Abo → ' + f1.status + ' ' + z(f1.daten && f1.daten.grund) + ' · Lifetime → ' + f2.status + ' ' + z(f2.daten && f2.daten.grund) + ' · Sitzungen ' + sitzungen() };
+      // 7 · erstattetes Lifetime und ein beendetes Abo: wieder frei — und Stripe wird gar nicht gefragt
+      welt([{ id: 'lifetime_' + U1, status: 'canceled', is_lifetime: false }, { id: 'sub_alt', status: 'canceled', created_at: '2026-01-01T00:00:00Z' }]);
+      const g = await rufe('checkout', { body: { price_id: 'price_leben' } });
+      const h = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      if (g.status !== 200 || h.status !== 200 || stripeRufe('subscriptions.retrieve').length) return { ok: false, warum: 'erstattet/beendet: Lifetime → ' + g.status + ' · Abo → ' + h.status + ' · Fragen an Stripe ' + stripeRufe('subscriptions.retrieve').length };
+      // 8 · Annas Abo geht Ben nichts an
+      welt([{ id: 'sub_1', status: 'active' }], () => ({ sub_1: abo() }));
+      const i = await rufe('checkout', { token: 'jwt-ben', body: { price_id: 'price_monat' } });
+      if (i.status !== 200) return { ok: false, warum: 'Ben wird von Annas Abo gesperrt: status ' + i.status };
+      return { ok: true, info: 'aktiv · Probezeit · überfällig → 409 „abo_laeuft", 0 Sitzungen · Lifetime daneben → 200 (Einmalzahlung) · Zeile veraltet (beendet / unbekannt) → 200 · Stripe nicht erreichbar → ' + e.status + ' · neben Lifetime → 409 · erstattet → wieder frei · Ben unberührt' };
+    },
+  },
+  {
+    name: 'Der gemerkte Kunde fehlt bei Stripe · gelöscht, oder aus dem anderen Modus (Test ↔ Live): der Kauf kommt trotzdem zustande — gesucht, sonst EIN neuer Kunde, auch beim zweiten Versuch; ein anderer Fehler wird nicht wiederholt',
+    lauf: async () => {
+      const zeile = (kunde) => ({ id: 'sub_frueher', user_id: U1, status: 'canceled', stripe_customer_id: kunde, is_lifetime: false, cancel_at_period_end: false, created_at: '2026-05-16T00:00:00Z' });
+      neueWelt();
+      tab('stripe_subscriptions').push(zeile('cus_aus_testmodus'));
+      const a = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      const s = stripeRufe('checkout.sessions.create');
+      if (a.status !== 200 || s.length !== 2 || s[0].arg.customer !== 'cus_aus_testmodus' || s[1].arg.customer === 'cus_aus_testmodus' || stripeRufe('customers.create').length !== 1) return { ok: false, warum: 'der gemerkte Kunde fehlt bei Stripe: status ' + a.status + ' · ' + a.text.slice(0, 120) + ' · Sitzungen für ' + z(s.map((x) => x.arg.customer)) + ' · neue Kunden ' + stripeRufe('customers.create').length };
+      if (!W.log.some((l) => /^warn: .*kennt den gemerkten Kunden cus_aus_testmodus nicht/.test(l))) return { ok: false, warum: 'das Log sagt nicht, dass der gemerkte Kunde fehlt: ' + z(W.log) };
+      // zweiter Versuch (die Zeile ist noch dieselbe): der Kunde von eben wird GEFUNDEN — kein dritter
+      const neu = s[1].arg.customer;
+      const b = await rufe('checkout', { body: { price_id: 'price_jahr' } });
+      const letzte = stripeRufe('checkout.sessions.create').slice(-1)[0].arg.customer;
+      if (b.status !== 200 || stripeRufe('customers.create').length !== 1 || letzte !== neu) return { ok: false, warum: 'zweiter Versuch: status ' + b.status + ' · neue Kunden insgesamt ' + stripeRufe('customers.create').length + ' (erwartet 1) · Sitzung für ' + letzte + ' statt ' + neu };
+      // die Suche scheitert beim zweiten Blick: ein neuer Kunde, der Kauf geht weiter
+      neueWelt(); W.stripe.sucheWirft = true;
+      tab('stripe_subscriptions').push(zeile('cus_aus_testmodus'));
+      const c = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      if (c.status !== 200 || stripeRufe('customers.create').length !== 1) return { ok: false, warum: 'Kunde fehlt UND die Suche scheitert: status ' + c.status + ' · neue Kunden ' + stripeRufe('customers.create').length };
+      // ein ANDERER Fehler (der Preis fehlt bei Stripe): kein zweiter Versuch, kein neuer Kunde
+      neueWelt(); ANNA_KUNDE(); delete W.stripe.preise.price_monat;
+      tab('stripe_subscriptions').push(zeile('cus_anna'));
+      const d = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      if (d.status < 500 || stripeRufe('checkout.sessions.create').length !== 1 || stripeRufe('customers.create').length || stripeRufe('customers.search').length) return { ok: false, warum: 'der Preis fehlt bei Stripe: status ' + d.status + ' · Sitzungs-Versuche ' + stripeRufe('checkout.sessions.create').length + ' · neue Kunden ' + stripeRufe('customers.create').length + ' — ein fehlender Preis ist kein fehlender Kunde' };
+      // wer gar keinen gemerkten Kunden hat, bekommt wie bisher genau einen — ohne zweiten Versuch
+      neueWelt();
+      const e = await rufe('checkout', { body: { price_id: 'price_monat' } });
+      if (e.status !== 200 || stripeRufe('checkout.sessions.create').length !== 1 || stripeRufe('customers.create').length !== 1) return { ok: false, warum: 'ohne gemerkten Kunden: status ' + e.status + ' · Sitzungen ' + stripeRufe('checkout.sessions.create').length };
+      return { ok: true, info: 'Kunde bei Stripe unbekannt → Kauf 200 mit EINEM neuen Kunden (Satz im Log) · zweiter Versuch findet ihn (kein dritter) · Suche gescheitert → trotzdem 200 · fehlender Preis → ' + d.status + ', 1 Versuch, 0 neue Kunden' };
+    },
+  },
 ];
 
 // ══ RAND · stripe-portal ══════════════════════════════════════════════════════
@@ -1587,8 +1855,51 @@ const PORTAL = [
       welt([Object.assign({}, laufend, { cancel_at_period_end: true })]);
       const e = await rufe('portal', { body: { flow: 'reactivate' } });
       const pe = stripeRufe('billingPortal.sessions.create')[0].arg;
-      if (e.status !== 200 || !pe.flow_data || z(pe.flow_data).indexOf('sub_a') < 0) return { ok: false, warum: 'fortsetzen: ' + z(pe) };
-      return { ok: true, info: 'fremde Adresse → https://green-scan.ch/… · kündigen → sub_a · nur Lifetime → Portal ohne Ziel statt „No such subscription" · fortsetzen → sub_a' };
+      // „Fortsetzen": das gewöhnliche Portal. `subscription_update` (bis v5) ist bei Stripe die Seite zum
+      // WECHSELN des Plans — eine Kündigung nimmt dort niemand zurück (Portal-Doku, gelesen am 11.11.2026).
+      if (e.status !== 200 || pe.flow_data || pe.customer !== 'cus_anna' || e.daten.flow !== 'default') return { ok: false, warum: 'fortsetzen: ' + z(pe) + ' · Antwort ' + e.text.slice(0, 120) + ' — erwartet das gewöhnliche Portal, ohne `subscription_update`' };
+      // … und ein schon gekündigtes Abo bekommt keinen zweiten Kündigungs-Weg
+      const f = await rufe('portal', { body: { flow: 'cancel' } });
+      if (f.status !== 200 || stripeRufe('billingPortal.sessions.create')[1].arg.flow_data) return { ok: false, warum: 'schon gekündigt, noch einmal „kündigen": ' + z(stripeRufe('billingPortal.sessions.create')[1].arg) };
+      return { ok: true, info: 'fremde Adresse → https://green-scan.ch/… · kündigen → sub_a · nur Lifetime → Portal ohne Ziel statt „No such subscription" · fortsetzen → gewöhnliches Portal (kein Plan-Wechsel) · schon gekündigt → ohne Ziel' };
+    },
+  },
+  {
+    name: 'Wenn Stripe nicht mitspielt · lehnt Stripe den direkten Weg ab, öffnet sich das gewöhnliche Portal; kennt es den gemerkten Kunden nicht, wird gesucht — und sonst gesagt, dass es keinen gibt (404, nicht 500); ist Stripe nicht erreichbar, bleibt es ein Fehler',
+    lauf: async () => {
+      const zeile = (o) => Object.assign({ id: 'sub_a', user_id: U1, status: 'active', cancel_at_period_end: false, stripe_customer_id: 'cus_anna', is_lifetime: false, created_at: '2026-10-01T00:00:00Z' }, o || {});
+      const portal = () => stripeRufe('billingPortal.sessions.create');
+      // 1 · der direkte Weg ist im Portal nicht eingeschaltet
+      neueWelt(); ANNA_KUNDE(); W.stripe.abos.sub_a = abo({ id: 'sub_a' }); W.stripe.wegNein = true; tab('stripe_subscriptions').push(zeile());
+      const a = await rufe('portal', { body: { flow: 'cancel' } });
+      if (a.status !== 200 || portal().length !== 2 || !portal()[0].arg.flow_data || portal()[1].arg.flow_data || a.daten.flow !== 'default') return { ok: false, warum: 'der direkte Weg ist nicht eingeschaltet: status ' + a.status + ' · ' + a.text.slice(0, 120) + ' · Versuche ' + portal().length + ' — eine Fehlermeldung statt des gewöhnlichen Portals' };
+      if (!W.log.some((l) => /^warn: .*direkter Weg.*abgelehnt/.test(l))) return { ok: false, warum: 'das Log sagt nicht, dass der direkte Weg abgelehnt wurde: ' + z(W.log) };
+      // 2 · die Zeile nennt ein Abo, das Stripe nicht kennt
+      neueWelt(); ANNA_KUNDE(); tab('stripe_subscriptions').push(zeile({ id: 'sub_weg' }));
+      const b = await rufe('portal', { body: { flow: 'cancel' } });
+      if (b.status !== 200 || portal().length !== 2 || portal()[1].arg.flow_data || portal()[1].arg.customer !== 'cus_anna') return { ok: false, warum: 'die Zeile nennt ein Abo, das Stripe nicht kennt: status ' + b.status + ' · ' + b.text.slice(0, 120) };
+      // 3 · der gemerkte Kunde fehlt, die Suche findet den richtigen — ohne Ziel (die gemerkten Abos gehören zum unbekannten Kunden)
+      neueWelt(); ANNA_KUNDE(); W.stripe.abos.sub_a = abo({ id: 'sub_a' }); tab('stripe_subscriptions').push(zeile({ stripe_customer_id: 'cus_aus_testmodus' }));
+      const c = await rufe('portal', { body: { flow: 'cancel' } });
+      const letzte = portal().slice(-1)[0];
+      if (c.status !== 200 || !letzte || letzte.arg.customer !== 'cus_anna' || letzte.arg.flow_data || stripeRufe('customers.create').length) return { ok: false, warum: 'der gemerkte Kunde fehlt, bei Stripe gibt es den richtigen: status ' + c.status + ' · ' + c.text.slice(0, 120) + ' · Portal für ' + z(letzte && letzte.arg.customer) };
+      // 4 · der gemerkte Kunde fehlt, und es gibt keinen anderen: 404 mit einem Satz — und kein neuer Kunde
+      neueWelt(); tab('stripe_subscriptions').push(zeile({ stripe_customer_id: 'cus_aus_testmodus' }));
+      const d = await rufe('portal', { body: {} });
+      if (d.status !== 404 || !d.daten || d.daten.grund !== 'kunde_unbekannt' || !d.daten.hint || stripeRufe('customers.create').length) return { ok: false, warum: 'der gemerkte Kunde fehlt, kein anderer: status ' + d.status + ' · ' + d.text.slice(0, 140) + ' · neue Kunden ' + stripeRufe('customers.create').length };
+      // 5 · … und die Suche scheitert: nicht feststellbar ist nicht „keiner"
+      neueWelt(); W.stripe.sucheWirft = true; tab('stripe_subscriptions').push(zeile({ stripe_customer_id: 'cus_aus_testmodus' }));
+      const e = await rufe('portal', { body: {} });
+      if (e.status < 500) return { ok: false, warum: 'Kunde fehlt und die Suche scheitert: status ' + e.status + ' — „keiner" wäre geraten' };
+      // 6 · Stripe ist nicht erreichbar: kein zweiter Versuch, kein „gewöhnliches Portal"
+      neueWelt(); ANNA_KUNDE(); W.stripe.abos.sub_a = abo({ id: 'sub_a' }); W.stripe.portalWirft = true; tab('stripe_subscriptions').push(zeile());
+      const f = await rufe('portal', { body: { flow: 'cancel' } });
+      if (f.status < 500 || portal().length !== 1) return { ok: false, warum: 'Stripe nicht erreichbar: status ' + f.status + ' · Versuche ' + portal().length };
+      // 7 · ohne direkten Weg gibt es auch keinen zweiten Versuch
+      neueWelt(); ANNA_KUNDE(); W.stripe.wegNein = true; tab('stripe_subscriptions').push(zeile());
+      const g = await rufe('portal', { body: {} });
+      if (g.status !== 200 || portal().length !== 1) return { ok: false, warum: 'gewöhnliches Portal: status ' + g.status + ' · Versuche ' + portal().length };
+      return { ok: true, info: 'direkter Weg abgelehnt → gewöhnliches Portal (Satz im Log) · Abo bei Stripe unbekannt → gewöhnliches Portal · Kunde unbekannt → gesucht, gefunden, ohne Ziel · keiner → 404 „kunde_unbekannt" mit Hinweis, 0 neue Kunden · Suche gescheitert → ' + e.status + ' · nicht erreichbar → ' + f.status + ', 1 Versuch' };
     },
   },
 ];
@@ -1791,13 +2102,16 @@ const QUELLTEXT = [
       welt.sbFetch = async () => { throw new Error('offline'); };
       if (await welt.stand() !== null) return { ok: false, warum: 'ohne Netz: nicht „nicht feststellbar"' };
       // jede Kennung, die stripe-checkout nennen kann, wird ein deutscher Satz — keine englische Serverzeile
-      const kennungen = ['preis_unbekannt', 'preis_inaktiv', 'preis_ohne_intervall', 'launch_ausverkauft', 'launch_schon_gekauft', 'launch_unklar'];
+      const kennungen = ['preis_unbekannt', 'preis_inaktiv', 'preis_ohne_intervall', 'launch_ausverkauft', 'launch_schon_gekauft', 'launch_unklar', 'abo_laeuft', 'lifetime_vorhanden'];
       const modul = ohneKommentare(fs.readFileSync(MODUL, 'utf8'));
       const planVon = modul.indexOf('export function checkoutPlan('), plan = modul.slice(planVon, modul.indexOf('\n}\n', planVon));
       const imModul = planVon < 0 ? [] : [...plan.matchAll(/grund:\s*'([a-z_]+)'/g)].map((m) => m[1]).filter((k, i, a) => a.indexOf(k) === i);
       const ohneSatz = imModul.filter((k) => kennungen.indexOf(k) < 0 || welt.grund({ grund: k, error: 'ENGLISCH' }, 400) === 'ENGLISCH');
-      if (imModul.length < 6 || ohneSatz.length) return { ok: false, warum: 'checkoutPlan nennt ' + imModul.length + ' Kennungen; ohne eigenen Satz in der App: ' + (ohneSatz.join(', ') || '—') };
+      if (imModul.length < 8 || ohneSatz.length) return { ok: false, warum: 'checkoutPlan nennt ' + imModul.length + ' Kennungen; ohne eigenen Satz in der App: ' + (ohneSatz.join(', ') || '—') };
       if (welt.grund({ error: 'Stripe sagt etwas' }, 500) !== 'Stripe sagt etwas' || !/401|Anmeldung/.test(welt.grund({}, 401)) || !/502/.test(welt.grund(null, 502))) return { ok: false, warum: 'Rückfall: ' + z([welt.grund({ error: 'x' }, 500), welt.grund({}, 401), welt.grund(null, 502)]) };
+      // ein OBJEKT in `error` (so antwortet das Gateway vor der Function) wird nie zu „[object Object]"
+      const ausObjekt = welt.grund({ error: { message: 'Invalid JWT' } }, 500);
+      if (typeof ausObjekt !== 'string' || /object Object/.test(ausObjekt) || !/500/.test(ausObjekt)) return { ok: false, warum: 'ein Objekt als Fehler: ' + z(ausObjekt) };
       return { ok: true, info: antworten.length + ' Antworten, App = Function · live-Form ausverkauft → „ausverkauft" (bis v33.59: immer „frei") · ' + imModul.length + ' Kennungen → ' + imModul.length + ' Sätze' };
     },
   },

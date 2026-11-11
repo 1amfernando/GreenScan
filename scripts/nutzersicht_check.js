@@ -561,6 +561,100 @@ const FAELLE = [
       }
     }),
   },
+  {
+    name: 'E13 · Ein Kauf, den das Konto schon hat, ist kein Fehler: ein Satz statt „Checkout fehlgeschlagen", das Zahlungsfenster geht zu, und der Bildschirm zeigt danach den frischen Stand — ein echter Fehler bleibt ein Fehler; und wer Lifetime hat, liest auf seiner eigenen Karte nicht „ausverkauft"',
+    lauf: async () => __seite.evaluate(async () => {
+      // 11.11.2026: der Abo-Bildschirm entscheidet aus `gs_abo_plan` (Gerätespeicher), was er anbietet.
+      // Ist der Stand alt (zweites Gerät, Tab von gestern), bietet er ein Abo an, das das Konto schon hat —
+      // gemerkt wird es erst vom Server (stripe-checkout: 409 mit Kennung). Gestellt ist hier NUR der Rand:
+      // das Netz (fetch, sbFetch) und das Zahlungsfenster. Angetippt wird der echte Knopf.
+      const schluessel = ['gs_abo_plan', 'gs_ent_scans_per_month', 'gs_ent_ai_herbalist', 'gs_ent_offline_mode', 'gs_ent_recipes_export'];
+      const alt = { fetch: window.fetch, sbFetch: window.sbFetch, sbIsLoggedIn: window.sbIsLoggedIn, tok: window._gsFreshToken, fenster: window._gsCheckoutFenster, toast: window.gsToast, frage: window.gsConfirmModal, ls: schluessel.map((k) => localStorage.getItem(k)) };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const toasts = [], fragen = [], klagen = [];
+      let antwort = null, launch = null, tierJetzt = 'free', tierDanach = 'pro', versucht = false, popup = null;
+      const knopf = (was) => document.querySelector('#modal-content button[onclick*="gsStartCheckout(\'' + was + '\'"]');
+      const karte = () => document.getElementById('abo-lifetime-card');
+      const note = () => ((document.getElementById('abo-launch-note') || {}).textContent || '');
+      const grau = () => /grayscale/.test((karte() && karte().style.filter) || '');
+      try {
+        window.sbIsLoggedIn = () => true;
+        window._gsFreshToken = async () => 'pruefstand';
+        window._gsCheckoutFenster = () => { popup = { closed: false, document: { write() {}, body: {} }, location: {}, close() { this.closed = true; } }; return popup; };
+        window.gsToast = (m) => { toasts.push(m); };
+        window.gsConfirmModal = async (o) => { fragen.push(o); return false; };
+        window.sbFetch = async (pfad) => {
+          const p = String(pfad);
+          if (p.indexOf('stripe_prices') >= 0) return { data: [{ id: 'price_monat', metadata: { lookup_key: 'pro_monthly' } }, { id: 'price_leben', metadata: { lookup_key: 'pro_lifetime' } }], error: null };
+          if (p.indexOf('v_user_entitlements') >= 0) return { data: [{ tier: versucht ? tierDanach : tierJetzt, scans_per_month: 0 }], error: null };
+          if (p.indexOf('rpc/launch_offer_available') >= 0) return { data: launch, error: null };
+          return { data: [], error: null };
+        };
+        window.fetch = async (url) => {
+          if (String(url).indexOf('/functions/v1/stripe-checkout') < 0) throw new Error('kein Netz im Pruefstand');
+          versucht = true;
+          return { ok: antwort.status < 400, status: antwort.status, json: async () => antwort.body };
+        };
+        const zeige = async (plan) => { versucht = false; toasts.length = 0; fragen.length = 0; popup = null; tierJetzt = plan; localStorage.setItem('gs_abo_plan', plan); gsShowAboScreen(); await warte(300); };
+
+        // 1 · der Bildschirm bietet ein Abo an (Stand auf dem Geraet: frei) — das Konto hat aber eines
+        launch = { available: true, logged_in: true, claimed: 3 };
+        antwort = { status: 409, body: { error: 'This account already has a running subscription', grund: 'abo_laeuft' } };
+        tierDanach = 'pro';
+        await zeige('free');
+        if (!knopf('pro_monthly')) return { ok: false, warum: 'der Abo-Bildschirm zeigt keinen Kauf-Knopf — der Fall misst nichts' };
+        knopf('pro_monthly').click();
+        await warte(600);
+        const t1 = toasts.find((t) => t && typeof t === 'object' && /laufendes Abo/.test(String(t.body)));
+        if (fragen.length) klagen.push('„hast du schon": der Dialog „' + String(fragen[0].title) + '" erscheint (mit dem Angebot, dem Support zu schreiben)');
+        if (!t1) klagen.push('„hast du schon": kein Satz dazu — Meldungen: ' + JSON.stringify(toasts).slice(0, 160));
+        else if (!/freigeschaltet/.test(String(t1.title)) || /already has/.test(String(t1.body))) klagen.push('„hast du schon": die Meldung sagt „' + t1.title + ' · ' + t1.body + '"');
+        if (!popup || popup.closed !== true) klagen.push('„hast du schon": das Zahlungsfenster bleibt offen');
+        if (localStorage.getItem('gs_abo_plan') !== 'pro') klagen.push('„hast du schon": der Stand wurde nicht neu geholt (gs_abo_plan = ' + localStorage.getItem('gs_abo_plan') + ')');
+        if (knopf('pro_monthly')) klagen.push('„hast du schon": der Bildschirm bietet das Abo danach weiter an');
+        else if (!/Aktiv/.test((document.getElementById('modal-content') || {}).textContent || '')) klagen.push('„hast du schon": der neu gezeichnete Bildschirm zeigt keinen aktiven Plan');
+
+        // 2 · ein echter Fehler bleibt ein Fehler — mit dem Satz des Servers, und der Bildschirm bleibt stehen
+        antwort = { status: 500, body: { error: 'Stripe sagt etwas' } };
+        await zeige('free');
+        knopf('pro_monthly').click();
+        await warte(600);
+        if (fragen.length !== 1 || !/Stripe sagt etwas/.test(String(fragen[0].message))) klagen.push('echter Fehler: ' + fragen.length + ' Dialoge' + (fragen[0] ? ' · „' + String(fragen[0].message).slice(0, 90) + '"' : '') + ' (erwartet einer mit dem Satz des Servers)');
+        if (!knopf('pro_monthly')) klagen.push('echter Fehler: der Kauf-Knopf ist danach weg');
+        if (toasts.some((t) => t && typeof t === 'object' && /freigeschaltet|Ausverkauft/.test(String(t.title)))) klagen.push('echter Fehler: gemeldet als „schon freigeschaltet"');
+
+        // 3 · beim Oeffnen noch frei, beim Antippen vergeben: ein Satz, und die Karte zeigt es danach
+        launch = { available: true, logged_in: true, claimed: 99 };
+        antwort = { status: 410, body: { error: 'Launch offer fully booked', grund: 'launch_ausverkauft' } };
+        tierDanach = 'free';
+        await zeige('free');
+        if (grau() || !knopf('pro_lifetime') || knopf('pro_lifetime').disabled) klagen.push('frei (99 von 100): die Karte ist grau oder der Knopf gesperrt');
+        launch = { available: false, logged_in: true, claimed: 100 };
+        knopf('pro_lifetime').click();
+        await warte(900);
+        const t3 = toasts.find((t) => t && typeof t === 'object' && /Ausverkauft/.test(String(t.title)));
+        if (fragen.length || !t3 || !/100/.test(String(t3.body))) klagen.push('ausverkauft beim Antippen: Dialoge ' + fragen.length + ' · Meldung ' + JSON.stringify(t3 || toasts).slice(0, 140));
+        if (!grau() || !/Ausverkauft/.test(note()) || !knopf('pro_lifetime') || !knopf('pro_lifetime').disabled) klagen.push('ausverkauft: nach dem neuen Zeichnen grau=' + grau() + ' · Zeile „' + note() + '" · Knopf gesperrt=' + !!(knopf('pro_lifetime') && knopf('pro_lifetime').disabled));
+
+        // 4 · wer Lifetime HAT: die eigene Karte ist nicht grau und sagt nicht „ausverkauft"
+        launch = { available: false, logged_in: true, claimed: 100 };
+        await zeige('lifetime');
+        if (grau() || /Ausverkauft/.test(note()) || !/schon gekauft/.test(note())) klagen.push('Lifetime-Konto, alle Plätze vergeben: grau=' + grau() + ' · Zeile „' + note() + '"');
+
+        // 5 · nicht feststellbar (die Antwort hat eine Form, die es nie gab): nichts wird behauptet
+        launch = true;
+        await zeige('free');
+        if (grau() || /Ausverkauft|schon gekauft/.test(note()) || !knopf('pro_lifetime') || knopf('pro_lifetime').disabled) klagen.push('nicht feststellbar: grau=' + grau() + ' · Zeile „' + note() + '"');
+
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '409 „abo_laeuft" → Satz „' + t1.title + '", 0 Dialoge, Fenster zu, Stand neu (pro), kein Kauf-Knopf mehr · 500 → 1 Dialog mit dem Satz des Servers · 410 beim Antippen → „' + t3.title + '", Karte grau, Knopf gesperrt · Lifetime-Konto: Karte nicht grau, „schon gekauft" · nicht feststellbar: nichts behauptet' };
+      } finally {
+        window.fetch = alt.fetch; window.sbFetch = alt.sbFetch; window.sbIsLoggedIn = alt.sbIsLoggedIn; window._gsFreshToken = alt.tok; window._gsCheckoutFenster = alt.fenster; window.gsToast = alt.toast; window.gsConfirmModal = alt.frage;
+        schluessel.forEach((k, i) => { if (alt.ls[i] == null) localStorage.removeItem(k); else localStorage.setItem(k, alt.ls[i]); });
+        try { closeModal('detail-modal'); } catch (_) {}
+      }
+    }),
+  },
 ];
 
 (async () => {

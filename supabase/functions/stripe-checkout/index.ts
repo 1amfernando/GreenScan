@@ -1,8 +1,9 @@
 // Stripe Checkout Session creator
 // v9 (2026-11-11): der erste Stand mit einem Prüfstand (scripts/stripe_check.js). Gemessen an v8:
 //   • `automatic_payment_methods: { enabled: true }` ging an checkout.sessions.create — den
-//     Parameter gibt es dort nicht (er gehört zu PaymentIntents). Stripe lehnt Unbekanntes mit
-//     400 ab: seit dem 14.06.2026 endete JEDER Kauf mit 500. „Automatisch" heisst bei Checkout:
+//     Parameter gibt es dort nicht (er gehört zu PaymentIntents; Referenz gelesen am 11.11.2026).
+//     Stripe lehnt Unbekanntes mit 400 ab: damit endete seit dem 14.06.2026 JEDER Kauf mit 500
+//     (gefolgert, nicht gegen Stripe gemessen). „Automatisch" heisst bei Checkout:
 //     `payment_method_types` weglassen — dann erscheint, was im Dashboard eingeschaltet ist und
 //     zu Währung und Modus passt (Karte; TWINT bei CHF, seit dem 27.05.2026 auch im Abo).
 //   • `stripe_customers` wurde gelesen und beschrieben — die Tabelle gibt es nicht. Der Fehler
@@ -16,6 +17,11 @@
 //     Entwurf von v9 verglich es mit `true` (immer ausverkauft: kein einziger Lifetime-Kauf).
 //   • Die Stripe-Seite erscheint in der Sprache der App (de · fr · it · en), sonst in der des Browsers.
 //   • success_url/cancel_url gingen ungeprüft an Stripe. Jetzt nur der eigene Ursprung.
+//   • Was die Person schon HAT, entschied die App aus ihrem Gerätespeicher. Jetzt der Server:
+//     kein zweites Abo neben einem laufenden (zwei Abbuchungen), nichts neben Lifetime. Ob ein
+//     Abo wirklich läuft, wird bei Stripe gefragt — eine veraltete Zeile sperrt niemanden aus.
+//   • Kennt Stripe den gemerkten Kunden nicht (gelöscht — oder er stammt aus dem anderen Modus,
+//     Test ↔ Live), endete der Kauf mit 500 „No such customer". Jetzt: suchen, sonst neu anlegen.
 //   Die Regeln stehen in ../_shared/stripe_regeln.mjs (in Node geprüft), dieser Handler ist der Rand.
 // v8 (2026-06-14): keine feste Liste von Zahlungsarten mehr (damals mit dem falschen Parameter).
 // v6 (2026-05-13): Probezeit höchstens 7 Tage. v5: trial_days. v4: interval/is_launch_offer.
@@ -23,7 +29,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
-  APP_URSPRUNG, checkoutParameter, checkoutPlan, dbMuss, istLaunchAngebot, kundeFinden, launchStand, rueckkehrAdresse,
+  ABO_LAEUFT, APP_URSPRUNG, checkoutParameter, checkoutPlan, dbMuss, hatLifetime, istLaunchAngebot, kundeFinden, laufendeAboIds,
+  launchStand, preisIntervall, rueckkehrAdresse, stripeKenntNicht,
 } from "../_shared/stripe_regeln.mjs";
 
 const corsHeaders = {
@@ -72,7 +79,25 @@ Deno.serve(async (req) => {
       ? launchStand(dbMuss(await userClient.rpc("launch_offer_available"), "launch_offer_available fragen"))
       : "frei";
 
-    const plan = checkoutPlan({ preisZeile: preis, wunschProbeTage: trial_days, ersterAbschluss: kunde.zeilen.length === 0, launchStand: stand });
+    // Läuft schon ein Abo? Die eigenen Zeilen sagen es — ob es WIRKLICH läuft, sagt Stripe. Gefragt
+    // wird nur, wenn ein Abo gekauft werden soll und eine Zeile ein laufendes nennt.
+    let aboLaeuft = false;
+    const intervall = preis ? preisIntervall(preis) : null;
+    if (intervall && intervall !== "lifetime") {
+      for (const id of laufendeAboIds(kunde.zeilen)) {
+        try {
+          const sub = await stripe.subscriptions.retrieve(id);
+          if (ABO_LAEUFT.indexOf(sub.status) >= 0) { aboLaeuft = true; break; }
+        } catch (err) {
+          if (!stripeKenntNicht(err, "subscription")) throw err;   // nicht erreichbar ist nicht „läuft nicht"
+        }
+      }
+    }
+
+    const plan = checkoutPlan({
+      preisZeile: preis, wunschProbeTage: trial_days, ersterAbschluss: kunde.zeilen.length === 0, launchStand: stand,
+      lifetime: hatLifetime(kunde.zeilen), aboLaeuft,
+    });
     if (!plan.ok) return json(plan.status, { error: plan.text, grund: plan.grund });
 
     let kundeId = kunde.kundeId;
@@ -87,10 +112,27 @@ Deno.serve(async (req) => {
     const abbruch = rueckkehrAdresse(cancel_url, `${APP_URSPRUNG}/?billing=cancel`);
     if (erfolg.ersetzt || abbruch.ersetzt) console.warn(`[stripe-checkout] Rückkehr-Adresse ersetzt (${erfolg.ersetzt ? erfolg.grund : abbruch.grund})`);
 
-    const session = await stripe.checkout.sessions.create(checkoutParameter({
-      kundeId, preisId: preis.id, modus: plan.modus, probeTage: plan.probeTage, userId: user.id, launch: plan.launch,
+    const sitzung = (kunde_: string) => stripe.checkout.sessions.create(checkoutParameter({
+      kundeId: kunde_, preisId: preis.id, modus: plan.modus, probeTage: plan.probeTage, userId: user.id, launch: plan.launch,
       erfolgUrl: erfolg.url, abbruchUrl: abbruch.url, sprache: locale,
     }));
+    let session;
+    try {
+      session = await sitzung(kundeId);
+    } catch (err) {
+      // Stripe kennt den GEMERKTEN Kunden nicht (im Dashboard gelöscht — oder er stammt aus dem
+      // anderen Modus). Dann: bei Stripe suchen, sonst einen neuen anlegen — einmal, nicht öfter.
+      if (!kunde.kundeId || !stripeKenntNicht(err, "customer")) throw err;
+      const zweit = await kundeFinden({ admin, stripe, userId: user.id, ohneGemerkte: true });
+      if (zweit.kundeId && zweit.kundeId !== kunde.kundeId) {
+        kundeId = zweit.kundeId;
+      } else {
+        const neu = await stripe.customers.create({ email: user.email ?? undefined, metadata: { supabase_user_id: user.id } });
+        kundeId = neu.id;
+      }
+      console.warn("[stripe-checkout] Stripe kennt den gemerkten Kunden " + kunde.kundeId + " nicht — weiter mit " + kundeId);
+      session = await sitzung(kundeId);
+    }
 
     return json(200, {
       url: session.url,

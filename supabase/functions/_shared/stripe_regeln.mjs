@@ -13,8 +13,9 @@
 //   • stripe-checkout schickte `automatic_payment_methods` an Checkout — den
 //     Parameter gibt es dort nicht (API-Referenz „Create a Checkout Session":
 //     0 Treffer; stripe@17.7.0 `types/Checkout/SessionsResource.d.ts`: 0 Treffer,
-//     er gehört zu PaymentIntents). Stripe lehnt Unbekanntes mit 400 ab — seit
-//     dem 14.06.2026 endete jeder Kauf mit 500.
+//     er gehört zu PaymentIntents). Stripe lehnt Unbekanntes mit 400 ab
+//     (`parameter_unknown`) — damit endete seit dem 14.06.2026 jeder Kauf mit 500.
+//     Das ist aus der Referenz GEFOLGERT: gegen Stripe lässt sich von hier nichts messen.
 //   • stripe-webhook hängte sechsmal `.catch()` an einen supabase-js-Bauer. Der
 //     hat `then`, aber kein `catch` (gemessen an @supabase/postgrest-js 2.119.0:
 //     „TypeError: … .catch is not a function") — fünf Ereignisarten endeten
@@ -293,9 +294,16 @@ export function launchStand(antwort) {
   return typeof antwort.claimed === 'number' && antwort.claimed < LAUNCH_PLAETZE ? 'schon_gekauft' : 'ausverkauft';
 }
 
-// Was darf gekauft werden, und wie? { preisZeile, wunschProbeTage, ersterAbschluss, launchStand }
+// Was darf gekauft werden, und wie?
+//   { preisZeile, wunschProbeTage, ersterAbschluss, launchStand, lifetime, aboLaeuft }
 //   → { ok: true, modus: 'subscription' | 'payment', probeTage, launch }
 //   → { ok: false, status, grund, text }
+// `lifetime` / `aboLaeuft`: was die Person schon HAT. Die App bietet einem zahlenden Konto
+// kein Abo an — aber sie liest dafür `gs_abo_plan` aus dem Gerätespeicher, und der kann alt
+// sein (zweites Gerät, Tab von gestern). Wer dann kauft, hätte ZWEI Abos, die beide abbuchen.
+// Entscheiden darf das nur der Server: kein Abo neben einem laufenden Abo, nichts neben Lifetime.
+// Lifetime NEBEN einem laufenden Abo ist erlaubt — der Webhook beendet das Abo dann zum
+// Periodenende (sonst zahlte die Person weiter für etwas, das sie auf Lebenszeit hat).
 // `launchStand` ist das Ergebnis von launchStand() — gefragt wird anhand des PREISES, nicht
 // anhand eines Feldes der Anfrage: wer `claim_launch_offer` wegliess, kaufte das
 // Launch-Angebot bisher auch nach dem hundertsten Mal. Für jeden anderen Preis zählt es nicht.
@@ -313,6 +321,8 @@ export function checkoutPlan(e) {
     if (a.launchStand === 'schon_gekauft') return { ok: false, status: 409, grund: 'launch_schon_gekauft', text: 'Launch offer already claimed by this account' };
     return { ok: false, status: 503, grund: 'launch_unklar', text: 'Launch offer availability could not be determined' };
   }
+  if (a.lifetime === true) return { ok: false, status: 409, grund: 'lifetime_vorhanden', text: 'This account already has lifetime access' };
+  if (modus === 'subscription' && a.aboLaeuft === true) return { ok: false, status: 409, grund: 'abo_laeuft', text: 'This account already has a running subscription' };
   return { ok: true, modus, launch, probeTage: probeTage({ modus, ersterAbschluss: a.ersterAbschluss === true, wunsch: a.wunschProbeTage }) };
 }
 
@@ -413,6 +423,8 @@ export function rueckkehrAdresse(wunsch, vorgabe) {
 // Stripe ist gescheitert). Der Kauf geht dann trotzdem weiter (ein neuer Kunde), das Portal
 // sagt den Fehler — „nie gekauft" wäre geraten.
 //   → { kundeId, quelle: 'abo' | 'suche' | null, zeilen, sucheFehler }
+// `ohneGemerkte: true` überspringt die Kunden-Id aus den Abo-Zeilen und fragt gleich Stripe —
+// für den Fall, dass Stripe den gemerkten Kunden nicht (mehr) kennt (siehe stripeKenntNicht).
 export async function kundeFinden(e) {
   const a = e || {};
   if (!istUuid(a.userId)) return { kundeId: null, quelle: null, zeilen: [], sucheFehler: null };
@@ -422,7 +434,7 @@ export async function kundeFinden(e) {
     .eq('user_id', a.userId)
     .order('created_at', { ascending: false })
     .limit(10), 'stripe_subscriptions lesen') || [];
-  const mitKunde = zeilen.find((z) => z && typeof z.stripe_customer_id === 'string' && z.stripe_customer_id);
+  const mitKunde = a.ohneGemerkte === true ? null : zeilen.find((z) => z && typeof z.stripe_customer_id === 'string' && z.stripe_customer_id);
   if (mitKunde) return { kundeId: mitKunde.stripe_customer_id, quelle: 'abo', zeilen, sucheFehler: null };
   let gefunden = null, sucheFehler = null;
   try {
@@ -434,16 +446,33 @@ export async function kundeFinden(e) {
   return { kundeId: gefunden, quelle: gefunden ? 'suche' : null, zeilen, sucheFehler };
 }
 
-// ── 9 · Portal: welches Abo meint „kündigen" / „fortsetzen"? ─────────────────
-// Nur ein ECHTES, laufendes Stripe-Abo der Person. Die Lifetime-Zeile heisst
-// `lifetime_<uuid>` — als Abo-Id an Stripe geschickt ist das „No such subscription".
-const LAEUFT = ['active', 'trialing', 'past_due'];
+// ── 9 · Was die Person schon hat — und welches Abo „kündigen" meint ──────────
+export const ABO_LAEUFT = ['active', 'trialing', 'past_due'];
+// Die ECHTEN Stripe-Abos (sub_…) unter den Zeilen einer Person, die als laufend geführt sind.
+// Die Lifetime-Zeile heisst `lifetime_<uuid>` — als Abo-Id an Stripe geschickt ist das
+// „No such subscription". `nurOhneEnde`: nur die, die sich noch verlängern.
+export function laufendeAboIds(zeilen, nurOhneEnde) {
+  return (Array.isArray(zeilen) ? zeilen : [])
+    .filter((x) => x && typeof x.id === 'string' && /^sub_/.test(x.id) && ABO_LAEUFT.indexOf(x.status) >= 0
+      && !(nurOhneEnde === true && x.cancel_at_period_end === true))
+    .map((x) => x.id);
+}
+// Lifetime ist die eigene Zeile (kein Stripe-Objekt): `is_lifetime` UND `active`. Nach einer
+// vollen Erstattung steht sie auf `is_lifetime: false`, `canceled` — dann darf wieder gekauft werden.
+export function hatLifetime(zeilen) {
+  return (Array.isArray(zeilen) ? zeilen : []).some((x) => x && x.is_lifetime === true && x.status === 'active');
+}
+// Portal: ein direkter Weg (Stripe nennt das „flow") nur für KÜNDIGEN, und nur auf ein echtes,
+// laufendes Abo, das sich noch verlängert.
+// „Fortsetzen" bekam bis v5 den Weg `subscription_update` — das ist bei Stripe die Seite zum
+// WECHSELN des Plans („upgrading or downgrading to another plan", Portal-Doku, gelesen am
+// 11.11.2026), nicht das Zurücknehmen einer Kündigung, und sie setzt eine Portal-Einstellung
+// voraus, die niemand gemessen hat. Einen eigenen Weg fürs Zurücknehmen gibt es dort nicht:
+// „fortsetzen" öffnet deshalb das gewöhnliche Portal.
 export function portalZiel(zeilen, flow) {
-  if (flow !== 'cancel' && flow !== 'reactivate') return null;
-  const z = (Array.isArray(zeilen) ? zeilen : []).find((x) => x && typeof x.id === 'string' && /^sub_/.test(x.id)
-    && LAEUFT.indexOf(x.status) >= 0
-    && (flow === 'cancel' ? x.cancel_at_period_end !== true : x.cancel_at_period_end === true));
-  return z ? z.id : null;
+  if (flow !== 'cancel') return null;
+  const ids = laufendeAboIds(zeilen, true);
+  return ids.length ? ids[0] : null;
 }
 
 // ── 10 · Erstattung ──────────────────────────────────────────────────────────
@@ -485,4 +514,50 @@ export function probeEndeMitteilung(trialEndSekunden) {
     title: 'Deine Probezeit endet bald',
     body: (tag ? 'Deine Probezeit endet am ' + tag + '. ' : 'Deine Probezeit endet bald. ') + danach,
   };
+}
+
+// ── 12 · Was Stripe nicht (mehr) kennt, und in welchem Modus gearbeitet wird ───
+// Eine gemerkte Id (Kunde, Abo) kann bei Stripe fehlen: im Dashboard gelöscht — oder sie stammt
+// aus dem ANDEREN Modus. Test und Live sind getrennte Welten; wer von Test auf Live umstellt,
+// hat in `stripe_subscriptions` Kunden, die es dort nicht gibt (am 11.11.2026 steht genau eine
+// solche Zeile da, und der hinterlegte öffentliche Schlüssel ist ein Test-Schlüssel).
+// Stripe antwortet dann mit 400 bzw. 404, `code: "resource_missing"`, `param: "customer"` und
+// „No such customer: 'cus_…'" (Fehler-Referenz und rohe Antworten, die Betroffene
+// veröffentlicht haben — von hier NICHT gegen Stripe gemessen; erkannt wird deshalb an der
+// Kennung ODER am Text, und welches Ding fehlt, sagt zuerst der Text).
+//   ding: 'customer' | 'subscription' | … — ohne Angabe: irgendetwas fehlt.
+export function stripeKenntNicht(fehler, ding) {
+  if (!fehler || typeof fehler !== 'object') return false;
+  const m = /^No such ([a-z_.]+)\b/i.exec(String(fehler.message || ''));
+  if (fehler.code !== 'resource_missing' && !m) return false;
+  if (!ding) return true;
+  const d = String(ding).toLowerCase();
+  return m ? m[1].toLowerCase() === d : String(fehler.param || '').toLowerCase() === d;
+}
+// Hat Stripe die ANFRAGE abgelehnt (im Unterschied zu „nicht erreichbar")?
+export function stripeLehntAb(fehler) {
+  if (!fehler || typeof fehler !== 'object') return false;
+  return fehler.type === 'StripeInvalidRequestError' || fehler.statusCode === 400 || fehler.statusCode === 404;
+}
+// In welchem Modus arbeitet ein Schlüssel? 'live' · 'test' · null (nicht erkennbar).
+export function schluesselModus(schluessel) {
+  const s = typeof schluessel === 'string' ? schluessel : '';
+  if (/^(sk|rk)_live_/.test(s)) return 'live';
+  if (/^(sk|rk)_test_/.test(s)) return 'test';
+  return null;
+}
+// Passt ein Ereignis zum Schlüssel der Function? Stripe schreibt `livemode` an jedes Ereignis.
+//   → { art: 'ok' }
+//   → { art: 'fehler', text }      Live-Ereignis, Test-Schlüssel: jedes Nachschlagen bei Stripe
+//                                  endete mit „No such …". Ein Einstellungsfehler — er wird in
+//                                  einem Satz gesagt, und Stripe wiederholt, bis er behoben ist.
+//   → { art: 'ignorieren', text }  Test-Ereignis, Live-Schlüssel: Stripe schickt Test-Ereignisse
+//                                  verbundener Konten auch an Live-Endpunkte (Connect). Bestätigt,
+//                                  nicht verarbeitet, mit dem Grund in der Ereigniszeile.
+export function modusPasst(ereignisLivemode, schluessel) {
+  const modus = schluesselModus(schluessel);
+  if (modus === null || typeof ereignisLivemode !== 'boolean') return { art: 'ok' };
+  if ((modus === 'live') === ereignisLivemode) return { art: 'ok' };
+  if (!ereignisLivemode) return { art: 'ignorieren', text: 'Test-Ereignis an einem Endpunkt mit Live-Schlüssel — nicht verarbeitet' };
+  return { art: 'fehler', text: 'Das Ereignis kommt aus dem LIVE-Modus, aber STRIPE_SECRET_KEY ist ein TEST-Schlüssel — Endpunkt und Schlüssel müssen aus demselben Modus stammen' };
 }

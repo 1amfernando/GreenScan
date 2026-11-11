@@ -26,6 +26,13 @@
 //   • Die Admin-Übersicht zählt `processed = false` als „unverarbeitet" — das Feld setzte
 //     noch nie jemand. Jetzt steht es mit `processed_at`.
 //   • Eine verzögerte Zahlungsart meldet „bezahlt" erst mit checkout.session.async_payment_succeeded.
+//   Und beim zweiten Lesen des eigenen Stands (11.11.2026):
+//   • Wer mit laufendem Abo Lifetime kaufte, zahlte das Abo weiter — für immer. Jetzt endet es
+//     zum Periodenende (gefragt wird Stripe, nicht nur die eigene Zeile).
+//   • Eine volle Erstattung des Lifetime-Kaufs liess den Platz im Launch-Angebot belegt: die
+//     Person bekam „schon gekauft" zu lesen, obwohl sie nichts mehr hatte. Jetzt wird er frei.
+//   • Ein Live-Ereignis an einer Function mit Test-Schlüssel scheiterte an „No such subscription",
+//     ohne dass jemand den Grund las. Jetzt sagt ihn ein Satz (`modusPasst`).
 // v11 (2026-05-30): trial_will_end, charge.failed, dispute, customer.updated, payment_method.attached.
 // v10 (2026-05-22): account.application.deauthorized; 'disabled' nur bei disabled_reason 'rejected…'.
 // v9 (2026-05-22): account.updated für Marketplace-Connect. v7: Experten-Verifikation.
@@ -35,8 +42,9 @@ import Stripe from "npm:stripe@17";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { constantTimeEquals } from "../_shared/auth_vergleich.mjs";
 import {
-  aboIdAusRechnung, aboPreisId, aboZeile, dbMuss, ereignisWirkung, erstattungWirkung, idVon, istNutzerWeg, istUuid,
-  nutzerAusMetadaten, preisIntervall, probeEndeMitteilung, signaturPruefen, SIGNATUR_GRUND_TEXT,
+  ABO_LAEUFT, aboEndetVonSelbst, aboIdAusRechnung, aboPreisId, aboZeile, dbMuss, ereignisWirkung, erstattungWirkung, idVon,
+  istNutzerWeg, istUuid, laufendeAboIds, modusPasst, nutzerAusMetadaten, preisIntervall, probeEndeMitteilung, signaturPruefen,
+  SIGNATUR_GRUND_TEXT, stripeKenntNicht,
 } from "../_shared/stripe_regeln.mjs";
 
 const STRIPE_API = "2024-12-18.acacia";
@@ -141,6 +149,32 @@ async function aboNachziehen(stripe: Stripe, aboId: string): Promise<Ergebnis> {
     : `Preis ${preisId} von Abo ${sub.id} steht nicht in stripe_prices — Zeile ohne Preis und ohne Pro geschrieben` };
 }
 
+// ── Lifetime gekauft: das laufende Abo endet ─────────────────────────────────
+// Die App bietet Lifetime auch einem Konto mit laufendem Abo an. Ohne diesen Schritt buchte
+// Stripe das Abo weiter ab — für etwas, das die Person jetzt auf Lebenszeit hat. Es endet zum
+// Periodenende (die bezahlte Zeit bleibt), in der Probezeit also ohne Abbuchung.
+// Welche Abos das sind, sagen die eigenen Zeilen; ob eines wirklich noch läuft, sagt Stripe.
+// Den neuen Stand schreibt danach customer.subscription.updated in die Zeile.
+//   → ein Satz für die Ereigniszeile, oder null
+async function abosBeenden(stripe: Stripe, userId: string): Promise<string | null> {
+  const zeilen = dbMuss(await admin.from("stripe_subscriptions").select("id, status, cancel_at_period_end").eq("user_id", userId).limit(20), "stripe_subscriptions lesen") || [];
+  const saetze: string[] = [];
+  for (const id of laufendeAboIds(zeilen, true)) {
+    let sub: Stripe.Subscription;
+    try {
+      sub = await stripe.subscriptions.retrieve(id);
+    } catch (e) {
+      if (!stripeKenntNicht(e, "subscription")) throw e;   // nicht erreichbar: 500, Stripe wiederholt
+      saetze.push(`Abo ${id} kennt Stripe nicht (mehr) — nichts zu beenden`);
+      continue;
+    }
+    if (ABO_LAEUFT.indexOf(sub.status) < 0 || aboEndetVonSelbst(sub)) continue;
+    await stripe.subscriptions.update(id, { cancel_at_period_end: true });
+    saetze.push(`Abo ${id} endet zum Periodenende (Lifetime gekauft)`);
+  }
+  return saetze.length ? saetze.join(" · ") : null;
+}
+
 // ── Checkout fertig ──────────────────────────────────────────────────────────
 async function abschluss(stripe: Stripe, session: Stripe.Checkout.Session): Promise<Ergebnis> {
   if (session.mode === "subscription") {
@@ -191,7 +225,8 @@ async function abschluss(stripe: Stripe, session: Stripe.Checkout.Session): Prom
   if (session.metadata?.claim_launch_offer === "1") {
     dbMuss(await admin.from("launch_offer_usage").upsert({ user_id: userId, subscription_id: subId }, { onConflict: "user_id" }), "launch_offer_usage schreiben");
   }
-  return OK;
+  const hinweis = await abosBeenden(stripe, userId);
+  return hinweis ? { art: "ok", hinweis } : OK;
 }
 
 // Experten-Gebühr über einen PaymentIntent (ohne Checkout).
@@ -220,6 +255,9 @@ async function erstattung(charge: Stripe.Charge): Promise<Ergebnis> {
   // Der Trigger fn_sync_lifetime_to_profile hat beim Kauf profiles.is_lifetime gesetzt — und
   // nimmt es nie zurück (er setzt nur `tier`, und nur wo is_lifetime schon false ist).
   dbMuss(await admin.from("profiles").update({ is_lifetime: false, tier: "free" }).eq("id", zeile.user_id).eq("is_lifetime", true), "profiles schreiben");
+  // Der Platz im Launch-Angebot wird wieder frei: wer nichts mehr hat, hat auch nicht „schon gekauft"
+  // (rpc/launch_offer_available zählt diese Zeilen und sagt der Person sonst genau das).
+  dbMuss(await admin.from("launch_offer_usage").delete().eq("user_id", zeile.user_id), "launch_offer_usage freigeben");
   return OK;
 }
 
@@ -358,9 +396,15 @@ Deno.serve(async (req) => {
     if (vorher?.processed_at) return new Response("Already processed", { status: 200 });
     dbMuss(await admin.from("stripe_webhook_events").upsert({ id: event.id, type: event.type, payload: event as unknown }, { onConflict: "id" }), "stripe_webhook_events festhalten");
 
+    // Kommt das Ereignis aus demselben Modus wie der Schlüssel? Sonst endete jedes Nachschlagen
+    // bei Stripe mit „No such …" — und niemand läse daraus den Grund.
+    const modus = modusPasst((event as { livemode?: unknown }).livemode, stripeKey);
+    if (modus.art === "fehler") throw new Error(modus.text);
+
     let erg: Ergebnis;
     try {
-      erg = ereignisWirkung(event.type) === null ? NICHTS : await verarbeite(stripe, event);
+      erg = modus.art === "ignorieren" ? ohneZuordnung(modus.text)
+        : ereignisWirkung(event.type) === null ? NICHTS : await verarbeite(stripe, event);
     } catch (e) {
       // Das Konto gibt es nicht mehr (gelöscht): die Datenbank lehnt jede Zeile für diese Person ab,
       // heute und bei jeder Wiederholung. Bestätigt wird trotzdem — mit dem Grund in der Ereigniszeile.
