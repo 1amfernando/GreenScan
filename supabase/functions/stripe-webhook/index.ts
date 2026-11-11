@@ -12,9 +12,15 @@
 // v8 (2026-05-15): cache-bust deploy nach Webhook-Secret-Rotation (we_1TXfAuJnN3SSU2QNYb56og3J)
 // v7: Expert-Verification fee_paid Handling fuer v25.26 Community-Feature.
 // v5 (2026-05-04): STRIPE_WEBHOOK_SECRET kann aus app_settings.stripe_webhook_secret gelesen werden.
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import Stripe from "npm:stripe@17";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import Stripe from "npm:stripe@17.7.0";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.59 (Sicherheitspruefung 10.11.2026): Regeln in ../_shared/zahlung_regeln.mjs, Pruefstand
+// scripts/edge/10_stripe.js. Kein `.catch` mehr an einer Abfrage (der Baustein von supabase-js hat
+// nur `then` — jeder dieser Zweige warf TypeError und antwortete 500); Lifetime nur fuer den
+// Lifetime-PREIS; Launch-Zaehlung am Preis; Experten-Zahlung schreibt nur die Gebuehr; volle
+// Erstattung/Chargeback entzieht eine eindeutig zugeordnete Lifetime; Abo-Ereignisse in Reihenfolge.
+import { istLifetimePreis, istLaunchPreis, ereignisIstNeuer, expertenZahlungFelder, lifetimeZumEntzug, ladungVollErstattet } from "../_shared/zahlung_regeln.mjs";
 
 const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -27,25 +33,55 @@ async function getWebhookSecret(): Promise<string | null> {
   const fromEnv = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   if (fromEnv) { cachedWebhookSecret = fromEnv; return fromEnv; }
   try {
-    const { data } = await admin.from("app_settings").select("value").eq("key", "stripe_webhook_secret").maybeSingle();
+    const { data, error } = await admin.from("app_settings").select("value").eq("key", "stripe_webhook_secret").maybeSingle();
+    if (error) console.warn("[webhook] app_settings stripe_webhook_secret lesen fehlgeschlagen", error.message ?? error);
     if (data?.value) { cachedWebhookSecret = data.value; return data.value; }
   } catch (_) {}
   return null;
 }
 
-async function resolveTier(priceId: string): Promise<string> {
-  const { data } = await admin.from("stripe_prices").select("product_id, stripe_products(tier)").eq("id", priceId).maybeSingle();
-  // @ts-ignore
-  return data?.stripe_products?.tier ?? "free";
+// v33.59 (Schlusspruefung d1 #1): KEINE Einbettung stripe_products(tier) — live fuehrt kein
+// Fremdschluessel von stripe_prices.product_id dorthin, PostgREST antwortet PGRST200, und mit
+// `throw` antwortete der Webhook auf jedes Abo-/Rechnungsereignis und jeden Lifetime-Kauf 500.
+// Der tier kommt aus einer zweiten Abfrage; scheitert NUR sie, bleibt er leer (Rueckfall unten,
+// wie bis 44bb824 — da scheiterte die Einbettung still). Ein Fehler der Preisabfrage wirft weiter.
+async function preisZeile(priceId: string): Promise<any> {
+  const { data, error } = await admin.from("stripe_prices").select("id, active, recurring, metadata, product_id, lookup_key").eq("id", priceId).maybeSingle();
+  if (error) throw new Error("stripe_prices: " + error.message);
+  if (!data) return null;
+  let tier: string | null = null;
+  if (data.product_id) {
+    const p = await admin.from("stripe_products").select("tier").eq("id", data.product_id).maybeSingle();
+    if (p.error) console.warn("[webhook] stripe_products lesen fehlgeschlagen — tier-Rueckfall", p.error.message ?? p.error);
+    else tier = (p.data as any)?.tier ?? null;
+  }
+  return { ...data, tier };
 }
 
-async function upsertSubscription(sub: Stripe.Subscription) {
+async function resolveTier(priceId: string): Promise<string> {
+  const data = await preisZeile(priceId);
+  return data?.tier ?? "free";
+}
+
+// v33.59: ein Schreibfehler WIRFT — sonst gilt ein nicht geschriebenes Abo als verarbeitet.
+function pruefe(r: { error: any }, was: string) {
+  if (r && r.error) throw new Error(was + ": " + (r.error.message ?? r.error));
+}
+function warne(r: { error: any }, was: string) {
+  if (r && r.error) console.warn("[webhook] " + was + " fehlgeschlagen", r.error.message ?? r.error);
+}
+
+// `stand`: der Zeitpunkt VOR dem Abruf bei Stripe — er steht in metadata.gs_stripe_stand, damit
+// ein Ereignis, das waehrend des Abrufs entstand, nicht als „aelter" verworfen wird. v33.59
+// (Schlusspruefung d1 #2): NICHT in updated_at — die Spalte setzt live der BEFORE-UPDATE-Trigger
+// trg_stripe_subs_updated_at bei jedem Update auf now(); metadata fasst kein Trigger an.
+async function upsertSubscription(sub: Stripe.Subscription, stand?: string) {
   const priceId = sub.items.data[0]?.price.id;
   const userId = (sub.metadata?.supabase_user_id as string) ?? null;
   if (!userId) return;
   const tier = priceId ? await resolveTier(priceId) : "free";
 
-  await admin.from("stripe_subscriptions").upsert({
+  pruefe(await admin.from("stripe_subscriptions").upsert({
     id: sub.id,
     user_id: userId,
     stripe_customer_id: sub.customer as string,
@@ -58,9 +94,58 @@ async function upsertSubscription(sub: Stripe.Subscription) {
     trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
     canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
     ended_at: sub.ended_at ? new Date(sub.ended_at * 1000).toISOString() : null,
-    metadata: sub.metadata as any,
+    metadata: { ...(sub.metadata ?? {}), gs_stripe_stand: stand ?? new Date().toISOString() } as any,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "id" });
+  }, { onConflict: "id" }), "stripe_subscriptions upsert");
+}
+
+// v33.59 (#11): ein Abo-Ereignis traegt eine Momentaufnahme. Ein verspaetet zugestelltes
+// aelteres Ereignis (Stripe stellt nach einer 500 Stunden spaeter neu zu) setzte ein
+// gekuendigtes Abo wieder auf active. Jetzt: aelter als der gespeicherte Stand → nichts tun;
+// sonst den AKTUELLEN Stand bei Stripe holen (wie invoice.* seit jeher).
+async function aboEreignis(stripe: Stripe, event: Stripe.Event) {
+  const sub = event.data.object as Stripe.Subscription;
+  const { data: alt, error } = await admin.from("stripe_subscriptions").select("updated_at, metadata").eq("id", sub.id).maybeSingle();
+  if (error) throw new Error("stripe_subscriptions lesen: " + error.message);
+  // Der Stand der letzten Momentaufnahme; Altzeilen (vor v33.59) haben nur updated_at.
+  if (alt && !ereignisIstNeuer(event.created, (alt.metadata as any)?.gs_stripe_stand ?? alt.updated_at)) {
+    console.log(`[webhook] ${event.type} ${sub.id} aelter als der gespeicherte Stand — uebersprungen`);
+    return;
+  }
+  let frisch: Stripe.Subscription;
+  const stand = new Date().toISOString();
+  try {
+    frisch = await stripe.subscriptions.retrieve(sub.id);
+  } catch (e) {
+    // Ein geloeschtes Abo kann Stripe je nach Alter nicht mehr liefern — dann gilt das Ereignis.
+    if (event.type !== "customer.subscription.deleted") throw e;
+    frisch = sub;
+  }
+  await upsertSubscription(frisch, stand);
+}
+
+// v33.59 (#8): volle Erstattung oder Chargeback entzieht eine Lifetime — nur bei EINDEUTIGER
+// Zuordnung ueber den beim Kauf vermerkten PaymentIntent. Zuerst das Profil (sonst setzt
+// fn_sync_lifetime_to_profile den tier nicht zurueck), dann die Zeile.
+async function lifetimeEntziehen(paymentIntent: unknown, anlass: string) {
+  const pi = typeof paymentIntent === "string" ? paymentIntent : (paymentIntent as any)?.id;
+  if (!pi) return;
+  const { data: zeilen, error } = await admin.from("stripe_subscriptions")
+    .select("id, user_id, is_lifetime, metadata")
+    .eq("is_lifetime", true)
+    .eq("metadata->>payment_intent", pi);
+  if (error) throw new Error("stripe_subscriptions lesen: " + error.message);
+  const z = lifetimeZumEntzug(zeilen ?? [], pi);
+  if (!z) { console.log(`[webhook] ${anlass}: keine eindeutige Lifetime fuer ${pi}`); return; }
+  pruefe(await admin.from("profiles").update({ is_lifetime: false }).eq("id", z.user_id), "profiles is_lifetime");
+  pruefe(await admin.from("stripe_subscriptions").update({
+    is_lifetime: false, status: "canceled", ended_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  }).eq("id", z.id), "stripe_subscriptions entziehen");
+  warne(await admin.from("audit_log").insert({
+    actor_id: null, action: "stripe_lifetime_revoked", target_type: "user", target_id: z.user_id,
+    diff: { anlass, payment_intent: pi, subscription_id: z.id },
+  }), "audit_log lifetime_revoked");
+  console.warn(`[webhook] Lifetime entzogen (${anlass}) user=${z.user_id} pi=${pi}`);
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
@@ -72,13 +157,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const postId = session.metadata.post_id;
     const expertId = session.metadata.expert_id;
     if (postId && expertId) {
-      const amountChf = (session.amount_total ?? 0) / 100;
-      await admin.from("expert_verifications").update({
-        status: "verified",
-        fee_paid_chf: amountChf,
-        fee_paid_at: new Date().toISOString(),
-        stripe_payment_intent_id: session.payment_intent as string
-      }).eq("post_id", postId).eq("expert_id", expertId);
+      // v33.59: nur die Gebuehr — „verified" setzt allein der Experte.
+      pruefe(await admin.from("expert_verifications")
+        .update(expertenZahlungFelder(session.amount_total ?? 0, session.payment_intent, new Date().toISOString()))
+        .eq("post_id", postId).eq("expert_id", expertId), "expert_verifications Gebuehr");
     }
     return;
   }
@@ -91,9 +173,16 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       const li = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
       resolvedPriceId = li.data[0]?.price?.id ?? null;
     }
-    const tier = resolvedPriceId ? await resolveTier(resolvedPriceId) : "pro";
+    // v33.59: Lifetime nur fuer einen Preis, den der Katalog als Lifetime fuehrt (vorher: jede
+    // bezahlte Einmalzahlung, ohne aufloesbaren Preis sogar „pro").
+    const zeile = resolvedPriceId ? await preisZeile(resolvedPriceId) : null;
+    if (!istLifetimePreis(zeile)) {
+      console.error(`[webhook] Einmalzahlung ${session.id} ohne Lifetime-Preis (${resolvedPriceId ?? "unbekannt"}) — nicht freigeschaltet`);
+      return;
+    }
+    const tier = zeile?.tier ?? "pro";
     const subId = `lifetime_${userId}`;
-    await admin.from("stripe_subscriptions").upsert({
+    pruefe(await admin.from("stripe_subscriptions").upsert({
       id: subId,
       user_id: userId,
       stripe_customer_id: session.customer as string,
@@ -103,10 +192,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       is_lifetime: true, // v26.54: umbenannt von is_launch_lifetime (Schema-Drift fix)
       current_period_start: new Date().toISOString(),
       current_period_end: null,
-      metadata: session.metadata as any,
-    }, { onConflict: "id" });
-    if (session.metadata?.claim_launch_offer === "1") {
-      await admin.from("launch_offer_usage").upsert({ user_id: userId, subscription_id: subId }, { onConflict: "user_id" });
+      // v33.59: der PaymentIntent macht eine spaetere Erstattung eindeutig zuordenbar.
+      metadata: { ...(session.metadata ?? {}), payment_intent: typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent as any)?.id ?? null } as any,
+    }, { onConflict: "id" }), "stripe_subscriptions lifetime");
+    // v33.59: gezaehlt wird am PREIS — die Session-Metadaten kamen bis v33.56 vom Client.
+    if (istLaunchPreis(zeile)) {
+      pruefe(await admin.from("launch_offer_usage").upsert({ user_id: userId, subscription_id: subId }, { onConflict: "user_id" }), "launch_offer_usage");
     }
   }
 }
@@ -116,24 +207,23 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
   const postId = pi.metadata.post_id;
   const expertId = pi.metadata.expert_id;
   if (!postId || !expertId) return;
-  const amountChf = pi.amount_received / 100;
-  await admin.from("expert_verifications").update({
-    status: "verified",
-    fee_paid_chf: amountChf,
-    fee_paid_at: new Date().toISOString(),
-    stripe_payment_intent_id: pi.id
-  }).eq("post_id", postId).eq("expert_id", expertId);
+  // v33.59: nur die Gebuehr — „verified" setzt allein der Experte.
+  pruefe(await admin.from("expert_verifications")
+    .update(expertenZahlungFelder(pi.amount_received, pi.id, new Date().toISOString()))
+    .eq("post_id", postId).eq("expert_id", expertId), "expert_verifications Gebuehr");
 }
 
 // v9/v10: account.updated Handler fuer Marketplace-Connect (v26.6/v26.17).
 // v10-Refinements: expliziter Pre-Check, konservativeres disabled-Mapping.
 async function handleAccountUpdated(account: Stripe.Account) {
   // Pre-Check: existiert ein marketplace_sellers-Eintrag fuer diesen Account?
-  const { data: existing } = await admin
+  // v33.59 (Brett fe36): ein Lesefehler ist kein „unbekanntes Konto" — werfen, Stripe wiederholt.
+  const { data: existing, error: vorErr } = await admin
     .from("marketplace_sellers")
     .select("user_id, status")
     .eq("stripe_account_id", account.id)
     .maybeSingle();
+  if (vorErr) throw new Error("marketplace_sellers lesen: " + (vorErr.message ?? vorErr));
 
   if (!existing) {
     console.warn(`[webhook] account.updated for unknown stripe_account_id=${account.id} — skip`);
@@ -158,7 +248,8 @@ async function handleAccountUpdated(account: Stripe.Account) {
     newStatus = "restricted";
   }
 
-  await admin.from("marketplace_sellers").update({
+  // v33.59 (Brett fe36): Pflicht — der Status entscheidet, ob ein Konto verkaufen darf.
+  pruefe(await admin.from("marketplace_sellers").update({
     status: newStatus,
     charges_enabled: account.charges_enabled ?? false,
     payouts_enabled: account.payouts_enabled ?? false,
@@ -166,7 +257,7 @@ async function handleAccountUpdated(account: Stripe.Account) {
     business_type: account.business_type ?? null,
     requirements: requirements as any,
     updated_at: new Date().toISOString(),
-  }).eq("stripe_account_id", account.id);
+  }).eq("stripe_account_id", account.id), "marketplace_sellers account.updated");
 
   console.log(`[webhook] account.updated ${account.id} → status=${newStatus} charges=${account.charges_enabled} payouts=${account.payouts_enabled}`);
 }
@@ -181,12 +272,13 @@ async function handleAccountDeauthorized(event: Stripe.Event) {
     console.warn("[webhook] account.application.deauthorized without account-id");
     return;
   }
-  await admin.from("marketplace_sellers").update({
+  // v33.59 (Brett fe36): Pflicht — ein getrenntes Konto darf nicht weiter als aktiv gelten.
+  pruefe(await admin.from("marketplace_sellers").update({
     status: "disabled",
     charges_enabled: false,
     payouts_enabled: false,
     updated_at: new Date().toISOString(),
-  }).eq("stripe_account_id", acctId);
+  }).eq("stripe_account_id", acctId), "marketplace_sellers deauthorized");
   console.log(`[webhook] account.application.deauthorized ${acctId} → disabled`);
 }
 
@@ -194,11 +286,12 @@ async function handleAccountDeauthorized(event: Stripe.Event) {
 // Wir erzeugen eine Notification + UPDATE stripe_subscriptions.trial_will_end_notified_at.
 async function handleTrialWillEnd(sub: Stripe.Subscription) {
   const customerId = sub.customer as string;
-  const { data: existing } = await admin
+  const { data: existing, error: lesErr } = await admin
     .from("stripe_subscriptions")
     .select("user_id")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
+  warne({ error: lesErr }, "stripe_subscriptions lesen (trial_will_end)");   // Nebenweg: nur die Erinnerung
   const userId = existing?.user_id;
   if (!userId) {
     console.warn(`[webhook] trial_will_end without user mapping for customer ${customerId}`);
@@ -206,7 +299,7 @@ async function handleTrialWillEnd(sub: Stripe.Subscription) {
   }
   const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null;
   const dedupKey = `trial_will_end_${sub.id}`;
-  await admin.from("notifications").upsert({
+  warne(await admin.from("notifications").upsert({
     user_id: userId,
     kind: "trial_ending",
     title: "Trial endet bald",
@@ -214,19 +307,19 @@ async function handleTrialWillEnd(sub: Stripe.Subscription) {
     dedup_key: dedupKey,
     link: "/?open=abo",
     created_at: new Date().toISOString(),
-  }, { onConflict: "dedup_key" }).catch((e) => console.warn("[webhook] notif insert failed", e));
-  await admin
+  }, { onConflict: "dedup_key" }), "notifications trial_ending");
+  // Spalte trial_will_end_notified_at gibt es live nicht (columns.txt) — der Fehler wird protokolliert.
+  warne(await admin
     .from("stripe_subscriptions")
     .update({ trial_will_end_notified_at: new Date().toISOString() })
-    .eq("id", sub.id)
-    .catch(() => {/* Spalte existiert evtl. nicht — silent */});
+    .eq("id", sub.id), "trial_will_end_notified_at");
   console.log(`[webhook] trial_will_end notif gesetzt für user=${userId}`);
 }
 
 // v26.55 — Charge.failed (außerhalb von Subscriptions, z.B. Expert-Verification CHF 0.50).
 // Loggen + Admin-Audit. Wenn associated subscription: status synct via separate event.
 async function handleChargeFailed(charge: Stripe.Charge) {
-  await admin.from("audit_log").insert({
+  warne(await admin.from("audit_log").insert({
     actor_id: null,
     action: "stripe_charge_failed",
     target_type: "stripe_charge",
@@ -239,14 +332,14 @@ async function handleChargeFailed(charge: Stripe.Charge) {
       failure_message: charge.failure_message,
       payment_intent: charge.payment_intent,
     }
-  }).catch(() => {});
+  }), "audit_log stripe_charge_failed");
   console.log(`[webhook] charge.failed ${charge.id} customer=${charge.customer} reason=${charge.failure_code}`);
 }
 
 // v26.55 — Charge.dispute.created (Chargeback eingereicht).
 // Admin-Audit + Sub pausieren (manuelle Review-Pflicht).
 async function handleChargeDispute(dispute: Stripe.Dispute) {
-  await admin.from("audit_log").insert({
+  warne(await admin.from("audit_log").insert({
     actor_id: null,
     action: "stripe_dispute_created",
     target_type: "stripe_dispute",
@@ -258,27 +351,30 @@ async function handleChargeDispute(dispute: Stripe.Dispute) {
       reason: dispute.reason,
       status: dispute.status,
     }
-  }).catch(() => {});
-  // Sub-Status nicht automatisch ändern — manuelles Review.
+  }), "audit_log stripe_dispute_created");
+  // Abo-Status nicht automatisch aendern — manuelles Review. v33.59: eine Lifetime aber entziehen
+  // (eindeutig ueber den PaymentIntent); gewinnt GreenScan den Fall, schaltet der Admin sie wieder frei.
+  await lifetimeEntziehen((dispute as any).payment_intent, "dispute");
   console.warn(`[webhook] DISPUTE ${dispute.id} reason=${dispute.reason} — manuelle Review nötig`);
 }
 
 // v26.55 — Customer.updated (Email/Address-Sync zu profiles).
 async function handleCustomerUpdated(customer: Stripe.Customer) {
   if (!customer.email) return;
-  const { data: sub } = await admin
+  const { data: sub, error: lesErr } = await admin
     .from("stripe_subscriptions")
     .select("user_id")
     .eq("stripe_customer_id", customer.id)
     .maybeSingle();
+  warne({ error: lesErr }, "stripe_subscriptions lesen (customer.updated)");   // Nebenweg: nur die E-Mail
   if (!sub?.user_id) return;
   // Email aktualisieren — aber NICHT auth.users (das macht der User via Auth-Update).
   // Nur in profiles syncen falls dort separat gehalten.
-  await admin
+  // Spalte stripe_email gibt es live nicht (columns.txt) — der Fehler wird protokolliert, nicht geworfen.
+  warne(await admin
     .from("profiles")
     .update({ stripe_email: customer.email })
-    .eq("id", sub.user_id)
-    .catch(() => {/* Spalte stripe_email existiert evtl. nicht — silent */});
+    .eq("id", sub.user_id), "profiles stripe_email");
   console.log(`[webhook] customer.updated email synct für user=${sub.user_id}`);
 }
 
@@ -300,16 +396,27 @@ Deno.serve(async (req) => {
     return new Response(`Webhook signature verification failed: ${(e as Error).message}`, { status: 400 });
   }
 
-  const { data: existing } = await admin.from("stripe_webhook_events").select("processed_at").eq("id", event.id).maybeSingle();
+  // v33.59 (Brett fe36): Duplikat-Blick und Vorab-Eintrag sind Pflicht. Scheitert einer, ist
+  // weder „schon verarbeitet" noch das spaetere processed_at verlaesslich — 500 VOR jeder
+  // Verbuchung, Stripe stellt erneut zu.
+  const { data: existing, error: dupErr } = await admin.from("stripe_webhook_events").select("processed_at").eq("id", event.id).maybeSingle();
+  if (dupErr) {
+    console.error("[webhook] stripe_webhook_events lesen fehlgeschlagen", dupErr.message ?? dupErr);
+    return new Response(JSON.stringify({ error: "event_store_unavailable" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
   if (existing?.processed_at) return new Response("Already processed", { status: 200 });
-  await admin.from("stripe_webhook_events").upsert({ id: event.id, type: event.type, payload: event as any });
+  const vorab = await admin.from("stripe_webhook_events").upsert({ id: event.id, type: event.type, payload: event as any });
+  if (vorab.error) {
+    console.error("[webhook] stripe_webhook_events eintragen fehlgeschlagen", vorab.error.message ?? vorab.error);
+    return new Response(JSON.stringify({ error: "event_store_unavailable" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
 
   try {
     switch (event.type) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
-        await upsertSubscription(event.data.object as Stripe.Subscription);
+        await aboEreignis(stripe, event);
         break;
       case "checkout.session.completed":
         await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
@@ -321,8 +428,9 @@ Deno.serve(async (req) => {
       case "invoice.payment_failed": {
         const inv = event.data.object as Stripe.Invoice;
         if (inv.subscription) {
+          const stand = new Date().toISOString();
           const sub = await stripe.subscriptions.retrieve(inv.subscription as string);
-          await upsertSubscription(sub);
+          await upsertSubscription(sub, stand);
         }
         break;
       }
@@ -341,6 +449,12 @@ Deno.serve(async (req) => {
         // Payment-Fail außerhalb von Subscriptions (z.B. Expert-Verification CHF 0.50). Admin-Alert.
         await handleChargeFailed(event.data.object as Stripe.Charge);
         break;
+      case "charge.refunded": {
+        // v33.59 (#8): nur eine VOLLE Erstattung entzieht.
+        const ch = event.data.object as Stripe.Charge;
+        if (ladungVollErstattet(ch)) await lifetimeEntziehen(ch.payment_intent, "refund");
+        break;
+      }
       case "charge.dispute.created":
         // User hat Chargeback eingereicht. Sub pausieren + Admin-Alert.
         await handleChargeDispute(event.data.object as Stripe.Dispute);
@@ -351,19 +465,23 @@ Deno.serve(async (req) => {
         break;
       case "payment_method.attached":
         // Nur Analytics: wer eine neue Karte hinterlegt hat. Kein State-Update nötig.
-        await admin.from("audit_log").insert({
+        warne(await admin.from("audit_log").insert({
           actor_id: null,
           action: "stripe_payment_method_attached",
           target_type: "stripe_customer",
           target_id: (event.data.object as Stripe.PaymentMethod).customer as string,
           diff: { event_id: event.id }
-        }).catch(() => {});
+        }), "audit_log stripe_payment_method_attached");
         break;
     }
-    await admin.from("stripe_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id);
+    // v33.59 (Brett fe36): NACH der Verbuchung ist ein Fehler hier ein Nebenweg — 200, aber laut.
+    // Eine 500 wuerde eine geschehene Verbuchung als gescheitert melden; stellt Stripe trotzdem
+    // erneut zu, ist die Wiederholung idempotent (Upserts auf feste Schluessel, Reihenfolge ueber
+    // gs_stripe_stand — edge_check 70_reste misst es an einem Lifetime-Kauf).
+    warne(await admin.from("stripe_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id), "stripe_webhook_events processed_at");
     return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (e) {
-    await admin.from("stripe_webhook_events").update({ error: String(e) }).eq("id", event.id);
+    warne(await admin.from("stripe_webhook_events").update({ error: String(e) }).eq("id", event.id), "stripe_webhook_events error");
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 });

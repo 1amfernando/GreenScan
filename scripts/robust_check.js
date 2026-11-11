@@ -155,7 +155,7 @@ const FAELLE = [
     },
   },
   {
-    name: 'A8 · CSP (_headers): kein unsafe-eval — und kein eval/new Function im App-Code; worker-src kennt cdnjs (pdf.js-Worker); frame-ancestors none; ipapi.co nirgends mehr',
+    name: 'A8 · CSP (_headers): kein unsafe-eval — und kein eval/new Function im App-Code; pdf.js aus dem eigenen Ursprung, kein cdnjs (v33.59); frame-ancestors none; ipapi.co nirgends mehr',
     lauf: async () => {
       const h = fs.readFileSync(path.join(__dirname, '..', '_headers'), 'utf8');
       const csp = (h.match(/Content-Security-Policy: (.*)/) || ['', ''])[1];
@@ -169,12 +169,19 @@ const FAELLE = [
       if (/unsafe-eval/.test(csp)) falsch.push("'unsafe-eval' steht noch in der CSP");
       if (evalTreffer) falsch.push(evalTreffer + '× eval/new Function im App-Code — dann braucht die CSP unsafe-eval wieder');
       const worker = (csp.match(/worker-src ([^;]*)/) || ['', ''])[1];
-      if (!/cdnjs\.cloudflare\.com/.test(worker)) falsch.push('worker-src ohne cdnjs: ' + worker);
+      // v33.59: pdf.js liegt selbst gehostet (assets/pdfjs/<version>/) — kein cdnjs mehr in der
+      // CSP (ganz cdnjs waere die naechste Luecke, sobald 'unsafe-inline' faellt: AngularJS & Co.
+      // liegen dort), der Worker kommt aus 'self'.
+      const pdfUrl = (idx.match(/window\._gsPdfjsUrl = '([^']+)'/) || [])[1] || '';
+      if (!/^assets\/pdfjs\/\d+\.\d+\.\d+\//.test(pdfUrl)) falsch.push('_gsPdfjsUrl nicht selbst gehostet mit Version im Pfad: ' + pdfUrl);
+      if (worker.split(/\s+/).indexOf("'self'") < 0) falsch.push("worker-src ohne 'self': " + worker);
+      if (/cdnjs/.test(csp)) falsch.push('cdnjs steht noch in der CSP');
+      if (!/object-src 'none'/.test(csp)) falsch.push("object-src nicht 'none'");
       if (!/frame-ancestors 'none'/.test(csp)) falsch.push('frame-ancestors nicht none');
       if (/ipapi\.co/.test(csp) || /ipapi\.co/.test(code)) falsch.push('ipapi.co noch da');
       if (!/X-Frame-Options: DENY/.test(h)) falsch.push('X-Frame-Options nicht DENY');
       if (falsch.length) return { ok: false, warum: falsch.join(' · ') };
-      return { ok: true, info: 'kein unsafe-eval · 0 eval/new Function · worker-src + cdnjs · frame-ancestors none · DENY · ipapi.co 0×' };
+      return { ok: true, info: "kein unsafe-eval · 0 eval/new Function · pdf.js selbst gehostet, kein cdnjs · object-src 'none' · frame-ancestors none · DENY · ipapi.co 0×" };
     },
   },
   {
@@ -508,7 +515,8 @@ const FAELLE = [
       // sendPush mit gestelltem web-push
       const rufe = [];
       const wp = { setVapidDetails: (...a) => rufe.push(['vapid', a]), sendNotification: async (sub, payload, opts) => { rufe.push(['send', sub, JSON.parse(payload), opts]); return { statusCode: 201 }; } };
-      const r1 = await M.sendPush(wp, { endpoint: 'https://push.example/x', p256dh: 'P', auth_secret: 'A' }, { title: 'T', body: 'B', url: '/?screen=garden', tag: 'gs-t' }, { subject: 'mailto:info@greenscan.ch', publicKey: 'PUB', privateKey: 'PRIV' });
+      const r1 = await M.sendPush(wp, { endpoint: 'https://fcm.googleapis.com/fcm/send/x',   // v33.59: nur bekannte Push-Dienste (pushEndpunktOk)
+         p256dh: 'P', auth_secret: 'A' }, { title: 'T', body: 'B', url: '/?screen=garden', tag: 'gs-t' }, { subject: 'mailto:info@greenscan.ch', publicKey: 'PUB', privateKey: 'PRIV' });
       const send = rufe.find(x => x[0] === 'send');
       if (!r1.ok || r1.status !== 201) f.push('sendPush ok: ' + JSON.stringify(r1));
       if (!send || send[1].keys.p256dh !== 'P' || send[1].keys.auth !== 'A' || send[3].TTL !== 3600) f.push('sendPush Abo/TTL: ' + JSON.stringify(send && [send[1], send[3]]));
@@ -516,7 +524,7 @@ const FAELLE = [
       const p2 = M.pushPayload({ title: 'x', body: 'y', url: '/' });
       if (!/^gs-\d+$/.test(p2.tag)) f.push('tag-Rueckfall: ' + p2.tag);
       const wpWeg = { setVapidDetails: () => {}, sendNotification: async () => { const e = new Error('Gone'); e.statusCode = 410; throw e; } };
-      const r2 = await M.sendPush(wpWeg, { endpoint: 'e', p256dh: 'P', auth_secret: 'A' }, { title: 't', body: 'b', url: '/' }, { subject: 's', publicKey: 'p', privateKey: 'k' });
+      const r2 = await M.sendPush(wpWeg, { endpoint: 'https://fcm.googleapis.com/fcm/send/e', p256dh: 'P', auth_secret: 'A' }, { title: 't', body: 'b', url: '/' }, { subject: 's', publicKey: 'p', privateKey: 'k' });
       if (r2.ok || r2.status !== 410 || !/Gone/.test(r2.error)) f.push('sendPush 410: ' + JSON.stringify(r2));
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: '4 Sender importieren, 0 Kopien, 0 private Adressen in ' + alle.length + ' Functions · Zuerich 12/0 · Settings PUB/PRIV/S, Rueckfall info@greenscan.ch, fehlend → Ausnahme · Push 201, TTL 3600, Nutzlast vollstaendig · 410 → ok:false' };
@@ -629,7 +637,56 @@ const FAELLE = [
     },
   },
   {
-    name: 'pdf.js nur bei Bedarf · beim Start keine Anfrage an cdnjs, kein statisches <script> und kein Precache im Service Worker; _gsPdfjsLaden holt es beim ersten PDF genau einmal und sagt ehrlich, wenn es nicht kommt',
+    name: 'Adressen ziehen mit · jede Datei unter /data und /assets (ein Jahr immutable) hat die Pruefsumme, mit der ihre Adresse gilt — geaendert heisst: neue Adresse (?v= oder Name), dann hier nachtragen',
+    lauf: async () => {
+      // v33.59: `_headers` liefert /data/* und /assets/* ein Jahr `immutable`. Eine Datei, die
+      // sich unter DERSELBEN Adresse aendert, erreicht wiederkehrende Nutzer nie — auch der
+      // Install eines neuen Workers liest sie aus dem HTTP-Cache. Das Changelog-Archiv traegt
+      // deshalb ?v=<GS_VERSION>; fuer alles andere ist diese Tabelle der Ausloeser.
+      const crypto = require('crypto');
+      const W = path.join(__dirname, '..');
+      const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(path.join(W, f))).digest('hex').slice(0, 16);
+      const familie = (d) => {
+        const h = crypto.createHash('sha256');
+        fs.readdirSync(path.join(W, d)).filter(n => !/^LICENSE/.test(n) && fs.statSync(path.join(W, d, n)).isFile()).sort()
+          .forEach(n => h.update(n + ':' + sha(d + '/' + n) + '\n'));
+        return h.digest('hex').slice(0, 16);
+      };
+      const TAFEL = [
+        ['data/plants.v1.js', 'b7ea58e8e5c4437a', 'data/plants.v1.js?v=1'],
+        ['assets/leaflet.js', 'db49d009c841f5ca', '/assets/leaflet.js'],
+        ['assets/leaflet.css', 'a783710282418482', '/assets/leaflet.css'],
+        ['assets/three.min.js', '9274bbcec8d96168', '/assets/three.min.js'],
+        ['assets/fonts/', 'ed100ee5cbb55bdb', 'assets/fonts/'],
+        ['assets/icons/', '9c766ffbe7e9d2a8', 'assets/icons/'],
+        ['assets/leaflet-images/', '75565fe18566449e', 'assets/leaflet-images/'],
+        ['assets/pdfjs/4.0.379/', '4f120dde84ade124', 'assets/pdfjs/4.0.379/'],   // npm pdfjs-dist@4.0.379 (Apache-2.0)
+      ];
+      const code = fs.readFileSync(path.join(W, 'index.html'), 'utf8') + fs.readFileSync(path.join(W, 'sw.js'), 'utf8');
+      const f = [];
+      TAFEL.forEach(([d, soll, adr]) => {
+        const ist = d.endsWith('/') ? familie(d.slice(0, -1)) : sha(d);
+        if (ist !== soll) f.push(d + ' geaendert (' + ist + ' statt ' + soll + ') unter derselben Adresse ' + adr + ' — ?v= erhoehen bzw. neuen Namen vergeben (index.html UND sw.js), dann die Pruefsumme hier nachtragen');
+        if (code.indexOf(adr) < 0) f.push('Adresse ' + adr + ' steht nicht mehr im Code — Tafel nachziehen');
+      });
+      // Und nichts unter /data oder /assets ohne Eintrag (ausser dem Archiv, das mit der Version laeuft).
+      const bekannt = TAFEL.map(t => t[0]);
+      ['data', 'assets'].forEach(d => fs.readdirSync(path.join(W, d)).forEach(n => {
+        const rel = d + '/' + n + (fs.statSync(path.join(W, d, n)).isDirectory() ? '/' : '');
+        if (rel === 'data/releases.v1.js') return;
+        // Lizenztexte laedt die App nicht (wie in `familie` oben): sie brauchen keine Adresse im Code.
+        // Dass sie im APK liegen, haelt apk_check B6 — byte-gleich mit dem Repo.
+        if (/^LICENSE/.test(n)) return;
+        if (!bekannt.some(b => b === rel || (rel.endsWith('/') && b.indexOf(rel) === 0))) f.push(rel + ' ohne Eintrag in der Tafel');
+      }));
+      const idx = fs.readFileSync(path.join(W, 'index.html'), 'utf8');
+      if (!/sc\.src = 'data\/releases\.v1\.js\?v=' \+ encodeURIComponent\(/.test(idx)) f.push('das Changelog-Archiv wird nicht mit der laufenden Version geladen');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: TAFEL.length + ' Eintraege, jede Pruefsumme gilt · Archiv laeuft mit ?v=<GS_VERSION>' };
+    },
+  },
+  {
+    name: 'pdf.js nur bei Bedarf · selbst gehostet (v33.59), beim Start keine Anfrage, kein statisches <script> und kein Precache im Service Worker; _gsPdfjsLaden holt es beim ersten PDF genau einmal und sagt ehrlich, wenn es nicht kommt',
     lauf: async () => {
       const f = [];
       const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -641,24 +698,38 @@ const FAELLE = [
       if (!/await window\._gsPdfjsLaden\(\)/.test(ext)) f.push('extractPdfText wartet nicht auf _gsPdfjsLaden');
       const shell = sw.slice(sw.indexOf('SHELL_URLS'), sw.indexOf('];', sw.indexOf('SHELL_URLS')));
       if (/pdf\.min\.mjs/.test(shell)) f.push('sw.js laedt pdf.js beim Install vor');
-      if (!/'cdnjs\.cloudflare\.com'/.test(sw)) f.push('sw.js kennt cdnjs nicht mehr fuer den Runtime-Cache');
+      // v33.59: umgekehrt — der Worker reicht cdnjs NICHT mehr durch (sein fetch() lief gegen
+      // connect-src und scheiterte); pdf.js holt der Browser unter script-src der Seite.
+      const kachel = (sw.match(/const KACHEL_HOSTS = \[([\s\S]*?)\];/) || ['', ''])[1];
+      if (!kachel) f.push('sw.js ohne KACHEL_HOSTS — wer entscheidet, was der Worker fremd abfaengt?');
+      if (/cdnjs/.test(kachel)) f.push('sw.js faengt cdnjs ab — sein fetch() scheitert an connect-src');
       // Gemessen: die App ist gebootet (der Pruefstand hat sie geladen) — wie viele Anfragen gingen an cdnjs?
-      const vorher = __anfragen.filter(u => /cdnjs\.cloudflare\.com/.test(u)).length;
+      // v33.59: pdf.js liegt unter assets/pdfjs/ — gezaehlt wird die Anfrage dorthin, und an cdnjs geht nie eine.
+      const istPdf = (u) => /assets\/pdfjs\/[\d.]+\/pdf\.min\.mjs/.test(u);
+      const vorher = __anfragen.filter(istPdf).length;
       const r = await __seite.evaluate(async () => {
         const o = { vorLib: !!window._pdfjsLib };
         try { await window._gsPdfjsLaden(); o.fehler = null; } catch (e) { o.fehler = String(e && e.message); }
         try { await window._gsPdfjsLaden(); } catch (_) {}
         o.nachLib = !!window._pdfjsLib;
+        // v33.59: die Datei liegt jetzt im Repo — ob file:// ein Modul laedt, ist Sache des
+        // Browsers. Die EHRLICHKEIT wird deshalb an einer Adresse gemessen, die es nicht gibt.
+        const echt = { url: window._gsPdfjsUrl, lib: window._pdfjsLib };
+        window._pdfjsLib = null; window._gsPdfjsLadenLauf = null; window._gsPdfjsUrl = 'assets/pdfjs/0.0.0/fehlt.min.mjs';
+        try { await window._gsPdfjsLaden(); o.fehlerOhne = null; } catch (e) { o.fehlerOhne = String(e && e.message); }
+        window._gsPdfjsUrl = echt.url; window._pdfjsLib = echt.lib; window._gsPdfjsLadenLauf = null;
         return o;
       });
-      const nachher = __anfragen.filter(u => /cdnjs\.cloudflare\.com/.test(u)).length;
-      if (vorher !== 0) f.push('beim Start ' + vorher + ' Anfrage(n) an cdnjs');
+      const nachher = __anfragen.filter(istPdf).length;
+      if (vorher !== 0) f.push('beim Start ' + vorher + ' Anfrage(n) an pdf.js');
+      if (__anfragen.some(u => /cdnjs\.cloudflare\.com/.test(u))) f.push('eine Anfrage ging an cdnjs');
       if (r.vorLib) f.push('_pdfjsLib schon beim Start da');
       // Der Pruefstand blockt jedes Netz: der Import scheitert — und die Meldung muss das sagen, nicht „nicht geladen" nach 500 ms Warten
-      if (!r.fehler || !/pdf\.js konnte nicht geladen werden/.test(r.fehler)) f.push('Fehlertext: ' + JSON.stringify(r.fehler));
-      if (nachher - vorher < 1) f.push('bei Bedarf keine Anfrage an cdnjs (' + (nachher - vorher) + ')');
+      if (!r.nachLib && !/pdf\.js konnte nicht geladen werden/.test(String(r.fehler))) f.push('weder geladen noch ehrlich: ' + JSON.stringify(r.fehler));
+      if (!r.fehlerOhne || !/pdf\.js konnte nicht geladen werden/.test(r.fehlerOhne)) f.push('Fehlertext ohne Datei: ' + JSON.stringify(r.fehlerOhne));
+      if (nachher - vorher < 1) f.push('bei Bedarf keine Anfrage an assets/pdfjs (' + (nachher - vorher) + ')');
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: 'Start: 0 Anfragen an cdnjs · kein <script>, kein Precache · bei Bedarf ' + (nachher - vorher) + ' Anfrage(n), ohne Netz ehrlich: „' + r.fehler.slice(0, 40) + '…"' };
+      return { ok: true, info: 'Start: 0 Anfragen an pdf.js, 0 an cdnjs · kein <script>, kein Precache · bei Bedarf ' + (nachher - vorher) + ' Anfrage(n), ' + (r.nachLib ? 'geladen' : 'unter file:// nicht ladbar') + ' · ohne Datei ehrlich: „' + r.fehlerOhne.slice(0, 40) + '…"' };
     },
   },
   {
@@ -965,6 +1036,69 @@ const FAELLE = [
     },
   },
   {
+    // v33.59 (Austausch-Runde, klassen-i2): TABELLE[x.feld] schlaegt in der Prototypkette nach —
+    // fuer 'constructor' / 'toString' liefert eine feste Tabelle eine FUNKTION (truthy), und auf
+    // dem Bildschirm steht Funktions-Quelltext (v33.00 it.bold, v33.59 EMOJI[kategorie], danach
+    // gsHomeRenderTopPicks mit CAT_EMOJIS[l.category]). Gesucht wird die BAUFORM: eine Tabelle
+    // in Grossbuchstaben oder ein Objekt-Literal, nachgeschlagen mit einem FELD. Wer ein Feld aus
+    // Server-, KI- oder Fremddaten nachschlaegt, nimmt _gsNachschlag(tab, k, rueckfall); was hier
+    // bleibt, steht namentlich mit Grund in der Liste. Grenze: ein Schluessel in einer einfachen
+    // Variablen (TAB[k]) und eine kleingeschriebene Tabelle (m[x.y]) sieht die Suche nicht.
+    name: 'Prototypkette · keine Tabelle wird mit einem Feld aus fremder Hand nachgeschlagen — jede verbliebene Stelle steht mit Grund in der Liste',
+    lauf: async () => {
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      // Schluessel: der Treffer, wie er im Quelltext steht → Grund.
+      const BEWUSST = {
+        'WMO_ICONS[cw.weathercode]': 'Wettercode-ZAHL von Open-Meteo; Rueckfall 🌡️',
+        'GS_TRAINING_INTERVALLE[k.b]': 'eigene Leitner-Box (Zahl 1–5), von gsTrainingBuchen gesetzt',
+        'GS_USES_TEMPLATES[sp.cat]': 'sp.cat der Artenliste; fremde Arten gehen durch _gsArtEingang (cat aus GS_ART_KATEGORIEN)',
+        'GS_LOOKALIKE_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
+        'GS_WARNING_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
+        'HABITAT_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
+        'CAT_COLORS_W[w.cat]': 'w aus GS_WISSEN, einer festen Liste im Code',
+        'CAT_BG_W[w.cat]': 'w aus GS_WISSEN',
+        'CAT_LABELS_W[w.cat]': 'w aus GS_WISSEN',
+        'WEATHER_CODE_MAP[c.weather_code]': 'Wettercode-ZAHL von Open-Meteo; Rueckfall 🌤️',
+        'GS_WETTER_GRENZEN[a.k]': 'a aus einer festen Liste daneben',
+        'GS_FARBE_HEX[f.name]': 'f aus der eigenen Farbmessung (gsBildFarben), Namen aus derselben Tabelle',
+        'PFLANZ_BODEN_INFO[plant.name]': 'Offline-Chat, plant aus PLANT_DB im Code',
+        'BODENTYPEN[info.idealBoden]': 'info aus PFLANZ_BODEN_INFO im Code',
+        'MOON_TYPES[moon.type]': 'moon aus der eigenen Mondrechnung',
+        'MOON_TYPES[m.type]': 'm aus der eigenen Mondrechnung',
+        'FARM_CROPS[plot.crop]': 'eigener Hof (gs_farm), crop nur ueber FARM_CROPS gepflanzt; Rueckfall ?.growMinutes || 5',
+        'GS_ADM_AKTIONEN[r.key]': 'r.key ist der Schluessel, mit dem _gsAdmTun gerufen wurde',
+        '}[p.mondtyp]': 'p aus PLANT_DB im Code',
+      };
+      // ohne ganze Kommentarzeilen und ohne den Changelog (er beschreibt die Sache und enthaelt sie)
+      const a = idx.indexOf('window.GS_RELEASES = ['), b = a >= 0 ? idx.indexOf('\n];', a) : -1;
+      const text = (a >= 0 && b > a) ? idx.slice(0, a) + '\n'.repeat(idx.slice(a, b).split('\n').length - 1) + idx.slice(b) : idx;
+      const funde = [], gesehen = new Set();
+      const muster = [/\b[A-Z][A-Z0-9_]{2,}\[[\w$]+(?:\.[\w$]+)+\]/g, /\}\)?\[[\w$]+(?:\.[\w$]+)+\]/g];
+      text.split('\n').forEach((z, i) => {
+        const t = z.trim(); if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
+        muster.forEach(re => { (z.match(re) || []).forEach(m => {
+          const k = m.replace(/^\}\)?/, '}'); gesehen.add(k);
+          if (!Object.prototype.hasOwnProperty.call(BEWUSST, k)) funde.push((i + 1) + ': ' + m);
+        }); });
+      });
+      // Die Grenze der Suche (TAB[k] mit einfacher Variable) an der groessten Tabelle dieser Art
+      // geschlossen: TASK_DEFS[k] mit k aus p.tasks steht an rund zwanzig Stellen. In der laufenden
+      // App eine Pflanze mit der Aufgabe 'constructor' — sie darf in „faellig" nicht erscheinen.
+      const lebend = await __seite.evaluate(() => {
+        const pl = { id: 'proto-probe', name: 'Probe', tasks: { constructor: { active: true, intervalDays: 1, lastDone: null } } };
+        myPlants.push(pl);
+        try { return gsGetDueTasks().filter(x => x && x.plant === pl).map(x => String(x.key) + ':' + String(x.def && x.def.name)); }
+        finally { myPlants.splice(myPlants.indexOf(pl), 1); }
+      });
+      if (lebend.length) return { ok: false, warum: 'Aufgabe „constructor" aus p.tasks erscheint als fällig: ' + lebend.join(', ') + ' — TASK_DEFS[k] trifft die Prototypkette' };
+      const ueberholt = Object.keys(BEWUSST).filter(k => !gesehen.has(k));
+      if (funde.length) return { ok: false, warum: funde.length + ' Nachschlag(e) an _gsNachschlag vorbei, ohne Grund in der Liste: ' + funde.slice(0, 8).join(' | ') };
+      if (ueberholt.length) return { ok: false, warum: 'Eintraege ohne Treffer (ueberholt, aus der Liste nehmen): ' + ueberholt.join(', ') };
+      const n = (idx.match(/_gsNachschlag\(/g) || []).length - 1;
+      return { ok: true, info: gesehen.size + ' Bauformen gesehen · alle mit Grund in der Liste · _gsNachschlag ' + n + '× gerufen' };
+    },
+  },
+  {
     // v33.34 — gemessen beim Bau des Kalender-Pruefwerks. `gs_weather_cache`
     // hatte ZWEI Schreiber mit ZWEI Formen: der Wetter-Lader legt dort ein
     // einzelnes `{ts, data, lat, lon}` ab (Frost, Regen, R1 und R2 lesen genau
@@ -1189,6 +1323,114 @@ const FAELLE = [
       });
       if (!t.ueberfaellig || !t.heute) return { ok: false, warum: 'Aufgaben-Zustaende unvollstaendig: ' + t.ueberfaellig + ' ueberfaellig, ' + t.heute + ' heute faellig (beide muessen vorkommen — sonst misst „Heute zu tun" nur die halbe Wahrheit)' };
       return { ok: true, info: Object.entries(r).map(([k, v]) => k + ' ' + v[1]).join(' · ') + ' · davon ' + t.ueberfaellig + ' ueberfaellig, ' + t.heute + ' heute' };
+    },
+  },
+  {
+    // v33.59 (Austausch-Runde, bestand-b1). Die Reparatur von _seed.js (eine Sitzung,
+    // die BLEIBT) kam bei drei Pruefstaenden mit EIGENEM Seed nie an: contrast_check,
+    // touch_check und perf_check setzten einen Token ohne drei Teile, gsSecurityInit
+    // raeumte ihn nach 500 ms ab, und alle drei vermassen eine ABGEMELDETE App.
+    // Der Fall „Beispieldaten" oben misst nur _seed.js. Dieser liest jede Stelle in
+    // scripts/, die gs_sb_token SETZT, und haelt jede Zeichenkette darin gegen DIESELBE
+    // Regel, die die App anwendet (aus index.html gelesen, nicht nachgebaut). Dazu der
+    // Schluessel 'myPlants' (v31.46: die App liest ps_myplants).
+    name: 'Pruefstands-Sitzung · jeder gs_sb_token in scripts/ hat die Form, die gsSecurityInit stehen laesst — sonst misst der Pruefstand eine abgemeldete App',
+    lauf: async () => {
+      const idx = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+      // Die Regel der App. Aendert sie sich, muss der Fall nachgezogen werden — laut, nicht still.
+      if (!/var token = gsStore\.get\('gs_sb_token', null\);\s*if \(token && token\.split\('\.'\)\.length !== 3\)/.test(idx))
+        return { ok: false, warum: 'die Token-Pruefung in gsSecurityInit hat eine andere Form — Fall an die neue Regel anpassen' };
+      const regelHaelt = (t) => t.split('.').length === 3;
+      // Bewusst abgemeldete Stellen: Datei → Grund. Heute keine.
+      const AUSNAHMEN = {};
+      // Setzen ohne Literal: Datei → Grund (der Wert wird gelesen und zurueckgestellt).
+      const OHNE_LITERAL = {
+        'scripts/sicherheit/98_schluss_d.js': 'stellt den vorher GELESENEN Token zurueck (alt.tok) — keine eigene Sitzung',
+      };
+      const dateien = [];
+      const sammle = (dir) => fs.readdirSync(dir, { withFileTypes: true }).forEach(e => {
+        const f = path.join(dir, e.name);
+        if (e.isDirectory()) { if (e.name !== 'node_modules') sammle(f); }
+        else if (/\.(c|m)?js$/.test(e.name)) dateien.push(f);
+      });
+      sammle(__dirname);
+      const SCHL = 'gs_sb' + '_token';   // zusammengesetzt: dieser Fall soll sich nicht selbst finden
+      const reSetzen = new RegExp('(?:setItem|\\bset)\\(\\s*([\'"])' + SCHL + '\\1\\s*,', 'g');
+      const reMyPlants = new RegExp('(?:setItem|\\bset)\\(\\s*([\'"])my' + 'Plants\\1', 'g');
+      const funde = [], stellen = [], plantsFunde = [];
+      for (const f of dateien) {
+        const rel = path.relative(path.resolve(__dirname, '..'), f);
+        const txt = fs.readFileSync(f, 'utf8');
+        let m;
+        reSetzen.lastIndex = 0;
+        while ((m = reSetzen.exec(txt))) {
+          // das Argument bis zur schliessenden Klammer auf Tiefe 0
+          let i = reSetzen.lastIndex, tiefe = 0, arg = '';
+          for (; i < txt.length && i < reSetzen.lastIndex + 300; i++) {
+            const c = txt[i];
+            if (c === '(') tiefe++;
+            else if (c === ')') { if (tiefe === 0) break; tiefe--; }
+            arg += c;
+          }
+          const zeile = txt.slice(0, m.index).split('\n').length;
+          const lits = (arg.match(/'[^'\n]*'|"[^"\n]*"/g) || []).map(s => s.slice(1, -1));
+          stellen.push(rel + ':' + zeile);
+          lits.filter(t => !regelHaelt(t)).forEach(t => {
+            if (!AUSNAHMEN[rel]) funde.push(rel + ':' + zeile + " '" + t + "'");
+          });
+          // Gegenpruefung s3: ein Wert OHNE Literal (Variable, Konstante) entzieht sich der
+          // Regel — eine Konstante als Wert (statt des Literals) waere sonst gruen.
+          // Erlaubt nur namentlich mit Grund.
+          if (!lits.length && !OHNE_LITERAL[rel]) funde.push(rel + ':' + zeile + ' (Wert ohne Literal: ' + arg.trim().slice(0, 40) + ')');
+        }
+        // Gegenpruefung s3: die Zuweisungsform am Speicher-Objekt geht an setItem vorbei.
+        const reZuw = new RegExp('(?:localStorage|sessionStorage)\\s*(?:\\.\\s*' + SCHL + '|\\[\\s*([\'"])' + SCHL + '\\1\\s*\\])\\s*=(?!=)', 'g');
+        while ((m = reZuw.exec(txt))) funde.push(rel + ':' + txt.slice(0, m.index).split('\n').length + ' (Zuweisung am Speicher statt setItem — von diesem Fall nicht pruefbar)');
+        reMyPlants.lastIndex = 0;
+        while ((m = reMyPlants.exec(txt))) plantsFunde.push(rel + ':' + txt.slice(0, m.index).split('\n').length);
+      }
+      if (!stellen.length) return { ok: false, warum: 'keine einzige Stelle gefunden, die gs_sb_token setzt — die Suche misst nichts (mindestens _seed.js muss dastehen)' };
+      if (!stellen.some(s => s.startsWith('scripts/_seed.js:'))) return { ok: false, warum: '_seed.js nicht unter den Fundstellen — die Suche misst nicht, was sie behauptet' };
+      if (funde.length) return { ok: false, warum: funde.length + ' Token ohne drei Teile (gsSecurityInit raeumt sie nach 500 ms samt uid ab, der Pruefstand misst danach abgemeldet): ' + funde.join(' · ') };
+      if (plantsFunde.length) return { ok: false, warum: "Beispieldaten unter 'myPlants' — die App liest 'ps_myplants' (v31.46): " + plantsFunde.join(' · ') };
+      // Und die Wirkung an DIESER Seite: die Sitzung aus _seed.js steht nach dem Start noch.
+      const s = await __seite.evaluate(() => ({ tok: localStorage.getItem('gs_sb_token'), uid: localStorage.getItem('gs_sb_uid'), drin: typeof sbIsLoggedIn === 'function' ? !!sbIsLoggedIn() : null }));
+      if (!s.tok || !s.uid || s.drin !== true) return { ok: false, warum: 'die Sitzung aus _seed.js ist nach dem Start weg: ' + JSON.stringify(s) };
+      return { ok: true, info: stellen.length + ' Stellen in ' + new Set(stellen.map(x => x.split(':')[0])).size + ' Dateien setzen den Token, alle in JWT-Form · Sitzung aus _seed.js steht nach 4 s, sbIsLoggedIn = true' };
+    },
+  },
+  {
+    name: 'Web-Root · jedes Verzeichnis im Wurzelverzeichnis ist entweder bewusst oeffentlich oder traegt noindex in _headers UND Disallow in robots.txt',
+    lauf: async () => {
+      // v33.59 (Brett 2026-11-11-e383): der Web-Root ist das Repo. android/ (seit v33.49), .claude/
+      // und store-assets/ lagen ohne Block da — jedes neue Verzeichnis brachte die Luecke wieder mit,
+      // weil die Regel aus v32.69 nur als Kommentar in _headers stand. Die Liste ist die Pruefung.
+      const fs = require('fs'), path = require('path'), W = path.join(__dirname, '..');
+      const OEFFENTLICH = {
+        assets: 'Bibliotheken, Schriften, Lizenztexte — die App laedt sie',
+        data: 'Artenliste und Changelog-Archiv — die App laedt sie',
+        icons: 'PWA-Icons aus manifest.json',
+        '.well-known': 'assetlinks.json fuer die Android-Huelle',
+      };
+      let verz;
+      try {
+        verz = [...new Set(require('child_process').execSync('git ls-files', { cwd: W, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+          .split('\n').filter(z => z.indexOf('/') > 0).map(z => z.split('/')[0]))].sort();
+      } catch (e) { return { ok: false, warum: 'git ls-files laesst sich nicht fahren: ' + e.message }; }
+      if (verz.length < 6) return { ok: false, warum: 'nur ' + verz.length + ' Verzeichnisse gefunden — die Suche misst nichts' };
+      const kopf = fs.readFileSync(path.join(W, '_headers'), 'utf8').split('\n');
+      const rob = fs.readFileSync(path.join(W, 'robots.txt'), 'utf8');
+      const noindex = (d) => { const i = kopf.findIndex(z => z.trim() === '/' + d + '/*'); return i >= 0 && /X-Robots-Tag:\s*noindex/.test(kopf[i + 1] || ''); };
+      const f = [], intern = [];
+      for (const d of verz) {
+        if (Object.prototype.hasOwnProperty.call(OEFFENTLICH, d)) continue;
+        intern.push(d);
+        if (!noindex(d)) f.push(d + '/ ohne Block „/' + d + '/*  X-Robots-Tag: noindex“ in _headers');
+        if (!new RegExp('^Disallow: /' + d.replace(/[.]/g, '\\.') + '/\\s*$', 'm').test(rob)) f.push(d + '/ ohne „Disallow: /' + d + '/“ in robots.txt');
+      }
+      for (const d of Object.keys(OEFFENTLICH)) if (verz.indexOf(d) < 0) f.push('OEFFENTLICH nennt ' + d + '/ — das Verzeichnis gibt es nicht mehr');
+      if (f.length) return { ok: false, warum: f.join(' · ') + ' — ein internes Verzeichnis bekommt beide Zeilen, ein oeffentliches einen Eintrag mit Grund in OEFFENTLICH' };
+      return { ok: true, info: verz.length + ' Verzeichnisse · ' + intern.length + ' intern, alle mit noindex und Disallow (' + intern.join(', ') + ') · ' + Object.keys(OEFFENTLICH).length + ' bewusst oeffentlich' };
     },
   },
 ];

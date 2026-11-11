@@ -60,6 +60,20 @@
 BEGIN;
 
 -- ── TEIL A ────────────────────────────────────────────────────────────────
+-- v33.59: steht schon die Fassung aus 20261110_sicherheit_funktionen.sql (Marke
+-- „v33.59 ai_usage_sperre" — sie traegt diese Schaetzung mit), bleibt sie stehen.
+-- Sonst machte diese aeltere, nicht angewandte Datei, DANACH eingespielt, die Sperre
+-- fuer Nutzer-Sitzungen rueckgaengig (negative Kosten, fremder Server-Name, kein
+-- Deckel). Bauform wie der Waechter in 20260907_quiz_antwort_formate.sql (3).
+DO $wache$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public' AND p.proname = 'fn_log_ai_usage'
+                AND p.prosrc LIKE '%v33.59 ai_usage_sperre%') THEN
+    RAISE NOTICE 'fn_log_ai_usage: Fassung v33.59 bleibt';
+    RETURN;
+  END IF;
+  EXECUTE $def$
 CREATE OR REPLACE FUNCTION public.fn_log_ai_usage(
   p_edge_fn text, p_tokens_in integer, p_tokens_out integer,
   p_cost_chf numeric DEFAULT NULL::numeric, p_model text DEFAULT NULL::text)
@@ -112,10 +126,11 @@ begin
     end;
   end if;
 end;
-$function$;
-
-COMMENT ON FUNCTION public.fn_log_ai_usage(text,integer,integer,numeric,text) IS
-  'v30.95: fehlendes p_model bucht nicht mehr 0.00 CHF, sondern konservativ zum Sonnet-Tarif und meldet einmal taeglich nach system_events.';
+$function$
+$def$;
+  EXECUTE $c$COMMENT ON FUNCTION public.fn_log_ai_usage(text,integer,integer,numeric,text) IS
+  'v30.95: fehlendes p_model bucht nicht mehr 0.00 CHF, sondern konservativ zum Sonnet-Tarif und meldet einmal taeglich nach system_events.'$c$;
+END $wache$;
 
 -- ── TEIL B ────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.fn_monitor_health()

@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-11-7d43",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): 0 Hänger in drei vollen Läufen am 11.11. — offline_check lief je mit 48 Fragen durch; ein früherer Hänger trat unter Last auf (zwölf Agenten parallel)",
+  "text": "In diesem Baum ist der Hänger nicht wieder aufgetreten. In drei vollen Suite-Läufen am Endstand v33.59 (11.11.2026) lief offline_check jedes Mal durch, mit 48 Fragen (nicht mehr 41), alle grün, Exit 0. Das widerlegt einen gelegentlichen Hänger nicht, gibt aber eine Zahl: 0 Hänger in 3 Läufen. Der Anker „Teilen: ein Worker-Wechsel loescht das wartende Foto nicht“ steht weiter in scripts/offline_check.js. STATUS.md erwähnt den Hänger als offen („bleibt gelegentlich an seiner Zeitgrenze hängen“). Das Rot in Lauf 1 kam aus robust_check „Memory“, nicht aus offline_check.",
+  "beleg": [
+    "Protokoll der Sitzung: final_lauf1.log, final_lauf2.log, final_lauf3.log: unter „##### offline“ jeweils „Fragen geprueft: 48 · davon rot: 0“, „EXIT=0“",
+    "final_lauf1.log: „FERTIG — 44 Pruefstaende · rot: 1“; das Rot ist robust_check „Memory · …“ (2 Namen ohne Definition in docs/memory/02-regeln.md); Lauf 2 und 3: rot 0",
+    "grep -n 'Worker-Wechsel loescht' scripts/offline_check.js → 1 Treffer (melde(…ok35…))"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-75c2"
+    }
+  ]
+}

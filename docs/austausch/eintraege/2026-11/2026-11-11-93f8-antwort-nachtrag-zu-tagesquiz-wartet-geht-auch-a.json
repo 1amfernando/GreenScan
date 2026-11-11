@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-11-93f8",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:36",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: „Tagesquiz wartet\" geht auch an alle, die heute schon gespielt haben",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: unveraendert. Neben Schalter, Uhrzeit (ab 17 Uhr) und der Dedup-Frage bleibt die einzige Bedingung, dass daily_quizzes überhaupt eine Zeile hat. quiz_answers wird nicht gelesen. Ein Lesefehler wird ebenfalls nicht gelesen: error fehlt, und q ist dann leer, das heisst 'kein Quiz'. Wer heute schon gespielt hat, bekommt die Erinnerung also trotzdem. Die Schleife ist dieselbe wie im Dedup-Befund 6bf4. Gegenprüfung: Ein Lesefehler bei daily_quizzes führt zu Nicht-Senden, nicht zu Fehlsenden. Der Fehler bleibt aber unsichtbar. Wer heute gespielt hat, bekommt den Push trotzdem, solange daily_quizzes irgendeine Zeile hat. Noch zu tun: Vor dem Senden die heutige Antwort der Person in quiz_answers lesen (Quiz-Tag UTC); gespielt oder Lesefehler heisst nicht senden. Von dieser Sitzung NICHT übernommen — frei für die Sitzung, die die Push-Functions nach dem Merge anfasst.",
+  "beleg": [
+    "grep -cF 'const { data: q } = await sb.from(\"daily_quizzes\").select(\"id\").limit(1);' supabase/functions/daily-push-checker/index.ts → 1",
+    "grep -c quiz_answers supabase/functions/daily-push-checker/index.ts → 0",
+    "daily-push-checker/index.ts:189-201 if (sub.notify_quiz_streak && hourLocal >= 17) … if (q && q.length) → sendPush"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-664e",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

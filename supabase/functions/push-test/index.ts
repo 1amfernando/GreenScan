@@ -15,8 +15,10 @@
 // VAPID-Keys generieren: `npx web-push generate-vapid-keys`
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+// v33.59 (Lieferkette): dieselbe supabase-js wie alle anderen Functions, nicht mehr esm.sh@2.39.0.
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 import webpush from "npm:web-push@3.6.7";
+import { pushEndpunktOk, PUSH_TIMEOUT_MS } from "../_shared/push_helfer.mjs";
 
 // v24.13 SECURITY-FIX (D1 HIGH): CORS Origin-aware (siehe ai-proxy).
 const ALLOWED_ORIGINS = ["https://greenscan.ch", "https://www.greenscan.ch"];
@@ -107,6 +109,9 @@ serve(async (req) => {
   webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
 
   const results = await Promise.all(subs.map(async (s) => {
+    // v33.59: nur an bekannte Push-Dienste (den Endpunkt schreibt die Person selbst — SSRF), mit Frist.
+    const ep = pushEndpunktOk(s.endpoint);
+    if (!ep.ok) return { id: s.id, ok: false, error: "Endpunkt abgewiesen: " + ep.grund };
     try {
       await webpush.sendNotification(
         {
@@ -114,6 +119,7 @@ serve(async (req) => {
           keys: { p256dh: s.p256dh, auth: s.auth },
         },
         JSON.stringify(payload),
+        { timeout: PUSH_TIMEOUT_MS },
       );
       return { id: s.id, ok: true };
     } catch (e) {

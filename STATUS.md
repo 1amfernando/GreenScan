@@ -4,13 +4,306 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.58` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.59` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-11 (je) - v33.59: Was von anderen kommt, bleibt Text — und der Server prüft selbst nach
+
+**Auftrag (Fernando, 10.11.2026, wörtlich):** „Arbeite an dem Projekt. Verbesser alles
+komplett. Alle Sicherheitslücken sollten behoben werden. Die App soll einen ultra
+professionellen Stand bekommen."
+
+**Der wichtigste Satz zuerst: von dieser Reparatur ist NICHTS auf der Live-Datenbank
+angewandt und KEINE Edge-Function ausgeliefert.** Was im Browser läuft (`index.html`,
+`sw.js`, `_headers`, `privacy.html`), wirkt mit dem Merge. Alles Serverseitige — sechs neue
+Migrationen, drei geänderte ältere, die überarbeiteten Edge-Functions — liegt im Repo und
+wartet auf Fernando, mit Reihenfolge in `docs/FUER-FERNANDO.md` §30. **Bis dahin sind die
+serverseitigen Lücken live offen**, auch die, die hier als „behoben" gezählt sind.
+
+**Wie vorgegangen wurde.**
+
+1. Basislauf aller Prüfstände und eine nur lesende Momentaufnahme der Live-DB (10.11.2026:
+   `pg_proc` mit Rechten und Rumpf, `pg_policies`, Trigger, Spalten, Fremdschlüssel,
+   `cron.job`, `storage.buckets`, die Liste der Edge-Functions).
+2. **27 Finder**, je ein Blickwinkel (Senken, Quellen, Sitzung, Worker, Edge-Functions,
+   RLS, Funktionen, Speicher, Android, Lieferkette, Datenschutz …): **209 Rohfunde**.
+3. Je Fund ein **Widerleger**: 187 bestätigt, 4 widerlegt, 13 ungeprüft (die haben die
+   Reparateure selbst nachgestellt).
+4. **24 Reparaturgruppen**, jede im eigenen Arbeitsbaum: zuerst ein Fall, der
+   gegen den alten Stand ROT ist, dann die Reparatur, dann die Geschwisterstellen derselben
+   Bauform, dann eine Gegenprüfung durch einen zweiten Agenten, der den Diff gegen den
+   Bericht liest und selbst angreift. Zusammen mit den sechs Gruppen aus Schritt 7 und 8
+   stehen 215 Fund-Einträge in 30 Gruppen: 186 behoben, 24
+   teilweise, 5 offen (4 bewusst, mit Grund; 1 nicht nachstellbar).
+5. **Vollständigkeits-Kritik:** 33 Funde, denen kein Bericht zugeordnet war, einzeln am
+   Code nachgeprüft — 24 behoben, 6 teilweise, 2 offen, 1 nur ausserhalb des Repos lösbar
+   (ein NVIDIA-Schlüssel in der git-Historie, siehe unten).
+6. **Schlussprüfung des zusammengeführten Diffs:** zwölf Linsen, je ein Widerleger — 34
+   Meldungen, 32 bestätigt, 2 widerlegt. Darunter ein kritischer Fund (Zahlung, unten).
+7. Reparatur dieser Funde in fünf Gruppen (`r1a`, `r1b`, `r2`, `r3`, `r4`), danach die
+   Zusammenführung mit `main` (v33.57/v33.58) mit einer eigenen Gegenprüfung der Naht.
+8. Die Beispieldaten der Prüfstände melden seither wirklich an (unten), und eine letzte
+   Gruppe (`r5`) hat geschlossen, was die Gegenprüfungen als Übergabe hinterlassen hatten.
+   Dann der Bump.
+
+**Gemessen und gebaut — Client (wirkt mit dem Merge):**
+
+- **Fremdtext an den Senken.** Zu `escHtml` · `_gsOcStr` · `gsSanitizeHtml` · `_gsSafeUrl`
+  kommen fünf Helfer mit je genau einem Kontext: `_gsFremdBild` (Bild eines ANDEREN: nur
+  der eigene Supabase-Speicher), `_gsCssUrl` (`url(…)` in einem `style`), `_gsEmoji`,
+  `_gsIdSicher`, `_gsOcJson`. Umgestellt: Scan-Ergebnis und Scan-Verlauf (ein Feld, das „nur
+  ein Emoji" ist, kam aus KI, Fremd-Cache, Lina und Backups ungeprüft an zwei Dutzend
+  Senken an), Marktplatz, Karte, Community-Arten, Admin-Panel, Rezepte und Heilmittel,
+  Pflanzendoktor, Garten-Scan, Planer (alle vier Ladewege durch `_gsPlanAufbereiten`),
+  Wissens-Tabellen (`_gsKbText`, Farben nur über die Erlaubnisliste `_gsKbFarbe`),
+  Übersetzungen aus der Datenbank (am Eingang bereinigt; `gsSanitizeHtml` lässt kein
+  `class` mehr zu). Die onclick-Bauform ist als KLASSE geschlossen: jeder eingesetzte
+  Wert in einem JS-String eines `on*`-Attributs geht durch `_gsOcStr`, und
+  `sicherheit_check` sucht die Bauform im ganzen Quelltext.
+- **Eigene Daten aus fremder Hand.** Backup-Import und Cloud-Pull laufen durch ein Sieb
+  (`_gsSiebListe` / `_gsSiebEintrag`: Ids, Emoji, Fotos, Zahlen). Artprofile, die die KI
+  selbst erzeugt hat, kommen nur über `_gsArtEingang` und mit `_unverified` in die
+  Artenliste — wie Community-Arten. Der geteilte Scan-Cache wird weder gelesen noch
+  beschrieben.
+- **Sitzung und Start.** Ein Token aus dem Anker der Adresse wird nie mehr still zur
+  Sitzung; eine Passwort-Wiederherstellung fragt den Server (`gsHandleAuthRedirect`). Die
+  Backend-Adresse kommt nicht mehr aus dem Speicher (`gs_sb_url`), `?screen=` gilt nur für
+  Bildschirme aus einer Liste, `?billing=success` sagt erst etwas, wenn der Server das
+  Abo bestätigt (`_gsBillingPruefen`). Der Knopf „Magic-Link senden" ist entfernt —
+  seine Rückkehr hat die App nie verarbeitet (PKCE wäre der Weg, eine Entscheidung). Ein
+  tiefer Pfad lud vorher 0 Arten.
+- **Datenschutz.** Kein Foto verlässt das Gerät mit Metadaten: `_gsBildOhneMeta` vor
+  `gsUploadImage`, `gsUploadPhotoToBucket` und `callVisionAI`; ein unlesbares Bild wird
+  nie roh hochgeladen. Ein Fund wird nur gerundet freigegeben (`_gsOrtGrob`, zwei
+  Nachkommastellen, rund 1 km) — mit Rückfrage vorher. Open-Meteo und Nominatim bekommen
+  gerundete Koordinaten (auch `daily-push-checker`, muss ausgeliefert werden). Der
+  öffentliche Name ist nie die E-Mail (`_gsOeffentlicherName`, und an der Quelle in
+  `sbSaveSession` / `sbRegister`). Die Kartenebene „Hybrid" ist weg (die Stamen-Beschriftung ging
+  2023 an Stadia; ob die alte Adresse noch antwortet, ist von hier nicht prüfbar). `privacy.html` nennt die Empfänger, die der Code wirklich
+  anspricht; `sicherheit_check` 97 hält die Liste `HOSTS` gegen beide Texte.
+- **Abmelden.** Gespeicherte Pläne gehen mit (`gs_plans_v2` in `GS_USER_KEYS`); nur lokal
+  gespeicherte warten gestempelt in `gs_plans_wartend`, bis dasselbe Konto wiederkommt.
+  Die Seite bittet den Worker, seine Caches für die Person zu räumen.
+
+**Service Worker, Kopfzeilen, Schriften, pdf.js.** CSP mit `default-src 'self'` und
+`object-src 'none'`, `connect-src` auf EIN Supabase-Projekt und die Kachel-Hosts, kein
+cdnjs und kein Google Fonts mehr: die Schriften liegen unter `assets/fonts/`, pdf.js
+4.0.379 unter `assets/pdfjs/` (Lizenzdateien dabei). Permissions-Policy: Mikrofon und
+Lagesensoren `(self)` — Sprachmodus und Kompass waren mit `()` still tot. Der Worker fängt
+fremde Ursprünge nur noch für die Kartenkacheln ab (`KACHEL_HOSTS`), legt EINE Shell je
+Seite ab (`navSchluessel` — vorher eine 6-MB-Kopie je tiefer Adresse) und deckelt den
+Runtime-Cache (`RUNTIME_CACHE_MAX` 60).
+
+**Edge-Functions — Zahlung (nicht ausgeliefert).** Preis, Kunde, Rückkehr-Adresse und
+Startangebot entscheidet der Server (`_shared/zahlung_regeln.mjs`). `delete-user` kündigt ein
+laufendes Abo, bevor es das Konto löscht (ohne das Secret `STRIPE_SECRET_KEY` antwortet es
+bei einem laufenden Abo bewusst mit 409). Der Webhook ordnet Ereignisse nach ihrem Stand (`metadata.gs_stripe_stand`) und
+entzieht Lifetime bei Rückerstattung oder Chargeback. **Eine Zahlung setzt nie mehr
+„verifiziert"** — was ein Experte bestätigen soll, entscheidet kein Webhook; der Knopf
+„Verifikation anfragen" ist aus (`GS_EXPERTEN_ANFRAGE_AKTIV`), bis es ein Datenmodell für
+die Anfrage gibt. `stripe-create-connect-account` gibt keinen Onboarding-Link für ein
+fremdes Express-Konto heraus.
+
+**KI-Tor (nicht ausgeliefert).** `_shared/ki_tor.mjs` vor allen KI-Functions: Anmeldung über
+`getUser(token)`, Plan mit dem Token der Person (mit Service-Role sieht
+`v_user_entitlements` keine Zeile, und alles wäre still „free"), Eingabegrenzen je
+Function, feste Fehlersätze statt Rohtext. Ein Aufruf wird VOR dem Aufruf reserviert, in
+einer Anweisung (`fn_ai_kontingent_reservieren`: 20 gleichzeitige Anfragen bei Limit 15
+ergeben genau 15 Zusagen) und zurückgegeben, wenn der Anbieter nicht gerechnet hat.
+Bezahlte Pläne bekommen nie weniger als bisher (Bremse = alte Stundenbremse × 24). KI-Zeilen
+für Tabellen laufen durch eine Erlaubnisliste der Spalten; `knowledge-bulk-gen` setzt die
+Essbarkeit eines Pilzes nie selbst (`'unbekannt'`).
+
+**Push und Konto löschen (nicht ausgeliefert).** Gesendet wird nur an bekannte Push-Dienste
+(`pushEndpunktOk`, mit Frist) — den Endpunkt schreibt die Person selbst. `delete-user`
+räumt jeden Bucket mit Nutzer-Ordner (`speicherRaeumen`); `loeschung_check` misst seither
+gegen ALLE Buckets, nicht gegen die gefüllten.
+
+**Migrationen (NICHT angewandt).** Sechs neue, jede zweimal in ein lokales Postgres
+eingespielt, mit dem Angriff davor (rot) und danach (abgewiesen):
+`20261110_sicherheit_funktionen.sql` (Funktionen, die einem Parameter vertrauen oder zu weit
+offen sind; das alte Geheimnis aus dem Rumpf von `fn_knowledge_grow`) ·
+`20261110_sicherheit_quiz_punkte.sql` (Antworten nur auf die Frage des Tages, Deckel für XP
+und Erfolge, Battles nur über die RPCs) · `20261110_sicherheit_community_markt.sql`
+(Sperre, Blockieren, Chat, Verkäufer-Status, Bild-Adressen, Anzeigename) ·
+`20261110_sicherheit_konto_speicher.sql` (Profil-Wächter auch beim Anlegen, Startangebot,
+Bucket-Grenzen, Push-Endpunkte, besitzerlose Zeilen) · `20261110_sicherheit_ki_kontingent.sql`
+· `20261110_feedback_stimmen_zaehlen.sql`. Die Köpfe der Dateien sagen, was live stand, was
+sie ändern und in welcher Reihenfolge. **Drei ältere, ebenfalls nicht angewandte Dateien
+sind angefasst:** `20260831_kosten_und_cron_wachhund_v30_95.sql` und
+`20260907_quiz_antwort_formate.sql` bekamen einen Wächter auf eine Marke im Rumpf — beide
+hätten, nach der neuen Datei eingespielt, deren Reparatur still zurückgedreht;
+`20260903_oekosystem_v1_geraete.sql` bindet `own_rules_all` / `own_commands_all` an ein
+Gerät der Person. In `20260907_global_api_key_nur_proxy.sql` (angewandt) steht nur ein
+Nachtrag im Kopf: der Schlüsselwechsel.
+
+**Android.** Die Dateiauswahl nimmt nur `content://`, eine Freigabe (Kamera) gilt nur dem
+eigenen Ursprung — und ein Ursprung ist Schema, Wirt UND Port (`Pfade.java`). VIEW-Intents
+nur mit `CATEGORY_BROWSABLE`, Wächter-Fäden für hängende Ströme, das Keystore-Passwort nicht
+mehr auf der Befehlszeile. Der Update-Hinweis in der Hülle ist bewusst nicht gebaut — zwei
+Entwürfe liegen in §30.
+
+**CI und Lieferkette.** Fremd-Actions auf Commit-SHAs statt Tags; `pruefstaende.yml` mit
+`persist-credentials: false`; `weekly-cleanup.yml` ohne Rechte auf Workflow-Ebene (es behält
+die Zugangsdaten bewusst — es löscht Branches mit `git push --delete`). `npm ci` gegen
+`scripts/package-lock.json` — die Datei fehlte, weil `.gitignore` sie ausschloss. 68
+Import-Angaben in 29 Function-Dateien auf exakte Versionen (`npm:stripe@17.7.0`,
+`jsr:@supabase/supabase-js@2.119.0`, `functions-js@2.119.0`; `stripe-create-connect-account`
+bleibt als benannte Ausnahme auf `esm.sh/stripe@18.5.0`, weil die Hauptversion dort die
+Stripe-API bestimmt). `.env` und Verwandte stehen in `.gitignore`.
+
+**Nebenbefunde, die nie funktioniert haben.** Eine Stimme im Feedback zählte für normale
+Nutzer nie (der Zähl-Trigger lief mit deren Rechten und schrieb 0 Zeilen —
+`20261110_feedback_stimmen_zaehlen.sql`). Die Wissenssuche hatte ihren Offline-Rückfall in
+einem `catch`, der nie lief. „Kopiert" stand vor dem Ergebnis (`gsKopieren`). Kompass und
+Sprachmodus (Permissions-Policy, oben).
+
+**Was die Schlussprüfung noch fand — darunter eigene Fehler der Reparatur:**
+
+- **Kritisch:** der überarbeitete `stripe-webhook` bettete `stripe_products(tier)` ein —
+  live gibt es dafür keinen Fremdschlüssel. Ausgeliefert hätte er **jedes Abo- und
+  Rechnungsereignis und jeden Lifetime-Kauf mit 500 beantwortet.** Der Prüfstand war grün,
+  weil seine Attrappe jede Einbettung beantwortete. Jetzt eine getrennte Abfrage, und die
+  Attrappe kennt die Live-Fremdschlüssel und -Spalten (`scripts/edge/_live_schema.mjs`) und
+  antwortet mit `PGRST200` / `42703` wie PostgREST.
+- Der „Stand vor dem Abruf" des Webhooks stand in `updated_at` — die Spalte überschreibt
+  ein Trigger mit `now()`. Jetzt in `metadata.gs_stripe_stand`.
+- `_gsCssUrl` (ein eigener neuer Helfer) kodierte das `;` in `data:image/…;base64` — eigene
+  Fotos im Tagebuch erschienen nicht mehr.
+- Passwort-Wiederherstellung und die neuen Link-Meldungen lagen bei Abgemeldeten UNTER dem
+  Onboarding. Der Fall war grün, weil er die Dialoge durch Zähler ersetzte.
+- Offline gespeicherte Pläne gingen beim Abmelden neu verloren (vorher überlebten sie) →
+  `gs_plans_wartend`.
+- Die Tagesgrenzen des KI-Tors lagen für zahlende Kunden zum Teil UNTER dem bisherigen
+  Stand, während die App „unbegrenzt" verspricht → Bremse ×24. Push: 5 Abos je Lauf gegen
+  10 in der Datenbank → eine Zahl (`ABOS_JE_NUTZER` 10).
+- Zwei Migrations-Nähte: die ältere Kosten-Migration hätte `fn_log_ai_usage` zurückgedreht
+  (Wächter); die Sperre für Inserate griff nur beim direkten PATCH, nicht über
+  `fn_marketplace_set_status` und `marketplace-publish`; eine anonyme Stimme liess sich
+  weiter umschreiben (Policy entfernt).
+
+**Die Zusammenführung mit `main`.** Eine andere Sitzung hat parallel v33.57 und v33.58
+gebaut, dieselben KI-Functions angefasst (Modellkette `_shared/modelle.mjs`, `ai-proxy` mit
+Stufen und Notschalter) und sechs davon am 11.11. LIVE ausgeliefert (jc). Konflikte in neun
+Function-Dateien und vier Stellen von `index.html`. **Vereint, nicht ersetzt:** der
+Modellaufruf von `main` (`anthropicFetch`, Verweigerung als Satz, antwortendes Modell in
+`ai_usage`) steht HINTER dem Tor der Reparatur; EINE Tabelle der Grenzen (`KI_GRENZEN`:
+`ai-proxy` basic 200 und Gesamtdeckel 20 MB wie live, je Bild 5 MB); der geteilte Scan-Cache
+bleibt entfernt; `GS_KI_PROXY_SAETZE` kennt `service_disabled`. Prüfstände an die vereinte
+Form angepasst, nicht ruhiggestellt. **Folge für die Auslieferung:** die sechs live
+laufenden KI-Functions sind der Stand von v33.58 OHNE Tor. Wer sie aus diesem Repo neu
+ausliefert, braucht VORHER `20261110_sicherheit_ki_kontingent.sql` — sonst antworten alle
+mit 503, auch der Pilz-Scanner.
+
+**Die Prüfstände messen jetzt eine ANGEMELDETE App.** Der Token in `scripts/_seed.js`
+hatte keine JWT-Form; `gsSecurityInit` räumte ihn 500 ms nach dem Start ab, und danach
+vermass jeder Prüfstand eine abgemeldete App hinter dem Anmeldebildschirm. Seit v33.59 legt
+der Seed eine Sitzung an, die bleibt (`gs_sb_token` in JWT-Form, `gs_sb_uid`, `gs_sb_email`,
+`gs_sb_expires`). Der erste volle Lauf damit fand zwei Fehler, die abgemeldet nie messbar
+waren: (1) `gsCloudSync` stempelte `gs_sync_last_push` nach JEDEM Flush, auch ohne etwas
+hochzuladen — `_gsSnapshotAutoFaellig` und `_gsUpdateSichern` hielten damit jeden Stand für
+geändert, und je Auslieferung entstand ein Backup ohne Änderung (die Regel aus v33.26 wirkte
+nur abgemeldet). Der Stempel kommt jetzt nur nach einem wirklichen Hochladen oder wenn er
+fehlt; `backup_check` hat den Fall (10 Fälle). (2) Der Schliessen-Knopf der Push-Frage stand
+in jeder Sprache deutsch da (`_gsPushPromptHtml`).
+
+**Die letzte Gruppe (`r5`) — was die Gegenprüfungen als Übergabe hinterliessen.**
+Pflanzendoktor, Schädlings-, Pilz- und Garten-Scan und das Tagebuch-Foto schicken ihr Foto
+verkleinert und neu kodiert (`_gsFotoOhneMeta`: höchstens 1920 px, ohne EXIF) — gemessen
+vorher 2600×1800 mit EXIF und 6,84 MB Base64, über dem 5-MB-Tor. Das Stripe-Fenster
+schliesst sich nach der Rückkehr: wegen COOP ist `window.opener` dort `null`, der Handler
+meldet deshalb über einen `BroadcastChannel` (`gs-billing`) an das Hauptfenster
+(`_gsBillingMeldung`); `popup=1` setzt die App nur, wenn sie wirklich ein Fenster geöffnet
+hat (die Gegenprüfung fand hier eine Regression der ersten Fassung: in der Android-Hülle und
+bei blockiertem Popup hätte `window.stop()` die App selbst angehalten). Drei Upserts nennen
+ihren Schlüssel selbst (`?on_conflict=` für `feedback_votes`, `push_subscriptions`,
+`weather_log_per_garden`) — ohne ihn scheiterten das Umstimmen einer Idee und das erneute
+Abonnieren desselben Geräts mit 23505. Der Hinweis bei erreichtem KI-Limit richtet sich nach
+dem Plan (`_gsKiQuotaSatz`: ein zahlender Kunde liest kein „Mit Pro"). `_gsNachschlag(tabelle,
+schluessel, rueckfall)` ist der eine Leser für eine Tabelle, deren Schlüssel aus fremder Hand
+kommt — `TABELLE[wert]` mit `constructor` zeigte den Quelltext einer Funktion (48 Aufrufe).
+Alt-Pläne ohne Eigentümer werden beim ersten Lesen gestempelt (`gsPlans.stempeln`), und ein
+neu kodiertes Fund-Foto ersetzt das alte Objekt im Speicher.
+
+**Live-Lage beim Bump** (nur lesend, 11.11.2026 03:28 UTC): angewandt hat die andere
+Sitzung am 10.11. `global_api_key_nur_proxy`, `rollen_leak_fix_v30_95`,
+`mkt_views_auth_guard_v31_36` und `admin_grants` — der Weg, auf dem jedes Konto den
+Anthropic-Schlüssel lesen konnte, ist damit live zu. Von dieser Reparatur existiert live
+keine der neuen Funktionen (0 von 23 geprüften Namen); die Rechte und Policies, die die
+Migrationen entziehen, stehen noch. `stripe_prices` hat live 0 Fremdschlüssel (bestätigt den
+Webhook-Fund).
+
+**Prüfstände.** Neu: `sicherheit_check` (174 Fälle in 22 Dateien, je Datei
+eine frisch geladene App), `edge_check` (58 Fälle — für die Zahlungs-Functions läuft die echte `index.ts`
+in Node 22, Typen gestrichen, `npm:`/`jsr:`/`esm.sh`-Importe auf gestellte Module umgelenkt;
+sonst die Rechnung der `_shared`-Module und der Rand am Quelltext)
+und `rls_check` (43 Fälle im lokalen Postgres; ohne Postgres „nicht prüfbar", nie
+grün). `rls/05_fixture_policies` hält jeden Nachbau gegen die Live-Policies
+(`scripts/rls/live_policies.json`, 10.11.2026). `pruefstaende.sh` fährt 44.
+
+**Volle Läufe nach dem Bump** (`bash scripts/pruefstaende.sh`, je rund 30–45 Minuten, lokales
+Postgres an): Lauf 1 — 44 Prüfstände, **1 rot**: `robust_check` „Memory" (zwei neue Einträge
+in `docs/memory` hatten einen Funktionsnamen mitten im Namen umbrochen; der Fall las zwei
+Namen, die es nicht gibt — behoben, danach einzeln 29/0). Lauf 2 und Lauf 3 auf dem
+Endstand: **44 Prüfstände · rot: 0 · nicht prüfbar: 0**, beide. Der CI-Lauf auf GitHub
+fährt erst an einem PR; den gibt es noch nicht.
+
+**Was NICHT geprüft werden konnte.**
+
+- Ob die Edge-Functions in Deno laufen und was Stripe, Anthropic und die Push-Dienste
+  antworten: hier gibt es kein Deno und kein Netz zu diesen Diensten. Geprüft ist die
+  Rechnung in Node und der Rand am Quelltext.
+- Ob die Migrationen live dasselbe tun wie im Nachbau. Der Nachbau stammt aus einer
+  datierten Momentaufnahme; was sie nicht kennt (z. B. den Trigger auf `auth.users`),
+  kennt auch der Fall nicht.
+- Die Live-Seite (green-scan.ch): aus dieser Umgebung gesperrt (§2.1 CLAUDE.md).
+- Die Android-Hülle auf einem Telefon: gebaut und gerechnet, nicht bedient.
+- Ob Anthropic die 5-MB-Grenze am Base64 oder am Bild misst; ob `web-push` 3.6.7
+  `url.parse` benutzt.
+
+**Was offen bleibt:** `docs/FUER-FERNANDO.md` §30 (Reihenfolge, Handgriffe, woran man das
+Greifen erkennt) und Sektion 2 unten (je Migration und Entscheidung eine Zeile).
+
+**Fallen aus dem Bau, die über diese Sitzung hinaus gelten:**
+
+- **Eine Attrappe, die alles beantwortet, prüft gegen ein Schema, das es nicht gibt.** Die
+  Supabase-Attrappe löste jede Einbettung auf — der Webhook wäre live bei jeder Zahlung
+  gescheitert und war grün. Sie braucht die Live-Fremdschlüssel und -Spalten und muss
+  scheitern wie PostgREST. Und sie muss so treu sein wie das Original: nur `then`, kein
+  `catch` — mit einem echten Promise als Attrappe wäre ein `TypeError` in fünf
+  Webhook-Zweigen grün geblieben.
+- **Ein Nachbau, dem eine Live-Policy fehlt, kann keine Lücke zeigen.** PERMISSIVE-Policies
+  werden ODER-verknüpft; eine vergessene offene Policy macht jede Migration „dicht".
+  Deshalb hält `rls/05_fixture_policies` jeden Nachbau gegen `pg_policies`, in beiden
+  Richtungen.
+- **`.gitignore` hat das Lockfile verschluckt.** Der Workflow verlangte
+  `scripts/package-lock.json`, `git add -A` übersprang sie still — eine Regel, die nirgends
+  meldet.
+- **Ein Fall, der die Dialoge durch Zähler ersetzt, misst den Aufruf, nicht das
+  Bedienbare.** Der Fall zählte „Dialog gerufen" und war grün, während der Dialog unter
+  dem Anmeldebildschirm lag. `elementFromPoint` an der Stelle des Dialogs misst es.
+- **Zwei Sitzungen auf demselben Zweigstand sehen einander nicht.** `main` hat dieselben
+  Functions geändert und ausgeliefert, während hier repariert wurde; erst die
+  Zusammenführung zeigte es. Dazu im Kleinen: `quiz_check` benutzt einen festen
+  Datenbanknamen (parallele Läufe löschen einander die Datenbank), und eine zweite Seite
+  derselben Herkunft im Prüfstand teilt den `localStorage` mit der ersten.
+- **Ein `CHECK … NOT VALID` gilt bei JEDEM späteren Update der Zeile.** Ein alter fremder
+  Avatar hätte jedes XP-Update des Profils scheitern lassen; wer nur NEUE Werte binden
+  will, nimmt einen Trigger, der nur geänderte prüft.
+- **Ein Prüfstand, der gegen eine Momentaufnahme misst, sieht nur, was sie kennt.**
+  `loeschung_check` verglich mit den drei Buckets, die Objekte hatten, und war grün,
+  während neun Buckets mit Nutzer-Ordner fehlten.
+- **Das Schreibwerkzeug hat Escapes für Richtungs- und Nullbreitenzeichen in ECHTE
+  unsichtbare Zeichen verwandelt** (Migration und Prüfstand liefen trotzdem). Wer solche
+  Escapes schreibt, prüft danach per Byte-Suche, dass sie als Escape dastehen.
+
+**Offen:** brett:2026-11-11-669d, brett:2026-11-11-90db (die zwei Fragen an Fernando aus (jd) stehen unverändert) — was aus dieser Reparatur offen bleibt, steht je Zeile in §2 und in `docs/FUER-FERNANDO.md` §30
+**Nicht geprüft:** ob die Edge-Functions in Deno starten und was Stripe, Anthropic und die Push-Dienste antworten; ob die Migrationen live dasselbe tun wie im Nachbau; die Live-Seite; die Android-Hülle auf einem Telefon (Einzelheiten oben unter „Was NICHT geprüft werden konnte")
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
@@ -15519,11 +15812,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.58` (Client) · SW-Cache `gs-v33.58` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.59` (Client) · SW-Cache `gs-v33.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **97'094 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **586 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
-- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **42** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.58: `modell_check`, `rezept_link_check`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 42** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Frontend:** `index.html` **98'168 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
+- **Prüfstände:** **45** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 45** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -15532,25 +15825,37 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **Sicherheitsreparatur v33.59 auf den Server bringen** | Der Client wirkt mit dem Merge; **alles Serverseitige ist weder angewandt noch ausgeliefert** (gemessen 11.11.2026: 0 von 23 neuen Funktionsnamen live). Bis dahin sind die Lücken, die die Migrationen beschreiben, live offen — und das Repo ist öffentlich. Reihenfolge, Handgriffe und die lesenden Abfragen danach stehen in §30; die Zeilen darunter je Datei. | `docs/FUER-FERNANDO.md` §30 · (je) |
+| **Migration `20261110_sicherheit_ki_kontingent.sql`** — ZUERST | Legt `fn_ai_kontingent_reservieren` / `_freigeben` an (nur `service_role`). Die KI-Functions aus diesem Repo rufen sie und antworten ohne sie **fail-closed mit 503** — alle, auch der Pilz-Scanner. Also: diese Migration, DANN die KI-Functions. In `rls_check` (`50_ki_kontingent`) nachgespielt: 20 gleichzeitige Reservierungen bei Limit 15 ergeben 15. | §30 · (je) |
+| **Edge-Functions der Reparatur ausliefern** (die 24 schon live laufenden der 29 geänderten — die fünf nie ausgelieferten gehören NICHT dazu: §30b Schritt 3, §30d) | Erst danach gelten Zahlung, KI-Tor, Push-Endpunkte, Konto löschen und die festen Versionen live. Drei Dinge daran hängen: `delete-user` braucht das Secret `STRIPE_SECRET_KEY` (sonst 409 bei laufendem Abo, gewollt); `stripe-admin-extend-webhook` einmal laufen lassen, damit `charge.refunded` zugestellt wird; `stripe-webhook`, `stripe-checkout` und `stripe-portal` gehören zusammen. Die sechs live laufenden KI-Functions (jc) sind der Stand OHNE Tor — sie werden dabei ersetzt. | §30 · (je) |
+| **Migration `20261110_sicherheit_funktionen.sql`** | Rechte und Riegel für Funktionen, die einem Parameter vertrauen oder zu weit offen sind (Kopf der Datei). Nach der App v33.59 (die den Scan-Cache nicht mehr ruft). Vorher nur lesend prüfen, ob `app_settings.knowledge_gen_secret` NICHT der alte, im Repo stehende Wert ist — sonst neu erzeugen. Die alten `v28_`/`v29_`-Dateien sortieren nach Namen HINTER `2026…`; bei einem Replay nach Dateinamen diese Datei zuletzt. | §30 · (je) |
+| **Migration `20261110_sicherheit_quiz_punkte.sql`** — vor dem **31.12.2026, 23:00 UTC** | Antworten nur auf die Frage des Tages, Deckel für XP (1'000 je Tag) und Erfolge (+50 je Metrik und Tag), Battles nur über die RPCs. Um 23:00 UTC am 31.12. vergibt der Cron `quiz-top3-yearend` ein Jahr Pro an die drei Ersten — bis dahin muss sie gelten. Reihenfolge mit `20260907_quiz_antwort_formate.sql` egal (Wächter), empfohlen 20260907 → 20261110. Danach `docs/loeschung-inventar.json` und `docs/backend-inventar.json` nachziehen (`punkte_tageszuwachs`). | §30 · (je) |
+| **Migration `20261110_sicherheit_community_markt.sql`** | Sperre, Blockieren, Chat, Verkäufer-Status, Bild-Adressen nur aus dem eigenen Speicher, Anzeigename. **Erst die App v33.59, dann die Migration** — sonst scheitert der Fund-Upload alter Apps am Bild-Trigger. Die Bild-Prüfung kennt das Projekt-Präfix als Literal. | §30 · (je) |
+| **Migration `20261110_sicherheit_konto_speicher.sql`** | Profil-Wächter auch beim Anlegen, Startangebot nur über den Server, Grössen- und Typgrenzen für drei Buckets, Push-Endpunkte (CHECK `NOT VALID` + Deckel je Nutzer), keine besitzerlosen Zeilen. Vorher lesend zählen, wie viele Push-Abos nicht zu einem bekannten Dienst gehen; bei 0 danach `VALIDATE CONSTRAINT`. | §30 · (je) |
+| **Migration `20261110_feedback_stimmen_zaehlen.sql`** | Eine Stimme eines normalen Nutzers zählte nie (Zähl-Trigger als INVOKER, 0 Zeilen). Danach zählt sie, der Bestand wird einmal nachgezählt. `rls_check` `60_feedback`. | §30 · (je) |
+| **Migration `20260831_kosten_und_cron_wachhund_v30_95.sql`** | **Stand in keiner Liste offener Migrationen**, obwohl live nicht angewandt (gemessen 10.11.2026). Seit v33.59 mit Wächter: eingespielt nach `20261110_sicherheit_funktionen.sql` lässt sie deren `fn_log_ai_usage` stehen (vorher hätte sie die Sperre still zurückgedreht). `rls_check` `70_reihenfolge`, beide Reihenfolgen. | §30 · (je) |
+| **NVIDIA-Schlüssel beim Anbieter widerrufen** (`nvapi-Pr2M…usrB`) | Er steht in der git-Historie dieses öffentlichen Repos; entfernt ist er nur aus dem Stand. Ob er widerrufen wurde, ist nirgends belegt — die Historie umzuschreiben ersetzt den Widerruf nicht. | §30 · (je) |
+| ~~Vier ältere Migrationen~~ | **Erledigt — am 10.11.2026 21:15–21:18 UTC angewandt** (von der Sitzung der v33.57, nachgemessen 11.11.2026 in `schema_migrations`): `20260907_global_api_key_nur_proxy` · `20260831_rollen_leak_fix_v30_95` · `v31_36_mkt_views_auth_guard` · `20260924_admin_grants`. Damit sind auch die zwei „toten Admin-Knöpfe" aus v33.50 frei (`fn_assign_role`, `fn_set_global_api_key` für `authenticated` ausführbar; beide prüfen die Rolle selbst). | (jb), (je) |
+| **Zwei Branches tragen v33.59 — welcher wird zuerst gemergt?** | Die Sicherheitsreparatur (`ccr-5e705a36-jveaak`, noch ohne PR, in Arbeit) und PR #324 (`claude/restore-banner-nur-bei-bedarf`) tragen dieselbe Nummer. Wer zuerst gemergt wird, behält sie; der andere zieht `main` nach und nimmt v33.60 (`GS_VERSION`, `sw.js`, meta, `GS_RELEASES[0]`, STATUS-Buchstabe). Im Text kollidiert nur der Kopf von `GS_RELEASES`. Dringlichkeit: der Branch der Reparatur beschreibt Lücken, die live offen sind, bis er gemergt und angewandt ist. | brett:2026-11-11-699a · (je) |
 | **Eine geplante Routine ohne Repo-Zugang ans Repo und ans Brett anschliessen?** | Sie schreibt ihre Übergaben ausserhalb des Repos — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Welche Aufgabe es ist und was ihr fehlt, ging direkt an Fernando (nicht in dieses öffentliche Repo). Im Auftrag der Aufgabe bräuchte es `node scripts/austausch.mjs holen` am Anfang und Einträge am Ende. Nicht verändert. | brett:2026-11-11-669d · (jd) |
 | **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
 | **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
 | **APK auf einem Telefon ansehen: Export und Drucken** (v33.53) | Hier läuft kein Android. `apk_check` fährt Rechnung, Rand und Seite gegen einen echten Java-Sammler — ob ein Telefon „Speichern unter“ und den Druckdialog so zeigt, sagt erst ein Gerät (Android 6, 10, 14). Am Backend nichts zu tun, nur eine neue APK. | `docs/FUER-FERNANDO.md` §26 · (ix) |
-| **Sieben Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `i18n-translate`, `knowledge-bulk-gen`) | Im Repo, nicht ausgeliefert: konstantzeitiger Schlüsselvergleich, Triage nur Admins (Audit A10/B2), und seit v33.58 die Modell-Kette für die drei letzten — deren Modelle leben noch, es eilt nicht. **Ausgeliefert am 10./11.11.2026:** `key-health-check` v2, `ai-proxy` v3, `plant-doctor-diagnose` v6, `plan-iterate` v5, `garden-scan-analyze` v11, `pest-identify` v4, `mushroom-identify` v4 (jc). | `docs/FUER-FERNANDO.md` §9, §29 · (fl), (jc) |
+| **Sieben Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `i18n-translate`, `knowledge-bulk-gen`) | *Seit v33.59 Teil der Zeile „Edge-Functions der Reparatur ausliefern" oben — alle sieben sind dort mitgeändert.* Im Repo, nicht ausgeliefert: konstantzeitiger Schlüsselvergleich, Triage nur Admins (Audit A10/B2), und seit v33.58 die Modell-Kette für die drei letzten — deren Modelle leben noch, es eilt nicht. **Ausgeliefert am 10./11.11.2026:** `key-health-check` v2, `ai-proxy` v3, `plant-doctor-diagnose` v6, `plan-iterate` v5, `garden-scan-analyze` v11, `pest-identify` v4, `mushroom-identify` v4 (jc). | `docs/FUER-FERNANDO.md` §9, §29 · (fl), (jc) |
 | **Ein echter Scan mit einem Konto ohne Admin-Rolle** | Das Einzige, was sich von hier nicht messen lässt: der neue `ai-proxy` (v3, 11.11.2026) mit einem echten Konto. Danach muss `ai_usage` eine Zeile `claude-sonnet-4-6` vom selben Tag tragen. Audit A1 ist zu (Migration angewandt am 10.11., App seit v33.57 ohne Schlüssel im Browser). | `docs/FUER-FERNANDO.md` §29 Punkt 1 · (jb), (jc) |
-| **Den Anthropic-Schlüssel erneuern** | Bis zum 10.11.2026 bekam ihn jeder angemeldete Nutzer in den Browser. Ob ihn jemand kopiert hat, lässt sich nicht nachsehen. Neuer Schlüssel → Admin-Panel → alter widerrufen. | `docs/FUER-FERNANDO.md` §29 Punkt 2 · (jc) |
+| **Den Anthropic-Schlüssel erneuern** | Bis zum 10.11.2026 bekam ihn jeder angemeldete Nutzer in den Browser. Ob ihn jemand kopiert hat, lässt sich nicht nachsehen. Neuer Schlüssel → Admin-Panel → alter widerrufen. **An BEIDEN Stellen** (v33.59 nachgemessen): die Functions lesen zuerst das Secret `ANTHROPIC_API_KEY`, `feedback-triage` nur das; `app_settings` allein genügt nicht. Erst der Widerruf schliesst das Leck — die Migration hat nur den Hahn zugedreht. | `docs/FUER-FERNANDO.md` §29 Punkt 2 · (jc) |
 | **`book-ingest`: Secret `CLAUDE_MODEL` = `claude-sonnet-4-6`** | Die ausgelieferte Fassung (kein Quelltext im Repo) hat eine eigene Modellliste; alle drei Namen darin sind am **30.11.2026** abgeschaltet. Nur das Buch-Einlesen im Admin-Panel hängt daran. | `docs/FUER-FERNANDO.md` §29 Punkt 4 · (jc) |
 | **Stripe: `stripe_publishable_key` beginnt mit `pk_test_`** | Gemessen am 10.11.2026 in `app_settings`; `stripe_webhook_events` hat 0 Zeilen. §1 sagt „Live-Mode seit v26.40". An Zahlungen wurde nichts angefasst — bitte nachsehen. | `docs/FUER-FERNANDO.md` §29 · (jc) |
 | **Bucket `scan-images` ist öffentlich** (99 Dateien, 10.11.2026) | Ein Scan-Foto ist über seine Adresse ohne Anmeldung ladbar. Privat stellen braucht signierte Adressen in der App — eigener Umbau, eine Entscheidung. | `docs/FUER-FERNANDO.md` §29 · (jc) |
-| **`fn_add_xp` deckeln** | Jedes angemeldete Konto kann bis zu 50'000 Punkte je Aufruf buchen (10.11.2026, nur lesend gemessen) — die Rangliste lässt sich fälschen. Braucht eine Migration. | (jc) |
-| **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
+| **`fn_add_xp` deckeln** | Jedes angemeldete Konto kann bis zu 50'000 Punkte je Aufruf buchen (10.11.2026, nur lesend gemessen) — die Rangliste lässt sich fälschen. **Die Migration liegt seit v33.59 bereit:** `20261110_sicherheit_quiz_punkte.sql` (1'000 XP je Tag, Tabelle `punkte_tageszuwachs`); live am 11.11. unverändert offen. | (jc), (je) |
+| **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. **Seit v33.59 mit einem Wächter vor Schritt (3):** steht schon die tagesgebundene Fassung von `fn_grant_quiz_top3_pro` (Marke im Rumpf), bleibt sie — sonst zählte das Jahres-Pro wieder Antworten auf jede Frage. | `docs/FUER-FERNANDO.md` §7 · (fe), (je) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
 | **Migration `20261006_friendships_nur_empfaenger.sql`** | Live (06.10.2026, nur lesend): der Absender konnte die eigene Freundschafts-Anfrage annehmen, jeder eine Zeile gleich als `accepted` anlegen, und beide Seiten `user_id`/`friend_id` auf einen Dritten umbiegen (UPDATE ohne `WITH CHECK`, Tabellenrecht auf jede Spalte). Die Datei: INSERT nur `pending`, UPDATE nur der Empfänger, nur die Spalte `status`. Heute 0 Zeilen, und nichts sonst liest den Status — die Regel wird richtig, bevor etwas sie liest. In `naht_check` nachgespielt (Reproduktion, zweimal, Gegenprobe). | `docs/FUER-FERNANDO.md` §25 · (iw) |
 | **Migration `20260925_admin_audit_vollstaendig.sql`** | Fünf von fünfzehn Admin-Aktionen hinterliessen keine Spur in `audit_log` (25.09.2026, nur lesend gemessen) — darunter Foto-Beitrag und Arten-Vorschlag prüfen (Moderation!) und „Meldung erledigen" (nackter PATCH, keine RPC). Die Datei gibt zwei Review-Funktionen die Spur (Rumpf wie live) und legt `fn_admin_review_report` an. Bis dahin fällt „Meldung erledigen" auf den PATCH zurück und sagt „ohne Protokolleintrag"; der Fuss unter dem Protokoll zählt „3 erst nach Migration". In `admin_check` in einem lokalen Postgres nachgespielt (zweimal, Admin/Nicht-Admin, Gegenprobe). | `docs/FUER-FERNANDO.md` §24 · (iv) |
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. **Live nachgemessen 14.09.2026: die Spalte existiert nicht** (`42703`), waehrend die App sie seit v30.85 rendert — der Bildblock kann nie gefeuert haben. Mit `20260827_quiz_bilder_und_fragen_v30_85.sql` kaemen 43 Fragen (+43 Tage Vorrat). Seit v33.29 kennt das Kategorien-Vokabular ihre 12 eigenen Slugs, sie braechte also keine leeren Kategoriezeilen mit. | (2026-08-31 y), (hy) |
 | **Migration `20260914_quiz_vorrat.sql`** | `fn_quiz_vorrat()` + `fn_quiz_vorrat_pruefen()` + Cron `quiz-vorrat-daily` (v33.29): misst den Fragen-Vorrat und warnt nach `system_events`, sobald unter 60 freie Fragen uebrig sind. Aendert nichts am Quiz. Ohne sie bleibt der Vorrat ungemessen — **er ist am 16.06.2027 erschoepft**, und `fn_get_daily_quiz` wiederholt dann still. | (hy), FUER-FERNANDO §20 |
-| `fn_is_role` / `fn_role_at_least` für `anon` sperren | **Entschärft am 10.11.2026:** `20260831_rollen_leak_fix_v30_95` ist angewandt — beide antworten über ein FREMDES Konto nur noch Staff und Admins. Das EXECUTE-Recht für `anon` steht noch (am 10.11. nachgelesen: `has_function_privilege('anon', …)` = wahr). | (de), (jb) |
+| ~~`fn_is_role` / `fn_role_at_least` für `anon` sperren~~ | **Bewusst offen, mit Grund (v33.59 gemessen).** `20260831_rollen_leak_fix_v30_95` ist angewandt — über ein FREMDES Konto antworten beide nur noch Staff und Admins; `anon` bekommt `false` bzw. `null`. Das EXECUTE-Recht für `anon` bleibt, weil Policies mit `roles=public` (u. a. `social_posts`, `profiles`, `feedback_items`, `post_comments`) die Funktionen für `anon` auswerten: ein REVOKE machte aus „0 Zeilen" den Fehler „permission denied for function". | (de), (jb), (je) |
 | ~~Leaked-Password-Protection~~ | **Erledigt — die Zeile war veraltet.** Aktiv seit dem 01.09.2026 (Eintrag „as"); der Sicherheits-Advisor meldet sie am 11.11.2026 nicht. Heute dort: kein Fehler, vier Hinweise (5 Tabellen mit RLS ohne Regel, 3 Erweiterungen in `public`, 16 SECURITY-DEFINER-Funktionen für `anon` rufbar — öffentliche Lese-Abfragen —, 122 für angemeldete). | (as), (jc) |
 | **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). **Seit v33.41 DROP + CREATE** — sie wäre vorher beim Anwenden gescheitert (`CREATE OR REPLACE VIEW` darf Spalten nur anhängen; nachgerechnet in einem lokalen Postgres, `naht_check`). | `docs/FUER-FERNANDO.md` §5 · (ei), (il) |
 | Migration `20260905_device_daily.sql` | Tagesaggregat als Tabelle (§11 Idee 17) — sonst verschwindet das Aggregat mit dem Prune nach 400 Tagen. Nach `20260903_oekosystem_v1_geraete.sql`. | `docs/FUER-FERNANDO.md` §6 · (ex) |
@@ -15558,14 +15863,14 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Edge-Function `device-ingest` | Der Empfänger für Geräte — im Repo, nicht ausgeliefert (`supabase functions deploy device-ingest --no-verify-jwt`). Erst mit dem ersten Gerät. | `docs/GERAETE-VERTRAG.md` · (ex) |
 | Migration `20260906_sensor_push.sql` | Brücken-Sperre (`payload_meta.notification_id`) + Cron `device-alerts` ruft `sensor-push` nur bei etwas Neuem (§11.3k). Nach `20260905_device_alerts_cron.sql`. | `docs/FUER-FERNANDO.md` §6 · (ey) |
 | Edge-Function `sensor-push` | Pusht `sensor_alert`-Inbox-Zeilen (VAPID, Stille, Pause, `notify_sensor`) — im Repo, nicht ausgeliefert (`supabase functions deploy sensor-push`). Ohne ihn landet ein Sensor-Alarm nur in der Inbox. | §11.3k · (ey) |
-| Edge-Function `delete-user` | Neu ausliefern (v5): Sperre für Organisations-Ersteller VOR dem ersten Schritt, Storage je Bucket, `ai_usage` + `species_search_log`, Listen aus `_shared/loeschung_regeln.mjs` (v33.17); davor schon die fünf Gerätetabellen (ey). | (ey), (hl) |
+| Edge-Function `delete-user` | *Seit v33.59 zusätzlich: kündigt ein laufendes Abo vor dem Löschen (Secret `STRIPE_SECRET_KEY`) und räumt jeden Bucket mit Nutzer-Ordner — Teil der Reparatur-Auslieferung oben.* Neu ausliefern (v5): Sperre für Organisations-Ersteller VOR dem ersten Schritt, Storage je Bucket, `ai_usage` + `species_search_log`, Listen aus `_shared/loeschung_regeln.mjs` (v33.17); davor schon die fünf Gerätetabellen (ey). | (ey), (hl) |
 | Migration `20260910_admin_analytics.sql` | `fn_admin_analytics` — Lese-Seite der Nutzungsmessung (v33.18): zählt je Ereignis und Tag, nur Zahlen, nur für Admins; die Karte „Nutzung" im Admin-Panel sagt bis dahin, dass die Funktion fehlt. | `docs/FUER-FERNANDO.md` §16 · (hm) |
 | Migration `20260912_snapshot_retention_manual.sql` | `manual` ist in `fn_cleanup_user_snapshots` nicht geschützt — ein bewusst angelegtes Cloud-Backup kann von automatischen Ständen verdrängt werden (6 Plätze + je neuester pro Typ). Mit „Update ohne Klick" entsteht je Auslieferung ein `pre_migration`. Live 11.09.: 0 `manual`-Zeilen. | `docs/FUER-FERNANDO.md` §19 · (hu) |
 | Migration `20260910_analytics_retention.sql` | `fn_analytics_prune(p_days)` (klemmt 30..730, nur `service_role`) + Cron `analytics-prune` täglich 03:40 mit 180 Tagen (v33.24); ohne sie wächst `analytics_events` ohne Ende. Die App nennt dieselbe Frist (`GS_ANALYTICS_TAGE`), `nutzung_check` hält beide zusammen. | `docs/FUER-FERNANDO.md` §16 · (hs) |
 | Migration `20260906_device_commands_expires_at.sql` | `device_commands.expires_at` — Vertrag §4, Regel-Modul und Empfänger nennen die Spalte, die Tabelle hatte sie nicht (`naht_check`). Nach `20260903_oekosystem_v1_geraete.sql`. | §11.3n · (fb) |
 | **Migration `20260904_plant_tasks_due_vorgezogen.sql`** | Nachfolgerin der Snooze-Sicht (enthält sie): eine Sensor-Regel `task:<key>` zieht eine Aufgabe vor (`vorgezogenAuf`, v32.53); bis dahin hält der Push-Cron eine vorgezogene Aufgabe erst am regulären Tag für fällig. Nur diese anwenden genügt. **Seit v33.41 DROP + CREATE** (siehe oben). | `docs/FUER-FERNANDO.md` §5 · (ep), (il) |
 | **Migration `20260916_plant_tasks_due_plantings.sql`** | Die Sicht liest BEIDE Pflanzenlisten. Live gemessen am 16.09.2026: 15 Garten-Pflanzungen mit Pflege-Aufgaben, und die Sicht hatte 23 Zeilen — alle aus `user_plants`. Der Aufgaben-Cron hat seit v26.93 an keine einzige Garten-Pflanzung erinnert; die App zählt beide Listen, der Server eine. Nachfolgerin von `20260904` (enthält sie); nur diese anwenden genügt. | `docs/KALENDER-V2.md` §8 · (il) |
-| Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
+| Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. **v33.59:** `own_rules_all` / `own_commands_all` verlangen jetzt, dass das Gerät der Person gehört. Offen dazu: `device-ingest` liest Befehle ohne `.eq('user_id', …)`. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
 
 ### Braucht eine Entscheidung oder eine Quelle
 
@@ -15576,6 +15881,15 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Zwei Oberflächen ohne Einstieg** | *(waren sechs — v33.05 hat jeden Eintrag einzeln auf seine WIRKUNG geprüft: zwei verdrahtet, zwei überholte entfernt, siehe (gx).)* Es bleiben `gsSafetyDefaults` — verdrahten ändert den **Sicherheitstext** vieler Detailseiten, das entscheidet kein Prüfstand — und `gsAROpen`: `ar_models` hat 30 Zeilen, davon **0 mit `gltf_url` und 0 mit `low_poly_url`** (09.09.2026, nur lesend gemessen). Es gibt kein einziges 3D-Modell; die Frage ist damit keine Code-Frage mehr, sondern ob Modelle beschafft werden. |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
 | Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
+| **Quiz: der Antwortschlüssel ist öffentlich** (v33.59) | `daily_quizzes.options` samt Lösung ist für jeden lesbar, weil der Client lokal wertet. Nach `20261110_sicherheit_quiz_punkte.sql` bringt das höchstens eine richtige Antwort je Tag. Schliessen hiesse: Optionen ohne Lösung ausliefern, Urteil erst vom Server. Davon hängt ab, ob ein Jahr Pro als Preis bleiben soll. (je) |
+| **Quiz-Battles: der Herausforderer kennt die Lösungen** (v33.59) | Er liefert Fragen UND `correct_idx`; die Migration prüft nur die Form (`_gs_battle_fragen_ok`). Eine falsch als richtig markierte Option geht durch, ELO ist damit nur bedingt verlässlich. Eng schliessen lässt es sich nur, wenn der Server die Fragen zieht. (je) |
+| **Deckel für Punkte und Erfolge** (v33.59) | Gewählt: 1'000 XP je Tag, +50 je Erfolgs-Metrik und Tag. Ein Deckel, kein Beleg — belegt wären die Zahlen erst, wenn der Server sie zählt. Die Serie wird nur auf die Zahl der Antworttage gekappt, nicht auf aufeinanderfolgende Tage; die öffentliche Rangliste zählt Altantworten weiter. (je) |
+| **Experten-Verifikation braucht ein Datenmodell** (v33.59) | Eine Zahlung setzt nie mehr „verifiziert"; der Knopf ist aus (`GS_EXPERTEN_ANFRAGE_AKTIV`). Es fehlt eine Anfrage ohne bestimmten Experten und eine Wahl in der App. Bestehende Zeilen mit `fee_paid_at` und `status='verified'` lesend nachsehen. (je) |
+| **KI-Tageslimits** (v33.59) | Gesetzt, nicht gemessen; sie stehen nur in `_shared/ki_tor.mjs` (`KI_GRENZEN`). Für bezahlte Pläne eine Missbrauchs-Bremse (alte Stundenbremse × 24), weil die App „unbegrenzt" verspricht. Wer senkt, ändert die Texte im Client mit; der Hinweis bei erreichtem Limit richtet sich seit v33.59 nach dem Plan (`_gsKiQuotaSatz`) — „Mit Pro: unbegrenzt" liest nur noch, wer keinen bezahlten Plan hat. (je) |
+| **Startangebot und Gratisphase** (v33.59) | Der Deckel des Startangebots wird beim Anlegen der Checkout-Session gezählt, die Zeile entsteht im Webhook — bei 99 von 100 können mehrere gleichzeitig bezahlen. Die Gratisphase gilt nur je Konto; über neue Konten ist sie wiederholbar (bräuchte eine Tabelle, und ein Hash der E-Mail ist ein Personendatum). (je) |
+| **Netlify-Auslieferung und die Stripe-Rückkehr** (v33.59) | `zahlung_regeln.mjs` kennt Netlify bewusst nicht als eigenen Ursprung: von dort endet die Rückkehr auf green-scan.ch. Bleiben → aufnehmen; sonst abschalten (CLAUDE.md §2.1). Dazu nachgestellt: wegen `Cross-Origin-Opener-Policy: same-origin-allow-popups` ist `window.opener` auf der Rückkehrseite immer `null`. Das Stripe-Fenster meldet sich seit v33.59 deshalb über einen `BroadcastChannel` — der gilt nur innerhalb EINES Ursprungs: von der Netlify-Adresse aus erfährt das Hauptfenster die Rückkehr erst, wenn das Fenster zu ist. (je) |
+| **Anzeigename aus der E-Mail** (v33.59) | Die App setzt nie mehr die E-Mail als öffentlichen Namen. Der Server schon: `fn_handle_new_user` legt ohne Namen den Anfang der E-Mail als `display_name` an, und der erscheint im Marktplatz — auch für `anon`. Neutraler Vorgabename und Umgang mit Bestandsprofilen sind eine Entscheidung. (je) |
+| **Weitere Entscheidungen aus v33.59** | Vorgabe-Rechte (`ALTER DEFAULT PRIVILEGES`: gemessen 16 SECURITY-DEFINER-Funktionen und 190 von 214 Relationen mit Schreibrecht für `anon`) · den KI-Schlüssel auch Admins nicht mehr herausgeben · Magic-Link über PKCE zurückbringen · `species-images` beim Konto-Löschen leeren oder als Gemeingut behalten · Organisations-Logos von fremden Hosts · `scan_cache` sofort leeren · `supabase-js` 2.119.0 (bei der Festlegung sechs Tage alt) oder 2.118.0 · Stripe 18 über esm.sh in `stripe-create-connect-account` · Update-Hinweis in der Android-Hülle (zwei Entwürfe). Jede mit Für und Wider in §30. (je) |
 
 ### Technische Schuld, benannt und bewusst offen
 
@@ -15591,10 +15905,15 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Overlay-Apps über der Teilen-Vorschau** | Gegen eine App mit Overlay-Recht (`SYSTEM_ALERT_WINDOW`) hilft die Antipp-Sperre von 0,7 s nicht. `setFilterTouchesWhenObscured` würde jede App mit Bildschirmfilter (Blaulicht, Dimmer) GreenScan ganz unbedienbar machen — bewusst nicht gesetzt; der Schaden wäre ein Scan auf das eigene Kontingent. Ein gezielter Schutz bräuchte einen Weg von der Seite zur Hülle nur für die Dauer der Vorschau. | (ja) |
 | **Beispieldaten melden nicht an** | `_seed.js` setzt einen Token ohne drei Teile; `gsSecurityInit` räumt ihn 500 ms nach dem Start ab, und nach ein paar Sekunden steht der Anmeldebildschirm (gemessen 21.10.2026). Ob Prüfstände dahinter messen (render/contrast/touch/a11y), ist nicht nachgeprüft; als eigene Aufgabe vorgeschlagen. `apk_check` T0–T13 stellen die Anmeldung selbst her. | (ja) |
 | **Ein geteiltes Foto in der APK überlebt den Prozess nicht** | Das Fach liegt im Arbeitsspeicher; beendet Android die App vor dem Bestimmen, ist das Foto weg und die App sagt beim nächsten Start nichts. Steht als `GS_HUELLE_ANDERS 'teilen'` auf dem Bildschirm. Eine Ablage in `getCacheDir()` wäre die Abhilfe, wenn es auf Telefonen auffällt. | (ja) |
-| **Teilen und Zwischenablage in der Hülle** | Vier Teilen-Wege (`gsAchShare`, `gsShareSpecies`, `gsShareApp`, `_gsShare`) fallen in einer WebView auf die Zwischenablage zurück; zwei Meldungen „kopiert" kommen vor dem `writeText`-Ergebnis. Ein Kanal-Ziel „teilen" (ACTION_SEND, Text) wäre die Antwort. | (ix) |
+| **Teilen und Zwischenablage in der Hülle** | Vier Teilen-Wege (`gsAchShare`, `gsShareSpecies`, `gsShareApp`, `_gsShare`) fallen in einer WebView auf die Zwischenablage zurück. **Seit v33.59** kommt jede Meldung „kopiert" erst nach dem Ergebnis (`gsKopieren`), und eine verweigerte Zwischenablage wird gesagt. Offen bleibt das Kanal-Ziel „teilen" (ACTION_SEND, Text). | (ix), (je) |
 | **Foto-Ansicht per `window.open(this.src)` in der Hülle** | Tagebuch- und Rezeptfotos öffnen den Browser des Telefons (die App wird verlassen); ein `blob:`/`data:`-Foto ergibt „kein Ziel". Gehört in eine Ansicht in der App. | (ix) |
 | **Kein SPA-Rückfall im Paket** | `_redirects` liefert im Web für jede unbekannte Adresse `index.html`; der AssetServer der Hülle antwortet 404. Ein relativer Link ohne `screen=` (Benachrichtigungen) endet in der App leer. | (ix) |
-| 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
+| 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) **v33.59 nachgemessen:** `daily-push` und `push-test` lesen und schreiben Spalten von `push_subscriptions`, die es live nicht gibt (`auth`, `send_hour`, `locale`, `enabled` …) — sie könnten so nie senden. Mit Push-Endpunkt-Prüfung und festen Versionen versehen, aber nicht lauffähig gemacht. |
+| **`plant-doctor-diagnose` liest falsche Spaltennamen** (vorbestehend) | `loadDiseaseContext` fragt `plant_diseases.name_lat` / `symptoms` / `affects_plants` / `treatment` — live heissen sie anders (`scientific_name`, `symptoms_de` …). Die Abfrage scheitert mit 42703, und der Kontext ist still leer. Gefunden vom Spalten-Scan in `edge_check` (der für Spalten nur die Zahlungs-Functions abdeckt). (je) |
+| **Edge-Functions ohne Lockfile** | Seit v33.59 ist jede Import-Angabe exakt — aber nur das Paket selbst. Seine Abhängigkeiten (stripe → qs, die Unterpakete von supabase-js, die esm.sh-Kette) werden bei jeder Auslieferung neu aufgelöst. Ein `deno.lock` braucht Deno und die Supabase-CLI (§30). `docs/RISIKEN.md` §7. (je) |
+| **Offene Reste der Client-Reparatur** (v33.59) | `_gsFremdBild` lässt ein führendes `%2e%2e/` nach dem Speicher-Präfix durch (bleibt auf dem eigenen Supabase-Host) · die Prüfwerk-Zeilen im Planer sind nur sicher, weil jeder Ladeweg durch `_gsPlanAufbereiten` geht (an der Senke nicht escaped) · die PATCH-Wege auf `push_subscriptions` (Einstellungen, Standort) setzen kein `updated_at`, und live gibt es keinen Trigger dafür — sie treffen alle Abos der Person; „zuletzt genutzt" heisst damit „zuletzt registriert" · ein Plan von vor dem Eigentümer-Stempel wird beim ersten Lesen dem angemeldeten Konto zugeschrieben (`gsPlans.stempeln`; gelesen, nicht gemessen: läuft das vor dem Kontowechsel-Abgleich, erbt das neue Konto ihn) · die KI-Functions nehmen von einem älteren Client weiter Fotos mit EXIF an (der Client schickt seit v33.59 keine mehr) · die in v33.59 neu angelegten Texte (u. a. `settings_datenverbindung[_hint]`, `mkt_status_*`) haben noch keine Übersetzung — bis dahin steht dort Deutsch. (je) |
+| **Bestandsfotos tragen noch EXIF** | Der Client entfernt Metadaten seit v33.59 vor jedem Upload. Was vorher in `post-images`, `map-find-photos`, `scan-images`, `user-plant-photos` und `garden-diary-photos` hochgeladen wurde, trägt sie weiter; ein freigegebener Fund mit altem Foto wird beim Freigeben neu kodiert, alles andere braucht einen einmaligen Server-Lauf. Und `deletePost` löscht die Zeile, nicht das Objekt. (je) |
+| **Drei Archivdateien werden ausgeliefert** | `docs/_archiv/A_Z_AUDIT_FINDINGS_v28.95.json`, `docs/_archiv/SICHERHEIT_JETZT.sql`, `docs/_archiv/apply_pending_v30_87.sh` — seit v33.59 aus Root bzw. `scripts/` dorthin verschoben. `noindex` verhindert die Indexierung, nicht den Abruf (Web-Root = Repo). Wer sie nicht ausliefern will, entfernt sie. (je) |
 
 
 Keine **Release-Blocker** offen.

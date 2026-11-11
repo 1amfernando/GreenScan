@@ -51,7 +51,7 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.02** Der Zeitanker stand fest auf 2025 — ein Jahr spaeter waren alle
   Aufgaben ueberfaellig, keine heute, kein Messwert der letzten Woche.
 - **v33.33** Ernte-Log mit `{plant, amount}` statt `{pflanze, menge}` —
-  Naturjahr NaN, Timeline „? · 0 g". Regel: `robust_check` Fall 25 misst die
+  Naturjahr NaN, Timeline „? · 0 g". Regel: `robust_check` „Beispieldaten“ misst die
   WIRKUNG der Beispieldaten (neun Listen muessen ankommen); wer Seed aendert,
   prueft Schluessel, Felder UND Zeitanker gegen die Lesestellen.
 
@@ -192,3 +192,80 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.55** Die Aufraeum-Funktion der Teilen-Vorschau loeschte das Foto — und
   sie laeuft auch, wenn `switchTab` alle Dialoge abraeumt. Regel: wer eine
   Folge (Loeschen, Senden) an ein Schliessen haengt, fragt, WER geschlossen hat.
+- **v33.59** Ein Feld, das „nur ein Emoji" ist, kam aus KI, Fremd-Cache, Lina
+  und Backups an rund zwei Dutzend Senken an — keine hat es escaped. Regel:
+  `_gsEmoji`; und ein geteilter, von jedem beschreibbarer Scan-Cache ist eine
+  Bestimmung durch Fremde, kein Sparhebel.
+- **v33.59** `escHtml` hielt einen Wert in `style="…"`, aber
+  `red;background-image:url(…)` lud trotzdem eine fremde Adresse. Regel: ein
+  CSS-Wert braucht eine Erlaubnisliste (`_gsKbFarbe`), keine Escape-Funktion.
+- **v33.59** Jeder Link mit `type=recovery` schrieb seinen Token als Sitzung —
+  ein untergeschobener Link meldete in ein FREMDES Konto an. Regel: eine
+  Adresse ist kein Beleg; Token, `?billing=success` und `?screen=` brauchen den
+  Server bzw. eine Liste (`_gsAuthRecovery`, `_gsBillingPruefen`).
+- **v33.59** Die Reparatur escapte rohe Zahlen mit `escHtml` — `escHtml(0)` ist
+  `''`, im Ops-Cockpit verschwand jede 0. Regel: eine Zahl braucht `String(n)`.
+- **v33.59** Der ueberarbeitete Webhook bettete `stripe_products(tier)` ein;
+  live gibt es dafuer keinen Fremdschluessel — er haette jede Zahlung mit 500
+  beantwortet, und der Pruefstand war gruen, weil die Attrappe jede Einbettung
+  beantwortete. Regel: Attrappen tragen den Live-Stand und scheitern wie das
+  Original; ein Blick auf den ZUSAMMENGEFUEHRTEN Diff findet, was keine Gruppe
+  allein sah.
+- **v33.59** Das KI-Tor setzte zahlenden Kunden Tageslimits unter den
+  bisherigen Stand, waehrend die App „unbegrenzt" verspricht. Regel: ein
+  Kontingent wird gegen das gemessen, was der Kunde bekam und zugesagt
+  bekommt (`BREMSE` = alte Stundenbremse × 24).
+- **v33.59** Eine aeltere, nicht angewandte Migration ersetzte dieselbe
+  Funktion wie eine neue — danach eingespielt, stand wieder der alte Rumpf.
+  Regel: Waechter auf eine Marke im Rumpf, und beide Reihenfolgen nachspielen
+  (`rls_check` 70_reihenfolge).
+- **v33.59** `.gitignore` schloss `scripts/package-lock.json` aus; `npm ci`
+  verlangte sie, `git add -A` uebersprang sie still. Regel: eine Pflichtdatei
+  mit `git ls-files` nachsehen.
+- **v33.59** Zwei Sitzungen arbeiteten auf demselben Stand an denselben
+  KI-Functions, eine lieferte live aus. Erst `git fetch` vor dem Bump zeigte
+  Konflikte in neun Function-Dateien. Regel: vor dem Bump holen; vereinen,
+  nicht ersetzen.
+- **v33.59** Die Beispieldaten der Pruefstaende meldeten nie an (Token ohne
+  JWT-Form, nach 500 ms abgeraeumt) — jeder Pruefstand vermass eine
+  abgemeldete App. Der erste Lauf mit bleibender Sitzung fand: ein Flush ohne
+  Aenderung stempelte „zuletzt gesichert" (`gs_sync_last_push`), das Backup
+  hielt jeden Stand fuer geaendert. Regel: ein Stempel gehoert hinter einen
+  wirklichen Schreibvorgang; und ein Pruefstand stellt den Zustand her, in dem
+  die App im Betrieb ist.
+- **v33.59** Ein Upsert (`resolution=merge-duplicates`) ohne `?on_conflict=`
+  loest auf dem Primaerschluessel auf — an `feedback_votes` und
+  `push_subscriptions` (eigener UNIQUE-Schluessel) scheiterte der zweite
+  Schreibversuch mit 23505. Regel: ein Upsert nennt seinen Schluessel selbst.
+- **v33.59** Ein Nachschlag `EMOJI[zeile.kategorie]` mit dem Wert „constructor“
+  zeigte den Quelltext einer Funktion. Regel:
+  `_gsNachschlag(tabelle, schluessel, rueckfall)` — nur eigene Eintraege.
+- **v33.59** COOP `same-origin-allow-popups` macht `window.opener` auf der
+  Rueckkehrseite aus Stripe zu `null` — der Handler wartete darauf, das
+  Fenster schloss sich nie. Regel: wer eine Kopfzeile setzt, sucht die Stellen
+  im Code, die von ihr abhaengen; die Meldung geht ueber einen
+  `BroadcastChannel` (`_gsBillingMeldung`).
+- **v33.59** Der Login-Abgleich schrieb Gaerten aus der Cloud in den Speicher,
+  setzte aber die Variable nicht — das naechste Rendern sah eine leere Liste,
+  legte „Mein Garten“ an und speicherte darueber (Datenverlust; dieselbe Form
+  in der Snapshot-Wiederherstellung). Und zwei von vier Rueckspiel-Wegen
+  siebten nicht. Regel: EIN Eingang, `_gsListeEinspielen` — Sieb, Speicher und
+  Variable zusammen; die Variable nur nach gelungenem Schreiben.
+- **v33.59** `gsPlans.parken` legte beim Abmelden eine zweite Kopie an und sah
+  den Schreibversuch nicht an — bei vollem Speicher war der Plan still weg.
+  Regel: die erste Kopie erst wegwerfen, wenn der Rettungsweg „geschrieben“
+  meldet; vorher den Platz freiraeumen, den man ohnehin raeumen wollte.
+- **v33.59** `_gsArtAnzeige` uebernahm die ganze Fassung der vorsichtigsten
+  Dublette — 14 Eintraege wurden dadurch ESSBARER, als sie selbst sagen.
+  Regel: jede Angabe einzeln nur zur vorsichtigen Seite (Maximum, ODER, UND).
+- **v33.59** Spanisch war App-Sprache, die Notfall-Erkennung kannte kein
+  spanisches Wort; die erste Reparatur machte dafuer italienische Pflegefragen
+  zum Notfall („come“). Regel: ein neues Vokabular gegen die harmlosen Saetze
+  der ANDEREN Sprachen messen.
+- **v33.59** `contrast_check`, `touch_check`, `perf_check` hatten einen eigenen
+  Seed und massen eine abgemeldete App; mit Sitzung und Daten kamen zehn
+  Stellen unter AA zum Vorschein. Regel: erst die Sitzung, dann ein Exit-Code.
+- **v33.59** `plant-doctor-diagnose` las live vier Spalten, die es nicht gibt —
+  der Kontext war still leer. Regel: jede Spalte einer Edge-Function gegen
+  die Live-Spalten (`edge_check` 60_spalten), und EINE Liste, was ausgeliefert
+  wird (`supabase/functions/AUSLIEFERUNG.json`).

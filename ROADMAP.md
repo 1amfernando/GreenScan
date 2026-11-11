@@ -5,8 +5,10 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v33.56 · App **live** auf green-scan.ch · released seit v26.0 · **und seit v33.49 als Android-APK** (`android/`, `android/README.md`).
-**Zuletzt gegen die Produktionsdatenbank geprüft:** 07.09.2026 (nur lesend:
+**Stand:** v33.59 · App **live** auf green-scan.ch · released seit v26.0 · **und seit v33.49 als Android-APK** (`android/`, `android/README.md`).
+**Zuletzt gegen die Produktionsdatenbank geprüft:** 11.11.2026 (nur lesend:
+`pg_proc`, `pg_policies`, `schema_migrations`, Liste der Edge-Functions — für die
+Sicherheitsreparatur v33.59, `STATUS.md` (je)) · davor 07.09.2026 (nur lesend:
 `is_admin_user`, `profiles`-Policies, die drei Alt-Sensortabellen,
 `fn_species_search` + `species_search_cache`, `ai_usage`) · davor 02.09.2026
 (P0-1, P1-1, P1-2 — siehe unten).
@@ -185,6 +187,20 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Ideen für die Sensoren** (`docs/OEKOSYSTEM-V1.md` §11, v32.51): 25 Ideen nach Stufe, 35 Behauptungen nachgeprüft; §1 des Entwurfs korrigiert (es gibt eine Alt-Schicht `sensor_*` + BLE + ESP32-Assistent mit Sitzungs-Token). Vier Stufe-0-Reparaturen: Regen-Draht (tot seit v31.84), Backup mit Messwerten, Deckel-Reihenfolge, `sensor_alert`-Dublette. **v32.52 hat 2 · 3 · 11 · 21 gebaut** (Katalog-Leser, Wetter als Gerät, Dublettensperre + UUID, Gerät im Seed), **v32.53 die 4** (Regel `task:<key>` → Aufgabe mit `vorgezogenAuf`, Giess-Bestätigung am Sensor, Migration `20260904_plant_tasks_due_vorgezogen.sql`), **v32.54 die 7** (Stille-Zeit lokal, eine Aufgaben-Meldung je Tag aus beiden Listen, Sensor-Alarme mit Abkühlzeit, Wochenzähler), **v32.55 die 5 und 22** (Vorlagen nur mit belegter Zahl, Messgrössen in vier Sprachen), **v32.56 die 6 und 10/Stufe 0** (Lina kennt die Zahlen, Frost aus der Vorhersage im Kalender), **v32.57 die 9 und 12** (Vergleich zweier Geräte, CSV-Export der Messwerte mit Einheit), **v32.58 die 8** (Karte „Deine Woche"), **v32.59 die 13/Stufe 0** (Giess-Zettel, druckbar), **v32.60 die 24/Stufe 0 und 21b** (Planer nennt Vorhersage und Messung getrennt; Diagramm-Text). **Damit ist Stufe 0 aus §11 abgeschlossen** — 15 von 25 Ideen gebaut. **Stufe 1 vorbereitet (05.09.2026, §11.3j):** Vertrag `docs/GERAETE-VERTRAG.md`, Regel-Modul `ingest_regeln.mjs` mit `ingest_check` (11 Fälle), `device-ingest`-Skelett, Migrationen `device_daily` und `device_alerts_cron` — nicht ausgeführt, nicht angewandt; **v32.61** liest den Anker `#geraet-<id>`, den der Cron in seine Meldungen schreibt (Messwerte öffnen, Kachel hervorheben, entferntes Gerät nennen). **06.09.:** der Push zum Alarm (`sensor-push` mit Modul und `sensor_push_check`, 9 Fälle; `20260906_sensor_push.sql`; §11.3k) — die Brücke lief nur in eine Richtung, ein Sensor-Alarm wäre nie auf dem Telefon gelandet. **v32.62:** Stufe 1 in der App (§11.3l) — Gerät koppeln (Token in der App, nur der Hash zum Server, einmal gezeigt), Cloud-Abgleich (Status und Werte aus `devices` / `device_readings`, derselbe eine Weg), eine Instanz je Alarm. **v32.63:** Regeln reisen mit (§11.3m) — die Lücke aus v32.62: die App liess Alarme aus, der Server kannte die Regeln nicht; jetzt Upsert in `device_rules`, Auslassen nur bei `cloud_ok`. **06.09., Prüfstand 27 `naht_check`:** passen App, Empfänger, Cron und Pusher zusammen? Erster Lauf: `expires_at` fehlte in `device_commands` (§11.3n). **v32.64:** Pausieren vom Telefon aus (PATCH, geprüft) und die Rückrichtung der Regeln (`last_fired_at`, `enabled`, dort gelöscht → nur in der App; §11.3o). **Nächste Schritte:** Idee 1 (eine Geräteschicht, braucht Fernandos Entscheid) → mit dem ersten Gerät: Deploy von `device-ingest` und `sensor-push`, Migrationen anwenden, `curl`-Batch nach Vertrag §1, dann die Ansicht „Mein Naturjahr" auf `device_daily` (gegen echte Zeilen) und ein `enabled`-Schalter für Regeln, wenn jemand ihn braucht.
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
+
+### Seit dem 11.11.2026 (v33.59) — Sicherheitsprüfung über die ganze App
+
+Auf Fernandos Auftrag vom 10.11.2026 („Alle Sicherheitslücken sollten behoben werden"):
+27 Finder, 209 Rohfunde, 187 von einem Widerleger bestätigt; behoben in 30
+Gruppen (24 vor, sechs nach der Schlussprüfung), jede mit einem Fall, der vorher rot war, und einer Gegenprüfung durch einen
+zweiten Agenten; danach eine Vollständigkeits-Kritik (33 Funde ohne Bericht nachgeprüft)
+und eine Schlussprüfung des ganzen Diffs (zwölf Linsen — sie fand u. a. einen Webhook, der
+ausgeliefert jedes Abo-Ereignis mit 500 beantwortet hätte). Drei neue Prüfstände:
+`sicherheit_check`, `edge_check`, `rls_check`. **Der Client wirkt mit dem Merge; die sechs
+Migrationen `20261110_*` und die überarbeiteten Edge-Functions sind NICHT angewandt und
+NICHT ausgeliefert** — bis dahin sind die serverseitigen Lücken live offen. Reihenfolge und
+Handgriffe: `docs/FUER-FERNANDO.md` §30; was offen bleibt und was eine Entscheidung braucht:
+`STATUS.md` §2.
 
 ### Seit dem 11.11.2026 (kein Bump) — das Brett: wie sich alle KI-Sitzungen austauschen
 

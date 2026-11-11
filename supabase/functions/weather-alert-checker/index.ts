@@ -1,7 +1,7 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import { cronOderService } from "../_shared/auth_vergleich.mjs";
-import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden } from "../_shared/push_helfer.mjs";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden, abosAuswaehlen, abarbeiten } from "../_shared/push_helfer.mjs";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 import webpush from "npm:web-push@3.6.7";
 
 // weather-alert-checker v2 (v30.36 — 2026-06-24)
@@ -198,7 +198,8 @@ async function logSend(
 
 async function deleteIfGone(sub: any, status?: number) {
   if (status === 410 || status === 404) {
-    await sb.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+    // v33.59: je Abo (id) — (user_id, endpoint) ist eindeutig, ein Endpunkt allein traf auch fremde Zeilen.
+    await sb.from("push_subscriptions").delete().eq("id", sub.id);
   }
 }
 
@@ -289,25 +290,33 @@ Deno.serve(async (req: Request) => {
       .not("gps_lng", "is", null);
     if (e1) throw e1;
 
+    // v33.59 (Sicherheitspruefung 10.11.2026): nur bekannte Push-Dienste, je Nutzer die
+    // ABOS_JE_NUTZER neuesten (jedes Abo kostet einen Wetterabruf), parallel mit Budget
+    // statt seriell ohne Frist; die Abos EINES Nutzers nacheinander (Dedup je Nutzer).
+    const auswahl = abosAuswaehlen(subs || []);
     let totalSent = 0, totalInboxed = 0, errors = 0;
     const details: any[] = [];
-    for (const sub of (subs || [])) {
-      try {
-        const r = await processSubscription(sub, settings.vapid, dryRun);
-        if (r.sent) totalSent += r.sent.length;
-        if (r.inboxed) totalInboxed += r.inboxed;
-        details.push({ user: sub.user_id.slice(0, 8), ...r });
-      } catch (e: any) {
-        errors++;
-        details.push({ user: sub.user_id.slice(0, 8), error: String(e.message || e) });
+    const lauf = await abarbeiten(auswahl.gruppen, async (gruppe: any[]) => {
+      for (const sub of gruppe) {
+        try {
+          const r = await processSubscription(sub, settings.vapid, dryRun);
+          if (r.sent) totalSent += r.sent.length;
+          if (r.inboxed) totalInboxed += r.inboxed;
+          details.push({ user: sub.user_id.slice(0, 8), ...r });
+        } catch (e: any) {
+          errors++;
+          details.push({ user: sub.user_id.slice(0, 8), error: String(e.message || e) });
+        }
       }
-    }
+    });
 
     if (!dryRun) await gcOldRows();
 
     return new Response(JSON.stringify({
       ok: true, dry_run: dryRun, version: 2,
       total_subs: subs?.length || 0,
+      im_lauf: auswahl.abos.length, abgewiesen: auswahl.abgewiesen.length, gedeckelt: auswahl.gedeckelt,
+      abgebrochen: lauf.abgebrochen ? { nutzer_nicht_begonnen: lauf.nichtBegonnen, nutzer_haengt: lauf.haengt } : false,
       pushed_count: totalSent,
       inboxed_count: totalInboxed,
       errors,

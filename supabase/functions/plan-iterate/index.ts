@@ -12,13 +12,30 @@
 // `claude-sonnet-4-20250514`, und das ist seit dem 15.06.2026 abgeschaltet. Jeder
 // „Plan anpassen"-Aufruf endete seither im Fehler. Das Modell kommt jetzt aus der
 // Kette der Rolle „vision" (_shared/modelle.mjs), mit Rückfall.
+// v33.59: dazu ÜBERARBEITET (Sicherheitspruefung 10.11.2026: Tor, Deckel, feste Fehlersaetze) —
+// der Spiegel gilt seither nicht mehr wortgetreu; Vergleich mit der Auslieferung nach dem Deploy.
 // ══════════════════════════════════════════════════════════════════════════
 // plan-iterate v3 (v26.50 ai_daily_usage Logging) — v2-base + RPC-Log vor success-Return.
 // Region-aware: liest scan_input.region_used aus garden_plans, lädt regional_garden_calendars als Constraint.
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 // v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
-import { anthropicFetch } from "../_shared/modelle.mjs";
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
+// v33.59 (Sicherheitspruefung 10.11.2026): das Tor vor dem KI-Aufruf. Vorher gab es
+// keine Bremse ausser iterations.length — eine Spalte, die der Besitzer selbst
+// schreibt (garden_plans_owner_all); jeder neue Plan setzte sie ohnehin auf 0.
+// Reihenfolge: Anmeldung → Deckel → Tor (Plan, Sperre, Reservierung) → anthropicFetch
+// (Modellkette; ein Rueckfall darin bucht nichts zusaetzlich — reserviert ist EINMAL) →
+// bei Ablehnung/Netzfehler Freigabe ueber kiFreigabeNoetig.
+import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiToken, kiTor } from "../_shared/ki_tor.mjs";
+// v33.59 (Brett 9d96): stop_reason und Form der Antwort, BEVOR sie den Plan ersetzt.
+import { planAntwortPruefen } from "../_shared/plan_antwort.mjs";
+
+const KI_FN = "plan-iterate";
+// plan: der Satz am Limit haengt vom Plan ab (v33.59 — kein Abo-Angebot an Zahlende).
+function fehler(code: string, status: number, plan?: string) {
+  return new Response(JSON.stringify({ error: kiFehlerCode({ code, plan }) }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,8 +71,10 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
+    const token = kiToken(req.headers.get("Authorization"));
+    if (!token) return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: "Bearer " + token } } });
+    const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -66,8 +85,11 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Anthropic API key not configured" }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { plan_id, user_message } = await req.json();
-    if (!plan_id || !user_message) {
+    const roh = await req.text();
+    let eingabe: any = null;
+    try { eingabe = JSON.parse(roh); } catch (_) { return fehler("eingabe", 400); }
+    const plan_id = eingabe?.plan_id, user_message = eingabe?.user_message;
+    if (typeof plan_id !== "string" || !plan_id || typeof user_message !== "string" || !user_message.trim()) {
       return new Response(JSON.stringify({ error: "plan_id and user_message required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -83,10 +105,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const iterations = (plan.iterations || []) as any[];
+    const iterations = (Array.isArray(plan.iterations) ? plan.iterations : []) as any[];
     if (iterations.length >= MAX_ITERATIONS) {
       return new Response(JSON.stringify({ error: `Iteration limit reached (${MAX_ITERATIONS})` }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // v33.59: Deckel (Wunsch UND der Plan, den der Besitzer frei schreiben kann), dann
+    // das Tageskontingent — atomar reserviert, fail-closed. Erst danach kostet es etwas.
+    const deckel = kiEingabeOk("plan-iterate", { bytes: roh.length, texte: { user_message, ai_analysis: plan.ai_analysis } });
+    if (!deckel.ok) return fehler(deckel.code, deckel.status);
+    const tor = await kiTor({ fn: KI_FN, userClient, admin, userId: user.id });
+    if (!tor.erlaubt) return fehler(tor.code, tor.status, tor.plan);
 
     let regionalContext: any | null = null;
     const regionSlug = (plan.scan_input as any)?.region_used;
@@ -128,29 +157,48 @@ Deno.serve(async (req) => {
     });
     } catch (e) {
       const zuLang = e && (e.name === "TimeoutError" || e.name === "AbortError");
-      return new Response(JSON.stringify({ error: { code: zuLang ? "timeout" : "upstream", message: zuLang
-        ? "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — bitte mit weniger Fotos oder kuerzerem Horizont erneut versuchen."
-        : ("Verbindung zur KI fehlgeschlagen: " + String((e && e.message) || e).slice(0, 120)) } }), { status: zuLang ? 504 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("plan-iterate upstream", e);
+      if (kiFreigabeNoetig(e)) await kiFreigeben({ fn: KI_FN, admin, userId: user.id });
+      return new Response(JSON.stringify({ error: zuLang ? { code: "timeout", message: "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — bitte erneut versuchen." } : kiFehlerCode("upstream") }), { status: zuLang ? 504 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!anthropicRes.ok) {
-      const errBody = await anthropicRes.text();
-      return new Response(JSON.stringify({ error: "Anthropic API error", status: anthropicRes.status, detail: errBody.slice(0, 500) }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("plan-iterate anthropic", anthropicRes.status, (await anthropicRes.text()).slice(0, 500));
+      // v33.59: jede Ablehnung geht zurueck (der Anbieter rechnet sie nicht) — EINE Regel, kiFreigabeNoetig.
+      if (kiFreigabeNoetig(anthropicRes)) await kiFreigeben({ fn: KI_FN, admin, userId: user.id });
+      return fehler(anthropicRes.status === 429 ? "upstream_limit" : "upstream", 502);
     }
 
     const anthropicData = await anthropicRes.json();
-    const rawText = anthropicData.content?.[0]?.text || "";
 
-    let newAnalysis: any = null;
-    let changeSummary: string = "";
-    try {
-      const cleaned = rawText.replace(/^```(?:json)?\s*/, "").replace(/\s*```\s*$/, "").trim();
-      newAnalysis = JSON.parse(cleaned);
-      changeSummary = newAnalysis.change_summary || "";
-      delete newAnalysis.change_summary;
-    } catch (parseErr) {
-      return new Response(JSON.stringify({ error: "Failed to parse JSON response", raw_preview: rawText.slice(0, 800) }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // v26.50: Log usage (nicht-blockierend) — auch wenn die Antwort danach verworfen wird:
+    // der Anbieter hat gerechnet.
+    const nutzungBuchen = async () => {
+      try {
+        await admin.rpc("fn_log_ai_usage", {
+          p_edge_fn: "plan-iterate",
+          // v33.59: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig, vgl. v30.95).
+          p_model: anthropicData?.model || modellKette("vision", modellSecret("vision"))[0],
+          p_tokens_in: anthropicData?.usage?.input_tokens || 0,
+          p_tokens_out: anthropicData?.usage?.output_tokens || 0,
+        });
+      } catch (_) { /* nicht-blockierend */ }
+    };
+
+    // v33.59 (Brett 9d96): abgeschnitten → nichts schreiben, klarer Satz. Die Reservierung
+    // bleibt (kiFreigabeNoetig gilt nur, wenn der Anbieter NICHT gerechnet hat). Und eine
+    // Antwort in falscher Form ersetzt den Plan nie (planAntwortPruefen).
+    const pruef = planAntwortPruefen(anthropicData);
+    if (pruef.zustand !== "ok") {
+      console.error("plan-iterate antwort", pruef.zustand, pruef.grund);
+      await nutzungBuchen();
+      if (pruef.zustand === "abgeschnitten") {
+        return new Response(JSON.stringify({ error: { code: "abgeschnitten", message: "Die Antwort der KI war zu lang und wurde abgeschnitten. Dein Plan ist unverändert — bitte den Wunsch kürzer fassen." } }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return fehler("parse", 502);
     }
+    const newAnalysis: any = pruef.analyse;
+    const changeSummary: string = pruef.zusammenfassung;
 
     const newIteration = {
       ts: new Date().toISOString(),
@@ -171,17 +219,11 @@ Deno.serve(async (req) => {
       .eq("id", plan_id);
 
     if (updateErr) {
-      return new Response(JSON.stringify({ error: "DB update failed", detail: updateErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("plan-iterate update", updateErr);
+      return fehler("db", 500);
     }
 
-    // v26.50: Log usage (fire-and-forget) — Sonnet-Modell
-    try {
-      await admin.rpc("fn_log_ai_usage", {
-        p_edge_fn: "plan-iterate",
-        p_tokens_in: anthropicData?.usage?.input_tokens || 0,
-        p_tokens_out: anthropicData?.usage?.output_tokens || 0,
-      });
-    } catch (_) { /* nicht-blockierend */ }
+    await nutzungBuchen();
 
     return new Response(JSON.stringify({
       ok: true,
@@ -193,6 +235,7 @@ Deno.serve(async (req) => {
       regional_context_used: regionalContext?.slug || null,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String((e as any)?.message ?? e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("plan-iterate", e);
+    return fehler("intern", 500);
   }
 });

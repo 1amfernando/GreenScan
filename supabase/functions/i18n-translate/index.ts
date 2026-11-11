@@ -1,5 +1,6 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+import { constantTimeEquals } from "../_shared/auth_vergleich.mjs";
 // v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
@@ -33,12 +34,8 @@ const sb = createClient(SUPABASE_URL, SERVICE_ROLE, {
 // Fail-closed: alles andere → 403 (unverändertes Verhalten für reguläre User, die
 // Übersetzungen ohnehin per GET aus i18n_translations lesen).
 
-function constantTimeEquals(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return mismatch === 0;
-}
+// v33.59 (Brett 4515): der Vergleich kommt aus EINEM Modul (_shared/auth_vergleich.mjs) statt
+// aus einer eigenen Kopie — dort sind zwei leere Werte kein Treffer.
 
 // Gate: nur Admin-JWT oder service_role. Liefert null wenn erlaubt, sonst eine 403-Response.
 async function denyIfNotAdmin(req: Request, cors: Record<string,string>): Promise<Response | null> {

@@ -1,0 +1,213 @@
+{
+  "_": "Auslieferungsstand der Edge-Functions (v33.59, Austausch-Runde offen-x2): EINE Liste je Verzeichnis. zustand: live = laeuft, nichts auszuliefern · ausliefern = geaendert, ohne Voraussetzung · erst_nach = erst nach der Migration in „nach\" · nicht = nicht ausliefern (grund). live_version: gelesen am 10.11.2026 (list_edge_functions), fuer die sieben am 10./11.11. neu ausgelieferten (ai-proxy, plant-doctor-diagnose, plan-iterate, garden-scan-analyze, pest-identify, mushroom-identify, key-health-check) am 11.11.2026 03:28 UTC nachgelesen; null = nie ausgeliefert. edge_check 60_spalten haelt die Liste gegen die Verzeichnisse und verlangt fuer live/ausliefern/erst_nach den Spalten-Scan. Reihenfolge und Secrets: docs/FUER-FERNANDO.md §30b/§30d.",
+  "stand": "2026-11-11",
+  "functions": {
+    "admin-seed-species": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v4"
+    },
+    "ai-proxy": {
+      "zustand": "erst_nach",
+      "nach": "20261110_sicherheit_ki_kontingent.sql",
+      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "live_version": "v3"
+    },
+    "book-ingest": {
+      "zustand": "live",
+      "grund": "laeuft live ohne Quelltext im Repo (nur BEFUND.md) — nichts auszuliefern",
+      "live_version": "v9"
+    },
+    "create-checkout": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v7"
+    },
+    "customer-portal": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v6"
+    },
+    "daily-push": {
+      "zustand": "nicht",
+      "grund": "nie ausgeliefert; liest/schreibt Spalten von push_subscriptions, die es live nicht gibt und brain_memory — reparieren oder entfernen ist eine Entscheidung (edge_check 60_spalten: bekannt kaputt)",
+      "live_version": null
+    },
+    "daily-push-checker": {
+      "zustand": "ausliefern",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand, gerundeter Ort",
+      "live_version": "v9"
+    },
+    "delete-user": {
+      "zustand": "ausliefern",
+      "grund": "raeumt alle Buckets mit Nutzerordnern, kuendigt ein laufendes Abo (braucht STRIPE_SECRET_KEY)",
+      "live_version": "v5"
+    },
+    "device-ingest": {
+      "zustand": "erst_nach",
+      "nach": "20260903_oekosystem_v1_geraete.sql",
+      "grund": "nie ausgeliefert; devices, device_readings, device_commands und metric_catalog gibt es live erst mit der Geraete-Migration („wenn das erste Geraet da ist\")",
+      "live_version": null
+    },
+    "engagement-push-checker": {
+      "zustand": "ausliefern",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand",
+      "live_version": "v2"
+    },
+    "entitlements": {
+      "zustand": "nicht",
+      "grund": "nie ausgeliefert; gehaertet fuer den Tag, an dem sie es wird — die erste Auslieferung ist eine Entscheidung, keine Folge dieser Reparatur",
+      "live_version": null
+    },
+    "feedback-triage": {
+      "zustand": "ausliefern",
+      "grund": "Feedback-Texte gedeckelt und als Daten abgegrenzt, Modell-Antwort nur fuer den gesendeten Stapel",
+      "live_version": "v3"
+    },
+    "garden-scan-analyze": {
+      "zustand": "erst_nach",
+      "nach": "20261110_sicherheit_ki_kontingent.sql",
+      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "live_version": "v11"
+    },
+    "i18n-translate": {
+      "zustand": "ausliefern",
+      "grund": "nur die Versionen festgelegt",
+      "live_version": "v5"
+    },
+    "key-health-check": {
+      "zustand": "ausliefern",
+      "grund": "nur die Versionen festgelegt",
+      "live_version": "v2"
+    },
+    "knowledge-bulk-gen": {
+      "zustand": "ausliefern",
+      "grund": "Geheimnis konstantzeitig, Anzahl gedeckelt, KI-Zeilen nur in erlaubte Spalten mit Quelle „KI-Entwurf, ungeprüft\", Pilze „Status unklar\", achievements mit der Live-Spalte icon",
+      "live_version": "v13"
+    },
+    "marketplace-publish": {
+      "zustand": "ausliefern",
+      "grund": "ein gesperrtes Konto veroeffentlicht nicht mehr ueber diesen Weg",
+      "live_version": "v4"
+    },
+    "mushroom-identify": {
+      "zustand": "erst_nach",
+      "nach": "20261110_sicherheit_ki_kontingent.sql",
+      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "live_version": "v4"
+    },
+    "pest-identify": {
+      "zustand": "erst_nach",
+      "nach": "20261110_sicherheit_ki_kontingent.sql",
+      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "live_version": "v4"
+    },
+    "plan-iterate": {
+      "zustand": "erst_nach",
+      "nach": "20261110_sicherheit_ki_kontingent.sql",
+      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "live_version": "v5"
+    },
+    "plant-doctor-diagnose": {
+      "zustand": "erst_nach",
+      "nach": "20261110_sicherheit_ki_kontingent.sql",
+      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; dazu der Krankheits-Kontext aus den Live-Spalten von plant_diseases",
+      "live_version": "v6"
+    },
+    "push-test": {
+      "zustand": "nicht",
+      "grund": "nie ausgeliefert; liest/schreibt Spalten von push_subscriptions, die es live nicht gibt — reparieren oder entfernen ist eine Entscheidung (edge_check 60_spalten: bekannt kaputt)",
+      "live_version": null
+    },
+    "send-push": {
+      "zustand": "ausliefern",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand",
+      "live_version": "v2"
+    },
+    "send-receipt": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v4"
+    },
+    "sensor-push": {
+      "zustand": "nicht",
+      "grund": "nie ausgeliefert; gehaertet fuer den Tag, an dem sie es wird — die erste Auslieferung ist eine Entscheidung, keine Folge dieser Reparatur",
+      "live_version": null
+    },
+    "species-bulk-seed": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v5"
+    },
+    "species-search": {
+      "zustand": "ausliefern",
+      "grund": "nur die Versionen festgelegt",
+      "live_version": "v2"
+    },
+    "stripe-admin-extend-webhook": {
+      "zustand": "ausliefern",
+      "grund": "Admin-Geheimnis konstantzeitig, abonniert charge.refunded",
+      "live_version": "v3"
+    },
+    "stripe-bootstrap": {
+      "zustand": "ausliefern",
+      "grund": "Admin-Geheimnis konstantzeitig",
+      "live_version": "v7"
+    },
+    "stripe-checkout": {
+      "zustand": "ausliefern",
+      "grund": "Rueckkehr nur auf eigene Adressen, Gratistage und Startangebot am Server",
+      "live_version": "v8"
+    },
+    "stripe-complete-setup": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v6"
+    },
+    "stripe-create-connect-account": {
+      "zustand": "ausliefern",
+      "grund": "ein fremdes Stripe-Konto wird abgewiesen",
+      "live_version": "v2"
+    },
+    "stripe-expert-checkout": {
+      "zustand": "ausliefern",
+      "grund": "nur der Autor zahlt, nie fuer sich selbst, Betrag fest",
+      "live_version": "v2"
+    },
+    "stripe-final-audit": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v5"
+    },
+    "stripe-import-fernando-sub": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v5"
+    },
+    "stripe-portal": {
+      "zustand": "ausliefern",
+      "grund": "Rueckkehr nur auf eigene Adressen",
+      "live_version": "v5"
+    },
+    "stripe-restructure-pro-only": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v5"
+    },
+    "stripe-setup-webhook": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v6"
+    },
+    "stripe-webhook": {
+      "zustand": "ausliefern",
+      "grund": "Erstattung/Rueckbuchung entziehen eine Lifetime, keine Verifikation per Zahlung, der 500-Fehler der Einbettung behoben",
+      "live_version": "v12"
+    },
+    "weather-alert-checker": {
+      "zustand": "ausliefern",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand, gerundeter Ort",
+      "live_version": "v6"
+    }
+  }
+}

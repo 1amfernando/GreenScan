@@ -3,10 +3,10 @@
 // v30.39 (Audit-Welle 3 #5): Quiet-Hours gegen Europe/Zurich statt UTC (zurichHour via Intl, DST-sicher).
 //   Cron alle 3h (0 7,10,13,16,19 UTC) → bei Default-Ruhefenster 22-7 unkritisch, aber für eigene Fenster korrekt.
 // Tages-Dedup pro Kategorie. dry_run=1 zum Testen.
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import { cronOderService } from "../_shared/auth_vergleich.mjs";
-import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden } from "../_shared/push_helfer.mjs";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden, abosAuswaehlen, abarbeiten } from "../_shared/push_helfer.mjs";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 import webpush from "npm:web-push@3.6.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -24,7 +24,8 @@ async function alreadySent(userId: string, cat: string) { const { data } = await
 async function logSend(userId: string, cat: string, title: string, body: string, payload: any, result: string, httpStatus?: number, errorMsg?: string) {
   await sb.from("push_send_log").insert({ user_id: userId, category: cat, title, body, payload_meta: payload, result, http_status: httpStatus, error_msg: errorMsg });
 }
-async function deleteIfGone(sub: any, status?: number) { if (status===410||status===404) await sb.from("push_subscriptions").delete().eq("endpoint", sub.endpoint); }
+// v33.59: je Abo (id) — (user_id, endpoint) ist eindeutig, ein Endpunkt allein traf auch fremde Zeilen.
+async function deleteIfGone(sub: any, status?: number) { if (status===410||status===404) await sb.from("push_subscriptions").delete().eq("id", sub.id); }
 
 async function processSub(sub: any, vapid: any, dryRun: boolean) {
   const userId = sub.user_id as string;
@@ -88,11 +89,19 @@ Deno.serve(async (req: Request) => {
     if (!okAuth) return new Response(JSON.stringify({error:"unauthorized"}),{status:401,headers:cors});
     const { data: subs, error } = await sb.from("push_subscriptions").select("*").lt("push_failure_count",5);
     if (error) throw error;
+    // v33.59 (Sicherheitspruefung 10.11.2026): nur bekannte Push-Dienste, je Nutzer gedeckelt,
+    // parallel mit Budget statt seriell ohne Frist; die Abos EINES Nutzers nacheinander (Tages-Dedup je Nutzer).
+    const auswahl = abosAuswaehlen(subs || []);
     let totalSent=0, suppressed=0, errors=0; const details:any[]=[];
-    for (const sub of (subs||[])) {
-      try { const r = await processSub(sub, settings.vapid, dryRun); if (r.suppressed) suppressed++; if (r.sent) totalSent += r.sent.length; details.push({ user: String(sub.user_id).slice(0,8), ...r }); }
-      catch(e:any){ errors++; details.push({ user:String(sub.user_id).slice(0,8), error:String(e.message||e) }); }
-    }
-    return new Response(JSON.stringify({ ok:true, dry_run:dryRun, version:2, total_subs: subs?.length||0, pushed_count: totalSent, suppressed_count: suppressed, errors, details: dryRun?details:details.length }),{headers:cors});
+    const lauf = await abarbeiten(auswahl.gruppen, async (gruppe: any[]) => {
+      for (const sub of gruppe) {
+        try { const r = await processSub(sub, settings.vapid, dryRun); if (r.suppressed) suppressed++; if (r.sent) totalSent += r.sent.length; details.push({ user: String(sub.user_id).slice(0,8), ...r }); }
+        catch(e:any){ errors++; details.push({ user:String(sub.user_id).slice(0,8), error:String(e.message||e) }); }
+      }
+    });
+    return new Response(JSON.stringify({ ok:true, dry_run:dryRun, version:2, total_subs: subs?.length||0,
+      im_lauf: auswahl.abos.length, abgewiesen: auswahl.abgewiesen.length, gedeckelt: auswahl.gedeckelt,
+      abgebrochen: lauf.abgebrochen ? { nutzer_nicht_begonnen: lauf.nichtBegonnen, nutzer_haengt: lauf.haengt } : false,
+      pushed_count: totalSent, suppressed_count: suppressed, errors, details: dryRun?details:details.length }),{headers:cors});
   } catch(e:any){ return new Response(JSON.stringify({error:String(e.message||e)}),{status:500,headers:cors}); }
 });

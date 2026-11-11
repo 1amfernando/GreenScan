@@ -202,6 +202,54 @@ const K = [
     }),
   },
   {
+    // v33.59 (Brett 2e3a): gsAboCanUse kannte einen Zweig 'scan', der einen Zaehler gs_scans_<Tag> las,
+    // den niemand schrieb, und den niemand rief. Das Scan-Kontingent gilt an EINER Stelle — dieser Fall
+    // geht den echten Weg (analyzeImage) mit einem Server, der Nein sagt, und mit einem, der Ja sagt.
+    name: 'Scan-Kontingent an EINER Stelle · gsQuotaPeek(„scan") sagt Nein → analyzeImage ruft die KI 0×, die Karte sagt es; Ja → 1× KI, danach gsQuotaConsume(„scan"); gsAboCanUse rechnet keine zweite Scan-Regel',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__sk; A.reset({ mode: 'proxy', mem: '' });
+      localStorage.setItem('gs_abo_plan', 'free');
+      // 1 · keine zweite Rechnung: ein Zaehler gs_scans_ (den niemand schreibt) aendert nichts
+      const heute = new Date().toDateString();
+      localStorage.setItem('gs_scans_' + heute, '999');
+      const scanAntwort = gsAboCanUse('scan'), unbekannt = gsAboCanUse('merkmal_das_es_nicht_gibt');
+      localStorage.removeItem('gs_scans_' + heute);
+      if (scanAntwort !== unbekannt) return { ok: false, warum: 'gsAboCanUse(„scan") rechnet eine eigene Scan-Regel (' + scanAntwort + ' gegen ' + unbekannt + ' fuer ein unbekanntes Merkmal) — aus einem Zaehler, den keine Stelle schreibt' };
+      // 2 · der echte Weg
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d'); g.fillStyle = '#3f9142'; g.fillRect(0, 0, 160, 160);
+      g.strokeStyle = '#1d5c22'; for (let i = 0; i < 12; i++) { g.beginPath(); g.moveTo(10 + i * 12, 150); g.lineTo(60 + i * 8, 20); g.stroke(); }
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+      window.stopCamera = () => {}; window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true); window.gsAddToScanHistory = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Oktober', season: 'Herbst', monthNum: 10, canton: 'ZH' });
+      window._gsScanDHash = async () => 'hash-kontingent'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      const peek = [], consume = [];
+      window.gsQuotaPeek = async (f) => { peek.push(f); return { allowed: false, unlimited: false, used: 15, limit: 15 }; };
+      window.gsQuotaConsume = (f) => { consume.push(f); };
+      A.text = JSON.stringify({ name: 'Löwenzahn', latin: 'Taraxacum officinale', confidence: 91, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      try { if (typeof switchTab === 'function') switchTab('scanner'); } catch (_) {}
+      await analyzeImage(b64, 'image/jpeg');
+      const karteNein = ((document.getElementById('scan-result') || {}).textContent || '').replace(/\s+/g, ' ');
+      const kiNein = A.rufe.filter(r => /ai-proxy$|anthropic\.com/.test(r.url)).length;
+      if (peek.indexOf('scan') < 0) return { ok: false, warum: 'analyzeImage fragt das Kontingent nicht (gsQuotaPeek: ' + JSON.stringify(peek) + ')' };
+      if (kiNein !== 0) return { ok: false, warum: 'trotz Nein des Servers ' + kiNein + '× die KI gerufen' };
+      if (!/Heute schon viel entdeckt/.test(karteNein) || !/15/.test(karteNein)) return { ok: false, warum: 'die Karte sagt das Limit nicht: „' + karteNein.slice(0, 90).trim() + '…"' };
+      if (consume.length) return { ok: false, warum: 'ohne Scan verbucht: ' + JSON.stringify(consume) };
+      // 3 · Gegenrichtung: Ja → genau ein Aufruf, danach verbucht
+      A.rufe.length = 0; peek.length = 0;
+      window.gsQuotaPeek = async (f) => { peek.push(f); return { allowed: true, unlimited: false, used: 3, limit: 15 }; };
+      window._gsScanDHash = async () => 'hash-kontingent-2';
+      await analyzeImage(b64, 'image/jpeg');
+      const kiJa = A.rufe.filter(r => /ai-proxy$/.test(r.url)).length;
+      const karteJa = ((document.getElementById('scan-result') || {}).textContent || '');
+      if (kiJa !== 1 || !/L.wenzahn/.test(karteJa)) return { ok: false, warum: 'mit Ja: KI ' + kiJa + '× · Karte „' + karteJa.replace(/\s+/g, ' ').slice(0, 60) + '…"' };
+      if (JSON.stringify(consume) !== '["scan"]') return { ok: false, warum: 'verbucht: ' + JSON.stringify(consume) + ' statt ["scan"]' };
+      if (Object.keys(localStorage).some(k => /^gs_scans_/.test(k))) return { ok: false, warum: 'ein gs_scans_-Schluessel ist entstanden' };
+      return { ok: true, info: 'gsAboCanUse(scan) = unbekanntes Merkmal · Nein → 0× KI, Karte „Heute schon viel entdeckt" · Ja → 1× KI, 1× gsQuotaConsume(scan)' };
+    }),
+  },
+  {
     name: 'Pull legt nichts auf die Platte · alter Server (mit key) → nur Arbeitsspeicher, Altbestand in localStorage wird geraeumt; neuer Server (ohne key) → mode proxy, kein Schluessel; enabled false → alles weg',
     lauf: async () => __seite.evaluate(async (KEY) => {
       const A = window.__sk; A.reset({ mode: null, mem: '' });

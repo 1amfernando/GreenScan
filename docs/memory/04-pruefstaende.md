@@ -1,9 +1,10 @@
 # 04 · Die Pruefstaende — welcher fragt was
 
 Alle liegen in `scripts/`, alle laufen ohne Netz (`file://` + Playwright aus
-`scripts/package.json`); vier brauchen ein lokales Postgres
-(`bash scripts/_pg_local.sh start`, Port 54329) und melden ohne es „nicht
-pruefbar" (Exit 2), nie gruen. Alle auf einmal:
+`scripts/package.json`, seit v33.59 per `npm ci` gegen das eingecheckte
+`scripts/package-lock.json`); die mit einer SQL-Haelfte brauchen ein lokales
+Postgres (`bash scripts/_pg_local.sh start`, Port 54329) und melden ohne es
+„nicht pruefbar" (Exit 2), nie gruen. Alle auf einmal:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
@@ -55,6 +56,9 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42); seit v33.50 die SCHREIB-Seite: jeder Admin-Schreibweg durch _gsAdmTun (GS_ADM_AKTIONEN, sechs Zustaende mit Grund, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es (_gsAdmGesperrt, _gsAdmAktionHinweisHtml), die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, die Deckung rechnet _gsAdmSpurDeckung, ein Ersatzweg nur bei nicht_verfuegbar, RAISE EXCEPTION = abgelehnt, und eine SQL-Haelfte spielt 20260925_admin_audit_vollstaendig.sql in einem lokalen Postgres nach (ohne: Exit 2) |
 | `android_check` | haelt die App, was eine Android-App verspricht? gsZurueck (eine Regel, zwei Ausloeser), GS_VOLLBILD_OVERLAYS, ein Verlaufs-Eintrag, gsLaeuftAlsApp, assetlinks (seit v33.43) |
 | `risiko_check` | was geht SPAETER schief? Jahreszahlen in jaehrlich wiederkehrenden Texten, ungedeckelte Listen-Abfragen (eingeordnet), die Zahlen in docs/RISIKEN.md gegen den Quelltext, und seit v33.45 die Fristen-Karte im Admin-Panel in BEIDE Richtungen (GS_FRISTEN, gsFristenStand) |
+| `sicherheit_check` | kommt Fremdes als TEXT an, ueber ALLE Wege? (seit v33.59) Fall-Dateien in `scripts/sicherheit/` (`_`-Dateien sind Helfer), je Datei eine frisch geladene App mit einer ANGEMELDETEN Sitzung (seit v33.59 legt `_seed.js` sie fuer alle Pruefstaende an); feindliche Werte `h.BOESE` / `h.OC` / `h.OCQ` / `h.ATTR`; gemessen wird `window.__pwned` UND dass der gutartige Wert sichtbar dasteht |
+| `edge_check` | halten die Edge-Functions, was sie ueber ihre Tore sagen? (seit v33.59) Rechnung der `_shared/*.mjs` in Node, Rand am Quelltext; die Zahlungs-Functions laufen als ECHTE `index.ts` in Node 22 gegen eine Attrappe, die sich wie PostgREST verhaelt (`scripts/edge/_live_schema.mjs`: Live-Spalten und -Fremdschluessel, `PGRST200` / `42703`); `40_lieferkette`: jede Abhaengigkeit mit exakter Version |
+| `rls_check` | haelt die Datenbank, was die App ueber sie annimmt? (seit v33.59, lokales Postgres) Live-AUSSCHNITTE im Wortlaut → Angriff gelingt → Migration zweimal → Angriff scheitert, App-Weg geht weiter → Gegenprobe; `05_fixture_policies` haelt jeden Nachbau gegen `scripts/rls/live_policies.json`, `70_reihenfolge` spielt beide Reihenfolgen alter und neuer Migrationen |
 | `austausch_check` | kommt an, was eine KI-Sitzung der naechsten sagt? Das Brett (docs/austausch), die zwei Uebergabe-Zeilen in STATUS.md §0, die Zahlen in STATUS.md §1 (seit 11.11.2026; nur Node und git) |
 | `pruefstaende` | ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
 
@@ -111,6 +115,23 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 - Ein Ersatz muss sich verhalten wie die Sache, die er ersetzt: ein
   `navigator.serviceWorker`-Ersatz, dessen `ready` nie aufloest, misst den
   Ersatz und nicht die App.
+- Ein Bild mit `loading="lazy"` in einem verborgenen Bildschirm laedt nie — sein
+  `onerror` feuert nie. Ein XSS-Fall fuer einen Tab zeigt den Tab (`switchTab`).
+- „Der Dialog wurde aufgerufen" ist nicht „der Dialog ist bedienbar": unter dem
+  Anmeldebildschirm existiert er, ohne dass ihn jemand sieht. `elementFromPoint`
+  an seiner Stelle misst es (v33.59).
+- Eine zweite Seite derselben Herkunft teilt den `localStorage` mit der ersten:
+  entfernt sie den Token, ist auch die Hauptseite abgemeldet.
+- Was ein Pruefstand nicht laden kann, misst er nicht — er misst den Rueckfall
+  (bis v33.59 die Systemschrift statt der echten Schriften).
+- Eine Attrappe, die mehr kann als das Original (jede Einbettung, jede Spalte,
+  ein echtes Promise mit `catch`), prueft die Attrappe; ein Datenbank-Nachbau
+  ohne eine Live-Policy prueft eine Datenbank, die es nicht gibt (v33.59).
+- Ein Fall, der eine Senke UND ihre Quellen absichert, prueft oft nur die
+  Quellen — den Rueckbau nur der Senke einzeln probieren.
+- Ein Fall, der gegen eine Momentaufnahme misst, sieht nur, was sie kennt:
+  `loeschung_check` verglich mit den Buckets, die Objekte hatten, und uebersah
+  neun mit Nutzer-Ordner. Gemessen wird gegen die Liste ALLER Behaelter.
 - Ein Fall, der `gsRegisterServiceWorker` auf `file://` prueft, ist aus dem
   falschen Grund gruen — die Funktion steigt dort schon in Zeile 1 aus. Wer
   einen Service-Worker-Weg misst, braucht einen eigenen HTTP-Server
@@ -138,11 +159,14 @@ Bauform: `Geteilt.java` (ohne Android) wird uebersetzt und vom
 `GeteiltFahrer` mit gestellter Uhr und Attrappen-Quellen gefahren (G1–G9);
 der `KanalFahrer` haelt ein ECHTES `Geteilt.Fach`, Node spielt die andere App
 (`TEILEN`, `LANGSAM`, `UHR`, `ANSTOSS`), und die Seite holt durch die echte
-Klasse ab (T0–T13). Eine Falle aus dem Bau: die Beispieldaten melden NICHT an —
-ihr Token hat keine drei Teile, `gsSecurityInit` raeumt ihn nach 500 ms ab,
-und nach ein paar Sekunden steht der Anmeldebildschirm; jede Abholung wartete
-dahinter (zu Recht). Ein Fall, der eine Anmeldung braucht, stellt sie mit
-einem Init-Skript NACH dem Seed her.
+Klasse ab (T0–T13). Eine Falle aus dem Bau: die Beispieldaten meldeten bis v33.58 NICHT an —
+ihr Token hatte keine drei Teile, `gsSecurityInit` raeumte ihn nach 500 ms ab,
+und nach ein paar Sekunden stand der Anmeldebildschirm; jede Abholung wartete
+dahinter (zu Recht). **Seit v33.59 legt `_seed.js` eine Sitzung an, die
+bleibt** — `gsRequire` geht damit durch, und der erste volle Lauf fand zwei
+Fehler, die abgemeldet nie messbar waren (CLAUDE.md §7.1, `backup_check`).
+Wer einen ABGEMELDETEN Weg prueft, raeumt die Sitzung im Fall ausdruecklich
+ab.
 
 **Seit v33.53 eine fuenfte Regel daraus: zwei Haelften in zwei Sprachen
 verbindet der Pruefstand mit der ECHTEN anderen Haelfte, nie mit einer

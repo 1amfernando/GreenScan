@@ -20,14 +20,23 @@
 // Setup: identisch zu ai-proxy. ANTHROPIC_API_KEY wird hier NICHT gebraucht.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+// v33.59 (Lieferkette): dieselbe supabase-js wie alle anderen Functions, nicht mehr esm.sh@2.39.0.
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 
 // v24.13 SECURITY-FIX (D1 HIGH): CORS Origin-aware (siehe ai-proxy).
-const ALLOWED_ORIGINS = ["https://greenscan.ch", "https://www.greenscan.ch"];
+// v33.59: dieselbe Liste wie ai-proxy — die kanonische Domain green-scan.ch fehlte (nur die
+// Mail-Domain stand da), und /\.pages\.dev$/ liess JEDE Cloudflare-Pages-Seite zu; dazu tragen
+// jetzt auch Fehlerantworten den Ursprung.
+const ALLOWED_ORIGINS = [
+  "https://green-scan.ch",
+  "https://www.green-scan.ch",
+  "https://greenscan.ch",
+  "https://www.greenscan.ch",
+];
 function corsHeaders(origin: string | null): Record<string, string> {
-  let allowed = "https://greenscan.ch";
+  let allowed = "https://green-scan.ch";
   if (origin) {
-    if (ALLOWED_ORIGINS.includes(origin) || /\.pages\.dev$/.test(origin) ||
+    if (ALLOWED_ORIGINS.includes(origin) || /^https:\/\/([a-z0-9-]+\.)?greenscan-app\.pages\.dev$/i.test(origin) ||
         /^http:\/\/localhost(:\d+)?$/.test(origin) ||
         /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
       allowed = origin;
@@ -65,11 +74,11 @@ serve(async (req) => {
   if (req.method !== "GET") return jsonResp({ error: "Method Not Allowed" }, 405, origin);
 
   const auth = req.headers.get("authorization") || "";
-  if (!auth.startsWith("Bearer ")) return jsonResp({ error: "auth required" }, 401);
+  if (!auth.startsWith("Bearer ")) return jsonResp({ error: "auth required" }, 401, origin);
 
   const URL = Deno.env.get("SUPABASE_URL");
   const ANON = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!URL || !ANON) return jsonResp({ error: "supabase config missing" }, 503);
+  if (!URL || !ANON) return jsonResp({ error: "supabase config missing" }, 503, origin);
 
   const supa = createClient(URL, ANON, {
     global: { headers: { Authorization: auth } },
@@ -78,7 +87,7 @@ serve(async (req) => {
 
   const { data: userRes, error: userErr } = await supa.auth.getUser();
   const user = userRes?.user;
-  if (userErr || !user) return jsonResp({ error: "invalid session" }, 401);
+  if (userErr || !user) return jsonResp({ error: "invalid session" }, 401, origin);
 
   // 1) Tier ermitteln
   let tier = "free";
@@ -126,5 +135,5 @@ serve(async (req) => {
     recipes_export: recipesExport,
     offline_mode: offlineMode,
     server_time: new Date().toISOString(),
-  });
+  }, 200, origin);
 });

@@ -84,7 +84,13 @@ Dauer 15–25 Minuten. `perf_check` misst nur und urteilt nie.
 
 ## 7 · Bump
 
-Fuenf Marker, immer zusammen (`robust_check` Fall 24 haelt sie zusammen):
+**Vorher holen** (`git fetch`, `git log HEAD..origin/main`): eine andere Sitzung
+kann dieselben Dateien geaendert oder live ausgeliefert haben — in v33.59 waren
+es neun Function-Dateien und vier Stellen in `index.html`. Vereinen, nicht
+ersetzen, und die Pruefstaende beider Seiten an die vereinte Form anpassen,
+nicht ruhigstellen (CLAUDE.md §5, §7.1).
+
+Fuenf Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen):
 
 | Marker | wo |
 |---|---|
@@ -117,7 +123,9 @@ git push -u origin claude/<thema>-<id>
 
 Commit-Betreff `vXX.YY: <Satz>`, Rumpf mit Bereichs-Bullets. PR gegen `main`;
 **CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle mit
-Postgres). Ein gruener Lauf auf der eigenen Maschine ist keine Aussage ueber
+Postgres; Actions auf vollen Commit-SHAs, `npm ci` gegen das eingecheckte
+Lockfile — eine Pflichtdatei mit `git ls-files` nachsehen, `.gitignore` hat das
+Lockfile einmal still verschluckt, v33.59). Ein gruener Lauf auf der eigenen Maschine ist keine Aussage ueber
 den Runner (v33.x: 32 von 32 rot, weil ein Pfad fest verdrahtet war). Squash-
 Merge, dann den Branch nachziehen:
 
@@ -136,7 +144,11 @@ kostet nichts; der Merge buendelt sie ohnehin.
 
 Nie direkt auf `main`. Nie DDL auf der Produktivdatenbank — Migrationen
 liegen in `supabase/migrations/` und heissen „nicht angewandt", bis Fernando
-sie anwendet. Nie „live verifiziert" schreiben, ohne zu sagen womit — die
+sie anwendet; ebenso werden Edge-Functions aus dem Repo erst wirksam, wenn
+jemand sie ausliefert. Eine Server-Reparatur, die im Repo liegt, ist live
+OFFEN — und das Repo ist oeffentlich: eine offene Luecke wird so beschrieben,
+dass der Betreiber weiss, was zu tun ist, nie mit einer fertigen Anfrage, die
+sie ausnutzt (v33.59). Nie „live verifiziert" schreiben, ohne zu sagen womit — die
 Live-Seite ist aus einer Cloud-Sitzung nicht erreichbar (`CONNECT … 403`).
 
 ## 10 · Was eine Zusammenfassung ist

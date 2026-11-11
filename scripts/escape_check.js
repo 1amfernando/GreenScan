@@ -32,13 +32,13 @@ const warte = (ms) => new Promise(r => setTimeout(r, ms));
 
 const FAELLE = [
   {
-    name: 'A2 · Community-Feed: `type` aus social_posts steht als Text im title-Attribut, ein javascript:-Bild faellt weg, ein https-Bild bleibt',
+    name: 'A2 · Community-Feed: `type` aus social_posts steht als Text im title-Attribut, ein javascript:-Bild faellt weg, ein Bild aus dem eigenen Speicher bleibt (seit v33.59 kein fremder https-Host mehr)',
     lauf: async () => {
       const r = await __seite.evaluate(async () => {
         const iso = new Date().toISOString();
         socialPosts = [
           { id: 'p1', user_id: 'u-x', type: '" onmouseover="window.__pwned=1', author_name: 'A', content: 't', created_at: iso, photo_url: 'javascript:window.__pwned=1' },
-          { id: 'p2', user_id: 'u-y', type: 'fund', author_name: 'B', content: 'u', created_at: iso, photo_url: 'https://bilder.example/x.jpg' },
+          { id: 'p2', user_id: 'u-y', type: 'fund', author_name: 'B', content: 'u', created_at: iso, photo_url: SB_URL_DEFAULT + '/storage/v1/object/public/post-images/u-y/x.jpg' },
         ];
         currentSocialFilter = 'all';
         renderSocialFeed();
@@ -56,8 +56,8 @@ const FAELLE = [
       if (r.pwned !== undefined || r.onmouse) return { ok: false, warum: 'Code lief: ' + JSON.stringify(r) };
       if (r.titel !== '" onmouseover="window.__pwned=1') return { ok: false, warum: 'title-Attribut nicht der rohe Text: ' + JSON.stringify(r.titel) };
       if (!r.bilder1 || r.bilder1.length !== 0) return { ok: false, warum: 'javascript:-Bild gerendert: ' + JSON.stringify(r.bilder1) };
-      if (!r.bilder2 || r.bilder2.length !== 1 || !/^https:\/\/bilder\.example\/x\.jpg$/.test(r.bilder2[0])) return { ok: false, warum: 'https-Bild fehlt: ' + JSON.stringify(r.bilder2) };
-      return { ok: true, info: 'title = roher Text · 0 onmouseover · javascript:-Bild weg · https-Bild da' };
+      if (!r.bilder2 || r.bilder2.length !== 1 || !/\/storage\/v1\/object\/public\/post-images\/u-y\/x\.jpg$/.test(r.bilder2[0])) return { ok: false, warum: 'Speicher-Bild fehlt: ' + JSON.stringify(r.bilder2) };
+      return { ok: true, info: 'title = roher Text · 0 onmouseover · javascript:-Bild weg · Speicher-Bild da' };
     },
   },
   {

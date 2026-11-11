@@ -49,6 +49,18 @@ for (const m of QUELLE.matchAll(new RegExp(ZUGRIFF + "\\(\\s*['\"]([A-Za-z0-9_.:
 // Praefix-Bildungen: setItem('gs_x_' + irgendwas
 const praefixe = new Set();
 for (const m of QUELLE.matchAll(new RegExp(ZUGRIFF + "\\(\\s*['\"]([A-Za-z0-9_.:-]+_)['\"]\\s*\\+", 'g'))) praefixe.add(m[1]);
+// v33.59: die zweite Bauform — der Name entsteht zuerst in einer VARIABLEN
+// (`var key = 'gs_x_' + tag;` … `localStorage.setItem(key, …)`). Fuenf Familien
+// (gs_frost_logged_, gs_weather_logged_, gs_score_logged_, gs_sh_lastalert_,
+// gs_corrupt_bak__) fielen damit durch die Suche oben und ueberlebten das
+// Abmelden, ohne dass dieser Pruefstand sie je gesaet hat.
+const praefixeVariable = new Set();
+for (const m of QUELLE.matchAll(/(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*['"]([A-Za-z0-9_.:-]+_)['"]\s*\+/g)) {
+  const danach = QUELLE.slice(m.index, m.index + 1500);
+  if (new RegExp(ZUGRIFF + "\\(\\s*" + m[1].replace(/\$/g, '\\$') + "\\s*[,)]").test(danach)) {
+    praefixe.add(m[2]); praefixeVariable.add(m[2]);
+  }
+}
 // Ein Praefix ist kein Schluessel — sonst meldet der Bericht 'gs_aicalls_'
 // als unklassifiziert, obwohl es diesen Schluessel nie gibt.
 praefixe.forEach(p => feste.delete(p));
@@ -122,6 +134,71 @@ const GEGENPROBE_LUEGE = 'gs_scan_history';            // steht in GS_USER_KEYS
     };
   }, { feste: Array.from(feste), praefixe: Array.from(praefixe), fremd: GEGENPROBE_FREMD, luege: GEGENPROBE_LUEGE });
 
+  // ── F · Tagesfamilien und Sicherungen sind GEDECKELT (v33.59) ──────────
+  // In der Liste zu stehen hilft erst beim Abmelden; solange jemand angemeldet
+  // bleibt, entstand je Tag ein Schluessel. Gefahren wird der ECHTE Schreibweg
+  // je Familie, mit alten Tagen davor — danach darf nur heute uebrig sein.
+  const F = await page.evaluate(async () => {
+    const out = {};
+    const familie = (p) => { const r = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(p) === 0) r.push(k); } return r.sort(); };
+    const saeen = (p, tage) => tage.forEach(t => localStorage.setItem(p + t, '1'));
+    const heuteIso = new Date().toISOString().slice(0, 10);
+    const alt = ['2025-01-01', '2025-06-30', '2026-01-02'];
+    window.sbIsLoggedIn = () => true;
+    window.sbFetch = async () => ({ data: [], error: null });
+    window.sbGetConfig = () => true;
+    const echtGet = gsStore.get;
+    gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-00000000000a' : echtGet.call(gsStore, k, d));
+    const fahre = async (name, p, f) => {
+      saeen(p, alt);
+      try { await f(); } catch (e) { out[name] = { fehler: String(e && e.message || e) }; return; }
+      out[name] = { uebrig: familie(p) };
+    };
+    // Garten-Score
+    await fahre('gs_score_logged_', 'gs_score_logged_', () => window.gsLogGardenScore());
+    // Frost: Vorhersage mit Frost heute
+    await fahre('gs_frost_logged_', 'gs_frost_logged_', async () => {
+      _gsWeatherData = { daily: { time: [0, 1, 2, 3, 4].map(i => new Date(Date.now() + i * 864e5).toISOString().slice(0, 10)),
+        temperature_2m_min: [-3, 5, 6, 7, 8], temperature_2m_max: [4, 9, 9, 9, 9] } };
+      gsCheckFrostWarning();
+    });
+    // Wetter: gestellter Wetterdienst
+    await fahre('gs_weather_logged_', 'gs_weather_logged_', async () => {
+      const tage = [0, 1, 2, 3, 4, 5, 6].map(i => new Date(Date.now() + i * 864e5).toISOString().slice(0, 10));
+      const n = (v) => tage.map(() => v);
+      const data = { current_weather: { temperature: 12, weathercode: 1, windspeed: 5 },
+        hourly: { time: [], temperature_2m: [] },
+        daily: { time: tage, weathercode: n(1), temperature_2m_max: n(15), temperature_2m_min: n(5), precipitation_sum: n(0),
+          precipitation_probability_max: n(10), windspeed_10m_max: n(10), sunrise: n(tage[0] + 'T07:00'), sunset: n(tage[0] + 'T17:00'), uv_index_max: n(2) } };
+      const echtFetch = window._gsFetch;
+      window._gsFetch = async () => ({ ok: true, status: 200, json: async () => data });
+      try { await loadGardenWeather(true); } finally { window._gsFetch = echtFetch; }
+    });
+    // KI-Tageszaehler (dasselbe Muster, Geschwister): Gratis-Plan
+    localStorage.setItem('gs_abo_plan', 'free');
+    await fahre('gs_aicalls_', 'gs_aicalls_', () => gsAboTrackAICall());
+    out.heute = { iso: heuteIso, ds: new Date().toDateString() };
+    // Sicherung beschaedigter Schluessel: 9 alte Sicherungen, dann ein unrettbarer Schluessel
+    for (let i = 1; i <= 9; i++) localStorage.setItem('gs_corrupt_bak__ps_votes__' + (1700000000000 + i), 'alt-' + i);
+    localStorage.setItem('ps_feedback', 'kaputt{{{');
+    window.gsStorageIntegrityCheck();
+    out.bak = { uebrig: familie('gs_corrupt_bak__'), max: window.GS_CORRUPT_BAK_MAX, original: localStorage.getItem('ps_feedback') };
+    // Gegenrichtung: alle Sicherungen, die geblieben sind, sind die NEUESTEN (die von eben dabei)
+    familie('gs_corrupt_bak__').forEach(k => localStorage.removeItem(k));
+    // Gegnerische Pruefung: SIEBEN unrettbare Schluessel in EINEM Lauf — der Deckel darf keine
+    // Sicherung dieses Laufs nehmen (ihr Original ist schon entfernt, sie ist die einzige Kopie).
+    const sieben = ['ps_feedback', 'ps_votes', 'gs_ki_analyses', 'gs_scan_corrections', 'gs_garden_plan_current', 'gs_streak', 'userLocation'];
+    const vorher7 = {};
+    sieben.forEach(k => { vorher7[k] = localStorage.getItem(k); localStorage.setItem(k, 'kaputt{{{' + k); });
+    window.gsStorageIntegrityCheck();
+    const b7 = familie('gs_corrupt_bak__');
+    out.runde = { fehlt: sieben.filter(k => !b7.some(x => x.indexOf('gs_corrupt_bak__' + k + '__') === 0)), anzahl: b7.length };
+    b7.forEach(k => localStorage.removeItem(k));
+    sieben.forEach(k => { if (vorher7[k] !== null) localStorage.setItem(k, vorher7[k]); });
+    gsStore.get = echtGet;
+    return out;
+  });
+
   await b.close();
 
   if (r.fatal) { console.log('ABBRUCH: ' + r.fatal); process.exit(1); }
@@ -172,7 +249,28 @@ const GEGENPROBE_LUEGE = 'gs_scan_history';            // steht in GS_USER_KEYS
   console.log('  JS-Fehler beim Laden: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   console.log('');
 
-  const schlimm = unklar.length + trotzdem.length + weg.length + doppelt.length;
+  // ── F · Deckel ─────────────────────────────────────────────────────────
+  console.log('  Präfixe aus der Bauform „Name in einer Variablen": ' + Array.from(praefixeVariable).sort().join(', '));
+  const fFehl = [];
+  const heuteKey = { gs_score_logged_: 'gs_score_logged_' + F.heute.iso, gs_frost_logged_: 'gs_frost_logged_' + F.heute.iso,
+    gs_weather_logged_: 'gs_weather_logged_' + F.heute.iso, gs_aicalls_: 'gs_aicalls_' + F.heute.ds };
+  Object.keys(heuteKey).forEach(p => {
+    const e = F[p];
+    if (!e || e.fehler) { fFehl.push(p + ': Schreibweg warf ' + (e && e.fehler)); return; }
+    const soll = [heuteKey[p]];
+    if (JSON.stringify(e.uebrig) !== JSON.stringify(soll)) fFehl.push(p + ': nach dem Schreiben ' + JSON.stringify(e.uebrig) + ' statt nur ' + JSON.stringify(soll));
+  });
+  const bak = F.bak.uebrig;
+  const neuste = bak.filter(k => /^gs_corrupt_bak__ps_feedback__/.test(k));
+  if (typeof F.bak.max !== 'number' || bak.length > F.bak.max) fFehl.push('gs_corrupt_bak__: ' + bak.length + ' Sicherungen (Deckel ' + F.bak.max + ')');
+  if (neuste.length !== 1 || F.bak.original !== null) fFehl.push('gs_corrupt_bak__: die Sicherung von eben fehlt oder das Original blieb (' + JSON.stringify(neuste) + ')');
+  if (F.runde.fehlt.length) fFehl.push('gs_corrupt_bak__: der Deckel nahm Sicherungen DESSELBEN Laufs (einzige Kopie): ' + F.runde.fehlt.join(', '));
+  if (bak.some(k => /__ps_votes__170000000000[1-5]$/.test(k))) fFehl.push('gs_corrupt_bak__: es blieben ALTE statt der neuesten: ' + JSON.stringify(bak));
+  console.log('  F · Tagesfamilien und Sicherungen gedeckelt: ' + (fFehl.length ? fFehl.length + ' Befund(e)' : 'ja (je Familie nur heute · ' + bak.length + ' Sicherungen, die neuesten)'));
+  fFehl.forEach(x => console.log('       ' + x));
+  console.log('');
+
+  const schlimm = unklar.length + trotzdem.length + weg.length + doppelt.length + fFehl.length;
   console.log(schlimm === 0 && gA && gC
     ? '  ✓ Jeder überlebende Schlüssel ist benannt.'
     : '  ✗ ' + schlimm + ' Befund(e) — siehe oben.');

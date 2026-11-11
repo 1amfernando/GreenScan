@@ -43,7 +43,22 @@ Tagebuch in `CLAUDE.md`.
    Adressen. Wer eine neue Stelle baut, rendert sie einmal mit
    `<img src=x onerror="window.__pwned=1">` in `escape_check`. Ein `style` in
    einem Fragment geht nur durch die Erlaubnisliste `_gsStilSaeubern` — eine
-   Verbotsliste auf dem Rohtext uebersieht CSS-Escapes (v33.54). *(§3.6)*
+   Verbotsliste auf dem Rohtext uebersieht CSS-Escapes (v33.54).
+   Seit v33.59 je Kontext genau ein Helfer mehr: `_gsOcJson(x)` (Objekt oder
+   Liste als Argument in einem `on*`-Attribut), `_gsFremdBild(u)` (Bild eines
+   ANDEREN Nutzers: nur der eigene Supabase-Speicher oder `data:image`),
+   `_gsCssUrl(u)` (Adresse in `url('…')` in einem `style`; kein `blob:`),
+   `_gsEmoji(e)` (Emoji aus fremder Hand), `_gsIdSicher(id)` (Id in Attribut
+   oder JS-String), `_gsKbText` / `_gsKbFarbe` (Wissens-Felder; eine Farbe nur
+   aus der Erlaubnisliste — ein escaptes Attribut ist noch kein sicherer Wert),
+   `_gsSiebListe` / `_gsSiebEintrag` (Backup und Cloud-Pull), `_gsArtEingang`
+   (Arten aus fremder Hand), die Sprachschicht bereinigt Uebersetzungen am
+   Eingang, `_gsCsvZelle` (keine Formel im Export),
+   `_gsNachschlag(tabelle, schluessel, rueckfall)` (Tabelle mit einem Schluessel
+   aus fremder Hand — nur eigene Eintraege, sonst liefert der Wert
+   „constructor“ eine Funktion). `escHtml(0)` ist `''` — eine
+   Zahl braucht `String(n)`. Neue Stellen rendern sich zusaetzlich in
+   `sicherheit_check`. *(§3.6; escape_check, sicherheit_check)*
 
 7. **KI nur ueber `callAI` / `callVisionAI`.** Kontext in den `systemPrompt`
    (`gsLinaContext()`), nie in `opts.brain` (ist nur ein Log-Label). Kein
@@ -57,7 +72,15 @@ Tagebuch in `CLAUDE.md`.
    (`_shared/modelle.mjs`); die Antwort liest `_gsAiText(data)`, nie
    `content[0].text`; ein neues Modell braucht seinen Zusatz (`modellZusatz` /
    `_gsModellZusatz`) — Sonnet 5.5 und 5 denken sonst von sich aus nach (v33.58).
-   *(§3.4; schluessel_check, sensor_check „Lina · handeln")*
+   Serverseitig steht seit v33.59 vor jeder KI-Edge-Function dasselbe Tor
+   (`kiTor` in `_shared/ki_tor.mjs`, Grenzen in `KI_GRENZEN`): Plan mit dem
+   Token der Person, Reservierung VOR dem Aufruf, Rueckgabe, wenn der Anbieter
+   nicht gerechnet hat, feste Fehlersaetze (die App kennt ihre Typen in
+   `GS_KI_PROXY_SAETZE`). Fail-closed: ohne die Migration
+   `20261110_sicherheit_ki_kontingent.sql` antwortet jede KI-Function 503 —
+   erst die Migration, dann die Functions. Ein bezahlter Plan bekommt nie
+   weniger als vorher. *(§3.4; schluessel_check, modell_check, edge_check 20_ki,
+   sensor_check „Lina · handeln")*
 
 8. **Texte in vier Sprachen.** `_t(key, 'Deutsch')` mit Eintrag in
    `GS_I18N_JS_STRINGS` (derselbe deutsche Text an beiden Orten); ganze Saetze
@@ -88,6 +111,14 @@ Tagebuch in `CLAUDE.md`.
     sechs Zustaende mit Grund; 0 Zeilen am Tabellenweg sind eine Ablehnung,
     `return=minimal` gibt es dort nicht) — nie ueber rohes `sbFetch`.
     *(§7.1 admin_check, v33.50)*
+    Und seit v33.59: ein Token aus der Adresse wird nie zur Sitzung
+    (`_gsAuthRecovery` fragt zuerst den Server); die Backend-Adresse kommt
+    nicht aus dem Speicher; `?screen=` nur fuer Bildschirme, die es gibt; eine
+    Erfolgsmeldung nach einer Zahlung erst nach der Bestaetigung des Servers
+    (`_gsBillingPruefen`), und eine Zahlung setzt nie einen Zustand, den ein
+    Mensch bestaetigen soll. Edge-Functions importieren jede Abhaengigkeit mit
+    EXAKTER Version (`edge_check` 40_lieferkette). *(§3.6, §3.3;
+    sicherheit_check 70_sitzung, edge_check 10_stripe)*
 13. **Eine Datei anbieten heisst `gsDateiSpeichern`, drucken heisst
     `gsDrucken` — und gemeldet wird nach dem Zustand.** Nie ein eigener Anker
     mit `download`, nie `window.open('')` + `document.write`, nie eine
@@ -106,6 +137,14 @@ Tagebuch in `CLAUDE.md`.
     Weg mit einer anderen Ablage (das Fach in `Geteilt.java`, zwei Schritte
     holen/quittieren, je Foto eine Nummer). *(§4e, offline_check 25–41,
     apk_check G1–G9/T0–T13, v33.55/v33.56)*
+    Und was das Geraet verlaesst, verlaesst es ohne mehr als noetig (v33.59):
+    Fotos ohne Metadaten (`_gsBildOhneMeta` an den Toren `gsUploadImage` /
+    `gsUploadPhotoToBucket` und in `callVisionAI`; nicht lesbar = nicht
+    hochladen), ein Ort an Dritte nur gerundet (`_gsOrtGrob`, ~1 km — gerundet
+    wird die ADRESSE der Anfrage, nicht der gespeicherte Wert), ein oeffentlicher
+    Name nie aus der E-Mail (`_gsOeffentlicherName`). Ein neuer externer Host
+    steht in `scripts/sicherheit/97_empfaenger.js` UND in beiden
+    Datenschutztexten. *(§3.7; sicherheit_check 90_datenschutz, 97_empfaenger)*
 
 ## Und drei Regeln ueber das Arbeiten selbst
 
@@ -118,3 +157,9 @@ Tagebuch in `CLAUDE.md`.
   „Sicherheit" mit den gemessenen Saetzen).
 - **Eine Zusammenfassung ist kein Diff.** Was als „fertig" weitergeschrieben
   wird, wurde vorher gegen `git show` gelesen (v33.33).
+- **Eine Attrappe, die mehr kann als das Original, prueft die Attrappe.** Die
+  Supabase-Attrappe beantwortete jede Einbettung — der Webhook, der live jede
+  Zahlung mit 500 beantwortet haette, war gruen (v33.59). Attrappen tragen die
+  Live-Spalten und -Fremdschluessel und scheitern wie PostgREST; ebenso jeder
+  Nachbau einer Datenbank: fehlt ihm eine Live-Policy, geht die Reparatur
+  daran vorbei (`rls_check` 05_fixture_policies). *(§7.1)*

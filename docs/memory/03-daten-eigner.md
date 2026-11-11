@@ -28,6 +28,15 @@ Kurzform; dort steht zu jeder Zeile die Geschichte.
 | Mischkultur? | Supabase `plant_companion_matrix` / `v_companion_lookup` | Planer (`_gsZuNah` ist die eine Abstandsregel) | eine Nachbarschaftstabelle im Code |
 | Darf getrackt werden? | `gs_consent.analytics` (Opt-in) | `_gsAnalyticsErlaubt()`; Ereignisse nur aus `GS_EVENTS` | `analytics_events` ohne Ja; Fotos, Standort, Namen, Eingabetext |
 | Der KI-Schluessel? | Server (`ai-proxy`); persoenlich `ps_api_key` | `_gsAiTarget`, `_gsAiAnfrage`; `getApiConfig()` gibt ohne Anmeldung nichts; „ist die KI da?" → `gsKiVerfuegbar()` | ein globaler Schluessel im `localStorage` |
+| Wie viel KI darf sie heute? (seit v33.59) | `KI_GRENZEN` in `_shared/ki_tor.mjs`, gebucht ueber `fn_ai_kontingent_reservieren` (Migration nicht angewandt) | `kiTor` / `kiFreigeben` in jeder KI-Function; Plan mit dem TOKEN der Person | eine Zahl in einer `index.ts`; den Plan mit Service-Role lesen (sieht keine Zeile → still `free`) |
+| Welchen Satz zeigt die App bei einer Ablehnung des KI-Proxys? | `KI_SAETZE` in `ki_tor.mjs`; Typen in der App `GS_KI_PROXY_SAETZE` | `_gsAiProxySatz` (der Satz des Servers gewinnt) | einen Satz aus dem HTTP-Status raten |
+| Preis, Rueckkehr-Adresse, Startangebot, Lifetime-Entzug? (seit v33.59) | `_shared/zahlung_regeln.mjs` | die Stripe-Functions | einen Preis, eine Adresse oder ein Flag aus dem Rumpf der Anfrage |
+| Ist die Zahlung angekommen? | Server, `v_user_entitlements` | `_gsBillingPruefen()` | `?billing=success` als Beleg |
+| An welche Push-Dienste wird gesendet? (seit v33.59) | `PUSH_HOSTS` in `_shared/push_helfer.mjs` = CHECK `push_subscriptions_endpoint_push_dienst`; Abos je Nutzer `ABOS_JE_NUTZER` = `fn_push_subs_deckel` | `pushEndpunktOk`, `abosAuswaehlen` | einen Endpunkt, den die Person selbst geschrieben hat, ungeprueft; eine der zwei Zahlen allein aendern |
+| Welche gespeicherten Plaene? (seit v33.59) | `gs_plans_v2` (`GS_USER_KEYS`); nur lokal gespeicherte gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage) | `gsPlans` | einen Plan ohne Eigentuemer einem anderen Konto zeigen |
+| Bild eines anderen Nutzers? | eigener Supabase-Speicher (`SB_URL_DEFAULT`); serverseitig `fn_gs_bild_url_ok` (Migration nicht angewandt) | `_gsFremdBild(u)` | `_gsSafeUrl` fuer fremde Bilder (prueft nur das Schema) |
+| Wie heisst sie oeffentlich? | `profiles.display_name` bzw. ein gewaehlter Name | `_gsOeffentlicherName(gewaehlt, opts)` | die E-Mail oder ihr lokaler Teil, auch nicht als Vorgabe |
+| Woher kommt die Backend-Adresse? | fest im Code (`SB_URL_DEFAULT`) | — | `gs_sb_url` / `gs_sb_key` aus dem Speicher (seit v33.59 nie gelesen, beim Aufraeumen entfernt) |
 
 ## Die vier Speicherlisten — jeder neue Schluessel steht in genau einer
 
@@ -36,6 +45,7 @@ Kurzform; dort steht zu jeder Zeile die Geschichte.
 | `GS_USER_KEYS` | wird beim Abmelden geraeumt | `grep -n 'var GS_USER_KEYS' index.html` |
 | `GS_KEEP_ON_LOGOUT` | ueberlebt das Abmelden — namentlich, mit Grund | `grep -n 'var GS_KEEP_ON_LOGOUT' index.html` |
 | `GS_USER_PREFIXES` / `GS_KEEP_PREFIXES` | Familien wie `gs_aicalls_<datum>` | daneben |
+| `GS_LISTEN_EINGANG` | die Listen, die aus Cloud, Snapshot oder Backup zurueckkommen — geschrieben NUR ueber `_gsListeEinspielen` (Sieb, Speicher, Variable) | `grep -n 'GS_LISTEN_EINGANG' index.html` |
 | Form statt Praefix | wenn ein Praefix Nachbarn mitnaehme (`GS_DQ_ALT = /^gs_dq_\d{4}-\d{2}-\d{2}$/`) | `gsClearUserDataKeys` |
 
 `storage_check` meldet jeden Schluessel, der das Abmelden ueberlebt und in

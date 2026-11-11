@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-11-9e01",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:24",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: daily-push-checker warnt vor dem Frost von heute früh statt vor dem der kommenden Nacht — und sperrt damit den richtigen Alarm",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: unveraendert. Die Rechnung ist unveraendert: die Wetterabfrage nutzt forecast_days=1 mit timezone=auto, und die Frostpruefung nimmt die ersten zwoelf Stunden des Tages ab Mitternacht Ortszeit, nicht ab der laufenden Stunde. Die Kategorie \"frost\" teilt sich die Dublettensperre weiterhin mit weather-alert-checker. v33.59 hat in der Datei nur Push-Ziele, Fristen und den gerundeten Ort geaendert. Es gibt kein gemeinsames Modul fuer das Wetterfenster in _shared/, und kein edge_check-Fall prueft das Zeitfenster. Ob der Push live tatsaechlich zur falschen Zeit kommt, haengt an der Laufzeit und laesst sich von hier nicht zeigen; der Quelltext-Befund steht aber. Noch zu tun: windowMetrics aus weather-alert-checker in ein _shared-Modul ziehen, das in Node pruefbar ist, und daily-push-checker ab der laufenden Stunde mit forecast_days=2 rechnen lassen, dazu ein edge_check-Fall mit gestellter Uhr. Von dieser Sitzung NICHT übernommen — frei für die Sitzung, die die Push-Functions nach dem Merge anfasst.",
+  "beleg": [
+    "grep -cF 'const next12 = temps.slice(0, 12);' supabase/functions/daily-push-checker/index.ts → 1",
+    "daily-push-checker/index.ts:42 ...&hourly=temperature_2m&forecast_days=1&timezone=auto",
+    "daily-push-checker/index.ts:93 if (!(await alreadySentToday(userId, \"frost\"))) {",
+    "weather-alert-checker/index.ts:12 Dedup teilt fn_push_already_sent_today mit daily-push-checker (Kat. 'frost')",
+    "ls supabase/functions/_shared → kein Wetterfenster-Modul"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-6f90",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

@@ -1,10 +1,12 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **11.11.2026** (Abschnitte bis §29) · geschrieben von Seros.
+> Stand **11.11.2026** (Abschnitte bis §30) · geschrieben von Seros.
 >
-> **Neu und zuerst zu lesen: §29** — was am 10./11.11.2026 mit deiner Freigabe an der
-> laufenden Auslieferung geschehen ist, welchen Fehler ich dabei gemacht habe, und die
-> kurze Liste dessen, was jetzt bei dir liegt.
+> **Neu und zuerst zu lesen: §30** — die Sicherheitsreparatur v33.59. Von ihr ist auf
+> der Live-Datenbank NICHTS angewandt und keine Edge-Function ausgeliefert; §30 sagt,
+> in welcher Reihenfolge du das tust. **Davor §29** — was am 10./11.11.2026 mit deiner
+> Freigabe an der laufenden Auslieferung geschehen ist, welchen Fehler ich dabei gemacht
+> habe, und die kurze Liste dessen, was jetzt bei dir liegt.
 >
 > *(Der Kopf stand bis heute auf 03.09., obwohl die Abschnitte 7–12 vom
 > 07./08.09. sind — genau die Art veralteter Ueberschrift, die dieses Repo
@@ -164,6 +166,13 @@ bremst nichts, verhindert die häufigste Übernahme eines Kontos.
 
 ### 3b · `fn_is_role` und `fn_role_at_least` für Anonyme sperren
 
+> ✅ angewandt am 10.11.2026 (gemessen 11.11.): `20260831_rollen_leak_fix_v30_95` —
+> Rollenfragen über FREMDE Konten beantworten die beiden nur noch Staff und Admins (§29).
+> **Den `REVOKE` unten bitte NICHT mehr ausführen:** Regeln mit `roles=public`
+> (Beiträge, Quests, Profile, Feedback, Kommentare, Diagnosen) werten die zwei Funktionen
+> auch für Anonyme aus; ohne Ausführungsrecht wird aus „0 Zeilen" die Fehlermeldung
+> „permission denied for function" (gemessen in der Sicherheitsprüfung vom 10.11., §30).
+
 Diese beiden Funktionen sind heute für **nicht angemeldete** Aufrufer
 erreichbar. Sie geben nur wahr/falsch zurück, aber sie verraten, welche
 Nutzer-IDs welche Rollen haben.
@@ -282,6 +291,9 @@ Aufgabe erst am regulären Tag für fällig.
 
 ## 6 · Migration `20260903_oekosystem_v1_geraete.sql` — das Schema für Geräte und Messwerte
 
+> **Nachtrag v33.59:** die Datei ist geändert, bevor sie je angewandt wurde — eine Regel
+> und ein Befehl gelten jetzt nur für ein EIGENES Gerät. Reihenfolge unverändert; siehe §30.
+
 Seit v32.48 gibt es das Messwerte-Dashboard mit der Person als erstem Gerät
 (`kind = 'manual'`); die Daten liegen bisher nur auf dem Gerät. Die
 Migration legt fünf Tabellen und zwei Sichten an (`metric_catalog`,
@@ -341,6 +353,10 @@ auf einem Chip, und es läuft nach einer Stunde ab. Idee 1 in §11 schlägt
 vor, ihn auf „Messwerte" umzuleiten — sag Ja, dann mache ich es.
 
 ## 7 · Migration `20260907_quiz_antwort_formate.sql` — die Quiz-Rangliste zählt wieder
+
+> **Nachtrag v33.59:** die Datei hat einen Wächter bekommen, damit sie die Tagesbindung
+> aus `20261110_sicherheit_quiz_punkte.sql` nicht rückgängig macht. Empfohlen: zuerst
+> diese, dann jene — beide Reihenfolgen sind nachgespielt. Siehe §30.
 
 > ### ⚠️ Stand 13.09.2026: noch nicht angewandt — und es läuft weiter
 >
@@ -421,6 +437,9 @@ stehen. Steht dort „Der Server wertet diese Antwort als falsch", ist die
 Migration noch nicht drin — genau dafür ist die Zeile da.
 
 ## 8 · Der KI-Schlüssel bleibt auf dem Server — ✅ Schritte 1 und 2 ERLEDIGT am 10./11.11.2026 (siehe §29)
+
+> ✅ `20260907_global_api_key_nur_proxy` angewandt am 10.11.2026 (gemessen 11.11.). Der
+> Schlüsselwechsel steht in §30 (e) — an ZWEI Stellen, nicht nur im Admin-Panel.
 
 > **Stand 11.11.2026:** die Migration ist angewandt, `ai-proxy` ist neu ausgeliefert
 > (version 3). Offen bleibt nur, den Schlüssel selbst zu erneuern — §29, Punkt 2. Der
@@ -1040,11 +1059,19 @@ Prüfstand `apk_check` R7 wacht darüber.
 **2 · Damit bauen:**
 
 ```bash
+read -rs -p 'Passwort des Schluessels: ' GS_APK_KS_PASS && export GS_APK_KS_PASS
 GS_APK_KS=~/greenscan-release.keystore \
-GS_APK_KS_PASS='dein-passwort' \
 GS_APK_ALIAS=greenscan \
 bash android/build.sh --release
+unset GS_APK_KS_PASS
 ```
+
+Das Passwort wird **gelesen, nicht getippt** (berichtigt in v33.59): steht es in der
+Befehlszeile, landet es im Shell-Verlauf. `build.sh` reicht es nur über die Umgebung an
+`apksigner` weiter, nie als Argument — Argumente sind in der Prozessliste lesbar. Bis
+v33.58 stand hier die alte Fassung mit dem Passwort in der Zeile; wer sie benutzt hat,
+löscht die Zeile aus `~/.bash_history` (bzw. dem Verlauf seiner Shell). Dieselbe Anleitung
+steht in `android/README.md` unter „2 · Damit bauen“.
 
 → `android/build/greenscan-v33.49.apk`
 
@@ -1092,6 +1119,8 @@ brauchst du davon nichts.**
 ---
 
 ## 23 · ~~Zwei Admin-Knöpfe sind tot~~ — ✅ ERLEDIGT am 10.11.2026 (Migration `20260924_admin_grants` angewandt, siehe §29)
+
+> ✅ angewandt am 10.11.2026 (gemessen 11.11.: `authenticated` darf beide Funktionen ausführen).
 
 **Du hast geschrieben:** „Zugleich möchte ich dass du den Admin-Panel noch
 besser, sauberer, sicherer und erweitert aufbaust."
@@ -1459,6 +1488,374 @@ anderen fünf). Ein Commit ist eine Prüfsumme — was läuft, ist Byte für Byt
 Prüfstand gefahren hat. Geladen wird beim Ausliefern, nicht zur Laufzeit. Wer sie später
 gewöhnlich ausliefern will: `supabase functions deploy <name>` aus dem Repo, das Ergebnis
 ist dasselbe.
+
+## 30 · Die Sicherheitsreparatur (v33.59) — was auf dich wartet
+
+**Dein Auftrag (10.11.2026, wörtlich):** „Arbeite an dem Projekt. Verbesser alles
+komplett. Alle Sicherheitslücken sollten behoben werden. Die App soll einen ultra
+professionellen Stand bekommen."
+
+**Wie gearbeitet wurde, kurz:** Basislauf aller Prüfstände und eine nur lesende
+Momentaufnahme der Live-Datenbank → 27 Finder mit 209 Rohfunden → je Fund ein
+Widerleger (187 bestätigt, 4 widerlegt, 13 ungeprüft — die haben die Reparateure selbst
+nachgestellt) → 24 Reparaturgruppen, jede im eigenen Arbeitsbaum, jede mit
+einem Fall, der VORHER rot war, und einer Gegenprüfung durch einen zweiten Agenten →
+eine Vollständigkeits-Kritik über 33 Funde ohne zugeordneten Bericht (24 behoben,
+6 teilweise, 2 offen, 1 nur ausserhalb des Repos lösbar) → eine Schlussprüfung des
+zusammengeführten Diffs mit 12 Linsen und je einem Widerleger (34 Meldungen, 32 bestätigt, 2 widerlegt,
+darunter ein kritischer: der überarbeitete `stripe-webhook` hätte live **jedes**
+Abo-Ereignis mit 500 beantwortet) → Reparatur dieser Funde in sechs weiteren Gruppen → Zusammenführung mit
+v33.57/v33.58 der anderen Sitzung (§29) → Bump. Über alle 30 Gruppen stehen
+215 Fund-Einträge: 186 behoben, 24 teilweise,
+5 offen (4 bewusst, 1 nicht nachstellbar). Neu sind drei Prüfstände: `sicherheit_check` (174 Fälle in
+22 Dateien unter `scripts/sicherheit/`), `edge_check` (58 Fälle,
+`scripts/edge/` — führt die echten `index.ts` mit gestellten Diensten aus) und
+`rls_check` (43 Fälle, `scripts/rls/` — spielt jede neue Migration gegen den
+Live-Stand vom 10.11. in einem lokalen Postgres nach, zweimal, mit Gegenprobe).
+`bash scripts/pruefstaende.sh` fährt sie mit (wie viele es insgesamt sind, steht seit dem 11.11. nur noch in `STATUS.md` §1).
+
+### 30a · In einem Absatz: was schon wirkt und was auf dich wartet
+
+**Mit dem Merge wirkt nur die App** (`index.html`, `sw.js`, `_headers`, Datenschutztexte; der
+Android-Quelltext erst mit dem nächsten APK-Bau): fremder Text kommt als Text an, nie als Code; Bilder fremder Nutzer
+werden nur noch aus unserem eigenen Speicher geladen; Schriften und pdf.js kommen nicht
+mehr von Dritten; ein Anmelde-Token aus einem Link wird nicht mehr übernommen; Fotos
+verlieren ihre GPS-Angaben vor dem Hochladen; ein freigegebener Fund zeigt den Ort auf
+etwa 1 km gerundet. **Alles Serverseitige wartet auf dich:** sechs neue Migrationen
+(`supabase/migrations/20261110_*.sql`), Änderungen an drei älteren, nicht angewandten
+Migrationen und 29 Edge-Functions. **Nichts davon ist auf der Live-Datenbank angewandt,
+keine dieser Functions ausgeliefert** (gemessen am 11.11.2026, 03:28 UTC: 0 von 23
+geprüften neuen Funktionsnamen existieren live). Wichtig: Zweig, Migrationsköpfe und
+Prüfstände **beschreiben Lücken, die live noch offen sind** — das Repo ist öffentlich und
+wird als Web-Root ausgeliefert. Darum bitte zügig mergen und dann anwenden, nicht
+wochenlang liegen lassen.
+
+### 30b · Die Reihenfolge
+
+Zusammengetragen aus den Köpfen der Migrationen und den Übergaben der Gruppen, gegen
+Widerspruch geprüft. Jede Migration ist idempotent (zweimal eingespielt schadet nicht).
+
+1. **App mergen und ausliefern lassen** (Cloudflare Pages zieht `main`). Das ist
+   Voraussetzung für Schritt 4 und empfohlen vor Schritt 5 und 6.
+2. **`20261110_sicherheit_ki_kontingent.sql` anwenden.** Zwingend VOR Schritt 3: sie legt
+   die zwei Funktionen an, über die jede KI-Function ihren Aufruf vorher reserviert. Fehlen
+   sie, antworten `ai-proxy`, `plan-iterate`, `garden-scan-analyze`,
+   `plant-doctor-diagnose`, `pest-identify` und `mushroom-identify` **allen** Nutzern mit
+   503 — auch der Pilz-Scanner. (Die Live-Fassungen von §29 haben dieses Tor noch nicht und
+   laufen bis dahin weiter.)
+3. **Die Edge-Functions ausliefern** (Liste in 30d). Die sechs KI-Functions erst nach
+   Schritt 2; die übrigen live laufenden haben keine Migration als Voraussetzung. Die fünf,
+   die noch nie ausgeliefert waren (letzte Zeile in 30d), gehören NICHT dazu: `daily-push`
+   und `push-test` lesen Spalten, die es live nicht gibt, und `device-ingest` braucht die
+   Geräte-Migration aus Schritt 10.
+4. **`20261110_sicherheit_community_markt.sql` — erst NACH Schritt 1.** Die alte App lädt
+   Kartenfunde mit einem lokalen Platzhalter als Bildadresse hoch; der neue Bild-Wächter
+   weist ihn ab, und damit scheitert der ganze Fund-Upload.
+5. **`20261110_sicherheit_funktionen.sql`** — empfohlen nach Schritt 1 (die App ruft den
+   geteilten Scan-Cache seit v33.58 nicht mehr; eine ältere App fängt die Ablehnung ab und
+   scannt ohne Cache). Gegenüber den alten `v28_*`/`v29_*`-Dateien gilt: diese zuletzt —
+   jene sortieren alphabetisch hinter `2026…` und würden beim stumpfen Einspielen nach
+   Dateinamen drei Reparaturen zurückdrehen.
+6. **`20261110_sicherheit_konto_speicher.sql`** — vor oder nach der App möglich, empfohlen
+   danach. Vorher den Bestand der Push-Abos ansehen (30c).
+7. **`20261110_feedback_stimmen_zaehlen.sql`** — laut Datei unabhängig von Schritt 6.
+   Empfohlen: Schritt 6 zuerst oder im selben Zug (die Schlussprüfung hat gezeigt, dass
+   ein offener Umschreib-Weg für Stimmen erst mit dem neuen Zähler Wirkung bekommt; Schritt 6
+   schliesst ihn).
+8. **`20260907_quiz_antwort_formate.sql` (§7), danach `20261110_sicherheit_quiz_punkte.sql`.**
+   Beide Reihenfolgen sind nachgespielt (`scripts/rls/20_quiz.js`), empfohlen ist diese.
+   **Spätestens vor dem 31.12.2026, 23:00 UTC** — dann vergibt der Cron
+   `quiz-top3-yearend` ein Jahr Pro an die drei Ersten, und erst mit dieser Migration
+   zählen dafür nur Antworten am Tag ihrer Frage.
+9. **`20260831_kosten_und_cron_wachhund_v30_95.sql`** — stand bis heute in **keiner** Liste
+   offener Migrationen (weder STATUS §2 noch hier), ist live nicht angewandt. Sie hat jetzt
+   einen Wächter und macht die Reparatur an `fn_log_ai_usage` aus Schritt 5 nicht mehr
+   rückgängig; die Reihenfolge zu Schritt 5 ist damit egal
+   (`scripts/rls/70_reihenfolge.js`). Sie bringt im selben Zug ihren zweiten Teil mit (die
+   Cron-Überwachung sieht auch HTTP-Jobs) — den hat diese Reparatur nicht geändert.
+10. **`20260903_oekosystem_v1_geraete.sql`** — unverändert „wenn das erste Gerät da ist"
+    (§6). Die Datei ist korrigiert: eine Regel oder ein Befehl darf nur an einem EIGENEN
+    Gerät hängen.
+11. **Danach nachmessen lassen** (sag mir Bescheid, ich lese nur): die Prüfabfragen
+    stehen in 30c je Migration.
+
+**Schon angewandt, nichts mehr zu tun** (Live-Lage 11.11.2026, `schema_migrations`
+10.11., 21:15–21:18 UTC): `20260907_global_api_key_nur_proxy`,
+`20260831_rollen_leak_fix_v30_95`, `v31_36_mkt_views_auth_guard` (stand schon seit
+01.09. drin, §29) und `20260924_admin_grants`. An §3b, §8 und §23 steht das jetzt dabei.
+`20260907_global_api_key_nur_proxy.sql` hat in diesem Zweig nur einen Nachtrag im
+Kommentar bekommen (Schlüsselwechsel als Pflicht) — am SQL ändert sich nichts.
+
+Zwei Zeilen aus §29 („Was ich NICHT angefasst habe") sind damit überholt: `fn_add_xp`
+deckelt Schritt 8, `fn_scan_cache_put` sperrt Schritt 5.
+
+### 30c · Die sechs neuen Migrationen, je ein Block
+
+Was jede schliesst, steht ausführlich im Kopf der Datei — dort ist auch gemessen, wie es
+live stand. Hier nur, was du wissen musst.
+
+**`20261110_sicherheit_ki_kontingent.sql`**
+- *Schliesst:* kein KI-Weg hatte ein Tageskontingent, das der Server erzwingt; der Proxy
+  zählte erst nach dem Aufruf, parallele Anfragen lasen denselben Stand. Neu wird VOR
+  dem Aufruf in einer Anweisung reserviert (`fn_ai_kontingent_reservieren`,
+  `fn_ai_kontingent_freigeben`, nur `service_role`), gezählt in `feature_usage` unter
+  `ki:<function>`.
+- *Für Nutzer:* Tagesgrenzen je Plan (Tabelle in 30f) — und ein eigener Satz, wenn sie
+  erreicht ist.
+- *Nachgespielt:* `scripts/rls/50_ki_kontingent.js` (20 gleichzeitige Reservierungen bei
+  Grenze 15 → genau 15).
+- *Beim Anwenden prüfen:* nach einem KI-Aufruf mit einem gewöhnlichen Konto hat
+  `feature_usage` eine Zeile `ki:<name>`; Pilz-, Schädlings- und Doktor-Aufruf geben kein
+  401.
+
+**`20261110_sicherheit_funktionen.sql`**
+- *Schliesst:* elf Datenbankfunktionen, die jeder Angemeldete mit fremder Nutzer-Id oder
+  frei gewähltem Parameter rufen konnte, gehen nur noch an `service_role` (u. a.
+  Quest-Fortschritt fremder Konten, fremde Konten per Ratenbremse aussperren, der geteilte
+  Scan-Cache, `fn_knowledge_grow` mit dem früher geleakten Geheimnis **im Klartext im
+  Rumpf**). App-Kostenbuchungen (`fn_log_ai_usage`) zählen keine Kosten mehr, die der
+  Client nennt; `ai_daily_usage` lesen nur Admins. Marktplatz-Verkäufer ohne Anzeigenamen
+  heissen „Anonym" statt nach ihrer E-Mail. Freundschafts-Mitteilungen ohne Steuerzeichen,
+  höchstens 40 Zeichen. Arten-Bilder nur aus dem eigenen Ordner im Bucket.
+- *Für Nutzer:* nichts Sichtbares. Im Admin-Panel heissen neue Kostenzeilen aus der App
+  `client:<label>`.
+- *Nachgespielt:* `scripts/rls/10_funktionen.js`.
+- *Beim Anwenden prüfen* (drei lesende Abfragen, ich fahre sie gern für dich): `proacl`
+  der genannten Funktionen ohne `authenticated`; der Rumpf von `fn_knowledge_grow`
+  enthält das alte Geheimnis nicht mehr, sondern liest `knowledge_gen_secret`; die Regel
+  auf `ai_daily_usage` nennt `is_admin_user`.
+
+**`20261110_sicherheit_konto_speicher.sql`**
+- *Schliesst:* das Startangebot liess sich ohne Kauf „ausverkaufen" (jedes Konto trug sich
+  selbst in den Zähler ein; die Lese-Regel führte zwei private Adressen als Text); eine
+  per INSERT entstandene Profilzeile trug `is_admin`/`role`/`tier`, wie der Client sie
+  schickte; besitzerlose Zeilen (`user_id` leer) in vier Tabellen; Stimmen ohne Anmeldung
+  anlegen, löschen und umschreiben; drei Buckets ohne Grössen- und Typgrenze (HTML/SVG
+  unter unserer Domain ablegbar); Push-Abos an beliebige Adressen, ohne Deckel je Nutzer.
+- *Für Nutzer:* nichts im Normalbetrieb. Ab dem elften Gerät fällt das älteste Push-Abo weg.
+- *Nachgespielt:* `scripts/rls/40_konto.js`.
+- *Vorher prüfen:* wie viele Push-Abos auf keinen bekannten Push-Dienst zeigen (eine lesende
+  Abfrage über die Hosts der Endpunkte; ich fahre sie). Ist es 0, kann die neue Regel
+  `push_subscriptions_endpoint_push_dienst` danach auch für den Bestand gelten
+  (`VALIDATE CONSTRAINT`); sonst diese Zeilen zuerst ansehen — es sind keine echten Abos,
+  und jede Änderung an ihnen scheitert nach der Migration.
+- *Danach prüfen:* auf `launch_offer_usage` steht nur noch die Lese-Regel; die drei
+  Buckets haben Grenzen.
+
+**`20261110_sicherheit_community_markt.sql`**
+- *Schliesst:* ein vom Admin versteckter Beitrag oder ein verstecktes Inserat liess sich
+  vom Eigentümer wieder öffentlich schalten (dazu Likes, Zähler, Datum, beim Inserat sogar
+  der Besitzer); die Sperre griff nur beim Anlegen von Beiträgen und Kommentaren;
+  Blockieren galt nicht für Kommentare, Nachrichten, Folgen und Freundschaftsanfragen;
+  Marktplatz-Nachrichten liessen sich in fremde Posteingänge schreiben und die der
+  Gegenseite umschreiben; Verkäufer-Status und Stripe-Konto selbst setzbar; Meldungen am
+  Ratenlimit vorbei; Organisationen ohne Spaltengrenze; Rezepte/Heilmittel für jeden mit
+  Experten-Flag schreibbar; Bildadressen fremder Nutzer an keinen Host gebunden; ein
+  öffentlicher Name durfte „GreenScan Team" oder „Аdmin" (kyrillisch) heissen.
+- *Für Nutzer:* nichts, solange die App v33.59 läuft. Ein Gesperrter kann Inserate und
+  Nachrichten nicht mehr ändern (auch nicht als gelesen markieren — harmlos).
+- *Nachgespielt:* `scripts/rls/30_community.js`.
+- *Beim Anwenden prüfen:* vorher, dass der Anmelde-Trigger auf `auth.users` wirklich
+  `public.fn_handle_new_user` ruft (die Momentaufnahme kennt nur die Funktion); danach
+  die 20 Trigger `trg_gs_…` aus der Datei, `authenticated` darf nicht mehr in `marketplace_sellers` schreiben.
+
+**`20261110_sicherheit_quiz_punkte.sql`**
+- *Schliesst:* Antworten auf beliebige (auch vergangene) Fragen, `fn_add_xp` bis 50'000
+  je Aufruf, Erfolge per Zahl vom Client, Serien und Rangliste vom Client, Battles per
+  direktem INSERT gegen ein Opfer, das nie gespielt hat, unlösbare Battle-Fragen.
+- *Für Nutzer:* XP höchstens 1'000 je Tag (mehr kommt über mehrere Tage an), Erfolge
+  wachsen höchstens um 50 je Metrik und Tag. Wer das Quiz vor Mitternacht UTC öffnet und
+  danach antwortet, sieht „nicht beim Server angekommen".
+- *Nachgespielt:* `scripts/rls/20_quiz.js` (beide Reihenfolgen mit 20260907).
+- *Danach prüfen:* die Trigger `trg_quiz_answers_tagesfrage` und
+  `trg_profiles_showcase_pruefen` existieren; die neue Tabelle `punkte_tageszuwachs` gibt
+  es. Danach müssen `docs/loeschung-inventar.json` und `docs/backend-inventar.json` nachgezogen
+  werden (mache ich).
+- *Löst NICHT:* der Antwortschlüssel bleibt öffentlich lesbar, der Battle-Herausforderer
+  liefert Fragen UND Lösungen — beides Entscheidungen (30f).
+
+**`20261110_feedback_stimmen_zaehlen.sql`**
+- *Schliesst:* kein Sicherheitsloch, ein Nebenbefund — eine Stimme normaler Nutzer
+  bewegte die Zähler nie (der Zähler lief mit ihren Rechten und durfte die Idee nicht
+  ändern). Der Bestand wird einmal nachgezählt.
+- *Nachgespielt:* `scripts/rls/60_feedback.js`.
+- *Danach prüfen:* `fn_update_feedback_votes` läuft als `SECURITY DEFINER`.
+
+**Geändert, nicht neu:** `20260831_kosten_und_cron_wachhund_v30_95.sql` und
+`20260907_quiz_antwort_formate.sql` haben je einen Wächter (eine ältere Datei überschreibt
+keine Reparatur mehr), `20260903_oekosystem_v1_geraete.sql` zwei strengere Regeln.
+
+### 30d · Edge-Functions neu ausliefern
+
+Geändert sind **29** der 40 Function-Verzeichnisse (`git diff --name-only
+44bb824 HEAD -- supabase/functions`); in allen ist jede Abhängigkeit jetzt auf eine exakte
+Version festgelegt. Erst mit der Auslieferung gilt irgendetwas davon live. Die geteilten
+Module unter `_shared/` gehen mit (`ki_tor.mjs`, `zahlung_regeln.mjs`, `markt_regeln.mjs`
+neu; `push_helfer.mjs`, `sensor_push_regeln.mjs`, `loeschung_regeln.mjs` geändert).
+
+| Function | Warum |
+|---|---|
+| `ai-proxy`, `plan-iterate`, `garden-scan-analyze`, `plant-doctor-diagnose`, `pest-identify`, `mushroom-identify` | Tageskontingent vor dem Aufruf, Nutzer per Token geprüft, Eingabegrenzen, Bildgrösse vorab — **erst nach `…_ki_kontingent.sql`** |
+| `knowledge-bulk-gen` | Geheimnis konstantzeitig verglichen, Anzahl gedeckelt, KI-Zeilen nur in erlaubte Spalten, Pilze aus der KI immer „Status unklar" |
+| `feedback-triage` | Feedback-Texte gedeckelt und als Daten abgegrenzt (eine Anweisung im Feedback ist Inhalt), Antwort des Modells nur für den gesendeten Stapel |
+| `key-health-check`, `species-search`, `i18n-translate` | nur die Versionen festgelegt |
+| `stripe-webhook` | Erstattung und Rückbuchung entziehen eine Lifetime; eine Zahlung setzt nie mehr „vom Experten verifiziert"; der Fehler, der live jedes Abo-Ereignis mit 500 beantwortet hätte, ist behoben |
+| `stripe-checkout`, `stripe-portal` | Rückkehr nur auf eigene Adressen, Gratistage nur bei sicher beantworteter Vorgeschichte, Deckel des Startangebots am Server |
+| `stripe-expert-checkout` | nur der Autor zahlt, nie für sich selbst, Betrag fest |
+| `stripe-create-connect-account` | ein fremdes Stripe-Konto wird abgewiesen |
+| `stripe-bootstrap`, `stripe-admin-extend-webhook` | Admin-Geheimnis konstantzeitig; die zweite abonniert zusätzlich `charge.refunded` |
+| `delete-user` | räumt alle Buckets mit Nutzerordnern (vorher nur einen Teil) und kündigt ein laufendes Abo bei Stripe |
+| `marketplace-publish` | ein gesperrtes Konto kann nicht mehr über diesen Weg veröffentlichen |
+| `daily-push-checker`, `weather-alert-checker`, `engagement-push-checker`, `send-push` | Push nur an bekannte Push-Dienste, Frist je Versand, Frost-Abfrage mit gerundetem Ort |
+| `sensor-push`, `daily-push`, `push-test`, `device-ingest`, `entitlements` | **waren noch nie ausgeliefert** (Live-Liste 11.11.); gehärtet für den Tag, an dem sie es werden. `daily-push` und `push-test` lesen Spalten, die live anders heissen — vor einer ersten Auslieferung erst reparieren (STATUS §2) |
+
+**Secrets und Einstellungen, die sie brauchen:**
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` setzt Supabase selbst.
+- `ANTHROPIC_API_KEY` (Function-Secret): die KI-Functions lesen es ZUERST und fallen sonst
+  auf `app_settings.global_anthropic_api_key` zurück; `feedback-triage` liest NUR das Secret.
+- `STRIPE_SECRET_KEY`: alle `stripe-*` — **und neu `delete-user`**. Fehlt es dort, lehnt
+  `delete-user` die Löschung eines Kontos mit laufendem Abo ab (409, absichtlich: lieber
+  nicht löschen als ein Abo weiterlaufen lassen).
+- `STRIPE_WEBHOOK_SECRET` oder `app_settings.stripe_webhook_secret` für `stripe-webhook`
+  (wie bisher).
+- `app_settings.knowledge_gen_secret` für `knowledge-bulk-gen`, `app_settings.stripe_admin_secret`
+  für `stripe-bootstrap` und `stripe-admin-extend-webhook`, `app_settings.push_cron_secret`
+  für die Push-Functions und `key-health-check` — alle wie bisher, keine neuen Namen.
+- **JWT-Prüfung je Function so lassen, wie sie heute steht.** Das Repo hat keine
+  `config.toml`, die es festhält; `supabase functions deploy` prüft per Vorgabe ein JWT.
+  Functions, die Stripe oder ein Cron ohne Anmeldung rufen, brauchen ihre bisherige
+  Einstellung.
+
+**Zu den festgelegten Versionen:** `@supabase/supabase-js` und `@supabase/functions-js`
+stehen auf **2.119.0** — die zur Zeit der Festlegung (10.11.2026) jüngste Fassung, erst
+**6 Tage alt**. Wer vorsichtiger sein will gegen frisch veröffentlichte, noch nicht
+entdeckte bösartige Fassungen, nimmt 2.118.0 (15.10.2026) für beide. Stripe steht auf
+17.7.0; `stripe-create-connect-account` bleibt bewusst auf Stripe 18.5.0, weil ein
+Wechsel der Hauptversion dort still die Stripe-API ändern würde. `daily-push`,
+`entitlements` und `push-test` springen von 2.39.0 auf 2.119.0 — nach dem Ausrollen einmal
+echt aufrufen. **Ein Lockfile fehlt:** erst `deno.lock` legt auch die Abhängigkeiten der
+Pakete fest. Das geht nur auf einer Maschine mit Deno ≥ 2 und Supabase-CLI (`deno cache
+--lock=…` je Function); danach prüfen, ob `supabase functions deploy` es mitnimmt.
+
+### 30e · Ausserhalb des Repos — nur du
+
+1. **Den Anthropic-Schlüssel wechseln** (§29 Punkt 2, hier genauer). Er war bis zum
+   10.11.2026 für jedes angemeldete Konto lesbar. Reihenfolge: neuen Schlüssel in der
+   Anthropic-Konsole erzeugen → an **beiden** Stellen setzen: Function-Secret
+   `ANTHROPIC_API_KEY` (falls es gesetzt ist, gewinnt es — ob es live gesetzt ist, konnte
+   ich nicht nachsehen) und `app_settings.global_anthropic_api_key` (das ist, was das
+   Admin-Panel schreibt) → eine KI-Funktion in der App benutzen, `key-health-check` meldet
+   ok → **erst dann** den alten widerrufen. Erst der Widerruf schliesst das Leck; die
+   Migration hat nur den Hahn zugedreht.
+2. **Der NVIDIA-Schlüssel** (`nvapi-Pr2M…usrB`) steht nicht mehr im Baum, aber in der
+   git-Historie (in einem ZIP-Blob). Bitte beim Anbieter (NVIDIA build/NGC-Konto)
+   **widerrufen** und mir das Datum sagen, dann trage ich es ein. Die Historie umzuschreiben
+   ersetzt den Widerruf nicht — wer das Repo geklont hat, behält sie.
+3. **`app_settings.knowledge_gen_secret`:** nur lesend nachsehen, dass es NICHT das alte,
+   geleakte X-Admin-Secret ist (das steht noch in einer alten Migration im Repo und im
+   Live-Rumpf von `fn_knowledge_grow`, bis Schritt 5 läuft). Ist es dasselbe: neu erzeugen.
+4. **Stripe-Dashboard:**
+   - Das Ereignis **`charge.refunded`** am Webhook-Endpunkt abonnieren — im Dashboard oder,
+     nach der Auslieferung, einmal `stripe-admin-extend-webhook` mit dem Admin-Geheimnis
+     laufen lassen. Ohne das entzieht erst eine Rückbuchung (Chargeback) eine Lifetime,
+     keine Erstattung.
+   - **Lifetime-Altkäufe** tragen keine Zahlungs-Kennung und werden bei Erstattung nicht
+     automatisch entzogen. Wer das will: je Zeile die Zahlung in Stripe nachsehen und
+     nachtragen (die Zeilen heissen `lifetime_<uid>` in `stripe_subscriptions`; die
+     Zahlungs-Kennung gehört in ihr `metadata`).
+   - Weiter offen aus §29: `stripe_publishable_key` beginnt mit `pk_test_`.
+   - Falls zwischen Merge und Auslieferung ein Zwischenstand von `stripe-webhook` live war:
+     die Zustellungen der letzten drei Tage im Dashboard erneut senden.
+5. **Supabase-Auth:** nur nötig, falls du die Anmeldung per E-Mail-Link zurückwillst (30f) —
+   dann muss die Redirect-Liste die App-Adressen enthalten.
+
+### 30f · Entscheidungen, die nur du treffen kannst
+
+| Thema | Stand heute | Optionen | Empfehlung |
+|---|---|---|---|
+| **Netlify-Auslieferung** (`green-scanswitzerland`, §2.1 in CLAUDE.md) | Steht bewusst NICHT in der Liste eigener Adressen der Zahlung (`zahlung_regeln.mjs`); eine Stripe-Rückkehr von dort endet auf green-scan.ch | behalten (dann in `eigenerUrsprung` aufnehmen) · abschalten | abschalten — eine zweite Installationsquelle mit eigenem Speicher bringt nur Support-Fragen |
+| **Quiz-Battles** | Der Herausforderer liefert Fragen UND Lösung; die Form wird geprüft, eine falsch markierte „richtige" Option nicht. ELO und daran hängende Erfolge sind nur bedingt vertrauenswürdig | Fragen zieht der Server aus einem Bestand (Umbau Server + App) · ELO aus Battles nur buchen, wenn die Fragen vom Server stammen · so lassen | Server zieht die Fragen — sonst ELO nicht als Ranglistenwert zeigen |
+| **Antwortschlüssel des Tagesquiz** | `daily_quizzes.options` samt Lösung öffentlich lesbar; höchstens eine nachgeschlagene richtige Antwort je Tag | Urteil nur vom Server (Umbau) · so lassen | davon abhängig machen, ob ein Jahr Pro für die Top 3 bleiben soll |
+| **Anmeldung per E-Mail-Link** | Der Knopf ist entfernt; die Rückkehr wird abgelehnt (ein Token aus der Adresse ist der Weg für Login-CSRF) | auf PKCE umstellen (App + Supabase-Auth-Einstellung) · weglassen | weglassen, bis jemand danach fragt |
+| **KI-Grenzen je Plan** | siehe Tabelle unten; die Werbetexte sagen „unbegrenzt" | Grenzen senken (dann Texte mit) · Texte ehrlich machen · so lassen | Texte auf „faire Nutzung" ändern — für Plus war der Proxy schon immer bei 200/Tag |
+| **Experten-Verifikation** | Eine Zahlung setzt nie mehr „verifiziert"; der Knopf ist aus (`GS_EXPERTEN_ANFRAGE_AKTIV`), weil ein Modell „Anfrage an einen Experten" fehlt | Modell + Expertenwahl bauen · Funktion streichen | bestehende Zeilen mit bezahlt UND verifiziert lesend prüfen lassen (könnten gekauft statt geprüft sein), dann entscheiden |
+| **Kleinere Stripe-Punkte** | Gratisphase nur je Konto (neues Konto = neue Gratistage); abgebrochene Checkouts legen neue Stripe-Kunden an; Startangebot kann bei 99/100 knapp überschritten werden; Altlast-Funktionen `gs_abo_*` lesen Spalten, die es live nicht gibt | je eine kleine Tabelle bzw. Migration (ich schreibe sie, wenn du willst) | Altlast-Funktionen entfernen; der Rest erst, wenn es Käufe gibt |
+| **Android: Update-Hinweis** | Eine installierte APK erfährt nie von einer neueren | A: Hinweis über ein Flag in `app_settings` (nur angemeldet) · B: statische Versionsdatei auf einer eigenen Adresse | A — kein neuer Host, kein DNS |
+| **Reservierte Namen im Altbestand** | Neue Namen wie „GreenScan Team" werden abgewiesen; bestehende Beiträge mit solchen Namen bleiben | einmal lesend zählen, dann umschreiben oder lassen | zählen lassen |
+| **Altzeilen: genaue Orte und EXIF** | Neue Freigaben runden auf ~1 km, neue Fotos ohne GPS; bereits öffentliche Funde stehen exakt, alte Fotos in fünf Buckets tragen noch EXIF | einmaliger Server-Lauf (Runden, Fotos neu kodieren) · private Buckets mit signierten Adressen | den einmaligen Lauf — ich schreibe ihn, du gibst frei |
+| **Name aus der E-Mail bei der Anmeldung** | Die App schickt ohne Namen „Naturfreund"; der Server (`fn_handle_new_user`) nimmt ohne Namen weiter den E-Mail-Anfang | Rückfall am Server auf „Naturfreund" · Bestand bereinigen (Achtung: der E-Mail-Anfang kann auch selbst gewählt sein) | Rückfall ändern, Bestand nur nach Zählung |
+| **Drei Dateien in `docs/_archiv/`** (`A_Z_AUDIT_FINDINGS_v28.95.json`, `SICHERHEIT_JETZT.sql`, `apply_pending_v30_87.sh`) | Nicht indexiert, aber abrufbar (das Repo ist der Web-Root) | aus dem Baum entfernen (Historie bleibt) · bewusst als Risiko führen | entfernen |
+| **KI-Schlüssel auch für Admins** | Admins bekommen ihn noch in den Browser | nur noch über `key-health-check` | ja — dann verlässt er den Server nie |
+| **Vorgabe-Rechte der Datenbank** | Neue Funktionen und Tabellen sind ohne ausdrückliches REVOKE sofort für `anon` offen (gemessen: 16 SECURITY-DEFINER-Funktionen, 190 von 214 Relationen mit Schreibrecht für anon) | Vorgabe einmal umstellen (jede künftige Migration braucht dann ausdrückliche GRANTs) · so lassen | umstellen — aber erst nach den Schritten in 30b |
+| **Scan-Cache-Reste, Arten-Bilder mit fremder Adresse** | liegen noch in der Datenbank, werden nicht mehr gelesen bzw. angezeigt | leeren bzw. auf „abgelehnt" setzen · liegen lassen | leeren — sie stammen von beliebigen Konten |
+| **Kleinere** | Logos von Organisationen dürfen fremde Hosts haben (die Person tippt eine Logo-Adresse ein); die Bilder in `species-images` bleiben nach einer Kontolöschung als Zeile stehen, die Datei ist weg | Logo nur aus dem eigenen Speicher (Formular-Umbau) · so lassen; `species-images` als Gemeingut behalten oder die Zeilen mitlöschen | eine Datenschutz-Entscheidung, keine Code-Frage |
+| **`i18n-translate`** | verwirft KI-Übersetzungen mit Auszeichnung noch nicht; die App bereinigt jede Übersetzung am Eingang | am Server zusätzlich verwerfen · so lassen | zusätzlich verwerfen — andere Leser der Tabelle bereinigen nicht |
+
+**KI-Grenzen je Tag — alt → neu** (stehen nur in `supabase/functions/_shared/ki_tor.mjs`,
+gesetzt, nicht gemessen; ein Admin rechnet wie Pro):
+
+| Function | vor v33.57 | jetzt: free · basic · bezahlt (plus/premium/pro/lifetime) |
+|---|---|---|
+| `ai-proxy` | free 15 · plus 200 · pro/lifetime 2000 (basic und premium fielen auf free) | 15 · 200 · 200 bzw. pro/lifetime 2000 (= live seit 11.11.) |
+| `plan-iterate` | keine Bremse (nur 5 Runden je Plan, vom Nutzer schreibbar) | 10 · 20 · 480 |
+| `garden-scan-analyze` | 20 je Stunde für alle, bei Fehler offen | 3 · 5 · 480 (die Stundenbremse bleibt zusätzlich) |
+| `plant-doctor-diagnose` | 30 je Stunde | 5 · 15 · 720 |
+| `pest-identify`, `mushroom-identify` | 30 je Stunde | 20 · 40 · 720 |
+
+Für bezahlte Pläne ist die Zahl eine **Missbrauchsbremse** (die alte Stundenbremse × 24),
+kein Kontingent. Die Texte „Unbegrenzte KI-Nutzung — kein Tageslimit", „unbegrenzte KI
+ohne Tageslimit", die FAQ und der Hinweis im Planer („Mit Pro: unbegrenzt") stehen noch so
+in der App. Den Hinweis im Planer und im Quiz sieht seit v33.59 nur noch, wer keinen
+bezahlten Plan hat; ein zahlender Kunde liest bei erreichter Bremse „Das Tageskontingent für
+KI-Aufrufe ist erreicht. Morgen geht es weiter.".
+
+### 30g · Auf einem Telefon ansehen — von hier nicht messbar
+
+Hier läuft weder Android noch ein echtes Konto, und die Live-Adressen sind gesperrt (§2.1
+in CLAUDE.md). Nach Merge und Auslieferung bitte:
+
+- **Mit einem gewöhnlichen Konto:** Pilz-, Schädlings- und Doktor-Scan liefern ein
+  Ergebnis (kein „nicht angemeldet").
+- **Pflanzendoktor, Schädlings-, Pilz- und Garten-Scan mit einem grossen Handyfoto:** die
+  App verkleinert das Foto jetzt vorher (höchstens 1920 px, neu kodiert, ohne Ortsangabe in
+  der Datei). Es sollte ein Ergebnis kommen und nie „Das Bild ist zu gross".
+- **Kauf im Stripe-Fenster:** schliesst sich das Fenster nach der Rückkehr, und zeigt die
+  App danach das Abo? Im Browser hier nachgestellt und repariert — wegen einer Kopfzeile
+  kannte das Fenster die App nicht mehr, die es geöffnet hat, und lud sie stattdessen selbst;
+  jetzt meldet es sich über einen eigenen Kanal. Ein echter Kauf zeigt, ob es auf deinem
+  Gerät so ist. Bleibt das Fenster offen, steht dort „Du kannst dieses Fenster schließen".
+- **Einen Fund für die Community freigeben:** die Rückfrage nennt die Rundung auf etwa
+  1 km; auf der Karte eines anderen Kontos steht er gerundet.
+- **Eine Idee im Feedback umstimmen** (Daumen hoch → runter): das scheiterte am Server, weil
+  der Aufruf seinen Schlüssel nicht nannte. Repariert und in einem lokalen Postgres
+  nachgerechnet; endgültig zeigt es nur der echte Server. Dasselbe galt für das erneute
+  Einschalten von Push auf einem Gerät, das schon einmal angemeldet war.
+- **Kompass und Sprachmodus** im Browser — sie waren durch eine Kopfzeile abgeschaltet und
+  sollten wieder gehen.
+- **Android-APK:** ein Foto aus Google Fotos, der Dateiauswahl und der Galerie deines
+  Herstellers wählen (alte Apps, die `file://` liefern, werden jetzt abgewiesen); der
+  Scanner bekommt die Kamera; ein Telefonnummer- und ein Mail-Link öffnen Wähler bzw.
+  Mail-App; nach dem Zurückholen aus dem Hintergrund bleibt die App auf ihrer Seite und
+  springt nicht von selbst zurück.
+- **Ein Push kommt an** (nach der Auslieferung der Push-Functions).
+
+### 30h · Wenn etwas schiefgeht
+
+- **Die sechs neuen Migrationen haben keinen vorbereiteten Rückweg** — keine der Dateien
+  nennt einen. Die `REVOKE`-Zeilen lassen sich mit `GRANT` umkehren, die Regeln mit der
+  Live-Fassung, die im Kopf jeder Datei beschrieben ist. Sag mir, welche, dann schreibe ich
+  dir das Gegenstück aus der Momentaufnahme vom 10.11. — bevor du einspielst, wenn dir
+  das lieber ist.
+- **KI-Functions antworten mit 503 „kontingent_unbekannt":** `…_ki_kontingent.sql` fehlt.
+  Anwenden, nicht die Functions zurückdrehen.
+- **Eine Function verhält sich falsch:** die Fassung vor dieser Reparatur liegt im Repo
+  (Commit `b95a032` = v33.58 für die sechs KI-Functions, wie sie live laufen; für die
+  übrigen `44bb824`). Zurück heisst neu ausliefern aus diesem Stand — nicht geprobt.
+- **`20260907_global_api_key_nur_proxy`** hat einen Notfall-Rückweg im Kopf — er gibt den
+  (dann neuen) Schlüssel wieder an alle Konten. Nur nach Rücksprache.
+- Die App selbst lässt sich wie jede Auslieferung über einen Revert-PR zurücknehmen; Schritt 4
+  aus 30b sollte dann zuerst wieder heraus, sonst trifft die alte App auf den neuen
+  Bild-Wächter.
 
 ## Und wenn etwas schiefgeht
 
