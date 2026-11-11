@@ -1,0 +1,59 @@
+{
+  "id": "2026-11-11-dc91",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Der Leser ist die Regel, nicht das Feld — ein Wert mit mehreren Schreibern hat EINEN Leser",
+  "regel": "Ein Wert, den mehrere Schreiber verschieden nennen oder formen, wird nie als Feld direkt gelesen, sondern über EINE Lesefunktion — und wer sie baut, sucht zuerst die Schreiber.",
+  "text": "Eine neue Instanz erkennt man an einer Anzeige, die für einen Teil der Datensätze leer, 0 oder falsch skaliert bleibt, weil sie einen Feldnamen oder eine Form erwartet, die nur EINER der Schreiber liefert (ts/timestamp/createdAt, date statt ts, 0.94 statt 94, zwei Pflanzenlisten). Verräterisch ist eine Rückfallkette a.x || a.y || a.z an einer Stelle: sie beweist mehrere Schreiber — jede ANDERE Lesestelle desselben Werts ohne diese Kette ist ein Kandidat. Die Wächter bewachen je EIN Feld (Scan-Zeit, Fund-Zeit, Konfidenz, Messgrössen-Name, Pflanzenliste, Quiz-Format), nicht die Klasse; für ctx.harvests (v33.34) gibt es keinen Fall, und ein neues Mehrschreiber-Feld findet keiner.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 35 Rückfallketten auf 33 Zeilen (10.11.2026) — jede ist ein Leser, der mehrere Schreiber duldet; Kandidat ist jeweils jede ANDERE Lesestelle desselben Werts. Auffällig: die Scan-Zeit wird dreimal direkt gelesen (h.ts||h.timestamp||h.scannedAt, c.ts||c.scannedAt||c.timestamp — ohne createdAt, nicht über _gsScanZeit); der lateinische Name einer Pflanze in sechs Ketten mit vier Reihenfolgen (species/lat/latin/scientific_name); der Standort als p.location||p.standort||p.place gegen p.location||p.nick||p.standort; und _gsPlanFolge liest gs_ernte_log als x.name||x.crop||x.plant, während alle vier Schreiber pflanze ablegen — dieselbe Form wie v33.34, an dieser Stelle nicht behoben (Kandidat, nachzumessen). Rest: Fehlertexte, Ortsnamen, eine Kommentarzeile.",
+  "instanzen": [
+    "v30.32/v32.65 · _gsQuizToSupaShape: drei Options-Formate in quiz.options, der Server-Trigger las nur eines",
+    "v32.47 · _gsPflanzeFinden: zwei Pflanzenlisten (ps_myplants, gs_plantings) — ein myPlants.find übersieht die Hälfte",
+    "v32.55 · _gsMetricLabel: k.label_de direkt gelesen zeigt Deutsch in vier Sprachen",
+    "v33.33 · _gsScanZeit: drei Schreiber, drei Feldnamen (timestamp, ts, createdAt) — Lina sah nach dem Cloud-Abgleich null Scans",
+    "v33.34 · ctx.harvests: gelesen h.name || h.crop || h.plant, geschrieben wird pflanze — seit jeher leer",
+    "v33.37 · _gsFundZeit: beide Schreiber legen date ab, gelesen wurde ts || time || found_at || created_at — Kachel „Funde“ immer 0",
+    "v33.39 · _gsScanKonfidenz: 0.94 ergab „0.94%“, „1 % sicher“ und 94 — gsNormConfidence gab es seit v31.79, keine Anzeige rief sie"
+  ],
+  "suchmuster": "grep -noE \"\\b([A-Za-z_]\\w{0,7})\\.(\\w+) ?\\|\\| ?\\1\\.(\\w+) ?\\|\\| ?\\1\\.(\\w+)( ?\\|\\| ?\\1\\.\\w+)*\" index.html",
+  "stichworte": [
+    "leser-ist-die-regel",
+    "_gsScanZeit",
+    "_gsFundZeit",
+    "_gsScanKonfidenz",
+    "_gsPflanzeFinden",
+    "_gsMetricLabel"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · letzter Scan ueberlebt den Cloud-Abgleich"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina S1 · die Sicherheit eines Scans hat EINEN Leser"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Labels · Messgrössen heissen in der Sprache der App"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · Pflanze aufloesen: ueber _gsPflanzeFinden in BEIDEN Listen"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Drei Namen N2 · Karten-Fundorte im Kalender — und der EINE Leser für ihre Zeit"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Alle erledigt ✓ · fragt zuerst, nennt die Aufgaben, und erledigt in BEIDEN Listen"
+    },
+    {
+      "datei": "scripts/quiz_check.js",
+      "fall": "Index reist mit · in allen drei Formaten"
+    }
+  ]
+}

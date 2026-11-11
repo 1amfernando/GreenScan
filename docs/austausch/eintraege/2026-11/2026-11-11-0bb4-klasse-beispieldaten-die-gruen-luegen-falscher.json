@@ -1,0 +1,43 @@
+{
+  "id": "2026-11-11-0bb4",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Beispieldaten, die grün lügen: falscher Schlüssel, falsche Felder, alter Anker, keine Anmeldung",
+  "regel": "Beispieldaten werden gegen die LESESTELLEN der App geprüft (Schlüssel, Feldnamen, Form, Zeitanker, Anmeldung) und an ihrer WIRKUNG in der laufenden App gemessen — und ein Prüfstand, der einen eigenen Seed mitbringt, zählt dabei wie `scripts/_seed.js`.",
+  "text": "Eine neue Instanz erkennt man daran, dass eine Ansicht im Prüfstand ihren LEERZUSTAND zeigt, obwohl der Seed Daten dafür trägt — oder daran, dass ein Fall erst rot wird, sobald man die Beispieldaten berichtigt (dahinter lag dann ein echter Fehler, v31.98). Belegt sind fünf Formen: falscher Schlüssel, richtige Liste mit falschen Feldnamen, falsche Form (Zahl statt ISO-String), fester Zeitanker, ein Token, der nicht anmeldet. Der robust_check-Fall misst die WIRKUNG von `_seed.js` (neun Listen kommen an, mindestens eine überfällige und eine heute fällige Aufgabe); einzelne Feldnamen, die Anmeldung und Prüfstände mit EIGENEM Seed sieht er nicht — v33.33 und v33.56 kamen nach ihm. Der kalender_check-Fall bewacht nur EINE Instanz: jede Quelle, die der Seed füllt, muss der Fall „Ohne Daten“ räumen.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: Drei Blöcke. (1) Drei Prüfstände bringen einen EIGENEN Seed mit: contrast_check (nur Anmeldung und Sprache — die neun Tabs werden ohne Pflanzen, Aufgaben und Gerät auf Kontrast vermessen), perf_check (nur Anmeldung) und touch_check, dessen Seed `myPlants` setzt (v31.46-Form), `lastWatered`/`waterEvery` trägt (v32.46-Form), den festen Anker 1756684800000 hält (v33.02-Form) — und in der Seite nach dem ersten Schlüssel abbricht, weil `now` und `D` nur in Node leben (mit einer Kopie des Blocks auf einer leeren Seite nachgestellt: gesetzt wird nur gs_sb_token, im catch steht „ReferenceError: now is not defined“). (2) 72 Feldnamen in _seed.js, 1 ohne Lesestelle: `dust` (ein Aufgaben-Schlüssel, gelesen über `tasks[key]` — harmlos). (3) 71 Schlüssel, die ein Skript setzt, 11 ohne getItem/safeGetItem-Lesestelle: `gs_sb_expires_at` (apk_check, backup_check, offline_check) kennt die App gar nicht (0 Literale), `myPlants` ist der touch_check-Fund, die übrigen 9 stehen in der App als Literal (Konstante, Liste, anderer Leser). Kandidaten, keine Befunde — ob touch_check und contrast_check dadurch Leerzustände vermessen, ist nicht gefahren.",
+  "instanzen": [
+    "v31.46 · _seed.js schrieb `myPlants`, die App liest `ps_myplants` — von v31.30 bis v31.45 vermassen alle Prüfstände eine leere Pflanzenliste",
+    "v31.98 · Ernte-Log: `ts` als Zahl statt ISO-String — `openErnteTracking` starb daran und verdeckte den dritten `s.bloom`-Fehler",
+    "v32.23 · sync_check: falsche Probewerte (gs_streak als Objekt statt Zahl, ein Tag von vorgestern) ERFANDEN Befunde — vier gemeldete Fehler, die keine waren",
+    "v32.46 · richtiger Schlüssel, falsche Felder: `lastWatered`/`waterEvery` statt `tasks[key].lastDone` — von v31.46 bis v32.45 keine einzige Aufgabe in allen Prüfständen",
+    "v32.52 · kein Gerät im Seed — jeder Prüfstand ausser sensor_check vermass ein leeres Messwerte-Dashboard",
+    "v33.02 · Zeitanker fest auf 1.9.2025 — 9 Aufgaben überfällig, 0 heute fällig, kein Messwert der letzten Woche, in 29 von 31 Prüfständen",
+    "v33.33 · Ernte-Log mit `{plant, amount}` statt `{pflanze, menge}` — das Naturjahr rechnete NaN, die Timeline zeigte eine Ernte ohne Namen mit 0 g",
+    "v33.34 · contrast_check hat einen EIGENEN, winzigen Seed: das Kalender-Fenster suchte `plant_seed_1`, fand nichts und mass nichts",
+    "v33.34 · Wetter im Seed: ein `hourly`-Block liesse `gsWetterGeraetAbgleich` ein Pseudo-Gerät anlegen — jeder Prüfstand zählte zwei Geräte statt eines (deshalb nur `daily`, relativ zur Uhr)",
+    "v33.39 · der Hinweis-Fall war grün, weil die Beispieldaten in sieben Tagen keine verletzte Regel haben",
+    "v33.56 · Seed-Token ohne drei Teile: `gsSecurityInit` räumt ihn 500 ms nach dem Start ab, der Anmeldebildschirm kommt — fünf Teilen-Fälle in apk_check massen die Wartesperre statt des Teilens"
+  ],
+  "suchmuster": "node -e 'const fs=require(\"fs\"),app=fs.readFileSync(\"index.html\",\"utf8\")+fs.readFileSync(\"sw.js\",\"utf8\"),ohneK=t=>t.replace(/^\\s*\\/\\/.*$/gm,\"\"),skr=fs.readdirSync(\"scripts\").filter(f=>/\\.js$/.test(f)),lies=f=>fs.readFileSync(\"scripts/\"+f,\"utf8\");console.log(\"Pruefstaende mit EIGENEM Seed statt _seed.js: \"+skr.filter(f=>/_check\\.js$/.test(f)&&/\\bSEED\\s*=\\s*\\(\\)\\s*=>/.test(lies(f))).join(\" \"));const seed=ohneK(lies(\"_seed.js\").split(\"module.exports.MUSTERPLAN\")[0]),fe=[...new Set([...seed.matchAll(/[{,]\\s*([A-Za-z_]\\w*)\\s*:/g)].map(m=>m[1]))];console.log(fe.length+\" Feldnamen in _seed.js, ohne Lesestelle (.feld) in der App: \"+(fe.filter(f=>!new RegExp(\"\\\\.\"+f+\"\\\\b\").test(app)).join(\" \")||\"keiner\"));const k={};for(const f of skr)for(const m of ohneK(lies(f)).matchAll(/(?:setItem|\\bset)\\(\\s*[\\x27\"]([A-Za-z0-9_]+)[\\x27\"]\\s*[,+]/g))(k[m[1]]=k[m[1]]||new Set()).add(f.replace(/\\.js$/,\"\"));const fremd=Object.keys(k).filter(s=>!new RegExp(\"(getItem|safeGetItem)\\\\(\\\\s*[\\\\x27\\\"]\"+s).test(app));console.log(Object.keys(k).length+\" Schluessel, die ein Skript setzt; ohne getItem/safeGetItem-Lesestelle in der App: \"+fremd.length);fremd.forEach(s=>console.log(\"  \"+s+\" (\"+[...k[s]].join(\",\")+\") · als Literal in der App: \"+(app.split(\"\\x27\"+s).length-1)+\"x\"))'",
+  "stichworte": [
+    "beispieldaten-luegen-gruen",
+    "robust_check",
+    "touch_check",
+    "contrast_check",
+    "gsSecurityInit",
+    "gsWetterGeraetAbgleich"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "Beispieldaten · was _seed.js hineinlegt, kommt in der App an"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Ohne Daten · keine Pflanzen, kein Tagebuch"
+    }
+  ]
+}

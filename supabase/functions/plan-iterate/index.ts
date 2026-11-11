@@ -6,12 +6,19 @@
 // Diese Funktion war ausgeliefert und wird vom Frontend benutzt, hatte aber
 // keinen Quelltext im Repo. Herkunft und Datum stehen hier, damit jede spätere
 // Sitzung nachprüfen kann, ob der Spiegel noch stimmt (neu ziehen und
-// vergleichen). Keine Überarbeitung.
+// vergleichen). Bis v33.56 keine Überarbeitung.
+//
+// v33.58 (10.11.2026) — KEIN Abbild mehr: das ausgelieferte nannte genau ein Modell,
+// `claude-sonnet-4-20250514`, und das ist seit dem 15.06.2026 abgeschaltet. Jeder
+// „Plan anpassen"-Aufruf endete seither im Fehler. Das Modell kommt jetzt aus der
+// Kette der Rolle „vision" (_shared/modelle.mjs), mit Rückfall.
 // ══════════════════════════════════════════════════════════════════════════
 // plan-iterate v3 (v26.50 ai_daily_usage Logging) — v2-base + RPC-Log vor success-Return.
 // Region-aware: liest scan_input.region_used aus garden_plans, lädt regional_garden_calendars als Constraint.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch } from "../_shared/modelle.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,7 +112,7 @@ Deno.serve(async (req) => {
     // Jetzt bricht der Server nach 110 s ab (Edge-Function-Limit 150 s), der Client wartet 120 s.
     let anthropicRes: Response;
     try {
-      anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      anthropicRes = await anthropicFetch("vision", {
       method: "POST",
       signal: AbortSignal.timeout(110_000),
       headers: {
@@ -114,7 +121,6 @@ Deno.serve(async (req) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
         max_tokens: 8000,
         system: buildSystemPrompt(regionalContext),
         messages,

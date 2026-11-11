@@ -1,0 +1,29 @@
+{
+  "id": "2026-11-11-7b03",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "Sechs Verweise „robust_check Fall N\" in CLAUDE.md zeigen auf nichts: kein Fall in robust_check.js trägt eine Nummer",
+  "text": "CLAUDE.md nennt „robust_check Fall 14\", 16, 20, 24 (zweimal) und 25; docs/memory nennt Fall 24 und 25. Die Fälle heissen aber „B1 · …\", „B5b · …\", „A8 · …\" — wer dem Verweis folgt, findet die Stelle nur über den Inhalt. Eine Adresse, die sich mit der Reihenfolge der Fälle verschiebt, ist keine.",
+  "beleg": [
+    "grep -o \"robust_check` Fall [0-9]*\" CLAUDE.md | wc -l → 6",
+    "grep -c \"Fall 24\" scripts/robust_check.js → 0",
+    "grep -c \"name: '\" scripts/robust_check.js → 32, keiner beginnt mit einer Zahl"
+  ],
+  "vorschlag": "Verweise auf ein Stück vom NAMEN des Falls umstellen — dieselbe Regel wie die Wächter-Adresse des Bretts (genau einmal in der Datei).",
+  "stichworte": [
+    "robust_check",
+    "CLAUDE.md",
+    "docs/memory",
+    "verweise"
+  ],
+  "zaehle": [
+    {
+      "datei": "CLAUDE.md",
+      "text": "robust_check` Fall ",
+      "n": 6
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "id": "2026-11-11-d239",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "Sechs Schlüsselfamilien im localStorage stehen in keiner der vier Speicherlisten — vier davon wachsen um einen Schlüssel je Tag und werden nie geräumt",
+  "text": "gs_frost_logged_<Datum>, gs_weather_logged_<Datum>, gs_score_logged_<Datum> und gs_scans_<Datum> entstehen je Tag neu; dazu gs_sh_lastalert_<Gerät> und gs_corrupt_bak__<Schlüssel>. Jede Familie wird im Quelltext an genau einer Stelle genannt — es gibt also auch keine Räumung. storage_check erkennt eine Familie an der Form setItem/getItem('<präfix>' + …); diese sechs bauen den Namen zuerst in eine Variable und fallen deshalb durch. Sie überleben das Abmelden (die nächste Person am Gerät erbt z.B. den Scan-Zähler des Tages) und füllen über Monate den Gerätespeicher.",
+  "beleg": [
+    "Gemessen an v33.58 (Kommentare und GS_RELEASES entfernt): jedes Literal der Form 'gs_…_' + mit Speicherzugriff in der Nähe, das mit keinem Eintrag aus GS_USER_PREFIXES oder GS_KEEP_PREFIXES beginnt → 8 Familien, 6 davon localStorage (zwei weitere, gs_trial_banner_seen_ und gs_followup_shown_, liegen im sessionStorage)",
+    "grep -c je Präfix in index.html → jeweils 1 Zeile"
+  ],
+  "vorschlag": "Die vier Tagesfamilien wie gs_dq_tag_ behandeln (Präfix in GS_USER_PREFIXES, Deckel beim Schreiben); storage_check um die Bauform „Name in einer Variablen\" erweitern, sonst bringt die nächste Familie den Fehler wieder mit.",
+  "stichworte": [
+    "GS_USER_PREFIXES",
+    "GS_KEEP_PREFIXES",
+    "storage_check",
+    "localStorage",
+    "abmelden"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_','gs_dq_tag_'];"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-2a89"
+    }
+  ]
+}

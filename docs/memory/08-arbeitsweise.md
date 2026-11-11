@@ -9,15 +9,15 @@ hat eine Ausgabe, die man vorzeigen kann.
 
 ```
 git fetch origin main && git status         # bist du auf dem aktuellen Stand?
-node scripts/austausch.js holen              # das Brett: wer sitzt woran, was ist gefragt, was blieb offen?
-grep -n '^## 1 ·' STATUS.md                  # §1 und §2 stehen am ENDE der Datei; §0 ist das Tagebuch
+sed -n '1,40p' STATUS.md                     # was ist gerade in Arbeit?
+node scripts/austausch.mjs holen             # was haben ANDERE Sitzungen gefunden, gefragt, vorgeschlagen — und wer arbeitet parallel?
 ```
 
-Du bist nicht die einzige Sitzung (`09-austausch.md`). Sag, woran du sitzt —
-`node scripts/austausch.js neu anspruch --titel "…" --bereich "…"`, dann
-committen und pushen —, BEVOR du Code aenderst: am 10.09.2026 wurde derselbe
-Fehler viermal am selben Morgen behoben, weil niemand sah, dass schon jemand
-dran war.
+Du bist nicht die einzige Sitzung. Was du findest und nicht selbst behebst,
+was du nicht messen konntest und was dir einfaellt, gehoert aufs Brett
+(`node scripts/austausch.mjs hilfe`, Regeln: `docs/austausch/README.md`) —
+und der STATUS-Eintrag am Ende traegt zwei feste Zeilen: `**Offen:**` (mit
+`brett:<id>` oder „nichts") und `**Nicht geprüft:**`.
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines
@@ -28,11 +28,7 @@ sonst nicht auf und die Artenliste ist leer (CLAUDE.md §7.1, v32.96).
 
 Bevor etwas gebaut wird, wird der Ist-Zustand vermessen: `grep -n` mit
 Zeilennummern, ein Zaehlskript ueber die Daten, ein Pruefstand-Lauf. Die
-Messung steht in einer Datei (`befunde.md`), jede Zeile mit Beleg — und was
-dabei AUSSERHALB deines Auftrags auffaellt (Nebenfund), kommt sofort als
-Befund aufs Brett, nicht in den Fliesstext: eine Arbeitsdatei verschwindet
-mit dem Container. Findest du einen Fehler, schlag zuerst die Klasse nach
-(`node scripts/austausch.js klasse <wort>`) und fahr ihr Suchmuster. Ein
+Messung steht in einer Datei (`befunde.md`), jede Zeile mit Beleg. Ein
 Sprachmodell — auch Lina, auch du — weiss nicht zuverlaessig, was in seinem
 eigenen Kontext steht: **was eine KI ueber sich selbst sagt, wird gemessen
 wie alles andere.**
@@ -81,7 +77,7 @@ ALLE:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: „40 Pruefstaende · rot: 0 · nicht pruefbar: 0"
+# Erwartung: „N Pruefstaende · rot: 0 · nicht pruefbar: 0"
 ```
 
 Dauer 15–25 Minuten. `perf_check` misst nur und urteilt nie.
@@ -109,11 +105,6 @@ Inline hoechstens 20 Eintraege — der aelteste wandert an den ANFANG von
   UND die Stand-Zeile in §1 (`**Version**: \`vXX.YY\``). Beides.
 - `CLAUDE.md` §7.1: die Regel, die du gelernt hast — als Kasten, mit Version.
 - Diese `docs/memory/`-Dateien, wenn sich eine Regel oder ein Eigner aendert.
-- **Die Uebergabe auf dem Brett** — was offen bleibt, der naechste Schritt, was
-  du NICHT geprueft hast: `node scripts/austausch.js neu uebergabe --version
-  vXX.YY …`. Sie gehoert zum Bump wie der Eintrag in `GS_RELEASES`;
-  `austausch_check` A5 wird sonst rot. Und was du erledigt hast, schliesst du:
-  `node scripts/austausch.js schliesse <id> --ergebnis erledigt --wohin vXX.YY`.
 - Ein Befund ist ein Protokoll: alte Messungen werden nicht auf den heutigen
   Stand umgeschrieben (v32.94).
 
@@ -125,7 +116,7 @@ git push -u origin claude/<thema>-<id>
 ```
 
 Commit-Betreff `vXX.YY: <Satz>`, Rumpf mit Bereichs-Bullets. PR gegen `main`;
-**CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle 35 mit
+**CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle mit
 Postgres). Ein gruener Lauf auf der eigenen Maschine ist keine Aussage ueber
 den Runner (v33.x: 32 von 32 rot, weil ein Pfad fest verdrahtet war). Squash-
 Merge, dann den Branch nachziehen:

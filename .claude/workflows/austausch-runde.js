@@ -24,7 +24,7 @@ export const meta = {
 // ein gewoehnlicher Faecher nicht hat: die Phase KREUZEN (jeder Agent bekommt
 // die Funde aller anderen und muss darauf aufbauen) und die Phase EINTRAGEN
 // (was die Gegenpruefung ueberlebt, steht danach als Eintrag auf dem Brett —
-// `node scripts/austausch.js einspielen`). Geschrieben wird nur ins Brett;
+// `node scripts/austausch.mjs einspielen`). Geschrieben wird nur ins Brett;
 // keine Phase aendert Code.
 //
 // Grenze: elf Agenten bei drei Blickwinkeln (1 + 3 + 3 + 3 + 1). Wer mehr
@@ -34,7 +34,7 @@ const eingabe = (typeof args === 'string') ? { thema: args } : (args || {})
 const THEMA = eingabe.thema || 'Die gerechneten Anstoesse des Bretts: beantworte offene Fragen durch Messung, pruefe Ideen, die noch kein Zweiter angesehen hat, geh den Beruehrungen nach (zwei Eintraege an derselben Stelle — gemeinsame Ursache?) und fahre fuer Fehlerklassen ohne Suche das Suchmuster.'
 const SCHREIBEN = eingabe.schreiben !== false
 const BLICKWINKEL = (Array.isArray(eingabe.blickwinkel) && eingabe.blickwinkel.length) ? eingabe.blickwinkel : [
-  { key: 'fehler', auftrag: 'Du suchst FEHLER: was tut der Code anders, als er behauptet? Nimm die Fehlerklassen des Bretts als Suchraster (`node scripts/austausch.js klasse <wort>` zeigt Regel und Suchmuster) — „eine Fehlerklasse ist erst geschlossen, wenn man sie GESUCHT hat". Ein Fund, der zu einer Klasse gehoert, nennt ihre id.' },
+  { key: 'fehler', auftrag: 'Du suchst FEHLER: was tut der Code anders, als er behauptet? Nimm die Fehlerklassen des Bretts als Suchraster (`node scripts/austausch.mjs klasse <wort>` zeigt Regel und Suchmuster) — „eine Fehlerklasse ist erst geschlossen, wenn man sie GESUCHT hat". Ein Fund, der zu einer Klasse gehoert, nennt ihre id.' },
   { key: 'nutzersicht', auftrag: 'Du siehst mit den Augen der PERSON, die die App benutzt: stimmt, was dasteht? Zahl neben Beschriftung, Zusage ohne Pruefung, Stille statt Aussage, ein Satz in der falschen Sprache. Miss am gerenderten Text oder am Quelltext der Anzeige, nicht am Objekt.' },
   { key: 'pruefstand', auftrag: 'Du fragst, was NIEMAND MISST: welcher Weg, welche Regel, welche Aussage in diesem Thema hat keinen Pruefstand-Fall — oder einen, der nur eine Richtung kennt, nur eine Attrappe rendert oder gruen bliebe, wenn man die Sache ausbaut?' },
 ]
@@ -60,8 +60,8 @@ const FUNDE = {
       sicherheit: { type: 'boolean' }, nur_fuer_fernando: { type: 'string' },
     }, required: ['titel', 'beleg', 'stichworte'] } },
     ideen: { type: 'array', items: { type: 'object', properties: {
-      titel: { type: 'string' }, text: { type: 'string' }, nutzen: { type: 'string' }, pruefbar: { type: 'string' }, falle: { type: 'string' },
-      aufwand: { type: 'string', enum: ['klein', 'mittel', 'gross'] }, stichworte: { type: 'array', items: { type: 'string' } },
+      titel: { type: 'string' }, text: { type: 'string' }, nutzen: { type: 'string' }, pruefbar: { type: 'string' },
+      stichworte: { type: 'array', items: { type: 'string' } },
       baut_auf: { type: 'array', items: { type: 'string' }, description: 'ids von Eintraegen des Bretts, auf denen die Idee aufbaut' },
     }, required: ['titel', 'nutzen', 'pruefbar', 'stichworte'] } },
     fragen: { type: 'array', items: { type: 'object', properties: {
@@ -80,8 +80,8 @@ const KREUZUNG = {
       widerspricht: { type: 'boolean', description: 'true, wenn deine Messung dem Fund widerspricht' },
     }, required: ['zu', 'text', 'beleg', 'widerspricht'] } },
     ideen: { type: 'array', items: { type: 'object', properties: {
-      titel: { type: 'string' }, text: { type: 'string' }, nutzen: { type: 'string' }, pruefbar: { type: 'string' }, falle: { type: 'string' },
-      aufwand: { type: 'string', enum: ['klein', 'mittel', 'gross'] }, stichworte: { type: 'array', items: { type: 'string' } },
+      titel: { type: 'string' }, text: { type: 'string' }, nutzen: { type: 'string' }, pruefbar: { type: 'string' },
+      stichworte: { type: 'array', items: { type: 'string' } },
       baut_auf: { type: 'array', items: { type: 'string' }, description: 'mindestens ZWEI schluessel/ids — und mindestens einer davon stammt nicht von dir' },
     }, required: ['titel', 'nutzen', 'pruefbar', 'stichworte', 'baut_auf'] } },
   },
@@ -99,9 +99,8 @@ const URTEILE = {
 
 phase('Brett')
 const brett = await agent(`Arbeite im Repo (aktuelles Arbeitsverzeichnis). Fuehre nacheinander aus und gib die Ausgaben UNGEKUERZT und unveraendert zurueck, getrennt durch eine Zeile "#####":
-1. node scripts/austausch.js holen --alles
-2. node scripts/austausch.js anstoss
-3. node scripts/austausch.js klasse
+1. node scripts/austausch.mjs holen --alles
+2. node scripts/austausch.mjs klasse
 Sonst nichts tun, nichts zusammenfassen, nichts aendern. Scheitert ein Befehl, gib seine Fehlermeldung woertlich zurueck.`, { label: 'brett:lesen', phase: 'Brett', effort: 'low' })
 const BRETT = String(brett || '(das Brett konnte nicht gelesen werden — arbeite ohne es und sag das in deinen Funden)').slice(0, 60000)
 
@@ -109,14 +108,14 @@ const KOPF = `Du bist einer von ${BLICKWINKEL.length} Agenten einer AUSTAUSCH-RU
 
 THEMA DER RUNDE: ${THEMA}
 
-DAS BRETT, wie es jetzt steht (Eintraege aller Branches, Anstoesse, Fehlerklassen):
+DAS BRETT, wie es jetzt steht (Eintraege aller Branches mit den gerechneten Anstoessen, dazu die Fehlerklassen):
 ${BRETT}
 
 ${REGELN}`
 
 phase('Sichten')
 const gesichtet = (await parallel(BLICKWINKEL.map(b => () =>
-  agent(`${KOPF}\n\nDEIN BLICKWINKEL (${b.key}): ${b.auftrag}\n\nSchlag zuerst im Brett nach, was es zu deinem Blickwinkel schon gibt — einen Befund, der schon dasteht, schreibst du nicht noch einmal (ein Einzelner zeigt ihn dir: node scripts/austausch.js zeige <id>). Dann miss selbst. Hoechstens sechs Befunde, vier Ideen, vier Fragen.`,
+  agent(`${KOPF}\n\nDEIN BLICKWINKEL (${b.key}): ${b.auftrag}\n\nSchlag zuerst im Brett nach, was es zu deinem Blickwinkel schon gibt — einen Befund, der schon dasteht, schreibst du nicht noch einmal (ein Einzelner zeigt ihn dir: node scripts/austausch.mjs zeige <id>). Dann miss selbst. Hoechstens sechs Befunde, vier Ideen, vier Fragen.`,
     { label: `sichten:${b.key}`, phase: 'Sichten', schema: FUNDE })
     .then(r => r ? { key: b.key, r } : null)
 ))).filter(Boolean)
@@ -187,7 +186,7 @@ for (const f of ueberlebt) {
     stapel.push(sauber(Object.assign(basis, { beleg: (f.beleg || []).concat(u && u.korrektur ? ['Gegenpruefung: ' + u.korrektur] : (u ? ['Gegengeprueft: ' + u.beleg] : [])), vorschlag: f.vorschlag, bezug: bz, anker },
       f.sicherheit ? { sicherheit: true, text: undefined, details_bei: 'Fernando (Ergebnis der Runde, Feld nur_fuer_fernando)' } : {})))
   } else if (f.art === 'idee') {
-    stapel.push(sauber(Object.assign(basis, { nutzen: f.nutzen, pruefbar: f.pruefbar, falle: f.falle, aufwand: f.aufwand, bezug: bezug(f.baut_auf, 'baut_auf') })))
+    stapel.push(sauber(Object.assign(basis, { nutzen: f.nutzen, pruefbar: f.pruefbar, bezug: bezug(f.baut_auf, 'baut_auf') })))
   } else {
     stapel.push(sauber(Object.assign(basis, { an: f.an || 'alle', haengt_daran: f.haengt_daran })))
   }
@@ -208,12 +207,12 @@ if (!SCHREIBEN || !stapel.length) {
 phase('Eintragen')
 const eintrag = await agent(`Arbeite im Repo (aktuelles Arbeitsverzeichnis). Schreibe den folgenden JSON-Stapel UNVERAENDERT in eine Datei ausserhalb des Repos (z.B. mit mktemp) und spiele ihn ein:
 
-  node scripts/austausch.js einspielen <datei>
+  node scripts/austausch.mjs einspielen <datei>
 
 Der Stapel:
 ${JSON.stringify(stapel, null, 1)}
 
-Das Werkzeug schreibt alles oder nichts. Lehnt es ab, lies die Gruende: einen reinen FORMFEHLER (Titel zu lang, leeres Listenelement, ein Bezug auf einen Eintrag, den es nicht gibt) darfst du im Stapel beheben — einen Eintrag ohne Beleg oder mit etwas, das wie ein Geheimnis aussieht, nimmst du aus dem Stapel heraus und nennst ihn in deiner Antwort. Hoechstens drei Versuche. Danach: node scripts/austausch.js pruefen. NICHT committen und NICHT pushen. Gib zurueck: die Liste der geschriebenen ids mit Titel (woertlich aus der Ausgabe), was du herausgenommen oder geaendert hast und warum, und die letzte Zeile von „pruefen".`,
+Das Werkzeug schreibt alles oder nichts. Lehnt es ab, lies die Gruende: einen reinen FORMFEHLER (Titel zu lang, leeres Listenelement, ein Bezug auf einen Eintrag, den es nicht gibt) darfst du im Stapel beheben — einen Eintrag ohne Beleg oder mit etwas, das wie ein Geheimnis aussieht, nimmst du aus dem Stapel heraus und nennst ihn in deiner Antwort. Hoechstens drei Versuche. Danach: node scripts/austausch_check.js (die Faelle A1 bis A3 muessen ok sein). NICHT committen und NICHT pushen. Gib zurueck: die Liste der geschriebenen ids mit Titel (woertlich aus der Ausgabe), was du herausgenommen oder geaendert hast und warum, und die Zeilen A1 bis A3 des Pruefstands.`,
   { label: 'eintragen', phase: 'Eintragen' })
 
 return {

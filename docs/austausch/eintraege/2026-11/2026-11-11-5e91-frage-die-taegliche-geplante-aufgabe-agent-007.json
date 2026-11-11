@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-5e91",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "Die tägliche geplante Aufgabe „AGENT 007\" schreibt ihre Übergaben nach Google Drive und erreicht das Repo nicht — soll sie ans Repo und ans Brett angeschlossen werden?",
+  "an": "fernando",
+  "text": "Gesehen am 10.11.2026 in der Liste der geplanten Aufgaben: „AGENT 007\" läuft täglich um 09:53 (Europe/Zurich), jede Ausführung in einer frischen Sitzung; ihr Auftrag spricht von „jede Woche\". Sie legt ihre Übergabe-Notizen in Google Drive ab und vermerkt dort, dass ihr GitHub-Zugang nicht funktioniert. Damit gibt es einen zweiten Wissenskanal, den keine Sitzung im Repo sieht — und sie selbst sieht weder STATUS.md noch das Brett. Diese Sitzung hat an der Aufgabe nichts geändert.",
+  "haengt_daran": "Ob die Routine dieselben Funde wieder neu macht (wie die 123 Branches zuvor) oder sie aufs Brett schreibt. Nötig wären: GitHub neu verbinden, und im Auftrag der Aufgabe zwei Zeilen — `node scripts/austausch.mjs holen` am Anfang, Einträge statt Drive-Notizen am Ende.",
+  "stichworte": [
+    "geplante-aufgabe",
+    "routine",
+    "uebergabe",
+    "google-drive"
+  ]
+}

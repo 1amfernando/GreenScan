@@ -5,360 +5,221 @@
 //
 // Alle anderen Pruefstaende fragen, ob die APP stimmt. Dieser fragt, ob das
 // stimmt, was die Sitzungen EINANDER hinterlassen: das Brett
-// (docs/austausch/eintraege/, Werkzeug scripts/austausch.js) und die Zahlen in
-// den Uebergabe-Dokumenten (CLAUDE.md, STATUS.md §1, README.md, docs/memory).
+// (docs/austausch/eintraege/, Werkzeug scripts/austausch.mjs) und die zwei
+// Stellen in STATUS.md, an denen eine Sitzung der naechsten etwas uebergibt.
 //
-// Anlass (10.11.2026, Fernando): „Alle Agenten müssen sich austauschen …".
-// Gemessen: genau EINE Uebergabe-Pflicht hatte einen Ausloeser (robust_check
-// „Memory", nur Namen). Fuer dieselbe Suite standen 30 · 35 · 38 · 39
-// Pruefstaende in sechs Dateien, 219 Migrationen bei 223; CLAUDE.md §5 verwies
-// auf vier Abschnitte, die es nie gab; und 125 nie gemergte Branches trugen
-// Befunde, die keine andere Sitzung je sah. „Eine Regel ohne Ausloeser ist
-// eine Bitte" (CLAUDE.md §3.1, v33.01) — hier ist der Ausloeser.
+// Anlass (10.11.2026, Fernando): „Alle Agenten müssen sich austauschen und die
+// Informationen so weiter geben dass unter einander neue ideen enstehen können."
+// Gemessen: fuer dieselbe Suite standen 35 · 38 · 39 · 41 Pruefstaende in
+// sechs Dateien; 125 nie gemergte Branches trugen Befunde, die keine andere
+// Sitzung je sah; in 312 Routine-Eintraegen gab es keine feste Zeile fuer
+// „was bleibt offen". „Eine Regel ohne Ausloeser ist eine Bitte" (CLAUDE.md
+// §3.1, v33.01) — hier ist der Ausloeser.
 //
 // Drei Gruppen:
-//   A · die WARE: das echte Brett (Form, Bezuege, Waechter, Anker und App-Namen, genau eine
-//       Uebergabe je Version, kein offener Anspruch im Baum, Verweise aus den Dokumenten)
-//   B · die UEBERGABE-DOKUMENTE: Zahlen an einen Befehl gebunden, Suite vollstaendig
+//   A · die WARE: das echte Brett im Arbeitsbaum und die Uebergabe in STATUS.md
+//   B · der EINSTIEG: Suite vollstaendig, Zahlen an EINER Stelle, Wegweiser, Agenten-Runde
 //   C · die REGEL selbst: jede Pruefung laeuft gegen einen guten UND einen
 //       schlechten gebauten Fall — eine Pruefung, die alles annimmt, wird hier rot.
 //
 // Grenze: geprueft wird der ARBEITSBAUM. Was nur auf einem anderen Branch
-// liegt, sieht dieser Pruefstand nicht (das Werkzeug schon — Fall C5 prueft
-// genau das an zwei gebauten Branches). Und: ob ein Eintrag KLUG ist, kann
-// niemand rechnen; gerechnet wird, ob er pruefbar, verbunden und ehrlich ist.
+// liegt, sieht dieser Pruefstand nicht (das Werkzeug schon — C8 prueft genau
+// das an gebauten Branches). Und: ob ein Eintrag KLUG ist, rechnet niemand;
+// gerechnet wird, ob er pruefbar, verbunden und ehrlich ist.
 'use strict';
 const fs = require('fs'), path = require('path'), os = require('os'), cp = require('child_process');
-const A = require('./_austausch.js');
+const { pathToFileURL } = require('url');
 
 const WURZEL = path.resolve(__dirname, '..');
-const lies = (rel) => fs.readFileSync(path.join(WURZEL, rel), 'utf8');
-const gibt = (rel) => fs.existsSync(path.join(WURZEL, rel));
-const WERKZEUG = path.join(__dirname, 'austausch.js');
-
-let _src = null;
-const quelle = () => (_src == null ? (_src = lies('index.html') + '\n' + (gibt('sw.js') ? lies('sw.js') : '')) : _src);
+const WERKZEUG = path.join(__dirname, 'austausch.mjs');
+const lies = (rel, w) => fs.readFileSync(path.join(w || WURZEL, rel), 'utf8');
+const gibt = (rel, w) => fs.existsSync(path.join(w || WURZEL, rel));
+const liesOderNull = (w) => (rel) => { try { return fs.readFileSync(path.join(w, rel), 'utf8'); } catch (_) { return null; } };
 const tmp = (name) => fs.mkdtempSync(path.join(os.tmpdir(), 'austausch-' + name + '-'));
 const weg = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch (_) {} };
+const kurz = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+let A = null;   // das Modul (ESM) — in `haupt` geladen
 
-// ── Was die Uebergabe-Dokumente als GEGENWART nennen. Die Liste ist die
-//    Pruefung (Vorbild: risiko_check R3). Jede Stelle ist an ihrem SATZ
-//    verankert; wer den Satz umschreibt, zieht den Anker hier nach — sonst
-//    meldet der Fall „Anker nicht gefunden", und das ist richtig so.
-//    Historische Messungen („31 Pruefstaende", „0 von 4'342") stehen NICHT
-//    hier: ein Protokoll wird nicht umgeschrieben (CLAUDE.md v32.94).
-const MESSEN = {
-  pruefstaende: (w) => (fs.readFileSync(path.join(w, 'scripts/pruefstaende.sh'), 'utf8').match(/^[ \t]*(?:TAILN=\d+[ \t]+)?run[ \t]+\S+/gm) || []).length,
-  migrationen: (w) => fs.readdirSync(path.join(w, 'supabase/migrations')).filter(f => /\.sql$/.test(f)).length,
-  edge: (w) => fs.readdirSync(path.join(w, 'supabase/functions'), { withFileTypes: true }).filter(d => d.isDirectory() && d.name !== '_shared').length,
-  postgres: (w) => fs.readdirSync(path.join(w, 'scripts')).filter(f => /_check\.js$/.test(f) && f !== 'austausch_check.js' && /GS_PG_URL/.test(fs.readFileSync(path.join(w, 'scripts', f), 'utf8'))).length,
-  memory: (w) => fs.readdirSync(path.join(w, 'docs/memory')).filter(f => /\.md$/.test(f)).length,
-  memory_nummeriert: (w) => fs.readdirSync(path.join(w, 'docs/memory')).filter(f => /^\d\d-.*\.md$/.test(f)).length,
-};
-const BEFEHL = {
-  pruefstaende: 'grep -cE "^[ \\t]*(TAILN=[0-9]+ +)?run " scripts/pruefstaende.sh',
-  migrationen: 'ls supabase/migrations/*.sql | wc -l',
-  edge: 'ls -d supabase/functions/*/ | grep -vc _shared',
-  postgres: 'grep -l GS_PG_URL scripts/*_check.js | grep -vc austausch_check',
-  memory: 'ls docs/memory/*.md | wc -l',
-  memory_nummeriert: 'ls docs/memory/[0-9][0-9]-*.md | wc -l',
-};
-const ZAHLEN = [
-  { was: 'pruefstaende', datei: 'CLAUDE.md', anker: /# (\d+) Prüfstände \(§7\.1\) \+ pruefstaende\.sh \(fährt alle (\d+)/ },
-  { was: 'pruefstaende', datei: 'CLAUDE.md', anker: /# ALLE (\d+) nacheinander, ein Bericht, ein Exit-Code/ },
-  { was: 'pruefstaende', datei: 'STATUS.md', von: '## 1 · Aktueller Stand', bis: '\n## 2 · ', anker: /\*\*(\d+)\*\* `\*_check` in `scripts\/`/ },
-  { was: 'pruefstaende', datei: 'STATUS.md', von: '## 1 · Aktueller Stand', bis: '\n## 2 · ', anker: /fährt \*\*alle (\d+)\*\*/ },
-  { was: 'pruefstaende', datei: 'docs/memory/01-projekt.md', anker: /(\d+) Pruefstaende \+ _seed\.js/ },
-  { was: 'pruefstaende', datei: 'docs/memory/04-pruefstaende.md', anker: /^# 04 · Die (\d+) Pruefstaende/m },
-  { was: 'pruefstaende', datei: 'docs/memory/04-pruefstaende.md', anker: /Erwartung: "(\d+) Pruefstaende · rot: 0/ },
-  { was: 'pruefstaende', datei: 'docs/memory/04-pruefstaende.md', anker: /\| `pruefstaende` \| ALLE (\d+) nacheinander/ },
-  { was: 'pruefstaende', datei: 'docs/memory/04-pruefstaende.md', anker: /die Regeln, die alle (\d+) teilen/ },
-  { was: 'postgres', datei: 'docs/memory/04-pruefstaende.md', anker: /(\d+) brauchen ein lokales Postgres/ },
-  { was: 'postgres', datei: 'docs/memory/README.md', anker: /lokales Postgres fuer (\d+)\s+davon/ },
-  { was: 'pruefstaende', datei: 'docs/memory/08-arbeitsweise.md', anker: /Erwartung: „(\d+) Pruefstaende · rot: 0/ },
-  { was: 'pruefstaende', datei: 'docs/memory/README.md', anker: /Welcher der (\d+) Pruefstaende/ },
-  { was: 'migrationen', datei: 'CLAUDE.md', anker: /# (\d+) SQL-Migrationen/ },
-  { was: 'migrationen', datei: 'STATUS.md', von: '## 1 · Aktueller Stand', bis: '\n## 2 · ', anker: /\*\*(\d+) Migrationen\*\* \(/ },
-  { was: 'migrationen', datei: 'README.md', anker: /\*\*(\d+) Migrationen\*\*/ },
-  { was: 'edge', datei: 'CLAUDE.md', anker: /# (\d+) Edge-Function-Verzeichnisse/ },
-  { was: 'edge', datei: 'STATUS.md', von: '## 1 · Aktueller Stand', bis: '\n## 2 · ', anker: /\*\*(\d+) Edge-Function-Verzeichnisse\*\*/ },
-  { was: 'edge', datei: 'README.md', anker: /\*\*(\d+)\s+Edge-Function-Verzeichnisse\*\*/ },
-  { was: 'memory', datei: 'CLAUDE.md', anker: /`docs\/memory\/`\*\* — (\d+) Dateien/ },
-  { was: 'memory_nummeriert', datei: 'docs/memory/README.md', anker: /Diese (\d+) nummerierten Dateien/ },
-];
-// Die eine Rechnung dahinter — auch der gebaute Fall C6 ruft sie.
-function zahlenPruefen(wurzel, liste) {
-  const f = []; let stellen = 0;
-  const mess = {};
-  for (const z of liste) {
-    if (!(z.was in mess)) { try { mess[z.was] = MESSEN[z.was](wurzel); } catch (e) { mess[z.was] = null; f.push(z.was + ': nicht messbar (' + String(e.message).split('\n')[0] + ')'); } }
-    if (mess[z.was] == null) continue;
-    let t;
-    try { t = fs.readFileSync(path.join(wurzel, z.datei), 'utf8'); } catch (_) { f.push(z.datei + ': Datei fehlt'); continue; }
-    // Ein Abschnitt grenzt ein: STATUS.md §0 ist ein Tagebuch und zitiert alte
-    // Staende woertlich — gebunden ist nur §1, die Gegenwart.
-    if (z.von) { const a = t.indexOf(z.von); if (a < 0) { f.push(z.datei + ': Abschnitt „' + z.von + '" nicht gefunden'); continue; } const e = z.bis ? t.indexOf(z.bis, a + z.von.length) : -1; t = t.slice(a, e < 0 ? undefined : e); }
-    const alle = [...t.matchAll(new RegExp(z.anker.source, z.anker.flags.replace('g', '') + 'g'))];
-    if (!alle.length) { f.push(z.datei + ': Anker nicht gefunden (' + z.anker.source.slice(0, 48) + '…) — Satz umgeschrieben? Dann die Stelle in ZAHLEN nachziehen'); continue; }
-    // Ein Anker, der zweimal trifft, bindet nichts: welche Stelle gilt?
-    if (alle.length > 1) { f.push(z.datei + ': Anker trifft ' + alle.length + ' Stellen (' + z.anker.source.slice(0, 48) + '…) — er muss EINEN Satz meinen'); continue; }
-    const m = alle[0];
-    for (const g of m.slice(1)) {
-      stellen++;
-      if (Number(g) !== mess[z.was]) f.push(z.datei + ': nennt ' + g + ' ' + z.was + ', gemessen ' + mess[z.was] + '  [' + BEFEHL[z.was] + ']');
-    }
-  }
-  return { fehler: f, stellen, mess };
-}
-
-// ── `brett:<id>` ist die Zitierform ausserhalb des Bretts. Ein Zitat, das auf
-//    nichts zeigt, ist ein Verweis ins Leere (dieselbe Klasse wie „Fall 16").
-function zitatePruefen(wurzel, ids) {
-  const dateien = [];
-  const sammle = (rel) => { try { fs.readdirSync(path.join(wurzel, rel)).filter(f => /\.md$/.test(f)).forEach(f => dateien.push(path.posix.join(rel, f))); } catch (_) {} };
-  sammle('.'); sammle('docs'); sammle('docs/memory'); sammle('docs/austausch');
-  const fehlt = []; let gefunden = 0, mit = 0;
-  for (const d of dateien) {
-    let t; try { t = fs.readFileSync(path.join(wurzel, d), 'utf8'); } catch (_) { continue; }
-    const z = [...t.matchAll(/\bbrett:(\d{4}-\d{2}-\d{2}-[0-9a-f]{4})\b/g)].map(m => m[1]);
-    if (z.length) mit++;
-    for (const id of z) { gefunden++; if (!ids.has(id)) fehlt.push(d + ' → brett:' + id); }
-  }
-  return { fehlt, gefunden, dateien: mit };
-}
-// ── Haelt ein Austausch-Skript eine App-Funktion am Leben? robust_check C2 zaehlt
-//    JEDEN Bezeichner in scripts/*.js als Nennung. Geprueft werden Namen mit
-//    App-Praefix (gs…, _gs…, dq…, sb…) — die allgemeine Fassung („kein Bezeichner,
-//    den die App definiert") ist nicht erfuellbar: die App definiert Funktionen
-//    namens k, n, text, regel.
-function maskierungPruefen(quelltextApp, skripte) {
-  const defs = new Set();
-  for (const m of quelltextApp.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)) defs.add(m[1]);
-  for (const m of quelltextApp.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function/g)) defs.add(m[1]);
-  const PRAEFIX = /^(_?gs[A-Z]|dq[A-Z]|sb[A-Z]|_gs[a-z])/;
-  const treffer = [];
-  for (const [name, text] of skripte) {
-    // Dieselbe Sicht wie robust_check: ganze Kommentarzeilen zaehlen nicht.
-    const t = text.replace(/^[ \t]*\/\/.*$/gm, '');
-    for (const w of new Set(t.match(/[A-Za-z_$][\w$]*/g) || [])) if (PRAEFIX.test(w) && defs.has(w)) treffer.push(name + ': ' + w);
-  }
-  return { treffer, defs: defs.size };
-}
-
-// ── Bausteine fuer die gebauten Faelle.
-const gut = (extra) => Object.assign({ id: '2026-11-10-aaaa', art: 'befund', datum: '2026-11-10', von: 'pruefstand/a', titel: 'Ein guter Befund', beleg: ['datei.js:12 → 3 Stellen'] }, extra || {});
-function brettAus(eintraege) {
-  // Ein Brett im Speicher, in der Form, die brettLesen liefert.
-  const liste = eintraege.map(e => { const k = Object.assign({}, e); Object.defineProperty(k, '_datei', { value: e.id + '-' + e.art + '-' + A.slug(e.titel) + '.json', enumerable: false }); Object.defineProperty(k, '_quelle', { value: 'Arbeitsbaum', enumerable: false }); return k; });
-  return { eintraege: liste, unlesbar: [], doppelt: [], abweichend: [], quellen: ['Arbeitsbaum'] };
-}
-function werkzeug(wurzel, args, von) {
-  const env = Object.assign({}, process.env, { AUSTAUSCH_WURZEL: wurzel, AUSTAUSCH_VON: von || 'pruefstand/a' });
-  const r = cp.spawnSync(process.execPath, [WERKZEUG].concat(args), { env, encoding: 'utf8' });
+// ── Das Werkzeug als PROZESS: was eine Sitzung wirklich tippt.
+function werkzeug(wurzel, args, env) {
+  const r = cp.spawnSync(process.execPath, [WERKZEUG].concat(args), { encoding: 'utf8', env: Object.assign({}, process.env, { AUSTAUSCH_WURZEL: wurzel, AUSTAUSCH_VON: '' }, env || {}) });
   return { code: r.status, aus: (r.stdout || '') + (r.stderr || '') };
 }
-function gitIn(dir, args) {
-  const r = cp.spawnSync('git', ['-C', dir, '-c', 'user.email=pruefstand@example.com', '-c', 'user.name=pruefstand', '-c', 'commit.gpgsign=false'].concat(args), { encoding: 'utf8' });
-  if (r.error || r.status !== 0) throw new Error('git ' + args.join(' ') + ': ' + ((r.stderr || '') + (r.error ? r.error.message : '')).split('\n')[0]);
-  return r.stdout;
+function g(dir, args) {
+  return cp.execFileSync('git', ['-C', dir, '-c', 'user.email=pruefstand@example.com', '-c', 'user.name=pruefstand', '-c', 'commit.gpgsign=false'].concat(args), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
-const gitDa = () => { const r = cp.spawnSync('git', ['--version'], { encoding: 'utf8' }); return !r.error && r.status === 0; };
+const QUELLE = "var GS_VERSION = 'v1.00';\nfunction gsEins(){ return 1; }\n// gsNurImKommentar() steht nur hier\nfunction gsZwei(){ return gsEins() + gsEins(); }\nwindow.GS_RELEASES = [\n  { v: 'v1.00', summary: 'gsNurImChangelog() entfernt' }\n];\n";
+function repo(name, zweig) {
+  const d = tmp(name);
+  g(d, ['init', '-q', '-b', zweig || 'claude/arbeit', '.']);
+  fs.writeFileSync(path.join(d, 'index.html'), QUELLE);
+  g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'start']);
+  return d;
+}
 
-let _brett = null;
-const brett = () => (_brett || (_brett = A.brettLesen(WURZEL, { alleRefs: false })));
+// ── Gebaute Eintraege fuer die C-Faelle.
+let _n = 0;
+function mk(art, o) {
+  const id = '2026-01-01-' + (++_n).toString(16).padStart(4, '0');
+  const basis = { id, art, datum: '2026-01-01', zeit: '10:00:00', von: 'sitzung/a', titel: 'Gebauter Eintrag ' + _n };
+  const je = {
+    befund: { beleg: ['grep -c x datei → 3'] }, idee: { nutzen: 'eine Rechnung statt zwei', pruefbar: 'ein Fall in x_check' }, frage: { an: 'alle' },
+    klasse: { regel: 'der Leser ist die Regel', instanzen: ['v1.00: eine Stelle'], ohne_waechter: 'noch kein Fall' }, antwort: {}, abschluss: { ergebnis: 'verworfen', text: 'haelt der Messung nicht stand' },
+  }[art] || {};
+  return Object.assign(basis, je, o || {});
+}
+const bz = (art, e) => ({ art, id: e.id });
+const brettAus = (eintraege) => ({ eintraege, unlesbar: [], doppelt: [], abweichend: [] });
+function ablegen(wurzel, e, name) {
+  const d = path.join(wurzel, A.ORDNER, e.id ? e.id.slice(0, 7) : '2026-01'); fs.mkdirSync(d, { recursive: true });
+  const p = path.join(d, name || (e.id + '-' + e.art + '-x.json')); fs.writeFileSync(p, typeof e === 'string' ? e : JSON.stringify(e, null, 2) + '\n'); return p;
+}
+
+// ── Die Uebergabe in STATUS.md: EINE Rechnung fuer die Ware (A4) und fuer die gebauten Faelle (C9).
+function statusPruefen(statusText, version, ids) {
+  const f = [], s = A.statusZeilen(statusText);
+  if (s.grund) return ['STATUS.md: ' + s.grund];
+  const wo = 'der juengste Eintrag in STATUS.md §0 („' + kurz(s.ueberschrift, 70) + '")';
+  if (s.offen == null) f.push(wo + ' hat keine Zeile `**Offen:** …` — dort steht, was die naechste Sitzung uebernimmt: `**Offen:** brett:<id>, brett:<id>` (Eintraege des Bretts) oder `**Offen:** nichts`');
+  else if (!s.ids.length && !s.nichts) f.push(wo + ': die Zeile `**Offen:**` nennt weder einen Eintrag (`brett:<id>`) noch `nichts` — offene Arbeit steht auf dem Brett, damit die naechste Sitzung sie FINDET: node scripts/austausch.mjs neu befund|frage|idee …');
+  for (const id of s.ids) if (!ids.has(id)) f.push(wo + ' nennt brett:' + id + ' — den Eintrag gibt es im Arbeitsbaum nicht (mit `node scripts/austausch.mjs ernten` holen oder die id berichtigen)');
+  if (s.nichtGeprueft == null || !s.nichtGeprueft) f.push(wo + ' hat keine Zeile `**Nicht geprüft:** …` — was von hier aus nicht messbar war (oder „nichts ausgelassen")');
+  if (version && !s.alleKoepfe.some(k => k.indexOf(version) >= 0)) f.push('die laufende Version ' + version + ' hat keinen Eintrag in STATUS.md §0');
+  return f;
+}
+// ── Die Zahlen der Suite stehen an EINER Stelle (STATUS.md §1). Jede andere Datei nennt keine.
+const ZAHLEN = [
+  { was: 'Pruefstaende (*_check in scripts/)', re: /\*\*(\d+)\*\* `\*_check` in `scripts\/`/, miss: (w) => fs.readdirSync(path.join(w, 'scripts')).filter(n => /_check\.(js|py)$/.test(n)).length, befehl: 'ls scripts | grep -cE "_check\\.(js|py)$"' },
+  { was: 'run-Zeilen in pruefstaende.sh', re: /fährt \*\*alle (\d+)\*\*/, miss: (w) => runZeilen(w).length, befehl: 'grep -cE "^[ \\t]*(TAILN=[0-9]+ +)?run " scripts/pruefstaende.sh' },
+  { was: 'Migrationen', re: /\*\*(\d+) Migrationen\*\*/, miss: (w) => fs.readdirSync(path.join(w, 'supabase/migrations')).filter(n => /\.sql$/.test(n)).length, befehl: 'ls supabase/migrations/*.sql | wc -l' },
+  { was: 'Edge-Function-Verzeichnisse', re: /\*\*(\d+) Edge-Function-Verzeichnisse\*\*/, miss: (w) => fs.readdirSync(path.join(w, 'supabase/functions'), { withFileTypes: true }).filter(d => d.isDirectory() && d.name !== '_shared').length, befehl: 'ls -d supabase/functions/*/ | grep -vc _shared' },
+];
+function runZeilen(w) { return (lies('scripts/pruefstaende.sh', w).match(/^[ \t]*(?:TAILN=\d+[ \t]+)?run[ \t]+\S+.*$/gm) || []); }
+function zahlenPruefen(w, liste) {
+  const t = lies('STATUS.md', w), a = t.indexOf('\n## 1 '), b = a < 0 ? -1 : t.indexOf('\n## ', a + 5);
+  if (a < 0) return { fehler: ['STATUS.md: Abschnitt „## 1" nicht gefunden'], stellen: 0 };
+  const s1 = t.slice(a, b < 0 ? undefined : b), f = [];
+  let stellen = 0;
+  for (const z of liste) {
+    const m = s1.match(z.re);
+    if (!m) { f.push('STATUS.md §1: die Stelle fuer „' + z.was + '" ist nicht zu finden (' + z.re.source + ') — wer den Satz umschreibt, zieht ihn in ZAHLEN nach'); continue; }
+    stellen++;
+    const ist = z.miss(w);
+    if (Number(m[1]) !== ist) f.push('STATUS.md §1 nennt ' + m[1] + ' ' + z.was + ', gemessen ' + ist + '  (' + z.befehl + ')');
+  }
+  return { fehler: f, stellen };
+}
 
 const FAELLE = [
-  // ───────────────────────────── A · die Ware
   {
-    name: 'A1 · Das Brett · jeder Eintrag ist lesbar, traegt die Pflichtfelder seiner Art, heisst wie seine id — und nichts darin sieht aus wie ein Geheimnis (das Repo ist public)',
+    name: 'A1 · Das Brett · es gibt Eintraege; jeder ist lesbar, traegt die Pflichtfelder seiner Art, heisst wie seine id, zeigt mit jedem Bezug auf einen vorhandenen Eintrag der richtigen Art — und nichts darin sieht aus wie ein Geheimnis',
     lauf: () => {
-      const b = brett();
-      if (!b.eintraege.length && !b.unlesbar.length) return { offen: true, warum: 'docs/austausch/eintraege/ ist leer — es gibt nichts zu pruefen, und das ist kein Gruen' };
-      const f = A.brettPruefen(b).filter(x => !/den Eintrag gibt es nicht|zeigt auf/.test(x.grund));
-      if (f.length) return { ok: false, warum: f.length + ' Maengel: ' + f.slice(0, 6).map(x => x.wo + ' — ' + x.grund).join(' · ') + (f.length > 6 ? ' · +' + (f.length - 6) + ' weitere (node scripts/austausch.js pruefen)' : '') };
-      const proArt = {};
-      for (const e of b.eintraege) proArt[e.art] = (proArt[e.art] || 0) + 1;
-      return { ok: true, info: b.eintraege.length + ' Eintraege: ' + Object.keys(A.ARTEN).filter(k => proArt[k]).map(k => proArt[k] + ' ' + k).join(' · ') };
+      const b = A.brettLesen(WURZEL, { alleRefs: false });
+      // Ein leeres Brett ist ROT, nicht „nicht pruefbar": sonst waere ein geloeschter Ordner gruen.
+      if (!b.eintraege.length && !b.unlesbar.length) return { ok: false, warum: A.ORDNER + '/ ist leer oder fehlt — das Brett ist die Messgrundlage dieses Pruefstands' };
+      const f = A.brettPruefen(b);
+      if (f.length) return { ok: false, warum: f.length + ' Maengel: ' + f.slice(0, 6).map(x => x.wo + ' — ' + x.grund).join(' · ') + (f.length > 6 ? ' · +' + (f.length - 6) + ' weitere' : '') };
+      const n = {}; b.eintraege.forEach(e => { n[e.art] = (n[e.art] || 0) + 1; });
+      const abl = A.ableiten(b.eintraege), offen = b.eintraege.filter(e => abl.zustand.get(e.id).z === 'offen').length;
+      return { ok: true, info: b.eintraege.length + ' Eintraege (' + Object.keys(n).map(k => n[k] + ' ' + k).join(' · ') + ') · ' + offen + ' offen' };
     },
   },
   {
-    name: 'A2 · Bezuege · jeder Bezug zeigt auf einen Eintrag, den es gibt, und auf die richtige Art (beantwortet → Frage, gehoert_zu → Fehlerklasse, geschlossen wird nie eine Antwort)',
+    name: 'A2 · Waechter · jede offene Fehlerklasse nennt als Waechter eine Datei, die es gibt, und eine Fallkennung, die darin GENAU EINMAL steht — oder sagt ausdruecklich, dass kein Fall sie bewacht',
     lauf: () => {
-      const b = brett();
-      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
-      const f = A.brettPruefen(b).filter(x => /den Eintrag gibt es nicht|zeigt auf/.test(x.grund));
-      if (f.length) return { ok: false, warum: f.length + ' Bezuege ins Leere oder auf die falsche Art: ' + f.slice(0, 5).map(x => x.wo + ' — ' + x.grund).join(' · ') };
-      const n = b.eintraege.reduce((s, e) => s + A.alsListe(e.bezug).length, 0);
-      const ab = A.ableiten(b.eintraege);
-      const z = {};
-      for (const e of b.eintraege) { const k = ab.zustand.get(e.id).z; z[k] = (z[k] || 0) + 1; }
-      return { ok: true, info: n + ' Bezuege, alle mit Ziel · Zustand gerechnet: ' + Object.keys(z).sort().map(k => z[k] + ' ' + k).join(' · ') };
-    },
-  },
-  {
-    name: 'A3 · Waechter · jede Fehlerklasse nennt als Waechter eine Datei, die es gibt, und eine Fallkennung, die in ihr STEHT — oder sagt ausdruecklich, dass keiner sie bewacht',
-    lauf: () => {
-      const b = brett(), kl = b.eintraege.filter(e => e.art === 'klasse');
-      if (!kl.length) return { offen: true, warum: 'keine Fehlerklasse auf dem Brett' };
-      const f = []; let n = 0, ohne = 0;
-      const cache = {}, rueck = A.ableiten(b.eintraege).rueck;
-      for (const e of kl) {
-        // Die Klasse, wie sie heute gilt: mit den Waechtern aus Nachtraegen.
-        const w = A.klasseWirksam(e, rueck).waechter;
-        if (!w.length) { ohne++; continue; }
-        for (const x of w) {
-          n++;
-          if (!x || !x.datei || !x.fall) continue;   // Form meldet A1
-          if (x.fall.trim().length < 3) { f.push(e.id + ': Fallkennung „' + x.fall + '" ist zu kurz, um etwas zu belegen'); continue; }
-          if (!gibt(x.datei)) { f.push(e.id + ': ' + x.datei + ' gibt es nicht'); continue; }
-          const t = cache[x.datei] || (cache[x.datei] = lies(x.datei));
-          if (t.indexOf(x.fall) < 0) f.push(e.id + ': „' + x.fall + '" steht nicht in ' + x.datei);
-        }
-      }
-      // Gegenrichtung: ein Register, in dem KEINE Klasse einen Waechter nennt, waere hier still gruen.
-      if (!n) return { ok: false, warum: kl.length + ' Fehlerklassen, aber keine nennt einen Waechter — der Fall haette nichts gemessen' };
-      if (f.length) return { ok: false, warum: f.length + ' Waechter ins Leere: ' + f.slice(0, 5).join(' · ') + (f.length > 5 ? ' · +' + (f.length - 5) : '') };
-      return { ok: true, info: kl.length + ' Klassen · ' + n + ' Waechter in ' + Object.keys(cache).length + ' Dateien, alle Fallkennungen gefunden · ' + ohne + ' Klassen ausdruecklich OHNE Waechter' };
-    },
-  },
-  {
-    name: 'A4 · App-Namen · was ein OFFENER Eintrag als Stichwort ueber den Code sagt, gibt es im Quelltext noch (eine Idee darf etwas nennen, das es noch nicht gibt)',
-    lauf: () => {
-      const b = brett();
-      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
-      const ab = A.ableiten(b.eintraege), src = quelle();
-      const f = []; let n = 0;
+      const b = A.brettLesen(WURZEL, { alleRefs: false }), abl = A.ableiten(b.eintraege), f = [];
+      let klassen = 0, waechter = 0, ohne = 0;
       for (const e of b.eintraege) {
-        if (ab.zustand.get(e.id).z !== 'offen' || e.art === 'idee') continue;
-        for (const name of A.appNamen(e)) { n++; if (!A.nameImQuelltext(src, name)) f.push(e.id + ': ' + name); }
+        if (e.art !== 'klasse' || abl.zustand.get(e.id).z !== 'offen') continue;
+        klassen++;
+        const k = A.klasseWirksam(e, abl.rueck);
+        if (!k.waechter.length) { ohne++; continue; }
+        waechter += k.waechter.length;
+        for (const x of A.waechterPruefen(k.waechter, liesOderNull(WURZEL))) f.push(e.id + ' („' + kurz(e.titel, 50) + '"): ' + x);
       }
-      if (f.length) return { ok: false, warum: f.length + ' Namen ohne Gegenstueck im Quelltext — der Eintrag ist ueberholt: mit `schliesse <id>` abschliessen oder mit einem neuen ersetzen (' + f.slice(0, 6).join(' · ') + ')' };
-      // Gegenrichtung: sieht die Suche ueberhaupt etwas? Ein Name, den es nie gab, muss fehlen.
-      if (A.nameImQuelltext(src, 'gsDiesenNamenGibtEsNie')) return { ok: false, warum: 'die Namenssuche findet einen erfundenen Namen — sie misst nichts' };
-      return { ok: true, info: n + ' App-Namen in offenen Eintraegen, alle im Quelltext' };
+      if (f.length) return { ok: false, warum: f.slice(0, 5).join(' · ') + (f.length > 5 ? ' · +' + (f.length - 5) + ' weitere' : '') + ' — der Fall wurde umbenannt oder entfernt: `node scripts/austausch.mjs antworte <id> --waechter "datei::neue Kennung"` oder die Klasse ersetzen' };
+      return { ok: true, info: klassen + ' Fehlerklassen · ' + waechter + ' Waechter-Adressen, jede genau einmal in ihrer Datei · ' + ohne + ' ausdruecklich ohne Waechter' };
     },
   },
   {
-    name: 'A4b · Anker · die Stelle, an die ein OFFENER Eintrag gebunden ist, steht noch woertlich in ihrer Datei — wer sie aendert, liest den Eintrag (und schliesst ihn oder verankert neu)',
+    name: 'A3 · Die Stelle · woran ein OFFENER Eintrag gebunden ist, steht noch woertlich in seiner Datei (Anker), und was er gezaehlt hat, ergibt heute dieselbe Zahl — wer die Stelle aendert, liest den Eintrag',
     lauf: () => {
-      const b = brett();
-      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
-      const r = A.ankerPruefen(b.eintraege, (rel) => (gibt(rel) ? lies(rel) : null));
-      if (r.verloren.length) return { ok: false, warum: r.verloren.length + ' Anker verloren — du hast eine Stelle geaendert, zu der ein offener Eintrag gehoert. Lies ihn (node scripts/austausch.js zeige <id>), dann: `schliesse <id> …` (behoben/ueberholt) oder `antworte <id> --anker "datei::neuer text"` (gilt weiter). ' + r.verloren.slice(0, 5).map(x => x.id + ' „' + String(x.titel).slice(0, 70) + '" — ' + x.datei + ': ' + x.grund).join(' · ') };
-      // Gegenrichtung: ein Brett, auf dem KEIN Eintrag einen Anker traegt, haette hier nichts gemessen.
-      if (!r.geprueft) return { offen: true, warum: 'kein offener Eintrag traegt einen Anker — es gibt nichts zu pruefen' };
-      return { ok: true, info: r.geprueft + ' Anker an ' + r.eintraege + ' offenen Eintraegen, alle stehen woertlich in ihrer Datei' };
+      const b = A.brettLesen(WURZEL, { alleRefs: false }), l = liesOderNull(WURZEL), f = [];
+      const a = A.ankerPruefen(b.eintraege, l), z = A.zahlenStand(b.eintraege, l);
+      for (const x of a.verloren) f.push(x.id + ' „' + kurz(x.titel, 60) + '" → ' + x.datei + ': ' + x.grund + ' („' + kurz(x.text, 50) + '")');
+      for (const x of z) if (x.heute !== x.n) f.push(x.id + ' „' + kurz(x.titel, 60) + '" → „' + kurz(x.text, 40) + '" in ' + x.datei + ': war ' + x.n + ', heute ' + (x.heute == null ? 'nicht lesbar' : x.heute));
+      if (f.length) return { ok: false, warum: f.slice(0, 5).join(' · ') + (f.length > 5 ? ' · +' + (f.length - 5) + ' weitere' : '') + ' — das ist der Ausloeser, kein Unfall: `node scripts/austausch.mjs zeige <id>` lesen; behoben → `schliesse <id> --ergebnis erledigt --wohin … --geschwister …`; nur verschoben → `antworte <id> --anker "datei::neuer Text"` bzw. `--zaehle "datei::text"`' };
+      return { ok: true, info: a.geprueft + ' Anker an ' + a.eintraege + ' offenen Eintraegen stehen woertlich da · ' + z.length + ' Zaehlungen unveraendert (ohne Kommentarzeilen und Changelog gemessen)' };
     },
   },
   {
-    name: 'A4c · Zaehlungen · was ein OFFENER Eintrag gezaehlt hat, ergibt heute dieselbe Zahl — hat sie sich bewegt, ist etwas behoben oder dazugekommen, und der Eintrag wird nachgefuehrt',
+    name: 'A4 · Uebergabe · der juengste Eintrag in STATUS.md §0 sagt in zwei festen Zeilen, was offen bleibt (`**Offen:**` mit brett:<id> oder „nichts") und was nicht geprueft wurde — und die laufende Version hat ihren Eintrag',
     lauf: () => {
-      const b = brett();
-      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
-      const st = A.zahlenStand(b.eintraege, (rel) => (gibt(rel) ? lies(rel) : null));
-      if (!st.length) return { ok: true, info: 'kein offener Eintrag traegt eine Zaehlung (0 geprueft — die Rechnung selbst prueft Fall C4e)' };
-      const bewegt = st.filter(z => z.heute !== z.n);
-      if (bewegt.length) return { ok: false, warum: bewegt.length + ' Zaehlungen stimmen nicht mehr — lies den Eintrag, dann `schliesse <id> …` (behoben) oder `antworte <id> --zaehle "datei::text"` (neu gezaehlt, mit einem Satz warum): ' + bewegt.slice(0, 5).map(z => z.id + ' „' + String(z.titel).slice(0, 60) + '" — ' + z.datei + ': war ' + z.n + ', heute ' + (z.heute == null ? 'nicht lesbar' : z.heute)).join(' · ') };
-      return { ok: true, info: st.length + ' Zaehlungen an offenen Eintraegen, alle wie beim Schreiben' };
-    },
-  },
-  {
-    name: 'A5 · Uebergabe · zur laufenden Version gibt es eine gueltige Uebergabe (eine ersetzte zaehlt nicht), und hoechstens EINE davon liefert die Version aus — zwei ausliefernde waeren zwei Sitzungen mit derselben Versionsnummer',
-    lauf: () => {
+      const b = A.brettLesen(WURZEL, { alleRefs: false }), ids = new Set(b.eintraege.map(e => e.id));
       const m = lies('index.html').match(/\bGS_VERSION\s*=\s*'(v\d+\.\d+)'/);
-      if (!m) return { ok: false, warum: 'GS_VERSION in index.html nicht gefunden' };
-      const b = brett(), zu = A.ableiten(b.eintraege).zustand;
-      const ueb = b.eintraege.filter(e => e.art === 'uebergabe' && e.version === m[1] && zu.get(e.id).z === 'notiz');
-      if (!ueb.length) return { ok: false, warum: 'keine Uebergabe fuer ' + m[1] + ' — der Bump verlangt sie wie den GS_RELEASES-Eintrag: node scripts/austausch.js hilfe uebergabe' };
-      // Fortgezaehlte Versionen kollidieren unter Parallelitaet (v33.08 wurde viermal vergeben).
-      // Zwei gueltige Uebergaben fuer EINE Version sind genau dieser Fall — oder eine Korrektur ohne „ersetzt".
-      // Eine Sitzung OHNE Bump (Doku, Routine-Lauf) darf zur selben Version eine Uebergabe hinterlassen — sie liefert nicht aus.
-      const lief = ueb.filter(e => e.liefert === true);
-      if (lief.length > 1) return { ok: false, warum: lief.length + ' Uebergaben liefern ' + m[1] + ' aus (' + lief.map(e => e.id + ' von ' + e.von).join(' · ') + ') — haben zwei Sitzungen dieselbe Version vergeben? Eine nimmt die naechste (node scripts/austausch.js version). War es eine Korrektur: neu uebergabe … --bezug ersetzt:<id>' };
-      const u = ueb[ueb.length - 1];
-      const n = ['offen', 'naechster_schritt', 'nicht_geprueft'].reduce((s, k) => s + A.alsListe(u[k]).length, 0);
-      return { ok: true, info: m[1] + ' · ' + ueb.length + ' gueltige Uebergabe(n), ' + lief.length + ' ausliefernd · juengste ' + u.id + ': ' + (n ? n + ' offene Punkte genannt' : 'nichts offen: ' + String(u.nichts_offen || '').slice(0, 60)) };
-    },
-  },
-  {
-    name: 'A6 · Kein offener Anspruch im Baum · „ich bin dran" lebt auf dem Branch der Sitzung; die Uebergabe derselben Sitzung schliesst ihn — ohne sie gemergt, stuende er fuer immer als „in Arbeit" auf main',
-    lauf: () => {
-      const b = brett();
-      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
-      const zu = A.ableiten(b.eintraege).zustand;
-      const offen = b.eintraege.filter(e => e.art === 'anspruch' && zu.get(e.id).z === 'offen');
-      if (offen.length) return { ok: false, warum: offen.length + ' offene Ansprueche: ' + offen.map(e => e.id + ' „' + String(e.titel).slice(0, 60) + '" (' + e.von + ')').join(' · ') + ' — fertig? Die Uebergabe DEINER Sitzung schliesst ihn (node scripts/austausch.js hilfe uebergabe). Aufgegeben? `schliesse <id> --ergebnis verworfen --text "…"`. Noch dran? Dann ist das hier richtig rot, bis die Uebergabe steht.' };
-      const alle = b.eintraege.filter(e => e.art === 'anspruch').length;
-      return { ok: true, info: alle + ' Ansprueche im Baum, alle geschlossen' };
-    },
-  },
-  {
-    name: 'A7 · Verweise · jedes `brett:<id>` in STATUS.md, ROADMAP.md, CLAUDE.md, docs/ und docs/memory/ meint einen Eintrag, den es gibt',
-    lauf: () => {
-      const b = brett();
-      if (!b.eintraege.length) return { offen: true, warum: 'Brett leer' };
-      const r = zitatePruefen(WURZEL, new Set(b.eintraege.map(e => e.id)));
-      if (r.fehlt.length) return { ok: false, warum: r.fehlt.length + ' Verweise ins Leere: ' + r.fehlt.slice(0, 6).join(' · ') };
-      return { ok: true, info: r.gefunden + ' Verweise in ' + r.dateien + ' Dateien, alle mit Ziel' };
-    },
-  },
-  // ───────────────────────────── B · die Uebergabe-Dokumente
-  {
-    name: 'B1 · Suite · jeder *_check in scripts/ steht in pruefstaende.sh, und jede run-Zeile nennt ein Skript, das es gibt',
-    lauf: () => {
-      const sh = lies('scripts/pruefstaende.sh');
-      const zeilen = sh.match(/^[ \t]*(?:TAILN=\d+[ \t]+)?run[ \t]+.*$/gm) || [];
-      const gefahren = new Set();
-      for (const z of zeilen) { const m = z.match(/scripts\/([\w.-]+_check\.(?:js|py))/); if (m) gefahren.add(m[1]); }
-      const da = fs.readdirSync(path.join(WURZEL, 'scripts')).filter(f => /_check\.(js|py)$/.test(f));
-      const nieGefahren = da.filter(f => !gefahren.has(f)), ohneDatei = [...gefahren].filter(f => da.indexOf(f) < 0);
-      const f = [];
-      if (nieGefahren.length) f.push('in scripts/, aber in keiner run-Zeile (laeuft nie): ' + nieGefahren.join(', '));
-      if (ohneDatei.length) f.push('run-Zeile ohne Datei: ' + ohneDatei.join(', '));
-      if (zeilen.length !== gefahren.size) f.push(zeilen.length + ' run-Zeilen, aber ' + gefahren.size + ' verschiedene *_check — eine Zeile doppelt oder ohne Pruefstand');
+      if (!m) return { ok: false, warum: 'GS_VERSION nicht in index.html gefunden' };
+      const f = statusPruefen(lies('STATUS.md'), m[1], ids);
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: da.length + ' Pruefstaende in scripts/ = ' + zeilen.length + ' run-Zeilen' };
+      const s = A.statusZeilen(lies('STATUS.md'));
+      return { ok: true, info: '„' + kurz(s.ueberschrift, 60) + '" · offen: ' + (s.nichts ? 'nichts' : s.ids.length + ' Eintraege des Bretts') + ' · ' + m[1] + ' hat ihren Eintrag' };
     },
   },
   {
-    name: 'B2 · Zahlen · was CLAUDE.md, STATUS.md §1, README.md und docs/memory als GEGENWART nennen (Pruefstaende, Migrationen, Edge-Verzeichnisse, Gedaechtnis-Dateien, wie viele ein Postgres brauchen), stimmt mit dem Befehl ueberein',
+    name: 'A5 · Zitate · jede offene Frage an Fernando steht mit `brett:<id>` dort, wo er liest (STATUS.md §2 oder docs/FUER-FERNANDO.md) — und jedes `brett:<id>` in den Dokumenten meint einen Eintrag, den es gibt',
     lauf: () => {
-      const r = zahlenPruefen(WURZEL, ZAHLEN);
-      if (r.fehler.length) return { ok: false, warum: r.fehler.length + ' Stellen daneben: ' + r.fehler.join(' · ') };
-      return { ok: true, info: r.stellen + ' Zahlen an ' + ZAHLEN.length + ' Stellen · ' + Object.keys(r.mess).map(k => k + ' ' + r.mess[k]).join(' · ') };
+      const b = A.brettLesen(WURZEL, { alleRefs: false }), abl = A.ableiten(b.eintraege), ids = new Set(b.eintraege.map(e => e.id)), f = [];
+      const st = lies('STATUS.md'), a2 = st.indexOf('\n## 2 '), e2 = a2 < 0 ? -1 : st.indexOf('\n## ', a2 + 5);
+      const wo = (a2 < 0 ? '' : st.slice(a2, e2 < 0 ? undefined : e2)) + '\n' + (gibt('docs/FUER-FERNANDO.md') ? lies('docs/FUER-FERNANDO.md') : '');
+      const fragen = b.eintraege.filter(e => e.art === 'frage' && e.an === 'fernando' && abl.zustand.get(e.id).z === 'offen');
+      for (const e of fragen) if (wo.indexOf('brett:' + e.id) < 0) f.push('die Frage an Fernando ' + e.id + ' („' + kurz(e.titel, 60) + '") steht weder in STATUS.md §2 noch in docs/FUER-FERNANDO.md — er liest das Brett nicht: dort eine Zeile mit brett:' + e.id);
+      const dateien = ['STATUS.md', 'ROADMAP.md', 'CLAUDE.md', 'AGENTS.md', 'README.md'].concat(
+        ['docs', 'docs/memory', 'docs/austausch'].reduce((l, d) => l.concat(gibt(d) ? fs.readdirSync(path.join(WURZEL, d)).filter(n => /\.md$/.test(n)).map(n => d + '/' + n) : []), []));
+      let zitate = 0;
+      for (const d of dateien) {
+        if (!gibt(d)) continue;
+        for (const m of lies(d).matchAll(/\bbrett:(\d{4}-\d{2}-\d{2}-[0-9a-f]{4})\b/g)) { zitate++; if (!ids.has(m[1])) f.push(d + ' nennt brett:' + m[1] + ' — den Eintrag gibt es nicht'); }
+      }
+      if (f.length) return { ok: false, warum: f.slice(0, 5).join(' · ') + (f.length > 5 ? ' · +' + (f.length - 5) + ' weitere' : '') };
+      return { ok: true, info: fragen.length + ' offene Fragen an Fernando, alle dort zitiert · ' + zitate + ' Zitate in ' + dateien.length + ' Dokumenten, keines ins Leere' };
     },
   },
   {
-    name: 'B3 · Einstieg · jede Datei, mit der eine KI hier anfaengt, nennt das Brett — und docs/austausch/README.md erklaert jede Art und jeden Bezug, die das Werkzeug kennt',
+    name: 'B1 · Suite und Zahlen · jeder *_check in scripts/ steht in pruefstaende.sh, jede run-Zeile nennt ein Skript, das es gibt — und die vier Zahlen in STATUS.md §1 (Pruefstaende, run-Zeilen, Migrationen, Edge-Verzeichnisse) sind die gemessenen',
+    lauf: () => {
+      const zeilen = runZeilen(WURZEL), sh = zeilen.join('\n'), f = [];
+      for (const n of fs.readdirSync(path.join(WURZEL, 'scripts')).filter(x => /_check\.(js|py)$/.test(x))) if (sh.indexOf('scripts/' + n) < 0) f.push('scripts/' + n + ' steht in keiner run-Zeile von pruefstaende.sh — er laeuft weder lokal noch in der CI mit');
+      for (const z of zeilen) { const m = z.match(/scripts\/[\w.-]+/); if (m && !gibt(m[0])) f.push('pruefstaende.sh ruft ' + m[0] + ' — die Datei gibt es nicht'); }
+      const r = zahlenPruefen(WURZEL, ZAHLEN);
+      f.push(...r.fehler);
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: zeilen.length + ' run-Zeilen, jede mit Skript · ' + r.stellen + ' Zahlen in STATUS.md §1 stimmen mit ihrem Befehl' };
+    },
+  },
+  {
+    name: 'B2 · Einstieg · jede Datei, mit der eine KI hier anfaengt, nennt das Werkzeug — und docs/austausch/README.md erklaert jede Art, jeden Bezug, jedes Ergebnis und jedes Feld, das das Modul kennt',
     lauf: () => {
       const f = [];
-      for (const d of ['CLAUDE.md', 'AGENTS.md', 'docs/memory/README.md', 'docs/memory/08-arbeitsweise.md', 'docs/memory/09-austausch.md']) {
-        if (!gibt(d)) { f.push(d + ' fehlt'); continue; }
-        if (lies(d).indexOf('scripts/austausch.js') < 0) f.push(d + ' nennt scripts/austausch.js nicht');
+      for (const d of ['CLAUDE.md', 'AGENTS.md', 'docs/memory/README.md', 'docs/memory/08-arbeitsweise.md']) {
+        if (!gibt(d)) f.push(d + ' fehlt'); else if (lies(d).indexOf('scripts/austausch.mjs') < 0) f.push(d + ' nennt `node scripts/austausch.mjs` nicht — wer dort anfaengt, erfaehrt vom Brett nichts');
       }
       if (!gibt('docs/austausch/README.md')) f.push('docs/austausch/README.md fehlt');
       else {
         const t = lies('docs/austausch/README.md');
-        const fehlt = Object.keys(A.ARTEN).concat(Object.keys(A.BEZUEGE)).filter(k => t.indexOf('`' + k + '`') < 0);
-        if (fehlt.length) f.push('docs/austausch/README.md erklaert nicht: ' + fehlt.join(', '));
-        // Gegenrichtung: was die Anleitung als Art in der Tabelle fuehrt, muss das Werkzeug kennen.
-        const genannt = [...t.matchAll(/^\| `([a-z_]+)` \|/gm)].map(m => m[1]);
-        const fremd = genannt.filter(k => !A.ARTEN[k] && !A.BEZUEGE[k]);
-        if (fremd.length) f.push('docs/austausch/README.md nennt in einer Tabelle, was das Werkzeug nicht kennt: ' + fremd.join(', '));
-        if (genannt.length < Object.keys(A.ARTEN).length) f.push('docs/austausch/README.md: nur ' + genannt.length + ' Tabellenzeilen mit `name` gefunden — das Muster greift nicht');
+        const worte = Object.keys(A.ARTEN).concat(Object.keys(A.BEZUEGE), A.ERGEBNISSE, A.FELDER.filter(k => k !== 'schluessel'));
+        const fehlt = [...new Set(worte)].filter(w => t.indexOf('`' + w + '`') < 0);
+        if (fehlt.length) f.push('docs/austausch/README.md erklaert nicht: ' + fehlt.map(w => '`' + w + '`').join(' ') + ' — das Vokabular des Moduls und seine Beschreibung gehoeren zusammen');
       }
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: '5 Einstiegsdateien nennen das Werkzeug · Anleitung deckt ' + Object.keys(A.ARTEN).length + ' Arten und ' + Object.keys(A.BEZUEGE).length + ' Bezuege, beide Richtungen' };
+      return { ok: true, info: 'vier Einstiegsdateien nennen das Werkzeug · README deckt ' + Object.keys(A.ARTEN).length + ' Arten, ' + Object.keys(A.BEZUEGE).length + ' Bezuege, ' + A.ERGEBNISSE.length + ' Ergebnisse, ' + (A.FELDER.length - 1) + ' Felder' };
     },
   },
   {
-    name: 'B4 · Agenten-Runde · der Workflow fuer Unteragenten ist da, laesst sich uebersetzen (meta zuerst, Phasen stimmen, nichts Verbotenes) und endet im Brett',
+    name: 'B3 · Agenten-Runde · der Workflow fuer Unteragenten ist da, laesst sich uebersetzen (meta zuerst, Phasen stimmen, weder Uhr noch Zufall), kennt nur Felder, die das Brett annimmt, und endet im Brett',
     lauf: () => {
       const rel = '.claude/workflows/austausch-runde.js';
       if (!gibt(rel)) return { ok: false, warum: rel + ' fehlt' };
-      const t = lies(rel);
-      const f = [];
-      if (!/^export const meta = \{/.test(t)) f.push('beginnt nicht mit `export const meta = {` (erste Zeile, nichts davor) — das Werkzeug fuehrt ihn dann nicht');
+      const t = lies(rel), f = [];
+      if (!/^export const meta = \{/.test(t)) f.push('beginnt nicht mit `export const meta = {` (erste Zeile, nichts davor)');
       const m = t.match(/export const meta = (\{[\s\S]*?\n\})/);
       let meta = null;
       if (m) { try { meta = (new Function('return (' + m[1] + ')'))(); } catch (e) { f.push('meta ist kein reines Literal: ' + String(e.message).split('\n')[0]); } }
@@ -370,455 +231,325 @@ const FAELLE = [
         if (ohne.length) f.push('Phase ohne Eintrag in meta.phases: ' + ohne.join(', '));
         if (!gerufen.length) f.push('keine phase() gefunden');
       }
-      // Ein Workflow-Skript darf die Uhr und den Zufall nicht fragen (sonst laesst er sich nicht fortsetzen).
       const ohneKommentar = t.replace(/^[ \t]*\/\/.*$/gm, '');
-      for (const [re, was] of [[/\bDate\.now\s*\(/, 'Date.now()'], [/\bMath\.random\s*\(/, 'Math.random()'], [/\bnew Date\s*\(\s*\)/, 'new Date()'], [/\bimport\s*\(/, 'import()']]) if (re.test(ohneKommentar)) f.push('ruft ' + was);
-      if (t.indexOf('scripts/austausch.js') < 0 || t.indexOf('einspielen') < 0) f.push('endet nicht im Brett (kein `scripts/austausch.js einspielen`) — die Runde waere nach der Sitzung verloren');
-      // Und er muss sich UEBERSETZEN lassen: als Rumpf einer async-Funktion, so wie das
-      // Werkzeug ihn faehrt — ohne ihn auszufuehren. Ein Tippfehler faellt sonst erst auf,
-      // wenn eine Sitzung die Runde startet.
+      for (const [re, was] of [[/\bDate\.now\s*\(/, 'Date.now()'], [/\bMath\.random\s*\(/, 'Math.random()'], [/\bnew Date\s*\(\s*\)/, 'new Date()'], [/\bimport\s*\(/, 'import()']]) if (re.test(ohneKommentar)) f.push('ruft ' + was + ' (ein Workflow laesst sich sonst nicht fortsetzen)');
+      if (ohneKommentar.indexOf('scripts/austausch.mjs einspielen') < 0) f.push('endet nicht im Brett (kein `scripts/austausch.mjs einspielen`) — die Runde waere nach der Sitzung verloren');
+      // Jeder Befehl, den die Runde ihre Agenten tippen laesst, muss einer sein, den das Werkzeug kennt.
+      const werk = lies('scripts/austausch.mjs'), bm = werk.match(/const BEFEHLE = \{([^}]*)\}/);
+      const kennt = new Set(bm ? bm[1].split(',').map(s => s.split(':')[0].trim()) : []);
+      for (const x of ohneKommentar.matchAll(/scripts\/austausch\.mjs ([a-z]+)/g)) if (!kennt.has(x[1])) f.push('nennt den Befehl „' + x[1] + '", den scripts/austausch.mjs nicht kennt');
+      if (/scripts\/austausch\.js\b/.test(ohneKommentar)) f.push('nennt noch scripts/austausch.js (das Werkzeug heisst austausch.mjs)');
+      // … und jedes Feld, das der Stapel traegt, eines, das eintragPruefen annimmt.
+      const felder = new Set(A.FELDER);
+      for (const x of ohneKommentar.matchAll(/stapel\.push\(sauber\(([\s\S]*?)\)\)\n/g)) for (const k of x[1].matchAll(/[{,]\s*([a-z_]+):/g)) if (!felder.has(k[1])) f.push('schreibt das Feld „' + k[1] + '" in den Stapel — das Brett kennt es nicht und lehnt den ganzen Stapel ab');
       try {
         const Async = Object.getPrototypeOf(async function () {}).constructor;
         new Async('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow', t.replace(/^export const meta/, 'const meta'));
       } catch (e) { f.push('laesst sich nicht uebersetzen: ' + String(e.message).split('\n')[0]); }
-      if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: rel + ' · ' + (meta.phases || []).length + ' Phasen: ' + (meta.phases || []).map(p => p.title).join(' → ') };
+      if (f.length) return { ok: false, warum: [...new Set(f)].join(' · ') };
+      return { ok: true, info: rel + ' · ' + meta.phases.length + ' Phasen: ' + meta.phases.map(p => p.title).join(' → ') };
     },
   },
   {
-    name: 'B5 · Keine Maskierung · Werkzeug, Modul und Pruefstand nennen keinen Funktionsnamen der App mit App-Praefix (robust_check C2 zaehlt jede Nennung in scripts/ — eine tote Funktion lebte sonst hier weiter)',
+    name: 'C1 · Die Pruefung sieht Fehler · gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und sechs gute (einer je Art) kommen ohne Grund durch',
     lauf: () => {
-      const skripte = ['scripts/austausch.js', 'scripts/_austausch.js', 'scripts/austausch_check.js'].map(d => [d, lies(d)]);
-      const r = maskierungPruefen(lies('index.html'), skripte);
-      if (r.defs < 1000) return { ok: false, warum: 'nur ' + r.defs + ' Definitionen in index.html gefunden — das Muster greift nicht' };
-      if (r.treffer.length) return { ok: false, warum: 'gleichnamig mit App-Funktionen — in den Beispielen und Bausteinen erfundene Namen nehmen: ' + r.treffer.join(' · ') };
-      // Gegenrichtung an einem gebauten Skript: ein definierter Name MUSS auffallen, ein erfundener nicht.
-      const probe = maskierungPruefen('function gsProbeDefiniert() {}\n'.repeat(1), [['a.js', "x('gsProbeDefiniert'); y('gsProbeErfunden');\n// gsProbeDefiniert in einer Kommentarzeile zaehlt nicht"]]);
-      if (probe.treffer.join() !== 'a.js: gsProbeDefiniert') return { ok: false, warum: 'die Rechnung sieht den gebauten Fall nicht: ' + JSON.stringify(probe.treffer) };
-      return { ok: true, info: r.defs + ' App-Definitionen · 0 mit App-Praefix in den drei Austausch-Skripten · gebauter Fall: definierter Name gemeldet, erfundener nicht' };
-    },
-  },
-  // ───────────────────────────── C · die Regel selbst
-  {
-    name: 'C1 · Die Pruefung sieht Fehler · 30 gebaute kaputte Eintraege werden je mit dem RICHTIGEN Grund abgelehnt — und fuenf gute kommen ohne Einwand durch',
-    lauf: () => {
-      const lang = 'x'.repeat(A.TITEL_MAX + 1);
-      const SCHLECHT = [
-        ['Befund ohne Beleg', gut({ beleg: undefined }), /Befund ohne „beleg"/],
-        ['Beleg leer', gut({ beleg: [] }), /Befund ohne „beleg"/],
-        ['Idee ohne pruefbar', gut({ art: 'idee', beleg: undefined, nutzen: 'n' }), /Idee ohne „pruefbar"/],
-        ['Art erfunden', gut({ art: 'gedanke' }), /art „gedanke" gibt es nicht/],
-        ['Feld vertippt', gut({ belege: ['x'] }), /unbekanntes Feld „belege"/],
-        ['id ohne Form', gut({ id: 'befund-1' }), /id fehlt oder hat nicht die Form/],
-        ['id passt nicht zum Datum', gut({ datum: '2026-11-09' }), /id beginnt nicht mit dem datum/],
-        ['Datum unmoeglich', gut({ id: '2026-02-30-aaaa', datum: '2026-02-30' }), /kein gueltiges JJJJ-MM-TT/],
-        ['von fehlt', gut({ von: '' }), /von fehlt/],
-        ['Titel zu lang', gut({ titel: lang }), /titel hat \d+ Zeichen/],
-        ['Schluessel im Beleg', gut({ beleg: ['Kopfzeile x-api-key: ' + ['sk', 'ant', 'api03', 'AbCdEfGhIjKl'].join('-')] }), /wie ein Anthropic-Schluessel aussieht/],
-        ['JWT im Text', gut({ text: 'Token ' + ['eyJ' + 'hbGciOiJIUzI1NiJ9', 'eyJ' + 'zdWIiOiIxMjM0NTY3ODkwIn0', 'abcDEF123456'].join('.') }), /wie ein JWT aussieht/],
-        ['Adresse im Text', gut({ text: 'gemeldet von vorname.nachname' + '@' + 'posteo.de' }), /wie eine E-Mail-Adresse aussieht/],
-        ['Sicherheit mit Weg', gut({ sicherheit: true, text: 'so geht es', details_bei: 'Fernando' }), /sicherheit: true — kein „text"/],
-        ['Sicherheit ohne Ort', gut({ sicherheit: true }), /braucht „details_bei"/],
-        ['Antwort ohne Bezug', gut({ art: 'antwort', beleg: undefined }), /Antwort braucht einen Bezug/],
-        ['Bezug auf sich selbst', gut({ bezug: [{ art: 'baut_auf', id: '2026-11-10-aaaa' }] }), /bezieht sich nicht auf sich selbst/],
-        ['Bezugsart erfunden', gut({ bezug: [{ art: 'mag', id: '2026-11-10-bbbb' }] }), /art „mag" gibt es nicht/],
-        ['Abschluss ohne wohin', gut({ art: 'abschluss', beleg: undefined, ergebnis: 'erledigt', bezug: [{ art: 'schliesst', id: '2026-11-10-bbbb' }] }), /erledigt ohne „wohin"/],
-        ['Verworfen ohne Grund', gut({ art: 'abschluss', beleg: undefined, ergebnis: 'verworfen', bezug: [{ art: 'schliesst', id: '2026-11-10-bbbb' }] }), /verworfen ohne Grund/],
-        ['Uebergabe sagt nichts', gut({ art: 'uebergabe', beleg: undefined, version: 'v33.56' }), /Uebergabe sagt nichts ueber Offenes/],
-        ['Uebergabe mit falscher Version', gut({ art: 'uebergabe', beleg: undefined, version: '33.56', offen: ['x'] }), /version hat nicht die Form/],
-        ['Klasse ohne Waechter und ohne Grund', gut({ art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x'], waechter: [] }), /ohne Waechter braucht „ohne_waechter"/],
-        ['Liste mit Zahl', gut({ stichworte: ['a', 3] }), /stichworte muss eine Liste nicht-leerer Texte sein/],
-        ['Anker zu kurz', gut({ anker: [{ datei: 'index.html', text: 'x = 1' }] }), /anker\[0\]: text braucht/],
-        ['Anker aus dem Repo hinaus', gut({ anker: [{ datei: '../geheim.txt', text: 'ein langes Stueck Text' }] }), /muss ein Pfad im Repo sein/],
-        ['Zaehlung ohne ganze Zahl', gut({ zaehle: [{ datei: 'index.html', text: 'ein Stueck', n: -1 }] }), /zaehle\[0\]: n ist eine ganze Zahl ab 0/],
-        ['Anspruch mit krummer Version', gut({ art: 'anspruch', beleg: undefined, bereich: 'b', version: '33.57' }), /version hat nicht die Form/],
-        ['liefert an einem Befund', gut({ liefert: true }), /liefert \(true\/false\) gehoert an eine Uebergabe/],
-        ['Anker an einem Abschluss', gut({ art: 'abschluss', beleg: undefined, ergebnis: 'verworfen', text: 'weil', anker: [{ datei: 'a.js', text: 'ein langes Stueck Text' }], bezug: [{ art: 'schliesst', id: '2026-11-10-bbbb' }] }), /anker gehoert an einen Befund/],
+      const bf = mk('befund'), fr = mk('frage');
+      const gut = [bf, mk('idee'), fr, mk('klasse'), mk('klasse', { ohne_waechter: undefined, waechter: [{ datei: 'scripts/x_check.js', fall: 'E10 · Zahl' }] }),
+        mk('antwort', { bezug: [bz('beantwortet', fr)] }), mk('abschluss', { bezug: [bz('schliesst', bf)] }),
+        mk('befund', { sicherheit: true, details_bei: 'Fernando' }), mk('befund', { anker: [{ datei: 'index.html', text: 'function gsEins(){' }], zaehle: [{ datei: 'index.html', text: 'gsEins()', n: 3 }] })];
+      for (const e of gut) { const r = A.eintragPruefen(e); if (r.length) return { ok: false, warum: 'ein GUTER Eintrag (' + e.art + ') wird abgelehnt: ' + r[0] }; }
+      const schlecht = [
+        [mk('befund', { beleg: undefined }), /Befund ohne „beleg"/], [mk('befund', { beleg: [] }), /Befund ohne „beleg"/], [mk('befund', { beleg: ['ok', ' '] }), /beleg muss eine Liste nicht-leerer Texte/],
+        [mk('idee', { pruefbar: '' }), /Idee ohne „pruefbar"/], [mk('frage', { an: undefined }), /Frage ohne „an"/], [mk('frage', { an: 'team' }), /an: alle oder fernando/],
+        [mk('klasse', { ohne_waechter: undefined }), /Fehlerklasse ohne Waechter braucht „ohne_waechter"/], [mk('klasse', { instanzen: [] }), /Fehlerklasse ohne „instanzen"/],
+        [mk('klasse', { waechter: [{ datei: '../x.js', fall: 'E1 Fall' }] }), /waechter\[0\]/], [mk('befund', { waechter: [{ datei: 'a.js', fall: 'Fall 1' }] }), /waechter gehoert an eine Fehlerklasse/],
+        [mk('antwort'), /Antwort braucht einen Bezug/], [mk('antwort', { bezug: [bz('gehoert_zu', bf)] }), /Antwort braucht einen Bezug/], [mk('abschluss', { bezug: [bz('baut_auf', bf)] }), /Abschluss braucht einen Bezug der Art schliesst/],
+        [mk('abschluss', { ergebnis: 'fertig', bezug: [bz('schliesst', bf)] }), /ergebnis: erledigt · verworfen · aufgestiegen/], [mk('abschluss', { text: '', bezug: [bz('schliesst', bf)] }), /verworfen ohne Grund/],
+        [mk('abschluss', { ergebnis: 'erledigt', bezug: [bz('schliesst', bf)] }), /erledigt ohne „wohin"/],
+        [mk('befund', { art: 'notiz' }), /art „notiz" gibt es nicht/], [mk('befund', { id: 'abc' }), /id fehlt oder hat nicht die Form/], [mk('befund', { datum: '2026-02-30', id: '2026-02-30-00aa' }), /kein gueltiges JJJJ-MM-TT/],
+        [mk('befund', { datum: '2026-01-02' }), /id beginnt nicht mit dem datum/], [mk('befund', { zeit: '9 Uhr' }), /zeit hat nicht die Form/], [mk('befund', { von: '' }), /von fehlt/], [mk('befund', { titel: 'x'.repeat(201) }), /titel hat 201 Zeichen/],
+        [mk('befund', { notiz: 'x' }), /unbekanntes Feld „notiz"/], [mk('befund', { _intern: 'x' }), /unbekanntes Feld „_intern"/],
+        [mk('befund', { bezug: [{ art: 'mag', id: bf.id }] }), /art „mag" gibt es nicht/], [mk('befund', { bezug: [{ art: 'baut_auf', id: 'x' }] }), /id fehlt oder hat die falsche Form/],
+        [mk('befund', { anker: [{ datei: 'index.html', text: 'kurz' }] }), /anker\[0\]: text ist EINE Zeile mit 8 bis 300/], [mk('befund', { anker: [{ datei: '/etc/passwd', text: 'ein langes Stueck' }] }), /datei muss ein Pfad im Repo sein/],
+        [mk('befund', { zaehle: [{ datei: 'index.html', text: 'gsEins()', n: -1 }] }), /n ist eine ganze Zahl ab 0/], [mk('abschluss', { bezug: [bz('schliesst', bf)], anker: [{ datei: 'index.html', text: 'function gsEins(){' }] }), /anker gehoert an einen Befund/],
+        [mk('befund', { sicherheit: true, text: 'so geht es', details_bei: 'Fernando' }), /sicherheit: true — kein „text"/], [mk('befund', { sicherheit: true }), /braucht „details_bei"/],
+        [mk('befund', { text: 'Schluessel sk-ant-' + 'abcdefgh12345678' }), /Anthropic-Schluessel/], [mk('befund', { beleg: ['user ' + '0f8fad5b-d9cb-469f-a165-' + '70867728950e'] }), /UUID/],
+        [mk('befund', { text: 'schreib an ' + 'jemand' + '@' + 'firma.ch' }), /E-Mail-Adresse/], [mk('befund', { _x: 'ghp_' + 'a'.repeat(24) }), /GitHub-Token/],
+        [mk('befund', { beleg: ['siehe /tmp' + '/lauf/log.txt'] }), /nur auf einer Maschine stimmt/],
       ];
-      const GUT = [
-        ['Befund', gut()],
-        ['Commit-Hash und noreply-Adresse sind kein Geheimnis', gut({ beleg: ['Commit e74c453a9b1c0d2e3f4a5b6c7d8e9f0a1b2c3d4e auf origin/claude/x', 'git -c user.email="seros@users.noreply.github.com" commit'] })],
-        ['Sicherheitsbefund ohne Weg', gut({ sicherheit: true, details_bei: 'docs/FUER-FERNANDO.md §8' })],
-        ['Klasse ausdruecklich ohne Waechter', gut({ art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x'], waechter: [], ohne_waechter: 'Verfahrensregel, kein Fall' })],
-        ['Befund mit Anker', gut({ anker: [{ datei: 'supabase/functions/x/index.ts', text: 'model: "ein-modell-name"' }] })],
-      ];
-      const f = [];
-      for (const [name, e, re] of SCHLECHT) {
-        const g = A.eintragPruefen(JSON.parse(JSON.stringify(e)));
-        if (!g.some(x => re.test(x))) f.push(name + ' → ' + (g.length ? 'falscher Grund: ' + g[0] : 'ANGENOMMEN'));
+      for (const [e, re] of schlecht) {
+        const r = A.eintragPruefen(e);
+        if (!r.some(x => re.test(x))) return { ok: false, warum: 'ein kaputter Eintrag wird NICHT mit dem erwarteten Grund abgelehnt (' + re.source + '): ' + (r.length ? r.join(' | ') : 'keine Ablehnung') };
       }
-      for (const [name, e] of GUT) {
-        const g = A.eintragPruefen(JSON.parse(JSON.stringify(e)));
-        if (g.length) f.push('guter Eintrag „' + name + '" abgelehnt: ' + g[0]);
-      }
-      // Der Dateiname gehoert zur Form.
-      if (!A.eintragPruefen(gut(), '2026-11-10-bbbb-befund-x.json').some(x => /Dateiname muss mit/.test(x))) f.push('falscher Dateiname ANGENOMMEN');
-      if (A.eintragPruefen(gut(), '2026-11-10-aaaa-befund-ein-guter-befund.json').length) f.push('richtiger Dateiname abgelehnt');
-      if (f.length) return { ok: false, warum: f.length + ' von ' + (SCHLECHT.length + GUT.length + 2) + ': ' + f.slice(0, 5).join(' · ') };
-      return { ok: true, info: SCHLECHT.length + ' kaputte abgelehnt, je mit dem erwarteten Grund · ' + GUT.length + ' gute ohne Einwand · Dateiname in beiden Richtungen' };
+      if (A.eintragPruefen(mk('befund', { text: 'Absender ' + 'noreply' + '@' + 'anthropic.com' })).length) return { ok: false, warum: 'eine erlaubte Adresse (noreply) wird als Geheimnis abgelehnt' };
+      if (!A.eintragPruefen(bf, 'falsch.json').some(x => /Dateiname muss mit/.test(x)) || A.eintragPruefen(bf, bf.id + '-befund-x.json').length) return { ok: false, warum: 'die Pruefung des Dateinamens greift nicht in beide Richtungen' };
+      return { ok: true, info: schlecht.length + ' kaputte je mit dem richtigen Grund abgelehnt · ' + gut.length + ' gute still · ein Feld mit Unterstrich ist kein Versteck (unbekannt UND durchsucht)' };
     },
   },
   {
-    name: 'C2 · Das ganze Brett · ein Bezug ins Leere, „beantwortet" auf einen Befund, dieselbe id in zwei Dateien, eine unlesbare Datei und ein behobener Befund ohne Waechter-Angabe werden gemeldet — ein sauberes Brett nicht',
+    name: 'C2 · Das ganze Brett · Bezug ins Leere, „beantwortet" auf einen Befund, „schliesst" an einer Antwort, „ersetzt" ueber Arten hinweg, ein behobener Befund ohne Geschwister-Suche, dieselbe id zweimal, eine unlesbare Datei, eine ohne id — alles gemeldet, nichts stuerzt ab; das gute Brett bleibt still',
     lauf: () => {
+      const bf = mk('befund'), fr = mk('frage'), kl = mk('klasse'), id2 = mk('idee');
+      const gut = [bf, fr, kl, id2, mk('antwort', { bezug: [bz('beantwortet', fr)] }), mk('befund', { bezug: [bz('gehoert_zu', kl)] }), mk('befund', { bezug: [bz('ersetzt', bf)] }),
+        mk('abschluss', { ergebnis: 'erledigt', wohin: 'v1.01', geschwister: 'gesucht: grep -c → 2 Stellen, beide umgestellt', bezug: [bz('schliesst', bf)] }), mk('abschluss', { bezug: [bz('schliesst', id2)] })];
+      const g0 = A.brettPruefen(brettAus(gut));
+      if (g0.length) return { ok: false, warum: 'das GUTE Brett wird beanstandet: ' + g0[0].grund };
+      const faelle = [
+        [[bf, mk('antwort', { bezug: [{ art: 'baut_auf', id: '2026-01-01-ffff' }] })], /den Eintrag gibt es nicht/],
+        [[bf, mk('antwort', { bezug: [bz('beantwortet', bf)] })], /„beantwortet" zeigt auf .* das keine Frage ist/],
+        [[bf, mk('befund', { bezug: [bz('gehoert_zu', bf)] })], /„gehoert_zu" zeigt auf .* das keine Fehlerklasse ist/],
+        [[bf, mk('antwort', { bezug: [bz('baut_auf', bf), bz('schliesst', bf)] })], /„schliesst" darf nur ein Abschluss tragen/],
+        [[bf, mk('idee', { bezug: [bz('ersetzt', bf)] })], /„ersetzt" verlangt dieselbe Art/],
+        [[bf, mk('abschluss', { ergebnis: 'erledigt', wohin: 'v1.01', bezug: [bz('schliesst', bf)] })], /braucht „geschwister"/],
+      ];
+      for (const [liste, re] of faelle) { const r = A.brettPruefen(brettAus(liste)); if (!r.some(x => re.test(x.grund))) return { ok: false, warum: 'NICHT gemeldet (' + re.source + '): ' + (r.map(x => x.grund).join(' | ') || 'still') }; }
+      // Und was das Schliessen WIRKT: eine Antwort mit „schliesst" und ein „ersetzt" aus fremder Art lassen den Befund OFFEN.
+      const b2 = mk('befund'), um = [b2, mk('antwort', { bezug: [bz('baut_auf', b2), bz('schliesst', b2)] }), mk('idee', { bezug: [bz('ersetzt', b2)] })];
+      if (A.ableiten(um).zustand.get(b2.id).z !== 'offen') return { ok: false, warum: 'das strenge Schliessen laesst sich umgehen: ein Befund gilt nach einer Antwort mit „schliesst" bzw. einem „ersetzt" aus fremder Art als ' + A.ableiten(um).zustand.get(b2.id).z };
       const d = tmp('brett');
       try {
-        const dir = path.join(d, A.ORDNER); fs.mkdirSync(dir, { recursive: true });
-        const schreib = (name, inhalt) => fs.writeFileSync(path.join(dir, name), typeof inhalt === 'string' ? inhalt : JSON.stringify(inhalt));
-        const frage = gut({ id: '2026-11-10-f001', art: 'frage', beleg: undefined, an: 'alle', titel: 'Eine Frage' });
-        schreib('2026-11-10-aaaa-befund-ein-guter-befund.json', gut());
-        schreib('2026-11-10-f001-frage-eine-frage.json', frage);
-        schreib('2026-11-10-a001-antwort-ja.json', gut({ id: '2026-11-10-a001', art: 'antwort', beleg: undefined, titel: 'Ja', bezug: [{ art: 'beantwortet', id: '2026-11-10-f001' }] }));
-        const sauber = A.brettPruefen(A.brettLesen(d, {}));
-        if (sauber.length) return { ok: false, warum: 'sauberes Brett gemeldet: ' + sauber[0].grund };
-        schreib('2026-11-10-b001-antwort-leer.json', gut({ id: '2026-11-10-b001', art: 'antwort', beleg: undefined, titel: 'Leer', bezug: [{ art: 'baut_auf', id: '2026-11-10-9999' }] }));
-        schreib('2026-11-10-b002-antwort-falsch.json', gut({ id: '2026-11-10-b002', art: 'antwort', beleg: undefined, titel: 'Falsch', bezug: [{ art: 'beantwortet', id: '2026-11-10-aaaa' }] }));
-        schreib('2026-11-10-aaaa-befund-zweite-datei.json', gut({ titel: 'Zweite Datei' }));
-        schreib('2026-11-10-b003-befund-kaputt.json', '{ "id": ');
-        const g = A.brettPruefen(A.brettLesen(d, {})).map(x => x.grund);
-        const soll = [/Bezug auf 2026-11-10-9999 — den Eintrag gibt es nicht/, /„beantwortet" zeigt auf 2026-11-10-aaaa, das keine Frage ist/, /dieselbe id 2026-11-10-aaaa in zwei Dateien/, /kein gueltiges JSON/];
-        const fehlt = soll.filter(re => !g.some(x => re.test(x)));
-        if (fehlt.length) return { ok: false, warum: fehlt.length + ' von 4 nicht gemeldet: ' + fehlt.map(r => r.source.slice(0, 40)).join(' · ') + ' — gemeldet wurde: ' + g.join(' | ').slice(0, 200) };
-        // Schliessen ist streng — aber nur beim BEFUND, und nur bei „erledigt".
-        const zu = (extra) => gut(Object.assign({ id: '2026-11-10-c001', art: 'abschluss', beleg: undefined, titel: 'zu', ergebnis: 'erledigt', wohin: 'v9', bezug: [{ art: 'schliesst', id: '2026-11-10-aaaa' }] }, extra));
-        const idee = gut({ id: '2026-11-10-d001', art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'p', titel: 'Eine Idee' });
-        const streng = (liste) => A.brettPruefen(brettAus(liste)).map(x => x.grund).filter(x => /braucht „(bewacht|geschwister|gegenprobe)"/.test(x)).length;
-        const ist = [streng([gut(), zu()]), streng([gut(), zu({ bewacht: 'x_check · Fall', geschwister: 'gesucht: grep → 0', gegenprobe: 'zurueckgebaut → x_check Fall rot' })]), streng([gut(), zu({ bewacht: 'keiner, weil Doku', geschwister: 'nicht gesucht, weil Einzelfall', gegenprobe: 'keine, weil nur Text' })]),
-          streng([gut(), zu({ ergebnis: 'verworfen', wohin: undefined, text: 'stimmt nicht' })]), streng([idee, zu({ bezug: [{ art: 'schliesst', id: '2026-11-10-d001' }] })])].join(' ');
-        if (ist !== '3 0 0 0 0') return { ok: false, warum: 'strenges Schliessen: ' + ist + ' — erwartet 3 0 0 0 0 (behobener Befund ohne Angaben: 3 Maengel · mit Angaben · mit ausgesprochenem „keiner/nicht gesucht/keine" · verworfen · eine Idee: je 0)' };
-        return { ok: true, info: 'sauberes Brett: 0 Meldungen · vier eingebaute Schaeden: 4 von 4 gemeldet · behobener Befund ohne „bewacht/geschwister/gegenprobe": 3 Maengel, mit: 0, verworfen und Idee: 0' };
+        const a = mk('befund'), c = mk('befund');
+        ablegen(d, a); ablegen(d, Object.assign({}, c, { id: a.id }), a.id + '-befund-y.json');
+        ablegen(d, '{ kaputt', '2026-01-01-eeee-befund-z.json'); ablegen(d, JSON.stringify({ art: 'befund', titel: 'ohne id' }), 'ohne-id.json');
+        const b = A.brettLesen(d, { alleRefs: false }), r = A.brettPruefen(b);
+        if (b.eintraege.length !== 1 || b.doppelt.length !== 1 || b.unlesbar.length !== 2) return { ok: false, warum: 'gebautes Verzeichnis: ' + b.eintraege.length + ' Eintraege (erwartet 1), ' + b.doppelt.length + ' doppelt (1), ' + b.unlesbar.length + ' unlesbar (2)' };
+        if (!r.some(x => /dieselbe id/.test(x.grund)) || !r.some(x => /kein gueltiges JSON/.test(x.grund)) || !r.some(x => /ohne id der Form/.test(x.grund))) return { ok: false, warum: 'doppelte id, kaputtes JSON oder fehlende id NICHT gemeldet: ' + r.map(x => x.grund).join(' | ') };
+        A.ableiten(b.eintraege); A.anstoesse(b.eintraege, liesOderNull(d));
+      } finally { weg(d); }
+      return { ok: true, info: faelle.length + ' Regelbrueche je mit Grund gemeldet · zwei Umgehungen des strengen Schliessens wirkungslos · doppelte id, kaputtes JSON, Datei ohne id: gemeldet, kein Absturz' };
+    },
+  },
+  {
+    name: 'C3 · Zustand wird gerechnet · Frage mit Antwort ist beantwortet, Befund mit Abschluss geschlossen, ein ersetzter ersetzt, Antwort und Abschluss sind Notizen — und von zwei Nachtraegen am selben Tag gilt der SPAETERE (Uhrzeit, nicht die zufaellige id)',
+    lauf: () => {
+      const fr = mk('frage'), bf = mk('befund'), alt = mk('idee'), offen = mk('befund', { anker: [{ datei: 'a.js', text: 'der erste Anker' }], zaehle: [{ datei: 'a.js', text: 'abc', n: 1 }] });
+      const an = mk('antwort', { bezug: [bz('beantwortet', fr)] }), zu = mk('abschluss', { bezug: [bz('schliesst', bf)] }), neu = mk('idee', { bezug: [bz('ersetzt', alt)] });
+      // Der SPAETERE Nachtrag traegt die KLEINERE id — nur die Uhrzeit kann richtig entscheiden.
+      const spaet = mk('antwort', { id: '2026-01-01-0001', zeit: '15:00:00', bezug: [bz('baut_auf', offen)], anker: [{ datei: 'a.js', text: 'der spaetere Anker' }], zaehle: [{ datei: 'a.js', text: 'abc', n: 5 }] });
+      const frueh = mk('antwort', { id: '2026-01-01-fff0', zeit: '11:00:00', bezug: [bz('baut_auf', offen)], anker: [{ datei: 'a.js', text: 'der fruehere Anker' }], zaehle: [{ datei: 'a.js', text: 'abc', n: 3 }] });
+      const alle = [fr, bf, alt, offen, an, zu, neu, frueh, spaet], abl = A.ableiten(alle), z = (e) => abl.zustand.get(e.id).z;
+      const ist = [z(fr), z(bf), z(alt), z(offen), z(an), z(zu), z(neu)].join(' '), soll = 'beantwortet geschlossen ersetzt offen notiz notiz offen';
+      if (ist !== soll) return { ok: false, warum: 'Zustaende: ' + ist + ' — erwartet: ' + soll };
+      const ank = A.ankerWirksam(offen, abl.rueck)[0].text, n = A.zaehleWirksam(offen, abl.rueck)[0].n;
+      if (ank !== 'der spaetere Anker' || n !== 5) return { ok: false, warum: 'von zwei Nachtraegen am selben Tag gilt „' + ank + '" / n=' + n + ' — erwartet der von 15:00 (die id entscheidet nicht)' };
+      const kl = mk('klasse'), k = A.klasseWirksam(kl, A.ableiten([kl, mk('antwort', { bezug: [bz('baut_auf', kl)], gesucht: 'v1.01: 4 Stellen', waechter: [{ datei: 'scripts/x_check.js', fall: 'E10 · Zahl' }], suchmuster: 'grep -n x' }), mk('befund', { bezug: [bz('gehoert_zu', kl)] })]).rueck);
+      if (k.gesucht.length !== 1 || k.waechter.length !== 1 || k.suchmuster !== 'grep -n x' || k.befunde.length !== 1) return { ok: false, warum: 'der Nachtrag an einer Fehlerklasse kommt nicht an: ' + JSON.stringify({ gesucht: k.gesucht, waechter: k.waechter.length, suchmuster: k.suchmuster, befunde: k.befunde.length }) };
+      return { ok: true, info: 'sieben Zustaende wie erwartet · der Nachtrag von 15:00 gilt vor dem von 11:00, obwohl seine id kleiner ist · eine Klasse wird durch Antworten ergaenzt, nie umgeschrieben' };
+    },
+  },
+  {
+    name: 'C4 · Anstoesse · aus einem gebauten Brett rechnet der Code genau die erwarteten: Widerspruch, zwei Koepfe an derselben Stelle (nie derselbe Schreiber), zwei Ideen auf einen Fund, verlorener Anker, bewegte Zahl — ein Eintrag von einem FREMDEN Branch wird nicht gegen diesen Baum gemessen; dazu Marken, Nachbarn mit Irrweg, Klassenvorschlag',
+    lauf: () => {
+      const datei = { 'a.js': 'function gsEins(){ return 1; }\ngsEins(); gsEins();\n' }, l = (rel) => (rel in datei ? datei[rel] : null);
+      const b1 = mk('befund', { stichworte: ['kachel', 'gsEins'] }), f2 = mk('frage', { von: 'sitzung/b', stichworte: ['Kachel'] }), b3 = mk('befund', { stichworte: ['gsEins'] });
+      const w = mk('antwort', { von: 'sitzung/b', bezug: [bz('widerspricht', b1)] });
+      const i1 = mk('idee', { bezug: [bz('baut_auf', b3)] }), i2 = mk('idee', { von: 'sitzung/b', bezug: [bz('baut_auf', b3)] });
+      const ank = mk('befund', { anker: [{ datei: 'a.js', text: 'function gsWeg(){' }] }), zahl = mk('befund', { zaehle: [{ datei: 'a.js', text: 'gsEins()', n: 5 }] });
+      const still = mk('befund', { anker: [{ datei: 'a.js', text: 'function gsEins(){' }], zaehle: [{ datei: 'a.js', text: 'gsEins()', n: 3 }] });
+      const fremd = mk('befund', { anker: [{ datei: 'a.js', text: 'steht nur auf dem anderen Branch' }], zaehle: [{ datei: 'a.js', text: 'gsEins()', n: 9 }] });
+      Object.defineProperty(fremd, '_quelle', { value: 'origin/claude/anderswo', enumerable: false });
+      const alle = [b1, f2, b3, w, i1, i2, ank, zahl, still, fremd], an = A.anstoesse(alle, l);
+      const arten = an.map(x => x.art).join(' '), soll = 'widerspruch beruehrung zwei_ideen anker_verloren zahl_bewegt';
+      if (arten !== soll) return { ok: false, warum: 'Anstoesse: „' + arten + '" — erwartet: „' + soll + '" (' + an.map(x => kurz(x.satz, 60)).join(' | ') + ')' };
+      if (an[1].ids.join() !== [b1.id, f2.id].sort().join()) return { ok: false, warum: 'die Beruehrung verbindet ' + an[1].ids.join(' + ') + ' — erwartet b1 und f2 (b1 und b3 stammen vom SELBEN Schreiber)' };
+      if (an.some(x => x.ids.indexOf(fremd.id) >= 0)) return { ok: false, warum: 'ein Eintrag von einem fremden Branch wird gegen den LOKALEN Baum gemessen' };
+      // Marken: ein eigener Nachtrag ist kein Echo; die Antwort eines anderen schon.
+      const eigen = mk('antwort', { bezug: [bz('baut_auf', b3)], anker: [{ datei: 'a.js', text: 'function gsEins(){' }] });
+      const m3 = A.marken(b3, A.ableiten([b3, eigen]), datei['a.js']), m1 = A.marken(b1, A.ableiten(alle), datei['a.js']), mx = A.marken(mk('befund', { stichworte: ['gsWeg'] }), A.ableiten(alle), datei['a.js']);
+      if (m3.indexOf('noch niemand dazu') < 0 || m1.indexOf('noch niemand dazu') >= 0 || !mx.some(x => /nennt Code, den es nicht mehr gibt: gsWeg/.test(x))) return { ok: false, warum: 'Marken: eigener Nachtrag → ' + JSON.stringify(m3) + ' · fremde Antwort → ' + JSON.stringify(m1) + ' · fehlender Name → ' + JSON.stringify(mx) };
+      // Nachbarn: der offene Eintrag eines ANDEREN — und ein verworfener als Irrweg mit seinem Grund.
+      const irr = mk('idee', { von: 'sitzung/c', stichworte: ['kachel'] }), zu = mk('abschluss', { von: 'sitzung/c', text: 'kostet 40 ms je Start', bezug: [bz('schliesst', irr)] });
+      const neu = mk('befund', { von: 'sitzung/neu', stichworte: ['kachel'] }), nb = A.nachbarn(neu, [b1, f2, irr, zu, neu]);
+      if (nb.length !== 3 || !nb.some(x => x.irrweg && /40 ms/.test(x.grund)) || A.nachbarn(mk('befund', { stichworte: ['kachel'] }), [b1, b3]).length) return { ok: false, warum: 'Nachbarn: ' + nb.length + ' (erwartet 3, einer davon ein Irrweg mit Grund; und keiner beim SELBEN Schreiber)' };
+      const kl = mk('klasse', { titel: 'Zwei Rechnungen fuer dieselbe Frage', regel: 'eine Kachel und eine Zeile zaehlen dasselbe aus einer Funktion' });
+      const kv = A.klassenVorschlag(mk('befund', { titel: 'Die Kachel zaehlt drei Tage, die Zeile daneben nur heute', text: 'zwei Rechnungen' }), [kl]);
+      if (kv.length !== 1 || kv[0].klasse.id !== kl.id) return { ok: false, warum: 'kein Klassenvorschlag fuer einen Befund mit den Worten der Klasse' };
+      return { ok: true, info: 'fuenf Anstoesse in fester Reihenfolge · der Eintrag vom fremden Branch bleibt ungemessen · eigener Nachtrag ist kein Echo · 3 Nachbarn, davon 1 Irrweg mit Grund · Klassenvorschlag' };
+    },
+  },
+  {
+    name: 'C5 · Gemessen wird die SACHE, nicht der Text ueber sie · ein Stueck, das nur in einer Kommentarzeile oder im Changelog-Block steht, zaehlt nicht; ein geschlossener Eintrag wird nicht mehr gemessen',
+    lauf: () => {
+      const t = A.messtext('index.html', QUELLE);
+      if (t.indexOf('gsNurImKommentar') >= 0 || t.indexOf('gsNurImChangelog') >= 0 || t.indexOf('function gsZwei(){') < 0) return { ok: false, warum: 'messtext laesst Kommentar oder Changelog stehen (oder nimmt Code weg)' };
+      if (A.wieOft(t, 'gsEins()') !== 3 || A.wieOft(A.messtext('x.sql', '-- drop view v\ncreate view v as select 1;\n'), 'view v') !== 1 || A.wieOft(A.messtext('x.sh', '# run a\nrun a node x\n'), 'run a') !== 1) return { ok: false, warum: 'Zaehlung ohne Kommentarzeilen stimmt nicht (js/sql/sh)' };
+      const l = (rel) => (rel === 'index.html' ? QUELLE : null);
+      const da = mk('befund', { anker: [{ datei: 'index.html', text: 'function gsEins(){' }] }), kom = mk('befund', { anker: [{ datei: 'index.html', text: 'gsNurImKommentar()' }] });
+      const log = mk('befund', { anker: [{ datei: 'index.html', text: 'gsNurImChangelog()' }] }), fehlt = mk('befund', { anker: [{ datei: 'gibt-es-nicht.js', text: 'irgendein Stueck' }] });
+      const zuB = mk('befund', { anker: [{ datei: 'index.html', text: 'laengst entfernt' }] }), zu = mk('abschluss', { bezug: [bz('schliesst', zuB)] });
+      const r = A.ankerPruefen([da, kom, log, fehlt, zuB, zu], l), ids = r.verloren.map(x => x.id).sort().join();
+      if (ids !== [kom.id, log.id, fehlt.id].sort().join() || r.geprueft !== 4) return { ok: false, warum: 'verloren gemeldet: ' + r.verloren.map(x => x.text).join(' | ') + ' (erwartet: Kommentar, Changelog, fehlende Datei — nicht der vorhandene, nicht der geschlossene)' };
+      return { ok: true, info: 'Kommentarzeile und GS_RELEASES-Block zaehlen nicht (js · sql · sh) · vorhandener Anker still · drei verlorene gemeldet · der geschlossene Eintrag bleibt ungemessen' };
+    },
+  },
+  {
+    name: 'C6 · Schreiben · ein Stapel mit Bezuegen untereinander kommt an (Monatsordner, vom Pruefstand angenommen); ein einziger Mangel schreibt NICHTS; Anker, Zahl und Waechter werden beim Schreiben gegen den Baum gemessen; „erledigt" geht erst, wenn die Zaehlung sich bewegt hat',
+    lauf: () => {
+      const d = tmp('schreiben');
+      try {
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE); fs.mkdirSync(path.join(d, 'scripts'));
+        fs.writeFileSync(path.join(d, 'scripts/x_check.js'), "// Faelle\n{ name: 'E10 · Zahl der Pflanzen' },\n{ name: 'E1 · eins' }, { name: 'E1 · zwei' },\n");
+        const o = { von: 'sitzung/a', datum: '2026-03-04', zeit: '08:00:00', alleRefs: false };
+        const stapel = [
+          { schluessel: 'b', art: 'befund', titel: 'Zwei Rechnungen fuer die Kachel', beleg: ['grep -c "gsEins()" index.html → 3'], anker: [{ datei: 'index.html', text: 'function gsEins(){ return 1; }' }], zaehle: [{ datei: 'index.html', text: 'gsEins()', n: 3 }] },
+          { schluessel: 'i', art: 'idee', titel: 'Eine Funktion fuer beide', nutzen: 'eine Rechnung', pruefbar: 'x_check E10', bezug: [{ art: 'baut_auf', id: '@b' }] },
+          { art: 'klasse', titel: 'Zwei Rechnungen', regel: 'eine Frage, eine Funktion', instanzen: ['v1.00: Kachel'], waechter: [{ datei: 'scripts/x_check.js', fall: 'E10 · Zahl' }] },
+        ];
+        const r = A.einspielen(d, stapel, o);
+        if (!r.ok) return { ok: false, warum: 'ein guter Stapel wird abgelehnt: ' + r.fehler.map(x => x.grund).join(' | ') };
+        const b = A.brettLesen(d, { alleRefs: false });
+        if (b.eintraege.length !== 3 || A.brettPruefen(b).length || !r.geschrieben.every(x => x.datei.indexOf(A.ORDNER + '/2026-03/2026-03-04-') === 0 && gibt(x.datei, d))) return { ok: false, warum: 'nach dem Einspielen: ' + b.eintraege.length + ' Eintraege, Pruefung: ' + ((A.brettPruefen(b)[0] || {}).grund || 'still') + ', Dateien: ' + r.geschrieben.map(x => x.datei).join(', ') };
+        const befund = b.eintraege.find(e => e.art === 'befund'), idee = b.eintraege.find(e => e.art === 'idee');
+        if (idee.bezug[0].id !== befund.id || 'schluessel' in idee) return { ok: false, warum: 'der Stapel-Bezug @b wurde nicht zur id des Befunds (oder der schluessel blieb im Eintrag)' };
+        const nein = (roh, re, was) => { const vor = A.brettLesen(d, { alleRefs: false }).eintraege.length, x = A.einspielen(d, roh, o), nach = A.brettLesen(d, { alleRefs: false }).eintraege.length;
+          return (x.ok || nach !== vor || !x.fehler.some(y => re.test(y.grund))) ? was + ': ' + (x.ok ? 'angenommen' : (nach !== vor ? 'abgelehnt, aber ' + (nach - vor) + ' Datei(en) geschrieben' : 'falscher Grund: ' + x.fehler.map(y => y.grund).join(' | '))) : null; };
+        const gutB = { art: 'befund', titel: 'Ein guter neben einem schlechten', beleg: ['x'] };
+        const pruefe = [
+          nein([gutB, { art: 'befund', titel: 'Ohne Beleg' }], /Befund ohne „beleg"/, 'alles oder nichts'),
+          nein([{ art: 'befund', titel: 'Mit eigener id', beleg: ['x'], id: '2026-03-04-aaaa' }], /eine id vergibt das Werkzeug/, 'mitgebrachte id'),
+          nein([{ art: 'befund', titel: 'Anker daneben', beleg: ['x'], anker: [{ datei: 'index.html', text: 'function gsDrei(){' }] }], /steht nicht woertlich in index\.html/, 'Anker, der nicht dasteht'),
+          nein([{ art: 'befund', titel: 'Anker im Changelog', beleg: ['x'], anker: [{ datei: 'index.html', text: 'gsNurImChangelog()' }] }], /steht nicht woertlich/, 'Anker nur im Changelog'),
+          nein([{ art: 'befund', titel: 'Falsch gezaehlt', beleg: ['x'], zaehle: [{ datei: 'index.html', text: 'gsEins()', n: 7 }] }], /steht 3-mal in index\.html, nicht 7-mal/, 'falsche Zahl'),
+          nein([{ art: 'klasse', titel: 'Waechter mehrdeutig', regel: 'r', instanzen: ['i'], waechter: [{ datei: 'scripts/x_check.js', fall: 'E1 ·' }] }], /steht 2-mal in scripts\/x_check\.js/, 'mehrdeutiger Waechter'),
+          nein([{ art: 'klasse', titel: 'Waechter fehlt', regel: 'r', instanzen: ['i'], waechter: [{ datei: 'scripts/x_check.js', fall: 'E99 · nie' }] }], /steht nicht in scripts\/x_check\.js/, 'Waechter ins Leere'),
+          nein([{ art: 'antwort', titel: 'Bezug ins Leere', text: 't', bezug: [{ art: 'baut_auf', id: '2026-03-04-ffff' }] }], /den Eintrag gibt es nicht/, 'Bezug ins Leere'),
+          nein([{ art: 'antwort', titel: 'Schliesst als Antwort', text: 't', bezug: [{ art: 'baut_auf', id: befund.id }, { art: 'schliesst', id: befund.id }] }], /„schliesst" darf nur ein Abschluss tragen/, 'Schliessen mit einer Antwort'),
+          nein([{ art: 'abschluss', titel: 'Behoben', ergebnis: 'erledigt', wohin: 'v1.01', geschwister: 'gesucht: 0 weitere', bezug: [{ art: 'schliesst', id: befund.id }] }], /Zaehlung des Befunds .* steht unveraendert/, 'erledigt bei unveraenderter Zaehlung'),
+          nein([{ art: 'befund', titel: 'Feld mit Unterstrich', beleg: ['x'], _notiz: 'x' }], /unbekanntes Feld „_notiz"/, 'Feld mit Unterstrich'),
+        ].filter(Boolean);
+        if (pruefe.length) return { ok: false, warum: pruefe.join(' · ') };
+        // Die Stelle wird behoben: die Zaehlung bewegt sich, jetzt geht „erledigt" — und der Abschluss traegt die neue Zahl.
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE.replace('return gsEins() + gsEins();', 'return 2;'));
+        const zu = A.einspielen(d, [{ art: 'abschluss', titel: 'Behoben', ergebnis: 'erledigt', wohin: 'v1.01', geschwister: 'gesucht: 0 weitere', bezug: [{ art: 'schliesst', id: befund.id }] }], Object.assign({}, o, { zeit: '09:00:00' }));
+        const b3 = A.brettLesen(d, { alleRefs: false }), ab = b3.eintraege.find(e => e.art === 'abschluss');
+        if (!zu.ok || !ab || !ab.zaehle || ab.zaehle[0].n !== 1 || A.ableiten(b3.eintraege).zustand.get(befund.id).z !== 'geschlossen' || A.brettPruefen(b3).length) return { ok: false, warum: 'nach der Reparatur: ' + (zu.ok ? 'Abschluss ohne neue Zahl oder Befund nicht geschlossen' : zu.fehler.map(x => x.grund).join(' | ')) };
+        return { ok: true, info: 'Stapel von 3 mit @-Bezug geschrieben (eintraege/2026-03/) · elf Maengel je mit Grund abgewiesen, jedes Mal 0 Dateien · nach der Reparatur schliesst „erledigt" und traegt die neue Zahl (3 → 1)' };
       } finally { weg(d); }
     },
   },
   {
-    name: 'C3 · Zustand wird gerechnet · Frage mit Antwort ist beantwortet, Befund mit Abschluss geschlossen, ein ersetzter ersetzt, ein Anspruch durch die Uebergabe seiner Sitzung geschlossen — und der unberuehrte Nachbar bleibt offen',
+    name: 'C7 · Das Werkzeug als Prozess · ein Wert, der mit „--" beginnt, kommt an; `--k=v` geht; ein unbekannter Schalter ist Exit 2; ohne erkennbaren Schreiber wird nicht geschrieben; eine Antwort ohne Inhalt auch nicht; Lesen schreibt nichts — auch im echten Repo',
     lauf: () => {
-      const b = brettAus([
-        gut({ id: '2026-11-10-0001', titel: 'Befund, den jemand schliesst' }),
-        gut({ id: '2026-11-10-0002', titel: 'Befund, den niemand anfasst' }),
-        gut({ id: '2026-11-10-0003', art: 'frage', beleg: undefined, an: 'alle', titel: 'Frage mit Antwort' }),
-        gut({ id: '2026-11-10-0004', art: 'frage', beleg: undefined, an: 'alle', titel: 'Frage ohne Antwort' }),
-        gut({ id: '2026-11-10-0005', art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'p', titel: 'Idee, die ersetzt wird' }),
-        gut({ id: '2026-11-10-0006', art: 'abschluss', beleg: undefined, ergebnis: 'erledigt', wohin: 'v33.57', titel: 'zu', bezug: [{ art: 'schliesst', id: '2026-11-10-0001' }] }),
-        gut({ id: '2026-11-10-0007', art: 'antwort', beleg: undefined, titel: 'ja', bezug: [{ art: 'beantwortet', id: '2026-11-10-0003' }] }),
-        gut({ id: '2026-11-10-0008', art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'p', titel: 'Die bessere Idee', bezug: [{ art: 'ersetzt', id: '2026-11-10-0005' }] }),
-      ]);
-      const z = A.ableiten(b.eintraege).zustand;
-      const ist = ['0001', '0002', '0003', '0004', '0005', '0006', '0007', '0008'].map(k => z.get('2026-11-10-' + k).z).join(' ');
-      const soll = 'geschlossen offen beantwortet offen ersetzt notiz notiz offen';
-      if (ist !== soll) return { ok: false, warum: 'gerechnet: ' + ist + ' — erwartet: ' + soll };
-      // Die Uebergabe schliesst den Anspruch IHRER Sitzung — nicht den einer anderen, und nicht rueckwirkend einen spaeteren.
-      const an = (id, von) => gut({ id, von, art: 'anspruch', beleg: undefined, bereich: 'b', titel: 'Anspruch ' + id.slice(-2) });
-      const ue = (id, von) => gut({ id, von, art: 'uebergabe', beleg: undefined, version: 'v9.01', nichts_offen: 'x', titel: 'Uebergabe ' + id.slice(-2) });
-      const c = brettAus([an('2026-11-10-0001', 'sitzung/a'), an('2026-11-10-0002', 'sitzung/b'), ue('2026-11-10-0003', 'sitzung/a'), an('2026-11-10-0004', 'sitzung/a')]);
-      const zc = A.ableiten(c.eintraege).zustand;
-      const ist2 = ['0001', '0002', '0004'].map(k => zc.get('2026-11-10-' + k).z).join(' ');
-      if (ist2 !== 'geschlossen offen offen') return { ok: false, warum: 'Anspruch × Uebergabe: ' + ist2 + ' — erwartet geschlossen offen offen (eigener frueherer · fremder · eigener spaeterer)' };
-      return { ok: true, info: ist + ' · Anspruch: von der Uebergabe derselben Sitzung geschlossen, der fremde und der spaetere bleiben offen' };
-    },
-  },
-  {
-    name: 'C4 · Anstoesse · aus einem gebauten Brett rechnet der Code genau die erwarteten Anstoesse (auch: zwei Schreiber an derselben Stelle) — und KEINEN fuer Geschlossenes, Verbundenes oder denselben Schreiber',
-    lauf: () => {
-      const src = 'function gsGibtEsHier(){}';
-      const b = brettAus([
-        gut({ id: '2026-11-10-0001', von: 'a', titel: 'Befund von A', stichworte: ['gsGibtEsHier', 'kachel'] }),
-        gut({ id: '2026-11-10-0002', von: 'b', titel: 'Frage von B an derselben Stelle', art: 'frage', beleg: undefined, an: 'alle', stichworte: ['Kachel'] }),
-        gut({ id: '2026-11-10-0003', von: 'a', titel: 'Zweiter Befund von A — derselbe Schreiber ist kein zweiter Kopf', stichworte: ['kachel'] }),
-        gut({ id: '2026-11-10-0004', von: 'c', titel: 'Geschlossener Befund an derselben Stelle', stichworte: ['kachel'] }),
-        gut({ id: '2026-11-10-0005', von: 'c', art: 'abschluss', beleg: undefined, ergebnis: 'erledigt', wohin: 'v1', titel: 'zu', bezug: [{ art: 'schliesst', id: '2026-11-10-0004' }] }),
-        gut({ id: '2026-11-10-0006', von: 'd', titel: 'Befund ueber Code, den es nicht mehr gibt', stichworte: ['gsGibtEsNichtMehr'] }),
-        gut({ id: '2026-11-10-0007', von: 'd', art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'ein Fall', titel: 'Idee, die B schon angesehen hat', stichworte: ['gsKommtErstNoch'] }),
-        gut({ id: '2026-11-10-0008', von: 'b', art: 'antwort', beleg: undefined, titel: 'B baut darauf', bezug: [{ art: 'baut_auf', id: '2026-11-10-0007' }] }),
-        gut({ id: '2026-11-10-0009', von: 'd', art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'ein Fall', titel: 'Idee, die niemand angesehen hat' }),
-        gut({ id: '2026-11-10-0010', von: 'e', art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x', 'v2 · y'], waechter: [], ohne_waechter: 'nur Prosa', titel: 'Klasse ohne Waechter, nie gesucht' }),
-        gut({ id: '2026-11-10-0011', von: 'e', art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x', 'v2 · y'], waechter: [{ datei: 'x.js', fall: 'Fall' }], gesucht: 'v3: alle 12 Stellen', titel: 'Klasse mit Waechter, gesucht' }),
-        gut({ id: '2026-11-10-0012', von: 'f', art: 'antwort', beleg: ['nachgemessen'], titel: 'F widerspricht A', bezug: [{ art: 'widerspricht', id: '2026-11-10-0003' }] }),
-        gut({ id: '2026-11-10-0013', von: 'a', art: 'antwort', beleg: undefined, titel: 'A setzt an seinem eigenen Befund einen Anker', anker: [{ datei: 'x.js', text: 'ein woertliches Stueck' }], bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
-      ]);
-      const an = A.anstoesse(b.eintraege, src);
-      const ist = an.map(x => x.art + ':' + x.ids.map(i => i.slice(-2)).join('+')).sort().join(' ');
-      const soll = ['frage_offen:02', 'beruehrung:01+02', 'beruehrung:02+03', 'befund_ohne:01', 'befund_ohne:06', 'idee_ungeprueft:09',
-        'klasse_ohne:10', 'klasse_suchen:10', 'ueberholt:06', 'widerspruch:03+12', 'ohne_klasse:01', 'ohne_klasse:03', 'ohne_klasse:06'].sort().join(' ');
-      if (ist !== soll) return { ok: false, warum: 'gerechnet: ' + ist + ' — erwartet: ' + soll };
-      // Ohne Quelltext kann „ueberholt" nicht gerechnet werden — dann fehlt der Anstoss, statt zu raten.
-      if (A.anstoesse(b.eintraege, null).some(x => x.art === 'ueberholt')) return { ok: false, warum: '„ueberholt" ohne Quelltext behauptet' };
-      return { ok: true, info: an.length + ' Anstoesse aus 13 Eintraegen, genau die erwarteten · 01×03 (derselbe Schreiber), 04 (geschlossen), 07 (von B angesehen), 11 (bewacht und gesucht): keiner · der eigene Nachtrag an 01 zaehlt nicht als Bezug' };
-    },
-  },
-  {
-    name: 'C4e · Zaehlung · beim Schreiben wird nachgerechnet (eine falsche Zahl wird mit der ECHTEN abgewiesen); „erledigt" geht erst, wenn sich die Zahl bewegt hat; aendert sich die Datei, meldet der Anstoss „war 3, heute 1" — bei gleicher Zahl und bei geschlossenem Eintrag nicht',
-    lauf: () => {
-      const d = tmp('zaehle');
+      const d = repo('werkzeug');
       try {
-        fs.writeFileSync(path.join(d, 'index.html'), "var GS_VERSION = 'v99.01';\n");
-        fs.writeFileSync(path.join(d, 'code.js'), "a.toLocaleString('de-CH');\nb.toLocaleString('de-CH');\nc.toLocaleString('de-CH');\n");
-        const dir = path.join(d, A.ORDNER);
-        const anzahl = () => (fs.existsSync(dir) ? fs.readdirSync(dir).length : 0);
-        let r = werkzeug(d, ['neu', 'befund', '--titel', 'Feste Sprache im Datum', '--beleg', 'code.js', '--zaehle', "code.js::toLocaleString('de-CH')::5", '--nur-lokal']);
-        if (r.code !== 1 || anzahl() !== 0 || r.aus.indexOf('steht 3-mal') < 0) return { ok: false, warum: 'falsche Zahl (5 statt 3): Exit ' + r.code + ', ' + anzahl() + ' Dateien, die echte Zahl genannt: ' + (r.aus.indexOf('steht 3-mal') >= 0) };
-        // Ohne Zahl zaehlt das Werkzeug selbst.
-        r = werkzeug(d, ['neu', 'befund', '--titel', 'Feste Sprache im Datum', '--beleg', 'code.js', '--zaehle', "code.js::toLocaleString('de-CH')", '--nur-lokal']);
-        if (r.code !== 0 || anzahl() !== 1) return { ok: false, warum: 'selbst gezaehlt: Exit ' + r.code + ' — ' + r.aus.slice(0, 200) };
-        const lesen = (rel) => { try { return fs.readFileSync(path.join(d, rel), 'utf8'); } catch (_) { return null; } };
-        let b = A.brettLesen(d, {});
-        if (b.eintraege[0].zaehle[0].n !== 3) return { ok: false, warum: 'gespeicherte Zahl: ' + b.eintraege[0].zaehle[0].n + ' (erwartet 3)' };
-        const bew = () => A.anstoesse(A.brettLesen(d, {}).eintraege, null, lesen).filter(x => x.art === 'zahl_bewegt').map(x => x.satz.replace(/^.*: war /, 'war ').replace(/ — .*$/, '')).join('|');
-        const gleich = bew();
-        // „Behoben" ist eine Zaehlung, die sich bewegt hat: solange sie bei 3 steht, laesst sich der Befund nicht als erledigt schliessen.
-        const zuArgs = ['schliesse', b.eintraege[0].id, '--ergebnis', 'erledigt', '--wohin', 'v99.02', '--bewacht', 'keiner, weil Probe', '--geschwister', 'nicht gesucht, weil Probe', '--gegenprobe', 'keine, weil Probe', '--nur-lokal'];
-        r = werkzeug(d, zuArgs);
-        if (r.code !== 1 || anzahl() !== 1 || r.aus.indexOf('unveraendert') < 0) return { ok: false, warum: 'schliessen bei unveraenderter Zahl: Exit ' + r.code + ', ' + anzahl() + ' Dateien (erwartet Exit 1, weiter 1)' };
-        fs.writeFileSync(path.join(d, 'code.js'), "a.toLocaleString(loc());\nb.toLocaleString(loc());\nc.toLocaleString('de-CH');\n");
-        const weniger = bew();
-        const st = A.zahlenStand(A.brettLesen(d, {}).eintraege, lesen);
-        r = werkzeug(d, zuArgs);
-        const abschl = A.brettLesen(d, {}).eintraege.find(x => x.art === 'abschluss');
-        const zu = bew();
-        if (r.code !== 0 || !abschl || !abschl.zaehle || abschl.zaehle[0].n !== 1) return { ok: false, warum: 'schliessen nach der Aenderung: Exit ' + r.code + ', Stand im Abschluss: ' + JSON.stringify(abschl && abschl.zaehle) + ' — ' + r.aus.slice(0, 160) };
-        if (gleich !== '' || weniger !== 'war 3, heute 1' || zu !== '' || st.length !== 1 || st[0].heute !== 1) return { ok: false, warum: 'gleich: „' + gleich + '" · geaendert: „' + weniger + '" · geschlossen: „' + zu + '" · Stand: ' + JSON.stringify(st.map(x => [x.n, x.heute])) };
-        return { ok: true, info: '5 statt 3: abgewiesen mit „steht 3-mal", 0 Dateien · ohne Zahl selbst gezaehlt: 3 · „erledigt" bei unveraenderter Zahl: abgewiesen · Datei geaendert: „war 3, heute 1" · danach schliessbar, der Abschluss traegt „heute 1" · geschlossen: still' };
+        const f = [], dateien = () => { const p = path.join(d, A.ORDNER); return fs.existsSync(p) ? fs.readdirSync(p, { recursive: true }).filter(n => /\.json$/.test(n)).length : 0; };
+        let r = werkzeug(d, ['neu', 'befund', '--titel', 'Flacher Abruf schneidet die Geschichte ab', '--beleg', '--depth=1 kuerzt origin/main auf einen Commit', '--stichwort=holen,kachel', '--zaehle', 'index.html::gsEins()']);
+        const b = A.brettLesen(d, { alleRefs: false }), e = b.eintraege[0];
+        if (r.code !== 0 || !e || e.beleg[0].indexOf('--depth=1') !== 0 || e.stichworte.join() !== 'holen,kachel' || e.von !== 'sitzung/claude/arbeit' || e.stand !== 'v1.00' || e.zaehle[0].n !== 3) f.push('neu: Exit ' + r.code + ' · ' + (e ? JSON.stringify({ beleg: e.beleg, stichworte: e.stichworte, von: e.von, stand: e.stand, zaehle: e.zaehle }) : kurz(r.aus, 200)));
+        if (e && A.brettPruefen(b).length) f.push('was `neu` schrieb, lehnt die Pruefung ab: ' + A.brettPruefen(b)[0].grund);
+        const vor = dateien();
+        r = werkzeug(d, ['neu', 'befund', '--titel', 'x', '--beleg', 'y', '--gibtsnicht', 'z']); if (r.code !== 2 || !/Unbekannter Schalter/.test(r.aus)) f.push('unbekannter Schalter: Exit ' + r.code);
+        r = werkzeug(d, ['neu', 'befund', '--titel', 'Ohne Beleg']); if (r.code !== 1 || !/NICHT geschrieben/.test(r.aus) || !/Befund ohne „beleg"/.test(r.aus)) f.push('ohne Beleg: Exit ' + r.code);
+        r = werkzeug(d, ['neu', 'befund', '--titel']); if (r.code !== 2) f.push('Schalter ohne Wert: Exit ' + r.code);
+        r = werkzeug(d, ['antworte', e ? e.id.slice(-4) : 'x']); if (r.code !== 2 || !/braucht Inhalt/.test(r.aus)) f.push('Antwort ohne Inhalt: Exit ' + r.code);
+        r = werkzeug(d, ['wasanderes']); if (r.code !== 2) f.push('unbekannter Befehl: Exit ' + r.code);
+        g(d, ['checkout', '-q', '--detach']);
+        r = werkzeug(d, ['neu', 'frage', '--titel', 'Wer schreibt hier?', '--an', 'alle']); if (r.code !== 2 || !/Wer schreibt\?/.test(r.aus)) f.push('losgeloester HEAD ohne --von: Exit ' + r.code + ' (ein Schreiber „sitzung/HEAD" sagt nichts)');
+        if (dateien() !== vor) f.push('ein abgelehnter Aufruf hat geschrieben (' + vor + ' → ' + dateien() + ' Dateien)');
+        r = werkzeug(d, ['neu', 'frage', '--titel', 'Wer liest die Kachel?', '--an', 'alle', '--stichwort', 'kachel', '--von', 'sitzung/zwei']);
+        if (r.code !== 0 || !/NACHBARN/.test(r.aus) || !/Noch NICHT sichtbar/.test(r.aus)) f.push('zweiter Schreiber: Exit ' + r.code + ', Nachbarn ' + (/NACHBARN/.test(r.aus) ? 'gezeigt' : 'NICHT gezeigt'));
+        const stand = dateien();
+        for (const a of [[], ['--nur-lokal'], ['zeige', e ? e.id : 'x'], ['suche', 'kachel'], ['klasse'], ['hilfe'], ['hilfe', 'befund'], ['--json']]) {
+          r = werkzeug(d, a);
+          if (r.code !== 0 || (a[0] !== '--json' && !/Nichts geschrieben\.\s*$/.test(r.aus))) f.push('`' + (a.join(' ') || 'lesen') + '`: Exit ' + r.code + ', Schlusszeile „Nichts geschrieben." ' + (/Nichts geschrieben\./.test(r.aus) ? 'da' : 'fehlt'));
+        }
+        if (dateien() !== stand) f.push('ein Lese-Befehl hat geschrieben');
+        r = werkzeug(d, []); if (!/ZWEI KOEPFE, DIESELBE STELLE/.test(r.aus) || !/ohne Antwort/.test(r.aus) || (r.aus.match(/Flacher Abruf schneidet/g) || []).length !== 2) f.push('lesen zeigt den Anstoss, die Marke oder den Befund nicht wie erwartet (einmal im Anstoss, einmal in der Liste)');
+        // Die Ware: im echten Repo liest das Werkzeug, ohne etwas anzufassen.
+        const echt = () => { const p = path.join(WURZEL, A.ORDNER); return fs.existsSync(p) ? fs.readdirSync(p, { recursive: true }).join('|') : ''; };
+        const vorher = echt(), w = cp.spawnSync(process.execPath, [WERKZEUG, '--nur-lokal'], { encoding: 'utf8', env: Object.assign({}, process.env, { AUSTAUSCH_WURZEL: '' }) });
+        if (w.status !== 0 || !/Nichts geschrieben\.\s*$/.test(w.stdout) || echt() !== vorher) f.push('im echten Repo: Exit ' + w.status + (echt() !== vorher ? ', der Ordner hat sich geaendert' : ''));
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: '„--depth=1 …" als Wert angekommen · --stichwort=a,b · Zaehlung selbst gerechnet (3) · sechs Fehlbedienungen mit Exit 2 bzw. 1 und 0 Dateien · acht Lese-Befehle enden mit „Nichts geschrieben." · im echten Repo unveraendert' };
       } finally { weg(d); }
     },
   },
   {
-    name: 'C4f · Drei weitere Anstoesse · zwei Ideen verschiedener Schreiber auf denselben Fund; zwei offene Ansprueche am selben Stichwort; ein verworfener Irrweg wird dem naechsten Schreiber gezeigt — und je die Gegenrichtung bleibt still',
+    name: 'C8 · Ueber Branches · ein Eintrag, der NUR auf einem nie gemergten Branch liegt, steht im Brett; eine Datei ohne id oder mit einer unbekannten Art auf einem fremden Branch stuerzt nichts; ein dort umgeschriebener Eintrag wird gemeldet; eine Antwort ueber die Branch-Grenze nimmt ihr Ziel mit; `ernten` holt den Rest; `holen` laesst die gemeinsame Geschichte stehen',
     lauf: () => {
-      const idee = (id, von, extra) => gut(Object.assign({ id, von, art: 'idee', beleg: undefined, nutzen: 'n', pruefbar: 'p', titel: 'Idee ' + id.slice(-2) }, extra));
-      const anspr = (id, von, sw, version) => gut({ id, von, art: 'anspruch', beleg: undefined, bereich: 'b', titel: 'Anspruch ' + id.slice(-2), stichworte: sw, version });
-      const b = brettAus([
-        gut({ id: '2026-11-10-0001', von: 'a', titel: 'Der Fund', ohne_klasse: 'Einzelfall' }),
-        idee('2026-11-10-0002', 'b', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
-        idee('2026-11-10-0003', 'c', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
-        idee('2026-11-10-0004', 'b', { bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
-        anspr('2026-11-10-0005', 'x', ['Kalender']), anspr('2026-11-10-0006', 'y', ['kalender']), anspr('2026-11-10-0007', 'x', ['kalender']), anspr('2026-11-10-0008', 'z', ['scanner'], 'v9.57'), anspr('2026-11-10-0011', 'w', ['karte'], 'v9.57'), anspr('2026-11-10-0012', 'v', ['quiz'], 'v9.58'),
-        gut({ id: '2026-11-10-0009', von: 'q', titel: 'Ein verworfener Versuch', stichworte: ['kalender'], ohne_klasse: 'x' }),
-        gut({ id: '2026-11-10-0010', von: 'q', art: 'abschluss', beleg: undefined, ergebnis: 'verworfen', text: 'bricht den Offline-Fall', titel: 'zu', bezug: [{ art: 'schliesst', id: '2026-11-10-0009' }] }),
-      ]);
-      const an = A.anstoesse(b.eintraege, null).filter(x => x.art === 'zwei_ideen' || x.art === 'anspruch_kollision').map(x => x.art + ':' + x.ids.slice(0, 2).map(i => i.slice(-2)).join('+')).sort().join(' ');
-      // 02×03 und 03×04 (verschiedene Schreiber); 02×04 nicht (beide von b). 05×06 und 06×07; 05×07 nicht (beide von x).
-      // 08×11: kein gemeinsames Stichwort, aber DIESELBE Version; 12 hat eine andere.
-      const soll = 'anspruch_kollision:05+06 anspruch_kollision:06+07 anspruch_kollision:08+11 zwei_ideen:02+03 zwei_ideen:03+04';
-      if (an !== soll) return { ok: false, warum: 'gerechnet: ' + an + ' — erwartet: ' + soll };
-      const neu = gut({ id: '2026-11-11-0021', datum: '2026-11-11', von: 'neu', titel: 'Derselbe Weg noch einmal', stichworte: ['kalender'] });
-      const nb = A.nachbarn(neu, b.eintraege.concat([neu]));
-      const irr = nb.filter(x => x.irrweg).map(x => x.eintrag.id.slice(-2) + ':' + x.grund).join('|');
-      if (irr !== '09:bricht den Offline-Fall') return { ok: false, warum: 'Irrweg: „' + irr + '" — erwartet 09 mit seinem Grund' };
-      const fremd = gut({ id: '2026-11-11-0022', datum: '2026-11-11', von: 'neu', titel: 'Ganz woanders', stichworte: ['marktplatz'] });
-      if (A.nachbarn(fremd, b.eintraege.concat([fremd])).length) return { ok: false, warum: 'Nachbarn oder Irrwege gezeigt, obwohl kein Stichwort geteilt wird' };
-      return { ok: true, info: 'zwei Ideen: 02×03, 03×04 (nicht 02×04, derselbe Schreiber) · Ansprueche: 05×06, 06×07 (nicht 05×07), 08×11 dieselbe Version (12 nicht) · Irrweg 09 mit Grund gezeigt · fremdes Stichwort: nichts' };
-    },
-  },
-  {
-    name: 'C4g · Version, Vorwissen, Dublette · die freie Versionsnummer wird ueber laufende App, Uebergaben und OFFENE Ansprueche gerechnet (auch ueber den Hunderter); ein Name, der schon im Tagebuch steht, wird mit seinem Abschnitt gezeigt; derselbe Anker eines anderen Schreibers gilt als Dublette',
-    lauf: () => {
-      const an = (id, von, version) => gut({ id, von, art: 'anspruch', beleg: undefined, bereich: 'b', titel: 'A', version });
-      const ue = (id, von, version) => gut({ id, von, art: 'uebergabe', beleg: undefined, version, nichts_offen: 'x', titel: 'U' });
-      const v = (liste, laufend) => A.naechsteVersion(brettAus(liste).eintraege, laufend).frei;
-      const ist = [v([], 'v33.56'), v([an('2026-11-10-0001', 'a', 'v33.57')], 'v33.56'), v([an('2026-11-10-0001', 'a', 'v33.57'), ue('2026-11-10-0002', 'b', 'v33.58')], 'v33.56'),
-        // ein Anspruch, den die Uebergabe derselben Sitzung geschlossen hat, belegt nichts mehr — die Uebergabe schon
-        v([an('2026-11-10-0001', 'a', 'v33.60'), ue('2026-11-10-0002', 'a', 'v33.57')], 'v33.56'), v([], 'v33.99'), String(A.naechsteVersion([], null).frei)].join(' ');
-      if (ist !== 'v33.57 v33.58 v33.59 v33.58 v34.00 null') return { ok: false, warum: 'frei: ' + ist + ' — erwartet v33.57 v33.58 v33.59 v33.58 v34.00 null' };
-      const tagebuch = '# STATUS\n\n### 2026-09-12 (hv) - v33.27: Quiz\n\nHier steht gsBeispielSchonBekannt und noch einmal gsBeispielSchonBekannt.\n\n### 2026-09-01 (aa) - v32.01: Alt\n\ngsBeispielSchonBekannt\n';
-      const vw = A.vorwissen(gut({ stichworte: ['gsBeispielSchonBekannt', 'gsBeispielNochNie', 'kachel'] }), { 'STATUS.md': tagebuch, 'CLAUDE.md': null });
-      if (vw.length !== 1 || vw[0].stellen !== 3 || vw[0].abschnitt.indexOf('(hv)') < 0) return { ok: false, warum: 'Vorwissen: ' + JSON.stringify(vw) + ' — erwartet 1 Name, 3 Stellen, juengster Abschnitt (hv)' };
-      const anker = [{ datei: 'index.html', text: 'ein woertliches Stueck' }];
-      const alt = gut({ id: '2026-11-10-0001', von: 'a', titel: 'Der erste Fund', anker });
-      const neu = gut({ id: '2026-11-11-0002', datum: '2026-11-11', von: 'b', titel: 'Derselbe Fund, andere Sitzung', anker });
-      const eigen = gut({ id: '2026-11-11-0003', datum: '2026-11-11', von: 'a', titel: 'Derselbe Schreiber', anker });
-      const d1 = A.nachbarn(neu, [alt, neu].map(x => brettAus([x]).eintraege[0])).filter(x => x.gleicherAnker).length;
-      const d2 = A.nachbarn(eigen, [alt, eigen].map(x => brettAus([x]).eintraege[0])).filter(x => x.gleicherAnker).length;
-      if (d1 !== 1 || d2 !== 0) return { ok: false, warum: 'Dublette: fremder Schreiber ' + d1 + ' (erwartet 1), derselbe Schreiber ' + d2 + ' (erwartet 0)' };
-      return { ok: true, info: 'frei: ' + ist + ' · Vorwissen: 1 von 3 Stichworten steht im Tagebuch (3 Stellen, juengster Abschnitt genannt) · Dublette: fremder Schreiber ja, derselbe nein' };
-    },
-  },
-  {
-    name: 'C4b · Nachtrag · eine Klasse wird nie umgeschrieben: eine Antwort mit `gesucht` und `waechter` ergaenzt sie — danach faellt der Anstoss „nie gesucht / ohne Waechter" weg, bei der Nachbarklasse bleibt er',
-    lauf: () => {
-      const kl = (id, titel) => gut({ id, von: 'e', art: 'klasse', beleg: undefined, regel: 'r', instanzen: ['v1 · x', 'v2 · y'], waechter: [], ohne_waechter: 'nur Prosa', titel });
-      const b = brettAus([
-        kl('2026-11-10-0001', 'Klasse mit Nachtrag'), kl('2026-11-10-0002', 'Klasse ohne Nachtrag'),
-        gut({ id: '2026-11-11-0003', datum: '2026-11-11', von: 'f', art: 'antwort', beleg: undefined, titel: 'gesucht und bewacht', gesucht: 'v9: 12 Stellen, 0 weitere', suchmuster: 'grep -n x', waechter: [{ datei: 'scripts/x_check.js', fall: 'Fall X' }], instanzen: ['v3 · z'], bezug: [{ art: 'baut_auf', id: '2026-11-10-0001' }] }),
-        gut({ id: '2026-11-11-0004', datum: '2026-11-11', von: 'g', titel: 'Ein Befund als Instanz', bezug: [{ art: 'gehoert_zu', id: '2026-11-10-0001' }] }),
-      ]);
-      if (A.brettPruefen(b).length) return { ok: false, warum: 'der Nachtrag wird abgelehnt: ' + A.brettPruefen(b)[0].grund };
-      const ab = A.ableiten(b.eintraege);
-      const k1 = A.klasseWirksam(b.eintraege[0], ab.rueck), k2 = A.klasseWirksam(b.eintraege[1], ab.rueck);
-      const ist = [k1.waechter.length, k1.gesucht.length, k1.suchmuster, k1.instanzen.length, k1.befunde.length, k2.waechter.length, k2.gesucht.length].join('|');
-      if (ist !== '1|1|grep -n x|3|1|0|0') return { ok: false, warum: 'wirksame Klasse: ' + ist + ' — erwartet 1|1|grep -n x|3|1|0|0' };
-      const an = A.anstoesse(b.eintraege, null).filter(x => /^klasse_/.test(x.art)).map(x => x.art + ':' + x.ids[0].slice(-2)).sort().join(' ');
-      if (an !== 'klasse_ohne:02 klasse_suchen:02') return { ok: false, warum: 'Anstoesse: ' + an + ' — erwartet nur fuer 02' };
-      // Ein Waechter an einem Befund ist ein Formfehler.
-      if (!A.eintragPruefen(gut({ waechter: [{ datei: 'a', fall: 'b' }] })).some(x => /waechter gehoert an eine Fehlerklasse/.test(x))) return { ok: false, warum: 'waechter an einem Befund ANGENOMMEN' };
-      return { ok: true, info: 'Klasse 01: 1 Waechter, gesucht, Suchmuster, 3 + 1 Instanzen — aus dem Nachtrag gerechnet, die Datei unveraendert · Klasse 02: beide Anstoesse bleiben' };
-    },
-  },
-  {
-    name: 'C4c · Anker · der Text steht in der Datei: still; die Stelle wird geaendert: gemeldet mit id und Titel; der Eintrag wird geschlossen oder neu verankert: wieder still',
-    lauf: () => {
-      const d = tmp('anker');
+      const bare = tmp('origin'), d = tmp('klon');
       try {
-        fs.writeFileSync(path.join(d, 'code.js'), 'const model = "altes-modell-2025";\nconst andere = 1;\n');
-        const lesen = (rel) => { try { return fs.readFileSync(path.join(d, rel), 'utf8'); } catch (_) { return null; } };
-        const bef = gut({ anker: [{ datei: 'code.js', text: 'model = "altes-modell-2025"' }] });
-        const n = (liste) => { const r = A.ankerPruefen(brettAus(liste).eintraege, lesen); return r.geprueft + '/' + r.verloren.length; };
-        const vorher = n([bef]);
-        fs.writeFileSync(path.join(d, 'code.js'), 'const model = "neues-modell-2026";\nconst andere = 1;\n');
-        const geaendert = n([bef]);
-        const geschlossen = n([bef, gut({ id: '2026-11-10-c001', art: 'abschluss', beleg: undefined, titel: 'zu', ergebnis: 'erledigt', wohin: 'v9', bewacht: 'x', geschwister: 'y', bezug: [{ art: 'schliesst', id: bef.id }] })]);
-        const neuVerankert = n([bef, gut({ id: '2026-11-11-c002', datum: '2026-11-11', art: 'antwort', beleg: undefined, titel: 'gilt weiter', anker: [{ datei: 'code.js', text: 'model = "neues-modell-2026"' }], bezug: [{ art: 'baut_auf', id: bef.id }] })]);
-        const dateiWeg = n([gut({ anker: [{ datei: 'gibt-es-nicht.js', text: 'irgendein langer Text' }] })]);
-        const ist = [vorher, geaendert, geschlossen, neuVerankert, dateiWeg].join(' ');
-        if (ist !== '1/0 1/1 0/0 1/0 1/1') return { ok: false, warum: 'geprueft/verloren: ' + ist + ' — erwartet 1/0 1/1 0/0 1/0 1/1' };
-        return { ok: true, info: 'Text da: 1/0 · Stelle geaendert: 1/1 · geschlossen: nicht mehr geprueft · neu verankert per Antwort: 1/0 · Datei weg: 1/1' };
-      } finally { weg(d); }
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
+        g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', bare]);
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE);
+        const o = { von: 'sitzung/main', datum: '2026-02-01', zeit: '08:00:00', alleRefs: false };
+        const r0 = A.einspielen(d, [{ art: 'befund', titel: 'Auf main bekannt', beleg: ['x'], stichworte: ['kachel'] }], o);
+        for (let i = 1; i <= 3; i++) { fs.writeFileSync(path.join(d, 'n' + i), String(i)); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'main ' + i]); }
+        g(d, ['push', '-q', 'origin', 'main']);
+        // Branch 1: zwei Eintraege, nie gemergt.
+        g(d, ['checkout', '-q', '-b', 'claude/nie-gemergt']);
+        const r1 = A.einspielen(d, [{ schluessel: 'f', art: 'frage', titel: 'Wer liest die Kachel?', an: 'alle', stichworte: ['kachel'] }, { art: 'idee', titel: 'Kachel aus einer Funktion', nutzen: 'n', pruefbar: 'p', bezug: [{ art: 'baut_auf', id: '@f' }] }], Object.assign({}, o, { von: 'sitzung/nie-gemergt' }));
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'zwei Eintraege']); g(d, ['push', '-q', 'origin', 'claude/nie-gemergt']);
+        // Branch 2: eine Datei ohne id — und der Eintrag von main, umgeschrieben.
+        g(d, ['checkout', '-q', '-b', 'claude/kaputt', 'main']);
+        ablegen(d, JSON.stringify({ art: 'befund', titel: 'ohne id' }), 'ohne-id.json');
+        ablegen(d, { id: '2026-02-01-0f0f', art: 'zukunft', datum: '2026-02-01', von: 'sitzung/spaeter', titel: 'Eine Art, die dieses Modul noch nicht kennt' });
+        const p0 = path.join(d, r0.geschrieben[0].datei); fs.writeFileSync(p0, fs.readFileSync(p0, 'utf8').replace('Auf main bekannt', 'Auf main bekannt — nachtraeglich geaendert'));
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'kaputt']); g(d, ['push', '-q', 'origin', 'claude/kaputt']);
+        g(d, ['checkout', '-q', '-b', 'claude/arbeit', 'main']); g(d, ['fetch', '-q', 'origin']);
+        const lokal = A.brettLesen(d, { alleRefs: false }), alle = A.brettLesen(d, { alleRefs: true });
+        if (lokal.eintraege.length !== 1 || alle.eintraege.length !== 4) return { ok: false, warum: 'nur Arbeitsbaum: ' + lokal.eintraege.length + ' (erwartet 1) · mit Remote-Refs: ' + alle.eintraege.length + ' (erwartet 4)' };
+        const zk = werkzeug(d, ['zeige', '0f0f']);
+        if (zk.code !== 0 || !/UNBEKANNTE ART/.test(zk.aus)) return { ok: false, warum: 'ein Eintrag mit einer unbekannten Art von einem fremden Branch: `zeige` endet mit Exit ' + zk.code + ' — ' + kurz(zk.aus, 160) };
+        if (alle.unlesbar.length !== 1 || alle.abweichend.length !== 1 || alle.abweichend[0].gilt !== 'Arbeitsbaum') return { ok: false, warum: 'Datei ohne id: ' + alle.unlesbar.length + ' unlesbar (erwartet 1) · umgeschriebener Eintrag: ' + alle.abweichend.length + ' gemeldet (erwartet 1, es gilt der Arbeitsbaum)' };
+        let r = werkzeug(d, []);
+        if (r.code !== 0 || !/unlesbare Datei/.test(r.aus) || !/sehen auf einem Branch anders aus/.test(r.aus) || !/\{origin\/claude\/nie-gemergt\}/.test(r.aus) || !/FRISCHE BRANCHES/.test(r.aus)) return { ok: false, warum: 'lesen ueber Branches: Exit ' + r.code + ' — erwartet Hinweise auf die unlesbare Datei, den abweichenden Eintrag, die Herkunft {origin/…} und die frischen Branches: ' + kurz(r.aus, 300) };
+        const frageId = r1.geschrieben[0].id;
+        r = werkzeug(d, ['antworte', frageId.slice(-4), '--text', 'Gemessen: zwei Anzeigen lesen sie']);
+        const nach = A.brettLesen(d, { alleRefs: false });
+        if (r.code !== 0 || !/Mitgenommen/.test(r.aus) || nach.eintraege.length !== 3 || A.brettPruefen(nach).length) return { ok: false, warum: 'Antwort ueber die Branch-Grenze: Exit ' + r.code + ', ' + nach.eintraege.length + ' Eintraege im Arbeitsbaum (erwartet 3: Befund, mitgenommene Frage, Antwort), Pruefung: ' + ((A.brettPruefen(nach)[0] || {}).grund || 'still') };
+        r = werkzeug(d, ['ernten']);
+        const geerntet = A.brettLesen(d, { alleRefs: false });
+        if (r.code !== 0 || geerntet.eintraege.length !== 4 || A.brettPruefen(geerntet).length || (r.aus.match(/^  \S+  \{origin\/claude\/kaputt\}/gm) || []).length !== 2) return { ok: false, warum: 'ernten: Exit ' + r.code + ', ' + geerntet.eintraege.length + ' Eintraege (erwartet 4: die unbekannte Art und die Datei ohne id bleiben auf ihrem Branch), die Datei ohne id ' + (/Uebergangen/.test(r.aus) ? 'uebergangen' : 'NICHT als uebergangen genannt') };
+        // holen: die gemeinsame Geschichte bleibt (ein flacher Abruf wuerde sie kappen).
+        const vorher = g(d, ['rev-list', '--count', 'origin/main']).trim();
+        r = werkzeug(d, ['holen']);
+        const flach = g(d, ['rev-parse', '--is-shallow-repository']).trim(), nachher = g(d, ['rev-list', '--count', 'origin/main']).trim();
+        let basis = ''; try { basis = g(d, ['merge-base', 'HEAD', 'origin/main']).trim(); } catch (_) {}
+        if (r.code !== 0 || !/Alle Branches geholt/.test(r.aus) || flach !== 'false' || nachher !== vorher || !basis) return { ok: false, warum: 'holen: Exit ' + r.code + ', flach=' + flach + ', origin/main ' + vorher + ' → ' + nachher + ' Commits, merge-base ' + (basis ? 'da' : 'FEHLT') };
+        return { ok: true, info: 'Arbeitsbaum 1 · mit Remote-Refs 4 · Datei ohne id und eine unbekannte Art: gemeldet bzw. gezeigt, kein Absturz · umgeschriebener Eintrag gemeldet (es gilt der Arbeitsbaum) · Antwort nimmt die Frage mit · ernten holt den vierten · holen: ' + nachher + ' Commits auf origin/main wie zuvor, merge-base da' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(bare); weg(d); }
     },
   },
   {
-    name: 'C4d · Zitate · ein `brett:<id>` in einem Dokument, das auf einen vorhandenen Eintrag zeigt, ist still — eines ins Leere wird mit Datei und id gemeldet',
+    name: 'C9 · Uebergabe und Zahlen sehen Fehler · ein gebauter STATUS-Eintrag ohne `**Offen:**`, mit leerem Offen, mit einer id ins Leere, ohne „Nicht geprüft" oder ohne Eintrag zur laufenden Version wird gemeldet, vier gute Formen nicht; in einem gebauten Repo mit 3 run-Zeilen wird „4" gemeldet, „3" nicht',
     lauf: () => {
-      const d = tmp('zitate');
-      try {
-        fs.mkdirSync(path.join(d, 'docs'));
-        fs.writeFileSync(path.join(d, 'STATUS.md'), 'Offen: siehe brett:2026-11-10-aaaa und brett:2026-11-10-9999.\n');
-        fs.writeFileSync(path.join(d, 'docs', 'X.md'), 'Kein Verweis hier, nur das Wort brett.\n');
-        const r = zitatePruefen(d, new Set(['2026-11-10-aaaa']));
-        if (r.gefunden !== 2 || r.fehlt.join() !== 'STATUS.md → brett:2026-11-10-9999') return { ok: false, warum: 'gefunden ' + r.gefunden + ', ins Leere: ' + JSON.stringify(r.fehlt) };
-        return { ok: true, info: '2 Zitate gefunden · eines mit Ziel still · eines ins Leere gemeldet' };
-      } finally { weg(d); }
-    },
-  },
-  {
-    name: 'C5 · Werkzeug · `neu` schreibt einen Eintrag, den die Pruefung annimmt; ohne Beleg schreibt es NICHTS; `einspielen` nimmt einen Stapel mit Bezuegen untereinander ganz oder gar nicht',
-    lauf: () => {
-      const d = tmp('werkzeug');
-      try {
-        fs.writeFileSync(path.join(d, 'index.html'), "var GS_VERSION = 'v99.01';\n");
-        const dir = path.join(d, A.ORDNER);
-        const anzahl = () => (fs.existsSync(dir) ? fs.readdirSync(dir).length : 0);
-        let r = werkzeug(d, ['neu', 'befund', '--titel', 'Ohne Beleg', '--nur-lokal']);
-        if (r.code !== 1 || anzahl() !== 0) return { ok: false, warum: 'Befund ohne Beleg: Exit ' + r.code + ', ' + anzahl() + ' Dateien geschrieben (erwartet Exit 1, 0 Dateien)' };
-        r = werkzeug(d, ['neu', 'befund', '--titel', 'Mit Beleg', '--beleg', 'a.js:1', '--stichwort', 'x,y', '--nur-lokal']);
-        if (r.code !== 0 || anzahl() !== 1) return { ok: false, warum: 'guter Befund: Exit ' + r.code + ', ' + anzahl() + ' Dateien — ' + r.aus.slice(0, 160) };
-        let b = A.brettLesen(d, {});
-        const e = b.eintraege[0];
-        if (A.brettPruefen(b).length) return { ok: false, warum: 'das Werkzeug schrieb, was die Pruefung ablehnt: ' + A.brettPruefen(b)[0].grund };
-        if (e.stand !== 'v99.01' || e.von !== 'pruefstand/a' || e.stichworte.join() !== 'x,y') return { ok: false, warum: 'Stand/von/Stichworte nicht uebernommen: ' + JSON.stringify({ stand: e.stand, von: e.von, sw: e.stichworte }) };
-        // Abkuerzung der id und der Weg „antworte".
-        r = werkzeug(d, ['antworte', e.id.slice(-4), '--text', 'Nachgemessen.', '--widerspricht', '--nur-lokal'], 'pruefstand/b');
-        if (r.code !== 0 || anzahl() !== 2) return { ok: false, warum: 'antworte: Exit ' + r.code + ' — ' + r.aus.slice(0, 160) };
-        // Lesen ist ins Schreiben eingebaut: ein ANDERER Schreiber am selben Stichwort bekommt den Nachbarn gezeigt …
-        r = werkzeug(d, ['neu', 'frage', '--titel', 'Frage am selben Stichwort', '--an', 'alle', '--stichwort', 'x', '--nur-lokal'], 'pruefstand/c');
-        if (r.code !== 0 || r.aus.indexOf('NACHBARN') < 0 || r.aus.indexOf(e.id) < 0) return { ok: false, warum: 'ein zweiter Schreiber am selben Stichwort bekam den Nachbarn nicht gezeigt: ' + r.aus.slice(0, 200) };
-        // … derselbe Schreiber nicht (er kennt seine eigenen Eintraege), und ein fremdes Stichwort auch nicht.
-        r = werkzeug(d, ['neu', 'frage', '--titel', 'Frage an anderer Stelle', '--an', 'alle', '--stichwort', 'ganz-woanders', '--nur-lokal'], 'pruefstand/c');
-        if (r.code !== 0 || r.aus.indexOf('NACHBARN') >= 0) return { ok: false, warum: 'Nachbarn gezeigt, obwohl kein Stichwort geteilt wird' };
-        for (const f of fs.readdirSync(dir)) if (/-frage-/.test(f)) fs.unlinkSync(path.join(dir, f));
-        // Stapel: einer kaputt → NICHTS geschrieben.
-        const stapel = path.join(d, 'stapel.json');
-        fs.writeFileSync(stapel, JSON.stringify([
-          { schluessel: 'b1', art: 'befund', titel: 'Stapel-Befund', beleg: ['b.js:2'] },
-          { art: 'idee', titel: 'Stapel-Idee ohne pruefbar', nutzen: 'n', bezug: [{ art: 'baut_auf', id: '@b1' }] },
-        ]));
-        r = werkzeug(d, ['einspielen', stapel, '--nur-lokal']);
-        if (r.code !== 1 || anzahl() !== 2) return { ok: false, warum: 'kaputter Stapel: Exit ' + r.code + ', ' + anzahl() + ' Dateien (erwartet Exit 1, weiter 2) — halb geschrieben?' };
-        fs.writeFileSync(stapel, JSON.stringify([
-          { schluessel: 'b1', art: 'befund', titel: 'Stapel-Befund', beleg: ['b.js:2'] },
-          { art: 'idee', titel: 'Stapel-Idee', nutzen: 'n', pruefbar: 'ein Fall', bezug: [{ art: 'baut_auf', id: '@b1' }] },
-        ]));
-        r = werkzeug(d, ['einspielen', stapel, '--nur-lokal']);
-        if (r.code !== 0 || anzahl() !== 4) return { ok: false, warum: 'guter Stapel: Exit ' + r.code + ', ' + anzahl() + ' Dateien — ' + r.aus.slice(0, 200) };
-        b = A.brettLesen(d, {});
-        const idee = b.eintraege.find(x => x.titel === 'Stapel-Idee'), bef = b.eintraege.find(x => x.titel === 'Stapel-Befund');
-        if (!idee || !bef || idee.bezug[0].id !== bef.id) return { ok: false, warum: 'Stapel-Bezug „@b1" nicht auf die vergebene id aufgeloest' };
-        if (A.brettPruefen(b).length) return { ok: false, warum: 'Brett nach dem Stapel: ' + A.brettPruefen(b)[0].grund };
-        // Die ERSTE Uebergabe zu einer Version liefert sie aus; die zweite ist ein Nachtrag ohne Bump.
-        r = werkzeug(d, ['neu', 'uebergabe', '--version', 'v99.01', '--titel', 'v99.01: erste', '--nichts-offen', 'Probe', '--nur-lokal'], 'pruefstand/a');
-        const r2 = werkzeug(d, ['neu', 'uebergabe', '--version', 'v99.01', '--titel', 'Doku zu v99.01', '--nichts-offen', 'Probe', '--nur-lokal'], 'pruefstand/b');
-        const ueb = A.brettLesen(d, {}).eintraege.filter(x => x.art === 'uebergabe').map(x => x.von.slice(-1) + ':' + x.liefert).sort().join(' ');
-        if (r.code !== 0 || r2.code !== 0 || ueb !== 'a:true b:false') return { ok: false, warum: 'Uebergaben: ' + ueb + ' (erwartet a:true b:false) — Exit ' + r.code + '/' + r2.code };
-        for (const f of fs.readdirSync(dir)) if (/-uebergabe-/.test(f)) fs.unlinkSync(path.join(dir, f));
-        // Lesen schreibt nichts — und sagt es.
-        r = werkzeug(d, ['--nur-lokal']);
-        if (r.code !== 0 || anzahl() !== 4 || r.aus.indexOf('Nichts geschrieben.') < 0 || r.aus.indexOf('keine Uebergabe') < 0) return { ok: false, warum: 'lesen: Exit ' + r.code + ', ' + anzahl() + ' Dateien, Schlusssatz/Uebergabe-Hinweis fehlt' };
-        r = werkzeug(d, ['gibtesnicht']);
-        if (r.code !== 2) return { ok: false, warum: 'unbekannter Befehl: Exit ' + r.code + ' (erwartet 2)' };
-        return { ok: true, info: 'ohne Beleg: Exit 1, 0 Dateien · neu, antworte (id abgekuerzt), Stapel mit @-Bezug: 4 Dateien, Pruefung still · kaputter Stapel: nichts · lesen schreibt nichts' };
-      } finally { weg(d); }
-    },
-  },
-  {
-    name: 'C6 · Ueber Branches · ein Eintrag, der NUR auf einem nie gemergten Branch liegt, steht im Brett, gibt mit einem Eintrag von main einen Anstoss und kann beantwortet werden (das Ziel reist dabei mit, der Arbeitsbaum bleibt ohne Bezug ins Leere); `ernten` holt den Rest — ohne die Remote-Refs fehlt alles davon',
-    lauf: () => {
-      if (!gitDa()) return { offen: true, warum: 'git nicht verfuegbar' };
-      const d = tmp('branches');
-      try {
-        const o = path.join(d, 'origin'), k = path.join(d, 'klon');
-        fs.mkdirSync(o);
-        gitIn(o, ['init', '-q']); gitIn(o, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
-        fs.writeFileSync(path.join(o, 'index.html'), "var GS_VERSION = 'v99.01';\n");
-        let r = werkzeug(o, ['neu', 'befund', '--titel', 'Befund auf main', '--beleg', 'a.js:1', '--stichwort', 'gleiche-stelle', '--datum', '2026-11-01', '--nur-lokal'], 'sitzung/haupt');
-        if (r.code !== 0) return { ok: false, warum: 'Vorbereitung: ' + r.aus.slice(0, 160) };
-        gitIn(o, ['add', '-A']); gitIn(o, ['commit', '-q', '-m', 'main']);
-        gitIn(o, ['checkout', '-q', '-b', 'claude/nie-gemergt']);
-        r = werkzeug(o, ['neu', 'frage', '--titel', 'Frage nur auf dem Nebenast', '--an', 'alle', '--stichwort', 'gleiche-stelle', '--datum', '2026-11-02', '--nur-lokal'], 'sitzung/neben');
-        if (r.code !== 0) return { ok: false, warum: 'Vorbereitung: ' + r.aus.slice(0, 160) };
-        r = werkzeug(o, ['neu', 'befund', '--titel', 'Unbeteiligter Befund auf dem Nebenast', '--beleg', 'b.js:2', '--datum', '2026-11-03', '--nur-lokal'], 'sitzung/neben');
-        if (r.code !== 0) return { ok: false, warum: 'Vorbereitung: ' + r.aus.slice(0, 160) };
-        gitIn(o, ['add', '-A']); gitIn(o, ['commit', '-q', '-m', 'neben']); gitIn(o, ['checkout', '-q', 'main']);
-        const cl = cp.spawnSync('git', ['clone', '-q', o, k], { encoding: 'utf8' });
-        if (cl.status !== 0) return { ok: false, warum: 'clone: ' + (cl.stderr || '').split('\n')[0] };
-        const ohne = A.brettLesen(k, { alleRefs: false }), mit = A.brettLesen(k, { alleRefs: true });
-        if (ohne.eintraege.length !== 1) return { ok: false, warum: 'ohne Remote-Refs: ' + ohne.eintraege.length + ' Eintraege (erwartet 1 — der Fall muss den Unterschied zeigen koennen)' };
-        if (mit.eintraege.length !== 3) return { ok: false, warum: 'mit Remote-Refs: ' + mit.eintraege.length + ' Eintraege (erwartet 3) — die Eintraege vom Nebenast fehlen' };
-        const frage = mit.eintraege.find(e => e.art === 'frage');
-        if (!frage || frage._quelle !== 'origin/claude/nie-gemergt') return { ok: false, warum: 'Herkunft der Frage: ' + (frage && frage._quelle) };
-        const an = A.anstoesse(mit.eintraege, null).map(x => x.art);
-        if (an.indexOf('beruehrung') < 0) return { ok: false, warum: 'kein Anstoss zwischen main und Nebenast: ' + an.join(',') };
-        // Antworten ueber die Branch-Grenze: der Bezug zeigt auf einen Eintrag, der im Arbeitsbaum NICHT liegt.
-        r = werkzeug(k, ['antworte', frage.id, '--text', 'Ja, nachgemessen.'], 'sitzung/dritte');
-        if (r.code !== 0) return { ok: false, warum: 'antworte ueber die Branch-Grenze abgelehnt: ' + r.aus.slice(0, 200) };
-        const danach = A.brettLesen(k, { alleRefs: true });
-        const z = A.ableiten(danach.eintraege).zustand.get(frage.id).z;
-        if (z !== 'beantwortet') return { ok: false, warum: 'Frage vom Nebenast nach der Antwort: ' + z };
-        // Der Bezug zeigte auf einen Eintrag, der im Arbeitsbaum NICHT lag. Er muss mitgereist sein —
-        // sonst saehe der Pruefstand (und CI) hier einen Bezug ins Leere.
-        const baum = A.brettLesen(k, { alleRefs: false });
-        const leer = A.brettPruefen(baum).filter(x => /den Eintrag gibt es nicht/.test(x.grund)).length;
-        if (baum.eintraege.length !== 3 || leer) return { ok: false, warum: 'nach der Antwort: ' + baum.eintraege.length + ' Eintraege im Arbeitsbaum (erwartet 3: Befund, Antwort, mitgenommene Frage), Bezuege ins Leere: ' + leer };
-        r = werkzeug(k, ['ernten'], 'sitzung/dritte');
-        const nachher = A.brettLesen(k, { alleRefs: false });
-        if (r.code !== 0 || nachher.eintraege.length !== 4 || A.brettPruefen(nachher).length) return { ok: false, warum: 'ernten: Exit ' + r.code + ', ' + nachher.eintraege.length + ' Eintraege im Arbeitsbaum (erwartet 4), Pruefung: ' + (A.brettPruefen(nachher)[0] || { grund: 'still' }).grund };
-        return { ok: true, info: 'nur Arbeitsbaum: 1 Eintrag · mit Remote-Refs: 3 (zwei aus origin/claude/nie-gemergt) · Anstoss „dieselbe Stelle" · Antwort ueber die Branch-Grenze nimmt die Frage mit (3 im Baum, 0 Bezuege ins Leere) · ernten holt den vierten' };
-      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(d); }
-    },
-  },
-  {
-    name: 'C7 · Die Zahlenpruefung sieht Fehler · in einem gebauten Repo mit 3 run-Zeilen wird „4 Pruefstaende" gemeldet, „3" nicht — und ein umgeschriebener Satz als fehlender Anker',
-    lauf: () => {
+      const S = (zeilen, kopf) => '# Status\n\n## 0 · Routine\n\n> Hinweis\n\n### 2026-03-05 (zz) - ' + (kopf || 'v1.00: neu') + '\n\nText.\n\n' + zeilen + '\n\n### 2026-03-01 (zy) - v0.99: alt\n\n**Offen:** nichts\n**Nicht geprüft:** alt\n\n## 1 · Stand\n';
+      const ids = new Set(['2026-03-04-00aa', '2026-03-04-00bb']);
+      const gut = ['**Offen:** brett:2026-03-04-00aa, brett:2026-03-04-00bb — beide warten auf eine Messung\n**Nicht geprüft:** der echte Server', '**Offen:** nichts\n**Nicht geprüft von hier:** das Telefon',
+        '**Nicht geprüft, ehrlich:** hier laeuft kein Android\n\n**Offen:** nichts — alles geschlossen', '**Offen:** brett:2026-03-04-00aa\n**Nicht geprüft:** nichts ausgelassen'];
+      for (const z of gut) { const r = statusPruefen(S(z), 'v1.00', ids); if (r.length) return { ok: false, warum: 'eine GUTE Uebergabe wird beanstandet: ' + r[0] }; }
+      const schlecht = [
+        ['**Nicht geprüft:** der Server', /hat keine Zeile `\*\*Offen:\*\*/], ['**Offen:** einiges, siehe oben\n**Nicht geprüft:** x', /nennt weder einen Eintrag/],
+        ['**Offen:** brett:2026-03-04-00cc\n**Nicht geprüft:** x', /nennt brett:2026-03-04-00cc — den Eintrag gibt es im Arbeitsbaum nicht/], ['**Offen:** nichts', /hat keine Zeile `\*\*Nicht geprüft:\*\*/],
+        ['**Offen:** nichts\n**Nicht geprüft:**', /hat keine Zeile `\*\*Nicht geprüft:\*\*/], ['Offen: nichts\nNicht geprüft: x', /hat keine Zeile `\*\*Offen:\*\*/],
+      ];
+      for (const [z, re] of schlecht) { const r = statusPruefen(S(z), 'v1.00', ids); if (!r.some(x => re.test(x))) return { ok: false, warum: 'NICHT gemeldet (' + re.source + '): ' + (r.join(' | ') || 'still') }; }
+      // Der AELTERE Eintrag hat die Zeilen — gemessen wird der juengste.
+      if (!statusPruefen(S('Kein Wort dazu.'), 'v1.00', ids).length) return { ok: false, warum: 'die Zeilen eines AELTEREN Eintrags werden dem juengsten angerechnet' };
+      if (!statusPruefen(S(gut[1]), 'v1.01', ids).some(x => /laufende Version v1\.01 hat keinen Eintrag/.test(x)) || statusPruefen(S(gut[1], 'kein Bump: Doku'), 'v0.99', ids).length) return { ok: false, warum: 'die laufende Version ohne §0-Eintrag wird nicht gemeldet (oder ein Eintrag ohne Bump verlangt faelschlich einen)' };
       const d = tmp('zahlen');
       try {
         fs.mkdirSync(path.join(d, 'scripts'));
         fs.writeFileSync(path.join(d, 'scripts/pruefstaende.sh'), 'run a node scripts/a_check.js\nTAILN=8 run b node scripts/b_check.js\n  run c node scripts/c_check.js\n# run d — ein Kommentar zaehlt nicht\n');
-        const L = [{ was: 'pruefstaende', datei: 'DOKU.md', anker: /alle (\d+) Pruefstaende/ }];
-        fs.writeFileSync(path.join(d, 'DOKU.md'), 'Die Suite faehrt alle 3 Pruefstaende.\n');
-        const gutR = zahlenPruefen(d, L);
-        fs.writeFileSync(path.join(d, 'DOKU.md'), 'Die Suite faehrt alle 4 Pruefstaende.\n');
-        const schlechtR = zahlenPruefen(d, L);
-        fs.writeFileSync(path.join(d, 'DOKU.md'), 'Die Suite hat viele Pruefstaende.\n');
-        const ankerR = zahlenPruefen(d, L);
-        if (gutR.fehler.length || gutR.stellen !== 1) return { ok: false, warum: 'richtige Zahl gemeldet: ' + gutR.fehler.join(' ') };
-        if (!schlechtR.fehler.some(x => /nennt 4 pruefstaende, gemessen 3/.test(x))) return { ok: false, warum: 'falsche Zahl NICHT gemeldet: ' + JSON.stringify(schlechtR.fehler) };
-        if (!ankerR.fehler.some(x => /Anker nicht gefunden/.test(x))) return { ok: false, warum: 'fehlender Anker NICHT gemeldet' };
-        return { ok: true, info: '3 run-Zeilen (eine mit TAILN, eine eingerueckt; der Kommentar zaehlt nicht) · „3" still · „4" gemeldet · Satz ohne Zahl: Anker fehlt' };
+        const L = [{ was: 'run-Zeilen', re: /fährt \*\*alle (\d+)\*\*/, miss: (w) => runZeilen(w).length, befehl: 'grep -c' }];
+        const st = (n) => fs.writeFileSync(path.join(d, 'STATUS.md'), '## 0 · x\n\n## 1 · Stand\n\n- die Suite fährt **alle ' + n + '**.\n\n## 2 · Offen\n\nfährt **alle 9** (steht in §2 und zaehlt nicht)\n');
+        st(3); const a = zahlenPruefen(d, L); st(4); const b = zahlenPruefen(d, L);
+        fs.writeFileSync(path.join(d, 'STATUS.md'), '# S\n\n## 1 · Stand\n\n- viele Pruefstaende.\n'); const c = zahlenPruefen(d, L);
+        if (a.fehler.length || a.stellen !== 1) return { ok: false, warum: 'die richtige Zahl wird gemeldet: ' + a.fehler.join(' ') };
+        if (!b.fehler.some(x => /nennt 4 run-Zeilen, gemessen 3/.test(x))) return { ok: false, warum: 'die falsche Zahl wird NICHT gemeldet: ' + JSON.stringify(b.fehler) };
+        if (!c.fehler.some(x => /ist nicht zu finden/.test(x))) return { ok: false, warum: 'ein umgeschriebener Satz wird nicht als fehlende Stelle gemeldet' };
       } finally { weg(d); }
+      return { ok: true, info: 'vier gute Formen still (auch „Nicht geprüft von hier:" und „Offen: nichts — …") · sechs schlechte je mit Grund · gemessen wird der JUENGSTE Eintrag · Version ohne Eintrag gemeldet · 3 run-Zeilen: „3" still, „4" gemeldet, Satz ohne Zahl: Stelle fehlt' };
     },
   },
 ];
 
-(async () => {
+(async function haupt() {
   console.log('\n=== austausch_check — kommt an, was eine KI-Sitzung der naechsten sagt?');
   let kaputt = 0, offen = 0;
+  try { A = await import(pathToFileURL(path.join(__dirname, '_austausch.mjs')).href); }
+  catch (e) { console.log('  !!   scripts/_austausch.mjs laesst sich nicht laden\n         → ' + String(e && e.message).split('\n')[0]); process.exitCode = 1; return; }
   for (const f of FAELLE) {
     let r;
     try { r = await f.lauf(); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + (e && e.message ? e.message.split('\n')[0] : e) }; }
@@ -828,7 +559,7 @@ const FAELLE = [
   }
   console.log('  ---');
   console.log('  Faelle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt + (offen ? ' · nicht pruefbar: ' + offen : ''));
-  console.log('  Grenze: geprueft wird der Arbeitsbaum — was nur auf einem anderen Branch liegt, zeigt `node scripts/austausch.js holen`.');
+  console.log('  Grenze: geprueft wird der Arbeitsbaum — was nur auf einem anderen Branch liegt, zeigt `node scripts/austausch.mjs holen`.');
   console.log('  Ob ein Eintrag klug ist, rechnet niemand; gerechnet wird, ob er pruefbar, verbunden und ehrlich ist.');
   process.exitCode = kaputt ? 1 : (offen ? 2 : 0);
 })();

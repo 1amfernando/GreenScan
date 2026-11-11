@@ -1002,12 +1002,12 @@ const FAELLE = [
     // zieht jeden in Backticks genannten Namen mit App-Praefix (gs*, _gs*,
     // dq*, sb*, GS_*) und verlangt eine Definition oder Nennung im Quelltext.
     // Was bewusst als ENTFERNT genannt wird, steht namentlich in BEWUSST.
-    name: 'Memory · jeder in docs/memory/*.md genannte Funktions- oder Konstantenname existiert im Quelltext — und alle zehn Dateien sind da',
+    name: 'Memory · jeder in docs/memory/*.md genannte Funktions- oder Konstantenname existiert im Quelltext — und alle neun Dateien sind da',
     lauf: async () => {
       const fs = require('fs'), path = require('path');
       const dir = path.join(__dirname, '..', 'docs', 'memory');
       const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-      const ERWARTET = ['README.md', '01-projekt.md', '02-regeln.md', '03-daten-eigner.md', '04-pruefstaende.md', '05-fallen.md', '06-kalender.md', '07-lina.md', '08-arbeitsweise.md', '09-austausch.md'];
+      const ERWARTET = ['README.md', '01-projekt.md', '02-regeln.md', '03-daten-eigner.md', '04-pruefstaende.md', '05-fallen.md', '06-kalender.md', '07-lina.md', '08-arbeitsweise.md'];
       const BEWUSST = { gsBrain: 'seit v28.75 entfernt — die Datei sagt genau das' };
       if (!fs.existsSync(dir)) return { ok: false, warum: 'docs/memory/ fehlt' };
       const fehlend = ERWARTET.filter(f => !fs.existsSync(path.join(dir, f)));

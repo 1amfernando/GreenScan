@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-10 · **Branch**: `main` · **Version**: `v33.56` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.58` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
@@ -12,126 +12,277 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-10 (jb) - Austausch: ein Brett für alle Agenten — kein Bump
+### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
-Fernando: *„Alle Agenten müssen sich austauschen und die Informationen so
-weiter geben dass unter einander neue ideen enstehen können und die
-intelligenz gefördert wird. Fehler sollen so auch noch effizienter verbessert
-und die App wächst dann schneller."* Die App (`index.html`, `sw.js`) ist
-unverändert — deshalb kein Bump und kein Eintrag in `GS_RELEASES`.
+**Auftrag (Fernando, 10.11.2026):** „Alle Agenten müssen sich austauschen und die
+Informationen so weiter geben dass unter einander neue ideen enstehen können und die
+intelligenz gefördert wird. Fehler sollen so auch noch effizienter verbessert und die App
+wächst dann schneller." Die App ist unverändert — deshalb kein Bump.
 
-**Gemessen** (sechs Leser-Agenten; die tragenden Zahlen selbst nachgefahren):
+**Gemessen, bevor etwas gebaut wurde** (10./11.11.2026). Wissen ging nicht verloren, weil
+niemand schrieb, sondern weil nichts es zum nächsten Leser trug:
 
-- **125 nie gemergte Branches** (`git branch -r`: 127 Refs, 123 davon
-  `claude/lucid-cerf-*`), **101** mit eigenem STATUS-Eintrag, den auf main
-  niemand gelesen hat. Am 10.09. wurde derselbe Fehler **viermal** behoben
-  (drei Branch-Spitzen „v33.08" + main); ein kritischer Fund wurde zwischen
-  21.07. und 27.08. **13-mal** auf Branch-Spitzen „bestätigt".
-- `CLAUDE.md` §5 verwies auf „In Progress", „File Locks", „Recently shipped",
-  „Known issues" in dieser Datei — `grep -ci`: je **0**. Für „ich bin dran"
-  gab es keinen Ort. Aufgefallen ist es nicht, weil 318 von 319 PRs aus EINER
-  Sitzungslinie kamen (zwei Leser unabhängig, GitHub-API).
-- In §0 (312 Einträge) hat **keiner** eine feste Form für Idee, Frage oder
-  nächsten Schritt; das einzige Etikett dafür („Followup naechste Session")
-  steht fünfmal, alle im Mai.
-- Dieselbe Zahl stand viermal verschieden: **30 · 35 · 38 · 39** Prüfstände in
-  sechs Dateien, 219 Migrationen bei 223, „vier/fünf brauchen Postgres" bei
-  sieben. Genau EINE Übergabe-Pflicht hatte einen Auslöser (`robust_check`
-  „Memory", nur Namen).
+- **123 Branches geplanter Sitzungen** auf `origin` (`claude/lucid-cerf-*`, 07.06.–23.09.),
+  nie gemergt, ohne PR. 101 davon ändern `STATUS.md` — jede schrieb in eine Kopie, die
+  niemand las. Am 10.09. vergaben drei dieselbe Versionsnummer; ein Fund steht in 13
+  Commit-Betreffs, jedes Mal neu entdeckt.
+- **Dieser Abschnitt:** 312 Einträge, keine feste Zeile für „was bleibt offen".
+- **Dieselbe Suite, vier Zahlen:** 35 · 38 · 39 · 41 Prüfstände in sechs Dateien, 219
+  Migrationen bei 223 — jede Sitzung zog die Zahl dort nach, wo sie gerade war.
+- **`CLAUDE.md` §5** verwies auf drei Stellen hier („In Progress", „File Locks",
+  „Recently shipped"), die es nie gab.
+- **Unteragenten** einer Sitzung sehen einander nicht; was nicht in den Schlussbericht
+  passt, ist mit dem Container weg.
 
-**Gebaut:**
+**Was es jetzt gibt.**
 
-- **Das Brett** `docs/austausch/` — eine JSON-Datei je Eintrag, nie
-  umgeschrieben; acht Arten (`befund` · `idee` · `frage` · `anspruch` ·
-  `klasse` · `uebergabe` · `antwort` · `abschluss`), sechs Bezüge. Der Zustand
-  (offen · beantwortet · geschlossen · ersetzt) steht in keiner Datei, er wird
-  aus den Bezügen gerechnet. Gelesen wird der Arbeitsbaum **plus jeder
-  Remote-Ref** — ein Eintrag auf einem Branch, der nie gemergt wird, ist nach
-  einem Push für alle sichtbar und beantwortbar.
-- **Das Werkzeug** `scripts/austausch.js` (reines Node, Modul
-  `scripts/_austausch.js`): `holen` · `anstoss` · `zeige` · `suche` · `klasse`
-  · `neu` · `antworte` · `schliesse` · `einspielen` · `ernten` · `pruefen`.
-  Es **rechnet Anstösse** (Frage ohne Antwort, zwei Schreiber am selben
-  Stichwort ohne Bezug zueinander, Befund, auf den niemand baut, Fehlerklasse
-  ohne Wächter oder nie gesucht, Eintrag über Code, den es nicht mehr gibt),
-  und wer schreibt, bekommt im selben Zug die offenen Einträge ANDERER an
-  denselben Stichworten und passende Fehlerklassen gezeigt.
-- **Der Anker** (`--anker "datei::wörtliches Stück"`): solange ein Eintrag
-  offen ist, muss sein Anker in der Datei stehen. Wer die Stelle ändert, wird
-  in SEINEM Lauf rot, mit id und Titel — der eine Auslöser, der zum Lesen
-  zwingt. **Schliessen ist streng:** ein behobener Befund nennt seinen Wächter,
-  die Geschwistersuche und die Gegenprobe („keiner, weil …" ist erlaubt,
-  Schweigen nicht); trägt er eine **Zählung** (`--zaehle`, vom Werkzeug
-  nachgerechnet), muss sie sich bewegt haben.
-- **Versionsnummern:** `node scripts/austausch.js version` rechnet die freie
-  Nummer über laufende App, Übergaben und offene Ansprüche aller Branches; die
-  Übergabe schliesst den Anspruch ihrer Sitzung von selbst.
-- **Die Agenten-Runde** `.claude/workflows/austausch-runde.js`: Brett →
-  Sichten → **Kreuzen** (jeder Unteragent liest die Funde der anderen und baut
-  aus zwei davon etwas Neues) → Gegenprüfen → Eintragen (`einspielen`, alles
-  oder nichts).
-- **Einstieg:** `CLAUDE.md` §5 neu geschrieben, `docs/memory/09-austausch.md`,
-  `AGENTS.md` (Zeiger für KIs, die `CLAUDE.md` nicht von selbst laden),
-  `docs/memory/08-arbeitsweise.md` Schritt 0/1/8.
-- **Berichtigt:** die Prüfstand-Zahl an elf Stellen (jetzt 40), Migrationen
-  (223), „7 brauchen Postgres", drei fehlende Zeilen in der Tabelle von
-  `docs/memory/04-pruefstaende.md` (`a11y_check`, `i18n_check`, `apk_check`).
+- **Das Brett** (`docs/austausch/`, Regeln nur in `docs/austausch/README.md`): ein Eintrag
+  je Datei, nie umgeschrieben — Antwort, Nachtrag und Abschluss sind neue Einträge mit
+  Bezug, der Zustand wird gerechnet. Sechs Arten: Befund (mit Beleg) · Idee · Frage ·
+  Fehlerklasse · Antwort · Abschluss. Gelesen wird die **Vereinigung über alle Branches**,
+  die git kennt: ein Eintrag auf einem nie gemergten Branch ist für jede Sitzung sichtbar.
+- **Ein Befehl:** `node scripts/austausch.mjs holen` zeigt gerechnete **Anstösse** über
+  mehrere Einträge hinweg (Widerspruch · zwei Köpfe an derselben Stelle · zwei Ideen auf
+  einen Fund · verlorener Anker · bewegte Zahl), jeden offenen Eintrag einmal, und die
+  **frischen Branches** — wer parallel arbeitet, gerechnet aus den Branch-Spitzen.
+- **Auslöser statt Bitten.** Ein **Anker** bindet einen Befund an ein wörtliches Stück
+  seiner Stelle: wer sie ändert, wird im eigenen Prüfstand-Lauf rot und liest den Eintrag.
+  Eine **Zählung** hält fest, wie oft ein Muster vorkommt: „erledigt" geht erst, wenn sie
+  sich bewegt hat. Wer einen Befund schliesst, sagt, ob er nach Geschwistern gesucht hat.
+- **Lesen ist ins Schreiben eingebaut:** nach jedem Eintrag zeigt das Werkzeug Nachbarn an
+  denselben Stichworten, verworfene Irrwege mit ihrem Grund, passende Fehlerklassen und
+  Vorwissen im Tagebuch.
+- **Übergabe in zwei festen Zeilen** an jedem Eintrag hier (siehe unten) — offene Arbeit
+  steht als Eintrag auf dem Brett statt im Fliesstext. Fragen an Fernando stehen zusätzlich
+  mit `brett:<id>` in §2.
+- **Zahlen an einer Stelle:** die Zahl der Prüfstände, Migrationen und Edge-Verzeichnisse
+  steht nur noch in §1 und wird dort nachgemessen; `CLAUDE.md`, `README.md` und
+  `docs/memory` nennen keine mehr.
+- **Für Unteragenten** die Austausch-Runde (`.claude/workflows/austausch-runde.js`):
+  sichten → kreuzen (jeder liest die Funde der anderen) → gegenprüfen → aufs Brett.
+- **Prüfstand `austausch_check`** (17 Fälle): die Ware (Brett, Wächter, Anker, Übergabe,
+  Zitate), der Einstieg (Suite, Zahlen, Wegweiser, Runde) und jede Regel gegen gebaute
+  gute UND schlechte Fälle — das Werkzeug als Prozess, zwei echte git-Branches.
+- `CLAUDE.md` §5 neu (die drei toten Verweise sind weg), `AGENTS.md` als Zeiger für
+  Werkzeuge, die `CLAUDE.md` nicht laden, Wegweiser in `docs/memory`.
 
-**Prüfstand zuerst:** `scripts/austausch_check.js` (der 40.), gegen den alten
-Stand gefahren: **4 von 17 rot, 4 nicht prüfbar** (das Brett war leer) — keine Übergabe, der
-Prüfstand selbst in keiner `run`-Zeile, **sieben falsche Zahlen** und vier
-Stellen, an denen die Zahl nur als Wort stand, drei Einstiegsdateien ohne
-Verweis. Danach grün; mit den Regeln aus dem zweiten und dritten Entwurf und
-aus der Austausch-Runde heute **27 Fälle** in drei Gruppen: **A** das echte Brett (Form, Beleg, Bezüge, Wächter
-einer Fehlerklasse existieren als Datei + Fallkennung, ein offener Eintrag
-nennt keinen verschwundenen Code, sein Anker steht noch und seine Zählung
-stimmt, **zur laufenden Version gibt es eine gültige Übergabe** — Teil des
-Bumps wie der `GS_RELEASES`-Eintrag — **und höchstens eine liefert sie aus**
-(zwei wären zwei Sitzungen mit derselben Nummer), kein offener Anspruch im
-Baum, jedes `brett:<id>` in den Dokumenten hat ein Ziel) ·
-**B** die Übergabe-Dokumente (jeder `*_check` steht in `pruefstaende.sh`; 22
-Zahlen an 21 Stellen an ihren Befehl gebunden, verankert am Satz; die
-Agenten-Runde lässt sich übersetzen; kein Austausch-Skript hält eine
-App-Funktion am Leben) · **C** die Regel selbst gegen gebaute Fälle (30
-kaputte Einträge je mit dem richtigen Grund, Zustand und Anstösse gerechnet,
-Nachtrag an einer Klasse, Anker in fünf Zuständen, eine Zählung, die beim
-Schreiben nachgerechnet wird, das Werkzeug
-alles-oder-nichts, **zwei echte gebaute Branches**: ein Eintrag vom nie
-gemergten Ast erscheint, wird beantwortet und reist mit).
+**Die Saat: 25 Einträge, jeder am Stand v33.58 nachgemessen.** 14 Fehlerklassen aus dem
+Tagebuch (Regel, Instanzen, Suchmuster für Geschwister, 107 Wächter-Adressen — jede steht
+genau einmal in ihrer Datei; acht Klassen wurden nie systematisch gesucht) · sieben Befunde ·
+zwei Fragen an Fernando · zwei Ideen. Die Befunde: `_gsArtAnzeige` zeigt 14 Einträge als
+essbar, die selbst „nicht essbar" tragen; 0 von 8 spanischen Notfallsätzen erkannt; sechs
+Schlüsselfamilien im `localStorage` in keiner Speicherliste; drei Prüfstände enden immer
+mit Exit 0; `android/` und `.claude/` ohne noindex; sechs Verweise „robust_check Fall N"
+ohne Ziel; `offline_check` bleibt gelegentlich an seiner Zeitgrenze hängen (siehe „Suite").
+Behoben ist davon **nichts** — sie stehen auf dem Brett, damit die Sitzung, die
+an der Stelle arbeitet, sie findet.
 
-**Der erste Fund über das Brett** (und der Grund, warum es das braucht): die
-tägliche geplante Aufgabe „AGENT 007" legt ihre Übergaben ausserhalb des Repos
-ab und kennt die Abschalt-Frist der KI-Modelle — das Repo kannte sie nicht.
-Nachgemessen: `garden-scan-analyze`, `plan-iterate` und
-`plant-doctor-diagnose` nennen als einziges Modell eines, das Anthropic im
-Juni abgeschaltet hat; `ai-proxy` fällt auf `claude-sonnet-4-5` zurück,
-**Abschaltung 30.11.2026**. Die Rückfallketten dafür liegen seit dem 09.09.
-fertig auf einem nie gemergten Branch (`e74c453`), während Sektion 2 sie als
-offene Schuld führt. Drei Stellen wussten je ein Drittel. Steht als Befund auf
-dem Brett; **behoben ist es nicht.**
+**Zwei Fassungen — und was die gegnerische Prüfung fand.** Die erste Fassung lag am 10.11.
+auf diesem Branch. Zwei Prüfer dagegen: einer suchte Fehler und fand acht — `holen` rief
+`git fetch --depth=1` und nahm dem eigenen Branch die gemeinsame Geschichte mit `main`; eine
+Datei ohne `id` auf einem fremden Branch liess `lesen` abstürzen; das strenge Schliessen
+liess sich mit einer Antwort umgehen; ein Feld mit Unterstrich umging die Geheimnis-Suche;
+das Werkzeug meldete „geschrieben" für Einträge, die der Prüfstand danach verwarf. Der
+andere strich: acht Arten → sechs, keine eigene Übergabe-Datei, Zahlen an einer Stelle statt
+an 21, jeder offene Eintrag einmal statt dreimal. Die zweite Fassung ist die hier; alle acht
+Fehler stehen als Fälle da.
 
-**Drei Lehren:**
+**Parallel:** während des Baus hat eine andere Sitzung v33.57 und v33.58 ausgeliefert
+(Einträge jb, jc). Dieser Schnitt sitzt auf v33.58; zwei Saat-Einträge der ersten Fassung
+zur Modell-Abschaltung sind entfallen, weil v33.58 sie behoben hat.
 
-- **Ein Bezug über die Branch-Grenze nimmt sein Ziel mit.** Das Werkzeug liest
-  alle Branches, der Prüfstand nur den Arbeitsbaum — eine Antwort auf einen
-  Eintrag vom fremden Ast wäre in CI ein Bezug ins Leere gewesen. Gefunden
-  beim Bau des Falls mit zwei echten Branches.
-- **Bevor man eine Regel erzwingt, misst man, ob sie erfüllbar ist.** Der Fall
-  „kein Austausch-Skript nennt einen App-Funktionsnamen" wäre nie grün
-  geworden: die App definiert Funktionen namens `k`, `n`, `text`, `regel`.
-  Erfüllbar ist die engere Fassung (nur Namen mit App-Präfix) — sie ist gebaut.
-- **Ein Anker, der zweimal trifft, bindet nichts** — und §0 dieser Datei
-  zitiert alte Stände wörtlich. Gebunden ist deshalb nur §1.
+**Gegenproben** (je einzeln hergestellt, der erwartete Fall rot, zurückgebaut, Prüfsumme
+verglichen): 18 von 18 — verankerte Zeile
+geändert → A3 nennt den Befund · `**Offen:**` entfernt → A4 · Frage an Fernando in §2 nicht
+zitiert → A5 · run-Zeile entfernt → B1 · eine Migration zu viel in §1 → B1 · bewachter Fall
+umbenannt → A2 · README ohne einen Bezug → B2 · die Runde schreibt ein unbekanntes Feld →
+B3 · Feld mit Unterstrich wieder erlaubt → C1, C6 · Schliessen nicht mehr streng → C2 ·
+Datei ohne `id` gilt wieder als Eintrag → C2, C8 · Nachträge nach der id statt der Uhrzeit →
+C3 · fremder Branch gegen diesen Baum gemessen → C4 · Changelog zählt wieder mit → C5, C6 ·
+Zahl beim Schreiben nicht nachgerechnet → C6 · Wert mit „--" gilt als Schalter → C7 ·
+`holen` wieder flach → C8 · ein Eintrag mit einer Adresse auf dem echten Brett → A1. Jedes
+Mal nur der erwartete Fall rot, danach wieder 17 von 17.
 
-**Nicht geprüft:** ob Claude Code einen Workflow aus `.claude/workflows/` in
-einer Cloud-Sitzung per Namen auflöst (nicht dokumentiert; `scriptPath` geht
-immer); ob die Hoster `.claude/` ausliefern; ob die ausgelieferten
-Edge-Functions dem Repo entsprechen.
+**Suite:** `bash scripts/pruefstaende.sh` mit lokalem Postgres — **42 Prüfstände · rot: 1 · nicht
+prüfbar: 1.** Nicht prüfbar ist `apk_check` (hier fehlen die Android-Werkzeuge; die CI hat
+sie). Rot war `offline_check`: 40 Fälle grün, dann hing er bis zu seiner 25-Minuten-Zeitgrenze
+(Exit 3) im Schritt nach „Teilen mit wartendem Worker". An App und Service Worker ändert
+dieser Schnitt nichts; **direkt danach einzeln gefahren: 41 von 41 grün.** Der Hänger ist
+also gelegentlich, seine Ursache nicht gefunden — er steht als Befund auf dem Brett
+(brett:2026-11-11-75c2), statt hier als „grün" durchzugehen. `austausch_check` 17 von 17.
 
-**Für Fernando:** `node scripts/austausch.js --an fernando` zeigt, was auf dich
-wartet. Zwei Dinge: die Modell-Frist **30.11.2026**, und ob „AGENT 007" ans
-Brett angeschlossen werden soll (dafür braucht ihre Umgebung Zugriff auf das
-Repo, und ihr Auftrag müsste das Brett nennen).
+**Offen:** brett:2026-11-11-fcaf, brett:2026-11-11-df0b, brett:2026-11-11-d239, brett:2026-11-11-ec73, brett:2026-11-11-e383, brett:2026-11-11-7b03, brett:2026-11-11-75c2 (sieben Befunde, keiner behoben) · brett:2026-11-11-5e91, brett:2026-11-11-90db (zwei Fragen an Fernando, §2) · acht Fehlerklassen ohne Suche (`node scripts/austausch.mjs klasse`)
+**Nicht geprüft:** ob eine geplante Routine das Brett wirklich liest (dazu muss ihr Auftrag `CLAUDE.md` laden — die Aufgabe „AGENT 007" erreicht das Repo derzeit gar nicht, brett:2026-11-11-5e91); ob `Workflow({ name: 'austausch-runde' })` den Namen in einer Cloud-Sitzung auflöst (mit `scriptPath` geht es in jedem Fall); der CI-Lauf dieses Branches (ohne PR läuft keiner). Die Funde der Agenten-Runde, die ich nicht selbst nachmessen konnte, stehen NICHT auf dem Brett.
+
+### 2026-11-11 (jc) - v33.58: Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus
+
+**Auftrag (Fernando, 10.11.2026):** „Die App muss einmal komplett verbessert werden. Es
+gibt überall bugs und lücken (sicherheitslücken). Nimm dir alle informationen und daten
+und werde so effizient wie möglich." Freigaben: Live-DB „Sicherheit + Fixes" ·
+Auslieferung „PR und selbst mergen".
+
+**Woher die Arbeit kommt.** Die wöchentlichen Läufe (KW44–KW46) hatten Korrekturen als
+Pakete in einem Artefakt abgelegt — fertig gerechnet, nie ausgeliefert. Übernommen und
+gegen die Prüfstände dieses Repos gefahren: Modell-Liste, Rezept-Verknüpfung, Fruchtfolge,
+vier P1-Korrekturen. **Bewusst nicht übernommen:** der Umbau, der den persönlichen
+Schlüssel entfernt (eine Produkt-Entscheidung), die Daten-Migration der Artenliste
+(`plants.v2.js`) und die SQL-Pakete zu Kontingent und Stripe (nicht nachgerechnet).
+
+**Gemessen und gebaut:**
+
+1. **Rezept → Art.** `rezept_link_check` gegen v33.56: **699 Verstösse** in 524 Einträgen —
+   239 Links auf eine andere Art als die Hauptzutat, 84 auf eine als giftig geführte, 17
+   davon Giftstufe ≥ 3 (Pfifferling-Rahmsauce → Maiglöckchen, Morchel → Herbstzeitlose),
+   17 doppelte Rezept-Ids. Die Verknüpfung lief über eine Namens-Teilsuche. Jetzt:
+   `plantIds` / `plantKw` / `plantIdsBlocked` je Rezept, die Sperre gilt, sobald EIN
+   Eintrag der Art giftig geführt ist; 43 Rezepte haben bewusst keinen Link.
+2. **Fruchtfolge.** `GS_TRACHTEN_IDS` führte Knollensellerie zum Grünen
+   Knollenblätterpilz (Giftstufe 5) und Rettich zum Rettichfälbling. 37 Kulturen einzeln
+   gegen `data/plants.v1.js` gehalten.
+3. **KI-Modelle — der eigentliche Fund.** `claude-sonnet-4-20250514` ist seit dem
+   **15.06.2026** abgeschaltet: `plant-doctor-diagnose`, `garden-scan-analyze` und
+   `plan-iterate` nannten genau dieses eine Modell und waren **fünf Monate tot, ohne dass
+   etwas meldete**. `claude-sonnet-4-5` folgt am **30.11.2026** — der Vorgabewert des
+   ausgelieferten `ai-proxy`, auf den er JEDES Modell umschrieb (`ai_usage`: 37 von 37).
+   Ab dann wäre jeder Scan gescheitert.
+   - `supabase/functions/_shared/modelle.mjs`: eine Kette je ROLLE (`vision`: Sonnet 4.6 →
+     5.5 → 5 · `schnell`: Haiku 4.5 → 5.5), Rückfall nur bei „dieses Modell gibt es
+     nicht", ein Secret (`GS_MODEL_VISION`, `GS_MODEL_FAST`) stellt ein Modell davor.
+     Kein Modellname steht mehr in einer Edge-Function.
+   - **Ein Modellname allein ist keine Umstellung.** Sonnet 5.5 und 5 denken von sich aus
+     nach, wenn die Anfrage nichts dazu sagt (Anthropic, „Migrating to Claude Sonnet 5.5",
+     gelesen 10.11.): das zählt gegen `max_tokens` — ein Scan bittet um 900, das JSON käme
+     abgeschnitten — und stellt einen `thinking`-Block vor den Text (`content[0].text`
+     ist dann leer). Dazu rund 30 % mehr Token für denselben Text. `modellZusatz` gibt
+     jedem Modell seine Angabe und sein Budget; `ohneDenkBloecke` räumt die Antwort auf,
+     damit auch eine ältere App sie lesen kann. In der App derselbe Zusatz für den
+     Direktweg (`_gsModellZusatz`, `_gsAiRumpfDirekt`), EIN Leser (`_gsAiText`), und eine
+     Ablehnung (`stop_reason: refusal`) wird ein Satz.
+   - **Warum Sonnet 4.6 vorn steht und nicht 5.5:** es ist der direkte Nachfolger des
+     Modells, auf dem die App gebaut und abgestimmt ist — ohne Nachdenken, mit demselben
+     Tokenizer und derselben Bildauflösung. 5.5 liest Bilder genauer, kostet laut
+     Anthropic aber rund 2,5-mal so viele Bild-Token und lehnt in mehr Kategorien ab.
+     Das ist eine Entscheidung mit zehn echten Scans davor, nicht eine um Mitternacht.
+4. **ai-proxy.** Stufen `basic` und `premium` fehlten (wer sie bezahlte, fiel auf das
+   Gratis-Limit), Admins 2000, gesperrte Konten 403, der Notschalter
+   `global_api_enabled` gilt auch hier, Anfragen über 20 MB 413, der Fehler der
+   Entitlements-Abfrage wird gelesen (sonst: jede Stufe still „free"), an Anthropic gehen
+   nur vier Felder plus der Zusatz, `ai_usage` nennt das Modell, das geantwortet hat.
+5. **Zwei Functions nahmen den öffentlichen Schlüssel an.** `pest-identify` und
+   `mushroom-identify` antworteten live auf den anon-Key ohne Konto mit „missing
+   image_base64" statt 401 — mit einem Bild wären sie zur KI gegangen. Die Fassung im
+   Repo (Konto geprüft, 30 je Stunde) lag seit v30.83 unausgeliefert da.
+6. **Geteilter Scan-Cache aus** (`GS_SCAN_CACHE_GETEILT = false`): eine Tabelle für alle
+   Konten, ein 64-Bit-Hash aus 9×8 Bildpunkten, der erste Eintrag gewinnt. `scan_check`
+   legt einen fremden Treffer unter den Hash — gegen v33.56 stand er als Bestimmung da,
+   die KI wurde 0× gefragt.
+7. **Scan-Chat über `callAI`** (er baute seine eigene Anfrage: kein Rückfall, kein
+   Kontingent, `content[0].text`, eine Fehlerantwort stand als „Keine Antwort" da).
+8. **Vier P1-Korrekturen:** „Keine bekannten Risiken" ohne Warnzeichen (`gsWarnungLeer`,
+   P1-5) · der Ersatz-Ort Zürich wird nicht gespeichert (P1-9) · Zurück im
+   Geräte-Dashboard per Delegation (P1-10) · ein früher Block macht `localStorage`
+   ungefährlich, wenn der Browser ihn sperrt (P1-11). Dazu `gsShSaveThreshold`: PATCH mit
+   `return=representation` und `_gsSchreibOk`.
+9. **`GS_FRISTEN` 'ki_modelle'** (17.02.2027, frühestes Ende von Sonnet 4.6) — auf der
+   Karte „Läuft demnächst ab" im Admin-Panel und in `docs/RISIKEN.md` §1.
+
+**Auf der Live-Auslieferung (11.11.2026, jede Function mit einem Rauchtest aus der
+Datenbank — `net.http_post` mit dem öffentlichen Schlüssel, erwartet 401 aus dem eigenen
+Code):** `ai-proxy` v3 · `plant-doctor-diagnose` v6 · `plan-iterate` v5 ·
+`garden-scan-analyze` v11 · `pest-identify` v4 · `mushroom-identify` v4. Ausgeliefert als
+**Verweis auf einen festen Commit** dieses Repos (`af47fc0…` bzw. `ef7fdbb…`): von hier
+lässt sich nur Text übergeben, und 150 KB von Hand abzuschreiben wäre die Abschrift, vor
+der `book-ingest/BEFUND.md` warnt. Ein Commit ist eine Prüfsumme; geladen wird beim
+Ausliefern, nicht zur Laufzeit.
+
+**Prüfstände:** neu `modell_check` (22 Fälle in drei Hälften — die RECHNUNG des Moduls,
+der ECHTE Handler von `ai-proxy` in Node mit gestelltem Deno/Supabase/Anthropic, der
+QUELLTEXT; 14 Gegenproben einzeln rot, darunter der alte Proxy: 6 Fälle rot) und
+`rezept_link_check`. `scan_check` 76 → 77 · `schluessel_check` 11 → 12 (Direktweg) ·
+`pruefstaende.sh` fährt 41.
+
+**Drei Lehren** (ausführlich in `CLAUDE.md` §7.1):
+
+- **Ein Termin, den ein anderer setzt, gehört in eine Liste, die jemand liest.** Die
+  Abschaltung vom 15.06. stand auf Anthropics Seite, fünf Monate lang. `GS_FRISTEN` gab
+  es seit v33.45 — für eigene Deckel.
+- **Ein Modellname allein ist keine Umstellung.** Das Paket aus dem Wochenlauf tauschte
+  drei Namen; mit 900 Token und `content[0].text` wäre der Scanner auf Sonnet 5.5 an
+  seinem eigenen Nachdenken gescheitert. Gefunden beim Lesen der Migrationsanleitung,
+  nicht durch einen Prüfstand — von hier antwortet kein Modell.
+- **Was man nicht abschreiben kann, verweist man.** Sechs Functions, eine Zeile je
+  Function, Byte-gleich mit dem geprüften Stand.
+
+**Nicht geprüft von hier:** ob Anthropic die Namen der Kette annimmt und was ein echter
+Scan zurückgibt. Die Functions-Adresse ist aus dieser Umgebung gesperrt, und es gibt hier
+kein Nutzer-Konto. `select model, count(*), max(created_at) from ai_usage group by 1`
+zeigt es nach dem nächsten echten Scan (FUER-FERNANDO §29, Punkt 1).
+
+**Nebenfund:** `robust_check` „Beispieldaten" ist zwischen 00:00 und 01:00 (im Sommer
+02:00) Ortszeit rot, wenn die Maschine nicht in UTC läuft — `_seed.js` ankert auf der
+UTC-Mitternacht, die App rechnet Kalendertage in Ortszeit. Mit `TZ=UTC` grün, in der CI
+(UTC) nie betroffen. Steht in §2.
+
+### 2026-11-10 (jb) - v33.57: Scanner und Scan-Chat laufen auch ohne Schlüssel im Browser
+
+**Eine Reparatur an etwas, das ich am selben Abend selbst ausgelöst habe.** Am
+10.11.2026 um 22:15 Uhr habe ich — mit Fernandos Freigabe „Sicherheit + Fixes" —
+die Migration `20260907_global_api_key_nur_proxy.sql` auf der Live-Datenbank
+angewandt. Seither gibt `fn_get_global_api_key` den Anthropic-Schlüssel nur noch
+Admins heraus; alle anderen bekommen `mode: proxy`. Die Vorbedingung aus §2 war
+erfüllt (`ai_usage` hat 37 Zeilen, der Proxy lief). **Trotzdem war der Scanner
+danach für jeden Nutzer ohne Admin-Rolle tot.**
+
+**Gemessen (schluessel_check, im Proxy-Modus ohne Schlüssel, gegen v33.56):**
+
+- `analyzeImage` fragte `if (!key)` — und zeigte „📡 KI gerade nicht erreichbar",
+  **0 Aufrufe an den Proxy**. `callVisionAI` eine Zeile weiter wäre über den
+  Proxy gegangen.
+- `sendScanChat` meldete „API-Key nötig" und fragte nicht.
+- Die Hintergrund-Recherche einer neuen Art stieg still aus; der Verbindungs-Test
+  im Planer sagte „Kein Key — bitte oben rechts eintragen" (eintragen darf ihn
+  niemand).
+
+**Gebaut:** `gsKiVerfuegbar(cfg)` — EINE Antwort auf „kann diese Person gerade die
+KI benutzen?": wahr bei Schlüssel ODER Proxy-Ziel (`_gsAiTarget`). Alle vier
+Stellen rufen sie. Wer wissen will, ob die KI da ist, fragt nie mehr
+`getApiConfig().key`.
+
+**Warum es niemand sah — und das ist die Lehre:**
+
+- `schluessel_check` hatte den Fall „Ohne Schlüssel im Browser" — er rief
+  `callAI` und `callVisionAI` **direkt**. Der Weg davor (das Tor im Scanner) war
+  nie Teil der Messung. Dieselbe Klasse wie v33.43: *ein Fall, der die Funktion
+  direkt ruft, misst die Rechnung, nicht den Draht.*
+- `scan_check` stellt in jedem Fall `getApiConfig = () => ({ key: 'k' })` hin
+  („Sperren stellen"). Damit war die eine Sperre, auf die es ankam, in 76 Fällen
+  weggestellt.
+- Die Zeile in §2 nannte die Reihenfolge („erst prüfen, dass `ai_usage` wächst")
+  — sie prüfte den **Proxy**, nicht die **App vor dem Proxy**. Eine Vorbedingung,
+  die nur eine Hälfte der Naht misst, ist eine halbe Vorbedingung.
+
+**Prüfstand:** `schluessel_check` 10 → 11 Fälle. Der neue geht den Weg, den ein
+Scan wirklich geht (Sperren gestellt wie in `scan_check`, nur der Schlüssel
+nicht), dann den Scan-Chat, und hält `gsKiVerfuegbar` in beide Richtungen fest
+(Proxy ja · nichts nein · persönlicher Schlüssel ja · abgemeldet nein). Zwei
+Gegenproben einzeln rot, mit dem Satz vom Bildschirm daneben.
+
+**Dauer des Ausfalls:** vom 10.11.2026 22:15 Uhr bis zur Auslieferung dieser
+Version, für Nutzer ohne Admin-Rolle. Zurückgenommen habe ich die Migration
+bewusst nicht: sie schliesst das Loch, durch das jeder angemeldete Nutzer den
+bezahlten Schlüssel lesen konnte.
+
+**Datenbank, am 10.11.2026 angewandt** (jede einzeln gegen die Live-DB
+nachgelesen): `20260907_global_api_key_nur_proxy` · `20260831_rollen_leak_fix_v30_95`
+· `20260924_admin_grants`. `v31_36_mkt_views_auth_guard` stand seit dem 01.09.2026
+schon in `schema_migrations` und wurde unverändert noch einmal eingespielt
+(idempotent, keine Wirkung). **Nicht angewandt:** `20261006_friendships_nur_empfaenger`
+— Supabase verlangt dafür eine Bestätigung im Dialog, und die blieb aus.
+
+**Nicht geprüft von hier:** der echte Proxy mit einem echten Konto. Die
+Functions-Adresse ist aus dieser Umgebung gesperrt; `ai_usage` wächst erst mit
+dem nächsten echten Scan — `select model, count(*), max(created_at) from ai_usage
+group by 1` zeigt es.
 
 ### 2026-10-22 (ja) - v33.56: Teilen → GreenScan auch in der Android-App
 
@@ -15325,7 +15476,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 22.10.2026** (davor am 20.10.). Er stand am 02.09. auf
+> **Nachgemessen am 11.11.2026** (davor am 22.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -15334,11 +15485,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.56` (Client) · SW-Cache `gs-v33.56` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.58` (Client) · SW-Cache `gs-v33.58` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **96'660 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **583 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
+- **Frontend:** `index.html` **97'094 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **586 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **40** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1), dazu `arten_quellen_vergleich.js` (nur Messung) und `austausch.js` (das Brett-Werkzeug, `CLAUDE.md` §5). `scripts/pruefstaende.sh` fährt **alle 40** — seit 10.11.2026 hält `austausch_check` B1/B2 diese Zahl und die der Migrationen und Edge-Verzeichnisse an ihrem Befehl fest (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **42** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.58: `modell_check`, `rezept_link_check`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 42** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -15347,20 +15498,26 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **Die geplante Aufgabe „AGENT 007" ans Repo und ans Brett anschliessen?** | Sie läuft täglich in einer frischen Sitzung, legt ihre Übergaben in Google Drive ab und erreicht das Repo nicht — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Nötig wären: GitHub neu verbinden, und in ihrem Auftrag `node scripts/austausch.mjs holen` am Anfang, Einträge statt Drive-Notizen am Ende. Nicht verändert. | brett:2026-11-11-5e91 · (jd) |
+| **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
 | **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
 | **APK auf einem Telefon ansehen: Export und Drucken** (v33.53) | Hier läuft kein Android. `apk_check` fährt Rechnung, Rand und Seite gegen einen echten Java-Sammler — ob ein Telefon „Speichern unter“ und den Druckdialog so zeigt, sagt erst ein Gerät (Android 6, 10, 14). Am Backend nichts zu tun, nur eine neue APK. | `docs/FUER-FERNANDO.md` §26 · (ix) |
-| **Neun Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `key-health-check`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `ai-proxy`, `garden-scan-analyze`, `plan-iterate`) | Audit A10/B2: konstantzeitiger Schlüsselvergleich über `_shared/auth_vergleich.mjs`, Triage nur Admins, CORS eng, 110-s-Abbruch. Im Repo, nicht ausgeliefert. | `docs/FUER-FERNANDO.md` §9 · (fl) |
-| **Migration `20260907_global_api_key_nur_proxy.sql`** + `deploy ai-proxy` | Audit A1: `fn_get_global_api_key` gibt danach nur noch Admins den Schlüssel; Nutzer bekommen „mode: proxy“. **Reihenfolge wichtig** — erst prüfen, dass `ai_usage` nach einem echten Aufruf wächst (der Proxy war nie benutzt), dann anwenden. | `docs/FUER-FERNANDO.md` §8 · (fh) |
+| **Sieben Edge-Functions ausliefern** (`daily-push-checker`, `engagement-push-checker`, `sensor-push`, `weather-alert-checker`, `feedback-triage`, `i18n-translate`, `knowledge-bulk-gen`) | Im Repo, nicht ausgeliefert: konstantzeitiger Schlüsselvergleich, Triage nur Admins (Audit A10/B2), und seit v33.58 die Modell-Kette für die drei letzten — deren Modelle leben noch, es eilt nicht. **Ausgeliefert am 10./11.11.2026:** `key-health-check` v2, `ai-proxy` v3, `plant-doctor-diagnose` v6, `plan-iterate` v5, `garden-scan-analyze` v11, `pest-identify` v4, `mushroom-identify` v4 (jc). | `docs/FUER-FERNANDO.md` §9, §29 · (fl), (jc) |
+| **Ein echter Scan mit einem Konto ohne Admin-Rolle** | Das Einzige, was sich von hier nicht messen lässt: der neue `ai-proxy` (v3, 11.11.2026) mit einem echten Konto. Danach muss `ai_usage` eine Zeile `claude-sonnet-4-6` vom selben Tag tragen. Audit A1 ist zu (Migration angewandt am 10.11., App seit v33.57 ohne Schlüssel im Browser). | `docs/FUER-FERNANDO.md` §29 Punkt 1 · (jb), (jc) |
+| **Den Anthropic-Schlüssel erneuern** | Bis zum 10.11.2026 bekam ihn jeder angemeldete Nutzer in den Browser. Ob ihn jemand kopiert hat, lässt sich nicht nachsehen. Neuer Schlüssel → Admin-Panel → alter widerrufen. | `docs/FUER-FERNANDO.md` §29 Punkt 2 · (jc) |
+| **`book-ingest`: Secret `CLAUDE_MODEL` = `claude-sonnet-4-6`** | Die ausgelieferte Fassung (kein Quelltext im Repo) hat eine eigene Modellliste; alle drei Namen darin sind am **30.11.2026** abgeschaltet. Nur das Buch-Einlesen im Admin-Panel hängt daran. | `docs/FUER-FERNANDO.md` §29 Punkt 4 · (jc) |
+| **Stripe: `stripe_publishable_key` beginnt mit `pk_test_`** | Gemessen am 10.11.2026 in `app_settings`; `stripe_webhook_events` hat 0 Zeilen. §1 sagt „Live-Mode seit v26.40". An Zahlungen wurde nichts angefasst — bitte nachsehen. | `docs/FUER-FERNANDO.md` §29 · (jc) |
+| **Bucket `scan-images` ist öffentlich** (99 Dateien, 10.11.2026) | Ein Scan-Foto ist über seine Adresse ohne Anmeldung ladbar. Privat stellen braucht signierte Adressen in der App — eigener Umbau, eine Entscheidung. | `docs/FUER-FERNANDO.md` §29 · (jc) |
+| **`fn_add_xp` deckeln** | Jedes angemeldete Konto kann bis zu 50'000 Punkte je Aufruf buchen (10.11.2026, nur lesend gemessen) — die Rangliste lässt sich fälschen. Braucht eine Migration. | (jc) |
 | **Migration `20260907_quiz_antwort_formate.sql`** | Die Quiz-Rangliste steht seit dem 01.09. still: der Server-Trigger kennt eines von drei Frageformaten (5 von 203 Fragen). Die Migration lehrt ihn alle drei, rechnet die Antworten nach (5 kippen auf richtig, keine auf falsch) und zieht die Rangliste nach. Idempotent, zwei Transaktionen, in `quiz_check` nachgespielt. | `docs/FUER-FERNANDO.md` §7 · (fe) |
 | **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
 | **Migration `20261006_friendships_nur_empfaenger.sql`** | Live (06.10.2026, nur lesend): der Absender konnte die eigene Freundschafts-Anfrage annehmen, jeder eine Zeile gleich als `accepted` anlegen, und beide Seiten `user_id`/`friend_id` auf einen Dritten umbiegen (UPDATE ohne `WITH CHECK`, Tabellenrecht auf jede Spalte). Die Datei: INSERT nur `pending`, UPDATE nur der Empfänger, nur die Spalte `status`. Heute 0 Zeilen, und nichts sonst liest den Status — die Regel wird richtig, bevor etwas sie liest. In `naht_check` nachgespielt (Reproduktion, zweimal, Gegenprobe). | `docs/FUER-FERNANDO.md` §25 · (iw) |
 | **Migration `20260925_admin_audit_vollstaendig.sql`** | Fünf von fünfzehn Admin-Aktionen hinterliessen keine Spur in `audit_log` (25.09.2026, nur lesend gemessen) — darunter Foto-Beitrag und Arten-Vorschlag prüfen (Moderation!) und „Meldung erledigen" (nackter PATCH, keine RPC). Die Datei gibt zwei Review-Funktionen die Spur (Rumpf wie live) und legt `fn_admin_review_report` an. Bis dahin fällt „Meldung erledigen" auf den PATCH zurück und sagt „ohne Protokolleintrag"; der Fuss unter dem Protokoll zählt „3 erst nach Migration". In `admin_check` in einem lokalen Postgres nachgespielt (zweimal, Admin/Nicht-Admin, Gegenprobe). | `docs/FUER-FERNANDO.md` §24 · (iv) |
-| **Migration `20260924_admin_grants.sql`** | Zwei Admin-Knöpfe sind live tot: `fn_assign_role` („🚫 Nutzer sperren", Rolle vergeben) und `fn_set_global_api_key` (globaler KI-Schlüssel) tragen die ACL `{postgres, service_role}` — `authenticated` darf sie nicht ausführen (24.09.2026, nur lesend gemessen). Die zwei Re-Grants aus `v29_20` und `v30_57` sind live nicht in Kraft. Beide Funktionen prüfen `is_admin_user()` selbst; das GRANT macht die Prüfung erreichbar, es öffnet nichts. Bis dahin sagt es die App (`nicht_freigeschaltet`, mit Dateinamen). | `docs/FUER-FERNANDO.md` §23 · (iu) |
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. **Live nachgemessen 14.09.2026: die Spalte existiert nicht** (`42703`), waehrend die App sie seit v30.85 rendert — der Bildblock kann nie gefeuert haben. Mit `20260827_quiz_bilder_und_fragen_v30_85.sql` kaemen 43 Fragen (+43 Tage Vorrat). Seit v33.29 kennt das Kategorien-Vokabular ihre 12 eigenen Slugs, sie braechte also keine leeren Kategoriezeilen mit. | (2026-08-31 y), (hy) |
 | **Migration `20260914_quiz_vorrat.sql`** | `fn_quiz_vorrat()` + `fn_quiz_vorrat_pruefen()` + Cron `quiz-vorrat-daily` (v33.29): misst den Fragen-Vorrat und warnt nach `system_events`, sobald unter 60 freie Fragen uebrig sind. Aendert nichts am Quiz. Ohne sie bleibt der Vorrat ungemessen — **er ist am 16.06.2027 erschoepft**, und `fn_get_daily_quiz` wiederholt dann still. | (hy), FUER-FERNANDO §20 |
-| `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
-| Leaked-Password-Protection | Ein Dashboard-Klick. | (2026-08-31 y) |
+| `fn_is_role` / `fn_role_at_least` für `anon` sperren | **Entschärft am 10.11.2026:** `20260831_rollen_leak_fix_v30_95` ist angewandt — beide antworten über ein FREMDES Konto nur noch Staff und Admins. Das EXECUTE-Recht für `anon` steht noch (am 10.11. nachgelesen: `has_function_privilege('anon', …)` = wahr). | (de), (jb) |
+| ~~Leaked-Password-Protection~~ | **Erledigt — die Zeile war veraltet.** Aktiv seit dem 01.09.2026 (Eintrag „as"); der Sicherheits-Advisor meldet sie am 11.11.2026 nicht. Heute dort: kein Fehler, vier Hinweise (5 Tabellen mit RLS ohne Regel, 3 Erweiterungen in `public`, 16 SECURITY-DEFINER-Funktionen für `anon` rufbar — öffentliche Lese-Abfragen —, 122 für angemeldete). | (as), (jc) |
 | **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). **Seit v33.41 DROP + CREATE** — sie wäre vorher beim Anwenden gescheitert (`CREATE OR REPLACE VIEW` darf Spalten nur anhängen; nachgerechnet in einem lokalen Postgres, `naht_check`). | `docs/FUER-FERNANDO.md` §5 · (ei), (il) |
 | Migration `20260905_device_daily.sql` | Tagesaggregat als Tabelle (§11 Idee 17) — sonst verschwindet das Aggregat mit dem Prune nach 400 Tagen. Nach `20260903_oekosystem_v1_geraete.sql`. | `docs/FUER-FERNANDO.md` §6 · (ex) |
 | Migration `20260905_device_alerts_cron.sql` | Cron `device-alerts` alle 15 Min (§11 Idee 16): verstummte Geräte, verletzte Regeln → `notifications`. Nach `20260903_oekosystem_v1_geraete.sql`. Erst sinnvoll mit dem ersten Gerät. | `docs/FUER-FERNANDO.md` §6 · (ex) |
@@ -15385,13 +15542,14 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Zwei Oberflächen ohne Einstieg** | *(waren sechs — v33.05 hat jeden Eintrag einzeln auf seine WIRKUNG geprüft: zwei verdrahtet, zwei überholte entfernt, siehe (gx).)* Es bleiben `gsSafetyDefaults` — verdrahten ändert den **Sicherheitstext** vieler Detailseiten, das entscheidet kein Prüfstand — und `gsAROpen`: `ar_models` hat 30 Zeilen, davon **0 mit `gltf_url` und 0 mit `low_poly_url`** (09.09.2026, nur lesend gemessen). Es gibt kein einziges 3D-Modell; die Frage ist damit keine Code-Frage mehr, sondern ob Modelle beschafft werden. |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
 | Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
-| **Fragen an Fernando auf dem Brett** | Seit 10.11.2026 stehen Fragen, die eine Sitzung nicht selbst entscheiden kann, auch auf dem Brett: `node scripts/austausch.js --an fernando`. Stand heute: ob die geplante Aufgabe „AGENT 007“ ans Brett angeschlossen wird; dazu der Befund zur Modell-Abschaltung am **30.11.2026**. (jb) |
 
 ### Technische Schuld, benannt und bewusst offen
 
 | Punkt | Stand |
 |---|---|
-| **Modell-Rückfallketten in 8 Edge-Functions** | Neun Stellen nennen genau EIN Modell ohne Ausweichmöglichkeit. Vorlage liegt im Repo (`book-ingest`, `CLAUDE_MODELS`). Ob ein Name heute noch auflöst, ist von hier aus nicht prüfbar. (df) |
+| ~~Modell-Rückfallketten in 8 Edge-Functions~~ | **Erledigt in v33.58** — und es war keine Schuld, sondern ein Ausfall: drei der acht waren seit dem 15.06.2026 tot. `_shared/modelle.mjs`, `modell_check`. (df), (jc) |
+| **Sechs Edge-Functions sind als Verweis auf einen Commit ausgeliefert** | `ai-proxy` (`af47fc0…`) und fünf weitere (`ef7fdbb…`) bestehen live aus einer Zeile, die ihren Quelltext aus diesem Repo lädt — beim Ausliefern, nicht zur Laufzeit. Byte-gleich mit dem geprüften Stand, aber `get_edge_function` zeigt nur den Verweis. Wer gewöhnlich ausliefert (`supabase functions deploy`), ersetzt ihn. Die zwei Commits liegen auf dem Branch `claude/kw46-sicherheit-modelle-rezepte` — **den Branch nicht löschen**, solange niemand neu ausgeliefert hat. (jc) |
+| **`_seed.js` ankert auf der UTC-Mitternacht** | `robust_check` „Beispieldaten" ist zwischen 00:00 und 01:00 (Sommer: 02:00) Ortszeit rot, wenn die Maschine nicht in UTC läuft: die App rechnet Kalendertage in Ortszeit, aus „heute fällig" wird „überfällig". In der CI (UTC) nie; lokal hilft `TZ=UTC`. Ein Anker auf der Ortszeit-Mitternacht berührt alle 41 Prüfstände — eigene Scheibe. (jc) |
 | **Drei Admin-Funktionen ohne Quelltext im Repo** | `fn_assign_role`, `fn_admin_flag_set`, `fn_set_global_api_key` stehen in keiner Migration als `CREATE FUNCTION` (nur in GRANT/REVOKE-Zeilen); ihre Rümpfe sind nur live (25.09.2026, `pg_proc.prosrc`). `GS_ADM_AKTIONEN` trägt für ihre Spur-Namen eine datierte `spur_quelle`, `admin_check` nennt die drei beim Namen und meldet die Angabe als überholt, sobald der Name in einer Migration steht. Der Weg ins Repo ist ein Dump aus der Datenbank (Fernando), keine Abschrift. (iv) |
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |

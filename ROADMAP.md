@@ -186,20 +186,20 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
-### Seit dem 10.11.2026 (kein Bump) — der Austausch: ein Brett für alle Agenten
+### Seit dem 11.11.2026 (kein Bump) — das Brett: wie sich alle KI-Sitzungen austauschen
 
-Bis hierher floss Wissen zwischen Sitzungen nur über das Tagebuch einer
-einzigen Sitzungslinie; 125 nie gemergte Branches trugen Befunde, die niemand
-las, und `CLAUDE.md` §5 verwies auf Abschnitte, die es nie gab. Jetzt gibt es
-**das Brett** (`docs/austausch/`, `node scripts/austausch.js holen`): eine
-Datei je Eintrag, über alle Branches gelesen, Zustand und **Anstösse**
-gerechnet (zwei Schreiber an derselben Stelle, Frage ohne Antwort,
-Fehlerklasse ohne Wächter). Dazu die Agenten-Runde
-`.claude/workflows/austausch-runde.js` (Unteragenten lesen einander) und
-`austausch_check` als 40. Prüfstand — er verlangt zu jeder Version eine
-Übergabe und bindet die Zahlen der Übergabe-Dokumente an ihren Befehl.
-**Offen:** die Modell-Abschaltung am 30.11.2026 (erster Fund über das Brett),
-und ob die geplante Aufgabe „AGENT 007" angeschlossen wird.
+Auftrag: „Alle Agenten müssen sich austauschen …, dass untereinander neue Ideen entstehen können."
+Gemessen: 123 nie gemergte Branches geplanter Sitzungen, 312 Routine-Einträge ohne feste Zeile für
+„offen", dieselbe Suite mit vier verschiedenen Zahlen in sechs Dateien.
+
+- **`docs/austausch/`** — ein Eintrag je Datei, nie umgeschrieben; gelesen wird die Vereinigung über
+  alle Branches. `node scripts/austausch.mjs holen` zeigt Anstösse, Offenes und wer parallel arbeitet.
+- **Auslöser statt Bitten:** Anker und Zählungen machen den Prüfstand dessen rot, der die Stelle
+  ändert; der jüngste STATUS-Eintrag trägt `**Offen:**` und `**Nicht geprüft:**`.
+- **14 Fehlerklassen** aus dem Tagebuch als Suchraster (Regel, Suchmuster, Wächter), sechs
+  nachgemessene Befunde, zwei Fragen an Fernando, zwei Ideen.
+- **Austausch-Runde** für Unteragenten (`.claude/workflows/austausch-runde.js`).
+- Prüfstand `austausch_check` (17 Fälle). Offen: `STATUS.md` (jd).
 
 ### Seit dem 22.10.2026 (v33.56) — Teilen → GreenScan auch in der Android-App
 

@@ -1,0 +1,64 @@
+{
+  "id": "2026-11-11-c699",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Attrappe statt Ware — der Prüfstand prüft seine eigene Nachbildung",
+  "regel": "Ein Fall misst ECHTE Daten auf dem ECHTEN Weg; was der Prüfstand selbst nachbaut — Attrappe, Kopie, Abkürzung, ein Wert schon in der Zielform —, hat er nicht geprüft.",
+  "text": "Eine neue Instanz erkennt man an einem grünen Fall, während der Fehler auf dem Bildschirm steht: der Fall hat die Daten, die Funktion oder den Weg, um die es geht, durch etwas Eigenes ersetzt (eine eigene GS_RELEASES-Liste, ein Stub anstelle der reparierten Funktion, der Direktaufruf statt des Drahts, ein Wert, der die Normalisierung nicht braucht, Sätze, die den Treffer schon enthalten). Prüffrage je Treffer: ersetzt der Fall eine ABHÄNGIGKEIT (Netz, Uhr, Rückfrage) — oder die Sache selbst bzw. ihre Eingabe? Einen Wächter für die Klasse gibt es nicht; die genannten Fälle sind Einzelabhilfen, die je EINE Instanz mit echter Ware nachmessen.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 87 Zeilen in 17 Prüfständen (10.11.2026), an denen ein Fall eine App-Funktion oder eine Datenliste durch Eigenes ersetzt — 46 verschiedene Namen; scan_check 30, sensor_check 9, offline_check 8, robust_check 7. Die meisten ersetzen eine Abhängigkeit (gsScanPersistToCloud, gsScanStatusShow, _gsScanCacheGet, gsSnapshotCreate). Kandidaten sind die, die die Sache oder ihre Eingabe ersetzen: window.GS_RELEASES = […] in nutzersicht_check (E4 — E4b misst daneben die echten Einträge), gsBuildScanContext (4×) und _gsScanExif in scan_check, gsScanDatei in apk_check und offline_check (3×).",
+  "instanzen": [
+    "v32.40 · ein gsStore.get-Stub gab für alles ausser einem Schlüssel den Vorgabewert zurück — gemessen wurde die Attrappe",
+    "v32.89 · der Messversuch ersetzte gsWetterGeraetAbgleich durch einen Stub mit dem alten catch — alte Ausgabe auch nach der Reparatur",
+    "v33.00 · nutzersicht_check E4 ersetzte GS_RELEASES durch eine eigene Attrappe — 14 Auslieferungen stand „function bold() { [native code] }“ auf dem Bildschirm",
+    "v33.32 · der Fall zu _gsLinaSicherheit enthielt genau die Wörter, die sie sucht — 8 von 9 echten Zusagen kamen ohne Warnung durch",
+    "v33.39 · der Konfidenz-Fall setzte confidence: 88 ein, die App schreibt 0.94 — die Normalisierung blieb ungemessen",
+    "v33.43 · die Zurück-Fälle riefen gsZurueck() direkt statt history.back() — die Gegenprobe „popstate hört nicht zu“ blieb grün",
+    "v33.53 · der Download-Fall klickte einen eigenen, angehängten Anker; das Backup klickte einen losgelösten — in der Hülle passierte nichts",
+    "v33.56 · apk_check baute die Antwort-Kopfzeilen selbst (der Rand lief nie), und dispatchEvent('keydown') löst keinen Knopf aus"
+  ],
+  "suchmuster": "grep -nE \"window\\.(GS_[A-Z_]+|_?gs[A-Z]\\w+|dq[A-Z]\\w+) = (async )?(function|\\(|\\[|\\{)\" scripts/*_check.js | grep -vE \"indexOf\\(|holen\\(|window\\.(gsToast|gsRequire|gsHaptic|gsConfirmModal|gsPromptModal|gsIsAdmin|gsIsStaff|gsStore|_gsFetch) = \"",
+  "stichworte": [
+    "attrappe-statt-ware",
+    "nutzersicht_check",
+    "apk_check",
+    "android_check",
+    "GS_RELEASES",
+    "gsZurueck"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/nutzersicht_check.js",
+      "fall": "E4b · Die ECHTEN Release-Notizen rendern Text"
+    },
+    {
+      "datei": "scripts/android_check.js",
+      "fall": "Der Zurück-Knopf erreicht die App · ein echtes popstate schliesst das Fenster"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina S1 · die Sicherheit eines Scans hat EINEN Leser: 0.94 und 94 ergeben beide"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · Sicherheit: jede realistische Zusage ueber eine giftige Art wird gewarnt"
+    },
+    {
+      "datei": "scripts/apk_check.js",
+      "fall": "Netz: losgeloester Anker, Adresse sofort freigegeben"
+    },
+    {
+      "datei": "scripts/apk_check.js",
+      "fall": "K9 · Dieselbe App: was in der Huelle ankommt, ist byte-gleich mit dem Download im Browser"
+    },
+    {
+      "datei": "scripts/apk_check.js",
+      "fall": "R17 · Die Naht des Teilens: Adresse, eigene Kopfzeile"
+    },
+    {
+      "datei": "scripts/austausch_check.js",
+      "fall": "C7 · Das Werkzeug als Prozess"
+    }
+  ]
+}

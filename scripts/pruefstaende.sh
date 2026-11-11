@@ -51,6 +51,11 @@ TAILN=8 run perf  node scripts/perf_check.js
 run field        python3 scripts/field_check.py
 run planer       node scripts/planer_check.js
 run scan         node scripts/scan_check.js
+# v33.58: zeigt ein Rezept auf die gemeinte Art und nie auf eine giftige? (reines Node, keine Seite)
+run rezept       node scripts/rezept_link_check.js
+# v33.58: antwortet die KI noch, wenn Anthropic ein Modell abschaltet? Rechnung + der ECHTE Handler
+# von ai-proxy in Node + Quelltext (kein Modellname in einer Edge-Function). Reines Node.
+run modell       node scripts/modell_check.js
 run ingest       node scripts/ingest_check.js
 run sensor_push  node scripts/sensor_push_check.js
 run kalender     node scripts/kalender_check.js
@@ -72,9 +77,8 @@ run android      node scripts/android_check.js
 # Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen.
 run apk          node scripts/apk_check.js
 run risiko       node scripts/risiko_check.js
-# 10.11.2026: kommt an, was eine KI-Sitzung der naechsten sagt? Das Brett
-# (docs/austausch) und die Zahlen der Uebergabe-Dokumente. Reines Node, unter
-# 2 s; der Fall mit den zwei Branches braucht git, sonst „nicht pruefbar".
+# Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
+# stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
 run austausch    node scripts/austausch_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js

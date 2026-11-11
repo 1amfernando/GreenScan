@@ -1,0 +1,41 @@
+{
+  "id": "2026-11-11-ec73",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "contrast_check, render_check und field_check enden immer mit Exit 0 — ein Fund dort färbt weder pruefstaende.sh noch die CI rot",
+  "text": "CLAUDE.md §7.1 sagt über contrast_check und touch_check: „Beide sollen 0 melden.\" Ob sie es tun, liest nur, wer den Bericht liest: die drei Prüfstände setzen keinen Exit-Code. perf_check ist bewusst ein Bericht (§7.1); für diese drei steht nirgends, dass es Absicht ist.",
+  "beleg": [
+    "grep -c \"process.exit\" scripts/contrast_check.js scripts/render_check.js → 0 und 0 (auch kein process.exitCode)",
+    "grep -c \"sys.exit\" scripts/field_check.py → 0",
+    "pruefstaende.sh zählt ROT nur über den Exit-Code"
+  ],
+  "vorschlag": "Exit 1, sobald die Zahl unter AA (contrast), der verdächtigen Textstellen (render) bzw. der toten Felder (field) über 0 liegt — oder im Kopf jedes der drei sagen, dass er ein Bericht ist, und ihn in pruefstaende.sh so nennen.",
+  "stichworte": [
+    "contrast_check",
+    "render_check",
+    "field_check",
+    "pruefstaende.sh",
+    "exit-code"
+  ],
+  "zaehle": [
+    {
+      "datei": "scripts/contrast_check.js",
+      "text": "process.exit",
+      "n": 0
+    },
+    {
+      "datei": "scripts/render_check.js",
+      "text": "process.exit",
+      "n": 0
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-2a89"
+    }
+  ]
+}

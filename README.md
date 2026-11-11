@@ -15,9 +15,9 @@ Marketplace, mehrsprachig.
   (beide liefern das Repo-Wurzelverzeichnis aus, `_headers`/`_redirects` gelten
   auf beiden).
 - **Backend:** **Supabase** — **213 Objekte** (178 Tabellen + 35 Views, alle
-  RLS; Momentaufnahme `docs/backend-inventar.json`, 02.09.2026), **40
-  Edge-Function-Verzeichnisse**, **223 Migrationen** (ein Teil davon bewusst nicht
-  angewandt — `STATUS.md` §2).
+  RLS; Momentaufnahme `docs/backend-inventar.json`, 02.09.2026), Edge-Functions
+  und Migrationen (wie viele, und welche bewusst nicht angewandt sind:
+  `STATUS.md` §1 und §2 — dort wird nachgemessen).
 - **KI:** **Claude (Anthropic)** — Server-Proxy (User braucht keinen eigenen Key)
   oder BYO-Key. Eigene Edge-Fns für Scan/Pilz/Schädling/Garten-Analyse.
 - **Maps:** Leaflet + swisstopo WMTS.

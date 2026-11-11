@@ -6,10 +6,11 @@
   (`data/plants.v1.js`; Pflanzen, Pilze, Baeume, Kraeuter, Moose, Flechten,
   Algen). Dazu: Meine Pflanzen mit Pflege-Aufgaben, Garten mit Beeten und
   Pflanzungen, Kalender, KI-Planer, Quiz, Community, Marktplatz, Lina (KI-Coach).
-- **Ein Monolith**: `index.html` (~93'000 Zeilen, 5,7 MB, HTML + CSS + JS),
+- **Ein Monolith**: `index.html` (rund 6 MB, HTML + CSS + JS; Zeilenzahl: `STATUS.md` §1),
   kein Build, kein npm im Root. Editieren = ausliefern.
-- **Backend**: Supabase (Auth, Storage, Postgres mit RLS), 40 Edge-Functions
-  (Deno) in `supabase/functions/`, 219 Migrationen in `supabase/migrations/`.
+- **Backend**: Supabase (Auth, Storage, Postgres mit RLS), Edge-Functions
+  (Deno) in `supabase/functions/`, Migrationen in `supabase/migrations/`
+  (wie viele: `STATUS.md` §1 — die eine Stelle, an der die Zahlen nachgemessen werden).
 - **KI**: Claude ueber `callAI` / `callVisionAI`; der globale Schluessel geht
   durch die Edge-Function `ai-proxy`, nie in den Browser.
 - **Hosting**: Cloudflare Pages (`greenscan-app`) UND Netlify
@@ -22,12 +23,11 @@
 index.html            die App (Funktions-Praefixe: gs* oeffentlich · _gs* intern · sb* Supabase · dq* Quiz)
 data/plants.v1.js     Artenliste · data/releases.v1.js  Changelog-Archiv
 sw.js                 Service Worker (Cache-Version = App-Version)
-scripts/              40 Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh (alle) + austausch.js (das Brett)
+scripts/              Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh (alle)
 supabase/functions/   Edge-Functions; _shared/*.mjs = Regeln, die Deno UND Node importieren
 supabase/migrations/  SQL, alle idempotent; „nicht angewandt" steht dabei, bis es angewandt ist
 docs/                 lebende Doku (KALENDER-V1, PLANER-V3, SCANNER-V3, OEKOSYSTEM-V1, FUER-FERNANDO)
 docs/_archiv/         52 historische Auftraege — nicht die Gegenwart
-docs/austausch/       das Brett: was Sitzungen und Agenten einander hinterlassen (09-austausch.md)
 CLAUDE.md             das ausfuehrliche Tagebuch · STATUS.md  was laeuft · ROADMAP.md  was kommt
 ```
 

@@ -7,7 +7,12 @@
 // Wahrheit für den eigenen Server-Teil.
 //
 // Stand beim Ziehen: version 1 · verify_jwt=false · ezbr_sha256 4e31d64e…
-// Unverändert übernommen — dies ist ein Abbild, keine Überarbeitung.
+// Beim Ziehen ein Abbild. Seither überarbeitet, und der Kopf sagt es jetzt auch:
+//   zuvor   Cron-Secret/Service-Key über _shared/auth_vergleich.mjs (zeitkonstant; die Regel
+//           gilt seit v32.72, CLAUDE.md §7.1)
+//   v33.58  der Schlüssel kommt ZUERST aus dem Edge-Secret ANTHROPIC_API_KEY, erst danach
+//           aus app_settings — so prüft der Wächter denselben Schlüssel wie ai-proxy.
+//           Ausgeliefert am 10.11.2026 als version 2 (verify_jwt=false).
 // ══════════════════════════════════════════════════════════════════════════
 // v28.04 Block C — Globaler-Anthropic-Key Health-Check.
 // verify_jwt=false; Custom-Auth via x-cron-secret (app_settings.push_cron_secret) ODER service-role.
@@ -32,14 +37,22 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Globalen Key holen ──
-    const { data: keyRow } = await sb.from('app_settings').select('value').eq('key', 'global_anthropic_api_key').maybeSingle();
-    const apiKey = (keyRow?.value || '').trim();
+    // v33.58: derselbe Leseweg wie ai-proxy — zuerst das Edge-Secret ANTHROPIC_API_KEY,
+    // erst dann app_settings. Sobald der Schluessel nur noch als Secret liegt (und die Zeile
+    // in app_settings geleert ist), meldete diese Pruefung sonst „invalid", waehrend die KI laeuft.
+    let apiKey = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
+    let quelle = 'secret';
+    if (!apiKey) {
+      const { data: keyRow } = await sb.from('app_settings').select('value').eq('key', 'global_anthropic_api_key').maybeSingle();
+      apiKey = (keyRow?.value || '').trim();
+      quelle = 'app_settings';
+    }
 
     let status = 'unknown';
     let message = '';
     if (!apiKey) {
       status = 'invalid';
-      message = 'Kein globaler Anthropic-Key hinterlegt';
+      message = 'Kein globaler Anthropic-Key hinterlegt (weder als Edge-Secret noch in app_settings)';
     } else {
       try {
         const r = await fetch('https://api.anthropic.com/v1/models?limit=1', {
@@ -48,7 +61,7 @@ Deno.serve(async (req: Request) => {
         });
         if (r.status === 200) {
           status = 'ok';
-          message = 'Key gültig · ' + new Date().toISOString().slice(0, 16).replace('T', ' ');
+          message = 'Key gültig (' + quelle + ') · ' + new Date().toISOString().slice(0, 16).replace('T', ' ');
         } else if (r.status === 401 || r.status === 403) {
           status = 'invalid';
           message = 'Key ungültig/abgelaufen (HTTP ' + r.status + ')';
