@@ -1131,6 +1131,93 @@ const FAELLE = [
     },
   },
   {
+    name: 'Drei kleine Zusagen · die Community-Suche unterscheidet „nicht geladen" von „keine Treffer", der Backup-Import nimmt keine falsche Form an, und der Baum-Planer sagt „Gespeichert" erst nach dem Blick auf die Antwort',
+    lauf: async () => {
+      // v33.57 (Audit „robust", alle drei bestaetigt).
+      const r = await __seite.evaluate(async () => {
+        const o = {};
+        // ── Community-Suche: Fehler · leer · ein Treffer ──
+        let body = document.getElementById('gs-community-body'); let neu = false;
+        if (!body) { body = document.createElement('div'); body.id = 'gs-community-body'; document.body.appendChild(body); neu = true; }
+        const echt = window.sbFetch;
+        const lauf = async (antwort) => { window.sbFetch = async () => antwort; body.innerHTML = ''; await gsCommunitySearch('anna'); return body.textContent.replace(/\s+/g, ' ').trim(); };
+        try {
+          o.fehler = await lauf({ data: null, error: { message: 'JWT expired', status: 401 }, status: 401 });
+          o.leer = await lauf({ data: [], error: null, status: 200 });
+          o.treffer = await lauf({ data: [{ id: 'u1', display_name: 'Anna Prüfstand', username: 'anna' }], error: null, status: 200 });
+        } finally { window.sbFetch = echt; if (neu) body.remove(); }
+        // ── Backup-Import: falsche Form wird abgelehnt, nichts wird angefasst ──
+        const mp0 = JSON.stringify(myPlants), g0 = JSON.stringify(gardens);
+        const erg = _gsBackupEinspielen({ version: 16, exportDate: new Date().toISOString(), myPlants: { a: 1 }, gardens: 'x' });
+        o.form = erg; o.unberuehrt = JSON.stringify(myPlants) === mp0 && JSON.stringify(gardens) === g0;
+        return o;
+      });
+      const f = [];
+      if (/Keine Treffer/.test(r.fehler)) f.push('Serverfehler 401 → „' + r.fehler.slice(0, 60) + '" — das sieht aus wie „nichts gefunden"');
+      if (!/nicht geladen/.test(r.fehler)) f.push('der Fehlerfall sagt nicht, dass nicht geladen wurde: „' + r.fehler.slice(0, 80) + '"');
+      if (!/Keine Treffer/.test(r.leer)) f.push('eine leere Antwort sagt nicht „Keine Treffer": „' + r.leer.slice(0, 60) + '"');
+      if (/Keine Treffer|nicht geladen/.test(r.treffer) || !r.treffer) f.push('ein Treffer wird nicht gezeigt: „' + r.treffer.slice(0, 60) + '"');
+      if (!r.form || r.form.ok !== false || r.form.grund !== 'form') f.push('Backup mit myPlants als Objekt wird angenommen: ' + JSON.stringify(r.form));
+      else if ((r.form.felder || []).join(',') !== 'gardens,myPlants') f.push('die Ablehnung nennt nicht die falschen Felder: ' + JSON.stringify(r.form.felder));
+      if (!r.unberuehrt) f.push('ein abgelehntes Backup hat trotzdem etwas veraendert');
+      // ── Baum-Planer: Quelltext — der gruene Knopf steht NACH dem Blick auf die Rueckgabe ──
+      const idx = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+      const a = idx.indexOf('window._gsTPsave = async function(btn){'), e = idx.indexOf('window._gsTPloadSaved', a);
+      const rumpf = a > 0 && e > a ? idx.slice(a, e) : '';
+      if (!rumpf) f.push('_gsTPsave nicht gefunden');
+      else {
+        // Gesucht wird HINTER dem Aufruf — der Kommentar davor nennt `local_failed` auch
+        // (eine Suche im eigenen Text findet zuerst den Text UEBER die Sache, v33.41).
+        const iSave = rumpf.indexOf('gsPlans.save('), iBlick = rumpf.indexOf('local_failed', iSave), iGruen = rumpf.indexOf("L('tp_saved'", iSave);
+        if (!(iSave > 0 && iBlick > iSave && iGruen > iBlick)) f.push('_gsTPsave: „Gespeichert" steht nicht hinter dem Blick auf die Rueckgabe (save ' + iSave + ', local_failed ' + iBlick + ', Meldung ' + iGruen + ')');
+        if (!/e\s*=\s*await gsPlans\.save\(/.test(rumpf)) f.push('_gsTPsave verwirft die Rueckgabe von gsPlans.save');
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Suche: 401 → „' + r.fehler.slice(0, 38) + '…" · leer → Keine Treffer · Treffer → Karte · Backup falscher Form: abgelehnt (' + r.form.felder.join(', ') + '), nichts veraendert · Baum-Planer liest die Rueckgabe' };
+    },
+  },
+  {
+    name: 'Deep-Link · ein ?screen=-Wert ohne Bildschirm fuehrt auf die Startseite statt ins Leere — und Sitemap wie Manifest nennen nur Werte, die es gibt',
+    lauf: async () => {
+      // v33.57 (Audit „Auslieferung"). `?screen=light` stand in sitemap.xml;
+      // gsHandleShortcutUrl reichte den Wert roh an switchTab, das ALLE Bildschirme
+      // ausblendet und keinen zeigt, wenn es `screen-<wert>` nicht gibt.
+      const wurzel = path.resolve(__dirname, '..');
+      const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');
+      const ids = new Set([...idx.matchAll(/id="screen-([a-z0-9_-]+)"/g)].map(m => m[1]));
+      const a = idx.indexOf('var SCREEN_MAP = {'), e = idx.indexOf('};', a);
+      const karte = {}; for (const m of idx.slice(a, e).matchAll(/'([a-z0-9_-]+)'\s*:\s*'([a-z0-9_-]+)'/g)) karte[m[1]] = m[2];
+      if (ids.size < 10 || Object.keys(karte).length < 8) return { ok: false, warum: 'nur ' + ids.size + ' Bildschirme / ' + Object.keys(karte).length + ' Zuordnungen gefunden — der Fall misst offenbar etwas anderes' };
+      const f = [];
+      const werte = [];
+      for (const d of ['sitemap.xml', 'manifest.json']) {
+        const t = fs.readFileSync(path.join(wurzel, d), 'utf8');
+        for (const m of t.matchAll(/[?&]screen=([A-Za-z0-9_-]+)/g)) werte.push([d, m[1]]);
+      }
+      if (werte.length < 4) return { ok: false, warum: 'nur ' + werte.length + ' ?screen=-Werte in Sitemap und Manifest gefunden' };
+      werte.forEach(([d, w]) => { const ziel = karte[w] || w; if (!ids.has(ziel)) f.push(d + ' nennt ?screen=' + w + ' — einen Bildschirm „' + ziel + '" gibt es nicht'); });
+      const r = await __seite.evaluate(async () => {
+        const adr = location.href;
+        const lies = () => Array.from(document.querySelectorAll('.screen.active')).map(x => x.id);
+        try {
+          history.replaceState(null, '', location.pathname + '?screen=gibtsnicht');
+          gsHandleShortcutUrl();
+          await new Promise(res => setTimeout(res, 1200));
+          const unbekannt = lies();
+          history.replaceState(null, '', location.pathname + '?screen=garten');
+          gsHandleShortcutUrl();
+          await new Promise(res => setTimeout(res, 1200));
+          const bekannt = lies();
+          return { unbekannt, bekannt };
+        } finally { try { history.replaceState(null, '', adr); switchTab('home'); } catch (_) {} }
+      });
+      if (r.unbekannt.length !== 1 || r.unbekannt[0] !== 'screen-home') f.push('?screen=gibtsnicht → aktive Bildschirme: ' + (r.unbekannt.join(',') || 'KEINER') + ' (erwartet genau screen-home)');
+      if (r.bekannt.length !== 1 || r.bekannt[0] !== 'screen-garden') f.push('Gegenrichtung: ?screen=garten → ' + (r.bekannt.join(',') || 'keiner') + ' (erwartet screen-garden)');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: werte.length + ' Werte aus Sitemap und Manifest, alle mit Ziel · ?screen=gibtsnicht → Startseite · ?screen=garten → Garten' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');

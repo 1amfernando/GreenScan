@@ -9287,7 +9287,7 @@ function gsUpdateGartenWidgets() {
     if (er) {
       var log = (typeof gsErnteLoad === 'function') ? gsErnteLoad() : [];
       var year = now.getFullYear();
-      var kg = log.filter(function(e){ return e.ts && e.ts.startsWith(String(year)); })
+      var kg = log.filter(function(e){ var t = e.ts ? _gsKalTag(e.ts) : null; return !!t && t.slice(0, 4) === String(year); })
                   .reduce(function(s,e) {
                     var q = parseFloat(e.menge) || 0;
                     if (e.unit === 'g') return s + q/1000;
@@ -10411,11 +10411,11 @@ function openGartenTagebuch() {
       // einer Zahl statt eines ISO-Strings (Alt-Daten, Import) hat bisher den
       // ganzen Bildschirm mitgerissen. Ein krummer Eintrag darf einen
       // Jahresueberblick nicht toeten.
-      if (e.ts) dates[String(e.ts).slice(0, 10)] = true;
+      if (e.ts) { var _t = _gsKalTag(e.ts); if (_t) dates[_t] = true; }   // v33.57: der LOKALE Tag (vorher die ersten zehn Zeichen des UTC-Stempels)
     });
     var d = new Date();
     for (var i = 0; i < 90; i++) {
-      var key = d.toISOString().slice(0,10);
+      var key = _gsDayKey(d);   // v33.57: lokal, wie die Schleife darunter (setDate)
       if (dates[key]) streak++;
       else if (i > 0) break; // wenn heute kein Eintrag, Streak = 0 erst nach morgen
       d.setDate(d.getDate() - 1);
@@ -10995,14 +10995,14 @@ function openErnteTracking() {
   // Verfügbare Jahre
   var allYears = {};
   log.forEach(function(e){
-    if (e.ts) allYears[String(e.ts).slice(0, 4)] = true;   // v31.98, siehe oben
+    var _t0 = e.ts ? _gsKalTag(e.ts) : null; if (_t0) allYears[_t0.slice(0, 4)] = true;   // v33.57: das Jahr des LOKALEN Tags (Silvester 00:30 gehoert ins neue Jahr)
   });
   allYears[String(now.getFullYear())] = true;
   var yearList = Object.keys(allYears).sort().reverse();
   
   // Aggregate für gewähltes Jahr
   function yearStats(year) {
-    var filtered = log.filter(function(e){ return e.ts && e.ts.startsWith(String(year)); });
+    var filtered = log.filter(function(e){ var t = e.ts ? _gsKalTag(e.ts) : null; return !!t && t.slice(0, 4) === String(year); });   // v33.57: lokal — und eine Zahl als ts wirft nicht mehr
     var byPlant = {};
     var byMonth = [0,0,0,0,0,0,0,0,0,0,0,0];
     var byMonthCount = [0,0,0,0,0,0,0,0,0,0,0,0];
@@ -11200,7 +11200,7 @@ function openErnteTracking() {
       contentHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 11px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:4px;">' +
         '<span style="font-size:var(--fs-xl);">' + (e.emoji || '🧺') + '</span>' +
         '<div style="flex:1;min-width:0;"><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + (e.pflanze||'').replace(/</g,'&lt;') + '</div>' +
-        '<div style="font-size:var(--fs-xs);color:var(--muted);">' + (e.ts||'').slice(0,10) + '</div></div>' +
+        '<div style="font-size:var(--fs-xs);color:var(--muted);">' + (_gsKalTag(e.ts) || '') + '</div></div>' +
         '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--g-dark);">' + (e.menge||0) + ' ' + gsErnteUnitLabel(e.unit) + '</div>' +
         '<button onclick="gsErnteDelete(\'' + e.id + '\')" style="background:none;border:none;color:var(--muted);font-size:var(--fs-md);cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
       '</div>';
@@ -19765,23 +19765,33 @@ async function mktDelete(id) {
 
 // ══ BEWÄSSERUNGS-ERINNERUNG ═══════════════════════════════════
 function gsCheckWaterNeeded() {
-  if (typeof myPlants === 'undefined' || !myPlants.length) return;
-  var now = Date.now();
-  var needy = myPlants.filter(function(p) {
-    if (!p.tasks || !p.tasks.water || !p.tasks.water.active) return false;
-    var lastWater = p.tasks.water.lastDone || (now - p.tasks.water.intervalDays * 86400000 * 1.5);
-    var nextDue = lastWater + p.tasks.water.intervalDays * 86400000;
-    return nextDue <= now + 86400000; // Fällig heute oder morgen
-  });
+  // v33.57: hier stand eine EIGENE Faelligkeitsrechnung — `lastDone +
+  // intervalDays * 86400000`. `lastDone` ist seit v26.51 ein ISO-String
+  // (gsQuickDone): Zeichenkette + Zahl ergibt eine Zeichenkette, der Vergleich
+  // war immer falsch, und der Banner ist kein einziges Mal erschienen. Sie
+  // kannte ausserdem weder die Garten-Pflanzungen (v32.47) noch „Verschieben"
+  // (v32.46) noch den Sensor (v32.53). Es gibt EINE Rechnung (KALENDER-V1):
+  // gsGetDueTasks. Gezeigt wird, was HEUTE faellig oder ueberfaellig ist —
+  // die Zahl gehoert zum Titel („N Pflanzen giessen!", v32.85).
   var banner = document.getElementById('garden-water-banner');
   if (!banner) return;
+  var needy = [];
+  try {
+    var _seen = {};
+    (typeof gsGetDueTasks === 'function' ? gsGetDueTasks() : []).forEach(function (e) {
+      if (!e || e.key !== 'water' || e.days > 0 || !e.plant) return;
+      var id = e.plant.id || e.plant.name;
+      if (_seen[id]) return;
+      _seen[id] = 1; needy.push(e.plant);
+    });
+  } catch (_) { needy = []; }
   if (needy.length > 0) {
     banner.style.display = 'flex';
     banner.innerHTML = '<span style="font-size:var(--fs-xl);">💧</span>' +
       '<div style="flex:1;"><div style="font-size:var(--fs-md);font-weight:800;">' +
         needy.length + ' Pflanze' + (needy.length>1?'n':'') + ' giessen!' +
       '</div><div style="font-size:var(--fs-sm);opacity:.8;">' +
-        needy.map(function(p){return p.name||p.nick||p.emoji||'🌿';}).slice(0,3).join(', ') +
+        escHtml(needy.map(function(p){return p.name||p.nick||p.emoji||'🌿';}).slice(0,3).join(', ')) +
       '</div></div>' +
       '<button onclick="document.getElementById(\'garden-water-banner\').style.display=\'none\'" style="background:none;border:none;color:#fff;font-size:var(--fs-xl);cursor:pointer;">✕</button>';
   } else {
@@ -28721,6 +28731,15 @@ function _gsFundZeit(f) {
 window._gsFundZeit = _gsFundZeit;
 function _gsKalTagPlus(tag, n) { var p = String(tag).split('-'); return _gsKalTag(new Date(+p[0], +p[1] - 1, +p[2] + (n || 0))); }
 function gsHeuteTag() { return _gsKalTag(new Date()); }
+// v33.57: ein reines DATUM wird als `…T12:00:00.000Z` abgelegt (gsHarvestSubmit:
+// „der Tag ist gemeint, nicht eine Uhrzeit"). Der Kalender zeigte dafuer eine
+// Uhrzeit, die niemand eingegeben hat — 14:00 im Sommer, 13:00 im Winter.
+// Eine echte Zeit (`new Date().toISOString()`, mit Millisekunden) trifft exakt
+// 12:00:00.000 UTC praktisch nie.
+function _gsNurDatum(ts) {
+  try { var x = new Date(ts); return !isNaN(x.getTime()) && x.getUTCHours() === 12 && x.getUTCMinutes() === 0 && x.getUTCSeconds() === 0 && x.getUTCMilliseconds() === 0; }
+  catch (_) { return false; }
+}
 function _gsKalZeit(ts) { try { var x = new Date(ts); if (isNaN(x.getTime())) return null; if (x.getHours() === 0 && x.getMinutes() === 0) return null; return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); } catch (_) { return null; } }
 function _gsKalDatumKurz(ts) { try { var x = new Date(ts); return String(x.getDate()).padStart(2, '0') + '.' + String(x.getMonth() + 1).padStart(2, '0') + '.'; } catch (_) { return ''; } }
 var _GS_KAL_MON = gsMonate();
@@ -29207,7 +29226,7 @@ function gsKalenderEreignisse(von, bis) {
       if (!z || !z.pflanze) return;
       var tag = _gsKalTag(z.ts); if (!tag || !im(tag)) return;
       var menge = (z.menge != null && isFinite(Number(z.menge))) ? Number(z.menge) : null;
-      out.push({ id: 'ernte-hand:' + (z.id || (tag + ':' + i)), art: 'ernte', datum: tag, zeit: _gsKalZeit(z.ts), ts: z.ts,
+      out.push({ id: 'ernte-hand:' + (z.id || (tag + ':' + i)), art: 'ernte', datum: tag, zeit: _gsNurDatum(z.ts) ? null : _gsKalZeit(z.ts), ts: z.ts,
         titel: menge != null ? _gsSatz('{1} geerntet: {2} {3}', z.pflanze, menge, z.unit || '') : _gsSatz('{1} geerntet', z.pflanze),
         emoji: z.emoji || '🧺', menge: menge, einheit: z.unit || null,
         pflanze: null, garten_id: null, quelle: 'hand', status: 'info', faellig_seit: null,
@@ -32052,7 +32071,11 @@ function gsBuildScanContext() {
     ctx.season = (month>=3&&month<=5)?'Frühling' : (month>=6&&month<=8)?'Sommer' : (month>=9&&month<=11)?'Herbst' : 'Winter';
     if (_ex && _ex.datum) {
       ctx.ausFoto = true;
-      ctx.aufnahme = d.toISOString().slice(0, 10);
+      // v33.57: `d` ist LOKALE Mitternacht (gsExifVonDatei baut es aus Jahr, Monat,
+      // Tag). `toISOString().slice(0, 10)` ist der UTC-Tag — in der Schweiz also
+      // IMMER der Vortag: EXIF 2026:07:15 → „aufgenommen am 2026-07-14", auf der
+      // Scan-Karte und im Auftrag an die KI. (datum_check)
+      ctx.aufnahme = _gsKalTag(d);
     }
     // 2) GPS — auch hier zuerst das Bild. Ein Urlaubsfoto in der Galerie
     //    kommt sonst mit der Hoehenlage des Wohnorts in die Bewertung.
@@ -45890,7 +45913,7 @@ function openHarvestAddModal(plantId) {
   // Reset
   var amt = document.getElementById('harvest-amount'); if (amt) amt.value = '';
   var note = document.getElementById('harvest-note'); if (note) note.value = '';
-  var dt = document.getElementById('harvest-date'); if (dt) dt.value = new Date().toISOString().slice(0,10);
+  var dt = document.getElementById('harvest-date'); if (dt) dt.value = _gsDayKey();   // v33.57: lokaler Tag
   gsHarvestRate(0);
   // Plant-Name im Header
   var plant = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(p){ return p.id === plantId; });
@@ -45922,7 +45945,7 @@ async function gsHarvestSubmit() {
   // gsCloudSync + gs_ernte_log-Cache) statt ins deprecated harvest_log. So erscheint die
   // Plant-Detail-Ernte auch im Ernte-Tracker UND im Erntekalender (v_harvest_stats_per_user).
   try {
-    var dateStr = (document.getElementById('harvest-date') || {}).value || new Date().toISOString().slice(0,10);
+    var dateStr = (document.getElementById('harvest-date') || {}).value || _gsDayKey();   // v33.57: lokaler Tag
     var rowId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2,10));
     var entry = {
       id: rowId,
@@ -56018,10 +56041,20 @@ window._gsBackupDaten = _gsBackupDaten;
 // Neuladen hier; das entscheidet der Aufrufer.
 function _gsBackupEinspielen(data) {
   var nicht = [];
-  if (data.gardens) { gardens = data.gardens; }
-  if (data.plantings) { plantings = data.plantings; }
-  if (data.myPlants) { myPlants = data.myPlants; }
-  if (data.deadPlants) { deadPlants = data.deadPlants; }
+  // v33.57: die FORM zuerst — VOR jeder Zuweisung. Vorher reichte `if (data.x)`:
+  // ein Backup mit `myPlants: {…}` oder `gardens: "…"` (von Hand bearbeitet,
+  // aus einer anderen App, abgeschnitten) wurde uebernommen, als „erfolgreich
+  // importiert" gemeldet und nach dem Neuladen war „Meine Pflanzen" bzw. der
+  // Garten tot. Jetzt: falsche Form → nichts wird angefasst, und es heisst so.
+  data = (data && typeof data === 'object') ? data : {};
+  var _falsch = ['gardens', 'plantings', 'myPlants', 'deadPlants'].filter(function (k) { return data[k] != null && !Array.isArray(data[k]); });
+  ['prefs', 'location'].forEach(function (k) { if (data[k] != null && (typeof data[k] !== 'object' || Array.isArray(data[k]))) _falsch.push(k); });
+  if (_falsch.length) return { ok: false, grund: 'form', felder: _falsch, nicht_gesichert: [] };
+  var _nurObjekte = function (a) { return a.filter(function (x) { return x && typeof x === 'object'; }); };
+  if (data.gardens) { gardens = _nurObjekte(data.gardens); }
+  if (data.plantings) { plantings = _nurObjekte(data.plantings); }
+  if (data.myPlants) { myPlants = _nurObjekte(data.myPlants); }
+  if (data.deadPlants) { deadPlants = _nurObjekte(data.deadPlants); }
   if (data.prefs) { userPrefs = data.prefs; applyAllPrefs(); }
   if (data.location) { userLocation = data.location; }
   saveGardenData();
@@ -56073,6 +56106,9 @@ function importUserData() {
             if (_erg.ok) {
               showMarketNotif('Backup erfolgreich importiert!', '📥', '#1565c0');
               location.reload();
+            } else if (_erg.grund === 'form') {
+              // v33.57: nichts wurde angefasst — das sagen, und NICHT neu laden.
+              gsToast(_gsSatz('Dieses Backup hat nicht die erwartete Form ({1}). Es wurde nichts geändert.', (_erg.felder || []).join(', ')), 'error', 8000);
             } else {
               // Kein Neuladen: die Meldung muss ankommen, sonst sieht es aus wie Erfolg.
               gsToast(_gsSatz('Backup eingespielt — aber der Speicher ist voll, nicht gesichert: {1}. Platz schaffen und noch einmal importieren.', _erg.nicht_gesichert.join(', ')), 'warn', 8000);
@@ -61484,6 +61520,19 @@ function initUserLocation() {
 
 function initDefaultGarden() {
   if (gardens.length > 0) return; // already has gardens
+  // v33.57: der Speicher kann mehr wissen als der Arbeitsspeicher (ein Pull, ein
+  // zweiter Tab). Liegen dort Gaerten, werden sie uebernommen — „Mein Garten"
+  // entsteht nur, wenn es wirklich keinen gibt. Ohne das schrieb die Zeile
+  // darunter eine leere Liste ueber einen gefuellten Speicher (sync_check).
+  try {
+    var _lsG = _gsListeLesen('gs_gardens');
+    if (_lsG && _lsG.length) {
+      gardens = _lsG;
+      var _lsP = _gsListeLesen('gs_plantings');
+      if (_lsP && (!Array.isArray(plantings) || !plantings.length)) plantings = _lsP;
+      return;
+    }
+  } catch (_) {}
   const now = new Date().toISOString();
   const defaultGarden = {
     id: 'gard_default',
@@ -64098,7 +64147,7 @@ window.gsPPumsetzen = function (idx) {
           gardenId: g.id,
           name: p.name || 'Pflanze',
           variety: p.latin || '',
-          date: (p.sow_date && /^\d{4}-\d{2}-\d{2}$/.test(p.sow_date)) ? p.sow_date : new Date().toISOString().slice(0, 10),
+          date: (p.sow_date && /^\d{4}-\d{2}-\d{2}$/.test(p.sow_date)) ? p.sow_date : _gsDayKey(),   // v33.57: lokaler Tag
           count: Math.max(1, parseInt(p.count, 10) || 1),
           notes: 'Aus KI-Plan' + (notiz.length ? ' \u00b7 ' + notiz.join(' \u00b7 ') : ''),
           added: new Date().toISOString(),
@@ -74417,7 +74466,7 @@ function openAddPlanting(preGardenId) {
   if (preGardenId) sel.value = preGardenId;
 
   // Set today as default date
-  document.getElementById('plant-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('plant-date').value = _gsDayKey();   // v33.57: der LOKALE Tag — zwischen 00:00 und 02:00 stand hier gestern (datum_check)
   document.getElementById('plant-name').value = '';
   document.getElementById('plant-variety').value = '';
   document.getElementById('plant-count').value = '1';
@@ -76460,7 +76509,12 @@ window.gsLoadReleaseArchive = function(cb){
   };
   try {
     var sc = document.createElement('script');
-    sc.src = 'data/releases.v1.js?v=1';
+    // v33.57: die Adresse traegt die Version. `/data/*` gilt ein Jahr als
+    // unveraenderlich (_headers), die Datei aendert sich aber bei JEDER
+    // Auslieferung (der aelteste Inline-Eintrag wandert hinein). Mit der festen
+    // Adresse `?v=1` behielt, wer den Changelog einmal geoeffnet hatte, diesen
+    // Stand bis zu ein Jahr — Eintraege dazwischen standen bei ihm in keiner Liste.
+    sc.src = 'data/releases.v1.js?v=' + encodeURIComponent((typeof GS_VERSION === 'string' && GS_VERSION) ? GS_VERSION : '1');
     sc.async = true;
     sc.onload  = function(){ fertig(Array.isArray(window.GS_RELEASES_ARCHIVE)); };
     sc.onerror = function(){ fertig(false); };
@@ -81929,6 +81983,10 @@ function gsHandleShortcutUrl() {
         'remedies':  'remedies'
       };
       var tab = SCREEN_MAP[screen] || screen;
+      // v33.57: ein Wert, zu dem es keinen Bildschirm gibt (`?screen=light` stand
+      // in der Sitemap), blendete ALLE Bildschirme aus und zeigte keinen — eine
+      // leere Flaeche ueber der Tab-Leiste. Unbekannt heisst: Startseite.
+      if (!document.getElementById('screen-' + tab)) tab = 'home';
       // v32.24: den Anker VOR dem Aufraeumen sichern. Die Bereinigung unten
       // schreibt `location.pathname` ohne Hash zurueck — bis v32.23 war er
       // danach weg, und zwar bevor ihn jemand gelesen hatte.
@@ -83587,6 +83645,10 @@ var GS_KEEP_ON_LOGOUT = [
   // Migration, sondern eine Aufbereitung im ARBEITSSPEICHER — und haben sie
   // damit ab der zweiten Sitzung abgeschaltet. Eine Einmal-Migration aendert
   // etwas GESPEICHERTES; alles andere laeuft bei jedem Start.
+  // Zwei davon stehen weiter hier, als ALTBESTAND: die App setzt sie nicht
+  // mehr und raeumt sie beim Start (gsNormalizeCatEmojis, gsAutoFillLookalikes).
+  // Auf einem Bestandsgeraet liegen sie bis dahin noch — ohne Nutzerbezug.
+  'gs_lookalike_filled','gs_emoji_normalized_v2',
   'gs_photos_migrated_v29_40','gs_sync_v24_23_migrated','gs_harvest_consol_2815',
   'gs_market_chats_purged_v3093','gs_garden_sync_queue_purged_v3096',
   'gs_nc_taskclean_ts'
@@ -85593,7 +85655,15 @@ async function gsCommunitySearch(q){
   if (!q || q.trim().length < 2) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:var(--fs-sm);">Tippe mindestens 2 Zeichen, um nach einem Namen zu suchen.</div>'; return; }
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_user_search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_q: q.trim(), p_limit: 15 }) });
-    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+    // v33.57: drei Zustaende statt zwei. Ein Serverfehler (401 nach abgelaufener
+    // Sitzung, 500, Netz) wurde zur leeren Liste und damit zu „Keine Treffer." —
+    // „nichts gefunden" und „nicht geladen" sahen gleich aus (das catch darunter
+    // laeuft nie: sbFetch wirft nicht, CLAUDE.md §3.5).
+    if (!r || r.error || !Array.isArray(r.data)) {
+      body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;">' + escHtml(_gsSatz('Die Suche konnte nicht geladen werden.')) + ' ' + escHtml(_gsFehlerText(r && r.error)) + '</div>';
+      return;
+    }
+    var rows = r.data;
     body.innerHTML = rows.length ? rows.map(_gsUserCardHtml).join('') : '<div style="text-align:center;color:var(--muted);padding:24px;">Keine Treffer.</div>';
   } catch(e){ console.warn('[gsCommunitySearch]', e && e.message); }
 }
@@ -94597,7 +94667,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     enqueue({ action: 'upsert', table: 'garden_plantings', row: {
       id: pl.id, user_id: u, garden_id: pl.gardenId || pl.garden_id,
       species_name: pl.plantName || pl.species_name || '?', emoji: pl.emoji || null,
-      planted_at: pl.planted_at || pl.plantedAt || new Date().toISOString().slice(0,10),
+      planted_at: pl.planted_at || pl.plantedAt || pl.date || _gsDayKey(),   // v33.57: `pl.date` ist das Feld, das die App schreibt — und sonst der LOKALE Tag
       harvested_at: pl.harvested_at || null,
       status: pl.status || 'growing', quantity: pl.quantity || 1,
       notes: pl.notes || null, position: pl.position || null
@@ -96471,9 +96541,19 @@ window._gsTPsave = async function(btn){
   var title = tpName(t)+' · '+r1(TP.plot.wid)+'×'+r1(TP.plot.len)+' m';
   var summary = (L('tp_save_sum','Baum-Pflanzplan'))+': '+tpName(t)+' — '+(t.mature_height_m_max||'?')+' m, '+(L('tp_d_boundary','Grenzabstand'))+' '+tpDistances(t).boundary+' m.';
   if(btn){ btn.disabled=true; btn.textContent='⏳ '+L('tp_saving','Speichern…'); }
-  try{ if(window.gsPlans) await gsPlans.save({type:'tree', title:title, summary:summary, payload:{ slug:t.slug, plot:TP.plot, age:TP.age }}); }catch(e){ console.warn('[TP] save', e); }
+  // v33.57: die Rueckgabe wird GELESEN. Vorher stand hier ein try/catch, das die
+  // Ausnahme in die Konsole schrieb, und danach bedingungslos „✅ Gespeichert" —
+  // auch wenn weder das Geraet (Speicher voll, `local_failed`) noch das Konto
+  // den Plan hatte.
+  var e = null;
+  try{ if(window.gsPlans) e = await gsPlans.save({type:'tree', title:title, summary:summary, payload:{ slug:t.slug, plot:TP.plot, age:TP.age }}); }catch(x){ console.warn('[TP] save', x); }
+  if (!e || (e.local_failed && !e.cloud)) {
+    if(btn){ btn.disabled=false; btn.textContent='💾 '+_gsSatz('Noch einmal speichern'); }
+    try{ if(typeof gsToast==='function') gsToast(_gsSatz('Plan NICHT gespeichert — bitte noch einmal versuchen.'), 'error'); }catch(_){}
+    return;
+  }
   if(btn){ btn.disabled=false; btn.textContent='✅ '+L('tp_saved','Gespeichert — in „Meine Pläne"'); btn.style.background='#2e7d32'; }
-  try{ if(typeof gsToast==='function') gsToast('✅ '+L('tp_saved_toast','Plan gespeichert')); }catch(_){}
+  try{ if(typeof gsToast==='function') gsToast(e.local_failed ? _gsSatz('Plan im Konto gespeichert — auf diesem Gerät ist der Speicher voll.') : '✅ '+L('tp_saved_toast','Plan gespeichert'), e.local_failed ? 'warning' : 'success'); }catch(_){}
 };
 window._gsTPloadSaved = async function(payload){
   if(!payload||!payload.slug) return;
