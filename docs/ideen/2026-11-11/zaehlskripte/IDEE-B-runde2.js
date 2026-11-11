@@ -1,0 +1,15 @@
+const fs = require('fs');
+const src = fs.readFileSync(require('path').join(process.argv[2], 'index.html'), 'utf8');
+const a = src.indexOf('var GS_SAE_DB = ['), b = src.indexOf('\n];', a) + 3;
+const SAE = new Function(src.slice(a, b).replace('var GS_SAE_DB =', 'return'))();
+const gemuese = SAE.filter(k => !['Kräuter', 'Blumen'].includes(k.cat));
+const nov = 10;
+const vorbei = gemuese.filter(k => !k.harvest.includes(nov));
+console.log('Aussaatkalender: ' + SAE.length + ' Kulturen, davon ' + gemuese.length + ' Gemüse (ohne Kräuter/Blumen).');
+console.log('Im November (Monat 10) NICHT im Erntefenster: ' + vorbei.length + ' von ' + gemuese.length + ' → ' + vorbei.map(k => k.n).join(', '));
+console.log('Noch im Erntefenster: ' + gemuese.filter(k => k.harvest.includes(nov)).map(k => k.n).join(', '));
+const weck = (k) => { const m = [].concat(k.indoor, k.outdoor).sort((x, y) => x - y)[0]; return m; };
+console.log('Wecktermin Tomaten (erster Aussaatmonat, 0-basiert): ' + weck(SAE.find(k => k.n === 'Tomaten')) + ' · Buschbohnen: ' + weck(SAE.find(k => k.n === 'Buschbohnen')) + ' · Zucchini: ' + weck(SAE.find(k => k.n === 'Zucchini')));
+const window = {}; new Function('window', fs.readFileSync(require('path').join(process.argv[2], 'data/plants.v1.js'), 'utf8'))(window);
+const hp = window.DB.filter(s => s.cat === 'hauspflanze');
+console.log('Hauspflanzen-Einträge: ' + hp.length + ' · tox ≥ 1: ' + hp.filter(s => s.tox >= 1).length + ' · tox ≥ 2: ' + hp.filter(s => s.tox >= 2).length + ' · tox ≥ 3: ' + hp.filter(s => s.tox >= 3).length);
