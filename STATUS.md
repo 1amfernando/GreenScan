@@ -4,13 +4,51 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.58` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.59` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-11 (jd) - v33.59: „Daten wiederherstellen?“ nur noch, wenn im Backup wirklich etwas liegt, das hier fehlt
+
+**Anlass:** Fernando, 10.11.2026, mit Bildschirmfoto der Startseite: „Das kommt die ganze Zeit".
+
+**Ursache (am Quelltext gemessen, mit Reproduktion):** `gsSnapshotMaybeOfferRestore` fragte seit v30.97
+`_gsSnapshotHasExclusiveGap()` — ist lokal IRGENDEINE der zwölf snapshot-exklusiven Domänen leer? Das ist der
+Normalzustand (wer hat Bodenprofil, Käufe, Gebote UND eigene Heilmittel?). Die Cloud-Seite wurde nur auf
+„gibt es überhaupt einen Snapshot?" geprüft. Folge: Banner bei jedem Start, auch direkt nach „Wiederherstellen"
+(ein Bereich, den das Backup nicht hat, bleibt leer), und das × war nirgends gemerkt.
+`backup_check` W1 gegen v33.58: „Banner STEHT DA", obwohl das gestellte Backup nichts enthält, was fehlt.
+
+**Was jetzt gilt:**
+- **Eine Rechnung:** `_gsSnapshotFehlt(st, mitHaupt)` — eine Domäne zählt nur, wenn der Snapshot dort Inhalt HAT
+  und sie lokal LEER ist. Banner und Verdrängungs-Schutz (`_gsSnapshotWouldLoseData`) fragen beide sie;
+  `_gsSnapshotHasExclusiveGap` ist entfernt. Die Hauptdomänen (`_GS_SNAPSHOT_HAUPT`) zählen nur, wenn lokal gar
+  kein Inhalt da ist.
+- **Zustand mit Grund:** `gsSnapshotMaybeOfferRestore()` gibt `{zeigen, grund, fehlt}` zurück
+  (`window._gsRestoreAngebot`).
+- **Der Banner nennt, was zurückkäme** (höchstens vier Namen, dann „und N weitere"), zwei Knöpfe ≥ 44 px,
+  sitzt über der unteren Leiste.
+- **„Nicht nötig" wird je Domäne gemerkt** (`gs_restore_abgelehnt`); fehlt später etwas ANDERES, kommt das
+  Angebot wieder. Hat eine abgelehnte Domäne wieder Inhalt, verfällt die Ablehnung (`_gsRestoreAbgelehntPflegen`
+  in `_gsSnapshotMarkHad`).
+- **Kosten:** je Start die Liste; der ganze Snapshot nur bei neuem Snapshot oder geänderten lokalen Lücken
+  (`gs_restore_geprueft`). Ein Netzfehler wird nicht als Ergebnis gemerkt.
+- Beide neuen Schlüssel stehen in `GS_USER_KEYS`.
+
+**Eine bewusste Verhaltensänderung:** eine abgelehnte Domäne hält die automatischen Backups nicht mehr an.
+Vorher stoppte der Verdrängungs-Schutz sie nach einem × stillschweigend für immer. Der Preis: wer „Nicht nötig"
+sagt, dessen altes Backup mit diesen Daten wird von neueren verdrängt (Aufbewahrung: 6 + je Anlass der neueste).
+
+**Prüfstand:** `backup_check` W1–W6 (gestellter Server, Anfragen gezählt). Gegenprobe: gegen `HEAD:index.html`
+(v33.58) sind alle sechs rot. `pruefstaende.sh schnell` (TZ=UTC): 37 Prüfstände · rot 0 · nicht prüfbar 8
+(kein lokales Postgres / keine Android-Werkzeuge in dieser Sitzung). Die vier langsamen liefen hier NICHT.
+
+**Nicht geprüft:** das echte Gerät und die Live-Datenbank — der Server war gestellt. `GS_RELEASES`: v33.39 ist
+ins Archiv umgezogen (Deckel 20).
 
 ### 2026-11-11 (jc) - v33.58: Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus
 
@@ -15383,7 +15421,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.58` (Client) · SW-Cache `gs-v33.58` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.59` (Client) · SW-Cache `gs-v33.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **97'094 Zeilen / 6,2 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **586 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.35).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.

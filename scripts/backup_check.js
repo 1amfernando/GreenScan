@@ -367,6 +367,124 @@ const kaputtHelfer = (r) => (r && r.ok) ? null : ((r && r.warum) || 'unbekannt')
       : { ok: false, warum: 'ohne ' + JSON.stringify(update.ohne) + ' · mit ' + JSON.stringify(update.mit) },
   });
 
+  // ── v33.59: der Banner „Daten wiederherstellen?" ─────────────────────────
+  // Gemeldet am 10.11.2026 mit Bildschirmfoto: er stand bei JEDEM Start da.
+  // Die Bedingung fragte nur, ob lokal irgendeine snapshot-exklusive Domaene
+  // leer ist — der Normalzustand. Der Server ist gestellt (Liste + neuester
+  // Snapshot), jede Anfrage wird gezaehlt; jeder Zustand wird HERGESTELLT.
+  const banner = await page.evaluate(async () => {
+    window.sbIsLoggedIn = () => true;
+    localStorage.setItem('gs_sb_uid', 'nutzer-backup');
+    const EXKL = ['gs_soil_profile','gs_pp_garden_location','gs_scan_corrections','gs_purchases','gs_my_bids','gs_action_counts',
+                  'gs_market_ratings','gs_market_reported','gs_recipes','gs_remedies','gs_prefs','gs_reminder_prefs'];
+    let snap = null, snapId = 's1', zaehl = { liste: 0, latest: 0 };
+    window.sbFetch = async function (pfad) {
+      if (String(pfad).indexOf('fn_user_snapshots_list') >= 0) { zaehl.liste++; return { data: snap ? [{ id: snapId, taken_at: '2026-09-11T20:00:00Z' }] : [], error: null, status: 200 }; }
+      if (String(pfad).indexOf('fn_user_snapshot_latest') >= 0) { zaehl.latest++; return { data: snap, error: null, status: 200 }; }
+      return { data: [], error: null, status: 200 };
+    };
+    const frisch = () => {
+      EXKL.concat(['gs_restore_geprueft', 'gs_restore_abgelehnt', 'gs_snapshot_had']).forEach(k => localStorage.removeItem(k));
+      const b = document.getElementById('gs-restore-banner'); if (b) b.remove();
+      zaehl = { liste: 0, latest: 0 };
+    };
+    const da = () => !!document.getElementById('gs-restore-banner');
+    const text = () => { const b = document.getElementById('gs-restore-banner'); return b ? b.innerText.replace(/\s+/g, ' ').trim() : ''; };
+    const pflanzen = JSON.parse(localStorage.getItem('ps_myplants') || '[]').length;
+    const out = { pflanzen };
+
+    // W1 · der gemeldete Fall: Pflanzen da, exklusive Domaenen leer — und das Backup hat dort AUCH nichts.
+    frisch(); snap = { plants: [{ id: 1 }], soil_profile: null, purchases: [], prefs: {} };
+    const z1 = await gsSnapshotMaybeOfferRestore();
+    out.w1 = { da: da(), z: z1, zaehl: Object.assign({}, zaehl) };
+    // … und beim NAECHSTEN Start kostet dieselbe Frage keinen ganzen Snapshot mehr.
+    await gsSnapshotMaybeOfferRestore();
+    out.w1b = { da: da(), zaehl: Object.assign({}, zaehl) };
+
+    // W2 · das Backup haelt ein Bodenprofil und eigene Rezepte, lokal sind beide leer.
+    frisch(); snapId = 's2'; snap = { plants: [{ id: 1 }], soil_profile: { ph: 6.5 }, user_recipes: [{ id: 'r1', name: 'Test' }] };
+    const z2 = await gsSnapshotMaybeOfferRestore();
+    out.w2 = { da: da(), z: z2, text: text(),
+               knoepfe: Array.from(document.querySelectorAll('#gs-restore-banner button')).map(b => ({ t: b.innerText.trim(), h: Math.round(b.getBoundingClientRect().height) })) };
+
+    // W3 · „Nicht nötig" gilt — auch beim naechsten Start und bei einem NEUEN Snapshot.
+    document.getElementById('gs-restore-x').click();
+    out.w3 = { nachKlick: da(), abg: localStorage.getItem('gs_restore_abgelehnt') };
+    await gsSnapshotMaybeOfferRestore(); out.w3.wieder = da(); out.w3.grund = (window._gsRestoreAngebot || {}).grund;
+    snapId = 's3'; await gsSnapshotMaybeOfferRestore(); out.w3.neuerSnap = da();
+    // … und haelt die automatischen Backups nicht mehr an.
+    out.w3.haeltAn = await _gsSnapshotWouldLoseData();
+
+    // W4 · fehlt spaeter etwas ANDERES, kommt das Angebot wieder — und nennt nur das Neue.
+    snapId = 's4'; snap = Object.assign({}, snap, { purchases: [{ id: 'k1' }] });
+    const z4 = await gsSnapshotMaybeOfferRestore();
+    out.w4 = { da: da(), text: text(), fehlt: z4 && z4.fehlt };
+    out.w4.haeltAn = await _gsSnapshotWouldLoseData();
+
+    // W5 · „Wiederherstellen" fuellt, der Banner geht, und er kommt nicht wieder.
+    frisch(); snapId = 's5'; snap = { plants: [{ id: 1 }], soil_profile: { ph: 6.5 } };
+    await gsSnapshotMaybeOfferRestore();
+    const vor = da();
+    document.getElementById('gs-restore-btn').click();
+    await new Promise(r => setTimeout(r, 400));
+    out.w5 = { vor, nach: da(), wert: localStorage.getItem('gs_soil_profile') };
+    await gsSnapshotMaybeOfferRestore(); out.w5.wieder = da(); out.w5.grund = (window._gsRestoreAngebot || {}).grund;
+
+    // W6 · drei Neins, jedes mit Grund: kein Backup · Liste nicht erreichbar · Backup nicht lesbar.
+    frisch(); snap = null; const k = await gsSnapshotMaybeOfferRestore();
+    frisch(); const alt = window.sbFetch; window.sbFetch = async () => ({ data: null, error: { message: 'netz' } });
+    const n = await gsSnapshotMaybeOfferRestore(); const nMemo = localStorage.getItem('gs_restore_geprueft');
+    window.sbFetch = async (pfad) => String(pfad).indexOf('list') >= 0 ? { data: [{ id: 's6' }], error: null } : { data: null, error: { message: 'kaputt' } };
+    const u = await gsSnapshotMaybeOfferRestore(); const uMemo = localStorage.getItem('gs_restore_geprueft');
+    window.sbFetch = alt;
+    out.w6 = { k, n, u, nMemo, uMemo, da: da() };
+    frisch();
+    return out;
+  });
+  const _grund = z => (z && z.grund) || '(kein Grund)';
+  K.push({
+    name: 'W1 · Banner: Pflanzen da, exklusive Bereiche leer, das Backup hat dort AUCH nichts → KEIN Banner (der gemeldete Fall), mit Grund — und der naechste Start holt den Snapshot nicht noch einmal',
+    r: (banner.pflanzen > 0 && !banner.w1.da && banner.w1.z && banner.w1.z.zeigen === false && /nichts, was hier fehlt/.test(_grund(banner.w1.z))
+        && banner.w1.zaehl.latest === 1 && !banner.w1b.da && banner.w1b.zaehl.latest === 1 && banner.w1b.zaehl.liste === 2)
+      ? { ok: true, info: banner.pflanzen + ' Pflanzen · „' + _grund(banner.w1.z) + '" · Snapshot 1× geholt, beim zweiten Start nur die Liste' }
+      : { ok: false, warum: 'Banner ' + (banner.w1.da ? 'STEHT DA' : 'aus') + ' · ' + JSON.stringify(banner.w1.z) + ' · Anfragen ' + JSON.stringify(banner.w1.zaehl) + ' → ' + JSON.stringify(banner.w1b.zaehl) + ' · Pflanzen ' + banner.pflanzen },
+  });
+  K.push({
+    name: 'W2 · Banner: das Backup haelt Bodenprofil und eigene Rezepte, lokal leer → Banner, er NENNT beide, zwei Knoepfe mit mindestens 44 px',
+    r: (banner.w2.da && /Bodenprofil/.test(banner.w2.text) && /eigene Rezepte/.test(banner.w2.text) && /nicht überschrieben/.test(banner.w2.text)
+        && banner.w2.knoepfe.length === 2 && banner.w2.knoepfe.every(b => b.h >= 44))
+      ? { ok: true, info: '„' + banner.w2.text.slice(0, 110) + '…" · ' + banner.w2.knoepfe.map(b => b.t + ' ' + b.h + 'px').join(' · ') }
+      : { ok: false, warum: JSON.stringify(banner.w2) },
+  });
+  K.push({
+    name: 'W3 · „Nicht nötig" gilt: kein Banner beim naechsten Start, keiner bei einem neuen Snapshot — und die automatischen Backups halten deswegen nicht an',
+    r: (!banner.w3.nachKlick && !banner.w3.wieder && !banner.w3.neuerSnap && banner.w3.grund === 'abgelehnt' && banner.w3.haeltAn === false
+        && /gs_soil_profile/.test(banner.w3.abg || '') && /gs_recipes/.test(banner.w3.abg || ''))
+      ? { ok: true, info: 'gemerkt: ' + banner.w3.abg + ' · Grund „' + banner.w3.grund + '"' }
+      : { ok: false, warum: JSON.stringify(banner.w3) },
+  });
+  K.push({
+    name: 'W4 · Fehlt spaeter etwas ANDERES (Käufe), kommt das Angebot wieder und nennt nur das Neue — und haelt das automatische Backup an',
+    r: (banner.w4.da && /Käufe/.test(banner.w4.text) && !/Bodenprofil/.test(banner.w4.text) && (banner.w4.fehlt || []).length === 1 && banner.w4.haeltAn === true)
+      ? { ok: true, info: '„' + banner.w4.text.slice(0, 90) + '…"' }
+      : { ok: false, warum: JSON.stringify(banner.w4) },
+  });
+  K.push({
+    name: 'W5 · „Wiederherstellen" fuellt den Bereich, der Banner geht — und kommt beim naechsten Start nicht wieder',
+    r: (banner.w5.vor && !banner.w5.nach && /6\.5/.test(banner.w5.wert || '') && !banner.w5.wieder)
+      ? { ok: true, info: 'gs_soil_profile = ' + banner.w5.wert + ' · danach „' + banner.w5.grund + '"' }
+      : { ok: false, warum: JSON.stringify(banner.w5) },
+  });
+  K.push({
+    name: 'W6 · Drei Neins, jedes mit eigenem Grund (kein Backup · Liste nicht erreichbar · Backup nicht lesbar) — und ein Fehler wird NICHT als Ergebnis gemerkt',
+    r: (() => {
+      const g = [banner.w6.k, banner.w6.n, banner.w6.u].map(_grund);
+      const ok = !banner.w6.da && [banner.w6.k, banner.w6.n, banner.w6.u].every(z => z && z.zeigen === false)
+        && /kein Backup/.test(g[0]) && /nicht erreichbar/.test(g[1]) && /nicht lesbar/.test(g[2]) && !banner.w6.nMemo && !banner.w6.uMemo;
+      return ok ? { ok: true, info: g.join(' · ') } : { ok: false, warum: JSON.stringify(banner.w6) };
+    })(),
+  });
+
   console.log('  [App — Playwright, gestellte Uhr (11.09.2026 22:30 UTC) und Zeitzone Pacific/Auckland]');
   for (const f of K) {
     const w = kaputtHelfer(f.r);

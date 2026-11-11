@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.58.20261111">
+<meta name="app-version" content="33.59.20261111">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76450,6 +76450,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.59', date: '11.11.2026',
+      headline: '„Daten wiederherstellen?“ erscheint nur noch, wenn im Backup wirklich etwas liegt, das auf dem Gerät fehlt',
+      summary: 'Gemeldet von Fernando mit Bildschirmfoto: der Banner „Daten wiederherstellen?“ stand bei jedem Start da. Ursache, gemessen am Quelltext: gsSnapshotMaybeOfferRestore fragte seit v30.97 nur die LOKALE Seite — ob irgendeine der zwölf snapshot-exklusiven Domänen leer ist (Bodenprofil, Käufe, Gebote, eigene Heilmittel …). Das ist der Normalzustand, also war die Antwort bei fast jedem Konto „ja“, auch direkt nach „Wiederherstellen“; und das × galt nur bis zum nächsten Start. Jetzt gibt es EINE Rechnung (_gsSnapshotFehlt): eine Domäne zählt nur, wenn der Snapshot dort Inhalt HAT und sie lokal LEER ist. Der Banner nennt, was zurückkäme, „Nicht nötig“ wird je Domäne gemerkt, und der ganze Snapshot wird nur geholt, wenn es einen neuen gibt oder sich die lokalen Lücken geändert haben. Der Verdrängungs-Schutz der automatischen Backups fragt dieselbe Rechnung und hält wegen einer abgelehnten Domäne nicht mehr an.',
+      user_summary: 'Der grüne Hinweis „Daten wiederherstellen?“ kam bei jedem Start — auch wenn es gar nichts wiederherzustellen gab. Jetzt erscheint er nur noch, wenn in deinem Cloud-Backup wirklich etwas liegt, das auf diesem Gerät fehlt.',
+      user_items: [
+        {emoji:'💾', bold:'Nur wenn es etwas bringt:', text:' der Hinweis prüft zuerst, ob dein Backup etwas enthält, das hier fehlt. Wenn nicht, bleibt er aus.'},
+        {emoji:'📋', bold:'Er sagt, worum es geht:', text:' zum Beispiel „Bodenprofil, eigene Rezepte“ — und dass Vorhandenes nicht überschrieben wird.'},
+        {emoji:'✋', bold:'„Nicht nötig“ gilt:', text:' die App fragt wegen derselben Daten nicht noch einmal. Dein Backup bleibt erhalten und ist unter Einstellungen › „Aus Cloud-Backup wiederherstellen“ jederzeit erreichbar.'},
+        {emoji:'📱', bold:'Aufgeräumt:', text:' der Hinweis ist jetzt gut lesbar, mit zwei klaren Knöpfen, und verdeckt die untere Leiste nicht mehr.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Eine Rechnung:', text:' _gsSnapshotFehlt(st, mitHaupt) — Snapshot hat Inhalt UND lokal leer. Banner, Verdrängungs-Schutz (_gsSnapshotWouldLoseData) und Prüfstand fragen alle sie; _gsSnapshotHasExclusiveGap ist entfernt.'},
+        {emoji:'🧾', bold:'Zustand mit Grund:', text:' gsSnapshotMaybeOfferRestore gibt {zeigen, grund, fehlt} zurück — ein Nein ist nie Stille.'},
+        {emoji:'🗂️', bold:'Zwei neue Schlüssel:', text:' gs_restore_geprueft (Snapshot-Id, Lücken-Signatur, Ergebnis) und gs_restore_abgelehnt — beide in GS_USER_KEYS, gehen mit dem Konto.'},
+        {emoji:'🛟', bold:'Abgelehnt hält kein Backup an:', text:' eine abgelehnte Domäne stoppt die automatischen Backups nicht mehr; hat sie wieder Inhalt, verfällt die Ablehnung.'},
+        {emoji:'🧪', bold:'Prüfstand:', text:' backup_check, Fälle W1–W6 mit gestelltem Server — gegen v33.58 ist W1 rot (Banner ohne Anlass).'}
+      ]
+  },
+
+  {
     v: 'v33.58', date: '11.11.2026',
       headline: 'Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus',
       summary: 'Sechs Dinge, alle gemessen. (1) Rezept → Art: 524 Einträge geprüft, bei 239 zeigte der Link auf eine andere Art als die Hauptzutat, bei 84 auf eine als giftig geführte, 17 davon mit Giftstufe 3 oder höher (Pfifferling-Rahmsauce → Maiglöckchen, Morchel → Herbstzeitlose). Die Verknüpfung lief über eine Namens-Teilsuche; jetzt trägt jedes Rezept geprüfte Arten-Ids, und eine giftige Art wird aus einem Rezept nie geöffnet. (2) Fruchtfolge: GS_TRACHTEN_IDS führte Knollensellerie zum Grünen Knollenblätterpilz (Giftstufe 5) und Rettich zum Rettichfälbling; alle 37 Kulturen einzeln gegen die Artenliste gehalten. (3) KI-Modelle: Anthropic schaltet claude-sonnet-4-5 am 30.11.2026 ab — der Proxy schrieb JEDES Modell darauf um (37 von 37 Aufrufen), ab dann wäre jeder Scan gescheitert. Und claude-sonnet-4-20250514 ist seit dem 15.06.2026 weg: Pflanzendoktor, Garten-Analyse und „Plan anpassen“ nannten genau dieses eine Modell und waren fünf Monate tot, ohne dass etwas meldete. Jetzt gibt es eine Kette (Sonnet 4.6 → 5.5 → 5), in der App und auf dem Server, mit Rückfall — und jedes Modell bekommt seine Einstellungen: Sonnet 5.5 und 5 denken sonst von sich aus nach, das zählt gegen max_tokens und stellt einen thinking-Block vor den Text. (4) Der geteilte Scan-Cache ist aus: eine Tabelle für alle Konten, ein 64-Bit-Hash aus 9×8 Bildpunkten, der erste Eintrag gewinnt — ein fremder Treffer hätte die Bestimmung ersetzt. (5) Der Scan-Chat geht über callAI wie jede andere KI-Anfrage; eine abgelehnte Anfrage wird gesagt statt als leere Antwort gezeigt. (6) Vier Fehler aus dem Wochenplan KW45: „Keine bekannten Risiken“ stand als Warnung da, der Ersatz-Ort Zürich wurde gespeichert und sperrte danach das GPS, der Zurück-Knopf im Geräte-Dashboard warf einen Fehler, und ohne Website-Speicher startete die App nicht.',
@@ -76799,19 +76819,6 @@ window.GS_RELEASES = [
       {emoji: '❄️', bold: 'Keine Vorhersage ist keine Entwarnung:', text: ' Fehlt das Wetter, steht „Frost: keine Vorhersage“ — nicht „kein Frost“.'}
     ],
   },
-  {
-    v: 'v33.39', date: '16.09.2026',
-    headline: 'Lina sieht deinen Kalender — und sagt, wenn sie etwas nicht weiß',
-    summary: 'Fünfte Scheibe von KALENDER-V2. Lina bekommt drei Zeilen aus der einen Kalender-Funktion (was heute ansteht, was die Woche bringt, was das Prüfwerk dazu sagt) und darf einen Termin VORSCHLAGEN, den du bestätigst. Dabei gemessen und behoben: ihr Kontext wurde bei sechs Geräten mitten im Wort abgeschnitten, Geräte fielen stillschweigend weg, eine Regel ohne Messwerte stand als „keine verletzte Regel“ da — und die Sicherheit eines Scans hatte drei verschiedene Antworten (0.94 %, 1 %, 94 %).',
-    user_summary: 'Lina weiß jetzt, was heute und diese Woche ansteht, kann dir einen Termin eintragen — nach Rückfrage — und erfindet nichts mehr, wenn ihr Platz nicht reicht.',
-    user_items: [
-      {emoji: '📅', bold: 'Lina kennt deinen Kalender:', text: ' Sie sieht, was heute ansteht, was in den nächsten sieben Tagen kommt und worauf das Wetter Einfluss hat — dieselben Angaben, die auch im Kalender stehen.'},
-      {emoji: '✍️', bold: 'Sie darf einen Termin vorschlagen:', text: ' Frag sie nach einer Erinnerung, und sie fragt zurück: „Soll ich für den 12.10. eintragen: Rosen schneiden?“ Erst nach deinem Ja steht es im Kalender — mit dem Vermerk, dass sie es vorgeschlagen hat.'},
-      {emoji: '✂️', bold: 'Keine halben Sätze mehr:', text: ' Wenn Linas Platz nicht reicht, lässt sie ganze Zeilen weg und sagt es — statt mitten im Wort abzubrechen. Bei vielen Geräten steht jetzt „+2 weitere“ dabei.'},
-      {emoji: '🤔', bold: 'Sie sagt, wenn sie nichts weiß:', text: ' Eine Sensor-Regel ohne Messwerte hieß bei ihr „keine verletzte Regel“ — also Entwarnung ohne Messung. Jetzt sagt sie, dass sie es nicht prüfen konnte.'},
-      {emoji: '🎯', bold: 'Eine Zahl für die Treffsicherheit:', text: ' Dieselbe Erkennung stand an drei Stellen unterschiedlich da — im Verlauf „0.94%“, bei Lina „1 % sicher“. Überall steht jetzt 94 %.'}
-    ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -77020,7 +77027,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.58';
+var GS_VERSION = 'v33.59';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -84165,6 +84172,8 @@ var GS_USER_KEYS = [
   // Konto-Wechsel liegen, blockierte sie die Auto-Snapshots des naechsten
   // Nutzers wegen Daten, die nie ihm gehoert haben.
   'gs_snapshot_had',
+  // v33.59: gemerkte Backup-Pruefung und „Nicht nötig" am Restore-Banner — je Konto.
+  'gs_restore_geprueft','gs_restore_abgelehnt',
   // v29.19 Stale-Leak (Audit-2): persönliche GPS-Track-Historie + Community-Anzeigename MÜSSEN bei
   // Logout/User-Switch weg (sonst sieht der nächste User auf demselben Gerät fremde Tracks/Namen).
   'gs_gpx_tracks','gs_social_name',
@@ -85336,21 +85345,85 @@ function _gsSnapshotHasContent(st){
 // ihr einziger Rueckweg. Genau darum darf die Restore-Frage nicht am
 // Gesamt-Content haengen (siehe gsSnapshotMaybeOfferRestore).
 var _GS_SNAPSHOT_ONLY = [
-  ['gs_soil_profile',      'soil_profile'],
-  ['gs_pp_garden_location','pp_garden_location'],
-  ['gs_scan_corrections',  'scan_corrections'],
-  ['gs_purchases',         'purchases'],
-  ['gs_my_bids',           'my_bids'],
-  ['gs_action_counts',     'action_counts'],
-  ['gs_market_ratings',    'market_ratings'],
-  ['gs_market_reported',   'market_reported'],
-  ['gs_recipes',           'user_recipes'],
-  ['gs_remedies',          'user_remedies'],
-  ['gs_prefs',             'prefs'],
+  // v33.59: drittes Feld = der Name, unter dem die Domaene im Banner steht.
+  ['gs_soil_profile',      'soil_profile',       'Bodenprofil'],
+  ['gs_pp_garden_location','pp_garden_location', 'Garten-Standort'],
+  ['gs_scan_corrections',  'scan_corrections',   'Scan-Korrekturen'],
+  ['gs_purchases',         'purchases',          'Käufe'],
+  ['gs_my_bids',           'my_bids',            'Gebote'],
+  ['gs_action_counts',     'action_counts',      'Aktivitätszähler'],
+  ['gs_market_ratings',    'market_ratings',     'Bewertungen'],
+  ['gs_market_reported',   'market_reported',    'gemeldete Inserate'],
+  ['gs_recipes',           'user_recipes',       'eigene Rezepte'],
+  ['gs_remedies',          'user_remedies',      'eigene Heilmittel'],
+  ['gs_prefs',             'prefs',              'Einstellungen'],
   // gs_reminder_prefs wird in user_app_state GEPUSHT, aber die Pull-stateMap
   // liest es nicht zurueck — steckt nur im state-Blob des Snapshots.
-  ['gs_reminder_prefs',    null]
+  ['gs_reminder_prefs',    null,                 'Erinnerungs-Einstellungen']
 ];
+// v33.59: die Hauptdomaenen. Sie zaehlen fuer die Restore-Frage NUR, wenn lokal
+// gar kein Inhalt da ist (kompletter Speicher-Verlust und der Cloud-Pull hat
+// nichts gebracht) — im Normalfall fuellt sie der Login-Pull.
+var _GS_SNAPSHOT_HAUPT = [
+  ['ps_myplants',       'plants',       'Pflanzen'],
+  ['gs_gardens',        'gardens',      'Gärten'],
+  ['gs_plantings',      'plantings',    'Pflanzungen'],
+  ['gs_garden_plans',   'garden_plans', 'Gartenpläne'],
+  ['gs_gartentagebuch', 'diary',        'Tagebuch'],
+  ['gs_ernte_log',      'ernte',        'Ernte'],
+  ['greenscan_markers', 'markers',      'Fundorte'],
+  ['gs_scan_history',   'scan_history', 'Scan-Verlauf']
+];
+function _gsLokalLeer(k){
+  var cur = null; try { cur = localStorage.getItem(k); } catch(_){}
+  return !cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""';
+}
+function _gsSnapVoll(v){
+  if (v == null) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.keys(v).length > 0;
+  return String(v) !== '' && String(v) !== 'null';
+}
+// v33.59: DIE EINE RECHNUNG fuer „was braechte eine Wiederherstellung zurueck?"
+// — eine Domaene zaehlt nur, wenn der Snapshot dort Inhalt HAT und sie lokal
+// LEER ist. Der Banner, der Verdraengungs-Schutz und der Pruefstand fragen alle
+// diese Funktion. Bis v33.58 fragte der Banner nur „ist lokal irgendeine dieser
+// Domaenen leer?" — das ist bei jedem wahr, der z. B. nie ein Bodenprofil
+// angelegt hat, und damit stand der Banner bei jedem Start da, auch direkt
+// nach einer Wiederherstellung.
+function _gsSnapshotFehlt(st, mitHaupt){
+  var out = [];
+  if (!st || typeof st !== 'object') return out;
+  function _pruefe(p, v){ if (_gsSnapVoll(v) && _gsLokalLeer(p[0])) out.push({ key: p[0], name: p[2] }); }
+  _GS_SNAPSHOT_ONLY.forEach(function(p){ _pruefe(p, p[1] ? st[p[1]] : (st.state && st.state.reminder_prefs)); });
+  if (mitHaupt) _GS_SNAPSHOT_HAUPT.forEach(function(p){ _pruefe(p, st[p[1]]); });
+  return out;
+}
+window._gsSnapshotFehlt = _gsSnapshotFehlt;
+// Welche der Kandidaten sind lokal leer? Billig (kein Netz) — und die Signatur,
+// an der die gemerkte Pruefung haengt.
+function _gsRestoreLuecken(mitHaupt){
+  var l = [];
+  _GS_SNAPSHOT_ONLY.forEach(function(p){ if (_gsLokalLeer(p[0])) l.push(p[0]); });
+  if (mitHaupt) _GS_SNAPSHOT_HAUPT.forEach(function(p){ if (_gsLokalLeer(p[0])) l.push(p[0]); });
+  return l;
+}
+// „Nicht nötig" wird je Domaene gemerkt (gs_restore_abgelehnt). Die Spur liegt
+// im selben Speicher wie die Daten: geht der verloren, ist auch sie weg — und
+// das Angebot kommt genau dann wieder, wenn es gebraucht wird.
+function _gsRestoreAbgelehnt(){
+  try { var a = JSON.parse(localStorage.getItem('gs_restore_abgelehnt') || '[]'); return Array.isArray(a) ? a : []; } catch(_){ return []; }
+}
+// Eine abgelehnte Domaene, die wieder Inhalt hat, ist nicht mehr abgelehnt:
+// geht sie spaeter verloren, soll das Angebot wiederkommen.
+function _gsRestoreAbgelehntPflegen(){
+  try {
+    var a = _gsRestoreAbgelehnt(); if (!a.length) return;
+    var b = a.filter(function(k){ return _gsLokalLeer(k); });
+    if (b.length === a.length) return;
+    if (b.length) localStorage.setItem('gs_restore_abgelehnt', JSON.stringify(b)); else localStorage.removeItem('gs_restore_abgelehnt');
+  } catch(_){}
+}
 
 // v30.97: Merkt sich, welche snapshot-exklusiven Domaenen beim letzten
 // erfolgreichen Snapshot Inhalt hatten. Grundlage fuer den Verdraengungs-Schutz
@@ -85365,6 +85438,7 @@ function _gsSnapshotMarkHad(){
     });
     localStorage.setItem('gs_snapshot_had', JSON.stringify(had));
   } catch(_){}
+  try { _gsRestoreAbgelehntPflegen(); } catch(_){}
 }
 
 // Ist eine Domaene, die beim letzten Snapshot noch Inhalt hatte, jetzt lokal leer?
@@ -85380,9 +85454,13 @@ function _gsSnapshotWouldLoseDataLocal(){
     var had = JSON.parse(localStorage.getItem('gs_snapshot_had') || '{}');
     if (!had || typeof had !== 'object') return false;
     var keys = Object.keys(had);
+    // v33.59: was die Person ausdruecklich NICHT zurueckhaben will, haelt die
+    // automatischen Backups nicht mehr an — sonst stuenden sie nach einem
+    // „Nicht nötig" fuer immer still, ohne dass etwas es sagt.
+    var abg = _gsRestoreAbgelehnt();
     for (var i = 0; i < keys.length; i++) {
-      var cur = null; try { cur = localStorage.getItem(keys[i]); } catch(_){}
-      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
+      if (abg.indexOf(keys[i]) >= 0) continue;
+      if (_gsLokalLeer(keys[i])) return true;
     }
   } catch(_){}
   return false;
@@ -85401,21 +85479,10 @@ async function _gsSnapshotWouldLoseData(){
     });
     var st = (r && !r.error) ? r.data : null;
     if (!st || typeof st !== 'object') return false;   // kein Backup -> nichts zu verlieren
-    function _full(v){
-      if (v == null) return false;
-      if (Array.isArray(v)) return v.length > 0;
-      if (typeof v === 'object') return Object.keys(v).length > 0;
-      return String(v) !== '' && String(v) !== 'null';
-    }
-    for (var i = 0; i < _GS_SNAPSHOT_ONLY.length; i++) {
-      var lsKey = _GS_SNAPSHOT_ONLY[i][0];
-      var snapKey = _GS_SNAPSHOT_ONLY[i][1];
-      // gs_reminder_prefs steckt im state-Blob, nicht auf oberster Ebene.
-      var snapVal = snapKey ? st[snapKey] : (st.state && st.state.reminder_prefs);
-      if (!_full(snapVal)) continue;
-      var cur = null; try { cur = localStorage.getItem(lsKey); } catch(_){}
-      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
-    }
+    // v33.59: dieselbe Rechnung wie der Banner (_gsSnapshotFehlt), ohne die
+    // abgelehnten Domaenen.
+    var abg = _gsRestoreAbgelehnt();
+    return _gsSnapshotFehlt(st, false).some(function(f){ return abg.indexOf(f.key) < 0; });
   } catch(e){ console.warn('[gsSnapshot] loseCheck', e && e.message); }
   return false;
 }
@@ -85439,7 +85506,7 @@ async function gsSnapshotCreate(trigger){
     var _autoTrig = (trigger === 'auto_periodic' || trigger === 'auto_daily');
     if (_autoTrig && await _gsSnapshotWouldLoseData()) {
       console.warn('[gsSnapshot] auto-Snapshot angehalten — lokal fehlen Daten, die im letzten Backup noch waren.');
-      try { if (typeof _gsShowRestoreBanner === 'function') _gsShowRestoreBanner(); } catch(_){}
+      try { gsSnapshotMaybeOfferRestore(); } catch(_){}   // v33.59: EIN Weg zum Banner
       return null;
     }
     var r = await sbFetch('/rest/v1/rpc/fn_user_snapshot_create', {
@@ -85605,70 +85672,108 @@ async function gsSnapshotRestore(){
 }
 window.gsSnapshotRestore = gsSnapshotRestore;
 
-function _gsShowRestoreBanner(){
+// v33.59: der Banner nennt, WAS zurueckkaeme, und merkt sich ein Nein.
+// `fehlt` = Liste aus _gsSnapshotFehlt ({key, name}).
+function _gsShowRestoreBanner(fehlt){
   try {
     if (document.getElementById('gs-restore-banner')) return;
+    fehlt = Array.isArray(fehlt) ? fehlt : [];
+    var namen = fehlt.map(function(f){ return f && f.name; }).filter(Boolean);
+    var was = namen.slice(0, 4).join(', ') + (namen.length > 4 ? ' und ' + (namen.length - 4) + ' weitere' : '');
     var b = document.createElement('div');
     b.id = 'gs-restore-banner';
-    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#2e7d32,#388e3c);color:#fff;border-radius:var(--r-lg);padding:12px 14px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;';
+    b.setAttribute('role', 'region');
+    b.setAttribute('aria-label', 'Daten wiederherstellen');
+    b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);max-width:520px;margin:0 auto;z-index:var(--z-toast,9999);background:#1b5e20;color:#fff;border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--elev-3);font-family:inherit;';
     b.innerHTML =
-      '<div style="font-size:var(--fs-2xl);flex-shrink:0;">💾</div>' +
-      '<div style="flex:1;min-width:0;font-size:var(--fs-md);line-height:1.35;">' +
-        '<b>Daten wiederherstellen?</b><br><span style="opacity:.9;font-size:var(--fs-sm);">Wir haben ein Cloud-Backup deiner Pflanzen, Pläne &amp; Funde gefunden.</span>' +
+      '<div style="display:flex;gap:10px;align-items:flex-start;">' +
+        '<div aria-hidden="true" style="font-size:var(--fs-xl);line-height:1.2;flex-shrink:0;">💾</div>' +
+        '<div style="flex:1;min-width:0;font-size:var(--fs-md);line-height:1.4;">' +
+          '<b>Daten wiederherstellen?</b><br>' +
+          '<span style="font-size:var(--fs-sm);">' +
+            (was ? 'In deinem Cloud-Backup liegt etwas, das auf diesem Gerät fehlt: ' + escHtml(was) + '.'
+                 : 'In deinem Cloud-Backup liegen Daten, die auf diesem Gerät fehlen.') +
+            ' Vorhandenes wird nicht überschrieben.</span>' +
+        '</div>' +
       '</div>' +
-      '<button id="gs-restore-btn" style="background:#fff;color:var(--c-success);border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">Wiederherstellen</button>' +
-      '<button id="gs-restore-x" aria-label="Schließen" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:var(--r-sm);width:30px;height:30px;font-size:var(--fs-lg);cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
+      '<div style="display:flex;gap:8px;margin-top:12px;">' +
+        '<button type="button" id="gs-restore-btn" style="flex:1;min-height:44px;background:#fff;color:#1b5e20;border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">Wiederherstellen</button>' +
+        '<button type="button" id="gs-restore-x" style="flex:1;min-height:44px;background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.7);border-radius:var(--r-sm);padding:8px 14px;font-weight:700;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;">Nicht nötig</button>' +
+      '</div>';
     document.body.appendChild(b);
     document.getElementById('gs-restore-btn').onclick = function(){
       var btn = document.getElementById('gs-restore-btn');
       if (btn) { btn.textContent = 'Lädt…'; btn.disabled = true; }
-      gsSnapshotRestore().then(function(){ try { b.remove(); } catch(_){} });
+      gsSnapshotRestore().then(function(){
+        try { localStorage.removeItem('gs_restore_geprueft'); } catch(_){}
+        try { b.remove(); } catch(_){}
+      });
     };
-    document.getElementById('gs-restore-x').onclick = function(){ try { b.remove(); } catch(_){} };
+    document.getElementById('gs-restore-x').onclick = function(){
+      // Das Nein gilt fuer genau die angebotenen Domaenen — fehlt spaeter etwas
+      // ANDERES, kommt das Angebot wieder.
+      try {
+        var abg = _gsRestoreAbgelehnt();
+        fehlt.forEach(function(f){ if (f && f.key && abg.indexOf(f.key) < 0) abg.push(f.key); });
+        localStorage.setItem('gs_restore_abgelehnt', JSON.stringify(abg));
+      } catch(_){}
+      try { b.remove(); } catch(_){}
+      try { if (typeof gsToast === 'function') gsToast('In Ordnung. Dein Backup bleibt erhalten — du findest es unter Einstellungen › „Aus Cloud-Backup wiederherstellen“.', 'info', 6000); } catch(_){}
+    };
   } catch(e){ console.warn('[gsSnapshot] banner', e && e.message); }
 }
 // Beim Boot: eingeloggt + lokaler User-Content leer + Cloud-Snapshot vorhanden → Banner.
-// Ist lokal eine snapshot-exklusive Domaene leer? Dann lohnt ein Restore, egal
-// wie voll der Rest aussieht.
-function _gsSnapshotHasExclusiveGap(){
-  try {
-    for (var i = 0; i < _GS_SNAPSHOT_ONLY.length; i++) {
-      var k = _GS_SNAPSHOT_ONLY[i][0];
-      var cur = null; try { cur = localStorage.getItem(k); } catch(_){}
-      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
-    }
-  } catch(_){}
-  return false;
-}
-window._gsSnapshotHasExclusiveGap = _gsSnapshotHasExclusiveGap;
-
+// v33.59: Angeboten wird nur, was eine Wiederherstellung WIRKLICH zurueckbraechte.
+// Gibt immer einen Zustand mit Grund zurueck (zeigen: true/false) — der
+// Pruefstand liest ihn, und ein „nein" ist nie Stille.
+//
+// Die Geschichte dazu: v30.97 hat die Tuer geoeffnet („fehlt etwas, das NUR im
+// Snapshot steht?"), aber gefragt wurde nur die LOKALE Seite — ob irgendeine
+// der zwoelf Domaenen leer ist. Das ist der Normalzustand (kaum jemand hat
+// Bodenprofil, Kaeufe, Gebote UND eigene Heilmittel), also stand der Banner bei
+// jedem Start da, auch direkt nach „Wiederherstellen", und das × galt nur bis
+// zum naechsten Start.
+//
+// Kosten: die Liste (klein) je Start; der ganze Snapshot wird nur geholt, wenn
+// es einen NEUEN gibt oder sich die lokalen Luecken geaendert haben
+// (gs_restore_geprueft merkt Snapshot-Id, Luecken-Signatur und Ergebnis).
 async function gsSnapshotMaybeOfferRestore(){
+  function _nein(grund){ var z = { zeigen: false, grund: grund }; window._gsRestoreAngebot = z; return z; }
   try {
-    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
-    if (!gsStore.get('gs_sb_uid', null)) return;
-    // v30.97 FIX: Die alte Bedingung war `if (_gsSnapshotHasContent(local)) return;`
-    // — und damit fuer JEDEN Nutzer mit Cloud-Daten eine geschlossene Tuer:
-    // _gsSnapshotHasContent prueft genau die 10 Domaenen (plants, diary, ernte,
-    // achievements, markers, scan_history …), die der Login-Pull 2,7 Sekunden
-    // FRUEHER (t=1800ms, hier t=4500ms) wieder befuellt. Nach einem
-    // Speicher-Wipe war der Banner also nie zu sehen — und der Banner-Knopf war
-    // die EINZIGE Aufrufstelle von gsSnapshotRestore(). Alles, was nur im
-    // Snapshot lebt (eigene Rezepte/Heilmittel, Bodenprofil, Kaeufe/Gebote,
-    // Bewertungen, Scan-Korrekturen, Giess-Erinnerungs-Prefs), war damit
-    // faktisch unerreichbar — obwohl es vollstaendig in user_state_snapshots lag.
-    // Verschaerfend: die Aufbewahrung behaelt nur 6 Snapshots plus den je
-    // neuesten pro Typ, und alle ~3 h entsteht ein neuer (dann leerer) — der
-    // gute Snapshot wurde also binnen Stunden verdraengt.
-    // Jetzt entscheidet die Frage „fehlt etwas, das NUR im Snapshot steht?".
-    var local = gsSnapshotBuildState();
-    if (_gsSnapshotHasContent(local) && !_gsSnapshotHasExclusiveGap()) return;
-    // Cloud-Snapshot vorhanden?
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return _nein('nicht angemeldet');
+    if (!gsStore.get('gs_sb_uid', null)) return _nein('nicht angemeldet');
+    var ohneInhalt = !_gsSnapshotHasContent(gsSnapshotBuildState());
+    var luecken = _gsRestoreLuecken(ohneInhalt);
+    if (!luecken.length) return _nein('auf diesem Gerät fehlt nichts');
     var r = await sbFetch('/rest/v1/rpc/fn_user_snapshots_list', {
       method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
     });
-    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
-    if (rows.length > 0) _gsShowRestoreBanner();
-  } catch(e){ console.warn('[gsSnapshot] maybeOffer', e && e.message); }
+    if (!r || r.error) return _nein('die Backup-Liste war nicht erreichbar');
+    var rows = Array.isArray(r.data) ? r.data : [];
+    if (!rows.length) return _nein('es gibt kein Backup');
+    var neuId = String(rows[0] && rows[0].id != null ? rows[0].id : (rows[0] && rows[0].taken_at) || '');
+    var sig = luecken.join(',');
+    var memo = null; try { memo = JSON.parse(localStorage.getItem('gs_restore_geprueft') || 'null'); } catch(_){}
+    var fehlt;
+    if (memo && neuId && memo.id === neuId && memo.luecken === sig && Array.isArray(memo.fehlt)) {
+      fehlt = memo.fehlt;
+    } else {
+      var l = await sbFetch('/rest/v1/rpc/fn_user_snapshot_latest', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
+      });
+      if (!l || l.error || !l.data || typeof l.data !== 'object') return _nein('das Backup war nicht lesbar');
+      fehlt = _gsSnapshotFehlt(l.data, ohneInhalt);
+      try { localStorage.setItem('gs_restore_geprueft', JSON.stringify({ id: neuId, luecken: sig, fehlt: fehlt })); } catch(_){}
+    }
+    if (!fehlt.length) return _nein('das Backup enthält nichts, was hier fehlt');
+    var abg = _gsRestoreAbgelehnt();
+    var offen = fehlt.filter(function(f){ return abg.indexOf(f.key) < 0; });
+    if (!offen.length) return _nein('abgelehnt');
+    _gsShowRestoreBanner(offen);
+    var ja = { zeigen: true, fehlt: offen, grund: 'das Backup hält ' + offen.length + ' Bereich(e), die hier leer sind' };
+    window._gsRestoreAngebot = ja;
+    return ja;
+  } catch(e){ console.warn('[gsSnapshot] maybeOffer', e && e.message); return _nein('Fehler bei der Prüfung'); }
 }
 
 // v30.97: Manueller Restore aus den Einstellungen. gsSnapshotRestore() hatte
