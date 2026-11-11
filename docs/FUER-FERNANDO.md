@@ -1476,14 +1476,32 @@ Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
 - Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar.
 - Symbole und Verwechslungshinweise der Arten sind bei jedem Start da, nicht
   nur beim allerersten.
+- **Die Kopfleiste ist 17 px höher** (56 statt 39 px) und füllt jetzt ihren
+  Platz — so wollte das CSS sie immer; ein Schreibfehler (`calc()` ohne
+  Leerraum um das Plus) hat die Angabe ungültig gemacht. Bitte einmal auf
+  deinem Telefon ansehen, auch auf einem iPhone mit Kerbe: gemessen habe ich
+  nur im Browser bei 412 px Breite.
+- **Auf „Rezepte" und „Heilmittel" steht unten rechts ein Plus-Knopf.** Den
+  gab es schon immer — er stand wegen desselben Schreibfehlers rund 10'000 px
+  unter dem Bildschirm. Eigene Rezepte liessen sich bisher gar nicht anlegen.
+- **Ein Rezept zeigt seine Warnung** („Verwechslung mit Herbstzeitlose"), ein
+  Heilmittel seine Gegenanzeigen und seine Dosierung. Beides stand in den
+  Daten, aber nicht auf dem Bildschirm.
+- **Im Registrierformular** öffnen die Links „Datenschutzerklärung" und
+  „Nutzungsbedingungen" die Texte jetzt wirklich. Vorher ging das Fenster
+  unsichtbar auf — wer sich registrierte, konnte nicht lesen, was er ankreuzt.
+- Startseite und Planer-Kalender zeigen die richtige Kalenderwoche (sie lagen
+  2026 von Montag bis Mittwoch eine Woche zurück).
 
 **Bitte einmal gegenlesen — die Datenschutzerklärung** (`privacy.html`,
 Tabelle in §2). Dort stand „Anonyme Nutzungs- & Fehlerdaten". Beide tragen
 aber deine Konto-Kennung. Ich habe den Satz berichtigt („mit deinem Konto
 verknüpft, keine Fotos, kein Standort, kein Eingabetext"). Zwei Empfänger
 fehlen in §4 weiterhin: Netlify (zweiter Hoster) und Wikipedia (lädt das
-Artbild, bekommt dabei nur den Artnamen). Das ist dein Text — sag mir, wie du
-ihn haben willst.
+Artbild, bekommt dabei nur den Artnamen); dazu Google Fonts (die Schriften —
+übertragen wird die IP-Adresse). §8 nennt keine Frist für Nutzungsdaten, und
+das Stand-Datum („17. Juni 2026") habe ich nicht angefasst. Das ist dein Text
+— sag mir, wie du ihn haben willst (auf dem Brett: `brett:2026-11-11-5bef`).
 
 **Die Landingpage** (`install.html`) versprach vier Dinge, die es nicht gibt:
 „funktioniert ohne Account", „gsBrain", „iNaturalist-Bridge" und „alle Daten
@@ -1506,11 +1524,29 @@ betreffen:
    zu sein.
 
 Alle zehn stehen in `docs/AUDIT-2026-11-11.md` (edge-1 bis edge-10) mit dem
-vorgeschlagenen Fix. Zwei davon lassen sich ausnutzen; ihre Einzelheiten
+vorgeschlagenen Fix, und jeder einzeln auf dem Brett (`docs/austausch/`) — die
+nächste Sitzung findet sie dort. Nachgemessen gegen den Stand mit v33.58: bei
+einem (die Anmelde-Prüfung in vier Functions) hat die andere Sitzung drei von
+vier Stellen schon repariert; offen ist dort nur noch `stripe-expert-checkout`.
+Zwei der zehn lassen sich ausnutzen; ihre Einzelheiten
 stehen deshalb nicht im Repo, sondern in der Übergabe-Datei
 „GreenScan-Folgeaufgaben-2026-11-11.md", die du in der Sitzung bekommen hast
 (Aufgabe 1 — als Auftragstext für eine neue Sitzung geschrieben; bitte nicht
 ins Repo legen).
+
+**Die Android-App:** vier kleine Fehler in der Hülle und im Bau-Skript sind
+behoben (der Bau brach bei einem Übersetzungsfehler nicht ab; das Passwort des
+Release-Schlüssels stand auf der Kommandozeile — es wird jetzt aus der
+Umgebung gelesen, `GS_APK_KS_PASS` setzt du wie bisher). Drei weitere brauchen
+ein Telefon und stehen auf dem Brett; der wichtigste: „Kamera" im
+Pflanzendoktor, Pilz-Check, Tagebuch und Schädlings-Check öffnet in der APK
+die Bildauswahl statt der Kamera.
+
+**Zwei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, bis sich
+zeigte, dass `main` die Nummer und v33.58 inzwischen vergeben hatte — sie ist
+auf `main` nachgezogen und heisst v33.59. Und: einen Pull Request habe ich
+NICHT geöffnet (du hast keinen verlangt). Der Stand liegt auf dem Branch
+`ccr-dce5a17c-2xzhvi`; die Prüfung auf GitHub läuft erst mit einem PR.
 
 **Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
 ESLint (über `scripts/package.json`). Dafür ist nichts zu tun.

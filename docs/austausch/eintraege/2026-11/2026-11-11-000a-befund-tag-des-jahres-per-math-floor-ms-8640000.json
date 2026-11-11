@@ -1,0 +1,32 @@
+{
+  "id": "2026-11-11-000a",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Tag-des-Jahres per Math.floor(ms / 86400000): in der Sommerzeit gilt bis 01:00 noch der Vortag (sieben Stellen)",
+  "text": "gsLoadSupabaseDailyContent (zwei Stellen), gsShowNextDynFact, gsLoadTodaysWisdom, gsLoadTodaysMushroomSeason und initHomeBoard (zwei Stellen) rechnen den Tag des Jahres aus Millisekunden seit dem 1. Januar 00:00 Winterzeit. Lohnend ist vor allem der Quiz-Teil: die Ersatzfrage rotiert nach dem Ortstag, der Quiz-Tag (dqDayKey) ist UTC.",
+  "beleg": [
+    "TZ=Europe/Zurich, Zeilen ausgeschnitten: 16.07.2026 00:30 → 196 statt 197, 01:30 → 197 (Nachmessung 11.11.2026)"
+  ],
+  "vorschlag": "Eine Funktion gsTagDesJahres(d) aus Kalenderfeldern (Date.UTC(j, m, t) − Date.UTC(j, 0, 0)), sieben Aufrufer; Fall in datum_check.",
+  "stichworte": [
+    "tag-des-jahres",
+    "gsLoadSupabaseDailyContent",
+    "initHomeBoard",
+    "datum_check"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var dayOfYear = Math.floor((now - start) / 86400000);"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-df51"
+    }
+  ]
+}

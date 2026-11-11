@@ -1,0 +1,28 @@
+{
+  "id": "2026-11-11-2129",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:50:21",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Android-Hülle: „Kamera\" in Pflanzendoktor, Pilz-Check, Tagebuch und Schädlings-Check öffnet die Dateiauswahl — ein Unterschied, der in GS_HUELLE_ANDERS nicht steht",
+  "text": "onShowFileChooser nimmt p.createIntent() und liest weder isCaptureEnabled() noch getMode() noch getAcceptTypes(). Die Android-Doku schliesst für createIntent() die Kamera-Aufnahme ausdrücklich aus. Die Seite hat rund 17 Felder mit capture=\"environment\"; ihre „Kamera\"-Knöpfe klicken direkt so ein Feld. In der APK erscheint dort eine Auswahl, keine Kamera. GS_HUELLE_ANDERS hat sieben Einträge ohne diesen Punkt (CLAUDE.md §4d.3: ein stiller Unterschied ist ein Versprechen, das niemand geprüft hat). NICHT belegt, nur Verdacht: ob Mehrfachauswahl und accept=\".json\" von der WebView selbst umgesetzt werden — das hängt von ihrer Fassung ab.",
+  "beleg": [
+    "grep -cE 'isCaptureEnabled|getAcceptTypes|getMode\\(' android/src/ch/greenscan/app/MainActivity.java → 0; grep -c 'capture=\"environment\"' index.html → mehr als 10",
+    "docs/AUDIT-2026-11-11.md android-3 (teilweise)"
+  ],
+  "vorschlag": "Kleinster ehrlicher Schritt: ein achter Eintrag in GS_HUELLE_ANDERS mit Durchsetzungs-Kennung (apk_check R8/A5 halten Liste, Code und Bildschirm gegeneinander). Besser: diese Knöpfe in der Hülle auf den vorhandenen getUserMedia-Weg schicken; und die Absicht selbst bauen (Typen aus getAcceptTypes(), EXTRA_ALLOW_MULTIPLE aus getMode()).",
+  "stichworte": [
+    "android",
+    "onShowFileChooser",
+    "capture",
+    "GS_HUELLE_ANDERS",
+    "apk_check"
+  ],
+  "anker": [
+    {
+      "datei": "android/src/ch/greenscan/app/MainActivity.java",
+      "text": "startActivityForResult(p.createIntent(), ANFRAGE_DATEI);"
+    }
+  ]
+}

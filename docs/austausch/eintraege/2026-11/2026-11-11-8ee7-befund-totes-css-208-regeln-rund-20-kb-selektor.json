@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-8ee7",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Totes CSS: 208 Regeln, rund 20 KB — Selektoren mit Klassen und ids, die nirgends ausserhalb der Stylesheets vorkommen",
+  "text": "Eine Regel gilt als tot, wenn JEDER Selektor ihrer Liste eine Klasse oder id verlangt, die weder im statischen Markup noch im Inline-JS als ganzes Wort steht noch aus einem Präfix/Suffix zusammengesetzt werden kann. Grösste Blöcke: alte Markt-Inserate, .detail-header/.lux-gauge/.farm-card, .more-nav-item/.remedy-card, .market-search-*, .overdue-strip/.ai-screen, .sup-card. Die verankerte Regel (.new-post-btn) ist eine davon.",
+  "beleg": [
+    "Auditor und Gegenprüfer unabhängig gerechnet (je eigenes Skript): 208 Regeln, 20'934 Bytes, 152 verschiedene Leitnamen, davon 0 mit einer Nennung als ganzes Wort ausserhalb der <style>-Blöcke; 67 Präfix- und 7 Suffix-Literale im JS geprüft, keines bildet einen der Namen"
+  ],
+  "vorschlag": "Blockweise entfernen, grösste zuerst, jeder Block mit erwarteter Regelzahl (kein Sweep, CLAUDE.md v32.25), nach jedem Block render_check im Vergleichsmodus und contrast_check. Danach ein statik_check-Fall als Deckel.",
+  "stichworte": [
+    "css",
+    "totes-css",
+    "render_check",
+    "contrast_check"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": ".new-post-btn{position:fixed;"
+    }
+  ]
+}

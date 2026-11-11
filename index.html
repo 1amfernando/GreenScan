@@ -37568,7 +37568,11 @@ function _gsLeven(a,b,max){
 function _gsPassCat(sp){
   var t=currentFilter;
   if(t==='essbar'     && !sp.edible) return false;
-  if(t==='giftig'     && !sp.toxic) return false;
+  // v33.59 (Audit „Datenform"): `toxic` (ja/nein) und `tox` (Stufe) sind zwei Felder fuer
+  // dieselbe Frage und gehen bei acht Eintraegen auseinander (Stufe 2, `toxic:false` —
+  // Schwarzer Holunder, Wacholder, Wermut …). Sie standen weder unter „Giftig" noch
+  // unter „Ungiftig". Ab Stufe 2 ist ein Eintrag giftig — so fuehren es 249 von 257.
+  if(t==='giftig'     && !(sp.toxic || sp.tox >= 2)) return false;
   if(t==='ungiftig'   && (sp.toxic||sp.tox>0)) return false;
   if(t==='geschuetzt' && !sp.protected) return false;
   if(t==='heilpflanze'&& !sp.medicinal) return false;
@@ -52860,7 +52864,12 @@ window.gsLoadCloudRemedies = async function() {
   } catch(e) { console.warn('[gsLoadCloudRemedies]', e); }
 };
 
-const DIFF_LABELS = {easy:'🟢 Einfach', medium:'🟡 Mittel', hard:'🔴 Anspruchsvoll'};
+// v33.59: die eingebauten Rezepte schreiben `diff:'einfach'|'mittel'|'schwer'|'fortgeschritten'`
+// (385) bzw. `difficulty:'leicht'` (107) — die Tabelle kannte nur die drei Werte des
+// Formulars. 0 von 385 trafen; auf jeder Karte stand das rohe Kleinwort.
+const DIFF_LABELS = {easy:'🟢 Einfach', medium:'🟡 Mittel', hard:'🔴 Anspruchsvoll',
+  einfach:'🟢 Einfach', leicht:'🟢 Einfach', mittel:'🟡 Mittel', schwer:'🔴 Anspruchsvoll', fortgeschritten:'🔴 Anspruchsvoll'};
+function _gsRezeptStufe(r) { var d = r && (r.diff || r.difficulty); return d ? (DIFF_LABELS[d] || escHtml(d)) : ''; }
 
 function buildRecipeCard(r, isRemedy) {
   if (!r || !r.id) return '';
@@ -52895,7 +52904,7 @@ function buildRecipeCard(r, isRemedy) {
       '<div class="recipe-card-title">' + escHtml(r.title) + '</div>' +
       '<div class="recipe-card-meta">' +
         (r.time ? '<span>⏱️ ' + escHtml(r.time) + '</span>' : '') +
-        (r.diff ? '<span>' + (DIFF_LABELS[r.diff]||r.diff) + '</span>' : '') +
+        (_gsRezeptStufe(r) ? '<span>' + _gsRezeptStufe(r) + '</span>' : '') +
         (r.plant ? '<span>🌿 ' + escHtml(r.plant) + '</span>' : '') +
       '</div>' +
       '<div class="recipe-card-desc">' + escHtml(preview) + (preview.length > 60 ? '…' : '') + '</div>' +
@@ -53136,20 +53145,33 @@ function openRecipeDetail(id) {
         '<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">' +
           '<span style="padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:800;background:' + catInfo.bg + ';color:' + catInfo.color + ';">' + catInfo.label + '</span>' +
           (r.time ? '<span style="font-size:var(--fs-sm);color:var(--muted);font-weight:600;">⏱️ ' + escHtml(r.time) + '</span>' : '') +
-          (r.diff ? '<span style="font-size:var(--fs-sm);color:var(--muted);font-weight:600;">' + (DIFF_LABELS[r.diff]||r.diff) + '</span>' : '') +
+          (_gsRezeptStufe(r) ? '<span style="font-size:var(--fs-sm);color:var(--muted);font-weight:600;">' + _gsRezeptStufe(r) + '</span>' : '') +
         '</div></div>' +
       '</div>' +
       _photoHtml +
       _gsRecipePlantLinksHtml(r) + // GS_RECIPE_LINKS v1
       // Heilwirkung (nur für Heilmittel)
       (isRemedy && r.wirkung ? '<div style="background:var(--bg-info-soft);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;"><div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:var(--c-info);margin-bottom:4px;">' + _t('remedy_effect_heading','💊 Wirkung & Anwendung') + '</div><div style="font-size:var(--fs-md);color:var(--c-info);line-height:1.55;">' + escHtml(r.wirkung) + '</div></div>' : '') +
-      (isRemedy && r.warning ? '<div style="background:var(--bg-danger-soft);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;"><div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:var(--c-danger);margin-bottom:4px;">' + _t('remedy_warning_heading','⚠️ Warnhinweis') + '</div><div style="font-size:var(--fs-md);color:var(--c-danger);line-height:1.55;">' + escHtml(r.warning) + '</div></div>' : '') +
+      // v33.59 (Audit „Datenform"): hier stand `isRemedy && r.warning` — die Warnung
+      // eines REZEPTS wurde nie gezeigt. 230 eingebaute Rezepte tragen eine, darunter
+      // „Baerlauch-Pesto: Verwechslung mit Herbstzeitlose (toedlich!)". Und von einem
+      // Heilmittel las die Anzeige weder Gegenanzeigen noch Dosierung, obwohl alle 24
+      // eingebauten beides tragen (Schwangerschaft, Kinder, Wechselwirkungen).
+      // (nutzersicht_check E14)
+      ((r.warning && !gsWarnungLeer(r.warning)) ? '<div data-rezept="warnung" style="background:var(--bg-danger-soft);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;"><div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:var(--c-danger);margin-bottom:4px;">' + _t('remedy_warning_heading','⚠️ Warnhinweis') + '</div><div style="font-size:var(--fs-md);color:var(--c-danger);line-height:1.55;">' + escHtml(r.warning) + '</div></div>' : '') +
+      (r.contraindications ? '<div data-rezept="gegenanzeigen" style="background:var(--bg-danger-soft);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;"><div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:var(--c-danger);margin-bottom:4px;">' + _gsSatz('⛔ Nicht anwenden bei') + '</div><div style="font-size:var(--fs-md);color:var(--c-danger);line-height:1.55;">' + escHtml(r.contraindications) + '</div></div>' : '') +
       // Zutaten
       '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);margin-bottom:8px;">' + _t('recipe_ingredients_heading','🧂 Zutaten') + '</div>' +
       '<div style="background:var(--card);border-radius:var(--r-md);padding:6px 12px;margin-bottom:14px;box-shadow:var(--shadow-sm);">' + ingHtml + '</div>' +
       // Zubereitung
       '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);margin-bottom:8px;">' + _t('recipe_preparation_heading','👨‍🍳 Zubereitung') + '</div>' +
       '<div style="background:var(--card);border-radius:var(--r-md);padding:8px 12px;margin-bottom:14px;box-shadow:var(--shadow-sm);">' + stepsHtml + '</div>' +
+      // v33.59: Dosierung, Wirkstoffe und Beleg eines Heilmittels (standen nur in den Daten)
+      (r.dosage ? '<div data-rezept="dosierung" style="background:var(--bg-info-soft);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;"><div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:var(--c-info);margin-bottom:4px;">' + _gsSatz('💊 Dosierung') + '</div><div style="font-size:var(--fs-md);color:var(--c-info);line-height:1.55;">' + escHtml(r.dosage) + '</div></div>' : '') +
+      ((r.activeIngredients || r.evidence) ? '<div data-rezept="wirkstoffe" style="background:var(--surface-neutral);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;font-size:var(--fs-sm);color:var(--text2);line-height:1.55;">' +
+        (r.activeIngredients ? '<div><b>' + _gsSatz('Wirkstoffe:') + '</b> ' + escHtml(r.activeIngredients) + '</div>' : '') +
+        (r.evidence ? '<div style="margin-top:' + (r.activeIngredients ? '6' : '0') + 'px;"><b>' + _gsSatz('Beleg:') + '</b> ' + escHtml(r.evidence) + '</div>' : '') +
+      '</div>' : '') +
       // Tipps
       (r.notes ? '<div style="background:var(--surface-neutral);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:14px;"><div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">' + _t('recipe_tips_heading','💡 Tipps & Hinweise') + '</div><div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.55;">' + escHtml(r.notes) + '</div></div>' : '') +
       // Actions
@@ -76395,8 +76417,8 @@ window.GS_RELEASES = [
   {
     v: 'v33.59', date: '11.11.2026',
       headline: 'Deine Gärten bleiben auf einem neuen Gerät — und ein grosser Durchgang durch Fehler, die kein Prüfstand sah',
-      summary: 'Ein Audit mit zehn Agenten (fünf Blickwinkel, jeder Fund von einem Gegenprüfer zu widerlegen versucht) und zwei neue Prüfstände. Der schwerste Fund: wer sich auf einem frischen Gerät anmeldete, bekam seine Gärten geholt — und im selben Atemzug ersetzte die App sie durch „Mein Garten" mit 0 Pflanzungen und merkte das zum Hochladen vor. Dazu: zwei Aufbereitungen der Artenliste liefen nur in der allerersten Sitzung (ab der zweiten 1\'971 statt 160 Arten mit generischem Symbol), die Rückfrage-Dialoge waren im Dunkelmodus schwarz auf schwarz (1,06:1), ein kaputter Wert im Gerätespeicher liess die App auf dem Ladebildschirm stehen, an sieben Stellen kam Text aus fremder Hand als Code an, und das Datum war nachts an sechs Stellen der Vortag. Neu: statik_check liest die App als Programm, datum_check läuft in der Schweizer Zeitzone um 01:30 nachts.',
-      user_summary: 'Deine Gärten und Pflanzungen bleiben erhalten, wenn du dich auf einem neuen Gerät oder in der Android-App anmeldest. Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar. Und die App startet auch dann, wenn ein gespeicherter Wert beschädigt ist.',
+      summary: 'Ein Audit mit 18 Agenten in drei Läufen (acht Blickwinkel, jeder Fund von einem Gegenprüfer zu widerlegen versucht) und zwei neue Prüfstände. Der schwerste Fund: wer sich auf einem frischen Gerät anmeldete, bekam seine Gärten geholt — und im selben Atemzug ersetzte die App sie durch „Mein Garten" mit 0 Pflanzungen und merkte das zum Hochladen vor. Dazu: zwei Aufbereitungen der Artenliste liefen nur in der allerersten Sitzung (ab der zweiten 1\'971 statt 160 Arten mit generischem Symbol), die Rückfrage-Dialoge waren im Dunkelmodus schwarz auf schwarz (1,06:1), ein kaputter Wert im Gerätespeicher liess die App auf dem Ladebildschirm stehen, an sieben Stellen kam Text aus fremder Hand als Code an, und das Datum war nachts an sechs Stellen der Vortag. Aus dem zweiten Lauf: sieben ungültige calc()-Ausdrücke (die Kopfleiste war 39 statt 56 px hoch, und der Knopf „Rezept hinzufügen“ stand 10\'499 px unter dem Bildschirm), die Rechtstexte liessen sich vor der Registrierung nicht öffnen, die Kalenderwoche lag Montag bis Mittwoch eine Woche zurück, und die Warnung eines Rezepts wurde nie gezeigt. Neu: statik_check liest die App als Programm, datum_check läuft in der Schweizer Zeitzone um 01:30 nachts. Die Scheibe ist auf main (v33.58) nachgezogen.',
+      user_summary: 'Deine Gärten und Pflanzungen bleiben erhalten, wenn du dich auf einem neuen Gerät oder in der Android-App anmeldest. Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar, du kannst eigene Rezepte anlegen, und ein Rezept zeigt seine Warnung. Und die App startet auch dann, wenn ein gespeicherter Wert beschädigt ist.',
       user_items: [
         {emoji:'🌱', bold:'Gärten auf dem neuen Gerät:', text:' nach dem Anmelden stehen deine Gärten und Pflanzungen da — vorher ersetzte die App sie durch einen leeren „Mein Garten".'},
         {emoji:'🌙', bold:'Dunkelmodus lesbar:', text:' Rückfragen, Eingabefenster und die Antworten im Quiz-Duell waren dunkel auf dunkel bzw. hell auf weiss. Jetzt nicht mehr.'},
@@ -76404,7 +76426,12 @@ window.GS_RELEASES = [
         {emoji:'📅', bold:'Das richtige Datum:', text:' nach Mitternacht stand in Formularen und im Tagebuch noch der Vortag; ein Foto zeigte sein Aufnahmedatum einen Tag zu früh.'},
         {emoji:'💧', bold:'Giess-Hinweis im Garten:', text:' der Balken „Pflanzen giessen!" erscheint jetzt wirklich, wenn heute etwas fällig ist.'},
         {emoji:'🛡️', bold:'Sicherer:', text:' Texte und Bild-Adressen von anderen Personen (Karten-Funde, Inserate) werden nur noch als Text bzw. Bild behandelt.'},
-        {emoji:'🎙️', bold:'Ehrlicher Sprachmodus:', text:' auf „erinnere mich …" sagt er nicht mehr „gespeichert", wenn nichts gespeichert wurde — er verweist auf Lina.'}
+        {emoji:'🎙️', bold:'Ehrlicher Sprachmodus:', text:' auf „erinnere mich …" sagt er nicht mehr „gespeichert", wenn nichts gespeichert wurde — er verweist auf Lina.'},
+        {emoji:'📖', bold:'Eigene Rezepte:', text:' der Plus-Knopf auf „Rezepte“ und „Heilmittel“ ist jetzt zu sehen — er stand bisher weit unter dem Bildschirm.'},
+        {emoji:'⚠️', bold:'Rezepte warnen:', text:' steht bei einem Rezept ein Warnhinweis (etwa „Verwechslung mit Herbstzeitlose“), wird er angezeigt. Heilmittel zeigen Gegenanzeigen und Dosierung.'},
+        {emoji:'📜', bold:'Datenschutz vor dem Registrieren:', text:' die Links „Datenschutzerklärung“ und „Nutzungsbedingungen“ im Registrierformular öffnen die Texte jetzt wirklich.'},
+        {emoji:'🗓️', bold:'Die richtige Kalenderwoche:', text:' Startseite und Planer-Kalender lagen von Montag bis Mittwoch eine Woche zurück.'},
+        {emoji:'📐', bold:'Kopfleiste:', text:' sie ist etwas höher und füllt ihren Platz — der schmale Streifen darunter ist weg.'}
       ],
       items: [
         {emoji:'📏', bold:'Garten-Pull (sync_check):', text:' der Login-Pull schrieb gardens/plantings nur in den Gerätespeicher; renderGarden() → initDefaultGarden() sah eine leere Liste im Arbeitsspeicher, legte „Mein Garten" an und speicherte ihn über das Geholte. Gemessen: Cloud 2 Gärten + 2 Pflanzungen → danach 1 Garten, 0 Pflanzungen, vorgemerkt: ja. Der Pull frischt jetzt auch den Arbeitsspeicher auf; initDefaultGarden übernimmt zuerst, was im Speicher liegt.'},
@@ -76413,8 +76440,14 @@ window.GS_RELEASES = [
         {emoji:'🕐', bold:'datum_check (neu, 7 Fälle):', text:' Europe/Zurich, Uhr auf 01:30 gestellt. EXIF-Datum, Vorgabe in Datumsfeldern, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner; dazu ein Deckel auf UTC-Tagesschnitte (40 → 32).'},
         {emoji:'💾', bold:'Kaputter Speicher (robust_check):', text:' gs_market, gs_recipes und gs_remedies wurden beim Parsen ohne Halt gelesen. 187 Schlüssel × 4 kaputte Formen: die App startet jetzt jedes Mal und läuft fehlerfrei durch 12 Tabs und 7 Fenster. Die Integritätsprüfung läuft vor dem Hauptskript statt 1,5 s danach.'},
         {emoji:'🔒', bold:'Escaping (escape_check, 7 neue Fälle):', text:' Karten-Popup (photo_url fremder Funde), Marktplatz-Vorschaubilder, Garten-Scan-Detail, Rezept-Fotos, Registrierung, Diagnose-Auswahl; _gsOcArg ist jetzt _gsOcStr. In vier Fällen lief der Probecode gegen den alten Stand wirklich.'},
-        {emoji:'⚖️', bold:'Zwei Prüfstände urteilen jetzt:', text:' contrast_check und render_check endeten immer mit 0 — eine Zahl über null hätte die Suite als grün gemeldet. contrast_check misst zusätzlich neun dynamische Dialoge und vier, die Parameter brauchen.'},
-        {emoji:'🧭', bold:'Offen und belegt:', text:' zehn bestätigte Funde in den Edge-Functions (Stripe-Webhook liest keine Fehler, delete-user kündigt das Abo nicht) und drei im Service Worker stehen mit Beleg in STATUS Sektion 2 — sie brauchen eine eigene Scheibe.'}
+        {emoji:'⚖️', bold:'Drei Prüfstände urteilen jetzt:', text:' contrast_check, render_check und field_check endeten immer mit 0 — eine Zahl über null hätte die Suite als grün gemeldet (brett:2026-11-11-ec73). contrast_check misst zusätzlich neun dynamische Dialoge und vier, die Parameter brauchen.'},
+        {emoji:'📏', bold:'calc() (statik_check S8):', text:' sieben Ausdrücke ohne Leerraum um das Plus sind ungültig, die Eigenschaft fällt still weg. In Chromium gemessen: Kopfleiste 39 → 56 px, Navigationsleiste 62 → 64, Fuss der Bottom-Sheets 0 → 20 px, .recipe-fab von y = 10\'499 auf 785. render_check im Vergleich: 71 Grössenänderungen (Kopf- und Navigationsleiste), Radius, Schrift und Farbe 0.'},
+        {emoji:'🪟', bold:'Rechtstexte (robust_check, statik_check S9):', text:' #modal-rechtlich war ein Nachfahre von #app, das ohne Anmeldung display:none ist — und <div id="app"> wurde nie geschlossen. openLegalModal hängt das Fenster über den Anmeldebildschirm (_gsAnmeldungSteht).'},
+        {emoji:'🗓️', bold:'gsIsoKW (datum_check T7):', text:' eine Kalenderwoche nach ISO 8601 statt zweier Rechnungen in Sieben-Tage-Blöcken; acht Probetage gegen eine eigene Rechnung. _gsWochenFakten(kw) ist der eine Rückfall für Wochen ohne Fakten (KW 53).'},
+        {emoji:'🍲', bold:'Rezept-Detail (nutzersicht_check E14, E15):', text:' warning auch für Rezepte (230 tragen eine), contraindications / dosage / activeIngredients / evidence der Heilmittel, DIFF_LABELS kennt die Werte der eingebauten Rezepte; der Filter „Giftig“ nimmt jede Art ab Stufe 2 (acht fehlten in beiden Filtern).'},
+        {emoji:'🤖', bold:'Android-Hülle (apk_check B6, R19):', text:' build.sh hält den Status von javac fest (vorher: ein Paket ohne MainActivity mit Exit 0 — B6 fährt den Bau mit einem Fehler wirklich), die Dateiwahl antwortet genau einmal, eine gescheiterte Wiederherstellung lädt die App, das Release-Passwort geht über env: an apksigner.'},
+        {emoji:'🔀', bold:'Auf main nachgezogen:', text:' die Scheibe hiess v33.57, bis main die Nummer vergeben hatte. 121 Nennungen umnummeriert, 28 Konfliktstellen aufgelöst; drei Funde des zweiten Laufs hatte main (v33.58) schon behoben.'},
+        {emoji:'🧭', bold:'Offen und belegt:', text:' zehn Funde in den Edge-Functions (Stripe-Webhook liest keine Fehler, delete-user kündigt das Abo nicht), sechs rund um den Service Worker, drei zum Datum, drei in der Android-Hülle — 28 Einträge auf dem Brett (docs/austausch), jeder mit Anker an seiner Stelle, und in STATUS Sektion 2.'}
       ]
   },
   {

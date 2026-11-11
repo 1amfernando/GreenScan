@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-664f",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Service-Worker-Install legt umgeleitete Antworten ungesäubert ab; /index.html und /offline.html stehen weiter in SHELL_URLS",
+  "text": "Cloudflare Pages leitet /index.html (und vermutlich /offline.html) per 308 um; eine umgeleitete Antwort darf einer Navigation nicht ausgeliefert werden. Die Reihenfolge im Rückfall ist seit v33.59 gedreht (/ zuerst), der Install-Block und der periodicsync-Refresh nicht. Die Voraussetzung (das 308) ist von einer Cloud-Sitzung aus nicht messbar.",
+  "beleg": [
+    "grep -c redirected sw.js → 0; grep -n \"'/index.html'\" sw.js → SHELL_URLS, Rückfall, periodicsync"
+  ],
+  "vorschlag": "Im Install eine umgeleitete Antwort neu verpacken (new Response(body, {status, headers})) oder die zwei Adressen aus SHELL_URLS nehmen; periodicsync holt und schreibt /.",
+  "stichworte": [
+    "sw.js",
+    "SHELL_URLS",
+    "install",
+    "cloudflare-pages"
+  ],
+  "anker": [
+    {
+      "datei": "sw.js",
+      "text": "cache.add(url).catch((err) => {"
+    }
+  ]
+}

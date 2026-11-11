@@ -12,14 +12,23 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-11 (je) - v33.59: Ein grosser Durchgang — zehn Agenten, zwei neue Prüfstände, und der Garten überlebt das neue Gerät
+### 2026-11-11 (je) - v33.59: Ein grosser Durchgang — 18 Agenten in drei Läufen, zwei neue Prüfstände, und der Garten überlebt das neue Gerät
 
 Fernandos Auftrag: „Checke alle Fehler, unschöne Programmierungen und
 ähnliches … erstelle neue Agenten." Drei Spuren: (1) die App wird zum ersten
 Mal als PROGRAMM gelesen (ein Parser statt Textsuche), (2) ein Audit-Workflow
 mit zehn Agenten — fünf Blickwinkel, jeder Fund von einem Gegenprüfer zu
 widerlegen versucht —, (3) jeder bestätigte Fund, der in dieser Scheibe
-behoben wurde, hat einen Fall, der gegen v33.56 rot ist.
+behoben wurde, hat einen Fall, der gegen v33.56 rot ist. Dazu ein zweiter Lauf
+mit dem gespeicherten Workflow (drei weitere Blickwinkel) und ein dritter, der
+die offenen Funde gegen `main` nachgemessen hat.
+
+**Die Nummer:** die Scheibe hiess v33.57, bis `git fetch origin main` zeigte,
+dass `main` v33.57 (#322) und v33.58 (#323) inzwischen vergeben und das Brett
+(#325) bekommen hatte. Alle 121 Nennungen sind umnummeriert, `main` ist
+eingearbeitet (28 Konfliktstellen in elf Dateien, jede im Merge-Commit
+begründet; nachgezählt: von 391 eigenen und 1'196 fremden hinzugefügten Zeilen
+in `index.html` fehlen genau die sechs, die begründet entfallen).
 
 **Der schwerste Fund — Datenverlust bei den Gärten (bestätigt, nachgestellt):**
 der Login-Pull schrieb `gardens`/`plantings` nur in den Gerätespeicher. Am
@@ -94,45 +103,98 @@ Speicher liegt.
   die der Worker selbst holt; `install.html` versprach „ohne Account",
   gsBrain, iNaturalist und „alle Daten in der EU".
 
-**Prüfstände (39 → 41):**
+**Zweiter Lauf — CSS/HTML, Datenform, Android-Hülle (25 Funde: 18 bestätigt,
+7 teilweise). Behoben, jeder mit Fall:**
 
-- **Neu `statik_check.js` (8 Fälle)** — ESLint nur als Parser mit
+- **Sieben `calc()`-Ausdrücke ohne Leerraum um das Plus** — ungültig, die
+  Eigenschaft fiel still weg. In Chromium gemessen: Kopfleiste 39 statt 56 px,
+  Navigationsleiste 62 statt 64, Bottom-Sheets ohne Fuss (0 statt 20 px) — und
+  die Knöpfe **„Rezept hinzufügen" / „Heilmittel hinzufügen" standen 10'499 px
+  unter dem Bildschirm** (`bottom:auto`): eigene Rezepte liessen sich nie
+  anlegen. `render_check` im Vergleich: 71 Grössenänderungen, alle Kopf- und
+  Navigationsleiste; Radius, Schrift, Farbe 0. *(statik_check S8)*
+- **Die Rechtstexte vor der Anmeldung.** „Ich akzeptiere die
+  Datenschutzerklärung & Nutzungsbedingungen": beide Links öffneten ein Fenster
+  in `#app`, das ohne Anmeldung `display:none` ist — `.open` gesetzt, 0 px zu
+  sehen. Jetzt hängt es über dem Anmeldebildschirm (`_gsAnmeldungSteht`).
+  Dahinter: `<div id="app">` wurde nie geschlossen. *(robust_check
+  „Rechtstexte vor der Anmeldung", statik_check S9)*
+- **Die Kalenderwoche** (auch Audit datum-5): zwei Rechnungen in
+  Sieben-Tage-Blöcken ab dem 1. Januar — am Mittwoch, 11.11.2026 zeigten
+  Startseite und Planer-Kalender KW 45 statt 46. Jetzt `gsIsoKW()`; die Fakten
+  einer Woche holt `_gsWochenFakten(kw)` (in KW 53 nahm die Tages-Info die
+  Januar-Texte der KW 1). *(datum_check T7)*
+- **Rezepte und Heilmittel:** die Warnung eines REZEPTS wurde nie gezeigt (230
+  tragen eine — „Bärlauch-Pesto: Verwechslung mit Herbstzeitlose (tödlich!)");
+  Gegenanzeigen und Dosierung der 24 eingebauten Heilmittel standen nur in den
+  Daten; die Schwierigkeit stand als rohes Wort da (0 von 385 Werten trafen die
+  Tabelle). Acht Einträge der Giftstufe 2 fehlten im Filter „Giftig" UND in
+  „Ungiftig". *(nutzersicht_check E14, E15)*
+- **Scan-Chat:** der Kopf hatte keine CSS-Regel — Schliessen-Knopf links unter
+  dem Titel, im Dunkelmodus schwarz auf Hellgrau. `#supabase-schema-modal`
+  (27 Zeilen, kein Öffner) entfernt.
+- **Android-Hülle:** `build.sh` verschluckte einen `javac`-Fehler und baute und
+  signierte ein Paket OHNE MainActivity mit Exit 0; die Dateiwahl beantwortete
+  ihren Rückruf und gab `false` zurück (zweite Antwort der WebView); die
+  Rückgabe von `restoreState` las niemand (leere weisse Seite); das Passwort
+  des Release-Schlüssels stand auf der Kommandozeile von `apksigner`.
+  *(apk_check B6 — der Bau wird mit einem Fehler wirklich gefahren —, R19)*
+
+**Was `main` inzwischen selbst behoben hatte** (der zweite Lauf prüfte den
+Stand VOR dem Nachziehen): die Rezept-Verknüpfung (daten-1), die 17 doppelten
+Rezept-ids (daten-3), die Zutaten-Karte (daten-6) — und drei von vier Stellen
+aus edge-2 (`getUser()` ohne Token).
+
+**Das Brett:** zwei Einträge von `main` sind mit dieser Scheibe erledigt und
+geschlossen — `brett:2026-11-11-ec73` (drei Prüfstände enden immer mit 0; auch
+`field_check.py` urteilt jetzt, mit einer Liste `BEWUSST`) und
+`brett:2026-11-11-e383` (`android/`, `.claude/`, `store-assets/`, `.github/`
+ohne `noindex`; die Audit-Datei im Wurzelverzeichnis liegt in `docs/_archiv/`;
+Wächter: robust_check „Web-Root"). 28 eigene Einträge sind neu (unten).
+
+**Prüfstände (zwei neue, `statik_check` und `datum_check`):**
+
+- **Neu `statik_check.js` (10 Fälle)** — ESLint nur als Parser mit
   Geltungsbereichen; die Browser-Namen kommen aus einem echten Chromium in
   einem sicheren Kontext. Erster Lauf gegen v33.56: 6 von 8 rot. Läuft als
-  ERSTER in der Suite (14 s).
-- **Neu `datum_check.js` (7 Fälle)** — Europe/Zurich, Uhr auf 15.07.2026
-  23:30 UTC = 16.07. 01:30 gestellt. Gegen v33.56: 7 von 7 rot.
-- `robust_check` 28 → 32 (Zweite Sitzung · Kaputter Speicher · Drei kleine
-  Zusagen · Deep-Link), `escape_check` 8 → 15, `sync_check` 10 → 11,
-  `kalender_check` 49 → 50 (F7), `nutzersicht_check` 9 → 12 (E11–E13).
-- **`contrast_check` und `render_check` URTEILEN jetzt.** Beide endeten immer
-  mit 0; „N Textstellen unter AA" hätte die Suite als „rot: 0" gemeldet.
-  `contrast_check` misst dazu vier Dialoge, die Parameter brauchen, und neun,
-  die sich selbst an den `<body>` hängen (Durchgang 3). Gegen v33.56: 22
-  Stellen unter AA, Exit 1.
+  ERSTER in der Suite (14 s). S8 (`calc()`) und S9 (Tag-Stapel) kamen im
+  zweiten Lauf dazu; S8 gegen den Stand davor: 7 von 39 Ausdrücken ungültig.
+- **Neu `datum_check.js` (8 Fälle)** — Europe/Zurich, Uhr auf 15.07.2026
+  23:30 UTC = 16.07. 01:30 gestellt. Gegen v33.56: 7 von 7 rot; T7 gegen den
+  Stand davor: am 09. und 11.11.2026 KW 45 statt 46, am 01.01.2027 KW 1 statt 53.
+- `robust_check` 28 → 34 (Zweite Sitzung · Kaputter Speicher · Drei kleine
+  Zusagen · Deep-Link · Rechtstexte vor der Anmeldung · Web-Root),
+  `escape_check` 8 → 15, `sync_check` 10 → 11, `kalender_check` 49 → 50 (F7),
+  `nutzersicht_check` 9 → 14 (E11–E15), `apk_check` + B6 und R19.
+- **`contrast_check`, `render_check` und `field_check` URTEILEN jetzt.** Alle
+  drei endeten immer mit 0; „N Textstellen unter AA" hätte die Suite als
+  „rot: 0" gemeldet. `contrast_check` misst dazu vier Dialoge, die Parameter
+  brauchen, und neun, die sich selbst an den `<body>` hängen (Durchgang 3).
+  Gegen v33.56: 22 Stellen unter AA, Exit 1.
 - `scripts/_korpus.js`: der eine Text, in dem eine Nennung gezählt wird
   (`robust_check` C2 und `statik_check` S5).
-- **Gegenprobe:** jeder neue Fall ist gegen den unveränderten Stand v33.56
-  gefahren und war rot mit der echten Zahl; einzelne Rückbauten je Reparatur
-  sind NICHT gemacht.
+- **Gegenprobe:** jeder neue Fall ist gegen den Stand VOR seiner Reparatur
+  gefahren (v33.56 bzw. der Stand unmittelbar davor) und war rot mit der echten
+  Zahl; einzelne Rückbauten je Reparatur sind NICHT gemacht.
 
 **Die Agenten:** der erste Anlauf (acht lose Agenten) und der zweite (drei
 fortgesetzt) rissen beide am Nutzungslimit, bevor ein Bericht kam. Der dritte
 lief als Workflow: fünf Auditoren, fünf Gegenprüfer, 339 Werkzeugaufrufe, **45
 Funde — 31 bestätigt, 14 teilweise (der Kern stimmt; Schwere oder Fix nicht
-ganz), keiner widerlegt.** Das Protokoll steht in `docs/AUDIT-2026-11-11.md`. Drei Blickwinkel
-(CSS, Datenform, Android-Hülle) habe ich selbst bzw. gar nicht gefahren: CSS
-und doppelte ids mit einem Skript (4 undefinierte Variablen, 0 doppelte ids),
-die Datenform und die Hülle NICHT.
+ganz), keiner widerlegt.** Das Protokoll steht in `docs/AUDIT-2026-11-11.md`.
 
 **Und die Agenten bleiben:** der Workflow liegt als
 `.claude/workflows/greenscan-audit.js` im Repo (acht Blickwinkel, wählbar über
-`args.linsen`; die drei ungefahrenen heissen `css`, `daten`, `android`), dazu
-zwei Rollen für einzelne Aufträge: `.claude/agents/gs-auditor.md` (sucht EINE
-Fehlerklasse, nur lesend) und `gs-gegenpruefer.md` (versucht jede Behauptung zu
-widerlegen, im Zweifel „widerlegt"). Der Workflow ist auf Syntax geprüft, in
-der gespeicherten Fassung aber NICHT gelaufen — gelaufen ist die Sitzungs-
-Fassung mit fünf Blickwinkeln, aus der er entstanden ist.
+`args.linsen`), dazu zwei Rollen für einzelne Aufträge:
+`.claude/agents/gs-auditor.md` (sucht EINE Fehlerklasse, nur lesend) und
+`gs-gegenpruefer.md` (versucht jede Behauptung zu widerlegen, im Zweifel
+„widerlegt"). **Die gespeicherte Fassung ist gelaufen:** sechs Agenten mit den
+drei Blickwinkeln `css`, `daten`, `android` (191 Werkzeugaufrufe, 25 Funde, 18
+bestätigt, 7 teilweise). Aufgelöst wurde sie über `scriptPath` — der NAME
+(`Workflow({ name: 'greenscan-audit' })`) war in der laufenden Sitzung nicht
+bekannt, weil die Datei erst in ihr entstand. Ein dritter Lauf (zwei Agenten)
+hat die 22 offenen Funde des ersten gegen den Stand mit `main` nachgemessen:
+alle gelten noch, einer nur zum Teil; jeder hat jetzt einen Anker.
 
 **Fallen aus dem Bau:**
 
@@ -147,14 +209,28 @@ Fassung mit fünf Blickwinkeln, aus der er entstanden ist.
 - **Ein Probewert in alter Form.** `sync_check` schickte eine Pflanzung ohne
   `tasks`; seit der Pull den Arbeitsspeicher auffrischt, rüstet die App sie
   nach und speichert — der Probewert kam zu Recht verändert zurück.
+- **„Angemeldet" auf der Seite der Beispieldaten.** Die Gegenrichtung des
+  Rechtstexte-Falls lief auf der gemeinsamen Seite — dort steht nach dem Start
+  der Anmeldebildschirm (der Pseudo-Token ist keine Sitzung), und der Fall war
+  gegen die RICHTIGE Reparatur rot. Der Zustand wird jetzt hergestellt.
+- **Der erste Treffer ist nicht die Zugehörigkeit.** T7 las die Woche eines
+  Fakts am ersten Eintrag mit diesem Titel ab — Nachbarwochen teilen Texte,
+  gemeldet wurde KW 49 statt 52.
+- **Eine geschätzte Zahl in einem Brett-Abschluss** („13 Verzeichnisse"; der
+  Fall daneben mass 12). Der Eintrag war noch nicht veröffentlicht und ist neu
+  geschrieben.
+- **Ein Audit misst den Stand, den er liest.** Der zweite Lauf las das
+  Arbeitsverzeichnis vor dem Nachziehen — drei seiner Funde hatte `main` schon
+  behoben. Jeder übernommene Fund ist am zusammengeführten Stand nachgemessen.
 
-**Nicht geprüft, ehrlich:** hier läuft kein Android und kein echtes Supabase.
-Die zehn Funde in den Edge-Functions sind gelesen und zum Teil mit den echten
-Rümpfen in Node ausgeführt, aber NICHT behoben (Sektion 2). Die Annahme, dass
-ein `fetch()` im Worker gegen `connect-src` geprüft wird, ist aus der
-Spezifikation gelesen, nicht im Browser gemessen. Die Datenschutzerklärung ist
-an einer Stelle berichtigt (Nutzungsdaten sind nicht „anonym") — bitte
-gegenlesen (`docs/FUER-FERNANDO.md` §30).
+**Für Fernando sichtbar** (`docs/FUER-FERNANDO.md` §30): die Kopfleiste ist
+17 px höher (so, wie das CSS sie immer wollte), auf „Rezepte" und „Heilmittel"
+steht unten rechts ein Plus-Knopf, und die Datenschutzerklärung ist an einer
+Stelle berichtigt (Nutzungsdaten sind nicht „anonym") — bitte gegenlesen.
+
+**Offen:** brett:2026-11-11-fe36, brett:2026-11-11-2748, brett:2026-11-11-cde7, brett:2026-11-11-6f90, brett:2026-11-11-0fd6, brett:2026-11-11-5ee2, brett:2026-11-11-6bf4, brett:2026-11-11-9d96, brett:2026-11-11-664e, brett:2026-11-11-4515 (zehn Funde in den Edge-Functions, keiner behoben; 0fd6 und 5ee2 sind Sicherheits-Einträge ohne Einzelheiten) · brett:2026-11-11-1243, brett:2026-11-11-9400, brett:2026-11-11-21ed, brett:2026-11-11-664f, brett:2026-11-11-8c07, brett:2026-11-11-9ca0 (Service Worker, Manifest, Kompass) · brett:2026-11-11-d412, brett:2026-11-11-000a, brett:2026-11-11-035c (Datum) · brett:2026-11-11-5e72 (drei Suchen) · brett:2026-11-11-002d, brett:2026-11-11-8ee7 (CSS) · brett:2026-11-11-bf2f, brett:2026-11-11-2069 (Daten) · brett:2026-11-11-bd8a, brett:2026-11-11-2129, brett:2026-11-11-e919 (Android-Hülle) · brett:2026-11-11-5bef (Frage an Fernando, §2)
+**Nicht geprüft:** hier läuft kein Android und kein echtes Supabase — die vier Reparaturen an der Hülle sind übersetzt (`apk_check` baut das Paket) und gelesen, nicht auf einem Gerät gefahren; die Funde in den Edge-Functions sind gelesen und zum Teil mit den echten Rümpfen in Node ausgeführt. Dass ein `fetch()` im Worker gegen `connect-src` geprüft wird, ist aus der Spezifikation gelesen, nicht im Browser gemessen. Ob Cloudflare Pages und Netlify ein Punkt-Verzeichnis (`.claude/`, `.github/`) überhaupt ausliefern, ist von hier nicht messbar. Die neue Höhe der Kopfleiste ist in Chromium bei 412 px gemessen, nicht auf einem Telefon mit Kerbe angesehen.
+
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
 **Auftrag (Fernando, 10.11.2026):** „Alle Agenten müssen sich austauschen und die
@@ -15664,7 +15740,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 - **Version:** `v33.59` (Client) · SW-Cache `gs-v33.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **97'016 Zeilen / 6,2 MB** (v33.59: rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Frontend:** `index.html` **97'079 Zeilen / 6,3 MB** (v33.59: rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **44** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; `contrast_check` und `render_check` urteilen seither, vorher immer Exit 0; neu in v33.58: `modell_check`, `rezept_link_check`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 44** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -15675,7 +15751,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
-| **Datenschutzerklärung gegenlesen** (v33.59) | `privacy.html` nannte Nutzungs- und Fehlerdaten „anonym"; beide tragen die Konto-Kennung (`client_errors.user_id`, `analytics_events.user_id` + `session_id`). Der Satz ist berichtigt („mit deinem Konto verknüpft"). Ein Rechtstext gehört von dir gelesen; zwei Empfänger (Netlify, Wikipedia für Artbilder) fehlen dort weiterhin. | `docs/FUER-FERNANDO.md` §29 · (je) |
+| **Datenschutzerklärung gegenlesen** (v33.59) | `privacy.html` nannte Nutzungs- und Fehlerdaten „anonym"; beide tragen die Konto-Kennung (`client_errors.user_id`, `analytics_events.user_id` + `session_id`). Der Satz ist berichtigt („mit deinem Konto verknüpft"). Ein Rechtstext gehört von dir gelesen; zwei Empfänger (Netlify, Wikipedia für Artbilder) fehlen dort weiterhin (Google Fonts überträgt die IP-Adresse), und das Stand-Datum der Erklärung ist nicht mitgezogen. | brett:2026-11-11-5bef · `docs/FUER-FERNANDO.md` §30 · (je) |
 | **Eine geplante Routine ohne Repo-Zugang ans Repo und ans Brett anschliessen?** | Sie schreibt ihre Übergaben ausserhalb des Repos — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Welche Aufgabe es ist und was ihr fehlt, ging direkt an Fernando (nicht in dieses öffentliche Repo). Im Auftrag der Aufgabe bräuchte es `node scripts/austausch.mjs holen` am Anfang und Einträge am Ende. Nicht verändert. | brett:2026-11-11-669d · (jd) |
 | **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
@@ -15725,11 +15801,12 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Stand |
 |---|---|
-| **Edge-Functions: zehn Funde aus dem Audit vom 11.11.2026, keiner behoben** | Alle zehn gegengeprüft (7 bestätigt, 3 teilweise), zum Teil mit den echten Rümpfen in Node ausgeführt. Die schwersten: `stripe-webhook` liest bei 16 Schreibaufrufen keinen Datenbankfehler (200 und `processed_at`, obwohl nichts verbucht wurde); `delete-user` löscht die Abo-Zeilen und kündigt bei Stripe nichts (das Abo läuft weiter); vier Functions prüfen den Aufrufer mit `getUser()` ohne Token (`mushroom-identify`, `pest-identify`, `plant-doctor-diagnose`, `stripe-expert-checkout`); `daily-push-checker` warnt vor dem Frost von heute früh statt vor dem der kommenden Nacht und sperrt damit den richtigen Alarm. Zwei weitere sind ausnutzbar und stehen deshalb NICHT im Repo (der Web-Root ist öffentlich). Eine eigene Scheibe — Zahlungs- und Auth-Code ohne Fahrer anzufassen wäre geraten. | `docs/AUDIT-2026-11-11.md` (edge-1 … edge-10) · (je) |
-| **Service Worker: drei bestätigte Funde, nicht behoben** | (1) Die Navigation wartet bei schwachem Empfang unbegrenzt aufs Netz, obwohl die App im Cache liegt (`networkFirst` ohne Frist — der Rückfall greift nur bei einer ABLEHNUNG). (2) Jede Navigations-Adresse (`/?source=pwa`, vier Shortcuts, jeder Mitteilungs-Link) legt eine eigene 5,9-MB-Kopie der Seite in den Shell-Cache. (3) Ein Tipp auf eine Push-Mitteilung lädt die laufende App neu, ohne `_gsAppRuhig()` zu fragen — ein offenes Scan-Ergebnis ist weg. Jeder braucht Fälle in `offline_check`. | `docs/AUDIT-2026-11-11.md` (sw-4, sw-5, sw-6) · (je) |
-| **Fälligkeit über die Zeitumstellung** | `getDaysUntilDue` und `gsSnoozeTask` rechnen 24-Stunden-Blöcke: in den Nächten vom 28./29.03. und 24./25.10. liegt eine Aufgabe, die in der Umstellungsstunde erledigt oder verschoben wird, um einen Tag daneben (ausgeführt vom Gegenprüfer). Dazu die Kalenderwoche des Planers (Mo–Mi eine KW zurück), sieben Tag-des-Jahres-Rechnungen und das Wetter-Tagesprotokoll (Datum UTC, Werte Zürcher Tag). `datum_check` T0 deckelt die UTC-Tagesschnitte bei 32 (25 bewusst, 7 offen). | `docs/AUDIT-2026-11-11.md` (datum-3, -5, -8, -9) · (je) |
-| **Drei Suchen beim Tippen ohne Anfrage-Zähler** | `gsCommunitySearch`, `gsKnowledgeGlobalSearch`, `gsFriendsSearchTrigger`: kommt die ältere Antwort nach der neueren, stehen die Treffer für „to" unter dem Feld „tomate". | `docs/AUDIT-2026-11-11.md` (robust-5) · (je) |
-| **Zwei Audit-Blickwinkel nicht gefahren** | Datenform der Artenliste (Typen, Wertebereiche, Schreibweisen je Feld) und die Android-Hülle (Java). Beide waren geplant; der Lauf mit acht Agenten riss zweimal am Nutzungslimit, der dritte lief mit fünf. | (je) |
+| **Edge-Functions: zehn Funde aus dem Audit vom 11.11.2026, keiner behoben** | Alle zehn gegengeprüft und am 11.11. gegen den Stand mit `main` nachgemessen (neun gelten unverändert; bei `getUser()` ohne Token hat `main` drei von vier Functions repariert, offen ist `stripe-expert-checkout`). Die schwersten: `stripe-webhook` liest bei 16 Schreibaufrufen keinen Datenbankfehler (200 und `processed_at`, obwohl nichts verbucht wurde); `delete-user` löscht die Abo-Zeilen und kündigt bei Stripe nichts (das Abo läuft weiter); `daily-push-checker` warnt vor dem Frost von heute früh statt vor dem der kommenden Nacht und sperrt damit den richtigen Alarm. Zwei sind ausnutzbar — ihre Einzelheiten stehen NICHT im Repo, sondern in der Übergabe-Datei, die Fernando bekommen hat. Eine eigene Scheibe: Zahlungs- und Auth-Code ohne Fahrer anzufassen wäre geraten. | brett:2026-11-11-fe36 · 2748 · cde7 · 6f90 · 0fd6 · 5ee2 · 6bf4 · 9d96 · 664e · 4515 · `docs/AUDIT-2026-11-11.md` · (je) |
+| **Service Worker: drei bestätigte Funde, nicht behoben** | (1) Die Navigation wartet bei schwachem Empfang unbegrenzt aufs Netz, obwohl die App im Cache liegt (`networkFirst` ohne Frist — der Rückfall greift nur bei einer ABLEHNUNG). (2) Jede Navigations-Adresse (`/?source=pwa`, vier Shortcuts, jeder Mitteilungs-Link) legt eine eigene 6-MB-Kopie der Seite in den Shell-Cache. (3) Ein Tipp auf eine Push-Mitteilung lädt die laufende App neu, ohne `_gsAppRuhig()` zu fragen — ein offenes Scan-Ergebnis ist weg. Jeder braucht Fälle in `offline_check`. Dazu drei Reste: umgeleitete Antworten beim Install, `protocol_handlers` im Manifest, `deviceorientationabsolute`. | brett:2026-11-11-1243 · 9400 · 21ed · 664f · 8c07 · 9ca0 · (je) |
+| **Fälligkeit über die Zeitumstellung** | `getDaysUntilDue` und `gsSnoozeTask` rechnen 24-Stunden-Blöcke: in den Nächten vom 28./29.03. und 24./25.10. liegt eine Aufgabe, die in der Umstellungsstunde erledigt oder verschoben wird, um einen Tag daneben (ausgeführt). Dazu sieben Tag-des-Jahres-Rechnungen und das Wetter-Tagesprotokoll (Datum UTC, Werte Zürcher Tag). Die Kalenderwoche ist seit v33.59 behoben. `datum_check` T0 deckelt die UTC-Tagesschnitte bei 32 (25 bewusst, 7 offen). | brett:2026-11-11-d412 · 000a · 035c · (je) |
+| **Drei Suchen beim Tippen ohne Anfrage-Zähler** | `gsCommunitySearch`, `gsKnowledgeGlobalSearch`, `gsFriendsSearchTrigger`: kommt die ältere Antwort nach der neueren, stehen die Treffer für „to" unter dem Feld „tomate" (mit gestelltem Netz ausgeführt). | brett:2026-11-11-5e72 · (je) |
+| **Android-Hülle: drei Funde, nicht behoben** | Kein `onDestroy` (die WebView wird nie zerstört, der Netz-Rückruf nie abgemeldet — auf Android 6–11 läuft eine frühere Activity unsichtbar weiter); „Kamera" in Doktor, Pilz-Check, Tagebuch und Schädling öffnet in der APK die Dateiauswahl (ein Unterschied, der in `GS_HUELLE_ANDERS` nicht steht); zwei Berechtigungsfragen zugleich (latent, kein Weg gefunden). Alle drei brauchen ein Gerät. | brett:2026-11-11-bd8a · 2129 · e919 · (je) |
+| **CSS und Daten: vier Funde ohne sichtbaren Fehler** | 208 tote CSS-Regeln (rund 20 KB) und drei doppelte Selektoren; 180 der 521 Wochen-Fakten sind wörtliche Kopien der Vorwoche (341 eindeutige); der Verwechslungshinweis der Heidelbeere bricht mitten im Satz ab (braucht eine Quelle). | brett:2026-11-11-8ee7 · 002d · bf2f · 2069 · (je) |
 | ~~Modell-Rückfallketten in 8 Edge-Functions~~ | **Erledigt in v33.58** — und es war keine Schuld, sondern ein Ausfall: drei der acht waren seit dem 15.06.2026 tot. `_shared/modelle.mjs`, `modell_check`. (df), (jc) |
 | **Sechs Edge-Functions sind als Verweis auf einen Commit ausgeliefert** | `ai-proxy` (`af47fc0…`) und fünf weitere (`ef7fdbb…`) bestehen live aus einer Zeile, die ihren Quelltext aus diesem Repo lädt — beim Ausliefern, nicht zur Laufzeit. Byte-gleich mit dem geprüften Stand, aber `get_edge_function` zeigt nur den Verweis. Wer gewöhnlich ausliefert (`supabase functions deploy`), ersetzt ihn. Die zwei Commits liegen auf dem Branch `claude/kw46-sicherheit-modelle-rezepte` — **den Branch nicht löschen**, solange niemand neu ausgeliefert hat. (jc) |
 | **`_seed.js` ankert auf der UTC-Mitternacht** | `robust_check` „Beispieldaten" ist zwischen 00:00 und 01:00 (Sommer: 02:00) Ortszeit rot, wenn die Maschine nicht in UTC läuft: die App rechnet Kalendertage in Ortszeit, aus „heute fällig" wird „überfällig". In der CI (UTC) nie; lokal hilft `TZ=UTC`. Ein Anker auf der Ortszeit-Mitternacht berührt alle 41 Prüfstände — eigene Scheibe. (jc) |

@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-664e",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "„Tagesquiz wartet\" geht auch an alle, die heute schon gespielt haben",
+  "text": "Die einzige Bedingung neben Schalter und Uhrzeit ist, dass daily_quizzes irgendeine Zeile hat — das ist immer so. quiz_answers wird nicht gelesen; ein Lesefehler ist dasselbe wie „kein Quiz\".",
+  "beleg": [
+    "grep -c quiz_answers supabase/functions/daily-push-checker/index.ts → 0",
+    "Vom Gegenprüfer mit dem echten Rumpf um 20 Uhr ausgeführt: Push geht hinaus, gelesene Tabellen: nur daily_quizzes"
+  ],
+  "vorschlag": "Vor dem Senden die heutige Antwort der Person lesen (der Quiz-Tag ist UTC); gespielt oder Lesefehler → nicht senden. Berührt dieselbe Schleife wie der Dedup-Befund.",
+  "stichworte": [
+    "daily-push-checker",
+    "quiz",
+    "push"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/daily-push-checker/index.ts",
+      "text": "const { data: q } = await sb.from(\"daily_quizzes\").select(\"id\").limit(1);"
+    }
+  ]
+}

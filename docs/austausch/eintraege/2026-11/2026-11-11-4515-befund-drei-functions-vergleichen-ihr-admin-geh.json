@@ -1,0 +1,33 @@
+{
+  "id": "2026-11-11-4515",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Drei Functions vergleichen ihr Admin-Geheimnis nicht über _shared/auth_vergleich.mjs, zwei tragen eine eigene Kopie von constantTimeEquals",
+  "text": "Die Regel aus v32.72 (CLAUDE.md §7.1) gilt für die fünf Cron-Empfänger; stripe-bootstrap, stripe-admin-extend-webhook und knowledge-bulk-gen blieben stehen, send-push und i18n-translate tragen je eine Kopie der Funktion. robust_check A10 zählt nur die fünf.",
+  "beleg": [
+    "grep -rnE '!== *expectedSecret|function constantTimeEquals' --include=index.ts supabase/functions → 5 Treffer in fünf Dateien; keine der fünf importiert _shared/auth_vergleich.mjs"
+  ],
+  "vorschlag": "Import in allen fünf; robust_check A10 über ALLE Functions zählen lassen.",
+  "stichworte": [
+    "auth_vergleich",
+    "constantTimeEquals",
+    "stripe-bootstrap",
+    "knowledge-bulk-gen",
+    "robust_check"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/stripe-bootstrap/index.ts",
+      "text": "req.headers.get(\"X-Admin-Secret\") !== expectedSecret"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-2a89"
+    }
+  ]
+}

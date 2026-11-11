@@ -1,0 +1,35 @@
+{
+  "id": "2026-11-11-6bf4",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Push-Dedup zählt je Nutzer, gesendet wird je Abonnement — das zweite Gerät bleibt stumm, und ein Fehler der Abfrage sendet bei jedem Lauf erneut",
+  "text": "fn_push_already_sent_today fragt nach Nutzer, Kategorie und Tag, ohne Abonnement; die Cron-Sender laufen aber je Abonnement. Mit Handy und Tablet bekommt nur eines den Push. Liefert die RPC einen Fehler, ist data nicht true → „noch nicht gesendet\"; dasselbe, wenn der Insert ins Protokoll scheitert (das Protokoll IST der Marker). sensor-push liest das Ergebnis seines Marker-Inserts ebenfalls nicht.",
+  "beleg": [
+    "Vom Gegenprüfer mit den echten Rümpfen ausgeführt: zwei Abonnements eines Kontos → Push an eines; Dedup-RPC mit Fehler → drei Läufe, drei Pushes",
+    "grep -n 'fn_push_already_sent_today' in daily-push-checker, engagement-push-checker, weather-alert-checker → überall const { data } ohne error"
+  ],
+  "vorschlag": "Je Nutzer EINMAL entscheiden und an alle seine Abonnements senden (so macht es notifyTrialEnd schon); error lesen und sagen; bei einem Lesefehler nur Frost/Hitze/Sturm senden, alles andere auslassen. Die Entscheidung als reine Funktion nach _shared/push_helfer.mjs.",
+  "stichworte": [
+    "daily-push-checker",
+    "engagement-push-checker",
+    "weather-alert-checker",
+    "sensor-push",
+    "push_helfer",
+    "dedup"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/daily-push-checker/index.ts",
+      "text": "const { data } = await sb.rpc(\"fn_push_already_sent_today\""
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-8ead"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-11-1243",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Schwacher Empfang: die Navigation wartet unbegrenzt aufs Netz, obwohl die App im Cache liegt",
+  "text": "networkFirst wartet ohne Frist auf fetch; der Rückfall auf den Shell-Cache greift nur, wenn fetch ABLEHNT. Mit einem Balken Empfang lehnt er nicht ab und antwortet nicht — die installierte App zeigt eine weisse Seite. offline_check prüft nur setOffline(true), also den sofortigen Fehler.",
+  "beleg": [
+    "Echtes sw.js in einer Node-vm gefahren (Auditor, Gegenprüfer und Nachmessung, je eigener Fahrer): Install gelaufen, / im Shell-Cache, fetch hängt → keine Antwort nach 6000 ms",
+    "grep -nE 'setTimeout|Promise.race|AbortController|navigationPreload' sw.js → 0 Treffer"
+  ],
+  "vorschlag": "networkFirst(req, cacheName, fristMs); nur die Navigations-Regel übergibt eine Frist (4 s) — liegt eine Kopie im Cache, gewinnt nach der Frist die Kopie. Fall in offline_check: der Prüfserver hält die Antwort zurück.",
+  "stichworte": [
+    "sw.js",
+    "networkFirst",
+    "offline_check",
+    "schwacher-empfang"
+  ],
+  "anker": [
+    {
+      "datei": "sw.js",
+      "text": "async function networkFirst(req, cacheName) {"
+    }
+  ]
+}

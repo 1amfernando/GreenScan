@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-9ca0",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Kompass und Lichtmess-Richtung hören auf deviceorientation statt deviceorientationabsolute; die Sprachsteuerung zeigt den rohen Fehlercode",
+  "text": "Auf Android liefert deviceorientation eine Richtung relativ zur Startlage, nicht zum Norden; Norden trägt nur deviceorientationabsolute. Zwei Stellen (Karten-Kompass, Richtungsanzeige der Lichtmessung). Dazu: rec.onerror der Sprachsteuerung schreibt String(ev.error) („not-allowed\", „no-speech\") unverändert in die Anzeige.",
+  "beleg": [
+    "grep -c deviceorientationabsolute index.html → 0; grep -n \"addEventListener('deviceorientation'\" index.html → 2 Stellen"
+  ],
+  "vorschlag": "Wo vorhanden deviceorientationabsolute nehmen (An- und Abmelden mit demselben Namen); die Fehlercodes der Spracherkennung über _gsFehlerText bzw. eine kleine Tabelle in Sätze übersetzen.",
+  "stichworte": [
+    "deviceorientation",
+    "kompass",
+    "sprachsteuerung",
+    "_gsFehlerText"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "window.addEventListener('deviceorientation', _gsCompassHandler, true);"
+    }
+  ]
+}

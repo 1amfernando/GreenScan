@@ -1,11 +1,19 @@
 // greenscan-audit — der Audit-Workflow aus v33.59 (STATUS (je), docs/AUDIT-2026-11-11.md).
 //
 // Acht Blickwinkel, je ein Auditor (nur lesend) und ein Gegenpruefer, der jeden
-// Fund zu WIDERLEGEN versucht. Am 11.11.2026 liefen fuenf davon (robust, escape,
-// datum, edge, sw): 45 Funde, 31 bestaetigt, 14 teilweise, keiner widerlegt.
-// Drei sind noch nie gelaufen: css, daten, android.
+// Fund zu WIDERLEGEN versucht. Am 11.11.2026 liefen alle acht in zwei Laeufen:
+// robust, escape, datum, edge, sw (45 Funde, 31 bestaetigt, 14 teilweise) und —
+// mit DIESER Datei — css, daten, android (25 Funde, 18 bestaetigt, 7 teilweise).
+// Keiner widerlegt.
 //
-// Aufruf:  Workflow({ name: 'greenscan-audit', args: { linsen: ['css','daten','android'], scratch: '/tmp/gs-audit' } })
+// VOR dem Lauf: `git fetch origin main` und nachziehen. Die Agenten lesen den
+// Arbeitsbaum, den sie vorfinden — der zweite Lauf las einen Stand, den main
+// schon ueberholt hatte, und drei seiner Funde waren dort laengst behoben.
+// NACH dem Lauf: jeden uebernommenen Fund am aktuellen Stand nachmessen; was
+// offen bleibt, kommt mit einem Anker aufs Brett (docs/austausch/README.md).
+//
+// Aufruf:  Workflow({ scriptPath: '.claude/workflows/greenscan-audit.js', args: { linsen: ['css','daten','android'], scratch: '<Scratch-Verzeichnis>' } })
+//   (unter dem Namen — Workflow({ name: 'greenscan-audit' }) — erst in einer Sitzung, die NACH dem Anlegen der Datei begann)
 //   linsen  — welche Blickwinkel (Vorgabe: alle acht)
 //   scratch — wohin die Agenten ihre Skripte und Funde schreiben (nie ins Repo;
 //             in einer Cloud-Sitzung das Scratchpad-Verzeichnis der Sitzung)
@@ -79,7 +87,7 @@ ARBEITSREGELN (verbindlich):
 - Kein Playwright/Chromium, nicht scripts/pruefstaende.sh, keine MCP-Aufrufe (keine Live-Datenbank), kein Netz. Kleine Node-Skripte sind erlaubt und erwünscht (Beleg durch Ausführen schlägt Beleg durch Lesen).
 - Hilfen: „node scripts/statik_check.js" liest die App als Programm; seine Funktionen inlineSkripte/zeilentreu ziehen das Inline-JavaScript von index.html zeilentreu (GLEICHE Zeilennummern) — lege dir damit zuerst ${S}/app.js an. acorn + acorn-walk: /opt/node-tools/node_modules/ (falls vorhanden). ESLint: scripts/node_modules/eslint oder /opt/node22/lib/node_modules/eslint .
 - „Ein Treffer ist ein Verdacht, kein Urteil": melde nur, was du am echten Codepfad bestätigt hast (zitierte Zeile + mindestens ein Aufrufer bzw. der Weg dorthin). Höchstens 10 Funde — die am besten belegten, schwerste zuerst.
-- Nicht melden, was schon bekannt ist: lies zuerst STATUS.md Sektion 2 („Offene Punkte", zu finden mit grep -n '^## 2 ·' STATUS.md) und docs/AUDIT-2026-11-11.md.
+- Nicht melden, was schon bekannt ist: lies zuerst das Brett (node scripts/austausch.mjs lesen --nur-lokal — offene Befunde anderer Sitzungen), STATUS.md Sektion 2 („Offene Punkte", zu finden mit grep -n '^## 2 ·' STATUS.md) und docs/AUDIT-2026-11-11.md.
 - Halte dich knapp: höchstens etwa 45 Werkzeugaufrufe. Schreibe deine Funde fortlaufend nach ${S}/agent/${key}/funde.md (damit sie einen Abbruch überleben), dann gib die strukturierte Ausgabe zurück.
 - Felder je Fund: titel · datei (repo-relativ) · zeile · ausschnitt (wörtlich, kurz) · szenario (was sieht wer wann Falsches) · schwere · beleg (ausgefuehrt/gelesen/plausibel) · fix (kleinster sinnvoller, als Code-Skizze). Dazu „zahlen" (deine Zählungen in einem Absatz) und „sauber" (was du geprüft und in Ordnung gefunden hast).
 Sprache: Deutsch.`

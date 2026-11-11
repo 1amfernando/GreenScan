@@ -27,7 +27,7 @@ scripts/              Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh 
 supabase/functions/   Edge-Functions; _shared/*.mjs = Regeln, die Deno UND Node importieren
 supabase/migrations/  SQL, alle idempotent; „nicht angewandt" steht dabei, bis es angewandt ist
 docs/                 lebende Doku (KALENDER-V1, PLANER-V3, SCANNER-V3, OEKOSYSTEM-V1, FUER-FERNANDO)
-docs/_archiv/         52 historische Auftraege — nicht die Gegenwart
+docs/_archiv/         53 historische Auftraege — nicht die Gegenwart
 CLAUDE.md             das ausfuehrliche Tagebuch · STATUS.md  was laeuft · ROADMAP.md  was kommt
 ```
 

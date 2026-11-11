@@ -637,6 +637,71 @@ const FAELLE = [
         try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch (_) {}
       }
     }),
+  },  {
+    name: 'E14 · Ein Rezept zeigt seine Warnung, ein Heilmittel seine Gegenanzeigen und seine Dosierung — und die Schwierigkeit steht als Etikett da, nicht als rohes Wort',
+    lauf: async () => __seite.evaluate(async () => {
+      // v33.59 (Audit „Datenform"). Gemessen wird der TEXT des geoeffneten Fensters
+      // gegen die Daten des Rezepts — nicht eine neue Funktion. Gegen den Stand
+      // davor: die Warnung eines Rezepts fehlte (die Bedingung hiess isRemedy),
+      // Gegenanzeigen und Dosierung hatte keine Anzeige, und auf den Karten stand
+      // „einfach" statt „🟢 Einfach".
+      const warte = (ms) => new Promise((res) => setTimeout(res, ms));
+      const alle = recipesData.concat(remediesData);
+      const rez = recipesData.find((r) => r.type !== 'remedies' && r.warning && /verwechs|giftig|t(ö|oe)dlich/i.test(r.warning));
+      const heil = remediesData.find((r) => r.contraindications && r.dosage);
+      const ohne = recipesData.find((r) => r.type !== 'remedies' && !r.warning && !r.contraindications && !r.dosage);
+      if (!rez || !heil || !ohne) return { ok: false, warum: 'die Daten tragen den Fall nicht: Rezept mit Warnung ' + !!rez + ' · Heilmittel mit Gegenanzeigen und Dosierung ' + !!heil + ' · Rezept ohne Warnung ' + !!ohne };
+      const kern = (t) => String(t).replace(/^[^A-Za-zÄÖÜäöü]+/, '').replace(/\s+/g, ' ').slice(0, 45);
+      const lies = async (id) => {
+        openRecipeDetail(id); await warte(300);
+        const el = document.getElementById('recipe-detail-body');
+        return { text: (el.textContent || '').replace(/\s+/g, ' '), bloecke: [...el.querySelectorAll('[style*="--bg-danger-soft"]')].length };
+      };
+      const f = [];
+      try {
+        const a = await lies(rez.id);
+        if (a.text.indexOf(kern(rez.warning)) < 0) f.push('Rezept „' + rez.title + '": die Warnung „' + kern(rez.warning) + '…" steht nicht im Fenster');
+        const b = await lies(heil.id);
+        if (b.text.indexOf(kern(heil.contraindications)) < 0) f.push('Heilmittel „' + heil.title + '": die Gegenanzeigen „' + kern(heil.contraindications) + '…" stehen nicht im Fenster');
+        if (b.text.indexOf(kern(heil.dosage)) < 0) f.push('Heilmittel „' + heil.title + '": die Dosierung „' + kern(heil.dosage) + '…" steht nicht im Fenster');
+        const c = await lies(ohne.id);
+        if (c.bloecke) f.push('Gegenrichtung: „' + ohne.title + '" hat keine Warnung, zeigt aber ' + c.bloecke + ' rote Kästen');
+        // Schwierigkeit: jede eingebaute Angabe hat ein Etikett, und die Karte zeigt es
+        const stufen = {}; alle.forEach((r) => { const d = r.diff || r.difficulty; if (d) stufen[d] = (stufen[d] || 0) + 1; });
+        const mit = alle.find((r) => (r.diff || r.difficulty) === 'einfach') || alle.find((r) => r.diff || r.difficulty);
+        const karte = document.createElement('div'); karte.innerHTML = buildRecipeCard(mit);
+        const kt = (karte.textContent || '').replace(/\s+/g, ' ');
+        const roh = Object.keys(stufen).filter((d) => new RegExp('(^|[^A-Za-zÄÖÜäöü])' + d + '([^A-Za-zäöü]|$)').test(kt));
+        if (roh.length) f.push('die Karte „' + mit.title + '" zeigt die Schwierigkeit als rohes Wort „' + roh[0] + '" (in den Daten: ' + Object.keys(stufen).map((d) => d + ' ' + stufen[d]).join(', ') + ')');
+        if (!/[🟢🟡🔴]/u.test(kt)) f.push('die Karte „' + mit.title + '" trägt kein Schwierigkeits-Etikett');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: '„' + rez.title + '" zeigt seine Warnung · „' + heil.title + '" Gegenanzeigen und Dosierung · „' + ohne.title + '" keinen roten Kasten · ' + Object.keys(stufen).length + ' Schwierigkeits-Werte, alle mit Etikett' };
+      } finally { try { closeModal('modal-recipe-detail'); } catch (_) {} await warte(250); }
+    }),
+  },
+  {
+    name: 'E15 · Der Filter „Giftig" zeigt jede Art ab Giftstufe 2 — und „Ungiftig" nur Stufe 0',
+    lauf: async () => __seite.evaluate(async () => {
+      // v33.59 (Audit „Datenform"). `toxic` und `tox` sind zwei Felder fuer dieselbe
+      // Frage; bei acht Eintraegen der Stufe 2 stand `toxic:false` — sie fehlten in
+      // BEIDEN Filtern. Massstab ist hier die Stufe, nicht das Feld, das der Filter liest.
+      const alt = currentFilter;
+      try {
+        if (!Array.isArray(DB) || DB.length < 3000) return { ok: false, warum: 'die Artenliste ist nicht geladen (' + (DB && DB.length) + ')' };
+        currentFilter = 'giftig';
+        const fehltGiftig = DB.filter((sp) => (sp.tox | 0) >= 2 && !_gsPassCat(sp));
+        const nGiftig = DB.filter((sp) => _gsPassCat(sp)).length;
+        currentFilter = 'ungiftig';
+        const falschUngiftig = DB.filter((sp) => _gsPassCat(sp) && (sp.tox | 0) > 0);
+        const nUngiftig = DB.filter((sp) => _gsPassCat(sp)).length;
+        const f = [];
+        if (fehltGiftig.length) f.push(fehltGiftig.length + ' Einträge der Giftstufe ≥ 2 fehlen unter „Giftig": ' + fehltGiftig.slice(0, 5).map((sp) => sp.name + ' (Stufe ' + sp.tox + ')').join(', '));
+        if (falschUngiftig.length) f.push(falschUngiftig.length + ' Einträge mit Giftstufe > 0 stehen unter „Ungiftig": ' + falschUngiftig.slice(0, 3).map((sp) => sp.name).join(', '));
+        if (nGiftig < 300 || nUngiftig < 1000) f.push('die Filter liefern ' + nGiftig + ' / ' + nUngiftig + ' Einträge — der Fall misst offenbar etwas anderes');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: '„Giftig" ' + nGiftig + ' Einträge, darunter jeder ab Stufe 2 · „Ungiftig" ' + nUngiftig + ', alle Stufe 0 · in keinem der beiden: ' + (DB.length - nGiftig - nUngiftig) + ' (Stufe 1 ohne Giftvermerk)' };
+      } finally { currentFilter = alt; }
+    }),
   },
 ];
 

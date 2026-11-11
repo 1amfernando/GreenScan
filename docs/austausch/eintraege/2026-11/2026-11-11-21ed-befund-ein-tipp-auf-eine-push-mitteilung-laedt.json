@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-11-21ed",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Ein Tipp auf eine Push-Mitteilung lädt die laufende App neu — ohne _gsAppRuhig() zu fragen",
+  "text": "notificationclick ruft client.navigate(url) am ersten Fenster desselben Ursprungs — eine volle Navigation. Ein Scan-Ergebnis, eine laufende KI-Antwort oder ein halb ausgefülltes Formular im Arbeitsspeicher sind weg. Für Updates gilt seit v33.25 „nie, solange _gsAppRuhig() einen Grund nennt\"; dieser zweite Weg zum Neuladen fragt nicht.",
+  "beleg": [
+    "Echtes sw.js in einer Node-vm: notificationclick → navigate /?screen=social#post-… | focus, kein postMessage",
+    "grep -c GS_NOTIF_KLICK index.html sw.js → 0 / 0"
+  ],
+  "vorschlag": "Dem offenen App-Fenster eine Nachricht schicken (postMessage), die Seite wechselt selbst den Bildschirm (gsHandleShortcutUrl mit einer Quelle); nur ohne offenes Fenster navigieren. Fall in offline_check.",
+  "stichworte": [
+    "sw.js",
+    "notificationclick",
+    "_gsAppRuhig",
+    "gsHandleShortcutUrl"
+  ],
+  "anker": [
+    {
+      "datei": "sw.js",
+      "text": "client.navigate(url);"
+    }
+  ]
+}

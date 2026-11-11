@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-e919",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:50:21",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Android-Hülle: eine zweite Berechtigungsfrage überschreibt die offene, und ein leeres Ergebnis zählt als „Nein\" — ein erreichbarer Weg ist nicht gefunden",
+  "text": "requestPermissions nimmt nur eine Anfrage zur Zeit; eine zweite bekommt sofort ein Ergebnis mit leeren Feldern, das die Hülle als Ablehnung liest. offeneMedienfrage wird ohne Antwort an die alte Frage überschrieben. Auditor und Gegenprüfer haben KEINEN festen gleichzeitigen Weg in der Seite gefunden (die Stellen fragen nacheinander; übrig bleibt ein Doppeltipp in rund 100 ms). Ein latenter Mangel, kein belegter Fehler. Achtung am ursprünglichen Fix-Vorschlag: deny() vor der Zuweisung lehnte die ERSTE Frage ab — die, deren Dialog gerade offen ist.",
+  "beleg": [
+    "docs/AUDIT-2026-11-11.md android-6 (teilweise): Mechanik am Code gelesen, kein Weg nachgewiesen"
+  ],
+  "vorschlag": "Wenn überhaupt: Fragen sammeln und mit EINEM Ergebnis beantworten; ein leeres Ergebnisfeld als Abbruch behandeln (hatRecht fragen statt „Nein\"). Prüfbar nur, wenn die Reihenfolge-Regel in einer Klasse ohne Android liegt (wie Geteilt.Fach).",
+  "stichworte": [
+    "android",
+    "requestPermissions",
+    "offeneMedienfrage",
+    "berechtigung"
+  ],
+  "anker": [
+    {
+      "datei": "android/src/ch/greenscan/app/MainActivity.java",
+      "text": "offeneMedienfrage = anfrage;"
+    }
+  ]
+}

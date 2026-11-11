@@ -155,7 +155,17 @@ Nutzungslimit, bevor einer berichtet hatte. Ein Workflow merkt sich jeden
 fertigen Agenten und laesst sich fortsetzen. Und jeder Auditor schreibt seine
 Funde ZUERST in eine Datei. Was der Audit findet, wird NICHT ungeprueft
 behoben: ein Fund ist erst einer, wenn ein Fall ihn gegen den alten Stand rot
-zeigt (`docs/AUDIT-2026-11-11.md`: 45 Funde, 31 bestaetigt, 14 teilweise).
+zeigt (`docs/AUDIT-2026-11-11.md`: 70 Funde aus zwei Laeufen, 49 bestaetigt,
+21 teilweise, keiner widerlegt).
+
+Drei Dinge aus dem ersten Gebrauch (11.11.2026): **(1)** ein Workflow, der in
+der laufenden Sitzung entsteht, ist unter seinem NAMEN noch nicht bekannt —
+`Workflow({ scriptPath: '.claude/workflows/greenscan-audit.js', args: … })`
+geht immer. **(2)** Vor dem Lauf `git fetch origin main` und nachziehen: der
+zweite Lauf las einen Stand, den `main` schon ueberholt hatte, und drei seiner
+Funde waren dort laengst behoben. **(3)** Was offen bleibt, kommt mit einem
+Anker aufs Brett (`node scripts/austausch.mjs einspielen <stapel.json>`) —
+ein Sicherheitsfund nur mit Titel, Stichworten und `details_bei`.
 
 ## 10 · Was eine Zusammenfassung ist
 

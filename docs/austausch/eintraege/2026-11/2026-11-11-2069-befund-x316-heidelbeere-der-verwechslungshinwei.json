@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-2069",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "X316 Heidelbeere: der Verwechslungshinweis bricht mitten im Satz ab",
+  "text": "lookalike endet mit „Bärentraube (giftig ähnlich — zähere Blätter, \" — Klammer offen, Komma, Leerzeichen. Einziger Eintrag ausserhalb der Einlese-Rümpfe (FD…), dessen Text offen endet. Den Satz zu Ende schreiben braucht eine Quelle (ist die Bärentraube „giftig ähnlich\"?) — nicht raten.",
+  "beleg": [
+    "grep -n 'zähere Blätter, ' data/plants.v1.js → 1 Treffer (X316)"
+  ],
+  "vorschlag": "Mit einer Flora zu Ende schreiben oder auf den vollständigen Teil kürzen; Fall in data_check: kein Textfeld ausserhalb der FD-Rümpfe endet auf Komma, offene Klammer, Doppelpunkt oder Leerraum.",
+  "stichworte": [
+    "plants.v1.js",
+    "lookalike",
+    "heidelbeere",
+    "data_check"
+  ],
+  "anker": [
+    {
+      "datei": "data/plants.v1.js",
+      "text": "zähere Blätter, "
+    }
+  ]
+}

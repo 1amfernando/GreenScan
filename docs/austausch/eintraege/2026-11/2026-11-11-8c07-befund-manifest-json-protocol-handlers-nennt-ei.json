@@ -1,0 +1,32 @@
+{
+  "id": "2026-11-11-8c07",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "manifest.json: protocol_handlers nennt einen Parameter, den niemand liest, und launch_handler holt nur das Fenster nach vorn",
+  "text": "web+greenscan führt auf /?action=%s — „action\" liest keine Stelle der App. Mit client_mode focus-existing käme die Zieladresse nur über launchQueue an; einen Verbraucher gibt es nicht.",
+  "beleg": [
+    "grep -cE \"get\\(['\\\"]action['\\\"]\\)\" index.html → 0; grep -c launchQueue index.html → 0"
+  ],
+  "vorschlag": "Den Block streichen oder action in gsHandleShortcutUrl lesen; für launch_handler entweder einen launchQueue-Verbraucher oder client_mode navigate-existing.",
+  "stichworte": [
+    "manifest.json",
+    "protocol_handlers",
+    "launch_handler",
+    "gsHandleShortcutUrl"
+  ],
+  "anker": [
+    {
+      "datei": "manifest.json",
+      "text": "\"protocol_handlers\": ["
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-2fe9"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-11-0fd6",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "stripe-expert-checkout: eine serverseitige Prüfung fehlt",
+  "sicherheit": true,
+  "stichworte": [
+    "stripe-expert-checkout",
+    "edge-function",
+    "expert_verifications",
+    "sicherheit"
+  ],
+  "details_bei": "Übergabe-Datei „GreenScan-Folgeaufgaben-2026-11-11.md\" (Aufgabe 1), die Fernando in der Sitzung vom 11.11.2026 bekommen hat — nicht im Repo. Die Reparatur gehört zusammen mit der Token-Prüfung in derselben Datei ausgeliefert."
+}

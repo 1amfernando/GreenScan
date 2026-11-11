@@ -1,0 +1,28 @@
+{
+  "id": "2026-11-11-cde7",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "delete-user löscht die Abo-Zeilen, kündigt aber bei Stripe nichts — das Abo wird weiter abgebucht",
+  "text": "Die Function enthält keinen Stripe-Aufruf, entfernt aber stripe_subscriptions über USER_TABLES. Wer mit laufendem Abo sein Konto löscht, wird weiter belastet und hat kein Konto mehr, über das er kündigen könnte. Der Lösch-Dialog nennt das Abo nicht. Nebenfund an der verankerten Zeile: die Organisations-Sperre wird bei JEDEM Abfragefehler übersprungen, nicht nur bei fehlender Tabelle. Verschwindet nur der Anker, ist der Hauptfund damit nicht behoben.",
+  "beleg": [
+    "grep -ci stripe supabase/functions/delete-user/index.ts → 0, während 'stripe_subscriptions' in supabase/functions/_shared/loeschung_regeln.mjs steht",
+    "docs/AUDIT-2026-11-11.md edge-3"
+  ],
+  "vorschlag": "VOR dem ersten Löschen die aktiven Abos lesen und bei Stripe kündigen (resource_missing zählt als erledigt); jeder andere Fehler → nichts löschen. Die Auswahl als reine Funktion nach _shared/loeschung_regeln.mjs, drei Fälle in loeschung_check (Modul, Rand, Dialog). Bis dahin: ein Abo nach einer Kontolöschung von Hand im Stripe-Dashboard beenden (FUER-FERNANDO §30).",
+  "stichworte": [
+    "delete-user",
+    "stripe",
+    "abo",
+    "konto-loeschen",
+    "loeschung_check"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/delete-user/index.ts",
+      "text": "if (!orgErr) {"
+    }
+  ]
+}

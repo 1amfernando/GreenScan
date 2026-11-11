@@ -132,7 +132,7 @@ GreenScan/
 ├── .claude/             # workflows/greenscan-audit.js (acht Audit-Blickwinkel, jeder Fund gegengeprüft — seit v33.59) · workflows/austausch-runde.js (§5) ·
 │                        agents/gs-auditor.md + gs-gegenpruefer.md (nur lesend) · launch.json
 ├── docs/austausch/      # das Brett: ein Eintrag je Datei, über das sich alle KI-Sitzungen austauschen (§5) · Werkzeug scripts/austausch.mjs
-├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root) · docs/AUDIT-2026-11-11.md = 45 gegengeprüfte Funde, davon offen: Edge-Functions, drei im Service Worker
+├── docs/                # lebende Doku · docs/_archiv/ = 53 historische Aufträge/Audits (seit v32.69 aus dem Root) · docs/AUDIT-2026-11-11.md = 70 gegengeprüfte Funde aus zwei Läufen; die offenen stehen mit Anker auf dem Brett
 ├── AGENTS.md            # Zeiger für Werkzeuge, die CLAUDE.md nicht von selbst laden
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
@@ -266,6 +266,9 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 | Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
 | „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
+| Kalenderwoche | `gsIsoKW(d)` — ISO 8601 (Montag bis Sonntag, KW 1 = die Woche mit dem ersten Donnerstag); `gsGetKW()` ist dieselbe Rechnung fuer heute | nie Sieben-Tage-Bloecke ab dem 1. Januar (2026 lag das Montag bis Mittwoch eine Woche zurueck) |
+| Fakten einer Woche | `_gsWochenFakten(kw)` — die Eintraege der Woche, sonst der Nachbarwoche (zuerst die davor), sonst die ersten zehn | kein eigener Rueckfall je Anzeige (die Liste kennt KW 1–52, die ISO-Woche 53 hat keinen Eintrag) |
+| „Steht der Anmeldebildschirm?" | `_gsAnmeldungSteht()` — `html.gs-preauth` ODER `#gs-onboarding` sichtbar | nie nur eine der beiden Bedingungen; `_gsTeilenBereit()` ist ihre Verneinung |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -841,13 +844,15 @@ Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
   und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
   Farbe aus einer Antwort steht.
 
-## 4f · Sechs Regeln aus dem Audit vom 11.11.2026 (v33.59)
+## 4f · Zehn Regeln aus dem Audit vom 11.11.2026 (v33.59)
 
-Pruefstaende: `statik_check`, `datum_check`, `robust_check` („Zweite Sitzung",
-„Kaputter Speicher"), `sync_check` (Garten-Pull), `contrast_check` (Durchgang 3).
+Pruefstaende: `statik_check` (S0–S9), `datum_check` (T0–T7), `robust_check`
+(„Zweite Sitzung", „Kaputter Speicher", „Rechtstexte vor der Anmeldung",
+„Web-Root"), `sync_check` (Garten-Pull), `contrast_check` (Durchgang 3),
+`nutzersicht_check` (E11–E15), `apk_check` (B6, R19).
 
-> **v33.59 — sechs Regeln aus einem Durchgang mit zehn Agenten** (das Protokoll:
-> `docs/AUDIT-2026-11-11.md`, 45 Funde, jeder gegengeprueft).
+> **v33.59 — zehn Regeln aus einem Durchgang mit 18 Agenten in drei Laeufen**
+> (das Protokoll: `docs/AUDIT-2026-11-11.md`, 70 Funde, jeder gegengeprueft).
 >
 > **1 · Ein Pull frischt auch den ARBEITSSPEICHER auf.** Der Login-Pull schrieb
 > `gardens`/`plantings` nur in den Geraetespeicher; `renderGarden()` am Ende des
@@ -892,6 +897,42 @@ Pruefstaende: `statik_check`, `datum_check`, `robust_check` („Zweite Sitzung",
 > `toISOString().slice(0, 10)` ist in der Schweiz nachts der Vortag, und in UTC
 > sieht man es nie. Lokal gemeint: `_gsDayKey()` / `_gsKalTag(d)`. Bewusst UTC
 > (Quiz-Tag, Dateinamen): dann den Deckel in `datum_check` T0 mit Grund erhoehen.
+>
+> **7 · `calc()` braucht Leerraum um + und −, sonst gibt es die Deklaration
+> nicht.** `height:calc(var(--st)+var(--top-h))` ist ungueltig; mit `var()` darin
+> faellt die Eigenschaft erst beim Berechnen weg, ohne Meldung. Sieben Stellen,
+> seit jeher: die Kopfleiste war 39 statt 56 px hoch, die Bottom-Sheets hatten
+> keinen Fuss — und der Knopf „Rezept hinzufuegen" stand 10'499 px unter dem
+> Bildschirm (`bottom:auto`). Eigene Rezepte liessen sich nie anlegen, und
+> **ein Bedienelement, das nie jemand gesehen hat, meldet niemand als Fehler.**
+> `statik_check` S8 haelt jeden Ausdruck gegen die Regel (und die Regel gegen
+> acht gueltige und sechs ungueltige Formen).
+>
+> **8 · Was auf dem Anmeldebildschirm gebraucht wird, darf nicht in `#app`
+> wohnen.** `#app` ist ohne Anmeldung `display:none!important`, und
+> `#gs-onboarding` liegt auf z-index 9999999. Die zwei Links „Datenschutz-
+> erklaerung & Nutzungsbedingungen" im Registrierformular oeffneten ein Fenster,
+> das `.open` trug, das Scrollen sperrte und NICHT ZU SEHEN war. Wer von dort
+> etwas oeffnet, fragt `_gsAnmeldungSteht()` und haengt das Fenster an den
+> `<body>` (Vorbild `openLegalModal`). Dahinter lag ein Strukturfehler:
+> `<div id="app">` wurde nie geschlossen (`statik_check` S9).
+>
+> **9 · Eine Kalenderwoche ist die ISO-Woche: `gsIsoKW()`.** Zwei Rechnungen
+> zaehlten Sieben-Tage-Bloecke ab dem 1. Januar — richtig nur in Jahren, die an
+> einem Montag beginnen. 2026 lag die Woche von Montag bis Mittwoch um eins
+> zurueck (Startseite und Planer-Kalender). Und wer die Fakten einer Woche
+> braucht, ruft `_gsWochenFakten(kw)` — ein Rueckfall fuer alle Anzeigen
+> (`datum_check` T7).
+>
+> **10 · Eine Versionsnummer gehoert dem, der sie auf `main` hat — und ein
+> Audit misst den Stand, den er liest.** Diese Scheibe hiess v33.57, bis
+> `git fetch origin main` zeigte, dass `main` v33.57 UND v33.58 inzwischen
+> vergeben hatte: 121 Nennungen umnummeriert, 28 Konfliktstellen aufgeloest.
+> Und der zweite Agenten-Lauf pruefte den Stand VOR dem Nachziehen: drei seiner
+> Funde hatte `main` schon behoben (Rezept-Verknuepfung, doppelte Rezept-ids,
+> die Zutaten-Karte), bei einem vierten drei von vier Stellen. **Vor jedem
+> Arbeitsschritt `git fetch origin main`; vor dem Bump die Nummer gegen `main`
+> halten; und einen Fund gegen den Stand nachmessen, in den er einfliesst.**
 >
 > Und zum Werkzeug selbst: **acht lose Agenten rissen zweimal am Nutzungslimit,
 > bevor einer berichtet hatte.** Ein Workflow mit Zwischenspeicher je Agent
@@ -1107,8 +1148,8 @@ node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wied
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
 node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
 node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
-node scripts/statik_check.js     # was sagt ein PARSER ueber die App? (seit v33.59) ESLint nur als Parser mit Geltungsbereichen: alles parst · keine Funktion doppelt deklariert · kein Name, den es nirgends gibt · kein typeof-Schutz vor etwas, das es nie gibt · 41 Korrektheitsregeln mit null Treffern · keine Funktion, deren Nennungen alle im EIGENEN Rumpf stehen · jede benutzte CSS-Variable ist definiert · sw.js mit den Namen eines Workers. Ohne ESLint: „nicht pruefbar" (Exit 2). Laeuft als ERSTER (14 s)
-node scripts/datum_check.js      # stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.59) Europe/Zurich, Uhr auf 01:30 gestellt — alle anderen laufen in UTC, wo lokaler und UTC-Tag dasselbe sind: Vorgabe in Datumsfeldern, EXIF-Datum, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner; T0 deckelt die UTC-Tagesschnitte (32)
+node scripts/statik_check.js     # was sagt ein PARSER ueber die App? (seit v33.59) ESLint nur als Parser mit Geltungsbereichen: alles parst · keine Funktion doppelt deklariert · kein Name, den es nirgends gibt · kein typeof-Schutz vor etwas, das es nie gibt · 41 Korrektheitsregeln mit null Treffern · keine Funktion, deren Nennungen alle im EIGENEN Rumpf stehen · jede benutzte CSS-Variable ist definiert · sw.js mit den Namen eines Workers · S8: jedes calc() hat Leerraum um + und − · S9: jedes statische Tag wird geschlossen. Ohne ESLint: „nicht pruefbar" (Exit 2). Laeuft als ERSTER (14 s)
+node scripts/datum_check.js      # stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.59) Europe/Zurich, Uhr auf 01:30 gestellt — alle anderen laufen in UTC, wo lokaler und UTC-Tag dasselbe sind: Vorgabe in Datumsfeldern, EXIF-Datum, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner, T7: die Kalenderwoche ist die ISO-Woche (acht Probetage gegen eine eigene Rechnung, KW 53); T0 deckelt die UTC-Tagesschnitte (32)
 node scripts/austausch_check.js  # kommt an, was eine KI-Sitzung der nächsten sagt? Das Brett (Form, Bezüge, Wächter, Anker, Zählungen), die zwei Übergabe-Zeilen in STATUS.md §0, die vier Zahlen in STATUS.md §1, die Agenten-Runde — und jede Regel gegen gebaute gute UND schlechte Fälle, das Werkzeug als Prozess, zwei echte git-Branches (seit 11.11.2026; braucht nur Node und git)
 bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile

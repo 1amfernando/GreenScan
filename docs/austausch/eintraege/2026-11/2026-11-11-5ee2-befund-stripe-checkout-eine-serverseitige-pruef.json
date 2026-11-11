@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-11-5ee2",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "stripe-checkout: eine serverseitige Prüfung greift nicht",
+  "sicherheit": true,
+  "stichworte": [
+    "stripe-checkout",
+    "edge-function",
+    "launch_offer",
+    "sicherheit"
+  ],
+  "details_bei": "Übergabe-Datei „GreenScan-Folgeaufgaben-2026-11-11.md\" (Aufgabe 1), die Fernando in der Sitzung vom 11.11.2026 bekommen hat — nicht im Repo."
+}
