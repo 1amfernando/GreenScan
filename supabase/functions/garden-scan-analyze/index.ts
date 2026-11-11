@@ -5,9 +5,13 @@
 //   fn_check_rate_limit. Fail-open (Rate-Limit-Fehler blockiert den Dienst nicht).
 import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 // v33.59 (Sicherheitspruefung 10.11.2026): das Tor vor dem KI-Aufruf — Plan vom
 // Server, Tageskontingent atomar reserviert (fail-closed), Eingabe gedeckelt.
 // Vorher nur 20/h fail-open, 3 Fotos ohne Groessengrenze, metadata ungedeckelt.
+// Die Reservierung liegt VOR anthropicFetch und gilt fuer den ganzen Aufruf — ein
+// Modell-Rueckfall in der Kette bucht nichts zusaetzlich.
 import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiToken, kiTor } from "../_shared/ki_tor.mjs";
 
 const KI_FN = "garden-scan-analyze";
@@ -323,7 +327,7 @@ Deno.serve(async (req) => {
     // Jetzt bricht der Server nach 110 s ab (Edge-Function-Limit 150 s), der Client wartet 120 s.
     let anthropicRes: Response;
     try {
-      anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      anthropicRes = await anthropicFetch("vision", {
       method: "POST",
       signal: AbortSignal.timeout(110_000),
       headers: {
@@ -332,7 +336,6 @@ Deno.serve(async (req) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
         max_tokens: horizonYears > 1 ? 14000 : 10000,
         system: systemPrompt,
         messages: [{ role: "user", content: userContent }],
@@ -394,7 +397,7 @@ Deno.serve(async (req) => {
         p_tokens_in: anthropicData?.usage?.input_tokens || 0,
         p_tokens_out: anthropicData?.usage?.output_tokens || 0,
         // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
-        p_model: anthropicData?.model || "claude-sonnet-4-20250514",
+        p_model: anthropicData?.model || modellKette("vision", modellSecret("vision"))[0],
       });
     } catch (_) { /* nicht-blockierend */ }
 

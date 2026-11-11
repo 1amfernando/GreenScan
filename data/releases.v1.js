@@ -30,6 +30,36 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.38', date: '16.09.2026',
+    headline: '„Mein Naturjahr“ zählt jetzt dasselbe wie der Kalender — und die Garten-Timeline ist darin aufgegangen',
+    summary: 'Zweiter Teil der vierten Scheibe. Der Jahresrückblick rechnete seine Zahlen selbst, mit eigenen Lesern — und lag daneben: die Kachel „Funde“ stand seit jeher auf 0, weil sie ein Feld las, das keine der drei Schreibstellen setzt, und „Arten“ zählte als einzige Kachel ohne Jahresfilter, unter der Überschrift „Mein Naturjahr 2026“. Beides kommt jetzt aus der einen Kalender-Funktion. Und die Garten-Timeline, die dieselbe Frage mit sechs eigenen Quellen beantwortet hat, ist ersatzlos weg: der Menüeintrag heisst „Rückblick“ und öffnet den Kalender mit eingeschalteter Rückblick-Gruppe.',
+    user_summary: 'Dein Jahresrückblick zeigt jetzt die richtigen Zahlen — und die Garten-Timeline findest du als „Rückblick“ im Kalender.',
+    user_items: [
+      {emoji: '📍', bold: 'Funde zählen wieder:', text: ' Die Kachel „Funde“ in „Mein Naturjahr“ stand immer auf 0, egal wie viele Fundorte du auf der Karte hattest. Jetzt steht dort, was der Kalender auch zeigt.'},
+      {emoji: '🌿', bold: 'Arten zählen dein Jahr:', text: ' Unter „Mein Naturjahr 2026“ zählte die Arten-Kachel alle Scans, die du je gemacht hast. Jetzt zählt sie die dieses Jahres.'},
+      {emoji: '📆', bold: 'Rückblick statt Timeline:', text: ' Der Menüeintrag „Garten-Timeline“ heisst jetzt „Rückblick“ und öffnet den Kalender — mit Tagebuch, Pflanzungen und Fundorten eingeschaltet. Eine Ansicht statt zwei, und diese denkt mit.'}
+    ],
+  },
+  {
+    v: 'v33.37', date: '16.09.2026',
+    headline: 'Scans, Fundorte und deine wirkliche Ernte stehen jetzt im Kalender',
+    summary: 'Vierte Scheibe von KALENDER-V2, erster Teil der drei Namen. Drei Quellen, die es in der App längst gibt und die im Kalender fehlten: der Scan-Verlauf, die Karten-Fundorte und das Ernte-Buch. Dabei gemessen: „Funde" in Mein Naturjahr stand seit jeher auf 0 — beide Schreiber legen die Zeit als `date` ab, gelesen wurde `ts/time/found_at/created_at`. Kein Fund hat je einen Monatsbalken bewegt.',
+    user_summary: 'Der Kalender zeigt dir jetzt auch, was du gescannt, gefunden und geerntet hast — an dem Tag, an dem es passiert ist. Scans sind zusammen mit den Messwerten hinter einem Knopf versteckt, weil es viele werden; Fundorte und Ernten siehst du sofort.',
+    user_items: [
+      {emoji: '🔬', bold: 'Deine Scans im Kalender:', text: ' jeder Scan steht an seinem Tag, mit der Art und wie sicher die Erkennung war. Antippen öffnet die Art.'},
+      {emoji: '📍', bold: 'Deine Fundorte:', text: ' was du auf der Karte markiert hast, steht jetzt auch im Kalender.'},
+      {emoji: '🧺', bold: 'Die wirkliche Ernte:', text: ' bisher zeigte der Kalender nur, wann etwas reif sein könnte. Jetzt steht daneben, was du tatsächlich geerntet hast — mit Menge.'},
+      {emoji: '🔍', bold: 'Ein Fehler, den niemand gemeldet hat:', text: ' die Kachel „Funde" in Mein Naturjahr zählte immer 0. Sie las ein Feld, das keiner schreibt.'}
+    ],
+    items: [
+      'Drei neue Quellen in gsKalenderEreignisse: scan (SCAN_HISTORY_KEY über _gsScanZeit), fund (greenscan_markers über den neuen _gsFundZeit), ernte quelle hand (gs_ernte_log). Ohne lesbare Zeit KEIN Ereignis statt eines auf „heute".',
+      '_gsFundZeit(f): EIN Leser für die Zeit eines Fundorts. Beide Schreiber legen `date` in Millisekunden ab; gsOpenNaturjahr las ts/time/found_at/created_at und fand keinen einzigen. Dieselbe Klasse wie _gsScanZeit (v33.33) und ctx.harvests (v33.34).',
+      'Gruppen: fund im Rückblick (Vorgabe an — Fundorte sind wenige und gewollt), scan bei den Messwerten (Vorgabe aus — bis 200 Scans würden das Raster zudecken). Der Chip heisst jetzt „Messwerte & Scans".',
+      '_gsKalDatenlage kennt die zwei neuen Quellen: wer NUR gescannt hat, bekommt nicht mehr „Noch keine Daten". Der Fall „Ohne Daten" räumt sie mit.',
+      'Prüfstände: kalender_check 44 (4 neu, alle vier rot gegen v33.36). Gegenproben: Scan-Zeit aus einem Feld statt dem Leser, _gsFundZeit ohne `date`, Ernte ohne Weg und Grund → je rot.'
+    ]
+  },
+  {
     v: 'v33.36', date: '16.09.2026',
     headline: 'Ein Wetter für die ganze App — Frost, Hitze, Starkregen und Sturm stehen im Kalender, und das Warnfenster rechnet mit denselben Zahlen',
     summary: 'Dritte Scheibe von KALENDER-V2 (R6, R7). Die vier Schwellen standen an zwei Stellen: eine Konstante für den Frost im Kalender und vier Literale im Warnfenster, das dazu einen eigenen Wetter-Abruf machte und einen alten Standort-Schlüssel las. Jetzt eine Tabelle, ein Zwischenspeicher, eine Rechnung. Und der teuerste Teil: hatte die Antwort keine Tageswerte, sagte das Warnfenster „alles im grünen Bereich" — Stille als Entwarnung, bei Frost der teuerste Fehler dieser App.',

@@ -23,9 +23,12 @@
 
 import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 // v33.59 (Sicherheitspruefung 10.11.2026): das Tor vor dem KI-Aufruf — Plan vom
 // Server, Tageskontingent atomar reserviert (fail-closed), Freitexte gedeckelt,
 // Bildtyp aus einer Liste; nach aussen feste Saetze statt Anbieter-Rohtext.
+// Die Reservierung gilt fuer den ganzen anthropicFetch — ein Modell-Rueckfall bucht nichts dazu.
 import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiSlugAusListe, kiToken, kiTor } from "../_shared/ki_tor.mjs";
 
 const KI_FN = "mushroom-identify";
@@ -66,6 +69,10 @@ Deno.serve(async (req) => {
   // API-Schluessel, keine Sitzung) nie einen Nutzer: jeder Aufruf 401 (vgl. B-007).
   const userToken = kiToken(authHdr);
   if (!userToken) return json(401, { error: "unauthorized" });
+  // v33.58: das Token wird AUSDRUECKLICH geprueft (admin.auth.getUser(userToken)). Vorher
+  // `createClient(URL, userToken).auth.getUser()` ohne Argument — neuere supabase-js-Fassungen
+  // antworten darauf mit „Auth session missing". v33.59: der Nutzer-Client traegt das Token als
+  // Bearer — mit ihm liest das Tor v_user_entitlements (die Sicht filtert auf auth.uid()).
   const sbUser = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: "Bearer " + userToken } }, auth: { persistSession: false } });
   const { data: userData, error: userErr } = await admin.auth.getUser(userToken);
   if (userErr || !userData?.user) return json(401, { error: "invalid token" });
@@ -115,11 +122,10 @@ Deno.serve(async (req) => {
 
   let aiJson: any;
   try {
-    const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
+    const aiResp = await anthropicFetch("schnell", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
         max_tokens: 800,
         system: systemPrompt,
         messages: [{
@@ -197,7 +203,7 @@ Deno.serve(async (req) => {
       p_tokens_in: aiJson?.usage?.input_tokens || 0,
       p_tokens_out: aiJson?.usage?.output_tokens || 0,
       // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
-      p_model: aiJson?.model || 'claude-haiku-4-5-20251001',
+      p_model: aiJson?.model || modellKette('schnell', modellSecret('schnell'))[0],
     });
   } catch (_) { /* nicht-blockierend */ }
 

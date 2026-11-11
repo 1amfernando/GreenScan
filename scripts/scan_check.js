@@ -655,6 +655,45 @@ const FAELLE = [
       return { ok: true, info: gesehen.filter(x => /^erg/.test(x)).join(' · ') };
     },
   },
+  // ── v33.58 · der GETEILTE Scan-Cache ist aus ─────────────────────────
+  // Gemessen an der Live-DB (10.11.2026, nur lesend): `scan_cache` ist EINE
+  // Tabelle fuer alle Konten, der Schluessel ein 64-Bit-dHash aus 9×8
+  // Bildpunkten, und `fn_scan_cache_put` nimmt von jedem angemeldeten Konto
+  // jedes Ergebnis fuer jeden Hash an — der ERSTE Eintrag gewinnt. Ein
+  // Treffer ersetzt die KI-Antwort ganz. Der Fall stellt genau das her: unter
+  // dem Hash des Fotos liegt ein FREMDER Treffer, der eine essbare Art nennt.
+  {
+    name: 'Cache · der geteilte Scan-Cache ist aus: ein bereitliegender fremder Treffer wird nie gelesen, nichts wird hineingeschrieben, die KI wird gefragt',
+    lauf: async () => {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#e8e2d0'; g.beginPath(); g.ellipse(80, 70, 46, 26, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#8a7a5a'; g.lineWidth = 3; g.beginPath(); g.moveTo(80, 96); g.lineTo(80, 150); g.stroke();
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+      window.getApiConfig = () => ({ key: 'k' });
+      window.stopCamera = () => {};
+      window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Oktober', season: 'Herbst', monthNum: 10, canton: 'ZH' });
+      const z = { hash: 0, get: 0, put: 0, ki: 0 };
+      window._gsScanDHash = async () => { z.hash++; return '00ff00ff00ff00ff'; };
+      window._gsScanCacheGet = async () => { z.get++; return { name: 'Wiesen-Champignon', latin: 'Agaricus campestris', confidence: 97,
+        edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'aus dem Cache' }; };
+      window._gsScanCachePut = () => { z.put++; };
+      window.callVisionAI = async () => { z.ki++; return JSON.stringify({ name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides',
+        confidence: 86, edible: false, toxic: true, toxicity: 5, alternatives: [], description: 'x' }); };
+      await analyzeImage(b64, 'image/jpeg');
+      const karte = (document.getElementById('scan-result') || {}).textContent || '';
+      if (z.ki !== 1) return { ok: false, warum: 'die KI wurde ' + z.ki + '× gefragt statt 1× (Cache gelesen ' + z.get + '× · geschrieben ' + z.put + '×) — auf der Karte: ' + (/Champignon/.test(karte) ? 'der fremde Treffer' : 'etwas anderes') };
+      if (z.get !== 0) return { ok: false, warum: 'der geteilte Cache wurde ' + z.get + '× gelesen' };
+      if (z.put !== 0) return { ok: false, warum: 'in den geteilten Cache wurde ' + z.put + '× geschrieben' };
+      if (/Champignon/.test(karte)) return { ok: false, warum: 'auf der Karte steht der Treffer aus dem Cache' };
+      if (!/Knollenbl/.test(karte)) return { ok: false, warum: 'die Antwort der KI steht nicht auf der Karte' };
+      return { ok: true, info: 'KI 1× gefragt · Cache gelesen 0× · geschrieben 0×' };
+    },
+  },
   // ── v33.16 · Stufe 2b: jedes Foto gemessen, der dritte Blick ─────────
   {
     name: 'Ablauf · jedes Foto gemessen: das scharfe trägt das unscharfe, keines lesbar → Rückfrage, „Trotzdem" behält beide',

@@ -59,8 +59,13 @@ const BILD_MAX = 5 * MB;
 
 export const KI_GRENZEN = {
   // ai-proxy: free 15 = GS_PLANS.free im Client; basic/premium fielen bis v33.56 auf free.
+  // EINE Tabelle (Vereinigung v33.58 + v33.59): main lieferte live (ai-proxy v3) basic/plus/
+  // premium 200 · pro/lifetime 2000 · Admin 2000 — die Zahlen hier sind dieselben (basic stand
+  // auf dem Sicherheitszweig bei 100; ein zahlender Kunde bekommt nie weniger als live).
+  // bytes ist der GESAMTdeckel des Rumpfs (main: 20_000_000 Zeichen, auch an der Kopfzeile
+  // content-length geprueft); bildBytes der Deckel JE Bild (Anbieter-Limit) — zwei Fragen.
   "ai-proxy": {
-    tag: STUFEN(15, 100, 200, 2000), bytes: 12 * MB, bilder: 6, bildBytes: BILD_MAX,
+    tag: STUFEN(15, 200, 200, 2000), bytes: 20000000, bilder: 6, bildBytes: BILD_MAX,
     nachrichten: 60, textGesamt: 200000, maxTokens: 4096,
   },
   "plan-iterate": {
@@ -196,13 +201,14 @@ export function kiToken(authHeader) {
  */
 export function kiKontingentUrteil({ fn, ent, res }) {
   if (!KI_GRENZEN[fn]) return { erlaubt: false, status: 500, code: "config", grund: "Unbekannte Function" };
-  if (!ent || ent.error) return { erlaubt: false, status: 503, code: "kontingent_unbekannt", grund: "Plan nicht lesbar" };
+  // grund ist fuers PROTOKOLL (nie nach aussen — dort steht der feste Satz aus kiFehlerCode).
+  if (!ent || ent.error) return { erlaubt: false, status: 503, code: "kontingent_unbekannt", grund: "Plan nicht lesbar" + (ent && ent.error && ent.error.message ? ": " + String(ent.error.message).slice(0, 200) : "") };
   const z = ent.data || null;
   if (z && String(z.role || "") === "banned") return { erlaubt: false, status: 403, code: "gesperrt", grund: "Konto gesperrt" };
   const plan = z && z.tier ? String(z.tier) : "free";
   const limit = kiLimit(fn, plan, !!(z && z.is_admin === true));
   if (!res) return { erlaubt: false, status: 503, code: "kontingent_unbekannt", grund: "Keine Reservierung", plan, limit };
-  if (res.error) return { erlaubt: false, status: 503, code: "kontingent_unbekannt", grund: "Reservierung gescheitert", plan, limit };
+  if (res.error) return { erlaubt: false, status: 503, code: "kontingent_unbekannt", grund: "Reservierung gescheitert" + (res.error.message ? ": " + String(res.error.message).slice(0, 200) : ""), plan, limit };
   if (res.data !== true) return { erlaubt: false, status: 429, code: "quota_exceeded", grund: "Tageslimit erreicht", plan, limit };
   return { erlaubt: true, status: 200, code: "ok", grund: "", plan, limit };
 }
@@ -271,6 +277,8 @@ const KI_SAETZE = {
   config: "Der Server ist nicht vollständig eingerichtet.",
   eingabe: "Die Anfrage ist unvollständig.",
   intern: "Unerwarteter Fehler auf dem Server.",
+  // ai-proxy, Notschalter app_settings.global_api_enabled = false (v33.58, Satz von main).
+  service_disabled: "Die KI-Funktionen sind vorübergehend abgeschaltet.",
 };
 
 /**

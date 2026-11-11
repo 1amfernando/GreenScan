@@ -81,7 +81,8 @@ module.exports = [
       let x = await lauf('ai-proxy', { data: { tier: 'free', role: 'user' }, error: null }, ok);
       if (!x.r.erlaubt || x.p.length !== 1 || x.p[0].name !== 'fn_ai_kontingent_reservieren' || x.p[0].args.p_user !== U || x.p[0].args.p_function !== 'ai-proxy' || x.p[0].args.p_limit !== 15) return { ok: false, warum: 'free: ' + JSON.stringify(x) };
       x = await lauf('ai-proxy', { data: { tier: 'basic', role: 'user' }, error: null }, ok);
-      if (x.p[0].args.p_limit !== 100) return { ok: false, warum: 'basic faellt auf ' + x.p[0].args.p_limit };
+      // basic 200 = ai-proxy v3 live (v33.58) — die vereinte Tabelle nimmt die hoehere Zahl je bezahltem Plan.
+      if (x.p[0].args.p_limit !== 200) return { ok: false, warum: 'basic faellt auf ' + x.p[0].args.p_limit };
       x = await lauf('garden-scan-analyze', { data: { tier: 'pro', role: 'user' }, error: null }, ok);
       if (x.p[0].args.p_limit !== 480) return { ok: false, warum: 'pro garden-scan: ' + x.p[0].args.p_limit }; // v33.59: Bremse = alte 20/h × 24
       x = await lauf('plan-iterate', { data: null, error: null }, ok);
@@ -99,7 +100,7 @@ module.exports = [
         const y = await lauf('mushroom-identify', ent, rpc);
         if (y.r.erlaubt || y.r.status !== st || y.p.length !== rufe) return { ok: false, warum: was + ' → ' + JSON.stringify({ erlaubt: y.r.erlaubt, status: y.r.status, rpc: y.p.length }) };
       }
-      return { ok: true, info: 'free 15 · basic 100 · pro/garden 480 · ohne Zeile free · gesperrt 403 ohne Reservierung · 4× technisch 503 · Limit 429' };
+      return { ok: true, info: 'free 15 · basic 200 · pro/garden 480 · ohne Zeile free · gesperrt 403 ohne Reservierung · 4× technisch 503 · Limit 429' };
     },
   },
   {
@@ -135,9 +136,10 @@ module.exports = [
       for (const fn of KI_FNS) {
         const src = h.ohneKommentare(h.lies(fn + '/index.ts'));
         if (!/from\s+["']\.\.\/_shared\/ki_tor\.mjs["']/.test(src)) { fehler.push(fn + ': importiert ki_tor.mjs nicht'); continue; }
-        // Der KI-Aufruf: das fetch an api.anthropic.com — steht es in einer Hilfsfunktion
-        // VOR Deno.serve, zaehlt die Stelle, an der diese Funktion gerufen wird.
-        let anth = src.indexOf('api.anthropic.com');
+        // Der KI-Aufruf: das fetch an api.anthropic.com ODER anthropicFetch( (v33.58, Modellkette
+        // aus _shared/modelle.mjs) — steht er in einer Hilfsfunktion VOR Deno.serve, zaehlt die
+        // Stelle, an der diese Funktion gerufen wird.
+        let anth = src.search(/api\.anthropic\.com|\banthropicFetch\s*\(/);
         const serve = src.indexOf('Deno.serve');
         if (anth >= 0 && serve > anth) {
           const kopfe = Array.from(src.slice(0, anth).matchAll(/async\s+function\s+(\w+)\s*\(/g));
@@ -146,7 +148,7 @@ module.exports = [
         }
         const tor = src.search(/await\s+kiTor\s*\(\s*\{/);
         const ein = src.search(/kiEingabeOk\s*\(\s*(["']|KI_FN\b)|kiProxyEingabe\s*\(/);
-        if (anth < 0) fehler.push(fn + ': kein Aufruf an api.anthropic.com gefunden');
+        if (anth < 0) fehler.push(fn + ': kein Aufruf an api.anthropic.com / anthropicFetch gefunden');
         if (tor < 0 || tor > anth) fehler.push(fn + ': kiTor fehlt oder steht NACH dem KI-Aufruf');
         if (ein < 0 || ein > tor) fehler.push(fn + ': Eingabe-Deckel fehlt oder steht nach der Reservierung');
         if (!new RegExp('fn\\s*:\\s*["\']' + fn + '["\']').test(src) && !new RegExp('KI_FN\\s*=\\s*["\']' + fn + '["\']').test(src)) fehler.push(fn + ': ruft das Tor nicht unter dem eigenen Namen');
@@ -157,7 +159,10 @@ module.exports = [
         if (/\.then\(\s*\(\)\s*=>\s*\{\s*\}\s*,\s*\(\)\s*=>\s*\{\s*\}\s*\)/.test(src)) fehler.push(fn + ': Buchung fire-and-forget');
       }
       const proxy = h.ohneKommentare(h.lies('ai-proxy/index.ts'));
-      if (!/body\s*:\s*JSON\.stringify\(\s*\{\s*model\s*,\s*max_tokens\s*:\s*maxTokens\s*,\s*system\s*,\s*messages\s*\}\s*\)/.test(proxy)) fehler.push('ai-proxy: Form des Anfrage-Rumpfs an Anthropic veraendert');
+      // v33.58: der Rumpf geht ueber rufeModell (das Modell setzt die Kette, dazu sein Zusatz) — an
+      // Anthropic gehen nur diese drei Felder des Clients; alles andere, was er mitschickt, nie.
+      if (!/rufeModell\(\s*\w+\s*,\s*\{\s*max_tokens\s*:\s*maxTokens\s*,\s*system\s*,\s*messages\s*\}/.test(proxy)) fehler.push('ai-proxy: Form des Anfrage-Rumpfs an Anthropic veraendert');
+      if (!/body\s*:\s*JSON\.stringify\(\s*rumpf\s*\)/.test(proxy) || /\.\.\.\s*body\b/.test(proxy)) fehler.push('ai-proxy: der gesendete Rumpf ist nicht der von rufeModell');
       if (fehler.length) return { ok: false, warum: fehler.join(' · ') };
       return { ok: true, info: KI_FNS.length + ' Functions: Token-Pruefung · Deckel vor Tor · Tor vor Anthropic · Urteil gelesen' };
     },
@@ -285,16 +290,18 @@ module.exports = [
       // plan-iterate hatte KEINE Bremse (nur MAX_ITERATIONS je Plan, vom Client schreibbar) — Anker
       // ist die Schwester garden-scan-analyze (20/h).
       const ALT_STUNDE = { 'garden-scan-analyze': 20, 'plant-doctor-diagnose': 30, 'pest-identify': 30, 'mushroom-identify': 30, 'plan-iterate': 20 };
-      const ALT_PROXY = { plus: 200, pro: 2000, lifetime: 2000 };
+      // dazu ai-proxy v3, wie v33.58 LIVE ausgeliefert hat: basic/plus/premium 200 · pro/lifetime 2000 · Admin 2000.
+      const ALT_PROXY = { basic: 200, plus: 200, premium: 200, pro: 2000, lifetime: 2000 };
       const BEZAHLT = ['plus', 'premium', 'pro', 'lifetime'];
       const zuWenig = [];
       for (const fn of Object.keys(ALT_STUNDE)) for (const p of BEZAHLT) { const n = m.kiLimit(fn, p, false); if (n < ALT_STUNDE[fn] * 24) zuWenig.push(fn + '/' + p + '=' + n + ' < ' + ALT_STUNDE[fn] * 24); }
       for (const p of Object.keys(ALT_PROXY)) { const n = m.kiLimit('ai-proxy', p, false); if (n < ALT_PROXY[p]) zuWenig.push('ai-proxy/' + p + '=' + n + ' < ' + ALT_PROXY[p]); }
+      if (m.kiLimit('ai-proxy', 'free', true) < 2000) zuWenig.push('ai-proxy/Admin=' + m.kiLimit('ai-proxy', 'free', true) + ' < 2000');
       if (zuWenig.length) return { ok: false, warum: 'weniger als bisher: ' + zuWenig.join(' · ') };
       // Gegenrichtung: die Bremse fuer free/basic ist die entworfene, nicht weggefallen.
-      const frei = { 'ai-proxy': [15, 100], 'garden-scan-analyze': [3, 5], 'plant-doctor-diagnose': [5, 15], 'pest-identify': [20, 40], 'mushroom-identify': [20, 40], 'plan-iterate': [10, 20] };
+      const frei = { 'ai-proxy': [15, 200], 'garden-scan-analyze': [3, 5], 'plant-doctor-diagnose': [5, 15], 'pest-identify': [20, 40], 'mushroom-identify': [20, 40], 'plan-iterate': [10, 20] };
       for (const fn of Object.keys(frei)) if (m.kiLimit(fn, 'free') !== frei[fn][0] || m.kiLimit(fn, 'basic') !== frei[fn][1] || m.kiLimit(fn, 'unbekannt') !== frei[fn][0]) return { ok: false, warum: fn + ' free/basic/unbekannt: ' + [m.kiLimit(fn, 'free'), m.kiLimit(fn, 'basic'), m.kiLimit(fn, 'unbekannt')].join('/') };
-      return { ok: true, info: '5 Functions × 4 bezahlte Plaene ≥ Stunde×24 · ai-proxy ≥ alt · free/basic unveraendert' };
+      return { ok: true, info: '5 Functions × 4 bezahlte Plaene ≥ Stunde×24 · ai-proxy ≥ main live (basic/plus/premium 200, pro/lifetime/Admin 2000) · free/basic wie entworfen' };
     },
   },
   {

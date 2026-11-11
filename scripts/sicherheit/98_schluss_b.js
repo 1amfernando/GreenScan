@@ -127,7 +127,7 @@ module.exports = [
           const ziele = [];
           window._gsApiFetch = async (url) => {
             ziele.push(String(url));
-            if (/anthropic\.com/.test(url)) return new Response(JSON.stringify({ content: [{ text: 'direkt' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            if (/anthropic\.com/.test(url)) return new Response(JSON.stringify({ content: [{ type: 'text', text: 'direkt' }] })   /* echte Form: seit v33.58 liest _gsAiText nur Bloecke mit type 'text' */, { status: 200, headers: { 'Content-Type': 'application/json' } });
             if (antwort === 'netz') throw new TypeError('Failed to fetch');
             return new Response(JSON.stringify(antwort.body), { status: antwort.status, headers: { 'Content-Type': 'application/json' } });
           };

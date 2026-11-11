@@ -6,17 +6,27 @@
 // Diese Funktion war ausgeliefert und wird vom Frontend benutzt, hatte aber
 // keinen Quelltext im Repo. Herkunft und Datum stehen hier, damit jede spätere
 // Sitzung nachprüfen kann, ob der Spiegel noch stimmt (neu ziehen und
-// vergleichen). Keine Überarbeitung.
-// v33.59: ÜBERARBEITET (Sicherheitspruefung 10.11.2026: Tor, Deckel, feste Fehlersaetze) —
+// vergleichen). Bis v33.56 keine Überarbeitung.
+//
+// v33.58 (10.11.2026) — KEIN Abbild mehr: das ausgelieferte nannte genau ein Modell,
+// `claude-sonnet-4-20250514`, und das ist seit dem 15.06.2026 abgeschaltet. Jeder
+// „Plan anpassen"-Aufruf endete seither im Fehler. Das Modell kommt jetzt aus der
+// Kette der Rolle „vision" (_shared/modelle.mjs), mit Rückfall.
+// v33.59: dazu ÜBERARBEITET (Sicherheitspruefung 10.11.2026: Tor, Deckel, feste Fehlersaetze) —
 // der Spiegel gilt seither nicht mehr wortgetreu; Vergleich mit der Auslieferung nach dem Deploy.
 // ══════════════════════════════════════════════════════════════════════════
 // plan-iterate v3 (v26.50 ai_daily_usage Logging) — v2-base + RPC-Log vor success-Return.
 // Region-aware: liest scan_input.region_used aus garden_plans, lädt regional_garden_calendars als Constraint.
 import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 // v33.59 (Sicherheitspruefung 10.11.2026): das Tor vor dem KI-Aufruf. Vorher gab es
 // keine Bremse ausser iterations.length — eine Spalte, die der Besitzer selbst
 // schreibt (garden_plans_owner_all); jeder neue Plan setzte sie ohnehin auf 0.
+// Reihenfolge: Anmeldung → Deckel → Tor (Plan, Sperre, Reservierung) → anthropicFetch
+// (Modellkette; ein Rueckfall darin bucht nichts zusaetzlich — reserviert ist EINMAL) →
+// bei Ablehnung/Netzfehler Freigabe ueber kiFreigabeNoetig.
 import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiToken, kiTor } from "../_shared/ki_tor.mjs";
 
 const KI_FN = "plan-iterate";
@@ -129,7 +139,7 @@ Deno.serve(async (req) => {
     // Jetzt bricht der Server nach 110 s ab (Edge-Function-Limit 150 s), der Client wartet 120 s.
     let anthropicRes: Response;
     try {
-      anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      anthropicRes = await anthropicFetch("vision", {
       method: "POST",
       signal: AbortSignal.timeout(110_000),
       headers: {
@@ -138,7 +148,6 @@ Deno.serve(async (req) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
         max_tokens: 8000,
         system: buildSystemPrompt(regionalContext),
         messages,
@@ -201,7 +210,7 @@ Deno.serve(async (req) => {
       await admin.rpc("fn_log_ai_usage", {
         p_edge_fn: "plan-iterate",
         // v33.59: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig, vgl. v30.95).
-        p_model: anthropicData?.model || "claude-sonnet-4-20250514",
+        p_model: anthropicData?.model || modellKette("vision", modellSecret("vision"))[0],
         p_tokens_in: anthropicData?.usage?.input_tokens || 0,
         p_tokens_out: anthropicData?.usage?.output_tokens || 0,
       });
