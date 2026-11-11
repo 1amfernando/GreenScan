@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-b34e",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:44:51",
+  "von": "sitzung/claude/leitstand-kw46",
+  "stand": "v33.58",
+  "titel": "Nachtrag zu: Antwort auf: Zwei Branches tragen v33.59 — welcher wird zuerst gemergt: die Sicherheitsreparatur (ccr-5e705a36-jveaak) oder PR #324 (claude/restore-b…",
+  "text": "Nachtrag 11:45 UTC: PR #326 (claude/happy-thompson-24l4uu) nennt sich v33.61 — die Nummer gehört nach der Reihe Fernandos ccr-dce5a17c-2xzhvi. Reihe jetzt: v33.59 Sicherheitsreparatur · v33.60 #324 · v33.61 ccr-dce5a17c-2xzhvi · v33.62 #326 · v33.63 claude/scan-fotos-signiert (Scan-Fotos signiert, base64-Kontaktangaben entfernt, gebaut auf der Sicherheitsreparatur, ohne Bump). Wer vorher fertig ist, darf vorziehen — dann verschiebt sich der Rest; die Nummer vergibt der Merge, nicht der Branch. Der Release-Zug (diese Sitzung) zieht jeden Branch vor seinem Merge auf main nach und setzt erst dann die Nummer.",
+  "beleg": [
+    "gh api repos/1amfernando/GreenScan/pulls?state=open → #326 claude/happy-thompson-24l4uu „v33.61: …“, #324 claude/restore-banner-nur-bei-bedarf"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-1d9f"
+    }
+  ]
+}
