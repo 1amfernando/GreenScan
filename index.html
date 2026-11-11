@@ -4855,11 +4855,11 @@ window._gsArtenFehlstart = function () {
   <div class="modal" style="position:relative;max-height:92vh;overflow-y:auto;">
     <div class="mhandle"></div>
     <button class="modal-close-btn" onclick="closeModal('modal-layouts')" aria-label="Schliessen">&#x2715;</button>
-    <div class="mhdr" style="background:linear-gradient(135deg,#388e3c,#2e7d32);color:#fff;">
+    <div class="mhdr" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;">
       <span class="memoji">📐</span>
       <div>
         <h2 data-i18n="layouts_title" data-i18n-fallback="Beet-Layouts" style="color:#fff;">Beet-Layouts</h2>
-        <p data-i18n="layouts_sub" data-i18n-fallback="10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit" style="color:rgba(255,255,255,.85);">10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit</p>
+        <p data-i18n="layouts_sub" data-i18n-fallback="10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit" style="color:#fff;">10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit</p>
       </div>
     </div>
     <div id="layouts-filter" style="padding:10px 18px 4px;"></div>
@@ -39855,8 +39855,8 @@ function displayLuxResult(lux, warnText) {
   var cat, bg, pc;
   if (lux < 100) { cat = '🌑 Dunkel'; bg = '#e3f2fd'; pc = '#1565c0'; }
   else if (lux < 500) { cat = '🌥️ Halbschatten'; bg = '#e8f5e9'; pc = '#2e7d32'; }
-  else if (lux < 2000) { cat = '🌤️ Hell (indirekt)'; bg = '#fff8e1'; pc = '#ef6c00'; }
-  else if (lux < 10000) { cat = '☀️ Hell (direkt)'; bg = '#fff3e0'; pc = '#e65100'; }
+  else if (lux < 2000) { cat = '🌤️ Hell (indirekt)'; bg = '#fff8e1'; pc = '#bf360c'; }   /* v33.59: #ef6c00 war 2,90:1 (gerechnet) */
+  else if (lux < 10000) { cat = '☀️ Hell (direkt)'; bg = '#fff3e0'; pc = '#bf360c'; }   /* v33.59: #e65100 war 3,46:1 (gerechnet) */
   else { cat = '🔥 Volle Sonne'; bg = '#ffebee'; pc = '#c62828'; }
   if (catEl) {
     catEl.textContent = cat;
@@ -44493,7 +44493,7 @@ window.gsOpenSaisonPilze = gsOpenSaisonPilze;
 // v29.67 Anfänger-Ampel-Stufen (aus v_mushroom_beginner; deterministisch, sichere Fehlerrichtung)
 var GS_BEGINNER_AMPEL = {
   anfaenger:       { e:'🟢', l:'Anfänger-geeignet',     k:'amp_anfaenger',       c:'#2e7d32', bg:'#e8f5e9' },
-  fortgeschritten: { e:'🟡', l:'Für Fortgeschrittene',  k:'amp_fortgeschritten', c:'#e65100', bg:'#fff3e0' },
+  fortgeschritten: { e:'🟡', l:'Für Fortgeschrittene',  k:'amp_fortgeschritten', c:'#bf360c', bg:'#fff3e0' },   /* v33.59: #e65100 war 3,46:1 — c ist die Schriftfarbe auf bg */
   gefahr:          { e:'🔴', l:'Giftig / gefährlich',   k:'amp_gefahr',          c:'#c62828', bg:'#ffebee' },
   ungeniessbar:    { e:'⚪', l:'Ungeniessbar',           k:'amp_ungeniessbar',    c:'#616161', bg:'#f5f5f5' },
   unbekannt:       { e:'❔', l:'Einstufung offen',       k:'amp_unbekannt',       c:'#616161', bg:'#f5f5f5' }
@@ -61274,7 +61274,10 @@ function openLocationSettings() {
       stEl.innerHTML = '✅ Aktuell: <strong>' + escHtml(userLocation.name||'') + '</strong>' +
         (userLocation.canton ? ' (' + escHtml(userLocation.canton) + ')' : '');
     } else {
-      stEl.style.background='#f0f7ee'; stEl.style.color='var(--g-dark)';
+      // v33.59: die Flaeche war fest hell (#f0f7ee), die Schrift ein kippendes
+      // Merkmal — im Dunkelmodus hellgruen auf fast weiss, 1,51:1. Beide kommen
+      // jetzt aus dem Thema, wie im Ausgangszustand des Elements.
+      stEl.style.background='var(--surface2)'; stEl.style.color='var(--g-dark)';
       stEl.textContent = 'Noch kein Standort. GPS tippen oder Ort eingeben.';
     }
   }
@@ -61699,7 +61702,7 @@ function autoDetectLocation() {
   }
 
   if (btn) { btn.innerHTML = '<span>⏳</span> Ermittlung…'; btn.disabled = true; }
-  setStatus('#fff3e0', '#e65100', '📡 GPS wird ermittelt…', false);
+  setStatus('#fff3e0', '#bf360c', '📡 GPS wird ermittelt…', false);
 
   // Zentrales GPS-System mit Permission-Handling
   gsGetPosition(
@@ -61729,7 +61732,7 @@ async function saveManualLocation() {
   var name = (inp ? inp.value : '').trim();
   if (!name) { try { gsToast('Bitte einen Ort eingeben.', 'warn'); } catch(_){ } return; }
   var stEl = document.getElementById('loc-status');
-  if (stEl) { stEl.style.background='#fff3e0'; stEl.style.color='#e65100'; stEl.textContent='🔍 Suche "'+name+'"…'; }
+  if (stEl) { stEl.style.background='#fff3e0'; stEl.style.color='#bf360c'; stEl.textContent='🔍 Suche "'+name+'"…'; }
 
   // Callback-basiert — kein await (iOS Safari sicher)
   (window._gsFetch || fetch)('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=5&language=de&format=json', {}, 10000)
@@ -76421,7 +76424,7 @@ window.GS_RELEASES = [
       user_summary: 'Deine Gärten und Pflanzungen bleiben erhalten, wenn du dich auf einem neuen Gerät oder in der Android-App anmeldest. Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar, du kannst eigene Rezepte anlegen, und ein Rezept zeigt seine Warnung. Und die App startet auch dann, wenn ein gespeicherter Wert beschädigt ist.',
       user_items: [
         {emoji:'🌱', bold:'Gärten auf dem neuen Gerät:', text:' nach dem Anmelden stehen deine Gärten und Pflanzungen da — vorher ersetzte die App sie durch einen leeren „Mein Garten".'},
-        {emoji:'🌙', bold:'Dunkelmodus lesbar:', text:' Rückfragen, Eingabefenster und die Antworten im Quiz-Duell waren dunkel auf dunkel bzw. hell auf weiss. Jetzt nicht mehr.'},
+        {emoji:'🌙', bold:'Dunkelmodus lesbar:', text:' Rückfragen, Eingabefenster und die Antworten im Quiz-Duell waren dunkel auf dunkel bzw. hell auf weiss. Jetzt nicht mehr — auch nicht der Hinweis „Noch kein Standort“ im Standort-Fenster.'},
         {emoji:'🍄', bold:'Das richtige Symbol:', text:' Pilze, Bäume und Kräuter tragen ihr Symbol bei jedem Start — bisher nur beim allerersten.'},
         {emoji:'📅', bold:'Das richtige Datum:', text:' nach Mitternacht stand in Formularen und im Tagebuch noch der Vortag; ein Foto zeigte sein Aufnahmedatum einen Tag zu früh.'},
         {emoji:'💧', bold:'Giess-Hinweis im Garten:', text:' der Balken „Pflanzen giessen!" erscheint jetzt wirklich, wenn heute etwas fällig ist.'},
@@ -76446,6 +76449,7 @@ window.GS_RELEASES = [
         {emoji:'🗓️', bold:'gsIsoKW (datum_check T7):', text:' eine Kalenderwoche nach ISO 8601 statt zweier Rechnungen in Sieben-Tage-Blöcken; acht Probetage gegen eine eigene Rechnung. _gsWochenFakten(kw) ist der eine Rückfall für Wochen ohne Fakten (KW 53).'},
         {emoji:'🍲', bold:'Rezept-Detail (nutzersicht_check E14, E15):', text:' warning auch für Rezepte (230 tragen eine), contraindications / dosage / activeIngredients / evidence der Heilmittel, DIFF_LABELS kennt die Werte der eingebauten Rezepte; der Filter „Giftig“ nimmt jede Art ab Stufe 2 (acht fehlten in beiden Filtern).'},
         {emoji:'🤖', bold:'Android-Hülle (apk_check B6, R19):', text:' build.sh hält den Status von javac fest (vorher: ein Paket ohne MainActivity mit Exit 0 — B6 fährt den Bau mit einem Fehler wirklich), die Dateiwahl antwortet genau einmal, eine gescheiterte Wiederherstellung lädt die App, das Release-Passwort geht über env: an apksigner.'},
+        {emoji:'🎨', bold:'Der urteilende contrast_check wurde sofort rot:', text:' auf dem zusammengeführten Stand drei Stellen unter AA, vor dem Zusammenführen null. „Noch kein Standort“ im Standort-Fenster setzte eine fest helle Fläche (#f0f7ee) mit kippender Schrift — 1,51:1 im Dunkelmodus; die Unterzeile der Beet-Layouts war Weiss mit 85 % Deckkraft auf Hellgrün — 3,87:1 in beiden Modi, messbar erst, seit die calc()-Reparatur das Fenster verschob. Beide behoben, Prüfstand wieder bei 0. Dazu vier Stellen GERECHNET, die er nicht erreicht (fest auf fest, also in beiden Modi gleich): „Suche …“ und „GPS wird ermittelt“ (3,46:1), zwei Stufen des Lichtmessers (2,90 und 3,46:1) und die Pilz-Ampel „Für Fortgeschrittene“ (3,46:1) — alle auf #bf360c (über 5:1).'},
         {emoji:'🔀', bold:'Auf main nachgezogen:', text:' die Scheibe hiess v33.57, bis main die Nummer vergeben hatte. 121 Nennungen umnummeriert, 28 Konfliktstellen aufgelöst; drei Funde des zweiten Laufs hatte main (v33.58) schon behoben.'},
         {emoji:'🧭', bold:'Offen und belegt:', text:' zehn Funde in den Edge-Functions (Stripe-Webhook liest keine Fehler, delete-user kündigt das Abo nicht), sechs rund um den Service Worker, drei zum Datum, drei in der Android-Hülle — 28 Einträge auf dem Brett (docs/austausch), jeder mit Anker an seiner Stelle, und in STATUS Sektion 2.'}
       ]

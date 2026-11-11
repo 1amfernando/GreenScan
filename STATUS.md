@@ -171,6 +171,24 @@ Wächter: robust_check „Web-Root"). 28 eigene Einträge sind neu (unten).
   „rot: 0" gemeldet. `contrast_check` misst dazu vier Dialoge, die Parameter
   brauchen, und neun, die sich selbst an den `<body>` hängen (Durchgang 3).
   Gegen v33.56: 22 Stellen unter AA, Exit 1.
+- **Und er wurde auf dem zusammengeführten Stand sofort rot** (erster Lauf der
+  ganzen Suite auf 50ef2eb: 44 Prüfstände, rot: 1). Drei Stellen unter AA, vor
+  dem Zusammenführen null: „Noch kein Standort" im Standort-Fenster
+  (`openLocationSettings` setzte eine FEST helle Fläche `#f0f7ee` mit der
+  kippenden Schrift `--g-dark` — 1,51:1 im Dunkelmodus; auf dem Merge-Stand
+  736b22f nachgemessen: schon dort rot, also mit dem Stand von `main` messbar
+  geworden — die Zeile selbst ist mindestens seit v33.11 so) und die Unterzeile
+  der Beet-Layouts (Weiss mit 85 % Deckkraft auf `#388e3c → #2e7d32`, 3,87:1 in
+  beiden Modi; auf 736b22f noch nicht gemeldet, erst nach der
+  `calc()`-Reparatur — ein Prüfstand misst, was er erreicht, v32.12). Beide
+  behoben (Themen-Merkmale bzw. dunklerer Verlauf mit vollem Weiss),
+  `contrast_check` wieder 0. **Gerechnet, nicht vom Prüfstand gemessen** (fest
+  auf fest, also in beiden Modi gleich; Zustände, die er nicht erreicht):
+  „Suche …" / „GPS wird ermittelt" (`#e65100` auf `#fff3e0`, 3,46:1), zwei
+  Stufen des Lichtmessers (2,90 und 3,46:1) und die Pilz-Ampel „Für
+  Fortgeschrittene" (3,46:1) — alle auf `#bf360c` (5,11 bzw. 5,27:1). Dasselbe
+  Orange stand schon dreimal im Code als behoben vermerkt (v31.32, v31.44,
+  v31.51); eine Suche nach dem PAAR hätte alle auf einmal gefunden.
 - `scripts/_korpus.js`: der eine Text, in dem eine Nennung gezählt wird
   (`robust_check` C2 und `statik_check` S5).
 - **Gegenprobe:** jeder neue Fall ist gegen den Stand VOR seiner Reparatur
@@ -222,6 +240,18 @@ alle gelten noch, einer nur zum Teil; jeder hat jetzt einen Anker.
 - **Ein Audit misst den Stand, den er liest.** Der zweite Lauf las das
   Arbeitsverzeichnis vor dem Nachziehen — drei seiner Funde hatte `main` schon
   behoben. Jeder übernommene Fund ist am zusammengeführten Stand nachgemessen.
+
+**Die Nummer ist noch nicht endgültig.** Gemessen am 11.11.2026: drei Branches
+tragen v33.59 (dieser, `ccr-5e705a36-jveaak`, `claude/restore-banner-nur-bei-bedarf`),
+`main` steht bei v33.58. Die Koordinator-Sitzung meldet PR #326
+(„Hauptfunktionen", v33.61) als Ersten in der Merge-Reihe; kommt er zuerst auf
+`main`, wird diese Scheibe darauf nachgezogen und heisst dann v33.62 oder höher
+(eine niedrigere Nummer nach v33.61 brächte `GS_RELEASES` durcheinander).
+Probeweise zusammengeführt (Wegwerf-Arbeitsbaum, nichts übernommen): acht
+Konfliktstellen in drei Dateien — die Versionsmarken (`index.html`, `sw.js`),
+der Changelog, STATUS und `_gsPassCat` „Giftig" (dort dieselbe Schwelle
+`tox >= 2`, aber auf Art-Ebene über `_gsArtAnzeige` — jene Fassung schliesst
+diese ein und gilt beim Auflösen).
 
 **Für Fernando sichtbar** (`docs/FUER-FERNANDO.md` §30): die Kopfleiste ist
 17 px höher (so, wie das CSS sie immer wollte), auf „Rezepte" und „Heilmittel"

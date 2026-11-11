@@ -1473,7 +1473,9 @@ Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
   Stand in `user_state_snapshots` ab (v33.26) — darin kann der Garten von
   vorher noch stehen. Sag Bescheid, bevor du etwas versuchst; ich sehe mit dir
   nach, welcher Stand der richtige ist.
-- Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar.
+- Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar — ebenso
+  der Hinweis „Noch kein Standort" im Standort-Fenster (war hellgrün auf fast
+  weiss) und die Unterzeile im Kopf der Beet-Layouts.
 - Symbole und Verwechslungshinweise der Arten sind bei jedem Start da, nicht
   nur beim allerersten.
 - **Die Kopfleiste ist 17 px höher** (56 statt 39 px) und füllt jetzt ihren
@@ -1542,11 +1544,26 @@ ein Telefon und stehen auf dem Brett; der wichtigste: „Kamera" im
 Pflanzendoktor, Pilz-Check, Tagebuch und Schädlings-Check öffnet in der APK
 die Bildauswahl statt der Kamera.
 
-**Zwei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, bis sich
+**Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, bis sich
 zeigte, dass `main` die Nummer und v33.58 inzwischen vergeben hatte — sie ist
-auf `main` nachgezogen und heisst v33.59. Und: einen Pull Request habe ich
-NICHT geöffnet (du hast keinen verlangt). Der Stand liegt auf dem Branch
-`ccr-dce5a17c-2xzhvi`; die Prüfung auf GitHub läuft erst mit einem PR.
+auf `main` nachgezogen und heisst v33.59. **Diese Nummer ist noch nicht
+endgültig:** zwei weitere Branches tragen ebenfalls v33.59, und PR #326
+(„Hauptfunktionen", v33.61) steht nach Auskunft der Koordinator-Sitzung vorn
+in der Reihe. Wird er zuerst gemergt, ziehe ich diese Scheibe darauf nach; sie
+heisst dann v33.62 oder höher. Das ist Handwerk, kein Risiko — probeweise
+zusammengeführt sind es acht Konfliktstellen in drei Dateien (Versionsmarken,
+Changelog, STATUS und ein Filter, bei dem beide Seiten dieselbe Regel
+wollen). Und: einen Pull Request habe ich NICHT geöffnet (du hast keinen
+verlangt). Der Stand liegt auf dem Branch `ccr-dce5a17c-2xzhvi`; die Prüfung
+auf GitHub läuft erst mit einem PR. **Wenn du ihn willst, sag „öffne den PR"**
+— dann ziehe ich vorher auf den dann aktuellen Stand von `main` nach.
+
+**Was diesmal NICHT stattgefunden hat:** ein gegnerisches Gegenlesen der
+fertigen Scheibe durch vier Agenten. Es ist zweimal gestartet und beide Male
+am Ausgabenlimit des Kontos gescheitert, bevor ein Agent etwas gelesen hatte.
+Die Funde selbst sind gegengeprüft (jeder im Audit von einem zweiten Agenten),
+und die ganze Suite ist auf dem Endstand gelaufen — aber den fertigen Diff hat
+ausser mir niemand gelesen.
 
 **Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
 ESLint (über `scripts/package.json`). Dafür ist nichts zu tun.
