@@ -189,6 +189,12 @@ async function scan(browser, file) {
   for (const f of files) res.push([f, await scan(browser, f)]);
   await browser.close();
 
+  // v33.57: im Ein-Datei-Modus URTEILT dieser Pruefstand. Bis v33.56 endete er
+  // immer mit 0: „verdaechtige Textstellen: 3" haette die Suite als „rot: 0"
+  // gemeldet. CLAUDE.md §7.1 sagt „diese Zahl muss 0 sein" — und nichts erzwang
+  // es (dieselbe Luecke wie in contrast_check). Im Vergleichsmodus (zwei
+  // Dateien) bleibt er ein Bericht: dort ist ein Unterschied die Auskunft.
+  let rot = 0; const gruende = [];
   for (const [f, r] of res) {
     console.log('=== ' + path.basename(f));
     console.log('  Onboarding blockiert noch:', r.onb ? 'JA (Gast-Modus griff nicht)' : 'nein');
@@ -217,6 +223,18 @@ async function scan(browser, file) {
       .forEach(o => console.log('     ', String(f(o)) + 'px  ' + o.key.replace(/\|/g,' ').slice(0, 88)));
     if (cut.length)  { console.log('   -- am staerksten abgeschnitten:'); show(cut,  o => Math.max(o.clipX, o.clipY)); }
     if (offs.length) { console.log('   -- am weitesten draussen:');       show(offs, o => o.offscreen); }
+    if (r.onb) gruende.push('Onboarding blockiert');
+    if (r.errs.length) gruende.push(r.errs.length + ' JS-Fehler');
+    if (r.rows.length < 1500) gruende.push('nur ' + r.rows.length + ' Elemente vermessen (die App ist nicht aufgegangen?)');
+    if (muell.length) gruende.push(muell.length + ' verdaechtige Textstelle(n)');
+    if (cut.length) gruende.push(cut.length + '× abgeschnittener Inhalt');
+    if (offs.length) gruende.push(offs.length + '× ragt aus dem Bildschirm');
+  }
+  if (res.length === 1) {
+    rot = gruende.length;
+    console.log('  ---');
+    console.log(rot ? '  !! ' + gruende.join(' · ') : '  ok — keine JS-Fehler, keine verdaechtige Textstelle, nichts abgeschnitten, nichts ausserhalb');
+    process.exitCode = rot ? 1 : 0;
   }
 
   if (res.length === 2) {

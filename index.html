@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.56.20261022">
+<meta name="app-version" content="33.57.20261111">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76147,6 +76147,31 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.57', date: '11.11.2026',
+      headline: 'Deine Gärten bleiben auf einem neuen Gerät — und ein grosser Durchgang durch Fehler, die kein Prüfstand sah',
+      summary: 'Ein Audit mit zehn Agenten (fünf Blickwinkel, jeder Fund von einem Gegenprüfer zu widerlegen versucht) und zwei neue Prüfstände. Der schwerste Fund: wer sich auf einem frischen Gerät anmeldete, bekam seine Gärten geholt — und im selben Atemzug ersetzte die App sie durch „Mein Garten" mit 0 Pflanzungen und merkte das zum Hochladen vor. Dazu: zwei Aufbereitungen der Artenliste liefen nur in der allerersten Sitzung (ab der zweiten 1\'971 statt 160 Arten mit generischem Symbol), die Rückfrage-Dialoge waren im Dunkelmodus schwarz auf schwarz (1,06:1), ein kaputter Wert im Gerätespeicher liess die App auf dem Ladebildschirm stehen, an sieben Stellen kam Text aus fremder Hand als Code an, und das Datum war nachts an sechs Stellen der Vortag. Neu: statik_check liest die App als Programm, datum_check läuft in der Schweizer Zeitzone um 01:30 nachts.',
+      user_summary: 'Deine Gärten und Pflanzungen bleiben erhalten, wenn du dich auf einem neuen Gerät oder in der Android-App anmeldest. Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar. Und die App startet auch dann, wenn ein gespeicherter Wert beschädigt ist.',
+      user_items: [
+        {emoji:'🌱', bold:'Gärten auf dem neuen Gerät:', text:' nach dem Anmelden stehen deine Gärten und Pflanzungen da — vorher ersetzte die App sie durch einen leeren „Mein Garten".'},
+        {emoji:'🌙', bold:'Dunkelmodus lesbar:', text:' Rückfragen, Eingabefenster und die Antworten im Quiz-Duell waren dunkel auf dunkel bzw. hell auf weiss. Jetzt nicht mehr.'},
+        {emoji:'🍄', bold:'Das richtige Symbol:', text:' Pilze, Bäume und Kräuter tragen ihr Symbol bei jedem Start — bisher nur beim allerersten.'},
+        {emoji:'📅', bold:'Das richtige Datum:', text:' nach Mitternacht stand in Formularen und im Tagebuch noch der Vortag; ein Foto zeigte sein Aufnahmedatum einen Tag zu früh.'},
+        {emoji:'💧', bold:'Giess-Hinweis im Garten:', text:' der Balken „Pflanzen giessen!" erscheint jetzt wirklich, wenn heute etwas fällig ist.'},
+        {emoji:'🛡️', bold:'Sicherer:', text:' Texte und Bild-Adressen von anderen Personen (Karten-Funde, Inserate) werden nur noch als Text bzw. Bild behandelt.'},
+        {emoji:'🎙️', bold:'Ehrlicher Sprachmodus:', text:' auf „erinnere mich …" sagt er nicht mehr „gespeichert", wenn nichts gespeichert wurde — er verweist auf Lina.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Garten-Pull (sync_check):', text:' der Login-Pull schrieb gardens/plantings nur in den Gerätespeicher; renderGarden() → initDefaultGarden() sah eine leere Liste im Arbeitsspeicher, legte „Mein Garten" an und speicherte ihn über das Geholte. Gemessen: Cloud 2 Gärten + 2 Pflanzungen → danach 1 Garten, 0 Pflanzungen, vorgemerkt: ja. Der Pull frischt jetzt auch den Arbeitsspeicher auf; initDefaultGarden übernimmt zuerst, was im Speicher liegt.'},
+        {emoji:'🔁', bold:'Zweite Sitzung (robust_check):', text:' gsNormalizeCatEmojis und gsAutoFillLookalikes hingen an Schaltern im Gerätespeicher, bereiten aber eine Liste im Arbeitsspeicher auf. Erste Sitzung 160 generische Symbole und 0 ohne Verwechslungshinweis, jede spätere 1\'971 und 1\'435 — und jeder Prüfstand beginnt mit leerem Speicher, mass also immer die erste.'},
+        {emoji:'🧩', bold:'statik_check (neu, 8 Fälle):', text:' ESLint als Parser mit Geltungsbereichen. Erster Lauf: _gsSichtbar zweimal deklariert, drei Namen, die es nirgends gibt, sechs tote typeof-Schütze (darunter markDirty im Kalender-Filter — die Wahl wurde nie zum Sync vorgemerkt), sechs Funktionen ohne Aufrufer ausser sich selbst, vier CSS-Variablen ohne Definition.'},
+        {emoji:'🕐', bold:'datum_check (neu, 7 Fälle):', text:' Europe/Zurich, Uhr auf 01:30 gestellt. EXIF-Datum, Vorgabe in Datumsfeldern, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner; dazu ein Deckel auf UTC-Tagesschnitte (40 → 32).'},
+        {emoji:'💾', bold:'Kaputter Speicher (robust_check):', text:' gs_market, gs_recipes und gs_remedies wurden beim Parsen ohne Halt gelesen. 187 Schlüssel × 4 kaputte Formen: die App startet jetzt jedes Mal und läuft fehlerfrei durch 12 Tabs und 7 Fenster. Die Integritätsprüfung läuft vor dem Hauptskript statt 1,5 s danach.'},
+        {emoji:'🔒', bold:'Escaping (escape_check, 7 neue Fälle):', text:' Karten-Popup (photo_url fremder Funde), Marktplatz-Vorschaubilder, Garten-Scan-Detail, Rezept-Fotos, Registrierung, Diagnose-Auswahl; _gsOcArg ist jetzt _gsOcStr. In vier Fällen lief der Probecode gegen den alten Stand wirklich.'},
+        {emoji:'⚖️', bold:'Zwei Prüfstände urteilen jetzt:', text:' contrast_check und render_check endeten immer mit 0 — eine Zahl über null hätte die Suite als grün gemeldet. contrast_check misst zusätzlich neun dynamische Dialoge und vier, die Parameter brauchen.'},
+        {emoji:'🧭', bold:'Offen und belegt:', text:' zehn bestätigte Funde in den Edge-Functions (Stripe-Webhook liest keine Fehler, delete-user kündigt das Abo nicht) und drei im Service Worker stehen mit Beleg in STATUS Sektion 2 — sie brauchen eine eigene Scheibe.'}
+      ]
+  },
+  {
     v: 'v33.56', date: '22.10.2026',
       headline: 'Teilen → GreenScan auch in der Android-App',
       summary: 'Bis v33.55 stand die Android-App nicht im Teilen-Menü: die Hülle liest das Manifest der Web-App nicht und hatte keinen ACTION_SEND-Filter. Jetzt nimmt sie Fotos an (dieselben vier Typen wie die Web-App), kopiert sie in ein Fach im Arbeitsspeicher und stösst die Seite an; die Seite holt das Foto selbst ab und zeigt dieselbe Vorschau wie im Browser — bestimmt wird erst nach dem Antippen. Ohne JavaScript-Brücke: zwei Adressen unter dem eigenen Ursprung (holen, quittieren), mit eigenem Kopfzeilen-Wert. Neu für beide: „Bestimmen“ nimmt erst nach 0,7 Sekunden an, und ein Bild mit mehr als 200 Megapixeln wird am Dateikopf abgelehnt. Eine gegnerische Prüfung fand zwölf Lücken — acht von unabhängigen Gegenprüfern bestätigt (Reihenfolge zweier Teilen, eine hängende Kopie, GIF- und JPEG-Bomben …), vier Prüfstands-Lücken von mir nachgeprüft, weil ihre Gegenprüfer am Nutzungslimit ausfielen. Alle vor dem Ausliefern geschlossen.',
@@ -76474,25 +76499,6 @@ window.GS_RELEASES = [
       {emoji: '📆', bold: 'Rückblick statt Timeline:', text: ' Der Menüeintrag „Garten-Timeline“ heisst jetzt „Rückblick“ und öffnet den Kalender — mit Tagebuch, Pflanzungen und Fundorten eingeschaltet. Eine Ansicht statt zwei, und diese denkt mit.'}
     ],
   },
-  {
-    v: 'v33.37', date: '16.09.2026',
-    headline: 'Scans, Fundorte und deine wirkliche Ernte stehen jetzt im Kalender',
-    summary: 'Vierte Scheibe von KALENDER-V2, erster Teil der drei Namen. Drei Quellen, die es in der App längst gibt und die im Kalender fehlten: der Scan-Verlauf, die Karten-Fundorte und das Ernte-Buch. Dabei gemessen: „Funde" in Mein Naturjahr stand seit jeher auf 0 — beide Schreiber legen die Zeit als `date` ab, gelesen wurde `ts/time/found_at/created_at`. Kein Fund hat je einen Monatsbalken bewegt.',
-    user_summary: 'Der Kalender zeigt dir jetzt auch, was du gescannt, gefunden und geerntet hast — an dem Tag, an dem es passiert ist. Scans sind zusammen mit den Messwerten hinter einem Knopf versteckt, weil es viele werden; Fundorte und Ernten siehst du sofort.',
-    user_items: [
-      {emoji: '🔬', bold: 'Deine Scans im Kalender:', text: ' jeder Scan steht an seinem Tag, mit der Art und wie sicher die Erkennung war. Antippen öffnet die Art.'},
-      {emoji: '📍', bold: 'Deine Fundorte:', text: ' was du auf der Karte markiert hast, steht jetzt auch im Kalender.'},
-      {emoji: '🧺', bold: 'Die wirkliche Ernte:', text: ' bisher zeigte der Kalender nur, wann etwas reif sein könnte. Jetzt steht daneben, was du tatsächlich geerntet hast — mit Menge.'},
-      {emoji: '🔍', bold: 'Ein Fehler, den niemand gemeldet hat:', text: ' die Kachel „Funde" in Mein Naturjahr zählte immer 0. Sie las ein Feld, das keiner schreibt.'}
-    ],
-    items: [
-      'Drei neue Quellen in gsKalenderEreignisse: scan (SCAN_HISTORY_KEY über _gsScanZeit), fund (greenscan_markers über den neuen _gsFundZeit), ernte quelle hand (gs_ernte_log). Ohne lesbare Zeit KEIN Ereignis statt eines auf „heute".',
-      '_gsFundZeit(f): EIN Leser für die Zeit eines Fundorts. Beide Schreiber legen `date` in Millisekunden ab; gsOpenNaturjahr las ts/time/found_at/created_at und fand keinen einzigen. Dieselbe Klasse wie _gsScanZeit (v33.33) und ctx.harvests (v33.34).',
-      'Gruppen: fund im Rückblick (Vorgabe an — Fundorte sind wenige und gewollt), scan bei den Messwerten (Vorgabe aus — bis 200 Scans würden das Raster zudecken). Der Chip heisst jetzt „Messwerte & Scans".',
-      '_gsKalDatenlage kennt die zwei neuen Quellen: wer NUR gescannt hat, bekommt nicht mehr „Noch keine Daten". Der Fall „Ohne Daten" räumt sie mit.',
-      'Prüfstände: kalender_check 44 (4 neu, alle vier rot gegen v33.36). Gegenproben: Scan-Zeit aus einem Feld statt dem Leser, _gsFundZeit ohne `date`, Ernte ohne Weg und Grund → je rot.'
-    ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -76706,7 +76712,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.56';
+var GS_VERSION = 'v33.57';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

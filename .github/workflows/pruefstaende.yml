@@ -45,7 +45,9 @@ jobs:
       # Ohne diese Zeile meldet apk_check „nicht pruefbar" (Exit 2), nie gruen.
       - name: Android-Werkzeuge (aapt, dx, apksigner, android.jar)
         run: sudo apt-get install -y -qq android-sdk-build-tools android-sdk-platform-23 dalvik-exchange unzip
-      - name: Playwright (scripts/)
+      # v33.57: `npm install` holt auch ESLint (scripts/package.json) — statik_check
+      # benutzt es als Parser mit Geltungsbereichen. Ohne es: „nicht pruefbar" (Exit 2).
+      - name: Playwright + ESLint (scripts/)
         working-directory: scripts
         run: |
           npm install --no-audit --no-fund
