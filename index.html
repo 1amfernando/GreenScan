@@ -33390,17 +33390,9 @@ window.gsQualitaetZuSchlecht = gsQualitaetZuSchlecht;
 // dritte Blick ueber „Zweites Foto" kannte gar keinen Deckel, er verlor
 // einfach das erste Foto. EINE Zahl, drei Leser.
 var GS_SCAN_FOTOS_MAX = 3;
-// v33.58: der GETEILTE Scan-Cache ist AUS. Gemessen an der Live-DB (10.11.2026, nur
-// lesend): `scan_cache` ist EINE Tabelle fuer alle Konten, der Schluessel ein 64-Bit-dHash
-// aus 9×8 Bildpunkten (zwei verschiedene Fotos mit aehnlichem Aufbau teilen ihn), und
-// `fn_scan_cache_put` nimmt von jedem angemeldeten Konto jedes Ergebnis fuer jeden Hash an —
-// der erste Eintrag gewinnt, und ein Treffer ERSETZT die KI-Antwort samt Gegenpruefung der
-// Vorauswahl. Fuer eine App, in der jemand ueber Pilze liest, ist das die falsche Abkuerzung:
-// ein fremder oder zufaellig gleicher Eintrag stuende als Bestimmung da. Solange der Cache
-// nicht je Konto gefuehrt wird (und Pilze, essbare und giftige Arten nie hineinkommen), wird
-// er weder gelesen noch beschrieben. Pruefstand: scan_check „Cache · der geteilte Scan-Cache
-// ist aus“. Wer ihn wieder einschaltet, aendert zuerst die Tabelle — nicht diese Zeile.
-var GS_SCAN_CACHE_GETEILT = false;
+// v33.58 schaltete den GETEILTEN Scan-Cache mit einem Schalter ab (GS_SCAN_CACHE_GETEILT = false),
+// v33.59 hat den Code dazu ganz entfernt — siehe „den geteilten Scan-Cache … liest und schreibt die
+// App NICHT mehr" weiter unten. Es gibt keinen Schalter mehr, der ihn wieder einschalten koennte.
 
 // v33.16: die Messung ueber ALLE Fotos eines Scans. Bis dahin uebersprang der
 // Mehrfach-Weg die Messung ganz, und S5 sagte „N Fotos kombiniert — die beste
