@@ -245,6 +245,13 @@ und `rls_check` (43 Fälle im lokalen Postgres; ohne Postgres „nicht prüfbar"
 grün). `rls/05_fixture_policies` hält jeden Nachbau gegen die Live-Policies
 (`scripts/rls/live_policies.json`, 10.11.2026). `pruefstaende.sh` fährt 44.
 
+**Volle Läufe nach dem Bump** (`bash scripts/pruefstaende.sh`, je rund 30–45 Minuten, lokales
+Postgres an): Lauf 1 — 44 Prüfstände, **1 rot**: `robust_check` „Memory" (zwei neue Einträge
+in `docs/memory` hatten einen Funktionsnamen mitten im Namen umbrochen; der Fall las zwei
+Namen, die es nicht gibt — behoben, danach einzeln 29/0). Lauf 2 und Lauf 3 auf dem
+Endstand: **44 Prüfstände · rot: 0 · nicht prüfbar: 0**, beide. Der CI-Lauf auf GitHub
+fährt erst an einem PR; den gibt es noch nicht.
+
 **Was NICHT geprüft werden konnte.**
 
 - Ob die Edge-Functions in Deno laufen und was Stripe, Anthropic und die Push-Dienste
