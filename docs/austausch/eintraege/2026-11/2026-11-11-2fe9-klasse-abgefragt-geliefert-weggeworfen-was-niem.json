@@ -1,0 +1,76 @@
+{
+  "id": "2026-11-11-2fe9",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Abgefragt, geliefert, weggeworfen — was niemand liest, ist eine Zusage ins Leere",
+  "regel": "Was eingegeben, gespeichert, gewählt, getrackt oder von einem Prompt verlangt wird, braucht einen Leser, der es WIRKEN lässt — sonst ist es eine Zusage ins Leere oder bezahlter Ballast.",
+  "text": "Eine neue Instanz erkennt man an einem Feld, Schalter, Schlüssel, Prompt-Feld, Link-Anker oder einer Funktion, die geschrieben bzw. definiert wird und für die sich keine Lesestelle findet — die Oberfläche bestätigt (Haken, Toast, Vorschau), und es ändert sich nichts. Gesucht wird vom Schreiber aus: wer LIEST das, und zeigt die Anzeige danach etwas anderes? Bewacht sind Formularfelder, Funktionen ohne Aufrufer, Anker-Arten, die Felder des SCAN_SYSTEM_PROMPT und einzelne Schalter; nicht bewacht sind die übrigen Prompts mit festem Antwortformat und Felder in Regeln, Einstellungen und Speicher.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 155 Feldnamen in JSON-Beispielen (Prompts mit festem Antwortformat), 8 davon werden nirgends als .feld gelesen (10.11.2026): hardiness und conservation (gsAutoEnrichNewSpecies), vertrauen (GS_GEGENPROBE_PROMPT), references_used (gsPPanalyzeAreaPhoto), shape_used und checklist (gsPPrun), boundaries und edge (tpAnalyzePhotos). Kandidaten — ein Feld kann auch als ganzes Objekt weitergereicht oder über Object.keys gelesen werden; die Felder des SCAN_SYSTEM_PROMPT sind nicht darunter (dort wacht scan_check).",
+  "instanzen": [
+    "v31.72 · Garten-Formular: Breite und Länge mit Live-Vorschau, beim Bearbeiten wieder eingelesen — nur geschrieben hat sie nie jemand",
+    "v31.74 · „Angemeldet bleiben“: das eine von 303 Formularfeldern, das wirklich nichts tat",
+    "v31.92/v31.99 · Scan-Prompt: Giftigkeit der Alternativen, Merkmale und db_search verlangt und geliefert, nie gelesen",
+    "04.09.2026 · opts.brain: nur Log-Beschriftung in callAI — die Doku versprach Persona und Kontext",
+    "v32.24 · Deep-Link-Anker: an fünf Stellen erzeugt, bis v32.23 von niemandem gelesen",
+    "v32.38 · gsGetLocationFor('weather'): seit v28.03 ohne Aufrufer — der Schalter setzte Haken und Toast",
+    "v32.38 · neun Felder in DEFAULT_PREFS überlebten das Entfernen ihrer Schalter",
+    "v32.54 · cooldown_minutes: stand seit v32.48 in jeder Regel, gsSensorAlarmeMelden las es nie",
+    "v32.77/v32.97 · 104 Funktionen ohne Aufrufer; gsBattleClose (Teardown ohne Aufrufer) war ein Defekt, kein Rest",
+    "v33.18 · analytics_events: wurde geschrieben, bis 10.09.2026 las niemand",
+    "v33.45 · das Risiko-Inventar aus v33.44 stand auf keinem Bildschirm — GS_FRISTEN als Karte im Admin-Panel"
+  ],
+  "suchmuster": "node -e 'const s=require(\"fs\").readFileSync(\"index.html\",\"utf8\"),f=new Map;s.split(\"\\n\").forEach((z,i)=>{if(/GS_ICONS/.test(z))return;let m;const re=/\\\\?\"([a-z_]{3,30})\\\\?\"\\s*:\\s*(?:\\\\?\"|\\[|\\{|<|[0-9])/g;while(m=re.exec(z))if(!f.has(m[1]))f.set(m[1],i+1)});const t=[...f].filter(([k])=>!new RegExp(\"[.\\\\[]\\x27?\"+k+\"\\\\b\").test(s));console.log(f.size+\" Felder in JSON-Beispielen, \"+t.length+\" davon nirgends als .feld gelesen:\\n\"+t.map(([k,z])=>z+\": \"+k).join(\"\\n\"))'",
+  "stichworte": [
+    "schreiber-ohne-leser",
+    "field_check",
+    "robust_check",
+    "gsGetLocationFor",
+    "GS_ANKER_ARTEN",
+    "SCAN_SYSTEM_PROMPT"
+  ],
+  "gesucht": "In Teilen: v31.74 field_check — 303 Formularfelder, 1 totes; v31.99 scan_check — jedes Feld des SCAN_SYSTEM_PROMPT; v32.24 wiring_check — erzeugte Anker-Arten aus index.html, Migrationen und Edge-Functions; v32.77 robust_check C2 — 104 Funktionen ohne Aufrufer, v32.96 sieben weitere. NICHT gesucht: die übrigen Prompts mit festem Antwortformat und Felder in Regeln, Einstellungen, Speicher.",
+  "waechter": [
+    {
+      "datei": "scripts/field_check.py",
+      "fall": "Kommen NIRGENDS sonst vor (weder gelesen noch eigenes on*)"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "Prompt · jedes verlangte Feld wird irgendwo gelesen"
+    },
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "C2 · keine Funktion ohne zweite Nennung"
+    },
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "B10 · Ein geschlossenes Battle antwortet nicht mehr für den Spieler"
+    },
+    {
+      "datei": "scripts/wiring_check.js",
+      "fall": "erzeugte Anker-Arten"
+    },
+    {
+      "datei": "scripts/einstellungen_check.js",
+      "fall": "Der gewählte Wetter-Standort wirkt auch wirklich"
+    },
+    {
+      "datei": "scripts/einstellungen_check.js",
+      "fall": "Kein totes Feld im Block, und die App-Farbe wird geschrieben"
+    },
+    {
+      "datei": "scripts/einstellungen_check.js",
+      "fall": "Sensor-Alarme kommen einmal am Tag, je Regel frühestens nach ihrer Abkühlzeit"
+    },
+    {
+      "datei": "scripts/nutzung_check.js",
+      "fall": "Die Karte haengt im Admin-Panel: Abruf im Promise.all"
+    },
+    {
+      "datei": "scripts/risiko_check.js",
+      "fall": "R4 · Jede Frist steht nicht nur in der Liste, sondern auf dem Bildschirm"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "id": "2026-11-11-2a89",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Eine Regel ohne Auslöser ist eine Bitte — Doku, Liste oder Zahl, die nichts erzwingt",
+  "regel": "Eine Regel, Liste oder Zahl in der Doku gilt erst, wenn ein Prüfstand-Fall sie gegenliest UND die Suite davon rot werden kann — sonst ist sie eine Bitte und veraltet mit der nächsten Sitzung.",
+  "text": "Eine neue Instanz erkennt man an einem Satz der Form „wer X baut, trägt es in Y ein“ oder „diese Zahl muss 0 sein“, an einer Zahl im Überblick oder an einer Liste mit dem Kopf „dient als Doku“ — und daran, dass sich kein Befehl nennen lässt, der rot wird, wenn man die Regel bricht. Die Gegenfrage lautet immer: welcher Fall meldet es, und endet sein Prüfstand dann mit einem Exit-Code ungleich 0? Jeder Wächter unten bindet genau EINE Regel an ihren Auslöser (Changelog-Deckel, Namen in docs/memory, Abmelde-Listen, Zahlen in RISIKEN.md und in den Übergabe-Dokumenten, die Suite selbst, GS_HUELLE_ANDERS); die Klasse als Ganzes bewacht keiner. Durchgesehen wurde bisher nur ein Teil — am 10.11.2026 die Zahlen in den Übergabe-Dokumenten (seither austausch_check B2); die Regel-Sätze in Prosa und die Prüfstände ohne Exit-Pfad nie.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: Drei Blöcke. (1) Vier Prüfstände haben keinen Exit-Pfad und können die Suite nie rot färben: contrast_check, render_check, field_check.py, perf_check — nur für perf_check steht das in CLAUDE.md („ein BERICHT, kein Tor“); „beide sollen 0 melden“ (Kontrast) und „diese Zahl muss 0 sein“ (verdächtige Textstellen in render_check) sind damit Bitten. (2) Von 39 GS_-Konstanten (Listen, Deckel), die CLAUDE.md nennt und die App kennt, steht der Name von 9 in keinem Prüfstand: GS_SANITIZE_STIL, GS_LINA_ZEILEN_RANG, GS_SYNC_KLEMMT_H, GS_MESSWERTE_MAX, GS_DISMISSIBLE_OVERLAYS, GS_GARTEN_ARTEN, GS_PFLANZUNG_VORGABEN, GS_SYSTEM_COLLECTIONS, GS_SCAN_FOTOS_MAX (ein Fall kann die Wirkung messen, ohne den Namen zu nennen). (3) 72 Absätze in CLAUDE.md tragen eine „Wer …“-Regel, 20 davon nennen im selben Absatz keinen Prüfstand — etwa „wer einen neuen Speicherweg baut, trägt ihn dort ein“, „wer eine neue Ablage anlegt, stempelt sie ebenso“, „wer eine neue Stelle baut, die einen STATE_KEY schreibt, ruft ihn ebenso“. Kandidaten, keine Befunde.",
+  "instanzen": [
+    "v31.13 · GS_RELEASES zwischen v30.04 und v31.12 nicht gepflegt — über hundert Updates lang die Notizen von v30.03 unter der jeweils neuen Versionsnummer",
+    "v32.18 · Liste offener Migrationen in STATUS: eine von fünf Zeilen stand seit zwei Tagen auf „offen“, der Trigger war längst da — ein Rückstand veraltet auch",
+    "v32.21 · GS_KEEP_ON_LOGOUT: neun Einträge, Kopf „Dient als Doku“ — 123 von 130 Schlüsseln, die das Abmelden überlebten, standen in keiner Liste",
+    "02.09.2026 · STATUS §1 stand auf v30.80, die App bei v32.20 — 140 Versionen daneben: hundert Sitzungen hängten ihren Routine-Eintrag an und zogen den Überblick nie mit",
+    "v33.01 · Inline-Changelog: aus 12 Einträgen wurden 100 (138 KB) — „wenn die Liste zu lang wird“ stand nur in einem Kommentar",
+    "v33.01 · der Kopf von data/releases.v1.js beschrieb den Precache gegensätzlich zu CLAUDE.md — zwei Dateien, ein Mechanismus, niemand hielt sie gegeneinander",
+    "v33.45 · Lehre am Bau von GS_FRISTEN: eine Liste, die niemand liest, ist Speicherplatz — und der Messwerte-Deckel stand als namenlose `2000` an der Aufrufstelle, in keinem Dokument und in keiner Regel (heute GS_MESSWERTE_MAX)",
+    "10.11.2026 · CLAUDE.md §5 verlangte „In Progress“, „File Locks“, „Recently shipped“ und „Known issues“ in STATUS.md — die Überschriften gab es nie (grep -ci: je 0)",
+    "10.11.2026 · Prüfstand-Zahl 30 · 35 · 38 · 39 gleichzeitig in sechs Dateien, 219 Migrationen bei 223 — eine Zahl, die kein Befehl erzeugt, driftet",
+    "10.11.2026 · acht Präfix-Familien von Speicherschlüsseln am 12.09. als „gehört in einen späteren Schnitt“ notiert — seither in keiner Liste",
+    "10.11.2026 · docs/FEHLER-LOG.md seit März unberührt, ein JSON mit 44 Audit-Befunden ohne Zustandsfeld — ein Register ohne Leser stirbt"
+  ],
+  "suchmuster": "node -e 'const fs=require(\"fs\"),doc=fs.readFileSync(\"CLAUDE.md\",\"utf8\"),app=fs.readFileSync(\"index.html\",\"utf8\"),ps=fs.readdirSync(\"scripts\").filter(f=>/_check\\.(js|py)$/.test(f)),t=ps.map(f=>fs.readFileSync(\"scripts/\"+f,\"utf8\"));console.log(\"Pruefstaende ohne Exit-Pfad (koennen die Suite nie rot faerben): \"+ps.filter((f,i)=>!/process\\.exit|sys\\.exit/.test(t[i])).join(\" \"));const k=[...new Set(doc.match(/\\bGS_[A-Z0-9_]{3,}\\b/g))].filter(x=>app.includes(x)),alle=t.join(\"\\n\");console.log(k.length+\" GS_-Listen/Deckel nennt CLAUDE.md; in KEINEM Pruefstand genannt: \"+k.filter(x=>!alle.includes(x)).join(\" \"));const re=/\\b[Ww]er (eine|einen|ein|so|die|den|das|dem|hier|dort|etwas)\\b[^.]{0,160}\\b(tr(ä|ae)gt|ruft|nimmt|pr(ü|ue)ft|zieht|braucht|geht|schreibt|misst|stempelt)\\b/,ab=doc.split(/\\n\\s*\\n/).map(a=>a.replace(/\\s+/g,\" \")).filter(a=>re.test(a)),ohne=ab.filter(a=>!/_check\\b|Pr(ü|ue)fstand|\\bFall\\b/.test(a));console.log(ab.length+\" Absaetze mit einer Wer-Regel, davon \"+ohne.length+\" ohne Pruefstand im selben Absatz:\");ohne.forEach(a=>console.log(\"  - \"+a.slice(a.search(re),a.search(re)+100)))'",
+  "stichworte": [
+    "regel-ohne-ausloeser",
+    "robust_check",
+    "storage_check",
+    "austausch_check",
+    "GS_KEEP_ON_LOGOUT",
+    "GS_RELEASES"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "Changelog · die Inline-Liste bleibt klein (Deckel 20)"
+    },
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "Memory · jeder in docs/memory/*.md genannte Funktions- oder Konstantenname"
+    },
+    {
+      "datei": "scripts/storage_check.js",
+      "fall": "A · überlebt das Abmelden, steht in KEINER Liste"
+    },
+    {
+      "datei": "scripts/risiko_check.js",
+      "fall": "R3 · Was docs/RISIKEN.md als Zahl nennt, steht so auch im Quelltext"
+    },
+    {
+      "datei": "scripts/apk_check.js",
+      "fall": "R8 · Die Liste ist die Pruefung: jeder Eintrag in GS_HUELLE_ANDERS hat eine Durchsetzungsstelle"
+    },
+    {
+      "datei": "scripts/austausch_check.js",
+      "fall": "B1 · Suite und Zahlen"
+    },
+    {
+      "datei": "scripts/austausch_check.js",
+      "fall": "A4 · Uebergabe"
+    }
+  ]
+}

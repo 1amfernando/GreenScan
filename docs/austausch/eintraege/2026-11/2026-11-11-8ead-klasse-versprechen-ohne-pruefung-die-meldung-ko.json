@@ -1,0 +1,105 @@
+{
+  "id": "2026-11-11-8ead",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Versprechen ohne Prüfung — die Meldung kommt vor der Antwort, oder .error ist die halbe Prüfung",
+  "regel": "Eine Zusage (Toast, Haken, rotes Herz, „gespeichert“) kommt NACH der Antwort und hängt an _gsSchreibOk bzw. am Rückgabewert — sbFetch und setItem werfen nicht, und RLS lehnt mit 0 Zeilen ohne Fehler ab.",
+  "text": "Eine neue Instanz erkennt man an einer Erfolgsmeldung oder einem optimistisch umgestellten Zustand, der nicht an der Antwort hängt: die Meldung steht vor dem Aufruf, der Aufruf wird nicht abgewartet, geprüft wird nur .error (ein PATCH mit 0 Zeilen hat keinen), return=minimal bestellt die Zeilen ab, oder ein try/catch um setItem soll den vollen Speicher fangen. versprechen_check sucht das statisch neben jedem sbFetch-Schreibvorgang; er sieht NICHT, was über einen Helfer geht (sbSaveProfile, savePlantsToStorage, saveGardenData) oder dem Gerätespeicher gilt — dort setzt das Suchmuster an.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 7 Schreibzeilen (Gerätespeicher oder Helfer) ohne Blick auf die Rückgabe, mit Erfolgsmeldung in den 8 Zeilen danach (10.11.2026). Fünf sind Kandidaten: gsTwinAdopt, gsAddScanToMyPlants und gsLinaAddPlant (savePlantsToStorage gibt true/false zurück, niemand liest es), gsPPumsetzen (saveGardenData ebenso) und _gsMyFindAddPhoto („Foto gespeichert ✅“ nach setItem auf greenscan_markers). Zwei sind kein Fund: eine Warnmeldung in gsScanPersistToCloud und gsWetterGeraetAbgleich, das r.ok liest.",
+  "instanzen": [
+    "v31.65 · gsTwinSave meldete Erfolg bei vollem Speicher — ein catch um setItem ist tot, der Wrapper gibt false zurück",
+    "v31.94 · gsSubmitExpertApplication, gsAdminSetExpertLevel, gsAdminBanUser: 0 Zeilen ohne Fehler galten als Erfolg",
+    "v32.28 · vier rot: Doktor-Rückmeldung, Schädling-Eintrag, Düngungs-Eintrag, „🌱 Bio“ nach abgelehntem PATCH",
+    "v32.33 · „Push-Notifications aktiv!“ ohne Serverzeile, „GPS aktiv“ bei entzogener Freigabe",
+    "v32.65 · Quiz: return=minimal verschluckte fünf Tage lang das Urteil des Servers",
+    "v32.69 · „Inserat gelöscht“ vor dem DELETE, „gespeichert!“ vor dem POST — sieben rot",
+    "v32.82 · Herz, Vitrinen-Stern, Stimme: optimistisch umgestellt ohne Rücknahme bei Ablehnung",
+    "v33.03 · toggleRecipeFav, profEditName, profSetAvatar: Meldung ohne Blick — über Helfer und Gerätespeicher, für versprechen_check unsichtbar",
+    "v33.41 · daily-push-checker destrukturierte error weg — „nichts gefunden“ war von „kaputt“ nicht zu unterscheiden",
+    "v33.50 · 15 von 15 Admin-Schreibwegen prüften nur .error",
+    "v33.52 · vier PATCH mit return=minimal sagten „gespeichert“ (Profilfeld, Freundschaft annehmen, zwei Foto-Wege)",
+    "v33.53 · Android-Hülle: „heruntergeladen“ unter einem Backup, das nie ankam"
+  ],
+  "suchmuster": "node -e 'const L=require(\"fs\").readFileSync(\"index.html\",\"utf8\").split(\"\\n\"),o=[];L.forEach((z,i)=>{if(!/localStorage\\.setItem\\(|gsStore\\.set(JSON)?\\(|savePlantsToStorage\\(|saveGardenData\\(|sbSaveProfile\\(/.test(z)||/^\\s*(\\/\\/|\\*)|=== ?false|!== ?false|= ?(await )?(localStorage\\.setItem|gsStore\\.set|sbSaveProfile|savePlantsToStorage|saveGardenData)/.test(z))return;for(let j=i;j<i+9&&j<L.length;j++)if(/gsToast\\(.*(gespeichert|gesichert|aktualisiert|hinzugef|angelegt|bernommen|eingetragen)/i.test(L[j])&&!/nicht|voll|Fehler/i.test(L[j])){o.push((i+1)+\" → \"+(j+1)+\": \"+L[j].trim().slice(0,110));break}});console.log(o.length+\" Schreibzeilen ohne Blick auf die Rueckgabe, Erfolgsmeldung in den 8 Zeilen danach:\\n\"+o.join(\"\\n\"))'",
+  "stichworte": [
+    "meldung-vor-der-antwort",
+    "_gsSchreibOk",
+    "versprechen_check",
+    "save_check",
+    "speicher_check",
+    "_gsAdmTun"
+  ],
+  "gesucht": "Mehrfach: v32.28 — 103 Schreibvorgänge, 4 rot; v32.44 — 336 setItem-Aufrufe, 250 in try/catch, 13 echte Rettungswege („die Welle ist geschlossen“); v32.69 — neue Stämme und „Versprechen vor dem Schreiben“, 7 rot; v32.82 — zehn sbFetch ohne Blick auf die Antwort, 3 mit sichtbarer Wirkung („die Klasse ist geschlossen“); v33.50 — 15 von 15 Admin-Schreibwegen; v33.52 — 99 Schreibvorgänge ohne RPC, 20 PATCH, 4 rot. Belegte Restlücke: Aufrufe über Helfer und Schreiben in den Gerätespeicher sieht versprechen_check nicht (v33.03).",
+  "waechter": [
+    {
+      "datei": "scripts/versprechen_check.js",
+      "fall": "Keine Erfolgsmeldung ohne Blick auf die Antwort"
+    },
+    {
+      "datei": "scripts/versprechen_check.js",
+      "fall": "PATCH prüft nur .error — RLS lehnt mit 0 Zeilen OHNE Fehler ab"
+    },
+    {
+      "datei": "scripts/save_check.js",
+      "fall": "Experten-Antrag (gsSubmitExpertApplication → feedback_items)"
+    },
+    {
+      "datei": "scripts/save_check.js",
+      "fall": "Inserat löschen (mktDelete → marketplace_listings DELETE)"
+    },
+    {
+      "datei": "scripts/save_check.js",
+      "fall": "Name aendern (profEditName → profiles POST)"
+    },
+    {
+      "datei": "scripts/save_check.js",
+      "fall": "Avatar wechseln (profSetAvatar → profiles POST, optimistisch mit Ruecknahme)"
+    },
+    {
+      "datei": "scripts/speicher_check.js",
+      "fall": "Garten-Zwilling · ohne Foto noch einmal, dann ehrlich false"
+    },
+    {
+      "datei": "scripts/speicher_check.js",
+      "fall": "Rezept-Favorit · bei vollem Speicher bleibt die Liste, wie sie war"
+    },
+    {
+      "datei": "scripts/einstellungen_check.js",
+      "fall": "Push meldet Erfolg nur, wenn der Server die Zeile genommen hat"
+    },
+    {
+      "datei": "scripts/einstellungen_check.js",
+      "fall": "Sperrt der Browser den Standort, sagt der Schalter das auch"
+    },
+    {
+      "datei": "scripts/quiz_check.js",
+      "fall": "Urteil des Servers · bestaetigt → nichts; widersprochen → sichtbar"
+    },
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "Optimistische Anzeige · das Herz nimmt zurück, was der Server ablehnt"
+    },
+    {
+      "datei": "scripts/admin_check.js",
+      "fall": "Aktionen · Die Meldung kommt NACH der Antwort und stimmt"
+    },
+    {
+      "datei": "scripts/admin_check.js",
+      "fall": "Aktionen · Kein `return=minimal` an einem Admin-Schreibvorgang"
+    },
+    {
+      "datei": "scripts/naht_check.js",
+      "fall": "Katalog · der saisonale Push filtert eine Spalte, die es GIBT"
+    },
+    {
+      "datei": "scripts/apk_check.js",
+      "fall": "K1 · Wer den Dialog schliesst, liest „Nicht gespeichert\""
+    },
+    {
+      "datei": "scripts/apk_check.js",
+      "fall": "K2 · Scheitert das Schreiben, sagt die App es"
+    }
+  ]
+}

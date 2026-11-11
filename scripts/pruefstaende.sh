@@ -57,6 +57,11 @@ TAILN=8 run perf  node scripts/perf_check.js
 run field        python3 scripts/field_check.py
 run planer       node scripts/planer_check.js
 run scan         node scripts/scan_check.js
+# v33.58: zeigt ein Rezept auf die gemeinte Art und nie auf eine giftige? (reines Node, keine Seite)
+run rezept       node scripts/rezept_link_check.js
+# v33.58: antwortet die KI noch, wenn Anthropic ein Modell abschaltet? Rechnung + der ECHTE Handler
+# von ai-proxy in Node + Quelltext (kein Modellname in einer Edge-Function). Reines Node.
+run modell       node scripts/modell_check.js
 run ingest       node scripts/ingest_check.js
 run sensor_push  node scripts/sensor_push_check.js
 run kalender     node scripts/kalender_check.js
@@ -82,6 +87,9 @@ run risiko       node scripts/risiko_check.js
 # alle anderen laufen in der Zeitzone der Maschine (hier und in CI: UTC), wo
 # „lokaler Tag" und „UTC-Tag" dasselbe sind.
 TAILN=10 run datum      node scripts/datum_check.js
+# Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
+# stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
+run austausch    node scripts/austausch_check.js
 if [ "$SCHNELL" != "schnell" ]; then
   TAILN=12 run contrast   node scripts/contrast_check.js
   TAILN=14 run einstellungen node scripts/einstellungen_check.js

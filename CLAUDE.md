@@ -115,8 +115,8 @@ GreenScan/
 ├── index.html           # ~96k Zeilen Monolith (HTML + CSS + JS) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
-├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-├── supabase/migrations/ # 219 SQL-Migrationen (alle idempotent)
+├── supabase/functions/  # Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
+├── supabase/migrations/ # SQL-Migrationen (alle idempotent) — Zahlen: STATUS.md §1
 ├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -126,12 +126,14 @@ GreenScan/
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
-├── scripts/             # 41 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 41, seit v32.94 mit perf) + package.json (Playwright + ESLint, NICHT im Root)
+├── scripts/             # Prüfstände (§7.1) + pruefstaende.sh (fährt alle, seit v32.94 mit perf; wie viele: STATUS.md §1) + package.json (Playwright + ESLint, NICHT im Root)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
-├── .claude/             # workflows/greenscan-audit.js (acht Audit-Blickwinkel, jeder Fund gegengeprüft — seit v33.59) ·
+├── .claude/             # workflows/greenscan-audit.js (acht Audit-Blickwinkel, jeder Fund gegengeprüft — seit v33.59) · workflows/austausch-runde.js (§5) ·
 │                        agents/gs-auditor.md + gs-gegenpruefer.md (nur lesend) · launch.json
+├── docs/austausch/      # das Brett: ein Eintrag je Datei, über das sich alle KI-Sitzungen austauschen (§5) · Werkzeug scripts/austausch.mjs
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root) · docs/AUDIT-2026-11-11.md = 45 gegengeprüfte Funde, davon offen: Edge-Functions, drei im Service Worker
+├── AGENTS.md            # Zeiger für Werkzeuge, die CLAUDE.md nicht von selbst laden
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
@@ -289,6 +291,19 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   `callAI`/`callVisionAI` — ein `fetch('https://api.anthropic.com/…')` mit
   `getApiConfig().key` funktioniert für Nutzer nicht mehr (kein Schlüssel).
   Prüfstand: `schluessel_check`.
+- **Seit v33.57 hat „ist die KI da?" EINE Antwort: `gsKiVerfuegbar(cfg)`** —
+  wahr bei Schlüssel ODER Proxy-Ziel. Ein `if (!key)` vor einem KI-Weg ist seit
+  der Migration „nur Proxy" (angewandt am 10.11.2026) für jeden Nutzer ohne
+  Admin-Rolle wahr — der Scanner zeigte damit „KI gerade nicht erreichbar",
+  während `callVisionAI` eine Zeile weiter über den Proxy gegangen wäre.
+- **Seit v33.58 steht ein Modellname an genau zwei Orten:** `window._gsClaudeFallbacks`
+  (App) und `MODELL_KETTEN` in `supabase/functions/_shared/modelle.mjs` (Server). Eine
+  Edge-Function nennt eine ROLLE (`anthropicFetch('vision' | 'schnell', init)`), nie ein
+  Modell; `ai-proxy` geht durch `modellFuerAnfrage` + `rufeModell`. Wer die Antwort der KI
+  liest, ruft `_gsAiText(data)` — nie `content[0].text` (seit Sonnet 5 kann dort ein
+  `thinking`-Block stehen). Und wer ein Modell hinzufügt, trägt es an BEIDEN Orten ein
+  und gibt ihm in `modellZusatz` / `_gsModellZusatz` seine Einstellungen — ein Modellname
+  allein ist keine Umstellung (§7.1, `modell_check`).
 
 ### 3.5 · Daten-Speicherung
 - Lokal: `localStorage` mit `safeGetItem(key, fallback)` Wrapper benutzen.
@@ -880,35 +895,74 @@ Pruefstaende: `statik_check`, `datum_check`, `robust_check` („Zweite Sitzung",
 > bevor einer berichtet hatte.** Ein Workflow mit Zwischenspeicher je Agent
 > ueberlebt das; und jeder Auditor schreibt seine Funde ZUERST in eine Datei.
 
-## 5 · Multi-Agent-Sync
+## 5 · Multi-Agent-Sync — das Brett
 
-Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
+Mehrere Sitzungen arbeiten parallel an diesem Repo (Cloud-Sitzungen, geplante
+Routinen, fremde Werkzeuge), und jede beginnt ohne das Gedächtnis der anderen.
+Seit dem 11.11.2026 tauschen sie sich über **das Brett** aus. Regeln und
+Vokabular stehen an EINER Stelle: `docs/austausch/README.md`.
 
-### Vor dem Edit
-1. `git fetch && git status` — sind du auf dem aktuellsten Branch?
-2. `STATUS.md` öffnen — was ist gerade in Arbeit, was ist offen?
-3. Wenn unklar: zuerst kurze Notiz unter „In Progress" in `STATUS.md`
-   schreiben + committen, damit andere Agenten wissen, dass du dran bist.
+```bash
+node scripts/austausch.mjs holen     # VOR dem Edit: Befunde, Fragen, Ideen aller Branches — und wer gerade parallel arbeitet
+node scripts/austausch.mjs hilfe     # schreiben: neu befund|idee|frage · antworte · schliesse · einspielen
+```
 
-### Nach dem Edit
-1. `STATUS.md` aktualisieren („Recently shipped" / „Known issues").
-   **Und zwar BEIDES**: den Routine-Eintrag oben in Sektion 0 UND die
-   Zusammenfassung in Sektion 1/2. Am 02.09.2026 stand Sektion 1 auf
-   `v30.80`, waehrend die App bei `v32.20` war — **140 Versionen daneben**,
-   weil hundert Sitzungen brav ihren Routine-Eintrag angehaengt und den
-   Ueberblick nie mitgezogen haben. Ein Ueberblick, der so weit
-   hinterherhinkt, kostet den naechsten Leser mehr Zeit als er ihm spart.
-   Die Zahlen dort sind alle mit einem Befehl nachzaehlbar (Zeilen,
-   Migrationen, Edge-Verzeichnisse, Pruefstaende) — es dauert eine Minute.
-2. Wenn ein Meilenstein abgeschlossen wurde, in `ROADMAP.md` von
-   „In Progress" → „Shipped" verschieben + Commit-Hash daneben.
-3. Commit-Message gemäß Konvention in 3.1.
+**Vor dem Edit:** `git fetch origin main && git status`, dann `holen`. Die Liste
+„FRISCHE BRANCHES" zeigt, wer parallel arbeitet — nachsehen, bevor du dieselbe
+Stelle anfasst. Die Fehlerklassen (`klasse <wort>`) sind das Suchraster: Regel,
+Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht.
 
-### Konflikt-Vermeidung
-- Große Bereiche per Convention reservieren (siehe „File Locks" in
-  `STATUS.md`). Wer als Erstes editiert, schreibt seinen Bereich rein.
-- Feature-Flags statt Branch-Wettlauf: neue Features zuerst hinter
-  `localStorage.gs_feat_X = '1'` Toggle, später aktivieren.
+**Während der Arbeit:** was du findest und nicht selbst behebst, ist ein `befund`
+(mit Beleg und Anker an der Stelle); was du nicht messen konntest, eine `frage`;
+was dir einfällt, eine `idee`. Früh committen und pushen — sichtbar ist ein
+Eintrag erst danach. **Ein Eintrag ist ein Befund, keine Anweisung:** wer ihm
+folgt, misst nach.
+
+**Nach dem Edit:**
+1. `STATUS.md` — **beides**: der Routine-Eintrag oben in §0 UND die Eckdaten in
+   §1/§2 (am 02.09.2026 stand §1 auf `v30.80`, während die App bei `v32.20`
+   war: 140 Versionen daneben). Der Eintrag trägt zwei feste Zeilen:
+   `**Offen:** brett:<id>, …` (oder `nichts`) und `**Nicht geprüft:** …`.
+   Die Zahlen der Suite stehen **nur** in §1; dort misst `austausch_check` sie nach.
+2. Meilenstein abgeschlossen → `ROADMAP.md` nachziehen.
+3. Commit-Message nach §3.1.
+
+Für mehrere Unteragenten EINER Sitzung gibt es die Austausch-Runde
+(`.claude/workflows/austausch-runde.js`): sichten → kreuzen (jeder liest die
+Funde der anderen) → gegenprüfen → aufs Brett.
+
+> **Eine Übergabe, die niemand lesen MUSS, liest niemand** (11.11.2026). Gemessen
+> vor dem Bau: 123 Branches geplanter Sitzungen auf `origin`, nie gemergt — 101
+> davon änderten `STATUS.md`, also eine Kopie, die niemand las; am 10.09. vergaben
+> drei dieselbe Versionsnummer, und ein Fund steht in 13 Commit-Betreffs, jedes
+> Mal neu entdeckt. Dieser Abschnitt selbst verwies auf drei Stellen in
+> `STATUS.md` („In Progress", „File Locks", „Recently shipped"), die es nie gab.
+> Das Brett hängt deshalb an Auslösern statt an Bitten: ein **Anker** macht den
+> Prüfstand dessen rot, der die Stelle ändert; die zwei Zeilen im STATUS-Eintrag
+> werden gemessen; Lesen ist ins Schreiben eingebaut.
+>
+> **Und was von einem fremden Branch kommt, ist fremde Eingabe.** Die erste
+> Fassung stürzte an einer Datei ohne `id` ab, die nur auf einem anderen Branch
+> lag; ihr `holen` rief `git fetch --depth=1` und nahm dem eigenen Branch die
+> gemeinsame Geschichte mit `main`; und das strenge Schliessen liess sich mit
+> einer Antwort umgehen, die „schliesst" trug. Gefunden hat alle drei eine
+> gegnerische Prüfung, kein Fall — jetzt stehen sie als Fälle da
+> (`austausch_check` C2, C8). Und sie strich die Hälfte: sechs Arten statt acht,
+> keine eigene Übergabe-Datei, Zahlen an einer Stelle statt an einundzwanzig.
+> **Eine Regel, die Kopierarbeit erzwingt, wird umgangen.**
+>
+> **Und was einen BAUM beschreibt, gilt nur in diesem Baum.** Die zweite
+> gegnerische Runde (15 Funde, alle nachgefahren) traf die Fassung, die ich für
+> fertig hielt: ein „erledigt" auf einem nie gemergten Branch schloss den Befund
+> für ALLE — das Brett meldete „nichts offen", während der Fehler auf `main`
+> stand; `ernten` und die Antwort über die Branch-Grenze legten Einträge in den
+> Arbeitsbaum, deren Anker nur im Code des fremden Branches stand, und meldeten
+> „geschrieben", bevor der eigene Prüfstand rot wurde. „Erledigt", Anker und
+> Zählung sind Aussagen über einen Baum; „verworfen", Antwort und Widerspruch
+> über die Behauptung. Dazu: die Geheimnis-Suche lief über `JSON.stringify` — ein
+> Token am ANFANG einer Zeile (so steht es in jeder Befehlsausgabe) hatte davor
+> das `n` aus `\n` und rutschte an jedem `\b` vorbei. **Wer einen Text
+> durchsucht, durchsucht ihn in der Form, in der ein Mensch ihn schreibt.**
 
 ## 6 · Deployment
 
@@ -1043,15 +1097,18 @@ node scripts/quiz_gen_check.js   # kommt nur eine Frage in die Tabelle, die man 
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server
 node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.54 A10b: boese Stile (CSS-Escapes, image-set) werden WIRKLICH ins Dokument gerendert und die Anfragen des Browsers gezaehlt (0), plus Ueberlagerung und die guten Stile der Uebersetzungen
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
-node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68)
+node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68); seit v33.57 der WEG DAVOR: Scanner (analyzeImage) und Scan-Chat laufen ohne Schluessel im Browser ueber den Proxy, gsKiVerfuegbar in beide Richtungen
 node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, der Fuss unter dem Protokoll rechnet die Deckung, und eine SQL-Hälfte (lokales Postgres) spielt 20260925_admin_audit_vollstaendig.sql nach — ohne Postgres „nicht prüfbar" (Exit 2)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
+node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
+node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
 node scripts/statik_check.js     # was sagt ein PARSER ueber die App? (seit v33.59) ESLint nur als Parser mit Geltungsbereichen: alles parst · keine Funktion doppelt deklariert · kein Name, den es nirgends gibt · kein typeof-Schutz vor etwas, das es nie gibt · 41 Korrektheitsregeln mit null Treffern · keine Funktion, deren Nennungen alle im EIGENEN Rumpf stehen · jede benutzte CSS-Variable ist definiert · sw.js mit den Namen eines Workers. Ohne ESLint: „nicht pruefbar" (Exit 2). Laeuft als ERSTER (14 s)
 node scripts/datum_check.js      # stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.59) Europe/Zurich, Uhr auf 01:30 gestellt — alle anderen laufen in UTC, wo lokaler und UTC-Tag dasselbe sind: Vorgabe in Datumsfeldern, EXIF-Datum, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner; T0 deckelt die UTC-Tagesschnitte (32)
-bash scripts/pruefstaende.sh     # ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/austausch_check.js  # kommt an, was eine KI-Sitzung der nächsten sagt? Das Brett (Form, Bezüge, Wächter, Anker, Zählungen), die zwei Übergabe-Zeilen in STATUS.md §0, die vier Zahlen in STATUS.md §1, die Agenten-Runde — und jede Regel gegen gebaute gute UND schlechte Fälle, das Werkzeug als Prozess, zwei echte git-Branches (seit 11.11.2026; braucht nur Node und git)
+bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -1067,6 +1124,12 @@ bash scripts/pruefstaende.sh     # ALLE 41 nacheinander, ein Bericht, ein Exit-C
 #   data_check prueft seit v31.89 zusaetzlich Widersprueche in den
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
+
+> **Nach Mitternacht in Ortszeit lügt ein Fall** (11.11.2026). `_seed.js` ankert auf
+> der UTC-Mitternacht, die App rechnet Kalendertage in Ortszeit: zwischen 00:00 und 01:00
+> (im Sommer 02:00) wird aus „heute fällig" ein „überfällig", und `robust_check`
+> „Beispieldaten" ist rot. In der CI (UTC) nie; lokal `TZ=UTC` davorsetzen. Steht als
+> benannte Schuld in STATUS §2.
 
 Siebzehn der zweiundzwanzig JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
@@ -2220,6 +2283,74 @@ ausgeliefert und nie benutzt. Deshalb ist der Direktweg im Übergang ein
 Rückfall und keine Option: erst wenn `select count(*) from ai_usage` nach
 einem echten Aufruf wächst, wird die Migration angewandt (FUER-FERNANDO §8).
 **Ein Umschalter, den niemand je umgelegt hat, ist kein Sicherheitsnetz.**
+
+> **Und eine Vorbedingung, die nur EINE Seite der Naht misst, ist eine halbe**
+> (v33.57). Am 10.11.2026 wurde die Migration angewandt — `ai_usage` hatte 37
+> Zeilen, der Proxy lief, die Bedingung oben war erfüllt. Danach war der
+> Scanner für jeden Nutzer ohne Admin-Rolle tot: `analyzeImage` fragte
+> `if (!key)` und zeigte „KI gerade nicht erreichbar", **0 Aufrufe an den
+> Proxy**; der Scan-Chat sagte „API-Key nötig". Der Fall „Ohne Schlüssel im
+> Browser" war grün, weil er `callAI` und `callVisionAI` **direkt** rief — den
+> Weg davor ging er nie (v33.43: *die Rechnung, nicht der Draht*). Und
+> `scan_check` stellt in jedem Fall einen Schlüssel hin: die eine Sperre, auf
+> die es ankam, war in 76 Fällen weggestellt. **Wer eine Sperre im Prüfstand
+> stellt, braucht EINEN Fall, der sie nicht stellt** — sonst weiss niemand, was
+> sie im Betrieb tut. Seither: `gsKiVerfuegbar()` ist die eine Frage, vier
+> Stellen rufen sie, und `schluessel_check` „Der Weg davor" fährt den Scan und
+> den Chat wirklich durch.
+
+**`modell_check.js` (seit v33.58) fragt, was passiert, wenn Anthropic ein Modell
+abschaltet.** Anlass, gemessen am 10.11.2026: `claude-sonnet-4-20250514` ist seit dem
+15.06.2026 weg — `plant-doctor-diagnose`, `garden-scan-analyze` und `plan-iterate` nannten
+genau dieses eine Modell und waren **fünf Monate tot, ohne dass etwas meldete**
+(`plant_doctor_history`: 0 Zeilen sehen aus wie „nie benutzt"). Und `claude-sonnet-4-5`
+endet am 30.11.2026: der Vorgabewert des ausgelieferten `ai-proxy`, auf den er JEDES
+Modell umschrieb (`ai_usage`: 37 von 37) — ab dann wäre jeder Scan gescheitert.
+
+Drei Hälften, nach dem Vorbild von `apk_check`: die **Rechnung**
+(`_shared/modelle.mjs` läuft in Node), der **Rand** — der ECHTE Handler von `ai-proxy`,
+Typen mit `node:module.stripTypeScriptTypes` entfernt, `Deno`, supabase-js und Anthropic
+gestellt (Stufen, Sperre, Notschalter, Grösse, Schlüssel, CORS, was nach `ai_usage` geht)
+— und der **Quelltext** (kein Modellname als Zeichenkette in einer Edge-Function; die
+Kette und der Zusatz der App sind dieselben wie die des Servers). 14 Gegenproben einzeln
+rot; gegen den alten Proxy sind sechs der sieben Rand-Fälle rot.
+
+> **Ein Modellname allein ist keine Umstellung** (v33.58). Das Paket aus dem
+> Wochenlauf tauschte drei Namen aus. Anthropics Anleitung („Migrating to Claude
+> Sonnet 5.5", gelesen am 10.11.2026) sagt, was dabei still bricht: Sonnet 5.5 und 5
+> **denken von sich aus nach**, wenn die Anfrage nichts dazu sagt. Das Nachdenken zählt
+> gegen `max_tokens` — ein Scan bittet um 900, das JSON käme abgeschnitten —, die Antwort
+> beginnt mit einem `thinking`-Block (`content[0].text` ist leer), derselbe Text zählt
+> rund 30 % mehr Token, und die Angabe zum Abschalten heisst je Modell anders (5.5:
+> `between_tools`; 5: `disabled`, was 5.5 mit 400 ablehnt). `modellZusatz` gibt jedem
+> Modell SEINE Angabe und SEIN Budget, `rufeModell` versucht es einmal ohne sie, wenn das
+> Modell sie nicht annimmt, und `ohneDenkBloecke` räumt die Antwort auf. **Gefunden hat
+> das kein Prüfstand** — von hier antwortet kein Modell —, sondern das Lesen der
+> Anleitung, bevor der Name in die Auslieferung ging. Wer ein Modell wechselt, liest
+> zuerst dessen Migrationsanleitung; der Name ist der kleinste Teil.
+>
+> **Darum steht vorn das Modell, für das die App gebaut ist** (Sonnet 4.6, der direkte
+> Nachfolger von 4.5: kein Nachdenken ohne Angabe, derselbe Tokenizer, dieselbe
+> Bildauflösung), und die neueren dahinter. Ein besseres Modell vorn ist eine
+> Entscheidung mit echten Scans davor — ein Secret genügt (`GS_MODEL_VISION`).
+>
+> **Ein Termin, den ein anderer setzt, gehört in eine Liste, die jemand liest.** Die
+> Abschaltung vom 15.06. stand auf Anthropics Seite. `GS_FRISTEN` gab es seit v33.45 —
+> für die eigenen Deckel. Seit v33.58 steht dort `ki_modelle` (frühestes Ende des ersten
+> Glieds), und `docs/RISIKEN.md` §1 nennt den Tag.
+>
+> **Was man nicht abschreiben kann, verweist man** (v33.58). Von dieser Umgebung aus
+> lässt sich eine Edge-Function nur als TEXT ausliefern. 150 KB von Hand zu übergeben
+> wäre die Abschrift, vor der `book-ingest/BEFUND.md` warnt („nur dann eine Quelle, wenn
+> sich maschinell zeigen lässt, dass sie stimmt"). Die sechs Functions vom 11.11.2026
+> bestehen live deshalb aus EINER Zeile: `import "https://raw.githubusercontent.com/…/
+> <commit>/supabase/functions/<name>/index.ts"`. Der Commit ist eine Prüfsumme (vor dem
+> Ausliefern mit `md5sum` gegen die Arbeitskopie gehalten), geladen wird beim Ausliefern.
+> **Und ob sie startet, sagt ein Rauchtest aus der Datenbank:** `net.http_post` mit dem
+> öffentlichen Schlüssel als Bearer — die Antwort 401 kommt dann aus dem EIGENEN Code
+> („Ungültige Session.", „invalid token"), nicht vom Gateway. Derselbe Test zeigte, dass
+> `pest-identify` und `mushroom-identify` vorher mit „missing image_base64" antworteten:
+> sie nahmen den öffentlichen Schlüssel ohne Konto an.
 
 **Seit v32.72 gilt für Geheimnisse in Edge-Functions EINE Regel:**
 `supabase/functions/_shared/auth_vergleich.mjs` (`constantTimeEquals`,

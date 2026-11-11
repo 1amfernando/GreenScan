@@ -48,7 +48,7 @@ eigenem Namen wird weiter rot gemeldet, ein totes `tp-gegenprobe` landet
 sichtbar in der mittleren Klasse.
 """
 
-import io, os, re
+import io, os, re, sys
 
 # Der Pfad kommt aus dem SKRIPT, nicht aus einer Maschine. Bis heute stand hier
 # '/home/user/GreenScan/index.html' — der Pfad EINER Umgebung. Lokal war der
@@ -119,11 +119,36 @@ for fid, f in felder.items():
     else:
         verdaechtig.append(zeile)
 
+# v33.59 (brett:2026-11-11-ec73): der Pruefstand URTEILT. Bis dahin endete er
+# immer mit 0 — „N Felder, die niemand liest" haette `pruefstaende.sh` als gruen
+# gemeldet, und die Zeile stand nur fuer den da, der den Bericht las (dieselbe
+# Luecke wie in contrast_check und render_check, im selben Schnitt geschlossen).
+# Ein Treffer bleibt ein VERDACHT: wer ihn geprueft hat und das Feld fuer
+# richtig haelt, traegt es hier mit GRUND ein — dann zaehlt es nicht mehr, steht
+# aber weiter im Bericht. Die Liste ist leer, weil es heute keinen Treffer gibt.
+BEWUSST = {
+    # 'feld-id': 'warum es keinen Leser braucht',
+}
+offen = [z for z in verdaechtig if z[0] not in BEWUSST]
+erklaert = [z for z in verdaechtig if z[0] in BEWUSST]
+ueberholt = sorted(k for k in BEWUSST if k not in felder or k not in [z[0] for z in verdaechtig])
+
 print('Formularfelder gesamt :', len(felder))
-print('Kommen NIRGENDS sonst vor (weder gelesen noch eigenes on*):', len(verdaechtig))
-for z in sorted(verdaechtig): print('   !! %-26s %-26s %-15s %s' % z)
+print('Kommen NIRGENDS sonst vor (weder gelesen noch eigenes on*):', len(offen))
+for z in sorted(offen): print('   !! %-26s %-26s %-15s %s' % z)
+if erklaert:
+    print('Bewusst ohne Leser (mit Grund in BEWUSST):', len(erklaert))
+    for z in sorted(erklaert): print('   .  %-26s %-26s %s' % (z[0], z[1], BEWUSST[z[0]]))
+if ueberholt:
+    print('BEWUSST nennt Felder, die es nicht (mehr) gibt oder die inzwischen gelesen werden:', ', '.join(ueberholt))
 print('Zusammengesetzt nachgeschlagen (kein Fehler):', len(zusammengesetzt))
 for z in sorted(zusammengesetzt):
     print("   .  %-26s %-26s %-15s ueber '%s' + ..." % (z[0], z[1], z[2], z[4]))
 print('Erkannte Verkettungs-Praefixe:', len(praefixe),
       ('(' + ', '.join(sorted(praefixe)[:8]) + ('...' if len(praefixe) > 8 else '') + ')') if praefixe else '')
+# Exit 1, sobald ein Feld ohne Leser und ohne Grund dasteht — oder BEWUSST etwas
+# nennt, das es nicht mehr gibt (eine Ausnahme ohne Gegenstand ist ein Rest).
+if len(felder) < 100:
+    print('NICHT PRUEFBAR: nur %d Formularfelder gefunden — der Pruefstand misst offenbar etwas anderes' % len(felder))
+    sys.exit(2)
+sys.exit(1 if (offen or ueberholt) else 0)

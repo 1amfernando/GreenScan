@@ -1177,6 +1177,88 @@ const FAELLE = [
     },
   },
   {
+    name: 'Rechtstexte vor der Anmeldung · die zwei Links im Registrierformular zeigen ein Fenster, das man SIEHT — über dem Anmeldebildschirm, mit Text, und Escape schliesst es',
+    lauf: async () => {
+      // v33.59 (Audit „CSS/HTML", gefahren mit dem gespeicherten Workflow).
+      // „Ich akzeptiere die Datenschutzerklaerung & Nutzungsbedingungen" — beide
+      // Links oeffnen #modal-rechtlich, einen Nachfahren von #app. Ohne Anmeldung
+      // ist #app `display:none!important` (html.gs-preauth), und #gs-onboarding
+      // liegt auf z-index 9999999. Gemessen gegen den Stand davor: `.open` gesetzt,
+      // Scrollen gesperrt, 0 Rechtecke — ein Fenster, das niemand sieht.
+      // Dieser Fall laedt die App OHNE Anmeldung (kein Seed) und klickt die
+      // echten Links; die Gegenrichtung laeuft auf der angemeldeten Seite.
+      const ctx = await __browser.newContext({ viewport: { width: 412, height: 800 } });
+      let r;
+      try {
+        const p = await ctx.newPage();
+        await p.route('**', q => q.request().url().startsWith('file:') ? q.continue() : q.abort());
+        await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+        await p.waitForTimeout(2500);
+        r = await p.evaluate(async () => {
+          const warte = (ms) => new Promise((res) => setTimeout(res, ms));
+          const o = { steht: document.documentElement.classList.contains('gs-preauth'), app: getComputedStyle(document.getElementById('app')).display };
+          onbShowRegister(); await warte(500);
+          const m = document.getElementById('modal-rechtlich');
+          const mess = () => {
+            const box = m.querySelector('.modal, .obox, .mpanel') || m;
+            const q = box.getBoundingClientRect();
+            const oben = document.elementFromPoint(q.left + q.width / 2, q.top + 30);
+            const txt = (document.getElementById('legal-content') || {}).innerText || '';
+            return { open: m.classList.contains('open'), rechtecke: m.getClientRects().length, hoehe: Math.round(q.height), oben: !!(oben && m.contains(oben)), text: txt.trim().replace(/\s+/g, ' ').slice(0, 40) };
+          };
+          const l1 = document.querySelector('#gs-onboarding [onclick*="onbOpenPrivacy"]');
+          const l2 = document.querySelector('#gs-onboarding [onclick*="onbOpenTerms"]');
+          o.links = [l1, l2].map((l) => !!l && l.getClientRects().length > 0);
+          if (!l1 || !l2) return o;
+          l1.click(); await warte(700);
+          o.datenschutz = mess();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await warte(500);
+          o.nachEscape = { open: m.classList.contains('open'), overflow: document.body.style.overflow, anmeldung: getComputedStyle(document.getElementById('gs-onboarding')).display };
+          l2.click(); await warte(700);
+          o.agb = mess();
+          closeModal('modal-rechtlich'); await warte(400);
+          return o;
+        });
+      } finally { await ctx.close(); }
+      const f = [];
+      if (!r.steht || r.app !== 'none') return { ok: false, warum: 'der Anmeldebildschirm steht in diesem Aufbau nicht (gs-preauth: ' + r.steht + ', #app: ' + r.app + ') — der Fall misst etwas anderes' };
+      if (!r.links || !r.links[0] || !r.links[1]) return { ok: false, warum: 'die zwei Links im Registrierformular sind nicht sichtbar (' + JSON.stringify(r.links) + ')' };
+      const pruef = (was, x, wort) => {
+        if (!x.open) f.push(was + ': Fenster nicht offen');
+        else if (!x.rechtecke || x.hoehe < 200) f.push(was + ': Fenster ist „offen", aber nicht zu sehen (' + x.rechtecke + ' Rechtecke, ' + x.hoehe + ' px hoch)');
+        else if (!x.oben) f.push(was + ': Fenster liegt UNTER dem Anmeldebildschirm');
+        if (x.text.indexOf(wort) < 0) f.push(was + ': Text beginnt mit „' + x.text + '" statt mit „' + wort + '"');
+      };
+      pruef('Datenschutzerklärung', r.datenschutz, 'Datenschutz');
+      pruef('Nutzungsbedingungen', r.agb, 'Geschäftsbedingungen');
+      if (r.nachEscape.open) f.push('Escape schliesst das Fenster nicht');
+      if (r.nachEscape.overflow === 'hidden') f.push('nach dem Schliessen bleibt das Scrollen gesperrt');
+      if (r.nachEscape.anmeldung === 'none') f.push('Escape hat den Anmeldebildschirm mit geschlossen');
+      // Gegenrichtung: angemeldet geht dasselbe Fenster auf seiner ALTEN Ebene auf.
+      const g = await __seite.evaluate(async () => {
+        const warte = (ms) => new Promise((res) => setTimeout(res, ms));
+        const m = document.getElementById('modal-rechtlich');
+        // Der Pseudo-Token der Beispieldaten ist keine echte Sitzung: nach dem
+        // Start legt die App den Anmeldebildschirm ueber alles (gemessen:
+        // display:flex). „Angemeldet" wird deshalb HERGESTELLT, wie es
+        // render_check und contrast_check tun — und danach zurueckgestellt.
+        const ob = document.getElementById('gs-onboarding');
+        const alt = ob ? ob.style.cssText : '';
+        if (ob) ob.style.setProperty('display', 'none', 'important');
+        try {
+          openLegalModal('impressum'); await warte(600);
+          const o = { open: m.classList.contains('open'), rechtecke: m.getClientRects().length, z: getComputedStyle(m).zIndex, text: (document.getElementById('legal-content').innerText || '').trim().slice(0, 20) };
+          closeModal('modal-rechtlich'); await warte(400);
+          return o;
+        } finally { if (ob) ob.style.cssText = alt; }
+      });
+      if (!g.open || !g.rechtecke) f.push('Gegenrichtung: angemeldet geht das Fenster nicht auf');
+      if (parseInt(g.z, 10) > 100000) f.push('Gegenrichtung: angemeldet liegt das Fenster auf z-index ' + g.z + ' — die Ebene über der Anmeldung gilt nur dort');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'ohne Anmeldung: beide Fenster sichtbar (' + r.datenschutz.hoehe + ' px), über dem Anmeldebildschirm, Escape schliesst nur das Fenster · angemeldet: z-index ' + g.z };
+    },
+  },
+  {
     name: 'Deep-Link · ein ?screen=-Wert ohne Bildschirm fuehrt auf die Startseite statt ins Leere — und Sitemap wie Manifest nennen nur Werte, die es gibt',
     lauf: async () => {
       // v33.59 (Audit „Auslieferung"). `?screen=light` stand in sitemap.xml;

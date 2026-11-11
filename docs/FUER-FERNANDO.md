@@ -1,6 +1,10 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **20.10.2026** (Abschnitte bis §27) · geschrieben von Seros.
+> Stand **11.11.2026** (Abschnitte bis §29) · geschrieben von Seros.
+>
+> **Neu und zuerst zu lesen: §29** — was am 10./11.11.2026 mit deiner Freigabe an der
+> laufenden Auslieferung geschehen ist, welchen Fehler ich dabei gemacht habe, und die
+> kurze Liste dessen, was jetzt bei dir liegt.
 >
 > *(Der Kopf stand bis heute auf 03.09., obwohl die Abschnitte 7–12 vom
 > 07./08.09. sind — genau die Art veralteter Ueberschrift, die dieses Repo
@@ -416,7 +420,11 @@ Und dann einmal das Quiz spielen: unter dem Ergebnis darf **nichts** Orangefarbe
 stehen. Steht dort „Der Server wertet diese Antwort als falsch", ist die
 Migration noch nicht drin — genau dafür ist die Zeile da.
 
-## 8 · Der KI-Schlüssel bleibt auf dem Server — drei Schritte, in dieser Reihenfolge
+## 8 · Der KI-Schlüssel bleibt auf dem Server — ✅ Schritte 1 und 2 ERLEDIGT am 10./11.11.2026 (siehe §29)
+
+> **Stand 11.11.2026:** die Migration ist angewandt, `ai-proxy` ist neu ausgeliefert
+> (version 3). Offen bleibt nur, den Schlüssel selbst zu erneuern — §29, Punkt 2. Der
+> Text darunter ist die Anleitung von damals und bleibt als Protokoll stehen.
 
 Bis v32.67 bekam **jeder angemeldete Nutzer** den echten Anthropic-Schlüssel
 in den Browser (`fn_get_global_api_key`), und die App rief Anthropic direkt.
@@ -1083,7 +1091,7 @@ brauchst du davon nichts.**
 
 ---
 
-## 23 · Zwei Admin-Knöpfe sind tot — eine Migration schaltet sie frei (v33.50)
+## 23 · ~~Zwei Admin-Knöpfe sind tot~~ — ✅ ERLEDIGT am 10.11.2026 (Migration `20260924_admin_grants` angewandt, siehe §29)
 
 **Du hast geschrieben:** „Zugleich möchte ich dass du den Admin-Panel noch
 besser, sauberer, sicherer und erweitert aufbaust."
@@ -1347,7 +1355,111 @@ Am nützlichsten ist die Cloud-Zeile: dort weicht jede App ein wenig anders ab.
 Wenn dort ein Satz statt der Vorschau steht, schick mir den Satz und den
 Namen der App.
 
-## 29 · Der grosse Durchgang (v33.59) — was du tun musst, und was noch offen ist
+## 29 · 10./11.11.2026 — was mit deiner Freigabe geschehen ist, und was jetzt bei dir liegt
+
+**Dein Auftrag:** „Die App muss einmal komplett verbessert werden. Es gibt überall
+bugs und lücken (sicherheitslücken)." **Deine zwei Entscheidungen am 10.11. um 22 Uhr:**
+Live-Datenbank „Sicherheit + Fixes" · Auslieferung „PR und selbst mergen".
+
+### Was getan ist — jedes einzeln nachgemessen
+
+| Was | Wann | Woran ich es gemessen habe |
+|---|---|---|
+| Migration `20260907_global_api_key_nur_proxy` — der Anthropic-Schlüssel geht nur noch an Admins | 10.11., 22:15 | Rumpf der Funktion in der Live-DB nachgelesen; `anon` darf sie nicht rufen |
+| Migration `20260831_rollen_leak_fix_v30_95` — Rollenfragen über FREMDE Konten nur noch für Staff und Admins | 10.11. | Rumpf nachgelesen. Das Ausführungsrecht für `anon` steht noch (gemessen) — die Auskunft ist aber zu |
+| Migration `20260924_admin_grants` — „Nutzer sperren / Rolle vergeben" und „globaler KI-Schlüssel" im Admin-Panel funktionieren wieder | 10.11. | `has_function_privilege('authenticated', …)` = wahr für beide |
+| `ai-proxy` neu ausgeliefert (version 3) | 11.11., 00:01 | Rauchtest aus der Datenbank: Antwort 401 „Ungültige Session." aus dem eigenen Code — die Function startet und prüft |
+| `plant-doctor-diagnose` (v6), `plan-iterate` (v5), `garden-scan-analyze` (v11) neu ausgeliefert | 11.11., 00:03 | Rauchtest: alle drei 401 aus dem eigenen Code. **Alle drei waren seit dem 15.06.2026 tot** — sie nannten ein Modell, das Anthropic an dem Tag abgeschaltet hat |
+| `pest-identify` (v4), `mushroom-identify` (v4) neu ausgeliefert | 11.11., 00:04 | **Vorher** nahmen beide den öffentlichen Schlüssel der App ohne Konto an (gemessen: „missing image_base64" statt 401) — wer ihn kannte, konnte auf deine Rechnung KI-Aufrufe auslösen. **Nachher:** 401 |
+| `key-health-check` (v2) — prüft denselben Schlüssel wie der Proxy | 10.11. | ausgeliefert, nicht aufgerufen |
+| v33.57 — Scanner und Scan-Chat ohne Schlüssel im Browser | 11.11. | CI + `schluessel_check` „Der Weg davor" |
+| v33.58 — Rezepte, Fruchtfolge, Modell-Kette, Scan-Cache, vier P1-Fehler | 11.11. | CI + `rezept_link_check`, `modell_check`, `scan_check` |
+
+`v31_36_mkt_views_auth_guard` stand seit dem 01.09.2026 schon in der Datenbank; ich habe
+sie unverändert noch einmal eingespielt (idempotent, keine Wirkung) und zuerst als „neu
+angewandt" gezählt. Das war ungenau.
+
+### Der Fehler, den ich dabei gemacht habe
+
+Die erste Migration schloss das Loch — und **machte den Scanner für jeden Nutzer ohne
+Admin-Rolle unbenutzbar**, von 22:15 Uhr bis zur Auslieferung von v33.57. Die App fragte
+an vier Stellen noch „liegt ein Schlüssel im Browser?" statt „ist die KI erreichbar?".
+Die Vorbedingung aus §8 („erst prüfen, dass `ai_usage` wächst") war erfüllt; sie prüfte
+aber den Proxy, nicht die App davor. Dein eigenes Konto war nicht betroffen (Admin).
+Zurückgenommen habe ich die Migration bewusst nicht — sie ist der Grund, warum dein
+bezahlter Schlüssel nicht mehr in jedem Browser liegt. Die Lehre steht in `CLAUDE.md` §7.1.
+
+### Was jetzt bei dir liegt — nach Dringlichkeit
+
+**1 · Ein echter Scan mit einem Konto OHNE Admin-Rolle (zwei Minuten).**
+Das ist das Einzige, was ich von hier nicht messen kann: die Functions-Adresse ist aus
+meiner Umgebung gesperrt, und ich habe kein Nutzer-Konto. Melde dich mit einem
+gewöhnlichen Konto an, bestimme ein Foto, stelle im Chat darunter eine Frage. Danach im
+SQL-Editor:
+
+```sql
+select model, count(*), max(created_at) from ai_usage group by 1 order by 3 desc;
+```
+
+Oben muss eine Zeile `claude-sonnet-4-6` mit dem heutigen Datum stehen. Steht dort
+`claude-sonnet-5-5`, hat dein Anthropic-Konto 4.6 nicht — auch gut, die Kette hat
+gegriffen. Steht dort nichts Neues: schreib mir, was die App gesagt hat.
+
+**2 · Den Anthropic-Schlüssel erneuern (fünf Minuten).**
+Bis zum 10.11. bekam ihn jeder angemeldete Nutzer in den Browser. Ob ihn jemand kopiert
+hat, lässt sich nicht nachsehen — also als bekannt behandeln:
+1. console.anthropic.com → einen neuen Schlüssel anlegen.
+2. In GreenScan: Admin-Panel → globaler KI-Schlüssel → den neuen eintragen (der Knopf
+   geht seit der Migration `admin_grants` wieder).
+3. In der Anthropic-Konsole den alten Schlüssel widerrufen.
+
+Den Schlüssel bitte nie in einen Chat, ein Ticket oder ins Repo schreiben — auch nicht
+an mich.
+
+**3 · Die restlichen Migrationen bestätigen.**
+Supabase verlangt für `20261006_friendships_nur_empfaenger` (sie entfernt eine Regel)
+eine Bestätigung im Dialog, und die blieb am 10.11. aus — du warst nicht da. Schreib mir
+„weiter mit den Migrationen", wenn du am Rechner bist; ich spiele dann der Reihe nach ein
+und messe jede nach: Freundschaften · Quiz-Antwortformate · Quiz-Bilder und 43 Fragen ·
+Quiz-Vorrat · Aufgaben-Sicht (beide Pflanzenlisten) · Admin-Protokoll · Nutzungsmessung
+lesen und aufräumen · Backup-Aufbewahrung · Kommentar-Reaktionen. Die Geräte- und
+Sensor-Migrationen bleiben wie vereinbart liegen.
+
+**4 · Buch-Einlesen: ein Secret, sonst ist es am 30.11. tot.**
+`book-ingest` (nur für dich als Admin) hat eine eigene Modellliste, und alle drei Namen
+darin sind am 30.11.2026 abgeschaltet. Supabase → Edge Functions → Secrets:
+`CLAUDE_MODEL` = `claude-sonnet-4-6`. Den Quelltext dieser Function gibt es nicht im Repo
+(siehe `supabase/functions/book-ingest/BEFUND.md`), deshalb kein Umbau von mir.
+
+**Nichts zu tun: Leaked-Password-Protection.** Sie stand in STATUS §2 noch als offener
+Dashboard-Klick — der Sicherheits-Advisor von Supabase meldet sie am 11.11.2026 nicht
+mehr (sie ist seit dem 01.09. aktiv). Die Zeile war veraltet; ich habe sie gestrichen.
+Der Advisor nennt heute keinen Fehler, nur Hinweise: 16 Funktionen, die ohne Anmeldung
+rufbar sind (öffentliche Lese-Abfragen für Quiz, Wissen, Marktplatz — so gewollt), und
+drei Erweiterungen im Schema `public`.
+
+### Was ich gesehen habe und NICHT angefasst habe
+
+| Was | Warum es bei dir liegt |
+|---|---|
+| **Stripe:** `app_settings.stripe_publishable_key` beginnt mit `pk_test_`, `stripe_webhook_events` hat 0 Zeilen | STATUS sagt „Live-Mode seit v26.40". Entweder stimmt die Einstellung nicht, oder der Live-Schlüssel liegt woanders — an Zahlungen fasse ich nichts ohne dich an. Bitte einmal nachsehen. |
+| **Bucket `scan-images` ist öffentlich** (99 Dateien) | Wer die Adresse eines Scan-Fotos kennt, kann es ohne Anmeldung laden. Privat stellen heisst: die App muss signierte Adressen holen — ein eigener Umbau, den ich gern mache, wenn du es willst. |
+| **`fn_add_xp`** nimmt bis zu 50'000 Punkte je Aufruf von jedem angemeldeten Konto | Die Rangliste lässt sich damit fälschen. Braucht eine Migration (Deckel und Anlass prüfen). |
+| **`fn_scan_cache_put`** | Die App liest den geteilten Cache seit v33.58 nicht mehr; die Tabelle ist leer. Die Funktion kann bleiben oder weg — eine Migration. |
+| **Sonnet 5.5 als erstes Modell** | Genauere Bilder (höhere Auflösung), dafür laut Anthropic rund 2,5-mal so viele Bild-Token, 30 % mehr Text-Token und mehr abgelehnte Anfragen. Ein Secret genügt: `GS_MODEL_VISION` = `claude-sonnet-5-5`. Mein Rat: erst zehn eigene Scans damit ansehen (Pilze dabei), dann entscheiden. Ohne dein Zutun übernimmt 5.5 von selbst, wenn 4.6 wegfällt (frühestens 17.02.2027). |
+| **Drei Functions nur im Repo:** `i18n-translate`, `knowledge-bulk-gen`, `feedback-triage` | Ihre Modelle leben noch; sie tragen jetzt die Kette, sind aber nicht ausgeliefert. Dazu die aus §9 und §15, die schon vorher warteten (`daily-push-checker`, `engagement-push-checker`, `weather-alert-checker`, `delete-user`). Sag „liefere die Functions aus", dann mache ich es auf demselben Weg. |
+
+### Wie die sechs Functions ausgeliefert sind — damit du es wiederfindest
+
+Ich kann von hier aus keine Dateien hochladen, nur Text übergeben; 150 KB Quelltext von
+Hand abzuschreiben wäre genau die Abschrift, vor der `book-ingest/BEFUND.md` warnt. Jede
+der sechs Functions besteht live deshalb aus **einer Zeile**: sie lädt ihren Quelltext
+aus diesem Repo, an einem festen Commit (`af47fc0…` für `ai-proxy`, `ef7fdbb…` für die
+anderen fünf). Ein Commit ist eine Prüfsumme — was läuft, ist Byte für Byte, was der
+Prüfstand gefahren hat. Geladen wird beim Ausliefern, nicht zur Laufzeit. Wer sie später
+gewöhnlich ausliefern will: `supabase functions deploy <name>` aus dem Repo, das Ergebnis
+ist dasselbe.
+## 30 · Der grosse Durchgang (v33.59) — was du tun musst, und was noch offen ist
 
 **Für die App selbst musst du nichts einspielen.** Keine Migration, keine
 Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.

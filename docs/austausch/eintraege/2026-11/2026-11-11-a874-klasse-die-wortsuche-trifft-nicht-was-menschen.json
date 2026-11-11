@@ -1,0 +1,55 @@
+{
+  "id": "2026-11-11-a874",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Die Wortsuche trifft nicht, was Menschen schreiben — und ein Teilstring wählt den falschen Eintrag",
+  "regel": "Eine Erkennung per Wort, Regex oder Teilstring wird mit GEMESSENEN Sätzen in beide Richtungen geprüft (vier Sprachen, Akzent, Umlaut, Kompositum, Deklination, Verneinung) — und ein Teilstring wählt nie EINEN Eintrag aus, erst recht nicht vor einem Schreibvorgang.",
+  "text": "Eine neue Instanz erkennt man an einer Regex mit Wortliste, einem `\\b…\\b` oder einem `indexOf`/`includes` auf einem Text, den ein Mensch oder die KI geschrieben hat — und an einem Fall, dessen Beispielsatz den Treffer schon enthält. Die Bruchstellen sind immer dieselben: das Wort steht in einer anderen Form da (Tochter statt Kind, essbare statt essbar, küche statt kueche), in einer anderen Sprache, in einem Kompositum (Wettervorhersage), oder die Grenze `\\b` sitzt mitten in einem Wort mit Akzent. Die Gegenrichtung gehört dazu: was NICHT treffen darf — eine harmlose Essensfrage ist kein Notfall, „Mon“ ist keine Monstera. Jeder Wächter bewacht EINE Erkennung; die übrigen Wortlisten der App hat nie jemand durchgesehen.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 77 Zeilen in drei Formen. (a) 9× `.find(` mit `indexOf`/`includes` — ein Teilstring wählt EINEN Eintrag: `gsFindSpeciesByName` (beginnt-mit, dann enthält; erster Treffer in Dateireihenfolge, sechs Aufrufer), `getPlantInfo` (Teilstring in beide Richtungen), `mentionedPlant` in getOfflineAnswer, `plantDbMatch` in getSmartAnswer, `gsBodenKey`; zwei der neun sind harmlos (Erfolge, Foto-Etiketten). (b) 10× Regex mit `\\b`-Wortgrenzen, darunter die mehrsprachigen Listen in `_gsNotfallStufe` und `_gsLinaSicherheit`. (c) 58× Wortlisten-Regex unter `.test(` — Jahreszeit und Standort aus Freitext, Pflanzenformen im Planer (`kohl` neben `kohlrabi`), Linsennamen der Kamera, Feldlängen nach Feldnamen (`art` trifft auch „start“). Kandidaten, keine Befunde: viele laufen über Datenfelder, nicht über Nutzertext.",
+  "instanzen": [
+    "v32.98 · Notfall-Erkennung im Offline-Chat (getSmartAnswer): EIN Muster, griff bei 4 von 17 realistischen Sätzen — „Tochter“ statt „Kind“",
+    "v32.99 · dasselbe Vokabular erkannte 0 von 12 Notfallsätzen in fr/it/en; `\\bcat\\b` trifft „catégorie“, weil `\\b` nur [A-Za-z0-9_] kennt",
+    "v33.29 · Kategorien-Vokabular in ASCII-Umschrift (`kueche`) gegen ein Modell, das „küche“ schreibt — ohne Falten wären im schlimmsten Fall 12 von 12 Zeilen eines Laufs verworfen worden, bei `ok: true`",
+    "v33.30 · Vergleich über IRGENDEIN Wort: „braune Blätter“ ergab die Braune Krustenflechte, „echte Kamille“ die Echte Engelwurz; `\\bessbar\\b` traf 5 von 11 Bejahungen",
+    "v33.32 · _gsLinaSicherheit suchte ganze Wörter: 8 von 9 Zusagen über einen tox-5-Pilz ohne Warnung (fr/it/en 3 von 3); der Satz-Split lief nach `_gsLinaNorm` ins Leere",
+    "v33.33 · gsLinaResolvePlant per `indexOf`: „Mon“ traf die Monstera, zwei Tomaten die erste — vor einem Schreibvorgang",
+    "v33.36 · zwei Prüfstands-Fälle suchten „Vorhersage“ in einem Grund mit „Wettervorhersage“ — das Kompositum verschluckt das grosse V"
+  ],
+  "suchmuster": "grep -nE '\\.find\\(.*\\.(indexOf|includes)\\(|/[^/ ]*\\\\b\\(?[a-zäöüA-Z][^/]*\\\\b[^/]*/[gimuy]*|/\\(?[a-zäöüß]{3,}\\|[a-zäöüß]{3,}\\|[a-zäöüß]{3,}[^/]*/i?\\.test\\(' index.html | cut -c1-170",
+  "stichworte": [
+    "wortsuche-trifft-nicht",
+    "_gsNotfallStufe",
+    "_gsArtenTreffer",
+    "_gsLinaSicherheit",
+    "gsLinaResolvePlant",
+    "getSmartAnswer"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "N1 · Der Offline-Chat erkennt einen Vergiftungs-Notfall"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · Arten: ganzer Name oder ganzes Binomen an Wortgrenzen"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · Sicherheit: jede realistische Zusage ueber eine giftige Art wird gewarnt"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · die vier Loecher der ersten Fassung: Sammelbegriff"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · Pflanze aufloesen: ueber _gsPflanzeFinden in BEIDEN Listen"
+    },
+    {
+      "datei": "scripts/quiz_gen_check.js",
+      "fall": "Umlaute · „küche"
+    }
+  ]
+}

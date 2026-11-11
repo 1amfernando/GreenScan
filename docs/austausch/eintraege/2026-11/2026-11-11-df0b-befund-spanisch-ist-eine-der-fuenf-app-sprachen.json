@@ -1,0 +1,35 @@
+{
+  "id": "2026-11-11-df0b",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "Spanisch ist eine der fünf App-Sprachen, aber die Notfall-Erkennung beider Chats erkennt keinen spanischen Vergiftungssatz (0 von 8 gemessen)",
+  "text": "`_gsNotfallStufe` kennt seit v32.99 Deutsch, Französisch, Italienisch und Englisch. Die App führt `es` als fünfte Sprache. Wer auf Spanisch „mi hija ha comido bayas\" schreibt, bekommt eine Pflanzenbeschreibung statt der Notfallnummer — dieselbe Klasse wie v32.98 und v32.99, eine Sprache weiter.",
+  "beleg": [
+    "In der laufenden App gemessen (v33.58): _gsNotfallStufe für acht spanische Sätze („mi hija ha comido bayas\", „envenenamiento por setas\", „intoxicación\", „mi perro ha comido una planta venenosa\" …) → achtmal „keiner\"; Kontrolle „meine tochter hat beeren gegessen\" → „dringend\"",
+    "index.html: var SUPPORTED = ['de','en','fr','it','es'];"
+  ],
+  "vorschlag": "Vokabular um Spanisch ergänzen und die Hinweistexte über `_t` führen; scan_check N1 um spanische Sätze in beiden Richtungen erweitern („¿se puede comer el diente de león?\" darf kein Notfall sein).",
+  "stichworte": [
+    "_gsNotfallStufe",
+    "getSmartAnswer",
+    "lina",
+    "notfall",
+    "spanisch",
+    "scan_check"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var SUPPORTED = ['de','en','fr','it','es'];"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-a874"
+    }
+  ]
+}

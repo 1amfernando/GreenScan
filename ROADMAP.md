@@ -186,6 +186,24 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
+### Seit dem 11.11.2026 (kein Bump) — das Brett: wie sich alle KI-Sitzungen austauschen
+
+Auftrag: „Alle Agenten müssen sich austauschen …, dass untereinander neue Ideen entstehen können."
+Gemessen: 123 nie gemergte Branches geplanter Sitzungen, 312 Routine-Einträge ohne feste Zeile für
+„offen", dieselbe Suite mit vier verschiedenen Zahlen in sechs Dateien.
+
+- **`docs/austausch/`** — ein Eintrag je Datei, nie umgeschrieben; gelesen wird die Vereinigung über
+  alle Branches. `node scripts/austausch.mjs holen` zeigt Anstösse, Offenes und wer parallel arbeitet.
+- **Auslöser statt Bitten:** Anker und Zählungen machen den Prüfstand dessen rot, der die Stelle
+  ändert; der jüngste STATUS-Eintrag trägt `**Offen:**` und `**Nicht geprüft:**`.
+- **14 Fehlerklassen** aus dem Tagebuch als Suchraster (Regel, Suchmuster, Wächter), acht
+  nachgemessene Befunde, zwei Fragen an Fernando, zwei Ideen.
+- **Was einen Baum beschreibt, gilt nur dort:** ein „erledigt" auf einem anderen Branch
+  schliesst hier nichts; `ernten` holt nur, was im eigenen Baum stimmt. Zwei gegnerische
+  Runden (8 und 15 Funde) stehen als Fälle im Prüfstand.
+- **Austausch-Runde** für Unteragenten (`.claude/workflows/austausch-runde.js`).
+- Prüfstand `austausch_check` (17 Fälle). Offen: `STATUS.md` (jd).
+
 ### Seit dem 22.10.2026 (v33.56) — Teilen → GreenScan auch in der Android-App
 
 Die APK steht im Teilen-Menü (`ACTION_SEND`/`SEND_MULTIPLE`, dieselben vier

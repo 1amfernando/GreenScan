@@ -6,7 +6,7 @@
 > **Grösse** aufhört zu stimmen — und niemandem auffällt, weil es heute noch
 > geht.
 >
-> **Stand: 16.09.2026 (v33.44).** Jede Zahl hier ist gemessen; wo sie aus einer
+> **Stand: 16.09.2026 (v33.44); §1 und §3 am 10.11.2026 um das KI-Modell ergänzt (v33.58).** Jede Zahl hier ist gemessen; wo sie aus einer
 > früheren Messung stammt, steht das Datum daneben. Prüfstand:
 > `node scripts/risiko_check.js`.
 
@@ -25,6 +25,7 @@ Bericht unlesbar (dieselbe Lehre wie `render_check` v32.21).
 
 | Was | Wann | Gemessen | Was dann passiert | Lösung |
 |---|---|---|---|---|
+| **Das KI-Modell fällt weg** | **17.02.2027** (frühestens) | 10.11.2026, Anthropic „Model deprecations": `claude-sonnet-4-6` — das erste Glied der Kette — wird frühestens an diesem Tag abgeschaltet | Am 15.06.2026 fiel `claude-sonnet-4-20250514` weg: drei Edge-Functions nannten genau dieses eine Modell und waren **fünf Monate tot, ohne dass etwas meldete**. Am 30.11.2026 wäre `claude-sonnet-4-5` gefolgt — der Vorgabewert des Proxys, also jeder Scan. | **Behoben in v33.58:** eine Kette je Rolle (`_shared/modelle.mjs`, in der App `_gsClaudeFallbacks`), Rückfall bei „gibt es nicht", und jedes Modell bekommt seine Einstellungen (Sonnet 5.5 und 5 denken sonst von sich aus nach). Fällt 4.6 weg, übernimmt 5.5 **von selbst** — das Datum hier heisst nur: vorher einmal mit 5.5 scannen (Secret `GS_MODEL_VISION`) und die Abkündigungsseite neu lesen. `modell_check` hält App und Server gegeneinander. |
 | **Quiz-Vorrat erschöpft** | **16.06.2027** | 14.09.2026, `quiz_gen_check`: 181 freie Fragen, Zulauf 12 je 35 Tage, Verbrauch 1/Tag → −0,657/Tag | `fn_get_daily_quiz` wiederholt über ihren Rückfall — **ohne dass etwas meldet** | Migration `20260914_quiz_vorrat.sql` anwenden (misst den Vorrat, warnt unter 60 Fragen nach `system_events`). **Nicht angewandt.** |
 | **Die Wochen-Texte** | war: 01.01.2027 | 16.09.2026, `risiko_check` R1 | Die App hätte in Woche 13 von der „Pilzsaison 2026" erzählt — jedes Jahr wieder | **Behoben in v33.44.** Elf Zeilen bereinigt; fünf Jahresnennungen bleiben, weil sie feste Punkte nennen (Zieljahr 2030, datierte Berichte) — sie stehen namentlich in `risiko_check`. |
 
@@ -70,7 +71,7 @@ dorthin. **Das steht hier ausdrücklich ohne Prüfstand.**
 
 | Wovon | Was daran hängt | Wenn es ausfällt |
 |---|---|---|
-| **Anthropic** | Scanner, Lina, Planer, Quiz-Generator | Der Offline-Chat (`getSmartAnswer`) antwortet weiter und ist an die Artenliste geerdet (v33.30) — der Scanner nicht. |
+| **Anthropic** | Scanner, Lina, Planer, Quiz-Generator | Der Offline-Chat (`getSmartAnswer`) antwortet weiter und ist an die Artenliste geerdet (v33.30) — der Scanner nicht. **Und Anthropic schaltet Modelle ab** — das ist kein Ausfall, sondern ein Datum (§1). Ob die Namen der Kette heute antworten, misst von hier niemand: `select model, count(*), max(created_at) from ai_usage group by 1`. |
 | **Supabase** | Anmeldung, Sync, Community, Zahlungen | Die App läuft offline aus dem Service Worker; Geschriebenes geht in die Warteschlange (`offline_check`). |
 | **Open-Meteo** | Frost, Regen, Wetterwarnung | `_gsWetterTage()` gibt `null` für „nichts geladen" — **Stille ist keine Entwarnung** (v33.36). |
 | **swisstopo / OpenStreetMap** | Karte | Kacheln aus dem Cache, sonst leere Karte. |
