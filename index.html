@@ -17788,7 +17788,11 @@ function _gsArtAnzeige(sp) {
         var hoeher = (v.tox || 0) > (sp.tox || 0);
         var essbarWeg = !!sp.edible && !v.edible;
         if (hoeher || essbarWeg) erg = Object.assign({}, sp, {
-          tox: v.tox, toxic: v.toxic, edible: v.edible,
+          // v33.59 (Brett fcaf): jede Angabe bewegt sich NUR zur vorsichtigeren
+          // Seite — uebernommen wurde edible/toxic der Art auch dann, wenn nur
+          // ihre Giftstufe hoeher war: 14 Eintraege mit edible:false standen als
+          // essbar da (Stieleiche T008 …), 3 verloren ihr toxic.
+          tox: Math.max(v.tox || 0, sp.tox || 0), toxic: !!(sp.toxic || v.toxic), edible: !!sp.edible && !!v.edible,
           warning: sp.warning || v.warning,
           lookalike: sp.lookalike || v.lookalike,
           _korrigiert: { vonTox: sp.tox, aufTox: v.tox, hoeher: hoeher, essbarWeg: essbarWeg }
@@ -60418,18 +60422,25 @@ function _gsNotfallStufe(t) {
     // 0 von 12 franzoesischen, italienischen und englischen Notfallsaetzen,
     // nicht einmal „empoisonnement", „avvelenamento", „poisoning".
     // Die Nummern (145/144/112) gelten ohnehin fuer alle.
-    var AKUT = /vergift|notfall|notruf|empoisonn|intoxicat|avvelenament|poisoning|poisoned|emergency/;
-    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt|mangé|manger|avalé|ingéré|croqué|mangiato|ingerito|inghiottito|\bate\b|eaten|swallow|swallowed|bit into|chewed/;
-    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht|vomi|nausée|diarrhée|mal au ventre|vertige|vomit|nausea|diarrea|mal di pancia|capogir|vomiting|nauseous|diarrhea|stomach ache|dizzy/;
+    // v33.59 (Brett df0b): Spanisch ist die fuenfte App-Sprache — 0 von 8
+    // spanischen Notfallsaetzen wurden erkannt („intoxicat“ deckt „intoxicación“
+    // nicht). Kein Akzent-Falten: beide Schreibweisen stehen im Muster, und
+    // Grenzen um Woerter mit Akzent sind Nachschauen, kein \b (v32.99).
+    // „come" ist im Italienischen „wie" und im Englischen „komm": nur mit
+    // spanischem Subjekt/Pronomen davor („mi gato come", „se come"). „marea"
+    // ist die Gezeit, nicht der Schwindel (Gegenpruefung).
+    var AKUT = /vergift|notfall|notruf|empoisonn|intoxicat|avvelenament|poisoning|poisoned|emergency|envenen|intoxica|urgencia|emergencia/;
+    var VERZEHR = /gegessen|gefressen|verschluckt|geschluckt|verzehrt|probiert|gekostet|geknabbert|angebissen|abgebissen|in den mund|runtergeschluckt|mangé|manger|avalé|ingéré|croqué|mangiato|ingerito|inghiottito|\bate\b|eaten|swallow|swallowed|bit into|chewed|comido|comi[oó]|(?<![a-zà-ÿ])com[ií](?![a-zà-ÿ])|comimos|comieron|comiste|trag[oó](?![a-zà-ÿ])|tragu[eé]|tragad|tragaron|ingerid|ingiri|mordid|mordisque|masticad|probado|prob[oó](?![a-zà-ÿ])|en la boca/;
+    var SYMPTOM = /erbrech|erbroch|übel|uebel|durchfall|bauchweh|bauchschmerz|magenschmerz|krampf|krämpfe|kraempfe|schwindel|benommen|atemnot|herzras|schlecht geworden|ist schlecht|vomi|nausée|diarrhée|mal au ventre|vertige|vomit|nausea|diarrea|mal di pancia|capogir|vomiting|nauseous|diarrhea|stomach ache|dizzy|vómit|náusea|dolor de (estómago|estomago|barriga|tripa|panza)|(?<![a-zà-ÿ])mare(?:os?|ad[oa]s?)(?![a-zà-ÿ])|calambre|convulsi|(me|se) (siente|siento|encuentra) mal/;
     // `\bcat\b` allein traefe auch „catégorie": in JS ist „é" KEIN Wortzeichen,
     // die Grenze sitzt also mitten im Wort. Deshalb die Nachschau.
-    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig|enfant|fille|fils|bébé|chien|chat|accident|bambin|figlia|figlio|cane|gatto|child|daughter|son|dog|\bcat\b(?![a-zà-ÿ])|toddler/;
-    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend|au secours|à l'aide|que faire|aiuto|che fare|help|what (should|do) i do|urgent/;
-    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete|toxique|baie|champignon|plante|feuille|fruit|graine|velenos|tossic|bacca|fungo|pianta|foglia|poison|berry|berries|mushroom|plant|leaf|leaves|seed/;
+    var BETROFFEN = /kind|tochter|sohn|baby|kleine|enkel|hund|katze|haustier|pferd|versehen|zufällig|zufaellig|enfant|fille|fils|bébé|chien|chat|accident|bambin|figlia|figlio|cane|gatto|child|daughter|son|dog|\bcat\b(?![a-zà-ÿ])|toddler|(?<![a-zà-ÿ])(hij[oa]s?|beb[eé]s?|ni[ñn][oa]s?|perr[oa]s?|gat[oa]s?|mascota|caballo|niet[oa]s?|peque[ñn][oa]s?|por error|sin querer)(?![a-zà-ÿ])/;
+    var HILFE = /was (soll|kann|muss) ich tun|was tun|hilfe|dringend|au secours|à l'aide|que faire|aiuto|che fare|help|what (should|do) i do|urgent|ayuda|socorro|qu[eé] hago|qu[eé] hacer/;
+    var KONTEXT = /giftig|beere|pilz|pflanze|blatt|blätter|blaetter|frucht|samen|knolle|wurzel|strauch|blüte|bluete|toxique|baie|champignon|plante|feuille|fruit|graine|velenos|tossic|bacca|fungo|pianta|foglia|poison|berry|berries|mushroom|plant|leaf|leaves|seed|venenos|t[oó]xic|baya|(?<![a-zà-ÿ])setas?(?![a-zà-ÿ])|hongo|champi[ñn]|hoja|fruto|semilla|ra[ií]z|bulbo|arbusto/;
     if (AKUT.test(t)) return 'dringend';
     if (SYMPTOM.test(t) && KONTEXT.test(t)) return 'dringend';
     if (VERZEHR.test(t) && (BETROFFEN.test(t) || SYMPTOM.test(t) || HILFE.test(t))) return 'dringend';
-    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr|manger|mangia|\beat\b|\beats\b|eating/.test(t)) return 'dringend';
+    if (HILFE.test(t) && KONTEXT.test(t) && /\bisst\b|\bessen\b|\biss\b|verzehr|manger|mangia|\beat\b|\beats\b|eating|(?<![a-zà-ÿ])comer(?![a-zà-ÿ])|(?<![a-zà-ÿ])(?:se|lo|la|los|las|le|les|perr[oa]|gat[oa]|hij[oa]|ni[ñn][oa]|beb[eé]) come(?![a-zà-ÿ])|comiendo/.test(t)) return 'dringend';
     if (VERZEHR.test(t)) return 'hinweis';
     return 'keiner';
 }
