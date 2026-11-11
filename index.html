@@ -18306,26 +18306,56 @@ function gsShowAboScreen() {
     if (host) host.innerHTML = gsRenderSubInfo(null);
   });
   // Launch-Angebot Verfügbarkeit live prüfen
-  gsCheckLaunchAvailable().then(function(avail){
+  // v33.60: drei Zustände statt eines Wahrheitswerts, den es nie gab (siehe gsLaunchStand).
+  // Und „gesperrt" zeigt ein Graufilter, nicht `opacity` — Deckkraft senkt den Kontrast blind.
+  gsLaunchStand().then(function(stand){
     var card = document.getElementById('abo-lifetime-card');
     var note = document.getElementById('abo-launch-note');
-    if (!avail && card) {
-      card.style.opacity = '0.55';
-      if (note) note.textContent = '❌ Ausverkauft · nur 100 User möglich';
+    if ((stand === 'ausverkauft' || stand === 'schon_gekauft') && card) {
+      card.style.filter = 'grayscale(1)';
+      if (note) note.textContent = stand === 'schon_gekauft'
+        ? _gsSatz('✅ Dieses Angebot hast du schon gekauft')
+        : _gsSatz('❌ Ausverkauft · alle 100 Plätze sind vergeben');
       var btn = card.querySelector('button[onclick*="pro_lifetime"]');
-      if (btn) { btn.disabled = true; btn.style.opacity='0.5'; btn.style.cursor='not-allowed'; }
+      if (btn) { btn.disabled = true; btn.style.cursor='not-allowed'; }
     }
   }).catch(function(){});
 }
 
-async function gsCheckLaunchAvailable() {
+// v33.60: Ist das Launch-Angebot noch frei? Bis v33.59 las `gsCheckLaunchAvailable` hier einen
+// Wahrheitswert — die Datenbankfunktion antwortet aber mit einem OBJEKT { available, logged_in,
+// claimed } (live gelesen am 11.11.2026). `typeof res.data === 'boolean'` traf nie, zurück kam
+// immer `true`: die Karte sagte nie „ausverkauft", auch nicht beim hundertsten Kauf.
+// Die Antwort → 'frei' · 'ausverkauft' · 'schon_gekauft' · null (nicht feststellbar: dann wird
+// angeboten — das letzte Wort hat stripe-checkout, und der nennt den Grund). DIESELBE Regel wie
+// `launchStand` in supabase/functions/_shared/stripe_regeln.mjs — stripe_check hält die beiden
+// Leser mit denselben Antworten gegeneinander.
+var GS_LAUNCH_PLAETZE = 100;
+function _gsLaunchStandAus(antwort) {
+  if (!antwort || typeof antwort !== 'object' || Array.isArray(antwort)) return null;
+  if (antwort.logged_in !== true || typeof antwort.available !== 'boolean') return null;
+  if (antwort.available) return 'frei';
+  return (typeof antwort.claimed === 'number' && antwort.claimed < GS_LAUNCH_PLAETZE) ? 'schon_gekauft' : 'ausverkauft';
+}
+async function gsLaunchStand() {
   try {
-    if (typeof sbFetch !== 'function') return true;
+    if (typeof sbFetch !== 'function') return null;
     var res = await sbFetch('/rest/v1/rpc/launch_offer_available', {method:'POST', body: JSON.stringify({})});
-    if (res && typeof res.data === 'boolean') return res.data;
-    if (typeof res === 'boolean') return res;
-    return true;
-  } catch(e) { return true; }
+    if (!res || res.error) return null;
+    return _gsLaunchStandAus(res.data);
+  } catch(e) { return null; }
+}
+// Warum ein Kauf nicht zustande kam — als Satz in der Sprache der App. stripe-checkout nennt
+// seit v9 eine Kennung (`grund`); bis dahin stand die englische Serverzeile im Dialog
+// („Launch offer fully booked"). Unbekanntes bleibt, was der Server sagte.
+function _gsCheckoutGrund(data, status) {
+  var g = data && data.grund;
+  if (g === 'launch_ausverkauft') return _gsSatz('Das Lifetime-Angebot ist ausverkauft — alle 100 Plätze sind vergeben.');
+  if (g === 'launch_schon_gekauft') return _gsSatz('Du hast das Lifetime-Angebot schon gekauft.');
+  if (g === 'launch_unklar') return _gsSatz('Ob das Lifetime-Angebot noch frei ist, lässt sich gerade nicht feststellen. Bitte versuche es später noch einmal.');
+  if (g === 'preis_unbekannt' || g === 'preis_inaktiv' || g === 'preis_ohne_intervall') return _gsSatz('Dieses Angebot gibt es so nicht mehr. Bitte lade die App neu und versuche es noch einmal.');
+  if (status === 401) return _gsSatz('Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.');
+  return (data && (data.error || data.message)) || _gsSatz('Der Kauf konnte nicht gestartet werden (Fehler {1}).', status);
 }
 
 // ── v24.44: Universal Toast-/Confirm-Helpers (iOS-PWA-safe) ───
@@ -19206,7 +19236,9 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
           price_id: price.id,
           claim_launch_offer: !!claimLaunchOffer,
           success_url: root + '?billing=success&popup=1',
-          cancel_url:  root + '?billing=cancel&popup=1'
+          cancel_url:  root + '?billing=cancel&popup=1',
+          // v33.60: die Stripe-Seite in der Sprache der App (stripe-checkout nimmt de · fr · it · en, sonst die des Browsers)
+          locale: (window.gsI18n && typeof gsI18n.getLang === 'function') ? gsI18n.getLang() : 'de'
         };
         // v25.7 A3: Trial-Days optional weitergeben (Backend cap't auf max 30 + first-sub)
         if (trialDays && Number(trialDays) > 0) b.trial_days = Number(trialDays);
@@ -19215,7 +19247,7 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
     }), 15000, 'Stripe-Checkout antwortet nicht (Timeout). Bitte später nochmals versuchen.');
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || !data || !data.url) {
-      throw new Error((data && (data.error||data.message)) || ('Checkout fehlgeschlagen (' + resp.status + ')'));
+      throw new Error(_gsCheckoutGrund(data, resp.status));
     }
     // 3) Popup navigieren (oder Fallback: selbes Fenster)
     if (popup && !popup.closed) {
@@ -19283,7 +19315,8 @@ async function gsOpenBillingPortal(flow) {
     // v28.02: frischen Token erzwingen (Stripe-Portal-Robustheit, Block C)
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || '');
     var base  = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
-    var bodyObj = { return_url: location.origin + (location.pathname||'/') + '?billing=return&popup=1' };
+    var bodyObj = { return_url: location.origin + (location.pathname||'/') + '?billing=return&popup=1',
+      locale: (window.gsI18n && typeof gsI18n.getLang === 'function') ? gsI18n.getLang() : 'de' };   // v33.60
     if (flow === 'cancel' || flow === 'reactivate') bodyObj.flow = flow;
     var resp = await (window._gsFetch || fetch)(base + '/functions/v1/stripe-portal', {
       method: 'POST',
@@ -19296,7 +19329,7 @@ async function gsOpenBillingPortal(flow) {
     }, 20000);
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || !data || !data.url) {
-      throw new Error((data && (data.error||data.message)) || 'Portal nicht verfügbar');
+      throw new Error((data && (data.hint||data.error||data.message)) || 'Portal nicht verfügbar');
     }
     if (popup && !popup.closed) {
       popup.location.href = data.url;
