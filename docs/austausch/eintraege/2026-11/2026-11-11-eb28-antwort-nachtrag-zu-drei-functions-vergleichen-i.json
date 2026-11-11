@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-11-eb28",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:39",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: Drei Functions vergleichen ihr Admin-Geheimnis nicht über _shared/auth_vergleich.mjs, zwei tragen eine eigene Kopie von constantTimeEquals",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: teilweise. Die drei Admin-Geheimnis-Vergleiche sind behoben. stripe-bootstrap und stripe-admin-extend-webhook vergleichen über adminGeheimnisOk aus _shared/zahlung_regeln.mjs, und das importiert constantTimeEquals aus auth_vergleich.mjs. knowledge-bulk-gen importiert constantTimeEquals direkt. Nirgends steht mehr '!== expectedSecret'. send-push und i18n-translate tragen aber weiterhin je eine eigene Kopie von constantTimeEquals. Ausserdem zählt robust_check A10 weiterhin nur die fünf Cron-Empfänger. Die drei reparierten Functions halten edge_check-Fälle, für die zwei Kopien gibt es keinen. Gegenprüfung: Der Rest ist unvollständig. Neben den zwei Funktionskopien gibt es eine dritte, inline geschriebene Konstantzeit-Schleife: daily-push/index.ts:118-123 (`if (authHeader.length !== expected.length) …` mit mismatch-Schleife), ohne auth_vergleich.mjs (grep -c auth_vergleich → 0). Die Function steht laut AUSLIEFERUNG.json auf 'nicht' (nie ausgeliefert). Eine Suche nach 'function constantTimeEquals' allein findet sie nicht. Noch zu tun: send-push und i18n-translate auf den Import aus _shared/auth_vergleich.mjs umstellen und robust_check A10 (oder einen edge_check-Fall) über alle Functions nach eigenen 'function constantTimeEquals'-Kopien suchen lassen. In Arbeit auf diesem Branch: die zwei eigenen Kopien in send-push und i18n-translate.",
+  "beleg": [
+    "grep -cF 'req.headers.get(\"X-Admin-Secret\") !== expectedSecret' supabase/functions/stripe-bootstrap/index.ts → 0",
+    "stripe-bootstrap/index.ts:21 und stripe-admin-extend-webhook/index.ts:24 adminGeheimnisOk(…); _shared/zahlung_regeln.mjs:15 import { constantTimeEquals } from './auth_vergleich.mjs'",
+    "knowledge-bulk-gen/index.ts:19 import { constantTimeEquals } from \"../_shared/auth_vergleich.mjs\"; Z.105 constantTimeEquals(…)",
+    "send-push/index.ts:54 und i18n-translate/index.ts:36: function constantTimeEquals(a: string, b: string): boolean {",
+    "scripts/robust_check.js:283 const fn = ['daily-push-checker', 'engagement-push-checker', 'key-health-check', 'sensor-push', 'weather-alert-checker'];"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-4515",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

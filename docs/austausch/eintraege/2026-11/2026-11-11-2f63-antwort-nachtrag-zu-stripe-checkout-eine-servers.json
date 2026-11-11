@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-11-2f63",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:29",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: stripe-checkout: eine serverseitige Prüfung greift nicht",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: behoben. Die Function prüft serverseitig, bevor eine Zahlung entsteht; ein Fall in scripts/edge/10_stripe.js hält es. Ob es genau die gemeinte Lücke ist, lässt sich ohne die Einzelheiten nicht abgleichen — sie stehen nicht im Repo.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-5ee2",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

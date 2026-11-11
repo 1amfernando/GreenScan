@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-11-478f",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:20",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: stripe-expert-checkout prüft den Aufrufer mit getUser() ohne Token — die Bauform, die main in drei Geschwistern schon ersetzt hat",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: behoben. stripe-expert-checkout ruft jetzt sbAdmin.auth.getUser(userToken) am Service-Client, mit Kommentar v33.59 zur Begruendung. Im ganzen Baum gibt es keine Function mehr mit createClient(SUPABASE_URL, userToken. Ein statischer Fall ueber alle Functions haelt das fest und ist gruen. Ausgeliefert ist die Aenderung noch nicht (AUSLIEFERUNG.json: stripe-expert-checkout zustand ausliefern, live_version v2). Gegenprüfung: Nachgesucht und nicht gefunden: dieselbe Bauform (Token als Projekt-Schluessel) steht in keiner anderen Function. Fuenf Functions rufen aber weiter getUser() ohne Argument auf, und zwar auf einem Client mit Anon-Schluessel und dem Token im Authorization-Header: delete-user, stripe-portal, stripe-checkout, entitlements, push-test (jsr supabase-js 2.119.0). Das ist eine andere Form. Ob sie in Deno einen Nutzer liefert, haengt vom Verhalten von supabase-js zur Laufzeit ab und ist von hier nicht messbar. Der Waechter-Regex erfasst sie nicht.",
+  "beleg": [
+    "grep -cF 'createClient(SUPABASE_URL, userToken, { auth: { persistSession: false } })' supabase/functions/stripe-expert-checkout/index.ts → 0",
+    "grep -rnF 'createClient(SUPABASE_URL, userToken' --include=index.ts supabase/functions → 0 Treffer",
+    "stripe-expert-checkout/index.ts:53 const { data: userData, error: userErr } = await sbAdmin.auth.getUser(userToken);",
+    "edge_check gruen (64/0)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-2748",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}
