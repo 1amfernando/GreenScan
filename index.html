@@ -10121,7 +10121,8 @@ window.gsCollOpenPlan = async function(ref){
     var arr2 = []; try { arr2 = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); } catch(_){}
     if (!Array.isArray(arr2)) arr2 = [];
     arr2 = arr2.filter(function(x){ return x && x.id !== mapped.id; }); arr2.unshift(mapped);
-    try { localStorage.setItem('gs_garden_plans', JSON.stringify(gsCapWithArchive('gs_garden_plans', arr2, 30))); } catch(_){}
+    // v33.59: eine Zeile aus der Cloud — durch den einen Eingang (Sieb), wie jeder Pull.
+    _gsListeEinspielen('gs_garden_plans', gsCapWithArchive('gs_garden_plans', arr2, 30));
     gsPPloadSavedPlan(mapped.id);
   } catch(e){ try { gsPPloadSavedPlan(ref); } catch(_){} }
 };
@@ -56913,16 +56914,50 @@ function _gsSiebListe(liste, idPraefix) {
 }
 window._gsSiebListe = _gsSiebListe;
 
+// v33.59 (Austausch-Runde 11.11.2026, s1): EIN Eingang fuer eigene Listen aus
+// fremder Hand — Backup, Login-Pull, Snapshot, gsGardenSync.pullAll. Jeder Weg
+// machte einen anderen Teil richtig (der eine siebte, der andere setzte die
+// Variable); fehlt die Variable, legt renderGarden → initDefaultGarden „Mein
+// Garten" an und speichert ihn UEBER das gerade Geholte. Sieb mit dem Praefix
+// der Liste, Speicher, Variable — die Variable nur, wenn der Speicher es hat
+// (setItem wirft nie, es gibt false zurueck, CLAUDE.md §3.5).
+// Klassenwaechter: sicherheit_check 98_schluss_e (scripts/sicherheit/_listen_schreiber.js).
+var GS_LISTEN_EINGANG = {
+  'ps_myplants':       { praefix: 'mp_', variable: 'myPlants' },
+  'gs_gardens':        { praefix: 'g_',  variable: 'gardens' },
+  'gs_plantings':      { praefix: 'pl_', variable: 'plantings' },
+  'gs_dead_plants':    { praefix: 'mp_', variable: 'deadPlants' },
+  'gs_garden_plans':   { praefix: 'gp_' },
+  'gs_gartentagebuch': { cache: '_gsTagebuch' },
+  'gs_ernte_log':      { cache: '_gsErnteLog' }
+};
+function _gsListeEinspielen(schluessel, liste, opts) {
+  var reg = Object.prototype.hasOwnProperty.call(GS_LISTEN_EINGANG, schluessel) ? GS_LISTEN_EINGANG[schluessel] : null;
+  if (!reg) return { ok: false, grund: 'unbekannter_schluessel', liste: null };
+  if (!Array.isArray(liste)) return { ok: false, grund: 'keine_liste', liste: null };
+  var sauber = _gsSiebListe(liste, reg.praefix);
+  if (opts && opts.deckel > 0) sauber = sauber.slice(0, opts.deckel);
+  var ok = false;
+  try { ok = (localStorage.setItem(schluessel, JSON.stringify(sauber)) !== false); } catch (_) { ok = false; }
+  if (!ok) return { ok: false, grund: 'speicher_voll', liste: sauber };
+  try { if (reg.variable) window[reg.variable] = sauber; } catch (_) {}
+  try { if (reg.cache) window[reg.cache] = null; } catch (_) {}
+  return { ok: true, liste: sauber };
+}
+window._gsListeEinspielen = _gsListeEinspielen;
+
 // Spielt ein Backup ein und sagt, was NICHT gesichert wurde (voller Speicher:
 // der Wrapper wirft nie, er gibt false zurueck — CLAUDE.md §3.5). Kein
 // Neuladen hier; das entscheidet der Aufrufer.
 function _gsBackupEinspielen(data) {
   var nicht = [];
-  // v33.59: durch das Sieb — ein Backup kann jemand anderes gebaut haben.
-  if (data.gardens) { gardens = _gsSiebListe(data.gardens, 'g_'); }
-  if (data.plantings) { plantings = _gsSiebListe(data.plantings, 'pl_'); }
-  if (data.myPlants) { myPlants = _gsSiebListe(data.myPlants, 'mp_'); }
-  if (data.deadPlants) { deadPlants = _gsSiebListe(data.deadPlants, 'mp_'); }
+  // v33.59: durch den einen Eingang (Sieb, Speicher, Variable) — ein Backup
+  // kann jemand anderes gebaut haben.
+  [['gardens', 'gs_gardens'], ['plantings', 'gs_plantings'], ['myPlants', 'ps_myplants'], ['deadPlants', 'gs_dead_plants']].forEach(function (pa) {
+    if (!data[pa[0]]) return;
+    var e = _gsListeEinspielen(pa[1], Array.isArray(data[pa[0]]) ? data[pa[0]] : []);
+    if (!e.ok) nicht.push(pa[1]);
+  });
   if (data.prefs) { userPrefs = data.prefs; applyAllPrefs(); }
   if (data.location) { userLocation = data.location; }
   saveGardenData();
@@ -85273,11 +85308,12 @@ async function gsSyncUserDataOnLogin(){
           try { gsCloudSync.markDirty('garden'); } catch(_){}
           console.warn('[gsSync] v27.01: cloud garden empty but local has data — keeping local + repairing cloud');
         } else {
-          // v33.59: der Blob eines anderen Geraets geht durch dasselbe Sieb wie ein Backup.
-          if (d.plans)     try { localStorage.setItem('gs_garden_plans', JSON.stringify(_gsSiebListe(d.plans, 'gp_'))); } catch(_){}
+          // v33.59: der Blob eines anderen Geraets geht durch denselben Eingang wie ein Backup —
+          // Sieb, Speicher UND Variable (ohne die Variable legte renderGarden unten „Mein Garten" darueber).
+          if (d.plans)     _gsListeEinspielen('gs_garden_plans', Array.isArray(d.plans) ? d.plans : []);
           if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
-          if (d.gardens)   try { localStorage.setItem('gs_gardens', JSON.stringify(_gsSiebListe(d.gardens, 'g_'))); } catch(_){}
-          if (d.plantings) try { gsStore.set('gs_plantings', JSON.stringify(_gsSiebListe(d.plantings, 'pl_'))); } catch(_){}
+          if (d.gardens)   _gsListeEinspielen('gs_gardens', Array.isArray(d.gardens) ? d.gardens : []);
+          if (d.plantings) _gsListeEinspielen('gs_plantings', Array.isArray(d.plantings) ? d.plantings : []);
           if (gUpdated) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
         }
       }
@@ -85303,17 +85339,15 @@ async function gsSyncUserDataOnLogin(){
           // Leere-Cloud-Guard (v27.01) bleibt als Spezialfall enthalten.
           var _keepLocalPlants = (_localPN > 0) && (_cloudPN === 0 || (_cloudPN < _localPN && _plantsDirty));
           if (!_keepLocalPlants) {
-            var _gsPfl = _gsSiebListe(pd.plants, 'mp_');   // v33.59: Sieb (siehe _gsSiebListe)
-            try { gsStore.set('ps_myplants', JSON.stringify(_gsPfl)); } catch(_){}
-            if (typeof myPlants !== 'undefined') myPlants = _gsPfl;
+            _gsListeEinspielen('ps_myplants', pd.plants);   // v33.59: Sieb, Speicher, Variable
           } else {
             try { gsCloudSync.markDirty('plants'); } catch(_){}
             try { if (typeof renderMyPlants === 'function') setTimeout(renderMyPlants, 60); } catch(_){}
             console.warn('[gsSync] v28.22 count-guard: cloud plants (' + _cloudPN + ') < local (' + _localPN + ') mit ungepushten Änderungen — local behalten + Cloud reparieren');
           }
         }
-        if (pd.diary) try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(_gsSiebListe(pd.diary))); } catch(_){}
-        if (pd.dead_plants) try { gsStore.set('gs_dead_plants', JSON.stringify(_gsSiebListe(pd.dead_plants, 'mp_'))); } catch(_){}
+        if (pd.diary) _gsListeEinspielen('gs_gartentagebuch', Array.isArray(pd.diary) ? pd.diary : []);
+        if (pd.dead_plants) _gsListeEinspielen('gs_dead_plants', Array.isArray(pd.dead_plants) ? pd.dead_plants : []);
         if (pd.seed_inventory) try { gsStore.set('gs_seed_inventory', JSON.stringify(pd.seed_inventory)); } catch(_){}
         if (pUpdated) try { localStorage.setItem('gs_sync_synced_at_plants', pUpdated); } catch(_){}
       }
@@ -85480,12 +85514,12 @@ async function gsSyncUserDataOnLogin(){
               id: row.id, ts: row.ts, cat: row.tag || 'note', plant: '',
               text: row.text || row.title || '',
               date: row.ts ? new Date(row.ts).toLocaleDateString(gsLocale()) : '',
-              weather: '', emoji: row.emoji || ''
+              weather: '', emoji: _gsEmoji(row.emoji, '')   // v33.59: Emoji aus der Cloud
             });
           }
         });
         local.sort(function(a,b){ return (b.ts||'').localeCompare(a.ts||''); });
-        try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(local.slice(0,500))); } catch(_){}
+        _gsListeEinspielen('gs_gartentagebuch', local, { deckel: 500 });   // v33.59: Sieb wie die anderen Zweige
       }
     } catch(_){}
     // v24.23: garden_harvests — Cloud-Schema → Frontend-Format mappen (pflanze/menge/unit)
@@ -85498,7 +85532,7 @@ async function gsSyncUserDataOnLogin(){
             id: row.id,
             ts: row.ts,
             pflanze: row.species_name || '',
-            emoji: row.emoji || '🧺',
+            emoji: _gsEmoji(row.emoji, '🧺'),   // v33.59
             menge: Number(row.menge) || 0,
             unit: row.unit || 'kg',
             // v28.15: vollständiges Schema round-trippen (sonst Verlust der Reich-Felder bei Geräte-Pull)
@@ -85523,7 +85557,7 @@ async function gsSyncUserDataOnLogin(){
             mapped.sort(function(a,b){ return String(b.ts||'').localeCompare(String(a.ts||'')); });
           }
         } catch(_){}
-        try { localStorage.setItem('gs_ernte_log', JSON.stringify(mapped.slice(0,1000))); } catch(_){}
+        _gsListeEinspielen('gs_ernte_log', mapped, { deckel: 1000 });   // v33.59: Sieb wie die anderen Zweige
       }
     } catch(_){}
     // v24.11: Scans separat ziehen
@@ -86399,6 +86433,15 @@ window.gsSnapshotBuildState = gsSnapshotBuildState;
 window._gsRestoreStats = { written: 0, failed: 0 };
 function _gsRestoreKey(lsKey, snapVal){
   if (snapVal == null) return;
+  // v33.59 (s1): eine eigene LISTE geht durch den einen Eingang (Sieb, Speicher,
+  // Variable) — der dritte Rueckweg neben Backup und Cloud-Pull. Andere Schluessel
+  // bleiben, wie sie sind.
+  var _liste = Object.prototype.hasOwnProperty.call(GS_LISTEN_EINGANG, lsKey);
+  if (_liste && !Array.isArray(snapVal)) return;
+  function _schreib(wert) {
+    if (_liste) return _gsListeEinspielen(lsKey, wert).ok;
+    return localStorage.setItem(lsKey, typeof wert === 'string' ? wert : JSON.stringify(wert)) !== false;
+  }
   var cur = null; try { cur = localStorage.getItem(lsKey); } catch(_){}
   var curEmpty = !cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""';
   if (!curEmpty) {
@@ -86410,16 +86453,16 @@ function _gsRestoreKey(lsKey, snapVal){
         snapVal.forEach(function(x){ if (x && x.id != null) byId[String(x.id)] = x; });
         c.forEach(function(x){ if (x && x.id != null) byId[String(x.id)] = x; }); // local wins
         try {
-          var _okM = localStorage.setItem(lsKey, JSON.stringify(Object.keys(byId).map(function(k){ return byId[k]; })));
-          if (_okM === false) window._gsRestoreStats.failed++; else window._gsRestoreStats.written++;
+          var _okM = _schreib(Object.keys(byId).map(function(k){ return byId[k]; }));
+          if (!_okM) window._gsRestoreStats.failed++; else window._gsRestoreStats.written++;
         } catch(_){ window._gsRestoreStats.failed++; }
       }
     } catch(_){}
     return;
   }
   try {
-    var _ok = localStorage.setItem(lsKey, typeof snapVal === 'string' ? snapVal : JSON.stringify(snapVal));
-    if (_ok === false) window._gsRestoreStats.failed++; else window._gsRestoreStats.written++;
+    var _ok = _schreib(snapVal);
+    if (!_ok) window._gsRestoreStats.failed++; else window._gsRestoreStats.written++;
   } catch(_){ window._gsRestoreStats.failed++; }
 }
 // v30.50: State-Blob aus dem Snapshot zurück in localStorage (Inverse von _buildStateBlob), non-destruktiv
@@ -86501,8 +86544,7 @@ async function gsSnapshotRestore(){
       });
     } catch(_){}
     try { if (st.state) _gsApplyStateBlob(st.state); } catch(_){}
-    // Globals neu laden + Cloud reparieren + UI rendern
-    try { if (typeof myPlants !== 'undefined') myPlants = JSON.parse(localStorage.getItem('ps_myplants')||'[]'); } catch(_){}
+    // Cloud reparieren + UI rendern (die Variablen der Listen setzt _gsListeEinspielen, v33.59)
     try { if (window.gsCloudSync){ gsCloudSync.markDirty('plants'); gsCloudSync.markDirty('garden'); gsCloudSync.markDirty('state'); } } catch(_){}
     try { if (typeof renderFavs === 'function') renderFavs(); } catch(_){}
     try { if (typeof renderGarden === 'function') renderGarden(); } catch(_){}
@@ -96131,11 +96173,11 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       var d = await supaGet('garden_diary', 'select=*&order=ts.desc&limit=500');
       if (d && d.data && d.data.length) {
         var remoteDiary = d.data.map(function(r){
-          return { id: r.id, ts: r.ts, text: r.text, emoji: r.emoji || '🌱', date: new Date(r.ts).toLocaleDateString(gsLocale()), title: r.title, tag: r.tag, garden_id: r.garden_id, photo_url: r.photo_url };
+          return { id: r.id, ts: r.ts, text: r.text, emoji: _gsEmoji(r.emoji, '🌱'), date: new Date(r.ts).toLocaleDateString(gsLocale()), title: r.title, tag: r.tag, garden_id: r.garden_id, photo_url: r.photo_url };
         });
         var mergedDiary = _gsMergeById(_gsReadArr('gs_gartentagebuch'), remoteDiary, 500);
-        try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(mergedDiary)); } catch(e){}
-        if (typeof _gsTagebuch !== 'undefined') { try { window._gsTagebuch = null; } catch(e){} }
+        // v33.59: Cloud-Zeilen durch den einen Eingang (Sieb, Speicher, Cache) — wie der Login-Pull.
+        _gsListeEinspielen('gs_gartentagebuch', mergedDiary);
       }
       // Harvests — v31.05: mergen statt ersetzen. Cap 1000 wie der lokale Schreiber.
       var h = await supaGet('garden_harvests', 'select=*&order=ts.desc&limit=500');
@@ -96144,22 +96186,19 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
           return { id: r.id, ts: r.ts, plant: r.species_name, menge: r.menge, unit: r.unit, garden_id: r.garden_id, emoji: r.emoji, planting_id: r.planting_id };
         });
         var mergedLog = _gsMergeById(_gsReadArr('gs_ernte_log'), remoteLog, 1000);
-        try { localStorage.setItem('gs_ernte_log', JSON.stringify(mergedLog)); } catch(e){}
-        try { window._gsErnteLog = null; } catch(e){}
+        _gsListeEinspielen('gs_ernte_log', mergedLog);
       }
       // Gardens — v31.05: mergen statt ersetzen (kein ts, Sortierung bleibt wie geliefert).
       var g = await supaGet('gardens', 'select=*&is_archived=eq.false&order=created_at.asc');
       if (g && g.data && g.data.length) {
         var mergedGardens = _gsMergeById(_gsReadArr('gs_gardens'), g.data, 0);
-        try { localStorage.setItem('gs_gardens', JSON.stringify(mergedGardens)); } catch(e){}
-        try { window.gardens = mergedGardens; } catch(e){}
+        _gsListeEinspielen('gs_gardens', mergedGardens);   // setzt auch window.gardens
       }
       // Plantings — v31.05: mergen statt ersetzen.
       var p = await supaGet('garden_plantings', 'select=*&order=planted_at.desc');
       if (p && p.data && p.data.length) {
         var mergedPlantings = _gsMergeById(_gsReadArr('gs_plantings'), p.data, 0);
-        try { gsStore.set('gs_plantings', JSON.stringify(mergedPlantings)); } catch(e){}
-        try { window.plantings = mergedPlantings; } catch(e){}
+        _gsListeEinspielen('gs_plantings', mergedPlantings);   // setzt auch window.plantings
       }
       // Trigger re-render if app already showing garden (v29.44 HL#9: war renderGardenList — existiert nicht → No-Op; echte Fn ist renderGarden)
       if (typeof renderGarden === 'function') { try { renderGarden(); } catch(e){} }
