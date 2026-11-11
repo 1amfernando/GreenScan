@@ -1027,7 +1027,30 @@ const FAELLE = [
       // Gegenrichtung: der Fall muss etwas SEHEN — ein Gedaechtnis ohne Namen waere auch gruen.
       if (n < 60) return { ok: false, warum: 'nur ' + n + ' Namen gefunden — die Dateien nennen kaum Code, oder das Muster greift nicht' };
       if (fehlt.length) return { ok: false, warum: fehlt.length + ' Namen ohne Definition: ' + fehlt.slice(0, 8).join(' · ') + (fehlt.length > 8 ? ' · +' + (fehlt.length - 8) : '') };
-      return { ok: true, info: n + ' Namen in ' + ERWARTET.length + ' Dateien, alle im Quelltext · bewusst entfernt: ' + Object.keys(BEWUSST).join(', ') };
+      // v33.60 — die ZAHL der Pruefstaende hat einen Schreiber: scripts/pruefstaende.sh.
+      // Gemessen am 11.11.2026: das Gedaechtnis nannte sie viermal verschieden (35 · 38 · 39 · 41),
+      // drei Pruefstaende (a11y, i18n, apk) standen in keiner Zeile der Tabelle, und nichts wurde
+      // rot. Eine Zahl, die an sieben Stellen von Hand steht, stimmt an hoechstens einer.
+      const sh = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'pruefstaende.sh'), 'utf8');
+      const laeufe = (sh.match(/^\s*(?:TAILN=\d+\s+)?run\s+\S+\s+(?:node|python3)\s+scripts\/([a-z0-9_]+)\.(?:js|py)/gm) || []).map(z => /scripts\/([a-z0-9_]+)\./.exec(z)[1]);
+      const N = laeufe.length;
+      if (N < 30 || new Set(laeufe).size !== N) return { ok: false, warum: 'pruefstaende.sh: ' + N + ' Laeufe gelesen, ' + new Set(laeufe).size + ' verschiedene — die Suche sieht etwas nicht, oder ein Pruefstand laeuft doppelt' };
+      const nieGefahren = fs.readdirSync(path.join(__dirname)).filter(f => /_check\.(js|py)$/.test(f)).map(f => f.replace(/\.(js|py)$/, '')).filter(s => laeufe.indexOf(s) < 0);
+      if (nieGefahren.length) return { ok: false, warum: 'liegt in scripts/, wird von pruefstaende.sh aber nie gefahren: ' + nieGefahren.join(', ') + ' — ein Pruefstand, den niemand faehrt, misst nichts' };
+      const tabelle = fs.readFileSync(path.join(dir, '04-pruefstaende.md'), 'utf8');
+      const ohneZeile = laeufe.filter(s => tabelle.indexOf('| `' + s + '`') < 0);
+      if (ohneZeile.length) return { ok: false, warum: 'ohne Zeile in docs/memory/04-pruefstaende.md: ' + ohneZeile.join(', ') };
+      const handbuch = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
+      const ohneHandbuch = laeufe.filter(s => handbuch.indexOf('scripts/' + s + '.') < 0);
+      if (ohneHandbuch.length) return { ok: false, warum: 'ohne Zeile in CLAUDE.md §7.1: ' + ohneHandbuch.join(', ') };
+      const zahlFalsch = [];
+      const ZAHL = /(\d+)\s+(?:Pruefstaende|Prüfstände)\b|\b(?:alle|ALLE|aller|der)\s+(\d+)\s+(?:Pruefstaende|Prüfstände|nacheinander|teilen|mit\b)|fährt alle (\d+)|faehrt alle (\d+)/g;
+      const lies = (name, text) => { text.split('\n').forEach((zeile, i) => { let m; ZAHL.lastIndex = 0; while ((m = ZAHL.exec(zeile))) { const z = Number(m[1] || m[2] || m[3] || m[4]); if (z >= 20 && z <= 99 && z !== N) zahlFalsch.push(name + ':' + (i + 1) + ' sagt ' + z); } }); };
+      for (const f of ERWARTET) lies('docs/memory/' + f, fs.readFileSync(path.join(dir, f), 'utf8'));
+      // In CLAUDE.md nur die zwei Gegenwarts-Zeilen (Repo-Struktur und der Aufruf) — der Rest ist Protokoll und bleibt, wie er gemessen wurde.
+      handbuch.split('\n').forEach((zeile, i) => { if (/^├── scripts\/|^bash scripts\/pruefstaende\.sh\s+#/.test(zeile)) lies('CLAUDE.md', '\n'.repeat(i) + zeile); });
+      if (zahlFalsch.length) return { ok: false, warum: 'pruefstaende.sh faehrt ' + N + ' — ' + zahlFalsch.slice(0, 8).join(' · ') + (zahlFalsch.length > 8 ? ' · +' + (zahlFalsch.length - 8) : '') };
+      return { ok: true, info: n + ' Namen in ' + ERWARTET.length + ' Dateien, alle im Quelltext · bewusst entfernt: ' + Object.keys(BEWUSST).join(', ') + ' · ' + N + ' Pruefstaende: jeder gefahren, jeder mit Zeile im Gedaechtnis und im Handbuch, die Zahl stimmt ueberall' };
     },
   },
   {

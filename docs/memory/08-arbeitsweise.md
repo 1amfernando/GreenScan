@@ -70,7 +70,7 @@ ALLE:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: „35 Pruefstaende · rot: 0 · nicht pruefbar: 0"
+# Erwartung: „42 Pruefstaende · rot: 0 · nicht pruefbar: 0"
 ```
 
 Dauer 15–25 Minuten. `perf_check` misst nur und urteilt nie.
@@ -109,7 +109,7 @@ git push -u origin claude/<thema>-<id>
 ```
 
 Commit-Betreff `vXX.YY: <Satz>`, Rumpf mit Bereichs-Bullets. PR gegen `main`;
-**CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle 35 mit
+**CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle 42 mit
 Postgres). Ein gruener Lauf auf der eigenen Maschine ist keine Aussage ueber
 den Runner (v33.x: 32 von 32 rot, weil ein Pfad fest verdrahtet war). Squash-
 Merge, dann den Branch nachziehen:
@@ -139,3 +139,27 @@ gebaut", wird gegen `git show` gelesen, bevor es weitergeschrieben wird. Die
 Zusammenfassung zu v33.31 nannte drei Dinge als geliefert, die in keinem
 Commit standen; gefunden hat es ein Messender (v33.33). **Eine Zusammenfassung
 ist kein Diff.**
+
+## 11 · Wenn mehrere Agenten an einer Sache arbeiten (v33.60)
+
+Am 11.11.2026 haben acht Agenten in eigenen Arbeitsbaeumen gebaut und ueber ein
+Brett miteinander gesprochen. Was dabei galt, und was es gekostet hat:
+
+- **Der Befund eines Agenten ist eine Behauptung, bis ihn jemand nachmisst.**
+  Die Zahlungs-Scheibe kam mit einem Pruefstand, 40 von 40 gruen — gegen eine
+  Datenbank, die der Agent sich ausgedacht hatte (er durfte die echte nicht
+  lesen). Gegen die echte gehalten haette der neue Checkout jeden Lifetime-Kauf
+  abgelehnt. Wer zusammenfuehrt, faehrt den Pruefstand selbst, haelt die
+  Nachbildungen gegen die Wirklichkeit und macht mindestens zwei EIGENE
+  Gegenproben je Scheibe.
+- **Ein Agent ohne Zugriff auf die Wirklichkeit sagt, was er NICHT messen
+  konnte** — und der Zusammenfuehrende misst genau das nach (nur lesend).
+- **Unfertiges wird gesichert, nicht uebernommen.** Eine Scheibe ohne Code
+  (nur der rote Fall) bleibt auf ihrem Zweig; in STATUS §2 steht, was gemessen
+  ist und was fehlt.
+- **Zwei Kerne tragen keine acht Browser.** Unter Last haben vier Pruefstaende
+  den Anmeldebildschirm vermessen und gruen gemeldet (seit v33.60: „nicht
+  pruefbar", Exit 2). Die Suite laeuft auf einer RUHIGEN Maschine.
+- **Versionsmarken schreibt, wer ausliefert.** Die Agenten haben ihre Aenderung
+  mit der naechsten freien Nummer markiert — die inzwischen ein anderer PR
+  trug. Marken kommen beim Zusammenfuehren, nicht beim Bauen.

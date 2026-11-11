@@ -1,13 +1,16 @@
-# 04 · Die 38 Pruefstaende — welcher fragt was
+# 04 · Die 42 Pruefstaende — welcher fragt was
 
 Alle liegen in `scripts/`, alle laufen ohne Netz (`file://` + Playwright aus
-`scripts/package.json`); vier brauchen ein lokales Postgres
+`scripts/package.json`); acht brauchen ein lokales Postgres
 (`bash scripts/_pg_local.sh start`, Port 54329) und melden ohne es „nicht
-pruefbar" (Exit 2), nie gruen. Alle auf einmal:
+pruefbar" (Exit 2), nie gruen. Die Zahl oben schreibt niemand von Hand:
+`robust_check` „Memory" zaehlt die Laeufe in `scripts/pruefstaende.sh` und
+haelt jede Zahl in diesem Ordner dagegen (v33.60 — sie stand hier viermal
+verschieden: 35 · 38 · 39 · 41). Alle auf einmal:
 
 ```
 GS_PG_URL=postgresql://postgres@127.0.0.1:54329/postgres bash scripts/pruefstaende.sh
-# Erwartung: "38 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
+# Erwartung: "42 Pruefstaende · rot: 0 · nicht pruefbar: 0" — dasselbe faehrt die CI an jedem PR
 ```
 
 Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
@@ -16,8 +19,12 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | Pruefstand | Die Frage, die er stellt |
 |---|---|
 | `render_check` | sieht jeder der elf Tabs aus wie vorher? Vergleich zweier Staende (Radius, Schrift, Groesse, Farbe), verdaechtige Texte (`undefined`, `NaN`) muessen 0 sein |
-| `render_check` | aktuellen Stand vermessen |
-| `contrast_check` | WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge (Dialoge am `<body>` werden vermessen, nicht als „von #app verdeckt" uebersprungen) |
+| `render_check` | aktuellen Stand vermessen. **Seit v33.60 ein Tor:** im Lauf ueber EINEN Stand Exit 1 bei JS-Fehlern, verdaechtigen Texten, Abgeschnittenem — bis dahin endete er immer mit 0. Der Vergleich zweier Staende bleibt eine Messung |
+| `a11y_check` | bedienbar ohne Augen und ohne Maus? `onclick` auf einem `div` ohne `tabindex`/`role`, Namen der Bedienelemente, Fokusrahmen; elf Tabs und Fenster (seit v32.16) |
+| `i18n_check` | kommt in vier Sprachen an, was deutsch dasteht? `_t`-Schluessel ohne Eintrag in `GS_I18N_JS_STRINGS`, Tabelle = Aufrufort, die Schicht mit untergeschobenem Sprachpaket (seit v32.17) |
+| `apk_check` | ist die Android-App dieselbe App? Rechnung (`Pfade.java`, `Export.java`, `Geteilt.java` uebersetzt und ausgefuehrt) · Paket (`build.sh` laeuft wirklich) · Rand · App mit und ohne Kennung der Huelle (seit v33.49); seit v33.60 A9: ein Foto oeffnet IN der App (`gsFotoAnsicht`) |
+| `stripe_check` | kommt an, was bezahlt wurde — und nur das? Rechnung (`_shared/stripe_regeln.mjs`) + die ECHTEN Handler von stripe-webhook, -checkout und -portal in Node + SQL (lokales Postgres) + Quelltext (seit v33.60). Die gestellte Datenbank traegt Spalten, Schluessel, Fremdschluessel und CHECKs **wie live gemessen** (Datum im Kopf) — der erste Entwurf war 40 von 40 gruen gegen eine ausgedachte, und drei Wege waeren live gescheitert |
+| `contrast_check` | WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge (Dialoge am `<body>` werden vermessen, nicht als „von #app verdeckt" uebersprungen). **Seit v33.60 ein Tor** (Exit 1 bei einer Stelle unter AA — im CI-Lauf von v33.59 stand „1 unter AA" und darunter EXIT=0), mit dem Artendetail in beiden Enden der Giftskala und den gerechneten Farbpaaren der Statusbox; `GS_KONTRAST_NUR=<regex>` fuer einen Teil-Lauf |
 | `touch_check` | Antippflächen unter 24×24 px (WCAG 2.5.8) |
 | `perf_check` | Kaltstart unter Telefon-Drosselung (1×/4×/6×) |
 | `wiring_check` | Verdrahtung: kommt an, was angetippt wird? (seit v31.45) |
@@ -55,9 +62,9 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 | `admin_check` | sagt das Admin-Panel, was stimmt? Zugang, vier Zustaende je Sektion (GS_ADM_SEKTIONEN + _gsAdmHole), Einzel-Refresh (gsAdmSektionNeu), Ueberblick (seit v33.42); seit v33.50 die SCHREIB-Seite: jeder Admin-Schreibweg durch _gsAdmTun (GS_ADM_AKTIONEN, sechs Zustaende mit Grund, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es (_gsAdmGesperrt, _gsAdmAktionHinweisHtml), die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, die Deckung rechnet _gsAdmSpurDeckung, ein Ersatzweg nur bei nicht_verfuegbar, RAISE EXCEPTION = abgelehnt, und eine SQL-Haelfte spielt 20260925_admin_audit_vollstaendig.sql in einem lokalen Postgres nach (ohne: Exit 2) |
 | `android_check` | haelt die App, was eine Android-App verspricht? gsZurueck (eine Regel, zwei Ausloeser), GS_VOLLBILD_OVERLAYS, ein Verlaufs-Eintrag, gsLaeuftAlsApp, assetlinks (seit v33.43) |
 | `risiko_check` | was geht SPAETER schief? Jahreszahlen in jaehrlich wiederkehrenden Texten, ungedeckelte Listen-Abfragen (eingeordnet), die Zahlen in docs/RISIKEN.md gegen den Quelltext, und seit v33.45 die Fristen-Karte im Admin-Panel in BEIDE Richtungen (GS_FRISTEN, gsFristenStand) |
-| `pruefstaende` | ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
+| `pruefstaende` | ALLE 42 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus) |
 
-## Wie ein Fall gebaut wird (die Regeln, die alle 39 teilen)
+## Wie ein Fall gebaut wird (die Regeln, die alle 42 teilen)
 
 1. **Erst der Fall, dann der Code.** Gegen den alten Stand gefahren muss er
    rot sein. Erst danach wird repariert.
@@ -73,6 +80,12 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 5. **Mit dem EIGENEN Massstab messen**, nicht mit der Funktion, die geprueft
    wird — sonst faellt der Fall gegen einen alten Stand nur mit „is not
    defined" durch.
+5a. **Was der Fall NACHBAUT, wird vorher GEMESSEN** (v33.60). Eine gestellte
+   Datenbank, eine gestellte Serverantwort, ein gestellter Dienst: jede traegt
+   die Form, die die echte am Messtag hatte — Spalten, eindeutige Schluessel,
+   Fremdschluessel, CHECKs, der Rueckgabetyp einer Funktion — und das Datum
+   steht daneben. Was sich ausfuehren laesst (eine SQL-Funktion aus einer
+   Migration), wird ausgefuehrt und gegen die Nachbildung gehalten.
 6. **Eine Zahl daneben.** „308 Bedienelemente im Fenster" — drei verschiedene
    Zahlen fuer drei Fenster sind der Beleg, dass drei Fenster gemessen wurden.
 7. **Gegenprobe**: die Reparatur zurueckbauen, der Fall wird rot, mit der

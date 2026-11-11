@@ -22,7 +22,7 @@
 index.html            die App (Funktions-Praefixe: gs* oeffentlich · _gs* intern · sb* Supabase · dq* Quiz)
 data/plants.v1.js     Artenliste · data/releases.v1.js  Changelog-Archiv
 sw.js                 Service Worker (Cache-Version = App-Version)
-scripts/              35 Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh (alle)
+scripts/              42 Pruefstaende + _seed.js (Beispieldaten) + pruefstaende.sh (alle)
 supabase/functions/   Edge-Functions; _shared/*.mjs = Regeln, die Deno UND Node importieren
 supabase/migrations/  SQL, alle idempotent; „nicht angewandt" steht dabei, bis es angewandt ist
 docs/                 lebende Doku (KALENDER-V1, PLANER-V3, SCANNER-V3, OEKOSYSTEM-V1, FUER-FERNANDO)

@@ -112,11 +112,11 @@ diese Sperre.
 
 ```
 GreenScan/
-├── index.html           # ~96k Zeilen Monolith (HTML + CSS + JS) — DIE App
+├── index.html           # ~98k Zeilen Monolith (HTML + CSS + JS) — DIE App
 ├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # 40 Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-├── supabase/migrations/ # 219 SQL-Migrationen (alle idempotent)
+├── supabase/migrations/ # 224 SQL-Migrationen (alle idempotent; welche NICHT angewandt sind, steht in STATUS §2)
 ├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -126,7 +126,7 @@ GreenScan/
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
-├── scripts/             # 41 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 41, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
+├── scripts/             # 42 Prüfstände (§7.1) + pruefstaende.sh (fährt alle 42, seit v32.94 mit perf) + package.json (Playwright, NICHT im Root)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
 ├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
@@ -964,7 +964,7 @@ tatsächliche Reihenfolge im DOM auslesen.
 Zwei weitere Prüfstände liegen daneben:
 
 ```bash
-node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge — vorher galt jeder Text in einem Dialog am <body> als von #app verdeckt und wurde nie vermessen
+node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi — seit v33.60 ein TOR (Exit 1 bei einem Fund; render_check ebenso), mit dem Artendetail und den gerechneten Farbpaaren der Statusbox; seit v33.55 mit Stapelreihenfolge — vorher galt jeder Text in einem Dialog am <body> als von #app verdeckt und wurde nie vermessen
 node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
 node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
 node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
@@ -1005,7 +1005,8 @@ node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wied
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
 node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
 node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
-bash scripts/pruefstaende.sh     # ALLE 41 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+node scripts/stripe_check.js     # kommt an, was bezahlt wurde — und nur das? (seit v33.60) Vier Teile: RECHNUNG (_shared/stripe_regeln.mjs in Node — Signatur gegen node:crypto, Abo-Zeile in beiden API-Formen, Preis, Probezeit, Launch-Stand, Rueckkehr-Adressen, Erstattung) · RAND (die ECHTEN Handler von stripe-webhook, -checkout, -portal; Deno, supabase-js und Stripe gestellt — die gestellte Datenbank traegt Spalten, eindeutige Schluessel, Fremdschluessel und CHECKs der 11 beruehrten Tabellen, live gemessen am 11.11.2026) · SQL (lokales Postgres: launch_offer_available aus der Migration gegen die gestellte Funktion, die Migration zum Launch-Zaehler gegen den Live-Stand; ohne Postgres „nicht pruefbar") · QUELLTEXT (kein .catch an einer supabase-js-Kette, jede Antwort durch dbMuss, Ereignisliste = Zweige, App und Function lesen dieselbe Antwort gleich)
+bash scripts/pruefstaende.sh     # ALLE 42 nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
 #   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
 #   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
@@ -2248,6 +2249,71 @@ rot; gegen den alten Proxy sind sechs der sieben Rand-Fälle rot.
 > („Ungültige Session.", „invalid token"), nicht vom Gateway. Derselbe Test zeigte, dass
 > `pest-identify` und `mushroom-identify` vorher mit „missing image_base64" antworteten:
 > sie nahmen den öffentlichen Schlüssel ohne Konto an.
+
+**`stripe_check.js` (seit v33.60) fragt, ob ankommt, was bezahlt wurde — und er ist der
+Prüfstand, an dem diese Regel gelernt wurde:**
+
+> **Eine Nachbildung ist nur so viel wert wie die Messung, aus der sie stammt** (v33.60).
+> Der Zahlungsweg hatte nie einen Prüfstand. Ein Agent hat ihn gebaut — Rechnung im Modul
+> (`_shared/stripe_regeln.mjs`), die drei echten Handler in Node, 40 Fälle, 40 grün. Die
+> Datenbank darin war NACHGEBAUT, und der Agent durfte die echte nicht lesen. Gegen die
+> echte gehalten (nur lesend: `information_schema`, `pg_constraint`, `pg_get_functiondef`)
+> waren drei grüne Wege kaputt:
+>
+> - `rpc/launch_offer_available` antwortet mit einem **Objekt** `{available, logged_in,
+>   claimed}` und rechnet mit `auth.uid()`. Gestellt war `true`. Der neue Checkout verglich
+>   mit `=== true` — **jeder Lifetime-Kauf wäre mit 410 abgelehnt worden.** (Der alte nahm
+>   das Objekt als „wahr": nie ausverkauft. Und die App las einen Wahrheitswert, den es nie
+>   gab: die Karte sagte nie „ausverkauft". Drei Leser, drei falsche Lesarten.)
+> - `stripe_subscriptions.price_id` ist ein **Fremdschlüssel** auf `stripe_prices`. Ein Abo
+>   mit einem fremden Preis sollte „ohne Pro geschrieben" werden — live wäre die Zeile bei
+>   JEDER Wiederholung abgelehnt worden, drei Tage lang 500.
+> - `user_id` verweist auf `auth.users`: ein spätes Ereignis für ein **gelöschtes Konto**
+>   ebenso.
+>
+> Seither trägt der Prüfstand SPALTEN, EINDEUTIG, FREMD, CHECK und die gestellte Funktion
+> **mit Messdatum**, der Fall „Die Naht" lehnt jede Tabelle ohne gemessene Spalten ab, und
+> die SQL-Hälfte führt die echte Funktion (aus der Migration) aus und hält sie gegen die
+> gestellte. Wer eine Datenbank, einen Dienst oder eine Antwort nachbaut, misst sie vorher —
+> und schreibt das Datum dazu. Wer sie NICHT messen kann, sagt das, und der Nächste misst.
+>
+> **Und drei Dinge, die nur ein zweiter Blick fand**, nicht der Prüfstand: die Admin-Übersicht
+> liest `processed = false` als „unverarbeitet" — das Feld setzte nie jemand (jedes Ereignis
+> hätte für immer als unverarbeitet gezählt); `post_id`/`expert_id` sind `uuid` (eine andere
+> Id → 22P02 bei jeder Wiederholung); und eine verzögerte Zahlungsart meldet „bezahlt" erst
+> mit `checkout.session.async_payment_succeeded`.
+
+**Die Regeln für jeden, der am Zahlungsweg arbeitet** (Modul `_shared/stripe_regeln.mjs`,
+die drei Functions sind der Rand):
+
+- **Der Stand eines Abos wird bei Stripe GEHOLT** (`aboNachziehen`), nie aus dem Ereignis
+  abgeschrieben — Stripe liefert nicht geordnet.
+- **Jede Antwort der Datenbank geht durch `dbMuss`.** Ein Nein ist 500 (Stripe wiederholt);
+  „nicht zuordenbar" (kein Nutzer, gelöschtes Konto, fremder Preis) ist 200 **mit dem Grund
+  in der Ereigniszeile** — Wiederholen hilft dort nicht.
+- **Aus der Anfrage des Browsers kommt nur: welches Angebot, wohin zurück, wie lange
+  probieren, welche Sprache.** Preis, Betrag, Modus, Kunde und Nutzer nie.
+- **Das Launch-Angebot** fragt `launch_offer_available` als die PERSON (User-Client) und
+  liest die Antwort mit `launchStand` — in der App mit `_gsLaunchStandAus`, derselben Regel.
+- **Keine feste Zahlungsart**: `payment_method_types` und `automatic_payment_methods`
+  stehen nicht im Aufruf; was im Stripe-Dashboard eingeschaltet ist, erscheint.
+- **Ein neues Ereignis** ist ein Eintrag in `STRIPE_EREIGNISSE` UND ein Zweig im Webhook
+  UND ein Haken am Endpunkt im Stripe-Dashboard (`docs/FUER-FERNANDO.md` §30).
+
+Was er NICHT prüft, und das steht im Bericht: ob Stripe die Aufrufe heute annimmt, ob TWINT
+im Abo-Checkout erscheint, ob die ausgelieferten Functions denen im Repo entsprechen. Das
+zeigt nur ein Probekauf im Testmodus.
+
+> **Ein Prüfstand, der nicht rot werden kann, ist ein Bericht — und einen Bericht liest
+> niemand** (v33.60). `contrast_check` und `render_check` endeten immer mit 0. Im CI-Lauf von
+> v33.59 stand „DUNKELMODUS — 1 Textstellen unter AA · 1.51:1 · `#loc-status`" und darunter
+> „EXIT=0", in jedem Lauf, grün; dieser Abschnitt sagte seit v31.30 „beide sollen 0 melden".
+> Jetzt hängt der Exit-Code daran. Und ein Zustand, den kein Fenster herstellt („🔍 Suche …",
+> 3,46:1 in beiden Modi), wird GERECHNET: ein festes Farbpaar braucht keinen Browser.
+> Dazu die Zahl der Prüfstände selbst: sie stand an sieben Stellen von Hand (35 · 38 · 39 ·
+> 41), drei Prüfstände in keiner Zeile des Gedächtnisses. `robust_check` „Memory" zählt jetzt
+> die Läufe in `pruefstaende.sh` und hält jede Zahl dagegen. **Eine Zahl, die jemand von Hand
+> fortschreiben muss, braucht einen, der nachzählt.**
 
 **Seit v32.72 gilt für Geheimnisse in Edge-Functions EINE Regel:**
 `supabase/functions/_shared/auth_vergleich.mjs` (`constantTimeEquals`,

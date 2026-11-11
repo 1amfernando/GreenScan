@@ -143,6 +143,22 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.55** Zwei Gegenproben liessen den Pruefstand ABSTUERZEN (`null.click`,
   `caches` auf einer Fehlerseite) statt rot zu melden. Regel: jede Frage meldet
   auch dann, wenn die Funktion dahinter kaputt ist.
+- **v33.60** `stripe_check` war beim ersten Bau 40 von 40 gruen — gegen eine
+  NACHGEBAUTE Datenbank. Gestellt war `launch_offer_available → true`; die
+  echte Funktion schickt ein Objekt `{available, logged_in, claimed}` und
+  rechnet mit `auth.uid()`. Der neue Checkout verglich mit `true`: jeder
+  Lifetime-Kauf waere abgelehnt worden. Dazu ein Fremdschluessel (`price_id`)
+  und einer auf `auth.users`, von denen die Nachbildung nichts wusste — zwei
+  Wege, die live bei jeder Wiederholung 500 geliefert haetten. Regel: **eine
+  Nachbildung ist nur so viel wert wie die Messung, aus der sie stammt** —
+  Form und Messdatum gehoeren in den Pruefstand, und ein Fall („Die Naht")
+  lehnt jede Tabelle ohne gemessene Spalten ab. Dieselbe Funktion las auch
+  die App falsch (`_gsLaunchStandAus` ist seither der eine Leser dort).
+- **v33.60** `contrast_check` und `render_check` endeten IMMER mit 0. Im
+  CI-Lauf von v33.59 stand „DUNKELMODUS — 1 Textstellen unter AA · 1.51:1"
+  und darunter „EXIT=0" — gruen, in jedem Lauf. Regel: **ein Pruefstand, der
+  nicht rot werden kann, ist ein Bericht** — und einen Bericht liest niemand.
+  Wer „muss 0 sein" schreibt, haengt den Exit-Code daran.
 
 ## F · Die richtige Ursache, die falsche Abhilfe
 
