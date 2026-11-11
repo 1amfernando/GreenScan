@@ -12,6 +12,27 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-11 (je) - kein Bump: das Agenten-Netz — die Rezeptur über dem Brett
+
+**Auftrag (Fernando, 11.11.2026):** je Funktion der App eine eigene Sitzung; alle sollen
+immer den neuesten Stand kennen; das Netz soll Verbesserungen selbständig angehen. Die App
+ist unverändert — deshalb kein Bump.
+
+**Was es jetzt gibt.** `docs/AGENTEN-NETZ.md` (die Rezeptur): fünf Zutaten (Brett ·
+Bereichs-Agenten · Koordinator · Prüfstände · Fernando), der Kreislauf in sechs Schritten
+mit je einem Auslöser (finden → zustellen → nehmen → bauen → einreihen → verteilen), die
+**Merge-Reihe** (eine Versionsnummer gehört dem PR an der Spitze), drei Stufen der
+Selbständigkeit und die Liste dessen, was auf keiner Stufe ohne Fernando geschieht.
+`ROADMAP.md` P2-5. Eine Koordinator-Sitzung läuft seit heute stündlich: sie liest `main`,
+begrüsst neue Sitzungen und verteilt jede Zusammenfassung.
+
+**Gemessen am ersten Tag:** zwei frische Branches tragen gleichzeitig `v33.59`
+(`ccr-5e705a36-jveaak`, `claude/restore-banner-nur-bei-bedarf`) — der Anlass für die
+Merge-Reihe. Beide Sitzungen sind benachrichtigt.
+
+**Offen:** nichts
+**Nicht geprüft:** ob die vier Zahlen aus `docs/AGENTEN-NETZ.md` §5 je erreicht werden — sie sind definiert, nicht gemessen; ob Stufe 2 und 3 gewollt sind (Fernandos Entscheidung); der Kreislauf ist bisher einmal durchlaufen (PR #325), nicht mit mehreren Bereichs-Agenten zugleich.
+
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
 **Auftrag (Fernando, 10.11.2026):** „Alle Agenten müssen sich austauschen und die
