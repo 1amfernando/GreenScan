@@ -259,7 +259,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 > gegen den die Teilung gebaut wurde. Niemand hat etwas falsch gemacht: jede
 > Sitzung hat oben brav ihren Eintrag angehängt, und „wenn die Liste zu lang
 > wird" stand nur in einem Kommentar. **Eine Regel ohne Auslöser ist eine
-> Bitte.** `robust_check` Fall 24 deckelt jetzt bei 20 und misst im selben Zug
+> Bitte.** `robust_check` „Changelog“ deckelt jetzt bei 20 und misst im selben Zug
 > die zweite Pflicht dieses Abschnitts, die bis dahin ebenfalls kein Prüfstand
 > kannte: **`GS_RELEASES[0].v === GS_VERSION`** — wird der Eintrag vergessen,
 > bleibt „Was ist neu" bei *allen* Nutzern still aus (das ist die Sperre aus
@@ -445,7 +445,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   `{data, error: {message, status?}}`.
   **Es wirft nicht** (kein einziges `throw` im Rumpf, jeder Weg gibt ein Objekt
   zurück — auch der Netzfehler). Ein `.catch()` daran ist deshalb von Bauart
-  tot; seit v32.82 zählt `robust_check` Fall 20 sie und lässt keine zu.
+  tot; seit v32.82 zählt `robust_check` „Optimistische Anzeige“ sie und lässt keine zu.
   Dasselbe gilt für ein `try/catch` UM einen `sbFetch`-Aufruf, das auf den
   Fehlerfall wartet: der Offline-Rückfall der Wissenssuche hing an genau so
   einem `catch` und lief nie (gefunden v33.59, `sicherheit_check`
@@ -1269,7 +1269,7 @@ Funde der anderen) → gegenprüfen → aufs Brett.
   aus v32.33. Der Banner ist nur noch Rückfall (Loop-Schutz je Zielversion,
   30 min ohne Pause) und geht durch dasselbe Prädikat.
 - Die Cache-Version in `sw.js` ist Teil JEDES Bumps: ohne neuen Worker gibt es
-  kein `updatefound` und damit kein Update — `robust_check` Fall 24 hält
+  kein `updatefound` und damit kein Update — `robust_check` „Changelog“ hält
   `VERSION === 'gs-' + GS_VERSION` und die meta app-version zusammen.
 - **Ein Push auf `main` liefert nur die statischen Dateien aus** — nie eine
   Migration, nie eine Edge-Function. Beides geschieht von Hand, durch
@@ -1711,7 +1711,7 @@ Schluessel.
 > sie `clock.setFixedTime` VOR `addInitScript` rufen.
 >
 > **Viermal dieselbe Klasse, viermal durch Zufall gefunden** (v31.46, v32.46,
-> v32.52, v33.02). `robust_check` Fall 25 misst deshalb nicht die FORM der
+> v32.52, v33.02). `robust_check` „Beispieldaten“ misst deshalb nicht die FORM der
 > Beispieldaten, sondern ihre WIRKUNG — neun Listen muessen in der laufenden
 > App ankommen, und es muss mindestens eine ueberfaellige UND eine heute
 > faellige Aufgabe geben. **Beispieldaten sind die Messgrundlage von allem:
@@ -2980,7 +2980,7 @@ eigene Sätze durch und kürzt lange. Das Rohe bleibt in `err.message` für
 Log und Schlüsselwort-Prüfungen (`duplicate`, `42P01`, `slug_taken`);
 `sbFetch` trägt den HTTP-Status als `err.status` mit. Für die
 Anmelde-Endpunkte gilt weiter `gsTranslateAuthError`. `robust_check`
-Fall 11 findet jede Anzeige-Zeile mit rohem `.error.message` — und misst
+B8 findet jede Anzeige-Zeile mit rohem `.error.message` — und misst
 zusätzlich einen echten Toast, weil die Suche eine Variable, die erst zwei
 Zeilen später angezeigt wird, nicht sieht.
 
@@ -3038,10 +3038,10 @@ private Adresse (die Functions liegen im Web-Root und sind lesbar). Und für
 Edge-Functions gilt: **kein `atob` auf den Token, keine E-Mail-Liste** — wer
 wissen will, ob der Aufrufer Admin ist, ruft `rpc/is_admin_user` mit dessen
 Bearer (PostgREST prüft die Signatur); `feedback-triage` ist die Vorlage.
-`robust_check` Fall 14 rechnet das Modul in Node und meldet jede Kopie.
+`robust_check` C4 rechnet das Modul in Node und meldet jede Kopie.
 
 **Seit v32.77 gibt es einen Deckel gegen Funktionen ohne Aufrufer** (Audit
-C2). `robust_check` Fall 16 zählt jede Definition (`function X`,
+C2). `robust_check` C2 zählt jede Definition (`function X`,
 `window.X = function`) gegen ihre Nennungen im ganzen Repo — Quelltext,
 `sw.js`, Prüfstände, Migrationen, Edge-Functions, ganze Kommentarzeilen
 abgezogen — und meldet jede ohne zweite Nennung, die nicht namentlich mit

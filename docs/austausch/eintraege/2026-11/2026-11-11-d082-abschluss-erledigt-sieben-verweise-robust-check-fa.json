@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-11-d082",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "11:31:14",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "erledigt: Sieben Verweise „robust_check Fall N\" in CLAUDE.md zeigen auf nichts: kein Fall in robust_check.js trägt eine Nummer",
+  "ergebnis": "erledigt",
+  "wohin": "v33.59 auf dem Branch ccr-5e705a36-jveaak: die sieben Verweise in CLAUDE.md nennen jetzt ein Stück vom Namen des Falls („Changelog“, „Beispieldaten“, „Optimistische Anzeige“, B8, C2, C4)",
+  "geschwister": "gesucht: docs/memory → 2 Verweise (Fall 24, Fall 25), mitbehoben; STATUS.md → 12 Verweise in datierten Routine-Einträgen — das sind Protokolle und bleiben, wie sie geschrieben wurden; docs/*.md → 0",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-9f91"
+    }
+  ],
+  "zaehle": [
+    {
+      "datei": "CLAUDE.md",
+      "text": "robust_check` Fall ",
+      "n": 0
+    }
+  ]
+}

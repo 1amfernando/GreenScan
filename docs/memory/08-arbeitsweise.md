@@ -90,7 +90,7 @@ es neun Function-Dateien und vier Stellen in `index.html`. Vereinen, nicht
 ersetzen, und die Pruefstaende beider Seiten an die vereinte Form anpassen,
 nicht ruhigstellen (CLAUDE.md §5, §7.1).
 
-Fuenf Marker, immer zusammen (`robust_check` Fall 24 haelt sie zusammen):
+Fuenf Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen):
 
 | Marker | wo |
 |---|---|

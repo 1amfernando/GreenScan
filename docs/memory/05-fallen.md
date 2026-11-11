@@ -51,7 +51,7 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.02** Der Zeitanker stand fest auf 2025 — ein Jahr spaeter waren alle
   Aufgaben ueberfaellig, keine heute, kein Messwert der letzten Woche.
 - **v33.33** Ernte-Log mit `{plant, amount}` statt `{pflanze, menge}` —
-  Naturjahr NaN, Timeline „? · 0 g". Regel: `robust_check` Fall 25 misst die
+  Naturjahr NaN, Timeline „? · 0 g". Regel: `robust_check` „Beispieldaten“ misst die
   WIRKUNG der Beispieldaten (neun Listen muessen ankommen); wer Seed aendert,
   prueft Schluessel, Felder UND Zeitanker gegen die Lesestellen.
 
