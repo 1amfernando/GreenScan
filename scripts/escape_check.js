@@ -281,6 +281,99 @@ const FAELLE = [
       return { ok: true, info: '1 Bild (https), javascript: ohne <img>, beide Funde in der Liste' };
     },
   },
+  {
+    // Gemessen am 11.11.2026: die Adresse eines Rezeptfotos stand nur mit
+    // gsHTMLEscape in einem JS-String im onclick (`window.open('<adresse>','_blank')`)
+    // — der Wert durchlaeuft ZWEI Parser, ein `'` beendet den String (v32.66).
+    // Seither bekommt das Vorschaubild nur `gsFotoAnsicht(this.src)`, und die
+    // Ansicht laedt keine Adresse, die `_gsFotoAdresse` nicht kennt.
+    name: 'Foto-Ansicht · eine Adresse mit Apostroph laeuft nicht als Code, javascript:/data:text/fremdes blob: oeffnen nichts, https · data:image · eigenes blob: oeffnen genau EIN Bild',
+    lauf: async () => {
+      const anfragenVor = __anfragen.length;
+      const r = await __seite.evaluate(async () => {
+        const warte = (ms) => new Promise(r => setTimeout(r, ms));
+        const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAEUlEQVR4nGPQqzXCihgGUgIAJFopcWysNWAAAAAASUVORK5CYII=';
+        const KNACK = "https://bilder.example/a.jpg');window.__pwned=1;('";
+        const out = { pwned0: window.__pwned };
+        const rz = recipesData[0]; const vorher = rz.photo_urls;
+        const echtOpen = window.open; let hinaus = 0; window.open = function () { hinaus++; return null; };
+        const ansicht = () => document.getElementById('gs-foto-ansicht');
+        const weg = async () => { const a = ansicht(); if (a) { try { gsDismissOverlay(a); } catch (_) { a.remove(); } } await warte(60); };
+        try {
+          // 1 · das Rezept: drei Adressen aus fremder Hand
+          rz.photo_urls = ['https://bilder.example/gut.jpg', 'javascript:window.__pwned=1', KNACK];
+          openRecipeDetail(rz.id);
+          await warte(400);
+          const imgs = Array.from(document.querySelectorAll('#recipe-detail-body img'));
+          out.srcs = imgs.map(i => i.getAttribute('src'));
+          out.fremdeAttribute = imgs.filter(i => Array.from(i.attributes).some(a => /^on(error|load|mouse)/.test(a.name))).length;
+          for (const i of imgs) { try { i.click(); } catch (e) { out.klickFehler = e.message; } await warte(120); await weg(); }
+          out.pwnedNachKlick = window.__pwned;
+          out.hinaus = hinaus;
+          // 2 · die Ansicht selbst
+          out.hatFunktion = typeof gsFotoAnsicht === 'function';
+          const probe = async (u) => {
+            let rueck = null;
+            try { rueck = gsFotoAnsicht(u); } catch (e) { rueck = 'FEHLER ' + e.message; }
+            await warte(120);
+            const a = ansicht();
+            // Ein Bild, das nicht laedt (hier ist das Netz gekappt), wird durch einen
+            // Satz ersetzt — auch das ist „genau ein Inhalt", nur kein <img>.
+            const erg = { rueck: rueck, offen: !!a, bilder: a ? a.querySelectorAll('img').length : 0,
+              src: a && a.querySelector('img') ? a.querySelector('img').getAttribute('src') : null,
+              satz: a && a.querySelector('[role="status"]') ? a.querySelector('[role="status"]').textContent : null,
+              kinder: a ? a.querySelectorAll('*').length : 0,
+              skripte: a ? a.querySelectorAll('script, iframe, [onerror], [onload]').length : 0 };
+            await weg();
+            return erg;
+          };
+          const blobUrl = URL.createObjectURL(new Blob([Uint8Array.from(atob(PNG.split(',')[1]), c => c.charCodeAt(0))], { type: 'image/png' }));
+          out.boese = {};
+          const BOESE_ADRESSEN = ['javascript:window.__pwned=1', 'JaVaScRiPt:window.__pwned=1', 'data:text/html,<script>window.__pwned=1<\/script>',
+            'vbscript:x', '//evil.example/x.png', 'blob:https://evil.example/00000000-0000-0000-0000-000000000000',
+            'file:///etc/passwd', 'gsphoto://7', '', null];
+          for (const u of BOESE_ADRESSEN) out.boese[String(u)] = out.hatFunktion ? await probe(u) : null;
+          out.gut = {};
+          out.gut.https = out.hatFunktion ? await probe('https://bilder.example/x.jpg"><img src=x onerror="window.__pwned=1">') : null;
+          out.gut.data = out.hatFunktion ? await probe(PNG) : null;
+          out.gut.blob = out.hatFunktion ? await probe(blobUrl) : null;
+          out.blobUrl = blobUrl; out.PNG = PNG;
+          out.pwned = window.__pwned;
+          out.imgX = document.querySelectorAll('img[src="x"]').length;
+        } finally {
+          window.open = echtOpen; rz.photo_urls = vorher;
+          await weg();
+          try { closeModal('modal-recipe-detail'); } catch (_) {}
+          await warte(250);
+        }
+        return out;
+      });
+      const neu = __anfragen.slice(anfragenVor);
+      const boeseAnfragen = neu.filter(u => /evil\.example|etc\/passwd/.test(u));
+      if (r.pwned0 !== undefined) return { ok: false, warum: '__pwned war schon vor dem Fall gesetzt — der Fall misst nichts' };
+      if (r.pwnedNachKlick !== undefined) return { ok: false, warum: 'Code lief beim Antippen eines Rezeptfotos (die Adresse mit Apostroph brach aus dem onclick aus) — ' + r.hinaus + '× window.open' };
+      if (r.hinaus) return { ok: false, warum: r.hinaus + '× window.open beim Antippen der Rezeptfotos — das Foto verlaesst die App' };
+      if (r.fremdeAttribute) return { ok: false, warum: r.fremdeAttribute + ' Vorschaubild(er) mit eingeschleustem on*-Attribut' };
+      if (!r.srcs || r.srcs.length !== 2 || r.srcs.some(s => /^javascript:/i.test(s))) return { ok: false, warum: 'Vorschaubilder im Rezept: ' + JSON.stringify(r.srcs) + ' (erwartet zwei https-Bilder, keines mit javascript:)' };
+      if (!r.hatFunktion) return { ok: false, warum: 'gsFotoAnsicht fehlt' };
+      const durch = Object.keys(r.boese).filter(k => r.boese[k].offen || r.boese[k].rueck !== false);
+      if (durch.length) return { ok: false, warum: durch.length + ' von ' + Object.keys(r.boese).length + ' unerlaubten Adressen oeffneten die Ansicht: ' + durch.map(k => JSON.stringify(k) + ' → ' + JSON.stringify(r.boese[k])).join(' · ') };
+      if (boeseAnfragen.length) return { ok: false, warum: 'eine abgewiesene Adresse wurde trotzdem angefragt: ' + boeseAnfragen.slice(0, 2).join(', ') };
+      const g = r.gut;
+      const schlecht = [];
+      // https: hier ist das Netz gekappt — die Ansicht fragt die Adresse GENAU EINMAL an
+      // (das Markup darin prozent-kodiert, nicht als Markup) und zeigt dann den Satz.
+      const httpsAnfragen = neu.filter(u => /^https:\/\/bilder\.example\/x\.jpg/.test(u));
+      if (!(g.https.rueck === true && g.https.offen && g.https.skripte === 0 && g.https.bilder + (g.https.satz ? 1 : 0) === 1
+            && httpsAnfragen.length === 1 && /%22%3E%3Cimg/.test(httpsAnfragen[0]) && !/[<>"]/.test(httpsAnfragen[0])))
+        schlecht.push('https: ' + JSON.stringify(g.https) + ' · Anfragen ' + JSON.stringify(httpsAnfragen));
+      if (!(g.data.rueck === true && g.data.offen && g.data.bilder === 1 && g.data.src === r.PNG)) schlecht.push('data:image: ' + JSON.stringify(g.data).slice(0, 120));
+      if (!(g.blob.rueck === true && g.blob.offen && g.blob.bilder === 1 && g.blob.src === r.blobUrl)) schlecht.push('eigenes blob: ' + JSON.stringify(g.blob));
+      if (schlecht.length) return { ok: false, warum: 'eine ERLAUBTE Adresse oeffnet die Ansicht nicht mit genau einem Bild: ' + schlecht.join(' · ') };
+      if (r.pwned !== undefined || r.imgX) return { ok: false, warum: 'Code lief oder ein <img src=x> entstand: ' + JSON.stringify({ pwned: r.pwned, imgX: r.imgX }) };
+      return { ok: true, info: 'Rezept: 2 Bilder (javascript: ohne <img>), Apostroph-Adresse angetippt → nichts lief, 0× window.open · ' + Object.keys(r.boese).length + ' unerlaubte Adressen: keine Ansicht, 0 Anfragen · https (mit Markup in der Adresse: 1 Anfrage, prozent-kodiert, dann der Satz „' + (g.https.satz || 'Bild') + '") · data:image · eigenes blob: je genau 1 Bild' };
+    },
+  },
 ];
 
 var __anfragen = [];
