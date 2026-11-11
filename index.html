@@ -2670,8 +2670,17 @@ window._gsArtenFehlstart = function () {
   window.gsStorageIntegrityCheck = function() {
     // v28.76 C2-1: kanonischer Scan-History-Key ist 'gs_scan_history' (SCAN_HISTORY_KEY).
     // Der bare 'scan_history' wurde NIE geschrieben → Integrity-Check schützte den falschen Key.
+    // v33.57: die Liste kannte zehn Schluessel — und keinen von denen, die das
+    // Hauptskript beim PARSEN liest und an denen es dann stirbt (gs_market,
+    // gs_recipes, gs_remedies) oder still auf leer zurueckfaellt und beim
+    // naechsten Speichern ueberschreibt (gs_gardens, gs_plantings, …).
+    // `ps_diary` hatte nie einen Schreiber (das Tagebuch liegt in
+    // gs_gartentagebuch und p.diary) und ist heraus.
     var jsonKeys = ['ps_feedback','ps_votes','ps_myplants','gs_scan_history','gs_ki_analyses',
-                    'gs_scan_corrections','ps_diary','gs_garden_plan_current','gs_streak','userLocation'];
+                    'gs_scan_corrections','gs_garden_plan_current','gs_streak','userLocation',
+                    'gs_market','gs_recipes','gs_remedies','gs_gardens','gs_plantings','gs_garden_plans',
+                    'gs_gartentagebuch','gs_ernte_log','gs_user_location','greenscan_markers','ps_favs',
+                    'gs_geraete','gs_geraete_regeln','gs_messwerte','gs_garden_twin','gs_dq_stats','gs_dq_training'];
     var fixed = 0, backedUp = 0;
     for (var i=0; i<jsonKeys.length; i++) {
       var k = jsonKeys[i];
@@ -2731,8 +2740,43 @@ window._gsArtenFehlstart = function () {
     }
     return { checked: jsonKeys.length, repaired: fixed, backedUp: backedUp };
   };
-  // Fire-and-forget on load — nie blockierend
-  try { setTimeout(window.gsStorageIntegrityCheck, 1500); } catch(_) {}
+  // v33.57: SOFORT, nicht erst nach 1,5 s. Die Pruefung lief „fire-and-forget"
+  // nach dem Laden — das Hauptskript weiter unten liest dieselben Schluessel
+  // aber beim PARSEN. Ein abgeschnittener Wert (voller Speicher mitten im
+  // Schreiben) war dann schon gelesen: entweder starb das Hauptskript daran
+  // (die App blieb auf dem Ladebildschirm stehen, gemessen mit sieben kaputten
+  // Formen), oder es fiel auf eine leere Liste zurueck, und die Reparatur 1,5 s
+  // spaeter rettete den Speicher — den der naechste Schreibvorgang mit der
+  // leeren Liste ueberschrieb. Jetzt wird zuerst repariert, dann gelesen.
+  // Kosten: ein JSON.parse je Schluessel, den das Hauptskript ohnehin parst.
+  try { window.gsStorageIntegrityCheck(); } catch(_) {}
+
+  // Eine LISTE aus dem Geraetespeicher, formsicher. Die Pruefung oben faengt
+  // kaputtes JSON; GUELTIGES JSON in der falschen Form faengt sie nicht — `null`,
+  // `{}`, `"x"`, `5` oder `[null]` (ein alter Stand, ein eingespieltes Backup,
+  // ein Sync von einem aelteren Geraet). Wer eine Liste braucht, ruft das hier:
+  // ein Array von Objekten, oder null (dann gilt die Vorgabe des Aufrufers).
+  // Der Wert im Speicher bleibt unangetastet — er wird nur nicht benutzt.
+  // `auchEinfache`: eine Liste von Zeichenketten oder Zahlen (Favoriten-ids,
+  // letzte Suchen) — dann fallen nur null/undefined heraus.
+  window._gsListeLesen = function (key, auchEinfache) {
+    var roh = null, arr = null;
+    try { roh = localStorage.getItem(key); } catch (_) {}
+    if (!roh) return null;
+    try { arr = JSON.parse(roh); } catch (_) { return null; }
+    if (!Array.isArray(arr)) return null;
+    return arr.filter(auchEinfache ? function (x) { return x != null && typeof x !== 'object'; }
+                                   : function (x) { return x && typeof x === 'object'; });
+  };
+  // Dasselbe fuer ein OBJEKT: `JSON.parse(x || '{}')` faengt weder `null` noch
+  // eine Liste noch eine Zahl — und der naechste Feldzugriff wirft.
+  window._gsObjektLesen = function (key) {
+    var roh = null, o = null;
+    try { roh = localStorage.getItem(key); } catch (_) {}
+    if (!roh) return null;
+    try { o = JSON.parse(roh); } catch (_) { return null; }
+    return (o && typeof o === 'object' && !Array.isArray(o)) ? o : null;
+  };
 })();
 
 </script>
@@ -10266,8 +10310,7 @@ function gsFilterPlants(q) {
 var _gsErnteLog = null;
 function gsErnteLoad() {
   if (!_gsErnteLog) {
-    try { _gsErnteLog = JSON.parse(localStorage.getItem('gs_ernte_log') || '[]'); }
-    catch(e) { _gsErnteLog = []; }
+    _gsErnteLog = _gsListeLesen('gs_ernte_log') || [];   // v33.57: formsicher
   }
   return _gsErnteLog;
 }
@@ -12723,7 +12766,9 @@ window.dqSerie = dqSerie;
 window.dqStatsBuchen = dqStatsBuchen;
 
 function dqGetStats() {
-  try { return JSON.parse(localStorage.getItem('gs_dq_stats') || '{"points":0,"correct":0,"total":0,"streak":0,"bestStreak":0,"year":'+new Date().getFullYear()+'}'); } catch(e) { return {points:0,correct:0,total:0,streak:0,bestStreak:0,year:new Date().getFullYear()}; }
+  // v33.57: formsicher — ein gespeichertes `null` oder eine Liste war gueltiges
+  // JSON, und `stats.streak` warf (Startseite, Quiz, Rangliste).
+  return _gsObjektLesen('gs_dq_stats') || {points:0,correct:0,total:0,streak:0,bestStreak:0,year:new Date().getFullYear()};
 }
 function dqSaveStats(s) {
   try { localStorage.setItem('gs_dq_stats', JSON.stringify(s)); } catch(e) {}
@@ -17224,7 +17269,7 @@ window.gsNotif = (function(){
   // verschiebt der Planer eine Meldung, statt sie zu verwerfen.
   function stille(wann){
     var s = {};
-    try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
+    s = _gsObjektLesen('gs_push_settings') || {};   // v33.57: formsicher (`null` im Speicher warf am ersten Feld)
     var d = wann ? new Date(wann) : new Date();
     try { var pu = s.pauseUntil && new Date(s.pauseUntil); if (pu && !isNaN(pu.getTime()) && pu > d) return { aktiv: true, grund: 'pause', bis: pu }; } catch(_){}
     var qs = (typeof s.quietStart === 'number') ? s.quietStart : 22, qe = (typeof s.quietEnd === 'number') ? s.quietEnd : 7;
@@ -21847,7 +21892,7 @@ async function gsContributeScanPhoto(spId, conf){
 window.gsContributeScanPhoto = gsContributeScanPhoto;
 
 var _recipeFavs=[];
-try{_recipeFavs=JSON.parse(localStorage.getItem('gs_recipe_favs')||'[]');}catch(e){}
+_recipeFavs=_gsListeLesen('gs_recipe_favs', true) || [];   // v33.57: formsicher (ids sind Zeichenketten)
 function isRecipeFav(id){return _recipeFavs.indexOf(id)>=0;}
 function toggleRecipeFav(id,ev){
   if(ev)ev.stopPropagation();
@@ -22189,7 +22234,7 @@ function gsInitPullToRefresh(screenId, onRefresh) {
 
 // ── RECENT SEARCHES ─────────────────────────────────────────
 var _gsRecentSearches = [];
-try { _gsRecentSearches = JSON.parse(localStorage.getItem('gs_recent_searches')||'[]'); } catch(e){}
+_gsRecentSearches = (_gsListeLesen('gs_recent_searches', true) || []).filter(function (x) { return typeof x === 'string'; });   // v33.57: formsicher
 
 
 function gsRenderRecentSearches() {
@@ -22213,11 +22258,26 @@ var _favsSortMode = 'alpha';
 // ── Sicheres JSON-Parsing (verhindert Crash bei korrupten Daten) ──
 function safeJsonParse(str, fallback) {
   if (!str || str === 'undefined' || str === 'null' && fallback !== null) return fallback;
-  try { return JSON.parse(str); }
+  var v;
+  try { v = JSON.parse(str); }
   catch(e) { 
     console.warn('JSON parse error, using fallback:', e.message);
     return fallback; 
   }
+  // v33.57: die FORM der Vorgabe gilt. `safeGetItem('ps_myplants', [])` gab bei
+  // einem gespeicherten `{}`, `"x"` oder `5` genau das zurueck — gueltiges JSON,
+  // falsche Form — und der erste `.filter`/`.push` warf (21 Aufrufer, darunter
+  // myPlants, gardens, plantings, favs beim PARSEN der Seite). Ist die Vorgabe
+  // eine Liste, muss es eine Liste sein (ohne null-Eintraege); ist sie ein
+  // Objekt, ein Objekt. Sonst gilt die Vorgabe. Der Speicher bleibt unangetastet.
+  if (Array.isArray(fallback)) {
+    if (!Array.isArray(v)) return fallback;
+    return v.some(function (x) { return x == null; }) ? v.filter(function (x) { return x != null; }) : v;
+  }
+  if (fallback && typeof fallback === 'object') {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return fallback;
+  }
+  return v;
 }
 function safeGetItem(key, fallback) {
   return safeJsonParse(localStorage.getItem(key), fallback);
@@ -25207,8 +25267,7 @@ function getCatLabel(c){
 
 function gsMarketLoad() {
   if (!window._gsMarket) {
-    try { window._gsMarket = JSON.parse(gsStore.get('gs_market_listings', null) || '[]'); }
-    catch(e) { window._gsMarket = []; }
+    window._gsMarket = _gsListeLesen('gs_market_listings') || [];   // v33.57: formsicher
   }
   return window._gsMarket;
 }
@@ -29857,7 +29916,7 @@ window.gsRenderWochenrueckblick = function(){
 var GS_ZETTEL_TAGE = 14;
 window.gsGiessZettelFenster = function(){
   var s = {};
-  try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}') || {}; } catch(_){}
+  s = _gsObjektLesen('gs_push_settings') || {};
   var heute = gsHeuteTag(), pu = s.pauseUntil ? _gsKalTag(s.pauseUntil) : null;
   if (pu && pu > heute) return { von: heute, bis: pu, quelle: 'pause' };
   return { von: heute, bis: _gsKalTagPlus(heute, GS_ZETTEL_TAGE), quelle: 'vorgabe' };
@@ -46626,9 +46685,11 @@ function openPostWithType(type) {
 // v_marketplace_listings bzw. aus lokalen Entwuerfen des Nutzers.
 
 let marketListings = (function() {
-  var stored = localStorage.getItem('gs_market');
-  if (stored) {
-    var arr = JSON.parse(stored);
+  // v33.57: `JSON.parse(stored)` ohne Halt auf oberster Ebene — ein kaputter
+  // Wert liess das GANZE Hauptskript sterben (alles danach lief nicht, der
+  // Ladebildschirm blieb stehen). Jetzt formsicher; kaputt heisst: keine Liste.
+  var arr = _gsListeLesen('gs_market');
+  if (arr) {
     // Eingeloggte Nutzer: Demo-Einträge (id: 'l1','l2' etc.) entfernen
     if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
       arr = arr.filter(function(l) { return !l.isDemo; });
@@ -52375,11 +52436,10 @@ const DEFAULT_REMEDIES = [
 ];
 
 var recipesData   = (function() {
-  var stored = localStorage.getItem('gs_recipes');
   // All DEFAULT_RECIPES of type 'recipes'
   var defaults = DEFAULT_RECIPES.filter(function(r){ return r.type !== 'remedies'; });
-  if (stored) {
-    var arr = JSON.parse(stored);
+  var arr = _gsListeLesen('gs_recipes');   // v33.57: formsicher (siehe gs_market)
+  if (arr) {
     var ids = arr.map(function(r){return r.id;});
     defaults.forEach(function(r){ if (!ids.includes(r.id)) arr.push(r); });
     return arr;
@@ -52387,12 +52447,11 @@ var recipesData   = (function() {
   return JSON.parse(JSON.stringify(defaults));
 })();
 var remediesData  = (function() {
-  var stored = localStorage.getItem('gs_remedies');
   // Combine DEFAULT_REMEDIES + remedy-type items from DEFAULT_RECIPES
   var extraRemedies = DEFAULT_RECIPES.filter(function(r){ return r.type === 'remedies'; });
   var defaults = DEFAULT_REMEDIES.concat(extraRemedies);
-  if (stored) {
-    var arr = JSON.parse(stored);
+  var arr = _gsListeLesen('gs_remedies');   // v33.57: formsicher (siehe gs_market)
+  if (arr) {
     var ids = arr.map(function(r){return r.id;});
     defaults.forEach(function(r){ if (!ids.includes(r.id)) arr.push(r); });
     return arr;
@@ -87043,7 +87102,7 @@ async function gsRegisterPushSubscription(subscription){
     try { loc = JSON.parse(localStorage.getItem('gs_user_location') || '{}'); } catch(_){}
     // Push-Settings aus localStorage-Cache (Defaults true)
     var s = {};
-    try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
+    s = _gsObjektLesen('gs_push_settings') || {};   // v33.57: formsicher (`null` im Speicher warf am ersten Feld)
     var _r = await sbFetch('/rest/v1/push_subscriptions', {
       method:'POST',
       headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'},
@@ -87859,7 +87918,7 @@ async function gsPushSettingsRefresh(){
   }
   // Lokale Settings ins UI spiegeln
   var s = {};
-  try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
+  s = _gsObjektLesen('gs_push_settings') || {};   // v33.57: formsicher (`null` im Speicher warf am ersten Feld)
   var ids = { frost:'push-cat-frost', heat:'push-cat-heat', storm:'push-cat-storm', water:'push-cat-water', seasonal:'push-cat-seasonal', quiz:'push-cat-quiz', classes:'push-cat-classes', doctor:'push-cat-doctor', battle:'push-cat-battle' };
   Object.keys(ids).forEach(function(k){
     var el = document.getElementById(ids[k]);

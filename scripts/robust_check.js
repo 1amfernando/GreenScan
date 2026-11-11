@@ -1077,6 +1077,60 @@ const FAELLE = [
     },
   },
   {
+    name: 'Kaputter Speicher · kein einzelner Wert im Geraetespeicher verhindert den Start — abgeschnittenes JSON, null, {} und [null] in JEDEM gelesenen Schluessel: die App startet und laeuft fehlerfrei durch alle Tabs',
+    lauf: async () => {
+      // v33.57 (Audit „robust", nachgestellt). Das Hauptskript las gs_market,
+      // gs_recipes und gs_remedies beim PARSEN mit `JSON.parse(stored)` ohne Halt
+      // und `arr.map(…)` ohne Formpruefung. EIN kaputter Wert (voller Speicher
+      // mitten im Schreiben, ein Backup in alter Form) liess das ganze Skript
+      // sterben: GS_VERSION undefiniert, der Ladebildschirm blieb stehen —
+      // gemessen mit sieben Formen, in jeder. Die Integritaetspruefung, die
+      // genau das reparieren soll, lief erst 1,5 s NACH dem Lesen und kannte die
+      // Schluessel nicht. Der Fall setzt JEDEN Schluessel, den der Quelltext
+      // liest, auf den kaputten Wert (nur die Sitzung bleibt, sonst prueft man den
+      // Anmeldebildschirm) und geht durch die App.
+      const quelle = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+      const keys = new Set();
+      for (const m of quelle.matchAll(/(?:getItem|safeGetItem|gsStore\.get|gsStore\.getJSON|_gsListeLesen|_gsObjektLesen)\(\s*'((?:gs_|ps_|greenscan_)[A-Za-z0-9_]+)'/g)) keys.add(m[1]);
+      const liste = [...keys].filter(k => !/^gs_sb_|^gs_supabase|^gs_consent$/.test(k));
+      if (liste.length < 120) return { ok: false, warum: 'nur ' + liste.length + ' Schluessel im Quelltext gefunden — der Fall misst offenbar etwas anderes' };
+      const PROBEN = ['{"a":', 'null', '{}', '[null]'];
+      const klagen = [];
+      for (const probe of PROBEN) {
+        const ctx = await __browser.newContext({ viewport: { width: 412, height: 915 } });
+        try {
+          const p = await ctx.newPage();
+          const errs = [];
+          p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
+          await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+          await p.addInitScript(SEED);
+          await p.addInitScript(([ks, v]) => { ks.forEach(k => { try { localStorage.setItem(k, v); } catch (_) {} }); }, [liste, probe]);
+          await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+          await p.waitForTimeout(4500);
+          const start = await p.evaluate(() => {
+            const sp = document.getElementById('gs-splash');
+            return { version: typeof GS_VERSION === 'string', splash: !!(sp && getComputedStyle(sp).display !== 'none' && sp.getClientRects().length), db: typeof DB !== 'undefined' ? DB.length : -1 };
+          });
+          if (!start.version || start.splash) { klagen.push(JSON.stringify(probe) + ': die App startet NICHT (GS_VERSION ' + (start.version ? 'da' : 'undefiniert') + ', Ladebildschirm ' + (start.splash ? 'steht noch' : 'weg') + (errs.length ? ' — ' + errs[0] : '') + ')'); continue; }
+          const sync = await p.evaluate(async () => {
+            document.documentElement.classList.remove('gs-preauth'); window.gsRequire = () => true;
+            const w = (ms) => new Promise(r => setTimeout(r, ms)); const f = [];
+            for (const t of ['home', 'garden', 'wissen', 'favs', 'search', 'social', 'market', 'recipes', 'remedies', 'map', 'scanner', 'home']) { try { switchTab(t); } catch (e) { f.push(t + ': ' + e.message); } await w(300); }
+            for (const n of ['openSettings', 'gsOpenLina', 'gsOpenKalender', 'openErnteTracking', 'gsOpenMesswerte', 'openDailyQuiz', 'gsOpenNaturjahr']) {
+              try { if (typeof window[n] === 'function') await window[n](); } catch (e) { f.push(n + ': ' + e.message); }
+              await w(300); try { document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id)); } catch (_) {}
+            }
+            return f;
+          });
+          const alle = [...new Set(errs.concat(sync))];
+          if (alle.length) klagen.push(JSON.stringify(probe) + ': ' + alle.length + ' Fehler beim Durchgehen — ' + alle.slice(0, 3).join(' | '));
+        } finally { await ctx.close(); }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 3).join(' · ') + (klagen.length > 3 ? ' · … (' + klagen.length + ')' : '') };
+      return { ok: true, info: liste.length + ' gelesene Schluessel × ' + PROBEN.length + ' kaputte Formen (' + PROBEN.join(' · ') + ') — jedes Mal gestartet, 12 Tabs und 7 Fenster ohne Fehler' };
+    },
+  },
+  {
     name: 'B3 · Service Worker: kein skipWaiting beim Install; SKIP_WAITING nur auf Befehl der App; der Banner schickt ihn',
     lauf: async () => {
       const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
