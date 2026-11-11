@@ -29759,7 +29759,12 @@ function gsKalenderEreignisse(von, bis) {
       out.push({ id: 'scan:' + (h.id || (tag + ':' + i)), art: 'scan', datum: tag, zeit: _gsKalZeit(zt), ts: new Date(zt).toISOString(),
         titel: _gsSatz('{1} gescannt', h.name), emoji: '🔬', name: h.name,
         pflanze: null, garten_id: null, quelle: 'scan', status: 'info', faellig_seit: null,
-        verweis: (h.lat || h.name) ? { fn: 'gsSearchSpecies', args: [h.lat || h.name] } : null,
+        // v33.60: der Knopf „›“ oeffnet den Scan-Verlauf — dieselbe Regel wie bei Funden
+        // (gsOpenMyFinds) und Ernten (openErnteTracking): die Liste, in der das Ding steht.
+        // Bis hierher nannte die Zeile eine Funktion, die es nie gab (eine Artensuche nach
+        // dem Namen); gsKalHin prueft typeof und tat dann nichts — an JEDER Scan-Zeile ein
+        // toter Knopf. Pruefstaende: wiring_check Richtung 6, kalender_check N5.
+        verweis: { fn: 'openScanHistory', args: [] },
         grund: (konf != null)
           ? _gsSatz('Aus deinem Scan-Verlauf — die Erkennung war zu {1} % sicher', konf)
           : _gsSatz('Aus deinem Scan-Verlauf') });

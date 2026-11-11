@@ -1844,6 +1844,63 @@ const FAELLE = [
     },
   },
   {
+    // v33.60 · gemessen am 11.11.2026 (Befund IDEE-B, nachgefahren): der Knopf „›" an JEDER
+    // Scan-Zeile rief `gsSearchSpecies` — eine Funktion, die es nicht gibt. `gsKalHin` prueft
+    // `typeof window[fn] === 'function'` und tut sonst NICHTS: kein Fehler, kein Fenster.
+    // N1 war dabei gruen — er fragt nur, ob `verweis.fn` gesetzt ist (eine Zeichenkette ist
+    // immer gesetzt). Hier zwei Richtungen: (a) JEDER Verweis, den die eine Funktion liefert,
+    // nennt eine Funktion, die es gibt; (b) der echte Knopf an der Scan-Zeile wird angetippt,
+    // und danach steht ein Fenster da. Ohne (b) waere ein gsKalHin, der gar nichts mehr ruft,
+    // ebenfalls gruen (v33.43: der Draht, nicht die Rechnung).
+    name: 'Drei Namen N5 · jeder Verweis im Kalender führt irgendwohin: die genannte Funktion gibt es — und der Knopf „›" an einer Scan-Zeile öffnet den Scan-Verlauf',
+    lauf: async () => {
+      const heute = gsHeuteTag();
+      const altS = localStorage.getItem('gs_scan_history'), altF = localStorage.getItem('gs_kal_filter'), altM = localStorage.getItem('greenscan_markers');
+      const verlauf = document.getElementById('modal-scan-history-full');
+      const offen = () => !!(verlauf && getComputedStyle(verlauf).display !== 'none' && verlauf.getBoundingClientRect().height > 10);
+      try {
+        const klagen = [];
+        localStorage.setItem('gs_scan_history', JSON.stringify([{ name: 'Löwenzahn', lat: 'Taraxacum officinale', ts: Date.now(), confidence: 91 }]));
+        localStorage.setItem('greenscan_markers', JSON.stringify([{ id: 'mN5', lat: 47.3, lng: 8.5, name: 'Bärlauch', cat: 'plant', date: Date.now() - 864e5 }]));
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: [], garten: null }));
+        // (a) jede Quelle, die im Fenster etwas liefert: gibt es die Funktion?
+        const ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -45), _gsKalTagPlus(heute, 45));
+        const mit = ev.filter(e => e && e.verweis && e.verweis.fn);
+        const arten = {}, fehlt = {};
+        mit.forEach(e => {
+          arten[e.art] = (arten[e.art] || 0) + 1;
+          if (typeof window[e.verweis.fn] !== 'function') fehlt[e.verweis.fn] = (fehlt[e.verweis.fn] || 0) + 1;
+        });
+        if (!arten.scan) klagen.push('kein Scan-Ereignis mit Verweis im Fenster — der Fall misst die Scan-Zeile nicht');
+        if (Object.keys(arten).length < 4) klagen.push('nur ' + Object.keys(arten).length + ' Ereignisarten mit Verweis (' + Object.keys(arten).join(', ') + ') — die Beispieldaten tragen den Fall nicht');
+        Object.keys(fehlt).forEach(fn => klagen.push('`' + fn + '` gibt es nicht — ' + fehlt[fn] + ' Ereignis' + (fehlt[fn] === 1 ? '' : 'se') + ' zeig' + (fehlt[fn] === 1 ? 't' : 'en') + ' ins Leere'));
+        // (b) der echte Knopf
+        if (offen()) { try { closeScanHistoryFull(); } catch (_) {} await new Promise(r => setTimeout(r, 350)); }
+        if (offen()) return { ok: false, warum: 'der Scan-Verlauf steht schon VOR dem Antippen offen — der Fall kann nichts zeigen' };
+        gsKalenderOeffnenAm(heute);
+        const mc = document.getElementById('modal-content');
+        const zeile = Array.from(mc.querySelectorAll('.gs-kal-hin')).map(b => ({ b, z: b.parentElement }))
+          .find(x => x.z && /Löwenzahn gescannt/.test(x.z.textContent || ''));
+        if (!zeile) klagen.push('im Kalender steht keine Zeile „Löwenzahn gescannt" mit einem Knopf „›"');
+        else {
+          zeile.b.click();
+          await new Promise(r => setTimeout(r, 450));
+          if (!offen()) klagen.push('der Knopf „›" an der Scan-Zeile wurde angetippt — und es steht kein Scan-Verlauf da (onclick: ' + (zeile.b.getAttribute('onclick') || '').replace(/^event\.stopPropagation\(\);/, '').slice(0, 70) + ')');
+          else if (!/Löwenzahn/.test(verlauf.textContent || '')) klagen.push('der Scan-Verlauf ist offen, nennt den angetippten Scan aber nicht');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: mit.length + ' Ereignisse mit Verweis in ' + Object.keys(arten).length + ' Arten (' + Object.keys(arten).join(', ') + '), jede Funktion vorhanden · „›" an der Scan-Zeile öffnet den Scan-Verlauf' };
+      } finally {
+        try { if (offen()) closeScanHistoryFull(); } catch (_) {}
+        try { closeModal('detail-modal'); } catch (_) {}
+        if (altS == null) localStorage.removeItem('gs_scan_history'); else localStorage.setItem('gs_scan_history', altS);
+        if (altM == null) localStorage.removeItem('greenscan_markers'); else localStorage.setItem('greenscan_markers', altM);
+        if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF);
+        await new Promise(r => setTimeout(r, 300));
+      }
+    },
+  },
+  {
     // v33.38 · KALENDER-V2 Scheibe 4b. „Mein Naturjahr" zaehlte vier Quellen
     // SELBST — und damit anders als der Kalender: die Kachel „Arten" kannte
     // keinen Jahresfilter (sie stand unter der Ueberschrift „Mein Naturjahr

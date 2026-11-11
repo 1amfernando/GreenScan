@@ -322,6 +322,65 @@ const IGNORIEREN = new Set([
     ungesichert.push({ id: u[1], nach: u[2], zeile: quelle.slice(0, u.index).split('\n').length });
   }
 
+  // ── Richtung 6 (v33.60): ein Funktionsname als Zeichenkette in einem Feld ──
+  //
+  // Dieselbe Klasse wie MENU_ITEMS und GS_NOTIF_ZIELE, nur verstreut: ein Ziel
+  // steht als NAME in einem Feld (`verweis: { fn: 'openPlantDiary' }`,
+  // `{ id: 'gs-dq-overlay', zu: 'closeDailyQuiz' }`, `tap: 'gsOpenSeedInventory'`)
+  // und wird spaeter ueber `window[name]` gerufen. Jeder dieser Leser prueft
+  // `typeof … === 'function'` und tut sonst NICHTS — kein Fehler, kein Fenster.
+  //
+  // Gemessen am 11.11.2026: der Kalender haengte an JEDE Scan-Zeile einen Knopf
+  // „›" mit `fn: 'gsSearchSpecies'` — eine Funktion, die es nie gab. Richtung 1
+  // sah es nicht (im onclick steht `gsKalHin`, und das gibt es), kalender_check
+  // N1 auch nicht (er fragte, ob `verweis.fn` GESETZT ist). Fuenf Felder tragen
+  // heute solche Namen (fn · hol · html · tap · zu), 59 Namen, einer ins Leere.
+  //
+  // Die Felder werden nicht aufgezaehlt, sondern GEFUNDEN: ein Feld gilt als
+  // Verweis-Feld, sobald mindestens einer seiner Werte eine Funktion der Seite
+  // ist — dann muss es jeder sein, der wie ein Funktionsname aussieht. Eine
+  // Liste, die man pflegen muesste, veraltet (v32.23). Wer damit einen
+  // Falschalarm bekommt (ein Feld, das Namen nur zufaellig traegt), traegt es
+  // mit Grund in KEIN_VERWEIS_FELD ein.
+  // Grenze: ein Name, der erst zur Laufzeit gebildet wird, entzieht sich dem —
+  // den Kalender-Knopf faehrt deshalb kalender_check N5 wirklich.
+  const KEIN_VERWEIS_FELD = {};
+  const namensFelder = new Map();        // feld → Map(name → erste Zeile)
+  {
+    const reN = /\b([A-Za-z_]\w*)\s*:\s*'([A-Za-z_$][\w$]*)'/g; let g;
+    while ((g = reN.exec(quelle))) {
+      if (imKommentar(g.index)) continue;
+      if (!/^_?(?:gs|open|close|show|toggle|render|sb|dq|switch|load|start|do)[A-Z_]/.test(g[2])) continue;
+      if (!namensFelder.has(g[1])) namensFelder.set(g[1], new Map());
+      const mm = namensFelder.get(g[1]);
+      if (!mm.has(g[2])) mm.set(g[2], quelle.slice(0, g.index).split('\n').length);
+    }
+  }
+  const namensTyp = await page.evaluate((ns) => {
+    const o = {};
+    ns.forEach(n => { let t = 'undefined'; try { t = typeof window[n]; if (t === 'undefined') t = eval('typeof ' + n); } catch (e) {} o[n] = t; });
+    return o;
+  }, [...new Set([...namensFelder.values()].flatMap(mm => [...mm.keys()]))]);
+  const verweisFelder = [];
+  for (const [feld, mm] of namensFelder) {
+    if (KEIN_VERWEIS_FELD[feld]) continue;
+    const alle = [...mm.keys()];
+    if (!alle.some(n => namensTyp[n] === 'function')) continue;   // traegt nie einen Funktionsnamen
+    verweisFelder.push({ feld, n: alle.length, leer: alle.filter(n => namensTyp[n] !== 'function').map(n => ({ n, zeile: mm.get(n) })) });
+  }
+  verweisFelder.sort((a, b) => a.feld < b.feld ? -1 : 1);
+  const verweisNamen = verweisFelder.reduce((a, f) => a + f.n, 0);
+  let verweisLeer = verweisFelder.reduce((a, f) => a + f.leer.length, 0);
+  console.log('  ---');
+  if (!verweisFelder.length) {
+    // Ein Pruefstand, der nichts sieht, sieht auch keinen Fehler (v32.23).
+    console.log('  Funktionsnamen in Feldern: KEIN Feld gefunden — die Suche sieht nichts (der Kalender allein traegt ueber ein Dutzend `verweis: { fn: … }`)');
+    verweisLeer = 1;
+  } else {
+    console.log('  Funktionsnamen in Feldern (' + verweisFelder.map(f => f.feld).join(' · ') + '): ' + verweisNamen + ' Namen · davon ins Leere: ' + verweisLeer);
+    verweisFelder.forEach(f => f.leer.forEach(x => console.log('    ' + f.feld + ": '" + x.n + "'   Zeile " + x.zeile + ' — diese Funktion gibt es nicht; der Leser prueft typeof und tut dann nichts')));
+  }
+
   // ── v31.98, Richtung 3: geht das Fenster ueberhaupt auf? ──────────────
   //
   // Der teuerste Fund dieser Woche (v31.95): VIER Bildschirme liessen sich
@@ -576,5 +635,9 @@ const IGNORIEREN = new Set([
     : 1);
 
   await browser.close();
-  process.exit((kaputt.length + ungesichert.length + klassenKette.length + oeffnerKaputt.length + ankerKaputt + (menue ? menue.kaputt.length : 0)) ? 1 : 0);
+  // v33.60: die Benachrichtigungs-Ziele und die Funktionsnamen in Feldern zaehlen mit.
+  // Bis hierher stand „davon kaputt: N" bei den Benachrichtigungs-Zielen nur im Bericht —
+  // der Exit-Code kannte die Zahl nicht (ein Bericht ist kein Tor, v33.60).
+  process.exit((kaputt.length + ungesichert.length + klassenKette.length + oeffnerKaputt.length + ankerKaputt + verweisLeer +
+    (menue ? menue.kaputt.length : 0) + (notif ? notif.kaputt.length : 0)) ? 1 : 0);
 })();
