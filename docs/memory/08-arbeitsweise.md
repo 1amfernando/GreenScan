@@ -142,8 +142,10 @@ ist kein Diff.**
 
 ## 11 · Wenn mehrere Agenten an einer Sache arbeiten (v33.60)
 
-Am 11.11.2026 haben acht Agenten in eigenen Arbeitsbaeumen gebaut und ueber ein
-Brett miteinander gesprochen. Was dabei galt, und was es gekostet hat:
+Am 11.11.2026 haben zehn Agenten ueber ein Brett miteinander gesprochen — sieben
+davon haben in eigenen Arbeitsbaeumen gebaut, drei nur gelesen und Ideen
+geschrieben. Nach 66 Minuten hat das Nutzungslimit alle gestoppt: zwei Scheiben
+waren uebergeben, fuenf nicht, geprueft war keine. Was dabei galt, und was es gekostet hat:
 
 - **Der Befund eines Agenten ist eine Behauptung, bis ihn jemand nachmisst.**
   Die Zahlungs-Scheibe kam mit einem Pruefstand, 40 von 40 gruen — gegen eine
@@ -163,3 +165,15 @@ Brett miteinander gesprochen. Was dabei galt, und was es gekostet hat:
 - **Versionsmarken schreibt, wer ausliefert.** Die Agenten haben ihre Aenderung
   mit der naechsten freien Nummer markiert — die inzwischen ein anderer PR
   trug. Marken kommen beim Zusammenfuehren, nicht beim Bauen.
+- **Ein naechster Lauf ist kleiner.** Hoechstens drei bauende Agenten auf zwei
+  Kernen. Jeder uebergibt nach JEDER fertigen Scheibe (ein Commit mit Messung
+  und Gegenprobe), nicht am Ende — das Limit kuendigt sich nicht an. Was nur
+  der Zusammenfuehrende messen darf (die Live-Datenbank, nur lesend), wird VOR
+  dem Start gemessen und mitgegeben. Ideen-Agenten laufen getrennt vom Bauen:
+  ihre Zahlen sind Rohmaterial (`docs/ideen/`), bis sie jemand nachmisst.
+- **Der zweite Durchgang gehoert dem Zusammenfuehrenden allein.** Die meisten
+  Funde vom 11.11. kamen NACH dem Lauf, beim Lesen des eigenen Stands gegen
+  die Wirklichkeit: sechs Luecken im Zahlungsweg (gegen Stripes Referenz), der
+  Pruefstand, der einen Bildschirm je Tab mass, zwei tote Knoepfe im Kalender,
+  ein Pflegeverlauf mit Loch. Frage dabei: „und was, wenn es das schon gibt —
+  oder die Kennung nicht mehr stimmt — oder die andere Liste gemeint ist?"

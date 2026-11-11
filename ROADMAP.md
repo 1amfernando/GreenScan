@@ -5,11 +5,18 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v33.56 · App **live** auf green-scan.ch · released seit v26.0 · **und seit v33.49 als Android-APK** (`android/`, `android/README.md`).
-**Zuletzt gegen die Produktionsdatenbank geprüft:** 07.09.2026 (nur lesend:
-`is_admin_user`, `profiles`-Policies, die drei Alt-Sensortabellen,
-`fn_species_search` + `species_search_cache`, `ai_usage`) · davor 02.09.2026
-(P0-1, P1-1, P1-2 — siehe unten).
+**Stand:** v33.60 · App **live** auf green-scan.ch · released seit v26.0 · **und seit v33.49 als Android-APK** (`android/`, `android/README.md`).
+**Zuletzt gegen die Produktionsdatenbank geprüft:** 11.11.2026 (nur lesend:
+die elf Tabellen des Zahlungswegs mit Spalten, Schlüsseln und CHECKs,
+`launch_offer_available`, die Policy auf `launch_offer_usage`, die drei
+ausgelieferten Stripe-Functions, `v_plant_tasks_due`, die Spalten von
+`plant_diseases` und `pollinators`) · davor 10.11.2026 (`ai_usage`,
+`fn_get_global_api_key`) · 07.09.2026 · 02.09.2026.
+
+> **Diese Zeile stand bis v33.59 auf „v33.56"** — drei Versionen daneben, zum
+> zweiten Mal (siehe unten). Die Blöcke für v33.57 bis v33.59 sind am
+> 11.11.2026 nachgetragen. **Wohin es als Nächstes geht, steht in
+> „🧭 Meilensteine ab v33.60"** weiter unten.
 
 > **Diese Datei stand bis v32.80 auf „Stand: v32.20"** — sechzig Versionen
 > daneben, bei einer Datei, die den Überblick geben soll. Dieselbe Klasse wie
@@ -185,6 +192,74 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Ideen für die Sensoren** (`docs/OEKOSYSTEM-V1.md` §11, v32.51): 25 Ideen nach Stufe, 35 Behauptungen nachgeprüft; §1 des Entwurfs korrigiert (es gibt eine Alt-Schicht `sensor_*` + BLE + ESP32-Assistent mit Sitzungs-Token). Vier Stufe-0-Reparaturen: Regen-Draht (tot seit v31.84), Backup mit Messwerten, Deckel-Reihenfolge, `sensor_alert`-Dublette. **v32.52 hat 2 · 3 · 11 · 21 gebaut** (Katalog-Leser, Wetter als Gerät, Dublettensperre + UUID, Gerät im Seed), **v32.53 die 4** (Regel `task:<key>` → Aufgabe mit `vorgezogenAuf`, Giess-Bestätigung am Sensor, Migration `20260904_plant_tasks_due_vorgezogen.sql`), **v32.54 die 7** (Stille-Zeit lokal, eine Aufgaben-Meldung je Tag aus beiden Listen, Sensor-Alarme mit Abkühlzeit, Wochenzähler), **v32.55 die 5 und 22** (Vorlagen nur mit belegter Zahl, Messgrössen in vier Sprachen), **v32.56 die 6 und 10/Stufe 0** (Lina kennt die Zahlen, Frost aus der Vorhersage im Kalender), **v32.57 die 9 und 12** (Vergleich zweier Geräte, CSV-Export der Messwerte mit Einheit), **v32.58 die 8** (Karte „Deine Woche"), **v32.59 die 13/Stufe 0** (Giess-Zettel, druckbar), **v32.60 die 24/Stufe 0 und 21b** (Planer nennt Vorhersage und Messung getrennt; Diagramm-Text). **Damit ist Stufe 0 aus §11 abgeschlossen** — 15 von 25 Ideen gebaut. **Stufe 1 vorbereitet (05.09.2026, §11.3j):** Vertrag `docs/GERAETE-VERTRAG.md`, Regel-Modul `ingest_regeln.mjs` mit `ingest_check` (11 Fälle), `device-ingest`-Skelett, Migrationen `device_daily` und `device_alerts_cron` — nicht ausgeführt, nicht angewandt; **v32.61** liest den Anker `#geraet-<id>`, den der Cron in seine Meldungen schreibt (Messwerte öffnen, Kachel hervorheben, entferntes Gerät nennen). **06.09.:** der Push zum Alarm (`sensor-push` mit Modul und `sensor_push_check`, 9 Fälle; `20260906_sensor_push.sql`; §11.3k) — die Brücke lief nur in eine Richtung, ein Sensor-Alarm wäre nie auf dem Telefon gelandet. **v32.62:** Stufe 1 in der App (§11.3l) — Gerät koppeln (Token in der App, nur der Hash zum Server, einmal gezeigt), Cloud-Abgleich (Status und Werte aus `devices` / `device_readings`, derselbe eine Weg), eine Instanz je Alarm. **v32.63:** Regeln reisen mit (§11.3m) — die Lücke aus v32.62: die App liess Alarme aus, der Server kannte die Regeln nicht; jetzt Upsert in `device_rules`, Auslassen nur bei `cloud_ok`. **06.09., Prüfstand 27 `naht_check`:** passen App, Empfänger, Cron und Pusher zusammen? Erster Lauf: `expires_at` fehlte in `device_commands` (§11.3n). **v32.64:** Pausieren vom Telefon aus (PATCH, geprüft) und die Rückrichtung der Regeln (`last_fired_at`, `enabled`, dort gelöscht → nur in der App; §11.3o). **Nächste Schritte:** Idee 1 (eine Geräteschicht, braucht Fernandos Entscheid) → mit dem ersten Gerät: Deploy von `device-ingest` und `sensor-push`, Migrationen anwenden, `curl`-Batch nach Vertrag §1, dann die Ansicht „Mein Naturjahr" auf `device_daily` (gegen echte Zeilen) und ein `enabled`-Schalter für Regeln, wenn jemand ihn braucht.
 - **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
 - **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
+
+### Seit dem 11.11.2026 (v33.60) — der Zahlungsweg bekommt einen Prüfstand, und der Kontrast-Stand misst endlich die ganze App
+
+Anlass war Fernandos Auftrag vom 10./11.11.2026: die App mit mehreren Agenten
+aufbauen, die miteinander sprechen — und danach: „HINTERFRAGE ALLES". Zehn
+Agenten arbeiteten eine Nacht lang; als das Nutzungslimit sie stoppte, hat eine
+Sitzung jede Scheibe einzeln nachgemessen, übernommen oder mit Namen geparkt.
+
+- **Zahlungsweg** (`stripe_check`, neu, 52 Fälle): die Rechnung in
+  `_shared/stripe_regeln.mjs`, die drei echten Handler in Node, eine gestellte
+  Datenbank mit den LIVE gemessenen Spalten und Schlüsseln. Gegen die echte
+  Datenbank gehalten waren drei grüne Wege kaputt (das Launch-Angebot hätte
+  jeden Lifetime-Kauf abgelehnt). Beim zweiten Lesen gegen Stripes eigene
+  Referenz sechs weitere Lücken: ein zweites Abo neben dem ersten, Lifetime
+  neben einem Abo, das weiter abbucht, ein gemerkter Kunde aus dem anderen
+  Modus, ein Launch-Platz, der nach der Erstattung belegt blieb.
+  **Nichts davon ist ausgeliefert** — die drei Functions und eine Migration
+  warten auf Fernando (`docs/FUER-FERNANDO.md` §30).
+- **Scanner:** die Schlusszeile der Gegenprobe („Verzehr vertretbar") folgte
+  allein einem KI-Feld — 54 Kombinationen gerechnet, 18 Zusagen statt einer.
+  Jetzt aus einer Rechnung mit der Artenliste (`scan_check` 77 → 85).
+- **Arten:** die lateinischen Namen gegen zwei Rückgratlisten (WCVP v16, LCVP)
+  gemessen — 2'184 akzeptiert · 544 Synonym · 148 nur unscharf · 477 unbekannt ·
+  989 nicht prüfbar. Eine Messung, keine Datenänderung
+  (`docs/arten-namen-pruefung.csv`).
+- **Sicht:** „Tödlich giftig" stand im Artendetail weiss auf fast weisser
+  Karte (1,05:1). `contrast_check` und `render_check` sind ein Tor (sie
+  endeten immer mit 0) — und `contrast_check` misst seither ganze Tabs statt
+  des ersten Bildschirms, alle elf statt neun, und 59 Fenster statt 43.
+- **Garten:** die Saatgut-Leiste las den Aussaatkalender einen Monat versetzt
+  („Jetzt ins Beet: Tomaten" im April). Eine Rechnung für Kalender und Leiste,
+  Frost mit drei Zuständen.
+- **Pflegeverlauf:** der Knopf auf der Pflanzenkarte hakte ab, ohne etwas ins
+  Tagebuch zu schreiben; „Alle erledigt ✓" zählte in der Woche als Notiz.
+- **Notfall:** die Menü-Suche fand zu „Notfall" und „145" nichts. Jetzt ein
+  Eintrag und ein Fenster mit den vier Nummern, Quelle und Prüfdatum.
+- **Hülle:** ein Foto öffnet in der App statt in einem neuen Fenster
+  (`gsFotoAnsicht`); das Tagebuch-Foto wurde seit v32.46 gar nicht gezeigt.
+- **Kalender:** zwei Knöpfe „›" führten ins Leere (Scan-Zeile, Tagebuch einer
+  Garten-Pflanzung). `wiring_check` sucht jetzt jeden Funktionsnamen, der als
+  Zeichenkette in einem Feld steht.
+
+**Offen:** PR mergen, drei Stripe-Functions ausliefern, eine Migration, das
+Stripe-Dashboard, ein Probekauf — alles bei Fernando (`docs/FUER-FERNANDO.md`
+§30). Die Ideenrunde liegt als Rohmaterial in `docs/ideen/2026-11-11/`.
+
+### Seit dem 11.11.2026 (v33.59) — „Daten wiederherstellen?" nur noch, wenn im Backup etwas liegt, das hier fehlt
+
+Der Banner kam bei jedem Start: gefragt wurde, ob lokal IRGENDEINE von zwölf
+Domänen leer ist — das ist der Normalzustand. Jetzt eine Rechnung
+(`_gsSnapshotFehlt`), der Banner nennt, was zurückkäme, und „Nicht nötig" wird
+je Domäne gemerkt. `backup_check` W1–W6.
+
+### Seit dem 11.11.2026 (v33.58) — Rezepte zeigen nie mehr auf eine Giftpflanze, und die KI läuft über den 30. November hinaus
+
+`rezept_link_check` (neu) fand 699 Verstösse in 524 Rezept-Einträgen, darunter
+Links auf giftig geführte Arten; die Verknüpfung lief über eine
+Namens-Teilsuche. Und `modell_check` (neu): drei Edge-Functions nannten ein
+Modell, das Anthropic am 15.06.2026 abgeschaltet hat — fünf Monate tot, ohne
+Meldung. Ein Modellname steht seither an genau zwei Orten
+(`_gsClaudeFallbacks`, `_shared/modelle.mjs`), und `GS_FRISTEN` trägt den Tag.
+
+### Seit dem 10.11.2026 (v33.57) — Scanner und Scan-Chat laufen auch ohne Schlüssel im Browser
+
+Nach der Migration „Schlüssel nur noch über den Proxy" war der Scanner für
+jeden Nutzer ohne Admin-Rolle tot: ein `if (!key)` vor einem Weg, der über den
+Proxy gegangen wäre. `gsKiVerfuegbar()` ist seither die eine Frage;
+`schluessel_check` fährt den Scan und den Chat wirklich durch.
 
 ### Seit dem 22.10.2026 (v33.56) — Teilen → GreenScan auch in der Android-App
 
@@ -655,8 +730,74 @@ hat ihn keine automatische Prüfung gefunden.
 | # | Punkt | Wer |
 |---|---|---|
 | P1-1 | **Leaked-Password-Protection** — im Security-Advisor vom 02.09.2026 **nicht mehr gemeldet** (144 Meldungen, 0 ERROR: 120+16 SECURITY-DEFINER-WARNs, 5 `rls_enabled_no_policy`, 3 `extension_in_public`). ⚠️ **Abwesenheit ist kein Beweis für Aktivierung** — der Advisor könnte die Regel auch nicht mehr prüfen. Wer es genau wissen will: Supabase → Auth → Settings ansehen. Bis dahin gilt der Punkt als *wahrscheinlich erledigt*, nicht als erledigt. | Owner, 1 Blick |
-| P1-2 | **Stripe-Webhook reparieren** (🔴 **bestätigt offen, 02.09.2026**: `stripe_webhook_events` = **0 Zeilen**, 1 Subscription, 9 `comp_tier`-Konten). Nicht mehr nur „verifizieren": `stripe_webhook_events` hat **0 Zeilen**, und die Tabelle wird *vor* jedem Handler beschrieben — es hat also **noch nie ein Event die Signaturprüfung passiert**. Die eine Subscription hängt seit 23.05. auf `trialing` mit abgelaufener Periode; alle 9 „bezahlten" Konten sind manuelle `comp_tier`-Zuteilungen. **Entwarnung:** niemandem ist etwas verloren gegangen, es hat schlicht noch nie jemand über Stripe bezahlt. Beim ersten echten Zahlungsvorgang wäre es aber so. Die Secret-Rotation ist womöglich gleich die Lösung — 4-Schritt-Diagnose im Runbook. | Owner |
+| P1-2 | **Zahlungsweg ausliefern** (🔴 **offen, Stand 11.11.2026**). Der Code steht seit v33.60 im Repo und ist geprüft (`stripe_check`, 52 Fälle; `docs/FUER-FERNANDO.md` §30) — **ausgeliefert ist nichts davon.** Live gemessen (nur lesend, 11.11.2026): `stripe_webhook_events` hat **0 Zeilen** (es hat noch nie ein Ereignis die Signaturprüfung passiert); die eine Zeile in `stripe_subscriptions` steht seit Mai auf `trialing`; der hinterlegte öffentliche Stripe-Schlüssel beginnt mit `pk_test_` — **ob Stripe je im Live-Modus lief, lässt sich von hier nicht belegen.** Der ausgelieferte Checkout (v8) schickt einen Parameter, den Stripes Referenz nicht kennt, und liest eine Tabelle, die es nicht gibt. Fünf Schritte, alle bei Fernando: drei Functions ausliefern · eine Migration · Endpunkt und Zahlungsarten im Stripe-Dashboard · Probekauf im Testmodus · dann erst Live-Preise. | Owner |
 | P1-3 | `seasonal_highlights` Knowledge-Tabelle unter Threshold (36/40) — Topic in `knowledge-bulk-gen` ergänzen ODER Seed-Quelle | Backend/Cowork |
+
+---
+
+## 🧭 Meilensteine ab v33.60 — zuerst die Fundamente, dann die Ideen
+
+> **Woher das kommt.** Fernando, 11.11.2026: „Alles muss um Meilensteine
+> erweitert und verbessert werden." Die Reihenfolge stammt aus der Ideenrunde
+> jener Nacht (`docs/ideen/2026-11-11/`, drei Blickwinkel, zwei Runden) und aus
+> dem, was jede Idee vorher braucht. **Die Zahlen der Ideen-Dateien sind NICHT
+> nachgemessen** und stehen deshalb hier nicht; hier steht nur, was am
+> 11.11.2026 selbst gemessen wurde. Wer einen Meilenstein beginnt, misst
+> zuerst (CLAUDE.md §7.1: messen → Fall zuerst rot → Code → Gegenprobe).
+>
+> **Was ein Meilenstein hier ist:** ein Zustand, den ein Prüfstand halten
+> kann — nicht ein Bündel von Wünschen. Jeder nennt seine erste Scheibe (klein
+> genug für eine Sitzung), seinen Prüfstand und was vorher da sein muss.
+
+### Stufe 0 · Ausliefern, was fertig ist (bei Fernando)
+
+| # | Meilenstein | Zustand, an dem man ihn erkennt |
+|---|---|---|
+| **M0-1** | **v33.60 ist live** | der PR ist gemergt, `green-scan.ch` zeigt v33.60 (ansehen kann das nur Fernando — CLAUDE.md §2.1) |
+| **M0-2** | **Der Zahlungsweg trägt einen Kauf** | ein Probekauf im Testmodus schreibt eine Zeile nach `stripe_webhook_events` und schaltet Pro frei; danach Live-Preise (`docs/FUER-FERNANDO.md` §30) |
+| **M0-3** | **Der Server kennt, was die App kennt** | die offenen Migrationen aus STATUS §2 sind angewandt — voran die zwei zur Sicht `v_plant_tasks_due` (Verschieben, beide Pflanzenlisten): ohne sie erinnert der Server an Aufgaben, die in der App verschoben sind |
+
+### Stufe 1 · Fundamente (tragen mehrere Ideen — kommen vor ihnen)
+
+| # | Fundament | Warum | Erste Scheibe | Prüfstand |
+|---|---|---|---|---|
+| **F1** | **Ein Schlüssel von jedem Ding zu Art UND Kultur** — Pflanze, Pflanzung, Ernte-Eintrag, Saatgut-Tüte | Frost, Aussaat, Ernte und Giftigkeit hängen daran, dass „Tomate" überall dieselbe Tomate ist. Heute gibt es je Ding einen eigenen Namens-Vergleich; v33.60 hat zwei davon zusammengelegt (`_gsSaeZuPflanze`, `_gsSaeZuSaatgut`) | messen: wie viele Pflanzen, Pflanzungen und Tüten der Beispiel- und einer echten Liste erreichen Art und Kultur? Dann EIN Leser | `kalender_check`, `scan_check` (Dubletten-Regel) |
+| **F2** | **Ein Pflegeverlauf ohne Loch** | Rückblick, Woche, Lina und jede „Was habe ich getan?"-Idee lesen ihn. **Erste Scheibe geliefert (v33.60):** drei Wege zum Abhaken, ein Schreiber, ein Leser | die übrigen Schreiber am Tagebuch vorbei suchen (Aussaat „als gesät eintragen", Ernte, Umtopfen) und durch `gsTagebuchSave`/`gsQuickDone` führen | `kalender_check` (der echte Knopf), `speicher_check` |
+| **F3** | **Ein Wetter-Rückblick mit einem Schreiber** | „Wie war der Sommer?", Giess-Bilanz und Frost-Rückschau brauchen gemessenes Wetter — heute gibt es die Vorhersage und ein Tagesprotokoll (`weather_log_per_garden`) mit einem Schreiber und keinem Leser im Repo; der Schreiber merkt sich „heute erledigt", bevor der Server geantwortet hat, und legt den Momentanwert als Tagesmittel ab (gelesen 11.11.2026) | entscheiden: Wetter als Gerät (gibt es seit v32.52) ist der eine Schreiber; das alte Protokoll entfällt oder wird Leser | `sensor_check` |
+| **F4** | **Der Pilz-Scanner steht in einem Prüfstand — und im Scan-Verlauf** | der Bildschirm mit dem höchsten Einsatz der App (rotes Vollbild, „UNSICHER"-Zweig) hat keinen einzigen Fall — gezählt am 11.11.2026: kein Prüfstand ruft `gsMushroomRunScan` oder `gsMushroomRenderResult` —, und er schreibt keinen Scan-Verlauf (gelesen: kein `gsAddScanHistory` in seinen Funktionen), eine dort bestimmte Art fehlt also in Verlauf, Kalender und Linas Kontext | drei Fälle: tödlich · unsicher · essbar — aus dem gerenderten HTML; danach der Eintrag im Verlauf über `_gsScanZeit` | `scan_check` (neue Gruppe) |
+| **F5** | **Die Beispieldaten melden wirklich an** | drei Fenster lehnen im Prüfstand ab (keine Konto-Id) und sind nie vermessen; jede Anmelde-Sperre wird heute überbrückt statt erfüllt | ein Token mit drei Teilen und eine Konto-Id im Seed — berührt alle 42 Prüfstände, deshalb eine eigene Scheibe | alle; zuerst `robust_check` „Beispieldaten" |
+
+### Stufe 2 · Die Ideen, in dieser Reihenfolge
+
+| # | Meilenstein | Was die Person davon hat | Braucht vorher | Erste Scheibe (hinter `gs_feat_<name>`) |
+|---|---|---|---|---|
+| **M1** | **Winterschlaf** | die App sagt selbst, dass die Saison vorbei ist — und wann sie sich wieder meldet; keine überfälligen Giess-Aufgaben für ein Beet unter Schnee | M0-3 (der Server muss das Verschieben kennen), F1 für die Kultur | nur Garten-Pflanzungen: Aufgaben ruhen bis zu einem Datum, der Kalender sagt es mit Grund |
+| **M2** | **Rückruf** | wird die Artenliste strenger (eine Art gilt neu als giftig), erfährt es, wer diese Art gescannt oder in seiner Sammlung hat | F4 (Verlauf vollständig); **muss da sein, BEVOR Berichtigungen an der Artenliste ausgeliefert werden** (Huflattich, Natternkopf, Borretsch — STATUS §2) | ein Vergleich „Stand beim Scan" gegen „Stand heute" beim Öffnen des Verlaufs, mit einer Zeile je betroffenem Scan |
+| **M3** | **Notfall: Blatt und Karte** | im Ernstfall EIN Bildschirm: wen anrufen, was am Telefon sagen, und ein Zettel zum Mitnehmen (welche Art, wann, wie viel, Foto). **Erste Scheibe geliefert (v33.60):** Menü-Eintrag und Fenster mit den Nummern | Inhalt NUR aus einer Quelle (Tox Info Suisse) — jeder Satz Erste Hilfe braucht Quelle, Datum und jemanden, der ihn pflegt | sichtbarer Platz im Menü (nicht nur in der Suche) und im Scan-Ergebnis einer giftigen Art |
+| **M4** | **Kontrollkette für Pilze** | Doppelgänger-Radar → Korb-Check → Zettel für die Pilzkontrolle: die App führt zur Kontrollstelle statt an ihr vorbei | F4; die Verwechsler-Verweise der Artenliste müssen auf Arten zeigen, die es gibt (messen!) | „Verwechsle nicht mit": die giftigen Doppelgänger einer gescannten Art nebeneinander, mit den Merkmalen aus der Liste |
+| **M5** | **„Wie lange hält das Wasser hier?"** | ein Giess-Rhythmus aus dem eigenen Topf statt aus einer Tabelle — erst mit dem Finger gemessen, später mit dem Sensor | F2 (Verlauf), F3 (Wetter) | die Fingerprobe als Messwert von Hand (`gsMesswertEintragen` gibt es) und daraus ein Vorschlag fürs Intervall — mit „nicht bekannt", solange zu wenig gemessen ist |
+| **M6** | **Flugschreiber** | stirbt eine Pflanze, bleibt die Lehre: was war in den Wochen davor? Der Friedhof fragt heute nach der Ursache — und liest sie nie wieder | F2, F3 | beim Verschieben in den Friedhof eine Rückschau aus Verlauf und Wetter; die Ursache erscheint bei der nächsten Pflanze derselben Art |
+| **M7** | **Rechenschaft** | die App sagt, wie oft sie recht hatte: Scans, die bestätigt, korrigiert oder nie geprüft wurden | F4 | eine Zeile im Scan-Verlauf: bestätigt · korrigiert · offen, gezählt aus den Korrekturen, die es schon gibt |
+| **M8** | **Keim-Kette** (für Februar) | von der Tüte bis zum Beet: gesät → gekeimt → pikiert → ausgepflanzt, mit Frost-Regel | F1, F2 | „gesät" als Verlaufseintrag mit Datum und Tüte; der Kalender fragt nach der Keimung |
+| **M9** | **Bestimmungs-Bilanz** | ein Jahresrückblick, der stimmt: was wurde bestimmt, was davon sicher | M7 | steht auf „Mein Naturjahr" — das rechnet seit v33.38 aus dem Kalender |
+| **M10** | **Ferien-Klammer** | „Stille Tage" halten, was sie sagen: der Server pausiert wirklich, und der Giess-Zettel für die Nachbarin stimmt | M0-3; zuerst messen, ob „pausiert" die Antwort des Servers liest (gelesen, nicht gemessen) | die Meldung „pausiert" hängt an der Antwort des Servers |
+
+### Stufe 3 · Scheiben, die schon gemessen und geparkt sind
+
+Jede hat einen Namen und einen Beleg in STATUS §2 — keine davon ist ein Wunsch.
+
+- **Standort: ein Leser.** Drei Schreiber pflegen `lon`, sechs Leser nehmen
+  `lng` (nachgemessen, 11.11.2026). Der rote Fall liegt im Branch
+  `claude/ort-ein-leser-fall-011L7G`.
+- **Garten-Insights:** zählt nur „Meine Pflanzen"; das Krankheits-Risiko liest
+  eine Spalte, die es in der Tabelle nicht gibt (live gelesen, 11.11.2026).
+- **Scan-Verlauf, Detailansicht:** eigene Artensuche, eingefrorene Giftplakette.
+- **Hülle:** ein tiefer Pfad im Web (der SPA-Rückfall liefert `index.html` als
+  Artenliste — gemessen vom Agenten HUELLE, vom Head nicht nachgefahren) und
+  Zwischenablage/Teilen (sein Anspruch C, nicht begonnen).
+- **Kontrast:** waagrecht verschobene Karten, Listen über dem Deckel.
+- **Garten-Seite:** ein Erntedatum aus einem Rückfallwert (der Kalender zeigt
+  seit v33.34 bewusst keines).
 
 ---
 
