@@ -517,6 +517,50 @@ const FAELLE = [
       }
     }),
   },
+  {
+    name: 'E12 · Saatgut-Inventar: der Knopf zum Erfassen spricht Deutsch („+ Hinzufügen"), sein Text geht durch die Sprachschicht, er steht unter den Feldern statt daneben — und im Fenster steht kein englisches „Add"',
+    lauf: async () => __seite.evaluate(async () => {
+      // GARTEN, 11.11.2026: der Knopf hiess „+ Add" — der einzige englische in einer deutschen
+      // Oberflaeche, fest verdrahtet (keine Sprache bekam je eine Uebersetzung). Zwei Richtungen:
+      // Deutsch steht da, UND ein Sprachpaket kommt an (ein fest verdrahtetes „+ Hinzufügen"
+      // waere sonst ebenfalls gruen). Und der Platz: mit dem deutschen Wort in der alten
+      // Dreier-Zeile blieben dem Datumsfeld bei 360 px Breite 64 px.
+      const alt = localStorage.getItem('gs_seed_inventory');
+      const tAlt = window.gsI18n && gsI18n.t;
+      const knopfVon = () => document.querySelector('#gs-nl-body button[onclick="gsSeedAdd()"]');
+      try {
+        localStorage.setItem('gs_seed_inventory', JSON.stringify([{ name: 'Tomate Ochsenherz', qty: '20 Stk', expires: null, ts: 1 }]));
+        gsOpenSeedInventory();
+        await new Promise(r => setTimeout(r, 450));
+        const body = document.getElementById('gs-nl-body'), knopf = knopfVon();
+        if (!body || !knopf) return { ok: false, warum: 'das Saatgut-Fenster zeigt keinen Knopf mit gsSeedAdd()' };
+        const klagen = [], de = (knopf.textContent || '').trim();
+        if (de !== '+ Hinzufügen') klagen.push('der Knopf sagt „' + de + '" statt „+ Hinzufügen"');
+        // je Bedienelement gelesen — im Fliesstext des Fensters klebt der Knopftext ohne Abstand an der Liste
+        const eng = Array.from(body.querySelectorAll('button, input')).map(x => ((x.textContent || '') + ' ' + (x.getAttribute('placeholder') || '')).trim()).filter(t => /\bAdd\b/.test(t));
+        if (eng.length) klagen.push('im Fenster steht das englische „Add": „' + eng.join('", „') + '"');
+        // Platz: der Knopf steht UNTER den zwei Feldern, und die teilen sich die Zeile
+        const k = knopf.getBoundingClientRect(), q = document.getElementById('gs-s-qty').getBoundingClientRect(), d = document.getElementById('gs-s-exp').getBoundingClientRect();
+        if (!(k.width > 0 && d.width > 0)) klagen.push('Knopf oder Datumsfeld nicht sichtbar (' + Math.round(k.width) + ' / ' + Math.round(d.width) + ' px) — der Fall misst nichts');
+        if (k.top < d.bottom - 1) klagen.push('der Knopf steht NEBEN den Feldern (Knopf ' + Math.round(k.width) + ' px, Datumsfeld ' + Math.round(d.width) + ' px) — ein längeres Wort drückt das Datum zusammen');
+        // die Sprachschicht: mit Paket die Uebersetzung
+        let fr = '';
+        if (typeof tAlt !== 'function') klagen.push('gsI18n.t ist nicht erreichbar');
+        else {
+          gsI18n.t = function (key, fb) { return key === 'seed_add_btn' ? 'PRUEFSTAND-FR' : tAlt.apply(gsI18n, arguments); };
+          gsOpenSeedInventory();
+          fr = ((knopfVon() || {}).textContent || '').trim();
+          if (fr !== 'PRUEFSTAND-FR') klagen.push('mit Sprachpaket zeigt der Knopf „' + fr + '" — sein Text geht nicht durch die Sprachschicht (Schlüssel seed_add_btn)');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'deutsch „' + de + '" · mit Sprachpaket „' + fr + '" · Knopf ' + Math.round(k.width) + ' px unter den Feldern (Menge ' + Math.round(q.width) + ' px · Datum ' + Math.round(d.width) + ' px) · kein „Add" im Fenster' };
+      } finally {
+        if (typeof tAlt === 'function') gsI18n.t = tAlt;
+        if (alt == null) localStorage.removeItem('gs_seed_inventory'); else localStorage.setItem('gs_seed_inventory', alt);
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    }),
+  },
 ];
 
 (async () => {
