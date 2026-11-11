@@ -112,6 +112,44 @@ const FAELLE = [
     },
   },
   {
+    // v33.60 · gemessen am 11.11.2026 (Befund IDEE-B „dritter Erledigt-Weg", nachgefahren): die
+    // Aufgaben-Knoepfe AUF der Pflanzenkarte („💧 Giessen ✓", bis zu vier je Karte) riefen
+    // `doneTask` — eine eigene, aeltere Fassung des Abhakens. Sie setzte `lastDone`, schrieb aber
+    // KEINEN Verlaufseintrag: im Pflanzentagebuch, im Gartentagebuch, im Kalender, im
+    // Wochenrueckblick („erledigt") und in Linas Kontext fehlte genau das, was auf der Karte
+    // abgehakt wurde. Der Fall darueber ruft gsQuickDone direkt und sah es deshalb nie — hier wird
+    // der ECHTE Knopf angetippt (v33.43: der Draht, nicht die Rechnung).
+    name: 'Abhaken auf der Pflanzenkarte · derselbe Weg wie überall: der Knopf an der Karte schreibt einen Verlaufseintrag, der Kalender zeigt ihn, die Woche zählt ihn — und nur einen',
+    lauf: async () => {
+      const heute = gsHeuteTag();
+      const klagen = [];
+      try { switchTab('garden'); } catch (_) {}
+      try { renderMyPlants(); } catch (_) {}
+      try { initPlantListDelegation(); } catch (_) {}
+      await new Promise(r => setTimeout(r, 300));
+      const knopf = document.querySelector('#mp-list [data-action="donetask"][data-pid="p2"][data-tkey="water"]');
+      if (!knopf) return { ok: false, warum: 'auf der Karte der Monstera (p2) steht kein Aufgaben-Knopf „Giessen" — Fall nicht hergestellt (' + document.querySelectorAll('#mp-list [data-action="donetask"]').length + ' Knöpfe insgesamt)' };
+      const p = myPlants.find(x => x.id === 'p2');
+      const lastVorher = p.tasks.water.lastDone;
+      const tbVorher = gsTagebuchAlle().length;
+      const wocheVorher = _gsKalWoche().erledigt;
+      knopf.click();
+      await new Promise(r => setTimeout(r, 250));
+      if (p.tasks.water.lastDone === lastVorher) return { ok: false, warum: 'der Knopf wurde angetippt, und lastDone ist unverändert — der Fall misst nichts' };
+      const alle = gsTagebuchAlle();
+      const neu = alle.filter(e => e.pflanze_id === 'p2' && e.datum === heute && e.quelle === 'regel');
+      if (!neu.length) klagen.push('abgehakt (lastDone gesetzt), aber KEIN Verlaufseintrag: gsTagebuchAlle ' + tbVorher + ' → ' + alle.length);
+      else if (alle.length !== tbVorher + 1) klagen.push('ein Abhaken, ' + (alle.length - tbVorher) + ' neue Einträge');
+      const ev = gsKalenderEreignisse(heute, heute).filter(e => e.art === 'tagebuch' && e.pflanze && e.pflanze.id === 'p2');
+      if (ev.length !== 1) klagen.push('der Kalender zeigt am heutigen Tag ' + ev.length + ' Tagebuch-Ereignisse für die Monstera statt 1');
+      const woche = _gsKalWoche().erledigt;
+      if (woche !== wocheVorher + 1) klagen.push('„erledigt" in der Woche: ' + wocheVorher + ' → ' + woche + ' statt +1');
+      if (!Array.isArray(p.diary) || !p.diary.some(d => d && d.action === 'water' && String(d.ts).slice(0, 10) === new Date().toISOString().slice(0, 10))) klagen.push('das Pflanzentagebuch der Monstera (p.diary) trägt den Eintrag nicht');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Knopf an der Karte angetippt → 1 Eintrag (' + neu[0].text + ') · Kalender 1 · Woche „erledigt" ' + wocheVorher + ' → ' + woche };
+    },
+  },
+  {
     name: 'Anzeige · das Monatsraster und die Tagesliste werden aus dem HTML gelesen',
     lauf: () => {
       gsKalenderOeffnen();
@@ -384,6 +422,68 @@ const FAELLE = [
           return { ok: true, info: 'nein → 2 bleiben fällig · ja → 0 fällig, beide Listen gespeichert, 2 Tagebuch-Einträge · die Frage nennt Basilikum und Zucchini (' + fragen + ' Rückfragen)' };
         });
       });
+    },
+  },
+  {
+    // v33.60 · gemessen am 11.11.2026: drei Wege haken ab (Faellig-Karte/Kalender → gsQuickDone,
+    // Pflanzenkarte → doneTask, „Alle erledigt ✓" → _gsDoneAllDueAusfuehren), und der EINE Leser
+    // (gsTagebuchAlle) erkannte „abgehakt" an genau EINEM Merker: `source === 'quick_done'`. „Alle
+    // erledigt" schreibt `done_all_due` — seine Eintraege galten damit als von Hand notiert: in der
+    // Woche standen sie unter „Notizen", nicht unter „erledigt". Dieselbe Klasse wie _gsScanZeit
+    // (v33.33): mehrere Schreiber, ein Leser — und der Leser kennt nur einen von ihnen.
+    // Dazu der Titel: beide Schreiber haengten ein englisches Arbeitswort an („Giessen (Quick)",
+    // „Giessen (Bulk)") — es stand so im Tagebuch und im Kalender.
+    name: 'Abhaken · drei Schreiber, ein Leser: „Alle erledigt ✓" zählt als ERLEDIGT (nicht als Notiz), jeder Eintrag ist einzeln löschbar, und keiner trägt „(Quick)" oder „(Bulk)" — auch keiner aus dem Bestand',
+    lauf: () => {
+      const jetzt = Date.now(), heute = gsHeuteTag();
+      const pl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings : [];
+      const p1 = myPlants.find(x => x && x.id === 'p1'), z = pl.find(x => x && x.id === 'plant_seed_1');
+      if (!p1 || !z || !p1.tasks || !p1.tasks.water || !p1.tasks.fertilize || !z.tasks || !z.tasks.water) return { ok: false, warum: 'Probe-Pflanzen p1 (Giessen, Düngen) / plant_seed_1 (Giessen) fehlen' };
+      myPlants.concat(pl).forEach(p => Object.keys((p && p.tasks) || {}).forEach(k => { p.tasks[k].lastDone = new Date(jetzt).toISOString(); delete p.tasks[k].snoozedUntil; }));
+      // DREI faellig, zwei davon an DERSELBEN Pflanze — nur so zeigt sich, ob jeder Eintrag seine eigene Zeit hat
+      p1.tasks.water.lastDone = new Date(jetzt - 40 * 86400000).toISOString();
+      p1.tasks.fertilize.lastDone = new Date(jetzt - 40 * 86400000).toISOString();
+      z.tasks.water.lastDone = new Date(jetzt - 40 * 86400000).toISOString();
+      const faellig = gsGetDueTasks().filter(t => t.days <= 0);
+      if (faellig.length !== 3) return { ok: false, warum: faellig.length + ' fällig statt 3 — Fall nicht hergestellt' };
+      // ein Eintrag aus dem Bestand, wie ihn die App bis v33.59 schrieb
+      if (!Array.isArray(p1.diary)) p1.diary = [];
+      p1.diary.push({ ts: new Date(jetzt - 3 * 86400000 - 7777).toISOString(), action: 'dust', title: '🧹 Abstauben (Bulk)', source: 'done_all_due' });
+      const w0 = _gsKalWoche();
+      const n0 = gsTagebuchAlle().length, d0 = p1.diary.length;
+      _gsDoneAllDueAusfuehren(faellig);
+      const alle = gsTagebuchAlle();
+      const klagen = [];
+      if (alle.length !== n0 + 3) klagen.push((alle.length - n0) + ' neue Einträge für drei erledigte Aufgaben');
+      const eigene = alle.filter(e => (e.pflanze_id === 'p1' || e.pflanze_id === 'plant_seed_1') && e.datum === heute && (e.cat === 'water' || e.cat === 'fertilize'));
+      const hand = eigene.filter(e => e.quelle !== 'regel');
+      if (hand.length) klagen.push(hand.length + ' von ' + eigene.length + ' heutigen Abhak-Einträgen gelten als von Hand notiert (quelle ' + hand.map(e => e.quelle).join(', ') + ')');
+      const w1 = _gsKalWoche();
+      if (w1.erledigt !== w0.erledigt + 3) klagen.push('Woche „erledigt": ' + w0.erledigt + ' → ' + w1.erledigt + ' statt +3');
+      if (w1.notizen !== w0.notizen) klagen.push('Woche „Notizen": ' + w0.notizen + ' → ' + w1.notizen + ' — das Abhaken wurde als Notiz gezählt');
+      const bestand = alle.find(e => e.pflanze_id === 'p1' && e.cat === 'dust');
+      if (!bestand) klagen.push('der Bestands-Eintrag „Abstauben" fehlt in gsTagebuchAlle');
+      else if (bestand.quelle !== 'regel') klagen.push('der Bestands-Eintrag aus „Alle erledigt" gilt als von Hand notiert');
+      // jeder Eintrag einzeln: die zwei neuen an p1 haben verschiedene Zeiten (geloescht wird nach `ts`)
+      const neuP1 = p1.diary.slice(0, p1.diary.length - d0);
+      if (neuP1.length !== 2) klagen.push('p1 bekam ' + neuP1.length + ' neue Pflanzentagebuch-Einträge statt 2');
+      else if (String(neuP1[0].ts) === String(neuP1[1].ts)) klagen.push('zwei Einträge derselben Pflanze tragen dieselbe Zeit (' + neuP1[0].ts + ') — wer einen löscht, löscht beide, und beide haben dieselbe Id');
+      const ids = {}; let doppelt = 0; alle.forEach(e => { if (ids[e.id]) doppelt++; ids[e.id] = 1; });
+      if (doppelt && neuP1.length === 2 && String(neuP1[0].ts) !== String(neuP1[1].ts) && alle.filter(e => e.id === 'pd:p1:' + neuP1[0].ts).length > 1) klagen.push('zwei Einträge mit derselben Id trotz verschiedener Zeit');
+      const wort = alle.filter(e => /\((Quick|Bulk)\)/.test(e.text || ''));
+      if (wort.length) klagen.push(wort.length + ' Einträge zeigen ein Arbeitswort: „' + wort.slice(0, 3).map(e => e.text).join('" · „') + '"');
+      // …und so GERENDERT: Pflanzentagebuch und Kalender
+      try { openPlantDiary('p1'); } catch (_) {}
+      const pd = document.getElementById('plant-diary-modal');
+      const pdText = (pd && pd.textContent) || '';
+      if (!pd) klagen.push('das Pflanzentagebuch ging nicht auf');
+      else if (/\((Quick|Bulk)\)/.test(pdText)) klagen.push('das Pflanzentagebuch zeigt „(Quick)"/„(Bulk)"');
+      else if (!/Giessen/.test(pdText) || !/Abstauben/.test(pdText)) klagen.push('das Pflanzentagebuch zeigt die Einträge nicht (Giessen/Abstauben fehlt)');
+      try { if (pd) pd.remove(); } catch (_) {}
+      const kal = gsKalenderEreignisse(_gsKalTagPlus(heute, -7), heute).filter(e => e.art === 'tagebuch' && /\((Quick|Bulk)\)/.test(e.titel || ''));
+      if (kal.length) klagen.push(kal.length + ' Kalender-Ereignisse tragen das Arbeitswort („' + kal[0].titel + '")');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '3 Aufgaben über „Alle erledigt" → 3 Einträge, alle „regel", zwei an derselben Pflanze mit eigener Zeit · Woche erledigt ' + w0.erledigt + ' → ' + w1.erledigt + ', Notizen unverändert (' + w1.notizen + ') · kein „(Quick)"/„(Bulk)" in ' + alle.length + ' Einträgen, im Pflanzentagebuch und im Kalender' };
     },
   },
   {

@@ -282,6 +282,62 @@ const FAELLE = [
     },
   },
   {
+    // v33.60 · gemessen am 11.11.2026: openPlantDiary setzte den Titel eines Eintrags roh ins
+    // innerHTML und die Foto-Adresse roh ins src-Attribut. Beide kommen aus `p.diary` — also aus
+    // dem gesyncten Blob oder aus einem eingespielten Backup, nicht nur aus dieser App. Ein Titel
+    // mit einem Tag lief als Code, eine Adresse mit einem Anfuehrungszeichen brach aus dem Attribut
+    // aus. Geprueft wird die WIRKUNG (window.__pwned bleibt unberuehrt) UND dass der Wert dasteht —
+    // ein Leser, der den Titel verschluckt, waere auch „sicher".
+    name: 'Pflanzentagebuch · ein Titel mit <img onerror> steht als Text, eine Foto-Adresse mit Anführungszeichen bricht nicht aus dem Attribut aus, javascript: bekommt kein <img> — https und data:image schon',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        const p = (myPlants || []).find(x => x && x.id === 'p2');
+        if (!p) return { fehlt: 'p2' };
+        const alt = p.diary;
+        const t0 = Date.now();
+        delete window.__pwned;
+        p.diary = [
+          { ts: t0 - 1000, action: 'note', title: 'Titel <img src=x onerror="window.__pwned=\'titel\'">', note: 'eins' },
+          { ts: t0 - 2000, action: 'photo', title: 'Foto A', photo: 'x" onerror="window.__pwned=\'foto\'' },
+          { ts: t0 - 3000, action: 'photo', title: 'Foto B', photo: 'javascript:window.__pwned=\'js\'' },
+          { ts: t0 - 4000, action: 'photo', title: 'Foto C', photo: 'https://bilder.example/c.jpg' },
+          { ts: t0 - 5000, action: 'photo', title: 'Foto D', photo: 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=' },
+        ];
+        try {
+          openPlantDiary('p2');
+          await new Promise(r => setTimeout(r, 450));       // ein fehlschlagendes Bild braucht Zeit fuer onerror
+          const m = document.getElementById('plant-diary-modal');
+          if (!m) return { fehlt: 'modal' };
+          // ohne die Vorschau des Erfassungs-Formulars (#diary-photo-img) — die traegt kein Foto eines Eintrags
+          const imgs = Array.from(m.querySelectorAll('img:not(#diary-photo-img)'));
+          return {
+            pwned: window.__pwned === undefined ? null : String(window.__pwned),
+            text: m.textContent.indexOf('Titel <img src=x onerror=') >= 0,
+            srcs: imgs.map(i => i.getAttribute('src')),
+            attr: imgs.filter(i => i.hasAttribute('onerror')).length,
+            klick: imgs.map(i => i.getAttribute('onclick') || ''),
+            namen: ['Foto A', 'Foto B', 'Foto C', 'Foto D'].filter(n => m.textContent.indexOf(n) >= 0).length,
+          };
+        } finally {
+          p.diary = alt;
+          const m2 = document.getElementById('plant-diary-modal'); if (m2) m2.remove();
+          delete window.__pwned;
+        }
+      });
+      if (r.fehlt) return { ok: false, warum: 'Fall nicht hergestellt: ' + r.fehlt + ' fehlt' };
+      const klagen = [];
+      if (r.pwned !== null) klagen.push('Code lief (window.__pwned = „' + r.pwned + '")');
+      if (!r.text) klagen.push('der Titel steht nicht als sichtbarer Text da');
+      if (r.attr) klagen.push(r.attr + ' Bild(er) tragen ein onerror-Attribut — die Adresse brach aus dem src aus');
+      if (r.namen !== 4) klagen.push('nur ' + r.namen + ' von 4 Einträgen stehen da');
+      const erwartet = ['https://bilder.example/c.jpg', 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA='];
+      if (JSON.stringify(r.srcs) !== JSON.stringify(erwartet)) klagen.push('Bilder: ' + JSON.stringify(r.srcs) + ' statt genau https und data:image');
+      if (r.klick.some(k => k !== 'gsFotoAnsicht(this.src)')) klagen.push('ein Foto öffnet nicht über gsFotoAnsicht(this.src): ' + JSON.stringify(r.klick));
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Titel als Text · 2 Bilder (https, data:image) · javascript: und die Adresse mit Anführungszeichen ohne <img> · kein Code lief' };
+    },
+  },
+  {
     // Gemessen am 11.11.2026: die Adresse eines Rezeptfotos stand nur mit
     // gsHTMLEscape in einem JS-String im onclick (`window.open('<adresse>','_blank')`)
     // — der Wert durchlaeuft ZWEI Parser, ein `'` beendet den String (v32.66).

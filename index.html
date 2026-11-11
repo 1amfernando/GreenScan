@@ -1356,7 +1356,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .post-type-pick-btn{display:flex;align-items:center;gap:13px;width:100%;padding:13px 15px;border:none;border-radius:var(--r-lg);cursor:pointer;text-align:left;font-family:inherit;transition:var(--dur);}
 .post-type-pick-btn:active{transform:scale(.97);filter:brightness(.95);}
 
-.new-post-btn{position:fixed;bottom:calc(var(--sb)+var(--tab-h)+16px);right:18px;width:56px;height:56px;background:linear-gradient(135deg,#43a047,var(--g-main));border:none;border-radius:50%;color:#fff;font-size:var(--fs-3xl);cursor:pointer;box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);z-index:90;display:flex;align-items:center;justify-content:center;transition:var(--dur);animation:fab-pulse 2.5s infinite;}
+.new-post-btn{position:fixed;bottom:calc(var(--sb)+var(--tab-h)+16px);right:18px;width:56px;height:56px;background:linear-gradient(135deg,#2e7d32,var(--fill-brand));border:none;border-radius:50%;color:#fff;font-size:var(--fs-3xl);cursor:pointer;box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);z-index:90;display:flex;align-items:center;justify-content:center;transition:var(--dur);animation:fab-pulse 2.5s infinite;}
 .new-post-btn:active{transform:scale(.88);}
 @keyframes fab-pulse{0%,100%{box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);}50%{box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 8px rgba(45,138,45,.0);}}
 
@@ -3255,10 +3255,12 @@ window._gsArtenFehlstart = function () {
         <div id="woche-zeilen" style="font-size:var(--fs-sm);color:var(--text2);margin-top:6px;line-height:1.6;"></div>
       </div>
     </div>
-    <div id="season-tip-card" style="background:linear-gradient(135deg,var(--g-main),#558b2f);border-radius:var(--r-lg);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;display:flex;gap:12px;align-items:center;" onclick="menuNav('season')">
+    <!-- v33.60: die Flaeche nimmt --fill-brand (traegt Weiss in beiden Modi) und ein dunkles zweites Ende.
+         Gemessen: --g-main ist im Dunkelmodus #66bb6a — Weiss darauf 2,36:1; das alte zweite Ende #558b2f 4,10:1. -->
+    <div id="season-tip-card" style="background:linear-gradient(135deg,var(--fill-brand),#33691e);border-radius:var(--r-lg);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;display:flex;gap:12px;align-items:center;" onclick="menuNav('season')">
       <span id="season-tip-emoji" style="font-size:36px;flex-shrink:0;"></span>
       <div>
-        <div id="season-tip-kopf" style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin-bottom:2px;">🌿 Saison-Tipp · Jetzt sammeln</div>
+        <div id="season-tip-kopf" style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.92;margin-bottom:2px;">🌿 Saison-Tipp · Jetzt sammeln</div>
         <div style="font-family:'Playfair Display',serif;font-size:var(--fs-md);font-weight:800;" id="season-tip-name"></div>
         <div style="font-size:var(--fs-sm);opacity:.88;margin-top:3px;" id="season-tip-text"></div>
       </div>
@@ -4651,7 +4653,7 @@ window._gsArtenFehlstart = function () {
           </div>
         </label>
       </div>
-      <button class="mp-save-btn" onclick="submitListing()" style="background:linear-gradient(135deg,var(--g-main),#1b5e20);font-size:var(--fs-lg);">🏷️ Inserat veröffentlichen</button>
+      <button class="mp-save-btn" onclick="submitListing()" style="background:linear-gradient(135deg,var(--fill-brand),#1b5e20);font-size:var(--fs-lg);">🏷️ Inserat veröffentlichen</button>
       <div style="font-size:var(--fs-sm);color:var(--muted);text-align:center;margin-top:8px;line-height:1.5;">GreenScan übernimmt keine Haftung für Transaktionen. Bitte persönlich übergeben oder sicheren Versand nutzen.</div>
     </div>
   </div>
@@ -7285,7 +7287,7 @@ html, body{ scroll-behavior: smooth; }
 
   <!-- Submit bar -->
   <div class="ig-post-submit">
-    <button onclick="submitIgPost()" style="width:100%;padding:14px;background:linear-gradient(135deg,#43a047,var(--g-main));color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.3px;">🌿 Jetzt teilen</button>
+    <button onclick="submitIgPost()" style="width:100%;padding:14px;background:linear-gradient(135deg,#2e7d32,var(--fill-brand));color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.3px;">🌿 Jetzt teilen</button>
   </div>
 </div>
 
@@ -7313,9 +7315,9 @@ html, body{ scroll-behavior: smooth; }
     <div style="font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:800;" data-i18n="map_title" data-i18n-fallback="🗺️ Schweizer Karte">🗺️ Schweizer Karte</div>
     <div style="font-size:var(--fs-sm);opacity:.78;" data-i18n="map_subtitle" data-i18n-fallback="Swisstopo · Pflanzenfunde · Wanderwege">Swisstopo · Pflanzenfunde · Wanderwege</div>
   </div>
-  <button onclick="gsOpenMyFinds()" aria-label="Meine Funde" title="Meine gespeicherten Funde" style="padding:6px 10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋</button>
-  <button onclick="gsRefreshMarkers(this)" aria-label="Funde aktualisieren" title="Fundorte neu laden (Cloud-Sync)" style="padding:6px 10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄</button>
-  <button onclick="gsMapGPS()" style="padding:6px 11px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📍 GPS</button>
+  <button onclick="gsOpenMyFinds()" aria-label="Meine Funde" title="Meine gespeicherten Funde" style="padding:6px 10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋</button>
+  <button onclick="gsRefreshMarkers(this)" aria-label="Funde aktualisieren" title="Fundorte neu laden (Cloud-Sync)" style="padding:6px 10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄</button>
+  <button onclick="gsMapGPS()" style="padding:6px 11px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📍 GPS</button>
   <button onclick="gsMapClearAll()" aria-label="Löschen" style="padding:6px 10px;background:rgba(255,100,100,.25);border:1px solid rgba(255,100,100,.4);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗑️</button>
 </div>
   <!-- Layer-Auswahl -->
@@ -7353,7 +7355,7 @@ html, body{ scroll-behavior: smooth; }
   <!-- Info-Leiste -->
   <div style="background:#1a3d1a;padding:4px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
     <span id="gs-map-count" style="font-size:var(--fs-sm);color:rgba(255,255,255,.75);">0 Funde gespeichert</span>
-    <span style="font-size:var(--fs-xs);color:rgba(255,255,255,.45);">© swisstopo</span>
+    <span style="font-size:var(--fs-xs);color:rgba(255,255,255,.75);">© swisstopo</span>
   </div>
 </div>
 <!-- TABS - 5 Haupt-Tabs (v26.86: Home zentral als FAB-Anker für ältere Nutzer) -->
@@ -10242,7 +10244,8 @@ function gsQuickDone(plantId, taskKey) {
   try {
     var defQ = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[taskKey]) ? TASK_DEFS[taskKey] : {icon:'', name:taskKey};
     if (!Array.isArray(p.diary)) p.diary = [];
-    p.diary.unshift({ ts: nowIso, action: taskKey, title: (defQ.icon ? defQ.icon + ' ' : '') + (defQ.name||taskKey) + ' (Quick)', source: 'quick_done' });
+    // v33.60: der Titel ohne das Arbeitswort „(Quick)“ — abgehakt heisst `source`, nicht der Titel (_gsTbAbgehakt).
+    p.diary.unshift({ ts: nowIso, action: taskKey, title: (defQ.icon ? defQ.icon + ' ' : '') + (defQ.name||taskKey), source: 'quick_done' });
     // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat)
     p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
   } catch(_){}
@@ -10332,7 +10335,16 @@ function gsDoneAllDue() {
 window.gsDoneAllDue = gsDoneAllDue;
 
 function _gsDoneAllDueAusfuehren(faellig) {
-  var count = 0, nowIso = new Date().toISOString(), listen = {};
+  // v33.60: jeder Verlaufseintrag bekommt seine EIGENE Zeit — je eine
+  // Millisekunde FRUEHER als der davor. Bis hierher trugen alle dieselbe: zwei
+  // Aufgaben derselben Pflanze ergaben zwei Eintraege mit derselben Id
+  // (`pd:<pflanze>:<ts>`), und gsDeleteDiaryEntry loescht nach `ts` — wer einen
+  // loeschte, loeschte beide. Frueher, nicht spaeter: der Kalender liest einen
+  // Eintrag, der NACH jetzt liegt, als Erinnerung (⏰) — mit „eine Millisekunde
+  // weiter“ zaehlte die Woche die eben abgehakten Aufgaben als kommende (der
+  // erste Anlauf, gefunden vom Pruefstand unter gestellter Uhr). `lastDone`
+  // bleibt fuer alle derselbe Augenblick.
+  var count = 0, basisMs = Date.now(), nowIso = new Date(basisMs).toISOString(), listen = {};
   faellig.forEach(function(x) {
     var p = x.plant, k = x.key, t = p && p.tasks && p.tasks[k];
     if (!t) return;
@@ -10344,7 +10356,7 @@ function _gsDoneAllDueAusfuehren(faellig) {
     try {
       var defB = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[k]) ? TASK_DEFS[k] : {icon:'', name:k};
       if (!Array.isArray(p.diary)) p.diary = [];
-      p.diary.unshift({ ts: nowIso, action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k) + ' (Bulk)', source: 'done_all_due' });
+      p.diary.unshift({ ts: new Date(basisMs - (count - 1)).toISOString(), action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k), source: 'done_all_due' });
       p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
     } catch(_){}
     // Zugehoerigkeit ueber die REFERENZ, nicht ueber die Id — zwei Listen, zwei Speicherwege
@@ -22970,7 +22982,10 @@ function renderGardenLibrary(catFilter, searchTerm) {
       '<div style="padding:13px 14px;flex:1;">' +
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">' +
           '<span style="font-size:var(--fs-xl);">'+a.icon+'</span>' +
-          '<span style="font-size:var(--fs-xs);font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.5px;">'+(cat?cat.name:'')+'</span>' +
+          // v33.60: der Name steht in einer Themenfarbe. Bis hierher trug er die FESTE Kategoriefarbe —
+          // gemessen: „Pflanzenschutz“ 3,79:1 hell, „Bewässerung“ 2,71:1 und „Düngen“ 3,04:1 dunkel.
+          // Die Farbe der Kategorie bleibt am Balken links (kein Text, also keine Lesbarkeitsfrage).
+          '<span style="font-size:var(--fs-xs);font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;">'+(cat?cat.name:'')+'</span>' +
           '<span style="font-size:var(--fs-xs);color:var(--muted);margin-left:auto;">'+a.readTime+' Min · '+a.difficulty+'</span>' +
         '</div>' +
         '<div style="font-size:var(--fs-md);font-weight:800;color:var(--text);line-height:1.3;margin-bottom:4px;">'+a.title+'</div>' +
@@ -24640,8 +24655,10 @@ function renderDailyQuizTeaser() {
     // Teaser: großer Start-Button öffnet das Quizduell-Modal
     qEl.innerHTML = '🎯 ' + _t('quiz_ready','Tägliche Frage bereit');
     oEl.innerHTML =
-      '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:var(--c-violet);border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-1);">' +
-        '▶ ' + _t('btn_start_now','Jetzt starten') + ' <span style="opacity:.6;font-weight:700;margin-left:6px;">' + _t('quiz_20s','20 Sek') + '</span>' +
+      // v33.60: eine FEST helle Flaeche braucht eine FESTE dunkle Schrift. `--c-violet` kippt im Dunkelmodus auf
+      // Hellviolett — gemessen 2,19:1 fuer „Jetzt starten“ und 1,57:1 fuer „20 Sek“ (dort zusaetzlich opacity .6).
+      '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:#311b92;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-1);">' +
+        '▶ ' + _t('btn_start_now','Jetzt starten') + ' <span style="color:#5e35b1;font-weight:700;margin-left:6px;">' + _t('quiz_20s','20 Sek') + '</span>' +
       '</button>' +
       '<div style="font-size:var(--fs-xs);opacity:.8;margin-top:6px;text-align:center;">' + _t('quiz_rules','Keine zweite Chance · Nicht schummeln · App verlassen = verloren') + '</div>' +
       battleBtn + uebenBtn;
@@ -29382,6 +29399,23 @@ function _gsPflanzeAusLatein(lat) {
     return tr.length === 1 ? tr[0] : null;
   } catch (_) { return null; }
 }
+// v33.60 · EIN Leser fuer „wurde abgehakt“ und EIN Leser fuer den Titel eines
+// Pflanzentagebuch-Eintrags. Gemessen am 11.11.2026 (kalender_check „drei
+// Schreiber, ein Leser“): abgehakt wird auf drei Wegen, und die zwei Schreiber
+// dahinter setzen zwei Merker — gsQuickDone `source:'quick_done'`, „Alle
+// erledigt ✓“ `source:'done_all_due'`. gsTagebuchAlle kannte nur den ersten:
+// was ueber „Alle erledigt“ abgehakt wurde, galt als von Hand notiert und
+// stand in der Woche unter „Notizen“ statt unter „erledigt“ (7 → 10 Notizen,
+// erledigt 5 → 5). Dieselbe Klasse wie _gsScanZeit (v33.33) und _gsFundZeit
+// (v33.37): der Leser ist die Regel, nicht das Feld.
+function _gsTbAbgehakt(e) { return !!e && (e.source === 'quick_done' || e.source === 'done_all_due'); }
+window._gsTbAbgehakt = _gsTbAbgehakt;
+// Beide Schreiber haengten bis v33.59 ein englisches Arbeitswort an den Titel
+// („💧 Giessen (Quick)“, „💧 Giessen (Bulk)“) — es stand so im Tagebuch, im
+// Kalender und im Export. Neue Eintraege tragen es nicht mehr; fuer den Bestand
+// nimmt dieser Leser es ab. Gespeicherte Eintraege werden NICHT umgeschrieben.
+function _gsTbTitel(e) { return String((e && e.title) || '').replace(/\s*\((?:Quick|Bulk)\)\s*$/, ''); }
+window._gsTbTitel = _gsTbTitel;
 function gsTagebuchAlle() {
   var out = [];
   try {
@@ -29409,9 +29443,9 @@ function gsTagebuchAlle() {
       p.diary.forEach(function (e) {
         if (!e || !e.ts) return;
         var em = _GS_TB_EMOJI[e.action] || '📝';
-        out.push({ id: 'pd:' + p.id + ':' + e.ts, ts: e.ts, datum: _gsKalTag(e.ts), text: e.title || (em + ' Eintrag'), note: e.note || '', emoji: em,
+        out.push({ id: 'pd:' + p.id + ':' + e.ts, ts: e.ts, datum: _gsKalTag(e.ts), text: _gsTbTitel(e) || (em + ' Eintrag'), note: e.note || '', emoji: em,
           cat: e.action || 'note', plant: p.name || '', pflanze_id: p.id, photo: e.photo || null, weather: '',
-          date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: e.source === 'quick_done' ? 'regel' : 'hand' });
+          date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: _gsTbAbgehakt(e) ? 'regel' : 'hand' });
       });
     });
   } catch (_) {}
@@ -39795,6 +39829,7 @@ function openPlantDiary(plantId) {
   // v32.53: `ts` ist seit v26.51 ein ISO-String (gsQuickDone) — die Differenz zweier Strings ist NaN, die Liste war unsortiert.
   var entries = p.diary.slice().sort(function(a,b){ return (new Date(b.ts||0).getTime()||0) - (new Date(a.ts||0).getTime()||0); });
 
+  var _pdFotoName = escHtml(_gsSatz('Foto vergrössern'));   // v33.60: das Vorschaubild ist ein Bedienelement — alt UND aria-label
   var entriesHtml = entries.length ? entries.map(function(e){
     var dt = new Date(e.ts || Date.now());
     var dateStr = dt.toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'numeric'}) + ' · ' + dt.toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'});
@@ -39803,7 +39838,10 @@ function openPlantDiary(plantId) {
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'+
         '<span style="font-size:var(--fs-xl);">'+actionEmoji+'</span>'+
         '<div style="flex:1;">'+
-          '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">'+(e.title || actionEmoji+' Eintrag')+'</div>'+
+          // v33.60: der Titel ist TEXT (escHtml) und geht durch den einen Leser. Der Eintrag
+          // kommt aus dem gesyncten Blob oder aus einem eingespielten Backup — also nicht
+          // nur aus dieser App. Bis hierher stand er roh im innerHTML.
+          '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">'+escHtml(_gsTbTitel(e) || (actionEmoji+' Eintrag'))+'</div>'+
           '<div style="font-size:var(--fs-xs);color:var(--muted);">'+dateStr+'</div>'+
         '</div>'+
         '<button onclick="gsDeleteDiaryEntry(\''+plantId+'\',\''+String(e.ts).replace(/[^0-9A-Za-z:.\-]/g,'')+'\')" style="background:none;border:none;font-size:var(--fs-md);color:var(--muted);cursor:pointer;padding:4px 8px;">🗑</button>'+
@@ -39811,7 +39849,11 @@ function openPlantDiary(plantId) {
       (e.note ? '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.55;margin-top:4px;white-space:pre-wrap;">'+(typeof escHtml==='function'?escHtml(e.note):e.note)+'</div>' : '')+
       // v32.53: Giessen bestaetigt sich am Sensor — nur, wenn es ein Geraet gibt
       (function(){ try { if (e.action !== 'water' || typeof gsGiessBestaetigung !== 'function') return ''; var b = gsGiessBestaetigung(p, e.ts); if (!b || b.ohne_geraet) return ''; return '<div class="gs-tb-sensor gs-tb-' + b.zustand + '">\ud83d\udcf6 Sensor: ' + (typeof escHtml==='function'?escHtml(b.text):b.text) + '</div>'; } catch(_) { return ''; } })()+
-      (e.photo ? '<img src="'+e.photo+'" alt="Tagebuch-Foto" style="margin-top:8px;width:100%;max-height:200px;object-fit:cover;border-radius:var(--r-sm);">' : '')+
+      // v33.60: die Adresse geht durch _gsSafeUrl (http(s) oder data:image/, Anfuehrungszeichen
+      // entschaerft) — bis hierher stand `e.photo` roh im src-Attribut: ein Wert mit einem
+      // Anfuehrungszeichen brach aus dem Attribut aus (escape_check „Pflanzentagebuch“). Und das
+      // Foto oeffnet in der App (gsFotoAnsicht), wie im Gartentagebuch.
+      (_gsSafeUrl(e.photo) ? '<img src="'+_gsSafeUrl(e.photo)+'" loading="lazy" onclick="gsFotoAnsicht(this.src)" alt="'+_pdFotoName+'" aria-label="'+_pdFotoName+'" style="margin-top:8px;width:100%;max-height:200px;object-fit:cover;border-radius:var(--r-sm);cursor:zoom-in;">' : '')+
     '</div>';
   }).join('') : '<div style="text-align:center;padding:32px 20px;color:var(--muted);font-size:var(--fs-md);">📓 Noch kein Eintrag.<br>Dokumentiere die Entwicklung deiner Pflanze über die Zeit.</div>';
 
@@ -39950,23 +39992,21 @@ async function deletePlant(id){
 }
 
 // ─── Aufgabe erledigt markieren ───────────────────────────
-function doneTask(plantId, taskKey){
-  // v32.46: erledigt hebt eine Verschiebung auf (siehe gsQuickDone)
-  try { var _pS = myPlants.find(function(x){ return x && x.id === plantId; }); if (_pS && _pS.tasks && _pS.tasks[taskKey]) { delete _pS.tasks[taskKey].snoozedUntil; delete _pS.tasks[taskKey].vorgezogenAuf; delete _pS.tasks[taskKey].vorgezogenGrund; } } catch(_){}
-  const p = myPlants.find(x => x.id === plantId);
-  if(!p || !p.tasks[taskKey]) return;
-  p.tasks[taskKey].lastDone = new Date().toISOString();
-  if (typeof gsRpcTaskDone === 'function') gsRpcTaskDone(plantId, taskKey); // v26.93 Backend-Sync
-  savePlantsToStorage();
-  renderMyPlants();
-  // Nächste Benachrichtigung planen
-  scheduleAllNotifications();
-  // v24.25: Server-Cron-Reminder als gelesen markieren (Cross-Device)
-  try { if (typeof gsMarkPlantReminderRead === 'function') gsMarkPlantReminderRead(plantId, taskKey); } catch(_){}
-  // Kurzes Feedback
-  const el = document.getElementById('mpcard-' + plantId);
-  if(el){ el.style.opacity='.6'; setTimeout(()=>el.style.opacity='1', 400); }
-}
+// v33.60: EIN Weg zum Abhaken. Die Aufgaben-Knoepfe AUF der Pflanzenkarte
+// („💧 Giessen ✓“, bis zu vier je Karte) und „Jetzt erledigt“ im
+// Aufgaben-Manager riefen bis hierher eine eigene, aeltere Fassung. Sie
+// setzte `lastDone`, schrieb aber KEINEN Verlaufseintrag (`p.diary`) —
+// gemessen am 11.11.2026 mit dem echten Knopf: Tagebuch 5 → 5, im Kalender
+// 0 Ereignisse, „erledigt“ in der Woche 3 → 3. Es fehlte also im
+// Pflanzentagebuch, im Gartentagebuch, im Kalender, im Wochenrueckblick,
+// unter „Kuerzlich erledigt“ und in Linas Kontext genau das, was auf der
+// Karte abgehakt wurde; Glocke, Notizzettel und Tagesplan zogen nicht mit.
+// gsQuickDone tut das alles (v26.51 Verlauf · v30.85 Glocke und Zettel ·
+// v31.16 Tagesplan · v32.46 Verschiebung · v32.47 beide Listen · v32.53
+// Sensor). Der Name bleibt, weil zwei Stellen ihn rufen; eine zweite
+// Rechnung gibt es nicht mehr. Pruefstand: kalender_check „Abhaken auf der
+// Pflanzenkarte“ — er tippt den echten Knopf an.
+function doneTask(plantId, taskKey){ return gsQuickDone(plantId, taskKey); }
 
 // ─── Aufgaben-Manager ─────────────────────────────────────
 function openTaskManager(plantId){
@@ -43814,7 +43854,7 @@ function gsBattleRenderList(rows){
 
   function section(title, list, kind){
     var s = '<div style="font-size:var(--fs-sm);font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:6px 0 8px;">' + title + ' (' + list.length + ')</div>';
-    if (!list.length) { s += '<div style="padding:10px 12px;color:var(--muted);font-size:var(--fs-sm);opacity:.8;margin-bottom:14px;">' + _t('empty_nothing_here','Nichts hier.') + '</div>'; return s; }
+    if (!list.length) { s += '<div style="padding:10px 12px;color:var(--muted);font-size:var(--fs-sm);margin-bottom:14px;">' + _t('empty_nothing_here','Nichts hier.') + '</div>'; return s; }
     list.forEach(function(b){
       var name = esc(b.opponent_name || (b.is_random_match ? _t('battle_random_opponent','Zufalls-Gegner') : _t('battle_opponent','Gegner')));
       var emoji = esc(b.opponent_emoji || '🌿');
@@ -56088,7 +56128,7 @@ function renderTrachten() {
     html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm);">' +
       '<div style="padding:10px 14px;background:' + t.color + ';color:#fff;">' +
         '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-lg);font-weight:800;">' + name + '</div>' +
-        '<div style="font-size:var(--fs-sm);opacity:.9;margin-top:2px;">' + t.desc + '</div>' +
+        '<div style="font-size:var(--fs-sm);margin-top:2px;">' + t.desc + '</div>' +   // v33.60: ohne opacity .9 — Weiss auf #2e7d32 lag damit bei 4,49:1
       '</div>' +
       '<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:4px;color:var(--text);">' +
         t.plants.map(p => renderTrachtenPlant(p)).join('') +
@@ -57240,7 +57280,72 @@ function _gsMenuSub(item){
   return (item && item.sub) || '';
 }
 window._gsMenuSub = _gsMenuSub;
+// ═══ v33.60 · NOTFALL — die Nummern an EINEM Ort, und die Menue-Suche findet sie ═══
+// Gemessen am 11.11.2026: die Menue-Suche (51 Eintraege) fand zu „Notfall“, „145“,
+// „Tox Info“ und „vergiftet“ NICHTS; „Vergiftung“ und „Gift“ fuehrten zu „Giftige
+// Pflanzen“, „gegessen“ zu den Rezepten. Die Nummern standen nur dort, wo ein Scan
+// oder ein Chat sie ausloest.
+//
+// Was hier steht, sagt die App schon anderswo (`notfall_sofort`: 145 · 144 · 112) —
+// neu ist nur die Nummer fuer Anrufe aus dem Ausland. Quelle fuer 145 und die
+// Auslandnummer: Tox Info Suisse selbst (Merkblatt 2024 und Kontaktseite auf
+// toxinfo.ch, gelesen am 11.11.2026): „Notrufnummer 145 während 24 Stunden
+// täglich“, „Aus dem Ausland oder bei technischen Problemen: +41 44 251 51 51“.
+//
+// Bewusst KEIN Erste-Hilfe-Rat. Was man tun oder lassen soll, sagt die Fachperson
+// am Telefon; ein Satz dazu braeuchte eine Quelle und jemanden, der ihn pflegt
+// (ROADMAP „Notfall: Blatt und Karte“). Pruefstand: nutzersicht_check E15.
+// Wer eine Nummer aendert, aendert sie HIER, liest sie vorher bei der Quelle nach
+// und traegt das Datum ein — es steht im Fenster.
+var GS_NOTFALL_NUMMERN = { tox: '145', tox_ausland: '+41 44 251 51 51', notruf: '144', eu: '112', stand: '11.11.2026' };
+function gsNotfallOeffnen() {
+  var N = GS_NOTFALL_NUMMERN;
+  var tel = function (n) { return 'tel:' + String(n).replace(/[^0-9+]/g, ''); };
+  var knopf = 'display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 12px;border:2px solid var(--c-danger-d);color:var(--c-danger-d);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;text-decoration:none;';
+  var h =
+    '<div id="gs-notfall" style="padding:2px 2px 4px;">' +
+      // links und rechts 44 px frei: oben rechts sitzt der Schliessen-Knopf des Fensters — ohne den Rand lag er auf dem Titel
+      '<div style="font-size:var(--fs-xl);font-weight:900;color:var(--text);text-align:center;line-height:1.25;margin:0 44px 6px;"><span aria-hidden="true">🆘 </span>' + escHtml(_gsSatz('Vergiftung oder Verdacht?')) + '</div>' +
+      '<div style="font-size:var(--fs-md);color:var(--text2);text-align:center;line-height:1.5;margin-bottom:14px;">' + escHtml(_gsSatz('Ruf sofort Tox Info Suisse an — rund um die Uhr.')) + '</div>' +
+      // feste dunkle Flaeche, feste weisse Schrift (9,29:1) — in beiden Modi gleich
+      '<a href="' + tel(N.tox) + '" style="display:flex;align-items:center;justify-content:center;gap:10px;min-height:60px;padding:12px 16px;background:#8e1414;color:#fff;border-radius:var(--r-lg);font-weight:900;text-decoration:none;margin-bottom:8px;"><span aria-hidden="true" style="font-size:var(--fs-3xl);">☎️</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;"><span style="font-size:var(--fs-md);font-weight:700;">' + escHtml(_gsSatz('Tox Info Suisse')) + '</span><span style="font-size:var(--fs-3xl);letter-spacing:1px;">' + escHtml(N.tox) + '</span></span></a>' +
+      '<div style="font-size:var(--fs-sm);color:var(--text2);text-align:center;line-height:1.5;margin-bottom:14px;">' + escHtml(_gsSatz('Aus dem Ausland oder wenn 145 nicht geht:')) +
+        ' <a href="' + tel(N.tox_ausland) + '" style="display:inline-block;min-height:24px;padding:3px 2px;color:var(--text);font-weight:800;white-space:nowrap;">' + escHtml(N.tox_ausland) + '</a></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">' +
+        '<a href="' + tel(N.notruf) + '" style="' + knopf + '"><span aria-hidden="true">🚑</span><span>' + escHtml(_gsSatz('Notruf')) + ' ' + escHtml(N.notruf) + '</span></a>' +
+        '<a href="' + tel(N.eu) + '" style="' + knopf + '"><span>' + escHtml(_gsSatz('EU-Notruf')) + ' ' + escHtml(N.eu) + '</span></a>' +
+      '</div>' +
+      '<div style="background:var(--surface2);border-radius:var(--r-md);padding:11px 13px;font-size:var(--fs-sm);color:var(--text);line-height:1.55;margin-bottom:10px;">' + escHtml(_gsSatz('Sag am Telefon: welche Pflanze oder welcher Pilz, wann und wie viel.')) + '</div>' +
+      '<div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.5;text-align:center;">' + escHtml(_gsSatz('Eine Bestimmung per Foto kann falsch sein — im Zweifel anrufen.')) + '<br>' +
+        escHtml(_gsSatz('Nummern: Tox Info Suisse (toxinfo.ch), geprüft am {1}.', N.stand)) + '</div>' +
+    '</div>';
+  _gsNlOpen(h);
+}
+window.gsNotfallOeffnen = gsNotfallOeffnen;
+// Der Notfall-Eintrag der Menue-Suche hat eine EIGENE, engere Trefferregel — und steht
+// dann zuerst. Er trifft ab drei Zeichen, wenn eines seiner Woerter die Eingabe enthaelt
+// („notf“ → „notfall“), wenn die Eingabe eines seiner Woerter ab sechs Zeichen enthaelt
+// („kind hat beeren gegessen“), oder wenn das EINE Notfall-Vokabular anschlaegt
+// (_gsNotfallStufe, vier Sprachen). Sonst erscheint er gar nicht: ein Eintrag, der bei
+// jeder Eingabe oben steht, ist einer, den man zu ueberlesen lernt (v32.98) — „giftig“
+// fuehrt weiter zu „Giftige Pflanzen“, „essbar“ zu den essbaren.
+function _gsMenuNotfallTrifft(q, tags) {
+  try {
+    q = String(q || '').toLowerCase().trim();
+    if (q.length < 3) return false;
+    if ((tags || []).some(function (t) { return t.indexOf(q) >= 0 || (t.length >= 6 && q.indexOf(t) >= 0); })) return true;
+    // `_gsNotfallStufe` sagt Nein mit dem WORT 'keiner' — eine wahre Zeichenkette. Der erste
+    // Anlauf fragte `!!…` und traf damit bei JEDER Eingabe (gefunden von der Gegenrichtung
+    // im Fall: „tomate“, „essbar“ und „pilz“ zeigten den Notfall).
+    var st = (typeof _gsNotfallStufe === 'function') ? _gsNotfallStufe(q) : null;
+    return st === 'dringend' || st === 'hinweis';
+  } catch (_) { return false; }
+}
+window._gsMenuNotfallTrifft = _gsMenuNotfallTrifft;
+
 const MENU_ITEMS = [
+  // v33.60: der Notfall — `vorrang` heisst: eigene Trefferregel (_gsMenuNotfallTrifft), und bei einem Treffer zuerst.
+  {label:'🆘 Notfall: Vergiftung', sub:'Tox Info Suisse 145 · rund um die Uhr', action:"closeMainMenu();gsNotfallOeffnen()", vorrang:true, tags:['notfall','notruf','vergiftung','vergiftet','vergiften','gift','giftnotruf','145','144','112','tox','tox info','toxinfo','gegessen','verschluckt','geschluckt','erbrechen','urgence','empoisonnement','intoxication','emergenza','avvelenamento','veleno','emergency','poison','poisoning','poisoned']},
   // Navigation
   // v31.70: Die sieben Eintraege der Gruppe „Wissen & Werkzeuge" aus
   // „Mein Garten". Fernando: „gehört nicht in Mein Garten" — richtig, es
@@ -57313,7 +57418,10 @@ const MENU_ITEMS = [
   // sagt selbst „Bitte zuerst eine Messung machen", wenn noch keine vorliegt.
   // Eine Rückmeldung ist besser als gar nichts.
   {label:'🌾 Lichtmesser kalibrieren', sub:'Dein Gerät präziser machen', action:"openLightMeter();setTimeout(function(){if(typeof gsLuxCalibrate==='function')gsLuxCalibrate();},400)", tags:['lux','licht','kalibrieren','präzision','sensor']},
-  {label:'🔒 Premium freischalten', sub:'TWINT · Karte · IBAN', action:"if(typeof gsShowAboScreen==='function')gsShowAboScreen();else menuNav('settings')", tags:['premium','abo','abonnement','stripe','twint','sepa','iban','karte','bezahlen','pro','plus']},
+  // v33.60: die Unterzeile versprach „TWINT · Karte · IBAN“. Welche Zahlungsarten im Checkout stehen, entscheidet
+  // das Stripe-Dashboard (kein fester Wert im Aufruf, _shared/stripe_regeln.mjs) — die App kann es nicht wissen.
+  // Die Suchwoerter bleiben: wer „twint“ tippt, soll den Eintrag finden (nutzersicht_check E16).
+  {label:'🔒 Premium freischalten', sub:'Pläne und Preise', action:"if(typeof gsShowAboScreen==='function')gsShowAboScreen();else menuNav('settings')", tags:['premium','abo','abonnement','stripe','twint','sepa','iban','karte','bezahlen','pro','plus']},
   {label:'📊 Mein Profil', sub:'Stats · Streak · Punkte', action:"if(typeof openUserProfile==='function')openUserProfile();else menuNav('settings')", tags:['profil','stats','punkte','streak','level','rang','achievement']},
 ];
 // v32.78 (Audit E1): der Übersetzungs-Sammler bekommt die Labels (MENU_ITEMS ist Skript-Bereich, nicht window)
@@ -57344,6 +57452,8 @@ function searchMenu(query) {
     const label = (item.label + ' ' + _tx(_labelOhneEmoji)).toLowerCase();
     const sub = (item.sub + ' ' + _tx(item.sub)).toLowerCase();
     const tags = item.tags || [];
+    // v33.60: der Notfall-Eintrag — trifft er, steht er zuerst; trifft er nicht, steht er nicht da.
+    if (item.vorrang) return {item, score: _gsMenuNotfallTrifft(q, tags) ? 1000 : 0, dbMatch: []};
     
     if (label.includes(q)) score += 10;
     if (sub.includes(q)) score += 5;
@@ -57537,7 +57647,7 @@ async function initMap() {
 
   // Lazy-Load Leaflet mit 3 Versuchen, je 2s Pause
   if (typeof L === 'undefined') {
-    if (mapDiv) mapDiv.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#666;"><div style="font-size:40px;">🗺️</div><div style="font-size:var(--fs-md);font-weight:700;">Swisstopo lädt…</div><div style="font-size:var(--fs-sm);color:#999;">Bitte kurz warten</div></div>';
+    if (mapDiv) mapDiv.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text2);"><div style="font-size:40px;">🗺️</div><div style="font-size:var(--fs-md);font-weight:700;">Swisstopo lädt…</div><div style="font-size:var(--fs-sm);color:var(--muted);">Bitte kurz warten</div></div>';   // v33.60: war #666/#999 — „Bitte kurz warten“ 2,61:1
     for (var i = 0; i < 3; i++) {
       if (typeof L !== 'undefined') break;
       try { await gsLoadLeaflet(); } catch(_){}
@@ -82707,7 +82817,7 @@ window.gsExportDiaryCSV = function(){
     var rows = [];
     plants.forEach(function(p){
       (p.diary || []).forEach(function(d){
-        rows.push({ plant: p.name || '', plantLat: p.lat || '', ts: d.ts, action: d.action || '', title: d.title || '', note: d.note || '', hasPhoto: !!d.photo });
+        rows.push({ plant: p.name || '', plantLat: p.lat || '', ts: d.ts, action: d.action || '', title: _gsTbTitel(d), note: d.note || '', hasPhoto: !!d.photo });
       });
     });
     if (!rows.length) {
@@ -86847,7 +86957,8 @@ function _gsTimeAgo(ts){
 // ── Profil-Settings: Sichtbarkeit, Bio, Region, Show-Toggles, Blocked-Liste ──
 async function gsOpenProfileSettings(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen.','warning'); return; }
-  var uid = gsStore.get('gs_sb_uid', null); if (!uid) return;
+  // v33.60: ohne Konto-Id kam hier NICHTS — kein Fenster, keine Meldung (wiring_check, Richtung 3).
+  var uid = gsStore.get('gs_sb_uid', null); if (!uid) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen.','warning'); return; }
   _gsNlOpen('<div style="text-align:center;padding:30px;color:var(--muted);">Lädt…</div>');
   try {
     var r = await sbFetch('/rest/v1/profiles?id=eq.'+uid+'&select=display_name,bio,bio_emoji,region,profile_visibility,show_finds_public,show_plants_count,show_achievements,show_marketplace,opt_in_feed&limit=1', {method:'GET'});
@@ -92362,7 +92473,7 @@ function gsOpenPlantDoctor(){
       '<div style="font-size:var(--fs-sm);color:var(--muted);">Foto hochladen → Diagnose von Krankheit, Schädling oder Mangelerscheinung</div>' +
     '</div>' +
     '<input type="file" accept="image/*" id="gs-doctor-file" style="display:none" onchange="gsDoctorRun(this.files[0])">' +
-    '<button onclick="document.getElementById(\'gs-doctor-file\').click()" style="width:100%;padding:14px;background:linear-gradient(135deg,#d32f2f,#ef5350);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;">📷 Foto auswählen</button>' +
+    '<button onclick="document.getElementById(\'gs-doctor-file\').click()" style="width:100%;padding:14px;background:linear-gradient(135deg,#a31515,#c62828);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;">📷 Foto auswählen</button>' +
     '<div id="gs-doctor-out" style="margin-top:14px;font-size:var(--fs-md);line-height:1.6;"></div>' +
     '<div style="margin-top:14px;padding:10px;background:var(--bg-warn-soft);border-radius:var(--r-md);font-size:var(--fs-sm);color:#6d4c41;line-height:1.5;"><b>💡 Tipp:</b> Fotografiere das betroffene Blatt/die Stelle aus der Nähe und gleichmässig beleuchtet. Je mehr Details, desto präziser die Diagnose.</div>' +
     histHtml;
@@ -92480,7 +92591,7 @@ function gsOpenSeedInventory(){
           '<div><b>' + escHtml(i.name||'?') + '</b> · ' + escHtml(i.qty||'') + (exp?' · <span style="font-size:var(--fs-sm);color:' + (warn?'#c62828':'#888') + ';">📅 ' + exp.toLocaleDateString(gsLocale()) + (warn?' ⚠️':'') + '</span>':'') + '</div>' +
           '<button onclick="gsSeedDel(' + realIdx + ')" style="background:none;border:none;color:var(--c-danger);cursor:pointer;font-size:var(--fs-lg);">🗑️</button>' +
           '</div>';
-      }).join('') : '<div style="padding:20px;text-align:center;color:#888;">Erfasse deine Sämereien — ich warne vor Ablaufdatum.</div>') +
+      }).join('') : '<div style="padding:20px;text-align:center;color:var(--muted);">Erfasse deine Sämereien — ich warne vor Ablaufdatum.</div>') +
     '</div>';
   _gsNlOpen(html);
 }
@@ -92553,7 +92664,7 @@ function gsOpenBiodiversity(){
     '<div style="text-align:center;padding:10px 4px 14px;">' +
       '<div style="font-size:44px;">🐝</div>' +
       '<h3 style="margin:6px 0 2px;color:var(--g-dark);">Biodiversitäts-Score</h3>' +
-      '<div style="font-size:38px;font-weight:900;color:' + (total>=60?'#2e7d32':total>=40?'#f57c00':'#c62828') + ';margin:6px 0;">' + total + '<span style="font-size:var(--fs-xl);">/100</span></div>' +
+      '<div style="font-size:38px;font-weight:900;color:' + (total>=60?'var(--c-success-d)':total>=40?'var(--c-warn-d)':'var(--c-danger-d)') + ';margin:6px 0;">' + total + '<span style="font-size:var(--fs-xl);">/100</span></div>' +
       '<div style="font-size:var(--fs-md);color:var(--muted);">' + rating + '</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">' +
@@ -92791,7 +92902,7 @@ function gsOpenWeatherWarn(){
   width: 54px;
   height: 54px;
   border-radius: 27px;
-  background: linear-gradient(135deg, var(--g-main), #1b5e20);
+  background: linear-gradient(135deg, var(--fill-brand), #1b5e20);   /* v33.60: war --g-main — im Dunkelmodus hellgruen unter weissem Zeichen */
   border: none;
   color: #fff;
   font-size: var(--fs-2xl);
@@ -93179,7 +93290,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
    Sie steht jetzt in einem Fenster, das selbst scrollt — der 100px-Sockel
    wuerde dort nur einen leeren Streifen erzeugen. */
 .gs-gl-chip{flex:0 0 auto;padding:6px 12px;border-radius:var(--r-lg);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:var(--fs-sm);font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
-.gs-gl-chip.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.gs-gl-chip.active{background:var(--fill-brand);border-color:var(--fill-brand);color:#fff;}   /* v33.60: war --g-main — im Dunkelmodus hellgruen, Weiss darauf 2,36:1 (gemessen) */
 
 
 /* v31.32 — Leerzustaende sitzen direkt auf der Leinwand, nicht in einer

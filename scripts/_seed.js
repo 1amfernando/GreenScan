@@ -57,6 +57,8 @@ module.exports = () => { try {
   set('ps_myplants', [
     { id:'p1', name:'Basilikum', species:'Ocimum basilicum', emoji:'🌿', added:now-20*D, location:'Küchenfenster', nick:'Küchenfenster',
       tasks:{ water:{active:true,intervalDays:3,lastDone:iso(now-4*D)}, fertilize:{active:true,intervalDays:30,lastDone:iso(now-10*D)}, check:{active:true,intervalDays:14,lastDone:iso(now-3*D)} },
+      // Der Titel traegt BEWUSST das alte Arbeitswort „(Quick)“ — so schrieb die App bis v33.59.
+      // Der Leser `_gsTbTitel` nimmt es ab; mit diesem Eintrag ist der Bestand in jedem Pruefstand dabei.
       diary:[{ ts:iso(now-4*D), action:'water', title:'💧 Giessen (Quick)', source:'quick_done' }] },
     { id:'p2', name:'Monstera',  species:'Monstera deliciosa', emoji:'🪴', added:now-90*D, location:'Wohnzimmer', nick:'Wohnzimmer',
       tasks:{ water:{active:true,intervalDays:7,lastDone:iso(now-1*D)}, fertilize:{active:true,intervalDays:30,lastDone:iso(now-5*D)}, dust:{active:true,intervalDays:30,lastDone:iso(now-12*D)} } },

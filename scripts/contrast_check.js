@@ -27,7 +27,10 @@ const path = require('path');
 const fs = require('fs');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const FILE = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, '..', 'index.html');
-const TABS = ['home','garden','wissen','favs','search','social','market','recipes','remedies'];
+// v33.60: ALLE elf Tabs. Bis hierher standen hier neun — `map` und `scanner` fehlten, ohne
+// Grund im Text; render_check, touch_check und a11y_check fuhren seit jeher elf. Erster Lauf
+// ueber die Karte: 3 Stellen hell, 1 dunkel („Bitte kurz warten“ 2,61:1).
+const TABS = ['home','garden','wissen','favs','search','social','market','recipes','remedies','map','scanner'];
 // v31.77: Fenster mitmessen. Die Grenze aus CLAUDE.md §7.1 („was in einem
 // geschlossenen Fenster steckt, sehen sie nicht") hat mich in v31.76 eine
 // Aenderung kosten lassen, die eine Falschmeldung war — und den einen echten
@@ -42,6 +45,11 @@ const W = 412, H = 915;
 // die Fenster, deren Name passt (keine Tabs) — und der Bericht SAGT es, damit
 // niemand einen Teil-Lauf fuer das Ganze haelt.
 const NUR = process.env.GS_KONTRAST_NUR ? new RegExp(process.env.GS_KONTRAST_NUR) : null;
+// v33.60: ein Tab wird in hoechstens so vielen Bildschirmhoehen durchfahren.
+const TAB_ABSCHNITTE_MAX = 12;
+// `GS_KONTRAST_TABS=home,map` misst nur diese Tabs und KEIN Fenster — fuer Gegenproben an
+// einer Stelle in einem Tab (der ganze Lauf dauert fuenf Minuten). Ein Teil-Lauf, kein Urteil.
+const NUR_TABS = process.env.GS_KONTRAST_TABS ? process.env.GS_KONTRAST_TABS.split(',').map(x => x.trim()).filter(Boolean) : null;
 
 const lum = c => { const s = c.map(v => { v /= 255; return v <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4); });
                    return .2126*s[0] + .7152*s[1] + .0722*s[2]; };
@@ -234,36 +242,64 @@ async function medianFarben(leser, pngBuffer, punkte) {
     }, dark);
 
     const gefunden = new Map();
-    for (const t of (NUR ? [] : TABS)) {
+    const tabZeilen = [];
+    const gestelltZu = [];
+    for (const t of (NUR ? [] : (NUR_TABS || TABS))) {
       try { await p.evaluate(t => switchTab(t), t); } catch (e) {}
-      await p.waitForTimeout(600);
-      await p.evaluate(() => window.scrollTo(0, 0));
-      await p.waitForTimeout(150);
-
-      const stellen = await p.evaluate(STELLEN);
-      if (!stellen.length) continue;
-      const stil = await p.evaluate(() => {
-        const s = document.createElement('style');
-        s.id = 'gs-nur-hintergrund';
-        s.textContent = '*{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important;}';
-        document.head.appendChild(s); return true;
+      await p.waitForTimeout(700);
+      // v33.60: der GANZE Tab, nicht nur sein erster Bildschirm. Bis hierher stand
+      // hier `window.scrollTo(0, 0)` und EIN Bild von 412×915 — alles unterhalb der
+      // ersten Bildschirmhoehe war nie vermessen (die Startseite ist 1'530 px hoch,
+      // Rezepte ueber 10'000). Erster Lauf ueber die ganzen Tabs: 2 Stellen hell,
+      // 3 dunkel — der Tagesquiz-Knopf der Startseite mit 2,19:1 im Dunkelmodus.
+      // Gerollt wird der Kasten, der wirklich rollt (der aktive Bildschirm oder
+      // einer seiner Nachfahren), in Bildschirmhoehen mit 200 px Ueberlappung;
+      // der Deckel (12 Abschnitte) haelt die Laufzeit, und die Zeile je Tab nennt,
+      // wie viel vermessen wurde — ohne sie saehe ein Tab, der nicht rollt, aus
+      // wie einer ohne Fehler.
+      const hochT = await p.evaluate(() => {
+        const sc = document.querySelector('.screen.active');
+        window.__gsTabScroll = null;
+        const kand = [sc].concat(sc ? Array.from(sc.querySelectorAll('*')) : [])
+          .filter(e => e && e.scrollHeight > e.clientHeight + 40 && /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.clientHeight > 300);
+        if (kand.length) window.__gsTabScroll = kand[0];
+        return { h: window.__gsTabScroll ? window.__gsTabScroll.scrollHeight : document.documentElement.scrollHeight,
+                 wer: window.__gsTabScroll ? ('#' + window.__gsTabScroll.id || window.__gsTabScroll.tagName) : 'Fenster' };
       });
-      await p.waitForTimeout(120);
-      const shot = await p.screenshot({ clip: { x: 0, y: 0, width: W, height: H } });
-      await p.evaluate(() => { const s = document.getElementById('gs-nur-hintergrund'); if (s) s.remove(); });
+      const schritteT = Math.max(1, Math.min(TAB_ABSCHNITTE_MAX, Math.ceil(hochT.h / (H - 200))));
+      let nT = 0;
+      for (let si = 0; si < schritteT; si++) {
+        await p.evaluate(y => { if (window.__gsTabScroll) window.__gsTabScroll.scrollTop = y; else window.scrollTo(0, y); }, si * (H - 200));
+        await p.waitForTimeout(si ? 220 : 150);
+        const stellen = await p.evaluate(STELLEN);
+        if (!stellen.length) continue;
+        nT += stellen.length;
+        await p.evaluate(() => {
+          const s = document.createElement('style');
+          s.id = 'gs-nur-hintergrund';
+          s.textContent = '*{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important;}';
+          document.head.appendChild(s); return true;
+        });
+        await p.waitForTimeout(120);
+        const shot = await p.screenshot({ clip: { x: 0, y: 0, width: W, height: H } });
+        await p.evaluate(() => { const s = document.getElementById('gs-nur-hintergrund'); if (s) s.remove(); });
 
-      const bgs = await medianFarben(leser, shot, stellen);
-      stellen.forEach((s, i) => {
-        const bg = bgs[i];
-        const eff = s.fg.map((v, k) => Math.round(s.alpha*v + (1-s.alpha)*bg[k]));
-        const r = cr(eff, bg);
-        const gross = s.fs >= 24 || (s.fs >= 18.66 && s.fw >= 700);
-        const min = gross ? 3 : 4.5;
-        if (r >= min) return;
-        const k = s.sel + '|' + s.t;
-        if (!gefunden.has(k)) gefunden.set(k, { ...s, r: Math.round(r*100)/100, min, bg, tab: t });
-      });
+        const bgs = await medianFarben(leser, shot, stellen);
+        stellen.forEach((s, i) => {
+          const bg = bgs[i];
+          const eff = s.fg.map((v, k) => Math.round(s.alpha*v + (1-s.alpha)*bg[k]));
+          const r = cr(eff, bg);
+          const gross = s.fs >= 24 || (s.fs >= 18.66 && s.fw >= 700);
+          const min = gross ? 3 : 4.5;
+          if (r >= min) return;
+          const k = s.sel + '|' + s.t;
+          if (!gefunden.has(k)) gefunden.set(k, { ...s, r: Math.round(r*100)/100, min, bg, tab: t + (si ? ' ↓' + (si + 1) : '') });
+        });
+      }
+      await p.evaluate(() => { if (window.__gsTabScroll) window.__gsTabScroll.scrollTop = 0; else window.scrollTo(0, 0); });
+      tabZeilen.push(t + ' ' + nT + '/' + schritteT + (hochT.h > schritteT * (H - 200) + 200 ? '+' : ''));
     }
+    if (tabZeilen.length) console.log('  Tabs (Textstellen/Abschnitte; „+“ = hoeher als der Deckel von ' + TAB_ABSCHNITTE_MAX + '): ' + tabZeilen.join(' · '));
 
     // ── Fenster ──────────────────────────────────────────────────────────
     // Was in einem geschlossenen Fenster steckt, sah der Pruefstand bis
@@ -509,12 +545,18 @@ async function medianFarben(leser, pngBuffer, punkte) {
       try {
         const hoch = await p.evaluate(([fn, arg]) => {
           const res = (new Function('return (' + fn + ')'))()(arg);
-          if (!res || !res.getBoundingClientRect) return 0;
+          if (!res || !res.getBoundingClientRect) return -1;      // nichts ging auf (0 heisst: offen, rollt nicht)
           let sc = res;
           while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
           window.__gsScroll = (sc && sc !== document.body) ? sc : null;
           return (window.__gsScroll ? window.__gsScroll.scrollHeight : document.body.scrollHeight) || 0;
         }, [oeffnenQuelle, arg]);
+        // v33.60: ging nichts auf (der Oeffner lehnt ab oder gibt kein Element zurueck), wird
+        // NICHTS vermessen. Bis hierher lief die Messung trotzdem — ueber die Seite dahinter —
+        // und die Zeile sagte „29 Textstellen vermessen“ fuer ein Fenster, das es nicht gab.
+        // (Erster Anlauf: `if (!hoch)` — ein Fenster, das NICHT rollt, hat die Hoehe 0, und
+        // 21 offene Fenster galten als nicht aufgegangen. Der Oeffner sagt es jetzt selbst: -1.)
+        if (hoch < 0) { console.log('  Fenster ' + fname + ': ging nicht auf — nichts vermessen'); return false; }
 
         // Ein Fenster faehrt mit einer Animation ein. Wer sofort misst,
         // liest Koordinaten aus dem Dokument und Pixel aus einem Bild, das
@@ -572,15 +614,20 @@ async function medianFarben(leser, pngBuffer, punkte) {
           const tv = document.getElementById('gs-teilen-vorschau');
           if (tv && typeof gsDismissOverlay === 'function') { try { gsDismissOverlay(tv); } catch(_){} }
         });
-      } catch (e) { console.log('  (Fenster ' + fname + ' uebersprungen: ' + e.message.split('\n')[0] + ')'); }
+        return true;
+      } catch (e) { console.log('  (Fenster ' + fname + ' uebersprungen: ' + e.message.split('\n')[0] + ')'); return false; }
     }
 
     // ── Durchgang 1: die Fenster, die gestellte Daten brauchen ────────────
     for (const [fname, oeffnen] of FENSTER) {
+      if (NUR_TABS) continue;
       if (NUR && !NUR.test(fname)) continue;
-      await messeFenster(fname, oeffnen.toString(), fname === 'planer'
+      const aufH = await messeFenster(fname, oeffnen.toString(), fname === 'planer'
         ? { plan: JSON.parse(JSON.stringify(SEED_MOD.MUSTERPLAN)), agro: SEED_MOD.AGRONOMIE }
         : null);
+      // v33.60: ein GESTELLTES Fenster, das nicht aufgeht, ist ein Fehler des Pruefstands —
+      // dann ist dieser Lauf keine Aussage ueber dieses Fenster (Exit 2, nie gruen).
+      if (!aufH) gestelltZu.push(fname);
     }
 
     // ── Durchgang 2 (v32.25): JEDES Fenster, das sich von allein oeffnet ──
@@ -607,7 +654,11 @@ async function medianFarben(leser, pngBuffer, punkte) {
           else if (c === '}') { d--; if (d === 0) { ende = i; break; } }
           i++;
         }
-        if (ende > 0 && quelleTxt.slice(re.lastIndex, ende).indexOf('openModal(') >= 0) out.push(m[1]);
+        // v33.60: … oder `_gsNlOpen(` — der eine Helfer, der `openModal('gs-nl-modal')` ruft.
+        // Fuenfzehn Fenster erreichten openModal NUR ueber ihn und wurden deshalb nie geoeffnet
+        // (gemessen am 11.11.2026: 5 Stellen hell, 9 dunkel in fuenf dieser Fenster). Ein Muster,
+        // das eine Bauform kennt, uebersieht dieselbe Sache in einer anderen (v32.20, v33.03).
+        if (ende > 0 && /openModal\(|_gsNlOpen\(/.test(quelleTxt.slice(re.lastIndex, ende))) out.push(m[1]);
       }
       return [...new Set(out)].sort();
     }, require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8'));
@@ -634,15 +685,21 @@ async function medianFarben(leser, pngBuffer, punkte) {
     })`;
 
     let autoGemessen = 0, autoLeer = 0;
-    const autoLauf = NUR ? autoNamen.filter(n => NUR.test(n)) : autoNamen;
+    const autoZu = [];
+    const autoLauf = NUR_TABS ? [] : (NUR ? autoNamen.filter(n => NUR.test(n)) : autoNamen);
     for (const name of autoLauf) {
       const vorher = gefunden.size;
-      await messeFenster(name, AUTO_OEFFNER, name, 3);
+      const aufA = await messeFenster(name, AUTO_OEFFNER, name, 3);
+      if (!aufA) { autoZu.push(name); continue; }
       if (gefunden.size > vorher) autoGemessen++;
       else autoLeer++;
     }
-    console.log('  automatisch geoeffnet: ' + autoLauf.length + ' Fenster' +
-                (autoGemessen ? ' · davon mit Befund: ' + autoGemessen : ' · ohne Befund'));
+    // Ein Oeffner darf ablehnen (ohne Scan kein Steckbrief) — ob er dabei etwas SAGT, prueft
+    // wiring_check Richtung 3. Hier zaehlt nur: er wurde nicht vermessen, und das steht da.
+    console.log('  automatisch aufgerufen: ' + autoLauf.length + ' Oeffner · aufgegangen und vermessen: ' + (autoLauf.length - autoZu.length) +
+                (autoGemessen ? ' · davon mit Befund: ' + autoGemessen : ' · ohne Befund') +
+                (autoZu.length ? ' · nicht aufgegangen: ' + autoZu.length + ' (' + autoZu.join(', ') + ')' : ''));
+    if (gestelltZu.length) { console.log('  !! NICHT PRUEFBAR: gestellte Fenster gingen nicht auf: ' + gestelltZu.join(', ')); process.exitCode = 2; }
 
     // v33.60: stand der Anmeldebildschirm am Ende (wieder)? Dann ist dieser
     // Modus nicht gemessen — drei Zustaende, nicht zwei.
@@ -652,6 +709,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
 
     const liste = [...gefunden.values()].sort((a, b) => a.r - b.r);
     if (NUR) console.log('  (TEIL-LAUF: nur Fenster /' + NUR.source + '/ — keine Tabs, kein Urteil ueber das Ganze)');
+    if (NUR_TABS) console.log('  (TEIL-LAUF: nur die Tabs ' + NUR_TABS.join(', ') + ' — keine Fenster, kein Urteil ueber das Ganze)');
     if (anmeldebildStand) { console.log('  !! ' + SEED_MOD.ANMELDEBILD_SATZ); process.exitCode = 2; }
     console.log('\n=== ' + (dark ? 'DUNKELMODUS' : 'HELLMODUS') + ' — ' + liste.length + ' Textstellen unter AA');
     liste.slice(0, 70).forEach(o => console.log(

@@ -721,6 +721,92 @@ const FAELLE = [
       }
     }),
   },
+  {
+    // v33.60 · gemessen am 11.11.2026 (Befund IDEE-B, vom Head nachgefahren): die Menue-Suche
+    // (51 Eintraege) fand zu „Notfall", „145", „Tox", „Vergiftung" NICHTS, und „gegessen" fuehrte
+    // zu den Rezepten. Die Nummern standen nur dort, wo ein Scan oder ein Chat sie ausloest.
+    // Zwei Richtungen: wer eines der Notfall-Woerter tippt, findet den Eintrag ZUERST — und wer
+    // „Tomate" oder „essbar" tippt, bekommt ihn NICHT (ein Eintrag, der immer oben steht, ist einer,
+    // den man zu ueberlesen lernt, v32.98). Dazu das Fenster: genau die vier Nummern, die die App
+    // schon nennt bzw. Tox Info Suisse selbst angibt — und kein Rat, was man tun soll.
+    name: 'E15 · Notfall: die Menü-Suche findet „Notfall", „145", „Tox", „Vergiftung", „gegessen" (auch fr/it/en) ZUERST — „Tomate" und „essbar" nicht; das Fenster ruft 145, die Auslandnummer, 144 und 112 an und gibt keinen Erste-Hilfe-Rat',
+    lauf: async () => __seite.evaluate(async () => {
+      const klagen = [];
+      const res = () => Array.from(document.querySelectorAll('#menu-search-results .menu-search-result'));
+      const erster = (q) => { searchMenu(q); const r = res(); return r.length ? (r[0].textContent || '').replace(/\s+/g, ' ').trim() : ''; };
+      const alle = (q) => { searchMenu(q); return res().map(r => (r.textContent || '').replace(/\s+/g, ' ').trim()); };
+      try {
+        if (typeof searchMenu !== 'function') return { ok: false, warum: 'searchMenu fehlt' };
+        // (a) die Notfall-Woerter, in vier Sprachen
+        // …und drei SAETZE: die trifft kein Suchwort, sondern das eine Notfall-Vokabular (_gsNotfallStufe).
+        // Ohne sie blieb die Gegenprobe „eigene Trefferregel ausgebaut" gruen — die gewoehnliche
+        // Punktzahl stellte den Eintrag bei allen 17 Einzelwoertern zufaellig auch nach vorn.
+        const ja = ['notfall', 'Notfall', '145', 'tox', 'tox info', 'vergiftung', 'vergiftet', 'gift', 'gegessen', 'verschluckt', 'giftnotruf', 'urgence', 'empoisonnement', 'emergenza', 'avvelenamento', 'emergency', 'poison',
+          'mein kind hat beeren gegessen', 'hund hat pilz gefressen', 'mon enfant a mangé des baies'];
+        const fehlt = ja.filter(q => !/Notfall/.test(erster(q)));
+        if (fehlt.length) klagen.push(fehlt.length + ' von ' + ja.length + ' Notfall-Wörtern führen nicht zuerst zum Notfall: ' + fehlt.slice(0, 8).map(q => '„' + q + '" → „' + (erster(q).slice(0, 28) || 'nichts') + '"').join(' · '));
+        // (b) die Gegenrichtung
+        // schwache Teiltreffer zaehlen dazu: „giftig" enthaelt „gift", und ein einzelner Buchstabe steckt in jedem Suchwort
+        const nein = ['tomate', 'essbar', 'rezept', 'giessen', 'kalender', 'pilz', 'giftig', 'giftige pflanzen', 'a', 'ei'];
+        const zuviel = nein.filter(q => alle(q).some(t => /Notfall/.test(t)));
+        if (zuviel.length) klagen.push('der Notfall-Eintrag erscheint auch bei: ' + zuviel.join(', '));
+        // (c) der echte Treffer wird angetippt
+        searchMenu('notfall');
+        const tr = res()[0];
+        if (!tr) klagen.push('kein Treffer zum Antippen');
+        else {
+          tr.click();
+          await new Promise(r => setTimeout(r, 400));
+          const m = document.getElementById('gs-nl-modal'), body = document.getElementById('gs-nl-body');
+          const offen = !!(m && (m.classList.contains('open') || m.classList.contains('active')) && body && (body.textContent || '').trim().length > 20);
+          if (!offen) klagen.push('der Treffer wurde angetippt, und es steht kein Notfall-Fenster da');
+          else {
+            const tel = Array.from(body.querySelectorAll('a[href^="tel:"]')).map(a => a.getAttribute('href'));
+            ['tel:145', 'tel:+41442515151', 'tel:144', 'tel:112'].forEach(t => { if (tel.indexOf(t) < 0) klagen.push('im Fenster fehlt der Anruf-Link ' + t + ' (da: ' + tel.join(', ') + ')'); });
+            if (tel.length !== 4) klagen.push(tel.length + ' Anruf-Links statt 4: ' + tel.join(', '));
+            const txt = (body.textContent || '').replace(/\s+/g, ' ');
+            if (!/Tox Info Suisse/.test(txt)) klagen.push('das Fenster nennt Tox Info Suisse nicht');
+            if (!/toxinfo\.ch/.test(txt) || !/\d{2}\.\d{2}\.\d{4}/.test(txt)) klagen.push('das Fenster nennt weder Quelle noch Prüfdatum der Nummern');
+            // kein Rat, was zu tun ist — das sagt die Fachperson am Telefon
+            const rat = txt.match(/erbrechen|Milch|Kohle|trinken lassen|Wasser geben|hinlegen|Seitenlage/i);
+            if (rat) klagen.push('das Fenster gibt einen Erste-Hilfe-Rat („' + rat[0] + '") — dafür gibt es hier keine Quelle');
+            // jeder Link ist ein Antippziel (mindestens 44 px hoch)
+            const klein = Array.from(body.querySelectorAll('a[href^="tel:"]')).filter(a => { const r = a.getBoundingClientRect(); return r.height < 44 && a.getAttribute('href') !== 'tel:+41442515151'; });
+            if (klein.length) klagen.push(klein.length + ' Anruf-Knöpfe sind niedriger als 44 px');
+            const ausland = body.querySelector('a[href="tel:+41442515151"]');
+            if (ausland) { const r = ausland.getBoundingClientRect(); if (r.height < 24 || r.width < 24) klagen.push('die Auslandnummer ist als Antippziel kleiner als 24 px (' + Math.round(r.width) + '×' + Math.round(r.height) + ')'); }
+          }
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: ja.length + ' Notfall-Eingaben (de/fr/it/en, drei davon ganze Sätze) → Notfall zuerst · ' + nein.length + ' Alltags-Eingaben ohne ihn · Fenster: 145 · +41 44 251 51 51 · 144 · 112, mit Quelle und Datum, ohne Rat' };
+      } finally {
+        try { clearMenuSearch(); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        try { closeMainMenu(); } catch (_) {}
+      }
+    }),
+  },
+  {
+    // v33.60 · der Menue-Eintrag „Premium freischalten" versprach „TWINT · Karte · IBAN". Welche
+    // Zahlungsarten im Checkout erscheinen, entscheidet seit v33.60 das Stripe-Dashboard (keine feste
+    // Zahlungsart im Aufruf) — die App kann es nicht wissen. Ob TWINT im Abo-Checkout erscheint, ist
+    // nicht gemessen (docs/FUER-FERNANDO.md §30). Eine Zusage, die niemand pruefen kann, steht nicht da.
+    name: 'E16 · „Premium freischalten" verspricht keine Zahlungsart, die die App nicht kennen kann — und wer „twint" sucht, findet den Eintrag trotzdem',
+    lauf: async () => __seite.evaluate(async () => {
+      try {
+        searchMenu('premium');
+        const tr = Array.from(document.querySelectorAll('#menu-search-results .menu-search-result')).find(r => /Premium/.test(r.textContent || ''));
+        if (!tr) return { ok: false, warum: 'die Suche nach „premium" findet den Eintrag nicht' };
+        const txt = (tr.textContent || '').replace(/\s+/g, ' ').trim();
+        const zusage = txt.match(/TWINT|IBAN|SEPA|Karte|Kreditkarte|PayPal|Rechnung/i);
+        if (zusage) return { ok: false, warum: 'der Eintrag verspricht eine Zahlungsart: „' + txt + '"' };
+        searchMenu('twint');
+        const tw = Array.from(document.querySelectorAll('#menu-search-results .menu-search-result')).some(r => /Premium/.test(r.textContent || ''));
+        if (!tw) return { ok: false, warum: 'wer „twint" sucht, findet „Premium freischalten" nicht mehr' };
+        return { ok: true, info: '„' + txt + '" · „twint" führt weiter zum Eintrag' };
+      } finally { try { clearMenuSearch(); } catch (_) {} }
+    }),
+  },
 ];
 
 (async () => {

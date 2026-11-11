@@ -416,7 +416,12 @@ const IGNORIEREN = new Set([
         else if (c === '}') { d--; if (d === 0) { ende = i; break; } }
         i++;
       }
-      if (ende > 0 && quelleTxt.slice(re.lastIndex, ende).indexOf('openModal(') >= 0) out.push(m[1]);
+      // v33.60: … oder `_gsNlOpen(` — der eine Helfer, der `openModal('gs-nl-modal')` ruft.
+      // Fuenfzehn Oeffner erreichten openModal NUR ueber ihn und wurden hier nie aufgerufen
+      // (gsOpenLina, gsOpenPlantDoctor, gsOpenSeedInventory, gsOpenFAQ …). Erster Lauf mit
+      // ihnen: 58 statt 43 Oeffner, einer davon tat ohne Konto-Id nichts und sagte nichts
+      // (gsOpenProfileSettings). Dieselbe Erweiterung steht in contrast_check.
+      if (ende > 0 && /openModal\(|_gsNlOpen\(/.test(quelleTxt.slice(re.lastIndex, ende))) out.push(m[1]);
     }
     return [...new Set(out)].sort();
   }, quelle);
