@@ -22,6 +22,326 @@ const SEED = require('./_seed.js');
 
 let __seite = null;
 const __anfragen = [];
+
+// ══ Standort (drei Faelle „Standort O1–O3" am Ende der Liste) ══════════════
+//
+// Anlass (11.11.2026, Befund auf dem Team-Brett): der Laengengrad des
+// gespeicherten Standorts hiess mal `lon`, mal `lng`. saveUserLocation schrieb
+// beide; drei weitere Schreiber (GPS-Auffrischung in gsGetPosition, der
+// Live-Tracking-Weg, das Nach-Geocoden in loadHomeWeather) setzten nur `lon`,
+// und sechs Leser nahmen nur `lng`. Gemessen an v33.58: von 48 Zellen (6 Leser
+// × 8 Zustaende mit bekanntem Ort) waren 34 falsch oder leer — der Scan einer
+// Person, die von Luzern nach Chur gefahren war, lag 93 km daneben (neue
+// Breite, alte Laenge: ein Punkt, an dem sie nie war), und in der Form der
+// BEISPIELDATEN (`{lat, lon}` ohne `lng`) kam bei keinem der sechs je etwas an.
+//
+// Die Faelle messen die WIRKUNG, nicht die Funktion: den gespeicherten
+// Verlaufseintrag, den POST-Body auf dem Draht, die Adresse der
+// Wetterabfrage, den gerenderten Text. Sie haben eine EIGENE Seite, weil sie
+// eine gestellte Geolocation des Browsers brauchen (kein Ersatz fuer
+// navigator.geolocation — der echte, mit gestellter Position) und ihr Netz
+// beantwortet werden muss statt abgebrochen.
+const ORT = {
+  HEIM: { lat: 47.0502, lon: 8.3093 },   // „zu Hause" (Luzern) — was gespeichert war
+  WEG:  { lat: 46.8508, lon: 9.5320 },   // wo die Person ist (Chur) — die gestellte GPS-Position
+  GEO:  { lat: 46.8499, lon: 9.5329 },   // Ortsmitte von „Chur" laut gestelltem Geocoder
+};
+function ortKm(a, b) {
+  if (!a || !b) return null;
+  const la = Number(a.lat), lo = Number(a.lon);
+  if (a.lat == null || a.lon == null || a.lat === '' || a.lon === '' || !isFinite(la) || !isFinite(lo)) return null;
+  const r = Math.PI / 180, dLat = (b.lat - la) * r, dLon = (b.lon - lo) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 10) / 10;
+}
+// Was die App von v33.58 nach einer GPS-Auffrischung im Speicher liess
+// (gemessen): neue Breite und `lon`, alte `lng`, alter Name — dazu der
+// Alt-Schluessel `userLocation` und gs_home_weather_loc noch ganz „zu Hause".
+const ORT_ALT_AUFGEFRISCHT = {
+  gs_user_location: { source: 'manual', lat: ORT.WEG.lat, lon: ORT.WEG.lon, name: 'Luzern', canton: 'Luzern', country: 'CH', zip: '6003', lng: ORT.HEIM.lon },
+  userLocation: { source: 'manual', lat: ORT.HEIM.lat, lon: ORT.HEIM.lon, name: 'Luzern', canton: 'Luzern', country: 'CH', zip: '6003', lng: ORT.HEIM.lon },
+  gs_home_weather_loc: { lat: ORT.HEIM.lat, lon: ORT.HEIM.lon, name: 'Luzern' },
+};
+// Eine gedeckelte Liste sagt „+N weitere" (docs/memory/02, Regel 9); GS_ALLES=1 zeigt alle.
+const ortKurz = (k) => { const n = process.env.GS_ALLES ? k.length : 7; return k.slice(0, n).join(' | ') + (k.length > n ? ' | +' + (k.length - n) + ' weitere' : ''); };
+let __ortSeite = null;
+async function ortSeite() {
+  if (__ortSeite) return __ortSeite;
+  const br = __seite.context().browser();
+  const ctx = await br.newContext({ viewport: { width: 412, height: 915 }, geolocation: { latitude: ORT.WEG.lat, longitude: ORT.WEG.lon }, permissions: ['geolocation'] });
+  const p = await ctx.newPage();
+  const S = { ctx, p, anfragen: [], fehler: [], geocoder: 'aus' };   // geocoder: 'aus' | 'an' | 'erst_aus'
+  p.on('pageerror', e => S.fehler.push(e.message.split('\n')[0]));
+  await p.route('**', async r => {
+    const q = r.request(), u = q.url();
+    if (u.startsWith('file:')) {
+      // Leaflet liegt unter /assets — auf file:// zeigt das auf die Wurzel des
+      // Dateisystems. Ohne die Bibliothek steigt gsCreateMap in Zeile 2 aus,
+      // und die Karte waere „gemessen", ohne dass etwas lief.
+      const m = u.match(/^file:\/\/\/assets\/(leaflet\.js|leaflet\.css)/);
+      if (m) return r.fulfill({ status: 200, contentType: m[1].endsWith('.js') ? 'application/javascript' : 'text/css', body: fs.readFileSync(path.join(__dirname, '..', 'assets', m[1])) });
+      return r.continue();
+    }
+    S.anfragen.push({ url: u, method: q.method(), body: q.postData() || null });
+    const json = (o, status) => r.fulfill({ status: status || 200, contentType: 'application/json', body: JSON.stringify(o) });
+    if (/geocoding-api\.open-meteo\.com/.test(u)) {
+      if (S.geocoder === 'aus' || (S.geocoder === 'erst_aus' && /count=5/.test(u))) return r.abort();
+      return json({ results: [{ latitude: ORT.GEO.lat, longitude: ORT.GEO.lon, name: 'Chur', country_code: 'CH', country: 'Schweiz', admin1: 'Graubünden', postcodes: ['7000'] }] });
+    }
+    if (/api\.open-meteo\.com\/v1\/forecast/.test(u)) {
+      // Die Antwort wird aus der ANFRAGE gebaut: jedes verlangte Feld kommt
+      // zurueck. Ein Ersatz, dem Felder fehlen, laesst die Wetter-Anzeigen
+      // werfen — und der Fall saehe Fehler, die nichts mit dem Ort zu tun haben.
+      // Kein Frost (4 °C), sonst schriebe gsCheckFrostWarning nach frost_history.
+      const sp = new URL(u).searchParams, liste = (k) => (sp.get(k) || '').split(',').filter(Boolean);
+      const zurueck = Number(sp.get('past_days') || 0), tage = zurueck + Number(sp.get('forecast_days') || 7);
+      const wert = (f) => /code/.test(f) ? 1 : /_min$/.test(f) ? 4 : /_max$/.test(f) ? 10 : /precipitation_sum/.test(f) ? 5 : 6;
+      const tag = (i) => new Date(Date.now() + (i - zurueck) * 864e5).toISOString().slice(0, 10);
+      const antwort = { latitude: Number(sp.get('latitude')), longitude: Number(sp.get('longitude')) };
+      if (liste('current').length) { antwort.current = {}; liste('current').forEach(f => { antwort.current[f] = wert(f); }); }
+      if (sp.get('current_weather')) antwort.current_weather = { temperature: 9, windspeed: 6, weathercode: 1, time: tag(zurueck) + 'T12:00' };
+      if (liste('daily').length) { antwort.daily = { time: Array.from({ length: tage }, (_, i) => tag(i)) }; liste('daily').forEach(f => { antwort.daily[f] = Array(tage).fill(wert(f)); }); }
+      if (liste('hourly').length) {
+        antwort.hourly = { time: Array.from({ length: tage * 24 }, (_, i) => tag(Math.floor(i / 24)) + 'T' + String(i % 24).padStart(2, '0') + ':00') };
+        liste('hourly').forEach(f => { antwort.hourly[f] = Array(tage * 24).fill(wert(f)); });
+      }
+      return json(antwort);
+    }
+    if (/nominatim\.openstreetmap\.org\/reverse/.test(u)) return json({ address: { city: 'Chur', state: 'Graubünden', postcode: '7000' } });
+    if (/\/rest\/v1\//.test(u)) return json(q.method() === 'GET' ? [] : [{}], q.method() === 'GET' ? 200 : 201);
+    return r.abort();
+  });
+  await p.addInitScript(SEED);
+  await p.addInitScript((alt) => {
+    Object.keys(alt).forEach(k => localStorage.setItem(k, JSON.stringify(alt[k])));
+    localStorage.setItem('gs_user_location_ts', String(Date.now()));   // frisch: keine Auffrischung beim Start
+    localStorage.removeItem('gs_gps_perm');
+    // Jeder GPS-Zugriff wird gezaehlt — „aus dem Speicher beantwortet" und „das
+    // GPS gefragt, das zufaellig dasselbe sagt" sehen sonst gleich aus.
+    try {
+      window.__ortGps = 0;
+      const g = navigator.geolocation, a = g.getCurrentPosition.bind(g), b = g.watchPosition.bind(g);
+      g.getCurrentPosition = function () { window.__ortGps++; return a.apply(null, arguments); };
+      g.watchPosition = function () { window.__ortGps++; return b.apply(null, arguments); };
+    } catch (_) {}
+  }, ORT_ALT_AUFGEFRISCHT);
+  await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await p.waitForTimeout(4000);
+  await p.evaluate(() => {
+    document.documentElement.classList.remove('gs-preauth');
+    window.gsRequire = () => true; window.gsHaptic = () => {};
+    // Eine Anmeldung, die die Beispieldaten nicht herstellen (kein gs_sb_uid):
+    // Garten-Scan, Cloud-Scan und Push-Registrierung steigen sonst in Zeile 1 aus.
+    localStorage.setItem('gs_sb_uid', 'nutzer-ort'); window.sbIsLoggedIn = () => true;
+  });
+  __ortSeite = S;
+  return S;
+}
+// Einen gespeicherten Zustand herstellen, wie ihn ein NEUSTART vorfindet: die
+// drei Ortsschluessel im Speicher UND die zwei Schritte, die der Start macht
+// (`var userLocation = safeGetItem(...)` und initUserLocation). Ein Zustand,
+// der nur an einem der beiden Orte gesetzt wird, ist nur halb hergestellt
+// (CLAUDE.md §3.3). `roh` ist der Text fuer gs_user_location (null = fehlt).
+async function ortZustand(S, roh, weitere) {
+  await S.p.evaluate((a) => {
+    ['gs_user_location', 'userLocation', 'gs_home_weather_loc', 'gs_gps_perm'].forEach(k => localStorage.removeItem(k));
+    if (a.roh != null) localStorage.setItem('gs_user_location', a.roh);
+    Object.keys(a.weitere || {}).forEach(k => localStorage.setItem(k, a.weitere[k]));
+    localStorage.setItem('gs_user_location_ts', String(Date.now()));
+    // loadHomeWeather waehrend des „Starts" anhalten: sie liefe unabgewartet
+    // in die naechste Messung. Gemessen wird sie eigens (ortLeser, startwetter).
+    const echt = window.loadHomeWeather; window.loadHomeWeather = function () {};
+    try { userLocation = safeGetItem('gs_user_location', null); } catch (_) {}
+    try { initUserLocation(); } catch (_) {}
+    window.loadHomeWeather = echt;
+  }, { roh: roh, weitere: weitere || null });
+}
+// Die sechs Leser aus dem Befund — je einer misst, was ANKOMMT. `voll` nimmt
+// die Geschwister dazu (Region, Gartenwetter, gemerkte Position, Anzeige,
+// Karte, Planer-Vorgabe, Startwetter).
+async function ortLeser(S, voll) {
+  const p = S.p, aus = {};
+  const ab = () => S.anfragen.length;
+  const seit = (n, re, m) => S.anfragen.slice(n).filter(a => re.test(a.url) && (!m || a.method === m));
+  const koord = (u) => { const m = String(u).match(/latitude=([^&]*)&longitude=([^&]*)/); return m ? { lat: m[1], lon: m[2] } : null; };
+  await p.evaluate(() => { localStorage.setItem('gs_user_location_ts', String(Date.now())); window.__ortGps = 0; });
+
+  // 1 · saveScanToHistory → der gespeicherte Verlaufseintrag und die Zeile in der Detailansicht
+  aus.scan = await p.evaluate(() => {
+    try {
+      window._gsLastScanIdInfo = null;   // sonst teilt sich der Eintrag die Kennung mit dem vorigen (10 s)
+      saveScanToHistory({ name: 'Gänseblümchen', latin: 'Bellis perennis', confidence: 91, category: 'flower' }, '');
+      const id = (window._gsLastScanIdInfo || {}).id;
+      const h = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      const i = h.findIndex(x => x && x.id === id);
+      if (i < 0) return { ausnahme: 'kein Verlaufseintrag entstanden' };
+      const c = h[i].context || {};
+      let zeile = null;
+      try {
+        openScanHistoryDetail(i);
+        const m = document.getElementById('scan-detail-modal');
+        const a = m && m.querySelector('a[href*="openstreetmap"]');
+        zeile = a ? a.textContent.trim() : '';
+        if (m) m.style.display = 'none';
+      } catch (er) { zeile = 'Ausnahme: ' + er.message; }
+      return { lat: c.lat, lon: c.lon, zeile: zeile };
+    } catch (er) { return { ausnahme: er.message }; }
+  });
+
+  // 2 · gsScanPersistToCloud → die Nutzlast an user_scans, wie sie auf dem Draht steht
+  let n = ab();
+  await p.evaluate(async () => { try { window._gsLastScanB64 = null; await gsScanPersistToCloud({ name: 'Gänseblümchen', latin: 'Bellis perennis', confidence: 91, category: 'flower' }); } catch (_) {} });
+  const us = seit(n, /\/rest\/v1\/user_scans/, 'POST')[0];
+  if (!us) aus.cloud = { ausnahme: 'kein POST an user_scans' };
+  else { const c = (JSON.parse(us.body).context) || {}; aus.cloud = { lat: c.lat, lon: c.lon }; }
+
+  // 3 · gsBuildScanContext → was die KI ueber den Ort liest
+  aus.ki = await p.evaluate(() => {
+    try { window._gsScanExif = null; const c = gsBuildScanContext(); return { lat: c.lat, lon: c.lng, zeile: gsFormatScanContext(c).split('\n').filter(z => /🗺️/.test(z)).join(' ') }; }
+    catch (er) { return { ausnahme: er.message }; }
+  });
+
+  // 4 · gsAttachMushroomForecast → die Adresse der Wetterabfrage
+  n = ab();
+  const pk = await p.evaluate(async () => {
+    try {
+      const alt = document.getElementById('mushroom-season-forecast'); if (alt) alt.remove();
+      const card = document.createElement('div'); document.body.appendChild(card);
+      await gsAttachMushroomForecast(card);
+      const c = document.getElementById('mushroom-season-forecast');
+      const da = !!c; card.remove(); if (c) c.remove();
+      return { karte: da };
+    } catch (er) { return { ausnahme: er.message }; }
+  });
+  const pz = seit(n, /api\.open-meteo\.com\/v1\/forecast.*past_days=3/)[0];
+  aus.pilz = pk.ausnahme ? pk : Object.assign({ karte: pk.karte }, pz ? koord(pz.url) : {});
+
+  // 5 · gsOpenGardenScan → die Metadaten des Garten-Scans und was der Assistent zeigt
+  aus.garten = await p.evaluate(() => {
+    try {
+      gsOpenGardenScan();
+      const g = window._gsGardenScan && window._gsGardenScan.metadata && window._gsGardenScan.metadata.gps;
+      const mc = document.getElementById('modal-content');
+      const t = mc ? (mc.textContent.match(/GPS: [-\d.]+, [-\d.]+/) || [''])[0] : '';
+      try { closeModal('detail-modal'); } catch (_) {}
+      return { lat: g ? g.lat : undefined, lon: g ? g.lng : undefined, zeile: t };
+    } catch (er) { try { closeModal('detail-modal'); } catch (_) {} return { ausnahme: er.message }; }
+  });
+
+  // 6 · gsRegisterPushSubscription → die Nutzlast an push_subscriptions
+  n = ab();
+  await p.evaluate(async () => { try { await gsRegisterPushSubscription({ endpoint: 'https://push.invalid/ort', keys: { p256dh: 'p', auth: 'a' } }); } catch (_) {} });
+  const ps = seit(n, /\/rest\/v1\/push_subscriptions/, 'POST')[0];
+  if (!ps) aus.push = { ausnahme: 'kein POST an push_subscriptions' };
+  else { const b = JSON.parse(ps.body); aus.push = { lat: b.gps_lat, lon: b.gps_lng }; }
+  if (!voll) return aus;
+
+  // 7 · gsResolveChRegions → die Mitte des Suchfensters in ch_municipalities
+  n = ab();
+  await p.evaluate(async () => { try { window._gsChRegionMushCache = null; await gsResolveChRegions(); } catch (_) {} });
+  const cm = seit(n, /ch_municipalities/)[0];
+  if (cm) {
+    const u = decodeURIComponent(cm.url), z = (re) => Number((u.match(re) || [])[1]);
+    aus.region = { lat: Math.round((z(/lat=gte\.([-\d.]+)/) + z(/lat=lte\.([-\d.]+)/)) / 2 * 1e4) / 1e4, lon: Math.round((z(/lon=gte\.([-\d.]+)/) + z(/lon=lte\.([-\d.]+)/)) / 2 * 1e4) / 1e4 };
+  } else aus.region = {};
+
+  // 8 · gsGetWeatherLocation → wofuer das Gartenwetter geholt wird, und unter welchem Namen
+  aus.gartenwetter = await p.evaluate(() => { try { gsGetWeatherLocation(); return { lat: _gsWeatherLat, lon: _gsWeatherLon, ort: _gsWeatherCity }; } catch (er) { return { ausnahme: er.message }; } });
+
+  // 9 · gsGetPosition → was ein Aufrufer bekommt, und ob dafuer das GPS gefragt wurde
+  aus.position = await p.evaluate(() => new Promise(res => {
+    let zu = false; const ende = (o) => { if (!zu) { zu = true; o.gps = window.__ortGps; res(o); } };
+    try { gsGetPosition((la, lo) => ende({ lat: la, lon: lo }), (m) => ende({ fehler: String(m).slice(0, 40) })); } catch (er) { ende({ ausnahme: er.message }); }
+    setTimeout(() => ende({ fehler: 'keine Antwort nach 9 s' }), 9000);
+  }));
+
+  // 10 · updateLocationUI → laeuft sie durch (danach kommt loadHomeWeather), und was steht im Statusfeld
+  aus.anzeige = await p.evaluate(() => {
+    const echt = window.loadHomeWeather; let lief = false; window.loadHomeWeather = function () { lief = true; };
+    try { updateLocationUI(); const st = document.getElementById('loc-status'); return { wetterGerufen: lief, text: st ? st.textContent.replace(/\s+/g, ' ').trim() : null }; }
+    catch (er) { return { wetterGerufen: lief, ausnahme: er.message }; }
+    finally { window.loadHomeWeather = echt; }
+  });
+
+  // 11 · Karte → Startpunkt und eigener Marker. Die Zeitgeber von gsCreateMap
+  // (invalidateSize nach 300/800 ms) werden abgefangen, damit die Karte gleich
+  // wieder abgebaut werden kann.
+  aus.karte = await p.evaluate(() => {
+    if (!window.L) return { ausnahme: 'Leaflet nicht geladen — die Karte lief nicht' };
+    const ab = () => { try { if (gsMap) gsMap.remove(); } catch (_) {} gsMap = null; gsMapLayer = null; gsMapOverlay = null; gsMapUserMarker = null; const d = document.getElementById('gs-map-div'); if (d) d.innerHTML = ''; };
+    const echt = window.setTimeout; window.setTimeout = function () { return 0; };
+    try {
+      ab();
+      try { gsCreateMap(); } catch (er) { const c = gsMap ? gsMap.getCenter() : null; return { ausnahme: 'gsCreateMap wirft „' + er.message + '"' + (c ? ' — Mitte ' + (+c.lat.toFixed(4)) + ' / ' + (+c.lng.toFixed(4)) : '') }; }
+      const c = gsMap.getCenter(), m = gsMapUserMarker ? gsMapUserMarker.getLatLng() : null;
+      return { lat: +c.lat.toFixed(4), lon: +c.lng.toFixed(4), zoom: gsMap.getZoom(), marker: m ? { lat: m.lat, lon: m.lng } : null };
+    } finally { window.setTimeout = echt; ab(); }
+  });
+
+  // 12 · loadHomeWeather ZULETZT (sie darf schreiben): die Adresse der Abfrage
+  n = ab();
+  await p.evaluate(async () => { try { await loadHomeWeather(); } catch (_) {} });
+  const hw = seit(n, /api\.open-meteo\.com\/v1\/forecast.*forecast_days=4/)[0];
+  aus.startwetter = Object.assign({ geocoder: seit(n, /geocoding-api/).length }, hw ? koord(hw.url) : {});
+  return aus;
+}
+// Urteil je Zelle. `wahr` ist das Paar, das zusammen gemessen wurde — oder
+// null, wenn der Zustand keinen Ort hergibt (dann darf NICHTS ankommen: kein
+// halbes Paar, keine 0, kein Vorgabewert als Ort). Gibt die Klagen zurueck
+// und zaehlt die Zellen; `sechs` sind die sechs Leser aus dem Befund.
+function ortUrteil(m, wahr, wo) {
+  const klagen = []; let gut = 0, alle = 0;
+  const gleich = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-6;
+  const leer = (v) => v === undefined || v === null;
+  const zeig = (o) => (leer(o.lat) && leer(o.lon)) ? 'nichts' : JSON.stringify(o.lat) + ' / ' + JSON.stringify(o.lon);
+  const daneben = (o) => { const d = wahr ? ortKm(o, wahr) : null; return d ? ' — ' + d + ' km daneben' : ''; };
+  // Eine Zelle: `fn` nennt den Grund, warum sie NICHT stimmt, oder ''.
+  const zelle = (name, o, fn) => {
+    alle++;
+    const grund = !o ? 'nicht gemessen' : (o.ausnahme ? o.ausnahme : fn(o));
+    if (grund) klagen.push(wo + ' · ' + name + ': ' + grund); else gut++;
+  };
+  // Stimmt das Paar — bzw. ist es leer, wenn kein Ort bekannt ist?
+  const paar = (o, opt) => {
+    opt = opt || {};
+    if (!wahr) return (leer(o.lat) && leer(o.lon)) ? '' : zeig(o) + ', obwohl kein Ort bekannt ist';
+    const ok = opt.stellen ? (o.lat === wahr.lat.toFixed(opt.stellen) && o.lon === wahr.lon.toFixed(opt.stellen))
+      : opt.adresse ? (!leer(o.lat) && Number(o.lat) === wahr.lat && Number(o.lon) === wahr.lon)
+      : (gleich(o.lat, wahr.lat) && gleich(o.lon, wahr.lon));
+    if (ok) return '';
+    if (leer(o.lat) && leer(o.lon)) return 'nichts';
+    return zeig(o) + (daneben(o) || ((leer(o.lat) || leer(o.lon)) ? ' — ein halbes Paar' : ' — keine Zahl'));
+  };
+  const zeile = wahr ? wahr.lat.toFixed(4) + ', ' + wahr.lon.toFixed(4) : '';
+  zelle('Scan-Verlauf', m.scan, o => paar(o) || (o.zeile !== zeile ? 'die Detailansicht zeigt „' + o.zeile + '" statt „' + zeile + '"' : ''));
+  zelle('Cloud-Scan', m.cloud, o => paar(o));
+  zelle('KI-Auftrag', m.ki, o => paar(o, { stellen: 3 }));
+  zelle('Pilz-Vorhersage', m.pilz, o => paar(o, { adresse: true }) || ((!!o.karte !== !!wahr) ? (o.karte ? 'die Karte steht da, ohne Ort' : 'die Karte fehlt') : ''));
+  zelle('Garten-Scan', m.garten, o => paar(o) || (o.zeile !== (wahr ? 'GPS: ' + zeile : '') ? 'der Assistent zeigt „' + o.zeile + '"' : ''));
+  zelle('Push', m.push, o => paar(o));
+  const sechs = gut;
+  if (m.region !== undefined) {
+    zelle('Region', m.region, o => paar(o));
+    zelle('Gartenwetter', m.gartenwetter, o => wahr ? paar(o)
+      : ((o.lat === 47.37 && o.lon === 8.54 && o.ort === 'Zürich') ? '' : zeig(o) + ' unter dem Namen „' + o.ort + '" — erwartet die Vorgabe 47.37 / 8.54 als „Zürich", nie gemischt'));
+    zelle('gemerkte Position', m.position, o => {
+      if (!wahr) return leer(o.lat) ? '' : zeig(o) + ', obwohl kein Ort bekannt ist';
+      if (o.fehler) return 'Fehler „' + o.fehler + '" statt des gespeicherten Orts';
+      return paar(o) || (o.gps ? 'das GPS wurde gefragt (' + o.gps + '×), obwohl der Ort gespeichert ist' : '');
+    });
+    zelle('Standort-Anzeige', m.anzeige, o => !o.wetterGerufen ? 'loadHomeWeather wird danach nicht gerufen'
+      : ((wahr && o.text !== null && o.text.indexOf(zeile) < 0) ? 'nennt die Koordinaten nicht: „' + o.text + '"' : ''));
+    zelle('Karte', m.karte, o => {
+      if (!wahr) return (o.lat === 46.8 && o.lon === 8.3 && !o.marker) ? '' : 'Mitte ' + zeig(o) + (o.marker ? ', mit Marker' : '') + ' — erwartet die Schweiz-Ansicht 46.8 / 8.3 ohne Marker, nie gemischt';
+      if (!gleich(o.lat, +wahr.lat.toFixed(4)) || !gleich(o.lon, +wahr.lon.toFixed(4))) return 'startet bei ' + zeig(o) + daneben(o);
+      if (!o.marker || !gleich(o.marker.lat, wahr.lat) || !gleich(o.marker.lon, wahr.lon)) return 'der eigene Marker ' + (o.marker ? 'steht bei ' + zeig(o.marker) : 'fehlt');
+      return '';
+    });
+    zelle('Startwetter', m.startwetter, o => (!wahr || (Number(o.lat) === wahr.lat && Number(o.lon) === wahr.lon)) ? '' : 'fragt ' + zeig(o) + ' ab' + daneben(o));
+  }
+  return { klagen: klagen, gut: gut, alle: alle, sechs: sechs };
+}
+
 const FAELLE = [
   {
     name: 'B1 · sbFetch ohne zweites Argument stuerzt nicht mehr ab — Verkaeufer-Status und Wetterwarnungen kommen an',
@@ -1191,6 +1511,314 @@ const FAELLE = [
       return { ok: true, info: Object.entries(r).map(([k, v]) => k + ' ' + v[1]).join(' · ') + ' · davon ' + t.ueberfaellig + ' ueberfaellig, ' + t.heute + ' heute' };
     },
   },
+  {
+    // Der Standort der Person liegt in gs_user_location. Welche FORM dort liegt,
+    // haengt davon ab, welcher Weg zuletzt geschrieben hat — und davon, welche
+    // App-Version: ein Geraet, das heute aktualisiert, bringt mit, was die alte
+    // Fassung hinterlassen hat. Der Fall legt jede dieser Formen in den Speicher,
+    // startet den Standort neu und misst an ZWOELF Lesern, was ankommt.
+    //
+    // Die Erwartung ist EINE Regel: das Paar, das zusammen gemessen wurde —
+    // oder gar nichts. Nie die neue Breite mit der alten Laenge (ein Punkt, an
+    // dem niemand war), nie ein halbes Paar (der Server uebergeht es still),
+    // nie 0 und nie ein Vorgabewert, der sich als Ort ausgibt.
+    //
+    // Beide Richtungen: „beide" ist die Form, die auch v33.58 richtig las — der
+    // Fall waere sonst auch gruen, wenn kein Leser mehr etwas tut. Und die erste
+    // Messung laeuft nach einem ECHTEN Start der Seite; die zweite stellt
+    // dieselbe Form nach und muss dasselbe Urteil ergeben, sonst misst die
+    // Nachstellung etwas anderes als die App.
+    name: 'Standort O1 · jede Form, die ein Gerät gespeichert haben kann, kommt bei jedem Leser als DASSELBE Paar an — oder gar nicht (nie gemischt, nie halb, nie 0)',
+    lauf: async () => {
+      const S = await ortSeite();
+      await S.ctx.clearPermissions();   // GPS aus: was ankommt, kommt aus dem Speicher
+      S.geocoder = 'aus';
+      const W = ORT.WEG, j = JSON.stringify, A = ORT_ALT_AUFGEFRISCHT;
+      const chur = { lat: W.lat, lon: W.lon, lng: W.lon, name: 'Chur', canton: 'Graubünden', country: 'CH', zip: '7000', source: 'gps' };
+      const FORMEN = [
+        // [Name, Text in gs_user_location (null = fehlt), weitere Schluessel, das wahre Paar]
+        ['lon neu / lng alt', j(A.gs_user_location), { userLocation: j(A.userLocation), gs_home_weather_loc: j(A.gs_home_weather_loc) }, W],
+        ['nur lon', j({ lat: W.lat, lon: W.lon, name: 'Chur', canton: 'GR', country: 'CH', zip: '7000' }), null, W],
+        ['nur lng', j({ lat: W.lat, lng: W.lon, name: 'Chur' }), null, W],
+        ['beide', j(chur), { userLocation: j(chur), gs_home_weather_loc: j({ lat: W.lat, lon: W.lon, name: 'Chur' }) }, W],
+        ['Zahl als Zeichenkette', j({ lat: String(W.lat), lon: String(W.lon), lng: String(W.lon), name: 'Chur' }), null, W],
+        ['nur Breite', j({ lat: W.lat, name: 'Chur' }), null, null],
+        ['Name ohne Koordinaten', j({ lat: null, lon: null, name: 'Chur', canton: '', country: 'CH', zip: '', source: 'manual' }), null, null],
+        ['0 / 0', j({ lat: 0, lon: 0, name: 'Chur' }), null, null],
+        ['unlesbar', '{"lat":46.8508,"lon"', null, null],
+        ['nichts gespeichert', null, null, null],
+      ];
+      const t0 = Date.now();
+      // Die Seite wurde mit „lon neu / lng alt" GELADEN — das ist die Messung nach echtem Start.
+      const start = ortUrteil(await ortLeser(S, true), W, 'echter Start');
+      const klagen = start.klagen.slice(); let gut = start.gut, alle = start.alle, sechs = start.sechs, sechsAlle = 6;
+      const jeForm = [];
+      for (let i = 0; i < FORMEN.length; i++) {
+        const [name, roh, weitere, wahr] = FORMEN[i];
+        await ortZustand(S, roh, weitere);
+        const u = ortUrteil(await ortLeser(S, true), wahr, '„' + name + '"');
+        if (i === 0) {
+          const a = start.klagen.map(k => k.replace('echter Start', '')).join('|'), b = u.klagen.map(k => k.replace('„' + name + '"', '')).join('|');
+          if (a !== b) return { ok: false, warum: 'die nachgestellte Neuladung misst etwas anderes als der echte Start — der Fall wäre eine Attrappe. Echter Start: ' + (start.klagen.length + ' Klagen') + ' · nachgestellt: ' + u.klagen.length + ' Klagen · erste Abweichung: ' + (u.klagen.find(k => a.indexOf(k.replace('„' + name + '"', '')) < 0) || start.klagen.find(k => b.indexOf(k.replace('echter Start', '')) < 0) || '?') };
+        }
+        klagen.push(...u.klagen); gut += u.gut; alle += u.alle; sechs += u.sechs; sechsAlle += 6;
+        jeForm.push(name + ' ' + u.gut + '/' + u.alle);
+      }
+      const dauer = Math.round((Date.now() - t0) / 100) / 10;
+      if (klagen.length) return { ok: false, warum: (alle - gut) + ' von ' + alle + ' Zellen stimmen nicht (die sechs Leser aus dem Befund: ' + sechs + ' von ' + sechsAlle + ' richtig) — ' + jeForm.join(' · ') + '. ' + ortKurz(klagen) };
+      return { ok: true, info: alle + ' von ' + alle + ' Zellen (' + FORMEN.length + ' Formen + 1 echter Start, je 12 Leser) · die sechs aus dem Befund ' + sechs + ' von ' + sechsAlle + ' · ' + dauer + ' s · JS-Fehler auf der Seite: ' + S.fehler.length };
+    },
+  },
+  {
+    // Die Gegenseite von O1: nicht was im Speicher LIEGT, sondern was die
+    // Schreiber HINTERLASSEN. Fuenf Wege, jeder wirklich gegangen — mit der
+    // gestellten Position des Browsers (zu Hause Luzern, unterwegs Chur) und
+    // einem Geocoder, der beim ersten Mal nicht antwortet:
+    //   1  saveUserLocation                    (Ort gesetzt)
+    //   2  gsGetPosition frischt im Hintergrund auf  (nach einer Stunde)
+    //   3  gsLiveTrackingStart                 (Live-Standort)
+    //   4  Ort getippt ohne Netz, loadHomeWeather geocodet nach
+    //   5  Start nur mit gs_home_weather_loc (initUserLocation), dann Auffrischung
+    // Danach muss EINE Form dastehen (lat/lon Zahlen, lng = lon), und die
+    // sechs Leser aus dem Befund muessen genau diesen Ort bekommen.
+    //
+    // Und der Datenschutz steht als Zahl im Fall (revDSG, CLAUDE.md §3.7): der
+    // Standort geht an keine Stelle, an die er vorher nicht ging. Genau EIN
+    // Weg schickt ihn von sich aus an den Server — saveUserLocation zieht die
+    // Push-Koordinaten nach (seit v30.77). Die Auffrischung und der
+    // Live-Standort schicken NICHTS: ein Live-Standort, der jede Position an
+    // den Server meldet, waere eine neue Datenbearbeitung, keine Reparatur.
+    name: 'Standort O2 · fünf Schreiber, EINE Form (lat/lon als Zahl, lng = lon) — und was sie hinterlassen, kommt bei den sechs Lesern an; Auffrischung und Live-Standort schicken nichts an den Server',
+    lauf: async () => {
+      const S = await ortSeite(), p = S.p;
+      await S.ctx.grantPermissions(['geolocation']);
+      const H = ORT.HEIM, W = ORT.WEG, G = ORT.GEO;
+      const gespeichert = () => p.evaluate(() => { try { return JSON.parse(localStorage.getItem('gs_user_location') || 'null'); } catch (_) { return null; } });
+      const warteAuf = async (lat) => { for (let i = 0; i < 90; i++) { const o = await gespeichert(); if (o && Number(o.lat) === lat) return o; await p.waitForTimeout(100); } return await gespeichert(); };
+      const anPush = (n) => S.anfragen.slice(n).filter(a => /\/rest\/v1\/push_subscriptions/.test(a.url));
+      const anOrtsdienst = (n) => S.anfragen.slice(n).filter(a => /nominatim|geocoding-api/.test(a.url));
+      const heim = async () => {
+        await p.evaluate((h) => {
+          try { gsLiveTrackingStop(); } catch (_) {}
+          localStorage.removeItem('gs_gps_perm');
+          saveUserLocation({ source: 'manual', lat: h.lat, lon: h.lon, name: 'Luzern', canton: 'Luzern', country: 'CH', zip: '6003' });
+        }, H);
+        await p.waitForTimeout(300);
+      };
+      const auffrischen = () => p.evaluate(() => {
+        localStorage.setItem('gs_gps_perm', 'granted');
+        localStorage.setItem('gs_user_location_ts', String(Date.now() - 2 * 3600000));   // aelter als eine Stunde
+        gsGetPosition(function () {}, function () {});
+      });
+      const klagen = [], formen = []; let gut = 0, alle = 0;
+      const pruefe = async (weg, soll) => {
+        const o = await warteAuf(soll.lat);
+        const f = [];
+        if (!o) f.push('nichts gespeichert');
+        else {
+          if (typeof o.lat !== 'number' || typeof o.lon !== 'number') f.push('lat/lon sind keine Zahlen');
+          if (o.lat !== soll.lat || o.lon !== soll.lon) f.push('lat/lon ' + JSON.stringify(o.lat) + ' / ' + JSON.stringify(o.lon) + ' statt ' + soll.lat + ' / ' + soll.lon);
+          if (o.lng !== o.lon) f.push('lng ' + JSON.stringify(o.lng) + ' ≠ lon ' + JSON.stringify(o.lon));
+        }
+        formen.push(!f.length);
+        if (f.length) klagen.push(weg + ' · gespeicherte Form: ' + f.join(', '));
+        const u = ortUrteil(await ortLeser(S, false), soll, weg);
+        klagen.push(...u.klagen); gut += u.gut; alle += u.alle;
+      };
+      const t0 = Date.now();
+      S.geocoder = 'aus';
+
+      // 1 · saveUserLocation — und genau EIN Nachziehen der Push-Koordinaten
+      let n = S.anfragen.length;
+      await heim();
+      await p.waitForTimeout(400);
+      const p1 = anPush(n);
+      const b1 = p1.length === 1 && p1[0].method === 'PATCH' ? JSON.parse(p1[0].body || '{}') : null;
+      if (!b1 || b1.gps_lat !== H.lat || b1.gps_lng !== H.lon) klagen.push('saveUserLocation · Push-Koordinaten nachgezogen: ' + (b1 ? JSON.stringify(b1) : p1.length + ' Anfragen') + ' (erwartet genau ein PATCH mit ' + H.lat + ' / ' + H.lon + ')');
+      await pruefe('saveUserLocation', H);
+
+      // 2 · Auffrischung im Hintergrund
+      await heim(); n = S.anfragen.length;
+      await auffrischen();
+      await warteAuf(W.lat);
+      const still2 = anPush(n).length + anOrtsdienst(n).length;
+      await pruefe('Auffrischung (gsGetPosition)', W);
+
+      // 3 · Live-Standort
+      await heim(); n = S.anfragen.length;
+      await p.evaluate(() => { localStorage.setItem('gs_gps_perm', 'granted'); gsLiveTrackingStart(); });
+      await warteAuf(W.lat);
+      await p.evaluate(() => { try { gsLiveTrackingStop(); } catch (_) {} });
+      const still3 = anPush(n).length + anOrtsdienst(n).length;
+      await pruefe('Live-Standort (gsLiveTrackingStart)', W);
+
+      // 4 · Ort getippt, der Geocoder antwortet erst der Startseite
+      S.geocoder = 'erst_aus';
+      const getippt = await p.evaluate(() => {
+        localStorage.removeItem('gs_gps_perm');
+        const i = document.getElementById('loc-name-input'); if (!i) return false;
+        i.value = 'Chur'; saveManualLocation(); return true;
+      });
+      if (!getippt) klagen.push('Ort getippt · das Eingabefeld #loc-name-input fehlt — der Weg lief nicht');
+      await pruefe('Ort getippt, Startseite geocodet nach', G);
+      S.geocoder = 'aus';
+
+      // 5 · Start nur mit gs_home_weather_loc, dann Auffrischung
+      await ortZustand(S, null, { gs_home_weather_loc: JSON.stringify({ lat: H.lat, lon: H.lon, name: 'Luzern' }) });
+      n = S.anfragen.length;
+      await auffrischen();
+      await warteAuf(W.lat);
+      const still5 = anPush(n).length;
+      await pruefe('Start aus gs_home_weather_loc, dann Auffrischung', W);
+
+      // Der Datenschutz als Zahl.
+      if (still2) klagen.push('Auffrischung · ' + still2 + ' Anfrage(n) an push_subscriptions/Ortsdienste — die Auffrischung schickt den Standort nirgends hin');
+      if (still3) klagen.push('Live-Standort · ' + still3 + ' Anfrage(n) an push_subscriptions/Ortsdienste — der Live-Standort verlässt das Gerät nicht');
+      if (still5) klagen.push('Start aus gs_home_weather_loc · ' + still5 + ' Anfrage(n) an push_subscriptions');
+      // Aufraeumen: der naechste Fall soll einen ruhigen Zustand vorfinden.
+      await p.evaluate(() => { try { gsLiveTrackingStop(); } catch (_) {} localStorage.removeItem('gs_gps_perm'); });
+      const nForm = formen.filter(Boolean).length, dauer = Math.round((Date.now() - t0) / 100) / 10;
+      if (klagen.length) return { ok: false, warum: nForm + ' von 5 Schreibern hinterlassen die eine Form · ' + gut + ' von ' + alle + ' Leser-Zellen richtig — ' + ortKurz(klagen) };
+      return { ok: true, info: '5 von 5 Schreibern: lat/lon als Zahl, lng = lon · ' + gut + ' von ' + alle + ' Leser-Zellen · an den Server: saveUserLocation 1 PATCH (Push-Koordinaten), Auffrischung 0, Live-Standort 0 · ' + dauer + ' s' };
+    },
+  },
+  {
+    // Die dritte Haelfte: die RECHNUNG und der QUELLTEXT. O1 und O2 messen die
+    // Wirkung; dieser Fall haelt fest, WARUM sie stimmt — damit die naechste
+    // Stelle, die den Standort braucht, den Fehler nicht wieder mitbringt:
+    //   · _gsOrtKoord(o) ist die Regel: lon vor lng vor longitude (nur `lon`
+    //     wird je allein aufgefrischt — bei einem Widerspruch ist `lng` der
+    //     alte Wert, und nur (lat, lon) wurde zusammen gemessen), eine Zahl
+    //     oder nichts (Number(null) ist 0, Number(true) ist 1, Number([46.8])
+    //     ist 46.8 — alle drei sind KEINE Koordinate), 0/0 ist „nicht gesetzt".
+    //   · gsOrt() liest die EINE Quelle; _gsOrtForm ist die EINE Form.
+    //   · Genau EIN setItem auf gs_user_location (v33.34: ein Schluessel,
+    //     dessen Inhalt eine Form hat, hat genau einen Schreiber).
+    //   · Niemand greift am Alias `userLocation` oder am Alt-Schluessel
+    //     `userLocation` nach Koordinaten.
+    //   · Wer den Schluessel selbst anfasst oder `.lng` liest, steht mit
+    //     Grund in einer Liste — die Liste ist die Pruefung, in BEIDE
+    //     Richtungen (ein Eintrag, der nicht mehr zutrifft, wird gemeldet).
+    name: 'Standort O3 · die Regel gerechnet (lon vor lng, Zahl oder nichts, nie 0) — und im Quelltext: ein Schreiber, kein Griff nach Koordinaten am Leser vorbei, jede Ausnahme namentlich',
+    lauf: async () => {
+      const S = await ortSeite(), p = S.p;
+      const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const ohne = idx.split('\n').filter(z => !z.trim().startsWith('//')).join('\n');   // ganze Kommentarzeilen zaehlen nicht
+      const zaehl = (re) => (ohne.match(re) || []).length;
+      const klagen = [];
+
+      // ── 1 · Die Rechnung ────────────────────────────────────────────────
+      const r = await p.evaluate(() => {
+        if (typeof window._gsOrtKoord !== 'function' || typeof window.gsOrt !== 'function' || typeof window._gsOrtForm !== 'function') return { fehlt: true };
+        const P = [46.8508, 9.532];
+        const F = [
+          [{ lat: 46.8508, lon: 9.532, lng: 8.3093 }, P, 'lon gewinnt gegen lng'],
+          [{ lat: 46.8508, lng: 9.532 }, P, 'nur lng'],
+          [{ lat: 46.8508, lon: 9.532 }, P, 'nur lon'],
+          [{ lat: '46.8508', lon: ' 9.532 ' }, P, 'Zeichenkette'],
+          [{ latitude: 46.8508, longitude: 9.532 }, P, 'latitude/longitude'],
+          [{ lat: 46.8508, lon: null, lng: 9.532 }, P, 'lon leer → lng'],
+          [{ lat: 46.8508, lon: 'abc', lng: 9.532 }, P, 'lon unlesbar → lng'],
+          ['{"lat":46.8508,"lon":9.532}', P, 'als Text'],
+          [{ lat: 0, lon: 9.532 }, [0, 9.532], 'der Äquator ist ein Ort'],
+          [{ lat: 46.8508, lon: 0 }, [46.8508, 0], 'Greenwich auch'],
+          [{ lat: null, lon: null }, null, 'null/null'], [{ lat: '', lon: '' }, null, 'leer'], [{ lat: 46.8508 }, null, 'nur Breite'], [{ lon: 9.532 }, null, 'nur Länge'],
+          [{ lat: 0, lon: 0 }, null, '0/0'], [{ lat: NaN, lon: 9.5 }, null, 'NaN'], [{ lat: Infinity, lon: 1 }, null, 'unendlich'],
+          [{ lat: 91, lon: 9.5 }, null, 'Breite 91'], [{ lat: 46.8, lon: 181 }, null, 'Länge 181'],
+          [{ lat: true, lon: 9.5 }, null, 'true'], [{ lat: [46.8], lon: 9.5 }, null, 'Liste'], [null, null, 'null'], ['', null, 'leerer Text'], ['kaputt{', null, 'unlesbarer Text'], [42, null, 'Zahl statt Objekt'],
+        ];
+        const falsch = [];
+        F.forEach(function (f) {
+          let k; try { k = window._gsOrtKoord(f[0]); } catch (e) { falsch.push(f[2] + ' wirft'); return; }
+          const ist = k ? [k.lat, k.lon] : null;
+          if (JSON.stringify(ist) !== JSON.stringify(f[1])) falsch.push(f[2] + ' → ' + JSON.stringify(ist) + ' statt ' + JSON.stringify(f[1]));
+          else if (k && (typeof k.lat !== 'number' || typeof k.lon !== 'number')) falsch.push(f[2] + ' → keine Zahlen');
+        });
+        // Die Form: dasselbe Objekt zurueck, lat/lon als Zahl oder null, lng = lon, der Rest bleibt.
+        const a = { lat: '46.8508', lng: 9.532, name: 'x' }, a2 = window._gsOrtForm(a);
+        if (a2 !== a || JSON.stringify(a) !== '{"lat":46.8508,"lng":9.532,"name":"x","lon":9.532}') falsch.push('Form aus nur-lng: ' + JSON.stringify(a2));
+        const b = window._gsOrtForm({ lat: 46.8508, lon: 9.532, lng: 8.3093 });
+        if (b.lng !== 9.532) falsch.push('Form bei Widerspruch: lng bleibt ' + b.lng);
+        const c = window._gsOrtForm({ lat: null, lon: null, name: 'Chur' });
+        if (c.lat !== null || c.lon !== null || c.lng !== null || c.name !== 'Chur') falsch.push('Form ohne Koordinaten: ' + JSON.stringify(c));
+        // Die Quelle: gs_user_location; NUR wenn der Schluessel ganz fehlt gs_home_weather_loc
+        // (dieselbe Reihenfolge wie initUserLocation). Ein Name ohne Koordinaten faellt NICHT zurueck.
+        const merk = {}; ['gs_user_location', 'gs_home_weather_loc', 'userLocation'].forEach(function (s) { merk[s] = localStorage.getItem(s); });
+        const quelle = {};
+        try {
+          localStorage.setItem('gs_home_weather_loc', '{"lat":47.05,"lon":8.31}');
+          localStorage.setItem('userLocation', '{"lat":1,"lon":1,"lng":1}');
+          localStorage.setItem('gs_user_location', '{"lat":46.8508,"lon":9.532,"lng":8.3093}');
+          quelle.da = window.gsOrt();
+          localStorage.setItem('gs_user_location', '{"lat":null,"lon":null,"name":"Chur"}');
+          quelle.ohneKoordinaten = window.gsOrt();
+          localStorage.removeItem('gs_user_location');
+          quelle.fehlt = window.gsOrt();
+          localStorage.removeItem('gs_home_weather_loc');
+          quelle.nichts = window.gsOrt();
+        } finally { Object.keys(merk).forEach(function (s) { if (merk[s] == null) localStorage.removeItem(s); else localStorage.setItem(s, merk[s]); }); }
+        if (JSON.stringify(quelle) !== '{"da":{"lat":46.8508,"lon":9.532},"ohneKoordinaten":null,"fehlt":{"lat":47.05,"lon":8.31},"nichts":null}') falsch.push('Quelle: ' + JSON.stringify(quelle));
+        return { faelle: F.length, falsch: falsch };
+      });
+      if (r.fehlt) klagen.push('der eine Leser fehlt (gsOrt / _gsOrtKoord / _gsOrtForm)');
+      else if (r.falsch.length) klagen.push('die Regel rechnet falsch: ' + r.falsch.slice(0, 4).join(' · ') + (r.falsch.length > 4 ? ' · +' + (r.falsch.length - 4) + ' weitere' : ''));
+
+      // ── 2 · Der Quelltext: Zahlen ───────────────────────────────────────
+      const nSchreiber = zaehl(/setItem\(\s*'gs_user_location'\s*,/g);
+      if (nSchreiber !== 1) klagen.push(nSchreiber + ' Schreiber auf gs_user_location (erwartet: 1 — _gsOrtSpeichern)');
+      const nAlt = zaehl(/(?:getItem|getJSON|safeGetItem|\.get)\(\s*'userLocation'/g);
+      if (nAlt) klagen.push(nAlt + ' Leser des Alt-Schlüssels „userLocation" (er wird nur von saveUserLocation geschrieben und ist nach jeder Auffrischung alt)');
+      const nAlias = zaehl(/\buserLocation\.(?:lat|lon|lng|latitude|longitude)\b/g);
+      if (nAlias) klagen.push(nAlias + ' Griffe nach Koordinaten am Alias userLocation (erwartet: 0 — gsOrt())');
+
+      // ── 3 · Der Quelltext: wer darf was, namentlich ─────────────────────
+      // Gelesen wird der eigene Text jeder globalen Funktion (Function#toString),
+      // ohne Kommentare — eine Suche im Quelltext findet sonst zuerst den Text
+      // UEBER die Sache.
+      const ROH = {   // fasst den Schluessel 'gs_user_location' selbst an — warum?
+        _gsOrtRoh: 'der eine Leser der Quelle', _gsOrtSpeichern: 'der eine Schreiber',
+        saveUserLocation: 'nennt den Schluessel nur im Kommentar/Alt-Schluessel-Paar — schreibt ueber _gsOrtSpeichern',
+        initUserLocation: 'baut den Alias beim Start (durch _gsOrtKoord)',
+        loadHomeWeather: 'liest den Namen fuer das Nach-Geocoden; Koordinaten durch _gsOrtKoord, schreibt ueber _gsOrtSpeichern',
+        gsGetLocationFor: 'gibt das rohe Objekt weiter (Wetter-Standort-Wahl); die Aufrufer gehen durch _gsOrtKoord',
+        gsWetterGeraetAbgleich: 'nur der Name', gsLinaContext: 'nur der Name', openGardenAI: 'nur der Name', gsPPgoStep: 'nur der Name', gsOpenWeatherWarn: 'nur der Name',
+        _gsEgStand: 'nur die Höhe', gsBuildScanContext: 'Kanton, Name und Höhe neben dem Paar aus gsOrt()',
+        _gsApplyStateBlob: 'Rückweg des Backups — der Schlüssel als Ganzes',
+      };
+      const LNG = {   // liest `.lng` — an einem ANDEREN Ding als dem Standort der Person
+        _gsOrtKoord: 'die Regel selbst', _gsOrtForm: 'die Form selbst (lng = lon)',
+        gsBuildScanContext: 'Ort aus dem FOTO (EXIF) und das Feld ctx.lng des Scan-Auftrags', gsFormatScanContext: 'ctx.lng des Scan-Auftrags', showScanResult: 'r._ctx.lng des Scan-Auftrags',
+        gsGetLocationFor: 'Koordinaten eines GARTENS (g.lng)',
+        gsCreateMap: 'Klick auf die Karte (e.latlng.lng) und der neue Fundort', gsAddMarker: 'Fundort', gsLoadMarkers: 'Fundort', gsLoadMarkersFromCloud: 'Fundort', gsRefreshMarkers: 'Fundort', _gsMyFindFocus: 'Fundort',
+        gsBuildGardenScanWizard: 'metadata.gps des Garten-Scans', gsGardenScanGPS: 'metadata.gps des Garten-Scans',
+        gsLuxCalibrate: 'gsUserPosition (eine Variable, die es nicht gibt — Fund vom 11.11.2026, steht in STATUS)',
+      };
+      const q = await p.evaluate((a) => {
+        const sauber = (t) => t.split('\n').map(function (z) { return z.replace(/(^|\s)\/\/.*$/, ''); }).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+        const roh = [], lng = [];
+        Object.getOwnPropertyNames(window).forEach(function (k) {
+          let f; try { f = window[k]; } catch (_) { return; }
+          if (typeof f !== 'function') return;
+          let t; try { t = Function.prototype.toString.call(f); } catch (_) { return; }
+          if (t.length < 40 || /\[native code\]/.test(t)) return;
+          t = sauber(t);
+          if (/['"]gs_user_location['"]/.test(t)) roh.push(k);
+          if (/\.lng\b/.test(t)) lng.push(k);
+        });
+        return { roh: roh, lng: lng };
+      }, null);
+      const gegen = (gefunden, liste, was) => {
+        const neu = gefunden.filter(k => !liste[k]), weg = Object.keys(liste).filter(k => gefunden.indexOf(k) < 0);
+        if (neu.length) klagen.push(neu.length + ' Funktion(en) ' + was + ' ohne Eintrag: ' + neu.slice(0, 8).join(', ') + (neu.length > 8 ? ', +' + (neu.length - 8) + ' weitere' : '') + ' — wer den Standort braucht, ruft gsOrt()');
+        if (weg.length) klagen.push('in der Liste, tut es aber nicht mehr (' + was + '): ' + weg.join(', ') + ' — Eintrag streichen');
+      };
+      gegen(q.roh, ROH, 'fassen gs_user_location selbst an');
+      gegen(q.lng, LNG, 'lesen .lng');
+
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: r.faelle + ' Eingaben gerechnet · 1 Schreiber auf gs_user_location · 0 Leser des Alt-Schlüssels · 0 Koordinaten-Griffe am Alias · ' + q.roh.length + ' Funktionen am Schlüssel und ' + q.lng.length + ' mit .lng, alle namentlich' };
+    },
+  },
 ];
 
 (async () => {
@@ -1208,7 +1836,14 @@ const FAELLE = [
   await p.evaluate(() => { document.documentElement.classList.remove('gs-preauth'); window.gsRequire = () => true; window.gsHaptic = () => {}; });
   console.log('\n=== robust_check — vier kleine Versprechen, die niemand geprueft hatte');
   let kaputt = 0;
+  // GS_NUR=<Teil des Namens>: nur die passenden Faelle fahren (fuer den Bau und
+  // fuer Gegenproben). Ein solcher Lauf ist NIE gruen — er endet mit 2, damit
+  // ihn niemand fuer den ganzen Pruefstand haelt.
+  const NUR = process.env.GS_NUR || '';
+  let gefahren = 0;
   for (const f of FAELLE) {
+    if (NUR && f.name.indexOf(NUR) < 0) continue;
+    gefahren++;
     let r;
     try { r = await f.lauf(); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
     if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
@@ -1216,8 +1851,8 @@ const FAELLE = [
   }
   await br.close();
   console.log('  ---');
-  console.log('  Faelle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
+  console.log('  Faelle geprueft: ' + gefahren + ' · davon kaputt: ' + kaputt + (NUR ? ' · UNVOLLSTAENDIG: nur „' + NUR + '" (' + gefahren + ' von ' + FAELLE.length + ')' : ''));
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
   console.log('  Grenze: B3 ist eine Quelltext-Frage — den ersten Install misst offline_check. B8 statisch: eine Zeile, die den Fehler erst spaeter anzeigt, sieht die Suche nicht — der gerenderte Toast und das Quiz-Urteil sind die Messung.');
-  process.exitCode = kaputt ? 1 : 0;
+  process.exitCode = kaputt ? 1 : (NUR ? 2 : 0);
 })();
