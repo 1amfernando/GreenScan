@@ -5,6 +5,8 @@
 //   fn_check_rate_limit. Fail-open (Rate-Limit-Fehler blockiert den Dienst nicht).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
+import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -300,20 +302,32 @@ Deno.serve(async (req) => {
 
     const systemPrompt = buildSystemPrompt(regionalContext, intentSection, planIntent, antagonistPairs || [], climateSection, constraintsSection, horizonSection, v7Addon);
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    // v32.72 (Audit B2): der Client wartete 60 s (Garten-Scan) bzw. 30 s (Plan-Chat), der
+    // Server rechnete bis horizonYears > 1 ? 14000 : 10000 Tokens ohne Abbruch weiter und speicherte den Plan trotzdem —
+    // der Nutzer sah „Zeitueberschreitung", startete neu, zahlte doppelt und hatte zwei Plaene.
+    // Jetzt bricht der Server nach 110 s ab (Edge-Function-Limit 150 s), der Client wartet 120 s.
+    let anthropicRes: Response;
+    try {
+      anthropicRes = await anthropicFetch("vision", {
       method: "POST",
+      signal: AbortSignal.timeout(110_000),
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
         max_tokens: horizonYears > 1 ? 14000 : 10000,
         system: systemPrompt,
         messages: [{ role: "user", content: userContent }],
       }),
     });
+    } catch (e) {
+      const zuLang = e && (e.name === "TimeoutError" || e.name === "AbortError");
+      return new Response(JSON.stringify({ error: { code: zuLang ? "timeout" : "upstream", message: zuLang
+        ? "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — bitte mit weniger Fotos oder kuerzerem Horizont erneut versuchen."
+        : ("Verbindung zur KI fehlgeschlagen: " + String((e && e.message) || e).slice(0, 120)) } }), { status: zuLang ? 504 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.text();
@@ -363,6 +377,8 @@ Deno.serve(async (req) => {
         p_edge_fn: "garden-scan-analyze",
         p_tokens_in: anthropicData?.usage?.input_tokens || 0,
         p_tokens_out: anthropicData?.usage?.output_tokens || 0,
+        // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
+        p_model: anthropicData?.model || modellKette("vision", modellSecret("vision"))[0],
       });
     } catch (_) { /* nicht-blockierend */ }
 

@@ -1,0 +1,88 @@
+{
+  "id": "2026-11-11-df51",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Zwei Rechnungen für eine Frage — die zweite läuft auseinander",
+  "regel": "Wer eine Frage stellt, für die es schon eine Rechnung gibt (Zählung, Fälligkeit, Schwelle, Zeitfenster, Prädikat), RUFT sie — eine zweite Rechnung daneben läuft auseinander, sichtbar oder still.",
+  "text": "Eine neue Instanz erkennt man an zwei Stellen (zwei Anzeigen, oder App und Server), die dieselbe Frage mit eigenem Code beantworten: ein rohes myPlants.length, ein getDaysUntilDue in einer Anzeige, ein Schwellen-Literal, ein eigenes Zeitfenster. Sichtbar wird es als zwei verschiedene Zahlen für dasselbe, oft gleichzeitig auf dem Bildschirm; still bleibt es, wenn nur eine der beiden eine Sonderregel gelernt hat (Format, Verschiebung, zweite Pflanzenliste). Die Wächter halten je EINE Frage zusammen — eine NEUE zweite Rechnung fängt keiner, dafür ist das Suchmuster da.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: 41 Zeilen (10.11.2026, Stand v33.56): 13× myPlants.length, 9× getDaysUntilDue(, 14× stats.streak, 1× display-mode: standalone, 4× rollendes Tagesfenster. 9 davon stehen in der einen Rechnung selbst (gsPflanzenZahl, getDaysUntilDue, _gsTaskDays, gsGetDueTasks, dqSerie, dqStatsBuchen, gsLaeuftAlsApp); die übrigen 32 sind Kandidaten — z.B. countOverdueTasks, gsGetMostUrgentTask und gsBuildSmartReminder (eigene Fälligkeit), gsFavsUpdateSubCounts und gsComputeGardenScore (eigene Pflanzenzahl), zwei 7-Tage-Fenster über gs_notif_log.",
+  "instanzen": [
+    "v31.63 · _gsZuNah: der Platzierer rechnete mit rohen Fliesskommazahlen, die Prüfung danach mit gerundeten (CLAUDE.md §4a.2)",
+    "v32.65 · Quiz: der Server-Trigger kannte 1 von 3 Options-Formaten, der Client alle drei — fünf Tage galt jede Antwort als falsch",
+    "v32.86 · gsIstEssbar: drei Anzeigen mit eigener Regel für „essbar“ (Startkachel 2'329 statt 1'228)",
+    "v32.87 · „HEUTE FÄLLIG“ zählte drei Tage (d <= 2), der Notizzettel daneben heute — zwei Zahlen gleichzeitig sichtbar",
+    "v33.06 · gsPflanzenZahl: „Noch keine Pflanze“ neben „2 Aufgaben“ — jede Anzeige zählte myPlants.length selbst",
+    "v33.26 · _gsSnapshotAutoFaellig: zwei Regeln für „Backup fällig“ (Kalendertag UTC gegen > 3 h)",
+    "v33.34 · _gsRegenUebernimmt: der Regen-Draht stand in gsGetDueTasks, das Prüfwerk brauchte denselben",
+    "v33.36 · GS_WETTER_GRENZEN: eine Konstante im Kalender und vier Literale im Warnfenster",
+    "v33.38 · „Mein Naturjahr“ und die Garten-Timeline rechneten neben gsKalenderEreignisse („Funde“ immer 0, „Arten“ ohne Jahresfilter)",
+    "v33.40 · _gsKalWoche: Wochenrückblick mit rollendem ms-Fenster gegen das Tagesfenster des Kalenders — 2 gegen 4 Einträge",
+    "v33.43 · gsLaeuftAlsApp: zwei Rechnungen für „läuft als App“, nur eine kannte die Android-Hülle"
+  ],
+  "suchmuster": "grep -nE \"myPlants\\.length|getDaysUntilDue\\(|stats\\.streak|display-mode: standalone|Date\\.now\\(\\) ?- ?[0-9]+ ?\\* ?(864e5|86400000)\" index.html | grep -vE \"^[0-9]+:\\s*(//|\\*)\"",
+  "stichworte": [
+    "zwei-rechnungen-eine-frage",
+    "gsGetDueTasks",
+    "gsPflanzenZahl",
+    "gsKalenderEreignisse",
+    "_gsKalWoche",
+    "kalender_check"
+  ],
+  "gesucht": "v32.87: einmal — über alle elf Tabs jede sichtbare Zahl neben ihre Beschriftung geschrieben; Fund: die Kachel „HEUTE FÄLLIG“ gegen den Notizzettel. Nur Tabs, nur Zahlen; die sieben Instanzen danach (v33.06 bis v33.43) waren Einzelfunde, eine Wiederholung der Suche ist nicht belegt.",
+  "waechter": [
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Eine Antwort · „Heute zu tun\" und der Kalender liefern dieselben Aufgaben"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Meine Pflanzen · „HEUTE FÄLLIG\" zählt heute"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Prüfwerk R2 · Regen übernimmt das Giessen: EINE Rechnung"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Wetter W1 · EINE Tabelle für alle vier Schwellen"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Naturjahr M1 · die Balken und die vier Kacheln kommen aus dem KALENDER"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Woche R10b · die Zeile steht an DREI Stellen und sagt überall dasselbe"
+    },
+    {
+      "datei": "scripts/kalender_check.js",
+      "fall": "Woche R10c · der Wochenrückblick LIEST den Kalender"
+    },
+    {
+      "datei": "scripts/nutzersicht_check.js",
+      "fall": "E10 · „Hast du Pflanzen?\" wird ueberall gleich beantwortet"
+    },
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina · die Pflanzenzahl im Kontext kommt aus gsPflanzenZahl()"
+    },
+    {
+      "datei": "scripts/backup_check.js",
+      "fall": "Eine Regel, fuenf Zustaende: kein Backup"
+    },
+    {
+      "datei": "scripts/quiz_check.js",
+      "fall": "Neue Antworten · alle drei Formate"
+    },
+    {
+      "datei": "scripts/android_check.js",
+      "fall": "Ein Prädikat für „läuft als App\""
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "E1 · Eine Frage, eine Regel: gsIstEssbar und der Filter"
+    }
+  ]
+}

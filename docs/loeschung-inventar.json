@@ -1,0 +1,557 @@
+{
+ "stand": "2026-09-10",
+ "projekt": "vowbiueikwrauuceilhc",
+ "wie": "execute_sql gegen die Produktivdatenbank, NUR LESEND: pg_constraint (contype f, Ziel auth.users, confdeltype) + information_schema.columns (Spalten user_id/owner_id/author_id/sender_id/…/created_by/reporter_id/friend_id) auf public.* BASE TABLE; storage.objects gruppiert nach bucket_id. Keine DDL, keine Zeile geaendert.",
+ "fk_legende": {
+  "c": "ON DELETE CASCADE",
+  "n": "ON DELETE SET NULL",
+  "r": "ON DELETE RESTRICT",
+  "null": "kein Fremdschluessel auf auth.users"
+ },
+ "spalten": [
+  {
+   "tabelle": "abo_events",
+   "spalte": "user_id",
+   "fk": null
+  },
+  {
+   "tabelle": "achievement_progress",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "ai_queries",
+   "spalte": "user_id",
+   "fk": "n"
+  },
+  {
+   "tabelle": "ai_usage",
+   "spalte": "user_id",
+   "fk": null
+  },
+  {
+   "tabelle": "analytics_events",
+   "spalte": "user_id",
+   "fk": "n"
+  },
+  {
+   "tabelle": "app_settings",
+   "spalte": "updated_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "audit_log",
+   "spalte": "actor_id",
+   "fk": "n"
+  },
+  {
+   "tabelle": "book_ingest_jobs",
+   "spalte": "uploaded_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "book_ingest_jobs",
+   "spalte": "user_id",
+   "fk": "n"
+  },
+  {
+   "tabelle": "book_species_candidates",
+   "spalte": "reviewed_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "class_assignments",
+   "spalte": "created_by",
+   "fk": null
+  },
+  {
+   "tabelle": "class_members",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "class_submissions",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "client_errors",
+   "spalte": "user_id",
+   "fk": "n"
+  },
+  {
+   "tabelle": "coach_conversations",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "coach_messages",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "expert_verifications",
+   "spalte": "expert_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "feature_usage",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "feedback_items",
+   "spalte": "user_id",
+   "fk": "n"
+  },
+  {
+   "tabelle": "friendships",
+   "spalte": "friend_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "friendships",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "frost_history",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "garden_diary",
+   "spalte": "user_id",
+   "fk": null
+  },
+  {
+   "tabelle": "garden_harvests",
+   "spalte": "user_id",
+   "fk": null
+  },
+  {
+   "tabelle": "garden_milestones",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "garden_plans",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "garden_plantings",
+   "spalte": "user_id",
+   "fk": null
+  },
+  {
+   "tabelle": "garden_score_history",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "garden_tasks",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "gardens",
+   "spalte": "user_id",
+   "fk": null
+  },
+  {
+   "tabelle": "harvest_log",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "knowledge_bookmarks",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "knowledge_progress",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "launch_offer_usage",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "map_user_finds",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "marketplace_listings",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "marketplace_messages",
+   "spalte": "buyer_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "marketplace_messages",
+   "spalte": "seller_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "marketplace_messages",
+   "spalte": "sender_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "marketplace_sellers",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "notifications",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "org_classes",
+   "spalte": "created_by",
+   "fk": null
+  },
+  {
+   "tabelle": "org_invites",
+   "spalte": "created_by",
+   "fk": "c"
+  },
+  {
+   "tabelle": "org_invites",
+   "spalte": "used_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "org_members",
+   "spalte": "invited_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "org_members",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "organizations",
+   "spalte": "created_by",
+   "fk": "r"
+  },
+  {
+   "tabelle": "plant_care_schedules",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "plant_diagnoses",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "plant_doctor_history",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "plant_photo_diffs",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "plant_reminder_snoozes",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "post_comments",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "post_likes",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "profiles",
+   "spalte": "id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "profiles",
+   "spalte": "role_assigned_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "push_send_log",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "push_subscriptions",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "quiz_answers",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "quiz_battles",
+   "spalte": "challenger_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "quiz_battles",
+   "spalte": "opponent_id",
+   "fk": "n"
+  },
+  {
+   "tabelle": "quiz_leaderboard",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "quiz_ranking",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "scan_corrections",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "scan_events",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "seasonal_highlights",
+   "spalte": "created_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "seasonal_tips",
+   "spalte": "created_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "sensor_alerts",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "sensor_devices",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "sensor_readings",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "social_garden_visits",
+   "spalte": "host_user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "social_garden_visits",
+   "spalte": "visitor_user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "social_posts",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "species_images",
+   "spalte": "contributed_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "species_proposals",
+   "spalte": "reviewed_by",
+   "fk": "n"
+  },
+  {
+   "tabelle": "species_proposals",
+   "spalte": "user_id",
+   "fk": "n"
+  },
+  {
+   "tabelle": "species_search_log",
+   "spalte": "user_id",
+   "fk": null
+  },
+  {
+   "tabelle": "species_watchlist",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "stripe_subscriptions",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_achievements",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_app_state",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_blocks",
+   "spalte": "blocked_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_blocks",
+   "spalte": "blocker_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_collection_items",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_collections",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_follows",
+   "spalte": "followed_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_follows",
+   "spalte": "follower_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_garden_layouts",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_gardens",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_plants",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_preferences",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_quest_progress",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_reports",
+   "spalte": "reporter_id",
+   "fk": null
+  },
+  {
+   "tabelle": "user_scans",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_species",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_state_snapshots",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "user_submissions",
+   "spalte": "user_id",
+   "fk": null
+  },
+  {
+   "tabelle": "user_weekly_challenge_progress",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "voucher_redemptions",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "weather_alerts",
+   "spalte": "user_id",
+   "fk": "c"
+  },
+  {
+   "tabelle": "weather_log_per_garden",
+   "spalte": "user_id",
+   "fk": "c"
+  }
+ ],
+ "buckets": [
+  {
+   "bucket": "book-pdfs",
+   "objekte": 67,
+   "mit_uid_praefix": 67,
+   "mit_owner": 67
+  },
+  {
+   "bucket": "scan-images",
+   "objekte": 92,
+   "mit_uid_praefix": 92,
+   "mit_owner": 92
+  },
+  {
+   "bucket": "species-images",
+   "objekte": 10,
+   "mit_uid_praefix": 10,
+   "mit_owner": 10
+  }
+ ],
+ "nullbarkeit": {
+  "organizations.created_by": "NO",
+  "user_reports.reporter_id": "NO",
+  "ai_usage.user_id": "NO",
+  "species_search_log.user_id": "YES",
+  "class_assignments.created_by": "NO",
+  "org_classes.created_by": "NO",
+  "analytics_events.user_id": "YES",
+  "client_errors.user_id": "YES"
+ },
+ "zeilen_gemessen": {
+  "organizations": 2,
+  "user_reports": 0,
+  "ai_usage": 0,
+  "species_search_log": 0,
+  "analytics_events": 0,
+  "client_errors": 2
+ },
+ "hinweis": "Wer eine Tabelle mit einer Nutzer-Spalte anlegt oder einen Bucket, zieht diese Momentaufnahme nach (dieselben zwei Abfragen, nur lesend) und traegt das Datum ein — loeschung_check nennt das Datum in jedem Bericht."
+}

@@ -1,0 +1,882 @@
+#!/usr/bin/env node
+// quiz_check.js — zaehlt der Server, was der Spieler richtig hatte?
+//
+//   bash scripts/_pg_local.sh start      # einmal: Wegwerf-Postgres (Port 54329)
+//   node scripts/quiz_check.js
+//
+// Anlass (07.09.2026, Fernando): „Die Rangliste des taeglichen Quiz sieht
+// aus wie die letzten Tage, obwohl ich die Antwort mehrmals richtig hatte."
+// Live gemessen: seit v30.95 entscheidet ein Trigger auf quiz_answers ueber
+// is_correct — und er kannte EIN Frageformat (Array von Objekten, 5 von 203
+// Fragen). 138 Fragen sind {answers,correct}, 60 {choices,correct}: dort
+// galt vom 01. bis 07.09. JEDE Antwort als falsch. Der Client zeigte
+// derweil „Richtig!" — er kennt alle drei Formate seit v30.32. Zwei Regeln
+// fuer dieselbe Frage, nur eine hatte die Formate gelernt.
+//
+// Zwei Haelften, beide gegen einen guten UND einen schlechten Fall (CLAUDE.md §4b):
+//
+//   SQL  — spielt die Geschichte in einem lokalen Postgres nach: v30.80
+//          (Rangliste aus quiz_answers) → v30.95 (Server-Urteil, der Fehler)
+//          → 20260907_quiz_antwort_formate.sql (die Reparatur). Erst wird der
+//          Live-Fehler REPRODUZIERT (richtige Antwort im Generator-Format
+//          zaehlt als falsch), dann die Reparatur gemessen: Nachrechnen,
+//          Rangliste, alle drei Formate, „nicht pruefbar" wird gesagt, der
+//          CHECK weist ein viertes Format ab, Idempotenz. Zum Schluss die
+//          Gegenprobe: alte Regel wieder eingespielt → der Fall wird rot.
+//          Ohne lokales Postgres sagt er „nicht pruefbar" (Exit 2) — nie gruen.
+//   App  — Playwright gegen index.html: der DB-Index der gewaehlten Option
+//          reist mit (vor dem Mischen gestempelt, alle drei Formate), und
+//          seit v32.65 LIEST die App das Urteil des Servers zurueck: Wider-
+//          spruch und Nicht-Ankommen stehen sichtbar unter dem Ergebnis.
+//
+// Grenze: das lokale Postgres hat keine RLS, keine Rollenrechte, kein
+// auth.users. Geprueft ist die RECHNUNG der Migration, nicht ihre Anwendung.
+'use strict';
+const path = require('path');
+const { spawnSync } = require('child_process');
+const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
+const SEED = require('./_seed.js');
+
+const ROOT = path.resolve(__dirname, '..');
+const MIG = (f) => path.join(ROOT, 'supabase', 'migrations', f);
+const URL0 = process.env.GS_PG_URL || 'postgresql://postgres@127.0.0.1:54329/postgres';
+const DBN = 'gs_quiz_check';
+const z = (o) => JSON.stringify(o);
+
+// ── SQL-Helfer (psql, ON_ERROR_STOP) ─────────────────────────────────────
+function psql(url, args) { return spawnSync('psql', [url, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-A', '-t', '-F', '\t', ...args], { encoding: 'utf8' }); }
+function letzte(r) { return (r.stderr || '').trim().split('\n').filter(Boolean).slice(-2).join(' · '); }
+function sql(url, q) { const r = psql(url, ['-c', q]); if (r.status !== 0) throw new Error(letzte(r)); return (r.stdout || '').trim(); }
+function zeilen(url, q) { const s = sql(url, q); return s ? s.split('\n').map(l => l.split('\t')) : []; }
+function sqlFile(url, f) { const r = psql(url, ['-f', f]); if (r.status !== 0) throw new Error(path.basename(f) + ': ' + letzte(r)); }
+function sqlFehler(url, q) { const r = psql(url, ['-c', q]); return r.status === 0 ? null : letzte(r); }
+
+const U1 = '11111111-1111-4111-8111-000000000001', U2 = '11111111-1111-4111-8111-000000000002';
+const U3 = '11111111-1111-4111-8111-000000000003', U4 = '11111111-1111-4111-8111-000000000004';
+const QA = 'aaaaaaaa-0000-4000-8000-000000000001';  // Array von Objekten {label,is_correct}  (5 Fragen live)
+const QB = 'aaaaaaaa-0000-4000-8000-000000000002';  // {answers:[…], correct:1}               (138 live, Generator)
+const QC = 'aaaaaaaa-0000-4000-8000-000000000003';  // {choices:[…], correct:2}               (60 live)
+const QL = 'aaaaaaaa-0000-4000-8000-000000000004';  // fuer die Altzeile ohne Index
+
+// Die Fragen sind erfunden — sie tragen keine botanische Aussage, nur ein Format.
+const FIXTURE = `
+create schema if not exists auth;
+create or replace function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('gs.uid', true), '')::uuid $$;
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if;
+end $$;
+create table public.profiles (id uuid primary key, display_name text, comp_tier text, comp_expires_at timestamptz, comp_granted_by uuid, comp_granted_at timestamptz);
+create table public.system_events (id bigserial primary key, severity text, source text, event text, detail jsonb, created_at timestamptz default now());
+create table public.daily_quizzes (id uuid primary key default gen_random_uuid(), day_key date, question text, options jsonb, category text, xp_reward integer, is_active boolean default true, created_at timestamptz default now());
+create table public.quiz_answers (id uuid primary key default gen_random_uuid(), user_id uuid not null, username text, quiz_id uuid references public.daily_quizzes(id), selected_option integer, is_correct boolean, time_taken_ms integer, xp_earned integer, answered_on date, created_at timestamptz default now(), unique (user_id, quiz_id));
+create table public.quiz_leaderboard (user_id uuid primary key, display_name text, total_correct integer default 0, total_attempts integer default 0, streak_current integer default 0, streak_max integer default 0, last_active_date date, rank_position integer, updated_at timestamptz);
+insert into public.profiles (id, display_name) values ('${U1}', 'Eins'), ('${U2}', 'Zwei'), ('${U3}', 'Drei'), ('${U4}', 'Vier');
+insert into public.daily_quizzes (id, question, options, xp_reward) values
+ ('${QA}', 'Format A', '[{"label":"A0","is_correct":true,"explanation":"x"},{"label":"A1","is_correct":false},{"label":"A2","is_correct":false},{"label":"A3","is_correct":false}]'::jsonb, 15),
+ ('${QB}', 'Format B', '{"answers":["B0","B1","B2","B3"],"correct":1,"difficulty":"easy","explanation":"y"}'::jsonb, 10),
+ ('${QC}', 'Format C', '{"choices":["C0","C1","C2","C3"],"correct":2,"explanation":"z"}'::jsonb, 20),
+ ('${QL}', 'Altfrage',  '{"answers":["L0","L1"],"correct":0}'::jsonb, 10);
+`;
+
+const S = [];   // SQL-Faelle: {name, ok, info|warum}
+function fallS(name, fn) { try { S.push(Object.assign({ name }, fn())); } catch (e) { S.push({ name, ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }); } }
+const eins = (url, q) => sql(url, q);
+const zahl = (url, q) => Number(sql(url, q));
+
+function sqlHaelfte() {
+  let url;
+  try { sql(URL0, 'select 1'); }
+  catch (e) {
+    S.push({ name: 'Lokales Postgres', ok: null, warum: 'nicht erreichbar unter ' + URL0.replace(/\/\/.*@/, '//…@') + ' — `bash scripts/_pg_local.sh start` (' + String(e.message).split('\n')[0] + ')' });
+    return;
+  }
+  sql(URL0, `drop database if exists ${DBN}`);
+  sql(URL0, `create database ${DBN}`);
+  url = URL0.replace(/\/[^/]*$/, '/' + DBN);
+  sql(url, FIXTURE);
+
+  // ── Geschichte nachspielen ──────────────────────────────────────────────
+  sqlFile(url, MIG('20260826_quiz_leaderboard_race_fix.sql'));          // v30.80: Rangliste zaehlt quiz_answers
+  sql(url, `insert into quiz_answers (user_id, quiz_id, selected_option, is_correct, answered_on, created_at)
+            values ('${U1}', '${QL}', null, true, '2026-06-14', '2026-06-14 10:00+00')`);   // Altzeile: kein Index, vor v30.95
+  sqlFile(url, MIG('20260831_quiz_antworten_serverseitig_v30_95.sql'));  // v30.95: der Server entscheidet — und kennt EIN Format
+  sql(url, `
+    insert into quiz_answers (user_id, quiz_id, selected_option, is_correct) values
+      ('${U1}', '${QB}', 1, true),    -- 04.09.: richtig im Generator-Format (Schlehe)
+      ('${U2}', '${QB}', 0, false),   -- falsch
+      ('${U3}', '${QC}', 2, true),    -- richtig im Altbestand-Format
+      ('${U1}', '${QA}', 0, true),    -- richtig im Array-Format (das einzige, das ging)
+      ('${U1}', '${QC}', 0, false);   -- falsch
+    alter table quiz_answers disable trigger trg_quiz_answers_verify;
+    update quiz_answers set answered_on = '2026-09-04', created_at = '2026-09-04 05:49+00' where selected_option is not null;
+    alter table quiz_answers enable trigger trg_quiz_answers_verify;`);
+
+  fallS('Reproduktion (Stand v30.95) · richtige Antwort im Generator- und im Altbestand-Format zaehlt als FALSCH, im Array-Format als richtig', () => {
+    const b = eins(url, `select is_correct from quiz_answers where user_id='${U1}' and quiz_id='${QB}'`);
+    const c = eins(url, `select is_correct from quiz_answers where user_id='${U3}' and quiz_id='${QC}'`);
+    const a = eins(url, `select is_correct from quiz_answers where user_id='${U1}' and quiz_id='${QA}'`);
+    const lb = eins(url, `select total_correct||'/'||total_attempts from quiz_leaderboard where user_id='${U1}'`);
+    if (b !== 'f' || c !== 'f' || a !== 't') return { ok: false, warum: 'Live-Fehler NICHT reproduziert — B=' + b + ' C=' + c + ' A=' + a + '. Dann misst der Rest nichts.' };
+    if (lb !== '2/4') return { ok: false, warum: 'Rangliste vor der Reparatur: ' + lb + ' (erwartet 2/4: Altzeile + Array-Format)' };
+    return { ok: true, info: 'B=false C=false A=true · Rangliste U1 2/4 — genau das Bild vom 04.09.' };
+  });
+
+  // ── Die Reparatur ───────────────────────────────────────────────────────
+  sqlFile(url, MIG('20260907_quiz_antwort_formate.sql'));
+
+  fallS('Nachrechnen · die zwei richtigen Antworten kippen auf richtig, falsche bleiben falsch, die Altzeile ohne Index bleibt unangetastet, kein Umdatieren', () => {
+    const r = Object.fromEntries(zeilen(url, `select user_id||'/'||quiz_id, is_correct||'|'||coalesce(xp_earned::text,'-')||'|'||answered_on from quiz_answers`));
+    const erw = {
+      [U1 + '/' + QB]: 'true|10|2026-09-04', [U3 + '/' + QC]: 'true|20|2026-09-04', [U2 + '/' + QB]: 'false|0|2026-09-04',
+      [U1 + '/' + QA]: 'true|15|2026-09-04', [U1 + '/' + QC]: 'false|0|2026-09-04', [U1 + '/' + QL]: 'true|-|2026-06-14',
+    };
+    const falsch = Object.keys(erw).filter(k => r[k] !== erw[k]).map(k => k.slice(-4) + ': ' + r[k] + ' (erwartet ' + erw[k] + ')');
+    if (falsch.length) return { ok: false, warum: falsch.join(' · ') };
+    return { ok: true, info: 'B und C richtig (xp 10/20), Altzeile bleibt true ohne Index, answered_on bleibt 04.09.' };
+  });
+
+  fallS('Rangliste nachgezogen · U1 3/4, U3 1/1, U2 0/1 — kein Rueckschritt', () => {
+    const r = Object.fromEntries(zeilen(url, `select user_id, total_correct||'/'||total_attempts from quiz_leaderboard`));
+    const erw = { [U1]: '3/4', [U3]: '1/1', [U2]: '0/1' };
+    const falsch = Object.keys(erw).filter(k => r[k] !== erw[k]).map(k => k.slice(-1) + ': ' + r[k] + ' (erwartet ' + erw[k] + ')');
+    return falsch.length ? { ok: false, warum: falsch.join(' · ') } : { ok: true, info: 'U1 3/4 · U3 1/1 · U2 0/1' };
+  });
+
+  fallS('Neue Antworten · alle drei Formate: richtig → true + XP der Frage, falsch → false + 0, Index ausserhalb → false UND gesagt (system_events)', () => {
+    sql(url, `insert into quiz_answers (user_id, quiz_id, selected_option, is_correct) values
+      ('${U2}', '${QA}', 0, false), ('${U2}', '${QC}', 1, true), ('${U3}', '${QB}', 1, false), ('${U3}', '${QA}', 9, true)`);
+    const r = Object.fromEntries(zeilen(url, `select user_id||'/'||quiz_id, is_correct||'|'||xp_earned||'|'||(answered_on = current_date) from quiz_answers where created_at > now() - interval '1 minute'`));
+    const erw = { [U2 + '/' + QA]: 'true|15|true', [U2 + '/' + QC]: 'false|0|true', [U3 + '/' + QB]: 'true|10|true', [U3 + '/' + QA]: 'false|0|true' };
+    const falsch = Object.keys(erw).filter(k => r[k] !== erw[k]).map(k => k.slice(-4) + ': ' + r[k] + ' (erwartet ' + erw[k] + ')');
+    if (falsch.length) return { ok: false, warum: falsch.join(' · ') };
+    const ev = zeilen(url, `select severity, event, detail->>'quiz_id', detail->>'selected_option' from system_events where source='quiz'`);
+    if (ev.length !== 1 || ev[0][1] !== 'antwort_nicht_pruefbar' || ev[0][2] !== QA || ev[0][3] !== '9') return { ok: false, warum: 'system_events: ' + z(ev) };
+    return { ok: true, info: 'A richtig xp 15 · C falsch · B richtig xp 10 · Index 9 → false + 1 Zeile antwort_nicht_pruefbar (Client-Wert true wurde verworfen)' };
+  });
+
+  fallS('fn_quiz_option_correct · true / false / NULL je Format; wirft nie (is_correct:"ja" → false, Text statt Zahl → NULL)', () => {
+    const f = (o, i) => eins(url, `select coalesce(public.fn_quiz_option_correct('${o}'::jsonb, ${i})::text, 'NULL')`);
+    const erw = [
+      [f('[{"label":"a","is_correct":true},{"label":"b","is_correct":false}]', 0), 'true', 'A richtig'],
+      [f('[{"label":"a","is_correct":true},{"label":"b","is_correct":false}]', 1), 'false', 'A falsch'],
+      [f('[{"label":"a","is_correct":true},{"label":"b","is_correct":false}]', 2), 'NULL', 'A ausserhalb'],
+      [f('["a","b"]', 0), 'NULL', 'A ohne Objekte'],
+      [f('[{"text":"a","correct":true}]', 0), 'true', 'A mit correct:true'],
+      [f('[{"label":"a","is_correct":"ja"}]', 0), 'false', 'A is_correct:"ja" → false, kein Fehler'],
+      [f('{"answers":["a","b","c"],"correct":2}', 2), 'true', 'B richtig'],
+      [f('{"answers":["a","b","c"],"correct":2}', 0), 'false', 'B falsch'],
+      [f('{"answers":["a","b","c"],"correct":2}', 3), 'NULL', 'B ausserhalb'],
+      [f('{"choices":["a","b"],"correct":1}', 1), 'true', 'C richtig'],
+      [f('{"choices":["a","b"],"correct":1}', 0), 'false', 'C falsch'],
+      [f('{"answers":["a","b"],"correct_idx":1}', 1), 'true', 'B mit correct_idx'],
+      [f('{"answers":["a","b"],"correct":"1"}', 1), 'NULL', 'B correct als Text → nicht pruefbar'],
+      [f('{"foo":["a","b"]}', 0), 'NULL', 'viertes Format'],
+      [f('{"answers":["a","b"],"correct":1}', -1), 'NULL', 'negativer Index'],
+      [eins(url, `select coalesce(public.fn_quiz_option_correct(null, 0)::text, 'NULL')`), 'NULL', 'options NULL'],
+      [eins(url, `select coalesce(public.fn_quiz_option_correct('{"answers":["a"],"correct":0}'::jsonb, null)::text, 'NULL')`), 'NULL', 'Index NULL'],
+    ];
+    const falsch = erw.filter(e => e[0] !== e[1]).map(e => e[2] + ': ' + e[0] + ' (erwartet ' + e[1] + ')');
+    return falsch.length ? { ok: false, warum: falsch.join(' · ') } : { ok: true, info: erw.length + ' Werte, alle wie erwartet' };
+  });
+
+  fallS('CHECK auf daily_quizzes · ein viertes Format und correct als Text werden LAUT abgewiesen, die drei bekannten angenommen', () => {
+    const e1 = sqlFehler(url, `insert into daily_quizzes (question, options) values ('x', '{"foo":["a","b"]}'::jsonb)`);
+    const e2 = sqlFehler(url, `insert into daily_quizzes (question, options) values ('x', '{"answers":["a","b"],"correct":"1"}'::jsonb)`);
+    const e3 = sqlFehler(url, `insert into daily_quizzes (question, options) values ('x', '[]'::jsonb)`);
+    if (!e1 || !/daily_quizzes_options_format_chk/.test(e1)) return { ok: false, warum: 'viertes Format angenommen: ' + e1 };
+    if (!e2 || !/daily_quizzes_options_format_chk/.test(e2)) return { ok: false, warum: 'correct als Text angenommen: ' + e2 };
+    if (!e3) return { ok: false, warum: 'leeres Array angenommen' };
+    const ok = sqlFehler(url, `insert into daily_quizzes (question, options) values
+      ('a', '[{"label":"a","is_correct":true},{"label":"b","is_correct":false}]'::jsonb),
+      ('b', '{"answers":["a","b"],"correct":0}'::jsonb), ('c', '{"choices":["a","b"],"correct":1}'::jsonb)`);
+    if (ok) return { ok: false, warum: 'bekanntes Format abgewiesen: ' + ok };
+    return { ok: true, info: '{"foo"} → abgewiesen · correct:"1" → abgewiesen · [] → abgewiesen · A/B/C → angenommen' };
+  });
+
+  fallS('Jahres-Ranking (fn_grant_quiz_top3_pro) · zaehlt mit derselben Funktion: U1 3, U3 2, U2 1 → alle drei Pro, U1 zuerst', () => {
+    const r = JSON.parse(eins(url, `select public.fn_grant_quiz_top3_pro()`));
+    if (r.granted !== 3 || !Array.isArray(r.user_ids) || r.user_ids[0] !== U1 || r.user_ids[1] !== U3 || r.user_ids[2] !== U2) return { ok: false, warum: z(r) };
+    const pro = zahl(url, `select count(*) from profiles where comp_tier = 'pro' and comp_expires_at > now() + interval '360 days'`);
+    if (pro !== 3) return { ok: false, warum: 'comp_tier pro: ' + pro };
+    return { ok: true, info: 'granted 3 · Reihenfolge U1, U3, U2 · comp_expires_at +1 Jahr' };
+  });
+
+  fallS('Idempotent · Migration ein zweites Mal → kein Fehler, nichts aendert sich, der CHECK steht einmal', () => {
+    const vorher = eins(url, `select string_agg(user_id||':'||total_correct||'/'||total_attempts, ',' order by user_id) from quiz_leaderboard`) + '|' + zahl(url, `select count(*) from quiz_answers where is_correct`);
+    sqlFile(url, MIG('20260907_quiz_antwort_formate.sql'));
+    const nachher = eins(url, `select string_agg(user_id||':'||total_correct||'/'||total_attempts, ',' order by user_id) from quiz_leaderboard`) + '|' + zahl(url, `select count(*) from quiz_answers where is_correct`);
+    const chk = zahl(url, `select count(*) from pg_constraint where conname = 'daily_quizzes_options_format_chk'`);
+    if (vorher !== nachher) return { ok: false, warum: vorher + ' → ' + nachher };
+    if (chk !== 1) return { ok: false, warum: 'CHECK ' + chk + '×' };
+    return { ok: true, info: 'zweiter Lauf ohne Fehler, Zaehler gleich, CHECK 1×' };
+  });
+
+  fallS('Gegenprobe · alte Regel (v30.95) wieder eingespielt → richtige Antwort im Generator-Format wird wieder FALSCH; Reparatur erneut → sie kippt zurueck', () => {
+    sqlFile(url, MIG('20260831_quiz_antworten_serverseitig_v30_95.sql'));
+    sql(url, `insert into quiz_answers (user_id, quiz_id, selected_option, is_correct) values ('${U4}', '${QB}', 1, true)`);
+    const alt = eins(url, `select is_correct from quiz_answers where user_id='${U4}'`);
+    sqlFile(url, MIG('20260907_quiz_antwort_formate.sql'));
+    const neu = eins(url, `select is_correct from quiz_answers where user_id='${U4}'`);
+    const lb = eins(url, `select total_correct||'/'||total_attempts from quiz_leaderboard where user_id='${U4}'`);
+    if (alt !== 'f') return { ok: false, warum: 'die Gegenprobe wird nicht rot: alte Regel liefert ' + alt + ' — dann misst dieser Pruefstand die Regel nicht' };
+    if (neu !== 't' || lb !== '1/1') return { ok: false, warum: 'nach erneuter Reparatur: ' + neu + ' · Rangliste ' + lb };
+    return { ok: true, info: 'alte Regel → false (rot) · Reparatur → true, Rangliste U4 1/1' };
+  });
+
+  try { sql(URL0, `drop database if exists ${DBN}`); } catch (_) {}
+}
+
+// ── App-Haelfte (Playwright) ──────────────────────────────────────────────
+const K = [
+  // ── v33.28 · Üben ────────────────────────────────────────────────────────
+  {
+    name: 'Leitner rechnet · richtig → eine Stufe hoch mit dem Intervall der neuen Box; falsch → IMMER zurueck auf 1, nicht eine Stufe (vier Optionen sind 25 % Raten)',
+    lauf: async () => __seite.evaluate(async () => {
+      localStorage.removeItem('gs_dq_training');
+      const heute = dqDayKey();
+      const plus = (n) => { const d = new Date(heute + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+      const n = gsTrainingNaechste('');
+      if (!n.karte) return { ok: false, warum: 'keine erste Karte: ' + n.grund };
+      const erwartet = [null, 1, 2, 4, 8, 16];
+      const weg = [];
+      for (let b = 2; b <= 5; b++) {
+        const k = gsTrainingBuchen(n.karte, true);
+        weg.push(k.b);
+        if (k.b !== b) return { ok: false, warum: 'nach ' + (b - 1) + '× richtig: Box ' + k.b + ' statt ' + b };
+        if (k.faellig !== plus(erwartet[b])) return { ok: false, warum: 'Box ' + b + ' faellig ' + k.faellig + ' statt ' + plus(erwartet[b]) };
+      }
+      const deckel = gsTrainingBuchen(n.karte, true);
+      if (deckel.b !== 5) return { ok: false, warum: 'Box laeuft ueber 5 hinaus: ' + deckel.b };
+      const runter = gsTrainingBuchen(n.karte, false);
+      if (runter.b !== 1) return { ok: false, warum: 'falsch aus Box 5 → Box ' + runter.b + ' statt 1' };
+      if (runter.faellig !== plus(1)) return { ok: false, warum: 'nach falsch faellig ' + runter.faellig + ' statt ' + plus(1) };
+      if ((runter.f | 0) !== 1 || (runter.r | 0) !== 5) return { ok: false, warum: 'Zaehler: ' + JSON.stringify({ r: runter.r, f: runter.f }) };
+      return { ok: true, info: 'Boxen ' + weg.join('→') + ' (Deckel 5) · Intervalle 1/2/4/8/16 · falsch aus Box 5 → Box 1, morgen faellig · 5 richtig / 1 falsch gezaehlt' };
+    }),
+  },
+  {
+    name: 'Die Auswahl nimmt Faelliges VOR Neuem — und sagt IMMER einen Grund, auch wenn nichts faellig ist',
+    lauf: async () => __seite.evaluate(async () => {
+      localStorage.removeItem('gs_dq_training');
+      const heute = dqDayKey();
+      const a = gsTrainingNaechste('');
+      if (a.quelle !== 'neu' || !/Neue Karte/.test(a.grund || '')) return { ok: false, warum: 'erste Karte: ' + JSON.stringify({ q: a.quelle, g: a.grund }) };
+      gsTrainingBuchen(a.karte, true);              // liegt jetzt in Box 2, faellig in 2 Tagen
+      // Eine zweite Karte anlegen und von Hand auf „gestern faellig" stellen.
+      const b = gsTrainingNaechste('');
+      if (!b.karte) return { ok: false, warum: 'keine zweite Karte: ' + b.grund };
+      gsTrainingBuchen(b.karte, true);
+      const t = gsTrainingLaden();
+      const gestern = new Date(heute + 'T00:00:00Z'); gestern.setUTCDate(gestern.getUTCDate() - 1);
+      t.karten[b.karte].faellig = gestern.toISOString().slice(0, 10);
+      localStorage.setItem('gs_dq_training', JSON.stringify(t));
+      const c = gsTrainingNaechste('');
+      if (c.quelle !== 'faellig') return { ok: false, warum: 'Faelliges kommt nicht zuerst: ' + c.quelle + ' (' + c.grund + ')' };
+      if (c.karte !== b.karte) return { ok: false, warum: 'die falsche faellige Karte: ' + c.karte };
+      if (!/Box 2/.test(c.grund || '') || !/f(ä|ae)llig seit/i.test(c.grund || '')) return { ok: false, warum: 'Grund ohne Box oder Datum: ' + c.grund };
+      // Nichts faellig und Deckel erreicht → Grund statt Karte
+      const t2 = gsTrainingLaden();
+      for (let i = 0; i < GS_TRAINING_KARTEN_MAX + 5; i++) t2.karten['Kunstart nr' + i + '|2'] = { b: 3, faellig: '2099-01-01', r: 1, f: 0 };
+      localStorage.setItem('gs_dq_training', JSON.stringify(t2));
+      const d = gsTrainingNaechste('');
+      // Die Kunstarten kennt DB nicht — sie fallen beim Lesen weg; also bleibt eine echte Karte.
+      if (!d.grund) return { ok: false, warum: 'ein Zustand ohne Grund' };
+      return { ok: true, info: 'neu → „' + a.grund + '" · faellig gewinnt → „' + c.grund + '" · jeder Ausgang mit Grund' };
+    }),
+  },
+  {
+    name: 'Eine Karte wird NIE auf einem fehlenden Feld gebaut · dqBuildQuestion faellt bei Saison und Standort auf einen Vorgabewert zurueck — geuebt wuerde dann, dass das Feld leer ist',
+    lauf: async () => __seite.evaluate(async () => {
+      let ohneS = 0, ohneH = 0;
+      for (const s of DB) { if (!_gsTrainingTypOk(s, 4)) ohneS++; if (!_gsTrainingTypOk(s, 6)) ohneH++; }
+      if (!ohneS || !ohneH) return { ok: false, warum: 'kein Eintrag ohne Saison/Standort — der Fall misst nichts (' + ohneS + '/' + ohneH + ')' };
+      // Die Vorgabewerte, gegen die geprueft wird: sie stehen wirklich in dqBuildQuestion.
+      const leer = { id: '__t', name: 'Testart', lat: 'Testus testus', cat: 'kraut', emoji: '🌿', tox: 0, edible: false };
+      const q4 = dqBuildQuestion(leer, 4, DB.slice(0, 6)), q6 = dqBuildQuestion(leer, 6, DB.slice(0, 6));
+      if (!/Ganzj/.test(q4.a) || !/Verschiedene|Garten|Wald/.test(q6.a)) return { ok: false, warum: 'der Rueckfall sieht anders aus als angenommen: ' + q4.a + ' / ' + q6.a };
+      if (_gsTrainingTypOk(leer, 4) || _gsTrainingTypOk(leer, 6)) return { ok: false, warum: 'eine Art ohne Saison/Standort wird trotzdem gefragt' };
+      // 200 Karten ziehen: keine einzige auf einem fehlenden Feld
+      localStorage.removeItem('gs_dq_training');
+      const typen = {}; let verletzt = 0, gezogen = 0;
+      for (let i = 0; i < 200; i++) {
+        const n = gsTrainingNaechste(''); if (!n.karte) break;
+        gezogen++; typen[n.typ] = (typen[n.typ] || 0) + 1;
+        if (!_gsTrainingTypOk(n.sp, n.typ)) verletzt++;
+        gsTrainingBuchen(n.karte, true);
+      }
+      if (verletzt) return { ok: false, warum: verletzt + ' von ' + gezogen + ' Karten auf einem fehlenden Feld' };
+      if (Object.keys(typen).length < 5) return { ok: false, warum: 'nur ' + Object.keys(typen).length + ' Fragetypen gezogen — die Auswahl ist zu eng' };
+      return { ok: true, info: gezogen + ' Karten · 0 auf einem fehlenden Feld · ' + Object.keys(typen).length + ' Fragetypen · abgelehnt waeren: Saison ' + ohneS + ', Standort ' + ohneH + ' von ' + DB.length };
+    }),
+  },
+  {
+    name: 'Ueben fasst die Serie, die Rangliste und quiz_answers NICHT an — und das Tagesquiz tut es weiterhin',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      localStorage.removeItem('gs_dq_training');
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 500, correct: 7, total: 9, streak: 4, bestStreak: 6, year: parseInt(dqDayKey().slice(0, 4), 10), lastDay: dqDayKey() }));
+      const vorher = JSON.parse(localStorage.getItem('gs_dq_stats'));
+      A.rufe.length = 0;
+      gsOpenTraining();
+      await new Promise(r => setTimeout(r, 400));
+      const kn = document.querySelectorAll('.tr-opt');
+      if (kn.length !== 4) return { ok: false, warum: 'das Fenster zeigt ' + kn.length + ' Knoepfe statt 4' };
+      kn[0].click();
+      await new Promise(r => setTimeout(r, 400));
+      const nachher = JSON.parse(localStorage.getItem('gs_dq_stats'));
+      if (JSON.stringify(vorher) !== JSON.stringify(nachher)) return { ok: false, warum: 'gs_dq_stats angefasst: ' + JSON.stringify(nachher) };
+      const post = A.rufe.filter(x => /\/quiz_answers$/.test(x.path) || /fn_quiz_leaderboard_upsert/.test(x.path));
+      if (post.length) return { ok: false, warum: 'Ueben schreibt an den Server: ' + post.map(x => x.path).join(', ') };
+      if (!(gsTrainingZahlen().heute > 0)) return { ok: false, warum: 'die Uebung wurde nicht gezaehlt' };
+      closeQuizTraining();
+      // Gegenrichtung: das Tagesquiz schreibt weiterhin
+      await A.reset(); A.antwort = { data: [{ is_correct: true }], error: null };
+      A.oeffnen({ id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1 } });
+      const k2 = A.knoepfe().find(x => x.correct === '1');
+      document.querySelectorAll('.dq-opt')[k2.pos].click();
+      await new Promise(r => setTimeout(r, 1400));
+      if (!A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST')) return { ok: false, warum: 'das Tagesquiz schreibt nicht mehr — die Gegenrichtung fehlt' };
+      const dq = JSON.parse(localStorage.getItem('gs_dq_stats'));
+      if (dq.total !== vorher.total + 1) return { ok: false, warum: 'das Tagesquiz zaehlt nicht mehr: total ' + dq.total };
+      return { ok: true, info: 'Ueben: gs_dq_stats unveraendert, kein POST, lokal gezaehlt · Tagesquiz: POST und total ' + vorher.total + '→' + dq.total };
+    }),
+  },
+  {
+    name: 'Der Lernstand gehoert dem Konto · gs_dq_training steht in GS_USER_KEYS, reist im state-Blob und wird beim Schreiben als dirty gemeldet (der Auto-Track ist geshadowed)',
+    lauf: async () => __seite.evaluate(async () => {
+      const f = [];
+      if ((window.GS_USER_KEYS || []).indexOf('gs_dq_training') < 0) f.push('nicht in GS_USER_KEYS');
+      let dirty = 0;
+      const echt = window.gsCloudSync && gsCloudSync.markDirty;
+      if (echt) gsCloudSync.markDirty = function (s) { if (s === 'state') dirty++; return echt.apply(gsCloudSync, arguments); };
+      try {
+        localStorage.removeItem('gs_dq_training');
+        const n = gsTrainingNaechste(''); gsTrainingBuchen(n.karte, true);
+      } finally { if (echt) gsCloudSync.markDirty = echt; }
+      if (!dirty) f.push('markDirty(state) nicht gerufen');
+      // Es gibt ZWEI Blobs: den Sync-Blob (_gsBuildStateBlob, geht bei jedem
+      // Abgleich raus) und den Snapshot-Blob. Der Lernstand muss in BEIDEN
+      // stehen — steht er nur im Snapshot, reist er beim gewoehnlichen
+      // Geraetewechsel nicht mit.
+      const sync = (typeof window._gsBuildStateBlob === 'function') ? window._gsBuildStateBlob() : null;
+      if (!sync) f.push('_gsBuildStateBlob nicht erreichbar');
+      else if (!sync.dq_training) f.push('nicht im Sync-Blob (_gsBuildStateBlob)');
+      const snap = (typeof window._gsBuildSnapshot === 'function') ? window._gsBuildSnapshot() : null;
+      const vorher = localStorage.getItem('gs_dq_training');
+      localStorage.removeItem('gs_dq_training');
+      if (typeof _gsApplyStateBlob === 'function' && sync) _gsApplyStateBlob(sync);
+      if (!localStorage.getItem('gs_dq_training')) f.push('kommt aus dem Sync-Blob nicht zurueck');
+      // Abmelden nimmt ihn mit
+      localStorage.setItem('gs_dq_training', vorher || '{}');
+      gsClearUserDataKeys();
+      if (localStorage.getItem('gs_dq_training')) f.push('ueberlebt das Abmelden');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'in GS_USER_KEYS · markDirty(state) ' + dirty + '× · im Sync-Blob und zurueck' + (snap && snap.dq_training ? ' · auch im Snapshot' : '') + ' · Abmelden raeumt ihn' };
+    }),
+  },
+  {
+    name: 'Der Deckel wirft die HOECHSTE Box weg, nicht die neueste — die hoechste sitzt schon, die neueste ist das Lernen',
+    lauf: async () => __seite.evaluate(async () => {
+      const t = { v: 1, karten: {}, tag: dqDayKey(), heute: 0, xpHeute: 0 };
+      // echte Schluessel, damit sie das Aufraeumen ueberleben
+      // Verschiedene ARTEN, nicht Eintraege: der Schluessel ist das normierte
+      // Binomen, und 520 Eintraege ergaben im ersten Anlauf nur 389 Schluessel
+      // — die Dubletten fallen zusammen. Genau das soll er auch.
+      const gesehen = {}, arten = [];
+      for (const s of DB) {
+        if (!s.lat) continue;
+        const k = _gsTrainingSchluessel(s, 2);
+        if (gesehen[k]) continue;
+        gesehen[k] = 1; arten.push(s);
+        if (arten.length >= GS_TRAINING_KARTEN_MAX + 20) break;
+      }
+      if (arten.length < GS_TRAINING_KARTEN_MAX + 20) return { ok: false, warum: 'nur ' + arten.length + ' verschiedene Arten — zu wenige fuer den Fall' };
+      // Die Faelligkeiten muessen der Box WIDERSPRECHEN, sonst kann der Fall die
+      // beiden denkbaren Regeln nicht unterscheiden: mit einem einzigen Datum
+      // fuer alle Karten waere „hoechste Box zuerst" und „aeltestes Datum
+      // zuerst" dieselbe Reihenfolge, und eine Gegenprobe bliebe gruen.
+      // Also: Box 5 traegt das NEUESTE Datum, Box 1 das aelteste.
+      arten.forEach(function (s, i) {
+        t.karten[_gsTrainingSchluessel(s, 2)] = (i < 20)
+          ? { b: 5, faellig: '2099-12-31', r: 9, f: 0 }
+          : { b: 1, faellig: '2000-01-01', r: 0, f: 3 };
+      });
+      localStorage.setItem('gs_dq_training', JSON.stringify(t));
+      const hoch = _gsTrainingSchluessel(arten[0], 2), tief = _gsTrainingSchluessel(arten[100], 2);
+      const geladen = gsTrainingLaden();
+      const n = _gsTrainingDeckeln(geladen);
+      if (!n) return { ok: false, warum: 'der Deckel hat nicht gegriffen (' + Object.keys(geladen.karten).length + ' Karten)' };
+      if (Object.keys(geladen.karten).length !== GS_TRAINING_KARTEN_MAX) return { ok: false, warum: 'nach dem Deckeln ' + Object.keys(geladen.karten).length + ' statt ' + GS_TRAINING_KARTEN_MAX };
+      if (geladen.karten[hoch]) return { ok: false, warum: 'eine Karte aus Box 5 ist geblieben' };
+      if (!geladen.karten[tief]) return { ok: false, warum: 'eine Karte aus Box 1 wurde weggeworfen' };
+      return { ok: true, info: n + ' Karten entfernt, alle aus Box 5 (und mit dem NEUESTEN Datum) · Box 1 unberuehrt · Deckel ' + GS_TRAINING_KARTEN_MAX };
+    }),
+  },
+  {
+    name: '„Keine bekannten Risiken" ist kein Alarm · das Feld warning traegt bei mehr als der Haelfte der Eintraege das Gegenteil einer Warnung',
+    lauf: async () => __seite.evaluate(async () => {
+      const mitW = DB.filter(s => s.warning && String(s.warning).trim());
+      const keine = mitW.filter(s => !_gsWarnungEcht(s.warning));
+      if (!keine.length) return { ok: false, warum: 'kein Eintrag mit einer Nicht-Warnung — der Fall misst nichts' };
+      const paare = [['Keine bekannten Risiken', false], ['keine', false], ['–', false], ['', false],
+                     ['Giftig bei Verzehr', true], ['Nicht mit Maigloeckchen verwechseln', true]];
+      for (const [w, soll] of paare) if (_gsWarnungEcht(w) !== soll) return { ok: false, warum: '„' + w + '" → ' + _gsWarnungEcht(w) + ', erwartet ' + soll };
+      // Und die Anzeige: eine Nicht-Warnung ohne ⚠️, eine echte MIT
+      const zeige = async (sp) => {
+        localStorage.removeItem('gs_dq_training');
+        window._gsTr = { karte: _gsTrainingSchluessel(sp, 1), sp: sp, typ: 1, richtig: 0, optionen: ['A', 'B', 'C', 'D'], beantwortet: false, quelle: 'neu', box: 0 };
+        const erg = document.getElementById('tr-result'); if (erg) { erg.innerHTML = ''; erg.style.display = 'none'; }
+        document.getElementById('tr-options').innerHTML = '<button class="tr-opt"></button><button class="tr-opt"></button><button class="tr-opt"></button><button class="tr-opt"></button>';
+        gsTrainingAntwort(0);
+        await new Promise(r => setTimeout(r, 120));
+        return (document.getElementById('tr-result') || {}).textContent || '';
+      };
+      const ohne = await zeige(keine[0]);
+      if (!ohne.includes(String(keine[0].warning).trim())) return { ok: false, warum: 'der Satz wird verschluckt: ' + ohne.slice(0, 90) };
+      if (/⚠️/.test(ohne)) return { ok: false, warum: '„' + keine[0].warning + '" steht mit ⚠️ da' };
+      const echt = mitW.find(s => _gsWarnungEcht(s.warning));
+      const mit = await zeige(echt);
+      if (!/⚠️/.test(mit)) return { ok: false, warum: 'eine ECHTE Warnung steht ohne ⚠️ da: ' + mit.slice(0, 90) };
+      return { ok: true, info: mitW.length + ' Eintraege mit warning, davon ' + keine.length + ' ohne echte Warnung · „' + String(keine[0].warning).slice(0, 30) + '" ohne Dreieck · „' + String(echt.warning).slice(0, 30) + '" mit' };
+    }),
+  },
+  // ── v33.27 ───────────────────────────────────────────────────────────────
+  {
+    name: 'Die Wertung folgt der ART · „Wie giftig ist X?" und „Ist X essbar?" nehmen die Angabe der Art, nicht die des angetippten Eintrags — und die Zahl daneben sagt, um wie viele es geht',
+    lauf: async () => __seite.evaluate(async () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const eimer = (t) => (t | 0) === 0 ? 'Nicht giftig ✅' : (t | 0) <= 2 ? 'Leicht giftig ⚠️' : 'Stark giftig ☠️';
+      const essbar = (sp) => sp.edible ? 'Essbar ✅' : (sp.tox > 0 ? 'Giftig ☠️' : 'Nicht essbar ❌');
+      let nTox = 0, nEss = 0, ersterTox = null, ersterEss = null;
+      for (const sp of DB) {
+        if (!sp || !sp.id || !sp.lat) continue;
+        const a = _gsArtAnzeige(sp);
+        if (a === sp) continue;
+        if (eimer(a.tox) !== eimer(sp.tox)) { nTox++; if (!ersterTox) ersterTox = sp; }
+        if (essbar(a) !== essbar(sp)) { nEss++; if (!ersterEss) ersterEss = sp; }
+      }
+      if (!ersterTox && !ersterEss) return { ok: false, warum: 'kein Eintrag, dessen Art anders urteilt — der Fall misst nichts' };
+      const andere = DB.slice(0, 6);
+      const pruef = (sp, typ, erwartet, was) => {
+        const q = dqBuildQuestion(sp, typ, andere);
+        if (q.a !== erwartet) return sp.name + ' (' + sp.lat + '): ' + was + ' = „' + q.a + '", die Art sagt „' + erwartet + '"';
+        // Die richtige Antwort darf nicht zugleich unter den falschen stehen.
+        if ((q.wrong || []).indexOf(q.a) >= 0) return sp.name + ': „' + q.a + '" steht auch bei den falschen Antworten';
+        return null;
+      };
+      const fehler = [];
+      if (ersterTox) { const f = pruef(ersterTox, 2, eimer(_gsArtAnzeige(ersterTox).tox), 'Giftigkeit'); if (f) fehler.push(f); }
+      if (ersterEss) { const f = pruef(ersterEss, 5, essbar(_gsArtAnzeige(ersterEss)), 'Essbarkeit'); if (f) fehler.push(f); }
+      // Gegenrichtung: Name, Binomen und Kategorie bleiben die des EINTRAGS —
+      // _gsArtAnzeige darf sie nicht anfassen, sonst liest jemand eine andere Art.
+      const sp0 = ersterTox || ersterEss;
+      const qn = dqBuildQuestion(sp0, 0, andere), ql = dqBuildQuestion(sp0, 3, andere);
+      if (qn.a !== sp0.name) fehler.push('Typ 0 nennt „' + qn.a + '" statt „' + sp0.name + '"');
+      if (ql.a !== (sp0.lat || 'Unbekannt')) fehler.push('Typ 3 nennt „' + ql.a + '" statt „' + sp0.lat + '"');
+      if (fehler.length) return { ok: false, warum: fehler.join(' · ') };
+      return { ok: true, info: DB.length + ' Eintraege · ' + nTox + ' mit anderer Giftstufen-Stufe · ' + nEss + ' mit anderer Essbarkeit · Beispiel ' + (ersterTox || ersterEss).name + ' · Name und Binomen bleiben die des Eintrags' };
+    }),
+  },
+  {
+    name: 'Die Battle-Fragen gehen denselben Weg · gsBattleBuildQuestions ruft dqBuildQuestion, also wertet auch das Duell nach der Art',
+    lauf: async () => __seite.evaluate(async () => {
+      if (typeof gsBattleBuildQuestions !== 'function') return { ok: false, warum: 'gsBattleBuildQuestions fehlt' };
+      let gesehen = null;
+      const echt = window._gsArtAnzeige;
+      window._gsArtAnzeige = function (sp) { gesehen = (gesehen || 0) + 1; return echt(sp); };
+      let fr;
+      try { fr = gsBattleBuildQuestions(5); } finally { window._gsArtAnzeige = echt; }
+      if (!fr || fr.length !== 5) return { ok: false, warum: 'nur ' + ((fr && fr.length) || 0) + ' von 5 Fragen' };
+      if (!gesehen) return { ok: false, warum: 'dqBuildQuestion hat _gsArtAnzeige kein einziges Mal gerufen' };
+      for (const f of fr) {
+        if (!Array.isArray(f.options) || f.options.length !== 4) return { ok: false, warum: 'Frage ohne vier Optionen: ' + JSON.stringify(f) };
+        if (!(f.correct_idx >= 0 && f.correct_idx < 4)) return { ok: false, warum: 'correct_idx ' + f.correct_idx };
+        if (new Set(f.options).size !== 4) return { ok: false, warum: 'doppelte Option: ' + JSON.stringify(f.options) };
+      }
+      return { ok: true, info: '5 Fragen · _gsArtAnzeige ' + gesehen + '× gerufen · je 4 verschiedene Optionen mit gueltigem correct_idx' };
+    }),
+  },
+  {
+    name: 'Die Serie zaehlt TAGE · gestern richtig → +1; eine Luecke dazwischen → die Serie beginnt neu; falsch → 0; und eine Anzeige liest nie den alten Stand',
+    lauf: async () => __seite.evaluate(async () => {
+      const heute = dqDayKey();
+      const tagMinus = (n) => { const d = new Date(heute + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+      const stelle = (o) => localStorage.setItem('gs_dq_stats', JSON.stringify(Object.assign({ points: 0, correct: 0, total: 0, streak: 0, bestStreak: 0, year: parseInt(heute.slice(0, 4), 10) }, o)));
+      const f = [];
+      // 1 · gestern richtig, heute richtig → 6
+      stelle({ streak: 5, bestStreak: 5, lastDay: tagMinus(1) });
+      let s = dqStatsBuchen(true);
+      if (s.streak !== 6) f.push('gestern+heute: ' + s.streak + ' statt 6');
+      if (s.lastDay !== heute) f.push('lastDay nicht gestempelt: ' + s.lastDay);
+      // 2 · Luecke von fuenf Tagen → beginnt bei 1 (und das ist der Kern des Falls)
+      stelle({ streak: 5, bestStreak: 5, lastDay: tagMinus(5) });
+      s = dqStatsBuchen(true);
+      if (s.streak !== 1) f.push('nach fuenf Tagen Pause: ' + s.streak + ' statt 1');
+      if (s.bestStreak !== 5) f.push('bestStreak verloren: ' + s.bestStreak);
+      // 3 · falsch → 0, und der Tag wird trotzdem gestempelt
+      stelle({ streak: 7, bestStreak: 9, lastDay: tagMinus(1) });
+      s = dqStatsBuchen(false);
+      if (s.streak !== 0 || s.lastDay !== heute) f.push('falsch: ' + JSON.stringify({ streak: s.streak, lastDay: s.lastDay }));
+      // 4 · Altbestand OHNE lastDay bleibt unangetastet und waechst weiter
+      stelle({ streak: 4, bestStreak: 4 });
+      if (dqSerie(dqGetStats()) !== 4) f.push('Altbestand ohne lastDay verliert seine Serie');
+      s = dqStatsBuchen(true);
+      if (s.streak !== 5) f.push('Altbestand: ' + s.streak + ' statt 5');
+      // 5 · die ANZEIGE liest die lebende Serie, nicht die gespeicherte Zahl.
+      // ZUERST die Gegenrichtung: eine LEBENDE Serie muss dastehen — sonst
+      // misst der Rest nur, dass renderDailyQuizTeaser gar nichts geschrieben
+      // hat, und waere auch mit ausgebautem dqSerie gruen.
+      stelle({ streak: 8, bestStreak: 8, lastDay: heute });
+      renderDailyQuizTeaser(); gsRenderStreakEverywhere();
+      const st = document.getElementById('quiz-streak');
+      const mq = document.getElementById('more-quiz-streak');
+      const lebt = (st && st.textContent) || '', lebtM = (mq && mq.textContent) || '';
+      if (!/8/.test(lebt)) f.push('Teaser zeigt eine LEBENDE Serie von 8 nicht: „' + lebt.trim() + '"');
+      if (!/8/.test(lebtM)) f.push('Mehr-Seite zeigt eine LEBENDE Serie von 8 nicht: „' + lebtM.trim() + '"');
+      stelle({ streak: 8, bestStreak: 8, lastDay: tagMinus(3) });
+      if (dqSerie(dqGetStats()) !== 0) f.push('dqSerie haelt eine drei Tage alte Serie fuer lebendig');
+      renderDailyQuizTeaser(); gsRenderStreakEverywhere();
+      if (st && /8/.test(st.textContent || '')) f.push('Teaser zeigt weiter „' + st.textContent.trim() + '"');
+      if (mq && /8/.test(mq.textContent || '')) f.push('Mehr-Seite zeigt weiter „' + mq.textContent.trim() + '"');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'gestern→6 · fuenf Tage Pause→1 (bestStreak 5 bleibt) · falsch→0 · Altbestand ohne lastDay→5 · Anzeige lebend „' + lebt.trim() + '" / nach drei Tagen Pause „' + ((st && st.textContent.trim()) || '') + '"' };
+    }),
+  },
+  {
+    name: 'Der Jahreswechsel gilt auf BEIDEN Wegen · er hing bis v33.26 an answerDailyQuiz, dem lokalen Rueckfall — der normale Weg ueber die Serverfrage kam nie dorthin',
+    lauf: async () => __seite.evaluate(async () => {
+      const heute = dqDayKey(), jahr = parseInt(heute.slice(0, 4), 10);
+      const vorher = () => { try { return JSON.parse(localStorage.getItem('gs_dq_archive') || '[]').length; } catch (_) { return 0; } };
+      localStorage.setItem('gs_dq_archive', '[]');
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 640, correct: 8, total: 10, streak: 3, bestStreak: 5, year: jahr - 1, lastDay: heute }));
+      const s = dqStatsBuchen(true);
+      const arch = JSON.parse(localStorage.getItem('gs_dq_archive') || '[]');
+      if (arch.length !== 1) return { ok: false, warum: 'nicht archiviert (' + arch.length + ' Eintraege)' };
+      if (arch[0].year !== jahr - 1 || arch[0].points !== 640) return { ok: false, warum: 'falsch archiviert: ' + JSON.stringify(arch[0]) };
+      if (s.year !== jahr) return { ok: false, warum: 'Jahr nach dem Wechsel: ' + s.year };
+      if (s.points) return { ok: false, warum: 'Punkte nicht zurueckgesetzt: ' + s.points };
+      // Und jetzt ueber den SERVER-Weg, der den Reset nie gesehen hat.
+      const A = window.__qc;
+      localStorage.setItem('gs_dq_archive', '[]');
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 111, correct: 2, total: 2, streak: 1, bestStreak: 1, year: jahr - 1 }));
+      await A.reset(); A.antwort = { data: [{ is_correct: true }], error: null };
+      A.oeffnen({ id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1 } });
+      const k = A.knoepfe().find(x => x.correct === '1');
+      document.querySelectorAll('.dq-opt')[k.pos].click();
+      await new Promise(r => setTimeout(r, 1400));
+      const arch2 = JSON.parse(localStorage.getItem('gs_dq_archive') || '[]');
+      if (arch2.length !== 1 || arch2[0].points !== 111) return { ok: false, warum: 'der Serverweg archiviert nicht: ' + JSON.stringify(arch2) };
+      // Und die Serie darf den Jahreswechsel nicht als Altbestand passieren:
+      // `dqYearlyReset` behaelt sie absichtlich — ohne `lastDay` waere eine
+      // laengst gerissene Serie am 1. Januar wieder lebendig.
+      const tagMinus = (n) => { const d = new Date(heute + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 50, correct: 1, total: 1, streak: 9, bestStreak: 9, year: jahr - 1, lastDay: tagMinus(6) }));
+      const s3 = dqStatsBuchen(true);
+      if (s3.streak !== 1) return { ok: false, warum: 'ueber den Jahreswechsel lebt eine sechs Tage alte Serie weiter: ' + s3.streak + ' statt 1' };
+      if (s3.bestStreak !== 9) return { ok: false, warum: 'bestStreak ueber den Jahreswechsel verloren: ' + s3.bestStreak };
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 50, correct: 1, total: 1, streak: 9, bestStreak: 9, year: jahr - 1, lastDay: tagMinus(1) }));
+      const s4 = dqStatsBuchen(true);
+      if (s4.streak !== 10) return { ok: false, warum: 'eine LEBENDE Serie ueberlebt den Jahreswechsel nicht: ' + s4.streak + ' statt 10' };
+      return { ok: true, info: 'Rueckfall archiviert 640 Punkte · Serverweg archiviert 111 Punkte · beide setzen das Jahr auf ' + jahr + ' · gerissene Serie ueber den Jahreswechsel: 1 · lebende: 10' };
+    }),
+  },
+  {
+    name: 'Die Tagesgrenze der ANZEIGE ist dieselbe wie die des Tagesschluessels · der Countdown lief bis zur LOKALEN Mitternacht, der Quiz-Tag ist UTC',
+    lauf: async () => __seite.evaluate(async () => {
+      const nf = dqNaechsteFrage();
+      const d = nf.datum;
+      if (d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0 || d.getUTCSeconds() !== 0) return { ok: false, warum: 'nicht auf einer UTC-Mitternacht: ' + d.toISOString() };
+      const naechsterTag = d.toISOString().slice(0, 10);
+      if (dqTagDavor(naechsterTag) !== dqDayKey()) return { ok: false, warum: 'nicht der Tag NACH dem heutigen Quiz-Tag: ' + naechsterTag + ' (heute ' + dqDayKey() + ')' };
+      if (!(nf.ms > 0 && nf.ms <= 86400000)) return { ok: false, warum: 'ms ausserhalb eines Tages: ' + nf.ms };
+      // Die LOKALE Mitternacht — die alte Rechnung. In einer Zone mit Versatz
+      // muss sie sich unterscheiden, sonst misst der Fall nichts.
+      const lokal = new Date(); lokal.setDate(lokal.getDate() + 1); lokal.setHours(0, 0, 0, 0);
+      const versatz = new Date().getTimezoneOffset();
+      if (versatz !== 0 && Math.abs((lokal - new Date()) - nf.ms) < 60000) return { ok: false, warum: 'UTC- und Ortszeit-Rechnung liefern dasselbe bei Versatz ' + versatz + ' min — der Fall misst nichts' };
+      // Und die Anzeige nennt die Uhrzeit, damit niemand selbst umrechnet.
+      localStorage.setItem(dqTodayKey(), JSON.stringify({ answered: true, correct: true, points: 120 }));
+      renderDailyQuizTeaser();
+      const txt = (document.getElementById('quiz-options') || {}).textContent || '';
+      if (txt.indexOf(nf.zeit) < 0) return { ok: false, warum: 'der Teaser nennt die Uhrzeit „' + nf.zeit + '" nicht: ' + txt.slice(0, 120) };
+      const std = Math.floor(nf.ms / 3600000);
+      if (txt.indexOf(String(std)) < 0) return { ok: false, warum: 'der Teaser zeigt nicht ' + std + ' h: ' + txt.slice(0, 120) };
+      localStorage.removeItem(dqTodayKey());
+      return { ok: true, info: 'naechster Quiz-Tag ' + d.toISOString() + ' · in ' + std + ' h · Teaser nennt „' + nf.zeit + '" (Versatz ' + (-versatz) + ' min)' };
+    }),
+  },
+  {
+    name: 'Der Tagesschluessel gehoert dem Konto · gs_dq_tag_<datum> geht beim Abmelden mit, wird nach 30 Tagen weggeraeumt, und die zwei Nachbarn mit demselben Wortanfang bleiben unberuehrt',
+    lauf: async () => __seite.evaluate(async () => {
+      const heute = dqDayKey();
+      const f = [];
+      if (dqTodayKey() !== 'gs_dq_tag_' + heute) f.push('Name: ' + dqTodayKey());
+      if ((window.GS_USER_PREFIXES || []).indexOf('gs_dq_tag_') < 0) f.push('gs_dq_tag_ steht nicht in GS_USER_PREFIXES');
+      const tagMinus = (n) => { const d = new Date(heute + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+      // Deckel: alt raus, jung bleibt, Altbestand von gestern raus, der von HEUTE bleibt
+      localStorage.setItem('gs_dq_tag_' + tagMinus(40), '{"answered":true}');
+      localStorage.setItem('gs_dq_tag_' + tagMinus(3), '{"answered":true}');
+      localStorage.setItem('gs_dq_' + tagMinus(2), '{"answered":true}');
+      localStorage.setItem('gs_dq_' + heute, '{"answered":true,"correct":true,"alt":1}');
+      localStorage.setItem('gs_dq_stats', '{"points":7,"streak":0,"total":0,"correct":0,"bestStreak":0}');
+      localStorage.setItem('gs_dq_today_cache', '{"id":"x"}');
+      localStorage.setItem('gs_dq_archive', '[]');
+      const weg = _dqTageAufraeumen();
+      if (localStorage.getItem('gs_dq_tag_' + tagMinus(40))) f.push('40 Tage alter Schluessel liegt noch da');
+      if (!localStorage.getItem('gs_dq_tag_' + tagMinus(3))) f.push('drei Tage alter Schluessel weggeraeumt');
+      if (localStorage.getItem('gs_dq_' + tagMinus(2))) f.push('Altbestand von vorgestern liegt noch da');
+      if (localStorage.getItem('gs_dq_' + heute)) f.push('Altbestand von heute liegt noch da — ihn liest seit v33.27 niemand mehr');
+      if (!localStorage.getItem('gs_dq_stats')) f.push('gs_dq_stats mitgeraeumt');
+      if (!localStorage.getItem('gs_dq_today_cache')) f.push('gs_dq_today_cache mitgeraeumt');
+      if (!localStorage.getItem('gs_dq_archive')) f.push('gs_dq_archive mitgeraeumt');
+      // Abmelden: der neue Schluessel geht ueber das Praefix, der Altbestand
+      // ueber die FORM (GS_DQ_ALT) — und die zwei Nachbarn bleiben, wie es
+      // ihre Listen sagen.
+      localStorage.setItem(dqTodayKey(), '{"answered":true}');
+      localStorage.setItem('gs_dq_' + tagMinus(7), '{"answered":true}');
+      gsClearUserDataKeys();
+      if (localStorage.getItem(dqTodayKey())) f.push('der neue Schluessel ueberlebt das Abmelden');
+      if (localStorage.getItem('gs_dq_' + tagMinus(7))) f.push('der Altbestand ueberlebt das Abmelden');
+      if (localStorage.getItem('gs_dq_stats')) f.push('gs_dq_stats ueberlebt das Abmelden (steht in GS_USER_KEYS)');
+      if (!localStorage.getItem('gs_dq_today_cache')) f.push('gs_dq_today_cache beim Abmelden mitgenommen (steht bewusst in GS_KEEP_ON_LOGOUT)');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: weg + ' Schluessel weggeraeumt · Deckel ' + GS_DQ_TAGE_MAX + ' Tage · Abmelden nimmt neuen Schluessel (Praefix), Altbestand (Form) und gs_dq_stats mit — gs_dq_today_cache bleibt' };
+    }),
+  },
+  {
+    name: 'Die Rueckfall-Frage ist kein Server-Quiz · GS_QUIZ_FALLBACK_POOL traegt die Ids lq1…lq50, quiz_answers.quiz_id ist eine uuid — es wird nichts gesendet und nichts behauptet',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      const lq = (typeof GS_QUIZ_FALLBACK_POOL !== 'undefined' && GS_QUIZ_FALLBACK_POOL && GS_QUIZ_FALLBACK_POOL[5]) || null;
+      if (!lq) return { ok: false, warum: 'GS_QUIZ_FALLBACK_POOL nicht gefunden — der Fall misst nichts' };
+      if (!/^lq\d+$/.test(String(lq.id))) return { ok: false, warum: 'unerwartete Rueckfall-Id: ' + lq.id };
+      await A.reset(); A.antwort = { data: null, error: { message: 'invalid input syntax for type uuid: "' + lq.id + '"', status: 400 } };
+      A.oeffnen(lq);
+      if (window._dqSupaQuizId) return { ok: false, warum: 'die Rueckfall-Id steht als Server-Id da: ' + window._dqSupaQuizId };
+      const kn = A.knoepfe();
+      if (kn.length !== 4) return { ok: false, warum: 'die Rueckfall-Frage rendert nicht (' + kn.length + ' Knoepfe)' };
+      const k = kn.find(x => x.correct === '1');
+      if (!k) return { ok: false, warum: 'kein richtiger Knopf in der Rueckfall-Frage' };
+      document.querySelectorAll('.dq-opt')[k.pos].click();
+      await new Promise(r => setTimeout(r, 1400));
+      const post = A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST');
+      if (post) return { ok: false, warum: 'eine Zeile fuer die Rueckfall-Frage gesendet: ' + post.opts.body };
+      const el = document.getElementById('dq-server-urteil');
+      if (el) return { ok: false, warum: 'behauptet etwas ueber den Server: „' + el.textContent.trim() + '"' };
+      if ((dqGetToday() || {}).serverUrteil) return { ok: false, warum: 'ein Server-Urteil vermerkt: ' + (dqGetToday() || {}).serverUrteil };
+      const st = dqGetStats();
+      if (!(st.total > 0)) return { ok: false, warum: 'der Versuch wurde lokal nicht gezaehlt' };
+      // Gegenrichtung: eine ECHTE uuid geht weiterhin raus.
+      await A.reset(); A.antwort = { data: [{ is_correct: true }], error: null };
+      A.oeffnen({ id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1 } });
+      if (window._dqSupaQuizId !== 'aaaaaaaa-0000-4000-8000-000000000002') return { ok: false, warum: 'eine echte uuid kommt nicht durch: ' + window._dqSupaQuizId };
+      const k2 = A.knoepfe().find(x => x.correct === '1');
+      document.querySelectorAll('.dq-opt')[k2.pos].click();
+      await new Promise(r => setTimeout(r, 1400));
+      if (!A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST')) return { ok: false, warum: 'die echte Frage sendet nicht mehr' };
+      return { ok: true, info: 'Rueckfall „' + lq.id + '": kein POST, kein Server-Urteil, lokal gezaehlt · echte uuid: POST geht raus' };
+    }),
+  },
+  {
+    name: 'Der Zeitablauf erreicht den Server · er schrieb lokal „gespielt" und liess den Server nichts wissen — auf einem zweiten Geraet war das ein Freiversuch',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      await A.reset(); A.antwort = { data: [{ is_correct: false }], error: null };
+      A.oeffnen({ id: 'aaaaaaaa-0000-4000-8000-000000000003', question: 'Format C', category: 'x', xp_reward: 20, options: { choices: ['C0', 'C1', 'C2', 'C3'], correct: 2 } });
+      localStorage.setItem('gs_dq_stats', JSON.stringify({ points: 0, correct: 0, total: 4, streak: 3, bestStreak: 3, lastDay: dqDayKey() }));
+      dqTimeout();
+      await new Promise(r => setTimeout(r, 1200));
+      const post = A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST');
+      if (!post) return { ok: false, warum: 'kein POST auf quiz_answers (' + A.rufe.map(x => x.path).join(', ') + ')' };
+      const b = JSON.parse(post.opts.body);
+      if (b.selected_option !== -1) return { ok: false, warum: 'selected_option ' + b.selected_option + ' statt -1 (nur bei fehlendem oder negativem Index kehrt der Trigger VOR der Formatpruefung zurueck und schreibt keine Warnung)' };
+      if (b.is_correct !== false) return { ok: false, warum: 'is_correct ' + b.is_correct };
+      if (b.quiz_id !== 'aaaaaaaa-0000-4000-8000-000000000003') return { ok: false, warum: 'quiz_id ' + b.quiz_id };
+      if (!/return=representation/.test((post.opts.headers || {}).Prefer || '')) return { ok: false, warum: 'Prefer ' + (post.opts.headers || {}).Prefer };
+      const st = dqGetStats();
+      if (st.streak !== 0) return { ok: false, warum: 'Serie nach Zeitablauf: ' + st.streak };
+      if (st.total !== 5) return { ok: false, warum: 'Versuch nicht gezaehlt: total ' + st.total };
+      if ((dqGetToday() || {}).timeout !== true) return { ok: false, warum: 'lokal nicht als Zeitablauf vermerkt' };
+      // Gegenrichtung: die ERSATZFRAGE hat keine Server-Id. Wer sie zeigt,
+      // raeumt `_dqSupaQuizId` — sonst schriebe ein Zeitablauf dort eine Zeile
+      // fuer die zuletzt geladene SERVERfrage und sperrte den Spieler fuer
+      // eine Frage, die er nie beantwortet hat.
+      A.rufe.length = 0;
+      try { _openDailyQuizLocal(); } catch (_) {}
+      if (window._dqSupaQuizId) return { ok: false, warum: 'die Ersatzfrage laesst _dqSupaQuizId stehen: ' + window._dqSupaQuizId };
+      dqTimeout();
+      await new Promise(r => setTimeout(r, 900));
+      const post2 = A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST');
+      if (post2) return { ok: false, warum: 'die Ersatzfrage schreibt beim Zeitablauf eine Server-Zeile: ' + post2.opts.body };
+      return { ok: true, info: 'POST mit selected_option -1 · is_correct false · Prefer return=representation · Serie 0 · Versuch gezaehlt (4→5) · Ersatzfrage schreibt keine Zeile' };
+    }),
+  },
+  {
+    name: 'Index reist mit · in allen drei Formaten traegt jeder Knopf den DB-Index seiner Option; angetippt wird der richtige, gesendet wird SEIN Index (nicht die gemischte Position)',
+    lauf: async () => {
+      const fragen = [
+        { id: 'aaaaaaaa-0000-4000-8000-000000000001', question: 'Format A', category: 'x', xp_reward: 15, options: [{ label: 'A0', is_correct: true, explanation: 'x' }, { label: 'A1', is_correct: false }, { label: 'A2', is_correct: false }, { label: 'A3', is_correct: false }], texte: ['A0', 'A1', 'A2', 'A3'], richtig: 0 },
+        { id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1, explanation: 'y' }, texte: ['B0', 'B1', 'B2', 'B3'], richtig: 1 },
+        { id: 'aaaaaaaa-0000-4000-8000-000000000003', question: 'Format C', category: 'x', xp_reward: 20, options: { choices: ['C0', 'C1', 'C2', 'C3'], correct: 2, explanation: 'z' }, texte: ['C0', 'C1', 'C2', 'C3'], richtig: 2 },
+      ];
+      const infos = [];
+      for (const q of fragen) {
+        const r = await __seite.evaluate(async (q) => {
+          const A = window.__qc; await A.reset(); A.antwort = { data: [{ is_correct: true }], error: null };
+          A.oeffnen(q);
+          const kn = A.knoepfe();
+          const falsch = kn.filter(k => k.idx !== q.texte.indexOf(k.text));
+          if (falsch.length) return { ok: false, warum: q.question + ': Index passt nicht zum Text: ' + JSON.stringify(falsch) };
+          const richtig = kn.find(k => k.idx === q.richtig);
+          if (!richtig || richtig.correct !== '1') return { ok: false, warum: q.question + ': richtiger Knopf ohne data-correct=1: ' + JSON.stringify(kn) };
+          document.querySelectorAll('.dq-opt')[richtig.pos].click();
+          await new Promise(r => setTimeout(r, 1400));
+          const post = A.rufe.find(x => /\/quiz_answers$/.test(x.path) && x.opts && x.opts.method === 'POST');
+          if (!post) return { ok: false, warum: q.question + ': kein POST auf quiz_answers (' + A.rufe.map(x => x.path).join(', ') + ')' };
+          const body = JSON.parse(post.opts.body);
+          if (body.selected_option !== q.richtig || body.quiz_id !== q.id || body.is_correct !== true) return { ok: false, warum: q.question + ': Body ' + JSON.stringify(body) };
+          if (!/return=representation/.test(post.opts.headers.Prefer || '')) return { ok: false, warum: q.question + ': Prefer ' + post.opts.headers.Prefer + ' — das Urteil wird nie gelesen' };
+          const gemischt = kn.map(k => k.idx).join('') !== '0123';
+          return { ok: true, info: q.question + ' idx ' + q.richtig + (gemischt ? ' (gemischt ' + kn.map(k => k.idx).join('') + ')' : '') };
+        }, q);
+        if (!r.ok) return r;
+        infos.push(r.info);
+      }
+      return { ok: true, info: infos.join(' · ') };
+    },
+  },
+  {
+    name: 'Urteil des Servers · bestaetigt → nichts; widersprochen → sichtbar unter dem Ergebnis; nicht angekommen → sichtbar; Dublette (0 Zeilen) → nichts',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      const q = { id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1 } };
+      const spiel = async (antwort, welcher) => {
+        await A.reset(); A.antwort = antwort; A.oeffnen(q);
+        const kn = A.knoepfe(); const k = kn.find(x => (welcher === 'richtig' ? x.correct === '1' : x.correct !== '1'));
+        document.querySelectorAll('.dq-opt')[k.pos].click();
+        await new Promise(r => setTimeout(r, 1400));
+        const el = document.getElementById('dq-server-urteil');
+        return { text: el ? el.textContent : null, sichtbar: !!(el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden'), heute: (dqGetToday() || {}).serverUrteil };
+      };
+      const a = await spiel({ data: [{ is_correct: true }], error: null }, 'richtig');
+      if (a.text !== null || a.heute !== 'richtig') return { ok: false, warum: 'bestaetigt zeigt etwas: ' + JSON.stringify(a) };
+      const b = await spiel({ data: [{ is_correct: false }], error: null }, 'richtig');
+      if (!b.text || !/als falsch/.test(b.text) || !b.sichtbar || b.heute !== 'falsch') return { ok: false, warum: 'Widerspruch nicht sichtbar: ' + JSON.stringify(b) };
+      const c = await spiel({ data: null, error: { message: 'permission denied for table quiz_answers', status: 403 } }, 'richtig');
+      // v32.73 (Audit B8): der Grund steht als SATZ da (_gsFehlerText), nicht als PostgREST-Zeile
+      if (!c.text || !/nicht beim Server/.test(c.text) || !/abgelehnt/.test(c.text) || /permission denied/.test(c.text) || c.heute !== 'nicht_angekommen') return { ok: false, warum: 'nicht angekommen nicht gesagt: ' + JSON.stringify(c) };
+      const d = await spiel({ data: [], error: null }, 'richtig');
+      if (d.text !== null || d.heute !== null) return { ok: false, warum: 'Dublette zeigt etwas: ' + JSON.stringify(d) };
+      const e = await spiel({ data: [{ is_correct: true }], error: null }, 'falsch');
+      if (!e.text || !/als richtig/.test(e.text)) return { ok: false, warum: 'Gegenrichtung (Client falsch, Server richtig) nicht gesagt: ' + JSON.stringify(e) };
+      return { ok: true, info: 'bestaetigt still · „als falsch" sichtbar · „nicht beim Server (permission denied…)" sichtbar · Dublette still · Gegenrichtung „als richtig"' };
+    }),
+  },
+  {
+    name: 'Wiederoeffnen · das Urteil steht auch in der „heute schon gespielt"-Ansicht (showDqResult), ein bestaetigtes nicht',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      const q = { id: 'aaaaaaaa-0000-4000-8000-000000000003', question: 'Format C', category: 'x', xp_reward: 20, options: { choices: ['C0', 'C1', 'C2', 'C3'], correct: 2 } };
+      const spiel = async (antwort) => {
+        await A.reset(); A.antwort = antwort; A.oeffnen(q);
+        const k = A.knoepfe().find(x => x.correct === '1');
+        document.querySelectorAll('.dq-opt')[k.pos].click();
+        await new Promise(r => setTimeout(r, 1400));
+        closeDailyQuiz(); await new Promise(r => setTimeout(r, 300));
+        showDqResult(dqGetToday());
+        const el = document.querySelector('#dq-result #dq-server-urteil');
+        return el ? el.textContent : null;
+      };
+      const w = await spiel({ data: [{ is_correct: false }], error: null });
+      if (!w || !/als falsch/.test(w)) return { ok: false, warum: 'Widerspruch fehlt beim Wiederoeffnen: ' + w };
+      const n = await spiel({ data: null, error: { message: 'offline' } });
+      if (!n || !/nicht beim Server/.test(n)) return { ok: false, warum: 'nicht angekommen fehlt beim Wiederoeffnen: ' + n };
+      const b = await spiel({ data: [{ is_correct: true }], error: null });
+      if (b !== null) return { ok: false, warum: 'bestaetigt zeigt beim Wiederoeffnen etwas: ' + b };
+      return { ok: true, info: 'Widerspruch da · nicht angekommen da · bestaetigt still' };
+    }),
+  },
+  {
+    name: 'Nach der Antwort · die offenen Ranglisten werden erneuert (dqRefreshLeaderboards), und der Streak-Push geht raus',
+    lauf: async () => __seite.evaluate(async () => {
+      const A = window.__qc;
+      const q = { id: 'aaaaaaaa-0000-4000-8000-000000000002', question: 'Format B', category: 'x', xp_reward: 10, options: { answers: ['B0', 'B1', 'B2', 'B3'], correct: 1 } };
+      await A.reset(); A.antwort = { data: [{ is_correct: true }], error: null }; A.oeffnen(q);
+      let refresh = 0; const echt = window.dqRefreshLeaderboards; window.dqRefreshLeaderboards = () => { refresh++; };
+      try {
+        const k = A.knoepfe().find(x => x.correct === '1');
+        document.querySelectorAll('.dq-opt')[k.pos].click();
+        await new Promise(r => setTimeout(r, 2200));
+      } finally { window.dqRefreshLeaderboards = echt; }
+      const push = A.rufe.filter(x => /fn_quiz_leaderboard_upsert/.test(x.path)).length;
+      if (refresh < 1) return { ok: false, warum: 'dqRefreshLeaderboards nicht gerufen' };
+      if (push < 1) return { ok: false, warum: 'kein Upsert-Push (' + A.rufe.map(x => x.path).join(', ') + ')' };
+      return { ok: true, info: 'refresh ' + refresh + '× · Upsert-Push ' + push + '×' };
+    }),
+  },
+];
+let __seite = null;
+
+(async () => {
+  console.log('\n=== quiz_check — zaehlt der Server, was der Spieler richtig hatte?');
+  // ── SQL ────────────────────────────────────────────────────────────────
+  sqlHaelfte();
+  let kaputt = 0, offen = 0;
+  console.log('  [SQL — lokales Postgres, Geschichte v30.80 → v30.95 → 20260907 nachgespielt]');
+  for (const s of S) {
+    if (s.ok === null) { offen++; console.log('  ??   ' + s.name + '\n         → ' + s.warum); }
+    else if (s.ok) console.log('  ok   ' + s.name + (s.info ? '   [' + s.info + ']' : ''));
+    else { kaputt++; console.log('  !!   ' + s.name + '\n         → ' + s.warum); }
+  }
+  // ── App ────────────────────────────────────────────────────────────────
+  const br = await chromium.launch();
+  const ctx = await br.newContext({ viewport: { width: 412, height: 915 }, timezoneId: 'Europe/Zurich' });
+  const p = await ctx.newPage(); __seite = p;
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
+  await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  await p.addInitScript(SEED);
+  await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await p.waitForTimeout(4000);
+  await p.evaluate(() => {
+    document.documentElement.classList.remove('gs-preauth');
+    window.gsRequire = () => true;
+    window.gsToast = () => {}; window.showProfileToast = () => {}; window.gsHaptic = () => {};
+    window.sbIsLoggedIn = () => true;
+    window.gsStore = window.gsStore || {};
+    const echtGet = gsStore.get;
+    gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : (echtGet ? echtGet.call(gsStore, k, d) : d));
+    const A = window.__qc = { rufe: [], antwort: { data: [], error: null } };
+    window.sbFetch = async (path, opts) => {
+      A.rufe.push({ path, opts: opts || {} });
+      if (/\/quiz_answers$/.test(path) && opts && opts.method === 'POST') return A.antwort;
+      return { data: [], error: null };
+    };
+    // closeDailyQuiz blendet das Fenster 200 ms VERZOEGERT aus — wer sofort wieder
+    // oeffnet, bekommt es 200 ms spaeter unter sich weggezogen (erster Lauf:
+    // „Widerspruch nicht sichtbar", getClientRects leer). Deshalb warten.
+    A.reset = async () => { A.rufe.length = 0; try { closeDailyQuiz(); } catch (_) {} try { localStorage.removeItem(dqTodayKey()); } catch (_) {} const r = document.getElementById('dq-result'); if (r) r.innerHTML = ''; await new Promise(res => setTimeout(res, 320)); };
+    A.oeffnen = (q) => { const s = _gsQuizToSupaShape(JSON.parse(JSON.stringify(q))); openDailyQuizFromSupa(s); return s; };
+    A.knoepfe = () => Array.from(document.querySelectorAll('.dq-opt')).map((b, pos) => ({ pos, text: b.textContent.trim(), idx: parseInt(b.dataset.idx, 10), correct: b.dataset.correct }));
+  });
+  console.log('  [App — Playwright, gestellter Server]');
+  for (const f of K) {
+    let r;
+    try { r = await f.lauf(); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
+    if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
+    else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
+  }
+  await br.close();
+  console.log('  ---');
+  console.log('  Faelle geprueft: ' + (S.length + K.length) + ' · davon kaputt: ' + kaputt + (offen ? ' · nicht pruefbar: ' + offen + ' (SQL-Haelfte ohne lokales Postgres)' : ''));
+  console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
+  console.log('  Grenze: das lokale Postgres hat keine RLS und kein auth.users — geprueft ist die');
+  console.log('  Rechnung der Migration und die Rueckmeldung der App, nicht die Anwendung auf der Live-DB.');
+  console.log('  Die Zeitzone der App-Haelfte ist Europe/Zurich: ohne Versatz zu UTC koennte der');
+  console.log('  Tagesgrenzen-Fall nicht zeigen, dass die beiden Rechnungen auseinanderfallen.');
+  console.log('  Ueben (v33.28) wird hier ohne Netz gemessen: Leitner, Auswahl, Deckel und die');
+  console.log('  Anzeige — nicht, ob der Lernstand in der Cloud wirklich ankommt (dafuer sync_check).');
+  process.exitCode = kaputt ? 1 : (offen ? 2 : 0);
+})();

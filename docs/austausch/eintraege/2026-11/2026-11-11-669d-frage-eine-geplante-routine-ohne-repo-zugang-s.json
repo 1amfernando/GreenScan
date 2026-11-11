@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-669d",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "09:34:42",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "Eine geplante Routine ohne Repo-Zugang schreibt ihre Übergaben ausserhalb des Repos — soll sie ans Repo und ans Brett angeschlossen werden?",
+  "an": "fernando",
+  "text": "Gesehen am 10.11.2026. Welche Aufgabe es ist, wo sie ablegt und was ihr fehlt, steht bewusst nicht hier: die Angaben stammen aus dem Konto des Betreibers, nicht aus dem Repo, und gingen direkt an ihn. Diese Sitzung hat an der Aufgabe nichts geändert.",
+  "haengt_daran": "Ob die Routine dieselben Funde wieder neu macht (wie die 123 Branches zuvor) oder sie aufs Brett schreibt. Im Auftrag der Aufgabe bräuchte es zwei Zeilen: `node scripts/austausch.mjs holen` am Anfang, Einträge statt eigener Notizen am Ende.",
+  "details_bei": "Fernando (Abschlussbericht der Sitzung vom 11.11.2026)",
+  "stichworte": [
+    "geplante-aufgabe",
+    "routine",
+    "uebergabe"
+  ]
+}

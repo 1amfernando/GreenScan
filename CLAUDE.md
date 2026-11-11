@@ -4,45 +4,225 @@
 > Cursor, externe Agenten) in diesem Repo. **Lies es zuerst, bevor du Code
 > editierst.** Es gehört zusammen mit `STATUS.md` (operativer Snapshot) und
 > `ROADMAP.md` (Meilensteine).
+>
+> **Zu lang? Dann `docs/memory/`** — neun Dateien, rund 20 Minuten, dieselben
+> Regeln in Kurzform, fuer JEDE KI (nichts darin setzt Claude Code voraus).
+> Dieses Dokument ist das ausfuehrliche Tagebuch dahinter: jede Regel dort
+> nennt ihre Stelle hier. Wer eine Regel aendert, aendert sie an BEIDEN
+> Stellen — `robust_check` „Memory" prueft, dass jeder dort genannte
+> Funktionsname im Quelltext existiert.
 
 ## 1 · Was ist GreenScan?
 
-Schweizer PWA für Naturbestimmung — 4'342 Arten (Pflanzen, Pilze, Bäume,
-Kräuter, Moose, Flechten, Algen). Live unter `https://green-scan.ch/` (kanonisch MIT Bindestrich; `greenscan.ch` ohne Bindestrich ist nur die Mail-Domain). Hosting:
-**Cloudflare Pages**. Backend: **Supabase** (Auth, Storage, Postgres mit RLS).
+Schweizer PWA für Naturbestimmung — **3'136 Arten in 4'337 Einträgen**
+(Pflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen). Jede Zeile der
+Liste trägt EINEN deutschen Namen; 660 Arten haben mehr als eine, der
+Bärlauch vier. Wer eine der beiden Zahlen anzeigt, nimmt `gsArtenZahlen()`
+und schreibt das passende Wort daneben — `nutzersicht_check` E9 misst es
+(v33.04). Live unter `https://green-scan.ch/` (kanonisch MIT Bindestrich; `greenscan.ch` ohne Bindestrich ist nur die Mail-Domain). Hosting:
+**Cloudflare Pages** (`greenscan-app`) — und **zusätzlich Netlify**
+(`green-scanswitzerland`), siehe §2.1. Backend: **Supabase** (Auth, Storage,
+Postgres mit RLS).
 KI: **Claude (Anthropic)** — User bringt eigenen API-Key oder Admin hinterlegt
 einen globalen Key in Supabase (`fn_get_global_api_key` RPC).
 
 Keine Build-Pipeline, kein npm. Reine statische Files. Editieren = direkt
-deployen, sobald Cloudflare Pages den Branch zieht.
+deployen, sobald der Hoster den Branch zieht.
+
+### 2.1 · Zwei Hoster — was das bedeutet (Stand v31.08)
+
+An jedem PR bauen **beide**: Cloudflare Pages (`greenscan-app`) und Netlify
+(`green-scanswitzerland`). Das war bis v31.08 nirgends dokumentiert, obwohl es
+für jede Änderung an Auslieferungs-Dateien wichtig ist.
+
+**Konsistent, weil bewusst so gebaut** — geprüft, nicht vermutet:
+
+- **Keine `netlify.toml`, keine Wrangler-/Pages-Konfiguration.** Beide liefern
+  schlicht das Repo-Wurzelverzeichnis als statische Dateien aus.
+- **`_headers` gilt auf beiden.** Netlify wertet dieselbe Datei aus — CSP,
+  HSTS, COOP und Permissions-Policy greifen also überall gleich.
+- **`_redirects` gilt auf beiden.** Die Datei sagt es sogar selbst:
+  „Format identisch zu Netlify".
+- **`<link rel="canonical" href="https://green-scan.ch/">`** steht in
+  `index.html:11` (seit v29.23). Suchmaschinen bekommen dadurch unabhängig vom
+  ausliefernden Host dieselbe kanonische Adresse — kein Duplicate-Content.
+
+**Was beim Arbeiten zu beachten ist:**
+
+- Eine Änderung an `_headers` oder `_redirects` wirkt auf **beiden** Hostern.
+  Nie annehmen, es gebe nur Cloudflare-Semantik.
+- `manifest.json` nutzt relative `start_url`/`scope` (`/?source=pwa`, `/`).
+  Wer die PWA von der Netlify-Adresse installiert, bekommt eine **eigene**
+  Instanz mit **eigenem** localStorage — andere Herkunft, andere Daten. Für
+  Support-Fälle relevant: „meine Pflanzen sind weg" kann schlicht die falsche
+  Adresse sein.
+- Der Anon-Key ist öffentlich by design und die Daten sind über RLS geschützt;
+  eine zweite Auslieferung ist deshalb **kein** Datenrisiko.
+
+**Teilweise beantwortet (01.09.2026).** Der Netlify-Bot kommentiert an jedem PR
+mit einer Deploy-Preview-Adresse der Form
+`https://deploy-preview-<PR>--green-scanswitzerland.netlify.app`, zuletzt an
+PR #83 mit dem Vermerk „Deploy Preview … ready". **Belegt ist damit:** Netlify
+baut pro PR eine eigene Vorschau, und diese Vorschauen sind erreichbare
+Adressen. Das ist nützlich — sie sind der einzige Weg, einen Stand vor dem
+Merge auf einem echten Telefon anzusehen (den QR-Code hängt der Bot an).
+
+**Weiterhin nicht verifiziert:** ob die nackte Adresse
+`green-scanswitzerland.netlify.app` eine öffentliche Produktions-Auslieferung
+bedient oder nur die Vorschauen existieren. Die Netzwerk-Richtlinie der
+Claude-Cloud-Umgebung blockiert ausgehende Verbindungen dorthin
+(`CONNECT … 403`), der Bot-Kommentar sagt dazu nichts. Wer es prüfen kann:
+einmal aufrufen und hier eintragen — und dann entscheiden, ob die zweite
+Auslieferung bleiben soll.
+
+**Warum das nicht egal ist:** existiert sie öffentlich, ist sie eine zweite
+PWA-Installationsquelle mit **eigenem** localStorage (siehe oben) — und damit
+eine wiederkehrende Support-Frage.
+
+**Auch `green-scan.ch` selbst ist von hier aus nicht erreichbar** (geprüft
+01.09.2026, ebenfalls `CONNECT … 403`). Eine Claude-Cloud-Session kann die
+**Live-Seite also nicht abrufen** — weder um ein Deployment zu bestätigen noch
+um einen Nutzer-Report nachzustellen. Was von hier aus geht:
+
+- die App **lokal** aus dem Repo rendern (`scripts/render_check.js` und die
+  drei anderen Prüfstände, §7.1),
+- die Deploy-Meldung der Cloudflare-Pages-Bot-Kommentare am PR lesen.
+
+**Und die Vorschau-Adressen ebenfalls nicht** (geprüft 01.09.2026). Der
+Cloudflare-Bot hängt an jeden PR zwei Adressen an — eine pro Deploy
+(`<hash>.greenscan-app.pages.dev`) und eine pro Branch
+(`<branch>.greenscan-app.pages.dev`). Beide sehen aus wie der naheliegende
+Ausweg. Beide liefern dasselbe `CONNECT … 403`:
+
+```
+curl -sS https://54e6aba1.greenscan-app.pages.dev
+curl: (56) CONNECT tunnel failed, response 403
+```
+
+Der Proxy-Status nennt es beim Namen: `connect_rejected · gateway answered
+403 to CONNECT (policy denial)`. Dasselbe gilt für die Netlify-Vorschauen.
+**Nicht noch einmal probieren** — die Sperre gilt für alles ausserhalb der
+Freigabeliste, nicht für einzelne Hostnamen.
+
+Wer schreibt „live verifiziert", muss also sagen, **womit** — sonst ist es
+geraten. Für echte Live-Prüfungen braucht es Fernando oder eine Umgebung ohne
+diese Sperre.
 
 ## 2 · Repo-Struktur
 
 ```
 GreenScan/
-├── index.html           # 46k+ Zeilen Monolith (HTML + CSS + JS) — DIE App
-├── sw.js                # Service Worker (v23.86: Cache, Share-Target, Push)
-├── manifest.json        # PWA-Manifest (share_target, file_handlers, etc.)
+├── index.html           # ~96k Zeilen Monolith (HTML + CSS + JS) — DIE App
+├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'337 Arten) — separat gecacht
+├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
+├── supabase/functions/  # Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
+├── supabase/migrations/ # SQL-Migrationen (alle idempotent) — Zahlen: STATUS.md §1
+├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
 ├── install.html         # Marketing-Landingpage für PWA-Installation
 ├── offline.html         # SW-Fallback bei kompletter Offline-Situation
 ├── sitemap.xml, robots.txt
 ├── icons/               # PWA-Icons (192/512, maskable, svg)
+├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
+│                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
+├── scripts/             # Prüfstände (§7.1) + pruefstaende.sh (fährt alle, seit v32.94 mit perf; wie viele: STATUS.md §1) + package.json (Playwright, NICHT im Root)
+│                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
+├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
+├── docs/austausch/      # das Brett: ein Eintrag je Datei, über das sich alle KI-Sitzungen austauschen (§5) · Werkzeug scripts/austausch.mjs
+├── docs/                # lebende Doku · docs/_archiv/ = 52 historische Aufträge/Audits (seit v32.69 aus dem Root)
+├── AGENTS.md            # Zeiger für Werkzeuge, die CLAUDE.md nicht von selbst laden
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
 └── ROADMAP.md           # Priorisierte Meilensteine
 ```
 
+Der Web-Root IST das Repo (kein Build): `docs/`, `supabase/`, `scripts/`
+werden von beiden Hostern ausgeliefert. Seit v32.69 tragen diese Pfade
+`X-Robots-Tag: noindex` (`_headers`) und stehen in `robots.txt` — ein 404
+lässt sich auf Cloudflare Pages per `_redirects` nicht erzwingen. Neue
+interne Dateien gehören nach `docs/`, nie in den Root.
+
 ## 3 · Konventionen
 
 ### 3.1 · Versionierung
-- Versions-Format: `vMAJOR.MINOR` (z.B. `v23.87`). Aktuell: siehe `GS_VERSION`
+- Versions-Format: `vMAJOR.MINOR` (z.B. `v30.79`). Aktuell: siehe `GS_VERSION`
   in `index.html` und `CACHE_VERSION` in `sw.js`. Bei Bumps **immer beide
   syncen** + `meta name="app-version"` im `<head>`.
 - Commit-Message-Format: `vXX.YY: <kurze Aussage>` + Markdown-Body mit
   Bullets pro Bereich (Sicherheit / UX / Feature). Beispiel siehe letzte
-  Commits auf `claude/audit-app-features-CXtrI`.
+  Commits auf `main`.
+- **Pflicht bei jedem Bump: ein neuer Eintrag ganz oben in `GS_RELEASES`**
+  (`index.html`, gesucht mit `grep -n "window.GS_RELEASES = \["`). Der
+  „Was ist neu"-Dialog und der Über-Modal-Changelog lesen ausschliesslich
+  diese Liste. Seit v31.13 prüft der Dialog, ob `GS_RELEASES[0].v` der
+  laufenden `GS_VERSION` entspricht, und **bleibt sonst aus** — vergisst
+  du den Eintrag, sehen die Nutzer gar keine Release-Notizen mehr.
+  *Warum die Prüfung existiert:* zwischen v30.04 und v31.12 wurde die
+  Liste nicht gepflegt. Über hundert Updates lang zeigte der Dialog die
+  Notizen von v30.03 unter der jeweils neuen Versionsnummer.
+  Felder: `v`, `date`, `headline`, `summary`, optional `user_summary` /
+  `user_items` (werden bevorzugt gerendert). **Reiner Fliesstext** — die
+  Werte werden beim Rendern escaped, Markup in den Strings wirkt nicht.
+- > **Ein Eintrag in `user_items` ist ein OBJEKT `{emoji, bold, text}`, keine
+> Zeichenkette** (v33.00). Ein roher String kommt im Renderer an, der `it.bold`
+> liest — und an einem String ist das `String.prototype.bold`, eine FUNKTION
+> und damit wahr: auf dem Bildschirm stand dreimal
+> `function bold() { [native code] }`, `it.text` war `undefined`. Vierzehn
+> Auslieferungen lang, bis Fernando es fotografiert hat. `gsAutoUserItems`
+> normalisiert das jetzt (`_gsRelItem`), aber die Hausform bleibt das Objekt.
+>
+> **Und ein Emoji ist ein ZEICHEN, kein Escape** (v33.29). `'\U0001f4da'` ist
+> **kein** JavaScript-Escape — JS kennt nur `\uXXXX` und `\u{…}`; aus der
+> Zeichenkette wird woertlich `"U0001f4da"`. Genau das stand in **elf**
+> Eintraegen aus v33.27 und v33.28 auf dem Bildschirm, zwei Auslieferungen
+> lang. Entstanden ist es beim Schreiben mit einem Python-Skript, das seine
+> eigenen Escapes durchgereicht hat. **Emoji werden als Zeichen geschrieben**
+> (`'📚'`), nie als Escape; `nutzersicht_check` E4b prueft es seither, beide
+> Schreibweisen.
+>
+> **Und der Pruefstand dafuer war gruen.** `nutzersicht_check` E4 ersetzt
+> `GS_RELEASES` durch eine EIGENE, korrekt geformte Attrappe und sieht die
+> echten Daten nie. **Ein Fall, der nur eine Attrappe rendert, prueft die
+> Vorlage — nicht die Ware.** E4b rendert seit v33.00 die zwanzig neuesten
+> ECHTEN Eintraege.
+
+**Seit v31.36 ist die Liste zweigeteilt.** In `index.html` stehen nur noch
+  die **neuesten ~12** Einträge (vorher alle 383 — 787 KB, 14 % der Datei,
+  bei jedem Kaltstart geparst). Alles Ältere liegt in
+  `data/releases.v1.js` (`window.GS_RELEASES_ARCHIVE`) und wird erst geladen,
+  wenn jemand den Changelog im Über-Modal öffnet.
+  - Neue Einträge kommen weiterhin **oben in `index.html`** dazu — daran
+    ändert sich nichts.
+  - Wer die **vollständige** Liste braucht: `gsAllReleases()`, nie
+    `GS_RELEASES` direkt. Letzteres sind nur die inline vorhandenen.
+  - Wird die Inline-Liste zu lang, wandern die ältesten Einträge an den
+    **Anfang** von `data/releases.v1.js` — die Reihenfolge ist überall neu → alt.
+  - Das Archiv ist bewusst **nicht** in `SHELL_URLS` vor-gecacht: sonst lädt
+    jeder gut 1 MB (536 Einträge, Stand v33.01) für einen Bildschirm, den die
+    meisten nie öffnen. Der Kopf von `data/releases.v1.js` behauptete bis
+    v33.01 das Gegenteil — **zwei Dateien beschrieben denselben Mechanismus
+    gegensätzlich, und die falsche Hälfte klang plausibel.**
+
+> **„Zu lang" braucht einen Auslöser** (v33.01). Aus den 12 waren **100**
+> geworden — 138 KB, bei jedem Kaltstart geparst, also genau der Zustand,
+> gegen den die Teilung gebaut wurde. Niemand hat etwas falsch gemacht: jede
+> Sitzung hat oben brav ihren Eintrag angehängt, und „wenn die Liste zu lang
+> wird" stand nur in einem Kommentar. **Eine Regel ohne Auslöser ist eine
+> Bitte.** `robust_check` Fall 24 deckelt jetzt bei 20 und misst im selben Zug
+> die zweite Pflicht dieses Abschnitts, die bis dahin ebenfalls kein Prüfstand
+> kannte: **`GS_RELEASES[0].v === GS_VERSION`** — wird der Eintrag vergessen,
+> bleibt „Was ist neu" bei *allen* Nutzern still aus (das ist die Sperre aus
+> v31.13, und sie schweigt bewusst).
+>
+> Und die Messung dazu, weil sie gegen die Erwartung ausfiel: **die Startzeit
+> hat sich nicht messbar geändert.** 5+5 Läufe `perf_check` unter 4×-Drosselung,
+> DCL-Median 1'704 vs 1'748 ms, Mittelwerte 1'716 vs 1'713 ms bei einer
+> Streuung von 190 bzw. 300 ms je Gruppe. Sicher ist nur das Kleinere: 138 KB
+> weniger Datei, 42 KB weniger nach gzip — bei jedem Update, für jeden.
+> **Der Umzug bleibt richtig; die Begründung ist die Übertragung und die
+> wiederhergestellte Bauform, nicht ein Tempogewinn, den ich nicht belegen
+> kann.**
 
 ### 3.2 · Branches
 - `main` ist Produktion. NIE direkt darauf pushen.
@@ -51,6 +231,21 @@ GreenScan/
 - PR-basierter Merge ist Pflicht.
 
 ### 3.3 · Single Source of Truth pro Domäne
+> **Und eine ZAEHLUNG ist dasselbe Versprechen wie eine Nachschlagung**
+> (v33.06). `_gsPflanzeFinden` deckt „welche Pflanze ist das?" ab; „hat die
+> Person ueberhaupt Pflanzen?" beantwortete jede Anzeige selbst — mit
+> `myPlants.length`. Gemessen mit 0 eigenen Pflanzen und 2 Garten-Pflanzungen:
+> der Tagesplan sagte „Noch keine Pflanze", waehrend die Zeile darueber
+> „2 Aufgaben warten auf dich" zeigte und „Meine Pflanzen" „2 Pflanzen"
+> auswies. Wer eine Pflanzenzahl braucht, ruft **`gsPflanzenZahl()`**;
+> Pruefstand `nutzersicht_check` E10. Und die zwei Fallen aus dem Bau des
+> Falls: `gsRenderGardenOverview` faellt auf den `localStorage` zurueck, wenn
+> die Variable leer ist — **ein Zustand, der nur an einem der beiden Orte
+> gesetzt wird, ist nur halb hergestellt**. Und **ein Tor hinter einem anderen
+> Tor braucht seinen eigenen Zustand**: das „Erste Pflanze anlegen" der
+> Garten-Uebersicht sitzt hinter „keine Schritte" und ist unerreichbar,
+> solange Aufgaben anstehen.
+
 | Domäne | Quelle | Niemals direkt mutieren |
 |---|---|---|
 | User-Standort | `localStorage.gs_user_location` | globale Var `userLocation` (legacy alias) |
@@ -58,22 +253,130 @@ GreenScan/
 | User-Plan/Tier | Supabase `v_user_entitlements` | NICHT auf `localStorage` für Server-Decisions vertrauen |
 | KI-Modell | `localStorage.gs_claude_model` | wird auto-bestimmt durch Fallback-Chain |
 | Lina-Gedächtnis | Supabase `coach_conversations` / `coach_messages` | (gsBrain/`gs_brain_memory` ENTFERNT — siehe §4) |
+| Garten-Zwilling | `localStorage.gs_garden_twin` (über `gsTwinGet`/`gsTwinSave`) | nie direkt parsen — `gsTwinNormalize` klemmt und verwirft |
+| Mischkultur | Supabase `plant_companion_matrix` / `v_companion_lookup` | **keine** Nachbarschaftstabelle im Code anlegen |
+| Geräte | `localStorage.gs_geraete` (`gsGeraete` / `_gsGeraeteSchreiben`); für **gekoppelte** Geräte (`cloud_id`) ist Supabase `devices` die Instanz für Status, `paired_at`, Firmware (`gsGeraeteCloudAbgleich`, seit v32.62) und der Server meldet die Alarme | nie den Status eines gekoppelten Geräts lokal raten; `cloud_id` nur nach `_gsSchreibOk` setzen; das Token nie speichern |
+| Messwerte | `localStorage.gs_messwerte`, **nur** über `_gsMesswerteAnhaengen` / `gsMesswertEintragen` (seit v32.52: ein Weg, Dublettensperre auf Gerät · Messgrösse · Zeit) | nie direkt `push`en — der Deckel und die Sortierung nach `ts` hängen daran |
+| Quiz-Tag | `dqDayKey()` — **UTC**, weil der Server mit `current_date` rotiert; die Anzeige der Grenze rechnet `dqNaechsteFrage()` | nie `new Date().toISOString()` je Anzeige, nie die lokale Mitternacht |
+| Lernkarten („Üben") | `localStorage.gs_dq_training` über `gsTrainingLaden()` / `gsTrainingBuchen(schluessel, richtig)`; Schlüssel = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag) | nie direkt schreiben — Deckel, Karteileichen-Räumung und `markDirty('state')` hängen daran; und nie `gs_dq_stats` mitzählen: Üben ist vom Tagesquiz getrennt |
+| Arten in einem FREITEXT (Lina, Chat) | `_gsArtenTreffer(text)` — ganzer Name oder ganzes Binomen an Wortgrenzen, plus das letzte Wort eines mehrteiligen Namens (≥ 10 Zeichen, gegen die deutsche Deklination); der Umgangsname zieht seine FAMILIE mit; je Art durch `_gsArtAnzeige` | nie den Vergleich aus `getSmartAnswer` nachbauen (er nimmt IRGENDEIN Wort — „braune Blätter" ergibt die Braune Krustenflechte), nie bei mehreren Arten eine auswählen (`[0]` ist die Dateireihenfolge), und nie eine Zusage geben, wenn der volle Name gar nicht in der Frage stand |
+| Quiz-Kategorie | `supabase/functions/_shared/quiz_gen_regeln.mjs` (`QUIZ_KATEGORIEN` + `QUIZ_KAT_ALIAS`), in der App gespiegelt als `GS_QUIZ_KATEGORIEN` / `GS_QUIZ_KAT_ALIAS`; angezeigt **nur** über `_gsQuizKatLabel(slug)` | nie `quiz.category` roh anzeigen (es gab 35 Schreibweisen aus drei Quellen), nie eine Kategorie erfinden — was das Vokabular nicht kennt, wird verworfen bzw. bleibt leer |
+| Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
+| „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
+| Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
 `callVisionAI(b64, mediaType, prompt, extraImages, opts)` gehen.
 - `opts.brain = 'gaertner' | 'phytopathologe' | 'mykologe' | 'botaniker' | 'dendrologe' | 'herbalist' | 'generalist'`
-  → injectet automatisch Persona + User-Kontext.
+  ~~→ injectet automatisch Persona + User-Kontext.~~ **Stimmt nicht (geprüft
+  04.09.2026):** `brain` wird in `callAI` **nur als Log-Beschriftung** an
+  `_gsLogAiUsage` gereicht — es gibt keine Persona-Tabelle und keine
+  Prompt-Ergänzung. Wer Kontext will, baut ihn in den `systemPrompt`
+  (Lina: `gsLinaContext()`), nicht in ein Feld, das niemand liest.
+  `brain` bleibt als Kennung für die Nutzungsstatistik sinnvoll.
 - Direkte `fetch('https://api.anthropic.com/...')` Calls nur in `gsTestApiKey()`
   (Key-Validierung).
+- **Seit v32.68 (Audit A1) geht der globale Schlüssel durch den Proxy.**
+  `_gsAiTarget(key, source)` liefert für `source === 'global'` die
+  Edge-Function `ai-proxy` (Bearer-Token, kein `x-api-key`); der Schlüssel
+  liegt nie mehr in `localStorage`, nur in `window._gsGlobalKeyMem` — und
+  nur solange der Server ihn schickt (nach der Migration
+  `20260907_global_api_key_nur_proxy.sql` nur noch Admins). `_gsAiAnfrage`
+  ist die eine Anfrage-Funktion mit dem Übergangs-Rückfall (Proxy schweigt
+  + Schlüssel da → einmal direkt); `_gsAiQuotaFehler` macht aus dem 429 des
+  Proxys ein `free_quota_reached`. Wer einen neuen KI-Weg baut, geht über
+  `callAI`/`callVisionAI` — ein `fetch('https://api.anthropic.com/…')` mit
+  `getApiConfig().key` funktioniert für Nutzer nicht mehr (kein Schlüssel).
+  Prüfstand: `schluessel_check`.
+- **Seit v33.57 hat „ist die KI da?" EINE Antwort: `gsKiVerfuegbar(cfg)`** —
+  wahr bei Schlüssel ODER Proxy-Ziel. Ein `if (!key)` vor einem KI-Weg ist seit
+  der Migration „nur Proxy" (angewandt am 10.11.2026) für jeden Nutzer ohne
+  Admin-Rolle wahr — der Scanner zeigte damit „KI gerade nicht erreichbar",
+  während `callVisionAI` eine Zeile weiter über den Proxy gegangen wäre.
+- **Seit v33.58 steht ein Modellname an genau zwei Orten:** `window._gsClaudeFallbacks`
+  (App) und `MODELL_KETTEN` in `supabase/functions/_shared/modelle.mjs` (Server). Eine
+  Edge-Function nennt eine ROLLE (`anthropicFetch('vision' | 'schnell', init)`), nie ein
+  Modell; `ai-proxy` geht durch `modellFuerAnfrage` + `rufeModell`. Wer die Antwort der KI
+  liest, ruft `_gsAiText(data)` — nie `content[0].text` (seit Sonnet 5 kann dort ein
+  `thinking`-Block stehen). Und wer ein Modell hinzufügt, trägt es an BEIDEN Orten ein
+  und gibt ihm in `modellZusatz` / `_gsModellZusatz` seine Einstellungen — ein Modellname
+  allein ist keine Umstellung (§7.1, `modell_check`).
 
 ### 3.5 · Daten-Speicherung
 - Lokal: `localStorage` mit `safeGetItem(key, fallback)` Wrapper benutzen.
   Quota-Errors werden geschluckt — bei großen Listen (Ernte-Log,
   Scan-History) selbst rotieren (`slice(-N)`).
+
+> ⚠️ **Die Falle, in die ich selbst gelaufen bin (v31.65).**
+> `localStorage.setItem` ist **global umhüllt** (`index.html` ~Z. 7145) und
+> **wirft nie**. Bei vollem Speicher gibt es `false` zurück und zeigt einen
+> Hinweis. Das heisst:
+>
+> ```js
+> try { localStorage.setItem(k, v); } catch (e) { /* Rettungsweg */ }   // TOT
+> if (localStorage.setItem(k, v) === false) { /* Rettungsweg */ }        // richtig
+> ```
+>
+> Der Kommentar an der Wrapper-Stelle sagt es seit v30.98 wörtlich — trotzdem
+> habe ich in v31.57 einen Rückfall in einen `catch` geschrieben, der nie
+> lief. Folge: bei vollem Gerät war nicht nur das Scan-Foto weg, sondern der
+> **ganze** Garten-Zwilling, und `gsTwinSave` meldete Erfolg.
+>
+> **Stand v32.44: die Welle ist geschlossen.** 336 `setItem`-Aufrufe, 250
+> davon in einem `try/catch`; die `catch`-Blöcke sind entweder harmlos
+> (leer, `console.warn`) oder decken etwas anderes ab (Netz, JSON). Die
+> **dreizehn echten Rettungswege** sind alle am Rückgabewert: Favoriten und
+> Supabase-Key (v31.65), `gsPPsavePlan` (v31.76), und in v32.44 Tagebuch
+> (schrumpft auf 300, dann Meldung), Fundorte (`lsOk` nur bei Erfolg),
+> GPS-Tracks (`-1` + Meldung), gespeicherte Pläne (`local_failed`),
+> Abstimmungs-Schlüssel (kein geteilter `anon:fallback` mehr — der war EIN
+> Schlüssel für alle mit vollem Speicher) und Passwortänderung (sagt, wenn
+> die Sitzung nicht gesichert wurde).
+>
+> **Und seither gibt es den Prüfstand dafür:** `node scripts/speicher_check.js`
+> stellt den vollen Speicher HER (jeder Schreibversuch liefert `false` und
+> wird protokolliert) und löst alle zehn Wege aus. Gegenprobe gemacht: zwei
+> Reparaturen zurückgebaut → beide rot, mit der echten Rückgabe daneben
+> („liefert true statt false"). **Wer einen neuen Rettungsweg baut, trägt
+> ihn dort ein** — und der Fall muss den Schreibversuch im Protokoll sehen,
+> sonst hat er eine Funktion vermessen, die vorher ausgestiegen ist (der
+> Fundort-Fall brauchte eine Karten-Attrappe, sonst kam er nie bis zum
+> Speichern).
+>
+> Gefunden wurde das nicht beim Lesen, sondern beim Nachstellen mit einem
+> echten Telefonfoto. **Wer einen Rettungsweg für vollen Speicher baut, muss
+> ihn auslösen** — sonst schreibt man Trost, keinen Code.
 - Cloud: `sbFetch(path, opts)` — hat Auto-Retry/Backoff für GET, einmaliges
   Retry für POST/PATCH/DELETE bei Netzwerk-Errors. Liefert
   `{data, error: {message, status?}}`.
+  **Es wirft nicht** (kein einziges `throw` im Rumpf, jeder Weg gibt ein Objekt
+  zurück — auch der Netzfehler). Ein `.catch()` daran ist deshalb von Bauart
+  tot; seit v32.82 zählt `robust_check` Fall 20 sie und lässt keine zu.
+  Wer eine Antwort auswerten will, nimmt `.then` oder `await` — und prüft
+  `_gsSchreibOk(r)` (Ablehnung ODER 0 Zeilen), nie nur `r.error`.
+  **Ein Nein ist nicht immer ein Fehler:** `fn_achievements_showcase_set` gibt
+  `boolean` zurück und antwortet bei fehlender Anmeldung mit `false` ohne
+  Fehler (live nachgelesen, 08.09.2026) — wer nur `error` prüft, hält genau
+  diese Ablehnung für einen Erfolg. Bei einer neuen RPC also erst nachsehen,
+  **wie** sie Nein sagt.
+
+> **Und ein Zustand, der auf dem Bildschirm umspringt, ist auch ein
+> Versprechen** (v32.82). *Nachgemessen am 08.09.2026: die Klasse ist
+> geschlossen* — von zehn `sbFetch`-Aufrufen, deren Antwort niemand ansieht,
+> ist keiner mehr eine Zusage an die Person; die drei mit sichtbarer Wirkung
+> (Aufraeum-PATCH der Glocke, Foto-Vergleich, Lina-Verlauf) stehen mit Grund
+> in STATUS (fy). `versprechen_check` sucht nach einer MELDUNG ohne
+> Prüfung und sieht so etwas nicht — beim Herz an einem Beitrag, beim Stern
+> der Vitrine und bei der Stimme unter einer Idee gibt es keine Meldung, die
+> Zusage ist das rote Herz selbst. Optimistisch anzeigen bleibt richtig (es
+> fühlt sich schnell an); wer es tut, merkt sich den Zustand **davor**, nimmt
+> ihn bei einer Ablehnung zurück und sagt einen Satz dazu. Und wenn der Server
+> die richtige Zahl mitschickt (`toggle_post_like` → `{liked, likes}`), gewinnt
+> **seine** Zahl gegen die geschätzte — bei zwei gleichzeitigen Likern ist die
+> Schätzung ohnehin falsch. Eine Kopie machen, keine Referenz: `var sc =
+> window._gsAchShowcase || []` ist dasselbe Array, und eine Rücknahme darauf
+> läuft, ohne etwas zu tun.
 
 ### 3.6 · Sicherheit (Pflicht!)
 - **NIE** API-Keys, Secrets, Tokens hardcoden. NVIDIA-Demo-Key war geleakt
@@ -81,15 +384,37 @@ GreenScan/
   pack ihn hinter einen Server-Proxy.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
-- **innerHTML mit User-Input**: ab v24.02 nutze `gsSafeHTML`-Tagged-Template
-  (auto-escape):
+- **innerHTML mit User-Input**: NIEMALS ungeprüft. Nutze `gsEscHtml(s)` zum
+  HTML-Escapen einzelner Werte, `gsSanitizeHtml(html)` für ganze Fragmente
+  (das ältere `gsSanitize` hatte keinen Aufrufer und ist seit v32.77 weg):
   ```js
-  el.innerHTML = gsSafeHTML`<div>${userName} sagt: ${msg}</div>`;
+  el.innerHTML = '<div>' + gsEscHtml(userName) + ' sagt: ' + gsEscHtml(msg) + '</div>';
   ```
-  Helpers: `gsSafeHTML.escape(s)`, `.attr(s)`, `.url(s)` (nur https/http/
-  mailto/relative), `.unsafe(html)` (bypass für bereits-escapte Sub-
-  Templates). `gsHTMLEscape` als Kurz-Alias. Für reine Text-Inserts
-  weiterhin `textContent` bevorzugen.
+  Für reine Text-Inserts `textContent` bevorzugen. Für KI-Plan-Objekte:
+  `gsSanitizeGardenPlan` / `gsSanitizePlannerPlan`.
+- **Seit v32.66 gibt es vier Helfer, und jeder hat GENAU einen Kontext**
+  (Audit A2–A4/A10, Prüfstand `escape_check`):
+  | Kontext | Helfer | Warum nicht der andere |
+  |---|---|---|
+  | Text oder Attributwert in HTML | `escHtml(s)` (kennt seit v32.66 auch `'`) | — |
+  | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
+  | Fragment, das Auszeichnung TRAGEN darf (Übersetzung mit `<br>`, Chat-Zeile mit `<strong>`) | `gsSanitizeHtml(html)` — Allowlist in einem `<template>`; ein `style` nur über `_gsStilSaeubern` (Erlaubnisliste je Deklaration, seit v33.54) | `escHtml` zerstört die Auszeichnung, `innerHTML = fremd` führt sie aus |
+  | Adresse aus fremder Hand | `_gsSafeUrl(u)` für Bilder (https/data:image), `_gsSafeLink(l)` für Navigation (eigener Ursprung oder https), `swSafeUrl` im Service Worker (nur eigener Ursprung) | `javascript:` ist eine gültige URL |
+  `innerHTML = <etwas Fremdes>` ohne einen davon gibt es nicht mehr. Wer eine
+  neue Stelle baut, an der Text von ANDEREN ankommt (Community, `species`,
+  Mitteilungen aus SECURITY-DEFINER-Triggern, Übersetzungen, KI-Ausgaben,
+  Push-Nutzlasten), rendert sie einmal mit
+  `<img src=x onerror="window.__pwned=1">` in `escape_check` — der Fall ist
+  die Vorlage.
+
+  > **Eine Verbotsliste auf dem Rohtext ist keine Prüfung, sobald die Sprache
+  > Escapes kennt** (v33.54). Der `style`-Filter suchte `url(` im Text — CSS
+  > liest `u\72l(` als `url(`, und `image-set("…")` lädt eine Adresse ganz ohne
+  > `url(`. 6 von 6 bösen Stilen luden eine fremde Adresse. Jetzt eine
+  > ERLAUBNISliste je Deklaration (`_gsStilSaeubern`, `GS_SANITIZE_STIL`): nur
+  > die Eigenschaften, die Texte wirklich brauchen (gemessen), keine Escapes,
+  > keine Zeichenketten, Funktionen nur `rgb/hsl/var/calc`. Und der Fall misst
+  > die WIRKUNG — die Anfragen, die der Browser stellt —, nicht den Text.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.
@@ -98,12 +423,40 @@ GreenScan/
 - Analytics ist **Opt-In** (Consent-Banner beim ersten Launch). Niemals
   ohne User-Consent in `analytics_events` schreiben. Check via:
   `gs_consent.analytics === true ODER gs_prefs.privacy.analytics === true`.
+  Seit v32.71 ist das EINE Funktion: `_gsAnalyticsErlaubt()` — sie gilt für
+  `gsTrackEvent` UND für die Fehlerberichte nach `client_errors` (die tragen
+  `user_id`, Meldung und Stack). **Seit v33.11 gibt es den Schalter** (Einstellungen
+  › Datenschutz & Daten, Vorgabe aus, `gsConsentAnalyticsSetzen` schreibt
+  `gs_consent {analytics, at, version}`) — und ein **Vokabular**: `GS_EVENTS`
+  erklärt jedes Ereignis mit seinen erlaubten Feldern, `_gsEventFiltern`
+  lässt nur diese durch. **Ein neues Ereignis ist ein Eintrag im Vokabular,
+  kein Aufruf irgendwo** — ohne Eintrag wird es verworfen, auch mit Ja. Keine
+  Fotos, kein Standort, keine Pflanzennamen, kein Eingabetext: das sind keine
+  Felder, also gehen sie nicht durch. Prüfstand: `einstellungen_check`
+  (sechs Fragen, jede stellt den Schalter und liest die Nutzlast).
+  **Und seit v33.18 die LESE-Seite:** `fn_admin_analytics` (Migration
+  `20260910_admin_analytics.sql`, nicht angewandt) zählt je Ereignis und Tag —
+  nur Zahlen, keine Kennungen — und die Karte „Nutzung" im Admin-Panel zeigt
+  sie mit drei Zuständen (Prüfstand `nutzung_check`). Nachgemessen am
+  10.09.2026: bis dahin las NIEMAND `analytics_events`. **Was getrackt wird,
+  wird auch gelesen** — sonst ist es Speicherplatz.
+  Und: keine Ortung über die IP-Adresse (`ipapi.co` ist seit v32.71 raus, auch
+  aus der CSP) — wer den Standort verweigert, bekommt Zürich mit Hinweis.
 - Daten landen in Supabase EU-Region. Datenschutz-Erklärung verlinkt im
   Footer-Modal.
 
 ### 3.8 · Code-Style
-- Vanilla JS, ES6+. Kein TypeScript, kein React. Keine externen Libs außer
-  **Leaflet** (Karte) und **pdf.js** (Plan-Export).
+- Vanilla JS, ES6+. Kein TypeScript, kein React. Externe Bibliotheken —
+  **alle selbst gehostet** unter `assets/`, keine CDN-Abhängigkeit:
+  | | | |
+  |---|---|---|
+  | **Leaflet** | 147 KB | Karte |
+  | **Three.js** | 603 KB | 3D-Modelle (Planer + Garten-Zwilling) |
+  | **pdf.js** | CDN (cdnjs), **nur bei Bedarf** seit v32.79 (`_gsPdfjsLaden`) | Book-Ingest (Admin), PDF einlesen |
+
+  Three.js fehlte hier bis v31.57, obwohl es die grösste der drei ist. Es wird
+  **erst bei Bedarf** geladen (`_gsLoadThree()`), nie beim Start — wer nie ein
+  3D-Modell öffnet, lädt die 603 KB nie.
 - Defensive try/catch um nicht-essenzielle Operations (z.B. localStorage,
   Notifications). User darf nie wegen einer Sub-Funktion ein Crash sehen.
 - Funktions-Prefixes:
@@ -129,34 +482,446 @@ GreenScan/
 > Die historischen No-Op-`gsBrain.observe`-Call-Sites können bei Gelegenheit
 > ersatzlos entfernt werden (reine Hygiene, kein funktionaler Effekt).
 
-## 5 · Multi-Agent-Sync
+## 4a · Garten-Zwilling und Planer — die zwei Fallen
 
-Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
+Beides seit v31.57 bzw. v31.58 gebaut und in dieser Reihenfolge gewachsen.
+Wer daran arbeitet, tritt sonst in dieselben zwei Löcher wie ich.
 
-### Vor dem Edit
-1. `git fetch && git status` — sind du auf dem aktuellsten Branch?
-2. `STATUS.md` öffnen — was ist gerade in Arbeit, was ist offen?
-3. Wenn unklar: zuerst kurze Notiz unter „In Progress" in `STATUS.md`
-   schreiben + committen, damit andere Agenten wissen, dass du dran bist.
+### 4a.1 · Zwei Koordinatensysteme, die gleich aussehen
 
-### Nach dem Edit
-1. `STATUS.md` aktualisieren („Recently shipped" / „Known issues").
-2. Wenn ein Meilenstein abgeschlossen wurde, in `ROADMAP.md` von
-   „In Progress" → „Shipped" verschieben + Commit-Hash daneben.
-3. Commit-Message gemäß Konvention in 3.1.
+Der Zwilling (`gs_garden_twin`) trägt pro Pflanze **beides**:
 
-### Konflikt-Vermeidung
-- Große Bereiche per Convention reservieren (siehe „File Locks" in
-  `STATUS.md`). Wer als Erstes editiert, schreibt seinen Bereich rein.
-- Feature-Flags statt Branch-Wettlauf: neue Features zuerst hinter
-  `localStorage.gs_feat_X = '1'` Toggle, später aktivieren.
+| Feld | Bedeutung | Wofür |
+|---|---|---|
+| `x_m` / `y_m` / `w_m` / `h_m` | Meter im **Grundriss**, Nullpunkt links oben | 3D-Modell, Planer |
+| `ix` / `iy` | 0–1 **im Foto**, von links oben | Marker auf dem Bild |
+
+Das ist **nicht** ineinander umrechenbar: das eine ist eine Draufsicht, das
+andere eine perspektivische Aufnahme. Wer die Meter aufs Foto legt, bekommt
+Marker, die überzeugend aussehen und daneben zeigen.
+
+`ix`/`iy` sind **`null`**, wenn die KI nichts sagen konnte — nicht `0`. Sonst
+zeigt der Marker auf „links oben", weil ein Feld fehlte. Dieselbe Regel gilt
+überall im Zwilling: **lieber keine Angabe als eine erfundene.**
+
+Funktionen: `gsTwinRun` (Scan) · `gsTwinNormalize` (klemmt alles, verwirft
+Namen mit `<`/`>`) · `gsTwinOpenListe` (Liste mit Foto und Markern) ·
+`gsTwinFix` / `gsTwinRename` (Korrektur) · `gsTwinAdopt` (übernimmt in
+`myPlants` mit vollem Aufgabenplan).
+
+### 4a.2 · Eine Prompt-Zeile ist keine Garantie
+
+Der Planer-Prompt verlangte seit v31.58 „Sonnenpflanzen nicht in den
+Schatten". Die KI hielt sich daran. Danach lief `_gsSanitizePlannerPlan` und
+ordnete **jede** neue Pflanze aus (0,0) heraus neu an — die Überlegung war
+weg. Dasselbe bei der Mischkultur: verlangt, nie gemessen.
+
+**Die Lehre, und sie gilt über den Planer hinaus:** was der Prompt verlangt,
+prüft von hier aus niemand — die Claude-Cloud-Umgebung hat kein Netz zur KI.
+Alles, was wirklich gelten soll, braucht **zusätzlich** eine rechnende
+Prüfung im Code. Die steht dann auch im Prüfstand.
+
+Der Platzierer arbeitet deshalb mit **Vorlieben**, von streng nach nachgiebig:
+
+```
+1. Die Stelle der KI — wenn frei UND Licht passt UND kein Gegenspieler daneben
+2. Rastersuche: Licht UND Nachbarschaft
+3. Rastersuche: nur Nachbarschaft  →  4. nur Licht  →  5. irgendwo frei
+```
+
+**Keine Vorliebe darf eine Pflanze verhindern.** Findet sich nichts Besseres,
+wird gesetzt und gemeldet (`plan._licht`, `plan._nachbarn`, `plan._ohnePlatz`)
+— eine Pflanze wegzulassen wäre die schlechtere Antwort, und ein Plan, der
+behauptet alles passe, wäre kein Plan.
+
+Zwei Fehler, die ich beim Bauen selbst gemacht habe und die beide erst der
+Durchlauf gezeigt hat:
+
+- **„Frei" ist nicht „sinnvoll".** Stufe 1 nahm anfangs jede kollisionsfreie
+  Stelle der KI — die Tomate blieb im Schatten bzw. 10 cm neben der
+  Kartoffel stehen, obwohl der halbe Garten leer war. Zweimal derselbe
+  Fehler, an zwei Tagen.
+- **Zwei Regeln statt einer.** Der Platzierer rechnete mit rohen
+  Fliesskommazahlen (10-cm-Schritte summieren sich zu `1.0000000000000002`),
+  die Prüfung danach mit gerundeten. Der Planer setzte eine Pflanze bewusst
+  auf genau 1,00 m Abstand und beklagte anschliessend genau diesen Abstand.
+  Seither fragen beide Seiten dieselbe Funktion (`_gsZuNah`).
+
+### 4a.3 · Wann Messungen gelten dürfen
+
+Der Plan hat eine eigene Fläche (aus dem Formular), der Scan eine gemessene.
+Sind das nicht dieselben Masse (Toleranz 26 cm), liegen die Zonen-Koordinaten
+auf einem **anderen Rechteck** — dann bleiben sie ungenutzt und es wird
+nichts behauptet (`plan._licht = null`). Genauso, wenn die
+Mischkultur-Matrix noch nicht geladen ist: `plan._nachbarn = null`, kein
+erfundener Vorwurf.
+
+Grundregel für alles in diesem Bereich: **eine Anzeige, die etwas behauptet,
+muss sagen können, woher sie es weiss.**
+
+## 4c · Kalender — der Entwurf steht in `docs/KALENDER-V1.md` und `docs/KALENDER-V2.md`
+
+Wer Aufgaben, Termine, Saison, Naturjahr, Timeline oder Wetter anfasst, liest
+zuerst V1 (die eine Regel: EINE Frage, EINE Funktion `gsKalenderEreignisse`)
+und V2 (seit v33.34: das Pruefwerk `_gsKalPruefwerk` mit `hinweise[]`, das
+Sieb, die drei Namen aus Fernandos Auftrag, Lina, sieben Scheiben). Kurzform
+in `docs/memory/06-kalender.md`. **Seit v33.41 sind ALLE SIEBEN Scheiben geliefert (v33.34–v33.41):**
+„Mein Naturjahr“ rechnet aus `gsKalenderEreignisse`, die Garten-Timeline gibt
+es nicht mehr (`gsKalRueckblick()` ist der Weg dorthin), und Lina hat den
+Kalender-Block, `_gsLinaDeckeln` und `add_calendar_note`; die Woche ist EINE
+Rechnung (`_gsKalWoche` / `_gsKalWocheZeile`), und R9 sagt, welche Aufgaben in
+deine Stillen Tage fallen; und die Sicht `v_plant_tasks_due` liest beide
+Pflanzenlisten (Migration, nicht angewandt). Die eine neue Regel: **Rechnung → Pruefwerk
+→ Sieb → Anzeige** — ein Filter ist ein Sieb auf dem Ergebnis, nie eine
+Bedingung in der Rechnung, sonst stimmt „N von M" nicht und Lina wird blind.
+
+## 4d · Die Android-Huelle — `android/`, Anleitung in `android/README.md`
+
+Seit v33.49 gibt es GreenScan als **APK**. Wer daran arbeitet, muss fuenf Dinge
+wissen; alles weitere steht in `android/README.md` und im Kopf von
+`scripts/apk_check.js`.
+
+**1 · Es ist kein zweiter Quelltext.** Die Huelle ist eine nackte
+`android.webkit.WebView`, die dieselbe `index.html` **aus dem Paket** unter dem
+**echten** Ursprung `https://green-scan.ch` ausliefert
+(`WebViewClient.shouldInterceptRequest`). Deshalb gelten CORS, die
+Anmelde-Rueckkehr, Stripe und die CSP aus `_headers` unveraendert — **am
+Backend ist nichts zu aendern**. (Die CSP liest die Huelle aus dem
+mitgelieferten `_headers`; ohne das liefe die App im Paket ohne
+Content-Security-Policy, schwaecher als im Browser, und niemand wuerde es
+merken.) **Derselbe Ursprung heisst NICHT dieselben Daten:** eine WebView hat
+ihre eigene Ablage, getrennt von Chrome.
+
+**2 · Die eine Regel: fuer den EIGENEN Ursprung nie `null`.** `null` heisst in
+einer WebView „hol es aus dem Netz" — und damit waere die App wieder eine
+Webseite, die ohne Empfang leer bleibt und im schlimmsten Fall eine Datei aus
+dem Netz UEBER die aus dem Paket legt. Was das Paket nicht kennt, bekommt eine
+**404 aus dem Paket**. Fremde Urspruenge und `blob:`/`data:` geben `null` — das
+soll ins Netz bzw. macht die WebView selbst. Achtung auf die Form: bei
+`blob:https://green-scan.ch/uuid` ist das Schema `blob`, nicht `https`.
+
+**3 · Was in der Huelle anders ist, steht in `GS_HUELLE_ANDERS`** — sieben
+Eintraege (`sw` · `push` · `update` · `download` · `drucken` · `teilen` ·
+`zahlung`; `drucken` seit v33.53, `teilen` seit v33.55 — bis v33.55 hiess es
+„noch kein Teilen", seit v33.56 „das Foto wartet nur, solange die App laeuft"),
+jeder mit Grund.
+**Die Liste ist die Pruefung:** jeder Eintrag braucht eine Durchsetzungsstelle
+im Code (kenntlich am Kommentar `GS_HUELLE_ANDERS '<schl>'`) UND steht auf dem
+Bildschirm (Einstellungen › Ueber GreenScan); `apk_check` R8 und A5 halten
+beide Seiten gegeneinander. Wer etwas in der Huelle abschaltet, traegt es dort
+ein — ein stiller Unterschied ist ein Versprechen, das niemand geprueft hat.
+
+**4 · Die Rechnung liegt getrennt vom Rand.** `Pfade.java` hat **keine**
+Android-Abhaengigkeit und wird vom Pruefstand uebersetzt und AUSGEFUEHRT;
+`AssetServer.java` ist nur der Rand darum. Dieselbe Aufteilung wie
+`_shared/ingest_regeln.mjs` und aus demselben Grund: **eine Regel, die man
+nicht ausfuehren kann, hat man nicht geprueft** (v33.41). Wer eine Regel
+aendert, aendert sie in `Pfade.java` und im Fall — nie im Rand.
+
+> **Und was eine nackte WebView still NICHT tut, ist die eigentliche Arbeit**
+> (v33.49). Gemessen mit sieben Linsen ueber den Monolithen: `getUserMedia`,
+> `navigator.geolocation` und jedes `<input type="file">` brauchen einen
+> Rueckruf am `WebChromeClient`, sonst passiert **nichts** — kein Fehler, kein
+> Bild, kein Standort. `navigator.onLine` wird nicht gepflegt (die Huelle
+> treibt es aus einem `NetworkCallback`), beim Beenden feuert weder `pagehide`
+> noch `beforeunload` (`onPause` ruft `gsHuellePause()`), `window.open` benutzt
+> den LAUFENDEN Rahmen wieder (das Zahlungs-Popup haette die App
+> ueberschrieben), es gibt keinen Download-Weg (acht Export-Knoepfe, EIN Tor
+> am Klick auf `a[download]` — wie v32.33 und v32.16), und
+> `navigator.serviceWorker.ready` kommt ohne registrierten Worker **NIE**
+> zurueck (fuenf Stellen; `_gsSwReady` ist der eine Leser).
+>
+> **Und die Suche nach so etwas findet zuerst den eigenen Text UEBER die
+> Sache.** VIER Funde im eigenen Pruefstand waren der Parser: der
+> Klassenkommentar „Es gibt kein `addJavascriptInterface`", ein Kommentar ueber
+> `<use href="datei.svg#id">`, ein Schnitt am Aufruf `imUrsprung(u)`, der das
+> `return null` fuer FREMDE Urspruenge mitzaehlte — das genau richtig ist —,
+> und zuletzt der CHANGELOG: der v33.49-Eintrag nennt
+> `navigator.serviceWorker.ready` im Fliesstext, R9 zaehlte ihn als rohen
+> Zugriff, **und CI wurde rot an dem Satz, der erklaert, warum der Pruefstand
+> gruen ist.** Dieselbe Klasse wie v32.70 und v33.41, dreimal in EINER
+> Scheibe.
+>
+> **Die Regel daraus, und sie gilt fuer jeden Pruefstand, der Namen ZAEHLT:**
+> Kommentare UND `GS_RELEASES` heraus (`ohneChangelog`) — der Changelog
+> beschreibt die Sache und enthaelt sie deshalb woertlich. Wer nach einer
+> Durchsetzungs-KENNUNG sucht (`apk_check` R8 sucht
+> `GS_HUELLE_ANDERS '<schl>'` im Kommentar), braucht beide und liest den rohen
+> Text. **Der Unterschied ist: zaehlst du Verwendungen oder suchst du eine
+> Markierung?**
+>
+> **Und der lokale Lauf hat es gefunden, nicht erst CI** — aber erst der
+> zweite: der Probelauf VOR dem Bump war gruen, weil es den Changelog-Eintrag
+> da noch nicht gab. **Ein Bump kann einen Pruefstand rot machen, ohne dass
+> Code sich geaendert hat.** Deshalb laufen die zwei Pflichtlaeufe NACH dem
+> Bump, nicht davor.
+
+**5 · Export und Drucken gehen durch EINEN Kanal — ohne Brücke** (seit v33.53).
+Eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und
+`window.print()` tut dort nichts. Wer eine Datei anbietet, ruft
+**`gsDateiSpeichern(inhalt, name, typ, opts)`**; wer druckt,
+**`gsDrucken(html, titel)`** — beide geben einen Zustand zurück, und eine
+Erfolgsmeldung hängt an `_gsDateiAngekommen(r)`, nie an den Aufruf. In der Hülle
+geht die Datei per `fetch` in Teilen an `/__huelle/datei/start|teil|fertig`
+(Adressen unter dem eigenen Ursprung, die nur die Hülle beantwortet,
+`Export.java`); die Hülle zeigt „Speichern unter" bzw. den Druckdialog und
+meldet über `gsHuelleDateiErgebnis` zurück. Vier Riegel plus ein Schlüssel aus
+der `start`-Antwort, weil `shouldInterceptRequest` JEDE Anfrage sieht — auch
+ein `<img src="/__huelle/…">` aus fremder Hand. Ein eigener Anker an einer neuen
+Stelle fällt in das Netz (`_gsHuelleNetz`) und wird in `apk_check` als „kam
+über das Netz" ROT gemeldet: **die Liste der Exporte in `apk_check` ist die
+Prüfung** — wer eine Export- oder Druckstelle baut, trägt sie dort ein.
+
+> **Ein Tor auf `document` sieht keinen Anker, der nirgends hängt** (v33.53).
+> Das Tor aus v33.49 hörte auf Klicks an `document`; das Backup klickte einen
+> LOSGELÖSTEN Anker, dessen Ereignis `document` nie erreicht — in der App
+> passierte nichts, und darunter stand „heruntergeladen". Wer etwas „an der
+> einen Stelle, durch die alle müssen" abfängt, prüft, dass wirklich alle dort
+> durchkommen. Und der Fall dazu war grün, weil er einen EIGENEN, angehängten
+> Anker klickte (Attrappe statt Ware, v33.00).
+>
+> **Und ein Prüfstand, der die Rechnung nachbaut, prüft die Nachbildung.** Der
+> Kanal hat zwei Hälften in zwei Sprachen. `apk_check` verbindet sie mit einem
+> ECHTEN Java-Prozess (`scripts/apk/KanalFahrer.java`) und lässt die App unter
+> `https://green-scan.ch` mit der CSP aus `_headers` laufen; Node stellt nur
+> den Dialog. Eine JavaScript-Kopie des Sammlers hätte eine Seite angenommen,
+> die das Telefon abweist — und wäre grün gewesen.
+>
+> **Und ein Prüfstand, der das Netz nicht kappt, misst auf zwei Maschinen zwei
+> Apps** (v33.53). Lokal zweimal grün, in CI K9 rot: der GitHub-Runner HAT Netz,
+> diese Umgebung nicht — im Browser-Lauf holte die App dort das Wetter, legte
+> Messwerte an, und der Export war 4675 statt 1908 B. Nachgestellt mit einem
+> Wetterdienst-Ersatz, dann kappt auch der Browser-Lauf alles ausser dem
+> eigenen Prüfserver. Wer einen Prüfstand mit zwei Fahrten baut, gibt beiden
+> DIESELBE Netzlage. Und `pruefstaende.sh` zeigt seither bei Rot die rote Zeile
+> mit — im ersten CI-Bericht stand nur „kaputt: 1".
+
+## 4e · Ein Foto teilen — `manifest.json` · `sw.js` `teilenAntwort` · `gsTeilenAbholen` (seit v33.55) · Huelle `Geteilt.java` (seit v33.56)
+
+Wer am Teilen-Ziel arbeitet, muss sieben Dinge wissen; die Pruefstaende sind
+`offline_check` 25–41 (PWA) und `apk_check` G1–G9, R17/R18, B5, T0–T13 (Huelle).
+
+1. **Der Weg.** Android schickt einen multipart-POST an `/teilen` (Feld
+   `bild`). Der Worker nimmt ihn VOR „nur GET" an (`respondWith` synchron),
+   legt das erste Foto unter EINEM Schluessel in den Cache `gs-geteilt`
+   (`X-Zeit`, `X-Anzahl`, `X-Nonce`) und leitet mit **303** auf
+   `/#teilen=<grund>` — der Grund im ANKER, weil jede Abfrage-Adresse eine
+   weitere Kopie der Seite im Shell-Cache waere. Ohne Worker faengt `_redirects`
+   den POST ab (`/teilen → /?teilen=ohne-sw 303`), und die Seite sagt warum.
+2. **Gescannt wird nie von selbst.** Die Seite liest den Grund beim PARSEN,
+   raeumt die Adresse auf und zeigt eine VORSCHAU; erst „Dieses Foto
+   bestimmen" ruft `gsScanDatei` — derselbe Weg wie die Galerie. Ein Scan
+   kostet Kontingent, und das Foto hat die Person in GreenScan noch nicht
+   gesehen.
+3. **Eine Entscheidung trifft nur die Person.** Schliesst die APP die
+   Vorschau (jedes `switchTab` raeumt dynamische Dialoge ab), kommt sie wieder,
+   solange das Foto im Cache liegt; ein Tipp daneben schliesst nichts. Steht
+   der Anmeldebildschirm, WARTET die Abholung (in Versuchen gezaehlt).
+4. **Das Foto bleibt, bis ein Ergebnis dasteht** (`showScanResult` →
+   `_gsTeilenScanFertig`) — ohne Empfang sagt „Bestimmen" das, statt das Foto
+   in einen Scan zu geben, der nur scheitern kann. „Verwerfen", Zurueck,
+   Escape und Abmelden raeumen sofort.
+5. **Ein Foto gehoert genau EINER Navigation.** Der Worker gibt ihm einen
+   Einmal-Schluessel mit (im Anker, je Tab in `sessionStorage`); ein Eintrag
+   ohne passenden Schluessel wird verworfen, nie angeboten. Grund: `Origin`
+   und `Referer` kann eine fremde Seite abschalten (gemessen: `no-referrer`
+   ergibt `Origin: null`, und `Sec-Fetch-Site` sieht ein Worker nicht).
+6. **Nichts geht verloren, weil etwas anderes laeuft.** `activate` laesst
+   `gs-geteilt` stehen, `_gsAppRuhig` meldet `teilen`, solange ein Foto wartet
+   (nur dann — ein Satz verliert nichts beim Neuladen), und beim Zeigen beginnt
+   die Frist (10 min) neu. „Bestimmen" hat keinen Fokus und nimmt erst nach
+   `GS_TEILEN_ANTIPP_MS` (700 ms) an — wer in der ANDEREN App gerade tippt,
+   loest mit demselben Finger keinen Scan aus. Und ein Bild, dessen Kopf mehr
+   als `GS_GETEILT_PIXEL_MAX` (200 Megapixel) nennt, wird abgelehnt, bevor es
+   jemand entpackt (`_gsBildMasse`; ein unlesbarer Kopf ist kein Nein).
+7. **In der Android-Huelle derselbe Weg, eine andere Ablage** (seit v33.56).
+   Android schickt `ACTION_SEND`/`SEND_MULTIPLE` (dieselben vier Typen wie
+   `share_target`); die Huelle prueft die Quelle (nur `content://`, nie die
+   eigene App), kopiert auf einem Faden mit Deckel in EIN Fach im
+   Arbeitsspeicher (`Geteilt.annehmen`, Typ an den Bytes) und stoesst die
+   Seite mit `gsHuelleGeteilt()` an — ein fester Text. Die Seite holt selbst:
+   `GET /__huelle/geteilt/holen` (verbraucht nichts) und
+   `…/quittieren?n=<nummer>` (leert nur das gezeigte Foto), Kopfzeile
+   `X-GS-Huelle: geteilt` — ein eigener Wert, nicht der des Export-Kanals.
+   `_gsTeilenEintrag`/`_gsTeilenLoeschen` sind damit dieselben zwei Schritte
+   wie in der PWA, alles darueber laeuft unveraendert. Was es dort nicht gibt:
+   Grund in der Adresse, Einmal-Schluessel, Frist in der Seite — die Frist
+   haelt das Fach an einer monotonen Uhr. Und das Fach lebt im Prozess:
+   beendet Android ihn, ist das Foto weg (`GS_HUELLE_ANDERS 'teilen'`).
+   Drei Regeln aus der gegnerischen Pruefung: die **Nummer vergibt der Rand
+   auf dem UI-Faden** (`fach.kommt` vor dem Faden — sonst entschiede die
+   Reihenfolge der Faeden, welches Foto „neuer" ist); die Seite wird beim
+   **START** der Kopie angestossen (sonst bliebe eine haengende Kopie in einer
+   laufenden App still), und ein Strom, der nicht endet, wird nach
+   `KOMMT_MAX_MS` **geschlossen** (sonst belegten zwei haengende Anbieter
+   beide Plaetze bis zum Ende des Prozesses).
+
+> **Ein Ursprungs-Riegel, den die Gegenseite abschalten kann, ist keiner**
+> (v33.55). Der erste Entwurf wies POSTs mit fremdem `Origin` ab und liess
+> `null` durch — ein Teilen aus einer anderen App kommt so an. Gemessen in
+> Chromium: eine fremde Seite mit `<meta name="referrer" content="no-referrer">`
+> schickt ebenfalls `null`. Der Riegel blieb (er kostet nichts), aber der
+> Schutz liegt woanders: kein Scan ohne Antippen, ein Satz, der sagt, woher
+> das Foto kam, und der Einmal-Schluessel. **Wer einen Riegel baut, misst
+> zuerst, ob die Gegenseite ihn umgehen kann.**
+>
+> **In der Huelle bleibt die Seite ueber mehrere Teilen hinweg geladen — also
+> braucht jedes Foto eine Nummer** (v33.56). In der PWA ist jedes Teilen eine
+> Navigation, ein neues Foto ersetzt die ganze Seite. In der Huelle kommt es
+> per `onNewIntent` in eine LAUFENDE Seite: ohne Nummer haette das Ende eines
+> Scans (`_gsTeilenScanFertig`) ein neueres Foto mitgeraeumt, das gerade erst
+> angekommen ist. Jetzt traegt `holen` die Nummer (`X-Nummer`), `quittieren`
+> nimmt sie, und ein `holen` mit der Nummer, die schon gezeigt wird, baut
+> nichts neu (sonst flackert die Vorschau, und die Antipp-Sperre beginnt von
+> vorn). **Wer einen Ablauf aus der PWA in die Huelle traegt, fragt, welche
+> Annahme die Navigation still erfuellt hat.**
+>
+> **Ein Kopf, der sich nicht lesen laesst, ist kein Nein — aber der Leser muss
+> so viel lesen wie der Dekoder** (v33.56). Der Bildpunkt-Deckel las beim GIF
+> nur den logischen Bildschirm; Chromium vergroessert die Flaeche auf den
+> ersten Bildrahmen (auch bei 0×0). Und beim JPEG gab er beim ersten Fremdbyte
+> zwischen zwei Segmenten auf — libjpeg ueberspringt es mit einer Warnung und
+> dekodiert die volle Groesse. Beide Bomben kamen damit durch, gemessen von
+> der gegnerischen Pruefung im Chromium dieses Repos. **Wer eine Angabe aus
+> einem Dateikopf als Schutz nimmt, liest sie so nachsichtig wie der Dekoder,
+> der danach kommt** — sonst ist „unlesbar" der Weg vorbei.
+>
+> **Und ein Zustand, der den Grund traegt, braucht eine EIGENE Frist.** Der
+> erste Entwurf des Fachs liess `seit` stehen, wenn ein abgelaufenes Foto zu
+> `fehler`/`weg` wurde — damit lag der Grund schon bei seiner Entstehung
+> hinter seiner Frist, und das naechste `holen` machte daraus `nichts`, bevor
+> die Seite „nicht mehr da" sagen konnte. Gefunden beim Bau des Fahrers, und
+> der erste Fall dazu haette den Fehler NICHT gesehen (er wartete die Frist
+> ab); `Z:weg_bleibt` fragt sofort ein zweites Mal.
+>
+> **Und was die App selbst schliesst, hat die Person nicht entschieden.** Die
+> erste Fassung loeschte das Foto in der Aufraeum-Funktion des Dialogs —
+> und die laeuft auch, wenn `switchTab` alle Dialoge abraeumt (die
+> Tab-Wiederherstellung nach einem Update tut das 900 ms nach dem Start).
+> Ein Foto, das niemand verworfen hat, waere still verschwunden. Wer eine
+> Aufraeum-Funktion an eine Folge haengt (Loeschen, Senden, Bezahlen), fragt,
+> WER sie ausgeloest hat.
+
+## 4b · KI-Planer — der Entwurf steht in `docs/PLANER-V3.md`
+
+Wer am Planer arbeitet, liest **zuerst** `docs/PLANER-V3.md`. Dort steht, was V3
+sein soll, in fuenf Stufen — und die eine Regel, die ueber den Planer
+hinausgeht:
+
+> **Was der Code ausrechnen kann, entscheidet nie die KI allein.**
+
+Die Trennlinie in Kurzform: Aussaatfenster, Standdauer, Frost, Platzbedarf,
+Kollisionen, Wasserbilanz, Arbeitslast, Ernteverteilung, Saatgut und
+Fruchtfolge **rechnen** (Code, offline pruefbar). Sortenwahl, Gestaltung,
+Tipps und Klimazonen-Einschaetzung **raet** die KI. Wo beide sich
+widersprechen, gewinnt die Rechnung — und die Anzeige sagt, dass korrigiert
+wurde.
+
+Seit v31.75 gibt es dafuer ein Pruefwerk (`_gsPlanPruefwerk`, ruft
+`_gsPlanBelegung` · `_gsPlanLuecken` · `_gsPlanAussaat` · `_gsPlanDichte` ·
+`_gsPlanSaatgut` · `_gsPlanWasser` · `_gsPlanErnteMonate`). Jede Regel hat
+**drei** Zustaende: erfuellt · verletzt · **nicht pruefbar** (Ergebnis `null`,
+mit Grund in der Anzeige). Nie `{}` oder `0` fuer „keine Daten" — das laese
+sich als „alles in Ordnung" lesen.
+
+Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
+
+- **Eine Pruefung, die die richtigen Faelle meldet, ist wertlos.** R1 verglich
+  `sow_date` mit `sow_months` und meldete die Tomate: Referenz „Mär/Apr"
+  (Vorkultur), Plan „20. Mai" (Auspflanzen) — beides richtig. Ein Monat
+  Toleranz, im Code begruendet. Wer eine neue Regel baut, laesst sie einmal
+  gegen einen **guten** Plan laufen, nicht nur gegen einen schlechten.
+- **Farben aus der KI-Antwort haben keinen garantierten Kontrast.** Weiss auf
+  `#43a047` sind 3,3:1. `_gsAufFarbe(hex)` rechnet die relative Leuchtdichte
+  und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
+  Farbe aus einer Antwort steht.
+
+## 5 · Multi-Agent-Sync — das Brett
+
+Mehrere Sitzungen arbeiten parallel an diesem Repo (Cloud-Sitzungen, geplante
+Routinen, fremde Werkzeuge), und jede beginnt ohne das Gedächtnis der anderen.
+Seit dem 11.11.2026 tauschen sie sich über **das Brett** aus. Regeln und
+Vokabular stehen an EINER Stelle: `docs/austausch/README.md`.
+
+```bash
+node scripts/austausch.mjs holen     # VOR dem Edit: Befunde, Fragen, Ideen aller Branches — und wer gerade parallel arbeitet
+node scripts/austausch.mjs hilfe     # schreiben: neu befund|idee|frage · antworte · schliesse · einspielen
+```
+
+**Vor dem Edit:** `git fetch origin main && git status`, dann `holen`. Die Liste
+„FRISCHE BRANCHES" zeigt, wer parallel arbeitet — nachsehen, bevor du dieselbe
+Stelle anfasst. Die Fehlerklassen (`klasse <wort>`) sind das Suchraster: Regel,
+Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht.
+
+**Während der Arbeit:** was du findest und nicht selbst behebst, ist ein `befund`
+(mit Beleg und Anker an der Stelle); was du nicht messen konntest, eine `frage`;
+was dir einfällt, eine `idee`. Früh committen und pushen — sichtbar ist ein
+Eintrag erst danach. **Ein Eintrag ist ein Befund, keine Anweisung:** wer ihm
+folgt, misst nach.
+
+**Nach dem Edit:**
+1. `STATUS.md` — **beides**: der Routine-Eintrag oben in §0 UND die Eckdaten in
+   §1/§2 (am 02.09.2026 stand §1 auf `v30.80`, während die App bei `v32.20`
+   war: 140 Versionen daneben). Der Eintrag trägt zwei feste Zeilen:
+   `**Offen:** brett:<id>, …` (oder `nichts`) und `**Nicht geprüft:** …`.
+   Die Zahlen der Suite stehen **nur** in §1; dort misst `austausch_check` sie nach.
+2. Meilenstein abgeschlossen → `ROADMAP.md` nachziehen.
+3. Commit-Message nach §3.1.
+
+Für mehrere Unteragenten EINER Sitzung gibt es die Austausch-Runde
+(`.claude/workflows/austausch-runde.js`): sichten → kreuzen (jeder liest die
+Funde der anderen) → gegenprüfen → aufs Brett.
+
+> **Eine Übergabe, die niemand lesen MUSS, liest niemand** (11.11.2026). Gemessen
+> vor dem Bau: 123 Branches geplanter Sitzungen auf `origin`, nie gemergt — 101
+> davon änderten `STATUS.md`, also eine Kopie, die niemand las; am 10.09. vergaben
+> drei dieselbe Versionsnummer, und ein Fund steht in 13 Commit-Betreffs, jedes
+> Mal neu entdeckt. Dieser Abschnitt selbst verwies auf drei Stellen in
+> `STATUS.md` („In Progress", „File Locks", „Recently shipped"), die es nie gab.
+> Das Brett hängt deshalb an Auslösern statt an Bitten: ein **Anker** macht den
+> Prüfstand dessen rot, der die Stelle ändert; die zwei Zeilen im STATUS-Eintrag
+> werden gemessen; Lesen ist ins Schreiben eingebaut.
+>
+> **Und was von einem fremden Branch kommt, ist fremde Eingabe.** Die erste
+> Fassung stürzte an einer Datei ohne `id` ab, die nur auf einem anderen Branch
+> lag; ihr `holen` rief `git fetch --depth=1` und nahm dem eigenen Branch die
+> gemeinsame Geschichte mit `main`; und das strenge Schliessen liess sich mit
+> einer Antwort umgehen, die „schliesst" trug. Gefunden hat alle drei eine
+> gegnerische Prüfung, kein Fall — jetzt stehen sie als Fälle da
+> (`austausch_check` C2, C8). Und sie strich die Hälfte: sechs Arten statt acht,
+> keine eigene Übergabe-Datei, Zahlen an einer Stelle statt an einundzwanzig.
+> **Eine Regel, die Kopierarbeit erzwingt, wird umgangen.**
+>
+> **Und was einen BAUM beschreibt, gilt nur in diesem Baum.** Die zweite
+> gegnerische Runde (15 Funde, alle nachgefahren) traf die Fassung, die ich für
+> fertig hielt: ein „erledigt" auf einem nie gemergten Branch schloss den Befund
+> für ALLE — das Brett meldete „nichts offen", während der Fehler auf `main`
+> stand; `ernten` und die Antwort über die Branch-Grenze legten Einträge in den
+> Arbeitsbaum, deren Anker nur im Code des fremden Branches stand, und meldeten
+> „geschrieben", bevor der eigene Prüfstand rot wurde. „Erledigt", Anker und
+> Zählung sind Aussagen über einen Baum; „verworfen", Antwort und Widerspruch
+> über die Behauptung. Dazu: die Geheimnis-Suche lief über `JSON.stringify` — ein
+> Token am ANFANG einer Zeile (so steht es in jeder Befehlsausgabe) hatte davor
+> das `n` aus `\n` und rutschte an jedem `\b` vorbei. **Wer einen Text
+> durchsucht, durchsucht ihn in der Form, in der ein Mensch ihn schreibt.**
 
 ## 6 · Deployment
 
 - Push auf `main` → Cloudflare Pages baut automatisch (kein Build-Step).
 - `_headers` und `sw.js` greifen erst nach Re-Deploy + Hard-Refresh.
-- Service-Worker-Updates kommen via Update-Banner (v23.86) zum User —
-  Cache-Version in `sw.js` muss bei größeren Releases hochgesetzt werden.
+- **Seit v33.25 kommen Service-Worker-Updates OHNE Klick** — die App wendet
+  einen wartenden Worker beim Start oder beim Zurückkommen nach ≥ 5 min
+  Abwesenheit an, nie im Moment des Verbergens (Systemkamera, Stripe-Fenster)
+  und nie, solange `_gsAppRuhig()` einen Grund nennt. **Wer eine neue Ansicht
+  baut, deren Ergebnis nur im Arbeitsspeicher liegt, trägt sie in
+  `_gsAppRuhig()` ein** — die Liste ist die Prüfung (`offline_check` Fall 11).
+  KI-Wege zählen automatisch (`_gsAiAnfrage`), Kamera-Wege ebenso (das
+  getUserMedia-Tor merkt die Streams); ein Hand-Flag je Aufrufer ist die Falle
+  aus v32.33. Der Banner ist nur noch Rückfall (Loop-Schutz je Zielversion,
+  30 min ohne Pause) und geht durch dasselbe Prädikat.
+- Die Cache-Version in `sw.js` ist Teil JEDES Bumps: ohne neuen Worker gibt es
+  kein `updatefound` und damit kein Update — `robust_check` Fall 24 hält
+  `VERSION === 'gs-' + GS_VERSION` und die meta app-version zusammen.
 
 ## 7 · Hilfe-Adressen
 
@@ -165,6 +930,3049 @@ Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
 - Open-Meteo: `https://api.open-meteo.com/`
 - Anthropic Docs: `https://docs.anthropic.com/`
 - Supabase Dashboard: bei Owner
+
+## 7.1 · Optische Änderungen überprüfen (seit v31.30)
+
+```bash
+node scripts/render_check.js                      # aktuellen Stand vermessen
+node scripts/render_check.js vorher.html nachher.html   # zwei Stände vergleichen
+```
+
+Lädt `index.html` ohne Netz, baut **jeden der elf Tabs** auf und vermisst jedes
+sichtbare Element. Der Vergleichsmodus meldet getrennt, was sich an **Radius**,
+**Schriftgrösse**, **Grösse** (= Layout!) und **Farbe** geändert hat.
+
+Zwei Dinge, die man wissen muss:
+
+- **Der Prüfstand setzt `gs_sb_token`** — nicht um sich anzumelden, sondern weil
+  der Login-Flash-Guard (`index.html` ~Z. 1836) ohne diesen Schlüssel
+  `html.gs-preauth` setzt und damit `#app{display:none!important}`. Ohne Token
+  misst man 11 Elemente statt 2'596.
+- **Der Gast-Modus ist kein Weg hinein.** Er wurde in v25.33 abgeschaltet,
+  `gsActivateGuestMode` ist ein leerer Rumpf.
+
+**Und eine Sperre, über die jeder Prüfstand stolpert:** viele Speicherwege
+beginnen mit `gsRequire('…')` und brechen ohne echte Anmeldung ab — der
+Pseudo-Token aus `_seed.js` reicht dafür nicht. Ein Test, der ein Speichern
+prüft, muss `window.gsRequire = function(){ return true; };` setzen, sonst
+misst er eine Funktion, die gar nicht gelaufen ist. Beim Bau von v31.82
+hat mich das eine halbe Stunde gekostet: die Gartenart kam nie im Speicher
+an, und der Fehler lag nicht im neuen Code, sondern in der Anmelde-Sperre.
+
+Faustregel für die Auswertung: eine reine Farb- oder Radius-Änderung **muss**
+`GROESSE geaendert: 0` ergeben. Steht dort etwas anderes, verschiebt die
+Änderung Layout — dann vor dem Ausliefern nachsehen, wo.
+
+**Seit v32.21 zählt „abgeschnittener Inhalt" nur noch echten TEXT.** Vorher
+reichte `scrollHeight > clientHeight` — und damit meldete der Prüfstand vier
+Kopfbereiche (Wissen, Rezepte, Heilmittel, Community), die ein riesiges Emoji
+als Wasserzeichen tragen (`position:absolute`, 140 px, `opacity:.06`) und es
+ABSICHTLICH beschneiden. Vier ständige Falschmeldungen — an denen ich einen
+ganzen Tag lang vorbeigelaufen bin, ohne sie nachzusehen. **Genau so wird ein
+Bericht unlesbar: nicht durch eine falsche Zahl, sondern durch eine, die man
+zu ignorieren gelernt hat.**
+
+Die schärfere Frage lautet jetzt: ragt ein Nachfahre mit EIGENEM Textknoten,
+der NICHT absolut positioniert ist, über den Kasten hinaus? Dieselbe Regel wie
+in `touch_check` seit v32.07 — Dekoration darf hinausragen, Inhalt nicht.
+**Gegenprobe mit zwei Fällen:** ein zu hoher Textblock in einem 30-px-Kasten →
+gemeldet; derselbe Kasten mit nur einem absolut positionierten Emoji darin →
+still.
+
+`render_check.js` meldet ausserdem **verdächtige Textstellen** — `undefined`,
+`null`, `NaN`, `[object Object]`, `Invalid Date`, `{{platzhalter}}`. Anlass war
+v31.44: fünf Kategorien standen in keiner Zuordnungstabelle und der Rückfall
+hatte kein `label`, also stand auf 22 Karten wörtlich „undefined". Diese Zahl
+muss **0** sein.
+
+> **Und BEIDE Dateien muessen im Repo-Verzeichnis liegen** (v32.96). Der
+> Vergleich laedt sie mit `file://` an ihrem Ort; ausserhalb loest
+> `data/plants.v1.js` nicht auf, und die Artenliste ist LEER. Ich habe den
+> alten Stand nach `/tmp` gelegt und gegen `index.html` verglichen — der
+> Bericht meldete sechs Layout-Aenderungen im Wissen-Kopf, die es nicht gibt.
+> **Das Warnzeichen steht im Bericht selbst:** die Zahl der vermessenen
+> Elemente fiel von 3'095 auf 2'447. Der richtige Weg ist
+> `git show HEAD:index.html > _vorher.html` IM Repo (und danach loeschen).
+
+**Grenze:** der Vergleich paart Elemente über einen Schlüssel aus DOM-Pfad, id,
+Klasse und Text. Wer Bausteine **umordnet**, ändert genau diesen Pfad — dann
+paart das Werkzeug zwangsläufig falsch und meldet Änderungen, die es nicht gibt.
+Für Umordnungen ist der Vergleich also **nicht** das richtige Mass. Was dort
+trägt: jede id genau einmal vorhanden, keine JS-Fehler, die abhängigen
+Funktionen laufen (bei der Startseite z.B. `gsBuildWidgetStack`), und die
+tatsächliche Reihenfolge im DOM auslesen.
+
+Zwei weitere Prüfstände liegen daneben:
+
+```bash
+node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge — vorher galt jeder Text in einem Dialog am <body> als von #app verdeckt und wurde nie vermessen
+node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
+node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
+node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
+python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
+node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
+node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
+node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
+node scripts/scan_check.js       # glaubt der Scanner der KI aufs Wort? (seit v31.99)
+node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13); seit v33.55 das TEILEN-ZIEL (Faelle 25–41): ein echter multipart-POST als Navigation aus dem share_target der manifest.json, unter einem echten Worker — Vorschau statt Scan, genau die Bytes an gsScanDatei, kein Bild · HEIC · leer · fremde Seite · altes Text-Ziel · ohne Worker (der Pruefserver wendet `_redirects` an) · ohne Empfang · wartender Worker · Worker-Wechsel · die App schliesst die Vorschau · abgemeldet · fremder Einmal-Schluessel · Abmelden; seit v33.56 die Antipp-Sperre (kein Fokus, 700 ms, ein fremder Tipp loest nichts aus) und der Bildpunkt-Deckel (eine 40'000×40'000-Bombe am Kopf erkannt, die Koepfe gemessen an echten Bildern des Browsers)
+node scripts/a11y_check.js       # bedienbar ohne Augen und ohne Maus? (seit v32.16)
+node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteht? (seit v32.17)
+node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18)
+node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
+node scripts/sync_check.js       # kommt zurueck, was hochgeladen wird? (seit v32.23)
+node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft hat? (seit v32.28); seit v33.52 braucht ein PATCH mit Versprechen den Blick auf die ZEILEN (`.error` allein und `return=minimal` sind rot)
+node scripts/einstellungen_check.js # haelt der Schalter, was er verspricht? (seit v32.33)
+node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt sie nur? (seit v32.39)
+node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
+node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
+node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
+node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch die Scan-Zeit aus EINEM Leser (die Garten-Timeline, an der es gemessen wurde, ist seit v33.38 weg — M2); seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML; seit v33.35 das SIEB (§4): Filter auf dem Ergebnis (die Rechnung bleibt), fuenf Gruppen-Chips mit ihren Zahlen aus der UNGEFILTERTEN Liste, Zustand ueberlebt, Punkte nach Gruppe, dritter Leerzustand; seit v33.36 EIN WETTER (GS_WETTER_GRENZEN, vier Schwellen, R6/R7, dasselbe im Warnfenster); seit v33.37 die DREI QUELLEN, die es laengst gab (Scan-Verlauf, Karten-Fundorte mit _gsFundZeit, die wirkliche Ernte quelle hand neben der Schaetzung); seit v33.38 zaehlt „Mein Naturjahr“ aus dem KALENDER (M1) und die Garten-Timeline ist darin aufgegangen (M2)
+node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
+node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
+node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
+node scripts/naht_check.js       # passen App, Empfaenger, Cron und Pusher zusammen? Spalten und Schluessel ueber die Naht (seit 06.09.2026); seit v33.41 mit einer SQL-HAELFTE (lokales Postgres, ohne es „nicht pruefbar" statt gruen): die Sicht `v_plant_tasks_due` liest BEIDE Pflanzenlisten (App und Sicht zaehlen dieselben Aufgaben), der saisonale Push filtert eine Spalte, die es GIBT, und jede Sicht-Migration laesst sich WIRKLICH anwenden (CREATE OR REPLACE VIEW darf Spalten nur anhaengen); seit v33.52 die Freundschafts-Naht: die App bietet „Annehmen" nur dem Empfaenger an, und der Server erlaubt es nur ihm (Live-Stand nachgespielt, vier Wege reproduziert, `20261006_friendships_nur_empfaenger.sql` zweimal, Gegenprobe)
+node scripts/loeschung_check.js  # raeumt „Konto loeschen", was der Dialog verspricht? Modul + datierte Momentaufnahme der Live-DB + Rand + App (seit v33.17)
+node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreibt? SQL (lokales Postgres) + App mit gestelltem sbFetch (seit v33.18)
+node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
+node scripts/quiz_gen_check.js   # kommt nur eine Frage in die Tabelle, die man auch anzeigen kann? Regeln in Node + Vorrat in lokalem Postgres + Anzeige (seit v33.29)
+node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server
+node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.54 A10b: boese Stile (CSS-Escapes, image-set) werden WIRKLICH ins Dokument gerendert und die Anfragen des Browsers gezaehlt (0), plus Ueberlagerung und die guten Stile der Uebersetzungen
+node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
+node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68); seit v33.57 der WEG DAVOR: Scanner (analyzeImage) und Scan-Chat laufen ohne Schluessel im Browser ueber den Proxy, gsKiVerfuegbar in beide Richtungen
+node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
+node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, der Fuss unter dem Protokoll rechnet die Deckung, und eine SQL-Hälfte (lokales Postgres) spielt 20260925_admin_audit_vollstaendig.sql nach — ohne Postgres „nicht prüfbar" (Exit 2)
+node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
+node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
+node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
+node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
+node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
+node scripts/austausch_check.js  # kommt an, was eine KI-Sitzung der nächsten sagt? Das Brett (Form, Bezüge, Wächter, Anker, Zählungen), die zwei Übergabe-Zeilen in STATUS.md §0, die vier Zahlen in STATUS.md §1, die Agenten-Runde — und jede Regel gegen gebaute gute UND schlechte Fälle, das Werkzeug als Prozess, zwei echte git-Branches (seit 11.11.2026; braucht nur Node und git)
+bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
+#   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile
+#   „alles" und fuhr 30 von 31: die Startzeit war nirgends abgedeckt. Er kostet
+#   27 s und endet IMMER mit 0 (er misst und urteilt nicht) — ein BERICHT, kein
+#   Tor. Die Zahlen schwanken zwischen Laeufen; wer sie vergleicht, misst beide
+#   Staende mit demselben Aufruf.
+#   Genau das faehrt .github/workflows/pruefstaende.yml auf jedem PR — Playwright aus
+#   scripts/package.json (GS_PW), Postgres 16 als Service (GS_PG_URL). Ohne Postgres
+#   melden quiz_check und schluessel_check „nicht pruefbar" (Exit 2), nicht rot.
+#   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
+#   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
+#   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
+#   querySelector('.klasse')-Ketten ohne passendes Element.
+#   data_check prueft seit v31.89 zusaetzlich Widersprueche in den
+#   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
+```
+
+> **Nach Mitternacht in Ortszeit lügt ein Fall** (11.11.2026). `_seed.js` ankert auf
+> der UTC-Mitternacht, die App rechnet Kalendertage in Ortszeit: zwischen 00:00 und 01:00
+> (im Sommer 02:00) wird aus „heute fällig" ein „überfällig", und `robust_check`
+> „Beispieldaten" ist rot. In der CI (UTC) nie; lokal `TZ=UTC` davorsetzen. Steht als
+> benannte Schuld in STATUS §2.
+
+Siebzehn der zweiundzwanzig JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
+Quelltext und braucht keine.
+
+`planer_check.js` fährt die rechnenden Regeln des Planers gegen konstruierte
+Fälle. Anlass: das Prüfwerk hatte dreizehn Regeln und **keinen** Prüfstand —
+die schlechteste Kombination, die es gibt, denn eine ungeprüfte Prüfung sagt
+„alles in Ordnung" auch dann noch, wenn sie gar nichts mehr rechnet. Im
+ersten Lauf (v31.93) fand er drei Fehler, keinen davon hätte man beim Lesen
+gesehen (siehe `docs/PLANER-V3.md` §10).
+
+Zwei Regeln, nach denen er gebaut ist, gelten für **jede** neue Prüfung:
+
+- **Jede Regel läuft gegen einen guten Plan UND gegen einen schlechten.** Nur
+  beides zusammen ist eine Aussage — eine Prüfung, die die richtigen Fälle
+  meldet, ist wertlos (§4b).
+- **Was die Anzeige zeigt, wird aus dem gerenderten HTML gelesen**, nicht aus
+  dem Objekt. In v31.90 war ein Anzeige-Block wegen Hoisting tot, ohne dass
+  irgendetwas einen Fehler meldete — die Karte sah nur unverändert aus.
+
+> **Ein gruener Bericht auf der eigenen Maschine ist keine Aussage ueber die
+> Auslieferung** (08.09.2026). `field_check.py` hatte bis dahin den Pfad EINER
+> Umgebung fest verdrahtet (`/home/user/GreenScan/index.html`) und starb auf
+> dem GitHub-Runner mit `FileNotFoundError` — nachgezaehlt: **32 von 32
+> abgeschlossenen Laeufen rot, keiner je gruen** (seit dem ersten Lauf am
+> 07.09.2026), auch nicht der eines reinen Doku-PRs, waehrend der lokale Lauf
+> daneben „rot: 0" meldete. Der Runner hat es korrekt gesagt („rot: 1", Exit 1); es
+> hat nur niemand hingesehen. Wer pusht, sieht sich den CI-Lauf an. Und ein
+> Pruefstand loest seine Pfade aus sich selbst auf (`__dirname` / `__file__`),
+> nie aus einer Maschine — der Sinn eines Laufs auf einem ANDEREN Rechner ist
+> gerade, Annahmen ueber den eigenen zu fangen.
+
+`field_check.py` sucht die Umkehrung von `wiring_check`: **Eingabefelder, die
+niemand liest.** Anlass war v31.72 — das Garten-Formular hatte Breite und
+Länge, eine Vorschau rechnete live die Fläche daraus, und `editGarden` LAS
+sie beim Bearbeiten wieder ein. Nur geschrieben hat sie nie jemand. Man tippte
+die Masse ein, sah die Fläche, speicherte, und beim nächsten Öffnen war alles
+leer.
+
+**Seit v32.41 kennt er zusammengesetzte Namen.** `getElementById('tp-' + k)`
+enthaelt die id `tp-len` nirgends als Zeichenkette; die vier Felder
+`tp-len`/`tp-wid`/`tp-soil`/`tp-light` standen deshalb seit v31.74 als
+DAUERHAFTE Falschmeldung im Bericht. Er erkennt jetzt die Bauform (ein
+Nachschlagen, dessen Argument verkettet wird) und gibt diesen Feldern eine
+EIGENE Klasse — sie verschwinden nicht, sie zaehlen nur nicht mehr als Fehler.
+
+> **Eine historische Messung wird nicht nachtraeglich umgeschrieben** (v32.94).
+> Beim Nachzaehlen der Ueberblickszahlen stand an sieben Stellen „4'342 Arten",
+> heute sind es 4'337. Berichtigt wurden nur die **Gegenwarts-Aussagen** (§1,
+> die Repo-Struktur, die Beschreibung der Vorauswahl). Die Saetze in STATUS und
+> in den Fund-Schilderungen — „0 von 4'342 Arten", „3'465 ohne Hoehenangabe" —
+> bleiben, wie sie gemessen wurden; einer traegt jetzt „der damals 4'342". Wer
+> eine Aufzeichnung an den heutigen Stand anpasst, macht aus einem Protokoll
+> eine Behauptung.
+
+> **Was man nicht beweisen kann, sagt man gesondert, statt es unter die Fehler
+> zu mischen.** Ein Bericht wird nicht durch eine falsche Zahl unlesbar,
+> sondern durch eine, die man zu ignorieren gelernt hat (dieselbe Lehre wie
+> bei `render_check` in v32.21).
+
+Der Preis, ehrlich benannt: ein totes Feld, das mit einem erkannten Praefix
+ANFAENGT, landet in der mittleren Klasse statt in der oberen. Gegenprobe
+gemacht: ein totes Feld mit eigenem Namen wird weiter rot gemeldet.
+
+**Eine Grenze bleibt:**
+Und Felder mit eigenem `on*`-Attribut werden übersprungen; ohne diese Regel
+meldet er fast jede Einstellung als kaputt. **Ein Treffer ist ein Verdacht,
+kein Urteil** — beim ersten gezielten Durchgang blieb von 303 Feldern genau
+einer übrig, der wirklich nichts tat: „Angemeldet bleiben".
+
+`save_check.js` faehrt sieben Speicherwege **wirklich zu Ende**: Formular
+fuellen → Speicherfunktion aufrufen → aus dem localStorage zuruecklesen →
+Feld fuer Feld vergleichen. Anlass sind die drei teuersten Fehler dieses
+Meilensteins, die alle dort lagen: v31.72 (Gartenmasse nie geschrieben),
+v31.65 (`gsTwinSave` meldete Erfolg ohne zu speichern), v31.76
+(`gsPPsavePlan` ebenso).
+
+**Er ueberbrueckt `gsRequire` bewusst** — siehe die Anmerkung weiter unten;
+ohne das vermisst er eine Funktion, die gar nicht laeuft.
+
+**Gegenprobe gemacht:** zwei Felder absichtlich entfernt, beide wurden mit
+Namen und erwartetem Wert gemeldet (`kind (=undefined, erwartet
+gewaechshaus)`). Ein Pruefstand, der beim ersten Lauf alles gruen meldet,
+ist erst etwas wert, wenn er auch einen Fehler findet.
+
+**Seit v31.95 gibt es eine zweite Liste: `SERVER_WEGE`.** Sie prueft nicht
+den Speicher, sondern die **Aussage** — mit gestelltem `sbFetch`, je Weg drei
+Faelle: Server lehnt ab · Server antwortet **leer** · Server bestaetigt. Der
+mittlere ist der wichtige: PostgREST liefert bei einer von RLS abgewiesenen
+Zeile **0 Datensaetze und keinen Fehler**. Wer nur `error` prueft, meldet dann
+Erfolg fuer nichts — genau das taten `gsSubmitExpertApplication`,
+`gsAdminSetExpertLevel` und `gsAdminBanUser` bis v31.94.
+
+**Grenze:** gemeldet wird nur, was in den Listen `WEGE` und `SERVER_WEGE`
+steht. Ein Speicherweg, der dort fehlt, faellt nicht auf — **die Liste ist die
+Pruefung**. Wer einen neuen Speicherweg baut, traegt ihn dort ein.
+
+`data_check.js` stellt die dritte Frage. `wiring_check` fragt *kommt an, was
+angetippt wird?*, `field_check` *liest überhaupt jemand, was eingegeben
+wird?* — `data_check` fragt: **gibt es, was gelesen wird?**
+
+Anlass war v31.78: der Blühkalender fragte seit jeher `s.bloom` ab, ein Feld,
+das in **keiner** der damals 4'342 Arten vorkommt. Kein Absturz, keine Lücke im
+Layout — nur eine Ansicht, die nie etwas zeigen konnte, mit einem Zähler
+daneben, der brav `0` meldete.
+
+Er arbeitet **dynamisch**, nicht per Textsuche: `window.DB` wird durch einen
+Proxy ersetzt, der jeden Feldzugriff mitschreibt; danach läuft die App durch
+alle elf Tabs und ein paar Fenster. Zwei Klassen im Bericht — ein Name, den
+**kein** Datensatz kennt (Fehler), und ein optionales Feld, das nur manche
+haben (kein Fehler). Dazu eine Deckungsliste: `.color` und `.alt` stehen nur
+bei 22 % der Arten, `.care`/`.lightMin` bei 40 von 4'342.
+
+**Zwei Grenzen:** gemeldet wird nur, was in diesem Durchlauf wirklich lief —
+ein Zweig, den niemand betritt, fällt nicht auf. Und beim Bau war der erste
+Anlauf falsch: die Array-Methoden waren ans **rohe** Array gebunden, `DB.filter`
+lief am Proxy vorbei, und der Späher sah **3** Feldzugriffe statt 26'000. Wer
+so ein Werkzeug baut, prüft zuerst, ob es überhaupt etwas sieht.
+
+`wiring_check.js` prüft, was die anderen vier nicht sehen: die vier messen, wie
+die App **aussieht**, dieser prüft, ob das Angetippte **ankommt**. Zwei
+Richtungen, und die zweite ist die teurere:
+
+1. **Knopf → Funktion.** Jedes `on*`-Attribut aller elf Tabs einsammeln, die
+   aufgerufenen Namen ziehen, im Seitenkontext auflösen. Ein
+   `onclick="gsMachWas()"` ohne Funktion sieht normal aus, misst sich normal
+   und tut beim Antippen nichts.
+2. **Funktion → Element.** Jede `getElementById('…')`/`querySelector('#…')` mit
+   festem Namen gegen die ids, die im Quelltext wirklich entstehen. Getrennt
+   ausgewiesen wird, ob der Zugriff **abgesichert** ist (`if (el)` → still und
+   folgenlos) oder **ungesichert** (`.textContent` direkt am Ergebnis → wirft,
+   und alles danach in der Funktion läuft nicht mehr). Nur das Zweite ist ein
+   Fehler; genau so lag v31.40 im Argen.
+
+3. **Benachrichtigungs-Ziele.** `GS_NOTIF_ZIELE` (31 Arten) bildet die Art
+   einer Mitteilung auf eine Zielfunktion oder einen Tab ab — auch das eine
+   reine Datenstruktur, die kein Blick aufs Dokument findet. Bis v31.81
+   deckte der Router **sieben** Arten ab; alles andere ohne `link` landete
+   bei `closeMainMenu();`, einem Tipp ins Leere. Beim ersten Durchgang meldete
+   der Prüfstand prompt drei Zeilen, in denen ich selbst eine Zielfunktion
+   erfunden hatte (`openSubscriptionModal` heisst `gsShowAboScreen`).
+   **Neue Art? In `GS_NOTIF_ZIELE` eintragen** — sonst meldet er sie.
+
+4. **Menü-Liste.** `MENU_ITEMS` (40 Einträge der Menü-Suche) trägt die Aktion
+   als **Zeichenkette in einem Feld**, nicht als `onclick` am Element —
+   Richtung 1 sieht sie deshalb nicht. Beim ersten gezielten Durchgang
+   (v31.48) waren drei kaputt: sie sprangen auf einen Bildschirm und tippten
+   dort ein Element an, das es nicht gibt. **Wer weitere solche Listen anlegt,
+   muss sie hier eintragen** — was nur als Datenstruktur existiert, entzieht
+   sich jeder Prüfung, die bloss das Dokument ansieht.
+
+**Richtung 5 (seit v32.24): fuehrt ein DEEP-LINK irgendwohin?** Fuenf Stellen
+erzeugen Links mit einem Anker (`gsSharePost`, `gsShareComment`, zwei
+Like-Trigger in der DB, der Aufgaben-Cron). **Gelesen hat ihn bis v32.23
+niemand** — `gsHandleShortcutUrl` schrieb `location.pathname` ohne Hash
+zurueck, der Benachrichtigungs-Router schnitt ihn mit `.split('#')[0]`
+ausdruecklich ab, und ein Element mit dieser id gab es ohnehin nicht.
+„❤️ Anna gefaellt dein Beitrag" landete oben im Feed. **Ein Link, der oben auf
+der Seite endet, sieht aus wie ein Link, der funktioniert hat.**
+
+Der Pruefstand sammelt die erzeugten Anker-Arten aus `index.html`, den
+Migrationen und den Edge-Functions und haelt sie gegen `GS_ANKER_ARTEN` —
+**drei Klassen** wie in `backend_check`: gelesen · bewusst ohne Ziel (mit Grund
+in `GS_ANKER_OHNE_ZIEL`) · unbegruendet ungelesen. Dazu ein lebender Fall, der
+einen Beitrag wirklich in den Feed legt und die Markierung am Element prueft.
+
+Zwei Regeln daraus:
+
+- **Eine Zeitmessung ist keine Aussage.** Der erste Bau erkannte „kennt der
+  Leser diese Art?" daran, ob er laenger als 300 ms wartete — `comment` fiel
+  prompt durch, weil sein Datenbank-Blick ohne Netz sofort zurueckkam. Was
+  geprueft werden soll, wird DEKLARIERT (wie `GS_NOTIF_ZIELE` seit v31.81),
+  nicht am Laufzeitverhalten abgelesen.
+- **Eine Gegenprobe, deren Aufbau still fehlschlaegt, sieht aus wie eine
+  bestandene Gegenprobe.** Meine erste meldete gruen, weil das Skript, das die
+  Anker-id entfernen sollte, nichts geaendert hatte. Nach jeder Gegenprobe
+  nachsehen, ob der Zustand wirklich hergestellt wurde.
+
+Und eine Falle aus derselben Sitzung, die jeden Pruefstand betrifft, der
+Zustand im Browser setzt: **`socialPosts` ist ein `let` im Skript-Bereich und
+steht NICHT auf `window`.** `window.socialPosts = […]` legt eine zweite,
+unbenutzte Eigenschaft an; `renderSocialFeed` meldet danach „Noch keine Posts".
+In `page.evaluate` ohne `window.` zuweisen.
+
+**Richtung 3 (seit v31.98): geht das Fenster ueberhaupt auf?** Alle 43
+Oeffner ohne Parameter (`open…` / `gsOpen…` / `show…` mit `openModal(` im
+Rumpf) werden **wirklich aufgerufen**. Zwei Regeln stecken drin, beide im
+ersten Lauf gelernt: **Sperren werden erfuellt, nicht umgangen** (vier Oeffner
+brechen ohne Anmeldung oder Admin-Rechte ab — das ist richtig), und
+**bewusstes Ablehnen ist kein Fehler** — unterschieden wird daran, ob die
+Funktion etwas *sagt*. Wer nichts oeffnet und nichts sagt, ist kaputt.
+
+**Und eine Warnung zu den Beispieldaten:** im selben Lauf starb
+`openErnteTracking` an `e.ts.slice(…)` — weil `_seed.js` eine Zahl schrieb, wo
+die App einen ISO-String schreibt. Dahinter lag ein echter Fehler (der dritte
+`s.bloom`, siehe v31.98), den `data_check` die ganze Zeit **nicht** sehen
+konnte, weil die Zeile unerreichbar war. **Falsche Beispieldaten verdecken
+echte Fehler und melden dabei gruen.**
+
+**Richtung 2b (seit v31.95): Klassen-Ketten.** `getElementById` deckt ids ab.
+Nicht abgedeckt war
+`getElementById('x').querySelector('.y').textContent = …` — und genau daran
+hingen **vier Bildschirme**: `.modal-title` gibt es in `#modal-recipe-detail`
+nicht, die Zeile warf jedes Mal, und zwar **vor** `openModal`. „Bestätigte
+Scans", „Supabase API-Key", das **Admin-Panel** und der Experten-Antrag
+liessen sich dadurch gar nicht öffnen. Keine Fehlermeldung, kein leeres
+Fenster — es passierte nichts. Gemeldet wird nur, was wirklich wirft: eine
+Klasse, die in keinem `class="…"`, `classList.add` oder `className` vorkommt.
+
+**Und die Lehre daraus, die über diesen einen Fall hinausgeht:** ein Fenster,
+das sich nicht öffnet, sieht aus wie ein Knopf, den man danebengetippt hat.
+Niemand meldet das als Fehler. Deshalb war dahinter ein zweiter Fehler
+jahrelang unbemerkt — der Experten-Antrag, den niemand absenden konnte, wurde
+auch nie abgeschickt, wenn man es doch tat.
+
+**Die Grenzen, damit sie niemand neu entdecken muss:**
+
+- Namen, die erst zur Laufzeit entstehen (`window[name]()`), findet er nicht.
+- Richtung 2 liest den **Quelltext**, nicht das Dokument: die meisten ids
+  entstehen erst beim Rendern, ein laufender Abgleich wäre lauter Falschalarm.
+- Kommentare müssen raus, sonst meldet er die eigene Fehlerdokumentation als
+  Fehler. Die naive Prüfung („steht ein `/*` näher als das letzte `*/`?")
+  reicht nicht: Zeile ~29648 enthält `accept="image/*"` — das `/*` steht in
+  einer **Zeichenkette** und schliesst nie, ab dort galt der halbe Rest der
+  Datei als Kommentar und elf echte Funde verschwanden. Er führt deshalb beim
+  Durchgehen Zeichenketten mit.
+
+**Stand v32.84: die Liste ist leer** — der letzte Eintrag
+(`admin-expert-select`) war die Rollenvergabe, die es in der App gar nicht
+mehr gab. Wer sie wieder wachsen sieht, geht sie durch: die verbleibenden
+**abgesicherten** Nachschlagungen (46 waren es in v31.46) sind
+kein Fehler, sondern eine Arbeitsliste — und sie ist es wert, durchgegangen zu
+werden. „Abgesichert" heisst nur, dass nichts abstürzt; es heisst **nicht**,
+dass nichts fehlt. In v31.46 verbarg sich in dieser Liste der Pflanzenfriedhof:
+der Knopf auf jeder Pflanzenkarte verschob die Pflanze korrekt, aber
+`renderCemetery` schrieb in ein `#cemetery-list`, das es nicht gab — es gab
+schlicht keinen Weg zurück. Jede Zeile einzeln prüfen: manche sind Reste
+entfernter Oberflächen, manche eine **Funktion ohne Anzeige**.
+
+**Und noch eine Lehre aus v31.46:** `scripts/_seed.js` legte die
+Beispiel-Pflanzen unter `myPlants` ab — die App liest `ps_myplants`. Von v31.30
+bis v31.45 haben deshalb *alle* Prüfstände eine leere Pflanzenliste vermessen.
+Wer die Beispieldaten erweitert: **den Schlüssel gegen `index.html` prüfen**,
+nicht gegen den Namen der globalen Variablen.
+
+**Dieselbe Falle, eine Ebene tiefer (v32.46):** die drei Pflanzen trugen
+`lastWatered`/`waterEvery` — Felder, die die App NIRGENDS liest; sie rechnet
+Aufgaben aus `p.tasks[key] = {active, intervalDays, lastDone}`. Von v31.46 bis
+v32.45 hatten die Beispielpflanzen deshalb KEINE Aufgaben: „Heute zu tun",
+Faellig-Liste, Notizzettel und Glocke wurden in allen Pruefstaenden leer
+vermessen. Richtiger Schluessel, falsche Felder. Seit v32.46 tragen sie echte
+Aufgaben (eine ueberfaellig, eine heute, eine in Ordnung) — und der erste Lauf
+danach meldete den Notizzettel, der 1 px ueber den Rand ragte. Wer
+Beispieldaten anlegt, prueft die FELDER gegen die Lesestellen, nicht nur den
+Schluessel.
+
+> **Und den ZEIT-ANKER** (v33.02). Er stand als feste Zahl in `_seed.js`:
+> `1756684800000` = **1. September 2025**. Gemessen am 08.09.2026 mit laufender
+> Uhr waren damit alle zeitbezogenen Beispieldaten 374 bis 380 Tage alt — kein
+> Messwert der letzten Woche (Diagramme leer), **9 Aufgaben ueberfaellig, 0
+> heute faellig, 0 in Ordnung**, Sitzungs-Token 343 Tage abgelaufen. Die drei
+> Zustaende, fuer die v32.46 die Aufgaben ueberhaupt erst eingebaut hat, kamen
+> in 29 der 31 Pruefstaende nicht mehr vor. Der Anker folgt jetzt dem
+> laufenden Tag; `kalender_check` und `sensor_check` bleiben unberuehrt, weil
+> sie `clock.setFixedTime` VOR `addInitScript` rufen.
+>
+> **Viermal dieselbe Klasse, viermal durch Zufall gefunden** (v31.46, v32.46,
+> v32.52, v33.02). `robust_check` Fall 25 misst deshalb nicht die FORM der
+> Beispieldaten, sondern ihre WIRKUNG — neun Listen muessen in der laufenden
+> App ankommen, und es muss mindestens eine ueberfaellige UND eine heute
+> faellige Aufgabe geben. **Beispieldaten sind die Messgrundlage von allem:
+> sind sie falsch, misst jeder Pruefstand etwas anderes als die Sache und
+> meldet dabei gruen.**
+
+> **Und dieselbe Frage stellt sich an JEDER Anzeige** (v32.87). Nach der
+> Reparatur der Startkarte stand derselbe Fehler noch auf „Meine Pflanzen":
+> die Kachel „HEUTE FÄLLIG" zeigte `allDue.length` (drei Tage, `d <= 2`),
+> waehrend der Notizzettel daneben 9 zeigte — zwei Zahlen fuer dieselbe Frage,
+> gleichzeitig sichtbar. Gefunden wurde es, indem ueber alle elf Tabs **jede
+> sichtbare Zahl neben ihre Beschriftung** geschrieben wurde. **Eine
+> Fehlerklasse ist erst geschlossen, wenn man sie GESUCHT hat** — nicht, wenn
+> man einen Fall davon behoben hat.
+
+> **Und die Zahl gehoert zum TITEL** (v32.85). `gsGetDueTasks` liefert
+> bewusst drei Tage weit (`d <= 2`); wer davon `length` unter die Ueberschrift
+> „Heute zu tun" schreibt, sagt etwas Falsches — der Notizzettel filterte an
+> derselben Stelle laengst auf `days <= 0`. Eine Vorschau darf bleiben, sie
+> muss nur sagen, dass sie eine ist.
+
+**`kalender_check.js` (seit v32.46) haelt die eine Regel aus
+`docs/KALENDER-V1.md` fest:** es gibt EINE Frage — „was ist an diesem Tag?" —
+und EINE Funktion (`gsKalenderEreignisse`). Der Kalender, „Heute zu tun",
+die Faellig-Liste, der Notizzettel und die Glocke sind Anzeigen derselben
+Antwort; `gsGetDueTasks` ist ihre Sonderform fuer heute. Wer eine
+Faelligkeit braucht, ruft eine der beiden — ein `getDaysUntilDue` in einer
+neuen Anzeige ist ein Fehler. Die Uhr wird im Pruefstand GESTELLT
+(`page.clock.setFixedTime`), kein Fall haengt am echten Datum. Drei
+Reparaturen stecken drin, jede mit Gegenprobe: `gsSnoozeTask` schreibt
+`snoozedUntil` statt `lastDone` zu faelschen (der Server-Cron kennt das
+Feld erst nach `20260903_plant_tasks_due_snooze.sql`); `gsTagebuchAlle()`
+liest Gartentagebuch UND Pflanzentagebuecher (`p.diary`) zusammen — bis
+v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
+wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
+`window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
+
+**`ingest_check.js` (seit 05.09.2026) prüft die RECHNUNG des Empfängers
+`device-ingest`, ohne Deno und ohne Datenbank.** Deno ist in dieser Umgebung
+nicht installiert, die Edge-Function selbst läuft hier nicht. Deshalb steht
+alles, was sich rechnen lässt, in `supabase/functions/_shared/ingest_regeln.mjs`
+(reines ESM, von Deno und Node importierbar), und `device-ingest/index.ts`
+ist nur der dünne Rand darum (Token, Insert, Antwort). Wer eine Regel des
+Vertrags (`docs/GERAETE-VERTRAG.md`) ändert, ändert das Modul und den Fall —
+nie nur die Edge-Function. Drei Regeln, die das Modul hält und die der
+Primärschlüssel allein nicht hält: **eine falsche Uhr ist kein Grund zum
+Verwerfen** (`age_s`, `raw.device_ts`, `clock: untrusted` — mit `on conflict
+do nothing` überlebte von `ts=1970` nur die erste Zeile), **ein Zeitstempel
+in der Zukunft ist eine falsche Uhr**, und **abgelaufene Befehle werden nie
+gesendet**. Die Edge-Function und die zwei Migrationen vom 05.09.
+(`device_daily`, `device_alerts_cron`) sind **nicht ausgeführt** — wer das
+schreibt, sagt es dazu.
+
+**Und eine Falle aus derselben Sitzung (v32.61), die jeden Prüfstand mit
+gestellter Uhr betrifft:** `_gsAnkerWarten` rechnete seine Frist mit
+`Date.now() > bis`. Unter `page.clock.setFixedTime` steht `Date.now()`
+still, und für ein Element, das nie kommt (der Fall „entferntes Gerät"),
+lief die 150-ms-Schleife **endlos** — `sensor_check` hing 23 Minuten, ohne
+rot zu werden. Die Frist zählt jetzt Versuche. **Eine Frist, die die Uhr
+fragt, ist eine Annahme darüber, dass die Uhr läuft** — in jedem Seed-
+Prüfstand tut sie das nicht. Wer eine Wartefunktion baut, zählt Versuche
+oder nimmt `performance.now()`, das die Prüfstände nicht stellen.
+
+**`sensor_push_check.js` (seit 06.09.2026) prüft den zweiten Empfänger-Rand:
+`sensor-push`.** Anlass: die Brücke `push_send_log → notifications` (v30.80)
+läuft in EINE Richtung — eine Inbox-Zeile wird nie zum Push, und §11.3j
+hatte am Vortag das Gegenteil behauptet (nachgemessen: ein `grep` über alle
+Edge-Functions, ein Leser, `stripe-webhook`). Dieselbe Bauform wie
+`ingest_check`: die Rechnung in
+`supabase/functions/_shared/sensor_push_regeln.mjs`, die Edge-Function ist
+der Rand. Drei Regeln, die das Modul hält: **je Meldung und Abonnement
+höchstens ein Versuch** (der Marker ist das Protokoll,
+`payload_meta.notification_id` + `subscription_id`), **stumm wird
+protokolliert und nicht nachgeholt**, und **eine Inbox-Zeile bleibt eine** —
+die Brücke prüft denselben Schlüssel (`BRIDGE_MARKER`), und Fall 8 liest die
+Migration, damit Reparatur und Prüfung dieselbe Regel haben (v32.16). Wer
+eine weitere Push-Quelle baut, die schon eine Inbox-Zeile hat, setzt diesen
+Marker — sonst steht die Meldung zweimal in der Inbox. Und wer eine
+Behauptung über einen Server-Weg schreibt, misst ihn (`grep`, `cron.job`,
+nur lesend) — der Satz vom 05.09. klang richtig, weil die Brücke existiert,
+nur in der anderen Richtung.
+
+**Seit v32.62 ist Stufe 1 auch in der App: Koppeln und Cloud-Abgleich.**
+`gsGeraetKoppeln` erzeugt das Token in der App und schickt NUR den SHA-256
+(`token_hash`) per Upsert in `devices`; das Token steht einmal in der Kachel
+und nirgends sonst (`_gsMwTokenEinmal`, Arbeitsspeicher). Eine Antwort mit
+0 Zeilen ist keine Kopplung (`_gsSchreibOk`). `gsGeraeteCloudAbgleich` holt
+Status und `device_readings` und gibt sie durch denselben einen Weg —
+`_gsMesswerteAnhaengen(g, liste, {quelle:'cloud', pending:false,
+status_belassen:true})`; wer einen weiteren Server-Weg baut, nimmt dieselben
+Optionen (sonst zählt der Deckel eine Cloud-Kopie als unersetzlich, oder eine
+Nachlieferung macht aus `lost` ein `active`). Und **eine Instanz je Alarm:**
+`gsSensorAlarmeMelden` lässt Geräte mit `cloud_id` aus, der Server meldet.
+Die drei Fälle in `sensor_check` (Koppeln · Cloud-Abgleich · Alarm-Instanz)
+stellen den Server (`sbFetch`) mit Ja, Leer und Nein — ein Fall, der nur das
+Ja kennt, prüft nicht, was bei Nein passiert.
+
+**Und die Lücke, die v32.62 dabei aufgerissen hat (v32.63, §11.3m):** die App
+liess Alarme gekoppelter Geräte aus, „weil der Server meldet" — der Server
+kannte die Regeln aber nicht (sie lagen nur in `gs_geraete_regeln`). Nirgends
+gemeldet, Fall grün. Seither geht eine Regel am gekoppelten Gerät auf den
+Server (`_gsRegelHochladen`, Upsert `device_rules` mit derselben Id,
+`cloud_ok` nur nach `_gsSchreibOk`), und **die App lässt eine Regel nur
+aus, wenn `r.cloud_ok === true`** — sonst meldet sie weiter selbst. Wer
+eine Zuständigkeit an den Server abgibt, hängt das Auslassen an den
+Nachweis, nie an die Absicht; und ein Fall, der nur „meldet nicht" kennt,
+braucht die Gegenrichtung „meldet doch, wenn der andere es nicht kann".
+Seit v32.64 kommt die Rückrichtung dazu: der Abgleich liest `device_rules`
+zurück (`last_fired_at`, `enabled`), und eine Regel, die dort war und weg
+ist, trägt `cloud_geloescht` — sie wird NICHT neu hochgeladen (sonst machte
+der Nachzieh-Schritt jedes Löschen alle fünf Minuten rückgängig). Und
+Pausieren (`gsGeraetPausieren`) ist ein PATCH mit `_gsSchreibOk`: lokal wird
+erst nach der Bestätigung umgestellt.
+
+**`backup_check.js` (seit v33.26) fragt zwei Dinge, die nie jemand gemessen
+hat: WANN ist ein automatisches Backup faellig, und WELCHES ueberlebt die
+Aufbewahrung?** Bis v33.25 gab es fuer die erste Frage ZWEI Regeln, die
+auseinanderliefen — `auto_daily` nach dem Kalendertag (UTC gerechnet),
+`auto_periodic` nach reiner Zeit (> 3 h) — und **keine fragte, ob sich etwas
+geaendert hat.** Wer die App offen liess, bekam alle drei Stunden eine Kopie
+desselben Zustands; wer kuerzer als fuenf Minuten da war, bekam gar nichts
+(der Traeger ist ein 5-Minuten-Intervall). Seit v33.26 gibt es
+**`_gsSnapshotAutoFaellig()`** — eine Regel mit immer einem GRUND, auch wenn
+nichts faellig ist, und der Tag ist der **lokale** (`_gsDayKey`): fuer eine
+Person in der Schweiz wechselte der UTC-Tag um 01:00/02:00 Ortszeit, das
+„Backup von heute" war dann eines von gestern Abend. Wer einen neuen Anlass
+braucht, nimmt einen der fuenf Namen, die der CHECK auf `user_state_snapshots`
+kennt (`auto_daily · auto_periodic · pre_migration · manual · pre_logout`) —
+ein neuer Name ist ein Insert, den der Server ablehnt.
+
+Die zweite Frage hat einen Befund: **`manual` war in der Aufbewahrung nicht
+geschuetzt.** `fn_cleanup_user_snapshots` (v29_28) haelt die 6 neuesten plus
+den je neuesten `pre_migration` / `auto_daily` / `pre_logout` — ausgerechnet
+der Stand, den eine Person selbst angelegt hat, fehlte. Mit „Update ohne
+Klick" (v33.25) entsteht je Auslieferung ein `pre_migration`; am 10.09.2026
+waren das vierzehn an einem Tag. Die Migration
+`20260912_snapshot_retention_manual.sql` schliesst das und ist **nicht
+angewandt** — der Pruefstand rechnet sie in einem lokalen Postgres nach, mit
+Reproduktion (alte Fassung frisst das `manual`) und Gegenprobe.
+
+**`quiz_gen_check.js` (seit v33.29) fragt, was vor `quiz_check` kommt: WOHER
+kommen die Fragen, und was laesst sie hinein?** Drei Regeln, die ueber das Quiz
+hinausgehen:
+
+- **Eine Kategorie ist ein EINTRAG im Vokabular, keine Prompt-Zeile.** Gemessen
+  am 14.09.2026: die eine Zeile unter der Frage zeigte den rohen Slug, und
+  dafuer gab es DREI Quellen — der Prompt des Generators (6, englisch), die
+  Live-Tabelle (23, zweisprachig) und `GS_QUIZ_FALLBACK_POOL` in der App (13,
+  deutsch, ueber `_gsQuizToSupaShape` an derselben Anzeige). **35 Slugs**,
+  darunter `pilz` neben `pilze`. Wer eine Kategorie braucht, nimmt
+  `_gsQuizKatLabel(slug)`; unbekannt ergibt **leer**, nie der Slug. Dieselbe
+  Antwort wie `GS_EVENTS` (v33.11): ein Eintrag oder es geht nicht durch.
+- **Eine Dublettenpruefung muss auch SICH SELBST sehen.** Die alte Pruefung
+  baute ihre Menge einmal aus der Datenbank und zog sie beim Einfuegen nie
+  nach — zwei gleiche Fragen aus EINER KI-Antwort kamen beide durch.
+  `quizStapelFiltern` nimmt jeden angenommenen Schluessel sofort auf. *Ehrlich
+  dazu: die zwei Dubletten im Bestand stammen NICHT daher* (beide 29.04.2026,
+  Massen-Import ohne jede Pruefung) — das Loch hat noch nie zugeschlagen.
+- **Ein Vorrat ist eine ZAHL mit drei Zustaenden.** 181 Fragen frei, Zulauf 12
+  je 35 Tage (`knowledge-growth-daily` rotiert 35 Themen), Verbrauch 1 je Tag →
+  `-0,657/Tag` → erschoepft am **16.06.2027**, danach wiederholt
+  `fn_get_daily_quiz` ueber ihren Rueckfall, ohne dass etwas meldet. `quizVorrat`
+  gibt nie `0` fuer „keine Daten", sondern `null` mit Grund.
+
+**Die zwei Listen (Modul und App) bindet der PRUEFSTAND.** Fall „Ein
+Vokabular" liest beide und verlangt dieselben Kategorien, denselben Alias, je
+einen `_t`-Schluessel **und denselben deutschen Text** an Tabelle und Aufrufort
+— dieselbe Regel wie in `i18n_check`. Wer eine Kategorie hinzufuegt, aendert
+das Modul, die App und `GS_I18N_JS_STRINGS`; wer eine vergisst, sieht es beim
+naechsten Lauf.
+
+> **Wer eine Liste von Englisch auf Deutsch umstellt, uebernimmt damit die
+> UMLAUTE** (v33.29). Das alte Kategorien-Vokabular war reines ASCII-Englisch
+> (`identification|toxicity|…`) und konnte gar nicht an einem Umlaut
+> scheitern. Das neue ist deutsch in ASCII-Umschrift (`kueche`, `bestaeuber`)
+> — und ein Modell, das auf Deutsch schreibt, liefert `küche` und `bestäuber`.
+> Ohne Falten haette das jede solche Zeile verworfen, im schlimmsten Fall
+> **12 von 12 eines Laufs**, waehrend die Antwort `ok: true` meldet. `quizKategorie`
+> und `_gsQuizKatLabel` falten deshalb beide `ä/ö/ü/ß`, und ein Fall prueft,
+> dass sie es GLEICH tun. **Die Verschaerfung kam nicht aus dem alten Code,
+> sondern aus der eigenen Aenderung.**
+>
+> **Und der Fall hat den ENTWURF korrigiert, bevor es Code gab** (v33.29).
+> Meine erste Alias-Tabelle deckte **34 von 35** Slugs — `season` fehlte, und
+> das sind 21 der 215 Fragen. Auf dem Bildschirm waere bei jeder fuenften Frage
+> die Kategoriezeile leer geblieben, ohne dass etwas meldet. Gefunden hat es
+> nicht das Lesen, sondern ein zwanzigzeiliges Skript, das die GEMESSENEN Slugs
+> gegen die Tabelle haelt. **Ein Fall, der schon den Entwurf korrigiert, ist
+> der richtige Fall** — und eine Liste, die man von Hand aus dem Kopf schreibt,
+> ist nie vollstaendig.
+
+**Seit v33.28 prueft `quiz_check` auch „Ueben"** — Lernkarten mit fuenf
+Leitner-Boxen neben der Tagesfrage. Vier Regeln, die ueber das Quiz hinausgehen:
+
+- **Eine Karte wird nie auf einem FEHLENDEN Feld gebaut.** `dqBuildQuestion`
+  faellt bei Saison und Standort auf einen Vorgabewert zurueck
+  (`sp.season || 'Ganzjaehrig'`); gemessen 12.09.2026: `season` bei 2'902 von
+  4'337, `habitat` bei 3'386. Fuer ein Tagesquiz ist das ein Rueckfall, fuer
+  eine Lernkarte waere es Auswendiglernen eines leeren Feldes (1'435 bzw. 951
+  Eintraege). `_gsTrainingTypOk` ist die Regel; wer einen Fragetyp hinzufuegt,
+  traegt sein Pflichtfeld dort ein.
+- **Was die Daten nicht hergeben, wird nicht versprochen.** Die Artenliste hat
+  KEIN Bildfeld (27 Felder) — „Ueben" uebt Wissen, nicht Bilderkennung, und die
+  erste Zeile im Fenster sagt das. Dasselbe Muster wie `gsAROpen` (v33.05).
+- **Ein Feld namens `warning` ist nicht immer eine Warnung.** Bei 1'612 von
+  2'927 Eintraegen steht dort das Gegenteil („Keine bekannten Risiken"); ein ⚠️
+  davor macht daraus einen Alarm, der keiner ist. `_gsWarnungEcht` trennt das.
+  **Und vor dem Ausweiten wurde nachgesehen:** die vier anderen
+  „⚠️ + warning"-Stellen lesen Rezepte und die Wissensdatenbank, nicht die
+  Artenliste.
+- **Ein Zustand muss in BEIDE Blobs.** Es gibt den Sync-Blob
+  (`_gsBuildStateBlob`) und den Snapshot. Der Rueckweg (`stateMap`) hatte
+  `dq_training` sofort, der Hinweg nicht — dann reist ein Wert nur im Backup und
+  geht beim gewoehnlichen Geraetewechsel verloren.
+
+> **Und eine Gegenprobe, die zuerst nichts gemessen hat.** Der Deckel-Fall gab
+> allen Karten dasselbe Faelligkeitsdatum — damit sind „hoechste Box zuerst" und
+> „aeltestes Datum zuerst" DIESELBE Reihenfolge, und die umgedrehte Regel blieb
+> gruen. **Ein Fall, dessen zwei denkbare Regeln zufaellig dasselbe Ergebnis
+> liefern, prueft keine von beiden** — die Daten muessen die Regeln
+> auseinanderziehen (Box 5 mit dem neuesten Datum, Box 1 mit dem aeltesten).
+
+**Seit v33.30 ist Lina GEERDET — und die Regeln gelten fuer jeden kuenftigen
+Freitext-Weg.** Gemessen: `getSmartAnswer` (der Offline-Chat) hatte seit
+v32.96/98/99 eine Notfall-Erkennung in vier Sprachen und erdete jede
+Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
+„notfall" in `gsLinaSend`, 0 auf `DB` in `gsLinaContext`).
+
+- **Eine falsche Erdung ist schlechter als keine.** Der Vergleich aus
+  `getSmartAnswer` nimmt IRGENDEIN Wort eines Namens — „Meine Tomaten haben
+  braune Blätter" ergab die **Braune Krustenflechte**, „echte Kamille" die
+  **Echte Engelwurz**. Wer einen Freitext erdet, nimmt `_gsArtenTreffer`.
+- **Bei mehreren Arten wird KEINE ausgewaehlt**, und **der Umgangsname zieht
+  seine Familie mit**: „Ist Holunder essbar?" traf erst nur den einen Eintrag,
+  der so heisst (tox 2, essbar) — die Liste fuehrt **18 Sambucus-Eintraege bis
+  tox 4**. Gefragt wird, ob die Arten sich EINIG sind: ja → erden; nein →
+  genau das sagen. Dieselbe Lehre wie `_gsVorsichtigste` (v32.43).
+- **Stand der VOLLE Name nicht in der Frage, gibt es keine Zusage.** „Kann man
+  Wiesenpilze essen?" traf ueber die Deklinations-Regel den „Perlweissen
+  Wiesenpilz" — eine Zusage „nicht giftig, essbar" auf eine Frage nach einer
+  ganzen Gruppe.
+- **Ein Notfall-Vokabular, nicht zwei.** `_gsNotfallStufe` ist aus
+  `getSmartAnswer` herausgeloest; beide Chats rufen es. Die Nummer kommt VOR
+  dem Doppel-Send-Riegel (sonst verschluckt eine laufende 45-s-Anfrage sie) —
+  und **der Fehlalarm nimmt der Person die Antwort nicht weg**: „mon chat peut
+  manger cette plante ?" liest die Erkennung als dringend, bekam aber sonst
+  NUR die Nummer. Nummer zuerst, Antwort trotzdem.
+- **Eine Sicherung, die nur `\bessbar\b` sucht, sichert nichts.** Von elf
+  realistischen Bejahungen traf sie fuenf; „eine **essbare** Pflanze" und „du
+  darfst ihn essen" fielen durch. Wortstamm statt Wortgrenze, und die
+  Verneinung nur im SELBEN Satz.
+
+> **Und was von `getSmartAnswer` kommt, ist nicht automatisch geerdet**
+> (v33.30). Die Offline-Antwort holte den groben Vergleich zurueck, den dieser
+> Schnitt gerade als unbrauchbar gemessen hatte — **der eigene Fehler durch die
+> Hintertuer**. Seine Artkarte gilt nur, wenn `_gsArtenTreffer` dieselbe Art
+> nennt.
+
+> **Eine Sicherung wird mit den Saetzen gemessen, die wirklich vorkommen**
+> (v33.32). `_gsLinaSicherheit` (die EINZIGE Rechnung gegen eine falsche
+> Essbarkeits-Zusage) suchte ganze Woerter. End-to-end gegen die echte
+> Artenliste gemessen: **8 von 9** realistischen Zusagen ueber einen
+> Knollenblaetterpilz (tox 5) kamen ohne Warnung durch — „kannst du roh
+> essen", „Speisepilz", „eignet sich zum Kochen", und **fr/it/en 3 von 3**
+> (dieselbe Klasse wie v32.99). Jetzt Staemme plus ein Verzehr-Verb in der
+> Naehe einer Zustimmung. **Und der Fall traegt die GEMESSENEN Saetze, nicht
+> ausgewaehlte** — ein Fall, dessen Satz den Treffer schon enthaelt, prueft
+> die Vorlage und nicht die Ware.
+
+> **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
+> nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
+> lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
+> Saetze braucht, trennt am ROHEN Text.
+
+> **Ein Feld, das drei Schreiber drei verschieden nennen, hat EINEN Leser**
+> (v33.33). Die Scan-Historie traegt `timestamp` (ISO), `ts` (ms) oder
+> `createdAt` (ms) — je nach Weg. v30.54 hatte die Liste tolerant gemacht;
+> v33.23 verlangte fuer Lina `h.timestamp` allein, und nach dem Cloud-Abgleich
+> (schreibt nur `ts`, gewinnt den Dedup) sah sie null Scans. Wer die Zeit
+> eines Eintrags braucht, ruft `_gsScanZeit(h)` (ms oder `null`) — nie ein
+> Feld direkt. Dieselbe Klasse wie `_gsMetricLabel` (v32.55) und
+> `_gsPflanzeFinden` (v32.47): **der Leser ist die Regel, nicht das Feld.**
+
+> **`limit=100` ohne `desc` ist eine Zeitmaschine in die falsche Richtung**
+> (v33.33). `gsOpenLina` holte die AELTESTEN hundert Nachrichten und zeigte
+> davon `slice(-16)` — ab Nachricht 101 fehlte das Ende des Gespraechs, ohne
+> Meldung. Wer „die letzten N" laedt, sortiert absteigend, deckelt, dreht um.
+> Und ein Fall dazu braucht MEHR Zeilen als der Deckel (120 bei 100), sonst
+> sind beide Richtungen dieselbe Liste.
+
+> **Eine Aufloesung per Teilstring ist bei einem Schreibvorgang kein
+> Treffer, sondern ein Fehlgriff** (v33.33). `gsLinaResolvePlant` nahm
+> `indexOf` — „Mon" traf die Monstera, zwei Tomaten die erste. Fuer eine
+> Erinnerung (schreibt `tasks`) ist KEIN Treffer der bessere Treffer; die
+> Rueckfrage zeigt nur den Namen, nicht welchen Eintrag. Exakt, Name oder
+> Spitzname, ueber `_gsPflanzeFinden` in beiden Listen.
+
+> **Eine Zusammenfassung ist kein Diff** (v33.33). Die Aufgabenliste zu
+> v33.31 nannte drei Dinge als geliefert, die in keinem Commit stehen
+> (`git log -S`: 0). Gefunden hat es ein Messender, nicht ich. Was als
+> „fertig" weitergeschrieben wird, wird vorher gegen `git show` gelesen.
+
+> **Ein Kalender, der „denkt", rechnet — mit drei Zustaenden und einem
+> Grund** (v33.34, KALENDER-V2). `_gsKalPruefwerk` haelt die Ereignisse der
+> einen Funktion gegeneinander (Frost × Aussaat draussen, Regen × Giessen,
+> Schaetzung × Ernte-Log, Ueberfaellig-Stufe) und schreibt `hinweise[]` an
+> die beteiligten. Wer eine Regel baut: drei Zustaende, `nicht_pruefbar` mit
+> Grund (nie Stille), kein Schreiben, ein Fall mit gut · schlecht · nicht
+> pruefbar aus dem HTML — und die Gegenprobe „Regel ausgebaut → rot".
+> Reihenfolge fest: Rechnung → Pruefwerk → Sieb → Anzeige.
+
+> **Ein Rueckfallwert mit plausiblem Grund ist eine Erfindung** (v33.34).
+> `getPlantInfo` gab fuer JEDEN unbekannten Namen {60, 90} Tage zurueck —
+> eine Monstera-Pflanzung bekam „Ernte voraussichtlich 16.10." mit dem Grund
+> „typische Kulturdauer". Jede Rechnung, die auf einen Rueckfall trifft, gibt
+> `null` zurueck und laesst das Ereignis weg; der Grund nennt Zahlen aus einer
+> Quelle (`_gsKulturZuPflanze`, exakt), nie aus einem Rueckfall. Dieselbe
+> Klasse wie das erfundene Plan-Jahr (v33.10).
+
+> **Zwei Aufrufer, eine Rechnung — und ein Fall, der beide Zahlen
+> vergleicht** (v33.34). `gsGetDueTasks` trug den Regen-Draht (`eintrag.regen`),
+> das Pruefwerk brauchte denselben; zwei Kopien waeren die Frost-Klasse aus
+> S5 (vier Rechnungen fuer dieselbe Frage). `_gsRegenUebernimmt(p)` ist die
+> eine, und `kalender_check` R2 zaehlt Startseite und Kalender gegeneinander.
+
+> **Ein halber Satz ist schlimmer als eine fehlende Zeile** (v33.39). Linas
+> Kontext hatte einen Deckel, der Zeichen zaehlte (`txt.slice(0, 949) + '…'`);
+> mit sechs Geraeten gemessen endete er auf „Taraxacum officinale…“ — die
+> Scan-Zeile verstuemmelt, und nichts sagte, dass etwas fehlt. **In einem
+> KI-Kontext sieht ein abgeschnittener Wert aus wie eine Angabe.**
+> `_gsLinaDeckeln` laesst ganze Zeilen weg und haengt „(+N Zeilen ausgelassen)“
+> an; was nicht in eine Zeile passt, wird GEZAEHLT („+2 weitere“), nie
+> stillschweigend weggelassen. Und **Reihenfolge und Fallordnung sind EINE
+> Liste** (`GS_LINA_ZEILEN_RANG`) — die erste Fassung liess von hinten fallen
+> und warf die kurze Scan-Zeile weg, waehrend die 400 Zeichen lange
+> Messwerte-Zeile stehenblieb.
+>
+> **Und eine Schranke, die nicht aus ihren Teilen gerechnet ist, ist eine
+> Hoffnung.** Der Pruefstand deckelte den ganzen Kontext bei 1'350 — eine Zahl
+> aus v33.14, die zufaellig hielt; sie wird jetzt aus den Teil-Deckeln
+> gerechnet (`GS_LINA_ZAHLEN_MAX + GS_LINA_ARTEN_MAX + 400`).
+
+> **Vierte Instanz: der Leser ist die Regel, nicht das Feld — diesmal bei einer
+> ZAHL** (v33.39). `gsNormConfidence` gibt es seit v31.79, gebaut weil „die
+> Regel zweimal im Code stand und die Anzeige sie gar nicht benutzte“. Gemessen
+> am 16.09.2026 fuer denselben Eintrag (`confidence: 0.94`): die Verlaufsliste
+> zeigte „0.94%“, Linas Kontext „1 % sicher“, die eine Funktion haette 94
+> gesagt. **Eine Funktion, die die Regel kennt, hilft nichts, solange die
+> Anzeigen sie nicht rufen.** `_gsScanKonfidenz(h)` ist der eine Leser; die
+> fuenf Erzeuger von `item.conf` gehen durch ihn — EINE Reparatur, nicht fuenf
+> Pflaster (dieselbe Entscheidung wie die Tastatur-Nachruestung in v32.16).
+>
+> **Und der Pruefstand dazu war gruen:** der Fall aus v33.23 setzt
+> `confidence: 88` ein — eine Zahl, die schon in der Zielform ist. Ein Fall,
+> dessen Wert den Treffer schon enthaelt, prueft die Vorlage und nicht die Ware
+> (v33.32, v33.00). Wer eine Normalisierung prueft, fuettert BEIDE Formen.
+
+> **Eine Migration, die man nicht ANWENDET, hat man nicht geprueft** (v33.41).
+> Zwei Sicht-Migrationen standen seit Tagen als „bereit" in der Liste der
+> offenen Migrationen (STATUS §2). Gegen die Sicht, wie sie LIVE steht, in
+> einem lokalen Postgres nachgerechnet:
+> `ERROR: cannot change name of view column "next_due_at" to "snoozed_until"`.
+> **`CREATE OR REPLACE VIEW` darf Spalten nur ANHAENGEN**, nie einfuegen oder
+> umbenennen — beide Dateien fuegen welche in der Mitte ein, waeren also beim
+> ersten Versuch gescheitert. Wer eine Sicht aendert, nimmt DROP + CREATE
+> (nach `pg_depend`: haengt etwas daran?) und **spielt den Live-Stand nach**:
+> Migration anwenden, ein ZWEITES Mal anwenden (Idempotenz), Gegenprobe. Das
+> ist v32.65 eine Ebene hoeher — dort war es die Rechnung IN der Migration,
+> hier die Migration selbst. `node --check` und ein Blick auf die Spalten
+> zeigen es nie. Pruefstand: `naht_check` „jede Sicht-Migration laesst sich
+> WIRKLICH anwenden".
+
+> **Ein Fehler, der wegdestrukturiert wird, macht „nichts gefunden" von
+> „kaputt" ununterscheidbar** (v33.41) — die `_gsSchreibOk`-Klasse auf der
+> Server-Seite. `daily-push-checker` schrieb `const { data: tasks } = await sb
+> .from('garden_tasks_catalog') … .eq('priority','high')`. Live gemessen:
+> **die Spalte `priority` gibt es nicht** (189 Zeilen, 0 mit dem Schluessel,
+> auch nicht in `data`); PostgREST antwortet 42703, `data` ist `null`, und die
+> Funktion lief still weiter. Die saisonale Erinnerung hatte **seit dem Bau
+> keine einzige Zeile**. In einer Edge-Function wird der `error` GELESEN und
+> gesagt (`console.error`, `system_events`) — nie weggelassen.
+
+> **Und die Umkehrung: ein Fehler, den nur die KONSOLE sieht, ist kein
+> gemeldeter Fehler** (v33.46). `gsCloudSync` schrieb einen unvollstaendigen
+> Abgleich nach `console.warn` — die Person sah nichts. Die Statuszeile in den
+> Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen und
+> kannte keinen Unterschied zwischen einer Minute und drei Tagen.
+> `gsSyncStand()` ist die EINE Rechnung mit vier Zustaenden (`ok` ·
+> `unterwegs` · `klemmt` · `nicht_bekannt` mit Grund); der Tagesplan und die
+> Statuszeile lesen beide sie. **Und ein Zustand, der ein Alarm werden soll,
+> braucht alle seine Teile:** „klemmt" verlangt offen UND `canPush`
+> (angemeldet und online) UND aelter als `GS_SYNC_KLEMMT_H` — wer schlicht
+> offline ist, klemmt nicht, dafuer gibt es die Warteschlange. Eine Warnung,
+> die im Normalzustand aufleuchtet, ist die Zahl, die man zu ignorieren lernt
+> (v32.21). Pruefstand: `sync_check` (Faelle „Klemmt").
+
+> **Und „niemand widerspricht" ist nicht „niemand konnte etwas sagen"**
+> (v33.47). Im Scan-Pruefwerk gab es keinen Zweig fuer `ok === 0` — beide
+> Faelle landeten in `warn === 0` und damit auf der Stufe „Nichts spricht
+> dagegen". Mit blockiertem `data/plants.v1.js` (nacktes `<script src>`, KEIN
+> `onerror`) gemessen: alle sieben Regeln `unbekannt`, `gsMatchScanToDb` →
+> `null`, die Giftstufe blieb die ungepruefte 0 der KI statt der 5 aus der
+> Liste — und darueber stand „Gegengeprueft mit unserer Artenliste". **Eine
+> Ueberschrift, die eine Pruefung behauptet, die nicht gelaufen ist, ist
+> schlimmer als gar keine.** Wer eine Stufe, eine Note oder ein Urteil aus
+> Regeln rechnet, braucht den Zweig „nichts davon konnte pruefen" — mit
+> GRUND — und die Anzeige daneben darf nicht mehr behaupten, als geschehen
+> ist. Dieselbe Klasse wie v33.36 („Keine Daten" ist nicht „keine Gefahr"),
+> nur als aktive Zusage statt als Stille. Pruefstand: `scan_check` P1/P2, mit
+> der Gegenrichtung „mit Liste unveraendert" — ohne sie waere ein Pruefwerk,
+> das immer „Nicht geprueft" sagt, ebenfalls gruen.
+
+> **Ein zweiter Weg, der nicht tut, was der erste tut, ist kein Rueckfall,
+> sondern ein zweiter Zustand** (v33.48). `data/plants.v1.js` haengt an einem
+> nackten `<script src>`; seit v33.48 holt ein `onerror` die Datei EINMAL nach
+> (`?v=1&r=<ts>` — derselbe Cache-Eintrag liefert sonst noch einmal dasselbe).
+> Beim Messen fiel auf: nachgeladen lief die App mit **4'342** Arten, normal
+> mit **4'337**. `deduplicateDB` war eine **anonyme IIFE** — sie laeuft beim
+> Parsen, und der Nachlade-Weg konnte sie gar nicht rufen. Duplikate sind in
+> dieser App genau die Stelle, an der die Sicherheitsangaben auseinandergehen
+> (v32.43). Wer einen zweiten Ladeweg baut, ruft JEDE Aufbereitung des ersten;
+> eine IIFE wird dafuer zur benannten Funktion (idempotent halten).
+> `gsArtenStand()` ist die eine Rechnung darueber — `ok` · `laedt` · `fehlt`
+> mit Grund, gemessen an `DB.length` und nicht am gemerkten Ladeversuch.
+> Pruefstand: `offline_check` (der erste Versuch wird WIRKLICH abgebrochen).
+
+> **Und eine Liste mit einem Eintrag ist keine Liste, sondern Zeremonie**
+> (v33.48). Geplant war `GS_SELBSTTEST` — eine deklarierte Liste von
+> Startpruefungen nach dem Muster `GS_ADM_SEKTIONEN` (v33.42) und `GS_FRISTEN`
+> (v33.45). Von drei Kandidaten blieb beim Messen EINER uebrig: „Speicher
+> unlesbar" faengt `localStorage.getItem` seit v30.98 selbst ab (try/catch →
+> `null`), und „Version von Seite und Worker auseinander" laesst sich nur mit
+> dem vollen Server-und-Worker-Aufbau von `offline_check` messen — ungemessen
+> waere der Eintrag geraten. Der eine echte Fall ist direkt geschlossen. **Eine
+> Registry lohnt ab dem zweiten Eintrag**; davor ist sie Aufwand ohne Nutzen.
+
+> **Und eine Warnung, die freundlich aussieht, liest niemand als Warnung**
+> (v33.46). Beim Nachlesen der eigenen neuen Zeile gezaehlt — ueber ALLE
+> Toast-Aufrufe: `error` 142 · `info` 110 · `success` 96 · **`warn` 77** ·
+> `warning` 55. `'warn'` ist die einzige Schreibweise, die WEDER die
+> Icon-Tabelle in `_gsToastShowNow` kennt (`success` · `error` · `warning` ·
+> `info`) NOCH das CSS (`.gs-toast.warning` ist orange, `.gs-toast.warn` gibt
+> es nicht): 77 Meldungen standen mit dem Rueckfall-Symbol 🌿 auf der
+> NEUTRALEN Flaeche. Die Antwort ist EIN Tor an der Stelle, durch die alle
+> muessen (`toastType === 'warn'` → `'warning'`), nicht 77 Pflaster — dieselbe
+> Entscheidung wie die Tastatur-Nachruestung (v32.16) und das Kamera-Tor
+> (v32.33). Wer einen Typ-Namen einfuehrt, prueft ihn gegen BEIDE Tabellen,
+> die ihn lesen; `robust_check` B5b misst das gerenderte Symbol UND die
+> Flaechenfarbe. **Und die Gegenrichtung gehoert in den Fall:** ohne „info
+> sieht anders aus als warning" waere ein Toast, der alle Typen gleich
+> darstellt, ebenfalls gruen gewesen.
+
+> **Und eine Suche im eigenen Text findet zuerst den eigenen Text ueber die
+> Sache** (v33.41). Die Gegenprobe schnitt am ersten „UNION ALL" — und das
+> stand im KOMMENTAR der Migration, nicht im SQL; sie schnitt `CREATE VIEW`
+> mit weg. Dieselbe Klasse wie die Jargon-Suche, die ihre eigenen
+> Release-Notizen findet (v32.70). Wer im Quelltext nach einem Schluesselwort
+> schneidet, ankert an seiner FORM (Einrueckung, Zeilenanfang), nicht an der
+> blossen Zeichenkette. Und eine lazy Suche nach `if (tasks` trifft
+> `if (tasksErr)` zuerst.
+
+
+> **Zwei Rechnungen fuer eine Woche — und die Zahl, um die sie auseinanderlagen**
+> (v33.40). `gsWochenrueckblick` zaehlte „erledigte Aufgaben“ als jeden
+> Tagebuch-Eintrag, dessen `cat` ein Aufgaben-Schluessel ist. Gemessen: ein
+> Eintrag, den die Person VON HAND notiert hat („Basilikum gegossen“,
+> `quelle: 'hand'`), wurde ihr als **erledigte Aufgabe gutgeschrieben** — 2
+> statt 1. **Erledigt ist, was ABGEHAKT wurde** (`tagebuch` mit
+> `quelle === 'regel'`). Und sein rollendes ms-Fenster (`Date.now() − 7 × 864e5`)
+> lief gegen das Tagesfenster des Kalenders: an der Grenze 2 gegen 4 Eintraege.
+> **Ein Fenster, nicht zwei** — `_gsKalWoche()` ist die Rechnung,
+> `_gsKalWocheZeile()` ihr einer Satz, und er steht auf der Startseite, im
+> Kalender-Fuss und in Linas Kontext. Wer eine vierte Anzeige baut, ruft ihn;
+> `kalender_check` R10b haelt die drei gegeneinander.
+>
+> **Und wenn eine Anzeige ohne Daten gar nichts sagen soll, gibt die Funktion
+> '' zurueck — nicht eine Zeile mit Null.** „0 Aufgaben“ bei jemandem ohne
+> Pflanzen ist keine Aussage.
+
+> **Eine 40-stellige Pruefsumme wird GELESEN, nie ergaenzt** (v33.40). Ich habe
+> `expectedHeadSha` aus einem kurzen Hash verlaengert; GitHub antwortete „Head
+> branch was modified“ — was nach einem fremden Push aussieht und keiner war.
+> `git rev-parse <branch>` liefert sie; eine geratene Stelle macht aus einer
+> Sicherung eine Fehlermeldung, die in die falsche Richtung zeigt.
+
+
+> **Eine Anzeige, die dieselbe Frage stellt wie eine vorhandene Rechnung,
+> ruft sie — sie rechnet nicht daneben** (v33.38). „Mein Naturjahr“ und die
+> Garten-Timeline beantworteten beide „was war in diesem Jahr / an diesem
+> Tag?“, jede mit eigenen Lesern. Der Preis war nicht Doppelarbeit, sondern
+> **Abweichung**: „Funde“ stand seit jeher auf 0 (falsches Feld), und „Arten“
+> war die einzige der fünf Kacheln ohne Jahresfilter — unter der
+> Überschrift „Mein Naturjahr <Jahr>“. Beides kommt jetzt aus
+> `gsKalenderEreignisse`, die Timeline ist ersatzlos weg. **Zwei Dinge gehören
+> dazu**, und beide sind eigene Arbeitsschritte: eine Kachel, die zwei Wege
+> zählt, heisst nach beiden („Pflanzungen“ → „Gepflanzt“, weil auch eine in
+> „Meine Pflanzen“ aufgenommene Pflanze ein `gepflanzt`-Ereignis ist); und
+> **ein Prüfstandsfall geht mit seiner Funktion, aber erst, wenn ein anderer
+> misst, was er mass** — der Fall „Garten-Timeline“ fiel weg, nachdem
+> nachgesehen war, dass N1 (Scans) und N3 (Ernte mit Menge) dasselbe messen.
+> Entfernt wird mit dem Parser (`acorn`, exakte Grenzen), nie mit einer
+> Zeilensuche. Prüfstand: `kalender_check` M1/M2, drei Gegenproben.
+
+> **Dritte Instanz derselben Klasse in vier Auslieferungen: der Leser ist die
+> Regel, nicht das Feld** (v33.37). Die Karten-Fundorte werden von beiden
+> Schreibern mit `date` (ms) abgelegt; `gsOpenNaturjahr` las
+> `ts || time || found_at || created_at` — die Kachel „Funde“ stand seit jeher
+> auf 0. Vorher: `_gsScanZeit` (v33.33, drei Schreiber, drei Namen) und
+> `ctx.harvests` (v33.34, `h.name || h.crop || h.plant` gegen `pflanze`).
+> **Wer ein Feld aus fremder Hand liest, sucht ZUERST seine Schreiber**
+> (`grep -n "setItem('<key>'" -B15`) und baut dann EINEN Leser
+> (`_gsFundZeit`, `_gsScanZeit`). Ein Rueckfall auf weitere Namen ist in
+> Ordnung — aber der geschriebene Name steht zuerst.
+
+> **„Keine Daten“ ist nicht „keine Gefahr“ — und eine leere Liste sagt etwas
+> anderes als `null`** (v33.36). `gsOpenWeatherWarn` holte sein Wetter selbst,
+> und wenn die Antwort keine Tageswerte hatte, stand dort „Keine Warnungen —
+> alles im gruenen Bereich!“. Stille als Entwarnung, bei Frost der teuerste
+> Fehler dieser App. `_gsWetterTage()` gibt deshalb `null` fuer „nichts
+> geladen“ und `[]` fuer „geladen, nichts ueberschritten“; wer eine solche
+> Funktion baut, trennt die beiden und die Anzeige sagt beide Saetze.
+> Und die vier Schwellen stehen in EINER Tabelle (`GS_WETTER_GRENZEN`) —
+> vorher eine Konstante im Kalender und vier Literale im Warnfenster.
+
+> **Ein deutsches Kompositum verschluckt das Wort, nach dem du suchst**
+> (v33.36). Ein Grund mit „Wettervorhersage“ enthaelt „Vorhersage“ NICHT mit
+> grossem V — zwei Pruefstands-Faelle wurden rot, und beide hatten recht.
+> Dieselbe Klasse wie `\bcat\b` in „catégorie“ (v32.99): wer auf ein Wort
+> prueft, prueft an einem Beispiel, in dem es in einem Kompositum steckt.
+
+> **Ein Filter ist ein SIEB auf dem Ergebnis, nie eine Bedingung in der
+> Rechnung** (v33.35, KALENDER-V2 §4). `_gsKalFiltern(liste, f)` laeuft NACH
+> dem Pruefwerk; `gsKalenderEreignisse` liefert mit gesetztem Filter dieselbe
+> Liste wie ohne (`kalender_check` F1 zaehlt beide). Wer aus Tempo eine Quelle
+> ueberspringt, weil ein Chip aus ist, macht die Zahl am Chip falsch und Lina
+> blind — sie liest die ungefilterte Liste. Gespeichert wird die Liste der
+> AUSGEBLENDETEN Arten (`gs_kal_filter.aus`), nie die der erlaubten: so ist
+> eine neue Ereignisart automatisch sichtbar statt stillschweigend verschluckt.
+> Und eine Gruppe, deren Vorgabe AUS ist, braucht einen EIGENEN Chip — sonst
+> steht ein Chip halb aus, und das ist ein dritter Zustand, den niemand liest.
+
+> **Ein Schluessel, dessen Inhalt eine FORM hat, hat GENAU EINEN Schreiber**
+> (v33.34). `gs_weather_cache` hatte zwei: der Wetter-Lader schreibt
+> `{ts, data, lat, lon}` (Frost, Regen und das Pruefwerk lesen genau dieses
+> `data`), der Planer eine Karte `{"lat,lon": {ts, data}}` — gelesen EINMAL
+> beim Start, spaeter ganz zurueckgeschrieben. Wer den Planer benutzte, warf
+> damit den frischen Wetterstand weg, und die Frost- und Regenzeilen im
+> Kalender verschwanden, ohne dass etwas meldet. Wer eine zweite Form
+> braucht, braucht einen zweiten Schluessel — und der gehoert in eine der
+> vier Speicherlisten. Pruefstand: `robust_check` „Wetter-Zwischenspeicher ·
+> ein Schluessel, ein Schreiber".
+
+> **Ein Hinweis steht EINMAL, und die Anzeige ist gedeckelt** (v33.34). R5
+> schrieb „seit 11 Tagen faellig" neben eine Unterzeile, die genau das schon
+> sagte (`_gsDayPlanWhen`) — die Klasse aus v32.87, nur in einer Zeile. Und
+> R1 schreibt je Frosttag einen Satz: sichtbar ist EINER, der Rest steht als
+> „+N weitere" im Grund. Auf dem Nutzer-Bildschirm heisst der dritte Zustand
+> „Nicht bekannt", nicht „Nicht pruefbar" — „pruefbar" ist das Wort der
+> Pruefstaende, und die Gruende sagen „Wetterdienst", nicht „Open-Meteo".
+
+> **Beispieldaten fuer das Wetter liegen RELATIV zur gestellten Uhr — und nur
+> `daily`** (v33.34). Ein `hourly`-Block im Seed liesse
+> `gsWetterGeraetAbgleich` ein Pseudo-Geraet „Wetterdienst" anlegen: jeder
+> Pruefstand zaehlte zwei Geraete statt eines. Regen und Frost stellen die
+> Faelle selbst; wer eine sechste Kalender-Quelle anlegt, zieht den Fall „Ohne
+> Daten" nach (er raeumt jetzt auch den Wetter-Zwischenspeicher).
+
+> **`gsLinaRender` baut das Panel NEU auf.** Jede gemerkte Referenz auf
+> `#gs-lina-input` ist danach abgehaengt, und ein frisch gerendertes Feld ist
+> LEER — wer davor den Text hineingeschrieben hat, sieht `gsLinaSend` gleich
+> darauf an `if (!text) return;` umkehren. Gilt im Code wie im Pruefstand.
+
+**`risiko_check.js` (seit v33.44) fragt, was SPÄTER schiefgeht.** Anlass war
+Fernandos „Detektiere probleme die später auftauchen könnte." Alle anderen
+Prüfstände fragen, ob die App HEUTE stimmt. Der Befund, der ihn ausgelöst hat:
+`WEEKLY_SEASONAL_FACTS` (521 Einträge) wird **nur nach Kalenderwoche**
+ausgewählt — die Liste wiederholt sich jedes Jahr, und elf Zeilen nannten ein
+Jahr im Sinn von „dieses Jahr". **Ab dem 1. Januar 2027 hätte die App in Woche
+13 von einer Pilzsaison erzählt, die vorbei ist.** Inventar: `docs/RISIKEN.md`.
+
+- **Eine Jahreszahl in einem wiederkehrenden Text ist nur als FESTER PUNKT
+  richtig** — ein Zieljahr, ein datierter Bericht, ein Ereignis. Was „dieses
+  Jahr" oder „nächstes Jahr" meint, ist ab Neujahr falsch. Der Unterschied
+  lässt sich nicht rechnen, also wird er in `GS_JAHR_FEST` ERKLÄRT (im
+  Prüfstand, nicht in der App — es ist eine Redaktions-Entscheidung).
+- **Jede Listen-Abfrage ohne `limit=` ist eingeordnet:** Katalog (wächst mit
+  dem Inhalt) · Einzelzeile · wächst-mit-der-Person (dann mit einem Grund,
+  warum kein Deckel richtig ist). Wer eine neue baut, ordnet sie ein.
+- **Was `docs/RISIKEN.md` als Zahl nennt, steht so auch im Quelltext** — in
+  beide Richtungen. Die Schreibweise ist `` `GS_X` = **n** ``. Eine Doku, die
+  nichts erzwingt, wächst nicht mit (v32.21).
+
+> **Zwei Messfehler in EINEM Skript, und beide sind Klassen** (v33.44). (a) Ein
+> Server-Pfad wird aus MEHREREN Literalen zusammengesetzt
+> (`'…&device_id=eq.' + id + '&limit=' + N`) — wer nur das erste liest, meldet
+> ein vorhandenes `limit=` als fehlend. Gelesen wird der ganze erste Parameter.
+> (b) Die Zeilennummer kam aus dem ORIGINALTEXT, der Treffer aus dem
+> kommentarfreien — die Nummern zeigten auf ganz andere Zeilen, und die
+> ersten drei „Funde" waren keine. **Eine Zeilennummer stammt aus demselben
+> Text wie ihr Treffer.**
+
+> **Eine Liste, die niemand liest, ist Speicherplatz — und zwei Seiten, die
+> dieselbe Liste lesen, prüfen einander nicht** (v33.45). `GS_FRISTEN` steht
+> seit v33.45 im Admin-Panel (`_gsAdminFristenHtml`, Karte „Läuft demnächst
+> ab"); `gsFristenStand()` rechnet zwei Arten — ein **Datum** ist GEMESSEN
+> (Messdatum und Quelle stehen dabei), eine **Schwelle** rechnet die App live —
+> und vier Zustände: `ok` · `bald` (ab 80 %) · `faellig` · `nicht_bekannt` mit
+> Grund. Wer eine Frist oder einen Deckel einführt, trägt ihn dort UND in
+> `docs/RISIKEN.md` ein.
+>
+> **Am Deckel ist der Normalzustand, nicht der Alarm.** Meine erste Fassung
+> meldete `faellig` ab `ist >= von` — das Changelog steht bei 20 von 20, weil
+> 20 der Deckel IST. `faellig` ist erst DARÜBER (v32.21: ein Bericht wird nicht
+> durch eine falsche Zahl unlesbar, sondern durch eine, die man zu ignorieren
+> gelernt hat).
+>
+> Und die Gegenprobe, die grün blieb: „eine Frist aus der Liste entfernt"
+> ändert BEIDE Seiten, wenn der Fall nur „jeder Eintrag steht auf dem
+> Bildschirm" prüft. R4 hält deshalb auch das INVENTAR dagegen — jedes Datum
+> aus `docs/RISIKEN.md` §1 braucht einen Eintrag. **Ein Deckel ohne Namen**
+> (`2000` an der Aufrufstelle) steht übrigens in keinem Dokument und in keiner
+> Regel; er heisst jetzt `GS_MESSWERTE_MAX`.
+
+**`android_check.js` (seit v33.43) fragt, ob die App hält, was eine
+ANDROID-App verspricht.** Anlass war Fernandos „Ich will es auch langsam als
+apk für Android sowie haben." GreenScan wird als **TWA** zur Android-App —
+dieselbe PWA in einer Hülle. Alles funktioniert darin wie im Browser, mit
+EINER Ausnahme: der **Zurück-Knopf** spricht mit der Browser-History.
+Gemessen an v33.42: `history.pushState` **0** · `popstate` **0** ·
+`history.back` **0**. **Wer ein Fenster offen hatte und zurück drückte,
+schloss die ganze App.** Entwurf und Handgriffe: `docs/ANDROID-APK.md`.
+
+- **Eine Zurück-Regel, zwei Auslöser.** `gsZurueck()` nimmt die OBERSTE
+  Schicht ab — über DREI Familien hinweg: dynamische Dialoge
+  (`.gs-dyn-overlay` + `GS_DISMISSIBLE_OVERLAYS`) · gestapelte
+  `.modal-overlay.open` · Vollbild-Fenster (`GS_VOLLBILD_OVERLAYS`) — danach
+  den Tab (`gsGoBack`). Rückgabe: `overlay` · `modal` · `vollbild` · `tab` ·
+  `app`. Escape und `popstate` rufen sie beide; **ein Druck ist EINE Schicht**
+  (Escape schloss bis v33.42 zwei).
+- **Ein Fenster, das nicht über `openModal` läuft, ist für jede Regel
+  unsichtbar, die `.modal-overlay` sucht.** Neun Vollbild-Fenster schalten ihr
+  eigenes `display` — Tagesquiz, „Ueben", Rangliste, Scan-Verlauf, Wetter,
+  Lichtmesser, Pro-Messung, Kalibrierung, Erst-Start. **Escape erreichte
+  keines davon.** Wer ein weiteres baut, trägt es in `GS_VOLLBILD_OVERLAYS`
+  ein (mit seiner Schliess-Funktion) oder mit Grund in
+  `GS_VOLLBILD_OHNE_ZURUECK`; der Prüfstand zählt die Vollbild-Fenster im HTML
+  dagegen.
+- **Genau EIN Verlaufs-Eintrag, und er wird zurückgenommen.** `_gsHistSync()`
+  setzt ihn, solange es etwas zu schliessen gibt; wer per X schliesst, hat ihn
+  nicht verbraucht — ohne Rücknahme kostet der nächste Druck nichts. Der
+  eine Ort, durch den alle müssen, ist hier der **Zustand des Dokuments**:
+  `openModal`/`closeModal`/`switchTab` rufen `_gsHistSyncBald()`, und ein
+  `MutationObserver` auf `document.body` sieht die rund dreissig Dialoge, die
+  per `appendChild` entstehen (dieselbe Entscheidung wie v32.16 und v32.33).
+- **`gsLaeuftAlsApp()` ist das eine Prädikat** für „läuft als App": PWA,
+  iOS-Homescreen und die Android-Hülle (`document.referrer` beginnt mit
+  `android-app://`). Es gab zwei Rechnungen, und nur die des Install-Banners
+  kannte die Hülle.
+
+> **Ein Fall, der die Funktion direkt ruft, misst die Rechnung — nicht den
+> DRAHT** (v33.43). Meine Fälle riefen `gsZurueck()` auf; die Gegenprobe
+> „`popstate` hört nicht mehr zu" blieb deshalb **grün**, obwohl damit genau
+> das kaputt war, wofür der ganze Schnitt gebaut wurde. Wer eine VERDRAHTUNG
+> baut, geht im Fall den echten Weg (`history.back()`), nicht die Abkürzung.
+> Zwei weitere Gegenproben blieben aus derselben Familie grün: ein Fall, der
+> die WIRKUNG misst, sieht die Buchführung dahinter nicht (der Verlaufsstand
+> wird jetzt an `history.state` gelesen), und **zwei Regeln, die bei den
+> gewählten Daten dasselbe Ergebnis liefern, prüfen keine von beiden** (v33.28)
+> — „die erste gefundene" und „die oberste" Schicht brauchen Fenster, deren
+> Sammelreihenfolge der z-Reihenfolge WIDERSPRICHT.
+
+> **Eine Navigation im selben Dokument ist kein Reload** (v33.43).
+> `offline_check` zählte mit `framenavigated` — das feuert auch für
+> `history.pushState`/`back`. Mit dem neuen Verlaufs-Eintrag meldete es einen
+> Reload, den es nicht gab. Gezählt werden Dokument-Ladungen
+> (`domcontentloaded`). Und `robust_check` B6 fand ein Vollbild-Fenster aus
+> einem früheren Fall vor: **wer einen Zustand braucht, stellt ihn HER**
+> (v32.40).
+
+**`admin_check.js` (seit v33.42) fragt, ob das Admin-Panel sagt, was es
+WEISS.** Anlass war Fernandos „Auch für mich als Admin muss mehr gemacht
+werden". Gemessen an v33.41: **dreizehn von sechzehn** Sektionen lasen den
+Fehler gar nicht (`catch(e) { return []; }`), **sieben** hatten kein
+`gsIsAdmin()`-Tor, und eine frische Zahl kostete das Schliessen des Panels und
+sechzehn neue Anfragen. Seither gilt für jede Admin-Sektion:
+
+- **Eine Liste, ein Weg.** `GS_ADM_SEKTIONEN` trägt je Sektion Titel, Pfad,
+  Anzeige-Funktion und Element-id; `_gsAdmHole(schlüssel)` ist die einzige
+  Abfrage und gibt IMMER einen Umschlag `{state, daten, grund}` zurück.
+  Wer eine Sektion hinzufügt, trägt sie dort ein — **die Liste ist die
+  Prüfung** (Fall 5 hält jeden Eintrag gegen das, was das Panel wirklich
+  rendert, und meldet jede Sektion ohne Element oder ohne Knopf).
+- **Vier Zustände, und drei davon muss die Anzeige AUSSPRECHEN.** `daten`
+  (leer ist Teil davon) · `nicht_verfuegbar` (die RPC gibt es nicht — das ist
+  eine nicht angewandte Migration, kein Fehler des Admins) · `fehler` ·
+  `kein_zugriff`. `_gsAdmZustand(x)` / `_gsAdmNutzlast(x, vorgabe)` /
+  `_gsAdmNichtGeladenHtml(z)` sind die drei Helfer dazu.
+- **Ein Zustand, den die Anzeige nicht aussprechen kann, wird von ihr
+  ERFUNDEN.** „✅ Alle Jobs laufen" stand auch dann da, wenn die Abfrage
+  abgelehnt wurde — die Zeile hängt jetzt an `jobs.length`. Wer eine
+  beruhigende Zeile schreibt, prüft, woher sie ihre Ruhe nimmt.
+- **Ein Refresh ist eine Anfrage, nicht sechzehn.** `gsAdmSektionNeu(key)`
+  ersetzt nur sein Element; der Überblick oben (`_gsAdmUeberblickHtml`) nennt
+  die nicht geladenen Sektionen beim Namen, und `gsAdmFehlendeNeu()` holt
+  genau diese nach.
+
+> **Eine Gegenprobe mit `delete window.X` entfernt keine Funktion** (v33.42).
+> Eine `function`-Deklaration auf oberster Ebene ist eine
+> **nicht-konfigurierbare** Eigenschaft des globalen Objekts — das `delete`
+> schlägt still fehl, und der Fall bleibt grün. Wer eine Funktion für eine
+> Gegenprobe wegnehmen will, **benennt sie im Quelltext um**. Dieselbe Klasse
+> wie die Gegenprobe, deren Skript nichts geändert hat (v32.24): nach jeder
+> Gegenprobe nachsehen, ob der Zustand wirklich hergestellt wurde.
+
+**Seit v33.50 hat das Admin-Panel auch eine SCHREIB-Seite — und dieselbe
+Bauform.** Gemessen an der Live-DB (nur lesend, 24.09.2026): die Sicherheit
+steht (12 von 13 Schreib-RPCs `SECURITY DEFINER` mit `is_admin_user()`, RLS
+auf `user_reports` dicht), aber **zwei Knöpfe sind tot** — `fn_assign_role`
+und `fn_set_global_api_key` tragen die ACL `{postgres, service_role}`, ein
+angemeldeter Admin darf sie nicht ausführen; die Re-Grants aus `v29_20` und
+`v30_57` liegen im Repo und sind live nicht in Kraft. Und **15 von 15
+Schreibwegen prüften nur `.error`** — PostgREST meldet eine von RLS
+abgewiesene Zeile ohne Fehler (§3.5), `gsAdminReviewReport` schickte dazu
+`return=minimal`, und `gsAdminToggleVoucher` sah die Antwort gar nicht an.
+
+- **Eine Liste, ein Weg — auch fürs Schreiben.** `GS_ADM_AKTIONEN` trägt je
+  Aktion Titel und GENAU ein Ziel (`rpc` · `pfad`+`method` · `fn`), optional
+  `freigabe` (die Migration, die ein GRANT nachliefert); `_gsAdmTun(schl,
+  body, opts)` ist der einzige Schreibweg und gibt IMMER `{state, daten, key,
+  grund}`. Ein POST, der nur liest, steht in `GS_ADM_LESE_RPC` — sonst meldet
+  der Prüfstand ihn als Schreibweg daneben. **Die Liste ist die Prüfung**
+  (`admin_check` „Die Liste ist die Prüfung": kein `gsAdmin*` schreibt mit
+  rohem `sbFetch`, jeder Eintrag wird gerufen).
+- **Sechs Zustände, jeder mit Grund:** `ok` · `abgelehnt` (RLS, 401/403,
+  `{ok:false}`, am Tabellenweg 0 Zeilen) · `nicht_freigeschaltet`
+  (`permission denied for function` — die Sitzung merkt es in
+  `_gsAdmGesperrt`) · `nicht_verfuegbar` (404/PGRST202 — eine nicht
+  angewandte Migration, kein Fehler des Admins) · `fehler` (Netz) ·
+  `kein_zugriff` (ohne `gsIsAdmin()` geht keine Anfrage hinaus).
+  `_gsAdmTunDeuten` ist die Deutung, getrennt vom Netz. `_gsAdmSagen(r)` der
+  eine Satz je Zustand.
+- **Der Tabellenweg schickt IMMER `return=representation`.** Mit `minimal`
+  kommen die 0 Zeilen gar nicht erst an, und die Ablehnung ist unsichtbar.
+- **Ein toter Knopf braucht drei Antworten:** keine Rückfrage mehr
+  (`gsAdminAssignRole` fragt `_gsAdmGesperrt` VOR der Rückfrage), der Grund
+  am Knopf mit Migrationsnamen (`_gsAdmAktionHinweisHtml`), die Zahl im
+  Überblick (`_gsAdmUeberblickHtml`). Nur der Toast danach liesse die Person
+  dreimal dieselbe Rückfrage „wirkt sofort" bestätigen.
+
+> **Ein `if (r.error)` ist keine Prüfung — und `versprechen_check` hält es
+> für eine** (v33.50). Er sucht eine Meldung ohne Blick auf die Antwort; ein
+> Blick auf `.error` allein ist ein halber Blick, und PostgREST antwortet in
+> genau dieser Hälfte nicht. Alle fünfzehn Admin-Wege waren dort grün. Die
+> Verschärfung ist gemessen — rund 176 Stellen repo-weit — und bewusst eine
+> eigene Scheibe: ein Sweep über die 5,9-MB-Datei ist ein Eingriff (v32.25).
+> *(Berichtigt in v33.52: die 176 waren geschätzt, nicht gemessen. Die Klasse
+> ist PATCH, und es waren vier Stellen — siehe `versprechen_check` unten.)*
+>
+> **Und ein GRANT, das im Repo steht, ist live nicht in Kraft, bis jemand
+> nachsieht.** Zwei Migrationen mit demselben Zweck lagen seit v29/v30 da;
+> die ACL sagte etwas anderes. `20260924_admin_grants.sql` (nicht angewandt)
+> erzählt die Geschichte im Kopf, statt die zwei zu wiederholen — und das
+> GRANT öffnet nichts: beide Funktionen prüfen die Admin-Rolle selbst
+> (`fn_assign_role`: `profiles.role = 'admin'`; `fn_set_global_api_key`:
+> `fn_is_role('admin')` — v33.50 schrieb hier „`is_admin_user()`", das war
+> ungenau; gemessen v33.51, der Schluss bleibt).
+
+`admin_check` 6 → 11 Fälle, fünf Gegenproben einzeln rot mit dem richtigen
+Fall (ein Weg am einen Weg vorbei · 0 Zeilen als ok · `return=minimal` ·
+Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand). Der Server ist
+gestellt; `erwarte()` leert `_gsAdmGesperrt` je Szenario — sonst macht die
+(richtige) Sperr-Erinnerung jedes spätere Szenario zu `nicht_freigeschaltet`.
+
+**Seit v33.51 sagt jede Aktion, ob sie eine SPUR hinterlässt.** Gemessen
+(Live-DB, nur lesend, 25.09.2026): `audit_log` gibt es, das Panel liest es —
+aber 5 von 15 Aktionen kamen dort nie an, darunter Foto-Beitrag und
+Arten-Vorschlag prüfen (Moderationsentscheidungen) und „Meldung erledigen"
+(ein nackter PATCH, gar keine RPC); zwei Aktionen standen als roher Slug im
+Protokoll. `audit_log` hat KEINE INSERT-Policy — geschrieben wird nur aus
+SECURITY-DEFINER-Funktionen, und genau deshalb gehört die Spur in die
+FUNKTION, nicht in die App.
+
+- **Genau eines von dreien je Eintrag in `GS_ADM_AKTIONEN`:** `spur` (der
+  Server schreibt diesen `action`-Namen) · `spur_ab` (`{action, migration}` —
+  erst nach der nicht angewandten Migration) · `ohne_spur` (bewusst, mit
+  Grund). `spur_quelle` NUR, wenn der Name in keiner Migration steht — drei
+  Funktionen (`fn_assign_role`, `fn_admin_flag_set`, `fn_set_global_api_key`)
+  haben im Repo keinen `CREATE FUNCTION`; steht er eines Tages drin, meldet
+  `admin_check` die Angabe als überholt.
+- **Die Deckung ist eine Rechnung** (`_gsAdmSpurDeckung(rows)`), der Fuss
+  unter „Letzte Admin-Aktionen" (`_gsAdmSpurHtml`) nennt sie in drei Klassen —
+  und **„Spur gesehen" steht nur da, wenn eine solche Zeile geladen wurde**.
+  Die App kann den Server-Stand nicht wissen; sie sagt, was sie gesehen hat.
+- **Ein Ersatzweg gilt nur bei `nicht_verfuegbar`** (`GS_ADM_AKTIONEN[k].ersatz`,
+  in `_gsAdmTun`): fehlt die RPC auf dem Server, läuft der PATCH, und die
+  Antwort trägt `ersatz:true` plus den Satz „Ohne Protokolleintrag — Migration
+  … anwenden". Nie bei Ablehnung oder fehlendem GRANT — ein zweiter Weg, der
+  nicht tut, was der erste tut, ist ein zweiter Zustand (v33.48).
+- **`RAISE EXCEPTION` ist eine Ablehnung.** `Only admins can assign roles`
+  kommt als HTTP 400 (P0001); `_gsAdmTunDeuten` sagt `abgelehnt`, nicht
+  `fehler`.
+- **Die Beschriftung des Protokolls kommt aus der Liste** (Emoji + Titel je
+  `spur`/`spur_ab`); feste Zeilen nur für Ereignisse, die nicht aus dem Panel
+  kommen. Ein roher Slug auf dem Bildschirm ist ein Fehler (v33.29).
+
+> **Ein Prüfstand, der einen Weg an EINER Aktion misst, misst nichts mehr,
+> sobald diese Aktion einen anderen Weg bekommt** (v33.51). Zwei Fälle aus
+> v33.50 massen den Tabellenweg an `report_review` — das seit v33.51 zuerst
+> die RPC ruft. Beide wurden rot und stellen den Tabellenweg jetzt HER, indem
+> die RPC fehlt (404): der Weg, den es wirklich gibt. Und zum zweiten Mal
+> (v32.65): **`bool::text` ist `true`, `bool` allein ist `t`** — der
+> Idempotenz-Fall war im ersten Lauf an genau dieser Zeile rot.
+>
+> **Und ein Gegenproben-Treiber, der an einem Anführungszeichen stirbt,
+> lässt den Bruch STEHEN.** `bash` bricht beim Parsen der nächsten Zeile ab —
+> NACH dem Bruch, VOR der Wiederherstellung. Der md5-Vergleich am Ende hat es
+> gezeigt; ohne ihn wäre die kaputte Datei in den Bump gewandert. Wer eine
+> Reihe von Gegenproben fährt, prüft die Prüfsumme nach JEDER, nicht nur am
+> Schluss.
+
+`admin_check` 11 → 21 Fälle, davon fünf in Node: der statische Abgleich
+(jeder Aktionsname neben einem `audit_log`-INSERT in einer Migration, drei
+Klassen) und die **SQL-Hälfte** — `20260925_admin_audit_vollstaendig.sql`
+zweimal in ein lokales Postgres eingespielt (`auth.uid()`/`is_admin_user()`
+gestellt), als Admin vier Spuren mit GENAU den deklarierten Namen, als
+Nicht-Admin keine, `invalid_status`/`not_found` ohne Spur, und die eingebaute
+Gegenprobe (ohne die INSERT-Zeilen: 0 Spuren). Sieben Gegenproben einzeln rot.
+
+
+**`nutzersicht_check.js` (seit v32.70) fragt, was kein anderer fragt: sagt die
+App, was STIMMT, in der Sprache der Person?** (Audit E2–E5, E8.) Fünf Fälle,
+alle mit beiden Richtungen: die Menü-Zahlen kommen aus der Artenliste
+(`_gsMenuSub`, Eintrag mit `cat`; ohne `cat` bleibt der feste Text — vorher
+stand „252 Arten" bei 2'226); „Was ist neu" rendert `bold` UND `text` (der
+Dialog verschluckte das Label, sobald ein Text da war — und der war immer
+da; `gsShowWhatsNew` ist dafür nach aussen sichtbar, die Sperren bleiben);
+Lina bekommt die App-Sprache im Kontext (`SPRACHE: Antworte auf …`, aus
+`gsI18n.getLang()`, nicht im festen Prompt) und nennt keine Tabs, die es
+nicht gibt (die Leiste hat Scanner · Pflanzen · Home · Community · Mehr —
+alles andere ist „Mehr → …"); kein Entwickler-Jargon auf Nutzerseiten
+(Quelltext ohne Kommentare und ohne `GS_RELEASES`, sechs Muster); Kompakt
+und Senioren schliessen sich aus, Menü-Emojis tragen `aria-hidden`.
+
+Zwei Fallen aus dem Bau: **ein Dialog, der beim ersten Start nur stempelt**,
+zeigt im Prüfstand nichts — `gs_seen_version` muss auf eine ÄLTERE Version
+gestellt werden, nicht gelöscht. Und **eine Jargon-Suche findet ihre eigenen
+Release-Notizen**: dort steht der Jargon als Zitat dessen, was raus ist —
+der Block `GS_RELEASES` ist deshalb ausgenommen, Kommentare am Zeilenende
+ebenso.
+
+**Seit v32.69 kennt `versprechen_check` drei Dinge mehr** (Audit B4): die
+Stämme „gelöscht / entfernt / deaktiviert / umbenannt" (das Gegenteil eines
+Anlegens ist auch ein Versprechen — vorher 0 rot, während „🗑 Plan gelöscht"
+nach drei ungeprüften Aufrufen stand); ein Versprechen VOR dem Schreiben
+(Meldung oberhalb eines nicht abgewarteten Aufrufs — „Inserat gelöscht"
+stand vor dem DELETE, „gespeichert!" vor dem `user_scans`-POST); und die
+richtige umschliessende Funktion (die NÄCHSTE `function` rückwärts war oft
+ein Callback davor, dessen Rumpf vor dem Aufruf endete — solche Aufrufe
+landeten als „(keine Funktion)" in still). Erster Lauf danach: **7 rot**,
+genau die Liste aus dem Audit plus eine (Feedback abhaken). Alle sieben
+repariert nach derselben Regel: **die Meldung kommt NACH der Antwort und
+sagt „nur lokal", wenn der Server nicht bestätigt hat** — Ablehnung ist rot,
+0 Zeilen sind „nicht bestätigt" (Ausnahme DELETE: 0 Zeilen heisst „war schon
+weg", nur `error` zählt). `save_check` fährt zwei davon zu Ende
+(`mktDelete`, `gsPPdeletePlan`).
+
+**`schluessel_check.js` (seit v32.68) fragt, ob der Anthropic-Schlüssel den
+Server verlässt** (Audit A1). Zwei Hälften: SQL im lokalen Postgres —
+`fn_get_global_api_key` nach der Migration gibt Nutzern `mode: proxy` ohne
+Schlüssel, Admins (`profiles.is_admin` UND `admin_emails`) den Schlüssel,
+Gesperrten/Anonymen/nicht Konfigurierten `enabled: false` mit Grund; `anon`
+darf sie nicht rufen. App mit gestelltem `fetch`: wohin geht `callAI`
+(Proxy, Bearer, kein `x-api-key`), was liegt danach im Speicher (nichts auf
+der Platte, Altbestand geräumt), was passiert, wenn der Proxy schweigt
+(einmal direkt — nur mit Schlüssel; ohne Schlüssel ein ehrlicher Fehler; bei
+429 NIE), persönlicher Schlüssel direkt, abgemeldet kein Aufruf, Notschalter,
+Abmelden räumt den Speicher. Gegen v32.67: rot.
+
+Was er NICHT prüft, und das steht auch im Bericht: ob der echte Proxy
+antwortet. `ai_usage` hatte am 07.09. null Zeilen — der Proxy war seit Juni
+ausgeliefert und nie benutzt. Deshalb ist der Direktweg im Übergang ein
+Rückfall und keine Option: erst wenn `select count(*) from ai_usage` nach
+einem echten Aufruf wächst, wird die Migration angewandt (FUER-FERNANDO §8).
+**Ein Umschalter, den niemand je umgelegt hat, ist kein Sicherheitsnetz.**
+
+> **Und eine Vorbedingung, die nur EINE Seite der Naht misst, ist eine halbe**
+> (v33.57). Am 10.11.2026 wurde die Migration angewandt — `ai_usage` hatte 37
+> Zeilen, der Proxy lief, die Bedingung oben war erfüllt. Danach war der
+> Scanner für jeden Nutzer ohne Admin-Rolle tot: `analyzeImage` fragte
+> `if (!key)` und zeigte „KI gerade nicht erreichbar", **0 Aufrufe an den
+> Proxy**; der Scan-Chat sagte „API-Key nötig". Der Fall „Ohne Schlüssel im
+> Browser" war grün, weil er `callAI` und `callVisionAI` **direkt** rief — den
+> Weg davor ging er nie (v33.43: *die Rechnung, nicht der Draht*). Und
+> `scan_check` stellt in jedem Fall einen Schlüssel hin: die eine Sperre, auf
+> die es ankam, war in 76 Fällen weggestellt. **Wer eine Sperre im Prüfstand
+> stellt, braucht EINEN Fall, der sie nicht stellt** — sonst weiss niemand, was
+> sie im Betrieb tut. Seither: `gsKiVerfuegbar()` ist die eine Frage, vier
+> Stellen rufen sie, und `schluessel_check` „Der Weg davor" fährt den Scan und
+> den Chat wirklich durch.
+
+**`modell_check.js` (seit v33.58) fragt, was passiert, wenn Anthropic ein Modell
+abschaltet.** Anlass, gemessen am 10.11.2026: `claude-sonnet-4-20250514` ist seit dem
+15.06.2026 weg — `plant-doctor-diagnose`, `garden-scan-analyze` und `plan-iterate` nannten
+genau dieses eine Modell und waren **fünf Monate tot, ohne dass etwas meldete**
+(`plant_doctor_history`: 0 Zeilen sehen aus wie „nie benutzt"). Und `claude-sonnet-4-5`
+endet am 30.11.2026: der Vorgabewert des ausgelieferten `ai-proxy`, auf den er JEDES
+Modell umschrieb (`ai_usage`: 37 von 37) — ab dann wäre jeder Scan gescheitert.
+
+Drei Hälften, nach dem Vorbild von `apk_check`: die **Rechnung**
+(`_shared/modelle.mjs` läuft in Node), der **Rand** — der ECHTE Handler von `ai-proxy`,
+Typen mit `node:module.stripTypeScriptTypes` entfernt, `Deno`, supabase-js und Anthropic
+gestellt (Stufen, Sperre, Notschalter, Grösse, Schlüssel, CORS, was nach `ai_usage` geht)
+— und der **Quelltext** (kein Modellname als Zeichenkette in einer Edge-Function; die
+Kette und der Zusatz der App sind dieselben wie die des Servers). 14 Gegenproben einzeln
+rot; gegen den alten Proxy sind sechs der sieben Rand-Fälle rot.
+
+> **Ein Modellname allein ist keine Umstellung** (v33.58). Das Paket aus dem
+> Wochenlauf tauschte drei Namen aus. Anthropics Anleitung („Migrating to Claude
+> Sonnet 5.5", gelesen am 10.11.2026) sagt, was dabei still bricht: Sonnet 5.5 und 5
+> **denken von sich aus nach**, wenn die Anfrage nichts dazu sagt. Das Nachdenken zählt
+> gegen `max_tokens` — ein Scan bittet um 900, das JSON käme abgeschnitten —, die Antwort
+> beginnt mit einem `thinking`-Block (`content[0].text` ist leer), derselbe Text zählt
+> rund 30 % mehr Token, und die Angabe zum Abschalten heisst je Modell anders (5.5:
+> `between_tools`; 5: `disabled`, was 5.5 mit 400 ablehnt). `modellZusatz` gibt jedem
+> Modell SEINE Angabe und SEIN Budget, `rufeModell` versucht es einmal ohne sie, wenn das
+> Modell sie nicht annimmt, und `ohneDenkBloecke` räumt die Antwort auf. **Gefunden hat
+> das kein Prüfstand** — von hier antwortet kein Modell —, sondern das Lesen der
+> Anleitung, bevor der Name in die Auslieferung ging. Wer ein Modell wechselt, liest
+> zuerst dessen Migrationsanleitung; der Name ist der kleinste Teil.
+>
+> **Darum steht vorn das Modell, für das die App gebaut ist** (Sonnet 4.6, der direkte
+> Nachfolger von 4.5: kein Nachdenken ohne Angabe, derselbe Tokenizer, dieselbe
+> Bildauflösung), und die neueren dahinter. Ein besseres Modell vorn ist eine
+> Entscheidung mit echten Scans davor — ein Secret genügt (`GS_MODEL_VISION`).
+>
+> **Ein Termin, den ein anderer setzt, gehört in eine Liste, die jemand liest.** Die
+> Abschaltung vom 15.06. stand auf Anthropics Seite. `GS_FRISTEN` gab es seit v33.45 —
+> für die eigenen Deckel. Seit v33.58 steht dort `ki_modelle` (frühestes Ende des ersten
+> Glieds), und `docs/RISIKEN.md` §1 nennt den Tag.
+>
+> **Was man nicht abschreiben kann, verweist man** (v33.58). Von dieser Umgebung aus
+> lässt sich eine Edge-Function nur als TEXT ausliefern. 150 KB von Hand zu übergeben
+> wäre die Abschrift, vor der `book-ingest/BEFUND.md` warnt („nur dann eine Quelle, wenn
+> sich maschinell zeigen lässt, dass sie stimmt"). Die sechs Functions vom 11.11.2026
+> bestehen live deshalb aus EINER Zeile: `import "https://raw.githubusercontent.com/…/
+> <commit>/supabase/functions/<name>/index.ts"`. Der Commit ist eine Prüfsumme (vor dem
+> Ausliefern mit `md5sum` gegen die Arbeitskopie gehalten), geladen wird beim Ausliefern.
+> **Und ob sie startet, sagt ein Rauchtest aus der Datenbank:** `net.http_post` mit dem
+> öffentlichen Schlüssel als Bearer — die Antwort 401 kommt dann aus dem EIGENEN Code
+> („Ungültige Session.", „invalid token"), nicht vom Gateway. Derselbe Test zeigte, dass
+> `pest-identify` und `mushroom-identify` vorher mit „missing image_base64" antworteten:
+> sie nahmen den öffentlichen Schlüssel ohne Konto an.
+
+**Seit v32.72 gilt für Geheimnisse in Edge-Functions EINE Regel:**
+`supabase/functions/_shared/auth_vergleich.mjs` (`constantTimeEquals`,
+`hatServiceRole`, `cronOderService`). Ein Service-Key oder Cron-Secret wird
+nie mit `===`, `includes` oder `startsWith` verglichen — `includes` nahm ein
+„Bearer <key>" ebenso an wie den Key irgendwo im Header, und die Laufzeit
+hing vom Inhalt ab. Wer einen neuen Empfänger baut, importiert das Modul;
+`robust_check` zählt die Importe und meldet jedes `includes(SERVICE_ROLE)`.
+Und für Anfragen an Edge-Functions aus der App: `_gsEdgeFehler(data, status)`
+und `_gsEdgeAusnahme(e)` sind die eine Lesart — `error` kommt mal als String,
+mal als Objekt, und ein Timeout ist kein Netzfehler.
+
+**Seit v32.73 hat ein Server- oder Netzfehler in der ANZEIGE eine
+Übersetzung: `_gsFehlerText(err)`** (Audit B8). Wer `r.error.message` in
+einen Toast, ein `innerHTML` oder ein `textContent` schreibt, zeigt die
+PostgREST-Zeile („new row violates row-level security policy for table …“)
+wörtlich — die Funktion macht daraus einen Satz (Ablehnung, Sitzung, Netz,
+Dublette, Datenstruktur, zu viele Anfragen, Serverproblem), lässt kurze
+eigene Sätze durch und kürzt lange. Das Rohe bleibt in `err.message` für
+Log und Schlüsselwort-Prüfungen (`duplicate`, `42P01`, `slug_taken`);
+`sbFetch` trägt den HTTP-Status als `err.status` mit. Für die
+Anmelde-Endpunkte gilt weiter `gsTranslateAuthError`. `robust_check`
+Fall 11 findet jede Anzeige-Zeile mit rohem `.error.message` — und misst
+zusätzlich einen echten Toast, weil die Suche eine Variable, die erst zwei
+Zeilen später angezeigt wird, nicht sieht.
+
+**Seit v32.89 ist ein `grund` ein SATZ, keine Rohmeldung** (Fall B8b). Ein
+`catch (e) → { grund: 'Fehler: ' + e.message }`, dessen Aufrufer den Wert
+anzeigt, setzt die englische Ausnahme auf den Bildschirm — gemessen:
+„Wetterdienst: Fehler: Cannot read properties of undefined". Die **statische**
+Suche von B8 kann das nicht sehen, weil der Wert ueber ein FELD zwei Spruenge
+weit reist. Wer ein Feld baut, das ein Fehlergrund transportiert, fuellt es
+mit `_gsFehlerText(e)`. Und `_gsFehlerText` gibt fuer einen
+Programmierfehler (`TypeError` & Co.) einen Satz zurueck statt der Meldung —
+sein Rueckfall ist fuer EIGENE kurze Saetze gedacht. **Achtung auf die
+Reihenfolge:** ein Netzfehler ist auch ein `TypeError` und muss „Keine
+Verbindung" bleiben; der Programmfehler-Zweig steht deshalb ganz am Ende.
+
+> **Und wer so etwas prueft, bricht eine ABHAENGIGKEIT, nicht die Funktion
+> selbst.** Mein erster Messversuch ersetzte `gsWetterGeraetAbgleich` durch
+> einen Stub mit dem alten `catch` — die Messung zeigte die alte Ausgabe auch
+> NACH der Reparatur, weil sie die reparierte Funktion gar nicht mehr rief.
+
+**Seit v32.74 entscheidet über den Admin-Modus NUR der Server** (Audit A6).
+`doAdminLogin` fragt `POST /rest/v1/rpc/is_admin_user` (SECURITY DEFINER,
+liest `profiles.is_admin` ODER `app_settings.admin_emails`); die Antwort
+steht als Spiegel in `gs_is_admin`, und `_gsServerSagtAdmin()` ist der eine
+Leser. Es gibt keinen Passwort-Hash und keine E-Mail-Liste im HTML mehr —
+wer eine Admin-Prüfung baut, ruft `gsIsAdmin()` (eigenes Konto) oder
+`gsIsAdmin(profil)` (Profilzeile mit `is_admin` / `role`); eine fremde
+Adresse bekommt bewusst `false`. Und für Geräte gilt seit v32.74 EIN Weg:
+Messwerte → Gerät koppeln (`gsGeraetKoppeln`). Der alte Assistent unter
+„Sensoren & Geräte" ist nur noch ein Wegweiser, das Smart-Home-Dashboard
+(`gsShOpen`, Demo-Werte) hängt an keinem Menüeintrag mehr; wer die
+Alt-Tabellen `sensor_devices` / `sensor_readings` anfasst, liest zuerst
+OEKOSYSTEM-V1 §11 Idee 1 (live 1 / 0 / 0 Zeilen, 07.09.2026).
+
+**Seit v33.17 hat „Konto löschen" EINE Liste — und einen Prüfstand dahinter.**
+`supabase/functions/_shared/loeschung_regeln.mjs` (USER_TABLES, BUCKETS,
+BEWUSST mit Grund, `loeschSperre`, `speicherPfade`) ist von Deno
+(`delete-user`) und Node (`loeschung_check`) importiert. Wer eine Tabelle mit
+einer Nutzer-Spalte anlegt oder einen Bucket, traegt sie dort ein UND zieht die
+datierte Momentaufnahme `docs/loeschung-inventar.json` nach (zwei lesende
+Abfragen, stehen im Kopf der Datei). Drei Klassen je Spalte — kaskade ·
+explizit · bewusst — alles andere meldet der Pruefstand. Live gemessen am
+10.09.2026: `delete-user` loeschte kein einziges Storage-Objekt (169 Fotos und
+PDFs), waehrend der Dialog „Alle Scans & Bilder" versprach; und
+`organizations.created_by` (RESTRICT) liess ein HALBES Konto stehen. **Ein
+Loeschen, das der Dialog verspricht, wird gegen die Datenbank gemessen, nicht
+gegen die Liste im Code.**
+
+**Seit v32.75 haben die Push-Sender EIN Helfer-Modul:**
+`supabase/functions/_shared/push_helfer.mjs` (`loadSettings(sb)`,
+`zurichHour(now)`, `pushPayload(n)`, `sendPush(webpush, sub, n, vapid)`).
+Wer einen neuen Push-Weg baut, importiert es — keine Kopie von `sendPush`
+mehr, und der VAPID-Rückfall ist `mailto:info@greenscan.ch`, nie eine
+private Adresse (die Functions liegen im Web-Root und sind lesbar). Und für
+Edge-Functions gilt: **kein `atob` auf den Token, keine E-Mail-Liste** — wer
+wissen will, ob der Aufrufer Admin ist, ruft `rpc/is_admin_user` mit dessen
+Bearer (PostgREST prüft die Signatur); `feedback-triage` ist die Vorlage.
+`robust_check` Fall 14 rechnet das Modul in Node und meldet jede Kopie.
+
+**Seit v32.77 gibt es einen Deckel gegen Funktionen ohne Aufrufer** (Audit
+C2). `robust_check` Fall 16 zählt jede Definition (`function X`,
+`window.X = function`) gegen ihre Nennungen im ganzen Repo — Quelltext,
+`sw.js`, Prüfstände, Migrationen, Edge-Functions, ganze Kommentarzeilen
+abgezogen — und meldet jede ohne zweite Nennung, die nicht namentlich mit
+Grund in `BEWUSST` steht. Wer eine Funktion baut, die nur über einen
+zusammengesetzten Namen erreicht wird (`window['close' + id]`), trägt sie
+dort ein; wer eine Funktion baut, die niemand ruft, sieht sie beim nächsten
+Lauf. Entfernt wird mit dem Parser (`acorn`, exakte Grenzen), nie mit einer
+Zeilensuche nach `^function` — neun der 104 Kandidaten von v32.77 standen in
+einer IIFE.
+
+**Seit v32.96 hat der Fall zwei Loecher weniger, und beide sind lehrreich.**
+(1) `window.X = X;` nennt den Namen ZWEIMAL — eine Funktion, die sonst niemand
+ruft, kam damit auf drei und fiel durch das Raster; **sieben** lagen so
+unbemerkt. (2) Beim Eintragen dieser sieben in die Liste meldete der Fall
+prompt „0 ohne zweite Nennung": der Korpus liest `scripts/*.js` und damit
+**sich selbst**, die Deklaration war ihre eigene zweite Nennung.
+
+> **Ein Pruefstand, der durch das Eintragen still wird, misst nur noch sich
+> selbst.** Wer eine Deklarationsliste in einen Pruefstand schreibt, der den
+> Quelltext durchsucht, nimmt die eigene Datei aus dem Korpus — und macht die
+> Gegenprobe mit einem frischen Fall, nicht mit einem eingetragenen.
+
+> **Und eine davon war kein Entscheid, sondern ein Defekt** (v32.97).
+> `gsBattleClose` haelt den 30-Sekunden-Zaehler einer Battle-Runde an — und
+> niemand rief es. Wer das Fenster schloss, liess den Zaehler laufen: bei 0
+> antwortete `gsBattleAnswer(-1)` (Zeitablauf = falsch), `gsBattleRenderRound`
+> rief `_gsNlOpen` → `openModal`, **das geschlossene Fenster ging von selbst
+> wieder auf**, und am Ende ging die Runde als verloren an den Server. Das Tor
+> sitzt an der EINEN Stelle, durch die X, Klick daneben und Escape muessen
+> (`closeModal`) — und vorher wurde geprueft, dass `openModal` NICHT ueber
+> `closeModal` geht, sonst raeumt das Tor bei jeder neuen Runde die laufende
+> ab. **Wer die Liste durchgeht, prueft jeden Eintrag auf seine WIRKUNG** —
+> „kein Aufrufer" kann Aufraeumen ohne Folgen heissen oder ein Spiel, das ohne
+> den Spieler weiterspielt.
+>
+> **Und daraus wurde eine schaerfere Regel** (nachgemessen an allen sieben):
+> die gefaehrlichen Eintraege einer solchen Liste sind die **Abbauwege**, nicht
+> die Einstiege. `gsBattleClose` war kein Einstieg, sondern ein Teardown — sein
+> Fehlen liess etwas WEITERLAUFEN, das schon lief. Die anderen sechs SIND die
+> Einstiege (zwei Lader, zwei Oeffner, ein Weiter-Knopf, eine reine Funktion);
+> sie nicht zu rufen heisst, dass gar nichts passiert. Gemessen: keiner der
+> sechs startet einen Zaehler oder schreibt etwas — das einzige `setTimeout`
+> (`gsShowNextWisdom`) steht INNERHALB der ungerufenen Funktion. **Wer die
+> Liste durchgeht, sucht zuerst die Teardowns** (`*Close`, `*Stop`, `*Abort`,
+> `clear*`, `*Cleanup`); der Rest ist Abwesenheit, nicht Schaden.
+>
+> **Und die Gegenfrage wurde auch gestellt** (08.09., Fall B11): gilt der
+> Battle-Fehler noch woanders? Alle 34 `setInterval`-Stellen durchgezaehlt —
+> fuenf ohne `clearInterval`, aber alle fuenf Einmal-Waechter fuer die ganze
+> Laufzeit. **Kein zweiter Fall.** Die Regel daraus steht als Fall: ein
+> Intervall muss ENTWEDER abgeraeumt werden koennen ODER gegen Doppelstart
+> gesichert sein — fehlt beides, stapeln sich Kopien bei jedem Oeffnen. Pruefstand: `robust_check` B10, Gegenprobe „3
+> Antworten fuer den Spieler eingetragen · 1× an den Server".
+
+Und es gibt jetzt eine **dritte Klasse** (Vorbild `backend_check`):
+`OHNE_EINSTIEG` — eine Oberflaeche, zu der keine Anzeige hinfuehrt, ist kein
+dynamisch gebildeter Name und kein Fehler im Code, sondern eine **Entscheidung,
+die aussteht**. Sie wird namentlich genannt und nie stillschweigend
+durchgewunken; die sieben stehen mit Grund in STATUS §2. **Nicht ungeprueft
+entfernen** — in v31.46 verbarg sich in genau so einer Liste der
+Pflanzenfriedhof, eine Funktion ohne Anzeige statt einer toten Zeile.
+
+> **Und die Liste ist v33.05 von sechs auf zwei geschrumpft — mit zwei
+> revidierten Einordnungen unterwegs.** `openHarvestAddModal` sah aus wie ein
+> ueberholter Rest (die v28.15-Konsolidierung hatte `openErnteTracking` zur
+> Oberflaeche gemacht) und war in Wahrheit ein VOLLSTAENDIGES Formular, das in
+> dieselbe kanonische Pipeline schreibt — nur ohne Knopf. Danach sah
+> `gsHarvestLoadForPlant` aus wie dessen fehlende Haelfte und war doch
+> ueberholt, weil das Pflanzen-Dossier die Ernten je Pflanze seit v28.23
+> serverseitig laedt. **Erst der dritte Durchgang stimmte.** Wer so eine Liste
+> abarbeitet, verfolgt jeden Eintrag bis zu der Stelle, an der seine Wirkung
+> SICHTBAR wuerde — der erste Eindruck war hier zweimal falsch, und beide Male
+> haette „entfernen" etwas Fertiges vernichtet.
+>
+> **Und ein Eintrag kann sich durch die DATEN entscheiden:** `gsAROpen` bleibt
+> ohne Knopf, weil `ar_models` 30 Zeilen hat und davon **0 mit `gltf_url` und
+> 0 mit `low_poly_url`** (09.09.2026, nur lesend gemessen). Es gibt kein
+> einziges Modell — ein Knopf waere ein Versprechen, das die Daten nicht
+> halten. Die Frage ist damit keine Code-Frage mehr.
+
+**`robust_check.js` (seit v32.67) fährt vier kleine Versprechen aus dem
+Audit durch** (B1, B3, B5, B6): `sbFetch(path)` ohne zweites Argument (warf
+vor dem `try`, zwei Wege seit jeher tot), die Toast-Dauer (126 Aufrufer, alle
+verworfen), Escape (schloss den ganzen Stapel — ein `return` in einer
+`forEach` ist ein `continue`) und der Service Worker, der sich selbst
+aktivierte und danach fragte. Jeder Fall stellt den Zustand her — gestelltes
+Netz, echte Uhr, zwei wirklich geöffnete Fenster, Quelltext des Workers —
+und war gegen v32.66 rot. Wer `gsToast` ruft, darf die Dauer jetzt mitgeben;
+wer einen Service-Worker-Wechsel braucht, schickt `SKIP_WAITING` (der Banner
+tut es) — ein `skipWaiting()` im Install kommt nicht wieder hinein.
+
+**`escape_check.js` (seit v32.66) fragt, ob Fremdtext als TEXT ankommt oder
+als CODE.** Erste Reparatur-Welle aus `docs/PROFESSIONALITAET-AUDIT-2026-09-06.md`
+(§G Punkt 2: A2–A4 und der HTML-Teil von A10). Sieben Fälle, und jeder RENDERT
+wirklich — Feed, Artendetail einer Community-Art, Mitteilungs-Router,
+Service-Worker-Klick, Sanitizer an drei Stellen, Karte „Meine Funde" — mit
+einem Wert, der bei roher Einsetzung Code ausführen würde
+(`<img src=x onerror="window.__pwned=1">`, `' );alert(1);//`, `javascript:`).
+Gemessen werden ZWEI Dinge: `window.__pwned` bleibt unberührt, UND der Wert
+steht als sichtbarer Text da. Das Zweite ist das wichtigere: ein Escaper, der
+den Text verschluckt, wäre auch „sicher".
+
+Drei Dinge aus dem Bau:
+
+- **Die Gegenprobe gehört in den Fall.** `_gsOcStr` läuft mit sieben Werten
+  durch beide Parser (Apostroph, Anführungszeichen, Backslash, `&#39;`, Tag,
+  Zeilenumbruch, `&amp;`) — und derselbe Fall baut den Knopf einmal mit
+  `escHtml` allein und erwartet den Parser-Fehler. Bleibt der aus, misst der
+  Fall nichts. Gegen v32.65 als Ganzes: der Prüfstand wird rot, siehe STATUS (ff).
+- **`onerror` feuert nur, wenn das Bild wirklich fehlschlägt.** Die Prüfstände
+  brechen jede Nicht-`file:`-Anfrage ab; `src=x` löst zu `file:///…/x` auf und
+  scheitert — deshalb steht nach dem Rendern ein `setTimeout(…, 300)` VOR der
+  Messung von `__pwned`. Ohne das Warten wäre auch eine rohe Einsetzung grün.
+- **Ein Nebenfund, den nur ein Aufruf ohne Vorspiel findet:** `_communityPage`
+  war nie deklariert — eine implizite Globale, die der Feed-Lader anlegte.
+  `renderSocialFeed` direkt aufgerufen warf `ReferenceError`. Wer eine
+  Renderfunktion in einem Prüfstand ruft, ruft sie ohne den Weg, den die App
+  sonst davor geht — und sieht, was dieser Weg stillschweigend herstellt.
+
+**`quiz_check.js` (seit v32.65) ist der erste Prüfstand, der SQL wirklich
+AUSFÜHRT.** Anlass war Fernandos Satz „die Rangliste sieht aus wie die
+letzten Tage, obwohl ich die Antwort mehrmals richtig hatte". Live gemessen:
+seit v30.95 entscheidet ein Trigger auf `quiz_answers` über `is_correct` —
+und er las `options -> idx ->> 'is_correct'`, das Array-Format, **5 von 203
+Fragen**. 138 Fragen sind `{answers, correct}` (so schreibt sie
+`knowledge-bulk-gen`), 60 `{choices, correct}`; dort galt vom 01. bis 07.09.
+JEDE Antwort als falsch, während der Client „Richtig!" zeigte — er kennt alle
+drei Formate seit v30.32 (`_gsQuizToSupaShape`). **Zwei Regeln für dieselbe
+Frage, fünf Tage auseinander gebaut, und nur eine hatte die Formate
+gelernt.** `naht_check` fragt Spalten; was IN einer jsonb-Spalte steht, fragt
+niemand — jetzt fragt es dieser.
+
+Er braucht ein lokales Postgres (`bash scripts/_pg_local.sh start`, Wegwerf-
+Cluster unter `/var/lib/postgresql`, Port 54329, nur 127.0.0.1) und spielt
+die Geschichte nach: Fixture → `20260826` (v30.80, Rangliste aus
+`quiz_answers`) → `20260831` (v30.95, der Fehler) → **Reproduktion** (die
+richtige Antwort im Generator-Format MUSS falsch sein, sonst misst der Rest
+nichts) → `20260907_quiz_antwort_formate.sql` → Nachrechnen, Rangliste,
+drei Formate, „nicht prüfbar" wird gesagt (`system_events`), CHECK weist ein
+viertes Format ab, Idempotenz, Jahres-Ranking, **Gegenprobe** (alte Regel
+wieder eingespielt → rot, Reparatur erneut → grün). Ohne Postgres meldet er
+die SQL-Hälfte als **nicht prüfbar** (Exit 2) — nie grün. Die App-Hälfte
+(Playwright) prüft, dass der DB-Index der Option vor dem Mischen gestempelt
+wird und mitreist, und dass die App seit v32.65 das Urteil des Servers
+LIEST (`return=representation`, `_dqServerUrteil`): Widerspruch und
+Nicht-Ankommen stehen sichtbar unter dem Ergebnis, Bestätigung und Dublette
+bleiben still.
+
+**Seit v33.27 hat er acht Faelle mehr — und alle acht fragen dasselbe:
+stimmt, was dasteht?** Fuenf Regeln, die ueber das Quiz hinausgehen:
+
+- **Was WERTET, geht durch `_gsArtAnzeige`** (dieselbe Regel wie v32.93/95).
+  `dqBuildQuestion` las `sp.tox` und `sp.edible` aus dem Eintrag; gemessen ueber
+  die Artenliste: **130 von 4'337 Eintraegen** haetten eine andere
+  Giftigkeits-Stufe als richtig gewertet, **133** eine andere Essbarkeit. Die
+  Zeile steht als ERSTE in `dqBuildQuestion` — damit sind beide Aufrufer
+  (Ersatzfrage, `gsBattleBuildQuestions`) und jeder kuenftige mitgedeckt.
+- **Eine Serie ist eine Behauptung ueber TAGE.** `stats.streak++` je richtiger
+  Antwort, „🔥 N Tage" daneben, an neun Stellen. Wer eine Faelligkeit oder eine
+  Serie braucht, ruft `dqSerie()` — die LEBENDE Serie; die gespeicherte Zahl
+  steht auch dann noch da, wenn sie gerissen ist. Gebucht wird ausschliesslich
+  ueber `dqStatsBuchen(correct)`; dort sitzt auch der Jahreswechsel, der bis
+  v33.26 GENAU einen Aufrufer hatte (den lokalen Rueckfall).
+- **Die Anzeige einer Grenze rechnet mit derselben Grenze.** Der Quiz-Tag ist
+  bewusst UTC (`dqDayKey`); der Countdown lief bis zur LOKALEN Mitternacht und
+  stand in der Schweiz zwei Stunden zu frueh auf null. `dqNaechsteFrage()` ist
+  die eine Rechnung dafuer und nennt die Ortszeit. Und der Fall dazu laeuft in
+  **Europe/Zurich**: ohne Versatz zu UTC koennte er gar nicht zeigen, dass die
+  beiden Rechnungen auseinanderlaufen.
+- **Ein Schluessel, den kein Pruefstand SETZT, hat niemand gemessen.**
+  `gs_dq_<datum>` stand in keiner der vier Speicherlisten, ueberlebte das
+  Abmelden (und `openDailyQuiz` hat einen lokalen Fast-Path VOR der
+  Server-Pruefung: die naechste Person am Geraet durfte nicht spielen) und
+  entstand einmal JE TAG, ohne dass ihn je jemand entfernte. Er heisst jetzt
+  `gs_dq_tag_<datum>` — ein Praefix `gs_dq_` war nicht zu haben, weil damit auch
+  `gs_dq_stats` (geht mit) und `gs_dq_today_cache` (bleibt bewusst) anfangen.
+  Der **Altbestand** geht deshalb ueber eine FORM statt eines Praefixes
+  (`GS_DQ_ALT = /^gs_dq_\d{4}-\d{2}-\d{2}$/`), und zwar sowohl beim Aufraeumen
+  als auch in `gsClearUserDataKeys`.
+
+  > **Und der Umweg dorthin ist die Lehre.** Der erste Anlauf uebernahm den
+  > alten Schluessel beim Lesen einmal — damit stand `'gs_dq_' + dqDayKey()`
+  > wieder im Quelltext, und `storage_check` erkannte daraus eine Praefix-
+  > Familie `gs_dq_`, saete `gs_dq_PRUEFWERT` und wurde ROT. Er hatte recht:
+  > seine Erkennung ist `setItem|getItem('<praefix>' + …`, also beschreibt jedes
+  > solche Literal eine Familie, die es dann auch geben muss. Der Ausweg war
+  > nicht, den Pruefstand ruhigzustellen, sondern den Grund wegzunehmen. **Wer
+  > einen Schluessel aus einem Literal plus `+` baut, erklaert damit eine
+  > Familie** — und die muss in eine der vier Listen passen, ohne Nachbarn
+  > mitzunehmen. Passt sie nicht, ist es keine Familie, sondern eine Form.
+
+- **Eine Id, die der Server nicht kennt, ist keine Id.** Der Rueckfall
+  `GS_QUIZ_FALLBACK_POOL` (50 Fragen, `lq1`…`lq50`) laeuft durch DIESELBE
+  Anzeige wie eine Serverfrage, und `openDailyQuizFromSupa` uebernahm ihre Id
+  ungefragt als `_dqSupaQuizId`. `quiz_answers.quiz_id` ist eine **uuid** —
+  PostgREST weist `lq6` ab, und seit v32.65 stand deshalb „nicht beim Server
+  angekommen" auf dem Bildschirm, obwohl es nichts zu senden gab. Wer eine
+  Kennung aus zwei Quellen in EIN Feld schreibt, prueft ihre FORM; und ein
+  Wert, der nur gesetzt und nie geraeumt wird, ist beim naechsten Weg durch
+  dieselbe Anzeige eine falsche Zusage (`_openDailyQuizLocal` raeumt ihn).
+
+Und eine Haertung am eigenen Fall, die fuer jeden Pruefstand gilt: der
+Serien-Fall prueft, dass der Teaser eine GERISSENE Serie nicht mehr zeigt — ein
+Teaser, der ueberhaupt nichts schreibt, waere damit ebenfalls gruen gewesen. Er
+misst jetzt zuerst die Gegenrichtung (eine LEBENDE Serie von 8 muss dastehen).
+
+> **Und zwei der acht Faelle gibt es, weil ich den eigenen Diff ein zweites Mal
+> gelesen habe** — kein Pruefstand hat sie gefunden. `dqYearlyReset` liess
+> `lastDay` fallen (die neue Serienregel haette am 1. Januar eine gerissene
+> Serie wiederbelebt), und der Zeitablauf, der seit v33.27 SENDET, machte die
+> nie geraeumte `_dqSupaQuizId` erst gefaehrlich. **Eine Aenderung kann eine
+> Stelle gefaehrlich machen, die vorher harmlos war** — wer etwas neu SENDEN
+> laesst, geht jeden Weg nach, auf dem der gesendete Wert entsteht.
+
+Drei Regeln daraus:
+
+- **Wer den Server entscheiden lässt, liest die Entscheidung.**
+  `Prefer: return=minimal` machte fünf Tage lang unsichtbar, dass der Server
+  jede Antwort verwarf — dieselbe Klasse wie in `versprechen_check` (v32.28),
+  nur dass hier nicht ein Fehler, sondern ein URTEIL verschluckt wurde.
+- **Eine SQL-Regel, die man nicht ausführt, hat man nicht geprüft.** v30.95
+  kam mit `node --check` für die Inline-Skripte und „Signaturen gegen die
+  Live-DB geprüft" — die Rechnung selbst lief nie gegen eine Zeile im
+  Generator-Format. Postgres ist hier installiert; wer eine Migration mit
+  Rechnung schreibt, lässt sie in `quiz_check` (oder einem Geschwister) laufen.
+- **`bool::text` ist `true`, `bool` allein ist `t`.** Drei SQL-Fälle waren im
+  ersten Lauf rot, weil `is_correct||'|'||…` anders aussieht als
+  `select is_correct` — Prüfstand-Artefakt, nicht die Sache. Und
+  `closeDailyQuiz` blendet 200 ms VERZÖGERT aus: wer sofort wieder öffnet,
+  misst ein Fenster, das gleich wieder verschwindet (`getClientRects` leer).
+
+**`naht_check.js` (seit 06.09.2026) fragt, ob die vier Teile der
+Sensor-Kette dieselben Spalten meinen.** App, Empfänger (`device-ingest`),
+Cron (`fn_device_alerts`, SQL) und Pusher (`sensor-push`) nennen einander
+Spalten und Schlüssel, und keiner sieht den anderen. Der Prüfstand liest die
+Spaltenlisten aus den Migrationen und aus `docs/naht-spalten.json` (datierte
+Momentaufnahme der drei Live-Tabellen, nur lesend gemessen) und hält
+dagegen, was jeder Teil im Quelltext benutzt; das Token hasht er dreimal
+(App, Empfänger, Node) und vergleicht. Drei Klassen wie bei `backend_check`:
+vorhanden · per Migration vorbereitet · fehlt. **Erster Lauf: `expires_at`
+stand im Vertrag, im Regel-Modul und im Empfänger — und in keiner Tabelle**
+(`20260906_device_commands_expires_at.sql`). Wer eine Tabelle der Kette
+ändert oder eine neue Live-Tabelle anspricht, zieht die Momentaufnahme nach
+(`information_schema.columns`, nur lesend) und trägt das Datum ein. Und wer
+einen Prüfstand baut, der Quelltext parst, rechnet mit Artefakten: drei der
+vier ersten Funde waren der Parser, einer die Sache — die Gegenrichtung
+(eine erfundene Spalte muss rot werden) gehört als Fall hinein.
+
+**Seit v32.56 trägt Linas Kontext Zahlen — und der Prüfstand hält jede
+gegen einen Datensatz.** `gsLinaZahlen()` schreibt **Rohwerte**, nie die
+gerundete Anzeige: `_gsMwFmt` macht aus 31.5 % eine 32 %, und eine Zahl,
+die in keinem Datensatz steht, ist im KI-Kontext eine Erfindung mit
+Dezimalstelle. Wer Lina weitere Daten gibt, nimmt den Fall „Lina" in
+`sensor_check` mit (jede Prozent-/Grad-Zahl der Messwert-Zeile muss
+gespeichert sein) und den Deckel (`GS_LINA_ZAHLEN_MAX`, 700 Zeichen —
+Kontext, kein Datenexport). Und eine Vorhersage bleibt eine Vorhersage: das
+Frost-Ereignis im Kalender (`GS_WETTER_GRENZEN`.frost) sagt Quelle, Standort und
+Alter und gilt nur für heute und später.
+
+**Seit v32.55 hat der Name einer Messgrösse EINE Funktion: `_gsMetricLabel(k)`.**
+Wer `k.label_de` schreibt, zeigt Deutsch in vier Sprachen. Die Funktion
+liest die Tabellenspalte (`label_fr/it/en`), dann `_t('metric_<key>', …)`,
+dann Deutsch; `i18n_check` kennt `GS_METRIC_KATALOG_START` als Datenliste
+mit Präfix — eine neue Grösse im Startbestand braucht ihren Eintrag
+`metric_<key>` in `GS_I18N_JS_STRINGS`, sonst meldet er sie. Und
+Schwellwert-Vorlagen (`gsSchwellwertVorlagen`) kommen nur aus Quellen mit
+einer belegten Zahl (Artenliste, Kulturdaten, eigener Verlauf) — **nie
+Bodenfeuchte aus Artendaten**, und eine Vorlage legt nie selbst an.
+
+**Seit v32.54 gehen lokale Meldungen durch `gsNotif.show` / `showKategorie`
+— und die kennen die Stille-Zeit.** `gs_push_settings` (`quietStart`,
+`quietEnd`, `pauseUntil`) galt bis dahin nur für den Server; `gsNotif.stille()`
+rechnet dieselbe Regel lokal. Wer eine Meldung plant, fragt `stille(wann).bis`
+und verschiebt dorthin, statt zu verwerfen. `showKategorie(kat, opts)` ist
+„eine je Kategorie und Tag" (Kategorien heute: `plant_tasks`, `sensor_alert`);
+`opts.dringend` umgeht beides — bewusst sparsam. Aufgaben-Erinnerungen kommen
+aus `gsGetDueTasks()` (beide Listen), nie aus einer eigenen Schleife über
+`myPlants`, und lassen `gs_reminder_prefs.disabled` aus. Ein Feld, das
+niemand las: `cooldown_minutes` stand seit v32.48 in jeder Regel —
+`gsSensorAlarmeMelden` liest es jetzt (§11.2 Regel 18). Der
+Einstellungs-Prüfstand stellt die Stille-Zeit über die EINSTELLUNGEN her
+(die Uhr läuft dort echt) und fängt `setTimeout` ab, weil ein Timer sonst
+nichts sagt.
+
+**Seit v32.53 hat die eine Aufgaben-Rechnung einen vierten Parameter.**
+`getDaysUntilDue(lastDone, intervalDays, snoozedUntil, vorgezogenAuf)` —
+eine verletzte Sensor-Regel `task:<key>` zieht auf `vorgezogenAuf` vor,
+die Verschiebung der Person gewinnt (`fällig = max(min(lastDone +
+Intervall, vorgezogenAuf), snoozedUntil)`). Neun Aufrufer; wer eine
+Fälligkeit braucht, ruft `_gsTaskDays(t)` oder `gsGetDueTasks()`, nie die
+Rohfunktion mit drei Argumenten — sonst rechnet die neue Stelle ohne den
+Sensor. `device_rules.action` liest genau EINE Stelle
+(`gsSensorAufgabenAbgleich`); wer eine neue Aktion erfindet, trägt sie dort
+ein und im Regel-Formular. Und ein Nebenfund, der über das Tagebuch
+hinausgeht: **ein dynamischer Wert in einem `onclick` ist eine
+Zeichenkette, die geparst wird.** `gsDeleteDiaryEntry('p2',' + e.ts + ')`
+war mit numerischen `ts` richtig und mit ISO-Strings ein Syntaxfehler —
+seit v26.51 schreibt `gsQuickDone` Strings, seither war der Lösch-Knopf für
+jeden Abhak-Eintrag tot. `wiring_check` sieht so etwas nicht (er prüft, ob
+die FUNKTION existiert, nicht ob das Attribut parst); `sensor_check`
+„Giess-Bestätigung" hält es jetzt mit `new Function(onclick)` fest.
+
+**Seit v32.52 haben die Beispieldaten ein Gerät** („Balkon Süd · Erde",
+sieben Tage Bodenfeuchte und Lufttemperatur, ein unplausibler Wert, eine
+verletzte Regel). Bis dahin vermass jeder Prüfstand ausser `sensor_check`
+ein LEERES Messwerte-Dashboard — `contrast_check` öffnete es über den Öffner
+und mass den Leerzustand. Dieselbe Falle wie v31.46 und v32.46, zum dritten
+Mal. **Wer eine vierte Datenquelle für den Kalender anlegt, zieht den Fall
+„Ohne Daten" in `kalender_check` nach** — er räumt seit v32.52 auch
+`gs_geraete` / `gs_messwerte` / `gs_geraete_regeln`; stehen gelassen meldet
+er „1 Ereignis ohne jede Datengrundlage". Und drei Regeln aus derselben
+Version, alle in `sensor_check`: **Messwerte gehen nur durch
+`_gsMesswerteAnhaengen`** (Dublettensperre auf Gerät · Messgrösse · Zeit, die
+Liste bleibt nach `ts` sortiert — ein `push` daneben umgeht beides); **eine
+Vorhersage ist kein Messwert** (`gsWetterGeraetAbgleich` nimmt nur Stunden
+bis jetzt, und der Fall zählt die übersprungenen: 11); **der Katalog wird nur
+bei Erfolg ersetzt** (404, leer, unvollständig → der Startbestand bleibt).
+Eine Messfalle daraus: bei **gestellter Uhr** fallen zwei Handmessungen in
+dieselbe Millisekunde — die zweite galt als Dublette, und zwei Fälle wurden
+rot, die nichts mit der Sperre zu tun hatten. Ein Wert ohne Zeitangabe rückt
+jetzt eine Millisekunde weiter; die Sperre gilt für ausdrückliche Zeitpunkte.
+
+**Seit v32.51 kennt der Regen-Fall auch die Bejahung.** Bis dahin prüfte
+„Ernte und Regen" nur „ohne Wetter kein Hinweis" — und der Draht aus v31.84
+war seit jeher tot: `gsPflanzeDraussen` las `p.location`, ein Feld, das KEINE
+Speicherstelle schreibt (das Formular leitet „draussen" in den Garten um).
+Der Regen-Hinweis erschien für keine einzige Pflanze, in 66 Versionen, ohne
+dass etwas rot war. **Eine Frage, die nur die Verneinung kennt, ist auch
+dann grün, wenn die Funktion nichts mehr tut.** Jetzt beantwortet die
+Gartenart die Frage (`GS_GARTEN_ARTEN.unter_glas` — dieselbe Angabe, die
+der Planer liest), und der Fall stellt 8 mm in den Zwischenspeicher: Zucchini
+(Balkon) trägt den Hinweis, Basilikum (Küchenfenster) nicht, der Tagesplan
+zeigt „8 mm Regen heute" im HTML. `sensor_check` hat seither zwei Fälle mehr
+(10): das **Backup** nimmt Geräte, Regeln und Messwerte mit (Version 16) und
+nennt bei vollem Speicher, was nicht gesichert wurde; der **Deckel** der
+Messwerte wirft zuerst weg, was hochgeladen ist — eine Handmessung ohne
+Kopie bleibt. Beide Reparaturen einzeln zurückgebaut → rot mit den echten
+Zahlen. Die Ideen für die Sensoren, jede mit Anknüpfung, Stufe, Prüfbarkeit
+und Falle, stehen in `docs/OEKOSYSTEM-V1.md` §11 (25 Ideen, 35 Behauptungen
+nachgeprüft).
+
+**Seit v32.50 haelt er drei Aussagen fest, die eine gegnerische Pruefung
+am Text des Audits widerlegt hat** (`docs/MEINE-PFLANZEN-AUDIT.md`,
+„Gegnerische Pruefung"): „Alle erledigt ✓" fragt ZUERST und erledigt ueber
+`gsGetDueTasks` in BEIDEN Listen (bis v32.49: keine Rueckfrage, nur
+`myPlants`); die drei Kopfzahlen zaehlen dieselben Listen
+(`versorgt + mit Aufgaben = Pflanzen`); und unter dem Notizzettel liegt KEIN
+Bedienelement — nicht nur kein Pfeil. Zwei Regeln daraus: **„geprueft,
+nicht angenommen" ist erst dann ein Satz, wenn der Aufruf gezaehlt wurde**
+(ich hatte eine Rueckfrage behauptet, die 0 Aufrufe hatte). Und **eine
+Frage, die nur EIN Ziel kennt, meldet nur dieses** — der Pfeil-Fall war
+gruen, waehrend daneben zwei ⏰-Knoepfe zu 19 % und 39 % verdeckt waren.
+Der Fall zaehlt jetzt alle Ziele im Bildschirm (`button`, `[role=button]`,
+`a[href]`, `[onclick]`, `[data-action]`); schmale (≤ 120 px) muessen ganz
+frei sein, breite (Karten) zu zwei Dritteln.
+
+**`sensor_check.js` (seit v32.48) ist der Pruefstand fuer `docs/OEKOSYSTEM-V1.md`
+Stufe 0** — und er wurde VOR dem Code geschrieben (erster Lauf rot, acht
+Faelle, dann gruen). Vier Regeln, die er festhaelt und die fuer jedes Geraet
+gelten, das je kommt: **kein Messwert wird verworfen** (unplausibel ist
+`quality 1`, nicht weg); **eine Regel hat drei Zustaende** (ohne plausiblen
+Wert „nicht pruefbar", Stille ist kein „erfuellt"); **kein `if (metric ===
+…)`** — alles aus `gsMetricKatalog()`, der nie leer ist (eingebauter
+Startbestand, elf Groessen); **bei vollem Speicher sagt es die Funktion**
+(`ok:false` mit Grund, CLAUDE.md §3.5). Die Person ist das erste Geraet
+(`kind = 'manual'`): derselbe Weg vom Wert bis ins Dashboard und in den
+Kalender (`messung`/`alarm`), den spaeter ein Sensor nimmt. Neue Schluessel
+`gs_geraete`/`gs_geraete_regeln`/`gs_messwerte` stehen in `GS_USER_KEYS`,
+`gs_metric_catalog` in `GS_KEEP_ON_LOGOUT`; Geraete und Regeln reisen im
+`state`-Blob, Messwerte nicht (dafuer ist die Tabelle da — Stufe 1).
+
+**Seit v32.49 liest `gsTagebuchAlle()` DREI Quellen** — Gartentagebuch,
+Pflanzentagebuecher und den Spiegel des Cloud-Tagebuchs
+(`gs_garden_diary_cache`, 500 neueste `garden_diary`-Zeilen, in
+`GS_USER_KEYS`). Wer eine vierte Quelle anlegt, zieht den Fall „ohne Daten"
+in `kalender_check` nach: er stellt jede Quelle leer, und eine, die er
+stehen laesst, macht ihn rot („1 Ereignis ohne Datengrundlage") — genau so
+ist es beim Spiegel passiert. Und: Cloud-Eintraege tragen die Id `cd:<uuid>`;
+Loeschen geht durch `gsTagebuchDelete`, das `DELETE … return=representation`
+mit `_gsSchreibOk` prueft und den Spiegel erst danach bereinigt.
+
+**Seit v32.47 gilt fuer BEIDE Pflanzenlisten dasselbe:** `ps_myplants` und
+`gs_plantings` tragen `tasks`; wer eine Pflanze zum Erledigen, Verschieben
+oder Lesen sucht, ruft `_gsPflanzeFinden(id)` — es sagt, in welcher Liste sie
+steht und wo gespeichert wird (`savePlantsToStorage` vs. `saveGardenData`).
+Ein `myPlants.find(…)` an einer neuen Stelle uebersieht die Haelfte der
+Pflanzen. Garten-Pflanzungen bekommen ihre Aufgaben beim ersten Lesen
+(`_gsPflanzungenNachruesten`, Vorgaben je Gartenart in
+`GS_PFLANZUNG_VORGABEN` — Intervalle, keine Botanik).
+
+`perf_check.js` trennt **App-JS** von **Parsen/Kompilieren**. Nur die erste
+Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
+eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände
+mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
+
+> **Der Text mit dem hoechsten Einsatz ist die Notfall-Antwort — und er wird in
+> BEIDE Richtungen gemessen** (v32.98). `getSmartAnswer` (Offline-Chat, den
+> jeder ohne KI-Schluessel bekommt) erkannte einen Vergiftungs-Notfall an
+> EINEM Muster und griff bei **4 von 17** realistischen Saetzen: „meine
+> tochter hat beeren gegessen" bekam eine Pflanzenbeschreibung, weil dort
+> „Tochter" statt „Kind" steht. Seit v32.98 gibt es zwei Stufen — **dringend**
+> (ersetzt die Antwort) und **hinweis** (eine ruhige Zeile darueber) — und der
+> Fall `scan_check` N1 misst 36 Saetze in drei Klassen. **Die Gegenrichtung
+> ist Pflicht:** „kann man Loewenzahn essen?" darf NIE ein Notfall sein, sonst
+> lernt man, das Banner zu ueberlesen (dieselbe Lehre wie die vier staendigen
+> Falschmeldungen in v32.21). Und die Hinweiszeile haengt an ALLEN fuenf
+> Antwort-Rueckgaben — eine Variable, die gesetzt und nie ausgegeben wird,
+> waere „abgefragt, geliefert, weggeworfen".
+>
+> **Und derselbe Fehler lag drei Sprachen weiter** (v32.99): der Offline-Chat
+> fragt die Sprache nirgends ab, das deutsche Vokabular erkannte **0 von 12**
+> franzoesischen, italienischen und englischen Notfallsaetzen — nicht einmal
+> „empoisonnement", „avvelenamento", „poisoning". Vokabular jetzt viersprachig,
+> Text ueber `_t` mit Schluesseln in `GS_I18N_JS_STRINGS`. **Wer Wortgrenzen
+> ueber mehrere Sprachen zieht, prueft sie an einem Wort mit Akzent:**
+> `/\bcat\b/.test('catégorie')` ist `true`, weil `\b` nur `[A-Za-z0-9_]`
+> kennt — die Grenze sitzt mitten im Wort.
+>
+> **Und ein Fall wandert nicht zwischen Pruefstaenden.** `scan_check` fuehrt
+> seine Faelle IN der Seite aus (`p.evaluate` ueber den Funktionsrumpf),
+> `robust_check` in Node mit Zugriff auf `__seite`. Ein kopierter Fall stirbt
+> an `ReferenceError` — wer kopiert, kopiert auch den Ausfuehrungsort.
+
+**Eine Regel aus v32.11, die ueber die Optik hinausgeht:** *Inhalt, auf den es
+ankommt, wird nie NACH UNSICHTBAR animiert.* Zwei Anlaeufe an derselben Stelle
+sind daran gescheitert — erst `opacity:0` per Timer (contrast_check: **1:1**),
+dann `animation … both` mit `from{opacity:0}` (scan_check: „5 von 5 Zeilen
+bleiben unsichtbar", weil die Animation in einem verborgenen Bereich nie
+startet). Wer eine Zeile einlaufen laesst: **bewegen und faerben, nicht
+ausblenden** — und den Pruefstand zu BEGINN der Animation messen lassen, nicht
+erst am Ende.
+
+**Seit v31.99 misst `contrast_check` in DREI Fenstern** — dazu kam das
+**Scan-Ergebnis**, der Bildschirm, auf dem jemand ueber Giftigkeit liest. Er
+gehoert zu keinem der elf Tabs und war deshalb nie vermessen; der erste Lauf
+fand fuenf Stellen unter AA, darunter „☠️ Toedlich giftig" mit **3,27:1** und
+das Sicherheitswort mit **1,87:1**. Beim Einbau meldete das Fenster zuerst
+**18 Stellen bei 71 Textknoten** — die Karte war vollstaendig da und trotzdem
+unmessbar, weil der Scanner-Tab ausgeblendet ist (`switchTab('scanner')` fehlte).
+
+**Eine Regel aus `scan_check`, die ueber den Scanner hinausgeht:** *was ein
+Prompt verlangt, muss auch jemand lesen.* Jedes Feld im JSON-Beispiel des
+`SCAN_SYSTEM_PROMPT` wird gegen seine Verwendung im Code gehalten. „Abgefragt,
+geliefert, weggeworfen" war der haeufigste Fehler dieser Session — bei der
+Giftigkeit der Alternativen (v31.92) und den Merkmalen (v31.99) war er teuer,
+bei `db_search` kostete er nur Tokens. **Wer einen neuen Prompt mit festem
+Antwortformat baut, sollte dieselbe Pruefung dafuer anlegen.**
+
+**Und ein neuer Prueftand: `scan_check.js`** — er fragt, ob der Scanner der KI
+aufs Wort glaubt. Kernfall: eine Art, die unsere Liste als toedlich fuehrt, vom
+Modell als „essbar" gemeldet. Die vorsichtigere Angabe MUSS gewinnen, und zwar
+sichtbar. `docs/SCANNER-V3.md` erklaert, warum das der Punkt ist, an dem diese
+App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
+
+> **Und „essbar" ist eine ANGABE, kein Rueckschluss** (v32.86). `tox === 0`
+> heisst **ungiftig**; die App sagt es selbst („Nicht essbar ❌" bei
+> `tox === 0` ohne `edible`). Wer nach essbar fragt, ruft `gsIstEssbar(sp)` —
+> dasselbe Praedikat wie der Filter „✅ Essbar" (`_gsPassCat`). Drei Anzeigen
+> hatten eine eigene Regel: die Startkachel (2'329 statt 1'228, davon 1'803
+> mit `edible:false`), der Saison-Tipp „JETZT SAMMELN" (115 von 310 Tagen eine
+> nicht essbare Art) und die Fakten-Zeile („🍴 Edelweiss: Nur fotografieren,
+> nicht pfluecken"). `scan_check` E1–E3 haelt es fest — **und misst mit dem
+> EIGENEN Massstab (`!!sp.edible`), nicht mit `gsIstEssbar`**: ein Fall, der
+> die zu pruefende Funktion ruft, faellt gegen einen alten Stand nur mit
+> „is not defined" durch und hat die falsche Zahl nie gesehen.
+
+**Seit v32.43 haelt `scan_check` auch die DUBLETTEN-REGEL fest.** Die
+Artenliste fuehrt 657 Arten mehrfach (gleiches Binomen nach `_gsNormLat`),
+167 Gruppen widersprechen sich bei `tox`/`edible`. Bis v32.42 war jede
+Nachschlagung ein `DB.find(…)` — der ERSTE Treffer in Dateireihenfolge
+entschied, welche Giftstufe der Scan zeigte. Seither:
+
+- **Bei Widerspruch gewinnt die vorsichtigere Angabe** (`_gsVorsichtigste`:
+  hoeheres `tox`, dann `edible=false`, dann der inhaltsreichere Eintrag).
+- **Die Vorsicht haengt an der ART, nicht an der Suchstrategie**
+  (`_gsArtGruppe` sammelt nach der Identifikation alle Eintraege derselben
+  Art ein — „Holunder" trifft ueber den deutschen Namen genau EINEN Eintrag,
+  tox 0; die Art hat neun).
+- **Das Binomen wird VOR dem deutschen Namen gesucht.** Ein Trivialname
+  ist mehrdeutig, ein Binomen nicht. Gemessen mit der Selbstabfrage (jeder
+  Eintrag mit eigenem name+lat): v32.42 landeten **1'194 von 4'311** auf
+  einer anderen Art („Brennnessel / Urtica pilulifera" → Urtica dioica),
+  seither 0. Der Fall bleibt im Pruefstand — wer die Reihenfolge je wieder
+  umdreht, sieht ihn. (Die erste Begruendung in v32.43 — „Wacholder trifft
+  Juniperus nana" — war falsch gemessen; sie beschrieb einen Zwischenstand
+  des Umbaus. Die gegnerische Pruefung hat es gefunden.)
+- **Seit v32.45 zwei Korrekturen an der Regel, beide aus der Gegenpruefung:**
+  (1) **Eine Unterart ist nicht die Art.** `_gsNormLat` streicht var./ssp./f.;
+  damit gewann `PI427 Kleiner Perlpilz` (Amanita rubescens f.
+  annulosulphurea, tox 4) jeden Perlpilz-Scan. `_gsArtGruppe(sp, abfrageLat)`
+  gruppiert jetzt auf der STUFE der Anfrage: ohne Qualifier zaehlen nur
+  Eintraege ohne Qualifier, mit Qualifier zuerst der exakte Treffer.
+  (2) **Ein Platzhalter ist keine Vorsicht.** Einlese-Ruempfe tragen
+  `edible:false` ohne Warnung und ohne Verwechslungshinweis; „nicht essbar
+  zuerst" zog 94 Namens-Abfragen (82 auf eine ANDERE Art) und 12 gepflegte
+  Gemuese-Eintraege auf solche Ruempfe. Bei gleicher Giftstufe gewinnt jetzt
+  der Eintrag MIT `warning`/`lookalike` (dieselben zwei Felder, an denen
+  v31.90 die Bearbeitung erkennt); `edible` zaehlt erst danach.
+
+Der Fall prueft alle drei Teile GETRENNT, weil jeder fuer sich unbemerkt
+zurueckfallen kann; Gegenprobe je Teil gemacht. Wer `gsMatchScanToDb` eine
+neue Strategie hinzufuegt, gibt ihr Ergebnis durch
+`_gsVorsichtigste(_gsArtGruppe(hit))` — nie `DB.find`.
+
+> **Und das gilt fuer JEDE Anzeige einer Art, nicht nur fuer den Scanner**
+> (v32.91/92). Seit v32.92 gibt es dafuer **eine** Funktion:
+> `_gsArtAnzeige(sp)` — sie liefert die Sicherheitsangaben der ART (mit einem
+> `_korrigiert`-Vermerk) und laesst Name, Beschreibung und Verwendung
+> unberuehrt. Drei Aufrufer: die zwei Kartenbauer der Trefferliste und
+> `openDetail`. Wer eine neue Ansicht einer Art baut, ruft sie — und ruft sie
+> als ERSTE Zeile: beim ersten Anlauf stand sie nach `toxInfo` und den
+> Plaketten, der Rand wurde orange und das gruene „✅ Essbar" blieb stehen.
+> **Eine Reparatur an einer Anzeige ist erst fertig, wenn ALLE Teile dieser
+> Anzeige sie sehen.** Und die Klasse war mit Liste und Detail nicht
+> geschlossen (v32.93): sechs Anzeigen lesen `tox`/`edible` aus einem
+> Eintrag. Dazu gehoert das **Quiz**, und dort ist es keine Anzeige, sondern
+> eine **gewertete Antwort** — 269 Arten haetten die Zahl des Eintrags als
+> „richtig" gehabt, 7 davon eine harmlose Stufe fuer eine Art der Stufe 3.
+> Bewusst NICHT umgestellt: die Buch-Einlese-Vorschlaege (Importkandidaten
+> ohne Artengruppe) und das Admin-Bildwerkzeug (wer kuratiert, sieht seinen
+> Eintrag). `openDetail(id)` machte `DB.find(id)` und zeigte die Angaben genau
+> des angetippten Eintrags: **186 Eintraege mit einer niedrigeren Giftstufe**
+> als ihre Art (nie umgekehrt), 98 mit „essbar" gegen die Art. Uebernommen
+> werden nur die SICHERHEITSANGABEN — Name, Beschreibung und Verwendung
+> bleiben die des angetippten Eintrags, sonst liest jemand einen anderen
+> Eintrag als den, den er geoeffnet hat. Und die Karte sagt, dass korrigiert
+> wurde. Wer eine neue Ansicht einer Art baut, geht denselben Weg.
+>
+> **Und eine SAMMLUNG ist auch eine Aussage** (v32.95). `GS_SYSTEM_COLLECTIONS`
+> filterte mit `rule.test(it.sp, it)` — `it.sp` ist der Eintrag. Ueber die
+> Artenliste gerechnet: **22 Eintraege / 16 Arten** waeren nicht in
+> „☠️ Giftige" gelandet (Kahler Krempling 3 / 4, Fruehlingslorchel 3 / 4,
+> Christrose 3 / 5), **98 Eintraege / 67 Arten** haetten in „🍽️ Essbare"
+> gestanden. „Giftige" ist keine Sortierhilfe, sondern die Liste, in der
+> jemand nachsieht, was er nicht anfassen soll — dort zu fehlen ist nicht
+> „keine Angabe", sondern das Gegenteil der eigenen Datenbank. Ebenso der
+> KI-Kontext des Quiz (`dqAskKIExplain`, `art_tox`): seit v32.93 wertet das
+> Quiz nach der Art, die Erklaerung erklaerte weiter den Eintrag. **Was etwas
+> WERTET oder EINORDNET, geht durch `_gsArtAnzeige` — nicht nur, was etwas
+> anzeigt.** Und eine ZAHL ist auch eine Aussage (v32.96): der Lexikon-Zaehler
+> „Giftig" fragte `tox === 2 || tox === 3` und liess damit **131 Eintraege der
+> Stufen 4 und 5** aus — die Untergrenze war Absicht, die Obergrenze nicht.
+> Dazu vier Stellen, die den Eintrag lasen: das **Symbol in der Sammlung**
+> (`_gsSmartSpeciesEmoji`, 134 Eintraege — Christrose 🌿 statt ☠️), die
+> **Wissens-Zeile** (`gsInitDynamicFacts`, 22), der **Offline-Chat**
+> (`getSmartAnswer`, 269 — dort kommt der Treffer aus einem NAMENS-Vergleich
+> und traf bei mehrfach gefuehrten Arten irgendeinen Eintrag: „giftig" statt
+> „TÖDLICH"). Wer eine neue Stelle baut, die `tox`/`edible` LIEST, findet die
+> vorhandenen mit einer Zaehlung nach umschliessender Funktion — 150 Lesungen,
+> die allermeisten in `_gsArtAnzeige`/`_gsVorsichtigste` selbst oder im
+> Scanner-Weg. Zwei Verdachtsfaelle haben sich beim Nachmessen aufgeloest und
+> bleiben unangetastet: der **Planer-Pool** filtert mit `s.tox === 'hoch'` auf
+> einer ZAHL (toter Zweig — aber `s.toxic === true` faengt sie: 0 von 1'295
+> Pflanzen im Pool haben Stufe ≥ 3), und der **Plan/Tier des Kontos**
+> entscheidet der Server (`v_user_entitlements` liefert immer eine Zeile,
+> Rueckfall `free`). Pruefstaende: `scan_check` D1g–D1i. Prueftstand: `scan_check` D1f faengt den Schreibvorgang des
+> Vacuums ab; eine Messung der Datenlage („wie viele Eintraege widersprechen
+> sich?") haette dieselbe Zahl geliefert, wenn die Sammlung laengst richtig
+> waere. Die Dubletten selbst
+stehen in `docs/arten-widersprueche.csv` und brauchen eine Flora, keinen
+Code (`docs/ARTEN-DATEN.md`).
+
+> **Und die Zahl der Fotos ist eine Messung, kein Lob** (v33.16). Ein
+> Mehrfach-Scan kam bis dahin UNGEMESSEN durch — `analyzeImage` mass nur ein
+> einzelnes Foto — und S5 nannte ihn „die beste Grundlage, die der Scanner
+> kennt". Seither misst `gsQualitaetMehrere` jedes Foto; das schaerfste
+> zaehlt, `schwach` sagt, wie viele nichts beitragen, und ungemessen ist
+> `unbekannt`. Wer einen weiteren Weg mit mehreren Fotos baut, gibt sie durch
+> dieselbe Funktion und haelt `GS_SCAN_FOTOS_MAX` (3) ein — `_gsLastScanBilder`
+> traegt alle Fotos des letzten Scans, neuestes zuerst. Pruefstand: `scan_check`
+> S5b, „Ablauf · jedes Foto gemessen", „Dritter Blick".
+
+**Seit v32.12 haelt `scan_check` eine Eigenschaft fest, die man leicht
+kaputtmacht, ohne es zu merken: die UNABHAENGIGKEIT.** Der Scanner misst vor
+der Antwort die Farben des Fotos (`gsBildFarben`) und grenzt die 4'337 Arten
+selbst ein (`gsScanVorauswahl`). Beides geht **bewusst nicht** in den Prompt —
+ein Modell, dem man die eigene Vorauswahl zeigt, bestaetigt sie, und die
+spaetere Gegenpruefung waere ein Echo statt einer Pruefung.
+
+Der Pruefstand liest deshalb den echten Prompt aus einem vollen
+`analyzeImage`-Durchlauf UND prueft, dass beide Schritte trotzdem gelaufen
+sind. **Ohne die zweite Haelfte prueft ein solcher Fall nur, dass nichts
+passiert** — und ist damit gruen, auch wenn man die ganze Funktion entfernt.
+(Gegenprobe gemacht: Farbmessung ausgebaut → der Fall meldete sofort.)
+
+Wer eine weitere Rechnung baut, die die KI gegenpruefen soll, traegt sie dort
+ein. Und wer eine Vorauswahl baut, merkt sich die eine Regel dahinter:
+**ausgeschlossen wird nur, was sich begruenden laesst.** Ein Praedikat hat
+drei Rueckgaben — `true`, `false`, `null` — und `null` ist nicht `false`.
+3'465 der 4'342 Arten haben keine Hoehenangabe; wuerde `null` wie `false`
+wirken, bliebe ein Fuenftel uebrig und die Zahl daneben waere eine Luege.
+
+**`offline_check.js` (seit v32.13) stellt die Frage, die keiner der anderen
+zehn stellt: laeuft die App ueberhaupt ohne Netz?** GreenScan wird im Wald
+benutzt — genau dort, wo es keinen Empfang gibt, und genau dafuer gibt es den
+Service Worker.
+
+Er braucht als einziger einen **eigenen HTTP-Server** (30 Zeilen im Skript,
+kein Paket): ein Service Worker laeuft nur in einem sicheren Kontext, und
+`file://` ist keiner. Danach: installieren lassen · den Shell-Cache gegen
+`SHELL_URLS` halten · **wirklich offline gehen** (`setOffline(true)`, Server
+zu) · neu laden · die Arten zaehlen.
+
+Der erste Lauf fand den teuersten Fehler dieser Woche: **0 von 4'342 Arten**.
+`plants.v1.js` wurde beim Install in den SHELL_CACHE gelegt und danach nie
+dort gesucht — der `fetch`-Handler schaute nur in den RUNTIME_CACHE, und der
+war leer, weil der Service Worker beim ERSTEN Besuch waehrend des Ladens
+installiert wird und die Unterdateien der Seite gar nicht sieht. Wer die App
+installierte und dann in den Wald fuhr, hatte eine App ohne Artenliste.
+Nichts stuerzte ab; die Liste war einfach leer.
+
+**Zwei Regeln, die daraus folgen:**
+
+- **Vorladen ist nur die halbe Miete.** Was in einen Cache gelegt wird, muss
+  auch von dort GELESEN werden — jede Strategie braucht den Nachschlag
+  (`ausShell`), sonst ist das Vorladen Zierde.
+- **Ein Fall, der den Zustand nicht herstellt, prueft nichts.** Die
+  Doppelspeicher-Frage war im ersten Anlauf gruen, auch mit ausgebauter
+  Weiche — sie lief vor dem zweiten Besuch MIT Netz, und ohne den kann gar
+  keine zweite Kopie entstehen. Nach dem Umbau meldete sie sofort 2,9 MB
+  doppelt (Artenliste, Leaflet, Three.js). Dieselbe Lehre wie beim
+  Ausserhalb-des-Bildschirms-Fall in v32.07.
+
+**Seit v32.14 prueft er auch die WARTESCHLANGE** — das zweite Versprechen an
+einen Ort ohne Empfang: „📵 Offline gespeichert, wird beim naechsten Online
+uebertragen." Drei Ablagen, drei Zustaendigkeiten, und die duerfen sich nicht
+vermischen:
+
+| Ablage | Wer raeumt sie |
+|---|---|
+| `pending_scans` · `pending_diary` · `pending_sync` | `gsFlushOfflineQueue` |
+| `pending_photos` | `gsFlushPhotoQueue` (laedt hoch, zaehlt Versuche) |
+| `dropped_entries` | **niemand** — Archiv (v31.08), nur lesen |
+
+`gsFlushOfflineQueue` lief bis v32.13 ueber `STORES` (alle fuenf) und loeschte
+jeden Satz, den es nicht einordnen konnte. Gemessen: **1 Foto eingereiht → 0
+uebrig, 2 Eintraege archiviert → 0 uebrig.** Beides lautlos, beides bei jedem
+Start, und der falsche Flush war immer 600 ms schneller als der richtige.
+
+**Wer eine neue Ablage anlegt, traegt sie in `STORES` ein — und nur dann
+zusaetzlich in `SYNC_STORES`, wenn dieser Flush sie auch uebertragen kann.**
+
+Und die Regel dahinter, die ueber IndexedDB hinausgeht: **eine Schleife ueber
+„alles" ist eine Annahme ueber Zustaendigkeit.** Sie stimmt so lange, bis
+jemand eine Ablage dazulegt, die anders funktioniert — und dann faellt es
+niemandem auf, weil Loeschen keine Fehlermeldung erzeugt.
+
+**Seit v32.22 prueft er auch das EIGENTUM an den Warteschlangen.** v31.04 hat
+diesen Fehler im `localStorage` schon einmal behoben — `gs_sync_queue`
+ueberlebte den Logout, die `user_id` wird aber erst BEIM FLUSH eingesetzt, also
+landeten ungesendete Vorgaenge von Nutzer A im Konto von Nutzer B. **In
+IndexedDB stand er weiter**, und dort geht es um Scans, Fotos und das Archiv:
+`gsScanPersistToCloud` schreibt fuer den gerade Angemeldeten, `gsUploadImage`
+laedt in dessen Bucket.
+
+Seit v32.22 traegt jeder Satz die `uid` seines Einreichers
+(`gsQueueOffline` · `gsQueuePhoto` · `gsArchiveDropped`), und der Flush
+**ueberspringt** Fremdes statt es zu loeschen. Wer eine neue Ablage anlegt,
+stempelt sie ebenso.
+
+Drei Regeln daraus, alle allgemein:
+
+- **„Beim Abmelden wegwerfen" ist die schnelle und die falsche Antwort.** Dann
+  verliert A seine offline gemachte Arbeit in genau dem Moment, in dem er sich
+  abmeldet — die Arbeit, fuer die die Warteschlange existiert. Ueberspringen
+  statt loeschen, und ein Deckel (90 Tage) fuer das, was nie abgeholt wird.
+- **Ein Pruefstand, der einen Zustand nur halb herstellt, prueft ab dem Moment
+  etwas anderes, als er behauptet.** Die drei neuen Fragen liessen die
+  bestehenden 6, 8 und 9 rot werden: „angemeldet" war dort nur ein Token, und
+  Eigentum braucht eine `uid`.
+- **Ein Fall misst seine eigene Grundlinie.** Die Zaehler-Frage erwartete eine
+  feste Zahl (2 archivierte) und mass 4, weil eine fruehere Frage als
+  derselbe Nutzer schon archiviert hatte. Feste Zahlen, die eine andere Frage
+  mitbestimmt, gehen bei der naechsten Erweiterung kaputt, ohne dass am Code
+  etwas falsch waere.
+
+**Gegenprobe gemacht:** die zwei Eigentums-Zeilen aus `index.html` entfernt →
+der Pruefstand meldete sofort „B hat den Scan von A ins eigene Konto
+geschrieben" und „B hat das Foto von A in den eigenen Bucket geladen".
+
+**Seit v32.15 prueft er auch den BILD-CACHE.** Regel 4 des Service Workers
+legt jedes Bild ab — Kartenkacheln eingeschlossen (swisstopo steht auf keiner
+Ausnahmeliste, OpenStreetMap schon). Eine Obergrenze gab es nicht; geleert
+wurde nur durch einen Versionswechsel, also durch Zufall statt durch Entwurf.
+
+Das ist nicht bloss Speicherplatz: geht der Platz aus, raeumt der Browser auf
+— und mancher raeumt den **ganzen Ursprung** ab, mitsamt `localStorage`.
+Dieselbe Sorgfalt, die dieses Repo seit v30.98 den 5 MB localStorage widmet,
+gehoert der Cache-API erst recht.
+
+**Zwei Regeln aus dem Bau, beide allgemein:**
+
+- **Ein Deckel, der alle N Eintraege nachsieht, ist ein ZIEL, keine
+  Schranke.** Die echte Obergrenze ist `ZIEL + INTERVALL` plus das gerade
+  Unterwegse — und genau so muss sie heissen (`IMAGE_CACHE_MAX`,
+  `IMAGE_CACHE_INTERVALL`), statt eine Schaerfe zu behaupten, die es nicht
+  gibt. Der erste Lauf meldete rot bei 516 von 500: die Zahl war richtig, die
+  ERWARTUNG war falsch.
+- **Ein Fall muss weit genug ueber das Ziel hinausfahren, um „gedeckelt" von
+  „nicht gedeckelt" zu unterscheiden.** Bei 560 geholten Kacheln liegen beide
+  Antworten zu nah beieinander; bei 900 nicht (900 → 507 mit Deckel, ~900
+  ohne). Und er faehrt den ECHTEN Weg — die Kacheln gehen wirklich durch den
+  Service Worker (der Pruefserver liefert dafuer `/__kachel/<n>.png`), sonst
+  waere nicht geprueft, ob der Deckel ueberhaupt ausgeloest wird.
+
+**Und die Grenze, ehrlich benannt:** wie gross der Cache in der Praxis wird,
+ist von hier aus NICHT messbar — die Kachel-Server sind aus dieser Umgebung
+nicht erreichbar. Geprueft ist der Mechanismus, nicht die Zahl.
+
+**`a11y_check.js` (seit v32.16) fragt, was keiner der elf anderen fragt:
+laesst sich die App bedienen, wenn man sie NICHT SIEHT oder die Maus nicht
+benutzt?** `touch_check` misst die Groesse einer Flaeche, `contrast_check` die
+Lesbarkeit eines Textes — beides setzt voraus, dass jemand hinsieht.
+
+Erster Lauf: **18 Stellen im Code, 213 Elemente auf dem Bildschirm** trugen
+ein `onclick` auf einem `div` ohne `tabindex` und ohne `role`. Fuer die Maus
+ein Knopf, fuer die Tastatur unsichtbar. Betroffen war der INHALT — 81
+Suchergebnisse, 40 Rezepte, 40 Heilmittel. Kein Absturz, keine Meldung.
+
+Beide Zahlen stehen im Bericht, und das ist Absicht: **eine Karten-Vorlage
+erzeugt vierzig Karten, und EINE Reparatur behebt sie alle.** Nur „18" zu
+melden verharmlost, nur „213" laesst es unloesbar aussehen.
+
+Die Antwort war eine zentrale Nachruestung (`gsTastaturNachruesten` +
+EIN Zuhoerer fuer Enter/Leertaste + `MutationObserver`), nicht achtzehn
+Einzelpflaster — die naechste Renderstelle haette den Fehler wieder
+mitgebracht. Sie laeuft in `requestIdleCallback`, weil der erste Durchgang auf
+einem Mittelklasse-Telefon 35 ms kostet.
+
+**Drei Lehren aus dem Bau, alle allgemein:**
+
+1. **Reparatur und Pruefung brauchen DIESELBE Regel.** Meine Nachruestung
+   machte bei Karten mit eigenen Knoepfen die UEBERSCHRIFT fokussierbar (ein
+   Knopf im Knopf waere falsch) — der Pruefstand sah nur auf den Kasten und
+   meldete 80 Karten als unerreichbar, die es laengst nicht mehr waren.
+   Dieselbe Falle wie die zwei Matcher in v32.02, diesmal von mir gebaut.
+   Und: **gemessen wird die Struktur** (`tabindex` + `role`), nie ein Merkmal,
+   das die App sich selbst anheftet — `data-tast` waere eine Selbstauskunft.
+2. **„Hat einen Schatten" beweist keinen Fokusrahmen.** Karten und Knoepfe
+   dieser App haben ohnehin einen. Nachweisbar ist nur der UNTERSCHIED
+   zwischen fokussiert und nicht fokussiert — derselbe Knopf, zweimal
+   gemessen.
+3. **Eine neue Auszeichnung kann einen anderen Pruefstand verwirren.**
+   `touch_check` sprang von 0 auf 79: die neuen `role="button"`-Titel sind
+   352x18 px. Sie sind aber TASTATUR-Ziele; angetippt wird die ganze Karte,
+   und WCAG 2.5.8 meint die Flaeche, die den Zeiger annimmt. Die Regel dort
+   kennt das jetzt — aber **eng**: der erste Anlauf haette auch ein echtes
+   kleines Herz-Symbol in einer Karte durchgewinkt. Gegenprobe mit DREI
+   Faellen, nicht mit einem.
+
+**Seit v32.21 prueft er auch FENSTER** — bis dahin nur die elf Tabs, waehrend
+`contrast_check` laengst in sechs Fenstern misst. Modale sind aber gerade die
+Stellen mit den meisten Eingaben (Planer, Eingrenzen, Korrektur). Geprueft
+werden „Ohne Netz eingrenzen", der Bluehkalender und das Scan-Ergebnis;
+geoeffnet ueber die oeffentlichen Oeffner, nicht ueber nachgebaute Zustaende.
+
+**Und die Zahl daneben ist Pflicht — mit der richtigen Bezugsgroesse.** Der
+erste Anlauf meldete „1'275 Bedienelemente" fuer ein Fenster mit vier
+Auswahlfeldern: das war die Zahl des GANZEN DOKUMENTS, mit und ohne offenes
+Fenster dieselbe. Sie haette also auch dann gestimmt, wenn gar nichts
+aufgegangen waere. Gezaehlt wird jetzt, was IM Fenster steht (308 / 88 / 11) —
+drei verschiedene Zahlen sind der Beleg, dass wirklich drei Fenster gemessen
+wurden. Dieselbe Falle wie in v31.78, diesmal von mir selbst gebaut.
+
+**Zwei Gegenproben, und die erste war die lehrreichere:** einem Auswahlfeld
+das `aria-label` genommen → **kein Fund**, und das ist RICHTIG: die Felder
+stehen in einem umschliessenden `<label>`, das sie bereits benennt. Erst ein
+Feld ganz ohne Namen (und ein Bild ohne `alt`) im Fenster wird gemeldet. Eine
+Gegenprobe, die den Fall nicht herstellt, beweist nichts — auch dann nicht,
+wenn sie plausibel aussieht.
+
+**Was er bewusst NICHT tut:** einen Screenreader ersetzen. Er misst die
+maschinell nachweisbare Haelfte; ob ein Name auch VERSTAENDLICH ist, kann nur
+ein Mensch beurteilen. Und er meldet nur SICHTBARES — ein Feld in einem
+geschlossenen Fenster ist fuer niemanden ein Problem.
+
+**`i18n_check.js` (seit v32.17) — und die eine Regel der Sprachschicht, die
+nirgends stand.** Uebersetzungen werden ueber die DEUTSCHE PHRASE
+nachgeschlagen:
+
+```js
+keyBundle[key] = srcMap[ GS_I18N_JS_STRINGS[key] ]
+```
+
+Daraus folgt: **ein `_t`-Schluessel ohne Eintrag in `GS_I18N_JS_STRINGS` wird
+nie nachgeschlagen** und zeigt in allen vier Sprachen seinen deutschen
+Rueckfall — fuer immer, ohne Fehlermeldung. Erster Lauf: **45 solche
+Schluessel**, darunter der ganze Bildschirm „Mein Naturjahr".
+
+Zwei Muster, die daraus folgen und beim Schreiben zu beachten sind:
+
+- **Ein Schluessel, EINE deutsche Phrase.** `_t(key, n === 1 ? 'a' : 'b')`
+  laesst sich nicht nachschlagen — Einzahl und Mehrzahl brauchen zwei
+  Schluessel. Dasselbe, wenn derselbe Schluessel einmal als sichtbare
+  Beschriftung („✓ Erledigt") und einmal als `aria-label` („Erledigt")
+  gebraucht wird.
+- **Tabelle und Aufrufort muessen denselben deutschen Text tragen.**
+  Nachgeschlagen wird der TABELLENwert; der Rueckfall am Aufrufort erscheint
+  nur auf Deutsch. Gehen sie auseinander, liest ein deutscher Nutzer einen
+  anderen Satz als ein franzoesischer.
+
+**Und die Regel fuer solche Angleichungen: erst nachsehen, welche Fassung
+uebersetzt VORLIEGT.** In v32.17 hatten die Tabellenwerte alle vier Sprachen
+und die Aufrufvarianten keine einzige — die andere Richtung haette drei
+funktionierende Uebersetzungen zerstoert.
+
+Die zwei wichtigsten Fragen pruefen nicht den Quelltext, sondern die SCHICHT:
+die App wird ein zweites Mal geladen, mit untergeschobenem Sprachpaket in
+`gs_i18n_bundles`. Ein Schluessel MIT Uebersetzung muss sie zeigen, einer OHNE
+muss auf Deutsch zurueckfallen statt den rohen Schluesselnamen zu zeigen —
+**ohne die zweite Richtung waere eine Schicht, die alles auf den
+Schluesselnamen wirft, ebenfalls gruen.**
+
+**Was er nicht prueft:** ob die Uebersetzung in der Datenbank existiert und ob
+sie gut ist. Das braucht Netz und Sprachkenntnis. Er prueft, ob eine
+vorhandene Uebersetzung ueberhaupt ankommen KANN.
+
+**Seit v32.78 gibt es ZWEI Wege zur Übersetzung, und beide speisen sich aus
+dem Code** (Audit E1). Der Schlüssel-Weg (`_t(key, 'Deutsch')` +
+`GS_I18N_JS_STRINGS`) für Oberflächentexte — und der **Phrasen-Weg**
+(`gsI18n.tText(s)`, v30.18) für Toasts, Rückfragen, `placeholder`,
+`aria-label` und Menü-Labels: übersetzt wird am deutschen Satz selbst.
+Damit der Übersetzer die Sätze kennt, liest der Sammler sie aus dem
+eigenen Quelltext (`gsI18nMeldungenAusQuelltext`, reine Funktion) und aus
+dem Dokument (`gsI18nDokumentPhrasen`). Drei Regeln daraus: ein Toast
+bekommt sein Literal als GANZEN Satz (`'Fehler: ' + x` übersetzt niemand);
+wer `placeholder`/`aria-label` liest, liest `data-i18n-orig-<attr>` wenn er
+das Original braucht. Ein zusammengesetzter Satz ist dabei
+**kein** Satz: `'Fehler: ' + x` sieht der Sammler bewusst nicht (er
+ueberspringt jedes Literal mit folgendem `+`). **Und der Sammler sieht sie NICHT** (v32.88): ein zusammengesetzter Satz an
+einem Anzeige-Schluessel (`titel`, `text`, `unter`, `label`, `grund`) steht in
+allen vier Sprachen deutsch da, ohne dass etwas meldet. Gemessen am
+08.09.2026: **41 solche Stellen**, drei davon umgestellt. Die groesste
+Restgruppe (12× `grund: 'Fehler: ' + e.message`) ist **kein** Fall fuer
+`_gsSatz`, sondern fuer `_gsFehlerText` an der ANZEIGE-Stelle — es sind
+Rueckgabewerte, keine Texte. Wer hier aufraeumt, verfolgt jede Stelle einzeln
+bis zur Anzeige; ein Sweep ueber die 5,7-MB-Datei ist ein Eingriff (v32.25).
+Seit v32.83 gibt es dafuer
+`_gsSatz('… {1} …', wert)` — die **Vorlage** wird uebersetzt, die Werte
+werden **danach** eingesetzt, damit `{1}` in fr und it die Stellung
+wechseln darf; ein fehlender Wert wird zu nichts. Was der Uebersetzer
+bilden koennen muss (Plural, Anrede), ist Grammatik und gehoert in ZWEI
+ganze Saetze, nicht in einen Platzhalter — seit v32.90 auch wirklich so
+gebaut (`n === 1 ? _gsSatz('Pflanze erkannt') : _gsSatz('Pflanzen erkannt')`).
+Ein Grund aus mehreren optionalen Teilen wird ebenso in ganze Saetze zerlegt
+und mit „·" verbunden: **Zeichensetzung ist keine Sprache.** Und die
+Gegenprobe zur Regel: `titel`/`text`/`label`/`grund` mit einem Literal und
+folgendem `+` waren am 08.09.2026 **41** Stellen, heute **vier** — die vier
+gehen in einen KI-Prompt oder in eine Datenbankzeile, nicht auf den
+Bildschirm. Wer die Zahl wachsen sieht, prueft jede Stelle bis zu ihrer
+ANZEIGE; drei der vier waeren bei einem Sweep falsch behandelt worden. Und ein Datum formatiert mit
+`gsLocale()`, nie mit
+`'de-CH'` — `i18n_check` meldet jedes `toLocale*String('de-CH')`. Und ein
+Monats- oder Wochentagsname kommt aus `gsMonate(kurz)` / `gsWochentage()`
+(seit v32.81, aus `Intl` mit `gsLocale()`), nie aus einer Liste im Code —
+`i18n_check` meldet jede.
+
+> **Und beide brauchen einen Rueckfall, der wirklich einer ist** (v32.94).
+> Liefert `Intl` ZAHLEN statt Namen — Browser mit abgespecktem ICU, also
+> guenstige Android-Geraete —, dann rief `gsMonate` sich selbst mit denselben
+> Argumenten und stuerzte mit „Maximum call stack size exceeded" ab, beim
+> START. `gsWochentage` hatte die richtige woertliche Liste, erkannte Zahlen
+> aber gar nicht erst als Fehler (`some(x => !x)` prueft nur auf LEER) — der
+> Kalender haette „1 2 3 4 5 6 7" gezeigt. Beide pruefen jetzt `/^\d+$/` und
+> fallen auf eine deutsche Liste zurueck. **Wer eine Schwesterfunktion als
+> Vorbild nimmt, vergleicht nicht nur den Rueckfall, sondern auch die
+> BEDINGUNG, unter der er greift.**
+
+**Und noch eine Falle, die kein Pruefstand sieht:** `_t` ist KEINE globale
+Funktion. Jede Funktion legt sich einen eigenen Alias an
+(`var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){return f;}`).
+Das ist richtig so — er bindet beim AUFRUF, nicht beim Laden. Wer `window._t`
+prueft, prueft eine Variable, die es nie gab; die oeffentliche Schnittstelle
+heisst `gsI18n.t`.
+
+**`backend_check.js` (seit v32.18) prueft die NAHT** — die App spricht 97 RPCs
+und 111 Tabellen/Views in Supabase an; existiert jede davon? Ein Aufruf ins
+Leere sieht nach nichts aus: PostgREST meldet einen Fehler, die App faengt ihn
+ab, die Ansicht bleibt leer.
+
+Er vergleicht gegen eine **Momentaufnahme im Repo**
+(`docs/backend-inventar.json`), nicht gegen die lebende Datenbank. Preis: sie
+veraltet — deshalb nennt der Bericht IMMER ihr Datum; eine Zahl ohne Datum
+waere eine Behauptung. Gewinn: er laeuft ohne Netz und ohne Zugangsdaten wie
+die anderen dreizehn, und VOR dem Ausliefern.
+
+**Drei Klassen, nicht zwei** — daran haengt, ob so ein Pruefstand brauchbar
+bleibt:
+
+- **rot** — angesprochen, existiert nicht, nichts vorbereitet.
+- **offen** — existiert nicht, aber eine Migration liegt bereit. Kein Fehler im
+  Code, sondern eine Aufgabe fuer jemanden mit Schreibrecht. Wird NAMENTLICH
+  genannt, nie stillschweigend durchgewunken.
+- **neu** — seit der Momentaufnahme dazugekommen; heisst: nachziehen.
+
+Ohne die mittlere Klasse waere `comment_reactions` dauerhaft rot und der
+Pruefstand damit wertlos.
+
+**Eine Lehre aus v32.20, die JEDEN Pruefstand betrifft, der nach Namen
+sucht:** `wiring_check` Richtung 3 kannte nur `open…` / `gsOpen…` / `show…`.
+Dieses Repo benennt aber auch auf Deutsch — `gsKorrekturOeffnen` (v32.05) und
+`gsEingrenzenOeffnen` (v32.20) fielen beide durch das Muster. **Zwei Fenster,
+die nie jemand geprueft hat, ohne dass irgendetwas rot war.** Muster
+erweitert; wer eine neue Namensform einfuehrt, traegt sie dort nach.
+
+**Und noch einmal die Farbregel, diesmal in der anderen Richtung:**
+`--g-dark` und `--g-light` KIPPEN im Dunkelmodus (dort ist `--g-dark` das
+HELLE Gruen). In v32.20 habe ich „vorsorglich" eine `body.dark`-Zeile
+geschrieben und damit dunkelgruen auf dunkelgruen erzeugt — 1,23:1. Der
+Basiswert war in beiden Modi richtig. **Eine Farbe erst aendern, wenn der
+Messwert da ist** — nicht vorbeugend, und auch nicht auf Verdacht.
+
+**Und die Grenze, die dabei gilt und die keine Sitzung ueberschreiten
+sollte:** `STATUS.md` (2026-08-31 y) fuehrt eine LISTE OFFENER MIGRATIONEN,
+die bewusst NICHT angewandt sind. Eine fruehere Sitzung hat sie gegen das
+Live-Schema vorgeprueft und die Anwendung Fernando ueberlassen. DDL auf einer
+Produktivdatenbank mit laufenden Zahlungen ist nichts, was nebenbei passiert —
+auch dann nicht, wenn die Migration im Repo liegt, idempotent ist und man den
+Zugang haette. Nachmessen: ja, jederzeit, nur lesend. Anwenden: nein.
+
+**Was beim Nachmessen aufgefallen ist und allgemein gilt:** ein Rueckstand
+veraltet auch. Eine der fuenf Zeilen stand seit zwei Tagen auf „offen",
+obwohl der Trigger laengst da war. Wer so eine Liste liest, misst sie besser
+nach, statt sie zu glauben.
+
+**`kamera_check.js` (seit v32.29) prueft die Rechnung hinter dem Sucherbild.**
+Anlass war Fernandos Satz „immer wenn ich ein Scan machen moechte ist die
+Kamera in einem Zoom". **Sie war es nie.** Zwei Ursachen, beide im Code:
+
+1. Angefordert wurde **1920x1080 — Querformat** — und gezeigt mit
+   `object-fit: cover` in einem hochkanten Streifen. Nachgerechnet fuer ein
+   uebliches Telefon (412x750 sichtbar): das Bild wird auf 1333x750 skaliert,
+   sichtbar bleiben 412 — **69 % des Bildwinkels liegen ausserhalb.** Das
+   sieht aus wie ein Zoom und ist ein Zuschnitt; kein Zoom-Knopf holt es
+   zurueck. (Die Abhilfe von v32.29 war falsch — siehe den Kasten unten.)
+2. `gsSetZoom` klemmte auf eine **geratene** Spanne 1,0–5,0. Auf Telefonen,
+   deren Weitwinkel bei `zoom.min = 0.5` beginnt, war der weiteste Bildwinkel
+   damit unerreichbar. Die Spanne kommt jetzt aus
+   `track.getCapabilities().zoom`.
+
+**UND DIE TEUERSTE LEHRE (v32.30): die richtige Ursache, die falsche Abhilfe.**
+v32.29 hat aus dem Zuschnitt gefolgert, man muesse der Kamera ein hochkantes
+Format ABVERLANGEN. Eine Kamera kann ihren Bildwinkel aber nicht vergroessern —
+ein vorgegebenes Seitenverhaeltnis ist ein **Zuschnitt-Auftrag an den Sensor**:
+
+```
+Sensor liefert    1.778  (16:9)
+angefordert       0.549  (Behaelter hochkant)
+bleibt vom Winkel   31 %
+```
+
+Dieselben 31 % wie vorher, nur frueher — und damit auch im aufgenommenen Foto.
+Es wurde SCHLIMMER als der Zustand, den es reparieren sollte.
+
+> **Ein Zuschnitt in der ANZEIGE ist umkehrbar, einer in der QUELLE nicht.**
+> Wer etwas zurueckhaben will, darf es nicht an einer frueheren Stelle
+> wegnehmen. Das gilt weit ueber Kameras hinaus — fuer jede Kette, in der
+> Daten erst erhoben und dann dargestellt werden.
+
+Seit v32.30 wird der Kamera **kein** Seitenverhaeltnis vorgegeben (nur ein
+Aufloesungswunsch im nativen 4:3), und die Vorschau nutzt `object-fit: contain`.
+`kamera_check` haelt beides fest.
+
+**Die Regel, die daraus folgt:** eine Spanne, die man nicht beim Geraet
+erfragt hat, ist geraten — und Geraeteklassen unterscheiden sich hier
+tatsaechlich.
+
+**v32.32 hat drei weitere Fehler behoben, alle auf EINER Aufnahme von Fernandos
+Telefon sichtbar — und alle drei aus dieser Sitzung.** Sie sind hier
+festgehalten, weil jeder davon eine Regel traegt, die weit ueber die Kamera
+hinausgeht.
+
+**0 · Und v32.34 hat das Ganze wieder VEREINFACHT.** Fuenf Fassungen in zwei
+Tagen, jede mit mehr Technik als die davor — v32.32 loeste es mit einer
+CSS-Variablen, zwei Ereignis-Zuhoerern und einem Timer. Dasselbe Bild liefern
+drei Zeilen: `width:100%; height:100%; object-fit:contain` in einem
+bildschirmfuellenden Kasten. Alles andere ist ersatzlos weg.
+
+> **Was ohne Zutun richtig ist, braucht kein Zutun.** Wer an einer Stelle
+> mehrfach nachbessert, sollte pruefen, ob die einfachste Regel das Ergebnis
+> nicht von selbst liefert — statt Technik hinzuzufuegen, um es zu erzwingen.
+
+`kamera_check` misst das entsprechend **rechnend** statt ablesend: fuer drei
+Seitenverhaeltnisse muss das dargestellte Bild GANZ in den Kasten passen
+(sonst beschnitten) UND mindestens eine Kante BERUEHREN (sonst kleiner als
+noetig). Gegengeprueft mit `cover` (ragt hinaus) und einem verkleinerten
+Kasten (fuellt den Rahmen nicht).
+
+**1 · Ein Viertel des Bildschirms schwarz.** v32.31 hat den RAHMEN aufs
+Bildformat geschrumpft; die Bedienelemente haengen mit `position:absolute;
+bottom:0` an ihm und rutschten mit.
+
+> **Ein Rahmen, an dem etwas anderes haengt, darf sich nicht nach seinem
+> Inhalt richten.**
+
+Seither traegt das `<video>` das `aspect-ratio`, nicht der Rahmen.
+
+**1b · Und zwei aeltere Streifen, die nie jemand gemessen hat.** `.screen::after`
+haengt an JEDEN Bildschirm 80 px Luft fuer die Tab-Leiste — die auf dem Scanner
+ausgeblendet ist. Und `.scan-wrap` rechnete die Bildschirmhoehe von Hand nach
+(`calc(100dvh − --st − --top-h − --sb − --tab-h)`) und zog dieselbe Tab-Leiste
+ein zweites Mal ab. Die gerechnete Hoehe ist **ersatzlos** gestrichen; die
+Hoehe kommt jetzt aus dem Layout. Dafuer musste `#screen-scanner` sein inline
+`position:relative` abgeben — es ueberschrieb das `position:absolute` aus
+`.screen` und machte den Bildschirm-Kasten **inhaltshoch** statt bildschirmhoch
+(womit nebenbei auch `#scan-result` mit seinem `inset:0` zu kurz war).
+
+> **Eine Groesse, die aus dem Layout kommt, kann nicht danebenliegen — eine
+> nachgerechnete schon.**
+
+**2 · „Linse 1 · Linse 2 · Linse 3 · Linse 4".** Android nennt seine Kameras
+`camera2 0, facing back`; daraus wird kein Name. Und die Leiste stand
+ZUSAETZLICH zum Zoom-Regler, der auf Android bereits alle Objektive abdeckt.
+
+> **EINE Aufgabe, EIN Bedienelement.** Zwei Wege zum selben Ziel sind keine
+> Wahlfreiheit, sondern eine Zumutung.
+
+Die Leiste erscheint jetzt nur, wenn das Geraet **keinen** steuerbaren Zoom
+meldet (iOS, wo die Objektive die Stufen sind).
+
+**3 · „1.0x" am weitesten Punkt.** Die Anzeige normierte auf `zoom.min` — bei
+einer 0,5–8-Kamera stand am weitesten Punkt „1.0x" (sieht aus wie „kein
+Zoom") und am Anschlag „16.0x" (gab es nie). Jetzt steht dort der Wert des
+Geraets, wie in jeder Telefon-Kamera-App. Die Normierung war gut gemeint:
+sie sollte nichts erfinden, was die Schnittstelle nicht hergibt. Sie hat
+stattdessen etwas VERAENDERT, was die Schnittstelle klar sagt.
+
+**Und die Frage nach der toten Flaeche war in drei Anlaeufen gruen, ohne etwas
+zu pruefen** — je nach Bezug: Rahmen gegen Abschnitt (schrumpfen gemeinsam),
+Knoepfe gegen die Tab-Leiste (die auf dem Scanner ausgeblendet ist, Rechteck
+0x0 — es wurde mit lauter Nullen gerechnet), Knoepfe gegen `#screen-scanner`
+(der Kasten schrumpft im Fehlerfall MIT: gemeldet wuerden 80 px statt 470).
+
+> **Ein Bezug, der mit dem Fehler mitwandert, verharmlost ihn.** Gemessen wird
+> gegen den einzigen Kasten, der nie mitwandert — hier `#app`
+> (`position:fixed` ueber den ganzen Bildschirm).
+
+**Dazu eine Messfalle, die JEDEN Pruefstand betrifft:** `.screen.active > *`
+traegt `animation: rrFadeSlideUp .42s … both` mit
+`from{transform:translateY(12px)}`. Wer einen Abschnitt sichtbar schaltet und
+**sofort** misst, misst einen Keyframe — ich habe eine halbe Stunde einen
+16-px-Versatz gesucht, den es 420 ms spaeter nicht mehr gibt.
+
+> **Ein Element, das gerade sichtbar geworden ist, wird erst NACH seiner
+> Eintritts-Animation vermessen.**
+
+Neun Fragen, alle mit gestellten Faehigkeiten: Seitenverhaeltnis folgt dem
+Behaelter · Spanne kommt vom Geraet · weitester Punkt erreichbar · am oberen
+und am unteren Anschlag uebernimmt die Nachbarlinse · ohne Zoom-Faehigkeit
+sind die Linsen die Stufen (iOS) · bei Ablehnung aendert sich die Anzeige
+nicht · ist keine Linse mehr da, sagt die App das · die Objektivnamen kommen
+aus der Beschriftung, sonst eine Nummer.
+
+**Zwei Fallen beim Bau, beide schon bekannt und trotzdem wieder eingetreten:**
+
+- **Der Fall muss hergestellt UND nachgewiesen werden.** `.scan-wrap` haengt
+  unter `#screen-scanner`, das ausserhalb eines laufenden Scans auf
+  `display:none` steht — ein verborgener Vorfahre macht jede Groesse zu 0,
+  auch bei `position:fixed`. Beide Messungen lieferten deshalb den
+  FENSTER-Rueckfall, also denselben Wert, und der Fall waere gruen gewesen,
+  ohne etwas zu zeigen. Er misst jetzt die hergestellte Groesse mit und faellt
+  durch, wenn sie 0 ist.
+- **Eine Attrappe ist kein MediaStream.** `video.srcObject = …` wirft bei
+  einem gestellten Objekt; der Linsenwechsel schlug daran fehl, nicht am
+  Code. Im Pruefstand wird `srcObject` deshalb entschaerft.
+
+**`tour_check.js` (seit v32.39) fragt, ob die App-Tour auf etwas ZEIGT.**
+Anlass war Fernandos „eine bessere App Tour". Vor dem Bauen gemessen — und
+der erste Befund war der lehrreiche: Karte 2 sagte „Tippe unten auf
+‚Scanner'", und die Tab-Leiste war in genau diesem Moment **0x0 px gross**.
+Die Karte rief `switchTab('scanner')`, das setzt `body.gs-scanner-active`, und
+die Regel dazu (v23.69) blendet die Leiste aus. **Die Tour versteckte den
+Knopf, auf den sie zeigte.** Dazu: kein Zurueck, keine Tastatur, keine
+Hervorhebung, null Uebersetzungsschluessel.
+
+> **Eine Tour, die nur erzaehlt, ist ein Text. Eine Tour, die ZEIGT, ist eine
+> Tour.** Und was sie zeigt, muss sichtbar sein — sonst zeigt sie auf nichts.
+
+Seit v32.39 nennt jede Karte ein `ziel` (echter CSS-Selektor), ein Ring hebt
+es hervor, und die Karte weicht nach oben aus, wenn das Ziel unten steht.
+**Gegenprobe mit der alten Fassung: vier von sieben Fragen rot.**
+
+Drei Dinge aus dem Bau, alle allgemein:
+
+- **Der Scheinwerfer GLEITET** (CSS-Uebergang). Die erste Fassung mass 90 ms
+  nach dem Rendern und meldete drei von vier Karten als „passt nicht" — der
+  Ring sass 300 ms spaeter genau. Dieselbe Falle wie in v32.32.
+- **Eine Ueberdeckungs-Frage muss zuerst pruefen, dass es etwas zu ueberdecken
+  GIBT.** In der Gegenprobe war die Tab-Leiste 0x0, und „kein Ueberlapp mit
+  einem unsichtbaren Ziel" meldete gruen — die Frage konnte im Fehlerfall gar
+  nicht rot werden.
+- **Berechnete Schluessel entziehen sich `i18n_check`.** Die Karten bauen
+  `t + '_title'` / `t + '_body'`; eine Textsuche nach `_t('…')` sieht davon
+  nichts. `i18n_check` hat deshalb eine Frage bekommen, die DATENLISTEN
+  ausdruecklich eintraegt — dieselbe Antwort wie bei `MENU_ITEMS` und
+  `GS_NOTIF_ZIELE` in `wiring_check`. **Wer eine weitere solche Liste baut,
+  traegt sie dort ein.**
+
+**`einstellungen_check.js` (seit v32.33) faehrt die Versprechen der Schalter
+wirklich durch.** Anlass war ein Audit des Einstellungs-Bildschirms aus sechs
+Blickwinkeln: 48 Stellen, 20 davon haben eine gegnerische Gegenpruefung
+ueberstanden. Der rote Faden war derselbe wie im ganzen Repo — **ein Schalter,
+der etwas behauptet, das niemand nachgesehen hat.** Die drei schwersten:
+
+| Schalter | sagte | war |
+|---|---|---|
+| Push-Master | „🔔 Push-Notifications aktiv!" | Browser-Abonnement da, Serverzeile nie geprueft — ohne sie kommt nie ein Push |
+| GPS | „✅ GPS aktiv — Standort wird automatisch erkannt" | Browser hatte die Freigabe entzogen, die App wusste es und las den falschen Speicher |
+| „Kamera immer neu abfragen" | „jede Anfrage bestaetigen" | genau EINE Bestaetigung, beim ersten Scan; zwoelf weitere Kamera-Wege kannten den Schalter nie |
+
+Drei Regeln daraus, alle allgemein:
+
+- **Zwei Speicher fuer dieselbe Frage sind ein Fehler, der auf sein Datum
+  wartet.** `gs_gps_perm` (App) und `gs_perm_location` / `gsPermState`
+  (Browser) beantworteten beide „darf ich orten?", und niemand glich sie ab.
+  Wo zwei Speicher dieselbe Frage beantworten, gewinnt der, der sie
+  beantworten DARF — hier der Browser.
+- **Dasselbe beim Zuruecksetzen: wer einen Zustand raeumt, raeumt ALLE
+  Kopien.** Der Kamera-Schalter loeschte `gs_cam_perm` und liess
+  `gs_perm_camera` und `gsPermState.camera` stehen — und `gsRequestCamera`
+  liest genau die.
+- **Dreizehn Aufrufstellen brauchen EINE Nachruestung, nicht dreizehn
+  Pflaster** (dieselbe Entscheidung wie bei der Tastatur in v32.16). Das Tor
+  fuer „jede Anfrage bestaetigen" sitzt an `navigator.mediaDevices
+  .getUserMedia` selbst — der einzigen Stelle, durch die alle muessen. Die
+  naechste Kamera-Stelle bringt den Fehler damit nicht wieder mit.
+
+**v32.35 hat ihn auf 13 Fragen erweitert** — Einstellungs-Suche, Namen,
+Kopfzeile, Klebeverhalten. Drei Lehren aus dem Bau, alle allgemein:
+
+- **Eine Suche darf nicht davon abhaengen, wie der Inhalt AUSGEZEICHNET ist.**
+  Die Einstellungs-Suche kannte nur `.settings-row`. Die 18 Bedienelemente des
+  Push-Panels waren damit gar nicht auffindbar (8 von 8 Suchwoertern:
+  „Keine Einstellung gefunden.", waehrend das Wort sichtbar dastand), und
+  Karten mit Zeilen blieben umgekehrt bedingungslos stehen. Jetzt gibt es EINE
+  Regel fuer jeden Rumpf, und sie fragt den Text ausserhalb der Zeilen mit.
+- **Ein Name ist nicht `aria-label`.** Er entsteht auch aus einem
+  umschliessenden `<label>` mit Text, aus `for`, aus `title`. Die erste
+  Fassung dieser Frage suchte nach `aria-label` und haette neun korrekt
+  benannte Kaestchen als namenlos gemeldet. Gemessen wird der ECHTE
+  Barrierefreiheits-Baum ueber CDP (`Accessibility.getPartialAXTree`).
+- **Und sie mass im ZUGEKLAPPTEN Zustand** — neun Elemente statt
+  einunddreissig, und meldete „alle benannt". Aufgefallen ist das nur, weil
+  die Gegenprobe (Nachruestung ausgebaut) **gruen blieb**.
+
+  > **Eine Gegenprobe, die gruen bleibt, ist der Beweis, dass die Frage nichts
+  > misst — nicht dass alles in Ordnung ist.**
+
+Dazu zwei Fundstuecke, die ueber die Einstellungen hinausgehen:
+
+- **Ein `overflow`, das nie etwas abschneidet, ist kein harmloses Beiwerk.**
+  `#settings-scroll` trug `overflow-y:auto` und hat NIE gescrollt
+  (`scrollHeight === clientHeight`) — war damit aber der Scrollport, gegen den
+  das `position:sticky` der Suche rechnet. Die Suche bewegte sich 1:1 mit dem
+  Scrollweg.
+- **`--accent` gibt es in dieser Datei nicht** (0 Definitionen, 3 Nutzungen).
+  Ein `var(--X, fallback)` mit einem Namen, den niemand definiert, ist eine
+  feste Farbe mit Tarnkappe: sie kippt nicht mit dem Modus und faellt keinem
+  auf, der nach Farbnamen sucht.
+
+**v32.36 kam der Cloud-Abgleich der Einstellungen dazu** (16 Fragen). Drei
+Fehler, die einander verstaerkt haben — und zwei Regeln daraus:
+
+> **Ein Pull, der ERSETZT statt zu mergen, ist kein Abgleich, sondern ein
+> Rueckschnitt auf das, was der Server zufaellig kennt.** `gsPrefsPull`
+> schrieb die Serverzeile als neuen `gs_prefs`-Block; gemessen wurden aus 19
+> Einstellungen sechs. Zusammen mit „drei Schalter pushen nie" heisst das:
+> Kompakt- und Senioren-Modus wurden nie hochgeladen UND beim naechsten Pull
+> geloescht — auch auf dem Geraet, auf dem sie gesetzt wurden. Und der Pull
+> laeuft alle 120 Sekunden.
+
+> **Ein Automatismus, den zwanzig Stellen von Hand umgehen, ist keiner mehr.**
+> Der Auto-Track fuer `STATE_KEYS` patcht `Storage.prototype.setItem` — dieses
+> Repo hat seit v30.98 eine EIGENE `localStorage.setItem`-Eigenschaft, die den
+> Prototyp vollstaendig verdeckt. Zwanzig Stellen rufen `markDirty('state')`
+> deshalb ausdruecklich auf, mit Kommentaren wie „Auto-Track ist geshadowed".
+> Wer eine neue Stelle baut, die einen STATE_KEY schreibt, ruft ihn ebenso —
+> sonst reist der Wert nur zufaellig.
+
+Dazu ein drittes Muster: **ein Pull muss WIRKEN, nicht nur schreiben.**
+`gsPrefsPull` schrieb Speicher und Variable und rief keine `apply*`-Funktion;
+der Bildschirm sagte danach etwas anderes als der Speicher, und beim naechsten
+`loadPrefs()` sprang die Oberflaeche ohne erkennbaren Anlass um.
+
+**v32.37 kamen die zerstoerenden Aktionen dazu** (19 Fragen). Drei Regeln:
+
+> **Eine Loeschung nach PRAEFIX ist eine Wette darauf, dass niemand je einen
+> Schluessel anders benannt hat.** „Alle Daten loeschen" raeumte `gs_` und
+> `ps_`; von 36 Schluesseln blieben zwei — `greenscan_markers` (Fundorte mit
+> GPS) und `userLocation`. Genau die Daten, wegen denen jemand den Knopf
+> drueckt.
+
+> **Die zerstoerende Antwort darf nie die bequemste sein.** `gsConfirmModal`
+> fokussierte den OK-Knopf und liess Enter bestaetigen — bei JEDEM
+> `kind:'danger'`-Dialog. Escape auf „Abbrechen" war schon richtig; die
+> Vorauswahl war die falsche Haelfte.
+
+> **Die Rueckfrage gehoert in die FUNKTION, nicht an den Aufrufort.** Vier
+> Wege fuehrten zum Sperren und zum Lifetime-Abo, drei ohne Rueckfrage. Wer
+> die Frage am Aufrufort platziert, laesst jede neue Aufrufstelle neu
+> entscheiden — hier haben sich drei von vier falsch entschieden.
+
+Zwei Messfallen aus derselben Sitzung, beide allgemein:
+
+- **`location.reload` laesst sich nicht zuverlaessig ersetzen.**
+  `Object.defineProperty(location,'reload',…)` sah gestellt aus und
+  navigierte trotzdem. Abfangen laesst sich statt dessen der TIMER — der
+  geplante Neustart ist damit sogar besser belegt als ein abgewarteter.
+- **`Object.keys(localStorage)` zaehlt in diesem Repo nicht nur Eintraege.**
+  Die eigenen `setItem`/`getItem`/`removeItem`-Eigenschaften am
+  localStorage-Objekt tauchen dort auf. Ueber `localStorage.length` /
+  `key(i)` zaehlen.
+
+**v32.38 schloss das Audit ab** (21 Fragen, alle 24 bestaetigten Meldungen
+behoben). Drei Regeln aus der letzten Welle:
+
+> **Eine Wahl, die bestaetigt und nicht umgesetzt wird, ist schlimmer als
+> keine Wahl.** `gsGetLocationFor('weather')` gab es seit v28.03 und
+> funktionierte — es rief nur niemand auf (zwei Treffer im Repo: Definition
+> und `window`-Zuweisung). Die Zeile „Wetter-Standort" setzte einen Haken,
+> zeigte einen Toast, und alle fuenf Wetter-Verbraucher loesten den Ort selbst
+> auf. Niemand meldet so etwas, weil das Ergebnis plausibel aussieht.
+
+> **Wer einen Schalter entfernt, entfernt auch seinen Wert.** Neun Felder in
+> `DEFAULT_PREFS` ueberlebten das Entfernen ihrer Schalter (v29.21) und ihrer
+> `toggleMap`-Eintraege (v31.11). `safetyWarnings: true` stand damit in der
+> Datenbank und liess auf abschaltbare Giftwarnungen schliessen, die es nicht
+> gibt.
+
+> **Gemessen wird der VERTRAG einer Funktion, nicht das, was sie zufaellig
+> zurueckgibt.** `gsGetWeatherLocation()` gibt nichts zurueck — sie setzt
+> `_gsWeatherLat`/`_gsWeatherLon`/`_gsWeatherCity`. Mein erster Anlauf gab
+> dort ein Objekt zurueck und haette die drei Variablen nie gesetzt. Die
+> erste Fassung der Pruefstands-Frage las den Rueckgabewert und haette den
+> Umbau durchgewinkt.
+
+Dazu, aus derselben Stelle: **ein Pruefstand, der abstuerzt, hat nichts
+gemessen.** Eine Frage muss auch dann MELDEN, wenn die Funktion dahinter
+kaputt ist — sonst ist die Gegenprobe weder rot noch gruen.
+
+**v32.40 hat die elf ungeprueften Meldungen des Audits selbst nachgemessen**
+(29 Fragen; zehn bestaetigt und behoben, eine nicht nachstellbar). Vier
+Messfallen dabei, alle vier haben ZUERST FALSCH gemeldet — und alle vier
+gelten fuer jeden Pruefstand mit mehreren Fragen in EINEM Lauf:
+
+- **Eine Frage, die nach einer Loeschung misst, misst die Loeschung.** Eine
+  fruehere Frage faehrt `clearAllData()`; die spaeteren massen „Regler 0 px"
+  und „Backup liefert immer null".
+- **Wer einen Zustand braucht, stellt ihn HER — er schaltet ihn nicht um.**
+  `gsSettingsToggleAll()` kippt; nach vorherigen Fragen war der Zustand
+  unbekannt.
+- **Eine Attrappe, die mehr ersetzt als noetig, misst die Attrappe.** Ein
+  `gsStore.get`-Stub, der fuer alles ausser einem Schluessel den Vorgabewert
+  zurueckgibt, hungert jede Funktion aus, die den Speicher liest.
+- **Eine Zaehlung im Quelltext zaehlt auch Kommentare und Aufraeumlisten.**
+  Die Frage nach `gs_perm_geolocation` meldete rot fuer eine Reparatur, die
+  schon da war. Gezaehlt wird der SCHREIBER (`setItem('…')`), nicht die
+  Erwaehnung.
+
+**Und eine Frage, die es ohne v32.34 nicht gaebe:** geht die Kamera-Anfrage
+bei AUSGESCHALTETEM Schalter unveraendert durch? Das Tor lief als
+`async function`, also mit einem `await` vor dem Durchreichen. Gemessen wird
+mit einer Attrappe UNTER dem Tor (im `addInitScript`, bevor die App ihr Tor
+baut), die vermerkt, ob eine vom Aufrufer gesetzte Marke noch steht.
+
+> **Ein Riegel, der nur fuer wenige gilt, darf den Weg der vielen nicht
+> anfassen.**
+
+**Zwei Sperren stellt er ausdruecklich, statt sie zu umgehen:**
+`Notification.requestPermission` (ohne Antwort bricht der Push-Weg ab, bevor
+irgendetwas passiert) und `location.reload` (der Sprachwechsel laedt die Seite
+neu und nimmt den Pruefstand mit).
+
+**Gegenprobe gemacht** — alle Reparaturen einzeln zurueckgebaut: der
+Pruefstand meldete jede davon rot, mit den echten Zahlen daneben
+(`{"abgelehnt":true,"leer":true,"ok":true,"abgemeldet":true}`).
+
+**Grenze:** es gibt hier weder eine echte Kamera noch einen echten
+Supabase-Server. Geprueft ist die RECHNUNG und die AUSSAGE — was die App aus
+einer Antwort macht, nicht ob die Antwort echt ist.
+
+**`versprechen_check.js` (seit v32.28) stellt `save_check`s Frage STATISCH
+ueber alle.** `save_check` faehrt einzelne Wege wirklich zu Ende — genauer,
+aber Handarbeit je Weg (7 Eintraege). Die App hat **103 Schreibvorgaenge**.
+
+Und er stellt sie schaerfer, denn **nicht jeder fehlende Blick ist ein
+Fehler**: ein stiller Hintergrund-Schreibvorgang darf scheitern, er verspricht
+ja nichts. Zum Fehler wird es erst, wenn die App dem Nutzer sagt
+„gespeichert", ohne nachgesehen zu haben. Drei Klassen: **rot** (Versprechen
+ohne Pruefung) · **gruen** (Antwort angesehen) · **still** (kein Versprechen,
+wird nur gezaehlt).
+
+Erster Lauf: **vier rot, alle vier echt.** Doktor-Rueckmeldung,
+Schaedling-Eintrag, Duengungs-Eintrag und die Bio-Auszeichnung eines Inserats
+— Letztere nannte „🌱 Bio" in der Bestaetigung, auch wenn genau der PATCH,
+der dieses Feld schreibt, abgelehnt worden war.
+
+**Die Regel dahinter, und sie gilt fuer jeden Schreibvorgang:** `sbFetch`
+WIRFT NICHT. Ein `try/catch` faengt nur Netz- und JS-Fehler; eine Ablehnung
+laeuft mitten hindurch. Und PostgREST liefert bei einer von RLS abgewiesenen
+Zeile **0 Datensaetze und keinen Fehler**. Seit v32.28 gibt es dafuer
+`_gsSchreibOk(r)` — beides in einer Zeile, damit die naechste Stelle es nicht
+wieder einzeln macht. Wer `Prefer: return=minimal` schickt, macht die
+Ablehnung uebrigens UNSICHTBAR; fuer geprueftes Schreiben gehoert dort
+`return=representation` hin.
+
+Drei Fallen aus dem Bau, alle allgemein:
+
+- **Eine Absage ist kein Versprechen.** Nach der Reparatur meldete der
+  Pruefstand meine eigenen Fehlermeldungen — „Eintrag NICHT gespeichert"
+  enthaelt „gespeichert". Wer nach Wortstaemmen sucht, braucht die
+  Verneinung.
+- **Ein Zeichen, das zwei Dinge bedeuten kann, taugt nicht als Merkmal.** 🚫
+  stand in meiner Absage-Liste und heisst in dieser App „Pestizid-frei" — es
+  hat den einen echten Fund verschluckt.
+- **Reparatur und Pruefung brauchen dieselbe Regel** (schon v32.16): der neue
+  Helfer `_gsSchreibOk` musste in die Erkennung, sonst meldet der Pruefstand
+  jede Stelle rot, die ihn benutzt.
+
+`--alle` zeigt auch gruen und still. **Ein Pruefstand, der nur Fehler druckt,
+laesst offen, WARUM eine Stelle nicht auffaellt** — daran habe ich beim Bau
+zweimal falsch geraten.
+
+**Grenze:** rein statisch. Wer die Antwort in einem HELFER prueft, den die
+Funktion aufruft, wird rot gemeldet. Ein Treffer ist ein Verdacht, kein
+Urteil — wie bei `field_check.py`.
+
+> **Und die Grenze hat eine zweite Haelfte, die teurer ist** (v33.03): er sucht
+> eine Meldung neben einem **`sbFetch`-Aufruf**. Geht der Aufruf ueber einen
+> HELFER (`sbSaveProfile`), sieht er ihn nicht — und gilt der Schreibvorgang
+> gar nicht dem Server, sondern dem **Geraetespeicher**, stellt er die Frage
+> ueberhaupt nicht. Gemessen am 08.09.2026: drei Stellen sagten „gespeichert",
+> ohne nachzusehen — `toggleRecipeFav` (Meldung VOR dem Schreiben, Rueckgabe in
+> einem toten `catch`), `profEditName` (zwei ungeprueffte Schreibvorgaenge
+> hintereinander) und `profSetAvatar` (Meldung vor dem Serveraufruf, Antwort
+> nie angesehen). **Eine Frage, die nur eine Bauform kennt, ist blind fuer
+> dieselbe Sache in einer anderen.** Die vier Faelle dazu stehen in
+> `speicher_check` (voller Speicher) und `save_check` SERVER_WEGE.
+
+> **Und ein `.error` ist bei einem PATCH nur die halbe Prüfung** (v33.52).
+> Ein UPDATE, das RLS abweist, filtert still auf 0 Zeilen — PostgREST
+> antwortet OHNE Fehler. Ein abgewiesenes INSERT wirft dagegen einen Fehler
+> (auch ein Upsert mit `merge-duplicates`), und ein DELETE mit 0 Zeilen heisst
+> „war schon weg" (v32.69). Gemessen: von 99 Schreibvorgängen ohne RPC sind
+> 20 PATCH, und vier davon sagten „gespeichert" nach nur `.error`, alle vier
+> mit `return=minimal` (Profilfeld, Freundschaft annehmen, zwei Foto-Wege).
+> Seither ist in `versprechen_check` ein PATCH mit Versprechen rot, wenn er
+> die Zeilen nicht ansieht (`_gsSchreibOk`, `data.length`) oder sie mit
+> `return=minimal` abbestellt. **`_gsSchreibOk` erkennt 0 Zeilen nur an einem
+> Array** — wer ihn nimmt, schickt `return=representation` mit, sonst ist die
+> Prüfung wieder halb.
+>
+> **Und die Zahl davor war keine Messung.** v33.50 schrieb „gemessen — rund
+> 176 Stellen"; es war eine Schätzung über alle `if (r.error)`. Gemessen an
+> der eigentlichen Klasse waren es vier. **Ein Wort wie „gemessen" gehört nur
+> vor eine Zahl, die eine Rechnung hinter sich hat.**
+
+**`sync_check.js` (seit v32.23) fragt die Umkehrung zu `save_check`:** dieser
+prueft, ob das Gespeicherte im Geraet ankommt — jener, ob es aus der Cloud
+auch **zurueckkommt**.
+
+Die App schiebt drei Blobs hinaus (`user_plants` · `user_gardens` ·
+`user_app_state`), gebaut aus **47** localStorage-Schluesseln. Der Rueckweg
+(`stateMap` im Pull) ist eine **andere**, von Hand gepflegte Liste. Erster
+Lauf: **46 von 47.** Der fehlende war `gs_reminder_prefs` — seit v24.26 im
+Blob, in keiner Zeile des Rueckwegs, und vom Server-Cron gelesen. Die
+abgeschaltete Erinnerung war serverseitig wirksam und nur EINEM Geraet
+bekannt; das zweite schickte sein leeres `{}` hoch und schaltete sie wieder
+ein.
+
+**Die Schluesselliste liest er aus dem QUELLTEXT** (aus den drei Blob-Bauern),
+nicht aus einer eigenen Tabelle. Wer dem Blob ein Feld hinzufuegt, ist damit
+automatisch geprueft — und Frage 7 meldet ihn, solange er keinen Probewert
+hinterlegt hat. Eine Liste, die man pflegen muesste, veraltet; eine, die sich
+aus dem Code speist, nicht.
+
+Zwei Fallen aus dem Bau, beide allgemein:
+
+- **`gsCloudSync.flushNow()` ist nicht der Weg.** Das ist der Beacon-Pfad
+  (`sync = true`) und geht mit rohem `fetch` an `sbFetch` vorbei — die
+  Attrappe sieht nichts. Der erste Lauf meldete „0 Tabellen gepusht" und
+  haette damit ALLE 47 Felder als fehlend gemeldet. Der echte Weg im Betrieb
+  ist `markDirty(scope)` → `flushDebounced` (500 ms). **Ein Pruefstand, der
+  nichts sieht, sieht auch keinen Fehler** — erst pruefen, ob er ueberhaupt
+  etwas misst.
+- **Falsche Probewerte ERFINDEN Befunde.** Mit `gs_streak = '{"n":7}'` meldete
+  der Lauf vier Fehler, die keine waren: `_gsStreakApplyCloud` macht
+  `parseInt` daraus und steigt bei `NaN` richtigerweise aus; mit einem Tag von
+  vorgestern greift die Lueckenpruefung. In v31.98 haben falsche
+  Beispieldaten einen echten Fehler VERDECKT — hier haetten sie drei
+  erfunden. Beide Richtungen kosten dieselbe halbe Stunde.
+
+**Und eine Regel fuer den Pull-Schutz:** der Guard aus v28.97 („ein leeres
+Cloud-Array darf keine gefuellte lokale Liste ersetzen") prueft seit v32.23
+auch **Objekte**. `ps_votes`, `gs_wissen_read`, `gs_dq_stats` und
+`gs_reminder_prefs` sind keine Listen — fuer sie galt der Schutz nie.
+**Derselbe Verlust, andere Klammern.** Wer einen Schutz fuer eine Datenform
+baut, sieht nach, welche anderen Formen dieselbe Stelle passieren.
+
+**Grenze:** geprueft wird der Weg localStorage → Blob → localStorage. Ob die
+Cloud den Blob wirklich annimmt (RLS, Spaltentypen), sagt nur ein echter
+Server; dafuer ist `save_check` mit seinen SERVER_WEGEN zustaendig.
+
+**`storage_check.js` (seit v32.21) fragt, was auf dem Geraet LIEGEN BLEIBT,
+wenn sich jemand abmeldet.** Keiner der vierzehn anderen fragte das — und
+genau dort lag eine Klasse, die seit v29.10 **sechsmal** einzeln repariert
+wurde (v29.10, v29.19, v29.44, v30.94, v30.97, v31.12): jedes Mal ein Fund,
+jedes Mal ein Nachtrag in `GS_USER_KEYS`, nie eine Pruefung dahinter.
+
+Erster Lauf: von 209 gesetzten Schluesseln ueberlebten **130** das Abmelden,
+**123 davon standen in keiner Liste** — darunter `ps_api_key` (der persoenlich
+hinterlegte Anthropic-Schluessel), `gs_global_api_key`, `gs_auth_db` (lokale
+Anmelde-Ablage mit E-Mail-Adressen) und `gs_admin_pw_hash`. Dazu die zweite
+Haelfte, die den Fund erst teuer macht: `getApiConfig()` las beide Schluessel
+**ohne jede Anmelde-Pruefung** — auf einem geteilten Geraet scannte der
+naechste Nutzer auf Rechnung des vorigen.
+
+**Die Regel, die seither gilt und die der Pruefstand durchsetzt:**
+
+> Jeder Schluessel, der das Abmelden ueberlebt, muss **namentlich** in
+> `GS_KEEP_ON_LOGOUT` (oder `GS_KEEP_PREFIXES`) stehen.
+
+`GS_KEEP_ON_LOGOUT` gab es seit v26.69 — mit neun Eintraegen und der Ansage im
+eigenen Kopf: *„Dient als Doku."* **Eine Doku, die nichts erzwingt, waechst
+nicht mit.** Wer einen neuen Schluessel anlegt, traegt ihn in eine der beiden
+Listen ein, sonst meldet der Pruefstand ihn.
+
+Fuenf Fragen (A ueberlebt/unbenannt · B in `GS_USER_KEYS` und ueberlebt
+trotzdem · C als bleibend gefuehrt, aber weg · D in beiden Listen · E in einer
+Liste, im Quelltext unbekannt). **Zwei Gegenproben, beide stellen den Fall
+wirklich her** — ohne die zweite waere eine Pruefung, die C gar nicht mehr
+rechnet, ebenfalls gruen.
+
+Drei Dinge aus dem Bau, die allgemein gelten:
+
+- **Ein Praefix ist kein Schluessel.** Der erste Bericht meldete
+  `gs_aicalls_` als unklassifiziert — diesen Schluessel gibt es nie, nur
+  `gs_aicalls_<datum>`. Praefix-Familien brauchen eigene Listen
+  (`GS_USER_PREFIXES` / `GS_KEEP_PREFIXES`) und eigene Probewerte.
+- **Ein sauberer Speicher ist kein sauberer Bildschirm.** `marketListings`,
+  `farmState` und `_gsDev.registry` spiegeln geloeschte Schluessel im
+  Arbeitsspeicher; ohne Ruecksetzen zeigt die Oberflaeche bis zum naechsten
+  Neuladen die Inserate des vorigen Kontos. Und: bei `let` **wirft** ein
+  `typeof` in der zeitlichen Totzone — jede Zuweisung braucht ihr eigenes
+  `try/catch`.
+- **Eine Schranke ist nicht dasselbe wie eine Loeschung.** Auf
+  Bestandsgeraeten liegt der Schluessel schon; ihn bei einer bloss
+  ABGELAUFENEN Sitzung zu vernichten waere Datenverlust an etwas, das der
+  Nutzer selbst eingetippt hat. Deshalb gibt `getApiConfig()` ohne Anmeldung
+  nichts heraus, statt zu loeschen — und der User-Wechsel-Zweig raeumt auf,
+  sobald wirklich jemand anderes kommt.
+
+**Grenze, ehrlich benannt:** geprueft wird der `localStorage`. IndexedDB und
+die Cache-API prueft er **nicht** — dafuer ist `offline_check` zustaendig
+(seit v32.22 mit den Eigentums-Fragen, siehe unten). Ein Foto in der
+Warteschlange ueberlebt das Abmelden weiterhin; es geht seither aber nur noch
+an das Konto, das es aufgenommen hat.
+
+**Seit v32.25 oeffnet `contrast_check` JEDES Fenster selbst.** Bis dahin mass
+er SECHS — die App hat rund vierzig. Fuer alles andere galt die Ansage aus
+diesem Abschnitt: „wer Farbe in einem Modal setzt, das der Pruefstand nicht
+oeffnet, rechnet selbst nach". **Niemand rechnet selbst nach.**
+
+Die Liste von Hand zu verlaengern waere der falsche Weg gewesen — sie
+veraltet, wie jede gepflegte Liste. Stattdessen dieselbe Entdeckung wie in
+`wiring_check` Richtung 3: jeder Oeffner ohne Parameter, dessen Rumpf
+`openModal(` enthaelt, wird wirklich aufgerufen und vermessen. **Neue Fenster
+sind damit ab dem Tag ihrer Entstehung vermessen.** Die sechs von Hand
+gestellten bleiben — sie brauchen Daten, die kein Oeffner allein herbeiruft
+(Musterplan, Scan-Ergebnis).
+
+Der erste Lauf fand **44 Stellen im Hellmodus und 56 im Dunkelmodus**, in
+Fenstern, die noch nie jemand gemessen hatte. Vier Ursachen, und alle vier
+sind allgemeine Regeln:
+
+| Ursache | Regel |
+|---|---|
+| Text aus einem KIPPENDEN Merkmal auf FEST heller Flaeche | Eine feste Flaeche braucht eine FESTE Schrift. `--g-dark` wird im Dunkelmodus `#a5d6a7` — auf einem festen Pastellton sind das 1,0:1. |
+| Fest dunkelgruene Schrift (`#1a3d1a`) auf einer Flaeche, die im Dunkelmodus dunkel wird | Umgekehrt: eine Schrift auf einer THEMEN-Flaeche nimmt ein Merkmal, keine feste Farbe. |
+| FLAECHE aus `--g-main` / `--g-dark` / `--c-success` mit weisser Schrift | Fuellungen nehmen `--fill-brand` (hell `#1f6b2f`, dunkel `#2b7530` — beide tragen Weiss). Die Grün-Merkmale sind MARKEN-Toene und kippen. |
+| `opacity` auf TEXT, um einen Zustand zu zeigen | Deckkraft senkt den Kontrast BLIND — sie fragt nicht, worauf der Text steht. „Gesperrt" zeigt man mit `filter:grayscale(1)` oder einer anderen Textfarbe. |
+
+**Eine Lehre aus dem Aufraeumen selbst, und sie ist teuer:** ich habe
+`background:#2e7d32;color:#fff;` global durch `var(--fill-brand)` ersetzt und
+damit **21 nie gemessene Stellen** mitgenommen; die Ruecknahme traf dann 122
+Stellen, weil die Gegenrichtung auch die urspruenglichen `--fill-brand`-Nutzer
+erwischte. Die Datei war beschaedigt und musste aus dem letzten Commit
+zurueckgeholt werden. **Eine Suchen-und-Ersetzen-Aktion ueber eine 5-MB-Datei
+ist keine Aufraeumarbeit, sondern ein Eingriff** — jede Ersetzung braucht eine
+erwartete Trefferzahl, gegen die sie prueft (`viele(alt, neu, name, 7)`), und
+Farben werden nur geaendert, wo ein Messwert vorliegt.
+
+> **Ein fester Kasten ueber allem macht jede Schicht darueber unmessbar**
+> (v33.55). Die neue Teilen-Vorschau mass in `contrast_check` **0 Textstellen**,
+> obwohl sie offen war. `verdeckt()` sammelt jeden festen, deckenden Kasten —
+> und `#app` IST einer, ueber den ganzen Bildschirm. Gefragt wurde nur, ob er
+> den Text ueberlappt, nicht, ob er UNTER ihm liegt: damit galt jeder Text in
+> einem Dialog, der direkt am `<body>` haengt, als verdeckt. **Keiner dieser
+> Dialoge war je vermessen.** Seither ordnet die Pruefung zwei feste Schichten
+> auf oberster Ebene nach `z-index` (bei Gleichstand nach Dokument-Reihenfolge);
+> in JEDEM Fenster kamen rund sechs Stellen dazu (`gsShowMushroomSeason` 0 → 14),
+> und es blieb bei 0 unter AA. Dieselbe Klasse wie v31.78 („ein Fenster, das
+> gar nicht aufging, sieht aus wie eines ohne Fehler") — gefunden, weil der
+> Bericht die Zahl je Fenster nennt.
+
+**Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
+Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
+Textstellen**. Ohne diese Zahl sieht ein Fenster, das gar nicht aufging,
+genauso aus wie eines ohne Fehler; genau das ist beim Einbau passiert (das
+Aufräumen nach dem ersten Fenster blendete `#modal-content` mit aus). Zwei
+weitere Regeln stecken drin: was von etwas **Festem oder Klebendem**
+überlappt wird und was ein **scrollender Vorfahre abschneidet**, wird nicht
+vermessen — `elementFromPoint` hilft im zweiten Fall nicht, weil es dort den
+Vorfahren liefert und der das Element *enthält*, die Prüfung es also
+durchwinkt.
+
+**Und zwei Grenzen, die v32.12 gezeigt hat — beide gelten fuer jeden
+Pruefstand, nicht nur fuer diesen:**
+
+1. **Ein Pruefstand misst, was er ERREICHT.** Die neue Vorauswahl-Zeile machte
+   die Scan-Karte hoeher; dadurch rutschte der Knopf „Gegenprobe starten"
+   erstmals in den vermessenen Bereich — und meldete **2,15:1**. Der Fehler
+   war seit v32.10 da. Ein neuer Fund heisst also nicht, dass die letzte
+   Aenderung ihn verursacht hat; vor dem Beheben nachsehen, **seit wann** die
+   Stelle so aussieht (`git stash` + denselben Pruefstand laufen lassen).
+2. **Was keine Textstelle ist, sieht er nie.** Der Haken der Schrittliste ist
+   ein `background-image` mit weissem SVG-Strich — im Dunkelmodus weiss auf
+   `#a5d6a7`, also 1,64:1 und damit ein leerer Kreis. Kein Pruefstand hat das
+   gemeldet, gefunden wurde es beim Nachsehen eine Zeile hoeher. Dasselbe gilt
+   fuer `::before`-Inhalte und SVG-Fuellungen.
+
+Und die Ursache in beiden Faellen war dieselbe wie in v31.20: **ein
+`-d`-Token ist eine TEXTfarbe, keine Fuellung.** `--c-danger-d` ist hell
+`#b71c1c` und dunkel `#ef9a9a`; als Hintergrund mit `color:#fff` ist das
+einmal 6,6:1 und einmal 2,15:1. Wer eine Flaeche faerbt, nimmt eine feste
+dunkle Farbe oder schreibt eine `body.dark`-Regel dazu.
+
+**Seit v31.77 misst `contrast_check` auch im Planer-Fenster.** Er rendert den
+KI-Planer mit dem Musterplan aus `scripts/_seed.js` (`MUSTERPLAN` +
+`AGRONOMIE`), **ungefaltet** — ohne `gsPPTabify`, weil verborgene Abschnitte
+nicht gemessen werden — und scrollt ihn in Bildschirmhöhen durch. Der erste
+Lauf fand **24 Stellen hell und 19 dunkel**, darunter „Vorbeugen:" mit 1,08:1
+(heller Text auf fest weissem Kasten) und den Knopf „Plan speichern" mit
+2,70:1. Wer ein weiteres Fenster prüfen will: dieselbe Stelle in
+`contrast_check.js` erweitern, nicht einen zweiten Prüfstand bauen.
+
+**Seit v32.07 fragt `touch_check` zweierlei:** zu kleine Antippflaechen *und*
+Bedienelemente, die **seitlich aus dem Bildschirm ragen**. Ein Knopf halb
+draussen ist so unerreichbar wie einer mit 8×8 px. Gemeldet wird nur, was im
+NORMALEN FLUSS liegt — `position:absolute` ist ausgenommen, sonst meldet er die
+grossen Emoji-Wasserzeichen hinter den Ueberschriften (Wissen, Rezepte,
+Heilmittel, Community), die absichtlich ueber den Rand ragen.
+
+Zwei Dinge aus dem Bau, die allgemein gelten:
+
+- **Eine Gegenprobe, die den Fall nicht herstellt, beweist nichts.** Der erste
+  Versuch (`width:600px`) wurde vom Flex-Container auf 380 px gestaucht und ragte
+  gar nicht hinaus. Erst `min-width:600px` erzeugt den Fall.
+- **Ein ad-hoc-Skript ist kein Gegenbeweis zu einem gegengeprueften Pruefstand.**
+  Zwei Debug-Skripte massen den Marktplatz-Knopf „innerhalb" und brachten mich
+  dazu, den Fix zurueckzunehmen — der Pruefstand meldete ihn danach sofort
+  wieder. Wer widersprechende Messungen hat, misst beide Staende mit
+  **demselben** Werkzeug.
+
+**`touch_check` misst seit v32.25 ZWEI Breiten** — 412 px und 320 px (iPhone SE,
+aeltere Android-Geraete). Eine Antippflaeche, die bei 412 passt und bei 320 aus
+dem Bild laeuft, faellt sonst niemandem auf; der Bericht nennt die Breite bei
+jedem Fund. **Seine andere Grenze bleibt** — es misst nur die elf
+Bildschirme. Und für Farbe gilt unverändert: **wer Farbe in einem Modal setzt,
+das der Prüfstand nicht öffnet, rechnet selbst nach.**
+
+**Drei Fallen beim Kontrast-Messen**, alle in v31.77 durchgemacht:
+
+1. **Ein Verlauf macht `backgroundColor` durchsichtig.** Wer die Elternkette
+   hochsteigt, misst einen Grund, der gar nicht dort ist.
+2. **Verlaufsstufen sind oft `rgba(…, 0.08)`.** Deckkraft ignorieren heisst
+   mit sattem Dunkelgrün rechnen, wo fast Weiss steht — 13 Fehler, die es
+   nicht gibt.
+3. **Was von etwas Festem oder Klebendem überlappt wird, darf nicht vermessen
+   werden.** Hit-Testing allein reicht nicht: eine Kopfleiste mit
+   `pointer-events:none` fängt keinen Treffer ab und verdeckt trotzdem.
+
+Das ist kein akademischer Hinweis. In v31.76 habe ich wegen Falle 1 zwölf
+Stellen von `#88a888` auf `var(--muted)` geändert — auf dem dunklen 3D-Feld
+sind das **6,87:1 vorher und 1,83:1 nachher**. Eine gute Stelle kaputt gemacht,
+um eine Falschmeldung zu bedienen. In v31.77 zurückgenommen. **Eine Farbe erst
+ändern, wenn der Messwert reproduzierbar ist.**
+
+**Und: eine feste Farbe kann selten beide Modi bedienen.** `#bf360c` ist hell
+richtig (5,6:1) und dunkel falsch (2,8:1). Für Text auf Themenflächen die
+Variablen nehmen (`--c-warn-d`, `--c-success-d`, `--text`); umgekehrt braucht
+eine **fest helle** Fläche eine **fest dunkle** Schrift — dort wird
+`var(--c-success-d)` im Dunkelmodus zu Hellgrün auf Hellgrün.
+
+Beide sollen **0** melden. Wenn nicht, ist es entweder ein echter Fund oder
+eine Falschmeldung des Prüfstands — und die zweite Möglichkeit ist schon
+dreimal eingetreten (Chip-Leisten, die absichtlich hinausragen; Emoji, deren
+`color` nichts über die Darstellung sagt; ein rotierender Ladekreisel, dessen
+gemessene Grösse vom Winkel abhing). Erst nachsehen, dann ändern.
 
 ## 8 · Wenn du dich verlaufen hast
 

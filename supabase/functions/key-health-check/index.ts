@@ -1,0 +1,87 @@
+// ══════════════════════════════════════════════════════════════════════════
+// SPIEGEL — aus der laufenden Auslieferung gezogen am 02.09.2026 (v32.19)
+//
+// Diese Funktion war ausgeliefert und aktiv, hatte aber KEINEN Quelltext im
+// Repo. Wer wissen wollte, was sie tut, musste Supabase fragen; wer sie prüfen
+// wollte, konnte es nicht. Das Repo ist damit nicht mehr die Quelle der
+// Wahrheit für den eigenen Server-Teil.
+//
+// Stand beim Ziehen: version 1 · verify_jwt=false · ezbr_sha256 4e31d64e…
+// Beim Ziehen ein Abbild. Seither überarbeitet, und der Kopf sagt es jetzt auch:
+//   zuvor   Cron-Secret/Service-Key über _shared/auth_vergleich.mjs (zeitkonstant; die Regel
+//           gilt seit v32.72, CLAUDE.md §7.1)
+//   v33.58  der Schlüssel kommt ZUERST aus dem Edge-Secret ANTHROPIC_API_KEY, erst danach
+//           aus app_settings — so prüft der Wächter denselben Schlüssel wie ai-proxy.
+//           Ausgeliefert am 10.11.2026 als version 2 (verify_jwt=false).
+// ══════════════════════════════════════════════════════════════════════════
+// v28.04 Block C — Globaler-Anthropic-Key Health-Check.
+// verify_jwt=false; Custom-Auth via x-cron-secret (app_settings.push_cron_secret) ODER service-role.
+// Prüft den globalen Key gegen Anthropic /v1/models und schreibt Status in app_status.
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { cronOderService } from "../_shared/auth_vergleich.mjs";
+
+Deno.serve(async (req: Request) => {
+  const json = (o: unknown, status = 200) =>
+    new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } });
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const sb = createClient(supabaseUrl, serviceKey);
+
+    // ── Auth: x-cron-secret ODER service-role-Bearer ──
+    const { data: secretRow } = await sb.from('app_settings').select('value').eq('key', 'push_cron_secret').maybeSingle();
+    const expected = (secretRow?.value || '').trim();
+    // v32.72 (Audit A10): konstantzeitig, ein Modul — vorher `auth.includes(serviceKey)` und `!==` fuer das Cron-Geheimnis.
+    if (!cronOderService(req, expected, serviceKey)) {
+      return json({ error: 'forbidden' }, 403);
+    }
+
+    // ── Globalen Key holen ──
+    // v33.58: derselbe Leseweg wie ai-proxy — zuerst das Edge-Secret ANTHROPIC_API_KEY,
+    // erst dann app_settings. Sobald der Schluessel nur noch als Secret liegt (und die Zeile
+    // in app_settings geleert ist), meldete diese Pruefung sonst „invalid", waehrend die KI laeuft.
+    let apiKey = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
+    let quelle = 'secret';
+    if (!apiKey) {
+      const { data: keyRow } = await sb.from('app_settings').select('value').eq('key', 'global_anthropic_api_key').maybeSingle();
+      apiKey = (keyRow?.value || '').trim();
+      quelle = 'app_settings';
+    }
+
+    let status = 'unknown';
+    let message = '';
+    if (!apiKey) {
+      status = 'invalid';
+      message = 'Kein globaler Anthropic-Key hinterlegt (weder als Edge-Secret noch in app_settings)';
+    } else {
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/models?limit=1', {
+          method: 'GET',
+          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        });
+        if (r.status === 200) {
+          status = 'ok';
+          message = 'Key gültig (' + quelle + ') · ' + new Date().toISOString().slice(0, 16).replace('T', ' ');
+        } else if (r.status === 401 || r.status === 403) {
+          status = 'invalid';
+          message = 'Key ungültig/abgelaufen (HTTP ' + r.status + ')';
+        } else {
+          status = 'unknown';
+          message = 'Unerwarteter Anthropic-Status ' + r.status;
+        }
+      } catch (e) {
+        status = 'unknown';
+        message = 'Anthropic nicht erreichbar: ' + String((e as Error)?.message || e);
+      }
+    }
+
+    await sb.from('app_status').upsert(
+      { key: 'global_anthropic_key', status, message, last_check_at: new Date().toISOString() },
+      { onConflict: 'key' },
+    );
+
+    return json({ key: 'global_anthropic_key', status, message });
+  } catch (e) {
+    return json({ error: String((e as Error)?.message || e) }, 500);
+  }
+});

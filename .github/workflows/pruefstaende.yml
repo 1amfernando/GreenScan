@@ -1,0 +1,63 @@
+name: Prüfstände
+
+# v32.69 (Audit D2): 30 Prüfstände, bisher nur von Hand in der Claude-Cloud gefahren.
+# Jetzt auf jedem PR. Playwright kommt aus scripts/package.json (nicht Root — dort
+# würde Cloudflare Pages bauen), Postgres 16 als Service für quiz_check und
+# schluessel_check. Dauer ~20 Minuten; die vier langsamen laufen zuletzt.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruefstaende:
+    name: Alle Prüfstände
+    # v33.57: ein FESTES Abbild, nicht `ubuntu-latest`. Am 10.11.2026 zeigte die bewegliche Marke
+    # auf Ubuntu 26.04, und Playwright 1.56.1 (scripts/package.json) installiert dort keinen
+    # Chromium („does not support chromium on ubuntu26.04-x64") — die CI war nach drei Minuten rot,
+    # ohne einen einzigen Prüfstand gefahren zu haben, an einem PR, der daran nichts geändert hat.
+    # Eine bewegliche Marke ist eine Annahme über morgen. Wer das Abbild hebt, hebt Playwright mit
+    # und sieht sich den Lauf an (dieselbe Lehre wie field_check: 32 von 32 Läufen rot, 08.09.2026).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: psql + python
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client python3
+      # v33.49: apk_check baut das Android-Paket WIRKLICH und sieht darin nach.
+      # Die Werkzeuge kommen aus dem Ubuntu-Archiv, NICHT von dl.google.com —
+      # das ist aus der Claude-Cloud gesperrt (403), und ein Pruefstand, der
+      # nur auf einer Maschine laeuft, ist keine Aussage ueber die Auslieferung
+      # (v32.xx, field_check: 32 von 32 CI-Laeufen rot, ohne dass es jemand sah).
+      # Ohne diese Zeile meldet apk_check „nicht pruefbar" (Exit 2), nie gruen.
+      - name: Android-Werkzeuge (aapt, dx, apksigner, android.jar)
+        run: sudo apt-get install -y -qq android-sdk-build-tools android-sdk-platform-23 dalvik-exchange unzip
+      - name: Playwright (scripts/)
+        working-directory: scripts
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Prüfstände
+        env:
+          GS_PW: ${{ github.workspace }}/scripts/node_modules/playwright
+          GS_PG_URL: postgresql://postgres@127.0.0.1:54329/postgres
+        run: bash scripts/pruefstaende.sh

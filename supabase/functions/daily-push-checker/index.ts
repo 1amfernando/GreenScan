@@ -1,12 +1,18 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { cronOderService } from "../_shared/auth_vergleich.mjs";
+import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden } from "../_shared/push_helfer.mjs";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-// daily-push-checker v7 (v30.36 — 2026-06-24)
-// - v6: Frost / Seasonal / Quiz-Streak / Trial-End (3 Stages) / Pflanzen-Tasks / Wochen-Vorschau
-// - v7 (Audit-Welle 3 #5): Quiet-Hours + Morgen-/Abend-Gating gegen Europe/Zurich statt UTC.
-//   Bei Default-Ruhefenster (22-7) + Cron 07/19 UTC unkritisch, aber für eigene Ruhefenster korrekt.
-// Cron: daily-push-morning 07:00 UTC, daily-push-evening 19:00 UTC.
+// daily-push-checker v9 (2026-08-25)
+// Fix: plant_tasks-Gate um Abend-Fenster erweitert (hourLocal<12 || hourLocal>=17).
+// Cron laeuft 07:00 + 19:00 UTC (Zurich ~20/21 Uhr je nach DST) -> die Abend-Ausfuehrung
+// hatte fuer plant_tasks bisher IMMER hourLocal>=12 -> Gate nie erfuellt -> 0 Effekt.
+// Nur quiz_streak nutzte bereits hourLocal>=17 und feuerte abends korrekt.
+// Catch-up-Verhalten: alreadySentToday("plant_tasks") verhindert Doppel-Push falls
+// der Nutzer den Morgen-Push schon bekommen hat -> Abend ist reine Nachhol-Chance
+// fuer User die morgens offline/nicht erreichbar waren.
+// Base: v8 (v30.53 -- 2026-06-26, task_title/task_description -> title/description Fix)
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -15,24 +21,12 @@ const sb = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false }
 });
 
-async function loadSettings() {
-  const { data, error } = await sb
-    .from("app_settings")
-    .select("key,value")
-    .in("key", ["vapid_public_key", "vapid_private_key", "vapid_subject", "push_cron_secret"]);
-  if (error) throw new Error("settings load: " + error.message);
-  const m: Record<string, string> = {};
-  for (const r of data || []) m[r.key] = r.value;
-  if (!m.vapid_public_key || !m.vapid_private_key) throw new Error("VAPID-Keys fehlen");
-  return {
-    vapid: {
-      publicKey: m.vapid_public_key,
-      privateKey: m.vapid_private_key,
-      subject: m.vapid_subject || "mailto:fernando.rankwiler1997@gmail.com"
-    },
-    cronSecret: m.push_cron_secret || null
-  };
-}
+// v32.75 (Audit C4): die drei Helfer kommen aus _shared/push_helfer.mjs — hier nur
+// die Anpassung an die alte Aufruf-Form, damit die Aufrufer unveraendert bleiben.
+const loadSettings = () => _pushSettings(sb);
+const sendPush = (sub: any, title: string, body: string, url: string, vapid: any, tag?: string) =>
+  _pushSenden(webpush, sub, { title, body, url, tag }, vapid);
+
 
 function inQuietHours(hour: number, qs: number, qe: number) {
   if (qs === qe) return false;
@@ -40,14 +34,6 @@ function inQuietHours(hour: number, qs: number, qe: number) {
   return hour >= qs || hour < qe;
 }
 
-// v30.36 #5: aktuelle Stunde in Europe/Zurich (DST-sicher), Fallback UTC.
-function zurichHour(): number {
-  try {
-    return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "Europe/Zurich" }).format(new Date())) % 24;
-  } catch (_) {
-    return new Date().getUTCHours();
-  }
-}
 
 async function checkFrost(lat: number, lng: number) {
   try {
@@ -79,23 +65,6 @@ async function logSend(
   });
 }
 
-async function sendPush(sub: any, title: string, body: string, url: string, vapid: any, tag?: string) {
-  try {
-    webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
-    const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_secret } };
-    const payload = JSON.stringify({
-      title, body, url,
-      icon: "https://green-scan.ch/icons/icon-192.png",
-      badge: "https://green-scan.ch/icons/icon-96.png",
-      tag: tag || ("gs-" + Date.now()),
-      data: { url }
-    });
-    const res = await webpush.sendNotification(pushSub, payload, { TTL: 3600 });
-    return { ok: true, status: res.statusCode };
-  } catch (e: any) {
-    return { ok: false, status: e?.statusCode, error: String(e?.message || e) };
-  }
-}
 
 async function deleteIfGone(sub: any, status?: number) {
   if (status === 410 || status === 404) {
@@ -106,8 +75,8 @@ async function deleteIfGone(sub: any, status?: number) {
 async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   const userId = sub.user_id;
   const nowUtc = new Date();
-  const hourLocal = zurichHour();        // v30.36 #5
-  const dow = nowUtc.getUTCDay();        // 0=Sonntag (Cron 07/19 UTC = gleicher Kalendertag in CH)
+  const hourLocal = zurichHour();
+  const dow = nowUtc.getUTCDay();
   const month = nowUtc.getUTCMonth() + 1;
 
   if (inQuietHours(hourLocal, sub.quiet_start_hour ?? 22, sub.quiet_end_hour ?? 7)) {
@@ -121,8 +90,8 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
     if (!(await alreadySentToday(userId, "frost"))) {
       const f = await checkFrost(Number(sub.gps_lat), Number(sub.gps_lng));
       if (f.minTempC !== null && f.minTempC <= 2) {
-        const title = `🥶 Frostgefahr in den nächsten ${f.hourEta ?? 12}h`;
-        const body = `Min. ${f.minTempC.toFixed(1)}°C — kälteempfindliche Pflanzen schützen!`;
+        const title = `Frostgefahr in den naechsten ${f.hourEta ?? 12}h`;
+        const body = `Min. ${f.minTempC.toFixed(1)}C - kaelteempfindliche Pflanzen schuetzen!`;
         if (dryRun) sent.push("frost(dry)");
         else {
           const r = await sendPush(sub, title, body, "/?screen=garden", vapid);
@@ -135,28 +104,38 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
 
   if (sub.notify_seasonal && hourLocal < 12) {
     if (!(await alreadySentToday(userId, "seasonal"))) {
-      const { data: tasks } = await sb
+      // v33.41 (KALENDER-V2 §8 Punkt 2): die Spalte `priority` GIBT ES NICHT.
+      // Live gemessen am 16.09.2026 (nur lesend): `garden_tasks_catalog` hat
+      // 189 Zeilen und die Spalten … importance, data — kein `priority`, auch
+      // nicht in `data` (0 von 189 tragen den Schluessel). PostgREST antwortet
+      // auf `.eq("priority","high")` mit 42703, `data` ist null, und weil der
+      // Fehler hier wegdestrukturiert wurde, lief die Funktion still weiter:
+      // die saisonale Erinnerung hat SEIT DEM BAU keine einzige Zeile gehabt.
+      // `knowledge-bulk-gen` schreibt `importance: kritisch|wichtig|optional`.
+      const { data: tasks, error: tasksErr } = await sb
         .from("garden_tasks_catalog")
-        .select("task_title,task_description,priority")
+        .select("title,description,importance")
         .lte("month_start", month).gte("month_end", month)
-        .eq("priority", "high")
+        .in("importance", ["kritisch", "wichtig"])
         .limit(1);
+      // Ein Fehler wird GESAGT, nie verschluckt — sonst sieht „keine Aufgabe
+      // diesen Monat" genauso aus wie „die Abfrage ist kaputt".
+      if (tasksErr) console.error("[daily-push-checker] garden_tasks_catalog:", tasksErr.message || tasksErr);
       if (tasks && tasks.length) {
         const t: any = tasks[0];
-        const title = `📅 Saisonale Aufgabe: ${t.task_title}`;
-        const body = (t.task_description || "").slice(0, 120);
+        const title = `Saisonale Aufgabe: ${t.title}`;
+        const body = (t.description || "").slice(0, 120);
         if (dryRun) sent.push("seasonal(dry)");
         else {
           const r = await sendPush(sub, title, body, "/?screen=garden", vapid);
-          await logSend(userId, "seasonal", title, body, { task: t.task_title }, r.ok ? "sent" : "failed", r.status, r.error);
+          await logSend(userId, "seasonal", title, body, { task: t.title }, r.ok ? "sent" : "failed", r.status, r.error);
           if (r.ok) sent.push("seasonal"); else await deleteIfGone(sub, r.status);
         }
       }
     }
   }
 
-  // v6: Pflanzen-Pflege-Tasks (morgens) — gated notify_water, aus v_plant_tasks_due
-  if (sub.notify_water && hourLocal < 12) {
+  if (sub.notify_water && (hourLocal < 12 || hourLocal >= 17)) {
     if (!(await alreadySentToday(userId, "plant_tasks"))) {
       const { data: due } = await sb
         .from("v_plant_tasks_due")
@@ -168,11 +147,11 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
         let title: string, body: string;
         if (due.length === 1) {
           title = `${due[0].task_label}: ${due[0].plant_name}`;
-          body = `Diese Pflanzen-Aufgabe ist heute fällig.`;
+          body = `Diese Pflanzen-Aufgabe ist heute faellig.`;
         } else {
           const names = Array.from(new Set(due.map((d: any) => d.plant_name))).slice(0, 3).join(", ");
-          title = `🌱 ${due.length} Pflanzen-Aufgaben fällig`;
-          body = `${names}${due.length > 3 ? " u.a." : ""} — jetzt erledigen.`;
+          title = `${due.length} Pflanzen-Aufgaben faellig`;
+          body = `${names}${due.length > 3 ? " u.a." : ""} - jetzt erledigen.`;
         }
         if (dryRun) sent.push("plant_tasks(dry)");
         else {
@@ -184,7 +163,6 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
     }
   }
 
-  // v6: Sonntag-Wochen-Vorschau — gated notify_water, kommende 7 Tage
   if (sub.notify_water && dow === 0 && hourLocal < 12) {
     if (!(await alreadySentToday(userId, "weekly_summary"))) {
       const in7 = new Date(nowUtc.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -196,8 +174,8 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
         .lt("next_due_at", in7)
         .limit(50);
       if (wk && wk.length) {
-        const title = `📋 Deine Garten-Woche: ${wk.length} Aufgaben`;
-        const body = `Diese Woche stehen ${wk.length} Pflege-Aufgaben an — plane sie ein!`;
+        const title = `Deine Garten-Woche: ${wk.length} Aufgaben`;
+        const body = `Diese Woche stehen ${wk.length} Pflege-Aufgaben an - plane sie ein!`;
         if (dryRun) sent.push("weekly_summary(dry)");
         else {
           const r = await sendPush(sub, title, body, "/?screen=favs", vapid, "gs-weekly_summary");
@@ -212,7 +190,7 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
     if (!(await alreadySentToday(userId, "quiz_streak"))) {
       const { data: q } = await sb.from("daily_quizzes").select("id").limit(1);
       if (q && q.length) {
-        const title = `🎯 Tagesquiz wartet`;
+        const title = `Tagesquiz wartet`;
         const body = `Spiele heute noch dein Quiz und halte deine Streak am Leben!`;
         if (dryRun) sent.push("quiz(dry)");
         else {
@@ -233,7 +211,6 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   return { suppressed: false, sent };
 }
 
-// 3-Stage Trial-End-Reminder (72h, 24h, 1h) — ms-relativ, TZ-unabhängig (NICHT angetastet).
 async function notifyTrialEnd_stage(
   windowLoHours: number, windowHiHours: number,
   category: string, title: string, body: string,
@@ -282,24 +259,9 @@ async function notifyTrialEnd_stage(
 
 async function notifyTrialEndingSoon(vapid: any, dryRun: boolean) {
   let total = 0;
-  total += await notifyTrialEnd_stage(
-    72, 73, "trial_end_72h",
-    "⏰ Dein GreenScan-Pro endet in 3 Tagen",
-    "Karte hinterlegen und KI-Doctor, Buch-Wissen, Familien-Konto behalten.",
-    vapid, dryRun
-  );
-  total += await notifyTrialEnd_stage(
-    24, 25, "trial_end_24h",
-    "⏰ Dein GreenScan-Pro endet morgen",
-    "Jetzt verlängern und alle Pro-Features behalten.",
-    vapid, dryRun
-  );
-  total += await notifyTrialEnd_stage(
-    1, 2, "trial_end_1h",
-    "⏰ Letzte Stunde — Trial endet gleich",
-    "Karte hinterlegen damit's nahtlos weitergeht (sonst zurück auf Free).",
-    vapid, dryRun
-  );
+  total += await notifyTrialEnd_stage(72, 73, "trial_end_72h", "Dein GreenScan-Pro endet in 3 Tagen", "Karte hinterlegen und KI-Doctor, Buch-Wissen, Familien-Konto behalten.", vapid, dryRun);
+  total += await notifyTrialEnd_stage(24, 25, "trial_end_24h", "Dein GreenScan-Pro endet morgen", "Jetzt verlaengern und alle Pro-Features behalten.", vapid, dryRun);
+  total += await notifyTrialEnd_stage(1, 2, "trial_end_1h", "Letzte Stunde - Trial endet gleich", "Karte hinterlegen damit es nahtlos weitergeht (sonst zurueck auf Free).", vapid, dryRun);
   return total;
 }
 
@@ -316,9 +278,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const settings = await loadSettings();
-    const cronSecret = req.headers.get("x-cron-secret");
-    const authHdr = req.headers.get("authorization") || "";
-    const okAuth = (settings.cronSecret && cronSecret === settings.cronSecret) || authHdr.includes(SERVICE_ROLE);
+    // v32.72 (Audit A10): konstantzeitig, ein Modul fuer alle Empfaenger — vorher `authHdr.includes(SERVICE_ROLE)`.
+    const okAuth = cronOderService(req, settings.cronSecret, SERVICE_ROLE);
     if (!okAuth) {
       return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
     }
@@ -352,7 +313,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify({
       ok: true, dry_run: dryRun,
-      version: 7,
+      version: 9,
       total_subs: subs?.length || 0,
       pushed_count: totalSent,
       suppressed_count: totalSuppressed,

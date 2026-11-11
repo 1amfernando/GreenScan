@@ -1,0 +1,2281 @@
+#!/usr/bin/env node
+/**
+ * scan_check.js — glaubt der Scanner der KI aufs Wort?
+ *
+ * Fernando: „Bessere und zuverlässigere Scans sowie Resultate … besser als
+ * Google Lens."
+ *
+ * Die Antwort darauf steht in docs/SCANNER-V3.md §2 und ist keine bessere
+ * Bilderkennung — die gibt es hier nicht zu gewinnen. Es ist das PRÜFEN:
+ * 4'342 kuratierte Arten, der Monat, der Kanton, die gemessene Bildqualität.
+ * Eine reine Bilderkennung hat nichts davon.
+ *
+ * Dieser Prüfstand fährt `_gsScanPruefwerk` gegen konstruierte Antworten und
+ * liest, was danach auf der Karte steht. Zwei Regeln, wie überall:
+ *
+ *   1. Jede Regel läuft gegen eine GUTE Antwort (darf nichts melden) UND
+ *      gegen eine schlechte (muss melden).
+ *   2. Was die Anzeige zeigt, wird aus dem gerenderten HTML gelesen, nicht
+ *      aus dem Objekt (Lehre aus v31.90).
+ *
+ * Der wichtigste Fall ist die Sicherheits-Korrektur: sagt das Modell
+ * „essbar, ungiftig" über eine Art, die unsere Liste als tödlich führt, MUSS
+ * die vorsichtigere Angabe gewinnen — und zwar sichtbar.
+ *
+ *   node scripts/scan_check.js
+ */
+const path = require('path');
+const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
+const SEED = require('./_seed.js');
+const { baueJpegMitExif } = require('./_exifjpeg.js');
+
+const FAELLE = [
+  {
+    name: 'S2 · tödliche Art als „essbar" gemeldet → Korrektur nach oben',
+    lauf: () => {
+      // Herbstzeitlose steht in unserer Liste mit tox 5. Das Modell behauptet
+      // das Gegenteil — genau der Fall, in dem jemand stirbt.
+      const r = {
+        name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 88,
+        edible: true, toxic: false, toxicity: 0, alternatives: [],
+      };
+      const pw = _gsScanPruefwerk(r, null);
+      if (r.toxicity !== 5) return { ok: false, warum: 'Giftigkeit nicht korrigiert (ist ' + r.toxicity + ', erwartet 5)' };
+      if (r.edible !== false) return { ok: false, warum: 'gilt weiterhin als essbar' };
+      if (!pw.regeln.some(x => x.id === 'gift' && x.zustand === 'warn')) return { ok: false, warum: 'kein Vorbehalt bei der Sicherheit' };
+      return { ok: true, info: '0 → 5, essbar → nein' };
+    },
+  },
+  {
+    name: 'S2 · Anzeige: die Korrektur steht wirklich auf der Karte',
+    lauf: () => {
+      const r = {
+        name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 88,
+        edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x',
+      };
+      showScanResult(r);
+      const el = document.getElementById('scan-result');
+      const txt = (el && el.textContent) || '';
+      if (!/giftiger ein/.test(txt)) return { ok: false, warum: 'die Korrektur wird nicht genannt' };
+      if (!/Gegengeprüft/.test(txt)) return { ok: false, warum: 'die Prüftafel fehlt auf der Karte' };
+      if (/undefined|NaN|\[object Object\]/.test(txt)) return { ok: false, warum: 'Platzhalter im Text' };
+      if (/✅ Essbar/.test(txt)) return { ok: false, warum: 'zeigt weiterhin „Essbar"' };
+      return { ok: true, info: (txt.match(/Unsere Artenliste stuft[^.]*\./) || ['gefunden'])[0].slice(0, 80) };
+    },
+  },
+  {
+    name: 'Gute Antwort · Bärlauch im Mai → kein einziger Vorbehalt',
+    lauf: () => {
+      const r = {
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 92,
+        edible: true, toxic: false, toxicity: 0,
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 28 }],
+        _shotCount: 2,
+      };
+      const pw = _gsScanPruefwerk(r, { messbar: true, quality: 78, blur: 70, light: 80, warnings: [] });
+      const warn = pw.regeln.filter(x => x.zustand === 'warn');
+      // Die Saison-Regel darf melden, WENN der Prüfstand ausserhalb Apr–Jun läuft.
+      const echte = warn.filter(x => x.id !== 'saison');
+      if (echte.length) return { ok: false, warum: 'meldet ' + echte.map(x => x.id + ': ' + x.text.slice(0, 50)).join(' | ') };
+      if (r.toxicity !== 0 || r.edible !== true) return { ok: false, warum: 'hat eine korrekte Angabe verändert' };
+      return { ok: true, info: pw.ok + ' erfüllt, ' + pw.unbekannt + ' offen, Stufe „' + pw.stufe.label + '"' };
+    },
+  },
+  {
+    name: 'S1 · erfundene Art → als nicht bekannt gemeldet',
+    lauf: () => {
+      const r = { name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', confidence: 80, alternatives: [] };
+      const pw = _gsScanPruefwerk(r, null);
+      const a = pw.regeln.find(x => x.id === 'art');
+      if (!a || a.zustand !== 'warn') return { ok: false, warum: 'nicht als unbekannt gemeldet: ' + (a && a.zustand) };
+      return { ok: true, info: a.text.slice(0, 60) };
+    },
+  },
+  {
+    name: 'S4 · knapper Abstand zum Zweitbesten wird benannt',
+    lauf: () => {
+      const r = {
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 52, edible: true, toxicity: 0,
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 48 }],
+      };
+      const pw = _gsScanPruefwerk(r, null);
+      const a = pw.regeln.find(x => x.id === 'abstand');
+      if (!a || a.zustand !== 'warn') return { ok: false, warum: '4 Punkte Abstand gelten als deutlich' };
+      if (!/Maiglöckchen/.test(a.text)) return { ok: false, warum: 'nennt die zweite Möglichkeit nicht beim Namen' };
+      return { ok: true, info: a.text.replace(/<[^>]+>/g, '').slice(0, 70) };
+    },
+  },
+  {
+    name: 'S4 · deutlicher Abstand meldet NICHTS',
+    lauf: () => {
+      const r = {
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 92, edible: true, toxicity: 0,
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 20 }],
+      };
+      const pw = _gsScanPruefwerk(r, null);
+      const a = pw.regeln.find(x => x.id === 'abstand');
+      if (!a || a.zustand !== 'ok') return { ok: false, warum: '72 Punkte Abstand gelten als knapp' };
+      return { ok: true, info: a.text };
+    },
+  },
+  {
+    // v33.47. Gemessen an v33.46 mit blockiertem `data/plants.v1.js`: alle
+    // sieben Regeln `unbekannt`, Stufe „Nichts spricht dagegen" — eine
+    // ENTWARNUNG, obwohl nichts pruefen konnte. Der Zustand ist NUR ohne
+    // Artenliste erreichbar (mit Liste liefert S1 immer ok oder warn,
+    // gemessen an sieben Ergebnisformen) — also genau der Fehler, den kein
+    // Pruefstand vor der Auslieferung sieht.
+    name: 'P1 · Konnte KEINE Prüfung etwas sagen, ist das keine Entwarnung',
+    lauf: () => {
+      const res = () => ({ name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides',
+                           category: 'Pilze', confidence: 90, toxicity: 0, edible: true });
+      const echt = window.DB;
+      // Mit Liste: der bisherige Weg muss unveraendert bleiben.
+      const mit = _gsScanPruefwerk(res(), null);
+      let ohne = null, hergestellt = 0;
+      try {
+        window.DB = [];
+        hergestellt = (window.DB && window.DB.length) === 0 ? 1 : 0;
+        ohne = _gsScanPruefwerk(res(), null);
+      } finally { window.DB = echt; }
+      if (!hergestellt) return { ok: false, warum: 'Zustand nicht hergestellt: DB liess sich nicht leeren' };
+      if (!ohne || !ohne.stufe) return { ok: false, warum: 'ohne Liste keine Stufe' };
+      if (ohne.ok !== 0 || ohne.warn !== 0)
+        return { ok: false, warum: 'ohne Liste unerwartet ok=' + ohne.ok + ' warn=' + ohne.warn };
+      if (ohne.stufe.schl !== 'keine')
+        return { ok: false, warum: 'ohne Liste Stufe „' + ohne.stufe.label + '" (' + ohne.stufe.schl + ') statt „Nicht geprüft"' };
+      if (!/nicht geladen/i.test(ohne.stufe.text || ''))
+        return { ok: false, warum: 'der Grund nennt die fehlende Liste nicht: „' + (ohne.stufe.text || '') + '"' };
+      // Gegenrichtung: mit Liste darf sich NICHTS geaendert haben.
+      if (!mit || !mit.stufe || mit.stufe.schl === 'keine')
+        return { ok: false, warum: 'mit Liste faelschlich „Nicht geprüft" — der Fall unterscheidet nichts' };
+      if (window.DB !== echt || !window.DB.length)
+        return { ok: false, warum: 'Artenliste nicht wiederhergestellt' };
+      return { ok: true, info: 'ohne Liste: 0 von ' + ohne.regeln.length + ' konnten prüfen → „' + ohne.stufe.label
+        + '" · mit Liste unverändert „' + mit.stufe.label + '" (ok=' + mit.ok + ' warn=' + mit.warn + ')' };
+    },
+  },
+  {
+    // v31.90-Regel: was die Anzeige zeigt, wird aus dem gerenderten HTML
+    // gelesen. Die Ueberschrift stand fest im Code und behauptete
+    // „Gegengeprueft mit unserer Artenliste", auch wenn nichts gegengeprueft
+    // hatte — dort, wo jemand ueber Giftigkeit liest.
+    name: 'P2 · Die Karte behauptet nicht „gegengeprüft", wenn nichts geprüft werden konnte',
+    lauf: () => {
+      const res = () => ({ name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides',
+                           category: 'Pilze', confidence: 90, toxicity: 0, edible: true, description: 'T' });
+      const kopf = () => {
+        try { if (typeof switchTab === 'function') switchTab('scanner'); } catch (_) {}
+        showScanResult(res());
+        const el = document.getElementById('scan-result');
+        const k = el && el.querySelector('.sr2-pruef .sr2-card-lbl');
+        return k ? (k.textContent || '').trim() : '';
+      };
+      const echt = window.DB;
+      const mitKopf = kopf();
+      let ohneKopf = '';
+      try { window.DB = []; ohneKopf = kopf(); } finally { window.DB = echt; }
+      if (!mitKopf) return { ok: false, warum: 'keine Prüfkarte gerendert (Aufbau)' };
+      if (!/gegengepr/i.test(mitKopf))
+        return { ok: false, warum: 'mit Liste fehlt die Gegenprüf-Überschrift: „' + mitKopf + '"' };
+      if (/^\s*🔍/.test(ohneKopf) || !/nicht gegengepr/i.test(ohneKopf))
+        return { ok: false, warum: 'ohne Liste steht dort „' + ohneKopf + '"' };
+      if (mitKopf === ohneKopf)
+        return { ok: false, warum: 'beide Überschriften gleich — der Fall unterscheidet nichts' };
+      return { ok: true, info: 'mit Liste „' + mitKopf.slice(0, 40) + '" · ohne Liste „' + ohneKopf.slice(0, 40) + '"' };
+    },
+  },
+  {
+    name: 'S5 · dünne Bildgrundlage wird benannt, gute nicht',
+    lauf: () => {
+      const mach = q => _gsScanPruefwerk(
+        { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, toxicity: 0, alternatives: [] }, q
+      ).regeln.find(x => x.id === 'grundlage');
+      const schlecht = mach({ messbar: true, quality: 30, blur: 20, light: 40, warnings: [] });
+      const gut = mach({ messbar: true, quality: 80, blur: 75, light: 85, warnings: [] });
+      if (!schlecht || schlecht.zustand !== 'warn') return { ok: false, warum: 'Qualität 30 gilt als brauchbar' };
+      if (!gut || gut.zustand !== 'ok') return { ok: false, warum: 'Qualität 80 gilt als dünn' };
+      return { ok: true, info: '30 → Vorbehalt, 80 → in Ordnung' };
+    },
+  },
+  {
+    name: 'S5b · mehrere Fotos: das schärfste zählt, Unscharfe werden genannt — und ungemessen ist kein Lob',
+    lauf: () => {
+      // v33.16 (Stufe 2b). Bis dahin galt „2 Fotos kombiniert" OHNE Messung
+      // als „die beste Grundlage, die der Scanner kennt" — ein Lob ueber
+      // Fotos, die niemand angesehen hatte.
+      const basis = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, toxicity: 0, alternatives: [], _shotCount: 2 };
+      const mach = q => _gsScanPruefwerk(Object.assign({}, basis), q).regeln.find(x => x.id === 'grundlage');
+      const klagen = [];
+      const gut = mach({ messbar: true, quality: 80, blur: 75, light: 85, warnings: [], fotos: 2, gemessen: 2, schwach: 1 });
+      if (!gut || gut.zustand !== 'ok') klagen.push('bestes Foto 80 gilt als dünn');
+      else if (!/2 Fotos/.test(gut.text) || !/Eines davon ist zu unscharf/.test(gut.text)) klagen.push('nennt Zahl der Fotos oder das unscharfe nicht: ' + gut.text);
+      const duenn = mach({ messbar: true, quality: 30, blur: 20, light: 40, warnings: [], fotos: 2, gemessen: 2, schwach: 0 });
+      if (!duenn || duenn.zustand !== 'warn') klagen.push('bestes Foto 30 gilt als brauchbar');
+      else if (!/2 Fotos/.test(duenn.text)) klagen.push('Vorbehalt nennt die Zahl der Fotos nicht: ' + duenn.text);
+      const ohne = mach(null);
+      if (!ohne || ohne.zustand !== 'unbekannt') klagen.push('2 Fotos OHNE Messung gelten als „' + (ohne && ohne.zustand) + '" — ein Lob, keine Messung');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '80 → ok „das schärfste von 2 Fotos", 30 → Vorbehalt, ungemessen → unbekannt' };
+    },
+  },
+  {
+    name: 'Anzeige · die gesehenen Merkmale stehen auf der Karte',
+    lauf: () => {
+      const r = {
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 92, edible: true, toxicity: 0,
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 20 }],
+        diagnostic_features: ['Breite Einzelblätter', 'Glänzend grün', 'Stiel direkt aus dem Boden'],
+        next_photo_hint: 'Blattunterseite aus der Nähe',
+      };
+      showScanResult(r);
+      const el = document.getElementById('scan-result');
+      const txt = (el && el.textContent) || '';
+      if (!/Das habe ich im Foto gesehen/.test(txt)) return { ok: false, warum: 'die Merkmals-Karte fehlt' };
+      const fehlend = r.diagnostic_features.filter(m => txt.indexOf(m) < 0);
+      if (fehlend.length) return { ok: false, warum: 'diese Merkmale fehlen: ' + fehlend.join(', ') };
+      if (!/Blattunterseite/.test(txt)) return { ok: false, warum: 'der Hinweis auf das nächste Foto fehlt' };
+      const li = el.querySelectorAll('.sr2-merkmale li');
+      if (li.length !== 3) return { ok: false, warum: 'erwartet 3 Merkmale, gerendert ' + li.length };
+      return { ok: true, info: li.length + ' Merkmale + Foto-Hinweis' };
+    },
+  },
+  {
+    name: 'Anzeige · ohne Merkmale wird nichts erfunden',
+    lauf: () => {
+      const r = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 92, edible: true, toxicity: 0, alternatives: [] };
+      showScanResult(r);
+      const el = document.getElementById('scan-result');
+      const li = el.querySelectorAll('.sr2-merkmale li');
+      if (li.length) return { ok: false, warum: 'zeigt ' + li.length + ' Merkmale, obwohl keine geliefert wurden' };
+      const txt = (el && el.textContent) || '';
+      if (/undefined|NaN|\[object Object\]/.test(txt)) return { ok: false, warum: 'Platzhalter im Text' };
+      return { ok: true, info: 'keine Merkmale, keine erfundenen' };
+    },
+  },
+  // ── v32.00 · EXIF: das Foto weiss, wann und wo es entstand ─────────────
+  // Ein Binaer-Parser, der nie gegen echte Bytes gelaufen ist, ist eine
+  // Behauptung. Die Bytes entstehen in scripts/_exifjpeg.js.
+  {
+    name: 'EXIF · Datum und GPS werden aus echten Bytes gelesen',
+    lauf: async () => {
+      const bytes = window.__PRUEF_JPEG;
+      const buf = new Uint8Array(bytes).buffer;
+      const e = _gsExifLesen(buf);
+      if (!e) return { ok: false, warum: 'nichts gelesen' };
+      if (e.monat !== 7) return { ok: false, warum: 'Monat ' + e.monat + ', erwartet 7' };
+      if (!e.datum || e.datum.getFullYear() !== 2026 || e.datum.getDate() !== 14)
+        return { ok: false, warum: 'Datum falsch: ' + (e.datum && e.datum.toISOString()) };
+      if (e.lat == null || Math.abs(e.lat - 46.8182) > 0.01) return { ok: false, warum: 'Breite ' + e.lat + ', erwartet ~46.818' };
+      if (e.lng == null || Math.abs(e.lng - 8.2275) > 0.01) return { ok: false, warum: 'Länge ' + e.lng + ', erwartet ~8.227' };
+      return { ok: true, info: e.datum.toISOString().slice(0, 10) + ' · ' + e.lat.toFixed(3) + '/' + e.lng.toFixed(3) };
+    },
+  },
+  {
+    name: 'EXIF · Foto OHNE EXIF behauptet nichts',
+    lauf: () => {
+      // Ein nacktes JPEG: nur SOI und EOI.
+      const buf = new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]).buffer;
+      const e = _gsExifLesen(buf);
+      if (e) return { ok: false, warum: 'liefert Daten für ein Bild ohne EXIF: ' + JSON.stringify(e) };
+      return { ok: true, info: 'null, wie es sein soll' };
+    },
+  },
+  {
+    name: 'EXIF · kaputte Uhr (Datum in der Zukunft) wird verworfen',
+    lauf: () => {
+      const bytes = window.__PRUEF_JPEG_ZUKUNFT;
+      const e = _gsExifLesen(new Uint8Array(bytes).buffer);
+      if (e && e.datum) return { ok: false, warum: 'übernimmt ein Datum aus der Zukunft: ' + e.datum.toISOString() };
+      if (!e || e.lat == null) return { ok: false, warum: 'verwirft mit dem Datum auch das GPS' };
+      return { ok: true, info: 'Datum verworfen, GPS behalten' };
+    },
+  },
+  {
+    name: 'EXIF · der Auftragstext nennt Aufnahmedatum und Ort aus dem Foto',
+    lauf: () => {
+      window._gsScanExif = { datum: new Date(2026, 6, 14), monat: 7, lat: 46.8182, lng: 8.2275 };
+      const ctx = gsBuildScanContext();
+      const txt = gsFormatScanContext(ctx);
+      window._gsScanExif = null;
+      if (ctx.monthNum !== 7) return { ok: false, warum: 'Monat ' + ctx.monthNum + ' statt 7 — das Foto wird ignoriert' };
+      if (!/Juli/.test(txt)) return { ok: false, warum: 'Juli steht nicht im Auftragstext' };
+      if (!/Aufnahmedatum aus dem Foto/.test(txt)) return { ok: false, warum: 'die Herkunft des Datums wird nicht genannt' };
+      if (!/46\.818/.test(txt)) return { ok: false, warum: 'die Koordinaten aus dem Foto fehlen' };
+      if (!/Ort aus dem Foto/.test(txt)) return { ok: false, warum: 'die Herkunft des Orts wird nicht genannt' };
+      return { ok: true, info: txt.split('\n')[0].slice(0, 72) };
+    },
+  },
+  {
+    name: 'EXIF · ohne Foto-Datum gilt weiterhin heute',
+    lauf: () => {
+      window._gsScanExif = null;
+      const ctx = gsBuildScanContext();
+      const heute = new Date().getMonth() + 1;
+      if (ctx.monthNum !== heute) return { ok: false, warum: 'Monat ' + ctx.monthNum + ', erwartet ' + heute };
+      if (ctx.ausFoto) return { ok: false, warum: 'behauptet ein Aufnahmedatum, das es nicht gibt' };
+      return { ok: true, info: 'Monat ' + heute + ', keine Behauptung über das Foto' };
+    },
+  },
+  {
+    name: 'EXIF · S3 beurteilt nach dem Monat des FOTOS, nicht nach heute',
+    lauf: () => {
+      // Herbstzeitlose: Saison Aug–Okt. Im Juli aufgenommen → Widerspruch.
+      // Im September aufgenommen → kein Widerspruch. Der Prüfstand läuft
+      // heute im September, also zeigt der Unterschied, dass das Foto zählt.
+      const mach = monat => {
+        const r = { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 80,
+                    toxicity: 5, alternatives: [], _ctx: { monthNum: monat } };
+        return _gsScanPruefwerk(r, null).regeln.find(x => x.id === 'saison');
+      };
+      const juli = mach(7), september = mach(9);
+      if (!juli || juli.zustand !== 'warn') return { ok: false, warum: 'Juli gilt als passend für Aug–Okt' };
+      if (!september || september.zustand !== 'ok') return { ok: false, warum: 'September gilt NICHT als passend für Aug–Okt: ' + (september && september.zustand) };
+      return { ok: true, info: 'Juli → Vorbehalt, September → passt' };
+    },
+  },
+  {
+    name: 'EXIF · Anzeige: die Karte sagt, dass Datum und Ort aus dem Foto stammen',
+    lauf: () => {
+      const r = {
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, edible: true, toxicity: 0,
+        alternatives: [], _ctx: { ausFoto: true, aufnahme: '2026-07-14', ortAusFoto: true, lat: '46.818', lng: '8.228', monthNum: 7 },
+      };
+      showScanResult(r);
+      const txt = (document.getElementById('scan-result') || {}).textContent || '';
+      if (!/Aus dem Foto gelesen/.test(txt)) return { ok: false, warum: 'die Karte fehlt' };
+      if (!/2026-07-14/.test(txt)) return { ok: false, warum: 'das Datum steht nicht da' };
+      if (!/46\.818/.test(txt)) return { ok: false, warum: 'der Ort steht nicht da' };
+      if (/undefined|NaN/.test(txt)) return { ok: false, warum: 'Platzhalter im Text' };
+      return { ok: true, info: (txt.match(/Dieses Bild wurde[^.]*\./) || ['gefunden'])[0].slice(0, 84) };
+    },
+  },
+  // ── v32.01 · Das Urteil muss handlungsfähig sein ───────────────────────
+  {
+    name: 'Handlung · bei Vorbehalten steht der Knopf für ein zweites Foto',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';   // so, als läge ein erstes Foto vor
+      // Hohe Modell-Sicherheit, aber die Prüfung widerspricht: genau der
+      // Fall, in dem die alte Bedingung (conf < 85) nichts angeboten hätte.
+      const r = {
+        name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 94,
+        edible: true, toxic: false, toxicity: 0, alternatives: [],
+      };
+      showScanResult(r);
+      const el = document.getElementById('scan-result');
+      const knopf = el.querySelector('.sr2-pruef-knopf');
+      if (!knopf) return { ok: false, warum: 'kein Knopf, obwohl die Prüfung widerspricht (Modell meldet 94 %)' };
+      if (!/gsAddPhotoForRescan/.test(knopf.getAttribute('onclick') || '')) return { ok: false, warum: 'der Knopf führt nirgendwohin' };
+      const doppelt = el.querySelectorAll('[onclick*="gsAddPhotoForRescan"]');
+      if (doppelt.length > 1) return { ok: false, warum: doppelt.length + ' Knöpfe für dieselbe Handlung' };
+      return { ok: true, info: (knopf.textContent || '').trim() };
+    },
+  },
+  {
+    name: 'Handlung · ohne Vorbehalte kein Knopf',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      const r = {
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 95, edible: true, toxicity: 0,
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 15 }],
+        _ctx: { monthNum: 5 },   // Mai — passt zu Apr–Jun
+        _qual: { messbar: true, quality: 82, blur: 78, light: 86, warnings: [] },
+      };
+      showScanResult(r);
+      const el = document.getElementById('scan-result');
+      if (el.querySelector('.sr2-pruef-knopf')) return { ok: false, warum: 'bietet ein zweites Foto an, obwohl nichts widerspricht' };
+      return { ok: true, info: 'sauberer Fund, kein Knopf' };
+    },
+  },
+  // ── v32.02 · Die Karte darf sich nicht selbst widersprechen ────────────
+  {
+    name: 'Einigkeit · „nicht in unserer Liste" und „Vollständiger Eintrag" schliessen sich aus',
+    lauf: () => {
+      const proben = [
+        { name: 'Bärlauch', latin: 'Allium ursinum' },
+        { name: 'Herbstzeitlose', latin: 'Colchicum autumnale' },
+        { name: 'Waldmeister', latin: 'Galium odoratum' },
+        { name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus' },
+      ];
+      const streit = [];
+      for (const pr of proben) {
+        const pw = _gsScanPruefwerk({ ...pr, confidence: 80, toxicity: 0, alternatives: [] }, null);
+        const regel = pw.regeln.find(x => x.id === 'art');
+        const kenntPruefung = regel && regel.zustand === 'ok';
+        const kenntKarte = !!gsMatchScanToDb(pr.name, pr.latin);
+        // Die Karte darf grosszügiger sein (sie verlinkt auch ungeprüfte
+        // Einträge) — aber sie darf nie WENIGER kennen als die Prüfung.
+        if (kenntPruefung && !kenntKarte) streit.push(pr.name + ': Prüfung kennt die Art, die Karte nicht');
+      }
+      if (streit.length) return { ok: false, warum: streit.join(' · ') };
+      return { ok: true, info: proben.length + ' Proben, kein Widerspruch' };
+    },
+  },
+  {
+    name: 'Anzeige · das Scan-Foto steht genau EINMAL auf der Karte',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      showScanResult({
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 92, edible: true, toxicity: 0,
+        alternatives: [], diagnostic_features: ['Breite Blätter', 'Knoblauchgeruch'],
+      });
+      const el = document.getElementById('scan-result');
+      const bilder = [...el.querySelectorAll('img')].filter(i => /base64,AAAA/.test(i.getAttribute('src') || ''));
+      if (bilder.length !== 1) return { ok: false, warum: bilder.length + '× dasselbe Foto auf einer Karte' };
+      const li = el.querySelectorAll('.sr2-merkmale li');
+      if (li.length !== 2) return { ok: false, warum: 'die Merkmale sind mit dem Bild verschwunden (' + li.length + ')' };
+      return { ok: true, info: '1 Foto, ' + li.length + ' Merkmale' };
+    },
+  },
+  // ── v32.03 · Was der Prompt verlangt, muss auch jemand lesen ───────────
+  //
+  // Das Muster dieser Session, hier zum vierten Mal: abgefragt, geliefert,
+  // weggeworfen. Bei der Giftigkeit der Alternativen (v31.92) und den
+  // Merkmalen (v31.99) war es teuer. Diese Prüfung macht daraus eine Regel:
+  // jedes Feld im JSON-Beispiel des Prompts muss im Code gelesen werden.
+  //
+  // Kostet ein unbenutztes Feld nur Tokens? Ja — und das ist schon Grund
+  // genug. Aber es ist auch das verlässlichste Zeichen für eine Ansicht,
+  // die es nie gab.
+  {
+    name: 'Prompt · jedes verlangte Feld wird irgendwo gelesen',
+    lauf: () => {
+      const quelle = window.__QUELLE || '';
+      if (!quelle) return { ok: false, warum: 'Quelltext nicht übergeben' };
+      const sp = window.SCAN_SYSTEM_PROMPT || '';
+      if (!sp) return { ok: false, warum: 'SCAN_SYSTEM_PROMPT nicht erreichbar' };
+      // Die Feldnamen aus dem JSON-Beispiel am Ende des Prompts.
+      const felder = [...new Set((sp.match(/"([a-z_]{3,30})"\s*:/g) || [])
+        .map(x => x.replace(/["\s:]/g, '')))];
+      if (felder.length < 10) return { ok: false, warum: 'nur ' + felder.length + ' Felder erkannt — das Muster passt nicht mehr' };
+      const tot = felder.filter(f => {
+        // Gelesen heisst: irgendwo `.feld` ausserhalb des Prompts selbst.
+        const re = new RegExp('\\.' + f + '\\b', 'g');
+        return (quelle.match(re) || []).length === 0;
+      });
+      if (tot.length) return { ok: false, warum: 'verlangt und nirgends gelesen: ' + tot.join(', ') };
+      return { ok: true, info: felder.length + ' Felder, alle gelesen' };
+    },
+  },
+  {
+    name: 'Regional-Hinweis · nur bei ausdrücklichem Nein, nicht bei fehlendem Feld',
+    lauf: () => {
+      const zeigt = r => {
+        showScanResult(Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90,
+                                       edible: true, toxicity: 0, alternatives: [] }, r));
+        return /Regional-Hinweis/.test((document.getElementById('scan-result') || {}).textContent || '');
+      };
+      if (zeigt({})) return { ok: false, warum: 'warnt, obwohl das Feld gar nicht geliefert wurde' };
+      if (zeigt({ found_in_switzerland: true })) return { ok: false, warum: 'warnt trotz ausdrücklichem Ja' };
+      if (!zeigt({ found_in_switzerland: false })) return { ok: false, warum: 'warnt NICHT bei ausdrücklichem Nein' };
+      return { ok: true, info: 'fehlt → still · ja → still · nein → Hinweis' };
+    },
+  },
+  // ── v32.08 · Zurück-Knopf, Scangitter, Schrittliste ───────────────────
+  {
+    name: 'Zurück · das Ergebnis hat oben einen Weg heraus',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 92,
+                       edible: true, toxicity: 0, alternatives: [] });
+      const el = document.getElementById('scan-result');
+      const leiste = el.querySelector('.sr2-zurueck');
+      if (!leiste) return { ok: false, warum: 'keine Zurück-Leiste' };
+      const knoepfe = [...leiste.querySelectorAll('button')];
+      if (knoepfe.length < 2) return { ok: false, warum: 'nur ' + knoepfe.length + ' Knopf' };
+      // v32.09: links ins Hauptmenü, rechts zurück zum Scanner.
+      if (!/gsScanZumMenue/.test(knoepfe[0].getAttribute('onclick') || ''))
+        return { ok: false, warum: 'der Hauptknopf führt nicht ins Hauptmenü' };
+      if (!/Hauptmen/.test(knoepfe[0].textContent || ''))
+        return { ok: false, warum: 'der Hauptknopf sagt nicht, wohin er führt: „' + knoepfe[0].textContent + '"' };
+      if (!/gsResetScanner/.test(knoepfe[knoepfe.length - 1].getAttribute('onclick') || ''))
+        return { ok: false, warum: 'das ✕ schliesst das Ergebnis nicht' };
+      // Sie muss die ERSTE Sache auf der Karte sein — sonst liegt der Weg
+      // heraus wieder hinter der ganzen Karte.
+      if (el.firstElementChild !== leiste) return { ok: false, warum: 'steht nicht zuoberst' };
+      if (getComputedStyle(leiste).position !== 'sticky') return { ok: false, warum: 'bleibt beim Scrollen nicht stehen' };
+      // Und der Knopf muss wirklich schliessen.
+      // Und beide müssen wirklich etwas tun.
+      let reset = 0, menue = 0;
+      const eR = window.gsResetScanner, eM = window.openMainMenu;
+      window.gsResetScanner = () => { reset++; };
+      window.openMainMenu = () => { menue++; };
+      knoepfe[0].click();
+      if (!menue) return { ok: false, warum: 'der Hauptmenü-Knopf öffnet kein Menü' };
+      if (!reset) return { ok: false, warum: 'das Ergebnis bleibt beim Wechsel ins Menü stehen' };
+      reset = 0;
+      knoepfe[knoepfe.length - 1].click();
+      window.gsResetScanner = eR; window.openMainMenu = eM;
+      if (!reset) return { ok: false, warum: 'das ✕ bewirkt nichts' };
+      return { ok: true, info: '☰ → Menü + Ergebnis zu · ✕ → zurück zum Scanner' };
+    },
+  },
+  {
+    name: 'Zurück-Leiste gibt es NUR beim Ergebnis',
+    lauf: () => {
+      const el = document.getElementById('scan-result');
+      el.innerHTML = ''; el.style.display = 'none';
+      // Der Zustand während der Analyse darf sie nicht haben.
+      el.innerHTML = '<div class="analyzing gs-scanview">' + _gsSchritteHtml() + '</div>';
+      if (el.querySelector('.sr2-zurueck')) return { ok: false, warum: 'steht auch während der Analyse da' };
+      return { ok: true, info: 'nur auf der Ergebniskarte' };
+    },
+  },
+  {
+    name: 'Scangitter · die Kanten kommen aus dem echten Foto',
+    lauf: async () => {
+      // Ein Bild MIT Struktur (ein blattähnlicher Umriss) und eines ohne.
+      const mach = zeichne => new Promise(res => {
+        const c = document.createElement('canvas'); c.width = 240; c.height = 240;
+        const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 240, 240);
+        zeichne(g);
+        const im = new Image(); im.onload = () => res(im); im.src = c.toDataURL('image/jpeg', 0.92);
+      });
+      const mitBlatt = await mach(g => {
+        g.fillStyle = '#3f9142';
+        g.beginPath(); g.ellipse(120, 110, 74, 44, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1d5c22'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(58, 158); g.lineTo(182, 62); g.stroke();       // Mittelrippe
+        for (let i = 1; i < 6; i++) {                                          // Blattadern
+          g.beginPath(); g.moveTo(58 + i * 21, 158 - i * 16); g.lineTo(58 + i * 21 + 16, 158 - i * 16 - 34); g.stroke();
+        }
+        g.strokeStyle = '#2c6b30'; g.lineWidth = 6;
+        g.beginPath(); g.moveTo(120, 154); g.lineTo(126, 226); g.stroke();     // Stiel
+      });
+      const flach = await mach(() => {});
+
+      const k1 = _gsScanKanten(mitBlatt, 160);
+      const k2 = _gsScanKanten(flach, 160);
+      if (!k1 || k1.length < 90) return { ok: false, warum: 'findet am Blatt kaum Kanten: ' + (k1 ? k1.length / 3 : 0) + ' Punkte' };
+      if (k2 && k2.length / 3 > 40) return { ok: false, warum: 'findet auf einer leeren Fläche ' + (k2.length / 3) + ' Kanten — das wäre erfunden' };
+      // Die Punkte müssen im Bild liegen und dort, wo das Blatt ist.
+      let drin = 0, mitte = 0;
+      for (let i = 0; i < k1.length; i += 3) {
+        const x = k1[i], y = k1[i + 1];
+        if (x >= 0 && x <= 1 && y >= 0 && y <= 1) drin++;
+        if (x > 0.2 && x < 0.8 && y > 0.2 && y < 0.8) mitte++;
+      }
+      if (drin !== k1.length / 3) return { ok: false, warum: 'Punkte ausserhalb des Bildes' };
+      if (mitte < k1.length / 3 * 0.4) return { ok: false, warum: 'die Kanten liegen nicht dort, wo das Blatt ist' };
+      return { ok: true, info: (k1.length / 3) + ' Kantenpunkte am Blatt · ' + (k2 ? k2.length / 3 : 0) + ' auf leerer Fläche' };
+    },
+  },
+  {
+    name: 'Schrittliste · sieben Schritte, jeder mit echtem Ergebnis',
+    lauf: async () => {
+      const el = document.getElementById('scan-result');
+      el.innerHTML = '<div class="analyzing gs-scanview">' + _gsSchritteHtml() + '</div>';
+      const li = [...el.querySelectorAll('.gs-schritte li')];
+      // Die Zahl steht in GS_SCAN_SCHRITTE — hier wird gegen die Liste
+      // geprüft, nicht gegen eine im Prüfstand wiederholte Zahl. Sonst
+      // meldet er bei jedem neuen Schritt einen Fehler, den es nicht gibt.
+      const soll = GS_SCAN_SCHRITTE.length;
+      if (soll < 5) return { ok: false, warum: 'nur ' + soll + ' Schritte definiert' };
+      if (li.length !== soll) return { ok: false, warum: li.length + ' Schritte statt ' + soll };
+      if (!li.every(x => x.className === 'offen')) return { ok: false, warum: 'nicht alle beginnen offen' };
+
+      gsSchritt('bild', 'fertig', 'Schärfe 72 · Licht 80');
+      gsSchritt('ort', 'fertig', 'Juli · Sommer · aus dem Foto');
+      gsSchritt('farbe', 'fertig', 'Grün 61 % · Weiss 14 %',
+                [{ name: 'Grün', anteil: 61 }, { name: 'Weiss', anteil: 14 }]);
+      gsSchritt('vorab', 'fertig', '4’342 → 1’268 (Monat · Farbe)');
+      gsSchritt('cache', 'fertig', 'kein Treffer');
+      gsSchritt('ki', 'laeuft', '3 s');
+      const kiL = document.getElementById('schritt-ki');
+      if (kiL.className !== 'laeuft') return { ok: false, warum: 'der laufende Schritt ist nicht markiert' };
+      if ((kiL.querySelector('.gs-s-erg').textContent || '') !== '3 s') return { ok: false, warum: 'die Sekunden fehlen' };
+      gsSchritt('ki', 'fertig', 'Antwort nach 7 s');
+      gsSchritt('pruef', 'fertig', '7 Regeln · 1 Vorbehalt');
+
+      const fertig = [...el.querySelectorAll('.gs-schritte li.fertig')];
+      if (fertig.length !== soll) return { ok: false, warum: fertig.length + ' von ' + soll + ' abgehakt' };
+      const ohne = fertig.filter(x => !(x.querySelector('.gs-s-erg').textContent || '').trim());
+      if (ohne.length) return { ok: false, warum: ohne.length + ' Schritte ohne Ergebnis — dann ist es wieder nur eine Ansage' };
+      // Die Farbtupfen dürfen den Text nicht ERSETZEN: wer Farben nicht
+      // unterscheidet, liest sonst gar nichts.
+      const tup = document.querySelectorAll('#schritt-farbe .gs-s-tupfen i');
+      if (tup.length !== 2) return { ok: false, warum: tup.length + ' Farbtupfen statt 2' };
+      if (!/Grün 61 %/.test(document.getElementById('schritt-farbe').textContent || ''))
+        return { ok: false, warum: 'die Farben stehen nur als Punkt da, nicht als Text' };
+      // Und sie dürfen sich nicht aufstapeln, wenn der Schritt erneut gesetzt wird.
+      gsSchritt('farbe', 'fertig', 'Grün 61 %', [{ name: 'Grün', anteil: 61 }]);
+      if (document.querySelectorAll('#schritt-farbe .gs-s-tupfen i').length !== 1)
+        return { ok: false, warum: 'die Farbtupfen stapeln sich bei erneutem Setzen' };
+      const txt = el.textContent || '';
+      if (/schaut sich das Foto an/.test(txt)) return { ok: false, warum: 'der alte Text steht noch da' };
+      return { ok: true, info: soll + ' abgehakt, alle mit Ergebnis, Farben auch als Text' };
+    },
+  },
+  {
+    name: 'Ganzer Ablauf · analyzeImage füllt die Schritte mit echten Werten',
+    lauf: async () => {
+      // Ein echtes kleines JPEG mit Struktur.
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#1d5c22'; g.lineWidth = 2; g.beginPath(); g.moveTo(38, 104); g.lineTo(122, 42); g.stroke();
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+
+      // Sperren und Netz stellen — geprüft wird der ABLAUF, nicht die KI.
+      window.getApiConfig = () => ({ key: 'k' });
+      window.stopCamera = () => {};
+      window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+      window._gsScanDHash = async () => 'hash-xyz';
+      window._gsScanCacheGet = async () => null;      // kein Treffer
+      window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR', ausFoto: true, aufnahme: '2026-07-14' });
+      const gesehen = [];
+      window.callVisionAI = async () => {
+        // Während des Aufrufs muss der KI-Schritt als LAUFEND markiert sein.
+        const li = document.getElementById('schritt-ki');
+        gesehen.push('ki=' + (li ? li.className : 'weg'));
+        gesehen.push('bild=' + ((document.getElementById('schritt-bild') || {}).className || '?'));
+        gesehen.push('ergBild=' + ((document.querySelector('#schritt-bild .gs-s-erg') || {}).textContent || ''));
+        gesehen.push('ergOrt=' + ((document.querySelector('#schritt-ort .gs-s-erg') || {}).textContent || ''));
+        gesehen.push('gitter=' + (document.querySelector('#gs-scanfoto canvas.gs-scangitter') ? 'da' : 'fehlt'));
+        await new Promise(r => setTimeout(r, 30));
+        return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88,
+          edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      };
+
+      await analyzeImage(b64, 'image/jpeg');
+
+      if (!gesehen.includes('ki=laeuft')) return { ok: false, warum: 'der KI-Schritt war während des Aufrufs nicht als laufend markiert: ' + gesehen.join(' | ') };
+      if (!gesehen.includes('bild=fertig')) return { ok: false, warum: 'der Bild-Schritt war beim KI-Aufruf noch nicht abgehakt' };
+      if (!gesehen.some(x => /^ergBild=Schärfe/.test(x))) return { ok: false, warum: 'kein gemessenes Bild-Ergebnis: ' + gesehen.join(' | ') };
+      if (!gesehen.some(x => /^ergOrt=Juli/.test(x))) return { ok: false, warum: 'kein Orts-Ergebnis: ' + gesehen.join(' | ') };
+      if (!gesehen.includes('gitter=da')) return { ok: false, warum: 'die Gitter-Leinwand lag nicht über dem Foto' };
+      // Danach steht die Ergebniskarte mit der Zurück-Leiste.
+      const el = document.getElementById('scan-result');
+      if (!el.querySelector('.sr2-zurueck')) return { ok: false, warum: 'nach dem Scan fehlt die Zurück-Leiste' };
+      return { ok: true, info: gesehen.filter(x => /^erg/.test(x)).join(' · ') };
+    },
+  },
+  // ── v33.58 · der GETEILTE Scan-Cache ist aus ─────────────────────────
+  // Gemessen an der Live-DB (10.11.2026, nur lesend): `scan_cache` ist EINE
+  // Tabelle fuer alle Konten, der Schluessel ein 64-Bit-dHash aus 9×8
+  // Bildpunkten, und `fn_scan_cache_put` nimmt von jedem angemeldeten Konto
+  // jedes Ergebnis fuer jeden Hash an — der ERSTE Eintrag gewinnt. Ein
+  // Treffer ersetzt die KI-Antwort ganz. Der Fall stellt genau das her: unter
+  // dem Hash des Fotos liegt ein FREMDER Treffer, der eine essbare Art nennt.
+  {
+    name: 'Cache · der geteilte Scan-Cache ist aus: ein bereitliegender fremder Treffer wird nie gelesen, nichts wird hineingeschrieben, die KI wird gefragt',
+    lauf: async () => {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#e8e2d0'; g.beginPath(); g.ellipse(80, 70, 46, 26, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#8a7a5a'; g.lineWidth = 3; g.beginPath(); g.moveTo(80, 96); g.lineTo(80, 150); g.stroke();
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+      window.getApiConfig = () => ({ key: 'k' });
+      window.stopCamera = () => {};
+      window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Oktober', season: 'Herbst', monthNum: 10, canton: 'ZH' });
+      const z = { hash: 0, get: 0, put: 0, ki: 0 };
+      window._gsScanDHash = async () => { z.hash++; return '00ff00ff00ff00ff'; };
+      window._gsScanCacheGet = async () => { z.get++; return { name: 'Wiesen-Champignon', latin: 'Agaricus campestris', confidence: 97,
+        edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'aus dem Cache' }; };
+      window._gsScanCachePut = () => { z.put++; };
+      window.callVisionAI = async () => { z.ki++; return JSON.stringify({ name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides',
+        confidence: 86, edible: false, toxic: true, toxicity: 5, alternatives: [], description: 'x' }); };
+      await analyzeImage(b64, 'image/jpeg');
+      const karte = (document.getElementById('scan-result') || {}).textContent || '';
+      if (z.ki !== 1) return { ok: false, warum: 'die KI wurde ' + z.ki + '× gefragt statt 1× (Cache gelesen ' + z.get + '× · geschrieben ' + z.put + '×) — auf der Karte: ' + (/Champignon/.test(karte) ? 'der fremde Treffer' : 'etwas anderes') };
+      if (z.get !== 0) return { ok: false, warum: 'der geteilte Cache wurde ' + z.get + '× gelesen' };
+      if (z.put !== 0) return { ok: false, warum: 'in den geteilten Cache wurde ' + z.put + '× geschrieben' };
+      if (/Champignon/.test(karte)) return { ok: false, warum: 'auf der Karte steht der Treffer aus dem Cache' };
+      if (!/Knollenbl/.test(karte)) return { ok: false, warum: 'die Antwort der KI steht nicht auf der Karte' };
+      return { ok: true, info: 'KI 1× gefragt · Cache gelesen 0× · geschrieben 0×' };
+    },
+  },
+  // ── v33.16 · Stufe 2b: jedes Foto gemessen, der dritte Blick ─────────
+  {
+    name: 'Ablauf · jedes Foto gemessen: das scharfe trägt das unscharfe, keines lesbar → Rückfrage, „Trotzdem" behält beide',
+    lauf: async () => {
+      const scharf = (() => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1d5c22'; g.lineWidth = 2; for (let i = 0; i < 12; i++) { g.beginPath(); g.moveTo(10 + i * 12, 150); g.lineTo(60 + i * 8, 20); g.stroke(); }
+        return c.toDataURL('image/jpeg', 0.9).split(',')[1]; })();
+      const flach = (() => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d'); g.fillStyle = '#7a8a6a'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; })();
+      const qS = await gsBildQualitaetVonB64(scharf, 'image/jpeg'), qF = await gsBildQualitaetVonB64(flach, 'image/jpeg');
+      // Der Fall stellt seinen Zustand HER und weist ihn nach (CLAUDE.md §7.1).
+      if (!qS.messbar || gsQualitaetZuSchlecht(qS)) return { ok: false, warum: 'Prüfbild „scharf" ist selbst zu schlecht (Schärfe ' + qS.blur + ') — der Fall stellt den Zustand nicht her' };
+      if (!qF.messbar || !gsQualitaetZuSchlecht(qF)) return { ok: false, warum: 'Prüfbild „flach" gilt als lesbar (Schärfe ' + qF.blur + ') — der Fall stellt den Zustand nicht her' };
+      // Sperren und Netz stellen — geprüft wird der ABLAUF, nicht die KI.
+      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+      window._gsScanDHash = async () => 'hash-h2'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+      const rufe = [];
+      window.callVisionAI = async (b, m, p, ex) => { rufe.push({ n: 1 + ((ex || []).length), prompt: String(p || ''), schritt: ((document.querySelector('#schritt-bild .gs-s-erg') || {}).textContent || '') }); return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+      const alt = window.showScanResult; let res = null;
+      window.showScanResult = function (r) { res = r; return alt(r); };
+      const klagen = [];
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      try {
+        // 1 · neues Foto scharf, zusätzliches unscharf → kein Stopp, beides gemessen
+        await analyzeImage(scharf, 'image/jpeg', '', [{ b64: flach, mt: 'image/jpeg' }]);
+        if (rufe.length !== 1 || rufe[0].n !== 2) klagen.push('1: KI-Aufruf mit ' + (rufe[0] ? rufe[0].n : 0) + ' Fotos statt 2');
+        const q1 = res && res._qual;
+        if (!q1 || !q1.messbar) klagen.push('1: keine Messung im Ergebnis (der alte Mehrfach-Weg mass nichts)');
+        else {
+          if (q1.fotos !== 2 || q1.gemessen !== 2) klagen.push('1: fotos/gemessen = ' + q1.fotos + '/' + q1.gemessen + ' statt 2/2');
+          if (q1.quality !== qS.quality) klagen.push('1: quality ' + q1.quality + ' ist nicht die des schärfsten Fotos (' + qS.quality + ')');
+          if (q1.schwach !== 1) klagen.push('1: schwach = ' + q1.schwach + ' statt 1');
+          if (!q1.alle || q1.alle.length !== 2 || !q1.alle[1] || q1.alle[1].blur !== qF.blur) klagen.push('1: je-Foto-Liste fehlt oder falsch: ' + JSON.stringify(q1.alle));
+        }
+        if (!/bestes von 2 Fotos/.test(rufe[0] ? rufe[0].prompt : '')) klagen.push('1: der Prompt nennt die Zahl der Fotos nicht');
+        const t1 = karte();
+        if (!/das schärfste von 2 Fotos/.test(t1) || !/Eines davon ist zu unscharf/.test(t1)) klagen.push('1: S5 auf der Karte nennt weder „schärfste von 2 Fotos" noch das unscharfe');
+        // gelesen WAEHREND des KI-Aufrufs — danach ersetzt die Karte die Schrittliste
+        const schritt = rufe[0] ? rufe[0].schritt : '';
+        if (!/Schärfe \d+ · Licht \d+ · 2 Fotos/.test(schritt)) klagen.push('1: Schritt „Bild" nennt die 2 Fotos nicht: „' + schritt + '"');
+        // 2 · beide unscharf → Rückfrage, KEIN Aufruf; „Trotzdem" behält das zweite Foto
+        res = null;
+        await analyzeImage(flach, 'image/jpeg', '', [{ b64: flach, mt: 'image/jpeg' }]);
+        const t2 = karte();
+        if (rufe.length !== 1) klagen.push('2: KI wurde trotz zwei unlesbarer Fotos gerufen');
+        if (!/schwer zu lesen/.test(t2)) klagen.push('2: keine Rückfrage bei zwei unlesbaren Fotos');
+        if (!/2 Fotos gemessen, keines lesbar/.test(t2)) klagen.push('2: die Rückfrage sagt nicht, dass beide gemessen wurden: „' + t2.slice(0, 160) + '"');
+        gsQualTrotzdem();
+        for (let i = 0; i < 60 && (rufe.length < 2 || !res); i++) await new Promise(r => setTimeout(r, 50));
+        if (rufe.length !== 2 || rufe[1].n !== 2) klagen.push('2: „Trotzdem" rief die KI mit ' + (rufe[1] ? rufe[1].n : 0) + ' Fotos statt 2 — das zweite Foto ging verloren');
+        const q2 = res && res._qual;
+        if (!q2 || q2.fotos !== 2 || !q2.messbar) klagen.push('2: nach „Trotzdem" keine Messung über 2 Fotos: ' + JSON.stringify(q2 && { fotos: q2.fotos, messbar: q2.messbar }));
+        if (!/Dünne Bildgrundlage/.test(karte())) klagen.push('2: nach „Trotzdem" fehlt der Vorbehalt „Dünne Bildgrundlage" — die Bestimmung stünde auf einer ungemessenen Grundlage');
+      } finally { window.showScanResult = alt; window._gsQualExtra = null; }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'scharf+flach: 2/2 gemessen, bestes zählt (' + qS.quality + '), 1 unscharf genannt · flach+flach: Rückfrage ohne Aufruf, „Trotzdem" mit 2 Fotos und Vorbehalt' };
+    },
+  },
+  {
+    name: 'Dritter Blick · „Zweites Foto" nimmt ALLE Fotos des letzten Scans mit, wird zum dritten, endet am Deckel',
+    lauf: async () => {
+      const bild = (seed) => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.strokeStyle = '#3f9142'; g.lineWidth = 2;
+        for (let i = 0; i < 14; i++) { g.beginPath(); g.moveTo((seed * 7 + i * 11) % 160, 150); g.lineTo((seed * 13 + i * 9) % 160, 10); g.stroke(); }
+        return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      const b1 = bild(1), b2 = bild(2), b3 = bild(3), b4 = bild(4);
+      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+      window._gsScanDHash = async () => 'hash-h3'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+      const rufe = [];
+      // Herbstzeitlose als „essbar" → die Prüfung widerspricht (S1): der Knopf MUSS da sein
+      window.callVisionAI = async (b, m, p, ex) => { rufe.push(1 + ((ex || []).length)); return JSON.stringify({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 94, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+      const klagen = [];
+      const karte = () => document.getElementById('scan-result');
+      try {
+        await analyzeImage(b1, 'image/jpeg');
+        if (rufe[0] !== 1) klagen.push('Scan 1 mit ' + rufe[0] + ' Fotos');
+        let k = karte().querySelector('.sr2-pruef-knopf');
+        if (!k || !/Zweites Foto/.test(k.textContent)) klagen.push('nach 1 Foto kein „Zweites Foto"-Knopf: ' + (k ? k.textContent : 'fehlt'));
+        gsAddPhotoForRescan();
+        const pr1 = window._gsRescanPrior && window._gsRescanPrior.bilder;
+        if (!pr1 || pr1.length !== 1) klagen.push('Re-Scan nach 1 Foto trägt ' + (pr1 && pr1.length) + ' Fotos statt 1');
+        await analyzeImage(b2, 'image/jpeg');
+        if (rufe[1] !== 2) klagen.push('Scan 2 mit ' + rufe[1] + ' Fotos statt 2');
+        k = karte().querySelector('.sr2-pruef-knopf');
+        if (!k || !/Drittes Foto/.test(k.textContent)) klagen.push('nach 2 Fotos heisst der Knopf nicht „Drittes Foto": ' + (k ? k.textContent : 'fehlt'));
+        gsAddPhotoForRescan();
+        const pr2 = window._gsRescanPrior && window._gsRescanPrior.bilder;
+        if (!pr2 || pr2.length !== 2) klagen.push('Re-Scan nach 2 Fotos trägt ' + (pr2 && pr2.length) + ' Fotos statt 2 — das erste Foto ging verloren');
+        else if (pr2[0].b64 !== b2 || pr2[1].b64 !== b1) klagen.push('Re-Scan-Fotos in falscher Reihenfolge (neuestes zuerst erwartet)');
+        await analyzeImage(b3, 'image/jpeg');
+        if (rufe[2] !== 3) klagen.push('Scan 3 mit ' + rufe[2] + ' Fotos statt 3');
+        const txt = (karte().textContent || '').replace(/\s+/g, ' ');
+        if (karte().querySelector('.sr2-pruef-knopf') || karte().querySelector('[onclick*="gsAddPhotoForRescan"]')) klagen.push('nach 3 Fotos wird ein viertes angeboten');
+        if (!/3 Fotos sind das Maximum/.test(txt)) klagen.push('am Deckel fehlt der Satz „3 Fotos sind das Maximum"');
+        if (!/das schärfste von 3 Fotos/.test(txt)) klagen.push('S5 nennt „das schärfste von 3 Fotos" nicht');
+        // Und selbst ein direkter vierter Anlauf bleibt bei drei Fotos
+        gsAddPhotoForRescan();
+        const pr4 = window._gsRescanPrior && window._gsRescanPrior.bilder;
+        if (!pr4 || pr4.length !== 2) klagen.push('Re-Scan nach 3 Fotos trägt ' + (pr4 && pr4.length) + ' statt 2 (Deckel 3)');
+        await analyzeImage(b4, 'image/jpeg');
+        if (rufe[3] !== 3) klagen.push('Scan 4 mit ' + rufe[3] + ' Fotos statt 3 (Deckel)');
+      } finally { window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0; }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Aufrufe mit ' + rufe.join('/') + ' Fotos · Knopf: Zweites → Drittes → Maximum-Satz' };
+    },
+  },
+  // ── v33.20 · Der Scan kennt den Aussaatkalender ──────────────────────
+  {
+    name: 'Aussaatkalender · der Scan einer Kultur nennt ihr Fenster (drinnen · draussen · Ernte) mit dem Weg zum Säkalender — eine Wildart bekommt keins, season ist keins',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      const zeig = r => {
+        showScanResult(Object.assign({ confidence: 88, toxicity: 0, edible: true, alternatives: [] }, r));
+        const el = document.getElementById('scan-result');
+        return { row: el.querySelector('.sr2-row-sae'), cta: el.querySelector('.sr2-sae-cta') };
+      };
+      const klagen = [];
+      const k = (typeof _gsSaeZuPflanze === 'function') ? _gsSaeZuPflanze({ name: 'Tomate' }) : null;
+      if (!k) return { ok: false, warum: 'der Fall stellt den Zustand nicht her: „Tomate" ist keine Kultur in GS_SAE_DB' };
+      const t = zeig({ name: 'Tomate', latin: 'Solanum lycopersicum', season: 'Jun–Sep' });
+      if (!t.row) klagen.push('Tomate: keine Aussaat-Zeile');
+      else {
+        const txt = (t.row.textContent || '').replace(/\s+/g, ' ');
+        const mon = gsMonate(true);
+        [k.indoor, k.outdoor, k.harvest].filter(a => a && a.length).forEach(a => {
+          if (txt.indexOf(mon[a[0]]) < 0 || txt.indexOf(mon[a[a.length - 1]]) < 0) klagen.push('Tomate: Monate ' + mon[a[0]] + '/' + mon[a[a.length - 1]] + ' fehlen: „' + txt + '"');
+        });
+        if (!/drinnen vorziehen/.test(txt) || !/draussen säen/.test(txt) || !/Ernte/.test(txt)) klagen.push('Tomate: drinnen/draussen/Ernte nicht alle genannt: „' + txt + '"');
+        if (!t.cta || !/openSaekalender/.test(t.cta.getAttribute('onclick') || '')) klagen.push('Tomate: kein Weg zum Säkalender');
+      }
+      // Gegenrichtung: Wildart mit season (Sammelsaison) → keine Zeile, kein Knopf
+      const b = zeig({ name: 'Bärlauch', latin: 'Allium ursinum', season: 'Apr–Jun', habitat: 'Auenwald' });
+      if (b.row || b.cta) klagen.push('Bärlauch (Wildart mit season) bekam eine Aussaat-Zeile — season ist eine Sammelsaison');
+      // Der Name der KI zählt auch ohne Treffer in der Artenliste — und der Plural (Zucchini/Zucchinis)
+      const z = zeig({ name: 'Zucchini', latin: 'Cucurbita pepo' });
+      if (!z.row) klagen.push('Zucchini: keine Aussaat-Zeile');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Tomate: „' + (t.row.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 96) + '" · Bärlauch: keine Zeile · Zucchini: Zeile' };
+    },
+  },
+  // ── v32.10 · Die Gegenprobe (Stufe 3) ────────────────────────────────
+  {
+    name: 'Gegenprobe · erscheint NUR bei essbar + giftiger Alternative',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      const zeigt = r => {
+        showScanResult(Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88 }, r));
+        return !!document.querySelector('#gs-gegenprobe .gs-gp-knopf');
+      };
+      // essbar + tödliche Alternative → ja
+      if (!zeigt({ edible: true, toxicity: 0, alternatives: [
+        { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 30 }] }))
+        return { ok: false, warum: 'fehlt im gefährlichsten Fall (essbar + tödliche Verwechslung)' };
+      // essbar, aber harmlose Alternativen → nein
+      if (zeigt({ edible: true, toxicity: 0, alternatives: [
+        { name: 'Schnittlauch', latin: 'Allium schoenoprasum', confidence: 20, toxicity: 0, edible: true }] }))
+        return { ok: false, warum: 'erscheint auch ohne giftige Alternative — würde Kontingent verbrennen' };
+      // nicht essbar + giftige Alternative → nein (niemand will es essen)
+      if (zeigt({ edible: false, toxicity: 4, alternatives: [
+        { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 30 }] }))
+        return { ok: false, warum: 'erscheint, obwohl die Art gar nicht als essbar gilt' };
+      // ganz ohne Alternativen → nein
+      if (zeigt({ edible: true, toxicity: 0, alternatives: [] }))
+        return { ok: false, warum: 'erscheint ohne jede Verwechslungsmöglichkeit' };
+      return { ok: true, info: 'nur essbar + giftige Alternative' };
+    },
+  },
+  {
+    name: 'Gegenprobe · der Auftrag ist WIDERLEGEN, nicht bestätigen',
+    lauf: async () => {
+      window._gsLastScanB64 = 'AAAA'; window._gsLastScanMt = 'image/jpeg';
+      window._gsLetzterScan = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88,
+        edible: true, toxicity: 0, _altGefahr: 5,
+        alternatives: [{ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 30 }],
+        diagnostic_features: ['Breite Blätter'] };
+      let sys = '', frage = '';
+      window.callVisionAI = async (b, m, p, ex, o) => {
+        sys = (o && o.systemPrompt) || ''; frage = p || '';
+        return JSON.stringify({ urteil: 'bestaetigt', vertrauen: 80, dagegen: [], dafuer: ['Knoblauchgeruch erwähnt'], fehlend: '', verzehr: 'ja' });
+      };
+      const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+      document.body.appendChild(host);
+      await gsScanGegenprobe();
+      host.remove();
+      if (!/WIDERLEGEN|widerlegen/.test(sys)) return { ok: false, warum: 'der Auftrag verlangt kein Widerlegen' };
+      if (/bestätige|bestaetige/i.test(sys.split('REGELN')[0]) && !/NICHT/.test(sys)) return { ok: false, warum: 'der Auftrag bittet um Bestätigung' };
+      if (!/BEHAUPTUNG/.test(frage)) return { ok: false, warum: 'die erste Bestimmung wird nicht als Behauptung vorgelegt' };
+      if (!/Herbstzeitlose/.test(frage)) return { ok: false, warum: 'die giftige Alternative fehlt im Auftrag' };
+      return { ok: true, info: 'Systemauftrag „widerlegen", Bestimmung als Behauptung' };
+    },
+  },
+  {
+    name: 'Gegenprobe · Widerspruch sagt deutlich „iss das nicht"',
+    lauf: () => {
+      const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+      document.body.appendChild(host);
+      gsGegenprobeRender({ urteil: 'widerlegt', vertrauen: 20,
+        dagegen: ['Kein Knoblauchgeruch beschrieben', 'Blattbasis fleischig'],
+        dafuer: [], fehlend: 'Blattunterseite', verzehr: 'nein',
+        bessere_erklaerung: { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', warum: 'Blattform passt besser' } },
+        { name: 'Bärlauch' });
+      const t = host.textContent || '';
+      host.remove();
+      if (!/WIDERSPRICHT/.test(t)) return { ok: false, warum: 'der Widerspruch steht nicht als Überschrift' };
+      if (!/Iss das nicht/.test(t)) return { ok: false, warum: 'die klare Ansage fehlt' };
+      if (!/Nicht verzehren/i.test(t)) return { ok: false, warum: 'die Verzehr-Empfehlung fehlt' };
+      if (!/Herbstzeitlose/.test(t)) return { ok: false, warum: 'die bessere Erklärung wird nicht genannt' };
+      if (!/Blattunterseite/.test(t)) return { ok: false, warum: 'das fehlende Merkmal wird nicht genannt' };
+      if (/undefined|NaN|\[object Object\]/.test(t)) return { ok: false, warum: 'Platzhalter im Text' };
+      return { ok: true, info: (t.match(/Der zweite Blick[^.]*/) || ['gefunden'])[0].slice(0, 46) };
+    },
+  },
+  {
+    name: 'Gegenprobe · Einigkeit wird nicht als Beweis verkauft',
+    lauf: () => {
+      const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+      document.body.appendChild(host);
+      gsGegenprobeRender({ urteil: 'bestaetigt', vertrauen: 90, dagegen: [], dafuer: ['Knoblauchgeruch'], verzehr: 'ja' }, { name: 'Bärlauch' });
+      const t = host.textContent || '';
+      host.remove();
+      if (!/dasselbe Ergebnis/.test(t)) return { ok: false, warum: 'die Übereinstimmung wird nicht genannt' };
+      if (!/Ein Beweis ist es nicht/.test(t)) return { ok: false, warum: 'verkauft Einigkeit als Beweis — das ist die gefährlichste Formulierung überhaupt' };
+      return { ok: true, info: 'Einigkeit genannt, aber ausdrücklich kein Beweis' };
+    },
+  },
+  {
+    name: 'Gegenprobe · scheitert der Aufruf, bleibt die Unsicherheit stehen',
+    lauf: async () => {
+      window._gsLastScanB64 = 'AAAA';
+      window._gsLetzterScan = { name: 'Bärlauch', latin: 'Allium ursinum', edible: true, _altGefahr: 5, alternatives: [] };
+      window.callVisionAI = async () => { throw new Error('Netz weg'); };
+      const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+      document.body.appendChild(host);
+      await gsScanGegenprobe();
+      const t = host.textContent || '';
+      const nochmals = !!host.querySelector('button');
+      host.remove();
+      if (/best\u00e4tigt|dasselbe Ergebnis/.test(t)) return { ok: false, warum: 'meldet Einigkeit, obwohl der Aufruf scheiterte' };
+      if (!/nicht m\u00f6glich/i.test(t)) return { ok: false, warum: 'sagt nicht, dass es nicht geklappt hat' };
+      if (!/im Zweifel nicht verzehren/i.test(t)) return { ok: false, warum: 'die Unsicherheit wird nicht benannt' };
+      if (!nochmals) return { ok: false, warum: 'kein Weg, es nochmals zu versuchen' };
+      return { ok: true, info: 'Fehlschlag benannt, Unsicherheit bleibt, Wiederholung möglich' };
+    },
+  },
+  // ── v32.11 · Netz, Fokuszonen, Phasen, Enthüllung ────────────────────
+  {
+    name: 'Netz · Linien und Fokuszonen kommen aus dem echten Bild',
+    lauf: async () => {
+      const mach = zeichne => new Promise(res => {
+        const c = document.createElement('canvas'); c.width = 260; c.height = 260;
+        const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 260, 260);
+        zeichne(g);
+        const im = new Image(); im.onload = () => res(im); im.src = c.toDataURL('image/jpeg', 0.92);
+      });
+      const blatt = await mach(g => {
+        g.fillStyle = '#3f9142';
+        g.beginPath(); g.ellipse(130, 118, 80, 48, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1d5c22'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(62, 172); g.lineTo(198, 66); g.stroke();
+        for (let i = 1; i < 7; i++) {
+          g.beginPath(); g.moveTo(62 + i * 20, 172 - i * 16); g.lineTo(62 + i * 20 + 18, 172 - i * 16 - 36); g.stroke();
+        }
+        g.strokeStyle = '#2c6b30'; g.lineWidth = 7;
+        g.beginPath(); g.moveTo(130, 166); g.lineTo(138, 248); g.stroke();
+      });
+      const leer = await mach(() => {});
+
+      const S = _gsScanStruktur(blatt, 160);
+      const L = _gsScanStruktur(leer, 160);
+      if (!S) return { ok: false, warum: 'keine Struktur am Blatt gefunden' };
+      if (L) return { ok: false, warum: 'findet Struktur auf einer leeren Fläche — das wäre erfunden' };
+      if (!S.kanten.length) return { ok: false, warum: 'Punkte ohne Verbindungen — kein Netz' };
+      if (S.kanten.length % 2) return { ok: false, warum: 'ungerade Kantenliste' };
+      // Jede Linie muss zwei echte Punkte verbinden, und nicht quer durchs Bild gehen.
+      let lang = 0;
+      for (let e = 0; e < S.kanten.length; e += 2) {
+        const a1 = S.kanten[e], b1 = S.kanten[e + 1];
+        if (a1 === b1) return { ok: false, warum: 'eine Linie verbindet einen Punkt mit sich selbst' };
+        if (!(a1 >= 0 && a1 < S.n && b1 >= 0 && b1 < S.n)) return { ok: false, warum: 'Linie zeigt auf einen Punkt, den es nicht gibt' };
+        const dx = S.px[a1] - S.px[b1], dy = S.py[a1] - S.py[b1];
+        if (Math.sqrt(dx * dx + dy * dy) > 0.056) lang++;
+      }
+      if (lang) return { ok: false, warum: lang + ' Linien länger als die Nachbarschaft — das Netz würde quer durchs Bild gehen' };
+      if (!S.fokus.length) return { ok: false, warum: 'keine Fokuszone berechnet' };
+      if (S.fokus.length > 4) return { ok: false, warum: S.fokus.length + ' Fokuszonen — zu viele, das wirkt wie ein Fehler' };
+      // Die Fokuszonen müssen dort liegen, wo das Blatt ist, nicht am Rand.
+      const drin = S.fokus.filter(f => f.x > 0.12 && f.x < 0.88 && f.y > 0.12 && f.y < 0.95).length;
+      if (drin !== S.fokus.length) return { ok: false, warum: 'Fokuszonen liegen am Bildrand statt auf der Pflanze' };
+      // Und sie dürfen nicht aufeinander liegen.
+      for (let i = 0; i < S.fokus.length; i++) for (let j = i + 1; j < S.fokus.length; j++) {
+        if (Math.abs(S.fokus[i].x - S.fokus[j].x) < 0.1 && Math.abs(S.fokus[i].y - S.fokus[j].y) < 0.1)
+          return { ok: false, warum: 'zwei Fokusringe liegen übereinander' };
+      }
+      return { ok: true, info: S.n + ' Knoten · ' + (S.kanten.length / 2) + ' Linien · ' + S.fokus.length + ' Fokuszonen · leere Fläche: nichts' };
+    },
+  },
+  {
+    name: 'Phasen · hängen am echten Ablauf, nicht an einem Timer',
+    lauf: async () => {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#1d5c22'; g.lineWidth = 2; g.beginPath(); g.moveTo(38, 104); g.lineTo(122, 42); g.stroke();
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+
+      window.getApiConfig = () => ({ key: 'k' });
+      window.stopCamera = () => {}; window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+      window._gsScanDHash = async () => 'h'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      const phasen = [];
+      window.callVisionAI = async () => {
+        phasen.push('beimAufruf=' + window._gsScanPhase);
+        await new Promise(r => setTimeout(r, 30));
+        return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88,
+          edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      };
+      window._gsScanPhase = 'unbekannt';
+      const vorher = window._gsScanPhase;
+      await analyzeImage(b64, 'image/jpeg');
+      phasen.push('danach=' + window._gsScanPhase);
+
+      if (!phasen.includes('beimAufruf=netz')) return { ok: false, warum: 'während des KI-Aufrufs lief nicht die Netz-Phase: ' + phasen.join(' | ') };
+      if (!phasen.includes('danach=treffer')) return { ok: false, warum: 'nach der Antwort wurde nicht auf Treffer geschaltet: ' + phasen.join(' | ') };
+      return { ok: true, info: 'vor dem Aufruf „' + vorher + '" → netz → treffer' };
+    },
+  },
+  {
+    name: 'Enthüllung · der Ring zählt hoch, die Prüfzeilen haken nacheinander ab',
+    lauf: async () => {
+      window._gsLastScanB64 = 'AAAA';
+      showScanResult({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 71,
+        edible: true, toxicity: 0, alternatives: [], description: 'x' });
+      const el = document.getElementById('scan-result');
+      const lbl = el.querySelector('.sr2-conf-ring .ring-lbl');
+      if (!lbl) return { ok: false, warum: 'kein Sicherheits-Ring' };
+      const start = (lbl.textContent || '').trim();
+      const zeilen = [...el.querySelectorAll('.sr2-pruef-zeile')];
+      if (!zeilen.length) return { ok: false, warum: 'keine Prüfzeilen' };
+      // Die Zeilen laufen über CSS ein — GESTAFFELT, aber nie hinter einem
+      // Timer versteckt. Geprüft wird beides: dass gestaffelt wird, und dass
+      // am Ende jede Zeile wirklich sichtbar ist.
+      const verzoeg = zeilen.map(z => parseFloat(getComputedStyle(z).animationDelay) || 0);
+      if (new Set(verzoeg).size < Math.min(3, zeilen.length))
+        return { ok: false, warum: 'alle Zeilen erscheinen gleichzeitig — keine Staffelung' };
+      // Die Zeilen duerfen zu KEINEM Zeitpunkt unsichtbar sein — auch nicht
+      // waehrend der Animation. Deshalb gleich messen, nicht erst am Ende.
+      const sofortUnsichtbar = zeilen.filter(z => Number(getComputedStyle(z).opacity) < 0.9).length;
+      await new Promise(r => setTimeout(r, 1600));
+      const ende = (lbl.textContent || '').trim();
+      const unsichtbar = zeilen.filter(z => Number(getComputedStyle(z).opacity) < 0.9);
+      if (sofortUnsichtbar) return { ok: false, warum: sofortUnsichtbar + ' Zeilen starten unsichtbar — faellt die Animation aus, bleiben sie es' };
+      if (start === ende && start !== '0%') return { ok: false, warum: 'der Ring zählt nicht hoch (blieb bei ' + start + ')' };
+      if (ende !== '71%') return { ok: false, warum: 'der Ring endet bei ' + ende + ' statt 71%' };
+      if (unsichtbar.length) return { ok: false, warum: unsichtbar.length + ' von ' + zeilen.length + ' Zeilen bleiben unsichtbar' };
+      return { ok: true, info: start + ' → ' + ende + ' · ' + zeilen.length + ' Zeilen gestaffelt, nie unsichtbar' };
+    },
+  },
+  // ── v32.12 · Farbmessung, Vorauswahl, S6, S7 ─────────────────────────
+  {
+    name: 'Farbmessung · misst, was wirklich im Bild ist',
+    lauf: async () => {
+      const mal = zeichne => new Promise(res => {
+        const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+        const g = c.getContext('2d'); zeichne(g);
+        const im = new Image(); im.onload = () => res(im); im.src = c.toDataURL('image/png');
+      });
+      // Drei Viertel Blattgrün, ein Viertel gelbe Blüte.
+      const gelb = await mal(g => {
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150);
+        g.fillStyle = '#f2c31a'; g.fillRect(0, 0, 200, 38);
+      });
+      const nurGruen = await mal(g => { g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150); });
+      const rinde = await mal(g => { g.fillStyle = '#6b4a23'; g.fillRect(0, 0, 200, 150); });
+
+      const f1 = gsBildFarben(gelb), f2 = gsBildFarben(nurGruen), f3 = gsBildFarben(rinde);
+      if (!f1.messbar) return { ok: false, warum: 'nicht messbar' };
+      if ((f1.anteile['Grün'] || 0) < 60) return { ok: false, warum: 'Grün nur ' + f1.anteile['Grün'] + ' % statt ~75' };
+      if (!f1.blickfang || f1.blickfang.name !== 'Gelb')
+        return { ok: false, warum: 'Blickfang ist ' + (f1.blickfang ? f1.blickfang.name : 'nichts') + ' statt Gelb' };
+      if (f1.blickfang.anteil < 18) return { ok: false, warum: 'Gelb nur ' + f1.blickfang.anteil + ' % statt ~25' };
+      // Gegenprobe: ein reines Blattfoto darf KEINEN Blickfang melden.
+      if (f2.blickfang) return { ok: false, warum: 'meldet auf einem reinen Blattfoto einen Blickfang: ' + f2.blickfang.name };
+      // Und dunkles Orange ist Rinde, nicht Blüte.
+      if ((f3.anteile['Braun'] || 0) < 80) return { ok: false, warum: 'Rinde gilt als ' + JSON.stringify(f3.anteile) + ' statt Braun' };
+      if (f3.blickfang) return { ok: false, warum: 'Braun wird als Blickfang gemeldet — dann ist jeder Waldboden eine Blüte' };
+      return { ok: true, info: 'Grün ' + f1.anteile['Grün'] + ' % · Blickfang Gelb ' + f1.blickfang.anteil + ' % · Rinde = Braun' };
+    },
+  },
+  {
+    name: 'Farbmessung · nicht gemessen ist nicht „keine Farbe"',
+    lauf: () => {
+      const f = gsBildFarben(null);
+      if (f.messbar) return { ok: false, warum: 'behauptet, gemessen zu haben' };
+      if (f.gruen !== null) return { ok: false, warum: 'meldet einen Grünanteil von ' + f.gruen + ' ohne Messung' };
+      if (f.blickfang) return { ok: false, warum: 'meldet einen Blickfang ohne Messung' };
+      // Und die Regel darüber darf daraus NICHTS folgern.
+      const sp = { color: 'Weiss', season: 'Apr–Jun', alt: '0–1500m' };
+      if (_gsPasstFarbe(sp, f) !== null) return { ok: false, warum: 'die Farbregel urteilt über ein Bild, das sie nie gesehen hat' };
+      return { ok: true, info: 'messbar=false, Regel bleibt still' };
+    },
+  },
+  {
+    name: 'S6 · Farbe: passende Blüte erfüllt, fremde Blüte meldet',
+    lauf: async () => {
+      const mal = zeichne => new Promise(res => {
+        const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+        const g = c.getContext('2d'); zeichne(g);
+        const im = new Image(); im.onload = () => res(im); im.src = c.toDataURL('image/png');
+      });
+      // Bärlauch: Artenliste sagt Weiss.
+      const weiss = gsBildFarben(await mal(g => {
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150);
+        g.fillStyle = '#f4f6f5'; g.fillRect(0, 0, 200, 45);      // weisse Dolde
+      }));
+      const gelb = gsBildFarben(await mal(g => {
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150);
+        g.fillStyle = '#f2c31a'; g.fillRect(0, 0, 200, 60);      // gelb statt weiss
+      }));
+      const basis = () => ({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90,
+        edible: true, toxic: false, toxicity: 0, alternatives: [] });
+
+      const rGut = basis(); rGut._farben = weiss;
+      const rSchlecht = basis(); rSchlecht._farben = gelb;
+      const gut = _gsScanPruefwerk(rGut, null).regeln.find(x => x.id === 'farbe');
+      const schlecht = _gsScanPruefwerk(rSchlecht, null).regeln.find(x => x.id === 'farbe');
+      if (!gut || !schlecht) return { ok: false, warum: 'die Farbregel läuft gar nicht' };
+      if (gut.zustand !== 'ok') return { ok: false, warum: 'weisse Blüte + Art „Weiss" gilt nicht als erfüllt: ' + gut.zustand + ' — ' + gut.text };
+      if (schlecht.zustand !== 'warn') return { ok: false, warum: 'gelbe Blüte + Art „Weiss" meldet nichts: ' + schlecht.zustand + ' — ' + schlecht.text };
+      if (!/Weiss/.test(schlecht.text)) return { ok: false, warum: 'der Vorbehalt nennt die hinterlegte Farbe nicht' };
+      return { ok: true, info: 'weiss → erfüllt · gelb → „' + schlecht.text.replace(/<[^>]+>/g, '').slice(0, 60) + '"' };
+    },
+  },
+  {
+    name: 'S6 · ein reines Blattfoto sagt weder ja noch nein',
+    lauf: async () => {
+      const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+      const g = c.getContext('2d'); g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150);
+      const im = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.src = c.toDataURL('image/png'); });
+      const r = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, alternatives: [], _farben: gsBildFarben(im) };
+      const reg = _gsScanPruefwerk(r, null).regeln.find(x => x.id === 'farbe');
+      if (!reg) return { ok: false, warum: 'die Farbregel fehlt' };
+      if (reg.zustand !== 'unbekannt') return { ok: false, warum: 'urteilt über ein Foto ohne Blüte: ' + reg.zustand + ' — ' + reg.text };
+      if (!/Blattwerk/.test(reg.text)) return { ok: false, warum: 'sagt nicht, warum sie nichts sagen kann' };
+      return { ok: true, info: reg.text.slice(0, 70) };
+    },
+  },
+  {
+    name: 'S7 · Höhenlage: im Band erfüllt, darüber gemeldet, ohne Ort still',
+    lauf: () => {
+      const basis = () => ({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, alternatives: [] });
+      const hol = ctx => { const r = basis(); r._ctx = ctx; return _gsScanPruefwerk(r, null).regeln.find(x => x.id === 'hoehe'); };
+      // Bärlauch steht mit „0–1500m" in der Liste.
+      const tief = hol({ elevation: 620 });
+      const hoch = hol({ elevation: 2400 });
+      const ohne = hol({});
+      if (!tief || !hoch || !ohne) return { ok: false, warum: 'die Höhenregel läuft gar nicht' };
+      if (tief.zustand !== 'ok') return { ok: false, warum: '620 m gilt nicht als passend: ' + tief.zustand + ' — ' + tief.text };
+      if (hoch.zustand !== 'warn') return { ok: false, warum: '2400 m meldet nichts: ' + hoch.zustand + ' — ' + hoch.text };
+      if (ohne.zustand !== 'unbekannt') return { ok: false, warum: 'urteilt ohne Standort: ' + ohne.zustand };
+      if (!/Standort/.test(ohne.text)) return { ok: false, warum: 'sagt nicht, warum sie nichts sagen kann' };
+      // Die Toleranz muss greifen — knapp über dem Band ist kein Vorwurf wert.
+      if (hol({ elevation: 1600 }).zustand !== 'ok') return { ok: false, warum: '1600 m (100 m über dem Band) wird bereits gemeldet — zu streng' };
+      return { ok: true, info: '620 → erfüllt · 1600 → Toleranz · 2400 → Vorbehalt · ohne Ort → still' };
+    },
+  },
+  {
+    name: 'Vorauswahl · schliesst nur aus, was sich begründen lässt',
+    lauf: () => {
+      const v = gsScanVorauswahl({ monthNum: 1 }, null);          // nur Monat
+      if (!v.messbar) return { ok: false, warum: 'nicht berechenbar, obwohl der Monat da ist' };
+      if (v.gesamt !== DB.length) return { ok: false, warum: 'zählt ' + v.gesamt + ' statt ' + DB.length };
+      if (v.uebrig >= v.gesamt) return { ok: false, warum: 'im Januar bleibt alles übrig — dann filtert sie nicht' };
+      if (v.uebrig < 500) return { ok: false, warum: 'nur ' + v.uebrig + ' übrig — das schliesst zu viel aus' };
+      if (v.kriterien.join() !== 'Monat') return { ok: false, warum: 'nennt Kriterien, die es nicht gibt: ' + v.kriterien.join() };
+      // Ganzjährige Arten MÜSSEN in jedem Monat übrig bleiben.
+      const ganz = DB.filter(s => /ganzj/i.test(String(s.season || '')));
+      const raus = ganz.filter(s => s.id && !v.ids[s.id]);
+      if (raus.length) return { ok: false, warum: raus.length + ' ganzjährige Arten fallen aus der Januar-Auswahl' };
+      // Und eine Art OHNE Höhenangabe darf die Höhe nicht aussortieren.
+      const ohneAlt = DB.filter(s => !_gsHoehenband(s));
+      const v2 = gsScanVorauswahl({ monthNum: 1, elevation: 3000 }, null);
+      const weg = ohneAlt.filter(s => s.id && v.ids[s.id] && !v2.ids[s.id]);
+      if (weg.length) return { ok: false, warum: weg.length + ' Arten ohne Höhenangabe wurden auf 3000 m ausgeschlossen — „unbekannt" wirkt wie „passt nicht"' };
+      return { ok: true, info: gsTsd(v.gesamt) + ' → ' + gsTsd(v.uebrig) + ' im Januar · ' + ganz.length + ' ganzjährige alle drin' };
+    },
+  },
+  {
+    // v32.43: Ein Kriterium ist nur so viel wert, wie die Artenliste dazu
+    // hergibt. Bis hierher nannte der Kopf nur, WELCHE Kriterien verfügbar
+    // waren — wer mit Standort scannte, durfte annehmen, die Höhe habe alle
+    // 4'342 Arten geprüft. Hinterlegt ist sie bei 903.
+    // **Eine Zahl ohne ihre Grundlage ist eine Behauptung.**
+    name: 'Vorauswahl · sagt, auf wie viele Arten ein Kriterium anwendbar war',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const v = gsScanVorauswahl({ monthNum: 6, elevation: 1800 }, null);
+      if (!v.hinterlegt) return { ok: false, warum: 'die Vorauswahl meldet keine Deckung (hinterlegt fehlt)' };
+      const h = v.hinterlegt;
+      for (const k of ['monat', 'farbe', 'hoehe']) {
+        if (typeof h[k] !== 'number') return { ok: false, warum: 'hinterlegt.' + k + ' ist ' + typeof h[k] };
+        if (h[k] > v.gesamt) return { ok: false, warum: 'hinterlegt.' + k + ' (' + h[k] + ') > gesamt (' + v.gesamt + ')' };
+      }
+      // ZWEI Schranken, nicht eine. Die erste Fassung prüfte nur nach OBEN
+      // („deutlich unter der Gesamtzahl") — mit ausgebautem Mitzählen kam 0
+      // heraus, und 0 ist auch deutlich unter der Gesamtzahl. Die Gegenprobe
+      // blieb grün, obwohl die Reparatur entfernt war.
+      // **Eine Schranke nach oben ohne eine nach unten lässt den Totalausfall
+      // durch** — er sieht aus wie ein besonders gutes Ergebnis.
+      for (const k of ['monat', 'farbe', 'hoehe']) {
+        if (h[k] < 100)
+          return { ok: false, warum: 'hinterlegt.' + k + ' = ' + h[k] + ' — gemessen sind es 2902/856/899; so wenig heisst, dass gar nicht gezählt wird' };
+      }
+      if (h.hoehe >= v.gesamt * 0.5)
+        return { ok: false, warum: 'Höhe angeblich bei ' + h.hoehe + ' von ' + v.gesamt + ' hinterlegt — gemessen sind es rund 900' };
+      // …und die Anzeige muss sie auch nennen.
+      const zeile = _gsMitDeckung('Höhe', 'hoehe', v.gesamt, h);
+      if (!/hinterlegt/.test(zeile) || !/\d/.test(zeile))
+        return { ok: false, warum: 'die Anzeige nennt die Deckung nicht: „' + zeile + '"' };
+      return { ok: true, info: 'Monat ' + h.monat + ' · Farbe ' + h.farbe + ' · Höhe ' + h.hoehe + ' von ' + v.gesamt + ' · Anzeige: „' + zeile + '"' };
+    },
+  },
+  {
+    // v32.43: Die Höhe stand bei 26 Arten im `habitat`-Text statt im Feld
+    // `alt` — „Alpenweiden 1500–3000m", „…Hochstaudenfluren; bis 2500m".
+    // Keine erfundene Botanik: dieselbe Angabe, nur bisher ungelesen.
+    name: 'Höhenband · wird auch aus dem Lebensraum-Text gelesen',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      // GENAUER Name: die Liste führt SIEBEN „Eisenhut"-Einträge (darunter
+      // „Echter Echter Eisenhut"), und die meisten haben ein eigenes `alt`.
+      // Ein `find(/Eisenhut/)` traf den falschen — der Fall meldete rot für
+      // eine Reparatur, die funktioniert.
+      const eisenhut = DB.find(x => x.name === 'Eisenhut (Blauer)');
+      if (!eisenhut) return { ok: false, warum: 'Probe-Art „Eisenhut (Blauer)" nicht in der Liste' };
+      if (String(eisenhut.alt || '').match(/\d/))
+        return { ok: false, warum: 'die Probe-Art hat inzwischen ein eigenes alt — dieser Fall prüft dann nichts mehr' };
+      const b = _gsHoehenband(eisenhut);
+      if (!b) return { ok: false, warum: 'Eisenhut: kein Band, obwohl habitat „bis 2500m" sagt' };
+      if (b.bis !== 2500) return { ok: false, warum: 'Eisenhut: Band ' + JSON.stringify(b) + ', erwartet bis 2500' };
+      // Und keine Wuchshöhe als Verbreitung missdeuten.
+      if (_gsHoehenbandAus('Wälder, Sträucher bis 3 m hoch', false))
+        return { ok: false, warum: 'liest „bis 3 m" als Höhenverbreitung' };
+      let ausText = 0;
+      for (const sp of DB) if (!String(sp.alt || '').match(/\d/) && _gsHoehenband(sp)) ausText++;
+      if (ausText < 20) return { ok: false, warum: 'nur ' + ausText + ' Arten aus dem Text gewonnen (gemessen 26)' };
+      return { ok: true, info: ausText + ' Arten bekommen ihr Band aus dem habitat-Text (Eisenhut 0–2500m)' };
+    },
+  },
+  {
+    // v32.43: 657 Gruppen der Artenliste tragen denselben lateinischen Namen,
+    // 167 davon widersprechen sich bei `tox`/`edible`. Jede Nachschlagung war
+    // ein `DB.find(…)` — welche Giftstufe nach einem Scan erschien, hing an
+    // der REIHENFOLGE in der Datei. Zwei Reparaturen, und dieser Fall prüft
+    // beide getrennt, weil jede für sich unbemerkt zurückfallen kann:
+    //   (a) LATEIN VOR DEUTSCH — der deutsche Name darf das Binomen nicht
+    //       überstimmen (v32.42: 1'194 von 4'311 auf einer anderen Art)
+    //   (b) `_gsArtGruppe` — ohne Latein bleibt die Vorsicht sonst in der
+    //       Suchstrategie hängen statt an der Art zu haften
+    // v32.45: die Gegenprüfung hat die erste Begründung von (a) widerlegt —
+    // „Wacholder trifft Juniperus nana" beschrieb einen Zwischenstand meines
+    // Umbaus, nicht v32.42. Die Messung (1'194) hält; die Anekdote nicht.
+    // Und die Regel selbst brauchte zwei Korrekturen (die zwei nächsten
+    // Fälle: Unterart, Platzhalter).
+    name: 'Dubletten · bei Widerspruch gewinnt die vorsichtigere Angabe',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const nl = (s) => String(s || '').toLowerCase()
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\b(ssp|subsp|var|f|agg|cv|sp|spp)\.?\b/g, ' ')
+        .replace(/[×x]\s/g, ' ')
+        .replace(/[^a-zäöü ]/g, ' ')
+        .replace(/ö/g, 'o').replace(/ä/g, 'a').replace(/ü/g, 'u').replace(/ß/g, 'ss')
+        .replace(/\s+/g, ' ').trim().split(' ').slice(0, 2).join(' ');
+
+      // (a) Der benannte Fall: das Binomen muss den mehrdeutigen deutschen
+      //     Trivialnamen schlagen. `FD0660 Wacholder` ist `Juniperus nana`.
+      const w = gsMatchScanToDb('Wacholder', 'Juniperus communis');
+      if (!w) return { ok: false, warum: '„Wacholder / Juniperus communis" findet gar nichts' };
+      if (nl(w.lat) !== 'juniperus communis')
+        return { ok: false, warum: 'der deutsche Name überstimmt das Binomen: „Wacholder / Juniperus communis" → ' + w.name + ' (' + w.lat + ')' };
+      const jMax = Math.max.apply(null, DB.filter(x => nl(x.lat) === 'juniperus communis').map(x => Number(x.tox) || 0));
+      if ((Number(w.tox) || 0) !== jMax)
+        return { ok: false, warum: 'Juniperus communis → tox ' + (Number(w.tox) || 0) + ' statt ' + jMax };
+
+      // (b) Ohne Latein: der exakte deutsche Name trifft EINEN harmlosen
+      //     Eintrag; die Vorsicht muss trotzdem an der Art hängen.
+      const roh = DB.filter(x => x && x.name && x.name.toLowerCase().trim() === 'holunder');
+      if (roh.length !== 1 || (Number(roh[0].tox) || 0) !== 0)
+        return { ok: false, warum: 'Probe-Art „Holunder" ist nicht mehr der eine harmlose Eintrag — dieser Fall prüft dann nichts mehr' };
+      const h = gsMatchScanToDb('Holunder', '');
+      const sMax = Math.max.apply(null, DB.filter(x => nl(x.lat) === 'sambucus nigra').map(x => Number(x.tox) || 0));
+      if (!h || (Number(h.tox) || 0) !== sMax)
+        return { ok: false, warum: '„Holunder" ohne Binomen → tox ' + (h ? (Number(h.tox) || 0) : 'kein Treffer') + ' statt ' + sMax + ' — die Vorsicht hängt an der Suchstrategie statt an der Art' };
+
+      // (c) Und dann ALLE widersprüchlichen Gruppen, Eintrag für Eintrag.
+      //     Ein benannter Fall beweist nur sich selbst.
+      const g = {};
+      DB.forEach(sp => { if (!sp || !sp.lat) return; const k = nl(sp.lat); if (!k || k.indexOf(' ') < 0) return; (g[k] = g[k] || []).push(sp); });
+      let abfragen = 0, falsch = 0, gruppen = 0, bsp = '';
+      Object.keys(g).forEach(k => {
+        const a = g[k];
+        if (a.length < 2) return;
+        const t = new Set(a.map(x => Number(x.tox) || 0)), e = new Set(a.map(x => x.edible ? 1 : 0));
+        if (t.size < 2 && e.size < 2) return;
+        gruppen++;
+        // v32.45: erwartet wird die Gruppe auf der STUFE der Anfrage — ein
+        // Eintrag ohne Qualifier misst sich an der Art ohne Unterarten, einer
+        // mit Qualifier an seiner Unterart. Gerechnet mit demselben Helfer,
+        // den die App benutzt: Reparatur und Prüfung haben EINE Regel.
+        a.forEach(x => {
+          abfragen++;
+          const stufe = _gsArtGruppe(x, x.lat);
+          const mx = Math.max.apply(null, stufe.map(y => Number(y.tox) || 0));
+          const hit = gsMatchScanToDb(x.name, x.lat);
+          const got = hit ? (Number(hit.tox) || 0) : -1;
+          if (got !== mx) { falsch++; if (!bsp) bsp = x.name + ' / ' + x.lat + ' → tox ' + got + ' statt ' + mx; }
+        });
+      });
+      if (gruppen < 50) return { ok: false, warum: 'nur ' + gruppen + ' widersprüchliche Gruppen gefunden (gemessen 167) — der Fall misst nicht, was er behauptet' };
+      if (falsch) return { ok: false, warum: falsch + ' von ' + abfragen + ' Abfragen liefern nicht die vorsichtigste Angabe, z.B. ' + bsp };
+      return { ok: true, info: gruppen + ' widersprüchliche Gruppen · ' + abfragen + ' Abfragen, alle vorsichtigste Angabe' };
+    },
+  },
+  {
+    // v32.45 (aus der Gegenprüfung): `_gsNormLat` streicht var./ssp./f. —
+    // damit gewann `PI427 Kleiner Perlpilz (Amanita rubescens f.
+    // annulosulphurea, tox 4)` jeden Perlpilz-Scan, obwohl sein eigenes
+    // lookalike-Feld ihn vom Perlpilz abgrenzt. Und „Broccoli / Brassica
+    // oleracea var. italica" landete bei FD0778 „Kohl", einem Einlese-Rumpf.
+    // **Eine Unterart ist nicht die Art — in beide Richtungen.**
+    name: 'Unterart · entscheidet nicht über die Art, und die Art nicht über die Unterart',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const forma = DB.find(x => /^amanita rubescens\s+f\b/i.test(String(x.lat || '')));
+      const reine = DB.filter(x => _gsNormLat(x.lat) === 'amanita rubescens' && !_gsHatQualifier(x));
+      if (!forma || !reine.length) return { ok: false, warum: 'Probe-Einträge fehlen (Forma ' + !!forma + ', reine ' + reine.length + ') — der Fall prüft nichts mehr' };
+      const mxReine = Math.max.apply(null, reine.map(x => Number(x.tox) || 0));
+      if ((Number(forma.tox) || 0) <= mxReine) return { ok: false, warum: 'die Forma ist nicht mehr giftiger als die Art — der Fall prüft nichts mehr' };
+      const h = gsMatchScanToDb('Perlpilz', 'Amanita rubescens');
+      if (!h) return { ok: false, warum: 'Perlpilz nicht gefunden' };
+      if (_gsHatQualifier(h)) return { ok: false, warum: '„Perlpilz / Amanita rubescens" → ' + h.name + ' (' + h.lat + ', tox ' + h.tox + ') — die Forma entscheidet über die Art' };
+      if ((Number(h.tox) || 0) !== mxReine) return { ok: false, warum: 'Perlpilz → tox ' + h.tox + ' statt ' + mxReine + ' (Maximum der Art ohne Unterarten)' };
+      const hf = gsMatchScanToDb(forma.name, forma.lat);
+      if (!hf || _gsNormLatVoll(hf.lat) !== _gsNormLatVoll(forma.lat)) return { ok: false, warum: 'die Forma selbst abgefragt → ' + (hf ? hf.name + ' (' + hf.lat + ')' : 'nichts') };
+      const br = DB.find(x => /^Broccoli$/i.test(String(x.name || '')) && /var\./i.test(String(x.lat || '')));
+      if (!br) return { ok: false, warum: 'Probe-Eintrag Broccoli (var.) fehlt' };
+      const hb = gsMatchScanToDb(br.name, br.lat);
+      if (!hb || hb.id !== br.id) return { ok: false, warum: '„' + br.name + ' / ' + br.lat + '" → ' + (hb ? hb.id + ' ' + hb.name + ' (' + hb.lat + ')' : 'nichts') + ' statt ' + br.id };
+      if (hb._unverified) return { ok: false, warum: 'Broccoli landet auf einem ungeprüften Einlese-Rumpf' };
+      return { ok: true, info: 'Perlpilz → tox ' + h.tox + ' (Art), Forma → sie selbst (tox ' + forma.tox + ') · Broccoli → ' + hb.id };
+    },
+  },
+  {
+    // v32.45 (aus der Gegenprüfung): 1'383 Einlese-Einträge tragen ein
+    // Platzhalter-`edible:false` und sind `_unverified`. „Nicht essbar zuerst"
+    // hielt sie für vorsichtiger und zog 94 Namens-Abfragen auf solche
+    // Rümpfe — 82 davon auf eine ANDERE Art. **Ein Platzhalter ist keine
+    // Vorsicht.**
+    name: 'Platzhalter · ein ungeprüfter Rumpf gewinnt nicht gegen einen geprüften Eintrag',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const h = gsMatchScanToDb('Wacholder', '');
+      if (!h) return { ok: false, warum: '„Wacholder" ohne Latein findet nichts' };
+      if (h._unverified) return { ok: false, warum: '„Wacholder" → ' + h.id + ' ' + h.name + ' (' + h.lat + '), ein ungeprüfter Rumpf' };
+      if (_gsNormLat(h.lat) !== 'juniperus communis') return { ok: false, warum: '„Wacholder" → ' + h.name + ' (' + h.lat + ') statt Juniperus communis' };
+      const mx = Math.max.apply(null, _gsArtGruppe(h, '').map(y => Number(y.tox) || 0));
+      if ((Number(h.tox) || 0) !== mx) return { ok: false, warum: 'Wacholder → tox ' + h.tox + ' statt ' + mx };
+      let n = 0, rumpf = 0, bsp = '';
+      DB.forEach(sp => {
+        if (!sp || !sp.name || sp._unverified) return;
+        n++;
+        const r = gsMatchScanToDb(sp.name, '');
+        if (r && r._unverified) { rumpf++; if (!bsp) bsp = sp.name + ' → ' + r.id + ' ' + r.name; }
+      });
+      if (rumpf) return { ok: false, warum: rumpf + ' von ' + n + ' gepflegten Einträgen landen mit ihrem Namen auf einem ungeprüften Rumpf, z.B. ' + bsp + ' (vor v32.45: 94)' };
+      return { ok: true, info: 'Wacholder → ' + h.id + ' tox ' + h.tox + ' · 0 von ' + n + ' gepflegten Namen auf einem Rumpf' };
+    },
+  },
+  {
+    // v32.43: Die teuerste Zahl dieser Reparatur kam erst bei der
+    // Gegenprobe heraus. Jeder Eintrag mit seinem EIGENEN Namen und Binomen
+    // abgefragt: in v32.42 kam bei **1'194 von 4'311** eine ANDERE Art zurück
+    // — „Brennnessel / Urtica pilulifera" → Urtica dioica, „Rotbuche / Fagus
+    // silvatica" → Fagus sylvatica, „Aloe Vera / Aloe barbadensis" → Aloe
+    // vera. Der deutsche Name gewann, und deutsche Namen teilen sich viele
+    // Arten. Ein richtiger Scan landete bei jedem vierten Eintrag auf der
+    // falschen Karte. Nachher: 0.
+    name: 'Selbstabfrage · jeder Eintrag findet mit eigenem Namen und Binomen seine eigene Art',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const nl = (x) => String(x || '').toLowerCase()
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\b(ssp|subsp|var|f|agg|cv|sp|spp)\.?\b/g, ' ')
+        .replace(/[×x]\s/g, ' ')
+        .replace(/[^a-zäöü ]/g, ' ')
+        .replace(/ö/g, 'o').replace(/ä/g, 'a').replace(/ü/g, 'u').replace(/ß/g, 'ss')
+        .replace(/\s+/g, ' ').trim().split(' ').slice(0, 2).join(' ');
+      const t0 = performance.now();
+      let n = 0, kein = 0, andere = 0, gleich = 0, bsp = '';
+      DB.forEach(sp => {
+        if (!sp || !sp.name) return;
+        const k = nl(sp.lat); if (!k || k.indexOf(' ') < 0) return;
+        n++;
+        const h = gsMatchScanToDb(sp.name, sp.lat);
+        if (!h) { kein++; return; }
+        if (nl(h.lat) === k) gleich++; else { andere++; if (!bsp) bsp = sp.name + ' / ' + sp.lat + ' → ' + h.name + ' (' + h.lat + ')'; }
+      });
+      const ms = Math.round(performance.now() - t0);
+      // Untere Schranke, damit „nichts gefunden" nicht als „nichts falsch" durchgeht.
+      if (n < 4000) return { ok: false, warum: 'nur ' + n + ' Einträge mit Binomen — der Fall misst nicht, was er behauptet' };
+      if (kein) return { ok: false, warum: kein + ' Einträge finden sich selbst nicht (kein Treffer)' };
+      if (andere) return { ok: false, warum: andere + ' von ' + n + ' Einträgen landen auf einer ANDEREN Art, z.B. ' + bsp + ' (v32.42: 1\'194)' };
+      return { ok: true, info: n + ' Einträge, alle finden ihre eigene Art · ' + ms + ' ms' };
+    },
+  },
+  {
+    name: 'Vorauswahl · ohne Grundlage behauptet sie nichts',
+    lauf: () => {
+      const echt = window.DB;
+      window.DB = [];
+      const v = gsScanVorauswahl({ monthNum: 5 }, null);
+      window.DB = echt;
+      if (v.messbar) return { ok: false, warum: 'behauptet eine Vorauswahl ohne Artenliste' };
+      if (v.uebrig) return { ok: false, warum: 'meldet ' + v.uebrig + ' übrige Arten aus einer leeren Liste' };
+      return { ok: true, info: 'leere Liste → messbar=false, uebrig=0' };
+    },
+  },
+  {
+    name: 'Vorauswahl · die Karte nennt sie und sagt, ob die Bestimmung darunter war',
+    lauf: () => {
+      const bau = drin => {
+        const r = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90,
+          edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x',
+          _ctx: { monthNum: 5 } };
+        r._vorauswahl = gsScanVorauswahl({ monthNum: drin ? 5 : 11 }, null);
+        showScanResult(r);
+        return (document.getElementById('scan-result') || {}).textContent || '';
+      };
+      const ja = bau(true);
+      const nein = bau(false);
+      if (!/Vor der Antwort eingegrenzt/.test(ja)) return { ok: false, warum: 'die Vorauswahl steht nicht auf der Karte' };
+      if (!/war darunter/.test(ja)) return { ok: false, warum: 'sagt nicht, dass die Bestimmung in der Vorauswahl lag' };
+      if (!/nicht.{0,3} darunter/.test(nein)) return { ok: false, warum: 'im November wird Bärlauch nicht als ausgeschlossen gemeldet' };
+      if (/undefined|NaN|\[object Object\]/.test(ja + nein)) return { ok: false, warum: 'Platzhalter im Text' };
+      return { ok: true, info: (ja.match(/Vor der Antwort eingegrenzt[^.]*\./) || ['?'])[0].slice(0, 80) };
+    },
+  },
+  {
+    name: 'Unabhängigkeit · Farben und Vorauswahl gehen NICHT in den Auftrag',
+    lauf: async () => {
+      // Der ganze Wert der beiden Schritte hängt daran. Stünde die
+      // Vorauswahl im Prompt, bestätigte das Modell die eigene Vorgabe und
+      // die spätere Gegenprüfung wäre ein Echo statt einer Prüfung.
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#3f9142'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#f2c31a'; g.fillRect(0, 0, 160, 44);
+      g.strokeStyle = '#1d5c22'; g.lineWidth = 2; g.beginPath(); g.moveTo(30, 120); g.lineTo(130, 60); g.stroke();
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+
+      window.getApiConfig = () => ({ key: 'k' });
+      window.stopCamera = () => {};
+      window._gsScanDHash = async () => null;
+      window._gsScanCacheGet = async () => null;
+      window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Mai', season: 'Frühling', monthNum: 5, canton: 'ZH', elevation: 440 });
+      let auftrag = '', ergF = '', ergV = '', tupfen = 0;
+      window.callVisionAI = async (_b, _m, prompt) => {
+        auftrag = String(prompt || '');
+        // Beide Schritte müssen VOR dem Aufruf abgehakt sein — danach ist
+        // die Liste weg, dort gemessen misst man nichts.
+        ergF = (document.querySelector('#schritt-farbe .gs-s-erg') || {}).textContent || '';
+        ergV = (document.querySelector('#schritt-vorab .gs-s-erg') || {}).textContent || '';
+        tupfen = document.querySelectorAll('#schritt-farbe .gs-s-tupfen i').length;
+        return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88,
+          edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      };
+      await analyzeImage(b64, 'image/jpeg');
+
+      if (!/Gr\u00fcn \d+ %/.test(ergF)) return { ok: false, warum: 'der Farb-Schritt zeigt beim KI-Aufruf kein Ergebnis: „' + ergF + '"' };
+      if (!/\u2192/.test(ergV)) return { ok: false, warum: 'der Vorauswahl-Schritt zeigt beim KI-Aufruf kein Ergebnis: „' + ergV + '"' };
+      if (!tupfen) return { ok: false, warum: 'keine Farbtupfen neben dem Ergebnis' };
+
+      if (!auftrag) return { ok: false, warum: 'es wurde gar kein Auftrag gestellt' };
+      if (/Vorauswahl|eingegrenzt|kommen in Frage/i.test(auftrag))
+        return { ok: false, warum: 'die Vorauswahl steht im Auftrag — dann prüft sie nichts mehr' };
+      if (/Farbanteil|Blickfang|Grün \d+ ?%|Gelb \d+ ?%/i.test(auftrag))
+        return { ok: false, warum: 'die Farbmessung steht im Auftrag — dann ist sie kein unabhängiger Beleg' };
+      const karte = (document.getElementById('scan-result') || {}).textContent || '';
+      if (!/Vor der Antwort eingegrenzt/.test(karte))
+        return { ok: false, warum: 'die Vorauswahl ist nirgends angekommen — dann prüft dieser Fall nur, dass nichts passiert' };
+      return { ok: true, info: 'Auftrag sauber · vor dem Aufruf: „' + ergF.slice(0, 26) + '" / „' + ergV.slice(0, 32) + '"' };
+    },
+  },
+  // ── v32.20 · Ohne Netz eingrenzen ────────────────────────────────────
+  {
+    name: 'Eingrenzen · grenzt wirklich ein, und nur mit Begründung',
+    lauf: () => {
+      const alle = gsEingrenzen({ monat: null, hoehe: null, farbe: '', gruppe: '' });
+      if (alle.treffer.length !== DB.length) return { ok: false, warum: 'ohne jede Angabe fehlen schon Arten: ' + alle.treffer.length + ' von ' + DB.length };
+
+      const jan = gsEingrenzen({ monat: 1, hoehe: null, farbe: '', gruppe: '' });
+      if (jan.treffer.length >= DB.length) return { ok: false, warum: 'der Monat grenzt nicht ein' };
+      if (jan.treffer.length < 300) return { ok: false, warum: 'nur ' + jan.treffer.length + ' im Januar — das schliesst zu viel aus' };
+
+      // Der Kern: eine Art OHNE Höhenangabe darf durch eine Höhenangabe NIE
+      // herausfallen. „Unbekannt" ist nicht „passt nicht".
+      const ohneBand = DB.filter(s => !_gsHoehenband(s));
+      const mitHoehe = gsEingrenzen({ monat: 1, hoehe: 3000, farbe: '', gruppe: '' });
+      const drin = new Set(mitHoehe.treffer.map(s => s.id));
+      const janIds = new Set(jan.treffer.map(s => s.id));
+      const verloren = ohneBand.filter(s => janIds.has(s.id) && !drin.has(s.id));
+      if (verloren.length) return { ok: false, warum: verloren.length + ' Arten ohne Höhenangabe fielen auf 3000 m heraus' };
+
+      // Dasselbe für die Farbe — hier ist Ausschluss ERWÜNSCHT, weil der
+      // Nutzer eine Farbe aktiv wählt; geprüft wird, dass er greift.
+      const gelb = gsEingrenzen({ monat: null, hoehe: null, farbe: 'Gelb', gruppe: '' });
+      if (!gelb.treffer.length) return { ok: false, warum: 'Farbe Gelb liefert nichts' };
+      if (gelb.treffer.some(s => _gsFarbWorte(s).indexOf('Gelb') < 0)) return { ok: false, warum: 'eine Art ohne Gelb ist in der Gelb-Liste' };
+      const gruppe = gsEingrenzen({ monat: null, hoehe: null, farbe: '', gruppe: 'pilz' });
+      if (gruppe.treffer.some(s => s.cat !== 'pilz')) return { ok: false, warum: 'die Gruppen-Auswahl greift nicht' };
+
+      return { ok: true, info: DB.length + ' → Januar ' + jan.treffer.length + ' · Gelb ' + gelb.treffer.length +
+                               ' · Pilze ' + gruppe.treffer.length + ' · ' + ohneBand.length + ' ohne Höhenangabe bleiben drin' };
+    },
+  },
+  {
+    name: 'Eingrenzen · die Anzeige nennt, worauf UND worauf nicht',
+    lauf: () => {
+      // Ohne Standort darf die Höhe nicht benutzt werden — und die Karte muss
+      // das sagen, statt eine Zahl ohne Grundlage zu zeigen.
+      localStorage.removeItem('gs_user_location');
+      localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: 5, farbe: '', gruppe: '', hoehe: null }));
+      gsEingrenzenOeffnen();
+      const t = (document.getElementById('modal-content') || {}).textContent || '';
+      if (!/Das ist keine Bestimmung/.test(t)) return { ok: false, warum: 'der Hinweis fehlt — eine Liste, die wie ein Ergebnis aussieht' };
+      if (!/Eingegrenzt nach/.test(t)) return { ok: false, warum: 'sagt nicht, worauf eingegrenzt wurde' };
+      if (!/Nicht genutzt/.test(t)) return { ok: false, warum: 'sagt nicht, dass die Höhe fehlte — eine Zahl ohne ihre Grundlage' };
+      if (!/H\u00f6henlage/.test(t) && !/Höhenlage/.test(t)) return { ok: false, warum: 'benennt die fehlende Angabe nicht' };
+      if (/undefined|NaN|\[object Object\]/.test(t)) return { ok: false, warum: 'Platzhalter im Text' };
+      // Und mit Standort MUSS die Höhe auftauchen.
+      localStorage.setItem('gs_user_location', JSON.stringify({ lat: 46.8, lng: 8.2, elevation: 1850 }));
+      localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: 5, farbe: '', gruppe: '', hoehe: null }));
+      gsEingrenzenOeffnen();
+      const t2 = (document.getElementById('modal-content') || {}).textContent || '';
+      if (!/1850 m/.test(t2)) return { ok: false, warum: 'mit Standort wird die Höhe trotzdem nicht genutzt' };
+      return { ok: true, info: 'ohne Ort: „Nicht genutzt …" · mit Ort: „Höhenlage (1850 m)"' };
+    },
+  },
+  {
+    // v32.43: Die Farb-Eingrenzung schloss 3'229 Arten aus und zählte alle in
+    // EINEN Topf — 2'816 davon hatten gar keine Farbangabe. Die Liste sah
+    // aus, als hätten 4'202 Arten eine ANDERE Farbe. Gefunden hat es der
+    // Arten-Daten-Workflow (Blickwinkel „Verbraucher"), nicht ich.
+    // **Ein Ausschluss ohne Grund muss anders aussehen als einer mit.**
+    name: 'Eingrenzen · „keine Farbangabe" wird getrennt gezählt und genannt',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const e = gsEingrenzen({ monat: null, hoehe: null, farbe: 'Gelb', gruppe: '' });
+      if (!e.raus || typeof e.raus.farbeOhne !== 'number') return { ok: false, warum: 'raus.farbeOhne fehlt — „keine Angabe" und „andere Farbe" liegen in einem Topf' };
+      // Grundlinie selbst messen, nicht als feste Zahl erwarten.
+      const ohne = DB.filter(sp => !_gsFarbWorte(sp).length).length;
+      if (e.raus.farbeOhne !== ohne) return { ok: false, warum: 'farbeOhne = ' + e.raus.farbeOhne + ', ohne Farbangabe sind aber ' + ohne };
+      if (e.raus.farbeOhne < 1000) return { ok: false, warum: 'farbeOhne = ' + e.raus.farbeOhne + ' — so wenig heisst, dass nicht gezählt wird (gemessen ~3\'400)' };
+      if (e.raus.farbe + e.raus.farbeOhne + e.treffer.length !== e.gesamt)
+        return { ok: false, warum: 'Treffer + andere Farbe + ohne Angabe ergibt nicht die Gesamtzahl (' + e.treffer.length + '+' + e.raus.farbe + '+' + e.raus.farbeOhne + ' ≠ ' + e.gesamt + ')' };
+      // …und die Anzeige nennt es, mit Zahl. Gemessen gegen den Zustand, der
+      // WIRKLICH auf dem Bildschirm steht: `_gsEgStand()` setzt ohne Monat den
+      // laufenden ein — mein erster Anlauf verglich mit der Rechnung ohne
+      // Monat (3'481) und die Anzeige sagte 2'602. Beides richtig, nur nicht
+      // dasselbe. Die Zahl auf dem Schirm muss zur Rechnung FÜR DIESEN Schirm
+      // passen, nicht zu einer anderen.
+      localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: null, farbe: 'Gelb', gruppe: '', hoehe: null }));
+      gsEingrenzenOeffnen();
+      const t = (document.getElementById('modal-content') || {}).textContent || '';
+      const eS = gsEingrenzen(_gsEgStand());
+      if (!/ohne Farbangabe/.test(t)) return { ok: false, warum: 'die Anzeige sagt nicht, dass Arten ohne Angabe fehlen' };
+      if (!eS.raus.farbeOhne || t.indexOf(gsTsd(eS.raus.farbeOhne)) < 0) return { ok: false, warum: 'die Anzeige nennt die Zahl nicht (erwartet ' + gsTsd(eS.raus.farbeOhne) + ')' };
+      // Ohne Farbwahl darf der Satz NICHT erscheinen — sonst steht er als Dauerhinweis da.
+      localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: null, farbe: '', gruppe: '', hoehe: null }));
+      gsEingrenzenOeffnen();
+      const t0 = (document.getElementById('modal-content') || {}).textContent || '';
+      if (/ohne Farbangabe/.test(t0)) return { ok: false, warum: 'der Hinweis erscheint auch ohne Farbwahl' };
+      return { ok: true, info: 'Gelb: ' + e.treffer.length + ' Treffer · ' + e.raus.farbe + ' andere Farbe · ' + gsTsd(e.raus.farbeOhne) + ' ohne Angabe · Anzeige nennt ' + gsTsd(eS.raus.farbeOhne) };
+    },
+  },
+  {
+    name: 'Aufwand · die Vorauswahl darf den Scan nicht ausbremsen',
+    lauf: async () => {
+      // Sie laeuft ueber alle 4'342 Arten und wird bei JEDEM Scan gerechnet.
+      // Auf einem Einsteiger-Telefon ist das ungefaehr das Sechsfache dieser
+      // Zahl — deshalb ein Budget, das auch dort noch nicht auffaellt.
+      const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+      const g = c.getContext('2d');
+      g.fillStyle = '#3f9142'; g.fillRect(0, 0, 400, 300);
+      g.fillStyle = '#f2c31a'; g.fillRect(0, 0, 400, 80);
+      const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = c.toDataURL('image/png'); });
+
+      let tF = 0, tV = 0, farben = null;
+      for (let i = 0; i < 5; i++) {
+        let t0 = performance.now(); farben = gsBildFarben(im); tF += performance.now() - t0;
+        t0 = performance.now(); gsScanVorauswahl({ monthNum: 5, elevation: 600 }, farben); tV += performance.now() - t0;
+      }
+      tF /= 5; tV /= 5;
+      if (!farben.messbar) return { ok: false, warum: 'die Messung lief gar nicht — dann misst dieser Fall nichts' };
+      if (tF > 20) return { ok: false, warum: 'Farbmessung ' + tF.toFixed(1) + ' ms (Budget 20)' };
+      if (tV > 60) return { ok: false, warum: 'Vorauswahl ' + tV.toFixed(1) + ' ms über 4342 Arten (Budget 60)' };
+      return { ok: true, info: 'Farben ' + tF.toFixed(1) + ' ms · Vorauswahl ' + tV.toFixed(1) + ' ms (je Mittel aus 5)' };
+    },
+  },
+  {
+    name: 'Drei Zustände · ohne Artenliste ist nichts „in Ordnung"',
+    lauf: () => {
+      const echt = window.DB;
+      window.DB = [];
+      const pw = _gsScanPruefwerk({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, alternatives: [] }, null);
+      window.DB = echt;
+      const ok = pw.regeln.filter(x => x.zustand === 'ok');
+      if (ok.length) return { ok: false, warum: 'meldet ' + ok.length + '× „erfüllt" ohne jede Datengrundlage: ' + ok.map(x => x.id).join(',') };
+      if (pw.stufe && pw.stufe.schl === 'stark') return { ok: false, warum: 'Stufe „gut belegt" ohne Belege' };
+      if (!pw.regeln.every(x => x.text && x.text.length > 10)) return { ok: false, warum: 'eine Regel nennt keinen Grund' };
+      return { ok: true, info: pw.regeln.length + ' Regeln, alle mit Grund, Stufe „' + (pw.stufe && pw.stufe.label) + '"' };
+    },
+  },
+  // ── v32.91 · Die Vorsichtsregel gilt auch im ARTENDETAIL
+  // v32.43 hat sie fuer den Scanner gebaut („die Vorsicht haengt an der ART,
+  // nicht an der Suchstrategie"). Der Weg Suche → Detail ging daran vorbei.
+  {
+    // Dieser Fall MISST die Datenlage und urteilt nicht: die Zahlen sind eine
+    // Eigenschaft der Artenliste (657 mehrfach gefuehrte Arten), nicht ein
+    // Fehler im Code. Ob die ANZEIGE sie aufloest, prueft D1b — ein Name, der
+    // eine Pruefung verspricht, die der Fall nicht macht, waere genau der
+    // Fehler, den dieses Repo den ganzen Tag jagt.
+    name: 'D1 · Artendetail · Datenlage: wie viele Eintraege weichen von ihrer Art ab (Messung)',
+    lauf: () => {
+      if (typeof _gsArtGruppe !== 'function' || typeof _gsVorsichtigste !== 'function')
+        return { ok: false, warum: 'die Vorsichts-Helfer fehlen' };
+      // Eigener Massstab, nicht die zu pruefende Anzeige.
+      var mitDubletten = 0, unter = [], essbarZuViel = 0;
+      DB.forEach(function (sp) {
+        if (!sp || !sp.lat) return;
+        var g = _gsArtGruppe(sp, sp.lat);
+        if (!g || g.length < 2) return;
+        mitDubletten++;
+        var v = _gsVorsichtigste(g);
+        if (!v || v._unverified) return;
+        if ((sp.tox || 0) < (v.tox || 0)) unter.push(sp.name + ' ' + sp.id + ': ' + sp.tox + ' statt ' + v.tox);
+        if (!!sp.edible && !v.edible) essbarZuViel++;
+      });
+      if (!mitDubletten) return { ok: false, warum: 'keine Art mit Dubletten gefunden — der Fall misst nichts' };
+      // Das ist die LAGE in den Daten, nicht der Fehler — die Anzeige muss sie
+      // aufloesen. Der lebende Teil steht in D1b.
+      return { ok: true, info: mitDubletten + ' Arten mit Dubletten · ' + unter.length + ' Eintraege mit niedrigerer Stufe · ' + essbarZuViel + ' mit „essbar" gegen die Art' };
+    },
+  },
+  {
+    name: 'D1b · Artendetail · die Karte zeigt die vorsichtigere Angabe UND sagt es — ohne Dublette sagt sie nichts',
+    lauf: async () => {
+      if (typeof openDetail !== 'function') return { ok: false, warum: 'openDetail fehlt' };
+      var lies = function () {
+        var m = document.getElementById('detail-modal') || document.getElementById('modal-content');
+        return (m && m.textContent) || '';
+      };
+      // Den gefaehrlichsten Fall SUCHEN, nicht annehmen: der groesste
+      // Unterschied zwischen Eintrag und Art.
+      var schlimmster = null, delta = 0;
+      DB.forEach(function (sp) {
+        if (!sp || !sp.lat) return;
+        var g = _gsArtGruppe(sp, sp.lat); if (!g || g.length < 2) return;
+        var v = _gsVorsichtigste(g); if (!v || v._unverified) return;
+        var d = (v.tox || 0) - (sp.tox || 0);
+        if (d > delta) { delta = d; schlimmster = { sp: sp, v: v }; }
+      });
+      if (!schlimmster) return { ok: false, warum: 'kein Eintrag mit niedrigerer Stufe — der Fall misst nichts' };
+      openDetail(schlimmster.sp.id);
+      await new Promise(function (r) { setTimeout(r, 400); });
+      var txt = lies();
+      if (!txt) return { ok: false, warum: 'die Detailkarte wird nicht gerendert' };
+      var f = [];
+      // 1 · Die Stufe der ART steht da, nicht die des Eintrags.
+      var punkte = document.querySelectorAll('#detail-modal .td, #modal-content .td');
+      var aktiv = 0;
+      Array.prototype.forEach.call(punkte, function (d) { if ((d.getAttribute('style') || '').indexOf('background') >= 0) aktiv++; });
+      if (aktiv && aktiv - 1 !== (schlimmster.v.tox || 0))
+        f.push('die Skala zeigt Stufe ' + (aktiv - 1) + ', die Art ist ' + schlimmster.v.tox);
+      // 2 · Und die Karte SAGT, dass korrigiert wurde.
+      if (!/Vorsichtigere Angabe/.test(txt)) f.push('die Korrektur wird nicht genannt');
+      if (!new RegExp('Giftstufe ' + schlimmster.v.tox).test(txt)) f.push('die Zahl der Art wird nicht genannt');
+      try { closeModal('detail-modal'); } catch (_) {}
+      await new Promise(function (r) { setTimeout(r, 250); });
+      // 3 · Gegenrichtung: eine Art OHNE Dublette darf keinen Hinweis bekommen.
+      var ohne = DB.find(function (sp) { if (!sp || !sp.lat) return false; var g = _gsArtGruppe(sp, sp.lat); return g && g.length === 1; });
+      if (!ohne) return { ok: false, warum: 'keine Art ohne Dublette — die Gegenrichtung fehlt' };
+      openDetail(ohne.id);
+      await new Promise(function (r) { setTimeout(r, 400); });
+      if (/Vorsichtigere Angabe/.test(lies())) f.push('„' + ohne.name + '" hat keine Dublette und bekommt trotzdem den Hinweis');
+      try { closeModal('detail-modal'); } catch (_) {}
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: schlimmster.sp.name + ' ' + schlimmster.sp.id + ': ' + schlimmster.sp.tox + ' → ' + schlimmster.v.tox + ' und genannt · „' + ohne.name + '" ohne Dublette bleibt still' };
+    },
+  },
+
+  {
+    // v32.92 — v32.91 hat das DETAIL korrigiert und die LISTE nicht; damit war
+    // „Violetter Schleierling" in der Zeile ✅ und im Detail Stufe 3. Zwei
+    // Anzeigen derselben Art mit gegenteiliger Aussage.
+    name: 'D1c · Trefferliste und Detail sagen dasselbe ueber dieselbe Art',
+    lauf: async () => {
+      var w = null, d = 0;
+      DB.forEach(function (sp) {
+        if (!sp || !sp.lat) return;
+        var g = _gsArtGruppe(sp, sp.lat); if (!g || g.length < 2) return;
+        var v = _gsVorsichtigste(g); if (!v || v._unverified) return;
+        var dd = (v.tox || 0) - (sp.tox || 0);
+        if (dd > d) { d = dd; w = { sp: sp, v: v }; }
+      });
+      if (!w) return { ok: false, warum: 'kein Eintrag mit niedrigerer Stufe — der Fall misst nichts' };
+      switchTab('search');
+      var inp = document.getElementById('search-input');
+      if (inp) inp.value = w.sp.name;
+      searchText = String(w.sp.name).toLowerCase();
+      if (typeof doSearch === 'function') doSearch(); else renderList();
+      await new Promise(function (r) { setTimeout(r, 900); });
+      var karte = document.querySelector('[data-sid="' + w.sp.id + '"]');
+      if (!karte) return { ok: false, warum: 'die Zeile fuer „' + w.sp.name + '" wird nicht gerendert — der Fall misst nichts' };
+      var txt = (karte.textContent || '');
+      var rand = (karte.getAttribute('style') || '');
+      var f = [];
+      if ((w.v.tox || 0) >= 2) {
+        if (/✅/.test(txt)) f.push('die Zeile zeigt ✅, die Art ist Stufe ' + w.v.tox + ': „' + txt.replace(/\s+/g, ' ').slice(0, 60) + '"');
+        if (/transparent/.test(rand)) f.push('die Zeile hat keinen Warnrand, die Art ist Stufe ' + w.v.tox);
+      }
+      if ((w.v.tox || 0) >= 3 && !/Giftig/.test(txt)) f.push('die Zeile nennt die Art nicht giftig, obwohl Stufe ' + w.v.tox);
+      openDetail(w.sp.id);
+      await new Promise(function (r) { setTimeout(r, 400); });
+      var punkte = document.querySelectorAll('#detail-modal .td, #modal-content .td');
+      var aktiv = 0;
+      Array.prototype.forEach.call(punkte, function (x) { if ((x.getAttribute('style') || '').indexOf('background') >= 0) aktiv++; });
+      if (aktiv && aktiv - 1 !== (w.v.tox || 0)) f.push('das Detail zeigt Stufe ' + (aktiv - 1) + ', die Art ist ' + w.v.tox);
+      try { closeModal('detail-modal'); } catch (_) {}
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: w.sp.name + ' (Eintrag ' + w.sp.tox + ', Art ' + w.v.tox + '): Zeile „' + txt.replace(/\s+/g, ' ').slice(0, 44) + '" · Detail Stufe ' + (aktiv ? aktiv - 1 : '?') };
+    },
+  },
+
+  {
+    // v32.93 — die Klasse zu Ende gesucht statt angenommen. Nach v32.92 nutzten
+    // Liste und Detail die Regel; fuenf weitere Anzeigen nicht. Die schwerste:
+    // das QUIZ wertet seine Antwort — bei 269 Arten waere die Zahl des
+    // Eintrags als „richtig" gezaehlt worden.
+    name: 'D1d · Das Quiz wertet nach der ART: jede Giftfrage geht durch die Vorsichtsregel',
+    lauf: async () => {
+      if (typeof initQuizModal !== 'function') return { ok: false, warum: 'initQuizModal fehlt' };
+      if (typeof _gsArtAnzeige !== 'function') return { ok: false, warum: '_gsArtAnzeige fehlt — die Regel ist gar nicht da' };
+      var gewaehlt = null;
+      var echt = window._gsArtAnzeige;
+      window._gsArtAnzeige = function (sp) { var r = echt(sp); gewaehlt = sp; return r; };
+      var gestellt = 0, ohneHelfer = 0, betroffen = 0, falsch = [];
+      try {
+        for (var i = 0; i < 400; i++) {
+          gewaehlt = null;
+          try { initQuizModal(); } catch (e) { return { ok: false, warum: 'initQuizModal wirft: ' + String(e).slice(0, 90) }; }
+          var q = (document.getElementById('quiz-modal-question') || {}).textContent || '';
+          if (!/^Wie giftig ist /.test(q)) continue;
+          gestellt++;
+          if (!gewaehlt) { ohneHelfer++; continue; }
+          var g = _gsArtGruppe(gewaehlt, gewaehlt.lat);
+          var v = (g && g.length > 1) ? _gsVorsichtigste(g) : null;
+          if (!v || v._unverified || (v.tox || 0) === (gewaehlt.tox || 0)) continue;
+          betroffen++;
+          var el = document.querySelector('#quiz-modal-options [data-correct="1"]');
+          if (!el) return { ok: false, warum: 'keine als richtig markierte Option — der Fall misst nichts' };
+          var richtig = (el.textContent || '').trim();
+          if (richtig.indexOf('Stufe ' + (v.tox || 0)) !== 0)
+            falsch.push(gewaehlt.name + ' (' + gewaehlt.id + '): richtig waere Stufe ' + v.tox + ', gewertet „' + richtig.slice(0, 22) + '"');
+        }
+      } finally { window._gsArtAnzeige = echt; }
+      if (!gestellt) return { ok: false, warum: 'in 400 Laeufen keine einzige Giftfrage — der Fall misst nichts' };
+      if (ohneHelfer) return { ok: false, warum: ohneHelfer + ' von ' + gestellt + ' Giftfragen gehen NICHT durch die Vorsichtsregel' };
+      if (falsch.length) return { ok: false, warum: falsch.length + ' falsch gewertet: ' + falsch.slice(0, 2).join(' | ') };
+      return { ok: true, info: gestellt + ' Giftfragen, alle durch die Regel · ' + betroffen + ' betrafen eine Art mit abweichendem Eintrag, 0 falsch gewertet' };
+    },
+  },
+  {
+    name: 'D1e · Die Bluehkalender-Marke folgt der ART (94 Arten bekamen kein ☠️)',
+    lauf: () => {
+      if (typeof _gsBlMarken !== 'function') return { ok: false, warum: '_gsBlMarken fehlt' };
+      var fehlt = [], geprueft = 0;
+      DB.forEach(function (sp) {
+        if (!sp || !sp.lat) return;
+        var g = _gsArtGruppe(sp, sp.lat); if (!g || g.length < 2) return;
+        var v = _gsVorsichtigste(g); if (!v || v._unverified) return;
+        var sollWarnen = !!(v.toxic || (v.tox && +v.tox > 0));
+        var zeigtSelbst = !!(sp.toxic || (sp.tox && +sp.tox > 0));
+        if (!sollWarnen || zeigtSelbst) return;   // nur die interessanten
+        geprueft++;
+        if (!/gs-bl-gift/.test(String(_gsBlMarken(sp) || ''))) fehlt.push(sp.name + ' (' + sp.id + ')');
+      });
+      if (!geprueft) return { ok: false, warum: 'keine Art, bei der sich die Marke unterscheidet — der Fall misst nichts' };
+      if (fehlt.length) return { ok: false, warum: fehlt.length + ' von ' + geprueft + ' ohne ☠️: ' + fehlt.slice(0, 3).join(', ') };
+      return { ok: true, info: geprueft + ' Arten, deren Eintrag keine Warnung traegt — alle bekommen die Marke der Art' };
+    },
+  },
+
+  {
+    // v32.95 — die automatischen Sammlungen sind auch eine AUSSAGE. „☠️ Giftige"
+    // fasste nach `sp.tox >= 4` des EINTRAGS zusammen: 22 Eintraege / 16 Arten
+    // fehlten, darunter Kahler Krempling und Fruehlingslorchel. Gemessen wird,
+    // was wirklich in die Sammlung GESCHRIEBEN wird — nicht die Datenlage:
+    // „wie viele Eintraege widersprechen sich?" liefert dieselbe Zahl, wenn
+    // die Sammlung laengst richtig einsortiert.
+    name: 'D1f · Die Sammlung „Giftige" nimmt auf, was die ART giftig macht',
+    lauf: async () => {
+      if (typeof gsCollectionsAutoVacuum !== 'function') return { ok: false, warum: 'gsCollectionsAutoVacuum fehlt' };
+      // Eine Art suchen, deren Eintrag unter 4 liegt und deren Art >= 4 ist.
+      var kand = null;
+      DB.forEach(function (sp) {
+        if (kand || !sp || !sp.lat) return;
+        var a = _gsArtAnzeige(sp);
+        if (a !== sp && a._korrigiert && (a.tox || 0) >= 4 && (sp.tox || 0) < 4) kand = sp;
+      });
+      if (!kand) return { ok: false, warum: 'keine Art mit Eintrag < 4 und Art >= 4 — der Fall misst nichts' };
+
+      var geschrieben = [];
+      var eSb = window.sbFetch, eGather = window._gsCollGatherSourceItems,
+          eReady = window._gsCollReady;
+      try {
+        window._gsCollReady = function () { return true; };
+        window._gsCollGatherSourceItems = async function () {
+          return [{ sp: kand, type: 'species', ref: kand.id, label: kand.name, emoji: '🌿' }];
+        };
+        window.sbFetch = async function (pfad, opts) {
+          var m = (opts && opts.method) || 'GET';
+          if (m === 'GET' && /user_collections\?select/.test(pfad)) return { data: [] };
+          if (m === 'POST' && /\/user_collections$/.test(pfad)) {
+            var b = {}; try { b = JSON.parse(opts.body); } catch (_) {}
+            return { data: [{ id: 'col-' + (b.system_key || '?') }] };
+          }
+          if (m === 'GET' && /user_collection_items/.test(pfad)) return { data: [] };
+          if (m === 'POST' && /user_collection_items/.test(pfad)) {
+            var rows = []; try { rows = JSON.parse(opts.body); } catch (_) {}
+            (Array.isArray(rows) ? rows : [rows]).forEach(function (r) { geschrieben.push(r); });
+            return { data: rows };
+          }
+          return { data: [] };
+        };
+        window._gsVacuumRunning = false;
+        await gsCollectionsAutoVacuum();
+      } finally {
+        window.sbFetch = eSb; window._gsCollGatherSourceItems = eGather;
+        window._gsCollReady = eReady; window._gsVacuumRunning = false;
+      }
+      if (!geschrieben.length) return { ok: false, warum: 'die Sammlung hat gar nichts geschrieben — der Fall misst nichts' };
+      var inGift = geschrieben.some(function (r) { return String(r.collection_id) === 'col-sys_giftig' && r.item_ref === kand.id; });
+      if (!inGift) {
+        var wohin = geschrieben.map(function (r) { return String(r.collection_id); }).join(', ');
+        return { ok: false, warum: '„' + kand.name + '" (Eintrag tox ' + kand.tox + ', Art ' + (_gsArtAnzeige(kand).tox) + ') fehlt in „Giftige" — geschrieben nach: ' + wohin };
+      }
+      return { ok: true, info: '„' + kand.name + '" (Eintrag tox ' + kand.tox + ', Art ' + (_gsArtAnzeige(kand).tox) + ') landet in „Giftige" · ' + geschrieben.length + ' Zeile(n) geschrieben' };
+    },
+  },
+
+  {
+    // v32.96 — die Zahl unter „Giftig" im Lexikon fragte `tox === 2 || tox === 3`.
+    // Die Untergrenze war Absicht („gering" zaehlt nicht), die Obergrenze nicht:
+    // 131 Eintraege mit Stufe 4 und 5 fehlten — genau die stark giftigen und die
+    // toedlichen. Gemessen wird die GERENDERTE Zahl, nicht die Rechnung.
+    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein',
+    lauf: async () => {
+      if (typeof renderLexikon !== 'function') return { ok: false, warum: 'renderLexikon fehlt' };
+      const erwartet = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 2).length;
+      const toedlich = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 4).length;
+      if (!toedlich) return { ok: false, warum: 'keine Art mit Stufe 4+ in der Liste — der Fall misst nichts' };
+      // renderLexikon GIBT das HTML ZURUECK (es haengt es nicht ein) — der erste
+      // Anlauf suchte im Dokument und traf eine fremde Plakette „Giftig"; er
+      // waere gruen gewesen, sobald die Zahl zufaellig gepasst haette.
+      const huelle = document.createElement('div');
+      huelle.innerHTML = String(renderLexikon() || '');
+      const kacheln = [...huelle.querySelectorAll('div')].filter(d => /^(Giftig)$/i.test((d.textContent || '').trim()));
+      if (!kacheln.length) return { ok: false, warum: 'keine Kachel „Giftig" gerendert — der Fall misst nichts' };
+      const eltern = kacheln[0].parentElement;
+      const zahl = parseInt(((eltern && eltern.firstElementChild && eltern.firstElementChild.textContent) || '').replace(/\D/g, ''), 10);
+      if (!zahl) return { ok: false, warum: 'keine Zahl neben „Giftig" gefunden' };
+      if (zahl !== erwartet) {
+        const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
+        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
+      }
+      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 (alte Regel tox 2|3: ' + DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length + ')' };
+    },
+  },
+
+  {
+    // v32.96 — das Symbol IST die Beschriftung des Eintrags in der Sammlung.
+    // 134 Eintraege bekamen ein anderes: die Christrose stand mit 🌿 dort
+    // (Eintrag tox 3), waehrend ihre Art Stufe 5 hat.
+    name: 'D1h · Das Symbol in der Sammlung kommt von der ART',
+    lauf: async () => {
+      if (typeof gsAddSpeciesToCollection !== 'function') return { ok: false, warum: 'gsAddSpeciesToCollection fehlt' };
+      let kand = null;
+      DB.forEach(sp => {
+        if (kand || !sp || !sp.lat) return;
+        const a = _gsArtAnzeige(sp);
+        if (a !== sp && a._korrigiert && (a.tox || 0) >= 4 && (sp.tox || 0) < 4) kand = sp;
+      });
+      if (!kand) return { ok: false, warum: 'keine Art mit Eintrag < 4 und Art >= 4 — der Fall misst nichts' };
+      let gesehen = null;
+      const e = window.gsAddToCollection;
+      try {
+        window.gsAddToCollection = async function (typ, ref, label, emoji) { gesehen = { ref: ref, emoji: emoji }; };
+        gsAddSpeciesToCollection(kand.id);
+      } finally { window.gsAddToCollection = e; }
+      if (!gesehen) return { ok: false, warum: 'gsAddToCollection wurde nicht gerufen — der Fall misst nichts' };
+      if (gesehen.emoji !== '☠️') return { ok: false, warum: '„' + kand.name + '" (Eintrag tox ' + kand.tox + ', Art ' + _gsArtAnzeige(kand).tox + ') bekommt „' + gesehen.emoji + '" statt ☠️' };
+      return { ok: true, info: '„' + kand.name + '" (Eintrag tox ' + kand.tox + ', Art ' + _gsArtAnzeige(kand).tox + ') bekommt ☠️' };
+    },
+  },
+
+  {
+    // v32.96 — zwei Stellen, die einen SATZ ueber die Giftigkeit sagen: die
+    // Fakten-Zeile auf der Startseite und die Antwort des Offline-Chats. Beide
+    // lasen den Eintrag; beim Chat kommt der Treffer aus einem NAMENS-Vergleich,
+    // der bei mehrfach gefuehrten Arten irgendeinen der Eintraege trifft.
+    name: 'D1i · Fakten-Zeile und Offline-Chat nennen die Stufe der ART',
+    lauf: async () => {
+      let kand = null;
+      DB.forEach(sp => {
+        if (kand || !sp || !sp.name) return;
+        const a = _gsArtAnzeige(sp);
+        if (a !== sp && a._korrigiert && (a.tox || 0) >= 4 && (sp.tox || 0) < 4) kand = sp;
+      });
+      if (!kand) return { ok: false, warum: 'keine Art mit Eintrag < 4 und Art >= 4 — der Fall misst nichts' };
+      const artTox = _gsArtAnzeige(kand).tox;
+      const f = [];
+
+      // (a) Offline-Chat
+      if (typeof getSmartAnswer !== 'function') f.push('getSmartAnswer fehlt');
+      else {
+        const antwort = String(getSmartAnswer(kand.name.toLowerCase()) || '');
+        if (!antwort.includes(kand.name)) f.push('der Chat findet „' + kand.name + '" gar nicht — der Fall misst nichts');
+        else {
+          const stufen = ['harmlos', 'gering', 'mässig', 'giftig', 'stark giftig', 'TÖDLICH'];
+          if (!antwort.includes(stufen[artTox])) f.push('Chat nennt nicht „' + stufen[artTox] + '" (Art ' + artTox + '), sondern: ' + (antwort.match(/Giftigkeitsstufe:\*\* ([^\n]+)/) || [, '(gar nichts)'])[1]);
+          if (/✅ \*\*Essbar\*\*/.test(antwort) && !_gsArtAnzeige(kand).edible) f.push('Chat sagt „Essbar", die Art nicht');
+        }
+      }
+
+      // (b) Fakten-Zeile: die 60 gezogenen Zeilen duerfen fuer eine Art mit
+      // Stufe 4+ nie die harmlose Variante zeigen.
+      if (typeof gsInitDynamicFacts !== 'function') f.push('gsInitDynamicFacts fehlt');
+      else {
+        gsInitDynamicFacts();
+        const zeilen = Array.isArray(window._dynF) ? window._dynF : [];
+        if (!zeilen.length) f.push('keine Fakten-Zeilen erzeugt — der Fall misst nichts');
+        else {
+          let falsch = [];
+          zeilen.forEach(z => {
+            const m = String(z).match(/<strong>([^<]+)<\/strong>/);
+            if (!m) return;
+            const treffer = DB.filter(s => s && s.name === m[1]);
+            if (!treffer.length) return;
+            // Zeigt die Zeile die Warnung? Dann ist sie richtig.
+            const warnt = /stark giftig/.test(z);
+            const artStufe = Math.max.apply(null, treffer.map(s => _gsArtAnzeige(s).tox | 0));
+            if (artStufe >= 4 && !warnt) falsch.push(m[1] + ' (Art ' + artStufe + ')');
+          });
+          if (falsch.length) f.push(falsch.length + ' Fakten-Zeile(n) ohne Warnung, obwohl die Art Stufe 4+ hat: ' + falsch.slice(0, 4).join(', '));
+        }
+      }
+
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '„' + kand.name + '" (Eintrag ' + (kand.tox | 0) + ', Art ' + artTox + ') · Chat nennt die Stufe der Art · ' + (window._dynF || []).length + ' Fakten-Zeilen, keine ohne Warnung' };
+    },
+  },
+
+  {
+    // v32.98 — der Text mit dem hoechsten Einsatz in dieser App. Das alte
+    // Muster (/vergift|notfall|essen.*kind|kind.*essen|gegessen.*giftig|
+    // giftig.*gegessen/) griff bei 4 von 17 realistischen Saetzen; „meine
+    // Tochter hat Beeren gegessen" bekam eine Pflanzenbeschreibung.
+    // Gemessen werden BEIDE Richtungen: ein Notfall MUSS die Nummer bringen,
+    // und eine harmlose Frage darf sie NICHT bringen — sonst lernt man, das
+    // Banner zu ueberlesen (dieselbe Lehre wie die vier Falschmeldungen in v32.21).
+    name: 'N1 · Der Offline-Chat erkennt einen Vergiftungs-Notfall — und ruft ihn nicht bei jeder Essensfrage aus',
+    lauf: async () => {
+      if (typeof getSmartAnswer !== 'function') return { ok: false, warum: 'getSmartAnswer fehlt' };
+      const DRINGEND = ['mein kind hat eine beere gegessen', 'meine tochter hat beeren gegessen',
+        'mein sohn hat pilze gegessen', 'mein hund hat davon gefressen',
+        'die katze hat an der pflanze geknabbert', 'ich habe aus versehen davon probiert',
+        'wir haben pilze gegessen und mir ist schlecht', 'meine kleine hat blätter in den mund genommen',
+        'baby hat erde und blätter gegessen', 'mir ist übel nach dem pilzessen', 'erbrechen nach beeren',
+        'kind hat maiglöckchen gegessen', 'hilfe pflanze gegessen', 'vergiftung', 'notfall',
+        'bauchschmerzen nach dem beeren sammeln', 'was tun wenn man giftige beeren isst',
+        // v32.99 — der Offline-Chat ist der Rueckfall fuer JEDEN ohne Schluessel
+        // und fragt die Sprache nirgends ab. Mit dem deutschen Vokabular: 0 von 12.
+        'ma fille a mangé des baies', 'mon fils a mangé un champignon',
+        'mon chien a mangé cette plante', 'empoisonnement', 'au secours il a avalé une baie',
+        'mia figlia ha mangiato delle bacche', 'mio figlio ha mangiato un fungo', 'avvelenamento',
+        'my daughter ate berries', 'my son ate a mushroom', 'poisoning', 'my dog ate this plant'];
+      const HARMLOS = ['kann man löwenzahn essen', 'ist bärlauch essbar', 'welche pilze sind essbar',
+        'darf man brennnessel essen', 'wie schmeckt giersch', 'wann kann ich tomaten ernten',
+        'ist die pflanze giftig', 'wie giftig ist der efeu', 'welche beeren sind essbar',
+        'rezept mit bärlauch', 'wann blüht der holunder', 'wie pflege ich basilikum',
+        'ist maiglöckchen giftig', 'giftige pflanzen im garten', 'was ist essbar im wald',
+        'quand fleurit le sureau', 'quali funghi sono commestibili', 'which berries are edible',
+        // Scharfe Kante: `\bcat\b` traefe auch „catégorie" — in JS ist „é" kein
+        // Wortzeichen, die Grenze sitzt mitten im Wort. Die Nachschau haelt es.
+        'dans quelle catégorie ranger cette plante'];
+      // scan_check fuehrt seine Faelle IN der Seite aus (p.evaluate ueber den
+      // Funktionsrumpf) — getSmartAnswer ist hier direkt greifbar, ein
+      // verschachteltes evaluate waere ein ReferenceError.
+      const nimm = q => String(getSmartAnswer(q) || '');
+      const r = {
+        d: DRINGEND.map(q => ({ q, a: nimm(q) })).filter(x => !/SOFORT Tox Info Suisse/.test(x.a)).map(x => x.q),
+        h: HARMLOS.map(q => ({ q, a: nimm(q) })).filter(x => /Tox Info Suisse/.test(x.a)).map(x => x.q),
+        probe: nimm('vergiftung').slice(0, 30),
+      };
+      if (!/SOFORT Tox Info Suisse/.test(r.probe)) return { ok: false, warum: 'selbst „vergiftung" bringt die Nummer nicht — der Fall misst nichts' };
+      const f = [];
+      if (r.d.length) f.push(r.d.length + ' von ' + DRINGEND.length + ' Notfall-Sätzen OHNE die Nummer: „' + r.d.slice(0, 3).join('" · „') + '"');
+      if (r.h.length) f.push(r.h.length + ' harmlose Frage(n) MIT Notfall-Text: „' + r.h.slice(0, 3).join('" · „') + '"');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: DRINGEND.length + ' Notfall-Sätze bringen die 145 · ' + HARMLOS.length + ' harmlose Fragen bleiben ohne' };
+    },
+  },
+
+  // ── v32.86 · „Essbar" ist eine ANGABE, kein Rueckschluss aus „nicht giftig"
+  // Die App sagt es an anderer Stelle selbst: `tox === 0` ohne `edible` heisst
+  // woertlich „Nicht essbar ❌". Drei Anzeigen haben trotzdem aus `tox === 0`
+  // auf essbar geschlossen. Alle vier Faelle waren gegen v32.85 rot.
+  {
+    name: 'E1 · Eine Frage, eine Regel: gsIstEssbar und der Filter „✅ Essbar" sind sich einig',
+    lauf: () => {
+      if (typeof gsIstEssbar !== 'function') return { ok: false, warum: 'gsIstEssbar gibt es nicht' };
+      var vorher = (typeof currentFilter !== 'undefined') ? currentFilter : '';
+      var abweichung = null, essbar = 0;
+      try {
+        currentFilter = 'essbar';
+        for (var i = 0; i < DB.length && !abweichung; i++) {
+          var sp = DB[i], a = gsIstEssbar(sp), b = _gsPassCat(sp);
+          if (a) essbar++;
+          if (a !== b) abweichung = sp.name + ' (gsIstEssbar ' + a + ', Filter ' + b + ')';
+        }
+      } finally { currentFilter = vorher; }
+      if (abweichung) return { ok: false, warum: 'zwei Regeln fuer dieselbe Frage: ' + abweichung };
+      // Und die Gegenrichtung: die alte Regel muss eine ANDERE Zahl liefern,
+      // sonst prueft dieser Fall nichts.
+      var alt = DB.filter(function (s) { return s.tox === 0 && (s.cat === 'wildpflanze' || s.cat === 'kraut'); }).length;
+      if (alt === essbar) return { ok: false, warum: 'alte und neue Regel liefern dieselbe Zahl (' + alt + ') — der Fall misst nichts' };
+      return { ok: true, info: 'essbar ' + essbar + ' · „ungiftig & Wildpflanze/Kraut" waeren ' + alt };
+    },
+  },
+  {
+    name: 'E1b · Die Startkarte „✅ Essbar" nennt die essbaren Arten, nicht die ungiftigen',
+    lauf: async () => {
+      switchTab('home');
+      if (typeof initHomeBoard === 'function') initHomeBoard();
+      // gsAnimateCounter laeuft 1200 ms — wer frueher misst, misst ein
+      // Zwischenbild (genau das ist mir beim Suchen einmal passiert).
+      await new Promise(function (r) { setTimeout(r, 2200); });
+      var el = document.getElementById('stat-edible');
+      if (!el) return { ok: false, warum: '#stat-edible gibt es nicht' };
+      var gezeigt = parseInt(String(el.textContent).replace(/[^\d]/g, ''), 10);
+      // Eigener Massstab — NICHT gsIstEssbar. Ein Fall, der mit der Funktion
+      // misst, die er pruefen soll, faellt gegen einen alten Stand nur mit
+      // „is not defined" durch und hat die falsche ZAHL nie gesehen.
+      var essbar = function (sp) { return !!(sp && sp.edible); };
+      var soll = DB.filter(essbar).length;
+      var alt  = DB.filter(function (s) { return s.tox === 0 && (s.cat === 'wildpflanze' || s.cat === 'kraut'); }).length;
+      if (gezeigt === alt && alt !== soll) return { ok: false, warum: 'nennt die UNGIFTIGEN: ' + gezeigt + ' statt ' + soll };
+      if (gezeigt !== soll) return { ok: false, warum: 'zeigt ' + gezeigt + ', essbar sind ' + soll };
+      return { ok: true, info: gezeigt + ' — dieselbe Zahl, die der Filter liefert' };
+    },
+  },
+  {
+    name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — an JEDEM Tag des Jahres',
+    lauf: () => {
+      if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };
+      var echtMonat = Date.prototype.getMonth, echtTag = Date.prototype.getDate;
+      var schlecht = [], geprueft = 0;
+      try {
+        // v33.09: hier stand `t <= 28; t += 3` — zehn von einunddreissig Tagen
+        // je Monat, und der 29. bis 31. nie. `gsInitSmartSeasonTip` waehlt mit
+        // `getDate() * 13 % pool.length`: einundzwanzig moegliche Auswahlen je
+        // Monat wurden damit NIE gemessen. Genau dieses Loch hat in v33.08 den
+        // Eiche-Fund monatelang verdeckt (dort: EIN Tag statt 372). Nachgemessen
+        // hat der volle Durchlauf hier nichts Neues gefunden — die Stichprobe
+        // war zufaellig ausreichend. „Zufaellig ausreichend" ist keine Eigenschaft,
+        // auf die man sich verlaesst.
+        for (var m = 0; m < 12; m++) {
+          for (var t = 1; t <= 31; t++) {
+            (function (mm, tt) {
+              Date.prototype.getMonth = function () { return mm; };
+              Date.prototype.getDate  = function () { return tt; };
+            })(m, t);
+            gsInitSmartSeasonTip();
+            // Aus der KARTE lesen, nicht aus einer id: `#season-tip-kopf` gibt
+            // es erst seit v32.86. Wer die id liest, bekommt gegen einen
+            // aelteren Stand einen leeren String — und der enthaelt kein
+            // „sammeln", also faellt jeder Tag durch und der Fall ist gruen,
+            // ohne etwas gemessen zu haben. (Genau so passiert.)
+            var karte = document.getElementById('season-tip-card');
+            var kopf = (karte && karte.textContent) || '';
+            var name = (document.getElementById('season-tip-name') || {}).textContent || '';
+            if (!name) continue;
+            geprueft++;
+            if (!/sammeln/i.test(kopf)) continue;   // sagt nichts vom Sammeln → in Ordnung
+            var teile = name.split(' · ');
+            var treffer = DB.filter(function (s) {
+              return s.name === teile[0] && (teile.length < 2 || s.lat === teile[1]);
+            });
+            if (!treffer.length) { schlecht.push('Monat ' + (m + 1) + ' Tag ' + t + ': „' + name + '" steht in keiner Art'); continue; }
+            if (!treffer.some(function (sp) { return !!(sp && sp.edible); }))
+              schlecht.push('Monat ' + (m + 1) + ' Tag ' + t + ': „' + teile[0] + '" ist nicht essbar');
+          }
+        }
+      } finally { Date.prototype.getMonth = echtMonat; Date.prototype.getDate = echtTag; }
+      if (!geprueft) return { ok: false, warum: 'kein einziger Tipp gerendert — der Fall misst nichts' };
+      if (schlecht.length) return { ok: false, warum: schlecht.length + ' von ' + geprueft + ' zum Sammeln empfohlen, ohne essbar zu sein: ' + schlecht.slice(0, 3).join(' | ') };
+      return { ok: true, info: geprueft + ' Tage geprueft, jeder Sammel-Tipp ist essbar' };
+    },
+  },
+  {
+    name: 'E4 · Das Tagesquiz stellt an JEDEM Tag eine beantwortbare Frage',
+    lauf: () => {
+      // Das Quiz WERTET (v32.93) — eine kaputte Frage ist keine Anzeige, sondern
+      // eine falsche Note. Die Frage haengt am Datum
+      // (`getFullYear()*10000 + (getMonth()+1)*100 + getDate()`), und bis v33.09
+      // hat sie niemand ueber mehr als den laufenden Tag gemessen. Dieselbe
+      // Luecke wie bei E3, nur noch ungemessen.
+      if (typeof initQuiz !== 'function') return { ok: false, warum: 'initQuiz gibt es nicht' };
+      var eJ = Date.prototype.getFullYear, eM = Date.prototype.getMonth, eT = Date.prototype.getDate;
+      var verdaechtig = [], nichtEine = [], leer = [], gemessen = 0;
+      try {
+        for (var m = 0; m < 12; m++) {
+          for (var t = 1; t <= 31; t++) {
+            (function (mm, tt) {
+              Date.prototype.getFullYear = function () { return 2026; };
+              Date.prototype.getMonth = function () { return mm; };
+              Date.prototype.getDate = function () { return tt; };
+            })(m, t);
+            initQuiz();
+            var q = (document.getElementById('quiz-question') || {}).textContent || '';
+            var btns = [].slice.call(document.querySelectorAll('#quiz-options .quiz-opt-btn'));
+            if (!q || !btns.length) continue;
+            gemessen++;
+            var wo = (m + 1) + '/' + t + ': ';
+            if (/undefined|null|NaN|\[object Object\]/.test(q)) verdaechtig.push(wo + q.replace(/\n/g, ' ').slice(0, 60));
+            var richtig = btns.filter(function (b) { return b.dataset.correct === '1'; });
+            if (richtig.length !== 1) nichtEine.push(wo + richtig.length + ' richtige von ' + btns.length);
+            btns.forEach(function (b) {
+              var txt = (b.textContent || '').trim();
+              if (!txt) leer.push(wo + 'leere Antwortmoeglichkeit');
+              else if (/undefined|null|NaN|\[object Object\]/.test(txt)) verdaechtig.push(wo + 'Option „' + txt.slice(0, 35) + '"');
+            });
+          }
+        }
+      } finally { Date.prototype.getFullYear = eJ; Date.prototype.getMonth = eM; Date.prototype.getDate = eT; }
+      if (gemessen < 300) return { ok: false, warum: 'nur ' + gemessen + ' von 372 Tagen gebaut — der Fall misst zu wenig' };
+      var klagen = [];
+      if (verdaechtig.length) klagen.push(verdaechtig.length + 'x verdaechtiger Text: ' + verdaechtig.slice(0, 3).join(' · '));
+      if (nichtEine.length) klagen.push(nichtEine.length + 'x nicht genau EINE richtige Antwort: ' + nichtEine.slice(0, 3).join(' · '));
+      if (leer.length) klagen.push(leer.length + 'x leere Antwortmoeglichkeit: ' + leer.slice(0, 2).join(' · '));
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      initQuiz();   // wieder auf den echten Tag stellen
+      return { ok: true, info: gemessen + ' Tage gebaut · jede Frage mit genau einer richtigen Antwort, kein „undefined", keine leere Option' };
+    },
+  },
+  {
+    name: 'E3 · Das Besteck-Symbol steht nur vor einer essbaren Art — an JEDEM Tag des Jahres',
+    lauf: () => {
+      // v33.08: dieser Fall hing am laufenden Datum. `gsInitDynamicFacts`
+      // waehlt 60 von 3'654 Zeilen ueber `getDate()*7 + getMonth()`; der
+      // Fehler mit der Eiche war 364 Tage unsichtbar und stand am 10.09.2026
+      // ploetzlich da — auf `main`, ohne dass sich etwas geaendert haette.
+      // Eine Frage, die nur EINEN Tag kennt, ist an den anderen 364 gruen,
+      // ohne etwas zu wissen. Der Fall stellt jetzt das Datum und faehrt alle
+      // 372 Kombinationen (31 Tage x 12 Monate) durch die ECHTE Funktion —
+      // keine zweite Umsetzung der Auswahlregel im Pruefstand.
+      if (typeof gsInitDynamicFacts !== 'function') return { ok: false, warum: 'gsInitDynamicFacts gibt es nicht' };
+      var Echt = Date;
+      var pruefe = function () {
+        var zeilen = (typeof _dynF !== 'undefined' && _dynF) ? _dynF : [];
+        var b = 0, schlecht = [];
+        zeilen.forEach(function (z) {
+          if (String(z).indexOf('&#127860;') !== 0) return;
+          b++;
+          var m = String(z).match(/<strong>([^<]+)<\/strong>/);
+          if (!m) { schlecht.push('Zeile ohne Namen'); return; }
+          // eigener Massstab (v32.86): der Eintrag, dessen Text daneben steht,
+          // muss selbst essbar sein — nicht die Funktion fragen, die geprueft wird
+          var treffer = DB.filter(function (s) { return s.name === m[1]; });
+          if (!treffer.some(function (sp) { return !!(sp && sp.edible); })) schlecht.push(m[1]);
+        });
+        return { besteck: b, schlecht: schlecht, zeilen: zeilen.length };
+      };
+      var gesamtBesteck = 0, gesamtZeilen = 0, tageOhneBesteck = 0, funde = {}, tage = 0;
+      try {
+        for (var mon = 0; mon < 12; mon++) {
+          for (var tag = 1; tag <= 31; tag++) {
+            var fest = new Echt(2026, mon, Math.min(tag, 28), 12, 0, 0);
+            // getDate() soll wirklich `tag` liefern — auch fuer den 29.-31.
+            window.Date = function (a, b2, c) {
+              if (arguments.length) return new Echt(a, b2, c);
+              var d = new Echt(fest.getTime());
+              d.getDate = function () { return tag; };
+              return d;
+            };
+            window.Date.now = Echt.now;
+            window.Date.parse = Echt.parse;
+            window.Date.UTC = Echt.UTC;
+            window.Date.prototype = Echt.prototype;
+            gsInitDynamicFacts();
+            var r = pruefe();
+            tage++;
+            gesamtBesteck += r.besteck; gesamtZeilen += r.zeilen;
+            if (!r.besteck) tageOhneBesteck++;
+            r.schlecht.forEach(function (n) { funde[n] = (funde[n] || 0) + 1; });
+          }
+        }
+      } finally { window.Date = Echt; }
+      if (!tage) return { ok: false, warum: 'kein einziger Tag durchgefahren — der Fall misst nichts' };
+      if (!gesamtBesteck) return { ok: false, warum: 'an keinem der ' + tage + ' Tage eine Besteck-Zeile — der Fall misst nichts' };
+      var namen = Object.keys(funde);
+      if (namen.length) {
+        return { ok: false, warum: namen.length + ' Art(en) mit Besteck ohne essbaren Eintrag, an ' +
+          Object.values(funde).reduce(function (a, b3) { return a + b3; }, 0) + ' von ' + tage + ' Tagen: ' + namen.slice(0, 6).join(' · ') };
+      }
+      // Uhr wieder frei laufen lassen, damit die spaeteren Faelle den echten Tag sehen
+      gsInitDynamicFacts();
+      return { ok: true, info: tage + ' Tage durchgefahren · ' + gesamtBesteck + ' Besteck-Zeilen von ' + gesamtZeilen + ', alle mit essbarem Eintrag' +
+        (tageOhneBesteck ? ' · ' + tageOhneBesteck + ' Tage ohne Besteck-Zeile' : '') };
+    },
+  },
+
+];
+
+(async () => {
+  const br = await chromium.launch();
+  const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
+  await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  await p.addInitScript(SEED);
+  await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await p.waitForTimeout(4000);
+  await p.evaluate((jetzt) => {
+    window.__PRUEF_JPEG = jetzt.normal;
+    window.__PRUEF_JPEG_ZUKUNFT = jetzt.zukunft;
+    document.documentElement.classList.remove('gs-preauth');
+    window.gsRequire = () => true;
+    window.gsToast = () => {}; window.showProfileToast = () => {};
+    window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+    window.gsScanPersistToCloud = () => Promise.resolve(true);
+    window.gsAddToScanHistory = () => {};
+    window.gsHaptic = () => {};
+    window.__QUELLE = jetzt.quelle;
+  }, {
+    normal:  Array.from(baueJpegMitExif({ datum: '2026:07:14 09:33:12', lat: 46.8182, lng: 8.2275 })),
+    zukunft: Array.from(baueJpegMitExif({ datum: '2099:01:01 00:00:00', lat: 46.8182, lng: 8.2275 })),
+    quelle:  require('fs').readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8'),
+  });
+
+  console.log('\n=== scan_check — glaubt der Scanner der KI aufs Wort?');
+  const da = await p.evaluate(() => (typeof DB !== 'undefined' && DB && DB.length) ? DB.length : 0);
+  console.log('  Artenliste geladen: ' + da + ' Arten' + (da ? '' : '  ← ohne sie prueft dieser Stand nichts'));
+  let kaputt = 0;
+  for (const f of FAELLE) {
+    let r;
+    try { r = await p.evaluate(new Function('return (' + f.lauf.toString() + ')()')); }
+    catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
+    if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
+    else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
+  }
+  console.log('  ---');
+  console.log('  Fälle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
+  console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
+  await br.close();
+  process.exitCode = (kaputt || !da) ? 1 : 0;
+})();

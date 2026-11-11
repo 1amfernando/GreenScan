@@ -1,0 +1,44 @@
+{
+  "id": "2026-11-11-7248",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "runde/fehlerklassen",
+  "stand": "v33.58",
+  "titel": "Richtige Ursache, falsche Abhilfe — Zuschnitt in der Quelle, Eingriff auf Verdacht, Sweep",
+  "regel": "Erst den Messwert mit DEMSELBEN Werkzeug reproduzieren, dann ändern — nie an einer früheren Stelle der Kette wegnehmen, was man später zurückhaben will, nichts vorsorglich oder per Sweep ändern, und die einfachste Regel zuerst probieren.",
+  "text": "Eine neue Instanz erkennt man an einer Abhilfe, die (a) an der QUELLE eingreift, obwohl der Fehler in der Anzeige liegt (Anforderung an die Kamera, Normieren eines Gerätewerts, Schrumpfen eines Rahmens, an dem anderes hängt), (b) auf eine Messung antwortet, die nur ein ad-hoc-Skript oder eine bekannte Falschmeldung geliefert hat, (c) „vorsorglich“ geschieht oder viele Stellen auf einmal trifft, oder (d) an derselben Stelle zum dritten Mal Technik hinzufügt. Warnzeichen im Verlauf: mehrere Versionen hintereinander an derselben Stelle (v32.29 bis v32.34 an der Kameravorschau). Die kamera_check-Fragen bewachen je EINE Instanz — das Ergebnis der falschen Abhilfe an der Kamera; das Verfahren selbst bewacht kein Fall.\n\nWas das Suchmuster am 10.11.2026 (Stand v33.56) lieferte: Der Befehl am Ende liefert heute 8 Zeilen, alles Kamera-Anforderungen: keine mit `aspectRatio`, ein `exact` (nur die deviceId beim Linsenwechsel), sechs Auflösungswünsche (`ideal`). Der Scanner wünscht 1920×1440 (4:3, nativ), drei Lichtmess-Wege 640×480; `openDiagCamera` und `openGardenScanCamera` nennen nur `width:{ideal:1280}` ohne Höhe — das Seitenverhältnis wählt dort der Browser. Kandidaten, keine Befunde: ob diese zwei Wege Bildwinkel verlieren, ist nicht gemessen.",
+  "instanzen": [
+    "v31.76 · zwölf Farben wegen einer Falschmeldung von `#88a888` auf `var(--muted)` geändert: 6,87:1 vorher, 1,83:1 nachher (v31.77 zurückgenommen)",
+    "v32.07 · touch_check: zwei ad-hoc-Skripte massen den Marktplatz-Knopf „innerhalb“ — der Fix wurde zurückgenommen, der Prüfstand meldete ihn sofort wieder",
+    "v32.20 · „vorsorgliche“ body.dark-Zeile für ein kippendes Merkmal (`--g-dark`): dunkelgrün auf dunkelgrün, 1,23:1 — der Basiswert war in beiden Modi richtig",
+    "v32.25 · globales Suchen-und-Ersetzen nahm 21 nie gemessene Stellen mit, die Rücknahme traf 122 — Datei beschädigt, aus dem letzten Commit zurückgeholt",
+    "v32.29 → v32.30 · der Kamera ein hochkantes Format ABVERLANGT: derselbe Zuschnitt (31 % des Bildwinkels bleiben), jetzt in der Quelle und damit im Foto",
+    "v32.31 → v32.32 · den Rahmen aufs Bildformat geschrumpft — die Bedienelemente hingen an ihm, ein Viertel des Bildschirms schwarz",
+    "v32.32 · Zoom-Anzeige auf `zoom.min` normiert: „1.0x“ am weitesten Punkt einer 0,5–8-Kamera, „16.0x“ am Anschlag",
+    "v32.34 · fünf Fassungen der Kameravorschau in zwei Tagen, jede mit mehr Technik — drei Zeilen CSS (`object-fit:contain`) lieferten dasselbe Bild",
+    "v33.05 · Liste OHNE_EINSTIEG: der erste Eindruck war zweimal falsch, „entfernen“ hätte etwas Fertiges vernichtet (`openHarvestAddModal`, ein vollständiges Formular ohne Knopf) — erst der dritte Durchgang stimmte"
+  ],
+  "suchmuster": "Von Hand: vor jeder Abhilfe drei Fragen — (1) Ist der Messwert mit DEMSELBEN Prüfstand auf altem und neuem Stand reproduziert (`git stash`, derselbe Aufruf), nicht mit einem ad-hoc-Skript? (2) Nimmt die Abhilfe etwas an einer FRÜHEREN Stelle der Kette weg, als der Fehler sichtbar wird — Anforderung an Kamera oder Sensor, Normieren eines Gerätewerts, Verkleinern vor dem Speichern? (3) Liefert die einfachste Regel dasselbe, und hat jede Ersetzung eine erwartete Trefferzahl? Für die Form „Zuschnitt in der Quelle“ an der Kamera: grep -nE 'aspectRatio\\s*:|\\bexact\\s*:|(width|height)\\s*:\\s*\\{\\s*(ideal|min|max|exact)' index.html",
+  "stichworte": [
+    "falsche-abhilfe",
+    "kamera_check",
+    "contrast_check",
+    "touch_check",
+    "gsSetZoom"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/kamera_check.js",
+      "fall": "Die App verlangt der Kamera KEIN Seitenverhältnis ab"
+    },
+    {
+      "datei": "scripts/kamera_check.js",
+      "fall": "Unter den Bedienelementen bleibt keine tote Fläche"
+    },
+    {
+      "datei": "scripts/kamera_check.js",
+      "fall": "Das Bild ist ganz zu sehen und so gross wie der Bildschirm es zulässt"
+    }
+  ]
+}

@@ -1,0 +1,252 @@
+#!/usr/bin/env node
+/**
+ * render_check.js — laedt index.html im Gast-Modus, baut jeden Tab auf und
+ * meldet, was tatsaechlich gerendert wird.
+ *
+ * Warum das existiert: bis v31.29 liessen sich optische Aenderungen nicht am
+ * laufenden Programm pruefen. Ohne Anmeldung blieb die App im Onboarding
+ * haengen, und Vorher/Nachher-Vergleiche stuetzten sich auf ein Dutzend
+ * Elemente. Der vorgesehene Weg ohne Konto ist der GAST-MODUS
+ * (localStorage.gs_guest_mode='true') — den setzt dieses Skript.
+ *
+ *   node scripts/render_check.js                  → aktuelle index.html pruefen
+ *   node scripts/render_check.js a.html b.html    → zwei Staende vergleichen
+ *
+ * Netzwerk ist blockiert: geprueft wird die Huelle, nicht Supabase.
+ */
+const path = require('path');
+const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
+
+const TABS = ['home','garden','wissen','favs','search','social','market','recipes','remedies','map','scanner'];
+
+// v31.45 — Klassische Zeichen einer danebengegangenen Zuordnung oder
+// Formatierung. Anlass war v31.44: fuenf Kategorien standen in keiner
+// Zuordnungstabelle, der Rueckfall hatte kein label — und auf 22 Karten stand
+// woertlich „undefined". Gefunden wurde das nur, weil ich die Seiten
+// durchgesehen habe. Diese Pruefung macht daraus etwas Wiederholbares.
+const MUELL = [
+  ['undefined',       /\bundefined\b/],
+  ['null',            /(^|[\s>(:])null([\s<),.]|$)/],
+  ['NaN',             /\bNaN\b/],
+  ['[object Object]', /\[object Object\]/],
+  ['Invalid Date',    /Invalid Date/],
+  ['{{platzhalter}}', /\{\{[^}]+\}\}/],
+];
+
+const SEED = require('./_seed.js');
+
+
+const CENSUS = () => {
+  const out = [];
+  // Hat ein Vorfahre eine waagrechte Scroll-Flaeche? Dann ist Herausragen gewollt.
+  const scrollsX = el => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowX;
+      if (o === 'auto' || o === 'scroll') return true;
+      if (p.scrollWidth - p.clientWidth > 1 && o !== 'visible') return true;
+    }
+    return false;
+  };
+  // Senkrechtes Clipping auf einem Bildschirm-Container ist normales Scrollen
+  // der Seite, kein verlorener Inhalt.
+  const isScreen = el => el.classList && (el.classList.contains('screen') || el.id === 'app' || el.id === 'main');
+  // v32.21: Ragt echter TEXT aus dem Kasten, oder nur Dekoration?
+  // Gezaehlt wird ein Nachfahre nur, wenn er (a) einen eigenen Textknoten hat
+  // — nicht bloss Text von Kindern — und (b) nicht absolut positioniert ist.
+  const textRagtRaus = (el, achse) => {
+    const box = el.getBoundingClientRect();
+    const kinder = el.querySelectorAll('*');
+    for (let i = 0; i < kinder.length; i++) {
+      const k = kinder[i];
+      const ks = getComputedStyle(k);
+      if (ks.position === 'absolute' || ks.position === 'fixed') continue;
+      if (ks.display === 'none' || ks.visibility === 'hidden') continue;
+      let eigenerText = false;
+      for (let n = k.firstChild; n; n = n.nextSibling) {
+        if (n.nodeType === 3 && n.textContent.trim()) { eigenerText = true; break; }
+      }
+      if (!eigenerText) continue;
+      const r = k.getBoundingClientRect();
+      if (achse === 'y' && r.bottom > box.bottom + 1) return true;
+      if (achse === 'x' && r.right  > box.right  + 1) return true;
+    }
+    return false;
+  };
+  document.querySelectorAll('*').forEach(el => {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || !cs.opacity || cs.opacity === '0') return;
+    const b = el.getBoundingClientRect();
+    if (b.width < 2 || b.height < 2) return;
+    const cls = (typeof el.className === 'string') ? el.className.trim().slice(0, 48) : '';
+
+    // Ueberlauf: Inhalt breiter/hoeher als der Kasten UND abgeschnitten.
+    // Nur zaehlen, wenn wirklich etwas verloren geht — also nicht bei
+    // overflow:auto/scroll (da kann der Nutzer scrollen) und nicht bei
+    // Rundungsresten unter 1px.
+    const ox = cs.overflowX, oy = cs.overflowY;
+    const clipX = (ox === 'hidden' || ox === 'clip');
+    const clipY = (oy === 'hidden' || oy === 'clip');
+    const overX = el.scrollWidth  - el.clientWidth;
+    const overY = el.scrollHeight - el.clientHeight;
+    const ell = cs.textOverflow === 'ellipsis';
+
+    out.push({
+      // v31.38: Elemente OHNE id, Klasse und Text teilten sich sonst den
+      // Schluessel „SVG|||". Der Vergleich paarte dann zwei voellig
+      // verschiedene Elemente und meldete eine Groessenaenderung, die es nicht
+      // gab. Ein kurzer Pfad (Tag + Position unter Geschwistern, 4 Ebenen)
+      // macht ihn eindeutig.
+      key: (() => { let pfad = '', q = el, tiefe = 0;
+        while (q && q.parentElement && tiefe < 4) {
+          const gl = [...q.parentElement.children].filter(c => c.tagName === q.tagName);
+          pfad = q.tagName + (gl.length > 1 ? ':' + gl.indexOf(q) : '') + '>' + pfad;
+          q = q.parentElement; tiefe++;
+        }
+        return pfad; })() + '|' + (el.id || '') + '|' + cls + '|' + (el.textContent || '').trim().slice(0, 24),
+      r: parseFloat(cs.borderTopLeftRadius) || 0,
+      fs: parseFloat(cs.fontSize) || 0,
+      lh: parseFloat(cs.lineHeight) || 0,
+      // Groesse aus der Layout-Box, NICHT aus getBoundingClientRect(): letzteres
+      // misst die transformierte Huelle. Ein Ladekreisel (.gs-spin, 14x14,
+      // animation:rotate) liefert darueber je nach Winkel 14 bis 20px und
+      // erschien im Vergleich als "Layout geaendert" — jedes Mal an einer
+      // anderen Stelle. offsetWidth/Height ignorieren Transformationen.
+      // Inline-Elemente haben offsetWidth 0; dort bleibt das Rechteck.
+      w: Math.round(el.offsetWidth || b.width), h: Math.round(el.offsetHeight || b.height),
+      color: cs.color, bg: cs.backgroundColor,
+      // Nur Blattknoten: sonst meldet jeder Vorfahre denselben Text mit.
+      txt: el.children.length ? '' : (el.textContent || '').trim().slice(0, 120),
+      // abgeschnitten = Inhalt laeuft ueber UND wird geclippt (Ellipsis ist gewollt)
+      // v32.21 — `scrollHeight > clientHeight` allein ist ZU GROB. Vier
+      // Kopfbereiche (Wissen, Rezepte, Heilmittel, Community) tragen ein
+      // riesiges Emoji als Wasserzeichen (`position:absolute`, 140px,
+      // `opacity:.06`), das ABSICHTLICH vom `overflow:hidden` beschnitten
+      // wird. Der Prüfstand meldete sie seit jeher — vier ständige
+      // Falschmeldungen, an denen ich einen ganzen Tag lang vorbeigelaufen
+      // bin, ohne sie nachzusehen. Genau so wird ein Bericht unlesbar.
+      //
+      // Die schärfere Frage: geht wirklich TEXT verloren? Gezählt wird nur,
+      // wenn ein Nachfahre mit EIGENEM Textinhalt, der NICHT absolut
+      // positioniert ist, über den Kasten hinausragt. Dieselbe Regel wie in
+      // `touch_check` seit v32.07 — Dekoration darf hinausragen, Inhalt nicht.
+      clipX: clipX && overX > 1 && !ell && textRagtRaus(el, 'x') ? overX : 0,
+      clipY: (clipY && overY > 1 && !isScreen(el) && textRagtRaus(el, 'y')) ? overY : 0,
+      // Rechts aus dem Bildschirm heraus ist NUR dann ein Fehler, wenn kein
+      // Vorfahre waagrecht scrollt. Chip-Leisten (Kategorien, Filter) ragen
+      // absichtlich hinaus — der erste Anlauf meldete davon 72 Stueck als
+      // Fehler. Ein Pruefstand, der Falschalarme produziert, ist schlechter
+      // als keiner.
+      offscreen: (b.right > 412.5 && !scrollsX(el)) ? Math.round(b.right - 412) : 0,
+    });
+  });
+  return out;
+};
+
+async function scan(browser, file) {
+  const ctx = await browser.newContext({ viewport:{ width:412, height:915 }, deviceScaleFactor:1 });
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push(e.message.split('\n')[0]));
+  await page.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  await page.addInitScript(SEED);
+  await page.goto('file://' + path.resolve(file), { waitUntil:'domcontentloaded', timeout:90000 });
+  await page.waitForTimeout(3500);
+  // Der Token ist nicht echt, also zeigt gsCheckOnboarding trotzdem das
+  // Onboarding — aber ohne gs-preauth laesst es sich normal schliessen.
+  await page.evaluate(() => {
+    try { document.documentElement.classList.remove('gs-preauth'); } catch (e) {}
+    const o = document.getElementById('gs-onboarding');
+    if (o) { o.style.setProperty('display', 'none', 'important'); }
+  });
+  await page.waitForTimeout(400);
+
+  // Direkt nach dem Laden pruefen, nicht erst nach dem Tab-Durchlauf: ein
+  // spaeterer switchTab kann das Onboarding erneut anstossen, und dann meldet
+  // der Pruefstand einen Fehler, den es beim Laden gar nicht gab.
+  const onb = await page.evaluate(() => {
+    const o = document.getElementById('gs-onboarding');
+    return !!(o && getComputedStyle(o).display !== 'none' && o.getBoundingClientRect().height > 10);
+  });
+
+  const rows = [];
+  const perTab = {};
+  for (const t of TABS) {
+    try { await page.evaluate(t => { if (typeof switchTab === 'function') switchTab(t); }, t); } catch (_) {}
+    await page.waitForTimeout(600);
+    const c = await page.evaluate(CENSUS);
+    perTab[t] = c.length;
+    rows.push(...c.map(o => ({ ...o, key: t + '::' + o.key })));
+  }
+  await ctx.close();
+  return { rows, errs, perTab, onb };
+}
+
+(async () => {
+  const args = process.argv.slice(2);
+  const files = args.length ? args : [path.join(__dirname, '..', 'index.html')];
+  const browser = await chromium.launch();
+  const res = [];
+  for (const f of files) res.push([f, await scan(browser, f)]);
+  await browser.close();
+
+  for (const [f, r] of res) {
+    console.log('=== ' + path.basename(f));
+    console.log('  Onboarding blockiert noch:', r.onb ? 'JA (Gast-Modus griff nicht)' : 'nein');
+    console.log('  JS-Fehler:', r.errs.length ? [...new Set(r.errs)].slice(0,4).join(' | ') : 'keine');
+    console.log('  sichtbare Elemente je Tab:', Object.entries(r.perTab).map(([k,v]) => k+'='+v).join(' '));
+    console.log('  gesamt vermessen:', r.rows.length);
+    const muell = [];
+    const gesehen = new Set();
+    r.rows.forEach(o => {
+      if (!o.txt) return;
+      MUELL.forEach(([name, re]) => {
+        if (!re.test(o.txt)) return;
+        const k = name + '|' + o.key;
+        if (gesehen.has(k)) return;
+        gesehen.add(k);
+        muell.push(name + '  ' + o.key.split('|')[0].split('::')[0] + '  „' + o.txt.slice(0, 46) + '"');
+      });
+    });
+    console.log('  verdaechtige Textstellen (undefined/NaN/[object Object]/…):', muell.length);
+    muell.slice(0, 8).forEach(m => console.log('     ', m));
+
+    const cut  = r.rows.filter(o => o.clipX || o.clipY);
+    const offs = r.rows.filter(o => o.offscreen);
+    console.log('  abgeschnittener Inhalt:', cut.length, '| ragt aus dem Bildschirm:', offs.length);
+    const show = (list, f) => [...list].sort((a,b) => f(b) - f(a)).slice(0, 8)
+      .forEach(o => console.log('     ', String(f(o)) + 'px  ' + o.key.replace(/\|/g,' ').slice(0, 88)));
+    if (cut.length)  { console.log('   -- am staerksten abgeschnitten:'); show(cut,  o => Math.max(o.clipX, o.clipY)); }
+    if (offs.length) { console.log('   -- am weitesten draussen:');       show(offs, o => o.offscreen); }
+  }
+
+  if (res.length === 2) {
+    const [[, A], [, B]] = res;
+    const ma = new Map(A.rows.map(o => [o.key, o])), mb = new Map(B.rows.map(o => [o.key, o]));
+    let n = 0, dr = 0, dfs = 0, dsize = 0, dcolor = 0, maxR = 0, maxFs = 0;
+    const ex = [], exC = [];
+    for (const [k, a] of ma) {
+      const b = mb.get(k); if (!b) continue;
+      n++;
+      if (a.r !== b.r)   { dr++;  if (Math.abs(b.r-a.r)   > Math.abs(maxR))  maxR  = b.r - a.r; }
+      if (a.fs !== b.fs) { dfs++; if (Math.abs(b.fs-a.fs) > Math.abs(maxFs)) maxFs = b.fs - a.fs; }
+      if (a.w !== b.w || a.h !== b.h) { dsize++; if (ex.length < 10) ex.push(`${a.w}x${a.h} → ${b.w}x${b.h}  ${k.slice(0,70)}`); }
+      // v31.47: bisher wurde nur GEZAEHLT. Ein „Farbe geaendert: 3" ohne
+      // Angabe, welche, ist nicht nachpruefbar — man kann es nur glauben
+      // oder ignorieren, und beides ist falsch.
+      if (a.color !== b.color || a.bg !== b.bg) {
+        dcolor++;
+        if (exC.length < 10) exC.push(
+          (a.color !== b.color ? `Schrift ${a.color} → ${b.color}` : `Flaeche ${a.bg} → ${b.bg}`) +
+          '  ' + k.slice(0, 62));
+      }
+    }
+    console.log('\n=== Vergleich');
+    console.log('  vergleichbare Elemente:', n);
+    console.log('  Radius geaendert:', dr, '| groesste Bewegung', maxR + 'px');
+    console.log('  Schriftgroesse geaendert:', dfs, '| groesste Bewegung', maxFs + 'px');
+    console.log('  GROESSE geaendert (Layout!):', dsize);
+    ex.forEach(e => console.log('     ', e));
+    console.log('  Farbe geaendert:', dcolor);
+    exC.forEach(e => console.log('     ', e));
+  }
+})();

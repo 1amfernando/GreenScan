@@ -1,131 +1,711 @@
-# ROADMAP.md — Meilensteine zur „besten Schweizer Naturbestimmungs-App"
+# ROADMAP.md — Meilensteine für GreenScan
 
-> **Priorisierung**: P0 = blockiert Release · P1 = große Wirkung kurzfristig
-> · P2 = Wettbewerbsvorteil mittelfristig · P3 = nice to have.
-> Aktualisierung bei jedem abgeschlossenen Meilenstein.
-> Kompagnon: `STATUS.md` (operativ) und `CLAUDE.md` (Onboarding).
+> **Priorisierung**: P0 = Blocker · P1 = große Wirkung kurzfristig ·
+> P2 = Wettbewerbsvorteil · P3 = nice to have.
+> Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
+> `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
----
+**Stand:** v33.56 · App **live** auf green-scan.ch · released seit v26.0 · **und seit v33.49 als Android-APK** (`android/`, `android/README.md`).
+**Zuletzt gegen die Produktionsdatenbank geprüft:** 07.09.2026 (nur lesend:
+`is_admin_user`, `profiles`-Policies, die drei Alt-Sensortabellen,
+`fn_species_search` + `species_search_cache`, `ai_usage`) · davor 02.09.2026
+(P0-1, P1-1, P1-2 — siehe unten).
 
-## ✅ Shipped (auf Branch `claude/audit-app-features-CXtrI`)
-
-| # | Meilenstein | Commit | Wirkung |
-|---|---|---|---|
-| S1 | Sicherheits-Audit + CSP | `d5b9d55` | Hardcoded NVIDIA-Key raus, vollständige Allowlist-CSP |
-| S2 | NVIDIA komplett entfernt | `a5651f4` | Code halbiert auf API-Layer; Claude-only-UX |
-| S3 | App-Store-Polish | `1bde9ec` | iOS-Meta, a11y, SW-Update-Banner, sbFetch-Retry |
-| S4 | gsBrain — Kontext-Hub | `cd90f34` | Alle KI-Calls sehen automatisch User-Kontext |
-| S5 | Doku-Sync für Multi-Agent | `39249e9` | CLAUDE.md / STATUS.md / ROADMAP.md |
-| S6 | **P1-6 Share-Target-Receiver** | `ba743df` v23.89 | Foto teilen aus anderer App → Scanner liest aus + analysiert. Plus File-Handler |
-| S7 | **P1-5 Storage-Auto-Rotation** | `ba743df` v23.89 | Quota-Error löst Auto-Trim aus, App crasht nie wegen vollem Speicher (Bug B3 erledigt) |
-| S8 | **P1-1 Anthropic Edge-Function-Proxy** (Code) | `c69c5b7` v23.90 | User braucht keinen eigenen Claude-Key mehr. Tier-Quota (5/200/2000), Modell-Whitelist, Telemetrie. **Server-Deploy durch Owner ausstehend** |
-| S9 | **P1-2 Brain-Memory Cloud-Sync** | `16de706` v23.91 | gsBrain.observe pusht zu Supabase brain_memory. Login → pullCloud merged. Schleimpilz lebt geräteübergreifend. **Migration-Deploy ausstehend** |
-| S10 | **P1-7 Stripe-Entitlement server-seitig** | `9d85f4a` v23.92 | Edge Fn `entitlements` liefert `can_scan` authoritativ. Client-Counter ist nur noch UX-Hint. Bug B4 erledigt. **Edge-Fn-Deploy ausstehend** |
-| S11 | **Sprint 5: Brain v2** | `22cf57d` v23.93 | recommend() mit Frost-Awareness + Memory-basierter Quiz-Schwäche; weekly_summary; Smart-Insights auf Home; gsBrainDebug() Inspector |
-| S12 | **Sprint 6: Health-Check** | `424c2ff` v23.94 | `gsHealthCheck()` mit 9 Checks + Modal-UI mit Ampelsystem |
-| S13 | **Sprint 7 (B): Multikriterien-Schlüssel** | `4559bee` v23.95 | `gsKey` Filter-Engine + Modal mit 9 Kriterien. Killer-Feature gegen Flora Helvetica |
-| S14 | **Sprint 8 (C): Smart-Push-Notifications** | `be8d202` v23.96 | `gsPush` Client + push-test/daily-push Edge Fns. Tägliche personalisierte Tipps aus brain_memory. **VAPID-Keys + Cron-Setup durch Owner pending** |
-| S15 | **Sprint 9 (A): i18n FR/IT-Infrastruktur** | (next push) v23.97 | `gsI18n` Modul mit DE/FR/IT-Bundles (~70 Strings + 14 Pflanzen-Namen), Locale-Detect, dynamisches html-lang, hreflang. Strings-Migration iterativ |
+> **Diese Datei stand bis v32.80 auf „Stand: v32.20"** — sechzig Versionen
+> daneben, bei einer Datei, die den Überblick geben soll. Dieselbe Klasse wie
+> `STATUS.md` Sektion 1 am 02.09. (dort waren es 140). Wer eine
+> Überblicks-Datei liest, sollte ihr Datum zuerst lesen — und wer sie
+> schreibt, zieht sie beim Ausliefern mit.
 
 ---
 
-## 🔥 P0 — Release-Blocker (vor Merge in `main`)
+## ✅ Geschafft (grober Überblick)
 
-| # | Meilenstein | Aufwand | Status |
-|---|---|---|---|
-| P0-1 | **Browser-Smoke-Test durch User**: Erstinstall, Scanner ohne Key, Scanner mit Key, Pflanzendoktor, Garten-Plan, Quiz. Nicht skippbar. | 1–2h | offen |
-| P0-2 | **NVIDIA-API-Key in Anthropic/NVIDIA-Dashboard rotieren** (war in Git-History gleakt) | 5min | offen |
-| P0-3 | **Cloudflare Pages re-deploy** mit neuem `_headers` (CSP greift erst am Edge) | sofort | offen |
-| P0-4 | **Supabase RLS-Policies verifizieren** für `social_posts`, `user_gardens`, `sensor_readings`, `user_preferences` | 1h | offen |
+Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
+
+- **KI-Scanner** — Claude Vision, autonome Klassifikation (Pflanze/Pilz/Baum),
+  Multi-Shot bei niedriger Konfidenz, voller Steckbrief auch für Arten (noch)
+  nicht in der DB.
+- **Pilz-Scanner** (sicherheitskritisch) — roter Vollbild-Warnscreen bei
+  tödlich/giftig, Tox-Info-145-Notruf, VAPKO-Region-Lookup.
+- **Pflanzendoktor / Schädlings-Scanner** — eigene Edge-Functions
+  (`plant-doctor-diagnose`, `pest-identify`, `garden-scan-analyze`).
+- **KI-Garten-Planer** — 5 Plan-Intents (Selbstversorgung / Bienen / Permakultur
+  / Container / Vogel-Garten), Forest-Garden-7-Schichten-Designer, Balkon-Wizard.
+- **Wissen** — 11 Sub-Tabs (u.a. Alpen, Vögel, Garten-Besucher), Bulk-Gen-Pipeline
+  über `knowledge-bulk-gen`.
+- **Home-Widgets** — Bauernregel · Saison-Pilze · Wetter-Alert (MeteoSchweiz).
+- **Marketplace** — Stripe-Connect für Experten, Bio-Filter.
+- **Abos** — Stripe Live-Mode (Trial → Pro), server-seitige Quota, Token-Kosten-
+  Dashboard (Admin) mit Live-Logging pro Edge-Fn.
+- **i18n** — DE/EN/FR/IT/ES live (je ~2'050 Keys), Direct-PostgREST-Pull aus
+  `i18n_translations`, 24h-TTL, Boot-Auto-Build für nicht-DE-User.
+  *Korrektur v30.86: GSW (Schweizerdeutsch) wurde hier fälschlich als „live"
+  geführt — es existieren 0 Übersetzungen, und die Sprachauswahl bietet es
+  nicht an. Als optionales Vorhaben unter P3 geführt.*
+- **Backend-Härtung** — 117 Tabellen alle RLS, 0 Security-ERROR-Advisors,
+  SECURITY-DEFINER-Views auf `security_invoker`, admin-only Functions REVOKE.
+- **PWA** — Share-Target, Shortcuts, Screenshots, iOS-Standalone, Offline-Cache.
+
+**Datenhaltung gehärtet (v30.92–v31.08, 18 Releases).** Zwei Audits — Backend-Integrität und Datenverlust — vollständig abgearbeitet. Die Kernbefunde:
+
+- **Abmelden + wieder anmelden löschte das Konto auf allen Geräten** (v31.04). Der Empty-Clobber-Guard wurde nur bei einem *Konto­wechsel* neu scharf gestellt, nicht beim Logout.
+- **Das Cloud-Backup war da, nur nicht erreichbar** (v30.97). Der Wiederherstellen-Banner erschien nur bei komplett leerem Speicher — den der Login-Pull 2,7 s vorher wieder füllte.
+- **Der Speicher-Wrapper log** (v30.98). Er verschluckte jeden Quota-Fehler und gab `undefined` zurück: jeder `try/catch`-Fallback im Monolithen war toter Code, und bei vollem Speicher schlug **das Anmelden still fehl**.
+- **Der Sync verglich Geräte- gegen Server-Uhr** (v31.02) und stempelte „synchronisiert" auch nach lauter Fehlschlägen.
+- **Fotos** liegen nicht mehr im 5-MB-Speicher und gehen nicht mehr verloren (v31.06/07) — Ausgangskorb in IndexedDB, Anzeige über einen Auflöser, idempotente Uploads.
+- **Rotierende Listen** archivieren statt wegzuwerfen, mit erreichbarem Export (v31.08).
+- **Sicherheit:** Rollen-Auskunft über fremde Konten für `anon` geschlossen, `quiz_answers.is_correct` serverseitig abgeleitet (entschied über ein Jahr PRO gratis), Marktplatz-Chat erfand keine Antworten mehr im Namen echter Verkäufer.
+
+**Community, Einstellungen, Karte (v31.09–v31.12).** Kommentare lassen sich liken/disliken und teilen, Likes erscheinen als Benachrichtigung; ein Datenschutz-Schalter zeigte auf neuen Geräten den falschen Zustand (`opt_in_achievement_feed` wurde nur geschrieben, nie zurückgelesen); ein eigenes Icon-Set liegt unter `assets/icons/`; und die GPS-Aufzeichnung kann jetzt tatsächlich **fortgesetzt** werden — der Kommentar versprach das seit v24.11, der Code bot nur „speichern" oder „verwerfen". Dazu: Wach-Timer statt totem watchId-Test, zeitbasiertes Sichern, Ausdünnen statt Abschneiden langer Tracks, monotone Wander-Zähler (die Achievements liefen ab Track 31 rückwärts) und eine Karte, die mitläuft.
+
+**Release-Notizen wieder ehrlich (v31.13).** Der „Was ist neu"-Dialog setzte die laufende Versionsnummer über den obersten `GS_RELEASES`-Eintrag — und der stand seit Juni auf v30.03. Rund hundert Updates lang las jeder Nutzer dieselben Notizen unter einer neuen Nummer. Sechs Einträge nachgetragen, der Dialog prüft jetzt ab und bleibt bei fehlendem Eintrag lieber aus, die Konvention steht in `CLAUDE.md` §3.1 statt nur in einem Code-Kommentar.
+
+**Streaks halten wieder (v31.14).** Erster Teil von „Bindung und Wachstum" — bevor eine Serie Nutzer hält, muss sie selbst halten. Der Cloud-Abgleich schrieb die vier zusammengehörenden Streak-Schlüssel einzeln; ein Gerät ohne Serie leerte dabei die Prüfsumme, und der nächste Lesevorgang setzte auf 0. Der Login-Streak fiel auf 1, weil nur die Zahl übertragen wurde, nicht der Tag. Dazu rechneten drei Streak-Systeme mit zwei Tagesgrenzen (Ortszeit vs. UTC). Alles behoben, 14/14 Szenarien gegen die Originalfunktionen grün.
+
+**Quiz-Rangliste zeigt den echten Stand (v31.15).** Wer nicht in den Top 50 stand, sah sich selbst mit 0 richtigen Antworten — der lokale Eintrag las Felder, die niemand schreibt. Dazu: die Zahl hiess „Punkte 2026", war aber die Anzahl richtiger Antworten insgesamt; die beste Serie wird jetzt angezeigt. Der Quiz-Tag liegt in einer Funktion mit dem Hinweis, dass er UTC bleiben muss, solange `fn_get_daily_quiz` mit `current_date` rotiert.
+
+**Entwürfe umgesetzt (v31.16–v31.19).** Startseite mit „Dein Tagesplan" (v31.16), „Mein Garten" mit Kennzahl-Kacheln (v31.17), Scan-Ergebnis mit Ursachen-Wahrscheinlichkeiten und Übergabe an Lina (v31.18), Foto-zu-3D mit Stufen-Anzeige (v31.19). Durchgehendes Prinzip: die Form aus den Entwürfen übernehmen, aber nichts behaupten, was die App nicht weiss — keine erfundenen Pflegezonen, kein erfundener Fortschritt.
+
+*(Historie)* **Entwürfe werden umgesetzt (ab v31.16).** Fernandos Bilder zeigen die Startseite als eine einzige Frage: *Was mache ich jetzt?* Umgesetzt als „Dein Tagesplan" mit Prioritäten und genau einem hervorgehobenen nächsten Schritt, gespeist aus `gsGetDueTasks()` und erledigt über den bestehenden `gsQuickDone`-Weg. Offen und je ein eigener Schritt: Mein Garten (Kennzahl-Kacheln), Scan-Ergebnis (Wahrscheinlichkeits-Zeilen), 3D-Modell-Fortschritt.
+
+**Farbsystem durchgesetzt (v31.20).** Die App hatte längst semantische Farb-Token mit korrekten Dunkel-Varianten — 523 Stellen umgingen sie und schrieben den Hellwert hart hinein, weshalb der Dunkelmodus leuchtete. Alle umgestellt; sechs Dunkel-Werte repariert, die sonst unlesbaren Text erzeugt hätten. Hellmodus pixelgleich, schlechtester Kontrast 2,2:1 → 4,8:1. **Offen (Welle 2):** 225 helle Hintergründe ohne Token-Zwilling und die Farbverläufe brauchen neue Token.
+
+**Startseite optisch geschlossen (v31.21–v31.28).** Die Entwürfe zeigen ruhige helle Karten; die App hatte an mehreren Stellen noch Farbflächen und Token, die für den falschen Zusammenhang benutzt wurden. Nacheinander repariert: Rollentrennung der Token (eine Farbe ist entweder Text **oder** Fläche, nie beides — 29 Token, 146 Flächen, 124 davon mit weisser Schrift auf 2,36:1), Kopfleiste (1,64:1), untere Navigation im **Hell**modus (1,86:1), zuletzt die Wetterkarte (v31.28): blauer Verlauf → Karten-Material, Farbe nur noch bei der Sturmwarnung. Dabei fiel auf, dass die Wetter-Vorschau an **zwei** Stellen unabhängig gerendert wurde (3 vs. 4 Spalten, ein Weg mit fest verdrahtetem Weiss) — jetzt eine gemeinsame Funktion. **Offen:** die Radien-Skala — 2'287 `border-radius`-Angaben in 58 Varianten, bewusst als eigenes Vorhaben aufgehoben.
+
+**Radien-Skala (v31.29).** 2'286 `border-radius`-Angaben in 55 Varianten, lückenlos von 2px bis 28px — jetzt ein 4px-Raster mit sechs benannten Stufen plus `50%` für Kreise. Keine Bewegung grösser als 2px (eine Ausnahme, im Browser nachgemessen); 11 Werte bewusst stehen gelassen, weil ihre Verschiebung eine Gestaltungsentscheidung wäre. Dabei aufgefallen: Export und Druck erzeugen eigenständige Dokumente, in denen `:root` nicht gilt — die Farb-Token dort waren **seit v31.20 tot**. Behoben über `GS_DOC_TOKENS`. Damit ist die in v31.22 aufgeschobene Aufgabe erledigt.
+
+**Optische Änderungen sind überprüfbar (v31.30).** `scripts/render_check.js` lädt die App ohne Netz, baut alle elf Tabs auf und vermisst jedes sichtbare Element; im Vergleichsmodus meldet er getrennt Radius-, Schrift-, **Grössen**- und Farbunterschiede. Abdeckung 11 → 2'596 Elemente. Der Grund für die frühere Blockade war nicht die fehlende Anmeldung, sondern der Login-Flash-Guard (`html.gs-preauth`). Damit wurde v31.29 nachträglich belegt: 316 Radien geändert, 0 Layout-Verschiebungen. **Damit ist die Regel möglich, die vorher fehlte:** eine reine Farb- oder Radius-Änderung muss `GROESSE geaendert: 0` ergeben.
+
+**Typo-Skala (v31.31).** 4'739 Schriftgrössen in 53 Varianten, darunter 1'387 Halbpixel-Werte — jetzt sieben Stufen, keine Bewegung grösser als 2px. Weil bei Schrift `GROESSE geaendert: 0` unmöglich ist, wurde vorher das passende Mass gebaut: Überlauf- und Ellipsis-Prüfung. Ergebnis: 0 neue Überläufe, 6 Zutaten-Vorschauen kürzen +0,5px früher. **Offen und für v31.32 vorgemerkt:** `applyThemeColors()` überschreibt die Text-Token zur Laufzeit per `setProperty` auf `documentElement` — `--muted` ist dadurch `#888888` (3,54:1) statt der geprüften Werte. Die Farbwelle ab v31.20 kam dort nie an; 270 Textstellen liegen im Hellmodus unter AA. Ebenfalls notiert: 53 stille CSS-Konflikte (gleiche Klasse, gleiche Eigenschaft, zwei Werte).
+
+**Lesbarkeit: 291 → 0 (v31.32).** Der Kontrast-Prüfstand fand 270 Textstellen im Hell- und 21 im Dunkelmodus unter AA. Hauptursache: `applyThemeColors()` überschrieb `--text`/`--text2`/`--muted`/`--border` per `setProperty` auf `documentElement` — ein Inline-Stil, der jede `:root`-Regel schlägt. **Die Farbarbeit ab v31.20 kam an diesen Token nie an.** Dazu: `body` hatte nie eine `color` (in beiden Modi Schwarz), die Hauptfarben der Themen Grün und Orange lagen unter AA, und vierzehn Bildschirme mit dunkler Leinwand trugen Text in Hell-Token. Jetzt 0 + 0, mit 0 Layout-Änderungen gegengeprüft. Ein struktureller Lösungsversuch (gemeinsame Textfarbe auf den Leinwänden) wurde **verworfen**, weil die Messung ihn widerlegte.
+
+**Stille CSS-Konflikte bereinigt (v31.33).** 22 Klassen waren zweimal deklariert — die ursprüngliche Regel oben im Dokument, eine zweite aus einem späteren Umbau weiter unten. Bei gleicher Spezifität gewinnt die spätere; die frühere galt nie. 52 tote Deklarationen entfernt, streng abgegrenzt auf Einzelklassen ohne `@media` und ohne `!important`. Nachgemessen 0/0/0/0. Dabei einen Messfehler im eigenen Prüfstand behoben: `getBoundingClientRect()` misst die gedrehte Hülle, ein rotierender Ladekreisel erschien dadurch als Layout-Änderung — jetzt `offsetWidth`/`offsetHeight`.
+
+**Bedienbarkeit: 43 → 0 (v31.34).** Antippflächen unter 24×24 px (WCAG 2.5.8) gemessen und behoben — die kleinste war 8×8: die Karussell-Punkte unter den Tageskarten. Trefferfläche jetzt 24×24, der sichtbare Punkt sitzt als `::before` darin, die Optik ist unverändert. Zweiter echter Fall: die Suchfelder waren 18px hoch in einer 37px hohen Leiste; deren Polsterung reagierte nicht. `scripts/touch_check.js` liegt als drittes Prüfwerkzeug im Repo. Nebenbei belegt: alle **7'081** `onclick`-Ziele lösen zu echten Funktionen auf, kein fehlender Handler.
+
+**Startleistung: App-JS 1'548ms → 421ms (v31.35).** Drei `MutationObserver` (Auto-ARIA, Auto-Maxlength, Auto-Lazy) durchsuchten bei jeder DOM-Änderung das ganze Dokument neu — 743ms `querySelectorAll` allein beim Start. Jetzt gebündelt und auf die eingefügten Teilbäume beschränkt. Gegengeprüft: die drei setzen exakt dieselben 199 `aria-label`, 65 `maxlength` und 7 `loading`-Attribute wie vorher. `scripts/perf_check.js` neu im Repo. **Bewusst nicht angefasst:** die längste Einzelblockade (710ms auf einem Mittelklasse-Telefon) ist das Parsen der 5,7-MB-Datei — das liesse sich nur durch Aufteilen des Monolithen ändern, und das ist eine Architektur-Entscheidung.
+
+**„undefined" auf 22 Karten (v31.44).** Beim Durchsehen aller Seiten nach der Optik-Serie gefunden: fünf von den Daten benutzte Kategorien (`fermentation`, `salat`, `backen`, `oel`, `inhalation`) standen in keiner Zuordnungstabelle, und der Rückfall in der Listenansicht hatte **kein `label`** — also stand dort wörtlich „undefined". Behoben, plus ein Farbpaar mit 3,46:1, das der Kontrast-Prüfstand **nicht finden konnte**, weil die betreffende Kategorie nie gerendert wird. Zwei Fehler, die sich gegenseitig verdeckten.
+
+**Kopfleiste hell (v31.43).** Das letzte dunkle Element der App folgt jetzt `--card`/`--border` statt `--fill-dark`; ein `color:#ffffff !important` und zwei Dunkelmodus-Überschreibungen wurden dadurch überflüssig. **Dabei ein Band sichtbar geworden, das niemand sehen konnte:** `body` und `#app` standen ebenfalls auf `--fill-dark` — solange Kopf- und Navigationsleiste dunkel waren, war dieser Hintergrund immer verdeckt. Erst als beide hell wurden, erschien er als dunkler Streifen. Beide folgen jetzt `--g-bg`. Damit ist die Optik-Serie v31.37–v31.43 abgeschlossen: die App ist von oben bis unten in einer Sprache.
+
+**Kopfleiste auf Strich-Symbole (v31.42).** Mond, Glocke und Menü gezeichnet statt Emoji; drei fehlende Symbole im Stil des Satzes ergänzt. Dabei gefunden: `initDark()` und der Einstellungs-Umschalter setzten beide `btn.textContent = '🌙'` und überschrieben das Markup — jetzt `innerHTML` mit einer **einmal** definierten Konstante. Gefunden allein durch Hinsehen: Kontrast, Antippfläche und JS-Fehler waren alle in Ordnung.
+
+**Alle Bildschirme hell (v31.41).** Vierzehn Leinwände in dunklen Volltönen auf `--g-bg` umgestellt — dieselbe Sprache wie die Startseite seit v31.37 und wie Fernandos Vorlage. **Viertes Mal desselben Musters an einem Tag:** die hellen Fassungen für Rezepte und Heilmittel standen bereits im Code und wurden von einem `!important`-Block überstimmt. Die Token `--on-canvas`/`--on-canvas-2` aus v31.32 sind wieder entfernt — sie gab es nur wegen der dunklen Flächen und wären jetzt selbst die Falle (hell auf hell); der Prüfstand zeigte genau die 14 betroffenen Stellen. Ergebnis wieder 0 + 0 unter AA.
+
+**Funktionscheck der Verdrahtung (v31.40).** Alle 1'012 im Code angesprochenen Element-Kennungen gegen die tatsächlich erzeugten geprüft: **75 werden nirgends erzeugt**, verteilt auf 44 Funktionen (16 ohne Aufrufer = toter Code, 28 laufen). Zur Laufzeit: 0 doppelte ids, 0 JS-Fehler. **Ein echter Ausfall gefunden:** `showLuxResult` griff ungeschützt auf `lux-val` zu (heisst `lux-value`) — TypeError in Zeile 1, die Lichtmessung zeigte nie ein Ergebnis und der Knopf blieb hängen. Die korrekte Fassung `displayLuxResult` existierte daneben; nur dieser Aufrufer war nie umgehängt worden. Behoben und nachgemessen. **Offen zum Entscheiden:** die Wetter-Warnkarte in der App (~130 Zeilen) hat kein DOM-Element und keinen Aufrufer — Migration, Edge-Function und Cron existieren aber, die Warnungen erreichen Nutzer über Push/Posteingang. Bauen oder entfernen ist eine Produktentscheidung.
+
+**Startseite neu geordnet (v31.39).** Nach der Logik der Vorlage: erst was ich wissen muss (Wetter), dann was ich tun soll (Tagesplan), danach Fortschritt, Kennzahlen, Lesestoff, Entdeckung. Der Tagesplan stand vorher an **sechster** Stelle, hinter Kennzahlen und Marktplatz. Kein Baustein entfällt. Vor dem Umordnen wurde geprüft, was an DOM-Reihenfolge hängt (`gsBuildWidgetStack` sucht per id — ordnungsunabhängig; `gsMoreFeedbackFirst` betrifft einen anderen Bildschirm) und danach am laufenden Programm bestätigt. **Grenze dokumentiert:** `render_check.js` paart positionsbasiert und ist für Umordnungen kein taugliches Mass — steht jetzt in `CLAUDE.md` §7.1.
+
+**Navigationsleiste nach Vorlage (v31.38).** Helle Fläche statt dunkelgrünem Balken, gezeichnete Strich-Icons statt Emoji, Beschriftungen in Normalschreibung, Edelweiss im Mittelknopf. Der Icon-Satz (`assets/icons/`, 23 Symbole) lag mit eigenem README seit Längerem im Repo und war **nie eingebaut** — dasselbe Muster wie der halbe Hero-Umbau in v31.37. Die Leiste nutzt jetzt `--card`/`--border` und kippt selbst; drei Dunkelmodus-Überschreibungen wurden dadurch überflüssig. `render_check.js` baut Element-Schlüssel jetzt aus einem DOM-Pfad (vorher teilten sich id-, klassen- und textlose Elemente einen Schlüssel und wurden falsch gepaart) — vergleichbare Elemente 1'388 → 1'792.
+
+**Lesbarkeit, zweite Runde (v31.37).** Fernando meldete, oben auf der Startseite sei kaum etwas zu lesen — mein Prüfstand hatte „0 unter AA" gemeldet. Ursache: `contrast_check.js` übersprang Text auf **Farbverläufen**, und der Hero ist einer. „Natur entdecken" lag bei **1,32:1**. Das Werkzeug misst jetzt pixelgenau (Seite zweimal aufnehmen, einmal mit `color:transparent`, echten Hintergrund-Median lesen) und fand damit **28 + 12** Stellen; alle behoben, wieder 0 + 0. Der Kern war ein halber Umbau: die helle Kopfzeile stand fertig im Code und wurde von einer `.hero`-Regel mit `!important` überstimmt, während die Kindregeln für Titel/Untertitel (ohne `!important`) für Hell geschrieben waren. Dazu 41 fest verdrahtete `#2d8a2d` (4,39:1 in beide Richtungen) auf `#1f6b2f` gezogen.
+
+**Backend-Sicherheit nachgesehen (01.09.).** Security-Advisor: 145 Meldungen, **0 ERROR**. Die 5 `rls_enabled_no_policy` sind kein Mangel (RLS an ohne Policy = alles verboten ausser `service_role`, richtig für reine Server-Tabellen); die 3 `extension_in_public` sind Supabase-Standard. Von den 16 anon-ausführbaren SECURITY-DEFINER-Funktionen schreiben zwei: `fn_quiz_record_answer` sichert sich korrekt über `auth.uid()`, **`fn_mkt_increment_views` gar nicht** — jeder mit dem öffentlichen Anon-Key kann die Aufrufzahl beliebiger Inserate hochzählen. Migration liegt bereit (`v31_36_mkt_views_auth_guard.sql`), **nicht angewendet** (Produktionsdatenbank, Konvention: Fernando wendet an). **Offen zu klären:** der Advisor meldet Leaked-Password-Protection weiterhin als deaktiviert, obwohl als erledigt gemeldet — entweder gecacht oder nicht gegriffen.
+
+**Weitere Auslagerung geprüft und VERWORFEN (01.09.).** Nach dem Changelog lag nahe, auch `DEFAULT_RECIPES` (297 KB / 70 KB gzip) auszulagern. Nachgemessen: es wird beim Start tatsächlich **nicht** gebraucht (`rezepteImDom: 0`) — meine gegenteilige Aussage in der v31.36-Notiz war ungeprüft. Trotzdem bleibt es inline: Verbraucher sind Rezepte-Tab, Heilmittel-Tab **und `openDetail`** (Arten-Steckbrief, eine Kernhandlung), und der vorhandene `typeof`-Schutz würde das Rezept-Abzeichen bei fehlenden Daten stillschweigend weglassen. Gewinn wären ~35ms Parse-Zeit — zu wenig gegen ein Risiko auf einem Kernpfad. `WEEKLY_SEASONAL_FACTS` (148 KB) und `GS_I18N_JS_STRINGS` (83 KB, 1'450 Schlüssel) werden beim Start nachweislich gebraucht und bleiben ebenfalls.
+
+**Changelog ausgelagert (v31.36).** `GS_RELEASES` war mit **787 KB der grösste Einzelblock** in `index.html` (14 %) — 383 Einträge, geparst bei jedem Kaltstart, obwohl beim Start nur `[0]` gebraucht wird. Die neuesten 12 bleiben inline, die 371 älteren liegen in `data/releases.v1.js` und werden beim Öffnen des Changelogs nachgeladen (Muster von `data/plants.v1.js`). `index.html` 5,50 → 4,87 MB, DOMContentLoaded auf einem Mittelklasse-Telefon ~145ms schneller, Erstbesuch 260 KB weniger. **Bewusst nicht vor-gecacht** — sonst lädt jeder 778 KB für einen selten geöffneten Bildschirm; der Offline-Fall zeigt stattdessen einen Hinweis. Parse-Zeit sank nur ~70ms: Datenliterale sind billiger zu parsen als Code.
+
+**Backend durchgemessen (01.09.).** Leistungs-Advisors zum ersten Mal ausgewertet: 0 ERROR, 0 WARN, kein Fremdschlüssel ohne Index. Die Datenbank ist gesund. Einzige lohnende Aufräumung: 38 Indizes, deren Spalten ein echtes Präfix eines breiteren Index sind — bereitgelegt als `20260901_redundante_indizes.sql`, umkehrbar, nicht Teil der Pflichtschritte.
+
+**Planer V3 (v31.75–v31.94).** Der Planer rechnet nach, statt der KI zu
+glauben. Ein Prüfwerk mit dreizehn Regeln (Aussaatfenster, Standdauer, Dichte,
+Saatgut, Wasser, Erntemonate, Frost, Arbeitslast, Fruchtfolge), jede mit **drei**
+Zuständen — erfüllt · verletzt · **nicht prüfbar mit Grund**. Dazu die
+**Fruchtfolge je Beet** (v31.93): aus dem Garten-Scan und früheren Plänen
+derselben Fläche wird je Beet berechnet, welche Familie dort zuletzt stand; der
+Platzierer setzt neue Kulturen dorthin, wo ihre Familie am längsten weg ist. Und
+die **Nachkultur** (v31.94): aus einer Lücke im Kalender wird ein Platz im Garten
+(„Frühbeet wird am 10. Juli frei, 2,4 m², nach Kohlrabi"). Entwurf und Grenzen:
+`docs/PLANER-V3.md`.
+
+**Scanner V3 (v31.99–v32.12).** Dieselbe Linie beim Scanner. In der
+Bilderkennung ist gegen Google Lens nichts zu gewinnen — was Lens *nicht* hat,
+ist eine kuratierte Artenliste, der Monat, der Kanton und eine gemessene
+Bildqualität. **Die Überlegenheit liegt nicht im Sehen, sondern im Prüfen.**
+Sieben Regeln nach jeder Bestimmung; bei einem Widerspruch in der Giftigkeit
+gewinnt **immer** die vorsichtigere Angabe (eine als „essbar" gemeldete
+Herbstzeitlose wird auf 5/5 korrigiert, sichtbar). Dazu EXIF (ein Urlaubsfoto
+wird nach dem Urlaub beurteilt, nicht nach heute), eine **unabhängige
+Gegenprobe** bei „essbar + giftige Verwechslung" (v32.10), ein Drahtgitter,
+das aus den Kanten des echten Fotos gerechnet wird (v32.11), und seit v32.12
+**eigene Arbeit vor der Antwort**: die App misst die Farben des Fotos und
+grenzt aus den 4'342 Arten die ein, die hier und jetzt in Frage kommen —
+beides bewusst **nicht** im Prompt, sonst bestätigte das Modell nur die
+eigene Vorgabe. Entwurf: `docs/SCANNER-V3.md`.
+
+**Der grosse Funktionscheck (v31.45–v31.98).** Systematisch geprüft, was die
+App **erhebt und dann verschweigt**. Neun Funde, zwei davon ernst:
+
+- **Der Experten-Antrag wurde nie eingereicht** (v31.95). Er landete im
+  localStorage des eigenen Geräts, und die App meldete „✅ Antrag eingereicht,
+  du wirst per E-Mail benachrichtigt". Dasselbe bei Rollenvergabe und Sperren.
+- **Vier Bildschirme liessen sich gar nicht öffnen** (v31.95) — alle setzten
+  einen Fenstertitel an einem Element, das es in diesem Fenster nicht gibt, und
+  warfen **vor** dem Öffnen. Betroffen: Bestätigte Scans, Supabase-Schlüssel,
+  das **Admin-Panel** und der Experten-Antrag.
+- **1'408 Arten trugen denselben generischen Verwendungs-Satz** (v31.89), 25
+  davon als tödlich giftig eingestuft — korrigiert und dauerhaft geprüft.
+- Dazu: der dritte überlebende `s.bloom` (v31.98), eine Warnung aus einem
+  fehlenden Feld (v32.03), die Giftigkeit der Verwechslungs-Alternativen
+  (v31.92), die Merkmale aus dem Scan (v31.99).
+
+**Vierzehn Prüfstände (`scripts/`).** Aus dem Funktionscheck ist Infrastruktur
+geworden. Jeder beantwortet **eine** Frage:
+
+| Prüfstand | Frage |
+|---|---|
+| `render_check` | wie sieht es aus, und was hat sich verschoben? |
+| `contrast_check` | ist jede Textstelle lesbar (11 Tabs + 5 Fenster, beide Modi)? |
+| `touch_check` | ist jede Antippfläche gross genug? |
+| `perf_check` | wie lange dauert der Kaltstart unter Drosselung? |
+| `wiring_check` | kommt an, was angetippt wird — und **geht das Fenster auf**? |
+| `field_check` | liest überhaupt jemand, was eingegeben wird? |
+| `data_check` | gibt es, was gelesen wird? |
+| `save_check` | kommt an, was gespeichert wird — auch auf dem Server? |
+| `planer_check` · `scan_check` | rechnet die App, was sie behauptet? |
+| `offline_check` | läuft die App ohne Empfang — mit allen 4'342 Arten? |
+| `a11y_check` | bedienbar ohne Augen und ohne Maus? |
+| `i18n_check` | kommt in vier Sprachen an, was auf Deutsch dasteht? |
+| `backend_check` | ruft das Frontend etwas auf, das es in Supabase nicht gibt? |
+
+Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 
 ---
 
-## 🚀 P1 — Sofort-Hebel mit großer Wirkung (nächste 1–2 Sprints)
+### Seit dem 03.09.2026 (v32.43 – v32.64)
 
-| # | Meilenstein | Wirkung | Aufwand |
-|---|---|---|---|
-| ~~P1-1~~ | ~~Anthropic Edge-Function-Proxy~~ | **Code erledigt v23.90** — Server-Deploy durch Owner pending (siehe `supabase/functions/ai-proxy/README.md`) | — |
-| ~~P1-2~~ | ~~Brain-Memory in Supabase syncen~~ | **Code erledigt v23.91** — Migration-Deploy durch Owner pending | — |
-| ~~P1-3~~ | ~~i18n FR + IT~~ | **Infrastruktur erledigt v23.97** (`gsI18n`+ Bundles). String-Konvertierung im Code iterativ (eigene Mini-Sprints) | — |
-| ~~P1-4~~ | ~~Multikriterien-Bestimmungs-Schlüssel~~ | **erledigt v23.95** (`gsKey` + Modal-UI) — UI-Einbindung in Tab-Buttons als Folge-Sprint | — |
-| ~~P1-5~~ | ~~Storage-Layer mit Rotations-Strategie~~ | **erledigt v23.89** (Auto-Rotation + `gsStoragePush`/`gsStorageInfo`) | — |
-| ~~P1-6~~ | ~~Share-Target-Receiver im Scanner~~ | **erledigt v23.89** (SW-Postmessage + File Handling API) | — |
-| ~~P1-7~~ | ~~Stripe-Entitlement server-seitig~~ | **Code erledigt v23.92** — Edge-Fn-Deploy durch Owner pending | — |
-| P1-8 | **PLANT_DB-Split** (4.5 MB raus aus index.html) | Initial-JS halbiert sich. DB als `data/plants.v1.json` mit Cache-Control immutable. Hydration via IndexedDB. | 1 Tag |
+- **Scanner-Zuordnung**: Binomen vor deutschem Namen (1'194 von 4'311 Einträgen landeten auf einer anderen Art → 0); bei Dubletten gewinnt die vorsichtigere Angabe, Unterarten und Einlese-Rümpfe entscheiden nicht mit (`scan_check` 55 Fälle).
+- **Voller Speicher**: alle 13 Rettungswege am Rückgabewert, `speicher_check` (Prüfstand 22).
+- **Kalender V1 Stufen 1+2** (`docs/KALENDER-V1.md`, v32.46–v32.47): eine Ereignis-Schicht für Aufgaben, Tagebuch, Pflanzungen, Ernte-Schätzung, Regen, Erinnerungen; Verschieben fälscht nichts mehr; Garten-Pflanzungen haben Pflege; `kalender_check` (13 Fälle). **Stufe 3** kommt mit den Sensoren (`messung`/`alarm`).
+- **Ökosystem V1 Stufe 0** (`docs/OEKOSYSTEM-V1.md`): Schema im Repo (nicht angewandt), Messwerte von Hand, Dashboard mit Verlauf und Regeln, Kalender-Anschluss, `sensor_check` (Prüfstand 24, test-first). **Stufe 1 offen:** `device-ingest`, Token-Pairing, Cron, Push — braucht ein Gerät.
+- **Ideen für die Sensoren** (`docs/OEKOSYSTEM-V1.md` §11, v32.51): 25 Ideen nach Stufe, 35 Behauptungen nachgeprüft; §1 des Entwurfs korrigiert (es gibt eine Alt-Schicht `sensor_*` + BLE + ESP32-Assistent mit Sitzungs-Token). Vier Stufe-0-Reparaturen: Regen-Draht (tot seit v31.84), Backup mit Messwerten, Deckel-Reihenfolge, `sensor_alert`-Dublette. **v32.52 hat 2 · 3 · 11 · 21 gebaut** (Katalog-Leser, Wetter als Gerät, Dublettensperre + UUID, Gerät im Seed), **v32.53 die 4** (Regel `task:<key>` → Aufgabe mit `vorgezogenAuf`, Giess-Bestätigung am Sensor, Migration `20260904_plant_tasks_due_vorgezogen.sql`), **v32.54 die 7** (Stille-Zeit lokal, eine Aufgaben-Meldung je Tag aus beiden Listen, Sensor-Alarme mit Abkühlzeit, Wochenzähler), **v32.55 die 5 und 22** (Vorlagen nur mit belegter Zahl, Messgrössen in vier Sprachen), **v32.56 die 6 und 10/Stufe 0** (Lina kennt die Zahlen, Frost aus der Vorhersage im Kalender), **v32.57 die 9 und 12** (Vergleich zweier Geräte, CSV-Export der Messwerte mit Einheit), **v32.58 die 8** (Karte „Deine Woche"), **v32.59 die 13/Stufe 0** (Giess-Zettel, druckbar), **v32.60 die 24/Stufe 0 und 21b** (Planer nennt Vorhersage und Messung getrennt; Diagramm-Text). **Damit ist Stufe 0 aus §11 abgeschlossen** — 15 von 25 Ideen gebaut. **Stufe 1 vorbereitet (05.09.2026, §11.3j):** Vertrag `docs/GERAETE-VERTRAG.md`, Regel-Modul `ingest_regeln.mjs` mit `ingest_check` (11 Fälle), `device-ingest`-Skelett, Migrationen `device_daily` und `device_alerts_cron` — nicht ausgeführt, nicht angewandt; **v32.61** liest den Anker `#geraet-<id>`, den der Cron in seine Meldungen schreibt (Messwerte öffnen, Kachel hervorheben, entferntes Gerät nennen). **06.09.:** der Push zum Alarm (`sensor-push` mit Modul und `sensor_push_check`, 9 Fälle; `20260906_sensor_push.sql`; §11.3k) — die Brücke lief nur in eine Richtung, ein Sensor-Alarm wäre nie auf dem Telefon gelandet. **v32.62:** Stufe 1 in der App (§11.3l) — Gerät koppeln (Token in der App, nur der Hash zum Server, einmal gezeigt), Cloud-Abgleich (Status und Werte aus `devices` / `device_readings`, derselbe eine Weg), eine Instanz je Alarm. **v32.63:** Regeln reisen mit (§11.3m) — die Lücke aus v32.62: die App liess Alarme aus, der Server kannte die Regeln nicht; jetzt Upsert in `device_rules`, Auslassen nur bei `cloud_ok`. **06.09., Prüfstand 27 `naht_check`:** passen App, Empfänger, Cron und Pusher zusammen? Erster Lauf: `expires_at` fehlte in `device_commands` (§11.3n). **v32.64:** Pausieren vom Telefon aus (PATCH, geprüft) und die Rückrichtung der Regeln (`last_fired_at`, `enabled`, dort gelöscht → nur in der App; §11.3o). **Nächste Schritte:** Idee 1 (eine Geräteschicht, braucht Fernandos Entscheid) → mit dem ersten Gerät: Deploy von `device-ingest` und `sensor-push`, Migrationen anwenden, `curl`-Batch nach Vertrag §1, dann die Ansicht „Mein Naturjahr" auf `device_daily` (gegen echte Zeilen) und ein `enabled`-Schalter für Regeln, wenn jemand ihn braucht.
+- **Drei Tagebücher, eine Sicht** (v32.49): Gartentagebuch, Pflanzentagebücher und der Spiegel des Cloud-Tagebuchs in `gsTagebuchAlle()`; `docs/MEINE-PFLANZEN-AUDIT.md` (11 Befunde: 9 behoben, 2 bei Fernando).
+- **Gegnerische Prüfung des Audits** (v32.50): drei Aussagen widerlegt und behoben — „Alle erledigt ✓" fragt jetzt und erledigt in beiden Listen; die Kopfzahlen zählen dieselben Listen; der Notizzettel lässt auch der Fällig-Liste Platz (`kalender_check` 15 Fälle, jede Reparatur mit Gegenprobe).
 
----
+### Seit dem 11.11.2026 (kein Bump) — das Brett: wie sich alle KI-Sitzungen austauschen
 
-## 🎯 P2 — Wettbewerbsvorteil (Next Quarter)
+Auftrag: „Alle Agenten müssen sich austauschen …, dass untereinander neue Ideen entstehen können."
+Gemessen: 123 nie gemergte Branches geplanter Sitzungen, 312 Routine-Einträge ohne feste Zeile für
+„offen", dieselbe Suite mit vier verschiedenen Zahlen in sechs Dateien.
 
-| # | Meilenstein | Wirkung |
+- **`docs/austausch/`** — ein Eintrag je Datei, nie umgeschrieben; gelesen wird die Vereinigung über
+  alle Branches. `node scripts/austausch.mjs holen` zeigt Anstösse, Offenes und wer parallel arbeitet.
+- **Auslöser statt Bitten:** Anker und Zählungen machen den Prüfstand dessen rot, der die Stelle
+  ändert; der jüngste STATUS-Eintrag trägt `**Offen:**` und `**Nicht geprüft:**`.
+- **14 Fehlerklassen** aus dem Tagebuch als Suchraster (Regel, Suchmuster, Wächter), acht
+  nachgemessene Befunde, zwei Fragen an Fernando, zwei Ideen.
+- **Was einen Baum beschreibt, gilt nur dort:** ein „erledigt" auf einem anderen Branch
+  schliesst hier nichts; `ernten` holt nur, was im eigenen Baum stimmt. Zwei gegnerische
+  Runden (8 und 15 Funde) stehen als Fälle im Prüfstand.
+- **Austausch-Runde** für Unteragenten (`.claude/workflows/austausch-runde.js`).
+- Prüfstand `austausch_check` (17 Fälle). Offen: `STATUS.md` (jd).
+
+### Seit dem 22.10.2026 (v33.56) — Teilen → GreenScan auch in der Android-App
+
+Die APK steht im Teilen-Menü (`ACTION_SEND`/`SEND_MULTIPLE`, dieselben vier
+Typen wie die PWA). Die Rechnung liegt in `Geteilt.java` ohne Android
+(Quelle, Typ an den Bytes, Deckel, EIN Fach mit Nummern und Fristen, Wächter),
+der Rand gibt das Foto über `/__huelle/geteilt/holen|quittieren` an die Seite —
+ohne Brücke, mit eigenem Kopfzeilen-Wert — und die Seite zeigt dieselbe
+Vorschau wie im Browser. Für beide neu: Antipp-Sperre (700 ms, kein Fokus)
+und ein Bildpunkt-Deckel am Dateikopf (GIF-Rahmen, JPEG-Fremdbytes). Eine
+gegnerische Prüfung fand zwölf Lücken, alle geschlossen; `apk_check` 87 → 94
+(G1–G9, R17, R18, B5, T0–T13), `offline_check` 39 → 41. **Offen:** auf einem
+Telefon ansehen (`docs/FUER-FERNANDO.md` §28).
+
+### Seit dem 20.10.2026 (v33.55) — ein Foto teilen, GreenScan zeigt es und bestimmt es auf Antippen
+
+Das Teilen-Ziel der PWA nahm nur Text und Links an. Jetzt `POST /teilen` mit
+dem Foto: der Worker legt es ab (ein Schlüssel, ein Einmal-Schlüssel je
+Navigation), die Seite zeigt eine Vorschau und bestimmt erst nach dem
+Antippen — über `gsScanDatei`, denselben Weg wie die Galerie, ohne Kamera.
+Zwei gegnerische Prüfungen (Entwurf und Diff): Update beim Start, die App
+schliesst die Vorschau selbst, Anmeldebildschirm, `Origin: null` von fremden
+Seiten (gemessen), kein Empfang — alles vor dem Ausliefern geschlossen.
+`offline_check` 24 → 39 Fälle (echter multipart-POST durch den echten
+Worker), `contrast_check` kennt die Stapelreihenfolge (kein Dialog am
+`<body>` war je vermessen). **Nächste Scheibe:** dasselbe in der Android-App
+(`ACTION_SEND`, v33.56).
+
+### Seit dem 09.10.2026 (v33.54) — ein Stil im Text lädt keine fremde Adresse mehr
+
+Erste Folge aus der gegnerischen Prüfung zu v33.53: `gsSanitizeHtml` prüfte
+`style` mit einer Verbotsliste auf dem Rohtext — CSS-Escapes und
+`image-set("…")` luden eine fremde Adresse (6 von 6). Jetzt eine
+Erlaubnisliste je Deklaration (`_gsStilSaeubern`); `escape_check` A10b zählt
+die Anfragen des Browsers (0), drei Gegenproben rot.
+
+### Seit dem 09.10.2026 (v33.53) — Export und Drucken in der Android-App
+
+Fernandos „A": in der APK taten die Export-Knöpfe nichts. Gemessen: acht
+Stellen mit je eigenem Anker, ein losgelöster Anker (das Backup), den das
+alte Tor nicht sah, und ein Druckweg, der die App überschrieb.
+
+- **Ein Kanal ohne Brücke** (`Export.java`): die Datei geht per `fetch` in
+  Teilen an Adressen unter dem eigenen Ursprung; die Hülle zeigt „Speichern
+  unter" bzw. den Druckdialog (`DruckAnsicht.java`, ohne JavaScript und Netz).
+  Vier Riegel und ein Schlüssel; Spool-Datei, `"wt"`, Dialog nur von vorne.
+- **Die Seite:** `gsDateiSpeichern` / `gsDrucken` für alle zehn Stellen;
+  Meldung erst mit dem Zustand. `GS_HUELLE_ANDERS` sechs Einträge.
+- **Vorbestehende Lücke:** KI-Text im Garten-Scan-Druck escaped.
+- **`apk_check` 28 → 68 Fälle**, App-Hälfte gegen einen echten Java-Prozess,
+  16 Brüche als Gegenprobe (18 Fälle rot).
+
+### Seit dem 06.10.2026 (v33.52) — vier Bestätigungen, die nur stimmten, wenn alles gut ging
+
+Die in v33.50 zurückgestellte Frage, gemessen: ein UPDATE, das RLS abweist,
+kommt als 0 Zeilen ohne Fehler an — die Klasse ist **PATCH**, und von 20
+PATCH sagten **vier** „gespeichert" nach nur `.error` (mit `return=minimal`).
+Die „rund 176" aus v33.50 waren eine Schätzung, keine Messung.
+
+- **Vier Stellen** mit `return=representation` + `_gsSchreibOk` und einem
+  eigenen Satz für 0 Zeilen: Profilfeld, Freundschaft annehmen, zwei
+  Foto-Wege.
+- **`versprechen_check`**: PATCH mit Versprechen braucht den Blick auf die
+  Zeilen; `return=minimal` dort rot. **`save_check`** +2 Wege mit gestelltem
+  Server.
+- **Migration `20261006_friendships_nur_empfaenger.sql`** (nicht angewandt):
+  live durfte der Absender die eigene Anfrage annehmen und jede Seite die
+  andere austauschen. **`naht_check`** spielt es im lokalen Postgres nach
+  (Reproduktion, zweimal, Gegenprobe).
+
+### Seit dem 25.09.2026 (v33.51) — das Admin-Protokoll kennt jede Aktion
+
+Zweite Scheibe zu „sicherer und erweitert". Gemessen (Live-DB, nur lesend):
+`audit_log` gibt es und das Panel liest es — aber **5 von 15 Aktionen
+hinterliessen keine Spur**, darunter Foto-Beitrag und Arten-Vorschlag
+pruefen (Moderationsentscheidungen!) und „Meldung erledigen" (ein nackter
+PATCH, keine RPC); zwei Aktionen standen als roher Slug im Protokoll.
+
+**Gebaut:**
+
+- **Jede Aktion deklariert ihre Spur** — genau eines von `spur` · `spur_ab`
+  (Migration) · `ohne_spur` (mit Grund) in `GS_ADM_AKTIONEN`; die Deckung ist
+  eine Rechnung (`_gsAdmSpurDeckung`), der Fuss unter dem Protokoll nennt sie,
+  und „Spur gesehen" steht nur da, wenn eine solche Zeile geladen wurde.
+- **Migration `20260925_admin_audit_vollstaendig.sql`** (nicht angewandt):
+  zwei Review-Funktionen mit Spur, NEU `fn_admin_review_report`. Bis dahin
+  faellt „Meldung erledigen" auf den PATCH zurueck und SAGT es
+  (`r.ersatz`, nur bei `nicht_verfuegbar`).
+- `RAISE EXCEPTION` („Only admins …") ist `abgelehnt`, kein `fehler`.
+- **`admin_check` 11 → 21 Faelle**, davon eine SQL-Haelfte im lokalen
+  Postgres (Migration zweimal, als Admin vier Spuren mit den deklarierten
+  Namen, als Nicht-Admin keine, eingebaute Gegenprobe ohne INSERT). Sieben
+  Gegenproben einzeln rot.
+- Berichtigt: v33.50 sagte „beide pruefen `is_admin_user()`" — es sind
+  `profiles.role = 'admin'` und `fn_is_role('admin')`; der Schluss bleibt.
+- Notiert, nicht angefasst: drei Admin-Funktionen haben im Repo keinen
+  Quelltext (nur live) — FUER-FERNANDO §24.
+
+### Seit dem 24.09.2026 (v33.50) — das Admin-Panel, Schreib-Seite
+
+Fernandos Auftrag: „den Admin-Panel noch besser, sauberer, sicherer und
+erweitert aufbaust." v33.42 war die Lese-Seite; das hier ist die Schreib-Seite.
+
+**Zuerst gemessen, an der Live-DB (nur lesend):** die Sicherheit steht (12
+von 13 Schreib-RPCs SECURITY DEFINER mit `is_admin_user()`, RLS auf
+`user_reports` dicht) — aber **zwei Knoepfe sind tot**: `fn_assign_role` und
+`fn_set_global_api_key` darf `authenticated` nicht ausfuehren (ACL
+`{postgres, service_role}`); zwei Re-Grants aus v29/v30 liegen im Repo und
+sind live nicht in Kraft. „🚫 Nutzer sperren" stellte die Rueckfrage „wirkt
+sofort" fuer eine Aktion, die danach scheitert. Und **15 von 15
+Schreibwegen** prueften nur `.error` — PostgREST meldet eine abgewiesene
+Zeile ohne Fehler; `gsAdminReviewReport` schickte dazu `return=minimal`.
+
+**Gebaut:**
+
+- **`GS_ADM_AKTIONEN`** — 15 Aktionen, jede mit genau einem Ziel (`rpc` ·
+  `pfad`+`method` · `fn`) und optional der Migration, die sie freischaltet.
+  **`_gsAdmTun`** ist der eine Weg: Umschlag `{state, daten, key, grund}`
+  mit sechs Zustaenden (`ok` · `abgelehnt` · `nicht_freigeschaltet` ·
+  `nicht_verfuegbar` · `fehler` · `kein_zugriff`), Tabellenweg immer mit
+  `return=representation`, 0 Zeilen = abgelehnt.
+- **Ein toter Knopf sagt es dreimal:** keine Rueckfrage mehr
+  (`_gsAdmGesperrt`), der Grund am Knopf mit Migrationsnamen
+  (`_gsAdmAktionHinweisHtml`), die Zahl im Ueberblick.
+- **Migration `20260924_admin_grants.sql`** (nicht angewandt) — die zwei
+  GRANTs, mit ihrer Geschichte im Kopf.
+- **`admin_check` 6 → 11 Faelle**, fuenf Gegenproben einzeln rot.
+
+**Bewusst nicht in dieser Scheibe:** die Verschaerfung von
+`versprechen_check` (ein `if (r.error)` zaehlt dort als Pruefung — rund 176
+Stellen repo-weit) und ein Leser fuer `gs_admin_log`. *(Berichtigt in v33.52:
+nicht gemessen, sondern geschaetzt — gemessen waren es vier.)*
+
+### Seit dem 17.09.2026 (v33.49) — GreenScan ist eine Android-App
+
+Fernandos Auftrag: „eine Apk … wie Whatsapp die man vom Internet aus
+herunterladen kann. Keine Web app mehr sondern eine richtige App die noch
+besser als die Webapp version funktioniert."
+
+**Der Entwurf aus v33.43 beantwortet das nicht** — und war hier gar nicht
+baubar. Eine TWA laedt green-scan.ch bei jedem Start aus dem Netz und zeigt
+ohne die zwei Fingerabdruecke aus der Play Console die Adressleiste; und
+`dl.google.com` ist aus dieser Umgebung gesperrt (403), damit kein Google
+Maven, kein AndroidX, also weder Bubblewrap noch Capacitor. Zuerst die
+Rauchprobe (ein signiertes APK laesst sich hier bauen), dann der Entwurf.
+
+**Gebaut:** `android/` — eine nackte `android.webkit.WebView`, die dieselbe
+`index.html` **aus dem Paket** unter dem **echten** Ursprung
+`https://green-scan.ch` ausliefert. 4,6 MB, offline ab dem ersten Start, nie
+eine Adressleiste, keine Fingerabdruecke, kein Play Store. Am Backend ist
+nichts zu aendern — CORS, Anmelde-Rueckkehr, Stripe und die CSP aus `_headers`
+gelten unveraendert.
+
+- **Die eine Regel:** fuer den eigenen Ursprung nie `null` (das hiesse „hol es
+  aus dem Netz"), sondern eine 404 aus dem Paket.
+- **`GS_HUELLE_ANDERS`** — fuenf Unterschiede mit Grund, jeder mit
+  Durchsetzungsstelle UND auf dem Bildschirm.
+- **Drei Fehler, die ein Fan-out ueber den Monolithen fand:** acht stumme
+  Export-Knoepfe (EIN Tor an `a[download]`), ein Zahlungs-Popup, das die App
+  ueberschrieben haette, und `serviceWorker.ready`, das ohne Worker nie
+  zurueckkommt (fuenf Stellen, jetzt EIN Leser).
+- **`apk_check`** (28 Faelle, 18 Gegenproben): `Pfade.java` wird uebersetzt und
+  ausgefuehrt, das Paket wirklich gebaut und aufgemacht, die App zweimal
+  gefahren.
+- **Grenze:** hier laeuft kein Android. Geprueft sind Bau, Rechnung und
+  Entscheidung — nicht das Verhalten auf einem Geraet.
+
+**Offen fuer Fernando:** einmal einen Signatur-Schluessel anlegen und mit
+`--release` bauen (`android/README.md`).
+
+### Seit dem 17.09.2026 (v33.48) — die Artenliste hat einen zweiten Versuch
+
+Das Script-Tag der 2,1-MB-Artenliste hatte kein `onerror`. Jetzt gibt es einen
+zweiten Ladeversuch mit Cache-Umgehung, und wenn auch der danebengeht, steht es
+auf der Startseite statt nur in der Scan-Karte (v33.47).
+
+**Zwei Dinge daraus, die über die Artenliste hinausgehen:**
+
+- **Ein zweiter Weg, der nicht tut, was der erste tut, ist ein zweiter
+  Zustand.** Gemessen: nachgeladen 4'342 Arten, normal 4'337 — `deduplicateDB`
+  war eine anonyme IIFE und lief nur beim Parsen. Jetzt benannt, beide Wege
+  rufen sie.
+- **Eine Liste mit einem Eintrag ist keine Liste, sondern Zeremonie.** Die
+  geplante `GS_SELBSTTEST`-Registry entfällt: von drei Kandidaten war einer
+  längst abgefangen, einer nicht messbar, einer echt — und der ist direkt
+  geschlossen.
+
+### Seit dem 17.09.2026 (v33.47) — „Nicht geprüft" ist keine Entwarnung
+
+Gesucht war eine Selbstprüfung beim Start; die Messung fand etwas Dringenderes.
+Fällt `data/plants.v1.js` aus (nacktes `<script src>`, kein `onerror`), konnte
+der Scanner nichts gegenprüfen — und sagte trotzdem **„Nichts spricht dagegen"**
+unter der Überschrift **„Gegengeprüft mit unserer Artenliste"**. Für einen
+Knollenblätterpilz, den das Modell als essbar meldet, blieb die Giftstufe die
+ungeprüfte 0 der KI statt der 5 aus unserer Liste.
+
+**Zwei Dinge daraus, die über den Scanner hinausgehen:**
+
+- **Eine fehlende Verzweigung ist gefährlicher als eine falsche.** „Niemand
+  widerspricht" und „niemand konnte etwas sagen" fielen in denselben Zweig
+  (`warn === 0`). Der vierte Zustand steht jetzt davor.
+- **Stille als Entwarnung, diesmal als aktive Zusage** (v33.36 war die leise
+  Fassung). Eine Überschrift, die eine Prüfung behauptet, die nicht lief, ist
+  schlimmer als gar keine Überschrift.
+
+### Seit dem 16.09.2026 (v33.46) — ein Sync, der klemmt, sagt es
+
+Fernandos „es soll viel mehr automatisiert und verbessert werden", erste
+Scheibe. Ein unvollständiger Cloud-Abgleich landete in `console.warn` und sonst
+nirgends; die ehrliche Statuszeile stand in den **Einstellungen** und kannte
+keinen Unterschied zwischen einer Minute und drei Tagen. `gsSyncStand()` ist
+jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie im
+Tagesplan — mit einem Knopf, der es sofort versucht.
+
+**Zwei Dinge daraus, die über den Sync hinausgehen:**
+
+- **Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler.**
+  Dieselbe Klasse wie der wegdestrukturierte `error` im `daily-push-checker`
+  (v33.41), `Prefer: return=minimal` beim Quiz (v32.65) und die dreizehn
+  Admin-Sektionen (v33.42).
+- **Ein Zustand, der ein Alarm werden soll, braucht alle seine Teile.**
+  „Klemmt" verlangt offen UND `canPush` UND älter als 24 h — wer schlicht
+  offline ist, klemmt nicht. Eine Warnung, die bei jedem Flugmodus aufleuchtet,
+  ist die Zahl, die man zu ignorieren lernt (v32.21).
+- **Und ein Nebenfund beim Nachlesen der eigenen Zeile:** `'warn'` ist die
+  einzige Toast-Schreibweise, die weder die Icon-Tabelle noch das CSS kennt —
+  **77 Warnungen** standen mit 🌿 auf neutralem Grund. EIN Tor statt 77
+  Pflaster; `robust_check` B5b misst Symbol und Fläche.
+
+### Seit dem 16.09.2026 (v33.45) — und wer die Risiken liest
+
+v33.44 hat das Inventar gebaut und im selben Atemzug notiert, was fehlt: **eine
+Liste, die niemand liest, ist Speicherplatz.** `GS_FRISTEN` rechnet sechs
+Fristen selbst aus — fünf Schwellen live auf dem Gerät, ein gemessenes Datum
+mit Messdatum und Quelle — und das Admin-Panel zeigt sie, sortiert nach
+Dringlichkeit, mit Zustand in Worten.
+
+**Zwei Dinge daraus, die über die Fristen hinausgehen:**
+
+- **Am Deckel ist der Normalzustand, nicht der Alarm.** Meine erste Fassung
+  meldete „fällig" bei 20 von 20 Changelog-Einträgen — dabei IST 20 der Deckel,
+  und der nächste Bump schiebt den ältesten ins Archiv.
+- **Zwei Seiten, die dieselbe Liste lesen, prüfen einander nicht.** Die
+  Gegenprobe „eine Frist entfernt" blieb grün, weil sie beide Seiten zugleich
+  ändert. R4 hält jetzt das Inventar dagegen.
+
+
+### Seit dem 16.09.2026 (v33.44) — was später schiefgeht
+
+Fernandos Auftrag: „Detektiere probleme die später auftauchen könnte und bringe
+da 1a Lösungen." Inventar: `docs/RISIKEN.md`, Prüfstand: `risiko_check.js`.
+
+| Gemessen | Daraus wurde |
+|---|---|
+| `WEEKLY_SEASONAL_FACTS` (521 Einträge) wird NUR nach Kalenderwoche gefiltert — die Liste wiederholt sich jährlich, und **elf Zeilen** nannten „dieses Jahr" („Pilzsaison 2026", „Planung für 2027"). **Ab 01.01.2027 falsch, jedes Jahr wieder.** | Bereinigt; fünf feste Punkte (Zieljahr 2030, datierte Berichte) bleiben und stehen namentlich mit Grund in `GS_JAHR_FEST`. |
+| Ungedeckelte Listen-Abfragen an den Server — ungezählt und uneingeordnet. | **80 gedeckelt · 25 Katalog · 13 Einzelzeile · 13 wächst-mit-der-Person**, jede der letzten dreizehn mit Grund. |
+| Der Quiz-Vorrat ist am **16.06.2027** erschöpft (14.09.2026 gemessen) — und die Migration, die es melden würde, ist nicht angewandt. | Steht mit Datum in `docs/RISIKEN.md` §1, mit der Lösung daneben. |
+
+**Die Regel, die über die Risiken hinausgeht:** *was sich auszählen lässt,
+gehört in einen Prüfstand; was nicht, gehört ins Dokument — mit Datum und mit
+dem ausdrücklichen Vermerk, dass es niemand misst.* Beides zu vermischen macht
+den Bericht unlesbar.
+
+
+### Seit dem 16.09.2026 (v33.43) — der erste Schritt zur Android-App
+
+Fernandos Auftrag: „Ich will es auch langsam als apk für Android sowie haben."
+GreenScan wird als **TWA** zur Android-App — dieselbe PWA in einer Hülle, keine
+zweite Codebasis. Entwurf, Handgriffe und Risiken: `docs/ANDROID-APK.md`.
+
+| Gemessen (v33.42) | Daraus wurde (v33.43) |
+|---|---|
+| `history.pushState` **0** · `popstate` **0** · `history.back` **0**. Der Android-Zurück-Knopf schloss bei jedem offenen Fenster die ganze App — rund vierzig Fenster, elf Tabs. | `gsZurueck()`: EINE Regel, an Escape UND `popstate`. Sie nimmt die oberste Schicht ab, über drei Familien hinweg, danach den Tab. |
+| **Neun Vollbild-Fenster** (Tagesquiz, „Ueben", Lichtmesser …) laufen nicht über `openModal` — **Escape erreichte keines davon.** | `GS_VOLLBILD_OVERLAYS` mit ihren Schliess-Funktionen; der Erst-Start mit Grund ausgenommen. Die Liste ist die Prüfung. |
+| ZWEI Prädikate für „läuft installiert", und nur eines kannte die Android-Hülle. | `gsLaeuftAlsApp()` — eine Rechnung, drei Aufrufer. |
+| Kein Prüfstand für die Android-Seite. | `scripts/android_check.js`, der **37.** — neun Fragen, acht rot gegen v33.42, eine bewusst „offen". |
+
+**Die Regel, die über Android hinausgeht:** *ein Fall, der die Funktion direkt
+ruft, misst die Rechnung — nicht den Draht.* Drei meiner eigenen Fälle
+bestanden die Gegenprobe nicht, obwohl sie grün waren.
+
+**Was bei Fernando liegt:** zwei SHA-256-Fingerabdrücke aus der Play Console —
+und die Entscheidung zum Bezahlen in der Play-App (Stripe vs. Play Billing).
+
+
+### Seit dem 16.09.2026 (v33.42) — das Admin-Panel
+
+Fernandos Auftrag: „Auch für mich als Admin muss mehr gemacht werden."
+**Gemessen, bevor gebaut wurde**, und der Befund war eine ganze Fehlerklasse:
+
+| Was gemessen wurde (v33.41) | Was daraus wurde (v33.42) |
+|---|---|
+| **13 von 16** Sektionen lasen den Fehler gar nicht — Ablehnung, 404, Netzfehler und „leer" sahen gleich aus. Auf dem Bildschirm: „Keine offenen Meldungen", „✅ Alle Jobs laufen". | `GS_ADM_SEKTIONEN` (eine Liste) + `_gsAdmHole` (ein Weg) + vier Zustände: `daten` · `nicht_verfuegbar` · `fehler` · `kein_zugriff`, jeder mit Grund aus `_gsFehlerText`. |
+| **7 von 16** fragten nicht, ob die Person Admin ist — die Anfrage ging hinaus und wurde von RLS abgewiesen. | Das Tor sitzt an der EINEN Stelle, durch die alle müssen. |
+| Eine frische Zahl kostete das Schliessen des Panels und **16 Anfragen**; nur 4 Sektionen hatten überhaupt einen Knopf. | `gsAdmSektionNeu(key)` — eine Anfrage, die Nachbarn bleiben unberührt. Jede Sektion hat ihren Knopf. |
+| Eine Sektion, die auf Position zwölf schweigt, sieht in einer langen Rolle niemand. | Überblick ganz oben: „3 von 16 konnten nicht geladen werden: …" + „Nur diese erneut versuchen" (drei Anfragen, nicht sechzehn). |
+| Es gab keinen Prüfstand für das Admin-Panel. | `scripts/admin_check.js` — der **36.**, sechs Fälle, alle gegen v33.41 rot, jede Regel mit eigener Gegenprobe. |
+
+**Die Regel, die über das Admin-Panel hinausgeht:** *ein Zustand, den die
+Anzeige nicht aussprechen kann, wird von ihr erfunden.* „✅ Alle Jobs laufen"
+stand auch dann da, wenn die Abfrage abgelehnt wurde.
+
+**Was bei Fernando liegt:** nichts — diese Auslieferung braucht keine
+Migration und kein Deploy.
+
+
+### Seit dem 16.09.2026 (v33.34 – v33.41) — der denkende Kalender, sieben Scheiben
+
+Fernandos Auftrag vom 14.09. Entwurf: `docs/KALENDER-V2.md`. Jede Scheibe ein
+eigener PR: Fälle zuerst (rot gegen den Vorgänger), Gegenprobe je Regel, volle
+Reihe grün, dann Bump.
+
+| Scheibe | Version | Was gemessen wurde, bevor gebaut wurde |
 |---|---|---|
-| P2-1 | **iNaturalist-OAuth-Bridge** | „Auch auf iNat veröffentlichen" Button. iNat hat 630k CH-Sichtungen — der Brückenkopf zur Wissenschafts-Community. |
-| P2-2 | **VAPKO-Pilzkontrollstellen-Layer auf Karte** | „Du hast Steinpilz gescannt → 3 km zu Pilzkontrolle in Aarau, geöffnet Sa 17–19h." Killer-USP. |
-| P2-3 | **MeteoSwiss OGD-Integration** | Echte Schweizer Wetterdaten statt Open-Meteo. Frost-Warnung Push, Niederschlags-Radar. |
-| P2-4 | **JWT in HttpOnly-Cookies** (Bug B1) | Eliminiert XSS-Token-Hijack komplett. Braucht Migration mit User-Logout-Flow. |
-| P2-5 | **Schutzstatus + Rote Liste** in DB integrieren | BAFU-Liste der nationalen Prioritäten. UI-Icon pro Art. |
-| P2-6 | **Spaced-Repetition für Quiz** | SM-2-Algorithmus lokal. Fokus auf Schwächen aus `gsBrain.recommend('quiz_focus')`. |
-| P2-7 | **Echte Tests** (Vitest + Playwright Smoke-Suite) | Endlich automatische Regression. Mindest-Pfade: Scan-Flow, Garten-Plan, Stripe-Webhook, Offline-Boot. |
-| P2-8 | **innerHTML → safeHTML-Migration** (Bug B2) | Tagged Template `safeHTML\`...\``, ersetzt 299 Hotspots. |
+| 1 · Das Prüfwerk | v33.34 `60630f8` | `getPlantInfo` erfand für JEDEN unbekannten Namen {60, 90} Tage — eine Monstera bekam „Ernte voraussichtlich 16.10." mit dem Grund „typische Kulturdauer". Und `gs_weather_cache` hatte ZWEI Schreiber in zwei Formen: wer den Planer benutzte, warf den frischen Wetterstand weg. |
+| 2 · Das Sieb | v33.35 `4d875ff` | Der Kalender zeigte alles oder nichts. Der Filter ist ein Sieb auf dem ERGEBNIS — die Rechnung bleibt vollständig, sonst stimmt „N von M" nicht und Lina wird blind. |
+| 3 · Ein Wetter | v33.36 `0a29639` | Die vier Schwellen standen an ZWEI Stellen, und das Warnfenster sagte ohne Daten „alles im grünen Bereich!" — Stille als Entwarnung, bei Frost der teuerste Fehler dieser App. |
+| 4a · Die drei Namen | v33.37 `8e4e9ec` | Die Karten-Fundorte werden mit `date` geschrieben und mit `ts/time/found_at` gelesen. Scans, Fundorte und die wirkliche Ernte fehlten im Kalender ganz. |
+| 4b · … zweiter Teil | v33.38 `1e0f816` | „Mein Naturjahr" rechnete selbst: die Kachel „Funde" stand SEIT JEHER auf 0, „Arten" war die einzige Kachel ohne Jahresfilter. Die Garten-Timeline beantwortete dieselbe Frage mit sechs eigenen Quellen — sie ist ersatzlos weg (Parser, nicht Zeilensuche). |
+| 5 · Lina | v33.39 `be856fc` | Ihr Kontext brach bei sechs Geräten mitten in „Taraxacum officinale…" ab; vier von sechs Geräten fielen stillschweigend weg; eine Regel ohne Messwerte hiess „keine verletzte Regel". Und die Sicherheit eines Scans hatte DREI Antworten: „0.94%", „1 % sicher", 94. |
+| 6 · Die Woche | v33.40 `03ae42c` | Mit „Stillen Tagen" fielen SIEBEN Fälligkeiten in die Abwesenheit, ohne dass etwas es sagte. Und der Wochenrückblick schrieb der Person einen selbst notierten Tagebuch-Eintrag als ERLEDIGTE Aufgabe gut. |
+| 7 · Das Backend | v33.41 | Der Erinnerungs-Cron kannte nur eine Pflanzenliste (15 Beet-Pflanzungen mit Aufgaben, 0 Erinnerungen). Die saisonale Erinnerung filterte eine Spalte, die es nicht gibt, und der Fehler wurde verschluckt — sie hat seit dem Bau nie eine verschickt. Und zwei Migrationen, die als „bereit" in der Liste standen, wären beim Anwenden gescheitert. |
+
+**Die eine neue Regel, die über den Kalender hinausgeht:**
+**Rechnung → Prüfwerk → Sieb → Anzeige.** Ein Filter ist ein Sieb auf dem
+Ergebnis, nie eine Bedingung in der Rechnung. Jede Regel hat drei Zustände,
+und der dritte heisst „nicht bekannt" **mit Grund** — nie Stille.
+
+**Was bei Fernando liegt:** drei Migrationen (die letzte allein genügt), siehe
+`docs/FUER-FERNANDO.md` §21.
+
+
+### Seit dem 10.09.2026 (v33.06 – v33.24) — der Aufbau: bauen, was die Entwürfe längst vorsahen
+
+Fernandos Auftrag: *„baue alles mehr auf, mach alles intelligenter, erweitere
+Funktionen mit Potential, mach es zuverlässiger — und alles, was getrackt
+werden sollte, muss sauber aufgebaut sein für die Zukunft."* Gebaut wurde,
+was die eigenen Entwürfe (PLANER-V3, KALENDER-V1, SCANNER-V3) als offen
+führten — jeder Baustein zuerst auf einer Kopie mit Prüfstand-Fall und
+Gegenproben, dann als eigener PR mit vollem Lauf:
+
+- **Der Planer wird zum Kalender und altert** (v33.10 `70a46c6` · v33.12 `cb0be74` ·
+  v33.15 `f53a309`): ein gespeicherter Plan legt Aussaat, Erntefenster und Zeitleiste
+  in den Kalender; ein Plan, der funktioniert hat, wird per Knopf zur
+  Jahresvorlage (Daten +1 Jahr, Fruchtfolge markiert, nie entfernt); ein Plan
+  aus dem Vorjahr sagt es auf seiner Kachel. PLANER-V3 N8, N10, N4.
+- **Aussaatfenster aus den Kulturdaten** (v33.13 `017b1dc`): 39 Kulturen des
+  Schweizer Aussaatkalenders als Kalender-Ereignisse — mit der Korrektur am
+  eigenen Entwurf: `season` ist eine Sammelsaison, kein Aussaatfenster
+  (KALENDER-V1 Regel 9).
+- **Die Startseite liest den Kalender** (v33.19 `ca98f85`): „Heute im Kalender"
+  unter „Heute zu tun" — Aussaat, Plan-Termine, Frost, Alarme, aus der einen
+  Funktion.
+- **Lina** kennt den Kalender (v33.14 `c921906`), den letzten Scan (v33.23 `c6ba238`) und
+  kann Kalender und Säkalender öffnen (v33.22 `268d0af`) — der Dispatcher hat seit
+  v33.22 seinen ersten Prüfstand.
+- **Scanner** (v33.16 `da6a3ce` · v33.20 `de8950b`): jedes Foto gemessen, das schärfste
+  zählt, der dritte Blick verliert den ersten nicht mehr; eine erkannte
+  Kultur zeigt ihr Aussaatfenster mit dem Weg zum Säkalender.
+- **Konto löschen — gegen die Datenbank gemessen** (v33.17 `e1c6f34`): 169 Fotos und
+  PDFs blieben liegen, zwei Tabellen ohne FK, ein halbes Konto bei
+  Organisations-Erstellern. Modul `loeschung_regeln.mjs`, `delete-user` v5,
+  datierte Momentaufnahme, Prüfstand `loeschung_check`.
+- **Nutzungsmessung, alle drei Seiten** (v33.11 `ee8a60b` · v33.18 `577ed35` · v33.21 `2284fc9` ·
+  v33.24 `4bc938c`): Zustimmung und Vokabular · die Lese-Seite (`fn_admin_analytics`
+  + Admin-Karte, nur Zahlen) · vier Ereignisse mehr, jedes ein Zähler · und
+  ein Ende: 180 Tage, dann gelöscht (`fn_analytics_prune` + Cron).
+- **Prüfstände von 31 auf 33** — neu `loeschung_check` und `nutzung_check`;
+  14 Fälle in bestehenden Prüfständen dazu, jeder mit mindestens zwei
+  Gegenproben, die einzeln rot wurden.
+
+**Was daraus bei Fernando liegt:** `delete-user` neu ausliefern, zwei
+Migrationen anwenden, den Übersetzungs-Knopf drücken, und eine
+Produktentscheidung (Übertragung einer Organisation) —
+`docs/FUER-FERNANDO.md` §15–§17.
+
+### Seit dem 07.09.2026 (v32.65 – v32.85) — das Professionalitäts-Audit abgearbeitet
+
+`docs/PROFESSIONALITAET-AUDIT-2026-09-06.md` §G, Punkt für Punkt. Jeder mit
+Prüfstand-Fall, Gegenprobe gegen die Vorversion und voller Regression:
+
+- **Quiz-Rangliste** (v32.65): der Server-Trigger kannte 1 von 3 Frageformaten
+  — 198 von 203 Fragen wurden als falsch gewertet, während der Client
+  „Richtig!" zeigte. Migration + `quiz_check` (erster Prüfstand, der SQL
+  wirklich ausführt).
+- **Sicherheit** (v32.66–v32.79): Fremdtext kommt als Text an (A2–A4/A10,
+  `escape_check`); der globale KI-Schlüssel geht durch den Proxy (A1); der
+  Admin-Modus fragt den Server statt einen SHA-256 im HTML (A6); der alte
+  Sensor-Assistent zeigt kein Sitzungs-Token mehr (A5); `species-search`
+  verlangt einen echten Nutzer (A7); Geheimnisse werden konstantzeitig über
+  ein Modul verglichen (A10); CSP ohne `unsafe-eval`, keine IP-Ortung, keine
+  Messung ohne Zustimmung (A8, A9).
+- **Ehrlichkeit** (v32.69–v32.79): sieben Meldungen versprachen etwas, das
+  niemand geprüft hatte (B4); rohe Serverfehler wurden zu Sätzen, die eine
+  Person versteht (B8); die Rechtstexte sagen, was wirklich mit den Fotos
+  passiert (E6).
+- **Nutzersicht** (v32.70, v32.78): Menü-Zahlen aus der Artenliste, Lina in
+  der App-Sprache — und die Rückmeldungen, Suchfelder, Schaltflächen-Namen
+  und Datumsformate folgen der gewählten Sprache (E1 Welle 1).
+- **Hygiene** (v32.72–v32.80): 413 KB Changelog aus `sw.js` (C3), ein
+  Push-Helfer-Modul statt zwölf Kopien (C4), 114 Funktionen ohne Aufrufer
+  entfernt mit Parser-Grenzen (C2), pdf.js nur bei Bedarf statt bei jedem
+  Start, C5 nachgemessen statt geschätzt.
+- **Optimistische Anzeigen** (v32.82): drei Stellen färbten sich beim
+  Antippen um und warfen die Antwort des Servers weg — Herz, Vitrinen-Stern
+  und Stimme. Jetzt gewinnt die Zahl des Servers gegen die geschätzte, eine
+  Ablehnung wird zurückgenommen und gesagt. Dazu die ganze Klasse: `sbFetch`
+  wirft nicht, also war jedes `.catch()` daran tot — neun gefunden, zwei
+  davon mit einem `console.warn`, das nie erschien.
+- **Übersetzbarkeit** (v32.83): 69 Rückmeldungen waren aus Fragmenten
+  gebaut (`'Fehler: ' + e`) und damit für die Übersetzungsschicht unsichtbar
+  — ein französischer Nutzer las sie immer auf Deutsch. `_gsSatz()` übersetzt
+  jetzt die Vorlage und setzt die Werte danach ein.
+- **Rollenvergabe** (v32.84): `gsAdminSetExpertLevel` hatte null Aufrufer und
+  sein Bedienelement wurde nirgends gerendert — im Admin-Bereich liess sich
+  nur sperren und entsperren, niemand zum Experten machen. Auswahl mit
+  Begründung ins Nutzer-Detail, tote Funktion raus, `save_check` auf den
+  echten Weg gestellt (er hatte sich sein Element selbst gebaut).
+- **Prüfstände von 22 auf 31** — neu: `quiz_check`, `escape_check`,
+  `robust_check`, `schluessel_check`, `nutzersicht_check`; dazu
+  `pruefstaende.sh` und `.github/workflows/pruefstaende.yml`, das alle auf
+  jedem PR fährt.
+
+**Was daraus offen bleibt, ist keine Codearbeit mehr:** zwei Migrationen,
+zehn Edge-Functions, der KI-Schlüssel-Umschalter, der Übersetzungs-Knopf und
+die Impressum-Angaben — alles mit Befehl und Gegenprobe in
+`docs/FUER-FERNANDO.md` §5–§12.
 
 ---
 
-## 🌟 P3 — Differenzierende Innovationen (Strategisch)
+## 🔥 P0 — Blocker
 
-| # | Meilenstein | Wirkung |
+> ⚠️ **Diese Sektion stand bis v31.08 auf „Keine offen" — das war seit dem
+> Backend-Audit (v30.95) falsch.** Genau diese Art veralteter Entwarnung ist
+> gefährlich: wer hier nachsieht, hört auf zu suchen.
+
+| # | Punkt | Wer | Stand |
+|---|---|---|---|
+| **P0-1** | **Zwei offene Schreib-Endpunkte auf `public.species`.** `admin-seed-species` und `species-bulk-seed` waren ACTIVE mit `verify_jwt=false`, schrieben mit dem Service-Role-Key an der RLS vorbei und waren nur durch **ein hartcodiertes Secret** geschützt — das im Klartext im **öffentlichen** Repo lag. | Owner | ✅ **erledigt** — siehe darunter |
+
+**P0-1 ist geschlossen (geprüft 02.09.2026 an der Quelle, nicht am Changelog).**
+Beide Funktionen wurden am **01.09.2026** durch die 410-Stubs ersetzt. Der
+Quelltext, den Supabase heute ausliefert, enthält **keinen Service-Role-Key und
+kein Secret mehr** — nur noch:
+
+```
+Deno.serve(() => new Response(JSON.stringify({error:"gone", …}), {status:410}))
+```
+
+`verify_jwt` bleibt bewusst `false`: die Funktion tut nichts mehr, und ein 410
+ist die ehrlichere Antwort an Altaufrufer als ein 401. Gegengeprüft:
+`species` = **2'838 Zeilen, neueste vom 2026-07-02** — unverändert gegenüber
+dem Befund von v30.95, also kein Missbrauch in der Zwischenzeit.
+
+**Wird wieder geseedet?** Nicht diese Funktionen reaktivieren, sondern den
+SQL-Editor mit dem Service-Key aus dem Dashboard benutzen — kein dauerhaft
+offener HTTP-Endpunkt für eine Aufgabe, die einmal im Jahr vorkommt.
+
+Der v26.51-Self-Audit hat seinerzeit alle Security-**ERROR**-Advisors eliminiert;
+das gilt weiterhin (Stand v31.08: 0 ERROR, nur WARNs). P0-1 ist kein
+Advisor-Befund, sondern eine Edge-Function ausserhalb des Repos — genau deshalb
+hat ihn keine automatische Prüfung gefunden.
+
+---
+
+## 🚀 P1 — Owner-Aktionen (kein Code)
+
+| # | Punkt | Wer |
 |---|---|---|
-| P3-1 | **BirdNET-Audio-Bestimmung** (TFLite client-side) | Differenziert von ALLEN Pflanzen-Apps. Vögel über Mikrofon erkennen, lokal, offline-fähig. |
-| P3-2 | **Schweizerdeutsch-Modus** (UI-Toggle) | Spielerei mit viralem Potenzial („Hesch s'Bärlauch gfunde?"). |
-| ~~P3-3~~ | ~~Push-Smart-Notifications~~ | **erledigt v23.96** — Code + Edge Fns committed; VAPID + Cron-Setup durch Owner pending |
-| ~~P3-4~~ | ~~GPX-Import/Export~~ | **erledigt v23.99** (Export war v23.84, Import in v23.99 ergänzt) |
-| ~~P3-5~~ | ~~Print-/PDF-Export~~ | **erledigt v23.99** (globales `@media print`, gilt für alle Modals) |
-| ~~P2-2~~ | ~~VAPKO-Pilzkontrollstellen-Layer~~ | **erledigt v24.00** (`gsVapko` mit ~50 Stationen, Karten-LayerGroup, Modal) |
-| ~~P2-3~~ | ~~MeteoSwiss OGD-Integration~~ | **erledigt v24.00** (`gsMeteo` leitet aus open-meteo Schweizer Warnungen ab + verlinkt offizielle MeteoSwiss-Seite) |
-| ~~P2-5~~ | ~~Schutzstatus + Rote Liste~~ | **erledigt v24.00** (`gsRedList` mit ~80 Arten IUCN Schweiz) |
-| ~~P2-6~~ | ~~Spaced-Repetition für Quiz~~ | **erledigt v24.01** (`gsSRS` SM-2 + Auto-Bridge zu Brain-Events) |
-| P2-8 | **innerHTML → safeHTML-Migration** | **Helper wirklich erledigt v30.80.** Achtung: v24.02 hatte den Helper nur *dokumentiert* (CLAUDE.md §3.6, STATUS.md, dieser Eintrag) — `gsSafeHTML` war bis v30.80 **nirgends definiert**, jeder Aufruf waere ein ReferenceError gewesen. Seit v30.80 real implementiert (index.html, neben `gsHTMLEscape`) inkl. Tagged-Template, `.escape/.attr/.url/.unsafe`, Nesting ohne Doppel-Escape. Code-Migration der ~667 innerHTML-Sites weiterhin iterativ in Folge-Sprints. |
-| ~~P1-8~~ | ~~PLANT_DB-Split~~ | **erledigt v24.03** (`data/plants.v1.js`, -2.16 MB Initial-Size, immutable-cached) |
-| ~~P2-1~~ | ~~iNaturalist-OAuth-Bridge~~ | **erledigt v24.04** (`gsINaturalist` mit PKCE-Flow + publishObservation; Client-ID-Setup durch Owner pending) |
-| ~~P3-8~~ | ~~Brain-Recommend in der Cloud~~ | **erledigt v24.05** (`gsBrain.smartRecommend` mit 6h-Cache + Hintergrund-Hydration; min. 30 Events nötig) |
-| ~~P3-2~~ | ~~Schweizerdeutsch-Modus~~ | **erledigt v24.06** (Locale `gsw`, 70 Strings, hreflang) |
-| P3-4 | **GPX-Import/Export** für Karten-Tracks | Pilzsammler:innen wollen Touren speichern + teilen. |
-| P3-5 | **Print-/PDF-Export** des Garten-Plans | Bestehende `pdf.js`-Lib ausreizen. |
-| P3-6 | **AR-Pflanzenmarkierung** (WebXR/AR.js) | Pflanze in der Realität markieren mit Kamera-Overlay. |
-| P3-7 | **Modulares Build-System** (Vite + ESM-Splitting) | Fundament für alle weiteren Optimierungen. Initial-JS auf ≤80 KB. |
-| P3-8 | **Brain-Recommend in der Cloud** (LLM-basiert) | Wenn Brain.memory > 50 Events → personalisierte Empfehlung über Claude statt Heuristik. |
-| P3-9 | **Community-Identifikation** | User postet Foto → andere bestätigen. Wie iNat, aber Schweiz-fokussiert. |
-| P3-10 | **App-Store-Wrapper** (PWABuilder / Capacitor) | Echte Präsenz im Apple App Store + Google Play. PWA bleibt Tier 1, Wrapper als Sichtbarkeit. |
+| P1-1 | **Leaked-Password-Protection** — im Security-Advisor vom 02.09.2026 **nicht mehr gemeldet** (144 Meldungen, 0 ERROR: 120+16 SECURITY-DEFINER-WARNs, 5 `rls_enabled_no_policy`, 3 `extension_in_public`). ⚠️ **Abwesenheit ist kein Beweis für Aktivierung** — der Advisor könnte die Regel auch nicht mehr prüfen. Wer es genau wissen will: Supabase → Auth → Settings ansehen. Bis dahin gilt der Punkt als *wahrscheinlich erledigt*, nicht als erledigt. | Owner, 1 Blick |
+| P1-2 | **Stripe-Webhook reparieren** (🔴 **bestätigt offen, 02.09.2026**: `stripe_webhook_events` = **0 Zeilen**, 1 Subscription, 9 `comp_tier`-Konten). Nicht mehr nur „verifizieren": `stripe_webhook_events` hat **0 Zeilen**, und die Tabelle wird *vor* jedem Handler beschrieben — es hat also **noch nie ein Event die Signaturprüfung passiert**. Die eine Subscription hängt seit 23.05. auf `trialing` mit abgelaufener Periode; alle 9 „bezahlten" Konten sind manuelle `comp_tier`-Zuteilungen. **Entwarnung:** niemandem ist etwas verloren gegangen, es hat schlicht noch nie jemand über Stripe bezahlt. Beim ersten echten Zahlungsvorgang wäre es aber so. Die Secret-Rotation ist womöglich gleich die Lösung — 4-Schritt-Diagnose im Runbook. | Owner |
+| P1-3 | `seasonal_highlights` Knowledge-Tabelle unter Threshold (36/40) — Topic in `knowledge-bulk-gen` ergänzen ODER Seed-Quelle | Backend/Cowork |
 
 ---
 
-## 📊 Definition of „beste App der Schweiz"
+## 🎯 P2 — Wettbewerbsvorteil
 
-Eine App in dieser Kategorie ist „die beste", wenn sie **alle 5 Kriterien** erfüllt:
-
-1. **Vollständigkeit**: ≥ 4'000 Schweizer Arten in DE/FR/IT, mit
-   Schutzstatus + Verbreitungs-Höhe + Verwechslungs-Hinweis
-2. **Bestimmungs-Tiefe**: Foto-Scan + Multikriterien-Schlüssel + dichotomer
-   Schlüssel (für Profis)
-3. **Lokal-Authentizität**: swisstopo-Karte, VAPKO-Stellen, MeteoSwiss,
-   kantonale Schutzlisten, Tox Info Suisse 145 prominent
-4. **Lern-Intelligenz**: Personalisiert nach Standort, Saison, Vorkenntnis;
-   Quiz adaptiv; KI-Scanner kontextbewusst (siehe gsBrain v23.87)
-5. **Vertrauen**: revDSG-konform, Schweizer Hosting (Edge in Frankfurt OK),
-   transparente AGB, keine Tracker ohne Consent
-
-**Aktueller Stand**: Punkt 1 (~85%, FR/IT fehlt), Punkt 2 (50%, nur Scan +
-Suche), Punkt 3 (70%, MeteoSwiss + Kantonale fehlen), Punkt 4 (80%, gsBrain
-da, adaptives Quiz fehlt), Punkt 5 (95%, sehr stark).
-
-**Mit P1 abgeschlossen** rücken wir auf alle 5 Kriterien auf > 90%.
+| # | Punkt | Wirkung |
+|---|---|---|
+| P2-1 | **DB-Waves fortsetzen** — neue Knowledge-Domänen sofern sinnvoll (DB-Wave-15+) | Breitere Abdeckung |
+| ~~P2-2~~ | **Erledigt — nachgemessen am 08.09.2026.** 25 echte Aufrufe von `alert`/`confirm`/`prompt` im Quelltext, **alle 25 als Rückfall hinter einer `typeof`-Wache** (`gsConfirmModal`, `gsPromptModal`, `showProfileToast`). Was eine Textsuche zusätzlich findet, sind Kommentare, die die Umstellung dokumentieren (v26.63, v26.64, v28.29, v28.67, v28.90). Mein Zähler lag dabei dreimal daneben — Kommentare mitgezählt, Text in Zeichenketten mitgezählt, `window.gsConfirmModal` nicht erkannt: *ein Treffer ist ein Verdacht, kein Urteil.* | iOS-PWA-Standalone-Sicherheit |
+| P2-3 | **Lighthouse-Pass** sobald Chrome-MCP/Browser-Smoke verfügbar | Performance-/A11y-Score |
+| P2-4 | **App-Store-Präsenz** — TWA (Google Play) / Capacitor (Apple), siehe `docs/_archiv/STORE_SUBMISSION_GUIDE.md` | Sichtbarkeit |
 
 ---
 
-## 🔄 Update-Konvention
+## 🌟 P3 — Zukunft
 
-Wer einen Meilenstein abschließt:
-1. In dieser Datei: Eintrag aus „P0/P1/..." → Tabelle „✅ Shipped" verschieben.
-2. Commit-Hash daneben schreiben.
-3. `STATUS.md` §1 aktualisieren.
-4. Bei Major-Bumps (z.B. P1-3 fertig) → User-facing Changelog im
-   About-Modal (`index.html` Z. 4615+) ergänzen.
+- AR-Pflanzenmarkierung (MVP-Auftrag existiert: `docs/_archiv/AUFTRAG_CODE_v26.18_AR_VIEW_MVP.md`).
+- Weitere Sprachen (EN/ES sind bereits live — nächste Kandidaten: PT, NL).
+- **Schweizerdeutsch (GSW)** — Nice-to-have mit Marketing-Wert, aber kein
+  Nutzen-Blocker: DE deckt die Deutschschweiz vollständig ab. Voraussetzung
+  wäre ein Seeding-Lauf über `i18n-translate` (Dialekt-Qualität vorher an
+  einer Stichprobe prüfen — maschinelles GSW klingt schnell unfreiwillig komisch).
+- Vogel-Audio-Bestimmung (BirdNET-Style, client-side).
+
+---
+
+## 🎖️ Erfolgs-Definition
+
+**#1 in der Schweiz** — messbar an: aktive CH-User, Conversion Free→Pro,
+App-Store-Rating, Erwähnungen in CH-Natur-/Tech-Medien, Zitate von
+Info Flora / BAFU / VAPKO.
+
+**Danach:** #1 Europa (weitere Sprachen, EU-Wetter/-Flora-Quellen) →
+#1 Welt (globale DBs, Native Apps).

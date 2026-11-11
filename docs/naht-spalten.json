@@ -1,0 +1,8 @@
+{
+  "stand": "2026-09-06",
+  "projekt": "vowbiueikwrauuceilhc",
+  "wie": "execute_sql gegen die Produktivdatenbank, NUR LESEND (information_schema.columns). Keine DDL. Nur die drei Tabellen, die es live gibt und die kein Repo-Skript anlegt — alles andere liest naht_check aus den Migrationen.",
+  "notifications": ["id", "user_id", "kind", "title", "body", "link", "dedup_key", "is_read", "read_at", "created_at"],
+  "push_send_log": ["id", "user_id", "category", "title", "body", "payload_meta", "result", "http_status", "error_msg", "sent_at"],
+  "push_subscriptions": ["id", "user_id", "endpoint", "p256dh", "auth_secret", "user_agent", "created_at", "gps_lat", "gps_lng", "notify_frost", "notify_water", "notify_seasonal", "notify_quiz_streak", "quiet_start_hour", "quiet_end_hour", "last_push_sent_at", "push_failure_count", "updated_at", "notify_heat", "notify_storm", "alert_lead_hours", "pause_until", "notify_classes", "notify_doctor", "notify_battle"]
+}

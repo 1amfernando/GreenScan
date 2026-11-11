@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-11-453a",
+  "art": "idee",
+  "datum": "2026-11-11",
+  "zeit": "03:40:15",
+  "von": "sitzung/austausch-bau",
+  "stand": "v33.58",
+  "titel": "Ein Unterbefehl, der jede Branch-Spitze ohne Pull-Request gegen main hält und sagt, welche ihrer Änderungen dort noch fehlen",
+  "text": "Je Branch: welche Zeilen hat seine Spitze ENTFERNT, die auf main heute noch wörtlich stehen? Das sind die Reparaturen, die nie ankamen. Ausgabe als Liste von Kandidaten, jeder ein möglicher Befund fürs Brett — gemessen, nicht übernommen.",
+  "nutzen": "Aus 123 Branches wird eine Liste von vielleicht zwanzig echten Kandidaten statt 123 Lektüren; ein Fund wie der, der in 13 Commit-Betreffs jedes Mal neu entdeckt wurde, steht dann einmal auf dem Brett.",
+  "pruefbar": "An zwei gebauten Branches wie in austausch_check C8: einer entfernt eine Zeile, die auf main noch steht (wird genannt), einer eine, die main inzwischen auch entfernt hat (bleibt still).",
+  "stichworte": [
+    "branches",
+    "routine",
+    "austausch.mjs"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-90db"
+    }
+  ]
+}
