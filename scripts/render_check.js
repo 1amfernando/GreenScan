@@ -220,6 +220,15 @@ async function scan(browser, file) {
       .forEach(o => console.log('     ', String(f(o)) + 'px  ' + o.key.replace(/\|/g,' ').slice(0, 88)));
     if (cut.length)  { console.log('   -- am staerksten abgeschnitten:'); show(cut,  o => Math.max(o.clipX, o.clipY)); }
     if (offs.length) { console.log('   -- am weitesten draussen:');       show(offs, o => o.offscreen); }
+    // v33.60: ein TOR, kein Bericht — im Lauf ueber EINEN Stand. Bis v33.59 endete
+    // dieser Pruefstand immer mit 0; „verdaechtige Textstellen: muss 0 sein" stand
+    // nur in CLAUDE.md. Der Vergleich zweier Staende (zwei Dateien) bleibt eine
+    // Messung ohne Urteil. Nicht pruefbar (Exit 2) geht vor.
+    const befunde = new Set(r.errs).size + muell.length + cut.length + offs.length;
+    if (res.length === 1 && befunde && process.exitCode !== 2) {
+      console.log('  ROT: ' + befunde + ' Befund(e) — JS-Fehler ' + new Set(r.errs).size + ' · verdaechtige Textstellen ' + muell.length + ' · abgeschnitten ' + cut.length + ' · ausserhalb ' + offs.length);
+      process.exitCode = 1;
+    }
   }
 
   if (res.length === 2) {

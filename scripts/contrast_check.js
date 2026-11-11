@@ -24,6 +24,7 @@
  *   node scripts/contrast_check.js [datei.html]
  */
 const path = require('path');
+const fs = require('fs');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const FILE = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, '..', 'index.html');
 const TABS = ['home','garden','wissen','favs','search','social','market','recipes','remedies'];
@@ -214,6 +215,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
   const leser = await (await br.newContext()).newPage();   // nur zum Pixel-Lesen
   await leser.goto('data:text/html,<title>px</title>');
 
+  let unterAA = 0;   // v33.60: ueber beide Modi und die gerechneten Paare — daran haengt der Exit-Code
   for (const dark of [false, true]) {
     const ctx = await br.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
     const p = await ctx.newPage();
@@ -656,6 +658,41 @@ async function medianFarben(leser, pngBuffer, punkte) {
       `  ${String(o.r).padStart(5)}:1 (soll ${o.min})  ${o.tab.padEnd(9)} ${o.sel.slice(0,32).padEnd(33)} ` +
       `rgb(${o.fg})@${o.alpha.toFixed(2)} auf rgb(${o.bg})  „${o.t}"`));
     if (liste.length > 70) console.log(`  … und ${liste.length-70} weitere`);
+    unterAA += liste.length;
   }
   await br.close();
+
+  // ── v33.60: Zustaende, die kein Fenster herstellt — gerechnet statt gerendert ──
+  // Die Statusbox im Standort-Fenster (#loc-status) bekommt ihre Farben je Zustand
+  // als festes PAAR aus dem Code (Suche laeuft, GPS wird ermittelt, Fehler,
+  // gespeichert). Vermessen wird beim Oeffnen nur EINER davon; „🔍 Suche …" stand
+  // mit 3,46:1 in beiden Modi da und in keinem Bericht. Ein festes Paar laesst sich
+  // rechnen — ohne Browser, fuer jeden Zustand.
+  const quelle = fs.readFileSync(FILE, 'utf8');
+  const paare = [];
+  for (const m of quelle.matchAll(/stEl\.style\.background\s*=\s*'(#[0-9a-fA-F]{6})'\s*;\s*stEl\.style\.color\s*=\s*'([^']+)'/g)) paare.push([m[1], m[2]]);
+  for (const m of quelle.matchAll(/\bsetStatus\(\s*'(#[0-9a-fA-F]{6})'\s*,\s*'([^']+)'/g)) paare.push([m[1], m[2]]);
+  const lum = (h) => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const schlecht = [];
+  for (const [bg, fg] of paare) {
+    // Eine Schrift, die mit dem Modus kippt (var(--…)), auf einer FEST gefaerbten Flaeche: das Paar haelt hoechstens in einem Modus.
+    if (!/^#[0-9a-fA-F]{6}$/.test(fg)) { schlecht.push(fg + ' auf ' + bg + ' — keine feste Schrift auf fester Flaeche'); continue; }
+    const a = lum(fg), b = lum(bg), k = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    if (k < 4.5) schlecht.push(fg + ' auf ' + bg + ' — ' + k.toFixed(2) + ':1');
+  }
+  console.log('\n=== STATUSBOX #loc-status — ' + paare.length + ' Farbpaare aus dem Code gerechnet, ' + schlecht.length + ' unter AA');
+  schlecht.forEach(x => console.log('  ' + x));
+  if (paare.length < 5) { console.log('  !! nur ' + paare.length + ' Paare gefunden — die Suche sieht etwas nicht (stEl.style.… / setStatus)'); unterAA++; }
+  unterAA += schlecht.length;
+
+  // ── v33.60: ein TOR, kein Bericht ──────────────────────────────────────────
+  // Bis v33.59 endete dieser Pruefstand IMMER mit 0. Im CI-Lauf von v33.59 stand
+  // „DUNKELMODUS — 1 Textstellen unter AA · 1.51:1 · #loc-status" — und darunter
+  // „EXIT=0", in jedem Lauf, gruen. Eine Zahl, die niemand lesen MUSS, liest
+  // niemand (CLAUDE.md: „Eine Regel ohne Auslöser ist eine Bitte"). Nicht pruefbar
+  // (Exit 2: der Anmeldebildschirm stand) geht vor.
+  if (unterAA && process.exitCode !== 2) {
+    console.log('\n  ROT: ' + unterAA + ' Stelle(n) unter AA — siehe oben.');
+    process.exitCode = 1;
+  }
 })();

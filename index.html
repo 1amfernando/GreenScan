@@ -61568,7 +61568,10 @@ function openLocationSettings() {
       stEl.innerHTML = '✅ Aktuell: <strong>' + escHtml(userLocation.name||'') + '</strong>' +
         (userLocation.canton ? ' (' + escHtml(userLocation.canton) + ')' : '');
     } else {
-      stEl.style.background='#f0f7ee'; stEl.style.color='var(--g-dark)';
+      // v33.60: eine FEST helle Flaeche braucht eine FESTE Schrift. `var(--g-dark)` kippt im
+      // Dunkelmodus auf #a5d6a7 — auf #f0f7ee sind das 1,51:1. contrast_check hat es in JEDEM
+      // CI-Lauf gemeldet und endete trotzdem mit 0: der Pruefstand war ein Bericht, kein Tor.
+      stEl.style.background='#f0f7ee'; stEl.style.color='#1a3d1a';
       stEl.textContent = 'Noch kein Standort. GPS tippen oder Ort eingeben.';
     }
   }
@@ -61993,7 +61996,7 @@ function autoDetectLocation() {
   }
 
   if (btn) { btn.innerHTML = '<span>⏳</span> Ermittlung…'; btn.disabled = true; }
-  setStatus('#fff3e0', '#e65100', '📡 GPS wird ermittelt…', false);
+  setStatus('#fff3e0', '#bf360c', '📡 GPS wird ermittelt…', false);   // v33.60: #e65100 waren 3,46:1
 
   // Zentrales GPS-System mit Permission-Handling
   gsGetPosition(
@@ -62023,7 +62026,7 @@ async function saveManualLocation() {
   var name = (inp ? inp.value : '').trim();
   if (!name) { try { gsToast('Bitte einen Ort eingeben.', 'warn'); } catch(_){ } return; }
   var stEl = document.getElementById('loc-status');
-  if (stEl) { stEl.style.background='#fff3e0'; stEl.style.color='#e65100'; stEl.textContent='🔍 Suche "'+name+'"…'; }
+  if (stEl) { stEl.style.background='#fff3e0'; stEl.style.color='#bf360c'; stEl.textContent='🔍 Suche "'+name+'"…'; }   // v33.60: #e65100 waren 3,46:1
 
   // Callback-basiert — kein await (iOS Safari sicher)
   (window._gsFetch || fetch)('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=5&language=de&format=json', {}, 10000)
