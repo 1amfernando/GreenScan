@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-7f36",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "10:38:59",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "Soll die Sicht v_user_entitlements ein Probe-Abo nach seinem Ablaufdatum nicht mehr als Pro werten?",
+  "an": "fernando",
+  "text": "Die Sicht fragt den Status, nicht das Datum (in der Migration gelesen). Live gibt es genau eine Zeile in stripe_subscriptions: ein Admin-Konto, Probezeit bis 23.05.2026, bis heute trialing (11.11.2026, nur lesend) — ein zahlender Kunde ist nicht betroffen.",
+  "haengt_daran": "Sobald der Webhook läuft, zieht er neue Zeilen nach; Alt-Zeilen bräuchten die Datumsschranke (eine Migration).",
+  "stichworte": [
+    "v_user_entitlements",
+    "stripe_subscriptions",
+    "trialing",
+    "abo"
+  ]
+}

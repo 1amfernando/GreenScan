@@ -1,6 +1,6 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **11.11.2026** (Abschnitte bis §29) · geschrieben von Seros.
+> Stand **11.11.2026** (Abschnitte bis §30) · geschrieben von Seros.
 >
 > **Neu und zuerst zu lesen: §29** — was am 10./11.11.2026 mit deiner Freigabe an der
 > laufenden Auslieferung geschehen ist, welchen Fehler ich dabei gemacht habe, und die
@@ -1459,6 +1459,206 @@ anderen fünf). Ein Commit ist eine Prüfsumme — was läuft, ist Byte für Byt
 Prüfstand gefahren hat. Geladen wird beim Ausliefern, nicht zur Laufzeit. Wer sie später
 gewöhnlich ausliefern will: `supabase functions deploy <name>` aus dem Repo, das Ergebnis
 ist dasselbe.
+
+## 30 · 11.11.2026 — v33.60: was die Nacht mit zehn Agenten gebracht hat, und was jetzt bei dir liegt
+
+**Dein Auftrag:** „Baue die App auf. Zwischen allen Agenten sollen Kommunikationen stattfinden. […] Du bist
+der Head." — dann: „Jede einzelne Funktion wird komplett durchdacht und sauber aufgebaut." — und:
+„HINTERFRAGE ALLES! Nichts darf an Fehlinformation weiter. […] Alles muss um Meilensteine erweitert und
+verbessert werden."
+
+**Meine Zusage, und sie gilt:** live geht nichts ohne dein OK. In dieser Runde wurde **nichts ausgeliefert** —
+kein Merge, keine Edge-Function, keine Migration, nichts an Stripe. Die Live-Datenbank habe ich nur gelesen.
+Alles steht in **einem PR** (`claude/zahlungsweg-nachgemessen-011L7G`, v33.60). Er **enthält PR #324**
+(v33.59, beide Commits, Stand 11.11. 09:18) und `main` bis und mit #325 (das Brett).
+
+### Zuerst das Wichtigste: heute arbeiten mindestens drei Sitzungen gleichzeitig an diesem Repo
+
+Das habe ich erst beim Zusammenführen gesehen (11.11., gegen Mittag) — am Brett, das seit heute auf `main`
+liegt (`node scripts/austausch.mjs holen`, Liste „Frische Branches"):
+
+| Zweig | Was | Stand |
+|---|---|---|
+| `claude/restore-banner-nur-bei-bedarf` | v33.59 — kein Backup-Banner mehr | PR #324, CI grün |
+| `ccr-5e705a36-jveaak` | „Sicherheitsreparatur v33.59": 157 Dateien, fünf Sicherheits-Migrationen, 29 Edge-Functions | **kein PR**, heute 11:03 zuletzt bewegt |
+| dieser (`claude/zahlungsweg-nachgemessen-011L7G`) | v33.60 | PR offen |
+
+**Zwei Dinge folgen daraus, und beide musst du wissen, bevor du etwas mergst:**
+
+1. **Zwei Sitzungen vergeben v33.59.** #324 und der Sicherheitszweig tragen dieselbe Nummer. Wer als
+   Zweiter auf `main` kommt, muss umnummerieren. Ich habe v33.60 genommen.
+2. **Der Zahlungsweg ist zweimal neu geschrieben worden — unabhängig voneinander.** Der Sicherheitszweig
+   hat für `stripe-checkout`, `stripe-webhook` und `stripe-portal` ein eigenes Regel-Modul
+   (`_shared/zahlung_regeln.mjs`, Prüfstand `scripts/edge/10_stripe.js`), dieser Zweig ein anderes
+   (`_shared/stripe_regeln.mjs`, Prüfstand `scripts/stripe_check.js`). Die gute Nachricht: beide haben
+   **dieselben Kernfehler** gefunden (das Launch-Angebot war nie gedeckelt, die Tabelle `stripe_customers`
+   gibt es nicht, Rückkehr-Adressen, Fehler als Rohtext) — zwei unabhängige Messungen, ein Ergebnis. Die
+   schlechte: es sind zwei Fassungen derselben drei Dateien. Zur Probe zusammengeführt (und wieder
+   verworfen): **9 Dateien mit Konflikt**, davon 16 Stellen in `index.html` und alle drei Functions.
+   Jede Seite hat etwas, das der anderen fehlt — dort u. a. der Entzug von Lifetime bei einem
+   Chargeback, die Experten-Zahlung, das Kündigen laufender Abos beim Löschen des Kontos und der
+   sichere Vergleich des Admin-Geheimnisses; hier u. a. kein zweites Abo, Lifetime beendet das laufende
+   Abo, ein gemerkter Kunde aus dem falschen Modus, die verzögerte Zahlungsart.
+
+**Mein Vorschlag (du entscheidest):** erst dieser PR auf `main`, dann zieht die Sitzung des
+Sicherheitszweigs `main` nach und führt die drei Functions zusammen — beide Prüfstände müssen danach grün
+sein, das ist die Sicherung, dass keine Seite etwas verliert. Geht es umgekehrt (ihr PR zuerst), mache ich
+dasselbe hier. **Ausgeliefert werden die drei Functions erst nach dieser Zusammenführung** — sonst wechselt
+das Verhalten zweimal. Die Überschneidung steht für die andere Sitzung auf dem Brett (brett:2026-11-11-4e38).
+
+### Was im PR steht — in einem Satz je Sache
+
+| Was | Was du davon merkst |
+|---|---|
+| **Zahlungsweg neu gebaut und geprüft** (`stripe_check`, 52 Fälle) | noch nichts — die drei Functions sind nicht ausgeliefert (Punkt 3 unten) |
+| **Scanner:** die Zeile „Verzehr vertretbar" wird gerechnet | steht nur noch da, wenn Gegenprobe, KI UND Artenliste dasselbe sagen — und nie bei einem Pilz |
+| **Artendetail:** „Tödlich giftig" war weiss auf fast weiss (1,05:1) | ist jetzt lesbar, in beiden Modi |
+| **Saatgut-Leiste** las den Kalender einen Monat versetzt | „Jetzt ins Beet: Tomaten" kommt nicht mehr im April, und bei Frost steht der Frost |
+| **Abhaken auf der Pflanzenkarte** schrieb nichts ins Tagebuch | Tagebuch, Kalender und Wochenrückblick zählen jetzt alles, was du abhakst — auch „Alle erledigt" |
+| **Notfall** | im Menü nach „Notfall" oder „145" suchen → ein Fenster mit Tox Info Suisse 145, der Nummer fürs Ausland, 144 und 112 |
+| **Fotos** öffnen in der App | Tagebuch- und Rezeptfotos gehen nicht mehr in ein neues Fenster; Tagebuch-Fotos wurden bisher gar nicht gezeigt |
+| **Kalender:** zwei Knöpfe „›" taten nichts | der an einem Scan öffnet den Scan-Verlauf, der an einem Garten-Eintrag das Gartentagebuch |
+| **Lesbarkeit:** rund 20 Stellen unter dem Mindestkontrast | u. a. der Knopf „Jetzt starten" des Tagesquiz im Dunkelmodus, die Karte, die Garten-Bibliothek |
+| **Artennamen** gegen zwei botanische Listen gemessen | nichts — eine Tabelle zum Nachlesen (`docs/arten-namen-pruefung.csv`), keine Daten geändert |
+
+Die ganze Geschichte mit Zahlen: `STATUS.md` (jf). Wohin es weitergeht: `ROADMAP.md`, „🧭 Meilensteine ab v33.60".
+
+### Was ich dir falsch gesagt habe
+
+In der Sitzung habe ich geschrieben, der Checkout sei **„seit dem 14. Juni live kaputt"**. Das war zu viel
+gesagt, in zwei Richtungen:
+
+- **Gemessen habe ich es nicht.** Ich habe den ausgelieferten Quelltext gelesen (er schickt einen Parameter,
+  den Stripes Referenz für diesen Aufruf nicht kennt, und liest eine Tabelle, die es nicht gibt) und daraus
+  geschlossen, dass ein Kauf scheitert. Aufgerufen habe ich Stripe nicht.
+- **„Live" setzt voraus, dass es einen Live-Betrieb gab.** Belegt ist das Gegenteil: der in der Datenbank
+  hinterlegte öffentliche Stripe-Schlüssel beginnt mit `pk_test_`, es ist **kein einziges** Webhook-Ereignis
+  je angekommen, und es gibt genau **eine** Abo-Zeile — ein Admin-Konto, Probezeit bis 23.05.2026, bis heute
+  auf `trialing` (nachgemessen 11.11.2026, nur lesend). Ob über GreenScan je jemand bezahlt hat, weisst nur
+  du (Stripe-Dashboard).
+
+Richtig ist: **der Zahlungsweg ist ungeprüft in Betrieb gegangen und wäre beim ersten echten Kauf an
+mehreren Stellen gescheitert.** Der neue Stand ist geprüft — gegen eine Nachbildung, deren Form ich an der
+echten Datenbank gemessen habe, und gegen Stripes Dokumentation. Gegen Stripe selbst prüft erst dein
+Probekauf (Punkt 6).
+
+### Was jetzt bei dir liegt — in dieser Reihenfolge
+
+**1 · Den PR ansehen und mergen.** Am einfachsten: **nur diesen** mergen (er enthält #324) und #324 danach
+schliessen. Mergst du #324 zuerst, meldet GitHub an diesem PR einen Konflikt in den Versionszeilen — dann
+sag mir „zieh nach", das sind fünf Minuten. Danach zeigt green-scan.ch v33.60 — das kannst nur du ansehen
+(meine Umgebung erreicht die Seite nicht). Wenn dir etwas daran nicht gefällt: sag es, bevor du mergst.
+
+**2 · Im Stripe-Dashboard nachsehen, in welchem Modus du arbeitest.** Oben rechts steht „Testmodus" oder
+nicht. Alles Weitere hängt daran: Test und Live sind bei Stripe zwei getrennte Welten mit eigenen
+Schlüsseln, Preisen, Kunden und Webhooks. In der Datenbank steht heute ein **Test**-Schlüssel.
+
+**3 · Die drei Functions ausliefern — erst nach der Zusammenführung mit dem Sicherheitszweig** (siehe
+oben). Dann du selbst, oder du sagst mir „liefere die drei Stripe-Functions aus", und ich tue es und messe
+nach.
+
+```bash
+supabase functions deploy stripe-webhook --no-verify-jwt
+supabase functions deploy stripe-checkout
+supabase functions deploy stripe-portal
+```
+
+(So stehen sie heute auch: der Webhook ohne JWT-Prüfung — Stripe meldet sich ohne Konto, geprüft wird die
+Signatur —, Checkout und Portal mit. Gelesen am 11.11.2026.)
+
+**Was sich damit ändert — bitte vorher lesen, es sind Entscheidungen:**
+
+| Bisher | Neu | Warum |
+|---|---|---|
+| ein zweites Abo neben einem laufenden war möglich | der Server lehnt ab und die App sagt „Du hast bereits ein laufendes Abo" | die Sperre stand nur im Gerätespeicher |
+| wer mit laufendem Abo **Lifetime** kaufte, zahlte das Abo weiter | das Abo endet zum Ende der bezahlten Periode | sonst bucht Stripe weiter ab |
+| nach einer **vollen Erstattung** von Lifetime blieb der Platz im Launch-Angebot belegt | Pro geht zurück, der Platz wird frei, die Person kann wieder kaufen | „schon gekauft" stimmte nicht mehr |
+| „Abo fortsetzen" öffnete bei Stripe die Seite zum **Wechseln** des Plans | es öffnet das gewöhnliche Portal | eine Kündigung nimmt man dort zurück, nicht auf der Wechsel-Seite |
+| eine verzögerte Zahlungsart (z. B. Überweisung) schaltete Lifetime nie frei | „bezahlt" wird auch dann erkannt | das Ereignis dafür fehlte |
+| ein Fehler der Datenbank wurde verschluckt, Stripe bekam „ok" | Stripe bekommt den Fehler und wiederholt | sonst ist bezahlt, aber nicht freigeschaltet |
+
+Wenn du eine dieser Regeln anders willst (z. B. das Abo bei Lifetime **sofort** beenden und anteilig
+erstatten): sag es vor dem Ausliefern, es ist je eine Zeile.
+
+**4 · Eine Migration** — `supabase/migrations/20261111_launch_offer_usage_nur_server.sql`, im SQL-Editor.
+Der Zähler des Lifetime-Angebots lässt sich heute aus dem Browser beschreiben, ohne dass ein Kauf
+dahintersteht. Die Datei nimmt dieses Recht weg (die App braucht es nicht; geschrieben wird nur nach einem
+bezahlten Kauf, vom Server). Gegenprobe danach:
+
+```sql
+select count(*) from pg_policies where tablename = 'launch_offer_usage' and policyname = 'launch_offer_insert_own';  -- 0
+select has_table_privilege('authenticated', 'public.launch_offer_usage', 'INSERT');                                 -- false
+```
+
+**5 · Stripe-Dashboard, vier Blicke.**
+
+- **Entwickler → Webhooks:** gibt es einen Endpunkt auf `…/functions/v1/stripe-webhook`? Er braucht diese
+  16 Ereignisse — neu ist das zweite:
+  `checkout.session.completed` · **`checkout.session.async_payment_succeeded`** ·
+  `customer.subscription.created` · `.updated` · `.deleted` · `customer.subscription.trial_will_end` ·
+  `invoice.paid` · `invoice.payment_failed` · `charge.refunded` · `charge.failed` ·
+  `charge.dispute.created` · `payment_method.attached` · `payment_intent.succeeded` · `account.updated` ·
+  `account.application.deauthorized` · `customer.updated`.
+  Sein Signatur-Geheimnis (`whsec_…`) muss in Supabase als `STRIPE_WEBHOOK_SECRET` stehen. Dass noch nie
+  ein Ereignis angekommen ist, hat einen dieser drei Gründe: kein Endpunkt, ein anderes Geheimnis, oder
+  es hat nie jemand gekauft.
+- **Einstellungen → Zahlungsmethoden:** hier entscheidest du, was im Checkout erscheint — die Functions
+  geben keine Zahlungsart mehr vor. **TWINT:** Stripe bietet es seit dem 27.05.2026 auch für wiederkehrende
+  Zahlungen an, auch im Checkout (Stripe-Changelog `2026-05-27.dahlia`, am 11.11.2026 nachgelesen; je
+  Kunde ist nur ein TWINT-Mandat aktiv). Ob es bei dir im **Abo**-Checkout erscheint, zeigt der Probekauf;
+  die Functions rufen Stripe mit einer älteren API-Version auf (`2024-12-18.acacia`), und das habe ich
+  nicht messen können. Für den
+  Einmalkauf (Lifetime) ist TWINT der unkritische Fall.
+- **Einstellungen → Billing → Kundenportal:** „Abos kündigen" muss erlaubt sein, sonst öffnet der Knopf
+  „Kündigen" nur das allgemeine Portal (die App fängt das ab, aber der direkte Weg ist besser).
+- **Produkte:** die Preise, die GreenScan kennt, stehen in der Tabelle `stripe_prices`. Wechselst du von
+  Test auf Live, sind das **andere** Preis-Ids — dann muss die Tabelle die Live-Ids tragen.
+
+Im Menü stand unter „Premium freischalten" bisher **„TWINT · Karte · IBAN"**. Das habe ich herausgenommen
+(„Pläne und Preise"): die App kann nicht wissen, was du im Dashboard eingeschaltet hast. Wenn der
+Probekauf TWINT zeigt, kommt der Satz in einer Minute zurück.
+
+**6 · Ein Probekauf im Testmodus.** Mit einem gewöhnlichen Konto (nicht Admin) „Pro monatlich" kaufen,
+Stripes Testkarte `4242 4242 4242 4242`, beliebiges künftiges Datum, beliebige Prüfziffer. Danach:
+
+```sql
+select type, processed, error, created_at from stripe_webhook_events order by created_at desc limit 10;
+select id, status, tier, is_lifetime, cancel_at_period_end, current_period_end from stripe_subscriptions order by updated_at desc limit 3;
+```
+
+Oben müssen Zeilen stehen, `processed = true`, `error` leer; unten eine Zeile `active` oder `trialing`; und
+die App zeigt Pro. Dann dasselbe einmal mit „Lifetime" und einmal „Abo verwalten → Kündigen". **Sag mir
+danach Bescheid — ich lese nach (nur lesend) und bestätige dir schriftlich, was angekommen ist.** Erst
+danach Live-Schlüssel und Live-Preise.
+
+### Drei Dinge, die eine Entscheidung brauchen (keines eilt heute)
+
+Auf dem Brett stehen sie als Fragen an dich: brett:2026-11-11-23d2 · brett:2026-11-11-3ba5 · brett:2026-11-11-7f36.
+
+1. **Ein altes Probe-Abo gilt für immer als Pro.** Die Sicht, die der App den Plan nennt, fragt den Status
+   ab, nicht das Datum: die eine Zeile, die seit Mai auf `trialing` steht, schaltet weiter Pro frei. Sobald
+   der Webhook läuft, zieht er solche Zeilen nach — für Alt-Zeilen bräuchte es eine Datumsschranke in der
+   Sicht (eine Migration). Heute gibt es genau eine solche Zeile, und sie gehört zu einem Admin-Konto: ein
+   zahlender Kunde ist nicht betroffen.
+2. **Huflattich, Natternkopf, Borretsch** bilden Pyrrolizidinalkaloide. Das deutsche Bundesinstitut für
+   Risikobewertung nennt Borretsch und Huflattich ausdrücklich und empfiehlt, die Aufnahme so gering wie
+   möglich zu halten (Stellungnahmen 017/2019 und 026/2020). In der Artenliste stehen sie mit Warnhinweis,
+   aber uneinheitlich: Borretsch viermal als essbar, Huflattich und Natternkopf je nach Eintrag essbar oder
+   nicht. Ob dort „essbar" stehen soll, ist eine fachliche Entscheidung — ich ändere die Artenliste nicht
+   ohne Quelle und nicht ohne dich. Und bevor so eine Berichtigung ausgeliefert wird, sollte der
+   Meilenstein „Rückruf" stehen (wer die Art gescannt hat, erfährt es).
+3. **Die Reihenfolge der Meilensteine** (`ROADMAP.md`): zuerst fünf Fundamente, dann Winterschlaf ·
+   Rückruf · Notfall · Kontrollkette für Pilze · „Wie lange hält das Wasser hier?". Wenn du eine andere
+   Reihenfolge willst, ist jetzt der Moment.
+
+### Was dieser Lauf gekostet hat
+
+Die zehn Agenten haben dein Wochenkontingent verbraucht — in 66 Minuten, dann hat das Limit alle gestoppt.
+Zwei Scheiben waren übergeben, fünf nicht, geprüft war keine; fertig geworden ist jede erst danach, einzeln.
+Die Ideenrunde (`docs/ideen/2026-11-11/`) war es wert. Für das Bauen wäre ein kleinerer Lauf besser
+gewesen — wie, steht in `docs/memory/08-arbeitsweise.md` §11. Ich habe danach keine Agenten mehr gestartet.
+
+---
 
 ## Und wenn etwas schiefgeht
 

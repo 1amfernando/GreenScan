@@ -1,0 +1,16 @@
+{
+  "id": "2026-11-11-f87f",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:38:51",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "Nachtrag zu: Spanisch ist eine der fünf App-Sprachen, aber die Notfall-Erkennung beider Chats erkennt keinen spanischen Vergiftungssatz (0 von 8 gemessen)",
+  "text": "Ein Geschwister im Zweig claude/zahlungsweg-nachgemessen-011L7G (v33.60): der neue Notfall-Eintrag der Menue-Suche (MENU_ITEMS, _gsMenuNotfallTrifft) kannte fr/it/en, Spanisch nicht. Nachgetragen (emergencia, urgencia, envenenamiento, envenenado, veneno, intoxicacion mit und ohne Akzent); nutzersicht_check E15 traegt fuenf spanische Eingaben und war damit zuerst rot. Die Erkennung in den beiden Chats (_gsNotfallStufe) ist NICHT angefasst — dieser Befund bleibt dafuer offen.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-df0b"
+    }
+  ]
+}

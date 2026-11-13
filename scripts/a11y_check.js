@@ -163,11 +163,8 @@ const PRUEFUNG = () => {
   await p.addInitScript(SEED);
   await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
   await p.waitForTimeout(3500);
-  await p.evaluate(() => {
-    try { document.documentElement.classList.remove('gs-preauth'); } catch (e) {}
-    const o = document.getElementById('gs-onboarding');
-    if (o) o.style.setProperty('display', 'none', 'important');
-  });
+  // v33.60: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js).
+  await SEED.anmeldebildWeg(p);
   await p.waitForTimeout(400);
 
   console.log('\n=== a11y_check — bedienbar ohne Augen und ohne Maus?');
@@ -235,13 +232,27 @@ const PRUEFUNG = () => {
       if (r) r.style.display = 'block';
       return true;
     }],
+    // Seit der Foto-Ansicht (11.11.2026): ein Rezept MIT Foto — das Vorschaubild
+    // ist ein Bedienelement (es oeffnet die Ansicht), also braucht es einen
+    // Namen und muss mit der Tastatur erreichbar sein. Und die Ansicht selbst.
+    ['rezept-mit-foto', () => {
+      if (typeof openRecipeDetail !== 'function' || typeof recipesData === 'undefined' || !recipesData[0]) return false;
+      try { if (typeof switchTab === 'function') switchTab('recipes'); } catch (_) {}
+      recipesData[0].photo_urls = ['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAEUlEQVR4nGPQqzXCihgGUgIAJFopcWysNWAAAAAASUVORK5CYII='];
+      openRecipeDetail(recipesData[0].id);
+      return !!document.querySelector('#recipe-detail-body img');
+    }],
+    ['foto-ansicht', () => {
+      if (typeof gsFotoAnsicht !== 'function') return false;
+      return gsFotoAnsicht('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAEUlEQVR4nGPQqzXCihgGUgIAJFopcWysNWAAAAAASUVORK5CYII=') === true;
+    }],
   ];
   const jeFenster = {};
   for (const [name, oeffne] of FENSTER) {
     let auf = false;
     try { auf = await p.evaluate(new Function('return (' + oeffne.toString() + ')()')); } catch (_) { auf = false; }
     await p.waitForTimeout(600);
-    if (!auf) { jeFenster[name] = 'ging nicht auf'; continue; }
+    if (!auf) { jeFenster[name] = 'ging nicht auf'; rot++; continue; }
     const f = await p.evaluate(PRUEFUNG);
     // Ohne diese Zahl sieht ein Fenster, das gar nicht aufging, genauso aus
     // wie eines ohne Fehler — dieselbe Lehre wie bei contrast_check (v31.78).
@@ -252,7 +263,7 @@ const PRUEFUNG = () => {
     // aufgegangen wäre — genau die Falle, die contrast_check seit v31.78
     // benennt und die ich hier prompt selbst gebaut habe.
     const stellen = await p.evaluate((n) => {
-      const w = ['#detail-modal', '#scan-result', '.modal-overlay.open']
+      const w = ['#detail-modal', '#scan-result', '.modal-overlay.open', '#gs-foto-ansicht']
         .map(sel => document.querySelector(sel))
         .filter(el => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 20);
       if (!w.length) return -1;
@@ -265,7 +276,10 @@ const PRUEFUNG = () => {
       : f.length + ' Funde bei ' + stellen + ' Bedienelementen IM Fenster';
     if (stellen <= 0) { rot++; }
     f.forEach(x => { const k = x.art + '|' + x.wo + '|' + x.was; if (!alle.has(k)) alle.set(k, x); });
-    try { await p.evaluate(() => { if (typeof closeModal === 'function') { closeModal('detail-modal'); } }); } catch (_) {}
+    try { await p.evaluate(() => {
+      if (typeof closeModal === 'function') { closeModal('detail-modal'); closeModal('modal-recipe-detail'); }
+      const fa = document.getElementById('gs-foto-ansicht'); if (fa && typeof gsDismissOverlay === 'function') gsDismissOverlay(fa);
+    }); } catch (_) {}
     await p.waitForTimeout(250);
   }
 
@@ -374,6 +388,9 @@ const PRUEFUNG = () => {
   console.log('  je Tab (mit Wiederholungen): ' + TABS.map(t => t + '=' + jeTab[t]).join(' '));
   console.log('  je Fenster: ' + Object.keys(jeFenster).map(k => k + ' → ' + jeFenster[k]).join(' · '));
   console.log('  JS-Fehler: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
+  // v33.60: drei Zustaende — ein Lauf hinter dem Anmeldebildschirm ist weder gruen noch rot.
+  const anmeldebildStand = await p.evaluate(SEED.ANMELDEBILD_STEHT).catch(() => false);
   await br.close();
   process.exitCode = (summe || verhaltenRot || rot || errs.length) ? 1 : 0;
+  if (anmeldebildStand) { console.log('  !! ' + SEED.ANMELDEBILD_SATZ); process.exitCode = 2; }
 })();

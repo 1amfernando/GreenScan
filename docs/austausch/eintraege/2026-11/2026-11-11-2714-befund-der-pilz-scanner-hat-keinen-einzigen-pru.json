@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-11-2714",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:38:59",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "Der Pilz-Scanner hat keinen einzigen Prüfstand-Fall und schreibt keinen Scan-Verlauf",
+  "beleg": [
+    "grep -l 'gsMushroomRunScan\\|gsMushroomRenderResult' scripts/*.js → keine Datei (11.11.2026)",
+    "in den Funktionen des Pilz-Scanners steht kein gsAddScanHistory (gelesen 11.11.2026)"
+  ],
+  "text": "Der Bildschirm mit dem höchsten Einsatz der App (rotes Vollbild, „UNSICHER“-Zweig). Eine dort bestimmte Art fehlt in Verlauf, Kalender und Linas Kontext.",
+  "vorschlag": "ROADMAP.md F4: drei Fälle (tödlich · unsicher · essbar) aus dem gerenderten HTML, dann der Verlaufseintrag über den einen Leser.",
+  "stichworte": [
+    "gsMushroomRunScan",
+    "gsMushroomRenderResult",
+    "pilz-scanner",
+    "scan_check",
+    "gsAddScanHistory"
+  ]
+}

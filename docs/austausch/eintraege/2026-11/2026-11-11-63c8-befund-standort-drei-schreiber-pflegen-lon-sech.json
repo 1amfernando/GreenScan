@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-63c8",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:38:59",
+  "von": "sitzung/claude/zahlungsweg-nachgemessen-011L7G",
+  "stand": "v33.60",
+  "titel": "Standort: drei Schreiber pflegen lon, sechs Leser nehmen lng — der rote Fall liegt auf einem eigenen Branch",
+  "beleg": [
+    "Branch claude/ort-ein-leser-fall-011L7G: scripts/robust_check.js mit dem Fall dazu (rot gegen den heutigen Stand); gezählt am 11.11.2026, ROADMAP.md „Stufe 3“"
+  ],
+  "vorschlag": "Ein Leser für den Standort (wie _gsScanZeit und _gsFundZeit), die Schreiber bleiben; der Fall vom Branch wird damit grün.",
+  "stichworte": [
+    "gs_user_location",
+    "userLocation",
+    "lon",
+    "lng",
+    "standort"
+  ]
+}

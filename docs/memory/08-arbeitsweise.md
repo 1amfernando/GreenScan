@@ -146,3 +146,41 @@ gebaut", wird gegen `git show` gelesen, bevor es weitergeschrieben wird. Die
 Zusammenfassung zu v33.31 nannte drei Dinge als geliefert, die in keinem
 Commit standen; gefunden hat es ein Messender (v33.33). **Eine Zusammenfassung
 ist kein Diff.**
+
+## 11 · Wenn mehrere Agenten an einer Sache arbeiten (v33.60)
+
+Am 11.11.2026 haben zehn Agenten ueber ein Brett miteinander gesprochen — sieben
+davon haben in eigenen Arbeitsbaeumen gebaut, drei nur gelesen und Ideen
+geschrieben. Nach 66 Minuten hat das Nutzungslimit alle gestoppt: zwei Scheiben
+waren uebergeben, fuenf nicht, geprueft war keine. Was dabei galt, und was es gekostet hat:
+
+- **Der Befund eines Agenten ist eine Behauptung, bis ihn jemand nachmisst.**
+  Die Zahlungs-Scheibe kam mit einem Pruefstand, 40 von 40 gruen — gegen eine
+  Datenbank, die der Agent sich ausgedacht hatte (er durfte die echte nicht
+  lesen). Gegen die echte gehalten haette der neue Checkout jeden Lifetime-Kauf
+  abgelehnt. Wer zusammenfuehrt, faehrt den Pruefstand selbst, haelt die
+  Nachbildungen gegen die Wirklichkeit und macht mindestens zwei EIGENE
+  Gegenproben je Scheibe.
+- **Ein Agent ohne Zugriff auf die Wirklichkeit sagt, was er NICHT messen
+  konnte** — und der Zusammenfuehrende misst genau das nach (nur lesend).
+- **Unfertiges wird gesichert, nicht uebernommen.** Eine Scheibe ohne Code
+  (nur der rote Fall) bleibt auf ihrem Zweig; in STATUS §2 steht, was gemessen
+  ist und was fehlt.
+- **Zwei Kerne tragen keine acht Browser.** Unter Last haben vier Pruefstaende
+  den Anmeldebildschirm vermessen und gruen gemeldet (seit v33.60: „nicht
+  pruefbar", Exit 2). Die Suite laeuft auf einer RUHIGEN Maschine.
+- **Versionsmarken schreibt, wer ausliefert.** Die Agenten haben ihre Aenderung
+  mit der naechsten freien Nummer markiert — die inzwischen ein anderer PR
+  trug. Marken kommen beim Zusammenfuehren, nicht beim Bauen.
+- **Ein naechster Lauf ist kleiner.** Hoechstens drei bauende Agenten auf zwei
+  Kernen. Jeder uebergibt nach JEDER fertigen Scheibe (ein Commit mit Messung
+  und Gegenprobe), nicht am Ende — das Limit kuendigt sich nicht an. Was nur
+  der Zusammenfuehrende messen darf (die Live-Datenbank, nur lesend), wird VOR
+  dem Start gemessen und mitgegeben. Ideen-Agenten laufen getrennt vom Bauen:
+  ihre Zahlen sind Rohmaterial (`docs/ideen/`), bis sie jemand nachmisst.
+- **Der zweite Durchgang gehoert dem Zusammenfuehrenden allein.** Die meisten
+  Funde vom 11.11. kamen NACH dem Lauf, beim Lesen des eigenen Stands gegen
+  die Wirklichkeit: sechs Luecken im Zahlungsweg (gegen Stripes Referenz), der
+  Pruefstand, der einen Bildschirm je Tab mass, zwei tote Knoepfe im Kalender,
+  ein Pflegeverlauf mit Loch. Frage dabei: „und was, wenn es das schon gibt —
+  oder die Kennung nicht mehr stimmt — oder die andere Liste gemeint ist?"

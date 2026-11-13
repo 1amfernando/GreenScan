@@ -281,6 +281,155 @@ const FAELLE = [
       return { ok: true, info: '1 Bild (https), javascript: ohne <img>, beide Funde in der Liste' };
     },
   },
+  {
+    // v33.60 · gemessen am 11.11.2026: openPlantDiary setzte den Titel eines Eintrags roh ins
+    // innerHTML und die Foto-Adresse roh ins src-Attribut. Beide kommen aus `p.diary` — also aus
+    // dem gesyncten Blob oder aus einem eingespielten Backup, nicht nur aus dieser App. Ein Titel
+    // mit einem Tag lief als Code, eine Adresse mit einem Anfuehrungszeichen brach aus dem Attribut
+    // aus. Geprueft wird die WIRKUNG (window.__pwned bleibt unberuehrt) UND dass der Wert dasteht —
+    // ein Leser, der den Titel verschluckt, waere auch „sicher".
+    name: 'Pflanzentagebuch · ein Titel mit <img onerror> steht als Text, eine Foto-Adresse mit Anführungszeichen bricht nicht aus dem Attribut aus, javascript: bekommt kein <img> — https und data:image schon',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        const p = (myPlants || []).find(x => x && x.id === 'p2');
+        if (!p) return { fehlt: 'p2' };
+        const alt = p.diary;
+        const t0 = Date.now();
+        delete window.__pwned;
+        p.diary = [
+          { ts: t0 - 1000, action: 'note', title: 'Titel <img src=x onerror="window.__pwned=\'titel\'">', note: 'eins' },
+          { ts: t0 - 2000, action: 'photo', title: 'Foto A', photo: 'x" onerror="window.__pwned=\'foto\'' },
+          { ts: t0 - 3000, action: 'photo', title: 'Foto B', photo: 'javascript:window.__pwned=\'js\'' },
+          { ts: t0 - 4000, action: 'photo', title: 'Foto C', photo: 'https://bilder.example/c.jpg' },
+          { ts: t0 - 5000, action: 'photo', title: 'Foto D', photo: 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=' },
+        ];
+        try {
+          openPlantDiary('p2');
+          await new Promise(r => setTimeout(r, 450));       // ein fehlschlagendes Bild braucht Zeit fuer onerror
+          const m = document.getElementById('plant-diary-modal');
+          if (!m) return { fehlt: 'modal' };
+          // ohne die Vorschau des Erfassungs-Formulars (#diary-photo-img) — die traegt kein Foto eines Eintrags
+          const imgs = Array.from(m.querySelectorAll('img:not(#diary-photo-img)'));
+          return {
+            pwned: window.__pwned === undefined ? null : String(window.__pwned),
+            text: m.textContent.indexOf('Titel <img src=x onerror=') >= 0,
+            srcs: imgs.map(i => i.getAttribute('src')),
+            attr: imgs.filter(i => i.hasAttribute('onerror')).length,
+            klick: imgs.map(i => i.getAttribute('onclick') || ''),
+            namen: ['Foto A', 'Foto B', 'Foto C', 'Foto D'].filter(n => m.textContent.indexOf(n) >= 0).length,
+          };
+        } finally {
+          p.diary = alt;
+          const m2 = document.getElementById('plant-diary-modal'); if (m2) m2.remove();
+          delete window.__pwned;
+        }
+      });
+      if (r.fehlt) return { ok: false, warum: 'Fall nicht hergestellt: ' + r.fehlt + ' fehlt' };
+      const klagen = [];
+      if (r.pwned !== null) klagen.push('Code lief (window.__pwned = „' + r.pwned + '")');
+      if (!r.text) klagen.push('der Titel steht nicht als sichtbarer Text da');
+      if (r.attr) klagen.push(r.attr + ' Bild(er) tragen ein onerror-Attribut — die Adresse brach aus dem src aus');
+      if (r.namen !== 4) klagen.push('nur ' + r.namen + ' von 4 Einträgen stehen da');
+      const erwartet = ['https://bilder.example/c.jpg', 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA='];
+      if (JSON.stringify(r.srcs) !== JSON.stringify(erwartet)) klagen.push('Bilder: ' + JSON.stringify(r.srcs) + ' statt genau https und data:image');
+      if (r.klick.some(k => k !== 'gsFotoAnsicht(this.src)')) klagen.push('ein Foto öffnet nicht über gsFotoAnsicht(this.src): ' + JSON.stringify(r.klick));
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Titel als Text · 2 Bilder (https, data:image) · javascript: und die Adresse mit Anführungszeichen ohne <img> · kein Code lief' };
+    },
+  },
+  {
+    // Gemessen am 11.11.2026: die Adresse eines Rezeptfotos stand nur mit
+    // gsHTMLEscape in einem JS-String im onclick (`window.open('<adresse>','_blank')`)
+    // — der Wert durchlaeuft ZWEI Parser, ein `'` beendet den String (v32.66).
+    // Seither bekommt das Vorschaubild nur `gsFotoAnsicht(this.src)`, und die
+    // Ansicht laedt keine Adresse, die `_gsFotoAdresse` nicht kennt.
+    name: 'Foto-Ansicht · eine Adresse mit Apostroph laeuft nicht als Code, javascript:/data:text/fremdes blob: oeffnen nichts, https · data:image · eigenes blob: oeffnen genau EIN Bild',
+    lauf: async () => {
+      const anfragenVor = __anfragen.length;
+      const r = await __seite.evaluate(async () => {
+        const warte = (ms) => new Promise(r => setTimeout(r, ms));
+        const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAEUlEQVR4nGPQqzXCihgGUgIAJFopcWysNWAAAAAASUVORK5CYII=';
+        const KNACK = "https://bilder.example/a.jpg');window.__pwned=1;('";
+        const out = { pwned0: window.__pwned };
+        const rz = recipesData[0]; const vorher = rz.photo_urls;
+        const echtOpen = window.open; let hinaus = 0; window.open = function () { hinaus++; return null; };
+        const ansicht = () => document.getElementById('gs-foto-ansicht');
+        const weg = async () => { const a = ansicht(); if (a) { try { gsDismissOverlay(a); } catch (_) { a.remove(); } } await warte(60); };
+        try {
+          // 1 · das Rezept: drei Adressen aus fremder Hand
+          rz.photo_urls = ['https://bilder.example/gut.jpg', 'javascript:window.__pwned=1', KNACK];
+          openRecipeDetail(rz.id);
+          await warte(400);
+          const imgs = Array.from(document.querySelectorAll('#recipe-detail-body img'));
+          out.srcs = imgs.map(i => i.getAttribute('src'));
+          out.fremdeAttribute = imgs.filter(i => Array.from(i.attributes).some(a => /^on(error|load|mouse)/.test(a.name))).length;
+          for (const i of imgs) { try { i.click(); } catch (e) { out.klickFehler = e.message; } await warte(120); await weg(); }
+          out.pwnedNachKlick = window.__pwned;
+          out.hinaus = hinaus;
+          // 2 · die Ansicht selbst
+          out.hatFunktion = typeof gsFotoAnsicht === 'function';
+          const probe = async (u) => {
+            let rueck = null;
+            try { rueck = gsFotoAnsicht(u); } catch (e) { rueck = 'FEHLER ' + e.message; }
+            await warte(120);
+            const a = ansicht();
+            // Ein Bild, das nicht laedt (hier ist das Netz gekappt), wird durch einen
+            // Satz ersetzt — auch das ist „genau ein Inhalt", nur kein <img>.
+            const erg = { rueck: rueck, offen: !!a, bilder: a ? a.querySelectorAll('img').length : 0,
+              src: a && a.querySelector('img') ? a.querySelector('img').getAttribute('src') : null,
+              satz: a && a.querySelector('[role="status"]') ? a.querySelector('[role="status"]').textContent : null,
+              kinder: a ? a.querySelectorAll('*').length : 0,
+              skripte: a ? a.querySelectorAll('script, iframe, [onerror], [onload]').length : 0 };
+            await weg();
+            return erg;
+          };
+          const blobUrl = URL.createObjectURL(new Blob([Uint8Array.from(atob(PNG.split(',')[1]), c => c.charCodeAt(0))], { type: 'image/png' }));
+          out.boese = {};
+          const BOESE_ADRESSEN = ['javascript:window.__pwned=1', 'JaVaScRiPt:window.__pwned=1', 'data:text/html,<script>window.__pwned=1<\/script>',
+            'vbscript:x', '//evil.example/x.png', 'blob:https://evil.example/00000000-0000-0000-0000-000000000000',
+            'file:///etc/passwd', 'gsphoto://7', '', null];
+          for (const u of BOESE_ADRESSEN) out.boese[String(u)] = out.hatFunktion ? await probe(u) : null;
+          out.gut = {};
+          out.gut.https = out.hatFunktion ? await probe('https://bilder.example/x.jpg"><img src=x onerror="window.__pwned=1">') : null;
+          out.gut.data = out.hatFunktion ? await probe(PNG) : null;
+          out.gut.blob = out.hatFunktion ? await probe(blobUrl) : null;
+          out.blobUrl = blobUrl; out.PNG = PNG;
+          out.pwned = window.__pwned;
+          out.imgX = document.querySelectorAll('img[src="x"]').length;
+        } finally {
+          window.open = echtOpen; rz.photo_urls = vorher;
+          await weg();
+          try { closeModal('modal-recipe-detail'); } catch (_) {}
+          await warte(250);
+        }
+        return out;
+      });
+      const neu = __anfragen.slice(anfragenVor);
+      const boeseAnfragen = neu.filter(u => /evil\.example|etc\/passwd/.test(u));
+      if (r.pwned0 !== undefined) return { ok: false, warum: '__pwned war schon vor dem Fall gesetzt — der Fall misst nichts' };
+      if (r.pwnedNachKlick !== undefined) return { ok: false, warum: 'Code lief beim Antippen eines Rezeptfotos (die Adresse mit Apostroph brach aus dem onclick aus) — ' + r.hinaus + '× window.open' };
+      if (r.hinaus) return { ok: false, warum: r.hinaus + '× window.open beim Antippen der Rezeptfotos — das Foto verlaesst die App' };
+      if (r.fremdeAttribute) return { ok: false, warum: r.fremdeAttribute + ' Vorschaubild(er) mit eingeschleustem on*-Attribut' };
+      if (!r.srcs || r.srcs.length !== 2 || r.srcs.some(s => /^javascript:/i.test(s))) return { ok: false, warum: 'Vorschaubilder im Rezept: ' + JSON.stringify(r.srcs) + ' (erwartet zwei https-Bilder, keines mit javascript:)' };
+      if (!r.hatFunktion) return { ok: false, warum: 'gsFotoAnsicht fehlt' };
+      const durch = Object.keys(r.boese).filter(k => r.boese[k].offen || r.boese[k].rueck !== false);
+      if (durch.length) return { ok: false, warum: durch.length + ' von ' + Object.keys(r.boese).length + ' unerlaubten Adressen oeffneten die Ansicht: ' + durch.map(k => JSON.stringify(k) + ' → ' + JSON.stringify(r.boese[k])).join(' · ') };
+      if (boeseAnfragen.length) return { ok: false, warum: 'eine abgewiesene Adresse wurde trotzdem angefragt: ' + boeseAnfragen.slice(0, 2).join(', ') };
+      const g = r.gut;
+      const schlecht = [];
+      // https: hier ist das Netz gekappt — die Ansicht fragt die Adresse GENAU EINMAL an
+      // (das Markup darin prozent-kodiert, nicht als Markup) und zeigt dann den Satz.
+      const httpsAnfragen = neu.filter(u => /^https:\/\/bilder\.example\/x\.jpg/.test(u));
+      if (!(g.https.rueck === true && g.https.offen && g.https.skripte === 0 && g.https.bilder + (g.https.satz ? 1 : 0) === 1
+            && httpsAnfragen.length === 1 && /%22%3E%3Cimg/.test(httpsAnfragen[0]) && !/[<>"]/.test(httpsAnfragen[0])))
+        schlecht.push('https: ' + JSON.stringify(g.https) + ' · Anfragen ' + JSON.stringify(httpsAnfragen));
+      if (!(g.data.rueck === true && g.data.offen && g.data.bilder === 1 && g.data.src === r.PNG)) schlecht.push('data:image: ' + JSON.stringify(g.data).slice(0, 120));
+      if (!(g.blob.rueck === true && g.blob.offen && g.blob.bilder === 1 && g.blob.src === r.blobUrl)) schlecht.push('eigenes blob: ' + JSON.stringify(g.blob));
+      if (schlecht.length) return { ok: false, warum: 'eine ERLAUBTE Adresse oeffnet die Ansicht nicht mit genau einem Bild: ' + schlecht.join(' · ') };
+      if (r.pwned !== undefined || r.imgX) return { ok: false, warum: 'Code lief oder ein <img src=x> entstand: ' + JSON.stringify({ pwned: r.pwned, imgX: r.imgX }) };
+      return { ok: true, info: 'Rezept: 2 Bilder (javascript: ohne <img>), Apostroph-Adresse angetippt → nichts lief, 0× window.open · ' + Object.keys(r.boese).length + ' unerlaubte Adressen: keine Ansicht, 0 Anfragen · https (mit Markup in der Adresse: 1 Anfrage, prozent-kodiert, dann der Satz „' + (g.https.satz || 'Bild') + '") · data:image · eigenes blob: je genau 1 Bild' };
+    },
+  },
 ];
 
 var __anfragen = [];

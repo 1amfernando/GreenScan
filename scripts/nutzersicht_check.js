@@ -517,6 +517,298 @@ const FAELLE = [
       }
     }),
   },
+  {
+    name: 'E12 · Saatgut-Inventar: der Knopf zum Erfassen spricht Deutsch („+ Hinzufügen"), sein Text geht durch die Sprachschicht, er steht unter den Feldern statt daneben — und im Fenster steht kein englisches „Add"',
+    lauf: async () => __seite.evaluate(async () => {
+      // GARTEN, 11.11.2026: der Knopf hiess „+ Add" — der einzige englische in einer deutschen
+      // Oberflaeche, fest verdrahtet (keine Sprache bekam je eine Uebersetzung). Zwei Richtungen:
+      // Deutsch steht da, UND ein Sprachpaket kommt an (ein fest verdrahtetes „+ Hinzufügen"
+      // waere sonst ebenfalls gruen). Und der Platz: mit dem deutschen Wort in der alten
+      // Dreier-Zeile blieben dem Datumsfeld bei 360 px Breite 64 px.
+      const alt = localStorage.getItem('gs_seed_inventory');
+      const tAlt = window.gsI18n && gsI18n.t;
+      const knopfVon = () => document.querySelector('#gs-nl-body button[onclick="gsSeedAdd()"]');
+      try {
+        localStorage.setItem('gs_seed_inventory', JSON.stringify([{ name: 'Tomate Ochsenherz', qty: '20 Stk', expires: null, ts: 1 }]));
+        gsOpenSeedInventory();
+        await new Promise(r => setTimeout(r, 450));
+        const body = document.getElementById('gs-nl-body'), knopf = knopfVon();
+        if (!body || !knopf) return { ok: false, warum: 'das Saatgut-Fenster zeigt keinen Knopf mit gsSeedAdd()' };
+        const klagen = [], de = (knopf.textContent || '').trim();
+        if (de !== '+ Hinzufügen') klagen.push('der Knopf sagt „' + de + '" statt „+ Hinzufügen"');
+        // je Bedienelement gelesen — im Fliesstext des Fensters klebt der Knopftext ohne Abstand an der Liste
+        const eng = Array.from(body.querySelectorAll('button, input')).map(x => ((x.textContent || '') + ' ' + (x.getAttribute('placeholder') || '')).trim()).filter(t => /\bAdd\b/.test(t));
+        if (eng.length) klagen.push('im Fenster steht das englische „Add": „' + eng.join('", „') + '"');
+        // Platz: der Knopf steht UNTER den zwei Feldern, und die teilen sich die Zeile
+        const k = knopf.getBoundingClientRect(), q = document.getElementById('gs-s-qty').getBoundingClientRect(), d = document.getElementById('gs-s-exp').getBoundingClientRect();
+        if (!(k.width > 0 && d.width > 0)) klagen.push('Knopf oder Datumsfeld nicht sichtbar (' + Math.round(k.width) + ' / ' + Math.round(d.width) + ' px) — der Fall misst nichts');
+        if (k.top < d.bottom - 1) klagen.push('der Knopf steht NEBEN den Feldern (Knopf ' + Math.round(k.width) + ' px, Datumsfeld ' + Math.round(d.width) + ' px) — ein längeres Wort drückt das Datum zusammen');
+        // die Sprachschicht: mit Paket die Uebersetzung
+        let fr = '';
+        if (typeof tAlt !== 'function') klagen.push('gsI18n.t ist nicht erreichbar');
+        else {
+          gsI18n.t = function (key, fb) { return key === 'seed_add_btn' ? 'PRUEFSTAND-FR' : tAlt.apply(gsI18n, arguments); };
+          gsOpenSeedInventory();
+          fr = ((knopfVon() || {}).textContent || '').trim();
+          if (fr !== 'PRUEFSTAND-FR') klagen.push('mit Sprachpaket zeigt der Knopf „' + fr + '" — sein Text geht nicht durch die Sprachschicht (Schlüssel seed_add_btn)');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'deutsch „' + de + '" · mit Sprachpaket „' + fr + '" · Knopf ' + Math.round(k.width) + ' px unter den Feldern (Menge ' + Math.round(q.width) + ' px · Datum ' + Math.round(d.width) + ' px) · kein „Add" im Fenster' };
+      } finally {
+        if (typeof tAlt === 'function') gsI18n.t = tAlt;
+        if (alt == null) localStorage.removeItem('gs_seed_inventory'); else localStorage.setItem('gs_seed_inventory', alt);
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    }),
+  },
+  {
+    name: 'E13 · Ein Kauf, den das Konto schon hat, ist kein Fehler: ein Satz statt „Checkout fehlgeschlagen", das Zahlungsfenster geht zu, und der Bildschirm zeigt danach den frischen Stand — ein echter Fehler bleibt ein Fehler; und wer Lifetime hat, liest auf seiner eigenen Karte nicht „ausverkauft"',
+    lauf: async () => __seite.evaluate(async () => {
+      // 11.11.2026: der Abo-Bildschirm entscheidet aus `gs_abo_plan` (Gerätespeicher), was er anbietet.
+      // Ist der Stand alt (zweites Gerät, Tab von gestern), bietet er ein Abo an, das das Konto schon hat —
+      // gemerkt wird es erst vom Server (stripe-checkout: 409 mit Kennung). Gestellt ist hier NUR der Rand:
+      // das Netz (fetch, sbFetch) und das Zahlungsfenster. Angetippt wird der echte Knopf.
+      const schluessel = ['gs_abo_plan', 'gs_ent_scans_per_month', 'gs_ent_ai_herbalist', 'gs_ent_offline_mode', 'gs_ent_recipes_export'];
+      const alt = { fetch: window.fetch, sbFetch: window.sbFetch, sbIsLoggedIn: window.sbIsLoggedIn, tok: window._gsFreshToken, fenster: window._gsCheckoutFenster, toast: window.gsToast, frage: window.gsConfirmModal, ls: schluessel.map((k) => localStorage.getItem(k)) };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const toasts = [], fragen = [], klagen = [];
+      let antwort = null, launch = null, tierJetzt = 'free', tierDanach = 'pro', versucht = false, popup = null;
+      const knopf = (was) => document.querySelector('#modal-content button[onclick*="gsStartCheckout(\'' + was + '\'"]');
+      const karte = () => document.getElementById('abo-lifetime-card');
+      const note = () => ((document.getElementById('abo-launch-note') || {}).textContent || '');
+      const grau = () => /grayscale/.test((karte() && karte().style.filter) || '');
+      try {
+        window.sbIsLoggedIn = () => true;
+        window._gsFreshToken = async () => 'pruefstand';
+        window._gsCheckoutFenster = () => { popup = { closed: false, document: { write() {}, body: {} }, location: {}, close() { this.closed = true; } }; return popup; };
+        window.gsToast = (m) => { toasts.push(m); };
+        window.gsConfirmModal = async (o) => { fragen.push(o); return false; };
+        window.sbFetch = async (pfad) => {
+          const p = String(pfad);
+          if (p.indexOf('stripe_prices') >= 0) return { data: [{ id: 'price_monat', metadata: { lookup_key: 'pro_monthly' } }, { id: 'price_leben', metadata: { lookup_key: 'pro_lifetime' } }], error: null };
+          if (p.indexOf('v_user_entitlements') >= 0) return { data: [{ tier: versucht ? tierDanach : tierJetzt, scans_per_month: 0 }], error: null };
+          if (p.indexOf('rpc/launch_offer_available') >= 0) return { data: launch, error: null };
+          return { data: [], error: null };
+        };
+        window.fetch = async (url) => {
+          if (String(url).indexOf('/functions/v1/stripe-checkout') < 0) throw new Error('kein Netz im Pruefstand');
+          versucht = true;
+          return { ok: antwort.status < 400, status: antwort.status, json: async () => antwort.body };
+        };
+        const zeige = async (plan) => { versucht = false; toasts.length = 0; fragen.length = 0; popup = null; tierJetzt = plan; localStorage.setItem('gs_abo_plan', plan); gsShowAboScreen(); await warte(300); };
+
+        // 1 · der Bildschirm bietet ein Abo an (Stand auf dem Geraet: frei) — das Konto hat aber eines
+        launch = { available: true, logged_in: true, claimed: 3 };
+        antwort = { status: 409, body: { error: 'This account already has a running subscription', grund: 'abo_laeuft' } };
+        tierDanach = 'pro';
+        await zeige('free');
+        if (!knopf('pro_monthly')) return { ok: false, warum: 'der Abo-Bildschirm zeigt keinen Kauf-Knopf — der Fall misst nichts' };
+        knopf('pro_monthly').click();
+        await warte(600);
+        const t1 = toasts.find((t) => t && typeof t === 'object' && /laufendes Abo/.test(String(t.body)));
+        if (fragen.length) klagen.push('„hast du schon": der Dialog „' + String(fragen[0].title) + '" erscheint (mit dem Angebot, dem Support zu schreiben)');
+        if (!t1) klagen.push('„hast du schon": kein Satz dazu — Meldungen: ' + JSON.stringify(toasts).slice(0, 160));
+        else if (!/freigeschaltet/.test(String(t1.title)) || /already has/.test(String(t1.body))) klagen.push('„hast du schon": die Meldung sagt „' + t1.title + ' · ' + t1.body + '"');
+        if (!popup || popup.closed !== true) klagen.push('„hast du schon": das Zahlungsfenster bleibt offen');
+        if (localStorage.getItem('gs_abo_plan') !== 'pro') klagen.push('„hast du schon": der Stand wurde nicht neu geholt (gs_abo_plan = ' + localStorage.getItem('gs_abo_plan') + ')');
+        if (knopf('pro_monthly')) klagen.push('„hast du schon": der Bildschirm bietet das Abo danach weiter an');
+        else if (!/Aktiv/.test((document.getElementById('modal-content') || {}).textContent || '')) klagen.push('„hast du schon": der neu gezeichnete Bildschirm zeigt keinen aktiven Plan');
+
+        // 2 · ein echter Fehler bleibt ein Fehler — mit dem Satz des Servers, und der Bildschirm bleibt stehen
+        antwort = { status: 500, body: { error: 'Stripe sagt etwas' } };
+        await zeige('free');
+        knopf('pro_monthly').click();
+        await warte(600);
+        if (fragen.length !== 1 || !/Stripe sagt etwas/.test(String(fragen[0].message))) klagen.push('echter Fehler: ' + fragen.length + ' Dialoge' + (fragen[0] ? ' · „' + String(fragen[0].message).slice(0, 90) + '"' : '') + ' (erwartet einer mit dem Satz des Servers)');
+        if (!knopf('pro_monthly')) klagen.push('echter Fehler: der Kauf-Knopf ist danach weg');
+        if (toasts.some((t) => t && typeof t === 'object' && /freigeschaltet|Ausverkauft/.test(String(t.title)))) klagen.push('echter Fehler: gemeldet als „schon freigeschaltet"');
+
+        // 3 · beim Oeffnen noch frei, beim Antippen vergeben: ein Satz, und die Karte zeigt es danach
+        launch = { available: true, logged_in: true, claimed: 99 };
+        antwort = { status: 410, body: { error: 'Launch offer fully booked', grund: 'launch_ausverkauft' } };
+        tierDanach = 'free';
+        await zeige('free');
+        if (grau() || !knopf('pro_lifetime') || knopf('pro_lifetime').disabled) klagen.push('frei (99 von 100): die Karte ist grau oder der Knopf gesperrt');
+        launch = { available: false, logged_in: true, claimed: 100 };
+        knopf('pro_lifetime').click();
+        await warte(900);
+        const t3 = toasts.find((t) => t && typeof t === 'object' && /Ausverkauft/.test(String(t.title)));
+        if (fragen.length || !t3 || !/100/.test(String(t3.body))) klagen.push('ausverkauft beim Antippen: Dialoge ' + fragen.length + ' · Meldung ' + JSON.stringify(t3 || toasts).slice(0, 140));
+        if (!grau() || !/Ausverkauft/.test(note()) || !knopf('pro_lifetime') || !knopf('pro_lifetime').disabled) klagen.push('ausverkauft: nach dem neuen Zeichnen grau=' + grau() + ' · Zeile „' + note() + '" · Knopf gesperrt=' + !!(knopf('pro_lifetime') && knopf('pro_lifetime').disabled));
+
+        // 4 · wer Lifetime HAT: die eigene Karte ist nicht grau und sagt nicht „ausverkauft"
+        launch = { available: false, logged_in: true, claimed: 100 };
+        await zeige('lifetime');
+        if (grau() || /Ausverkauft/.test(note()) || !/schon gekauft/.test(note())) klagen.push('Lifetime-Konto, alle Plätze vergeben: grau=' + grau() + ' · Zeile „' + note() + '"');
+
+        // 5 · nicht feststellbar (die Antwort hat eine Form, die es nie gab): nichts wird behauptet
+        launch = true;
+        await zeige('free');
+        if (grau() || /Ausverkauft|schon gekauft/.test(note()) || !knopf('pro_lifetime') || knopf('pro_lifetime').disabled) klagen.push('nicht feststellbar: grau=' + grau() + ' · Zeile „' + note() + '"');
+
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '409 „abo_laeuft" → Satz „' + t1.title + '", 0 Dialoge, Fenster zu, Stand neu (pro), kein Kauf-Knopf mehr · 500 → 1 Dialog mit dem Satz des Servers · 410 beim Antippen → „' + t3.title + '", Karte grau, Knopf gesperrt · Lifetime-Konto: Karte nicht grau, „schon gekauft" · nicht feststellbar: nichts behauptet' };
+      } finally {
+        window.fetch = alt.fetch; window.sbFetch = alt.sbFetch; window.sbIsLoggedIn = alt.sbIsLoggedIn; window._gsFreshToken = alt.tok; window._gsCheckoutFenster = alt.fenster; window.gsToast = alt.toast; window.gsConfirmModal = alt.frage;
+        schluessel.forEach((k, i) => { if (alt.ls[i] == null) localStorage.removeItem(k); else localStorage.setItem(k, alt.ls[i]); });
+        try { closeModal('detail-modal'); } catch (_) {}
+      }
+    }),
+  },
+  {
+    name: 'E14 · „Abo verwalten" sagt nur, was die App weiss: wer nie gekauft hat, liest einen Satz ohne „Support"; ein geschlossenes Portal-Fenster ist keine Kündigung und keine Reaktivierung; ein echter Fehler nennt den Support einmal — und ein Objekt wird nie zu „[object Object]"',
+    lauf: async () => __seite.evaluate(async () => {
+      const alt = { fetch: window.fetch, sbIsLoggedIn: window.sbIsLoggedIn, tok: window._gsFreshToken, fenster: window._gsCheckoutFenster, toast: window.gsToast, laden: window.gsLoadEntitlements, karte: window.gsRefreshSubInfoCardRetry };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const toasts = [], klagen = [], gesendet = [];
+      let antwort = null, popup = null;
+      const text = (t) => (t && typeof t === 'object') ? String(t.title || '') + ' | ' + String(t.body || '') : String(t);
+      try {
+        window.sbIsLoggedIn = () => true;
+        window._gsFreshToken = async () => 'pruefstand';
+        window._gsCheckoutFenster = () => { popup = { closed: false, document: { write() {}, body: {} }, location: {}, close() { this.closed = true; } }; return popup; };
+        window.gsToast = (m) => { toasts.push(m); };
+        window.gsLoadEntitlements = async () => null;
+        window.gsRefreshSubInfoCardRetry = () => {};
+        window.fetch = async (url, init) => {
+          if (String(url).indexOf('/functions/v1/stripe-portal') < 0) throw new Error('kein Netz im Pruefstand');
+          try { gesendet.push(JSON.parse(init.body)); } catch (_) { gesendet.push(null); }
+          return { ok: antwort.status < 400, status: antwort.status, json: async () => antwort.body };
+        };
+        const oeffne = async (flow, a) => { toasts.length = 0; popup = null; antwort = a; await gsOpenBillingPortal(flow); await warte(60); };
+
+        // 1 · nie gekauft (die neue Function nennt die Kennung): ein Satz, kein „Support", keine Fehlermeldung
+        await oeffne(undefined, { status: 404, body: { error: 'No Stripe customer found', grund: 'kein_kunde', hint: 'Noch kein Abo gestartet — das Portal gibt es erst nach dem ersten Kauf.' } });
+        const t1 = toasts[toasts.length - 1];
+        if (!t1 || t1.type !== 'info' || /info@|Support|nicht verfügbar|No Stripe/.test(text(t1)) || !/ersten Kauf/.test(text(t1))) klagen.push('nie gekauft: „' + text(t1) + '" (Art ' + (t1 && t1.type) + ')');
+        if (!popup || popup.closed !== true) klagen.push('nie gekauft: das Fenster bleibt offen');
+        // … und die Function bis v5 (ohne Kennung) wird gleich gelesen
+        await oeffne(undefined, { status: 404, body: { error: 'No Stripe customer found', hint: 'User hat noch kein Abo gestartet. Erst Plus/Pro buchen, dann Portal verfügbar.' } });
+        const t1b = toasts[toasts.length - 1];
+        if (!t1b || t1b.type !== 'info' || /Plus\/Pro|User hat/.test(text(t1b))) klagen.push('nie gekauft, alte Function: „' + text(t1b) + '"');
+        // … ein ANDERES 404 (die Function gibt es nicht) ist kein „nie gekauft"
+        await oeffne(undefined, { status: 404, body: { code: 'NOT_FOUND', message: 'Requested function was not found' } });
+        const t1c = toasts[toasts.length - 1];
+        if (!t1c || t1c.type !== 'error' || /ersten Kauf/.test(text(t1c))) klagen.push('die Function fehlt: „' + text(t1c) + '" (Art ' + (t1c && t1c.type) + ') — als „nie gekauft" gemeldet');
+
+        // 2 · Stripe kennt den Kunden nicht mehr: der Support steht EINMAL da
+        await oeffne(undefined, { status: 404, body: { error: 'No Stripe customer found', grund: 'kunde_unbekannt', hint: 'Zu diesem Konto gibt es bei Stripe keinen Kunden (mehr) — bitte melde dich beim Support.' } });
+        const t2 = toasts[toasts.length - 1];
+        if (!t2 || t2.type !== 'error' || (text(t2).match(/info@greenscan\.ch/g) || []).length !== 1 || !/Bitte schreib uns/.test(text(t2)) || /melde dich beim Support/.test(text(t2))) klagen.push('Kunde unbekannt: „' + text(t2) + '" (erwartet der Satz der App, mit der Adresse genau einmal)');
+
+        // 3 · ein Fehler mit einem OBJEKT (so antwortet das Gateway): ein Satz mit der Nummer
+        await oeffne(undefined, { status: 500, body: { error: { message: 'boom' } } });
+        const t3 = toasts[toasts.length - 1];
+        if (!t3 || /object Object/.test(text(t3)) || !/500/.test(text(t3)) || !/info@greenscan\.ch/.test(text(t3))) klagen.push('Objekt als Fehler: „' + text(t3) + '"');
+
+        // 4 · das Portal ging auf und wurde geschlossen: die App behauptet weder Kündigung noch Reaktivierung
+        for (const flow of ['reactivate', 'cancel']) {
+          await oeffne(flow, { status: 200, body: { url: 'https://billing.stripe.com/p/session/pruefstand', flow: 'default' } });
+          if (!popup || popup.location.href !== 'https://billing.stripe.com/p/session/pruefstand') { klagen.push(flow + ': das Fenster zeigt nicht auf das Portal'); continue; }
+          if (!gesendet.length || gesendet[gesendet.length - 1].flow !== flow || !gesendet[gesendet.length - 1].locale) klagen.push(flow + ': gesendet ' + JSON.stringify(gesendet[gesendet.length - 1]));
+          popup.closed = true;
+          await warte(1100);
+          const t4 = toasts[toasts.length - 1];
+          if (!t4) klagen.push(flow + ': nach dem Schliessen sagt die App nichts');
+          else if (/wird verarbeitet|Reaktivierung|Kündigung/.test(text(t4))) klagen.push(flow + ': nach dem blossen Schliessen des Fensters steht „' + text(t4) + '" — das hat niemand nachgesehen');
+          else if (!/neu geladen/.test(text(t4))) klagen.push(flow + ': „' + text(t4) + '"');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'nie gekauft → „' + text(t1).slice(0, 60) + '" (Hinweis, kein Support) · alte Function gleich gelesen · fehlende Function bleibt ein Fehler · Kunde unbekannt → Support einmal · Objekt → Satz mit 500 · Fenster geschlossen → „' + text(toasts[toasts.length - 1]).slice(0, 44) + '…"' };
+      } finally {
+        window.fetch = alt.fetch; window.sbIsLoggedIn = alt.sbIsLoggedIn; window._gsFreshToken = alt.tok; window._gsCheckoutFenster = alt.fenster; window.gsToast = alt.toast; window.gsLoadEntitlements = alt.laden; window.gsRefreshSubInfoCardRetry = alt.karte;
+        window._gsBillingPopup = false;
+      }
+    }),
+  },
+  {
+    // v33.60 · gemessen am 11.11.2026 (Befund IDEE-B, vom Head nachgefahren): die Menue-Suche
+    // (51 Eintraege) fand zu „Notfall", „145", „Tox", „Vergiftung" NICHTS, und „gegessen" fuehrte
+    // zu den Rezepten. Die Nummern standen nur dort, wo ein Scan oder ein Chat sie ausloest.
+    // Zwei Richtungen: wer eines der Notfall-Woerter tippt, findet den Eintrag ZUERST — und wer
+    // „Tomate" oder „essbar" tippt, bekommt ihn NICHT (ein Eintrag, der immer oben steht, ist einer,
+    // den man zu ueberlesen lernt, v32.98). Dazu das Fenster: genau die vier Nummern, die die App
+    // schon nennt bzw. Tox Info Suisse selbst angibt — und kein Rat, was man tun soll.
+    name: 'E15 · Notfall: die Menü-Suche findet „Notfall", „145", „Tox", „Vergiftung", „gegessen" (auch fr/it/en/es) ZUERST — „Tomate" und „essbar" nicht; das Fenster ruft 145, die Auslandnummer, 144 und 112 an und gibt keinen Erste-Hilfe-Rat',
+    lauf: async () => __seite.evaluate(async () => {
+      const klagen = [];
+      const res = () => Array.from(document.querySelectorAll('#menu-search-results .menu-search-result'));
+      const erster = (q) => { searchMenu(q); const r = res(); return r.length ? (r[0].textContent || '').replace(/\s+/g, ' ').trim() : ''; };
+      const alle = (q) => { searchMenu(q); return res().map(r => (r.textContent || '').replace(/\s+/g, ' ').trim()); };
+      try {
+        if (typeof searchMenu !== 'function') return { ok: false, warum: 'searchMenu fehlt' };
+        // (a) die Notfall-Woerter, in vier Sprachen
+        // …und drei SAETZE: die trifft kein Suchwort, sondern das eine Notfall-Vokabular (_gsNotfallStufe).
+        // Ohne sie blieb die Gegenprobe „eigene Trefferregel ausgebaut" gruen — die gewoehnliche
+        // Punktzahl stellte den Eintrag bei allen 17 Einzelwoertern zufaellig auch nach vorn.
+        const ja = ['notfall', 'Notfall', '145', 'tox', 'tox info', 'vergiftung', 'vergiftet', 'gift', 'gegessen', 'verschluckt', 'giftnotruf', 'urgence', 'empoisonnement', 'emergenza', 'avvelenamento', 'emergency', 'poison',
+          'mein kind hat beeren gegessen', 'hund hat pilz gefressen', 'mon enfant a mangé des baies',
+          // v33.60 (brett:2026-11-11-df0b): Spanisch ist die fuenfte App-Sprache — das Menue kennt ihre Woerter
+          'emergencia', 'envenenamiento', 'veneno', 'intoxicación', 'intoxicacion'];
+        const fehlt = ja.filter(q => !/Notfall/.test(erster(q)));
+        if (fehlt.length) klagen.push(fehlt.length + ' von ' + ja.length + ' Notfall-Wörtern führen nicht zuerst zum Notfall: ' + fehlt.slice(0, 8).map(q => '„' + q + '" → „' + (erster(q).slice(0, 28) || 'nichts') + '"').join(' · '));
+        // (b) die Gegenrichtung
+        // schwache Teiltreffer zaehlen dazu: „giftig" enthaelt „gift", und ein einzelner Buchstabe steckt in jedem Suchwort
+        const nein = ['tomate', 'essbar', 'rezept', 'giessen', 'kalender', 'pilz', 'giftig', 'giftige pflanzen', 'a', 'ei'];
+        const zuviel = nein.filter(q => alle(q).some(t => /Notfall/.test(t)));
+        if (zuviel.length) klagen.push('der Notfall-Eintrag erscheint auch bei: ' + zuviel.join(', '));
+        // (c) der echte Treffer wird angetippt
+        searchMenu('notfall');
+        const tr = res()[0];
+        if (!tr) klagen.push('kein Treffer zum Antippen');
+        else {
+          tr.click();
+          await new Promise(r => setTimeout(r, 400));
+          const m = document.getElementById('gs-nl-modal'), body = document.getElementById('gs-nl-body');
+          const offen = !!(m && (m.classList.contains('open') || m.classList.contains('active')) && body && (body.textContent || '').trim().length > 20);
+          if (!offen) klagen.push('der Treffer wurde angetippt, und es steht kein Notfall-Fenster da');
+          else {
+            const tel = Array.from(body.querySelectorAll('a[href^="tel:"]')).map(a => a.getAttribute('href'));
+            ['tel:145', 'tel:+41442515151', 'tel:144', 'tel:112'].forEach(t => { if (tel.indexOf(t) < 0) klagen.push('im Fenster fehlt der Anruf-Link ' + t + ' (da: ' + tel.join(', ') + ')'); });
+            if (tel.length !== 4) klagen.push(tel.length + ' Anruf-Links statt 4: ' + tel.join(', '));
+            const txt = (body.textContent || '').replace(/\s+/g, ' ');
+            if (!/Tox Info Suisse/.test(txt)) klagen.push('das Fenster nennt Tox Info Suisse nicht');
+            if (!/toxinfo\.ch/.test(txt) || !/\d{2}\.\d{2}\.\d{4}/.test(txt)) klagen.push('das Fenster nennt weder Quelle noch Prüfdatum der Nummern');
+            // kein Rat, was zu tun ist — das sagt die Fachperson am Telefon
+            const rat = txt.match(/erbrechen|Milch|Kohle|trinken lassen|Wasser geben|hinlegen|Seitenlage/i);
+            if (rat) klagen.push('das Fenster gibt einen Erste-Hilfe-Rat („' + rat[0] + '") — dafür gibt es hier keine Quelle');
+            // jeder Link ist ein Antippziel (mindestens 44 px hoch)
+            const klein = Array.from(body.querySelectorAll('a[href^="tel:"]')).filter(a => { const r = a.getBoundingClientRect(); return r.height < 44 && a.getAttribute('href') !== 'tel:+41442515151'; });
+            if (klein.length) klagen.push(klein.length + ' Anruf-Knöpfe sind niedriger als 44 px');
+            const ausland = body.querySelector('a[href="tel:+41442515151"]');
+            if (ausland) { const r = ausland.getBoundingClientRect(); if (r.height < 24 || r.width < 24) klagen.push('die Auslandnummer ist als Antippziel kleiner als 24 px (' + Math.round(r.width) + '×' + Math.round(r.height) + ')'); }
+          }
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: ja.length + ' Notfall-Eingaben (de/fr/it/en, drei davon ganze Sätze) → Notfall zuerst · ' + nein.length + ' Alltags-Eingaben ohne ihn · Fenster: 145 · +41 44 251 51 51 · 144 · 112, mit Quelle und Datum, ohne Rat' };
+      } finally {
+        try { clearMenuSearch(); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        try { closeMainMenu(); } catch (_) {}
+      }
+    }),
+  },
+  {
+    // v33.60 · der Menue-Eintrag „Premium freischalten" versprach „TWINT · Karte · IBAN". Welche
+    // Zahlungsarten im Checkout erscheinen, entscheidet seit v33.60 das Stripe-Dashboard (keine feste
+    // Zahlungsart im Aufruf) — die App kann es nicht wissen. Ob TWINT im Abo-Checkout erscheint, ist
+    // nicht gemessen (docs/FUER-FERNANDO.md §30). Eine Zusage, die niemand pruefen kann, steht nicht da.
+    name: 'E16 · „Premium freischalten" verspricht keine Zahlungsart, die die App nicht kennen kann — und wer „twint" sucht, findet den Eintrag trotzdem',
+    lauf: async () => __seite.evaluate(async () => {
+      try {
+        searchMenu('premium');
+        const tr = Array.from(document.querySelectorAll('#menu-search-results .menu-search-result')).find(r => /Premium/.test(r.textContent || ''));
+        if (!tr) return { ok: false, warum: 'die Suche nach „premium" findet den Eintrag nicht' };
+        const txt = (tr.textContent || '').replace(/\s+/g, ' ').trim();
+        const zusage = txt.match(/TWINT|IBAN|SEPA|Karte|Kreditkarte|PayPal|Rechnung/i);
+        if (zusage) return { ok: false, warum: 'der Eintrag verspricht eine Zahlungsart: „' + txt + '"' };
+        searchMenu('twint');
+        const tw = Array.from(document.querySelectorAll('#menu-search-results .menu-search-result')).some(r => /Premium/.test(r.textContent || ''));
+        if (!tw) return { ok: false, warum: 'wer „twint" sucht, findet „Premium freischalten" nicht mehr' };
+        return { ok: true, info: '„' + txt + '" · „twint" führt weiter zum Eintrag' };
+      } finally { try { clearMenuSearch(); } catch (_) {} }
+    }),
+  },
 ];
 
 (async () => {

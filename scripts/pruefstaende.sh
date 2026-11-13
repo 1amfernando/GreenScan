@@ -7,8 +7,9 @@
 # Playwright: $GS_PW (Pfad zum playwright-Modul) — in CI scripts/node_modules/playwright,
 # in der Claude-Cloud /opt/node22/lib/node_modules/playwright (Vorgabe in den Pruefstaenden).
 # Android (apk_check): aapt/apksigner/zipalign/dalvik-exchange + android.jar (Ubuntu-Archiv, NICHT dl.google.com).
-# Postgres (quiz_check, schluessel_check, nutzung_check, backup_check, quiz_gen_check): $GS_PG_URL, sonst 127.0.0.1:54329 (scripts/_pg_local.sh).
-# Ohne Postgres melden diese beiden „nicht pruefbar" (Exit 2) — hier gilt das als Warnung, nicht als rot.
+# Postgres (quiz_check, schluessel_check, nutzung_check, backup_check, quiz_gen_check, naht_check, admin_check, stripe_check):
+# $GS_PG_URL, sonst 127.0.0.1:54329 (scripts/_pg_local.sh). Ohne Postgres melden sie „nicht pruefbar" (Exit 2) — hier
+# gilt das als Warnung, nicht als rot. (Bis v33.59 stand hier „diese beiden" und fuenf Namen; es sind acht.)
 set -u
 cd "$(dirname "$0")/.."
 ROT=0; WARN=0; N=0
@@ -56,6 +57,11 @@ run rezept       node scripts/rezept_link_check.js
 # v33.58: antwortet die KI noch, wenn Anthropic ein Modell abschaltet? Rechnung + der ECHTE Handler
 # von ai-proxy in Node + Quelltext (kein Modellname in einer Edge-Function). Reines Node.
 run modell       node scripts/modell_check.js
+# v33.60: kommt an, was bezahlt wurde — und nur das? Rechnung (_shared/stripe_regeln.mjs) + die ECHTEN Handler von
+# stripe-webhook, stripe-checkout und stripe-portal in Node + SQL (die Migration zum Launch-Zaehler gegen den
+# Live-Stand, lokales Postgres) + Quelltext. Die gestellte Datenbank traegt Spalten, Schluessel, Fremdschluessel
+# und CHECKs, wie sie am 11.11.2026 live gemessen wurden.
+run stripe       node scripts/stripe_check.js
 run ingest       node scripts/ingest_check.js
 run sensor_push  node scripts/sensor_push_check.js
 run kalender     node scripts/kalender_check.js
@@ -81,6 +87,8 @@ run risiko       node scripts/risiko_check.js
 # stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
 run austausch    node scripts/austausch_check.js
 if [ "$SCHNELL" != "schnell" ]; then
+  # v33.60: contrast_check und render_check sind ein TOR (Exit 1 bei einem Fund) — bis v33.59 endeten
+  # beide immer mit 0, und „1 Textstelle unter AA" stand in jedem CI-Lauf gruen da.
   TAILN=12 run contrast   node scripts/contrast_check.js
   TAILN=14 run einstellungen node scripts/einstellungen_check.js
   run offline      node scripts/offline_check.js
