@@ -2020,6 +2020,247 @@ const FAELLE = [
     },
   },
 
+  {
+    // Hauptfunktionen „Offen — Lina" 3. Gemessen vor der Reparatur: die Blase
+    // zeigte „Antwort **fett** hier" woertlich, auch die Notfallzeile.
+    name: 'Lina L1 · Auszeichnung: **fett** und Zeilenumbrueche werden dargestellt, Fremd-HTML bleibt Text, und die Zeile der Person bleibt woertlich',
+    lauf: async () => {
+      const sichern = { li: window.sbIsLoggedIn, sf: window.sbFetch, m: window._gsLinaMsgs };
+      try {
+        window.sbIsLoggedIn = () => true; window.sbFetch = async () => ({ data: [], error: null });
+        window.__pwned = 0;
+        window._gsLinaMsgs = [
+          { role: 'user', content: 'ich schreibe **sterne** selbst' },
+          { role: 'assistant', content: '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\nZweite Zeile <img src=x onerror="window.__pwned=1"> Ende' },
+        ];
+        gsLinaRender(false);
+        await new Promise(r => setTimeout(r, 350));
+        const sc = document.getElementById('gs-lina-scroll');
+        if (!sc) return { ok: false, warum: 'Linas Fenster ist nicht da — der Fall misst nichts' };
+        const blasen = sc.querySelectorAll(':scope > div > div');
+        const nutzer = blasen[0], lina = blasen[1];
+        const klagen = [];
+        if (!lina.querySelector('strong') || !/SOFORT Tox Info Suisse: 145 anrufen!/.test(lina.querySelector('strong').textContent)) klagen.push('kein <strong> um den fetten Teil: ' + lina.innerHTML.slice(0, 140));
+        if (/\*\*/.test(lina.textContent)) klagen.push('Sternchen stehen sichtbar da: ' + lina.textContent.slice(0, 80));
+        if (!lina.querySelector('br')) klagen.push('der Zeilenumbruch fehlt');
+        if (lina.querySelector('img') || window.__pwned) klagen.push('Fremd-HTML wurde als HTML gesetzt');
+        if (!/<img src=x/.test(lina.textContent)) klagen.push('der Fremdtext wurde verschluckt statt angezeigt');
+        // Gegenrichtung: was die Person tippt, bleibt, wie sie es getippt hat
+        if (nutzer.querySelector('strong') || !/\*\*sterne\*\*/.test(nutzer.textContent)) klagen.push('die Zeile der Person wurde umformatiert');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'fett als <strong>, Umbruch als <br>, <img> bleibt Text, 0 Ausfuehrungen · Nutzerzeile woertlich' };
+      } finally { window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window._gsLinaMsgs = sichern.m; try { closeModal('gs-nl-modal'); } catch (_) {} }
+    },
+  },
+  {
+    // „Offen — Lina" 2. Gemessen: waehrend der laufenden Anfrage getippt →
+    // nach der Antwort war das Feld leer.
+    name: 'Lina L2 · Entwurf: was waehrend „Lina denkt nach" getippt wird, steht nach der Antwort noch im Feld — und die gesendete Frage kommt nicht zurueck',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      try {
+        window.sbIsLoggedIn = () => true; window.sbFetch = async () => ({ data: [], error: null });
+        await gsOpenLina(); await warte(150);
+        const feld = () => document.getElementById('gs-lina-input');
+        if (!feld()) return { ok: false, warum: 'kein Eingabefeld — der Fall misst nichts' };
+        window._gsLinaMsgs = []; window._gsLinaSending = false;
+        let los; window.callAI = () => new Promise(r => { los = r; });
+        feld().value = 'Wie oft giesse ich Basilikum?';
+        const lauf = gsLinaSend(); await warte(120);
+        if (feld().value !== '') return { ok: false, warum: 'die gesendete Frage steht noch im Feld: „' + feld().value + '"' };
+        if (!los) return { ok: false, warum: 'die KI wurde nicht gerufen — der Fall misst nichts' };
+        feld().value = 'und die Tomate?';
+        los('Etwa alle zwei Tage.'); await lauf; await warte(80);
+        const nach = feld().value;
+        if (nach !== 'und die Tomate?') return { ok: false, warum: 'der Entwurf ist nach der Antwort weg: „' + nach + '"' };
+        // Gegenrichtung: ohne Entwurf bleibt das Feld leer
+        feld().value = 'Noch eine Frage';
+        window.callAI = async () => 'Gern.';
+        await gsLinaSend(); await warte(80);
+        if (feld().value !== '') return { ok: false, warum: 'ohne Entwurf steht nach der Antwort etwas im Feld: „' + feld().value + '"' };
+        return { ok: true, info: 'Entwurf „und die Tomate?" ueberlebt den Neuaufbau · ohne Entwurf bleibt das Feld leer' };
+      } finally { window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window._gsLinaSending = false; window._gsLinaMsgs = []; try { closeModal('gs-nl-modal'); } catch (_) {} }
+    },
+  },
+  {
+    // „Offen — Lina" 1. Gemessen: KI wirft, Geraet online → nur „versuch es
+    // gleich nochmal", 0 Knoepfe, obwohl die App-Liste die Antwort haette.
+    name: 'Lina L3 · KI faellt aus (online): die Antwort aus der App-Liste kommt als Ersatz, „Erneut senden" schickt dieselbe Frage noch einmal — ohne Dublette, ohne die falsche Art, und bei Erfolg ohne Knopf',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const posts = [];
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async (pfad, o) => {
+          if (o && o.method === 'POST' && /coach_conversations/.test(pfad)) return { data: [{ id: 'conv-l3' }], error: null };
+          if (o && o.method === 'POST' && /coach_messages/.test(pfad)) { posts.push(JSON.parse(o.body)); return { data: [{}], error: null }; }
+          return { data: [], error: null };
+        };
+        await gsOpenLina(); await warte(150);
+        const feld = () => document.getElementById('gs-lina-input');
+        const knopf = () => document.querySelector('#gs-lina-scroll [data-lina-nochmal]');
+        const letzte = () => (window._gsLinaMsgs.slice(-1)[0] || {});
+        const senden = async (t) => { feld().value = t; window._gsLinaSending = false; await gsLinaSend(); await warte(80); };
+        const neu = () => { window._gsLinaMsgs = []; window._gsLinaConvId = null; posts.length = 0; };
+        const klagen = [];
+        let rufe = 0;
+        // 1 · KI wirft, die App-Liste kennt die Art
+        neu(); window.callAI = async () => { rufe++; throw new Error('Timeout'); };
+        await senden('Kann ich Bärlauch essen?');
+        const a1 = String(letzte().content || '');
+        if (!rufe) return { ok: false, warum: 'die KI wurde nicht gerufen — der Fall misst nichts' };
+        if (!/Bärlauch/i.test(a1) || !/App-Liste/.test(a1)) klagen.push('kein Ersatz aus der App-Liste: „' + a1.slice(0, 120) + '"');
+        if (!knopf()) klagen.push('kein Knopf „Erneut senden" nach dem Ausfall');
+        if (posts.some(p => p.role === 'assistant')) klagen.push('die Ersatzzeile wurde als Linas Antwort in den Verlauf geschrieben');
+        // 2 · „Erneut senden" mit laufender KI: Antwort da, Ausfallzeile weg, Frage EINMAL
+        window.callAI = async () => { rufe++; return 'Ja, Bärlauch ist ein Wildgemüse.'; };
+        knopf() && knopf().click(); await warte(250);
+        const m2 = window._gsLinaMsgs;
+        if (m2.length !== 2 || m2[0].role !== 'user' || m2[0].content !== 'Kann ich Bärlauch essen?' || !/Wildgemüse/.test(m2[1].content)) klagen.push('nach „Erneut senden" steht: ' + JSON.stringify(m2.map(x => x.role + ':' + String(x.content).slice(0, 30))));
+        if (knopf()) klagen.push('nach einer geglueckten Antwort steht der Knopf noch da');
+        const nutzerPosts = posts.filter(p => p.role === 'user').length;
+        if (nutzerPosts !== 1) klagen.push('die Frage liegt ' + nutzerPosts + '× im Verlauf statt 1×');
+        // 3 · LEERE Antwort ist ein Ausfall, keine Antwort
+        neu(); window.callAI = async () => '';
+        await senden('Kann ich Bärlauch essen?');
+        if (!knopf() || !/Bärlauch/i.test(String(letzte().content))) klagen.push('leere KI-Antwort: kein Ersatz/kein Knopf — „' + String(letzte().content).slice(0, 80) + '"');
+        if (posts.some(p => p.role === 'assistant')) klagen.push('leere Antwort: eine Fehlerzeile ging als Linas Antwort in den Verlauf');
+        // 4 · die App-Liste kennt nichts Passendes: ehrlicher Satz + Knopf, NIE die falsche Art
+        neu(); window.callAI = async () => { throw new Error('boom'); };
+        await senden('Meine Tomaten haben braune Blätter, was tun?');
+        if (/Krustenflechte/.test(String(letzte().content))) klagen.push('der grobe Vergleich kam durch die Hintertuer: ' + String(letzte().content).slice(0, 100));
+        if (!knopf()) klagen.push('ohne Ersatz fehlt der Knopf');
+        // 5 · Notfall + Ausfall + Wiederholung: die Nummer steht ZUERST und nur einmal
+        neu(); window.callAI = async () => { throw new Error('boom'); };
+        await senden('meine tochter hat beeren gegessen');
+        if (!/145/.test(String((window._gsLinaMsgs.filter(m => m.role === 'assistant')[0] || {}).content))) klagen.push('Notfall: die Nummer ist nicht die erste Antwort');
+        window.callAI = async () => 'Bitte ruf sofort an.';
+        knopf() && knopf().click(); await warte(250);
+        const m5 = window._gsLinaMsgs;
+        const nummern = m5.filter(m => m.role === 'assistant' && /145/.test(m.content) && /SOFORT/.test(m.content)).length;
+        if (m5.filter(m => m.role === 'user').length !== 1 || nummern !== 1 || !/145/.test(String((m5.filter(m => m.role === 'assistant')[0] || {}).content))) klagen.push('Notfall nach Wiederholung: ' + JSON.stringify(m5.map(x => x.role + ':' + String(x.content).slice(0, 24))));
+        // 6 · Gegenrichtung: Kontingent erschoepft ist kein Fall fuer „Erneut senden"
+        neu(); window.callAI = async () => { const e = new Error('q'); e.code = 'free_quota_reached'; throw e; };
+        await senden('Kann ich Bärlauch essen?');
+        if (knopf()) klagen.push('bei erschoepftem Kontingent steht „Erneut senden" da');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Ausfall → Ersatz aus der App-Liste + Knopf · Wiederholung: 1 Frage, 1 Antwort, 1× im Verlauf · leer = Ausfall · ohne Treffer keine falsche Art · Notfallnummer zuerst und einmal · Kontingent: kein Knopf' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on });
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 5. Gemessen: navigate schloss das Fenster 140 ms nach der
+    // Antwort — sie war weg, bevor sie gelesen war.
+    name: 'Lina L4 · lesende Aktionen: die Antwort bleibt stehen, die Aktion haengt als Knopf darunter und laeuft erst beim Antippen — ein unerlaubtes Ziel bekommt keinen Knopf, eine schreibende Aktion fragt wie bisher',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, cm: window.gsConfirmModal, on: navigator.onLine };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true; window.sbFetch = async () => ({ data: [], error: null });
+        await gsOpenLina(); await warte(150);
+        const feld = () => document.getElementById('gs-lina-input');
+        const offen = () => document.getElementById('gs-nl-modal').classList.contains('open');
+        const knopf = () => document.querySelector('#gs-lina-scroll [data-lina-aktion]');
+        const senden = async (t) => { feld().value = t; window._gsLinaSending = false; await gsLinaSend(); await warte(450); };
+        const klagen = [];
+        if (!offen()) return { ok: false, warum: 'Linas Fenster gilt nicht als offen — der Fall misst nichts' };
+        // 1 · open_calendar: Fenster bleibt, Antwort sichtbar, Knopf da
+        window._gsLinaMsgs = [];
+        window.callAI = async () => 'Am 1. September ist Aussaatzeit.\n[[GS_ACTION]]{"tool":"open_calendar","args":{"day":"' + gsHeuteTag() + '"}}';
+        try { if (typeof _gsKalStand !== 'undefined') _gsKalStand.tag = null; } catch (_) {}
+        await senden('Zeig mir den Kalender');
+        if (!offen()) klagen.push('Lina wurde nach der Antwort geschlossen');
+        if (!/Aussaatzeit/.test((document.getElementById('gs-lina-scroll') || {}).textContent || '')) klagen.push('die Antwort steht nicht auf dem Bildschirm');
+        if (/GS_ACTION/.test((document.getElementById('gs-lina-scroll') || {}).textContent || '')) klagen.push('die Aktionszeile steht sichtbar da');
+        if (!knopf()) klagen.push('kein Knopf fuer die Aktion');
+        if (typeof _gsKalStand !== 'undefined' && _gsKalStand.tag === gsHeuteTag()) klagen.push('der Kalender ging von selbst auf');
+        // 2 · Antippen fuehrt aus
+        if (knopf()) { knopf().click(); await warte(450);
+          if (typeof _gsKalStand !== 'undefined' && _gsKalStand.tag !== gsHeuteTag()) klagen.push('der Knopf oeffnet den Kalender nicht (steht auf ' + _gsKalStand.tag + ')'); }
+        try { closeModal('detail-modal'); } catch (_) {}
+        // 3 · ein Ziel ausserhalb der Liste: kein Knopf, nichts passiert
+        await gsOpenLina(); await warte(150);
+        window._gsLinaMsgs = [];
+        window.callAI = async () => 'Ich bringe dich hin.\n[[GS_ACTION]]{"tool":"navigate","args":{"screen":"admin"}}';
+        await senden('Bring mich zum Admin');
+        if (knopf()) klagen.push('ein unerlaubtes Ziel bekam einen Knopf');
+        if (!offen()) klagen.push('ein unerlaubtes Ziel hat Lina geschlossen');
+        // 4 · schreibend: fragt sofort, wie bisher
+        let gefragt = 0; window.gsConfirmModal = async () => { gefragt++; return false; };
+        window._gsLinaMsgs = [];
+        window.callAI = async () => 'Gern.\n[[GS_ACTION]]{"tool":"propose_add_plant","args":{"name":"Testminze"}}';
+        await senden('Füge Minze hinzu');
+        if (gefragt !== 1) klagen.push('die schreibende Aktion hat ' + gefragt + '× gefragt statt 1×');
+        if (knopf()) klagen.push('die schreibende Aktion steht als Lese-Knopf da');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Antwort bleibt, Knopf darunter, Kalender erst beim Antippen · „admin": kein Knopf · propose_add_plant fragt 1×' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsConfirmModal = sichern.cm;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on });
+        window._gsLinaSending = false; window._gsLinaMsgs = [];
+        try { closeModal('detail-modal'); } catch (_) {} try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 6. Gemessen: propose_reminder fuer die Garten-Pflanzung
+    // „Zucchini" → „✅ Erinnerung eingerichtet", tasks unveraendert (toggleTask
+    // sucht nur in myPlants). propose_add_plant „Basilikum" → zweiter Eintrag.
+    name: 'Lina T3 · Schreibaktionen sagen, was geschehen ist: eine Erinnerung an einer Garten-Pflanzung kommt wirklich an, bei vollem Speicher steht kein „eingerichtet/hinzugefügt", und eine Dublette wird in der Rueckfrage genannt',
+    lauf: async () => {
+      const sichern = { cm: window.gsConfirmModal, gt: window.gsToast, set: gsStore.setJSON, mp: JSON.stringify(myPlants || []), pl: JSON.stringify(plantings || []) };
+      const toasts = []; const fragen = [];
+      try {
+        window.gsToast = (t, k) => toasts.push([String(t), k]);
+        window.gsConfirmModal = async (o) => { fragen.push(String((o && o.message) || '')); return true; };
+        const klagen = [];
+        const pl = (plantings || [])[0];
+        if (!pl) return { ok: false, warum: 'keine Garten-Pflanzung in den Beispieldaten — der Fall misst nichts' };
+        if ((myPlants || []).some(x => x.id === pl.id)) return { ok: false, warum: 'die Pflanzung steht auch in myPlants — der Fall misst nichts' };
+        // 1 · Erinnerung an einer Garten-Pflanzung
+        if (pl.tasks) delete pl.tasks.mist;
+        await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'mist', plantName: pl.name, intervalDays: 3 } });
+        const t1 = (_gsPflanzeFinden(pl.id).p.tasks || {}).mist;
+        if (!t1 || !t1.active || t1.intervalDays !== 3) klagen.push('Erinnerung an „' + pl.name + '" nicht angekommen: ' + JSON.stringify(t1) + ' · Meldung: ' + JSON.stringify(toasts.slice(-1)[0]));
+        const gesp = (JSON.parse(localStorage.getItem('gs_plantings') || '[]').find(x => x.id === pl.id) || {}).tasks || {};
+        if (!gesp.mist || gesp.mist.intervalDays !== 3) klagen.push('die Erinnerung steht nicht im Speicher');
+        if (!toasts.some(t => t[1] === 'success')) klagen.push('keine Erfolgsmeldung nach dem Einrichten');
+        // 2 · voller Speicher: nichts bleibt, und es steht kein Erfolg da
+        toasts.length = 0; gsStore.setJSON = () => false;
+        await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'dust', plantName: pl.name, intervalDays: 9 } });
+        const t2 = (_gsPflanzeFinden(pl.id).p.tasks || {}).dust;
+        if (t2 && t2.intervalDays === 9 && t2.active) klagen.push('bei vollem Speicher blieb die Erinnerung im Arbeitsspeicher stehen');
+        if (toasts.some(t => t[1] === 'success')) klagen.push('voller Speicher, Erinnerung: Erfolgsmeldung „' + toasts.find(t => t[1] === 'success')[0] + '"');
+        if (!toasts.some(t => t[1] === 'error')) klagen.push('voller Speicher, Erinnerung: keine Fehlermeldung');
+        toasts.length = 0; const vor = myPlants.length;
+        await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: 'Speichervoll-Minze' } });
+        if (myPlants.length !== vor) klagen.push('voller Speicher: die Pflanze blieb in der Liste');
+        if (toasts.some(t => t[1] === 'success')) klagen.push('voller Speicher, Pflanze: Erfolgsmeldung');
+        gsStore.setJSON = sichern.set;
+        // 3 · Dublette: die Rueckfrage nennt sie; ein neuer Name nicht
+        fragen.length = 0;
+        window.gsConfirmModal = async (o) => { fragen.push(String((o && o.message) || '')); return false; };
+        await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: myPlants[0].name } });
+        await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: 'Ganz neue Testpflanze' } });
+        if (!/schon/.test(fragen[0] || '')) klagen.push('die Rueckfrage nennt die Dublette nicht: „' + fragen[0] + '"');
+        if (/schon/.test(fragen[1] || '')) klagen.push('Dubletten-Hinweis bei einem neuen Namen: „' + fragen[1] + '"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Bespruehen alle 3 Tage an Garten-Pflanzung „' + pl.name + '" (Liste und Speicher) · voller Speicher: nichts bleibt, Fehlermeldung · Dublette „' + myPlants[0].name + '" wird genannt' };
+      } finally {
+        gsStore.setJSON = sichern.set; window.gsConfirmModal = sichern.cm; window.gsToast = sichern.gt;
+        try { myPlants.length = 0; JSON.parse(sichern.mp).forEach(x => myPlants.push(x)); plantings.length = 0; JSON.parse(sichern.pl).forEach(x => plantings.push(x)); savePlantsToStorage(); saveGardenData(); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {
