@@ -181,6 +181,16 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   `GS_WETTER_GRENZEN` für heute und morgen). Entfernt: `checkStormWarning`, die zweite
   Symboltabelle, und `updateGardenWeatherTip`, das in `.hero p` schrieb — ein Element, das es
   seit v31.16 nicht gibt (mit einer dritten Frostregel, < 4 °C).
+- **Startseite — „Wusstest du?" (Home 7).** `gsLoadSupabaseDailyContent` lud
+  `did_you_know_facts?…&order=id.asc&limit=30`: live nur lesend nachgezählt, von 192 aktiven
+  erschienen nur die ersten 30, und 10 davon tragen eine Kalenderwoche (`kw`) — sie standen in
+  jeder Woche da; escaped wurde nur „<". Jetzt `kw` mitgelesen, `or=(kw.is.null,kw.eq.<Woche>)`,
+  bis 200, und derselbe Filter noch einmal in der App (die Antwort ist fremde Eingabe); die Woche
+  ist die ISO-Woche (`_gsIsoWoche`, wie `EXTRACT(week …)` in `v_today_tip`) — `gsGetKW` zählt Tage
+  seit dem 1. Januar und lag heute eine Woche daneben (46 statt 47). Live: diese Woche 152
+  Fakten statt 30, 40 bleiben in ihrer Woche. Dabei gefunden: der Fakt „Schweiz hat 4342
+  Pflanzenarten" ist die alte Eintragszahl der App (Brett `2026-11-16-397d`, Datenänderung für
+  Fernando).
 - **Startseite — die Kartenreihe (Home 5).** `gsBuildWidgetStack` drehte die Tageskarten alle 8 s
   ohne Pause-Knopf (WCAG 2.2.2), auch während der Fokus in der Reihe stand, und zwang die
   Bauernregel als „stabile Folie" sichtbar: ohne Daten (offline gemessen: `wisdom-card` leer)
@@ -194,7 +204,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   einem eigenen `role=tablist`, der Knopf daneben. „`gsRenderWochenrueckblick` doppelt gerufen"
   (Arbeitsliste): nachgesehen — Tagesplan und erster Aufbau rendern dieselben Daten, kein Fehler.
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, HF1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge);
@@ -209,7 +219,7 @@ zählt mit eigenen Regeln (brett 4d79: „Arten" = 4'337 Einträge, „Essbar" 1
 einen Tag zu spät und zählt Frost erst unter 2 °C (brett c72c). An die Sitzung „KI-Modelle":
 `_gsScanFehlerArt` hängt am Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07).
 
-**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234 — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle")
+**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234, brett:2026-11-16-397d, brett:2026-11-16-bb6f — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle"), der falsche Fakt in der Datenbank (Fernando), das Wackeln von offline_check (g)
 **Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen

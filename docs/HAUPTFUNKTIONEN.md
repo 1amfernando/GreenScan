@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1–8, 10 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1–8, 10 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5, 7 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -107,6 +107,11 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    Bauernregel?), dreht alle 8 s ohne Pause-Knopf, `gsRenderWochenrueckblick` doppelt gerufen
    (nachgesehen: Tagesplan und erster Aufbau rendern dieselben Daten — kein Fehler).
 6. STATUS „N4": Hinweis auf der Startseite, wenn alle Pläne veraltet sind.
+7. ✅ v33.61 (`scan_check` HF1) — **„Wusstest du?" vom Server:** nur die ersten 30 von 192
+   Fakten, Wochenfakten in jeder Woche, nur „<" escaped. Offen bleibt die Frage, ob die eigene
+   Wochenliste (`WEEKLY_SEASONAL_FACTS`, nach `gsGetKW`) und die Server-Fakten EINE Auswahl sein
+   sollen — heute ersetzt der Server die Liste, sobald er antwortet (so gewollt: „Supabase-Daily-
+   Content überschreibt Hardcoded"). Der Inhaltsfehler „4342 Pflanzenarten" → Brett `2026-11-16-397d`.
 
 ## Nebenfunde (nicht in den vier Funktionen)
 

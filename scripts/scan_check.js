@@ -2960,6 +2960,50 @@ const FAELLE = [
     },
   },
   {
+    // HOME-7. „Wusstest du?" lud die Fakten vom Server mit `order=id.asc&limit=30`: von 192 aktiven
+    // erschienen nur die ersten 30 (live nachgelesen 16.11.2026), und 10 davon tragen eine
+    // Kalenderwoche (kw) — sie standen in jeder Woche da. Escaped wurde nur „<". Der Fall stellt
+    // einen Server, der den Wochenfilter NICHT anwendet (die Antwort ist fremde Eingabe), und
+    // misst, was in die Karte kommt.
+    name: 'HF1 · „Wusstest du?": ein Fakt einer anderen Kalenderwoche erscheint nicht, alle aktiven werden gefragt, und Fremdtext bleibt Text',
+    lauf: async () => {
+      if (typeof gsLoadSupabaseDailyContent !== 'function') return { ok: false, warum: 'gsLoadSupabaseDailyContent fehlt' };
+      // ISO-Woche wie Postgres (EXTRACT(week …)) — eigener Massstab, nicht die Rechnung der App
+      const isoWoche = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const w = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - w); const j1 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - j1) / 864e5 + 1) / 7); };
+      const diese = isoWoche(new Date()), andere = diese >= 52 ? 1 : diese + 1;
+      const eSb = window.sbFetch, eDyn = window._dynF, el = document.getElementById('fact-text'), eHtml = el ? el.innerHTML : '';
+      let pfadFakten = '';
+      const f = [];
+      try {
+        window.sbFetch = async function (pfad) {
+          const p = String(pfad || '');
+          if (/did_you_know_facts/.test(p)) {
+            pfadFakten = p;
+            return { data: [
+              { title: 'Zzz Andere Woche', body: 'gehört in Woche ' + andere, icon: '📅', kw: andere },
+              { title: 'Zzz Immer', body: 'ohne Woche <b>fett</b> & so', icon: '💡', kw: null },
+              { title: 'Zzz Diese Woche', body: 'gehört in Woche ' + diese, icon: '🗓️', kw: diese },
+            ], error: null };
+          }
+          return { data: [], error: null };
+        };
+        window._dynF = [];
+        await gsLoadSupabaseDailyContent();
+        const alle = (window._dynF || []).join(' ');
+        if (!pfadFakten) f.push('die Fakten wurden nicht gefragt — der Fall misst nichts');
+        if (/limit=30(&|$)/.test(pfadFakten)) f.push('gefragt werden nur die ersten 30 (' + pfadFakten.slice(0, 120) + ')');
+        if (/Zzz Andere Woche/.test(alle)) f.push('ein Fakt der Woche ' + andere + ' steht in Woche ' + diese + ' da');
+        if (!/Zzz Immer/.test(alle) || !/Zzz Diese Woche/.test(alle)) f.push('ein Fakt ohne Woche oder der Woche ' + diese + ' fehlt (' + (window._dynF || []).length + ' in der Liste)');
+        if (/<b>fett<\/b>/.test(alle)) f.push('Auszeichnung aus der Datenbank wird als HTML eingesetzt');
+        if (/ & so/.test(alle)) f.push('ein „&" aus der Datenbank steht roh im HTML');
+      } finally {
+        window.sbFetch = eSb; window._dynF = eDyn; if (el) el.innerHTML = eHtml;
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'ISO-Woche ' + diese + ': Woche ' + andere + ' bleibt draussen, ohne Woche und diese Woche drin · alle aktiven gefragt · Fremdtext escaped' };
+    },
+  },
+  {
     name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — an JEDEM Tag des Jahres',
     lauf: () => {
       if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };
