@@ -161,7 +161,10 @@ Deno.serve(async (req) => {
   if (!body || typeof body !== "object") return jsonResp({ error: { message: "Bad JSON" } }, 400, origin);
 
   // Modell: was der Client verlangt, wenn es freigegeben ist — sonst die Kette der Rolle „vision".
-  const wahl = modellFuerAnfrage(typeof body.model === "string" ? body.model : "", "vision", modellSecret("vision"), modellSecret("schnell"));
+  // v33.59: die Verwendung nennt ihre Rolle („schnell" für kurze Texte); fehlt sie oder ist sie unbekannt, gilt „vision".
+  // Ältere Apps ohne `rolle` bleiben wie bisher — ihr Modell wird über die Ketten beider Rollen erkannt.
+  const verwendungRolle = body.rolle === "schnell" ? "schnell" : "vision";
+  const wahl = modellFuerAnfrage(typeof body.model === "string" ? body.model : "", verwendungRolle, modellSecret("vision"), modellSecret("schnell"));
   if (wahl.ersetzt) console.warn("[ai-proxy] verlangtes Modell ersetzt (" + wahl.grund + "): " + String(body.model).slice(0, 60) + " → " + wahl.kette[0]);
   const maxTokens = Math.min(Math.max(Number(body.max_tokens) || 1200, 1), MAX_TOKENS_CAP);
   const messages = Array.isArray(body.messages) ? body.messages : [];

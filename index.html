@@ -32023,6 +32023,16 @@ window._gsClaudeFallbacks = [
   'claude-sonnet-5-5',
   'claude-sonnet-5'
 ];
+// v33.59: Rolle je Verwendung — Spiegel von MODELL_KETTEN.schnell in _shared/modelle.mjs (modell_check hält beide gegeneinander).
+window._gsClaudeFallbacksSchnell = ['claude-haiku-4-5-20251001', 'claude-haiku-5-5'];
+// v33.59: welche Rolle ein Aufruf braucht. Ausdrücklich („vision"/„schnell") gewinnt; Bild → vision;
+// kurze Texte (bis 600 Token) → schnell; alles andere → vision. Sicherheitsrelevantes setzt die Stelle selbst.
+window._gsWaehleRolle = function(opts, hatBild, maxTokens){
+  if (opts && (opts.rolle === 'vision' || opts.rolle === 'schnell')) return opts.rolle;
+  if (hatBild) return 'vision';
+  var n = Number(maxTokens);
+  return (n > 0 && n <= 600) ? 'schnell' : 'vision';
+};
 // v33.58: was ein Modell im Rumpf ZUSÄTZLICH braucht — Spiegel von `modellZusatz` in
 // supabase/functions/_shared/modelle.mjs (scripts/modell_check.js hält beide gegeneinander).
 // Ein Modellname allein ist keine Umstellung: Sonnet 5.5 und 5 denken von sich aus nach, wenn die
@@ -32068,7 +32078,10 @@ function _gsAiAbgelehnt(data){
   return e;
 }
 window._gsTriedModels = window._gsTriedModels || {};
-window._gsPickClaudeModel = function(){
+window._gsPickClaudeModel = function(rolle){
+  // v33.59: „schnell" nimmt die erste Kette, ohne Merker — der Merker gilt nur der Vision-Kette,
+  // sonst würde ein kurzer Text das Modell für Scan und Lina umstellen.
+  if (rolle === 'schnell') return window._gsClaudeFallbacksSchnell[0];
   // Persistierte Wahl wenn bereits verifiziert
   var saved = null;
   try { saved = gsStore.get('gs_claude_model', null); } catch(_){}
@@ -32076,7 +32089,9 @@ window._gsPickClaudeModel = function(){
   return window._gsClaudeModel || window._gsClaudeFallbacks[0];
 };
 window._gsNextClaudeModel = function(current){
-  var list = window._gsClaudeFallbacks;
+  // v33.59: das Modell bestimmt seine Kette (Haiku → Haiku-Kette, sonst Vision-Kette)
+  var sch = window._gsClaudeFallbacksSchnell;
+  var list = (sch.indexOf(current) >= 0) ? sch : window._gsClaudeFallbacks;
   var idx = list.indexOf(current);
   if (idx < 0) return list[0] || null;          // v33.58: unbekannt/alt → vorne beginnen
   if (list.length < 2) return null;
@@ -32251,11 +32266,13 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
   // v24.18: nur Anthropic Claude. NVIDIA-Pfad entfernt.
   {
     // Anthropic — mit Auto-Modell-Fallback (v23.64)
-    var tryModel = window._gsPickClaudeModel();
+    var rolleA = window._gsWaehleRolle(opts, false, maxTokens);
+    var tryModel = window._gsPickClaudeModel(rolleA);
     for (var attempts = 0; attempts < 4; attempts++){
       var _tgt = _gsAiTarget(key, source); // v32.68: Proxy zuerst, Direktweg nur als Rueckfall
       var resp = await _gsAiAnfrage(_tgt, JSON.stringify({
           model: tryModel,
+          rolle: rolleA,
           max_tokens: maxTokens||1200,
           system: systemPrompt||'',
           messages: messages
@@ -32264,8 +32281,10 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
       var _qf = _gsAiQuotaFehler(data); if (_qf) throw _qf;
       if (resp.ok) {
         var _abgA = _gsAiAbgelehnt(data); if (_abgA) throw _abgA;   // v33.58
-        try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
-        window._gsClaudeModel = tryModel;
+        if (rolleA === 'vision') {   // v33.59: nur die Vision-Kette merkt sich ein Modell
+          try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
+          window._gsClaudeModel = tryModel;
+        }
         // v24.22 + v28.05: erfolgreichen Call zählen (nur globaler Key)
         if (source === 'global') {
           if (opts.quotaFeature) { try { gsQuotaConsume(opts.quotaFeature); } catch(_){} }
@@ -32359,9 +32378,9 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
     content.push({type:'text', text:prompt});
     // v28.04 Token-Opt: optionaler statischer system-Prompt mit cache_control (prompt-caching).
     var _sysPrompt = (opts && typeof opts.systemPrompt === 'string' && opts.systemPrompt) ? opts.systemPrompt : null;
-    var tryModel = window._gsPickClaudeModel();
+    var tryModel = window._gsPickClaudeModel('vision');
     for (var attempts = 0; attempts < 4; attempts++){
-      var _reqBody = { model: tryModel, max_tokens: (opts && opts.maxTokens) || 2500, messages:[{ role:'user', content:content }] }; // v30.47: pro-Call überschreibbar (Scan nutzt 900 → kürzere Generierung)
+      var _reqBody = { model: tryModel, rolle: 'vision', max_tokens: (opts && opts.maxTokens) || 2500, messages:[{ role:'user', content:content }] }; // v30.47: pro-Call überschreibbar (Scan nutzt 900 → kürzere Generierung)
       if (_sysPrompt) _reqBody.system = [{ type:'text', text:_sysPrompt, cache_control:{ type:'ephemeral' } }];
       var _tgtV = _gsAiTarget(key, source); // v32.68: Proxy zuerst, Direktweg nur als Rueckfall
       var resp = await _gsAiAnfrage(_tgtV, JSON.stringify(_reqBody), key, { timeout: 60000, retries: 1 });
@@ -36942,7 +36961,7 @@ async function sendScanChat() {
     // Begrüssung davor (Rolle assistant) trägt nichts, was nicht schon im System-Prompt steht.
     var _chatMsgs = _scanChatHistory.filter(function(m){ return m.content && !m.content.startsWith('[Kontext:'); }).slice(-8);
     while (_chatMsgs.length && _chatMsgs[0].role !== 'user') _chatMsgs.shift();
-    var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat' });
+    var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat', rolle: 'vision' });
     if (!answer) answer = _gsSatz('Darauf kam keine Antwort — bitte noch einmal fragen.');
     var ld = document.getElementById('scan-chat-loading');
     if (ld) ld.remove();
@@ -61998,7 +62017,7 @@ Format: Kurze, klare Bullet-Points mit •. Auf Deutsch. Max 200 Wörter.`;
       const b64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
       resp = await callVisionAI(b64, 'image/jpeg', prompt);
     } else {
-      resp = await callAI([{role:'user', content:prompt}], '', 500);
+      resp = await callAI([{role:'user',content:prompt}], '', 500, { rolle: 'vision' });
     }
 
     if (resp) {
