@@ -2020,6 +2020,159 @@ const FAELLE = [
     },
   },
 
+  // ── v33.61 · Lina, die vier Dinge aus der Bestandsaufnahme vom 11.11.2026 ──
+  // (Arbeitsliste docs/HAUPTFUNKTIONEN.md, „Offen — Lina" 1, 2, 3, 5). Jeder Fall
+  // misst die WIRKUNG am Fenster und hat die Gegenrichtung.
+  {
+    name: 'Lina L1 · **fett** wird fett, ein Tag bleibt Text — und die Notfallzeile zeigt keine Sternchen',
+    lauf: async () => {
+      const sichern = { li: window.sbIsLoggedIn, sf: window.sbFetch };
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        window._gsLinaMsgs = [
+          { role: 'user', content: 'Frage **mit** Sternchen' },
+          { role: 'assistant', content: '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\n\nNotruf: **144**' },
+          { role: 'assistant', content: 'Text <img src=x onerror="window.__linaPwned=1"> und **wichtig**' },
+        ];
+        gsLinaRender(false);
+        await new Promise(r => setTimeout(r, 300));
+        // Die Blasen werden am TEXT gefunden, nicht an einer Klasse — sonst misst der
+        // Fall gegen einen alten Stand nur, dass es die Klasse nicht gab.
+        const scroll = document.getElementById('gs-lina-scroll');
+        const blase = (s) => scroll ? Array.from(scroll.querySelectorAll('div')).filter(d => d.textContent.indexOf(s) >= 0).pop() : null;
+        const u = blase('Frage'), n = blase('Tox Info Suisse'), b = blase('und ');
+        if (!u || !n || !b) return { ok: false, warum: 'die drei Blasen sind nicht da — der Fall misst nichts' };
+        const f = [];
+        if (/\*\*/.test(n.textContent)) f.push('die Notfallzeile zeigt Sternchen: „' + n.textContent.slice(0, 60) + '"');
+        if (!n.querySelector('strong') || !/145/.test(n.querySelector('strong').textContent)) f.push('die Nummer ist nicht fett');
+        if (b.querySelector('img') || window.__linaPwned) f.push('ein <img> wurde gerendert');
+        if (b.textContent.indexOf('<img src=x') < 0) f.push('der Tag steht nicht als Text da');
+        if (!b.querySelector('strong')) f.push('**wichtig** ist nicht fett');
+        // Gegenrichtung: die Frage der Person bleibt, wie sie geschrieben wurde.
+        if (u.querySelector('strong') || u.textContent.indexOf('**mit**') < 0) f.push('die Nutzerzeile wurde umformatiert');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'Nummer fett, keine Sternchen · <img> als Text · Nutzerzeile unverändert' };
+      } finally { window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window._gsLinaMsgs = []; try { closeModal('gs-nl-modal'); } catch (_) {} }
+    },
+  },
+  {
+    name: 'Lina L2 · was waehrend „Lina denkt nach…" getippt wird, steht nach der Antwort noch im Feld — der gesendete Text nicht',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch };
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        gsLinaRender(false);
+        let loese = null;
+        window.callAI = () => new Promise(r => { loese = r; });
+        const feld = () => document.getElementById('gs-lina-input');
+        feld().value = 'Wann giesse ich Basilikum?';
+        const lauf = gsLinaSend();
+        await new Promise(r => setTimeout(r, 150));
+        if (!loese) return { ok: false, warum: 'die KI wurde nicht gerufen — der Fall misst nichts' };
+        if (feld().value !== '') return { ok: false, warum: 'der gesendete Text steht noch im Feld: „' + feld().value + '"' };
+        feld().value = 'Und wie oft düngen?';
+        loese('Alle drei Tage.');
+        await lauf; await new Promise(r => setTimeout(r, 100));
+        const nach = feld() ? feld().value : null;
+        if (nach !== 'Und wie oft düngen?') return { ok: false, warum: 'der Entwurf ging verloren: „' + nach + '"' };
+        const letzte = (window._gsLinaMsgs.slice(-1)[0] || {}).content || '';
+        if (letzte !== 'Alle drei Tage.') return { ok: false, warum: 'die Antwort fehlt: ' + letzte };
+        return { ok: true, info: 'gesendet → Feld leer · der Entwurf „Und wie oft düngen?" übersteht die Antwort' };
+      } finally { window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window._gsLinaSending = false; window._gsLinaMsgs = []; try { closeModal('gs-nl-modal'); } catch (_) {} }
+    },
+  },
+  {
+    name: 'Lina L3 · antwortet die KI bei Netz nicht, steht da, was die App-Liste weiss, und „Nochmal senden" fragt erneut — die Frage geht nur EINMAL in die Cloud',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch };
+      const posts = [];
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async (pfad, o) => {
+          if (o && o.method === 'POST') posts.push({ pfad: String(pfad), body: String(o.body || '') });
+          if (/coach_conversations/.test(pfad) && o && o.method === 'POST') return { data: [{ id: 'conv-l3' }], error: null };
+          return { data: [{ id: 'x' }], error: null };
+        };
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        gsLinaRender(false);
+        let rufe = 0, hist = null;
+        window.callAI = async () => { rufe++; throw new Error('Zeitueberschreitung'); };
+        document.getElementById('gs-lina-input').value = 'Kann ich Bärlauch essen?';
+        await gsLinaSend(); await new Promise(r => setTimeout(r, 120));
+        if (!rufe) return { ok: false, warum: 'die KI wurde nicht gerufen — der Fall misst nichts' };
+        const f = [];
+        const fehl = window._gsLinaMsgs.slice(-1)[0] || {};
+        if (!fehl.nochmal) f.push('die Fehlerzeile traegt kein „Nochmal"');
+        if (!/Bärlauch/.test(fehl.content || '')) f.push('keine Antwort aus der App-Liste: „' + String(fehl.content).slice(0, 120) + '"');
+        const knopf = document.querySelector('#gs-lina-scroll button[onclick^="gsLinaNochmal"]');
+        if (!knopf) f.push('kein Knopf „Nochmal senden"');
+        if (posts.some(x => /coach_messages/.test(x.pfad) && /"role":"assistant"/.test(x.body))) f.push('die Fehlerzeile ging als Linas Antwort in die Cloud');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        window.callAI = async (h) => { rufe++; hist = h; return 'Ja, Bärlauch ist essbar — achte auf Verwechslungen.'; };
+        knopf.click();
+        await new Promise(r => setTimeout(r, 250));
+        const fragen = window._gsLinaMsgs.filter(m => m.role === 'user' && m.content === 'Kann ich Bärlauch essen?').length;
+        if (fragen !== 1) f.push('die Frage steht ' + fragen + '× im Verlauf');
+        if (window._gsLinaMsgs.some(m => m.nochmal)) f.push('die Fehlerzeile steht noch da');
+        if (!/ist essbar/.test((window._gsLinaMsgs.slice(-1)[0] || {}).content || '')) f.push('die neue Antwort fehlt');
+        if (!hist) f.push('„Nochmal" hat die KI nicht gefragt');
+        else if (hist.some(m => /nicht geklappt/.test(m.content))) f.push('die Fehlerzeile ging an die KI zurück');
+        const fragePosts = posts.filter(x => /coach_messages/.test(x.pfad) && /"role":"user"/.test(x.body)).length;
+        if (fragePosts !== 1) f.push('die Frage ging ' + fragePosts + '× in die Cloud');
+        // Eine LEERE Antwort ist ein Fehlschlag — und geht nicht als Text in die Cloud.
+        window.callAI = async () => '';
+        const vor = posts.length;
+        document.getElementById('gs-lina-input').value = 'Wie pflege ich Basilikum?';
+        await gsLinaSend(); await new Promise(r => setTimeout(r, 120));
+        if (!(window._gsLinaMsgs.slice(-1)[0] || {}).nochmal) f.push('eine leere Antwort gilt als Antwort');
+        if (posts.slice(vor).some(x => /"role":"assistant"/.test(x.body))) f.push('nach einer leeren Antwort ging ein Fehlertext in die Cloud');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'Fehler → Liste nennt den Bärlauch + Knopf · Nochmal → Frage 1× im Verlauf und 1× in der Cloud, Fehlerzeile weg · leere Antwort = Fehlschlag' };
+      } finally { window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null; try { closeModal('gs-nl-modal'); } catch (_) {} }
+    },
+  },
+  {
+    name: 'Lina L4 · ein Weg in Linas Antwort ist ein KNOPF: Lina bleibt offen und die Antwort lesbar — erst der Knopf oeffnet den Kalender',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch };
+      const J = gsHeuteTag().slice(0, 4);
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        if (typeof _gsKalStand !== 'undefined' && _gsKalStand) _gsKalStand.tag = J + '-01-15';
+        gsLinaRender(false);
+        window.callAI = async () => 'Mitte März ist ein guter Tag zum Vorziehen.\n[[GS_ACTION]]{"tool":"open_calendar","args":{"day":"' + J + '-03-15"}}';
+        document.getElementById('gs-lina-input').value = 'Wann kann ich Tomaten vorziehen?';
+        await gsLinaSend(); await new Promise(r => setTimeout(r, 400));
+        const f = [];
+        const modal = document.getElementById('gs-nl-modal');
+        if (!modal || !modal.classList.contains('open')) f.push('Lina hat sich nach der Antwort geschlossen');
+        const scroll = document.getElementById('gs-lina-scroll');
+        if (!scroll || scroll.textContent.indexOf('guter Tag zum Vorziehen') < 0) f.push('die Antwort steht nicht da');
+        if (scroll && /GS_ACTION/.test(scroll.textContent)) f.push('die Aktionszeile steht roh im Text');
+        const knopf = document.querySelector('#gs-lina-scroll button[onclick^="gsLinaAktion"]');
+        if (!knopf) f.push('kein Knopf unter der Antwort');
+        if (typeof _gsKalStand !== 'undefined' && _gsKalStand && _gsKalStand.tag === J + '-03-15') f.push('der Kalender wurde ohne Tipp geöffnet');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        const lab = knopf.textContent.trim();
+        knopf.click();
+        await new Promise(r => setTimeout(r, 450));
+        if (typeof _gsKalStand !== 'undefined' && (!_gsKalStand || _gsKalStand.tag !== J + '-03-15')) return { ok: false, warum: 'der Knopf öffnet den Kalender nicht am 15.03. (' + (_gsKalStand && _gsKalStand.tag) + ')' };
+        try { closeModal('detail-modal'); } catch (_) {}
+        // Gegenrichtung: ein erfundener Bereich bekommt keinen Knopf (und tut nichts).
+        window.callAI = async () => 'Gerne.\n[[GS_ACTION]]{"tool":"navigate","args":{"screen":"admin"}}';
+        window._gsLinaMsgs = []; gsLinaRender(false);
+        document.getElementById('gs-lina-input').value = 'Bring mich ins Admin-Panel';
+        await gsLinaSend(); await new Promise(r => setTimeout(r, 200));
+        if (document.querySelector('#gs-lina-scroll button[onclick^="gsLinaAktion"]')) return { ok: false, warum: 'ein erfundener Bereich bekam einen Knopf' };
+        return { ok: true, info: 'Lina bleibt offen, Antwort lesbar · Knopf „' + lab + '" öffnet den 15.03. · erfundener Bereich: kein Knopf' };
+      } finally { window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window._gsLinaSending = false; window._gsLinaMsgs = []; try { closeModal('gs-nl-modal'); } catch (_) {} try { closeModal('detail-modal'); } catch (_) {} }
+    },
+  },
 ];
 
 (async () => {
