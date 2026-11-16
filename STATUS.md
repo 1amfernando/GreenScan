@@ -384,6 +384,14 @@ nicht). Am 16.11.2026 mit Postgres auf 4c9be8c nachgefahren: `naht` 17,
 `quiz` 28, `schluessel` 12, `nutzung` 12, `backup` 9, `quizgen` 23, `admin` 21
 Fälle, alle grün.
 
+**Die zwei Pflichtläufe auf dem Endstand** (22f8373, 16.11.2026, mit lokalem
+Postgres): erster Lauf 44 Prüfstände, rot: 1 — `offline_check` hing an der
+bekannten Stelle nach „Teilen mit wartendem Worker" (Exit 3, Brett
+`brett:2026-11-11-75c2`, Nachtrag `2026-11-16-c882`: in sieben vollen Läufen
+dieser Sitzung einmal); zweiter Lauf direkt danach 44 Prüfstände, rot: 0,
+nicht prüfbar: 0. An App und Service Worker hat diese Scheibe beim Teilen
+nichts geändert.
+
 **Für Fernando sichtbar** (`docs/FUER-FERNANDO.md` §30): die Kopfleiste ist
 17 px höher (so, wie das CSS sie immer wollte), auf „Rezepte" und „Heilmittel"
 steht unten rechts ein Plus-Knopf, und die Datenschutzerklärung ist an einer
