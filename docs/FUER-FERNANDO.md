@@ -1507,8 +1507,8 @@ darunter ein kritischer: der überarbeitete `stripe-webhook` hätte live **jedes
 Abo-Ereignis mit 500 beantwortet) → Reparatur dieser Funde in sechs weiteren Gruppen → Zusammenführung mit
 v33.57/v33.58 der anderen Sitzung (§29) → Bump. Über alle 30 Gruppen stehen
 215 Fund-Einträge: 186 behoben, 24 teilweise,
-5 offen (4 bewusst, 1 nicht nachstellbar). Neu sind drei Prüfstände: `sicherheit_check` (181 Fälle in
-23 Dateien unter `scripts/sicherheit/`, Stand 16.11.), `edge_check` (71 Fälle,
+5 offen (4 bewusst, 1 nicht nachstellbar). Neu sind drei Prüfstände: `sicherheit_check` (188 Fälle in
+23 Dateien unter `scripts/sicherheit/`, Stand 16.11.), `edge_check` (76 Fälle,
 `scripts/edge/` — führt die echten `index.ts` mit gestellten Diensten aus) und
 `rls_check` (43 Fälle, `scripts/rls/` — spielt jede neue Migration gegen den
 Live-Stand vom 10.11. in einem lokalen Postgres nach, zweimal, mit Gegenprobe).
@@ -1546,6 +1546,31 @@ wieder jede mit einem Fall, der vorher rot war, und einer Gegenprüfung: 28 Eint
   wenn eine Stelle darunter liegt.
 - **Fünf Familien von Tagesschlüsseln gehen beim Abmelden mit** und wachsen nicht mehr um
   einen Eintrag je Tag.
+
+**Nachtrag vom 16.11.2026: eine Gesamtprüfung des ganzen Diffs.** Noch einmal 23 Agenten
+über den zusammengeführten Stand: 17 Meldungen, 14 bestätigt, in zwei Gruppen behoben (je
+mit einem Fall, der vorher rot war, und einer Gegenprüfung, die selbst noch vier Dinge
+nachgebessert hat):
+
+- **Abmelden und ein anderes Konto im selben Fenster:** Gärten, Pflanzungen, der Friedhof,
+  Favoriten, Stimmen und der Community-Name des vorigen Kontos blieben im Arbeitsspeicher
+  stehen — das nächste Konto sah sie, und ein Speichern trug sie in DESSEN Cloud. Auch ein
+  Konto mit eigenen Cloud-Gärten verlor sie dabei. Abmelden heisst jetzt: derselbe Stand
+  wie nach einem Neuladen.
+- **Kein nur auf dem Gerät gespeicherter Plan geht beim Abmelden mehr verloren** — weder
+  beim Kürzen der Liste noch am Deckel des Wartebereichs (20 je Konto); die 90 Tage
+  laufen ab dem Abmelden, nicht ab der Anlage. Wo ein Plan nicht aufbewahrt werden kann,
+  sagt die App warum.
+- **„Meine Garten-Pläne"** geht durch denselben Eingang wie jede andere zurückgespielte
+  Liste.
+- **`stripe-webhook`:** ein Abo-Ereignis eines gelöschten Kontos wird abgeschlossen statt
+  ewig erneut zugestellt (30d). **`plan-iterate`:** ist eine Antwort abgeschnitten, sagt
+  die App die echte Ursache (der geänderte Plan wäre zu gross) statt „Wunsch kürzer
+  fassen" — ob das Budget von 8000 reicht, ist eine offene Messung (brett:2026-11-16-cfcd).
+- Die Tagebuch-Kategorien behalten beim Antippen die lesbare Farbe.
+
+Zwei neue Fragen an dich: brett:2026-11-16-adb3 (Lifetime-Kauf für ein gelöschtes Konto)
+und brett:2026-11-16-cfcd (Budget von `plan-iterate`).
 
 **Drei Fragen an dich stehen auf dem Brett** (jede bündelt die Zeilen aus 30f):
 brett:2026-11-11-a814 (Quiz: Antwortschlüssel, Battles, Deckel, das Jahr Pro am 31.12.),
@@ -1750,7 +1775,7 @@ ohne `plan_antwort.mjs` nicht**); `push_helfer.mjs`, `sensor_push_regeln.mjs`,
 | `feedback-triage` | Feedback-Texte gedeckelt und als Daten abgegrenzt (eine Anweisung im Feedback ist Inhalt), Antwort des Modells nur für den gesendeten Stapel |
 | `key-health-check`, `species-search` | nur die Versionen festgelegt |
 | `i18n-translate`, `send-push` | vergleichen ihr Geheimnis über `_shared/auth_vergleich.mjs` (vorher je eine eigene Kopie) |
-| `stripe-webhook` | Erstattung und Rückbuchung entziehen eine Lifetime; eine Zahlung setzt nie mehr „vom Experten verifiziert"; der Fehler, der live jedes Abo-Ereignis mit 500 beantwortet hätte, ist behoben; ein Schreibfehler der Datenbank wird gelesen — der Webhook antwortet dann nicht mehr mit 200, und Stripe stellt erneut zu |
+| `stripe-webhook` | Erstattung und Rückbuchung entziehen eine Lifetime; eine Zahlung setzt nie mehr „vom Experten verifiziert"; der Fehler, der live jedes Abo-Ereignis mit 500 beantwortet hätte, ist behoben; ein Schreibfehler eines PFLICHT-Schritts (Abo, Lifetime, Verkäufer-Status, Experten-Zahlung) wird gelesen — der Webhook antwortet dann nicht mehr mit 200, und Stripe stellt erneut zu; Nebenwege (Protokoll, Erinnerung, E-Mail) melden nur. Seit der Gesamtprüfung (16.11.) schliesst er ein Abo- oder Rechnungsereignis eines GELÖSCHTEN Kontos mit 200 ab und vermerkt es in `system_events` (`stripe_webhook` · `abo_ohne_konto`) — vorher hätte Stripe es Tag für Tag erneut zugestellt; ein Lifetime-Kauf ohne Konto bleibt bewusst 500 (Geld ohne Gegenwert, von Hand erstatten — Frage brett:2026-11-16-adb3) |
 | `stripe-checkout`, `stripe-portal` | Rückkehr nur auf eigene Adressen, Gratistage nur bei sicher beantworteter Vorgeschichte, Deckel des Startangebots am Server. **Achtung:** der Branch `claude/zahlungsweg-nachgemessen-011L7G` hat dieselben drei Stripe-Functions (mit `stripe-webhook`) unabhängig neu geschrieben und kann, was diese Fassung nicht kann (kein zweites Abo neben einem laufenden oder neben Lifetime, verzögerte Zahlungsarten). Wer als Zweiter gemergt wird, führt zusammen; erst dann ist die Fassung vollständig (STATUS §2) |
 | `stripe-expert-checkout` | nur der Autor zahlt, nie für sich selbst, Betrag fest |
 | `stripe-create-connect-account` | ein fremdes Stripe-Konto wird abgewiesen |

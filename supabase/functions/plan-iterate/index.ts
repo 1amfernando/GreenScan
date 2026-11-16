@@ -128,10 +128,13 @@ Deno.serve(async (req) => {
       if (regionData) regionalContext = regionData;
     }
 
+    // Gesamtpruefung (16.11.2026, Fund 5): der Plan geht OHNE Einrueckung an das Modell. Die
+    // Antwort ist der GANZE Plan in derselben Form — eingerueckt kam er laenger zurueck, als der
+    // Erzeuger (garden-scan-analyze) ihn geschrieben hatte, und das Budget unten ist kleiner.
     const messages: any[] = [
       {
         role: "user",
-        content: `Aktueller Plan:\n${JSON.stringify(plan.ai_analysis, null, 2)}\n\nMein Wunsch:\n${user_message}\n\nGib den geänderten Plan zurück (gleiche Struktur, nur Änderungen wo nötig). Plus change_summary.`,
+        content: `Aktueller Plan:\n${JSON.stringify(plan.ai_analysis)}\n\nMein Wunsch:\n${user_message}\n\nGib den geänderten Plan zurück (gleiche Struktur, nur Änderungen wo nötig). Plus change_summary.`,
       },
     ];
 
@@ -192,8 +195,15 @@ Deno.serve(async (req) => {
     if (pruef.zustand !== "ok") {
       console.error("plan-iterate antwort", pruef.zustand, pruef.grund);
       await nutzungBuchen();
+      // Gesamtpruefung (Fund 5): die Laenge der Antwort ist die Laenge des PLANS (die Function
+      // verlangt ihn ganz zurueck, der Wunsch ist auf 2000 Zeichen gedeckelt) — „bitte den Wunsch
+      // kuerzer fassen" schickte die Person in einen Versuch, der wieder abbricht und wieder eine
+      // Kontingent-Einheit kostet. Der Satz nennt die Ursache und bleibt unter den 120 Zeichen, die
+      // _gsFehlerText in der App ungekuerzt durchlaesst (edge_check 70_reste misst ihn dort).
+      // Gegenpruefung g2: auch kein „in einem Schritt" — das laedt zum Aufteilen ein, und jeder
+      // kleinere Schritt schreibt denselben ganzen Plan neu und wird ebenso abgeschnitten.
       if (pruef.zustand === "abgeschnitten") {
-        return new Response(JSON.stringify({ error: { code: "abgeschnitten", message: "Die Antwort der KI war zu lang und wurde abgeschnitten. Dein Plan ist unverändert — bitte den Wunsch kürzer fassen." } }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: { code: "abgeschnitten", message: "Der geänderte Plan wäre zu umfangreich für eine Antwort der KI (abgeschnitten). Dein Plan ist unverändert." } }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       return fehler("parse", 502);
     }

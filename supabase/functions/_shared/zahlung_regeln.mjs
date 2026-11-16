@@ -190,6 +190,24 @@ export function ladungVollErstattet(charge) {
     || (Number(charge.amount) > 0 && Number(charge.amount_refunded) >= Number(charge.amount)));
 }
 
+// Ein Abo-Ereignis fuer ein Konto, das es nicht mehr gibt (Gesamtpruefung 16.11.2026, Fund 4).
+// delete-user kuendigt das Abo bei Stripe und loescht danach das Konto; Stripe stellt
+// customer.subscription.deleted (und Rechnungsereignisse) asynchron zu — auch NACH dem
+// Loeschen. Der Upsert scheitert dann am Fremdschluessel stripe_subscriptions.user_id →
+// auth.users (23503), und keine Wiederholung heilt das: das Konto kommt nicht wieder. Mit 500
+// stellte Stripe drei Tage lang neu zu, jeder Versuch zaehlte als Webhook-Fehler.
+// Erkannt wird NUR diese Verletzung: an den details, die Postgres mit Leserecht schreibt
+// (`Key (user_id)=(…) is not present in table "users".`), und nur wenn Postgres die Spalte
+// weglaesst (`Key is not present in table "…"`), am Namen des Constraints. Ein 23503 auf
+// price_id ist heilbar (der Preis wird in stripe_prices nachgetragen) und bleibt ein Fehler.
+export function kontoFehlt(fehler) {
+  if (!fehler || typeof fehler !== 'object' || String(fehler.code) !== '23503') return false;
+  const spalte = String(fehler.details == null ? '' : fehler.details).match(/\bKey \(([^)]*)\)=/);
+  if (spalte) return spalte[1].trim().replace(/^"|"$/g, '') === 'user_id';
+  const name = String(fehler.message == null ? '' : fehler.message).match(/foreign key constraint "([^"]+)"/);
+  return !!name && /(^|_)user_id(_|$)/.test(name[1]);
+}
+
 // ── Konto loeschen ────────────────────────────────────────────────────────
 // Welche Abos muessen vor dem Loeschen bei Stripe gekuendigt werden? Laufende,
 // echte Stripe-Abos (sub_…), keine Lifetime-Zeilen.

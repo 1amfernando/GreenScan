@@ -1099,6 +1099,61 @@ const FAELLE = [
     },
   },
   {
+    // Gesamtpruefung g1 (#3): v33.59 hob die Fuellungen „Gepflanzt" (#558b2f → #33691e) und
+    // „Geerntet" (#ef6c00 → #bf360c) im Gartentagebuch an — in der Tabelle, aus der gerendert
+    // wird. gsTbSelectCat, das beim ANTIPPEN eines Kategorie-Knopfs die Fuellung setzt, hatte eine
+    // eigene Tabelle mit den alten Werten: nach dem Antippen stand weisse Schrift wieder auf 4,10:1
+    // bzw. 3,08:1. contrast_check misst nur das erste Rendern und tippt nicht an. Der Fall tippt
+    // jeden Knopf WIRKLICH an (onclick), liest die berechnete Farbe und misst: Weiss darauf ≥ 4,5:1
+    // (fs-sm, fett — keine grosse Schrift), und dieselbe Fuellung wie beim Rendern als gewaehlt.
+    name: 'Tagebuch-Kategorie · ein angetippter Knopf traegt dieselbe Fuellung wie ein gerenderter, und Weiss darauf hat ≥ 4,5:1 — für alle sechs Kategorien',
+    lauf: async () => {
+      const r = await __seite.evaluate(async () => {
+        const vorher = localStorage.getItem('gs_tb_cat_selected');
+        const knoepfe = () => Array.from(document.querySelectorAll('button[data-cat][onclick^="gsTbSelectCat("]')).filter(b => b.offsetParent !== null);
+        const out = [];
+        try {
+          openGartenTagebuch();
+          await new Promise(res => setTimeout(res, 300));
+          const ids = knoepfe().map(b => b.getAttribute('data-cat'));
+          for (const id of ids) {
+            // angetippt
+            const b = knoepfe().find(x => x.getAttribute('data-cat') === id);
+            b.click();
+            // nach dem Uebergang lesen (Knoepfe gleiten in die neue Farbe — vorher steht die alte da),
+            // und als Text festhalten: getComputedStyle ist lebendig, nach dem Neuaufbau ist der Knopf abgehaengt
+            await new Promise(res => setTimeout(res, 600));
+            const cs = { backgroundColor: getComputedStyle(b).backgroundColor, color: getComputedStyle(b).color };
+            // gerendert als gewaehlt
+            localStorage.setItem('gs_tb_cat_selected', id);
+            try { closeModal(); } catch (_) {}
+            openGartenTagebuch();
+            await new Promise(res => setTimeout(res, 200));
+            const g = knoepfe().find(x => x.getAttribute('data-cat') === id);
+            out.push({ id, tippBg: cs.backgroundColor, tippFg: cs.color, renderBg: g ? getComputedStyle(g).backgroundColor : null });
+          }
+        } finally {
+          try { closeModal(); } catch (_) {}
+          if (vorher == null) localStorage.removeItem('gs_tb_cat_selected'); else localStorage.setItem('gs_tb_cat_selected', vorher);
+        }
+        return out;
+      });
+      if (r.length < 6) return { ok: false, warum: 'nur ' + r.length + ' Kategorie-Knoepfe im Tagebuch gefunden — der Fall misst nichts' };
+      const rgb = (s) => (String(s).match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number);
+      const lum = (c) => { const l = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
+      const kontrast = (a, b) => { const x = lum(rgb(a)), y = lum(rgb(b)); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      const f = [];
+      const werte = r.map(k => {
+        const kt = kontrast(k.tippBg, k.tippFg);
+        if (!(kt >= 4.5)) f.push(k.id + ': ' + kt.toFixed(2) + ':1 nach dem Antippen (' + k.tippBg + ' / ' + k.tippFg + ')');
+        if (k.renderBg !== k.tippBg) f.push(k.id + ': angetippt ' + k.tippBg + ', gerendert ' + k.renderBg);
+        return k.id + ' ' + kt.toFixed(2);
+      });
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: werte.join(' · ') + ' — angetippt = gerendert' };
+    },
+  },
+  {
     // v33.34 — gemessen beim Bau des Kalender-Pruefwerks. `gs_weather_cache`
     // hatte ZWEI Schreiber mit ZWEI Formen: der Wetter-Lader legt dort ein
     // einzelnes `{ts, data, lat, lon}` ab (Frost, Regen, R1 und R2 lesen genau

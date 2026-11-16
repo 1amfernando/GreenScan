@@ -269,3 +269,23 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   der Kontext war still leer. Regel: jede Spalte einer Edge-Function gegen
   die Live-Spalten (`edge_check` 60_spalten), und EINE Liste, was ausgeliefert
   wird (`supabase/functions/AUSLIEFERUNG.json`).
+- **v33.59 (Gesamtpruefung)** Das Abmelden leerte den Speicher, nicht die
+  Variablen: `gardens`, `plantings`, `deadPlants` und sieben Spiegel (`favs`,
+  `myVotes`, `socialUserName` …) trugen weiter die Daten von A. Ein Render-Weg
+  beim Abmelden speicherte die Gaerten von A zurueck und markierte sie als
+  ungepusht — der Login-Abgleich des NAECHSTEN Kontos behielt sie dann. Regel:
+  Abmelden heisst derselbe Stand wie nach einem Neuladen, Speicher UND
+  Variable; `gsClearUserDataKeys` leert alles aus `GS_LISTEN_EINGANG`.
+- **v33.59 (Gesamtpruefung)** Der 20er-Rueckfall von `writeLS` kuerzte still
+  auch nur lokale Plaene, und der Deckel des Wartebereichs verdraengte
+  Plaene ohne Meldung. Ein „geschrieben“ reicht nicht, auch der Inhalt muss
+  stimmen. Der Fall dafuer braucht eine Quote, bei der VERKLEINERN gelingt —
+  ein Fall, der jeden Schreibversuch scheitern laesst, sieht es nie.
+- **v33.59 (Gesamtpruefung)** Die Edge-Attrappe kannte keine Fremdschluessel;
+  der Webhook antwortete live auf jedes Abo-Ereignis eines geloeschten Kontos
+  mit 500, die Attrappe nahm die Zeile an. Regel: eine Attrappe muss auch
+  scheitern, wo das Original scheitert — jetzt `23503` aus `AUTH_FK`.
+- **v33.59 (Gesamtpruefung)** Ein Fehlersatz, der eine Ursache nennt, darf
+  keinen Ausweg nahelegen, den es nicht gibt („Wunsch kuerzer fassen“, „in
+  einem Schritt“) — und die App kuerzt jeden Satz ueber 120 Zeichen
+  (`_gsFehlerText`). Der Fall misst den Satz so, wie die App ihn ZEIGT.

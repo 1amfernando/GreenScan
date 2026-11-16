@@ -8,6 +8,7 @@
 // sie NICHT hier ein: hier steht, was live IST. Seit v33.59 (Austausch-Runde, offen-i1) auch die
 // Tabellen, die knowledge-bulk-gen ueber schema.table anspricht — nur Spaltennamen, aus derselben
 // lesenden Momentaufnahme (information_schema.columns, 10.11.2026), fuer den Spalten-Scan 60_spalten. Nicht live: brain_memory, device_commands, device_readings, devices, metric_catalog
+import { readFileSync } from 'node:fs';
 export const STAND = '2026-11-10';
 export const SPALTEN = {
   "achievements_catalog": ["id", "slug", "title", "description", "icon", "category", "rarity", "xp_reward", "condition", "is_active", "sort_order", "created_at", "share_template"],
@@ -97,6 +98,14 @@ export const BEZIEHUNGEN = [
   ["quiz_answers", "quiz_id", "daily_quizzes", "id"],
   ["stripe_subscriptions", "price_id", "stripe_prices", "id"],
 ];
+// Fremdschluessel auf auth.users — NICHT abgeschrieben, sondern aus der lesenden Momentaufnahme
+// docs/loeschung-inventar.json gelesen (pg_constraint contype 'f', Ziel auth.users, Stand dort im
+// Feld `stand`). BEZIEHUNGEN oben kennt nur Fremdschluessel zwischen public-Tabellen; ohne diese
+// Liste nahm die Attrappe ein Abo fuer ein geloeschtes Konto an, das live mit 23503 scheitert
+// (Gesamtpruefung, Fund 4). [tabelle, spalte] — Ziel ist immer auth.users(id).
+const _inventar = JSON.parse(readFileSync(new URL('../../docs/loeschung-inventar.json', import.meta.url), 'utf8'));
+export const AUTH_FK_STAND = _inventar.stand;
+export const AUTH_FK = _inventar.spalten.filter(s => s.fk).map(s => [s.tabelle, s.spalte]);
 // Tabellen mit einem BEFORE-UPDATE-Trigger, der NEW.updated_at = now() setzt
 // (fn_touch_updated_at / touch_updated_at / set_updated_at, live/triggers.json):
 // ein Wert, den die Function fuer updated_at schickt, kommt bei einem UPDATE nie an.

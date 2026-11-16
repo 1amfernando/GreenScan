@@ -42,8 +42,10 @@ async function checkout(body, extra) {
   return { r, z: f.z, sess: nimm(f.z, 'checkout.sessions.create')[0] };
 }
 const ereignis = (id, type, obj, created) => JSON.stringify({ id, type, created: created || Math.floor(Date.now() / 1000), data: { object: obj } });
+// konten: auth.users der Attrappe (Fremdschluessel stripe_subscriptions.user_id u. a.) — die drei
+// Personen dieser Datei gibt es; ein Fall, der ein geloeschtes Konto braucht, ersetzt die Liste.
 async function webhook(evt, tabellen, extra) {
-  const f = await lade('stripe-webhook', Object.assign({ tabellen: Object.assign({ stripe_webhook_events: [], stripe_subscriptions: [], stripe_prices: [MONAT, LIFE, PLUS], stripe_products: PRODUKTE, launch_offer_usage: [], expert_verifications: [], notifications: [], audit_log: [], profiles: [] }, tabellen || {}) }, extra || {}));
+  const f = await lade('stripe-webhook', Object.assign({ konten: [U, E, A], tabellen: Object.assign({ stripe_webhook_events: [], stripe_subscriptions: [], stripe_prices: [MONAT, LIFE, PLUS], stripe_products: PRODUKTE, launch_offer_usage: [], expert_verifications: [], notifications: [], audit_log: [], profiles: [], system_events: [] }, tabellen || {}) }, extra || {}));
   const r = await f.aufruf({ headers: { 'stripe-signature': 'sig-gut' }, body: evt });
   return { r, z: f.z };
 }
@@ -562,6 +564,96 @@ module.exports = [
         if (/X-Admin-Secret/.test(src) && /(!==|===)\s*expectedSecret|expectedSecret\s*(!==|===)/.test(src)) rot.push(fn + ': X-Admin-Secret mit ===/!==');
       }
       return rot.length ? nein(rot.join(' · ')) : ok('beide: falsch/leer/ohne → 403, kein Stripe-Aufruf · kein X-Admin-Secret im Repo mehr mit ===/!==');
+    },
+  },
+
+  // ── Gesamtpruefung, Fund 4: ein Abo-Ereignis fuer ein Konto, das es nicht mehr gibt ──────
+  {
+    name: 'Attrappe · Fremdschluessel wie Postgres: user_id → auth.users (aus docs/loeschung-inventar.json) und price_id → stripe_prices scheitern mit 23503, details nennen die Spalte, nichts wird geschrieben; NULL und ein unveraenderter Schluessel werden nicht geprueft (Fund 4)',
+    lauf: async () => {
+      const S = await import(require('url').pathToFileURL(require('path').join(__dirname, '_zahlung_supabase.mjs')).href);
+      const L = await import(require('url').pathToFileURL(require('path').join(__dirname, '_live_schema.mjs')).href);
+      if (!L.AUTH_FK.some(([t, sp]) => t === 'stripe_subscriptions' && sp === 'user_id')) return nein('stripe_subscriptions.user_id → auth.users fehlt in AUTH_FK (Momentaufnahme ' + L.AUTH_FK_STAND + ')');
+      const G = '55555555-5555-4555-8555-555555555555';
+      const neu = (zeilen) => { globalThis.__gsZ = { tabellen: { stripe_prices: [Object.assign({}, MONAT)], stripe_subscriptions: zeilen || [] }, schluessel: {}, fehler: {}, ops: [], beziehungen: [], konten: new Set([U]) }; return S.createClient('u', 'k'); };
+      const fehler = [];
+      const a = await neu().from('stripe_subscriptions').upsert({ id: 'sub_g', user_id: G, price_id: MONAT.id }, { onConflict: 'id' });
+      if (!a.error || a.error.code !== '23503' || !/Key \(user_id\)=/.test(a.error.details || '') || !/is not present in table "users"/.test(a.error.details || '') || globalThis.__gsZ.tabellen.stripe_subscriptions.length) fehler.push('geloeschtes Konto: ' + JSON.stringify(a.error) + ', Zeilen ' + globalThis.__gsZ.tabellen.stripe_subscriptions.length);
+      const b = await neu().from('stripe_subscriptions').upsert({ id: 'sub_p', user_id: U, price_id: 'price_gibtsnicht' }, { onConflict: 'id' });
+      if (!b.error || b.error.code !== '23503' || !/Key \(price_id\)=/.test(b.error.details || '') || globalThis.__gsZ.tabellen.stripe_subscriptions.length) fehler.push('unbekannter Preis: ' + JSON.stringify(b.error));
+      const c = await neu().from('stripe_subscriptions').upsert({ id: 'sub_ok', user_id: U, price_id: MONAT.id }, { onConflict: 'id' });
+      if (c.error || globalThis.__gsZ.tabellen.stripe_subscriptions.length !== 1) fehler.push('gutes Abo abgewiesen: ' + JSON.stringify(c.error));
+      const d = await neu().from('stripe_subscriptions').insert({ id: 'sub_n', user_id: U, price_id: null });
+      if (d.error) fehler.push('price_id NULL abgewiesen (MATCH SIMPLE): ' + JSON.stringify(d.error));
+      // Ein Update, das den Schluessel nicht aendert, prueft ihn nicht (wie Postgres) — auch wenn das Konto fehlt.
+      const e = await neu([{ id: 'sub_alt', user_id: G, price_id: MONAT.id, status: 'active' }]).from('stripe_subscriptions').update({ status: 'canceled' }).eq('id', 'sub_alt');
+      if (e.error || globalThis.__gsZ.tabellen.stripe_subscriptions[0].status !== 'canceled') fehler.push('unveraenderter Schluessel geprueft: ' + JSON.stringify(e.error));
+      const f = await neu([{ id: 'sub_alt', user_id: U, price_id: MONAT.id }]).from('stripe_subscriptions').update({ user_id: G }).eq('id', 'sub_alt');
+      if (!f.error || f.error.code !== '23503' || globalThis.__gsZ.tabellen.stripe_subscriptions[0].user_id !== U) fehler.push('Update auf ein fehlendes Konto angenommen: ' + JSON.stringify(f.error));
+      return fehler.length ? nein(fehler.join(' · ')) : ok(L.AUTH_FK.length + ' Fremdschluessel auf auth.users (Stand ' + L.AUTH_FK_STAND + ') · geloeschtes Konto / unbekannter Preis → 23503 mit Spalte, 0 Zeilen · gut, NULL, unveraenderter Schluessel → durch');
+    },
+  },
+  {
+    name: 'Rechnung · kontoFehlt: NUR die Verletzung des Fremdschluessels auf user_id heisst „das Konto gibt es nicht" — an den details (Spalte) oder, ohne sie, am Constraint; price_id, andere Codes und nichts sind es nicht (Fund 4)',
+    lauf: async (h) => {
+      const r = await R(h);
+      if (typeof r.kontoFehlt !== 'function') return nein('kontoFehlt fehlt in _shared/zahlung_regeln.mjs');
+      const M = (c) => 'insert or update on table "stripe_subscriptions" violates foreign key constraint "' + c + '"';
+      const ja = [
+        { code: '23503', message: M('stripe_subscriptions_user_id_fkey'), details: 'Key (user_id)=(5555) is not present in table "users".' },
+        { code: '23503', message: M('fk_abo_konto'), details: 'Key (user_id)=(5555) is not present in table "users".' },          // anderer Name, details reichen
+        { code: '23503', message: M('stripe_subscriptions_user_id_fkey'), details: 'Key is not present in table "users".' },      // ohne Leserecht: Postgres laesst die Spalte weg
+      ];
+      const nein_ = [
+        { code: '23503', message: M('stripe_subscriptions_price_id_fkey'), details: 'Key (price_id)=(price_x) is not present in table "stripe_prices".' },
+        { code: '23503', message: M('fk_user_id_preis'), details: 'Key (price_id)=(price_x) is not present in table "stripe_prices".' },   // Name taeuscht, details entscheiden
+        { code: '23505', message: 'duplicate key value violates unique constraint "stripe_subscriptions_user_id_key"', details: 'Key (user_id)=(5555) already exists.' },
+        { code: 'XX000', message: 'connection reset' }, { message: 'user_id' }, null, undefined, {},
+      ];
+      const falsch = ja.filter(e => r.kontoFehlt(e) !== true).map(e => 'nicht erkannt: ' + JSON.stringify(e)).concat(nein_.filter(e => r.kontoFehlt(e) !== false).map(e => 'faelschlich erkannt: ' + JSON.stringify(e)));
+      return falsch.length ? nein(falsch.join(' · ')) : ok(ja.length + ' Formen erkannt · ' + nein_.length + ' andere nicht (price_id, 23505, Netz, leer)');
+    },
+  },
+  {
+    name: 'stripe-webhook · Abo- und Rechnungsereignis fuer ein Konto, das es nicht mehr gibt (Kuendigung durch delete-user, Zustellung nach dem Loeschen): 200, verarbeitet, KEIN Fehler im Ereignis, ein Eintrag in system_events, eine Warnung — ein unbekannter Preis, ein Datenbankfehler und ein Lifetime-Kauf ohne Konto bleiben 500 (Fund 4)',
+    lauf: async () => {
+      const G = '55555555-5555-4555-8555-555555555555';
+      const sub = (uid, preis, status) => ({ id: 'sub_g', customer: 'cus_g', status: status || 'canceled', cancel_at_period_end: false, current_period_start: 1761000000, current_period_end: 1763600000, trial_end: null, canceled_at: 1762000000, ended_at: 1762000000, metadata: { supabase_user_id: uid }, items: { data: [{ price: { id: preis || MONAT.id } }] } });
+      const evtZeile = (z, id) => (z.tabellen.stripe_webhook_events || []).find(e => e.id === id) || {};
+      const rot = [];
+      // (1) customer.subscription.deleted — Stripe liefert das geloeschte Abo nicht mehr (Vorgabe der Attrappe wirft).
+      const a = await webhook(ereignis('evt_g1', 'customer.subscription.deleted', sub(G)));
+      const ea = evtZeile(a.z, 'evt_g1');
+      if (a.r.status !== 200) rot.push('subscription.deleted ohne Konto → ' + a.r.status + ' ' + a.r.text.slice(0, 160));
+      if (!ea.processed_at || ea.error) rot.push('Ereignis: processed_at=' + ea.processed_at + ', error=' + ea.error);
+      if (a.z.tabellen.stripe_subscriptions.length) rot.push('Zeile fuer das fehlende Konto geschrieben');
+      const se = (a.z.tabellen.system_events || []).filter(x => x.source === 'stripe_webhook');
+      if (se.length !== 1 || se[0].severity !== 'warn' || !se[0].detail || se[0].detail.subscription_id !== 'sub_g' || se[0].detail.ereignis !== 'customer.subscription.deleted') rot.push('system_events: ' + JSON.stringify(a.z.tabellen.system_events));
+      if (se[0] && JSON.stringify(se[0]).indexOf(G) >= 0) rot.push('system_events nennt die Kennung des geloeschten Kontos');
+      if (!a.z.log.some(l => l[0] === 'warn' && /sub_g/.test(l[1]))) rot.push('keine Warnung im Log');
+      // (2) customer.subscription.updated und invoice.paid — Stripe liefert das Abo noch.
+      const b = await webhook(ereignis('evt_g2', 'customer.subscription.updated', sub(G)), {}, { stripeAntwort: { 'subscriptions.retrieve': () => sub(G) } });
+      if (b.r.status !== 200 || !evtZeile(b.z, 'evt_g2').processed_at || b.z.tabellen.stripe_subscriptions.length) rot.push('subscription.updated ohne Konto → ' + b.r.status);
+      const c = await webhook(ereignis('evt_g3', 'invoice.paid', { id: 'in_g', subscription: 'sub_g' }), {}, { stripeAntwort: { 'subscriptions.retrieve': () => sub(G, MONAT.id, 'active') } });
+      const sc = (c.z.tabellen.system_events || []).filter(x => x.source === 'stripe_webhook');
+      if (c.r.status !== 200 || !evtZeile(c.z, 'evt_g3').processed_at || evtZeile(c.z, 'evt_g3').error || c.z.tabellen.stripe_subscriptions.length || sc.length !== 1 || sc[0].detail.ereignis !== 'invoice.paid') rot.push('invoice.paid ohne Konto → ' + c.r.status + ' ' + c.r.text.slice(0, 120) + ' · ' + JSON.stringify(sc));
+      // Gegenrichtung (a): ein Preis, den stripe_prices nicht kennt — heilbar, sobald er eingetragen ist: 500, Stripe wiederholt.
+      const d = await webhook(ereignis('evt_g4', 'customer.subscription.updated', sub(U, 'price_neu_im_dashboard', 'active')), {}, { stripeAntwort: { 'subscriptions.retrieve': () => sub(U, 'price_neu_im_dashboard', 'active') } });
+      if (d.r.status !== 500 || evtZeile(d.z, 'evt_g4').processed_at || !evtZeile(d.z, 'evt_g4').error || (d.z.tabellen.system_events || []).length) rot.push('unbekannter Preis → ' + d.r.status + ' (erwartet 500 mit Fehler im Ereignis, kein system_events-Eintrag)');
+      // Gegenpruefung g2: die 500 muss aus DIESER Ursache kommen (Fremdschluessel price_id), nicht aus irgendeiner.
+      else if (!/price_id_fkey/.test(String(evtZeile(d.z, 'evt_g4').error))) rot.push('unbekannter Preis → 500, aber aus einer anderen Ursache: ' + String(evtZeile(d.z, 'evt_g4').error).slice(0, 160));
+      // Gegenrichtung (b): jeder andere Schreibfehler bleibt 500.
+      const e = await webhook(ereignis('evt_g5', 'customer.subscription.deleted', sub(G)), {}, { fehler: { 'stripe_subscriptions:upsert': { code: 'XX000', message: 'connection reset' } } });
+      if (e.r.status !== 500 || evtZeile(e.z, 'evt_g5').processed_at) rot.push('Datenbankfehler → ' + e.r.status);
+      // Gegenrichtung (c): ein LIFETIME-Kauf ohne Konto ist Geld ohne Gegenwert — kein stilles 200 (bewusst, Erstattung von Hand).
+      const sess = { id: 'cs_g', mode: 'payment', payment_status: 'paid', customer: 'cus_g', payment_intent: 'pi_g', line_items: { data: [{ price: { id: LIFE.id } }] }, metadata: { supabase_user_id: G } };
+      const f = await webhook(ereignis('evt_g6', 'checkout.session.completed', sess));
+      if (f.r.status !== 500 || evtZeile(f.z, 'evt_g6').processed_at) rot.push('Lifetime ohne Konto → ' + f.r.status + ' (erwartet 500)');
+      else if (!/stripe_subscriptions lifetime.*user_id_fkey/.test(String(evtZeile(f.z, 'evt_g6').error)) || (f.z.tabellen.system_events || []).length) rot.push('Lifetime ohne Konto → 500, aber aus einer anderen Ursache (oder mit system_events-Zeile): ' + String(evtZeile(f.z, 'evt_g6').error).slice(0, 160));
+      // Und das gewoehnliche Abo eines bestehenden Kontos schreibt wie bisher.
+      const g = await webhook(ereignis('evt_g7', 'customer.subscription.deleted', sub(U)));
+      if (g.r.status !== 200 || (g.z.tabellen.stripe_subscriptions[0] || {}).status !== 'canceled' || (g.z.tabellen.system_events || []).length) rot.push('bestehendes Konto → ' + g.r.status + ' ' + JSON.stringify(g.z.tabellen.stripe_subscriptions[0]));
+      return rot.length ? nein(rot.join(' | ')) : ok('deleted/updated/invoice.paid ohne Konto → 200, verarbeitet, kein Fehler, 1 system_events-Zeile ohne Kennung, Warnung · unbekannter Preis / DB-Fehler / Lifetime ohne Konto → 500 · bestehendes Konto schreibt');
     },
   },
 

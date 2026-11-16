@@ -34,7 +34,7 @@ function haken() {
 }
 
 let lauf = 0;
-// szenario: { env, tabellen, schluessel, nutzer, fehler, rpc, stripeAntwort }
+// szenario: { env, tabellen, schluessel, nutzer, konten, fehler, rpc, stripeAntwort }
 // Rueckgabe: { aufruf(req) -> {status, body, headers}, z } — z ist der Zustand (ops, stripe, tabellen).
 async function lade(fnName, szenario) {
   haken();
@@ -43,6 +43,9 @@ async function lade(fnName, szenario) {
     tabellen: JSON.parse(JSON.stringify(szenario.tabellen || {})),
     schluessel: Object.assign({ launch_offer_usage: ['user_id'], expert_verifications: ['post_id', 'expert_id'] }, szenario.schluessel || {}),
     nutzer: szenario.nutzer || {},
+    // auth.users fuer die Fremdschluessel der Attrappe (AUTH_FK): die Konten hinter `nutzer`
+    // und die, die das Szenario ausdruecklich nennt. Ein Konto, das hier fehlt, gibt es nicht.
+    konten: new Set(Object.values(szenario.nutzer || {}).map(u => String(u && u.id)).concat((szenario.konten || []).map(String))),
     fehler: szenario.fehler || {},
     rpc: szenario.rpc || {},
     stripeAntwort: szenario.stripeAntwort || {},

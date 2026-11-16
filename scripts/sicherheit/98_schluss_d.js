@@ -84,45 +84,51 @@ function server() {
 // auf A/?billing=success&popup=1 zurueck. Das Hauptfenster (A, Sitzung aus dem Seed) geht den
 // Weg der App: gsStartCheckout → _gsCheckoutFenster → popup.location = url der Function.
 // Gemessen wird im zurueckgekehrten Fenster beim Start (Bindung, vor jedem App-Skript).
+// Gesamtpruefung (16.11.2026, Fund 6): Server, Kontext und ihr Aufbau stehen IM try — scheiterte
+// der Aufbau (Kontext tot), lauschten A und B weiter und hielten den Prozess am Leben. Und das
+// Warten auf das Fenster (`zu`) ist sofort behandelt: wirft das evaluate davor, schliesst das
+// finally den Kontext, `zu` wird abgelehnt — ohne Handler beendete Node den ganzen Lauf.
 async function stripeRueckkehr(seite, mitCoop) {
   const ankunftB = [];
-  const A = await repoServer(mitCoop ? {} : { ohne: ['Cross-Origin-Opener-Policy'] });
-  const B = await new Promise((fertig) => {
-    const s = http.createServer((rq, rs) => {
-      ankunftB.push(rq.url);
-      rs.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      rs.end('<!doctype html><title>Stripe (gestellt)</title><p>Zahlung …</p><script>setTimeout(function(){ location.href = ' +
-        JSON.stringify(A.basis + '?billing=success&popup=1') + '; }, 300);</script>');
-    });
-    s.listen(0, '127.0.0.1', () => fertig({ s, basis: 'http://127.0.0.1:' + s.address().port + '/' }));
-  });
-  const br = seite.context().browser();
-  const ctx = await br.newContext({ serviceWorkers: 'block', viewport: { width: 412, height: 915 } });
-  await ctx.route('**', r => (r.request().url().startsWith(A.basis) || r.request().url().startsWith(B.basis)) ? r.continue() : r.abort());
-  const meldungen = [];
-  await ctx.exposeBinding('__gsRueckkehrMeldung', (_q, m) => { meldungen.push(m); });
-  await ctx.addInitScript(() => {
-    if (!/[?&]popup=1/.test(location.search)) return;
-    const opener = window.opener !== null;
-    window.__gsRueckkehrMeldung({ phase: 'start', opener, href: location.href });
-    // Gegenpruefung s4: „laedt die App nicht" wird am SCHREIBEN von gsPlans gemessen (ein
-    // spaeteres <script>, das window.stop() nie erreichen laesst) — ein Blick nach 1200 ms sah
-    // es unter Last nicht, und das Fenster schliesst sich schon nach 1500 ms.
-    try {
-      Object.defineProperty(window, 'gsPlans', { configurable: true, get() { return undefined; }, set(v) {
-        try { window.__gsRueckkehrMeldung({ phase: 'app' }); } catch (e) {}
-        Object.defineProperty(window, 'gsPlans', { value: v, writable: true, configurable: true, enumerable: true });
-      } });
-    } catch (e) {}
-    setTimeout(() => { try { window.__gsRueckkehrMeldung({ phase: 'spaeter', opener: window.opener !== null, app: typeof window.gsPlans !== 'undefined', text: String((document.body && document.body.innerText) || '').slice(0, 300) }); } catch (e) {} }, 1200);
-  });
+  let A = null, B = null, ctx = null;
   try {
+    A = await repoServer(mitCoop ? {} : { ohne: ['Cross-Origin-Opener-Policy'] });
+    B = await new Promise((fertig) => {
+      const s = http.createServer((rq, rs) => {
+        ankunftB.push(rq.url);
+        rs.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        rs.end('<!doctype html><title>Stripe (gestellt)</title><p>Zahlung …</p><script>setTimeout(function(){ location.href = ' +
+          JSON.stringify(A.basis + '?billing=success&popup=1') + '; }, 300);</script>');
+      });
+      s.listen(0, '127.0.0.1', () => fertig({ s, basis: 'http://127.0.0.1:' + s.address().port + '/' }));
+    });
+    const br = seite.context().browser();
+    ctx = await br.newContext({ serviceWorkers: 'block', viewport: { width: 412, height: 915 } });
+    await ctx.route('**', r => (r.request().url().startsWith(A.basis) || r.request().url().startsWith(B.basis)) ? r.continue() : r.abort());
+    const meldungen = [];
+    await ctx.exposeBinding('__gsRueckkehrMeldung', (_q, m) => { meldungen.push(m); });
+    await ctx.addInitScript(() => {
+      if (!/[?&]popup=1/.test(location.search)) return;
+      const opener = window.opener !== null;
+      window.__gsRueckkehrMeldung({ phase: 'start', opener, href: location.href });
+      // Gegenpruefung s4: „laedt die App nicht" wird am SCHREIBEN von gsPlans gemessen (ein
+      // spaeteres <script>, das window.stop() nie erreichen laesst) — ein Blick nach 1200 ms sah
+      // es unter Last nicht, und das Fenster schliesst sich schon nach 1500 ms.
+      try {
+        Object.defineProperty(window, 'gsPlans', { configurable: true, get() { return undefined; }, set(v) {
+          try { window.__gsRueckkehrMeldung({ phase: 'app' }); } catch (e) {}
+          Object.defineProperty(window, 'gsPlans', { value: v, writable: true, configurable: true, enumerable: true });
+        } });
+      } catch (e) {}
+      setTimeout(() => { try { window.__gsRueckkehrMeldung({ phase: 'spaeter', opener: window.opener !== null, app: typeof window.gsPlans !== 'undefined', text: String((document.body && document.body.innerText) || '').slice(0, 300) }); } catch (e) {} }, 1200);
+    });
     const haupt = await ctx.newPage();
     await haupt.addInitScript(SEED);
     await haupt.goto(A.basis, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await haupt.waitForTimeout(4000);
     const kopf = await haupt.evaluate(async () => { const r = await fetch(location.href, { method: 'HEAD' }).catch(() => null); return r ? r.headers.get('cross-origin-opener-policy') : 'unbekannt'; });
     const zu = ctx.waitForEvent('page', { timeout: 15000 });
+    zu.catch(() => {});   // als behandelt markiert — `await zu` unten wirft weiter wie bisher (Fund 6)
     await haupt.evaluate((stripe) => {
       document.documentElement.classList.remove('gs-preauth');
       window.__pruef = [];
@@ -148,8 +154,9 @@ async function stripeRueckkehr(seite, mitCoop) {
     if (!geschlossen) rest = await pop.evaluate(() => ({ text: document.body.innerText, app: typeof window.gsPlans !== 'undefined' })).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
     return { kopf, ankunftB, meldungen, geschlossen, n: haupt2.n, rumpf: haupt2.rumpf, rest };
   } finally {
-    await ctx.close().catch(() => {});
-    await A.schliessen(); try { B.s.closeAllConnections(); } catch (e) {} B.s.close();
+    if (ctx) await ctx.close().catch(() => {});
+    if (A) await A.schliessen();
+    if (B) { try { B.s.closeAllConnections(); } catch (e) {} B.s.close(); }
   }
 }
 
@@ -261,20 +268,97 @@ module.exports = [
     },
   },
   {
+    name: 'B · der Rueckkehr-Helfer selbst: wirft die App, BEVOR auf das Stripe-Fenster gewartet wird (gsStartCheckout fehlt), kommt die Ursache als Ausnahme an — keine unbehandelte Ablehnung, die den ganzen Lauf beendet; scheitert schon der Aufbau (Kontext tot), sind beide Pruefserver trotzdem zu (Gesamtpruefung, Fund 6)',
+    lauf: async (seite) => {
+      // Gemessen am ECHTEN Helfer stripeRueckkehr. Hergestellt werden die zwei Fehlerwege von
+      // aussen: (1) die App, wie sie waere, wenn gsStartCheckout umbenannt wuerde (eine Zeile im
+      // Kontext des Helfers nimmt die Funktion nach dem Laden weg); (2) ein Kontext, der schon zu
+      // ist, wenn der Helfer ihn einrichtet. Gezaehlt werden die Server, die der Helfer startet,
+      // und jede Ablehnung ohne Handler — ohne den Fang hier beendete Node den Prozess.
+      const httpM = require('http');
+      const br = seite.context().browser();
+      const origKontext = br.newContext, origServer = httpM.createServer;
+      const server = [], unbehandelt = [];
+      const fang = (e) => unbehandelt.push(String((e && e.message) || e).split('\n')[0].slice(0, 140));
+      process.on('unhandledRejection', fang);
+      httpM.createServer = function () { const sv = origServer.apply(this, arguments); server.push(sv); return sv; };
+      const lauf = async (umbau) => {
+        server.length = 0;
+        br.newContext = async function (o) { const c = await origKontext.call(br, o); await umbau(c); return c; };
+        let fehler = null;
+        try { await stripeRueckkehr(seite, true); } catch (e) { fehler = String((e && e.message) || e).split('\n')[0]; }
+        finally { br.newContext = origKontext; }
+        await new Promise(r => setTimeout(r, 400));   // Node meldet eine Ablehnung ohne Handler erst nach dem Takt
+        const offen = server.filter(sv => sv.listening).length;
+        server.forEach(sv => { try { sv.closeAllConnections(); } catch (e) {} try { sv.close(); } catch (e) {} });   // nie offen liegen lassen
+        return { fehler, gestartet: server.length, offen };
+      };
+      let a = null, b = null;
+      try {
+        a = await lauf(async (c) => {
+          await c.addInitScript(() => {
+            if (/[?&]popup=1/.test(location.search)) return;
+            document.addEventListener('DOMContentLoaded', () => { window.gsStartCheckout = undefined; });
+          });
+        });
+        b = await lauf(async (c) => { await c.close(); });
+      } finally {
+        httpM.createServer = origServer;
+        process.removeListener('unhandledRejection', fang);
+      }
+      const rot = [];
+      if (!a.fehler || !/gsStartCheckout/.test(a.fehler)) rot.push('(1) die Ursache kommt nicht als Ausnahme beim Fall an: ' + a.fehler);
+      if (unbehandelt.length) rot.push('unbehandelte Ablehnung — ohne den Fang dieses Falls beendet sie den ganzen sicherheit_check ohne Zusammenfassung: ' + unbehandelt.join(' | '));
+      if (a.gestartet !== 2 || a.offen) rot.push('(1) Pruefserver: ' + a.gestartet + ' gestartet, ' + a.offen + ' noch offen');
+      if (!b.fehler) rot.push('(2) ein toter Kontext liess den Helfer nicht scheitern — der Fall misst nichts');
+      if (b.gestartet !== 2 || b.offen) rot.push('(2) Aufbau gescheitert (' + b.fehler + '), Pruefserver: ' + b.gestartet + ' gestartet, ' + b.offen + ' noch offen — sie hielten den Prozess am Leben');
+      return rot.length ? { ok: false, warum: rot.join(' · ') } : { ok: true, info: '(1) „' + a.fehler.slice(0, 70) + '" als Ausnahme, 0 unbehandelt, 2 von 2 Servern zu · (2) Aufbau scheitert, 2 von 2 Servern zu' };
+    },
+  },
+  {
+    name: 'B · Geschwister in 70_sitzung („Tiefer Pfad"): scheitert der Aufbau des eigenen Kontexts (Kontext schon zu), ist der eigene Pruefserver trotzdem zu — er hielt sonst den ganzen Lauf am Leben (Gegenpruefung g2 zu Fund 6)',
+    lauf: async (seite, h) => {
+      // Gemessen am ECHTEN Fall aus 70_sitzung.js: er startet einen eigenen http-Server und einen
+      // eigenen Kontext. Hergestellt wird von aussen ein Kontext, der schon zu ist (wie im Fall
+      // oben); gezaehlt wird, ob der Server danach noch lauscht.
+      const httpM = require('http');
+      const fall = require('./70_sitzung.js').find(f => /^Tiefer Pfad/.test(f.name));
+      if (!fall) return { ok: false, warum: 'Fall „Tiefer Pfad" in 70_sitzung.js nicht gefunden' };
+      const br = seite.context().browser();
+      const origKontext = br.newContext, origServer = httpM.createServer;
+      const server = [];
+      httpM.createServer = function () { const sv = origServer.apply(this, arguments); server.push(sv); return sv; };
+      br.newContext = async function (o) { const c = await origKontext.call(br, o); await c.close(); return c; };
+      let ergebnis = null, fehler = null;
+      try { ergebnis = await fall.lauf(seite, h); } catch (e) { fehler = String((e && e.message) || e).split('\n')[0]; }
+      finally { br.newContext = origKontext; httpM.createServer = origServer; }
+      await new Promise(r => setTimeout(r, 200));
+      const offen = server.filter(sv => sv.listening).length;
+      server.forEach(sv => { try { sv.closeAllConnections(); } catch (e) {} try { sv.close(); } catch (e) {} });   // nie offen liegen lassen
+      if (!fehler && ergebnis && ergebnis.ok) return { ok: false, warum: 'der Fall lief mit einem geschlossenen Kontext gruen — der Fall hier misst nichts' };
+      if (server.length !== 1) return { ok: false, warum: 'erwartet 1 Pruefserver, gestartet: ' + server.length };
+      if (offen) return { ok: false, warum: 'Aufbau gescheitert (' + (fehler || (ergebnis && ergebnis.warum)) + '), der Pruefserver lauscht weiter — er haelt den Prozess am Leben' };
+      return { ok: true, info: 'Aufbau scheitert (' + String(fehler || (ergebnis && ergebnis.warum)).slice(0, 70) + '), 1 von 1 Server zu' };
+    },
+  },
+  {
     name: 'B · Rechnung (ein Ursprung, ohne Kopfzeilen, Fenster mit noopener): das Hauptfenster bekommt die Meldung; close() verweigert → ein Satz statt der App; ohne popup=1 laedt die App wie bisher',
     lauf: async (seite) => {
+      // Gesamtpruefung (Fund 6, Geschwister): Kontext und sein Aufbau IM try, `zu` sofort behandelt.
       const srv = await server();
       const port = srv.address().port, basis = 'http://127.0.0.1:' + port + '/';
       const br = seite.context().browser();
-      const ctx = await br.newContext({ serviceWorkers: 'block', viewport: { width: 412, height: 915 } });
-      await ctx.route('**', r => r.request().url().startsWith(basis) ? r.continue() : r.abort());
+      let ctx = null;
       try {
+        ctx = await br.newContext({ serviceWorkers: 'block', viewport: { width: 412, height: 915 } });
+        await ctx.route('**', r => r.request().url().startsWith(basis) ? r.continue() : r.abort());
         const haupt = await ctx.newPage();
         await haupt.goto(basis, { waitUntil: 'domcontentloaded', timeout: 120000 });
         await haupt.waitForTimeout(2500);
         await haupt.evaluate(() => { window.__pruef = []; window._gsBillingPruefen = async () => { window.__pruef.push(Date.now()); return false; }; });
         // (1) per Skript geoeffnet, OHNE opener (wie nach COOP) → schliesst sich
         const zu = ctx.waitForEvent('page');
+        zu.catch(() => {});   // `await zu` wirft weiter; ohne Handler beendete eine Ablehnung den Lauf
         await haupt.evaluate((u) => { window.open(u + '?billing=success&popup=1', 'gs_pruef', 'noopener'); }, basis);
         const p1 = await zu;
         const geschlossen = await new Promise(res => { const t = setTimeout(() => res(false), 6000); p1.on('close', () => { clearTimeout(t); res(true); }); });
@@ -302,7 +386,7 @@ module.exports = [
         if (n3 !== 1) return { ok: false, warum: 'ohne popup=1 meldete die Seite ans Hauptfenster' };
         return { ok: true, info: 'success → Hauptfenster 1× _gsBillingPruefen, Popup zu · close() verweigert → Satz, keine App · ohne popup=1 unveraendert' };
       } finally {
-        await ctx.close().catch(() => {});
+        if (ctx) await ctx.close().catch(() => {});
         srv.close();
       }
     },
@@ -351,9 +435,10 @@ module.exports = [
       const srv = await server();
       const port = srv.address().port, basis = 'http://127.0.0.1:' + port + '/';
       const br = seite.context().browser();
-      const ctx = await br.newContext({ serviceWorkers: 'block', viewport: { width: 412, height: 915 } });
-      await ctx.route('**', r => r.request().url().startsWith(basis) ? r.continue() : r.abort());
+      let ctx = null;   // Gesamtpruefung (Fund 6, Geschwister): der Aufbau steht im try
       try {
+        ctx = await br.newContext({ serviceWorkers: 'block', viewport: { width: 412, height: 915 } });
+        await ctx.route('**', r => r.request().url().startsWith(basis) ? r.continue() : r.abort());
         const p = await ctx.newPage();
         await p.goto(basis + 'robots.txt');
         await p.evaluate(() => sessionStorage.setItem('gs_billing_selbes_fenster', '1'));
@@ -364,7 +449,7 @@ module.exports = [
         if (z.rest) return { ok: false, warum: 'die Marke bleibt stehen (das naechste Popup erbte sie)' };
         return { ok: true, info: 'Marke gesehen → App geladen, Marke verbraucht' };
       } finally {
-        await ctx.close().catch(() => {});
+        if (ctx) await ctx.close().catch(() => {});
         srv.close();
       }
     },

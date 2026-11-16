@@ -270,16 +270,24 @@ module.exports = [
       await new Promise(r => s.listen(0, '127.0.0.1', r));
       const basis = 'http://127.0.0.1:' + s.address().port;
       const br = seite.context().browser();
-      const ctx = await br.newContext({ serviceWorkers: 'block' });
-      const p = await ctx.newPage();
-      const mess = async (adr) => {
-        await p.goto(basis + adr, { waitUntil: 'load', timeout: 120000 });
-        await p.waitForTimeout(2500);
-        return p.evaluate(() => ({ arten: (window.DB || []).length, pfad: location.pathname, such: location.search, hash: location.hash }));
-      };
-      let tief, wurzel;
-      try { tief = await mess('/a/b?x=1#y'); wurzel = await mess('/?x=2'); }
-      finally { await ctx.close(); s.close(); }
+      // Gesamtpruefung (Gegenpruefung g2, Geschwister von Fund 6): Kontext und Seite IM try —
+      // scheiterte ihr Aufbau, lauschte der Server weiter und hielt den ganzen Lauf am Leben
+      // (98_schluss_d „Geschwister in 70_sitzung" stellt es her).
+      let ctx = null, tief, wurzel;
+      try {
+        ctx = await br.newContext({ serviceWorkers: 'block' });
+        const p = await ctx.newPage();
+        const mess = async (adr) => {
+          await p.goto(basis + adr, { waitUntil: 'load', timeout: 120000 });
+          await p.waitForTimeout(2500);
+          return p.evaluate(() => ({ arten: (window.DB || []).length, pfad: location.pathname, such: location.search, hash: location.hash }));
+        };
+        tief = await mess('/a/b?x=1#y'); wurzel = await mess('/?x=2');
+      } finally {
+        if (ctx) await ctx.close().catch(() => {});
+        try { s.closeAllConnections(); } catch (e) {}
+        s.close();
+      }
       if (!(wurzel.arten > 0)) return { ok: false, warum: 'gutartig: unter / keine Arten (' + wurzel.arten + ') — der Fall misst nichts' };
       if (!(tief.arten > 0)) return { ok: false, warum: 'unter /a/b keine Artenliste (' + tief.arten + ')' };
       if (tief.pfad !== '/' || tief.such !== '?x=1' || tief.hash !== '#y') return { ok: false, warum: 'Adresse nicht normalisiert: ' + JSON.stringify(tief) };

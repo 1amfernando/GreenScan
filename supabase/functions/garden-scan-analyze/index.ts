@@ -345,7 +345,15 @@ Deno.serve(async (req) => {
       const zuLang = e && (e.name === "TimeoutError" || e.name === "AbortError");
       console.error("garden-scan-analyze upstream", e);
       if (kiFreigabeNoetig(e)) await kiFreigeben({ fn: KI_FN, admin, userId: user.id });
-      return new Response(JSON.stringify({ error: zuLang ? { code: "timeout", message: "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — bitte mit weniger Fotos oder kuerzerem Horizont erneut versuchen." } : kiFehlerCode("upstream") }), { status: zuLang ? 504 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // Gegenpruefung g2 (Geschwister von Fund 5): der Satz, den die App zeigt. Die alte Fassung hatte
+      // mit dem „⏱️ " der App 145 Zeichen — _gsFehlerText kuerzt ab 120, auf dem Bildschirm stand
+      // „…oder kuerzere…" (dazu Umschrift statt Umlaut). Und der Rat muss zur Anfrage passen: die
+      // Dauer ist die Laenge der ANTWORT (der Plan, max_tokens nach dem Horizont) — einen kuerzeren
+      // Horizont gibt es nur bei einem Mehrjahresplan; die Fotos verlaengern nur die Eingabe.
+      const zeitSatz = horizonYears > 1
+        ? "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — ein kürzerer Horizont geht schneller."
+        : "Die KI hat nicht innert 110 Sekunden geantwortet. Nichts wurde gespeichert — bitte erneut versuchen.";
+      return new Response(JSON.stringify({ error: zuLang ? { code: "timeout", message: zeitSatz } : kiFehlerCode("upstream") }), { status: zuLang ? 504 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!anthropicRes.ok) {

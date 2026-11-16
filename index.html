@@ -10516,6 +10516,21 @@ var GS_SAE_DATEN = (function() {
   return m;
 })();;
 
+// Die Kategorien des Gartentagebuchs — EINE Liste fuer Filter-Chips, Kategorie-Knoepfe, Eintraege
+// UND das Antippen (gsTbSelectCat). c ist auch FUELLUNG mit weisser Schrift (aktiver Chip), also
+// ≥ 4,5:1 gegen #fff. v33.59: #558b2f trug 4,10:1, #ef6c00 3,08:1 — gerendert wurde danach die
+// neue Farbe, gsTbSelectCat hatte eine eigene Tabelle und setzte beim Antippen wieder die alte
+// (Gesamtpruefung g1). Pruefstand: robust_check „Tagebuch-Kategorie".
+var GS_TB_KATEGORIEN = [
+  {id:'all',     l:'Alle',       e:'📋', c:'#455a64'},
+  {id:'sowed',   l:'Gesät',      e:'🌱', c:'#2e7d32'},
+  {id:'planted', l:'Gepflanzt',  e:'🪴', c:'#33691e'},
+  {id:'harvest', l:'Geerntet',   e:'🧺', c:'#bf360c'},
+  {id:'care',    l:'Gepflegt',   e:'💧', c:'#0277bd'},
+  {id:'observe', l:'Beobachtet', e:'👁️', c:'#6a1b9a'},
+  {id:'note',    l:'Notiz',      e:'📝', c:'#455a64'}
+];
+
 function openGartenTagebuch() {
   gsHaptic('light');
   var mc = document.getElementById('modal-content');
@@ -10582,17 +10597,8 @@ function openGartenTagebuch() {
     groups[monthKey].push(e);
   });
   
-  var CATS = [
-    {id:'all',     l:'Alle',       e:'📋', c:'#455a64'},
-    {id:'sowed',   l:'Gesät',      e:'🌱', c:'#2e7d32'},
-    // v33.59: c ist auch FUELLUNG mit weisser Schrift (aktiver Chip) — #558b2f trug 4,10:1, #ef6c00 3,08:1.
-    {id:'planted', l:'Gepflanzt',  e:'🪴', c:'#33691e'},
-    {id:'harvest', l:'Geerntet',   e:'🧺', c:'#bf360c'},
-    {id:'care',    l:'Gepflegt',   e:'💧', c:'#0277bd'},
-    {id:'observe', l:'Beobachtet', e:'👁️', c:'#6a1b9a'},
-    {id:'note',    l:'Notiz',      e:'📝', c:'#455a64'}
-  ];
-  
+  var CATS = GS_TB_KATEGORIEN;
+
   // ── Filter-Chips ──
   var filterTabs = CATS.map(function(c) {
     var count = c.id === 'all' ? entries.length : entries.filter(function(e){return e.cat===c.id;}).length;
@@ -10734,16 +10740,19 @@ function gsTbQuick(cat, txt) {
 
 function gsTbSelectCat(catId, btn) {
   localStorage.setItem('gs_tb_cat_selected', catId);
-  var CATS = {sowed:'#2e7d32',planted:'#558b2f',harvest:'#ef6c00',care:'#0277bd',observe:'#6a1b9a',note:'#455a64'};
+  // Gesamtpruefung g1: dieselbe Liste wie beim Rendern (GS_TB_KATEGORIEN) — keine zweite Tabelle.
+  // Unbekannt: --fill-brand, die Fuellung, die in beiden Modi Weiss traegt (--g-main kippt).
+  var fuellung = 'var(--fill-brand)';
+  GS_TB_KATEGORIEN.forEach(function(c) { if (c.id === catId && c.id !== 'all') fuellung = c.c; });
   var container = btn.parentNode;
   Array.prototype.forEach.call(container.querySelectorAll('button'), function(b) {
     b.style.background = 'var(--card)';
     b.style.color = 'var(--text2)';
     b.style.borderColor = 'var(--border)';
   });
-  btn.style.background = CATS[catId] || 'var(--g-main)';
+  btn.style.background = fuellung;
   btn.style.color = '#fff';
-  btn.style.borderColor = CATS[catId] || 'var(--g-main)';
+  btn.style.borderColor = fuellung;
 }
 
 function gsTbFilter(catId) {
@@ -47467,7 +47476,9 @@ function openPostWithType(type) {
   const textArea = document.getElementById('post-text');
   if (textArea) { textArea.placeholder = cfg.placeholder; textArea.value = ''; }
   const authorInput = document.getElementById('post-author');
-  if (authorInput && socialUserName) authorInput.value = socialUserName;
+  // Gegenpruefung g1: immer setzen — mit leerem Namen blieb sonst stehen, was das vorige Konto
+  // hier zuletzt sah (das Feld lebt mit der Seite, nicht mit der Sitzung).
+  if (authorInput) authorInput.value = socialUserName || '';
   document.getElementById('post-plant').value = '';
   document.getElementById('post-image-preview').style.display = 'none';
 
@@ -73561,18 +73572,22 @@ async function gsPPopenSavedPlans() {
           };
         });
         // Merge: union per id, Cloud gewinnt bei Konflikt (Cross-Device-Truth)
-        var byId = {};
-        ugPlans.forEach(function(p){ if (p && p.id) byId[p.id] = p; });
-        gpMapped.forEach(function(p){ if (p && p.id) byId[p.id] = p; });
+        // v33.59 (Gesamtpruefung g1): die Cloud-Listen werden VOR dem Mischen gesiebt — derselbe
+        // Blob geht beim Login durch _gsListeEinspielen, und ohne Sieb hier trug der Speicher die
+        // gesiebte Fassung ('plan1') UND die rohe ('plan 1') nebeneinander. Ohne Praefix: eine
+        // Cloud-Zeile, deren Id nichts Brauchbares hergibt, faellt weg, statt bei jedem Oeffnen
+        // eine neue Id zu bekommen.
+        var byId = Object.create(null);
+        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id) byId[p.id] = p; });
+        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id) byId[p.id] = p; });
         saved.forEach(function(p){ if (p && p.id && !byId[p.id]) byId[p.id] = p; });
-        var merged = Object.values(byId).sort(function(a,b){
+        var merged = Object.keys(byId).map(function(k){ return byId[k]; }).sort(function(a,b){
           return new Date(b.created || 0) - new Date(a.created || 0);
         });
-        saved = merged;
-        // LS-Cache aktualisieren (Cap 30)
-        try {
-          localStorage.setItem('gs_garden_plans', JSON.stringify(saved.slice(0, 30)));
-        } catch(_){}
+        // LS-Cache aktualisieren (Cap 30) — durch den einen Eingang (Sieb, Speicher); angezeigt
+        // wird, was er gesiebt hat, damit jeder Knopf auf eine Id zeigt, die im Speicher steht.
+        var _ein = _gsListeEinspielen('gs_garden_plans', merged, { deckel: 30 });
+        saved = (_ein && _ein.liste) ? _ein.liste : merged;
       }
     }
   } catch(e) { console.warn('[gsPPopenSavedPlans] cloud-merge:', e); }
@@ -77272,7 +77287,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.59', date: '11.11.2026',
       headline: 'Was von anderen kommt, bleibt Text — und der Server prüft selbst nach',
-      summary: 'Eine Sicherheitsprüfung über die ganze App, gemessen und nicht geschätzt: 27 Prüfer haben Client, Service Worker, Edge-Functions, Datenbank-Regeln und die Android-Hülle gelesen und 209 Stellen gemeldet; 187 davon hat ein zweiter Prüfer nachgestellt und bestätigt. Behoben in 24 Gruppen, jede mit eigener Gegenprüfung, danach eine Schlussprüfung des Ganzen mit zwölf Blickwinkeln (34 Meldungen, 32 bestätigt, darunter ein Zahlungs-Empfänger, der nach der Auslieferung jedes Abo-Ereignis mit einem Fehler beantwortet hätte) und sechs weitere Gruppen für deren Funde. Im Client: jeder Wert aus fremder Hand — Beitrag, Inserat, Kartenfund, Community-Art, KI-Antwort, Übersetzung, Backup — kommt als Text an, über zehn Helfer mit je genau einem Kontext; ein Link aus einer E-Mail wird nie mehr still zur Sitzung; Fotos verlassen das Gerät ohne Ortsangabe in der Datei; Wetter- und Ortsdienste bekommen den Standort auf etwa 1 km gerundet; Schriften und pdf.js liegen im Repo statt bei Dritten; die Kopfzeilen erlauben nur noch, was die App wirklich anspricht. Für den Server liegen sechs Migrationen und die überarbeiteten Edge-Functions bereit — sie sind NICHT angewandt und NICHT ausgeliefert (docs/FUER-FERNANDO.md §30). Drei neue Prüfstände halten es fest: sicherheit_check (181 Fälle), edge_check (71) und rls_check (43, spielt die Migrationen in einem lokalen Postgres nach). Danach hat eine Austausch-Runde mit 15 Agenten den fertigen Stand noch einmal gegengelesen; ihre Funde sind in neun weiteren Gruppen behoben.',
+      summary: 'Eine Sicherheitsprüfung über die ganze App, gemessen und nicht geschätzt: 27 Prüfer haben Client, Service Worker, Edge-Functions, Datenbank-Regeln und die Android-Hülle gelesen und 209 Stellen gemeldet; 187 davon hat ein zweiter Prüfer nachgestellt und bestätigt. Behoben in 24 Gruppen, jede mit eigener Gegenprüfung, danach eine Schlussprüfung des Ganzen mit zwölf Blickwinkeln (34 Meldungen, 32 bestätigt, darunter ein Zahlungs-Empfänger, der nach der Auslieferung jedes Abo-Ereignis mit einem Fehler beantwortet hätte) und sechs weitere Gruppen für deren Funde. Im Client: jeder Wert aus fremder Hand — Beitrag, Inserat, Kartenfund, Community-Art, KI-Antwort, Übersetzung, Backup — kommt als Text an, über zehn Helfer mit je genau einem Kontext; ein Link aus einer E-Mail wird nie mehr still zur Sitzung; Fotos verlassen das Gerät ohne Ortsangabe in der Datei; Wetter- und Ortsdienste bekommen den Standort auf etwa 1 km gerundet; Schriften und pdf.js liegen im Repo statt bei Dritten; die Kopfzeilen erlauben nur noch, was die App wirklich anspricht. Für den Server liegen sechs Migrationen und die überarbeiteten Edge-Functions bereit — sie sind NICHT angewandt und NICHT ausgeliefert (docs/FUER-FERNANDO.md §30). Drei neue Prüfstände halten es fest: sicherheit_check (188 Fälle), edge_check (76) und rls_check (43, spielt die Migrationen in einem lokalen Postgres nach). Danach hat eine Austausch-Runde mit 15 Agenten den fertigen Stand noch einmal gegengelesen; ihre Funde sind in neun weiteren Gruppen behoben, die einer Gesamtprüfung des ganzen Diffs in zwei weiteren.',
       user_summary: 'GreenScan ist gründlich auf Sicherheit geprüft worden. Texte und Bilder von anderen können der App nichts mehr unterschieben, deine Fotos tragen beim Hochladen keinen versteckten Ort mehr, und dein Standort geht nur noch ungefähr an Wetter- und Kartendienste.',
       user_items: [
         {emoji:'🛡️', bold:'Fremde Inhalte bleiben Inhalte:', text:' Beiträge, Inserate, Kartenfunde, Arten aus der Community, Antworten der KI und Übersetzungen werden als Text gezeigt — sie können in der App nichts auslösen.'},
@@ -77280,7 +77295,8 @@ window.GS_RELEASES = [
         {emoji:'📍', bold:'Dein Standort bleibt ungefähr:', text:' Wetter- und Ortsdienste bekommen ihn auf etwa 1 km gerundet. Gibst du einen Fund für die Community frei, wird sein Ort ebenso gerundet — und die App sagt es dir vorher.'},
         {emoji:'🔑', bold:'Sicherere Anmeldung:', text:' ein Link aus einer E-Mail meldet dich nie mehr still in einem fremden Konto an. Das Fenster für ein neues Passwort ist jetzt auch sichtbar, wenn du abgemeldet bist.'},
         {emoji:'🔤', bold:'Nichts mehr von Google beim Start:', text:' die Schriften liegen bei GreenScan selbst. Die App fragt beim Öffnen keinen fremden Dienst mehr an.'},
-        {emoji:'🧹', bold:'Abmelden räumt gründlicher auf:', text:' gespeicherte Pläne und Zwischenspeicher gehen mit. Ein Plan, den du ohne Empfang gespeichert hast, wird für dich aufgehoben, bis du dich wieder anmeldest — bis zu 90 Tage, höchstens 20 Pläne je Konto.'},
+        {emoji:'🧹', bold:'Abmelden räumt gründlicher auf:', text:' gespeicherte Pläne und Zwischenspeicher gehen mit. Ein Plan, den du ohne Empfang gespeichert hast, wird für dich aufgehoben, bis du dich wieder anmeldest — bis zu 90 Tage ab dem Abmelden, bis zu 20 Pläne je Konto; hast du mehr, bleiben sie auf dem Gerät liegen, und die App sagt es dir.'},
+        {emoji:'👥', bold:'Ein anderes Konto im selben Fenster:', text:' nach dem Abmelden blieben Gärten, Favoriten, Stimmen und der Community-Name des vorigen Kontos im Hintergrund stehen — das nächste Konto sah sie, und ein Speichern konnte sie in dessen Konto tragen. Abmelden heisst jetzt: derselbe Stand wie nach einem Neuladen.'},
         {emoji:'💾', bold:'Sicherungen nur, wenn sich etwas geändert hat:', text:' die App legte bei jedem Update eine Sicherung an, auch ohne Änderung — ältere Stände wurden dadurch früher verdrängt. Jetzt entsteht eine Sicherung nur noch, wenn es etwas zu sichern gibt.'},
         {emoji:'🧭', bold:'Dinge, die nie richtig gingen:', text:' die Wissens-Suche antwortet ohne Empfang aus dem Zwischenspeicher, das Foto im Tagebuch erscheint, und „kopiert“ steht erst da, wenn wirklich kopiert wurde.'},
         {emoji:'🏡', bold:'Deine Gärten bleiben auf einem neuen Gerät:', text:' nach der Anmeldung konnte ein leerer „Mein Garten“ die gerade geholten Gärten überschreiben. Jede zurückgespielte Liste — Backup, Anmeldung, Sicherung, Garten-Abgleich — geht jetzt durch denselben geprüften Eingang.'},
@@ -77299,12 +77315,13 @@ window.GS_RELEASES = [
         {emoji:'🤖', bold:'KI-Tor (nicht ausgeliefert):', text:' ein Aufruf wird VOR dem Aufruf reserviert, in einer Anweisung (20 gleichzeitige Anfragen bei Limit 15 ergeben genau 15 Zusagen), und zurückgegeben, wenn der Anbieter nicht gerechnet hat. Bezahlte Pläne bekommen nie weniger als bisher.'},
         {emoji:'🗃️', bold:'Sechs Migrationen (nicht angewandt):', text:' Funktionen, die einem Parameter vertrauten oder zu weit offen waren · Quiz, Punkte, Rangliste, Battles · Community und Marktplatz (Sperre, Blockieren, Chat, Anzeigename) · Konto, Speicher-Buckets, Push-Abos, Startangebot · KI-Kontingent · Feedback-Stimmen. Jede zweimal in ein lokales Postgres eingespielt, mit dem Angriff davor und danach.'},
         {emoji:'📦', bold:'Lieferkette:', text:' Actions auf Commit-SHAs, npm ci gegen ein eingechecktes Lockfile (es fehlte: eine Zeile in .gitignore schloss es aus), 68 Import-Angaben der Edge-Functions auf exakte Versionen, das Keystore-Passwort der Android-Hülle nicht mehr auf der Befehlszeile.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' neu sicherheit_check (181 Fälle in 23 Dateien, je Datei eine frisch geladene App), edge_check (71 Fälle: die Rechnung der Edge-Functions in Node, der Rand am Quelltext, die Spalten jeder Function gegen den Live-Stand) und rls_check (43 Fälle im lokalen Postgres; ohne Postgres „nicht prüfbar“, nie grün). pruefstaende.sh fährt sie mit; wie viele es insgesamt sind, steht nur in STATUS.md §1.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' neu sicherheit_check (188 Fälle in 23 Dateien, je Datei eine frisch geladene App), edge_check (76 Fälle: die Rechnung der Edge-Functions in Node, der Rand am Quelltext, die Spalten jeder Function gegen den Live-Stand) und rls_check (43 Fälle im lokalen Postgres; ohne Postgres „nicht prüfbar“, nie grün). pruefstaende.sh fährt sie mit; wie viele es insgesamt sind, steht nur in STATUS.md §1.'},
         {emoji:'🔦', bold:'Die Prüfstände messen jetzt eine angemeldete App:', text:' der Token der Beispieldaten hatte keine JWT-Form und wurde 500 ms nach dem Start abgeräumt — alle Prüfstände vermassen eine abgemeldete App. Der erste Lauf mit bleibender Sitzung fand zwei Fehler, die so nie messbar waren: ein Flush ohne Änderung stempelte „zuletzt gesichert“, wodurch das Backup jeden Stand für geändert hielt (die Regel aus v33.26 wirkte nur abgemeldet), und der Schliessen-Knopf der Push-Frage blieb in jeder Sprache deutsch.'},
         {emoji:'🧵', bold:'Was die Gegenprüfungen als Übergabe hinterliessen:', text:' Pflanzendoktor, Schädlings-, Pilz- und Garten-Scan schicken ihr Foto verkleinert und ohne EXIF (vorher 6,84 MB Base64 bei einem gewöhnlichen Handyfoto, über dem 5-MB-Tor). Das Stripe-Fenster schliesst sich nach der Rückkehr — wegen der Kopfzeile COOP ist window.opener dort null, die Meldung geht jetzt über einen BroadcastChannel. Drei Upserts nennen ihren Schlüssel selbst (on_conflict): ohne ihn scheiterten das Umstimmen einer Idee und das erneute Einschalten von Push auf demselben Gerät. Der Hinweis bei erreichtem KI-Limit richtet sich nach dem Plan. _gsNachschlag ist der eine Leser für eine Tabelle mit einem Schlüssel aus fremder Hand — mit dem Wert constructor stand sonst der Quelltext einer Funktion auf dem Bildschirm.'},
         {emoji:'🔀', bold:'Zusammengeführt mit v33.57 und v33.58:', text:' eine andere Sitzung hatte parallel dieselben KI-Functions umgebaut und ausgeliefert. Vereint statt ersetzt: ihr Modellaufruf (anthropicFetch, Modellkette) hinter dem Tor dieser Reparatur; eine Tabelle der Grenzen, in der ein bezahlter Plan nie weniger bekommt als live.'},
         {emoji:'📅', bold:'Eine Frist mehr auf dem Bildschirm:', text:' am 31.12.2026 um 23:00 UTC vergibt ein Cron ein Jahr Pro an die drei Ersten der Quiz-Rangliste. Solange die Quiz-Migration fehlt, zählt dafür jede richtige Antwort auf jede Frage. Der Termin steht jetzt in GS_FRISTEN (Admin-Panel, „Läuft demnächst ab“) und in docs/RISIKEN.md.'},
         {emoji:'🔁', bold:'Nach dem Bump — die Austausch-Runde:', text:' 15 Agenten aus fünf Blickwinkeln haben den fertigen Stand gegengelesen (50 Funde, 74 Urteile der Gegenprüfung). Behoben in neun Gruppen, jede mit einem Fall, der vorher rot war, und einer Gegenprüfung (28 Einträge: 26 behoben, 1 teilweise, 1 bewusst offen): ein Eingang für zurückgespielte Listen (_gsListeEinspielen, alle Rückspiel-Wege), gsPlans.parken meldet einen gescheiterten Schreibversuch, 14 weitere Nachschläge über _gsNachschlag, contrast_check, touch_check und perf_check messen mit Sitzung und Daten (contrast_check ist jetzt ein Tor), der Stripe-Fall unter der echten COOP, supabase/functions/AUSLIEFERUNG.json mit einem Spalten-Scan aller Functions (der Krankheits-Kontext des Pflanzendoktors ist live leer), Lizenztexte im APK, fünf Familien von Tagesschlüsseln, die Reste von vier Edge-Befunden. Was offen bleibt, steht auf dem Brett (docs/austausch).'},
+        {emoji:'🔎', bold:'Zum Schluss eine Gesamtprüfung:', text:' 23 Agenten über den ganzen Diff, 17 Meldungen, 14 bestätigt, in zwei Gruppen behoben: das Abmelden leert jede Liste aus GS_LISTEN_EINGANG und sieben Spiegel daneben, „Meine Garten-Pläne“ geht durch denselben Eingang, kein nur lokaler Plan geht beim Kürzen oder am Deckel verloren (gsPlans.parkGrund), eine Liste für die Tagebuch-Kategorien; der Webhook schliesst Ereignisse gelöschter Konten ab (kontoFehlt — die Attrappe kennt jetzt Fremdschlüssel), und plan-iterate sagt die echte Ursache in einem Satz, den die App ganz zeigt.'},
         {emoji:'🧯', bold:'Nicht von hier messbar:', text:' ob die Migrationen live dasselbe tun wie im Nachbau, und ob die Edge-Functions in Deno laufen (hier gibt es kein Deno). Beides zeigt erst das Anwenden — Reihenfolge und Handgriffe in docs/FUER-FERNANDO.md §30.'}
       ]
   },
@@ -85214,18 +85231,51 @@ function gsClearUserDataKeys(){
       var _bleibt = false;
       if (_p2 === -1) { try { _bleibt = typeof gsPlans.bewahrbar === 'function' && gsPlans.bewahrbar(); } catch(_){} }
       if (!_bleibt) localStorage.removeItem('gs_plans_v2');
+      else { try { if (typeof gsPlans.nurLokalBehalten === 'function') gsPlans.nurLokalBehalten(); } catch(_){} }   // Gegenpruefung g1: keine Cloud-Kopie bleibt liegen
       if (_p2 === -1) {
+        // Gesamtpruefung g1: der Satz nennt den GRUND — voller Speicher oder der Deckel des
+        // Wartebereichs (mehr als 20 nur lokale Plaene je Konto). Je ein ganzer Satz als Literal
+        // (der Uebersetzer findet sie so, gsI18nMeldungenAusQuelltext).
+        var _deckel = false; try { _deckel = typeof gsPlans.parkGrund === 'function' && gsPlans.parkGrund() === 'deckel'; } catch(_){}
         try {
-          if (typeof gsToast === 'function') gsToast(_bleibt
-            ? 'Speicher voll: dein nur auf dem Gerät gespeicherter Plan bleibt hier liegen, sichtbar nur für dein Konto.'
-            : 'Speicher voll: ein nur auf dem Gerät gespeicherter Plan konnte beim Abmelden nicht aufbewahrt werden.', 'warning');
+          if (typeof gsToast === 'function') {
+            if (_deckel && _bleibt) gsToast('Mehr als 20 Pläne nur auf diesem Gerät: sie bleiben hier liegen, sichtbar nur für ihr Konto.', 'warning');
+            else if (_deckel) gsToast('Mehr als 20 Pläne nur auf diesem Gerät: sie konnten beim Abmelden nicht aufbewahrt werden.', 'warning');
+            else if (_bleibt) gsToast('Speicher voll: dein nur auf dem Gerät gespeicherter Plan bleibt hier liegen, sichtbar nur für dein Konto.', 'warning');
+            else gsToast('Speicher voll: ein nur auf dem Gerät gespeicherter Plan konnte beim Abmelden nicht aufbewahrt werden.', 'warning');
+          }
         } catch(_){}
       }
     }
-    if (typeof myPlants !== 'undefined') myPlants = [];
+    // v33.59 (Gesamtpruefung g1): JEDE Variable und jeder Cache aus GS_LISTEN_EINGANG — dieselbe
+    // Liste, durch die eine Liste aus fremder Hand hineinkommt, sagt auch, was beim Abmelden
+    // geht. Bis hier wurde nur myPlants geleert: gardens, plantings und deadPlants trugen nach dem
+    // Abmelden weiter die Daten von A; meldete sich im selben Tab ein Konto ohne Cloud-Zeile an,
+    // zeigte renderGarden die Gaerten von A, und der naechste saveGardenData schrieb sie in den
+    // Speicher und die Cloud von B. Leer heisst hier: derselbe Stand wie nach einem Neuladen.
+    try {
+      Object.keys(GS_LISTEN_EINGANG).forEach(function (k) {
+        var reg = GS_LISTEN_EINGANG[k];
+        try { if (reg.variable) window[reg.variable] = []; } catch (_) {}
+        try { if (reg.cache) window[reg.cache] = null; } catch (_) {}
+      });
+    } catch(_){}
+    try { editingGardenId = null; } catch(_){}   // ein offenes Garten-Formular zeigte sonst auf einen Garten von A
+    // Dieselbe Bauform ausserhalb von GS_LISTEN_EINGANG (gesucht: jede Variable auf oberster Ebene,
+    // die beim Laden einen Schluessel aus GS_USER_KEYS spiegelt): Favoriten (toggleFav schrieb sie
+    // samt denen von A in den Speicher von B), Stimmen, Marktplatz-Chats, Gebote, Kaeufe und der
+    // Wetter-Zwischenspeicher des Planers (Koordinaten der Gaerten von A als Schluessel).
+    try { favs = []; } catch(_){}
+    try { myVotes = {}; } catch(_){}
+    try { marketChats = {}; } catch(_){}
+    try { myBids = []; } catch(_){}
+    try { myPurchases = []; } catch(_){}
+    try { weatherCache = {}; } catch(_){}
+    // Gegenpruefung g1: der gemerkte Community-Name (gs_social_name) — submitInlinePost gibt ihn
+    // als `gemerkt` an _gsOeffentlicherName, VOR dem Profil des naechsten Kontos: dessen erster
+    // Beitrag erschien sonst unter dem Namen von A (sicherheit_check 98_schluss_e).
+    try { socialUserName = ''; } catch(_){}
     if (typeof feedbackItems !== 'undefined') feedbackItems = [];
-    if (typeof _gsTagebuch !== 'undefined') window._gsTagebuch = null;
-    if (typeof _gsErnteLog !== 'undefined') window._gsErnteLog = null;
     if (typeof _gsMultiShots !== 'undefined') window._gsMultiShots = [];
     // v32.21: dieselben Daten liegen auch im Arbeitsspeicher. Ohne diese
     // Zeilen zeigt die Oberflaeche bis zum naechsten Neuladen weiter die
@@ -85500,6 +85550,13 @@ async function gsSyncUserDataOnLogin(){
                 } catch(_){}
               }
             }
+            // Gegenpruefung g1: ps_favs und ps_votes haben einen Spiegel im Arbeitsspeicher
+            // (favs, myVotes), den das Abmelden leert und toggleFav/vote ganz zurueckschreiben.
+            // Ohne Nachladen schrieb der erste Stern [neu] UEBER die eben geholten Favoriten —
+            // und der State-Push trug den Verlust in die Cloud. Derselbe Stand wie nach einem
+            // Neuladen: die Variable liest, was jetzt im Speicher steht.
+            try { favs = safeGetItem('ps_favs', []); if (!Array.isArray(favs)) favs = []; } catch(_){}
+            try { var _mv = safeGetItem('ps_votes', {}); myVotes = (_mv && typeof _mv === 'object' && !Array.isArray(_mv)) ? _mv : {}; } catch(_){}
             // v31.14: Streak als Ganzes übernehmen (nach der Schleife, damit der
             // Schreibschutz gegen Re-Push noch aktiv ist).
             try { if (typeof window._gsStreakApplyCloud === 'function') window._gsStreakApplyCloud(sd); } catch(_){}
@@ -97540,7 +97597,12 @@ function uid(){ try{ return (typeof gsStore!=='undefined'&&gsStore.get)?gsStore.
 function readLS(){ try{ var a=JSON.parse(localStorage.getItem('gs_plans_v2')||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
 // v32.44: am Rueckgabewert (CLAUDE.md §3.5) — vorher hiess es `return true`,
 // egal ob geschrieben wurde, und der Schrumpf-Rueckfall im catch lief nie.
-function writeLS(a){ try{ var ok = localStorage.setItem('gs_plans_v2', JSON.stringify(a.slice(0,60))) !== false; if (!ok) ok = localStorage.setItem('gs_plans_v2', JSON.stringify(a.slice(0,20))) !== false; return ok; }catch(e){ return false; } }
+// v33.59 (Gesamtpruefung g1): gekuerzt wird nur, was AUCH in der Cloud liegt. Ein nur lokaler
+// Plan ist die einzige Kopie — der 20er-Rueckfall nahm bis hier jeden Eintrag ab Platz 21 mit,
+// meldete Erfolg, und das Stempeln beim Abmelden verlor so still die aeltesten lokalen Plaene
+// (ebenso abholen, nachschieben, save). list() holt die Cloud-Eintraege beim naechsten Lesen zurueck.
+function kuerzen(a, n){ return a.filter(function(e, i){ return i < n || (e && !e.cloud); }); }
+function writeLS(a){ try{ var ok = localStorage.setItem('gs_plans_v2', JSON.stringify(kuerzen(a,60))) !== false; if (!ok) ok = localStorage.setItem('gs_plans_v2', JSON.stringify(kuerzen(a,20))) !== false; return ok; }catch(e){ return false; } }
 function toast(t){ try{ if(typeof gsToast==='function') gsToast(t); else if(typeof showProfileToast==='function') showProfileToast({title:t}); }catch(_){} }
 
 // v33.59: ein Plan gehoert dem Konto, das ihn gespeichert hat (uid gestempelt). Beim
@@ -97551,12 +97613,19 @@ function toast(t){ try{ if(typeof gsToast==='function') gsToast(t); else if(type
 var WARTEND_MAX = 20, WARTEND_TAGE = 90;
 function meins(e){ var u = uid(); return !!e && (!e.uid || (!!u && e.uid === u)); }
 function readWartend(){ try{ var a=JSON.parse(localStorage.getItem('gs_plans_wartend')||'[]'); return Array.isArray(a)?a.filter(function(e){ return e && typeof e.uid==='string'; }):[]; }catch(_){ return []; } }
+// v33.59 (Gesamtpruefung g1): die Frist zaehlt ab dem PARKEN (e.geparkt), nicht ab der Anlage —
+// ein Plan, der seit 100 Tagen nur lokal lag, fiel sonst beim Abmelden sofort weg. Und der
+// Deckel je Konto verdraengt nichts mehr still: deckeln() gibt zurueck, was er wegen des
+// Deckels (nicht wegen der Frist) weglassen MUESSTE — parken schreibt dann gar nicht (-1).
+function _parkZeit(e){ return new Date(e.geparkt || e.created || 0).getTime(); }
 function deckeln(a){
   var grenze = Date.now() - WARTEND_TAGE * 86400000, je = {};
-  return a.filter(function(e){ var t = new Date(e.created||0).getTime(); return isFinite(t) && t >= grenze; })
-    .sort(function(x,y){ return new Date(y.created||0) - new Date(x.created||0); })
-    .filter(function(e){ je[e.uid] = (je[e.uid]||0) + 1; return je[e.uid] <= WARTEND_MAX; });
+  var frisch = a.filter(function(e){ var t = _parkZeit(e); return isFinite(t) && t >= grenze; })
+    .sort(function(x,y){ return _parkZeit(y) - _parkZeit(x); });
+  var liste = frisch.filter(function(e){ je[e.uid] = (je[e.uid]||0) + 1; return je[e.uid] <= WARTEND_MAX; });
+  return { liste: liste, verdraengt: frisch.length - liste.length };
 }
+var _parkGrund = null;   // warum das letzte parken() -1 gab: 'speicher_voll' | 'deckel' | 'fehler'
 // v33.59: Plaene von VOR dem Stempel (ohne uid) liegen auf dem Geraet der Person, die
 // sie gespeichert hat — beim ersten Lesen mit Anmeldung bekommen sie deren uid; danach
 // gilt fuer sie dieselbe Regel (parken, nachschieben). Ohne Anmeldung: nichts.
@@ -97573,6 +97642,7 @@ function stempeln(wer){
 }
 // Synchron, aus gsClearUserDataKeys VOR dem Leeren: nur lokale, gestempelte Plaene parken.
 function parken(){
+  _parkGrund = null;
   try {
     var _vorher = null; try { _vorher = localStorage.getItem('gs_last_active_uid'); } catch(_){}
     var wer = _vorher || (loggedIn() ? uid() : null);
@@ -97583,15 +97653,26 @@ function parken(){
     if (wer && typeof wer === 'string') l.forEach(function(e){ if (e && !e.legacy && !e.uid) e.uid = wer; });
     var weg = l.filter(function(e){ return e && !e.cloud && !e.legacy && typeof e.uid==='string' && e.uid; });
     if (!weg.length) return 0;
-    var alt = readWartend(), da = {};
-    alt.forEach(function(e){ da[e.uid+'|'+e.localId] = 1; });
-    weg.forEach(function(e){ if (!da[e.uid+'|'+e.localId]) alt.push(e); });
+    // Gesamtpruefung g1: jeder geparkte Plan bekommt die Zeit des Parkens (ab ihr laeuft die
+    // Frist); steht derselbe Plan schon im Wartebereich, ersetzt ihn die aktuelle Fassung.
+    var jetzt = new Date().toISOString();
+    var alt = readWartend(), pos = {};
+    alt.forEach(function(e, i){ pos[e.uid+'|'+e.localId] = i; });
+    weg.forEach(function(e){
+      var k = e.uid+'|'+e.localId, c = Object.assign({}, e, { geparkt: jetzt });
+      if (Object.prototype.hasOwnProperty.call(pos, k)) alt[pos[k]] = c; else { pos[k] = alt.length; alt.push(c); }
+    });
+    // Mehr als WARTEND_MAX je Konto: nichts schreiben (sonst verdraengte der Deckel einen Plan,
+    // dessen einzige Kopie hier oder in gs_plans_v2 liegt) — -1, gs_plans_v2 bleibt (bewahrbar).
+    var d = deckeln(alt);
+    if (d.verdraengt > 0) { _parkGrund = 'deckel'; return -1; }
     // v33.59: am Rueckgabewert (CLAUDE.md §3.5) — -1 heisst NICHT geparkt; der Aufrufer
     // darf gs_plans_v2 dann nicht als einzige Kopie wegwerfen (gsClearUserDataKeys).
-    if (localStorage.setItem('gs_plans_wartend', JSON.stringify(deckeln(alt))) === false) return -1;
+    if (localStorage.setItem('gs_plans_wartend', JSON.stringify(d.liste)) === false) { _parkGrund = 'speicher_voll'; return -1; }
     return weg.length;
-  } catch(_){ return -1; }
+  } catch(_){ _parkGrund = 'fehler'; return -1; }
 }
+function parkGrund(){ return _parkGrund; }
 // v33.59: darf gs_plans_v2 nach gescheitertem Parken liegen bleiben? Nur wenn ein lokaler
 // Plan darin liegt UND jeder Eintrag einem Konto gestempelt ist — list()/loadEntry zeigen
 // dann nur dem eigenen Konto etwas (meins), und stempeln() nimmt keinen Eintrag mit uid.
@@ -97599,6 +97680,18 @@ function bewahrbar(){
   var l = readLS();
   return l.some(function(e){ return e && !e.cloud && !e.legacy; }) &&
     l.every(function(e){ return e && typeof e.uid === 'string' && !!e.uid; });
+}
+// Gegenpruefung g1: bleibt gs_plans_v2 nach dem Abmelden liegen (bewahrbar), dann nur mit dem,
+// was es NUR hier gibt. Ein Cloud-Plan liegt in der Cloud (list() holt ihn dem eigenen Konto
+// zurueck); seit der Deckel −1 gibt, bleibt die Liste auch beim Abmelden eines ZWEITEN Kontos
+// liegen, und dessen Cloud-Plaene (Titel, Inhalt) blieben sonst nach seinem Abmelden hier.
+// Ein Schreibversuch, der verkleinert — false nur, wenn auch das nicht ging (dann bleibt alles).
+function nurLokalBehalten(){
+  try {
+    var l = readLS(), lok = l.filter(function(e){ return e && !e.cloud; });
+    if (lok.length === l.length) return true;
+    return localStorage.setItem('gs_plans_v2', JSON.stringify(lok)) !== false;
+  } catch(_){ return false; }
 }
 // Beim Lesen als angemeldetes Konto: die eigenen wartenden zurueck in die Liste.
 function abholen(){
@@ -97718,7 +97811,7 @@ async function star(id, on){
 
 // v33.59: der Spiegel im Arbeitsspeicher gehoert dem Konto wie der Speicher (gsClearUserDataKeys).
 function reset(){ _lastList = []; }
-window.gsPlans = { save:save, list:list, load:loadEntry, del:del, star:star, reset:reset, parken:parken, bewahrbar:bewahrbar, nachschieben:nachschieben, stempeln:stempeln };
+window.gsPlans = { save:save, list:list, load:loadEntry, del:del, star:star, reset:reset, parken:parken, parkGrund:parkGrund, bewahrbar:bewahrbar, nurLokalBehalten:nurLokalBehalten, nachschieben:nachschieben, stempeln:stempeln };
 
 /* ── Unified „Meine Pläne" Vollbild-Liste ── */
 window.gsPlansOpen = async function(filterType){

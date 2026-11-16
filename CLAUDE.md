@@ -324,11 +324,11 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
 | KI-Grenzen je Plan und Function (seit v33.59) | `KI_GRENZEN` in `supabase/functions/_shared/ki_tor.mjs` — Tageslimit je Plan, Gesamt- und Bilddeckel, Texte, `max_tokens`; gebucht über `kiTor` → `fn_ai_kontingent_reservieren` (Migration `20261110_sicherheit_ki_kontingent.sql`), zurück über `kiFreigeben`, wenn der Anbieter nicht gerechnet hat (`kiFreigabeNoetig`) | keine Zahl in einer `index.ts`; der Plan wird mit dem TOKEN der Person gelesen (mit Service-Role sieht `v_user_entitlements` keine Zeile — alles wäre still `free`); ein bezahlter Plan bekommt nie weniger als vorher (§3.4) |
 | Feste Fehlersätze des KI-Proxys (seit v33.59) | `KI_SAETZE` / `kiFehlerCode` in `ki_tor.mjs`; die App kennt die Typen in `GS_KI_PROXY_SAETZE` und zeigt den Satz des Servers (`_gsAiProxySatz`) | keinen Satz aus dem HTTP-Status raten („API Key ungültig" für ein gesperrtes Konto); ein neuer Typ steht in BEIDEN Listen — `sicherheit_check` 98_schluss_b hält sie gegeneinander |
-| Bezahl-Regeln (seit v33.59) | `supabase/functions/_shared/zahlung_regeln.mjs` — Preis (`preisErlaubt`), Rückkehr-Adresse (`EIGENE_URSPRUENGE`, `rueckkehrAdresse`), Startangebot (`launchAngebot`), Gratistage, Reihenfolge der Ereignisse (`ereignisIstNeuer`), Entzug einer Lifetime, Experten-Zahlung | nie ein Preis, eine Adresse oder ein Flag aus dem Rumpf der Anfrage übernehmen; eine Zahlung setzt nie einen Zustand, den ein MENSCH bestätigen soll (`expertenZahlungFelder` schreibt nie `verified`) |
+| Bezahl-Regeln (seit v33.59) | `supabase/functions/_shared/zahlung_regeln.mjs` — Preis (`preisErlaubt`), Rückkehr-Adresse (`EIGENE_URSPRUENGE`, `rueckkehrAdresse`), Startangebot (`launchAngebot`), Gratistage, Reihenfolge der Ereignisse (`ereignisIstNeuer`), Entzug einer Lifetime, Experten-Zahlung, „gibt es das Konto noch?“ (`kontoFehlt` — nur 23503 auf `user_id`: ein Abo- oder Rechnungsereignis eines gelöschten Kontos wird mit 200 abgeschlossen und in `system_events` vermerkt; 23503 auf `price_id` heilt und wirft weiter, ein Lifetime-Kauf ohne Konto bleibt 500) | nie ein Preis, eine Adresse oder ein Flag aus dem Rumpf der Anfrage übernehmen; eine Zahlung setzt nie einen Zustand, den ein MENSCH bestätigen soll (`expertenZahlungFelder` schreibt nie `verified`) |
 | Erfolgsmeldung nach einer Zahlung (seit v33.59) | `_gsBillingPruefen()` — erst wenn `v_user_entitlements` einen bezahlten Plan zeigt | nie `?billing=success` oder eine Popup-Nachricht als Beleg nehmen |
 | Push-Dienste (seit v33.59) | `PUSH_HOSTS` / `pushEndpunktOk` in `_shared/push_helfer.mjs`, gebunden an den CHECK `push_subscriptions_endpoint_push_dienst` der Migration `20261110_sicherheit_konto_speicher.sql`; Abos je Nutzer `ABOS_JE_NUTZER` (10) = Deckel `fn_push_subs_deckel` | an einen Endpunkt senden, den keine der beiden Listen kennt — den Endpunkt schreibt die Person selbst; eine der zwei Zahlen allein ändern (`edge_check` 30_push hält beide) |
-| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage ab Anlage), bis DASSELBE Konto wiederkommt; `gsPlans.parken` gibt −1 zurück, wenn der Schreibversuch scheitert — dann räumt `gsClearUserDataKeys` zuerst alles andere, parkt ein zweites Mal und lässt sonst nur liegen, was `gsPlans.bewahrbar()` zulässt (jeder Eintrag trägt eine uid) | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist; die einzige Kopie löschen, bevor der Rettungsweg „geschrieben“ gemeldet hat |
-| Eigene Listen aus fremder Hand (seit v33.59) | `_gsListeEinspielen(schluessel, liste, opts)` mit der Tabelle `GS_LISTEN_EINGANG` — Sieb, Speicher UND Variable in einem Schritt; die Variable wird nur gesetzt, wenn der Schreibversuch gelang. Backup-Import, Login-Abgleich (alle Zweige), Snapshot (`_gsRestoreKey`), `gsGardenSync.pullAll` gehen hindurch | eine Liste (`gs_gardens`, `gs_plantings`, `ps_myplants`, `gs_gartentagebuch`, `gs_ernte_log`, `gs_garden_plans`, `gs_dead_plants`) aus Cloud, Snapshot oder Datei direkt schreiben — oder nur die Variable setzen (`gardens = d.gardens`); `sicherheit_check` 98_schluss_e findet jeden Schreiber |
+| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage ab dem PARKEN — `e.geparkt`, seit der Gesamtprüfung vom 16.11.2026), bis DASSELBE Konto wiederkommt; `gsPlans.parken` gibt −1 zurück, wenn der Schreibversuch scheitert ODER der Deckel (20 je Konto) einen nicht abgelaufenen Plan verdrängen würde — es schreibt dann nichts, `gsPlans.parkGrund()` sagt `speicher_voll` · `deckel` · `fehler`, und der Satz beim Abmelden nennt den Grund; dann räumt `gsClearUserDataKeys` zuerst alles andere, parkt ein zweites Mal und lässt sonst nur liegen, was `gsPlans.bewahrbar()` zulässt (jeder Eintrag trägt eine uid) — und davon nur die lokalen (`gsPlans.nurLokalBehalten`). `writeLS` kürzt nur Einträge, die auch in der Cloud liegen (`kuerzen`): ein nur lokaler Plan bleibt immer | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist; die einzige Kopie löschen, bevor der Rettungsweg „geschrieben“ gemeldet hat; eine Liste „zur Not“ kürzen, in der die einzige Kopie eines Plans liegt |
+| Eigene Listen aus fremder Hand (seit v33.59) | `_gsListeEinspielen(schluessel, liste, opts)` mit der Tabelle `GS_LISTEN_EINGANG` — Sieb, Speicher UND Variable in einem Schritt; die Variable wird nur gesetzt, wenn der Schreibversuch gelang. Backup-Import, Login-Abgleich (alle Zweige), Snapshot (`_gsRestoreKey`), `gsGardenSync.pullAll` und „Meine Garten-Pläne“ (`gsPPopenSavedPlans`: siebt die Cloud-Listen VOR dem Mischen, sonst stehen gesiebte und rohe Fassung nebeneinander) gehen hindurch. **Dieselbe Tabelle sagt, was beim Abmelden geht:** `gsClearUserDataKeys` setzt jede Variable und jeden Cache aus `GS_LISTEN_EINGANG` zurück, dazu die Spiegel ausserhalb (`favs`, `myVotes`, `marketChats`, `myBids`, `myPurchases`, `weatherCache`, `socialUserName`); und der Login-Abgleich liest `favs`/`myVotes` nach dem Holen neu — wer einen Eintrag hinzufügt, hat beide Richtungen | eine Liste (`gs_gardens`, `gs_plantings`, `ps_myplants`, `gs_gartentagebuch`, `gs_ernte_log`, `gs_garden_plans`, `gs_dead_plants`) aus Cloud, Snapshot oder Datei direkt schreiben — oder nur die Variable setzen (`gardens = d.gardens`); `sicherheit_check` 98_schluss_e findet jeden Schreiber |
 | Bild eines ANDEREN Nutzers (seit v33.59) | `_gsFremdBild(u)` — nur der eigene Supabase-Speicher (`SB_URL_DEFAULT` + `/storage/v1/object/public/`) oder `data:image`; serverseitig dieselbe Regel in `fn_gs_bild_url_ok` (Migration `20261110_sicherheit_community_markt.sql`, nicht angewandt) | `_gsSafeUrl` für fremde Bilder — es prüft nur das Schema, und ein fremder Host zählt jeden Betrachter mit |
 
 ### 3.4 · KI-Calls
@@ -2771,7 +2771,7 @@ hier stehen die Wege, die seither niemand gerendert hatte: die Pflanzenkarte
 mit einem Emoji aus der KI, der Scan-Verlauf, die Karte mit dem Fund eines
 FREMDEN, die Marktplatz-Galerie, gespeicherte Pläne, der Pflanzendoktor,
 Übersetzungen aus der Datenbank, ein Backup aus fremder Hand, ein Link mit
-einem untergeschobenen Token. 181 Fälle in 23 Dateien (Stand 16.11.2026).
+einem untergeschobenen Token. 188 Fälle in 23 Dateien (Stand 16.11.2026).
 
 - **Bauform.** Die Fälle liegen als Module in `scripts/sicherheit/` — je
   Themengruppe EINE Datei, damit mehrere Reparaturen nebeneinander entstehen
@@ -2843,7 +2843,7 @@ einem untergeschobenen Token. 181 Fälle in 23 Dateien (Stand 16.11.2026).
 > Schutz — so steht er in der Gegenprüfung, nicht als „geprüft".
 
 **`edge_check.js` (seit v33.59) fragt, ob die Edge-Functions halten, was sie
-über ihre Tore sagen.** 71 Fälle in acht Dateien unter `scripts/edge/` (Stand 16.11.2026). Deno gibt es hier
+über ihre Tore sagen.** 76 Fälle in acht Dateien unter `scripts/edge/` (Stand 16.11.2026). Deno gibt es hier
 nicht; deshalb dieselbe Aufteilung wie bei `device-ingest` (v32.61): was sich
 RECHNEN lässt (wer darf, welches Kontingent, welche Adresse, welcher Preis),
 steht in einem Modul unter `supabase/functions/_shared/*.mjs` und wird in Node
@@ -2863,6 +2863,17 @@ die Suche ankert an der FORM eines Aufrufs, nicht an der blossen Erwähnung.
   10.11.2026, nur lesend, mit Datum); eine Einbettung ohne Fremdschlüssel
   antwortet mit `PGRST200`, eine unbekannte Spalte mit `42703`. Wer eine Spalte
   per Migration anlegt, trägt sie dort NICHT ein — dort steht, was live IST.
+  **Seit dem 16.11.2026 prüft sie auch Fremdschlüssel** (`BEZIEHUNGEN` und
+  `AUTH_FK` — letztere aus `docs/loeschung-inventar.json` gelesen, nicht
+  abgeschrieben; Ziel `auth.users` ist die Menge `konten` des Szenarios): eine
+  Zeile, deren Schlüssel nirgends hinzeigt, antwortet mit `23503` und nennt
+  Constraint und Spalte in `details`. `NULL` wird nicht geprüft, ein Update nur,
+  wenn sich der Schlüssel ändert. Ein Szenario, das Zeilen mit `user_id`
+  schreibt, nennt seine Konten (`konten: […]` oder `nutzer`). Wer
+  `docs/loeschung-inventar.json` nachzieht, zieht damit die Fremdschlüssel der
+  Attrappe nach. Anlass: der Webhook antwortete auf ein Abo-Ereignis eines
+  GELÖSCHTEN Kontos live mit 500, Tag für Tag — die alte Attrappe nahm die Zeile
+  an und war grün (Gesamtprüfung, `kontoFehlt`).
 - **`40_lieferkette`:** jede Import-Angabe unter `supabase/functions` nennt eine
   EXAKTE Version (MAJOR.MINOR.PATCH), und ein Paket hat überall dieselbe — mit
   EINER benannten Ausnahme (`stripe-create-connect-account` bleibt auf

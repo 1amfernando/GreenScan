@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-16-adb3",
+  "art": "frage",
+  "datum": "2026-11-16",
+  "zeit": "09:48:11",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Ein Lifetime-Kauf für ein gelöschtes Konto bleibt im Webhook bewusst 500 — soll das so bleiben?",
+  "text": "Seit der Gesamtprüfung schliesst stripe-webhook Abo- und Rechnungsereignisse eines gelöschten Kontos mit 200 ab (kontoFehlt, system_events stripe_webhook · abo_ohne_konto). Ein Lifetime-Kauf (checkout.session.completed) ohne Konto bleibt 500: Geld ist eingegangen, ohne Gegenwert, und muss von Hand erstattet werden; Stripe stellt drei Tage lang erneut zu, danach steht das Ereignis als gescheitert im Dashboard und in stripe_webhook_events.error. Wie oft das vorkommt, ist nicht gemessen.",
+  "an": "fernando",
+  "vorschlag": "Entweder so lassen (der Fehler ist das Signal zum Erstatten) oder mit 200 abschliessen und eine Meldung an den Admin (system_events error + Hinweis im Admin-Panel) — Entscheidung für Fernando.",
+  "stichworte": [
+    "stripe-webhook",
+    "lifetime",
+    "konto-geloescht",
+    "erstattung"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/_shared/zahlung_regeln.mjs",
+      "text": "export function kontoFehlt(fehler) {"
+    }
+  ]
+}

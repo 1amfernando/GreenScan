@@ -67,12 +67,12 @@
     "garden-scan-analyze": {
       "zustand": "erst_nach",
       "nach": "20261110_sicherheit_ki_kontingent.sql",
-      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; der Satz beim Zeitablauf passt ungekuerzt in die Anzeige der App und raet nur bei einem Mehrjahresplan zum kuerzeren Horizont",
       "live_version": "v11"
     },
     "i18n-translate": {
       "zustand": "ausliefern",
-      "grund": "nur die Versionen festgelegt",
+      "grund": "Versionen festgelegt; der Geheimnis-Vergleich (Service-Key) kommt aus _shared/auth_vergleich.mjs statt aus einer eigenen Kopie — zwei leere Werte sind dort kein Treffer mehr",
       "live_version": "v5"
     },
     "key-health-check": {
@@ -105,7 +105,7 @@
     "plan-iterate": {
       "zustand": "erst_nach",
       "nach": "20261110_sicherheit_ki_kontingent.sql",
-      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; eine abgeschnittene Antwort nennt den Umfang des Plans (nicht den Wunsch), der Plan geht kompakt an das Modell",
       "live_version": "v5"
     },
     "plant-doctor-diagnose": {
@@ -121,7 +121,7 @@
     },
     "send-push": {
       "zustand": "ausliefern",
-      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand; der Geheimnis-Vergleich (Service-Key) kommt aus _shared/auth_vergleich.mjs statt aus einer eigenen Kopie",
       "live_version": "v2"
     },
     "send-receipt": {
@@ -201,7 +201,7 @@
     },
     "stripe-webhook": {
       "zustand": "ausliefern",
-      "grund": "Erstattung/Rueckbuchung entziehen eine Lifetime, keine Verifikation per Zahlung, der 500-Fehler der Einbettung behoben",
+      "grund": "Erstattung/Rueckbuchung entziehen eine Lifetime, keine Verifikation per Zahlung, der 500-Fehler der Einbettung behoben; ein Abo-/Rechnungsereignis fuer ein geloeschtes Konto endet mit 200 und einer Zeile in system_events statt drei Tagen 500",
       "live_version": "v12"
     },
     "weather-alert-checker": {

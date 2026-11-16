@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-16-cfcd",
+  "art": "frage",
+  "datum": "2026-11-16",
+  "zeit": "09:48:08",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "plan-iterate: reicht ein Ausgabe-Budget von 8000, wenn der Erzeuger mit 10000/14000 baut?",
+  "text": "plan-iterate verlangt den GANZEN Plan zurück und hat max_tokens 8000; der Erzeuger derselben Rolle ('vision', dieselben 110 s) baut mit 10000 bzw. 14000. Ein gespeicherter Plan mit mehr als 8000 Ausgabe-Token wird bei jeder Iteration abgeschnitten — seit der Gesamtprüfung sagt die App das ehrlich ('Der geänderte Plan wäre zu umfangreich …'), aber die Iteration geht für solche Pläne nicht. Von hier antwortet kein Modell, und ai_usage hat keine Dauer.",
+  "an": "fernando",
+  "vorschlag": "Nur lesend messen, wie gross gespeicherte Pläne sind (octet_length von garden_plans.ai_analysis, kompakt rund 3,5–4 Zeichen je Token), und das Tempo eines echten Aufrufs; erst dann das Budget des Erzeugers übernehmen.",
+  "stichworte": [
+    "plan-iterate",
+    "max_tokens",
+    "ki-budget"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/plan-iterate/index.ts",
+      "text": "Dein Plan ist unverändert."
+    }
+  ]
+}

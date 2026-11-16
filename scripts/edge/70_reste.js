@@ -21,7 +21,7 @@ const ereignis = (id, type, obj, extra) => JSON.stringify(Object.assign({ id, ty
 const SELLER = () => [{ user_id: U, stripe_account_id: 'acct_1', status: 'pending', charges_enabled: false, payouts_enabled: false, details_submitted: false }];
 const KONTO = { id: 'acct_1', charges_enabled: true, payouts_enabled: true, details_submitted: true, business_type: 'individual', requirements: { currently_due: [] } };
 async function webhook(evt, tabellen, fehler, f0) {
-  const f = f0 || await lade('stripe-webhook', { tabellen: Object.assign({ stripe_webhook_events: [], stripe_subscriptions: [], stripe_prices: [LIFE], stripe_products: PRODUKTE, launch_offer_usage: [], expert_verifications: [], notifications: [], audit_log: [], profiles: [], marketplace_sellers: SELLER() }, tabellen || {}), fehler: fehler || {} });
+  const f = f0 || await lade('stripe-webhook', { konten: [U], tabellen: Object.assign({ stripe_webhook_events: [], stripe_subscriptions: [], stripe_prices: [LIFE], stripe_products: PRODUKTE, launch_offer_usage: [], expert_verifications: [], notifications: [], audit_log: [], profiles: [], marketplace_sellers: SELLER(), system_events: [] }, tabellen || {}), fehler: fehler || {} });
   const r = await f.aufruf({ headers: { 'stripe-signature': 'sig-gut' }, body: evt });
   return { r, z: f.z, f };
 }
@@ -47,15 +47,79 @@ async function planIterate(anthropic) {
     },
   });
   const altFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
-    if (String(url).indexOf('api.anthropic.com') >= 0) return new Response(JSON.stringify(anthropic), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    throw new Error('kein Netz: ' + url);
-  };
+  globalThis.fetch = anthropicStellen(f, anthropic);
   let r;
   try { r = await f.aufruf({ headers: auth('tok_u'), body: { plan_id: PLAN_ID, user_message: 'Bitte Basilikum dazu' } }); }
   finally { globalThis.fetch = altFetch; }
   const zeile = f.z.tabellen.garden_plans[0];
   return { r, z: f.z, zeile, geschrieben: f.z.ops.some(o => o.table === 'garden_plans' && o.art === 'update') };
+}
+// Anthropic gestellt: eine Antwort — oder eine Ausnahme (ein Zeitablauf ist ein DOMException
+// 'TimeoutError', wie AbortSignal.timeout ihn wirft). Der Rumpf wird mitgeschrieben.
+function anthropicStellen(f, anthropic) {
+  return async (url, init) => {
+    if (String(url).indexOf('api.anthropic.com') >= 0) {
+      f.z.anthropicRumpf = init && typeof init.body === 'string' ? init.body : null;
+      if (anthropic instanceof Error) throw anthropic;
+      return new Response(JSON.stringify(anthropic), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    throw new Error('kein Netz: ' + url);
+  };
+}
+const zeitablauf = () => new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+
+// ── garden-scan-analyze (der Erzeuger des Plans) ───────────────────────────
+async function gardenScan(anthropic, horizont) {
+  const f = await lade('garden-scan-analyze', {
+    nutzer: NUTZER,
+    env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
+    tabellen: {
+      v_user_entitlements: [{ user_id: U, tier: 'free', role: 'user', is_admin: false }],
+      plant_companion_matrix: [], garden_plans: [], app_settings: [], regional_garden_calendars: [], ai_usage: [],
+    },
+    rpc: {
+      fn_check_rate_limit: () => ({ data: true, error: null }),
+      fn_ai_kontingent_reservieren: () => ({ data: true, error: null }),
+      fn_ai_kontingent_freigeben: () => { f.z.freigaben = (f.z.freigaben || 0) + 1; return { data: true, error: null }; },
+      fn_log_ai_usage: () => ({ data: null, error: null }),
+    },
+  });
+  const altFetch = globalThis.fetch;
+  globalThis.fetch = anthropicStellen(f, anthropic);
+  let r;
+  try { r = await f.aufruf({ headers: auth('tok_u'), body: { photos: ['QUJDRA=='], metadata: {}, save_as_plan: true, planning_horizon_years: horizont || 1 } }); }
+  finally { globalThis.fetch = altFetch; }
+  return { r, z: f.z };
+}
+
+// ── Was die App ZEIGT (Gegenpruefung g2) ───────────────────────────────────
+// Die ECHTEN Funktionen aus index.html: der Wrapper, der die Function ruft (gsIteratePlan /
+// gsRunGardenScan), _gsEdgeFehler, _gsEdgeAusnahme, _gsFehlerText — und die Zeile `var em = …;`
+// des Aufrufers, der den Satz auf den Bildschirm setzt (gsGardenScanChatSend / gsGardenScanSubmit),
+// aus dem QUELLTEXT gelesen, nicht abgeschrieben: aendert jemand die Anzeige, misst der Fall die neue.
+let _appSrc = null;
+function appFunktion(kopf, repo) {
+  if (!_appSrc) _appSrc = require('fs').readFileSync(require('path').join(repo, 'index.html'), 'utf8');
+  const src = _appSrc, i = src.indexOf(kopf);
+  if (i < 0) return null;
+  let d = 0, j = src.indexOf('{', i);
+  for (; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}' && !--d) break; }
+  return src.slice(i, j + 1);
+}
+const APP_WEGE = {
+  iterate: { wrapper: 'async function gsIteratePlan(', aufrufer: 'async function gsGardenScanChatSend(', ruf: 'gsIteratePlan("p1", "Bitte Basilikum dazu")' },
+  scan: { wrapper: 'async function gsRunGardenScan(', aufrufer: 'async function gsGardenScanSubmit(', ruf: 'gsRunGardenScan(["QUJDRA=="], {}, { save_as_plan: true })' },
+};
+async function appZeigt(repo, weg, antwort) {
+  const w = APP_WEGE[weg];
+  const teile = [w.wrapper, 'function _gsEdgeFehler(', 'function _gsEdgeAusnahme(', 'function _gsFehlerText('].map(k => appFunktion(k, repo));
+  const aufrufer = appFunktion(w.aufrufer, repo);
+  const em = aufrufer && aufrufer.match(/\n\s*var em = ([^\n]+);\n/);
+  if (teile.some(t => !t) || !em) return { fehler: 'App-Funktionen nicht gefunden: ' + teile.map(t => !!t).join(',') + ' · var em: ' + !!em };
+  const app = new Function('window', 'sbIsLoggedIn', '_gsFreshToken', 'SB_URL', 'SB_KEY', 'gsAsyncLock', 'gsLocale', 'localStorage', teile.join('\n') +
+    '\nreturn async function(){ var res = await ' + w.ruf + '; if (res && res.ok) return null; var em = ' + em[1] + '; return em; };');
+  const fenster = { _gsFetch: async () => ({ ok: antwort.status >= 200 && antwort.status < 300, status: antwort.status, json: async () => antwort.body }) };
+  return { gezeigt: await app(fenster, () => true, async () => 'tok', 'https://x', 'k', () => false, () => 'de-CH', { getItem: () => null })() };
 }
 
 // ── Geheimnis-Vergleich ────────────────────────────────────────────────────
@@ -221,6 +285,69 @@ module.exports = [
     },
   },
 
+  {
+    name: 'plan-iterate · abgeschnitten: der Satz, den die Person sieht (gsIteratePlan → _gsEdgeFehler → _gsFehlerText der App), nennt den UMFANG DES PLANS als Ursache und sagt „unverändert" — kein „Wunsch kürzer fassen", keine Einladung zum selben Versuch; der Plan geht ohne Einrückung an die KI (Gesamtpruefung, Fund 5)',
+    lauf: async (h) => {
+      const fehler = [];
+      const gut = JSON.stringify(Object.assign({}, ALT_PLAN, { change_summary: 'Basilikum dazu' }));
+      const a = await planIterate(antwort(gut.slice(0, gut.length - 30), 'max_tokens'));
+      const satz = a.r.body && a.r.body.error && a.r.body.error.message;
+      if (a.r.status !== 502 || !satz) return nein('abgeschnitten → ' + a.r.status + ' ' + a.r.text.slice(0, 160));
+      // Was auf dem Bildschirm steht: die ECHTEN Funktionen der App (gsIteratePlan, _gsEdgeFehler,
+      // _gsEdgeAusnahme, _gsFehlerText) mit der Antwort dieser Function, und die Zeile, mit der
+      // gsGardenScanChatSend den Satz zeigt — aus dem Quelltext gelesen (appZeigt).
+      const z = await appZeigt(h.repo, 'iterate', { status: a.r.status, body: a.r.body });
+      if (z.fehler) return nein(z.fehler);
+      const gezeigt = z.gezeigt;
+      if (gezeigt !== satz) fehler.push('die App zeigt einen anderen Satz als die Function schickt (gekuerzt oder ersetzt): „' + gezeigt + '"');
+      if (!/\bPlan\b[^.]{0,40}\b(umfangreich|zu gro(ss|ß)|zu lang)\b/i.test(gezeigt)) fehler.push('nennt den Umfang des Plans nicht als Ursache: „' + gezeigt + '"');
+      if (!/unver(ä|ae)ndert/i.test(gezeigt)) fehler.push('sagt nicht, dass der Plan unveraendert ist: „' + gezeigt + '"');
+      if (/k(ü|ue)rzer|Wunsch/i.test(gezeigt)) fehler.push('schickt die Person zum Kuerzen des Wunsches — der Wunsch ist gedeckelt, die Laenge kommt vom Plan: „' + gezeigt + '"');
+      if (/erneut|nochmal|noch einmal|versuch/i.test(gezeigt)) fehler.push('laedt zum selben Versuch ein (kostet je eine Kontingent-Einheit, aendert nichts): „' + gezeigt + '"');
+      // Gegenpruefung g2: auch nicht zum AUFTEILEN — jede Iteration verlangt den GANZEN Plan zurueck,
+      // ein kleinerer Schritt wird genauso lang. „in einem Schritt" stand in der ersten Fassung.
+      if (/Schritt|aufteil|nacheinander|einzeln|kleiner/i.test(gezeigt)) fehler.push('laedt zum Aufteilen in kleinere Schritte ein — jede Iteration schreibt den ganzen Plan neu, ein kleiner Schritt wird ebenso abgeschnitten: „' + gezeigt + '"');
+      // Der Plan geht OHNE Einrueckung an das Modell — die Antwort kommt sonst im selben, laengeren Format zurueck.
+      let rumpf = null; try { rumpf = JSON.parse(a.z.anthropicRumpf || 'null'); } catch (_) {}
+      const inhalt = rumpf && rumpf.messages && rumpf.messages[0] && String(rumpf.messages[0].content);
+      if (!inhalt) fehler.push('kein Rumpf an Anthropic gesehen');
+      else {
+        if (inhalt.indexOf(JSON.stringify(ALT_PLAN)) < 0) fehler.push('der Plan steht nicht kompakt im Prompt');
+        if (inhalt.indexOf(JSON.stringify(ALT_PLAN, null, 2)) >= 0) fehler.push('der Plan geht eingerueckt an die KI (JSON.stringify(…, null, 2))');
+      }
+      return fehler.length ? nein(fehler.join(' · ')) : ok('gezeigt: „' + gezeigt + '" (' + gezeigt.length + ' Zeichen, unveraendert durch die App) · Plan kompakt im Prompt · max_tokens ' + (rumpf && rumpf.max_tokens));
+    },
+  },
+
+  {
+    name: 'Zeitablauf · plan-iterate und garden-scan-analyze (110 s): der Satz, den die App zeigt (Wrapper → _gsEdgeFehler „⏱️" → _gsFehlerText), ist der GANZE Satz der Function — hoechstens 120 Zeichen, sonst kuerzt die App ihn mitten im Wort —, mit Umlauten, und der Rat „kuerzerer Horizont" kommt nur bei einem Mehrjahresplan (Gegenpruefung g2 zu Fund 5)',
+    lauf: async (h) => {
+      const fehler = [], gezeigt = {};
+      const UMSCHRIFT = /k(ue)rz|l(ae)ng|gr(oe)ss|zur(ue)ck|\bf(ue)r\b|(ue)ber|m(oe)glich|(ae)nder|gew(ae)hl/i;   // ASCII-Umschrift auf dem Bildschirm
+      const wege = [
+        ['plan-iterate', 'iterate', () => planIterate(zeitablauf()), false],
+        ['garden-scan-analyze (1 Jahr)', 'scan', () => gardenScan(zeitablauf(), 1), false],
+        ['garden-scan-analyze (3 Jahre)', 'scan', () => gardenScan(zeitablauf(), 3), true],
+      ];
+      for (const [name, weg, lauf, mehrjahr] of wege) {
+        const a = await lauf();
+        const e = a.r.body && a.r.body.error;
+        if (a.r.status !== 504 || !e || e.code !== 'timeout' || !e.message) { fehler.push(name + ': Zeitablauf → ' + a.r.status + ' ' + a.r.text.slice(0, 140)); continue; }
+        const satz = String(e.message);
+        // Eine KOPIE der Antwort: _gsEdgeFehler setzt „⏱️ " an das Objekt, das es bekommt.
+        const z = await appZeigt(h.repo, weg, { status: a.r.status, body: JSON.parse(JSON.stringify(a.r.body)) });
+        if (z.fehler) return nein(z.fehler);
+        gezeigt[name] = z.gezeigt;
+        if (z.gezeigt !== '⏱️ ' + satz) fehler.push(name + ': die App zeigt nicht den ganzen Satz (' + ('⏱️ ' + satz).length + ' Zeichen mit „⏱️", _gsFehlerText laesst 120 durch): „' + z.gezeigt + '"');
+        if (UMSCHRIFT.test(satz)) fehler.push(name + ': Umschrift statt Umlaut auf dem Bildschirm: „' + satz + '"');
+        if (!/nichts wurde gespeichert|unver(ä|ae)ndert/i.test(satz)) fehler.push(name + ': sagt nicht, dass nichts gespeichert wurde: „' + satz + '"');
+        // Der Rat muss zur Anfrage passen: ein kuerzerer Horizont ist nur bei einem Mehrjahresplan moeglich.
+        if (!mehrjahr && /Horizont/.test(satz)) fehler.push(name + ': raet zu einem kuerzeren Horizont, obwohl schon 1 Jahr geplant war: „' + satz + '"');
+      }
+      return fehler.length ? nein(fehler.join(' · ')) : ok(Object.keys(gezeigt).map(k => k + ': „' + gezeigt[k] + '" (' + gezeigt[k].length + ')').join(' · '));
+    },
+  },
+
   // ── D · Geheimnis-Vergleich (Brett 4515) ──────────────────────────────────
   {
     name: 'Geheimnis-Vergleich · keine Function traegt eine eigene constantTimeEquals-Kopie oder XOR-Schleife; send-push und i18n-translate importieren sie aus _shared/auth_vergleich.mjs; daily-push benannt (4515)',
@@ -242,6 +369,14 @@ module.exports = [
       }
       const ausl = JSON.parse(h.lies('AUSLIEFERUNG.json')).functions;
       for (const fn of benannt) if (!ausl[fn] || ausl[fn].zustand !== 'nicht') rot.push(fn + ' ist benannt, aber laut AUSLIEFERUNG.json nicht „nicht" — dann gehoert sie repariert');
+      // Gesamtpruefung (16.11.2026): was umgestellt ist, sagt auch die Auslieferungsliste — wer
+      // ausliefert, liest den Grund. „nur die Versionen festgelegt" verschwieg den neuen Vergleich
+      // (zwei leere Werte sind dort kein Treffer mehr — eine Verhaltensaenderung).
+      for (const fn of ['send-push', 'i18n-translate']) {
+        const g = String((ausl[fn] && ausl[fn].grund) || '');
+        if (!/Vergleich/.test(g)) rot.push('AUSLIEFERUNG.json ' + fn + ': der Grund nennt den umgestellten Geheimnis-Vergleich nicht („' + g + '")');
+        if (/^nur\b/.test(g)) rot.push('AUSLIEFERUNG.json ' + fn + ': „' + g + '" — es ist nicht NUR das');
+      }
       return rot.length ? nein(rot.join(' · ')) : ok('0 eigene Vergleiche · benannt: ' + benannt.join(', ') + ' (' + benannt.map(f => VERGLEICH_BEWUSST[f].split(' — ')[0]).join('; ') + ')');
     },
   },

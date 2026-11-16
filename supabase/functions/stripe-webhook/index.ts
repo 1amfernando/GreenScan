@@ -20,7 +20,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 // nur `then` — jeder dieser Zweige warf TypeError und antwortete 500); Lifetime nur fuer den
 // Lifetime-PREIS; Launch-Zaehlung am Preis; Experten-Zahlung schreibt nur die Gebuehr; volle
 // Erstattung/Chargeback entzieht eine eindeutig zugeordnete Lifetime; Abo-Ereignisse in Reihenfolge.
-import { istLifetimePreis, istLaunchPreis, ereignisIstNeuer, expertenZahlungFelder, lifetimeZumEntzug, ladungVollErstattet } from "../_shared/zahlung_regeln.mjs";
+import { istLifetimePreis, istLaunchPreis, ereignisIstNeuer, expertenZahlungFelder, lifetimeZumEntzug, ladungVollErstattet, kontoFehlt } from "../_shared/zahlung_regeln.mjs";
 
 const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -75,13 +75,14 @@ function warne(r: { error: any }, was: string) {
 // ein Ereignis, das waehrend des Abrufs entstand, nicht als „aelter" verworfen wird. v33.59
 // (Schlusspruefung d1 #2): NICHT in updated_at — die Spalte setzt live der BEFORE-UPDATE-Trigger
 // trg_stripe_subs_updated_at bei jedem Update auf now(); metadata fasst kein Trigger an.
-async function upsertSubscription(sub: Stripe.Subscription, stand?: string) {
+// `anlass`: der Ereignistyp, fuer das Protokoll.
+async function upsertSubscription(sub: Stripe.Subscription, stand?: string, anlass?: string) {
   const priceId = sub.items.data[0]?.price.id;
   const userId = (sub.metadata?.supabase_user_id as string) ?? null;
   if (!userId) return;
   const tier = priceId ? await resolveTier(priceId) : "free";
 
-  pruefe(await admin.from("stripe_subscriptions").upsert({
+  const abo = await admin.from("stripe_subscriptions").upsert({
     id: sub.id,
     user_id: userId,
     stripe_customer_id: sub.customer as string,
@@ -96,7 +97,21 @@ async function upsertSubscription(sub: Stripe.Subscription, stand?: string) {
     ended_at: sub.ended_at ? new Date(sub.ended_at * 1000).toISOString() : null,
     metadata: { ...(sub.metadata ?? {}), gs_stripe_stand: stand ?? new Date().toISOString() } as any,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "id" }), "stripe_subscriptions upsert");
+  }, { onConflict: "id" });
+  // Gesamtpruefung (16.11.2026, Fund 4): das Konto gibt es nicht mehr — delete-user kuendigt das
+  // Abo und loescht danach das Konto, Stripe stellt das Ereignis auch NACH dem Loeschen zu. Die
+  // Verletzung des Fremdschluessels auf user_id heilt keine Wiederholung (bisher 500 und drei
+  // Tage Neuzustellung): abschliessen, laut (Warnung + system_events, ohne die Kennung des
+  // geloeschten Kontos). Jeder andere Fehler — auch 23503 auf price_id, der heilbar ist — wirft.
+  if (kontoFehlt(abo.error)) {
+    console.warn(`[webhook] ${anlass ?? "abo"} ${sub.id}: das Konto gibt es nicht mehr (23503 auf user_id) — ohne Zeile abgeschlossen`);
+    warne(await admin.from("system_events").insert({
+      severity: "warn", source: "stripe_webhook", event: "abo_ohne_konto",
+      detail: { subscription_id: sub.id, ereignis: anlass ?? null, status: sub.status },
+    }), "system_events abo_ohne_konto");
+    return;
+  }
+  pruefe(abo, "stripe_subscriptions upsert");
 }
 
 // v33.59 (#11): ein Abo-Ereignis traegt eine Momentaufnahme. Ein verspaetet zugestelltes
@@ -121,7 +136,7 @@ async function aboEreignis(stripe: Stripe, event: Stripe.Event) {
     if (event.type !== "customer.subscription.deleted") throw e;
     frisch = sub;
   }
-  await upsertSubscription(frisch, stand);
+  await upsertSubscription(frisch, stand, event.type);
 }
 
 // v33.59 (#8): volle Erstattung oder Chargeback entzieht eine Lifetime — nur bei EINDEUTIGER
@@ -430,7 +445,7 @@ Deno.serve(async (req) => {
         if (inv.subscription) {
           const stand = new Date().toISOString();
           const sub = await stripe.subscriptions.retrieve(inv.subscription as string);
-          await upsertSubscription(sub, stand);
+          await upsertSubscription(sub, stand, event.type);
         }
         break;
       }

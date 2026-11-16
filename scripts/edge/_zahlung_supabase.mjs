@@ -16,7 +16,20 @@
 // sie JEDE Einbettung, und `stripe_products(tier)` war gruen, waehrend der Webhook
 // live auf jedes Abo-Ereignis 500 antwortete. Und wie die Live-Trigger setzt ein
 // UPDATE auf einer Tabelle aus UPDATED_AT_TRIGGER updated_at = now().
-import { SPALTEN, BEZIEHUNGEN, UPDATED_AT_TRIGGER } from './_live_schema.mjs';
+//
+// Gesamtpruefung (Fund 4): und sie haelt die FREMDSCHLUESSEL wie Postgres. Ein Insert, ein
+// Upsert oder ein Update, das einen Schluessel auf einen Wert setzt, den die Zieltabelle nicht
+// hat, scheitert mit 23503 — Meldung und details nennen Constraint und Spalte, wie PostgREST
+// sie durchreicht (`insert or update on table "t" violates foreign key constraint "t_s_fkey"`,
+// `Key (s)=(w) is not present in table "z".`). Zwei Quellen, beide live gelesen: BEZIEHUNGEN
+// (public → public) und AUTH_FK (→ auth.users, aus docs/loeschung-inventar.json). auth.users
+// ist hier die Menge `__gsZ.konten` (die Ids aus `nutzer` plus `konten` des Szenarios). Wie in
+// Postgres: NULL in einer Schluesselspalte wird nicht geprueft (MATCH SIMPLE), und ein Update
+// prueft nur, wenn sich der Schluessel AENDERT. Der Constraint-Name ist die Vorgabe von
+// Postgres (<tabelle>_<spalte>_fkey) — live steht er in keiner Momentaufnahme; eine Regel, die
+// den Fehler deutet, haengt deshalb an den details, nicht am Namen. Grenze: eine public-Zieltabelle,
+// die das Szenario nicht stellt, wird nicht geprueft (sie waere live da, mit unbekanntem Inhalt).
+import { SPALTEN, BEZIEHUNGEN, UPDATED_AT_TRIGGER, AUTH_FK } from './_live_schema.mjs';
 const Z = () => globalThis.__gsZ;
 const beziehungen = () => BEZIEHUNGEN.concat((Z() && Z().beziehungen) || []);
 
@@ -79,6 +92,34 @@ function trigger(table, zeile) {
   if (UPDATED_AT_TRIGGER.includes(table)) zeile.updated_at = new Date().toISOString();
 }
 
+// 23503 wie Postgres, oder null. `alt` ist die bestehende Zeile (Update) oder null (Insert),
+// `neu` die Zeile, wie sie danach dastuende.
+function fkFehler(table, alt, neu) {
+  const z = Z();
+  const verletzt = (spalten, zielName) => {
+    const werte = spalten.map(s => neu[s]);
+    return {
+      code: '23503',
+      message: 'insert or update on table "' + table + '" violates foreign key constraint "' + table + '_' + spalten.join('_') + '_fkey"',
+      details: 'Key (' + spalten.join(', ') + ')=(' + werte.join(', ') + ') is not present in table "' + zielName + '".',
+      hint: null,
+    };
+  };
+  const zuPruefen = (spalten) => spalten.every(s => neu[s] != null) && (!alt || spalten.some(s => String(alt[s]) !== String(neu[s])));
+  for (const r of beziehungen()) {
+    if (r[0] !== table) continue;
+    const sp = String(r[1]).split(',').map(x => x.trim()), zs = String(r[3]).split(',').map(x => x.trim());
+    const ziel = z.tabellen[r[2]];
+    if (!ziel || !zuPruefen(sp)) continue;
+    if (!ziel.some(zz => sp.every((s, i) => String(zz[zs[i]]) === String(neu[s])))) return verletzt(sp, r[2]);
+  }
+  for (const [t, s] of AUTH_FK) {
+    if (t !== table || !zuPruefen([s])) continue;
+    if (!(z.konten && z.konten.has(String(neu[s])))) return verletzt([s], 'users');
+  }
+  return null;
+}
+
 function passt(zeile, f) {
   const [art, sp, w] = f;
   let v;
@@ -119,18 +160,31 @@ function ausfuehren(op) {
   if (op.art === 'insert' || op.art === 'upsert') {
     const neu = Array.isArray(op.werte) ? op.werte : [op.werte];
     const k = (op.optionen && op.optionen.onConflict) ? String(op.optionen.onConflict).split(',') : (z.schluessel[op.table] || ['id']);
-    const raus = [];
+    // Eine Anweisung ist atomar: erst alles pruefen (Eindeutigkeit, Fremdschluessel), dann schreiben.
+    const plan = [];
     for (const w of neu) {
       const alt = t.find(r => k.every(s => r[s] !== undefined && r[s] === w[s]));
       if (alt) {
         if (op.art === 'insert') return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
         if (op.optionen && op.optionen.ignoreDuplicates) continue;
-        Object.assign(alt, w); trigger(op.table, alt); raus.push(alt);
-      } else { const r = Object.assign({}, w); t.push(r); raus.push(r); }
+        const fk = fkFehler(op.table, alt, Object.assign({}, alt, w));
+        if (fk) return { data: null, error: fk, count: null };
+        plan.push([alt, w]);
+      } else {
+        const fk = fkFehler(op.table, null, w);
+        if (fk) return { data: null, error: fk, count: null };
+        plan.push([null, w]);
+      }
+    }
+    const raus = [];
+    for (const [alt, w] of plan) {
+      if (alt) { Object.assign(alt, w); trigger(op.table, alt); raus.push(alt); }
+      else { const r = Object.assign({}, w); t.push(r); raus.push(r); }
     }
     return { data: op.zurueck ? raus : null, error: null };
   }
   if (op.art === 'update') {
+    for (const r of treffer) { const fk = fkFehler(op.table, r, Object.assign({}, r, op.werte)); if (fk) return { data: null, error: fk, count: null }; }
     for (const r of treffer) { Object.assign(r, op.werte); trigger(op.table, r); }
     return { data: op.zurueck ? treffer : null, error: null, count: treffer.length };
   }

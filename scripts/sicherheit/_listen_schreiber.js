@@ -24,7 +24,6 @@ const LOKALE_SCHREIBER = {
   'restoreFromCemetery|gs_dead_plants': 'eigene Pflanze aus dem Friedhof',
   'gsHarvestSubmit|gs_ernte_log': 'Ernte aus dem eigenen Formular',
   'gsPPsavePlan|gs_garden_plans': 'Plan aus dem eigenen Planer (KI-Teil vorher durch gsSanitizePlannerPlan)',
-  'gsPPopenSavedPlans|gs_garden_plans': 'kuerzt die eigene Liste auf 30',
   'gsPPdeletePlan|gs_garden_plans': 'Loeschen aus der eigenen Liste',
   'gsPPrenamePlan|gs_garden_plans': 'Umbenennen aus dem eigenen Dialog',
   'gsPPvorlageNaechstesJahr|gs_garden_plans': 'Kopie eines eigenen Plans',

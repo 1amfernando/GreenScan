@@ -276,6 +276,145 @@ const FAELLE = [
       return { ok: true, info: 'voll: bleibt nur fuer A + Satz · ungestempelt: weg + Satz · frei: geparkt, still · zweiter Versuch nach dem Raeumen: geparkt, still' };
     },
   },
+  {
+    // Gesamtpruefung g1 (#2): der Speicher ist GENAU voll — ein Schreibversuch, der die Belegung
+    // vergroessert, scheitert, einer, der sie verkleinert, gelingt (so verhaelt sich ein echtes
+    // Geraet; der Fall oben laesst JEDEN scheitern und sah es deshalb nicht). Abmelden mit 25
+    // Plaenen: 15 aus der Cloud, dahinter 10 nur lokale ohne Stempel (vor v33.59 gespeichert).
+    // Bis hierher kuerzte stempeln() ueber den 20er-Rueckfall von writeLS still auf 20 — die
+    // Plaetze 21 bis 25 waren weg, bevor geparkt wurde, und keine Meldung kam.
+    name: 'Abmelden bei genau vollem Speicher mit 25 Plaenen · kein nur lokaler Plan geht verloren (das Stempeln kuerzt nicht still)',
+    lauf: () => {
+      if (!window.gsPlans || typeof gsClearUserDataKeys !== 'function') return { ok: false, warum: 'gsPlans oder gsClearUserDataKeys fehlt' };
+      const A = 'aaaaaaaa-0000-4000-8000-00000000000a';
+      const gross = 'x'.repeat(4000);
+      const t0 = Date.now();
+      const l = [];
+      for (let i = 0; i < 15; i++) l.push({ localId: 'c' + i, id: 'cloud-' + i, uid: A, type: 'garden', title: 'Cloud-Plan ' + i, summary: '', payload: { t: gross }, created: new Date(t0 - i * 60000).toISOString(), starred: false, cloud: true });
+      for (let i = 15; i < 25; i++) l.push({ localId: 'l' + i, id: 'l' + i, type: 'garden', title: 'Nur lokal ' + i, summary: '', payload: { t: gross }, created: new Date(t0 - i * 60000).toISOString(), starred: false, cloud: false });
+      localStorage.removeItem('gs_plans_wartend');
+      localStorage.setItem('gs_plans_v2', JSON.stringify(l));
+      localStorage.setItem('gs_last_active_uid', A);
+      // Platz, den das Raeumen der uebrigen Nutzer-Schluessel freigibt (wie die Daten einer echten Person)
+      localStorage.setItem('ps_myplants', JSON.stringify([{ id: 'fueller', name: 'Füller', notiz: 'y'.repeat(120000) }]));
+      const echt = localStorage.setItem;
+      const belegt = () => { let n = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += k.length + (localStorage.getItem(k) || '').length; } return n; };
+      const grenze = belegt();   // genau voll
+      const log = [];
+      localStorage.setItem = function (k, v) {
+        const alt = localStorage.getItem(k);
+        const neu = belegt() - (alt == null ? 0 : String(k).length + alt.length) + String(k).length + String(v).length;
+        const ja = neu <= grenze;
+        log.push(k + (ja ? '' : ':voll'));
+        return ja ? echt.call(localStorage, k, v) : false;
+      };
+      window.__TOASTS = [];
+      try { gsClearUserDataKeys(); } finally { localStorage.setItem = echt; }
+      const v2 = JSON.parse(localStorage.getItem('gs_plans_v2') || '[]');
+      const w = JSON.parse(localStorage.getItem('gs_plans_wartend') || '[]');
+      const da = (id) => w.concat(v2).some(e => e && e.localId === id && e.uid === A);
+      const weg = []; for (let i = 15; i < 25; i++) if (!da('l' + i)) weg.push('l' + i);
+      const satz = window.__TOASTS.filter(t => /Plan|Pläne/.test(t));
+      localStorage.removeItem('gs_plans_wartend'); localStorage.removeItem('gs_plans_v2');
+      if (!log.some(k => /^gs_plans_v2/.test(k))) return { ok: false, warum: 'kein Schreibversuch auf gs_plans_v2 — der Stempel wurde nie versucht, Fall nicht hergestellt (' + log.join(', ') + ')' };
+      if (weg.length) return { ok: false, warum: weg.length + ' nur lokale Plaene verloren: ' + weg.join(',') + (satz.length ? ' (Satz: „' + satz[0] + '")' : ' — ohne jede Meldung') + ' · Schreibversuche: ' + log.join(', ') };
+      return { ok: true, info: '10 von 10 nur lokalen Plaenen aufbewahrt (' + w.filter(e => e.uid === A).length + ' wartend, ' + v2.length + ' in gs_plans_v2) · Versuche: ' + log.join(', ') + (satz.length ? ' · Satz: „' + satz[0].slice(0, 50) + '…"' : '') };
+    },
+  },
+  {
+    // Gesamtpruefung g1 (#8): parken() meldete „geparkt", auch wenn deckeln() einen Teil
+    // verwarf — einen Plan, der seit mehr als 90 Tagen nur lokal liegt (gezaehlt ab ANLAGE), oder
+    // den 21. je Konto. gsClearUserDataKeys loeschte danach gs_plans_v2, die einzige Kopie. Der
+    // Speicher ist hier FREI — es geht nur um den Deckel. Gegenrichtung: ein Plan, der seit mehr
+    // als 90 Tagen WARTET, faellt weiter weg (die Frist gilt), und drei Plaene parken still.
+    name: 'Abmelden · der Deckel des Wartebereichs (20 je Konto, 90 Tage) verwirft keinen nur lokalen Plan still — parken meldet −1, der Plan bleibt, der Satz nennt den Grund',
+    lauf: () => {
+      if (!window.gsPlans || typeof gsClearUserDataKeys !== 'function') return { ok: false, warum: 'gsPlans oder gsClearUserDataKeys fehlt' };
+      const A = 'aaaaaaaa-0000-4000-8000-00000000000a';
+      const T = 86400000;
+      const plan = (id, alterTage, extra) => Object.assign({ localId: id, id: id, uid: A, type: 'garden', title: 'Nur lokal ' + id, summary: '', payload: {}, created: new Date(Date.now() - alterTage * T).toISOString(), starred: false, cloud: false }, extra || {});
+      const lage = (v2, wartend) => {
+        localStorage.setItem('gs_plans_v2', JSON.stringify(v2));
+        if (wartend) localStorage.setItem('gs_plans_wartend', JSON.stringify(wartend)); else localStorage.removeItem('gs_plans_wartend');
+        localStorage.setItem('gs_last_active_uid', A);
+        window.__TOASTS = [];
+        gsClearUserDataKeys();
+        const r = { v2: JSON.parse(localStorage.getItem('gs_plans_v2') || '[]'), w: JSON.parse(localStorage.getItem('gs_plans_wartend') || '[]'), satz: window.__TOASTS.filter(t => /Plan|Pläne/.test(t)) };
+        localStorage.removeItem('gs_plans_v2'); localStorage.removeItem('gs_plans_wartend');
+        return r;
+      };
+      const da = (r, id) => r.w.concat(r.v2).some(e => e && e.localId === id && e.uid === A);
+      const f = [];
+      // 1 · ein Plan, vor 100 Tagen angelegt und nie hochgeladen
+      const r1 = lage([plan('alt-100', 100)]);
+      if (!da(r1, 'alt-100')) f.push('Plan von vor 100 Tagen beim Abmelden verworfen' + (r1.satz.length ? ' (Satz: „' + r1.satz[0] + '")' : ', ohne Meldung'));
+      // 2 · 21 nur lokale Plaene
+      const v21 = []; for (let i = 0; i < 21; i++) v21.push(plan('n' + i, i / 10));
+      const r2 = lage(v21);
+      const weg2 = v21.filter(e => !da(r2, e.localId)).map(e => e.localId);
+      if (weg2.length) f.push('21 Plaene: ' + weg2.join(',') + ' weg' + (r2.satz.length ? '' : ', ohne Meldung'));
+      else if (!r2.satz.length) f.push('21 Plaene: nicht alle geparkt, aber kein Satz');
+      else if (/Speicher voll/.test(r2.satz[0])) f.push('21 Plaene: der Satz sagt „Speicher voll", der Grund ist der Deckel („' + r2.satz[0] + '")');
+      else if (!/20/.test(r2.satz[0])) f.push('21 Plaene: der Satz nennt den Deckel nicht („' + r2.satz[0] + '")');
+      // 3 · fuenf warten schon (frueheres Abmelden, nie abgeholt), 18 kommen dazu — der Deckel
+      //     darf die WARTENDEN nicht verdraengen: dort ist es die einzige Kopie
+      const w5 = []; for (let i = 0; i < 5; i++) w5.push(plan('w' + i, 10, { geparkt: new Date(Date.now() - 5 * T).toISOString() }));
+      const v18 = []; for (let i = 0; i < 18; i++) v18.push(plan('m' + i, i / 10));
+      const r3 = lage(v18, w5);
+      const weg3 = w5.concat(v18).filter(e => !da(r3, e.localId)).map(e => e.localId);
+      if (weg3.length) f.push('5 wartend + 18 neu: ' + weg3.join(',') + ' weg');
+      // 4 · Gegenrichtung: die Frist gilt weiter — seit 100 Tagen WARTEND faellt weg; drei neue parken still
+      const r4 = lage([plan('g0', 1), plan('g1', 200), plan('g2', 3)], [plan('abgelaufen', 300, { geparkt: new Date(Date.now() - 100 * T).toISOString() })]);
+      if (['g0', 'g1', 'g2'].some(id => !r4.w.some(e => e.localId === id))) f.push('Gegenrichtung: drei Plaene nicht geparkt (' + JSON.stringify(r4.w.map(e => e.localId)) + ')');
+      if (r4.v2.length) f.push('Gegenrichtung: gs_plans_v2 ueberlebt ein gelungenes Parken');
+      if (r4.satz.length) f.push('Gegenrichtung: Satz ohne Anlass („' + r4.satz[0] + '")');
+      if (r4.w.some(e => e.localId === 'abgelaufen')) f.push('Gegenrichtung: ein Plan, der seit 100 Tagen wartet, faellt nicht weg — die Frist wirkt nicht mehr');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '100 Tage alt: aufbewahrt · 21 Plaene: keiner weg, Satz „' + r2.satz[0].slice(0, 60) + '…" · 5 wartend + 18: keiner verdraengt · Frist ab dem Parken wirkt weiter, 3 Plaene still geparkt' };
+    },
+  },
+  {
+    // Gegenpruefung g1: der Deckel macht −1 zu einem Zustand, der BLEIBT — solange A mehr als 20
+    // nur lokale Plaene hat, gibt jedes Parken −1, auch beim Abmelden eines ANDEREN Kontos. Dann
+    // blieb gs_plans_v2 ganz liegen, mit den Cloud-Plaenen von B (Titel, Inhalt), obwohl B sich
+    // abgemeldet hat; versteckt nur durch den uid-Filter der Anzeige. Ein Cloud-Plan liegt in der
+    // Cloud — aufzuheben ist nur, was es NUR hier gibt. Gegenrichtung: kein lokaler Plan von A
+    // oder B geht verloren, und im Fall „voll" (der Fall oben) bleibt alles wie dort gemessen.
+    name: 'Abmelden eines zweiten Kontos, waehrend der Deckel greift · seine Cloud-Plaene bleiben nicht auf dem Geraet, kein nur lokaler Plan geht verloren',
+    lauf: () => {
+      if (!window.gsPlans || typeof gsClearUserDataKeys !== 'function') return { ok: false, warum: 'gsPlans oder gsClearUserDataKeys fehlt' };
+      const A = 'aaaaaaaa-0000-4000-8000-00000000000a', B = 'bbbbbbbb-0000-4000-8000-00000000000b';
+      const plan = (id, uid, cloud) => ({ localId: id, id: cloud ? 'cloud-' + id : id, uid: uid, type: 'garden', title: 'Plan ' + id, summary: 'Inhalt ' + id, payload: { notiz: 'nur fuer ' + id }, created: new Date().toISOString(), starred: false, cloud: !!cloud });
+      localStorage.removeItem('gs_plans_wartend');
+      const v = []; for (let i = 0; i < 21; i++) v.push(plan('a' + i, A, false));
+      v.push(plan('a-cloud', A, true));
+      localStorage.setItem('gs_plans_v2', JSON.stringify(v));
+      localStorage.setItem('gs_last_active_uid', A);
+      window.__TOASTS = [];
+      gsClearUserDataKeys();
+      const nachA = JSON.parse(localStorage.getItem('gs_plans_v2') || '[]');
+      // B meldet sich an: ein Plan in der Cloud, einer nur lokal
+      const l = nachA.slice(); l.unshift(plan('b-cloud', B, true)); l.unshift(plan('b-lokal', B, false));
+      localStorage.setItem('gs_plans_v2', JSON.stringify(l));
+      localStorage.setItem('gs_last_active_uid', B);
+      gsClearUserDataKeys();
+      const v2 = JSON.parse(localStorage.getItem('gs_plans_v2') || '[]');
+      const w = JSON.parse(localStorage.getItem('gs_plans_wartend') || '[]');
+      const satz = window.__TOASTS.filter(t => /Plan|Pläne/.test(t));
+      localStorage.removeItem('gs_plans_v2'); localStorage.removeItem('gs_plans_wartend');
+      const da = (id) => w.concat(v2).some(e => e && e.localId === id);
+      const f = [];
+      if (gsPlans.parkGrund && gsPlans.parkGrund() !== 'deckel') f.push('Fall nicht hergestellt: der Deckel griff nicht (' + gsPlans.parkGrund() + ')');
+      const cloud = v2.filter(e => e && e.cloud).map(e => e.localId);
+      if (cloud.length) f.push('nach dem Abmelden liegen Cloud-Plaene in gs_plans_v2: ' + cloud.join(','));
+      const lokal = ['b-lokal'].concat(v.filter(e => !e.cloud).map(e => e.localId));
+      const weg = lokal.filter(id => !da(id));
+      if (weg.length) f.push(weg.length + ' nur lokale Plaene verloren: ' + weg.slice(0, 6).join(','));
+      if (!satz.length) f.push('kein Satz, obwohl Plaene liegen bleiben');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'nach dem Abmelden von B: ' + v2.length + ' Plaene in gs_plans_v2, alle nur lokal · 0 Cloud-Plaene · ' + lokal.length + ' von ' + lokal.length + ' nur lokalen aufbewahrt · Satz „' + satz[0].slice(0, 40) + '…"' };
+    },
+  },
 ];
 
 (async () => {
