@@ -106,6 +106,20 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   zugeschnitten statt gestaucht; der Verlauf bekommt die Vorschau per Kennung nachgetragen,
   `_lastScanThumb` trägt bis dahin nichts (nie das Foto des vorigen Scans), und „Zu meinen
   Pflanzen" wartet darauf.
+- **Scanner 8 — der Chat zum Scan.** `openScanChat` leerte das Gespräch bei JEDEM Öffnen: wer
+  zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI bekam
+  die erste Frage nicht mehr mit. Der System-Prompt verlangte fest Deutsch; der erste Satz nannte
+  die Trefferquote „Sicherheit: 85 %" (bei einer Giftpflanze liest sich das wie eine
+  Sicherheitsangabe), und aus der Artenliste geöffnet behauptete er „soeben identifiziert (100 %)".
+  Jetzt gehört das Gespräch zu einem Scan (`_gsScanChatSchluessel`: eine nicht aufzählbare
+  Kennung am Ergebnis — `gsCurrentScanId` taugt nicht, sie vergibt nach 10 s eine neue), die
+  Sprache kommt aus `_gsKiSprache` (dieselbe Regel, die jetzt auch `gsLinaContext` ruft), der erste
+  Satz nennt das Wort aus `_gsKonfidenzStufe`, und „🌿 Mit Lina weiterreden" (`gsScanChatZuLina`)
+  öffnet Lina mit Art und letzter Frage im Feld — ohne selbst zu senden (eine Anfrage, die die
+  Person nicht ausgelöst hat, kostete ihr Kontingent). Der Knopf im KI-Steckbrief hiess „Lina zu
+  dieser Art fragen" und öffnete den Scan-Chat; er heisst jetzt „KI zu dieser Art fragen". Dass
+  der Chat „nur bei einem Treffer in der Artenliste" erscheine (Arbeitsliste): nachgesehen —
+  seit v30.73 auch ohne Treffer.
 - **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
   im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
   über `gsSaisonMonate`.
@@ -151,7 +165,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   einem eigenen `role=tablist`, der Knopf daneben. „`gsRenderWochenrueckblick` doppelt gerufen"
   (Arbeitsliste): nachgesehen — Tagesplan und erster Aufbau rendern dieselben Daten, kein Fehler.
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU6, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile). Jeder neue

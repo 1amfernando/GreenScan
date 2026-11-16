@@ -35646,7 +35646,7 @@ function gsShowScanSteckbrief(){
       sec('🍽️ Verwendung', r.uses) +
       (r.lookalike_warning ? ('<div class="dsec" style="margin-bottom:9px;"><h3>⚠️ Verwechslungsgefahr</h3><p>'+esc(r.lookalike_warning)+'</p></div>') : '') +
       sec('💡 Tipp', r.tips) +
-      '<button class="sr2-cta sr2-cta-secondary" style="width:100%;margin-top:6px;" onclick="if(typeof openScanChat===\'function\')openScanChat()">🤖 Lina zu dieser Art fragen</button>' +
+      '<button class="sr2-cta sr2-cta-secondary" style="width:100%;margin-top:6px;" onclick="if(typeof openScanChat===\'function\')openScanChat()">🤖 KI zu dieser Art fragen</button>' +
     '</div>';
   if (typeof _gsNlOpen==='function') _gsNlOpen(html);
   else if (typeof gsToast==='function') gsToast('Steckbrief nicht verfügbar.', 'error');
@@ -37408,44 +37408,73 @@ function setFilter(f, el) { gsSucheMitFilter(f); }
 
 // ══ DETAIL-CHAT: KI über bestimmte Art befragen ═════════════
 function openDetailChat(spId, spName, spLatin, spTox) {
-  _lastScanResult = { name: spName, latin: spLatin, toxicity: spTox, confidence: 100, emoji: '🌿' };
+  // v33.61 (Scanner 8): aus der Artenliste geöffnet ist das keine Bestimmung — der Chat sagt dann
+  // nicht „soeben identifiziert (100 %)".
+  _lastScanResult = { name: spName, latin: spLatin, toxicity: spTox, confidence: 100, emoji: '🌿', quelle: 'artenliste' };
   closeModal('detail-modal');
   openScanChat();
 }
 
 // ══ SCAN-CHAT: KI-Gespräch nach Scan ═══════════════════════
 var _scanChatHistory = [];
+// v33.61 (Scanner 8): zu welchem Scan das Gespräch gehört. Bis hier leerte jedes Öffnen den Chat —
+// wer zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Gespräch, und die
+// KI kannte die erste Frage nicht mehr. Jetzt bleibt es, solange es um denselben Scan geht.
+var _scanChatFuer = null;
+// Ein Scan ist ein Ergebnis-Objekt: es bekommt beim ersten Öffnen eine Kennung (nicht aufzählbar —
+// sie reist nicht in den gespeicherten Verlauf). gsCurrentScanId taugt dafür nicht: sie vergibt
+// nach 10 s eine NEUE Kennung. Aus der Artenliste zählt die Art selbst.
+function _gsScanChatSchluessel(r) {
+  if (!r) return '';
+  var teil = String(r.name || '') + '|' + String(r.latin || '');
+  if (r.quelle === 'artenliste') return 'art|' + teil;
+  try {
+    if (!r._chatId) Object.defineProperty(r, '_chatId', { value: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), enumerable: false });
+  } catch (_) {}
+  return 'scan|' + teil + '|' + (r._chatId || '');
+}
+// v33.61: in welcher Sprache die KI antwortet — EINE Regel für Lina und den Scan-Chat (v32.70 hatte
+// sie nur in gsLinaContext; der Scan-Chat verlangte fest Deutsch).
+function _gsKiSprache() {
+  try {
+    var lg = (window.gsI18n && gsI18n.getLang) ? gsI18n.getLang() : 'de';
+    return ({ de: 'Deutsch', fr: 'Französisch', it: 'Italienisch', en: 'Englisch', es: 'Spanisch', gsw: 'Deutsch' })[lg] || 'Deutsch';
+  } catch (_) { return 'Deutsch'; }
+}
+window._gsKiSprache = _gsKiSprache;
 
 function openScanChat() {
   var modal = document.getElementById('scan-chat-modal');
   if (!modal) return;
   var r = _lastScanResult;
-  
-  // Chat initialisieren
-  _scanChatHistory = [];
   var log = document.getElementById('scan-chat-log');
-  if (log) log.innerHTML = '';
-  
-  // Erster KI-Satz: Kontext setzen
-  var initMsg = r && r.name
-    ? 'Ich habe soeben <strong>' + escHtml(r.name) + '</strong>' + (r.latin?' (<em>'+escHtml(r.latin)+'</em>)':'') + ' identifiziert (Sicherheit: ' + (r.confidence||0) + '%). Was möchtest du wissen?'
-    : 'Was hast du fotografiert? Ich helfe dir bei der Bestimmung.';
-  
-  addScanChatMsg('assistant', initMsg, true);
-  
-  // System-Kontext für KI
-  _scanChatHistory.push({
-    role: 'user',
-    content: r ? '[Kontext: Gerade identifiziert: ' + r.name + ' (' + r.latin + '), Konfidenz: ' + (r.confidence||0) + '%, Toxizität: ' + (r.toxicity||0) + '/5, Essbar: ' + r.edible + '. Nutzer kann jetzt Fragen stellen.]' : '[Kontext: Scan-Ergebnis unklar]'
-  });
-  _scanChatHistory.push({
-    role: 'assistant',
-    content: initMsg.replace(/<[^>]+>/g, '')
-  });
-  
+  var schl = _gsScanChatSchluessel(r);
+  if (schl !== _scanChatFuer || !log || !log.children.length) {
+    _scanChatFuer = schl;
+    _scanChatHistory = [];
+    if (log) log.innerHTML = '';
+    // Erster Satz: was bestimmt wurde, mit demselben Wort zur Trefferquote wie die Ergebniskarte
+    // („Sicherheit: 85 %" las sich bei einer Giftpflanze wie eine Sicherheitsangabe).
+    var art = r && r.name ? r.name + (r.latin ? ' (' + r.latin + ')' : '') : '';
+    var conf = r ? (Number(r.confidence) || 0) : 0;
+    var initMsg;
+    if (!art) initMsg = _gsSatz('Was hast du fotografiert? Ich helfe dir bei der Bestimmung.');
+    else if (r.quelle === 'artenliste') initMsg = _gsSatz('Was möchtest du über **{1}** wissen?', art);
+    else {
+      var stufe = (typeof _gsKonfidenzStufe === 'function') ? _gsKonfidenzStufe(conf).wort : '';
+      initMsg = _gsSatz('Ich habe **{1}** bestimmt — {2} ({3} %). Was möchtest du wissen?', art, stufe, conf);
+    }
+    addScanChatMsg('assistant', initMsg, false);
+    // System-Kontext für KI
+    _scanChatHistory.push({
+      role: 'user',
+      content: r ? '[Kontext: Gerade identifiziert: ' + r.name + ' (' + r.latin + '), Konfidenz: ' + conf + '%, Toxizität: ' + (r.toxicity||0) + '/5, Essbar: ' + r.edible + '. Nutzer kann jetzt Fragen stellen.]' : '[Kontext: Scan-Ergebnis unklar]'
+    });
+    _scanChatHistory.push({ role: 'assistant', content: initMsg.replace(/\*\*/g, '') });
+  }
   // Subtitle setzen
   var sub = document.getElementById('scan-chat-subtitle');
-  if (sub && r && r.name) sub.textContent = 'Über: ' + r.name + (r.latin?' ('+r.latin+')':'');
+  if (sub && r && r.name) sub.textContent = _gsSatz('Über: {1}', r.name + (r.latin ? ' (' + r.latin + ')' : ''));
   modal.classList.add('open');
   setTimeout(function(){ var inp = document.getElementById('scan-chat-input'); if(inp) inp.focus(); }, 300);
 }
@@ -37454,6 +37483,33 @@ function closeScanChat() {
   var modal = document.getElementById('scan-chat-modal');
   if (modal) modal.classList.remove('open');
 }
+
+// v33.61 (Scanner 8): weiter mit Lina — sie behält das Gespräch (coach_messages), kennt die eigenen
+// Pflanzen und kann eine Erinnerung anlegen. Wie gsDoctorToLina, aber ohne selbst zu senden: die
+// Frage steht im Feld, die Person schickt sie ab (oder ändert sie) — eine Anfrage, die sie nicht
+// ausgelöst hat, kostete ihr Kontingent.
+async function gsScanChatZuLina() {
+  var r = _lastScanResult;
+  var letzte = '';
+  for (var j = _scanChatHistory.length - 1; j >= 0; j--) {
+    var m = _scanChatHistory[j];
+    if (m && m.role === 'user' && m.content && m.content.indexOf('[Kontext:') !== 0) { letzte = m.content; break; }
+  }
+  closeScanChat();
+  if (typeof gsOpenLina !== 'function') return;
+  try { await gsOpenLina(); } catch (_) {}
+  var inp = null;
+  for (var i = 0; i < 20 && !inp; i++) {
+    inp = document.getElementById('gs-lina-input');
+    if (!inp) await new Promise(function (res) { setTimeout(res, 100); });
+  }
+  if (!inp) return;   // nicht angemeldet: Lina zeigt ihren Hinweis — hier wird nichts vorgetäuscht
+  var art = r && r.name ? r.name + (r.latin ? ' (' + r.latin + ')' : '') : '';
+  var anfang = art ? (r.quelle === 'artenliste' ? _gsSatz('Es geht um {1}.', art) : _gsSatz('Ich habe gerade {1} gescannt.', art)) : '';
+  inp.value = (anfang ? anfang + ' ' : '') + (letzte || _gsSatz('Was sollte ich darüber wissen?'));
+  try { inp.focus(); } catch (_) {}
+}
+window.gsScanChatZuLina = gsScanChatZuLina;
 
 function addScanChatMsg(role, text, isHtml) {
   var log = document.getElementById('scan-chat-log');
@@ -37509,7 +37565,8 @@ async function sendScanChat() {
   var r = _lastScanResult;
   var systemPrompt = 'Du bist ein Schweizer Botanik- und Mykologie-Experte. ' +
     (r ? 'Gerade identifiziert: ' + r.name + ' (' + (r.latin||'') + '), Toxizität ' + (r.toxicity||0) + '/5. ' : '') +
-    'Beantworte Fragen präzise auf Deutsch. Wenn Pilze: immer auf VAPKO-Regel hinweisen (im Zweifel NICHT essen). ' +
+    // v33.61 (Scanner 8): in der Sprache der App — dieselbe Regel wie Lina (_gsKiSprache).
+    'Beantworte Fragen präzise auf ' + _gsKiSprache() + '. Wenn Pilze: immer auf VAPKO-Regel hinweisen (im Zweifel NICHT essen). ' +
     'Bei Giftig: Tox Info Suisse 145 nennen. Sei konkret und hilfreich.';
   
   try {
@@ -77162,7 +77219,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +30 (D1j, F1, F2, SC1, SU1–SU6, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +7 (Lina L1–L6, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. (12b) Der Chat zum Scan leerte sein Gespräch bei jedem Öffnen — wer zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage nicht mehr. Er antwortete fest auf Deutsch, auch in einer anderen App-Sprache, und sein erster Satz nannte die Trefferquote „Sicherheit: 85 %“. Jetzt bleibt das Gespräch, solange es um denselben Scan geht, die KI antwortet in der App-Sprache (dieselbe Regel wie Lina), der erste Satz nennt das Wort der Ergebniskarte, und „Mit Lina weiterreden“ öffnet Lina mit Art und letzter Frage im Feld — abgeschickt wird erst von dir. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +31 (D1j, F1, F2, SC1, SC2, SU1–SU6, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +7 (Lina L1–L6, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -77177,6 +77234,7 @@ window.GS_RELEASES = [
         {emoji:'👆', bold:'Scanner — eine andere Art wählen:', text:' die Bestimmung wird geändert, statt einen zweiten Scan anzulegen, und die Karte zeigt nichts mehr von der verworfenen Art. Dasselbe gilt für eine Korrektur — dort schlägt das Feld jetzt passende Arten vor.'},
         {emoji:'💡', bold:'Scanner — wenn etwas schiefgeht:', text:' die Fehlerkarte sagt in einem Satz, was los ist, statt technischer Meldungen, und „In einer Minute nochmal“ zählt sichtbar herunter.'},
         {emoji:'📜', bold:'Scan-Verlauf:', text:' er zeigt jetzt dieselbe Art und dieselben Sicherheitsangaben wie das Scan-Ergebnis. Vorher konnte „In Datenbank öffnen“ bei einem Namen, den mehrere Arten tragen, eine andere, harmlosere Art öffnen.'},
+        {emoji:'💬', bold:'Fragen zum Scan:', text:' das Gespräch bleibt stehen, wenn du zwischendurch zum Ergebnis zurückgehst, die Antworten kommen in deiner App-Sprache, und mit „Mit Lina weiterreden“ nimmst du die Frage zu Lina mit.'},
         {emoji:'🖼️', bold:'Dein Scan-Foto:', text:' es steht jetzt als Vorschau im Verlauf und wird mitgenommen, wenn du die Pflanze zu „Meine Pflanzen“ hinzufügst. Bisher blieb beides leer.'},
         {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er zeigt jetzt eine Pflanze aus der Artenliste, die gerade Saison hat und sich ohne gefährliche Verwechslung sammeln lässt, und öffnet beim Antippen genau diese Art. Pilze stehen dort nicht mehr — für sie gibt es die eigene Pilzkarte. Bisher konnte dort auch eine Aussaat wie „Paprika“ im März oder ein beliebiger Naturfakt stehen.'},
         {emoji:'⏸️', bold:'Kartenreihe auf der Startseite:', text:' sie lässt sich mit dem Knopf neben den Punkten anhalten und bleibt angehalten. Leere Karten erscheinen nicht mehr, und während du eine Karte antippst oder mit der Tastatur darin bist, dreht sie nicht weiter.'},
@@ -87811,11 +87869,8 @@ function gsLinaContext(frageText){
     var ctx = '';
     // v32.70 (Audit E2): Lina antwortete immer auf Deutsch — für jede App-Sprache.
     // Die Sprache steht hier, nicht im festen Prompt, weil sie sich ändern kann.
-    try {
-      var _lg = (window.gsI18n && gsI18n.getLang) ? gsI18n.getLang() : 'de';
-      var _ln = ({de:'Deutsch', fr:'Französisch', it:'Italienisch', en:'Englisch', es:'Spanisch', gsw:'Deutsch'})[_lg] || 'Deutsch';
-      ctx += '\n\nSPRACHE: Antworte auf ' + _ln + '.';
-    } catch(_){}
+    // v33.61: die Zuordnung steht in _gsKiSprache — der Scan-Chat fragt dieselbe.
+    try { ctx += '\n\nSPRACHE: Antworte auf ' + _gsKiSprache() + '.'; } catch(_){}
     // v33.33: die Zahl aus gsPflanzenZahl() (CLAUDE.md §3.3, v33.06) — beide
     // Listen, eine Rechnung. Vorher rechnete der Kontext selbst.
     var plants = (typeof gsPflanzenZahl === 'function') ? gsPflanzenZahl() : 0;
@@ -95076,6 +95131,10 @@ if (typeof window.gsGoBack !== 'function') {
       <button onclick="document.getElementById('scan-chat-input').value='Welche Verwechslungsgefahren gibt es?';sendScanChat();" style="font-size:var(--fs-xs);padding:4px 10px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;">⚠️ Verwechslung?</button>
       <button onclick="document.getElementById('scan-chat-input').value='Wo und wann findet man sie in der Schweiz?';sendScanChat();" style="font-size:var(--fs-xs);padding:4px 10px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;">📍 Vorkommen CH</button>
       <button onclick="document.getElementById('scan-chat-input').value='Wie verwendet man sie in der Küche?';sendScanChat();" style="font-size:var(--fs-xs);padding:4px 10px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;">👨‍🍳 Küche</button>
+    </div>
+    <!-- v33.61 (Scanner 8): weiter mit Lina — sie behält das Gespräch und kennt die eigenen Pflanzen -->
+    <div style="padding:0 12px 10px;background:var(--surface2);flex-shrink:0;">
+      <button type="button" data-scanchat-lina="1" onclick="gsScanChatZuLina()" data-i18n="scanchat_lina" data-i18n-fallback="🌿 Mit Lina weiterreden" style="width:100%;padding:8px 12px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">🌿 Mit Lina weiterreden</button>
     </div>
   </div>
 </div>

@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 10 · Home 1, 1b, 2, 5 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -34,7 +34,8 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    einen Namensvergleich statt `gsMatchScanToDb` und hat eigene Sicherheitsstufen.
 7. ✅ v33.61 — **`_gsRetryLastScan` gibt `opts` nicht weiter** — „Trotzdem bestimmen" führt beim
    erneuten Versuch wieder zur Qualitätsrückfrage.
-8. **Scan-Chat:** Verlauf wird bei jedem Öffnen geleert; erscheint nur bei einem Treffer in
+8. ✅ v33.61 (`scan_check` SC2; „nur bei einem Treffer" stimmte nicht mehr — seit v30.73 auch ohne)
+   — **Scan-Chat:** Verlauf wird bei jedem Öffnen geleert; erscheint nur bei einem Treffer in
    der Artenliste; Prompt nur deutsch; kein Übergang zu Lina (`gsDoctorToLina` als Vorbild).
 9. **brett 2e3a:** `gsAboCanUse('scan')` liest einen Tageszähler, den keine Stelle schreibt.
 10. ✅ v33.61 (bestätigt — und auch „Zu meinen Pflanzen" bekam nie ein Foto; `scan_check` SB1) —

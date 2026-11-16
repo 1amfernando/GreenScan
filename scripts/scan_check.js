@@ -2270,6 +2270,81 @@ const FAELLE = [
       } finally { callAI = echtAI; gsKiVerfuegbar = echtKi; _lastScanResult = echtScan; try { closeScanChat(); } catch (_) {} }
     },
   },
+  {
+    // SCANNER-8. Der Scan-Chat leerte sein Gespräch bei JEDEM Öffnen: wer zur Ergebniskarte
+    // zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage
+    // nicht mehr. Er antwortete fest auf Deutsch („Beantworte Fragen präzise auf Deutsch"), auch in
+    // einer anderen App-Sprache. Sein erster Satz nannte die Trefferquote „Sicherheit: 85 %" — bei
+    // einer Giftpflanze liest sich das wie eine Sicherheitsangabe. Und es gab keinen Weg zu Lina,
+    // die ein Gespräch behält.
+    name: 'SC2 · Scan-Chat: das Gespräch bleibt beim Wiederöffnen desselben Scans, ein anderer Scan beginnt neu; die KI antwortet in der App-Sprache; „Mit Lina weiterreden" übergibt Art und Frage',
+    lauf: async () => {
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const echtAI = callAI, echtKi = gsKiVerfuegbar, echtScan = _lastScanResult, echtLina = window.gsOpenLina;
+      const echtLang = (window.gsI18n && gsI18n.getLang) || null;
+      const f = [];
+      let sys = '', msgs = null, linaAuf = 0;
+      try {
+        callAI = async function (m, s) { msgs = m; sys = s; return 'Er wächst im Laubwald.'; };
+        gsKiVerfuegbar = function () { return true; };
+        _lastScanResult = { name: 'Zzz Testart', latin: 'Zzz testus', toxicity: 0, confidence: 85, emoji: '🌿' };
+        openScanChat();
+        const inp = document.getElementById('scan-chat-input'), log = document.getElementById('scan-chat-log');
+        if (!inp || !log) return { ok: false, warum: 'der Scan-Chat hat kein Eingabefeld' };
+        if (/Sicherheit:\s*\d/.test(log.textContent)) f.push('der erste Satz nennt die Trefferquote „Sicherheit" („' + log.textContent.slice(0, 90) + '")');
+        inp.value = 'Wo wächst er?';
+        await sendScanChat();
+        // 1 · schliessen und wieder öffnen — derselbe Scan
+        closeScanChat(); openScanChat();
+        if (log.textContent.indexOf('Wo wächst er?') < 0) f.push('nach dem Wiederöffnen ist das Gespräch weg');
+        inp.value = 'Und wann blüht er?';
+        await sendScanChat();
+        if (!msgs || !msgs.some((x) => /Wo wächst er/.test(String(x.content)))) f.push('die zweite Frage geht ohne die erste an die KI');
+        // 2 · ein anderer Scan beginnt neu
+        closeScanChat();
+        _lastScanResult = { name: 'Zzz Andere', latin: 'Zzz alter', toxicity: 0, confidence: 70, emoji: '🌿' };
+        openScanChat();
+        if (/Wo wächst er\?/.test(log.textContent)) f.push('ein anderer Scan zeigt das Gespräch über die vorige Art');
+        // 3 · App-Sprache Französisch: der Prompt nennt sie, und verlangt nicht Deutsch
+        if (window.gsI18n) gsI18n.getLang = function () { return 'fr'; };
+        inp.value = 'Où pousse-t-il ?';
+        await sendScanChat();
+        if (!/Französisch|français|French/i.test(sys)) f.push('in französischer App-Sprache nennt der Prompt die Sprache nicht');
+        if (/auf Deutsch/i.test(sys)) f.push('der Prompt verlangt in französischer App-Sprache weiter Deutsch');
+        if (window.gsI18n && echtLang) gsI18n.getLang = echtLang;
+        // 4 · weiter mit Lina: Art und letzte Frage stehen im Feld, gesendet wird nichts
+        window.gsOpenLina = async function () {
+          linaAuf++;
+          if (!document.getElementById('gs-lina-input')) { const i = document.createElement('input'); i.id = 'gs-lina-input'; i.setAttribute('data-zzz-test', '1'); document.body.appendChild(i); }
+        };
+        let gesendet = 0; const eSend = window.gsLinaSend; window.gsLinaSend = function () { gesendet++; };
+        try {
+          const knopf = document.querySelector('#scan-chat-modal [data-scanchat-lina]');
+          if (!knopf) f.push('kein Knopf „Mit Lina weiterreden" im Scan-Chat');
+          else {
+            knopf.click();
+            await warte(400);
+            const li = document.getElementById('gs-lina-input');
+            const v = li ? li.value : '';
+            if (!linaAuf) f.push('Lina geht nicht auf');
+            else if (v.indexOf('Zzz Andere') < 0) f.push('im Lina-Feld steht die Art nicht („' + v + '")');
+            else if (v.indexOf('Où pousse-t-il') < 0) f.push('im Lina-Feld steht die letzte Frage nicht („' + v + '")');
+            if (gesendet) f.push('die Frage wurde an Lina geschickt, ohne dass die Person sie abgeschickt hat');
+            if (document.getElementById('scan-chat-modal').classList.contains('open')) f.push('der Scan-Chat bleibt über Lina offen');
+          }
+        } finally {
+          window.gsLinaSend = eSend;
+          const t = document.querySelector('#gs-lina-input[data-zzz-test]'); if (t) t.remove();
+        }
+      } finally {
+        callAI = echtAI; gsKiVerfuegbar = echtKi; _lastScanResult = echtScan; window.gsOpenLina = echtLina;
+        if (window.gsI18n && echtLang) gsI18n.getLang = echtLang;
+        try { closeScanChat(); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Gespräch bleibt beim Wiederöffnen, neuer Scan neu · Prompt auf Französisch · Lina bekommt Art und Frage, ohne zu senden' };
+    },
+  },
 
   // ── SUCHE-2 · Die Artensuche findet, was Menschen tippen ────────────────
   {
