@@ -14514,7 +14514,8 @@ async function dqAskKIExplain() {
 
   try {
     var messages = [{ role: 'user', content: userMsg }];
-    var answer = await callAI(messages, systemPrompt, 300, { brain: 'botaniker' });
+    // v33.59: Quiz-Erklärung kann Essbarkeit berühren — bleibt auf Vision
+    var answer = await callAI(messages, systemPrompt, 300, { brain: 'botaniker', rolle: 'vision' });
     var safe = String(answer || 'Keine Antwort').replace(/</g,'&lt;').replace(/\n/g,'<br>');
     block.innerHTML =
       '<div style="font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.65;margin-bottom:4px;">💡 Erklärung</div>' +
@@ -72542,7 +72543,7 @@ async function gsVoiceProcess(transcript) {
   if (typeof callAI === 'function') {
     try {
       var sysPrompt = 'Du bist GreenScan, ein freundlicher Schweizer Garten-Assistent. Antworte in höchstens 3-4 kurzen, klaren Sätzen auf Deutsch (Standard-Deutsch mit Schweizer Begriffen wo passend). Keine Listen, keine Markdown — Fließtext, da die Antwort per Text-to-Speech vorgelesen wird. Wenn du unsicher bist, sag es ehrlich.';
-      var resp = await callAI([{ role: 'user', content: transcript }], sysPrompt, 250, { brain: 'generalist', timeout: 20000 });
+      var resp = await callAI([{ role: 'user', content: transcript }], sysPrompt, 250, { brain: 'generalist', timeout: 20000, rolle: 'vision' });  // v33.59: Sprachfrage kann Essbarkeit betreffen
       var txt = '';
       if (typeof resp === 'string') txt = resp;
       else if (resp && resp.content && Array.isArray(resp.content)) {
