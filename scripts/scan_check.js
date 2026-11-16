@@ -2675,6 +2675,114 @@ const FAELLE = [
     },
   },
   {
+    // HOME-5. Die Kartenreihe der Startseite (gsBuildWidgetStack) drehte alle 8 s, ohne dass man
+    // sie anhalten konnte (WCAG 2.2.2), auch während der Fokus in ihr stand — und eine Karte ohne
+    // Inhalt blieb eine Folie mit Punkt: ohne Bauernregel (offline, oder keine für den Monat)
+    // drehte die Reihe auf eine leere Fläche. Der Fall stellt die Zustände HER und misst die
+    // Wirkung: sichtbare Folien gegen Punkte, und die Drehung selbst (mit kurzem Takt).
+    name: 'HK1 · Kartenreihe der Startseite: eine leere Karte ist keine Folie und hat keinen Punkt — ein Pause-Knopf hält die Drehung an (und wieder an), Fokus in der Reihe hält sie an',
+    lauf: async () => {
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const f = [], info = [];
+      if (typeof gsBuildWidgetStack === 'function') gsBuildWidgetStack();
+      const vp = document.getElementById('gs-wstack-viewport'), dots = document.getElementById('gs-wstack-dots');
+      if (!vp || !dots) return { ok: false, warum: 'Kartenreihe nicht gebaut — der Fall misst nichts' };
+      const eWx = window.loadHomeWeather, eGw = window.loadGardenWeather;
+      if (vp.offsetParent === null) {
+        window.loadHomeWeather = function () {}; window.loadGardenWeather = function () {};
+        try { switchTab('home'); await warte(900); } finally { window.loadHomeWeather = eWx; window.loadGardenWeather = eGw; }
+      }
+      if (vp.offsetParent === null) return { ok: false, warum: 'die Startseite ist nicht sichtbar — der Fall misst nichts' };
+      const karten = ['daily-card', 'woche-card', 'season-tip-card', 'card-wusstest', 'wisdom-card'].map((id) => document.getElementById(id));
+      const vorher = karten.map((k) => k ? k.style.display : null);
+      const saisonName = document.getElementById('season-tip-name'), saisonVorher = saisonName ? saisonName.textContent : '';
+      const sichtbareFolien = () => [].slice.call(vp.children).filter((s) => s.getBoundingClientRect().width > 0);
+      const punkte = () => [].slice.call(dots.querySelectorAll('.gs-wdot')).filter((d) => d.getBoundingClientRect().width > 0);
+      const leereSichtbar = () => sichtbareFolien().filter((s) => { const k = s.firstElementChild; return !k || getComputedStyle(k).display === 'none' || !k.textContent.trim(); });
+      const aktiv = () => punkte().findIndex((d) => d.getAttribute('aria-selected') === 'true');
+      const beobachte = async (ms) => { const s = new Set(); const t0 = performance.now(); while (performance.now() - t0 < ms) { s.add(aktiv()); await warte(40); } return s.size; };
+      const knopf = dots.querySelector('[data-wstack-pause]');
+      const eTakt = window.GS_WSTACK_TAKT_MS;
+      let still = null;
+      try { still = localStorage.getItem('gs_wstack_still'); localStorage.removeItem('gs_wstack_still'); } catch (_) {}
+      try {
+        // 1 · Bauernregel ohne Daten (so setzt sie gsLoadTodaysWisdom): keine Folie, kein Punkt.
+        const wisdom = karten[4];
+        if (wisdom) wisdom.style.display = 'none';
+        await warte(200);
+        const leer1 = leereSichtbar();
+        if (leer1.length) f.push('ohne Bauernregel bleibt eine leere Folie sichtbar (' + leer1.map((s) => (s.firstElementChild || {}).id).join(', ') + ')');
+        if (punkte().length !== sichtbareFolien().length) f.push(punkte().length + ' Punkte für ' + sichtbareFolien().length + ' sichtbare Karten');
+        // 2 · Saison-Tipp ohne Inhalt (keine Artenliste): nur der Kopf steht noch da — das ist
+        //     keine Karte. Gemessen an DIESER Folie und den Punkten, nicht am ganzen Kartentext
+        //     (der Kopf allein hätte den Text nicht leer gemacht — Gegenprobe ohne Inhaltsregel
+        //     blieb so grün).
+        if (saisonName && karten[2]) {
+          const n1 = punkte().length;
+          saisonName.textContent = ''; await warte(200);
+          const folie = karten[2].parentNode;
+          if (folie && folie.getBoundingClientRect().width > 0) f.push('ein Saison-Tipp ohne Inhalt (nur der Kopf) bleibt als Folie stehen');
+          if (punkte().length !== n1 - 1) f.push('Saison-Tipp ohne Inhalt: Punkte ' + n1 + ' → ' + punkte().length + ' statt ' + (n1 - 1));
+          saisonName.textContent = saisonVorher || 'Zzz-Saison'; await warte(200);
+          if (punkte().length !== n1) f.push('Saison-Tipp wieder da: Punkte ' + punkte().length + ' statt ' + n1);
+        }
+        // 3 · Die Bauernregel kommt an: Folie und Punkt kommen dazu.
+        const n0 = punkte().length;
+        if (typeof gsRenderWisdom === 'function') gsRenderWisdom({ saying: 'Zzz-Testregel', validity: 'umstritten', region: 'Test', meaning: '', modern_take: '' });
+        await warte(200);
+        if (punkte().length !== n0 + 1) f.push('die Bauernregel kam an — Punkte ' + n0 + ' → ' + punkte().length + ' statt ' + (n0 + 1));
+        if (punkte().length !== sichtbareFolien().length) f.push('nach der Bauernregel: ' + punkte().length + ' Punkte für ' + sichtbareFolien().length + ' Karten');
+        // 4 · Nur eine Karte mit Inhalt: nichts dreht, also weder Punkte noch Pause-Knopf.
+        karten.forEach((k, i) => { if (k && i !== 0) k.style.display = 'none'; });
+        await warte(200);
+        if (dots.getBoundingClientRect().height > 0) f.push('bei einer einzigen Karte stehen Punkte bzw. ein Pause-Knopf da');
+        karten.forEach((k, i) => { if (k && i !== 0) k.style.display = vorher[i] || ''; });
+        if (karten[4]) karten[4].style.display = 'block';
+        await warte(200);
+        // 5 · Pause-Knopf: da, benannt, schaltet — und die Drehung hält wirklich an (kurzer Takt).
+        if (!knopf) f.push('kein Pause-Knopf in der Kartenreihe');
+        else {
+          if (!((knopf.getAttribute('aria-label') || knopf.textContent || '').trim())) f.push('der Pause-Knopf hat keinen Namen');
+          if (knopf.getAttribute('aria-pressed') !== 'false') f.push('der Pause-Knopf steht zu Beginn nicht auf „läuft" (aria-pressed=' + knopf.getAttribute('aria-pressed') + ')');
+          window.GS_WSTACK_TAKT_MS = 250;
+          knopf.click(); knopf.click();   // anhalten und wieder starten: der neue Takt gilt
+          const laeuft = await beobachte(1300);
+          if (laeuft < 2) f.push('mit kurzem Takt dreht die Reihe nicht — der Fall misst die Pause nicht');
+          knopf.click();
+          await warte(800);   // eine Drehung, die beim Anhalten schon unterwegs war, kommt noch an
+          if (knopf.getAttribute('aria-pressed') !== 'true') f.push('nach dem Anhalten steht aria-pressed nicht auf true');
+          let gemerkt = null; try { gemerkt = localStorage.getItem('gs_wstack_still'); } catch (_) {}
+          if (gemerkt !== '1') f.push('das Anhalten wird nicht gemerkt (gs_wstack_still=' + gemerkt + ')');
+          const angehalten = await beobachte(1300);
+          if (angehalten > 1) f.push('angehalten dreht die Reihe weiter');
+          knopf.click();
+          const wieder = await beobachte(1300);
+          if (wieder < 2) f.push('nach „weiter" dreht die Reihe nicht wieder');
+          // 6 · Fokus in der Reihe hält sie an, solange er dort steht.
+          const p0 = punkte()[0];
+          if (p0) {
+            p0.focus();
+            await warte(800);
+            const fokus = await beobachte(1300);
+            if (fokus > 1) f.push('mit dem Fokus auf einem Punkt dreht die Reihe weiter');
+            p0.blur();
+            const nachFokus = await beobachte(1300);
+            if (nachFokus < 2) f.push('nach dem Fokus dreht die Reihe nicht wieder');
+          }
+          info.push(sichtbareFolien().length + ' Karten · ' + punkte().length + ' Punkte · Pause und Fokus halten die Drehung an');
+        }
+      } finally {
+        window.GS_WSTACK_TAKT_MS = eTakt;
+        try { if (still === null) localStorage.removeItem('gs_wstack_still'); else localStorage.setItem('gs_wstack_still', still); } catch (_) {}
+        if (knopf && typeof _gsWStackStoppen === 'function' && typeof _gsWStackStarten === 'function') { _gsWStackStoppen(); _gsWStackStarten(); }
+        karten.forEach((k, i) => { if (k) k.style.display = vorher[i]; });
+        if (saisonName) saisonName.textContent = saisonVorher;
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: info.join(' · ') };
+    },
+  },
+  {
     name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — an JEDEM Tag des Jahres',
     lauf: () => {
       if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };

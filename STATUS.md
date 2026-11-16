@@ -138,8 +138,20 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   `GS_WETTER_GRENZEN` für heute und morgen). Entfernt: `checkStormWarning`, die zweite
   Symboltabelle, und `updateGardenWeatherTip`, das in `.hero p` schrieb — ein Element, das es
   seit v31.16 nicht gibt (mit einer dritten Frostregel, < 4 °C).
+- **Startseite — die Kartenreihe (Home 5).** `gsBuildWidgetStack` drehte die Tageskarten alle 8 s
+  ohne Pause-Knopf (WCAG 2.2.2), auch während der Fokus in der Reihe stand, und zwang die
+  Bauernregel als „stabile Folie" sichtbar: ohne Daten (offline gemessen: `wisdom-card` leer)
+  drehte die Reihe auf eine leere Fläche, mit eigenem Punkt (5 Punkte für 4 Karten). Jetzt
+  `GS_WSTACK_KARTEN` (je Karte das Element mit dem Inhalt) und `_gsWStackSync` über einen
+  Beobachter je Karte: eine leere Karte ist keine Folie, Punkte werden ergänzt oder hinten
+  entfernt (nie neu gebaut — ein Punkt mit Fokus verlöre ihn), bei einer Karte gibt es weder
+  Punkte noch Knopf. Ein Pause-Knopf links der Punkte (`aria-pressed`, gemerkt in
+  `gs_wstack_still`, in `GS_KEEP_ON_LOGOUT`); keine Drehung bei Fokus in der Reihe oder
+  Mauszeiger darauf; EIN Intervall (`_gsWStackStarten` räumt das alte ab). Die Punkte stehen in
+  einem eigenen `role=tablist`, der Knopf daneben. „`gsRenderWochenrueckblick` doppelt gerufen"
+  (Arbeitsliste): nachgesehen — Tagesplan und erster Aufbau rendern dieselben Daten, kein Fehler.
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1–HS3, HW1, HW2, SV1–SV3, SB1 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile). Jeder neue

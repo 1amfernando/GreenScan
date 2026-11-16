@@ -1683,6 +1683,11 @@ body.senior p, body.senior li{ line-height:1.55; }
 .gs-wdot[aria-selected="true"]::before{background:var(--fill-brand);transform:scale(1.3);}
 @media (prefers-reduced-motion: reduce){.gs-wdot::before{transition:none;}.gs-wdot[aria-selected="true"]::before{transform:none;}}
 @media (prefers-reduced-motion: reduce){ .gs-wstack-viewport{scroll-behavior:auto;} }
+/* v33.61 (Home 5): Pause-Knopf links der Punkte; eine leere Karte ist keine Folie, und bei nur einer
+   Karte gibt es weder Punkte noch Knopf. `display:flex` der Klassen sticht `[hidden]` sonst aus. */
+.gs-wstack-tabs{display:flex;gap:0;}
+.gs-wstack-pause{width:24px;height:24px;border-radius:50%;border:none;background:transparent;color:var(--text2);padding:0;margin-right:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
+.gs-wslide[hidden],.gs-wstack-dots[hidden],.gs-wstack-pause[hidden]{display:none !important;}
 .settings-toggle-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:var(--card);border-radius:50%;transition:var(--dur-slow);}
 .settings-toggle input:checked + .settings-toggle-slider::before{transform:translateX(22px);}
 
@@ -13113,12 +13118,48 @@ window.gsHomeRenderTopPicks = gsHomeRenderTopPicks;
 window.gsHomeRenderMarketLive = gsHomeRenderTopPicks;
 
 // ── v28.21 D.2: Home Swipe-Widget-Stack ─────────────────────────────────────
-// Verschiebt 4 existierende Tages-Karten (News/Saison/Wusstest/Bauernregel) zur Laufzeit in
-// einen CSS-scroll-snap-Container (Touch+Trackpad-Swipe gratis) + Dots + Auto-Rotation +
+// Verschiebt die Tages-Karten (Heute · Woche · Saison · Wusstest · Bauernregel) zur Laufzeit in
+// einen CSS-scroll-snap-Container (Touch+Trackpad-Swipe gratis) + Punkte + Auto-Rotation +
 // sessionStorage-Index + reduced-motion. Idempotent. Bei Fehler bleiben die Karten vertikal.
+//
+// v33.61 (Home 5) — drei Dinge, alle in scan_check HK1 gemessen:
+//  · Eine Karte ohne Inhalt ist keine Folie. GS_WSTACK_KARTEN nennt je Karte das Element, an
+//    dem ihr Inhalt hängt. Bis hier wurde die Bauernregel als „stabile Folie" sichtbar gezwungen:
+//    ohne Daten (offline, kein Eintrag für den Monat) drehte die Reihe alle 8 s auf eine leere
+//    Fläche, mit eigenem Punkt. Ein Beobachter je Karte hält Folien und Punkte nach, wenn ein
+//    Lader später etwas zeigt oder verbirgt — eine Stelle, durch die alle müssen, statt eines
+//    Aufrufs in jedem Lader.
+//  · Ein Pause-Knopf (WCAG 2.2.2: was sich von selbst länger als 5 s bewegt, lässt sich
+//    anhalten). Das Anhalten wird auf dem Gerät gemerkt (gs_wstack_still, GS_KEEP_ON_LOGOUT).
+//  · Keine Drehung, solange der Fokus in der Reihe steht oder ein Mauszeiger darauf liegt
+//    (ARIA-Muster „Carousel"); eine Berührung hält sie wie bisher 12 s an.
+var GS_WSTACK_KARTEN = [
+  { id: 'daily-card',      inhalt: 'daily-title' },
+  { id: 'woche-card',      inhalt: 'woche-zeilen' },
+  { id: 'season-tip-card', inhalt: 'season-tip-name' },
+  { id: 'card-wusstest',   inhalt: 'fact-text' },
+  { id: 'wisdom-card',     inhalt: 'wisdom-saying' },
+];
+var GS_WSTACK_TAKT_MS = 8000;
+function _gsWStackVoll(karte) {
+  if (!karte) return false;
+  var display = karte.style.display;
+  try { display = getComputedStyle(karte).display; } catch (_) {}
+  if (display === 'none') return false;
+  var def = GS_WSTACK_KARTEN.filter(function (k) { return k.id === karte.id; })[0];
+  var el = (def && document.getElementById(def.inhalt)) || karte;
+  return !!String(el.textContent || '').trim();
+}
+function _gsWStackStill() {
+  if (typeof window._gsWStackStillMem === 'boolean') return window._gsWStackStillMem;   // falls der Speicher voll war
+  try { return localStorage.getItem('gs_wstack_still') === '1'; } catch (_) { return false; }
+}
+function _gsWStackIndex() {
+  var vp = document.getElementById('gs-wstack-viewport'); if (!vp) return 0;
+  return Math.round(vp.scrollLeft / (vp.clientWidth || 1));
+}
 function _gsWStackSetActive(idx){
-  var dots = document.getElementById('gs-wstack-dots'); if (!dots) return;
-  var bs = dots.querySelectorAll('.gs-wdot');
+  var bs = document.querySelectorAll('#gs-wstack-dots .gs-wdot');
   for (var i=0;i<bs.length;i++){ bs[i].setAttribute('aria-selected', i===idx ? 'true':'false'); }
 }
 function _gsWStackGo(idx, smooth){
@@ -13128,67 +13169,150 @@ function _gsWStackGo(idx, smooth){
   catch(_){ vp.scrollLeft = idx*w; }
   _gsWStackSetActive(idx);
 }
+function _gsWStackPause(){ window._gsWStackPausedUntil = Date.now() + 12000; }
+// Folien und Punkte nach dem Inhalt der Karten. Punkte werden ergänzt oder hinten entfernt, nie
+// alle neu gebaut — sonst verlöre ein Punkt, der gerade den Fokus hat, ihn bei jedem Nachladen.
+function _gsWStackSync() {
+  var vp = document.getElementById('gs-wstack-viewport'), dots = document.getElementById('gs-wstack-dots');
+  var tabs = dots && dots.querySelector('[role="tablist"]');
+  if (!vp || !tabs) return;
+  var n = 0, geaendert = false;
+  [].slice.call(vp.children).forEach(function (s) {
+    var voll = _gsWStackVoll(s.firstElementChild);
+    if (s.hidden === voll) { s.hidden = !voll; geaendert = true; }
+    if (voll) n++;
+  });
+  var bs = [].slice.call(tabs.querySelectorAll('.gs-wdot'));
+  while (bs.length > n) { var weg = bs.pop(); if (weg.parentNode) weg.parentNode.removeChild(weg); }
+  while (bs.length < n) {
+    var d = document.createElement('button');
+    d.className = 'gs-wdot'; d.type = 'button'; d.setAttribute('role', 'tab');
+    d.addEventListener('click', function () {
+      _gsWStackGo([].slice.call(document.querySelectorAll('#gs-wstack-dots .gs-wdot')).indexOf(this), true);
+      _gsWStackPause();
+    });
+    tabs.appendChild(d); bs.push(d);
+  }
+  bs.forEach(function (d, i) { d.setAttribute('aria-label', _gsSatz('Karte {1} von {2}', i + 1, n)); });
+  window._gsWStackN = n;
+  dots.hidden = n < 2;   // eine Karte dreht nicht: keine Punkte, kein Pause-Knopf
+  var cur = Math.min(_gsWStackIndex(), Math.max(0, n - 1));
+  if (geaendert) _gsWStackGo(cur, false); else _gsWStackSetActive(cur);
+}
+function _gsWStackSyncBald() {
+  if (window._gsWStackSyncT) return;
+  window._gsWStackSyncT = setTimeout(function () { window._gsWStackSyncT = 0; _gsWStackSync(); }, 30);
+}
+function _gsWStackKnopfZeigen() {
+  var k = document.querySelector('#gs-wstack-dots [data-wstack-pause]'); if (!k) return;
+  var still = _gsWStackStill();
+  k.setAttribute('aria-pressed', still ? 'true' : 'false');
+  // Das Zeichen zeigt, was ein Tipp tut: ⏸ hält an, ▶ lässt weiterlaufen.
+  k.innerHTML = still
+    ? '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg>'
+    : '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><rect x="2.2" y="1.5" width="2.6" height="9" rx=".6" fill="currentColor"/><rect x="7.2" y="1.5" width="2.6" height="9" rx=".6" fill="currentColor"/></svg>';
+  k.hidden = !!window._gsWStackReduce;   // ohne Bewegung gibt es nichts anzuhalten
+}
+// Darf die Reihe JETZT eine Karte weiter? Ein Grund, wenn nicht.
+function _gsWStackDarfDrehen() {
+  var v = document.getElementById('gs-wstack-viewport');
+  if (!v || v.offsetParent === null) return { darf: false, grund: 'unsichtbar' };
+  if ((window._gsWStackN || 0) < 2) return { darf: false, grund: 'eine Karte' };
+  if (_gsWStackStill()) return { darf: false, grund: 'angehalten' };
+  if (window._gsWStackFokus) return { darf: false, grund: 'Fokus in der Reihe' };
+  if (window._gsWStackZeiger) return { darf: false, grund: 'Mauszeiger auf der Reihe' };
+  if (Date.now() < (window._gsWStackPausedUntil || 0)) return { darf: false, grund: 'gerade berührt' };
+  return { darf: true, grund: '' };
+}
+function _gsWStackTick() {
+  if (!_gsWStackDarfDrehen().darf) return;
+  _gsWStackGo((_gsWStackIndex() + 1) % window._gsWStackN, true);
+}
+function _gsWStackStoppen() {
+  if (window._gsWStackTimer) { clearInterval(window._gsWStackTimer); window._gsWStackTimer = null; }
+}
+// Startet die Drehung neu (nie zwei Intervalle) — ausser bei reduzierter Bewegung oder Pause.
+function _gsWStackStarten() {
+  _gsWStackStoppen();
+  if (window._gsWStackReduce || _gsWStackStill()) return;
+  window._gsWStackTimer = setInterval(_gsWStackTick, Math.max(200, Number(GS_WSTACK_TAKT_MS) || 8000));
+}
+function gsWStackPauseUmschalten() {
+  var still = !_gsWStackStill();
+  window._gsWStackStillMem = still;
+  try { if (still) localStorage.setItem('gs_wstack_still', '1'); else localStorage.removeItem('gs_wstack_still'); } catch (_) {}
+  if (still) _gsWStackStoppen(); else { window._gsWStackPausedUntil = 0; _gsWStackStarten(); }
+  _gsWStackKnopfZeigen();
+}
+window.gsWStackPauseUmschalten = gsWStackPauseUmschalten;
+function _gsWStackFokusPruefen() {
+  var vp = document.getElementById('gs-wstack-viewport'), dots = document.getElementById('gs-wstack-dots');
+  var a = document.activeElement, knopf = dots && dots.querySelector('[data-wstack-pause]');
+  // Der Pause-Knopf selbst hält nichts an: wer „weiter" tippt, will die Drehung sehen.
+  window._gsWStackFokus = !!(a && a !== knopf && ((vp && vp.contains(a)) || (dots && dots.contains(a))));
+}
 window.gsBuildWidgetStack = function(){
   try {
     if (window._gsWStackBuilt) return;
     try { if (typeof gsRenderWochenrueckblick === 'function') gsRenderWochenrueckblick(); } catch(_){}   // v32.58
-    var ids = ['daily-card','woche-card','season-tip-card','card-wusstest','wisdom-card'];
-    var cards = ids.map(function(id){ return document.getElementById(id); }).filter(Boolean);
+    var cards = GS_WSTACK_KARTEN.map(function(k){ return document.getElementById(k.id); }).filter(Boolean);
     if (cards.length < 2) return;
     var parent = cards[0].parentNode; if (!parent) return;
     var vp = document.createElement('div');
     vp.className = 'gs-wstack-viewport'; vp.id = 'gs-wstack-viewport';
     parent.insertBefore(vp, cards[0]);
     cards.forEach(function(card){
-      if (card.style.display === 'none') card.style.display = '';  // wisdom-card sichtbar als stabiler Slide
       var slide = document.createElement('div'); slide.className = 'gs-wslide';
       vp.appendChild(slide); slide.appendChild(card);
     });
-    var n = cards.length;
+    // Zeile unter der Reihe: Pause-Knopf, daneben die Punkte (role=tablist nur um die Punkte —
+    // ein Knopf gehört nicht in eine Tab-Liste).
     var dots = document.createElement('div');
     dots.className = 'gs-wstack-dots'; dots.id = 'gs-wstack-dots';
-    dots.setAttribute('role','tablist'); dots.setAttribute('aria-label','Tages-Karten');
+    var knopf = document.createElement('button');
+    knopf.type = 'button'; knopf.className = 'gs-wstack-pause';
+    knopf.setAttribute('data-wstack-pause', '1');
+    knopf.setAttribute('aria-label', _gsSatz('Kartenreihe anhalten'));
+    knopf.addEventListener('click', gsWStackPauseUmschalten);
+    dots.appendChild(knopf);
+    var tabs = document.createElement('div');
+    tabs.className = 'gs-wstack-tabs';
+    tabs.setAttribute('role','tablist'); tabs.setAttribute('aria-label', _gsSatz('Tages-Karten'));
+    dots.appendChild(tabs);
     parent.insertBefore(dots, vp.nextSibling);
-    for (var i=0;i<n;i++){ (function(idx){
-      var d = document.createElement('button');
-      d.className = 'gs-wdot'; d.type = 'button'; d.setAttribute('role','tab');
-      d.setAttribute('aria-label','Karte ' + (idx+1) + ' von ' + n);
-      d.addEventListener('click', function(){ _gsWStackGo(idx, true); _gsWStackPause(); });
-      dots.appendChild(d);
-    })(i); }
-    window._gsWStackN = n;
     window._gsWStackPausedUntil = 0;
     try { window._gsWStackReduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_){ window._gsWStackReduce = false; }
-    window._gsWStackPause = function(){ window._gsWStackPausedUntil = Date.now() + 12000; };
-    // Scroll-Sync (Dots + sessionStorage)
+    _gsWStackSync();
+    _gsWStackKnopfZeigen();
+    cards.forEach(function (card) {
+      try { new MutationObserver(_gsWStackSyncBald).observe(card, { attributes: true, attributeFilter: ['style', 'class', 'hidden'], childList: true, characterData: true, subtree: true }); } catch (_) {}
+    });
+    // Scroll-Sync (Punkte + sessionStorage)
     var raf;
     vp.addEventListener('scroll', function(){
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(function(){
-        var w = vp.clientWidth || 1;
-        var idx = Math.round(vp.scrollLeft / w);
+        var idx = _gsWStackIndex();
         _gsWStackSetActive(idx);
         try { sessionStorage.setItem('gs_home_widget_idx', String(idx)); } catch(_){}
       });
     }, {passive:true});
-    vp.addEventListener('pointerdown', function(){ window._gsWStackPause(); }, {passive:true});
-    vp.addEventListener('touchstart', function(){ window._gsWStackPause(); }, {passive:true});
-    // Auto-Rotation alle 8s (pausiert nach Interaktion, aus bei reduced-motion / wenn Home unsichtbar)
-    if (!window._gsWStackReduce && !window._gsWStackTimer) {
-      window._gsWStackTimer = setInterval(function(){
-        var v = document.getElementById('gs-wstack-viewport');
-        if (!v || v.offsetParent === null) return;
-        if (Date.now() < (window._gsWStackPausedUntil||0)) return;
-        var w = v.clientWidth || 1;
-        var cur = Math.round(v.scrollLeft / w);
-        _gsWStackGo((cur + 1) % window._gsWStackN, true);
-      }, 8000);
-    }
+    vp.addEventListener('pointerdown', _gsWStackPause, {passive:true});
+    vp.addEventListener('touchstart', _gsWStackPause, {passive:true});
+    vp.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') window._gsWStackZeiger = true; });
+    vp.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') window._gsWStackZeiger = false; });
+    [vp, dots].forEach(function (el) {
+      el.addEventListener('focusin', _gsWStackFokusPruefen);
+      el.addEventListener('focusout', function () { setTimeout(_gsWStackFokusPruefen, 0); });
+    });
+    // Auto-Rotation alle 8 s (pausiert nach Berührung, bei Fokus/Mauszeiger, auf Knopfdruck;
+    // aus bei reduced-motion; still, solange die Startseite nicht sichtbar ist)
+    _gsWStackStarten();
     window._gsWStackBuilt = true;
     // Letzten Index wiederherstellen (sessionStorage)
     var start = 0;
     try { start = parseInt(sessionStorage.getItem('gs_home_widget_idx')||'0',10) || 0; } catch(_){}
-    if (start > 0 && start < n) setTimeout(function(){ _gsWStackGo(start, false); }, 80);
+    if (start > 0 && start < (window._gsWStackN || 0)) setTimeout(function(){ _gsWStackGo(start, false); }, 80);
     else _gsWStackSetActive(0);
   } catch(e){ /* graceful: Karten bleiben vertikal sichtbar */ }
 };
@@ -77038,7 +77162,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +29 (D1j, F1, F2, SC1, SU1–SU6, HS1–HS3, HW1, HW2, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +7 (Lina L1–L6, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +30 (D1j, F1, F2, SC1, SU1–SU6, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +7 (Lina L1–L6, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -77055,6 +77179,7 @@ window.GS_RELEASES = [
         {emoji:'📜', bold:'Scan-Verlauf:', text:' er zeigt jetzt dieselbe Art und dieselben Sicherheitsangaben wie das Scan-Ergebnis. Vorher konnte „In Datenbank öffnen“ bei einem Namen, den mehrere Arten tragen, eine andere, harmlosere Art öffnen.'},
         {emoji:'🖼️', bold:'Dein Scan-Foto:', text:' es steht jetzt als Vorschau im Verlauf und wird mitgenommen, wenn du die Pflanze zu „Meine Pflanzen“ hinzufügst. Bisher blieb beides leer.'},
         {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er zeigt jetzt eine Pflanze aus der Artenliste, die gerade Saison hat und sich ohne gefährliche Verwechslung sammeln lässt, und öffnet beim Antippen genau diese Art. Pilze stehen dort nicht mehr — für sie gibt es die eigene Pilzkarte. Bisher konnte dort auch eine Aussaat wie „Paprika“ im März oder ein beliebiger Naturfakt stehen.'},
+        {emoji:'⏸️', bold:'Kartenreihe auf der Startseite:', text:' sie lässt sich mit dem Knopf neben den Punkten anhalten und bleibt angehalten. Leere Karten erscheinen nicht mehr, und während du eine Karte antippst oder mit der Tastatur darin bist, dreht sie nicht weiter.'},
         {emoji:'🌦️', bold:'Wetter auf der Startseite:', text:' die Karte zeigt immer dasselbe — das Wetter und den Ort, darunter eine Frost-, Hitze- oder Unwetterwarnung. Eine Gewitterwarnung gilt jetzt wirklich für die nächsten Stunden; vorher konnte sie sich auf die vergangene Nacht beziehen.'},
         {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
       ],
@@ -84681,6 +84806,7 @@ var GS_KEEP_ON_LOGOUT = [
   'gs_prefs',           // Settings-Toggles (Re-Login ueberschreibt via gsPrefsPull)
   'gs_consent',         // revDSG-Consent — Re-Login soll ihn nicht zuruecksetzen
   'gs_auto_collections',// Sammlungen automatisch anlegen (Schalter)
+  'gs_wstack_still',    // v33.61: Kartenreihe der Startseite angehalten (Geraete-Vorliebe, WCAG 2.2.2)
   'gs_metric_catalog',  // v32.48: oeffentlicher Katalog der Messgroessen — kein Personenbezug
   'gs_metric_catalog_at', // v32.52: Datum der Momentaufnahme des Katalogs
   'gs_claude_model',    // per Fallback-Kette ermitteltes Modell (Geraete-Eigenschaft)
