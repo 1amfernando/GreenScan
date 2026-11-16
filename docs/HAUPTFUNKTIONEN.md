@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6 · Home 1, 2 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 10 · Home 1, 2 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -37,7 +37,8 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 8. **Scan-Chat:** Verlauf wird bei jedem Öffnen geleert; erscheint nur bei einem Treffer in
    der Artenliste; Prompt nur deutsch; kein Übergang zu Lina (`gsDoctorToLina` als Vorbild).
 9. **brett 2e3a:** `gsAboCanUse('scan')` liest einen Tageszähler, den keine Stelle schreibt.
-10. Verdacht: das Vorschaubild im Verlauf ist leer (`video.srcObject` ist nach `stopCamera`
+10. ✅ v33.61 (bestätigt — und auch „Zu meinen Pflanzen" bekam nie ein Foto; `scan_check` SB1) —
+    Verdacht: das Vorschaubild im Verlauf ist leer (`video.srcObject` ist nach `stopCamera`
     schon `null`).
 
 ## Offen — Lina

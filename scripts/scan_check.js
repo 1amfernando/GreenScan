@@ -3239,6 +3239,54 @@ const FAELLE = [
       return { ok: true, info: 'Herbstzeitlose mit altem „essbar": „Stark giftig", kein „Essbar" · unbekannt: Warnung ja, „Essbar" nein · mehrdeutiger Name → die gescannte Art · 72 % wie auf der Karte' };
     },
   },
+  {
+    // SCANNER-10. Die Vorschau im Verlauf und das Foto fuer „Zu meinen Pflanzen" wurden aus dem
+    // LAUFENDEN Video gezeichnet — aber analyzeImage stoppt die Kamera, sobald die Analyse beginnt
+    // (v23.71). Bei der Ergebniskarte war srcObject immer null: thumb leer, _lastScanThumb null.
+    // Und lief die Kamera doch, haette sie den Moment NACH dem Foto gezeigt, nicht das Foto.
+    name: 'SB1 · Scan-Foto im Verlauf und in „Zu meinen Pflanzen": aus dem ANALYSIERTEN Bild, nicht aus dem (gestoppten) Video — und nie das Foto des vorigen Scans',
+    lauf: async () => {
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const bild = (farbe) => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); g.fillStyle = farbe; g.fillRect(0, 0, 320, 240); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      const mitte = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const g = c.getContext('2d'); g.drawImage(i, 0, 0); const d = g.getImageData(i.width >> 1, i.height >> 1, 1, 1).data; ok([d[0], d[1], d[2]]); }; i.onerror = () => ok(null); i.src = src; });
+      const rotGruen = (p) => p && p[0] > 180 && p[1] < 80 && p[2] < 80, blau = (p) => p && p[2] > 180 && p[0] < 80 && p[1] < 80;
+      const sichern = { p: window.gsScanPersistToCloud, ort: window.gsPickScanLocation, li: window.sbIsLoggedIn, st: window.switchTab, mp: JSON.stringify(myPlants) };
+      const klagen = [];
+      try {
+        window.gsScanPersistToCloud = () => Promise.resolve(true);
+        const v = document.getElementById('video'); if (v) v.srcObject = null;      // wie nach analyzeImage
+        localStorage.setItem('gs_scan_history', '[]');
+        // 1 · erster Scan (rot): Verlauf und _lastScanThumb tragen DIESES Foto
+        window._gsLastScanIdInfo = null;
+        window._gsLastScanB64 = bild('#e01010'); window._gsLastScanMt = 'image/jpeg';
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+        await warte(600);
+        const h1 = JSON.parse(localStorage.getItem('gs_scan_history') || '[]')[0] || {};
+        if (!/^data:image\//.test(h1.thumb || '')) klagen.push('Verlauf: kein Vorschaubild („' + String(h1.thumb || '').slice(0, 20) + '")');
+        else if (!rotGruen(await mitte(h1.thumb))) klagen.push('Verlauf: das Vorschaubild zeigt nicht das gescannte Foto');
+        if (!/^data:image\//.test(String(window._lastScanThumb || ''))) klagen.push('kein Foto für „Zu meinen Pflanzen" (_lastScanThumb ' + (window._lastScanThumb === null ? 'null' : typeof window._lastScanThumb) + ')');
+        // 2 · zweiter Scan (blau): SOFORT danach traegt _lastScanThumb nicht mehr das rote Foto
+        window._gsLastScanIdInfo = null;
+        window._gsLastScanB64 = bild('#1010e0');
+        showScanResult({ name: 'Löwenzahn', latin: 'Taraxacum officinale', confidence: 90, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+        if (window._lastScanThumb && rotGruen(await mitte(window._lastScanThumb))) klagen.push('direkt nach dem zweiten Scan trägt _lastScanThumb das Foto des ERSTEN');
+        // „Zu meinen Pflanzen" gleich danach: es wartet auf das Foto dieses Scans
+        window.gsPickScanLocation = async () => 'indoor'; window.sbIsLoggedIn = () => false; window.switchTab = () => {};
+        const vorher = myPlants.length;
+        await gsAddScanToMyPlants();
+        const neu = myPlants.length > vorher ? myPlants[myPlants.length - 1] : null;
+        if (!neu) klagen.push('„Zu meinen Pflanzen" legt keine Pflanze an — der Fall misst nichts');
+        else if (!/^data:image\//.test(String(neu.photo || ''))) klagen.push('die neue Pflanze hat kein Foto („' + String(neu.photo || '').slice(0, 20) + '")');
+        else if (!blau(await mitte(neu.photo))) klagen.push('die neue Pflanze trägt nicht das Foto des zweiten Scans');
+      } finally {
+        window.gsScanPersistToCloud = sichern.p; window.gsPickScanLocation = sichern.ort; window.sbIsLoggedIn = sichern.li; window.switchTab = sichern.st;
+        try { myPlants.length = 0; JSON.parse(sichern.mp).forEach(x => myPlants.push(x)); savePlantsToStorage(); } catch (_) {}
+        localStorage.setItem('gs_scan_history', '[]');
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Verlauf und „Zu meinen Pflanzen" tragen das gescannte Foto · nach einem neuen Scan nie das alte' };
+    },
+  },
 
 ];
 

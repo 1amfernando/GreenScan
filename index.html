@@ -36511,6 +36511,34 @@ function _gsAltGefahr(res) {
 window._gsAltTox = _gsAltTox;
 window._gsAltGefahr = _gsAltGefahr;
 
+// SCANNER-10: Vorschau (64 px) und Pflanzenfoto (480 px) aus dem analysierten Bild — quadratisch
+// mittig zugeschnitten (vorher ins Quadrat gestaucht). `null`, wenn sich das Bild nicht lesen laesst.
+function _gsScanBildAus(b64, mt) {
+  return new Promise(function (ok) {
+    try {
+      if (!b64) return ok(null);
+      var src = (String(b64).indexOf('data:') === 0) ? String(b64) : ('data:' + (mt || 'image/jpeg') + ';base64,' + b64);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if (!w || !h) return ok(null);
+          var s = Math.min(w, h), sx = (w - s) / 2, sy = (h - s) / 2;
+          var mach = function (n, q) {
+            var c = document.createElement('canvas'); c.width = n; c.height = n;
+            c.getContext('2d').drawImage(img, sx, sy, s, s, 0, 0, n, n);
+            return c.toDataURL('image/jpeg', q);
+          };
+          ok({ klein: mach(64, 0.6), gross: mach(480, 0.78) });
+        } catch (_) { ok(null); }
+      };
+      img.onerror = function () { ok(null); };
+      img.src = src;
+    } catch (_) { ok(null); }
+  });
+}
+window._gsScanBildAus = _gsScanBildAus;
+
 function showScanResult(r, opts){
   // Hauptfunktionen · Scanner 1: `opts.erneut` heisst „dieselbe Aufnahme, neu
   // gezeichnet" (Alternative gewaehlt, Bestimmung korrigiert). Dann wird NICHT
@@ -37122,24 +37150,22 @@ function showScanResult(r, opts){
   if ((r.confidence || 0) >= 65 && typeof gsAutoEnrichNewSpecies === 'function') {
     setTimeout(function(){ gsAutoEnrichNewSpecies(r); }, 300);
   }
-  var _thumb = '';
-  try {
-    var _v = document.getElementById('video');
-    if (_v && _v.srcObject) {
-      var _tc = document.createElement('canvas');
-      _tc.width = 64; _tc.height = 64;
-      _tc.getContext('2d').drawImage(_v, 0, 0, 64, 64);
-      _thumb = _tc.toDataURL('image/jpeg', 0.6);
-      // v26.86: zusätzlich grösseres Bild (480x480) für 1-Klick "Zu meinen Pflanzen"
-      try {
-        var _tcBig = document.createElement('canvas');
-        _tcBig.width = 480; _tcBig.height = 480;
-        _tcBig.getContext('2d').drawImage(_v, 0, 0, 480, 480);
-        _lastScanThumb = _tcBig.toDataURL('image/jpeg', 0.78);
-      } catch(_){ _lastScanThumb = _thumb; }
-    } else { _lastScanThumb = null; }
-  } catch(e) { _lastScanThumb = null; }
-  saveScanToHistory(r, _thumb);
+  // SCANNER-10 (16.11.2026): Vorschau im Verlauf (64 px) und Foto fuer „Zu meinen Pflanzen" (480 px)
+  // kommen aus dem ANALYSIERTEN Bild. Bis v33.61 wurden sie aus dem laufenden Video gezeichnet —
+  // aber analyzeImage stoppt die Kamera, sobald die Analyse beginnt (v23.71): srcObject war hier
+  // immer null, die Vorschau leer, die neue Pflanze ohne Foto. Und haette die Kamera noch
+  // gelaufen, waere es der Moment NACH dem Foto gewesen. Das Bild entsteht asynchron; bis dahin
+  // gilt kein Foto — nie das des vorigen Scans.
+  _lastScanThumb = null;
+  var _bildB64 = window._gsLastScanB64 || null;
+  window._gsScanBildBereit = _bildB64 ? _gsScanBildAus(_bildB64, window._gsLastScanMt || 'image/jpeg') : Promise.resolve(null);
+  saveScanToHistory(r, '');
+  var _verlaufId = (typeof gsCurrentScanId === 'function') ? gsCurrentScanId() : null;
+  window._gsScanBildBereit.then(function (b) {
+    if (!b || window._gsLastScanB64 !== _bildB64) return;      // inzwischen ein neuer Scan
+    _lastScanThumb = b.gross;
+    try { if (_verlaufId) gsAddScanHistory({ id: _verlaufId, thumb: b.klein }); } catch (_) {}
+  });
   }   // Ende: nur beim ersten Zeichnen dieser Aufnahme
   // In DB suchen und Direktlink zeigen
   // v30.70 SICHERHEIT: _dbMatch nutzt jetzt den einheitlichen gsMatchScanToDb — der ist latein-verankert
@@ -37513,6 +37539,8 @@ window.gsAddScanToMyPlants = async function(){
       // Fallback: falls Garten-Flow fehlt, weiter als Wohnung (kein Datenverlust)
     }
     // Foto: bevorzugt in Storage (eingeloggt), sonst base64 inline (Quota-bewusst).
+    // SCANNER-10: das Foto dieses Scans entsteht asynchron aus dem analysierten Bild — warten.
+    if (!_lastScanThumb && window._gsScanBildBereit) { try { await window._gsScanBildBereit; } catch (_) {} }
     var photoVal = null;
     if (_lastScanThumb) {
       var b64 = (_lastScanThumb.indexOf(',') > 0) ? _lastScanThumb.split(',')[1] : _lastScanThumb;
@@ -76984,7 +77012,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +26 (D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +7 (Lina L1–L6, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +27 (D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +7 (Lina L1–L6, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -76999,6 +77027,7 @@ window.GS_RELEASES = [
         {emoji:'👆', bold:'Scanner — eine andere Art wählen:', text:' die Bestimmung wird geändert, statt einen zweiten Scan anzulegen, und die Karte zeigt nichts mehr von der verworfenen Art. Dasselbe gilt für eine Korrektur — dort schlägt das Feld jetzt passende Arten vor.'},
         {emoji:'💡', bold:'Scanner — wenn etwas schiefgeht:', text:' die Fehlerkarte sagt in einem Satz, was los ist, statt technischer Meldungen, und „In einer Minute nochmal“ zählt sichtbar herunter.'},
         {emoji:'📜', bold:'Scan-Verlauf:', text:' er zeigt jetzt dieselbe Art und dieselben Sicherheitsangaben wie das Scan-Ergebnis. Vorher konnte „In Datenbank öffnen“ bei einem Namen, den mehrere Arten tragen, eine andere, harmlosere Art öffnen.'},
+        {emoji:'🖼️', bold:'Dein Scan-Foto:', text:' es steht jetzt als Vorschau im Verlauf und wird mitgenommen, wenn du die Pflanze zu „Meine Pflanzen“ hinzufügst. Bisher blieb beides leer.'},
         {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er findet jetzt alle Arten, die gerade Saison haben, und funktioniert in jeder App-Sprache.'},
         {emoji:'🌦️', bold:'Wetter auf der Startseite:', text:' die Karte zeigt immer dasselbe — das Wetter und den Ort, darunter eine Frost-, Hitze- oder Unwetterwarnung. Eine Gewitterwarnung gilt jetzt wirklich für die nächsten Stunden; vorher konnte sie sich auf die vergangene Nacht beziehen.'},
         {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}

@@ -98,6 +98,14 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   `_gsKonfidenzStufe` für Karte, Verlauf, Galerie und Galerie-Detail; der Kopf zählt Arten nach
   dem Binomen; ein Scan ohne Treffer verspricht keinen „automatisch eingereichten" Vorschlag
   mehr (gesendet wird er nur ab 60 %, angemeldet und online, und gelesen hat die Antwort niemand).
+- **Scanner 10 — das Scan-Foto.** Vorschau im Verlauf (64 px) und Foto für „Zu meinen Pflanzen"
+  (480 px) wurden aus dem LAUFENDEN Video gezeichnet — aber `analyzeImage` stoppt die Kamera,
+  sobald die Analyse beginnt (v23.71): bei der Ergebniskarte war `srcObject` immer `null`, die
+  Vorschau leer und jede aus einem Scan angelegte Pflanze ohne Foto. Jetzt `_gsScanBildAus` aus
+  dem analysierten Bild (`_gsLastScanB64`, dasselbe, das die Karte zeigt), quadratisch
+  zugeschnitten statt gestaucht; der Verlauf bekommt die Vorschau per Kennung nachgetragen,
+  `_lastScanThumb` trägt bis dahin nichts (nie das Foto des vorigen Scans), und „Zu meinen
+  Pflanzen" wartet darauf.
 - **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
   im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
   über `gsSaisonMonate`.
@@ -113,7 +121,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   Symboltabelle, und `updateGardenWeatherTip`, das in `.hero p` schrieb — ein Element, das es
   seit v31.16 nicht gibt (mit einer dritten Frostregel, < 4 °C).
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile). Jeder neue
