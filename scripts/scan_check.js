@@ -2266,6 +2266,43 @@ const FAELLE = [
     },
   },
   {
+    name: 'HS1 · „Jetzt sammeln" liest die Saison mit gsSaisonMonate: „April–Juni" zählt im Mai, „Ganzjährig" nicht — und in einer anderen App-Sprache gibt es weiter einen Tipp',
+    lauf: () => {
+      if (typeof _gsInSaison !== 'function') return { ok: false, warum: '_gsInSaison gibt es nicht' };
+      const f = [];
+      if (!_gsInSaison({ season: 'April–Juni' }, 4)) f.push('„April–Juni" gilt im Mai nicht');
+      if (_gsInSaison({ season: 'April–Juni' }, 7)) f.push('„April–Juni" gilt im August');
+      if (_gsInSaison({ season: 'Ganzjährig' }, 4)) f.push('„Ganzjährig" zählt als Saison');
+      if (!_gsInSaison({ season: 'Nov–Feb' }, 0)) f.push('„Nov–Feb" gilt im Januar nicht');
+      // Wie viele essbare Arten sind im Mai in Saison — alte Textsuche gegen die Regel?
+      const alt = DB.filter(s => s.season && s.season !== 'Ganzjährig' && /mai/i.test(s.season) && gsIstEssbar(s)).length;
+      const neu = DB.filter(s => _gsInSaison(s, 4) && gsIstEssbar(s)).length;
+      if (neu <= alt) f.push('die Regel findet im Mai nicht mehr als die Textsuche (' + neu + ' gegen ' + alt + ') — der Fall misst nichts');
+      // Die Wirkung: Juni, App-Sprache französisch — gsMonate() spricht sie, die Saisontexte sind deutsch.
+      const echtMonat = Date.prototype.getMonth, echtTag = Date.prototype.getDate, echtMonate = window.gsMonate;
+      const name = document.getElementById('season-tip-name');
+      if (!name) return { ok: false, warum: '#season-tip-name fehlt — der Fall misst nichts' };
+      const vorher = name.textContent;
+      let gezeigt = '';
+      try {
+        Date.prototype.getMonth = function () { return 5; };
+        Date.prototype.getDate = function () { return 15; };
+        window.gsMonate = function () { return ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']; };
+        name.textContent = 'Zzz-Platzhalter';
+        gsInitSmartSeasonTip();
+        gezeigt = name.textContent;
+      } finally { Date.prototype.getMonth = echtMonat; Date.prototype.getDate = echtTag; window.gsMonate = echtMonate; name.textContent = vorher; }
+      if (gezeigt === 'Zzz-Platzhalter') f.push('in französischer App-Sprache bleibt der Tipp im Juni stehen, wie er war');
+      else {
+        const sp = DB.find(s => gezeigt === s.name + (s.lat ? ' · ' + s.lat : ''));
+        if (!sp) f.push('der Tipp nennt keine Art der Liste: „' + gezeigt + '"');
+        else if (!_gsInSaison(sp, 5)) f.push('„' + sp.name + '" ist im Juni nicht in Saison (' + sp.season + ')');
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Mai: ' + neu + ' essbare Arten in Saison (Textsuche: ' + alt + ') · Juni auf Französisch: „' + gezeigt.slice(0, 40) + '"' };
+    },
+  },
+  {
     name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — an JEDEM Tag des Jahres',
     lauf: () => {
       if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };

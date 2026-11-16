@@ -20770,19 +20770,27 @@ function gsHighlight(text, query) {
 }
 
 // ══ SMARTER SAISON-TIPP ══════════════════════════════════════
+// v33.61: ist eine Art in diesem Monat (0–11) in Saison? „Ganzjährig" sagt nichts ueber
+// JETZT und zaehlt nicht; eine Angabe, aus der sich kein Monat lesen laesst, auch nicht.
+function _gsInSaison(sp, monat) {
+  if (!sp || !sp.season || typeof gsSaisonMonate !== 'function') return false;
+  var mm = gsSaisonMonate(sp.season);
+  return !!(mm && mm.length < 12 && mm.indexOf(monat) >= 0);
+}
+window._gsInSaison = _gsInSaison;
+
 function gsInitSmartSeasonTip() {
   if (typeof DB === 'undefined' || !DB.length) { setTimeout(gsInitSmartSeasonTip, 800); return; }
 
   var month = new Date().getMonth(); // 0-11
-  var monthNames = gsMonate();
-  var monthNow = monthNames[month];
 
   // Finde Arten die JETZT Saison haben
-  var inSeason = DB.filter(function(sp) {
-    if (!sp.season || sp.season === 'Ganzjährig') return false;
-    return sp.season.toLowerCase().indexOf(monthNow.toLowerCase()) >= 0 ||
-           sp.season.toLowerCase().indexOf(monthNow.slice(0,3).toLowerCase()) >= 0;
-  });
+  // v33.61: dieselbe Regel wie Bluehkalender und Saison-Ansicht (`gsSaisonMonate`).
+  // Bis hier wurde der Monatsname im TEXT der Saison gesucht: „April–Juni" traf den Mai
+  // nicht, und in jeder anderen App-Sprache traf gar nichts — `gsMonate()` spricht die
+  // Sprache der App, die Saisonangaben der Artenliste sind deutsch („novembre" steht in
+  // keiner). Dann blieb der feste Rueckfall-Tipp stehen, das ganze Jahr derselbe.
+  var inSeason = DB.filter(function(sp) { return _gsInSaison(sp, month); });
 
   // Wähle eine zufällige interessante Art.
   // v32.86: fragte bis hierher `tox === 0` — an einer Karte, deren Kopf
