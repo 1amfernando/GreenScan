@@ -238,13 +238,13 @@ keine der neuen Funktionen (0 von 23 geprüften Namen); die Rechte und Policies,
 Migrationen entziehen, stehen noch. `stripe_prices` hat live 0 Fremdschlüssel (bestätigt den
 Webhook-Fund).
 
-**Prüfstände.** Neu: `sicherheit_check` (174 Fälle in 22 Dateien, je Datei
-eine frisch geladene App), `edge_check` (58 Fälle — für die Zahlungs-Functions läuft die echte `index.ts`
+**Prüfstände.** Neu: `sicherheit_check` (beim Bump 174 Fälle in 22 Dateien, nach der Austausch-Runde 181 in 23; je Datei
+eine frisch geladene App), `edge_check` (beim Bump 58 Fälle, danach 71 — für die Zahlungs-Functions läuft die echte `index.ts`
 in Node 22, Typen gestrichen, `npm:`/`jsr:`/`esm.sh`-Importe auf gestellte Module umgelenkt;
 sonst die Rechnung der `_shared`-Module und der Rand am Quelltext)
 und `rls_check` (43 Fälle im lokalen Postgres; ohne Postgres „nicht prüfbar", nie
 grün). `rls/05_fixture_policies` hält jeden Nachbau gegen die Live-Policies
-(`scripts/rls/live_policies.json`, 10.11.2026). `pruefstaende.sh` fährt 44.
+(`scripts/rls/live_policies.json`, 10.11.2026). `pruefstaende.sh` fuhr beim Bump 44 Prüfstände; seit dem Merge mit `main` kommt `austausch_check` dazu (die Zahl steht in §1).
 
 **Volle Läufe nach dem Bump** (`bash scripts/pruefstaende.sh`, je rund 30–45 Minuten, lokales
 Postgres an): Lauf 1 — 44 Prüfstände, **1 rot**: `robust_check` „Memory" (zwei neue Einträge
@@ -302,9 +302,49 @@ Greifen erkennt) und Sektion 2 unten (je Migration und Entscheidung eine Zeile).
   unsichtbare Zeichen verwandelt** (Migration und Prüfstand liefen trotzdem). Wer solche
   Escapes schreibt, prüft danach per Byte-Suche, dass sie als Escape dastehen.
 
-**Offen:** brett:2026-11-11-669d, brett:2026-11-11-90db (die zwei Fragen an Fernando aus (jd) stehen unverändert) — was aus dieser Reparatur offen bleibt, steht je Zeile in §2 und in `docs/FUER-FERNANDO.md` §30
-**Nicht geprüft:** ob die Edge-Functions in Deno starten und was Stripe, Anthropic und die Push-Dienste antworten; ob die Migrationen live dasselbe tun wie im Nachbau; die Live-Seite; die Android-Hülle auf einem Telefon (Einzelheiten oben unter „Was NICHT geprüft werden konnte")
+**Nach dem Bump (11.11.2026, 05:00–12:00 UTC; Doku am 16.11. nachgezogen).**
 
+1. **Merge mit `main` 2ba302e** (das Brett, #325): 17 Konfliktblöcke. Die Zahlen der Suite
+   stehen seither nur noch in §1 (`austausch_check` B1); dieser Eintrag heisst (je), weil
+   `main` (jd) vergeben hatte.
+2. **Eine Austausch-Runde über den fertigen Stand** (Bauform der Runde aus CLAUDE.md §5):
+   15 Agenten aus fünf Blickwinkeln, 50 Funde, 33 Antworten aufeinander, 74 Urteile der
+   Gegenprüfung — 2 Funde und 3 Antworten sind dabei gefallen.
+3. **Neun Reparaturgruppen**, jede im eigenen Arbeitsbaum, in derselben Reihenfolge wie
+   vorher (Fall rot → Reparatur → Geschwister → gegnerische Gegenprüfung): 28 Einträge,
+   26 behoben, 1 teilweise, 1 bewusst offen.
+
+   | Gruppe | Was | Prüfstand |
+   |---|---|---|
+   | s1 | `_gsListeEinspielen` + `GS_LISTEN_EINGANG`: EIN Eingang für eigene Listen aus fremder Hand (Backup, alle Zweige des Login-Abgleichs, Snapshot, `gsGardenSync.pullAll`, `gsCollOpenPlan`) — Sieb, Speicher, Variable; ohne die Variable legte `renderGarden` einen leeren „Mein Garten" an und speicherte ihn ÜBER die gerade geholten Gärten | `sicherheit_check` 98_schluss_e (+ Klassenwächter `_listen_schreiber.js`), `sync_check` |
+   | s2 | `gsPlans.parken` gibt −1 bei gescheitertem Schreibversuch, `gsClearUserDataKeys` parkt ein zweites Mal; `gsHomeRenderTopPicks` über `_catEmoji`; 13 weitere Nachschläge über `_gsNachschlag` (62 Aufrufe) | `speicher_check`, `robust_check` „Prototypkette" |
+   | s3 | `contrast_check`, `touch_check`, `perf_check` mit Sitzung und Daten aus `_seed.js`; zehn Kontraststellen behoben; `contrast_check` ist ein Tor | `robust_check` „Pruefstands-Sitzung" |
+   | s4 | die Stripe-Rückkehr unter der ECHTEN COOP aus `_headers` (zwei Prüfserver, einer spielt Stripe) | `sicherheit_check` 98_schluss_d, Helfer `_kopfzeilen.js` |
+   | s5 | `KI_QUELLE` (die Quelle einer KI-Zeile setzt der Server), Krankheits-Kontext mit den Live-Spalten, `supabase/functions/AUSLIEFERUNG.json` | `edge_check` 20_ki, 60_spalten |
+   | s6 | das APK trägt jeden Lizenztext unter `assets/`; Leaflet und Three.js bekommen ihren | `apk_check` B6, `robust_check` |
+   | t1 | `_gsArtAnzeige` bewegt `tox`, `toxic`, `edible` EINZELN zur vorsichtigen Seite (14 Einträge standen als essbar da, 3 verloren „giftig"); Spanisch in `_gsNotfallStufe` (0 von 14 vorher) | `scan_check` D1j, N1 |
+   | t2 | fünf Familien von Tagesschlüsseln gehen beim Abmelden mit und wachsen nicht mehr je Tag (`_gsNurHeuteBehalten`, `GS_CORRUPT_BAK_MAX`); toter Zweig in `gsAboCanUse` entfernt | `storage_check` (Teil F, Name in einer Variablen), `schluessel_check` |
+   | u1 | Webhook liest jeden Schreibfehler; `delete-user` löscht nicht bei gescheiterter Organisations-Abfrage; `plan-iterate` schreibt nur eine vollständige Antwort der erwarteten Form (`_shared/plan_antwort.mjs`); `send-push` und `i18n-translate` vergleichen über `auth_vergleich.mjs` | `edge_check` 70_reste, `loeschung_check` |
+
+4. **Zehn fremde Edge-Befunde** (Branch `ccr-dce5a17c-2xzhvi`) nachgemessen: 3 waren hier
+   schon behoben, 4 teilweise (den Rest hat u1 geschlossen), 3 bewusst nicht übernommen —
+   Frostfenster, Push-Dublette, Quiz-Erinnerung sind fachliche Fragen jenes Branches; je eine
+   Antwort auf dem Brett.
+5. **PR #327** hat der Release-Zug (`claude/leitstand-kw46`) am 11.11. um 14:42 UTC für diesen
+   Branch angelegt. Seine CI war rot, bevor ein Prüfstand lief (der Paketspiegel des Runners
+   war nicht erreichbar); jeder Push startet sie neu.
+6. **Der Zahlungsweg ist zweimal neu geschrieben** — hier `_shared/zahlung_regeln.mjs`, auf
+   `claude/zahlungsweg-nachgemessen-011L7G` ein eigenes `stripe_regeln.mjs` mit eigenem
+   Prüfstand (Befund `2026-11-11-4e38` dort). Was jene Fassung hat und diese nicht
+   (kein zweites Abo neben einem laufenden oder neben Lifetime, Lifetime beendet das
+   laufende Abo, `checkout.session.async_payment_succeeded`, eine gemerkte Kunden-Id, die
+   Stripe nicht kennt), ist hier nachgezählt: 0 Treffer. Nach der Merge-Reihe kommt dieser
+   Branch zuerst; zusammengeführt wird beim Zweiten — EIN Regel-Modul, beide Prüfstände
+   grün. Der Befund dort empfiehlt, die drei Stripe-Functions erst danach auszuliefern; das
+   entscheiden der Release-Zug und Fernando (§2, `docs/FUER-FERNANDO.md` §30d).
+
+**Offen:** brett:2026-11-11-795a (die Server-Seite ist weder angewandt noch ausgeliefert), brett:2026-11-11-a814, brett:2026-11-11-293d, brett:2026-11-11-4d6f (drei Fragen an Fernando), brett:2026-11-11-669d, brett:2026-11-11-4a61, brett:2026-11-11-10a1, brett:2026-11-11-d233, brett:2026-11-11-f4d3, brett:2026-11-11-971d, brett:2026-11-11-7a6c, brett:2026-11-11-ec73, brett:2026-11-11-75c2 — je Zeile in §2 und in `docs/FUER-FERNANDO.md` §30
+**Nicht geprüft:** ob die Edge-Functions in Deno starten und was Stripe, Anthropic und die Push-Dienste antworten; ob die Migrationen live dasselbe tun wie im Nachbau; die Live-Seite; die Android-Hülle auf einem Telefon; die Stripe-Rückkehr in Safari und Firefox; ob `notfall_sofort` / `notfall_hinweis` eine spanische Übersetzung haben (Einzelheiten oben unter „Was NICHT geprüft werden konnte")
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
 **Auftrag (Fernando, 10.11.2026):** „Alle Agenten müssen sich austauschen und die
@@ -15803,7 +15843,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 11.11.2026** (davor am 22.10.). Er stand am 02.09. auf
+> **Nachgemessen am 16.11.2026** (davor am 11.11. und 22.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -15814,7 +15854,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 - **Version:** `v33.59` (Client) · SW-Cache `gs-v33.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **98'168 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Frontend:** `index.html` **98'311 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **45** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 45** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -15836,6 +15876,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Migration `20260831_kosten_und_cron_wachhund_v30_95.sql`** | **Stand in keiner Liste offener Migrationen**, obwohl live nicht angewandt (gemessen 10.11.2026). Seit v33.59 mit Wächter: eingespielt nach `20261110_sicherheit_funktionen.sql` lässt sie deren `fn_log_ai_usage` stehen (vorher hätte sie die Sperre still zurückgedreht). `rls_check` `70_reihenfolge`, beide Reihenfolgen. | §30 · (je) |
 | **NVIDIA-Schlüssel beim Anbieter widerrufen** (`nvapi-Pr2M…usrB`) | Er steht in der git-Historie dieses öffentlichen Repos; entfernt ist er nur aus dem Stand. Ob er widerrufen wurde, ist nirgends belegt — die Historie umzuschreiben ersetzt den Widerruf nicht. | §30 · (je) |
 | ~~Vier ältere Migrationen~~ | **Erledigt — am 10.11.2026 21:15–21:18 UTC angewandt** (von der Sitzung der v33.57, nachgemessen 11.11.2026 in `schema_migrations`): `20260907_global_api_key_nur_proxy` · `20260831_rollen_leak_fix_v30_95` · `v31_36_mkt_views_auth_guard` · `20260924_admin_grants`. Damit sind auch die zwei „toten Admin-Knöpfe" aus v33.50 frei (`fn_assign_role`, `fn_set_global_api_key` für `authenticated` ausführbar; beide prüfen die Rolle selbst). | (jb), (je) |
+| **Zahlungsweg zweimal neu geschrieben — beim zweiten Merge zusammenführen** | Dieser Branch: `_shared/zahlung_regeln.mjs` + `edge_check` 10_stripe; `claude/zahlungsweg-nachgemessen-011L7G`: `stripe_regeln.mjs` + `stripe_check` (52 Fälle). Jede Fassung hat, was der anderen fehlt — dort u. a. kein zweites Abo neben einem laufenden oder neben Lifetime, `checkout.session.async_payment_succeeded`, eine gemerkte Kunden-Id, die Stripe nicht kennt (hier nachgezählt: 0 Treffer). Wer als Zweiter auf `main` kommt, führt zu EINEM Modul zusammen; beide Prüfstände müssen danach grün sein. Ob `stripe-checkout`, `stripe-webhook` und `stripe-portal` vorher ausgeliefert werden: Release-Zug und Fernando. | Befund `2026-11-11-4e38` (auf jenem Branch) · (je) |
 | **Drei Branches tragen v33.59 — die Reihenfolge steht auf dem Brett** | Die Sicherheitsreparatur (`ccr-5e705a36-jveaak`, ohne PR), PR #324 (`claude/restore-banner-nur-bei-bedarf`) und `ccr-dce5a17c-2xzhvi` tragen dieselbe Nummer. Die Antwort `2026-11-11-1d9f` (Sitzung `claude/leitstand-kw46`, liegt nur auf deren Branch) nennt als Fernandos Entscheidung: die Sicherheitsreparatur zuerst (behält v33.59), danach #324 als v33.60, dann `ccr-dce5a17c-2xzhvi` als v33.61 — und dass jene Sitzung den Merge und die Schritte aus §30b übernimmt. **Diese Sitzung hat das nur gelesen, nicht von Fernando gehört:** sie mergt nicht und wendet nichts an. Den PR für diesen Branch hat jene Sitzung angelegt (#327, 11.11.2026 14:42 UTC); was hier danach gepusht wird, nimmt er mit. Die Reihe nennt dort inzwischen fünf Plätze (v33.59 #327 · v33.60 #324 · v33.61 `ccr-dce5a17c-2xzhvi` · v33.62 #326 · v33.63 `claude/scan-fotos-signiert`), und `claude/zahlungsweg-nachgemessen-011L7G` trägt ebenfalls schon v33.60 (Frage `2026-11-11-23d2` auf jenem Branch). Ein Merge von `ccr-dce5a17c-2xzhvi` bricht ohne Nacharbeit das Lockfile (brett:2026-11-11-7a6c). Im Text kollidiert mit #324 nur der Kopf von `GS_RELEASES`. Dringlichkeit: der Branch der Reparatur beschreibt Lücken, die live offen sind, bis er gemergt und angewandt ist. | brett:2026-11-11-699a · (je) |
 | **Eine geplante Routine ohne Repo-Zugang ans Repo und ans Brett anschliessen?** | Sie schreibt ihre Übergaben ausserhalb des Repos — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Welche Aufgabe es ist und was ihr fehlt, ging direkt an Fernando (nicht in dieses öffentliche Repo). Im Auftrag der Aufgabe bräuchte es `node scripts/austausch.mjs holen` am Anfang und Einträge am Ende. Nicht verändert. | brett:2026-11-11-669d · (jd) |
 | **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |

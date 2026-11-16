@@ -2771,7 +2771,7 @@ hier stehen die Wege, die seither niemand gerendert hatte: die Pflanzenkarte
 mit einem Emoji aus der KI, der Scan-Verlauf, die Karte mit dem Fund eines
 FREMDEN, die Marktplatz-Galerie, gespeicherte Pläne, der Pflanzendoktor,
 Übersetzungen aus der Datenbank, ein Backup aus fremder Hand, ein Link mit
-einem untergeschobenen Token. 174 Fälle in 22 Dateien.
+einem untergeschobenen Token. 181 Fälle in 23 Dateien (Stand 16.11.2026).
 
 - **Bauform.** Die Fälle liegen als Module in `scripts/sicherheit/` — je
   Themengruppe EINE Datei, damit mehrere Reparaturen nebeneinander entstehen
@@ -2843,7 +2843,7 @@ einem untergeschobenen Token. 174 Fälle in 22 Dateien.
 > Schutz — so steht er in der Gegenprüfung, nicht als „geprüft".
 
 **`edge_check.js` (seit v33.59) fragt, ob die Edge-Functions halten, was sie
-über ihre Tore sagen.** 58 Fälle in `scripts/edge/`. Deno gibt es hier
+über ihre Tore sagen.** 71 Fälle in acht Dateien unter `scripts/edge/` (Stand 16.11.2026). Deno gibt es hier
 nicht; deshalb dieselbe Aufteilung wie bei `device-ingest` (v32.61): was sich
 RECHNEN lässt (wer darf, welches Kontingent, welche Adresse, welcher Preis),
 steht in einem Modul unter `supabase/functions/_shared/*.mjs` und wird in Node
@@ -2906,7 +2906,7 @@ die Suche ankert an der FORM eines Aufrufs, nicht an der blossen Erwähnung.
 > fehlt. Wer einen Rand am Quelltext prüft, nennt diese Grenze im Fall.
 
 **`rls_check.js` (seit v33.59) fragt, ob die Datenbank hält, was die App über
-sie annimmt** — Rechte, Policies, RPCs. 43 Fälle in `scripts/rls/`. Die
+sie annimmt** — Rechte, Policies, RPCs. 43 Fälle in neun Dateien unter `scripts/rls/`. Die
 Live-Datenbank wurde nur LESEND vermessen; was dabei auffiel, lässt sich von
 hier nicht an ihr zeigen, aber NACHSPIELEN — dieselbe Bauform wie `quiz_check`
 (v32.65), `naht_check` „Freundschaft" (v33.52) und `admin_check` „Spur"

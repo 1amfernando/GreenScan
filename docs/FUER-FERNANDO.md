@@ -1507,8 +1507,8 @@ darunter ein kritischer: der überarbeitete `stripe-webhook` hätte live **jedes
 Abo-Ereignis mit 500 beantwortet) → Reparatur dieser Funde in sechs weiteren Gruppen → Zusammenführung mit
 v33.57/v33.58 der anderen Sitzung (§29) → Bump. Über alle 30 Gruppen stehen
 215 Fund-Einträge: 186 behoben, 24 teilweise,
-5 offen (4 bewusst, 1 nicht nachstellbar). Neu sind drei Prüfstände: `sicherheit_check` (174 Fälle in
-22 Dateien unter `scripts/sicherheit/`), `edge_check` (58 Fälle,
+5 offen (4 bewusst, 1 nicht nachstellbar). Neu sind drei Prüfstände: `sicherheit_check` (181 Fälle in
+23 Dateien unter `scripts/sicherheit/`, Stand 16.11.), `edge_check` (71 Fälle,
 `scripts/edge/` — führt die echten `index.ts` mit gestellten Diensten aus) und
 `rls_check` (43 Fälle, `scripts/rls/` — spielt jede neue Migration gegen den
 Live-Stand vom 10.11. in einem lokalen Postgres nach, zweimal, mit Gegenprobe).
@@ -1750,7 +1750,7 @@ ohne `plan_antwort.mjs` nicht**); `push_helfer.mjs`, `sensor_push_regeln.mjs`,
 | `key-health-check`, `species-search` | nur die Versionen festgelegt |
 | `i18n-translate`, `send-push` | vergleichen ihr Geheimnis über `_shared/auth_vergleich.mjs` (vorher je eine eigene Kopie) |
 | `stripe-webhook` | Erstattung und Rückbuchung entziehen eine Lifetime; eine Zahlung setzt nie mehr „vom Experten verifiziert"; der Fehler, der live jedes Abo-Ereignis mit 500 beantwortet hätte, ist behoben; ein Schreibfehler der Datenbank wird gelesen — der Webhook antwortet dann nicht mehr mit 200, und Stripe stellt erneut zu |
-| `stripe-checkout`, `stripe-portal` | Rückkehr nur auf eigene Adressen, Gratistage nur bei sicher beantworteter Vorgeschichte, Deckel des Startangebots am Server |
+| `stripe-checkout`, `stripe-portal` | Rückkehr nur auf eigene Adressen, Gratistage nur bei sicher beantworteter Vorgeschichte, Deckel des Startangebots am Server. **Achtung:** der Branch `claude/zahlungsweg-nachgemessen-011L7G` hat dieselben drei Stripe-Functions (mit `stripe-webhook`) unabhängig neu geschrieben und kann, was diese Fassung nicht kann (kein zweites Abo neben einem laufenden oder neben Lifetime, verzögerte Zahlungsarten). Wer als Zweiter gemergt wird, führt zusammen; erst dann ist die Fassung vollständig (STATUS §2) |
 | `stripe-expert-checkout` | nur der Autor zahlt, nie für sich selbst, Betrag fest |
 | `stripe-create-connect-account` | ein fremdes Stripe-Konto wird abgewiesen |
 | `stripe-bootstrap`, `stripe-admin-extend-webhook` | Admin-Geheimnis konstantzeitig; die zweite abonniert zusätzlich `charge.refunded` |
