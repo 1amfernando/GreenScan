@@ -14,24 +14,25 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
+| v33.61 (16.11.) | Suche 2, 3, 4, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung) · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Home 1 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
-1. **Alternative wählen erzeugt einen zweiten Scan.** `gsPickAlternative` ruft
+1. ✅ v33.61 — **Alternative wählen erzeugt einen zweiten Scan.** `gsPickAlternative` ruft
    `showScanResult` erneut; dort laufen `gsAddToScanHistory`, `gsScanPersistToCloud` und
    `saveScanToHistory` noch einmal. Der falsche Eintrag bleibt im Verlauf und in der Cloud.
-2. **Die gewählte Alternative zeigt die Merkmale der verworfenen Art.** `Object.assign`
+2. ✅ v33.61 — **Die gewählte Alternative zeigt die Merkmale der verworfenen Art.** `Object.assign`
    übernimmt `diagnostic_features` und `next_photo_hint`.
-3. **Eine Korrektur ändert nichts Sichtbares.** `gsSubmitScanMistake` sendet nur; Ergebnis
+3. ✅ v33.61 (Karte, Verlauf und Artvorschläge im Feld) — **Eine Korrektur ändert nichts Sichtbares.** `gsSubmitScanMistake` sendet nur; Ergebnis
    und Verlauf behalten den falschen Namen. Freitext ohne Artvorschlag.
 4. **Kein Abbrechen während des Scans.** Nur ein Sekundenzähler; `callVisionAI` hat 60 s
    Timeout und eine Wiederholung.
-5. **Fehlermeldungen in Technikersprache** in `analyzeImage` (Rohantwort bei kaputtem JSON,
+5. ✅ v33.61 — **Fehlermeldungen in Technikersprache** in `analyzeImage` (Rohantwort bei kaputtem JSON,
    `gsTestApiKey()`, Modellname; `errMsg` roh statt über `_gsFehlerText`). „In 60s retry"
    ohne Countdown.
 6. **Verlauf rechnet anders als die Ergebniskarte.** `gsScanHistoryOpen` findet die Art über
    einen Namensvergleich statt `gsMatchScanToDb` und hat eigene Sicherheitsstufen.
-7. **`_gsRetryLastScan` gibt `opts` nicht weiter** — „Trotzdem bestimmen" führt beim
+7. ✅ v33.61 — **`_gsRetryLastScan` gibt `opts` nicht weiter** — „Trotzdem bestimmen" führt beim
    erneuten Versuch wieder zur Qualitätsrückfrage.
 8. **Scan-Chat:** Verlauf wird bei jedem Öffnen geleert; erscheint nur bei einem Treffer in
    der Artenliste; Prompt nur deutsch; kein Übergang zu Lina (`gsDoctorToLina` als Vorbild).
@@ -41,17 +42,17 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 ## Offen — Lina
 
-1. **KI fällt aus, Gerät ist online:** nur „versuch es nochmal". `getSmartAnswer` greift nur
+1. ✅ v33.61 — **KI fällt aus, Gerät ist online:** nur „versuch es nochmal". `getSmartAnswer` greift nur
    bei `!navigator.onLine`; kein Knopf zum erneuten Senden.
-2. **Entwurf geht beim Warten verloren.** `gsLinaRender` baut das Fenster samt Eingabefeld
+2. ✅ v33.61 (Abbruch und Zeitangabe fehlen weiter) — **Entwurf geht beim Warten verloren.** `gsLinaRender` baut das Fenster samt Eingabefeld
    neu. Kein Abbruch, keine Zeitangabe (45 s Timeout, 2 Wiederholungen).
-3. **Sternchen stehen roh da.** Antworten laufen durch `escHtml` ohne Auszeichnung — auch die
+3. ✅ v33.61 — **Sternchen stehen roh da.** Antworten laufen durch `escHtml` ohne Auszeichnung — auch die
    Notfallzeile trägt `**…**`. Vorlage: `addScanChatMsg` seit v33.61.
 4. **Ältere Gespräche sind unerreichbar.** Nur die neueste Unterhaltung wird geladen; „＋ Neu"
    verwirft ohne Rückfrage; offline ist der Verlauf leer.
-5. **Aktionen schliessen Lina sofort** (`navigate`, `open_calendar`, `search_species`,
+5. ✅ v33.61 (Wege sind ein Knopf) — **Aktionen schliessen Lina sofort** (`navigate`, `open_calendar`, `search_species`,
    `prefill_form` in `gsLinaDispatch`) — die Antwort ist weg.
-6. **Schreibaktionen ohne Prüfung:** `propose_reminder` meldet „eingerichtet" ohne
+6. ✅ v33.61 (dazu: eine Erinnerung für eine Garten-Pflanzung schrieb gar nichts) — **Schreibaktionen ohne Prüfung:** `propose_reminder` meldet „eingerichtet" ohne
    Rückgabewert; `gsLinaAddPlant` ohne Dublettenprüfung; zwei Rückfragen fest deutsch.
 7. **Vorschlags-Chips sind statisch** (`GS_LINA_VORSCHLAEGE`): „…blühen im April?" in jedem
    Monat, ohne Bezug zu fälligen Aufgaben oder zum letzten Scan.
@@ -59,9 +60,8 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 ## Offen — Suche
 
-> **Gebaut auf Branch `claude/hauptfunktionen-suche`** (11.11.2026, noch ohne Version, wartet
-> hinter v33.61): Punkte 2, 3, 4, 6, 7 und die toten Reste aus 9. Prüfstand: `scan_check`
-> SU1–SU3, Gegenprobe gegen den Stand davor rot. Offen bleiben 1, 5, 8, 10 (Ranking).
+> **Geliefert mit v33.61** (16.11.2026): Punkte 2, 3, 4, 6, 7 und die toten Reste aus 9.
+> Prüfstand: `scan_check` SU1–SU3. Offen bleiben 1, 5, 8, 10 (Ranking).
 
 1. **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
    `currentFilter` — „Pilz + giftig" geht nicht.
@@ -83,16 +83,25 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 ## Offen — Home
 
-1. **Saison-Tipp „Jetzt sammeln"** (`gsInitSmartSeasonTip`) vergleicht `season.indexOf(Monat)`
+1. ✅ v33.61 (dazu: in jeder anderen App-Sprache traf gar nichts) — **Saison-Tipp „Jetzt sammeln"** (`gsInitSmartSeasonTip`) vergleicht `season.indexOf(Monat)`
    statt `gsSaisonMonate` — „April–Juni" trifft den Mai nicht.
 2. **Wetterkarte hat zwei Schreiber** (`loadHomeWeather`, `gsApplyWeatherToWidget`) mit
    eigenen Regeln für Frost und Regen statt `GS_WETTER_GRENZEN`; was dasteht, hängt davon ab,
    wer zuletzt lief. Kein Prüffall (`hw-*` kommt in `scripts/` nicht vor).
 3. **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
-4. **`stat-scans` hat zwei Schreiber;** Verdacht auf Doppelzählung. Fester Ersatzwert 4330.
+4. ❎ nachgesehen 16.11.: kein Fehler — beide zählen dasselbe wie die Liste, die die Kachel öffnet (Verlauf + bestätigte Karten). **`stat-scans` hat zwei Schreiber;** Verdacht auf Doppelzählung. Fester Ersatzwert 4330.
 5. **Karten-Stapel** (`gsBuildWidgetStack`): `wisdom-card` immer eingeblendet (leer ohne
    Bauernregel?), dreht alle 8 s ohne Pause-Knopf, `gsRenderWochenrueckblick` doppelt gerufen.
 6. STATUS „N4": Hinweis auf der Startseite, wenn alle Pläne veraltet sind.
+
+## Nebenfunde (nicht in den vier Funktionen)
+
+- Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
+  verlangt `gsArtenZahlen()` (3'136 Arten). Gefunden 16.11.2026, nicht angefasst.
+- Nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen
+  (die Tabelle erlaubt kein Update). Dieses Gerät blendet sie über `ki_name` aus; ein zweites
+  Gerät zeigt die erste Bestimmung. Ein Ersatz (neue Zeile mit demselben Foto anlegen, alte
+  löschen — `DELETE` eigener Zeilen ist erlaubt) wäre der nächste Schritt.
 
 ## Reihenfolge
 

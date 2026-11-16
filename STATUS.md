@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-16 · **Branch**: `main` · **Version**: `v33.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
@@ -12,13 +12,20 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-11 (je) - v33.61: Was „Essbar" und „Ungiftig" heisst, gilt überall gleich — und der Scan-Chat warnt wie Lina
+### 2026-11-16 (je) - v33.61: Suche, Scanner und Lina — „Essbar“ gilt überall gleich, Tippfehler werden verziehen, nichts geht mehr verloren
 
 **Auftrag (Fernando, 11.11.2026):** eine Sitzung nur für die vier Hauptfunktionen — Home,
-Scanner, Suche, Lina. Erstes Paket: die Sicherheitsfunde aus der Bestandsaufnahme. Die
-Arbeitsliste für alles Weitere steht in `docs/HAUPTFUNKTIONEN.md`.
+Scanner, Suche, Lina — mit eigenen Untersitzungen je Funktion. Arbeitsliste und Stand:
+`docs/HAUPTFUNKTIONEN.md`. Die zwei Untersitzungen (Scanner, Lina) stoppten am 11.11. um
+11:57 am Ausgabenlimit des Modells und liefen am 16.11. auf einem anderen Modell weiter;
+ihre Branches (`claude/hauptfunktionen-scanner`, `claude/hauptfunktionen-lina`) sind hier
+gemergt. Diese Sitzung hatte Lina und Scanner parallel ebenfalls gebaut — weil sie das
+Weiterlaufen erst nach dem Bau bemerkte (der Sitzungsstatus stand noch auf „fehlgeschlagen").
+Ihre eigene Lina-Fassung ist zurückgenommen (Revert im Verlauf), die Scanner-Fassung nie
+gepusht; übernommen ist jeweils die der Untersitzung, die einen Prüffall mehr hatte und
+Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archiviert.
 
-**Gemessen und behoben** (Zahlen aus `scan_check` am Stand dieses Commits):
+**Gemessen und behoben** (Zahlen aus den Prüfständen am Stand dieses Commits):
 
 - **Filter fragten den Eintrag, nicht die Art.** `_gsPassCat` las `sp.edible`/`sp.toxic` roh
   und kannte `_unverified` nicht. 167 Einträge standen unter „Essbar", deren Karte in
@@ -29,20 +36,43 @@ Arbeitsliste für alles Weitere steht in `docs/HAUPTFUNKTIONEN.md`.
 - **`_gsArtAnzeige` machte 14 Einträge essbarer, als sie selbst sagen** (brett fcaf): `edible`
   bewegt sich nur noch zur vorsichtigen Seite.
 - **Menü „Giftige / Essbare Pflanzen / Heilpflanzen"** tippte das Wort in die Volltextsuche —
-  „giftig" traf 222 essbare Arten. Jetzt `gsZeigeEigenschaft(wert)`, derselbe Weg wie die
-  Startkachel.
+  „giftig" traf 222 essbare Arten. Jetzt `gsZeigeEigenschaft(wert)`.
 - **Trefferliste:** `sp.name`/`sp.lat` standen roh im HTML, auch Community-Namen; `gsHighlight`
-  escapte nicht. Jetzt `escHtml` an allen vier Stellen (Seite 1, Seite 2, mit und ohne Suchwort).
-- **Notfall-Erkennung ohne Spanisch** (brett df0b): 0 von 8 Sätzen; Vokabular ergänzt, vier
-  harmlose spanische Fragen bleiben ohne Nummer.
-- **Scan-Chat ohne Linas Schutz:** kein `_gsNotfallStufe`, kein `_gsLinaSicherheit`. Beide
-  jetzt drin, die Nummer kommt vor der Frage „ist die KI da?", und `**fett**` wird dargestellt.
+  escapte nicht. Jetzt escaped, und die Markierung sucht am rohen Text (kein zerrissenes `&amp;`).
+- **Notfall-Erkennung ohne Spanisch** (brett df0b): 0 von 8 Sätzen.
+- **Scan-Chat ohne Linas Schutz:** jetzt `_gsNotfallStufe` (vor der Frage „ist die KI da?") und
+  `_gsLinaSicherheit`; `**fett**` wird dargestellt.
+- **Suche:** Vertipper finden ihre Art auch neben einem Volltext-Treffer (gegen Namens-Segmente
+  und Binomen, Wortanfang); mehrere Wörter einzeln; Synonym ab vier Zeichen Wortanfang;
+  Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter wie sein Knopf
+  (`_gsFilterLabel`), „Ohne Filter suchen" (`gsSucheOhneFilter`) behält das Suchwort.
+- **Lina** (Untersitzung, e5c0b1e): `_gsLinaAuszeichnung` (fett statt Sternchen); der Entwurf
+  übersteht den Neuaufbau; antwortet die KI bei Netz nicht oder leer, steht darunter, was die
+  App-Liste ohne KI weiss (`_gsLinaErsatz`), und „Erneut senden" (`gsLinaNochmal`) — die
+  Frage geht nicht doppelt in `coach_messages`; lesende Werkzeuge sind ein Knopf
+  (`GS_LINA_LESE_TOOLS`, `gsLinaAktionTun`) statt Lina nach 140 ms zu schliessen;
+  `propose_reminder` schrieb für eine Garten-Pflanzung nichts und meldete „eingerichtet"
+  (jetzt über `_gsPflanzeFinden`, mit Rückgabewert); die Rückfrage nennt eine Dublette.
+- **Scanner** (Untersitzung, 23d9b04 · 7ab9bfd): „Alternative wählen" legte nach 10 Sekunden
+  einen zweiten Scan an (Verlauf UND Cloud, der falsche blieb), hob die Sicherheit der
+  gewählten Art auf 60 % und zeigte Merkmale und Urteile der verworfenen Art. Jetzt zeichnet
+  `showScanResult(r, {erneut:true})` dieselbe Aufnahme neu (kein Verlauf, kein Upload, keine
+  Zählung), `_gsScanVerlaufAendern` benennt den Eintrag um und merkt sich `ki_name`, die Karte
+  sagt „Von dir gewählt". Eine Korrektur gilt auf Karte und Verlauf, das Feld schlägt Arten vor
+  (`gsKorrekturVorschlag`). Die Fehlerkarte spricht in Sätzen (`_gsScanFehlerArt`), Rohtext
+  und Modell nur für Admins, „In einer Minute nochmal" mit Countdown; `_gsRetryLastScan`
+  behält „Trotzdem bestimmen".
+- **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
+  im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
+  über `gsSaisonMonate`.
 
-**Prüfstände:** `scan_check` +4 (D1j, F1, F2, SC1), N1 um 8 + 4 spanische Sätze, E1b misst an
-der Art; `escape_check` +1 (A3b).
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU3, HS1 (N1 um Spanisch, E1b an der Art)
+und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3 (Lina-
+Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher); `escape_check` +1
+(A3b). Jeder neue Fall gegen den Stand davor gefahren: rot.
 
-**Offen:** nichts
-**Nicht geprüft:** ob die spanischen Sätze für Muttersprachler natürlich sind (aus dem Brett-Befund und eigener Auswahl, kein Korpus); die Gegenprobe im Scan-Chat nur mit gestellter KI-Antwort — eine echte Antwort ist von hier nicht erreichbar; Gegenproben (Reparatur zurückgebaut → rot) nur für F2 gesehen (roter Erstlauf), nicht für jeden neuen Fall einzeln.
+**Offen:** brett:2026-11-11-2e3a
+**Nicht geprüft:** ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
