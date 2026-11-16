@@ -19,6 +19,17 @@ gsLinaSend()                                index.html, grep "async function gsL
 Ohne Netz oder Schluessel antwortet `getSmartAnswer` (Offline-Chat) — seine
 Artkarte gilt nur, wenn `_gsArtenTreffer` dieselbe Art nennt.
 
+## Der Spiegel und wem eine Antwort gehört (v33.61)
+
+`gs_lina_verlauf` (in `GS_USER_KEYS`) hält das laufende Gespräch auf dem Gerät,
+höchstens 40 Nachrichten, geschrieben nur von `gsLinaRender`. Er trägt die `uid`
+(ohne Anmeldung wird nichts geschrieben, ein fremder Spiegel nie gelesen) und `ts` =
+das Alter des INHALTS (aus der Cloud geladen: deren `updated_at`; unverändert: die
+alte Zeit). Beim Öffnen gewinnt er nur, wenn er dasselbe Gespräch ist wie das
+neueste der Cloud — oder eines, das sie nicht hat — UND jünger. Nach jedem `await`
+fragen `gsOpenLina`, `gsLinaSend` und `gsLinaGespraechOeffnen`, ob noch dieselbe
+Person angemeldet ist (`_gsPerson`). *(sensor_check L9, L10, L11)*
+
 ## Was Lina SIEHT (Kontext, `gsLinaContext` + `gsLinaZahlen`)
 
 | Zeile | Quelle | Deckel |

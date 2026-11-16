@@ -13171,7 +13171,19 @@ function _gsWStackGo(idx, smooth){
   catch(_){ vp.scrollLeft = idx*w; }
   _gsWStackSetActive(idx);
 }
-function _gsWStackPause(){ window._gsWStackPausedUntil = Date.now() + 12000; }
+function _gsWStackPause(){ window._gsWStackPausedUntil = Date.now() + 12000; window._gsWStackZiel = null; }
+// Die zuletzt gezeigte Karte (sessionStorage) kommt nach dem Neuladen wieder. Gegnerische Prüfung
+// (16.11.2026): die Reihe wird gebaut, BEVOR Saison-Tipp und „Wusstest du?" gefüllt sind — beim Bau
+// gab es zwei Folien, und eine gemerkte Karte 3 wurde verworfen (vorher zählte die Reihe immer fünf).
+// Das Ziel wartet deshalb, bis es genug Folien gibt — höchstens 6 s, und eine Berührung hebt es auf.
+function _gsWStackZielPruefen() {
+  var z = window._gsWStackZiel; if (!z) return;
+  if (Date.now() > z.bis) { window._gsWStackZiel = null; return; }
+  if (z.idx < (window._gsWStackN || 0)) {
+    window._gsWStackZiel = null;
+    setTimeout(function () { _gsWStackGo(z.idx, false); }, 80);
+  }
+}
 // Folien und Punkte nach dem Inhalt der Karten. Punkte werden ergänzt oder hinten entfernt, nie
 // alle neu gebaut — sonst verlöre ein Punkt, der gerade den Fokus hat, ihn bei jedem Nachladen.
 function _gsWStackSync() {
@@ -13200,6 +13212,7 @@ function _gsWStackSync() {
   dots.hidden = n < 2;   // eine Karte dreht nicht: keine Punkte, kein Pause-Knopf
   var cur = Math.min(_gsWStackIndex(), Math.max(0, n - 1));
   if (geaendert) _gsWStackGo(cur, false); else _gsWStackSetActive(cur);
+  _gsWStackZielPruefen();
 }
 function _gsWStackSyncBald() {
   if (window._gsWStackSyncT) return;
@@ -13256,6 +13269,10 @@ function _gsWStackFokusPruefen() {
 window.gsBuildWidgetStack = function(){
   try {
     if (window._gsWStackBuilt) return;
+    // Die gemerkte Karte ZUERST lesen: jedes Zeichnen danach scrollt und schriebe sie mit 0 über.
+    var _start = 0;
+    try { _start = parseInt(sessionStorage.getItem('gs_home_widget_idx') || '0', 10) || 0; } catch(_){}
+    window._gsWStackZiel = _start > 0 ? { idx: _start, bis: Date.now() + 6000 } : null;
     try { if (typeof gsRenderWochenrueckblick === 'function') gsRenderWochenrueckblick(); } catch(_){}   // v32.58
     var cards = GS_WSTACK_KARTEN.map(function(k){ return document.getElementById(k.id); }).filter(Boolean);
     if (cards.length < 2) return;
@@ -13311,11 +13328,8 @@ window.gsBuildWidgetStack = function(){
     // aus bei reduced-motion; still, solange die Startseite nicht sichtbar ist)
     _gsWStackStarten();
     window._gsWStackBuilt = true;
-    // Letzten Index wiederherstellen (sessionStorage)
-    var start = 0;
-    try { start = parseInt(sessionStorage.getItem('gs_home_widget_idx')||'0',10) || 0; } catch(_){}
-    if (start > 0 && start < (window._gsWStackN || 0)) setTimeout(function(){ _gsWStackGo(start, false); }, 80);
-    else _gsWStackSetActive(0);
+    // Letzten Index wiederherstellen (sessionStorage) — jetzt oder sobald genug Folien da sind
+    if (window._gsWStackZiel) _gsWStackZielPruefen(); else _gsWStackSetActive(0);
   } catch(e){ /* graceful: Karten bleiben vertikal sichtbar */ }
 };
 try { window.addEventListener('load', function(){ setTimeout(function(){ try { if (typeof gsBuildWidgetStack==='function') gsBuildWidgetStack(); } catch(_){} }, 700); }); } catch(_){}
@@ -20948,23 +20962,66 @@ window._gsInSaison = _gsInSaison;
 // Art mit giftigem oder tödlichem Doppelgänger (Samtfussrübling — Gifthäubling).
 // Im Zweifel nicht empfehlen: ein Fehler beim Prüfen heisst nein.
 var GS_SAMMEL_GEFAHR = /gift|tödlich|toedlich|lebensgef|verwechsl/i;
+// Ein Pilz ist, was die Liste als Pilz führt — oder eine Gattung trägt, die sie bei ihren Pilzen
+// führt. Gegnerische Prüfung (16.11.2026): der Lärchen-Röhrling (Suillus grevillei) steht als „baum"
+// in der Liste und wurde am 2.8. und 30.10. unter „Jetzt sammeln" empfohlen. Gemessen: 145 Gattungen
+// bei cat=pilz; ausserhalb trägt nur dieser eine Eintrag eine davon — keine Pflanze. Die Gattungen
+// kommen aus der Liste selbst (nie aus dem Kopf), gemerkt je Listenlänge.
+var _gsPilzGattungenMemo = null;
+function _gsIstPilz(sp) {
+  if (!sp) return false;
+  if (/pilz/i.test(sp.cat || '')) return true;
+  try {
+    if (typeof DB === 'undefined' || !DB || !DB.length) return false;
+    var gat = function (x) { var m = /^\s*([A-Z][a-z]+)\s+[a-z]/.exec(String((x && x.lat) || '')); return m ? m[1] : ''; };
+    if (!_gsPilzGattungenMemo || _gsPilzGattungenMemo.n !== DB.length) {
+      var g = {};
+      DB.forEach(function (x) { if (x && /pilz/i.test(x.cat || '')) { var k = gat(x); if (k) g[k] = 1; } });
+      _gsPilzGattungenMemo = { n: DB.length, g: g };
+    }
+    var k2 = gat(sp);
+    return !!(k2 && _gsPilzGattungenMemo.g[k2]);
+  } catch (_) { return false; }
+}
+window._gsIstPilz = _gsIstPilz;
 function _gsSammelSicher(sp) {
   try {
-    if (!sp || /pilz/i.test(sp.cat || '')) return false;
+    if (!sp || _gsIstPilz(sp)) return false;
     var a = (typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(sp) || sp) : sp;
     var texte = [a.warning, sp.warning, a.lookalike, sp.lookalike];
     for (var i = 0; i < texte.length; i++) {
       if (_gsWarnungEcht(texte[i]) && GS_SAMMEL_GEFAHR.test(String(texte[i]))) return false;
     }
-    if (typeof gsMatchScanToDb !== 'function') return true;
     var looks = [sp.lookalike, a.lookalike].filter(function (x, k, l) { return _gsWarnungEcht(x) && l.indexOf(x) === k; });
-    for (var j = 0; j < looks.length; j++) {
-      var namen = String(looks[j]).replace(/\([^)]*\)/g, ' ').split(/[,;\/]|\bund\b|\boder\b/i);
-      for (var n = 0; n < namen.length; n++) {
-        var wort = namen[n].trim(); if (wort.length < 3) continue;
-        var hit = gsMatchScanToDb(wort, '');
-        var art = hit ? ((typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(hit) || hit) : hit) : null;
-        if (art && (Number(art.tox) || 0) >= 3) return false;
+    var giftig = function (h) {
+      var x = h ? ((typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(h) || h) : h) : null;
+      return !!x && (Number(x.tox) || 0) >= 3;
+    };
+    if (typeof gsMatchScanToDb === 'function') {
+      for (var j = 0; j < looks.length; j++) {
+        var namen = String(looks[j]).replace(/\([^)]*\)/g, ' ').split(/[,;\/]|\bund\b|\boder\b/i);
+        for (var n = 0; n < namen.length; n++) {
+          var wort = namen[n].trim(); if (wort.length < 3) continue;
+          if (giftig(gsMatchScanToDb(wort, ''))) return false;
+        }
+      }
+    }
+    // Gegnerische Prüfung (16.11.2026): „Schierling" ist kein ganzer Name — gsMatchScanToDb fand ihn
+    // nicht, und die Petersilie (Doppelgänger laut Liste: „Schierling – GERUCH prüfen!") stand an
+    // vier Tagen des Jahres unter „Jetzt sammeln". Der EINE Leser für Arten in einem Freitext
+    // (_gsArtenTreffer, CLAUDE.md §3.3) kennt das letzte Wort eines Namens („Gefleckter Schierling")
+    // und zieht die Familie mit (Wasser-Schierling). Beide Leser zusammen: ein Treffer genügt fürs
+    // Nein. Ein Pilz ist kein Doppelgänger einer Pflanze — sonst fiele der Estragon über den
+    // „Beifuss-Ritterling" heraus (gemessen: Wermut und zweimal Estragon, alle über diesen einen
+    // Pilz). Die Ergebniszeilen tragen die Giftstufe schon von der ART (_gsArtAnzeige im Leser).
+    if (typeof _gsArtenTreffer === 'function') {
+      for (var t = 0; t < looks.length; t++) {
+        var tr = _gsArtenTreffer(looks[t]) || {};
+        var arten = Array.isArray(tr.arten) ? tr.arten : [];
+        for (var u = 0; u < arten.length; u++) {
+          if (!arten[u] || /pilz/i.test(arten[u].cat || '')) continue;
+          if ((Number(arten[u].tox) || 0) >= 3) return false;
+        }
       }
     }
     return true;
@@ -21014,7 +21071,7 @@ function gsInitSmartSeasonTip() {
     if (_gsSammelSicher(_k)) { pick = _k; darfSammeln = true; break; }
   }
   if (!pick) {
-    var natur = inSeason.filter(function (s) { return !/pilz/i.test(s.cat || ''); });
+    var natur = inSeason.filter(function (s) { return !_gsIstPilz(s); });
     if (!natur.length) return;   // nichts zu zeigen — die Karte bleibt leer (die Kartenreihe blendet sie aus)
     pick = natur[h % natur.length];
   }
@@ -24654,6 +24711,10 @@ window.gsAttachMushroomForecast = gsAttachMushroomForecast;
 // aus Supabase (Tabellen seasonal_tips, did_you_know_facts, daily_quizzes,
 // seasonal_highlights). Fällt grazil auf das hardcoded Content zurück,
 // wenn Supabase nicht verfügbar ist.
+// Home 7 (gegnerische Prüfung 16.11.2026): der Deckel der „Wusstest du?"-Anfrage hat einen Namen und
+// steht als Schwelle in GS_FRISTEN und in docs/RISIKEN.md. Gemessen: 192 aktive, diese Woche 152 —
+// wächst die Liste über den Deckel, fallen die neuesten still weg (die Anfrage ordnet nach Id).
+var GS_FAKTEN_MAX = 200;
 async function gsLoadSupabaseDailyContent() {
   if (typeof sbFetch !== 'function') return;
   try {
@@ -24670,10 +24731,18 @@ async function gsLoadSupabaseDailyContent() {
     // wie in v_today_tip (EXTRACT(week …)), nicht gsGetKW (Tage seit 1. Januar / 7 — heute eine weniger).
     // Der Filter steht in der Anfrage UND hier: die Antwort ist fremde Eingabe (scan_check HF1).
     try {
-      var _kwIso = _gsIsoWoche(new Date());
-      var factRes = await sbFetch('/rest/v1/did_you_know_facts?select=title,body,icon,category,kw&is_active=eq.true&or=(kw.is.null,kw.eq.' + _kwIso + ')&order=id.asc&limit=200', {method:'GET'});
-      var factRows = (factRes && !factRes.error && Array.isArray(factRes.data)) ? factRes.data
-                   : (Array.isArray(factRes) ? factRes : []);
+      var _kwIso = _gsIsoWoche(new Date()), _faktTag = _gsKalTag(new Date());
+      // Einmal je Tag: jeder Weg auf die Startseite rief den Lader, und seit dem höheren Deckel kamen so
+      // jedes Mal rund 150 Zeilen statt 30 — gezeigt wird ein Fakt am Tag. Gemerkt wird nur eine
+      // GELUNGENE Antwort, nur im Arbeitsspeicher.
+      var factRows, _fz = window._gsFaktenTag;
+      if (_fz && _fz.tag === _faktTag && _fz.kw === _kwIso && Array.isArray(_fz.rows)) factRows = _fz.rows.slice();
+      else {
+        var factRes = await sbFetch('/rest/v1/did_you_know_facts?select=title,body,icon,category,kw&is_active=eq.true&or=(kw.is.null,kw.eq.' + _kwIso + ')&order=id.asc&limit=' + GS_FAKTEN_MAX, {method:'GET'});
+        var _faktOk = !!(factRes && !factRes.error && Array.isArray(factRes.data));
+        factRows = _faktOk ? factRes.data : (Array.isArray(factRes) ? factRes : []);
+        if (_faktOk) { window._gsFaktenGeladen = factRows.length; window._gsFaktenTag = { tag: _faktTag, kw: _kwIso, rows: factRows.slice() }; }
+      }
       factRows = factRows.filter(function (f) { return f && (f.kw == null || f.kw === '' || Number(f.kw) === _kwIso); });
       if (factRows.length) {
         var factEl = document.getElementById('fact-text');
@@ -30658,6 +30727,9 @@ function gsArtenNachgeladen() {
       try { if (typeof gsToast === 'function') gsToast(_gsSatz('Artenliste nachgeladen.'), 'success'); } catch (_) {}
     }
     try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch (_) {}
+    // Gegnerische Prüfung (16.11.2026): nach 40 × 800 ms gibt der Saison-Tipp auf — kam die Liste
+    // erst danach, blieb die Karte bis zum nächsten Weg auf die Startseite leer. Jetzt zeichnet er mit.
+    try { window._gsSaisonTippVersuche = 0; if (typeof gsInitSmartSeasonTip === 'function') gsInitSmartSeasonTip(); } catch (_) {}
   } catch (_) {}
 }
 window.gsArtenNachgeladen = gsArtenNachgeladen;
@@ -34457,6 +34529,9 @@ window.gsSchritt = gsSchritt;
 
 async function analyzeImage(b64, mt, organContext, extraImages, opts){
   opts = opts || {};
+  // Wer scannt? Eine Antwort, die nach einem Kontowechsel ankommt (Abmelden während die KI bis zu 60 s
+  // rechnet), wird weder gezeigt noch gespeichert — sie gehört der Person, die fotografiert hat.
+  var _scanWer = (typeof _gsPerson === 'function') ? _gsPerson() : null;
   try { _gsScanWarteStopp(); } catch(_){}   // ein wartender „In einer Minute nochmal" gilt nicht mehr
   // v30.74: Low-Confidence-Re-Scan — der Nutzer hat „Weiteres Foto hinzufügen" getippt; das vorige Bild wird als
   // Multi-Shot mit dem neuen kombiniert (höhere Genauigkeit). Eine Stelle → greift für Kamera UND Galerie.
@@ -34773,6 +34848,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     gsScanPhase('treffer');
     scanFertig();
     scanSchritt('ki', 'Antwort nach ' + _kiSek + ' s');
+    if (typeof _gsPerson === 'function' && _gsPerson() !== _scanWer) return;   // siehe oben: nicht mehr dieselbe Person
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
     // v23.68: Robuster JSON-Extractor — behandelt Markdown-Fences, Prose-Einleitung,
     // nested Objects (balanced-brace-Matching statt greedy Regex), trailing Text,
@@ -35101,7 +35177,9 @@ async function gsAutoEnrichNewSpecies(r){
       '}\n\n' +
       'ANTWORTE AUSSCHLIESSLICH MIT DEM JSON (keine Markdown-Fences, kein Text davor/danach).';
 
+    var _wer = _gsPerson();
     var resp = await callAI([{role:'user', content: prompt}], null, 1600);
+    if (_gsPerson() !== _wer) return;   // schreibt danach in die lokale Artenliste — nur für die Person, die gescannt hat
     if (!resp) return;
     // JSON extrahieren
     var clean = resp.replace(/^[\s\S]*?(\{)/,'$1').replace(/\}[\s\S]*$/,'}');
@@ -36598,10 +36676,11 @@ async function gsScanGegenprobe() {
       ? '  Angeführte Merkmale: ' + r.diagnostic_features.slice(0, 6).join(' · ') + '\n' : '') +
     '\nPrüfe diese Behauptung am Foto. Antworte im vorgegebenen JSON-Format.';
 
-  var text = null, fehler = null;
+  var text = null, fehler = null, _wer = _gsPerson();
   try {
     text = await callVisionAI(b64, mt, frage, [], { systemPrompt: GS_GEGENPROBE_PROMPT, quotaFeature: 'scan', maxTokens: 700 });
   } catch (e) { fehler = (e && e.message) || 'Unbekannter Fehler'; }
+  if (_gsPerson() !== _wer) return;   // die Antwort gehört der Person, die gefragt hat (CLAUDE.md §3.6)
 
   var g = null;
   if (text) { try { g = _gsRobustJsonParse(text); } catch (_) { g = null; } }
@@ -37669,10 +37748,12 @@ async function sendScanChat() {
     // Begrüssung davor (Rolle assistant) trägt nichts, was nicht schon im System-Prompt steht.
     var _chatMsgs = _scanChatHistory.filter(function(m){ return m.content && !m.content.startsWith('[Kontext:'); }).slice(-8);
     while (_chatMsgs.length && _chatMsgs[0].role !== 'user') _chatMsgs.shift();
-    // v33.61: die Rolle ausdrücklich — der Chat beantwortet Essbarkeitsfragen zu einer gerade gescannten
-    // Art. Mit der Rollenwahl nach Länge (Sitzung „KI-Modelle", _gsWaehleRolle) landeten 600 Token
-    // auf „schnell"; Sicherheitsrelevantes setzt die Rolle selbst (Brett 2026-11-16-8234, Anker hier).
-    var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat', rolle: 'vision' });
+    // Keine Modell-Rolle: callAI liest auf diesem Stand keine (gegnerische Prüfung 16.11.2026 — die
+    // eine Zeit lang übergebene `rolle: 'vision'` war ein Feld, das niemand liest). Wer den
+    // Rollen-Wähler der Sitzung „KI-Modelle" einführt, gibt dem Chat die Rolle hier mit (Brett 8234).
+    var _wer = _gsPerson();
+    var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat' });
+    if (_gsPerson() !== _wer) return;   // die Antwort gehört der Person, die gefragt hat (CLAUDE.md §3.6)
     if (!answer) answer = _gsSatz('Darauf kam keine Antwort — bitte noch einmal fragen.');
     // v33.61: die Gegenprobe NACH der Antwort — gegen die gescannte Art UND jede, die in der
     // Frage steht. Sagt die Antwort „essbar" ueber eine Art mit Giftstufe >= 3, steht die
@@ -37689,6 +37770,7 @@ async function sendScanChat() {
     addScanChatMsg('assistant', answer, false);
     _scanChatHistory.push({role:'assistant', content: answer});
   } catch(err) {
+    if (typeof _wer !== 'undefined' && _gsPerson() !== _wer) return;
     var ld2 = document.getElementById('scan-chat-loading');
     if (ld2) ld2.remove();
     // v33.58: callAI liefert schon einen Satz (Kontingent, Ablehnung, Netz) — der wird gezeigt, wie er ist.
@@ -38572,6 +38654,9 @@ function _gsSucheRang(text, pass, info){
     }
   }
   if (info) info.tippfehler = scored.some(function (x) { return x.tipp; }) && !scored.some(function (x) { return !x.tipp && x.sc >= 150; });
+  // Wie viele Treffer über Name, Binomen oder Familie (ohne Vertipper und Fliesstext) — sie stehen,
+  // nach Relevanz geordnet, vorn. Die Menü-Suche zeigt nur sie, wenn Menüeinträge passen.
+  if (info) info.namensTreffer = scored.filter(function (x) { return !x.tipp && x.sc >= 150; }).length;
   // v31.91: Bei GLEICHER Relevanz kommt der geprüfte Eintrag zuerst.
   //
   // „Ampfer" trifft 28 Einträge mit demselben Trivialnamen, „Brennnessel"
@@ -57712,7 +57797,18 @@ function searchMenu(query) {
   // SUCHE-8: die Arten kommen aus derselben Rangfolge wie die Artensuche (_gsSucheRang) — mit
   // Umlauten, Vertippern und Synonymen. Vorher `includes` auf Name, Binomen und Familie: „barlauch"
   // fand den Bärlauch nicht, und die ersten fünf standen in Dateireihenfolge.
-  const dbResults = (typeof _gsSucheRang === 'function') ? _gsSucheRang(query, null).slice(0, 5) : [];
+  // Getrimmt wie die Artensuche (gegnerische Prüfung 16.11.2026: mit einem Leerzeichen am Ende — jeder
+  // Zwischenstand beim Tippen von zwei Wörtern — stand bei „giersch " ein Pilz vorn).
+  // Wer ein Menüwort tippt, sucht das Menü: stehen Menüeinträge da, kommen Arten nur über Name, Binomen
+  // oder Familie — nicht über einen Vertipper oder den Beschreibungstext (gegnerische Prüfung: „wetter"
+  // → Fetter Gänsefuss, „quiz" → Lactarius quietus, „premium" → eine Begonie). Ohne Menütreffer bleibt
+  // alles wie in der Artensuche („bärlauhc" findet den Bärlauch). Ein Menütreffer heisst: Titel oder Tag
+  // ENTHALTEN die Eingabe (ab 8 Punkten) — „giersch wald" trifft das Tag „wald" nur umgekehrt (6) und
+  // sucht weiter Arten wie die Artensuche.
+  const _rangInfo = {};
+  const _arten = (typeof _gsSucheRang === 'function') ? _gsSucheRang(String(query || '').trim(), null, _rangInfo) : [];
+  const _menueStark = scored.length > 0 && scored[0].score >= 8;
+  const dbResults = ((_menueStark && typeof _rangInfo.namensTreffer === 'number') ? _arten.slice(0, _rangInfo.namensTreffer) : _arten).slice(0, 5);
   const _tm = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   
   let html = '';
@@ -77330,7 +77426,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. (12b) Der Chat zum Scan leerte sein Gespräch bei jedem Öffnen — wer zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage nicht mehr. Er antwortete fest auf Deutsch, auch in einer anderen App-Sprache, und sein erster Satz nannte die Trefferquote „Sicherheit: 85 %“. Jetzt bleibt das Gespräch, solange es um denselben Scan geht, die KI antwortet in der App-Sprache (dieselbe Regel wie Lina), der erste Satz nennt das Wort der Ergebniskarte, und „Mit Lina weiterreden“ öffnet Lina mit Art und letzter Frage im Feld — abgeschickt wird erst von dir. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (14b) „Wusstest du?“ lud vom Server nur die ersten 30 von 192 Fakten, und 10 davon gehören zu einer bestimmten Kalenderwoche — sie standen in jeder Woche da; escaped wurde nur „<“. Jetzt alle aktiven (diese Woche 152), ein Wochenfakt nur in seiner ISO-Woche (wie die Datenbank sie zählt), Fremdtext ganz escaped. (14c) Ein Gartenplan, dessen Jahr vorbei ist, sagte das nur auf seiner Kachel in „Meine Pläne“ — seit ein Plan seine Termine in den Kalender legt (v33.10), legt einer vom letzten Jahr keinen mehr hin, und die Startseite sagte nicht, warum. Jetzt steht es im Tagesplan, wenn alle Pläne aus einem vergangenen Jahr sind (ein dieses Jahr angelegter Plan ohne Datum zählt als aktuell), mit dem Weg zu „Meine Pläne“ und „für dieses Jahr ausblenden“. Dabei gemessen: drei Stellen rechneten das Plan-Jahr je selbst, und eine Pflanze mit „sow_date: null“ machte aus dem Plan einen Plan von 1970 (Kachel „Plan-Jahr 1970 vorbei“, Vorlage „1971“) — jetzt eine Regel (_gsPlanJahr) mit dem Datumsleser des Planers. (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. (15b) Die Suche im Menü hatte einen eigenen Artenteil: ohne Umlaute („barlauch“ fand den Bärlauch nicht), ohne Rangfolge, ohne Vertipper und ohne jede Giftmarkierung — der Wasserschierling stand dort ohne Angabe. Dazu filterte sie je Tastendruck für jeden der 51 Menüeinträge die ganze Artenliste und warf das Ergebnis weg. Jetzt nimmt sie die Rangfolge der Artensuche (_gsSucheRang), und eine giftige Art trägt „Giftig“ wie in der Trefferliste. (16c) Lina leerte beim Öffnen ihr Gespräch und fragte nur die Cloud: offline stand sie danach leer da, und ein Gespräch, das „nur lokal geführt“ wurde, war beim nächsten Öffnen weg — an seiner Stelle erschien ein älteres aus der Cloud. Jetzt spiegelt das Gerät das laufende Gespräch, und das neuere gewinnt. (16b) Während Lina auf die KI wartet, steht jetzt seit wann („· 12 s“) — vorher dieselbe Zeile nach 2 und nach 90 Sekunden. (16) Linas Vorschläge standen fest — „Welche Pflanzen blühen im April?“ in jedem Monat — und waren in keiner Sprache übersetzbar: ihre Schlüssel standen nicht in der Übersetzungstabelle, übersetzt wurden sie nur über die Knöpfe des alten Chat-Bildschirms, und der ist seit v33.31 weg. Jetzt kommen sie aus dem, was gerade ist: heute Fälliges, der letzte Scan, der laufende Monat; die festen stehen in der Tabelle, und i18n_check kennt die Liste. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +35 (D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, HF1, HP1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +10 (Lina L1–L9, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. (12b) Der Chat zum Scan leerte sein Gespräch bei jedem Öffnen — wer zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage nicht mehr. Er antwortete fest auf Deutsch, auch in einer anderen App-Sprache, und sein erster Satz nannte die Trefferquote „Sicherheit: 85 %“. Jetzt bleibt das Gespräch, solange es um denselben Scan geht, die KI antwortet in der App-Sprache (dieselbe Regel wie Lina), der erste Satz nennt das Wort der Ergebniskarte, und „Mit Lina weiterreden“ öffnet Lina mit Art und letzter Frage im Feld — abgeschickt wird erst von dir. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (14b) „Wusstest du?“ lud vom Server nur die ersten 30 von 192 Fakten, und 10 davon gehören zu einer bestimmten Kalenderwoche — sie standen in jeder Woche da; escaped wurde nur „<“. Jetzt alle aktiven (diese Woche 152), ein Wochenfakt nur in seiner ISO-Woche (wie die Datenbank sie zählt), Fremdtext ganz escaped. (14c) Ein Gartenplan, dessen Jahr vorbei ist, sagte das nur auf seiner Kachel in „Meine Pläne“ — seit ein Plan seine Termine in den Kalender legt (v33.10), legt einer vom letzten Jahr keinen mehr hin, und die Startseite sagte nicht, warum. Jetzt steht es im Tagesplan, wenn alle Pläne aus einem vergangenen Jahr sind (ein dieses Jahr angelegter Plan ohne Datum zählt als aktuell), mit dem Weg zu „Meine Pläne“ und „für dieses Jahr ausblenden“. Dabei gemessen: drei Stellen rechneten das Plan-Jahr je selbst, und eine Pflanze mit „sow_date: null“ machte aus dem Plan einen Plan von 1970 (Kachel „Plan-Jahr 1970 vorbei“, Vorlage „1971“) — jetzt eine Regel (_gsPlanJahr) mit dem Datumsleser des Planers. (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. (15b) Die Suche im Menü hatte einen eigenen Artenteil: ohne Umlaute („barlauch“ fand den Bärlauch nicht), ohne Rangfolge, ohne Vertipper und ohne jede Giftmarkierung — der Wasserschierling stand dort ohne Angabe. Dazu filterte sie je Tastendruck für jeden der 51 Menüeinträge die ganze Artenliste und warf das Ergebnis weg. Jetzt nimmt sie die Rangfolge der Artensuche (_gsSucheRang), und eine giftige Art trägt „Giftig“ wie in der Trefferliste. (16c) Lina leerte beim Öffnen ihr Gespräch und fragte nur die Cloud: offline stand sie danach leer da, und ein Gespräch, das „nur lokal geführt“ wurde, war beim nächsten Öffnen weg — an seiner Stelle erschien ein älteres aus der Cloud. Jetzt spiegelt das Gerät das laufende Gespräch, und das neuere gewinnt. (16b) Während Lina auf die KI wartet, steht jetzt seit wann („· 12 s“) — vorher dieselbe Zeile nach 2 und nach 90 Sekunden. (16) Linas Vorschläge standen fest — „Welche Pflanzen blühen im April?“ in jedem Monat — und waren in keiner Sprache übersetzbar: ihre Schlüssel standen nicht in der Übersetzungstabelle, übersetzt wurden sie nur über die Knöpfe des alten Chat-Bildschirms, und der ist seit v33.31 weg. Jetzt kommen sie aus dem, was gerade ist: heute Fälliges, der letzte Scan, der laufende Monat; die festen stehen in der Tabelle, und i18n_check kennt die Liste. (16d) Eine gegnerische Prüfung der Pakete fand sechs Fehler, alle nachgemessen und behoben. Eine Lina-Antwort, die nach dem Abmelden ankam, öffnete Lina wieder und legte das Gespräch auf dem Gerät ab — die nächste Person sah es; eine Scan-Antwort, die nach dem Abmelden ankam, wurde sogar unter dem Konto gespeichert, das dann angemeldet war. Jetzt gehört eine Antwort der Person, die gefragt hat, und das Abmelden räumt Lina, das letzte Scan-Ergebnis, sein Foto und den Scan-Chat. Linas Gesprächskopie gewann ab dem zweiten Öffnen gegen das vollständige Gespräch in der Cloud (40 statt 60 Nachrichten) und verdrängte ein neueres Gespräch eines anderen Geräts. „Jetzt sammeln“ empfahl an vier Tagen im Jahr Petersilie, deren Doppelgänger laut Liste der Schierling ist, und an zwei Tagen den Lärchen-Röhrling — einen Pilz, den die Liste als Baum führt. Die Menü-Suche stellte bei einem Leerzeichen am Ende einen Pilz vor den Giersch und zeigt bei einem Menüwort keine Arten mehr über Vertipper oder Beschreibungen („wetter“ → Fetter Gänsefuss). Die Kartenreihe stellte die zuletzt gezeigte Karte nur noch für die erste wieder her; der Saison-Tipp füllt sich auch, wenn die Artenliste spät kommt; „Wusstest du?“ lädt einmal am Tag, und sein Deckel steht in der Fristenliste. Der Scan-Chat übergab eine Modell-Rolle, die auf diesem Stand niemand liest — sie ist wieder heraus. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +39 (D1j, F1, F2, SC1–SC3, SU1–SU8, HS1–HS4, HW1, HW2, HK1, HK2, HF1, HP1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +12 (Lina L1–L11, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -77354,6 +77450,8 @@ window.GS_RELEASES = [
         {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er zeigt jetzt eine Pflanze aus der Artenliste, die gerade Saison hat und sich ohne gefährliche Verwechslung sammeln lässt, und öffnet beim Antippen genau diese Art. Pilze stehen dort nicht mehr — für sie gibt es die eigene Pilzkarte. Bisher konnte dort auch eine Aussaat wie „Paprika“ im März oder ein beliebiger Naturfakt stehen.'},
         {emoji:'⏸️', bold:'Kartenreihe auf der Startseite:', text:' sie lässt sich mit dem Knopf neben den Punkten anhalten und bleibt angehalten. Leere Karten erscheinen nicht mehr, und während du eine Karte antippst oder mit der Tastatur darin bist, dreht sie nicht weiter.'},
         {emoji:'🌦️', bold:'Wetter auf der Startseite:', text:' die Karte zeigt immer dasselbe — das Wetter und den Ort, darunter eine Frost-, Hitze- oder Unwetterwarnung. Eine Gewitterwarnung gilt jetzt wirklich für die nächsten Stunden; vorher konnte sie sich auf die vergangene Nacht beziehen.'},
+        {emoji:'🔒', bold:'Abmelden:', text:' was du Lina gefragt oder zuletzt gescannt hast, bleibt nach dem Abmelden nicht auf dem Gerät — auch nicht, wenn die Antwort erst danach ankommt. Die nächste Person am Gerät sieht nichts davon.'},
+        {emoji:'🌿', bold:'„Jetzt sammeln“:', text:' Petersilie (Verwechslung mit dem Schierling) und ein Pilz, der in der Artenliste falsch abgelegt war, werden nicht mehr zum Sammeln empfohlen.'},
         {emoji:'⏳', bold:'Gartenplan auf der Startseite:', text:' sind alle deine Gartenpläne aus einem vergangenen Jahr, sagt es jetzt der Tagesplan und führt zu „Meine Pläne“, wo du einen als Vorlage übernehmen kannst. Mit ✕ blendest du den Hinweis für dieses Jahr aus.'},
         {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
       ],
@@ -84882,6 +84980,16 @@ function gsOnLogout() {
   // v32.68 (Audit A1): der globale Schluessel lebt nur im Arbeitsspeicher — und
   // stirbt mit der Sitzung. gs_global_api_mode steht in GS_USER_KEYS.
   try { window._gsGlobalKeyMem = ''; } catch(_){}
+  // Linas Gespräch im Arbeitsspeicher geht mit (der Spiegel gs_lina_verlauf geht über GS_USER_KEYS),
+  // und ein offenes Lina-/Doktor-Fenster schliesst — sein Inhalt gehört der Person, die geht.
+  try { window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
+  try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
+  // Dasselbe für den Scanner (sbLogout lädt die Seite nicht neu): das letzte Ergebnis, sein Foto, die
+  // Ergebniskarte und das Gespräch dazu. Nicht gsResetScanner — der startet die Kamera neu.
+  try { _lastScanResult = null; } catch(_){}
+  try { window._gsLastScanB64 = null; window._gsLastScanMt = null; window._gsLastScanBilder = []; window._gsLetzterScan = null; } catch(_){}
+  try { _scanChatHistory = []; _scanChatFuer = null; } catch(_){}
+  try { var _sr = document.getElementById('scan-result'); if (_sr) { _sr.style.display = 'none'; _sr.innerHTML = ''; } } catch(_){}
 
   // ═══ v31.04 KRITISCH: Empty-Clobber-Guard wieder scharf stellen ═══════════
   // Der Guard (v27.01) verhindert, dass ein leerer Blob die Cloud ueberschreibt,
@@ -87852,7 +87960,8 @@ function _gsArtenTreffer(text) {
       if (proArt[key]) continue;
       var ang = (typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(g) : g;
       proArt[key] = true;
-      reihe.push({ name: g.name, lat: g.lat, tox: ang.tox | 0, essbar: !!ang.edible, nurTeilname: !!g._nurTeilname });
+      // `cat` (16.11.2026): _gsSammelSicher fragt, ob ein Treffer ein Pilz ist — ein Pilz ist kein Doppelgänger einer Pflanze
+      reihe.push({ name: g.name, lat: g.lat, cat: g.cat || '', tox: ang.tox | 0, essbar: !!ang.edible, nurTeilname: !!g._nurTeilname });
     }
     var toxe = [], essb = [];
     for (var k = 0; k < reihe.length; k++) {
@@ -88018,11 +88127,16 @@ async function gsOpenLina(){
   }
   _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">🌿 Lina kommt…</div>');
   window._gsLinaMsgs = []; window._gsLinaConvId = null;
+  var _wer = _gsPerson();
   // LINA-4 (Rest): der Spiegel des zuletzt gezeigten Gesprächs. Bis hier leerte jedes Öffnen den
   // Verlauf und fragte nur die Cloud — offline stand Lina danach leer da, und ein Gespräch, das
   // „nur lokal geführt" wurde (die Konversation liess sich nicht anlegen), war beim nächsten Öffnen
-  // weg; an seiner Stelle erschien ein ÄLTERES aus der Cloud. Die Regel: das neuere gewinnt — die
-  // Cloud, wenn ihr letztes Gespräch jünger ist als der Spiegel, sonst der Spiegel.
+  // weg; an seiner Stelle erschien ein ÄLTERES aus der Cloud. Die Regel: das neuere gewinnt.
+  // Gegnerische Prüfung (16.11.2026): der Spiegel gewinnt nur, wenn er dasselbe Gespräch ist wie das
+  // neueste der Cloud — oder eines, das sie gar nicht hat (nur lokal) — UND sein INHALT jünger ist.
+  // Seine Zeit war bis dahin die Zeit des letzten Zeichnens: ab dem zweiten Öffnen gewann die Kopie
+  // (höchstens 40 Nachrichten) gegen das Original (bis 100), und ein offline geöffneter alter Spiegel
+  // verdrängte danach ein neueres Gespräch von einem anderen Gerät.
   var _spiegel = _gsLinaSpiegelLesen(), _geladen = false;
   try {
     var uid = gsStore.get('gs_sb_uid', null);
@@ -88030,38 +88144,65 @@ async function gsOpenLina(){
     var convs = (rc && !rc.error && Array.isArray(rc.data)) ? rc.data : null;
     var c0 = convs && convs.length ? convs[0] : null;
     var cloudZeit = (c0 && c0.updated_at) ? (Date.parse(c0.updated_at) || 0) : 0;
-    if (c0 && !(_spiegel && _spiegel.ts > cloudZeit)) {
+    var _spiegelNeuer = !!(_spiegel && c0 && _spiegel.ts > cloudZeit && (!_spiegel.convId || _spiegel.convId === c0.id));
+    if (c0 && !_spiegelNeuer && _gsPerson() === _wer) {
       window._gsLinaConvId = c0.id;
       // v33.33: `order=created_at.asc&limit=100` holte die AELTESTEN hundert —
       // ab Nachricht 101 fehlte der juengste Teil des Gespraechs, still. Jetzt
       // die neuesten hundert (desc), fuer die Anzeige zeitlich umgedreht.
       // LINA-4: derselbe Lader wie fuer ein frueheres Gespraech aus dem Verlauf.
       _geladen = await _gsLinaLadeGespraech(c0.id);
+      if (_geladen) window._gsLinaInhaltZeit = cloudZeit;   // der Inhalt ist so alt wie das Gespräch in der Cloud
     }
   } catch(_){}
+  // Wer sich abmeldet, während Lina lädt, bekommt kein Fenster mehr — und die nächste Person nichts davon.
+  if (_gsPerson() !== _wer) {
+    window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null;
+    try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
+    return;
+  }
   if (!_geladen && _spiegel && !(window._gsLinaMsgs || []).length) {
     window._gsLinaMsgs = _spiegel.msgs.slice();
     window._gsLinaConvId = _spiegel.convId || null;
   }
   gsLinaRender(false);
 }
+// Wer ist gerade angemeldet? (uid oder null) — für Lina UND den Scanner. Gegnerische Prüfung (16.11.2026): eine Antwort, die
+// nach dem Abmelden ankam, öffnete Lina wieder (gsLinaRender → _gsNlOpen) und schrieb ihr Gespräch in
+// den Spiegel — gsOnLogout hatte ihn gerade geräumt. Beim nächsten Konto lief der Kontowechsel-Zweig
+// nicht (gs_last_active_uid war leer), und B sah das Gespräch von A samt dessen Gesprächs-Id. Wer nach
+// einem `await` zeichnet oder schreibt, fragt deshalb, ob noch DIESELBE Person angemeldet ist.
+function _gsPerson() {
+  try { return (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) ? (gsStore.get('gs_sb_uid', null) || null) : null; }
+  catch (_) { return null; }
+}
 // Der Spiegel: das laufende Gespräch, wie es zuletzt auf dem Bildschirm stand (nur Rolle und Text —
 // Knöpfe wie „Erneut senden" gehören zu dem Moment). gsLinaRender schreibt ihn, weil jede sichtbare
 // Änderung dort durchgeht; ein leeres Gespräch („＋ Neu") löscht ihn. Er steht in GS_USER_KEYS und
-// geht beim Abmelden mit.
+// geht beim Abmelden mit. Er gehört der Person, die angemeldet war (`uid`) — ohne Anmeldung wird
+// nichts geschrieben, und ein fremder Spiegel wird nie gelesen. `ts` ist das Alter des INHALTS: was
+// aus der Cloud kam, ist so alt wie das Gespräch dort (_gsLinaInhaltZeit, einmal gesetzt vom Lader);
+// unverändert Gezeigtes behält seine Zeit; nur eine neue Nachricht macht ihn jetzt.
 var GS_LINA_SPIEGEL_MAX = 40;
 function _gsLinaSpiegeln() {
+  var vorgabe = window._gsLinaInhaltZeit; window._gsLinaInhaltZeit = null;
   try {
+    var wer = _gsPerson();
+    if (!wer) return;
     var msgs = (window._gsLinaMsgs || []).filter(function (m) { return m && (m.role === 'user' || m.role === 'assistant') && m.content; })
       .slice(-GS_LINA_SPIEGEL_MAX).map(function (m) { return { role: m.role, content: String(m.content) }; });
     if (!msgs.length) { localStorage.removeItem('gs_lina_verlauf'); return; }
-    localStorage.setItem('gs_lina_verlauf', JSON.stringify({ convId: window._gsLinaConvId || null, ts: Date.now(), msgs: msgs }));
+    var conv = window._gsLinaConvId || null, alt = _gsLinaSpiegelLesen();
+    var gleich = !!(alt && alt.convId === conv && JSON.stringify(alt.msgs) === JSON.stringify(msgs));
+    var ts = gleich ? alt.ts : ((typeof vorgabe === 'number' && isFinite(vorgabe)) ? vorgabe : Date.now());
+    localStorage.setItem('gs_lina_verlauf', JSON.stringify({ uid: wer, convId: conv, ts: ts, msgs: msgs }));
   } catch (_) {}
 }
 function _gsLinaSpiegelLesen() {
   try {
     var v = JSON.parse(localStorage.getItem('gs_lina_verlauf') || 'null');
-    return (v && Array.isArray(v.msgs) && v.msgs.length && typeof v.ts === 'number') ? v : null;
+    var wer = _gsPerson();
+    return (wer && v && v.uid === wer && Array.isArray(v.msgs) && v.msgs.length && typeof v.ts === 'number') ? v : null;
   } catch (_) { return null; }
 }
 window.gsOpenLina = gsOpenLina;
@@ -88332,8 +88473,9 @@ async function gsLinaGespraeche() {
 }
 window.gsLinaGespraeche = gsLinaGespraeche;
 async function gsLinaGespraechOeffnen(id) {
-  var ok = false;
+  var ok = false, wer = _gsPerson();
   try { ok = await _gsLinaLadeGespraech(id); } catch (_) { ok = false; }
+  if (_gsPerson() !== wer) return;
   if (!ok) {
     var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
     if (typeof gsToast === 'function') gsToast(_t('lina_verlauf_fehler_eins','Das Gespräch lässt sich gerade nicht laden.'), 'warning', 3500);
@@ -88518,9 +88660,13 @@ async function gsLinaSend(){
     el.textContent = sek >= 3 ? '· ' + sek + ' s' : '';
   }, 1000);
   var uid = gsStore.get('gs_sb_uid', null);
+  // Gegnerische Prüfung (16.11.2026): wer sich während des Wartens abmeldet, bekommt keine Antwort
+  // mehr ins Fenster, in den Spiegel oder in die Cloud — sie gehört der Person, die gefragt hat.
+  var _wer = _gsPerson();
   try {
     if (!window._gsLinaConvId) {
       var rc = await sbFetch('/rest/v1/coach_conversations', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, title: text.slice(0,40) })});
+      if (_gsPerson() !== _wer) return;
       var conv = (rc && rc.data && rc.data[0]) || null;
       if (conv) window._gsLinaConvId = conv.id;
       else if (typeof gsToast === 'function') gsToast(_t('lina_local_only','Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).'), 'info', 3500); // v29.48: Conv-Anlage fehlgeschlagen → Nutzer dezent informieren
@@ -88533,6 +88679,7 @@ async function gsLinaSend(){
     var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
     var _treffer = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : null;
     var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(text), 900, { quotaFeature:'lina', timeout:45000 });
+    if (_gsPerson() !== _wer) return;
     // v33.21: kam eine Antwort — nie der Text. v33.30: dazu, WIE geerdet wurde.
     try {
       gsTrackEvent('lina_message', { ok: !!reply, erdung: !_treffer || !_treffer.zahl ? 'keine'
@@ -88583,6 +88730,7 @@ async function gsLinaSend(){
       sbFetch('/rest/v1/coach_conversations?id=eq.'+window._gsLinaConvId, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ updated_at: new Date().toISOString() })});
     }
   } catch(err){
+    if (_gsPerson() !== _wer) return;
     if (err && err.code === 'free_quota_reached') {
       // Mission: Lina bleibt gratis — KEIN Verkaufspitch, nur warme Info.
       window._gsLinaMsgs.push({ role:'assistant', content:_t('lina_quota','🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)') });
@@ -91050,6 +91198,20 @@ var GS_FRISTEN = [
     quelle: 'Anthropic, „Model deprecations“: claude-sonnet-4-6 wird frühestens an diesem Tag abgeschaltet; dahinter stehen claude-sonnet-5-5 und claude-sonnet-5',
     was: 'Fällt das erste Modell weg, übernimmt das nächste von selbst — es denkt aber anders, zählt Token anders und lehnt mehr Anfragen ab.',
     tun: 'Vorher einmal mit dem nächsten Modell scannen (Edge-Secret GS_MODEL_VISION=claude-sonnet-5-5), die Abkündigungsseite neu lesen und das Datum hier und in docs/RISIKEN.md nachziehen.'
+  },
+  {
+    // Home 7 (16.11.2026): die Fakten der Woche kommen in EINER Anfrage mit Deckel (GS_FAKTEN_MAX).
+    // Gemessen ist die Zahl der zuletzt geladenen — vorher ist sie hier „nicht bekannt".
+    id: 'fakten',
+    titel: '„Wusstest du?“ (Fakten je Woche)',
+    art: 'schwelle',
+    einheit: 'Fakten',
+    mess: function () {
+      var n = window._gsFaktenGeladen;
+      return (typeof n === 'number' && isFinite(n)) ? { ist: n, von: GS_FAKTEN_MAX } : null;
+    },
+    was: 'Gibt es mehr aktive Fakten (ohne Woche oder für diese Woche) als der Deckel, fallen die neuesten still weg — gefragt wird nach Id.',
+    tun: 'GS_FAKTEN_MAX erhöhen und docs/RISIKEN.md nachziehen, oder die Auswahl des Tages auf den Server legen.'
   },
   {
     id: 'quiz_vorrat',

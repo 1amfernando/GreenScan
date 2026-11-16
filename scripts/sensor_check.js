@@ -2492,9 +2492,11 @@ const FAELLE = [
       const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
       const klagen = [];
       let online = false, cloud = 'aus';
+      const uidVorher = gsStore.get('gs_sb_uid', null);
       try {
         Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
-        window.sbIsLoggedIn = () => true;
+        // angemeldet heisst in der App: Token UND uid (sbIsLoggedIn) — der Spiegel gehört der uid
+        window.sbIsLoggedIn = () => true; gsStore.set('gs_sb_uid', 'uid-L9');
         window.gsToast = () => {};
         window.callAI = async () => 'Gerne — morgens giessen.';
         window.sbFetch = async (pfad, o) => {
@@ -2502,7 +2504,7 @@ const FAELLE = [
           if (cloud === 'aus') return { data: null, error: { message: 'Failed to fetch', status: 0 } };
           if (/coach_conversations/.test(pfad) && get) {
             if (cloud === 'alt') return { data: [{ id: 'c-alt', updated_at: '2020-01-01T00:00:00Z' }], error: null };
-            return { data: [{ id: 'c-neu', updated_at: new Date(Date.now() + 3600e3).toISOString() }], error: null };
+            return { data: [{ id: 'c-neu', updated_at: new Date().toISOString() }], error: null };   // ein anderes Gerät schreibt GERADE (L11: realistische Reihenfolgen)
           }
           if (/coach_conversations/.test(pfad)) return { data: null, error: { message: 'Failed to fetch', status: 0 } };   // anlegen schlägt fehl
           if (/coach_messages/.test(pfad) && get) {
@@ -2545,6 +2547,142 @@ const FAELLE = [
         return { ok: true, info: 'offline wieder geöffnet: da · nur lokal: bleibt vor einem älteren · neueres aus der Cloud gewinnt' };
       } finally {
         window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { if (uidVorher == null) localStorage.removeItem('gs_sb_uid'); else gsStore.set('gs_sb_uid', uidVorher); } catch (_) {}
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Gegnerische Prüfung (16.11.2026), Befund 1: eine Antwort, die nach dem Abmelden ankam, öffnete
+    // Lina wieder (gsLinaRender → _gsNlOpen) und schrieb ihr Gespräch in den Spiegel, den gsOnLogout
+    // gerade geräumt hatte. Beim nächsten Konto lief der Kontowechsel-Zweig nicht (gs_last_active_uid
+    // war leer): B sah das Gespräch von A samt dessen Gesprächs-Id. Zwei Reihenfolgen: die Antwort
+    // kommt vor der Anmeldung von B — und nachdem B schon angemeldet ist.
+    name: 'Lina L10 · wer sich abmeldet, während Lina antwortet, nimmt das Gespräch mit — die verspätete Antwort öffnet kein Fenster und schreibt nichts, und das nächste Konto sieht nichts davon',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast, uid: gsStore.get('gs_sb_uid', null) };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+      const offen = () => { const m = document.getElementById('gs-nl-modal'); return !!(m && (m.classList.contains('open') || m.classList.contains('active')) && getComputedStyle(m).display !== 'none'); };
+      const klagen = [];
+      let angemeldet = true;
+      const anmelden = (u) => { angemeldet = true; gsStore.set('gs_sb_uid', u); };
+      const abmelden = () => { angemeldet = false; try { gsOnLogout(); } catch (_) {} try { localStorage.removeItem('gs_sb_uid'); } catch (_) {} };
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => angemeldet;
+        window.gsToast = () => {};
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (/coach_conversations/.test(pfad) && get) return { data: [], error: null };
+          if (/coach_conversations/.test(pfad)) return { data: [{ id: 'conv-A' }], error: null };
+          return { data: [{}], error: null };
+        };
+        for (const reihenfolge of ['vor B', 'nach B']) {
+          window.callAI = () => new Promise(r => setTimeout(() => r('ANTWORT-AN-A über Johanniskraut.'), 500));
+          window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+          try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+          anmelden('uid-A');
+          await gsOpenLina(); await warte(100);
+          const feld = document.getElementById('gs-lina-input');
+          if (!feld) return { ok: false, warum: 'Lina hat kein Eingabefeld — der Fall misst nichts' };
+          feld.value = 'GEHEIM-A: verträgt sich Johanniskraut mit den Tabletten meiner Mutter?';
+          const lauf = gsLinaSend();
+          await warte(80);
+          if (!/GEHEIM-A/.test(text())) return { ok: false, warum: 'die Frage von A steht nicht im Fenster — der Fall misst nichts' };
+          try { closeModal('gs-nl-modal'); } catch (_) {}
+          abmelden();
+          if (reihenfolge === 'nach B') anmelden('uid-B');
+          await lauf; await warte(150);
+          if (offen() && /GEHEIM-A|ANTWORT-AN-A/.test(text())) klagen.push(reihenfolge + ': die verspätete Antwort öffnet Lina mit dem Gespräch von A');
+          const sp = localStorage.getItem('gs_lina_verlauf');
+          if (sp && /GEHEIM-A|ANTWORT-AN-A/.test(sp)) klagen.push(reihenfolge + ': das Gespräch von A steht nach dem Abmelden im Spiegel');
+          // VOR dem Öffnen durch B gemessen — gsOpenLina leert den Arbeitsspeicher ohnehin
+          if (/GEHEIM-A|ANTWORT-AN-A/.test(JSON.stringify(window._gsLinaMsgs || []))) klagen.push(reihenfolge + ': das Gespräch von A liegt nach dem Abmelden noch im Arbeitsspeicher');
+          if (reihenfolge === 'vor B') anmelden('uid-B');
+          try { closeModal('gs-nl-modal'); } catch (_) {}
+          await gsOpenLina(); await warte(150);
+          if (/GEHEIM-A|ANTWORT-AN-A/.test(text())) klagen.push(reihenfolge + ': B sieht das Gespräch von A');
+          if (window._gsLinaConvId === 'conv-A') klagen.push(reihenfolge + ': B schreibt in das Gespräch von A (conv-A)');
+          try { closeModal('gs-nl-modal'); } catch (_) {}
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Antwort vor und nach der Anmeldung von B: kein Fenster, kein Spiegel, B sieht nichts, keine fremde Gesprächs-Id' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        try { if (sichern.uid == null) localStorage.removeItem('gs_sb_uid'); else gsStore.set('gs_sb_uid', sichern.uid); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Gegnerische Prüfung (16.11.2026), Befund 2: die Zeit des Spiegels war die Zeit des letzten
+    // Zeichnens. (a) Ab dem zweiten Öffnen gewann die Kopie (höchstens 40 Nachrichten) gegen das
+    // Original in der Cloud (bis 100). (b) Ein offline geöffneter alter Spiegel bekam eine frische
+    // Zeit und verdrängte danach ein neueres Gespräch von einem anderen Gerät. L9 sah beides nicht:
+    // dort lag das neuere Gespräch eine Stunde in der Zukunft.
+    name: 'Lina L11 · der Spiegel ist so alt wie sein Inhalt: ein Gespräch aus der Cloud steht beim zweiten Öffnen ganz da (60 von 60), und ein offline geöffneter alter Spiegel verdrängt kein neueres Gespräch eines anderen Geräts',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const blasen = () => document.querySelectorAll('#gs-lina-scroll > div').length;
+      const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+      const klagen = [];
+      let online = true, cloud = 'c1';
+      const vor = (min) => new Date(Date.now() - min * 60e3).toISOString();
+      const c1Zeit = vor(10), c2Zeit = vor(2);
+      const lang = []; for (let i = 0; i < 60; i++) lang.push({ role: i % 2 ? 'assistant' : 'user', content: 'M' + String(i).padStart(2, '0') });
+      const uidVorher = gsStore.get('gs_sb_uid', null);
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
+        window.sbIsLoggedIn = () => true; gsStore.set('gs_sb_uid', 'uid-L11');
+        window.gsToast = () => {};
+        window.callAI = async () => 'ok';
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (!online) return { data: null, error: { message: 'Failed to fetch', status: 0 } };
+          if (/coach_conversations/.test(pfad) && get) return { data: [cloud === 'c1' ? { id: 'c1', updated_at: c1Zeit } : { id: 'c2', updated_at: c2Zeit }], error: null };
+          if (/coach_messages/.test(pfad) && get) {
+            const m = /conversation_id=eq\.([^&]+)/.exec(pfad); const id = m && decodeURIComponent(m[1]);
+            if (id === 'c1') return { data: lang.slice().reverse(), error: null };   // die App holt desc und dreht um
+            if (id === 'c2') return { data: [{ role: 'assistant', content: 'C2-Antwort' }, { role: 'user', content: 'C2-Frage vom Laptop' }], error: null };
+          }
+          return { data: [], error: null };
+        };
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        // (a) zweimal online öffnen
+        await gsOpenLina(); await warte(120);
+        const n1 = blasen();
+        if (n1 < 60) return { ok: false, warum: 'beim ersten Öffnen nur ' + n1 + ' Nachrichten — der Fall misst nichts' };
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(120);
+        const n2 = blasen();
+        if (n2 < 60) klagen.push('zweites Öffnen: ' + n2 + ' von 60 Nachrichten (' + (/M00/.test(text()) ? 'M00 da' : 'M00 bis M' + String(60 - n2 - 1).padStart(2, '0') + ' fehlen') + ')');
+        if (window._gsLinaConvId !== 'c1') klagen.push('zweites Öffnen: Gesprächs-Id ' + window._gsLinaConvId + ' statt c1');
+        // (b) offline öffnen (der Spiegel c1), dann online: ein anderes Gerät hat c2 vor 2 Minuten geführt
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        online = false;
+        await gsOpenLina(); await warte(120);
+        if (!/M59/.test(text())) klagen.push('offline geöffnet steht das Gespräch nicht da');
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        online = true; cloud = 'c2';
+        await gsOpenLina(); await warte(120);
+        const t3 = text();
+        if (!/C2-Frage vom Laptop/.test(t3)) klagen.push('das neuere Gespräch des Laptops (vor 2 Minuten) wird nicht gezeigt');
+        if (/M59/.test(t3)) klagen.push('der offline geöffnete alte Spiegel verdrängt das neuere Gespräch');
+        if (window._gsLinaConvId !== 'c2') klagen.push('die Gesprächs-Id bleibt ' + window._gsLinaConvId + ' statt c2');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'zweimal online: 60 von 60 · offline: der Spiegel · danach online: das neuere Gespräch des anderen Geräts (c2)' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { if (uidVorher == null) localStorage.removeItem('gs_sb_uid'); else gsStore.set('gs_sb_uid', uidVorher); } catch (_) {}
         try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
         window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
         try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}

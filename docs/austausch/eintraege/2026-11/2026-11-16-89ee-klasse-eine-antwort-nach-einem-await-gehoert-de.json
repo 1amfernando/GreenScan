@@ -1,0 +1,37 @@
+{
+  "id": "2026-11-16-89ee",
+  "art": "klasse",
+  "datum": "2026-11-16",
+  "zeit": "10:48:46",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Eine Antwort nach einem await gehört der Person, die gefragt hat — sbLogout lädt die Seite nicht neu",
+  "regel": "Wer nach einem await (KI, Server) zeichnet oder schreibt, merkt sich vorher _gsPerson() und fragt danach, ob es noch dieselbe Person ist; was einer Person gehört und nur im Arbeitsspeicher liegt, räumt gsOnLogout.",
+  "text": "sbLogout zeigt das Onboarding und blendet die Fenster aus — der Arbeitsspeicher bleibt. Eine KI-Antwort braucht bis 45 s (Lina) bzw. 60 s (Scanner); wer sich in dieser Zeit abmeldet und ein anderes Konto anmeldet, bekam bis v33.61 die Antwort des vorigen zu sehen — oder in sein Konto geschrieben. Erkennbar an: ein await callAI/callVisionAI/sbFetch, danach Rendern (innerHTML, _gsNlOpen, gsLinaRender, showScanResult) oder Schreiben (localStorage, sbFetch POST, gsQueueOffline) ohne Vergleich der Person.",
+  "instanzen": [
+    "v33.61 · gsLinaSend: eine Lina-Antwort nach dem Abmelden öffnete Lina wieder (gsLinaRender → _gsNlOpen) und schrieb das Gespräch in den Spiegel gs_lina_verlauf, den gsOnLogout gerade geräumt hatte — das nächste Konto sah es samt Gesprächs-Id (gegnerische Prüfung, nachgemessen)",
+    "v33.61 · gsOpenLina und gsLinaGespraechOeffnen: dasselbe, wenn man sich abmeldet, während Lina lädt",
+    "v33.61 · analyzeImage: eine Scan-Antwort nach dem Abmelden wurde gezeigt und über gsScanPersistToCloud/gsQueueOffline unter dem Konto gespeichert, das dann angemeldet war (scan_check SC3 gegen den alten Stand: „gespeichert (1×)“)",
+    "v33.61 · sendScanChat, gsScanGegenprobe, gsAutoEnrichNewSpecies (schreibt in die lokale Artenliste): dieselbe Form, beim Suchen gefunden und geschlossen"
+  ],
+  "suchmuster": "Funktionen mit await callAI/callVisionAI (23 am 16.11.2026) und ohne _gsPerson im Rumpf: python-Skript im STATUS-Eintrag 16.11.2026 (je Zeile mit 'await (callAI|callVisionAI)(' die umschliessende function, dann 'grep _gsPerson' im Rumpf). Danach dasselbe für await sbFetch mit Rendern/Schreiben danach.",
+  "gesucht": "v33.61: 23 Funktionen mit await callAI/callVisionAI — 6 in den Hauptfunktionen, alle geschützt (gsLinaSend, analyzeImage, sendScanChat, gsScanGegenprobe, gsAutoEnrichNewSpecies; gsOpenLina und gsLinaGespraechOeffnen warten auf sbFetch). Nicht angefasst, weil ausserhalb der vier Funktionen: gsTwinRun, dqAskKIExplain, gsGalCompareGrowth, aiAnalyzePlant, _gsFeedbackTriageOne, runDiagnosis, runKiImprove, analyzeGardenWithAI, gsPPanalyzeAreaPhoto, gsPPanalyzeSoil, gsPPwarten, gsPPRefine, gsPhotoDiffAnalyze, gsVoiceProcess, gsAgentRefinePlan, _gsVerifySpeciesImage, gsDoctorRun, tpAnalyzePhotos — je nachsehen, ob nach dem await etwas gezeigt oder geschrieben wird.",
+  "waechter": [
+    {
+      "datei": "scripts/sensor_check.js",
+      "fall": "Lina L10 · wer sich abmeldet, während Lina antwortet"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "SC3 · Abmelden räumt das letzte Scan-Ergebnis"
+    }
+  ],
+  "stichworte": [
+    "abmelden",
+    "datenschutz",
+    "await",
+    "lina",
+    "scanner",
+    "gsOnLogout"
+  ]
+}

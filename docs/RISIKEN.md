@@ -43,6 +43,7 @@ Ein Text darin, der „dieses Jahr" meint, ist ab dem 1. Januar falsch.
 | Tagebuch | 300 Einträge (`slice(0, 300)`) | — | — |
 | Lernkarten | `GS_TRAINING_KARTEN_MAX` = **500** | — | — |
 | Quiz-Tagesschlüssel | `GS_DQ_TAGE_MAX` = **30** | einer je Tag | Ohne Deckel ein Schlüssel je Tag, für immer |
+| „Wusstest du?“ (Fakten je Woche) | `GS_FAKTEN_MAX` = **200** | eine Anfrage je Tag; die zuletzt geladene Zahl steht in `GS_FRISTEN` (`fakten`) — gemessen 16.11.2026: 192 aktive, diese Woche 152 | Die neuesten Fakten fallen still weg (`order=id.asc`) — bis v33.61 stand dort `limit=30`, und 162 von 192 erschienen nie |
 | Messwerte auf dem Gerät | `GS_MESSWERTE_MAX` = **2000** | hochgeladene fallen zuerst | Bis v33.45 hiess der Deckel nur `2000` an seiner Aufrufstelle — **ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.** |
 | Nutzungsereignisse | `GS_ANALYTICS_TAGE` = **180** Tage | Migration `20260910_analytics_retention.sql` **nicht angewandt** | Eine Zählung, die nie endet, ist ein Archiv |
 | Bild-Cache (Service Worker) | `IMAGE_CACHE_MAX` 500 Kacheln (~17 MB), geprüft alle 50 | in `sw.js` — `risiko_check` R3 liest nur `index.html`, diese Zahl ist **nicht** maschinell geprüft | Geht der Platz aus, räumt mancher Browser den **ganzen Ursprung** ab, mitsamt `localStorage` |

@@ -160,9 +160,12 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   dieser Art fragen" und öffnete den Scan-Chat; er heisst jetzt „KI zu dieser Art fragen". Dass
   der Chat „nur bei einem Treffer in der Artenliste" erscheine (Arbeitsliste): nachgesehen —
   seit v30.73 auch ohne Treffer.
-  Dazu (eigener Commit): der Chat übergibt `opts.rolle = 'vision'` — auf dem Branch der Sitzung
-  „KI-Modelle" (`_gsWaehleRolle`, nicht gemergt) fielen 600 Token sonst auf „schnell"; heute ohne
-  Wirkung, SC2 prüft, dass die Rolle mitgeht. Brett `2026-11-16-8234`.
+  Ein eigener Commit gab dem Chat `opts.rolle = 'vision'` mit (für den Rollen-Wähler `_gsWaehleRolle`
+  auf dem Branch der Sitzung „KI-Modelle", nicht gemergt). Die gegnerische Prüfung hat recht
+  behalten: `callAI` liest `rolle` auf diesem Branch nirgends — ein Feld, das niemand liest
+  (CLAUDE.md §3.4, die `brain`-Klasse), und SC2 war grün, ohne dass sich etwas änderte. Option und
+  Prüfung sind wieder heraus; wer den Rollen-Wähler einführt, gibt dem Scan-Chat die Rolle mit und
+  prüft sie dort (Brett `2026-11-16-8234`, Nachtrag).
 - **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
   im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
   über `gsSaisonMonate`.
@@ -205,6 +208,46 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   Fakten statt 30, 40 bleiben in ihrer Woche. Dabei gefunden: der Fakt „Schweiz hat 4342
   Pflanzenarten" ist die alte Eintragszahl der App (Brett `2026-11-16-397d`, Datenänderung für
   Fernando).
+- **Gegnerische Prüfung der Pakete 7891b1d..d030e40** (ein Unteragent, nur lesend und messend; jeder
+  Befund hier nachgemessen, bevor etwas geändert wurde). Sechs bestätigt, alle behoben, jeder mit einem
+  Fall, der gegen den Stand davor rot ist:
+  1. **Datenschutz — eine Antwort nach dem Abmelden.** `sbLogout` lädt nicht neu. Eine Lina-Antwort, die
+     danach ankam, öffnete Lina wieder (`gsLinaRender` → `_gsNlOpen`) und schrieb den Spiegel neu, den
+     `gsOnLogout` geräumt hatte — B sah das Gespräch von A samt `conv-A`. Beim Nachsuchen derselben Form
+     im Scanner: eine Scan-Antwort nach dem Abmelden wurde gezeigt und **unter dem Konto gespeichert, das
+     dann angemeldet war** (SC3 gegen den alten Stand: „gespeichert (1×)"). Jetzt `_gsPerson()` vor und
+     nach jedem `await` in `gsOpenLina`, `gsLinaSend`, `gsLinaGespraechOeffnen`, `analyzeImage`,
+     `sendScanChat`, `gsScanGegenprobe`, `gsAutoEnrichNewSpecies`; der Spiegel trägt die `uid` (fremd →
+     nie gelesen, ohne Anmeldung → nie geschrieben); `gsOnLogout` räumt Lina, letztes Scan-Ergebnis,
+     Foto, Scan-Chat und die Ergebniskarte. Fehlerklasse `2026-11-16-89ee` (18 weitere KI-Wege ausserhalb
+     der vier Funktionen genannt, nicht angefasst). CLAUDE.md §3.6 und `docs/memory/02-regeln.md` 5b.
+  2. **Linas Spiegel trug die Zeit des Zeichnens, nicht die des Inhalts.** Ab dem zweiten Öffnen gewann die
+     Kopie (40) gegen die Cloud (60 Nachrichten); ein offline geöffneter alter Spiegel verdrängte ein
+     neueres Gespräch eines anderen Geräts. Jetzt `ts` = Alter des Inhalts (`_gsLinaInhaltZeit`), und der
+     Spiegel gewinnt nur als dasselbe Gespräch wie das neueste der Cloud oder eines, das sie nicht hat. L9
+     Teil 3 lag „eine Stunde in der Zukunft" — jetzt die echte Zeit, L11 die realistischen Reihenfolgen.
+  3. **„Jetzt sammeln" empfahl Petersilie** (Doppelgänger laut Liste: „Schierling" — kein ganzer Name, also
+     von `gsMatchScanToDb` nicht gefunden) am 9.3., 4.4., 8.6. und 17.11. `_gsSammelSicher` fragt jetzt
+     auch `_gsArtenTreffer` (der eine Freitext-Leser, der dafür `cat` mitgibt); ein Pilz ist kein
+     Doppelgänger einer Pflanze (Estragon und Wermut bleiben). Beim eigenen Massstab gefunden: der
+     **Lärchen-Röhrling** (T039, ein Pilz als `baum` abgelegt) stand am 2.8. und 30.10. da —
+     `_gsIstPilz` erkennt ihn an der Gattung (aus der Liste, 145 Gattungen, keine Pflanze getroffen);
+     der Datensatz bleibt falsch (Brett `2026-11-16-09f5`). HS3 kopierte bis hier die Regel der App und
+     sah deshalb ihre Lücke nicht — jetzt ein eigenes Hauptwort-Verzeichnis (beim Bau: elf Fehlalarme
+     aus „roter", „weiss", „nieswurz" — gross geschriebene Hauptwörter, Klammern weg, Bindestrich ganz).
+  4. **Die Menü-Suche** gab die Eingabe ungetrimmt weiter („giersch " → Pfifferling vor Giersch,
+     „bärlauch " → Maiglöckchen auf Platz 3). Dazu der Verdacht der Prüfung: bei einem Menüwort zeigt sie
+     keine Arten mehr über Vertipper oder Beschreibung („wetter" → Fetter Gänsefuss) — nur bei einem
+     echten Menütreffer (ab 8 Punkten; „giersch wald" trifft das Tag „wald" nur umgekehrt).
+  5. **SC2 prüfte eine Option, die niemand liest** (`rolle: 'vision'`) — Option und Prüfung heraus,
+     Nachtrag `2026-11-16-b267` an 8234 (neuer Anker).
+  6. **Die Kartenreihe** stellte die zuletzt gezeigte Karte nur für Karte 1 wieder her (beim Bau gab es
+     zwei Folien). Jetzt ein Ziel, das wartet, bis es genug Folien gibt (höchstens 6 s, eine Berührung
+     hebt es auf); HK2 lädt dafür eine eigene Seite mit vorbelegtem `sessionStorage`.
+  Dazu zwei Verdachte: der Saison-Tipp füllt sich, wenn die Artenliste nach den 40 Nachversuchen kommt
+  (`gsArtenNachgeladen`, HS4); „Wusstest du?" lädt einmal je Tag (vorher ~150 Zeilen je Weg auf die
+  Startseite), und der Deckel heisst `GS_FAKTEN_MAX` — Schwelle `fakten` in `GS_FRISTEN`, Zeile in
+  `docs/RISIKEN.md` (HF1).
 - **Startseite — der Gartenplan aus dem letzten Jahr (Home 6, der offene Rest von N4).** Die
   Kachel in „Meine Pläne" sagt seit v33.15 „Plan-Jahr … vorbei" — nur dort. Seit ein Plan seine
   Termine in den Kalender legt (N8, v33.10), legt einer vom letzten Jahr keinen mehr hin, und
@@ -232,16 +275,18 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   einem eigenen `role=tablist`, der Knopf daneben. „`gsRenderWochenrueckblick` doppelt gerufen"
   (Arbeitsliste): nachgesehen — Tagesplan und erster Aufbau rendern dieselben Daten, kein Fehler.
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, HF1, HP1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1–SC3, SU1–SU8, HS1–HS4, HW1, HW2, HK1, HK2, HF1, HP1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
-`escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge), L8 (Wartezeit), L9 (Gespräch ohne Cloud);
+`escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge), L8 (Wartezeit), L9 (Gespräch ohne Cloud), L10 (Abmelden während Lina antwortet), L11 (der Spiegel ist so alt wie sein Inhalt);
 `i18n_check` kennt `GS_LINA_VORSCHLAEGE` als Datenliste. Jeder neue
 Fall gegen den Stand davor gefahren: rot. Volle Suite auf
 3812572 und erneut auf 32b4c03 (in einem eigenen Arbeitsbaum, TZ=UTC, mit Postgres): je 42 Prüfstände,
 rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge); im Kontrast nur die bekannte Stelle
 `2026-11-16-a082`. Die drei Pakete danach (Lina L8, L9; Home 6 mit HP1 — gegen 7032d35 rot, vier
-Gegenproben je rot) mit ihren Nachbar-Prüfständen.
+Gegenproben je rot) mit ihren Nachbar-Prüfständen. Nach der gegnerischen Prüfung: scan 113/0 (+HK2), sensor 65/0, robust 28/0,
+storage, risiko 4/0 (8 Fristen), admin 21/0, nutzersicht 9/0, escape 9/0, wiring, i18n, offline 41/0; jede Reparatur mit
+Gegenprobe (insgesamt 17, je rot).
 
 **Aufs Brett gelegt** (nicht in den vier Funktionen, deshalb nicht angefasst): der Wissen-Tab
 zählt mit eigenen Regeln (brett 4d79: „Arten" = 4'337 Einträge, „Essbar" 1'130 statt 1'062,
@@ -252,8 +297,8 @@ einen Tag zu spät und zählt Frost erst unter 2 °C (brett c72c). An die Sitzun
 Planer-Seite: eine Vorlage aus einem Plan von vorletztem Jahr landet in einem vergangenen Jahr
 (brett eb4b, gemessen beim Bau von Home 6).
 
-**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234, brett:2026-11-16-397d, brett:2026-11-16-bb6f, brett:2026-11-16-eb4b, brett:2026-11-16-34d2 — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle"), der falsche Fakt in der Datenbank (Fernando), das Wackeln von offline_check (g), die Vorlage aus einem Plan von vorletztem Jahr (Planer-Seite), eine Korrektur fürs zweite Gerät (Idee, bewusst nicht gebaut)
-**Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann.
+**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234, brett:2026-11-16-397d, brett:2026-11-16-bb6f, brett:2026-11-16-eb4b, brett:2026-11-16-34d2, brett:2026-11-16-09f5, brett:2026-11-16-89ee — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle"), der falsche Fakt in der Datenbank (Fernando), das Wackeln von offline_check (g), die Vorlage aus einem Plan von vorletztem Jahr (Planer-Seite), eine Korrektur fürs zweite Gerät (Idee, bewusst nicht gebaut), der Lärchen-Röhrling als „baum" (Daten), die 18 KI-Wege ausserhalb der vier Funktionen (Fehlerklasse „Antwort nach await“)
+**Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann. Nach der gegnerischen Prüfung nicht geprüft: ein echtes Abmelden auf einem Telefon (gemessen ist der Weg sbLogout/gsOnLogout mit gestelltem Server); ob eine Antwort, die nach dem Abmelden VERWORFEN wird, das Kontingent belastet hat (der Aufruf lief — ohne Abbruchsignal, Brett 8186, lässt sich das nicht verhindern); `_gsIstPilz` setzt voraus, dass ein Binomen mit der Gattung beginnt (bei 4'337 Einträgen gemessen: trifft ausserhalb der Pilze nur T039).
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 

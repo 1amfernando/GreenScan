@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-16-09f5",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "10:48:46",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Der Lärchen-Röhrling (T039, Suillus grevillei) steht als „baum“ in der Artenliste — fünf andere Einträge derselben Art als „pilz“",
+  "beleg": [
+    "data/plants.v1.js: {id:'T039',name:'Lärchen-Röhrling',lat:'Suillus grevillei',fam:'Suillaceae',cat:'baum',emoji:'🍄',…} — dieselbe Art als F067 Lärchenschneckling, F117 Goldröhrling, Kupferroter Lärchenröhrling, PI431 Echter Goldröhrling, alle cat:'pilz'; lookalike „Andere Baumarten gleicher Familie“, warning „Keine bekannten Risiken“.",
+    "Gemessen 16.11.2026: „Jetzt sammeln“ empfahl ihn am 2.8. und 30.10. (die Regel „keine Pilze“ fragte cat). Seit v33.61 erkennt _gsIstPilz einen Pilz auch an einer Gattung, die die Liste bei ihren Pilzen führt (145 Gattungen; ausserhalb von cat=pilz trägt nur T039 eine) — die App ist geschützt, der Datensatz bleibt falsch (Lexikon, Kategorie-Zahlen, Filter „Bäume“)."
+  ],
+  "vorschlag": "Datenkorrektur in data/plants.v1.js: cat:'pilz' für T039 (die Id bleibt — Favoriten hängen daran), Doppelgänger-Text aus einer Quelle oder leer statt „Andere Baumarten gleicher Familie“. Vorher die Dublettenregel lesen (docs/ARTEN-DATEN.md): fünf weitere Einträge derselben Art.",
+  "stichworte": [
+    "artenliste",
+    "daten",
+    "pilz",
+    "jetzt-sammeln",
+    "dublette"
+  ],
+  "anker": [
+    {
+      "datei": "data/plants.v1.js",
+      "text": "{id:'T039',name:'Lärchen-Röhrling',lat:'Suillus grevillei',fam:'Suillaceae',cat:'baum'"
+    }
+  ]
+}

@@ -115,6 +115,17 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    sollen — heute ersetzt der Server die Liste, sobald er antwortet (so gewollt: „Supabase-Daily-
    Content überschreibt Hardcoded"). Der Inhaltsfehler „4342 Pflanzenarten" → Brett `2026-11-16-397d`.
 
+## Gegnerische Prüfung (16.11.2026, Pakete 7891b1d..d030e40)
+
+Sechs Befunde, alle nachgemessen und behoben (Einzelheiten STATUS, Eintrag 16.11.): eine Antwort nach
+dem Abmelden (Lina zeigte und spiegelte sie, der Scanner speicherte sie unter dem nächsten Konto —
+Fehlerklasse `2026-11-16-89ee`, Regel `_gsPerson`, CLAUDE.md §3.6); Linas Spiegel trug die Zeit des
+Zeichnens; „Jetzt sammeln" mit Petersilie (Schierling) und dem Lärchen-Röhrling (ein Pilz als „baum");
+die Menü-Suche ungetrimmt und mit Arten bei Menüwörtern; eine Prüfung auf eine Option, die niemand liest
+(`rolle`); die Kartenreihe vergass die zuletzt gezeigte Karte. **Gelernt:** zwei der Prüffälle (HS3,
+L9) waren grün, weil sie die Regel der App kopierten bzw. ihre Eingabe schon die Antwort enthielt —
+Brett `c699`. Wer hier einen Fall baut, misst mit eigenem Massstab und realistischen Zeiten.
+
 ## Nebenfunde (nicht in den vier Funktionen)
 
 - Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
@@ -123,6 +134,11 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
   „Giftig" mit eigenen Regeln).
 - Standort-Fenster ohne Standort: im Dunkelmodus 1,51:1 (fest heller Kasten, kippende Schrift)
   → Brett `2026-11-16-a082`.
+- Der Lärchen-Röhrling (T039, *Suillus grevillei*) steht als `baum` in der Artenliste, dieselbe Art
+  fünfmal als `pilz` — Datenkorrektur für die Daten-Seite (Brett `2026-11-16-09f5`); die App erkennt
+  ihn seit v33.61 trotzdem als Pilz (`_gsIstPilz`, über die Gattung).
+- 18 KI-Wege ausserhalb der vier Funktionen warten auf eine Antwort, ohne danach die Person zu prüfen
+  (Fehlerklasse `2026-11-16-89ee`, Liste dort).
 - Nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen
   (die Tabelle erlaubt kein Update). Dieses Gerät blendet sie über `ki_name` aus; ein zweites
   Gerät zeigt die erste Bestimmung. Ein Ersatz (neue Zeile mit demselben Foto anlegen, alte

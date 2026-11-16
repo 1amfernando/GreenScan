@@ -418,6 +418,17 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.
+- **Eine Antwort nach einem `await` gehört der Person, die gefragt hat** (v33.61,
+  gegnerische Prüfung). `sbLogout` lädt die Seite NICHT neu. Eine Lina-Antwort, die
+  nach dem Abmelden ankam, öffnete Lina wieder und schrieb das Gespräch in den
+  Spiegel, den `gsOnLogout` gerade geräumt hatte — das nächste Konto sah es samt
+  Gesprächs-Id. Eine Scan-Antwort (bis 60 s) wurde gezeigt und **unter dem Konto
+  gespeichert, das dann angemeldet war**. Wer nach einem `await` zeichnet oder
+  schreibt, merkt sich vorher `_gsPerson()` (uid oder `null`) und fragt danach, ob es
+  noch dieselbe ist; was einer Person gehört und nur im Arbeitsspeicher liegt, räumt
+  `gsOnLogout` (Lina, letztes Scan-Ergebnis, Foto, Scan-Chat). Prüfstände:
+  `sensor_check` L10, `scan_check` SC3 — beide mit Antwort VOR und NACH der Anmeldung
+  der nächsten Person.
 
 ### 3.7 · revDSG (Schweizer Datenschutz)
 - Analytics ist **Opt-In** (Consent-Banner beim ersten Launch). Niemals

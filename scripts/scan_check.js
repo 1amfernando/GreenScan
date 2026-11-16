@@ -2299,13 +2299,30 @@ const FAELLE = [
           const namen = arten().map((a) => a.textContent);
           if (!namen.some((t) => p[1].test(t))) f.push('„' + p[0] + '" findet im Menü ' + (namen.length ? '„' + namen[0].trim().slice(0, 30) + '"' : 'keine Art'));
         });
-        // 2 · dieselbe Rangfolge: die erste Art im Menü ist die erste der Suche (ohne Filter)
-        tippe('giersch');
-        currentFilter = ''; searchText = 'giersch'; if (typeof currentProp !== 'undefined') currentProp = '';
-        const erste = getFiltered()[0];
-        const m1 = arten()[0];
-        if (!erste || !m1) f.push('„giersch": keine Art im Menü oder in der Suche');
-        else if (m1.textContent.indexOf(erste.name) < 0) f.push('„giersch": im Menü zuerst „' + m1.textContent.trim().slice(0, 30) + '", in der Suche „' + erste.name + '"');
+        // 2 · dieselbe Rangfolge: die ersten fünf Arten im Menü sind die ersten fünf der Suche (ohne
+        // Filter) — auch mit einem Leerzeichen am Ende und mit zwei Wörtern. Gegnerische Prüfung
+        // (16.11.2026): das Menü gab die Eingabe ungetrimmt weiter; bei „giersch " stand der
+        // Pfifferling vorn, bei „bärlauch " das Maiglöckchen (Stufe 5) auf Platz 3.
+        ['giersch', 'giersch ', 'bärlauch ', 'giersch wald'].forEach(function (w) {
+          tippe(w);
+          currentFilter = ''; searchText = w.trim(); if (typeof currentProp !== 'undefined') currentProp = '';
+          const suche = getFiltered().slice(0, 5).map((x) => x.name);
+          const menue = arten().slice(0, 5).map((z) => z.textContent);
+          if (!suche.length || !menue.length) { f.push('„' + w + '": keine Art im Menü oder in der Suche'); return; }
+          for (let i = 0; i < suche.length; i++) {
+            if (!menue[i] || menue[i].indexOf(suche[i]) < 0) { f.push('„' + w + '": Platz ' + (i + 1) + ' im Menü „' + String(menue[i] || '–').trim().slice(0, 30) + '", in der Suche „' + suche[i] + '"'); break; }
+          }
+        });
+        // 2b · ein Menüwort sucht das Menü: stehen Menüeinträge da, kommt keine Art über einen Vertipper
+        //      oder den Beschreibungstext (gegnerische Prüfung: „wetter" → Fetter Gänsefuss)
+        const falte = (x) => String(x || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+        ['wetter', 'quiz', 'premium'].forEach(function (w) {
+          tippe(w);
+          const menue = box.querySelectorAll('.menu-search-result:not([data-sid])').length;
+          if (!menue) { f.push('„' + w + '": kein Menüeintrag — der Fall misst die Regel nicht'); return; }
+          const fremd = arten().filter((z) => falte(z.textContent).indexOf(falte(w)) < 0);
+          if (fremd.length) f.push('„' + w + '" zeigt neben ' + menue + ' Menüeinträgen die Art „' + fremd[0].textContent.trim().slice(0, 30) + '"');
+        });
         // 3 · eine giftige Art sagt es — die Angabe der ART (_gsArtAnzeige), wie die Trefferliste
         tippe('schierling');
         const zeilen = arten();
@@ -2323,7 +2340,7 @@ const FAELLE = [
         try { if (typeof clearMenuSearch === 'function') clearMenuSearch(); } catch (_) {}
       }
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: 'Umlaute und Vertipper wie die Suche · gleiche erste Art · „Giftig" an giftigen Arten · ' + dbFilter + '× Artenliste je Tastendruck' };
+      return { ok: true, info: 'Umlaute und Vertipper wie die Suche · dieselben ersten fünf (auch „giersch ", „bärlauch ", „giersch wald") · „Giftig" an giftigen Arten · ' + dbFilter + '× Artenliste je Tastendruck' };
     },
   },
   {
@@ -2400,8 +2417,6 @@ const FAELLE = [
         inp.value = 'Und wann blüht er?';
         await sendScanChat();
         if (!msgs || !msgs.some((x) => /Wo wächst er/.test(String(x.content)))) f.push('die zweite Frage geht ohne die erste an die KI');
-        // Essbarkeitsfragen zu einer gescannten Art: die Rolle steht ausdrücklich da, nicht „schnell" nach Länge
-        if (!aiOpts || aiOpts.rolle !== 'vision') f.push('der Scan-Chat fragt die KI ohne ausdrückliche Rolle „vision" (' + JSON.stringify(aiOpts && aiOpts.rolle) + ')');
         // 2 · ein anderer Scan beginnt neu
         closeScanChat();
         _lastScanResult = { name: 'Zzz Andere', latin: 'Zzz alter', toxicity: 0, confidence: 70, emoji: '🌿' };
@@ -2445,6 +2460,66 @@ const FAELLE = [
       }
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: 'Gespräch bleibt beim Wiederöffnen, neuer Scan neu · Prompt auf Französisch · Lina bekommt Art und Frage, ohne zu senden' };
+    },
+  },
+  {
+    // Gegnerische Prüfung (16.11.2026) — dieselbe Klasse wie Lina L10, im Scanner: sbLogout lädt die
+    // Seite nicht neu. Das letzte Ergebnis, sein Foto, die Ergebniskarte und der Scan-Chat von A lagen
+    // danach weiter im Speicher. Und eine KI-Antwort, die nach dem Abmelden ankam (bis 60 s), wurde
+    // gezeigt und gespeichert — unter dem Konto, das dann angemeldet war.
+    name: 'SC3 · Abmelden räumt das letzte Scan-Ergebnis, sein Foto und den Scan-Chat — und eine KI-Antwort, die nach einem Kontowechsel ankommt, wird weder gezeigt noch gespeichert',
+    lauf: async () => {
+      if (typeof analyzeImage !== 'function' || typeof gsOnLogout !== 'function') return { ok: false, warum: 'analyzeImage oder gsOnLogout fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const f = [];
+      const e = { li: window.sbIsLoggedIn, ai: window.callVisionAI, pc: window.gsScanPersistToCloud, qo: window.gsQueueOffline, cfg: window.getApiConfig, uid: gsStore.get('gs_sb_uid', null),
+        cam: window.stopCamera, st: window.gsScanStatusShow, sp: window.gsStopScanStatus, hi: window.gsAddToScanHistory, dh: window._gsScanDHash, cg: window._gsScanCacheGet, cp: window._gsScanCachePut };
+      let angemeldet = true, gespeichert = 0, kiGefragt = 0;
+      const sr = () => document.getElementById('scan-result');
+      try {
+        window.sbIsLoggedIn = () => angemeldet;
+        gsStore.set('gs_sb_uid', 'uid-A');
+        window.getApiConfig = () => ({ key: 'k' });
+        window.stopCamera = () => {}; window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {}; window.gsAddToScanHistory = () => {};
+        window._gsScanDHash = async () => 'hash-sc3'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+        window.gsScanPersistToCloud = (r) => { if (r && /GEHEIM/.test(r.name || '')) gespeichert++; return Promise.resolve(true); };
+        window.gsQueueOffline = async (t, r) => { if (r && /GEHEIM/.test(r.name || '')) gespeichert++; };
+        // 1 · A hat gescannt und gefragt; dann meldet A sich ab
+        showScanResult({ name: 'GEHEIM-A-Art', latin: 'Taraxacum officinale', confidence: 88, toxicity: 0, edible: true, category: 'wildpflanze', _scanId: 'scan-A-1' });
+        window._gsLastScanB64 = 'FOTO-VON-A';
+        _scanChatHistory = [{ role: 'user', content: 'GEHEIM-A fragt' }];
+        await warte(100);
+        if (!sr() || !/GEHEIM-A-Art/.test(sr().innerHTML)) return { ok: false, warum: 'die Ergebniskarte von A steht gar nicht da — der Fall misst nichts' };
+        angemeldet = false; gsOnLogout(); try { localStorage.removeItem('gs_sb_uid'); } catch (_) {}
+        if (_lastScanResult) f.push('nach dem Abmelden liegt das Ergebnis von A noch im Speicher („' + _lastScanResult.name + '")');
+        if (window._gsLastScanB64) f.push('nach dem Abmelden liegt das Foto von A noch im Speicher');
+        if (_scanChatHistory.length) f.push('nach dem Abmelden liegt der Scan-Chat von A noch im Speicher');
+        if (sr() && /GEHEIM-A-Art/.test(sr().innerHTML)) f.push('nach dem Abmelden steht die Ergebniskarte von A noch im Dokument');
+        // 2 · A scannt, meldet sich ab, während die KI rechnet; B meldet sich an; dann kommt die Antwort
+        angemeldet = true; gsStore.set('gs_sb_uid', 'uid-A'); gespeichert = 0;
+        window.callVisionAI = async () => { kiGefragt++; await warte(300); return JSON.stringify({ name: 'GEHEIM-A-Zwei', latin: 'Bellis perennis', confidence: 90, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+        const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+        const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+        g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1d5c22'; g.lineWidth = 2; g.beginPath(); g.moveTo(38, 104); g.lineTo(122, 42); g.stroke();
+        const lauf = analyzeImage(c.toDataURL('image/jpeg', 0.9).split(',')[1], 'image/jpeg', '', null, { trotzdem: true });
+        await warte(120);
+        angemeldet = false; gsOnLogout();
+        angemeldet = true; gsStore.set('gs_sb_uid', 'uid-B');
+        await lauf; await warte(150);
+        if (!kiGefragt) return { ok: false, warum: 'der zweite Scan hat die KI nie gefragt — der Fall misst den Wettlauf nicht' + (f.length ? ' · ' + f.join(' · ') : '') };
+        if (_lastScanResult && /GEHEIM-A-Zwei/.test(_lastScanResult.name || '')) f.push('die KI-Antwort für A steht nach dem Kontowechsel als Ergebnis da');
+        if (sr() && /GEHEIM-A-Zwei/.test(sr().innerHTML)) f.push('die Ergebniskarte für A wird nach dem Kontowechsel gezeichnet');
+        if (gespeichert) f.push('die KI-Antwort für A wird nach dem Kontowechsel gespeichert (' + gespeichert + '×)');
+      } finally {
+        window.sbIsLoggedIn = e.li; window.callVisionAI = e.ai; window.gsScanPersistToCloud = e.pc; window.gsQueueOffline = e.qo; window.getApiConfig = e.cfg;
+        window.stopCamera = e.cam; window.gsScanStatusShow = e.st; window.gsStopScanStatus = e.sp; window.gsAddToScanHistory = e.hi;
+        window._gsScanDHash = e.dh; window._gsScanCacheGet = e.cg; window._gsScanCachePut = e.cp;
+        try { if (e.uid == null) localStorage.removeItem('gs_sb_uid'); else gsStore.set('gs_sb_uid', e.uid); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'nach dem Abmelden: kein Ergebnis, kein Foto, kein Chat, keine Karte von A · Antwort nach dem Kontowechsel: nicht gezeigt, nicht gespeichert' };
     },
   },
 
@@ -2681,8 +2756,12 @@ const FAELLE = [
     // stand. Gemessen über 372 Tage: an 158 Tagen ein Pilz unter „Jetzt sammeln", an 104 Tagen
     // eine Art mit giftigem oder tödlichem Doppelgänger (Samtfussrübling — Gifthäubling). Die
     // Karte zeigt keine Warnung; Pilze haben ihre eigene Karte (mushroom-season-card). Der Fall misst
-    // mit EIGENEM Massstab (Warnwörter, Doppelgänger in der Liste nachgeschlagen), nicht mit der
-    // Regel der App.
+    // mit EIGENEM Massstab, nicht mit der Regel der App. Gegnerische Prüfung (16.11.2026): bis hier
+    // schlug er die Doppelgänger mit derselben Zerlegung und demselben gsMatchScanToDb nach wie die
+    // App — er sah ihre Lücke nicht („Schierling" ist kein ganzer Name; die Petersilie stand an vier
+    // Tagen unter „Jetzt sammeln"). Jetzt ein Hauptwort-Verzeichnis direkt aus der Liste: das LETZTE
+    // Wort jedes Namens-Abschnitts einer giftigen Pflanze (Stufe ≥ 3, kein Pilz), ohne die Wörter,
+    // die auch ein harmloser Name als letztes trägt — gesucht als ganzes Wort im Doppelgänger-Text.
     name: 'HS3 · „Jetzt sammeln" empfiehlt an keinem Tag des Jahres einen Pilz oder eine Art mit gefährlichem Doppelgänger — und an jedem Tag steht ein Tipp',
     lauf: () => {
       if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };
@@ -2693,10 +2772,38 @@ const FAELLE = [
       const vorher = nameEl.textContent;
       const schlecht = [], leer = [];
       let geprueft = 0, sammeln = 0;
-      const giftigerDoppelgaenger = (txt) => String(txt || '').replace(/\([^)]*\)/g, ' ').split(/[,;\/]|\bund\b|\boder\b/i)
-        .map((x) => x.trim()).filter((x) => x.length >= 3)
-        .map((x) => gsMatchScanToDb(x, '')).filter(Boolean)
-        .find((h) => (Number((_gsArtAnzeige(h) || h).tox) || 0) >= 3);
+      // Hauptwörter: der Klammerzusatz ist ein Adjektiv („Fingerhut (Roter)"), ein Bindestrich-Wort
+      // bleibt ganz („Nieswurz-Schafgarbe" ist nicht „Nieswurz"), und ein deutsches Hauptwort beginnt
+      // gross („Echter Oleander weiss" endet auf keinem). Beim Bau gemessen: ohne diese drei Regeln
+      // meldete das Verzeichnis „roter", „blauer", „weiss" und „nieswurz" — elf Fehlalarme.
+      const falte = (x) => String(x || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+      const woerter = (t) => String(t || '').split(/\s+/).map((w) => w.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')).filter(Boolean);
+      const giftNomen = {}, harmlosNomen = {};
+      DB.forEach((s) => {
+        if (!s || /pilz/i.test(s.cat || '')) return;
+        const gift = (Number((_gsArtAnzeige(s) || s).tox) || 0) >= 3;
+        String(s.name || '').replace(/\([^)]*\)/g, ' ').split(/[\/,]/).forEach((abschnitt) => {
+          const w = woerter(abschnitt);
+          const l = w[w.length - 1];
+          if (!l || l.length < 5 || l[0] === l[0].toLowerCase()) return;
+          const k = falte(l);
+          if (gift) { if (!giftNomen[k]) giftNomen[k] = s; } else harmlosNomen[k] = 1;
+        });
+      });
+      Object.keys(harmlosNomen).forEach((w) => { delete giftNomen[w]; });
+      const giftigerDoppelgaenger = (txt) => {
+        const w = woerter(txt).map(falte);
+        for (let i = 0; i < w.length; i++) if (giftNomen[w[i]]) return giftNomen[w[i]];
+        return null;
+      };
+      if (Object.keys(giftNomen).length < 50) return { ok: false, warum: 'nur ' + Object.keys(giftNomen).length + ' Hauptwörter giftiger Pflanzen — der Fall misst kaum etwas' };
+      // Ein Pilz, der nicht als Pilz abgelegt ist (gegnerische Prüfung: der Lärchen-Röhrling steht als
+      // „baum" in der Liste). Eigener Massstab: eine FAMILIE, die die Liste sonst nur bei Pilzen führt
+      // (die App fragt die Gattung). Der Platzhalter „–" ist keine Familie.
+      const famZahl = {};
+      DB.forEach((x) => { if (!x || !x.fam || /^[\s–-]*$/.test(x.fam)) return; const z = famZahl[x.fam] || (famZahl[x.fam] = { pilz: 0, sonst: 0 }); if (/pilz/i.test(x.cat || '')) z.pilz++; else z.sonst++; });
+      const pilzFamilie = (x) => !!(x && x.fam && famZahl[x.fam] && famZahl[x.fam].pilz >= 2 && famZahl[x.fam].pilz > famZahl[x.fam].sonst * 3);
+      const istPilz = (x) => /pilz/i.test((x && x.cat) || '') || pilzFamilie(x);
       try {
         for (let m = 0; m < 12; m++) {
           for (let t = 1; t <= 31; t++) {
@@ -2715,7 +2822,7 @@ const FAELLE = [
             if (!sp) { schlecht.push(wo + ' „' + name + '": keine Art der Liste'); continue; }
             const a = _gsArtAnzeige(sp) || sp;
             const warnung = [a.warning, sp.warning, a.lookalike, sp.lookalike].find((x) => _gsWarnungEcht(x) && WORT.test(String(x)));
-            if (/pilz/i.test(sp.cat || '')) schlecht.push(wo + ' ' + sp.name + ': ein Pilz');
+            if (istPilz(sp)) schlecht.push(wo + ' ' + sp.name + ': ein Pilz' + (/pilz/i.test(sp.cat || '') ? '' : ' (abgelegt als „' + sp.cat + '", Familie ' + sp.fam + ')'));
             else if (warnung) schlecht.push(wo + ' ' + sp.name + ': „' + String(warnung).slice(0, 50) + '"');
             else {
               const dg = giftigerDoppelgaenger(sp.lookalike) || giftigerDoppelgaenger(a.lookalike);
@@ -2726,10 +2833,8 @@ const FAELLE = [
       } finally { Date.prototype.getMonth = eM; Date.prototype.getDate = eT; nameEl.textContent = vorher; }
       try { gsInitSmartSeasonTip(); } catch (_) {}   // wieder auf den echten Tag
       const f = [];
-      // Das Nachschlagen der Doppelgänger greift an keinem der 372 Tage — die Arten, die es heute
-      // fängt, werden nie gewählt (Gegenprobe: Nachschlagen ausgebaut → der Jahreslauf blieb grün).
-      // Es wird deshalb an genau diesen Arten gemessen, mit eigenem Massstab gefunden: essbar,
-      // kein Pilz, kein Warnwort — aber ein Doppelgänger, den die Liste als giftig führt.
+      // Dazu jede Art, die der Jahreslauf nicht trifft, mit demselben eigenen Massstab: essbar, kein
+      // Pilz, kein Warnwort — aber ein Doppelgänger, dessen Hauptwort die Liste als giftig führt.
       const ohneWort = DB.filter((s) => {
         if (!s || !gsIstEssbar(s) || /pilz/i.test(s.cat || '')) return false;
         const a = _gsArtAnzeige(s) || s;
@@ -2741,11 +2846,66 @@ const FAELLE = [
         const durch = ohneWort.filter((s) => _gsSammelSicher(s));
         if (durch.length) f.push(durch.length + ' von ' + ohneWort.length + ' Arten mit giftigem Doppelgänger ohne Warnwort gelten als sammelbar: ' + durch.slice(0, 3).map((s) => s.name + ' (' + s.lookalike + ')').join(' | '));
       }
+      // Die Gegenrichtung: ein Pilz ist kein Doppelgänger einer Pflanze. Arten, deren Doppelgänger-Text
+      // nur über einen giftigen PILZ einen Treffer hat (Estragon — „Beifuss" — Beifuss-Ritterling),
+      // bleiben sammelbar; sonst lehnt die Regel ab, was sie nicht begründen kann.
+      const tox = (h) => Number((_gsArtAnzeige(h) || h).tox) || 0;
+      const nurPilz = (typeof _gsArtenTreffer !== 'function') ? [] : DB.filter((s) => {
+        if (!s || !gsIstEssbar(s) || /pilz/i.test(s.cat || '')) return false;
+        const a = _gsArtAnzeige(s) || s;
+        if ([a.warning, s.warning, a.lookalike, s.lookalike].some((x) => _gsWarnungEcht(x) && WORT.test(String(x)))) return false;
+        if (giftigerDoppelgaenger(s.lookalike) || giftigerDoppelgaenger(a.lookalike)) return false;
+        const tr = (_gsArtenTreffer(s.lookalike || '') || {}).arten || [];
+        return tr.some((h) => /pilz/i.test(h.cat || '') && tox(h) >= 3) && !tr.some((h) => !/pilz/i.test(h.cat || '') && tox(h) >= 3);
+      });
+      // Jeder falsch abgelegte Pilz, den der Jahreslauf nicht trifft: auch er ist nie sammelbar.
+      const verkleidet = DB.filter((x) => x && !/pilz/i.test(x.cat || '') && pilzFamilie(x) && gsIstEssbar(x));
+      if (typeof _gsSammelSicher === 'function') {
+        const durchP = verkleidet.filter((x) => _gsSammelSicher(x));
+        if (durchP.length) f.push(durchP.length + (durchP.length === 1 ? ' Pilz mit anderer Kategorie gilt' : ' Pilze mit anderer Kategorie gelten') + ' als sammelbar: ' + durchP.slice(0, 3).map((x) => x.name + ' [' + x.cat + '] ' + x.lat).join(' | '));
+      }
+      if (!nurPilz.length) f.push('keine Art, deren Doppelgänger nur über einen Pilz giftig ist — die Gegenrichtung misst nichts');
+      else if (typeof _gsSammelSicher === 'function') {
+        const abgelehnt = nurPilz.filter((s) => !_gsSammelSicher(s));
+        if (abgelehnt.length) f.push(abgelehnt.length + ' von ' + nurPilz.length + ' Arten werden über einen giftigen PILZ als Doppelgänger abgelehnt: ' + abgelehnt.slice(0, 3).map((s) => s.name + ' („' + s.lookalike + '")').join(' | '));
+      }
       if (leer.length) f.push('an ' + leer.length + ' Tagen steht kein Tipp (' + leer.slice(0, 4).join(', ') + ')');
       if (schlecht.length) f.push(schlecht.length + ' von ' + sammeln + ' Sammel-Tipps gefährlich: ' + schlecht.slice(0, 4).join(' | '));
       if (sammeln < 300) f.push('nur ' + sammeln + ' von ' + geprueft + ' Tagen „Jetzt sammeln" — der Fall misst kaum etwas');
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: geprueft + ' Tage · ' + sammeln + ' Sammel-Tipps, keiner ein Pilz, keiner mit Gift-Warnung oder giftigem Doppelgänger · ' + ohneWort.length + ' Arten mit giftigem Doppelgänger ohne Warnwort abgelehnt' };
+      return { ok: true, info: geprueft + ' Tage · ' + sammeln + ' Sammel-Tipps, keiner ein Pilz, keiner mit Gift-Warnung oder giftigem Doppelgänger · ' + ohneWort.length + ' Arten mit giftigem Doppelgänger ohne Warnwort abgelehnt · ' + nurPilz.length + ' mit einem Pilz als „Doppelgänger" bleiben sammelbar · ' + verkleidet.length + ' Pilz(e) mit anderer Kategorie abgelehnt' };
+    },
+  },
+  {
+    // Gegnerische Prüfung (16.11.2026): ohne Artenliste versucht es der Saison-Tipp 40 × alle 800 ms
+    // und gibt dann auf. Kam die Liste erst danach (zweiter Ladeversuch über 32 s), zeichnete
+    // gsArtenNachgeladen nur den Tagesplan neu — die Saison-Karte blieb leer, bis zum nächsten Weg auf
+    // die Startseite. Der Fall stellt genau das her: Liste weg, Nachversuche verbraucht, Liste zurück.
+    name: 'HS4 · Kommt die Artenliste erst, nachdem der Saison-Tipp aufgegeben hat, füllt das Nachladen die Karte',
+    lauf: () => {
+      if (typeof gsArtenNachgeladen !== 'function' || typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsArtenNachgeladen oder gsInitSmartSeasonTip fehlt' };
+      const nameEl = document.getElementById('season-tip-name');
+      if (!nameEl) return { ok: false, warum: '#season-tip-name fehlt — der Fall misst nichts' };
+      const vorher = nameEl.textContent, eToast = window.gsToast;
+      let sicher = [];
+      try {
+        window.gsToast = () => {};
+        if (window._gsSaisonTippWartet) { clearTimeout(window._gsSaisonTippWartet); window._gsSaisonTippWartet = 0; }
+        sicher = DB.splice(0);                     // die Artenliste fehlt
+        window._gsSaisonTippVersuche = 40;         // alle Nachversuche verbraucht
+        nameEl.textContent = '';
+        gsInitSmartSeasonTip();
+        if (window._gsSaisonTippWartet) return { ok: false, warum: 'der Saison-Tipp versucht es weiter — der Fall stellt den Zustand nicht her, den er prüft' };
+        DB.push.apply(DB, sicher); sicher = [];    // die Liste kommt (zweiter Ladeversuch)
+        gsArtenNachgeladen();
+        const name = nameEl.textContent.trim();
+        if (!name) return { ok: false, warum: 'nach dem Nachladen der Artenliste bleibt der Saison-Tipp leer' };
+        return { ok: true, info: 'Nachversuche verbraucht → Liste nachgeladen → „' + name.slice(0, 40) + '"' };
+      } finally {
+        if (sicher.length) DB.push.apply(DB, sicher);
+        window.gsToast = eToast; window._gsSaisonTippVersuche = 0;
+        if (!nameEl.textContent.trim()) nameEl.textContent = vorher;
+      }
     },
   },
   {
@@ -2987,7 +3147,7 @@ const FAELLE = [
           }
           return { data: [], error: null };
         };
-        window._dynF = [];
+        window._dynF = []; window._gsFaktenTag = null;   // der Tages-Zwischenspeicher fragt sonst nicht neu
         await gsLoadSupabaseDailyContent();
         const alle = (window._dynF || []).join(' ');
         if (!pfadFakten) f.push('die Fakten wurden nicht gefragt — der Fall misst nichts');
@@ -2996,11 +3156,20 @@ const FAELLE = [
         if (!/Zzz Immer/.test(alle) || !/Zzz Diese Woche/.test(alle)) f.push('ein Fakt ohne Woche oder der Woche ' + diese + ' fehlt (' + (window._dynF || []).length + ' in der Liste)');
         if (/<b>fett<\/b>/.test(alle)) f.push('Auszeichnung aus der Datenbank wird als HTML eingesetzt');
         if (/ & so/.test(alle)) f.push('ein „&" aus der Datenbank steht roh im HTML');
+        // Gegnerische Prüfung: der Deckel hat einen Namen und steht als Schwelle in GS_FRISTEN — und
+        // am selben Tag fragt der zweite Weg auf die Startseite nicht noch einmal (vorher ~150 Zeilen je Weg).
+        if (typeof GS_FAKTEN_MAX !== 'number' || pfadFakten.indexOf('limit=' + GS_FAKTEN_MAX) < 0) f.push('der Deckel der Anfrage ist nicht GS_FAKTEN_MAX (' + pfadFakten.slice(-40) + ')');
+        const frist = (typeof gsFristenStand === 'function') ? gsFristenStand().find((x) => x.id === 'fakten') : null;
+        if (!frist || frist.ist !== 3 || frist.von !== GS_FAKTEN_MAX) f.push('GS_FRISTEN nennt die geladenen Fakten nicht (' + JSON.stringify(frist && { ist: frist.ist, von: frist.von, zustand: frist.zustand }) + ')');
+        pfadFakten = ''; window._dynF = [];
+        await gsLoadSupabaseDailyContent();
+        if (pfadFakten) f.push('am selben Tag fragt der zweite Weg auf die Startseite die Fakten noch einmal');
+        if (!(window._dynF || []).length) f.push('aus dem Zwischenspeicher des Tages kommt kein Fakt');
       } finally {
-        window.sbFetch = eSb; window._dynF = eDyn; if (el) el.innerHTML = eHtml;
+        window.sbFetch = eSb; window._dynF = eDyn; if (el) el.innerHTML = eHtml; window._gsFaktenTag = null; window._gsFaktenGeladen = undefined;
       }
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: 'ISO-Woche ' + diese + ': Woche ' + andere + ' bleibt draussen, ohne Woche und diese Woche drin · alle aktiven gefragt · Fremdtext escaped' };
+      return { ok: true, info: 'ISO-Woche ' + diese + ': Woche ' + andere + ' bleibt draussen, ohne Woche und diese Woche drin · alle aktiven gefragt (Deckel GS_FAKTEN_MAX, in GS_FRISTEN) · einmal je Tag · Fremdtext escaped' };
     },
   },
   {
@@ -3915,8 +4084,40 @@ const FAELLE = [
     if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
     else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
   }
+  // HK2 braucht eine EIGENE Seite: die zuletzt gezeigte Karte steht im sessionStorage, und gelesen
+  // wird sie beim Bau der Reihe — also beim Laden. Gegnerische Prüfung (16.11.2026): die Reihe wird
+  // gebaut, bevor Saison-Tipp und „Wusstest du?" gefüllt sind; eine gemerkte Karte 3 wurde verworfen.
+  {
+    const name = 'HK2 · Kartenreihe: die zuletzt gezeigte Karte kommt nach dem Neuladen wieder — auch wenn sie erst nach dem Bau der Reihe gefüllt wird';
+    let r;
+    try {
+      const p2 = await ctx.newPage();
+      await p2.route('**', (rr) => rr.request().url().startsWith('file:') ? rr.continue() : rr.abort());
+      await p2.addInitScript(SEED);
+      await p2.addInitScript(() => {
+        try { sessionStorage.setItem('gs_home_widget_idx', '3'); } catch (_) {}
+        // N beim Bau mitschreiben — so ist sichtbar, ob der Fall den Zustand herstellt, den er prüft
+        let echt;
+        Object.defineProperty(window, 'gsBuildWidgetStack', { configurable: true, get() { return echt; }, set(fn) { echt = function () { const x = fn.apply(this, arguments); if (window.__nBau == null && window._gsWStackBuilt) window.__nBau = window._gsWStackN; return x; }; } });
+      });
+      await p2.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await p2.waitForTimeout(6000);
+      r = await p2.evaluate(() => {
+        const nBau = window.__nBau, n = window._gsWStackN || 0;
+        const aktiv = [].slice.call(document.querySelectorAll('#gs-wstack-dots .gs-wdot')).findIndex((d) => d.getAttribute('aria-selected') === 'true');
+        if (nBau == null) return { ok: false, warum: 'die Reihe wurde nicht gebaut — der Fall misst nichts' };
+        if (n < 4) return { ok: false, warum: 'nach dem Laden nur ' + n + ' Karten — Karte 4 gibt es nicht, der Fall misst nichts' };
+        if (nBau > 3) return { ok: false, warum: 'beim Bau schon ' + nBau + ' Karten — der Fall stellt den Zustand nicht her, den er prüft' };
+        if (aktiv !== 3) return { ok: false, warum: 'gemerkt war Karte 4 (Index 3), beim Bau gab es ' + nBau + ' Karten, jetzt ' + n + ' — gezeigt wird Index ' + aktiv };
+        return { ok: true, info: 'gemerkt Index 3 · beim Bau ' + nBau + ' Karten, jetzt ' + n + ' · gezeigt Index ' + aktiv };
+      });
+      await p2.close();
+    } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
+    if (r && r.ok) console.log('  ok   ' + name + (r.info ? '   [' + r.info + ']' : ''));
+    else { kaputt++; console.log('  !!   ' + name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
+  }
   console.log('  ---');
-  console.log('  Fälle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
+  console.log('  Fälle geprueft: ' + (FAELLE.length + 1) + ' · davon kaputt: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || !da) ? 1 : 0;
