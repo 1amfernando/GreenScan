@@ -2333,6 +2333,57 @@ const FAELLE = [
       }
     },
   },
+  {
+    // „Offen — Lina" 8. Die Aktionszeile wurde nur erkannt, wenn das JSON am ENDE der Antwort stand
+    // (`\{[\s\S]*\}\s*$`): mit Text dahinter stand „[[GS_ACTION]]{…}" roh in Linas Antwort, und ein
+    // kaputtes JSON verschwand still — die Antwort sagte „ich öffne dir den Kalender", nichts geschah.
+    name: 'Lina L6 · Aktionszeile: mit Text dahinter wird sie erkannt und entfernt, der Text bleibt — ein kaputtes JSON verschwindet nicht still, und ohne Aktionszeile steht kein solcher Satz',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const klagen = [];
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        await gsOpenLina(); await warte(150);
+        const feld = () => document.getElementById('gs-lina-input');
+        if (!feld()) return { ok: false, warum: 'kein Eingabefeld — der Fall misst nichts' };
+        const senden = async (t) => { window._gsLinaMsgs = []; window._gsLinaConvId = null; feld().value = t; window._gsLinaSending = false; await gsLinaSend(); await warte(120); };
+        const letzte = () => (window._gsLinaMsgs.slice(-1)[0] || {});
+        const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+        // 1 · Text NACH der Aktionszeile
+        window.callAI = async () => 'Schau in den Kalender.\n[[GS_ACTION]]{"tool":"open_calendar","args":{}}\nViel Spass im Garten!';
+        await senden('Wann säe ich Feldsalat?');
+        if (/GS_ACTION/.test(text())) klagen.push('mit Text dahinter steht die Aktionszeile roh in der Antwort');
+        if (!/Viel Spass im Garten/.test(text())) klagen.push('der Text nach der Aktionszeile ist verschwunden');
+        if (!letzte().aktion || letzte().aktion.tool !== 'open_calendar') klagen.push('die Aktion wurde nicht erkannt (' + JSON.stringify(letzte().aktion || null) + ')');
+        // 2 · die Aktionszeile am Ende (der alte Fall) bleibt, wie sie war
+        window.callAI = async () => 'Schau in den Kalender.\n[[GS_ACTION]]{"tool":"open_calendar","args":{"day":"2026-09-01"}}';
+        await senden('Wann säe ich Feldsalat?');
+        if (/GS_ACTION/.test(text()) || !letzte().aktion || (letzte().aktion.args || {}).day !== '2026-09-01') klagen.push('die Aktionszeile am Ende wird nicht mehr erkannt');
+        // 3 · kaputtes JSON: weg aus dem Text, die Antwort bleibt, ein Satz sagt es
+        window.callAI = async () => 'Ich öffne dir den Kalender.\n[[GS_ACTION]]{"tool":"open_calendar","args":{';
+        await senden('Zeig mir den Kalender');
+        const a3 = String(letzte().content || '');
+        if (/GS_ACTION/.test(text())) klagen.push('eine kaputte Aktionszeile steht roh in der Antwort');
+        if (!/Ich öffne dir den Kalender/.test(a3)) klagen.push('die Antwort ist weg: „' + a3.slice(0, 80) + '"');
+        if (!/nicht angekommen/.test(a3)) klagen.push('ein kaputtes JSON verschwindet still: „' + a3.slice(-80) + '"');
+        if (letzte().aktion) klagen.push('aus einem kaputten JSON wurde eine Aktion');
+        // 4 · Gegenrichtung: ohne Aktionszeile kein solcher Satz
+        window.callAI = async () => 'Feldsalat säst du von August bis September.';
+        await senden('Wann säe ich Feldsalat?');
+        if (/nicht angekommen/.test(String(letzte().content || ''))) klagen.push('ohne Aktionszeile steht trotzdem ein Satz über eine Aktion');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Text dahinter: erkannt, entfernt, Text bleibt · am Ende: wie bisher · kaputt: weg + Satz, keine Aktion · ohne Zeile: still' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on });
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {

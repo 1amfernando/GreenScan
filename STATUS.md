@@ -72,6 +72,11 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   lag. Jetzt „🕘 Verlauf" im Lina-Kopf: die letzten 20 (`gsLinaGespraeche`, vier Zustände —
   lädt · leer · Fehler · Liste), antippen lädt eines über denselben Lader wie beim Öffnen
   (`_gsLinaLadeGespraech`, neueste hundert, umgedreht). Titel als Text, die Kennung im Attribut.
+- **Lina 8 — die Aktionszeile.** `[[GS_ACTION]]{…}` galt nur, wenn das JSON das Ende der Antwort
+  war (`\{[\s\S]*\}\s*$`): mit einem Satz dahinter oder unvollständigem JSON stand die Zeile roh
+  in Linas Antwort. Jetzt `_gsLinaAktionLesen`: die Marke wo immer sie steht, das JSON an seinen
+  Klammern gezählt (Zeichenketten ausgenommen), Text davor und danach bleibt; eine kaputte
+  Aktion wird gesagt („nicht angekommen"), statt still nichts zu tun.
 - **Scanner** (Untersitzung, 23d9b04 · 7ab9bfd): „Alternative wählen" legte nach 10 Sekunden
   einen zweiten Scan an (Verlauf UND Cloud, der falsche blieb), hob die Sicherheit der
   gewählten Art auf 60 % und zeigte Merkmale und Urteile der verworfenen Art. Jetzt zeichnet
@@ -111,8 +116,8 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
 **Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
-`escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche). Jeder neue Fall gegen den Stand
-davor gefahren: rot. Volle Suite auf
+`escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile). Jeder neue
+Fall gegen den Stand davor gefahren: rot. Volle Suite auf
 3812572: 42 Prüfstände, rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge).
 
 **Aufs Brett gelegt** (nicht in den vier Funktionen, deshalb nicht angefasst): der Wissen-Tab
