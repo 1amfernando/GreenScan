@@ -1149,7 +1149,7 @@ const FAELLE = [
         } finally { await ctx.close(); }
       }
       if (klagen.length) return { ok: false, warum: klagen.slice(0, 3).join(' · ') + (klagen.length > 3 ? ' · … (' + klagen.length + ')' : '') };
-      return { ok: true, info: liste.length + ' gelesene Schluessel × ' + PROBEN.length + ' kaputte Formen (' + PROBEN.join(' · ') + ') — jedes Mal gestartet, 13 Tabs (mit den Einstellungen) und 6 Fenster ohne Fehler' };
+      return { ok: true, info: liste.length + ' gelesene Schluessel × ' + PROBEN.length + ' kaputte Formen (' + PROBEN.join(' · ') + ') — jedes Mal gestartet, 12 Tabs (mit den Einstellungen) und 6 Fenster ohne Fehler' };
     },
   },
   {

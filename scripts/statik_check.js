@@ -526,7 +526,7 @@ function stapelPruefung(src) {
   const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
   const ROH = new Set(['script', 'style', 'textarea', 'title']);
   // v33.59 (Gegenlesen): die Liste der End-Tags, die HTML auslassen DARF, war unvollstaendig.
-  const OPTIONAL = ['p', 'li', 'option', 'optgroup', 'tr', 'td', 'th', 'tbody', 'thead', 'tfoot', 'caption', 'colgroup', 'dd', 'dt', 'rt', 'rp', 'html', 'head', 'body'];
+  const OPTIONAL = ['p', 'li', 'option', 'optgroup', 'tr', 'td', 'th', 'tbody', 'thead', 'tfoot', 'caption', 'colgroup', 'dd', 'dt', 'rt', 'rp', 'rb', 'rtc', 'html', 'head', 'body'];
   const SVG_LEER = ['path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'use', 'stop', 'fegaussianblur', 'animate', 'animatetransform', 'feoffset', 'feblend', 'fecolormatrix', 'femergenode'];
   const n = src.length, stapel = [], klagen = [];
   let i = 0, zeile = 1, tags = 0;
