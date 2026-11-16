@@ -2227,6 +2227,55 @@ const FAELLE = [
     },
   },
   {
+    // SUCHE-10. Die Rangfolge der Artensuche hatte keinen Prüffall ausser „ein exakter Name steht
+    // zuerst" (SU1). Die Regel steht in _gsSucheRang: Name genau > Namensanfang/Segmentanfang > im
+    // Namen > im Binomen > in der Familie > irgendwo im Text. Ein Fehler hier sieht aus wie eine
+    // schlechte Suche, nicht wie ein Fehler — niemand meldet ihn. Der Fall liest die Felder aus dem
+    // Suchindex der App (gleiche Normalisierung) und prüft nur die ORDNUNG der Klassen.
+    name: 'SU8 · Rangfolge der Artensuche: Name genau, dann Namensanfang, im Namen, im Binomen, in der Familie, im Text — die Klassen fallen nie wieder an',
+    lauf: () => {
+      if (typeof getFiltered !== 'function' || typeof _gsSearchNorm !== 'function') return { ok: false, warum: 'getFiltered oder _gsSearchNorm fehlt' };
+      const vorF = currentFilter, vorS = searchText, vorP = (typeof currentProp !== 'undefined') ? currentProp : '';
+      const f = [], gesehen = new Set(), info = [];
+      const NAMEN = ['Name genau', 'Namensanfang', 'im Namen', 'im Binomen', 'in der Familie', 'im Text', 'sonst'];
+      try {
+        currentFilter = ''; if (typeof currentProp !== 'undefined') currentProp = '';
+        // „solanaceae" ist (gemessen) das einzige Wort, das Familien UND bei anderen Einträgen nur den
+        // Text trifft — ohne es bliebe „Familie unter Text" ungeprüft (Gegenprobe so grün geblieben).
+        ['brennnessel', 'ampfer', 'salbei', 'urtica', 'rosaceae', 'solanaceae', 'kamille', 'eiche', 'minze', 'lamium'].forEach(function (wort) {
+          const q = _gsSearchNorm(wort);
+          // Synonyme heben einen Binomen-Treffer bewusst vor „im Namen" (620) — solche Wörter misst der Fall nicht.
+          const syn = window.GS_SYNONYMS || {};
+          if (syn[q] || Object.keys(syn).some((k) => k.indexOf(q) === 0)) { info.push('„' + wort + '" übersprungen (Synonym)'); return; }
+          searchText = wort;
+          const liste = getFiltered();
+          if (!window._gsSearchIdx) { f.push('kein Suchindex'); return; }
+          const idx = new Map(window._gsSearchIdx.map((e) => [e.sp, e]));
+          const klasse = (sp) => {
+            const e = idx.get(sp); if (!e) return 6;
+            if (e.name === q) return 0;
+            if (e.name.indexOf(q) === 0 || e.segs.some((x) => x.indexOf(q) === 0)) return 1;
+            if (e.name.indexOf(q) >= 0) return 2;
+            if (e.lat.indexOf(q) >= 0) return 3;
+            if (e.fam.indexOf(q) >= 0) return 4;
+            if (e.blob.indexOf(q) >= 0) return 5;
+            return 6;
+          };
+          let vor = -1;
+          for (let i = 0; i < liste.length; i++) {
+            const k = klasse(liste[i]); gesehen.add(k);
+            if (k < vor) { f.push('„' + wort + '": Platz ' + (i + 1) + ' „' + liste[i].name + '" (' + NAMEN[k] + ') steht hinter einem Treffer „' + NAMEN[vor] + '"'); break; }
+            vor = k;
+          }
+          if (!liste.length) f.push('„' + wort + '" findet nichts — der Fall misst dort nichts');
+        });
+      } finally { currentFilter = vorF; searchText = vorS; if (typeof currentProp !== 'undefined') currentProp = vorP; }
+      if (gesehen.size < 4) f.push('nur ' + gesehen.size + ' Klassen kamen vor — der Fall misst die Ordnung kaum');
+      if (f.length) return { ok: false, warum: f.slice(0, 4).join(' · ') };
+      return { ok: true, info: gesehen.size + ' Klassen in fallender Ordnung über 10 Wörter' + (info.length ? ' · ' + info.join(', ') : '') };
+    },
+  },
+  {
     // SUCHE-8. Die Menü-Suche hatte einen eigenen Artenteil: `includes` auf Name, Binomen und
     // Familie — ohne Umlaut-Faltung („barlauch" fand den Bärlauch nicht), ohne Rangfolge (die ersten
     // fünf in Dateireihenfolge), ohne Vertipper, und ohne jede Giftmarkierung (die Trefferliste der

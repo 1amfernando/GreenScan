@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7, 8 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1–8, 10 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -66,7 +66,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 ## Offen — Suche
 
 > **Geliefert mit v33.61** (16.11.2026): Punkte 1, 2, 3, 4, 5, 6, 7 und die toten Reste aus 9.
-> Prüfstand: `scan_check` SU1–SU7. Dazu 8 (Menü-Suche, SU7). Offen bleibt 10 (Ranking).
+> Prüfstand: `scan_check` SU1–SU8. Dazu 8 (Menü-Suche, SU7) und 10 (Rangfolge, SU8) — die Suche hat keinen offenen Punkt mehr.
 
 1. ✅ v33.61 (dazu: die Kategorie-Einträge im Menü warfen einen Fehler; das ✕ im Suchfeld nahm
    den Filter weg und liess den Knopf markiert) — **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
@@ -85,7 +85,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    (`dbMatch`); der Artenteil ist eine zweite Suchlogik ohne Umlaute und Ranking.
 9. Tote Reste: `_origGetFiltered`, `_gsSearchDebounce`; `getFiltered` setzt nebenbei
    `_listPage = 1`.
-10. Kein Prüffall für Ranking, Umlaute, Synonyme, Tippfehler, `loadMoreList`.
+10. ✅ v33.61 (Rangfolge SU8; Umlaute SU3, Synonyme SU2, Tippfehler SU1, `loadMoreList` SU6, Menü SU7) — Kein Prüffall für Ranking, Umlaute, Synonyme, Tippfehler, `loadMoreList`.
 
 ## Offen — Home
 
