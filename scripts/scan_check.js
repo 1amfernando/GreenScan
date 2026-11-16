@@ -2334,9 +2334,9 @@ const FAELLE = [
       const echtAI = callAI, echtKi = gsKiVerfuegbar, echtScan = _lastScanResult, echtLina = window.gsOpenLina;
       const echtLang = (window.gsI18n && gsI18n.getLang) || null;
       const f = [];
-      let sys = '', msgs = null, linaAuf = 0;
+      let sys = '', msgs = null, linaAuf = 0, aiOpts = null;
       try {
-        callAI = async function (m, s) { msgs = m; sys = s; return 'Er wächst im Laubwald.'; };
+        callAI = async function (m, s, n, o) { msgs = m; sys = s; aiOpts = o; return 'Er wächst im Laubwald.'; };
         gsKiVerfuegbar = function () { return true; };
         _lastScanResult = { name: 'Zzz Testart', latin: 'Zzz testus', toxicity: 0, confidence: 85, emoji: '🌿' };
         openScanChat();
@@ -2351,6 +2351,8 @@ const FAELLE = [
         inp.value = 'Und wann blüht er?';
         await sendScanChat();
         if (!msgs || !msgs.some((x) => /Wo wächst er/.test(String(x.content)))) f.push('die zweite Frage geht ohne die erste an die KI');
+        // Essbarkeitsfragen zu einer gescannten Art: die Rolle steht ausdrücklich da, nicht „schnell" nach Länge
+        if (!aiOpts || aiOpts.rolle !== 'vision') f.push('der Scan-Chat fragt die KI ohne ausdrückliche Rolle „vision" (' + JSON.stringify(aiOpts && aiOpts.rolle) + ')');
         // 2 · ein anderer Scan beginnt neu
         closeScanChat();
         _lastScanResult = { name: 'Zzz Andere', latin: 'Zzz alter', toxicity: 0, confidence: 70, emoji: '🌿' };

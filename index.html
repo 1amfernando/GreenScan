@@ -37582,7 +37582,10 @@ async function sendScanChat() {
     // Begrüssung davor (Rolle assistant) trägt nichts, was nicht schon im System-Prompt steht.
     var _chatMsgs = _scanChatHistory.filter(function(m){ return m.content && !m.content.startsWith('[Kontext:'); }).slice(-8);
     while (_chatMsgs.length && _chatMsgs[0].role !== 'user') _chatMsgs.shift();
-    var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat' });
+    // v33.61: die Rolle ausdrücklich — der Chat beantwortet Essbarkeitsfragen zu einer gerade gescannten
+    // Art. Mit der Rollenwahl nach Länge (Sitzung „KI-Modelle", _gsWaehleRolle) landeten 600 Token
+    // auf „schnell"; Sicherheitsrelevantes setzt die Rolle selbst (Brett 2026-11-16-8234, Anker hier).
+    var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat', rolle: 'vision' });
     if (!answer) answer = _gsSatz('Darauf kam keine Antwort — bitte noch einmal fragen.');
     // v33.61: die Gegenprobe NACH der Antwort — gegen die gescannte Art UND jede, die in der
     // Frage steht. Sagt die Antwort „essbar" ueber eine Art mit Giftstufe >= 3, steht die

@@ -140,6 +140,9 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   dieser Art fragen" und öffnete den Scan-Chat; er heisst jetzt „KI zu dieser Art fragen". Dass
   der Chat „nur bei einem Treffer in der Artenliste" erscheine (Arbeitsliste): nachgesehen —
   seit v30.73 auch ohne Treffer.
+  Dazu (eigener Commit): der Chat übergibt `opts.rolle = 'vision'` — auf dem Branch der Sitzung
+  „KI-Modelle" (`_gsWaehleRolle`, nicht gemergt) fielen 600 Token sonst auf „schnell"; heute ohne
+  Wirkung, SC2 prüft, dass die Rolle mitgeht. Brett `2026-11-16-8234`.
 - **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
   im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
   über `gsSaisonMonate`.
@@ -200,7 +203,7 @@ zählt mit eigenen Regeln (brett 4d79: „Arten" = 4'337 Einträge, „Essbar" 1
 einen Tag zu spät und zählt Frost erst unter 2 °C (brett c72c). An die Sitzung „KI-Modelle":
 `_gsScanFehlerArt` hängt am Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07).
 
-**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07 — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt)
+**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234 — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle")
 **Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
