@@ -40,6 +40,52 @@ export const FEHLSCHLAEGE_MAX = 5;                       // dieselbe Grenze wie 
 export const ZIEL_VORGABE = '/?screen=garden';           // ohne Link: das Dashboard
 export const BRIDGE_MARKER = 'notification_id';          // der Schluessel in payload_meta, den die Bruecke prueft
 
+// v33.59 (Sicherheitspruefung 10.11.2026): `notifications` darf jede Person fuer
+// sich selbst beschreiben, auch mit kind = 'sensor_alert'. Der Rand lud die 500
+// AELTESTEN Zeilen der letzten 24 h — 500 selbst angelegte Zeilen, und kein
+// echter Alarm eines anderen Nutzers wurde mehr gepusht. Jetzt: neueste zuerst,
+// je Nutzer hoechstens MELDUNGEN_JE_NUTZER, und wer seinen Deckel voll hat, wird
+// in der naechsten Runde ausgeschlossen (meldungenLaden).
+export const MELDUNGEN_JE_NUTZER = 10;   // je Nutzer und Lauf — ein Geraet meldet selten mehr
+export const LADE_SEITE = 200;            // Zeilen je Abfrage
+export const LADE_RUNDEN = 10;            // hoechstens so viele Abfragen je Lauf
+
+/**
+ * Laedt die Meldungen gerecht je Nutzer. `lade(ausgeschlossen, vor)` ist der Rand:
+ * eine Abfrage `kind = KATEGORIE`, im Fenster, NEUESTE ZUERST, hoechstens `LADE_SEITE`
+ * Zeilen, ohne die Nutzer in `ausgeschlossen` und (falls gesetzt) nur `created_at <= vor`.
+ * Gegenpruefung: `<=`, nicht `<` — ein Cron-Lauf schreibt alle Alarme mit DEMSELBEN
+ * now(), und `created_at` setzt die Person bei eigenen Zeilen selbst (auch in die
+ * Zukunft). Mit `<` fiel an der Seitengrenze der Rest eines Gleichstands weg; die
+ * doppelt gelieferten Zeilen faengt `ids` ab, und eine Runde ohne neue Zeile endet.
+ * @returns {Promise<{meldungen:object[], runden:number, vollstaendig:boolean, gedeckelt:string[]}>}
+ */
+export async function meldungenLaden(lade, opt) {
+  const o = opt || {};
+  const jeNutzer = o.jeNutzer || MELDUNGEN_JE_NUTZER, seite = o.seite || LADE_SEITE, runden = o.runden || LADE_RUNDEN;
+  const jeU = new Map(), aus = new Set(), ids = new Set();
+  let vor = null, gelaufen = 0;
+  for (let r = 0; r < runden; r++) {
+    gelaufen = r + 1;
+    const zeilen = (await lade(Array.from(aus), vor)) || [];
+    let neu = 0;
+    zeilen.forEach((z) => {
+      if (!z || !z.id || !z.user_id || ids.has(z.id)) return;
+      neu++;
+      if (aus.has(z.user_id)) return;   // der Rand haette sie nicht liefern duerfen
+      const l = jeU.get(z.user_id) || [];
+      if (l.length < jeNutzer) { l.push(z); ids.add(z.id); }
+      jeU.set(z.user_id, l);
+      const t = String(z.created_at || '');
+      if (t && (vor === null || t < vor)) vor = t;
+    });
+    jeU.forEach((l, u) => { if (l.length >= jeNutzer) aus.add(u); });
+    if (zeilen.length < seite) return { meldungen: [].concat(...jeU.values()), runden: r + 1, vollstaendig: true, gedeckelt: Array.from(aus) };
+    if (!neu) break;   // eine volle Seite nur aus Bekanntem (Gleichstand groesser als die Seite) — gesagt, nicht wiederholt
+  }
+  return { meldungen: [].concat(...jeU.values()), runden: gelaufen, vollstaendig: false, gedeckelt: Array.from(aus) };
+}
+
 function ms(x) { const t = Date.parse(String(x || '')); return Number.isFinite(t) ? t : NaN; }
 
 /** Stille-Zeit — dieselbe Rechnung wie inQuietHours in daily-push-checker. */

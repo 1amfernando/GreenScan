@@ -1,0 +1,47 @@
+{
+  "id": "2026-11-11-3519",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Ein Escape oder eine Verbotsliste ist keine Erlaubnisliste — der Kontext liest anders als der Filter",
+  "regel": "Ein Wert, der in einem Kontext mit eigener Sprache landet (CSS-Wert, style-Attribut, url('…'), Attributwert eines Fragments, Kopfzeile), wird gegen eine ERLAUBNISliste dessen geprüft, was dort stehen darf. Escape-Funktionen und Verbotslisten auf dem Rohtext übersehen, was der Parser des Kontexts daraus macht (Escapes, andere Funktionen, Trennzeichen ohne Anführung). Gemessen wird die WIRKUNG, also die Anfragen des Browsers, nicht der Text.",
+  "text": "Man erkennt eine neue Instanz an einem Wert aus fremder Hand, der in style=\"…\", url('…') oder einen Attributwert geht und dabei nur durch escHtml, encodeURI, ein .replace(/[…]/g,'') oder ein „enthält nicht X“ läuft. Prüffrage: Kann ein Wert diesen Filter passieren und im Kontext trotzdem etwas anderes bedeuten (CSS-Escape, ; als neue Deklaration, eine Funktion ohne das gesperrte Wort, ein \" im eingebetteten Fragment)? Abgegrenzt von a874 (menschliche Sätze und Wortgrenzen): hier ist der Leser ein Parser.",
+  "instanzen": [
+    "v33.54 · der style-Filter von gsSanitizeHtml suchte url( im Text. CSS liest u\\72l( als url(, image-set(\"…\") lädt ohne url(. 6 von 6 bösen Stilen luden eine fremde Adresse. Seither _gsStilSaeubern mit GS_SANITIZE_STIL",
+    "v33.59 · escHtml hielt einen Farbwert in style=\"…\", aber red;background-image:url(…) blieb CSS und lud eine fremde Adresse. Seither _gsKbFarbe (Erlaubnisliste)",
+    "v33.59 · encodeURI für eine Bildadresse in url('…') liess ' und ) stehen. Seither _gsCssUrl (Schema-Erlaubnis plus Prozentkodierung allem, was CSS oder das Attribut beendet)",
+    "v33.59 · eine bereinigte Übersetzung mit eigenen title/href-Attributen in einem Attributwert: das erste \" beendete das äussere Attribut. Seither lässt _i18nWert nur style ohne Leerraum zu, und gsSanitizeHtml kennt kein class mehr"
+  ],
+  "suchmuster": "grep -nE \"url\\(\\\\\\\\?['\\\"]?' ?\\+\" index.html | grep -v _gsCssUrl",
+  "gesucht": "v33.59: 3 Senken url('+x+') ohne _gsCssUrl in derselben Zeile. Zwei davon bekommen ihren Wert vorher aus _gsCssUrl (gsHomeRenderTopPicks img, _heroUrl). Eine benutzt noch eine Verbotsliste: die Pflanzenkarte headerVisual mit `_safePhoto = p.photo.replace(/['\"()\\\\\\s<>]/g, '')`. Das ist ein eigenes Foto, das beim Backup-Import durch _gsSiebListe geht, also heute keine Lücke, aber dieselbe Bauform.",
+  "waechter": [
+    {
+      "datei": "scripts/escape_check.js",
+      "fall": "A10b · gsSanitizeHtml: kein style laedt eine fremde Adresse"
+    },
+    {
+      "datei": "scripts/sicherheit/96_wissen.js",
+      "fall": "n1 · Blumen-Farbe: bloom_color ist ein CSS-Wert"
+    },
+    {
+      "datei": "scripts/sicherheit/00_helfer.js",
+      "fall": "Helfer · _gsCssUrl: eine Adresse bleibt in url"
+    }
+  ],
+  "stichworte": [
+    "_gsStilSaeubern",
+    "_gsKbFarbe",
+    "_gsCssUrl",
+    "_i18nWert",
+    "gsSanitizeHtml",
+    "escHtml",
+    "encodeURI",
+    "style",
+    "CSS",
+    "Erlaubnisliste",
+    "escape_check",
+    "sicherheit_check"
+  ]
+}

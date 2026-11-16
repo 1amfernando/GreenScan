@@ -1,8 +1,12 @@
 // Stripe Billing Portal session
 // v3 (2026-05-10): flow-Parameter für Cancel/Reactivate Direct-Flow + green-scan.ch URL-Fix
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import Stripe from "npm:stripe@17";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import Stripe from "npm:stripe@17.7.0";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.59: Kunden-Id aus stripe_subscriptions (so beschreibt SW-CHANGELOG v26.68 die ausgelieferte
+// v4 — im Repo stand noch die Fassung mit stripe_customers, die es live nicht gibt), return_url nur
+// eigene Urspruenge, Fehler als Kennung. Rechnung: ../_shared/zahlung_regeln.mjs.
+import { rueckkehrAdresse, kundenId, fehlerCode } from "../_shared/zahlung_regeln.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,15 +32,22 @@ Deno.serve(async (req) => {
     if (authErr || !user) return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const admin = createClient(supabaseUrl, svcKey);
-    const { data: customer } = await admin.from("stripe_customers").select("stripe_customer_id").eq("user_id", user.id).maybeSingle();
-    if (!customer) return new Response(JSON.stringify({ error: "No Stripe customer found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { data: kundenZeilen, error: kundenErr } = await admin
+      .from("stripe_subscriptions")
+      .select("stripe_customer_id, customer_id, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (kundenErr) console.error("[stripe-portal] stripe_subscriptions", kundenErr.message);
+    const customerId = kundenId(kundenZeilen ?? []);
+    if (!customerId) return new Response(JSON.stringify({ error: "No Stripe customer found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
 
     // v3: flow_data für Direct-Cancel/Reactivate
     const portalParams: Stripe.BillingPortal.SessionCreateParams = {
-      customer: customer.stripe_customer_id,
-      return_url: return_url ?? `${APP_URL}/?billing=return`,
+      customer: customerId,
+      return_url: rueckkehrAdresse(return_url, `${APP_URL}/?billing=return`),
     };
 
     if (flow === "cancel" || flow === "reactivate") {
@@ -70,6 +81,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ url: session.url, flow: flow || "default" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String((e as any)?.message ?? e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("[stripe-portal]", (e as any)?.message ?? e);
+    const f = fehlerCode(e, "portal_failed");
+    return new Response(JSON.stringify({ error: f.error }), { status: f.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

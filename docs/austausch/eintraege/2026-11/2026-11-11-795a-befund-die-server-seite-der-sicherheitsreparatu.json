@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-795a",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/offen",
+  "stand": "v33.59",
+  "titel": "Die Server-Seite der Sicherheitsreparatur v33.59 ist nicht angewandt und nicht ausgeliefert",
+  "sicherheit": true,
+  "details_bei": "docs/FUER-FERNANDO.md §30 und die Köpfe der Migrationen supabase/migrations/20261110_*.sql",
+  "stichworte": [
+    "v33.59",
+    "20261110_sicherheit_ki_kontingent.sql",
+    "Edge-Functions",
+    "AUSLIEFERUNG.json",
+    "FUER-FERNANDO §30",
+    "Sicherheit"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-1892",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Dazu: _gsNotfallStufe in Node ausgeführt — AKUT kennt kein spanisches Wort, „intoxicat“ deckt „intoxicación“ nicht ab",
+  "text": "Unverändert. Neuer Beleg: Die Funktion wurde aus index.html herausgelöst und in Node ausgeführt, ohne App. Das Vokabular AKUT kennt kein spanisches Wort; „intoxicat“ deckt das spanische „intoxicación“ nicht ab, weil dort „intoxicac“ steht. 0 von 5 spanischen Sätzen werden erkannt, der deutsche Kontrollsatz wird „dringend“. In Arbeit auf dem Branch ccr-5e705a36-jveaak (v33.59, noch ohne PR): die Reparatur folgt dort mit einem Fall, der vorher rot ist; der Abschluss kommt als eigener Eintrag.",
+  "beleg": [
+    "sed -n '/^function _gsNotfallStufe/,/^}/p' index.html → var AKUT = /vergift|notfall|notruf|empoisonn|intoxicat|avvelenament|poisoning|poisoned|emergency/;",
+    "node, _gsNotfallStufe: „mi hija ha comido bayas“, „envenenamiento por setas“, „intoxicación“, „mi perro ha comido una planta venenosa“, „mi hijo se comió una seta“ → je „keiner“; „meine tochter hat beeren gegessen“ → „dringend“"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-df0b"
+    }
+  ]
+}

@@ -75,6 +75,21 @@ for d in icons assets/icons assets/leaflet-images; do
   mkdir -p "$BAU/assets/www/$d"
   cp -r "$REPO/$d/." "$BAU/assets/www/$d/"
 done
+# v33.59: die selbst gehosteten Schriften.
+mkdir -p "$BAU/assets/www/assets/fonts"
+cp "$REPO"/assets/fonts/*.woff2 "$BAU/assets/www/assets/fonts/"
+# v33.59: pdf.js liegt selbst gehostet unter assets/pdfjs/<version>/ (vorher cdnjs) —
+# ohne die Dateien im Paket faende das Einlesen eines PDFs in der Huelle eine 404.
+for f in "$REPO"/assets/pdfjs/*/*.mjs; do
+  rel="${f#$REPO/}"; mkdir -p "$BAU/assets/www/$(dirname "$rel")"; cp "$f" "$BAU/assets/www/$rel"
+done
+
+# v33.59: die Lizenztexte reisen mit — die Pflicht haengt an der WEITERGABE,
+# nicht daran, ob die App sie liest (Schriften: SIL OFL 1.1, pdf.js: Apache-2.0).
+# Jeder Lizenztext unter assets/, an DEMSELBEN Pfad wie im Web; apk_check B6.
+while IFS= read -r -d '' f; do
+  rel="${f#$REPO/}"; mkdir -p "$BAU/assets/www/$(dirname "$rel")"; cp "$f" "$BAU/assets/www/$rel"
+done < <(find "$REPO/assets" -type f \( -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' \) -print0)
 
 PAKET_MB="$(du -sm "$BAU/assets/www" | cut -f1)"
 echo "-- Paketinhalt: $(find "$BAU/assets/www" -type f | wc -l) Dateien, ${PAKET_MB} MB roh"
@@ -127,13 +142,17 @@ if [ "$RELEASE" = "1" ]; then
   : "${GS_APK_KS:?--release braucht GS_APK_KS (Pfad zum Schluesselspeicher)}"
   : "${GS_APK_KS_PASS:?--release braucht GS_APK_KS_PASS}"
   : "${GS_APK_ALIAS:?--release braucht GS_APK_ALIAS}"
-  KS="$GS_APK_KS"; KSPASS="$GS_APK_KS_PASS"; ALIAS="$GS_APK_ALIAS"
+  KS="$GS_APK_KS"; ALIAS="$GS_APK_ALIAS"
+  export GS_APK_KS_PASS
   NAME="greenscan-v$VERSION.apk"
 else
-  KS="$HIER/.keystore-dev/dev.keystore"; KSPASS="greenscan-dev"; ALIAS="dev"
+  KS="$HIER/.keystore-dev/dev.keystore"; ALIAS="dev"
+  # Der Wegwerf-Schluessel hat ein bekanntes Passwort — es geht trotzdem ueber
+  # die Umgebung, damit es nur EINEN Weg zum Signieren gibt.
+  export GS_APK_KS_PASS="greenscan-dev"
   if [ ! -f "$KS" ]; then
     mkdir -p "$(dirname "$KS")"
-    keytool -genkeypair -keystore "$KS" -storepass "$KSPASS" -keypass "$KSPASS" \
+    keytool -genkeypair -keystore "$KS" -storepass:env GS_APK_KS_PASS -keypass:env GS_APK_KS_PASS \
       -alias "$ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
       -dname "CN=GreenScan Entwicklung, O=GreenScan, C=CH" 2>&1 | grep -v "Picked up" || true
   fi
@@ -141,7 +160,9 @@ else
 fi
 
 zipalign -f 4 "$BAU/out/unsigned.apk" "$BAU/out/aligned.apk"
-apksigner sign --ks "$KS" --ks-pass "pass:$KSPASS" --key-pass "pass:$KSPASS" \
+# v33.59: das Passwort nie als Argument — argv ist fuer jedes Konto der
+# Maschine lesbar (ps, /proc/<pid>/cmdline). apksigner liest es aus der Umgebung.
+apksigner sign --ks "$KS" --ks-pass env:GS_APK_KS_PASS --key-pass env:GS_APK_KS_PASS \
   --ks-key-alias "$ALIAS" --out "$BAU/$NAME" "$BAU/out/aligned.apk" 2>&1 \
   | grep -v "Picked up JAVA_TOOL_OPTIONS" || true
 apksigner verify "$BAU/$NAME" >/dev/null 2>&1 || { echo "Signatur nicht gueltig" >&2; exit 1; }

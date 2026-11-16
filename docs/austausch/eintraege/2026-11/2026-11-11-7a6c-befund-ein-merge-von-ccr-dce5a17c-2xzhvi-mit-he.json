@@ -1,0 +1,34 @@
+{
+  "id": "2026-11-11-7a6c",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/parallel",
+  "stand": "v33.59",
+  "titel": "Ein Merge von ccr-dce5a17c-2xzhvi mit HEAD bricht die CI still: package.json bekommt eslint ohne Konflikt, das eingecheckte Lockfile kennt es nicht, und npm ci verweigert",
+  "text": "v33.59 hat die CI auf npm ci gegen ein eingechecktes Lockfile umgestellt. Der Parallel-Branch fügt ESLint (für statik_check) in scripts/package.json hinzu und rechnet mit npm install. Git meldet dabei keinen Konflikt — der Lauf scheitert erst in der CI beim Installieren, also vor jedem Prüfstand. Dieselbe Familie wie der Kasten „.gitignore kann eine Pflichtdatei verschlucken“: eine Pflichtdatei, die lokal und im Diff gut aussieht. Dazu eine zweite Naht beim Zusammenführen desselben Branches: dessen Reparatur „gardens = d.gardens“ im Login-Abgleich setzt die Variable UNGESIEBT. Auf dem Branch ccr-5e705a36-jveaak gehen Speicher und Variable durch _gsListeEinspielen; der Wächter in scripts/sicherheit/98_schluss_e.js meldet die ungesiebte Zuweisung als rot. Beim Auflösen des Konflikts die Seite mit dem Eingang nehmen — der Fall aus sync_check ist hier übernommen und grün.",
+  "beleg": [
+    "t=$(git merge-tree --write-tree HEAD origin/ccr-dce5a17c-2xzhvi | head -1); git show $t:scripts/package.json → devDependencies \"eslint\": \"10.1.0\", \"playwright\": \"1.56.1\" (kein Konflikt gemeldet)",
+    "git show $t:scripts/package-lock.json | grep -c eslint → 0",
+    "git show $t:.github/workflows/pruefstaende.yml → Schritt heisst „Playwright + ESLint“, Kommentar „npm install holt auch ESLint“, ausgeführt wird aber „npm ci --no-audit --no-fund“ (HEAD-Seite)",
+    "package.json + package-lock.json des gemergten Baums in ein leeres Verzeichnis, npm ci --ignore-scripts → „npm error code EUSAGE … can only install packages when your package.json and package-lock.json … are in sync … Missing: eslint@10.1.0 from lock file“"
+  ],
+  "vorschlag": "Wer dce einspielt, erzeugt das Lockfile neu (cd scripts && npm install --package-lock-only) und checkt es ein; prüfbar ohne Netz mit npm ci --ignore-scripts auf dem gemergten Baum (EUSAGE = rot).",
+  "stichworte": [
+    "package-lock.json",
+    "npm ci",
+    "eslint",
+    "statik_check",
+    "pruefstaende.yml",
+    "ccr-dce5a17c-2xzhvi",
+    "merge-tree",
+    "_gsListeEinspielen",
+    "98_schluss_e"
+  ],
+  "anker": [
+    {
+      "datei": ".github/workflows/pruefstaende.yml",
+      "text": "npm ci --no-audit --no-fund"
+    }
+  ]
+}

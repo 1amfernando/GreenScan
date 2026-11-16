@@ -90,11 +90,18 @@ keytool -genkeypair -v \
 ### 2 · Damit bauen
 
 ```bash
+read -rs -p 'Passwort des Schluessels: ' GS_APK_KS_PASS && export GS_APK_KS_PASS
 GS_APK_KS=~/greenscan-release.keystore \
-GS_APK_KS_PASS='…' \
 GS_APK_ALIAS=greenscan \
 bash android/build.sh --release
+unset GS_APK_KS_PASS
 ```
+
+Das Passwort wird **gelesen, nicht getippt**: steht es in der Befehlszeile,
+landet es im Shell-Verlauf, und `build.sh` reicht es nur ueber die Umgebung an
+`apksigner` weiter (`--ks-pass env:…`), nie als Argument — Argumente sind fuer
+jedes Konto der Maschine in der Prozessliste lesbar (`apk_check` R7).
+`keytool` oben fragt das Passwort selbst ab; gib es dort nicht mit `-storepass` an.
 
 ### 3 · Zum Herunterladen hinlegen
 

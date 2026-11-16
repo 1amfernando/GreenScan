@@ -53,8 +53,55 @@ public final class Pfade {
    * </ul>
    */
   public static boolean imUrsprung(String schema, String wirt) {
+    return imUrsprung(schema, wirt, -1);
+  }
+
+  /**
+   * Dasselbe mit Port (v33.59): {@code -1} (keiner angegeben) und 443 sind der
+   * eigene Ursprung, jeder andere Port ein FREMDER — sonst bekaeme
+   * {@code https://green-scan.ch:8443} die App aus dem Paket, unter einem
+   * zweiten Ursprung mit eigenem Speicher.
+   */
+  public static boolean imUrsprung(String schema, String wirt, int port) {
     if (schema == null || wirt == null) return false;
+    if (port != -1 && port != 443) return false;
     return "https".equalsIgnoreCase(schema) && HOST.equalsIgnoreCase(wirt);
+  }
+
+  /**
+   * Die Weiche in {@code shouldInterceptRequest} (v33.59): {@code "paket"} fuer
+   * den eigenen Ursprung, {@code "netz"} fuer fremde Unteranfragen — und
+   * {@code "nein"} fuer einen fremden HAUPTRAHMEN. Dorthin kommt nur, wer an
+   * {@code shouldOverrideUrlLoading} vorbeigeht (ein Formular-POST ruft es
+   * nicht): die Huelle zeigt nie eine fremde Seite unter ihrem Rahmen, die
+   * dann Kamera und Standort erfragen koennte.
+   */
+  public static String weiche(boolean hauptRahmen, String schema, String wirt, int port) {
+    if (imUrsprung(schema, wirt, port)) return "paket";
+    return hauptRahmen ? "nein" : "netz";
+  }
+
+  /**
+   * Darf diese Seite im Hauptrahmen stehen? Die zweite Schranke in
+   * {@code onPageStarted} (v33.59): der eigene Ursprung und das leere
+   * {@code about:blank}, sonst nichts.
+   */
+  public static boolean hauptRahmenOk(String schema, String wirt, int port, String ganz) {
+    if ("about:blank".equals(ganz)) return true;
+    return imUrsprung(schema, wirt, port);
+  }
+
+  /**
+   * Welche Adressen gibt die Huelle nach draussen weiter (v33.59)? Genau die
+   * Schemata, die die App wirklich oeffnet — gemessen: Links (https, http),
+   * {@code mailto:} und {@code tel:}. Alles andere ({@code intent:},
+   * {@code market:}, {@code file:}, {@code content:}, eigene Schemata fremder
+   * Apps) waere ein Sprungbrett aus einem Fehler in der Seite in eine andere App.
+   */
+  public static boolean darfNachDraussen(String schema) {
+    if (schema == null) return false;
+    String s = schema.toLowerCase(java.util.Locale.ROOT);
+    return "https".equals(s) || "http".equals(s) || "mailto".equals(s) || "tel".equals(s);
   }
 
   public static String normieren(String pfad) {

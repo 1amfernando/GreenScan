@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-11-c4af",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Dazu: das Scan-Kontingent wird in callVisionAI durchgesetzt (gsQuotaPeek/gsQuotaConsume) — der Zweig in gsAboCanUse ist eine zweite Rechnung mit anderem Rückfall",
+  "text": "Unverändert. Neuer Beleg: Das Scan-Kontingent im Client wird an anderer Stelle durchgesetzt, nämlich in callVisionAI mit opts.quotaFeature:'scan' über gsQuotaPeek/gsQuotaConsume. analyzeImage und die Gegenprobe rufen es so auf. Der Zweig 'scan' in gsAboCanUse ist also nicht nur ohne Aufrufer. Er ist eine zweite Rechnung für dieselbe Frage (passt auch zu Klasse df51), mit anderem Limit-Rückfall (5 gegen „free 15/Tag“) und einem Zähler, den niemand schreibt. Serverseitig kommt mit v33.59 KI_GRENZEN in ki_tor.mjs als dritte Instanz dazu (nicht live). In Arbeit auf dem Branch ccr-5e705a36-jveaak (v33.59, noch ohne PR): die Reparatur folgt dort mit einem Fall, der vorher rot ist; der Abschluss kommt als eigener Eintrag.",
+  "beleg": [
+    "grep -n \"gs_scans\" index.html → 1 Zeile (var key = 'gs_scans_' + today;)",
+    "grep -o \"gsAboCanUse([^)]*)\" index.html | sort | uniq -c → 3× 'ai_call', 1× 'save' (nur Kommentar), 1× feature (Definition); 0× 'scan'",
+    "grep -n \"quotaFeature: 'scan'\" index.html → 2 Aufrufe (analyzeImage, Gegenprobe); callAI: gsQuotaPeek(opts.quotaFeature)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-2e3a"
+    }
+  ]
+}

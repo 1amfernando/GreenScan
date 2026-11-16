@@ -1,0 +1,41 @@
+{
+  "id": "2026-11-11-f4d3",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/offen",
+  "stand": "v33.59",
+  "titel": "daily-push und push-test (nie ausgeliefert) lesen und schreiben Spalten von push_subscriptions, die es live nicht gibt",
+  "text": "Beide Verzeichnisse wurden in v33.59 gehaertet (Push-Endpunkt-Pruefung, feste Versionen), aber nicht lauffaehig gemacht. Wer sie ausliefert, weil sie in der Liste der 29 geaenderten Functions stehen, bekommt Functions, die nie senden koennen. Das dritte nie ausgelieferte Verzeichnis ist entitlements. Entscheidung offen: reparieren oder entfernen. In supabase/functions/AUSLIEFERUNG.json stehen beide auf „nicht“; edge_check 60_spalten führt sie als bekannt kaputt und wird rot, sobald eine der beiden sauber ist oder ausgeliefert werden soll.",
+  "beleg": [
+    "scripts/edge/_live_schema.mjs push_subscriptions: auth_secret, last_push_sent_at, push_failure_count — kein auth, send_hour, locale, enabled, last_sent_at, failure_count",
+    "daily-push/index.ts liest ausserdem brain_memory (gsBrain ist laut CLAUDE.md §4 entfernt)",
+    "STATUS.md §2 „3 Verzeichnisse im Repo ohne Auslieferung“ (df, v33.59 nachgemessen); docs/FUER-FERNANDO.md §30d: „vor einer ersten Auslieferung erst reparieren“"
+  ],
+  "vorschlag": "Entfernen (sensor-push und send-push decken den Weg) oder auf die Live-Spalten umstellen; ein Spalten-Fall in edge_check haelt jede .select/.update gegen _live_schema.mjs.",
+  "stichworte": [
+    "daily-push",
+    "push-test",
+    "entitlements",
+    "push_subscriptions",
+    "brain_memory",
+    "edge_check",
+    "_live_schema.mjs"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/daily-push/index.ts",
+      "text": ".select(\"id, user_id, endpoint, p256dh, auth, send_hour, locale\")"
+    },
+    {
+      "datei": "supabase/functions/push-test/index.ts",
+      "text": ".select(\"id, endpoint, p256dh, auth, enabled\")"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-b51a"
+    }
+  ]
+}

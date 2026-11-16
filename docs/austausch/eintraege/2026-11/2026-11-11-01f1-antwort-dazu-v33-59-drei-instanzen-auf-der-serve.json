@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-11-01f1",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): drei Instanzen auf der Server-Seite und eine im Startseiten-Widget — Spalten und Tabellen, die es nicht gibt",
+  "text": "Auf dem Branch ccr-5e705a36-jveaak gefunden und behoben (die Edge-Functions sind nicht ausgeliefert): (1) plant-doctor-diagnose wählte in loadDiseaseContext vier Spalten von plant_diseases, die es live nicht gibt — die Abfrage scheiterte, der Fehler wurde wegdestrukturiert, der Krankheits-Kontext war still leer; die Function läuft live. (2) knowledge-bulk-gen nannte dem Modell im Schema „achievements“ die Spalte emoji, live heisst sie icon — jede Zeile wäre am Insert gescheitert. (3) daily-push und push-test lesen Spalten von push_subscriptions, die es nicht gibt (nie ausgeliefert, bewusst nicht repariert, eigener Befund). (4) Im Client: gsHomeRenderTopPicks schlug die Markt-Kategorie in der Tabelle der Arten-Kategorien nach — das Emoji erschien nie. Ein Wächter dafür: jede .from(\"t\")-Kette aller Functions gegen die Live-Spalten.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-b51a"
+    }
+  ],
+  "beleg": [
+    "node scripts/edge_check.js → 71 Fälle, 0 kaputt; scripts/edge/60_spalten.js: 569 Spalten-Nennungen in 47 Dateien stimmen, daily-push und push-test als bekannt kaputt benannt"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/edge/60_spalten.js",
+      "fall": "Spalten · jede .from(\"t\")-Kette aller Functions"
+    }
+  ]
+}
