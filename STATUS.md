@@ -62,17 +62,36 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   (`gsKorrekturVorschlag`). Die Fehlerkarte spricht in Sätzen (`_gsScanFehlerArt`), Rohtext
   und Modell nur für Admins, „In einer Minute nochmal" mit Countdown; `_gsRetryLastScan`
   behält „Trotzdem bestimmen".
+- **Scan-Verlauf rechnete anders als die Ergebniskarte** (Scanner 6). Liste, Detail und
+  Galerie-Detail fanden die Art per Namensvergleich (`DB.find(name === …)`): 189 deutsche Namen
+  stehen für mehrere Arten, „In Datenbank öffnen" nahm den ersten Eintrag der Datei — in 73
+  Fällen eine harmlosere Art als die gescannte, in 11 mit übersehener Giftstufe (Storchschnabel /
+  Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail
+  (`openScanHistoryDetail`) zeigte „Essbar" und die Giftstufe aus dem GESPEICHERTEN Scan — ein
+  alter Eintrag „Herbstzeitlose, essbar" stand als „🥗 Essbar" da (Liste: Stufe 5). Das Wort zur
+  Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher" statt „Möglich"). Jetzt
+  `_gsVerlaufArt` (= `gsMatchScanToDb`), die Sicherheit über `_gsArtAnzeige`/`gsIstEssbar`,
+  `_gsKonfidenzStufe` für Karte, Verlauf, Galerie und Galerie-Detail; der Kopf zählt Arten nach
+  dem Binomen; ein Scan ohne Treffer verspricht keinen „automatisch eingereichten" Vorschlag
+  mehr (gesendet wird er nur ab 60 %, angemeldet und online, und gelesen hat die Antwort niemand).
 - **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
   im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
   über `gsSaisonMonate`.
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU3, HS1 (N1 um Spanisch, E1b an der Art)
-und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3 (Lina-
-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher); `escape_check` +1
-(A3b). Jeder neue Fall gegen den Stand davor gefahren: rot.
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU3, HS1, SV1–SV3 (N1 um Spanisch, E1b an
+der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
+(Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
+`escape_check` +1 (A3b). Jeder neue Fall gegen den Stand davor gefahren: rot. Volle Suite auf
+3812572: 42 Prüfstände, rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge).
 
-**Offen:** brett:2026-11-11-2e3a
-**Nicht geprüft:** ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando.
+**Aufs Brett gelegt** (nicht in den vier Funktionen, deshalb nicht angefasst): der Wissen-Tab
+zählt mit eigenen Regeln (brett 4d79: „Arten" = 4'337 Einträge, „Essbar" 1'130 statt 1'062,
+„Giftig" 598 statt 675 wie der Filter); das Standort-Fenster hat im Dunkelmodus 1,51:1
+(brett a082, auf `main` identisch). An die Sitzung „KI-Modelle": `_gsScanFehlerArt` hängt am
+Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07).
+
+**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-cd07 — Gratis-Zähler (Fernando), Wissen-Tab und Standort-Fenster (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt)
+**Nicht geprüft:** die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 

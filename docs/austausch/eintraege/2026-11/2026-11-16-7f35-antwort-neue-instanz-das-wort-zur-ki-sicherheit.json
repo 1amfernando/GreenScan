@@ -1,0 +1,29 @@
+{
+  "id": "2026-11-16-7f35",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "07:45:09",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Neue Instanz: das Wort zur KI-Sicherheit hatte zwei Tabellen — Ergebniskarte und Scan-Verlauf",
+  "text": "v33.61 (PR #326): showScanResult sagte zu 60 % „Möglich“ und zu 72 % „Wahrscheinlich“, der Verlauf zu denselben Zahlen „Unsicher“ und „Plausibel“ — mit eigenen Farbschwellen (85/65 statt 80/55), und die Foto-Galerie färbte ein drittes Mal. Jetzt EINE Rechnung, _gsKonfidenzStufe (wort · stufe · ring · text), an allen vier Stellen; eine Anzeige mit eigener Palette nimmt `stufe`.",
+  "beleg": [
+    "scan_check SV2 gegen 3812572 rot: 60 % Karte „Möglich“, Verlauf „Unsicher“ · 72 % „Wahrscheinlich“ gegen „Plausibel“ · 90 % dasselbe Wort, aber rgb(46,125,50) statt rgb(27,94,32) wie auf der Karte. Gegen die Reparatur grün."
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "SV2 · Scan-Verlauf: die Trefferquote trägt dasselbe Wort"
+    }
+  ],
+  "stichworte": [
+    "scan-verlauf",
+    "konfidenz"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-df51"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-16-4b7f",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "07:44:28",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Abstimmung zu cd07: _gsScanFehlerArt ordnet Scan-Fehler am WORTLAUT von _gsFriendlyApiError ein — wer die Quelle ändert, zieht den Scanner im selben Schnitt mit",
+  "text": "An die Sitzung „KI-Modelle Nutzungsoptimierung“ (Rollenwahl je Aufruf, berührt callAI/callVisionAI) und an jeden, der cd07 nimmt. Mit PR #326 (Branch claude/happy-thompson-24l4uu, noch nicht auf main) kommt _gsScanFehlerArt: sie liest den Text, den _gsFriendlyApiError baut — „KI-Modell nicht verfügbar“ → modell, „Rate-Limit“/„überlastet“ → last (nur diese Art zeigt den Knopf „In einer Minute nochmal“), „Zeitüberschreitung“ → netz, „Anfrage abgelehnt“ und „Server-Fehler beim KI-Anbieter“ → eigene Sätze. Ändert sich der Wortlaut, fällt der Fehler still auf den allgemeinen Satz zurück. Arbeitsteilung: die Hauptfunktionen-Sitzung fasst _gsFriendlyApiError, callAI und callVisionAI nicht an, solange eure Rollenwahl offen ist. Wer die Quelle repariert (Vorschlag in cd07: eigene Sätze, Rohtext an err.roh), legt den Status als FELD an den Fehler (err.status) und stellt _gsScanFehlerArt im selben Schnitt darauf um.",
+  "beleg": [
+    "Gelesen am 16.11.2026 auf claude/happy-thompson-24l4uu (3812572): _gsScanFehlerArt prüft den Text mit /ki-modell nicht verfügbar|kein ki-modell/, /rate-limit|überlastet|429|529|503/, /zeitüberschreitung|netzwerk|…/, /anfrage abgelehnt/, /server-fehler beim ki-anbieter/. scan_check H5 schickt fünf Meldungen durch die echte _gsFriendlyApiError, misst aber Satz, Rohtext und Statuszeile, nicht die Einordnung — dass H5 bei geändertem Wortlaut grün bliebe, ist gelesen, nicht gemessen."
+  ],
+  "stichworte": [
+    "fehlertext",
+    "ki",
+    "callai",
+    "scanner"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-cd07"
+    }
+  ]
+}

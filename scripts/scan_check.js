@@ -2819,6 +2819,183 @@ const FAELLE = [
       return { ok: true, info: '2 → 1 → Versuch (genau 1) · Abbruch: 0 Versuche · Karte weg: 0 · doppelt gestartet: 1' };
     },
   },
+  {
+    // SCANNER-6. Der Verlauf ordnete einen Scan der Artenliste mit einem Namensvergleich zu
+    // (`DB.find(name === …)`), die Ergebniskarte mit gsMatchScanToDb (Binomen vor Name). Gemessen
+    // 16.11.2026: 189 deutsche Namen stehen fuer mehrere Arten; in 11 Faellen oeffnete „In Datenbank
+    // oeffnen" eine ungiftige Art, obwohl eine giftige gescannt war (Hahnenfuss / Ranunculus acer,
+    // Stufe 3 → Batrachium hederaceum, Stufe 0). Der Fall SUCHT sich so einen Namen in der Liste,
+    // statt ihn festzuschreiben, und haelt den Verlauf gegen die Karte desselben Scans.
+    name: 'SV1 · Scan-Verlauf ordnet die Art zu wie die Ergebniskarte: ein mehrdeutiger Name öffnet die gescannte Art, ein fremder Name mit bekanntem Binomen steht „in DB" — und ohne Treffer verspricht nichts einen Vorschlag',
+    lauf: async () => {
+      const altP = window.gsScanPersistToCloud;
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      const klagen = [];
+      const norm = (s) => String(s || '').toLowerCase().trim();
+      const nach = {};
+      for (const s of DB) { if (s && s.name && s.lat) (nach[norm(s.name)] = nach[norm(s.name)] || []).push(s); }
+      let fall = null;
+      for (const k of Object.keys(nach)) {
+        const v = nach[k], erst = v[0];
+        const s = v.find(x => _gsNormLat(x.lat) !== _gsNormLat(erst.lat) && (Number(x.tox) || 0) > (Number(erst.tox) || 0));
+        if (s) { fall = { name: s.name, latin: s.lat, tox: Number(s.tox) || 0, erst }; break; }
+      }
+      if (!fall) return { ok: false, warum: 'kein deutscher Name mit einer giftigeren zweiten Art in der Liste — der Fall misst nichts' };
+      const scans = [
+        { schl: 'mehrdeutig', r: { name: fall.name, latin: fall.latin, confidence: 77, edible: false, toxic: true, toxicity: fall.tox } },
+        { schl: 'fremdname',  r: { name: 'Wilder Knoblauch (Testname)', latin: 'Allium ursinum', confidence: 81, edible: true, toxic: false, toxicity: 0 } },
+        { schl: 'zweitname',  r: { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, edible: true, toxic: false, toxicity: 0 } },
+        { schl: 'unbekannt',  r: { name: 'Fantasiekraut', latin: 'Planta ficta', confidence: 70, edible: false, toxic: false, toxicity: 0 } },
+      ];
+      const idAus = (el) => { const m = el && /openDetail\('([^']+)'\)/.exec(el.getAttribute('onclick') || ''); return m ? m[1] : null; };
+      const karteId = {};
+      try {
+        localStorage.setItem('gs_scan_history', '[]'); localStorage.setItem('gs_confirmed_species', '[]');
+        for (const s of scans) {
+          window._gsLastScanIdInfo = null;
+          showScanResult(Object.assign({ alternatives: [], description: 'x' }, s.r));
+          karteId[s.schl] = idAus(document.querySelector('#scan-result .sr2-cta-primary[onclick*="openDetail"]'));
+        }
+        if (!karteId.mehrdeutig || !karteId.fremdname) return { ok: false, warum: 'die Karte selbst findet die Art nicht (' + JSON.stringify(karteId) + ') — der Fall misst nichts' };
+        if (karteId.unbekannt) return { ok: false, warum: 'die Karte findet „Planta ficta" in der Liste — der Fall misst nichts' };
+        const geoeffnet = DB.find(x => x.id === karteId.mehrdeutig);
+        if (!geoeffnet || _gsNormLat(geoeffnet.lat) !== _gsNormLat(fall.latin)) return { ok: false, warum: 'die Karte öffnet zu „' + fall.latin + '" eine andere Art — der Fall misst nichts' };
+        const hist = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+        if (hist.length !== 4) return { ok: false, warum: 'der Fall stellt den Zustand nicht her: ' + hist.length + ' Einträge im Verlauf' };
+        // 1 · Detail: dieselbe Art wie die Karte
+        const detail = (schl) => {
+          const i = hist.findIndex(h => h.name === scans.find(s => s.schl === schl).r.name && h.latin === scans.find(s => s.schl === schl).r.latin);
+          gsScanHistoryOpen('h_' + i);
+          const m = document.getElementById('scan-detail-modal');
+          const o = { text: m ? m.textContent.replace(/\s+/g, ' ') : '', id: m ? idAus(m.querySelector('[onclick*="openDetail"]')) : null };
+          closeScanDetail();
+          return o;
+        };
+        const dM = detail('mehrdeutig');
+        if (dM.id !== karteId.mehrdeutig) {
+          const x = DB.find(s => s.id === dM.id);
+          klagen.push('„' + fall.name + ' / ' + fall.latin + '" (Stufe ' + fall.tox + '): der Verlauf öffnet ' + (x ? '„' + x.lat + '" (Stufe ' + (x.tox | 0) + ')' : 'nichts') + ', die Karte ' + karteId.mehrdeutig);
+        }
+        const dF = detail('fremdname');
+        if (dF.id !== karteId.fremdname) klagen.push('fremder Name mit bekanntem Binomen: der Verlauf öffnet ' + (dF.id || 'nichts') + ', die Karte ' + karteId.fremdname);
+        if (/nicht in (der|unserer) (Datenbank|Artenliste)/i.test(dF.text)) klagen.push('fremder Name mit bekanntem Binomen: der Verlauf nennt die Art unbekannt');
+        const dU = detail('unbekannt');
+        if (dU.id) klagen.push('unbekannte Art: der Verlauf öffnet ' + dU.id);
+        if (/vorgeschlagen|zur Prüfung/i.test(dU.text)) klagen.push('unbekannte Art: der Verlauf verspricht einen Vorschlag, den niemand nachgesehen hat');
+        if (!/nicht in unserer Artenliste/.test(dU.text)) klagen.push('unbekannte Art: der Verlauf sagt nicht, dass sie nicht in der Liste steht');
+        // 2 · Liste: Kopfzahlen, Abzeichen, Filter
+        openScanHistoryFull();
+        const kopf = (document.getElementById('scan-history-stats') || {}).textContent || '';
+        const zahl = (re) => { const m = re.exec(kopf.replace(/\s+/g, ' ')); return m ? +m[1] : null; };
+        if (zahl(/(\d+) in DB/) !== 3) klagen.push('Kopf: „' + zahl(/(\d+) in DB/) + ' in DB" statt 3');
+        if (zahl(/(\d+) Arten/) !== 3) klagen.push('Kopf: „' + zahl(/(\d+) Arten/) + ' Arten" statt 3 — zwei Namen für Allium ursinum zählen als zwei Arten');
+        const zeilen = () => [...document.querySelectorAll('#scan-history-list [data-uid]')].map(z => z.textContent.replace(/\s+/g, ' '));
+        const mitDb = zeilen().filter(t => /in DB/.test(t)).length;
+        if (mitDb !== 3) klagen.push('Abzeichen „in DB" an ' + mitDb + ' von 3 bekannten Scans');
+        gsScanHistSetFilter('indb');
+        if (zeilen().length !== 3) klagen.push('Filter „in DB": ' + zeilen().length + ' Zeilen statt 3');
+        gsScanHistSetFilter('unknown');
+        const unb = zeilen();
+        if (unb.length !== 1 || !/Fantasiekraut/.test(unb[0] || '')) klagen.push('Filter „unbekannt": ' + unb.length + ' Zeilen (' + unb.map(t => t.slice(0, 24)).join(' · ') + ')');
+        gsScanHistSetFilter('all');
+      } finally {
+        window.gsScanPersistToCloud = altP;
+        try { closeScanDetail(); } catch (_) {}
+        try { closeScanHistoryFull(); } catch (_) {}
+        localStorage.setItem('gs_scan_history', '[]');
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '„' + fall.name + ' / ' + fall.latin + '" (Stufe ' + fall.tox + ') öffnet dieselbe Art wie die Karte, nicht „' + fall.erst.lat + '" · fremder Name mit Binomen: in DB · unbekannt: kein Versprechen · Kopf 3 in DB, 3 Arten bei 4 Scans' };
+    },
+  },
+  {
+    // SCANNER-6, zweite Haelfte: die Karte sagt zu 60 % „Möglich", der Verlauf sagte „Unsicher";
+    // zu 72 % „Wahrscheinlich" gegen „Plausibel". Gelesen wird das WORT auf der echten Karte, nicht
+    // eine Tabelle im Pruefstand — und die Farbe des Wortes muss dieselbe sein.
+    name: 'SV2 · Scan-Verlauf: die Trefferquote trägt dasselbe Wort und dieselbe Textfarbe wie die Ergebniskarte — bei 60 %, 72 % und 90 %',
+    lauf: async () => {
+      const altP = window.gsScanPersistToCloud;
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      const klagen = []; const gesehen = [];
+      try {
+        for (const c of [60, 72, 90]) {
+          localStorage.setItem('gs_scan_history', '[]'); localStorage.setItem('gs_confirmed_species', '[]'); window._gsLastScanIdInfo = null;
+          showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: c, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+          const kEl = document.querySelector('#scan-result .sr2-conf-val');
+          const wort = kEl ? kEl.textContent.trim() : '';
+          if (!wort) { klagen.push(c + ' %: die Karte zeigt kein Wort — der Fall misst nichts'); continue; }
+          const kFarbe = getComputedStyle(kEl).color;
+          gsScanHistoryOpen('h_0');
+          const m = document.getElementById('scan-detail-modal');
+          if (!m) { klagen.push(c + ' %: der Verlauf öffnet keinen Eintrag'); continue; }
+          const t = m.textContent.replace(/\s+/g, ' ');
+          const vEl = [...m.querySelectorAll('div')].find(d => d.children.length === 0 && d.textContent.trim() === wort);
+          gesehen.push(c + ' % „' + wort + '"');
+          if (t.indexOf(c + '%') < 0) klagen.push(c + ' %: die Zahl fehlt im Verlauf');
+          if (!vEl) klagen.push(c + ' %: die Karte sagt „' + wort + '", der Verlauf nicht (' + (t.match(/Trefferquote.{0,40}/) || [''])[0] + ')');
+          else if (getComputedStyle(vEl).color !== kFarbe) klagen.push(c + ' %: „' + wort + '" in ' + getComputedStyle(vEl).color + ' statt ' + kFarbe + ' wie auf der Karte');
+          closeScanDetail();
+        }
+      } finally { window.gsScanPersistToCloud = altP; try { closeScanDetail(); } catch (_) {} localStorage.setItem('gs_scan_history', '[]'); }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: gesehen.join(' · ') + ' — Karte und Verlauf gleich, in derselben Farbe' };
+    },
+  },
+  {
+    // SCANNER-6, die zweite Detailansicht (aus der Foto-Galerie, openScanHistoryDetail). Sie las die
+    // Sicherheit aus dem GESPEICHERTEN Scan: ein alter Eintrag oder eine Cloud-Zeile mit „essbar" der
+    // KI stand dort als „🥗 Essbar", auch fuer eine Art, die unsere Liste als toedlich fuehrt — und
+    // „In DB öffnen" nahm den ersten Eintrag mit diesem Namen.
+    name: 'SV3 · Galerie-Detail eines Scans: Giftstufe und „Essbar" kommen aus der Artenliste, nie aus dem gespeicherten Scan — ein KI-„Essbar" ohne Gegenprobe steht nicht da, eine KI-Warnung schon',
+    lauf: async () => {
+      const klagen = [];
+      const altP = window.gsScanPersistToCloud;
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      const text = () => { const m = document.getElementById('scan-detail-modal'); return m ? m.textContent.replace(/\s+/g, ' ') : ''; };
+      const idAus = (el) => { const m = el && /openDetail\('([^']+)'\)/.exec(el.getAttribute('onclick') || ''); return m ? m[1] : null; };
+      const zu = () => { const m = document.getElementById('scan-detail-modal'); if (m) m.remove(); };
+      // ein mehrdeutiger Name, wie in SV1 aus der Liste gesucht
+      const norm = (s) => String(s || '').toLowerCase().trim(); const nach = {};
+      for (const s of DB) { if (s && s.name && s.lat) (nach[norm(s.name)] = nach[norm(s.name)] || []).push(s); }
+      let fall = null;
+      for (const k of Object.keys(nach)) { const v = nach[k], erst = v[0]; const s = v.find(x => _gsNormLat(x.lat) !== _gsNormLat(erst.lat) && (Number(x.tox) || 0) > (Number(erst.tox) || 0)); if (s) { fall = s; break; } }
+      const herbst = gsMatchScanToDb('Herbstzeitlose', 'Colchicum autumnale');
+      if (!fall || !herbst || !((_gsArtAnzeige(herbst).tox | 0) >= 4)) return { ok: false, warum: 'die Liste trägt die Fälle nicht (mehrdeutiger Name / Herbstzeitlose ≥ 4) — der Fall misst nichts' };
+      const jetzt = Date.now();
+      localStorage.setItem('gs_scan_history', JSON.stringify([
+        // 0 · ein alter Eintrag mit dem, was die KI damals sagte
+        { id: 'sv3_a', ts: jetzt - 1000, name: 'Herbstzeitlose', latin: 'Colchicum autumnale', conf: 72, tox: 0, edible: true, warning: '', category: 'wildpflanze' },
+        // 1 · eine Art, die die Liste nicht kennt — „essbar" nur von der KI, dazu eine Warnung der KI
+        { id: 'sv3_b', ts: jetzt - 2000, name: 'Fantasiekraut', latin: 'Planta ficta', conf: 88, tox: 2, edible: true, warning: '', category: 'wildpflanze' },
+        // 2 · ein mehrdeutiger deutscher Name
+        { id: 'sv3_c', ts: jetzt - 3000, name: fall.name, latin: fall.lat, conf: 90, tox: Number(fall.tox) || 0, edible: false, warning: '', category: 'wildpflanze' },
+      ]));
+      try {
+        openScanHistoryDetail(0);
+        const tA = text();
+        if (!tA) return { ok: false, warum: 'das Galerie-Detail geht nicht auf — der Fall misst nichts' };
+        if (/Essbar/.test(tA)) klagen.push('Herbstzeitlose (Liste: Stufe ' + _gsArtAnzeige(herbst).tox + '): das Detail zeigt „Essbar" aus dem gespeicherten Scan');
+        if (!/Stark giftig/.test(tA)) klagen.push('Herbstzeitlose: das Detail nennt die Giftstufe der Liste nicht');
+        // dasselbe Wort zur Sicherheit wie die Ergebniskarte (72 % → „Wahrscheinlich")
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 72, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+        const wort = ((document.querySelector('#scan-result .sr2-conf-val') || {}).textContent || '').trim();
+        localStorage.setItem('gs_scan_history', JSON.stringify(JSON.parse(localStorage.getItem('gs_scan_history') || '[]').filter(h => /^sv3_/.test(h.id))));
+        if (wort && tA.indexOf(wort) < 0) klagen.push('72 %: die Karte sagt „' + wort + '", das Galerie-Detail nicht');
+        zu();
+        openScanHistoryDetail(1);
+        const tB = text(); zu();
+        if (/Essbar/.test(tB)) klagen.push('unbekannte Art: „Essbar" der KI ohne Gegenprobe steht da');
+        if (!/Giftig/.test(tB)) klagen.push('unbekannte Art: die Warnung der KI (Stufe 2) fehlt');
+        openScanHistoryDetail(2);
+        const m = document.getElementById('scan-detail-modal');
+        const id = idAus(m && m.querySelector('[onclick*="openDetail"]')); zu();
+        const soll = gsMatchScanToDb(fall.name, fall.lat);
+        if (!soll || id !== soll.id) { const x = DB.find(s => s.id === id); klagen.push('„' + fall.name + ' / ' + fall.lat + '": „In DB öffnen" führt zu ' + (x ? '„' + x.lat + '" (Stufe ' + (x.tox | 0) + ')' : 'nichts') + ' statt ' + (soll && soll.id)); }
+      } finally { window.gsScanPersistToCloud = altP; zu(); localStorage.setItem('gs_scan_history', '[]'); }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Herbstzeitlose mit altem „essbar": „Stark giftig", kein „Essbar" · unbekannt: Warnung ja, „Essbar" nein · mehrdeutiger Name → die gescannte Art · 72 % wie auf der Karte' };
+    },
+  },
 
 ];
 

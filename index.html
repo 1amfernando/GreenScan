@@ -21037,10 +21037,17 @@ function renderScanHistFull() {
 
   var all = _gsBuildScanHistList();
   var totalScans = all.length;
-  var uniqueSpecies = (function(){ var s={}; all.forEach(function(x){ s[x.name]=1; }); return Object.keys(s).length; })();
-  var inDb = all.filter(function(x){
-    return typeof DB !== 'undefined' && DB.find(function(s){ return (s.name||'').toLowerCase() === (x.name||'').toLowerCase(); });
-  }).length;
+  // SCANNER-6: dieselbe Zuordnung wie die Ergebniskarte — einmal je Durchgang gerechnet,
+  // fuer Kopf, Filter und Zeilen gemeinsam.
+  var _merk = {};
+  var _art = function (x) { return _gsVerlaufArt(x, _merk); };
+  // „Arten" zaehlt ARTEN, nicht Namen: zwei deutsche Namen fuer Allium ursinum sind eine Art.
+  var uniqueSpecies = (function(){ var s={}; all.forEach(function(x){
+    var a = _art(x), lat = (a && a.lat) || x.lat || '';
+    var nl = lat ? _gsNormLat(lat) : '';
+    s[nl ? 'l:' + nl : 'n:' + String(x.name || '').toLowerCase().trim()] = 1;
+  }); return Object.keys(s).length; })();
+  var inDb = all.filter(function(x){ return !!_art(x); }).length;
 
   if (statsEl) {
     statsEl.innerHTML = totalScans
@@ -21062,12 +21069,8 @@ function renderScanHistFull() {
   var filtered = all.filter(function(x){
     if (query && (x.name||'').toLowerCase().indexOf(query) < 0 && (x.lat||'').toLowerCase().indexOf(query) < 0) return false;
     if (filter === 'all') return true;
-    if (filter === 'indb') {
-      return typeof DB !== 'undefined' && DB.find(function(s){ return (s.name||'').toLowerCase() === (x.name||'').toLowerCase(); });
-    }
-    if (filter === 'unknown') {
-      return !(typeof DB !== 'undefined' && DB.find(function(s){ return (s.name||'').toLowerCase() === (x.name||'').toLowerCase(); }));
-    }
+    if (filter === 'indb') return !!_art(x);
+    if (filter === 'unknown') return !_art(x);
     if (filter === 'high') return (x.conf || 0) >= 85;
     return true;
   });
@@ -21089,8 +21092,8 @@ function renderScanHistFull() {
       } catch(e){}
     }
     var hasConf = (typeof item.conf === 'number' && item.conf > 0);
-    var confColor = item.conf >= 85 ? '#2e7d32' : item.conf >= 65 ? '#f57f17' : '#c62828';
-    var dbMatch = (typeof DB !== 'undefined') ? DB.find(function(s){ return (s.name||'').toLowerCase() === (item.name||'').toLowerCase(); }) : null;
+    var _st = _gsKonfidenzStufe(item.conf);
+    var dbMatch = _art(item);
 
     // v23.98: Echtes Foto-Thumbnail wenn verfügbar, sonst Emoji-Tile
     var thumbHtml = item.thumb
@@ -21104,7 +21107,7 @@ function renderScanHistFull() {
           '<div style="font-size:var(--fs-md);font-weight:800;color:var(--text);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escHtml==='function'?escHtml(item.name):item.name) + '</div>' +
           (item.lat ? '<div style="font-style:italic;font-size:var(--fs-xs);color:var(--muted);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escHtml==='function'?escHtml(item.lat):item.lat) + '</div>' : '') +
           '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">' +
-            (hasConf ? '<span style="font-size:var(--fs-xs);padding:1px 7px;background:' + confColor + '22;color:' + confColor + ';border-radius:var(--r-xs);font-weight:700;">' + item.conf + '%</span>' : '') +
+            (hasConf ? '<span style="font-size:var(--fs-xs);padding:1px 7px;background:' + _st.ring + '22;color:' + _st.text + ';border-radius:var(--r-xs);font-weight:700;">' + item.conf + '%</span>' : '') +
             (dbMatch ? '<span style="font-size:var(--fs-xs);padding:1px 6px;background:var(--bg-success-soft);color:var(--c-success);border-radius:var(--r-xs);font-weight:700;">in DB</span>' : '') +
             (timeStr ? '<span style="font-size:var(--fs-xs);color:var(--muted);">' + timeStr + '</span>' : '') +
           '</div>' +
@@ -21179,9 +21182,8 @@ function gsScanHistoryOpen(uidOrIdx) {
   }
   if (!item) return;
 
-  var dbMatch = (typeof DB !== 'undefined') ? DB.find(function(s){
-    return (s.name||'').toLowerCase()===(item.name||'').toLowerCase();
-  }) : null;
+  // SCANNER-6: dieselbe Art wie auf der Ergebniskarte (gsMatchScanToDb), nicht der erste Eintrag mit diesem Namen
+  var dbMatch = _gsVerlaufArt(item);
 
   // Detail-Modal bauen + zeigen
   var existing = document.getElementById('scan-detail-modal');
@@ -21196,8 +21198,7 @@ function gsScanHistoryOpen(uidOrIdx) {
     } catch(_){}
   }
   var hasConf = (typeof item.conf === 'number' && item.conf > 0);
-  var confColor = item.conf >= 85 ? '#2e7d32' : item.conf >= 65 ? '#f57f17' : '#c62828';
-  var confLabel = item.conf >= 85 ? 'Sehr sicher' : item.conf >= 65 ? 'Plausibel' : 'Unsicher';
+  var _st = _gsKonfidenzStufe(item.conf);            // SCANNER-6: dasselbe Wort wie die Ergebniskarte
 
   var photoHtml = item.thumb
     ? '<img src="' + item.thumb + '" alt="Scan" style="width:100%;max-height:280px;object-fit:cover;border-radius:var(--r-lg);margin-bottom:14px;background:var(--surface2);">'
@@ -21207,7 +21208,15 @@ function gsScanHistoryOpen(uidOrIdx) {
   if (dbMatch) {
     actions = '<button onclick="closeScanDetail();closeScanHistoryFull();setTimeout(function(){openDetail(\'' + dbMatch.id + '\');},200);" style="flex:1;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">📖 In Datenbank öffnen</button>';
   } else {
-    actions = '<div style="flex:1;padding:13px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--r-md);font-size:var(--fs-sm);color:var(--muted);text-align:center;line-height:1.45;">🧬 Diese Art ist noch nicht in der Datenbank. Dein Scan wurde automatisch zur Prüfung vorgeschlagen — nach Freigabe durch das Team wird sie aufgenommen.</div>';
+    // SCANNER-6: nur, was die App weiss. „Dein Scan wurde automatisch zur Prüfung vorgeschlagen"
+    // stand hier fuer JEDEN Scan ohne Treffer — auch fuer die, die nie vorgeschlagen wurden
+    // (unter 60 %, abgemeldet, ein fremder Name mit bekanntem Binomen); ob ein Vorschlag ankam,
+    // liest niemand (species_proposals, return=minimal). Und ohne geladene Liste weiss sie nichts.
+    var _stand = (typeof gsArtenStand === 'function') ? gsArtenStand() : { zustand: 'ok', grund: '' };
+    var _ohne = (_stand.zustand === 'ok')
+      ? '🧬 ' + _gsSatz('Diese Art steht nicht in unserer Artenliste — deshalb gibt es keine Artenseite dazu.')
+      : '⏳ ' + (_stand.grund || _gsSatz('Die Artenliste ist nicht geladen.')) + ' ' + _gsSatz('Ob die Art darin steht, lässt sich gerade nicht sagen.');
+    actions = '<div style="flex:1;padding:13px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--r-md);font-size:var(--fs-sm);color:var(--muted);text-align:center;line-height:1.45;">' + escHtml(_ohne) + '</div>';
   }
 
   var html =
@@ -21224,10 +21233,10 @@ function gsScanHistoryOpen(uidOrIdx) {
         photoHtml +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">' +
           (hasConf ? (
-            '<div style="background:' + confColor + '15;border:1px solid ' + confColor + '40;border-radius:var(--r-md);padding:10px;">' +
-              '<div style="font-size:var(--fs-xs);color:' + confColor + ';font-weight:800;text-transform:uppercase;letter-spacing:.4px;">Trefferquote</div>' +
-              '<div style="font-size:var(--fs-2xl);font-weight:900;color:' + confColor + ';line-height:1.1;margin-top:2px;">' + item.conf + '%</div>' +
-              '<div style="font-size:var(--fs-sm);color:' + confColor + ';margin-top:1px;">' + confLabel + '</div>' +
+            '<div style="background:' + _st.ring + '15;border:1px solid ' + _st.ring + '40;border-radius:var(--r-md);padding:10px;">' +
+              '<div style="font-size:var(--fs-xs);color:' + _st.text + ';font-weight:800;text-transform:uppercase;letter-spacing:.4px;">Trefferquote</div>' +
+              '<div style="font-size:var(--fs-2xl);font-weight:900;color:' + _st.text + ';line-height:1.1;margin-top:2px;">' + item.conf + '%</div>' +
+              '<div style="font-size:var(--fs-sm);color:' + _st.text + ';margin-top:1px;">' + _st.wort + '</div>' +
             '</div>'
           ) : (
             '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:10px;">' +
@@ -21312,7 +21321,9 @@ function gsGalleryRender(){
       : (x.cloud
         ? '<span style="position:absolute;top:5px;right:5px;background:rgba(21,101,192,.9);color:#fff;font-size:var(--fs-xs);padding:1px 5px;border-radius:var(--r-sm);font-weight:800;">☁️</span>'
         : '<span style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.5);color:#fff;font-size:var(--fs-xs);padding:1px 5px;border-radius:var(--r-sm);font-weight:800;">📱</span>');
-    var conf = x.conf>0 ? '<span style="position:absolute;bottom:5px;left:5px;background:'+(x.conf>=85?'rgba(46,125,50,.92)':x.conf>=65?'rgba(245,127,23,.92)':'rgba(198,40,40,.92)')+';color:#fff;font-size:var(--fs-xs);padding:1px 5px;border-radius:var(--r-sm);font-weight:800;">'+x.conf+'%</span>' : '';
+    // SCANNER-6: dieselben Schwellen wie die Ergebniskarte (_gsKonfidenzStufe), die eigene Palette bleibt
+    var _gst = x.conf>0 ? _gsKonfidenzStufe(x.conf).stufe : '';
+    var conf = x.conf>0 ? '<span style="position:absolute;bottom:5px;left:5px;background:'+(_gst==='hoch'?'rgba(46,125,50,.92)':_gst==='mittel'?'rgba(245,127,23,.92)':'rgba(198,40,40,.92)')+';color:#fff;font-size:var(--fs-xs);padding:1px 5px;border-radius:var(--r-sm);font-weight:800;">'+x.conf+'%</span>' : '';
     return '<button onclick="if(typeof openScanHistoryDetail===\'function\')openScanHistoryDetail('+x.idx+');" '
       +'style="position:relative;aspect-ratio:1/1;border:none;border-radius:var(--r-md);overflow:hidden;padding:0;cursor:pointer;background:var(--surface2);font-family:inherit;-webkit-tap-highlight-color:transparent;">'
       +'<img src="'+esc(x.img)+'" alt="'+esc(x.name)+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">'
@@ -36507,9 +36518,11 @@ function showScanResult(r, opts){
   // 1,87:1 (gemessen). Danach habe ich es auf feste dunkle Toene gesetzt —
   // und im DUNKELMODUS waren die 2,63:1. Zweimal dieselbe Falle aus
   // CLAUDE.md §7.1. Fuer Text auf einer Themenflaeche gelten die Variablen.
-  const ccRing = conf>=80?'#27ae60':conf>=55?'#f9a825':'#ef5350';
-  const ccTxt  = conf>=80?'var(--c-success-d)':conf>=55?'var(--c-warn-d)':'var(--c-danger-d)';
-  const confLbl = conf>=85?'Sehr sicher':conf>=70?'Wahrscheinlich':conf>=50?'Möglich':'Unsicher';
+  // SCANNER-6: Wort und Farben aus EINER Rechnung — der Verlauf fragt dieselbe (_gsKonfidenzStufe).
+  const _stufe = _gsKonfidenzStufe(conf);
+  const ccRing = _stufe.ring;
+  const ccTxt  = _stufe.text;
+  const confLbl = _stufe.wort;
   const esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   // v23.87: Result-Status — kurz sichtbar, dann fade
   if (_erneut) { /* keine neue Analyse — nichts zu melden */ }
@@ -37341,6 +37354,39 @@ function _gsScanKonfidenz(h) {
   } catch (_) { return null; }
 }
 window._gsScanKonfidenz = _gsScanKonfidenz;
+// SCANNER-6 (16.11.2026): das WORT zur Sicherheit hat EINE Rechnung. Die Ergebniskarte sagte zu
+// 60 % „Möglich" und zu 72 % „Wahrscheinlich", der Verlauf zu derselben Zahl „Unsicher" und
+// „Plausibel" — zwei Tabellen fuer eine Frage, und die Farben hatten eine dritte (85/65 statt 80/55).
+// `stufe` (hoch · mittel · tief) traegt die Farbschwellen fuer Anzeigen mit eigener Palette.
+function _gsKonfidenzStufe(conf) {
+  var c = Number(conf) || 0;
+  var stufe = c >= 80 ? 'hoch' : c >= 55 ? 'mittel' : 'tief';
+  return {
+    wort: c >= 85 ? 'Sehr sicher' : c >= 70 ? 'Wahrscheinlich' : c >= 50 ? 'Möglich' : 'Unsicher',
+    stufe: stufe,
+    ring: stufe === 'hoch' ? '#27ae60' : stufe === 'mittel' ? '#f9a825' : '#ef5350',
+    text: stufe === 'hoch' ? 'var(--c-success-d)' : stufe === 'mittel' ? 'var(--c-warn-d)' : 'var(--c-danger-d)'
+  };
+}
+window._gsKonfidenzStufe = _gsKonfidenzStufe;
+// SCANNER-6: und die ART eines Eintrags im Verlauf findet derselbe Weg wie die Ergebniskarte
+// (gsMatchScanToDb: Binomen vor deutschem Namen, die vorsichtigste Angabe der Art). Der
+// Namensvergleich davor nahm den ERSTEN Eintrag der Datei mit diesem Namen — gemessen 16.11.2026:
+// 189 deutsche Namen stehen fuer mehrere Arten, und in 11 Faellen oeffnete „In Datenbank oeffnen"
+// eine ungiftige Art, obwohl eine giftige gescannt war (Hahnenfuss / Ranunculus acer, Stufe 3 →
+// Batrachium hederaceum, Stufe 0). Ein fremder Name mit bekanntem Binomen galt als „unbekannt".
+// `merk` haelt die Antworten EINES Durchgangs (die Liste rechnet je Zeile, Kopf und Filter).
+function _gsVerlaufArt(item, merk) {
+  if (!item) return null;
+  var lat = item.lat != null ? item.lat : (item.latin || '');
+  var k = String(item.name || '') + '|' + String(lat || '');
+  if (merk && Object.prototype.hasOwnProperty.call(merk, k)) return merk[k];
+  var hit = null;
+  try { hit = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(item.name, lat) : null; } catch (_) { hit = null; }
+  if (merk) merk[k] = hit;
+  return hit;
+}
+window._gsVerlaufArt = _gsVerlaufArt;
 var MAX_SCAN_HISTORY = 50; // Cloud-Fetch-Limit (nur die jüngsten Cloud-Scans ziehen)
 var SCAN_HISTORY_LOCAL_CAP = 200; // v30.31: lokaler Write-back-Cap = identisch zu gsAddScanHistory (sonst kürzte jeder Cloud-Pull den lokalen Verlauf auf 50 → Datenverlust bei lokal-only Scans + Notizen)
 var _lastScanResult  = null;
@@ -37796,14 +37842,21 @@ function openScanHistoryDetail(idx) {
   if (!e) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){return String(s||'').replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});};
-  var sp = (Array.isArray(DB)) ? DB.find(function(s){
-    return (s.name||'').toLowerCase() === (e.name||'').toLowerCase()
-        || (s.lat||'').toLowerCase()  === (e.latin||'').toLowerCase();
-  }) : null;
-  var dt = new Date(e.ts || Date.now());
+  // SCANNER-6: dieselbe Art wie auf der Ergebniskarte (gsMatchScanToDb). Hier stand „erster Eintrag
+  // mit diesem Namen ODER diesem Binomen" — der deutsche Name gewann, auch fuer eine andere Art.
+  var sp = _gsVerlaufArt({ name: e.name, lat: e.latin || '' });
+  var dt = new Date(_gsScanZeit(e) || Date.now());
   var dtStr = dt.toLocaleDateString(gsLocale(),{day:'2-digit',month:'long',year:'numeric'}) + ' · ' + dt.toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'});
-  var confCol = e.conf>=80 ? 'var(--c-success)' : e.conf>=55 ? 'var(--c-warn)' : 'var(--c-danger)';
-  var toxLabel = e.tox>=3 ? _t('tox_strong_short','☠️ Stark giftig') : e.tox===2 ? _t('tox_mid_short','⚠️ Giftig') : e.tox===1 ? _t('tox_light','🟡 Leicht giftig') : '';
+  var _eConf = _gsScanKonfidenz(e) || 0;
+  var _st = _gsKonfidenzStufe(_eConf);
+  // SCANNER-6: die Sicherheit kommt aus der ART, wie auf der Karte und in der Artenseite — nicht aus
+  // dem, was beim Scannen gespeichert wurde (alte Eintraege, Cloud-Zeilen und eine KI-Angabe ohne
+  // Gegenprobe tragen dort, was damals galt). Ohne Treffer in der Liste bleibt eine WARNUNG der KI
+  // stehen (sie ist vorsichtig); ein „Essbar" der KI ohne Gegenprobe steht hier nicht.
+  var _a = sp ? ((typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(sp) : sp) : null;
+  var _tox = _a ? (Number(_a.tox) || 0) : (Number(e.tox) || 0);
+  var _essbar = sp ? ((typeof gsIstEssbar === 'function') ? gsIstEssbar(sp) : !!(_a && _a.edible)) : false;
+  var toxLabel = _tox>=3 ? _t('tox_strong_short','☠️ Stark giftig') : _tox===2 ? _t('tox_mid_short','⚠️ Giftig') : _tox===1 ? _t('tox_light','🟡 Leicht giftig') : '';
   var ctx = e.context || {};
   var loc = (ctx.lat && ctx.lon) ? (Number(ctx.lat).toFixed(4) + ', ' + Number(ctx.lon).toFixed(4)) : '';
   var note = e.note || '';
@@ -37836,12 +37889,12 @@ function openScanHistoryDetail(idx) {
         '<div style="padding:14px 16px;">' +
           // Confidence-Bar
           '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
-            '<div style="flex:1;height:8px;background:var(--surface2);border-radius:var(--r-xs);overflow:hidden;"><div style="width:' + (e.conf||0) + '%;height:100%;background:' + confCol + ';transition:width var(--dur-slow);"></div></div>' +
-            '<span style="font-weight:800;color:' + confCol + ';font-size:var(--fs-md);">' + (e.conf||0) + '%</span>' +
+            '<div style="flex:1;height:8px;background:var(--surface2);border-radius:var(--r-xs);overflow:hidden;"><div style="width:' + _eConf + '%;height:100%;background:' + _st.ring + ';transition:width var(--dur-slow);"></div></div>' +
+            '<span style="font-weight:800;color:' + _st.text + ';font-size:var(--fs-md);">' + _eConf + '% · ' + _st.wort + '</span>' +
           '</div>' +
           // Badges
           (toxLabel ? '<div style="display:inline-block;background:var(--bg-danger-soft);color:var(--c-danger-d);padding:4px 10px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;margin-right:6px;margin-bottom:8px;">' + toxLabel + '</div>' : '') +
-          (e.edible ? '<div style="display:inline-block;background:var(--bg-success-soft);color:var(--c-success-d);padding:4px 10px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;margin-right:6px;margin-bottom:8px;">' + _t('scan_edible','🥗 Essbar') + '</div>' : '') +
+          (_essbar ? '<div style="display:inline-block;background:var(--bg-success-soft);color:var(--c-success-d);padding:4px 10px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;margin-right:6px;margin-bottom:8px;">' + _t('scan_edible','🥗 Essbar') + '</div>' : '') +
           // Meta
           '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:12px;margin-top:8px;font-size:var(--fs-sm);line-height:1.7;">' +
             '<div><span style="color:var(--muted);">' + _t('scan_date_label','📅 Datum:') + '</span> ' + dtStr + '</div>' +
@@ -76900,7 +76953,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. Startseite: (12) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +18 (D1j, F1, F2, SC1, SU1–SU3, HS1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +21 (D1j, F1, F2, SC1, SU1–SU3, HS1, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -76912,6 +76965,7 @@ window.GS_RELEASES = [
         {emoji:'⏰', bold:'Erinnerungen über Lina:', text:' eine Erinnerung für eine Pflanze im Garten wird jetzt wirklich gespeichert — vorher stand „eingerichtet“ da, und es war nichts geschehen.'},
         {emoji:'👆', bold:'Scanner — eine andere Art wählen:', text:' die Bestimmung wird geändert, statt einen zweiten Scan anzulegen, und die Karte zeigt nichts mehr von der verworfenen Art. Dasselbe gilt für eine Korrektur — dort schlägt das Feld jetzt passende Arten vor.'},
         {emoji:'💡', bold:'Scanner — wenn etwas schiefgeht:', text:' die Fehlerkarte sagt in einem Satz, was los ist, statt technischer Meldungen, und „In einer Minute nochmal“ zählt sichtbar herunter.'},
+        {emoji:'📜', bold:'Scan-Verlauf:', text:' er zeigt jetzt dieselbe Art und dieselben Sicherheitsangaben wie das Scan-Ergebnis. Vorher konnte „In Datenbank öffnen“ bei einem Namen, den mehrere Arten tragen, eine andere, harmlosere Art öffnen.'},
         {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er findet jetzt alle Arten, die gerade Saison haben, und funktioniert in jeder App-Sprache.'},
         {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
       ],

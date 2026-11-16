@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 2, 3, 4, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung) · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Home 1 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 2, 3, 4, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung) · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6 · Home 1 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -30,7 +30,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 5. ✅ v33.61 — **Fehlermeldungen in Technikersprache** in `analyzeImage` (Rohantwort bei kaputtem JSON,
    `gsTestApiKey()`, Modellname; `errMsg` roh statt über `_gsFehlerText`). „In 60s retry"
    ohne Countdown.
-6. **Verlauf rechnet anders als die Ergebniskarte.** `gsScanHistoryOpen` findet die Art über
+6. ✅ v33.61 (Liste, Detail und Galerie-Detail; `scan_check` SV1–SV3) — **Verlauf rechnet anders als die Ergebniskarte.** `gsScanHistoryOpen` findet die Art über
    einen Namensvergleich statt `gsMatchScanToDb` und hat eigene Sicherheitsstufen.
 7. ✅ v33.61 — **`_gsRetryLastScan` gibt `opts` nicht weiter** — „Trotzdem bestimmen" führt beim
    erneuten Versuch wieder zur Qualitätsrückfrage.
@@ -89,6 +89,8 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    eigenen Regeln für Frost und Regen statt `GS_WETTER_GRENZEN`; was dasteht, hängt davon ab,
    wer zuletzt lief. Kein Prüffall (`hw-*` kommt in `scripts/` nicht vor).
 3. **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
+   Die Startseite zählt richtig; der Fehler liegt im Wissen-Tab → Brett `2026-11-16-4d79`
+   (dort auch „Essbar" und „Giftig" mit eigenen Regeln).
 4. ❎ nachgesehen 16.11.: kein Fehler — beide zählen dasselbe wie die Liste, die die Kachel öffnet (Verlauf + bestätigte Karten). **`stat-scans` hat zwei Schreiber;** Verdacht auf Doppelzählung. Fester Ersatzwert 4330.
 5. **Karten-Stapel** (`gsBuildWidgetStack`): `wisdom-card` immer eingeblendet (leer ohne
    Bauernregel?), dreht alle 8 s ohne Pause-Knopf, `gsRenderWochenrueckblick` doppelt gerufen.
@@ -97,7 +99,11 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 ## Nebenfunde (nicht in den vier Funktionen)
 
 - Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
-  verlangt `gsArtenZahlen()` (3'136 Arten). Gefunden 16.11.2026, nicht angefasst.
+  verlangt `gsArtenZahlen()` (3'136 Arten). Gefunden 16.11.2026, nicht angefasst; gemessen und
+  aufs Brett gelegt als `2026-11-16-4d79` (auch der Kopf-Chip des Wissen-Tabs, „Essbar" und
+  „Giftig" mit eigenen Regeln).
+- Standort-Fenster ohne Standort: im Dunkelmodus 1,51:1 (fest heller Kasten, kippende Schrift)
+  → Brett `2026-11-16-a082`.
 - Nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen
   (die Tabelle erlaubt kein Update). Dieses Gerät blendet sie über `ki_name` aus; ein zweites
   Gerät zeigt die erste Bestimmung. Ein Ersatz (neue Zeile mit demselben Foto anlegen, alte
