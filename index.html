@@ -34137,6 +34137,7 @@ window.gsSchritt = gsSchritt;
 
 async function analyzeImage(b64, mt, organContext, extraImages, opts){
   opts = opts || {};
+  try { _gsScanWarteStopp(); } catch(_){}   // ein wartender „In einer Minute nochmal" gilt nicht mehr
   // v30.74: Low-Confidence-Re-Scan — der Nutzer hat „Weiteres Foto hinzufügen" getippt; das vorige Bild wird als
   // Multi-Shot mit dem neuen kombiniert (höhere Genauigkeit). Eine Stelle → greift für Kamera UND Galerie.
   // Frische-Guard (3 Min) verhindert, dass ein verwaister Re-Scan-Intent einen späteren, fremden Scan kombiniert.
@@ -34460,8 +34461,15 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     if (!res) {
       // Debug-Info im Admin-Mode + kompakte Fehler-Card für User
       try { window._gsLastRawKiResponse = text; } catch(_){}
+      // Hauptfunktionen · Scanner 5: der Rohtext bleibt fuer die Konsole und
+      // die Admin-Zeile — auf dem Bildschirm stand er woertlich, samt
+      // `gsTestApiKey()`, und das Wort „ungueltig" machte daraus einen
+      // Schluesselfehler (falsche Statuszeile, falscher Anmelde-Kasten).
       var preview = (text || '').slice(0, 140).replace(/\s+/g, ' ');
-      throw new Error('⚠️ KI antwortete ungültig: „' + preview + '…". Bitte nochmal scannen oder `gsTestApiKey()` prüfen.');
+      try { console.warn('[analyzeImage] unlesbare KI-Antwort:', preview); } catch(_){}
+      var _jsErr = new Error('KI-Antwort ohne lesbares JSON: „' + preview + '…"');
+      _jsErr.code = 'ki_antwort';
+      throw _jsErr;
     }
     // v31.79: EINE Skala, bevor irgendetwas damit rechnet oder es anzeigt.
     try {
@@ -34470,7 +34478,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
         if (a && a.confidence != null) a.confidence = gsNormConfidence(a.confidence);
       });
     } catch (_) {}
-    if (!res.name || res.confidence == null) throw new Error('KI-Antwort unvollständig — bitte erneut scannen.');
+    if (!res.name || res.confidence == null) { var _unv = new Error('KI-Antwort unvollständig (name/confidence fehlt)'); _unv.code = 'ki_antwort'; throw _unv; }
     // Normalisiere alternatives-Array
     if (!Array.isArray(res.alternatives)) res.alternatives = [];
     // Kontext zur Nachnutzung ablegen
@@ -34517,15 +34525,17 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
       }
       return;
     }
-    var isKeyErr = /API Key|ungültig|401|403/i.test(errMsg);
-    var isNetErr = /Netzwerk|Zeitüberschreitung|offline|network/i.test(errMsg);
-    var isRateErr= /Rate-Limit|überlastet|429|529|503/i.test(errMsg);
+    var _fa = _gsScanFehlerArt(err);
+    var isKeyErr = _fa.art === 'schluessel';
+    var isNetErr = _fa.art === 'netz';
+    var isRateErr= _fa.art === 'last';
     // Retry-Payload merken, damit "Nochmal versuchen"-Button funktioniert
     window._gsLastScanPayload = { b64: b64, mt: mt, organContext: organContext, extraImages: extraImages, opts: opts };   // Scanner 7: „Trotzdem bestimmen" bleibt beim erneuten Versuch gewaehlt
     // v23.64: Detail-Card mit aktueller Modell-Info + klaren Schritten
     var curModel = (typeof window._gsClaudeModel !== 'undefined') ? window._gsClaudeModel : '(unbekannt)';
     var diagLine = '<div style="margin-top:10px;padding:8px 10px;background:rgba(0,0,0,.04);border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--muted);font-family:monospace;text-align:left;max-width:300px;margin-left:auto;margin-right:auto;">'+
       '<div><b>Modell:</b> '+escHtml(curModel)+'</div>'+
+      '<div style="overflow-wrap:anywhere;"><b>Meldung:</b> '+escHtml(_fa.roh.slice(0, 300))+'</div>'+
       '<div><b>Zeit:</b> '+new Date().toLocaleTimeString(gsLocale())+'</div>'+
       '</div>';
     // v23.65: Professionelles Fail-Screen mit hero API-Key-CTA bei Key-Fehler
@@ -34554,13 +34564,13 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
       '<div class="analyzing" style="color:var(--c-danger);padding:20px 16px;">'+
         '<div style="font-size:52px;margin-bottom:8px;filter:drop-shadow(0 2px 4px rgba(198,40,40,.25));">'+(isKeyErr?'🔑':(isNetErr?'📡':'⚠️'))+'</div>'+
         '<p style="margin:0;font-size:var(--fs-xl);font-weight:900;color:var(--c-danger-d);letter-spacing:.2px;">Scan fehlgeschlagen</p>'+
-        '<p style="font-size:var(--fs-md);color:var(--text);max-width:320px;text-align:center;line-height:1.55;font-weight:600;margin:6px auto 0;">'+escHtml(errMsg)+'</p>'+
+        '<p style="font-size:var(--fs-md);color:var(--text);max-width:320px;text-align:center;line-height:1.55;font-weight:600;margin:6px auto 0;">'+escHtml(_kAdm ? _fa.satzAdmin : _fa.satz)+'</p>'+
         heroCta +
-        diagLine +
+        (_kAdm ? diagLine : '') +   // Scanner 5: Modellname und Rohmeldung sind fuer Admins, nicht fuer jede Person
         '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center;">'+
           '<button onclick="_gsRetryLastScan()" style="padding:10px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-family:inherit;font-weight:800;box-shadow:var(--elev-brand);">🔁 Nochmal versuchen</button>'+
           (_kAdm ? '<button onclick="gsTestApiKey()" style="padding:10px 18px;background:#37474f;color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-family:inherit;font-weight:800;">🧪 Key testen</button>' : '')+
-          (isRateErr ? '<button onclick="setTimeout(_gsRetryLastScan,60000);document.getElementById(\'scan-status\').textContent=\'⏳ Warte 60s auf Anbieter…\';" style="padding:10px 18px;background:#e65100;color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-family:inherit;font-weight:800;">⏱️ In 60s retry</button>' : '')+
+          (isRateErr ? '<button id="scan-warte-btn" onclick="gsScanSpaeterVersuchen(60)" style="padding:10px 18px;background:#b34700;color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-family:inherit;font-weight:800;">⏱️ In einer Minute nochmal</button>' : '')+
         '</div>'+
       '</div>';
     // v23.65: API-Key-Chip sofort sichtbar machen bei Key-Fehler
@@ -34570,7 +34580,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
       if (chipEl && isKeyErr && _kAdm) chipEl.style.display = 'inline-flex';
     } catch(_){}
     var sst = document.getElementById('scan-status');
-    if (sst) sst.textContent = isKeyErr ? 'Fehler – API Key prüfen' : (isNetErr ? 'Netzwerk-Fehler' : 'KI-Fehler – erneut versuchen');
+    if (sst) sst.textContent = isKeyErr ? (_kAdm ? 'Fehler – API-Key prüfen' : 'KI gerade nicht erreichbar') : (isNetErr ? 'Keine Verbindung' : 'Nicht geklappt – nochmal versuchen');
   }
 }
 
@@ -34611,6 +34621,97 @@ window.gsTestApiKey = async function(){
     } else { gsToast(_gsSatz('API-Key-Test: {1}', (results[0]||'Test abgeschlossen')), 'info'); }
   } catch(_){}
 };
+
+// ── Hauptfunktionen · Scanner 5: was auf der Fehlerkarte steht ──────────
+//
+// Gemessen am 16.11.2026 mit den Meldungen, die callVisionAI wirklich wirft:
+// die Karte zeigte die Rohantwort der KI samt `gsTestApiKey()`, englische
+// Anbietertexte („image exceeds 5 MB maximum"), einen Modellnamen,
+// „Cannot read properties of null" und „Failed to fetch" — und jeder Person
+// eine Zeile „Modell: claude-…" in Maschinenschrift. Dazu war die Einordnung
+// ein Muster auf dem Rohtext: eine kaputte Antwort enthielt „ungueltig" und
+// galt als Schluesselfehler.
+//
+// EINE Einordnung: `art` steuert Statuszeile, Anmelde-Kasten und Warte-Knopf,
+// `satz` steht da (fuer Admins `satzAdmin` — die eigene Meldung, die Rohzeile
+// steht darunter), `roh` bleibt fuer Konsole und Admin-Zeile. Was nicht
+// erkannt wird, bekommt einen allgemeinen Satz — nie den Rohtext.
+function _gsScanFehlerArt(err) {
+  var roh = String((err && (typeof err === 'string' ? err : err.message)) || '').trim();
+  var code = err && typeof err === 'object' ? err.code : null;
+  var l = roh.toLowerCase();
+  var r = { art: 'sonst', satz: '', satzAdmin: '', roh: roh };
+  var eigen = function (x) { r.satz = x; r.satzAdmin = x; };
+  if (code === 'ki_antwort') {
+    r.art = 'antwort';
+    eigen('Die KI hat keine lesbare Bestimmung geliefert. Meist klappt es beim zweiten Versuch.');
+  } else if (code === 'ai_refusal') {
+    r.art = 'abgelehnt'; eigen(roh);                               // eigener Satz (_gsAiAbgelehnt)
+  } else if (/ki-modell nicht verfügbar|kein ki-modell/.test(l)) {
+    // vor dem Schluessel: „Kein KI-Modell erfolgreich. Bitte API-Key pruefen."
+    // entsteht, wenn KEIN Modell antwortet — der Schluessel ist dann nicht das Thema
+    r.art = 'modell';
+    r.satz = 'Der KI-Dienst ist gerade nicht erreichbar — bitte gleich nochmal versuchen.';
+  } else if (/^🔑 (bitte erstelle|ki-schl)/i.test(roh)) {
+    r.art = 'schluessel'; eigen(roh);                              // eigene Saetze aus callVisionAI
+  } else if (/api.?key|\b401\b|\b403\b/i.test(roh)) {
+    r.art = 'schluessel';
+    r.satz = 'Die KI hat den Zugang gerade abgelehnt. Meist genügt ein zweiter Versuch — sonst kurz ab- und wieder anmelden.';
+    r.satzAdmin = roh;
+  } else if (/zeitüberschreitung|netzwerk|offline|network|failed to fetch|load failed|timeout|verbindung/.test(l)) {
+    r.art = 'netz';
+    eigen('Keine Verbindung zum KI-Dienst — bitte Internet prüfen und nochmal versuchen.');
+  } else if (/rate-limit|überlastet|\b429\b|\b529\b|\b503\b/.test(l)) {
+    r.art = 'last';
+    eigen('Der KI-Dienst ist gerade überlastet. In ein, zwei Minuten klappt es meist wieder.');
+  } else if (/^📷 /.test(roh)) {
+    r.art = 'foto'; eigen(roh);                                    // eigene Saetze zur Fotogroesse
+  } else if (/anfrage abgelehnt/.test(l)) {
+    r.satz = 'Der KI-Dienst hat das Foto nicht angenommen. Versuch es nochmal oder mit einem anderen Foto.';
+  } else if (/server-fehler beim ki-anbieter/.test(l)) {
+    r.satz = 'Der KI-Dienst hat gerade ein Problem — bitte später nochmal versuchen.';
+  } else {
+    // dasselbe Vokabular wie ueberall (CLAUDE.md §7.1, _gsFehlerText) — aber
+    // nur, wenn es einen eigenen Satz hat; sein Rueckfall ist der Rohtext
+    var ft = '';
+    try { ft = (typeof _gsFehlerText === 'function') ? _gsFehlerText(err) : ''; } catch (_) { ft = ''; }
+    r.satz = (ft && ft !== roh && ft.indexOf(roh.slice(0, 40)) !== 0) ? ft : 'Die Bestimmung hat nicht geklappt — bitte nochmal versuchen.';
+  }
+  if (!r.satzAdmin) r.satzAdmin = r.satz;
+  return r;
+}
+window._gsScanFehlerArt = _gsScanFehlerArt;
+
+// „In einer Minute nochmal" — mit sichtbarem Countdown, abbrechbar, und nur
+// solange die Karte steht. Gezaehlt wird in Schritten, nicht an der Uhr
+// (CLAUDE.md §7.1: eine Frist, die die Uhr fragt, haengt unter gestellter Uhr).
+function _gsScanWarteStopp() {
+  if (window._gsScanWarteTimer) { try { clearInterval(window._gsScanWarteTimer); } catch (_) {} }
+  window._gsScanWarteTimer = null;
+}
+function gsScanSpaeterVersuchen(sek) {
+  _gsScanWarteStopp();
+  var rest = Math.max(1, parseInt(sek, 10) || 60);
+  var b0 = document.getElementById('scan-warte-btn');
+  if (!b0) return;
+  var zuruecksetzen = function (b) {
+    b.textContent = '⏱️ In einer Minute nochmal';
+    b.onclick = function () { gsScanSpaeterVersuchen(sek); };
+  };
+  var zeig = function () {
+    var b = document.getElementById('scan-warte-btn');
+    if (!b) { _gsScanWarteStopp(); return; }                       // Karte weg: kein Versuch im Hintergrund
+    if (rest <= 0) { _gsScanWarteStopp(); _gsRetryLastScan(); return; }
+    b.textContent = _gsSatz('⏳ Nochmal in {1} s — antippen bricht ab', rest);
+    b.onclick = function () { _gsScanWarteStopp(); zuruecksetzen(b); };
+    var st = document.getElementById('scan-status');
+    if (st) st.textContent = _gsSatz('Neuer Versuch in {1} s', rest);
+    rest--;
+  };
+  zeig();
+  window._gsScanWarteTimer = setInterval(zeig, 1000);
+}
+window.gsScanSpaeterVersuchen = gsScanSpaeterVersuchen;
 
 // v23.61: Retry-Funktion für Scanner-Fehler
 async function _gsRetryLastScan(){
@@ -35263,6 +35364,7 @@ function gsScanZumMenue() {
 window.gsScanZumMenue = gsScanZumMenue;
 
 function gsResetScanner() {
+  try { _gsScanWarteStopp(); } catch(_){}
   // Scan-Ergebnis ausblenden
   var rd = document.getElementById('scan-result');
   if (rd) { rd.style.display = 'none'; rd.innerHTML = ''; }

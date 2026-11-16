@@ -2602,6 +2602,104 @@ const FAELLE = [
     },
   },
 
+  {
+    name: 'H5 · Fehlerkarte: ganze Sätze statt Rohtext, Modellname und Rohmeldung nur für Admins, eine kaputte Antwort ist kein Schlüsselfehler',
+    lauf: async () => {
+      const altA = window.gsIsAdmin, altL = window.sbIsLoggedIn;
+      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+      window._gsScanDHash = async () => null; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.strokeStyle = '#3f9142'; g.lineWidth = 2;
+      for (let i = 0; i < 12; i++) { g.beginPath(); g.moveTo(10 + i * 12, 150); g.lineTo(60 + i * 8, 20); g.stroke(); }
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+      // die Meldungen, die callVisionAI wirklich wirft — ueber die echte Uebersetzung
+      const faelle = {
+        kaputt:  { ki: async () => 'Das sieht aus wie Bärlauch, aber {name: ...', status: /Nicht geklappt/ },
+        h400:    { ki: async () => { throw new Error(_gsFriendlyApiError(400, 'messages.0.content.0.image.source.base64: image exceeds 5 MB maximum')); }, status: /Nicht geklappt/ },
+        h404:    { ki: async () => { throw new Error(_gsFriendlyApiError(404, 'model: claude-sonnet-4-20250514')); }, status: /Nicht geklappt/ },
+        h429:    { ki: async () => { throw new Error(_gsFriendlyApiError(429, 'rate_limit_error')); }, status: /Nicht geklappt/ },
+        fremd:   { ki: async () => { throw new Error(_gsFriendlyApiError(418, 'overloaded_error: something odd')); }, status: /Nicht geklappt/ },
+        prog:    { ki: async () => { null.x; }, status: /Nicht geklappt/ },
+        keinMod: { ki: async () => { throw new Error('Kein KI-Modell erfolgreich. Bitte API-Key prüfen.'); }, status: /Nicht geklappt/ },
+        fetch:   { ki: async () => { throw new TypeError('Failed to fetch'); }, status: /Keine Verbindung/ },
+        h401:    { ki: async () => { throw new Error(_gsFriendlyApiError(401, 'invalid x-api-key')); }, status: /KI gerade nicht erreichbar/ },
+      };
+      const JARGON = /gsTestApiKey|claude-|Cannot read|Failed to fetch|exceeds|model:|API.?Key|JSON|\bretry\b|Rate-Limit|overloaded|messages\.0|\{name/i;
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      const klagen = []; let gesehen = 0;
+      try {
+        for (const admin of [false, true]) {
+          window.gsIsAdmin = () => admin; window.sbIsLoggedIn = () => true;
+          for (const k of Object.keys(faelle)) {
+            window.callVisionAI = faelle[k].ki;
+            await analyzeImage(b64, 'image/jpeg', '', null, { trotzdem: true });
+            const t = karte();
+            if (!/Scan fehlgeschlagen/.test(t)) { klagen.push(k + ': keine Fehlerkarte — der Fall stellt den Zustand nicht her'); continue; }
+            gesehen++;
+            const satz = ((document.querySelector('#scan-result p:nth-of-type(2)') || {}).textContent || '').trim();
+            if (!admin) {
+              if (JARGON.test(t)) klagen.push(k + ': Rohtext auf der Karte: „' + (t.match(JARGON) || [''])[0] + '"');
+              if (/Modell:|Meldung:/.test(t)) klagen.push(k + ': die Admin-Zeile steht für jede Person da');
+              if (!/[.!?]$/.test(satz) || satz.length < 30) klagen.push(k + ': kein ganzer Satz: „' + satz + '"');
+              const st = (document.getElementById('scan-status') || {}).textContent || '';
+              if (!faelle[k].status.test(st)) klagen.push(k + ': Statuszeile „' + st + '"');
+            } else if (!/Modell:/.test(t) || !/Meldung:/.test(t)) klagen.push(k + ' (Admin): die Rohmeldung fehlt');
+          }
+        }
+      } finally { window.gsIsAdmin = altA; window.sbIsLoggedIn = altL; }
+      // eine kaputte Antwort zeigt keinen Anmelde- oder Schluessel-Kasten
+      window.gsIsAdmin = () => false; window.sbIsLoggedIn = () => true;
+      window.callVisionAI = faelle.kaputt.ki;
+      await analyzeImage(b64, 'image/jpeg', '', null, { trotzdem: true });
+      if (/KI gerade nicht erreichbar|Anmelden für die KI|API-Key/.test(karte())) klagen.push('kaputte Antwort: der Schlüssel-Kasten steht da');
+      window.gsIsAdmin = altA; window.sbIsLoggedIn = altL;
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 6).join(' · ') + (klagen.length > 6 ? ' · +' + (klagen.length - 6) + ' weitere' : '') };
+      return { ok: true, info: gesehen + ' Fehlerkarten (9 Meldungen × Person/Admin): Person ohne Rohtext, mit ganzem Satz und passender Statuszeile; Admin mit Modell und Rohmeldung' };
+    },
+  },
+  {
+    name: 'H5b · „In einer Minute nochmal": zählt sichtbar herunter, antippen bricht ab, ohne Karte kein Versuch im Hintergrund',
+    lauf: async () => {
+      const altR = window._gsRetryLastScan; let versuche = 0;
+      window._gsRetryLastScan = async () => { versuche++; };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const rd = document.getElementById('scan-result');
+      const knopf = () => { rd.style.display = 'block'; rd.innerHTML = '<button id="scan-warte-btn" onclick="gsScanSpaeterVersuchen(2)">⏱️ In einer Minute nochmal</button>'; return document.getElementById('scan-warte-btn'); };
+      const klagen = [];
+      try {
+        // 1 · zaehlt herunter und versucht genau einmal
+        let b = knopf(); b.click();
+        const t0 = b.textContent;
+        if (!/Nochmal in 2 s/.test(t0)) klagen.push('kein Countdown nach dem Antippen: „' + t0 + '"');
+        await warte(1150);
+        if (!/Nochmal in 1 s/.test(b.textContent)) klagen.push('zählt nicht herunter: „' + b.textContent + '"');
+        await warte(1300);
+        if (versuche !== 1) klagen.push('nach Ablauf ' + versuche + ' Versuche statt 1');
+        await warte(1200);
+        if (versuche !== 1) klagen.push('nach Ablauf läuft der Zähler weiter: ' + versuche + ' Versuche');
+        // 2 · antippen bricht ab
+        versuche = 0; b = knopf(); b.click(); await warte(200); b.click();
+        if (window._gsScanWarteTimer) klagen.push('abgebrochen, aber der Zähler läuft weiter');
+        if (!/In einer Minute nochmal/.test(b.textContent)) klagen.push('nach dem Abbruch steht „' + b.textContent + '"');
+        await warte(2400);
+        if (versuche) klagen.push('trotz Abbruch ' + versuche + '× versucht');
+        // 3 · Karte weg (neues Foto, Zurueck) → kein Versuch
+        versuche = 0; b = knopf(); b.click(); rd.innerHTML = '';
+        await warte(2400);
+        if (versuche) klagen.push('ohne Karte im Hintergrund ' + versuche + '× versucht');
+        if (window._gsScanWarteTimer) klagen.push('ohne Karte läuft der Zähler weiter');
+        // 4 · zweimal gestartet: EIN Zaehler
+        // (lang genug, dass ein verwaister zweiter Zaehler ein zweites Mal zuschlaegt)
+        versuche = 0; b = knopf(); gsScanSpaeterVersuchen(2); gsScanSpaeterVersuchen(2);
+        await warte(4300);
+        if (versuche !== 1) klagen.push('zweimal gestartet → ' + versuche + ' Versuche');
+      } finally { window._gsRetryLastScan = altR; try { _gsScanWarteStopp(); } catch (_) {} rd.innerHTML = ''; rd.style.display = 'none'; }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '2 → 1 → Versuch (genau 1) · Abbruch: 0 Versuche · Karte weg: 0 · doppelt gestartet: 1' };
+    },
+  },
+
 ];
 
 (async () => {
