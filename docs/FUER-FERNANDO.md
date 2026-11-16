@@ -1525,8 +1525,9 @@ wieder jede mit einem Fall, der vorher rot war, und einer Gegenprüfung: 28 Eint
 - **Deine Gärten bleiben auf einem neuen Gerät.** Nach der Anmeldung konnte ein leerer
   „Mein Garten" die gerade geholten Gärten überschreiben. Jede zurückgespielte Liste
   (Backup, Anmeldung, Sicherung, Garten-Abgleich) geht jetzt durch EINEN Eingang.
-- **14 Arten standen als essbar da, obwohl ihr eigener Eintrag „nicht essbar" sagt**; 3
-  hatten ihr „giftig" verloren. Jede Angabe bewegt sich nur noch zur vorsichtigen Seite.
+- **14 Einträge aus 8 Arten standen als essbar da, obwohl sie selbst „nicht essbar" sagen**
+  (u. a. Huflattich, Wermut, Traubenkirsche, Stiel- und Traubeneiche); 3 Einträge aus 2 Arten
+  (Schwarzer Holunder, Traubenkirsche) hatten ihr „giftig" verloren. Jede Angabe bewegt sich nur noch zur vorsichtigen Seite.
 - **Der Notfall-Hinweis erkennt Spanisch** (0 von 14 Sätzen vorher). Ob die zwei Texte
   dazu eine spanische Übersetzung haben, sehe ich von hier nicht — bitte einmal ansehen
   (30g).
