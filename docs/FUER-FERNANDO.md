@@ -1547,16 +1547,31 @@ die Bildauswahl statt der Kamera.
 **Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, bis sich
 zeigte, dass `main` die Nummer und v33.58 inzwischen vergeben hatte — sie ist
 auf `main` nachgezogen und heisst v33.59. **Diese Nummer ist noch nicht
-endgültig:** zwei weitere Branches tragen ebenfalls v33.59, und PR #326
-(„Hauptfunktionen", v33.61) steht nach Auskunft der Koordinator-Sitzung vorn
-in der Reihe. Wird er zuerst gemergt, ziehe ich diese Scheibe darauf nach; sie
-heisst dann v33.62 oder höher. Das ist Handwerk, kein Risiko — probeweise
-zusammengeführt sind es acht Konfliktstellen in drei Dateien (Versionsmarken,
-Changelog, STATUS und ein Filter, bei dem beide Seiten dieselbe Regel
-wollen). Und: einen Pull Request habe ich NICHT geöffnet (du hast keinen
+endgültig, und die Reihenfolge entscheidest du:** zwei weitere Branches tragen
+ebenfalls v33.59, und für die Reihenfolge gibt es zwei Angaben, die sich
+widersprechen (einmal steht PR #326 vorn, einmal der Sicherheits-Branch
+`ccr-5e705a36-jveaak`, dann PR #324, dann diese Scheibe als v33.61). Die Frage
+liegt auf dem Brett (`2026-11-11-23d2`). Bis du antwortest, nummeriere ich
+nicht um. Probeweise zusammengeführt (16.11.): mit PR #326 acht
+Konfliktstellen in drei Dateien, mit dem Zahlungsweg-Branch (v33.60) 29, mit
+dem Sicherheits-Branch 51 — dieser hat mehrere Funde aus meinem Audit
+parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
+Mikrofon-/Sensor-Freigabe), mit anderem Wortlaut. Dort ist beim Zusammenführen
+je eine Seite zu nehmen; was dabei zu beachten ist, steht in STATUS (Eintrag
+„(je) - v33.59", Absatz „Probeweise zusammengeführt"). Und: einen Pull Request habe ich NICHT geöffnet (du hast keinen
 verlangt). Der Stand liegt auf dem Branch `ccr-dce5a17c-2xzhvi`; die Prüfung
 auf GitHub läuft erst mit einem PR. **Wenn du ihn willst, sag „öffne den PR"**
 — dann ziehe ich vorher auf den dann aktuellen Stand von `main` nach.
+
+**Deine private Mailadresse stand in einer ausgelieferten Datei.** Ein Prüfstand
+(`scripts/robust_check.js`) sollte sicherstellen, dass sie nirgends im Code
+steht — und trug sie dafür selbst wörtlich. Die Datei liefern beide Hoster aus
+(nicht auffindbar, aber abrufbar). Das ist jetzt weg: der Prüfstand zählt jede
+Freemail-Adresse im Code, ohne eine zu nennen. Zwei Dinge bleiben, und die
+entscheidest du: zwei alte, längst angewandte Migrationen
+(`supabase/migrations/v26_91_…` und `v28_18_…`) nennen die Adresse in einer
+Policy, und in der Git-Geschichte steht sie weiter. Eine angewandte Migration
+habe ich nicht umgeschrieben.
 
 **Was diesmal NICHT stattgefunden hat:** ein gegnerisches Gegenlesen der
 fertigen Scheibe durch vier Agenten. Es ist zweimal gestartet und beide Male

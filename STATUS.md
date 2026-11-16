@@ -241,17 +241,73 @@ alle gelten noch, einer nur zum Teil; jeder hat jetzt einen Anker.
   Arbeitsverzeichnis vor dem Nachziehen — drei seiner Funde hatte `main` schon
   behoben. Jeder übernommene Fund ist am zusammengeführten Stand nachgemessen.
 
-**Die Nummer ist noch nicht endgültig.** Gemessen am 11.11.2026: drei Branches
-tragen v33.59 (dieser, `ccr-5e705a36-jveaak`, `claude/restore-banner-nur-bei-bedarf`),
-`main` steht bei v33.58. Die Koordinator-Sitzung meldet PR #326
-(„Hauptfunktionen", v33.61) als Ersten in der Merge-Reihe; kommt er zuerst auf
-`main`, wird diese Scheibe darauf nachgezogen und heisst dann v33.62 oder höher
-(eine niedrigere Nummer nach v33.61 brächte `GS_RELEASES` durcheinander).
-Probeweise zusammengeführt (Wegwerf-Arbeitsbaum, nichts übernommen): acht
-Konfliktstellen in drei Dateien — die Versionsmarken (`index.html`, `sw.js`),
-der Changelog, STATUS und `_gsPassCat` „Giftig" (dort dieselbe Schwelle
+**Die Nummer ist noch nicht endgültig — und die Reihenfolge ist offen.**
+Gemessen am 11.11.2026: drei Branches tragen v33.59 (dieser,
+`ccr-5e705a36-jveaak`, `claude/restore-banner-nur-bei-bedarf`), `main` steht bei
+v33.58 (am 16.11.2026 unverändert, 2ba302e). Für die Reihenfolge gibt es zwei
+Angaben, die sich widersprechen: die Koordinator-Sitzung nannte zuerst PR #326
+(„Hauptfunktionen", v33.61) als Ersten; ein Brett-Eintrag auf
+`claude/leitstand-kw46` nennt `ccr-5e705a36-jveaak` = v33.59, PR #324 = v33.60,
+diese Scheibe = v33.61. Die Koordinator-Sitzung hat das am 11.11. selbst als
+ungeklärt gemeldet und Fernando gefragt; bis zu seiner Antwort wird NICHT
+umnummeriert. Brett: `2026-11-11-23d2` (an Fernando, ohne Antwort).
+
+**Probeweise zusammengeführt** (16.11.2026, Wegwerf-Arbeitsbaum, nichts
+übernommen; gezählt an 4c9be8c):
+
+| Branch | über `main` | Konfliktstellen |
+|---|---|---|
+| `ccr-5e705a36-jveaak` (Sicherheitsreparatur, v33.59) | 29 Commits | 51 in 14 Dateien (`index.html` 26) |
+| `claude/zahlungsweg-nachgemessen-011L7G` (v33.60, enthält PR #324) | 30 Commits | 29 in 13 Dateien |
+| `claude/happy-thompson-24l4uu` (PR #326, v33.61) | 2 Commits | 8 in 3 Dateien |
+
+Was beim Auflösen zu wissen ist — **die Sicherheitsreparatur hat mehrere Funde
+dieses Audits PARALLEL behoben**, mit anderem Wortlaut: das Passwort in
+`android/build.sh` (dort `env:` auch im Entwicklungszweig), der Datenschutz-Satz
+in `privacy.html`, `install.html`, die noindex-Blöcke (`_headers`,
+`robots.txt`), die Permissions-Policy und „`contrast_check` urteilt". Dort ist
+jeweils eine Seite zu nehmen, nicht beide. Dazu vier Nähte, die Git nicht als
+Konflikt meldet: (1) beide Seiten haben einen Fall `apk_check` **B6** (dort
+Lizenztexte, hier „ein Übersetzungsfehler bricht den Bau ab") — einer braucht
+einen anderen Namen; (2) beide STATUS-Einträge heissen **(je)**; (3) dort läuft
+die CI mit `npm ci` gegen ein eingechecktes Lockfile, diese Scheibe fügt ESLint
+in `scripts/package.json` hinzu — nach dem Zusammenführen das Lockfile neu
+erzeugen (`cd scripts && npm install --package-lock-only`), sonst bricht
+`npm ci` vor jedem Prüfstand ab (Brett `2026-11-11-7a6c`, dort gemessen);
+(4) der Garten-Pull: dort geht die Liste durch `_gsListeEinspielen` — beim
+Auflösen jene Seite nehmen. Mit PR #326 sind es die Versionsmarken, der
+Changelog, STATUS und `_gsPassCat` „Giftig" (dort dieselbe Schwelle
 `tox >= 2`, aber auf Art-Ebene über `_gsArtAnzeige` — jene Fassung schliesst
 diese ein und gilt beim Auflösen).
+
+**Nachgetragen am 16.11.2026 — der Hinweis des Sicherheits-Branches galt auch
+hier:** der Garten-Pull dieser Scheibe übernahm die geholte Liste UNGESIEBT
+(`gardens = d.gardens`). Ein `null`, eine Zeichenkette oder eine Liste in der
+Cloud-Antwort ging in Speicher UND Variable. Jetzt nur Objekte, wie beim
+Einspielen eines Backups. `sync_check` „Garten-Pull" schickt dafür 3 + 2
+Einträge Unrat mit; Gegenprobe mit der alten Zuweisung: rot („Speicher: …
+`<null>`, `<"kaputt">` … Unrat bei den Pflanzungen: 4").
+
+**Und eine private Adresse im ausgelieferten Code** (16.11.2026, gefunden, weil
+ein Datenschutz-Filter dieser Umgebung den Aufruf von `robust_check` verweigerte):
+der Fall A6 („keine Admin-E-Mails im HTML", seit v32.74) suchte nach Fernandos
+privater Mailadresse — und trug sie dafür WÖRTLICH, in `scripts/robust_check.js`,
+das beide Hoster aus dem Wurzelverzeichnis ausliefern (`noindex` verhindert das
+Finden, nicht das Abrufen). Ebenso C4 mit dem Nachnamen. Beide zählen jetzt JEDE
+Freemail-Adresse im Code (Kommentare heraus) und melden die Zahl, nie die Adresse
+(`robustFreemail`); im Code von `index.html` und in den Edge-Functions sind es 0.
+Gegenprobe: eine erfundene Adresse in den Code → A6 rot („1 Freemail-Adresse(n)
+im Code"). **Nicht angefasst:** zwei alte, angewandte Migrationen
+(`v26_91_rls_wrap_phase2_initplan.sql`, `v28_18_consolidate_permissive_policies.sql`)
+nennen dieselbe Adresse in einer Policy — eine angewandte Migration schreibt
+man nicht um; ob sie bleiben, entscheidet Fernando. Und in der Git-Geschichte
+steht die Adresse weiter.
+
+**Die zwei Pflichtläufe:** b278816 und 4c9be8c je 44 Prüfstände, rot: 0 — in
+beiden waren die sieben SQL-Hälften „nicht prüfbar" (das lokale Postgres lief
+nicht). Am 16.11.2026 mit Postgres auf 4c9be8c nachgefahren: `naht` 17,
+`quiz` 28, `schluessel` 12, `nutzung` 12, `backup` 9, `quizgen` 23, `admin` 21
+Fälle, alle grün.
 
 **Für Fernando sichtbar** (`docs/FUER-FERNANDO.md` §30): die Kopfleiste ist
 17 px höher (so, wie das CSS sie immer wollte), auf „Rezepte" und „Heilmittel"

@@ -76437,7 +76437,7 @@ window.GS_RELEASES = [
         {emoji:'📐', bold:'Kopfleiste:', text:' sie ist etwas höher und füllt ihren Platz — der schmale Streifen darunter ist weg.'}
       ],
       items: [
-        {emoji:'📏', bold:'Garten-Pull (sync_check):', text:' der Login-Pull schrieb gardens/plantings nur in den Gerätespeicher; renderGarden() → initDefaultGarden() sah eine leere Liste im Arbeitsspeicher, legte „Mein Garten" an und speicherte ihn über das Geholte. Gemessen: Cloud 2 Gärten + 2 Pflanzungen → danach 1 Garten, 0 Pflanzungen, vorgemerkt: ja. Der Pull frischt jetzt auch den Arbeitsspeicher auf; initDefaultGarden übernimmt zuerst, was im Speicher liegt.'},
+        {emoji:'📏', bold:'Garten-Pull (sync_check):', text:' der Login-Pull schrieb gardens/plantings nur in den Gerätespeicher; renderGarden() → initDefaultGarden() sah eine leere Liste im Arbeitsspeicher, legte „Mein Garten" an und speicherte ihn über das Geholte. Gemessen: Cloud 2 Gärten + 2 Pflanzungen → danach 1 Garten, 0 Pflanzungen, vorgemerkt: ja. Der Pull frischt jetzt auch den Arbeitsspeicher auf — mit einer gesiebten Liste (nur Objekte; ein null oder eine Zeichenkette aus der Cloud kommt weder in den Speicher noch in die Variable); initDefaultGarden übernimmt zuerst, was im Speicher liegt.'},
         {emoji:'🔁', bold:'Zweite Sitzung (robust_check):', text:' gsNormalizeCatEmojis und gsAutoFillLookalikes hingen an Schaltern im Gerätespeicher, bereiten aber eine Liste im Arbeitsspeicher auf. Erste Sitzung 160 generische Symbole und 0 ohne Verwechslungshinweis, jede spätere 1\'971 und 1\'435 — und jeder Prüfstand beginnt mit leerem Speicher, mass also immer die erste.'},
         {emoji:'🧩', bold:'statik_check (neu, 10 Fälle):', text:' ESLint als Parser mit Geltungsbereichen. Erster Lauf: _gsSichtbar zweimal deklariert, drei Namen, die es nirgends gibt, sechs tote typeof-Schütze (darunter markDirty im Kalender-Filter — die Wahl wurde nie zum Sync vorgemerkt), sechs Funktionen ohne Aufrufer ausser sich selbst, vier CSS-Variablen ohne Definition.'},
         {emoji:'🕐', bold:'datum_check (neu, 8 Fälle):', text:' Europe/Zurich, Uhr auf 01:30 gestellt. EXIF-Datum, Vorgabe in Datumsfeldern, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner; dazu ein Deckel auf UTC-Tagesschnitte (40 → 32).'},
@@ -84361,8 +84361,14 @@ async function gsSyncUserDataOnLogin(){
         } else {
           if (d.plans)     try { localStorage.setItem('gs_garden_plans', JSON.stringify(d.plans)); } catch(_){}
           if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
-          if (d.gardens)   try { localStorage.setItem('gs_gardens', JSON.stringify(d.gardens)); } catch(_){}
-          if (d.plantings) try { gsStore.set('gs_plantings', JSON.stringify(d.plantings)); } catch(_){}
+          // v33.59: gesiebt wie beim Einspielen eines Backups — nur Objekte. Was aus
+          // der Cloud kommt, ist fremde Eingabe: ein `null` oder eine Zeichenkette in
+          // der Liste ging bis hierher ungeprueft in Speicher UND Variable, und die
+          // erste Anzeige, die `g.name` liest, warf (sync_check „Garten-Pull").
+          var _gsNurObj = function (a) { return Array.isArray(a) ? a.filter(function (x) { return x && typeof x === 'object' && !Array.isArray(x); }) : null; };
+          var _cGaerten = _gsNurObj(d.gardens), _cPflanzungen = _gsNurObj(d.plantings);
+          if (d.gardens)   try { localStorage.setItem('gs_gardens', JSON.stringify(_cGaerten || d.gardens)); } catch(_){}
+          if (d.plantings) try { gsStore.set('gs_plantings', JSON.stringify(_cPflanzungen || d.plantings)); } catch(_){}
           // v33.59: der Pull frischt auch den ARBEITSSPEICHER auf. Bis v33.56 schrieb
           // er Gaerten und Pflanzungen nur in den Geraetespeicher; die Variablen
           // `gardens` und `plantings` blieben, wie sie beim Parsen der Seite waren —
@@ -84377,8 +84383,8 @@ async function gsSyncUserDataOnLogin(){
           // die Zeile laengst da (`myPlants = pd.plants`). Dieser Zweig laeuft nur,
           // wenn lokal nichts Ungesendetes liegt (`_shouldOverwriteLocal`) — eine
           // Aenderung, die noch nicht oben ist, gewinnt weiter.
-          if (Array.isArray(d.gardens))   { try { gardens = d.gardens; } catch(_){} }
-          if (Array.isArray(d.plantings)) { try { plantings = d.plantings; } catch(_){} }
+          if (_cGaerten)     { try { gardens = _cGaerten; } catch(_){} }
+          if (_cPflanzungen) { try { plantings = _cPflanzungen; } catch(_){} }
           if (gUpdated) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
         }
       }

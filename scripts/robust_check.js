@@ -20,6 +20,15 @@ const fs = require('fs');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const SEED = require('./_seed.js');
 
+// v33.59: Zahl der Freemail-Adressen im CODE eines Textes (ganze Kommentarzeilen und
+// Kommentare am Zeilenende heraus — dort steht die Adresse des GreenScan-Kontos als
+// Notiz). Eine private Adresse gehoert nicht in eine Datei, die der Web-Root ausliefert,
+// und die Pruefung nennt keine: sie zaehlt.
+function robustFreemail(text) {
+  const code = String(text).replace(/^[ \t]*\/\/.*$/gm, '').replace(/[ \t]\/\/[ \t].*$/gm, '');
+  return (code.match(/[A-Za-z0-9._%+-]+@(?:gmail|googlemail|hotmail|outlook|live|yahoo|gmx|bluewin|icloud|proton(?:mail)?)\.[A-Za-z]{2,}/g) || []).length;
+}
+
 let __seite = null;
 let __browser = null;   // v33.59: fuer Faelle, die eine EIGENE Sitzung brauchen (Zweite Sitzung)
 const __anfragen = [];
@@ -430,7 +439,14 @@ const FAELLE = [
     lauf: async () => {
       const f = [];
       const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-      ['GS_ADMIN_PW_SEED', 'GS_ADMINS', 'gsHashPw', 'admin-pw-input', 'fernando.rankwiler1997@gmail.com'].forEach(t => { if (idx.includes(t)) f.push('Quelltext traegt noch ' + t); });
+      ['GS_ADMIN_PW_SEED', 'GS_ADMINS', 'gsHashPw', 'admin-pw-input'].forEach(t => { if (idx.includes(t)) f.push('Quelltext traegt noch ' + t); });
+      // v33.59: eine private Adresse steht nie im Code — und die Pruefung nennt sie
+      // auch nicht. Bis v33.59 stand die gesuchte Adresse hier WOERTLICH, in einer
+      // Datei, die beide Hoster aus dem Wurzelverzeichnis ausliefern. Gesucht wird
+      // jetzt JEDE Freemail-Adresse im Code (Kommentare heraus); gemeldet wird die
+      // Zahl, nie die Adresse.
+      const _frei = robustFreemail(idx);
+      if (_frei) f.push(_frei + ' Freemail-Adresse(n) im Code von index.html (ausserhalb von Kommentaren)');
       const ab = idx.indexOf('GREENSCAN EMBEDDED ADMIN');
       if (ab < 0 || /[0-9a-f]{64}/.test(idx.slice(ab, ab + 4000))) f.push('64-hex-Konstante im Admin-Block (oder Block fehlt)');
       const r = await __seite.evaluate(async () => {
@@ -484,7 +500,7 @@ const FAELLE = [
         if (/^async function loadSettings\(|^function zurichHour\(|^async function sendPush\(/m.test(t)) f.push(n + ' traegt noch eine eigene Kopie');
       });
       const alle = fs.readdirSync(fnRoot).filter(d => fs.existsSync(path.join(fnRoot, d, 'index.ts')));
-      alle.forEach(d => { if (/rankwiler/.test(fs.readFileSync(path.join(fnRoot, d, 'index.ts'), 'utf8'))) f.push(d + ' traegt eine private Adresse'); });
+      alle.forEach(d => { if (robustFreemail(fs.readFileSync(path.join(fnRoot, d, 'index.ts'), 'utf8'))) f.push(d + ' traegt eine private Adresse (Freemail)'); });
       const modPfad = path.join(fnRoot, '_shared', 'push_helfer.mjs');
       if (!fs.existsSync(modPfad)) return { ok: false, warum: '_shared/push_helfer.mjs fehlt · ' + f.join(' · ') };
       if (/^import /m.test(fs.readFileSync(modPfad, 'utf8'))) f.push('Modul ist nicht rein (import)');
