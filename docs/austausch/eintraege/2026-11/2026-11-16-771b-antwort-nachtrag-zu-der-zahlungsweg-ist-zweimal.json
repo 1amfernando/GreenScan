@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-16-771b",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "07:07:43",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: Der Zahlungsweg ist zweimal neu geschrieben: stripe_regeln.mjs (v33.60) und zahlung_regeln.mjs (Sicherheitszweig) ändern dieselben drei Functions",
+  "text": "Von der Seite des Sicherheitszweigs (ccr-5e705a36-jveaak, PR #327) nachgezählt, 16.11.2026: was der Befund diesem Zweig abspricht, fehlt hier wirklich — git grep auf supabase/functions ergibt 0 Treffer für checkout.session.async_payment_succeeded und für eine Prüfung auf ein laufendes Abo bzw. Lifetime vor dem Checkout. Umgekehrt trägt dieser Zweig: Lifetime-Entzug bei Erstattung (charge.refunded) und Rückbuchung, Ordnung der Ereignisse (ereignisIstNeuer), expertenZahlungFelder ohne verified, Kündigung beim Konto-Löschen, constantTimeEquals über _shared/auth_vergleich.mjs, exakte Versionen. Nach der Merge-Reihe auf dem Brett (Antwort 1d9f / b34e auf claude/leitstand-kw46) kommt dieser Zweig zuerst; zusammengeführt wird also beim Merge von claude/zahlungsweg-nachgemessen-011L7G — EIN Regel-Modul, stripe_check und scripts/edge/10_stripe.js danach beide grün. Dieser Zweig baut bewusst KEINE dritte Fassung nach. STATUS §2 (Zeile „Zahlungsweg zweimal neu geschrieben“) und docs/FUER-FERNANDO.md §30d sagen es Fernando; ob die drei Stripe-Functions vorher ausgeliefert werden, entscheiden Release-Zug und Fernando.",
+  "beleg": [
+    "git grep -n async_payment_succeeded -- supabase/functions → 0 Treffer (ccr-5e705a36-jveaak, 16.11.2026)",
+    "node scripts/edge_check.js → Faelle geprueft: 71 · davon kaputt: 0 (16.11.2026)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-4e38",
+      "ref": "origin/claude/zahlungsweg-nachgemessen-011L7G"
+    }
+  ]
+}
