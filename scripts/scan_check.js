@@ -3004,6 +3004,112 @@ const FAELLE = [
     },
   },
   {
+    // HOME-6 (STATUS 2026-09-10 hj, „Offen für N4"): ein Plan, dessen Jahr vorbei ist, sagt es seit
+    // v33.15 auf seiner Kachel in „Meine Pläne" — aber nur dort. Seit N8 (v33.10) legt ein Plan seine
+    // Termine in den Kalender; einer von letztem Jahr legt DIESES Jahr keinen mehr hin, und die
+    // Startseite sagte nicht, warum. Der Fall stellt die Pläne her und liest den Tagesplan.
+    // Dazu die EINE Jahresregel (_gsPlanJahr): drei Stellen rechneten mit _gsKalTag(x.sow_date), und
+    // new Date(null) ist der 1.1.1970 — eine Pflanze mit "sow_date": null machte aus dem Plan einen
+    // „Plan von 1970" (Kachel: „Plan-Jahr 1970 vorbei", Vorlage: „Vorlage 1971").
+    name: 'HP1 · Startseite: sind ALLE Gartenpläne aus einem vergangenen Jahr, sagt der Tagesplan es und führt zu „Meine Pläne" — ein Plan für dieses Jahr, ein frischer Plan ohne Datum oder „ausblenden" lassen die Zeile weg; "sow_date": null ist kein Plan von 1970',
+    lauf: async () => {
+      if (typeof gsRenderDayPlan !== 'function') return { ok: false, warum: 'gsRenderDayPlan fehlt' };
+      const el = document.getElementById('home-dayplan');
+      if (!el) return { ok: false, warum: '#home-dayplan fehlt — der Fall misst nichts' };
+      const J = new Date().getFullYear();
+      const letztesJahr = new Date(J - 1, 3, 1).toISOString();
+      const plan = (jahr, opts) => {
+        opts = opts || {};
+        const plants = opts.nullZuerst
+          ? [{ name: 'Lauch', sow_date: null }, { name: 'Tomate', sow_date: jahr + '-03-15' }]
+          : (jahr ? [{ name: 'Tomate', sow_date: jahr + '-03-15', harvest_from: jahr + '-07-20' }] : [{ name: 'Tomate' }]);
+        return { id: 'pp_test_' + (jahr || 'ohne') + '_' + Math.random().toString(36).slice(2, 7),
+          created: opts.created || letztesJahr, title: 'Testplan ' + (jahr || 'ohne Datum'), plan: { plants } };
+      };
+      const vorher = localStorage.getItem('gs_garden_plans'), vorAus = localStorage.getItem('gs_planhinweis_aus');
+      const eOpen = window.gsPPopenSavedPlans, eLogin = window.sbIsLoggedIn;
+      const eDirty = (window.gsCloudSync && gsCloudSync.markDirty) || null;
+      let geoeffnet = 0;
+      const f = [];
+      const zeile = () => el.querySelector('[data-planjahr]');
+      const setze = (liste) => { localStorage.setItem('gs_garden_plans', JSON.stringify(liste)); window._gsPlanHinweisAusMem = null; gsRenderDayPlan(); };
+      try {
+        window.gsPPopenSavedPlans = function () { geoeffnet++; };
+        if (eDirty) gsCloudSync.markDirty = function () {};
+        localStorage.removeItem('gs_planhinweis_aus');
+        // 1 · zwei Pläne aus Vorjahren → Zeile mit dem NEUESTEN Jahr, Antippen öffnet „Meine Pläne"
+        setze([plan(J - 2), plan(J - 1)]);
+        const z1 = zeile();
+        if (!z1) f.push('zwei Pläne aus ' + (J - 2) + ' und ' + (J - 1) + ': keine Zeile im Tagesplan');
+        else {
+          if (z1.textContent.indexOf(String(J - 1)) < 0) f.push('die Zeile nennt nicht das neueste Plan-Jahr ' + (J - 1) + ' („' + z1.textContent.trim().slice(0, 80) + '")');
+          const knopf = z1.querySelector('button:not([data-planjahr-aus])');
+          if (knopf) knopf.click();
+          if (!geoeffnet) f.push('Antippen öffnet „Meine Pläne" nicht');
+        }
+        // 2 · ein Plan für dieses Jahr → keine Zeile
+        setze([plan(J - 1), plan(J)]);
+        if (zeile()) f.push('mit einem Plan für ' + J + ' steht die Zeile trotzdem da');
+        // 3 · nur ein Plan ohne Datum (angelegt letztes Jahr) → keine Zeile: das Jahr wird nie geraten
+        setze([plan(null)]);
+        if (zeile()) f.push('ein Plan ohne Datum löst die Zeile aus');
+        // 4 · ein alter Plan mit Datum und ein DIESES Jahr angelegter ohne Datum → keine Zeile
+        setze([plan(J - 1), plan(null, { created: new Date().toISOString() })]);
+        if (zeile()) f.push('ein dieses Jahr angelegter Plan ohne Datum: die Startseite behauptet trotzdem, alle Pläne seien alt');
+        // 5 · "sow_date": null vor einem echten Datum → das Jahr ist das echte, nicht 1970
+        const nullPlan = plan(J - 1, { nullZuerst: true });
+        setze([nullPlan]);
+        const z5 = zeile();
+        if (!z5) f.push('Plan mit "sow_date": null und einem Datum ' + (J - 1) + ': keine Zeile');
+        else if (z5.getAttribute('data-planjahr') !== String(J - 1)) f.push('Plan mit "sow_date": null: die Startseite rechnet das Jahr ' + z5.getAttribute('data-planjahr') + ' statt ' + (J - 1));
+        // 5b · dieselbe Regel in „Meine Pläne": die Kachel sagt das echte Plan-Jahr
+        window.gsPPopenSavedPlans = eOpen;
+        window.sbIsLoggedIn = function () { return false; };   // kein Cloud-Abgleich ohne Netz
+        try { await eOpen(); } catch (e) { f.push('„Meine Pläne" wirft: ' + e.message); }
+        const modal = document.getElementById('modal-saved-plans');
+        if (!modal) f.push('„Meine Pläne" ging nicht auf — die Kachel ist nicht gemessen');
+        else {
+          const kachel = modal.textContent;
+          if (/1970/.test(kachel)) f.push('die Kachel in „Meine Pläne" nennt 1970 („' + ((modal.querySelector('.pp-alt') || {}).textContent || '').trim() + '")');
+          if (kachel.indexOf('Plan-Jahr ' + (J - 1) + ' vorbei') < 0) f.push('die Kachel sagt nicht „Plan-Jahr ' + (J - 1) + ' vorbei"');
+          modal.remove();
+        }
+        window.sbIsLoggedIn = eLogin;
+        // 5c · und die Vorlage: aus dem Plan von J-1 wird eine Vorlage für J — nicht für 1971
+        window.gsPPopenSavedPlans = function () { geoeffnet++; };
+        let neu = null;
+        try { neu = gsPPvorlageNaechstesJahr(nullPlan.id); } catch (e) { f.push('gsPPvorlageNaechstesJahr wirft: ' + e.message); }
+        if (!neu) f.push('aus dem Plan mit "sow_date": null wurde keine Vorlage');
+        else if (String(neu.title || '').indexOf('Vorlage ' + J + ' ') !== 0) f.push('die Vorlage heisst „' + neu.title + '" statt „Vorlage ' + J + ' · …"');
+        // 6 · ausblenden gilt für dieses Jahr, ein Vorjahres-Ausblenden nicht
+        localStorage.setItem('gs_planhinweis_aus', String(J - 1));
+        setze([plan(J - 1)]);
+        const z6 = zeile();
+        if (!z6) f.push('ein „ausblenden" aus ' + (J - 1) + ' hält die Zeile in ' + J + ' zurück');
+        else {
+          const weg = z6.querySelector('[data-planjahr-aus]');
+          if (!weg) f.push('die Zeile lässt sich nicht ausblenden');
+          else {
+            weg.click();
+            if (zeile()) f.push('nach „ausblenden" steht die Zeile noch da');
+            if (localStorage.getItem('gs_planhinweis_aus') !== String(J)) f.push('„ausblenden" ist nicht gespeichert (' + localStorage.getItem('gs_planhinweis_aus') + ')');
+          }
+        }
+      } finally {
+        window.gsPPopenSavedPlans = eOpen;
+        window.sbIsLoggedIn = eLogin;
+        if (eDirty) gsCloudSync.markDirty = eDirty;
+        window._gsPlanHinweisAusMem = null;
+        if (vorher === null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', vorher);
+        if (vorAus === null) localStorage.removeItem('gs_planhinweis_aus'); else localStorage.setItem('gs_planhinweis_aus', vorAus);
+        try { const m = document.getElementById('modal-saved-plans'); if (m) m.remove(); } catch (_) {}
+        try { gsRenderDayPlan(); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Vorjahre → Zeile mit ' + (J - 1) + ', öffnet „Meine Pläne" · Plan für ' + J + ', ohne Datum, frisch angelegt, ausgeblendet → keine Zeile · "sow_date": null → ' + (J - 1) + ' auf Startseite, Kachel und Vorlage (' + J + ')' };
+    },
+  },
+  {
     name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — an JEDEM Tag des Jahres',
     lauf: () => {
       if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };

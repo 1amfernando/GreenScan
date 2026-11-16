@@ -205,6 +205,20 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   Fakten statt 30, 40 bleiben in ihrer Woche. Dabei gefunden: der Fakt „Schweiz hat 4342
   Pflanzenarten" ist die alte Eintragszahl der App (Brett `2026-11-16-397d`, Datenänderung für
   Fernando).
+- **Startseite — der Gartenplan aus dem letzten Jahr (Home 6, der offene Rest von N4).** Die
+  Kachel in „Meine Pläne" sagt seit v33.15 „Plan-Jahr … vorbei" — nur dort. Seit ein Plan seine
+  Termine in den Kalender legt (N8, v33.10), legt einer vom letzten Jahr keinen mehr hin, und
+  die Startseite sagte nicht, warum. Jetzt eine Zeile im Tagesplan (`_gsDayPlanPlanJahr`, in allen
+  drei Zweigen von `gsRenderDayPlan`), wenn ALLE Pläne mit Datum aus einem vergangenen Jahr sind
+  (`gsPlaeneVeraltet`); ein Plan ohne Datum zählt nicht — ausser er wurde DIESES Jahr angelegt,
+  dann hat die Person für dieses Jahr geplant. Antippen öffnet „Meine Pläne", ✕ blendet die Zeile
+  für dieses Jahr aus (`gs_planhinweis_aus` = Jahr, in `GS_USER_KEYS`). Dabei gemessen: drei
+  Stellen rechneten das Plan-Jahr je selbst mit `_gsKalTag(x.sow_date)`, und `new Date(null)` ist
+  der 1.1.1970 — eine Pflanze mit `"sow_date": null` (die KI-Antwort wird nicht bereinigt) machte
+  aus dem Plan einen Plan von 1970: Kachel „Plan-Jahr 1970 vorbei", Vorlage „Vorlage 1971".
+  Jetzt EINE Regel, `_gsPlanJahr`, mit dem Datumsleser des Planers (`_gsPD`); Kachel, 📅-Knopf,
+  `gsPPvorlageNaechstesJahr` und die Startseite rufen sie. `gsPlanEreignisse` (Kalender) bleibt
+  unberührt: dort fällt ein 1970-Datum ohnehin aus jedem Zeitraum.
 - **Startseite — die Kartenreihe (Home 5).** `gsBuildWidgetStack` drehte die Tageskarten alle 8 s
   ohne Pause-Knopf (WCAG 2.2.2), auch während der Fokus in der Reihe stand, und zwang die
   Bauernregel als „stabile Folie" sichtbar: ohne Daten (offline gemessen: `wisdom-card` leer)
@@ -218,7 +232,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   einem eigenen `role=tablist`, der Knopf daneben. „`gsRenderWochenrueckblick` doppelt gerufen"
   (Arbeitsliste): nachgesehen — Tagesplan und erster Aufbau rendern dieselben Daten, kein Fehler.
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, HF1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, HF1, HP1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge), L8 (Wartezeit), L9 (Gespräch ohne Cloud);
@@ -226,16 +240,19 @@ der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` 
 Fall gegen den Stand davor gefahren: rot. Volle Suite auf
 3812572 und erneut auf 32b4c03 (in einem eigenen Arbeitsbaum, TZ=UTC, mit Postgres): je 42 Prüfstände,
 rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge); im Kontrast nur die bekannte Stelle
-`2026-11-16-a082`. Die zwei Pakete danach (Lina L8, L9) mit ihren Nachbar-Prüfständen.
+`2026-11-16-a082`. Die drei Pakete danach (Lina L8, L9; Home 6 mit HP1 — gegen 7032d35 rot, vier
+Gegenproben je rot) mit ihren Nachbar-Prüfständen.
 
 **Aufs Brett gelegt** (nicht in den vier Funktionen, deshalb nicht angefasst): der Wissen-Tab
 zählt mit eigenen Regeln (brett 4d79: „Arten" = 4'337 Einträge, „Essbar" 1'130 statt 1'062,
 „Giftig" 598 statt 675 wie der Filter); das Standort-Fenster hat im Dunkelmodus 1,51:1
 (brett a082, auf `main` identisch); das Garten-Frostbanner nennt ab übermorgen den Wochentag
 einen Tag zu spät und zählt Frost erst unter 2 °C (brett c72c). An die Sitzung „KI-Modelle":
-`_gsScanFehlerArt` hängt am Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07).
+`_gsScanFehlerArt` hängt am Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07). An die
+Planer-Seite: eine Vorlage aus einem Plan von vorletztem Jahr landet in einem vergangenen Jahr
+(brett eb4b, gemessen beim Bau von Home 6).
 
-**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234, brett:2026-11-16-397d, brett:2026-11-16-bb6f — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle"), der falsche Fakt in der Datenbank (Fernando), das Wackeln von offline_check (g)
+**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234, brett:2026-11-16-397d, brett:2026-11-16-bb6f, brett:2026-11-16-eb4b — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle"), der falsche Fakt in der Datenbank (Fernando), das Wackeln von offline_check (g), die Vorlage aus einem Plan von vorletztem Jahr (Planer-Seite)
 **Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen

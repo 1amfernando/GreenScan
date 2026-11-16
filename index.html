@@ -6029,6 +6029,8 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-kal-fuss{font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:10px;}
 .gs-dp-woche{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;padding:9px 12px;min-height:40px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-sm);text-align:left;cursor:pointer;}
 .gs-dp-woche-txt{flex:1;min-width:0;}
+.gs-dp-planjahr{display:flex;gap:6px;align-items:stretch;}
+.gs-dp-planjahr .gs-dp-planjahr-aus{width:auto;flex:0 0 auto;justify-content:center;padding:9px 13px;}
 /* v33.46 · der klemmende Sync. Feste helle Flaeche → FESTE dunkle Schrift
    (contrast_check: ein Themen-Token kippt im Dunkelmodus). */
 .gs-dp-sync{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;padding:9px 12px;min-height:40px;border:1px solid #e0b400;border-radius:var(--r-md);background:#fff8e1;color:#4a3b00;font-family:inherit;font-size:var(--fs-sm);text-align:left;cursor:pointer;}
@@ -29461,6 +29463,23 @@ window.gsTagebuchAlle = gsTagebuchAlle;
 // Jeder Termin sagt, woher er weiss, was er weiss (quelle: 'plan', grund).
 // Ein Plan, der zweimal gespeichert ist (LS + Cloud-Abgleich mit gp_-Id),
 // erzeugt denselben Termin nur einmal (Schluessel Art·Datum·Name).
+// HOME-6 (16.11.2026): das JAHR eines gespeicherten Plans — EINE Regel. Drei Stellen rechneten es je
+// selbst (Kachel und 📅-Knopf in „Meine Pläne", gsPPvorlageNaechstesJahr) mit `_gsKalTag(x.sow_date)`
+// — und `new Date(null)` ist der 1.1.1970: eine Pflanze mit `"sow_date": null` (die KI-Antwort wird
+// nicht bereinigt, _gsSanitizePlannerPlan fasst die Daten nicht an) machte den Plan zu einem „Plan von
+// 1970". Hier gilt der Leser des Planers selbst (_gsPD: nur ein geschriebenes JJJJ-MM-TT), und die
+// erste Pflanze mit Datum bestimmt das Jahr — wie bisher. Kein Datum → null, nie geraten.
+function _gsPlanJahr(plan) {
+  var j = null;
+  try {
+    (plan && Array.isArray(plan.plants) ? plan.plants : []).some(function (x) {
+      var d = x ? _gsPD(x.sow_date) : null;
+      if (d) { j = String(d.getFullYear()); return true; }
+      return false;
+    });
+  } catch (_) {}
+  return j;
+}
 function _gsIsoWocheMontag(jahr, woche) {
   // ISO-8601: Woche 1 enthaelt den 4. Januar; Montag = Beginn.
   var vierter = new Date(jahr, 0, 4);
@@ -30756,6 +30775,55 @@ function _gsDayPlanWoche(esc) {
       '<span class="gs-dp-woche-txt">📆 ' + esc(z) + '</span><span aria-hidden="true">→</span></button>';
   } catch (_) { return ''; }
 }
+// HOME-6 · N4 (Rest, STATUS 2026-09-10 hj): sind ALLE Gartenpläne aus einem vergangenen Jahr, sagt
+// es die Startseite. Die Kachel in „Meine Pläne" sagt es seit v33.15 — aber nur dort, und seit N8
+// (v33.10) ist der Plan eine Quelle des Kalenders: ein Plan von letztem Jahr legt DIESES Jahr keinen
+// Termin mehr hin, und niemand sagt warum. Das Jahr kommt aus _gsPlanJahr (nie geraten); ein Plan
+// ohne Datum zählt nicht — ausser er wurde DIESES Jahr angelegt: dann hat die Person für dieses Jahr
+// geplant, und „alle Pläne sind alt" wäre eine Behauptung ohne Grundlage. Kein Automatismus: die
+// Zeile führt zu „Meine Pläne" (dort 📅 Vorlage). Wer sie nicht will, blendet sie für dieses Jahr
+// aus (gs_planhinweis_aus = Jahr; im nächsten Jahr gilt das nicht mehr).
+function gsPlaeneVeraltet() {
+  try {
+    var arr = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
+    if (!Array.isArray(arr) || !arr.length) return null;
+    var J = new Date().getFullYear(), jahre = [], frisch = false;
+    arr.forEach(function (p) {
+      if (!p) return;
+      var j = _gsPlanJahr(p.plan);
+      if (j) { jahre.push(+j); return; }
+      var c = _gsPD(p.created);
+      if (c && c.getFullYear() >= J) frisch = true;
+    });
+    if (frisch || !jahre.length) return null;
+    var neuestes = Math.max.apply(null, jahre);
+    if (neuestes >= J) return null;
+    return { jahr: neuestes, plaene: jahre.length };
+  } catch (_) { return null; }
+}
+function _gsDayPlanPlanJahr(esc) {
+  try {
+    var v = gsPlaeneVeraltet(); if (!v) return '';
+    var aus = window._gsPlanHinweisAusMem || null;   // gilt auch, wenn der Speicher voll war
+    if (!aus) { try { aus = localStorage.getItem('gs_planhinweis_aus'); } catch (_) {} }
+    if (aus === String(new Date().getFullYear())) return '';
+    var txt = v.plaene === 1
+      ? _gsSatz('Dein Gartenplan ist von {1} — das Plan-Jahr ist vorbei', v.jahr)
+      : _gsSatz('Deine Gartenpläne sind von {1} oder früher — das Plan-Jahr ist vorbei', v.jahr);
+    var weg = _gsSatz('Diesen Hinweis für dieses Jahr ausblenden');
+    return '<div class="gs-dp-planjahr" data-planjahr="' + v.jahr + '">' +
+      '<button type="button" class="gs-dp-woche" onclick="gsPPopenSavedPlans()" aria-label="' + esc(txt) + '">' +
+        '<span class="gs-dp-woche-txt">⏳ ' + esc(txt) + '</span><span aria-hidden="true">→</span></button>' +
+      '<button type="button" class="gs-dp-woche gs-dp-planjahr-aus" data-planjahr-aus="1" onclick="gsPlanHinweisAus()" aria-label="' + esc(weg) + '" title="' + esc(weg) + '">✕</button>' +
+    '</div>';
+  } catch (_) { return ''; }
+}
+function gsPlanHinweisAus() {
+  var j = String(new Date().getFullYear());
+  window._gsPlanHinweisAusMem = j;
+  try { localStorage.setItem('gs_planhinweis_aus', j); } catch (_) {}
+  try { gsRenderDayPlan(); } catch (_) {}
+}
 function _gsDayPlanKalender(esc) {
   try {
     var h = gsHeuteTag();
@@ -30814,14 +30882,14 @@ window.gsRenderDayPlan = function(){
       '</div><button type="button" class="gs-dp-all" style="border-top:none;padding-left:2px;"' +
       ' onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\')">' +
       '<span>Erste Pflanze scannen</span><span aria-hidden="true">→</span></button>' +
-      _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: ein Plan-Termin oder Frost gilt auch ohne Pflanze
+      _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc) + _gsDayPlanPlanJahr(esc);   // v33.19 · v33.40: ein Plan-Termin oder Frost gilt auch ohne Pflanze
     return;
   }
   if (!tasks.length) {
     el.innerHTML = head(0) +
       '<div class="gs-dp-empty"><b>Alles versorgt</b>In den nächsten Tagen steht nichts an — deine ' + nPlants +
       ' Pflanze' + (nPlants === 1 ? '' : 'n') + ' ' + (nPlants === 1 ? 'ist' : 'sind') + ' auf Kurs.</div>' +
-      _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40: „auf Kurs" heisst nicht „nichts im Kalender"
+      _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc) + _gsDayPlanPlanJahr(esc);   // v33.19 · v33.40: „auf Kurs" heisst nicht „nichts im Kalender"
     return;
   }
 
@@ -30851,7 +30919,7 @@ window.gsRenderDayPlan = function(){
       '<button type="button" class="gs-dp-all" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">' +
         '<span>Alle Aufgaben anzeigen</span><span aria-hidden="true">→</span></button>' +
     '</div>' +
-    _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc);   // v33.19 · v33.40
+    _gsDayPlanArten(esc) + _gsDayPlanSync(esc) + _gsDayPlanKalender(esc) + _gsDayPlanWoche(esc) + _gsDayPlanPlanJahr(esc);   // v33.19 · v33.40
 };
 
 
@@ -73436,7 +73504,7 @@ async function gsPPopenSavedPlans() {
               '<button onclick="gsPPrenamePlan(\'' + p.id + '\')" aria-label="Plan umbenennen" title="Umbenennen" style="background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);width:32px;height:32px;cursor:pointer;font-family:inherit;">✏️</button>' +
               '<button onclick="gsPPduplicatePlan(\'' + p.id + '\')" aria-label="Plan duplizieren" title="Duplizieren" style="background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);width:32px;height:32px;cursor:pointer;font-family:inherit;">🔁</button>' +
               // v33.12 (N10): der Plan als Vorlage fuers naechste Jahr — nur, wenn er ein Jahr hat
-              (((pl.plants||[]).some(function(x){ return x && _gsKalTag(x.sow_date); }))
+              (_gsPlanJahr(pl)   // HOME-6: dieselbe Regel wie Kachel, Vorlage und Startseite
                 ? '<button onclick="gsPPvorlageNaechstesJahr(\'' + p.id + '\')" aria-label="Als Vorlage fürs nächste Jahr übernehmen" title="Vorlage fürs nächste Jahr" style="background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);width:32px;height:32px;cursor:pointer;font-family:inherit;">📅</button>'
                 : '') +
               '<button onclick="gsPPdeletePlan(\'' + p.id + '\')" aria-label="Plan löschen" title="Löschen" style="background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);width:32px;height:32px;cursor:pointer;font-family:inherit;">🗑</button>' +
@@ -73454,7 +73522,7 @@ async function gsPPopenSavedPlans() {
             // Kachel es und zeigt auf den Weg (📅 Vorlage, v33.12). Kein
             // Automatismus: die Person entscheidet, ob der Plan zur Vorlage wird.
             (function(){ try {
-              var _pj = null; (pl.plants||[]).some(function(x){ var d = x && _gsKalTag(x.sow_date); if (d) { _pj = d.slice(0,4); return true; } return false; });
+              var _pj = _gsPlanJahr(pl);   // HOME-6: eine Regel (vorher galt "sow_date": null als 1970)
               if (!_pj) return '';
               var _alle = gsPlanEreignisse(_pj + '-01-01', _pj + '-12-31').filter(function(e){ return e.id.indexOf('plan:') === 0 && e.id.indexOf(':' + p.id + ':') > 0; }).length;
               var _h = _alle ? '<span title="' + _pj + '">📅 ' + _alle + ' Termine</span>' : '';
@@ -73655,8 +73723,7 @@ function gsPPvorlageNaechstesJahr(id) {
   try { plan = JSON.parse(JSON.stringify(cur.plan)); } catch (_) { plan = null; }
   if (!plan) return null;
   // Das Jahr des Plans — aus seinen eigenen Daten, nie geraten
-  var jahr = null;
-  plan.plants.some(function (x) { var t = x && _gsKalTag(x.sow_date); if (t) { jahr = +t.slice(0, 4); return true; } return false; });
+  var _pj = _gsPlanJahr(plan), jahr = _pj ? +_pj : null;   // HOME-6: dieselbe Regel wie Kachel und Startseite
   if (!jahr) { if (typeof gsToast === 'function') gsToast('Dieser Plan trägt keine Daten — eine Vorlage braucht ein Jahr.', 'warn'); return null; }
   var neuJahr = jahr + 1;
   plan.plants.forEach(function (x) {
@@ -77263,7 +77330,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. (12b) Der Chat zum Scan leerte sein Gespräch bei jedem Öffnen — wer zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage nicht mehr. Er antwortete fest auf Deutsch, auch in einer anderen App-Sprache, und sein erster Satz nannte die Trefferquote „Sicherheit: 85 %“. Jetzt bleibt das Gespräch, solange es um denselben Scan geht, die KI antwortet in der App-Sprache (dieselbe Regel wie Lina), der erste Satz nennt das Wort der Ergebniskarte, und „Mit Lina weiterreden“ öffnet Lina mit Art und letzter Frage im Feld — abgeschickt wird erst von dir. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (14b) „Wusstest du?“ lud vom Server nur die ersten 30 von 192 Fakten, und 10 davon gehören zu einer bestimmten Kalenderwoche — sie standen in jeder Woche da; escaped wurde nur „<“. Jetzt alle aktiven (diese Woche 152), ein Wochenfakt nur in seiner ISO-Woche (wie die Datenbank sie zählt), Fremdtext ganz escaped. (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. (15b) Die Suche im Menü hatte einen eigenen Artenteil: ohne Umlaute („barlauch“ fand den Bärlauch nicht), ohne Rangfolge, ohne Vertipper und ohne jede Giftmarkierung — der Wasserschierling stand dort ohne Angabe. Dazu filterte sie je Tastendruck für jeden der 51 Menüeinträge die ganze Artenliste und warf das Ergebnis weg. Jetzt nimmt sie die Rangfolge der Artensuche (_gsSucheRang), und eine giftige Art trägt „Giftig“ wie in der Trefferliste. (16c) Lina leerte beim Öffnen ihr Gespräch und fragte nur die Cloud: offline stand sie danach leer da, und ein Gespräch, das „nur lokal geführt“ wurde, war beim nächsten Öffnen weg — an seiner Stelle erschien ein älteres aus der Cloud. Jetzt spiegelt das Gerät das laufende Gespräch, und das neuere gewinnt. (16b) Während Lina auf die KI wartet, steht jetzt seit wann („· 12 s“) — vorher dieselbe Zeile nach 2 und nach 90 Sekunden. (16) Linas Vorschläge standen fest — „Welche Pflanzen blühen im April?“ in jedem Monat — und waren in keiner Sprache übersetzbar: ihre Schlüssel standen nicht in der Übersetzungstabelle, übersetzt wurden sie nur über die Knöpfe des alten Chat-Bildschirms, und der ist seit v33.31 weg. Jetzt kommen sie aus dem, was gerade ist: heute Fälliges, der letzte Scan, der laufende Monat; die festen stehen in der Tabelle, und i18n_check kennt die Liste. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +34 (D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, HF1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +10 (Lina L1–L9, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. (12b) Der Chat zum Scan leerte sein Gespräch bei jedem Öffnen — wer zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage nicht mehr. Er antwortete fest auf Deutsch, auch in einer anderen App-Sprache, und sein erster Satz nannte die Trefferquote „Sicherheit: 85 %“. Jetzt bleibt das Gespräch, solange es um denselben Scan geht, die KI antwortet in der App-Sprache (dieselbe Regel wie Lina), der erste Satz nennt das Wort der Ergebniskarte, und „Mit Lina weiterreden“ öffnet Lina mit Art und letzter Frage im Feld — abgeschickt wird erst von dir. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (14b) „Wusstest du?“ lud vom Server nur die ersten 30 von 192 Fakten, und 10 davon gehören zu einer bestimmten Kalenderwoche — sie standen in jeder Woche da; escaped wurde nur „<“. Jetzt alle aktiven (diese Woche 152), ein Wochenfakt nur in seiner ISO-Woche (wie die Datenbank sie zählt), Fremdtext ganz escaped. (14c) Ein Gartenplan, dessen Jahr vorbei ist, sagte das nur auf seiner Kachel in „Meine Pläne“ — seit ein Plan seine Termine in den Kalender legt (v33.10), legt einer vom letzten Jahr keinen mehr hin, und die Startseite sagte nicht, warum. Jetzt steht es im Tagesplan, wenn alle Pläne aus einem vergangenen Jahr sind (ein dieses Jahr angelegter Plan ohne Datum zählt als aktuell), mit dem Weg zu „Meine Pläne“ und „für dieses Jahr ausblenden“. Dabei gemessen: drei Stellen rechneten das Plan-Jahr je selbst, und eine Pflanze mit „sow_date: null“ machte aus dem Plan einen Plan von 1970 (Kachel „Plan-Jahr 1970 vorbei“, Vorlage „1971“) — jetzt eine Regel (_gsPlanJahr) mit dem Datumsleser des Planers. (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. (15b) Die Suche im Menü hatte einen eigenen Artenteil: ohne Umlaute („barlauch“ fand den Bärlauch nicht), ohne Rangfolge, ohne Vertipper und ohne jede Giftmarkierung — der Wasserschierling stand dort ohne Angabe. Dazu filterte sie je Tastendruck für jeden der 51 Menüeinträge die ganze Artenliste und warf das Ergebnis weg. Jetzt nimmt sie die Rangfolge der Artensuche (_gsSucheRang), und eine giftige Art trägt „Giftig“ wie in der Trefferliste. (16c) Lina leerte beim Öffnen ihr Gespräch und fragte nur die Cloud: offline stand sie danach leer da, und ein Gespräch, das „nur lokal geführt“ wurde, war beim nächsten Öffnen weg — an seiner Stelle erschien ein älteres aus der Cloud. Jetzt spiegelt das Gerät das laufende Gespräch, und das neuere gewinnt. (16b) Während Lina auf die KI wartet, steht jetzt seit wann („· 12 s“) — vorher dieselbe Zeile nach 2 und nach 90 Sekunden. (16) Linas Vorschläge standen fest — „Welche Pflanzen blühen im April?“ in jedem Monat — und waren in keiner Sprache übersetzbar: ihre Schlüssel standen nicht in der Übersetzungstabelle, übersetzt wurden sie nur über die Knöpfe des alten Chat-Bildschirms, und der ist seit v33.31 weg. Jetzt kommen sie aus dem, was gerade ist: heute Fälliges, der letzte Scan, der laufende Monat; die festen stehen in der Tabelle, und i18n_check kennt die Liste. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +35 (D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, HF1, HP1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +10 (Lina L1–L9, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -77287,6 +77354,7 @@ window.GS_RELEASES = [
         {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er zeigt jetzt eine Pflanze aus der Artenliste, die gerade Saison hat und sich ohne gefährliche Verwechslung sammeln lässt, und öffnet beim Antippen genau diese Art. Pilze stehen dort nicht mehr — für sie gibt es die eigene Pilzkarte. Bisher konnte dort auch eine Aussaat wie „Paprika“ im März oder ein beliebiger Naturfakt stehen.'},
         {emoji:'⏸️', bold:'Kartenreihe auf der Startseite:', text:' sie lässt sich mit dem Knopf neben den Punkten anhalten und bleibt angehalten. Leere Karten erscheinen nicht mehr, und während du eine Karte antippst oder mit der Tastatur darin bist, dreht sie nicht weiter.'},
         {emoji:'🌦️', bold:'Wetter auf der Startseite:', text:' die Karte zeigt immer dasselbe — das Wetter und den Ort, darunter eine Frost-, Hitze- oder Unwetterwarnung. Eine Gewitterwarnung gilt jetzt wirklich für die nächsten Stunden; vorher konnte sie sich auf die vergangene Nacht beziehen.'},
+        {emoji:'⏳', bold:'Gartenplan auf der Startseite:', text:' sind alle deine Gartenpläne aus einem vergangenen Jahr, sagt es jetzt der Tagesplan und führt zu „Meine Pläne“, wo du einen als Vorlage übernehmen kannst. Mit ✕ blendest du den Hinweis für dieses Jahr aus.'},
         {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
       ],
   },
@@ -84979,6 +85047,7 @@ var GS_USER_KEYS = [
   'gs_notif_log','gs_notif_kat',   // v32.54: lokale Meldungen — Wochenzaehler und „eine je Kategorie und Tag"
   'gs_garden_diary_cache',                           // v32.49: Spiegel des Cloud-Tagebuchs
   'gs_lina_verlauf',                                 // v33.61: Spiegel des laufenden Lina-Gesprächs (offline, „nur lokal")
+  'gs_planhinweis_aus',                              // v33.61: „Gartenplan ist von {Jahr}" auf der Startseite für dieses Jahr ausgeblendet
   'gs_doctor_history','gs_seed_inventory','gs_ki_analyses',
   'gs_scan_history','gs_scan_count','gs_scan_corrections','ps_feedback','ps_votes',
   'gs_achievements','gs_favorites','ps_favs','gs_confirmed_species',

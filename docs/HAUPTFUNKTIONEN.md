@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1–8, 10 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5, 7 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1–8, 10 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5, 6, 7 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -106,7 +106,9 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 5. ✅ v33.61 (bestätigt: ohne Bauernregel eine leere Folie mit Punkt; `scan_check` HK1) — **Karten-Stapel** (`gsBuildWidgetStack`): `wisdom-card` immer eingeblendet (leer ohne
    Bauernregel?), dreht alle 8 s ohne Pause-Knopf, `gsRenderWochenrueckblick` doppelt gerufen
    (nachgesehen: Tagesplan und erster Aufbau rendern dieselben Daten — kein Fehler).
-6. STATUS „N4": Hinweis auf der Startseite, wenn alle Pläne veraltet sind.
+6. ✅ v33.61 (`scan_check` HP1) — STATUS „N4": Hinweis auf der Startseite, wenn alle Pläne veraltet sind.
+   Dabei: eine Pflanze mit `"sow_date": null` machte aus einem Plan einen Plan von 1970 (Kachel und
+   Vorlage) — jetzt eine Jahresregel (`_gsPlanJahr`) für Kachel, Vorlage und Startseite.
 7. ✅ v33.61 (`scan_check` HF1) — **„Wusstest du?" vom Server:** nur die ersten 30 von 192
    Fakten, Wochenfakten in jeder Woche, nur „<" escaped. Offen bleibt die Frage, ob die eigene
    Wochenliste (`WEEKLY_SEASONAL_FACTS`, nach `gsGetKW`) und die Server-Fakten EINE Auswahl sein
