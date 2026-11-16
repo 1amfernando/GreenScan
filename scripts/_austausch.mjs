@@ -288,6 +288,70 @@ export function frischeZweige(wurzel, jetzt, tage) {
   return aus;
 }
 
+// ── Vergebene Versionen und STATUS-Kuerzel. Gemessen am 16.11.2026: v33.59 war auf
+//    VIER Branches zugleich vergeben, v33.61 auf zwei, das Kuerzel (je) auf sechs —
+//    jede Sitzung nahm „die naechste nach main", keine sah die anderen. Wer als
+//    Zweiter merged, nummeriert um (fuenf Marken und der Eintrag in GS_RELEASES).
+//    Gerechnet aus den Spitzen der frischen Branches; niemand muss etwas melden.
+//    Gelesen werden nur sw.js (klein, traegt die Version, robust_check haelt sie mit
+//    GS_VERSION gleich) und der juengste Kopf in STATUS.md §0.
+const SW_VERSION = /\bVERSION\s*=\s*'gs-(v\d+\.\d+)'/;
+const KOPF_KUERZEL = /^\d{4}-\d{2}-\d{2} \(([a-z]{1,3})\)/;
+export function versionNr(v) { const m = /^v(\d+)\.(\d+)$/.exec(String(v || '')); return m ? Number(m[1]) * 100 + Number(m[2]) : null; }
+function versionAus(n) { return 'v' + Math.floor(n / 100) + '.' + String(n % 100).padStart(2, '0'); }
+// Kuerzel laufen a … z, aa … zz: erst die Laenge, dann das Alphabet.
+function kuerzelVor(a, b) { return a.length - b.length || (a < b ? -1 : a > b ? 1 : 0); }
+export function kuerzelNach(k) {
+  const z = String(k).split('');
+  for (let i = z.length - 1; i >= 0; i--) { if (z[i] !== 'z') { z[i] = String.fromCharCode(z[i].charCodeAt(0) + 1); return z.join(''); } z[i] = 'a'; }
+  return 'a' + z.join('');
+}
+export function markenAus(swText, statusText) {
+  const version = swText ? ((swText.match(SW_VERSION) || [])[1] || null) : null;
+  let kuerzel = null, alle = [];
+  if (statusText) {
+    const s = statusZeilen(statusText);
+    if (!s.grund) {
+      kuerzel = (s.ueberschrift.match(KOPF_KUERZEL) || [])[1] || null;
+      alle = s.alleKoepfe.map(h => (h.match(KOPF_KUERZEL) || [])[1]).filter(Boolean);
+    }
+  }
+  return { version, kuerzel, alle };
+}
+// Rechnet gegen origin/main: was eine frische Branch-Spitze traegt und main nicht, ist VERGEBEN.
+// `hier` sind die Marken des Arbeitsbaums (eigene Vergabe — sie zaehlt nicht gegen sich selbst).
+export function vergebeneMarken(wurzel, jetzt, tage) {
+  const blob = (ref, datei) => git(wurzel, ['show', ref + ':' + datei]);
+  if (git(wurzel, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/main']) == null) return { grund: 'origin/main ist nicht bekannt (kein Remote oder nie geholt) — vergebene Nummern lassen sich nicht rechnen' };
+  const basis = markenAus(blob('refs/remotes/origin/main', 'sw.js'), blob('refs/remotes/origin/main', 'STATUS.md'));
+  if (versionNr(basis.version) == null) return { grund: 'auf origin/main steht in sw.js keine Version der Form gs-vXX.YY' };
+  const lies = (rel) => { try { return fs.readFileSync(path.join(wurzel, rel), 'utf8'); } catch (_) { return null; } };
+  const hier = markenAus(lies('sw.js'), lies('STATUS.md'));
+  const zweige = frischeZweige(wurzel, jetzt, tage) || [];
+  const versionen = new Map(), kuerzel = new Map(), nachRef = [];
+  const bekannt = new Set(basis.alle);
+  for (const z of zweige) {
+    const m = markenAus(blob('refs/remotes/' + z.ref, 'sw.js'), blob('refs/remotes/' + z.ref, 'STATUS.md'));
+    const v = versionNr(m.version) > versionNr(basis.version) ? m.version : null, k = m.kuerzel && !bekannt.has(m.kuerzel) ? m.kuerzel : null;
+    if (v) { if (!versionen.has(v)) versionen.set(v, []); versionen.get(v).push(z.ref); }
+    if (k) { if (!kuerzel.has(k)) kuerzel.set(k, []); kuerzel.get(k).push(z.ref); }
+    if (v || k) nachRef.push({ ref: z.ref, version: v, kuerzel: k });
+  }
+  const maxV = Math.max(versionNr(basis.version), ...[...versionen.keys()].map(versionNr));
+  const alleK = basis.alle.concat([...kuerzel.keys()]).sort(kuerzelVor);
+  const hierV = versionNr(hier.version) > versionNr(basis.version) ? hier.version : null, hierK = hier.kuerzel && !bekannt.has(hier.kuerzel) ? hier.kuerzel : null;
+  // Die Refs je Wert alphabetisch: die Commit-Zeit (Reihenfolge von frischeZweige) ist bei
+  // Branches aus derselben Sekunde kein fester Rang — die Ausgabe wuerde von Lauf zu Lauf springen.
+  for (const m of [versionen, kuerzel]) for (const refs of m.values()) refs.sort();
+  const sortiert = (m, vor) => [...m.entries()].sort((a, b) => vor(a[0], b[0])).map(([wert, refs]) => ({ wert, refs }));
+  return {
+    basis: { version: basis.version, kuerzel: basis.kuerzel },
+    hier: { version: hierV, kuerzel: hierK, auchAuf: { version: hierV ? (versionen.get(hierV) || []) : [], kuerzel: hierK ? (kuerzel.get(hierK) || []) : [] } },
+    versionen: sortiert(versionen, (a, b) => versionNr(a) - versionNr(b)), kuerzel: sortiert(kuerzel, kuerzelVor), nachRef,
+    naechsteVersion: versionAus(maxV + 1), naechstesKuerzel: alleK.length ? kuerzelNach(alleK[alleK.length - 1]) : null,
+  };
+}
+
 // ── Der Zustand wird GERECHNET. Kein Feld „status" — das waere eine zweite Kopie.
 export function ableiten(eintraege) {
   const proId = new Map(eintraege.map(e => [e.id, e]));

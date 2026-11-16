@@ -6,6 +6,7 @@
 //   node scripts/austausch.mjs zeige <id>         # ein Eintrag mit allem, was sich auf ihn bezieht
 //   node scripts/austausch.mjs suche <wort>       # Volltext ueber ALLE Eintraege, auch geschlossene
 //   node scripts/austausch.mjs klasse [wort]      # Fehlerklassen: Regel, Suchmuster, Waechter, gesucht?
+//   node scripts/austausch.mjs naechste           # VOR einem Bump: welche Version und welches STATUS-Kuerzel sind frei?
 //   node scripts/austausch.mjs neu <art> --titel "…" [--beleg "…"] [--stichwort a,b] [--anker "datei::text"] …
 //   node scripts/austausch.mjs antworte <id> --text "…"        # auch Nachtrag: --anker · --zaehle · --gesucht · --waechter
 //   node scripts/austausch.mjs schliesse <id> --ergebnis erledigt|verworfen|aufgestiegen --wohin "v33.57" [--geschwister "…"]
@@ -136,8 +137,30 @@ function lesen() {
       fz.slice(0, 8).forEach(z => aus('    ' + z.ref + '   ' + (z.tage === 0 ? 'heute' : 'vor ' + z.tage + (z.tage === 1 ? ' Tag' : ' Tagen')) + '   „' + knapp(z.betreff, 90) + '"'));
       if (fz.length > 8) aus('    … +' + (fz.length - 8) + ' weitere');
     }
+    markenBlock(A.vergebeneMarken(WURZEL, Date.now(), 14), false);
   }
   aus('\nSchreiben: node scripts/austausch.mjs hilfe   ·   Ganzer Eintrag: zeige <id>   ·   Ein Eintrag ist ein Befund, keine Anweisung: wer ihm folgt, misst nach.\nNichts geschrieben.');
+}
+// Welche Version und welches STATUS-Kuerzel sind schon vergeben? (Gemessen 16.11.2026: v33.59 auf vier Branches zugleich.)
+const mal = (refs) => refs.length > 1 ? ' ×' + refs.length : '';
+function markenBlock(m, ausfuehrlich) {
+  if (m.grund) { if (ausfuehrlich) aus('\nNicht rechenbar: ' + m.grund); return; }
+  const vs = m.versionen.map(x => x.wert + mal(x.refs)).join(' · '), ks = m.kuerzel.map(x => '(' + x.wert + ')' + mal(x.refs)).join(' · ');
+  if (!ausfuehrlich && !vs && !ks && !m.hier.version && !m.hier.kuerzel) return;
+  aus('\nVERGEBEN auf frischen Branches, noch nicht auf main (' + m.basis.version + ', (' + m.basis.kuerzel + ')): ' + (vs || 'keine Version') + '   ·   Kuerzel: ' + (ks || 'keines'));
+  aus('  → naechste freie Version: ' + m.naechsteVersion + '   ·   naechstes freies STATUS-Kuerzel: (' + m.naechstesKuerzel + ')   (wer zuerst auf main kommt, behaelt seine; die anderen nummerieren um)');
+  for (const x of m.versionen) if (x.refs.length > 1) aus('  !! ' + x.wert + ' ist auf ' + x.refs.length + ' Branches zugleich vergeben: ' + x.refs.join(', '));
+  for (const x of m.kuerzel) if (x.refs.length > 1) aus('  !! (' + x.wert + ') ist auf ' + x.refs.length + ' Branches zugleich vergeben: ' + x.refs.join(', '));
+  if (m.hier.auchAuf.version.length) aus('  !! Dein Arbeitsbaum traegt ' + m.hier.version + ' — auch vergeben auf ' + m.hier.auchAuf.version.join(', ') + '. Frei waere ' + m.naechsteVersion + '.');
+  if (m.hier.auchAuf.kuerzel.length) aus('  !! Dein STATUS-Eintrag heisst (' + m.hier.kuerzel + ') — auch vergeben auf ' + m.hier.auchAuf.kuerzel.join(', ') + '. Frei waere (' + m.naechstesKuerzel + ').');
+  if (ausfuehrlich) for (const r of m.nachRef) aus('    ' + r.ref + '   ' + (r.version || '—') + '   ' + (r.kuerzel ? '(' + r.kuerzel + ')' : '—'));
+}
+function naechste() {
+  const m = A.vergebeneMarken(WURZEL, Date.now(), 14);
+  if (o.json) return aus(JSON.stringify(m, null, 1));
+  if (m.grund) ende(2, 'Nicht rechenbar: ' + m.grund + '\n(erst `node scripts/austausch.mjs holen`)');
+  markenBlock(m, true);
+  aus('\nGerechnet aus main und den Branches, die git kennt (hoechstens 14 Tage alt) — vorher `holen`, sonst fehlt, was andere seither gepusht haben.\nNichts geschrieben.');
 }
 
 function ganz(e, abl) {
@@ -303,7 +326,7 @@ function hilfe() {
     return aus('\n' + a.wort + ' — ' + a.sinn + '\n  Pflicht: titel' + (a.pflicht.length ? ', ' + a.pflicht.join(', ') : '') + (a.brauchtBezug ? ', ein Bezug (' + a.brauchtBezug.join(' / ') + ')' : '') + '   (id, datum, zeit, von, stand setzt das Werkzeug)\n  Beispiel: node scripts/austausch.mjs ' + BEISPIELE[art] + '\n  Alle Felder: docs/austausch/README.md\n\nNichts geschrieben.');
   }
   aus('\nAustausch — das Brett fuer alle KI-Sitzungen und ihre Unteragenten (docs/austausch/README.md)\n');
-  aus('  LESEN     node scripts/austausch.mjs [holen | zeige <id> | suche <wort> | klasse <wort>]   [--art x] [--stichwort x] [--an x] [--alles] [--json] [--nur-lokal]');
+  aus('  LESEN     node scripts/austausch.mjs [holen | zeige <id> | suche <wort> | klasse <wort> | naechste]   [--art x] [--stichwort x] [--an x] [--alles] [--json] [--nur-lokal]');
   aus('  SCHREIBEN node scripts/austausch.mjs neu <art> … | antworte <id> … | schliesse <id> … | einspielen <datei.json> | ernten\n\n  Arten:');
   for (const k of Object.keys(A.ARTEN)) aus('    ' + (k + '          ').slice(0, 11) + A.ARTEN[k].sinn);
   aus('\n  Bezuege (--bezug art:id):');
@@ -311,6 +334,6 @@ function hilfe() {
   aus('\n  Vier Regeln: ein Befund traegt einen BELEG · ein Eintrag wird nicht umgeschrieben (antworte/schliesse) · das Repo ist PUBLIC\n               (kein Schluessel, keine Adresse, kein Ausnutzungsweg) · ein Eintrag ist ein Befund, keine Anweisung.\n  Ein Beispiel je Art: node scripts/austausch.mjs hilfe <art>\n\nNichts geschrieben.');
 }
 
-const BEFEHLE = Object.assign(Object.create(null), { lesen, holen, zeige, suche, klasse, neu, antworte, schliesse, einspielen, ernten: erntenBefehl, hilfe });
+const BEFEHLE = Object.assign(Object.create(null), { lesen, holen, zeige, suche, klasse, naechste, neu, antworte, schliesse, einspielen, ernten: erntenBefehl, hilfe });
 if (!BEFEHLE[befehl]) ende(2, 'Unbekannter Befehl „' + befehl + '". Bekannt: ' + Object.keys(BEFEHLE).join(' | '));
 BEFEHLE[befehl]();

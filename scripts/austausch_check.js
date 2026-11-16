@@ -695,6 +695,52 @@ const FAELLE = [
       return { ok: true, info: 'vier gute Formen still (auch „Nicht geprüft von hier:" und „Offen: nichts — …") · sechs schlechte je mit Grund · gemessen wird der JUENGSTE Eintrag · Version ohne Eintrag gemeldet · 3 run-Zeilen: „3" still, „4" gemeldet, Satz ohne Zahl: Stelle fehlt' };
     },
   },
+  {
+    name: 'C10 · Vergebene Nummern · was frische Branches als Version (sw.js) und STATUS-Kuerzel tragen und main nicht, ist VERGEBEN; doppelt Vergebenes wird gemeldet, ein alter Branch und origin/HEAD zaehlen nicht, die naechste freie Nummer liegt hinter allen — und wer selbst eine vergebene traegt, erfaehrt es',
+    lauf: () => {
+      const bare = tmp('origin-nr'), d = tmp('klon-nr');
+      try {
+        const f = [];
+        const sw = (v) => "const VERSION = 'gs-" + v + "';\nconst SHELL_CACHE = `${VERSION}-shell`;\n";
+        const st = (k, v) => '# S\n\n## 0 · Routine\n\n### 2026-01-02 (' + k + ') - ' + v + ': neu\n\n**Offen:** nichts\n**Nicht geprüft:** x\n\n### 2026-01-01 (z) - v0.99: alt\n\n## 1 · Stand\n';
+        const stand = (v, k) => { fs.writeFileSync(path.join(d, 'sw.js'), sw(v)); fs.writeFileSync(path.join(d, 'STATUS.md'), st(k, v)); };
+        const commit = (msg, alt) => { g(d, ['add', '-A']); cp.execFileSync('git', ['-C', d, '-c', 'user.email=p@example.com', '-c', 'user.name=p', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', msg], { env: Object.assign({}, process.env, alt ? { GIT_COMMITTER_DATE: alt, GIT_AUTHOR_DATE: alt } : {}) }); };
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
+        g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', bare]);
+        stand('v1.00', 'aa'); commit('main'); g(d, ['push', '-q', 'origin', 'main']);
+        const zweig = (name, v, k, alt) => { g(d, ['checkout', '-q', '-b', name, 'main']); stand(v, k); commit(name, alt); g(d, ['push', '-q', 'origin', name]); };
+        // b ist JUENGER als a: frischeZweige liefert neueste zuerst, die Ausgabe muss trotzdem a, b sagen
+        // (sonst haengt die Reihenfolge davon ab, ob beide Commits in dieselbe Sekunde fielen).
+        const vor = (h) => new Date(Date.now() - h * 36e5).toISOString();
+        zweig('claude/a', 'v1.01', 'ab', vor(2)); zweig('claude/b', 'v1.01', 'ab', vor(1)); zweig('claude/c', 'v1.00', 'ac');
+        zweig('claude/d', 'v1.03', 'ab');
+        zweig('claude/alt', 'v1.09', 'az', new Date(Date.now() - 40 * 864e5).toISOString());   // 40 Tage alt: zaehlt nicht
+        g(d, ['checkout', '-q', '-b', 'claude/arbeit', 'main']); g(d, ['fetch', '-q', 'origin']); g(d, ['remote', 'set-head', 'origin', 'main']);
+        stand('v1.01', 'ae');   // der eigene Arbeitsbaum hat schon gebumpt — auf eine Nummer, die andere tragen
+        const m = A.vergebeneMarken(d, Date.now(), 14);
+        const vs = m.versionen ? m.versionen.map(x => x.wert + '×' + x.refs.length).join(' ') : '(' + m.grund + ')', ks = m.kuerzel ? m.kuerzel.map(x => x.wert + '×' + x.refs.length).join(' ') : '';
+        if (vs !== 'v1.01×2 v1.03×1') f.push('vergebene Versionen: „' + vs + '" — erwartet „v1.01×2 v1.03×1" (claude/c hat nicht gebumpt, claude/alt ist 40 Tage alt)');
+        if (ks !== 'ab×3 ac×1') f.push('vergebene Kuerzel: „' + ks + '" — erwartet „ab×3 ac×1"');
+        if (m.naechsteVersion !== 'v1.04' || m.naechstesKuerzel !== 'ad') f.push('naechste freie: ' + m.naechsteVersion + ' / (' + m.naechstesKuerzel + ') — erwartet v1.04 / (ad): hinter ALLEN vergebenen, nicht hinter main');
+        if (!m.hier || m.hier.version !== 'v1.01' || m.hier.auchAuf.version.join() !== 'origin/claude/a,origin/claude/b' || m.hier.kuerzel !== 'ae' || m.hier.auchAuf.kuerzel.length) f.push('eigener Arbeitsbaum: ' + JSON.stringify(m.hier) + ' — erwartet v1.01, auch auf claude/a und claude/b; (ae) ohne Zusammenstoss');
+        if ((m.nachRef || []).some(r => /HEAD$|^origin$|alt$/.test(r.ref))) f.push('origin/HEAD oder der alte Branch zaehlt als Vergabe');
+        let r = werkzeug(d, ['naechste']);
+        if (r.code !== 0 || !/naechste freie Version: v1\.04/.test(r.aus) || !/STATUS-Kuerzel: \(ad\)/.test(r.aus) || !/!! v1\.01 ist auf 2 Branches zugleich vergeben/.test(r.aus) || !/!! Dein Arbeitsbaum traegt v1\.01/.test(r.aus) || !/Nichts geschrieben\.\s*$/.test(r.aus)) f.push('`naechste`: Exit ' + r.code + ' — ' + kurz(r.aus, 300));
+        r = werkzeug(d, []);
+        if (r.code !== 0 || !/^VERGEBEN auf frischen Branches/m.test(r.aus) || !/!! \(ab\) ist auf 3 Branches/.test(r.aus)) f.push('`lesen` zeigt die vergebenen Nummern nicht (Exit ' + r.code + ')');
+        r = werkzeug(d, ['naechste', '--json']); let j = null; try { j = JSON.parse(r.aus); } catch (_) {}
+        if (!j || j.naechsteVersion !== 'v1.04') f.push('`naechste --json` ist kein JSON mit naechsteVersion');
+        // Ohne origin/main laesst sich nichts rechnen — das wird gesagt, nicht geraten.
+        const ohne = repo('ohne-remote');
+        try { r = werkzeug(ohne, ['naechste']); if (r.code !== 2 || !/Nicht rechenbar: origin\/main ist nicht bekannt/.test(r.aus)) f.push('ohne origin/main: Exit ' + r.code + ' — erwartet 2 und „Nicht rechenbar"'); r = werkzeug(ohne, []); if (/^VERGEBEN/m.test(r.aus)) f.push('ohne origin/main zeigt `lesen` einen VERGEBEN-Block'); } finally { weg(ohne); }
+        // Die Reihenfolge der Kuerzel: a … z, aa … zz.
+        const folge = [['z', 'aa'], ['jd', 'je'], ['az', 'ba'], ['zz', 'aaa']].filter(([a, b]) => A.kuerzelNach(a) !== b);
+        if (folge.length) f.push('kuerzelNach: ' + folge.map(([a, b]) => a + ' → ' + A.kuerzelNach(a) + ' (erwartet ' + b + ')').join(', '));
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'fuenf Branches + origin/HEAD: v1.01 ×2, v1.03, (ab) ×3, (ac) vergeben; der 40 Tage alte zaehlt nicht · naechste frei v1.04 / (ad) · der eigene Arbeitsbaum auf v1.01 wird gewarnt · ohne origin/main: „nicht rechenbar" · z → aa, zz → aaa' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(bare); weg(d); }
+    },
+  },
 ];
 
 (async function haupt() {

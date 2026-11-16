@@ -12,6 +12,41 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-16 (jg) - kein Bump: das Brett sagt, welche Version und welches Kürzel noch frei sind
+
+**Anlass, gemessen am 16.11.2026** (`node scripts/austausch.mjs holen`): fünf Tage nach dem
+Merge des Bretts stehen dort 108 Einträge von sechs Sitzungen, Antworten gehen über
+Branch-Grenzen. Was das Brett NICHT verhinderte: **v33.59 tragen vier Branches zugleich**,
+v33.61 zwei, das STATUS-Kürzel (je) sechs. Jede Sitzung nahm „die nächste nach main", keine
+sah die anderen; wer als Zweiter merged, nummeriert fünf Marken und `GS_RELEASES` um
+(den ersten Fall hatte eine andere Sitzung als Befund 2026-11-11-0821 gemeldet — er liegt auf ihrem Branch und kommt mit dessen Merge).
+
+**Was es jetzt gibt.** `node scripts/austausch.mjs naechste` rechnet aus `main` und jeder
+frischen Branch-Spitze (≤ 14 Tage), was dort in `sw.js` und im jüngsten §0-Kopf steht und
+auf `main` nicht — das ist vergeben — und nennt die nächste freie Version und das nächste
+freie Kürzel (heute v33.62 / (jg); dieser Eintrag trägt (jg) deshalb). `lesen` zeigt
+denselben Block, mit `!!` bei doppelter Vergabe und wenn der eigene Arbeitsbaum eine fremde
+Nummer trägt. Gelesen werden nur `sw.js` und der Kopf von `STATUS.md` je Branch, niemand
+muss etwas melden. `CLAUDE.md` §3.1, `docs/memory/08` §7 und `docs/austausch/README.md`
+nennen den Befehl.
+
+**Prüfstand:** `austausch_check` C10 (18 Fälle): fünf gebaute Branches plus `origin/HEAD` —
+vergeben ist, was main nicht trägt; ein 40 Tage alter Branch zählt nicht; die nächste freie
+Nummer liegt hinter allen; der eigene Arbeitsbaum auf einer vergebenen Nummer wird gewarnt;
+ohne `origin/main` sagt das Werkzeug „nicht rechenbar"; Kürzel laufen z → aa, zz → aaa.
+**Sechs Gegenproben**, jede nur in C10 rot: Vergabe nicht gegen main gerechnet · alter
+Branch zählt · nächste nur hinter main · eigener Zusammenstoss verschwiegen · Kürzel nach
+Alphabet statt Länge · `lesen` ohne Block.
+
+**Behoben ist der Zusammenstoss damit nicht** — die sechs Branches tragen ihre Nummern
+weiter; wer nach dem Ersten merged, nummeriert um. Neu dazukommende Sitzungen sehen es.
+Nachgerechnet am 17.11.2026 nach dem Merge von v33.59 (`naechste`): v33.59 und (je) sind
+jetzt auf main; vergeben sind noch v33.60 (1×) und **v33.61 (4×)** sowie (jf); frei bleiben
+v33.62 und (jg).
+
+**Offen:** brett:2026-11-16-b98f (die Messung zum Zusammenstoss, als Nachtrag zum Befund der anderen Sitzung) · brett:2026-11-11-669d (Frage an Fernando, §2)
+**Nicht geprüft:** ob die anderen Sitzungen `naechste` vor ihrem nächsten Bump wirklich rufen — es steht in `holen`, das sie laut CLAUDE.md §5 zuerst fahren; die volle Suite (geändert sind nur das Werkzeug des Bretts, sein Prüfstand und Doku — gefahren: `austausch_check`, `robust_check`)
+
 ### 2026-11-11 (je) - v33.59: Was von anderen kommt, bleibt Text — und der Server prüft selbst nach
 
 **Auftrag (Fernando, 10.11.2026, wörtlich):** „Arbeite an dem Projekt. Verbesser alles

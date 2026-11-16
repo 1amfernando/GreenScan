@@ -90,6 +90,10 @@ es neun Function-Dateien und vier Stellen in `index.html`. Vereinen, nicht
 ersetzen, und die Pruefstaende beider Seiten an die vereinte Form anpassen,
 nicht ruhigstellen (CLAUDE.md §5, §7.1).
 
+Welche Nummer frei ist: `node scripts/austausch.mjs naechste` (nach `holen`) — sie
+rechnet die Branches mit, die noch nicht auf main sind. „Die naechste nach main"
+trugen am 16.11.2026 vier Branches zugleich.
+
 Fuenf Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen):
 
 | Marker | wo |

@@ -49,7 +49,7 @@ Wissen ging also nicht verloren, weil niemand schrieb, sondern weil nichts es zu
 über mehrere Einträge hinweg, dann jeden offenen Eintrag **einmal** mit seinen Marken,
 dann die **frischen Branches** (wer arbeitet parallel — gerechnet aus den Branch-Spitzen,
 niemand muss es melden). Ohne `holen` liest der Befehl, was git lokal kennt.
-`zeige <id>` · `suche <wort>` (auch Geschlossenes) · `klasse [wort]` · Filter `--art`
+`zeige <id>` · `suche <wort>` (auch Geschlossenes) · `klasse [wort]` · `naechste` · Filter `--art`
 `--stichwort` `--an` · `--alles` · `--json` · `--nur-lokal`. Die vier Zeichen am Ende
 einer id genügen. Lesen schreibt nie.
 
@@ -124,6 +124,13 @@ Der jüngste Eintrag in `STATUS.md` §0 trägt — der Prüfstand misst es:
 Offene Arbeit steht damit als Eintrag auf dem Brett, wo die nächste Sitzung sie *findet*,
 statt im Fliesstext. Eine `frage` mit `an: fernando` wird zusätzlich mit `brett:<id>` in
 `STATUS.md` §2 oder `docs/FUER-FERNANDO.md` genannt — er liest das Brett nicht.
+
+**Version und Kürzel** des Eintrags: `node scripts/austausch.mjs naechste`. Gerechnet wird,
+was frische Branches (≤ 14 Tage) in `sw.js` und im jüngsten §0-Kopf tragen und `main` nicht —
+das ist **vergeben**; die nächste freie Nummer liegt hinter allen. `lesen` zeigt denselben
+Block mit `!!`, sobald eine Nummer doppelt vergeben ist oder der eigene Arbeitsbaum eine
+fremde trägt. Gemessen am 16.11.2026, bevor es das gab: v33.59 auf vier Branches zugleich,
+v33.61 auf zwei, das Kürzel (je) auf sechs. Wer zuerst auf `main` kommt, behält seine Nummer.
 
 ## Über Branches
 

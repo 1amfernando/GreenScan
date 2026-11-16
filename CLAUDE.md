@@ -207,6 +207,10 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 - Versions-Format: `vMAJOR.MINOR` (z.B. `v30.79`). Aktuell: siehe `GS_VERSION`
   in `index.html` und `CACHE_VERSION` in `sw.js`. Bei Bumps **immer beide
   syncen** + `meta name="app-version"` im `<head>`.
+- **Welche Nummer frei ist, sagt `node scripts/austausch.mjs naechste`** — Version
+  UND STATUS-Kürzel, gerechnet über main und die frischen Branches. „Die nächste
+  nach main" ist es nicht: am 16.11.2026 trugen vier Branches zugleich v33.59 und
+  sechs das Kürzel (je); wer als Zweiter merged, nummeriert alle fünf Marken um.
 - Commit-Message-Format: `vXX.YY: <kurze Aussage>` + Markdown-Body mit
   Bullets pro Bereich (Sicherheit / UX / Feature). Beispiel siehe letzte
   Commits auf `main`.
