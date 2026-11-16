@@ -224,7 +224,9 @@ der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` 
 `escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge), L8 (Wartezeit), L9 (Gespräch ohne Cloud);
 `i18n_check` kennt `GS_LINA_VORSCHLAEGE` als Datenliste. Jeder neue
 Fall gegen den Stand davor gefahren: rot. Volle Suite auf
-3812572: 42 Prüfstände, rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge).
+3812572 und erneut auf 32b4c03 (in einem eigenen Arbeitsbaum, TZ=UTC, mit Postgres): je 42 Prüfstände,
+rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge); im Kontrast nur die bekannte Stelle
+`2026-11-16-a082`. Die zwei Pakete danach (Lina L8, L9) mit ihren Nachbar-Prüfständen.
 
 **Aufs Brett gelegt** (nicht in den vier Funktionen, deshalb nicht angefasst): der Wissen-Tab
 zählt mit eigenen Regeln (brett 4d79: „Arten" = 4'337 Einträge, „Essbar" 1'130 statt 1'062,
