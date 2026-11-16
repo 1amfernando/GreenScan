@@ -14514,8 +14514,11 @@ async function dqAskKIExplain() {
 
   try {
     var messages = [{ role: 'user', content: userMsg }];
+    // Fehlerklasse 89ee: eine Antwort nach dem await gehört der Person, die gefragt hat.
+    var _uidVor = gsStore.get('gs_sb_uid', null);
     // v33.59: Quiz-Erklärung kann Essbarkeit berühren — bleibt auf Vision
     var answer = await callAI(messages, systemPrompt, 300, { brain: 'botaniker', rolle: 'vision' });
+    if (gsStore.get('gs_sb_uid', null) !== _uidVor) return;   // abgemeldet oder anderes Konto — Antwort verwerfen
     var safe = String(answer || 'Keine Antwort').replace(/</g,'&lt;').replace(/\n/g,'<br>');
     block.innerHTML =
       '<div style="font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.65;margin-bottom:4px;">💡 Erklärung</div>' +
