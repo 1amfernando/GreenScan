@@ -59827,9 +59827,7 @@ function getOfflineAnswer(question) {
   }
   
   // Generic intelligent response
-  // v33.61: die letzte Zeile verwies auf einen „API-Key unter Einstellungen" — seit
-  // v33.57 braucht niemand einen, und hier fehlt nicht der Schluessel, sondern das Netz.
-  return GS_OFFLINE_ALLGEMEIN + '\n\nTipps:\n• Nenne den Pflanzennamen\n• Beschreibe Symptome (gelbe Blätter, Schädlinge…)\n• Frage nach Giessen, Standort, Umtopfen\n\n**Ausführlicher** antworte ich, sobald wieder Internet da ist.';
+  return '🌿 Ich kann diese Frage offline beantworten, sobald du die Pflanze konkret nennst.\n\nTipps:\n• Nenne den Pflanzennamen\n• Beschreibe Symptome (gelbe Blätter, Schädlinge…)\n• Frage nach Giessen, Standort, Umtopfen\n\n**Für komplexe KI-Antworten:** API-Key unter ⚙️ Einstellungen einrichten.';
 }
 
 // Use offline when no API key
@@ -59869,9 +59867,6 @@ function _gsNotfallStufe(t) {
 }
 window._gsNotfallStufe = _gsNotfallStufe;
 
-// v33.61: der Anfang der allgemeinen Rueckfall-Antwort — daran erkennt
-// _gsLinaOfflineAntwort, dass die Liste nichts Bestimmtes weiss.
-var GS_OFFLINE_ALLGEMEIN = '🌿 Ich kann diese Frage offline beantworten, sobald du die Pflanze konkret nennst.';
 function getSmartAnswer(question) {
   const q = question.toLowerCase().trim();
   
@@ -86807,7 +86802,7 @@ var LINA_SYSTEM =
   // v30.69: Lina kann handeln (sicher per Whitelist + Nutzer-Bestätigung). Sie schlägt vor — der Nutzer bestätigt.
   'DU KANNST HANDELN: Wenn die Person dich bittet, etwas IN der App zu tun (irgendwohin navigieren, eine Pflanze hinzufügen, eine Pflege-Erinnerung einrichten, eine Art suchen, ein Formular vorbereiten), dann hänge ANS ENDE deiner Antwort GENAU EINE Zeile an, exakt in diesem Format:\n' +
   '[[GS_ACTION]]{"tool":"<tool>","args":{...}}\n' +
-  'Schreib davor immer eine kurze, natürliche Antwort. Wege (navigate, search_species, open_calendar, open_saekalender, prefill_form) zeigt die App als Knopf unter deiner Antwort — die Person tippt ihn selbst an; sag also z. B. „Tippe unten auf den Knopf“ statt „ich öffne“. Nutze NUR diese Tools:\n' +
+  'Schreib davor immer eine kurze, natürliche Antwort. Nutze NUR diese Tools:\n' +
   '• navigate {"screen":"..."} — wechselt den Bereich. Erlaubte screens: home, scanner, search, favs (Meine Pflanzen), garden, season, social (Community), market (Marktplatz), wissen, settings, map, recipes, remedies.\n' +
   '• search_species {"query":"..."} — öffnet die Arten-Suche mit dem Suchbegriff.\n' +
   // v33.22: Lina kennt den Kalender seit v33.14 — jetzt kann sie ihn auch oeffnen.
@@ -87314,46 +87309,19 @@ function gsLinaVorschlag(el){
 }
 window.gsLinaVorschlag = gsLinaVorschlag;
 
-// v33.61: drei Dinge, die die Person an Linas Fenster SAH und nicht so gemeint
-// waren — gemessen von der Lina-Untersitzung am 11.11.2026 und hier nachgebaut:
-//  · **fett** stand als Sternchen da, auch in der Notfallzeile, die selbst ** traegt.
-//    `_gsLinaFormat` escaped ZUERST und setzt danach nur diese eine Auszeichnung,
-//    dann durch die Allowlist (CLAUDE.md §3.6) — derselbe Weg wie addScanChatMsg.
-//  · Wer waehrend „Lina denkt nach…" weitertippte, verlor den Text: das Fenster wird
-//    samt Eingabefeld neu gebaut (CLAUDE.md: „gsLinaRender baut das Panel NEU auf").
-//    Der Entwurf wird jetzt ins neue Feld hinuebergetragen, mit Fokus.
-//  · Unter einer Antwort mit einem Weg steht ein Knopf (gsLinaAktion), unter einer
-//    gescheiterten Antwort „Nochmal senden" (gsLinaNochmal).
-function _gsLinaFormat(t) {
-  var h = escHtml(String(t == null ? '' : t)).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
-  try { return (typeof gsSanitizeHtml === 'function') ? gsSanitizeHtml(h) : h; } catch (_) { return h; }
-}
-window._gsLinaFormat = _gsLinaFormat;
-
 function gsLinaRender(typing){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-  var _altFeld = document.getElementById('gs-lina-input');
-  var _entwurf = _altFeld ? String(_altFeld.value || '') : '';
-  var _fokus = !!(_altFeld && document.activeElement === _altFeld);
   var msgs = window._gsLinaMsgs || [];
-  var _knopf = 'padding:8px 13px;min-height:36px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;';
   var body = '';
   if (!msgs.length) {
     body = '<div style="text-align:center;padding:24px 10px;color:var(--muted);"><div style="font-size:40px;">🌿</div><div style="font-weight:800;color:var(--g-dark);margin:8px 0 4px;font-size:var(--fs-lg);">' + _t('lina_greeting','Hallo, ich bin Lina!') + '</div><div style="font-size:var(--fs-md);line-height:1.6;max-width:300px;margin:0 auto;">' + _t('lina_greeting_sub','Deine Garten- &amp; Natur-Coachin — frag mich alles zu Pflanzen, Garten, Kräutern, Pilzen &amp; Saison. 🌱') + '</div></div>';
   } else {
-    msgs.forEach(function(m, i){
+    msgs.forEach(function(m){
       var isU = m.role === 'user';
       body += '<div style="display:flex;justify-content:'+(isU?'flex-end':'flex-start')+';margin:8px 0;">'
-        + '<div class="gs-lina-msg" style="max-width:82%;padding:10px 13px;border-radius:var(--r-lg);font-size:var(--fs-md);line-height:1.55;white-space:pre-wrap;word-break:break-word;'
+        + '<div style="max-width:82%;padding:10px 13px;border-radius:var(--r-lg);font-size:var(--fs-md);line-height:1.55;white-space:pre-wrap;word-break:break-word;'
         + (isU ? 'background:var(--fill-brand);color:#fff;border-bottom-right-radius:4px;' : 'background:var(--surface2);color:var(--text);border-bottom-left-radius:4px;')
-        + '">' + (isU ? escHtml(m.content) : '🌿 ' + _gsLinaFormat(m.content)) + '</div></div>';
-      if (!isU && m.nochmal) {
-        body += '<div style="margin:-2px 0 10px;"><button type="button" onclick="gsLinaNochmal(' + i + ')" style="' + _knopf + '">↻ ' + escHtml(_gsSatz('Nochmal senden')) + '</button></div>';
-      }
-      if (!isU && m.aktion) {
-        var _lab = _gsLinaAktionLabel(m.aktion);
-        if (_lab) body += '<div style="margin:-2px 0 10px;"><button type="button" onclick="gsLinaAktion(' + i + ')" style="' + _knopf + '">' + escHtml(_lab) + '</button></div>';
-      }
+        + '">' + (isU?'':'🌿 ') + escHtml(m.content) + '</div></div>';
     });
   }
   // Die Vorschlaege nur im LEEREN Verlauf: wer schon schreibt, braucht sie nicht.
@@ -87377,100 +87345,12 @@ function gsLinaRender(typing){
       + '<button onclick="gsLinaSend()" style="padding:11px 17px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-xl);font-weight:800;cursor:pointer;font-family:inherit;">➤</button>'
     + '</div></div>';
   _gsNlOpen(html);
-  if (_entwurf) {
-    try {
-      var _neuFeld = document.getElementById('gs-lina-input');
-      if (_neuFeld) {
-        _neuFeld.value = _entwurf;
-        if (_fokus) { _neuFeld.focus(); _neuFeld.setSelectionRange(_entwurf.length, _entwurf.length); }
-      }
-    } catch(_){}
-  }
   try { var sc=document.getElementById('gs-lina-scroll'); if(sc) sc.scrollTop = sc.scrollHeight; } catch(_){}
 }
 window.gsLinaRender = gsLinaRender;
 
 function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLinaRender(false); }
 window.gsLinaNew = gsLinaNew;
-
-// v33.61: was Lina OHNE KI aus der App-Liste sagen kann — EIN Weg fuer zwei Faelle:
-// ohne Netz (seit v33.30) und neu, wenn das Netz da ist, die KI aber nicht antwortet
-// (bis hier nur „versuch es nochmal", obwohl die Antwort aus der Liste danebenlag).
-// `getSmartAnswer` erdet mit dem GROBEN Namensvergleich — „Meine Tomaten haben braune
-// Blätter" beantwortet er mit der Braunen Krustenflechte. Seine Artkarte gilt deshalb
-// nur, wenn der STRENGE Vergleich (`_gsArtenTreffer`) dieselbe Art nennt. Mit
-// `ohneAllgemein` faellt die allgemeine Rueckfall-Antwort weg — neben einer
-// Fehlerzeile ist sie kein Ersatz, sondern Rauschen.
-function _gsLinaOfflineAntwort(text, opts) {
-  try {
-    var _sa = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : { zahl: 0, arten: [] };
-    var _roh = (typeof getSmartAnswer === 'function') ? getSmartAnswer(text) : null;
-    if (!_roh) return null;
-    _roh = String(_roh);
-    if (opts && opts.ohneAllgemein && _roh.indexOf(GS_OFFLINE_ALLGEMEIN) === 0) return null;
-    var _istArtKarte = /^🌿 \*\*/.test(_roh.trim());
-    if (!_istArtKarte) return _roh;                          // Notfall, Tipp, allgemeine Antwort
-    if (!_sa.zahl) return null;
-    var _n0 = _gsLinaNorm(_roh.split('**')[1] || '');
-    return _sa.arten.some(function (a) { return _gsLinaNorm(a.name) === _n0; }) ? _roh : null;
-  } catch (_) { return null; }
-}
-window._gsLinaOfflineAntwort = _gsLinaOfflineAntwort;
-
-// v33.61: „Nochmal senden" unter einer gescheiterten Antwort. Die gescheiterte Runde
-// verschwindet (Fehlerzeile und die Frage davor — sie kommt mit dem Senden wieder),
-// und die Frage geht NICHT ein zweites Mal in die Cloud, wenn sie schon dort ist.
-function gsLinaNochmal(i) {
-  var liste = window._gsLinaMsgs || [];
-  var m = liste[i];
-  if (!m || !m.nochmal || window._gsLinaSending) return;
-  var text = m.nochmal, schon = !!m.frageGesendet;
-  liste.splice(i, 1);
-  var vor = liste[i - 1];
-  if (vor && vor.role === 'user' && vor.content === text) liste.splice(i - 1, 1);
-  try { gsLinaSend(text, { frageSchonGesendet: schon }); } catch (_) {}
-}
-window.gsLinaNochmal = gsLinaNochmal;
-
-// v33.61: ein WEG aus Linas Antwort (Kalender, Suche, Bereich, Formular) ist ein Knopf
-// unter der Antwort — bis hier wurde er 140 ms nach der Antwort ausgefuehrt, Lina
-// schloss sich, und die Antwort, die gerade kam, war weg. Schreibende Werkzeuge
-// (Pflanze, Erinnerung, Termin) bleiben, wie sie sind: sie fragen ohnehin zuerst.
-var GS_LINA_WEGE = ['navigate', 'open_calendar', 'open_saekalender', 'search_species', 'prefill_form'];
-var GS_LINA_BEREICHE = { home: 'Startseite', scanner: 'Scanner', search: 'Arten-Suche', favs: 'Meine Pflanzen',
-  more: 'Mehr', garden: 'Garten', farm: 'Hof', season: 'Saison', social: 'Community', market: 'Marktplatz',
-  recipes: 'Rezepte', remedies: 'Heilmittel', wissen: 'Wissen', settings: 'Einstellungen', map: 'Karte' };
-function _gsLinaAktionLabel(act) {
-  try {
-    if (!act || typeof act.tool !== 'string' || GS_LINA_WEGE.indexOf(act.tool) < 0) return '';
-    var a = act.args || {};
-    switch (act.tool) {
-      case 'navigate': {
-        var t = String(a.screen || '').toLowerCase();
-        if (GS_LINA_SCREENS.indexOf(t) < 0) return '';
-        return '➜ ' + _gsSatz('Öffnen: {1}', GS_LINA_BEREICHE[t] || t);
-      }
-      case 'open_calendar': {
-        var tag = (typeof _gsKalTag === 'function') ? _gsKalTag(a.day) : null;
-        return '📅 ' + (tag ? _gsSatz('Kalender am {1} öffnen', _gsKalDatumKurz(tag)) : _gsSatz('Kalender öffnen'));
-      }
-      case 'open_saekalender': return '🌱 ' + _gsSatz('Säkalender öffnen');
-      case 'search_species': {
-        var q = String(a.query || '').slice(0, 80).trim();
-        return q ? '🔍 ' + _gsSatz('„{1}“ in der Arten-Suche zeigen', q) : '';
-      }
-      case 'prefill_form': return (typeof openAddPlant === 'function') ? '🪴 ' + _gsSatz('Formular „Pflanze hinzufügen“ öffnen') : '';
-    }
-  } catch (_) {}
-  return '';
-}
-window._gsLinaAktionLabel = _gsLinaAktionLabel;
-function gsLinaAktion(i) {
-  var m = (window._gsLinaMsgs || [])[i];
-  if (!m || !m.aktion) return;
-  try { gsLinaDispatch(m.aktion); } catch (_) {}
-}
-window.gsLinaAktion = gsLinaAktion;
 
 // v32.69 (Audit B4): Linas Nachrichten gingen ohne Blick auf die Antwort in die
 // Cloud. Ein Verlauf, der nur lokal liegt, ist auf dem zweiten Gerät weg — das
@@ -87484,11 +87364,7 @@ function _gsLinaSpeicherPruefen(r){
     console.warn('[Lina] Nachricht nicht gespeichert:', r && r.error && r.error.message);
   } catch(_){}
 }
-// v33.61: `vorgabe` ist der Text fuer „Nochmal senden" — er geht am Eingabefeld
-// vorbei, damit ein Entwurf, der dort gerade steht, stehen bleibt.
-async function gsLinaSend(vorgabe, opts){
-  var _vorgabe = (typeof vorgabe === 'string') ? vorgabe.trim() : '';
-  opts = (opts && typeof opts === 'object') ? opts : {};
+async function gsLinaSend(){
   // v33.30: der Notfall geht VOR dem Doppel-Send-Riegel. Der Riegel schuetzt
   // vor zwei parallelen callAI-Aufrufen — aber waehrend einer laufenden
   // Anfrage (Timeout 45 s!) haette er auch eine NOTFALL-Nachricht verschluckt,
@@ -87496,7 +87372,7 @@ async function gsLinaSend(vorgabe, opts){
   // Stille die teuerste Antwort, die es gibt.
   try {
     var _inp0 = document.getElementById('gs-lina-input');
-    var _txt0 = _vorgabe || (_inp0 ? String(_inp0.value || '').trim() : '');
+    var _txt0 = _inp0 ? String(_inp0.value || '').trim() : '';
     if (_txt0 && typeof _gsNotfallStufe === 'function' && _gsNotfallStufe(_txt0.toLowerCase()) === 'dringend') {
       var _tn0 = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
       // Das Eingabefeld NICHT hier leeren: der gewoehnliche Weg liest es gleich
@@ -87511,7 +87387,7 @@ async function gsLinaSend(vorgabe, opts){
       // NEUES, leeres Element. Der gewoehnliche Weg liest es gleich und wuerde
       // an `if (!text) return;` umkehren: die Person bekaeme die Nummer und
       // sonst nichts. Den Text also wieder hineinschreiben.
-      if (!_vorgabe) { try { var _inp1 = document.getElementById('gs-lina-input'); if (_inp1) _inp1.value = _txt0; } catch(_){} }
+      try { var _inp1 = document.getElementById('gs-lina-input'); if (_inp1) _inp1.value = _txt0; } catch(_){}
       try { gsTrackEvent('lina_message', { ok: true, erdung: 'notfall' }); } catch(_){}
       // Die Nummer steht jetzt auf dem Bildschirm — aber die Frage bleibt
       // unbeantwortet, und das ist die falsche Seite des Fehlalarms:
@@ -87527,7 +87403,7 @@ async function gsLinaSend(vorgabe, opts){
   if (window._gsLinaSending) return; // v29.48: Doppel-Send-Guard — sonst 2 parallele callAI → doppelter Quota-Abzug
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var inp = document.getElementById('gs-lina-input');
-  var text = _vorgabe || (inp ? (inp.value||'').trim() : '');
+  var text = inp ? (inp.value||'').trim() : '';
   if (!text) return;
   // v33.30: Notfall VOR allem anderen. Der Offline-Chat erkennt einen
   // Vergiftungs-Notfall seit v32.98/99 in vier Sprachen — Lina, der Chat, den
@@ -87545,12 +87421,30 @@ async function gsLinaSend(vorgabe, opts){
   // Netz und stand die ganze Zeit daneben. Erst wenn auch von dort nichts
   // kommt, bleibt der alte Hinweis.
   if (!navigator.onLine) {
-    // Die Regel steht in _gsLinaOfflineAntwort (v33.30, seit v33.61 ein Helfer:
-    // derselbe Ersatz kommt auch, wenn die KI bei Netz nicht antwortet).
-    var _off = _gsLinaOfflineAntwort(text);
+    var _off = null;
+    // `getSmartAnswer` erdet mit dem GROBEN Namensvergleich — genau dem, den
+    // dieser Schnitt als unbrauchbar gemessen hat: „Meine Tomaten haben braune
+    // Blätter" beantwortet er mit der **Braunen Krustenflechte**. Ihn hier
+    // ungefiltert durchzureichen hiesse, den Fehler durch die Hintertuer
+    // wieder einzubauen. Also: seine Antwort gilt nur, wenn der STRENGE
+    // Vergleich dieselbe Art auch findet — sonst antwortet Lina lieber
+    // allgemein als falsch.
+    try {
+      var _sa = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : { zahl: 0, arten: [] };
+      var _roh = (typeof getSmartAnswer === 'function') ? getSmartAnswer(text) : null;
+      if (_roh) {
+        var _istArtKarte = /^🌿 \*\*/.test(String(_roh).trim());
+        if (!_istArtKarte) _off = _roh;                       // Notfall, Tipp, allgemeine Antwort
+        else if (_sa.zahl) {
+          // Artkarte — nur nehmen, wenn der strenge Vergleich dieselbe Art nennt
+          var _n0 = _gsLinaNorm(String(_roh).split('**')[1] || '');
+          _off = _sa.arten.some(function (a) { return _gsLinaNorm(a.name) === _n0; }) ? _roh : null;
+        }
+      }
+    } catch(_){ _off = null; }
     if (_off) {
       var _to = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-      if (inp && !_vorgabe) inp.value = '';
+      if (inp) inp.value = '';
       window._gsLinaMsgs = window._gsLinaMsgs || [];
       window._gsLinaMsgs.push({ role:'user', content:text });
       window._gsLinaMsgs.push({ role:'assistant', content: _to('lina_offline_vor', '📡 Gerade ohne Internet — hier ist, was ich aus der App-Liste weiss:') + '\n\n' + _off });
@@ -87569,7 +87463,7 @@ async function gsLinaSend(vorgabe, opts){
     _schonGefuehrt = _m.length >= 2 && _m[_m.length - 2].role === 'user' && _m[_m.length - 2].content === text;
   } catch(_){}
   var _linaAct = null; // v30.69: optionale Aktion aus Lina's Antwort (nach dem Send-Guard dispatcht)
-  if (inp && !_vorgabe) inp.value = '';
+  if (inp) inp.value = '';
   window._gsLinaMsgs = window._gsLinaMsgs || [];
   if (!_schonGefuehrt) window._gsLinaMsgs.push({ role:'user', content:text });
   gsLinaRender(true);
@@ -87581,12 +87475,10 @@ async function gsLinaSend(vorgabe, opts){
       if (conv) window._gsLinaConvId = conv.id;
       else if (typeof gsToast === 'function') gsToast(_t('lina_local_only','Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).'), 'info', 3500); // v29.48: Conv-Anlage fehlgeschlagen → Nutzer dezent informieren
     }
-    var _frageGesendet = !!window._gsLinaConvId;
-    if (window._gsLinaConvId && !opts.frageSchonGesendet) {
+    if (window._gsLinaConvId) {
       sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })}).then(_gsLinaSpeicherPruefen);
     }
-    // v33.61: eine Fehlerzeile ist nicht Linas Antwort — sie geht nicht an die KI zurueck.
-    var hist = window._gsLinaMsgs.filter(function(m){ return !m.fehler; }).slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
+    var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
     var _treffer = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : null;
     var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(text), 900, { quotaFeature:'lina', timeout:45000 });
     // v33.21: kam eine Antwort — nie der Text. v33.30: dazu, WIE geerdet wurde.
@@ -87594,10 +87486,7 @@ async function gsLinaSend(vorgabe, opts){
       gsTrackEvent('lina_message', { ok: !!reply, erdung: !_treffer || !_treffer.zahl ? 'keine'
         : (_treffer.zahl === 1 ? 'eine' : (_treffer.einig ? 'mehrere_einig' : 'mehrere_uneinig')) });
     } catch(_){}
-    // v33.61: eine LEERE Antwort ist ein Fehlschlag, keine Antwort. Bis hier ging der
-    // Fehlertext als Linas Antwort in die Cloud (coach_messages) und stand nach dem
-    // naechsten Oeffnen im Verlauf, als haette sie das gesagt.
-    if (!reply) { var _leer = new Error('leere Antwort'); _leer.code = 'lina_leer'; throw _leer; }
+    if (!reply) reply = _t('lina_error','Entschuldige, da ist gerade etwas schiefgelaufen — magst du es nochmal versuchen? 🌿');
     // v30.69: optionale [[GS_ACTION]]{json}-Zeile extrahieren + aus dem angezeigten Text entfernen (wird escaped sonst sichtbar)
     try {
       var _am = reply.match(/\[\[GS_ACTION\]\]\s*(\{[\s\S]*\})\s*$/);
@@ -87616,14 +87505,7 @@ async function gsLinaSend(vorgabe, opts){
       }
     } catch(_){}
     window._gsLinaNotfallHinweis = false;
-    var _eintrag = { role:'assistant', content:reply };
-    // v33.61: ein WEG wird ein Knopf unter der Antwort (siehe GS_LINA_WEGE) — kein
-    // automatisches Wegspringen mehr. Ein Weg, den die App nicht kennt, faellt still weg.
-    if (_linaAct && typeof _linaAct.tool === 'string' && GS_LINA_WEGE.indexOf(_linaAct.tool) >= 0) {
-      if (_gsLinaAktionLabel(_linaAct)) _eintrag.aktion = _linaAct;
-      _linaAct = null;
-    }
-    window._gsLinaMsgs.push(_eintrag);
+    window._gsLinaMsgs.push({ role:'assistant', content:reply });
     gsLinaRender(false);
     if (window._gsLinaConvId) {
       sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'assistant', content:reply })}).then(_gsLinaSpeicherPruefen);
@@ -87632,18 +87514,9 @@ async function gsLinaSend(vorgabe, opts){
   } catch(err){
     if (err && err.code === 'free_quota_reached') {
       // Mission: Lina bleibt gratis — KEIN Verkaufspitch, nur warme Info.
-      window._gsLinaMsgs.push({ role:'assistant', fehler:true, content:_t('lina_quota','🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)') });
+      window._gsLinaMsgs.push({ role:'assistant', content:_t('lina_quota','🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)') });
     } else {
-      // v33.61: das Netz ist da, die KI antwortet nicht (Zeitueberschreitung, Server,
-      // leere Antwort). Bis hier stand nur „versuch es nochmal" da — ohne Knopf, und
-      // ohne die Antwort, die die App-Liste OHNE KI geben kann (der Weg fuer „ohne
-      // Netz" lag die ganze Zeit daneben). Jetzt: die Zeile, darunter was die Liste
-      // weiss, und „Nochmal senden". Nach einem Notfall kommt keine Liste dazu — die
-      // Nummer steht schon da.
-      var _ersatz = _schonGefuehrt ? null : _gsLinaOfflineAntwort(text, { ohneAllgemein: true });
-      window._gsLinaMsgs.push({ role:'assistant', fehler:true, nochmal:text, frageGesendet: (typeof _frageGesendet !== 'undefined') && !!_frageGesendet,
-        content: _t('lina_error_retry','Hmm, das hat gerade nicht geklappt 🌿 — bitte versuch es gleich nochmal.')
-          + (_ersatz ? '\n\n' + _gsSatz('Bis dahin, was ich ohne KI aus der App-Liste weiss:') + '\n\n' + _ersatz : '') });
+      window._gsLinaMsgs.push({ role:'assistant', content:_t('lina_error_retry','Hmm, das hat gerade nicht geklappt 🌿 — bitte versuch es gleich nochmal.') });
     }
     gsLinaRender(false);
   }
@@ -87680,14 +87553,10 @@ function gsLinaResolvePlant(id, name){
   } catch(_){}
   return null;
 }
-// v33.61: der Rueckgabewert des Speicherns entscheidet ueber die Meldung (CLAUDE.md
-// §3.5). Bei vollem Speicher stand „✅ hinzugefügt" da, und nach dem Neuladen war die
-// Pflanze weg. Jetzt: nicht gespeichert → aus der Liste zurueck, und die Person hoert es.
 function gsLinaAddPlant(nm, a){
-  var p = null;
   try {
     var now = new Date().toISOString();
-    p = {
+    var p = {
       id: 'mp_' + Date.now(), name: nm, nick: '', emoji: (a && a.emoji) || '🌿',
       water: 2, sun: 2, notes: (a && a.notes) || 'Von Lina hinzugefügt',
       photo: null, photoUrl: null, diary: [], added: now,
@@ -87703,21 +87572,11 @@ function gsLinaAddPlant(nm, a){
       }
     };
     myPlants.push(p);
-    var ok = (typeof savePlantsToStorage === 'function') ? savePlantsToStorage() : false;
-    if (ok === false) {
-      var i = myPlants.indexOf(p); if (i >= 0) myPlants.splice(i, 1);
-      if (typeof gsToast === 'function') gsToast(_gsSatz('„{1}“ wurde nicht gespeichert — der Gerätespeicher ist voll.', nm), 'error');
-      return false;
-    }
+    if (typeof savePlantsToStorage === 'function') savePlantsToStorage();
     if (typeof renderMyPlants === 'function') renderMyPlants();
     if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications();
-    if (typeof gsToast === 'function') gsToast(_gsSatz('✅ „{1}“ zu Meine Pflanzen hinzugefügt.', nm), 'success');
-    return true;
-  } catch(_){
-    if (p) { var j = myPlants.indexOf(p); if (j >= 0) myPlants.splice(j, 1); }
-    if (typeof gsToast==='function') gsToast(_gsSatz('Konnte die Pflanze nicht hinzufügen.'), 'error');
-    return false;
-  }
+    if (typeof gsToast === 'function') gsToast('✅ „' + nm + '" zu Meine Pflanzen hinzugefügt.', 'success');
+  } catch(_){ if (typeof gsToast==='function') gsToast('Konnte die Pflanze nicht hinzufügen.', 'error'); }
 }
 async function gsLinaDispatch(act){
   if (!act || typeof act.tool !== 'string') return;          // malformed → ignorieren
@@ -87760,13 +87619,7 @@ async function gsLinaDispatch(act){
     case 'propose_add_plant': {
       var nm = String(a.name||'').trim().slice(0,60); if (!nm) return;
       if (typeof gsConfirmModal !== 'function') return;
-      // v33.61: steht die Pflanze schon da, sagt die Rueckfrage das — zwei Basilikum
-      // sind erlaubt, aber nicht aus Versehen. Und die Rueckfrage in der Sprache der App.
-      var _schon = gsLinaResolvePlant(null, nm);
-      var ok = await gsConfirmModal({ title: '🌱 ' + _gsSatz('Pflanze hinzufügen?'),
-        message: _schon ? _gsSatz('„{1}“ steht schon in deinen Pflanzen. Trotzdem eine zweite hinzufügen?', nm)
-                        : _gsSatz('Soll ich „{1}“ zu Meine Pflanzen hinzufügen?', nm),
-        ok: _gsSatz('Hinzufügen'), cancel: _gsSatz('Abbrechen') });
+      var ok = await gsConfirmModal({ title:'🌱 Pflanze hinzufügen?', message:'Soll ich „' + nm + '" zu Meine Pflanzen hinzufügen?', ok:'Hinzufügen', cancel:'Abbrechen' });
       if (ok) gsLinaAddPlant(nm, a);
       return;
     }
@@ -87775,34 +87628,16 @@ async function gsLinaDispatch(act){
       var key = String(a.task||'').toLowerCase();
       if (typeof TASK_DEFS==='undefined' || !TASK_DEFS[key]) return;   // nur Whitelist-Tasks
       var p = gsLinaResolvePlant(a.plantId, a.plantName);
-      if (!p) { if (typeof gsToast==='function') gsToast(_gsSatz('Dafür brauche ich die Pflanze zuerst in „Meine Pflanzen“ 🌿'), 'info'); return; }
+      if (!p) { if (typeof gsToast==='function') gsToast('Dafür brauche ich die Pflanze zuerst in „Meine Pflanzen" 🌿', 'info'); return; }
       var days = parseInt(a.intervalDays,10); if (!(days>0)) days = (TASK_DEFS[key].intervals && TASK_DEFS[key].intervals[0] && TASK_DEFS[key].intervals[0].v) || 7;
       if (typeof gsConfirmModal !== 'function') return;
-      var ok2 = await gsConfirmModal({ title: '⏰ ' + _gsSatz('Erinnerung einrichten?'),
-        message: _gsSatz('{1} für „{2}“ alle {3} Tage?', TASK_DEFS[key].name, (p.nick||p.name), days),
-        ok: _gsSatz('Einrichten'), cancel: _gsSatz('Abbrechen') });
+      var ok2 = await gsConfirmModal({ title:'⏰ Erinnerung einrichten?', message:TASK_DEFS[key].name + ' für „' + (p.nick||p.name) + '" alle ' + days + ' Tage?', ok:'Einrichten', cancel:'Abbrechen' });
       if (!ok2) return;
-      // v33.61: geschrieben wird in der Liste, in der die Pflanze STEHT (_gsPflanzeFinden,
-      // CLAUDE.md §3.3). toggleTask/setTaskInterval kennen nur „Meine Pflanzen" — fuer
-      // eine Garten-Pflanzung stand „✅ Erinnerung eingerichtet" da, und nichts war
-      // geschrieben. Und der Rueckgabewert des Speicherns entscheidet ueber die Meldung.
       try {
-        var _f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(p.id) : null;
-        if (!_f || !_f.p) { if (typeof gsToast==='function') gsToast(_gsSatz('Konnte die Erinnerung nicht einrichten.'), 'error'); return; }
-        if (!_f.p.tasks) _f.p.tasks = {};
-        var _vorher = _f.p.tasks[key] ? JSON.parse(JSON.stringify(_f.p.tasks[key])) : null;
-        _f.p.tasks[key] = Object.assign({ lastDone: new Date().toISOString() }, _f.p.tasks[key] || {}, { active: true, intervalDays: days });
-        var _gesp = false;
-        try { _gesp = _f.speichern() !== false; } catch (_e) { _gesp = false; }
-        if (!_gesp) {
-          if (_vorher) _f.p.tasks[key] = _vorher; else delete _f.p.tasks[key];
-          if (typeof gsToast==='function') gsToast(_gsSatz('Die Erinnerung wurde nicht gespeichert — der Gerätespeicher ist voll.'), 'error');
-          return;
-        }
-        try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch (_e) {}
-        try { if (_f.liste === 'myPlants' && typeof renderMyPlants === 'function') renderMyPlants(); } catch (_e) {}
-        if (typeof gsToast==='function') gsToast(_gsSatz('✅ Erinnerung eingerichtet: {1} alle {2} Tage.', TASK_DEFS[key].name, days), 'success');
-      } catch(_){ if (typeof gsToast==='function') gsToast(_gsSatz('Konnte die Erinnerung nicht einrichten.'), 'error'); }
+        if (typeof toggleTask==='function') toggleTask(p.id, key, true);
+        if (typeof setTaskInterval==='function') setTaskInterval(p.id, key, days);
+        if (typeof gsToast==='function') gsToast('✅ Erinnerung eingerichtet.', 'success');
+      } catch(_){ if (typeof gsToast==='function') gsToast('Konnte die Erinnerung nicht einrichten.', 'error'); }
       return;
     }
     // v33.39 (KALENDER-V2 §7): Lina darf einen TERMIN vorschlagen — und nur

@@ -223,56 +223,6 @@ const FAELLE = [
       }
     },
   },
-  // ── v33.61 · Linas zwei Schreibwege (Arbeitsliste „Offen — Lina" 6) ──
-  {
-    name: 'Lina · „Pflanze hinzufügen" bei vollem Speicher: keine Pflanze in der Liste, keine Erfolgsmeldung — mit Platz genau eine',
-    lauf: async () => {
-      const echt = window.gsConfirmModal;
-      try {
-        window.gsConfirmModal = async () => true;
-        const vor = myPlants.length;
-        __voll(true); await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: 'Prüfminze' } }); __voll(false);
-        if (!__VOLL_LOG.some(k => k === 'ps_myplants')) return { ok: false, warum: 'kein Schreibversuch auf ps_myplants — Fall nicht hergestellt' };
-        if (myPlants.length !== vor) return { ok: false, warum: 'die Pflanze steht in der Liste, obwohl nichts gespeichert wurde' };
-        if (__TOASTS.some(t => /hinzugefügt/.test(t))) return { ok: false, warum: 'meldet „hinzugefügt" für nichts: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
-        if (!__TOASTS.some(t => /nicht gespeichert/.test(t))) return { ok: false, warum: 'still verloren, keine Meldung: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
-        // Gegenrichtung: mit Platz genau eine.
-        await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: 'Prüfminze' } });
-        const n = myPlants.filter(p => p && p.name === 'Prüfminze').length;
-        for (let i = myPlants.length - 1; i >= 0; i--) if (myPlants[i] && myPlants[i].name === 'Prüfminze') myPlants.splice(i, 1);
-        savePlantsToStorage();
-        if (n !== 1) return { ok: false, warum: 'mit Platz ' + n + ' statt 1 Pflanze — die Reparatur blockiert den Normalfall' };
-        return { ok: true, info: 'voll → keine Pflanze + „nicht gespeichert" · mit Platz → genau eine' };
-      } finally { window.gsConfirmModal = echt; }
-    },
-  },
-  {
-    name: 'Lina · Erinnerung an einer GARTEN-Pflanzung: geschrieben wird gs_plantings — bei vollem Speicher keine Erfolgsmeldung und kein halber Zustand',
-    lauf: async () => {
-      const echt = window.gsConfirmModal;
-      try {
-        window.gsConfirmModal = async () => true;
-        const pl = ((typeof plantings !== 'undefined' && plantings) || []).find(x => x && x.name === 'Zucchini');
-        if (!pl) return { ok: false, warum: 'keine Garten-Pflanzung „Zucchini" in den Beispieldaten — der Fall misst nichts' };
-        const vorher = JSON.stringify(pl.tasks || {});
-        __voll(true); await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'mist', plantName: 'Zucchini', intervalDays: 5 } }); __voll(false);
-        if (!__VOLL_LOG.some(k => k === 'gs_plantings')) return { ok: false, warum: 'kein Schreibversuch auf gs_plantings — die Erinnerung wurde gar nicht dort geschrieben (' + JSON.stringify(__VOLL_LOG) + ')' };
-        if (__TOASTS.some(t => /eingerichtet/.test(t))) return { ok: false, warum: 'meldet „eingerichtet" für nichts' };
-        if (!__TOASTS.some(t => /nicht gespeichert/.test(t))) return { ok: false, warum: 'keine Meldung: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
-        if (JSON.stringify(pl.tasks || {}) !== vorher) return { ok: false, warum: 'die Aufgabe blieb im Arbeitsspeicher halb gesetzt' };
-        // Gegenrichtung: mit Platz kommt sie an — in der Liste UND auf dem Gerät.
-        __TOASTS.length = 0;
-        await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'mist', plantName: 'Zucchini', intervalDays: 5 } });
-        const t = pl.tasks && pl.tasks.mist;
-        const ger = JSON.parse(localStorage.getItem('gs_plantings') || '[]').find(x => x && x.id === pl.id);
-        const da = !!(t && t.active && t.intervalDays === 5 && ger && ger.tasks && ger.tasks.mist && ger.tasks.mist.active);
-        pl.tasks = JSON.parse(vorher); saveGardenData();
-        if (!da) return { ok: false, warum: 'mit Platz kam die Erinnerung nicht an: ' + JSON.stringify(t) };
-        if (!__TOASTS.some(x => /eingerichtet/.test(x))) return { ok: false, warum: 'mit Platz keine Bestätigung' };
-        return { ok: true, info: 'voll → „nicht gespeichert", Aufgabe unverändert · mit Platz → gs_plantings trägt „mist alle 5 Tage"' };
-      } finally { window.gsConfirmModal = echt; }
-    },
-  },
 ];
 
 (async () => {
