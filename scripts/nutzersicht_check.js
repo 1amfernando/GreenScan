@@ -680,7 +680,7 @@ const FAELLE = [
     }),
   },
   {
-    name: 'E15 · Der Filter „Giftig" zeigt jede Art ab Giftstufe 2 — und „Ungiftig" nur Stufe 0',
+    name: 'E15 · Der Filter „Giftig" zeigt jede Art ab Giftstufe 2 — und „Ungiftig" nur Stufe 0; gefragt wird die ART, nicht der Eintrag',
     lauf: async () => __seite.evaluate(async () => {
       // v33.59 (Audit „Datenform"). `toxic` und `tox` sind zwei Felder fuer dieselbe
       // Frage; bei acht Eintraegen der Stufe 2 stand `toxic:false` — sie fehlten in
@@ -694,12 +694,22 @@ const FAELLE = [
         currentFilter = 'ungiftig';
         const falschUngiftig = DB.filter((sp) => _gsPassCat(sp) && (sp.tox | 0) > 0);
         const nUngiftig = DB.filter((sp) => _gsPassCat(sp)).length;
+        // Und die ART entscheidet: „Wacholder" (T018) traegt selbst Stufe 0, dieselbe Art
+        // (Juniperus communis) fuehrt die Liste dreimal mit Stufe 2. Massstab hier: die
+        // Eintraege mit genau demselben Binomen — nicht die Funktion, die der Filter ruft.
+        const binomen = (sp) => String(sp.lat || '').toLowerCase().trim();
+        const w = DB.find((sp) => sp.id === 'T018');
+        const wGeschwister = w ? DB.filter((sp) => binomen(sp) === binomen(w) && (sp.tox | 0) >= 2).length : 0;
+        currentFilter = 'giftig'; const wGiftig = w ? _gsPassCat(w) : null;
+        currentFilter = 'ungiftig'; const wUngiftig = w ? _gsPassCat(w) : null;
         const f = [];
+        if (!w || wGeschwister < 1 || (w.tox | 0) !== 0) f.push('die Probe stimmt nicht mehr: T018 ' + (w ? 'Stufe ' + w.tox + ', ' + wGeschwister + ' Geschwister ab Stufe 2' : 'fehlt') + ' — der Fall stellt seinen Zustand nicht her');
+        else if (!wGiftig || wUngiftig) f.push('„Wacholder" (T018, Stufe 0; ' + wGeschwister + ' Einträge derselben Art ab Stufe 2) steht ' + (wUngiftig ? 'unter „Ungiftig"' : 'nicht unter „Giftig"') + ' — der Filter fragt den Eintrag, nicht die Art');
         if (fehltGiftig.length) f.push(fehltGiftig.length + ' Einträge der Giftstufe ≥ 2 fehlen unter „Giftig": ' + fehltGiftig.slice(0, 5).map((sp) => sp.name + ' (Stufe ' + sp.tox + ')').join(', '));
         if (falschUngiftig.length) f.push(falschUngiftig.length + ' Einträge mit Giftstufe > 0 stehen unter „Ungiftig": ' + falschUngiftig.slice(0, 3).map((sp) => sp.name).join(', '));
         if (nGiftig < 300 || nUngiftig < 1000) f.push('die Filter liefern ' + nGiftig + ' / ' + nUngiftig + ' Einträge — der Fall misst offenbar etwas anderes');
         if (f.length) return { ok: false, warum: f.join(' · ') };
-        return { ok: true, info: '„Giftig" ' + nGiftig + ' Einträge, darunter jeder ab Stufe 2 · „Ungiftig" ' + nUngiftig + ', alle Stufe 0 · in keinem der beiden: ' + (DB.length - nGiftig - nUngiftig) + ' (Stufe 1 ohne Giftvermerk)' };
+        return { ok: true, info: '„Giftig" ' + nGiftig + ' Einträge, darunter jeder ab Stufe 2 · „Ungiftig" ' + nUngiftig + ', alle Stufe 0 · in keinem der beiden: ' + (DB.length - nGiftig - nUngiftig) + ' · „Wacholder" (T018, Stufe 0) nach seiner Art unter „Giftig"' };
       } finally { currentFilter = alt; }
     }),
   },

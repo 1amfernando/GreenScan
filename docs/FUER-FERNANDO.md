@@ -1498,10 +1498,10 @@ Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
 **Bitte einmal gegenlesen — die Datenschutzerklärung** (`privacy.html`,
 Tabelle in §2). Dort stand „Anonyme Nutzungs- & Fehlerdaten". Beide tragen
 aber deine Konto-Kennung. Ich habe den Satz berichtigt („mit deinem Konto
-verknüpft, keine Fotos, kein Standort, kein Eingabetext"). Zwei Empfänger
-fehlen in §4 weiterhin: Netlify (zweiter Hoster) und Wikipedia (lädt das
-Artbild, bekommt dabei nur den Artnamen); dazu Google Fonts (die Schriften —
-übertragen wird die IP-Adresse). §8 nennt keine Frist für Nutzungsdaten, und
+verknüpft, keine Fotos, kein Standort, kein Eingabetext"). Drei Empfänger
+fehlen in §4 weiterhin: Google Fonts (die Schriften — übertragen wird die
+IP-Adresse), Netlify (zweiter Hoster) und Wikipedia (lädt das Artbild, bekommt
+dabei nur den Artnamen). §8 nennt keine Frist für Nutzungsdaten, und
 das Stand-Datum („17. Juni 2026") habe ich nicht angefasst. Das ist dein Text
 — sag mir, wie du ihn haben willst (auf dem Brett: `brett:2026-11-11-5bef`).
 
@@ -1573,12 +1573,14 @@ entscheidest du: zwei alte, längst angewandte Migrationen
 Policy, und in der Git-Geschichte steht sie weiter. Eine angewandte Migration
 habe ich nicht umgeschrieben.
 
-**Was diesmal NICHT stattgefunden hat:** ein gegnerisches Gegenlesen der
-fertigen Scheibe durch vier Agenten. Es ist zweimal gestartet und beide Male
-am Ausgabenlimit des Kontos gescheitert, bevor ein Agent etwas gelesen hatte.
-Die Funde selbst sind gegengeprüft (jeder im Audit von einem zweiten Agenten),
-und die ganze Suite ist auf dem Endstand gelaufen — aber den fertigen Diff hat
-ausser mir niemand gelesen.
+**Das Gegenlesen der fertigen Scheibe** ist am 11.11. zweimal am Ausgabenlimit
+gescheitert und am 16.11. gelaufen (vier Agenten lesen, je ein zweiter versucht
+zu widerlegen). Fünfzehn Stellen, alle behoben. Die wichtigsten für dich: der
+Filter „Giftig" fragt jetzt die Art (Wacholder stand unter „Ungiftig"); zwei
+Stichworte an den vertraulichen Brett-Einträgen zeigten auf die Stelle der Lücke
+und sind entfernt; und im Audit-Protokoll zeigte der Satz „zusammen mit Fund 4
+ausliefern" auf den falschen Fund — gemeint ist edge-5, die Reihenfolge ist dort
+sicherheitsrelevant.
 
 **Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
 ESLint (über `scripts/package.json`). Dafür ist nichts zu tun.

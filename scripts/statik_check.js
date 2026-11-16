@@ -376,6 +376,22 @@ async function s5() {
   return { ok: true, info: Z.an.funktionen.length + ' Funktionen gegen den Korpus (' + (dateien.length + 1) + ' Dateien) — keine, deren Nennungen alle im eigenen Rumpf stehen' };
 }
 
+// v33.59 (Gegenlesen): S6 und S8 lasen Kommentare und den Changelog mit — eine
+// Release-Notiz, die den behobenen Fehler ZITIERT (`calc(a+b)`, `var(--fg,…)`),
+// haette den Fall rot gemacht (CLAUDE.md §4d: Kommentare UND GS_RELEASES heraus).
+// Geleert wird mit Leerzeichen, damit die Zeilennummern stimmen: HTML-Kommentare,
+// CSS-Kommentare in <style>, ganze `//`-Zeilen und der Block `window.GS_RELEASES = [ … ];`.
+function leeren(m) { return m.replace(/[^\n]/g, ' '); }
+function ohneKommentareUndChangelog(html) {
+  let t = String(html);
+  t = t.replace(/<!--[\s\S]*?-->/g, leeren);
+  t = t.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (m) => m.replace(/\/\*[\s\S]*?\*\//g, leeren));
+  t = t.replace(/^[ \t]*\/\/.*$/gm, leeren);
+  const a = t.indexOf('window.GS_RELEASES = [');
+  if (a >= 0) { const e = t.indexOf('\n];', a); if (e > a) t = t.slice(0, a) + leeren(t.slice(a, e + 3)) + t.slice(e + 3); }
+  return t;
+}
+
 // CSS-Variablen: benutzt gegen definiert. `var(--x, rueckfall)` mit einem
 // Namen, den niemand definiert, ist eine feste Farbe mit Tarnkappe — sie kippt
 // nicht mit dem Modus und faellt niemandem auf, der nach Farben sucht (v32.35).
@@ -401,7 +417,7 @@ async function s6() {
   for (const seite of ['index.html', 'install.html', 'offline.html', 'privacy.html']) {
     const p = path.join(WURZEL, seite);
     if (!fs.existsSync(p)) continue;
-    const r = cssVariablen(fs.readFileSync(p, 'utf8'));
+    const r = cssVariablen(ohneKommentareUndChangelog(fs.readFileSync(p, 'utf8')));
     gesamt += r.benutzt.size; definiert += r.defs.size;
     if (seite === 'index.html' && r.benutzt.size < 50) klagen.push('index.html: nur ' + r.benutzt.size + ' benutzte Variablen — der Fall misst offenbar etwas anderes');
     for (const [n, u] of r.fehlt) klagen.push(seite + ': ' + n + ' benutzt (' + (u.mit + u.ohne) + '×, Z. ' + u.z.join(', ') + '), nirgends definiert' + (u.ohne ? ' — OHNE Rueckfall: die Deklaration ist ungueltig' : ' — der Rueckfall gilt in BEIDEN Modi'));
@@ -464,7 +480,10 @@ function calcFehler(rumpf) {
     if (letzter === '' || /[(,*/+-]/.test(letzter)) continue;          // Vorzeichen, kein Operator
     if (/[0-9]e$/i.test(vor) && /[0-9]/.test(nachZ)) continue;            // 1e-3
     const links = /(?:[0-9.]+[a-z%]*|\)|§)$/i.test(vor), rechts = /[0-9.(§]/.test(nachZ);
-    if (c === '-' && !/\s/.test(vorZ) && !(links && rechts)) continue;     // Bindestrich in einem Namen (min-content)
+    // Bindestrich in einem Namen (min-content) — aber NUR, wenn links kein fertiger
+    // Wert steht. v33.59 (Gegenlesen): mit `!(links && rechts)` galt `100%- 20px`
+    // als Name, weil rechts Leerraum statt einer Ziffer folgt.
+    if (c === '-' && !/\s/.test(vorZ) && !links) continue;
     if (/\s/.test(vorZ) && /\s/.test(nachZ)) continue;                     // sauber
     if (c === '-' && /\s/.test(vorZ) && !/\s/.test(nachZ) && !rechts) continue;
     f.push('„' + c + '" ohne Leerraum');
@@ -476,7 +495,7 @@ async function s8() {
   for (const seite of ['index.html', 'install.html', 'offline.html', 'privacy.html']) {
     const p = path.join(WURZEL, seite);
     if (!fs.existsSync(p)) continue;
-    for (const a of calcAusdruecke(fs.readFileSync(p, 'utf8'))) {
+    for (const a of calcAusdruecke(ohneKommentareUndChangelog(fs.readFileSync(p, 'utf8')))) {
       if (a.zusammengesetzt) { dyn++; continue; }
       n++;
       const f = calcFehler(a.rumpf);
@@ -485,9 +504,13 @@ async function s8() {
   }
   if (n < 25) return { ok: false, warum: 'nur ' + n + ' calc()-Ausdruecke gefunden — der Fall misst offenbar etwas anderes' };
   // Die Regel selbst, in beide Richtungen (ein Pruefer, der alles durchlaesst, waere auch gruen):
-  const gut = ['var(--st) + var(--top-h)', '100% - 20px', '-1 * var(--x)', 'var(--sb) + 20px', '100vh - env(safe-area-inset-top)', '(100% - 2 * var(--pad)) / 3', '50% + -4px', 'min-content'];
-  const schlecht = ['var(--st)+var(--top-h)', 'var(--sb)+20px', '100%-20px', 'var(--a) +var(--b)', '10px+ 5px', 'var(--sb)+var(--tab-h)+14px'];
+  const gut = ['var(--st) + var(--top-h)', '100% - 20px', '-1 * var(--x)', 'var(--sb) + 20px', '100vh - env(safe-area-inset-top)', '(100% - 2 * var(--pad)) / 3', '50% + -4px', 'min-content', '1e-3 * 2px', '2 * -1px'];
+  const schlecht = ['var(--st)+var(--top-h)', 'var(--sb)+20px', '100%-20px', 'var(--a) +var(--b)', '10px+ 5px', 'var(--sb)+var(--tab-h)+14px',
+    '100%- 20px', 'var(--sb)- 20px', 'var(--x)- var(--y)', '100% -20px'];   // v33.59: das Spiegelbild der Plus-Faelle fehlte
   const g = gut.filter(x => calcFehler(x).length), b = schlecht.filter(x => !calcFehler(x).length);
+  // Und was ZITIERT wird, ist kein Ausdruck: Kommentar, HTML-Kommentar, Changelog.
+  const zitat = calcAusdruecke(ohneKommentareUndChangelog('<!-- calc(a+b) -->\n  // calc(c+d)\nwindow.GS_RELEASES = [\n {text:\'calc(e+f)\'}\n];\n<style>.x{width:calc(1px + 2px)}</style>'));
+  if (zitat.length !== 1 || zitat[0].zeile !== 6) return { ok: false, warum: 'die Regel liest Zitate mit: ' + JSON.stringify(zitat) };
   if (g.length || b.length) return { ok: false, warum: 'die Regel irrt sich: ' + (g.length ? 'gueltig gemeldet als falsch: ' + g.join(' | ') : '') + (b.length ? ' ungueltig durchgelassen: ' + b.join(' | ') : '') };
   if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · … (' + klagen.length + ')' : '') };
   return { ok: true, info: n + ' calc()-Ausdruecke in vier Seiten, jeder mit Leerraum um + und − · ' + dyn + ' in JS zusammengesetzt (nicht pruefbar) · Regel gegen ' + gut.length + ' gueltige und ' + schlecht.length + ' ungueltige Formen gehalten' };
@@ -502,7 +525,8 @@ async function s8() {
 function stapelPruefung(src) {
   const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
   const ROH = new Set(['script', 'style', 'textarea', 'title']);
-  const OPTIONAL = ['p', 'li', 'option', 'tr', 'td', 'th', 'tbody', 'thead', 'dd', 'dt'];
+  // v33.59 (Gegenlesen): die Liste der End-Tags, die HTML auslassen DARF, war unvollstaendig.
+  const OPTIONAL = ['p', 'li', 'option', 'optgroup', 'tr', 'td', 'th', 'tbody', 'thead', 'tfoot', 'caption', 'colgroup', 'dd', 'dt', 'rt', 'rp', 'html', 'head', 'body'];
   const SVG_LEER = ['path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'use', 'stop', 'fegaussianblur', 'animate', 'animatetransform', 'feoffset', 'feblend', 'fecolormatrix', 'femergenode'];
   const n = src.length, stapel = [], klagen = [];
   let i = 0, zeile = 1, tags = 0;
@@ -514,8 +538,10 @@ function stapelPruefung(src) {
     const m = /^<(\/?)([a-zA-Z][a-zA-Z0-9-]*)/.exec(src.slice(i, i + 80));
     if (!m) { vor(i + 1); continue; }
     const zu = m[1] === '/', tag = m[2].toLowerCase(), z0 = zeile;
-    let j = i + m[0].length, q = null;
-    for (; j < n; j++) { const c = src[j]; if (q) { if (c === q) q = null; } else if (c === '"' || c === "'") q = c; else if (c === '>') break; }
+    // Ein Anfuehrungszeichen beginnt nur NACH einem `=` einen Wert — sonst ist es Teil
+    // eines unquotierten Werts (`alt=it's`) und darf den Rest nicht verschlucken.
+    let j = i + m[0].length, q = null, letzte = '';
+    for (; j < n; j++) { const c = src[j]; if (q) { if (c === q) q = null; } else if ((c === '"' || c === "'") && letzte === '=') q = c; else if (c === '>') break; if (!q && !/\s/.test(c)) letzte = c; }
     const tagText = src.slice(i, j + 1);
     vor(j + 1); tags++;
     if (zu) {
@@ -554,6 +580,8 @@ async function s9() {
   const probe = stapelPruefung('<html><body><div id="a"><p>x<div id="b"></div></body></html>');
   if (!probe.klagen.some(k => /div#a/.test(k))) klagen.push('die Pruefung selbst sieht ein offenes <div id="a"> nicht (' + JSON.stringify(probe.klagen) + ')');
   if (stapelPruefung('<html><body><div><ul><li>a<li>b</ul><p>x</div></body></html>').klagen.length) klagen.push('die Pruefung meldet erlaubte ausgelassene End-Tags (li, p) als Fehler');
+  const erlaubt = stapelPruefung('<html><head><title>t</title><body><table><caption>c<colgroup><col></colgroup><tfoot><tr><td>a</table><select><optgroup label="g"><option>o</select><ruby>x<rt>y<rp>z</ruby><img alt=it\'s src=x><div id="c"></div>');
+  if (erlaubt.klagen.length) klagen.push('die Pruefung meldet Erlaubtes: ' + erlaubt.klagen.slice(0, 3).join(' | '));
   if (klagen.length) return { ok: false, warum: klagen.slice(0, 6).join(' · ') + (klagen.length > 6 ? ' · … (' + klagen.length + ')' : '') };
   return { ok: true, info: tags + ' statische Tags in vier Seiten, jedes geschlossen (ausgelassene End-Tags von p, li, td … sind erlaubt) · ein offenes <div> in einer Probe wird gemeldet' };
 }
@@ -571,7 +599,11 @@ const FAELLE = [
   { name: 'S9 · Stapel: jedes statische Tag wird geschlossen — ein offenes <div> macht alles dahinter zu seinem Nachfahren', lauf: s9 },
 ];
 
-(async () => {
+// v33.59 (Gegenlesen): der Audit-Workflow empfiehlt `inlineSkripte`/`zeilentreu` als
+// Hilfen und verbietet zugleich Chromium. Als Modul geladen laeuft hier deshalb NICHTS
+// (kein Browser, keine Ausgabe) — nur die reinen Funktionen kommen heraus.
+module.exports = { inlineSkripte, zeilentreu, calcAusdruecke, calcFehler, stapelPruefung, ohneKommentareUndChangelog };
+if (require.main === module) (async () => {
   console.log('\n=== statik_check — was sagt ein Parser ueber den Quelltext?');
   if (!ESLINT) {
     console.log('  NICHT PRUEFBAR: ESLint nicht gefunden (GS_ESLINT, scripts/node_modules/eslint, /opt/node22/lib/node_modules/eslint).');

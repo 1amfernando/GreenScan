@@ -1131,9 +1131,15 @@ const FAELLE = [
           const sync = await p.evaluate(async () => {
             document.documentElement.classList.remove('gs-preauth'); window.gsRequire = () => true;
             const w = (ms) => new Promise(r => setTimeout(r, ms)); const f = [];
-            for (const t of ['home', 'garden', 'wissen', 'favs', 'search', 'social', 'market', 'recipes', 'remedies', 'map', 'scanner', 'home']) { try { switchTab(t); } catch (e) { f.push(t + ': ' + e.message); } await w(300); }
-            for (const n of ['openSettings', 'gsOpenLina', 'gsOpenKalender', 'openErnteTracking', 'gsOpenMesswerte', 'openDailyQuiz', 'gsOpenNaturjahr']) {
-              try { if (typeof window[n] === 'function') await window[n](); } catch (e) { f.push(n + ': ' + e.message); }
+            for (const t of ['home', 'garden', 'wissen', 'favs', 'search', 'social', 'market', 'recipes', 'remedies', 'map', 'scanner', 'settings', 'home']) { try { switchTab(t); } catch (e) { f.push(t + ': ' + e.message); } await w(300); }
+            // v33.59 (Gegenlesen): drei der sieben Namen gab es nicht (openSettings,
+            // gsOpenKalender, gsOpenMesswerte) — `typeof … === 'function'` liess sie STILL
+            // aus, und ausgerechnet Kalender und Messwerte lesen viele der verdorbenen
+            // Schluessel. Ein Name, den es nicht gibt, ist jetzt ein Fehler des Falls;
+            // die Einstellungen sind ein Tab (oben).
+            for (const n of ['gsOpenLina', 'gsKalenderOeffnen', 'openErnteTracking', 'gsMesswerteOeffnen', 'openDailyQuiz', 'gsOpenNaturjahr']) {
+              if (typeof window[n] !== 'function') { f.push(n + ': gibt es nicht — der Fall oeffnet ein Fenster, das es nicht gibt'); continue; }
+              try { await window[n](); } catch (e) { f.push(n + ': ' + e.message); }
               await w(300); try { document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id)); } catch (_) {}
             }
             return f;
@@ -1143,7 +1149,7 @@ const FAELLE = [
         } finally { await ctx.close(); }
       }
       if (klagen.length) return { ok: false, warum: klagen.slice(0, 3).join(' · ') + (klagen.length > 3 ? ' · … (' + klagen.length + ')' : '') };
-      return { ok: true, info: liste.length + ' gelesene Schluessel × ' + PROBEN.length + ' kaputte Formen (' + PROBEN.join(' · ') + ') — jedes Mal gestartet, 12 Tabs und 7 Fenster ohne Fehler' };
+      return { ok: true, info: liste.length + ' gelesene Schluessel × ' + PROBEN.length + ' kaputte Formen (' + PROBEN.join(' · ') + ') — jedes Mal gestartet, 13 Tabs (mit den Einstellungen) und 6 Fenster ohne Fehler' };
     },
   },
   {

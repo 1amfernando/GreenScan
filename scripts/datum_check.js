@@ -199,14 +199,14 @@ const SEITE = [
     },
   },
   {
-    name: 'T7 · Die Kalenderwoche ist die ISO-Woche: am Mittwoch, 11.11.2026 ist KW 46 — auf der Startseite UND im Planer-Kalender, und am 1. Januar 2027 noch KW 53',
+    name: 'T7 · Die Kalenderwoche ist die ISO-Woche: am Mittwoch, 11.11.2026 ist KW 46 — auf der Startseite UND im Planer-Kalender, am 1. Januar 2027 noch KW 53, und Montag 00:30 schon die neue Woche',
     lauf: async () => {
       // v33.59 (Audit datum-5). Gemessen wird das VERHALTEN — gsGetKW() und die
       // im Planer hervorgehobene Woche — gegen eine eigene ISO-Rechnung (Ordinaltag
       // und Wochentag, nicht der Donnerstags-Trick der App). Die Uhr wird fuer
       // jeden Probetag in der Seite gestellt und danach zurueckgegeben.
       const Echt = Date;
-      const stell = (j, m, t, h) => { const ms = new Echt(j, m - 1, t, h, 0, 0).getTime(); window.Date = class extends Echt { constructor(...a) { if (a.length) super(...a); else super(ms); } static now() { return ms; } }; };
+      const stell = (j, m, t, h, mi) => { const ms = new Echt(j, m - 1, t, h, mi || 0, 0).getTime(); window.Date = class extends Echt { constructor(...a) { if (a.length) super(...a); else super(ms); } static now() { return ms; } }; };
       const iso = (j, m, t) => {
         const d = new Echt(Echt.UTC(j, m - 1, t)), wt = d.getUTCDay() || 7;
         const ord = Math.round((d - new Echt(Echt.UTC(j, 0, 1))) / 864e5) + 1;
@@ -215,11 +215,15 @@ const SEITE = [
         if (w < 1) w = wochen(j - 1); else if (w > wochen(j)) w = 1;
         return w;
       };
-      const tage = [[2026, 11, 9, 8, 'Mo 09.11.2026'], [2026, 11, 11, 0, 'Mi 11.11.2026 00:30'], [2026, 11, 12, 8, 'Do 12.11.2026'], [2026, 3, 29, 12, 'So 29.03.2026 (Zeitumstellung)'], [2026, 12, 31, 8, 'Do 31.12.2026'], [2027, 1, 1, 8, 'Fr 01.01.2027'], [2027, 1, 4, 8, 'Mo 04.01.2027'], [2027, 1, 8, 8, 'Fr 08.01.2027']];
+      // v33.59 (Gegenlesen): die nächtliche Probe lag nur auf einem MITTWOCH — dort ist
+      // der UTC-Tag (Dienstag) in derselben Woche, eine Rechnung auf dem UTC-Tag fiele
+      // nicht auf. Erst ein MONTAG nach Mitternacht trennt die beiden: Mo 16.11.2026
+      // 00:30 in Zuerich ist KW 47, der UTC-Tag (So 15.11., 23:30) KW 46.
+      const tage = [[2026, 11, 9, 8, 'Mo 09.11.2026'], [2026, 11, 11, 0, 'Mi 11.11.2026 00:30', 30], [2026, 11, 12, 8, 'Do 12.11.2026'], [2026, 3, 29, 12, 'So 29.03.2026 (Zeitumstellung)'], [2026, 12, 31, 8, 'Do 31.12.2026'], [2027, 1, 1, 8, 'Fr 01.01.2027'], [2027, 1, 4, 8, 'Mo 04.01.2027'], [2027, 1, 8, 8, 'Fr 08.01.2027'], [2026, 11, 16, 0, 'Mo 16.11.2026 00:30', 30]];
       const out = [];
       try {
-        for (const [j, m, t, h, name] of tage) {
-          stell(j, m, t, h);
+        for (const [j, m, t, h, name, mi] of tage) {
+          stell(j, m, t, h, mi);
           const soll = iso(j, m, t);
           const kw = gsGetKW();
           const html = gsBuildPlanCalendar({ weekly_calendar: [soll - 1, soll, soll + 1].filter(w => w >= 1).map(w => ({ week_nr: w, actions: ['Probe ' + w] })) });
@@ -252,7 +256,7 @@ const SEITE = [
     },
     urteil: (r) => {
       if (!r.uhrZurueck) return { ok: false, warum: 'die gestellte Uhr wurde nicht zurueckgegeben — die Faelle danach messen einen anderen Tag' };
-      if (r.out.length !== 8 || r.out[0].soll !== 46 || r.out[4].soll !== 53 || r.out[5].soll !== 53 || r.out[6].soll !== 1) return { ok: false, warum: 'der eigene Massstab stimmt nicht: ' + r.out.map(x => x.name + '→' + x.soll).join(', ') };
+      if (r.out.length !== 9 || r.out[0].soll !== 46 || r.out[4].soll !== 53 || r.out[5].soll !== 53 || r.out[6].soll !== 1 || r.out[8].soll !== 47) return { ok: false, warum: 'der eigene Massstab stimmt nicht: ' + r.out.map(x => x.name + '→' + x.soll).join(', ') };
       const f = [];
       r.out.forEach((x) => {
         if (x.kw !== x.soll) f.push(x.name + ': gsGetKW() sagt KW ' + x.kw + ', es ist KW ' + x.soll);
@@ -340,7 +344,10 @@ const SEITE = [
   console.log('  ---');
   console.log('  Faelle geprueft: ' + (SEITE.length + 1) + ' · davon kaputt: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
-  console.log('  Grenze: geprueft sind diese sieben Stellen und der Deckel. Die Faelligkeit ueber die Zeitumstellung');
-  console.log('  (29.03. / 25.10.) und zwoelf Tages-Riegel in UTC stehen als offene Punkte in STATUS Sektion 2.');
+  // v33.59 (Gegenlesen): hier stand „zwoelf Tages-Riegel in UTC" als offen — der Kopf
+  // dieser Datei ordnet die Tages-Riegel als BEWUSST UTC ein, offen sind sieben andere.
+  console.log('  Grenze: geprueft sind diese Faelle und der Deckel. Offen (STATUS Sektion 2, „Faelligkeit ueber die');
+  console.log('  Zeitumstellung"): die Faelligkeit in den Naechten 28./29.03. und 24./25.10. und sieben lokal gemeinte');
+  console.log('  Tagesschnitte in UTC (T0 zaehlt sie mit; bewusst UTC sind 25, siehe Kopf dieser Datei).');
   process.exitCode = (kaputt || errs.length) ? 1 : 0;
 })();

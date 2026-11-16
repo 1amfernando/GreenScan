@@ -37572,8 +37572,14 @@ function _gsPassCat(sp){
   // dieselbe Frage und gehen bei acht Eintraegen auseinander (Stufe 2, `toxic:false` —
   // Schwarzer Holunder, Wacholder, Wermut …). Sie standen weder unter „Giftig" noch
   // unter „Ungiftig". Ab Stufe 2 ist ein Eintrag giftig — so fuehren es 249 von 257.
-  if(t==='giftig'     && !(sp.toxic || sp.tox >= 2)) return false;
-  if(t==='ungiftig'   && (sp.toxic||sp.tox>0)) return false;
+  // Und gefragt wird die ART, nicht der Eintrag (CLAUDE.md: was EINORDNET, geht durch
+  // _gsArtAnzeige): „Wacholder" (T018, Stufe 0) stand sonst unter „Ungiftig", waehrend
+  // „Echter Wacholder" derselben Art (Stufe 2) unter „Giftig" stand — Gegenlesen v33.59.
+  if(t==='giftig'||t==='ungiftig'){
+    var a=(typeof _gsArtAnzeige==='function')?(_gsArtAnzeige(sp)||sp):sp;
+    if(t==='giftig'   && !(a.toxic||a.tox>=2)) return false;
+    if(t==='ungiftig' && (a.toxic||a.tox>0)) return false;
+  }
   if(t==='geschuetzt' && !sp.protected) return false;
   if(t==='heilpflanze'&& !sp.medicinal) return false;
   if(t && !['essbar','giftig','ungiftig','geschuetzt','heilpflanze'].includes(t) && sp.cat!==t) return false;
@@ -76434,14 +76440,15 @@ window.GS_RELEASES = [
         {emoji:'⚠️', bold:'Rezepte warnen:', text:' steht bei einem Rezept ein Warnhinweis (etwa „Verwechslung mit Herbstzeitlose“), wird er angezeigt. Heilmittel zeigen Gegenanzeigen und Dosierung.'},
         {emoji:'📜', bold:'Datenschutz vor dem Registrieren:', text:' die Links „Datenschutzerklärung“ und „Nutzungsbedingungen“ im Registrierformular öffnen die Texte jetzt wirklich.'},
         {emoji:'🗓️', bold:'Die richtige Kalenderwoche:', text:' Startseite und Planer-Kalender lagen von Montag bis Mittwoch eine Woche zurück.'},
-        {emoji:'📐', bold:'Kopfleiste:', text:' sie ist etwas höher und füllt ihren Platz — der schmale Streifen darunter ist weg.'}
+        {emoji:'📐', bold:'Kopfleiste:', text:' sie ist etwas höher und füllt ihren Platz — der schmale Streifen darunter ist weg.'},
+        {emoji:'☠️', bold:'Filter „Giftig“:', text:' er fragt jetzt nach der Art. „Wacholder“ stand bisher unter „Ungiftig“, obwohl dieselbe Art als giftig geführt wird.'}
       ],
       items: [
         {emoji:'📏', bold:'Garten-Pull (sync_check):', text:' der Login-Pull schrieb gardens/plantings nur in den Gerätespeicher; renderGarden() → initDefaultGarden() sah eine leere Liste im Arbeitsspeicher, legte „Mein Garten" an und speicherte ihn über das Geholte. Gemessen: Cloud 2 Gärten + 2 Pflanzungen → danach 1 Garten, 0 Pflanzungen, vorgemerkt: ja. Der Pull frischt jetzt auch den Arbeitsspeicher auf — mit einer gesiebten Liste (nur Objekte; ein null oder eine Zeichenkette aus der Cloud kommt weder in den Speicher noch in die Variable); initDefaultGarden übernimmt zuerst, was im Speicher liegt.'},
         {emoji:'🔁', bold:'Zweite Sitzung (robust_check):', text:' gsNormalizeCatEmojis und gsAutoFillLookalikes hingen an Schaltern im Gerätespeicher, bereiten aber eine Liste im Arbeitsspeicher auf. Erste Sitzung 160 generische Symbole und 0 ohne Verwechslungshinweis, jede spätere 1\'971 und 1\'435 — und jeder Prüfstand beginnt mit leerem Speicher, mass also immer die erste.'},
         {emoji:'🧩', bold:'statik_check (neu, 10 Fälle):', text:' ESLint als Parser mit Geltungsbereichen. Erster Lauf: _gsSichtbar zweimal deklariert, drei Namen, die es nirgends gibt, sechs tote typeof-Schütze (darunter markDirty im Kalender-Filter — die Wahl wurde nie zum Sync vorgemerkt), sechs Funktionen ohne Aufrufer ausser sich selbst, vier CSS-Variablen ohne Definition.'},
         {emoji:'🕐', bold:'datum_check (neu, 8 Fälle):', text:' Europe/Zurich, Uhr auf 01:30 gestellt. EXIF-Datum, Vorgabe in Datumsfeldern, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner; dazu ein Deckel auf UTC-Tagesschnitte (40 → 32).'},
-        {emoji:'💾', bold:'Kaputter Speicher (robust_check):', text:' gs_market, gs_recipes und gs_remedies wurden beim Parsen ohne Halt gelesen. 187 Schlüssel × 4 kaputte Formen: die App startet jetzt jedes Mal und läuft fehlerfrei durch 12 Tabs und 7 Fenster. Die Integritätsprüfung läuft vor dem Hauptskript statt 1,5 s danach.'},
+        {emoji:'💾', bold:'Kaputter Speicher (robust_check):', text:' gs_market, gs_recipes und gs_remedies wurden beim Parsen ohne Halt gelesen. 186 Schlüssel × 4 kaputte Formen: die App startet jetzt jedes Mal und läuft fehlerfrei durch 12 Tabs und 7 Fenster. Die Integritätsprüfung läuft vor dem Hauptskript statt 1,5 s danach.'},
         {emoji:'🔒', bold:'Escaping (escape_check, 7 neue Fälle):', text:' Karten-Popup (photo_url fremder Funde), Marktplatz-Vorschaubilder, Garten-Scan-Detail, Rezept-Fotos, Registrierung, Diagnose-Auswahl; _gsOcArg ist jetzt _gsOcStr. In vier Fällen lief der Probecode gegen den alten Stand wirklich.'},
         {emoji:'⚖️', bold:'Drei Prüfstände urteilen jetzt:', text:' contrast_check, render_check und field_check endeten immer mit 0 — eine Zahl über null hätte die Suite als grün gemeldet (brett:2026-11-11-ec73). contrast_check misst zusätzlich neun dynamische Dialoge und vier, die Parameter brauchen.'},
         {emoji:'📏', bold:'calc() (statik_check S8):', text:' sieben Ausdrücke ohne Leerraum um das Plus sind ungültig, die Eigenschaft fällt still weg. In Chromium gemessen: Kopfleiste 39 → 56 px, Navigationsleiste 62 → 64, Fuss der Bottom-Sheets 0 → 20 px, .recipe-fab von y = 10\'499 auf 785. render_check im Vergleich: 71 Grössenänderungen (Kopf- und Navigationsleiste), Radius, Schrift und Farbe 0.'},
@@ -76450,6 +76457,7 @@ window.GS_RELEASES = [
         {emoji:'🍲', bold:'Rezept-Detail (nutzersicht_check E14, E15):', text:' warning auch für Rezepte (230 tragen eine), contraindications / dosage / activeIngredients / evidence der Heilmittel, DIFF_LABELS kennt die Werte der eingebauten Rezepte; der Filter „Giftig“ nimmt jede Art ab Stufe 2 (acht fehlten in beiden Filtern).'},
         {emoji:'🤖', bold:'Android-Hülle (apk_check B6, R19):', text:' build.sh hält den Status von javac fest (vorher: ein Paket ohne MainActivity mit Exit 0 — B6 fährt den Bau mit einem Fehler wirklich), die Dateiwahl antwortet genau einmal, eine gescheiterte Wiederherstellung lädt die App, das Release-Passwort geht über env: an apksigner.'},
         {emoji:'🎨', bold:'Der urteilende contrast_check wurde sofort rot:', text:' auf dem zusammengeführten Stand drei Stellen unter AA, vor dem Zusammenführen null. „Noch kein Standort“ im Standort-Fenster setzte eine fest helle Fläche (#f0f7ee) mit kippender Schrift — 1,51:1 im Dunkelmodus; die Unterzeile der Beet-Layouts war Weiss mit 85 % Deckkraft auf Hellgrün — 3,87:1 in beiden Modi, messbar erst, seit die calc()-Reparatur das Fenster verschob. Beide behoben, Prüfstand wieder bei 0. Dazu vier Stellen GERECHNET, die er nicht erreicht (fest auf fest, also in beiden Modi gleich): „Suche …“ und „GPS wird ermittelt“ (3,46:1), zwei Stufen des Lichtmessers (2,90 und 3,46:1) und die Pilz-Ampel „Für Fortgeschrittene“ (3,46:1) — alle auf #bf360c (über 5:1).'},
+        {emoji:'🧐', bold:'Gegengelesen (16.11.):', text:' vier Agenten lasen den Diff, je ein zweiter versuchte zu widerlegen — 15 Stellen, alle behoben: _gsPassCat fragt die Art (nutzersicht_check E15 mit T018), contrast_check gibt sbFetch nach der Battle-Runde zurück, robust_check „Kaputter Speicher“ öffnet die echten Fenster (drei Namen gab es nicht), statik_check S8 fängt „X- Y“ und liest keine Zitate mehr, S9 kennt alle auslassbaren End-Tags, datum_check T7 prüft Montag 00:30; dazu Doku und zwei Stichworte an vertraulichen Brett-Einträgen.'},
         {emoji:'🔀', bold:'Auf main nachgezogen:', text:' die Scheibe hiess v33.57, bis main die Nummer vergeben hatte. 121 Nennungen umnummeriert, 28 Konfliktstellen aufgelöst; drei Funde des zweiten Laufs hatte main (v33.58) schon behoben.'},
         {emoji:'🧭', bold:'Offen und belegt:', text:' zehn Funde in den Edge-Functions (Stripe-Webhook liest keine Fehler, delete-user kündigt das Abo nicht), sechs rund um den Service Worker, drei zum Datum, drei in der Android-Hülle — 28 Einträge auf dem Brett (docs/austausch), jeder mit Anker an seiner Stelle, und in STATUS Sektion 2.'}
       ]
@@ -77254,7 +77262,10 @@ function _gsIngLinkHtml(r, name) {
 // Öffnet Infokarte NUR per ID und nur, wenn die Sperre es erlaubt
 function _openPlantFromRecipe(plantId, recipeId) {
   if (!plantId) return;
-  var rid = recipeId || window._currentOpenRecipeId || null;
+  // v33.59: kein Rueckfall auf `window._currentOpenRecipeId` mehr — gesetzt hat ihn
+  // nur die entfernte Ueberschreibung von openRecipeDetail, und beide Erzeuger dieses
+  // Links tragen `data-gs-recipe`. Fehlt der Kontext doch, gilt unten die strengste Regel.
+  var rid = recipeId || null;
   var r = rid ? _gsRecipeById(rid) : null;
   var sp = _gsDbFind(plantId);
   if (!sp) { console.warn('[GS_RECIPE_LINKS] unbekannte Art-ID', plantId); return; }
@@ -91552,7 +91563,9 @@ function showLegalTab(tab) {
 // ── Admin-Einstellungen im Profil (nur für gsIsAdmin) ─────────
 
 // v33.59: hier wurde `openRecipeDetail` ueberschrieben, um
-// `window._currentOpenRecipeId` zu setzen — einen Wert, den keine Zeile liest.
+// `window._currentOpenRecipeId` zu setzen. Gelesen hat ihn nur ein Rueckfall in
+// `_openPlantFromRecipe`, den nie jemand brauchte (beide Links tragen
+// `data-gs-recipe`) — er ist mit entfernt (Gegenlesen v33.59).
 // Eine Funktionsdeklaration neu zuzuweisen ist ausserdem die Bauform, an der
 // man spaeter nicht mehr sieht, welche Fassung laeuft (statik_check S4).
 

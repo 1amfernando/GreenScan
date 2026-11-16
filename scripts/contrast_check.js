@@ -482,6 +482,11 @@ async function medianFarben(leser, pngBuffer, punkte) {
       // Eine Battle-Runde: vier Antwortknoepfe auf `var(--card-bg,#fff)` — auch
       // diesen Namen gab es nie, im Dunkelmodus stand helle Schrift auf Weiss.
       ['battle-runde', () => {
+        // Gestellt nur fuer DIESES Fenster — das Aufraeumen nach der Messung gibt den
+        // echten sbFetch zurueck (v33.59, Gegenlesen: stehen gelassen, sahen alle
+        // folgenden Fenster eine erfundene Server-Zeile statt ihrer Fehler- und
+        // Leerzustaende, und die wurden nicht mehr vermessen).
+        if (!window.__gsSbEcht) window.__gsSbEcht = window.sbFetch;
         window.sbFetch = async () => ({ data: [{}] });
         gsBattleStartPlay('b-kontrast', 'challenger', [
           { q: 'Welche dieser Arten ist tödlich giftig?', options: ['Bärlauch', 'Herbstzeitlose', 'Löwenzahn', 'Brennnessel'], correct_idx: 1 },
@@ -579,6 +584,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
           // haelt auch ihren Zaehler an, v32.97).
           ['gs-confirm-cancel', 'gs-prompt-cancel'].forEach(id => { const b = document.getElementById(id); if (b) { try { b.click(); } catch(_){} } });
           try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
+          if (window.__gsSbEcht) { window.sbFetch = window.__gsSbEcht; window.__gsSbEcht = null; }
           // Und alles, was der Oeffner an den <body> gehaengt hat und den
           // Bildschirm ueberdeckt: stehen gelassen, verdeckte es jedes weitere Fenster.
           const vor = window.__gsBodyVor;

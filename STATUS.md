@@ -303,6 +303,81 @@ nennen dieselbe Adresse in einer Policy — eine angewandte Migration schreibt
 man nicht um; ob sie bleiben, entscheidet Fernando. Und in der Git-Geschichte
 steht die Adresse weiter.
 
+**Gegengelesen am 16.11.2026** — der Workflow `scheibe-gegenlesen` (vier
+Blickwinkel, je ein Gegenprüfer; am 11.11. zweimal am Ausgabenlimit gescheitert)
+lief mit Opus: App 2 Funde, Prüfstände 6, Auslieferung 0 (Kopfzeilen mit dem echten
+Java-Leser der Hülle gelesen, `build.sh` mit Attrappen in beiden Zweigen gefahren,
+`MainActivity` gegen android.jar 23 übersetzt), Doku 7. Alle fünfzehn sind behoben;
+die acht im Code jeweils mit Gegenprobe:
+
+- **`_gsPassCat` „Giftig"/„Ungiftig" fragt die ART** (`_gsArtAnzeige`), nicht den
+  Eintrag. „Wacholder" (T018, Stufe 0) stand unter „Ungiftig", während drei
+  Einträge derselben Art (Juniperus communis, Stufe 2) unter „Giftig" standen —
+  ausgerechnet die Art, die der Eintrag dieser Scheibe als Beispiel nennt.
+  `nutzersicht_check` E15 prüft T018 jetzt mit eigenem Massstab (Einträge mit
+  demselben Binomen); Gegenprobe mit dem Eintrag als Massstab: rot. Dieselbe Zeile
+  wie auf PR #326 — beim Zusammenführen kein Widerspruch mehr.
+  *Nicht angefasst:* der Zähler „Giftig" im Lexikon zählt `tox >= 2` (v32.96, bewusst
+  ohne Stufe 1), der Filter nimmt dazu `toxic:true` — 78 Einträge der Stufe 1 mit
+  Giftvermerk (Huflattich, Pestwurz, Johanniskraut …) zählen im einen und nicht im
+  anderen. Das ist älter als diese Scheibe und hängt an der offenen Frage
+  `2026-11-11-3ba5` an Fernando (Brett, auf `claude/zahlungsweg-nachgemessen-011L7G`).
+- **`_openPlantFromRecipe`**: der Rückfall auf `window._currentOpenRecipeId` war tot
+  (gesetzt hat ihn nur die entfernte Überschreibung, beide Links tragen
+  `data-gs-recipe`), der Kommentar dazu falsch. Entfernt; ohne Rezept gilt die
+  strengste Regel.
+- **`contrast_check` „battle-runde"** liess `window.sbFetch` gestellt — alle späteren
+  Fenster sahen eine erfundene Server-Zeile statt ihrer Fehler- und Leerzustände
+  (Kalender 88 → 44, Abo 20 → 40, Pflanzendoktor 78 → 90 vermessene Stellen).
+  Jetzt nur für dieses Fenster gestellt; danach 0 unter AA in beiden Modi.
+- **`robust_check` „Kaputter Speicher"**: drei der sieben Fensternamen gab es nicht
+  (`openSettings`, `gsOpenKalender`, `gsOpenMesswerte`) und wurden STILL übersprungen
+  — ausgerechnet Kalender und Messwerte lesen viele der verdorbenen Schlüssel. Jetzt
+  die echten Namen (`gsKalenderOeffnen`, `gsMesswerteOeffnen`), die Einstellungen als
+  Tab, und ein Name, den es nicht gibt, ist rot. Ergebnis mit den echten Fenstern:
+  186 Schlüssel × 4 kaputte Formen, kein Fehler. Gegenprobe (Kalender-Öffner
+  umbenannt): rot.
+- **`statik_check` S8**: `100%- 20px` (Minus ohne Leerraum links, mit Leerraum rechts)
+  rutschte durch — die Regel hielt das Minus für einen Bindestrich, weil rechts keine
+  Ziffer folgte. Vier solche Formen stehen jetzt in der Gegenrichtung. **S6/S8** lesen
+  Kommentare, HTML-Kommentare und den Changelog nicht mehr mit (eine Release-Notiz,
+  die den behobenen Fehler zitiert, hätte rot gemacht; CLAUDE.md §4d), mit eigener
+  Probe. **S9** kennt alle End-Tags, die HTML auslassen darf (optgroup, caption,
+  colgroup, tfoot, rt, rp, html, head, body), und ein Apostroph in einem
+  unquotierten Wert verschluckt nichts mehr. Gegen den alten Stand 736b22f melden S8
+  und S9 weiter die sieben `calc()` und das offene `#app`.
+- **`datum_check` T7**: die nächtliche Probe lag auf einem Mittwoch — dort ist der
+  UTC-Tag in derselben Woche, eine Rechnung auf dem UTC-Tag fiele nicht auf. Neu:
+  Montag 16.11.2026 00:30 (Zürich KW 47, UTC-Tag KW 46). Gegenprobe mit
+  `getUTC*` in `gsIsoKW`: rot („gsGetKW() sagt KW 46, es ist KW 47").
+
+Die sieben aus der Doku:
+- **Sicherheit:** der Brett-Eintrag zu edge-6 (`brett:2026-11-11-5ee2`) trug das
+  Stichwort `launch_offer` — zusammen mit dem Titel „eine serverseitige Prüfung greift
+  nicht" zeigt das in einer öffentlich ausgelieferten Datei auf genau den einen Block.
+  Entfernt, ebenso `expert_verifications` am Eintrag zu edge-5 (`brett:2026-11-11-0fd6`).
+  Gegen die Regel „ein Eintrag wird nie umgeschrieben" — bewusst: Regel 3 (kein
+  Ausnutzungsweg) geht vor, und kein anderer Branch trägt die zwei Dateien (geprüft),
+  es entsteht also kein Konflikt. In der Git-Geschichte stehen die Stichworte weiter.
+- **`docs/AUDIT-2026-11-11.md` zählte „Fund N" ab 0**, die Überschriften ab 1: in edge-2
+  zeigte „Zusammen mit Fund 4 ausliefern" beim Lesen auf edge-4 (Frost) statt auf
+  edge-5 — genau die eine Reihenfolge-Regel, die bei falscher Befolgung eine Lücke
+  öffnet. Alle sechs Verweise nennen jetzt die Überschrift (edge-5, sw-10, sw-2, sw-5,
+  css-2, daten-8).
+- Zwei Reste aus sw-1 (Wächter für die feste Adresse der Artenliste) und sw-2 (der
+  Worker fängt fremde Bilder ab) standen nirgends offen — jetzt
+  `brett:2026-11-16-0a7f` und `brett:2026-11-16-0ea0`.
+- `datum_check` nannte im Schluss „zwölf Tages-Riegel in UTC" als offen — sein eigener
+  Kopf ordnet sie als BEWUSST UTC ein; offen sind sieben andere. Berichtigt.
+- `.claude/workflows/greenscan-audit.js` empfahl `statik_check` als Hilfe und verbot
+  zugleich Chromium — `statik_check` startet einen Browser und exportierte nichts.
+  Jetzt liefert `require('./scripts/statik_check.js')` die reinen Funktionen
+  (`inlineSkripte`, `zeilentreu`, `calcFehler`, `stapelPruefung` …) und startet als
+  Modul nichts. Die Zeile „Modell-Rückfallketten NICHT melden" ist weg (seit v33.58
+  erledigt — sie hätte einen Rückfall versteckt).
+- Changelog: „187 Schlüssel × 4" → 186 (gemessen). STATUS §2 Datenschutz: es fehlen
+  DREI Empfänger in `privacy.html` (Google Fonts, Netlify, Wikipedia), nicht zwei.
+
 **Die zwei Pflichtläufe:** b278816 und 4c9be8c je 44 Prüfstände, rot: 0 — in
 beiden waren die sieben SQL-Hälften „nicht prüfbar" (das lokale Postgres lief
 nicht). Am 16.11.2026 mit Postgres auf 4c9be8c nachgefahren: `naht` 17,
@@ -314,7 +389,7 @@ Fälle, alle grün.
 steht unten rechts ein Plus-Knopf, und die Datenschutzerklärung ist an einer
 Stelle berichtigt (Nutzungsdaten sind nicht „anonym") — bitte gegenlesen.
 
-**Offen:** brett:2026-11-11-fe36, brett:2026-11-11-2748, brett:2026-11-11-cde7, brett:2026-11-11-6f90, brett:2026-11-11-0fd6, brett:2026-11-11-5ee2, brett:2026-11-11-6bf4, brett:2026-11-11-9d96, brett:2026-11-11-664e, brett:2026-11-11-4515 (zehn Funde in den Edge-Functions, keiner behoben; 0fd6 und 5ee2 sind Sicherheits-Einträge ohne Einzelheiten) · brett:2026-11-11-1243, brett:2026-11-11-9400, brett:2026-11-11-21ed, brett:2026-11-11-664f, brett:2026-11-11-8c07, brett:2026-11-11-9ca0 (Service Worker, Manifest, Kompass) · brett:2026-11-11-d412, brett:2026-11-11-000a, brett:2026-11-11-035c (Datum) · brett:2026-11-11-5e72 (drei Suchen) · brett:2026-11-11-002d, brett:2026-11-11-8ee7 (CSS) · brett:2026-11-11-bf2f, brett:2026-11-11-2069 (Daten) · brett:2026-11-11-bd8a, brett:2026-11-11-2129, brett:2026-11-11-e919 (Android-Hülle) · brett:2026-11-11-5bef (Frage an Fernando, §2)
+**Offen:** brett:2026-11-11-fe36, brett:2026-11-11-2748, brett:2026-11-11-cde7, brett:2026-11-11-6f90, brett:2026-11-11-0fd6, brett:2026-11-11-5ee2, brett:2026-11-11-6bf4, brett:2026-11-11-9d96, brett:2026-11-11-664e, brett:2026-11-11-4515 (zehn Funde in den Edge-Functions, keiner behoben; 0fd6 und 5ee2 sind Sicherheits-Einträge ohne Einzelheiten) · brett:2026-11-11-1243, brett:2026-11-11-9400, brett:2026-11-11-21ed, brett:2026-11-11-664f, brett:2026-11-11-8c07, brett:2026-11-11-9ca0, brett:2026-11-16-0ea0, brett:2026-11-16-0a7f (Service Worker, Manifest, Kompass) · brett:2026-11-11-d412, brett:2026-11-11-000a, brett:2026-11-11-035c (Datum) · brett:2026-11-11-5e72 (drei Suchen) · brett:2026-11-11-002d, brett:2026-11-11-8ee7 (CSS) · brett:2026-11-11-bf2f, brett:2026-11-11-2069 (Daten) · brett:2026-11-11-bd8a, brett:2026-11-11-2129, brett:2026-11-11-e919 (Android-Hülle) · brett:2026-11-11-5bef (Frage an Fernando, §2)
 **Nicht geprüft:** hier läuft kein Android und kein echtes Supabase — die vier Reparaturen an der Hülle sind übersetzt (`apk_check` baut das Paket) und gelesen, nicht auf einem Gerät gefahren; die Funde in den Edge-Functions sind gelesen und zum Teil mit den echten Rümpfen in Node ausgeführt. Dass ein `fetch()` im Worker gegen `connect-src` geprüft wird, ist aus der Spezifikation gelesen, nicht im Browser gemessen. Ob Cloudflare Pages und Netlify ein Punkt-Verzeichnis (`.claude/`, `.github/`) überhaupt ausliefern, ist von hier nicht messbar. Die neue Höhe der Kopfleiste ist in Chromium bei 412 px gemessen, nicht auf einem Telefon mit Kerbe angesehen.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
@@ -15826,7 +15901,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 - **Version:** `v33.59` (Client) · SW-Cache `gs-v33.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **97'083 Zeilen / 6,3 MB** (v33.59: rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Frontend:** `index.html` **97'102 Zeilen / 6,3 MB** (v33.59: rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **223 Migrationen** (16 davon bewusst nicht angewandt, Sektion 2 — neu seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **44** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; `contrast_check` und `render_check` urteilen seither, vorher immer Exit 0; neu in v33.58: `modell_check`, `rezept_link_check`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 44** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Alle grün. Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -15837,7 +15912,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
-| **Datenschutzerklärung gegenlesen** (v33.59) | `privacy.html` nannte Nutzungs- und Fehlerdaten „anonym"; beide tragen die Konto-Kennung (`client_errors.user_id`, `analytics_events.user_id` + `session_id`). Der Satz ist berichtigt („mit deinem Konto verknüpft"). Ein Rechtstext gehört von dir gelesen; zwei Empfänger (Netlify, Wikipedia für Artbilder) fehlen dort weiterhin (Google Fonts überträgt die IP-Adresse), und das Stand-Datum der Erklärung ist nicht mitgezogen. | brett:2026-11-11-5bef · `docs/FUER-FERNANDO.md` §30 · (je) |
+| **Datenschutzerklärung gegenlesen** (v33.59) | `privacy.html` nannte Nutzungs- und Fehlerdaten „anonym"; beide tragen die Konto-Kennung (`client_errors.user_id`, `analytics_events.user_id` + `session_id`). Der Satz ist berichtigt („mit deinem Konto verknüpft"). Ein Rechtstext gehört von dir gelesen; drei Empfänger fehlen dort weiterhin (Google Fonts — überträgt die IP-Adresse; Netlify; Wikipedia für Artbilder), und das Stand-Datum der Erklärung ist nicht mitgezogen. | brett:2026-11-11-5bef · `docs/FUER-FERNANDO.md` §30 · (je) |
 | **Eine geplante Routine ohne Repo-Zugang ans Repo und ans Brett anschliessen?** | Sie schreibt ihre Übergaben ausserhalb des Repos — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Welche Aufgabe es ist und was ihr fehlt, ging direkt an Fernando (nicht in dieses öffentliche Repo). Im Auftrag der Aufgabe bräuchte es `node scripts/austausch.mjs holen` am Anfang und Einträge am Ende. Nicht verändert. | brett:2026-11-11-669d · (jd) |
 | **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
