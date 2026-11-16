@@ -86,8 +86,19 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
 - **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
   im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
   über `gsSaisonMonate`.
+- **Startseite — die Wetterkarte (Home 2).** Zwei Ladewege schrieben dieselbe Karte:
+  `loadHomeWeather` (Start, alle zwei Stunden) „Bedeckt · Ort" mit `WEATHER_CODE_MAP` und „1°C",
+  `gsApplyWeatherToWidget` (Zwischenspeicher) einen Gartentipp an Stelle von Text und Ort, mit
+  `WMO_ICONS`, „1 °C" und eigener Frostregel — was dastand, hing davon ab, wer zuletzt lief. Die
+  Sturmwarnung „in den nächsten 1-2h" las `hourly[0..2]`: Open-Meteo zählt ab Mitternacht, also
+  00 bis 02 Uhr — gemessen: ein Gewitter um 00 Uhr meldete sich um 8 Uhr, samt Push-Meldung; eines
+  um 9 Uhr gar nicht. Jetzt `_gsWetterJetzt` (beide Formate) → `_gsHomeWetterZeigen` (ein
+  Renderer) → `_gsHomeWetterWarnung` (Unwetter aus den Stunden ab jetzt, Frost/Hitze/Wind aus
+  `GS_WETTER_GRENZEN` für heute und morgen). Entfernt: `checkStormWarning`, die zweite
+  Symboltabelle, und `updateGardenWeatherTip`, das in `.hero p` schrieb — ein Element, das es
+  seit v31.16 nicht gibt (mit einer dritten Frostregel, < 4 °C).
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU5, HS1, SV1–SV3 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU5, HS1, HW1, HW2, SV1–SV3 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b). Jeder neue Fall gegen den Stand davor gefahren: rot. Volle Suite auf

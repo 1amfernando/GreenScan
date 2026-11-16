@@ -2395,6 +2395,109 @@ const FAELLE = [
     },
   },
   {
+    // HOME-2. Zwei Ladewege schrieben dieselbe Karte, jeder nach eigenen Regeln: loadHomeWeather
+    // (Start, alle zwei Stunden) mit Text und Ort, gsApplyWeatherToWidget (Zwischenspeicher) mit
+    // einem Gartentipp, anderer Symboltabelle und anderem Format. Was dastand, hing davon ab, wer
+    // zuletzt lief. Der Fall faehrt BEIDE Wege mit denselben Werten und vergleicht die Karte.
+    name: 'HW1 · Gartenwetter auf der Startseite: beide Ladewege zeigen bei denselben Werten dieselbe Karte — Symbol, Temperatur, Text mit Ort, Wind, Feuchte, UV, Vorschau, Warnzeile',
+    lauf: async () => {
+      const W = window.__wetterDaten();
+      const karte = () => {
+        const t = (id) => ((document.getElementById(id) || {}).textContent || '').replace(/\s+/g, ' ').trim();
+        const w = document.getElementById('hw-warning');
+        return { icon: t('hw-icon'), temp: t('hw-temp'), desc: t('hw-desc'), wind: t('hw-wind'), feucht: t('hw-humidity'), uv: t('hw-uv'),
+                 vorschau: t('hw-forecast'), warnung: (w && w.style.display !== 'none') ? t('hw-warning-text') : '' };
+      };
+      const echt = { f: window._gsFetch, loc: window.gsGetLocationFor, stadt: (typeof _gsWeatherCity !== 'undefined') ? _gsWeatherCity : undefined, show: gsNotif.show };
+      let a = null, b = null;
+      try {
+        gsNotif.show = function () {};
+        window.gsGetLocationFor = function () { return { lat: 47.1, lon: 8.1, name: 'Testdorf' }; };
+        window._gsFetch = async function (url) { return { ok: true, status: 200, json: async () => (String(url).indexOf('current=') >= 0 ? W.neu : W.alt) }; };
+        _gsWeatherCity = 'Testdorf';
+        // was aus frueheren Faellen noch unterwegs ist, landet JETZT, nicht mitten in der Messung
+        await new Promise(function (r) { setTimeout(r, 2600); });
+        await loadHomeWeather();
+        b = karte();
+        gsApplyWeatherToWidget(W.alt);
+        a = karte();
+        // scheitert danach der Garten-Ladeweg, bleibt die gueltige Karte stehen. Nur SEINE Adresse
+        // scheitert: laeuft waehrenddessen loadHomeWeather (gsI18nRerenderDynamic ruft es), soll
+        // dessen eigener Fehlersatz diesen Fall nicht vortaeuschen.
+        window._gsFetch = async function (url) {
+          if (String(url).indexOf('current_weather') >= 0) throw new TypeError('Failed to fetch');
+          return { ok: true, status: 200, json: async () => (String(url).indexOf('current=') >= 0 ? W.neu : W.alt) };
+        };
+        // Waehrenddessen ruht loadHomeWeather: ein Aufruf aus einem frueheren Fall, dessen
+        // Wiederholungen (0,7 s / 1,4 s) bis hierher reichen, schriebe sonst mit — gemessen beim Bau.
+        var __echtLH = window.loadHomeWeather;
+        window.loadHomeWeather = async function () {};
+        try { await loadGardenWeather(true); } finally { window.loadHomeWeather = __echtLH; }
+        var nachFehler = karte();
+      } finally { window._gsFetch = echt.f; window.gsGetLocationFor = echt.loc; if (echt.stadt !== undefined) _gsWeatherCity = echt.stadt; gsNotif.show = echt.show; }
+      if (!b.temp || b.temp.indexOf('1') < 0) return { ok: false, warum: 'loadHomeWeather hat die Karte nicht geschrieben („' + b.temp + '") — der Fall misst nichts' };
+      const f = [];
+      if (nachFehler.desc !== a.desc) f.push('ein gescheiterter Garten-Ladeweg überschreibt die gültige Karte: „' + nachFehler.desc + '"');
+      Object.keys(b).forEach(function (k) { if (a[k] !== b[k]) f.push(k + ': Start „' + b[k] + '" · Zwischenspeicher „' + a[k] + '"'); });
+      if (!/Testdorf/.test(b.desc) || !/Testdorf/.test(a.desc)) f.push('der Ort fehlt in der Beschreibung');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'beide Wege: ' + b.icon + ' ' + b.temp + ' · „' + b.desc + '" · Warnung „' + (b.warnung || '—') + '"' };
+    },
+  },
+  {
+    // HOME-2, die Warnzeile. Open-Meteo liefert die Stunden AB MITTERNACHT; checkStormWarning las
+    // hourly[0..2] — „Gewitter in den nächsten 1-2h" hiess 00 bis 02 Uhr, mit Push-Meldung. Und die
+    // Gartenwarnungen der Karte hatten eigene Schwellen statt GS_WETTER_GRENZEN (Kalender W1).
+    name: 'HW2 · Warnzeile der Wetterkarte: ein Gewitter in der NÄCHSTEN Stunde meldet sich, eines um Mitternacht nicht — Frost und Hitze nach GS_WETTER_GRENZEN',
+    lauf: async () => {
+      const f = [], info = [];
+      const echt = { f: window._gsFetch, loc: window.gsGetLocationFor, show: gsNotif.show, frost: GS_WETTER_GRENZEN.frost };
+      let pushes = 0;
+      const lauf = async (aendern) => {
+        const W = window.__wetterDaten(aendern);
+        window._gsFetch = async function () { return { ok: true, status: 200, json: async () => W.neu }; };
+        await loadHomeWeather();
+        const w = document.getElementById('hw-warning');
+        return (w && w.style.display !== 'none') ? ((document.getElementById('hw-warning-text') || {}).textContent || '') : '';
+      };
+      try {
+        gsNotif.show = function () { pushes++; };
+        window.gsGetLocationFor = function () { return { lat: 47.1, lon: 8.1, name: 'Testdorf' }; };
+        const jetztH = new Date().getHours();
+        // 1 · Gewitter in der naechsten Stunde (alle anderen Stunden ruhig, kein Frost)
+        pushes = 0;
+        const w1 = await lauf((d) => { d.mins = [5, 6, 7, 8]; d.stundenCode[jetztH + 1] = 95; });
+        if (!/Gewitter/.test(w1)) f.push('Gewitter um ' + (jetztH + 1) + ' Uhr: Warnzeile „' + w1 + '"');
+        else info.push('nächste Stunde: „' + w1 + '"');
+        if (/Gewitter/.test(w1) && pushes !== 1) f.push('Gewitter: ' + pushes + ' Push-Meldungen statt 1');
+        // 2 · Gewitter um Mitternacht — vorbei, sobald es mindestens 3 Uhr ist
+        if (jetztH >= 3) {
+          pushes = 0;
+          const w2 = await lauf((d) => { d.mins = [5, 6, 7, 8]; d.stundenCode[0] = 95; });
+          if (/Gewitter/.test(w2)) f.push('ein Gewitter um 00 Uhr meldet sich um ' + jetztH + ' Uhr als „in den nächsten 1-2h"');
+          if (pushes) f.push('dafür ' + pushes + ' Push-Meldung(en)');
+          info.push('Mitternacht: still');
+        } else info.push('Mitternacht: nicht prüfbar vor 3 Uhr');
+        // 3 · Frost nach der Tabelle: heute -1 °C ist Frost; mit Schwelle -5 nicht mehr
+        const w3 = await lauf((d) => { d.mins = [-1, 4, 5, 6]; });
+        if (!/Frost/.test(w3)) f.push('Tiefstwert -1 °C: keine Frostzeile („' + w3 + '")');
+        GS_WETTER_GRENZEN.frost = -5;
+        const w4 = await lauf((d) => { d.mins = [-1, 4, 5, 6]; });
+        GS_WETTER_GRENZEN.frost = echt.frost;
+        if (/Frost/.test(w4)) f.push('Frostschwelle -5 °C: die Karte meldet bei -1 °C weiter Frost — sie liest GS_WETTER_GRENZEN nicht');
+        // 4 · 3 °C jetzt, Tiefstwerte 3 °C: kein Frost (die alte Startseiten-Regel sagte < 4)
+        const w5 = await lauf((d) => { d.temp = 3; d.mins = [3, 4, 5, 6]; });
+        if (/Frost/.test(w5)) f.push('3 °C, Tiefstwert 3 °C: Frostzeile „' + w5 + '"');
+        // 5 · Hitze nach der Tabelle
+        const w6 = await lauf((d) => { d.mins = [15, 16, 17, 18]; d.maxs = [31, 29, 28, 27]; });
+        if (!/Hitze/.test(w6)) f.push('Höchstwert 31 °C: keine Hitzezeile („' + w6 + '")');
+        if (!f.length) info.push('Frost/Hitze nach Tabelle');
+      } finally { window._gsFetch = echt.f; window.gsGetLocationFor = echt.loc; gsNotif.show = echt.show; GS_WETTER_GRENZEN.frost = echt.frost; }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: info.join(' · ') };
+    },
+  },
+  {
     name: 'E2 · „Jetzt sammeln" steht nur ueber einer essbaren Art — an JEDEM Tag des Jahres',
     lauf: () => {
       if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };
@@ -3112,6 +3215,29 @@ const FAELLE = [
     window.gsAddToScanHistory = () => {};
     window.gsHaptic = () => {};
     window.__QUELLE = jetzt.quelle;
+    // HOME-2: dieselben Wetterwerte in BEIDEN Formaten von Open-Meteo — `current` (loadHomeWeather)
+    // und `current_weather` (Zwischenspeicher, gsApplyWeatherToWidget). Stunden ab heute 00:00
+    // Ortszeit, wie Open-Meteo sie liefert; `aendern(d)` stellt einzelne Werte um.
+    window.__wetterDaten = function (aendern) {
+      const pad = (n) => String(n).padStart(2, '0');
+      const lokal = (x) => x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()) + 'T' + pad(x.getHours()) + ':00';
+      const heute = new Date(); const tag0 = new Date(heute.getFullYear(), heute.getMonth(), heute.getDate());
+      const zeiten = [], tage = [];
+      for (let i = 0; i < 48; i++) zeiten.push(lokal(new Date(tag0.getTime() + i * 3600000)));
+      for (let i = 0; i < 4; i++) { const t = new Date(tag0.getTime() + i * 86400000); tage.push(t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate())); }
+      const d = { temp: 1.4, code: 3, wind: 12, feucht: 81, uv: 1, mins: [-1, 0, 1, 2], maxs: [6, 7, 8, 9], tageCode: [3, 61, 0, 2],
+                  stundenCode: zeiten.map(() => 3), stundenWind: zeiten.map(() => 12), stundenRegen: zeiten.map(() => 10) };
+      if (typeof aendern === 'function') aendern(d);
+      const voll = (w) => zeiten.map(() => w);
+      return {
+        neu: { current: { temperature_2m: d.temp, weather_code: d.code, wind_speed_10m: d.wind, relative_humidity_2m: d.feucht, uv_index: d.uv },
+               hourly: { time: zeiten, weather_code: d.stundenCode, wind_speed_10m: d.stundenWind, precipitation_probability: d.stundenRegen },
+               daily: { time: tage, weather_code: d.tageCode, temperature_2m_max: d.maxs, temperature_2m_min: d.mins } },
+        alt: { current_weather: { temperature: d.temp, weathercode: d.code, windspeed: d.wind },
+               hourly: { time: zeiten, relativehumidity_2m: voll(d.feucht), uv_index: voll(d.uv), weathercode: d.stundenCode, windspeed_10m: d.stundenWind, precipitation_probability: d.stundenRegen },
+               daily: { time: tage, weathercode: d.tageCode, temperature_2m_max: d.maxs, temperature_2m_min: d.mins } },
+      };
+    };
   }, {
     normal:  Array.from(baueJpegMitExif({ datum: '2026:07:14 09:33:12', lat: 46.8182, lng: 8.2275 })),
     zukunft: Array.from(baueJpegMitExif({ datum: '2099:01:01 00:00:00', lat: 46.8182, lng: 8.2275 })),

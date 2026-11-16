@@ -12392,8 +12392,13 @@ async function loadGardenWeather(forceReload) {
   // gsApplyWeatherToWidget(data) synct die Garten-Mini-Karte bereits korrekt (Z. ~9069).
     gsApplyWeatherToWidget(data);
   } catch(e) {
-    var descEl = document.getElementById('hw-desc');
-    if (descEl) descEl.textContent = '⚠️ Wetter nicht verfügbar';
+    // HOME-2: die Startseiten-Karte hat ihren eigenen Ladeweg (loadHomeWeather), der seinen Fehler
+    // selbst sagt. Hier stand „⚠️ Wetter nicht verfügbar" in #hw-desc — auch ueber einer Karte,
+    // die gerade gueltige Werte zeigte. Nur eine Karte, die noch NICHTS zeigt, bekommt den Satz.
+    var tempEl = document.getElementById('hw-temp'), descEl = document.getElementById('hw-desc');
+    if (descEl && tempEl && !/\d/.test(tempEl.textContent || '')) {
+      descEl.textContent = (window.gsI18n && gsI18n.t) ? gsI18n.t('weather_unavailable','Wetter nicht verfügbar') : 'Wetter nicht verfügbar';
+    }
   }
 }
 
@@ -12423,10 +12428,11 @@ function gsApplyWeatherToWidget(data) {
   var icon = WMO_ICONS[cw.weathercode] || '🌡️';
   var temp = Math.round(cw.temperature);
   var wind = Math.round(cw.windspeed);
-  var humid = data.hourly ? (data.hourly.relativehumidity_2m[hour] || '–') : '–';
-  var uv    = data.hourly ? Math.round(data.hourly.uv_index[hour] || 0) : '–';
+  var uv    = (data.hourly && Array.isArray(data.hourly.uv_index)) ? Math.round(data.hourly.uv_index[hour] || 0) : '–';
 
-  // Gartentipp
+  // Gartentipp — nur noch fuer die Garten-Mini-Karte unten. Die Startseiten-Karte bekam ihn bis
+  // v33.61 an Stelle von Wettertext und Ort, mit eigener Frostregel (< 2 °C jetzt) neben der des
+  // Kalenders (Tiefstwert ≤ GS_WETTER_GRENZEN.frost).
   var tip = '';
   if (temp < 2) tip = '❄️ Frostgefahr — empfindliche Pflanzen schützen!';
   else if (cw.weathercode >= 61 && cw.weathercode <= 67) tip = '🌧️ Regen — heute nicht giessen nötig';
@@ -12436,36 +12442,12 @@ function gsApplyWeatherToWidget(data) {
   else if (uv >= 8) tip = '☀️ Hoher UV-Index — Pflanzen vor Mittag giessen';
   else tip = '🌿 Ideale Bedingungen für den Garten';
 
-  var iconEl = document.getElementById('hw-icon');
-  var tempEl = document.getElementById('hw-temp');
-  var descEl = document.getElementById('hw-desc');
-  var windEl = document.getElementById('hw-wind');
-  var humEl  = document.getElementById('hw-humidity');
-  var uvEl   = document.getElementById('hw-uv');
-
-  if (iconEl) iconEl.textContent = icon;
-  if (tempEl) tempEl.textContent = temp + ' °C';
-  if (descEl) descEl.textContent = tip;
-  if (windEl) windEl.textContent = '💨 ' + wind + ' km/h';
-  if (humEl)  humEl.textContent  = '💧 ' + humid + '%';
-  if (uvEl)   uvEl.textContent   = '☀️ UV ' + uv;
-
-  // 3-Tage-Vorschau im Widget
-  if (data.daily) {
-    var forecastEl = document.getElementById('hw-forecast');
-    if (forecastEl) {
-      var _wt2 = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
-      var days = _wt2('days_short_mo_so','Mo,Di,Mi,Do,Fr,Sa,So').split(',');
-      forecastEl.innerHTML = _gsWxForecastHtml(data.daily.time.slice(0,4).map(function(d,i) {
-        return {
-          n: i === 0 ? _wt2('forecast_today','Heute') : days[(new Date(d).getDay()+6)%7],
-          i: WMO_ICONS[data.daily.weathercode[i]] || '🌡️',
-          x: Math.round(data.daily.temperature_2m_max[i]),
-          m: Math.round(data.daily.temperature_2m_min[i])
-        };
-      }));
+  // HOME-2: die Startseiten-Karte schreibt EIN Renderer — derselbe wie beim Start (loadHomeWeather).
+  try {
+    if (typeof _gsHomeWetterZeigen === 'function') {
+      _gsHomeWetterZeigen(_gsWetterJetzt(data), (typeof _gsWeatherCity !== 'undefined') ? _gsWeatherCity : '');
     }
-  }
+  } catch (_) {}
 
   // Garden Wetter-Mini synchronisieren
   var gIcon = document.getElementById('garden-hw-icon');
@@ -24913,16 +24895,8 @@ function answerQuizModal(btn) {
 
 // WETTER: HOME WIDGET + GARTEN DETAIL + STURMWARNUNG
 
-const WEATHER_CODE_MAP = {
-  0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️',
-  45:'🌫️', 48:'🌫️',
-  51:'🌦️', 53:'🌧️', 55:'🌧️',
-  61:'🌧️', 63:'🌧️', 65:'🌧️',
-  71:'🌨️', 73:'🌨️', 75:'❄️',
-  77:'🌨️', 80:'🌦️', 81:'🌧️', 82:'⛈️',
-  85:'🌨️', 86:'❄️',
-  95:'⛈️', 96:'⛈️', 99:'⛈️'
-};
+// HOME-2: die zweite Symboltabelle (WEATHER_CODE_MAP) ist weg — sie unterschied sich von WMO_ICONS
+// in Code 73, und welche galt, hing davon ab, welcher Ladeweg zuletzt lief. Es gilt WMO_ICONS.
 const WEATHER_CODE_DESC = {
   0:'Klar und sonnig', 1:'Überwiegend klar', 2:'Teilweise bewölkt', 3:'Bedeckt',
   45:'Nebel', 48:'Dichter Nebel',
@@ -24936,6 +24910,109 @@ const WEATHER_CODE_DESC = {
 const STORM_CODES = new Set([82, 95, 96, 99]);
 const HEAVY_RAIN_CODES = new Set([65, 82]);
 const WIND_STORM_THRESHOLD = 60; // km/h
+
+// ══ HOME-2 (16.11.2026): EINE Wetterkarte auf der Startseite ═══════════════════════════════
+// Zwei Ladewege schrieben dieselbe Karte, jeder nach eigenen Regeln: loadHomeWeather (Start,
+// alle zwei Stunden; Open-Meteo `current`) mit Text und Ort, WEATHER_CODE_MAP und „1°C";
+// gsApplyWeatherToWidget (Zwischenspeicher; `current_weather`) mit einem Gartentipp an Stelle
+// von Text und Ort, WMO_ICONS und „1 °C" — was dastand, hing davon ab, wer zuletzt lief. Die
+// Sturmwarnung „in den nächsten 1-2h" las hourly[0..2]: Open-Meteo liefert die Stunden AB
+// MITTERNACHT, gemeint waren also 00 bis 02 Uhr — und darauf ging eine Push-Meldung hinaus.
+// Jetzt: _gsWetterJetzt liest beide Formate in EINE Form, _gsHomeWetterZeigen schreibt die
+// Karte, _gsHomeWetterWarnung rechnet die Warnzeile — das Unwetter aus den Stunden AB JETZT,
+// Frost, Hitze und Wind aus GS_WETTER_GRENZEN (dieselben Schwellen wie der Kalender, W1).
+function _gsWetterJetzt(d) {
+  if (!d) return null;
+  var cur = d.current || null, cw = d.current_weather || null;
+  if (!cur && !cw) return null;
+  var h = d.hourly || {}, t = d.daily || {};
+  var zahl = function (v) { if (v == null || v === '') return null; var n = Number(v); return isFinite(n) ? n : null; };
+  var reihe = function (a, b) { return Array.isArray(h[a]) ? h[a] : (Array.isArray(h[b]) ? h[b] : []); };
+  var zeiten = Array.isArray(h.time) ? h.time.map(function (x) { return Date.parse(x); }) : [];
+  // die Stunde, in der wir sind: der letzte Zeitpunkt, der nicht in der Zukunft liegt
+  var jetzt = Date.now(), ab = -1;
+  for (var i = 0; i < zeiten.length; i++) { if (isFinite(zeiten[i]) && zeiten[i] <= jetzt) ab = i; }
+  var hCode = reihe('weather_code', 'weathercode'), hWind = reihe('wind_speed_10m', 'windspeed_10m'),
+      hRegen = reihe('precipitation_probability', 'precipitation_probability'),
+      hFeucht = reihe('relative_humidity_2m', 'relativehumidity_2m'), hUv = reihe('uv_index', 'uv_index');
+  var w = {
+    code: cur ? zahl(cur.weather_code) : zahl(cw.weathercode),
+    temp: cur ? zahl(cur.temperature_2m) : zahl(cw.temperature),
+    wind: cur ? zahl(cur.wind_speed_10m) : zahl(cw.windspeed),
+    feucht: cur ? zahl(cur.relative_humidity_2m) : (ab >= 0 ? zahl(hFeucht[ab]) : null),
+    uv: cur ? zahl(cur.uv_index) : (ab >= 0 ? zahl(hUv[ab]) : null),
+    stunden: [], tage: []
+  };
+  // die laufende und die zwei folgenden Stunden — nie die ab Mitternacht
+  if (ab >= 0) for (var j = ab; j < zeiten.length && w.stunden.length < 3; j++) {
+    w.stunden.push({ code: zahl(hCode[j]), wind: zahl(hWind[j]), regen: zahl(hRegen[j]) });
+  }
+  var tz = Array.isArray(t.time) ? t.time : [];
+  var tCode = Array.isArray(t.weather_code) ? t.weather_code : (Array.isArray(t.weathercode) ? t.weathercode : []);
+  for (var k = 0; k < tz.length && k < 4; k++) {
+    w.tage.push({ datum: tz[k], code: zahl(tCode[k]), max: zahl((t.temperature_2m_max || [])[k]), min: zahl((t.temperature_2m_min || [])[k]) });
+  }
+  return w;
+}
+// Die Warnzeile: zuerst, was in den naechsten Stunden kommt (meldet sich auch als Push, wie bisher),
+// dann die Schwellen des Kalenders fuer heute und morgen (nur Anzeige). `null` = nichts zu sagen.
+function _gsHomeWetterWarnung(w) {
+  if (!w) return null;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var G = (typeof GS_WETTER_GRENZEN !== 'undefined' && GS_WETTER_GRENZEN) || {};
+  for (var i = 0; i < w.stunden.length; i++) {
+    var s = w.stunden[i];
+    if (s.code != null && STORM_CODES.has(s.code)) return { text: _t('warn_thunder','⛈️ Gewitter in den nächsten 1-2h erwartet!'), melden: true };
+    if (s.wind != null && s.wind >= WIND_STORM_THRESHOLD) return { text: _t('warn_gusts_to','💨 Sturmböen bis') + ' ' + Math.round(s.wind) + ' km/h', melden: true };
+    if (s.regen != null && s.regen > 80 && s.code != null && HEAVY_RAIN_CODES.has(s.code)) return { text: _t('warn_heavy_rain','🌧️ Starkregen in den nächsten 1-2h!'), melden: true };
+  }
+  if (w.wind != null && w.wind >= WIND_STORM_THRESHOLD) {
+    return { text: _t('warn_gusts_now','💨 Aktuelle Sturmböen:') + ' ' + Math.round(w.wind) + ' km/h — ' + _t('warn_secure_plants','Pflanzen sichern!'), melden: true };
+  }
+  var zwei = w.tage.slice(0, 2);
+  var mins = zwei.map(function (d) { return d.min; }).filter(function (x) { return x != null; });
+  var maxs = zwei.map(function (d) { return d.max; }).filter(function (x) { return x != null; });
+  var tief = mins.length ? Math.min.apply(null, mins) : null, hoch = maxs.length ? Math.max.apply(null, maxs) : null;
+  if (G.frost != null && tief != null && tief <= G.frost) return { text: _gsSatz('❄️ Frost möglich: bis {1} °C — empfindliche Pflanzen schützen', Math.round(tief)), melden: false };
+  if (G.hitze != null && hoch != null && hoch >= G.hitze) return { text: _gsSatz('🌡️ Hitze: bis {1} °C — früh morgens oder abends giessen', Math.round(hoch)), melden: false };
+  if (G.sturm != null && w.wind != null && w.wind >= G.sturm) return { text: _gsSatz('💨 Starker Wind: {1} km/h — Töpfe und Kletterpflanzen sichern', Math.round(w.wind)), melden: false };
+  return null;
+}
+// Schreibt die Karte — fuer BEIDE Ladewege. `ort` steht hinter dem Wettertext, damit sichtbar ist,
+// wofuer das Wetter gilt.
+function _gsHomeWetterZeigen(w, ort) {
+  if (!w) return false;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var setz = function (id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; };
+  var rund = function (v) { return (v == null) ? '–' : Math.round(v); };
+  setz('hw-icon', (w.code != null && WMO_ICONS[w.code]) || '🌤️');
+  setz('hw-temp', rund(w.temp) + ' °C');
+  setz('hw-desc', [(w.code != null) ? gsWeatherDescT(w.code) : '', ort || ''].filter(Boolean).join(' · '));
+  setz('hw-wind', '💨 ' + rund(w.wind) + ' km/h');
+  setz('hw-humidity', '💧 ' + rund(w.feucht) + '%');
+  setz('hw-uv', '☀️ UV ' + rund(w.uv));
+  var fc = document.getElementById('hw-forecast');
+  if (fc) {
+    var days = _t('days_short_mo_so','Mo,Di,Mi,Do,Fr,Sa,So').split(',');
+    fc.innerHTML = _gsWxForecastHtml(w.tage.map(function (d, i) {
+      return { n: i === 0 ? _t('forecast_today','Heute') : days[(new Date(d.datum).getDay() + 6) % 7],
+               i: (d.code != null && WMO_ICONS[d.code]) || '🌤️', x: rund(d.max), m: rund(d.min) };
+    }));
+  }
+  var warn = _gsHomeWetterWarnung(w);
+  var wEl = document.getElementById('hw-warning'), wTxt = document.getElementById('hw-warning-text');
+  if (wEl && wTxt) {
+    if (warn) { wEl.style.display = 'flex'; wTxt.textContent = warn.text; }
+    else { wEl.style.display = 'none'; wTxt.textContent = ''; }
+  }
+  // v23.94: zentrale gsNotif-API mit Tag (verhindert Spam bei wiederholtem Zeichnen)
+  if (warn && warn.melden && typeof gsNotif !== 'undefined' && gsNotif && typeof gsNotif.show === 'function') {
+    try { gsNotif.show({ title: _t('warn_notif_title','🌩️ GreenScan Wetterwarnung'), body: warn.text, tag: 'gs-weather-warn' }); } catch (_) {}
+  }
+  return true;
+}
+window._gsWetterJetzt = _gsWetterJetzt;
+window._gsHomeWetterZeigen = _gsHomeWetterZeigen;
 
 // ─── Home-Widget laden ─────────────────────────────────────
 async function loadHomeWeather() {
@@ -25082,97 +25159,17 @@ async function loadHomeWeather() {
       } catch(_wErr){ /* transient → retry */ }
     }
     if (!d || !d.current) throw new Error('weather unavailable after retries');
-    const c = d.current;
-    const icon = WEATHER_CODE_MAP[c.weather_code] || '🌤️';
-    const desc = gsWeatherDescT(c.weather_code);
-    const temp = Math.round(c.temperature_2m);
-    const wind = Math.round(c.wind_speed_10m);
-    const hum  = Math.round(c.relative_humidity_2m);
-    const uv   = Math.round(c.uv_index || 0);
-
-    document.getElementById('hw-icon').textContent = icon;
-    document.getElementById('hw-temp').textContent = temp + '°C';
-    document.getElementById('hw-desc').textContent = desc + ' · ' + locName;
-    document.getElementById('hw-wind').textContent = '💨 ' + wind + ' km/h';
-    document.getElementById('hw-humidity').textContent = '💧 ' + hum + '%';
-    document.getElementById('hw-uv').textContent = '☀️ UV ' + uv;
-
-    // 3-Tages Forecast
-    const forecastEl = document.getElementById('hw-forecast');
-    if (forecastEl && d.daily) {
-      const _wt = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
-      const days = _wt('days_short_mo_so','Mo,Di,Mi,Do,Fr,Sa,So').split(',');
-      // getDay(): 0=So … 6=Sa → Array beginnt bei Mo, daher Index (getDay()+6)%7
-      forecastEl.innerHTML = _gsWxForecastHtml(d.daily.time.slice(0,4).map((date, i) => ({
-        n: i === 0 ? _wt('forecast_today','Heute') : days[(new Date(date).getDay()+6)%7],
-        i: WEATHER_CODE_MAP[d.daily.weather_code[i]] || '🌤️',
-        x: Math.round(d.daily.temperature_2m_max[i]),
-        m: Math.round(d.daily.temperature_2m_min[i])
-      })));
-    }
-
-    // Sturmwarnung: prüfe nächste 2h
-    checkStormWarning(d, wind);
-
-    // Wetter für Garten-Tipp
-    updateGardenWeatherTip(temp, c.weather_code, wind, hum, uv);
-
+    // HOME-2: dieselbe Karte wie aus dem Zwischenspeicher — ein Renderer, eine Warnzeile
+    _gsHomeWetterZeigen(_gsWetterJetzt(d), locName);
   } catch(e) {
     document.getElementById('hw-desc').textContent = (window.gsI18n && gsI18n.t) ? gsI18n.t('weather_unavailable','Wetter nicht verfügbar') : 'Wetter nicht verfügbar';
   }
 }
 
-function checkStormWarning(weatherData, currentWind) {
-  const warnEl = document.getElementById('hw-warning');
-  const warnText = document.getElementById('hw-warning-text');
-  if (!warnEl || !warnText) return;
-
-  var _st = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
-  var warning = '';
-  // Check next 2 hours
-  if (weatherData.hourly) {
-    const now = Date.now();
-    const hours = weatherData.hourly.time?.slice(0,3) || [];
-    for (let i = 0; i < Math.min(3, hours.length); i++) {
-      const hCode = weatherData.hourly.weather_code?.[i];
-      const hWind = weatherData.hourly.wind_speed_10m?.[i] || 0;
-      const hPrec = weatherData.hourly.precipitation_probability?.[i] || 0;
-      if (STORM_CODES.has(hCode)) { warning = _st('warn_thunder','⛈️ Gewitter in den nächsten 1-2h erwartet!'); break; }
-      if (hWind >= WIND_STORM_THRESHOLD) { warning = _st('warn_gusts_to','💨 Sturmböen bis') + ' ' + Math.round(hWind) + ' km/h'; break; }
-      if (hPrec > 80 && HEAVY_RAIN_CODES.has(hCode)) { warning = _st('warn_heavy_rain','🌧️ Starkregen in den nächsten 1-2h!'); break; }
-    }
-  }
-  // Also check current wind
-  if (!warning && currentWind >= WIND_STORM_THRESHOLD) {
-    warning = _st('warn_gusts_now','💨 Aktuelle Sturmböen:') + ' ' + currentWind + ' km/h — ' + _st('warn_secure_plants','Pflanzen sichern!');
-  }
-
-  if (warning) {
-    warnEl.style.display = 'flex';
-    warnText.textContent = warning;
-    // v23.94: zentrale gsNotif-API mit Tag (verhindert Spam-Notifs bei wiederholtem Render)
-    if (typeof gsNotif !== 'undefined') {
-      gsNotif.show({title:_st('warn_notif_title','🌩️ GreenScan Wetterwarnung'), body: warning, tag:'gs-weather-warn'});
-    }
-  } else {
-    warnEl.style.display = 'none';
-  }
-}
-
-function updateGardenWeatherTip(temp, code, wind, hum, uv) {
-  // Update hero subtitle with garden-relevant weather tip
-  const hero = document.querySelector('.hero p');
-  if (!hero) return;
-  var _gt = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
-  var tip = '';
-  if (STORM_CODES.has(code)) tip = _gt('gtip_storm','⛈️ Sturm – Pflanzen reinholen und schützen!');
-  else if (temp < 4) tip = _gt('gtip_frost','❄️ Frostgefahr – empfindliche Pflanzen schützen!');
-  else if (temp > 30 && uv > 6) tip = _gt('gtip_heat','🌡️ Hitze & UV – Pflanzen extra giessen, mittags schattieren');
-  else if (hum > 85) tip = _gt('gtip_humidity','💧 Hohe Luftfeuchtigkeit – auf Pilzkrankheiten achten');
-  else if (wind > 40) tip = _gt('gtip_wind','💨 Starker Wind – Stecklinge und Töpfe sichern');
-  else tip = _gt('gtip_default','Pflanzen, Pilze, Kräuter, Bäume, Moose, Flechten & Algen der Schweiz');
-  hero.textContent = tip;
-}
+// HOME-2: checkStormWarning (las hourly[0..2] = 00 bis 02 Uhr) ist in _gsHomeWetterWarnung
+// aufgegangen. updateGardenWeatherTip schrieb in `.hero p` — ein Element, das es seit v31.16
+// nicht mehr gibt (die Startseite hat #home-hero-sub); mit seiner dritten Frostregel (< 4 °C)
+// ersatzlos entfernt.
 
 // ─── Detaillierteres Gartenwetter ─────────────────────────
 // refreshGardenWeather() defined below
@@ -77001,7 +76998,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +23 (D1j, F1, F2, SC1, SU1–SU5, HS1, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +25 (D1j, F1, F2, SC1, SU1–SU5, HS1, HW1, HW2, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -77016,6 +77013,7 @@ window.GS_RELEASES = [
         {emoji:'💡', bold:'Scanner — wenn etwas schiefgeht:', text:' die Fehlerkarte sagt in einem Satz, was los ist, statt technischer Meldungen, und „In einer Minute nochmal“ zählt sichtbar herunter.'},
         {emoji:'📜', bold:'Scan-Verlauf:', text:' er zeigt jetzt dieselbe Art und dieselben Sicherheitsangaben wie das Scan-Ergebnis. Vorher konnte „In Datenbank öffnen“ bei einem Namen, den mehrere Arten tragen, eine andere, harmlosere Art öffnen.'},
         {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er findet jetzt alle Arten, die gerade Saison haben, und funktioniert in jeder App-Sprache.'},
+        {emoji:'🌦️', bold:'Wetter auf der Startseite:', text:' die Karte zeigt immer dasselbe — das Wetter und den Ort, darunter eine Frost-, Hitze- oder Unwetterwarnung. Eine Gewitterwarnung gilt jetzt wirklich für die nächsten Stunden; vorher konnte sie sich auf die vergangene Nacht beziehen.'},
         {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
       ],
   },
