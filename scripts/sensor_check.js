@@ -2384,6 +2384,56 @@ const FAELLE = [
       }
     },
   },
+  {
+    // „Offen — Lina" 7. Die fünf Vorschläge standen fest: „Welche Pflanzen blühen im April?" in jedem
+    // Monat, ohne Bezug zu fälligen Aufgaben oder zum letzten Scan. Und keiner war übersetzbar: ihre
+    // Schlüssel (ai_sug_*) standen nicht in GS_I18N_JS_STRINGS — übersetzt wurden sie nur, solange
+    // es den Chat-Bildschirm mit seinen data-i18n-Knöpfen gab (bis v33.31). Der Fall läuft am
+    // gestellten Tag dieses Prüfstands (1. September) mit den Beispieldaten: fällige Aufgaben und
+    // ein Scan „Löwenzahn" von vorgestern.
+    name: 'Lina L7 · Vorschläge: der Monat ist der laufende, fällige Aufgaben und der letzte Scan bekommen je einen Vorschlag — und jeder feste Vorschlag ist übersetzbar',
+    lauf: async () => {
+      const sichern = { li: window.sbIsLoggedIn, sf: window.sbFetch, send: window.gsLinaSend };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const klagen = [];
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });   // kein früheres Gespräch: die Vorschläge stehen da
+        window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        await gsOpenLina(); await warte(150);
+        const knoepfe = [...document.querySelectorAll('#gs-lina-scroll button[onclick^="gsLinaVorschlag"]')];
+        const texte = knoepfe.map(b => (b.textContent || '').trim());
+        if (!texte.length) return { ok: false, warum: 'Lina zeigt keine Vorschläge — der Fall misst nichts' };
+        const monat = (typeof gsMonate === 'function') ? gsMonate()[new Date().getMonth()] : '';
+        if (!monat) return { ok: false, warum: 'gsMonate fehlt — der Fall misst nichts' };
+        if (monat !== 'April' && texte.some(t => /April/.test(t))) klagen.push('im ' + monat + ' fragt ein Vorschlag nach dem April');
+        if (!texte.some(t => t.indexOf(monat) >= 0)) klagen.push('kein Vorschlag nennt den laufenden Monat (' + monat + ')');
+        const heute = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().filter(t => (t.days != null ? t.days : 1) <= 0).length : 0;
+        if (!heute) return { ok: false, warum: 'die Beispieldaten haben heute nichts Fälliges — der Fall misst den Aufgaben-Vorschlag nicht' };
+        if (!texte.some(t => /heute/i.test(t))) klagen.push(heute + ' Aufgabe(n) heute fällig, aber kein Vorschlag fragt danach');
+        if (!texte.some(t => /Löwenzahn/.test(t))) klagen.push('der Scan von vorgestern (Löwenzahn) bekommt keinen Vorschlag');
+        if (texte.length > 5) klagen.push(texte.length + ' Vorschläge — mehr als fünf');
+        // Antippen schickt genau den Text des Knopfs
+        let gesendet = null;
+        window.gsLinaSend = function () { const i = document.getElementById('gs-lina-input'); gesendet = i ? i.value : null; };
+        const lk = knoepfe.find(b => /Löwenzahn/.test(b.textContent));
+        if (lk) { lk.click(); if (gesendet !== lk.textContent.trim()) klagen.push('Antippen schickt „' + gesendet + '" statt des Vorschlags'); }
+        // Übersetzbar: jeder feste Vorschlag hat seinen Schlüssel in GS_I18N_JS_STRINGS, mit demselben Text
+        const liste = (typeof GS_LINA_VORSCHLAEGE !== 'undefined') ? GS_LINA_VORSCHLAEGE : [];
+        const tab = window.GS_I18N_JS_STRINGS || {};
+        const fehlen = liste.map(v => Array.isArray(v) ? { key: v[0], de: v[1] } : v)
+          .filter(v => !v || tab[v.key] !== v.de).map(v => v && v.key);
+        if (!liste.length) klagen.push('GS_LINA_VORSCHLAEGE fehlt');
+        else if (fehlen.length) klagen.push(fehlen.length + ' feste Vorschläge ohne Eintrag in GS_I18N_JS_STRINGS (' + fehlen.join(', ') + ') — sie bleiben in jeder Sprache deutsch');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: texte.length + ' Vorschläge: „' + texte.join('" · „') + '"' };
+      } finally {
+        window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsLinaSend = sichern.send;
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {

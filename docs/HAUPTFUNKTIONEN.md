@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -57,7 +57,8 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    `prefill_form` in `gsLinaDispatch`) — die Antwort ist weg.
 6. ✅ v33.61 (dazu: eine Erinnerung für eine Garten-Pflanzung schrieb gar nichts) — **Schreibaktionen ohne Prüfung:** `propose_reminder` meldet „eingerichtet" ohne
    Rückgabewert; `gsLinaAddPlant` ohne Dublettenprüfung; zwei Rückfragen fest deutsch.
-7. **Vorschlags-Chips sind statisch** (`GS_LINA_VORSCHLAEGE`): „…blühen im April?" in jedem
+7. ✅ v33.61 (dazu: die Chips waren seit v33.31 in keiner Sprache übersetzt; `sensor_check` L7) —
+   **Vorschlags-Chips sind statisch** (`GS_LINA_VORSCHLAEGE`): „…blühen im April?" in jedem
    Monat, ohne Bezug zu fälligen Aufgaben oder zum letzten Scan.
 8. ✅ v33.61 (bestätigt und schlimmer: mit Text dahinter stand die Zeile roh in der Antwort;
    `sensor_check` L6) — Verdacht: ein kaputtes `[[GS_ACTION]]` am Antwortende wird still verworfen.
