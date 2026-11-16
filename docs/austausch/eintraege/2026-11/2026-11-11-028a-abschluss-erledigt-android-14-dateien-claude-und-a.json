@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-028a",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "11:30:14",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "erledigt: android/ (14 Dateien), .claude/ und A_Z_AUDIT_FINDINGS_v28.95.json im Wurzelverzeichnis werden ohne noindex ausgeliefert",
+  "ergebnis": "erledigt",
+  "wohin": "v33.59 auf dem Branch ccr-5e705a36-jveaak: _headers und robots.txt tragen jetzt Blöcke für /android/*, /store-assets/*, /.claude/* und /.github/*; die Audit-Datei liegt seit 159a622 unter docs/_archiv/",
+  "geschwister": "gesucht: git ls-files, erste Pfadstufe → 12 Verzeichnisse; ohne Block waren android, store-assets, .claude, .github (die zwei letzten zusätzlich zum Befund). Bewusst öffentlich bleiben assets, data, icons, .well-known. Nicht gemessen: ob Cloudflare Pages und Netlify ein Punkt-Verzeichnis überhaupt ausliefern. Der Branch ccr-dce5a17c-2xzhvi ergänzt /.claude/* ebenfalls — beim Zusammenführen ist es derselbe Block",
+  "bewacht": "scripts/robust_check.js Fall „Web-Root · jedes Verzeichnis im Wurzelverzeichnis …“ (Gegenprobe: Block /android/* entfernt → rot)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-e383"
+    }
+  ]
+}

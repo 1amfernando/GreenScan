@@ -11,9 +11,16 @@
 // Cowork-Hinweis: stripe-webhook v9 muss zusaetzlich account.updated handlen
 // und marketplace_sellers.status / charges_enabled / payouts_enabled syncen.
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import Stripe from "https://esm.sh/stripe@18?target=denonext";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+// v33.59 (Lieferkette): jede Angabe exakt (scripts/edge/40_lieferkette.js). Stripe bleibt hier auf 18 —
+// diese Function nennt keine apiVersion, die Hauptversion der Bibliothek bestimmt also die Stripe-API.
+import Stripe from "https://esm.sh/stripe@18.5.0?target=denonext";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.59 (Sicherheitspruefung 10.11.2026): Rueckkehr nur zu eigenen Urspruengen (der Origin-Header
+// ist bei einem direkten Aufruf frei), ein Konto aus der eigenen Zeile nur, wenn Stripe es dieser
+// Person zuschreibt (marketplace_sellers ist fuer den Eigentuemer schreibbar — wer dort eine fremde
+// acct_… eintraegt, bekam einen Onboarding-Link fuer das fremde Konto), Fehler als Kennung.
+import { rueckkehrUrsprung, fehlerCode } from "../_shared/zahlung_regeln.mjs";
 
 const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const stripe = new Stripe(STRIPE_KEY, {
@@ -60,6 +67,14 @@ Deno.serve(async (req) => {
 
     let accountId: string | undefined = existing?.stripe_account_id;
 
+    if (accountId) {
+      const acc = await stripe.accounts.retrieve(accountId);
+      if ((acc as any)?.metadata?.gs_user_id !== user.id) {
+        console.error("[stripe-create-connect-account] Konto", accountId, "gehoert laut Stripe nicht", user.id);
+        return json(403, { error: "konto_fremd" });
+      }
+    }
+
     if (!accountId) {
       // 2) Neuen Express-Account erstellen (Schweizer Konto-Defaults)
       const account = await stripe.accounts.create({
@@ -84,7 +99,7 @@ Deno.serve(async (req) => {
     }
 
     // 3) Onboarding-Link erzeugen (Express-Dashboard, ~60min TTL)
-    const origin = req.headers.get("origin") || "https://green-scan.ch";
+    const origin = rueckkehrUrsprung(req.headers.get("origin"), "https://green-scan.ch");
     const link = await stripe.accountLinks.create({
       account: accountId!,
       refresh_url: `${origin}/?marketplace_refresh=1`,
@@ -100,6 +115,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = (e as { message?: string })?.message ?? String(e);
     console.error("[stripe-create-connect-account]", msg);
-    return json(500, { error: msg });
+    const f = fehlerCode(e, "connect_failed");
+    return json(f.status, { error: f.error });
   }
 });

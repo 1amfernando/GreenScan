@@ -22,13 +22,20 @@
 //
 // Response 200: { ok, diagnosis, treatment_plan, history_id, tokens }
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 // v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
+// v33.59 (Sicherheitspruefung 10.11.2026): das Tor vor dem KI-Aufruf — Plan vom
+// Server, Tageskontingent atomar reserviert (fail-closed), Eingabe gedeckelt
+// (vorher: Foto ohne Obergrenze, Notiz/Name ungedeckelt, 30/h fail-open).
+// Die Reservierung gilt fuer den ganzen anthropicFetch — ein Modell-Rueckfall bucht nichts dazu.
+import { KRANKHEIT_SPALTEN, kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiKrankheitsKontext, kiToken, kiTor } from "../_shared/ki_tor.mjs";
 
+const KI_FN = "plant-doctor-diagnose";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const sbAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false }
 });
@@ -41,23 +48,14 @@ async function getAnthropicKey(): Promise<string | null> {
 }
 
 async function loadDiseaseContext(speciesLat: string | null, symptoms: string[]): Promise<string> {
-  const { data } = await sbAdmin
+  // v33.59 (Austausch-Runde, offen-b2): Live-Spaltennamen aus EINER Liste (KRANKHEIT_SPALTEN), und der
+  // Fehler wird gelesen — vorher 42703, wegdestrukturiert, Kontext still leer.
+  const { data, error } = await sbAdmin
     .from("plant_diseases")
-    .select("name, name_lat, symptoms, affects_plants, treatment, prevention")
+    .select(KRANKHEIT_SPALTEN)
     .limit(20);
-  if (!data || !data.length) return "";
-  const filtered = data.filter((d: any) => {
-    if (speciesLat && Array.isArray(d.affects_plants) && d.affects_plants.some((p: string) => p.includes(speciesLat))) return true;
-    if (symptoms && symptoms.length && Array.isArray(d.symptoms)) {
-      const sLow = (d.symptoms as string[]).join(" ").toLowerCase();
-      return symptoms.some(s => sLow.includes(s.toLowerCase()));
-    }
-    return false;
-  });
-  const top = filtered.length ? filtered.slice(0, 8) : data.slice(0, 8);
-  return top.map((d: any) =>
-    `- ${d.name} (${d.name_lat || "?"}): ${(d.symptoms||[]).join(", ")}. Behandlung: ${(d.treatment||"").slice(0, 200)}`
-  ).join("\n");
+  if (error) { console.error("plant-doctor-diagnose plant_diseases", error.code, error.message); return ""; }
+  return kiKrankheitsKontext(data, speciesLat, symptoms);
 }
 
 // v26.96: Verlaufs-Kontext — letzte 3 Diagnosen derselben Pflanze für den User
@@ -141,12 +139,17 @@ Bitte Foto analysieren und vollständige Diagnose + Behandlung im JSON-Format zu
       }]
     })
   });
-  if (!r.ok) throw new Error("Anthropic " + r.status + ": " + await r.text());
-  const j = await r.json();
-  const txt = j?.content?.[0]?.text || "";
-  const m = txt.match(/\{[\s\S]*\}/);
-  if (!m) throw new Error("Kein JSON in Antwort: " + txt.slice(0, 200));
-  const parsed = JSON.parse(m[0]);
+  // v33.59: der Rumpf des Anbieters geht ins Protokoll, nach aussen nur die Kennung.
+  if (!r.ok) { console.error("plant-doctor-diagnose anthropic", r.status, (await r.text()).slice(0, 500)); throw { code: r.status === 429 ? "upstream_limit" : "upstream", status: r.status }; }
+  // Ab hier hat der Anbieter gerechnet: jedes Scheitern ist „parse" und gibt das
+  // Kontingent NICHT zurueck — ein kaputtes JSON laesst sich ueber die Notiz erzwingen.
+  let j: any;
+  try { j = await r.json(); } catch (_) { throw { code: "parse" }; }
+  const ausgabe = typeof j?.content?.[0]?.text === "string" ? j.content[0].text : "";
+  const m = ausgabe.match(/\{[\s\S]*\}/);
+  if (!m) { console.error("plant-doctor-diagnose parse", ausgabe.slice(0, 200)); throw { code: "parse" }; }
+  let parsed: any;
+  try { parsed = JSON.parse(m[0]); } catch (_) { console.error("plant-doctor-diagnose parse", ausgabe.slice(0, 200)); throw { code: "parse" }; }
   return {
     diagnosis: parsed.diagnosis,
     treatment_plan: parsed.treatment_plan,
@@ -168,24 +171,27 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405, headers: cors });
 
   try {
-    const authHdr = req.headers.get("authorization") || "";
-    const userToken = authHdr.replace(/^Bearer\s+/i, "");
+    // v33.59: getUser MIT dem Token (vorher ohne Argument an einem Client ohne Sitzung →
+    // AuthSessionMissingError → jeder Aufruf 401; vgl. marketplace-publish B-007).
+    const userToken = kiToken(req.headers.get("authorization"));
     if (!userToken) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
-
     // v33.58: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
-    // ohne Argument — ein Client ohne Sitzung und ohne eigenen Authorization-Header; neuere
-    // supabase-js-Fassungen antworten darauf mit „Auth session missing" statt den Schluessel als
-    // Bearer zu schicken, und `jsr:@supabase/supabase-js@2` zieht beim Ausliefern die neueste.
+    // ohne Argument — neuere supabase-js-Fassungen antworten darauf mit „Auth session missing".
     const { data: userData, error: userErr } = await sbAdmin.auth.getUser(userToken);
-    if (userErr || !userData.user) return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
+    if (userErr || !userData?.user) return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
     const userId = userData.user.id;
+    const sbUser = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: "Bearer " + userToken } }, auth: { persistSession: false } });
+    const fehler = (code: string, status: number, plan?: string) => new Response(JSON.stringify({ error: kiFehlerCode({ code, plan }).message, code }), { status, headers: cors });
 
-    const body = await req.json();
-    const photoB64 = String(body.photo || "");
+    const roh = await req.text();
+    let body: any;
+    try { body = JSON.parse(roh); } catch (_) { return fehler("eingabe", 400); }
+    body = body || {};
+    const photoB64 = typeof body.photo === "string" ? body.photo : "";
     const speciesLat = body.species_lat ? String(body.species_lat) : null;
     const speciesName = body.species_name ? String(body.species_name) : (body.plant_name ? String(body.plant_name) : "");
-    const symptoms: string[] = Array.isArray(body.symptoms) ? body.symptoms : [];
-    const userNote = String(body.user_note || "");
+    const symptoms: string[] = Array.isArray(body.symptoms) ? body.symptoms.filter((x: unknown) => typeof x === "string").slice(0, 30) : [];
+    const userNote = typeof body.user_note === "string" ? body.user_note : "";
     const plantLocalId = body.plant_local_id ? String(body.plant_local_id) : null;
     const includeHistory = body.include_history !== false && !!plantLocalId;
     const saveHistory = body.save_history !== false;
@@ -193,9 +199,14 @@ Deno.serve(async (req: Request) => {
     if (!photoB64 || photoB64.length < 100) {
       return new Response(JSON.stringify({ error: "photo (base64-jpeg) required" }), { status: 400, headers: cors });
     }
+    const deckel = kiEingabeOk("plant-doctor-diagnose", {
+      bytes: roh.length, bilder: [photoB64],
+      texte: { user_note: userNote, species_name: speciesName, species_lat: speciesLat, plant_local_id: plantLocalId, symptoms },
+    });
+    if (!deckel.ok) return fehler(deckel.code, deckel.status);
 
-    // v29.36: Server-Rate-Limit (KI-Kostenschutz) — max 30 Diagnosen/Stunde/User. Fail-open:
-    // ein Fehler im Rate-Limit-Check darf den Dienst nicht blockieren.
+    // v29.36: Server-Rate-Limit (KI-Kostenschutz) — max 30 Diagnosen/Stunde/User. Fail-open;
+    // das Tageskontingent darunter (v33.59) ist fail-closed.
     try {
       const { data: rlOk } = await sbAdmin.rpc("fn_check_rate_limit", { p_bucket: userId, p_action: "plant_doctor", p_max_per_hour: 30 });
       if (rlOk === false) {
@@ -206,10 +217,21 @@ Deno.serve(async (req: Request) => {
     const apiKey = await getAnthropicKey();
     if (!apiKey) return new Response(JSON.stringify({ error: "Anthropic API-Key fehlt" }), { status: 503, headers: cors });
 
+    const tor = await kiTor({ fn: KI_FN, userClient: sbUser, admin: sbAdmin, userId });
+    if (!tor.erlaubt) return fehler(tor.code, tor.status, tor.plan);
+
     const diseaseCtx = await loadDiseaseContext(speciesLat, symptoms);
     const historyCtx = includeHistory ? await loadHistoryContext(userId, plantLocalId) : "";
 
-    const result = await callClaudeVision(apiKey, photoB64, speciesName, symptoms, userNote, diseaseCtx, historyCtx);
+    let result;
+    try {
+      result = await callClaudeVision(apiKey, photoB64, speciesName, symptoms, userNote, diseaseCtx, historyCtx);
+    } catch (e: any) {
+      // Hat der Anbieter nicht gerechnet (Netz, jede Ablehnung), geht die Reservierung zurueck (v33.59: EINE Regel).
+      if (kiFreigabeNoetig(e)) await kiFreigeben({ fn: KI_FN, admin: sbAdmin, userId });
+      console.error("plant-doctor-diagnose ki", e);
+      return fehler(kiFehlerCode(e && e.code ? e : "upstream").code, 502);
+    }
 
     // v26.73: AI-Usage-Logging (fire-and-forget, post-success)
     try {
@@ -252,6 +274,7 @@ Deno.serve(async (req: Request) => {
       tokens: { input: result.tokens_in, output: result.tokens_out }
     }), { headers: cors });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: String(e.message || e) }), { status: 500, headers: cors });
+    console.error("plant-doctor-diagnose", e);
+    return new Response(JSON.stringify({ error: kiFehlerCode("intern").message, code: "intern" }), { status: 500, headers: cors });
   }
 });

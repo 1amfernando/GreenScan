@@ -77,6 +77,15 @@ run android      node scripts/android_check.js
 # Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen.
 run apk          node scripts/apk_check.js
 run risiko       node scripts/risiko_check.js
+# v33.59: drei Pruefstaende aus der Sicherheitspruefung vom 10.11.2026. Jeder laedt seine
+# Faelle aus einem eigenen Verzeichnis (Dateien mit `_` am Anfang sind Helfer, keine Faelle).
+#   sicherheit — kommt Fremdes als Text an? (Playwright, scripts/sicherheit/)
+#   edge       — was rechnen die Edge-Functions? (Node, ohne Deno; scripts/edge/)
+#   rls        — haelt die Datenbank, was die App ihr glaubt? (lokales Postgres, scripts/rls/;
+#                ohne Postgres „nicht pruefbar", Exit 2 — nie gruen)
+run sicherheit   node scripts/sicherheit_check.js
+run edge         node scripts/edge_check.js
+run rls          node scripts/rls_check.js
 # Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
 # stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
 run austausch    node scripts/austausch_check.js

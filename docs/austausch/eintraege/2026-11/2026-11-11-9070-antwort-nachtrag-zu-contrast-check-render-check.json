@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-9070",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:28:20",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: contrast_check, render_check und field_check enden immer mit Exit 0 — ein Fund dort färbt weder pruefstaende.sh noch die CI rot",
+  "text": "Teil contrast_check ist auf dem Branch ccr-5e705a36-jveaak (v33.59, Commit 7895fd8) behoben — in der Reihenfolge erst die Sitzung, dann der Exit-Code: contrast_check, touch_check und perf_check nehmen jetzt scripts/_seed.js (Sitzung und Daten); die erste Messung mit Daten fand zehn Stellen unter AA, die behoben sind; danach ist contrast_check ein Tor (Exit 1 unter AA, Grundlinie 0/0). render_check und field_check enden weiter immer mit 0: für render_check liegt eine Fassung mit Exit-Code auf dem Branch ccr-dce5a17c-2xzhvi, field_check ist offen. Der Eintrag bleibt deshalb offen; die Zählung ist nachgezogen.",
+  "beleg": [
+    "grep -c process.exit scripts/contrast_check.js → 2 Zeilen (vorher 0); scripts/render_check.js → 0; grep -c sys.exit scripts/field_check.py → 0"
+  ],
+  "zaehle": [
+    {
+      "datei": "scripts/contrast_check.js",
+      "text": "process.exit",
+      "n": 3
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-ec73"
+    }
+  ]
+}

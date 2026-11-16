@@ -4,18 +4,25 @@
 //
 // Request:
 //  POST /functions/v1/stripe-expert-checkout
-//  Body: { post_id: "<uuid>", expert_id: "<uuid>", amount_chf: 0.50 (optional, default 0.50) }
+//  Body: { post_id: "<uuid>", expert_id: "<uuid>" }   (amount_chf wird seit v33.59 ignoriert)
 //  Auth: Bearer user-token (verify_jwt: true)
 //
 // Response 200:
 //  { ok: true, url: "https://checkout.stripe.com/...", session_id: "cs_..." }
 //
 // Backend macht VORHER: INSERT expert_verifications mit status='pending', fee_paid_chf=0
-// (UI zeigt sofort "warte auf Zahlung") — stripe-webhook v7 setzt nach Payment auf 'verified'
+// (UI zeigt sofort "warte auf Zahlung").
+//
+// v33.59 (Sicherheitspruefung 10.11.2026): eine Zahlung ist eine ANFRAGE, kein Urteil. Bis v33.56
+// setzte der Webhook nach CHF 0.50 status='verified' im Namen eines frei gewaehlten Experten —
+// ohne dass der etwas geprueft hatte. Jetzt: nur der Autor des Beitrags bezahlt, nur fuer einen
+// echten Experten, nie fuer sich selbst; Betrag fest; der Webhook schreibt nur die Gebuehr;
+// „verified" setzt allein der Experte (RLS expert_verif_update_self). Regeln: ../_shared/zahlung_regeln.mjs.
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import Stripe from "npm:stripe@17";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import Stripe from "npm:stripe@17.7.0";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+import { expertenAnfrage, EXPERTEN_GEBUEHR_RAPPEN, fehlerCode } from "../_shared/zahlung_regeln.mjs";
 
 const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -41,49 +48,51 @@ Deno.serve(async (req: Request) => {
     const userToken = authHdr.replace(/^Bearer\s+/i, "");
     if (!userToken) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
 
-    // User aus JWT extrahieren
-    const sbUser = createClient(SUPABASE_URL, userToken, { auth: { persistSession: false } });
-    const { data: userData, error: userErr } = await sbUser.auth.getUser();
-    if (userErr || !userData.user) {
+    // User aus JWT — v33.59: ueber den Admin-Client mit dem Token (die dokumentierte Form);
+    // createClient(url, userToken) legte den Token in den Platz des Projekt-Schluessels.
+    const { data: userData, error: userErr } = await sbAdmin.auth.getUser(userToken);
+    if (userErr || !userData?.user) {
       return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
     }
     const userId = userData.user.id;
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const postId = String(body.post_id || "");
     const expertId = String(body.expert_id || "");
-    const amountChf = Math.max(0.5, Math.min(5.0, Number(body.amount_chf) || 0.5));
 
     if (!postId || !expertId) {
       return new Response(JSON.stringify({ error: "post_id + expert_id required" }), { status: 400, headers: cors });
     }
 
-    // Sanity-Check: Post existiert? Expert ist tatsächlich Expert?
-    const { data: postData } = await sbAdmin
+    // Wem gehoert der Beitrag, ist expert_id ein Experte? (Fehler gelesen, nie als „nein" geraten)
+    const { data: postData, error: postErr } = await sbAdmin
       .from("social_posts")
-      .select("id")
+      .select("id, user_id")
       .eq("id", postId)
       .maybeSingle();
-    if (!postData) {
-      return new Response(JSON.stringify({ error: "post not found" }), { status: 404, headers: cors });
-    }
-
-    const { data: expertProfile } = await sbAdmin
+    const { data: expertProfile, error: expErr } = await sbAdmin
       .from("profiles")
       .select("id,is_expert")
       .eq("id", expertId)
       .maybeSingle();
-    if (!expertProfile?.is_expert) {
-      return new Response(JSON.stringify({ error: "expert_id ist nicht als Expert verifiziert" }), { status: 403, headers: cors });
+    if (postErr || expErr) {
+      console.error("[stripe-expert-checkout]", (postErr || expErr)?.message);
+      return new Response(JSON.stringify({ error: "pruefung_fehlgeschlagen" }), { status: 503, headers: cors });
+    }
+    const darf = expertenAnfrage({ aufrufer: userId, postAutor: postData?.user_id ?? null, expertId, expertIstExperte: expertProfile?.is_expert === true });
+    if (!darf.erlaubt) {
+      return new Response(JSON.stringify({ error: darf.error }), { status: darf.status, headers: cors });
     }
 
-    // Pending-Eintrag in expert_verifications anlegen falls noch nicht existiert
-    await sbAdmin.from("expert_verifications").upsert({
+    // Pending-Eintrag (= Anfrage an diesen Experten) — eine vorhandene Zeile bleibt unberuehrt.
+    const { error: insErr } = await sbAdmin.from("expert_verifications").upsert({
       post_id: postId,
       expert_id: expertId,
       status: "pending",
       fee_paid_chf: 0
     }, { onConflict: "post_id,expert_id", ignoreDuplicates: true });
+    if (insErr) console.error("[stripe-expert-checkout] expert_verifications", insErr.message);
+    const amountChf = EXPERTEN_GEBUEHR_RAPPEN / 100;   // v33.59: fest, nicht aus dem Rumpf
 
     // Stripe-Checkout-Session erstellen
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
@@ -117,6 +126,8 @@ Deno.serve(async (req: Request) => {
       session_id: session.id
     }), { headers: cors });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: String(e.message || e) }), { status: 500, headers: cors });
+    console.error("[stripe-expert-checkout]", e?.message ?? e);
+    const f = fehlerCode(e, "checkout_failed");
+    return new Response(JSON.stringify({ error: f.error }), { status: f.status, headers: cors });
   }
 });

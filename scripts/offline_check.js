@@ -64,6 +64,9 @@ const TYPEN = {
 // ausliefern — so entsteht ein Versionswechsel, ohne das Repo anzufassen.
 let versionErsatz = null;   // z.B. 'vTEST2' → sw.js VERSION 'gs-vTEST2', index.html GS_VERSION 'vTEST2'
 let swAnhang = '';          // Byte-Aenderung ohne Versionswechsel (gleiche VERSION, neuer Worker)
+// v33.59 (Haertung): eine CSP fuer HTML und sw.js — die aus _headers, wie beide Hoster sie
+// ausliefern. null = keine (alle aelteren Faelle laufen ohne, wie bisher).
+let cspKopf = null;
 // v33.55: die Weiterleitungen aus `_redirects`, wie der Hoster sie anwendet —
 // nur exakte Pfade mit 3xx (der SPA-Fallback und die Platzhalter-Regeln sind
 // fuer diesen Server ohne Belang). Gelesen aus der ECHTEN Datei: der Fall
@@ -100,7 +103,9 @@ function server(wunschPort) {
             : text.replace(/var GS_VERSION = 'v[\d.]+';/, "var GS_VERSION = '" + versionErsatz + "';");
         }
         if (p === '/sw.js' && swAnhang) text += '\n' + swAnhang + '\n';
-        res.writeHead(200, { 'Content-Type': TYPEN[p === '/sw.js' ? '.js' : '.html'], 'Service-Worker-Allowed': '/' });
+        const k = { 'Content-Type': TYPEN[p === '/sw.js' ? '.js' : '.html'], 'Service-Worker-Allowed': '/' };
+        if (cspKopf) k['Content-Security-Policy'] = cspKopf;
+        res.writeHead(200, k);
         res.end(text); return;
       }
       // Nur fuer den Deckel-Fall: beliebig viele unterscheidbare „Kacheln".
@@ -118,10 +123,12 @@ function server(wunschPort) {
       if (!datei.startsWith(WURZEL) || !fs.existsSync(datei) || fs.statSync(datei).isDirectory()) {
         res.writeHead(404); res.end('nicht da'); return;
       }
-      res.writeHead(200, {
+      const kopf = {
         'Content-Type': TYPEN[path.extname(datei).toLowerCase()] || 'application/octet-stream',
         'Service-Worker-Allowed': '/',
-      });
+      };
+      if (cspKopf && /\.(html|js)$/.test(datei)) kopf['Content-Security-Policy'] = cspKopf;
+      res.writeHead(200, kopf);
       fs.createReadStream(datei).pipe(res);
     });
     s.listen(wunschPort || 0, '127.0.0.1', () => fertig({ s, port: s.address().port }));
@@ -129,6 +136,200 @@ function server(wunschPort) {
 }
 
 let zuletzt = '';   // der zuletzt gemeldete Fall — fuer die Gesamtfrist
+
+// ═══ v33.59 · HAERTUNG DES WORKERS (Sicherheitspruefung 10.11.2026) ═══════════
+// Fuenf Fragen, jede unter einem ECHTEN Worker mit der CSP aus _headers:
+//   H1 · fremdes Stylesheet/Bild/Modul (Google Fonts, Wikimedia, pdf.js) laedt auch
+//        unter dem Worker — er reicht es nicht durch, die CSP der SEITE entscheidet;
+//   H2 · eine fremde API-Antwort (Nominatim mit Koordinaten) liegt danach in KEINEM Cache;
+//   H3 · zehn Navigationen mit eigener Adresse → keine weitere Kopie der Seite, und
+//        offline startet die App unter einer neuen Adresse trotzdem;
+//   H4 · der Runtime-Cache hat einen Deckel;
+//   H5 · Abmelden raeumt Runtime, Bilder und ein geteiltes Foto — die Shell bleibt;
+//   H6 · pdf.js (selbst gehostet) laedt unter dieser CSP und liest ein echtes PDF.
+// H0 rechnet die zwei Weichen (istKachel, navSchluessel) direkt aus sw.js, ohne Browser:
+// echte Kachel-Hosts sind von hier nicht erreichbar, die Weiche schon.
+// Zwei fremde Urspruenge auf eigenen Ports: B steht nur in style-/img-/script-src
+// (wie fonts.gstatic, upload.wikimedia, cdnjs), C auch in connect-src (wie Nominatim).
+// `node scripts/offline_check.js haertung` faehrt nur diesen Block.
+const NUR_HAERTUNG = process.argv.includes('haertung');
+const HAERTUNG_FRAGEN = 7;
+async function haertung(br, melde) {
+  // H0 · die Weichen, gerechnet
+  try {
+    const vm = require('vm');
+    const sbx = { self: { location: { origin: 'https://green-scan.ch' }, addEventListener() {} }, console: { log() {}, warn() {} }, URL, Response: function () {}, caches: {}, crypto: {} };
+    vm.createContext(sbx);
+    vm.runInContext(fs.readFileSync(path.join(WURZEL, 'sw.js'), 'utf8') + '\n;this.__k = istKachel; this.__n = navSchluessel;', sbx);
+    const rq = (u, dest) => ({ url: u, destination: dest || '', mode: 'no-cors', method: 'GET', headers: { get() { return null; } } });
+    const kachel = [
+      ['https://a.tile.opentopomap.org/7/66/45.png', 'image', true],
+      ['https://wmts.geo.admin.ch/1.0.0/x/3857/12/1/2.jpeg', 'image', true],
+      ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/1/2/3', 'image', true],
+      ['https://tile.opentopomap.org.boese.example/7/1/1.png', 'image', false],
+      ['https://boesetile.opentopomap.org/7/1/1.png', 'image', false],
+      ['https://nominatim.openstreetmap.org/reverse?lat=47.1&lon=8.6&format=json', '', false],
+      ['https://a.tile.openstreetmap.org/7/66/45.png', 'image', false],
+      ['https://upload.wikimedia.org/x.jpg', 'image', false],
+      ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs', 'script', false],
+    ].filter(([u, d, soll]) => sbx.__k(rq(u, d)) !== soll).map(([u]) => u);
+    const nav = [
+      ['https://green-scan.ch/', '/'], ['https://green-scan.ch/?x=1', '/'], ['https://green-scan.ch/index.html?a', '/'],
+      ['https://green-scan.ch/irgend/pfad-2', '/'], ['https://green-scan.ch/install', '/install.html'],
+      ['https://green-scan.ch/datenschutz?x', '/privacy.html'], ['https://green-scan.ch/docs/X.md', null],
+      ['https://green-scan.ch/assets/icons/preview', null], ['https://green-scan.ch/docs/', null],
+      ['https://fremd.example/', null],
+    ].filter(([u, soll]) => sbx.__n(rq(u, 'document')) !== soll).map(([u]) => u);
+    melde('H0 · Die Weichen des Workers: nur Kacheln der drei Hosts (Punktgrenze), EINE Shell-Adresse je Seite',
+      !kachel.length && !nav.length, (kachel.length || nav.length) ? 'falsch: ' + kachel.concat(nav).join(' · ') : '9 Kachel- und 10 Navigationsfaelle, je mit Gegenrichtung');
+  } catch (e) { melde('H0 · Die Weichen des Workers', false, 'nicht rechenbar: ' + String(e.message).split('\n')[0]); }
+
+  const fremd = (code) => new Promise((ok) => {
+    const t = http.createServer((q, r) => {
+      const u = q.url.split('?')[0];
+      if (u === '/fremd.css') { r.writeHead(200, { 'Content-Type': 'text/css', 'Access-Control-Allow-Origin': '*' }); r.end('#gs-h1-probe{color:rgb(1, 2, 3)}'); return; }
+      if (u === '/modul.mjs') { r.writeHead(200, { 'Content-Type': 'text/javascript', 'Access-Control-Allow-Origin': '*' }); r.end('export const da = 42;'); return; }
+      if (u === '/bild.png') { r.writeHead(200, { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': '*' }); r.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')); return; }
+      if (u === '/reverse') { r.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); r.end('{"display_name":"Irgendwo"}'); return; }
+      r.writeHead(404); r.end();
+    });
+    t.listen(0, '127.0.0.1', () => ok({ t, o: 'http://127.0.0.1:' + t.address().port }));
+  });
+  const B = await fremd(), C = await fremd();
+  // Die CSP aus _headers, wie ausgeliefert — B und C an den Stellen, an denen ihre echten
+  // Vorbilder stehen; ohne upgrade-insecure-requests (der Pruefserver spricht http).
+  const roh = (fs.readFileSync(path.join(WURZEL, '_headers'), 'utf8').match(/^\s+Content-Security-Policy:\s*(.+)$/m) || [])[1] || '';
+  cspKopf = roh.replace(/;\s*upgrade-insecure-requests/, '')
+    .replace(/(style-src [^;]*)/, '$1 ' + B.o).replace(/(img-src [^;]*)/, '$1 ' + B.o)
+    .replace(/(script-src [^;]*)/, '$1 ' + B.o).replace(/(connect-src [^;]*)/, '$1 ' + C.o);
+  const { s: sA, port: pA } = await server();
+  const basisA = 'http://127.0.0.1:' + pA;
+  const c = await br.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'allow' });
+  const t = await c.newPage();
+  try {
+    await t.goto(basisA + '/', { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await t.evaluate(async () => { await Promise.race([navigator.serviceWorker.ready, new Promise(z => setTimeout(z, 20000))]); });
+    await t.waitForTimeout(3000);
+    await t.goto(basisA + '/', { waitUntil: 'domcontentloaded', timeout: 120000 });   // jetzt unter dem Worker
+    await t.waitForTimeout(1500);
+    const unter = await t.evaluate(() => !!navigator.serviceWorker.controller);
+    const version = (fs.readFileSync(path.join(WURZEL, 'sw.js'), 'utf8').match(/const VERSION = '([^']+)'/) || [])[1];
+
+    // H1
+    const h1 = await t.evaluate(async (b) => {
+      const o = {};
+      const d = document.createElement('div'); d.id = 'gs-h1-probe'; document.body.appendChild(d);
+      await new Promise((z) => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = b + '/fremd.css?h1'; l.onload = () => z(); l.onerror = () => z(); document.head.appendChild(l); setTimeout(z, 4000); });
+      o.stil = getComputedStyle(d).color;
+      o.bild = await new Promise((z) => { const i = new Image(); i.onload = () => z('geladen'); i.onerror = () => z('FEHLER'); i.src = b + '/bild.png?h1'; setTimeout(() => z('Zeit'), 4000); });
+      try { const m = await import(b + '/modul.mjs?h1'); o.modul = m.da === 42 ? 'geladen' : 'leer'; } catch (e) { o.modul = 'FEHLER ' + String(e.message).slice(0, 50); }
+      d.remove();
+      return o;
+    }, B.o);
+    const ok1 = unter && h1.stil === 'rgb(1, 2, 3)' && h1.bild === 'geladen' && h1.modul === 'geladen';
+    melde('H1 · Unter dem Worker laden fremdes Stylesheet, Bild und Modul (was die CSP der SEITE erlaubt) — der Worker reicht es nicht durch',
+      ok1, ok1 ? 'Stil ' + h1.stil + ' · Bild ' + h1.bild + ' · Modul ' + h1.modul : 'unter Worker ' + unter + ' · ' + JSON.stringify(h1));
+
+    // H2
+    const h2 = await t.evaluate(async (cO) => {
+      const r = await fetch(cO + '/reverse?lat=47.123456&lon=8.654321&format=json').then(x => x.json()).catch(e => ({ fehler: String(e.message) }));
+      await new Promise(z => setTimeout(z, 600));
+      const treffer = [];
+      for (const n of await caches.keys()) { const cc = await caches.open(n); for (const k of await cc.keys()) if (/reverse|47\.123456/.test(k.url)) treffer.push(n + ': ' + k.url); }
+      return { antwort: r, treffer };
+    }, C.o);
+    const ok2 = h2.antwort && h2.antwort.display_name === 'Irgendwo' && !h2.treffer.length;
+    melde('H2 · Eine fremde API-Antwort (Nominatim mit Koordinaten) kommt an — und liegt danach in keinem Cache',
+      ok2, ok2 ? 'Antwort da · 0 Cache-Eintraege mit den Koordinaten' : JSON.stringify(h2).slice(0, 220));
+
+    // H3
+    const zaehle = () => t.evaluate(async (v) => {
+      const cc = await caches.open(v + '-shell'); const ks = await cc.keys();
+      return ks.filter(k => { const u = new URL(k.url); return !/\.[a-z0-9]+$/i.test(u.pathname) || /\.html$/.test(u.pathname); }).map(k => { const u = new URL(k.url); return u.pathname + u.search; });
+    }, version);
+    const vorH3 = await zaehle();
+    for (const a of ['/?r=1', '/?r=2', '/irgendein/pfad-3', '/?ref=share', '/?screen=favs', '/?billing=x', '/a/b/c', '/?lang=fr', '/index.html?q=9', '/install']) {
+      await t.goto(basisA + a, { waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => {});
+      await t.waitForTimeout(250);
+    }
+    await t.waitForTimeout(800);
+    const nachH3 = await zaehle();
+    await c.setOffline(true);
+    let offlineStart = null;
+    try {
+      await t.goto(basisA + '/?neu=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await t.waitForTimeout(1500);
+      offlineStart = await t.evaluate(() => (typeof GS_VERSION === 'string') ? GS_VERSION : null);
+    } catch (e) { offlineStart = 'Fehler: ' + String(e.message).split('\n')[0].slice(0, 60); }
+    await c.setOffline(false);
+    const neu = nachH3.filter(x => vorH3.indexOf(x) < 0 && x !== '/install.html');
+    const ok3 = !neu.length && /^v\d/.test(String(offlineStart));
+    melde('H3 · Zehn Navigationen mit eigener Adresse legen KEINE weitere Kopie der Seite ab — und offline startet die App unter einer neuen Adresse',
+      ok3, ok3 ? 'Shell-HTML ' + vorH3.length + ' → ' + nachH3.length + ' (' + nachH3.join(', ') + ') · offline ' + offlineStart
+               : (neu.length ? neu.length + ' neue Kopien: ' + neu.slice(0, 5).join(', ') : '') + ' · offline: ' + offlineStart);
+
+    // H4
+    await t.goto(basisA + '/', { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await t.waitForTimeout(1000);
+    const h4 = await t.evaluate(async (v) => {
+      for (let i = 0; i < 150; i += 15) { const teil = []; for (let j = i; j < i + 15; j++) teil.push(fetch('/robots.txt?h4=' + j).catch(() => null)); await Promise.all(teil); }
+      await new Promise(z => setTimeout(z, 1200));
+      const cc = await caches.open(v + '-runtime'); return (await cc.keys()).length;
+    }, version);
+    const ok4 = h4 > 0 && h4 <= 70 + 15;
+    melde('H4 · Der Runtime-Cache hat einen Deckel (150 Adressen geholt)', ok4,
+      ok4 ? h4 + ' Eintraege behalten (Ziel 60, Intervall 10)' : h4 + ' Eintraege — ' + (h4 ? 'ohne Deckel' : 'nichts abgelegt, der Fall misst nichts'));
+
+    // H5
+    const h5 = await t.evaluate(async (v) => {
+      await fetch('/robots.txt?h5=1'); await fetch('/__kachel/h5.png');
+      const g = await caches.open('gs-geteilt'); await g.put('/__geteilt/letztes', new Response('x', { headers: { 'X-Nonce': 'h5' } }));
+      await new Promise(z => setTimeout(z, 500));
+      const vor = await caches.keys();
+      const antwort = new Promise((z) => { navigator.serviceWorker.addEventListener('message', function f(e) { if (e.data && e.data.type === 'GS_ABGEMELDET') { navigator.serviceWorker.removeEventListener('message', f); z(e.data); } }); setTimeout(() => z(null), 5000); });
+      gsClearUserDataKeys();
+      const a = await antwort;
+      await new Promise(z => setTimeout(z, 300));
+      const nach = await caches.keys();
+      const sh = await caches.open(v + '-shell');
+      return { vor, nach, antwort: a, shell: (await sh.keys()).length };
+    }, version);
+    const weg = (n) => h5.vor.indexOf(n) >= 0 && h5.nach.indexOf(n) < 0;
+    const ok5 = weg(version + '-runtime') && weg(version + '-images') && h5.nach.indexOf('gs-geteilt') < 0 && h5.nach.indexOf(version + '-shell') >= 0 && h5.shell > 20;
+    melde('H5 · Abmelden (gsClearUserDataKeys) raeumt Runtime, Bilder und das geteilte Foto im Worker — die Shell bleibt',
+      ok5, ok5 ? 'vorher ' + h5.vor.length + ' Caches · nachher ' + h5.nach.join(', ') + ' · Shell ' + h5.shell + ' Eintraege'
+               : 'vorher ' + JSON.stringify(h5.vor) + ' · nachher ' + JSON.stringify(h5.nach) + ' · Antwort ' + JSON.stringify(h5.antwort));
+
+    // H6 · pdf.js aus dem eigenen Ursprung, unter der CSP, mit einem echten (kleinen) PDF
+    const h6 = await t.evaluate(async () => {
+      const inhalt = 'BT /F1 24 Tf 20 50 Td (Baerlauch) Tj ET';
+      const teile = ['%PDF-1.4\n', '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n', '2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n',
+        '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 100]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n',
+        '4 0 obj<</Length ' + inhalt.length + '>>stream\n' + inhalt + '\nendstream endobj\n', '5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n'];
+      let pdf = '', off = []; teile.forEach((x, i) => { if (i) off.push(pdf.length); pdf += x; });
+      const xref = pdf.length;
+      pdf += 'xref\n0 6\n0000000000 65535 f \n' + off.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') + 'trailer<</Size 6/Root 1 0 R>>\nstartxref\n' + xref + '\n%%EOF';
+      const o = {};
+      try {
+        const lib = await window._gsPdfjsLaden();
+        o.version = lib.version;
+        const doc = await lib.getDocument({ data: new TextEncoder().encode(pdf), isEvalSupported: false }).promise;
+        const seite = await doc.getPage(1);
+        o.text = (await seite.getTextContent()).items.map(i => i.str).join(' ');
+      } catch (e) { o.fehler = String(e && e.message).slice(0, 120); }
+      return o;
+    });
+    const ok6 = h6.text === 'Baerlauch' && /^4\./.test(String(h6.version));
+    melde('H6 · pdf.js aus assets/pdfjs/ laedt unter der CSP aus _headers und liest ein echtes PDF', ok6,
+      ok6 ? 'pdf.js ' + h6.version + ' · Text „' + h6.text + '"' : JSON.stringify(h6));
+  } catch (e) {
+    melde('Haertung: der Block lief nicht zu Ende', false, String(e.message || e).split('\n')[0].slice(0, 160));
+  } finally {
+    cspKopf = null;
+    await c.close().catch(() => {});
+    sA.close(); B.t.close(); C.t.close();
+  }
+}
 (async () => {
   const { s, port } = await server();
   const basis = 'http://127.0.0.1:' + port;
@@ -150,6 +351,13 @@ let zuletzt = '';   // der zuletzt gemeldete Fall — fuer die Gesamtfrist
   // nicht nachstellbar). Statt zu warten, sagt er, nach welchem Fall er stand,
   // und endet rot.
   const GESAMTFRIST_MS = 25 * 60 * 1000;
+  if (NUR_HAERTUNG) {
+    await haertung(br, melde);
+    console.log('  ---\n  Fragen geprueft: ' + HAERTUNG_FRAGEN + ' (nur Haertung) · davon rot: ' + kaputt);
+    await br.close(); s.close();
+    process.exitCode = kaputt ? 1 : 0;
+    return;
+  }
   setTimeout(() => {
     console.log('  !!   Zeitgrenze: der Pruefstand hing laenger als ' + Math.round(GESAMTFRIST_MS / 60000) + ' min'
       + '\n         → zuletzt gemeldet: „' + (zuletzt || '(noch kein Fall)') + '" — der haengende Schritt kommt danach');
@@ -1309,8 +1517,10 @@ let zuletzt = '';   // der zuletzt gemeldete Fall — fuer die Gesamtfrist
     }
   }
 
+  await haertung(br, melde);
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 41 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: ' + (41 + HAERTUNG_FRAGEN) + ' · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

@@ -1,22 +1,27 @@
 // stripe-admin-extend-webhook v2 — erweitert den greenscan-Webhook-Endpoint um account.* Events.
 // v29 (HL#19): Admin-Secret NICHT mehr hardcodiert (war im public Repo lesbar) — zur Laufzeit aus
 // app_settings.stripe_admin_secret gelesen (nur admin/service-role lesbar, nie im Repo).
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import Stripe from "npm:stripe@17";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import Stripe from "npm:stripe@17.7.0";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+// v33.59: das Admin-Geheimnis wird konstantzeitig verglichen (Hausregel _shared/auth_vergleich.mjs,
+// v32.72) — bis dahin `!==`. Ohne Kopfzeile keine Datenbank-Abfrage.
+import { adminGeheimnisOk } from "../_shared/zahlung_regeln.mjs";
 
 const REQUIRED_EVENTS = [
   "account.updated",
   "account.application.deauthorized",
+  "charge.refunded",   // v33.59: stripe-webhook entzieht eine Lifetime bei voller Erstattung
 ];
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
+  if (!req.headers.get("X-Admin-Secret")) return new Response("Forbidden", { status: 403 });
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: _sec } = await admin.from("app_settings").select("value").eq("key", "stripe_admin_secret").maybeSingle();
   const expectedSecret = _sec?.value || "";
-  if (!expectedSecret || req.headers.get("X-Admin-Secret") !== expectedSecret) return new Response("Forbidden", { status: 403 });
+  if (!adminGeheimnisOk(req.headers.get("X-Admin-Secret"), expectedSecret)) return new Response("Forbidden", { status: 403 });
 
   const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
   if (!stripeKey) return new Response(JSON.stringify({ error: "No STRIPE_SECRET_KEY" }), { status: 503, headers: { "Content-Type": "application/json" } });

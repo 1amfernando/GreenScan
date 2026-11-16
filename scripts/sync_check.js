@@ -75,7 +75,12 @@ const PROBEN = {
   'gs_garden_plans': '[{"id":"pl1"}]',
   'gs_garden_plan_current': '{"id":"pl1"}',
   'gs_gardens': '[{"id":"g1","name":"Hof"}]',
-  'gs_plantings': '[{"id":"pf1"}]',
+  // v33.59: die Pflanzung in ihrer HEUTIGEN Form — mit `tasks`. Seit der Pull
+  // auch den Arbeitsspeicher auffrischt, ruestet `_gsPflanzungenNachruesten`
+  // eine Pflanzung OHNE Aufgaben beim ersten Lesen nach (v32.47) und speichert
+  // sie; der Probewert kaeme dann zu Recht veraendert zurueck. Dasselbe geschah
+  // vorher beim naechsten Start — nur sah es dieser Pruefstand nicht.
+  'gs_plantings': '[{"id":"pf1","tasks":{}}]',
   'gs_gpx_tracks': '[{"id":"tr1"}]',
   'gs_doctor_history': '[{"q":"blatt"}]',
   'gs_ki_analyses': '[{"a":1}]',
@@ -332,6 +337,78 @@ const melde = (frage, ok, wie) => {
         : k.ereignisse + ' Ereignis(se) bei drei Renderings, Felder: „' + k.felder + '“, im Vokabular: ' + k.imVokabular);
   }
 
+  // ── v33.59 · Der Pull frischt auch den ARBEITSSPEICHER auf ──────────────
+  // (Fall uebernommen vom Zweig ccr-dce5a17c-2xzhvi, Austausch-Runde parallel-b3;
+  // die Reparatur dort setzte die UNGESIEBTE Liste — hier geht sie durch
+  // _gsListeEinspielen: Sieb, Speicher UND Variable.)
+  // Gemessen (Audit „robust", bestaetigt): der Login-Pull schrieb Gaerten und
+  // Pflanzungen NUR in den Geraetespeicher. Die Variablen `gardens` und
+  // `plantings` blieben, wie sie beim Parsen der Seite waren — auf einem
+  // frischen Geraet leer. Am Ende des Pulls steht `renderGarden()`, dessen
+  // erste Zeile `initDefaultGarden()` ist: leere Liste → „Mein Garten" anlegen
+  // → `saveGardenData()` schreibt DIESE Liste ueber das gerade Geholte und
+  // merkt sie zum Hochladen vor. Fuer Pflanzen frischte der Pull laengst auf
+  // (`myPlants = pd.plants`), fuer Gaerten nie.
+  const g = await page.evaluate(async () => {
+    const raus = {};
+    const HEUTE = (typeof _gsDayKey === 'function') ? _gsDayKey() : new Date().toISOString().slice(0, 10);
+    const G = [{ id: 'g-a', name: 'Hochbeet Süd', kind: 'hochbeet' }, { id: 'g-b', name: 'Balkon West', kind: 'balkon' }];
+    const AUFG = { water: { active: true, intervalDays: 3, lastDone: new Date().toISOString() } };   // heutige Form — sonst ruestet die App nach und speichert (v32.47)
+    const PL = [{ id: 'pl-a', gardenId: 'g-a', name: 'Tomate', date: HEUTE, tasks: AUFG }, { id: 'pl-b', gardenId: 'g-b', name: 'Basilikum', date: HEUTE, tasks: AUFG }];
+    const echt = window.sbFetch;
+    const hoch = [];
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      if (/\/rest\/v1\/user_gardens/.test(pfad) && m === 'GET') return { data: [{ data: { gardens: G, plantings: PL }, updated_at: new Date().toISOString() }], error: null, status: 200 };
+      if (/\/rest\/v1\/user_gardens/.test(pfad)) { try { hoch.push(JSON.parse(opts.body).data); } catch (_) {} return { data: [{}], error: null, status: 200 }; }
+      return { data: [], error: null, status: 200 };
+    };
+    const lies = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    // Der Push direkt nach dem Pull geht ueber `flushNow()` — den Beacon-Weg mit
+    // ROHEM fetch, an sbFetch vorbei (CLAUDE.md §7.1, sync_check). Also auch den abhoeren.
+    const echtFetch = window.fetch, exp0 = localStorage.getItem('gs_sb_expires');
+    window.fetch = async function (url, opts) {
+      if (/\/rest\/v1\/user_gardens/.test(String(url)) && opts && opts.body) { try { hoch.push(JSON.parse(opts.body).data); } catch (_) {} return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echtFetch.apply(this, arguments);
+    };
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));   // sonst ueberspringt der Beacon-Weg den Push (Token „abgelaufen")
+    try {
+      // Geraet B: frisch angemeldet. Lokal gibt es weder Gaerten noch Ungesendetes.
+      ['gs_gardens', 'gs_plantings', 'gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_synced_at_garden'].forEach(k => localStorage.removeItem(k));
+      gardens = []; plantings = [];
+      window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      await new Promise(r => setTimeout(r, 1800));   // renderGarden + ein moeglicher Flush (500 ms entprellt)
+      raus.speicher = lies('gs_gardens').map(x => x.name);
+      raus.arbeit = gardens.map(x => x.name);
+      raus.pflSpeicher = lies('gs_plantings').length;
+      raus.pflArbeit = plantings.length;
+      raus.hoch = hoch.map(d => ((d && d.gardens) || []).map(x => x.name).join('+') + ' / ' + (((d && d.plantings) || []).length) + ' Pfl.');
+      raus.vorgemerkt = localStorage.getItem('gs_sync_dirty_at_garden') ? 'ja' : 'nein';
+      // Gegenrichtung: UNGESENDETE lokale Aenderungen gewinnen weiter (v24.23) —
+      // sonst waere ein Pull, der immer ueberschreibt, ebenfalls gruen.
+      hoch.length = 0;
+      gardens = [{ id: 'g-lokal', name: 'Nur hier' }]; plantings = [];
+      saveGardenData();                                  // merkt 'garden' als ungesendet vor
+      window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      await new Promise(r => setTimeout(r, 300));
+      raus.lokalBleibt = gardens.map(x => x.name);
+    } catch (e) { raus.fehler = String(e && e.message); }
+    finally { window.sbFetch = echt; window.fetch = echtFetch; if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0); }
+    return raus;
+  });
+  {
+    const soll = 'Hochbeet Süd,Balkon West';
+    const ok = !g.fehler && g.speicher.join(',') === soll && g.arbeit.join(',') === soll && g.pflSpeicher === 2 && g.pflArbeit === 2
+      && !g.hoch.some(h => /Mein Garten/.test(h)) && g.vorgemerkt === 'nein' && g.lokalBleibt.join(',') === 'Nur hier';
+    melde('Der Pull frischt Gärten und Pflanzungen auch im ARBEITSSPEICHER auf — ein frisch angemeldetes Gerät überschreibt sie nicht mit „Mein Garten"', ok,
+      ok ? '2 Gärten und 2 Pflanzungen im Speicher UND im Arbeitsspeicher · nichts mit „Mein Garten" hochgeschoben · ungesendete lokale Änderung bleibt (' + g.lokalBleibt.join(',') + ')'
+        : (g.fehler ? 'Ausnahme: ' + g.fehler
+          : 'Cloud hatte „' + soll + '" + 2 Pflanzungen → Speicher: „' + g.speicher.join(',') + '" (' + g.pflSpeicher + ' Pfl.) · Arbeitsspeicher: „' + g.arbeit.join(',') + '" (' + g.pflArbeit + ' Pfl.)'
+            + (g.hoch.length ? ' · HOCHGESCHOBEN: ' + g.hoch.join(' | ') : '') + ' · zum Hochladen vorgemerkt: ' + g.vorgemerkt + ' · lokal ungesendet danach: „' + (g.lokalBleibt || []).join(',') + '"'));
+  }
+
   await b.close();
 
   // ── Bericht ────────────────────────────────────────────────────────────
@@ -378,7 +455,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 10 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 11 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();

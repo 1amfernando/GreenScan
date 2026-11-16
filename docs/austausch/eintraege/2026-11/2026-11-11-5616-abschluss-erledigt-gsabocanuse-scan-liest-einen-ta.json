@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-5616",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "11:43:32",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "erledigt: gsAboCanUse('scan') liest einen Tageszähler gs_scans_<Datum>, den keine Stelle schreibt — und der Zweig hat selbst keinen Aufrufer",
+  "ergebnis": "erledigt",
+  "wohin": "v33.59 auf dem Branch ccr-5e705a36-jveaak: der Zweig scan in gsAboCanUse ist entfernt; das Scan-Kontingent wird nur noch in callVisionAI über gsQuotaPeek / gsQuotaConsume durchgesetzt",
+  "geschwister": "gesucht: grep gs_scans_ in index.html → 0 nach der Änderung; gsAboCanUse wird nur mit ai_call gerufen (3×). GS_PLANS[plan].scans wird von gsAboCanUse nicht mehr gelesen — ob das Feld sonst nur zur Anzeige dient, ist nicht geändert",
+  "bewacht": "scripts/schluessel_check.js Fall „Scan-Kontingent an EINER Stelle“ (Gegenprobe: Peek-Tor aus → rot)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-2e3a"
+    }
+  ]
+}

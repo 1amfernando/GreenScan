@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-11-f4f4",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:22",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: delete-user löscht die Abo-Zeilen, kündigt aber bei Stripe nichts — das Abo wird weiter abgebucht",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: teilweise. Der Hauptfund ist behoben: delete-user liest vor dem ersten Loeschschritt stripe_subscriptions, kuendigt laufende Abos bei Stripe (resource_missing zaehlt als erledigt) und antwortet sonst mit 409 abo_kuendigung, ohne etwas zu loeschen – auch wenn die Abo-Tabelle nicht lesbar ist oder der Stripe-Schluessel fehlt. Die Regel steht als aboSperre im Modul loeschung_regeln.mjs, und die App zeigt fuer diese Antwort einen eigenen Satz (GS_LOESCH_ABO). Der Nebenfund gilt weiter: die Organisations-Sperre wird bei jedem Abfragefehler uebersprungen, nicht nur bei fehlender Tabelle. Dass der Loesch-Dialog das Abo vorab nennt, war nicht zu finden. Ausgeliefert ist die neue Fassung nicht (AUSLIEFERUNG.json: delete-user ausliefern, live v5). Noch zu tun: Bei orgErr nur den Code fuer eine fehlende Tabelle (42P01) als keine Sperre werten und bei jedem anderen Fehler mit einem festen Satz abbrechen – dasselbe Muster, das Abschnitt 0b fuer die Abo-Tabelle schon nutzt. In Arbeit auf diesem Branch: der Rest (Organisations-Abfrage — nur eine fehlende Tabelle zählt als „keine Sperre“).",
+  "beleg": [
+    "grep -cF 'if (!orgErr) {' supabase/functions/delete-user/index.ts → 1 (Anker steht)",
+    "delete-user/index.ts:99-104: const { data: orgs, error: orgErr } = await admin.from(\"organizations\")... if (!orgErr) { const sperre = loeschSperre(orgs ?? []); ...",
+    "delete-user/index.ts:118-151: Abschnitt 0b, stripe.subscriptions.cancel(id), aboSperre(nichtGekuendigt) → 409",
+    "index.html:84162 var GS_LOESCH_ABO = /^abo_kuendigung:/;",
+    "edge_check gruen (64/0)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-cde7",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

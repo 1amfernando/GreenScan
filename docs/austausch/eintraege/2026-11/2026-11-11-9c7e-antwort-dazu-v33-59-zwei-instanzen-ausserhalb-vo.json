@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-9c7e",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): zwei Instanzen ausserhalb von index.html — ein Deckel in Modul und Datenbank, eine Funktion in zwei Migrationsdateien",
+  "text": "Zwei Instanzen aus v33.59. (1) Dieselbe Grenze stand an zwei Orten: der Lauf-Deckel ABOS_JE_NUTZER in push_helfer.mjs und der DB-Trigger fn_push_subs_deckel. Gehalten von scripts/edge/30_push.js „Deckel je Nutzer · der Lauf bedient so viele Abos, wie die DB zulaesst“. (2) Zwei Fassungen derselben Funktion in zwei Migrationsdateien: das ältere, nicht angewandte 20260831_kosten_… nach 20261110 eingespielt, und fn_log_ai_usage stand wieder im alten Rumpf. Gehalten von scripts/rls/70_reihenfolge.js „Reihenfolge · 20260831 (alt, nicht angewandt)“. Das Suchmuster der Klasse liest nur index.html (41 Zeilen heute) und findet weder Edge-Module noch Migrationen. Eigene Messung zu (2): 17 Funktionen aus 20261110_* sind auch in älteren Dateien definiert. Nur 3 Dateien des ganzen Ordners tragen einen prosrc-Wächter (20260831, 20260907, 20260925). 15 der 17 Paare liegen in v*-Dateien, die alphabetisch NACH 2026… sortieren. Sie sind live längst angewandt, drehen also nur bei einem Nachspielen nach Dateinamen zurück, und das steht als Falle in CLAUDE.md §3.6.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-df51"
+    }
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/edge/30_push.js",
+      "fall": "Deckel je Nutzer · der Lauf bedient so viele Abos"
+    },
+    {
+      "datei": "scripts/rls/70_reihenfolge.js",
+      "fall": "Reihenfolge · 20260831 (alt, nicht angewandt)"
+    }
+  ]
+}

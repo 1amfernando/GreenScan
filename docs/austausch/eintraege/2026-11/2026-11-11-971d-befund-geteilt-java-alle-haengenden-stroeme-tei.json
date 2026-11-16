@@ -1,0 +1,30 @@
+{
+  "id": "2026-11-11-971d",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/offen",
+  "stand": "v33.59",
+  "titel": "Geteilt.java: alle haengenden Stroeme teilen EINEN Waechter-Faden — haengt close() bei einem Anbieter, laufen die anderen Fristen nicht mehr ab",
+  "text": "Benannte Grenze, nur im Fliesstext. KOMMT_MAX_MS soll zwei haengende Anbieter nach Frist schliessen; blockiert strom.close() selbst, haelt es den einzigen Faden fest, und die Plaetze bleiben bis zum Prozessende belegt. apk_check G-Faelle stellen kein haengendes close().",
+  "beleg": [
+    "grep -n 'ScheduledThreadPoolExecutor' android/src/ch/greenscan/app/Geteilt.java → waechterBauen() baut new ScheduledThreadPoolExecutor(1, …)",
+    "CLAUDE.md §4e Punkt 7: „Offen aus der Gegenprüfung: alle haengenden Stroeme teilen EINEN Waechter-Faden“"
+  ],
+  "vorschlag": "close() auf einem eigenen Faden je Strom mit Zeitgrenze oder Pool mit mehr als einem Faden; Fall in scripts/apk/GeteiltFahrer.java mit einem Strom, dessen close() blockiert.",
+  "stichworte": [
+    "Geteilt.java",
+    "KOMMT_MAX_MS",
+    "WAECHTER",
+    "apk_check",
+    "GeteiltFahrer.java",
+    "Teilen",
+    "Android-Huelle"
+  ],
+  "anker": [
+    {
+      "datei": "android/src/ch/greenscan/app/Geteilt.java",
+      "text": "private static final ScheduledThreadPoolExecutor WAECHTER = waechterBauen();"
+    }
+  ]
+}

@@ -12,6 +12,18 @@
 key.properties
 store/**/android-signing.keystore
 
+# --- Zugangsdaten (v33.59): scripts/i18n_translate.sh spricht von einer .env mit dem
+# Service-Role-Schluessel. Das Repo ist oeffentlich UND der Web-Root — eine .env im
+# Wurzelverzeichnis waere nach einem `git add -A` fuer jeden abrufbar.
+.env
+.env.*
+!.env.example
+*.key
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+**/service-account*.json
+
 # --- Android-Build (Bubblewrap erzeugt das Projekt lokal) ---
 store/android/app/
 store/android/.gradle/
@@ -39,7 +51,9 @@ store/ios/package-lock.json
 
 # v32.69: Playwright fuer die Pruefstaende liegt in scripts/ (siehe scripts/package.json)
 /scripts/node_modules/
-/scripts/package-lock.json
+# v33.59: scripts/package-lock.json ist EINGECHECKT — CI faehrt `npm ci` dagegen
+# (Integritaets-Hashes). Die Zeile, die sie hier ausschloss, liess `git add -A` die
+# Datei still ueberspringen: der Workflow verlangte ein Lockfile, das es im Repo nie gab.
 
 # Android-Huelle: Bauverzeichnis und der Wegwerf-Schluessel fuer die Entwicklung
 android/build/

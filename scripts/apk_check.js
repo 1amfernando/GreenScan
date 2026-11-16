@@ -175,7 +175,7 @@ public class Fahrer {
       "/../_headers", "/..%2f_headers", "/%2e%2e/x", "/%252e%252e/x",
       "/a/../../b", "/a\\\\b", "//index.html" };
     for (String p : pfade) z("N:" + p, Pfade.normieren(p));
-    String[] typen = { "a.html", "a.js", "a.mjs", "a.css", "a.json", "a.png", "a.svg", "a.bin", "a", "a.JS" };
+    String[] typen = { "a.html", "a.js", "a.mjs", "a.css", "a.json", "a.png", "a.svg", "a.bin", "a", "a.JS", "a.txt", "a.woff2" };
     for (String t : typen) z("M:" + t, Pfade.mimeTyp(t));
     String[][] urspruenge = {
       {"https","green-scan.ch"}, {"HTTPS","GREEN-SCAN.CH"}, {"https","www.green-scan.ch"},
@@ -184,6 +184,24 @@ public class Fahrer {
       {"https","green-scan.ch.boese.example"}, {null,null}
     };
     for (String[] u : urspruenge) z("U:" + u[0] + "|" + u[1], String.valueOf(Pfade.imUrsprung(u[0], u[1])));
+    // v33.59: der Port gehoert zum Ursprung — :8443 ist ein ANDERER (Fund android-huelle#3).
+    String[][] ports = { {"https","green-scan.ch","-1"}, {"https","green-scan.ch","443"}, {"https","green-scan.ch","8443"},
+      {"https","green-scan.ch","80"}, {"http","green-scan.ch","443"}, {"https","GREEN-SCAN.CH","-1"}, {"https","abc.supabase.co","443"} };
+    for (String[] u : ports) z("UP:" + u[0] + "|" + u[1] + "|" + u[2], String.valueOf(Pfade.imUrsprung(u[0], u[1], Integer.parseInt(u[2]))));
+    // v33.59: welche Schemata duerfen nach draussen (android-huelle#4)?
+    String[] schemata = { "https", "HTTPS", "http", "mailto", "tel", "geo", "intent", "file", "content", "javascript",
+      "data", "market", "blob", "sms", "android-app", "", null };
+    for (String sc : schemata) z("D:" + sc, String.valueOf(Pfade.darfNachDraussen(sc)));
+    // v33.59: die Weiche fuer den HAUPTRAHMEN (android-huelle#3) — fremd im Hauptrahmen ist „nein", nie „netz".
+    Object[][] weichen = { {true,"https","green-scan.ch",-1}, {false,"https","green-scan.ch",-1}, {true,"https","checkout.stripe.com",-1},
+      {false,"https","abc.supabase.co",-1}, {true,"https","green-scan.ch",8443}, {false,"https","green-scan.ch",8443},
+      {true,"http","green-scan.ch",-1}, {true,null,null,-1} };
+    for (Object[] w : weichen) z("WE:" + w[0] + "|" + w[1] + "|" + w[2] + "|" + w[3],
+      Pfade.weiche((Boolean) w[0], (String) w[1], (String) w[2], (Integer) w[3]));
+    String[][] haupt = { {"https","green-scan.ch","-1","https://green-scan.ch/?source=app"}, {null,null,"-1","about:blank"},
+      {"https","checkout.stripe.com","-1","https://checkout.stripe.com/x"}, {"https","green-scan.ch","8443","https://green-scan.ch:8443/"},
+      {"data",null,"-1","data:text/html,x"}, {"about",null,"-1","about:blank#x"}, {null,null,"-1",null} };
+    for (String[] h2 : haupt) z("HR:" + h2[3], String.valueOf(Pfade.hauptRahmenOk(h2[0], h2[1], Integer.parseInt(h2[2]), h2[3])));
     String h = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(a[0])), "UTF-8");
     java.util.LinkedHashMap<String,String> k = Pfade.kopfzeilen(h);
     for (java.util.Map.Entry<String,String> e : k.entrySet()) z("H:" + e.getKey(), e.getValue());
@@ -240,9 +258,49 @@ public class Fahrer {
                       : { ok: true, info: Object.keys(erwartetU).length + ' Adressarten, darunter blob:, data:, javascript: und ein aehnlich aussehender Wirt' },
   });
 
+  // P6–P8 (v33.59) — Port, Schemata nach draussen, die Weiche des Hauptrahmens.
+  const erwartetUP = {
+    'UP:https|green-scan.ch|-1': 'true', 'UP:https|green-scan.ch|443': 'true', 'UP:https|green-scan.ch|8443': 'false',
+    'UP:https|green-scan.ch|80': 'false', 'UP:http|green-scan.ch|443': 'false', 'UP:https|GREEN-SCAN.CH|-1': 'true',
+    'UP:https|abc.supabase.co|443': 'false',
+  };
+  const falschUP = Object.keys(erwartetUP).filter(k => m[k] !== erwartetUP[k]);
+  F.push({
+    name: 'P6 · Der Port gehoert zum Ursprung: https://green-scan.ch:8443 ist NICHT die App (sonst liefe das Paket unter einem zweiten Ursprung)',
+    r: falschUP.length ? { ok: false, warum: falschUP.map(k => k + ' → ' + m[k] + ' (erwartet ' + erwartetUP[k] + ')').join(' · ') }
+                       : { ok: true, info: Object.keys(erwartetUP).length + ' Faelle — ohne Port und :443 eigen, :8443/:80 fremd' },
+  });
+  const erwartetD = {
+    'D:https': 'true', 'D:HTTPS': 'true', 'D:http': 'true', 'D:mailto': 'true', 'D:tel': 'true',
+    'D:geo': 'false', 'D:intent': 'false', 'D:file': 'false', 'D:content': 'false', 'D:javascript': 'false', 'D:data': 'false',
+    'D:market': 'false', 'D:blob': 'false', 'D:sms': 'false', 'D:android-app': 'false', 'D:': 'false', 'D:null': 'false',
+  };
+  const falschD = Object.keys(erwartetD).filter(k => m[k] !== erwartetD[k]);
+  F.push({
+    name: 'P7 · Nach draussen nur, was die App wirklich oeffnet: https, http, mailto, tel — nie intent:, file:, content:, javascript:, data:, market:',
+    r: falschD.length ? { ok: false, warum: falschD.map(k => k + ' → ' + m[k] + ' (erwartet ' + erwartetD[k] + ')').join(' · ') }
+                      : { ok: true, info: '5 erlaubt, ' + (Object.keys(erwartetD).length - 5) + ' abgewiesen (auch leer und null)' },
+  });
+  const erwartetWE = {
+    'WE:true|https|green-scan.ch|-1': 'paket', 'WE:false|https|green-scan.ch|-1': 'paket',
+    'WE:true|https|checkout.stripe.com|-1': 'nein', 'WE:false|https|abc.supabase.co|-1': 'netz',
+    'WE:true|https|green-scan.ch|8443': 'nein', 'WE:false|https|green-scan.ch|8443': 'netz',
+    'WE:true|http|green-scan.ch|-1': 'nein', 'WE:true|null|null|-1': 'nein',
+    'HR:https://green-scan.ch/?source=app': 'true', 'HR:about:blank': 'true', 'HR:https://checkout.stripe.com/x': 'false',
+    'HR:https://green-scan.ch:8443/': 'false', 'HR:data:text/html,x': 'false', 'HR:about:blank#x': 'false', 'HR:null': 'false',
+  };
+  const falschWE = Object.keys(erwartetWE).filter(k => m[k] !== erwartetWE[k]);
+  F.push({
+    name: 'P8 · Der Hauptrahmen verlaesst den eigenen Ursprung nie: fremd im Hauptrahmen ist „nein" (auch ein POST), nur about:blank daneben',
+    r: falschWE.length ? { ok: false, warum: falschWE.map(k => k + ' → ' + m[k] + ' (erwartet ' + erwartetWE[k] + ')').join(' · ') }
+                       : { ok: true, info: '8 Weichen-Faelle, 7 Hauptrahmen-Faelle — Unterrahmen und Unteranfragen fremd bleiben „netz"' },
+  });
+
   const erwartetM = { 'M:a.html': 'text/html', 'M:a.js': 'text/javascript', 'M:a.mjs': 'text/javascript',
     'M:a.css': 'text/css', 'M:a.json': 'application/json', 'M:a.png': 'image/png', 'M:a.svg': 'image/svg+xml',
-    'M:a.bin': 'application/octet-stream', 'M:a': 'application/octet-stream', 'M:a.JS': 'text/javascript' };
+    'M:a.bin': 'application/octet-stream', 'M:a': 'application/octet-stream', 'M:a.JS': 'text/javascript',
+    // v33.59: die Lizenztexte im Paket (B6) und die Schriften — beide antworten mit ihrem Typ, nicht octet-stream.
+    'M:a.txt': 'text/plain', 'M:a.woff2': 'font/woff2' };
   const falschM = Object.keys(erwartetM).filter(k => m[k] !== erwartetM[k]);
   F.push({
     name: 'P3 · mimeTyp ist eine GESCHLOSSENE Liste (Unbekanntes wird nicht geraten)',
@@ -395,6 +453,8 @@ function rechnungGeteilt() {
     'G7 · Annehmen: jede Ausnahme der Quelle (auch SecurityException, OutOfMemoryError) endet in einem Grund, der Strom wird geschlossen — auch einer, der nie endet',
     'G8 · Nur SEND und SEND_MULTIPLE — nie eine wiederhergestellte Activity, nie ein Start aus der Liste der letzten Apps',
     'G9 · Der Anstoss an die Seite ist ein fester Text ohne Daten',
+    'G10 · Je Teilen lebt KEIN Waechter-Faden weiter: 200 schnelle Teilen hinterlassen hoechstens einen Faden, und keine offene Frist',
+    'G11 · Dateiauswahl: dieselbe Quellen-Regel wie beim Teilen — file://, die eigene Autoritaet und ein @ fallen aus der Liste',
   ];
   if (!KANAL_KLASSEN) {
     NAMEN.forEach(n => F.push({ name: n, r: WERKZEUGE_DA ? { ok: false, warum: 'Geteilt.java wurde nicht uebersetzt (siehe X0)' }
@@ -461,11 +521,29 @@ function rechnungGeteilt() {
     'S:send': 'true', 'S:multiple': 'true', 'S:main': 'false', 'S:view': 'false', 'S:null': 'false', 'S:wiederhergestellt': 'false', 'S:aus_der_liste': 'false',
   }) });
   F.push({ name: NAMEN[8], r: pruef({ 'R:rueckruf': 'window.gsHuelleGeteilt && window.gsHuelleGeteilt();', 'R:json_ok': '{"huelle":1,"ok":true}' }) });
+  F.push({ name: NAMEN[9], r: pruef({ 'V:faeden': '200 hoechstens1', 'V:offen': '0' },
+    '200 Teilen mit der echten Frist (60 s) → hoechstens ein Waechter-Faden, 0 offene Fristen · A:waechter schliesst einen haengenden Strom weiter') });
+  F.push({ name: NAMEN[10], r: pruef({
+    'D:auswahl': '[0, 4, 5]', 'D:nur_file': '[]', 'D:null': '[]', 'D:ungleich': '[]', 'D:leer': '[]',
+  }, '9 Adressen → 3 bleiben (Medien, Fotos, media) · file://, eigene Autoritaet, Unter-Name, https, @ und null fallen weg · ungleiche Listen → nichts') });
 }
 
 // ===========================================================================
 // PAKET · build.sh wirklich laufen lassen und im APK nachsehen
 // ===========================================================================
+const B6_NAME = 'B6 · Die Lizenztexte der mitgelieferten Fremd-Dateien liegen im Paket (byte-gleich, am Web-Pfad)';
+// Jeder Lizenztext unter assets/, relativ zur Wurzel (dieselben Pfade wie im Web).
+function lizenzDateien() {
+  const aus = [];
+  (function lauf(d) {
+    fs.readdirSync(path.join(WURZEL, d), { withFileTypes: true }).forEach(e => {
+      const rel = d + '/' + e.name;
+      if (e.isDirectory()) lauf(rel);
+      else if (/^(licen[cs]e|copying|notice)/i.test(e.name) || /^licen[cs]e-/i.test(e.name)) aus.push(rel);
+    });
+  })('assets');
+  return aus.sort();
+}
 function paket() {
   if (!BAU_DA) {
     const w = { offen: true, warum: 'Android-Werkzeuge fehlen (aapt/zipalign/apksigner/dexer/android.jar) — das Paket wurde NICHT gebaut. '
@@ -474,7 +552,8 @@ function paket() {
      'B2 · Das Paket enthaelt die ECHTEN Dateien (byte-gleich)',
      'B3 · Die Version ist EINE Zahl — GS_VERSION steht im Paket',
      'B4 · targetSdk laesst sich auf einem aktuellen Telefon installieren',
-     'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA'].forEach(n => F.push({ name: n, r: w }));
+     'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA',
+     B6_NAME].forEach(n => F.push({ name: n, r: w }));
     return null;
   }
   const bau = spawnSync('bash', [path.join(ANDROID, 'build.sh')], { encoding: 'utf8', cwd: WURZEL, timeout: 600000 });
@@ -570,6 +649,23 @@ function paket() {
     name: 'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA',
     r: b5.length ? { ok: false, warum: b5.join(' · ') + ' (erwartet ' + typenWebB.join(',') + ')' }
                  : { ok: true, info: filterImPaket.length + ' Filter im Paket · SEND + SEND_MULTIPLE · ' + typenWebB.join(', ') },
+  });
+  // B6 — die Lizenztexte reisen mit (v33.59). Die Pflicht haengt an der
+  // WEITERGABE, nicht daran, ob die App die Datei liest: wer Schriften (OFL 1.1)
+  // und pdf.js (Apache-2.0) im APK verteilt, legt den Lizenztext dazu. Gesucht
+  // wird jeder Lizenztext unter assets/ (nicht eine feste Liste) — eine neue
+  // Bibliothek mit LICENSE daneben ist damit ab dem ersten Bau geprueft.
+  const lizenzen = lizenzDateien();
+  const b6 = lizenzen.filter(f => {
+    if (!imPaket.has(f)) return true;
+    const aus = spawnSync('unzip', ['-p', apk, 'assets/www/' + f], { maxBuffer: 1 << 24 });
+    return md5(aus.stdout) !== md5(fs.readFileSync(path.join(WURZEL, f)));
+  });
+  F.push({
+    name: B6_NAME,
+    r: !lizenzen.length ? { ok: false, warum: 'kein Lizenztext unter assets/ gefunden — die Suche misst nichts' }
+      : b6.length ? { ok: false, warum: b6.length + ' von ' + lizenzen.length + ' fehlen im Paket oder weichen ab: ' + b6.join(', ') }
+      : { ok: true, info: lizenzen.length + ' Lizenztexte byte-gleich an ihrem Web-Pfad: ' + lizenzen.join(', ') },
   });
   return apk;
 }
@@ -757,7 +853,7 @@ function rand() {
   if (!/if \(!vorne\) \{ ausstehend = d; return; \}/.test(MAINACT_OHNE)) r14.push('ein Dialog kann aus dem Hintergrund starten (Android 10+ verwirft ihn still)');
   if (!/catch \(ActivityNotFoundException e\) \{\s*wartetId = null; wartetBytes = 0;\s*abschluss\(d\.id, "fehler"\);/.test(MAINACT_OHNE)) r14.push('kein Dialog-Programm → kein Ergebnis an die Seite');
   if (!/b\.putString\("gs_export_id", wartetId\)/.test(MAINACT_OHNE) || !/zustand\.getString\("gs_export_id"\)/.test(MAINACT_OHNE)) r14.push('die Kennung ueberlebt keine neue Activity');
-  if (!/if \(ziel != null\) dokumentLoeschen\(ziel\);/.test(MAINACT_OHNE)) r14.push('ein Ergebnis ohne Vorgang laesst das leere Dokument stehen');
+  if (!/if \(ziel != null(?: && Geteilt\.quelleOk\(ziel\.getScheme\(\), ziel\.getAuthority\(\), getPackageName\(\)\))?\) dokumentLoeschen\(ziel\);/.test(MAINACT_OHNE)) r14.push('ein Ergebnis ohne Vorgang laesst das leere Dokument stehen');
   F.push({
     name: 'R14 · „Speichern unter": eigener Code, "wt" vor "w", nie eine leere Datei, Schreiben im Hintergrund, Dialog nur von vorne',
     r: r14.length ? { ok: false, warum: r14.join(' · ') } : { ok: true, info: codes.map(x => x[0] + '=' + x[1]).join(', ') },
@@ -895,6 +991,74 @@ function rand() {
     r: r18.length ? { ok: false, warum: r18.join(' · ') } : { ok: true, info: 'SEND + SEND_MULTIPLE · ' + (typenWeb || []).join(', ') + ' · singleTask · Fach static final, Uhr monoton' },
   });
 
+  // ---------------------------------------------------------------- v33.59
+  // R19 — Ergebnis-Adressen FREMDER Apps (android-huelle#1). GET_CONTENT und
+  // CREATE_DOCUMENT sind implizit: jede App mit passendem Filter darf antworten.
+  // Eine Antwort file:///data/data/ch.greenscan.app/… liesse die WebView die
+  // EIGENEN Privatdateien lesen (Sitzung in Local Storage) bzw. dorthin schreiben.
+  // Die Regel steht in Geteilt (quelleOk/auswahl, G1/G11); hier steht, dass der
+  // Rand sie fuer BEIDE Ergebnisse ruft, bevor die WebView bzw. schreiben() sie sieht.
+  const r19 = [];
+  const ergebnis = (MAINACT_OHNE.match(/protected void onActivityResult\(int kennung, int ergebnis, Intent daten\) \{([\s\S]*?)\n  \}/) || ['', ''])[1];
+  const datei = (ergebnis.split('if (kennung == ANFRAGE_DATEI) {')[1] || '');
+  const iAusw = datei.indexOf('Geteilt.auswahl('), iGeben = datei.indexOf('offeneDateiwahl.onReceiveValue(');
+  if (!(iAusw >= 0 && iGeben > iAusw)) r19.push('die Dateiauswahl reicht die Adressen ungeprueft an die WebView (kein Geteilt.auswahl VOR onReceiveValue)');
+  if (!/getPackageName\(\)/.test(datei)) r19.push('die Dateiauswahl kennt das eigene Paket nicht');
+  const speichern = (ergebnis.split('if (kennung == ANFRAGE_SPEICHERN) {')[1] || '').split('if (kennung == ANFRAGE_DATEI)')[0];
+  const iQ = speichern.indexOf('if (!Geteilt.quelleOk('), iSchr = speichern.indexOf('schreiben(ziel, spool, bytes)');
+  if (!(iQ >= 0 && iSchr > iQ)) r19.push('„Speichern unter" schreibt auf ein Ziel, dessen Quelle niemand geprueft hat');
+  const vorSchreiben = iQ >= 0 ? speichern.slice(iQ, speichern.indexOf(';', speichern.indexOf('return', iQ)) + 1) : '';
+  if (/dokumentLoeschen/.test(vorSchreiben)) r19.push('ein abgewiesenes Ziel wird geloescht — das waere ein Loeschen auf Zuruf einer fremden App');
+  // Auch der Zweig „Ergebnis ohne Vorgang" loescht nur ein Ziel, das die Quellen-Regel durchlaesst.
+  speichern.split('\n').filter(z => /dokumentLoeschen\(ziel\)/.test(z) && !/Geteilt\.quelleOk\(/.test(z))
+    .forEach(() => r19.push('„Speichern unter" loescht ein Ziel ohne die Quellen-Regel (Loeschen auf Zuruf einer fremden App)'));
+  if (/MediaStore\.ACTION_IMAGE_CAPTURE|EXTRA_OUTPUT/.test(MAINACT_OHNE)) r19.push('die Huelle baut eine eigene Kamera-Ausgabe — die braucht dann eine eigene Ausnahme in der Regel');
+  F.push({
+    name: 'R19 · Ergebnisse fremder Apps: Dateiauswahl und „Speichern unter" gehen durch die Quellen-Regel, bevor die WebView bzw. das Schreiben sie sieht',
+    r: r19.length ? { ok: false, warum: r19.join(' · ') } : { ok: true, info: 'ANFRAGE_DATEI → Geteilt.auswahl → onReceiveValue (leer → null) · ANFRAGE_SPEICHERN → Geteilt.quelleOk → schreiben' },
+  });
+
+  // R20 — der Ursprung (android-huelle#3): Kamera und Standort nur fuer
+  // https://green-scan.ch, der Port zaehlt mit, und der Hauptrahmen verlaesst
+  // den eigenen Ursprung nie — weder ueber einen POST (an shouldOverrideUrlLoading
+  // vorbei) noch ueber eine Weiterleitung (onPageStarted als zweite Schranke).
+  const r20 = [];
+  const perm = (MAINACT_OHNE.match(/public void onPermissionRequest\(final PermissionRequest anfrage\) \{([\s\S]*?)\n      \}/) || ['', ''])[1];
+  const iUrs = perm.indexOf('AssetServer.imUrsprung(anfrage.getOrigin())'), iGrant = perm.indexOf('anfrage.grant(');
+  if (!(iUrs >= 0 && iGrant > iUrs)) r20.push('onPermissionRequest gibt die Kamera frei, ohne den anfragenden Ursprung zu pruefen');
+  const iOffen = perm.indexOf('offeneMedienfrage = anfrage');
+  if (iOffen >= 0 && !(iUrs >= 0 && iOffen > iUrs)) r20.push('eine fremde Kamera-Anfrage wird fuer spaeter gemerkt');
+  const geo = (MAINACT_OHNE.match(/public void onGeolocationPermissionsShowPrompt\(String ursprung,[\s\S]*?\{([\s\S]*?)\n      \}/) || ['', ''])[1];
+  const iGUrs = geo.indexOf('AssetServer.imUrsprung(Uri.parse(ursprung))'), iGJa = geo.indexOf('rueckruf.invoke(ursprung, true');
+  if (!(iGUrs >= 0 && iGJa > iGUrs)) r20.push('der Standort wird freigegeben, ohne den Ursprung zu pruefen');
+  if (!/static boolean imUrsprung\(Uri u\) \{[\s\S]*?Pfade\.imUrsprung\(u\.getScheme\(\), u\.getHost\(\), u\.getPort\(\)\)/.test(AS_OHNE)) r20.push('AssetServer.imUrsprung prueft den Port nicht (https://green-scan.ch:8443 bekaeme die App aus dem Paket)');
+  const iWeiche = asRumpf.indexOf('Pfade.weiche(hauptRahmen, u.getScheme(), u.getHost(), u.getPort())');
+  const iTor = asRumpf.indexOf('if (!imUrsprung(u)) return null;');
+  if (!(iWeiche >= 0 && iTor > iWeiche)) r20.push('ein fremder Hauptrahmen (z. B. ein POST) geht ins Netz — die Weiche fragt Pfade.weiche nicht VOR dem Tor');
+  const start = (MAINACT_OHNE.match(/public void onPageStarted\((?:final )?WebView v, String url, Bitmap[^)]*\) \{([\s\S]*?)\n      \}/) || ['', ''])[1];
+  if (!/Pfade\.hauptRahmenOk\(/.test(start) || !/stopLoading\(\)/.test(start)) r20.push('keine zweite Schranke in onPageStarted (ein fremder Ursprung im Hauptrahmen bliebe stehen)');
+  const notCsp = (AS_OHNE.match(/not\.put\("Content-Security-Policy", "([^"]+)"\)/) || [])[1] || '';
+  if (!/form-action/.test(notCsp) || !/frame-src/.test(notCsp)) r20.push('die Not-CSP hat kein form-action/frame-src');
+  F.push({
+    name: 'R20 · Der Ursprung: Kamera und Standort nur fuer https://green-scan.ch (mit Port), der Hauptrahmen bleibt im eigenen Ursprung — auch bei POST und Weiterleitung',
+    r: r20.length ? { ok: false, warum: r20.join(' · ') } : { ok: true, info: 'getOrigin/Uri.parse → imUrsprung(Schema, Wirt, Port) vor grant/invoke · Pfade.weiche vor dem Tor · onPageStarted → hauptRahmenOk' },
+  });
+
+  // R21 — nach draussen (android-huelle#4): nur die Schemata aus Pfade.darfNachDraussen
+  // (P7), mit CATEGORY_BROWSABLE, ohne Komponente, nie Intent.parseUri — und eine
+  // SecurityException beendet die App nicht.
+  const r21 = [];
+  const raus = (MAINACT_OHNE.match(/private void nachDraussen\(Uri u\) \{([\s\S]*?)\n  \}/) || ['', ''])[1];
+  const iErl = raus.indexOf('Pfade.darfNachDraussen(u.getScheme())'), iStart = raus.indexOf('startActivity(');
+  if (!(iErl >= 0 && iStart > iErl)) r21.push('kein Blick auf das Schema vor startActivity (jedes Schema startet einen VIEW-Intent)');
+  if (!/addCategory\(Intent\.CATEGORY_BROWSABLE\)/.test(raus)) r21.push('ohne CATEGORY_BROWSABLE (erreicht auch Activities, die nie fuer das Web freigegeben wurden)');
+  if (/setComponent|setClassName|setPackage|parseUri|setSelector/.test(raus) || /Intent\.parseUri/.test(MAINACT_OHNE)) r21.push('der Intent bekommt eine Komponente oder wird aus der Adresse entfaltet');
+  if (!/catch \(RuntimeException e\)/.test(raus)) r21.push('nur ActivityNotFoundException gefangen — eine SecurityException beendet die App');
+  F.push({
+    name: 'R21 · Nach draussen nur erlaubte Schemata, mit CATEGORY_BROWSABLE, ohne Komponente — und keine Ausnahme beendet die App',
+    r: r21.length ? { ok: false, warum: r21.join(' · ') } : { ok: true, info: 'Pfade.darfNachDraussen vor startActivity · BROWSABLE · catch RuntimeException → kein_ziel' },
+  });
+
   // R8 — die LISTE ist die Pruefung: ein Eintrag ohne Durchsetzung waere eine
   // Behauptung, eine Durchsetzung ohne Eintrag eine Aenderung, die niemand
   // erklaert bekommt. Gemessen wird der kommentarfreie Quelltext NICHT — die
@@ -924,12 +1088,23 @@ function rand() {
   const imRepo = spawnSync('git', ['ls-files', 'android'], { cwd: WURZEL, encoding: 'utf8' }).stdout.split('\n').filter(Boolean);
   const schluessel = imRepo.filter(f => /\.(keystore|jks|p12|pem|key)$/i.test(f));
   const ignoriert = fs.readFileSync(path.join(WURZEL, '.gitignore'), 'utf8');
+  // v33.59 (android-huelle#7): das Passwort steht nie in einer Befehlszeile —
+  // argv ist fuer jedes Konto der Maschine lesbar (ps, /proc/<pid>/cmdline), und
+  // eine Anleitung mit dem Wert in der Zeile legt es in den Shell-Verlauf.
+  const BUILD_OHNE = BUILDSH.split('\n').filter(z => !/^\s*#/.test(z)).join('\n');
+  const README = fs.readFileSync(path.join(ANDROID, 'README.md'), 'utf8');
+  const r7 = [];
+  if (schluessel.length) r7.push('im Repo: ' + schluessel.join(', '));
+  if (!/android\/\.keystore-dev\//.test(ignoriert) || !/android\/build\//.test(ignoriert)) r7.push('android/build/ oder android/.keystore-dev/ steht nicht in .gitignore');
+  if (!/GS_APK_KS/.test(BUILDSH)) r7.push('der Schluessel kommt nicht aus GS_APK_KS');
+  if (/["' ]pass:/.test(BUILD_OHNE)) r7.push('build.sh reicht ein Passwort als pass:… auf der Befehlszeile weiter');
+  if (/-(?:store|key)pass\s/.test(BUILD_OHNE)) r7.push('build.sh reicht ein Passwort mit -storepass/-keypass auf der Befehlszeile weiter');
+  if (!/--ks-pass env:GS_APK_KS_PASS/.test(BUILD_OHNE) || !/--key-pass env:GS_APK_KS_PASS/.test(BUILD_OHNE)) r7.push('apksigner bekommt das Passwort nicht ueber env:');
+  if (/GS_APK_KS_PASS=['"]/.test(README) || /-(?:store|key)pass\s/.test(README)) r7.push('die Anleitung schreibt das Passwort in die Befehlszeile (Shell-Verlauf)');
   F.push({
-    name: 'R7 · Kein Signatur-Schluessel im Repo, und das Bauverzeichnis ist ignoriert',
-    r: (!schluessel.length && /android\/\.keystore-dev\//.test(ignoriert) && /android\/build\//.test(ignoriert)
-        && /GS_APK_KS/.test(BUILDSH))
-      ? { ok: true, info: 'Schluessel kommt aus GS_APK_KS, der Wegwerf-Schluessel ist ignoriert' }
-      : { ok: false, warum: schluessel.length ? 'im Repo: ' + schluessel.join(', ') : 'android/build/ oder android/.keystore-dev/ steht nicht in .gitignore' },
+    name: 'R7 · Kein Signatur-Schluessel im Repo, das Bauverzeichnis ist ignoriert — und das Passwort steht in keiner Befehlszeile',
+    r: r7.length ? { ok: false, warum: r7.join(' · ') }
+                 : { ok: true, info: 'Schluessel aus GS_APK_KS, Passwort ueber env: an apksigner, die Anleitung liest es mit read -s' },
   });
 }
 

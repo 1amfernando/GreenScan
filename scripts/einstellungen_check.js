@@ -451,7 +451,7 @@ const melde = (frage, ok, wie) => {
     // gelöschten Zustands, keine echten Befunde.
     // **Eine Frage, die nach einer Löschung misst, misst die Löschung.**
     localStorage.setItem('ps_myplants', JSON.stringify([{ id: 'p1', name: 'Basilikum' }]));
-    localStorage.setItem('gs_sb_token', 'pruefstand');
+    localStorage.setItem('gs_sb_token', 'pruef.stand.token');   // v33.59: JWT-Form wie _seed.js (robust_check „Pruefstands-Sitzung“)
     // `gsSnapshotBuildState` liest die App-Variablen, nicht nur den Speicher.
     // `myPlants` ist ein `var` im Skript-Bereich und steht NICHT auf `window`
     // (dieselbe Falle wie `socialPosts` in v32.24) — ohne `window.` zuweisen.

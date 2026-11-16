@@ -1,0 +1,34 @@
+{
+  "id": "2026-11-16-a6d5",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "09:47:38",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Vier Ereignisse des Stripe-Webhooks stehen im Admin-Protokoll als roher Slug",
+  "vorschlag": "Vier feste Zeilen in ACT (Ereignisse, die nicht aus dem Panel kommen — dieselbe Regel wie knowledge_growth_daily) und ein admin_check-Fall, der jede action aus den Edge-Functions gegen ACT hält.",
+  "beleg": [
+    "supabase/functions/stripe-webhook/index.ts schreibt audit_log mit action stripe_charge_failed, stripe_dispute_created, stripe_payment_method_attached, stripe_lifetime_revoked",
+    "_gsAdminAuditHtml: ACT kennt nur die Aktionen aus GS_ADM_AKTIONEN plus fünf feste Zeilen; grep -c stripe_charge_failed index.html → 0",
+    "Gegenprüfung der Gesamtprüfung g2 (16.11.2026): vorbestehend, nicht aus dieser Reparatur"
+  ],
+  "stichworte": [
+    "admin-panel",
+    "audit_log",
+    "stripe-webhook",
+    "roher-slug"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "knowledge_growth_daily:'📚 Wissens-Wachstum (Cron)'"
+    }
+  ],
+  "zaehle": [
+    {
+      "datei": "index.html",
+      "text": "stripe_charge_failed",
+      "n": 0
+    }
+  ]
+}

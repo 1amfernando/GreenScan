@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-4d6f",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/offen",
+  "stand": "v33.59",
+  "titel": "Datenschutz- und Bestandsentscheidungen aus v33.59: Name aus der E-Mail, Altbestand mit EXIF und genauen Orten, species-images, Logos, scan_cache, Archivdateien, Vorgabe-Rechte, KI-Schluessel fuer Adm",
+  "text": "Offen und nur durch dich entscheidbar (je mit Fuer und Wider in §30f): fn_handle_new_user setzt ohne Namen weiter den E-Mail-Anfang als display_name (sichtbar im Marktplatz); Fotos vor v33.59 in fuenf Buckets tragen EXIF, oeffentliche Funde stehen exakt (einmaliger Server-Lauf?); species-images-Zeilen nach Kontoloeschung; Organisations-Logos von fremden Hosts; scan_cache und Arten-Bilder mit fremder Adresse leeren; drei Dateien in docs/_archiv/ sind abrufbar (noindex verhindert nur die Indexierung); ALTER DEFAULT PRIVILEGES (16 SECURITY-DEFINER-Funktionen, 190 von 214 Relationen schreibbar fuer anon); den Anthropic-Schluessel auch Admins nicht mehr herausgeben; Magic-Link ueber PKCE; Update-Hinweis in der Android-Huelle (A/B); i18n-translate serverseitig verwerfen.",
+  "an": "fernando",
+  "haengt_daran": "Je ein einmaliger Server-Lauf oder eine Migration, die erst nach den Schritten in §30b sinnvoll ist; die Vorgabe-Rechte aendern, wie jede kuenftige Migration geschrieben werden muss.",
+  "stichworte": [
+    "fn_handle_new_user",
+    "display_name",
+    "_gsBildOhneMeta",
+    "EXIF",
+    "species-images",
+    "scan_cache",
+    "docs/_archiv",
+    "ALTER DEFAULT PRIVILEGES",
+    "fn_get_global_api_key",
+    "PKCE",
+    "i18n-translate",
+    "FUER-FERNANDO §30f"
+  ]
+}

@@ -33,7 +33,22 @@ module.exports = () => { try {
   // Anker identisch, und render_check vergleicht zwei Staende IM SELBEN Lauf.
   const now = Math.floor(Date.now() / D) * D;
   const set = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
-  set('gs_sb_token', 'pruefstand-kein-echter-token');   // nur gegen den Flash-Guard
+  // v33.59: eine Sitzung, die BLEIBT. Bis hierher stand ein Token ohne drei Teile da
+  // ('pruefstand-kein-echter-token') — gsSecurityInit prueft 500 ms nach dem Start die
+  // JWT-Form und raeumte ihn samt uid und E-Mail ab. Jeder Pruefstand, der laenger als
+  // eine halbe Sekunde laeuft (alle), vermass danach eine ABGEMELDETE App, ueber die sich
+  // nach rund drei Sekunden der Anmeldebildschirm legte. Gemessen am 10.11.2026 beim Bau
+  // von sicherheit_check. Der erste Lauf mit bleibender Sitzung (38 Pruefstaende) fand
+  // prompt zwei Dinge, die abgemeldet NIE messbar waren: der Schliessen-Knopf der
+  // Push-Frage blieb in jeder Sprache deutsch, und ein Flush ohne Aenderung stempelte
+  // „zuletzt gesichert" — das Backup hielt deshalb jeden Stand fuer geaendert (v33.26
+  // wirkte nur abgemeldet). Dieselbe Klasse wie v31.46 / v32.46 / v33.02: Beispieldaten
+  // sind die Messgrundlage von allem.
+  // Der Token hat die FORM eines JWT (drei Teile) und ist trotzdem keiner — es gibt hier
+  // kein Netz, gegen das er gelten koennte.
+  set('gs_sb_token', 'pruef.stand.token');
+  set('gs_sb_uid', '00000000-0000-4000-8000-000000000001');
+  set('gs_sb_email', 'pruefstand@example.invalid');
   set('gs_sb_expires', String(now + 30*D));
   set('gs_consent', { analytics:false });
   set('gs_lang', 'de');

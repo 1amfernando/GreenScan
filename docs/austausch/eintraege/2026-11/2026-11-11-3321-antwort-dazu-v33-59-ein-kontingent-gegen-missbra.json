@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-11-3321",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): ein Kontingent gegen Missbrauch gab zahlenden Kunden weniger als bisher",
+  "text": "Instanz v33.59: Die richtige Ursache war ein fehlendes Kontingent vor den KI-Functions. Die erste Abhilfe setzte Tageslimits für Plus und Pro, die zum Teil UNTER der alten Stundenbremse × 24 lagen. Die Zahlen waren „gesetzt, nicht gemessen“, nicht gegen das gehalten, was ein zahlender Kunde bekam und was die App ihm zusagt („unbegrenzt“). Gefunden hat es die Schlussprüfung, kein Prüfstand. Gehalten seither von scripts/edge/20_ki.js „Grenzen · ein BEZAHLTER Plan bekommt nie weniger als bisher“. Das Suchmuster der Klasse ist eine Handprüfung. Frage (1) „Messwert mit demselben Werkzeug reproduziert?“ hätte gegriffen, wenn die alte Bremse als Messwert vorgelegen hätte.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-7248"
+    }
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/edge/20_ki.js",
+      "fall": "Grenzen · ein BEZAHLTER Plan bekommt nie weniger als bisher"
+    }
+  ]
+}

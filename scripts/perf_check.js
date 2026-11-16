@@ -16,11 +16,11 @@ const path = require('path');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const FILE = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, '..', 'index.html');
 
+// v33.59: die Sitzung (und die Beispieldaten) aus _seed.js. Bis hierher setzte der
+// eigene Seed einen Token ohne drei Teile; gsSecurityInit raeumte ihn nach 500 ms ab,
+// gemessen wurde der Kaltstart einer ABGEMELDETEN App (Anmeldebildschirm statt Startseite).
+const SEED_APP = require('./_seed.js');
 const SEED = () => {
-  try {
-    localStorage.setItem('gs_sb_token', 'pruefstand');
-    localStorage.setItem('gs_sb_expires', String(Date.now() + 2592000000));
-  } catch (e) {}
   window.__long = [];
   try {
     new PerformanceObserver(l => { l.getEntries().forEach(e => window.__long.push(Math.round(e.duration))); })
@@ -40,6 +40,7 @@ const SEED = () => {
     await cdp.send('Profiler.enable');
     await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
     await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+    await p.addInitScript(SEED_APP);
     await p.addInitScript(SEED);
     await cdp.send('Profiler.start');
     await p.goto('file://' + FILE, { waitUntil: 'domcontentloaded', timeout: 180000 });

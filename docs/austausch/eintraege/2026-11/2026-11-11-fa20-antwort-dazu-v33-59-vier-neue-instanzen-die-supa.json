@@ -1,0 +1,30 @@
+{
+  "id": "2026-11-11-fa20",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): vier neue Instanzen — die Supabase-Attrappe, ein Nachbau ohne Live-Policy, Dialoge als Zähler, der COOP-Fall ohne Kopfzeile",
+  "text": "Drei neue Instanzen aus v33.59. (1) Die Supabase-Attrappe von edge_check beantwortete jede Einbettung und jede Spalte, deshalb war der stripe-webhook grün, der live jede Zahlung mit 500 beantwortet hätte. Gehalten von scripts/edge/10_stripe.js „Attrappe · verhaelt sich wie PostgREST“, dazu _live_schema.mjs mit Live-Fremdschlüsseln, PGRST200, 42703 und dem updated_at-Trigger. (2) Im rls-Nachbau fehlte die Live-Policy feedback_votes_update_own, und die Reparatur ging an ihr vorbei. Gehalten von scripts/rls/05_fixture_policies.js „Fixtures · jede Live-Policy einer nachgespielten Tabelle“. (3) Ein Dialog-Fall ersetzte die Dialoge durch Zähler. „Wurde aufgerufen“ stimmte, während der Anmeldebildschirm sie verdeckte. Messung ist elementFromPoint (CLAUDE.md §7.1). Die vierte Instanz, der COOP-Fall ohne Kopfzeilen und mit noopener auf einem Ursprung, ist auf dem Branch ccr-5e705a36-jveaak behoben: 98_schluss_d fährt die Stripe-Rückkehr jetzt unter den Kopfzeilen aus _headers auf zwei Ursprüngen. Das Suchmuster der Klasse liefert heute 99 Zeilen in scripts/*_check.js (am 10.11. waren es 87) und hätte keine der drei gefunden. Es durchsucht die Unterordner scripts/sicherheit|edge|rls nicht (dort 86 weitere Zeilen derselben Form), und eine Attrappe als eigenes Modul (_zahlung_supabase.mjs) oder als SQL-Fixture hat die Form window.X = function gar nicht.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-c699"
+    }
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/edge/10_stripe.js",
+      "fall": "Attrappe · verhaelt sich wie PostgREST"
+    },
+    {
+      "datei": "scripts/rls/05_fixture_policies.js",
+      "fall": "Fixtures · jede Live-Policy einer nachgespielten Tabelle"
+    },
+    {
+      "datei": "scripts/sicherheit/98_schluss_d.js",
+      "fall": "B · Rueckkehr aus Stripe unter der ECHTEN COOP aus _headers"
+    }
+  ]
+}
