@@ -250,8 +250,16 @@ grün). `rls/05_fixture_policies` hält jeden Nachbau gegen die Live-Policies
 Postgres an): Lauf 1 — 44 Prüfstände, **1 rot**: `robust_check` „Memory" (zwei neue Einträge
 in `docs/memory` hatten einen Funktionsnamen mitten im Namen umbrochen; der Fall las zwei
 Namen, die es nicht gibt — behoben, danach einzeln 29/0). Lauf 2 und Lauf 3 auf dem
-Endstand: **44 Prüfstände · rot: 0 · nicht prüfbar: 0**, beide. Der CI-Lauf auf GitHub
-fährt erst an einem PR; den gibt es noch nicht.
+Endstand: **44 Prüfstände · rot: 0 · nicht prüfbar: 0**, beide.
+
+**Am Endstand nach der Gesamtprüfung** (`b5f28ea`, 16.11.2026, `TZ=UTC`, lokales Postgres an):
+zwei volle Läufe von `bash scripts/pruefstaende.sh`, **45 Prüfstände · rot: 0 · nicht prüfbar: 0**,
+beide. Die CI an PR #327 („Alle Prüfstände", 10:01–10:29 UTC) ist auf demselben Stand
+**grün** — der erste grüne CI-Lauf dieses Branches (die früheren scheiterten am Paketspiegel
+des Runners). Danach geändert: nur dieser Eintrag und das Brett (`austausch_check` danach
+einzeln grün). `offline_check` hing in einer Gegenprüfung in Fall 35 („Worker-Wechsel"),
+allein gefahren lief er hier 48/0 in 148 s — der Hänger kam von zwei Playwright-Prüfständen
+gleichzeitig; die Prüfstände nicht parallel fahren.
 
 **Was NICHT geprüft werden konnte.**
 
@@ -359,7 +367,7 @@ Greifen erkennt) und Sektion 2 unten (je Migration und Entscheidung eine Zeile).
    `plan-iterate` (brett:2026-11-16-cfcd, Frage) und der Lifetime-Kauf eines gelöschten
    Kontos (brett:2026-11-16-adb3, Frage).
 
-**Offen:** brett:2026-11-11-795a (die Server-Seite ist weder angewandt noch ausgeliefert), brett:2026-11-11-a814, brett:2026-11-11-293d, brett:2026-11-11-4d6f, brett:2026-11-16-adb3, brett:2026-11-16-cfcd (fünf Fragen an Fernando), brett:2026-11-16-a6d5, brett:2026-11-16-50bd, brett:2026-11-16-a6d6, brett:2026-11-16-7ebf, brett:2026-11-11-669d, brett:2026-11-11-4a61, brett:2026-11-11-10a1, brett:2026-11-11-d233, brett:2026-11-11-f4d3, brett:2026-11-11-971d, brett:2026-11-11-7a6c, brett:2026-11-11-ec73, brett:2026-11-11-75c2 — je Zeile in §2 und in `docs/FUER-FERNANDO.md` §30
+**Offen:** brett:2026-11-11-795a (die Server-Seite ist weder angewandt noch ausgeliefert), brett:2026-11-11-a814, brett:2026-11-11-293d, brett:2026-11-11-4d6f, brett:2026-11-16-adb3, brett:2026-11-16-cfcd (fünf Fragen an Fernando), brett:2026-11-16-a6d5, brett:2026-11-16-50bd, brett:2026-11-16-a6d6, brett:2026-11-16-7ebf, die Fehlerklasse `2026-11-16-89ee` (liegt auf `claude/happy-thompson-24l4uu`: eine KI-Antwort nach dem Abmelden gehört der Person, die gefragt hat — 18 Wege offen, siehe die Antwort hier auf dem Brett), brett:2026-11-11-669d, brett:2026-11-11-4a61, brett:2026-11-11-10a1, brett:2026-11-11-d233, brett:2026-11-11-f4d3, brett:2026-11-11-971d, brett:2026-11-11-7a6c, brett:2026-11-11-ec73, brett:2026-11-11-75c2 — je Zeile in §2 und in `docs/FUER-FERNANDO.md` §30
 **Nicht geprüft:** ob die Edge-Functions in Deno starten und was Stripe, Anthropic und die Push-Dienste antworten; ob die Migrationen live dasselbe tun wie im Nachbau; die Live-Seite; die Android-Hülle auf einem Telefon; die Stripe-Rückkehr in Safari und Firefox; ob `notfall_sofort` / `notfall_hinweis` eine spanische Übersetzung haben (Einzelheiten oben unter „Was NICHT geprüft werden konnte")
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 
