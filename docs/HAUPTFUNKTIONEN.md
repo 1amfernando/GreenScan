@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 10 · Home 1, 2 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 10 · Home 1, 1b, 2 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -89,6 +89,11 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 1. ✅ v33.61 (dazu: in jeder anderen App-Sprache traf gar nichts) — **Saison-Tipp „Jetzt sammeln"** (`gsInitSmartSeasonTip`) vergleicht `season.indexOf(Monat)`
    statt `gsSaisonMonate` — „April–Juni" trifft den Mai nicht.
+   **1b ✅ v33.61 — und die Funktion hatte in der App keinen Aufrufer** (nur Prüfstände riefen sie
+   direkt). Auf dem Bildschirm stand `SEASON_DATA` aus `initHomeBoard` („Paprika" im März unter
+   „Jetzt sammeln") und online ein zufälliger `did_you_know_facts`-Eintrag (`v_today_tip`). Jetzt
+   ein Schreiber, und `_gsSammelSicher` lässt Pilze und Arten mit giftigem Doppelgänger draussen
+   (`scan_check` HS2 geht den Weg über `initHomeBoard`, HS3 misst 372 Tage).
 2. ✅ v33.61 (`scan_check` HW1, HW2; dazu: die Sturmwarnung las die Stunden 00–02 Uhr) — **Wetterkarte hat zwei Schreiber** (`loadHomeWeather`, `gsApplyWeatherToWidget`) mit
    eigenen Regeln für Frost und Regen statt `GS_WETTER_GRENZEN`; was dasteht, hängt davon ab,
    wer zuletzt lief. Kein Prüffall (`hw-*` kommt in `scripts/` nicht vor).

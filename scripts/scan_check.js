@@ -2443,6 +2443,135 @@ const FAELLE = [
     },
   },
   {
+    // HOME-1b. HS1 und E2 rufen gsInitSmartSeasonTip DIREKT — und in der App rief sie niemand.
+    // Gemessen 16.11.2026 auf der Startseite: im März „Paprika" unter „Jetzt sammeln" (aus
+    // SEASON_DATA, eine Aussaat), und online schrieb gsLoadSupabaseDailyContent einen zufälligen
+    // „Wusstest du?"-Eintrag hinein (v_today_tip liest did_you_know_facts — Alpendohlen, giftige
+    // Pflanzen). Drei Sitzungen haben die Rechnung verbessert, die nie auf dem Bildschirm ankam.
+    // Der Fall geht deshalb den WEG: initHomeBoard (Start und jeder Tab-Wechsel) → Karte, mit
+    // einem gestellten Server, der einen fremden Tagestipp liefert.
+    name: 'HS2 · Die Saison-Karte der Startseite kommt über den echten Weg aus gsInitSmartSeasonTip — Name, Kopf und Antippen gehören zu EINER Art, der Tagesinhalt vom Server schreibt nicht hinein',
+    lauf: async () => {
+      const karte = document.getElementById('season-tip-card');
+      const nameEl = document.getElementById('season-tip-name');
+      if (!karte || !nameEl || typeof initHomeBoard !== 'function') return { ok: false, warum: 'Saison-Karte oder initHomeBoard fehlt — der Fall misst nichts' };
+      const FREMD = 'Zzz-Fremder Tagestipp';
+      const eSb = window.sbFetch, eWx = window.loadHomeWeather, eGw = window.loadGardenWeather, eOd = window.openDetail, eMn = window.menuNav;
+      let faktenGefragt = 0, geoeffnet = null;
+      const f = [];
+      try {
+        // Das Wetter laeuft hier nicht mit: initHomeBoard plant es ein, und HW1 misst es danach.
+        window.loadHomeWeather = function () {}; window.loadGardenWeather = function () {};
+        window.sbFetch = async function (pfad) {
+          const p = String(pfad || '');
+          if (/v_today_tip/.test(p)) return { data: [{ title: FREMD, body: 'Alpendohlen nutzen Werkzeuge wie Affen.', icon: '🐦', category: 'animals' }], error: null };
+          if (/did_you_know_facts/.test(p)) { faktenGefragt++; return { data: [], error: null }; }
+          return { data: [], error: null };
+        };
+        nameEl.textContent = '';
+        initHomeBoard();
+        await new Promise((r) => setTimeout(r, 1500));   // der Server-Lader laeuft 300 ms danach
+        if (!faktenGefragt) f.push('der Server-Lader lief nicht — der Fall misst den fremden Tagestipp nicht');
+        const name = nameEl.textContent.replace(/\s+/g, ' ').trim();
+        const kopf = ((document.getElementById('season-tip-kopf') || {}).textContent || '').trim();
+        const teile = name.split(' · ');
+        const treffer = DB.filter((s) => s && s.name === teile[0] && (teile.length < 2 || s.lat === teile[1]));
+        const monat = new Date().getMonth();
+        if (!name) f.push('die Karte bleibt leer');
+        else if (name === FREMD) f.push('der „Wusstest du?"-Eintrag vom Server steht unter „' + kopf + '"');
+        else if (!treffer.length) f.push('„' + name + '" ist keine Art der Liste — die Karte kommt nicht aus gsInitSmartSeasonTip');
+        else if (!treffer.some((s) => _gsInSaison(s, monat))) f.push('„' + name + '" ist jetzt nicht in Saison');
+        if (treffer.length && /sammeln/i.test(kopf) && !treffer.some((s) => gsIstEssbar(s))) f.push('„' + name + '" steht unter „' + kopf + '", ist aber nicht essbar');
+        // Antippen öffnet die Art, die dasteht — nicht eine andere und nicht nur die Saisonansicht.
+        window.openDetail = function (id) { geoeffnet = { art: id }; };
+        window.menuNav = function (ziel) { geoeffnet = { menu: ziel }; };
+        karte.click();
+        if (!geoeffnet) f.push('Antippen tut nichts');
+        else if (geoeffnet.menu) f.push('Antippen öffnet „' + geoeffnet.menu + '" statt der Art auf der Karte');
+        else {
+          const sp = DB.find((s) => s && String(s.id) === String(geoeffnet.art));
+          if (!sp || sp.name !== teile[0]) f.push('Antippen öffnet „' + (sp ? sp.name : geoeffnet.art) + '", die Karte zeigt „' + teile[0] + '"');
+        }
+      } finally {
+        window.sbFetch = eSb; window.loadHomeWeather = eWx; window.loadGardenWeather = eGw; window.openDetail = eOd; window.menuNav = eMn;
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '„' + nameEl.textContent.trim().slice(0, 40) + '" · Server-Lader lief, Karte blieb · Antippen öffnet dieselbe Art' };
+    },
+  },
+  {
+    // HOME-1c. Mit dem Verdrahten (HS2) wurde eine Rechnung sichtbar, die nie auf dem Bildschirm
+    // stand. Gemessen über 372 Tage: an 158 Tagen ein Pilz unter „Jetzt sammeln", an 104 Tagen
+    // eine Art mit giftigem oder tödlichem Doppelgänger (Samtfussrübling — Gifthäubling). Die
+    // Karte zeigt keine Warnung; Pilze haben ihre eigene Karte (mushroom-season-card). Der Fall misst
+    // mit EIGENEM Massstab (Warnwörter, Doppelgänger in der Liste nachgeschlagen), nicht mit der
+    // Regel der App.
+    name: 'HS3 · „Jetzt sammeln" empfiehlt an keinem Tag des Jahres einen Pilz oder eine Art mit gefährlichem Doppelgänger — und an jedem Tag steht ein Tipp',
+    lauf: () => {
+      if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };
+      const WORT = /gift|tödlich|toedlich|lebensgef|verwechsl/i;
+      const nameEl = document.getElementById('season-tip-name'), kopfEl = document.getElementById('season-tip-kopf');
+      if (!nameEl) return { ok: false, warum: '#season-tip-name fehlt — der Fall misst nichts' };
+      const eM = Date.prototype.getMonth, eT = Date.prototype.getDate;
+      const vorher = nameEl.textContent;
+      const schlecht = [], leer = [];
+      let geprueft = 0, sammeln = 0;
+      const giftigerDoppelgaenger = (txt) => String(txt || '').replace(/\([^)]*\)/g, ' ').split(/[,;\/]|\bund\b|\boder\b/i)
+        .map((x) => x.trim()).filter((x) => x.length >= 3)
+        .map((x) => gsMatchScanToDb(x, '')).filter(Boolean)
+        .find((h) => (Number((_gsArtAnzeige(h) || h).tox) || 0) >= 3);
+      try {
+        for (let m = 0; m < 12; m++) {
+          for (let t = 1; t <= 31; t++) {
+            Date.prototype.getMonth = function () { return m; };
+            Date.prototype.getDate = function () { return t; };
+            nameEl.textContent = '';
+            gsInitSmartSeasonTip();
+            const name = nameEl.textContent.trim(), kopf = (kopfEl && kopfEl.textContent) || '';
+            const wo = (m + 1) + '/' + t;
+            if (!name) { leer.push(wo); continue; }
+            geprueft++;
+            if (!/sammeln/i.test(kopf)) continue;
+            sammeln++;
+            const teile = name.split(' · ');
+            const sp = DB.find((s) => s && s.name === teile[0] && (teile.length < 2 || s.lat === teile[1]));
+            if (!sp) { schlecht.push(wo + ' „' + name + '": keine Art der Liste'); continue; }
+            const a = _gsArtAnzeige(sp) || sp;
+            const warnung = [a.warning, sp.warning, a.lookalike, sp.lookalike].find((x) => _gsWarnungEcht(x) && WORT.test(String(x)));
+            if (/pilz/i.test(sp.cat || '')) schlecht.push(wo + ' ' + sp.name + ': ein Pilz');
+            else if (warnung) schlecht.push(wo + ' ' + sp.name + ': „' + String(warnung).slice(0, 50) + '"');
+            else {
+              const dg = giftigerDoppelgaenger(sp.lookalike) || giftigerDoppelgaenger(a.lookalike);
+              if (dg) schlecht.push(wo + ' ' + sp.name + ': Doppelgänger ' + dg.name + ' (Stufe ' + (_gsArtAnzeige(dg) || dg).tox + ')');
+            }
+          }
+        }
+      } finally { Date.prototype.getMonth = eM; Date.prototype.getDate = eT; nameEl.textContent = vorher; }
+      try { gsInitSmartSeasonTip(); } catch (_) {}   // wieder auf den echten Tag
+      const f = [];
+      // Das Nachschlagen der Doppelgänger greift an keinem der 372 Tage — die Arten, die es heute
+      // fängt, werden nie gewählt (Gegenprobe: Nachschlagen ausgebaut → der Jahreslauf blieb grün).
+      // Es wird deshalb an genau diesen Arten gemessen, mit eigenem Massstab gefunden: essbar,
+      // kein Pilz, kein Warnwort — aber ein Doppelgänger, den die Liste als giftig führt.
+      const ohneWort = DB.filter((s) => {
+        if (!s || !gsIstEssbar(s) || /pilz/i.test(s.cat || '')) return false;
+        const a = _gsArtAnzeige(s) || s;
+        if ([a.warning, s.warning, a.lookalike, s.lookalike].some((x) => _gsWarnungEcht(x) && WORT.test(String(x)))) return false;
+        return !!(giftigerDoppelgaenger(s.lookalike) || giftigerDoppelgaenger(a.lookalike));
+      });
+      if (typeof _gsSammelSicher !== 'function') f.push('_gsSammelSicher gibt es nicht');
+      else {
+        const durch = ohneWort.filter((s) => _gsSammelSicher(s));
+        if (durch.length) f.push(durch.length + ' von ' + ohneWort.length + ' Arten mit giftigem Doppelgänger ohne Warnwort gelten als sammelbar: ' + durch.slice(0, 3).map((s) => s.name + ' (' + s.lookalike + ')').join(' | '));
+      }
+      if (leer.length) f.push('an ' + leer.length + ' Tagen steht kein Tipp (' + leer.slice(0, 4).join(', ') + ')');
+      if (schlecht.length) f.push(schlecht.length + ' von ' + sammeln + ' Sammel-Tipps gefährlich: ' + schlecht.slice(0, 4).join(' | '));
+      if (sammeln < 300) f.push('nur ' + sammeln + ' von ' + geprueft + ' Tagen „Jetzt sammeln" — der Fall misst kaum etwas');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: geprueft + ' Tage · ' + sammeln + ' Sammel-Tipps, keiner ein Pilz, keiner mit Gift-Warnung oder giftigem Doppelgänger · ' + ohneWort.length + ' Arten mit giftigem Doppelgänger ohne Warnwort abgelehnt' };
+    },
+  },
+  {
     // HOME-2. Zwei Ladewege schrieben dieselbe Karte, jeder nach eigenen Regeln: loadHomeWeather
     // (Start, alle zwei Stunden) mit Text und Ort, gsApplyWeatherToWidget (Zwischenspeicher) mit
     // einem Gartentipp, anderer Symboltabelle und anderem Format. Was dastand, hing davon ab, wer

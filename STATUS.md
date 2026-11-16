@@ -109,6 +109,24 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
 - **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
   im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
   über `gsSaisonMonate`.
+- **Startseite — der Saison-Tipp stand nie auf dem Bildschirm (Home 1b).** Beim Bau von Home 5
+  gefunden: `gsInitSmartSeasonTip` hatte in der App **keinen Aufrufer** (im flachen Klon bis v33.13
+  zurück nachgesehen) — HS1 und E2 riefen sie direkt, und drei Sitzungen (v32.86, v33.08, Home 1
+  dieser Sitzung) haben eine Rechnung verbessert, die niemand sah. Auf der Startseite gemessen
+  (`page.clock`, ohne Netz): `initHomeBoard` schrieb aus `SEASON_DATA` — am 10.03. „Paprika" (eine
+  Voranzucht) unter „Jetzt sammeln", im Herbst Pilze wie der Hallimasch; online überschrieb
+  `gsLoadSupabaseDailyContent` die Karte 300 ms später mit `v_today_tip` — live nachgelesen (nur
+  lesend): die Sicht liefert einen zufälligen aktiven Eintrag aus `did_you_know_facts` (32
+  Tierfakten, „Alpen-Milch-Stern duftlos aber giftig" …). Das Antippen öffnete die Saisonansicht.
+  Jetzt EIN Schreiber (`initHomeBoard` → `gsInitSmartSeasonTip`), der Server-Block ist weg, das
+  Antippen öffnet die Art, die dasteht, und die Nachlade-Kette ohne Artenliste ist gedeckelt (eine
+  zur Zeit, 40 Versuche — `initHomeBoard` läuft bei jedem Tab-Wechsel). **Und beim Verdrahten
+  gemessen, was die nie gesehene Rechnung empfohlen hätte:** an 158 von 372 Tagen einen Pilz, an
+  104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger (Samtfussrübling — Gifthäubling).
+  `_gsSammelSicher`: kein Pilz (die haben ihre eigene Karte), keine Warnung oder Verwechslung mit
+  Gift-Wort (Art und Eintrag), kein Doppelgänger, den die Liste als giftig führt (Stufe ≥ 3,
+  über `gsMatchScanToDb` nachgeschlagen — „Echter Lerchensporn" trägt kein Warnwort). Der Tag
+  wählt den Startpunkt, es gilt die erste sichere Art; der Vorrat ist nie leer (Dezember: 8).
 - **Startseite — die Wetterkarte (Home 2).** Zwei Ladewege schrieben dieselbe Karte:
   `loadHomeWeather` (Start, alle zwei Stunden) „Bedeckt · Ort" mit `WEATHER_CODE_MAP` und „1°C",
   `gsApplyWeatherToWidget` (Zwischenspeicher) einen Gartentipp an Stelle von Text und Ort, mit
@@ -121,7 +139,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   Symboltabelle, und `updateGardenWeatherTip`, das in `.hero p` schrieb — ein Element, das es
   seit v31.16 nicht gibt (mit einer dritten Frostregel, < 4 °C).
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3, SB1 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1–HS3, HW1, HW2, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile). Jeder neue
@@ -136,7 +154,7 @@ einen Tag zu spät und zählt Frost erst unter 2 °C (brett c72c). An die Sitzun
 `_gsScanFehlerArt` hängt am Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07).
 
 **Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07 — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt)
-**Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando.
+**Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 

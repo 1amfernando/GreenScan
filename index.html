@@ -16034,8 +16034,6 @@ window.GS_I18N_JS_STRINGS = {
   'quiz_days':'Tage',
   'season_tip_collect':'🌿 Saison-Tipp · Jetzt sammeln',
   'season_tip_nature':'🌿 Saison-Tipp · Jetzt in der Natur',
-  'season_tip_default':'Jetzt ist die beste Zeit zum Sammeln!',
-  'season_tip_prompt':'Was hat gerade Saison in der Schweiz?',
   // v29.02 — Daily-Card-Fallback (HOME-12)
   'daily_info_unavail_title':'🌿 Tagesinfo',
   'daily_info_unavail':'Heute keine Tagesinfo verfügbar — schau später wieder vorbei.',
@@ -20810,8 +20808,51 @@ function _gsInSaison(sp, monat) {
 }
 window._gsInSaison = _gsInSaison;
 
+// v33.61: „Jetzt sammeln" auf der Startseite zeigt KEINE Warnung — die steht erst auf der
+// Artenseite. Empfohlen wird deshalb nur, was sich ohne gefährliche Verwechslung sammeln lässt:
+// kein Pilz (Pilze haben ihre eigene Karte, mushroom-season-card), keine Warnung und kein
+// Doppelgänger mit einem Gift-Wort, und kein Doppelgänger, den die eigene Liste als giftig
+// führt (Stufe 3+, nachgeschlagen — „Echter Lerchensporn" trägt kein Warnwort). Gemessen beim
+// Verdrahten (16.11.2026, 372 Tage): ohne diese Regel an 158 Tagen ein Pilz, an 104 Tagen eine
+// Art mit giftigem oder tödlichem Doppelgänger (Samtfussrübling — Gifthäubling).
+// Im Zweifel nicht empfehlen: ein Fehler beim Prüfen heisst nein.
+var GS_SAMMEL_GEFAHR = /gift|tödlich|toedlich|lebensgef|verwechsl/i;
+function _gsSammelSicher(sp) {
+  try {
+    if (!sp || /pilz/i.test(sp.cat || '')) return false;
+    var a = (typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(sp) || sp) : sp;
+    var texte = [a.warning, sp.warning, a.lookalike, sp.lookalike];
+    for (var i = 0; i < texte.length; i++) {
+      if (_gsWarnungEcht(texte[i]) && GS_SAMMEL_GEFAHR.test(String(texte[i]))) return false;
+    }
+    if (typeof gsMatchScanToDb !== 'function') return true;
+    var looks = [sp.lookalike, a.lookalike].filter(function (x, k, l) { return _gsWarnungEcht(x) && l.indexOf(x) === k; });
+    for (var j = 0; j < looks.length; j++) {
+      var namen = String(looks[j]).replace(/\([^)]*\)/g, ' ').split(/[,;\/]|\bund\b|\boder\b/i);
+      for (var n = 0; n < namen.length; n++) {
+        var wort = namen[n].trim(); if (wort.length < 3) continue;
+        var hit = gsMatchScanToDb(wort, '');
+        var art = hit ? ((typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(hit) || hit) : hit) : null;
+        if (art && (Number(art.tox) || 0) >= 3) return false;
+      }
+    }
+    return true;
+  } catch (_) { return false; }
+}
+window._gsSammelSicher = _gsSammelSicher;
+
 function gsInitSmartSeasonTip() {
-  if (typeof DB === 'undefined' || !DB.length) { setTimeout(gsInitSmartSeasonTip, 800); return; }
+  // v33.61: initHomeBoard ruft diese Funktion bei JEDEM Weg auf die Startseite. Ohne Artenliste
+  // wartete jeder Aufruf mit einer eigenen Kette alle 800 ms, ohne Ende — die Ketten stapelten
+  // sich. Jetzt EIN Nachversuch zur Zeit, gezählt (40 × 800 ms); der nächste Weg auf die
+  // Startseite fängt neu an, sobald die Liste da ist.
+  if (typeof DB === 'undefined' || !DB.length) {
+    if (!window._gsSaisonTippWartet && (window._gsSaisonTippVersuche = (window._gsSaisonTippVersuche || 0) + 1) <= 40) {
+      window._gsSaisonTippWartet = setTimeout(function () { window._gsSaisonTippWartet = 0; gsInitSmartSeasonTip(); }, 800);
+    }
+    return;
+  }
+  window._gsSaisonTippVersuche = 0;
 
   var month = new Date().getMonth(); // 0-11
 
@@ -20830,15 +20871,22 @@ function gsInitSmartSeasonTip() {
   // Weihnachtskaktus, Rispengras, Schwarz-Erle. Keine davon giftig, aber zum
   // Sammeln ist keine davon da.
   var essbar = inSeason.filter(function(s){ return gsIstEssbar(s) && (s.uses || s.desc); });
-  var pool = essbar.length > 0 ? essbar : inSeason;
-  // Jeder Monat hat essbare Arten in Saison (Minimum: Dezember, 14). Der
-  // Rueckfall greift also nur, wenn sich die Artenliste aendert — und dann
-  // sagt der Kopf nicht mehr „sammeln", sondern was er zeigen kann.
-  var darfSammeln = essbar.length > 0;
-  if (!pool.length) return; // Fallback auf Standard
-
+  // v33.61: der Tag wählt den Startpunkt, und von dort gilt die erste Art, die sich ohne
+  // gefährliche Verwechslung sammeln lässt (_gsSammelSicher) — geprüft wird nur, bis eine passt.
+  // Jeder Monat hat solche Arten (gemessen 16.11.2026, Minimum: Dezember, 8). Der Rückfall
+  // greift also nur, wenn sich die Artenliste ändert — dann sagt der Kopf nicht mehr
+  // „sammeln", und Pilze bleiben auch dort draussen.
   var h = new Date().getDate() * 13;
-  var pick = pool[h % pool.length];
+  var pick = null, darfSammeln = false;
+  for (var _i = 0; _i < essbar.length; _i++) {
+    var _k = essbar[(h + _i) % essbar.length];
+    if (_gsSammelSicher(_k)) { pick = _k; darfSammeln = true; break; }
+  }
+  if (!pick) {
+    var natur = inSeason.filter(function (s) { return !/pilz/i.test(s.cat || ''); });
+    if (!natur.length) return;   // nichts zu zeigen — die Karte bleibt leer (die Kartenreihe blendet sie aus)
+    pick = natur[h % natur.length];
+  }
 
   // Update Saison-Tipp im Home
   var emojiEl = document.getElementById('season-tip-emoji');
@@ -20847,7 +20895,9 @@ function gsInitSmartSeasonTip() {
   if (emojiEl) emojiEl.textContent = pick.emoji || '🌿';
   if (nameEl) nameEl.textContent = pick.name + (pick.lat ? ' · ' + pick.lat : '');
   if (textEl) {
-    var text = pick.uses ? pick.uses.split('.')[0] : (pick.desc ? pick.desc.split('.')[0] : 'Jetzt sammeln');
+    // v33.61: ohne Verwendung und Beschreibung steht hier nichts — nicht „Jetzt sammeln" über
+    // einer Art aus dem Rückfall-Pool, der gerade NICHT essbar ist.
+    var text = pick.uses ? pick.uses.split('.')[0] : (pick.desc ? pick.desc.split('.')[0] : '');
     textEl.textContent = text.slice(0, 80) + (text.length > 80 ? '…' : '');
   }
 
@@ -24465,21 +24515,11 @@ window.gsAttachMushroomForecast = gsAttachMushroomForecast;
 async function gsLoadSupabaseDailyContent() {
   if (typeof sbFetch !== 'function') return;
   try {
-    // ── 1) Saison-Tipp · v23.74: sbFetch returnt {data,error} — korrekt unwrappen
-    try {
-      var tipRes = await sbFetch('/rest/v1/v_today_tip?select=title,body,icon,category', {method:'GET'});
-      var tipRows = (tipRes && !tipRes.error && Array.isArray(tipRes.data)) ? tipRes.data
-                  : (Array.isArray(tipRes) ? tipRes : []);
-      var tip = tipRows[0] || null;
-      if (tip) {
-        var nameEl = document.getElementById('season-tip-name');
-        var textEl = document.getElementById('season-tip-text');
-        var emoEl  = document.getElementById('season-tip-emoji');
-        if (nameEl) nameEl.textContent = tip.title;
-        if (textEl) textEl.textContent = (tip.body || '').substring(0, 120) + ((tip.body||'').length > 120 ? '…' : '');
-        if (emoEl && tip.icon) emoEl.textContent = tip.icon;
-      }
-    } catch(e) { console.log('[GS] SB tip:', e.message); }
+    // ── 1) Saison-Tipp: v33.61 nicht mehr von hier. `v_today_tip` liest did_you_know_facts
+    // (live nachgelesen 16.11.2026: ein zufälliger aktiver Eintrag der Woche — Alpendohlen,
+    // giftige Alpenpflanzen) und schrieb ihn 300 ms nach dem Start unter „Saison-Tipp · Jetzt
+    // sammeln"; das Antippen öffnete dabei die Saisonansicht bzw. eine andere Art. Die Karte hat
+    // EINEN Schreiber (gsInitSmartSeasonTip); die Fakten stehen in „Wusstest du?" (Block 2).
 
     // ── 2) Wusstest du? · v23.74: korrektes Spalten-Prefix is_active + sbFetch-Pattern
     try {
@@ -25320,26 +25360,12 @@ function initHomeBoard() {
     })();
 
     // ── Saison-Tipp ───────────────────────────────────────
-    try {
-      var month = now.getMonth();
-      var seasonNow = (typeof SEASON_DATA !== 'undefined' && SEASON_DATA) ? SEASON_DATA.filter(function(s) {
-        return (s.harvest && s.harvest[month]) || (s.sow && s.sow[month]) || (s.wild && s.wild[month]);
-      }) : [];
-      var tipEl       = document.getElementById('season-tip-name');
-      var tipTextEl   = document.getElementById('season-tip-text');
-      var tipEmojiEl  = document.getElementById('season-tip-emoji');
-      if (seasonNow.length && tipEl) {
-        var dayOfYear2 = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
-        var tip = seasonNow[dayOfYear2 % seasonNow.length];
-        if (tipEl)      tipEl.textContent = tip.name;
-        if (tipTextEl)  tipTextEl.textContent = tip.tip ? tip.tip.substring(0, 80) + '…' : ((window.gsI18n&&gsI18n.t)?gsI18n.t('season_tip_default','Jetzt ist die beste Zeit zum Sammeln!'):'Jetzt ist die beste Zeit zum Sammeln!');
-        if (tipEmojiEl) tipEmojiEl.textContent = tip.emoji;
-      } else if (tipEl) {
-        tipEl.textContent = 'Saisonkalender öffnen';
-        if (tipTextEl) tipTextEl.textContent = (window.gsI18n&&gsI18n.t)?gsI18n.t('season_tip_prompt','Was hat gerade Saison in der Schweiz?'):'Was hat gerade Saison in der Schweiz?';
-        if (tipEmojiEl) tipEmojiEl.textContent = '📅';
-      }
-    } catch(e) { console.log('SaisonTipp:', e.message); }
+    // v33.61: EIN Schreiber. Hier stand eine zweite Rechnung aus SEASON_DATA — Gartenkulturen
+    // mit Aussaat, Ernte oder Wildsammlung im Monat, unter dem Kopf „Jetzt sammeln" (im März:
+    // „Paprika", eine Voranzucht). Die Rechnung mit der Artenliste und den Sicherheitsregeln
+    // (essbar, Saison über gsSaisonMonate) stand in gsInitSmartSeasonTip — und die rief in der
+    // App niemand; nur die Prüfstände riefen sie direkt (scan_check HS2 geht jetzt den Weg).
+    try { if (typeof gsInitSmartSeasonTip === 'function') gsInitSmartSeasonTip(); } catch(e) { console.log('SaisonTipp:', e.message); }
 
     // ── Wusstest du ───────────────────────────────────────
     try { if (typeof gsInitWeekFacts === 'function') gsInitWeekFacts(); } catch(e) { console.log('WeekFacts:', e.message); }
@@ -77012,7 +77038,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +27 (D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +7 (Lina L1–L6, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +29 (D1j, F1, F2, SC1, SU1–SU6, HS1–HS3, HW1, HW2, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +7 (Lina L1–L6, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -77028,7 +77054,7 @@ window.GS_RELEASES = [
         {emoji:'💡', bold:'Scanner — wenn etwas schiefgeht:', text:' die Fehlerkarte sagt in einem Satz, was los ist, statt technischer Meldungen, und „In einer Minute nochmal“ zählt sichtbar herunter.'},
         {emoji:'📜', bold:'Scan-Verlauf:', text:' er zeigt jetzt dieselbe Art und dieselben Sicherheitsangaben wie das Scan-Ergebnis. Vorher konnte „In Datenbank öffnen“ bei einem Namen, den mehrere Arten tragen, eine andere, harmlosere Art öffnen.'},
         {emoji:'🖼️', bold:'Dein Scan-Foto:', text:' es steht jetzt als Vorschau im Verlauf und wird mitgenommen, wenn du die Pflanze zu „Meine Pflanzen“ hinzufügst. Bisher blieb beides leer.'},
-        {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er findet jetzt alle Arten, die gerade Saison haben, und funktioniert in jeder App-Sprache.'},
+        {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er zeigt jetzt eine Pflanze aus der Artenliste, die gerade Saison hat und sich ohne gefährliche Verwechslung sammeln lässt, und öffnet beim Antippen genau diese Art. Pilze stehen dort nicht mehr — für sie gibt es die eigene Pilzkarte. Bisher konnte dort auch eine Aussaat wie „Paprika“ im März oder ein beliebiger Naturfakt stehen.'},
         {emoji:'🌦️', bold:'Wetter auf der Startseite:', text:' die Karte zeigt immer dasselbe — das Wetter und den Ort, darunter eine Frost-, Hitze- oder Unwetterwarnung. Eine Gewitterwarnung gilt jetzt wirklich für die nächsten Stunden; vorher konnte sie sich auf die vergangene Nacht beziehen.'},
         {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
       ],
