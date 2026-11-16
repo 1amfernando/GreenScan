@@ -2479,6 +2479,79 @@ const FAELLE = [
       }
     },
   },
+  {
+    // „Offen — Lina" 4 (Rest). gsOpenLina leerte bei jedem Öffnen den Verlauf und fragte nur die
+    // Cloud: offline stand Lina danach leer da, und ein Gespräch, das „nur lokal geführt" wurde (die
+    // Konversation liess sich nicht anlegen — so sagt es der Hinweis), war beim nächsten Öffnen weg;
+    // an seiner Stelle erschien ein ÄLTERES aus der Cloud. Die Gegenrichtung gehört dazu: hat die
+    // Cloud ein NEUERES Gespräch (anderes Gerät), gewinnt sie.
+    name: 'Lina L9 · ohne Cloud bleibt das Gespräch: offline geschlossen und wieder geöffnet steht es noch da — ein nur lokal geführtes wird nicht von einem älteren aus der Cloud verdrängt, ein neueres aus der Cloud gewinnt',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+      const klagen = [];
+      let online = false, cloud = 'aus';
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
+        window.sbIsLoggedIn = () => true;
+        window.gsToast = () => {};
+        window.callAI = async () => 'Gerne — morgens giessen.';
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (cloud === 'aus') return { data: null, error: { message: 'Failed to fetch', status: 0 } };
+          if (/coach_conversations/.test(pfad) && get) {
+            if (cloud === 'alt') return { data: [{ id: 'c-alt', updated_at: '2020-01-01T00:00:00Z' }], error: null };
+            return { data: [{ id: 'c-neu', updated_at: new Date(Date.now() + 3600e3).toISOString() }], error: null };
+          }
+          if (/coach_conversations/.test(pfad)) return { data: null, error: { message: 'Failed to fetch', status: 0 } };   // anlegen schlägt fehl
+          if (/coach_messages/.test(pfad) && get) {
+            const m = /conversation_id=eq\.([^&]+)/.exec(pfad); const id = m && decodeURIComponent(m[1]);
+            if (id === 'c-alt') return { data: [{ role: 'assistant', content: 'ALT-Antwort' }, { role: 'user', content: 'ALT-Frage' }], error: null };
+            if (id === 'c-neu') return { data: [{ role: 'assistant', content: 'NEU-Antwort' }, { role: 'user', content: 'NEU-Frage vom anderen Gerät' }], error: null };
+          }
+          return { data: [], error: null };
+        };
+        const feld = () => document.getElementById('gs-lina-input');
+        // 1 · offline: Frage, Antwort aus der App-Liste, schliessen, wieder öffnen
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        await gsOpenLina(); await warte(150);
+        if (!feld()) return { ok: false, warum: 'Lina hat kein Eingabefeld — der Fall misst nichts' };
+        feld().value = 'Kann ich Bärlauch essen?';
+        await gsLinaSend(); await warte(120);
+        if (!/Kann ich Bärlauch essen/.test(text())) return { ok: false, warum: 'offline kam keine Antwort aus der App-Liste — der Fall misst nichts' };
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(150);
+        if (!/Kann ich Bärlauch essen/.test(text())) klagen.push('offline wieder geöffnet ist das Gespräch weg („' + text().slice(0, 60) + '")');
+        // 2 · online, die Konversation lässt sich nicht anlegen; die Cloud hat ein älteres Gespräch
+        online = true; cloud = 'alt';
+        gsLinaNew(); await warte(60);
+        feld().value = 'Wann giesse ich Tomaten?';
+        window._gsLinaSending = false;
+        await gsLinaSend(); await warte(120);
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(150);
+        const t2 = text();
+        if (!/Wann giesse ich Tomaten/.test(t2)) klagen.push('das nur lokal geführte Gespräch ist nach dem Öffnen weg');
+        if (/ALT-Frage/.test(t2)) klagen.push('ein älteres Gespräch aus der Cloud verdrängt das lokale');
+        // 3 · Gegenrichtung: die Cloud hat ein neueres Gespräch
+        cloud = 'neu';
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(150);
+        const t3 = text();
+        if (!/NEU-Frage vom anderen Gerät/.test(t3)) klagen.push('ein neueres Gespräch aus der Cloud wird nicht gezeigt');
+        if (/Wann giesse ich Tomaten/.test(t3)) klagen.push('der Spiegel verdrängt ein neueres Gespräch aus der Cloud');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'offline wieder geöffnet: da · nur lokal: bleibt vor einem älteren · neueres aus der Cloud gewinnt' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {
@@ -2502,6 +2575,9 @@ const FAELLE = [
   let kaputt = 0;
   for (const f of FAELLE) {
     let r;
+    // v33.61: Lina spiegelt ihr Gespräch (gs_lina_verlauf) und zeigt es beim Öffnen, wenn die Cloud
+    // nichts Neueres hat — jeder Fall beginnt deshalb ohne den Spiegel des vorigen.
+    try { await p.evaluate(() => { try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {} }); } catch (_) {}
     try { r = await p.evaluate(new Function('return (' + f.lauf.toString() + ')()')); }
     catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
     if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
