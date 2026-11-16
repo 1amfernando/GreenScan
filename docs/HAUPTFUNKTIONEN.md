@@ -126,7 +126,9 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 - Nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen
   (die Tabelle erlaubt kein Update). Dieses Gerät blendet sie über `ki_name` aus; ein zweites
   Gerät zeigt die erste Bestimmung. Ein Ersatz (neue Zeile mit demselben Foto anlegen, alte
-  löschen — `DELETE` eigener Zeilen ist erlaubt) wäre der nächste Schritt.
+  löschen — `DELETE` eigener Zeilen ist erlaubt) wäre der nächste Schritt. Ausgearbeitet und
+  gemessen (RLS live: SELECT/INSERT/DELETE eigener Zeilen, kein UPDATE; 116 Zeilen von 4 Konten)
+  als Brett-Idee `2026-11-16-34d2` — bewusst nicht gebaut, solange kaum jemand zwei Geräte nutzt.
 
 ## Reihenfolge
 
