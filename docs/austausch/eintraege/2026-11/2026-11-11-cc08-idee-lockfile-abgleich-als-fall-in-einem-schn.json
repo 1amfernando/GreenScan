@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-11-cc08",
+  "art": "idee",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/parallel",
+  "stand": "v33.59",
+  "titel": "Lockfile-Abgleich als Fall in einem schnellen Prüfstand: jede devDependency aus scripts/package.json steht in scripts/package-lock.json",
+  "nutzen": "Seit v33.59 fährt die CI npm ci; ein package.json-Zuwachs ohne neues Lockfile kommt ohne Git-Konflikt durch (gemessen am Probe-Merge mit ccr-dce5a17c-2xzhvi) und wird erst in der CI rot — vor jedem Prüfstand, mit einem Bericht, der nur „Install fehlgeschlagen“ sagt. Ein Fall in Node, ohne Netz, findet es lokal.",
+  "pruefbar": "Am gemergten Baum HEAD×ccr-dce5a17c-2xzhvi: eslint in devDependencies, 0 Treffer im Lockfile → rot; am HEAD-Stand → grün. Gegenprobe: npm ci --ignore-scripts auf demselben Baum liefert EUSAGE.",
+  "stichworte": [
+    "package-lock.json",
+    "npm ci",
+    "robust_check",
+    "pruefstaende.yml",
+    "Lieferkette"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-7a6c"
+    }
+  ]
+}

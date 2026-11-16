@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-8cfe",
+  "art": "idee",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/uebergabe",
+  "stand": "v33.59",
+  "titel": "austausch_check (oder robust_check „Memory“) sucht Prüfstand-Zahlen ausserhalb von STATUS §1 in Gegenwartsform",
+  "nutzen": "Seit main stehen die vier Zahlen nur in STATUS §1 — die v33.59-Übergabe hat trotzdem „fährt 44“ an zwei Stellen hinterlassen, und die nächste Zusammenführung bringt die nächste. Ein Muster („fährt \\d+“, „\\d+ Prüfstände“ ausserhalb von Laufprotokollen) gegen STATUS, CLAUDE.md, GS_RELEASES[0] und docs/memory fängt das beim Bump.",
+  "pruefbar": "Gegen den heutigen Stand: 2 Treffer (STATUS (je) „Prüfstände.“, GS_RELEASES v33.59 items). Gegenprobe: Zahl auf 45 setzen → 0 bei richtiger Zahl, rot bei falscher.",
+  "stichworte": [
+    "austausch_check",
+    "robust_check",
+    "pruefstaende.sh",
+    "STATUS.md §1",
+    "GS_RELEASES"
+  ]
+}

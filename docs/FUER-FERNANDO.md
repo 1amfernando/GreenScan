@@ -1514,6 +1514,46 @@ v33.57/v33.58 der anderen Sitzung (§29) → Bump. Über alle 30 Gruppen stehen
 Live-Stand vom 10.11. in einem lokalen Postgres nach, zweimal, mit Gegenprobe).
 `bash scripts/pruefstaende.sh` fährt sie mit (wie viele es insgesamt sind, steht seit dem 11.11. nur noch in `STATUS.md` §1).
 
+**Nachtrag vom 11.11.2026, nach dem Bump.** `main` hat inzwischen „das Brett" bekommen
+(`docs/austausch/`, CLAUDE.md §5) — der Zweig ist damit zusammengeführt. Danach hat eine
+Austausch-Runde den fertigen Stand noch einmal gegengelesen: 15 Agenten aus fünf
+Blickwinkeln, 50 Funde, 33 Antworten aufeinander, 74 Urteile der Gegenprüfung (2 Funde und
+3 Antworten sind dabei gefallen). Ihre Funde sind in **neun weiteren Gruppen** behoben,
+wieder jede mit einem Fall, der vorher rot war, und einer Gegenprüfung: 28 Einträge,
+26 behoben, 1 teilweise, 1 bewusst offen. Was das für dich ändert:
+
+- **Deine Gärten bleiben auf einem neuen Gerät.** Nach der Anmeldung konnte ein leerer
+  „Mein Garten" die gerade geholten Gärten überschreiben. Jede zurückgespielte Liste
+  (Backup, Anmeldung, Sicherung, Garten-Abgleich) geht jetzt durch EINEN Eingang.
+- **14 Arten standen als essbar da, obwohl ihr eigener Eintrag „nicht essbar" sagt**; 3
+  hatten ihr „giftig" verloren. Jede Angabe bewegt sich nur noch zur vorsichtigen Seite.
+- **Der Notfall-Hinweis erkennt Spanisch** (0 von 14 Sätzen vorher). Ob die zwei Texte
+  dazu eine spanische Übersetzung haben, sehe ich von hier nicht — bitte einmal ansehen
+  (30g).
+- **`plant-doctor-diagnose` hat live einen leeren Krankheits-Kontext** — die ausgelieferte
+  Fassung fragt vier Spalten, die es nicht gibt. Im Repo behoben, wirksam mit der
+  Auslieferung (30d).
+- **Was ausgeliefert wird, steht jetzt in EINER Datei:**
+  `supabase/functions/AUSLIEFERUNG.json` (30d).
+- **Das APK trägt die Lizenztexte der mitgelieferten Bibliotheken**; für Leaflet und
+  Three.js lag gar keiner im Repo (`assets/LICENSE-leaflet.txt`, `assets/LICENSE-three.txt`,
+  aus den npm-Paketen, deren Dateien byte-gleich mit `assets/` sind).
+- **Das Stripe-Fenster ist unter der ECHTEN Kopfzeile gemessen** (zwei Prüfserver, einer
+  spielt Stripe; Chromium). Safari und Firefox bleiben offen (30g).
+- **Zehn Stellen unter dem Mindestkontrast**, die erst mit Daten sichtbar sind
+  (Tagebuch, Naturjahr, Abo, Inserat), sind behoben; `contrast_check` bricht jetzt ab,
+  wenn eine Stelle darunter liegt.
+- **Fünf Familien von Tagesschlüsseln gehen beim Abmelden mit** und wachsen nicht mehr um
+  einen Eintrag je Tag.
+
+**Drei Fragen an dich stehen auf dem Brett** (jede bündelt die Zeilen aus 30f):
+brett:2026-11-11-a814 (Quiz: Antwortschlüssel, Battles, Deckel, das Jahr Pro am 31.12.),
+brett:2026-11-11-293d (Plan- und Bezahl-Versprechen: KI-Grenzen gegen „unbegrenzt",
+Startangebot, Gratisphase, Netlify, Experten-Verifikation, Altlast `gs_abo_*`) und
+brett:2026-11-11-4d6f (Datenschutz und Bestand: Name aus der E-Mail, alte Fotos mit EXIF,
+genaue Orte, Archivdateien, Vorgabe-Rechte). `node scripts/austausch.mjs zeige <id>` zeigt
+sie ganz.
+
 ### 30a · In einem Absatz: was schon wirkt und was auf dich wartet
 
 **Mit dem Merge wirkt nur die App** (`index.html`, `sw.js`, `_headers`, Datenschutztexte; der
@@ -1523,7 +1563,8 @@ mehr von Dritten; ein Anmelde-Token aus einem Link wird nicht mehr übernommen; 
 verlieren ihre GPS-Angaben vor dem Hochladen; ein freigegebener Fund zeigt den Ort auf
 etwa 1 km gerundet. **Alles Serverseitige wartet auf dich:** sechs neue Migrationen
 (`supabase/migrations/20261110_*.sql`), Änderungen an drei älteren, nicht angewandten
-Migrationen und 29 Edge-Functions. **Nichts davon ist auf der Live-Datenbank angewandt,
+Migrationen und die überarbeiteten Edge-Functions (welche, steht in
+`supabase/functions/AUSLIEFERUNG.json`). **Nichts davon ist auf der Live-Datenbank angewandt,
 keine dieser Functions ausgeliefert** (gemessen am 11.11.2026, 03:28 UTC: 0 von 23
 geprüften neuen Funktionsnamen existieren live). Wichtig: Zweig, Migrationsköpfe und
 Prüfstände **beschreiben Lücken, die live noch offen sind** — das Repo ist öffentlich und
@@ -1543,11 +1584,12 @@ Widerspruch geprüft. Jede Migration ist idempotent (zweimal eingespielt schadet
    `plant-doctor-diagnose`, `pest-identify` und `mushroom-identify` **allen** Nutzern mit
    503 — auch der Pilz-Scanner. (Die Live-Fassungen von §29 haben dieses Tor noch nicht und
    laufen bis dahin weiter.)
-3. **Die Edge-Functions ausliefern** (Liste in 30d). Die sechs KI-Functions erst nach
-   Schritt 2; die übrigen live laufenden haben keine Migration als Voraussetzung. Die fünf,
-   die noch nie ausgeliefert waren (letzte Zeile in 30d), gehören NICHT dazu: `daily-push`
-   und `push-test` lesen Spalten, die es live nicht gibt, und `device-ingest` braucht die
-   Geräte-Migration aus Schritt 10.
+3. **Die Edge-Functions ausliefern** — nach `supabase/functions/AUSLIEFERUNG.json` (30d):
+   18 stehen auf `ausliefern` (keine Migration als Voraussetzung), die sechs KI-Functions
+   auf `erst_nach` Schritt 2, `device-ingest` auf `erst_nach` der Geräte-Migration aus
+   Schritt 10. Vier stehen auf `nicht`: `daily-push` und `push-test` lesen Spalten, die es
+   live nicht gibt, `entitlements` und `sensor-push` waren nie ausgeliefert (Grund je
+   Zeile). Elf laufen unverändert weiter (`live`).
 4. **`20261110_sicherheit_community_markt.sql` — erst NACH Schritt 1.** Die alte App lädt
    Kartenfunde mit einem lokalen Platzhalter als Bildadresse hoch; der neue Bild-Wächter
    weist ihn ab, und damit scheitert der ganze Fund-Upload.
@@ -1687,27 +1729,35 @@ keine Reparatur mehr), `20260903_oekosystem_v1_geraete.sql` zwei strengere Regel
 
 ### 30d · Edge-Functions neu ausliefern
 
-Geändert sind **29** der 40 Function-Verzeichnisse (`git diff --name-only
-44bb824 HEAD -- supabase/functions`); in allen ist jede Abhängigkeit jetzt auf eine exakte
+**Die Liste ist `supabase/functions/AUSLIEFERUNG.json`** — je Verzeichnis ein Zustand
+(`ausliefern` · `erst_nach` mit der Migration · `nicht` mit Grund · `live`), dazu die
+Version, die am 11.11.2026 live lief. `edge_check` (60_spalten) hält sie gegen die
+Verzeichnisse und prüft für alles, was ausgeliefert werden soll, jede `.from("tabelle")`
+gegen die Live-Spalten vom 10.11. — so ist der leere Krankheits-Kontext von
+`plant-doctor-diagnose` aufgefallen. Die Tabelle unten sagt, WARUM; die JSON-Datei ist
+die Reihenfolge. In jeder geänderten Function ist jede Abhängigkeit auf eine exakte
 Version festgelegt. Erst mit der Auslieferung gilt irgendetwas davon live. Die geteilten
-Module unter `_shared/` gehen mit (`ki_tor.mjs`, `zahlung_regeln.mjs`, `markt_regeln.mjs`
-neu; `push_helfer.mjs`, `sensor_push_regeln.mjs`, `loeschung_regeln.mjs` geändert).
+Module unter `_shared/` gehen mit — elf Dateien, neu sind `ki_tor.mjs`,
+`zahlung_regeln.mjs`, `markt_regeln.mjs` und `plan_antwort.mjs` (**`plan-iterate` startet
+ohne `plan_antwort.mjs` nicht**); `push_helfer.mjs`, `sensor_push_regeln.mjs`,
+`loeschung_regeln.mjs` und `auth_vergleich.mjs` haben neue Aufrufer.
 
 | Function | Warum |
 |---|---|
-| `ai-proxy`, `plan-iterate`, `garden-scan-analyze`, `plant-doctor-diagnose`, `pest-identify`, `mushroom-identify` | Tageskontingent vor dem Aufruf, Nutzer per Token geprüft, Eingabegrenzen, Bildgrösse vorab — **erst nach `…_ki_kontingent.sql`** |
-| `knowledge-bulk-gen` | Geheimnis konstantzeitig verglichen, Anzahl gedeckelt, KI-Zeilen nur in erlaubte Spalten, Pilze aus der KI immer „Status unklar" |
+| `ai-proxy`, `plan-iterate`, `garden-scan-analyze`, `plant-doctor-diagnose`, `pest-identify`, `mushroom-identify` | Tageskontingent vor dem Aufruf, Nutzer per Token geprüft, Eingabegrenzen, Bildgrösse vorab — **erst nach `…_ki_kontingent.sql`**. Dazu: `plant-doctor-diagnose` liest die Krankheiten mit den Spaltennamen, die es gibt (live ist der Kontext leer); `plan-iterate` schreibt einen Plan nur, wenn die Antwort vollständig ist und die erwartete Form hat (eine bei `max_tokens` abgeschnittene Antwort wurde vorher gespeichert) |
+| `knowledge-bulk-gen` | Geheimnis konstantzeitig verglichen, Anzahl gedeckelt, KI-Zeilen nur in erlaubte Spalten, Pilze aus der KI immer „Status unklar"; die Quelle einer KI-Zeile setzt der Server („KI-Entwurf, ungeprüft") — ohne das stünde an einem KI-Pilz die Vorgabe der Spalte, „VAPKO Schweiz" |
 | `feedback-triage` | Feedback-Texte gedeckelt und als Daten abgegrenzt (eine Anweisung im Feedback ist Inhalt), Antwort des Modells nur für den gesendeten Stapel |
-| `key-health-check`, `species-search`, `i18n-translate` | nur die Versionen festgelegt |
-| `stripe-webhook` | Erstattung und Rückbuchung entziehen eine Lifetime; eine Zahlung setzt nie mehr „vom Experten verifiziert"; der Fehler, der live jedes Abo-Ereignis mit 500 beantwortet hätte, ist behoben |
+| `key-health-check`, `species-search` | nur die Versionen festgelegt |
+| `i18n-translate`, `send-push` | vergleichen ihr Geheimnis über `_shared/auth_vergleich.mjs` (vorher je eine eigene Kopie) |
+| `stripe-webhook` | Erstattung und Rückbuchung entziehen eine Lifetime; eine Zahlung setzt nie mehr „vom Experten verifiziert"; der Fehler, der live jedes Abo-Ereignis mit 500 beantwortet hätte, ist behoben; ein Schreibfehler der Datenbank wird gelesen — der Webhook antwortet dann nicht mehr mit 200, und Stripe stellt erneut zu |
 | `stripe-checkout`, `stripe-portal` | Rückkehr nur auf eigene Adressen, Gratistage nur bei sicher beantworteter Vorgeschichte, Deckel des Startangebots am Server |
 | `stripe-expert-checkout` | nur der Autor zahlt, nie für sich selbst, Betrag fest |
 | `stripe-create-connect-account` | ein fremdes Stripe-Konto wird abgewiesen |
 | `stripe-bootstrap`, `stripe-admin-extend-webhook` | Admin-Geheimnis konstantzeitig; die zweite abonniert zusätzlich `charge.refunded` |
-| `delete-user` | räumt alle Buckets mit Nutzerordnern (vorher nur einen Teil) und kündigt ein laufendes Abo bei Stripe |
+| `delete-user` | räumt alle Buckets mit Nutzerordnern (vorher nur einen Teil) und kündigt ein laufendes Abo bei Stripe; scheitert die Abfrage nach eigenen Organisationen, löscht sie NICHT (409 `org_pruefung`) statt ein halbes Konto stehen zu lassen |
 | `marketplace-publish` | ein gesperrtes Konto kann nicht mehr über diesen Weg veröffentlichen |
 | `daily-push-checker`, `weather-alert-checker`, `engagement-push-checker`, `send-push` | Push nur an bekannte Push-Dienste, Frist je Versand, Frost-Abfrage mit gerundetem Ort |
-| `sensor-push`, `daily-push`, `push-test`, `device-ingest`, `entitlements` | **waren noch nie ausgeliefert** (Live-Liste 11.11.); gehärtet für den Tag, an dem sie es werden. `daily-push` und `push-test` lesen Spalten, die live anders heissen — vor einer ersten Auslieferung erst reparieren (STATUS §2) |
+| `sensor-push`, `daily-push`, `push-test`, `device-ingest`, `entitlements` | **waren noch nie ausgeliefert** (Live-Liste 11.11.); gehärtet für den Tag, an dem sie es werden. In `AUSLIEFERUNG.json`: vier auf `nicht`, `device-ingest` auf `erst_nach` der Geräte-Migration. `daily-push` und `push-test` lesen Spalten, die live anders heissen — vor einer ersten Auslieferung erst reparieren (STATUS §2, brett:2026-11-11-f4d3) |
 
 **Secrets und Einstellungen, die sie brauchen:**
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` setzt Supabase selbst.
@@ -1838,6 +1888,16 @@ in CLAUDE.md). Nach Merge und Auslieferung bitte:
   Mail-App; nach dem Zurückholen aus dem Hintergrund bleibt die App auf ihrer Seite und
   springt nicht von selbst zurück.
 - **Ein Push kommt an** (nach der Auslieferung der Push-Functions).
+- **Kauf im Stripe-Fenster in Safari und Firefox:** gemessen ist Chromium unter der echten
+  Kopfzeile (der Kanal reicht dort über die Grenze, das Fenster schliesst sich). Ob die
+  zwei anderen Browser den Kanal ebenso durchlassen, zeigt nur ein Versuch.
+- **Die App auf Spanisch, im Offline-Chat „mi hija ha comido bayas":** der Notfall-Hinweis
+  muss erscheinen — steht er auf Deutsch da, fehlt den Schlüsseln `notfall_sofort` und
+  `notfall_hinweis` die spanische Übersetzung.
+- **Auf einem zweiten Gerät anmelden:** die Gärten des ersten stehen da (kein leerer „Mein
+  Garten" an ihrer Stelle).
+- **Pflanzendoktor nach der Auslieferung:** die Diagnose nennt Krankheiten aus unserer
+  Liste (vorher fehlte dieser Kontext still).
 
 ### 30h · Wenn etwas schiefgeht
 

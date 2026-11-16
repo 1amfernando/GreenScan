@@ -289,10 +289,11 @@ const kaputtHelfer = (r) => (r && r.ok) ? null : ((r && r.warum) || 'unbekannt')
 
   // Das Backup DIESER Sitzung: nach dem ersten erfolgreichen Pull, genau eines.
   const sitzung = await page.evaluate(async () => {
-    const bis = new Date(Date.now() + 3600 * 1000).toISOString();
+    // v33.59: die App liest gs_sb_expires (Millisekunden) — hier stand gs_sb_expires_at mit einem
+    // ISO-Datum, ein Schluessel, den keine Stelle liest (Austausch-Runde, Klasse 0bb4).
     localStorage.setItem('gs_sb_token', 'x.y.z');
     localStorage.setItem('gs_sb_uid', 'nutzer-backup');
-    localStorage.setItem('gs_sb_expires_at', bis);
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600 * 1000));
     window.sbIsLoggedIn = () => true;
     window.gsRequire = () => true;
     ['gs_snapshot_last', 'gs_snapshot_auto_day'].forEach(k => localStorage.removeItem(k));

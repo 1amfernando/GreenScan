@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-4ba1",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): zwei Instanzen ohne Toast — ein Stempel „zuletzt gesichert“ ohne Schreibvorgang und ein Rettungsweg, der „geparkt“ meldet, ohne geschrieben zu haben",
+  "text": "Instanz v33.59: Ein Flush ohne Änderung stempelte „zuletzt gesichert“ (gs_sync_last_push), ohne dass etwas geschrieben wurde. Das Backup hielt danach jeden Stand für geändert. Das ist eine Zusage ohne Schreibvorgang. Gehalten von backup_check „Ein Flush OHNE Aenderung stempelt nicht“. Das Suchmuster der Klasse liefert heute 7 Treffer (alle Toasts nach ungeprüftem Schreiben) und hätte diese Instanz nicht gefunden: es sucht eine Erfolgsmeldung nach einem Schreibaufruf, aber hier ist die Zusage selbst ein setItem (ein Zeitstempel), und es fehlt der Schreibvorgang, den sie bezeugt. Zweite Instanz, auf demselben Branch behoben: gsPlans.parken legte beim Abmelden eine zweite Kopie nur lokal gespeicherter Pläne an und gab die Zahl der geparkten zurück, ohne den Rückgabewert von setItem zu lesen — bei vollem Speicher löschte gsClearUserDataKeys danach die einzige Kopie. Auch sie sieht das Suchmuster nicht: die Zusage ist ein Rückgabewert, keine Meldung.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-8ead"
+    }
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/backup_check.js",
+      "fall": "Ein Flush OHNE Aenderung stempelt nicht"
+    },
+    {
+      "datei": "scripts/speicher_check.js",
+      "fall": "Abmelden mit vollem Speicher und lokalem Plan"
+    }
+  ]
+}
