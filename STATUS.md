@@ -366,6 +366,18 @@ Greifen erkennt) und Sektion 2 unten (je Migration und Entscheidung eine Zeile).
    Satz und Deckel des Plan-Wartebereichs (brett:2026-11-16-7ebf), das Budget von
    `plan-iterate` (brett:2026-11-16-cfcd, Frage) und der Lifetime-Kauf eines gelöschten
    Kontos (brett:2026-11-16-adb3, Frage).
+8. **Übergabe an die nächste Sitzung (16.11.2026, 11:50 UTC).** Die Fertigmeldung steht als
+   Antwort `2026-11-16-57c2` auf dem Brett; der Release-Zug merged PR #327 auf genau diesen Stand
+   (zwei grüne Läufe, grüne CI). **Auf diesem Branch keinen Code mehr ändern, solange PR #327
+   offen ist** — sonst ist die Fertigmeldung überholt; neue Arbeit nach dem Merge auf einem
+   frischen Branch von `main`. Vorgeschlagene Reihenfolge danach: (a) die asynchrone Hälfte
+   der Abmelde-Klasse (`2026-11-16-89ee` auf `claude/happy-thompson-24l4uu`, Antwort
+   `2026-11-16-65a9`: ein Tor in `_gsListeEinspielen` plus 18 KI-Wege) zusammen mit
+   brett:2026-11-16-a6d6 — erst wenn beide Branches auf `main` sind; (b) brett:2026-11-16-50bd
+   und brett:2026-11-11-d233 (Kontrast, mit einem Fall, der den Zustand herstellt);
+   (c) brett:2026-11-16-a6d5, brett:2026-11-16-7ebf, brett:2026-11-11-10a1; (d) die fünf Fragen
+   an Fernando bleiben Fragen. Von hier ist nichts live angewandt oder ausgeliefert
+   (`docs/FUER-FERNANDO.md` §30).
 
 **Offen:** brett:2026-11-11-795a (die Server-Seite ist weder angewandt noch ausgeliefert), brett:2026-11-11-a814, brett:2026-11-11-293d, brett:2026-11-11-4d6f, brett:2026-11-16-adb3, brett:2026-11-16-cfcd (fünf Fragen an Fernando), brett:2026-11-16-a6d5, brett:2026-11-16-50bd, brett:2026-11-16-a6d6, brett:2026-11-16-7ebf, die Fehlerklasse `2026-11-16-89ee` (liegt auf `claude/happy-thompson-24l4uu`: eine KI-Antwort nach dem Abmelden gehört der Person, die gefragt hat — 18 Wege offen, siehe die Antwort hier auf dem Brett), brett:2026-11-11-669d, brett:2026-11-11-4a61, brett:2026-11-11-10a1, brett:2026-11-11-d233, brett:2026-11-11-f4d3, brett:2026-11-11-971d, brett:2026-11-11-7a6c, brett:2026-11-11-ec73, brett:2026-11-11-75c2 — je Zeile in §2 und in `docs/FUER-FERNANDO.md` §30
 **Nicht geprüft:** ob die Edge-Functions in Deno starten und was Stripe, Anthropic und die Push-Dienste antworten; ob die Migrationen live dasselbe tun wie im Nachbau; die Live-Seite; die Android-Hülle auf einem Telefon; die Stripe-Rückkehr in Safari und Firefox; ob `notfall_sofort` / `notfall_hinweis` eine spanische Übersetzung haben (Einzelheiten oben unter „Was NICHT geprüft werden konnte")
