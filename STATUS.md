@@ -55,6 +55,11 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   `currentProp` = Eigenschaft, die Knöpfe kommen aus dem Zustand (`_gsSucheKnoepfe`, mit
   `aria-pressed`, aufgerufen in `renderList`), ein Einstieg von aussen (Startkachel, Menü)
   beginnt sauber (`gsSucheMitFilter`), das ✕ räumt nur das Wort.
+- **Suche 5 — „Mehr laden" baut die Karten wie Seite 1.** `loadMoreList` hatte eigenen
+  Kartencode: ohne Markierung des Suchworts (80 von 80 Karten der zweiten Seite), mit `sp.id` roh
+  in einem `onclick`-String, mit `border-left-color` statt `border-left:3px solid` — der Giftrand
+  war auf Seite 2 einen Pixel breit — und einem eigenen Knopf-Stil. Jetzt `_gsArtKarteHtml` und
+  `_gsMehrLadenHtml` für beide Seiten.
 - **Lina** (Untersitzung, e5c0b1e): `_gsLinaAuszeichnung` (fett statt Sternchen); der Entwurf
   übersteht den Neuaufbau; antwortet die KI bei Netz nicht oder leer, steht darunter, was die
   App-Liste ohne KI weiss (`_gsLinaErsatz`), und „Erneut senden" (`gsLinaNochmal`) — die
@@ -98,7 +103,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   Symboltabelle, und `updateGardenWeatherTip`, das in `.hero p` schrieb — ein Element, das es
   seit v31.16 nicht gibt (mit einer dritten Frostregel, < 4 °C).
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU5, HS1, HW1, HW2, SV1–SV3 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b). Jeder neue Fall gegen den Stand davor gefahren: rot. Volle Suite auf
@@ -107,10 +112,11 @@ der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` 
 **Aufs Brett gelegt** (nicht in den vier Funktionen, deshalb nicht angefasst): der Wissen-Tab
 zählt mit eigenen Regeln (brett 4d79: „Arten" = 4'337 Einträge, „Essbar" 1'130 statt 1'062,
 „Giftig" 598 statt 675 wie der Filter); das Standort-Fenster hat im Dunkelmodus 1,51:1
-(brett a082, auf `main` identisch). An die Sitzung „KI-Modelle": `_gsScanFehlerArt` hängt am
-Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07).
+(brett a082, auf `main` identisch); das Garten-Frostbanner nennt ab übermorgen den Wochentag
+einen Tag zu spät und zählt Frost erst unter 2 °C (brett c72c). An die Sitzung „KI-Modelle":
+`_gsScanFehlerArt` hängt am Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07).
 
-**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-cd07 — Gratis-Zähler (Fernando), Wissen-Tab und Standort-Fenster (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt)
+**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07 — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt)
 **Nicht geprüft:** die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen

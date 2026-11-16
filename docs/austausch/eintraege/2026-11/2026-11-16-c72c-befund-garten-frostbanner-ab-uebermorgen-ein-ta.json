@@ -1,0 +1,36 @@
+{
+  "id": "2026-11-16-c72c",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "08:13:05",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Garten-Frostbanner: ab übermorgen ein Tag zu spät benannt (Mittwoch steht als Donnerstag da) — und Frost erst unter 2 °C, der Kalender ab ≤ 2 °C",
+  "beleg": [
+    "Gemessen am 16.11.2026 auf claude/happy-thompson-24l4uu (662247d), gsCheckFrostWarning mit gestelltem _gsWeatherData (Tiefstwerte 5 · 5 · −1 · 5 · 2 °C ab heute), TZ=Europe/Zurich: das Banner zeigt „Thu: -1°C“ für den 18.11.2026 — ein Mittwoch. Ursache: days = gsWochentage({abMontag:true}) beginnt am Montag, gezählt wird mit new Date(d).getDay(), das am Sonntag beginnt; alle Tage ab übermorgen sind um einen verschoben („Heute“/„Morgen“ sind ausgeschrieben und stimmen). Die englische Abkürzung kommt von der Browser-Sprache des Prüfstands (gsLocale), nicht aus der App.",
+    "Dieselben Daten im Kalender (_gsWetterTage, GS_WETTER_GRENZEN.frost = 2, ≤): Frosttage 18.11. UND 20.11. (Tiefstwert genau 2 °C). Das Banner prüft daily.temperature_2m_min[i] < 2 und lässt den 20.11. aus. Die Garten-Mini-Karte (gsApplyWeatherToWidget, Gartentipp) hat eine vierte Regel: Frost bei JETZIGER Temperatur < 2 °C. Die Startseiten-Karte rechnet seit 662247d mit GS_WETTER_GRENZEN (scan_check HW2)."
+  ],
+  "vorschlag": "Wochentag wie in _gsHomeWetterZeigen: days[(new Date(d).getDay() + 6) % 7] (oder gsWochentage() ohne abMontag). Frost aus _gsWetterTage() lesen — dieselbe Rechnung wie Kalender (Nr. 5b) und Warnfenster —, statt eine eigene Schwelle zu führen; dann zeigt das Banner dieselben Tage wie der Kalender. Den Gartentipp der Mini-Karte an GS_WETTER_GRENZEN hängen oder durch gsBuildSmartReminder ersetzen.",
+  "stichworte": [
+    "frost",
+    "wetter",
+    "garten",
+    "wochentag"
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-df51"
+    }
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var dn = i===0?'Heute':i===1?'Morgen':days[new Date(d).getDay()];"
+    },
+    {
+      "datei": "index.html",
+      "text": "if (daily.temperature_2m_min[i] < 2) {"
+    }
+  ]
+}

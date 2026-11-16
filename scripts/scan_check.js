@@ -2179,6 +2179,54 @@ const FAELLE = [
     },
   },
   {
+    // SUCHE-5. „Mehr laden" baute die Karten mit EIGENEM Code: ohne Markierung des Suchworts, mit
+    // sp.id roh in einem onclick-String und einem anderen Rand-Stil — die zweite Seite sah anders
+    // aus und verhielt sich anders als die erste. Der Fall rendert beide Seiten und haelt sie
+    // gegeneinander; was markiert gehoert, entscheidet gsHighlight selbst.
+    name: 'SU6 · „Mehr laden": die Karten der zweiten Seite sind gebaut wie die der ersten — dieselbe Form, derselbe Klick, das Suchwort markiert',
+    lauf: async () => {
+      var warte = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+      var f = [];
+      try {
+        gsResetFilter();
+        var kandidaten = ['kraut', 'blume', 'pilz', 'wurz', 'linge', 'baum'];
+        var wort = null;
+        for (var i = 0; i < kandidaten.length && !wort; i++) {
+          searchText = kandidaten[i];
+          var r = getFiltered();
+          // die zweite Seite muss Namen tragen, die das Wort enthalten
+          if (r.length > 100 && r.slice(80, 160).some(function (s) { return /<mark/.test(gsHighlight(s.name, kandidaten[i])); })) wort = kandidaten[i];
+        }
+        searchText = '';
+        if (!wort) return { ok: false, warum: 'kein Suchwort mit einer zweiten Seite voller Treffer — der Fall misst nichts' };
+        doSearch(wort); await warte(300);
+        var liste = document.getElementById('results-list');
+        var s1 = [].slice.call(liste.querySelectorAll('.sp-card'));
+        loadMoreList(); await warte(150);
+        var alle = [].slice.call(liste.querySelectorAll('.sp-card'));
+        var s2 = alle.slice(s1.length);
+        if (!s2.length) return { ok: false, warum: '„Mehr laden" bringt keine Karten — der Fall misst nichts' };
+        var form = function (k) {
+          return {
+            klick: k.getAttribute('onclick'),
+            stil: (k.getAttribute('style') || '').replace(/#[0-9a-f]{3,8}|transparent/gi, 'F'),
+            // die Plaketten haengen an der Art (zwei Karten tragen verschieden viele) — gezaehlt wird das Geruest
+            bau: [].slice.call(k.querySelectorAll('*')).filter(function (x) { return x.tagName !== 'MARK' && !(x.parentElement && x.parentElement.closest('.sp-tags')); }).map(function (x) { return x.tagName + '.' + x.className; }).join('|'),
+          };
+        };
+        var a = form(s1[0]), b = form(s2[0]);
+        ['klick', 'stil', 'bau'].forEach(function (k) { if (a[k] !== b[k]) f.push(k + ': Seite 1 „' + String(a[k]).slice(0, 80) + '" · Seite 2 „' + String(b[k]).slice(0, 80) + '"'); });
+        var sollMark = s2.filter(function (k) { var sp = DB.find(function (x) { return x.id === k.dataset.sid; }); return sp && /<mark/.test(gsHighlight(sp.name, wort)); });
+        var ohne = sollMark.filter(function (k) { return !k.querySelector('.sp-name mark'); });
+        if (ohne.length) f.push(ohne.length + ' von ' + sollMark.length + ' Karten der zweiten Seite tragen „' + wort + '" im Namen ohne Markierung');
+        var knopf = liste.querySelector('[data-loadmore]');
+        if (knopf && knopf.getAttribute('style')) f.push('der Knopf „weitere laden" ist auf Seite 2 anders gebaut als auf Seite 1');
+      } finally { try { gsResetFilter(); } catch (_) {} }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'zweite Seite gleich gebaut, Markierung wie Seite 1' };
+    },
+  },
+  {
     name: 'SC1 · Der Scan-Chat hat Linas Schutz: Notfallnummer sofort, Warnzeile ueber einer Essbar-Zusage zu einer Giftart',
     lauf: async () => {
       var gift = DB.find(function (s) { return s.tox >= 5 && s.lat && _gsArtenTreffer(s.name + ' ' + s.lat).zahl; });

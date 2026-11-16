@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1, 2, 3, 4, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung) · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6 · Home 1, 2 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung) · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6 · Home 1, 2 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -60,8 +60,8 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 ## Offen — Suche
 
-> **Geliefert mit v33.61** (16.11.2026): Punkte 1, 2, 3, 4, 6, 7 und die toten Reste aus 9.
-> Prüfstand: `scan_check` SU1–SU5. Offen bleiben 5, 8, 10 (Ranking).
+> **Geliefert mit v33.61** (16.11.2026): Punkte 1, 2, 3, 4, 5, 6, 7 und die toten Reste aus 9.
+> Prüfstand: `scan_check` SU1–SU6. Offen bleiben 8 und 10 (Ranking).
 
 1. ✅ v33.61 (dazu: die Kategorie-Einträge im Menü warfen einen Fehler; das ✕ im Suchfeld nahm
    den Filter weg und liess den Knopf markiert) — **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
@@ -71,7 +71,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    2 Zeichen Längenunterschied ab.
 3. **Synonyme nur bei exakter Eingabe** (`GS_SYNONYMS`, 20 Einträge).
 4. **Mehrere Wörter werden als ein Stück gesucht;** keine Mindestlänge.
-5. **„Mehr laden" baut die Karte anders** als die erste Seite (`loadMoreList`: ohne
+5. ✅ v33.61 (dazu: der Giftrand war auf Seite 2 einen Pixel breit) — **„Mehr laden" baut die Karte anders** als die erste Seite (`loadMoreList`: ohne
    Hervorhebung, eigener Rand-Stil) — doppelter Kartencode.
 6. **Hervorhebung ohne Umlaut-Faltung:** „barlauch" findet Bärlauch, markiert nichts.
 7. **Statuszeile zeigt den internen Filterschlüssel** („· geschuetzt"); der Leerzustand bietet

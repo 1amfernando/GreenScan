@@ -38264,6 +38264,51 @@ function gsSucheOhneFilter() {
 }
 window.gsSucheOhneFilter = gsSucheOhneFilter;
 
+// SUCHE-5 (16.11.2026): EINE Karte fuer beide Seiten der Trefferliste. loadMoreList baute die
+// zweite Seite mit eigenem Code: ohne Markierung des Suchworts (80 von 80 Karten), mit sp.id roh
+// in einem onclick-String, und mit `border-left-color` statt `border-left:3px solid` — der Giftrand
+// war auf Seite 2 einen Pixel breit. Der Knopf „weitere laden" trug dort eigene Stile.
+function _gsArtKarteHtml(_rohSp, _t) {
+  _t = _t || ((window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; });
+  // v32.92: ZUERST die Sicherheitsangaben der ART holen — `toxInfo` und die
+  // Plaketten darunter lesen `sp.tox`/`sp.edible`. Beim ersten Anlauf stand
+  // dieser Aufruf WEITER UNTEN: der Rand wurde orange, das gruene
+  // „✅ Essbar" blieb stehen. Genau deshalb wird der gerenderte TEXT
+  // gemessen und nicht das Objekt.
+  var sp = _gsArtAnzeige(_rohSp);
+  var t = toxInfo(sp.tox || 0);
+  // Tags: max 2 anzeigen (Karte bleibt gleich hoch)
+  var tags = [];
+  if (sp.tox >= 3) tags.push('<span class="tag t">' + t.sym + ' ' + _t('badge_giftig','Giftig') + '</span>');
+  // v31.91: Dieselbe Regel wie auf der Detailkarte (v31.90) — eine gruene
+  // „Essbar"-Plakette auf einem ungeprueften Eintrag ist dieselbe Zusage,
+  // ob sie in der Liste oder im Detail steht.
+  else if (sp.edible && !sp._unverified) tags.push('<span class="tag e">✅ ' + _t('tag_edible','Essbar') + '</span>');
+  else if (sp.edible && sp._unverified)  tags.push('<span class="tag" style="background:var(--surface2);color:var(--muted);">❔ ' + _t('tag_unverified','nicht geprüft') + '</span>');
+  if (sp.medicinal) tags.push('<span class="tag m">💊 ' + _t('tag_medicinal','Heilpflanze') + '</span>');
+  if (sp.protected) tags.push('<span class="tag p">🛡️ ' + _t('tag_protected','Geschützt') + '</span>');
+  var latName = sp.lat ? sp.lat : '​'; // Zero-width space wenn leer → Höhe bleibt
+  var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : (sp.tox === 0 && sp.edible && !sp._unverified) ? '#2e7d32' : 'transparent';
+  return '<div class="sp-card" onclick="openDetail(this.dataset.sid)" data-sid="' + escHtml(String(sp.id)) + '" style="border-left:3px solid ' + toxBorder + ';">' +
+    '<div class="sp-inner">' +
+      '<div class="sp-emoji">' + escHtml(typeof getEmoji === 'function' ? getEmoji(sp) : (sp.emoji || '🌿')) + '</div>' +
+      '<div class="sp-info">' +
+        '<div class="sp-name">' + (searchText && typeof gsHighlight === 'function' ? gsHighlight(sp.name, searchText) : escHtml(sp.name)) + '</div>' +
+        '<div class="sp-lat">' + escHtml(latName) + '</div>' +
+        '<div class="sp-tags">' + tags.slice(0, 2).join('') + '</div>' +
+      '</div>' +
+      '<div class="sp-tox">' + t.sym + '</div>' +
+    '</div>' +
+  '</div>';
+}
+// Der Knopf „weitere laden" — sein Aussehen steht im CSS (#results-list [data-loadmore]).
+function _gsMehrLadenHtml(rest, _t) {
+  _t = _t || ((window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; });
+  return '<div data-loadmore="1" onclick="loadMoreList()">' +
+    '<span style="font-size:var(--fs-lg);">⬇️</span> ' + rest + ' ' + _t('load_more_species','weitere Arten laden') +
+  '</div>';
+}
+
 function renderList(){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // SUCHE-1: die Knoepfe zeigen, was gilt — hier, weil JEDER Weg zur Liste hier vorbeikommt
@@ -38307,49 +38352,11 @@ function renderList(){
     return;
   }
   
-  const cards = slice.map(_rohSp=>{
-    // v32.92: ZUERST die Sicherheitsangaben der ART holen — `toxInfo` und die
-    // Plaketten darunter lesen `sp.tox`/`sp.edible`. Beim ersten Anlauf stand
-    // dieser Aufruf WEITER UNTEN: der Rand wurde orange, das gruene
-    // „✅ Essbar" blieb stehen. Genau deshalb wird der gerenderte TEXT
-    // gemessen und nicht das Objekt.
-    const sp = _gsArtAnzeige(_rohSp);
-    const t = toxInfo(sp.tox);
-    // Tags: max 2 anzeigen (Karte bleibt gleich hoch)
-    const tags = [];
-    if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' ' + _t('badge_giftig','Giftig') + '</span>');
-    // v31.91: Dieselbe Regel wie auf der Detailkarte (v31.90) — eine gruene
-    // „Essbar"-Plakette auf einem ungeprueften Eintrag ist dieselbe Zusage,
-    // ob sie in der Liste oder im Detail steht. Sie hier stehen zu lassen
-    // waere eine halbe Korrektur: der Mensch sieht die Liste ZUERST.
-    else if (sp.edible && !sp._unverified) tags.push('<span class="tag e">✅ ' + _t('tag_edible','Essbar') + '</span>');
-    else if (sp.edible && sp._unverified)  tags.push('<span class="tag" style="background:var(--surface2);color:var(--muted);">❔ ' + _t('tag_unverified','nicht geprüft') + '</span>');
-    if (sp.medicinal)   tags.push('<span class="tag m">💊 ' + _t('tag_medicinal','Heilpflanze') + '</span>');
-    if (sp.protected)   tags.push('<span class="tag p">🛡️ ' + _t('tag_protected','Geschützt') + '</span>');
-    const tagsHtml = tags.slice(0,2).join(''); // Max 2 Tags
-    const latName = sp.lat ? sp.lat : '​'; // Zero-width space wenn leer → Höhe bleibt
-    var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : (sp.tox === 0 && sp.edible && !sp._unverified) ? '#2e7d32' : 'transparent';
-    return '<div class="sp-card" onclick="openDetail(this.dataset.sid)" data-sid="'+sp.id+'" style="border-left:3px solid '+toxBorder+';">' +
-      '<div class="sp-inner">' +
-        '<div class="sp-emoji">' + (typeof getEmoji==='function'?getEmoji(sp):(sp.emoji||'🌿')) + '</div>' +
-        '<div class="sp-info">' +
-          '<div class="sp-name">' + (searchText && typeof gsHighlight==='function' ? gsHighlight(sp.name, searchText) : escHtml(sp.name)) + '</div>' +
-          '<div class="sp-lat">' + escHtml(latName) + '</div>' +
-          '<div class="sp-tags">' + tagsHtml + '</div>' +
-        '</div>' +
-        '<div class="sp-tox">' + t.sym + '</div>' +
-      '</div>' +
-    '</div>';
-  });
-  
+  const cards = slice.map(function (_rohSp) { return _gsArtKarteHtml(_rohSp, _t); });
+
   // "Mehr laden" Button wenn nicht alle gezeigt
   if (slice.length < validRes.length) {
-    const remaining = validRes.length - slice.length;
-    cards.push(
-      '<div data-loadmore="1" onclick="loadMoreList()">' +
-        '<span style="font-size:var(--fs-lg);">⬇️</span> ' + remaining + ' ' + _t('load_more_species','weitere Arten laden') +
-      '</div>'
-    );
+    cards.push(_gsMehrLadenHtml(validRes.length - slice.length, _t));
   }
   
   document.getElementById('results-list').innerHTML = cards.join('');
@@ -38371,42 +38378,10 @@ function loadMoreList() {
   var start = (_listPage - 1) * _LIST_PAGE_SIZE;
   var slice = validRes.slice(start, start + _LIST_PAGE_SIZE);
   if (!slice.length) return;
-  var cards = slice.map(function(_rohSp) {
-    // v32.92: ZUERST die Sicherheitsangaben der ART holen — `toxInfo` und die
-    // Plaketten darunter lesen `sp.tox`/`sp.edible`. Beim ersten Anlauf stand
-    // dieser Aufruf WEITER UNTEN: der Rand wurde orange, das gruene
-    // „✅ Essbar" blieb stehen. Genau deshalb wird der gerenderte TEXT
-    // gemessen und nicht das Objekt.
-    var sp = _gsArtAnzeige(_rohSp);
-    var t = toxInfo(sp.tox || 0);
-    var tags = [];
-    if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' ' + _t('badge_giftig','Giftig') + '</span>');
-    // v31.91: siehe oben — dieselbe Regel, zweite Liste.
-    else if (sp.edible && !sp._unverified) tags.push('<span class="tag e">\u2705 ' + _t('tag_edible','Essbar') + '</span>');
-    else if (sp.edible && sp._unverified)  tags.push('<span class="tag" style="background:var(--surface2);color:var(--muted);">\u2753 ' + _t('tag_unverified','nicht gepr\u00fcft') + '</span>');
-    if (sp.medicinal)   tags.push('<span class="tag m">\ud83d\udc8a ' + _t('tag_medicinal','Heilpflanze') + '</span>');
-    if (sp.protected)   tags.push('<span class="tag p">\ud83d\udee1\ufe0f ' + _t('tag_protected','Gesch\u00fctzt') + '</span>');
-    var tagsHtml = tags.slice(0,2).join('');
-    var latName = sp.lat ? sp.lat : '\u200b';
-    var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : (sp.tox === 0 && sp.edible && !sp._unverified) ? '#2e7d32' : 'transparent';
-    var emoji = typeof getEmoji === 'function' ? getEmoji(sp) : (sp.emoji || '\ud83c\udf3f');
-    var name = typeof escHtml === 'function' ? escHtml(sp.name) : sp.name;
-    return '<div class="sp-card" onclick="openDetail(\'' + sp.id + '\')" data-sid="' + sp.id + '" style="border-left-color:' + toxBorder + ';">' +
-      '<div class="sp-inner">' +
-        '<div class="sp-emoji">' + emoji + '</div>' +
-        '<div class="sp-info">' +
-          '<div class="sp-name">' + name + '</div>' +
-          '<div class="sp-lat">' + escHtml(latName) + '</div>' +
-          '<div class="sp-tags">' + tagsHtml + '</div>' +
-        '</div>' +
-        '<div class="sp-tox">' + t.sym + '</div>' +
-      '</div>' +
-    '</div>';
-  });
+  // SUCHE-5: dieselbe Karte und derselbe Knopf wie auf der ersten Seite (renderList)
+  var cards = slice.map(function (_rohSp) { return _gsArtKarteHtml(_rohSp, _t); });
   var remaining = validRes.length - (_listPage * _LIST_PAGE_SIZE);
-  if (remaining > 0) {
-    cards.push('<div data-loadmore="1" onclick="loadMoreList()" style="text-align:center;padding:14px;color:var(--g-main);font-weight:700;cursor:pointer;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;font-size:var(--fs-md);">\u2b07\ufe0f ' + remaining + ' ' + _t('load_more_species','weitere Arten laden') + '</div>');
-  }
+  if (remaining > 0) cards.push(_gsMehrLadenHtml(remaining, _t));
   var tmp = document.createElement('div');
   tmp.innerHTML = cards.join('');
   while (tmp.firstChild) list.appendChild(tmp.firstChild);
@@ -76998,7 +76973,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +25 (D1j, F1, F2, SC1, SU1–SU5, HS1, HW1, HW2, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +26 (D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
