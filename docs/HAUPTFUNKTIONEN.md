@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung) · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6 · Home 1, 2 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1, 2, 3, 4, 5, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6 · Home 1, 2 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -48,7 +48,8 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    neu. Kein Abbruch, keine Zeitangabe (45 s Timeout, 2 Wiederholungen).
 3. ✅ v33.61 — **Sternchen stehen roh da.** Antworten laufen durch `escHtml` ohne Auszeichnung — auch die
    Notfallzeile trägt `**…**`. Vorlage: `addScanChatMsg` seit v33.61.
-4. **Ältere Gespräche sind unerreichbar.** Nur die neueste Unterhaltung wird geladen; „＋ Neu"
+4. ✅ v33.61 (Verlauf mit den letzten 20; „＋ Neu" verliert damit nichts; `sensor_check` L5 —
+   offline bleibt der Verlauf leer, das ist offen) — **Ältere Gespräche sind unerreichbar.** Nur die neueste Unterhaltung wird geladen; „＋ Neu"
    verwirft ohne Rückfrage; offline ist der Verlauf leer.
 5. ✅ v33.61 (Wege sind ein Knopf) — **Aktionen schliessen Lina sofort** (`navigate`, `open_calendar`, `search_species`,
    `prefill_form` in `gsLinaDispatch`) — die Antwort ist weg.

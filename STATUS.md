@@ -67,6 +67,11 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   (`GS_LINA_LESE_TOOLS`, `gsLinaAktionTun`) statt Lina nach 140 ms zu schliessen;
   `propose_reminder` schrieb für eine Garten-Pflanzung nichts und meldete „eingerichtet"
   (jetzt über `_gsPflanzeFinden`, mit Rückgabewert); die Rückfrage nennt eine Dublette.
+- **Lina 4 — frühere Gespräche.** `gsOpenLina` lud nur das neueste Gespräch (`limit=1`); nach
+  „＋ Neu" war das bisherige in der App nicht mehr erreichbar, obwohl es in `coach_conversations`
+  lag. Jetzt „🕘 Verlauf" im Lina-Kopf: die letzten 20 (`gsLinaGespraeche`, vier Zustände —
+  lädt · leer · Fehler · Liste), antippen lädt eines über denselben Lader wie beim Öffnen
+  (`_gsLinaLadeGespraech`, neueste hundert, umgedreht). Titel als Text, die Kennung im Attribut.
 - **Scanner** (Untersitzung, 23d9b04 · 7ab9bfd): „Alternative wählen" legte nach 10 Sekunden
   einen zweiten Scan an (Verlauf UND Cloud, der falsche blieb), hob die Sicherheit der
   gewählten Art auf 60 % und zeigte Merkmale und Urteile der verworfenen Art. Jetzt zeichnet
@@ -106,7 +111,8 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
 **Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
-`escape_check` +1 (A3b). Jeder neue Fall gegen den Stand davor gefahren: rot. Volle Suite auf
+`escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche). Jeder neue Fall gegen den Stand
+davor gefahren: rot. Volle Suite auf
 3812572: 42 Prüfstände, rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge).
 
 **Aufs Brett gelegt** (nicht in den vier Funktionen, deshalb nicht angefasst): der Wissen-Tab
@@ -117,7 +123,7 @@ einen Tag zu spät und zählt Frost erst unter 2 °C (brett c72c). An die Sitzun
 `_gsScanFehlerArt` hängt am Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07).
 
 **Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-a082, brett:2026-11-16-c72c, brett:2026-11-16-cd07 — Gratis-Zähler (Fernando), Wissen-Tab, Standort-Fenster und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt)
-**Nicht geprüft:** die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando.
+**Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando.
 
 ### 2026-11-11 (jd) - kein Bump: das Brett — wie sich alle KI-Sitzungen und ihre Unteragenten austauschen
 

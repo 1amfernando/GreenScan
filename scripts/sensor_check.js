@@ -2261,6 +2261,78 @@ const FAELLE = [
       }
     },
   },
+  {
+    // „Offen — Lina" 4. Gemessen: gsOpenLina lud NUR das neueste Gespraech (limit=1); „＋ Neu"
+    // nahm den Verlauf aus der Ansicht, und kein Weg fuehrte zurueck — das Gespraech lag in der
+    // Cloud (coach_conversations), erreichbar war es in der App nicht.
+    name: 'Lina L5 · frühere Gespräche: „Verlauf" listet sie, antippen lädt eines (Frage vor Antwort) — nach „＋ Neu" ist das alte erreichbar; leer und Fehler werden gesagt',
+    lauf: async () => {
+      const sichern = { li: window.sbIsLoggedIn, sf: window.sbFetch };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const klagen = [];
+      const GESPR = [
+        { id: 'c-neu', title: 'Tomaten giessen', updated_at: '2026-11-15T10:00:00Z' },
+        { id: 'c-alt', title: 'Bärlauch & <b>Maiglöckchen</b>', updated_at: '2026-11-01T08:00:00Z' },
+      ];
+      // wie PostgREST sie liefert: neueste zuerst (order=created_at.desc)
+      const NACHR = {
+        'c-neu': [{ role: 'assistant', content: 'Etwa alle zwei Tage.' }, { role: 'user', content: 'Wie oft Tomaten giessen?' }],
+        'c-alt': [{ role: 'assistant', content: 'Achte auf den Knoblauchduft.' }, { role: 'user', content: 'Wie unterscheide ich Bärlauch?' }],
+      };
+      let modus = 'daten';
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (get && /coach_conversations/.test(pfad)) {
+            if (modus === 'fehler') return { data: null, error: { message: 'Failed to fetch', status: 0 } };
+            if (modus === 'leer') return { data: [], error: null };
+            return { data: /limit=1(&|$)/.test(pfad) ? GESPR.slice(0, 1) : GESPR, error: null };
+          }
+          if (get && /coach_messages/.test(pfad)) { const m = /conversation_id=eq\.([^&]+)/.exec(pfad); return { data: (m && NACHR[decodeURIComponent(m[1])]) || [], error: null }; }
+          return { data: [], error: null };
+        };
+        await gsOpenLina(); await warte(150);
+        const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+        if (!/Tomaten/.test(text())) return { ok: false, warum: 'Lina öffnet nicht mit dem neuesten Gespräch — der Fall misst nichts' };
+        // 1 · „＋ Neu" — das alte Gespraech ist danach ueber den Verlauf erreichbar
+        gsLinaNew(); await warte(80);
+        if (/Tomaten/.test(text())) return { ok: false, warum: 'nach „＋ Neu" steht das alte Gespräch noch da — der Fall misst nichts' };
+        const vk = () => document.querySelector('[data-lina-verlauf]');
+        if (!vk()) klagen.push('kein Knopf „Verlauf" im Lina-Kopf');
+        else {
+          vk().click(); await warte(200);
+          const zeilen = [...document.querySelectorAll('[data-lina-gespraech]')];
+          if (zeilen.length !== 2) klagen.push('Verlauf: ' + zeilen.length + ' Gespräche statt 2');
+          const alt = zeilen.find(z => z.getAttribute('data-lina-gespraech') === 'c-alt');
+          if (!alt) klagen.push('das ältere Gespräch steht nicht in der Liste');
+          else {
+            if (!/Bärlauch & <b>Maiglöckchen<\/b>/.test(alt.textContent)) klagen.push('Titel nicht als Text: „' + alt.textContent.trim() + '"');
+            if (alt.querySelector('b')) klagen.push('der Titel wird als HTML eingesetzt');
+            alt.click(); await warte(200);
+            const t = text();
+            if (window._gsLinaConvId !== 'c-alt') klagen.push('nach dem Antippen ist Gespräch „' + window._gsLinaConvId + '" aktiv');
+            if (!/Knoblauchduft/.test(t) || !/unterscheide/.test(t)) klagen.push('die Nachrichten des älteren Gesprächs stehen nicht da: „' + t.slice(0, 80) + '"');
+            else if (t.indexOf('unterscheide') > t.indexOf('Knoblauchduft')) klagen.push('Antwort vor Frage — die Reihenfolge ist verdreht');
+          }
+        }
+        // 2 · leer und Fehler werden ausgesprochen; „Zurück" fuehrt ins Gespraech
+        modus = 'leer'; vk() && vk().click(); await warte(200);
+        if (!/Noch keine früheren Gespräche/.test(text())) klagen.push('leere Liste wird nicht gesagt: „' + text().slice(0, 80) + '"');
+        modus = 'fehler'; vk() && vk().click(); await warte(200);
+        if (!/lassen sich gerade nicht laden/.test(text())) klagen.push('Fehler wird nicht gesagt: „' + text().slice(0, 80) + '"');
+        const zur = document.querySelector('[data-lina-zurueck]');
+        if (!zur) klagen.push('kein „Zurück" in der Liste');
+        else { zur.click(); await warte(120); if (!/Knoblauchduft/.test(text())) klagen.push('„Zurück" führt nicht ins offene Gespräch: „' + text().slice(0, 60) + '"'); }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '„＋ Neu" → Verlauf: 2 Gespräche, das ältere lädt (Frage vor Antwort), Titel als Text · leer und Fehler gesagt · Zurück ins Gespräch' };
+      } finally {
+        window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf;
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {

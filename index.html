@@ -16383,6 +16383,16 @@ window.GS_I18N_JS_STRINGS = {
   'lina_error_retry':          'Hmm, das hat gerade nicht geklappt 🌿 — bitte versuch es gleich nochmal.',
   'lina_ki_aus_vor':           '⚠️ Die KI antwortet gerade nicht — hier ist, was ich aus der App-Liste weiss:',
   'lina_nochmal':              '↻ Erneut senden',
+  // ── v33.61: Lina 4 — fruehere Gespraeche (gsLinaGespraeche) ────────
+  'lina_verlauf':              '🕘 Verlauf',
+  'lina_verlauf_titel':        'Frühere Gespräche',
+  'lina_verlauf_laedt':        'Gespräche werden geladen…',
+  'lina_verlauf_leer':         'Noch keine früheren Gespräche.',
+  'lina_verlauf_fehler':       'Die Gespräche lassen sich gerade nicht laden.',
+  'lina_verlauf_fehler_eins':  'Das Gespräch lässt sich gerade nicht laden.',
+  'lina_verlauf_ohne_titel':   'Gespräch',
+  'lina_verlauf_offen':        'offen',
+  'lina_zurueck':              '← Zurück',
   // ── v28.62: Community-Feedback (renderFeedback) ────────────────
   'fb_loading_title':          'Community-Posts werden geladen…',
   'fb_loading_hint':           'Frisch aus der Supabase-Datenbank',
@@ -76973,7 +76983,7 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +26 (D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +26 (D1j, F1, F2, SC1, SU1–SU6, HS1, HW1, HW2, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +6 (Lina L1–L5, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
@@ -76984,6 +76994,7 @@ window.GS_RELEASES = [
         {emoji:'🆘', bold:'Notfall auf Spanisch:', text:' Lina und der Scan-Chat erkennen jetzt auch spanische Sätze wie „mi hija ha comido bayas“.'},
         {emoji:'🌿', bold:'Lina:', text:' was du während des Wartens tippst, bleibt stehen. Antwortet die KI gerade nicht, sagt Lina, was die App-Liste weiss, und du kannst die Frage nochmal senden. Einen Weg in der App zeigt sie als Knopf, statt sich zu schliessen.'},
         {emoji:'⏰', bold:'Erinnerungen über Lina:', text:' eine Erinnerung für eine Pflanze im Garten wird jetzt wirklich gespeichert — vorher stand „eingerichtet“ da, und es war nichts geschehen.'},
+        {emoji:'🕘', bold:'Frühere Gespräche mit Lina:', text:' unter „Verlauf“ findest du deine letzten zwanzig Gespräche wieder. Bisher war ein Gespräch nach „＋ Neu“ in der App nicht mehr zu erreichen.'},
         {emoji:'👆', bold:'Scanner — eine andere Art wählen:', text:' die Bestimmung wird geändert, statt einen zweiten Scan anzulegen, und die Karte zeigt nichts mehr von der verworfenen Art. Dasselbe gilt für eine Korrektur — dort schlägt das Feld jetzt passende Arten vor.'},
         {emoji:'💡', bold:'Scanner — wenn etwas schiefgeht:', text:' die Fehlerkarte sagt in einem Satz, was los ist, statt technischer Meldungen, und „In einer Minute nochmal“ zählt sichtbar herunter.'},
         {emoji:'📜', bold:'Scan-Verlauf:', text:' er zeigt jetzt dieselbe Art und dieselben Sicherheitsangaben wie das Scan-Ergebnis. Vorher konnte „In Datenbank öffnen“ bei einem Namen, den mehrere Arten tragen, eine andere, harmlosere Art öffnen.'},
@@ -87661,8 +87672,8 @@ async function gsOpenLina(){
       // v33.33: `order=created_at.asc&limit=100` holte die AELTESTEN hundert —
       // ab Nachricht 101 fehlte der juengste Teil des Gespraechs, still. Jetzt
       // die neuesten hundert (desc), fuer die Anzeige zeitlich umgedreht.
-      var rm = await sbFetch('/rest/v1/coach_messages?conversation_id=eq.'+window._gsLinaConvId+'&select=role,content&order=created_at.desc&limit=100', {method:'GET'});
-      window._gsLinaMsgs = ((rm && rm.data) || []).map(function(m){ return { role:m.role, content:m.content }; }).reverse();
+      // LINA-4: derselbe Lader wie fuer ein frueheres Gespraech aus dem Verlauf.
+      await _gsLinaLadeGespraech(convs[0].id);
     }
   } catch(_){}
   gsLinaRender(false);
@@ -87826,7 +87837,9 @@ function gsLinaRender(typing){
   var html = '<div style="display:flex;flex-direction:column;height:72vh;max-width:520px;margin:0 auto;">'
     + '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);">'
       + '<div style="font-size:var(--fs-2xl);">🌿</div><div><div style="font-weight:900;color:var(--text);font-size:var(--fs-lg);">' + _t('lina_name','Lina') + '</div><div style="font-size:var(--fs-sm);color:var(--muted);">' + _t('lina_subtitle','Dein Garten-Coach · immer gratis') + '</div></div>'
-      + '<button onclick="gsLinaNew()" style="margin-left:auto;padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + _t('lina_new','＋ Neu') + '</button>'
+      // LINA-4: fruehere Gespraeche — ohne diesen Knopf war ein Gespraech nach „＋ Neu" nicht mehr erreichbar
+      + '<button data-lina-verlauf="1" onclick="gsLinaGespraeche()" style="margin-left:auto;padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + escHtml(_t('lina_verlauf','🕘 Verlauf')) + '</button>'
+      + '<button onclick="gsLinaNew()" style="padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + _t('lina_new','＋ Neu') + '</button>'
     + '</div>'
     + '<div id="gs-lina-scroll" style="flex:1;overflow-y:auto;padding:12px 16px;">' + body + '</div>'
     + '<div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);">'
@@ -87845,6 +87858,64 @@ window.gsLinaRender = gsLinaRender;
 
 function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLinaRender(false); }
 window.gsLinaNew = gsLinaNew;
+
+// ══ LINA-4 (16.11.2026): fruehere Gespraeche ═════════════════════════════════════════════
+// gsOpenLina lud nur das NEUESTE Gespraech (limit=1). „＋ Neu" nahm den Verlauf aus der Ansicht,
+// und kein Weg fuehrte zurueck: das Gespraech lag in der Cloud (coach_conversations, RLS: nur die
+// eigenen), erreichbar war es in der App nicht. Jetzt listet „🕘 Verlauf" die letzten zwanzig,
+// antippen laedt eines — mit vier Zustaenden: laedt · leer · Fehler · Liste.
+// Die Nachrichten EINES Gespraechs: die neuesten hundert (desc), fuer die Anzeige umgedreht
+// (v33.33). `false` = nicht geladen; dann bleibt alles, wie es war.
+async function _gsLinaLadeGespraech(id) {
+  if (!id || typeof sbFetch !== 'function') return false;
+  var rm = await sbFetch('/rest/v1/coach_messages?conversation_id=eq.' + encodeURIComponent(id) + '&select=role,content&order=created_at.desc&limit=100', { method: 'GET' });
+  if (!rm || rm.error || !Array.isArray(rm.data)) return false;
+  window._gsLinaConvId = id;
+  window._gsLinaMsgs = rm.data.map(function (m) { return { role: m.role, content: m.content }; }).reverse();
+  return true;
+}
+async function gsLinaGespraeche() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var sc = document.getElementById('gs-lina-scroll');
+  if (!sc) return;
+  var hinweis = function (txt) { return '<div style="padding:24px 8px;text-align:center;color:var(--muted);font-size:var(--fs-md);">' + escHtml(txt) + '</div>'; };
+  var kopf = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+    + '<button data-lina-zurueck="1" onclick="gsLinaRender(false)" style="padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + escHtml(_t('lina_zurueck','← Zurück')) + '</button>'
+    + '<div style="font-weight:800;color:var(--text);font-size:var(--fs-md);">' + escHtml(_t('lina_verlauf_titel','Frühere Gespräche')) + '</div></div>';
+  sc.innerHTML = kopf + hinweis(_t('lina_verlauf_laedt','Gespräche werden geladen…'));
+  var liste = null;
+  try {
+    var uid = gsStore.get('gs_sb_uid', null);
+    var r = await sbFetch('/rest/v1/coach_conversations?user_id=eq.' + encodeURIComponent(uid) + '&select=id,title,updated_at&order=updated_at.desc&limit=20', { method: 'GET' });
+    if (r && !r.error && Array.isArray(r.data)) liste = r.data;
+  } catch (_) { liste = null; }
+  sc = document.getElementById('gs-lina-scroll');
+  if (!sc) return;                                   // Lina ist inzwischen zu
+  if (!liste) { sc.innerHTML = kopf + hinweis(_t('lina_verlauf_fehler','Die Gespräche lassen sich gerade nicht laden.')); return; }
+  if (!liste.length) { sc.innerHTML = kopf + hinweis(_t('lina_verlauf_leer','Noch keine früheren Gespräche.')); return; }
+  sc.innerHTML = kopf + liste.map(function (g) {
+    var wann = '';
+    try { wann = g.updated_at ? new Date(g.updated_at).toLocaleDateString(gsLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : ''; } catch (_) { wann = ''; }
+    var offen = (g.id === window._gsLinaConvId) ? ' · ' + _t('lina_verlauf_offen','offen') : '';
+    // die Kennung steht im Attribut, nicht in einem JS-String (escape_check, v32.66)
+    return '<button data-lina-gespraech="' + escHtml(String(g.id)) + '" onclick="gsLinaGespraechOeffnen(this.getAttribute(\'data-lina-gespraech\'))" '
+      + 'style="display:block;width:100%;text-align:left;padding:11px 13px;margin:0 0 8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;">'
+      + '<div style="font-weight:700;font-size:var(--fs-md);">' + escHtml(g.title || _t('lina_verlauf_ohne_titel','Gespräch')) + '</div>'
+      + '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px;">' + escHtml(wann + offen) + '</div></button>';
+  }).join('');
+}
+window.gsLinaGespraeche = gsLinaGespraeche;
+async function gsLinaGespraechOeffnen(id) {
+  var ok = false;
+  try { ok = await _gsLinaLadeGespraech(id); } catch (_) { ok = false; }
+  if (!ok) {
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+    if (typeof gsToast === 'function') gsToast(_t('lina_verlauf_fehler_eins','Das Gespräch lässt sich gerade nicht laden.'), 'warning', 3500);
+    return;
+  }
+  gsLinaRender(false);
+}
+window.gsLinaGespraechOeffnen = gsLinaGespraechOeffnen;
 
 // v32.69 (Audit B4): Linas Nachrichten gingen ohne Blick auf die Antwort in die
 // Cloud. Ein Verlauf, der nur lokal liegt, ist auf dem zweiten Gerät weg — das
