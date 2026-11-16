@@ -106,6 +106,16 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   zugeschnitten statt gestaucht; der Verlauf bekommt die Vorschau per Kennung nachgetragen,
   `_lastScanThumb` trägt bis dahin nichts (nie das Foto des vorigen Scans), und „Zu meinen
   Pflanzen" wartet darauf.
+- **Suche 8 — die Suche im Menü.** `searchMenu` hatte einen eigenen Artenteil: `includes` auf
+  Name, Binomen und Familie — „barlauch", „bärlauhc" und „loewenzahn" fanden im Menü keine Art,
+  die ersten fünf standen in Dateireihenfolge, und keine Zeile trug eine Giftangabe (gemessen:
+  „schierling" zeigte Wasserschierling und Gefleckten Schierling ohne „Giftig", den
+  Wasser-Schierling mit dem Symbol seines Eintrags ⚪). Dazu filterte sie je Tastendruck für jeden
+  der 51 Menüeinträge die ganze Artenliste (52 Durchläufe, gezählt) und warf das Ergebnis weg
+  (`dbMatch: []`). Jetzt ist die Rangfolge der Artensuche EINE Rechnung (`_gsSucheRang`, aus
+  `getFiltered` herausgelöst — die Suche ruft sie mit ihren Filtern, das Menü ohne; den Merker der
+  Statuszeile schreibt nur `getFiltered`), die Zeilen tragen die Angabe der Art (`_gsArtAnzeige`)
+  und öffnen über `data-sid`. 0 Durchläufe über die Artenliste je Tastendruck.
 - **Lina 7 — die Vorschläge.** `GS_LINA_VORSCHLAEGE` stand fest: „Welche Pflanzen blühen im
   April?" in jedem Monat, nichts zu fälligen Aufgaben oder zum letzten Scan. Und gemessen: die
   Schlüssel `ai_sug_1`–`5` standen in keiner Tabelle — `keyBundle` entsteht aus `[data-i18n]` im
@@ -175,7 +185,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   einem eigenen `role=tablist`, der Knopf daneben. „`gsRenderWochenrueckblick` doppelt gerufen"
   (Arbeitsliste): nachgesehen — Tagesplan und erster Aufbau rendern dieselben Daten, kein Fehler.
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU6, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU7, HS1–HS3, HW1, HW2, HK1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge);

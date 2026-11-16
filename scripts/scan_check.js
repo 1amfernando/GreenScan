@@ -2227,6 +2227,57 @@ const FAELLE = [
     },
   },
   {
+    // SUCHE-8. Die Menü-Suche hatte einen eigenen Artenteil: `includes` auf Name, Binomen und
+    // Familie — ohne Umlaut-Faltung („barlauch" fand den Bärlauch nicht), ohne Rangfolge (die ersten
+    // fünf in Dateireihenfolge), ohne Vertipper, und ohne jede Giftmarkierung (die Trefferliste der
+    // Suche trägt Giftrand und „Giftig"). Dazu filterte sie je Tastendruck für JEDEN der 51
+    // Menüeinträge die ganze Artenliste und warf das Ergebnis weg (`dbMatch: []`).
+    name: 'SU7 · Menü-Suche: der Artenteil sucht wie die Suche (Umlaute, Vertipper, Rangfolge), zeigt die Giftigkeit der Art — und filtert die Artenliste nicht mehr je Menüeintrag',
+    lauf: () => {
+      if (typeof searchMenu !== 'function') return { ok: false, warum: 'searchMenu gibt es nicht' };
+      const inp = document.getElementById('menu-search-inp'), box = document.getElementById('menu-search-results');
+      if (!inp || !box) return { ok: false, warum: 'die Menü-Suche fehlt — der Fall misst nichts' };
+      const f = [];
+      const tippe = (w) => { inp.value = w; inp.dispatchEvent(new Event('input', { bubbles: true })); };
+      const arten = () => [].slice.call(box.querySelectorAll('[data-sid], [onclick*="openDetail"]'));
+      const vorF = currentFilter, vorS = searchText, vorP = (typeof currentProp !== 'undefined') ? currentProp : '';
+      const echtFilter = Array.prototype.filter;
+      let dbFilter = 0;
+      try {
+        // 1 · Umlaute und Vertipper wie in der Suche
+        [['barlauch', /Bärlauch/], ['bärlauhc', /Bärlauch/], ['loewenzahn', /Löwenzahn/]].forEach(function (p) {
+          tippe(p[0]);
+          const namen = arten().map((a) => a.textContent);
+          if (!namen.some((t) => p[1].test(t))) f.push('„' + p[0] + '" findet im Menü ' + (namen.length ? '„' + namen[0].trim().slice(0, 30) + '"' : 'keine Art'));
+        });
+        // 2 · dieselbe Rangfolge: die erste Art im Menü ist die erste der Suche (ohne Filter)
+        tippe('giersch');
+        currentFilter = ''; searchText = 'giersch'; if (typeof currentProp !== 'undefined') currentProp = '';
+        const erste = getFiltered()[0];
+        const m1 = arten()[0];
+        if (!erste || !m1) f.push('„giersch": keine Art im Menü oder in der Suche');
+        else if (m1.textContent.indexOf(erste.name) < 0) f.push('„giersch": im Menü zuerst „' + m1.textContent.trim().slice(0, 30) + '", in der Suche „' + erste.name + '"');
+        // 3 · eine giftige Art sagt es — die Angabe der ART (_gsArtAnzeige), wie die Trefferliste
+        tippe('schierling');
+        const zeilen = arten();
+        const gift = zeilen.filter((z) => { const sp = DB.find((s) => s && String(s.id) === String(z.getAttribute('data-sid') || (/openDetail\('([^']+)'/.exec(z.getAttribute('onclick') || '') || [])[1])); return sp && (_gsArtAnzeige(sp).tox || 0) >= 3; });
+        if (!gift.length) f.push('„schierling" findet im Menü keine giftige Art — der Fall misst die Markierung nicht');
+        gift.forEach((z) => { if (!/Giftig/i.test(z.textContent)) f.push('„' + z.textContent.trim().slice(0, 30) + '" steht ohne „Giftig" im Menü'); });
+        // 4 · je Tastendruck höchstens ein Durchlauf über die Artenliste
+        Array.prototype.filter = function () { if (this === DB) dbFilter++; return echtFilter.apply(this, arguments); };
+        tippe('rose');
+        Array.prototype.filter = echtFilter;
+        if (dbFilter > 1) f.push('ein Tastendruck filtert die Artenliste ' + dbFilter + '×');
+      } finally {
+        Array.prototype.filter = echtFilter;
+        currentFilter = vorF; searchText = vorS; if (typeof currentProp !== 'undefined') currentProp = vorP;
+        try { if (typeof clearMenuSearch === 'function') clearMenuSearch(); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Umlaute und Vertipper wie die Suche · gleiche erste Art · „Giftig" an giftigen Arten · ' + dbFilter + '× Artenliste je Tastendruck' };
+    },
+  },
+  {
     name: 'SC1 · Der Scan-Chat hat Linas Schutz: Notfallnummer sofort, Warnzeile ueber einer Essbar-Zusage zu einer Giftart',
     lauf: async () => {
       var gift = DB.find(function (s) { return s.tox >= 5 && s.lat && _gsArtenTreffer(s.name + ' ' + s.lat).zahl; });
