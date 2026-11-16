@@ -122,6 +122,12 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   Gegenproben rot (Name unter Text; Familie unter Text) — die zweite erst, nachdem gemessen war,
   welches Wort Familie UND bei anderen Einträgen nur den Text trifft: nur „solanaceae" (16 / 1).
   Ohne dieses Wort blieb „Familie unter Text" grün. Kein App-Code geändert.
+- **Lina 2 (Rest) — die Wartezeit.** „Lina denkt nach…" stand nach 2 und nach 90 Sekunden gleich da
+  (45 s Zeitlimit, bis zu zwei Wiederholungen). Jetzt „· N s" ab 3 s, gezählt mit
+  `performance.now` (eine gestellte Uhr hält es nicht an), EIN Zähler (`_gsLinaUhr`), im `finally`
+  abgeräumt. Ein echtes Abbrechen braucht ein Abbruchsignal in `callAI` — das Gebiet der Sitzung
+  „KI-Modelle", deshalb als Idee aufs Brett (`2026-11-16-8186`); ein blosses Verwerfen der späteren
+  Antwort hätte das Kontingent trotzdem belastet.
 - **Lina 7 — die Vorschläge.** `GS_LINA_VORSCHLAEGE` stand fest: „Welche Pflanzen blühen im
   April?" in jedem Monat, nichts zu fälligen Aufgaben oder zum letzten Scan. Und gemessen: die
   Schlüssel `ai_sug_1`–`5` standen in keiner Tabelle — `keyBundle` entsteht aus `[data-i18n]` im
@@ -207,7 +213,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
 **Prüfstände:** `scan_check` D1j, F1, F2, SC1, SC2, SU1–SU8, HS1–HS3, HW1, HW2, HK1, HF1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
-`escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge);
+`escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge), L8 (Wartezeit);
 `i18n_check` kennt `GS_LINA_VORSCHLAEGE` als Datenliste. Jeder neue
 Fall gegen den Stand davor gefahren: rot. Volle Suite auf
 3812572: 42 Prüfstände, rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge).

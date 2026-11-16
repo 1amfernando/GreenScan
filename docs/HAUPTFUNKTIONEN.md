@@ -46,7 +46,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 1. ✅ v33.61 — **KI fällt aus, Gerät ist online:** nur „versuch es nochmal". `getSmartAnswer` greift nur
    bei `!navigator.onLine`; kein Knopf zum erneuten Senden.
-2. ✅ v33.61 (Abbruch und Zeitangabe fehlen weiter) — **Entwurf geht beim Warten verloren.** `gsLinaRender` baut das Fenster samt Eingabefeld
+2. ✅ v33.61 (Zeitangabe seit L8; ein Abbruch braucht ein Signal in callAI → Brett 2026-11-16-8186) — **Entwurf geht beim Warten verloren.** `gsLinaRender` baut das Fenster samt Eingabefeld
    neu. Kein Abbruch, keine Zeitangabe (45 s Timeout, 2 Wiederholungen).
 3. ✅ v33.61 — **Sternchen stehen roh da.** Antworten laufen durch `escHtml` ohne Auszeichnung — auch die
    Notfallzeile trägt `**…**`. Vorlage: `addScanChatMsg` seit v33.61.

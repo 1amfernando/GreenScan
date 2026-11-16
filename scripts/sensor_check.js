@@ -2434,6 +2434,51 @@ const FAELLE = [
       }
     },
   },
+  {
+    // „Offen — Lina" 2 (Rest). Während Lina auf die KI wartet (45 s Zeitlimit, bis zu zwei
+    // Wiederholungen), stand nur „Lina denkt nach…" — dieselbe Zeile nach 2 und nach 90 Sekunden.
+    // Die einzige ehrliche Aussage über einen laufenden Aufruf ist, seit wann er läuft (v31.79,
+    // der Scanner zählt so seit v32.08). Gemessen mit performance.now — die Uhr dieses
+    // Prüfstands ist gestellt, Date.now steht still.
+    name: 'Lina L8 · Wartezeit: während Lina auf die KI wartet, steht seit wann („· N s") — danach ist die Anzeige weg und kein Zähler läuft weiter',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const klagen = [];
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        window.callAI = () => new Promise(r => setTimeout(() => r('Etwa alle zwei Tage, morgens.'), 4300));
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        await gsOpenLina(); await warte(120);
+        const inp = document.getElementById('gs-lina-input');
+        if (!inp) return { ok: false, warum: 'Lina hat kein Eingabefeld — der Fall misst nichts' };
+        inp.value = 'Wie oft giesse ich Tomaten?';
+        const lauf = gsLinaSend();
+        await warte(900);
+        const frueh = ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+        if (!/denkt nach/i.test(frueh)) return { ok: false, warum: 'kein „denkt nach" während der Anfrage — der Fall misst nichts' };
+        await warte(2800);   // jetzt rund 3,7 s
+        const z = document.getElementById('gs-lina-denkt-zeit');
+        const zeit = z ? z.textContent.trim() : '';
+        if (!/^·?\s*[34]\s*s$/.test(zeit)) klagen.push('nach rund 3,7 s steht als Wartezeit „' + zeit + '"' + (z ? '' : ' (kein Element)'));
+        await lauf;
+        await warte(1300);
+        if (document.getElementById('gs-lina-denkt-zeit')) klagen.push('die Wartezeit steht nach der Antwort noch da');
+        if (window._gsLinaUhr) klagen.push('der Zähler läuft nach der Antwort weiter');
+        const nach = ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+        if (!/alle zwei Tage/.test(nach)) klagen.push('die Antwort steht nicht da');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'während des Wartens „' + zeit + '" · danach weg, Zähler abgeräumt, Antwort da' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {
