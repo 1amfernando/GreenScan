@@ -23,6 +23,13 @@
 --   3. Diese Datei anwenden. Danach bekommt kein Nutzer den Schlüssel mehr;
 --      Admins bekommen ihn weiter (Schlüssel-Test im Admin-Panel, Health-
 --      Check) — der Admin-Browser ist ohnehin der Ort, der ihn eintippt.
+--   4. PFLICHT (Nachtrag 10.11.2026, Sicherheitspruefung): erst NACH Schritt 3
+--      bei Anthropic einen NEUEN Schluessel erzeugen und an BEIDEN Stellen
+--      setzen — Function-Secret ANTHROPIC_API_KEY (ai-proxy & Co. lesen es
+--      zuerst, feedback-triage nur dort) und app_settings
+--      'global_anthropic_api_key' —, dann den ALTEN widerrufen. Ohne diesen
+--      Schritt behaelt jeder, der ihn seit dem Start abgeholt hat, einen
+--      gueltigen Schluessel: diese Datei schliesst nur den Hahn, nicht das Leck.
 --
 -- Antwortformat (App liest `enabled`, `mode`, `key`, `provider`):
 --   { enabled:false, reason:'not_authenticated'|'not_configured'|'banned' }
@@ -32,6 +39,8 @@
 -- Rückweg, falls der Proxy im Betrieb versagt: die Funktion aus
 -- v26_xx (`RETURN jsonb_build_object('enabled', true, 'key', _key, …)`)
 -- wieder einspielen — die App versteht beide Antworten. Idempotent.
+-- NUR IM NOTFALL: der Rueckweg gibt auch den NEUEN Schluessel wieder an alle
+-- Konten — danach Schritt 4 erneut (Schluessel wechseln).
 -- ══════════════════════════════════════════════════════════════════════════
 
 BEGIN;

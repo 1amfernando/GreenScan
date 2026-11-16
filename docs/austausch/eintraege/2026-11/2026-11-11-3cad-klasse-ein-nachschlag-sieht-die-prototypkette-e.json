@@ -1,0 +1,43 @@
+{
+  "id": "2026-11-11-3cad",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Ein Nachschlag sieht die Prototypkette — ein Schlüssel aus fremder Hand oder ein falscher Typ trifft eine eingebaute Funktion",
+  "regel": "Wer eine Tabelle (Objekt-Literal) mit einem Wert aus Server-, KI-, Backup- oder Fremddaten nachschlägt oder ein Feld an einem Wert liest, dessen Typ er nicht geprüft hat, nimmt nur EIGENE Einträge (_gsNachschlag, hasOwnProperty) — sonst liefern 'constructor', '__proto__' oder String.prototype.bold eine Funktion, und die ist wahr.",
+  "text": "Man erkennt eine neue Instanz an Text wie „function X() { [native code] }“ oder „[object Object]“ an einer Stelle, an der ein Emoji, ein Label oder ein Wahrheitswert stehen sollte, und an einer Bedingung `TAB[k] ? TAB[k] : rueckfall`, die für 'constructor' den Rückfall nie erreicht. Prüffrage je Treffer: Woher kommt der Schlüssel? Aus einer Konstante der App ist es harmlos. Aus sbFetch, KI, Backup, URL oder einem fremden Konto braucht der Nachschlag _gsNachschlag. Abgegrenzt von c699: dort ist das Problem der Prüfstand (Attrappe), hier der Code (der Nachschlag).",
+  "instanzen": [
+    "v33.00 · user_items als roher String: der Renderer las it.bold, das ist String.prototype.bold, eine Funktion und damit wahr. Auf dem Bildschirm stand dreimal „function bold() { [native code] }“",
+    "v33.59 · EMOJI[zeile.kategorie] mit dem Wert 'constructor' zeigte den Quelltext einer Funktion (Wasser, Besucher, Heilmittel, Rezepte, Pilz-Ampel, Markt- und Arten-Kategorie). Seither _gsNachschlag",
+    "v33.59 · gsHomeRenderTopPicks schlug die Markt-Kategorie eines fremden Inserats in der Tabelle der ARTEN-Kategorien nach — gefunden vom Suchmuster dieser Klasse; dazu 13 weitere Nachschläge (TASK_DEFS, GS_GARTEN_ARTEN, GS_TRIAGE_AUS …), in GS_TRIAGE_AUS hätte 'constructor' die Triage still abgeschaltet"
+  ],
+  "suchmuster": "grep -noE \"\\b[A-Za-z_]\\w*\\[[a-z]\\w*\\.(category|cat|kategorie|type|kind|status|rarity|diff|difficulty|level|tier|role|art|typ)\\]\" index.html | grep -v _gsNachschlag | wc -l",
+  "gesucht": "v33.59 (Branch ccr-5e705a36-jveaak): 50 Nachschläge TABELLE[x.feld] ausserhalb _gsNachschlag gefunden, 14 davon mit einem Schlüssel aus fremder Hand → umgestellt; die verbliebenen 19 Bauformen lesen Konstanten oder eigene Daten und stehen mit Grund in der Liste des Wächters (robust_check „Prototypkette“). Grenze: TAB[k] mit einer einfachen Variablen und kleingeschriebene Tabellen sieht die Suche nicht",
+  "waechter": [
+    {
+      "datei": "scripts/sicherheit/98_schluss_d.js",
+      "fall": "F · _gsNachschlag selbst: nur eigene Eintraege"
+    },
+    {
+      "datei": "scripts/nutzersicht_check.js",
+      "fall": "E4b · Die ECHTEN Release-Notizen rendern Text"
+    },
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "Prototypkette · keine Tabelle wird mit einem Feld aus fremder Hand nachgeschlagen"
+    }
+  ],
+  "stichworte": [
+    "_gsNachschlag",
+    "Prototypkette",
+    "constructor",
+    "__proto__",
+    "String.prototype.bold",
+    "gsAutoUserItems",
+    "_gsRelItem",
+    "gsHomeRenderTopPicks",
+    "98_schluss_d"
+  ]
+}

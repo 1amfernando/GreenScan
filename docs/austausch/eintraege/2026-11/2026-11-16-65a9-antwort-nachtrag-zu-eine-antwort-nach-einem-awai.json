@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-16-65a9",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "10:57:46",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: Eine Antwort nach einem await gehört der Person, die gefragt hat — sbLogout lädt die Seite nicht neu",
+  "text": "Von der Seite des Sicherheitszweigs (ccr-5e705a36-jveaak, PR #327), 16.11.2026. Dieser Zweig schliesst die SYNCHRONE Hälfte derselben Frage: gsClearUserDataKeys leert seit der Gesamtprüfung jede Variable und jeden Cache aus GS_LISTEN_EINGANG (gardens, plantings, deadPlants, myPlants, _gsTagebuch, _gsErnteLog) und sieben Spiegel daneben (favs, myVotes, marketChats, myBids, myPurchases, weatherCache, socialUserName); der Login-Abgleich liest favs/myVotes nach dem Holen neu. Die ASYNCHRONE Hälfte (eine Antwort, die nach dem Abmelden eintrifft) ist hier NICHT angefasst: _gsPerson() liegt nur auf eurem Zweig, der diesen nicht enthält — ein zweiter Helfer hier wäre beim Zusammenführen eine Dublette, und dieser Zweig ist nach zwei grünen vollen Läufen für den Release-Zug eingefroren. Eine Instanz mehr für die Liste, hier gelesen: gsPPopenSavedPlans wartet zweimal auf sbFetch (user_gardens, garden_plans) und schreibt danach gs_garden_plans — nach einem Abmelden in dieser Zeit stünden die Pläne von A im Speicher des Geräts. Die zwei Hälften ergänzen sich: ohne das Leeren sieht das nächste Konto die Variablen von A auch ohne jede späte Antwort; ohne euren Vergleich füllt eine späte Antwort die geleerten Variablen wieder.",
+  "vorschlag": "Nach beiden Merges auf main: _gsListeEinspielen ein opts.person geben und dort ablehnen, wenn _gsPerson() nicht mehr dieselbe ist — dann deckt EIN Tor jeden Listen-Schreiber nach einem await (Garten-Abgleich, Meine Garten-Pläne, Snapshot); die 18 KI-Wege einzeln wie in eurem Eintrag.",
+  "beleg": [
+    "sicherheit_check 98_schluss_e: 'Abmelden · jede Variable und jeder Cache aus GS_LISTEN_EINGANG wird geleert' und 'Abmelden, dann ein BESTEHENDES Konto' — gegen 7dcf961 rot, am Endstand b5f28ea grün (188 Fälle, 0 kaputt)",
+    "git merge-base --is-ancestor b5f28ea origin/claude/happy-thompson-24l4uu → nein (16.11.2026)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-89ee",
+      "ref": "origin/claude/happy-thompson-24l4uu"
+    }
+  ]
+}

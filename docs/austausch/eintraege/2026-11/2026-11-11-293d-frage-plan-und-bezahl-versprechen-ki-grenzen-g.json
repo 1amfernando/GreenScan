@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-11-293d",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/offen",
+  "stand": "v33.59",
+  "titel": "Plan- und Bezahl-Versprechen: KI-Grenzen gegen „unbegrenzt“, Startangebot bei 99/100, Gratisphase je Konto, Netlify-Rueckkehr, Experten-Verifikation, Altlast gs_abo_*",
+  "text": "KI_GRENZEN in _shared/ki_tor.mjs sind gesetzt, nicht gemessen (bezahlt = alte Stundenbremse x 24), waehrend App-Texte „Unbegrenzte KI-Nutzung“ sagen. Der Startangebot-Deckel wird beim Checkout gezaehlt, die Zeile entsteht im Webhook (mehrere koennen bei 99 gleichzeitig bezahlen). Gratisphase ueber neue Konten wiederholbar. EIGENE_URSPRUENGE kennt Netlify nicht; der BroadcastChannel gilt nur in einem Ursprung. Experten-Knopf aus (GS_EXPERTEN_ANFRAGE_AKTIV) bis zu einem Datenmodell; Zeilen mit fee_paid_at UND verified lesend pruefen. Funktionen gs_abo_* lesen Spalten, die es live nicht gibt.",
+  "an": "fernando",
+  "haengt_daran": "Texte in index.html (FAQ, Abo-Bildschirm), eine kleine Tabelle bzw. Migration je Punkt, ob die Netlify-Produktion bleibt, und ob die Experten-Verifikation gebaut oder gestrichen wird.",
+  "stichworte": [
+    "KI_GRENZEN",
+    "ki_tor.mjs",
+    "launchAngebot",
+    "EIGENE_URSPRUENGE",
+    "zahlung_regeln.mjs",
+    "GS_EXPERTEN_ANFRAGE_AKTIV",
+    "gs_abo_",
+    "Netlify",
+    "FUER-FERNANDO §30f"
+  ]
+}

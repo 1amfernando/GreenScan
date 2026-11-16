@@ -16,7 +16,7 @@
 //   5. `q` ist auf 80 Zeichen, `lim` auf 1–25 begrenzt.
 // Live nachgemessen (07.09.2026, nur lesend): species_search_cache hat RLS ohne
 // Policies (nur der Service-Key kommt hinein) und 0 Zeilen.
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SVC_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

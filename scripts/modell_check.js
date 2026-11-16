@@ -102,6 +102,18 @@ function createClientStub(_url, key) {
         ? { data: { user: stub.szen.user }, error: null }
         : { data: { user: null }, error: { message: 'invalid JWT' } },
     },
+    // v33.59: das Tor (ki_tor.mjs) reserviert per RPC — atomar auf dem Server, hier gestellt:
+    // reserviert wird, solange `benutzt` unter dem Limit liegt, das der Handler mitschickt.
+    rpc(name, args) {
+      stub.prot.rpc.push({ name, args, admin });
+      if (!admin) return Promise.resolve({ data: null, error: { message: 'permission denied for function ' + name } });
+      if (name === 'fn_ai_kontingent_reservieren') {
+        if (stub.szen.rpcFehler) return Promise.resolve({ data: null, error: { message: stub.szen.rpcFehler } });
+        return Promise.resolve({ data: (stub.szen.benutzt || 0) < args.p_limit, error: null });
+      }
+      if (name === 'fn_ai_kontingent_freigeben') return Promise.resolve({ data: true, error: null });
+      return Promise.resolve({ data: null, error: { message: 'unbekannte RPC ' + name } });
+    },
     from(tabelle) {
       const q = { tabelle, filter: {}, cols: null, admin };
       const k = {
@@ -125,9 +137,11 @@ async function proxyLaden() {
   process.emitWarning = () => {};                              // „ExperimentalWarning" gehoert nicht in den Bericht
   try { src = mod.stripTypeScriptTypes(src); } finally { process.emitWarning = warnAlt; }
   const vorher = src;
-  src = src.replace(/import\s*\{\s*createClient\s*\}\s*from\s*["']jsr:@supabase\/supabase-js@2["'];?/, 'const createClient = globalThis.__gsModellCheck.createClient;');
+  // v33.59: der Import nennt eine EXAKTE Fassung (jsr:@supabase/supabase-js@2.119.0, scripts/edge/40_lieferkette.js).
+  src = src.replace(/import\s*\{\s*createClient\s*\}\s*from\s*["']jsr:@supabase\/supabase-js@2(?:\.\d+\.\d+)?["'];?/, 'const createClient = globalThis.__gsModellCheck.createClient;');
   if (src === vorher) return { grund: 'der Import von supabase-js steht nicht mehr so da — den Lader in modell_check.js nachziehen' };
   src = src.replace(/from\s*["']\.\.\/_shared\/modelle\.mjs["']/g, 'from ' + z(pathToFileURL(MODUL).href));
+  src = src.replace(/from\s*["']\.\.\/_shared\/ki_tor\.mjs["']/g, 'from ' + z(pathToFileURL(path.join(FUNKTIONEN, '_shared', 'ki_tor.mjs')).href));
   globalThis.__gsModellCheck = { createClient: createClientStub };
   globalThis.Deno = {
     env: { get: (k) => { const e = Object.assign({}, ENV_VORGABE, (stub.szen && stub.szen.env) || {}); return e[k] === null ? undefined : e[k]; } },
@@ -143,7 +157,7 @@ async function proxyLaden() {
 // Eine Anfrage durch den echten Handler. `szen`: user · ent · benutzt · an · keyInDb · env · upstream(modell) · entFehlerBreit
 async function fahre(szen, anfrage) {
   stub.szen = Object.assign({ user: { id: 'u-1' }, ent: { tier: 'free', is_admin: false, role: 'user' }, benutzt: 0 }, szen || {});
-  stub.prot = { upstream: [], inserts: [], entAbfragen: [], log: [] };
+  stub.prot = { upstream: [], inserts: [], entAbfragen: [], log: [], rpc: [] };
   const a = Object.assign({ method: 'POST', auth: 'Bearer nutzer-jwt', origin: 'https://green-scan.ch',
     body: { model: 'claude-sonnet-4-6', max_tokens: 900, system: 'S', messages: [{ role: 'user', content: 'Hallo' }] } }, anfrage || {});
   const kopf = { 'content-type': 'application/json' };
@@ -170,7 +184,8 @@ async function fahre(szen, anfrage) {
   const text = await res.text();
   let daten = null; try { daten = JSON.parse(text); } catch (_) { daten = null; }
   return { status: res.status, text, daten, typ: daten && daten.error && daten.error.type, cors: res.headers.get('access-control-allow-origin'),
-    up: stub.prot.upstream, ins: stub.prot.inserts, ent: stub.prot.entAbfragen, log: stub.prot.log };
+    up: stub.prot.upstream, ins: stub.prot.inserts, ent: stub.prot.entAbfragen, log: stub.prot.log,
+    res: stub.prot.rpc.filter((x) => x.name === 'fn_ai_kontingent_reservieren'), frei: stub.prot.rpc.filter((x) => x.name === 'fn_ai_kontingent_freigeben') };
 }
 const modelle = (r) => r.up.map((u) => u.modell).join(' → ') || '(kein Aufruf)';
 
@@ -461,19 +476,26 @@ const RAND = [
       const a = await fahre({ upstream: (m) => (m === v[0] ? MODELL_WEG(m) : USAGE_OK(m)) }, { body: { model: v[0], messages: [{ role: 'user', content: 'x' }] } });
       if (a.status !== 200 || modelle(a) !== v[0] + ' → ' + v[1] || a.ins.length !== 1 || a.ins[0].zeile.model !== v[1]) return { ok: false, warum: 'Rueckfall: status ' + a.status + ' · ' + modelle(a) + ' · ai_usage ' + z(a.ins.map((i) => i.zeile.model)) };
       if (!a.log.some((l) => /KI-R.ckfall/.test(l))) return { ok: false, warum: 'der Rueckfall steht nicht im Log' };
+      // v33.59: EINE Reservierung je Anfrage — der Rueckfall in der Kette bucht nichts dazu, und eine Antwort gibt nichts zurueck.
+      if (a.res.length !== 1 || a.frei.length !== 0) return { ok: false, warum: 'Rueckfall: ' + a.res.length + ' Reservierung(en) · ' + a.frei.length + ' Freigabe(n) (erwartet 1 · 0)' };
       const b = await fahre({ upstream: () => ({ status: 429, text: '{"type":"error","error":{"type":"rate_limit_error","message":"model busy"}}' }) });
       if (b.status !== 429 || b.up.length !== 1 || b.ins.length !== 0) return { ok: false, warum: '429: status ' + b.status + ' · Aufrufe ' + b.up.length + ' · ai_usage ' + b.ins.length };
+      if (b.res.length !== 1 || b.frei.length !== 1) return { ok: false, warum: '429 von Anthropic: die Reservierung geht nicht zurueck (' + b.res.length + ' · ' + b.frei.length + ')' };
       const c = await fahre({ upstream: (m) => MODELL_WEG(m) }, { body: { model: v[0], messages: [{ role: 'user', content: 'x' }] } });
       if (c.status !== 404 || c.up.length !== v.length || c.ins.length !== 0) return { ok: false, warum: 'alle weg: status ' + c.status + ' · Aufrufe ' + c.up.length };
+      if (c.res.length !== 1 || c.frei.length !== 1) return { ok: false, warum: 'alle weg: ' + c.res.length + ' Reservierung(en) · ' + c.frei.length + ' Freigabe(n) (erwartet 1 · 1 — nicht je Modell)' };
       const d = await fahre({ upstream: () => ({ wirft: 'connection reset' }) });
       if (d.status !== 502 || d.ins.length !== 0) return { ok: false, warum: 'Netzfehler: status ' + d.status };
-      return { ok: true, info: modelle(a) + ' · 429 nach 1 Aufruf, 0 Zeilen · alle weg → 404 nach ' + c.up.length + ' Aufrufen · Netzfehler → 502' };
+      if (d.frei.length !== 1) return { ok: false, warum: 'Netzfehler: die Reservierung geht nicht zurueck' };
+      if (/connection reset/.test(d.text)) return { ok: false, warum: 'Netzfehler: der Rohtext steht in der Antwort' };
+      return { ok: true, info: modelle(a) + ' (1 Reservierung, 0 Freigaben) · 429 nach 1 Aufruf, 0 Zeilen, zurueckgegeben · alle weg → 404 nach ' + c.up.length + ' Aufrufen, 1× zurueck · Netzfehler → 502, zurueck' };
     },
   },
   {
-    name: 'ai-proxy · Stufen: free 15 · basic/plus/premium 200 · pro/lifetime 2000 · Admin 2000 — und am Limit geht NICHTS an Anthropic',
+    name: 'ai-proxy · Stufen: free 15 · basic/plus/premium 200 · pro/lifetime 2000 · Admin 2000 (EINE Tabelle, ki_tor.mjs) — reserviert wird mit genau dieser Zahl, und am Limit geht NICHTS an Anthropic',
     lauf: async () => {
-      const f = async (ent, benutzt) => { const r = await fahre({ ent, benutzt }); return { st: r.status, typ: r.typ, up: r.up.length, lim: r.daten && r.daten.error && r.daten.error.limit }; };
+      const f = async (ent, benutzt) => { const r = await fahre({ ent, benutzt }); return { st: r.status, typ: r.typ, up: r.up.length, lim: r.res.length ? r.res[0].args.p_limit : null, fn: r.res.length ? r.res[0].args.p_function : null }; };
+      const SOLL = { free: 15, basic: 200, plus: 200, premium: 200, pro: 2000, lifetime: 2000, unbekannt: 15 };
       const tab = [
         [{ tier: 'free', role: 'user' }, 14, 200], [{ tier: 'free', role: 'user' }, 15, 429],
         [{ tier: 'basic', role: 'user' }, 199, 200], [{ tier: 'basic', role: 'user' }, 200, 429],
@@ -484,19 +506,22 @@ const RAND = [
       for (const [ent, n, erwartet] of tab) {
         const r = await f(ent, n);
         if (r.st !== erwartet) return { ok: false, warum: z(ent) + ' mit ' + n + ' Aufrufen heute: status ' + r.st + ' statt ' + erwartet };
+        const soll = ent && ent.is_admin ? 2000 : SOLL[(ent && ent.tier) || 'free'];
+        if (r.lim !== soll || r.fn !== 'ai-proxy') return { ok: false, warum: z(ent) + ': reserviert mit Limit ' + r.lim + ' (' + r.fn + ') statt ' + soll };
         if (erwartet === 429 && (r.typ !== 'quota_exceeded' || r.up !== 0)) return { ok: false, warum: z(ent) + ': am Limit ging trotzdem ' + r.up + '× etwas an Anthropic (typ ' + r.typ + ')' };
       }
       return { ok: true, info: tab.length + ' Faelle · premium mit 15 Aufrufen → 200 (bis v33.56: Gratis-Limit) · Admin mit 500 → 200' };
     },
   },
   {
-    name: 'ai-proxy · gesperrt → 403, Notschalter → 503, zu gross → 413 — jedes Mal OHNE Aufruf bei Anthropic; und die Gegenrichtung: angeschaltet und klein geht durch',
+    name: 'ai-proxy · gesperrt → 403, Notschalter → 503, zu gross → 413 — jedes Mal OHNE Aufruf bei Anthropic und OHNE Reservierung; und die Gegenrichtung: angeschaltet und klein geht durch',
     lauf: async () => {
       const a = await fahre({ ent: { tier: 'pro', role: 'banned' } });
-      if (a.status !== 403 || a.typ !== 'account_banned' || a.up.length) return { ok: false, warum: 'gesperrt: status ' + a.status + ' · Aufrufe ' + a.up.length };
+      // v33.59: die Kennungen sind die, die die App versteht (GS_KI_PROXY_SAETZE): gesperrt · zu_gross.
+      if (a.status !== 403 || a.typ !== 'gesperrt' || a.up.length || a.res.length) return { ok: false, warum: 'gesperrt: status ' + a.status + ' · typ ' + a.typ + ' · Aufrufe ' + a.up.length + ' · Reservierungen ' + a.res.length };
       for (const wert of ['false', 'FALSE', ' false ']) {
         const b = await fahre({ an: wert });
-        if (b.status !== 503 || b.typ !== 'service_disabled' || b.up.length) return { ok: false, warum: 'Notschalter „' + wert + '": status ' + b.status + ' · Aufrufe ' + b.up.length };
+        if (b.status !== 503 || b.typ !== 'service_disabled' || b.up.length || b.res.length) return { ok: false, warum: 'Notschalter „' + wert + '": status ' + b.status + ' · Aufrufe ' + b.up.length + ' · Reservierungen ' + b.res.length };
       }
       for (const wert of ['true', null, '1']) {
         const c = await fahre({ an: wert });
@@ -504,24 +529,32 @@ const RAND = [
       }
       const gross = z({ model: 'x', messages: [{ role: 'user', content: 'A'.repeat(20000001) }] });
       const d = await fahre({}, { body: gross });
-      if (d.status !== 413 || d.typ !== 'request_too_large' || d.up.length) return { ok: false, warum: 'zu gross (gelesen): status ' + d.status + ' · Aufrufe ' + d.up.length };
+      if (d.status !== 413 || d.typ !== 'zu_gross' || d.up.length || d.res.length) return { ok: false, warum: 'zu gross (gelesen): status ' + d.status + ' · typ ' + d.typ + ' · Aufrufe ' + d.up.length };
       const e = await fahre({}, { contentLength: 30000000 });
-      if (e.status !== 413 || e.up.length) return { ok: false, warum: 'zu gross (Kopfzeile): status ' + e.status };
-      const f = await fahre({}, { body: z({ messages: [{ role: 'user', content: 'A'.repeat(4000000) }] }) });
-      if (f.status !== 200) return { ok: false, warum: 'vier Megabyte wurden abgewiesen: status ' + f.status };
-      return { ok: true, info: 'gesperrt 403 · global_api_enabled=false 503 · 20 MB+ 413 · 4 MB 200' };
+      if (e.status !== 413 || e.up.length || e.res.length) return { ok: false, warum: 'zu gross (Kopfzeile): status ' + e.status };
+      // Gegenrichtung mit dem Normalfall der App: Fotos (gsCompressImage liefert hoechstens ~3,1 MB je Bild).
+      // v33.59: reiner TEXT hat seinen eigenen, engeren Deckel (textGesamt 200'000 Zeichen) — 4 MB Text ist 413 text_zu_lang.
+      const foto = (n) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'A'.repeat(n) } });
+      const f = await fahre({}, { body: z({ messages: [{ role: 'user', content: [foto(3100000), foto(1000000), { type: 'text', text: 'Was ist das?' }] }] }) });
+      if (f.status !== 200 || f.up.length !== 1) return { ok: false, warum: 'vier Megabyte Fotos wurden abgewiesen: status ' + f.status + ' (' + f.typ + ')' };
+      const g = await fahre({}, { body: z({ messages: [{ role: 'user', content: 'A'.repeat(4000000) }] }) });
+      if (g.status !== 413 || g.typ !== 'text_zu_lang' || g.up.length || g.res.length) return { ok: false, warum: 'vier Megabyte Text: status ' + g.status + ' (' + g.typ + ')' };
+      return { ok: true, info: 'gesperrt 403 · global_api_enabled=false 503 · 20 MB+ 413 · 4 MB Fotos 200 · 4 MB Text 413 — jeweils 0 Reservierungen' };
     },
   },
   {
-    name: 'ai-proxy · die Stufe geht nie an einer Abfrage verloren: scheitert die breite Abfrage der Sicht, gilt die schmale — und der Fehler steht im Log',
+    // v33.59 (Vereinigung): v33.58 fiel bei einer unlesbaren breiten Abfrage auf die schmale (nur
+    // tier) zurueck — dann war die Sperre (role) ungelesen. Das Tor ist fail-closed: wer Plan UND
+    // Sperre nicht lesen kann, ruft nicht. Der Fall misst beide Richtungen.
+    name: 'ai-proxy · die Sicht v_user_entitlements ist nicht lesbar → 503 kontingent_unbekannt (fail-closed: ohne Sperre und Plan keine KI), nichts reserviert, nichts an Anthropic — der Fehler steht im Log; lesbar → eine Abfrage, 200',
     lauf: async () => {
       const a = await fahre({ ent: { tier: 'pro', role: 'user', is_admin: false }, benutzt: 100, entFehlerBreit: true });
-      if (a.status !== 200) return { ok: false, warum: 'pro mit 100 Aufrufen fiel auf das Gratis-Limit: status ' + a.status + ' (' + a.typ + ')' };
-      if (a.ent.length !== 2 || !/is_admin/.test(a.ent[0]) || a.ent[1] !== 'tier') return { ok: false, warum: 'Abfragen: ' + z(a.ent) };
-      if (!a.log.some((l) => /^error: .*v_user_entitlements.*does not exist/.test(l))) return { ok: false, warum: 'der Fehler steht nicht im Log: ' + z(a.log) };
+      if (a.status !== 503 || a.typ !== 'kontingent_unbekannt' || a.up.length || a.res.length) return { ok: false, warum: 'Sicht unlesbar: status ' + a.status + ' (' + a.typ + ') · Aufrufe ' + a.up.length + ' · Reservierungen ' + a.res.length };
+      if (!a.log.some((l) => /^error: .*Tor: kontingent_unbekannt.*does not exist/.test(l))) return { ok: false, warum: 'der Fehler steht nicht im Log: ' + z(a.log) };
+      if (/does not exist/.test(a.text)) return { ok: false, warum: 'der Datenbank-Rohtext steht in der Antwort' };
       const b = await fahre({ ent: { tier: 'pro', role: 'user', is_admin: false }, benutzt: 100 });
-      if (b.status !== 200 || b.ent.length !== 1) return { ok: false, warum: 'Normalfall: status ' + b.status + ' · Abfragen ' + z(b.ent) };
-      return { ok: true, info: 'breit scheitert → schmal: tier pro, 100 Aufrufe → 200 · im Log: „' + a.log.find((l) => /^error/.test(l)).slice(7, 80) + '…"' };
+      if (b.status !== 200 || b.ent.length !== 1 || !/is_admin/.test(b.ent[0]) || !/role/.test(b.ent[0])) return { ok: false, warum: 'Normalfall: status ' + b.status + ' · Abfragen ' + z(b.ent) };
+      return { ok: true, info: 'unlesbar → 503, 0 Reservierungen, 0 Aufrufe · im Log: „' + a.log.find((l) => /^error/.test(l)).slice(7, 90) + '…" · lesbar: pro mit 100 → 200' };
     },
   },
   {
@@ -533,7 +566,7 @@ const RAND = [
       const c = await fahre({ env: { ANTHROPIC_API_KEY: null }, keyInDb: 'sk-db' });
       if (c.status !== 200 || c.up[0].key !== 'sk-db') return { ok: false, warum: 'Schluessel aus app_settings: status ' + c.status + ' · key ' + (c.up[0] && c.up[0].key) };
       const d = await fahre({ env: { ANTHROPIC_API_KEY: null } });
-      if (d.status !== 503 || d.up.length) return { ok: false, warum: 'ohne Schluessel: status ' + d.status };
+      if (d.status !== 503 || d.up.length || d.res.length) return { ok: false, warum: 'ohne Schluessel: status ' + d.status + ' · Reservierungen ' + d.res.length };
       const e = await fahre({ keyInDb: 'sk-db' });
       if (e.up[0].key !== 'sk-env') return { ok: false, warum: 'das Secret gewinnt nicht: ' + e.up[0].key };
       if ([c, e].some((r) => /sk-db|sk-env/.test(r.text))) return { ok: false, warum: 'der Schluessel steht in der Antwort' };

@@ -1,0 +1,31 @@
+{
+  "id": "2026-11-16-50bd",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "09:47:41",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Drei Zustände nach einer Aktion tragen Weiss unter 4,5:1 — contrast_check stellt sie nie her",
+  "vorschlag": "Füllungen aus festen dunklen Tönen (wie GS_TB_KATEGORIEN) und ein contrast_check-Fall, der die Zustände herstellt (Heatmap an, Banner offline/pending) und nach dem Übergang misst.",
+  "beleg": [
+    "Heatmap-Knopf aktiv: background #ff5722, color #fff → 3,16:1 (gerechnet aus den Farbwerten)",
+    "Verbindungs-Banner offline: Verlauf #c62828→#ef5350, Weiss am hellen Ende 3,49:1; synchronisieren: #1565c0→#42a5f5, Weiss am hellen Ende 2,65:1",
+    "nur aus den Farbwerten gerechnet, nicht gerendert gemessen (Gesamtprüfung g1, 16.11.2026)"
+  ],
+  "stichworte": [
+    "kontrast",
+    "contrast_check",
+    "zustand-nach-aktion",
+    "banner"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "if (btnOn) { btnOn.style.background = '#ff5722'; btnOn.style.color = '#fff'; }"
+    },
+    {
+      "datei": "index.html",
+      "text": "b.style.background = 'linear-gradient(135deg,#1565c0,#42a5f5)';"
+    }
+  ]
+}

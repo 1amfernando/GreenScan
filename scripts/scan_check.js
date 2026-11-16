@@ -1702,6 +1702,39 @@ const FAELLE = [
   },
 
   {
+    // v33.59 (Brett 2026-11-11-fcaf) — die Korrektur uebernahm `edible` von der
+    // vorsichtigsten Fassung auch dann, wenn nur deren GIFTSTUFE hoeher war:
+    // 14 Eintraege mit edible:false standen als essbar da (Stieleiche T008,
+    // Echter Wermut P187 …). Eine Korrektur, die vorsichtiger sein soll, darf
+    // in KEINER Angabe nachgiebiger werden. Eigener Massstab (!!sp.edible),
+    // nicht gsIstEssbar — und die gewollte Richtung (essbar → nicht essbar)
+    // muss bleiben, sonst waere „nie korrigieren" ebenfalls gruen.
+    name: 'D1j · Die Art-Korrektur macht nie essbarer oder harmloser, als der Eintrag selbst sagt',
+    lauf: () => {
+      if (typeof _gsArtAnzeige !== 'function') return { ok: false, warum: '_gsArtAnzeige fehlt' };
+      var essbarer = [], harmloser = [], gewollt = 0, gewolltWeg = [];
+      DB.forEach(function (sp) {
+        if (!sp || !sp.id) return;
+        var a = _gsArtAnzeige(sp);
+        if (!sp.edible && !!a.edible) essbarer.push(sp.name + ' ' + sp.id);
+        if ((a.tox || 0) < (sp.tox || 0) || (!!sp.toxic && !a.toxic)) harmloser.push(sp.name + ' ' + sp.id);
+        // Die gewollte Korrektur, gemessen am eigenen Massstab: Eintrag sagt
+        // essbar, die vorsichtigste Fassung der Art nicht.
+        if (sp.lat && sp.edible) {
+          var g = _gsArtGruppe(sp, sp.lat), v = g && g.length > 1 ? _gsVorsichtigste(g) : null;
+          if (v && v.id !== sp.id && !v._unverified && !v.edible) { gewollt++; if (a.edible) gewolltWeg.push(sp.name + ' ' + sp.id); }
+        }
+      });
+      var f = [];
+      if (essbarer.length) f.push(essbarer.length + ' Eintraege mit edible:false werden als essbar gezeigt: ' + essbarer.slice(0, 4).join(' · '));
+      if (harmloser.length) f.push(harmloser.length + ' Eintraege werden harmloser gezeigt: ' + harmloser.slice(0, 4).join(' · '));
+      if (!gewollt) f.push('keine gewollte Korrektur gefunden — die Gegenrichtung misst nichts');
+      if (gewolltWeg.length) f.push(gewolltWeg.length + ' von ' + gewollt + ' gewollten Korrekturen fehlen: ' + gewolltWeg.slice(0, 3).join(' · '));
+      if (f.length) return { ok: false, warum: f.join(' — ') };
+      return { ok: true, info: '0 essbarer · 0 harmloser · ' + gewollt + ' Eintraege „essbar" gegen die Art bleiben nicht essbar' };
+    },
+  },
+  {
     // v32.92 — v32.91 hat das DETAIL korrigiert und die LISTE nicht; damit war
     // „Violetter Schleierling" in der Zeile ✅ und im Detail Stufe 3. Zwei
     // Anzeigen derselben Art mit gegenteiliger Aussage.
@@ -1996,7 +2029,15 @@ const FAELLE = [
         'ma fille a mangé des baies', 'mon fils a mangé un champignon',
         'mon chien a mangé cette plante', 'empoisonnement', 'au secours il a avalé une baie',
         'mia figlia ha mangiato delle bacche', 'mio figlio ha mangiato un fungo', 'avvelenamento',
-        'my daughter ate berries', 'my son ate a mushroom', 'poisoning', 'my dog ate this plant'];
+        'my daughter ate berries', 'my son ate a mushroom', 'poisoning', 'my dog ate this plant',
+        // v33.59 (Brett 2026-11-11-df0b) — Spanisch ist die fuenfte App-Sprache;
+        // mit dem Vokabular aus v32.99: 0 von 8. So geschrieben, wie Menschen
+        // schreiben: mit und ohne Akzent, mit ¿ ¡ und Tippfehlern.
+        'mi hija ha comido bayas', 'mi hijo se comió una seta', 'mi hijo se comio una seta',
+        'mi perro ha comido una planta venenosa', 'envenenamiento por setas', 'intoxicación',
+        'intoxicacion', '¡ayuda! mi bebé se tragó una hoja', 'el gato ha mordido la planta',
+        'vomitos despues de comer setas', 'tengo náuseas después de comer bayas',
+        'qué hago, mi niño se comió una baya', 'por error comí unas bayas', 'urgencia: mi niña ha ingerido una seta'];
       const HARMLOS = ['kann man löwenzahn essen', 'ist bärlauch essbar', 'welche pilze sind essbar',
         'darf man brennnessel essen', 'wie schmeckt giersch', 'wann kann ich tomaten ernten',
         'ist die pflanze giftig', 'wie giftig ist der efeu', 'welche beeren sind essbar',
@@ -2005,7 +2046,21 @@ const FAELLE = [
         'quand fleurit le sureau', 'quali funghi sono commestibili', 'which berries are edible',
         // Scharfe Kante: `\bcat\b` traefe auch „catégorie" — in JS ist „é" kein
         // Wortzeichen, die Grenze sitzt mitten im Wort. Die Nachschau haelt es.
-        'dans quelle catégorie ranger cette plante'];
+        'dans quelle catégorie ranger cette plante',
+        // v33.59 — Spanisch, harmlos: Essens- und Giftfragen ohne Verzehr.
+        '¿se puede comer el diente de león?', 'se puede comer el diente de leon', '¿es venenosa la hiedra?',
+        'receta de ortigas', '¿qué setas son comestibles?', '¿cuándo florece el saúco?',
+        '¿es tóxica esta planta para gatos?', 'cómo cuidar la albahaca', 'plantas venenosas del jardín',
+        'categoría de esta planta',
+        // Gegenpruefung t1: „come" ist italienisch „wie", englisch „komm";
+        // „marea" ist die Gezeit. Die erste Fassung meldete alle drei als Notfall.
+        'aiuto, come si pianta il basilico?', 'aiuto! come curare la mia pianta',
+        'help, come look at my plant', 'qué plantas crecen cerca de la marea'];
+      // v33.59 — die mittlere Stufe: blosser Verzehr ohne Kind/Tier/Symptom ist
+      // ein HINWEIS (eine Zeile), kein Notfall — in jeder Sprache.
+      const HINWEIS = ['ich habe gestern bärlauch gegessen', 'he comido ortigas ayer', 'ayer comí diente de león',
+        'hemos comido setas del bosque', 'comí bayas de saúco cocidas', 'he probado las hojas de ajo de oso',
+        'mi madre ha comido verdolaga', 'ayer comimos moras del bosque', 'me tragué una semilla de manzana'];
       // scan_check fuehrt seine Faelle IN der Seite aus (p.evaluate ueber den
       // Funktionsrumpf) — getSmartAnswer ist hier direkt greifbar, ein
       // verschachteltes evaluate waere ein ReferenceError.
@@ -2013,14 +2068,16 @@ const FAELLE = [
       const r = {
         d: DRINGEND.map(q => ({ q, a: nimm(q) })).filter(x => !/SOFORT Tox Info Suisse/.test(x.a)).map(x => x.q),
         h: HARMLOS.map(q => ({ q, a: nimm(q) })).filter(x => /Tox Info Suisse/.test(x.a)).map(x => x.q),
+        w: HINWEIS.map(q => ({ q, a: nimm(q) })).filter(x => /SOFORT Tox Info Suisse/.test(x.a) || !/Tox Info Suisse 145/.test(x.a)).map(x => x.q),
         probe: nimm('vergiftung').slice(0, 30),
       };
       if (!/SOFORT Tox Info Suisse/.test(r.probe)) return { ok: false, warum: 'selbst „vergiftung" bringt die Nummer nicht — der Fall misst nichts' };
       const f = [];
       if (r.d.length) f.push(r.d.length + ' von ' + DRINGEND.length + ' Notfall-Sätzen OHNE die Nummer: „' + r.d.slice(0, 3).join('" · „') + '"');
       if (r.h.length) f.push(r.h.length + ' harmlose Frage(n) MIT Notfall-Text: „' + r.h.slice(0, 3).join('" · „') + '"');
+      if (r.w.length) f.push(r.w.length + ' von ' + HINWEIS.length + ' Verzehr-Sätzen ohne die ruhige Hinweiszeile (oder als Notfall): „' + r.w.slice(0, 3).join('" · „') + '"');
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: DRINGEND.length + ' Notfall-Sätze bringen die 145 · ' + HARMLOS.length + ' harmlose Fragen bleiben ohne' };
+      return { ok: true, info: DRINGEND.length + ' Notfall-Sätze bringen die 145 · ' + HINWEIS.length + ' Verzehr-Sätze die Hinweiszeile · ' + HARMLOS.length + ' harmlose Fragen bleiben ohne' };
     },
   },
 

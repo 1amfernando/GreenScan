@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-11-1245",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:17",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: stripe-webhook liest keinen Datenbankfehler: 200 und processed_at, auch wenn nichts verbucht wurde",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: teilweise. Der Kern ist behoben: Pflicht-Schreibwege laufen durch einen Helfer pruefe(r, was), der bei einem error wirft (stripe_subscriptions-Upsert und -Update, profiles is_lifetime, launch_offer_usage, 8 Aufrufe), und die Preisabfrage in preisZeile wirft ebenfalls bei einem Fehler. Der Wurf landet im vorhandenen catch: 500, processed_at bleibt leer, Stripe wiederholt. Es gibt kein .catch( mehr in der Datei, Nebenwege (audit_log, notifications, trial_will_end_notified_at, stripe_email) protokollieren ueber warne(). Offen bleiben: die zwei marketplace_sellers-Updates (account.updated, account.application.deauthorized) sehen ihre Antwort nicht an, das Setzen von processed_at und das Vorab-Upsert in stripe_webhook_events ebenso nicht, und resolveTier faellt bei einem Lesefehler NUR der stripe_products-Abfrage bewusst auf \"free\" zurueck (mit console.warn) – diese Abfrage ist live ohne Fremdschluessel, der Rueckfall ist im Kopf begruendet. Gegenprüfung: Einzelheit: die 8 pruefe-Treffer sind 1 Definition plus 7 Aufrufe. Neben stripe_subscriptions (Upsert und Update), profiles und launch_offer_usage gehen auch die zwei expert_verifications-Schreibwege (Z.160, Z.210) durch pruefe(). Der Rest hat noch eine Stelle mehr: die Abfrage, ob ein Ereignis schon verarbeitet ist (Z.392), wirft ihren error ebenfalls weg. Ein Lesefehler fuehrt dort zur erneuten Verarbeitung, nicht zu einem falschen 200. Der genannte Waechterfall haelt nur den Lesefehler, keinen Schreibfehler. Noch zu tun: Die zwei marketplace_sellers-Updates und das processed_at-Update ebenfalls durch pruefe() schicken und einen Fall mit gestelltem Schreibfehler in einem Pflichtweg (erwartet 500, processed_at leer) ergaenzen. In Arbeit auf diesem Branch: der Rest (die zwei marketplace_sellers-Updates, processed_at, stripe_webhook_events).",
+  "beleg": [
+    "grep -cF 'return data?.stripe_products?.tier ?? \"free\";' supabase/functions/stripe-webhook/index.ts → 0 (Anker verschwunden)",
+    "grep -c '\\.catch(' supabase/functions/stripe-webhook/index.ts → 0; grep -c 'pruefe(' → 8",
+    "index.ts:66-68 function pruefe(...) { if (r && r.error) throw ... }; :48-49 preisZeile wirft bei error",
+    "index.ts:248 und :271 await admin.from(\"marketplace_sellers\").update({ ... }) ohne Blick auf die Antwort; :459 processed_at-Update ohne Blick auf error",
+    "edge_check: 64 Faelle, 0 kaputt (am heutigen Baum gefahren)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-fe36",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

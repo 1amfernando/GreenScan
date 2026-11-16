@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-11-c713",
+  "art": "idee",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Die Kategorie eines Inserats am Server binden: ein CHECK oder Trigger auf marketplace_listings.category mit den fünf Markt-Kategorien",
+  "nutzen": "Keine Migration im Repo legt eine Prüfung auf marketplace_listings.category; die neue 20261110_sicherheit_community_markt.sql nennt die Spalte nicht. Die App hält eine fremde Kategorie seit v33.59 aus (_catEmoji über _gsNachschlag) — aber ein Wert, den keine Ansicht kennt, bleibt ein Inserat ohne Kategorie in jedem Filter.",
+  "pruefbar": "Ein Fall in scripts/rls/ (Bauform wie 30_community_markt): Insert mit einer erfundenen Kategorie gelingt vorher, scheitert nach der Migration; die fünf echten gehen weiter. Vorher lesend nachsehen, welche Werte der Bestand trägt (ein CHECK … NOT VALID gilt bei jedem späteren Update der Zeile — besser ein Trigger, der nur neue Werte prüft).",
+  "stichworte": [
+    "marketplace_listings",
+    "_catEmoji",
+    "rls_check",
+    "20261110_sicherheit_community_markt.sql"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-3cad"
+    }
+  ]
+}

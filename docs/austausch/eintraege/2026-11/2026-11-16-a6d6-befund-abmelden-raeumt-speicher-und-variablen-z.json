@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-16-a6d6",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "09:48:02",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Abmelden räumt Speicher und Variablen — zwei Felder im DOM tragen weiter den Namen des vorigen Kontos",
+  "vorschlag": "Beim Abmelden die zwei Felder auf den Stand nach einem Neuladen setzen und den Fall 'Abmelden · der gemerkte Community-Name' in sicherheit_check 98_schluss_e um beide erweitern.",
+  "beleg": [
+    "#compose-avatar: das Emoji wird aus socialUserName berechnet und nur gesetzt, wenn der Name nicht leer ist — nach dem Abmelden bleibt das von A",
+    "#ig-author (Inserat-/Beitragsname) behält, was A getippt hat; gsClearUserDataKeys leert seit der Gesamtprüfung socialUserName, aber kein Feld",
+    "am Code gelesen, nicht gemessen (Gegenprüfung g1, 16.11.2026)"
+  ],
+  "stichworte": [
+    "abmelden",
+    "dom",
+    "socialUserName",
+    "konto-wechsel"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "const _igEin = document.getElementById('ig-author')?.value?.trim() || '';"
+    }
+  ]
+}

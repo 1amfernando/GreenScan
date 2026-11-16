@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-11-660f",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): weiter sieben Verweise in CLAUDE.md und zwei in docs/memory; fünf Fälle in robust_check tragen keine Kennung",
+  "text": "v33.59 hat keinen neuen Verweis „robust_check Fall N“ geschrieben und keinen entfernt. Gezählt mit Zeilenumbrüchen sind es weiter 7 in CLAUDE.md (auf main 7), in docs/memory 2 (Fall 24, 25). robust_check.js hat jetzt 33 Einträge mit „name: '“. Fünf davon tragen keine Kennung („Changelog ·“, „Beispieldaten ·“, „Memory ·“, „Adressen ziehen mit“, „Wetter-Zwischenspeicher“); nach dem Inhalt sind sie die Ziele von „Fall 24“ und „Fall 25“. Andere Stellen in CLAUDE.md verweisen schon mit einer Kennung (B5b, B6, B10). Die Konvention, die der Vorschlag braucht, gibt es also teilweise schon. In Arbeit auf dem Branch ccr-5e705a36-jveaak (v33.59, noch ohne PR): die Reparatur folgt dort mit einem Fall, der vorher rot ist; der Abschluss kommt als eigener Eintrag.",
+  "beleg": [
+    "tr \"\\n\" \" \" < CLAUDE.md | grep -oE \"robust_check` +(> +)?Fall [0-9]+\" | wc -l → 7 (git show 2ba302e:CLAUDE.md → 7)",
+    "grep -rhoE \"robust_check`? +Fall [0-9]+\" docs/memory → Fall 24, Fall 25",
+    "grep -c \"name: '\" scripts/robust_check.js → 33"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-9f91"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-11-a814",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/offen",
+  "stand": "v33.59",
+  "titel": "Quiz-Integritaet nach v33.59: Antwortschluessel oeffentlich, Battle-Loesungen vom Herausforderer, Deckel statt Beleg — und bleibt ein Jahr Pro als Preis?",
+  "text": "Nach 20261110_sicherheit_quiz_punkte.sql bleibt: daily_quizzes.options samt Loesung ist lesbar (eine nachgeschlagene richtige Antwort je Tag); im Battle liefert der Herausforderer Fragen UND correct_idx (_gs_battle_fragen_ok prueft nur die Form); XP 1'000/Tag und Erfolge +50 je Metrik und Tag sind gesetzte Deckel; streak wird nur auf die Zahl der Antworttage gekappt; die oeffentliche Rangliste zaehlt Altantworten weiter. Optionen in FUER-FERNANDO §30f.",
+  "an": "fernando",
+  "haengt_daran": "Ob ELO als Ranglistenwert gezeigt wird, ob der Cron quiz-top3-yearend am 31.12. ein Jahr Pro vergibt, und ob Server und App umgebaut werden (Urteil nur vom Server, Battle-Fragen vom Server gezogen).",
+  "stichworte": [
+    "daily_quizzes",
+    "quiz-top3-yearend",
+    "_gs_battle_fragen_ok",
+    "fn_quiz_battle_submit",
+    "20261110_sicherheit_quiz_punkte.sql",
+    "ELO",
+    "FUER-FERNANDO §30f"
+  ]
+}

@@ -8,6 +8,7 @@ import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -190,6 +191,30 @@ public class MainActivity extends Activity {
         nachDraussen(u);
         return true;
       }
+
+      /**
+       * Die zweite Schranke (v33.59): ein Formular-POST und manche
+       * Weiterleitungen gehen an shouldOverrideUrlLoading vorbei. Steht im
+       * Hauptrahmen trotzdem ein fremder Ursprung, wird angehalten und die
+       * App wieder gezeigt — eine fremde Seite bekaeme sonst Kamera und
+       * Standort unter dem Rahmen der App. Die Regel steht in Pfade.
+       */
+      @Override
+      public void onPageStarted(final WebView v, String url, Bitmap symbol) {
+        Uri u = url == null ? null : Uri.parse(url);
+        if (Pfade.hauptRahmenOk(u == null ? null : u.getScheme(), u == null ? null : u.getHost(),
+            u == null ? -1 : u.getPort(), url)) {
+          super.onPageStarted(v, url, symbol);
+          return;
+        }
+        v.stopLoading();
+        v.post(new Runnable() {
+          @Override public void run() {
+            if (v.canGoBack()) v.goBack();
+            else v.loadUrl(AssetServer.ORIGIN + "/?source=app");
+          }
+        });
+      }
     });
 
     web.setWebChromeClient(new WebChromeClient() {
@@ -203,6 +228,9 @@ public class MainActivity extends Activity {
           if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(res[i])) willKamera = true;
         }
         if (!willKamera) { anfrage.deny(); return; }
+        // v33.59: nur die App selbst bekommt die Kamera — nie ein fremder
+        // Ursprung, der irgendwie in einen Rahmen geraten ist.
+        if (!AssetServer.imUrsprung(anfrage.getOrigin())) { anfrage.deny(); return; }
 
         if (hatRecht(Manifest.permission.CAMERA)) {
           anfrage.grant(new String[]{ PermissionRequest.RESOURCE_VIDEO_CAPTURE });
@@ -221,6 +249,11 @@ public class MainActivity extends Activity {
       @Override
       public void onGeolocationPermissionsShowPrompt(String ursprung,
           GeolocationPermissions.Callback rueckruf) {
+        // v33.59: den Standort bekommt nur die App selbst (Schema, Wirt, Port).
+        if (ursprung == null || !AssetServer.imUrsprung(Uri.parse(ursprung))) {
+          rueckruf.invoke(ursprung, false, false);
+          return;
+        }
         if (hatRecht(Manifest.permission.ACCESS_FINE_LOCATION)
             || hatRecht(Manifest.permission.ACCESS_COARSE_LOCATION)) {
           // `false` beim Merken: ueber den Standort entscheidet Android, nicht
@@ -494,11 +527,20 @@ public class MainActivity extends Activity {
    * verschluckt einen Link, den das Geraet sehr wohl oeffnen koennte.
    */
   private void nachDraussen(Uri u) {
+    // v33.59: nur erlaubte Schemata (Pfade.darfNachDraussen), und nur an
+    // Activities, die sich fuer Links aus dem Web freigeben (BROWSABLE) — wie
+    // ein Browser. Ein Fehler in der Seite wird so kein Sprungbrett in andere Apps.
+    if (u == null || !Pfade.darfNachDraussen(u.getScheme())) {
+      Toast.makeText(this, getString(R.string.kein_ziel), Toast.LENGTH_SHORT).show();
+      return;
+    }
     try {
       Intent i = new Intent(Intent.ACTION_VIEW, u);
+      i.addCategory(Intent.CATEGORY_BROWSABLE);
       i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       startActivity(i);
-    } catch (ActivityNotFoundException e) {
+    } catch (RuntimeException e) {
+      // ActivityNotFoundException — und auch eine SecurityException beendet die App nicht.
       Toast.makeText(this, getString(R.string.kein_ziel), Toast.LENGTH_SHORT).show();
     }
   }
@@ -659,11 +701,18 @@ public class MainActivity extends Activity {
       final Uri ziel = (ergebnis == Activity.RESULT_OK && daten != null) ? daten.getData() : null;
       if (id == null) {
         // Ein Ergebnis ohne Vorgang: die Kennung ist verloren. Was der Dialog
-        // angelegt hat, ist leer — und wird wieder geloescht.
-        if (ziel != null) dokumentLoeschen(ziel);
+        // angelegt hat, ist leer — und wird wieder geloescht. Aber nur, was
+        // die Quellen-Regel durchlaesst: sonst loeschte die Huelle auf Zuruf
+        // einer fremden App (v33.59, Gegenpruefung).
+        if (ziel != null && Geteilt.quelleOk(ziel.getScheme(), ziel.getAuthority(), getPackageName())) dokumentLoeschen(ziel);
         return;
       }
       if (ziel == null) { abschluss(id, "abgebrochen"); return; }
+      // v33.59: CREATE_DOCUMENT ist implizit — beantwortet eine fremde App mit
+      // file:// oder der eigenen Autoritaet, schriebe die Huelle in ihre eigenen
+      // Dateien. Dieselbe Regel wie beim Teilen; ein solches Ziel wird nicht
+      // angefasst (auch nicht geloescht).
+      if (!Geteilt.quelleOk(ziel.getScheme(), ziel.getAuthority(), getPackageName())) { abschluss(id, "fehler"); return; }
       final File spool = new File(new File(getCacheDir(), "huelle-export"), Export.spoolName(id));
       // Schreiben auf einem eigenen Faden: ein Cloud-Anbieter (Drive) kann
       // blockieren, und auf dem UI-Faden waere das nach 5 s ein ANR.
@@ -679,6 +728,21 @@ public class MainActivity extends Activity {
       Uri[] gewaehlt = (ergebnis == Activity.RESULT_OK)
           ? WebChromeClient.FileChooserParams.parseResult(ergebnis, daten)
           : null;
+      // v33.59: die Antwort kommt von einer FREMDEN App (GET_CONTENT ist
+      // implizit). Nur, was die Quellen-Regel des Teilens durchlaesst, erreicht
+      // die WebView — ein file:///data/data/… laese sonst die eigene Sitzung.
+      // Bleibt nichts, bekommt das Feld „keine Datei".
+      if (gewaehlt != null) {
+        String[] sch = new String[gewaehlt.length], aut = new String[gewaehlt.length];
+        for (int i = 0; i < gewaehlt.length; i++) {
+          sch[i] = gewaehlt[i] == null ? null : gewaehlt[i].getScheme();
+          aut[i] = gewaehlt[i] == null ? null : gewaehlt[i].getAuthority();
+        }
+        int[] ok = Geteilt.auswahl(sch, aut, getPackageName());
+        Uri[] erlaubt = new Uri[ok.length];
+        for (int i = 0; i < ok.length; i++) erlaubt[i] = gewaehlt[ok[i]];
+        gewaehlt = erlaubt.length > 0 ? erlaubt : null;
+      }
       offeneDateiwahl.onReceiveValue(gewaehlt);
       offeneDateiwahl = null;
       return;
