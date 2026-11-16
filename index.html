@@ -9448,17 +9448,66 @@ window.gsZeigeEssbare = gsZeigeEssbare;
 // Volltextsuche traf damit auch „ungeniessbar", „nicht giftig" und jeden essbaren Eintrag,
 // dessen Verwechslungshinweis „giftige Doppelgaenger" nennt.
 function gsZeigeEigenschaft(wert) {
-  if (['essbar','giftig','ungiftig','heilpflanze','geschuetzt'].indexOf(wert) < 0) return;
-  try { switchTab('search', document.querySelectorAll('.tab')[2]); } catch (_) {}
-  var row = document.getElementById('sf-props-row');
-  if (row && row.style.display === 'none') { try { gsTogglePropFilter(); } catch (_) {} }
-  var btn = document.querySelector('.sf-btn.sf-prop[onclick*="\'' + wert + '\'"]');
-  if (btn) { btn.click(); return; }
-  // Ohne den Knopf bleibt der Weg ueber den Filterwert — dieselbe Regel
-  // (_gsPassCat), nur ohne sichtbare Markierung.
-  try { gsFilter(wert, null); } catch (_) {}
+  if (!_gsSucheIstEigenschaft(wert)) return;
+  gsSucheMitFilter(wert);
 }
 window.gsZeigeEigenschaft = gsZeigeEigenschaft;
+
+// ══ SUCHE-1 (16.11.2026): Kategorie, Eigenschaft und Suchwort gelten ZUSAMMEN ════════════════
+// Bis v33.61 gab es EINEN Filterwert. „Pilze" und „Giftig" standen beide markiert da, gefiltert
+// wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf
+// loeschte das Suchwort; das ✕ im Suchfeld raeumte den Filter weg und liess seinen Knopf markiert
+// (4'337 Treffer unter „Bäume"); und die fuenf Kategorie-Eintraege im Menue riefen
+// setFilter(kat, null), das an `null.classList` starb, bevor die Liste neu gezeichnet war.
+// Jetzt: currentFilter = Kategorie, currentProp = Eigenschaft. Die Knoepfe zeigen, was GILT —
+// _gsSucheKnoepfe() setzt sie aus dem Zustand, nie umgekehrt. Eine Eigenschaft, die ein alter
+// Aufrufer in currentFilter schreibt, gilt als Eigenschaft (_gsAktiveFilter, _gsPassCat).
+function _gsSucheIstEigenschaft(w) {
+  return ['essbar', 'ungiftig', 'giftig', 'heilpflanze', 'geschuetzt'].indexOf(String(w || '')) >= 0;
+}
+// [Kategorie, Eigenschaft], ohne Leere — in dieser Reihenfolge stehen sie in Statuszeile und Leerzustand.
+function _gsAktiveFilter() {
+  var k = (typeof currentFilter !== 'undefined' && currentFilter) || '';
+  var e = (typeof currentProp !== 'undefined' && currentProp) || '';
+  if (_gsSucheIstEigenschaft(k)) { if (!e) e = k; k = ''; }
+  return [k, e].filter(Boolean);
+}
+function _gsSucheKnoepfe() {
+  try {
+    var k = (typeof currentFilter !== 'undefined' && currentFilter) || '';
+    var e = (typeof currentProp !== 'undefined' && currentProp) || '';
+    if (_gsSucheIstEigenschaft(k)) { if (!e) e = k; k = ''; }
+    document.querySelectorAll('.sf-btn[data-group]').forEach(function (b) {
+      var m = /gsFilter\('([^']*)'/.exec(b.getAttribute('onclick') || '');
+      if (!m) return;
+      var an = (b.getAttribute('data-group') === 'prop') ? (!!e && m[1] === e) : (m[1] === k);
+      b.classList.toggle('active', an);
+      b.setAttribute('aria-pressed', an ? 'true' : 'false');
+    });
+    // eine Eigenschaft, die gilt, steht auch sichtbar da
+    if (e) {
+      var row = document.getElementById('sf-props-row'), tb = document.getElementById('sf-toggle-btn');
+      if (row && row.style.display === 'none') row.style.display = 'flex';
+      if (tb) tb.classList.add('active');
+    }
+  } catch (_) {}
+}
+// Ein Einstieg von AUSSEN (Startkachel, Menue) beginnt sauber: genau dieser eine Filter, kein
+// Suchwort, keine Kategorie oder Eigenschaft von vorhin — die Zahl auf der Kachel ist die Zahl
+// in der Liste.
+function gsSucheMitFilter(wert) {
+  wert = String(wert || '');
+  try { switchTab('search', document.querySelectorAll('.tab')[2]); } catch (_) {}
+  searchText = '';
+  var inp = document.getElementById('search-input'); if (inp) inp.value = '';
+  var clr = document.getElementById('search-clear-btn'); if (clr) clr.style.display = 'none';
+  currentFilter = _gsSucheIstEigenschaft(wert) ? '' : wert;
+  currentProp = _gsSucheIstEigenschaft(wert) ? wert : '';
+  _gsSearchCat = currentFilter;
+  _gsSucheKnoepfe();
+  if (typeof renderList === 'function') renderList();
+}
+window.gsSucheMitFilter = gsSucheMitFilter;
 
 function gsTogglePropFilter() {
   var row = document.getElementById('sf-props-row');
@@ -9471,60 +9520,47 @@ function gsTogglePropFilter() {
   } else {
     row.style.display = 'none';
     if (btn) btn.classList.remove('active');
-    // Eigenschaft-Filter zurücksetzen
-    document.querySelectorAll('.sf-btn[data-group="prop"]').forEach(function(b) {
-      b.classList.remove('active');
-    });
-    // Wenn aktueller Filter eine Eigenschaft war, zurücksetzen
-    var props = ['essbar','ungiftig','giftig','heilpflanze','geschuetzt'];
-    if (props.indexOf(currentFilter) >= 0) {
-      currentFilter = '';
-      _gsSearchCat = '';
-      if (typeof renderList === 'function') renderList();
-    }
+    // Wer die Eigenschaften zuklappt, nimmt die Eigenschaft weg — die Kategorie bleibt.
+    var hatte = _gsAktiveFilter().some(_gsSucheIstEigenschaft);
+    currentProp = '';
+    if (_gsSucheIstEigenschaft(currentFilter)) currentFilter = '';
+    _gsSearchCat = currentFilter;
+    _gsSucheKnoepfe();
+    if (hatte && typeof renderList === 'function') renderList();
   }
 }
 function gsResetFilter() {
   gsHaptic('tap');
-  // Alle Filter zurücksetzen
-  document.querySelectorAll('.sf-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.querySelector('.sf-btn[data-group="cat"]').classList.add('active'); // "Alle" aktiv
-  // Props verstecken
+  // Alles zurücksetzen: Kategorie, Eigenschaft und Suchwort
   var row = document.getElementById('sf-props-row');
   var btn = document.getElementById('sf-toggle-btn');
   if (row) row.style.display = 'none';
   if (btn) btn.classList.remove('active');
   currentFilter = '';
+  currentProp = '';
   _gsSearchCat = '';
   searchText = '';
   var sinp = document.getElementById('search-input');
   if (sinp) sinp.value = '';
+  var clr = document.getElementById('search-clear-btn'); if (clr) clr.style.display = 'none';
+  _gsSucheKnoepfe();
   if (typeof renderList === 'function') renderList();
 }
 
 // ══ FILTER FUNKTION (ersetzt gsSetSearchCat + setFilter) ═════
+// SUCHE-1: eine Kategorie ersetzt die Kategorie, eine Eigenschaft die Eigenschaft — beide gelten
+// zusammen, und das Suchwort bleibt stehen. Die Eigenschaft ein zweites Mal antippen nimmt sie weg.
 function gsFilter(val, btn) {
   gsHaptic('tap');
-  // Alle Buttons der gleichen Gruppe deaktivieren
-  var group = btn ? btn.getAttribute('data-group') : 'cat';
-  document.querySelectorAll('.sf-btn[data-group="' + group + '"]').forEach(function(b) {
-    b.classList.remove('active');
-  });
-  // Aktiven Button setzen
-  if (btn) btn.classList.add('active');
-  // Wenn Eigenschaft: "Alle" in Kategorien-Gruppe bleibt aktiv
-  // Wenn Kategorie: Eigenschaften-Buttons zurücksetzen
-  if (group === 'cat') {
-    document.querySelectorAll('.sf-btn[data-group="prop"]').forEach(function(b) {
-      b.classList.remove('active');
-    });
+  val = String(val || '');
+  if (_gsSucheIstEigenschaft(val)) {
+    currentProp = (currentProp === val) ? '' : val;
+    if (_gsSucheIstEigenschaft(currentFilter)) currentFilter = '';   // Altlast: Eigenschaft im Kategorie-Feld
+  } else {
+    currentFilter = val;
   }
-  // Filter setzen
-  currentFilter = val || '';
-  _gsSearchCat = val || '';
-  searchText = '';
-  var sinp = document.getElementById('search-input');
-  if (sinp) sinp.value = '';
+  _gsSearchCat = currentFilter;
+  _gsSucheKnoepfe();
   if (typeof renderList === 'function') renderList();
 }
 
@@ -20526,7 +20562,9 @@ function gsClearSearch() {
   var btn = document.getElementById('search-clear-btn');
   if (inp) { inp.value = ''; inp.focus(); }
   if (btn) btn.style.display = 'none';
-  currentFilter = ''; searchText = '';
+  // SUCHE-1: das ✕ gehoert zum Suchfeld und raeumt das WORT. Bis v33.61 nahm es auch die
+  // Kategorie weg und liess ihren Knopf markiert stehen — „Bäume" leuchtete, die Liste zeigte alles.
+  searchText = '';
   document.querySelectorAll('#search-cat-chips button').forEach(function(b){
     b.style.background='var(--surface2)'; b.style.color='var(--text)';
   });
@@ -25502,7 +25540,8 @@ function gsAddSpecies(speciesArray) {
 
 // ═══ STATE ═══════════════════════════════════════════
 var favs = safeGetItem('ps_favs', []);
-var currentFilter = '';
+var currentFilter = '';   // SUCHE-1: die KATEGORIE der Artensuche ('' = alle)
+var currentProp = '';     // SUCHE-1: die EIGENSCHAFT ('' = keine) — gilt zusammen mit der Kategorie
 var searchText = '';
 var stream = null;
 const cameraFacing = 'environment'; // Nur Hinterkamera
@@ -37173,7 +37212,10 @@ function showScanResult(r, opts){
 // `robust_check` Fall 16 hat es im selben Lauf gemeldet. Wer eine Kategorie
 // von aussen setzen will, nimmt `gsFilter(kategorie, knopf)` — den Weg, den
 // die Filterleiste selbst geht.
-function setFilter(f,el){currentFilter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderList();}
+// SUCHE-1: die fuenf Kategorie-Eintraege im Menue rufen setFilter(kat, null) — das setzte
+// currentFilter und starb an `null.classList`, BEVOR die Liste neu gezeichnet war. Jetzt derselbe
+// Einstieg wie von der Startkachel: gsSucheMitFilter.
+function setFilter(f, el) { gsSucheMitFilter(f); }
 
 // ══ SMART OFFLINE-SUCHE ══════════════════════════════════════
 // Wenn kein API-Key: intelligente fuzzy Suche + Symptom-basierte Erkennung
@@ -38096,7 +38138,9 @@ function _gsLeven(a,b,max){
   return prev[lb];
 }
 function _gsPassCat(sp){
-  var t=currentFilter;
+  // SUCHE-1: Kategorie (currentFilter) und Eigenschaft (currentProp) gelten ZUSAMMEN.
+  var _af = _gsAktiveFilter(), t = '', kat = '';
+  _af.forEach(function (w) { if (_gsSucheIstEigenschaft(w)) t = w; else kat = w; });
   // v33.61: die drei Sicherheits-Filter fragen die ART (_gsArtAnzeige) — wie die Karte, die
   // sie danach zeigt. „Ungiftig" ist eine Zusage: ein ungepruefter Community-Eintrag
   // (tox:null, toxic:false) gehoert nicht hinein, er hat nur keine Angabe.
@@ -38108,7 +38152,7 @@ function _gsPassCat(sp){
   }
   if(t==='geschuetzt' && !sp.protected) return false;
   if(t==='heilpflanze'&& !sp.medicinal) return false;
-  if(t && !['essbar','giftig','ungiftig','geschuetzt','heilpflanze'].includes(t) && sp.cat!==t) return false;
+  if(kat && sp.cat!==kat) return false;
   return true;
 }
 function getFiltered(){
@@ -38215,7 +38259,7 @@ function _gsFilterLabel(wert) {
 // Der Filter faellt, das Suchwort bleibt.
 function gsSucheOhneFilter() {
   var wort = searchText;
-  try { gsResetFilter(); } catch (_) { currentFilter = ''; }
+  try { gsResetFilter(); } catch (_) { currentFilter = ''; currentProp = ''; }
   searchText = wort || '';
   var inp = document.getElementById('search-input');
   if (inp && wort) inp.value = wort;
@@ -38225,6 +38269,9 @@ window.gsSucheOhneFilter = gsSucheOhneFilter;
 
 function renderList(){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  // SUCHE-1: die Knoepfe zeigen, was gilt — hier, weil JEDER Weg zur Liste hier vorbeikommt
+  // (auch einer, der currentFilter direkt setzt).
+  _gsSucheKnoepfe();
   const res = getFiltered();
   const total = res.length;
   const validRes = res.filter(sp=>sp&&sp.id);
@@ -38237,15 +38284,16 @@ function renderList(){
   const slice = validRes.slice(0, _listPage * _LIST_PAGE_SIZE);
   
   var rcEl = document.getElementById('search-status');
+  var _aktiv = _gsAktiveFilter();                    // SUCHE-1: Kategorie und Eigenschaft
   if (rcEl) {
-    if (total === DB.length && !searchText && !currentFilter) {
+    if (total === DB.length && !searchText && !_aktiv.length) {
       // v33.08: jede Zeile der Liste IST ein Eintrag — und der Leerzustand
       // zwei Zeilen tiefer sagt „Keine Einträge gefunden". Hier stand „Arten".
       rcEl.textContent = DB.length + ' ' + _t('unit_entries','Einträge');
     } else if (total === 0) {
       rcEl.textContent = _t('search_no_hits','Keine Treffer');
     } else {
-      rcEl.textContent = total + ' ' + _t('market_hits','Treffer') + (currentFilter ? ' · ' + _gsFilterLabel(currentFilter) : '') + (searchText ? ' · "' + searchText + '"' : '')
+      rcEl.textContent = total + ' ' + _t('market_hits','Treffer') + _aktiv.map(function (w) { return ' · ' + _gsFilterLabel(w); }).join('') + (searchText ? ' · "' + searchText + '"' : '')
         + (window._gsSucheTippfehler ? ' · ' + _gsSatz('ähnliche Namen') : '');
     }
   }
@@ -38257,8 +38305,8 @@ function renderList(){
       '<div style="font-size:var(--fs-lg);font-weight:700;color:var(--text);margin-bottom:6px;">' + _t('search_empty_title','Keine Einträge gefunden') + '</div>' +
       '<div style="font-size:var(--fs-md);color:var(--muted);">' + _t('search_empty_hint','Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.') + '</div>' +
       // SUCHE-2: steht ein Filter, sagt der Leerzustand welcher — und bietet an, ohne ihn zu suchen.
-      (currentFilter ? '<button type="button" class="btn btn-secondary" onclick="gsSucheOhneFilter()" style="margin-top:14px;">' +
-        escHtml(_gsSatz('Ohne Filter „{1}“ suchen', _gsFilterLabel(currentFilter))) + '</button>' : '') + '</div>';
+      (_aktiv.length ? '<button type="button" class="btn btn-secondary" onclick="gsSucheOhneFilter()" style="margin-top:14px;">' +
+        escHtml(_gsSatz('Ohne Filter „{1}“ suchen', _aktiv.map(_gsFilterLabel).join(' + '))) + '</button>' : '') + '</div>';
     return;
   }
   
@@ -76953,12 +77001,13 @@ window.GS_RELEASES = [
   {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +21 (D1j, F1, F2, SC1, SU1–SU3, HS1, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
+      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +23 (D1j, F1, F2, SC1, SU1–SU5, HS1, SV1–SV3; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +5 (Lina L1–L4, T3), speicher_check +2, escape_check +1.',
       user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
       user_items: [
         {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
         {emoji:'☠️', bold:'„Giftige Pflanzen“ im Menü:', text:' der Eintrag öffnet jetzt die Liste der giftigen Arten. Vorher suchte er nur nach dem Wort und zeigte auch essbare Pflanzen.'},
         {emoji:'🔍', bold:'Die Suche verzeiht Tippfehler:', text:' „bärlauhc“ findet den Bärlauch, mehrere Wörter werden einzeln gesucht, und findet die Suche mit einem Filter nichts, kannst du ohne Filter weitersuchen.'},
+        {emoji:'🍄', bold:'Filter kombinieren:', text:' „Pilze“ und „Giftig“ zusammen zeigen jetzt die giftigen Pilze. Ein Filter löscht dein Suchwort nicht mehr, und „Pilze“ im Menü öffnet die Pilze wirklich.'},
         {emoji:'💬', bold:'Chat zum Scan-Ergebnis:', text:' nennt eine Antwort eine giftige Art essbar, steht eine Warnung darüber. Schreibst du von einem Notfall, kommt sofort die Nummer von Tox Info Suisse.'},
         {emoji:'🆘', bold:'Notfall auf Spanisch:', text:' Lina und der Scan-Chat erkennen jetzt auch spanische Sätze wie „mi hija ha comido bayas“.'},
         {emoji:'🌿', bold:'Lina:', text:' was du während des Wartens tippst, bleibt stehen. Antwortet die KI gerade nicht, sagt Lina, was die App-Liste weiss, und du kannst die Frage nochmal senden. Einen Weg in der App zeigt sie als Knopf, statt sich zu schliessen.'},

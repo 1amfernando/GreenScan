@@ -46,6 +46,15 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   und Binomen, Wortanfang); mehrere Wörter einzeln; Synonym ab vier Zeichen Wortanfang;
   Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter wie sein Knopf
   (`_gsFilterLabel`), „Ohne Filter suchen" (`gsSucheOhneFilter`) behält das Suchwort.
+- **Suche 1 — Kategorie, Eigenschaft und Suchwort gelten zusammen.** Es gab EINEN Filterwert:
+  „Pilze" und „Giftig" standen beide markiert da, gefiltert wurde nach dem zuletzt getippten
+  (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im
+  Suchfeld nahm den Filter weg und liess seinen Knopf markiert (4'337 Treffer unter „Bäume");
+  die fünf Kategorie-Einträge im Menü riefen `setFilter(kat, null)` und starben an
+  `null.classList`, bevor die Liste neu gezeichnet war. Jetzt `currentFilter` = Kategorie,
+  `currentProp` = Eigenschaft, die Knöpfe kommen aus dem Zustand (`_gsSucheKnoepfe`, mit
+  `aria-pressed`, aufgerufen in `renderList`), ein Einstieg von aussen (Startkachel, Menü)
+  beginnt sauber (`gsSucheMitFilter`), das ✕ räumt nur das Wort.
 - **Lina** (Untersitzung, e5c0b1e): `_gsLinaAuszeichnung` (fett statt Sternchen); der Entwurf
   übersteht den Neuaufbau; antwortet die KI bei Netz nicht oder leer, steht darunter, was die
   App-Liste ohne KI weiss (`_gsLinaErsatz`), und „Erneut senden" (`gsLinaNochmal`) — die
@@ -78,7 +87,7 @@ Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archi
   im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
   über `gsSaisonMonate`.
 
-**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU3, HS1, SV1–SV3 (N1 um Spanisch, E1b an
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1, SU1–SU5, HS1, SV1–SV3 (N1 um Spanisch, E1b an
 der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
 (Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
 `escape_check` +1 (A3b). Jeder neue Fall gegen den Stand davor gefahren: rot. Volle Suite auf

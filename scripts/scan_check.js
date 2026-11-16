@@ -2076,7 +2076,9 @@ const FAELLE = [
         gsZeigeEigenschaft('giftig');
         await new Promise(function (r) { setTimeout(r, 400); });
         var inp = document.getElementById('search-input');
-        if (currentFilter !== 'giftig') return { ok: false, warum: 'Filter steht auf „' + currentFilter + '"' };
+        // seit SUCHE-1 steht die Eigenschaft in currentProp, die Kategorie in currentFilter
+        var _eig = (typeof currentProp !== 'undefined' && currentProp) ? currentProp : currentFilter;
+        if (_eig !== 'giftig') return { ok: false, warum: 'Filter steht auf „' + _eig + '"' };
         if (inp && inp.value) return { ok: false, warum: 'im Suchfeld steht „' + inp.value + '"' };
         var liste = (window._lastSearchResults || []);
         if (!liste.length) return { ok: false, warum: 'die Liste ist leer' };
@@ -2085,7 +2087,95 @@ const FAELLE = [
         // Gegenrichtung: die alte Wortsuche haette essbare Arten gebracht.
         var alt = DB.filter(function (s) { return gsIstEssbar(s) && /giftig/i.test([s.name, s.desc, s.lookalike, s.warning].join(' ')); }).length;
         return { ok: true, info: liste.length + ' Arten, alle giftig · die Wortsuche „giftig" traefe auch ' + alt + ' essbare' };
-      } finally { try { gsFilter('', null); } catch (_) {} currentFilter = vorher; }
+      } finally { try { gsResetFilter(); } catch (_) {} currentFilter = vorher; }
+    },
+  },
+  {
+    // SUCHE-1, erste Haelfte. Die fuenf Menue-Eintraege der Kategorien riefen setFilter(kat, null):
+    // das setzte currentFilter und starb dann an `null.classList` — VOR renderList. Die Liste blieb,
+    // wie sie war, kein Knopf war markiert, und das Suchwort von vorhin galt weiter.
+    name: 'SU4 · Menü „Wildpflanzen / Pilze / Kräuter / Bäume / Hauspflanzen": die Liste zeigt genau diese Kategorie, ihr Knopf ist markiert, kein Suchwort von vorhin — und nichts wirft',
+    lauf: async () => {
+      var eintraege = MENU_ITEMS.filter(function (m) { return m.cat && /setFilter\(|gsSucheMitFilter\(/.test(m.action); });
+      if (eintraege.length < 5) return { ok: false, warum: 'nur ' + eintraege.length + ' Kategorie-Einträge im Menü — der Fall misst nichts' };
+      var f = [], gesehen = [];
+      var warte = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+      try {
+        for (var i = 0; i < eintraege.length; i++) {
+          var m = eintraege[i];
+          // Vorzustand: ein Suchwort und eine Eigenschaft von vorhin
+          try { gsResetFilter(); } catch (_) {}
+          var inp = document.getElementById('search-input');
+          searchText = 'zzvorhin'; if (inp) inp.value = 'zzvorhin';
+          try { gsFilter('giftig', document.querySelector('.sf-btn[data-group="prop"][onclick*="\'giftig\'"]')); } catch (_) {}
+          var fehler = null;
+          try { (new Function(m.action))(); } catch (e) { fehler = String(e && e.message || e); }
+          await warte(250);
+          var liste = window._lastSearchResults || [];
+          var soll = DB.filter(function (s) { return s && s.id && s.cat === m.cat; }).length;
+          var aktiv = [].slice.call(document.querySelectorAll('.sf-btn.active'));
+          var kat = aktiv.filter(function (b) { return b.getAttribute('data-group') === 'cat'; });
+          var eig = aktiv.filter(function (b) { return b.getAttribute('data-group') === 'prop'; });
+          if (fehler) f.push(m.label + ': wirft „' + fehler + '"');
+          if (liste.length !== soll) f.push(m.label + ': Liste ' + liste.length + ' statt ' + soll);
+          if (kat.length !== 1 || (kat[0].getAttribute('onclick') || '').indexOf("'" + m.cat + "'") < 0) f.push(m.label + ': markiert ist „' + kat.map(function (b) { return b.textContent.trim(); }).join(', ') + '"');
+          if (eig.length) f.push(m.label + ': die Eigenschaft „' + eig[0].textContent.trim() + '" bleibt markiert');
+          if (searchText || (inp && inp.value)) f.push(m.label + ': das Suchwort von vorhin bleibt stehen');
+          gesehen.push(m.cat + ' ' + liste.length);
+        }
+      } finally { try { gsResetFilter(); } catch (_) {} }
+      if (f.length) return { ok: false, warum: f.slice(0, 6).join(' · ') + (f.length > 6 ? ' · +' + (f.length - 6) + ' weitere' : '') };
+      return { ok: true, info: eintraege.length + ' Einträge: ' + gesehen.join(' · ') + ' — je ein Knopf markiert, Suchwort und Eigenschaft geräumt' };
+    },
+  },
+  {
+    // SUCHE-1, zweite Haelfte. gsFilter loeschte das Suchwort, und es gab nur EINEN Filterwert:
+    // „Pilze" und „Giftig" standen beide markiert da, gefiltert wurde nur nach dem zuletzt
+    // getippten. Und das ✕ im Suchfeld raeumte den Filter weg, liess seinen Knopf aber markiert.
+    name: 'SU5 · Suche: Kategorie, Eigenschaft und Suchwort gelten ZUSAMMEN — „Pilze" + „Giftig" zeigt giftige Pilze, ein Filter löscht das Wort nicht, und was markiert ist, gilt',
+    lauf: async () => {
+      var f = [];
+      var warte = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+      var knopf = function (g, w) { return document.querySelector('.sf-btn[data-group="' + g + '"][onclick*="\'' + w + '\'"]'); };
+      var markiert = function () { return [].slice.call(document.querySelectorAll('.sf-btn.active[data-group]')).map(function (b) { return (/'([a-z_]*)'/.exec(b.getAttribute('onclick') || '') || [, '?'])[1] || 'alle'; }).sort().join('+'); };
+      var giftig = function (s) { var a = _gsArtAnzeige(s); return !!(a.toxic || a.tox >= 2); };
+      try {
+        try { gsResetFilter(); } catch (_) {}
+        var row = document.getElementById('sf-props-row'); if (row && row.style.display === 'none') gsTogglePropFilter();
+        // 1 · Pilze, dann Giftig: beide gelten
+        knopf('cat', 'pilz').click(); await warte(150);
+        knopf('prop', 'giftig').click(); await warte(150);
+        var l1 = window._lastSearchResults || [];
+        var soll1 = DB.filter(function (s) { return s && s.id && s.cat === 'pilz' && giftig(s); }).length;
+        if (l1.length !== soll1) f.push('Pilze + Giftig: ' + l1.length + ' Einträge statt ' + soll1 + (l1.some(function (s) { return s.cat !== 'pilz'; }) ? ' (auch Nicht-Pilze)' : ''));
+        if (markiert() !== 'giftig+pilz') f.push('markiert: ' + markiert());
+        var st = (document.getElementById('search-status') || {}).textContent || '';
+        if (!/Pilze/.test(st) || !/Giftig/.test(st)) f.push('die Statuszeile nennt nicht beide Filter: „' + st + '"');
+        // 2 · ein Wort dazu: der Filter bleibt, das Wort gilt mit
+        doSearch('knollenbl'); await warte(250);
+        var l2 = window._lastSearchResults || [];
+        if (!l2.length) f.push('Pilze + Giftig + „knollenbl": leer');
+        if (l2.some(function (s) { return s.cat !== 'pilz' || !giftig(s); })) f.push('mit Suchwort fallen Kategorie oder Eigenschaft weg');
+        // 3 · eine Kategorie tippen löscht das Wort NICHT
+        knopf('cat', 'baum').click(); await warte(150);
+        var inp = document.getElementById('search-input');
+        if (searchText !== 'knollenbl' || !inp || inp.value !== 'knollenbl') f.push('der Kategorie-Knopf löscht das Suchwort (jetzt „' + searchText + '")');
+        if (markiert() !== 'baum+giftig') f.push('nach „Bäume" markiert: ' + markiert());
+        // 4 · die Eigenschaft nochmal antippen nimmt sie weg
+        knopf('prop', 'giftig').click(); await warte(150);
+        if (markiert() !== 'baum') f.push('„Giftig" ein zweites Mal: markiert ' + markiert());
+        // 5 · das ✕ im Suchfeld räumt das WORT — der Filter bleibt und bleibt markiert
+        gsClearSearch(); await warte(150);
+        var l5 = window._lastSearchResults || [];
+        var soll5 = DB.filter(function (s) { return s && s.id && s.cat === 'baum'; }).length;
+        if (searchText) f.push('✕ lässt das Wort stehen');
+        if (markiert() !== 'baum' || l5.length !== soll5) f.push('nach ✕: markiert ' + markiert() + ', Liste ' + l5.length + ' statt ' + soll5 + ' Bäume');
+        // 6 · Reset räumt alles
+        gsResetFilter(); await warte(150);
+        if ((window._lastSearchResults || []).length !== DB.filter(function (s) { return s && s.id; }).length || markiert() !== 'alle') f.push('Reset: markiert ' + markiert() + ', Liste ' + (window._lastSearchResults || []).length);
+      } finally { try { gsResetFilter(); } catch (_) {} }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Pilze + Giftig, mit Wort, Kategorie wechselt ohne das Wort zu löschen, Eigenschaft ab, ✕ räumt nur das Wort, Reset alles' };
     },
   },
   {
@@ -2138,6 +2228,7 @@ const FAELLE = [
     name: 'SU1 · Suche: ein Vertipper findet die Art, ein exakter Name bleibt oben, Unsinn findet nichts',
     lauf: () => {
       var vorF = currentFilter, vorS = searchText, f = [];
+      if (typeof currentProp !== 'undefined') currentProp = '';
       var such = function (w) { currentFilter = ''; searchText = w; return getFiltered(); };
       try {
         var ex = such('giersch');
@@ -2160,6 +2251,7 @@ const FAELLE = [
     name: 'SU2 · Suche: mehrere Woerter und der Anfang eines Synonyms',
     lauf: () => {
       var vorF = currentFilter, vorS = searchText, f = [], info = [];
+      if (typeof currentProp !== 'undefined') currentProp = '';
       var such = function (w) { currentFilter = ''; searchText = w; return getFiltered(); };
       try {
         var sp = DB.find(function (s) { return /^Bärlauch/.test(s.name) && /Allium ursinum/.test(s.lat || ''); });

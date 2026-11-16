@@ -14,7 +14,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | Version | Was |
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
-| v33.61 (16.11.) | Suche 2, 3, 4, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung) · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6 · Home 1 — Einzelheiten in STATUS (je) |
+| v33.61 (16.11.) | Suche 1, 2, 3, 4, 6, 7 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung) · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6 · Home 1 — Einzelheiten in STATUS (je) |
 
 ## Offen — Scanner
 
@@ -60,10 +60,11 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 ## Offen — Suche
 
-> **Geliefert mit v33.61** (16.11.2026): Punkte 2, 3, 4, 6, 7 und die toten Reste aus 9.
-> Prüfstand: `scan_check` SU1–SU3. Offen bleiben 1, 5, 8, 10 (Ranking).
+> **Geliefert mit v33.61** (16.11.2026): Punkte 1, 2, 3, 4, 6, 7 und die toten Reste aus 9.
+> Prüfstand: `scan_check` SU1–SU5. Offen bleiben 5, 8, 10 (Ranking).
 
-1. **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
+1. ✅ v33.61 (dazu: die Kategorie-Einträge im Menü warfen einen Fehler; das ✕ im Suchfeld nahm
+   den Filter weg und liess den Knopf markiert) — **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
    `currentFilter` — „Pilz + giftig" geht nicht.
 2. **Tippfehler-Suche ist schwach** (`getFiltered`, `_gsLeven`): läuft nur bei 0 Treffern,
    vergleicht den ganzen Namen (nicht die „/"-Teile, nicht das Binomen), bricht bei mehr als
