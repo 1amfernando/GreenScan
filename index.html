@@ -34149,6 +34149,7 @@ window.gsSchritt = gsSchritt;
 
 async function analyzeImage(b64, mt, organContext, extraImages, opts){
   opts = opts || {};
+  try { _gsScanWarteStopp(); } catch(_){}   // ein wartender „In einer Minute nochmal" gilt nicht mehr
   // v30.74: Low-Confidence-Re-Scan — der Nutzer hat „Weiteres Foto hinzufügen" getippt; das vorige Bild wird als
   // Multi-Shot mit dem neuen kombiniert (höhere Genauigkeit). Eine Stelle → greift für Kamera UND Galerie.
   // Frische-Guard (3 Min) verhindert, dass ein verwaister Re-Scan-Intent einen späteren, fremden Scan kombiniert.
@@ -34472,8 +34473,15 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     if (!res) {
       // Debug-Info im Admin-Mode + kompakte Fehler-Card für User
       try { window._gsLastRawKiResponse = text; } catch(_){}
+      // Hauptfunktionen · Scanner 5: der Rohtext bleibt fuer die Konsole und
+      // die Admin-Zeile — auf dem Bildschirm stand er woertlich, samt
+      // `gsTestApiKey()`, und das Wort „ungueltig" machte daraus einen
+      // Schluesselfehler (falsche Statuszeile, falscher Anmelde-Kasten).
       var preview = (text || '').slice(0, 140).replace(/\s+/g, ' ');
-      throw new Error('⚠️ KI antwortete ungültig: „' + preview + '…". Bitte nochmal scannen oder `gsTestApiKey()` prüfen.');
+      try { console.warn('[analyzeImage] unlesbare KI-Antwort:', preview); } catch(_){}
+      var _jsErr = new Error('KI-Antwort ohne lesbares JSON: „' + preview + '…"');
+      _jsErr.code = 'ki_antwort';
+      throw _jsErr;
     }
     // v31.79: EINE Skala, bevor irgendetwas damit rechnet oder es anzeigt.
     try {
@@ -34482,7 +34490,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
         if (a && a.confidence != null) a.confidence = gsNormConfidence(a.confidence);
       });
     } catch (_) {}
-    if (!res.name || res.confidence == null) throw new Error('KI-Antwort unvollständig — bitte erneut scannen.');
+    if (!res.name || res.confidence == null) { var _unv = new Error('KI-Antwort unvollständig (name/confidence fehlt)'); _unv.code = 'ki_antwort'; throw _unv; }
     // Normalisiere alternatives-Array
     if (!Array.isArray(res.alternatives)) res.alternatives = [];
     // Kontext zur Nachnutzung ablegen
@@ -34529,15 +34537,17 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
       }
       return;
     }
-    var isKeyErr = /API Key|ungültig|401|403/i.test(errMsg);
-    var isNetErr = /Netzwerk|Zeitüberschreitung|offline|network/i.test(errMsg);
-    var isRateErr= /Rate-Limit|überlastet|429|529|503/i.test(errMsg);
+    var _fa = _gsScanFehlerArt(err);
+    var isKeyErr = _fa.art === 'schluessel';
+    var isNetErr = _fa.art === 'netz';
+    var isRateErr= _fa.art === 'last';
     // Retry-Payload merken, damit "Nochmal versuchen"-Button funktioniert
-    window._gsLastScanPayload = { b64: b64, mt: mt, organContext: organContext, extraImages: extraImages };
+    window._gsLastScanPayload = { b64: b64, mt: mt, organContext: organContext, extraImages: extraImages, opts: opts };   // Scanner 7: „Trotzdem bestimmen" bleibt beim erneuten Versuch gewaehlt
     // v23.64: Detail-Card mit aktueller Modell-Info + klaren Schritten
     var curModel = (typeof window._gsClaudeModel !== 'undefined') ? window._gsClaudeModel : '(unbekannt)';
     var diagLine = '<div style="margin-top:10px;padding:8px 10px;background:rgba(0,0,0,.04);border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--muted);font-family:monospace;text-align:left;max-width:300px;margin-left:auto;margin-right:auto;">'+
       '<div><b>Modell:</b> '+escHtml(curModel)+'</div>'+
+      '<div style="overflow-wrap:anywhere;"><b>Meldung:</b> '+escHtml(_fa.roh.slice(0, 300))+'</div>'+
       '<div><b>Zeit:</b> '+new Date().toLocaleTimeString(gsLocale())+'</div>'+
       '</div>';
     // v23.65: Professionelles Fail-Screen mit hero API-Key-CTA bei Key-Fehler
@@ -34566,13 +34576,13 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
       '<div class="analyzing" style="color:var(--c-danger);padding:20px 16px;">'+
         '<div style="font-size:52px;margin-bottom:8px;filter:drop-shadow(0 2px 4px rgba(198,40,40,.25));">'+(isKeyErr?'🔑':(isNetErr?'📡':'⚠️'))+'</div>'+
         '<p style="margin:0;font-size:var(--fs-xl);font-weight:900;color:var(--c-danger-d);letter-spacing:.2px;">Scan fehlgeschlagen</p>'+
-        '<p style="font-size:var(--fs-md);color:var(--text);max-width:320px;text-align:center;line-height:1.55;font-weight:600;margin:6px auto 0;">'+escHtml(errMsg)+'</p>'+
+        '<p style="font-size:var(--fs-md);color:var(--text);max-width:320px;text-align:center;line-height:1.55;font-weight:600;margin:6px auto 0;">'+escHtml(_kAdm ? _fa.satzAdmin : _fa.satz)+'</p>'+
         heroCta +
-        diagLine +
+        (_kAdm ? diagLine : '') +   // Scanner 5: Modellname und Rohmeldung sind fuer Admins, nicht fuer jede Person
         '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center;">'+
           '<button onclick="_gsRetryLastScan()" style="padding:10px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-family:inherit;font-weight:800;box-shadow:var(--elev-brand);">🔁 Nochmal versuchen</button>'+
           (_kAdm ? '<button onclick="gsTestApiKey()" style="padding:10px 18px;background:#37474f;color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-family:inherit;font-weight:800;">🧪 Key testen</button>' : '')+
-          (isRateErr ? '<button onclick="setTimeout(_gsRetryLastScan,60000);document.getElementById(\'scan-status\').textContent=\'⏳ Warte 60s auf Anbieter…\';" style="padding:10px 18px;background:#e65100;color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-family:inherit;font-weight:800;">⏱️ In 60s retry</button>' : '')+
+          (isRateErr ? '<button id="scan-warte-btn" onclick="gsScanSpaeterVersuchen(60)" style="padding:10px 18px;background:#b34700;color:#fff;border:none;border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-md);font-family:inherit;font-weight:800;">⏱️ In einer Minute nochmal</button>' : '')+
         '</div>'+
       '</div>';
     // v23.65: API-Key-Chip sofort sichtbar machen bei Key-Fehler
@@ -34582,7 +34592,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
       if (chipEl && isKeyErr && _kAdm) chipEl.style.display = 'inline-flex';
     } catch(_){}
     var sst = document.getElementById('scan-status');
-    if (sst) sst.textContent = isKeyErr ? 'Fehler – API Key prüfen' : (isNetErr ? 'Netzwerk-Fehler' : 'KI-Fehler – erneut versuchen');
+    if (sst) sst.textContent = isKeyErr ? (_kAdm ? 'Fehler – API-Key prüfen' : 'KI gerade nicht erreichbar') : (isNetErr ? 'Keine Verbindung' : 'Nicht geklappt – nochmal versuchen');
   }
 }
 
@@ -34624,6 +34634,97 @@ window.gsTestApiKey = async function(){
   } catch(_){}
 };
 
+// ── Hauptfunktionen · Scanner 5: was auf der Fehlerkarte steht ──────────
+//
+// Gemessen am 16.11.2026 mit den Meldungen, die callVisionAI wirklich wirft:
+// die Karte zeigte die Rohantwort der KI samt `gsTestApiKey()`, englische
+// Anbietertexte („image exceeds 5 MB maximum"), einen Modellnamen,
+// „Cannot read properties of null" und „Failed to fetch" — und jeder Person
+// eine Zeile „Modell: claude-…" in Maschinenschrift. Dazu war die Einordnung
+// ein Muster auf dem Rohtext: eine kaputte Antwort enthielt „ungueltig" und
+// galt als Schluesselfehler.
+//
+// EINE Einordnung: `art` steuert Statuszeile, Anmelde-Kasten und Warte-Knopf,
+// `satz` steht da (fuer Admins `satzAdmin` — die eigene Meldung, die Rohzeile
+// steht darunter), `roh` bleibt fuer Konsole und Admin-Zeile. Was nicht
+// erkannt wird, bekommt einen allgemeinen Satz — nie den Rohtext.
+function _gsScanFehlerArt(err) {
+  var roh = String((err && (typeof err === 'string' ? err : err.message)) || '').trim();
+  var code = err && typeof err === 'object' ? err.code : null;
+  var l = roh.toLowerCase();
+  var r = { art: 'sonst', satz: '', satzAdmin: '', roh: roh };
+  var eigen = function (x) { r.satz = x; r.satzAdmin = x; };
+  if (code === 'ki_antwort') {
+    r.art = 'antwort';
+    eigen('Die KI hat keine lesbare Bestimmung geliefert. Meist klappt es beim zweiten Versuch.');
+  } else if (code === 'ai_refusal') {
+    r.art = 'abgelehnt'; eigen(roh);                               // eigener Satz (_gsAiAbgelehnt)
+  } else if (/ki-modell nicht verfügbar|kein ki-modell/.test(l)) {
+    // vor dem Schluessel: „Kein KI-Modell erfolgreich. Bitte API-Key pruefen."
+    // entsteht, wenn KEIN Modell antwortet — der Schluessel ist dann nicht das Thema
+    r.art = 'modell';
+    r.satz = 'Der KI-Dienst ist gerade nicht erreichbar — bitte gleich nochmal versuchen.';
+  } else if (/^🔑 (bitte erstelle|ki-schl)/i.test(roh)) {
+    r.art = 'schluessel'; eigen(roh);                              // eigene Saetze aus callVisionAI
+  } else if (/api.?key|\b401\b|\b403\b/i.test(roh)) {
+    r.art = 'schluessel';
+    r.satz = 'Die KI hat den Zugang gerade abgelehnt. Meist genügt ein zweiter Versuch — sonst kurz ab- und wieder anmelden.';
+    r.satzAdmin = roh;
+  } else if (/zeitüberschreitung|netzwerk|offline|network|failed to fetch|load failed|timeout|verbindung/.test(l)) {
+    r.art = 'netz';
+    eigen('Keine Verbindung zum KI-Dienst — bitte Internet prüfen und nochmal versuchen.');
+  } else if (/rate-limit|überlastet|\b429\b|\b529\b|\b503\b/.test(l)) {
+    r.art = 'last';
+    eigen('Der KI-Dienst ist gerade überlastet. In ein, zwei Minuten klappt es meist wieder.');
+  } else if (/^📷 /.test(roh)) {
+    r.art = 'foto'; eigen(roh);                                    // eigene Saetze zur Fotogroesse
+  } else if (/anfrage abgelehnt/.test(l)) {
+    r.satz = 'Der KI-Dienst hat das Foto nicht angenommen. Versuch es nochmal oder mit einem anderen Foto.';
+  } else if (/server-fehler beim ki-anbieter/.test(l)) {
+    r.satz = 'Der KI-Dienst hat gerade ein Problem — bitte später nochmal versuchen.';
+  } else {
+    // dasselbe Vokabular wie ueberall (CLAUDE.md §7.1, _gsFehlerText) — aber
+    // nur, wenn es einen eigenen Satz hat; sein Rueckfall ist der Rohtext
+    var ft = '';
+    try { ft = (typeof _gsFehlerText === 'function') ? _gsFehlerText(err) : ''; } catch (_) { ft = ''; }
+    r.satz = (ft && ft !== roh && ft.indexOf(roh.slice(0, 40)) !== 0) ? ft : 'Die Bestimmung hat nicht geklappt — bitte nochmal versuchen.';
+  }
+  if (!r.satzAdmin) r.satzAdmin = r.satz;
+  return r;
+}
+window._gsScanFehlerArt = _gsScanFehlerArt;
+
+// „In einer Minute nochmal" — mit sichtbarem Countdown, abbrechbar, und nur
+// solange die Karte steht. Gezaehlt wird in Schritten, nicht an der Uhr
+// (CLAUDE.md §7.1: eine Frist, die die Uhr fragt, haengt unter gestellter Uhr).
+function _gsScanWarteStopp() {
+  if (window._gsScanWarteTimer) { try { clearInterval(window._gsScanWarteTimer); } catch (_) {} }
+  window._gsScanWarteTimer = null;
+}
+function gsScanSpaeterVersuchen(sek) {
+  _gsScanWarteStopp();
+  var rest = Math.max(1, parseInt(sek, 10) || 60);
+  var b0 = document.getElementById('scan-warte-btn');
+  if (!b0) return;
+  var zuruecksetzen = function (b) {
+    b.textContent = '⏱️ In einer Minute nochmal';
+    b.onclick = function () { gsScanSpaeterVersuchen(sek); };
+  };
+  var zeig = function () {
+    var b = document.getElementById('scan-warte-btn');
+    if (!b) { _gsScanWarteStopp(); return; }                       // Karte weg: kein Versuch im Hintergrund
+    if (rest <= 0) { _gsScanWarteStopp(); _gsRetryLastScan(); return; }
+    b.textContent = _gsSatz('⏳ Nochmal in {1} s — antippen bricht ab', rest);
+    b.onclick = function () { _gsScanWarteStopp(); zuruecksetzen(b); };
+    var st = document.getElementById('scan-status');
+    if (st) st.textContent = _gsSatz('Neuer Versuch in {1} s', rest);
+    rest--;
+  };
+  zeig();
+  window._gsScanWarteTimer = setInterval(zeig, 1000);
+}
+window.gsScanSpaeterVersuchen = gsScanSpaeterVersuchen;
+
 // v23.61: Retry-Funktion für Scanner-Fehler
 async function _gsRetryLastScan(){
   var p = window._gsLastScanPayload;
@@ -34631,7 +34732,7 @@ async function _gsRetryLastScan(){
     if (typeof showProfileToast === 'function') showProfileToast('Kein Foto zum Retry — bitte neu aufnehmen.');
     return;
   }
-  await analyzeImage(p.b64, p.mt, p.organContext, p.extraImages);
+  await analyzeImage(p.b64, p.mt, p.organContext, p.extraImages, p.opts || undefined);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -34853,53 +34954,175 @@ function gsPickAlternative(altKey) {
   var alt = window._gsAltCandidates && window._gsAltCandidates[altKey];
   if (!alt || !_lastScanResult) return;
   gsHaptic('medium');
-  // Neue Basis-Res erstellen: Alternative wird zum Top-Kandidat, alter Top-Kandidat wird 1. Alt
-  var original = _lastScanResult;
-  var oldTop = {
-    name: original.name, latin: original.latin, confidence: Math.max(0, (original.confidence||0) - 5),
-    distinguishing_feature: 'Erste KI-Bestimmung — User hat Alternative gewählt'
-  };
-  var newRes = Object.assign({}, original, {
-    name: alt.name,
-    latin: alt.latin,
-    confidence: Math.min(100, Math.max(alt.confidence||60, 60)),
-    // Felder aus DB anreichern falls Art existiert
-    _userPicked: true
-  });
-  // DB-Match für die neue Art suchen und Felder übernehmen (v30.72: einheitlicher latein-verankerter Matcher)
-  try {
-    var dbMatch = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(alt.name, alt.latin) : null;
-    if (dbMatch) {
-      newRes.category   = dbMatch.cat || newRes.category;
-      newRes.description= dbMatch.desc || newRes.description;
-      newRes.habitat    = dbMatch.habitat || newRes.habitat;
-      newRes.season     = dbMatch.season || newRes.season;
-      newRes.uses       = dbMatch.uses || newRes.uses;
-      newRes.warning    = dbMatch.warning || newRes.warning;
-      newRes.lookalike_warning = dbMatch.lookalike || newRes.lookalike_warning;
-      newRes.toxicity   = (dbMatch.tox != null) ? dbMatch.tox : newRes.toxicity;
-      newRes.edible     = (dbMatch.edible != null) ? dbMatch.edible : newRes.edible;
-      newRes.family     = dbMatch.fam || newRes.family;
-    } else {
-      // v30.72 SICHERHEIT (HL#24): KEINE DB-Bestätigung → das Sicherheitsprofil der VORIGEN Art darf NICHT
-      // weitervererbt werden (sonst würde eine giftige Alternative als „essbar" der alten Art erscheinen).
-      // Beschreibende Felder der alten Art entfernen + konservativ als „ungeprüft" markieren.
-      newRes.toxicity = (alt.toxicity != null) ? alt.toxicity : null;
-      newRes.edible   = (alt.edible != null) ? alt.edible : undefined;
-      newRes.toxic    = (alt.toxicity != null) ? (alt.toxicity >= 3) : undefined;
-      delete newRes.description; delete newRes.habitat; delete newRes.season; delete newRes.uses; delete newRes.tips;
-      newRes.warning = '';
-      newRes.lookalike_warning = 'Unbestätigte Alternative — Essbarkeit & Giftigkeit nicht geprüft. Im Zweifel NICHT verzehren.';
-    }
-  } catch(e){}
-  // Alternativen rotieren
-  var newAlts = [oldTop].concat((original.alternatives||[]).filter(function(a){
-    return (a.name||'').toLowerCase() !== (alt.name||'').toLowerCase();
-  })).slice(0,2);
-  newRes.alternatives = newAlts;
-  showScanResult(newRes);
+  var newRes = _gsScanNeueArt(_lastScanResult, alt, 'wahl');
+  showScanResult(newRes, { erneut: true });
   showProfileToast(_gsSatz('✓ Bestimmung auf "{1}" geändert', alt.name));
 }
+
+// ── Hauptfunktionen · Scanner 1–3: EINE Funktion fuer „es ist eine andere Art" ──
+//
+// Zwei Wege fuehren hierher: eine Alternative antippen (`wahl`) und eine
+// Korrektur absenden (`korrektur`). Bis hierher baute die Wahl ihr Ergebnis
+// mit `Object.assign({}, original, …)` — und nahm damit ALLES mit, was die KI
+// ueber die VERWORFENE Art gesagt hatte: die im Foto gesehenen Merkmale, den
+// Foto-Tipp, den Bestimmungstipp, den Warntext, eine gelaufene Gegenprobe,
+// den Korrektur-Vermerk des Pruefwerks. Gemessen am 11.11.2026: Maigloeckchen
+// gewaehlt, auf der Karte stand „Knoblauchgeruch beim Zerreiben".
+//
+// Deshalb umgekehrt: uebernommen wird nur, was zur AUFNAHME gehoert (Kennung,
+// Kontext, Bildmessung). Was die ART beschreibt, kommt aus unserer Artenliste
+// oder gar nicht — eine fehlende Angabe ist besser als die einer anderen Art.
+var GS_SCAN_AUFNAHME_FELDER = ['_scanId', '_ctx', '_shotCount', '_qual', '_farben', '_vorauswahl'];
+function _gsScanNeueArt(original, art, quelle) {
+  original = original || {}; art = art || {};
+  var neu = {};
+  GS_SCAN_AUFNAHME_FELDER.forEach(function (k) { if (original[k] !== undefined) neu[k] = original[k]; });
+  neu.name = String(art.name || '').trim();
+  neu.latin = String(art.latin || '').trim();
+  var c = (art.confidence != null && typeof gsNormConfidence === 'function') ? gsNormConfidence(art.confidence) : null;
+  // Die Zahl ist die der KI fuer DIESE Art — oder keine. Bis hierher wurde sie
+  // auf mindestens 60 gehoben: eine 12-%-Alternative stand als „60 % KI-Sicherheit" da.
+  neu.confidence = (typeof c === 'number' && isFinite(c)) ? c : 0;
+  neu._ohneKiZahl = !(typeof c === 'number' && isFinite(c));
+  neu._userPicked = true;
+  neu._geaendert = (quelle === 'korrektur') ? 'korrektur' : 'wahl';
+  // die ERSTE Antwort der KI bleibt bekannt, auch nach mehrfachem Wechsel
+  neu._ki_name = original._ki_name || original.name || '';
+  neu._ki_latin = (original._ki_name ? original._ki_latin : original.latin) || '';
+  neu._ki_confidence = original._ki_name ? original._ki_confidence : original.confidence;
+  neu.category = original.category;
+  var db = null;
+  try { db = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(neu.name, neu.latin) : null; } catch (_) { db = null; }
+  if (db) {
+    if (!neu.latin && db.lat) neu.latin = db.lat;
+    neu.category = db.cat || neu.category;
+    neu.family = db.fam || undefined;
+    if (db.desc) neu.description = db.desc;
+    if (db.habitat) neu.habitat = db.habitat;
+    if (db.season) neu.season = db.season;
+    if (db.uses) neu.uses = db.uses;
+    neu.warning = db.warning || '';
+    neu.lookalike_warning = db.lookalike || '';
+    neu.toxicity = (db.tox != null) ? db.tox : ((art.toxicity != null) ? art.toxicity : null);
+    neu.edible = (db.edible != null) ? db.edible : undefined;
+    neu.toxic = (neu.toxicity != null) ? (Number(neu.toxicity) >= 3) : undefined;
+  } else {
+    // v30.72 SICHERHEIT (HL#24): ohne Eintrag in der Artenliste gibt es KEIN
+    // Sicherheitsprofil — und schon gar nicht das der vorigen Art.
+    neu._ungeprueft = true;
+    neu.toxicity = (art.toxicity != null) ? art.toxicity : null;
+    neu.edible = (art.edible != null) ? art.edible : undefined;
+    neu.toxic = (art.toxicity != null) ? (art.toxicity >= 3) : undefined;
+    neu.warning = '';
+    neu.lookalike_warning = GS_SCAN_UNGEPRUEFT_TEXT;
+  }
+  // Die bisherige Bestimmung wird zur ersten Alternative — mit IHRER Zahl.
+  var bisher = {
+    name: original.name, latin: original.latin, confidence: original.confidence || 0,
+    toxicity: original.toxicity, edible: original.edible,
+    distinguishing_feature: original._userPicked ? 'Zuvor von dir gewählt' : 'Erste Bestimmung der KI'
+  };
+  var nl = neu.name.toLowerCase();
+  neu.alternatives = (original.name ? [bisher] : []).concat((original.alternatives || []).filter(function (a) {
+    return a && a.name && String(a.name).toLowerCase() !== nl && String(a.name).toLowerCase() !== String(original.name || '').toLowerCase();
+  })).filter(function (a) { return String(a.name || '').toLowerCase() !== nl; }).slice(0, 3);
+  // zurueck zur ersten Antwort der KI: dann ist nichts mehr „geaendert"
+  if (neu._ki_name && neu._ki_name.toLowerCase() === nl && quelle !== 'korrektur') { neu._zurueck = true; }
+  return neu;
+}
+var GS_SCAN_UNGEPRUEFT_TEXT = 'Nicht in unserer Artenliste — Essbarkeit und Giftigkeit sind nicht geprüft. Im Zweifel NICHT verzehren.';
+window._gsScanNeueArt = _gsScanNeueArt;
+
+// Der Verlaufseintrag DIESER Aufnahme bekommt den neuen Namen. Kein zweiter
+// Eintrag, und der Name der KI bleibt als `ki_name` dabei — daran erkennt der
+// Cloud-Abgleich die alte Zeile wieder (user_scans laesst kein UPDATE zu).
+function _gsVerlaufEintragUmbenennen(h, r) {
+  if (!h || !r || !r.name) return false;
+  var kiName = h.ki_name || r._ki_name || h.name || '';
+  h.name = r.name; h.latin = r.latin || '';
+  var ohne = !!r._ohneKiZahl;
+  h.confidence = ohne ? null : (r.confidence || 0);
+  h.conf = ohne ? null : (r.confidence || 0);
+  h.tox = (r.toxicity != null && isFinite(Number(r.toxicity))) ? Number(r.toxicity) : 0;
+  h.edible = r.edible === true;
+  h.warning = r.warning || (r._ungeprueft ? GS_SCAN_UNGEPRUEFT_TEXT : '');
+  if (r.category) h.category = r.category;
+  if (kiName && kiName.toLowerCase() !== String(r.name).toLowerCase()) { h.ki_name = kiName; h.geaendert = r._geaendert || 'wahl'; }
+  else { delete h.ki_name; delete h.geaendert; }
+  h.updatedAt = Date.now();
+  return true;
+}
+function _gsScanVerlaufAendern(r) {
+  if (!r || !r._scanId || !r.name) return false;
+  var hist = [];
+  try { hist = JSON.parse(gsStore.get(SCAN_HISTORY_KEY, null) || '[]'); } catch (e) { return false; }
+  if (!Array.isArray(hist)) return false;
+  var i = hist.findIndex(function (h) { return h && h.id === r._scanId; });
+  if (i < 0) return false;   // Verlauf ausgeschaltet oder Eintrag geloescht: nichts anlegen
+  if (!_gsVerlaufEintragUmbenennen(hist[i], r)) return false;
+  var ok = false;
+  try { ok = (gsStore.set(SCAN_HISTORY_KEY, JSON.stringify(hist)) !== false); } catch (e) { ok = false; }
+  try { if (ok && typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch (_) {}
+  return ok;
+}
+window._gsScanVerlaufAendern = _gsScanVerlaufAendern;
+
+// Vorschlaege aus der Artenliste fuer das Korrektur-Feld. Anfangstreffer vor
+// Treffern im Wort, je Art einmal, gedeckelt — und die Zahl des Rests dabei.
+var GS_KORREKTUR_VORSCHLAEGE_MAX = 6;
+function _gsKorrekturTreffer(q) {
+  var f = function (x) { return String(x || '').toLowerCase().replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss').replace(/\s+/g, ' ').trim(); };
+  var n = f(q);
+  if (n.length < 2 || typeof DB === 'undefined' || !Array.isArray(DB)) return { liste: [], mehr: 0 };
+  var anfang = [], mitte = [], gesehen = {};
+  for (var i = 0; i < DB.length; i++) {
+    var sp = DB[i]; if (!sp || !sp.name) continue;
+    var ganz = f(sp.name), lat = f(sp.lat);
+    var teile = ganz.split('/').map(function (t) { return t.trim(); });
+    var rang = (teile.some(function (t) { return t.indexOf(n) === 0; }) || lat.indexOf(n) === 0) ? 0
+             : ((ganz.indexOf(n) >= 0 || lat.indexOf(n) >= 0) ? 1 : -1);
+    if (rang < 0) continue;
+    var key = (typeof _gsNormLat === 'function' && sp.lat) ? _gsNormLat(sp.lat) : ganz;
+    if (!key) key = ganz;
+    if (gesehen[key]) continue; gesehen[key] = 1;
+    (rang ? mitte : anfang).push(sp);
+  }
+  var alle = anfang.concat(mitte);
+  return { liste: alle.slice(0, GS_KORREKTUR_VORSCHLAEGE_MAX), mehr: Math.max(0, alle.length - GS_KORREKTUR_VORSCHLAEGE_MAX) };
+}
+function gsKorrekturVorschlag(q) {
+  var el = document.getElementById('scan-fix-vorschlaege');
+  if (!el) return;
+  var chip = function (name, latin) {
+    return '<button type="button" onclick="gsKorrekturWaehlen(\'' + _gsOcStr(name) + '\',\'' + _gsOcStr(latin || '') + '\')" ' +
+      'style="display:block;width:100%;text-align:left;padding:9px 11px;margin:0 0 6px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-sm);font-family:inherit;cursor:pointer;">' +
+      '<b>' + escHtml(name) + '</b>' + (latin ? ' <span style="font-style:italic;color:var(--text2);">' + escHtml(latin) + '</span>' : '') + '</button>';
+  };
+  var kopf = function (t) { return '<div style="font-size:var(--fs-xs);font-weight:700;color:var(--text2);margin:0 0 6px;">' + escHtml(t) + '</div>'; };
+  var txt = String(q || '').trim();
+  if (txt.length < 2) {
+    // noch nichts getippt: was die KI selbst fuer moeglich hielt
+    var alts = (_lastScanResult && Array.isArray(_lastScanResult.alternatives)) ? _lastScanResult.alternatives.filter(function (a) { return a && a.name; }).slice(0, 3) : [];
+    el.innerHTML = alts.length ? kopf('Die KI hielt auch für möglich:') + alts.map(function (a) { return chip(a.name, a.latin); }).join('') : '';
+    return;
+  }
+  var t = _gsKorrekturTreffer(txt);
+  if (!t.liste.length) {
+    el.innerHTML = '<div style="font-size:var(--fs-xs);color:var(--text2);line-height:1.5;margin:0 0 6px;">Keine Art mit diesem Namen in unserer Artenliste. Du kannst ihn trotzdem absenden — Essbarkeit und Giftigkeit bleiben dann ungeprüft.</div>';
+    return;
+  }
+  el.innerHTML = kopf('Aus unserer Artenliste:') + t.liste.map(function (sp) { return chip(sp.name, sp.lat); }).join('') +
+    (t.mehr ? '<div style="font-size:var(--fs-xs);color:var(--text2);margin:0 0 6px;">' + escHtml(_gsSatz('+{1} weitere — tippe weiter, um einzugrenzen', t.mehr)) + '</div>' : '');
+}
+function gsKorrekturWaehlen(name, latin) {
+  var n = document.getElementById('scan-fix-name'), l = document.getElementById('scan-fix-latin');
+  if (n) n.value = name || '';
+  if (l) l.value = latin || '';
+  var el = document.getElementById('scan-fix-vorschlaege');
+  if (el) el.innerHTML = '';
+}
+window.gsKorrekturVorschlag = gsKorrekturVorschlag;
+window.gsKorrekturWaehlen = gsKorrekturWaehlen;
 
 // Feedback-Loop: User korrigiert die Bestimmung → Training-Data für Fine-Tuning
 function gsReportScanMistake() {
@@ -34910,9 +35133,10 @@ function gsReportScanMistake() {
   var orig = _lastScanResult;
   mc.innerHTML = '<div style="padding:20px;">' +
     '<div style="font-size:var(--fs-xl);font-weight:900;margin-bottom:8px;">✏️ Korrektur vorschlagen</div>' +
-    '<div style="font-size:var(--fs-md);color:var(--muted);margin-bottom:16px;line-height:1.5;">Die KI hat <strong>'+escHtml(orig.name||'?')+'</strong> erkannt. Was ist es tatsächlich?</div>' +
+    '<div style="font-size:var(--fs-md);color:var(--muted);margin-bottom:16px;line-height:1.5;">'+(orig._userPicked ? 'Im Moment steht hier' : 'Die KI hat')+' <strong>'+escHtml(orig.name||'?')+'</strong>'+(orig._userPicked ? '' : ' erkannt')+'. Was ist es tatsächlich?</div>' +
     '<label style="display:block;font-size:var(--fs-sm);font-weight:700;margin-bottom:6px;">Korrekter Name:</label>' +
-    '<input id="scan-fix-name" type="text" placeholder="z.B. Löwenzahn" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;margin-bottom:12px;box-sizing:border-box;">' +
+    '<input id="scan-fix-name" type="text" autocomplete="off" oninput="gsKorrekturVorschlag(this.value)" placeholder="z.B. Löwenzahn" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;margin-bottom:8px;box-sizing:border-box;">' +
+    '<div id="scan-fix-vorschlaege" style="margin-bottom:8px;"></div>' +
     '<label style="display:block;font-size:var(--fs-sm);font-weight:700;margin-bottom:6px;">Lateinisch (optional):</label>' +
     '<input id="scan-fix-latin" type="text" placeholder="z.B. Taraxacum officinale" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;margin-bottom:12px;box-sizing:border-box;">' +
     '<label style="display:block;font-size:var(--fs-sm);font-weight:700;margin-bottom:6px;">Grund / Merkmal das nicht passt (optional):</label>' +
@@ -34923,6 +35147,7 @@ function gsReportScanMistake() {
     '</div>' +
   '</div>';
   openModal('detail-modal');
+  try { gsKorrekturVorschlag(''); } catch(_){}
 }
 
 // ═══ v32.27 · ARTEN-KORREKTUREN WIRKLICH ZUSTELLEN ═══════════════════════
@@ -35073,10 +35298,12 @@ async function gsSubmitScanMistake() {
   var corrLatin = (document.getElementById('scan-fix-latin')||{}).value || '';
   var note      = (document.getElementById('scan-fix-note')||{}).value || '';
   if (!corrName.trim()) { showProfileToast('Bitte den korrekten Namen angeben'); return; }
+  // Gemeldet wird gegen die ERSTE Antwort der KI — auch wenn vorher schon
+  // eine Alternative gewaehlt wurde (sonst lernte die KI aus der Wahl der Person).
   var payload = {
-    ai_name: orig.name || null,
-    ai_latin: orig.latin || null,
-    ai_confidence: orig.confidence || null,
+    ai_name: (orig._ki_name || orig.name) || null,
+    ai_latin: (orig._ki_name ? orig._ki_latin : orig.latin) || null,
+    ai_confidence: (orig._ki_name ? orig._ki_confidence : orig.confidence) || null,
     user_name: corrName.trim(),
     user_latin: corrLatin.trim() || null,
     note: note.trim() || null,
@@ -35093,6 +35320,24 @@ async function gsSubmitScanMistake() {
   // v32.27: Antwort ansehen statt danken und hoffen.
   var _st = await _gsKorrekturSenden(_gsKorrekturSatz(payload));
   try { closeModal('detail-modal'); } catch(e){}
+  // Hauptfunktionen · Scanner 3: die Korrektur GILT auch hier. Bis hierher
+  // wurde nur gesendet — Ergebnis und Verlauf behielten den Namen, den die
+  // Person gerade als falsch gemeldet hatte. Unabhaengig vom Server: was sie
+  // sagt, steht auf ihrem Geraet. Nur fuer ein Ergebnis, das auf dem
+  // Bildschirm steht (`_scanId`), und nur wenn sich der Name wirklich aendert.
+  try {
+    var _rd = document.getElementById('scan-result');
+    var _gleich = String(orig.name || '').toLowerCase() === corrName.trim().toLowerCase();
+    if (orig._scanId && !_gleich && _rd && _rd.innerHTML) {
+      var _cn = corrName.trim().toLowerCase();
+      var _a = (orig.alternatives || []).filter(function (a) { return a && String(a.name || '').toLowerCase() === _cn; })[0] || null;
+      var _neu = _gsScanNeueArt(orig, {
+        name: corrName.trim(), latin: corrLatin.trim() || (_a && _a.latin) || '',
+        confidence: _a ? _a.confidence : null, toxicity: _a ? _a.toxicity : null, edible: _a ? _a.edible : null
+      }, 'korrektur');
+      showScanResult(_neu, { erneut: true });
+    }
+  } catch (e) { console.warn('[gsSubmitScanMistake] Anzeige', e); }
   if (_st === 'ok') {
     showProfileToast('🙏 Danke für die Korrektur! Hilft der KI besser zu werden.');
   } else if (_gsKorrekturEinreihen(payload)) {
@@ -35131,6 +35376,7 @@ function gsScanZumMenue() {
 window.gsScanZumMenue = gsScanZumMenue;
 
 function gsResetScanner() {
+  try { _gsScanWarteStopp(); } catch(_){}
   // Scan-Ergebnis ausblenden
   var rd = document.getElementById('scan-result');
   if (rd) { rd.style.display = 'none'; rd.innerHTML = ''; }
@@ -36199,7 +36445,19 @@ function _gsAltGefahr(res) {
 window._gsAltTox = _gsAltTox;
 window._gsAltGefahr = _gsAltGefahr;
 
-function showScanResult(r){
+function showScanResult(r, opts){
+  // Hauptfunktionen · Scanner 1: `opts.erneut` heisst „dieselbe Aufnahme, neu
+  // gezeichnet" (Alternative gewaehlt, Bestimmung korrigiert). Dann wird NICHT
+  // noch einmal gezaehlt, gespeichert oder hochgeladen — gemessen am
+  // 11.11.2026: jede gewaehlte Alternative schrieb einen zweiten Scan in die
+  // Cloud und, nach zehn Sekunden, einen zweiten Eintrag in den Verlauf; der
+  // falsche Name blieb daneben stehen. Jede Aufnahme traegt ihre eigene
+  // Kennung (`_scanId`), und der Verlaufseintrag dazu wird GEAENDERT.
+  var _erneut = !!(opts && opts.erneut && r && r._scanId);
+  if (r && !_erneut) {
+    r._scanId = 'scan_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    try { window._gsLastScanIdInfo = { id: r._scanId, ts: Date.now() }; } catch(_){}
+  }
   // v33.55: ein Ergebnis ist da — ein geteiltes Foto, das darauf gewartet
   // hat, wird jetzt geraeumt (vorher nicht: ein gescheiterter Scan verloere es).
   try { if (typeof _gsTeilenScanFertig === 'function') _gsTeilenScanFertig(); } catch(_){}
@@ -36217,7 +36475,7 @@ function showScanResult(r){
   // Gegenprobe-Karte weiter oben steht als der Alternativen-Streifen.
   try { r._altGefahr = _gsAltGefahr(r); } catch (_) { r._altGefahr = 0; }
   // v33.11: Nutzungsmessung — nur Kategorie, Konfidenz-Stufe, Treffer. Kein Name.
-  try { var _cf = parseFloat(r.confidence); gsTrackEvent('scan_done', { cat: String(r.category || '').slice(0, 20), conf_bucket: isFinite(_cf) ? (_cf >= 80 ? 'hoch' : _cf >= 50 ? 'mittel' : 'tief') : 'unbekannt', db_hit: !!(r.plant) }); } catch (_) {}
+  if (!_erneut) try { var _cf = parseFloat(r.confidence); gsTrackEvent('scan_done', { cat: String(r.category || '').slice(0, 20), conf_bucket: isFinite(_cf) ? (_cf >= 80 ? 'hoch' : _cf >= 50 ? 'mittel' : 'tief') : 'unbekannt', db_hit: !!(r.plant) }); } catch (_) {}
   // v32.08: der letzte Schritt der Liste hakt sich hier ab — mit dem, was
   // wirklich herausgekommen ist. Die Liste steht noch, wenn dieser Code
   // laeuft; erst danach wird sie durch die Ergebniskarte ersetzt.
@@ -36246,16 +36504,17 @@ function showScanResult(r){
   const confLbl = conf>=85?'Sehr sicher':conf>=70?'Wahrscheinlich':conf>=50?'Möglich':'Unsicher';
   const esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   // v23.87: Result-Status — kurz sichtbar, dann fade
-  if (typeof gsScanStatusShow === 'function') gsScanStatusShow('<div class="scan-status-inner">✓ Analyse abgeschlossen · '+conf+'% Sicherheit</div>', 3500);
+  if (_erneut) { /* keine neue Analyse — nichts zu melden */ }
+  else if (typeof gsScanStatusShow === 'function') gsScanStatusShow('<div class="scan-status-inner">✓ Analyse abgeschlossen · '+conf+'% Sicherheit</div>', 3500);
   else document.getElementById('scan-status').textContent = 'Analyse abgeschlossen · '+conf+'% Sicherheit';
   if(typeof gsStopScanStatus==='function') gsStopScanStatus();
-  if(typeof gsTrackAction==='function') gsTrackAction('scan');
-  if(typeof gsAddToScanHistory==='function') gsAddToScanHistory(r);
+  if(!_erneut && typeof gsTrackAction==='function') gsTrackAction('scan');
+  if(!_erneut && typeof gsAddToScanHistory==='function') gsAddToScanHistory(r);
   // v23.86: Scan zu Cloud persistieren — Bild + Metadata für DB-Wachstum
   // v30.47 FIX (Rhythmus): Return behandeln — bei Online-Fehler (RLS/5xx/noch-nicht-eingeloggt) in die durable
   // Offline-Queue legen, sonst wird der fehlgeschlagene user_scans-Insert NIE retried (Scan blieb nur lokal).
   try {
-    if (typeof gsScanPersistToCloud === 'function') {
+    if (!_erneut && typeof gsScanPersistToCloud === 'function') {
       Promise.resolve(gsScanPersistToCloud(r)).then(function(ok){
         if (ok === false && typeof window.gsQueueOffline === 'function') { try { window.gsQueueOffline('scan', r); } catch(_){} }
       }).catch(function(){});
@@ -36283,6 +36542,8 @@ function showScanResult(r){
     '</svg>' +
     '<div class="ring-lbl">' + conf + '%</div>' +
   '</div>';
+  // eine Korrektur in eigenen Worten hat keine Zahl der KI — dann steht auch keine da
+  if (r._ohneKiZahl) ringSvg = '';
 
   // Hero (v23.63 – Premium-Glanz bei ≥85% Confidence)
   var dbSp = typeof gsLinkScanToDb==='function' ? gsLinkScanToDb(r.name||r.plant, r.latin) : null;
@@ -36326,8 +36587,8 @@ function showScanResult(r){
     '<div class="sr2-conf-card">' +
       ringSvg +
       '<div class="sr2-conf-text">' +
-        '<div class="sr2-conf-lbl">KI-Sicherheit</div>' +
-        '<div class="sr2-conf-val" style="color:' + ccTxt + ';">' + esc(confLbl) + '</div>' +
+        '<div class="sr2-conf-lbl">' + (r._userPicked && !r._zurueck ? (r._geaendert === 'korrektur' ? 'Von dir korrigiert' : 'Von dir gewählt · KI-Sicherheit') : 'KI-Sicherheit') + '</div>' +
+        '<div class="sr2-conf-val" style="color:' + (r._ohneKiZahl ? 'var(--text)' : ccTxt) + ';">' + esc(r._ohneKiZahl ? 'Deine Angabe — ohne Zahl der KI' : confLbl) + '</div>' +
         '<div style="margin-top:3px;"><span class="scan-tox-badge" style="background:' + t.bg + ';color:' + t.color + ';">' + t.sym + ' ' + esc(t.label) + '</span></div>' +
       '</div>' +
     '</div>' +
@@ -36337,6 +36598,17 @@ function showScanResult(r){
   // Reihenfolge: 1) kritische Warnung 2) Quick-Facts-Strip 3) Beschreibung 4) Vorkommen/Saison
   //              5) Zusammengefasste Tipps/Merkmale (Akkordeon) 6) Alternativen 7) Actions
   var body = '<div class="sr2-body">';
+  // Scanner 1–3: eine geaenderte Bestimmung sagt, dass sie geaendert ist, und
+  // woher sie kommt (CLAUDE.md §4a.3).
+  if (r._userPicked && !r._zurueck && r._ki_name) {
+    var _kc = (typeof gsNormConfidence === 'function') ? gsNormConfidence(r._ki_confidence) : null;
+    body += '<div class="sr2-card sr2-geaendert" style="border-left:3px solid var(--border);margin-bottom:12px;">' +
+      '<div class="sr2-card-lbl">✏️ ' + (r._geaendert === 'korrektur' ? 'Von dir korrigiert' : 'Von dir gewählt') + '</div>' +
+      '<div class="sr2-card-body" style="font-size:var(--fs-sm);">Die KI hatte „' + esc(r._ki_name) + '“ erkannt' + (_kc ? ' (' + _kc + ' %)' : '') + '. ' +
+        'Was sie im Foto für jene Art gesehen hat, gilt hier nicht und steht deshalb nicht mehr da. ' +
+        (r._ungeprueft ? 'Diese Art steht nicht in unserer Artenliste — ihre Angaben sind ungeprüft.' : 'Die Angaben unten kommen aus unserer Artenliste.') +
+      '</div></div>';
+  }
 
   // ── 1) KRITISCHE WARNUNG (zuerst, wenn vorhanden) ──────────
   if (!gsWarnungLeer(r.lookalike_warning) || (r.toxicity >= 3) || r._tox_korrigiert || r._essbar_korrigiert) { /* v33.58 · P1-5 */
@@ -36687,6 +36959,8 @@ function showScanResult(r){
         '. Vergleiche die Unterscheidungsmerkmale, bevor du etwas erntest \u2014 und im Zweifel: nicht essen.</div></div>';
     }
 
+    // die Kandidaten gehoeren zu DIESER Karte — die der vorigen sind mit ihr weg
+    window._gsAltCandidates = {};
     r.alternatives.slice(0,3).forEach(function(a, idx) {
       var ac = a.confidence || 0;
       // v32.01: die Zahl steht WEISS auf dieser Flaeche. `#ef5350` gibt
@@ -36695,7 +36969,8 @@ function showScanResult(r){
       // gemessen, nicht geschaetzt (contrast_check, Fenster scan-ergebnis).
       var acc = ac >= 70 ? '#1b7a43' : ac >= 50 ? '#8a5a00' : '#c0392b';
       var atox = _gsAltTox(a);
-      var alt = { name:a.name||'', latin:a.latin||'', confidence:ac, distinguishing_feature:a.distinguishing_feature||a.reason||'' };
+      var alt = { name:a.name||'', latin:a.latin||'', confidence:ac, distinguishing_feature:a.distinguishing_feature||a.reason||'',
+                  toxicity:(a.toxicity != null ? a.toxicity : null), edible:(a.edible != null ? a.edible : null) };
       window._gsAltCandidates = window._gsAltCandidates || {};
       var altKey = 'alt_' + Date.now() + '_' + idx;
       window._gsAltCandidates[altKey] = alt;
@@ -36766,6 +37041,10 @@ function showScanResult(r){
   } catch (_) {}
   // Scan in History speichern
   _lastScanResult = r;
+  if (_erneut) {
+    // dieselbe Aufnahme: den vorhandenen Eintrag aendern, nichts neu zaehlen
+    try { _gsScanVerlaufAendern(r); } catch(_){}
+  } else {
   if (r && r.name) profileTrackScan(r.category || '');
   // Bei >= 95% Konfidenz: Infokarte automatisch speichern
   if ((r.confidence || 0) >= 95) {
@@ -36793,6 +37072,7 @@ function showScanResult(r){
     } else { _lastScanThumb = null; }
   } catch(e) { _lastScanThumb = null; }
   saveScanToHistory(r, _thumb);
+  }   // Ende: nur beim ersten Zeichnen dieser Aufnahme
   // In DB suchen und Direktlink zeigen
   // v30.70 SICHERHEIT: _dbMatch nutzt jetzt den einheitlichen gsMatchScanToDb — der ist latein-verankert
   // (exakter Name → Namens-Segment → normalisierte Gattung+Art), NIE deutscher Namens-Präfix. Damit bleibt
@@ -37414,8 +37694,26 @@ async function gsLoadCloudScans() {
     };
     var seen = {};
     var merged = [];
+    // Scanner 1/3: ein lokal umbenannter Eintrag kennt den Namen, unter dem
+    // die Cloud ihn fuehrt (`ki_name`; user_scans laesst kein UPDATE zu).
+    // Ohne das kaeme die verworfene Bestimmung beim naechsten Abgleich als
+    // eigener Eintrag zurueck. ±1 Minute, weil die Cloud-Zeile erst nach dem
+    // Foto-Upload entsteht.
+    var umbenannt = {};
+    local.forEach(function(e) {
+      if (!e || !e.ki_name) return;
+      var z = (typeof _gsScanZeit === 'function') ? _gsScanZeit(e) : (e.ts || 0);
+      var m = Math.round((z || 0) / 60000);
+      [m - 1, m, m + 1].forEach(function(x) { umbenannt[String(e.ki_name).toLowerCase() + '|' + x] = e; });
+    });
     [].concat(cloudEntries, local).forEach(function(e) {
       var k = keyOf(e);
+      if (e._cloud && umbenannt[k]) {
+        var _l = umbenannt[k];
+        if (e.photoUrl && !_l.photoUrl) _l.photoUrl = e.photoUrl;
+        if (e.thumb && !_l.thumb) _l.thumb = e.thumb;
+        return;
+      }
       if (seen[k]) {
         // v30.31: lokale-only Felder auf den behaltenen (Cloud-)Eintrag retten — sonst gehen Notiz/Warnung
         // verloren, weil die Cloud (user_scans hat KEINE note-Spalte) den note-tragenden lokalen Eintrag im Dedup verdrängt.
@@ -37539,6 +37837,7 @@ function openScanHistoryDetail(idx) {
           // Meta
           '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:12px;margin-top:8px;font-size:var(--fs-sm);line-height:1.7;">' +
             '<div><span style="color:var(--muted);">' + _t('scan_date_label','📅 Datum:') + '</span> ' + dtStr + '</div>' +
+            (e.ki_name ? '<div class="shd-geaendert">✏️ ' + esc(_gsSatz('Von dir geändert — die KI hatte „{1}“ erkannt.', e.ki_name)) + '</div>' : '') +
             (loc ? '<div><span style="color:var(--muted);">' + _t('scan_location_label','📍 Standort:') + '</span> <a href="https://www.openstreetmap.org/?mlat=' + ctx.lat + '&mlon=' + ctx.lon + '#map=15/' + ctx.lat + '/' + ctx.lon + '" target="_blank" rel="noopener" style="color:var(--c-info);text-decoration:underline;">' + loc + '</a></div>' : '') +
             (!gsWarnungLeer(e.warning) ? '<div style="color:var(--c-danger-d);margin-top:4px;">⚠️ ' + esc(e.warning) + '</div>' : '') +
           '</div>' +
@@ -37603,13 +37902,27 @@ window.gsScanHistoryReportWrong = async function(idx) {
   // Der Kommentar bei v29.07 hat genau diesen Fehler schon einmal behoben,
   // aber nur im Online-Zweig.
   var _satz = _gsKorrekturSatz({
-    ai_name: e.name,
-    ai_latin: e.latin || null,
+    ai_name: e.ki_name || e.name,
+    ai_latin: e.ki_name ? null : (e.latin || null),
     ai_confidence: (typeof e.conf === 'number') ? e.conf : null,
     user_name: correctName.trim(),
     context: e.ts ? { scan_ts: new Date(e.ts).toISOString() } : {},
   });
   var _st = await _gsKorrekturSenden(_satz);
+  // Scanner 3: die Korrektur gilt auch im Verlauf selbst — der Eintrag traegt
+  // danach den gemeldeten Namen, mit den Angaben unserer Artenliste oder ohne.
+  try {
+    var _h2 = getScanHistory();
+    var _i2 = (e.id != null) ? _h2.findIndex(function (x) { return x && x.id === e.id; }) : idx;
+    if (_i2 < 0) _i2 = idx;
+    if (_h2[_i2] && _h2[_i2].name === e.name && e.name.toLowerCase() !== correctName.trim().toLowerCase()) {
+      var _n2 = _gsScanNeueArt({ name: _h2[_i2].ki_name || e.name, category: e.category }, { name: correctName.trim() }, 'korrektur');
+      if (_gsVerlaufEintragUmbenennen(_h2[_i2], _n2) && localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(_h2)) !== false) {
+        try { if (typeof openScanHistory === 'function') { var _lm = document.getElementById('scan-history-modal'); if (_lm && _lm.style.display !== 'none') openScanHistory(); } } catch (_) {}
+        try { openScanHistoryDetail(_i2); } catch (_) {}
+      }
+    }
+  } catch (err) { console.warn('[gsScanHistoryReportWrong] Verlauf', err); }
   if (typeof showProfileToast !== 'function') return;
   if (_st === 'ok') {
     showProfileToast({type:'success', icon:'🙏', title:'Danke für die Korrektur!', body:'KI lernt aus deinem Feedback.', duration:4500});

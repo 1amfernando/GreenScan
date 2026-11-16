@@ -2426,6 +2426,363 @@ const FAELLE = [
     },
   },
 
+  // ── Hauptfunktionen · Scanner 1/2/3/7 (11.11.2026) ───────────────────
+  //
+  // Vier Punkte aus docs/HAUPTFUNKTIONEN.md „Offen — Scanner", alle vorher in
+  // der laufenden App nachgemessen: eine gewaehlte Alternative schrieb einen
+  // zweiten Scan (Cloud immer, Verlauf nach zehn Sekunden), zeigte die
+  // Merkmale der verworfenen Art, eine Korrektur aenderte nichts Sichtbares,
+  // und „Nochmal versuchen" vergass „Trotzdem bestimmen".
+  {
+    name: 'H1 · Alternative wählen: ein Scan bleibt EIN Scan — Verlauf umbenannt, kein zweiter Upload; ein NEUER Scan zählt weiter',
+    lauf: async () => {
+      const altP = window.gsScanPersistToCloud; let persist = [];
+      window.gsScanPersistToCloud = (r) => { persist.push(r.name); return Promise.resolve(true); };
+      const hist = () => JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      const scan = () => ({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, edible: true, toxic: false, toxicity: 0, description: 'x',
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 30 }] });
+      try {
+        localStorage.setItem('gs_scan_history', '[]'); window._gsLastScanIdInfo = null;
+        showScanResult(scan());
+        if (hist().length !== 1 || persist.length !== 1) return { ok: false, warum: 'der Fall stellt den Zustand nicht her: nach dem Scan ' + hist().length + ' Einträge, ' + persist.length + ' Uploads' };
+        // elf Sekunden spaeter — die alte Kennung galt nur zehn
+        if (window._gsLastScanIdInfo) window._gsLastScanIdInfo.ts -= 11000;
+        const key = Object.keys(window._gsAltCandidates || {}).filter(k => /maigl/i.test(window._gsAltCandidates[k].name))[0];
+        if (!key) return { ok: false, warum: 'keine Alternative auf der Karte — der Fall misst nichts' };
+        gsPickAlternative(key);
+        const h = hist();
+        if (h.length !== 1) return { ok: false, warum: 'nach der Wahl stehen ' + h.length + ' Einträge im Verlauf: ' + h.map(x => x.name).join(' · ') };
+        if (h[0].name !== 'Maiglöckchen') return { ok: false, warum: 'der Verlauf heisst weiter „' + h[0].name + '"' };
+        if (h[0].ki_name !== 'Bärlauch') return { ok: false, warum: 'der Eintrag weiss nicht mehr, was die KI gesagt hatte (ki_name = ' + h[0].ki_name + ')' };
+        if (!(h[0].tox >= 3) || h[0].edible) return { ok: false, warum: 'der Verlauf trägt die Sicherheitsangaben der verworfenen Art (tox ' + h[0].tox + ', essbar ' + h[0].edible + ')' };
+        if (persist.length !== 1) return { ok: false, warum: 'die Wahl hat einen zweiten Scan hochgeladen: ' + persist.join(' · ') };
+        // zurueck zur ersten Antwort: wieder ein Eintrag, nichts mehr „geaendert"
+        const k2 = Object.keys(window._gsAltCandidates || {}).filter(k => /rlauch/i.test(window._gsAltCandidates[k].name)).pop();
+        if (!k2) return { ok: false, warum: 'die erste Bestimmung steht nicht bei den Alternativen — kein Weg zurück' };
+        gsPickAlternative(k2);
+        const hz = hist();
+        if (hz.length !== 1 || hz[0].name !== 'Bärlauch' || hz[0].ki_name) return { ok: false, warum: 'zurück zur KI-Bestimmung: ' + JSON.stringify(hz.map(x => [x.name, x.ki_name])) };
+        // Gegenrichtung: ein NEUER Scan ist ein neuer Eintrag und ein neuer Upload
+        showScanResult({ name: 'Löwenzahn', latin: 'Taraxacum officinale', confidence: 90, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+        if (hist().length !== 2 || persist.length !== 2) return { ok: false, warum: 'ein neuer Scan zählt nicht mehr: ' + hist().length + ' Einträge, ' + persist.length + ' Uploads' };
+        return { ok: true, info: 'Wahl nach 11 s: 1 Eintrag, umbenannt, KI-Name gemerkt, 1 Upload · zurück: wieder der erste · neuer Scan: 2/2' };
+      } finally { window.gsScanPersistToCloud = altP; }
+    },
+  },
+  {
+    name: 'H2 · Alternative wählen: nichts von der verworfenen Art bleibt stehen — und die Karte sagt, dass gewählt wurde',
+    lauf: () => {
+      const r = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, edible: true, toxic: false, toxicity: 0,
+        description: 'Breite Blätter mit Knoblauchduft.', tips: 'Reibtest-Tipp-der-alten-Art', uses: 'Pesto-der-alten-Art', warning: 'Warnung-der-alten-Art',
+        diagnostic_features: ['Knoblauchgeruch beim Zerreiben', 'Einzelblatt mit Stiel'], next_photo_hint: 'Blattunterseite-matt-Hinweis',
+        _gegenprobe: { name: 'Bärlauch', einig: true }, _tox_korrigiert: { von: 0, auf: 1 },
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 30 }, { name: 'Fantasiekraut', latin: 'Planta ficta', confidence: 12 }] };
+      localStorage.setItem('gs_scan_history', '[]'); window._gsLastScanIdInfo = null;
+      showScanResult(r);
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      // der Fall weist nach, dass die Merkmale VORHER dastehen
+      if (!/Knoblauchgeruch beim Zerreiben/.test(karte()) || !/Blattunterseite-matt-Hinweis/.test(karte())) return { ok: false, warum: 'die Karte der ersten Bestimmung zeigt Merkmale und Foto-Hinweis gar nicht — der Fall misst nichts' };
+      const kand = window._gsAltCandidates || {};
+      gsPickAlternative(Object.keys(kand).filter(k => /maigl/i.test(kand[k].name))[0]);
+      const t = karte(), n = _lastScanResult, klagen = [];
+      ['Knoblauchgeruch beim Zerreiben', 'Blattunterseite-matt-Hinweis', 'Reibtest-Tipp-der-alten-Art', 'Pesto-der-alten-Art', 'Warnung-der-alten-Art'].forEach(x => { if (t.indexOf(x) >= 0) klagen.push('auf der Karte steht weiter „' + x + '"'); });
+      if (n.diagnostic_features || n.next_photo_hint || n._gegenprobe || n._tox_korrigiert && n._tox_korrigiert.von === 0 && n._tox_korrigiert.auf === 1) klagen.push('das Ergebnis trägt Felder der verworfenen Art');
+      if (!n._scanId || n._scanId !== r._scanId) klagen.push('die Kennung der Aufnahme ging verloren');
+      if (n.confidence !== 30) klagen.push('Sicherheit ' + n.confidence + ' statt der 30, die die KI für diese Art nannte');
+      if (!(n.toxicity >= 3) || n.edible) klagen.push('Maiglöckchen: tox ' + n.toxicity + ', essbar ' + n.edible + ' — nicht aus unserer Artenliste');
+      if (!/Von dir gewählt/.test(t) || !/Die KI hatte „Bärlauch“ erkannt \(62 %\)/.test(t)) klagen.push('die Karte sagt nicht, dass gewählt wurde und was die KI gesagt hatte');
+      // eine Art, die unsere Liste nicht kennt: keine Zusage, ein Vorbehalt
+      const k3 = Object.keys(window._gsAltCandidates || {}).filter(k => /Fantasie/.test(window._gsAltCandidates[k].name))[0];
+      if (!k3) klagen.push('die zweite Alternative ist nach der Wahl verschwunden');
+      else {
+        gsPickAlternative(k3);
+        const t3 = karte(), n3 = _lastScanResult;
+        if (n3.edible === true || /✅ Essbar/.test(t3)) klagen.push('unbekannte Art erbt „essbar"');
+        if (!/nicht geprüft/.test(t3)) klagen.push('unbekannte Art ohne den Vorbehalt „nicht geprüft"');
+        if (/Breite Blätter mit Knoblauchduft/.test(t3)) klagen.push('unbekannte Art erbt die Beschreibung der ersten');
+        if (n3._ki_name !== 'Bärlauch') klagen.push('nach zwei Wechseln ist die erste KI-Antwort „' + n3._ki_name + '"');
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'vorher 2 Merkmale + Foto-Hinweis sichtbar, nach der Wahl 0 von 5 Resten · 30 % statt 60 · tox ' + n.toxicity + ' aus der Liste · unbekannte Art ungeprüft' };
+    },
+  },
+  {
+    name: 'H3 · Korrektur gilt: Ergebnis und Verlauf tragen den gemeldeten Namen, gemeldet wird gegen die ERSTE KI-Antwort',
+    lauf: async () => {
+      const altS = window._gsKorrekturSenden, altP = window.gsScanPersistToCloud; let gesendet = [], persist = 0;
+      window.gsScanPersistToCloud = () => { persist++; return Promise.resolve(true); };
+      const hist = () => JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      const name = () => ((document.querySelector('#scan-result .sr2-hero-name') || {}).textContent || '');
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      const klagen = [];
+      try {
+        for (const antwort of ['ok', 'abgelehnt']) {
+          window._gsKorrekturSenden = async (s) => { gesendet.push(s); return antwort; };
+          localStorage.setItem('gs_scan_history', '[]'); window._gsLastScanIdInfo = null; gesendet = []; persist = 0;
+          showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, edible: true, toxic: false, toxicity: 0, description: 'x',
+            diagnostic_features: ['Knoblauchgeruch beim Zerreiben'], alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 30 }] });
+          // gleicher Name → nichts aendert sich (Gegenrichtung)
+          gsReportScanMistake(); document.getElementById('scan-fix-name').value = 'bärlauch';
+          await gsSubmitScanMistake();
+          if (name() !== 'Bärlauch' || hist()[0].ki_name) klagen.push(antwort + ': derselbe Name hat etwas geändert');
+          // zuerst eine Alternative waehlen, DANN korrigieren
+          const kand = window._gsAltCandidates || {};
+          gsPickAlternative(Object.keys(kand).filter(k => /maigl/i.test(kand[k].name))[0]);
+          gesendet = [];
+          gsReportScanMistake(); document.getElementById('scan-fix-name').value = 'Herbstzeitlose';
+          await gsSubmitScanMistake();
+          const h = hist(), n = _lastScanResult, t = karte();
+          if (name() !== 'Herbstzeitlose') klagen.push(antwort + ': auf der Karte steht weiter „' + name() + '"');
+          if (h.length !== 1 || h[0].name !== 'Herbstzeitlose' || h[0].ki_name !== 'Bärlauch') klagen.push(antwort + ': Verlauf ' + JSON.stringify(h.map(x => [x.name, x.ki_name])));
+          if (!(n.toxicity >= 5) || n.edible !== false) klagen.push(antwort + ': Herbstzeitlose mit tox ' + n.toxicity + ', essbar ' + n.edible);
+          if (!/Colchicum/.test(n.latin || '')) klagen.push(antwort + ': das Binomen aus der Artenliste fehlt');
+          if (/Knoblauchgeruch beim Zerreiben/.test(t)) klagen.push(antwort + ': die Merkmale der verworfenen Art stehen weiter da');
+          if (!/Von dir korrigiert/.test(t) || !/Die KI hatte „Bärlauch“/.test(t)) klagen.push(antwort + ': die Karte sagt nicht, dass korrigiert wurde');
+          if (/\b0\s?%/.test((document.querySelector('#scan-result .sr2-conf-card') || {}).textContent || '')) klagen.push(antwort + ': eine erfundene Sicherheit „0 %" steht neben der eigenen Angabe');
+          const g = gesendet[gesendet.length - 1] || {};
+          const txt = JSON.stringify(g);
+          if (!/Bärlauch/.test(txt) || /Maiglöckchen/.test(JSON.stringify([g.ai_name, g.ai_species, g.original_name].filter(Boolean)))) klagen.push(antwort + ': gemeldet wurde nicht gegen die erste KI-Antwort: ' + txt.slice(0, 160));
+          if (persist !== 1) klagen.push(antwort + ': ' + persist + ' Uploads für eine Aufnahme');
+        }
+      } finally { window._gsKorrekturSenden = altS; window.gsScanPersistToCloud = altP; try { closeModal('detail-modal'); } catch (_) {} }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Server sagt ja UND nein: Karte + Verlauf „Herbstzeitlose" (tox 5 aus der Liste), KI-Name gemerkt, 1 Eintrag, 1 Upload · gleicher Name ändert nichts' };
+    },
+  },
+  {
+    name: 'H3b · Korrektur-Feld schlägt Arten vor: Umlaute, je Art einmal, Deckel mit „+N weitere", fremder Text bleibt Text',
+    lauf: () => {
+      const klagen = [];
+      const t1 = _gsKorrekturTreffer('barlau');
+      if (!t1.liste.some(sp => /Bärlauch/.test(sp.name))) klagen.push('„barlau" findet den Bärlauch nicht');
+      const t2 = _gsKorrekturTreffer('b');
+      if (t2.liste.length) klagen.push('ein einzelner Buchstabe liefert ' + t2.liste.length + ' Vorschläge');
+      const t3 = _gsKorrekturTreffer('am');
+      if (t3.liste.length !== GS_KORREKTUR_VORSCHLAEGE_MAX || !(t3.mehr > 0)) klagen.push('„am": ' + t3.liste.length + ' Vorschläge, +' + t3.mehr + ' — Deckel oder Rest fehlt');
+      const lats = _gsKorrekturTreffer('holunder').liste.map(sp => _gsNormLat(sp.lat));
+      if (lats.length !== new Set(lats).size) klagen.push('dieselbe Art steht mehrfach in den Vorschlägen');
+      if (_gsKorrekturTreffer('qqqxyz').liste.length) klagen.push('Unsinn liefert Vorschläge');
+      // Anzeige: aus dem gerenderten Formular
+      window.__pwned = 0;
+      window._lastScanResult = null;
+      _lastScanResult = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, _scanId: 'x',
+        alternatives: [{ name: 'O\'Neill <img src=x onerror="window.__pwned=1">', latin: 'Bella "donna"', confidence: 20 }] };
+      gsReportScanMistake();
+      const box = document.getElementById('scan-fix-vorschlaege');
+      if (!box) { klagen.push('das Formular hat kein Vorschlagsfeld'); }
+      else {
+        const b0 = box.querySelector('button');
+        if (!b0 || !/hielt auch für möglich/.test(box.textContent)) klagen.push('vor dem Tippen stehen die Alternativen der KI nicht da');
+        else {
+          if (b0.querySelector('img')) klagen.push('der Name der Alternative wurde als HTML gebaut');
+          try { new Function(b0.getAttribute('onclick')); } catch (e) { klagen.push('onclick der Alternative parst nicht: ' + e.message); }
+          b0.click();
+          if (document.getElementById('scan-fix-name').value.indexOf("O'Neill <img") !== 0) klagen.push('Antippen füllt den Namen nicht wörtlich: „' + document.getElementById('scan-fix-name').value + '"');
+          if (document.getElementById('scan-fix-latin').value !== 'Bella "donna"') klagen.push('Antippen füllt das Binomen nicht wörtlich');
+        }
+        const inp = document.getElementById('scan-fix-name'); inp.value = 'am'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+        if (box.querySelectorAll('button').length !== GS_KORREKTUR_VORSCHLAEGE_MAX || !/\+\d+ weitere/.test(box.textContent)) klagen.push('getippt „am": ' + box.querySelectorAll('button').length + ' Knöpfe, „+N weitere" ' + (/\+\d+ weitere/.test(box.textContent) ? 'da' : 'fehlt'));
+        inp.value = 'qqqxyz'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+        if (box.querySelector('button') || !/trotzdem absenden/.test(box.textContent)) klagen.push('ohne Treffer fehlt der Satz, dass man trotzdem absenden kann');
+        inp.value = 'barlau'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+        const bb = Array.from(box.querySelectorAll('button')).filter(b => /Bärlauch/.test(b.textContent))[0];
+        if (!bb) klagen.push('getippt „barlau": kein Knopf für den Bärlauch');
+        else { bb.click(); if (!/Allium ursinum/.test(document.getElementById('scan-fix-latin').value)) klagen.push('der gewählte Vorschlag füllt das Binomen nicht'); }
+      }
+      try { closeModal('detail-modal'); } catch (_) {}
+      if (window.__pwned) klagen.push('fremder Text wurde ausgeführt');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '„barlau" → Bärlauch · „am": ' + t3.liste.length + ' + ' + t3.mehr + ' weitere · je Art einmal · Alternative mit Apostroph und <img> bleibt Text' };
+    },
+  },
+  {
+    name: 'H3c · Cloud-Abgleich: die verworfene Bestimmung kommt nicht als zweiter Eintrag zurück — ein anderer Scan schon',
+    lauf: async () => {
+      const altF = window.sbFetch, altL = window.sbIsLoggedIn, altP = window.gsScanPersistToCloud;
+      const hist = () => JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      let gefragt = 0;
+      try {
+        window.gsScanPersistToCloud = () => Promise.resolve(true);
+        localStorage.setItem('gs_scan_history', '[]'); window._gsLastScanIdInfo = null;
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, edible: true, toxic: false, toxicity: 0, description: 'x',
+          alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 30 }] });
+        const kand = window._gsAltCandidates || {};
+        gsPickAlternative(Object.keys(kand).filter(k => /maigl/i.test(kand[k].name))[0]);
+        const ts = _gsScanZeit(hist()[0]);
+        if (!ts) return { ok: false, warum: 'der Eintrag hat keine Zeit — der Fall stellt den Zustand nicht her' };
+        window.sbIsLoggedIn = () => true;
+        if (!gsStore.get('gs_sb_uid', null)) gsStore.set('gs_sb_uid', 'pruef-uid');
+        window.sbFetch = async () => { gefragt++; return { data: [
+          // die Zeile der ERSTEN Bestimmung, 40 s spaeter angelegt (nach dem Foto-Upload)
+          { created_at: new Date(ts + 40000).toISOString(), species_name: 'Bärlauch', species_latin: 'Allium ursinum', category: 'wildpflanze', confidence: 62, toxicity: 0, edible: true, thumb: 'https://beispiel.invalid/foto.jpg', context: {} },
+          // ein ANDERER Bärlauch-Scan von gestern
+          { created_at: new Date(ts - 86400000).toISOString(), species_name: 'Bärlauch', species_latin: 'Allium ursinum', category: 'wildpflanze', confidence: 91, toxicity: 0, edible: true, thumb: '', context: {} },
+        ], error: null }; };
+        await gsLoadCloudScans();
+        if (!gefragt) return { ok: false, warum: 'der Abgleich hat den Server nicht gefragt — der Fall misst nichts' };
+        const h = hist();
+        const heute = h.filter(x => Math.abs(_gsScanZeit(x) - ts) < 120000);
+        if (heute.length !== 1) return { ok: false, warum: 'die verworfene Bestimmung steht wieder da: ' + heute.map(x => x.name).join(' · ') };
+        if (heute[0].name !== 'Maiglöckchen') return { ok: false, warum: 'der Abgleich hat die Wahl überschrieben: „' + heute[0].name + '"' };
+        if (heute[0].photoUrl !== 'https://beispiel.invalid/foto.jpg') return { ok: false, warum: 'das Foto aus der Cloud ging beim Zusammenführen verloren' };
+        if (h.length !== 2 || !h.some(x => x.name === 'Bärlauch' && x.conf === 91)) return { ok: false, warum: 'der Scan von gestern fehlt (' + h.length + ' Einträge) — der Riegel verschluckt zu viel' };
+        return { ok: true, info: 'Cloud-Zeile der ersten Bestimmung (+40 s) geht im umbenannten Eintrag auf, Foto übernommen · der Scan von gestern bleibt' };
+      } finally { window.sbFetch = altF; window.sbIsLoggedIn = altL; window.gsScanPersistToCloud = altP; }
+    },
+  },
+  {
+    name: 'H3d · Korrektur aus dem Verlauf: der Eintrag trägt danach den gemeldeten Namen — abgebrochen ändert nichts',
+    lauf: async () => {
+      const altS = window._gsKorrekturSenden, altM = window.gsPromptModal;
+      const hist = () => JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      let gesendet = [];
+      try {
+        window._gsKorrekturSenden = async (s) => { gesendet.push(s); return 'ok'; };
+        localStorage.setItem('gs_scan_history', JSON.stringify([{ id: 'scan_h3d', ts: Date.now() - 5000, name: 'Bärlauch', latin: 'Allium ursinum', conf: 62, tox: 0, edible: true, warning: '', category: 'wildpflanze' }]));
+        window.gsPromptModal = async () => null;
+        await gsScanHistoryReportWrong(0);
+        if (hist()[0].name !== 'Bärlauch' || gesendet.length) return { ok: false, warum: 'abgebrochen, und trotzdem geändert oder gesendet' };
+        window.gsPromptModal = async () => 'Herbstzeitlose';
+        await gsScanHistoryReportWrong(0);
+        const h = hist()[0];
+        const modal = document.getElementById('scan-detail-modal');
+        const mt = modal ? modal.textContent.replace(/\s+/g, ' ') : '';
+        if (modal) modal.style.display = 'none';
+        if (gesendet.length !== 1) return { ok: false, warum: gesendet.length + ' Meldungen statt einer' };
+        if (h.name !== 'Herbstzeitlose' || h.ki_name !== 'Bärlauch') return { ok: false, warum: 'Verlauf: „' + h.name + '", KI-Name ' + h.ki_name };
+        if (!(h.tox >= 5) || h.edible) return { ok: false, warum: 'der Eintrag behält die Sicherheitsangaben der alten Art (tox ' + h.tox + ', essbar ' + h.edible + ')' };
+        if (!/Herbstzeitlose/.test(mt) || !/die KI hatte „Bärlauch“ erkannt/.test(mt)) return { ok: false, warum: 'das Verlaufsdetail zeigt die Änderung nicht: „' + mt.slice(0, 120) + '"' };
+        return { ok: true, info: 'abgebrochen: unverändert, 0 gesendet · gemeldet: „Herbstzeitlose", tox ' + h.tox + ', Detail nennt die KI-Antwort' };
+      } finally { window._gsKorrekturSenden = altS; window.gsPromptModal = altM; }
+    },
+  },
+  {
+    name: 'H7 · „Nochmal versuchen" behält „Trotzdem bestimmen" — ohne die Wahl kommt die Rückfrage weiter',
+    lauf: async () => {
+      const flach = (() => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d'); g.fillStyle = '#7a8a6a'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; })();
+      const q = await gsBildQualitaetVonB64(flach, 'image/jpeg');
+      if (!q.messbar || !gsQualitaetZuSchlecht(q)) return { ok: false, warum: 'Prüfbild gilt als lesbar — der Fall stellt den Zustand nicht her' };
+      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+      window._gsScanDHash = async () => 'hash-h7'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+      let rufe = 0, scheitern = true;
+      window.callVisionAI = async () => { rufe++; if (scheitern) throw new Error('Zeitüberschreitung'); return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      window._gsLastScanPayload = null;
+      // Gegenrichtung zuerst: ohne „Trotzdem" → Rückfrage, kein Aufruf
+      await analyzeImage(flach, 'image/jpeg');
+      if (rufe !== 0 || !/schwer zu lesen/.test(karte())) return { ok: false, warum: 'ohne „Trotzdem" kam keine Rückfrage (' + rufe + ' KI-Aufrufe)' };
+      gsQualTrotzdem();
+      for (let i = 0; i < 80 && !/fehlgeschlagen/.test(karte()); i++) await new Promise(r => setTimeout(r, 50));
+      if (rufe < 1 || !/fehlgeschlagen/.test(karte())) return { ok: false, warum: 'der gestellte Fehlschlag kam nicht an (' + rufe + ' Aufrufe) — der Fall stellt den Zustand nicht her' };
+      const vorher = rufe; scheitern = false;
+      await _gsRetryLastScan();
+      const t = karte();
+      if (/schwer zu lesen/.test(t)) return { ok: false, warum: '„Nochmal versuchen" fragt wieder nach der Bildqualität — die Wahl „Trotzdem bestimmen" ging verloren' };
+      if (rufe !== vorher + 1) return { ok: false, warum: 'der erneute Versuch hat die KI ' + (rufe - vorher) + '× gerufen statt 1×' };
+      if (!/Bärlauch/.test(t)) return { ok: false, warum: 'nach dem erneuten Versuch steht kein Ergebnis da' };
+      return { ok: true, info: 'ohne Wahl: Rückfrage, 0 Aufrufe · Trotzdem → Fehlschlag → Nochmal: 1 Aufruf, Ergebnis ohne zweite Rückfrage' };
+    },
+  },
+
+  {
+    name: 'H5 · Fehlerkarte: ganze Sätze statt Rohtext, Modellname und Rohmeldung nur für Admins, eine kaputte Antwort ist kein Schlüsselfehler',
+    lauf: async () => {
+      const altA = window.gsIsAdmin, altL = window.sbIsLoggedIn;
+      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+      window._gsScanDHash = async () => null; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.strokeStyle = '#3f9142'; g.lineWidth = 2;
+      for (let i = 0; i < 12; i++) { g.beginPath(); g.moveTo(10 + i * 12, 150); g.lineTo(60 + i * 8, 20); g.stroke(); }
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+      // die Meldungen, die callVisionAI wirklich wirft — ueber die echte Uebersetzung
+      const faelle = {
+        kaputt:  { ki: async () => 'Das sieht aus wie Bärlauch, aber {name: ...', status: /Nicht geklappt/ },
+        h400:    { ki: async () => { throw new Error(_gsFriendlyApiError(400, 'messages.0.content.0.image.source.base64: image exceeds 5 MB maximum')); }, status: /Nicht geklappt/ },
+        h404:    { ki: async () => { throw new Error(_gsFriendlyApiError(404, 'model: claude-sonnet-4-20250514')); }, status: /Nicht geklappt/ },
+        h429:    { ki: async () => { throw new Error(_gsFriendlyApiError(429, 'rate_limit_error')); }, status: /Nicht geklappt/ },
+        fremd:   { ki: async () => { throw new Error(_gsFriendlyApiError(418, 'overloaded_error: something odd')); }, status: /Nicht geklappt/ },
+        prog:    { ki: async () => { null.x; }, status: /Nicht geklappt/ },
+        keinMod: { ki: async () => { throw new Error('Kein KI-Modell erfolgreich. Bitte API-Key prüfen.'); }, status: /Nicht geklappt/ },
+        fetch:   { ki: async () => { throw new TypeError('Failed to fetch'); }, status: /Keine Verbindung/ },
+        h401:    { ki: async () => { throw new Error(_gsFriendlyApiError(401, 'invalid x-api-key')); }, status: /KI gerade nicht erreichbar/ },
+      };
+      const JARGON = /gsTestApiKey|claude-|Cannot read|Failed to fetch|exceeds|model:|API.?Key|JSON|\bretry\b|Rate-Limit|overloaded|messages\.0|\{name/i;
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      const klagen = []; let gesehen = 0;
+      try {
+        for (const admin of [false, true]) {
+          window.gsIsAdmin = () => admin; window.sbIsLoggedIn = () => true;
+          for (const k of Object.keys(faelle)) {
+            window.callVisionAI = faelle[k].ki;
+            await analyzeImage(b64, 'image/jpeg', '', null, { trotzdem: true });
+            const t = karte();
+            if (!/Scan fehlgeschlagen/.test(t)) { klagen.push(k + ': keine Fehlerkarte — der Fall stellt den Zustand nicht her'); continue; }
+            gesehen++;
+            const satz = ((document.querySelector('#scan-result p:nth-of-type(2)') || {}).textContent || '').trim();
+            if (!admin) {
+              if (JARGON.test(t)) klagen.push(k + ': Rohtext auf der Karte: „' + (t.match(JARGON) || [''])[0] + '"');
+              if (/Modell:|Meldung:/.test(t)) klagen.push(k + ': die Admin-Zeile steht für jede Person da');
+              if (!/[.!?]$/.test(satz) || satz.length < 30) klagen.push(k + ': kein ganzer Satz: „' + satz + '"');
+              const st = (document.getElementById('scan-status') || {}).textContent || '';
+              if (!faelle[k].status.test(st)) klagen.push(k + ': Statuszeile „' + st + '"');
+            } else if (!/Modell:/.test(t) || !/Meldung:/.test(t)) klagen.push(k + ' (Admin): die Rohmeldung fehlt');
+          }
+        }
+      } finally { window.gsIsAdmin = altA; window.sbIsLoggedIn = altL; }
+      // eine kaputte Antwort zeigt keinen Anmelde- oder Schluessel-Kasten
+      window.gsIsAdmin = () => false; window.sbIsLoggedIn = () => true;
+      window.callVisionAI = faelle.kaputt.ki;
+      await analyzeImage(b64, 'image/jpeg', '', null, { trotzdem: true });
+      if (/KI gerade nicht erreichbar|Anmelden für die KI|API-Key/.test(karte())) klagen.push('kaputte Antwort: der Schlüssel-Kasten steht da');
+      window.gsIsAdmin = altA; window.sbIsLoggedIn = altL;
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 6).join(' · ') + (klagen.length > 6 ? ' · +' + (klagen.length - 6) + ' weitere' : '') };
+      return { ok: true, info: gesehen + ' Fehlerkarten (9 Meldungen × Person/Admin): Person ohne Rohtext, mit ganzem Satz und passender Statuszeile; Admin mit Modell und Rohmeldung' };
+    },
+  },
+  {
+    name: 'H5b · „In einer Minute nochmal": zählt sichtbar herunter, antippen bricht ab, ohne Karte kein Versuch im Hintergrund',
+    lauf: async () => {
+      const altR = window._gsRetryLastScan; let versuche = 0;
+      window._gsRetryLastScan = async () => { versuche++; };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const rd = document.getElementById('scan-result');
+      const knopf = () => { rd.style.display = 'block'; rd.innerHTML = '<button id="scan-warte-btn" onclick="gsScanSpaeterVersuchen(2)">⏱️ In einer Minute nochmal</button>'; return document.getElementById('scan-warte-btn'); };
+      const klagen = [];
+      try {
+        // 1 · zaehlt herunter und versucht genau einmal
+        let b = knopf(); b.click();
+        const t0 = b.textContent;
+        if (!/Nochmal in 2 s/.test(t0)) klagen.push('kein Countdown nach dem Antippen: „' + t0 + '"');
+        await warte(1150);
+        if (!/Nochmal in 1 s/.test(b.textContent)) klagen.push('zählt nicht herunter: „' + b.textContent + '"');
+        await warte(1300);
+        if (versuche !== 1) klagen.push('nach Ablauf ' + versuche + ' Versuche statt 1');
+        await warte(1200);
+        if (versuche !== 1) klagen.push('nach Ablauf läuft der Zähler weiter: ' + versuche + ' Versuche');
+        // 2 · antippen bricht ab
+        versuche = 0; b = knopf(); b.click(); await warte(200); b.click();
+        if (window._gsScanWarteTimer) klagen.push('abgebrochen, aber der Zähler läuft weiter');
+        if (!/In einer Minute nochmal/.test(b.textContent)) klagen.push('nach dem Abbruch steht „' + b.textContent + '"');
+        await warte(2400);
+        if (versuche) klagen.push('trotz Abbruch ' + versuche + '× versucht');
+        // 3 · Karte weg (neues Foto, Zurueck) → kein Versuch
+        versuche = 0; b = knopf(); b.click(); rd.innerHTML = '';
+        await warte(2400);
+        if (versuche) klagen.push('ohne Karte im Hintergrund ' + versuche + '× versucht');
+        if (window._gsScanWarteTimer) klagen.push('ohne Karte läuft der Zähler weiter');
+        // 4 · zweimal gestartet: EIN Zaehler
+        // (lang genug, dass ein verwaister zweiter Zaehler ein zweites Mal zuschlaegt)
+        versuche = 0; b = knopf(); gsScanSpaeterVersuchen(2); gsScanSpaeterVersuchen(2);
+        await warte(4300);
+        if (versuche !== 1) klagen.push('zweimal gestartet → ' + versuche + ' Versuche');
+      } finally { window._gsRetryLastScan = altR; try { _gsScanWarteStopp(); } catch (_) {} rd.innerHTML = ''; rd.style.display = 'none'; }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '2 → 1 → Versuch (genau 1) · Abbruch: 0 Versuche · Karte weg: 0 · doppelt gestartet: 1' };
+    },
+  },
+
 ];
 
 (async () => {
