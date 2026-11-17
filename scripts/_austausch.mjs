@@ -318,36 +318,114 @@ export function markenAus(swText, statusText) {
   }
   return { version, kuerzel, alle };
 }
-// Rechnet gegen origin/main: was eine frische Branch-Spitze traegt und main nicht, ist VERGEBEN.
+// Der Titel des Release-Eintrags zu einer Version — aus der Inline-Liste in index.html oder
+// aus dem Archiv (data/releases.v1.js). Er ist die IDENTITAET einer Vergabe: dieselbe Version
+// mit demselben Titel ist derselbe Release (eine Kopie, ein Vorfahr, der squash-gemergte Stand);
+// dieselbe Version mit einem anderen Titel ist ein Zusammenstoss.
+export function releaseTitel(texte, version) {
+  if (!version) return null;
+  const re = new RegExp("\\bv:\\s*'" + version.replace(/\./g, '\\.') + "'[\\s\\S]{0,600}?\\bheadline:\\s*'((?:[^'\\\\\\n]|\\\\.)*)'");
+  for (const [t, kopf] of texte) {
+    if (!t) continue;
+    const i = t.indexOf(kopf);
+    if (i < 0) continue;
+    const m = t.slice(i).match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
+// Rechnet gegen origin/main. Gemessen am 17.11.2026 (Koordinations-Sitzung, nachgemessen):
+// die erste Fassung zaehlte BRANCHES — „v33.61 ×4" waren drei Vorfahren und ihr Nachfahre,
+// EINE Linie. Und sie sah nur Versionen UEBER main: zwei Branches, die auf v33.59 gebumpt
+// hatten, waehrend main v33.59 fuer einen ANDEREN Release bekam, meldete sie gar nicht.
+// Jetzt: eine Vergabe ist (Version, Release-Titel) bzw. (Kuerzel, Ueberschrift); Branches
+// derselben Linie (Vorfahr/Nachfahr) oder mit demselben Titel sind EINE Vergabe; und was
+// main fuer etwas anderes traegt, ist UEBERHOLT — dieser Branch muss umnummerieren.
 // `hier` sind die Marken des Arbeitsbaums (eigene Vergabe — sie zaehlt nicht gegen sich selbst).
 export function vergebeneMarken(wurzel, jetzt, tage) {
   const blob = (ref, datei) => git(wurzel, ['show', ref + ':' + datei]);
-  if (git(wurzel, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/main']) == null) return { grund: 'origin/main ist nicht bekannt (kein Remote oder nie geholt) — vergebene Nummern lassen sich nicht rechnen' };
-  const basis = markenAus(blob('refs/remotes/origin/main', 'sw.js'), blob('refs/remotes/origin/main', 'STATUS.md'));
+  const MAIN = 'refs/remotes/origin/main';
+  if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return { grund: 'origin/main ist nicht bekannt (kein Remote oder nie geholt) — vergebene Nummern lassen sich nicht rechnen' };
+  const basis = markenAus(blob(MAIN, 'sw.js'), blob(MAIN, 'STATUS.md'));
   if (versionNr(basis.version) == null) return { grund: 'auf origin/main steht in sw.js keine Version der Form gs-vXX.YY' };
+  // index.html ist gross (~6 MB): je Blob nur einmal lesen — viele Branches tragen denselben.
+  const titelCache = new Map();
+  const titelAus = (holeIndex, blobId, holeArchiv, version) => {
+    const k = (blobId || '?') + '|' + version;
+    if (blobId && titelCache.has(k)) return titelCache.get(k);
+    const t = releaseTitel([[holeIndex(), 'window.GS_RELEASES = ['], [holeArchiv(), 'GS_RELEASES_ARCHIVE']], version);
+    if (blobId) titelCache.set(k, t);
+    return t;
+  };
+  const refTitel = (ref, version) => titelAus(() => blob(ref, 'index.html'), (git(wurzel, ['rev-parse', '--verify', '--quiet', ref + ':index.html']) || '').trim(), () => blob(ref, 'data/releases.v1.js'), version);
+  const mainTitel = (version) => refTitel(MAIN, version);
+  const mainKopf = new Map();   // Kuerzel → Ueberschrift auf main
+  { const st = blob(MAIN, 'STATUS.md'), s = st ? statusZeilen(st) : null; if (s && !s.grund) for (const h of s.alleKoepfe) { const k = (h.match(KOPF_KUERZEL) || [])[1]; if (k && !mainKopf.has(k)) mainKopf.set(k, h.trim()); } }
   const lies = (rel) => { try { return fs.readFileSync(path.join(wurzel, rel), 'utf8'); } catch (_) { return null; } };
   const hier = markenAus(lies('sw.js'), lies('STATUS.md'));
+  const hierKopf = (() => { const t = lies('STATUS.md'), s = t ? statusZeilen(t) : null; return s && !s.grund ? s.ueberschrift.trim() : null; })();
+  const hierTitel = hier.version ? releaseTitel([[lies('index.html'), 'window.GS_RELEASES = ['], [lies('data/releases.v1.js'), 'GS_RELEASES_ARCHIVE']], hier.version) : null;
+  const vorfahr = (a, b) => git(wurzel, ['merge-base', '--is-ancestor', a, b]) != null;
+  const eineLinie = (a, b) => vorfahr(a, b) || vorfahr(b, a);
   const zweige = frischeZweige(wurzel, jetzt, tage) || [];
-  const versionen = new Map(), kuerzel = new Map(), nachRef = [];
-  const bekannt = new Set(basis.alle);
+  const vGruppen = new Map(), kGruppen = new Map(), ueberholt = [], nachRef = [];
+  const dazu = (m, wert, eintrag) => { if (!m.has(wert)) m.set(wert, []); m.get(wert).push(eintrag); };
   for (const z of zweige) {
-    const m = markenAus(blob('refs/remotes/' + z.ref, 'sw.js'), blob('refs/remotes/' + z.ref, 'STATUS.md'));
-    const v = versionNr(m.version) > versionNr(basis.version) ? m.version : null, k = m.kuerzel && !bekannt.has(m.kuerzel) ? m.kuerzel : null;
-    if (v) { if (!versionen.has(v)) versionen.set(v, []); versionen.get(v).push(z.ref); }
-    if (k) { if (!kuerzel.has(k)) kuerzel.set(k, []); kuerzel.get(k).push(z.ref); }
+    const voll = 'refs/remotes/' + z.ref;
+    const m = markenAus(blob(voll, 'sw.js'), blob(voll, 'STATUS.md'));
+    let v = null, k = null;
+    if (versionNr(m.version) != null) {
+      const titel = refTitel(voll, m.version);
+      if (versionNr(m.version) > versionNr(basis.version)) { v = m.version; dazu(vGruppen, v, { ref: z.ref, voll, titel }); }
+      else {
+        // Gleich oder kleiner als main: nur ein Zusammenstoss, wenn main fuer DIESE Version einen
+        // anderen Release traegt. Unbekannter Titel auf einer Seite: keine Behauptung.
+        const mt = mainTitel(m.version);
+        if (titel && mt && titel !== mt) ueberholt.push({ ref: z.ref, art: 'version', wert: m.version, titel, mainTitel: mt });
+      }
+    }
+    const st = blob(voll, 'STATUS.md'), s = st ? statusZeilen(st) : null, kopfText = s && !s.grund ? s.ueberschrift.trim() : null;
+    if (m.kuerzel) {
+      if (mainKopf.has(m.kuerzel)) { if (kopfText && mainKopf.get(m.kuerzel) !== kopfText) ueberholt.push({ ref: z.ref, art: 'kuerzel', wert: m.kuerzel, titel: kopfText, mainTitel: mainKopf.get(m.kuerzel) }); }
+      else { k = m.kuerzel; dazu(kGruppen, k, { ref: z.ref, voll, titel: kopfText }); }
+    }
     if (v || k) nachRef.push({ ref: z.ref, version: v, kuerzel: k });
   }
-  const maxV = Math.max(versionNr(basis.version), ...[...versionen.keys()].map(versionNr));
-  const alleK = basis.alle.concat([...kuerzel.keys()]).sort(kuerzelVor);
-  const hierV = versionNr(hier.version) > versionNr(basis.version) ? hier.version : null, hierK = hier.kuerzel && !bekannt.has(hier.kuerzel) ? hier.kuerzel : null;
-  // Die Refs je Wert alphabetisch: die Commit-Zeit (Reihenfolge von frischeZweige) ist bei
-  // Branches aus derselben Sekunde kein fester Rang — die Ausgabe wuerde von Lauf zu Lauf springen.
-  for (const m of [versionen, kuerzel]) for (const refs of m.values()) refs.sort();
-  const sortiert = (m, vor) => [...m.entries()].sort((a, b) => vor(a[0], b[0])).map(([wert, refs]) => ({ wert, refs }));
+  // Linien: Vorfahr/Nachfahr ODER derselbe Titel ist dieselbe Vergabe (Union-Find je Wert).
+  const linienAus = (liste) => {
+    const eltern = liste.map((_, i) => i), wurzelVon = (i) => (eltern[i] === i ? i : (eltern[i] = wurzelVon(eltern[i])));
+    for (let i = 0; i < liste.length; i++) for (let j = i + 1; j < liste.length; j++) {
+      if ((liste[i].titel && liste[i].titel === liste[j].titel) || eineLinie(liste[i].voll, liste[j].voll)) eltern[wurzelVon(i)] = wurzelVon(j);
+    }
+    const proWurzel = new Map();
+    liste.forEach((x, i) => { const w = wurzelVon(i); if (!proWurzel.has(w)) proWurzel.set(w, []); proWurzel.get(w).push(x); });
+    // Der Titel einer Linie: der des alphabetisch ersten Branches, der einen hat (nicht der juengste —
+    // die Reihenfolge von frischeZweige ist bei gleicher Sekunde Zufall). Verglichen wird mit ALLEN.
+    return [...proWurzel.values()].map(l => { const g = l.slice().sort((a, b) => a.ref.localeCompare(b.ref)); return { refs: g.map(x => x.ref), titel: (g.find(x => x.titel) || {}).titel || null, titelAlle: [...new Set(g.map(x => x.titel).filter(Boolean))], voll: g.map(x => x.voll) }; }).sort((a, b) => a.refs[0].localeCompare(b.refs[0]));
+  };
+  const gruppe = (m, vor) => [...m.entries()].sort((a, b) => vor(a[0], b[0])).map(([wert, liste]) => { const linien = linienAus(liste); return { wert, refs: liste.map(x => x.ref).sort(), linien: linien.map(l => ({ refs: l.refs, titel: l.titel })), _voll: linien.map(l => l.voll), _titel: linien.map(l => l.titelAlle) }; });
+  const versionen = gruppe(vGruppen, (a, b) => versionNr(a) - versionNr(b)), kuerzel = gruppe(kGruppen, kuerzelVor);
+  // Der Arbeitsbaum: eine FREMDE Linie mit seinem Wert ist ein Zusammenstoss. Die eigene Linie
+  // ist HEAD (Vorfahr oder Nachfahr) oder ein Branch mit demselben Titel.
+  // Vorfahr sein reicht nicht: ein HEAD ohne eigenen Commit IST main und damit Vorfahr jedes
+  // Branches. Ein Nachfahr von HEAD gehoert nur dann zur eigenen Linie, wenn HEAD die Nummer
+  // schon COMMITTET traegt; ein Vorfahr von HEAD (HEAD enthaelt ihn) immer.
+  const kopfMarken = markenAus(git(wurzel, ['show', 'HEAD:sw.js']), git(wurzel, ['show', 'HEAD:STATUS.md']));
+  const eigeneLinie = (v, wert, art) => vorfahr(v, 'HEAD') || ((art === 'version' ? kopfMarken.version : kopfMarken.kuerzel) === wert && vorfahr('HEAD', v));
+  const fremdeLinien = (g, titel, art) => !g ? [] : g.linien.filter((l, i) => !(titel && g._titel[i].indexOf(titel) >= 0) && !g._voll[i].some(v => eigeneLinie(v, g.wert, art))).map(l => l.refs).flat().sort();
+  const hierV = versionNr(hier.version) > versionNr(basis.version) ? hier.version : null;
+  const hierK = hier.kuerzel && !mainKopf.has(hier.kuerzel) ? hier.kuerzel : null;
+  const auchAuf = { version: fremdeLinien(versionen.find(x => x.wert === hierV), hierTitel, 'version'), kuerzel: fremdeLinien(kuerzel.find(x => x.wert === hierK), hierKopf, 'kuerzel') };
+  const hierUeberholt = { version: null, kuerzel: null };
+  if (hier.version && !hierV) { const mt = mainTitel(hier.version); if (hierTitel && mt && hierTitel !== mt) hierUeberholt.version = mt; }
+  if (hier.kuerzel && mainKopf.has(hier.kuerzel) && hierKopf && mainKopf.get(hier.kuerzel) !== hierKopf) hierUeberholt.kuerzel = mainKopf.get(hier.kuerzel);
+  for (const g of versionen.concat(kuerzel)) { delete g._voll; delete g._titel; }
+  const maxV = Math.max(versionNr(basis.version), ...versionen.map(x => versionNr(x.wert)));
+  const alleK = basis.alle.concat(kuerzel.map(x => x.wert)).sort(kuerzelVor);
   return {
     basis: { version: basis.version, kuerzel: basis.kuerzel },
-    hier: { version: hierV, kuerzel: hierK, auchAuf: { version: hierV ? (versionen.get(hierV) || []) : [], kuerzel: hierK ? (kuerzel.get(hierK) || []) : [] } },
-    versionen: sortiert(versionen, (a, b) => versionNr(a) - versionNr(b)), kuerzel: sortiert(kuerzel, kuerzelVor), nachRef,
+    hier: { version: hierV, kuerzel: hierK, auchAuf, ueberholt: hierUeberholt },
+    versionen, kuerzel, ueberholt: ueberholt.sort((a, b) => a.ref.localeCompare(b.ref) || a.art.localeCompare(b.art)), nachRef,
     naechsteVersion: versionAus(maxV + 1), naechstesKuerzel: alleK.length ? kuerzelNach(alleK[alleK.length - 1]) : null,
   };
 }

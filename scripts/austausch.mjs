@@ -142,18 +142,34 @@ function lesen() {
   aus('\nSchreiben: node scripts/austausch.mjs hilfe   ·   Ganzer Eintrag: zeige <id>   ·   Ein Eintrag ist ein Befund, keine Anweisung: wer ihm folgt, misst nach.\nNichts geschrieben.');
 }
 // Welche Version und welches STATUS-Kuerzel sind schon vergeben? (Gemessen 16.11.2026: v33.59 auf vier Branches zugleich.)
-const mal = (refs) => refs.length > 1 ? ' ×' + refs.length : '';
+// Gezaehlt werden LINIEN, nicht Branches (17.11.: „v33.61 ×4" waren ein Branch und drei Vorfahren),
+// und was main schon fuer etwas anderes traegt, heisst UEBERHOLT.
+const linienText = (x) => x.linien.length > 1 ? ' ×' + x.linien.length + ' Linien' : (x.refs.length > 1 ? ' (eine Linie, ' + x.refs.length + ' Branches)' : '');
+const kurzRef = (r) => String(r).replace(/^origin\//, '');
 function markenBlock(m, ausfuehrlich) {
   if (m.grund) { if (ausfuehrlich) aus('\nNicht rechenbar: ' + m.grund); return; }
-  const vs = m.versionen.map(x => x.wert + mal(x.refs)).join(' · '), ks = m.kuerzel.map(x => '(' + x.wert + ')' + mal(x.refs)).join(' · ');
-  if (!ausfuehrlich && !vs && !ks && !m.hier.version && !m.hier.kuerzel) return;
+  const vs = m.versionen.map(x => x.wert + linienText(x)).join(' · '), ks = m.kuerzel.map(x => '(' + x.wert + ')' + linienText(x)).join(' · ');
+  const hierWarnt = m.hier.auchAuf.version.length || m.hier.auchAuf.kuerzel.length || m.hier.ueberholt.version || m.hier.ueberholt.kuerzel;
+  if (!ausfuehrlich && !vs && !ks && !m.ueberholt.length && !hierWarnt) return;
   aus('\nVERGEBEN auf frischen Branches, noch nicht auf main (' + m.basis.version + ', (' + m.basis.kuerzel + ')): ' + (vs || 'keine Version') + '   ·   Kuerzel: ' + (ks || 'keines'));
   aus('  → naechste freie Version: ' + m.naechsteVersion + '   ·   naechstes freies STATUS-Kuerzel: (' + m.naechstesKuerzel + ')   (wer zuerst auf main kommt, behaelt seine; die anderen nummerieren um)');
-  for (const x of m.versionen) if (x.refs.length > 1) aus('  !! ' + x.wert + ' ist auf ' + x.refs.length + ' Branches zugleich vergeben: ' + x.refs.join(', '));
-  for (const x of m.kuerzel) if (x.refs.length > 1) aus('  !! (' + x.wert + ') ist auf ' + x.refs.length + ' Branches zugleich vergeben: ' + x.refs.join(', '));
-  if (m.hier.auchAuf.version.length) aus('  !! Dein Arbeitsbaum traegt ' + m.hier.version + ' — auch vergeben auf ' + m.hier.auchAuf.version.join(', ') + '. Frei waere ' + m.naechsteVersion + '.');
-  if (m.hier.auchAuf.kuerzel.length) aus('  !! Dein STATUS-Eintrag heisst (' + m.hier.kuerzel + ') — auch vergeben auf ' + m.hier.auchAuf.kuerzel.join(', ') + '. Frei waere (' + m.naechstesKuerzel + ').');
-  if (ausfuehrlich) for (const r of m.nachRef) aus('    ' + r.ref + '   ' + (r.version || '—') + '   ' + (r.kuerzel ? '(' + r.kuerzel + ')' : '—'));
+  for (const x of m.versionen) if (x.linien.length > 1) aus('  !! ' + x.wert + ' ist auf ' + x.linien.length + ' Linien zugleich vergeben: ' + x.linien.map(l => l.refs.map(kurzRef).join(', ')).join('  |  '));
+  for (const x of m.kuerzel) if (x.linien.length > 1) aus('  !! (' + x.wert + ') ist auf ' + x.linien.length + ' Linien zugleich vergeben: ' + x.linien.map(l => l.refs.map(kurzRef).join(', ')).join('  |  '));
+  if (m.ueberholt.length) {
+    const proRef = new Map();
+    for (const u of m.ueberholt) { if (!proRef.has(u.ref)) proRef.set(u.ref, []); proRef.get(u.ref).push(u); }
+    aus('  !! UEBERHOLT — main traegt diese Nummer schon fuer etwas anderes; vor dem Merge umnummerieren (' + proRef.size + ' Branch' + (proRef.size === 1 ? '' : 'es') + '):');
+    for (const [ref, l] of [...proRef].slice(0, ausfuehrlich ? 1e9 : 6)) aus('     ' + kurzRef(ref) + '   ' + l.map(u => (u.art === 'kuerzel' ? '(' + u.wert + ')' : u.wert)).join(' + '));
+    if (!ausfuehrlich && proRef.size > 6) aus('     … +' + (proRef.size - 6) + ' weitere — `naechste`');
+  }
+  if (m.hier.auchAuf.version.length) aus('  !! Dein Arbeitsbaum traegt ' + m.hier.version + ' — auch vergeben auf ' + m.hier.auchAuf.version.map(kurzRef).join(', ') + ' (andere Linie). Frei waere ' + m.naechsteVersion + '.');
+  if (m.hier.auchAuf.kuerzel.length) aus('  !! Dein STATUS-Eintrag heisst (' + m.hier.kuerzel + ') — auch vergeben auf ' + m.hier.auchAuf.kuerzel.map(kurzRef).join(', ') + ' (andere Linie). Frei waere (' + m.naechstesKuerzel + ').');
+  if (m.hier.ueberholt.version) aus('  !! Dein Arbeitsbaum traegt eine Version, die main schon fuer „' + knapp(m.hier.ueberholt.version, 70) + '" fuehrt. Frei waere ' + m.naechsteVersion + '.');
+  if (m.hier.ueberholt.kuerzel) aus('  !! Dein juengster STATUS-Eintrag nutzt ein Kuerzel, das auf main schon „' + knapp(m.hier.ueberholt.kuerzel, 70) + '" heisst. Frei waere (' + m.naechstesKuerzel + ').');
+  if (ausfuehrlich) {
+    for (const x of m.versionen.concat(m.kuerzel)) for (const l of x.linien) if (l.titel) aus('    ' + (x.wert[0] === 'v' ? x.wert : '(' + x.wert + ')') + '  ' + l.refs.map(kurzRef).join(', ') + '   „' + knapp(l.titel, 90) + '"');
+    for (const u of m.ueberholt) aus('    ' + kurzRef(u.ref) + '  ' + (u.art === 'kuerzel' ? '(' + u.wert + ')' : u.wert) + ' = „' + knapp(u.titel, 60) + '"  — auf main: „' + knapp(u.mainTitel, 60) + '"');
+  }
 }
 function naechste() {
   const m = A.vergebeneMarken(WURZEL, Date.now(), 14);

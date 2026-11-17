@@ -696,40 +696,59 @@ const FAELLE = [
     },
   },
   {
-    name: 'C10 · Vergebene Nummern · was frische Branches als Version (sw.js) und STATUS-Kuerzel tragen und main nicht, ist VERGEBEN; doppelt Vergebenes wird gemeldet, ein alter Branch und origin/HEAD zaehlen nicht, die naechste freie Nummer liegt hinter allen — und wer selbst eine vergebene traegt, erfaehrt es',
+    name: 'C10 · Vergebene Nummern · eine Vergabe ist Version + Release-Titel (Kuerzel + Ueberschrift); Vorfahren und Kopien desselben Titels sind EINE Linie; zwei Linien mit demselben Wert sind ein Zusammenstoss; was main schon fuer etwas anderes traegt, ist UEBERHOLT; ein alter Branch und origin/HEAD zaehlen nicht; die naechste freie Nummer liegt hinter allen — und der Arbeitsbaum erfaehrt, ob eine FREMDE Linie seine Nummer traegt',
     lauf: () => {
       const bare = tmp('origin-nr'), d = tmp('klon-nr');
       try {
         const f = [];
         const sw = (v) => "const VERSION = 'gs-" + v + "';\nconst SHELL_CACHE = `${VERSION}-shell`;\n";
-        const st = (k, v) => '# S\n\n## 0 · Routine\n\n### 2026-01-02 (' + k + ') - ' + v + ': neu\n\n**Offen:** nichts\n**Nicht geprüft:** x\n\n### 2026-01-01 (z) - v0.99: alt\n\n## 1 · Stand\n';
-        const stand = (v, k) => { fs.writeFileSync(path.join(d, 'sw.js'), sw(v)); fs.writeFileSync(path.join(d, 'STATUS.md'), st(k, v)); };
-        const commit = (msg, alt) => { g(d, ['add', '-A']); cp.execFileSync('git', ['-C', d, '-c', 'user.email=p@example.com', '-c', 'user.name=p', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', msg], { env: Object.assign({}, process.env, alt ? { GIT_COMMITTER_DATE: alt, GIT_AUTHOR_DATE: alt } : {}) }); };
+        const ix = (v, t) => "<script>\nwindow.GS_RELEASES = [\n  {\n    v: '" + v + "', date: '01.01.2026',\n      headline: '" + t + "',\n  },\n];\n</script>\n";
+        const st = (k, v, t) => '# S\n\n## 0 · Routine\n\n### 2026-01-02 (' + k + ') - ' + v + ': ' + t + '\n\n**Offen:** nichts\n**Nicht geprüft:** x\n\n### 2026-01-01 (z) - v0.99: alt\n\n## 1 · Stand\n';
+        const stand = (v, k, t) => { fs.writeFileSync(path.join(d, 'sw.js'), sw(v)); fs.writeFileSync(path.join(d, 'index.html'), ix(v, t)); fs.writeFileSync(path.join(d, 'STATUS.md'), st(k, v, t)); };
+        const commit = (msg, alt) => { g(d, ['add', '-A']); cp.execFileSync('git', ['-C', d, '-c', 'user.email=p@example.com', '-c', 'user.name=p', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', msg], { env: Object.assign({}, process.env, alt ? { GIT_COMMITTER_DATE: alt, GIT_AUTHOR_DATE: alt } : {}) }); };
         cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
         g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', bare]);
-        stand('v1.00', 'aa'); commit('main'); g(d, ['push', '-q', 'origin', 'main']);
-        const zweig = (name, v, k, alt) => { g(d, ['checkout', '-q', '-b', name, 'main']); stand(v, k); commit(name, alt); g(d, ['push', '-q', 'origin', name]); };
-        // b ist JUENGER als a: frischeZweige liefert neueste zuerst, die Ausgabe muss trotzdem a, b sagen
-        // (sonst haengt die Reihenfolge davon ab, ob beide Commits in dieselbe Sekunde fielen).
+        stand('v1.00', 'aa', 'Start'); commit('main'); g(d, ['push', '-q', 'origin', 'main']);
+        const zweig = (name, v, k, t, alt, von) => { g(d, ['checkout', '-q', '-b', name, von || 'main']); stand(v, k, t); commit(name, alt); g(d, ['push', '-q', 'origin', name]); };
         const vor = (h) => new Date(Date.now() - h * 36e5).toISOString();
-        zweig('claude/a', 'v1.01', 'ab', vor(2)); zweig('claude/b', 'v1.01', 'ab', vor(1)); zweig('claude/c', 'v1.00', 'ac');
-        zweig('claude/d', 'v1.03', 'ab');
-        zweig('claude/alt', 'v1.09', 'az', new Date(Date.now() - 40 * 864e5).toISOString());   // 40 Tage alt: zaehlt nicht
+        // a und a2 sind EINE Linie (a2 baut auf a, mit geaendertem Titel); f traegt denselben Titel wie a
+        // (eine Kopie, kein Vorfahr) — auch dieselbe Vergabe. b ist eine ZWEITE Linie auf v1.01.
+        // b ist juenger als a: die Ausgabe muss trotzdem alphabetisch sein (frischeZweige liefert neueste zuerst).
+        zweig('claude/a', 'v1.01', 'ab', 'Alpha', vor(3)); zweig('claude/a2', 'v1.01', 'ab', 'Alpha weiter', vor(2), 'claude/a');
+        zweig('claude/b', 'v1.01', 'ab', 'Beta', vor(1)); zweig('claude/f', 'v1.01', 'ab', 'Alpha');
+        zweig('claude/c', 'v1.00', 'aa', 'Start');            // nicht gebumpt: nichts
+        zweig('claude/d', 'v1.03', 'ac', 'Delta', vor(5)); zweig('claude/d2', 'v1.03', 'ac', 'Delta zwei', vor(4), 'claude/d');   // EINE Linie, zwei Branches: kein Zusammenstoss
+        zweig('claude/e', 'v1.00', 'aa', 'Echo');             // gebumpt auf eine Nummer, die main fuer „Start" traegt: UEBERHOLT
+        zweig('claude/alt', 'v1.09', 'az', 'Alt', new Date(Date.now() - 40 * 864e5).toISOString());   // 40 Tage alt: zaehlt nicht
         g(d, ['checkout', '-q', '-b', 'claude/arbeit', 'main']); g(d, ['fetch', '-q', 'origin']); g(d, ['remote', 'set-head', 'origin', 'main']);
-        stand('v1.01', 'ae');   // der eigene Arbeitsbaum hat schon gebumpt — auf eine Nummer, die andere tragen
+        stand('v1.01', 'ae', 'Arbeit');   // der eigene Arbeitsbaum hat schon gebumpt — auf eine Nummer, die zwei fremde Linien tragen
         const m = A.vergebeneMarken(d, Date.now(), 14);
-        const vs = m.versionen ? m.versionen.map(x => x.wert + '×' + x.refs.length).join(' ') : '(' + m.grund + ')', ks = m.kuerzel ? m.kuerzel.map(x => x.wert + '×' + x.refs.length).join(' ') : '';
-        if (vs !== 'v1.01×2 v1.03×1') f.push('vergebene Versionen: „' + vs + '" — erwartet „v1.01×2 v1.03×1" (claude/c hat nicht gebumpt, claude/alt ist 40 Tage alt)');
-        if (ks !== 'ab×3 ac×1') f.push('vergebene Kuerzel: „' + ks + '" — erwartet „ab×3 ac×1"');
+        const ohneO = (r) => r.replace(/^origin\/claude\//, '');
+        const kurzG = (l) => (l || []).map(x => x.wert + ':' + x.linien.map(li => li.refs.map(ohneO).join('+')).join('|')).join(' ');
+        const vs = m.versionen ? kurzG(m.versionen) : '(' + m.grund + ')', ks = kurzG(m.kuerzel);
+        if (vs !== 'v1.01:a+a2+f|b v1.03:d+d2') f.push('Linien je Version: „' + vs + '" — erwartet „v1.01:a+a2+f|b v1.03:d+d2" (a2 baut auf a, f traegt den Titel von a; c hat nicht gebumpt, e ist ueberholt, alt ist 40 Tage alt)');
+        if (ks !== 'ab:a+a2+f|b ac:d+d2') f.push('Linien je Kuerzel: „' + ks + '" — erwartet „ab:a+a2+f|b ac:d+d2"');
+        else if (false) f.push('Linien je Kuerzel: „' + ks + '" — a2 ist ein Nachfahr von a und gehoert in dieselbe Linie, auch mit anderer Ueberschrift');
+        const ue = (m.ueberholt || []).map(u => ohneO(u.ref) + ':' + u.art + ':' + u.wert).join(' ');
+        if (ue !== 'e:kuerzel:aa e:version:v1.00') f.push('ueberholt: „' + ue + '" — erwartet „e:kuerzel:aa e:version:v1.00" (claude/e traegt v1.00/(aa), die main fuer „Start" fuehrt; claude/c ist main selbst)');
         if (m.naechsteVersion !== 'v1.04' || m.naechstesKuerzel !== 'ad') f.push('naechste freie: ' + m.naechsteVersion + ' / (' + m.naechstesKuerzel + ') — erwartet v1.04 / (ad): hinter ALLEN vergebenen, nicht hinter main');
-        if (!m.hier || m.hier.version !== 'v1.01' || m.hier.auchAuf.version.join() !== 'origin/claude/a,origin/claude/b' || m.hier.kuerzel !== 'ae' || m.hier.auchAuf.kuerzel.length) f.push('eigener Arbeitsbaum: ' + JSON.stringify(m.hier) + ' — erwartet v1.01, auch auf claude/a und claude/b; (ae) ohne Zusammenstoss');
+        if (!m.hier || m.hier.version !== 'v1.01' || m.hier.auchAuf.version.map(ohneO).join() !== 'a,a2,b,f' || m.hier.kuerzel !== 'ae' || m.hier.auchAuf.kuerzel.length) f.push('eigener Arbeitsbaum: ' + JSON.stringify(m.hier) + ' — erwartet v1.01, auch auf a, a2, b, f (zwei fremde Linien); (ae) ohne Zusammenstoss');
         if ((m.nachRef || []).some(r => /HEAD$|^origin$|alt$/.test(r.ref))) f.push('origin/HEAD oder der alte Branch zaehlt als Vergabe');
         let r = werkzeug(d, ['naechste']);
-        if (r.code !== 0 || !/naechste freie Version: v1\.04/.test(r.aus) || !/STATUS-Kuerzel: \(ad\)/.test(r.aus) || !/!! v1\.01 ist auf 2 Branches zugleich vergeben/.test(r.aus) || !/!! Dein Arbeitsbaum traegt v1\.01/.test(r.aus) || !/Nichts geschrieben\.\s*$/.test(r.aus)) f.push('`naechste`: Exit ' + r.code + ' — ' + kurz(r.aus, 300));
+        if (r.code !== 0 || !/naechste freie Version: v1\.04/.test(r.aus) || !/STATUS-Kuerzel: \(ad\)/.test(r.aus) || !/!! v1\.01 ist auf 2 Linien zugleich vergeben/.test(r.aus) || !/!! UEBERHOLT[^\n]*\n\s+claude\/e\s+\(aa\) \+ v1\.00/.test(r.aus) || !/!! Dein Arbeitsbaum traegt v1\.01/.test(r.aus) || /!! v1\.03|!! \(ac\)/.test(r.aus) || !/Nichts geschrieben\.\s*$/.test(r.aus)) f.push('`naechste` (v1.03 ist EINE Linie aus zwei Branches und darf nicht als Zusammenstoss erscheinen): Exit ' + r.code + ' — ' + kurz(r.aus, 400));
         r = werkzeug(d, []);
-        if (r.code !== 0 || !/^VERGEBEN auf frischen Branches/m.test(r.aus) || !/!! \(ab\) ist auf 3 Branches/.test(r.aus)) f.push('`lesen` zeigt die vergebenen Nummern nicht (Exit ' + r.code + ')');
+        if (r.code !== 0 || !/^VERGEBEN auf frischen Branches/m.test(r.aus) || !/!! \(ab\) ist auf 2 Linien/.test(r.aus) || !/UEBERHOLT/.test(r.aus)) f.push('`lesen` zeigt die vergebenen Nummern nicht (Exit ' + r.code + ')');
         r = werkzeug(d, ['naechste', '--json']); let j = null; try { j = JSON.parse(r.aus); } catch (_) {}
         if (!j || j.naechsteVersion !== 'v1.04') f.push('`naechste --json` ist kein JSON mit naechsteVersion');
+        // Der Arbeitsbaum in der EIGENEN Linie (baut auf claude/a): nur b ist fremd.
+        g(d, ['stash', '-q', '-u']); g(d, ['checkout', '-q', '-b', 'claude/weiter', 'origin/claude/a']); stand('v1.01', 'ab', 'Alpha drei');   // eigener Titel: nur die ABSTAMMUNG macht a, a2, f zur eigenen Linie
+        let m2 = A.vergebeneMarken(d, Date.now(), 14);
+        if (m2.hier.auchAuf.version.map(ohneO).join() !== 'b' || m2.hier.auchAuf.kuerzel.map(ohneO).join() !== 'b') f.push('Arbeitsbaum in der Linie von claude/a: auch auf ' + JSON.stringify(m2.hier.auchAuf) + ' — erwartet nur b (a, a2, f sind die eigene Linie)');
+        // Der Arbeitsbaum auf einer Nummer, die main fuer etwas anderes traegt.
+        stand('v1.00', 'aa', 'Anders'); m2 = A.vergebeneMarken(d, Date.now(), 14);
+        if (m2.hier.ueberholt.version !== 'Start' || !/Start/.test(String(m2.hier.ueberholt.kuerzel))) f.push('Arbeitsbaum auf v1.00/(aa) mit anderem Titel: ueberholt ' + JSON.stringify(m2.hier.ueberholt) + ' — erwartet main-Titel „Start" fuer Version und Kuerzel');
+        r = werkzeug(d, ['naechste']);
+        if (!/!! Dein Arbeitsbaum traegt eine Version, die main schon fuer „Start"/.test(r.aus)) f.push('`naechste` warnt den ueberholten Arbeitsbaum nicht: ' + kurz(r.aus, 200));
         // Ohne origin/main laesst sich nichts rechnen — das wird gesagt, nicht geraten.
         const ohne = repo('ohne-remote');
         try { r = werkzeug(ohne, ['naechste']); if (r.code !== 2 || !/Nicht rechenbar: origin\/main ist nicht bekannt/.test(r.aus)) f.push('ohne origin/main: Exit ' + r.code + ' — erwartet 2 und „Nicht rechenbar"'); r = werkzeug(ohne, []); if (/^VERGEBEN/m.test(r.aus)) f.push('ohne origin/main zeigt `lesen` einen VERGEBEN-Block'); } finally { weg(ohne); }
@@ -737,7 +756,7 @@ const FAELLE = [
         const folge = [['z', 'aa'], ['jd', 'je'], ['az', 'ba'], ['zz', 'aaa']].filter(([a, b]) => A.kuerzelNach(a) !== b);
         if (folge.length) f.push('kuerzelNach: ' + folge.map(([a, b]) => a + ' → ' + A.kuerzelNach(a) + ' (erwartet ' + b + ')').join(', '));
         if (f.length) return { ok: false, warum: f.join(' · ') };
-        return { ok: true, info: 'fuenf Branches + origin/HEAD: v1.01 ×2, v1.03, (ab) ×3, (ac) vergeben; der 40 Tage alte zaehlt nicht · naechste frei v1.04 / (ad) · der eigene Arbeitsbaum auf v1.01 wird gewarnt · ohne origin/main: „nicht rechenbar" · z → aa, zz → aaa' };
+        return { ok: true, info: 'acht Branches + origin/HEAD: v1.01 auf zwei Linien (a+a2+f | b), v1.03; claude/e ueberholt (v1.00/(aa) traegt main fuer „Start"); der 40 Tage alte zaehlt nicht · naechste frei v1.04 / (ad) · Arbeitsbaum: fremde Linien gemeldet, die eigene nicht, ueberholt erkannt · ohne origin/main „nicht rechenbar" · z → aa, zz → aaa' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(bare); weg(d); }
     },
   },

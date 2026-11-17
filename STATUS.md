@@ -44,6 +44,20 @@ Nachgerechnet am 17.11.2026 nach dem Merge von v33.59 (`naechste`): v33.59 und (
 jetzt auf main; vergeben sind noch v33.60 (1×) und **v33.61 (4×)** sowie (jf); frei bleiben
 v33.62 und (jg).
 
+**Berichtigt am 17.11.2026 — die Zählung oben war falsch, und zwar in beide Richtungen.** Die
+Koordinations-Sitzung hat nachgemessen (`git merge-base --is-ancestor`): `hauptfunktionen-lina`,
+`-scanner` und `-suche` sind Vorfahren von `happy-thompson-24l4uu` — „v33.61 (4×)" ist EINE Linie.
+Und die erste Fassung sah nur Versionen ÜBER main: dass `restore-banner-nur-bei-bedarf` (#324) und
+`ccr-dce5a17c-2xzhvi` auf v33.59 gebumpt haben, während main v33.59 für einen ANDEREN Release
+bekam, meldete sie nicht. Jetzt ist eine Vergabe Version + Release-Titel (Kürzel + Überschrift),
+Vorfahren und Kopien sind eine Linie, und was main schon anders führt, heisst „überholt".
+Nachgerechnet: **sieben Branches überholt** (zwei mit v33.59, sechs mit (je) bzw. (jd));
+v33.61 eine Linie aus vier Branches. `austausch_check` C10 baut beides nach (acht Branches, zwei
+Linien auf derselben Version, eine Linie aus zwei Branches, ein überholter, der Arbeitsbaum in der
+eigenen und in einer fremden Linie); sechs Gegenproben, jede nur in C10 rot. **Eine Zahl, die man
+zu ignorieren lernt** (v32.21) — gefunden hat es nicht mein Prüfstand, sondern ein Zweiter, der
+nachgemessen hat.
+
 **Offen:** brett:2026-11-16-b98f (die Messung zum Zusammenstoss, als Nachtrag zum Befund der anderen Sitzung) · brett:2026-11-11-669d (Frage an Fernando, §2)
 **Nicht geprüft:** ob die anderen Sitzungen `naechste` vor ihrem nächsten Bump wirklich rufen — es steht in `holen`, das sie laut CLAUDE.md §5 zuerst fahren; die volle Suite (geändert sind nur das Werkzeug des Bretts, sein Prüfstand und Doku — gefahren: `austausch_check`, `robust_check`)
 

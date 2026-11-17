@@ -125,12 +125,19 @@ Offene Arbeit steht damit als Eintrag auf dem Brett, wo die nächste Sitzung sie
 statt im Fliesstext. Eine `frage` mit `an: fernando` wird zusätzlich mit `brett:<id>` in
 `STATUS.md` §2 oder `docs/FUER-FERNANDO.md` genannt — er liest das Brett nicht.
 
-**Version und Kürzel** des Eintrags: `node scripts/austausch.mjs naechste`. Gerechnet wird,
-was frische Branches (≤ 14 Tage) in `sw.js` und im jüngsten §0-Kopf tragen und `main` nicht —
-das ist **vergeben**; die nächste freie Nummer liegt hinter allen. `lesen` zeigt denselben
-Block mit `!!`, sobald eine Nummer doppelt vergeben ist oder der eigene Arbeitsbaum eine
-fremde trägt. Gemessen am 16.11.2026, bevor es das gab: v33.59 auf vier Branches zugleich,
-v33.61 auf zwei, das Kürzel (je) auf sechs. Wer zuerst auf `main` kommt, behält seine Nummer.
+**Version und Kürzel** des Eintrags: `node scripts/austausch.mjs naechste`. Gerechnet wird
+aus `main` und den Spitzen der frischen Branches (≤ 14 Tage): `sw.js`, der Release-Titel in
+`GS_RELEASES` und der jüngste §0-Kopf. Eine **Vergabe** ist Version *und* Titel (bzw. Kürzel *und*
+Überschrift): Branches, die voneinander abstammen oder denselben Titel tragen, sind **eine
+Linie** — erst zwei Linien mit demselben Wert sind ein Zusammenstoss. Was `main` schon für einen
+*anderen* Release trägt, ist **überholt**: dieser Branch muss vor dem Merge umnummerieren. Die
+nächste freie Nummer liegt hinter allen. `lesen` zeigt denselben Block mit `!!`, auch wenn der
+eigene Arbeitsbaum eine fremde oder überholte Nummer trägt. Gemessen am 16.11.2026, bevor es das
+gab: v33.59 auf vier Branches (drei verschiedene Releases), das Kürzel (je) auf sechs.
+*Berichtigt am 17.11.* (eine andere Sitzung hat nachgemessen): die erste Fassung zählte Branches
+— „v33.61 ×4" waren ein Branch und drei Vorfahren, **eine** Linie — und sah nicht, dass sieben
+Branches eine Nummer tragen, die `main` inzwischen für etwas anderes führt. Wer zuerst auf
+`main` kommt, behält seine Nummer.
 
 ## Über Branches
 

@@ -211,6 +211,8 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   UND STATUS-Kürzel, gerechnet über main und die frischen Branches. „Die nächste
   nach main" ist es nicht: am 16.11.2026 trugen vier Branches zugleich v33.59 und
   sechs das Kürzel (je); wer als Zweiter merged, nummeriert alle fünf Marken um.
+  Gezählt werden LINIEN (Vorfahren und Kopien desselben Release-Titels sind eine), und
+  „überholt" heisst: main trägt deine Nummer schon für etwas anderes (17.11.: sieben Branches).
 - Commit-Message-Format: `vXX.YY: <kurze Aussage>` + Markdown-Body mit
   Bullets pro Bereich (Sicherheit / UX / Feature). Beispiel siehe letzte
   Commits auf `main`.
