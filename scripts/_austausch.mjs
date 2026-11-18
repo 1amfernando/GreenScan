@@ -380,10 +380,44 @@ export function git(wurzel, args, opts) {
   // opts.frist (ms): ein Abruf haengt, solange der Remote haengt (Gegenpruefung 3: `naechste` wartete 20 s auf
   // `ext::sh -c sleep 20`) — nach der Frist wird git beendet (SIGTERM: git raeumt seine .lock-Dateien selbst),
   // die Antwort ist null wie bei jedem Fehler. Dazu GIT_TERMINAL_PROMPT=0: eine Passwortfrage waere dasselbe Haengen.
+  // opts.ohneNachladen: GIT_NO_LAZY_FETCH=1 — ein Teilabruf laedt einen fehlenden Baum oder Blob sonst still nach
+  // (Gegenpruefung 4: `ls-tree` holte in einem Klon mit --filter=tree:0 jeden Baum vom Server; `--nur-lokal` liess die
+  // Packs von 3 auf 8 wachsen). Die Antwort ist dann null wie bei jedem Fehler, und der Aufrufer sagt, was fehlt.
+  // opts.eingabe: Text fuer die Standardeingabe (nur mit opts.frist — `fetch --stdin` beim ausdruecklichen Nachladen).
+  const env = Object.assign({}, process.env, opts && opts.ohneNachladen ? { GIT_NO_LAZY_FETCH: '1' } : {});
+  const voll = ['-C', wurzel, '-c', 'core.quotePath=false'].concat(args);
+  if (opts && opts.frist > 0) return gitMitFrist(voll, opts.frist, Object.assign(env, { GIT_TERMINAL_PROMPT: '0' }), opts.eingabe);
   const o = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 };
-  if (opts && opts.frist > 0) Object.assign(o, { timeout: opts.frist, env: Object.assign({}, process.env, { GIT_TERMINAL_PROMPT: '0' }) });
-  try { return cp.execFileSync('git', ['-C', wurzel, '-c', 'core.quotePath=false'].concat(args), o); }
+  if (opts && opts.ohneNachladen) o.env = env;
+  try { return cp.execFileSync('git', voll, o); }
   catch (_) { return null; }
+}
+// Die Frist trifft die ganze PROZESSGRUPPE (Gegenpruefung 4, R4-schwarm-9). Vorher beendete der Ablauf nur git
+// selbst: gemessen mit `ext::sh -c sleep 25` blieben nach `naechste` drei Waisen liegen (git remote-ext, sh, sleep —
+// Elternprozess 1), bei jedem Aufruf gegen einen haengenden Remote drei mehr. execFileSync kann keine Gruppe beenden;
+// deshalb startet eine kleine Huelle (derselbe node, `-e`) git als Fuehrer einer EIGENEN Gruppe (detached), gibt nach
+// der Frist SIGTERM an die Gruppe (git raeumt seine .lock-Dateien selbst), nach 2 s SIGKILL und endet mit 124. Die
+// Huelle selbst wartet ohne Frist von aussen auf git — nur ein Sicherheitsnetz (Frist + 10 s), falls sie haengt.
+const FRIST_HUELLE = [
+  "const cp = require('child_process');",
+  "const frist = Number(process.argv[1]), mitEingabe = process.argv[2] === '1';",
+  "let c; try { c = cp.spawn('git', process.argv.slice(3), { detached: true, stdio: [mitEingabe ? 'pipe' : 'ignore', 'pipe', 'ignore'] }); } catch (_) { process.exit(127); }",
+  "c.on('error', () => process.exit(127));",
+  "if (mitEingabe) { c.stdin.on('error', () => {}); process.stdin.pipe(c.stdin); }",
+  "c.stdout.pipe(process.stdout);",
+  "const gruppe = (sig) => { try { process.kill(-c.pid, sig); } catch (_) { try { c.kill(sig); } catch (_) {} } };",
+  "let tot = false, hart = null;",
+  "const t = setTimeout(() => { tot = true; gruppe('SIGTERM'); hart = setTimeout(() => { gruppe('SIGKILL'); process.exit(124); }, 2000); }, frist);",
+  "c.on('close', (code) => { clearTimeout(t); if (hart) clearTimeout(hart); process.exitCode = tot ? 124 : (code == null ? 1 : code); });",
+].join('\n');
+function gitMitFrist(voll, frist, env, eingabe) {
+  const mitEingabe = eingabe != null;
+  let r = null;
+  try {
+    r = cp.spawnSync(process.execPath, ['-e', FRIST_HUELLE, String(frist), mitEingabe ? '1' : '0'].concat(voll),
+      { encoding: 'utf8', env, input: mitEingabe ? String(eingabe) : undefined, stdio: [mitEingabe ? 'pipe' : 'ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024, timeout: frist + 10000, killSignal: 'SIGKILL' });
+  } catch (_) { return null; }
+  return r && r.status === 0 && !r.error ? r.stdout : null;
 }
 // ── Blobs lesen, OHNE nachzuladen. In einem Teilabruf (CI: promisor, --filter=blob:limit=200k) fehlt ein
 //    grosser Blob im lokalen Objektspeicher. Gemessen am 18.11.2026 (git 2.43.0-1ubuntu7.4, gebauter Klon):
@@ -449,10 +483,121 @@ export function blobsDa(wurzel, shas, baeume) { return objekteLesen(wurzel, shas
 // Wie gross ist ein Blob mindestens, der in einem Teilabruf FEHLT? `--filter=blob:limit=<n>[kmg]` laesst jeden
 // Blob mit n Bytes oder mehr weg (list-objects-filter: aufgenommen wird nur, was kleiner ist). Gelesen aus
 // remote.<name>.partialclonefilter — sonst (blob:none, tree:0, combine:…, kein Teilabruf) null: unbekannt.
-export function teilabrufGrenze(wurzel, remote) {
+// Die Konfiguration ist aber KEIN Beweis (Gegenpruefung 4, R4-lesen-5): sie sagt nur, womit der NAECHSTE Abruf
+// filtert. Gemessen: Klon mit blob:limit=200k, danach `git fetch --filter=blob:none origin` — die Konfiguration
+// blieb blob:limit=204800, ein neuer 1-KB-Halt fehlte, und A8 nannte ihn „mindestens 200 KB, also kein gueltiger
+// Eintrag". git haelt den Filter eines Abrufs nirgends fest (die .promisor-Datei nennt nur die Refs). Belegt ist die
+// Grenze deshalb nur dort, wo JEDER gefilterte Abruf mit genau dieser Konfiguration lief: in der CI (GITHUB_ACTIONS),
+// deren Schritt „Branches fuer das Brett" Konfiguration und Abruf mit demselben Filter setzt — austausch_check C18
+// liest ihn woertlich. Ueberall sonst: null — ein fehlender Blob koennte ein Eintrag sein.
+export function teilabrufGrenze(wurzel, remote, umgebung) {
+  if (String((umgebung || process.env).GITHUB_ACTIONS || '') !== 'true') return null;
   const f = (git(wurzel, ['config', '--get', 'remote.' + remote + '.partialclonefilter']) || '').trim();
   const m = f.match(/^blob:limit=(\d+)([kmg]?)$/i);
   return m ? Number(m[1]) * ({ '': 1, k: 1024, m: 1024 * 1024, g: 1024 * 1024 * 1024 })[m[2].toLowerCase()] : null;
+}
+// ── Fehlt der WURZELBAUM eines Refs? (Klon mit --filter=tree:0: Commits ja, Baeume nein.) Gegenpruefung 4, R4-lesen-1:
+//    `ls-tree` auf so einen Ref lieferte ohne GIT_NO_LAZY_FETCH still die Baeume vom Server nach, mit ihm gar nichts —
+//    und `(ls || '')` machte daraus „keine Dateien": die Nummern eines Branches fielen still weg (`naechste` vergab
+//    v1.01 ein zweites Mal). Gemessen (git 2.43, Klon mit tree:0): `rev-list --objects --missing=print --no-walk
+//    --filter=tree:1` nennt einen fehlenden Wurzelbaum als „?<oid>" und laedt NIE nach — auch OHNE die Variable, also
+//    auch auf einem git, das sie nicht kennt. `log --format=%T` liest nur den Commit. Ergebnis: Map(Ref → fehlender
+//    Baum); null, wenn git die Refs nicht kennt. Ein fehlender TIEFERER Baum faellt erst an `ls-tree` mit ohneNachladen auf.
+function commitsVon(wurzel, refs) {
+  const commits = (git(wurzel, ['rev-parse'].concat(refs), { ohneNachladen: true }) || '').split('\n').filter(Boolean);
+  return commits.length === refs.length ? commits : null;
+}
+// Fehlende Objekte unter den Commits, OHNE nachzuladen — mit `filter` als Grenze der Suche (tree:1: nur die Wurzelbaeume;
+// blob:none: jeder Baum, keine Datei — dann ist jedes „?<oid>" ein BAUM). Set der Kennungen, oder null.
+function fehlendUnter(wurzel, commits, filter) {
+  let r = null;
+  try { r = cp.spawnSync('git', ['-C', wurzel, 'rev-list', '--objects', '--missing=print', '--no-walk', '--filter=' + filter, '--stdin'], { input: [...new Set(commits)].join('\n') + '\n', env: ohneNachladen(), maxBuffer: LESEN_MAX }); } catch (_) {}
+  if (!r || r.status !== 0 || r.stdout == null) return null;
+  return new Set(String(r.stdout).split('\n').filter(z => z[0] === '?').map(z => z.slice(1).trim()));
+}
+export function fehlendeWurzelBaeume(wurzel, refs) {
+  const aus = new Map();
+  refs = [...new Set((refs || []).filter(Boolean))];
+  if (!refs.length) return aus;
+  const commits = commitsVon(wurzel, refs);
+  if (!commits) return null;
+  const log = git(wurzel, ['log', '--no-walk=unsorted', '--format=%H %T'].concat([...new Set(commits)]), { ohneNachladen: true });
+  if (log == null) return null;
+  const baum = new Map(log.split('\n').map(z => z.trim().split(' ')).filter(z => z.length === 2));
+  const fehlt = fehlendUnter(wurzel, commits, 'tree:1');
+  if (!fehlt) return null;
+  refs.forEach((ref, i) => { const t = baum.get(commits[i]); if (t && fehlt.has(t)) aus.set(ref, t); });
+  return aus;
+}
+// ── Ausdruecklich NACHLADEN (Gegenpruefung 4, R4-lesen-0). „Gelesen wird ohne Nachladen" gilt fuer jedes Lesen — aber
+//    `holen`, `nehme` und `naechste` HOLEN ohnehin, und in einem Klon mit --filter=blob:none fehlte danach jeder fremde
+//    Eintrag: gemessen „0 Eintraege … Das Brett ist leer", kein DICH BETREFFEND, `nehme` schrieb still eine zweite
+//    Uebernahme, `naechste` schickte im Kreis zu `holen`. Jetzt holen diese drei danach GEZIELT, was das Brett braucht —
+//    wie git selbst beim Nachladen (promisor-remote.c): Verhandlung „noop", keine Tags, kein FETCH_HEAD, `--filter=
+//    blob:none --stdin` mit den Kennungen. Ein verlangter Blob kommt so trotzdem; ein verlangter BAUM kommt mit allen
+//    Unterbaeumen, ohne Dateien (gemessen: danach `ls-tree -r` ohne Nachladen vollstaendig). Nur in einem Teilabruf
+//    (remote.<r>.promisor oder extensions.partialclone) — sonst fehlt nichts, und es geht keine Anfrage hinaus.
+export function promisorRemotes(wurzel) {
+  const r = [];
+  for (const z of (git(wurzel, ['config', '--get-regexp', '^remote\\..*\\.promisor$']) || '').split('\n')) {
+    const m = z.trim().match(/^remote\.(.+)\.promisor\s+(\S+)$/i);
+    if (m && /^(true|yes|on|1)$/i.test(m[2]) && r.indexOf(m[1]) < 0) r.push(m[1]);
+  }
+  const ext = (git(wurzel, ['config', '--get', 'extensions.partialclone']) || '').trim();
+  if (ext && r.indexOf(ext) < 0) r.push(ext);
+  return r;
+}
+export const NACHLADE_FRIST_MS = 120000;
+export function objekteNachladen(wurzel, oids, opts) {
+  opts = opts || {};
+  const liste = [...new Set((oids || []).filter(x => /^[0-9a-f]{40,64}$/.test(String(x))))];
+  if (!liste.length) return true;
+  // GIT_NO_LAZY_FETCH=1 auch hier: der Abruf selbst darf nichts AUSSER den verlangten Kennungen nachladen (gemessen:
+  // der ausdrueckliche Abruf geht mit der Variablen, Exit 0, der Blob liegt danach lokal).
+  return git(wurzel, ['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', opts.remote || REMOTE, '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', '--stdin'],
+    { frist: opts.frist > 0 ? opts.frist : NACHLADE_FRIST_MS, eingabe: liste.join('\n') + '\n', ohneNachladen: true }) != null;
+}
+// Die Eintraege des Bretts (eintraege/**.json und die Grabstein-Liste) auf JEDEM Ref eines Promisor-Remotes: fehlende
+// Wurzelbaeume zuerst (tree:0), dann die fehlenden Blobs. Klein: ein Eintrag hat hoechstens 64 KB — groessere Dateien
+// unter eintraege/ werden mitgeholt und danach „groesser als 64 KB" genannt (die Frist begrenzt den Abruf).
+// Ergebnis: { teilabruf, noetig, geholt, fehlt: [Kennung oder „<ref> (Baum)"], ok } — was danach noch fehlt, nennt
+// brettLesen weiter als unlesbar (`.fehlend`), und `nehme` lehnt dann ab.
+const BRETT_DIR = path.posix.dirname(ORDNER);
+export function eintraegeNachladen(wurzel, opts) {
+  opts = opts || {};
+  const aus = { teilabruf: false, noetig: 0, geholt: 0, fehlt: [], ok: true };
+  for (const remote of promisorRemotes(wurzel)) {
+    aus.teilabruf = true;
+    const nl = (oids) => { if (!objekteNachladen(wurzel, oids, { remote, frist: opts.frist })) aus.ok = false; };
+    const refs = (git(wurzel, ['for-each-ref', '--format=%(refname)', 'refs/remotes/' + remote + '/'], { ohneNachladen: true }) || '').split('\n').filter(x => x && !/\/HEAD$/.test(x));
+    // Erst die fehlenden BAEUME jeder Tiefe (tree:0, tree:1 …): ein verlangter Baum kommt mit allen Unterbaeumen. Gemessen:
+    // einen Baum, der schon lokal liegt, holt `fetch` NICHT noch einmal (Exit 0, kein Pack) — verlangt werden deshalb die
+    // fehlenden selbst; `rev-list --filter=blob:none --missing=print` nennt genau diese und laedt nie nach.
+    const commits = refs.length ? commitsVon(wurzel, refs) : [];
+    const ohneBaum = commits && commits.length ? fehlendUnter(wurzel, commits, 'blob:none') : null;
+    if (ohneBaum && ohneBaum.size) nl([...ohneBaum]);
+    const blobs = new Set(), baeume = new Set();
+    const lsAlle = (liste) => liste.filter(ref => {
+      const ls = git(wurzel, ['ls-tree', '-r', '-t', '-z', ref, '--', ORDNER + '/', GRABSTEINE], { ohneNachladen: true });
+      if (ls == null) return true;
+      for (const z of ls.split('\0')) {
+        const t = z.match(/^\d+ tree ([0-9a-f]+)\t(.+)$/);
+        if (t) { if (t[2] === BRETT_DIR) baeume.add(t[1]); continue; }
+        const m = z.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/);
+        if (m && (m[2] === GRABSTEINE || (m[2].indexOf(ORDNER + '/') === 0 && /\.json$/.test(m[2])))) blobs.add(m[1]);
+      }
+      return false;
+    });
+    for (const ref of lsAlle(refs)) { aus.fehlt.push(ref.replace(/^refs\/remotes\//, '') + ' (Baum)'); aus.ok = false; }
+    const da = blobsDa(wurzel, [...blobs], [...baeume]), fehlen = [...blobs].filter(b => !da.has(b));
+    aus.noetig += fehlen.length;
+    if (!fehlen.length) continue;
+    nl(fehlen);
+    const danach = blobsDa(wurzel, fehlen, [...baeume]), rest = fehlen.filter(b => !danach.has(b));
+    aus.geholt += fehlen.length - rest.length;
+    aus.fehlt.push(...rest);
+  }
+  return aus;
 }
 function lies(roh, datei, quelle, unlesbar, extra) {
   let e;
@@ -950,27 +1095,43 @@ const MARKEN_DATEIEN = ['sw.js', 'STATUS.md', 'index.html', 'data/releases.v1.js
 export function vergebeneMarken(wurzel, jetzt, tage) {
   const MAIN = 'refs/remotes/origin/main';
   if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return { grund: 'origin/main ist nicht bekannt (kein Remote oder nie geholt) — vergebene Nummern lassen sich nicht rechnen' };
-  const kennung = new Map();   // Ref → Map(Datei → Blob-Kennung); ls-tree braucht nur Baeume, nie den Blob
+  // Jeder Blick in Baum und Blob OHNE Nachladen (Gegenpruefung 4, R4-lesen-1): ein Baum, den der Teilabruf nicht holte,
+  // heisst hier „nicht lesbar" (null) — vorher machte `(ls || '')` daraus „keine Dateien", und der Ref fiel still aus
+  // der Rechnung (Klon mit tree:0: `naechste` vergab die Nummer eines fremden Branches ein zweites Mal).
+  const kennung = new Map();   // Ref → Map(Datei → Blob-Kennung) oder null; ls-tree braucht nur Baeume, nie den Blob
   const kennungen = (ref) => {
     if (!kennung.has(ref)) {
-      const m = new Map();
-      for (const z of (git(wurzel, ['ls-tree', '-r', '-z', ref, '--'].concat(MARKEN_DATEIEN)) || '').split('\0')) { const t = z.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/); if (t) m.set(t[2], t[1]); }
+      const roh = git(wurzel, ['ls-tree', '-r', '-z', ref, '--'].concat(MARKEN_DATEIEN), { ohneNachladen: true });
+      let m = null;
+      if (roh != null) { m = new Map(); for (const z of roh.split('\0')) { const t = z.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/); if (t) m.set(t[2], t[1]); } }
       kennung.set(ref, m);
     }
     return kennung.get(ref);
   };
-  const blob = (ref, datei) => git(wurzel, ['show', ref + ':' + datei]);   // erst NACH dem Blick unten: dann liegt alles lokal
+  const blob = (ref, datei) => git(wurzel, ['show', ref + ':' + datei], { ohneNachladen: true });   // erst NACH dem Blick unten: dann liegt alles lokal
   const zweige = frischeZweige(wurzel, jetzt, tage) || [];
   // Ein Branch mit Commit-Zeit in der Zukunft ist nicht „frisch" (sonst bliebe er es fuer immer) — seine
   // Nummer ist aber vergeben: vorher empfahl `naechste` sie still ein zweites Mal (Gegenpruefung 2).
   const mitZukunft = zweige.concat((zweige.zukunft || []).map(x => ({ ref: x.ref, zukunft: true })));
   {
-    const refsAlle = [MAIN, 'HEAD'].concat(mitZukunft.map(z => 'refs/remotes/' + z.ref)).filter(r => kennungen(r).size);
+    // HEAD nur, wenn es einen Commit gibt (ein ungeborener HEAD hat keine Marken — das ist kein fehlender Baum).
+    const kopfDa = git(wurzel, ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], { ohneNachladen: true }) != null;
+    const refsAlle = [MAIN].concat(kopfDa ? ['HEAD'] : [], mitZukunft.map(z => 'refs/remotes/' + z.ref));
+    const kurzRef = (r) => r.replace(/^refs\/remotes\//, '');
+    // Erst die Wurzelbaeume (laedt auch auf einem git ohne GIT_NO_LAZY_FETCH nie nach), dann ls-tree ohne Nachladen.
+    const ohneBaum = fehlendeWurzelBaeume(wurzel, refsAlle);
+    const unlesbar = refsAlle.filter(r => (ohneBaum ? ohneBaum.has(r) : false) || kennungen(r) == null);
+    if (!ohneBaum || unlesbar.length) {
+      const was = !ohneBaum ? ['(git kennt einen der Refs nicht)'] : unlesbar.map(kurzRef);
+      return { grund: (ohneBaum ? unlesbar.length : '?') + ' Branch(es), deren Dateibaum nicht im lokalen Objektspeicher liegt (Teilabruf ohne Baeume — gelesen wird ohne Nachladen): ' + was.slice(0, 4).join(', ') + (was.length > 4 ? ' … +' + (was.length - 4) : ''),
+        fehlt: was.map(r => r + ':(Baum)'), nachladbar: ohneBaum ? [...new Set(unlesbar.map(r => ohneBaum.get(r)).filter(Boolean))] : [] };
+    }
+    const refsMit = refsAlle.filter(r => kennungen(r).size);
     const noetig = [];
-    for (const ref of refsAlle) for (const [datei, oid] of kennungen(ref)) noetig.push({ ref, datei, oid });
-    const da = blobsDa(wurzel, noetig.map(x => x.oid), refsAlle.map(r => r + '^{tree}'));
-    const fehlt = noetig.filter(x => !da.has(x.oid)).map(x => x.ref.replace(/^refs\/remotes\//, '') + ':' + x.datei);
-    if (fehlt.length) return { grund: fehlt.length + ' Datei(en), die die Rechnung braucht, liegen nicht im lokalen Objektspeicher (Teilabruf — gelesen wird ohne Nachladen): ' + fehlt.slice(0, 4).join(', ') + (fehlt.length > 4 ? ' … +' + (fehlt.length - 4) : ''), fehlt };
+    for (const ref of refsMit) for (const [datei, oid] of kennungen(ref)) noetig.push({ ref, datei, oid });
+    const da = blobsDa(wurzel, noetig.map(x => x.oid), refsMit.map(r => r + '^{tree}'));
+    const fehlend = noetig.filter(x => !da.has(x.oid)), fehlt = fehlend.map(x => kurzRef(x.ref) + ':' + x.datei);
+    if (fehlt.length) return { grund: fehlt.length + ' Datei(en), die die Rechnung braucht, liegen nicht im lokalen Objektspeicher (Teilabruf — gelesen wird ohne Nachladen): ' + fehlt.slice(0, 4).join(', ') + (fehlt.length > 4 ? ' … +' + (fehlt.length - 4) : ''), fehlt, nachladbar: [...new Set(fehlend.map(x => x.oid))] };
   }
   const basis = markenAus(blob(MAIN, 'sw.js'), blob(MAIN, 'STATUS.md'));
   if (versionNr(basis.version) == null) return { grund: 'auf origin/main steht in sw.js keine Version der Form gs-vXX.YY' };
@@ -983,7 +1144,7 @@ export function vergebeneMarken(wurzel, jetzt, tage) {
     if (blobId) titelCache.set(k, t);
     return t;
   };
-  const refTitel = (ref, version) => titelAus(() => blob(ref, 'index.html'), (git(wurzel, ['rev-parse', '--verify', '--quiet', ref + ':index.html']) || '').trim(), () => blob(ref, 'data/releases.v1.js'), version);
+  const refTitel = (ref, version) => titelAus(() => blob(ref, 'index.html'), (git(wurzel, ['rev-parse', '--verify', '--quiet', ref + ':index.html'], { ohneNachladen: true }) || '').trim(), () => blob(ref, 'data/releases.v1.js'), version);
   const mainTitel = (version) => refTitel(MAIN, version);
   const mainKopf = new Map();   // Kuerzel → Ueberschrift auf main
   { const st = blob(MAIN, 'STATUS.md'), s = st ? statusZeilen(st) : null; if (s && !s.grund) for (const h of s.alleKoepfe) { const k = (h.match(KOPF_KUERZEL) || [])[1]; if (k && !mainKopf.has(k)) mainKopf.set(k, h.trim()); } }
@@ -1037,7 +1198,7 @@ export function vergebeneMarken(wurzel, jetzt, tage) {
   // Vorfahr sein reicht nicht: ein HEAD ohne eigenen Commit IST main und damit Vorfahr jedes
   // Branches. Ein Nachfahr von HEAD gehoert nur dann zur eigenen Linie, wenn HEAD die Nummer
   // schon COMMITTET traegt; ein Vorfahr von HEAD (HEAD enthaelt ihn) immer.
-  const kopfMarken = markenAus(git(wurzel, ['show', 'HEAD:sw.js']), git(wurzel, ['show', 'HEAD:STATUS.md']));
+  const kopfMarken = markenAus(blob('HEAD', 'sw.js'), blob('HEAD', 'STATUS.md'));
   const eigeneLinie = (v, wert, art) => vorfahr(v, 'HEAD') || ((art === 'version' ? kopfMarken.version : kopfMarken.kuerzel) === wert && vorfahr('HEAD', v));
   const fremdeLinien = (g, titel, art) => !g ? [] : g.linien.filter((l, i) => !(titel && g._titel[i].indexOf(titel) >= 0) && !g._voll[i].some(v => eigeneLinie(v, g.wert, art))).map(l => l.refs).flat().sort();
   const hierV = versionNr(hier.version) > versionNr(basis.version) && versionNr(hier.version) <= versionNr(basis.version) + SPRUNG_MAX ? hier.version : null;
@@ -1618,12 +1779,27 @@ function deklarationen(text) {
 }
 export function funktionsNamen(text) { return new Set(deklarationen(text).map(d => d.name)); }
 const REGEX_NACH_WORT = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'throw', 'case', 'do', 'else', 'yield', 'await']);
+// of, yield und await sind nur MANCHMAL Schluesselwoerter, sonst gewoehnliche Namen (`function gsA(of) { return of / 2; }`).
+// Gegenpruefung 4: sie galten immer als Schluesselwort, `of / 2; } … /` wurde ein Regex, und gsA reichte STILL bis in die
+// naechste Funktion (acorn: 2-3, Scanner: 2-5). Was ohne Parser sicher geht, rechnet klammernPaaren (`schluessel`).
+// Echte Schluesselwoerter (nie ein Name): nach ihnen beginnt ein Ausdruck.
+const RESERVIERT_VOR_AUSDRUCK = new Set(['return', 'typeof', 'instanceof', 'in', 'new', 'delete', 'void', 'throw', 'case', 'do', 'else']);
 // Nach der ) dieser Koepfe beginnt eine Anweisung — dort ist / ein Regex (`if (x) /'/.test(y)`), sonst ein Teilen.
 const KOPF_WORT = new Set(['if', 'while', 'for', 'with']);
-const LEER = new Set([' ', '\t', '\n', '\r', '\f', '\v', '\u00a0', '\ufeff', '\u2028', '\u2029']);
+// Leerraum, wie JS ihn kennt: dazu jeder Unicode-Leerraum (Zs). Gegenpruefung 4: ein Geviertleerzeichen (U+2003) vor
+// `/[{]/` galt als Buchstabe eines Namens, das / als Teilen, und der Block ging nicht mehr auf.
+const LEER = new Set([' ', '\t', '\n', '\r', '\f', '\v', '\u00a0', '\ufeff', '\u2028', '\u2029',
+  '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f', '\u3000']);
 const ZEILENENDE = new Set(['\n', '\r', '\u2028', '\u2029']);
+// Das naechste Zeilenende ab `ab` (hoechstens b): ein //-Kommentar, ein <!-- / -->-Kommentar und ein Regex enden an JEDEM
+// Zeilenende von JS, nicht nur an \n (Gegenpruefung 4: `// Notiz` + U+2028 + `}` — fuer acorn schloss die } die Funktion).
+const ZEILENENDE_SUCHE = /[\n\r\u2028\u2029]/g;
+function zeilenEnde(text, ab, b) { ZEILENENDE_SUCHE.lastIndex = ab; const m = ZEILENENDE_SUCHE.exec(text); return m && m.index < b ? m.index : b; }
 const ZU = { '{': '}', '(': ')', '[': ']' };
-const ID_ANF = /[A-Za-z_$\u00c0-\uffff]/, ID_ZEICHEN = /[\w$\u00c0-\uffff]/;
+// Ein Name: ASCII, $, _ und (grosszuegig) alles ab U+00C0 — AUSSER dem Leerraum und den Zeilenenden darin (U+1680,
+// U+2000–U+200A, U+2028/2029, U+202F, U+205F, U+3000, U+FEFF): sonst hiess `return` + U+3000 + `/x/` ein Wort „return…".
+const ID_ANF = /[A-Za-z_$\u00c0-\u167f\u1681-\u1fff\u200b-\u2027\u202a-\u202e\u2030-\u205e\u2060-\u2fff\u3001-\ufefe\uff00-\uffff]/;
+const ID_ZEICHEN = /[\w$\u00c0-\u167f\u1681-\u1fff\u200b-\u2027\u202a-\u202e\u2030-\u205e\u2060-\u2fff\u3001-\ufefe\uff00-\uffff]/;
 // Elemente, deren Inhalt der Browser als TEXT liest: ein „<!--" oder „<script>" darin oeffnet nichts.
 const ROHTEXT = new Set(['style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext']);
 // Wo endet ein Element mit Rohtext? Am naechsten </name, dem Leerraum, / oder > folgt (nie an </scripts).
@@ -1636,6 +1812,9 @@ function schlussTag(klein, name, ab) {
 // Attributwert, nicht in style/textarea/title), `<!-->` und `<!--->` sind leere Kommentare, ein `>` in
 // Anfuehrungszeichen beendet kein Tag, und `src` zaehlt nur als ganzes Attribut (nicht `data-src`). Vorher
 // verschluckte `<button title="Schliessen <!-- Fuss">` vor dem Hauptskript 2 644 von 2 799 Funktionen (Runde 3).
+// Ein Bereich ist [von, bis, modul]: `modul` (true bei type="module") sagt klammernPaaren, dass `<!--` und `-->` dort KEINE
+// Kommentare sind (nur das klassische Skript kennt sie) und await/yield immer Schluesselwoerter — Gegenpruefung 4:
+// `if (a <!--b) { … }` ist in einem Modul gueltig (a < !(--b)), der Scanner las einen Kommentar und der Block ging nicht auf.
 export function jsBereiche(text, html) {
   if (!html) return [[0, text.length]];
   const klein = text.toLowerCase(), n = text.length, aus = [];
@@ -1659,25 +1838,29 @@ export function jsBereiche(text, html) {
     let j = j0;
     while (j < n && !/[\s/>]/.test(klein[j])) j++;
     const name = klein.slice(j0, j), attr = new Set();
+    let typ = null;   // der Wert des ERSTEN type-Attributs (ein doppeltes Attribut zaehlt im Browser nicht)
     // Attribute bis zum > ausserhalb von Anfuehrungszeichen.
     while (j < n && klein[j] !== '>') {
       if (/[\s/]/.test(klein[j])) { j++; continue; }
       const a0 = j;
       j++;   // das erste Zeichen eines Namens darf auch = sein
       while (j < n && !/[\s/>=]/.test(klein[j])) j++;
-      attr.add(klein.slice(a0, j));
+      const aName = klein.slice(a0, j), erstes = !attr.has(aName);
+      attr.add(aName);
       while (j < n && /\s/.test(klein[j])) j++;
       if (klein[j] !== '=') continue;
       j++;
       while (j < n && /\s/.test(klein[j])) j++;
+      const w0 = j;
       if (klein[j] === '"' || klein[j] === "'") { const q = klein.indexOf(klein[j], j + 1); j = q < 0 ? n : q + 1; }
       else while (j < n && !/[\s>]/.test(klein[j])) j++;
+      if (aName === 'type' && erstes) typ = klein.slice(w0, j).replace(/^["']|["']$/g, '');
     }
     const nach = Math.min(n, j + 1);
     if (zu) { i = nach; continue; }
     if (name === 'script') {
       const ende = schlussTag(klein, 'script', nach), b = ende < 0 ? n : ende;
-      if (!attr.has('src')) aus.push([nach, b]);
+      if (!attr.has('src')) aus.push(typ != null && typ.replace(/^[ \t\n\f\r]+|[ \t\n\f\r]+$/g, '') === 'module' ? [nach, b, true] : [nach, b]);
       i = b; continue;
     }
     if (ROHTEXT.has(name)) { const ende = name === 'plaintext' ? -1 : schlussTag(klein, name, nach); i = ende < 0 ? n : ende; continue; }
@@ -1688,15 +1871,35 @@ export function jsBereiche(text, html) {
 // Klammern paaren in text[a, b). Gibt die Paare (Position der oeffnenden → schliessende), die oeffnenden
 // Klammern in Reihenfolge, die Positionen von `function` — ob der Bereich aufging und, wenn nicht, ab wo
 // (`fehler`: die erste Stelle, an der es nicht weiterging, oder die erste Klammer, die nie zuging).
-export function klammernPaaren(text, a, b) {
+export function klammernPaaren(text, a, b, modul) {
   const paare = new Map(), offen = [], fn = [], st = [];
   let i = a, art = 'start', wort = '', kaputt = false, fehler = null, zeilenAnf = true;
+  // Was VOR dem letzten Wort stand (seine `art` und, war es ein Wort, welches): fuer `for await (` und das `of` im for-Kopf.
+  let vorArt = 'start', vorWort = '';
   const bruch = (p) => { if (!kaputt) { kaputt = true; fehler = p; } };
+  // Ist das letzte Wort ein Schluesselwort, nach dem ein Ausdruck BEGINNT (/ ein Regex, ++ ein Praefix)? Gegenpruefung 4:
+  //   of    — ein Schluesselwort nur direkt im Kopf eines for (…) und nur HINTER dem Ziel (Name, ] oder }:
+  //           `for (const m of /x/g…)`); ein Name `of` steht dort hinter einem Operator, einer ( oder einem
+  //           Schluesselwort (`for (i = of / 2; …)`), ausserhalb eines for-Kopfs immer. Das ist ohne Parser sicher.
+  //   yield, await — im Modul immer Schluesselwoerter; im klassischen Skript nur in einer Generator- bzw. async-Funktion,
+  //           und die sieht der Scanner nicht. Dann wird der Block `kaputt` (Naeherung, `unsicher`): lieber gesagt
+  //           „Grenzen unsicher" als still einer der zwei Lesarten gefolgt (`var x = yield / 2` las er als Regex).
+  const schluessel = (p) => {
+    if (RESERVIERT_VOR_AUSDRUCK.has(wort)) return true;
+    if (!REGEX_NACH_WORT.has(wort)) return false;   // ein gewoehnlicher Name
+    if (wort === 'of') {
+      const top = st[st.length - 1];
+      return !!(top && top.fuer) && (vorArt === 'wert' || vorArt === 'zu}' || (vorArt === 'wort' && !RESERVIERT_VOR_AUSDRUCK.has(vorWort)));
+    }
+    if (modul) return true;
+    bruch(p); return true;
+  };
   // `art` ist das Letzte, was vor einem / stand. Ein Regex-Literal ist erlaubt am Anfang, nach einem
   // Operator, nach } (Blockende), nach einem Schluesselwort wie return/typeof und nach der ) eines
-  // if/while/for/with-Kopfs. Ein Wort direkt hinter . oder ?. ist eine Eigenschaft (`t.in / t.out`), und
-  // ein nachgestelltes ++/-- schliesst einen Wert ab (`erledigt++ / gesamt`) — Runde 3, je gegen acorn.
-  const regexErlaubt = () => art === 'start' || art === 'op' || art === 'zu}' || art === 'kopf)' || (art === 'wort' && REGEX_NACH_WORT.has(wort));
+  // if/while/for/with-Kopfs. Ein Wort direkt hinter . oder ?. ist eine Eigenschaft (`t.in / t.out`), ebenso ein
+  // privater Name hinter # (`this.#in / 2`, Gegenpruefung 4), und ein nachgestelltes ++/-- schliesst einen Wert ab
+  // (`erledigt++ / gesamt`) — Runde 3 und 4, je gegen acorn.
+  const regexErlaubt = (p) => art === 'start' || art === 'op' || art === 'zu}' || art === 'kopf)' || (art === 'wort' && schluessel(p));
   // Eine Vorlage `…${…}…` ab j (hinter dem oeffnenden ` oder einer schliessenden } eines ${): bis zum ` oder zum naechsten ${.
   const vorlage = (j, anf) => {
     while (j < b) {
@@ -1711,11 +1914,13 @@ export function klammernPaaren(text, a, b) {
   while (i < b) {
     const c = text[i];
     if (LEER.has(c)) { if (ZEILENENDE.has(c)) zeilenAnf = true; i++; continue; }
-    if (c === '/' && text[i + 1] === '/') { const n = text.indexOf('\n', i); i = n < 0 || n > b ? b : n; continue; }
-    if (c === '/' && text[i + 1] === '*') { const n = text.indexOf('*/', i + 2), e = n < 0 || n >= b ? b : n + 2, nl = text.indexOf('\n', i); if (nl >= 0 && nl < e) zeilenAnf = true; i = e; continue; }
-    if (c === '<' && text.startsWith('<!--', i)) { const n = text.indexOf('\n', i); i = n < 0 || n > b ? b : n; continue; }
-    // `-->` am Zeilenanfang (davor nur Leerraum und Kommentare) ist im klassischen Skript ein Kommentar bis zum Zeilenende.
-    if (c === '-' && zeilenAnf && text.startsWith('-->', i)) { const n = text.indexOf('\n', i); i = n < 0 || n > b ? b : n; continue; }
+    // Kommentare enden an jedem Zeilenende von JS (zeilenEnde), nicht nur an \n.
+    if (c === '/' && text[i + 1] === '/') { i = zeilenEnde(text, i, b); continue; }
+    if (c === '/' && text[i + 1] === '*') { const n = text.indexOf('*/', i + 2), e = n < 0 || n >= b ? b : n + 2; if (zeilenEnde(text, i, e) < e) zeilenAnf = true; i = e; continue; }
+    // `<!--` ueberall und `-->` am Zeilenanfang (davor nur Leerraum und Kommentare) sind NUR im klassischen Skript ein
+    // Kommentar bis zum Zeilenende; im Modul sind es Operatoren (a <!--b ist a < !(--b)).
+    if (!modul && c === '<' && text.startsWith('<!--', i)) { i = zeilenEnde(text, i, b); continue; }
+    if (!modul && c === '-' && zeilenAnf && text.startsWith('-->', i)) { i = zeilenEnde(text, i, b); continue; }
     zeilenAnf = false;
     if (c === "'" || c === '"') {
       let j = i + 1;
@@ -1724,9 +1929,9 @@ export function klammernPaaren(text, a, b) {
       i = j + 1; art = 'wert'; continue;
     }
     if (c === '`') { const vor = st.length; i = vorlage(i + 1, i); art = st.length > vor ? 'op' : 'wert'; continue; }
-    if (c === '/' && regexErlaubt()) {
+    if (c === '/' && regexErlaubt(i)) {
       let j = i + 1, klasse = false, ok = false;
-      while (j < b && text[j] !== '\n') {
+      while (j < b && !ZEILENENDE.has(text[j])) {
         const d = text[j];
         if (d === '\\') { j += 2; continue; }
         if (d === '[') klasse = true; else if (d === ']') klasse = false; else if (d === '/' && !klasse) { ok = true; break; }
@@ -1739,14 +1944,21 @@ export function klammernPaaren(text, a, b) {
       let j = i + 1;
       while (j < b && ID_ZEICHEN.test(text[j])) j++;
       if (art === 'punkt') { i = j; art = 'wert'; continue; }   // eine Eigenschaft: kein Schluesselwort, kein `function`
+      vorArt = art; vorWort = wort;
       wort = text.slice(i, j); if (wort === 'function') fn.push(i); art = 'wort'; i = j; continue;
     }
     if ((c >= '0' && c <= '9') || (c === '.' && /\d/.test(text[i + 1] || ''))) { let j = i + 1; while (j < b && /[\w.]/.test(text[j])) j++; i = j; art = 'wert'; continue; }
     if (c === '.') { if (text[i + 1] === '.' && text[i + 2] === '.') { i += 3; art = 'op'; } else { i++; art = 'punkt'; } continue; }
-    if ((c === '+' || c === '-') && text[i + 1] === c) { i += 2; art = art === 'wert' || (art === 'wort' && !REGEX_NACH_WORT.has(wort)) ? 'wert' : 'op'; continue; }
+    // Ein privater Name (#in, #for): was folgt, ist ein Name wie hinter einem Punkt — nie ein Schluesselwort.
+    if (c === '#' && i + 1 < b && ID_ANF.test(text[i + 1])) { i++; art = 'punkt'; continue; }
+    if ((c === '+' || c === '-') && text[i + 1] === c) { i += 2; art = art === 'wert' || (art === 'wort' && !schluessel(i - 2)) ? 'wert' : 'op'; continue; }
     if (c === '{' || c === '(' || c === '[') {
       const k = { ch: c, pos: i };
-      if (c === '(' && art === 'wort' && KOPF_WORT.has(wort)) k.kopf = true;
+      if (c === '(' && art === 'wort') {
+        if (KOPF_WORT.has(wort)) k.kopf = true;
+        // Der Kopf eines for (auch `for await (`): nur direkt darin kann `of` ein Schluesselwort sein.
+        if (wort === 'for' || (wort === 'await' && vorArt === 'wort' && vorWort === 'for')) { k.kopf = true; k.fuer = true; }
+      }
       st.push(k); offen.push(k); i++; art = 'op'; continue;
     }
     if (c === '}' || c === ')' || c === ']') {
@@ -1781,7 +1993,7 @@ export function funktionsBereiche(text, html) {
     while (sk.length && dekl[sk[sk.length - 1]].einzug > dekl[k].einzug) sk.pop();
     naechsteGleich[k] = sk.length ? sk[sk.length - 1] : -1; sk.push(k);
   }
-  const bl = jsBereiche(text, modus).map(([a, b]) => Object.assign({ a, b }, klammernPaaren(text, a, b)));
+  const bl = jsBereiche(text, modus).map(([a, b, modul]) => Object.assign({ a, b }, klammernPaaren(text, a, b, modul)));
   const erste = (liste, pos) => { let lo = 0, hi = liste.length; while (lo < hi) { const mi = (lo + hi) >> 1; if (liste[mi].pos > pos) hi = mi; else lo = mi + 1; } return lo; };
   dekl.forEach((d, k) => {
     const anf = zeilenAnf[d.zeile - 1], naechste = d.zeile < zeilenAnf.length ? zeilenAnf[d.zeile] : text.length;
@@ -1854,11 +2066,23 @@ export function funktionenAusDiff(diff, altText, neuText) {
 //   opts.basis: eine feste Basis (im PR die Basis-Seite des Merge-Commits, waechterBasis) — dann ist sie
 //   zugleich „main"; sonst merge-base mit origin/main.
 // `unsicher` ({ab, grund, namen}): die eigene Aenderung liegt in einem <script>-Block, der nicht aufgeht
-// (gegen die Abzweigstelle UND gegen main), oder der Diff war nicht lesbar — dann gilt jeder Halt auf eine
+// (gegen die Abzweigstelle ODER gegen main), oder der Diff war nicht lesbar — dann gilt jeder Halt auf eine
 // Funktion in `namen` als beruehrt. Zu viel melden ist hier besser als schweigen.
+// Eine UNSICHERE Seite ist kein Filter (Gegenpruefung 4): die Funktionen sind „seit dem Abzweigen" ∩ „anders als
+// main", und in einem Block, dessen Grenzen auf einer Seite nicht bestimmbar sind, gilt dort JEDE seiner Funktionen
+// als moeglich. Vorher: main kaputt, die Sitzung loescht eine Zeile in gsA — die Naeherung legte sie auf main in
+// einen Helfer, die Schnittmenge verlor gsA, und weil nur EINE Seite unsicher war, stand auch kein „Grenzen unsicher"
+// da. Was die GENAUE Seite ausschliesst, bleibt ausgeschlossen; was nur ueber die unsichere Seite hereinkommt,
+// steht in `namen` (der Halt sagt „Grenzen unsicher").
 // Der Diff laeuft ohne Farbe, ohne externes Diff-Programm und ohne textconv: eine Einstellung der Person
 // (color.ui=always, diff.external) machte die Hunk-Koepfe unlesbar, und jeder Funktions-Halt verstummte.
-const DIFF_U0 = ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '-U0'];
+// Gegenpruefung 4, drei weitere: --text (core.bigFileThreshold unter der Dateigroesse oder ein `-diff`-Attribut
+// machten index.html „binaer" — kein Hunk-Kopf, JEDER Funktions-Halt „Grenzen unsicher"), --inter-hunk-context=0
+// (diff.interHunkContext=60 legte zwei Aenderungen in EINEN Hunk und meldete STILL jede Funktion dazwischen) und
+// eine Umgebung ohne GIT_DIFF_OPTS (git 2.43: `GIT_DIFF_OPTS=--unified=12` schlaegt sogar -U0 — zwoelf Zeilen
+// Kontext, STILL zwei Funktionen zu viel) und ohne GIT_EXTERNAL_DIFF. git() selbst bleibt unberuehrt.
+const DIFF_U0 = ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '--text', '--inter-hunk-context=0', '-U0'];
+const DIFF_UMGEBUNG_OHNE = ['GIT_DIFF_OPTS', 'GIT_EXTERNAL_DIFF'];
 export function eigeneAenderung(wurzel, opts) {
   opts = opts || {};
   let MAIN = 'refs/remotes/origin/main', basis;
@@ -1877,17 +2101,32 @@ export function eigeneAenderung(wurzel, opts) {
   const dateien = [...seitBasis].filter(n => gegenMain.has(n) && n.indexOf('docs/austausch/') !== 0).sort();
   let funktionen = [], unsicher = null;
   if (dateien.indexOf('index.html') >= 0) {
+    // Der -U0-Diff in einer EIGENEN Umgebung (ohne die zwei Variablen oben); ein Fehler gibt '' wie bei git().
+    const diffU0 = (gegen) => {
+      const env = Object.assign({}, process.env);
+      for (const k of DIFF_UMGEBUNG_OHNE) delete env[k];
+      let r = null;
+      try { r = cp.spawnSync('git', ['-C', wurzel, '-c', 'core.quotePath=false'].concat(DIFF_U0, [gegen, '--', 'index.html']), { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 256 * 1024 * 1024 }); } catch (_) {}
+      return r && r.status === 0 ? r.stdout || '' : '';
+    };
     let hier = null; try { hier = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8'); } catch (_) {}
     const tBasis = git(wurzel, ['show', basis + ':index.html']), tMain = git(wurzel, ['show', MAIN + ':index.html']);
-    const fa = funktionenAusDiff(git(wurzel, DIFF_U0.concat([basis, '--', 'index.html'])) || '', tBasis, hier);
-    const fm = funktionenAusDiff(git(wurzel, DIFF_U0.concat([MAIN, '--', 'index.html'])) || '', tMain, hier);
-    funktionen = [...fa].filter(x => fm.has(x)).sort();
+    const fa = funktionenAusDiff(diffU0(basis), tBasis, hier);
+    const fm = funktionenAusDiff(diffU0(MAIN), tMain, hier);
+    // Je Seite: die genauen Namen und, ist die Seite unsicher, jede Funktion der beruehrten Bloecke darin.
+    const weit = (x) => x.unsicher ? new Set([...x].concat(x.unsicher.namen)) : x;
+    const wa = weit(fa), wm = weit(fm);
+    funktionen = [...wa].filter(x => wm.has(x)).sort();
     if (fa.unlesbar || fm.unlesbar) {
       const alle = new Set();
       for (const t of [tBasis, tMain, hier]) funktionsBereiche(t).bereiche.forEach(x => alle.add(x.name));
       unsicher = { ab: null, grund: 'der Diff von index.html hat keinen lesbaren Hunk-Kopf (liest git die Datei als binaer, oder formt eine Einstellung den Diff um?)', namen: [...alle].sort() };
-    } else if (fa.unsicher && fm.unsicher) {
-      unsicher = { ab: Math.min(fa.unsicher.ab, fm.unsicher.ab), grund: 'ein <script>-Block geht nicht auf (Zeilen ' + [...new Set(fa.unsicher.bloecke.concat(fm.unsicher.bloecke))].join(', ') + ')', namen: [...new Set(fa.unsicher.namen.concat(fm.unsicher.namen))].sort() };
+    } else if (fa.unsicher || fm.unsicher) {
+      const seiten = [fa.unsicher, fm.unsicher].filter(Boolean), moeglich = new Set(seiten.flatMap(u => u.namen));
+      const un = funktionen.filter(x => moeglich.has(x));
+      // Die Zeilen gehoeren zu den Texten DIESES Vergleichs (Abzweigstelle, main oder der Arbeitsbaum) — gesagt, mit welchem.
+      const wo = fa.unsicher && fm.unsicher ? '' : (fa.unsicher ? ', im Vergleich mit der Abzweigstelle' : ', im Vergleich mit main');
+      if (un.length) unsicher = { ab: Math.min(...seiten.map(u => u.ab)), grund: 'ein <script>-Block geht nicht auf (Zeilen ' + [...new Set(seiten.flatMap(u => u.bloecke))].join(', ') + wo + ')', namen: un };
     }
   }
   const v = (t) => ((t || '').match(SW_VERSION) || [])[1] || null;

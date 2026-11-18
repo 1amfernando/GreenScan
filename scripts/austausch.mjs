@@ -267,6 +267,11 @@ function dichBetreffend(b, abl, sw, aend) {
       else if (!gemergt) z.push('!! Dein Branch ' + up + ' fehlt auf origin (geloescht?) — mit ihm deine gepushten Commits. Neu pushen: git push -u origin HEAD:' + up);
     }
   }
+  // Nicht gelesene Eintragsdateien (Teilabruf: Blob oder Baum nicht im lokalen Objektspeicher) — ein Halt, eine Lage oder
+  // eine Uebernahme darin fehlt OBEN, ohne dass etwas fehlt aussieht (Gegenpruefung 4, R4-lesen-0: im Klon mit
+  // --filter=blob:none hiess es „Das Brett ist leer"). Mit dem Befehl, der sie wirklich holt: `holen` laedt sie nach.
+  { const fe = b.fehlend || [];
+    if (fe.length) { const q = [...new Set(fe.map(x => String(x.quelle || '?')))]; const zl = '!! ' + fe.length + ' Eintragsdatei(en) NICHT gelesen (Teilabruf: nicht im lokalen Objektspeicher, auf ' + q.slice(0, 3).join(', ') + (q.length > 3 ? ' … +' + (q.length - 3) : '') + ') — ein Halt, eine Lage oder eine Uebernahme darin fehlt hier. Holen und nachladen: node scripts/austausch.mjs holen'; befehle.add(zl); z.push(zl); } }
   if (aend.unsicher) z.push('Funktionsgrenzen in index.html ' + (aend.unsicher.ab ? 'ab Zeile ' + aend.unsicher.ab + ' ' : '') + 'nicht bestimmbar: ' + aend.unsicher.grund + ' — jeder Halt auf eine Funktion darin gilt als beruehrt („Grenzen unsicher")');
   if (aend.grund) z.push('Ob ein Halt deine Aenderung beruehrt, ist nicht rechenbar: ' + aend.grund);
   if (!z.length) return;
@@ -419,13 +424,23 @@ function markenBlock(m, ausfuehrlich) {
 function naechste() {
   // Erst holen (wie `nehme`): wer nur `git fetch origin main` faehrt, saehe einen fremden Bump-Halt nicht.
   const geholt = o.nur_lokal ? null : holenStill();
-  const m = A.vergebeneMarken(WURZEL, Date.now(), 14);
+  let m = A.vergebeneMarken(WURZEL, Date.now(), 14);
+  // Im Teilabruf fehlen danach sw.js, STATUS.md und index.html der frischen Branches (oder ihre Baeume): vorher hiess
+  // es „Nicht rechenbar … (erst holen)", und `holen` aenderte daran nichts — ein Kreis (Gegenpruefung 4, R4-lesen-0).
+  // Jetzt laedt `naechste` sie GEZIELT nach (erst die Baeume, dann die Dateien — hoechstens zwei Runden). Nicht mit
+  // --nur-lokal: dort geht keine Anfrage hinaus.
+  let nachMarken = null;
+  for (let runde = 0; geholt && m.grund && m.nachladbar && m.nachladbar.length && runde < 2; runde++) {
+    nachMarken = { versucht: m.nachladbar.length, ok: A.objekteNachladen(WURZEL, m.nachladbar, { frist: holFrist(HOL_FRIST_MS) }) };
+    if (!nachMarken.ok) break;
+    m = A.vergebeneMarken(WURZEL, Date.now(), 14);
+  }
   // Vor einem Bump laeuft `naechste` ohnehin — hier wirkt ein Halt mit Geltung bump. Ein Veto dagegen steht dabei.
   const b = brett(), sw = schwarmVon(b), ich0 = ichVon(), meins = meinsVon(b, ich0);
   const bumpHalt = sw.halts.filter(h => !h.veto && (h.e.geltung || []).map(A.geltungNorm).indexOf('bump') >= 0 && !meins(h.e));
   const vetosGegen = (h) => (sw.vetos.get(h.e.id) || []);
   if (o.json) {
-    aus(JSON.stringify(Object.assign({}, m, { holen: geholt, bumpHalt: bumpHalt.map(h => ({ id: h.e.id, von: h.e.von, quelle: h.e._quelle, bis: new Date(h.bis).toISOString(), text: h.e.text, vetos: vetosGegen(h).map(v => ({ id: v.e.id, von: v.e.von, text: v.e.text })) })) }), null, 1));
+    aus(JSON.stringify(Object.assign({}, m, { holen: geholt, nachgeladen: { eintraege: stillNachgeladen, marken: nachMarken }, bumpHalt: bumpHalt.map(h => ({ id: h.e.id, von: h.e.von, quelle: h.e._quelle, bis: new Date(h.bis).toISOString(), text: h.e.text, vetos: vetosGegen(h).map(v => ({ id: v.e.id, von: v.e.von, text: v.e.text })) })) }), null, 1));
     // Dieselben Exit-Codes wie im Text: 1 bei einem Bump-Halt (geht vor), 2 bei „Nicht rechenbar" — sonst liefe
     // `naechste --json || stop` mit einer leeren Version weiter (Gegenpruefung 3: es endete mit 0).
     if (bumpHalt.length) process.exitCode = 1;
@@ -433,7 +448,13 @@ function naechste() {
     return;
   }
   if (geholt === false) aus('\n(Holen hat nicht geklappt — gerechnet auf dem Stand, den git kennt.)');
-  if (m.grund) ende(2, 'Nicht rechenbar: ' + m.grund + '\n(erst `node scripts/austausch.mjs holen`)');
+  { const s = nachladeSatz(stillNachgeladen); if (s.indexOf('!!') >= 0) aus(s.slice(s.indexOf('!!') - 1)); }
+  // Der Hinweis nennt einen Befehl, der WIRKLICH hilft (vorher „erst holen" — im Teilabruf ein Kreis).
+  const teil = !!(m.nachladbar && m.nachladbar.length);
+  if (m.grund) ende(2, 'Nicht rechenbar: ' + m.grund + '\n' + (!teil ? '(erst `node scripts/austausch.mjs holen`)'
+    : o.nur_lokal ? '(ohne --nur-lokal holt `naechste` selbst und laedt fehlende Dateien gezielt nach: node scripts/austausch.mjs naechste)'
+    : geholt === false ? '(Holen hat nicht geklappt — mit Netz noch einmal: node scripts/austausch.mjs naechste)'
+    : '(Nachladen' + (nachMarken ? ' von ' + nachMarken.versucht + ' Objekt(en)' : '') + ' hat nicht alles gebracht — origin erreichbar? Noch einmal: node scripts/austausch.mjs naechste)'));
   markenBlock(m, true);
   if (!ich0) aus('\n(Wer du bist, ist nicht ablesbar — losgeloester HEAD: auch ein EIGENER Bump-Halt zaehlt hier als fremder. --von setzen.)');
   if (bumpHalt.length) {
@@ -642,8 +663,17 @@ function holen() {
   // --prune: ein geloeschter Branch verschwindet auch hier — sonst zeigte `lesen` seine Eintraege
   // weiter als lebend, und der Verlust faele nie auf (die Sicherung `zz-sicherung` haelt sie fest).
   const r = A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { frist: holFrist(HOL_FRIST_MS) });
-  aus(r == null ? '\nHolen hat NICHT geklappt (kein Netz, kein origin, oder keine Antwort binnen ' + Math.round(holFrist(HOL_FRIST_MS) / 1000) + ' s?) — gezeigt wird der Stand, den git schon kennt.' : '\nAlle Branches geholt.');
+  aus(r == null ? '\nHolen hat NICHT geklappt (kein Netz, kein origin, oder keine Antwort binnen ' + Math.round(holFrist(HOL_FRIST_MS) / 1000) + ' s?) — gezeigt wird der Stand, den git schon kennt.' : '\nAlle Branches geholt.' + nachladeSatz(eintraegeNachladenNachHolen(HOL_FRIST_MS)));
   lesen();
+}
+// Nach dem Holen die Eintraege ausdruecklich NACHLADEN (Gegenpruefung 4, R4-lesen-0): in einem Klon mit
+// --filter=blob:none sah `holen` sonst keinen einzigen fremden Eintrag — „Das Brett ist leer", auch nach dem Holen.
+// Nur nach einem geklappten Abruf (sonst wartete eine zweite Frist auf denselben haengenden Remote), nur im Teilabruf.
+function eintraegeNachladenNachHolen(vorgabe) { return A.eintraegeNachladen(WURZEL, { frist: holFrist(vorgabe) }); }
+function nachladeSatz(n) {
+  if (!n || !n.teilabruf || (!n.noetig && !n.fehlt.length)) return '';
+  return (n.geholt ? ' ' + n.geholt + ' Eintragsdatei(en) nachgeladen (Teilabruf).' : '')
+    + (n.fehlt.length ? '\n!! ' + n.fehlt.length + ' Eintragsdatei(en) bzw. Baeume liessen sich NICHT nachladen' + (n.ok ? '' : ' (Abruf gescheitert oder Frist abgelaufen)') + ' — sie bleiben unlesbar: ' + n.fehlt.slice(0, 3).map(x => /^[0-9a-f]{40,64}$/.test(x) ? x.slice(0, 12) : x).join(', ') + (n.fehlt.length > 3 ? ' … +' + (n.fehlt.length - 3) : '') : '');
 }
 // Frist fuer das Holen (Gegenpruefung 3: `naechste` und `nehme` warteten, solange der Remote hing — 20 s bei
 // `ext::sh -c sleep 20`). Still (vor `naechste` und `nehme`) 20 s, `holen` 120 s; danach „Holen hat nicht geklappt"
@@ -652,7 +682,14 @@ const HOL_FRIST_MS = 120000, HOL_FRIST_STILL_MS = 20000;
 const holFrist = (vorgabe) => { const n = Number(process.env.AUSTAUSCH_HOLEN_FRIST_MS); return n > 0 ? n : vorgabe; };
 
 // ── Der Schwarm: Lage, Uebernahme, Halt, Veto, Aufheben, Sichern.
-function holenStill() { return A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { frist: holFrist(HOL_FRIST_STILL_MS) }) != null; }
+// Danach die Eintraege nachladen (wie `holen`): `naechste` braucht die fremden Bump-Halts, `nehme` die fremden
+// Uebernahmen — im Klon mit --filter=blob:none fehlten beide, und `nehme` schrieb still eine zweite (Gegenpruefung 4).
+let stillNachgeladen = null;
+function holenStill() {
+  const ok = A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { frist: holFrist(HOL_FRIST_STILL_MS) }) != null;
+  stillNachgeladen = ok ? eintraegeNachladenNachHolen(HOL_FRIST_STILL_MS) : null;
+  return ok;
+}
 // Darf diese Sitzung diese Ziele nehmen (bzw. dabei mithelfen)? EINE Rechnung mit dem Brett: die neue Lage wird
 // probeweise dazugelegt und `schwarm` rechnet — vorher zaehlte `nehme` den Deckel anders als das Brett
 // (Mithelf-Lagen nicht), sagte „Geschrieben", und die Uebernahme galt still nicht (Gegenpruefung 3).
@@ -698,6 +735,9 @@ function nehme() {
   if (!o._.length) ende(2, 'Gebrauch: node scripts/austausch.mjs nehme <id> [--bis 6h] [--text "…"] [--auch]   (schreibt eine Lage mit Bezug baut_auf)');
   // Vorher holen: wer gleichzeitig nimmt, soll es sehen. Die AELTESTE Uebernahme gilt.
   const geholt = holenStill();
+  // holenStill hat die Eintraege nachgeladen (Teilabruf). Was sich nicht laden liess, wird VOR der Pruefung gesagt —
+  // eine Uebernahme darin waere hier unsichtbar (Gegenpruefung 4: `nehme` schrieb still eine zweite).
+  { const s = nachladeSatz(stillNachgeladen); if (s.indexOf('!!') >= 0) aus(s.slice(s.indexOf('!!') - 1)); }
   // `von` EINMAL rechnen (vorher zweimal — die Upstream-Warnung stand doppelt da).
   const b = brett(), von = vonFuerAbsicht('lage');
   const f = uebernahmePruefen(b, o._.map(k => finde(b, k).id), von, !!o.auch);

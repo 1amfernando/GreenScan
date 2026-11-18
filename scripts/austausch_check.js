@@ -224,7 +224,7 @@ const FAELLE = [
       // Nicht pruefbar (Exit 2), wenn „keiner beruehrt" eine Taeuschung waere: kein Branch sichtbar, oder Eintragsdateien
       // fehlen im Teilabruf, die einen Halt tragen koennten (C18). Die uebrigen Gruende sagen: hier gibt es nichts zu rechnen.
       if (r.grund) return r.nichtPruefbar ? { offen: true, warum: r.grund } : { ok: true, info: 'nicht rechenbar: ' + r.grund };
-      return { ok: true, info: (r.fehlend ? r.fehlend + ' Eintragsdatei(en) nicht geholt (Teilabruf: je mindestens ' + Math.round(r.fehlendAb / 1024) + ' KB laut Filter des Teilabrufs — groesser, als ein Eintrag sein darf) · ' : '') + r.halts.length + ' wirksame Halt(s) auf ' + r.refs + ' Remote-Refs und im Baum · ' + r.aend.dateien.length + ' Datei(en), ' + r.aend.funktionen.length + ' Funktion(en) geaendert' + (r.aend.bump ? ', mit Bump' : '') + ' · ' + (r.treffer.length ? '!! BERUEHRT: ' + r.treffer.map(x => x.h.e.id + ' {' + x.h.e._quelle + '} von ' + x.h.e.von + ' bis ' + x.h.e.bis + ' (' + x.t.slice(0, 3).join(', ') + ') — „' + kurz(x.h.e.text, 80) + '"').join(' | ') : 'keiner beruehrt diesen Stand') };
+      return { ok: true, info: (r.fehlend ? r.fehlend + ' Eintragsdatei(en) nicht geholt (Teilabruf: je mindestens ' + Math.round(r.fehlendAb / 1024) + ' KB laut Filter der CI — groesser, als ein Eintrag sein darf) · ' : '') + r.halts.length + ' wirksame Halt(s) auf ' + r.refs + ' Remote-Refs und im Baum · ' + r.aend.dateien.length + ' Datei(en), ' + r.aend.funktionen.length + ' Funktion(en) geaendert' + (r.aend.bump ? ', mit Bump' : '') + ' · ' + (r.treffer.length ? '!! BERUEHRT: ' + r.treffer.map(x => x.h.e.id + ' {' + x.h.e._quelle + '} von ' + x.h.e.von + ' bis ' + x.h.e.bis + ' (' + x.t.slice(0, 3).join(', ') + ') — „' + kurz(x.h.e.text, 80) + '"').join(' | ') : 'keiner beruehrt diesen Stand') };
     },
   },
   {
@@ -1961,10 +1961,11 @@ const FAELLE = [
           if (a.funktionen.join() !== 'gsKal' || halten(a) !== 'gsKal()') f.push('mit ' + k + '=' + v + ': funktionen „' + a.funktionen.join() + '", Halt „' + halten(a) + '" — erwartet gsKal');
           g(d, ['config', '--unset', k]);
         }
-        // git liest index.html als binaer: kein Hunk-Kopf — gesagt, und jeder Funktions-Halt gilt als beruehrt.
+        // Ein `-diff`-Attribut macht index.html fuer git „binaer" — der Diff liest sie trotzdem als Text (--text, Gegenpruefung 4:
+        // vorher kein Hunk-Kopf und JEDER Funktions-Halt „Grenzen unsicher"). Den Rueckfall ohne Hunk-Kopf haelt jetzt C21.
         fs.writeFileSync(path.join(d, '.gitattributes'), 'index.html -diff\n');
         a = A.eigeneAenderung(d);
-        if (!a.unsicher || !/Hunk-Kopf/.test(a.unsicher.grund) || halten(a) !== 'gsKal() — Grenzen unsicher,gsNach() — Grenzen unsicher') f.push('index.html binaer gelesen: unsicher ' + kurz(JSON.stringify(a.unsicher), 120) + ', Halt „' + halten(a) + '" — erwartet „kein lesbarer Hunk-Kopf" und beide Funktionen „Grenzen unsicher"');
+        if (a.funktionen.join() !== 'gsKal' || a.unsicher || halten(a) !== 'gsKal()') f.push('index.html binaer markiert (-diff): funktionen „' + a.funktionen.join() + '", unsicher ' + kurz(JSON.stringify(a.unsicher), 120) + ', Halt „' + halten(a) + '" — erwartet gsKal, sicher (der Diff laeuft mit --text)');
         fs.rmSync(path.join(d, '.gitattributes'));
         // gsNach ganz geloescht (nur die alte Seite im Diff): der Halt trifft sie.
         fs.writeFileSync(path.join(d, 'index.html'), KAL.replace(ZEILE, '  liste.forEach(function (eintrag) { var e = eintrag;').replace('function gsNach() {\n  return 1;\n}\n', ''));
@@ -1992,7 +1993,7 @@ const FAELLE = [
     name: 'C18 · Lesen im Teilabruf · .github/workflows/pruefstaende.yml, gelesen (checkout mit fetch-depth: 2 und persist-credentials: false, „Branches fuer das Brett" VOR „Prüfstände", ein Filter ueber 64 KB, kein Token, GIT_NO_LAZY_FETCH) und ihr Schritt WOERTLICH in einem nachgebauten PR-Checkout: der C7-Aufruf und `naechste` erzeugen KEIN neues Pack — auch ohne die Variable und mit einem git, das sie nicht kennt; ein fehlender Blob nimmt den anderen nichts (auch ohne erreichbares origin); was fehlt, steht mit Quelle da (unlesbar, `naechste` nicht rechenbar); A8 ist nicht pruefbar ohne Branches oder wenn ein fehlender Blob ein Eintrag sein koennte; dieselben Bytes unter zwei gueltigen Namen sind EINE Fassung mit beiden Quellen, ein falscher Name ist nur an SEINER Stelle unlesbar',
     lauf: () => {
       const eltern = tmp('teilabruf'), bare = path.join(eltern, 'origin.git'), src = path.join(eltern, 'src'), ci = path.join(eltern, 'ci');
-      const altPfad = process.env.PATH, altNl = process.env.GIT_NO_LAZY_FETCH;
+      const altPfad = process.env.PATH, altNl = process.env.GIT_NO_LAZY_FETCH, altGa = process.env.GITHUB_ACTIONS;
       // Eingebettete Ausgaben auf EINE Zeile: sonst saehe ein Bericht die Zeile „--   A8 …" eines inneren Laufs als eigenen Fall.
       const kurz1 = (t, m) => kurz(String(t || '').replace(/\s*\n\s*/g, ' ⏎ '), m);
       try {
@@ -2051,7 +2052,10 @@ const FAELLE = [
         const klein1 = kennung('refs/remotes/origin/claude/andere', path.posix.join(A.ORDNER, andere.slice(0, 7), andereDatei)), klein2 = kennung('refs/remotes/origin/claude/v', path.posix.join(A.ORDNER, vHalt.slice(0, 7), vDatei));
         // Kontrolle: der grosse Blob FEHLT wirklich (sonst misst der Rest nichts).
         if (cp.spawnSync('git', ['-C', ci, 'rev-list', '--objects', '--missing=print', 'refs/remotes/origin/claude/gross'], { encoding: 'utf8' }).stdout.indexOf('?' + grossBlob) < 0) return { ok: false, warum: f.concat('Aufbau: der 230-KB-Blob liegt im Nachbau doch lokal — kein Teilabruf').join(' · ') };
-        const pr = { GITHUB_EVENT_NAME: 'pull_request', GITHUB_HEAD_REF: 'claude/pr' };
+        // Der Nachbau IST die CI: nur dort gilt die Teilabruf-Grenze als belegt (Gegenpruefung 4, R4-lesen-5 — die Konfiguration
+        // allein ist kein Beweis; C22 prueft die Gegenseite). Deshalb GITHUB_ACTIONS fuer den Prozess UND diesen Lauf.
+        const pr = { GITHUB_EVENT_NAME: 'pull_request', GITHUB_HEAD_REF: 'claude/pr', GITHUB_ACTIONS: 'true' };
+        process.env.GITHUB_ACTIONS = 'true';
         // ── 4. Der C7-Aufruf und `naechste`, mit der Umgebung aus der Action: kein neues Pack, und was fehlt, wird gesagt.
         let p0 = packs(ci);
         r = werkzeug(ci, ['--nur-lokal'], ymlEnv);
@@ -2127,7 +2131,7 @@ const FAELLE = [
         if (!/Wirkt jetzt: ja, bis/.test(r.aus)) f.push('`zeige` nennt den Halt mit Kopien nicht wirksam: ' + kurz1((r.aus.match(/Wirkt jetzt:[^\n]*/) || ['(nichts)'])[0], 160));
         if (f.length) return { ok: false, warum: f.join(' · ') };
         return { ok: true, info: 'pruefstaende.yml: checkout (Tiefe 2, ohne Token) → Branches (promisor, ' + k1 + 'k > ' + (A.EINTRAG_MAX_BYTES / 1024) + ' KB) → Prüfstände (GIT_NO_LAZY_FETCH=' + nl + ') · Nachbau mit ' + remoteRefs.length + ' Refs: C7-Aufruf und naechste ohne neues Pack, auch ohne Variable und mit einem git, das sie nicht kennt · fehlende Datei mit Quelle genannt, Marken nicht rechenbar · ein fehlender Blob nimmt dem Rest nichts (auch ohne origin, auch „missing") · A8: ohne Branches und bei blob:none nicht pruefbar, sonst BERUEHRT mit 1 nicht geholter Datei · ein Halt unter 3 Namen: eine Fassung, wirksam, nur die fremde id unlesbar' };
-      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { process.env.PATH = altPfad; if (altNl == null) delete process.env.GIT_NO_LAZY_FETCH; else process.env.GIT_NO_LAZY_FETCH = altNl; weg(eltern); }
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { process.env.PATH = altPfad; if (altNl == null) delete process.env.GIT_NO_LAZY_FETCH; else process.env.GIT_NO_LAZY_FETCH = altNl; if (altGa == null) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = altGa; weg(eltern); }
     },
   },
   {
@@ -2810,6 +2814,275 @@ const FAELLE = [
         if (f.length) return { ok: false, warum: f.join(' · ') };
         return { ok: true, info: 'Verzeichnis da, ein Lauf ohne Aenderung schreibt nichts · Rueckzug je id und je Fassung, Branch geloescht: kein Alarm, nicht gesichert, nicht GERETTET · neuere Berichtigung: jeder Lauf „Zurueckgenommen?", nie abgebaut · strittig nicht befoerdert · Handarbeit auf zz-sicherung verworfen · Quarantaene ohne Cache bewahrt (zweifach) · unlesbarer Blob lebt weiter: kein Alarm · Rueckzug nie gesicherter Fassung · abgelaufene Lagen · veraltetes Gedaechtnis · neu angelegter Branch gemeldet und im Verzeichnis · altes Gedaechtnisformat' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); }
+    },
+  },
+  {
+    name: 'C21 · Scanner Runde 4 · gebaute Faelle mit acorn-gleichem Soll: of als Name (auch im for-Kopf, destrukturiert, for await), #privat vor /, ein Modul (<!-- ist dort kein Kommentar, await ein Schluesselwort), U+2028/U+2029 beenden //-, <!-- und -->, Unicode-Leerraum ist Leerraum — und yield/await als moeglicher Name im klassischen Skript heisst UNSICHER, nie still eine Lesart; als PROZESS: eine unsichere Seite (nur main oder nur die Abzweigstelle kaputt) filtert die geaenderte Funktion nicht weg, der -U0-Diff haelt diff.interHunkContext, core.bigFileThreshold, diff.context, einem binary-Attribut, GIT_DIFF_OPTS und GIT_EXTERNAL_DIFF stand, und ein git ohne Hunk-Kopf bleibt laut',
+    lauf: () => {
+      const f = [];
+      // Unsichtbare Zeichen nur als Zahl im Quelltext: ein Werkzeug verwandelte Escapes schon in echte Zeichen (CLAUDE.md, rls_check).
+      const Z = (n) => String.fromCharCode(n), LS = Z(0x2028), PS = Z(0x2029), GEVIERT = Z(0x2003), IDEO = Z(0x3000);
+      const bereicheVon = (fb) => fb.bereiche.map(r => r.name + ' ' + r.von + '-' + r.bis).join(', ');
+      const B = 'function gsB() {\n  return 1;\n}\n';
+      // 1. Der Klammer-Scanner (Gegenpruefung 4). Soll je Fall aus acorn 8.18 (ecmaVersion latest, ein Modul als sourceType
+      //    module): jeder Funktionsrumpf als dasselbe Klammerpaar, daraus diese Bereiche. Wo ohne Parser keine Lesart sicher ist,
+      //    ist das Soll `unsicher` ab dieser Zeile (die Bereiche sind dann die Naeherung).
+      const FALL = [
+        ['of als Name', 'function gsA(of) {\n  return of / 2; } function gsZ() { return 6 /\n 3;\n}\n' + B, false, 'gsA 1-2, gsB 5-7'],
+        ['of im for-Kopf als Schluesselwort', "function gsA(s) {\n  for (const m of /[(]/g.exec(s) || []) { s = m + '/'; }\n  return s;\n}\n" + B, false, 'gsA 1-4, gsB 5-7'],
+        ['of im for-Kopf als Name', 'function gsA(of) {\n  for (var i = of / 2; i < 3; i++) { of = i / 2; }\n  return of;\n}\n' + B, false, 'gsA 1-4, gsB 5-7'],
+        ['of destrukturiert', "function gsA(list) {\n  for (const { of } of list) { var t = of / 2, u = '/'; }\n  return t;\n}\n" + B, false, 'gsA 1-4, gsB 5-7'],
+        ['for await (… of /re/)', "async function gsA(q) {\n  for await (const x of /[(]/g[Symbol.matchAll]('aa')) { q = x + '/'; }\n  return q;\n}\n" + B, false, 'gsA 1-4, gsB 5-7'],
+        ['this.#in / 2', 'function gsA() {\n  class K { #in = 4; m() { return this.#in / 2; } } return K; } function gsZ() { return 6 /\n 3;\n}\n' + B, false, 'gsA 1-2, gsB 5-7'],
+        ['Modul: a <!--b', '<p>\n<script type="module">\nlet a = 1, b = 2;\nif (a <!--b) { a = 0; }\nfunction gsB() {\n  return a;\n}\n</script>\n', true, 'gsB 5-7'],
+        ['Modul: type=MODULE', '<p>\n<script type=MODULE>\nlet a = 1, b = 2;\nif (a <!--b) { a = 0; }\nfunction gsB() {\n  return a;\n}\n</script>\n', true, 'gsB 5-7'],
+        ['Modul: await /re/', '<p>\n<script type="module">\nconst r = await /a/.test(s) ? 1 : 2;\nfunction gsB() {\n  return /[}]/.test(r);\n}\n</script>\n', true, 'gsB 4-6'],
+        ['klassisch (das ERSTE type zaehlt): <!-- } bleibt Kommentar', '<p>\n<script type="text/javascript" type="module">\nfunction gsA() {\n  x(); <!-- }\n  return 1;\n}\n</script>\n', true, 'gsA 3-6'],
+        ['// endet an U+2028', '<script>\nfunction gsA() {\n  var x = 1; // Notiz' + LS + '}\nfunction gsB() {\n  return 2;\n}\n</script>\n', true, 'gsA 2-3, gsB 4-6'],
+        ['<!-- endet an U+2029', 'function gsA() {\n  x(); <!-- Notiz' + PS + '}\nfunction gsB() {\n  return 2;\n}\n', false, 'gsA 1-2, gsB 3-5'],
+        ['--> hinter U+2028 endet an U+2028', 'function gsA() {\n  var x = 1;' + LS + '--> Notiz' + LS + '}\nfunction gsB() {\n  return 2;\n}\n', false, 'gsA 1-2, gsB 3-5'],
+        ['U+2003 vor einem Regex', 'function gsA(s) {\n  var x =' + GEVIERT + '/[{]/.test(s);\n  return x;\n}\n' + B, false, 'gsA 1-4, gsB 5-7'],
+        ['return, U+3000, /re/', 'function gsA(s) {\n  return' + IDEO + '/[{]/.test(s);\n}\n' + B, false, 'gsA 1-3, gsB 4-6'],
+        ['ein Teilen hinter U+2003', "function gsA(x) {\n  var y = x" + GEVIERT + "/ 2, s = 'a/b';\n  return y;\n}\n" + B, false, 'gsA 1-4, gsB 5-7'],
+        // Hinter {…} haelt der Scanner / fuer einen Regex-Anfang; ein Regex endet aber an JEDEM Zeilenende — sonst verschluckte er
+        // hier bis zum naechsten / (still: gsA 1-4).
+        ['{a: 1} / 2, danach U+2028', 'function gsA() {\n  var v = {a: 1} / 2;' + LS + 'return v; } function gsZ() { return 6 /\n 3;\n}\n' + B, false, 'gsA 1-2, gsB 5-7'],
+        ['/* … U+2028 … */ --> ist ein Kommentar', 'function gsA() {\n  x(); /* a' + LS + 'b */ --> Notiz }\n  return 1;\n}\n' + B, false, 'gsA 1-4, gsB 5-7'],
+        // Ohne Parser nicht zu trennen: yield/await sind im klassischen Skript Namen ODER Schluesselwoerter (Generator, async).
+        // Vorher STILL eine Lesart (acorn 5 Paare, Scanner 0, kaputt=false); jetzt sagt der Block, dass er unsicher ist.
+        ['yield als Name', 'function gsA() {\n  var yield = 4; var x = yield / 2; if (x) { y(); } var z = [1, 2]; f(z) / 2;\n  return x;\n}\n' + B, false, null, 2],
+        ['await als Name', 'function gsA() {\n  var await = 4; var x = await / 2; if (x) { y(); } var z = [1, 2]; f(z) / 2;\n  return x;\n}\n' + B, false, null, 2],
+      ];
+      for (const [was, t, html, soll, unsicherAb] of FALL) {
+        const fb = A.funktionsBereiche(t, html), ist = bereicheVon(fb), ab = fb.unsicher ? fb.unsicherBloecke[0].ab : null;
+        if (soll != null && (fb.unsicher || ist !== soll)) f.push('„' + was + '": ' + (ist || 'kein Bereich') + (fb.unsicher ? ' (unsicher ab ' + ab + ')' : '') + ' — erwartet ' + soll + ', nicht unsicher (acorn)');
+        if (soll == null && ab !== unsicherAb) f.push('„' + was + '": ' + ist + (fb.unsicher ? ' (unsicher ab ' + ab + ')' : ', sicher') + ' — erwartet unsicher ab Zeile ' + unsicherAb + ' (ohne Parser keine sichere Lesart)');
+      }
+      const eltern = tmp('scanner4'), altPfad = process.env.PATH, alt = { GIT_DIFF_OPTS: process.env.GIT_DIFF_OPTS, GIT_EXTERNAL_DIFF: process.env.GIT_EXTERNAL_DIFF };
+      const zurueck = () => { process.env.PATH = altPfad; for (const k of Object.keys(alt)) { if (alt[k] == null) delete process.env[k]; else process.env[k] = alt[k]; } };
+      try {
+        // Ein Klon mit eigenem origin; `start` liegt auf main.
+        const bauen = (name, start) => {
+          const bare = path.join(eltern, name + '.git'), d = path.join(eltern, name);
+          cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
+          fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
+          fs.writeFileSync(path.join(d, 'index.html'), start); fs.writeFileSync(path.join(d, 'sw.js'), "const VERSION = 'gs-v1.00';\n");
+          g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'start']); g(d, ['push', '-q', 'origin', 'main']);
+          return d;
+        };
+        const html = (d, t) => fs.writeFileSync(path.join(d, 'index.html'), t);
+        const halten = (geltung, a) => A.haltBeruehrt({ geltung }, a).join();
+        // 2. Eine UNSICHERE Seite filtert nichts weg. gsInnen steht NICHT eingerueckt in gsA; die Sitzung loescht nur
+        //    `var b = 2;` — eine Zeile in gsA. Vorher (nur main kaputt): funktionen [], unsicher null, der Halt auf gsA schwieg.
+        const GESUND = '<script>\nfunction gsA() {\n  var a = 1;\nfunction gsInnen() {\n  return 1;\n}\n  var b = 2;\n  var c = 3;\n}\n</script>\n';
+        const KAPUTT = GESUND.replace('</script>', '}\n</script>');   // eine } zu viel: der Block geht nicht auf
+        const ohneB = (t) => t.replace('  var b = 2;\n', '');
+        for (const [was, basisT, mainT, sollA] of [
+          ['beide Seiten gesund (Kontrolle)', GESUND, null, 'gsA()'],
+          ['nur main kaputt', GESUND, KAPUTT, 'gsA() — Grenzen unsicher'],
+          ['nur die Abzweigstelle kaputt', KAPUTT, GESUND, 'gsA() — Grenzen unsicher'],
+        ]) {
+          const d = bauen('seite' + was.length, basisT);
+          g(d, ['checkout', '-q', '-b', 'claude/arbeit']); html(d, ohneB(GESUND)); g(d, ['commit', '-q', '-am', 'var b weg']);
+          if (mainT != null) { g(d, ['checkout', '-q', 'main']); html(d, mainT); g(d, ['commit', '-q', '-am', 'main weiter']); g(d, ['push', '-q', 'origin', 'main']); g(d, ['checkout', '-q', 'claude/arbeit']); }
+          g(d, ['fetch', '-q', 'origin']);
+          const a = A.eigeneAenderung(d), hA = halten(['gsA'], a), hI = halten(['gsInnen'], a);
+          if (a.funktionen.indexOf('gsA') < 0 || hA !== sollA || hI !== '') f.push(was + ': funktionen „' + a.funktionen.join() + '", unsicher ' + kurz(JSON.stringify(a.unsicher), 160) + ', Halt gsA „' + hA + '", Halt gsInnen „' + hI + '" — erwartet gsA darin, Halt gsA „' + sollA + '", gsInnen nicht beruehrt (die genaue Seite schliesst ihn aus)');
+        }
+        // 3. Der -U0-Diff haelt Einstellungen der Person stand: sechs Funktionen zu je 10 Zeilen, die Sitzung aendert je eine
+        //    Zeile in gsF0 und gsF5 (50 Zeilen auseinander). Davor ein Kommentar, damit die Datei ueber 2 KB liegt.
+        //    Vorher: diff.interHunkContext=60 → ein Hunk, gsF0…gsF5 und ein STILLER Treffer auf gsF2; core.bigFileThreshold=1k
+        //    und ein binary-Attribut → kein Hunk-Kopf, jede Funktion „Grenzen unsicher"; GIT_DIFF_OPTS=--unified=12 schlug -U0
+        //    (git 2.43) → gsF1 und gsF4 STILL dazu.
+        const SECHS = '<!-- ' + 'Polster '.repeat(300) + '-->\n<script>\n' + [0, 1, 2, 3, 4, 5].map(k => 'function gsF' + k + '(a) {\n' + [1, 2, 3, 4, 5, 6, 7, 8].map(z => '  var x' + k + '_' + z + ' = a + ' + z + ';').join('\n') + '\n}\n').join('') + '</script>\n';
+        const d = bauen('einstellungen', SECHS);
+        g(d, ['checkout', '-q', '-b', 'claude/arbeit']);
+        html(d, SECHS.replace('  var x0_4 = a + 4;', '  var x0_4 = a + 40;').replace('  var x5_4 = a + 4;', '  var x5_4 = a + 40;')); g(d, ['commit', '-q', '-am', 'gsF0 und gsF5']);
+        g(d, ['fetch', '-q', 'origin']);
+        const pruefe = (was) => {
+          const a = A.eigeneAenderung(d), h = halten(['gsF2', 'gsF0'], a);
+          if (a.funktionen.join() !== 'gsF0,gsF5' || a.unsicher || h !== 'gsF0()') f.push(was + ': funktionen „' + a.funktionen.join() + '", unsicher ' + kurz(JSON.stringify(a.unsicher && { grund: a.unsicher.grund, namen: a.unsicher.namen.length }), 140) + ', Halt auf gsF2 und gsF0 „' + h + '" — erwartet gsF0,gsF5, sicher, nur gsF0() beruehrt');
+        };
+        pruefe('ohne Einstellung (Kontrolle)');
+        for (const [k, v] of [['diff.interHunkContext', '60'], ['core.bigFileThreshold', '1k'], ['diff.context', '12']]) { g(d, ['config', k, v]); pruefe('mit ' + k + '=' + v); g(d, ['config', '--unset', k]); }
+        const attr = path.join(d, '.git', 'info', 'attributes');
+        fs.mkdirSync(path.dirname(attr), { recursive: true }); fs.writeFileSync(attr, 'index.html binary\n'); pruefe('mit „index.html binary" in .git/info/attributes'); fs.rmSync(attr);
+        process.env.GIT_DIFF_OPTS = '--unified=12'; pruefe('mit GIT_DIFF_OPTS=--unified=12'); zurueck();
+        process.env.GIT_EXTERNAL_DIFF = 'true'; pruefe('mit GIT_EXTERNAL_DIFF=true'); zurueck();
+        // 4. Der Rueckfall bleibt laut: ein git, das fuer den -U0-Diff nichts ausgibt (so wirkte vorher ein -diff-Attribut, und
+        //    so koennte ein kuenftiges git wirken) — kein Hunk-Kopf, gesagt, und jede Funktion gilt als „Grenzen unsicher".
+        const bin = path.join(eltern, 'bin'); fs.mkdirSync(bin);
+        const echtGit = cp.execFileSync('bash', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+        fs.writeFileSync(path.join(bin, 'git'), '#!/bin/sh\nfor a in "$@"; do [ "$a" = "-U0" ] && exit 0; done\nexec "' + echtGit + '" "$@"\n', { mode: 0o755 });
+        process.env.PATH = bin + ':' + altPfad;
+        const aL = A.eigeneAenderung(d);
+        zurueck();
+        if (!aL.unsicher || !/Hunk-Kopf/.test(aL.unsicher.grund || '') || halten(['gsF2'], aL) !== 'gsF2() — Grenzen unsicher') f.push('ein git ohne Hunk-Kopf: unsicher ' + kurz(JSON.stringify(aL.unsicher && aL.unsicher.grund), 120) + ', Halt gsF2 „' + halten(['gsF2'], aL) + '" — erwartet „kein lesbarer Hunk-Kopf" und gsF2() — Grenzen unsicher');
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { zurueck(); weg(eltern); }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: FALL.length + ' Scanner-Faelle wie acorn (of, #privat, Modul, U+2028/2029, Unicode-Leerraum) bzw. unsicher (yield/await) · eine unsichere Seite filtert gsA nicht weg (nur main, nur Abzweigstelle) · Diff haelt interHunkContext, bigFileThreshold, diff.context, binary, GIT_DIFF_OPTS, GIT_EXTERNAL_DIFF · ohne Hunk-Kopf laut' };
+    },
+  },
+  {
+    // Gegenpruefung 4, Linse „lesen" (R4-lesen-0, R4-lesen-1, R4-lesen-5, R4-schwarm-9; aus R4-lesen-3 die Faelle L2 und
+    // G1, deren Regeln schon standen, aber kein Fall sie hielt). Gebaut in ECHTEN Teilabruf-Klonen (blob:none, tree:0,
+    // blob:limit=200k) gegen ein origin mit uploadpack.allowFilter — wie C18, aber ausserhalb der CI: wer lokal mit Filter
+    // klont, muss mit `holen` dasselbe Brett sehen wie im vollen Klon. Jede Zeile hat ihre Gegenprobe (eine Regel
+    // zurueckgebaut → genau diese Zeile rot).
+    name: 'C22 · Lesen Runde 4 · im Klon mit --filter=blob:none sieht `holen` den fremden Halt (vorher: „Das Brett ist leer"), `nehme` sieht die fremde Uebernahme, `naechste` laedt nach statt im Kreis zu `holen` zu schicken, und ungelesene Eintraege stehen unter DICH BETREFFEND mit dem Befehl, der sie holt; ein Klon mit --filter=tree:0 macht die Nummern eines Branches „nicht rechenbar" statt sie still wegzulassen (auch mit einem git, das GIT_NO_LAZY_FETCH nicht kennt), ein Branch mit Commit-Zeit in der Zukunft ebenso; eine Teilabruf-Grenze gilt nur, wo sie belegt ist (CI); die Grabstein-Lese laedt nichts nach; die Frist beim Holen laesst keine Waisen liegen',
+    lauf: () => {
+      const eltern = tmp('lesen4'), bare = path.join(eltern, 'origin.git'), src = path.join(eltern, 'src');
+      const altNl = process.env.GIT_NO_LAZY_FETCH, altGa = process.env.GITHUB_ACTIONS, altPfad = process.env.PATH;
+      const marke = (300 + Math.random() * 400).toFixed(4);   // haengender Remote: `sleep <marke>` — eindeutig fuer die Suche nach Waisen
+      const prozesseMit = (wort) => { if (!fs.existsSync('/proc')) return null; const r = []; for (const p of fs.readdirSync('/proc')) { if (!/^\d+$/.test(p)) continue; let c = ''; try { c = fs.readFileSync('/proc/' + p + '/cmdline', 'utf8').replace(/\0/g, ' '); } catch (_) { continue; } if (c.indexOf(wort) >= 0) r.push(Number(p)); } return r; };
+      const kurz1 = (t, m) => kurz(String(t || '').replace(/\s*\n\s*/g, ' ⏎ '), m);
+      // Die Klone brauchen das Nachladen beim checkout — in der CI steht GIT_NO_LAZY_FETCH=1 in der Umgebung der Suite.
+      delete process.env.GIT_NO_LAZY_FETCH;
+      try {
+        const f = [];
+        // ── origin: main (Befund, den claude/nehmer genommen hat), claude/eins (Halt auf gsZwei), claude/bumper (v1.01 und
+        //    ein Halt auf bump), claude/grab (eine Grabstein-Liste), claude/zukunft (v1.03, STATUS.md ueber 200 KB, Commit-Zeit
+        //    in 40 Tagen). Spaeter claude/spaet (ein Halt auf gsZwei, nach dem Klonen gepusht).
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]); g(bare, ['config', 'uploadpack.allowFilter', 'true']);
+        fs.mkdirSync(src); g(src, ['init', '-q', '-b', 'main', '.']); g(src, ['remote', 'add', 'origin', 'file://' + bare]);
+        const schreib = (rel, t) => { fs.mkdirSync(path.dirname(path.join(src, rel)), { recursive: true }); fs.writeFileSync(path.join(src, rel), t); };
+        const push = (zweig, msg, t) => {
+          g(src, ['add', '-A']);
+          cp.execFileSync('git', ['-C', src, '-c', 'user.email=pruefstand@example.com', '-c', 'user.name=pruefstand', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', msg], { env: Object.assign({}, process.env, t ? { GIT_AUTHOR_DATE: t.toISOString(), GIT_COMMITTER_DATE: t.toISOString() } : {}) });
+          g(src, ['push', '-q', '-f', 'origin', 'HEAD:refs/heads/' + zweig]);
+        };
+        const zweig = (name) => g(src, ['checkout', '-q', '-B', name, 'main']);
+        const idAus = (r) => (r.aus.match(/\n {2}(\d{4}-\d{2}-\d{2}-[0-9a-f]{8}) /) || [])[1];
+        schreib('index.html', QUELLE); schreib('sw.js', "const VERSION = 'gs-v1.00';\n"); schreib('STATUS.md', '# STATUS\n');
+        push('main', 'start');
+        let r = werkzeug(src, ['neu', 'befund', '--titel', 'Ein Befund, den einer genommen hat', '--beleg', 'grep -c gsZwei index.html → 1'], { AUSTAUSCH_VON: 'sitzung/claude/finder' });
+        const befund = idAus(r); push('main', 'befund');
+        zweig('claude/eins'); r = werkzeug(src, ['halt', '--geltung', 'gsZwei', '--bis', '6h', '--text', 'ich baue gsZwei um']); const haltEins = idAus(r); push('claude/eins', 'halt');
+        zweig('claude/bumper'); schreib('sw.js', "const VERSION = 'gs-v1.01';\n"); schreib('data/releases.v1.js', 'window.GS_RELEASES_ARCHIVE = [];\n'); r = werkzeug(src, ['halt', '--geltung', 'bump', '--bis', '6h', '--text', 'Release laeuft']); const haltBump = idAus(r); push('claude/bumper', 'bump');
+        zweig('claude/nehmer'); r = werkzeug(src, ['nehme', befund || 'x']); const lageNehmer = idAus(r); push('claude/nehmer', 'nehme');
+        zweig('claude/grab'); schreib(A.GRABSTEINE, JSON.stringify([{ id: '2026-01-01-abcdabcd', datum: '2026-01-01', grund: 'vom Schreiber zurueckgezogen' }], null, 2) + '\n'); push('claude/grab', 'grab');
+        zweig('claude/zukunft'); schreib('sw.js', "const VERSION = 'gs-v1.03';\n"); schreib('STATUS.md', '# STATUS\n\n<!-- ' + 'zukunft '.repeat(30000) + '-->\n'); push('claude/zukunft', 'zukunft', new Date(Date.now() + 40 * 864e5));
+        g(src, ['checkout', '-q', 'main']);
+        if (!befund || !haltEins || !haltBump || !lageNehmer) return { ok: false, warum: 'Aufbau: Befund, Halts oder Lage nicht geschrieben — ' + kurz1(r.aus, 200) };
+        const packs = (d) => { const p = path.join(d, '.git', 'objects', 'pack'); return fs.existsSync(p) ? fs.readdirSync(p).filter(n => /\.pack$/.test(n)).length : 0; };
+        // Ein Klon mit Filter, auf einem eigenen Branch mit einer Aenderung an gsZwei (die der Halt auf claude/eins beruehrt).
+        const klon = (filter, name) => {
+          const d = path.join(eltern, name);
+          cp.execFileSync('git', ['clone', '-q', '--filter=' + filter, 'file://' + bare, d], { stdio: 'ignore' });
+          g(d, ['checkout', '-q', '-b', 'claude/' + name]);
+          fs.writeFileSync(path.join(d, 'index.html'), QUELLE.replace('function gsZwei(){ return gsEins() + gsEins(); }', 'function gsZwei(){ return 2 * gsEins(); }'));
+          g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'gsZwei']);
+          return d;
+        };
+        // A8 als PROZESS in einem Klon — ausserhalb der CI (ohne GITHUB_*), ohne Nachladen (wie die Suite in der CI liest).
+        const a8In = (d) => {
+          fs.mkdirSync(path.join(d, 'scripts'), { recursive: true });
+          for (const n of ['austausch_check.js', '_austausch.mjs', 'austausch.mjs']) fs.copyFileSync(path.join(__dirname, n), path.join(d, 'scripts', n));
+          const env = Object.assign({}, process.env, { AUSTAUSCH_FALL: 'A8', GIT_NO_LAZY_FETCH: '1' }); delete env.GITHUB_ACTIONS; delete env.GITHUB_EVENT_NAME; delete env.GITHUB_HEAD_REF;
+          const y = cp.spawnSync(process.execPath, [path.join(d, 'scripts', 'austausch_check.js')], { encoding: 'utf8', env });
+          return { code: y.status, aus: (y.stdout || '') + (y.stderr || '') };
+        };
+        const fehltDa = (d, ref, rel) => cp.spawnSync('git', ['-C', d, 'rev-list', '--objects', '--missing=print', ref], { encoding: 'utf8', env: Object.assign({}, process.env, { GIT_NO_LAZY_FETCH: '1' }) }).stdout.indexOf('?' + g(src, ['rev-parse', ref.replace(/^refs\/remotes\/origin\//, '') + ':' + rel]).trim()) >= 0;
+        // ── L0 (R4-lesen-0) · blob:none: `lesen` nennt, was fehlt, mit dem Befehl; `holen` laedt nach und zeigt den Halt.
+        const k1 = klon('blob:none', 'k1');
+        const haltDatei = g(src, ['ls-tree', '-r', '--name-only', 'claude/eins', '--', A.ORDNER]).split('\n').find(n => n.indexOf(haltEins) >= 0);
+        if (!haltDatei || !fehltDa(k1, 'refs/remotes/origin/claude/eins', haltDatei)) return { ok: false, warum: f.concat('Aufbau L0: der Halt auf claude/eins fehlt im blob:none-Klon NICHT — der Fall misst nichts').join(' · ') };
+        r = werkzeug(k1, []);
+        const dich = (t) => (t.match(/\nDICH BETREFFEND\n([\s\S]*?)(?:\n\S|$)/) || [])[1] || '';
+        const haltZeile = new RegExp('HALT ' + haltEins + ' [^\\n]*beruehrt [^\\n]*gsZwei');
+        if (!/!! \d+ Eintragsdatei\(en\) NICHT gelesen \(Teilabruf[^\n]*Holen und nachladen: node scripts\/austausch\.mjs holen/.test(dich(r.aus))) f.push('L0 · `lesen` im blob:none-Klon: DICH BETREFFEND nennt die ungelesenen Eintragsdateien nicht mit dem Befehl, der sie holt · ' + kurz1(dich(r.aus) || r.aus, 220));
+        let p0 = packs(k1);
+        r = werkzeug(k1, ['holen']);
+        if (r.code !== 0 || !haltZeile.test(dich(r.aus))) f.push('L0 · `holen` im blob:none-Klon: der fremde Halt ' + haltEins + ' auf gsZwei steht NICHT unter DICH BETREFFEND (Exit ' + r.code + ', Packs ' + p0 + ' → ' + packs(k1) + ') · ' + kurz1((r.aus.match(/Alle Branches geholt[^\n]*|Das Brett ist leer[^\n]*/) || [''])[0] + ' · ' + dich(r.aus), 240));
+        if (!/Alle Branches geholt\. \d+ Eintragsdatei\(en\) nachgeladen \(Teilabruf\)\./.test(r.aus)) f.push('L0 · `holen` sagt nicht, dass es nachgeladen hat · ' + kurz1((r.aus.match(/\n[^\n]*geholt[^\n]*/) || [r.aus])[0], 160));
+        if (/NICHT gelesen/.test(dich(r.aus)) || /Blob nicht im lokalen Objektspeicher/.test(r.aus)) f.push('L0 · nach `holen` stehen noch ungelesene Eintragsdateien da · ' + kurz1((r.aus.match(/!![^\n]*(NICHT gelesen|unlesbare)[^\n]*/) || [''])[0], 200));
+        // … und A8 rechnet danach (vorher im blob:none-Klon „nicht pruefbar" — dauerhaft, ohne Ausweg).
+        r = a8In(k1);
+        if (r.code !== 0 || !new RegExp('ok   A8 [^\\n]*!! BERUEHRT: ' + haltEins).test(r.aus)) f.push('L0 · A8 im blob:none-Klon nach `holen`: Exit ' + r.code + ' — erwartet ok mit „BERUEHRT: ' + haltEins + '" · ' + kurz1((r.aus.match(/A8 [^\n]*\n?[^\n]*/) || [r.aus])[0].replace(/^A8 [^[→]*/, ''), 200));
+        // ── G1 (aus R4-lesen-3) · die Grabstein-Lese (zurueckgezogenVomSchreiber) laedt im Teilabruf nichts nach — auch ohne
+        //    die Variable in der Umgebung. Im frischen Klon, vor jedem Nachladen.
+        const k3 = klon('blob:none', 'k3');
+        const grabFehlt = fehltDa(k3, 'refs/remotes/origin/claude/grab', A.GRABSTEINE);
+        p0 = packs(k3);
+        A.zurueckgezogenVomSchreiber(k3, []);
+        if (!grabFehlt) f.push('Aufbau G1: die Grabstein-Liste auf claude/grab fehlt im blob:none-Klon nicht — der Fall misst nichts');
+        else if (packs(k3) !== p0) f.push('G1 · zurueckgezogenVomSchreiber hat im Teilabruf nachgeladen (Packs ' + p0 + ' → ' + packs(k3) + ') — Lesen laedt nie nach');
+        // ── L0 · `naechste` im blob:none-Klon holt UND laedt nach: die Nummer v1.01 steht da, der fremde Bump-Halt sperrt (Exit 1).
+        r = werkzeug(k3, ['naechste']);
+        if (r.code !== 1 || !/VERGEBEN[^\n]*v1\.01/.test(r.aus) || !new RegExp('HALT fuer Bumps: ' + haltBump).test(r.aus)) f.push('L0 · `naechste` im blob:none-Klon: Exit ' + r.code + ' — erwartet 1 mit „VERGEBEN … v1.01" und dem Bump-Halt ' + haltBump + ' · ' + kurz1((r.aus.match(/Nicht rechenbar[^\n]*\n[^\n]*/) || [r.aus])[0], 240));
+        // ── L0 · `nehme` im blob:none-Klon sieht die Uebernahme auf claude/nehmer (die aelteste gilt) und schreibt NICHTS.
+        const k2 = klon('blob:none', 'k2');
+        r = werkzeug(k2, ['nehme', befund]);
+        const neuGeschrieben = /Geschrieben:/.test(r.aus);
+        if (r.code !== 1 || !/schon uebernommen: sitzung\/claude\/nehmer/.test(r.aus) || neuGeschrieben) f.push('L0 · `nehme ' + befund.slice(-8) + '` im blob:none-Klon: Exit ' + r.code + (neuGeschrieben ? ', eine ZWEITE Uebernahme geschrieben' : '') + ' — erwartet 1, „schon uebernommen: sitzung/claude/nehmer" · ' + kurz1(r.aus, 200));
+        // ── L1 (R4-lesen-1) · tree:0: die Nummern eines Branches, dessen Baum fehlt, sind NICHT RECHENBAR — ohne Nachladen,
+        //    auch mit einem git, das GIT_NO_LAZY_FETCH nicht kennt; `naechste --nur-lokal` sagt es (Exit 2) und nennt den
+        //    Befehl, der hilft; `holen` laedt Baeume und Eintraege nach, `naechste` danach rechnet (v1.01, Bump-Halt).
+        const k5 = klon('tree:0', 'k5');
+        const baumFehlt = (A.fehlendeWurzelBaeume(k5, ['refs/remotes/origin/claude/bumper']) || new Map()).size === 1;
+        if (!baumFehlt) f.push('Aufbau L1: im tree:0-Klon fehlt der Baum von claude/bumper nicht — der Fall misst nichts');
+        p0 = packs(k5);
+        let m = A.vergebeneMarken(k5, Date.now(), 14);
+        if (!m.grund || !(m.fehlt || []).some(x => x === 'origin/claude/bumper:(Baum)') || m.naechsteVersion) f.push('L1 · vergebeneMarken im tree:0-Klon: ' + (m.grund ? kurz1(m.grund, 160) : 'GERECHNET, naechste freie ' + m.naechsteVersion + ', Versionen ' + JSON.stringify((m.versionen || []).map(x => x.wert))) + ' — erwartet „nicht rechenbar" mit origin/claude/bumper:(Baum)');
+        const bin = path.join(eltern, 'bin'); fs.mkdirSync(bin);
+        const echtGit = cp.execFileSync('bash', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+        fs.writeFileSync(path.join(bin, 'git'), '#!/bin/bash\nunset GIT_NO_LAZY_FETCH\nexec "' + echtGit + '" "$@"\n', { mode: 0o755 });
+        process.env.PATH = bin + ':' + altPfad;
+        try { m = A.vergebeneMarken(k5, Date.now(), 14); } finally { process.env.PATH = altPfad; }
+        if (packs(k5) !== p0 || !m.grund) f.push('L1 · vergebeneMarken im tree:0-Klon mit einem git, das GIT_NO_LAZY_FETCH nicht kennt: Packs ' + p0 + ' → ' + packs(k5) + (m.grund ? '' : ', GERECHNET') + ' — erwartet: kein Nachladen, nicht rechenbar');
+        // Ein TIEFERER Baum fehlt (Klon mit --filter=tree:1: Wurzelbaeume ja, data/ nein): ls-tree laeuft ohne Nachladen.
+        const k7 = klon('tree:1', 'k7'), p7 = packs(k7);
+        m = A.vergebeneMarken(k7, Date.now(), 14);
+        if (!m.grund || !(m.fehlt || []).some(x => x === 'origin/claude/bumper:(Baum)') || packs(k7) !== p7) f.push('L1 · vergebeneMarken im tree:1-Klon (data/ auf claude/bumper fehlt): ' + (m.grund ? kurz1(m.grund, 140) : 'GERECHNET') + ', Packs ' + p7 + ' → ' + packs(k7) + ' — erwartet „nicht rechenbar" mit origin/claude/bumper:(Baum), ohne Nachladen');
+        // … und `holen` holt dort erst den Wurzelbaum mit allen Unterbaeumen, dann die Eintraege (ls-tree scheiterte an docs/).
+        r = werkzeug(k7, ['holen']);
+        if (r.code !== 0 || !haltZeile.test(dich(r.aus)) || /liessen sich NICHT nachladen/.test(r.aus)) f.push('L1 · `holen` im tree:1-Klon (docs/ fehlt): der fremde Halt ' + haltEins + ' steht nicht unter DICH BETREFFEND (Exit ' + r.code + ') · ' + kurz1((r.aus.match(/Alle Branches geholt[^\n]*(\n!![^\n]*)?/) || [''])[0] + ' · ' + dich(r.aus), 240));
+        r = werkzeug(k5, ['naechste', '--nur-lokal'], { GIT_NO_LAZY_FETCH: '1' });
+        if (r.code !== 2 || !/Nicht rechenbar: [^\n]*Dateibaum nicht im lokalen Objektspeicher[^\n]*claude\/bumper/.test(r.aus) || !/ohne --nur-lokal holt `naechste` selbst/.test(r.aus) || packs(k5) !== p0) f.push('L1 · `naechste --nur-lokal` im tree:0-Klon: Exit ' + r.code + ', Packs ' + p0 + ' → ' + packs(k5) + ' — erwartet 2, „Dateibaum nicht im lokalen Objektspeicher … claude/bumper" und den Weg ohne --nur-lokal · ' + kurz1(r.aus, 220));
+        r = werkzeug(k5, ['holen']);
+        if (r.code !== 0 || !haltZeile.test(dich(r.aus))) f.push('L1 · `holen` im tree:0-Klon: der fremde Halt ' + haltEins + ' steht nicht unter DICH BETREFFEND (Exit ' + r.code + ') · ' + kurz1(dich(r.aus) || r.aus, 200));
+        r = werkzeug(k5, ['naechste']);
+        if (r.code !== 1 || !/VERGEBEN[^\n]*v1\.01/.test(r.aus)) f.push('L1 · `naechste` im tree:0-Klon (holt und laedt nach): Exit ' + r.code + ' — erwartet 1 mit „VERGEBEN … v1.01" · ' + kurz1((r.aus.match(/Nicht rechenbar[^\n]*\n[^\n]*/) || [r.aus])[0], 220));
+        // ── L2 (aus R4-lesen-3) · blob:limit=200k (wie die CI): STATUS.md eines Branches mit Commit-Zeit in der ZUKUNFT fehlt —
+        //    seine Nummer ist vergeben, also ist die Rechnung nicht rechenbar (vorher fiel nur ihr Kuerzel still weg).
+        const k6 = klon('blob:limit=200k', 'k6');
+        m = A.vergebeneMarken(k6, Date.now(), 14);
+        if (!(m.zukunft || []).some(x => x.ref === 'origin/claude/zukunft') && !m.grund) f.push('Aufbau L2: claude/zukunft gilt nicht als Branch mit Commit-Zeit in der Zukunft');
+        if (!m.grund || !(m.fehlt || []).some(x => x === 'origin/claude/zukunft:STATUS.md')) f.push('L2 · vergebeneMarken mit einem Zukunfts-Branch, dessen STATUS.md im Teilabruf fehlt: ' + (m.grund ? kurz1(m.grund, 160) : 'GERECHNET (Versionen ' + JSON.stringify((m.versionen || []).map(x => x.wert)) + ', Kuerzel ' + JSON.stringify((m.kuerzel || []).map(x => x.wert)) + ')') + ' — erwartet „nicht rechenbar" mit origin/claude/zukunft:STATUS.md');
+        // ── R4-lesen-5 · die Konfiguration ist kein Beweis: nach `git fetch --filter=blob:none` fehlt ein KLEINER Halt, waehrend
+        //    remote.origin.partialclonefilter weiter blob:limit=204800 sagt. Ausserhalb der CI gibt es keine Grenze (A8 nicht
+        //    pruefbar); in der CI (GITHUB_ACTIONS, dort setzt der Schritt Konfiguration und Abruf gleich — C18) gilt sie.
+        zweig('claude/spaet'); r = werkzeug(src, ['halt', '--geltung', 'gsZwei', '--bis', '6h', '--text', 'gsZwei bitte nicht anfassen']); const haltSpaet = idAus(r); push('claude/spaet', 'halt spaet'); g(src, ['checkout', '-q', 'main']);
+        g(k6, ['fetch', '-q', '--filter=blob:none', 'origin']);
+        const cfg = g(k6, ['config', '--get', 'remote.origin.partialclonefilter']).trim();
+        const b6 = A.brettLesen(k6, { alleRefs: true });
+        if (!haltSpaet || cfg !== 'blob:limit=204800' || !b6.fehlend.some(x => x.quelle === 'origin/claude/spaet')) f.push('Aufbau R4-lesen-5: Konfiguration ' + cfg + ', fehlend ' + JSON.stringify(b6.fehlend.map(x => x.quelle)) + ' — der kleine Halt auf claude/spaet fehlt nicht, der Fall misst nichts');
+        const gAus = A.teilabrufGrenze(k6, 'origin', {}), gCi = A.teilabrufGrenze(k6, 'origin', { GITHUB_ACTIONS: 'true' });
+        if (gAus !== null || gCi !== 204800) f.push('R4-lesen-5 · teilabrufGrenze: ausserhalb der CI ' + gAus + ' (erwartet null — die Konfiguration ist kein Beweis), in der CI ' + gCi + ' (erwartet 204800)');
+        r = a8In(k6);
+        if (r.code !== 2 || !/--   A8 [^\n]*\n\s*→ nicht pruefbar: /.test(r.aus)) f.push('R4-lesen-5 · A8 im Klon mit blob:limit=200k nach `fetch --filter=blob:none` (ausserhalb der CI): Exit ' + r.code + ' — erwartet 2, „nicht pruefbar" (der kleine Halt ' + haltSpaet + ' koennte gsZwei beruehren) · ' + kurz1((r.aus.match(/A8 [^\n]*\n?[^\n]*/) || [r.aus])[0].replace(/^A8 [^[→]*/, ''), 220));
+        // ── R4-schwarm-9 · die Frist beim Holen beendet die ganze Prozessgruppe: kein Remote-Helfer bleibt als Waise liegen.
+        const o3 = repo('lesen4-haengt');
+        try {
+          g(o3, ['remote', 'add', 'origin', 'ext::sh -c sleep% ' + marke]); g(o3, ['config', 'protocol.ext.allow', 'always']);
+          for (const [args, satz] of [[['naechste'], /Holen hat nicht geklappt/], [['holen'], /Holen hat NICHT geklappt/]]) {
+            const t0 = Date.now(); r = werkzeug(o3, args, { AUSTAUSCH_HOLEN_FRIST_MS: '1000' }); const ms = Date.now() - t0;
+            cp.spawnSync('sleep', ['0.5']);
+            const w = prozesseMit(marke);
+            if (ms < 900 || !satz.test(r.aus)) f.push('Aufbau R4-schwarm-9: `' + args[0] + '` endete nach ' + ms + ' ms' + (satz.test(r.aus) ? '' : ', ohne „Holen hat nicht geklappt"') + ' — der Remote haengt nicht, der Fall misst die Frist nicht');
+            else if (w && w.length) { f.push('R4-schwarm-9 · `' + args[0] + '` gegen einen haengenden Remote (Frist 1 s): ' + w.length + ' Prozess(e) mit „' + marke + '" liegen danach noch (Waisen des Remote-Helfers)'); for (const p of w) { try { process.kill(p, 'SIGKILL'); } catch (_) {} } }
+          }
+        } finally { weg(o3); }
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'blob:none: lesen nennt ungelesene Dateien mit `holen`, holen laedt nach und zeigt den fremden Halt, A8 rechnet danach (BERUEHRT), naechste rechnet (v1.01, Bump-Halt), nehme sieht die fremde Uebernahme · Grabstein-Lese ohne Nachladen · tree:0: nicht rechenbar ohne neues Pack (auch git ohne GIT_NO_LAZY_FETCH), --nur-lokal nennt den Weg, holen und naechste laden Baeume nach · tree:1 (docs/ fehlt): nicht rechenbar ohne Nachladen, holen holt den fehlenden Unterbaum · Zukunfts-Branch mit fehlender STATUS.md: nicht rechenbar · Grenze nur in der CI (204800), sonst null, A8 nicht pruefbar · Frist ohne Waisen' + (prozesseMit('x') == null ? ' (ohne /proc nicht gemessen)' : '') };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; }
+      finally {
+        if (altNl == null) delete process.env.GIT_NO_LAZY_FETCH; else process.env.GIT_NO_LAZY_FETCH = altNl;
+        if (altGa == null) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = altGa;
+        process.env.PATH = altPfad;
+        for (const p of prozesseMit(marke) || []) { try { process.kill(p, 'SIGKILL'); } catch (_) {} }
+        weg(eltern);
+      }
     },
   },
 ];

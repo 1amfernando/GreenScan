@@ -189,7 +189,9 @@ fehlt, ob niemand weiss, wer du bist (losgelöster HEAD — oder du auf `main` a
 teilweise — mit Grund) · **dein gepushter Eintrag, für den die anderen eine andere Fassung lesen** (oder
 ihn strittig nennen: `von` und Branch müssen zusammenpassen — nach einem Umzug oder mit berichtigtem
 `von` schreibst du ihn neu, mit neuer id, und ziehst den alten zurück) · was
-nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen würde. Danach
+nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen würde · **Einträge, die hier
+nicht gelesen sind** (Teilabruf: Datei oder Baum nicht im lokalen Objektspeicher) — mit dem Befehl, der sie holt
+(`holen`). Danach
 **KRITISCH**, **LAGE** und **HALT UND VETO**.
 
 - **Was das Werkzeug druckt, kommt aus fremder Hand** (Gegenprüfung 3, 18.11.2026). Eine Lieferung steht beim
@@ -204,7 +206,9 @@ nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen 
   den `git check-ref-format --branch` annimmt (`@`, Klammern, `+`, bis 255 Zeichen), aber kein Format- oder
   Trennzeichen aus Unicode. `naechste --json` endet bei „Nicht rechenbar" mit Exit 2 (ein Bump-Halt mit 1 geht vor), und
   Holen hat eine Frist (still vor `naechste`/`nehme` 20 s, `holen` 120 s; `AUSTAUSCH_HOLEN_FRIST_MS` für den Prüfstand)
-  — danach „Holen hat nicht geklappt", wie bei jedem Fehler. „Dein Branch fehlt auf origin" kommt nur, wenn HEAD nicht
+  — danach endet die ganze Prozessgruppe (vorher beendete die Frist nur git selbst; ein Remote-Helfer und seine
+  Kinder blieben als Waisen liegen, gemessen drei je Aufruf gegen einen hängenden Remote — Gegenprüfung 4), und es
+  heisst „Holen hat nicht geklappt", wie bei jedem Fehler. „Dein Branch fehlt auf origin" kommt nur, wenn HEAD nicht
   in `origin/main` steht (nach einem Squash-Merge als Frage), und der Force-Push-Satz nur für den Branch, auf den `git
   push` wirklich geht: einen Upstream unter anderem Namen nur bei `push.default upstream`/`tracking` — sonst steht dazu
   EINE ruhige Zeile (`git push -u origin HEAD`). Prüfstand: `austausch_check` C19, jede Regel mit Gegenprobe.
@@ -300,26 +304,53 @@ nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen 
   `aufgehoben`, von jedem, immer mit Grund, über alle Branches — und **nur so**: ein ungültiger
   Abschluss hebt nichts auf, und `ersetzt` gibt es an Halt und Lage nicht. Der Aussteller liest die
   Aufhebung und jede Antwort unter DICH BETREFFEND.
-- **Funktionsgrenzen (der Klammer-Scanner):** Welche Funktion eine Änderung in `index.html`
-  berührt, rechnet ein kleiner Scanner ohne npm (`funktionsBereiche` in `scripts/_austausch.mjs`):
-  er liest die `<script>`-Blöcke wie ein Browser — ein `<!--` zählt nur im Text zwischen den Tags,
-  nicht in einem Attributwert und nicht in `style`/`textarea`/`title`, `<!-->` ist ein leerer
-  Kommentar, `src` nur als ganzes Attribut — und paart darin die Klammern; ob `/` ein Regex oder ein
-  Teilen ist, entscheidet er wie JS (nach der `)` eines `if`/`while`/`for`/`with` ein Regex, nach
-  `t.in` oder `erledigt++` ein Teilen, `-->` am Zeilenanfang ist ein Kommentar). Eine Funktion
-  **gibt es**, wenn sie einen Bereich hat — dieselbe Rechnung für `halt --geltung` und für den
-  Abgleich; auch `window.X = window.X || function` (gsUploadImage) zählt. Geht ein Block nicht auf
-  (ein Merge-Konflikt, eine Zeile, die der Scanner falsch liest), gilt bis zur nächsten nicht tiefer
-  eingerückten Deklaration eine Näherung; liefert git bei verschiedenen Texten keinen Hunk-Kopf (die
-  Datei als binär, ein leerer Diff), gilt jede Funktion als möglich. In beiden Fällen sagt es die Änderung: **jeder Halt auf eine Funktion in diesem Block gilt als
-  berührt** („gsX() — Grenzen unsicher"), und DICH BETREFFEND nennt die Zeile, ab der der Scanner
-  scheitert — zu viel melden ist hier besser als schweigen (Runde 3: `unsicher` wurde gerechnet und
-  nirgends gelesen, eine gültige Zeile auf `main` schaltete jeden Funktions-Halt still ab). Der Diff
-  läuft ohne Farbe, ohne `diff.external` und ohne textconv, damit keine Einstellung der Person die
-  Hunk-Köpfe unlesbar macht. Prüfstand A9 verlangt, dass die echte `index.html` in jedem Block
-  aufgeht und jede Deklaration einen Bereich hat; C17 hält jede dieser Regeln an gebauten Fällen mit
-  acorn-gleichem Soll und als Prozess (Merge-Konflikt, `color.ui=always`, `diff.external`, textconv,
-  binär, eine ganz gelöschte Funktion).
+- **Funktionsgrenzen (der Klammer-Scanner):** Welche Funktion eine Änderung in `index.html` berührt,
+  rechnet ein kleiner Scanner ohne npm (`funktionsBereiche` in `scripts/_austausch.mjs`). Er liest die
+  `<script>`-Blöcke wie ein Browser: ein `<!--` zählt nur im Text zwischen den Tags, nicht in einem
+  Attributwert und nicht in `style`/`textarea`/`title`; `<!-->` ist ein leerer Kommentar; `src` zählt
+  nur als ganzes Attribut; `type="module"` macht ein Modul, und es zählt das erste `type`. Darin paart
+  er die Klammern. Ob `/` ein Regex oder ein Teilen ist, entscheidet er wie JS: nach der `)` eines
+  `if`/`while`/`for`/`with` ein Regex; nach `t.in`, `this.#in` oder `erledigt++` ein Teilen. `of` ist
+  nur direkt im Kopf eines `for (…)` und hinter dem Ziel ein Schlüsselwort, sonst ein Name. `<!--` und
+  `-->` am Zeilenanfang sind im klassischen Skript ein Kommentar, im Modul nicht. Kommentare und Regex
+  enden an **jedem** Zeilenende von JS, auch an U+2028/U+2029, und jeder Unicode-Leerraum ist Leerraum.
+  Wo es ohne Parser keine sichere Lesart gibt, sagt der Scanner das, statt still einer zu folgen:
+  `yield` oder `await` vor `/` im klassischen Skript können ein Name oder ein Schlüsselwort sein, je
+  nach Funktion. Der Block gilt dann als nicht aufgehend („Grenzen unsicher“). Eine Funktion **gibt
+  es**, wenn sie einen Bereich hat. Das ist dieselbe Rechnung für `halt --geltung` und für den Abgleich;
+  auch `window.X = window.X || function` zählt (gsUploadImage). Geht ein Block nicht auf (ein
+  Merge-Konflikt, eine Zeile, die der Scanner falsch liest), gilt bis zur nächsten nicht tiefer
+  eingerückten Deklaration eine Näherung. Liefert git bei verschiedenen Texten keinen Hunk-Kopf, gilt
+  jede Funktion als möglich. In beiden Fällen sagt es die Änderung: **jeder Halt auf eine Funktion in
+  diesem Block gilt als berührt** („gsX() — Grenzen unsicher“), und DICH BETREFFEND nennt die Zeile, ab
+  der der Scanner scheitert. Zu viel melden ist hier besser als schweigen (Runde 3: `unsicher` wurde
+  gerechnet und nirgends gelesen, eine gültige Zeile auf `main` schaltete jeden Funktions-Halt still
+  ab). Die eigene Änderung ist „seit dem Abzweigen“ ∩ „anders als main“. Ist nur **eine** der beiden
+  Seiten unsicher (nur `main` oder nur die Abzweigstelle geht nicht auf), filtert sie nichts weg: jede
+  Funktion ihres Blocks gilt dort als möglich, was die genaue Seite ausschliesst, bleibt ausgeschlossen,
+  und was nur so hereinkommt, heisst „Grenzen unsicher“. Der Grund sagt, in welchem Vergleich die Zeilen
+  liegen (Runde 4: `main` war kaputt, die Sitzung löschte eine Zeile in gsA, und der Halt auf gsA
+  schwieg). Der Diff läuft ohne Farbe, ohne `diff.external` und ohne textconv, mit `--text` und
+  `--inter-hunk-context=0`, und ohne `GIT_DIFF_OPTS` und `GIT_EXTERNAL_DIFF` in der Umgebung. So kann
+  keine Einstellung der Person die Hunk-Köpfe unlesbar machen oder still umformen. Runde 4:
+  `core.bigFileThreshold` oder ein `binary`/`-diff`-Attribut machten `index.html` „binär“, und jeder
+  Funktions-Halt galt als berührt. `diff.interHunkContext` legte zwei Änderungen in einen Hunk, und
+  `GIT_DIFF_OPTS=--unified=12` schlug sogar `-U0`. Beide meldeten still Funktionen, die niemand
+  angefasst hatte. Prüfstand A9 verlangt, dass die echte `index.html` in jedem Block aufgeht und jede
+  Deklaration einen Bereich hat. C17 und C21 halten jede dieser Regeln an gebauten Fällen mit
+  acorn-gleichem Soll und als Prozess: Merge-Konflikt, `color.ui=always`, `diff.external`, textconv,
+  `-diff`/`binary`, `core.bigFileThreshold`, `diff.interHunkContext`, `GIT_DIFF_OPTS`, eine ganz
+  gelöschte Funktion, eine unsichere Seite und ein git ohne Hunk-Kopf.
+  **Grenzen, ehrlich benannt** (gemessen an der echten `index.html` am 18.11.2026: kein Modul, kein
+  U+2028/2029/Zs ausserhalb von Zeichenketten, kein `of`/`yield`/`await` vor `/`; alle 6 460
+  Funktionsrümpfe sind dasselbe Klammerpaar wie bei acorn):
+  - Ein `}` eines Objektliterals vor `/` liest der Scanner als Blockende, dahinter also einen Regex.
+    Aufgefangen wird das nur, wenn bis zum Zeilenende kein zweites `/` folgt.
+  - `yield`/`await` vor `/` (oder `++`/`--`) heisst im klassischen Skript immer „unsicher“, auch dort,
+    wo ein Parser es wüsste.
+  - Ein `<script>` mit einem anderen `type` (JSON, Vorlage) wird wie JavaScript gelesen.
+  - Nur EINE Seite unsicher heisst auch: eine Funktion, die nur die unsichere Seite nennt, steht als
+    „Grenzen unsicher“ da, selbst wenn die andere Seite sie genau bestätigt.
 - **Fristen:** `bis` (UTC, mit Z, ein echter Zeitpunkt) wird *relativ zum eigenen Zeitstempel*
   geprüft — der Prüfstand hängt nie an der Uhr. Ob ein Halt oder eine Lage **jetzt wirkt**,
   rechnet nur das Werkzeug (`zeige <id>` sagt es — dieselbe Rechnung wie die Blöcke, mit Grund:
@@ -414,7 +445,8 @@ bei vier Stellen 12 % Kollisionsrisiko). Alte Einträge behalten ihre vier.
 ## Über Branches
 
 Das Brett ist die **Vereinigung**: Arbeitsbaum plus jeder Remote-Ref, den git kennt. Ein
-Eintrag auf einem nie gemergten Branch ist für jede Sitzung sichtbar, die `holen` ruft.
+Eintrag auf einem nie gemergten Branch ist für jede Sitzung sichtbar, die `holen` ruft — auch in einem
+Klon mit Filter (`blob:none`, `tree:0`): `holen` lädt die Einträge danach gezielt nach.
 Der Prüfstand sieht nur den Arbeitsbaum. Deshalb:
 
 - Eine **Antwort über die Branch-Grenze** kopiert nichts herüber: ihr Bezug nennt den
@@ -442,20 +474,39 @@ Der Prüfstand sieht nur den Arbeitsbaum. Deshalb:
   (vorher sah der Prüfstand sie nicht, jeder Leser auf `main` schon).
 - **Was von einem fremden Branch kommt, ist fremde Eingabe.** Eine Datei ohne `id`, mit
   falsch geformten Feldern oder einer unbekannten Art wird gemeldet, nicht gerechnet.
-- **Gelesen wird, was git lokal hat — nachgeladen wird nie.** In einem Teilabruf (die CI holt die
-  Branches ohne Dateien ab 200 KB) lädt git eine fehlende Datei sonst still vom Server nach:
-  gemessen (18.11.2026) zwei Nachlade-Prozesse je frischem Branch, auch mit `--nur-lokal`; und
-  scheiterte das Nachladen *eines* Blobs, verschwanden *alle* fremden Einträge. Jetzt heisst eine
-  Eintragsdatei, deren Blob fehlt, **unlesbar mit Quelle** („nicht im lokalen Objektspeicher"),
-  und die übrigen bleiben; `naechste` sagt „nicht rechenbar" und nennt Branch und Datei, statt
-  ohne STATUS.md und Release-Titel still zu zählen. Der Prüfstand-Fall A8 ist **nicht prüfbar**,
-  wenn kein einziger Branch sichtbar ist (im PR nur `pull/<n>/merge`) oder wenn ein fehlender Blob
-  ein Eintrag sein *könnte* — bei `blob:limit=200k` kann er es nicht (ein Eintrag hat höchstens 64
-  KB), dort wird er nur gezählt. **Dieselben Bytes unter zwei gültigen Namen sind eine Fassung mit
-  beiden Quellen**; ein falscher Name ist nur an *seiner* Stelle unlesbar — vorher machte eine
-  byte-gleiche Kopie unter anderem Namen auf einem früher sortierenden Branch das Original
-  unlesbar und jeden Halt darin unwirksam. Prüfstand: `austausch_check` C18 (liest
-  `pruefstaende.yml` und fährt ihren Schritt wörtlich in einem gebauten Teilabruf-Klon).
+- **Lesen lädt nie nach — Holen lädt gezielt nach.** In einem Teilabruf fehlen Dateien oder Bäume im
+  lokalen Objektspeicher. Die CI holt die Branches ohne Dateien ab 200 KB; wer lokal mit
+  `--filter=blob:none` klont, hat keine Dateien, mit `--filter=tree:0` keine Bäume. git lädt Fehlendes
+  sonst still vom Server nach. Gemessen am 18.11.2026: zwei Nachlade-Prozesse je frischem Branch, auch
+  mit `--nur-lokal`. Und scheiterte das Nachladen *eines* Blobs, verschwanden *alle* fremden Einträge.
+  Jedes **Lesen** (`lesen`, `--nur-lokal`, `zeige`, die Prüfstände) liest deshalb ohne Nachladen, auch
+  die Bäume. Ein fehlender Wurzelbaum wird vorab mit `rev-list --missing=print` erkannt; das lädt auch
+  auf einem git ohne `GIT_NO_LAZY_FETCH` nie nach. Eine Eintragsdatei, deren Blob fehlt, heisst
+  **unlesbar mit Quelle** („nicht im lokalen Objektspeicher"), die übrigen bleiben. DICH BETREFFEND
+  nennt sie mit dem Befehl, der sie holt.
+  **`holen`, `nehme` und `naechste` holen ohnehin — danach laden sie gezielt nach**, so wie git selbst
+  nachlädt (`fetch --filter=blob:none --stdin` mit den Kennungen, Verhandlung „noop"). Geladen werden
+  erst die fehlenden Bäume jeder Tiefe, dann die Einträge und die Grabstein-Liste jedes Refs; `naechste`
+  dazu `sw.js`, `STATUS.md`, `index.html` und `data/releases.v1.js` der frischen Branches. Das geschieht
+  nur in einem Teilabruf und mit der Frist des Holens; was sich nicht laden lässt, wird gesagt. Vorher
+  (Gegenprüfung 4) sah `holen` im Klon mit `blob:none` nur „Das Brett ist leer", `nehme` schrieb still
+  eine zweite Übernahme, und `naechste` schickte im Kreis zu `holen`.
+  Fehlt etwas, das `naechste` braucht, sagt es „nicht rechenbar" und nennt Branch und Datei, oder
+  „(Baum)", statt still zu zählen. Das gilt auch für einen Branch mit Commit-Zeit in der Zukunft. Mit
+  `--nur-lokal` nennt es den Weg ohne diese Option.
+  Der Prüfstand-Fall A8 ist **nicht prüfbar**, wenn kein einziger Branch sichtbar ist (im PR nur
+  `pull/<n>/merge`) oder wenn ein fehlender Blob ein Eintrag sein *könnte*. Dass er keiner sein kann,
+  gilt nur **in der CI als belegt**: dort setzt der Schritt „Branches fuer das Brett" Konfiguration und
+  Abruf mit demselben Filter (`blob:limit=200k`; ein Eintrag hat höchstens 64 KB). Ausserhalb der CI ist
+  die Konfiguration kein Beweis, denn sie sagt nur, womit der *nächste* Abruf filtert. Gemessen: nach
+  `git fetch --filter=blob:none` stand dort weiter `blob:limit=204800`, und ein 1-KB-Halt galt als
+  „mindestens 200 KB". git hält den Filter eines Abrufs nirgends fest.
+  **Dieselben Bytes unter zwei gültigen Namen sind eine Fassung mit beiden Quellen**; ein falscher Name
+  ist nur an *seiner* Stelle unlesbar. Vorher machte eine byte-gleiche Kopie unter anderem Namen auf
+  einem früher sortierenden Branch das Original unlesbar und jeden Halt darin unwirksam.
+  Prüfstand: `austausch_check` C18 (liest `pruefstaende.yml` und fährt ihren Schritt wörtlich in einem
+  gebauten Teilabruf-Klon, als CI) und C22 (Klone mit `blob:none`, `tree:0`, `tree:1` und `blob:limit`
+  ausserhalb der CI).
 
 ## Unteragenten: die Austausch-Runde
 
@@ -484,3 +535,13 @@ alter Eintrag nicht mehr berichtigbar: neu schreiben (neue id), den alten zurüc
 Ob ein Eintrag *klug* ist, rechnet niemand — gerechnet wird, ob er prüfbar, verbunden
 und ehrlich ist. Und das Brett erreicht nur, wer das Repo liest: eine Routine ohne
 Repo-Zugang schreibt weiter an ihm vorbei.
+Die Teilabruf-Grenze ist in der CI *belegt*, nicht bewiesen: holte dort ein weiterer Schritt mit einem
+anderen Filter, gälte ein fehlender kleiner Halt weiter als zu gross. C18 liest die Action wörtlich und
+sieht nur diesen Schritt.
+Einen fehlenden *tieferen* Baum (die Wurzel liegt da) erkennt das Lesen nur auf einem git, das
+`GIT_NO_LAZY_FETCH` kennt; ein älteres git lädt ihn still nach. Einen fehlenden Wurzelbaum erkennt jedes
+git.
+Das Nachladen holt jede Datei unter `eintraege/` eines Refs, auch eine grosse; begrenzt wird es nur
+durch die Frist. `naechste` lädt im Teilabruf `index.html` je frischem Branch nach (rund 6 MB).
+Die Frist trifft die Prozessgruppe. Ein Helfer, der sich eine eigene Sitzung nimmt (`setsid`), entkommt
+ihr, und unter Windows wird nur git selbst beendet.
