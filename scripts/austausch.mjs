@@ -233,6 +233,7 @@ function dichBetreffend(b, abl, sw, aend) {
       else if (!gemergt) z.push('!! Dein Branch ' + up + ' fehlt auf origin (geloescht?) — mit ihm deine gepushten Commits. Neu pushen: git push -u origin HEAD:' + up);
     }
   }
+  if (aend.unsicher) z.push('Funktionsgrenzen in index.html ' + (aend.unsicher.ab ? 'ab Zeile ' + aend.unsicher.ab + ' ' : '') + 'nicht bestimmbar: ' + aend.unsicher.grund + ' — jeder Halt auf eine Funktion darin gilt als beruehrt („Grenzen unsicher")');
   if (aend.grund) z.push('Ob ein Halt deine Aenderung beruehrt, ist nicht rechenbar: ' + aend.grund);
   if (!z.length) return;
   aus('\nDICH BETREFFEND');

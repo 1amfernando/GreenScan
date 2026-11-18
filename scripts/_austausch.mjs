@@ -208,21 +208,25 @@ export function geltungFehler(g0) {
 }
 // Gibt es, was eine Geltung nennt — eine Funktion in index.html, eine Datei oder ein Ordner im Baum?
 // EINE Regel fuer `halt` und `einspielen` (vorher galt sie nur am CLI und nur fuer Namen ohne Punkt:
-// `scripts/kalendr_check.js` wurde angenommen und traf nie — Gegenpruefung 2).
+// `scripts/kalendr_check.js` wurde angenommen und traf nie — Gegenpruefung 2). Eine Funktion „gibt es",
+// wenn sie einen BEREICH hat — dieselbe Rechnung, mit der der Abgleich (funktionenAusDiff) sie trifft. Eine
+// Deklaration ohne Bereich (in einem Kommentar, in einem Skript, das der Scanner nicht als Skript liest) traefe
+// nie und wird mit diesem Grund abgewiesen (Runde 3: `halt` nahm sie an, der Abgleich traf sie nie).
 export function geltungImBaum(wurzel, liste) {
   const fehler = [];
-  let fn = null, dateien = null;
+  let fn = null, dekl = null, dateien = null;
   for (const g0 of alsListe(liste)) {
     const g = geltungNorm(g0);
     if (g === 'bump' || geltungFehler(g)) continue;   // die Form meldet eintragPruefen
     if (!fn) {
       let t = null; try { t = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8'); } catch (_) {}
-      fn = funktionsNamen(t || '');
+      fn = new Set(funktionsBereiche(t || '').bereiche.map(x => x.name)); dekl = funktionsNamen(t || '');
       dateien = new Set(((git(wurzel, ['ls-files']) || '') + '\n' + (git(wurzel, ['ls-files', '--others', '--exclude-standard']) || '')).split('\n').map(x => x.trim()).filter(Boolean));
     }
     const pre = g.replace(/\/+$/, ''), istName = /^[A-Za-z_$][\w$]*$/.test(g);
     if ((istName && fn.has(g)) || dateien.has(pre) || [...dateien].some(d => d.indexOf(pre + '/') === 0)) continue;
-    fehler.push('geltung „' + g0 + '": ' + (istName ? 'weder eine Funktion in index.html noch eine Datei oder ein Ordner im Baum' : 'diesen Pfad gibt es im Baum nicht (Tippfehler?)') + ' — der Halt traefe nie. Eine Datei in einem Ordner: mit Pfad (scripts/x_check.js).');
+    const ohneBereich = istName && dekl.has(g);
+    fehler.push('geltung „' + g0 + '": ' + (ohneBereich ? 'steht in index.html als Deklaration, hat aber keine bestimmbaren Grenzen (in einem Kommentar oder in keinem Skript, das der Scanner liest — ' + [...dekl].filter(x => !fn.has(x)).length + ' von ' + dekl.size + ' Deklarationen ohne Bereich)' : istName ? 'weder eine Funktion in index.html noch eine Datei oder ein Ordner im Baum' : 'diesen Pfad gibt es im Baum nicht (Tippfehler?)') + ' — der Halt traefe nie. Eine Datei in einem Ordner: mit Pfad (scripts/x_check.js).');
   }
   return fehler;
 }
@@ -371,25 +375,74 @@ export function git(wurzel, args, opts) {
   try { return cp.execFileSync('git', ['-C', wurzel, '-c', 'core.quotePath=false'].concat(args), o); }
   catch (_) { return null; }
 }
-// Viele Blobs in EINEM Prozess, als Puffer (byte-gleich, auch ausserhalb von UTF-8).
-export function blobsLesen(wurzel, shas) {
-  const aus = new Map();
-  if (!shas.length) return aus;
-  let r;
-  try { r = cp.spawnSync('git', ['-C', wurzel, 'cat-file', '--batch'], { input: shas.join('\n') + '\n', maxBuffer: 1024 * 1024 * 1024 }); } catch (_) { return aus; }
-  if (!r || r.status !== 0 || !r.stdout) return aus;
-  const b = r.stdout;
-  let i = 0;
-  while (i < b.length) {
-    const nl = b.indexOf(10, i);
-    if (nl < 0) break;
-    const kopf = b.slice(i, nl).toString('utf8').split(' ');
-    if (kopf[1] !== 'blob') { i = nl + 1; continue; }   // „<sha> missing“
-    const n = Number(kopf[2]);
-    aus.set(kopf[0], b.slice(nl + 1, nl + 1 + n));
-    i = nl + 1 + n + 1;
+// ── Blobs lesen, OHNE nachzuladen. In einem Teilabruf (CI: promisor, --filter=blob:limit=200k) fehlt ein
+//    grosser Blob im lokalen Objektspeicher. Gemessen am 18.11.2026 (git 2.43.0-1ubuntu7.4, gebauter Klon):
+//    `cat-file --batch` und `--batch-check` laden einen fehlenden Promisor-Blob STILL nach (ein neues Pack je
+//    Blob); scheitert das, endet der Prozess mit 128, und alles, was in der Eingabe danach kam, fehlte in der
+//    Ausgabe — ein einziger fehlender Blob liess ALLE fremden Eintraege verschwinden (Gegenpruefung 3).
+//    GIT_NO_LAZY_FETCH=1 kennt diese Version (aus den Sicherheits-Nachtraegen): sie laedt nicht nach, bricht
+//    aber an dem fehlenden Blob trotzdem mit 128 ab. Deshalb drei Schichten:
+//      1. Wer die Baeume kennt, gibt sie mit: `rev-list --objects --missing=print` nennt fehlende Objekte als
+//         „?<oid>" und laedt NIE nach — auch auf einem git, das GIT_NO_LAZY_FETCH nicht kennt.
+//      2. cat-file laeuft mit GIT_NO_LAZY_FETCH=1.
+//      3. Endet cat-file vorzeitig, ist der erste unbeantwortete Blob der fehlende; der Rest wird neu gelesen.
+//    Gelesen wird, was git LOKAL hat (README „Lesen": ohne `holen` liest der Befehl, was git lokal kennt) —
+//    ein Lesen ohne Netz. Was fehlt, steht in `.fehlt` (Liste der oids) und wird vom Aufrufer GENANNT.
+const LESEN_MAX = 1024 * 1024 * 1024;
+const ohneNachladen = () => Object.assign({}, process.env, { GIT_NO_LAZY_FETCH: '1' });
+function objekteLesen(wurzel, shas, inhalt, baeume) {
+  const aus = new Map(); aus.fehlt = [];
+  let rest = [...new Set((shas || []).filter(Boolean))];
+  if (!rest.length) return aus;
+  const env = ohneNachladen();
+  if (baeume && baeume.length) {
+    let r = null;
+    try { r = cp.spawnSync('git', ['-C', wurzel, 'rev-list', '--objects', '--missing=print', '--stdin'], { input: [...new Set(baeume)].join('\n') + '\n', env, maxBuffer: LESEN_MAX }); } catch (_) {}
+    if (r && r.status === 0 && r.stdout) {
+      const fehlt = new Set(), da = new Set();
+      for (const z of String(r.stdout).split('\n')) { const m = z.match(/^(\?)?([0-9a-f]{40,64})\b/); if (m) (m[1] ? fehlt : da).add(m[2]); }
+      rest = rest.filter(s => { if (fehlt.has(s)) { aus.fehlt.push(s); return false; } return true; });
+      // Nur die Groesse gefragt: was rev-list gesehen hat, ist da — kein cat-file noetig.
+      if (!inhalt) rest = rest.filter(s => { if (da.has(s)) { aus.set(s, true); return false; } return true; });
+    }
+    // rev-list gescheitert (ein Baum unbekannt): dann entscheiden die Schichten 2 und 3.
+  }
+  while (rest.length) {
+    let r = null;
+    try { r = cp.spawnSync('git', ['-C', wurzel, 'cat-file', inhalt ? '--batch' : '--batch-check'], { input: rest.join('\n') + '\n', env, maxBuffer: LESEN_MAX }); } catch (_) {}
+    if (!r || r.error || r.status == null) { aus.fehlt.push(...rest); break; }   // kein git: nichts lesbar
+    const b = r.stdout || Buffer.alloc(0);
+    let i = 0, beantwortet = 0;
+    while (i < b.length && beantwortet < rest.length) {
+      const nl = b.indexOf(10, i);
+      if (nl < 0) break;
+      const kopf = b.slice(i, nl).toString('utf8').split(' ');
+      if (kopf.length < 3) { aus.fehlt.push(rest[beantwortet]); beantwortet++; i = nl + 1; continue; }   // „<oid> missing“ (neuere git) · „ambiguous“
+      const n = Number(kopf[2]);
+      if (!inhalt) { if (kopf[1] === 'blob') aus.set(kopf[0], n); beantwortet++; i = nl + 1; continue; }
+      if (!(n >= 0) || nl + 1 + n > b.length) break;   // abgeschnitten: gilt als unbeantwortet
+      if (kopf[1] === 'blob') aus.set(kopf[0], b.slice(nl + 1, nl + 1 + n));
+      beantwortet++; i = nl + 1 + n + 1;
+    }
+    if (beantwortet >= rest.length) break;
+    if (r.status === 0) { aus.fehlt.push(...rest.slice(beantwortet)); break; }   // nichts mehr gesagt: nicht lesbar
+    // Abgebrochen (128): der erste unbeantwortete ist der fehlende — mit dem Rest geht es weiter.
+    aus.fehlt.push(rest[beantwortet]);
+    rest = rest.slice(beantwortet + 1);
   }
   return aus;
+}
+// Viele Blobs in EINEM Prozess, als Puffer (byte-gleich, auch ausserhalb von UTF-8). Fehlende in `.fehlt`.
+export function blobsLesen(wurzel, shas, baeume) { return objekteLesen(wurzel, shas, true, baeume); }
+// Welche Blobs liegen im lokalen Objektspeicher? (Ohne sie zu lesen — eine index.html hat 6 MB.)
+export function blobsDa(wurzel, shas, baeume) { return objekteLesen(wurzel, shas, false, baeume); }
+// Wie gross ist ein Blob mindestens, der in einem Teilabruf FEHLT? `--filter=blob:limit=<n>[kmg]` laesst jeden
+// Blob mit n Bytes oder mehr weg (list-objects-filter: aufgenommen wird nur, was kleiner ist). Gelesen aus
+// remote.<name>.partialclonefilter — sonst (blob:none, tree:0, combine:…, kein Teilabruf) null: unbekannt.
+export function teilabrufGrenze(wurzel, remote) {
+  const f = (git(wurzel, ['config', '--get', 'remote.' + remote + '.partialclonefilter']) || '').trim();
+  const m = f.match(/^blob:limit=(\d+)([kmg]?)$/i);
+  return m ? Number(m[1]) * ({ '': 1, k: 1024, m: 1024 * 1024, g: 1024 * 1024 * 1024 })[m[2].toLowerCase()] : null;
 }
 function lies(roh, datei, quelle, unlesbar, extra) {
   let e;
@@ -431,7 +484,7 @@ export function autorZweig(e) { const m = String((e && e.von) || '').match(/^sit
 export function brettLesen(wurzel, opts) {
   opts = opts || {};
   const aus = { eintraege: [], unlesbar: [], doppelt: [], abweichend: [], strittig: [], quellen: ['Arbeitsbaum'], gitDa: null, refs: 0, wo: new Map(), zurueckgezogen: 0, grabDateien: [],
-    fassungen: new Map(), unlesbarOrte: [] };
+    fassungen: new Map(), unlesbarOrte: [], fehlend: [] };
   // Wo liegt jede id? Nur GUELTIG gelesene Kopien zaehlen: eine kaputte oder falsch benannte Kopie
   // auf einem anderen Branch verdeckte sonst den Verlust des Originals (Gegenpruefung 2).
   const liegt = (id, quelle) => { if (!id) return; if (!aus.wo.has(id)) aus.wo.set(id, new Set()); aus.wo.get(id).add(quelle); };
@@ -485,13 +538,17 @@ export function brettLesen(wurzel, opts) {
       // Erst alle Baeume, dann EIN `git cat-file --batch` fuer alle Blobs (vorher ein Prozess je Blob:
       // 3 000 Eintraege auf einem Branch kosteten 9 s). Derselbe Blob ist derselbe Inhalt — er wird
       // EINMAL gelesen und gilt fuer jeden Ref, der ihn traegt.
-      const jeRef = [], blobs = new Set();
+      const jeRef = [], blobs = new Set(), baeume = new Set();
       for (const voll of liste) {
         const ref = voll.replace(/^refs\/remotes\//, '');
         aus.refs++; reihe.push({ ref, voll });
-        const ls = git(wurzel, ['ls-tree', '-r', '-z', voll, '--', ORDNER + '/']);   // -z: Sonderzeichen kommen unveraendert an
+        // -z: Sonderzeichen kommen unveraendert an. -t: auch die Baeume — der Baum des Ordners geht an
+        // blobsLesen, damit fehlende Blobs VORAB genannt werden, ohne nachzuladen.
+        const ls = git(wurzel, ['ls-tree', '-r', '-t', '-z', voll, '--', ORDNER + '/']);
         const z = [];
         for (const zeile of (ls || '').split('\0')) {
+          const t = zeile.match(/^\d+ tree ([0-9a-f]+)\t(.+)$/);
+          if (t) { if (t[2] === ORDNER) baeume.add(t[1]); continue; }
           const m = zeile.match(/^\d+ blob ([0-9a-f]+)\t(.+\.json)$/);
           if (!m) continue;
           z.push({ blob: m[1], pfad: m[2] });
@@ -499,18 +556,41 @@ export function brettLesen(wurzel, opts) {
         }
         jeRef.push({ ref, z });
       }
-      const inhalt = blobsLesen(wurzel, [...blobs]);
-      const gelesen = new Map();   // blob → Eintrag oder null (unlesbar)
+      const inhalt = blobsLesen(wurzel, [...blobs], [...baeume]), fehlt = new Set(inhalt.fehlt);
+      // Je Blob UND Name einmal gelesen — die Namenspruefung gilt je VORKOMMEN. Vorher galt der Name des
+      // ERSTEN Vorkommens fuer jeden Ref, der denselben Blob traegt: eine byte-gleiche Kopie unter anderem
+      // Namen auf einem frueher sortierenden Branch machte das Original „unlesbar", und jeder Halt und jede
+      // Lage darin war fuer alle UNWIRKSAM (Gegenpruefung 3). Zwei gueltige Namen desselben Blobs sind zwei
+      // Quellen derselben Fassung; ein falscher Name ist unlesbar — nur dieses Vorkommen.
+      const gelesen = new Map();   // blob + NUL + Name → Eintrag oder null (unlesbar)
+      const NICHT_GEHOLT = 'Blob nicht im lokalen Objektspeicher (Teilabruf: nicht geholt, nicht nachgeladen)';
       for (const { ref, z } of jeRef) for (const x of z) {
-        if (!gelesen.has(x.blob)) {
-          const buf = inhalt.get(x.blob);
-          gelesen.set(x.blob, buf == null ? null : lies(buf.toString('utf8'), path.posix.basename(x.pfad), ref, aus.unlesbar, { pfad: x.pfad, blob: x.blob }));
+        const name = path.posix.basename(x.pfad), k = x.blob + '\0' + name;
+        if (fehlt.has(x.blob)) {
+          aus.fehlend.push({ quelle: ref, pfad: x.pfad, blob: x.blob });
+          aus.unlesbarOrte.push({ quelle: ref, pfad: x.pfad, blob: x.blob });
+          if (!gelesen.has(k)) { gelesen.set(k, null); aus.unlesbar.push({ datei: name, quelle: ref, grund: NICHT_GEHOLT }); }
+          continue;
         }
-        const e = gelesen.get(x.blob);
+        if (!gelesen.has(k)) {
+          const buf = inhalt.get(x.blob);
+          gelesen.set(k, buf == null ? null : lies(buf.toString('utf8'), name, ref, aus.unlesbar, { pfad: x.pfad, blob: x.blob }));
+        }
+        const e = gelesen.get(k);
         if (!e) { aus.unlesbarOrte.push({ quelle: ref, pfad: x.pfad, blob: x.blob }); continue; }
-        // Der Name ist die Adresse: eine gueltige Fassung unter einem fremden Namen gibt es nicht (lies prueft ihn).
-        if (path.posix.basename(x.pfad) !== e._datei) { aus.unlesbarOrte.push({ quelle: ref, pfad: x.pfad, blob: x.blob }); aus.unlesbar.push({ datei: path.posix.basename(x.pfad), quelle: ref, grund: 'Dateiname passt nicht zu id und art' }); continue; }
         nimm(e, x.blob, ref, x.pfad);
+        // Dieselben Bytes unter ZWEI gueltigen Namen sind eine Fassung — aber ihr Eintrag traegt EINEN Namen, und
+        // der Name zaehlt fuer die Pruefung mit (ein Geheimnis-Muster im Namen macht den Eintrag ungueltig). Die
+        // Fassung behaelt deshalb den Namen, der nichts verdirbt, bei Gleichstand den vom Branch des Schreibers:
+        // sonst nahm eine Kopie unter einem vergifteten Namen auf einem frueher sortierenden Branch dem Original
+        // seine Wirkung ueber den Umweg der Gueltigkeit.
+        const v = (fass.get(e.id) || []).find(w => w.blob === x.blob && w.pfade.get(ref) === x.pfad);
+        if (v && v.e !== e && v.e._datei !== e._datei) {
+          const mangel = (y) => eintragPruefen(y, y._datei).length;
+          const vomAutor = (q, y) => q === 'Arbeitsbaum' || istMainRef(q) || istAutorRef(q, autorZweig(y));
+          const mn = mangel(e), mv = mangel(v.e);
+          if (mn < mv || (mn === mv && vomAutor(ref, e) && !vomAutor(v.e._quelle, v.e))) v.e = e;
+        }
       }
       for (const { ref } of jeRef) if (neu.get(ref)) aus.quellen.push(ref + ' (+' + neu.get(ref) + ')');
     }
@@ -672,10 +752,37 @@ export function releaseTitel(texte, version) {
 // derselben Linie (Vorfahr/Nachfahr) oder mit demselben Titel sind EINE Vergabe; und was
 // main fuer etwas anderes traegt, ist UEBERHOLT — dieser Branch muss umnummerieren.
 // `hier` sind die Marken des Arbeitsbaums (eigene Vergabe — sie zaehlt nicht gegen sich selbst).
+// Erst ein Blick OHNE Nachladen (blobsDa), dann gelesen: in der CI (Teilabruf ohne Blobs ab 200 KB) lud
+// `git show` je frischem Branch STATUS.md (1,1 MB) und index.html (6,4 MB) still vom Promisor nach — 12
+// Nachlade-Prozesse bei sechs Branches, auch mit `--nur-lokal` (Gegenpruefung 3). Fehlt eine Datei, die die
+// Rechnung braucht, ist sie NICHT rechenbar, und `grund` nennt Branch und Datei: eine Nummer ohne STATUS.md
+// oder Titel waere still falsch (kein Kuerzel, kein „ueberholt").
+const MARKEN_DATEIEN = ['sw.js', 'STATUS.md', 'index.html', 'data/releases.v1.js'];
 export function vergebeneMarken(wurzel, jetzt, tage) {
-  const blob = (ref, datei) => git(wurzel, ['show', ref + ':' + datei]);
   const MAIN = 'refs/remotes/origin/main';
   if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return { grund: 'origin/main ist nicht bekannt (kein Remote oder nie geholt) — vergebene Nummern lassen sich nicht rechnen' };
+  const kennung = new Map();   // Ref → Map(Datei → Blob-Kennung); ls-tree braucht nur Baeume, nie den Blob
+  const kennungen = (ref) => {
+    if (!kennung.has(ref)) {
+      const m = new Map();
+      for (const z of (git(wurzel, ['ls-tree', '-r', '-z', ref, '--'].concat(MARKEN_DATEIEN)) || '').split('\0')) { const t = z.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/); if (t) m.set(t[2], t[1]); }
+      kennung.set(ref, m);
+    }
+    return kennung.get(ref);
+  };
+  const blob = (ref, datei) => git(wurzel, ['show', ref + ':' + datei]);   // erst NACH dem Blick unten: dann liegt alles lokal
+  const zweige = frischeZweige(wurzel, jetzt, tage) || [];
+  // Ein Branch mit Commit-Zeit in der Zukunft ist nicht „frisch" (sonst bliebe er es fuer immer) — seine
+  // Nummer ist aber vergeben: vorher empfahl `naechste` sie still ein zweites Mal (Gegenpruefung 2).
+  const mitZukunft = zweige.concat((zweige.zukunft || []).map(x => ({ ref: x.ref, zukunft: true })));
+  {
+    const refsAlle = [MAIN, 'HEAD'].concat(mitZukunft.map(z => 'refs/remotes/' + z.ref)).filter(r => kennungen(r).size);
+    const noetig = [];
+    for (const ref of refsAlle) for (const [datei, oid] of kennungen(ref)) noetig.push({ ref, datei, oid });
+    const da = blobsDa(wurzel, noetig.map(x => x.oid), refsAlle.map(r => r + '^{tree}'));
+    const fehlt = noetig.filter(x => !da.has(x.oid)).map(x => x.ref.replace(/^refs\/remotes\//, '') + ':' + x.datei);
+    if (fehlt.length) return { grund: fehlt.length + ' Datei(en), die die Rechnung braucht, liegen nicht im lokalen Objektspeicher (Teilabruf — gelesen wird ohne Nachladen): ' + fehlt.slice(0, 4).join(', ') + (fehlt.length > 4 ? ' … +' + (fehlt.length - 4) : ''), fehlt };
+  }
   const basis = markenAus(blob(MAIN, 'sw.js'), blob(MAIN, 'STATUS.md'));
   if (versionNr(basis.version) == null) return { grund: 'auf origin/main steht in sw.js keine Version der Form gs-vXX.YY' };
   // index.html ist gross (~6 MB): je Blob nur einmal lesen — viele Branches tragen denselben.
@@ -697,10 +804,6 @@ export function vergebeneMarken(wurzel, jetzt, tage) {
   const hierTitel = hier.version ? releaseTitel([[lies('index.html'), 'window.GS_RELEASES = ['], [lies('data/releases.v1.js'), 'GS_RELEASES_ARCHIVE']], hier.version) : null;
   const vorfahr = (a, b) => git(wurzel, ['merge-base', '--is-ancestor', a, b]) != null;
   const eineLinie = (a, b) => vorfahr(a, b) || vorfahr(b, a);
-  const zweige = frischeZweige(wurzel, jetzt, tage) || [];
-  // Ein Branch mit Commit-Zeit in der Zukunft ist nicht „frisch" (sonst bliebe er es fuer immer) — seine
-  // Nummer ist aber vergeben: vorher empfahl `naechste` sie still ein zweites Mal (Gegenpruefung 2).
-  const mitZukunft = zweige.concat((zweige.zukunft || []).map(x => ({ ref: x.ref, zukunft: true })));
   const vGruppen = new Map(), kGruppen = new Map(), ueberholt = [], nachRef = [], unplausibel = [];
   const dazu = (m, wert, eintrag) => { if (!m.has(wert)) m.set(wert, []); m.get(wert).push(eintrag); };
   for (const z of mitZukunft) {
@@ -1280,41 +1383,104 @@ export function schwarm(eintraege, jetzt, opts) {
 // Deklaration davor": eine Aenderung mitten in gsKalenderEreignisse hiess dort `im` (ein Einzeiler im
 // Rumpf), ein Bump hiess closeAbout (Gegenpruefung 2). Ein kleiner Scanner, kein Parser (das Werkzeug
 // laeuft ohne npm): Zeichenketten, Vorlagen, Kommentare und Regex-Literale werden uebersprungen, die
-// Klammern gepaart. Geht ein <script>-Block nicht auf, gilt dort die alte Naeherung — und `unsicher`.
-const DEKLARATION = /^[ \t]*(?:async[ \t]+)?function[ \t*]+([A-Za-z_$][\w$]*)|^[ \t]*(?:window\.|var[ \t]+|let[ \t]+|const[ \t]+)?([A-Za-z_$][\w$]*)[ \t]*=[ \t]*(?:async[ \t]+)?function\b/;
+// Klammern gepaart. Geht ein <script>-Block nicht auf, gilt dort eine Naeherung (bis zur naechsten
+// Deklaration, die nicht tiefer eingerueckt ist) — und die Aenderung sagt es: `unsicher` mit der Zeile, ab
+// der der Scanner scheitert, und jeder Halt auf eine Funktion dieses Blocks gilt als beruehrt (Runde 3:
+// `unsicher` wurde gerechnet und nirgends gelesen — eine gueltige Zeile auf main schaltete jeden
+// Funktions-Halt still ab, ebenso ein Merge-Konflikt in der gehaltenen Funktion).
+// Deklarationen: `function X`, `X = function`, `window.X = function` — und das Tor `window.X = window.X ||
+// function` (gsUploadImage, gsCompressImage: vorher „weder eine Funktion in index.html …", Runde 3).
+const DEKLARATION = /^[ \t]*(?:async[ \t]+)?function[ \t*]+([A-Za-z_$][\w$]*)|^[ \t]*(?:window\.|var[ \t]+|let[ \t]+|const[ \t]+)?([A-Za-z_$][\w$]*)[ \t]*=[ \t]*(?:(?:window\.)?\2[ \t]*(?:\|\||\?\?)[ \t]*)?(?:async[ \t]+)?function\b/;
 function deklarationen(text) {
   const aus = [];
   if (!text) return aus;
   const z = text.split('\n');
-  for (let i = 0; i < z.length; i++) { const m = DEKLARATION.exec(z[i]); if (m) aus.push({ zeile: i + 1, name: m[1] || m[2] }); }
+  for (let i = 0; i < z.length; i++) { const m = DEKLARATION.exec(z[i]); if (m) aus.push({ zeile: i + 1, name: m[1] || m[2], einzug: /^[ \t]*/.exec(z[i])[0].length }); }
   return aus;
 }
 export function funktionsNamen(text) { return new Set(deklarationen(text).map(d => d.name)); }
 const REGEX_NACH_WORT = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'throw', 'case', 'do', 'else', 'yield', 'await']);
-const LEER = new Set([' ', '\t', '\n', '\r', '\f', '\v', ' ', '﻿', ' ', ' ']);
-const ID_ANF = /[A-Za-z_$À-￿]/, ID_ZEICHEN = /[\w$À-￿]/;
+// Nach der ) dieser Koepfe beginnt eine Anweisung — dort ist / ein Regex (`if (x) /'/.test(y)`), sonst ein Teilen.
+const KOPF_WORT = new Set(['if', 'while', 'for', 'with']);
+const LEER = new Set([' ', '\t', '\n', '\r', '\f', '\v', '\u00a0', '\ufeff', '\u2028', '\u2029']);
+const ZEILENENDE = new Set(['\n', '\r', '\u2028', '\u2029']);
+const ZU = { '{': '}', '(': ')', '[': ']' };
+const ID_ANF = /[A-Za-z_$\u00c0-\uffff]/, ID_ZEICHEN = /[\w$\u00c0-\uffff]/;
+// Elemente, deren Inhalt der Browser als TEXT liest: ein „<!--" oder „<script>" darin oeffnet nichts.
+const ROHTEXT = new Set(['style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext']);
+// Wo endet ein Element mit Rohtext? Am naechsten </name, dem Leerraum, / oder > folgt (nie an </scripts).
+function schlussTag(klein, name, ab) {
+  for (let j = klein.indexOf('</' + name, ab); j >= 0; j = klein.indexOf('</' + name, j + 1)) if (/[\s/>]/.test(klein[j + 2 + name.length] || '>')) return j;
+  return -1;
+}
 // JS-Bereiche [von, bis) eines Textes: in einer .html-Datei die <script>-Bloecke ohne src, sonst alles.
+// Gelesen wie ein Browser, nur grob: ein Kommentar zaehlt nur im TEXT zwischen den Tags (nicht in einem
+// Attributwert, nicht in style/textarea/title), `<!-->` und `<!--->` sind leere Kommentare, ein `>` in
+// Anfuehrungszeichen beendet kein Tag, und `src` zaehlt nur als ganzes Attribut (nicht `data-src`). Vorher
+// verschluckte `<button title="Schliessen <!-- Fuss">` vor dem Hauptskript 2 644 von 2 799 Funktionen (Runde 3).
 export function jsBereiche(text, html) {
   if (!html) return [[0, text.length]];
-  // HTML-Kommentare zuerst: ein „<script>" in einem Kommentar oeffnet keinen Block.
-  const klein = text.toLowerCase(), aus = [], re = /<!--|<script\b([^>]*)>/gi;
-  let m;
-  while ((m = re.exec(klein))) {
-    if (m[0] === '<!--') { const z = klein.indexOf('-->', m.index + 4); re.lastIndex = z < 0 ? text.length : z + 3; continue; }
-    const a = m.index + m[0].length, ende = klein.indexOf('</script', a), b = ende < 0 ? text.length : ende;
-    if (!/\bsrc\s*=/.test(m[1])) aus.push([a, b]);
-    re.lastIndex = b;
+  const klein = text.toLowerCase(), n = text.length, aus = [];
+  let i = 0;
+  while ((i = klein.indexOf('<', i)) >= 0) {
+    if (klein.startsWith('<!--', i)) {
+      if (klein[i + 4] === '>') { i += 5; continue; }
+      if (klein.startsWith('->', i + 4)) { i += 6; continue; }
+      // Ende: das erste --> oder --!> (je Kommentar nur bis dorthin gesucht — eine Suche nach --!> ueber den
+      // ganzen Rest kostete 600 ms bei 457 Kommentaren).
+      let z = n;
+      for (let p = klein.indexOf('--', i + 4); p >= 0; p = klein.indexOf('--', p + 1)) {
+        if (klein[p + 2] === '>') { z = p + 3; break; }
+        if (klein[p + 2] === '!' && klein[p + 3] === '>') { z = p + 4; break; }
+      }
+      i = z; continue;
+    }
+    if (klein[i + 1] === '!' || klein[i + 1] === '?') { const z = klein.indexOf('>', i + 2); i = z < 0 ? n : z + 1; continue; }   // <!DOCTYPE …>, <?…>
+    const zu = klein[i + 1] === '/', j0 = i + (zu ? 2 : 1);
+    if (!/[a-z]/.test(klein[j0] || '')) { i++; continue; }   // ein „<" im Text
+    let j = j0;
+    while (j < n && !/[\s/>]/.test(klein[j])) j++;
+    const name = klein.slice(j0, j), attr = new Set();
+    // Attribute bis zum > ausserhalb von Anfuehrungszeichen.
+    while (j < n && klein[j] !== '>') {
+      if (/[\s/]/.test(klein[j])) { j++; continue; }
+      const a0 = j;
+      j++;   // das erste Zeichen eines Namens darf auch = sein
+      while (j < n && !/[\s/>=]/.test(klein[j])) j++;
+      attr.add(klein.slice(a0, j));
+      while (j < n && /\s/.test(klein[j])) j++;
+      if (klein[j] !== '=') continue;
+      j++;
+      while (j < n && /\s/.test(klein[j])) j++;
+      if (klein[j] === '"' || klein[j] === "'") { const q = klein.indexOf(klein[j], j + 1); j = q < 0 ? n : q + 1; }
+      else while (j < n && !/[\s>]/.test(klein[j])) j++;
+    }
+    const nach = Math.min(n, j + 1);
+    if (zu) { i = nach; continue; }
+    if (name === 'script') {
+      const ende = schlussTag(klein, 'script', nach), b = ende < 0 ? n : ende;
+      if (!attr.has('src')) aus.push([nach, b]);
+      i = b; continue;
+    }
+    if (ROHTEXT.has(name)) { const ende = name === 'plaintext' ? -1 : schlussTag(klein, name, nach); i = ende < 0 ? n : ende; continue; }
+    i = nach;
   }
   return aus;
 }
 // Klammern paaren in text[a, b). Gibt die Paare (Position der oeffnenden → schliessende), die oeffnenden
-// Klammern in Reihenfolge, die Positionen von `function` — und ob der Bereich aufging.
+// Klammern in Reihenfolge, die Positionen von `function` — ob der Bereich aufging und, wenn nicht, ab wo
+// (`fehler`: die erste Stelle, an der es nicht weiterging, oder die erste Klammer, die nie zuging).
 export function klammernPaaren(text, a, b) {
   const paare = new Map(), offen = [], fn = [], st = [];
-  let i = a, art = 'start', wort = '', kaputt = false;
-  const regexErlaubt = () => art === 'start' || art === 'op' || art === 'zu}' || (art === 'wort' && REGEX_NACH_WORT.has(wort));
-  // Eine Vorlage `…${…}…` ab i (hinter dem oeffnenden ` oder einer schliessenden } eines ${): bis zum ` oder zum naechsten ${.
-  const vorlage = (j) => {
+  let i = a, art = 'start', wort = '', kaputt = false, fehler = null, zeilenAnf = true;
+  const bruch = (p) => { if (!kaputt) { kaputt = true; fehler = p; } };
+  // `art` ist das Letzte, was vor einem / stand. Ein Regex-Literal ist erlaubt am Anfang, nach einem
+  // Operator, nach } (Blockende), nach einem Schluesselwort wie return/typeof und nach der ) eines
+  // if/while/for/with-Kopfs. Ein Wort direkt hinter . oder ?. ist eine Eigenschaft (`t.in / t.out`), und
+  // ein nachgestelltes ++/-- schliesst einen Wert ab (`erledigt++ / gesamt`) — Runde 3, je gegen acorn.
+  const regexErlaubt = () => art === 'start' || art === 'op' || art === 'zu}' || art === 'kopf)' || (art === 'wort' && REGEX_NACH_WORT.has(wort));
+  // Eine Vorlage `…${…}…` ab j (hinter dem oeffnenden ` oder einer schliessenden } eines ${): bis zum ` oder zum naechsten ${.
+  const vorlage = (j, anf) => {
     while (j < b) {
       const c = text[j];
       if (c === '\\') { j += 2; continue; }
@@ -1322,21 +1488,24 @@ export function klammernPaaren(text, a, b) {
       if (c === '$' && text[j + 1] === '{') { st.push({ ch: '${', pos: j }); return j + 2; }
       j++;
     }
-    kaputt = true; return b;
+    bruch(anf); return b;
   };
   while (i < b) {
     const c = text[i];
-    if (LEER.has(c)) { i++; continue; }
+    if (LEER.has(c)) { if (ZEILENENDE.has(c)) zeilenAnf = true; i++; continue; }
     if (c === '/' && text[i + 1] === '/') { const n = text.indexOf('\n', i); i = n < 0 || n > b ? b : n; continue; }
-    if (c === '/' && text[i + 1] === '*') { const n = text.indexOf('*/', i + 2); i = n < 0 || n >= b ? b : n + 2; continue; }
+    if (c === '/' && text[i + 1] === '*') { const n = text.indexOf('*/', i + 2), e = n < 0 || n >= b ? b : n + 2, nl = text.indexOf('\n', i); if (nl >= 0 && nl < e) zeilenAnf = true; i = e; continue; }
     if (c === '<' && text.startsWith('<!--', i)) { const n = text.indexOf('\n', i); i = n < 0 || n > b ? b : n; continue; }
+    // `-->` am Zeilenanfang (davor nur Leerraum und Kommentare) ist im klassischen Skript ein Kommentar bis zum Zeilenende.
+    if (c === '-' && zeilenAnf && text.startsWith('-->', i)) { const n = text.indexOf('\n', i); i = n < 0 || n > b ? b : n; continue; }
+    zeilenAnf = false;
     if (c === "'" || c === '"') {
       let j = i + 1;
-      while (j < b && text[j] !== c && text[j] !== '\n') j += text[j] === '\\' ? 2 : 1;
-      if (j >= b || text[j] !== c) kaputt = true;
+      while (j < b && text[j] !== c && text[j] !== '\n') j += text[j] !== '\\' ? 1 : (text[j + 1] === '\r' && text[j + 2] === '\n' ? 3 : 2);
+      if (j >= b || text[j] !== c) bruch(i);
       i = j + 1; art = 'wert'; continue;
     }
-    if (c === '`') { const vor = st.length; i = vorlage(i + 1); art = st.length > vor ? 'op' : 'wert'; continue; }
+    if (c === '`') { const vor = st.length; i = vorlage(i + 1, i); art = st.length > vor ? 'op' : 'wert'; continue; }
     if (c === '/' && regexErlaubt()) {
       let j = i + 1, klasse = false, ok = false;
       while (j < b && text[j] !== '\n') {
@@ -1348,33 +1517,53 @@ export function klammernPaaren(text, a, b) {
       if (ok) { j++; while (j < b && /[a-z]/i.test(text[j])) j++; i = j; art = 'wert'; continue; }
       i++; art = 'op'; continue;   // kein Literal: ein Teilen
     }
-    if (ID_ANF.test(c)) { let j = i + 1; while (j < b && ID_ZEICHEN.test(text[j])) j++; wort = text.slice(i, j); if (wort === 'function') fn.push(i); art = 'wort'; i = j; continue; }
+    if (ID_ANF.test(c)) {
+      let j = i + 1;
+      while (j < b && ID_ZEICHEN.test(text[j])) j++;
+      if (art === 'punkt') { i = j; art = 'wert'; continue; }   // eine Eigenschaft: kein Schluesselwort, kein `function`
+      wort = text.slice(i, j); if (wort === 'function') fn.push(i); art = 'wort'; i = j; continue;
+    }
     if ((c >= '0' && c <= '9') || (c === '.' && /\d/.test(text[i + 1] || ''))) { let j = i + 1; while (j < b && /[\w.]/.test(text[j])) j++; i = j; art = 'wert'; continue; }
-    if (c === '{' || c === '(' || c === '[') { st.push({ ch: c, pos: i }); offen.push({ ch: c, pos: i }); i++; art = 'op'; continue; }
+    if (c === '.') { if (text[i + 1] === '.' && text[i + 2] === '.') { i += 3; art = 'op'; } else { i++; art = 'punkt'; } continue; }
+    if ((c === '+' || c === '-') && text[i + 1] === c) { i += 2; art = art === 'wert' || (art === 'wort' && !REGEX_NACH_WORT.has(wort)) ? 'wert' : 'op'; continue; }
+    if (c === '{' || c === '(' || c === '[') {
+      const k = { ch: c, pos: i };
+      if (c === '(' && art === 'wort' && KOPF_WORT.has(wort)) k.kopf = true;
+      st.push(k); offen.push(k); i++; art = 'op'; continue;
+    }
     if (c === '}' || c === ')' || c === ']') {
       const top = st.pop();
-      if (!top) { kaputt = true; i++; continue; }
-      if (top.ch === '${') { if (c !== '}') kaputt = true; const vor = st.length; i = vorlage(i + 1); art = st.length > vor ? 'op' : 'wert'; continue; }
-      if ({ '{': '}', '(': ')', '[': ']' }[top.ch] !== c) kaputt = true;
+      if (!top) { bruch(i); i++; continue; }
+      if (top.ch === '${') { if (c !== '}') bruch(i); const vor = st.length; i = vorlage(i + 1, i); art = st.length > vor ? 'op' : 'wert'; continue; }
+      if (ZU[top.ch] !== c) bruch(i);
       paare.set(top.pos, i);
-      i++; art = c === '}' ? 'zu}' : 'wert'; continue;
+      i++; art = c === '}' ? 'zu}' : (top.kopf ? 'kopf)' : 'wert'); continue;
     }
     i++; art = 'op';
   }
-  if (st.length) kaputt = true;
-  return { paare, offen, fn, kaputt };
+  if (st.length) { if (!kaputt || st[0].pos < fehler) fehler = st[0].pos; kaputt = true; }
+  return { paare, offen, fn, kaputt, fehler };
 }
-// Je Deklaration ihr Zeilenbereich [von, bis]. Ein Block, der nicht aufgeht: bis zur naechsten Deklaration.
-const bereichCache = new Map();
+// Je Deklaration ihr Zeilenbereich [von, bis]. Ein Block, der nicht aufgeht: bis vor die naechste Deklaration
+// mit GLEICHER ODER KLEINERER Einrueckung (sonst schnitte ein innerer Helfer die aeussere Funktion ab — der
+// „im"-Fehler aus Runde 2), hoechstens bis zum Blockende; der Block steht dann in `unsicherBloecke`.
+// Zwischengespeichert je Modus (html ja/nein) UND Text: ein zweiter Aufruf mit anderem Modus rechnet neu.
+const bereichCache = { h: new Map(), j: new Map() };
 export function funktionsBereiche(text, html) {
-  if (!text) return { bereiche: [], unsicher: false };
-  if (bereichCache.has(text)) return bereichCache.get(text);
+  if (!text) return { bereiche: [], innen: [], eltern: [], unsicher: false, unsicherBloecke: [] };
+  const modus = html === undefined ? /<script\b/i.test(text) : !!html, cache = bereichCache[modus ? 'h' : 'j'];
+  if (cache.has(text)) return cache.get(text);
   const zeilenAnf = [0];
   for (let i = text.indexOf('\n'); i >= 0; i = text.indexOf('\n', i + 1)) zeilenAnf.push(i + 1);
   const zeileVon = (pos) => { let lo = 0, hi = zeilenAnf.length - 1; while (lo < hi) { const mi = (lo + hi + 1) >> 1; if (zeilenAnf[mi] <= pos) lo = mi; else hi = mi - 1; } return lo + 1; };
-  const dekl = deklarationen(text), bereiche = [];
-  let unsicher = false;
-  const bl = jsBereiche(text, html === undefined ? /<script\b/i.test(text) : html).map(([a, b]) => Object.assign({ a, b }, klammernPaaren(text, a, b)));
+  const dekl = deklarationen(text), bereiche = [], unsicherBl = new Map();
+  // Je Deklaration die naechste, die nicht tiefer eingerueckt ist (ein Durchgang von hinten).
+  const naechsteGleich = new Int32Array(dekl.length).fill(-1);
+  for (let k = dekl.length - 1, sk = []; k >= 0; k--) {
+    while (sk.length && dekl[sk[sk.length - 1]].einzug > dekl[k].einzug) sk.pop();
+    naechsteGleich[k] = sk.length ? sk[sk.length - 1] : -1; sk.push(k);
+  }
+  const bl = jsBereiche(text, modus).map(([a, b]) => Object.assign({ a, b }, klammernPaaren(text, a, b)));
   const erste = (liste, pos) => { let lo = 0, hi = liste.length; while (lo < hi) { const mi = (lo + hi) >> 1; if (liste[mi].pos > pos) hi = mi; else lo = mi + 1; } return lo; };
   dekl.forEach((d, k) => {
     const anf = zeilenAnf[d.zeile - 1], naechste = d.zeile < zeilenAnf.length ? zeilenAnf[d.zeile] : text.length;
@@ -1384,13 +1573,17 @@ export function funktionsBereiche(text, html) {
     if (!blk.kaputt) {
       const f = blk.fn.find(p => p >= anf && p < naechste);
       if (f == null) return;   // die Zeile sieht nur so aus: sie steht in einem Kommentar oder einer Zeichenkette
-      {
-        const iP = erste(blk.offen, f), par = blk.offen[iP];
-        const zuP = par && par.ch === '(' ? blk.paare.get(par.pos) : null;
-        if (zuP != null) { const iB = erste(blk.offen, zuP), kb = blk.offen[iB]; const zuB = kb && kb.ch === '{' ? blk.paare.get(kb.pos) : null; if (zuB != null) bis = zeileVon(zuB); }
-      }
+      const iP = erste(blk.offen, f), par = blk.offen[iP];
+      const zuP = par && par.ch === '(' ? blk.paare.get(par.pos) : null;
+      if (zuP != null) { const iB = erste(blk.offen, zuP), kb = blk.offen[iB]; const zuB = kb && kb.ch === '{' ? blk.paare.get(kb.pos) : null; if (zuB != null) bis = zeileVon(zuB); }
     }
-    if (bis == null) { unsicher = true; bis = k + 1 < dekl.length ? Math.max(d.zeile, dekl[k + 1].zeile - 1) : zeileVon(blk.b); }
+    if (bis == null) {
+      const ende = zeileVon(blk.b), m = naechsteGleich[k];
+      bis = m >= 0 ? Math.max(d.zeile, Math.min(ende, dekl[m].zeile - 1)) : Math.max(d.zeile, ende);
+      let u = unsicherBl.get(blk);
+      if (!u) unsicherBl.set(blk, u = { von: zeileVon(blk.a), bis: ende, ab: blk.kaputt ? zeileVon(blk.fehler) : d.zeile, namen: [] });
+      u.namen.push(d.name);
+    }
     bereiche.push({ von: d.zeile, bis, name: d.name });
   });
   bereiche.sort((x, y) => x.von - y.von || y.bis - x.bis);
@@ -1405,19 +1598,35 @@ export function funktionsBereiche(text, html) {
     while (st.length && bereiche[st[st.length - 1]].bis < z) st.pop();
     innen[z] = st.length ? st[st.length - 1] : -1;
   }
-  const aus = { bereiche, innen, eltern, unsicher };
-  if (bereichCache.size > 4) bereichCache.delete(bereichCache.keys().next().value);
-  bereichCache.set(text, aus);
+  const unsicherBloecke = [...unsicherBl.values()];
+  const aus = { bereiche, innen, eltern, unsicher: unsicherBloecke.length > 0, unsicherBloecke };
+  if (cache.size > 4) cache.delete(cache.keys().next().value);
+  cache.set(text, aus);
   return aus;
 }
 function namenDerZeile(fb, zeile) { const n = []; for (let k = fb.innen[zeile] == null ? -1 : fb.innen[zeile]; k >= 0; k = fb.eltern[k]) n.push(fb.bereiche[k].name); return n; }
+// Die Funktionen eines Diffs (-U0): je Hunk die Zeilen der ALTEN Seite (eine ganz geloeschte Funktion zaehlt)
+// und die der NEUEN. Eine Menge — mit zwei Angaben daran: `hunks` (wie viele Koepfe gelesen wurden) und
+// `unsicher` (beruehrte Bloecke, die nicht aufgehen: ab welcher Zeile, welche Funktionen darin).
 export function funktionenAusDiff(diff, altText, neuText) {
-  const alt = funktionsBereiche(altText), neu = funktionsBereiche(neuText), aus = new Set();
+  const alt = funktionsBereiche(altText), neu = funktionsBereiche(neuText), aus = new Set(), beruehrt = new Set();
+  let hunks = 0;
+  const zeile = (fb, z) => {
+    namenDerZeile(fb, z).forEach(x => aus.add(x));
+    for (const u of fb.unsicherBloecke) if (z >= u.von && z <= u.bis) beruehrt.add(u);
+  };
   for (const m of String(diff).matchAll(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm)) {
+    hunks++;
     const a = +m[1], an = m[2] == null ? 1 : +m[2], c = +m[3], cn = m[4] == null ? 1 : +m[4];
-    for (let i = 0; i < an; i++) namenDerZeile(alt, a + i).forEach(x => aus.add(x));
-    for (let i = 0; i < cn; i++) namenDerZeile(neu, c + i).forEach(x => aus.add(x));
+    for (let i = 0; i < an; i++) zeile(alt, a + i);
+    for (let i = 0; i < cn; i++) zeile(neu, c + i);
   }
+  aus.hunks = hunks;
+  aus.unsicher = beruehrt.size ? { ab: Math.min(...[...beruehrt].map(u => u.ab)), bloecke: [...beruehrt].map(u => u.von + '–' + u.bis), namen: [...new Set([...beruehrt].flatMap(u => u.namen))].sort() } : null;
+  // Kein Kopf gelesen, und die Seiten unterscheiden sich: der Diff ist nicht lesbar (Farbe, binaer, ein externes
+  // Diff-Programm, das auch NICHTS ausgeben kann) — gesagt, nie still „keine Funktion". Gleiche Texte (nur der
+  // Modus geaendert) sind keine Aenderung.
+  aus.unlesbar = !hunks && (altText || '') !== (neuText || '');
   return aus;
 }
 // Was hat DIESE Sitzung geaendert? Seit dem Abzweigen UND heute anders als main — sonst zaehlt ein
@@ -1426,6 +1635,12 @@ export function funktionenAusDiff(diff, altText, neuText) {
 // geaendert ist — sonst „bumpte" jede Sitzung, hinter der main weitergezaehlt hat.
 //   opts.basis: eine feste Basis (im PR die Basis-Seite des Merge-Commits, waechterBasis) — dann ist sie
 //   zugleich „main"; sonst merge-base mit origin/main.
+// `unsicher` ({ab, grund, namen}): die eigene Aenderung liegt in einem <script>-Block, der nicht aufgeht
+// (gegen die Abzweigstelle UND gegen main), oder der Diff war nicht lesbar — dann gilt jeder Halt auf eine
+// Funktion in `namen` als beruehrt. Zu viel melden ist hier besser als schweigen.
+// Der Diff laeuft ohne Farbe, ohne externes Diff-Programm und ohne textconv: eine Einstellung der Person
+// (color.ui=always, diff.external) machte die Hunk-Koepfe unlesbar, und jeder Funktions-Halt verstummte.
+const DIFF_U0 = ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '-U0'];
 export function eigeneAenderung(wurzel, opts) {
   opts = opts || {};
   let MAIN = 'refs/remotes/origin/main', basis;
@@ -1442,27 +1657,39 @@ export function eigeneAenderung(wurzel, opts) {
   neuDa.forEach(n => { seitBasis.add(n); gegenMain.add(n); });
   // Eintraege des Bretts beruehren nie einen Halt — sonst haelt ein Halt auch die Antwort darauf an.
   const dateien = [...seitBasis].filter(n => gegenMain.has(n) && n.indexOf('docs/austausch/') !== 0).sort();
-  let funktionen = [];
+  let funktionen = [], unsicher = null;
   if (dateien.indexOf('index.html') >= 0) {
     let hier = null; try { hier = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8'); } catch (_) {}
-    const fa = funktionenAusDiff(git(wurzel, ['diff', '-U0', basis, '--', 'index.html']) || '', git(wurzel, ['show', basis + ':index.html']), hier);
-    const fm = funktionenAusDiff(git(wurzel, ['diff', '-U0', MAIN, '--', 'index.html']) || '', git(wurzel, ['show', MAIN + ':index.html']), hier);
+    const tBasis = git(wurzel, ['show', basis + ':index.html']), tMain = git(wurzel, ['show', MAIN + ':index.html']);
+    const fa = funktionenAusDiff(git(wurzel, DIFF_U0.concat([basis, '--', 'index.html'])) || '', tBasis, hier);
+    const fm = funktionenAusDiff(git(wurzel, DIFF_U0.concat([MAIN, '--', 'index.html'])) || '', tMain, hier);
     funktionen = [...fa].filter(x => fm.has(x)).sort();
+    if (fa.unlesbar || fm.unlesbar) {
+      const alle = new Set();
+      for (const t of [tBasis, tMain, hier]) funktionsBereiche(t).bereiche.forEach(x => alle.add(x.name));
+      unsicher = { ab: null, grund: 'der Diff von index.html hat keinen lesbaren Hunk-Kopf (liest git die Datei als binaer, oder formt eine Einstellung den Diff um?)', namen: [...alle].sort() };
+    } else if (fa.unsicher && fm.unsicher) {
+      unsicher = { ab: Math.min(fa.unsicher.ab, fm.unsicher.ab), grund: 'ein <script>-Block geht nicht auf (Zeilen ' + [...new Set(fa.unsicher.bloecke.concat(fm.unsicher.bloecke))].join(', ') + ')', namen: [...new Set(fa.unsicher.namen.concat(fm.unsicher.namen))].sort() };
+    }
   }
   const v = (t) => ((t || '').match(SW_VERSION) || [])[1] || null;
   let swHier = null; try { swHier = fs.readFileSync(path.join(wurzel, 'sw.js'), 'utf8'); } catch (_) {}
   const vHier = v(swHier), vMain = v(git(wurzel, ['show', MAIN + ':sw.js'])), vBasis = v(git(wurzel, ['show', basis + ':sw.js']));
-  return { basis, dateien, funktionen, bump: !!(vHier && vHier !== vBasis && vHier !== vMain) };
+  return { basis, dateien, funktionen, unsicher, bump: !!(vHier && vHier !== vBasis && vHier !== vMain) };
 }
 // Welche Geltung eines Halts beruehrt diese Aenderung? Ein Name ohne / und ohne Punkt kann eine
-// Funktion ODER eine Datei sein (`_headers`, `_redirects`) — beides zaehlt.
+// Funktion ODER eine Datei sein (`_headers`, `_redirects`) — beides zaehlt. Liegt die Aenderung in einem
+// Block, dessen Grenzen nicht bestimmbar sind, gilt jede Funktion darin als beruehrt — gekennzeichnet.
 export function haltBeruehrt(h, aend) {
   if (!aend || aend.grund) return [];
   const t = [];
   for (const g0 of alsListe(h.geltung)) {
     const g = geltungNorm(g0);
     if (g === 'bump') { if (aend.bump) t.push('bump'); continue; }
-    if (/^[A-Za-z_$][\w$]*$/.test(g) && aend.funktionen.indexOf(g) >= 0) t.push(g + '()');
+    if (/^[A-Za-z_$][\w$]*$/.test(g)) {
+      const unsicher = !!aend.unsicher && alsListe(aend.unsicher.namen).indexOf(g) >= 0;
+      if (unsicher || aend.funktionen.indexOf(g) >= 0) t.push(g + '()' + (unsicher ? ' — Grenzen unsicher' : ''));
+    }
     const pre = g.replace(/\/+$/, '');
     for (const d of aend.dateien) if (d === pre || d.indexOf(pre + '/') === 0) t.push(d);
   }
@@ -1481,10 +1708,26 @@ export function haltsDiesesStands(wurzel, umgebung, jetzt) {
   if (aend.grund) return { grund: aend.grund };
   const ez = eigenerZweig(wurzel), ich = umgebung.GITHUB_HEAD_REF ? 'sitzung/' + umgebung.GITHUB_HEAD_REF : (ez.name ? 'sitzung/' + ez.name : null);
   const b = brettLesen(wurzel, { alleRefs: true }), wo = b.gitDa ? b.wo : null;
+  // NICHT RECHENBAR (nichtPruefbar) ist, was ein „keiner beruehrt diesen Stand" vortaeuschen wuerde:
+  // (1) Kein einziger Branch sichtbar — im PR-Checkout nur refs/remotes/pull/<n>/merge, wenn der Schritt
+  //     „Branches fuer das Brett" fehlt oder scheitert. Gemessen (Gegenpruefung 3): „ok A8 … 0 wirksame
+  //     Halt(s) auf 1 Remote-Refs … keiner beruehrt diesen Stand", waehrend auf claude/andere ein Halt lag.
+  // (2) Eintragsdateien, deren Blob fehlt (Teilabruf), wenn nicht feststeht, dass sie zu gross fuer einen
+  //     Eintrag sind: `--filter=blob:limit=<n>` laesst nur Blobs ab n Bytes weg — liegt n ueber
+  //     EINTRAG_MAX_BYTES, waere jede fehlende Datei ohnehin unlesbar („groesser als 64 KB — kein Eintrag")
+  //     und kann keinen Halt tragen. Bei blob:none, unbekanntem Filter oder n ≤ 64 KB koennte sie es.
+  const zweige = (git(wurzel, ['for-each-ref', '--format=%(refname)', 'refs/remotes']) || '').split('\n').filter(x => x && !/\/HEAD$/.test(x) && !/^refs\/remotes\/pull\//.test(x));
+  if (b.gitDa && !zweige.length) return { grund: 'nur ' + b.refs + ' Remote-Ref(s) sichtbar und kein Branch — Halts auf anderen Branches sind von hier nicht zu sehen (in der CI fehlt der Schritt „Branches fuer das Brett" oder er scheiterte; lokal: git fetch origin)', nichtPruefbar: true, refs: b.refs };
+  const grenze = new Map(), grenzeVon = (quelle) => { const r = String(quelle).split('/')[0]; if (!grenze.has(r)) grenze.set(r, teilabrufGrenze(wurzel, r)); return grenze.get(r); };
+  const offenFehlend = b.fehlend.filter(x => !(grenzeVon(x.quelle) > EINTRAG_MAX_BYTES));
+  if (offenFehlend.length) return { grund: offenFehlend.length + ' Eintragsdatei(en) nicht im lokalen Objektspeicher (Teilabruf) und nicht nachweislich zu gross fuer einen Eintrag — darin koennte ein Halt liegen: ' + offenFehlend.slice(0, 3).map(x => x.pfad + ' {' + x.quelle + '}').join(', ') + (offenFehlend.length > 3 ? ' … +' + (offenFehlend.length - 3) : ''), nichtPruefbar: true, refs: b.refs, fehlend: b.fehlend.length };
   const sw = schwarm(b.eintraege, jetzt == null ? Date.now() : jetzt, { wo, ich });
   const meins = (e) => !!ich && e.von === ich && vonPasst(e, wo, ich);
   const treffer = sw.halts.filter(h => !h.veto && !meins(h.e)).map(h => ({ h, t: haltBeruehrt(h.e, aend) })).filter(x => x.t.length);
-  return { aend, halts: sw.halts, treffer, refs: b.refs, ich };
+  // `unsicher`: die Funktionsgrenzen dort, wo dieser Stand index.html aendert, sind nicht bestimmbar — dann
+  // stehen die Halts auf Funktionen darin mit „Grenzen unsicher" unter `treffer`. `fehlend`: Eintragsdateien, deren
+  // Blob der Teilabruf nicht holte (alle nachweislich zu gross fuer einen Eintrag — sonst oben „nicht pruefbar").
+  return { aend, halts: sw.halts, treffer, refs: b.refs, ich, unsicher: aend.unsicher || null, fehlend: b.fehlend.length, fehlendAb: b.fehlend.length ? Math.min(...b.fehlend.map(x => grenzeVon(x.quelle))) : null };
 }
 // Wer arbeitet laut git an einem offenen Eintrag? Niemand muss es melden: (a) seine Stelle (der Anker)
 // wurde auf einem frischen Branch NACH dem Eintrag geaendert; (b) seine id steht in einer
