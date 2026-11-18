@@ -84,9 +84,18 @@ export const VON_FORM_TEXT = 'sitzung/<branch>, runde/<blickwinkel> oder eine Ro
 const SICHTBAR = '\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}', HARMLOS = '\\u00AD\\u200C\\u200D';
 const unsichtbarMuster = (ausser) => new RegExp((ausser ? '(?![' + ausser + '])' : '') + '(?:[\\p{Cc}\\p{Zl}\\p{Zp}]|(?![' + HARMLOS + '])\\p{Cf}|(?<![' + SICHTBAR + '])[' + HARMLOS + ']|[' + HARMLOS + '](?![' + SICHTBAR + ']))', 'gu');
 const UNSICHTBAR = unsichtbarMuster(null);
+// Gegenpruefung 5b, Skeptiker (R5c-A1): NAMEN STRENG, PROSA NACHSICHTIG. Die Ausnahme fuer ZWJ, ZWNJ und weichen Trennstrich machte
+// Ref-, Datei- und Quellnamen wieder verwechselbar: claude/a<U+200D>b und claude/a<U+00AD>b (git nimmt beide an) standen in `holen`
+// als „origin/claude/ab" da — FRISCHE BRANCHES nannte dreimal denselben Namen, und der Schreiber auf claude/ab las „abweichend
+// origin/claude/ab" ueber seinen eigenen Branch. Ein Name braucht kein unsichtbares Zeichen: fremd(s, max, { streng: true }) macht
+// JEDES sichtbar — jedes Cc/Cf/Cs/Co/Cn, jedes Leerzeichen ausser U+0020 (U+00A0 sieht aus wie eines) und jedes Default-Ignorable-
+// Zeichen, auch die, die keine Format-Zeichen sind (U+034F, die Variantenwaehler U+FE00–FE0F und U+E0100–E01EF, die Hangul-Fueller
+// U+115F, U+1160, U+3164, U+FFA0). Gemessen 18.11.2026: git nimmt jedes davon in einem Branch-Namen an (check-ref-format --branch),
+// und claude/a<U+034F>b sah auch unter c43c306 aus wie claude/ab. Titel und Text bleiben bei der nachsichtigen Regel oben.
+const UNSICHTBAR_STRENG = /(?! )[\p{C}\p{Z}\p{Default_Ignorable_Code_Point}]/gu;
 const alsEscape = (c) => { let s = ''; for (let i = 0; i < c.length; i++) s += '\\u' + c.charCodeAt(i).toString(16).padStart(4, '0'); return s; };
-export function fremd(s, max) {
-  let t = String(s == null ? '' : s).replace(UNSICHTBAR, alsEscape);
+export function fremd(s, max, opt) {
+  let t = String(s == null ? '' : s).replace(opt && opt.streng ? UNSICHTBAR_STRENG : UNSICHTBAR, alsEscape);
   if (max > 0) { const z = [...t]; if (z.length > max) t = z.slice(0, Math.max(0, max - 1)).join('') + '…'; }
   return t;
 }
@@ -94,7 +103,30 @@ export function fremd(s, max) {
 // bleiben (das Werkzeug schreibt mehrzeilige Bloecke und eingerueckte Felder). Das Werkzeug selbst gibt keines dieser
 // Zeichen aus — gemessen 18.11.2026: 0 in austausch.mjs und _austausch.mjs, 0 in den Feldern aller 166 Eintrags-Blobs,
 // in Dateinamen, Branch-Namen und Commit-Betreffen aller Refs. Sie trifft also nur, was eine andere Stelle uebersah.
-const UNSICHTBAR_AUSGABE = unsichtbarMuster('\\n\\t');
+// Gegenpruefung 5b, Skeptiker (R5c-A1): die Wand kennt den Zusammenhang nicht — ob eine Zeile Prosa ist oder einen Ref-Namen traegt,
+// den eine Stelle nicht streng gemacht hat (ein Befehl, ein Grund, ein `von`). Ein harmloses Zeichen (ZWJ, ZWNJ, SHY) bleibt hier nur
+// roh, wenn es zwischen zwei sichtbaren Zeichen steht UND mindestens ein Nachbar ein sichtbares Nicht-ASCII-Zeichen ist (Emoji, die
+// arabische, persische, indische Schrift): Familie und Regenbogenfahne bleiben ganz, „claude/a<U+200D>b" wird sichtbar. Ebenso die
+// unsichtbaren Zeichen, die keine Format-Zeichen sind (U+034F, Variantenwaehler, Hangul-Fueller): roh nur neben einem sichtbaren
+// Nicht-ASCII-Zeichen, das selbst nicht unsichtbar ist (U+2764 + U+FE0F, die Tastenkappe 1 + U+FE0F + U+20E3) — sonst sah ein `von` wie
+// sitzung/claude/a<U+034F>b (AN_SITZUNG schliesst nur \p{C} und \p{Z} aus) in jeder Zeile aus wie das Original, und eine Kette
+// a<U+034F><U+034F>b trug sich gegenseitig. Der Preis: ein weicher Trennstrich zwischen zwei ASCII-Buchstaben (Bau<U+00AD>stelle)
+// steht als \u00ad da. Gemessen 18.11.2026 ueber den Arbeitsbaum und alle 143 Remote-Refs (167 Blobs, 3020 Textfelder): 3 solche
+// Zeichen, alle U+FE0F hinter einem Emoji, keines zwischen zwei ASCII-Zeichen; 0 Branch- und 0 Dateinamen mit einem Nicht-ASCII-Zeichen.
+const WAND_KANDIDAT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/gu;
+const IST_HARMLOS = /^[\u00AD\u200C\u200D]$/, IST_SICHTBAR = new RegExp('^[' + SICHTBAR + ']$', 'u'), IST_DI = /^\p{Default_Ignorable_Code_Point}$/u, IST_CF = /^\p{Cf}$/u;
+// Das Zeichen VOR bzw. NACH einer Stelle als ganzer Code-Punkt (ein Emoji sind zwei UTF-16-Einheiten).
+const zeichenVor = (t, i) => { if (i <= 0) return ''; const lo = t.charCodeAt(i - 1); if (lo >= 0xDC00 && lo <= 0xDFFF && i >= 2) { const hi = t.charCodeAt(i - 2); if (hi >= 0xD800 && hi <= 0xDBFF) return t.slice(i - 2, i); } return t[i - 1]; };
+const zeichenNach = (t, j) => j >= t.length ? '' : String.fromCodePoint(t.codePointAt(j));
+const echtNichtAscii = (c) => !!c && c.codePointAt(0) > 0x7f && IST_SICHTBAR.test(c) && !IST_DI.test(c);
+function wandRoh(t, c, i) {
+  if (c === '\n' || c === '\t') return true;                          // mehrzeilige Bloecke und eingerueckte Felder des Werkzeugs
+  const cf = IST_CF.test(c);
+  if (!cf && !IST_DI.test(c)) return false;                            // Cc, Zl, Zp
+  if (cf && !IST_HARMLOS.test(c)) return false;                        // Bidi, U+FEFF, Tag-Zeichen …
+  const a = zeichenVor(t, i), z = zeichenNach(t, i + c.length), nicht = echtNichtAscii(a) || echtNichtAscii(z);
+  return cf ? (IST_SICHTBAR.test(a) && IST_SICHTBAR.test(z) && nicht) : nicht;
+}
 // Gegenpruefung 5, Skeptiker (R5b-ausgabe-3): auf GitHub Actions ist eine Zeile, die (nach Leerraum) mit „::" beginnt, ein BEFEHL
 // an den Runner (::error, ::warning, ::add-mask::, ::stop-commands::), und „##[" ist dessen aeltere Form. Der Pruefstand laeuft auf
 // jedem PR, der Waechter schreibt seinen Bericht mit `tee` ins Protokoll: ein Halttext „Bitte warten\n::error title=Brett::…" stand
@@ -102,7 +134,7 @@ const UNSICHTBAR_AUSGABE = unsichtbarMuster('\\n\\t');
 // (Backslash, u, 003a bzw. 0023) — sichtbar, und in JSON dasselbe Zeichen (eine JSON-Zeile beginnt nie mit „::", und „##[" steht dort
 // nur in einer Zeichenkette).
 const RUNNER_ZEILE = /^(\s*):(?=:)/gm, RUNNER_ALT = /#(?=#\[)/g;
-export function ausgabeSicher(s) { return String(s).replace(UNSICHTBAR_AUSGABE, alsEscape).replace(RUNNER_ZEILE, '$1\\u003a').replace(RUNNER_ALT, '\\u0023'); }
+export function ausgabeSicher(s) { const t = String(s); return t.replace(WAND_KANDIDAT, (c, i) => wandRoh(t, c, i) ? c : alsEscape(c)).replace(RUNNER_ZEILE, '$1\\u003a').replace(RUNNER_ALT, '\\u0023'); }
 export const DRINGLICHKEIT = ['kritisch', 'dringend'];
 export const PHASEN = ['laeuft', 'letzte_runde', 'fertig'];
 // Hoechstdauer je Art (ab dem eigenen Zeitstempel): eine Lage ist ein Arbeitsschub, ein Halt
@@ -683,6 +715,62 @@ export function objekteNachladen(wurzel, oids, opts) {
   opts.ende = go.ende; opts.code = go.code;
   return ok;
 }
+// Die aelteren Fassungen nachladen (Gegenpruefung 5c, Skeptiker R5c-L1). `gruppen`: [{ ref, rest: [Kennung], ende }] in der
+// Reihenfolge der Refs; danach traegt jede in `rest`, was noch fehlt, und in `ende`, wie ihr letzter Abruf endete
+// ('ok' · 'frist' · 'fehler'). `fristEnde`: ms seit 1970 — kein Abruf laeuft darueber hinaus.
+//  1. EIN Abruf fuer alle, mit hoechstens der HAELFTE der verbleibenden Frist. Das ist der Normalfall (gemessen: 26 ehrliche
+//     Branches, 0,8 s je Abruf — ein Abruf, alle aelteren Fassungen da). Die Haelfte bleibt fuer den Fall, dass er haengt.
+//  2. Nur wenn er an der FRIST scheitert, wird halbierend geteilt: ueber die Branches, bei einem einzigen Branch ueber seine
+//     Objekte. Haengt EIN fremder Branch, kostet er log N Runden statt N Latenzen; jede Haelfte ohne ihn kommt in einem Abruf an.
+//     Ein Abruf, den der Server ABLEHNT (fehler), wird nicht geteilt und nicht wiederholt (wie vorher; die Antwort ist dann
+//     „nicht rechenbar" — die sichere Richtung).
+//  Die Frist je Teilabruf: der Rest geteilt durch die Zahl der Abrufe, die das Teilen noch braucht, wenn EIN Teil haengt — die
+//  offenen Teile plus zwei je Halbierungsstufe des groessten (len + 2·⌈log2 Umfang⌉). Gemessen (18.11.2026, 12 ehrliche Branches
+//  mit berichtigter Lage, ein fremder, dessen aeltere Fassung haengt, 0,3 s je Abruf, Standardfrist): so kamen alle zwoelf (der
+//  knappste ehrliche Teil bekam 0,88 s und brauchte 0,38 s; fuenf Abrufe trafen den haengenden: 1 + ⌈log2 13⌉). Bekam jeder Teil
+//  stattdessen die Haelfte des Rests, blieben dem letzten ehrlichen 81 ms, und seine aeltere Fassung kam nicht. Haengen MEHRERE
+//  Teile, reicht die Rechnung nicht fuer alle — was nicht kommt, ist „nicht rechenbar" (ein Halt wirkt, eine Lage nimmt nichts),
+//  nie still falsch.
+function aeltereNachladen(wurzel, remote, gruppen, fristEnde, frist) {
+  const uebrig = () => fristEnde - Date.now();
+  // Ein Teil ist eine Liste von {x, oid}; sein Umfang die Zahl seiner Branches, bei einem einzigen Branch die seiner Objekte.
+  const teil = (gs) => gs.flatMap(x => x.rest.map(oid => ({ x, oid })));
+  const frisch = (t) => t.filter(u => u.x.rest.indexOf(u.oid) >= 0);
+  const umfang = (t) => { const n = new Set(t.map(u => u.x)).size; return n > 1 ? n : t.length; };
+  const halbiere = (t) => {
+    const refs = [...new Set(t.map(u => u.x))];
+    if (refs.length > 1) { const vorn = new Set(refs.slice(0, Math.ceil(refs.length / 2))); return [t.filter(u => vorn.has(u.x)), t.filter(u => !vorn.has(u.x))]; }
+    return t.length > 1 ? [t.slice(0, Math.ceil(t.length / 2)), t.slice(Math.ceil(t.length / 2))] : [];
+  };
+  // Ein Abruf bis `bis` (ganze Millisekunden: spawnSync nimmt als `timeout` nur eine ganze Zahl); danach rechnet jede beteiligte
+  // Gruppe nach, was noch fehlt. Was ein frueherer Abruf schon mitbrachte, steht nicht mehr in `rest`.
+  const abruf = (t, bis) => {
+    const oids = [...new Set(t.map(u => u.oid))], o = { remote, frist, bis: Math.floor(bis) };
+    objekteNachladen(wurzel, oids, o);
+    const da = blobsDa(wurzel, oids);
+    for (const x of new Set(t.map(u => u.x))) {
+      const hier = t.filter(u => u.x === x && !da.has(u.oid)).length;
+      x.rest = x.rest.filter(b => !da.has(b));
+      if (hier) x.ende = o.ende === 'frist' ? 'frist' : 'fehler';
+      else if (!x.rest.length) x.ende = 'ok';
+    }
+    return o.ende;
+  };
+  const alle = teil(gruppen.filter(x => x.rest.length));
+  if (!alle.length) return;
+  if (Math.floor(uebrig() / 2) < 1) { for (const x of gruppen) if (x.rest.length) x.ende = 'frist'; return; }
+  if (abruf(alle, Date.now() + uebrig() / 2) !== 'frist') return;
+  const schlange = halbiere(frisch(alle));
+  while (schlange.length) {
+    const t = frisch(schlange.shift());
+    if (!t.length) continue;
+    const offen = [t].concat(schlange.map(frisch).filter(x => x.length));
+    const abrufe = offen.length + 2 * Math.ceil(Math.log2(Math.max(...offen.map(umfang))));
+    const frist1 = Math.floor(uebrig() / abrufe);
+    if (frist1 < 1) break;
+    if (abruf(t, Date.now() + frist1) === 'frist') schlange.push(...halbiere(frisch(t)));
+  }
+}
 // Die Eintraege des Bretts (eintraege/**.json und die Grabstein-Liste) auf JEDEM Ref eines Promisor-Remotes: fehlende
 // Wurzelbaeume zuerst (tree:0), dann die fehlenden Blobs. Klein: ein Eintrag hat hoechstens 64 KB — groessere Dateien
 // unter eintraege/ werden mitgeholt und danach „groesser als 64 KB" genannt (die Frist begrenzt den Abruf).
@@ -702,9 +790,12 @@ export function objekteNachladen(wurzel, oids, opts) {
 //  · Mit opts.aenderung (nur `holen`, vor DICH BETREFFEND) index.html und sw.js von origin/main und der Abzweigstelle: ohne
 //    sie ist der Funktions- und Bump-Vergleich von eigeneAenderung nicht rechenbar (R5-lesen-3, eigeneAenderung laedt
 //    selbst nichts mehr nach) — seit Gegenpruefung 5b nur die, die dieser Stand geaendert hat (R5b-lesen-2).
-// Gegenpruefung 5b (R5b-lesen-0): die Spitzen und das Verzeichnis kommen in EINEM Abruf, die aelteren Fassungen je Branch des
-// Schreibers in einem eigenen, mit einem gerechten Anteil an der Frist — die Geschichte eines Fremden verbraucht nicht die Frist
-// aller. `aeltere.refs` nennt die Branches, deren aeltere Fassungen nicht kamen.
+// Gegenpruefung 5b (R5b-lesen-0): die Spitzen und das Verzeichnis kommen in EINEM Abruf. Die aelteren Fassungen seit
+// Gegenpruefung 5c (Skeptiker R5c-L1) zuerst ebenfalls in EINEM Abruf fuer alle Branches (hoechstens die Haelfte der
+// verbleibenden Frist), und nur, wenn der an der Frist scheitert, halbierend geteilt (aeltereNachladen) — die Geschichte eines
+// Fremden verbraucht so nicht die Frist aller. `aeltere.refs` nennt die Branches, deren aeltere Fassungen nicht kamen.
+// opts.vorAelteren: wird nach den Spitzen und VOR den aelteren Fassungen gerufen (einmal, fuer origin) — `naechste` laedt dort
+// die Dateien fuer die Nummern (R5c-L1: danach blieb ihnen keine Zeit).
 // opts.bis: die Gesamtfrist des Befehls — jeder Abruf hier bekommt hoechstens den Rest (R5-lesen-8). `grund` sagt, warum
 // etwas nicht kam: 'frist' (Frist abgelaufen) oder 'fehler' (der Abruf scheiterte — der Server gab die Objekte nicht).
 const BRETT_DIR = path.posix.dirname(ORDNER);
@@ -755,6 +846,11 @@ export function eintraegeNachladen(wurzel, opts) {
     aus.geholt += ohneVerz(spitzen.fehlen).length - ohneVerz(spitzen.rest).length;
     aus.fehlt.push(...ohneVerz(spitzen.rest));
     if (verzBlob) aus.verzeichnis = spitzen.rest.indexOf(verzBlob) >= 0 ? 'fehlt' : (spitzen.fehlen.indexOf(verzBlob) >= 0 ? 'geholt' : 'da');
+    // Was der Befehl selbst braucht, VOR den aelteren Fassungen (Gegenpruefung 5c, Skeptiker R5c-L1): bei `naechste` die Dateien
+    // fuer die Nummern. Vorher kamen sie danach — gemessen mit 20 ehrlich berichtigten Halts und 0,8 s je Abruf kamen die aelteren
+    // Fassungen gerade noch, fuer die Nummern blieb nichts (Exit 2: „20 Datei(en) … STATUS.md"); und gegen einen haengenden
+    // fremden Branch laeuft das Teilen unten bis zur Frist.
+    if (typeof opts.vorAelteren === 'function' && remote === REMOTE) opts.vorAelteren();
     // Die aelteren Fassungen jeder Lage und jedes Halts auf dem Branch des Schreibers (R5-lesen-1). Welcher Branch das ist,
     // sagt die Spitze (`von`) — dieselbe Regel wie in brettLesen (istAutorRef); eine Kopie Dritter misst nie.
     const spitzeInhalt = blobsLesen(wurzel, [...new Set(lageHalt.map(x => x.blob))]), jeRef = new Map();
@@ -781,33 +877,18 @@ export function eintraegeNachladen(wurzel, opts) {
       for (const [pfad, spitze] of pfade) for (const v of (vl.get(pfad) || [])) if (v.blob !== spitze && v.mode === '100644') s.add(v.blob);
       if (s.size) aeltereJe.set(ref, s);
     }
-    // Je Branch des Schreibers ein EIGENER Abruf mit einem gerechten Anteil an der Frist (Gegenpruefung 5b, R5b-lesen-0). Vorher war
-    // es EIN Stapel ohne Groessengrenze: wer auf SEINEM Branch die Geschichte seiner eigenen Lage aufblaehte (eine aeltere Fassung
-    // mit 150 MB), verbrauchte die Frist aller — gemessen: die aeltere Fassung einer EHRLICH berichtigten Lage auf einem anderen
-    // Branch kam nicht, und ihre Ziele waren fuer alle „nicht entscheidbar". Jetzt bekommt jeder Abruf hoechstens (Rest der Frist) /
-    // (Zahl der noch offenen Abrufe); was einer nicht braucht, geht an die naechsten. Was in seinem Anteil nicht kam (Frist), wird
-    // danach mit dem uebrigen Rest noch einmal versucht — ein langsamer, ehrlicher Branch verliert so nichts an einen schnellen.
-    // Ein Abruf, den der Server ABLEHNT (fehler), wird nicht wiederholt. Grenze: wer viele Branches mit aufgeblaehter Geschichte
-    // pusht, verkleinert jeden Anteil — dann kommt die aeltere Fassung nicht, und die Ankunft ist „nicht rechenbar" (die sichere
-    // Richtung: ein Halt wirkt, eine Lage nimmt nichts), nie still falsch.
+    // Gegenpruefung 5b (R5b-lesen-0) gab jedem Branch des Schreibers einen EIGENEN Abruf mit (Rest der Frist) / (offene Abrufe) als
+    // Anteil, damit die aufgeblaehte Geschichte EINES Fremden (eine aeltere Fassung mit 150 MB) nicht die Frist aller verbraucht.
+    // Gegenpruefung 5c (Skeptiker R5c-L1) hat gemessen, was das bei ehrlicher Last kostet: 26 ehrlich berichtigte Halts auf eigenen
+    // Branches, 0,8 s je Abruf (ext::-Helfer mit `sleep`), Standardfrist 20 s — jeder Anteil war kuerzer als EIN Abruf, alle wurden
+    // abgebrochen, und ein abgebrochener `git fetch` speichert nichts: `naechste` endete bei jedem Lauf mit Exit 2, `nehme` sagte
+    // „nicht entscheidbar" (bei 20 Branches kamen noch alle, bei 24 keiner — eine Klippe). Der Stand vor 5b rechnete dieselbe Welt
+    // in EINEM Abruf richtig. Deshalb jetzt (aeltereNachladen): zuerst EIN Abruf fuer alle, mit hoechstens der Haelfte der
+    // verbleibenden Frist; nur wenn er an der Frist scheitert, halbierend geteilt.
     const fristEnde = opts.bis > 0 ? opts.bis : Date.now() + (opts.frist > 0 ? opts.frist : NACHLADE_FRIST_MS);
-    let offenJe = [...aeltereJe].map(([ref, s]) => ({ ref, liste: [...s], fehlen: null, rest: null, ende: null }));
-    for (const x of offenJe) { const da = blobsDa(wurzel, x.liste); x.fehlen = x.liste.filter(b => !da.has(b)); x.rest = x.fehlen.slice(); }
-    offenJe = offenJe.filter(x => x.fehlen.length);
-    for (const runde of [0, 1]) {
-      const dran = offenJe.filter(x => x.rest.length && (runde === 0 || x.ende === 'frist'));
-      dran.forEach((x, i) => {
-        // Was ein frueherer Abruf schon mitbrachte (dieselbe Fassung auf zwei Branches), wird nicht noch einmal verlangt.
-        const da0 = blobsDa(wurzel, x.rest); x.rest = x.rest.filter(b => !da0.has(b));
-        if (!x.rest.length) { x.ende = 'ok'; return; }
-        // Ganze Millisekunden: spawnSync nimmt als `timeout` nur eine ganze Zahl (sonst eine Ausnahme — und der Abruf hiesse „fehler").
-        const anteil = Math.max(0, Math.floor((fristEnde - Date.now()) / (dran.length - i))), o = { remote, frist: opts.frist, bis: Date.now() + anteil };
-        objekteNachladen(wurzel, x.rest, o);
-        x.ende = o.ende;
-        const danach = blobsDa(wurzel, x.rest);
-        x.rest = x.rest.filter(b => !danach.has(b));
-      });
-    }
+    const offenJe = [...aeltereJe].map(([ref, s]) => ({ ref, fehlen: [...s], rest: null, ende: null }));
+    { const da = blobsDa(wurzel, offenJe.flatMap(x => x.fehlen)); for (const x of offenJe) { x.fehlen = x.fehlen.filter(b => !da.has(b)); x.rest = x.fehlen.slice(); } }
+    aeltereNachladen(wurzel, remote, offenJe.filter(x => x.fehlen.length), fristEnde, opts.frist);
     for (const x of offenJe) {
       aus.aeltere.noetig += x.fehlen.length; aus.aeltere.geholt += x.fehlen.length - x.rest.length; aus.aeltere.fehlt.push(...x.rest);
       if (x.rest.length) {
@@ -1284,6 +1365,8 @@ export function brettLesen(wurzel, opts) {
     }
     return sicherungFassungen === null ? null : (sicherungFassungen.get(id) || new Set());
   };
+  // Alle ids unter fassungen/ (Map id → Set(Blob)) oder null (Baum nicht lesbar) — fuer D7 ohne Verzeichnis (R5c-Le4, F5).
+  const sicherungAlle = () => { sicherungsBlobs(''); return sicherungFassungen; };
   const flach = opts.alleRefs && aus.gitDa ? (git(wurzel, ['rev-parse', '--is-shallow-repository']) || '').trim() === 'true' : false;
   // Fehlt die Geschichte (Teilabruf ohne Baeume), startet kein `git log` je Ref (R5-lesen-7) — einmal erkannt.
   const histFehlt = opts.alleRefs && aus.gitDa && !flach ? geschichteFehlt(wurzel) : false;
@@ -1294,6 +1377,25 @@ export function brettLesen(wurzel, opts) {
     return verlaeufe.get(ref);
   };
   const nichtGelesen = (wo) => 'eine Fassung ist nicht gelesen (Teilabruf: ' + [...new Set(wo)].join(', ') + ') — welche gilt, ist nicht entscheidbar';
+  // Fuer eine einzelne, ungesicherte Fassung abseits von main und dem Branch ihres Schreibers (waehle, letzter Schritt): haelt die
+  // Sicherung etwas, das statt ihrer gaelte? (a) Die Fassung unter eintraege/ in zz-sicherung ist hier nicht gelesen (Teilabruf) —
+  // sie entschiede. (b) Das Verzeichnis kennt eine ANDERE, hier nicht gelesene Fassung desselben `von`, die nicht per Grabstein
+  // entfernt ist und die der Waechter zu Hause sah (heimErst; unbekannt im alten Format: zaehlt — die vorsichtige Richtung). Dann
+  // ein Grund (nicht entscheidbar), sonst null. Nur fuer Leser (Gegenpruefung 5b, Hinweis der Gruppe waechter, N5).
+  const leserOhneGesicherte = (id, schreiber, l, fehlt) => {
+    if (opts.verzeichnis !== undefined) return null;
+    const gz = fehlt.filter(x => istSicherungsRef(x.quelle));
+    if (gz.length) return nichtGelesen(gz.map(x => x.quelle)) + ' (die gesicherte Fassung)';
+    if (!verz) return null;
+    const bek = new Set(l.map(v => v.blob));
+    const heim = [...(verzIdBlobs.get(id) || [])].filter(bl => {
+      if (bek.has(bl) || grabBlob.has(bl) || mainGrabBlob.has(bl) || verzBlobVon.get(bl) !== schreiber) return false;
+      const x = verz.je instanceof Map ? verz.je.get(bl) : null;
+      return !x || x.heimErst === undefined || x.heimErst != null;
+    });
+    if (!heim.length) return null;
+    return 'die Sicherung (' + REMOTE + '/' + SICHERUNG_ZWEIG + ', unter ' + path.posix.basename(FASSUNGEN) + '/) haelt ' + heim.length + ' andere Fassung(en) desselben Schreibers, die der Waechter bei ihm zu Hause sah — die Fassung hier liegt weder auf main noch auf seinem Branch und ist nicht gesichert: welche gilt, ist nicht entscheidbar, bis der Waechter eine sichert (oder eine Fassung auf main liegt)';
+  };
   const waehle = (id, l, ohneArbeitsbaum) => {
     const kand = ohneArbeitsbaum ? l.filter(v => [...v.quellen].some(q => q !== 'Arbeitsbaum')) : l;
     if (!kand.length) return { gilt: null, keine: true };
@@ -1343,7 +1445,17 @@ export function brettLesen(wurzel, opts) {
       return { gilt: null, grund: ref + ' wurde neu angelegt, nachdem er verschwunden war, und der Waechter kannte diesen Eintrag schon vorher (gesichert oder zurueckgezogen) — die Fassung dort ist nicht die des Schreibers, und keine ist gesichert' };
     }
     if (gesichert) return { gilt: gesichert };
-    if (kand.length === 1) return { gilt: kand[0] };
+    if (kand.length === 1) {
+      // Gegenpruefung 5b, Skeptiker (Hinweis der Gruppe waechter, C34 N5): eine EINZELNE Fassung, die weder auf main noch beim
+      // Schreiber liegt und nicht gesichert ist (eine Kopie auf einem DRITTEN Branch), galt still — auch wenn die Sicherung eine
+      // ANDERE Fassung desselben Schreibers haelt, die der Waechter zu Hause sah, und die er nur noch nicht unter eintraege/ gelegt
+      // hatte. Gemessen im N5-Ablauf: nach dem Loeschen von claude/b5 und EINEM Waechterlauf zeigte `zeige` die „Faelschung im
+      // Namen von W5" von claude/c5 statt des kritischen Originals (bis zum naechsten Lauf). Jetzt: nicht entscheidbar, bis eine
+      // Fassung gesichert ist oder auf main liegt. Nur fuer Leser — der Waechter rechnet mit seinem eigenen Verzeichnis.
+      const anders = leserOhneGesicherte(id, schreiber, l, fehlt);
+      if (anders) return { gilt: null, grund: anders };
+      return { gilt: kand[0] };
+    }
     return { gilt: null, grund: 'mehrere Fassungen, keine auf dem Branch des Schreibers, keine gesichert' };
   };
   aus.gilt = new Map(); aus.giltAndere = new Map(); aus.neuAngelegt = [];
@@ -1366,8 +1478,14 @@ export function brettLesen(wurzel, opts) {
     // jetzt: ja", waehrend fuer alle anderen die alte gesicherte Fassung galt (Gegenpruefung 4).
     if (eigen && [...gilt.quellen].some(q => q !== 'Arbeitsbaum' && !istSicherungsRef(q))) {
       const a = waehle(id, l, true);
+      // Gegenpruefung 5b, Skeptiker (R5c-Le3, F4): gilt fuer die anderen eine Fassung mit `nichtZuhause` (D6: der Branch wurde neu
+      // angelegt, und der Waechter kannte die id schon vorher), WIRKT ein Halt oder eine Lage fuer sie nicht (vonPasst sagt nein) —
+      // auch wenn es DIESELBE Fassung ist wie die eigene. Vorher setzte nur `a.gilt !== gilt` diese Zeile: wer seinen
+      // zurueckgezogenen Halt byte-gleich auf seinem neu angelegten Branch wieder hinlegte, sah „Wirkt jetzt: ja" und nichts sonst,
+      // waehrend `naechste` der anderen den Bump freigab (still ueberstimmt). Jetzt: `wirktNicht`, mit Grund und dem Weg.
+      if (a.gilt && a.nichtZuhause && (gilt.e.art === 'halt' || gilt.e.art === 'lage')) aus.giltAndere.set(id, { quelle: a.gilt !== gilt ? [...a.gilt.quellen].filter(q => q !== 'Arbeitsbaum')[0] || null : null, grund: a.nichtZuhause + ' wurde neu angelegt, nachdem er verschwunden war, und der Waechter kannte diesen Eintrag schon vorher (gesichert oder zurueckgezogen) — dort ist er nicht der des Schreibers', neuAngelegt: a.nichtZuhause, wirktNicht: true });
       // `neuAngelegt` (D2): der Grund ist ein neu angelegter Branch — das Werkzeug gibt dann den passenden Rat (nicht „umziehen").
-      if (a.gilt && a.gilt !== gilt) aus.giltAndere.set(id, { quelle: [...a.gilt.quellen].filter(q => q !== 'Arbeitsbaum')[0] || null, grund: a.hinweis || null, neuAngelegt: a.neuAngelegt || null });
+      else if (a.gilt && a.gilt !== gilt) aus.giltAndere.set(id, { quelle: [...a.gilt.quellen].filter(q => q !== 'Arbeitsbaum')[0] || null, grund: a.hinweis || null, neuAngelegt: a.neuAngelegt || null });
       else if (!a.gilt && !a.keine) aus.giltAndere.set(id, { quelle: null, grund: a.grund });
     }
     Object.defineProperty(gilt.e, '_quellen', { value: gilt.quellen, enumerable: false });
@@ -1384,20 +1502,57 @@ export function brettLesen(wurzel, opts) {
   // Verzeichnis (`nurSicherung`, `sicherung`: je Fassung art und bis, undefined = altes Format). Strittig endet nur mit einer
   // Fassung auf main, einem Grabstein fuer die ganze id auf main oder dem Ablauf (Lage/Halt mit bekanntem bis vorbei, D5). Nicht
   // fuer den Waechter (opts.verzeichnis): er rechnet „dasselbe `von`" ueber seine eigenen Fassungen.
-  if (opts.verzeichnis === undefined && verz && verz.fassungInfo instanceof Map) {
-    const t = opts.jetzt == null ? Date.now() : opts.jetzt, jeIdS = new Map();
-    for (const [bl, x] of verz.fassungInfo) { if (x.bewahrt) continue; if (!jeIdS.has(x.id)) jeIdS.set(x.id, []); jeIdS.get(x.id).push(Object.assign({ blob: bl }, x)); }
+  // Gegenpruefung 5b, Skeptiker (R5c-Le4, F5): D7 hing am LESBAREN Verzeichnis. War es nicht gelesen (Teilabruf: sein Blob fehlt;
+  // ebenso ungueltig oder fehlend, waehrend zz-sicherung besteht), fiel ein strittiger Bump-Halt, der nur in der Sicherung liegt,
+  // weiter still weg: `naechste --nur-lokal` Exit 0, A8 rechenbar mit 0 Treffern (gemessen, Skeptiker a7). Dann liest der Leser
+  // die (kleinen) Fassungen unter fassungen/<id>/ selbst — `von`, `art`, `bis` aus ihrem Inhalt — und rechnet dieselbe Regel.
+  // Was er auch so nicht lesen kann (der Baum von fassungen/ oder ein Blob fehlt), steht in `sicherungUngelesen` (Form wie
+  // `fehlend`): `naechste` sagt „nicht rechenbar", A8 „nicht pruefbar" (haltUngewiss, haltsDiesesStands) — nie still weg. Eine
+  // bewahrte Fassung erkennt nur das Verzeichnis: ohne es zaehlt jede (die vorsichtige Richtung).
+  aus.sicherungUngelesen = [];
+  if (opts.verzeichnis === undefined) {
+    const t = opts.jetzt == null ? Date.now() : opts.jetzt, jeIdS = new Map(), ungelesenJeId = new Map();
+    if (verz && verz.fassungInfo instanceof Map) {
+      for (const [bl, x] of verz.fassungInfo) { if (x.bewahrt) continue; if (!jeIdS.has(x.id)) jeIdS.set(x.id, []); jeIdS.get(x.id).push(Object.assign({ blob: bl }, x)); }
+    } else if (!verz && opts.alleRefs && aus.gitDa && (verzStatus === 'unlesbar' || verzStatus === 'ungueltig' || verzStatus === 'ohne')) {
+      const alle = sicherungAlle();
+      if (alle == null) aus.sicherungUngelesen.push({ quelle: REMOTE + '/' + SICHERUNG_ZWEIG, pfad: FASSUNGEN + '/', blob: null, baum: true, sicherung: true });
+      else {
+        const offenIds = [...alle.keys()].filter(id => !fass.has(id) && !grab.has(id) && !fehltJeId.has(id));
+        const inh = blobsLesen(wurzel, [...new Set(offenIds.flatMap(id => [...alle.get(id)]))]);
+        for (const id of offenIds) for (const bl of alle.get(id)) {
+          const buf = inh.get(bl);
+          // Nicht im lokalen Objektspeicher: unbekannt (es sei denn, ein Grabstein hat genau diese Fassung entfernt — sie kann nie gelten).
+          if (!buf) {
+            if (grabBlob.has(bl)) continue;
+            if (!ungelesenJeId.has(id)) ungelesenJeId.set(id, []);
+            ungelesenJeId.get(id).push({ quelle: REMOTE + '/' + SICHERUNG_ZWEIG, pfad: FASSUNGEN + '/' + id + '/' + bl + '.json', blob: bl, sicherung: true });
+            continue;
+          }
+          // Gelesen, aber kein Eintrag dieser id (kein JSON, andere id, kein `von`): keine Fassung — wie eine unlesbare Datei auf einem
+          // Branch. Der Waechter legt so etwas nicht ab; es kann nur von Hand in zz-sicherung kommen.
+          let y = null; try { y = JSON.parse(buf.toString('utf8')); } catch (_) {}
+          if (!y || typeof y !== 'object' || Array.isArray(y) || y.id !== id || typeof y.von !== 'string') continue;
+          const tb = typeof y.bis === 'string' ? Date.parse(y.bis) : NaN;
+          if (!jeIdS.has(id)) jeIdS.set(id, []);
+          jeIdS.get(id).push({ blob: bl, id, von: y.von, art: typeof y.art === 'string' ? y.art : undefined, bis: y.bis === undefined ? (y.art === 'lage' || y.art === 'halt' ? undefined : null) : (isNaN(tb) ? undefined : tb) });
+        }
+        for (const [id, xs] of ungelesenJeId) { if (!jeIdS.has(id)) aus.sicherungUngelesen.push(...xs); }
+      }
+    }
     const zeitlich = (x) => x.art === 'lage' || x.art === 'halt';
     for (const [id, xs] of jeIdS) {
       if (fass.has(id) || grab.has(id) || fehltJeId.has(id)) continue;
-      if (xs.every(x => grabBlob.has(x.blob))) continue;   // jede Fassung per Grabstein entfernt: nichts bleibt, das gelten koennte
+      const ungelesen = ungelesenJeId.get(id) || [];
+      if (!ungelesen.length && xs.every(x => grabBlob.has(x.blob))) continue;   // jede Fassung per Grabstein entfernt: nichts bleibt, das gelten koennte
       const vons = new Set(xs.map(x => x.von).concat([...(entferntVon.get(id) || [])]));
-      if (vons.size < 2) continue;
+      // Mit ungelesenen Fassungen ist ein einziges `von` keine Entwarnung: sie koennten ein anderes tragen — nicht rechenbar.
+      if (vons.size < 2) { if (ungelesen.length) aus.sicherungUngelesen.push(...ungelesen); continue; }
       // Abgelaufen ist nur, was bekannt abgelaufen ist (art lage/halt, bis bekannt und vorbei — ohne Frist wirkt keiner).
-      if (xs.every(x => zeitlich(x) && (x.bis === null || (typeof x.bis === 'number' && x.bis <= t)))) continue;
+      if (!ungelesen.length && xs.every(x => zeitlich(x) && (x.bis === null || (typeof x.bis === 'number' && x.bis <= t)))) continue;
       aus.strittig.push({ id, quellen: [REMOTE + '/' + SICHERUNG_ZWEIG], nurSicherung: true,
-        grund: 'nur in der Sicherung (' + REMOTE + '/' + SICHERUNG_ZWEIG + ', unter ' + path.posix.basename(FASSUNGEN) + '/), nicht entscheidbar: Fassungen mit verschiedenem „von" (' + [...vons].join(', ') + '), auf keinem Branch mehr zu lesen',
-        arten: [...new Set(xs.map(x => x.art).filter(a => typeof a === 'string'))], ziele: [], sicherung: xs.map(x => ({ blob: x.blob, von: x.von, art: x.art, bis: x.bis })) });
+        grund: 'nur in der Sicherung (' + REMOTE + '/' + SICHERUNG_ZWEIG + ', unter ' + path.posix.basename(FASSUNGEN) + '/), nicht entscheidbar: Fassungen mit verschiedenem „von" (' + [...vons].join(', ') + '), auf keinem Branch mehr zu lesen' + (verz ? '' : ' (das Verzeichnis des Waechters ist hier nicht gelesen — gelesen aus den Fassungen selbst' + (ungelesen.length ? ', ' + ungelesen.length + ' davon nicht im lokalen Objektspeicher' : '') + ')'),
+        arten: [...new Set(xs.map(x => x.art).filter(a => typeof a === 'string'))], ziele: [], sicherung: xs.map(x => ({ blob: x.blob, von: x.von, art: x.art, bis: x.bis })).concat(ungelesen.map(x => ({ blob: x.blob, von: undefined, art: undefined, bis: undefined }))) });
     }
   }
   // Wann kam eine Lage oder ein Halt auf dem Branch ihres SCHREIBERS an? (Gegenpruefung 2–5) Zwei Grenzen:
@@ -1453,7 +1608,7 @@ export function brettLesen(wurzel, opts) {
       const gleiche = (jeId.get(e.id) || []).filter(x => e.art === 'halt' ? x.von === e.von : anspruchVerz(x) === a0);
       const heimG = mitHeim ? gleiche.filter(x => x.heimErst != null) : [];
       if (q.some(istMainRef)) {
-        if (heimG.length && heimG.every(x => x.heimNichtVor != null)) { setze(e, '_rueckGrenze', Math.min(...heimG.map(x => x.heimNichtVor))); setze(e, '_ankunftWoher', { rueck: 'Waechter', vor: null }); }
+        if (heimG.length && heimG.every(x => x.heimNichtVor != null)) { setze(e, '_rueckGrenze', Math.min(...heimG.map(x => x.heimNichtVor))); setze(e, '_rueckQuelle', 'heim'); setze(e, '_ankunftWoher', { rueck: 'Waechter', vor: null }); }
         continue;
       }
       const ref = q.find(x => istAutorRef(x, autorZweig(e))) || e._zuhauseVertreten;
@@ -1494,6 +1649,12 @@ export function brettLesen(wurzel, opts) {
       else if (V == null && G == null && gitGrund) offen = gitGrund;
       else if (V != null || G != null) { if (!heimBekannt && G != null && (V == null || G > V)) { rueck = G; woherR = 'git'; } else { rueck = V; woherR = 'Waechter'; } }
       if (rueck != null) setze(e, '_rueckGrenze', rueck);
+      // Woher die geltende Rueck-Grenze stammt (Gegenpruefung 5b, Skeptiker R5c-I1, F6): 'heim' (das Verzeichnis kennt den Anspruch
+      // ZU HAUSE), 'alt' (altes Verzeichnis-Format, nichtVor), 'git' (git war strenger), 'stand+git' (es kennt ihn zu Hause NICHT —
+      // sein Stand, und git rechnete mit) und 'stand' (nur sein Stand: „bei diesem Lauf war er noch nicht da", OHNE git — flacher
+      // Klon, aeltere Fassung im Teilabruf nicht da, keine Geschichte). D4: kennt das Verzeichnis den Anspruch zu Hause nicht, soll
+      // git mitzaehlen; ein 'stand' nennt A10 deshalb „nicht pruefbar" statt still ok. Und vordatiert misst nur, wer `_vorGrenze` hat.
+      if (rueck != null) setze(e, '_rueckQuelle', woherR === 'git' ? 'git' : heimBekannt ? 'heim' : (mitHeim ? !heimG.length : !gleiche.length) ? (G != null ? 'stand+git' : 'stand') : 'alt');
       if (vor != null) setze(e, '_vorGrenze', vor);
       setze(e, '_ankunftWoher', { rueck: woherR, vor: woherV });
       if (offen) { setze(e, '_ankunftOffen', offen); aus.ankunftOffen.push({ id: e.id, ref, art: e.art, grund: offen }); }
@@ -2925,7 +3086,8 @@ export function haltUngewiss(wurzel, b, umgebung, jetzt) {
   const grenze = new Map(), grenzeVon = (quelle) => { const r = String(quelle).split('/')[0]; if (!grenze.has(r)) grenze.set(r, teilabrufGrenze(wurzel, r, umg)); return grenze.get(r); };
   const zuGross = (x) => !x.baum && grenzeVon(x.quelle) > EINTRAG_MAX_BYTES;
   const kannHalt = (x) => { if (x.baum) return true; if (x.grabsteine) return false; const m = path.posix.basename(String(x.pfad || '')).match(NAME_FORM); return !m || m[2] === 'halt'; };
-  const fehlend = (b.fehlend || []).filter(x => kannHalt(x) && !zuGross(x));
+  // R5c-Le4 (F5): dazu die Fassungen unter fassungen/ in zz-sicherung, die ohne Verzeichnis nicht gelesen sind (sicherungUngelesen).
+  const fehlend = (b.fehlend || []).concat(b.sicherungUngelesen || []).filter(x => kannHalt(x) && !zuGross(x));
   const strittig = [];
   for (const s of b.strittig || []) {
     const halts = ((b.fassungen && b.fassungen.get(s.id)) || []).map(v => v.e).filter(e => e.art === 'halt' && wirksam(e, t).ok);
@@ -2966,7 +3128,8 @@ export function haltsDiesesStands(wurzel, umgebung, jetzt) {
   // Ein fehlender BAUM ist nie „zu gross": dort fehlen alle Eintraege des Branches (Gegenpruefung 4, --filter=tree:0).
   // Die Grabstein-Liste von main zaehlt hier nicht (Gegenpruefung 5): fehlt sie, kann ein angezeigter Halt zurueckgezogen
   // sein — ein „keiner beruehrt" taeuscht sie nicht vor. Das steht in `grabsteineFehlen`.
-  const offenFehlend = b.fehlend.filter(x => !x.grabsteine && (x.baum || !(grenzeVon(x.quelle) > EINTRAG_MAX_BYTES)));
+  // R5c-Le4 (F5): auch die ungelesenen Fassungen in der Sicherung, wenn ihr Verzeichnis nicht gelesen ist (sicherungUngelesen).
+  const offenFehlend = b.fehlend.concat(b.sicherungUngelesen || []).filter(x => !x.grabsteine && (x.baum || !(grenzeVon(x.quelle) > EINTRAG_MAX_BYTES)));
   if (offenFehlend.length) return { grund: offenFehlend.length + ' Eintragsdatei(en) nicht im lokalen Objektspeicher (Teilabruf) und nicht nachweislich zu gross fuer einen Eintrag — darin koennte ein Halt liegen: ' + offenFehlend.slice(0, 3).map(x => x.pfad + ' {' + x.quelle + '}').join(', ') + (offenFehlend.length > 3 ? ' … +' + (offenFehlend.length - 3) : ''), nichtPruefbar: true, refs: b.refs, fehlend: b.fehlend.length };
   const meins = (e) => ichNamen.indexOf(e.von) >= 0 && vonPasst(e, wo, ichNamen);
   // Ein STRITTIGER Halt ist nicht „keiner": beruehrt eine seiner Fassungen (nicht meine) diesen Stand, oder ist eine nicht
@@ -3147,7 +3310,7 @@ export function sicherungSchreiben(wurzel, opts) {
   const ohneDatei = (x) => !!x && typeof x === 'object' && x.ohneDatei === true;
   if (!alt && altVerz) {
     alt = { stand: altVerz.stand, fassungen: altVerz.fassungen.filter(x => x && typeof x === 'object' && typeof x.blob === 'string' && !ohneDatei(x)).map(x => ({ id: x.id, blob: x.blob, von: x.von, anspruch: x.anspruch, erst: x.erst, nichtVor: x.nichtVor, heim: x.heim === true,
-        heimErst: zeitFeld(x, 'heimErst'), heimNichtVor: zeitFeld(x, 'heimNichtVor'), bewahrt: x.bewahrt === true || undefined })),
+        heimErst: zeitFeld(x, 'heimErst'), heimNichtVor: zeitFeld(x, 'heimNichtVor'), heimZuletzt: isoOk(x.heimZuletzt) ? x.heimZuletzt : undefined, bewahrt: x.bewahrt === true || undefined })),
       quarantaene: (Array.isArray(altVerz.quarantaene) ? altVerz.quarantaene : []).filter(b => typeof b === 'string').map(b => ({ blob: b, id: null })), neuAngelegt: altVerz.neuAngelegt,
       weg: altVerz.weg, zurueckgezogen: altVerz.rueckzuege, grabVon: altVerz.fassungen.filter(ohneDatei) };
     ausVerzeichnis = true;
@@ -3156,10 +3319,10 @@ export function sicherungSchreiben(wurzel, opts) {
   // Inhalt — als „letzter Lauf" genommen, machte er eine Fassung, die ein Lauf ohne Cache zum ersten Mal sah, Stunden aelter,
   // als sie ist (nichtVor), und eine rueckdatierte Lage wirkte danach dauerhaft (Gegenpruefung 5). Ohne Cache: unbekannt.
   const altLauf = alt && !ausVerzeichnis && isoOk(alt.stand) ? alt.stand : null;
-  const ged = new Map();   // blob → { id, von, erst, erstUnbekannt, nichtVor, heim, heimErst, heimNichtVor, bewahrt, zuletzt, orte, anspruch }
+  const ged = new Map();   // blob → { id, von, erst, erstUnbekannt, nichtVor, heim, heimErst, heimNichtVor, heimZuletzt, bewahrt, zuletzt, orte, anspruch }
   // `erstUnbekannt`: ein Gedaechtnis im alten Format (ohne erst) — dann ist die erste Sichtung unbekannt, nicht „jetzt"
   // (vorher bekamen alle Fassungen dasselbe erst, und ein spaeterer Ruecksetzer hiess fuer immer „Nichts verloren").
-  if (alt && Array.isArray(alt.fassungen)) for (const x of alt.fassungen) if (x && typeof x === 'object' && typeof x.blob === 'string') ged.set(x.blob, Object.assign({}, x, { erstUnbekannt: x.erstUnbekannt === true || iso(x.erst) == null, heimErst: zeitFeld(x, 'heimErst'), heimNichtVor: zeitFeld(x, 'heimNichtVor'), bewahrt: x.bewahrt === true }));
+  if (alt && Array.isArray(alt.fassungen)) for (const x of alt.fassungen) if (x && typeof x === 'object' && typeof x.blob === 'string') ged.set(x.blob, Object.assign({}, x, { erstUnbekannt: x.erstUnbekannt === true || iso(x.erst) == null, heimErst: zeitFeld(x, 'heimErst'), heimNichtVor: zeitFeld(x, 'heimNichtVor'), heimZuletzt: isoOk(x.heimZuletzt) ? x.heimZuletzt : undefined, bewahrt: x.bewahrt === true }));
   const gedQuar = new Set(alt && Array.isArray(alt.quarantaene) ? alt.quarantaene.filter(x => x && x.blob).map(x => x.blob) : []);
   // Bekannt ist auch, was das Verzeichnis im bisherigen Stand nennt: nach einem gescheiterten Ablegen des Caches ist das
   // Gedaechtnis einen Lauf alt — eine dort fehlende, eben gesicherte Fassung waere sonst „fremd" (Gegenpruefung 4).
@@ -3357,6 +3520,27 @@ export function sicherungSchreiben(wurzel, opts) {
     heimZeiten.set(b, z);
     return z;
   };
+  // Wann lag diese Fassung ZULETZT zu Hause (Gegenpruefung 5b, Skeptiker R5c-W4, Entscheidung F3)? Unter den Heim-Fassungen desselben
+  // `von` gilt die, die der Schreiber zuletzt zu Hause hatte — vorher die frueheste: nach einem Strittig, dem Rueckzug der Faelschung
+  // und dem Loeschen beider Branches stand seine ERSTE Fassung unter eintraege/, die Berichtigung nur unter fassungen/ (das kein Leser
+  // liest). Die erste Heim-Sichtung (heimErst) allein reicht nicht: setzt der Schreiber per Force-Push auf B1 zurueck, waere B2 die
+  // juengere. Jetzt (zu Hause) → dieser Lauf; sonst das Gedaechtnis (je Lauf nachgefuehrt). Ohne Cache das Verzeichnis: dort steht
+  // die Zeit nur fuer eine Fassung, die NICHT mehr zu Hause ist (sonst aenderte es sich in jedem Lauf); fehlt sie bei einer, die zu
+  // Hause gesehen war, lag sie beim Stand des Verzeichnisses dort. Ein Gedaechtnis im alten Format: lag sie im letzten Lauf zu Hause,
+  // dessen Zeit — sonst die erste Heim-Sichtung (eine untere Schranke). Nie zu Hause: null.
+  const heimZuletztJe = new Map();
+  const heimZuletzt = (b, v) => {
+    if (heimZuletztJe.has(b)) return heimZuletztJe.get(b);
+    const g0 = ged.get(b), h = heimZeit(b, v).heimErst;
+    let z = null;
+    if ((blobQuellen.get(b) || []).some(q => zuHause(q, v.e.von, v.id))) z = jetztIso;
+    else if (g0 && isoOk(g0.heimZuletzt)) z = g0.heimZuletzt;
+    else if (g0 && h != null && ausVerzeichnis) z = isoOk(alt.stand) ? alt.stand : h;
+    else if (g0 && h != null && altLauf && (Array.isArray(g0.orte) ? g0.orte : []).some(q => zuHause(q, g0.von, g0.id))) z = altLauf;
+    else if (h != null) z = h;
+    heimZuletztJe.set(b, z);
+    return z;
+  };
   // 6a. Rueckzuege des Schreibers (Grabstein auf SEINEM Branch, je id oder je Fassung): festgehalten im Gedaechtnis UND im
   //     Verzeichnis (vorher nur im Cache — ging er verloren, stand ein zurueckgezogener Eintrag fuer immer als „GERETTET" da,
   //     Gegenpruefung 5). Ist sein Branch danach weg (oder neu angelegt), bleibt der Rueckzug — die Fassung wird aus der
@@ -3383,16 +3567,21 @@ export function sicherungSchreiben(wurzel, opts) {
   // Ein gemerkter Rueckzug bleibt, solange sein Branch nicht wieder sein Zuhause ist — und solange von dieser id dieses
   // Schreibers etwas gesichert ist oder auf einem Branch liegt, sonst SICHERUNG_RUECKZUG_TAGE ab seinem ersten Auftreten.
   const lebtNoch = (id, von) => [...vorhanden.values()].some(v => v.id === id && v.e.von === von) || [...(brett.fassungen.get(id) || [])].some(v => v.e.von === von && echt(v.quellen).length);
-  // Liegt eine Fassung dieses Schreibers (id, von) JETZT auf einem Branch? Dann belegt ein Rueckzug, den nur das Verzeichnis kennt
-  // (Lauf ohne Cache), nichts: das Verzeichnis liegt in zz-sicherung, und wer dort schreiben kann, legte mit einem Rueckzug plus
-  // einem `weg` auf denselben Ref (dann „neu angelegt") die spaetere stille Entnahme einer Fassung an, die beim Einlesen auf
-  // einem Branch lag (Gegenpruefung 5, Skeptiker R5b-waechter-1). Ein solcher Rueckzug heisst „unbelegt": genannt, nie benutzt.
-  const aufEinemBranch = (id, von) => [...(brett.fassungen.get(id) || [])].some(v => v.e.von === von && echt(v.quellen).length)
-    || (brett.doppeltFassungen || []).some(d => d.id === id && d.e && d.e.von === von && !istSicherungsRef(d.quelle));
+  // Liegt eine Fassung dieses Schreibers (id, von) JETZT auf GENAU dem Ref, den der Rueckzug nennt? Dann belegt ein Rueckzug, den
+  // nur das Verzeichnis kennt (Lauf ohne Cache), nichts: das Verzeichnis liegt in zz-sicherung, und wer dort schreiben kann, legte
+  // mit einem Rueckzug plus einem `weg` auf denselben Ref (dann „neu angelegt") die spaetere stille Entnahme einer Fassung an, die
+  // beim Einlesen dort lag (Gegenpruefung 5, Skeptiker R5b-waechter-1). Ein solcher Rueckzug heisst „unbelegt": genannt, nie benutzt.
+  // Nur DIESER Ref (Gegenpruefung 5b, Skeptiker R5c-W1, Entscheidung F2): vorher genuegte eine Fassung auf IRGENDEINEM Branch — eine
+  // byte-gleiche Kopie auf einem dritten Branch (abgezweigt, `ernten`) machte einen EHRLICHEN Rueckzug in einer Cache-Luecke
+  // „unbelegt", er fiel aus dem Verzeichnis, und nach dem Loeschen der Kopie stand der zurueckgezogene Eintrag als ALARM, KRITISCH
+  // und GERETTET bei jedem Leser. Der Preis (README-Grenze): ein untergeschobener Rueckzug mit dem RICHTIGEN Ref entfernt eine
+  // Fassung, die nur noch als Kopie auf einem dritten Branch liegt, nach deren Loeschen ohne ALARM.
+  const aufDemRef = (id, von, ref) => [...(brett.fassungen.get(id) || [])].some(v => v.e.von === von && echt(v.quellen).indexOf(ref) >= 0)
+    || (brett.doppeltFassungen || []).some(d => d.id === id && d.e && d.e.von === von && d.quelle === ref);
   aus.rueckzugUnbelegt = [];
   for (const x of altRz) {
     if (refsJetzt.indexOf(x.ref) >= 0 && !vorNeuanlage(x.id, x.ref)) continue;   // sein Branch ist zu Hause: dort steht, was jetzt gilt
-    if (ausVerzeichnis && aufEinemBranch(x.id, x.von)) { if (!rueckzuege.some(y => gleicherRz(y, x))) aus.rueckzugUnbelegt.push({ id: x.id, ref: x.ref }); continue; }
+    if (ausVerzeichnis && aufDemRef(x.id, x.von, x.ref)) { if (!rueckzuege.some(y => gleicherRz(y, x))) aus.rueckzugUnbelegt.push({ id: x.id, ref: x.ref }); continue; }
     if (lebtNoch(x.id, x.von) || (x.seit != null && jetzt - iso(x.seit) <= SICHERUNG_RUECKZUG_TAGE * 864e5)) merk(x);
   }
   // Ein Rueckzug gilt nur fuer den Ref, den sein `von` nennt (R5b-waechter-1) — auch hier, nicht nur beim Einlesen.
@@ -3442,6 +3631,9 @@ export function sicherungSchreiben(wurzel, opts) {
   const aufMain = (b) => (blobQuellen.get(b) || []).some(q => istMainRef(q) || q === 'Arbeitsbaum');
   const warHeim = (b) => { const v = vorhanden.get(b); return aufMain(b) || (blobQuellen.get(b) || []).some(q => zuHause(q, v.e.von, v.id)) || heimZeit(b, v).heimErst != null; };
   const frueheste = (l) => l.slice().sort((x, y) => String(erstVon(x) || '9').localeCompare(String(erstVon(y) || '9')) || x.localeCompare(y))[0] || null;
+  // Unter den Heim-Fassungen die zuletzt zu Hause gesehene (R5c-W4, F3); bei gleicher Zeit die frueheste (wie vorher).
+  const hzMs = (b) => { const t = iso(heimZuletzt(b, vorhanden.get(b))); return t == null ? -Infinity : t; };
+  const zuletztHeim = (l) => { if (!l.length) return null; const m = Math.max(...l.map(hzMs)); return frueheste(l.filter(b => hzMs(b) === m)); };
   // Die `von` je id, die ein Grabstein je Fassung auf main entfernt hat: gemerkt (solange der Grabstein dort liegt), in diesem
   // Lauf entfernt, und was brettLesen auf einem Branch als entfernt sah.
   const grabVonKand = altGrabVon.filter(grabNennt).concat(grabVonJetzt);
@@ -3458,7 +3650,7 @@ export function sicherungSchreiben(wurzel, opts) {
     else if (alter) { p = alter; if (gB && gB !== alter && vonB(gB) === vonB(alter) && (blobQuellen.get(gB) || []).some(q => zuHause(q, vonB(gB), id))) p = gB; }
     else if (einig && !brett.strittig.some(x => x.id === id)) {
       const heim = zaehlt.filter(warHeim);
-      if (heim.length) p = gB && heim.indexOf(gB) >= 0 ? gB : (gedDa ? frueheste(heim) : null);
+      if (heim.length) p = gB && heim.indexOf(gB) >= 0 ? gB : (gedDa ? zuletztHeim(heim) : null);
       else p = gedDa ? frueheste(zaehlt) : (zaehlt.length === 1 ? zaehlt[0] : null);
     }
     if (!p && !einig && zaehlt.length && aus.strittig.indexOf(id) < 0) aus.strittig.push(id);
@@ -3521,7 +3713,10 @@ export function sicherungSchreiben(wurzel, opts) {
   // lesen kann (alle Branches weg, nur unter fassungen/), weiss damit, ob es ein Halt mit laufender Frist sein kann. Dazu die
   // `von` der per Grabstein je Fassung auf main entfernten Fassungen (D5) als `ohneDatei: true` — ohne Anspruch und Zeiten (sie
   // sind keine Ankunft), nur fuer die Frage, wer diese id schrieb.
-  const fassM = [...vorhanden].map(([blob, v]) => { const g0 = ged.get(blob); return Object.assign({ id: v.id, blob, von: v.e.von, art: v.e.art, bis: typeof v.e.bis === 'string' ? v.e.bis : null, anspruch: anspruchKennung(v.e), erst: erstFest(g0), nichtVor: nichtVorVon(g0), heim: heimJe(blob, v) || undefined }, heimZeit(blob, v), v.bewahrt ? { bewahrt: true } : {}); })
+  // Seit Runde 5c (R5c-W4) `heimZuletzt` — nur fuer eine Fassung, die zu Hause war und es JETZT nicht ist (eine feste Zeit; eine, die
+  // zu Hause liegt, laege sonst in jedem Lauf mit neuer Zeit da, und der Stand aenderte sich stuendlich).
+  const hzVerz = (blob, v) => { const z = heimZuletzt(blob, v); return z != null && z !== jetztIso ? { heimZuletzt: z } : {}; };
+  const fassM = [...vorhanden].map(([blob, v]) => { const g0 = ged.get(blob); return Object.assign({ id: v.id, blob, von: v.e.von, art: v.e.art, bis: typeof v.e.bis === 'string' ? v.e.bis : null, anspruch: anspruchKennung(v.e), erst: erstFest(g0), nichtVor: nichtVorVon(g0), heim: heimJe(blob, v) || undefined }, heimZeit(blob, v), hzVerz(blob, v), v.bewahrt ? { bewahrt: true } : {}); })
     .concat(grabVonNeu.map(x => ({ id: x.id, blob: x.blob, von: x.von, art: x.art, bis: x.bis, heimErst: null, heimNichtVor: null, ohneDatei: true })))
     .sort((x, y) => x.id.localeCompare(y.id) || x.blob.localeCompare(y.blob));
   const rzSortiert = rueckzuege.map(r => ({ id: r.id, blob: r.blob || null, von: r.von, ref: r.ref, seit: r.seit })).sort((x, y) => x.id.localeCompare(y.id) || x.von.localeCompare(y.von) || String(x.blob).localeCompare(String(y.blob)) || x.ref.localeCompare(y.ref));
@@ -3597,7 +3792,7 @@ export function sicherungSchreiben(wurzel, opts) {
   } else if (opts.stand) {
     aus.erstlauf = true;
     if (ausVerzeichnis) aus.warnung = 'Kein Gedaechtnis im Cache — gelesen aus dem Verzeichnis der Sicherung selbst: ob seit dem letzten Lauf etwas verloren ging oder die Sicherung zurueckgesetzt wurde, ist in diesem Lauf nicht erkennbar; ab jetzt wieder.'
-      + (aus.rueckzugUnbelegt.length ? ' Nicht uebernommen (unbelegt — eine Fassung dieses Schreibers liegt auf einem Branch, und nur das Verzeichnis nennt den Rueckzug): ' + [...new Set(aus.rueckzugUnbelegt.map(x => x.id + ' {' + fremd(x.ref, 120) + '}'))].join(', ') + '.' : '');
+      + (aus.rueckzugUnbelegt.length ? ' Nicht uebernommen (unbelegt — eine Fassung dieses Schreibers liegt auf dem Branch, den der Rueckzug nennt, und nur das Verzeichnis nennt ihn): ' + [...new Set(aus.rueckzugUnbelegt.map(x => x.id + ' {' + fremd(x.ref, 120) + '}'))].join(', ') + '.' : '');
     else if (!opts.alt) aus.warnung = 'Weder zz-sicherung noch ein Gedaechtnis — der erste Lauf, ODER beides ging verloren: dann ist nicht erkennbar, was fehlt.';
     else aus.warnung = 'Kein Gedaechtnis (Cache abgelaufen?) und kein lesbares Verzeichnis in der Sicherung — ob seit dem letzten Lauf etwas verloren ging, ist nicht erkennbar; ab jetzt wieder.' + (aus.bewahrt.length ? ' Bewahrt (Name belegt den Inhalt, ohne Gedaechtnis nicht zuzuordnen): ' + aus.bewahrt.length + '.' : '');
   }
@@ -3607,7 +3802,7 @@ export function sicherungSchreiben(wurzel, opts) {
     const fass = [...vorhanden].map(([blob, v]) => {
       const q = blobQuellen.get(blob) || [], g0 = ged.get(blob) || null;
       return Object.assign({ id: v.id, blob, von: v.e.von, anspruch: anspruchKennung(v.e), erst: erstFest(g0), erstUnbekannt: g0 && g0.erstUnbekannt ? true : undefined, nichtVor: nichtVorVon(g0),
-        heim: heimJe(blob, v) }, heimZeit(blob, v), v.bewahrt ? { bewahrt: true } : {},
+        heim: heimJe(blob, v) }, heimZeit(blob, v), { heimZuletzt: heimZuletzt(blob, v) }, v.bewahrt ? { bewahrt: true } : {},
         // Fuer die Abbau-Regel ohne die Datei (ein veraltetes Gedaechtnis rechnet nach, ob ein Abbau gerechtfertigt war): Art und
         // Frist einer Lage bzw. eines Halts — kein Titel, kein Text.
         (v.e.art === 'lage' || v.e.art === 'halt') ? { art: v.e.art, bis: typeof v.e.bis === 'string' ? v.e.bis : null } : {},

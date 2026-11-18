@@ -69,6 +69,11 @@ const mehrere = (v) => v == null ? [] : [].concat(v);
 // Bidi-Zeichen als sichtbares \uXXXX (A.fremd), gedeckelt (Gegenpruefung 5: vorher ersetzte knapp nur Leerraum — ESC[8m
 // aus einem fremden Titel blendete im Terminal den Rest der Ausgabe aus).
 const knapp = (s, n) => A.fremd(String(s || '').replace(/\s+/g, ' ').trim(), n);
+// Ein NAME aus fremder Hand — Ref, Datei, Quelle {…} — geht STRENG durch (Gegenpruefung 5b, Skeptiker, R5c-A1): jedes unsichtbare
+// Zeichen wird sichtbar, auch ZWJ, ZWNJ und weicher Trennstrich, die in Titeln und Text roh bleiben (knapp). Vorher standen
+// claude/ab, claude/a<U+200D>b und claude/a<U+00AD>b in FRISCHE BRANCHES dreimal als „origin/claude/ab" da. Der Deckel ohne Angabe
+// (300) liegt ueber origin/ + 255 Zeichen (AN_SITZUNG): wo vorher roh gedruckt wurde, kuerzt er keinen ehrlichen Namen.
+const nameSicher = (s, n) => A.fremd(s, n || 300, { streng: true });
 // Ein Halt, dessen Ankunft hier nicht rechenbar ist (Teilabruf, Verzeichnis nicht gelesen), WIRKT — die sichere Richtung (E5). Er sagt
 // es dazu, mit Grund, in `zeige`, in der HALT-Zeile und im Block HALT UND VETO (Gegenpruefung 5, Skeptiker, R5b-fassungen-6: vorher
 // stand nur „Wirkt jetzt: ja", und niemand erfuhr, dass die Zeitpruefung hier nicht lief).
@@ -196,7 +201,7 @@ function kopf(b, abl) {
   // knapp — Gegenpruefung 5: ein `von` mit Zeilenumbruch druckte ueber die STRITTIG-Zeile einen ganzen gefaelschten Block
   // („DICH BETREFFEND · GELIEFERT … → git fetch origin && …"), ein Dateiname mit ESC[8m blendete alles danach aus.
   const fr = (s, n) => A.fremd(s, n || 120);
-  aus('\n=== Austausch — das Brett   ' + b.eintraege.length + ' Eintraege · ' + offen + ' offen · gelesen: ' + b.quellen.map(q => fr(q)).join(', ')
+  aus('\n=== Austausch — das Brett   ' + b.eintraege.length + ' Eintraege · ' + offen + ' offen · gelesen: ' + b.quellen.map(q => nameSicher(q)).join(', ')
     + (b.gitDa === false ? ' · git nicht verfuegbar: NUR der Arbeitsbaum' : (b.gitDa ? ' · ' + b.refs + ' Remote-Refs' : '')));
   if (b.gitDa && b.refs <= 1) aus('  !! Hoechstens EIN Remote-Ref sichtbar — Eintraege und Arbeit auf anderen Branches sind von hier aus NICHT zu sehen: node scripts/austausch.mjs holen');
   // main ist ungeschuetzt, und nach dem Merge laeuft kein Pruefstand: zwei gruene PRs
@@ -205,10 +210,10 @@ function kopf(b, abl) {
   const rot = A.brettPruefen(lokal).length + A.ankerPruefen(lokal.eintraege, liesRel).verloren.length;
   if (rot) aus('  !! Auf DIESEM Stand ist das Brett schon rot (' + rot + ' Maengel) — geerbt, nicht von dir: node scripts/austausch_check.js zeigt sie');
   const wieviele = o.alles ? 1e9 : 4, mehr = (l) => l.length > wieviele ? ' · … +' + (l.length - wieviele) + ' — `--alles`' : '';
-  if (b.unlesbar.length) aus('  !! ' + b.unlesbar.length + ' unlesbare Datei(en): ' + b.unlesbar.slice(0, wieviele).map(u => fr(u.datei, 90) + ' [' + fr(u.quelle) + '] ' + knapp(u.grund, 200)).join(' · ') + mehr(b.unlesbar));
-  if (b.abweichend.length) aus('  !! ' + b.abweichend.length + ' Eintrag/Eintraege sehen auf einem Branch anders aus (umgeschrieben?): ' + b.abweichend.slice(0, wieviele).map(x => fr(x.id, 40) + ' — es gilt ' + fr(x.gilt) + ', abweichend ' + knapp(x.weichtAb, 200)).join(' · ') + mehr(b.abweichend));
+  if (b.unlesbar.length) aus('  !! ' + b.unlesbar.length + ' unlesbare Datei(en): ' + b.unlesbar.slice(0, wieviele).map(u => nameSicher(u.datei, 90) + ' [' + nameSicher(u.quelle) + '] ' + knapp(u.grund, 200)).join(' · ') + mehr(b.unlesbar));
+  if (b.abweichend.length) aus('  !! ' + b.abweichend.length + ' Eintrag/Eintraege sehen auf einem Branch anders aus (umgeschrieben?): ' + b.abweichend.slice(0, wieviele).map(x => fr(x.id, 40) + ' — es gilt ' + nameSicher(x.gilt) + ', abweichend ' + nameSicher(x.weichtAb, 200)).join(' · ') + mehr(b.abweichend));
   // Mit dem Weg, beide Fassungen anzusehen (`zeige <id>` kennt eine strittige id, Gegenpruefung 5).
-  if (b.strittig.length) aus('  !! STRITTIG — ' + b.strittig.length + ' Eintrag/Eintraege in verschiedenen Fassungen, keine laesst sich zuordnen (weder main, noch der Branch des Schreibers, noch die Sicherung) — NICHT gerechnet: ' + b.strittig.slice(0, wieviele).map(x => fr(x.id, 40) + ' {' + x.quellen.map(q => fr(q)).join(', ') + '}' + (x.grund ? ' — ' + knapp(x.grund, 240) : '')).join(' · ') + mehr(b.strittig) + '   (jede Fassung mit ihrer Quelle: zeige <id>)');
+  if (b.strittig.length) aus('  !! STRITTIG — ' + b.strittig.length + ' Eintrag/Eintraege in verschiedenen Fassungen, keine laesst sich zuordnen (weder main, noch der Branch des Schreibers, noch die Sicherung) — NICHT gerechnet: ' + b.strittig.slice(0, wieviele).map(x => fr(x.id, 40) + ' {' + x.quellen.map(q => nameSicher(q)).join(', ') + '}' + (x.grund ? ' — ' + knapp(x.grund, 240) : '')).join(' · ') + mehr(b.strittig) + '   (jede Fassung mit ihrer Quelle: zeige <id>)');
   if ((b.neuAngelegt || []).length) aus('  !! ' + b.neuAngelegt.length + ' Eintrag/Eintraege: die Fassung auf einem NEU ANGELEGTEN Branch gilt nicht als Berichtigung des Schreibers — es gilt die gesicherte: ' + b.neuAngelegt.slice(0, 4).map(x => fr(x.id, 40) + ' (' + knapp(x.hinweis, 200) + ')').join(' · '));
 }
 const zeichen = { offen: ' ', beantwortet: '✓', geschlossen: '×', ersetzt: '×', notiz: '·' };
@@ -255,7 +260,7 @@ function dichBetreffend(b, abl, sw, aend) {
     // sind nur eindeutig, solange keine zweite id gleich endet.
     const q = String(h.e._quelle || 'Arbeitsbaum');
     const vonT = h.e.von === 'sitzung/' + q.replace(/^origin\//, '') ? '' : ' von ' + A.fremd(h.e.von, 60);
-    const zl = 'HALT ' + h.e.id + ' {' + A.fremd(q, 60) + '}' + vonT + ' bis ' + uhr(h.bis) + ': ' + knapp(h.e.titel, 60) + ' — beruehrt ' + t.slice(0, 4).map(x => knapp(x, 80)).join(', ') + (t.length > 4 ? ' … +' + (t.length - 4) : '')
+    const zl = 'HALT ' + h.e.id + ' {' + nameSicher(q, 60) + '}' + vonT + ' bis ' + uhr(h.bis) + ': ' + knapp(h.e.titel, 60) + ' — beruehrt ' + t.slice(0, 4).map(x => knapp(x, 80)).join(', ') + (t.length > 4 ? ' … +' + (t.length - 4) : '')
       + (gesehen ? '   [du hast geantwortet]' : '   → lies ihn (zeige ' + h.e.id + '), dann warten, aufheben mit Grund oder antworten') + ankunftSatz(h);
     befehle.add(zl); z.push(zl);
   }
@@ -264,7 +269,7 @@ function dichBetreffend(b, abl, sw, aend) {
   for (const [ziel, hs] of sw.vetos) {
     const t = abl.proId.get(ziel);
     if (!t || !meins(t) || !wirktNoch(t)) continue;
-    for (const h of hs) if (!meins(h.e)) schonGenannt.add(h.e.id), z.push('VETO ' + h.e.id + ' {' + h.e._quelle + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ' gegen deinen Eintrag ' + ziel + ': ' + knapp(h.e.text, 90));
+    for (const h of hs) if (!meins(h.e)) schonGenannt.add(h.e.id), z.push('VETO ' + h.e.id + ' {' + nameSicher(h.e._quelle) + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ' gegen deinen Eintrag ' + ziel + ': ' + knapp(h.e.text, 90));
   }
   // Deine Lage, dein Halt — fuer die ANDEREN unwirksam (rueckdatiert, ueber dem Deckel, ungueltig …): vorher sah der
   // Schreiber „wirkt", und niemand sagte es ihm (Gegenpruefung 3). Nur, was wirklich deins ist (hier oder auf deinem Branch).
@@ -289,19 +294,23 @@ function dichBetreffend(b, abl, sw, aend) {
     const kopieRefs = [...new Set(kopien.flatMap(v => [...v.quellen]).filter(q => q !== 'Arbeitsbaum'))];
     const kopieVons = [...new Set(kopien.map(v => v.e.von))];
     let zl = 'DEIN EINTRAG ' + id + ': du siehst deine Fassung, fuer die anderen gilt ';
-    if (passt && !ga.quelle && kopien.length) zl += 'keine — strittig: eine Kopie mit anderem `von` (' + kopieVons.slice(0, 3).map(v => A.fremd(v, 60)).join(', ') + ') liegt auf ' + (kopieRefs.length ? kopieRefs.slice(0, 3).map(q => A.fremd(q, 60)).join(', ') + (kopieRefs.length > 3 ? ' … +' + (kopieRefs.length - 3) : '') : 'einem Branch, den git hier kennt') + ', und keine Fassung liegt auf main oder in der Sicherung. Dein `von` passt zu deinem Branch — nichts umschreiben (eine neue id koennte gleich wieder kopiert werden). Auf main gilt deine Fassung (PR); die Kopie melden: neu befund … (beide Fassungen: zeige ' + id + ')';
+    // Gegenpruefung 5b, Skeptiker (R5c-Le3, F4): fuer die anderen gilt (dieselbe oder die gesicherte) Fassung, aber sie WIRKT nicht —
+    // der Branch wurde neu angelegt, und der Waechter kannte die id schon vorher (D6). Vorher schwieg diese Zeile, wenn es dieselbe
+    // Fassung war, und `zeige` sagte nur „Wirkt jetzt: ja".
+    if (ga.wirktNicht) zl = 'DEIN EINTRAG ' + id + ': du siehst deine Fassung wirksam, fuer die anderen wirkt ' + (mv && mv.e.art === 'lage' ? 'sie' : 'er') + ' NICHT' + (ga.quelle ? ' (es gilt die gesicherte {' + nameSicher(ga.quelle, 60) + '})' : '') + ' — ' + knapp(ga.grund, 240) + '. Wieder in Kraft: neu schreiben (neue id) — oder ueber main (PR)';
+    else if (passt && !ga.quelle && kopien.length) zl += 'keine — strittig: eine Kopie mit anderem `von` (' + kopieVons.slice(0, 3).map(v => A.fremd(v, 60)).join(', ') + ') liegt auf ' + (kopieRefs.length ? kopieRefs.slice(0, 3).map(q => nameSicher(q, 60)).join(', ') + (kopieRefs.length > 3 ? ' … +' + (kopieRefs.length - 3) : '') : 'einem Branch, den git hier kennt') + ', und keine Fassung liegt auf main oder in der Sicherung. Dein `von` passt zu deinem Branch — nichts umschreiben (eine neue id koennte gleich wieder kopiert werden). Auf main gilt deine Fassung (PR); die Kopie melden: neu befund … (beide Fassungen: zeige ' + id + ')';
     else if (passt && !ga.quelle) zl += 'keine — ' + knapp(ga.grund, 200) + ' — nichts umschreiben' + (/Teilabruf/.test(String(ga.grund)) ? '; holen und nachladen: node scripts/austausch.mjs holen' : '') + ' (zeige ' + id + ')';
     // Gegenpruefung 5, Skeptiker (R5b-fassungen-2, D2): der Grund kommt auch MIT Quelle — vorher stand bei einem NEU ANGELEGTEN
     // Branch nur „{origin/zz-sicherung} … nach einem Umzug … schreib ihn neu", und der Schreiber erfuhr nicht, warum seine
     // Berichtigung nicht zaehlt. Dort wirkt die gesicherte Fassung weiter; eine Berichtigung geht ueber main oder eine neue id.
-    else if (ga.quelle && ga.neuAngelegt) zl += 'die gesicherte {' + A.fremd(ga.quelle, 60) + '} — ' + knapp(ga.grund, 240) + '. Deine Berichtigung auf ' + A.fremd(ga.neuAngelegt, 60) + ' zaehlt fuer die anderen nicht (der Branch verschwand und kam wieder — ob du ihn neu angelegt hast, sieht niemand). Berichtigen: ueber main (PR) — oder neu schreiben (neue id) und den alten mit einem Grabstein auf main zurueckziehen';
-    else zl += (ga.quelle ? 'eine andere {' + A.fremd(ga.quelle, 60) + '}' + (ga.grund ? ' (' + knapp(ga.grund, 200) + ')' : '') : 'keine — strittig: ' + knapp(ga.grund, 200)) + ' — `von` und Branch muessen zusammenpassen; nach einem Umzug oder mit anderem `von` schreib ihn neu (neue id) und zieh den alten zurueck';
+    else if (ga.quelle && ga.neuAngelegt) zl += 'die gesicherte {' + nameSicher(ga.quelle, 60) + '} — ' + knapp(ga.grund, 240) + '. Deine Berichtigung auf ' + nameSicher(ga.neuAngelegt, 60) + ' zaehlt fuer die anderen nicht (der Branch verschwand und kam wieder — ob du ihn neu angelegt hast, sieht niemand). Berichtigen: ueber main (PR) — oder neu schreiben (neue id) und den alten mit einem Grabstein auf main zurueckziehen';
+    else zl += (ga.quelle ? 'eine andere {' + nameSicher(ga.quelle, 60) + '}' + (ga.grund ? ' (' + knapp(ga.grund, 200) + ')' : '') : 'keine — strittig: ' + knapp(ga.grund, 200)) + ' — `von` und Branch muessen zusammenpassen; nach einem Umzug oder mit anderem `von` schreib ihn neu (neue id) und zieh den alten zurueck';
     befehle.add(zl); z.push(zl);
   }
   // Wer mithilft (nehme --auch: das Feld `mithelfen`, nicht der Titel), weiss, dass ein anderer zuerst war.
   for (const [ziel, u] of sw.uebernahme) if (u.auch.some(l => meins(l.e) && l.e.mithelfen !== true)) z.push('Deine Uebernahme von ' + ziel + ' gilt nicht: ' + u.lage.e.von + ' war zuerst (bis ' + uhr(u.lage.bis) + ')');
   // Dein Halt wurde aufgehoben — mit Grund, und du erfaehrst ihn hier (vorher verschwand er still).
-  for (const a of sw.aufgehoben) if (meins(a.e) && !meins(a.durch) && Date.parse(a.e.bis) > Date.now()) z.push('AUFGEHOBEN dein Halt ' + a.e.id + ' durch ' + a.durch.id + ' {' + a.durch._quelle + '} von ' + a.durch.von + ': ' + knapp(a.durch.text, 120));
+  for (const a of sw.aufgehoben) if (meins(a.e) && !meins(a.durch) && Date.parse(a.e.bis) > Date.now()) z.push('AUFGEHOBEN dein Halt ' + a.e.id + ' durch ' + a.durch.id + ' {' + nameSicher(a.durch._quelle) + '} von ' + a.durch.von + ': ' + knapp(a.durch.text, 120));
   // Antworten und Lieferungen auf DEINE offenen Eintraege — auch auf deinen Halt und deine Lage. Der Weg
   // „Agent sucht diese Datei, bitte hochladen" endet hier. Auf einen geschlossenen Eintrag: nicht mehr.
   const antw = [];
@@ -315,7 +324,7 @@ function dichBetreffend(b, abl, sw, aend) {
   antw.sort((p, q) => A.ordnung(q.x).localeCompare(A.ordnung(p.x)));
   const wort = { frage: ' Frage ', halt: 'n Halt ', lage: ' Lage ' };
   for (const { auf, x } of antw.slice(0, o.alles ? 1e9 : 6)) {
-    z.push('ANTWORT ' + x.id + ' {' + x._quelle + '} von ' + x.von + ' auf deine' + (wort[auf.art] || 'n Eintrag ') + auf.id + ': ' + knapp(x.text || x.titel, 90));
+    z.push('ANTWORT ' + x.id + ' {' + nameSicher(x._quelle) + '} von ' + x.von + ' auf deine' + (wort[auf.art] || 'n Eintrag ') + auf.id + ': ' + knapp(x.text || x.titel, 90));
     for (const g of A.alsListe(x.geliefert)) { const zl = '  GELIEFERT ' + g.pfad + ' @ ' + String(g.commit).slice(0, 12) + '   → git fetch origin && ' + zeigeBefehl(g); befehle.add(zl); z.push(zl); }
   }
   if (antw.length > 6 && !o.alles) z.push('… +' + (antw.length - 6) + ' weitere Antworten auf deine Eintraege — `--alles`');
@@ -326,7 +335,7 @@ function dichBetreffend(b, abl, sw, aend) {
   const haltAnDich = ich0 ? sw.halts.filter(h => h.e.an === ich0 && !meins(h.e) && !schonGenannt.has(h.e.id)).map(h => h.e) : [];
   const an = offenFremd.filter(e => ich0 && e.an === ich0).concat(haltAnDich).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x)))
     .concat(offenFremd.filter(e => !(ich0 && e.an === ich0) && name && name.length >= 6 && nameIn(A.textVon({ t: e.titel, s: e.stichworte }), name)).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x))));
-  an.slice(0, o.alles ? 1e9 : 6).forEach(e => { const h = e.art === 'halt' && sw.halts.find(x => x.e === e); z.push('AN DICH ' + e.id + ' {' + e._quelle + '} von ' + e.von + ': ' + (h ? (h.veto ? 'VETO gegen ' + h.veto : 'HALT') + ' bis ' + uhr(h.bis) + ' — ' : '') + knapp(e.titel, 100)); });
+  an.slice(0, o.alles ? 1e9 : 6).forEach(e => { const h = e.art === 'halt' && sw.halts.find(x => x.e === e); z.push('AN DICH ' + e.id + ' {' + nameSicher(e._quelle) + '} von ' + e.von + ': ' + (h ? (h.veto ? 'VETO gegen ' + h.veto : 'HALT') + ' bis ' + uhr(h.bis) + ' — ' : '') + knapp(e.titel, 100)); });
   if (an.length > 6 && !o.alles) z.push('… +' + (an.length - 6) + ' weitere an dich — `--alles`');
   // Nur hier: kein ECHTER Branch traegt ihn (die Sicherung ist keiner — sie verdeckte sonst den Hinweis).
   const nurHier = b.eintraege.filter(e => hier(e) && ![...(b.wo.get(e.id) || new Set())].some(q => q !== 'Arbeitsbaum' && !A.istSicherungsRef(q)));
@@ -491,7 +500,7 @@ function schwarmBloecke(b, abl, sw, inArbeit) {
   const dringend = b.eintraege.filter(e => offen(e) && e.dringlichkeit === 'dringend');
   if (kritisch.length || dringend.length) {
     aus('\nKRITISCH (' + kritisch.length + ')' + (dringend.length ? ' · DRINGEND (' + dringend.length + ' — in den Listen unten zuerst, oder `--dringlichkeit dringend`)' : '') + ' — wer es aufnimmt: `nehme <id>`');
-    for (const e of kritisch.slice(0, o.alles ? 1e9 : 6)) { const n = (abl.rueck.get(e.id) || []).filter(r => r.von.art === 'antwort').length; aus('    ' + e.id + '  ' + knapp(e.titel, 100) + '   [' + arbeitsMarke(e, sw, inArbeit) + (n ? ' · ' + n + ' Antwort(en)' : '') + ']' + (e._quelle !== 'Arbeitsbaum' ? '   {' + e._quelle + '}' : '')); }
+    for (const e of kritisch.slice(0, o.alles ? 1e9 : 6)) { const n = (abl.rueck.get(e.id) || []).filter(r => r.von.art === 'antwort').length; aus('    ' + e.id + '  ' + knapp(e.titel, 100) + '   [' + arbeitsMarke(e, sw, inArbeit) + (n ? ' · ' + n + ' Antwort(en)' : '') + ']' + (e._quelle !== 'Arbeitsbaum' ? '   {' + nameSicher(e._quelle) + '}' : '')); }
     if (!o.alles && kritisch.length > 6) aus('    … +' + (kritisch.length - 6) + ' weitere — `--alles`');
   }
   if (sw.lagen.length) {
@@ -506,7 +515,7 @@ function schwarmBloecke(b, abl, sw, inArbeit) {
     aus('\nHALT UND VETO (' + sw.halts.length + ' wirksam) — eine Pflicht zur Kenntnisnahme, keine Sperre: lesen, dann warten, antworten oder mit Grund aufheben');
     // Die Geltung kommt aus fremder Hand (Gegenpruefung 5, Skeptiker, R5b-ausgabe-0: ein Pfad mit Zeilenumbruch schrieb hier einen
     // gefaelschten DICH-BETREFFEND-Block) — jeder Teil durch knapp, die Quelle durch A.fremd, auch wenn das Lesen sie schon prueft.
-    for (const h of sw.halts.slice(0, o.alles ? 1e9 : 6)) aus('    ' + h.e.id + '  bis ' + uhr(h.bis) + '  ' + (h.veto ? 'VETO gegen ' + h.veto : 'Geltung: ' + (h.e.geltung || []).map(x => knapp(x, 80)).join(', ')) + ' — ' + knapp(h.e.titel, 80) + '   {' + A.fremd(h.e._quelle, 80) + '}' + (h.antworten.length ? '   [' + h.antworten.length + ' Antwort(en)]' : '') + ankunftSatz(h));
+    for (const h of sw.halts.slice(0, o.alles ? 1e9 : 6)) aus('    ' + h.e.id + '  bis ' + uhr(h.bis) + '  ' + (h.veto ? 'VETO gegen ' + h.veto : 'Geltung: ' + (h.e.geltung || []).map(x => knapp(x, 80)).join(', ')) + ' — ' + knapp(h.e.titel, 80) + '   {' + nameSicher(h.e._quelle, 80) + '}' + (h.antworten.length ? '   [' + h.antworten.length + ' Antwort(en)]' : '') + ankunftSatz(h));
   }
   // Eine Lage, deren Ankunft hier nicht rechenbar ist, ist nicht „ungueltig" — sie wird nicht GERECHNET (E5): sie nimmt nichts, und
   // ihre Ziele sind fuer `nehme` „nicht entscheidbar". Vorher stand sie unter der Ueberschrift „ungueltig, Zeit in der Zukunft oder
@@ -576,7 +585,7 @@ function lesen() {
       const m = A.marken(e, abl, src), am = arbeitsMarke(e, sw, inArbeit);
       if (e.dringlichkeit) m.unshift(e.dringlichkeit.toUpperCase());
       if (am !== 'niemand dran') m.push(am);
-      aus('    ' + e.id + '  ' + knapp(e.titel, 104) + (m.length ? '   [' + m.join(' · ') + ']' : '') + (e._quelle !== 'Arbeitsbaum' ? '   {' + e._quelle + '}' : ''));
+      aus('    ' + e.id + '  ' + knapp(e.titel, 104) + (m.length ? '   [' + m.join(' · ') + ']' : '') + (e._quelle !== 'Arbeitsbaum' ? '   {' + nameSicher(e._quelle) + '}' : ''));
     }
     // Kein stiller Deckel: was nicht dasteht, wird gezaehlt.
     if (l.length > deckel) aus('    … +' + (l.length - deckel) + ' weitere — `--alles` zeigt sie');
@@ -593,9 +602,9 @@ function lesen() {
       // Die angekuendigte Absicht steht in der Zeile ihres Branches (keine eigene Liste).
       const lageVon = (ref) => sw.lagen.find(l => l.e.von === 'sitzung/' + ref.replace(/^[^/]+\//, ''));
       // Ref-Name und Commit-Betreff kommen aus fremder Hand (Gegenpruefung 5: U+202E im Branch-Namen, ESC[8m im Betreff).
-      fz.slice(0, o.alles ? 1e9 : 8).forEach(z => { const l = lageVon(z.ref); aus('    ' + A.fremd(z.ref, 120) + '   ' + (z.tage === 0 ? 'heute' : 'vor ' + z.tage + (z.tage === 1 ? ' Tag' : ' Tagen')) + '   „' + knapp(z.betreff, 90) + '"' + (l ? '   · Lage: ' + A.fremd(l.e.phase.replace('_', ' '), 20) + (l.e.runde ? ' ' + A.fremd(l.e.runde, 10) : '') + ', bis ' + uhr(l.bis) : '')); });
+      fz.slice(0, o.alles ? 1e9 : 8).forEach(z => { const l = lageVon(z.ref); aus('    ' + nameSicher(z.ref, 120) + '   ' + (z.tage === 0 ? 'heute' : 'vor ' + z.tage + (z.tage === 1 ? ' Tag' : ' Tagen')) + '   „' + knapp(z.betreff, 90) + '"' + (l ? '   · Lage: ' + A.fremd(l.e.phase.replace('_', ' '), 20) + (l.e.runde ? ' ' + A.fremd(l.e.runde, 10) : '') + ', bis ' + uhr(l.bis) : '')); });
       if (!o.alles && fz.length > 8) aus('    … +' + (fz.length - 8) + ' weitere — `--alles`');
-      if (fz.zukunft && fz.zukunft.length) aus('    !! ' + fz.zukunft.length + ' Branch(es) mit Commit-Zeit in der Zukunft — nicht als frisch gezaehlt: ' + fz.zukunft.slice(0, 3).map(x => A.fremd(x.ref, 120) + ' (' + A.fremd(String(x.zeit).slice(0, 10)) + ')').join(', '));
+      if (fz.zukunft && fz.zukunft.length) aus('    !! ' + fz.zukunft.length + ' Branch(es) mit Commit-Zeit in der Zukunft — nicht als frisch gezaehlt: ' + fz.zukunft.slice(0, 3).map(x => nameSicher(x.ref, 120) + ' (' + A.fremd(String(x.zeit).slice(0, 10)) + ')').join(', '));
     }
     markenBlock(A.vergebeneMarken(WURZEL, Date.now(), 14), false);
     sicherungsZeile(b);
@@ -607,7 +616,7 @@ function lesen() {
 // und was main schon fuer etwas anderes traegt, heisst UEBERHOLT.
 const kuerzelText = (m) => m.naechstesKuerzel ? '(' + m.naechstesKuerzel + ')' : 'nicht bestimmbar: ' + knapp(m.naechstesKuerzelGrund || 'kein STATUS-Kuerzel bekannt', 200);
 const linienText = (x) => x.linien.length > 1 ? ' ×' + x.linien.length + ' Linien' : (x.refs.length > 1 ? ' (eine Linie, ' + x.refs.length + ' Branches)' : '');
-const kurzRef = (r) => String(r).replace(/^origin\//, '');
+const kurzRef = (r) => nameSicher(String(r).replace(/^origin\//, ''));
 function markenBlock(m, ausfuehrlich) {
   if (m.grund) { if (ausfuehrlich) aus('\nNicht rechenbar: ' + m.grund); return; }
   const vs = m.versionen.map(x => x.wert + linienText(x)).join(' · '), ks = m.kuerzel.map(x => '(' + x.wert + ')' + linienText(x)).join(' · ');
@@ -642,20 +651,27 @@ function markenBlock(m, ausfuehrlich) {
 function naechste() {
   // Erst holen (wie `nehme`): wer nur `git fetch origin main` faehrt, saehe einen fremden Bump-Halt nicht. Mit --nur-lokal
   // nicht (null): dann geht keine Anfrage hinaus, gelesen werden die Branches, die git lokal kennt.
-  const geholt = holenStill();
-  let m = A.vergebeneMarken(WURZEL, Date.now(), 14);
   // Im Teilabruf fehlen danach sw.js, STATUS.md und index.html der frischen Branches (oder ihre Baeume): vorher hiess
   // es „Nicht rechenbar … (erst holen)", und `holen` aenderte daran nichts — ein Kreis (Gegenpruefung 4, R4-lesen-0).
   // Jetzt laedt `naechste` sie GEZIELT nach (erst die Baeume, dann die Dateien — hoechstens zwei Runden). Nicht mit
   // --nur-lokal: dort geht keine Anfrage hinaus. Innerhalb DERSELBEN Gesamtfrist wie das Holen (Gegenpruefung 5, R5-lesen-8:
   // vorher je Runde 120 s — gemessen 140 s statt der genannten 20 s gegen einen Remote, der nach dem ersten Abruf hing).
-  let nachMarken = null;
-  for (let runde = 0; geholt && m.grund && m.nachladbar && m.nachladbar.length && runde < 2; runde++) {
-    const no = { frist: holFrist(HOL_FRIST_STILL_MS), bis: stillBis };
-    nachMarken = { versucht: m.nachladbar.length, ok: A.objekteNachladen(WURZEL, m.nachladbar, no) };
-    if (!nachMarken.ok) { nachMarken.grund = no.ende === 'frist' ? 'frist' : 'fehler'; break; }
+  // Gegenpruefung 5c (Skeptiker R5c-L1): die Nummern sind der Kern von `naechste` — sie kommen nach den Spitzen und VOR den
+  // aelteren Fassungen (holenStill → vorAelteren). Vorher danach: gemessen mit 20 ehrlich berichtigten Halts und 0,8 s je Abruf
+  // kamen die aelteren Fassungen gerade noch, fuer die Nummern blieb nichts — Exit 2 bei jedem Lauf.
+  let m = null, nachMarken = null;
+  const markenLaden = () => {
     m = A.vergebeneMarken(WURZEL, Date.now(), 14);
-  }
+    for (let runde = 0; m.grund && m.nachladbar && m.nachladbar.length && runde < 2; runde++) {
+      const no = { frist: holFrist(HOL_FRIST_STILL_MS), bis: stillBis };
+      nachMarken = { versucht: m.nachladbar.length, ok: A.objekteNachladen(WURZEL, m.nachladbar, no) };
+      if (!nachMarken.ok) { nachMarken.grund = no.ende === 'frist' ? 'frist' : 'fehler'; break; }
+      m = A.vergebeneMarken(WURZEL, Date.now(), 14);
+    }
+  };
+  const geholt = holenStill({ vorAelteren: markenLaden });
+  // Kein Teilabruf auf origin (dann lief vorAelteren nicht) oder nicht geholt: die Nummern hier — nachgeladen nur nach dem Holen.
+  if (!m) { if (geholt) markenLaden(); else m = A.vergebeneMarken(WURZEL, Date.now(), 14); }
   // Vor einem Bump laeuft `naechste` ohnehin — hier wirkt ein Halt mit Geltung bump. Ein Veto dagegen steht dabei.
   const b = brett(), sw = schwarmVon(b), ich0 = ichVon(), meins = meinsVon(b, ich0);
   const istBump = (e) => (e.geltung || []).map(A.geltungNorm).indexOf('bump') >= 0;
@@ -670,7 +686,7 @@ function naechste() {
   const strittigBump = ung.strittig.filter(s => s.ungelesen || s.nurSicherung || s.halts.some(e => !meins(e) && istBump(e)));
   const offen = [];
   if (ung.fehlend.length) { const q = [...new Set(ung.fehlend.map(x => String(x.quelle || '?')))]; offen.push(ung.fehlend.length + ' Eintragsdatei(en) bzw. Baeume nicht gelesen (Teilabruf: nicht im lokalen Objektspeicher, auf ' + q.slice(0, 3).map(x => knapp(x, 60)).join(', ') + (q.length > 3 ? ' … +' + (q.length - 3) : '') + ') — ein fremder Bump-Halt darin waere hier unsichtbar'); }
-  for (const s of strittigBump) offen.push('strittiger Halt ' + s.id + ' {' + s.quellen.map(x => knapp(x, 60)).join(', ') + '}' + (s.grund ? ' — ' + knapp(s.grund, 200) : '') + (s.ungelesen ? ' (' + s.ungelesen + ' Fassung(en) nicht gelesen)' : '') + (s.nurSicherung ? ' (nur in der Sicherung: ' + s.nurSicherung + ' Fassung(en), die ein Halt mit laufender Frist sein koennen — Geltung nicht lesbar)' : ''));
+  for (const s of strittigBump) offen.push('strittiger Halt ' + s.id + ' {' + s.quellen.map(x => nameSicher(x, 60)).join(', ') + '}' + (s.grund ? ' — ' + knapp(s.grund, 200) : '') + (s.ungelesen ? ' (' + s.ungelesen + ' Fassung(en) nicht gelesen)' : '') + (s.nurSicherung ? ' (nur in der Sicherung: ' + s.nurSicherung + ' Fassung(en), die ein Halt mit laufender Frist sein koennen — Geltung nicht lesbar)' : ''));
   if (o.json) {
     aus(JSON.stringify(Object.assign({}, m, { holen: geholt, nachgeladen: { eintraege: stillNachgeladen, marken: nachMarken }, bumpHalt: bumpHalt.map(h => ({ id: h.e.id, von: h.e.von, quelle: h.e._quelle, bis: new Date(h.bis).toISOString(), text: h.e.text, vetos: vetosGegen(h).map(v => ({ id: v.e.id, von: v.e.von, text: v.e.text })) })),
       nichtRechenbar: offen, fehlend: ung.fehlend.map(x => ({ quelle: x.quelle, pfad: x.pfad, baum: !!x.baum })), strittig: strittigBump.map(s => ({ id: s.id, quellen: s.quellen, grund: s.grund, ungelesen: s.ungelesen, nurSicherung: s.nurSicherung || 0 })) }), null, 1));
@@ -681,21 +697,27 @@ function naechste() {
     return;
   }
   holenStillSagen(geholt);
-  { const s = nachladeSatz(stillNachgeladen); if (s.indexOf('!!') >= 0) aus(s.slice(s.indexOf('!!') - 1)); }
+  // Steht der Rat bei abgelaufener Frist schon in diesen Zeilen, wiederholt ihn der Hinweis unten nicht (Gegenpruefung 5c).
+  let ratOben = false;
+  { const s = nachladeSatz(stillNachgeladen, 'naechste'); if (s.indexOf('!!') >= 0) { aus(s.slice(s.indexOf('!!') - 1)); ratOben = s.indexOf(fristRat('naechste')) >= 0; } }
   if (!ich0) aus('\n(Wer du bist, ist nicht ablesbar — losgeloester HEAD: auch ein EIGENER Bump-Halt zaehlt hier als fremder. --von setzen.)');
   // Ein bekannter Bump-Halt geht vor (wie in --json): er gilt, auch wenn daneben etwas nicht rechenbar ist.
   if (bumpHalt.length) {
     if (!m.grund) markenBlock(m, true);
     if (m.grund || offen.length) aus('\n(Daneben nicht rechenbar: ' + [m.grund].concat(offen).filter(Boolean).map(x => knapp(x, 200)).join(' · ') + ')');
-    bumpHalt.forEach(h => { aus('\n!! HALT fuer Bumps: ' + h.e.id + ' {' + h.e._quelle + '} bis ' + uhr(h.bis) + ' — ' + knapp(h.e.text, 160)); vetosGegen(h).forEach(v => aus('   VETO dagegen: ' + v.e.id + ' von ' + v.e.von + ' bis ' + uhr(v.bis) + ' — ' + knapp(v.e.text, 120))); });
+    bumpHalt.forEach(h => { aus('\n!! HALT fuer Bumps: ' + h.e.id + ' {' + nameSicher(h.e._quelle) + '} bis ' + uhr(h.bis) + ' — ' + knapp(h.e.text, 160)); vetosGegen(h).forEach(v => aus('   VETO dagegen: ' + v.e.id + ' von ' + v.e.von + ' bis ' + uhr(v.bis) + ' — ' + knapp(v.e.text, 120))); });
     ende(1, '\nJetzt keine neue Version. Lies den Halt (zeige <id>); er endet ' + uhr(Math.min(...bumpHalt.map(h => h.bis))) + ' von selbst oder wird mit Grund aufgehoben' + (bumpHalt.some(h => vetosGegen(h).length) ? ' — gegen einen steht ein Veto: klaeren, nicht uebergehen' : '') + '.\nNichts geschrieben.');
   }
   // Der Hinweis nennt einen Befehl, der WIRKLICH hilft (vorher „erst holen" — im Teilabruf ein Kreis; und nach einem
   // gescheiterten Nachladen nicht noch einmal derselbe Befehl, sondern der Grund und der andere Weg — R5-werkzeug-4).
+  const grundN = (nachMarken && nachMarken.grund) || (stillNachgeladen && stillNachgeladen.grund);
   const weg = (nachladbar) => geholt == null ? '(ohne --nur-lokal holt `naechste` selbst und laedt fehlende Dateien gezielt nach: node scripts/austausch.mjs naechste)'
     : geholt === false ? '(Holen hat nicht geklappt — mit Netz noch einmal: node scripts/austausch.mjs naechste)'
     : !nachladbar ? '(erst `node scripts/austausch.mjs holen`)'
-    : '(Nachladen' + (nachMarken ? ' von ' + nachMarken.versucht + ' Objekt(en)' : '') + ' hat nicht alles gebracht' + ((nachMarken && nachMarken.grund) || (stillNachgeladen && stillNachgeladen.grund) ? ' — ' + NACHLADE_GRUND[(nachMarken && nachMarken.grund) || stillNachgeladen.grund] : '') + '. Mit Netz noch einmal: node scripts/austausch.mjs naechste — scheitert es wieder: ' + OHNE_FILTER + ' (das ganze Repo))';
+    : '(Nachladen' + (nachMarken ? ' von ' + nachMarken.versucht + ' Objekt(en)' : '') + ' hat nicht alles gebracht' + (grundN ? ' — ' + NACHLADE_GRUND[grundN] : '') + '. '
+      // Gegenpruefung 5c (R5c-L1): an der FRIST gescheitert — zuerst `holen` (laengere Frist), erst danach das ganze Repo. Vorher
+      // hiess es hier „noch einmal naechste" (dieselbe Frist: im Kreis) und dann sofort das ganze Repo.
+      + (grundN === 'frist' ? (ratOben ? 'Was hilft, steht oben: erst `holen`, dann noch einmal `naechste`' : fristRat('naechste')) : 'Mit Netz noch einmal: node scripts/austausch.mjs naechste — scheitert es wieder: ' + OHNE_FILTER + ' (das ganze Repo)') + ')';
   if (m.grund) ende(2, 'Nicht rechenbar: ' + m.grund + '\n' + weg(!!(m.nachladbar && m.nachladbar.length)));
   if (offen.length) ende(2, offen.map(x => 'Nicht rechenbar: ' + x).join('\n') + '\n' + (ung.fehlend.length ? weg(true) : '(Welche Fassung gilt, entscheidet erst eine Fassung auf main (Merge), ein Grabstein fuer die GANZE id auf main oder der Ablauf ihrer Frist — ein Grabstein je Fassung entscheidet nichts — die Fassungen: ' + (strittigBump.slice(0, 2).flatMap(s => ((b.fassungen && b.fassungen.get(s.id)) || []).flatMap(v => [...v.pfade].filter(([q]) => q !== 'Arbeitsbaum').slice(0, 1).map(([q, p]) => 'git show ' + shWort(q + ':' + p)))).slice(0, 4).join(' · ') || 'nur unter ' + A.FASSUNGEN + '/<id>/ auf origin/' + A.SICHERUNG_ZWEIG + ' (git ls-tree -r origin/' + A.SICHERUNG_ZWEIG + ' -- ' + A.FASSUNGEN + '/)') + '. Bis dahin keine neue Version.)') + '\nNichts geschrieben.');
   markenBlock(m, true);
@@ -722,7 +744,7 @@ function felderDrucken(e) {
 }
 function ganz(e, abl, sw) {
   const z = abl.zustand.get(e.id);
-  aus('\n' + EIN(String((A.ARTEN[e.art] || { wort: e.art + ' (unbekannte Art)' }).wort).toUpperCase()) + '  ' + e.id + '   ' + z.z + (z.durch ? ' durch ' + z.durch.id : '') + '   {' + EIN(e._quelle || 'Arbeitsbaum') + '}');
+  aus('\n' + EIN(String((A.ARTEN[e.art] || { wort: e.art + ' (unbekannte Art)' }).wort).toUpperCase()) + '  ' + e.id + '   ' + z.z + (z.durch ? ' durch ' + z.durch.id : '') + '   {' + nameSicher(e._quelle || 'Arbeitsbaum') + '}');
   felderDrucken(e);
   A.alsListe(e.geliefert).forEach(g => aus('  Geliefert: ' + g.pfad + ' @ ' + g.commit + '   → ' + zeigeBefehl(g)));
   // Durch knapp (Gegenpruefung 5, Skeptiker, R5b-ausgabe-1): der Grund traegt Werte aus fremder Hand (eine Geltung, einen Ref-Namen).
@@ -731,7 +753,7 @@ function ganz(e, abl, sw) {
   const hier = !e._quelle || e._quelle === 'Arbeitsbaum';
   for (const x of A.ankerWirksam(e, abl.rueck)) { const t = A.messtext(x.datei, liesRel(x.datei)); aus('  Anker: ' + EIN(x.datei) + ' :: ' + EIN(x.text) + (hier ? (t == null ? '   ← DATEI FEHLT' : (t.indexOf(x.text) < 0 ? '   ← STEHT NICHT MEHR DA' : '')) : '')); }
   for (const x of A.zaehleWirksam(e, abl.rueck)) { const h = A.wieOft(A.messtext(x.datei, liesRel(x.datei)), x.text); aus('  Zaehlung: ' + EIN(x.datei) + ' :: ' + EIN(x.text) + '  → beim Eintrag ' + x.n + (hier ? ', heute ' + (h == null ? 'nicht lesbar' : h) + (h !== x.n ? '   ← BEWEGT' : '') : '')); }
-  for (const bz of A.alsListe(e.bezug)) { const ziel = abl.proId.get(bz.id); aus('  → ' + EIN(bz.art) + ' ' + EIN(bz.id) + (ziel ? '  ' + knapp(ziel.titel, 90) : (bz.ref ? '  (liegt auf ' + EIN(bz.ref) + ' — von hier aus nicht zu sehen: `holen`)' : '  (fehlt)')) + (ziel && bz.ref && ziel._quelle !== 'Arbeitsbaum' ? '   {' + EIN(ziel._quelle) + '}' : '')); }
+  for (const bz of A.alsListe(e.bezug)) { const ziel = abl.proId.get(bz.id); aus('  → ' + EIN(bz.art) + ' ' + EIN(bz.id) + (ziel ? '  ' + knapp(ziel.titel, 90) : (bz.ref ? '  (liegt auf ' + nameSicher(bz.ref) + ' — von hier aus nicht zu sehen: `holen`)' : '  (fehlt)')) + (ziel && bz.ref && ziel._quelle !== 'Arbeitsbaum' ? '   {' + EIN(ziel._quelle) + '}' : '')); }
   for (const r of (abl.rueck.get(e.id) || [])) aus('  ← ' + r.art + ' von ' + r.von.id + '  ' + knapp(r.von.titel, 90) + '  [' + EIN(r.von.von) + ']');
 }
 // Eine STRITTIGE id (Gegenpruefung 5): keine Fassung gilt — `zeige` nennt den Grund und jede Fassung mit ihrer Quelle und
@@ -741,7 +763,7 @@ function strittigZeigen(b, x) {
   aus('\nSTRITTIG  ' + x.id + '   keine Fassung gilt — fuer niemanden gerechnet: ' + knapp(x._strittig.grund || 'verschiedene Fassungen, keine laesst sich zuordnen', 240));
   aus('  ' + l.length + ' Fassung(en) — auf main gilt die Fassung, die dort liegt; sonst die des Schreibers (sein `von`, sein Branch) oder die gesicherte:');
   l.forEach((v, i) => {
-    aus('\n  FASSUNG ' + (i + 1) + '/' + l.length + '  ' + EIN(String((A.ARTEN[v.e.art] || { wort: v.e.art }).wort).toUpperCase()) + '   Blob ' + String(v.blob).slice(0, 12) + '   {' + [...v.quellen].map(EIN).join(', ') + '}');
+    aus('\n  FASSUNG ' + (i + 1) + '/' + l.length + '  ' + EIN(String((A.ARTEN[v.e.art] || { wort: v.e.art }).wort).toUpperCase()) + '   Blob ' + String(v.blob).slice(0, 12) + '   {' + [...v.quellen].map(q => nameSicher(q)).join(', ') + '}');
     felderDrucken(v.e);
   });
 }
@@ -768,7 +790,9 @@ function wirktJetzt(e, sw) {
 // wenn eine Quelle feststeht (vorher stand dort nur „Wirkt jetzt: ja", waehrend die anderen die gesicherte Fassung lasen).
 function andereZeigen(b, e) {
   const ga = b.giltAndere && b.giltAndere.get(e.id); if (!ga) return;
-  aus('  Fuer die anderen gilt: ' + (ga.quelle ? 'eine andere Fassung {' + EIN(ga.quelle) + '}' : 'keine (strittig)') + (ga.grund ? ' — ' + knapp(ga.grund, 240) : '') + (ga.neuAngelegt ? ' (deine Berichtigung zaehlt dort nicht — berichtigen ueber main oder mit neuer id)' : ''));
+  // R5c-Le3 (F4): dieselbe (oder die gesicherte) Fassung gilt fuer die anderen, wirkt aber nicht — das steht direkt unter „Wirkt jetzt".
+  if (ga.wirktNicht) { aus('  Fuer die anderen wirkt ' + (e.art === 'lage' ? 'sie' : 'er') + ' NICHT' + (ga.quelle ? ' (es gilt die gesicherte {' + nameSicher(ga.quelle) + '})' : '') + ' — ' + knapp(ga.grund, 240) + ' (wieder in Kraft: neue id oder ueber main)'); return; }
+  aus('  Fuer die anderen gilt: ' + (ga.quelle ? 'eine andere Fassung {' + nameSicher(ga.quelle) + '}' : 'keine (strittig)') + (ga.grund ? ' — ' + knapp(ga.grund, 240) : '') + (ga.neuAngelegt ? ' (deine Berichtigung zaehlt dort nicht — berichtigen ueber main oder mit neuer id)' : ''));
 }
 function zeige() { const b = brett(), abl = A.ableiten(b.eintraege), sw = schwarmVon(b); if (!o._.length) ende(2, 'Gebrauch: node scripts/austausch.mjs zeige <id>'); for (const k of o._) { const x = finde(b, k, { strittig: true }); if (x._strittig) strittigZeigen(b, x); else { ganz(x, abl, sw); andereZeigen(b, x); } } aus('\nNichts geschrieben.'); }
 function suche() {
@@ -940,10 +964,12 @@ function einspielen() {
     }
   }
   const r = A.einspielen(WURZEL, roh, { von: braucht ? ich() : undefined, sitzung: ichVon(), absichtVon: absicht ? [vonFuerAbsicht('lage')] : null, datum: o.datum, alleRefs: true });
-  if (!r.ok) { aus('\nNICHTS geschrieben (alles oder nichts) — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.slice(0, 40).forEach(f => aus('  !! ' + f.wo + ': ' + f.grund)); if (r.fehler.length > 40) aus('  … +' + (r.fehler.length - 40) + ' weitere'); process.exit(1); }
+  // Ein Grund nennt den Titel eines Stapel-Eintrags und Dateinamen aus fremder Hand — darum durch knapp (Gegenpruefung 5b, R5c-A1):
+  // vorher druckte ein zweizeiliger Titel „!! Eintrag 1 (Zwei Zeilen" und den Rest samt Grund auf einer eigenen Zeile.
+  if (!r.ok) { aus('\nNICHTS geschrieben (alles oder nichts) — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.slice(0, 40).forEach(f => aus('  !! ' + knapp(f.wo, 120) + ': ' + knapp(f.grund, 0))); if (r.fehler.length > 40) aus('  … +' + (r.fehler.length - 40) + ' weitere'); process.exit(1); }
   aus('\nGeschrieben: ' + r.geschrieben.length + ' Eintraege nach ' + A.ORDNER + '/');
   r.geschrieben.forEach(g => aus('  ' + g.id + '  (' + g.art + ')  ' + knapp(g.titel, 100)));
-  r.auswaerts.forEach(m => aus('Bezug ueber die Branch-Grenze: ' + m.id + ' liegt nur auf ' + m.quelle + ' (der Bezug nennt den Branch)'));
+  r.auswaerts.forEach(m => aus('Bezug ueber die Branch-Grenze: ' + m.id + ' liegt nur auf ' + nameSicher(m.quelle) + ' (der Bezug nennt den Branch)'));
   const krit = r.geschrieben.filter(g => { const x = Array.isArray(roh) ? roh[r.geschrieben.indexOf(g)] : null; return x && (x.dringlichkeit === 'kritisch' || x.an === 'fernando'); });
   if (krit.length) { aus('\nKRITISCH bzw. an Fernando — diese Zeilen gehoeren in STATUS.md §2 (sonst wird austausch_check A5/A7 rot):'); krit.forEach(g => aus('  brett:' + g.id + ' — ' + knapp(g.titel, 120))); }
   aus('\nNoch NICHT sichtbar fuer andere. Erst nach:  git add ' + A.ORDNER + ' && git commit && git push -u origin HEAD');
@@ -952,8 +978,8 @@ function erntenBefehl() {
   const r = A.ernten(WURZEL);
   if (r.gitDa === false) return aus('\ngit nicht verfuegbar — es gibt nichts zu ernten.\nNichts geschrieben.');
   aus('\nGeerntet: ' + r.geholt.length + ' Eintrag/Eintraege von anderen Branches (' + r.refs + ' Remote-Refs durchgesehen)');
-  r.geholt.forEach(g => aus('  ' + g.id + '  {' + g.quelle + '}  ' + knapp(g.titel, 100)));
-  if (r.uebergangen.length) { aus('Uebergangen (bleibt auf seinem Branch — ungueltig, oder es beschreibt dessen Baum): ' + r.uebergangen.length); r.uebergangen.forEach(u => aus('  ' + A.fremd(u.id, 120) + '  {' + A.fremd(u.quelle, 80) + '}  ' + knapp(u.grund, 400))); }
+  r.geholt.forEach(g => aus('  ' + g.id + '  {' + nameSicher(g.quelle) + '}  ' + knapp(g.titel, 100)));
+  if (r.uebergangen.length) { aus('Uebergangen (bleibt auf seinem Branch — ungueltig, oder es beschreibt dessen Baum): ' + r.uebergangen.length); r.uebergangen.forEach(u => aus('  ' + A.fremd(u.id, 120) + '  {' + nameSicher(u.quelle, 80) + '}  ' + knapp(u.grund, 400))); }
   aus(r.geholt.length ? '\nJetzt im Arbeitsbaum. Mit dem naechsten Commit und PR kommen sie auf main an.' : '\nNichts geschrieben.');
 }
 function holen() {
@@ -972,7 +998,8 @@ function holen() {
 // Nur nach einem geklappten Abruf (sonst wartete eine zweite Frist auf denselben haengenden Remote), nur im Teilabruf.
 // `bis`: die Gesamtfrist des Befehls (Gegenpruefung 5, R5-lesen-8) — Holen und Nachladen zusammen, nicht je Schritt.
 // `aenderung`: nur `holen` (vor DICH BETREFFEND) laedt auch index.html und sw.js von main und der Abzweigstelle.
-function eintraegeNachladenNachHolen(vorgabe, bis, aenderung) { return A.eintraegeNachladen(WURZEL, { frist: holFrist(vorgabe), bis, aenderung: !!aenderung }); }
+// `vorAelteren`: was der Befehl selbst braucht, nach den Spitzen und VOR den aelteren Fassungen (`naechste`: die Nummern).
+function eintraegeNachladenNachHolen(vorgabe, bis, aenderung, vorAelteren) { return A.eintraegeNachladen(WURZEL, { frist: holFrist(vorgabe), bis, aenderung: !!aenderung, vorAelteren }); }
 // Was dieser Prozess zuletzt nachzuladen versuchte (holen oder still) — DICH BETREFFEND sagt danach nicht noch einmal
 // „holen", wenn genau das eben gescheitert ist (Gegenpruefung 5, R5-werkzeug-4: ein Rat im Kreis).
 let letztesNachladen = null;
@@ -985,7 +1012,22 @@ const OHNE_FILTER = 'git config --unset remote.origin.partialclonefilter && git 
 // EINMAL — der Filter in der Konfiguration blieb tree:0, und nach dem naechsten Commit fehlte die Geschichte wieder. Dauerhaft
 // half erst der Filter in der Konfiguration (gemessen: danach `log --raw` ohne Nachladen auch nach neuen Commits lesbar).
 const MIT_BAEUMEN = 'git config remote.origin.partialclonefilter blob:none && git fetch --refetch origin';
-function nachladeSatz(n) {
+// Der Rat, wenn das STILLE Nachladen (vor `naechste`/`nehme`) an der FRIST scheiterte (Gegenpruefung 5c, Skeptiker R5c-L1): zuerst
+// `holen` — laengere Frist, und es laedt nur, was fehlt; danach hat der Befehl seine Frist fuer sich. Erst danach das ganze Repo.
+// Vorher riet `naechste` „noch einmal naechste" (dieselbe Frist: im Kreis) und dann sofort `git fetch --refetch` ohne Filter;
+// `nehme` riet nichts.
+// `naechste`: reichen auch dann die stillen Sekunden nicht fuer die Dateien der Nummern (sw.js, STATUS.md und index.html der
+// frischen Branches — `holen` laedt sie nicht), gibt AUSTAUSCH_HOLEN_FRIST_MS dem Befehl die Frist von `holen`.
+function fristRat(befehl) {
+  // Die Zahlen, die gelten: setzt AUSTAUSCH_HOLEN_FRIST_MS beide Fristen gleich, hat `holen` keine laengere — dann steht keine da.
+  const lang = Math.round(holFrist(HOL_FRIST_MS) / 1000), kurz = Math.round(holFrist(HOL_FRIST_STILL_MS) / 1000);
+  return 'Erst `holen` (' + (lang > kurz ? 'Frist ' + lang + ' s statt ' + kurz + ' s, ' : '') + 'es laedt nur, was fehlt), dann noch einmal: node scripts/austausch.mjs holen && node scripts/austausch.mjs ' + befehl
+    + (befehl === 'naechste' ? ' — reicht es dann nicht: AUSTAUSCH_HOLEN_FRIST_MS=' + HOL_FRIST_MS + ' node scripts/austausch.mjs naechste' : '')
+    + ' — erst danach: ' + OHNE_FILTER + ' (das ganze Repo)';
+}
+// `still`: der Befehl ('naechste' · 'nehme'), vor dem das Nachladen lief (stille Frist) — dann ist `holen` der erste Rat, wenn die
+// Frist ablief.
+function nachladeSatz(n, still) {
   if (!n || !n.teilabruf) return '';
   const g = n.grund ? ' (' + (NACHLADE_GRUND[n.grund] || n.grund) + ')' : (n.ok ? '' : ' (Abruf gescheitert oder Frist abgelaufen)');
   const ae = n.aeltere || { fehlt: [] }, ge = n.geschichte || [], vz = n.verzeichnis, an = n.aenderung;
@@ -1000,6 +1042,7 @@ function nachladeSatz(n) {
   if (an && an.fehlt.length) s += '\n!! index.html bzw. sw.js von main oder der Abzweigstelle kamen nicht' + g + ' — ob ein Halt deine Aenderung beruehrt, ist nur unsicher rechenbar.';
   if (ge.length) s += '\n!! Die Geschichte von ' + ge.length + ' Branch(es) ist hier nicht lesbar (ein Klon ohne die Baeume aelterer Commits, --filter=tree:0): ' + refsSatz(ge) + ' — seit wann ihre Lagen und Halts dort liegen, ist nicht rechenbar (eine Lage nimmt dann nichts). Dauerhaft aendert das: ' + MIT_BAEUMEN;
   if ((n.fehlt.length || ae.fehlt.length || vz === 'fehlt') && n.grund === 'fehler') s += '\n   Scheitert es wieder: ' + OHNE_FILTER + '   (holt alles ohne Filter — das ganze Repo)';
+  else if (still && (n.fehlt.length || ae.fehlt.length || vz === 'fehlt') && n.grund === 'frist') s += '\n   ' + fristRat(still);
   return s;
 }
 // Frist fuer das Holen (Gegenpruefung 3: `naechste` und `nehme` warteten, solange der Remote hing — 20 s bei
@@ -1015,11 +1058,12 @@ const holFrist = (vorgabe) => { const n = Number(process.env.AUSTAUSCH_HOLEN_FRI
 // Uebernahmen — im Klon mit --filter=blob:none fehlten beide, und `nehme` schrieb still eine zweite (Gegenpruefung 4).
 // Mit --nur-lokal geht keine Anfrage hinaus: Ergebnis null (nicht geholt), und gelesen wird, was git lokal kennt.
 let stillNachgeladen = null, stillBis = null;
-function holenStill() {
+// opts.vorAelteren (nur `naechste`): siehe eintraegeNachladenNachHolen — laeuft nur nach einem geklappten Abruf und nur im Teilabruf.
+function holenStill(opts) {
   if (o.nur_lokal) { stillNachgeladen = null; return null; }
   stillBis = Date.now() + holFrist(HOL_FRIST_STILL_MS);
   const ok = A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { frist: holFrist(HOL_FRIST_STILL_MS), bis: stillBis }) != null;
-  stillNachgeladen = ok ? eintraegeNachladenNachHolen(HOL_FRIST_STILL_MS, stillBis) : null;
+  stillNachgeladen = ok ? eintraegeNachladenNachHolen(HOL_FRIST_STILL_MS, stillBis, false, opts && opts.vorAelteren) : null;
   if (stillNachgeladen) letztesNachladen = stillNachgeladen;
   return ok;
 }
@@ -1182,7 +1226,7 @@ function nehme() {
   const geholt = holenStill();
   // holenStill hat die Eintraege nachgeladen (Teilabruf). Was sich nicht laden liess, wird VOR der Pruefung gesagt —
   // eine Uebernahme darin waere hier unsichtbar (Gegenpruefung 4: `nehme` schrieb still eine zweite).
-  { const s = nachladeSatz(stillNachgeladen); if (s.indexOf('!!') >= 0) aus(s.slice(s.indexOf('!!') - 1)); }
+  { const s = nachladeSatz(stillNachgeladen, 'nehme <id>'); if (s.indexOf('!!') >= 0) aus(s.slice(s.indexOf('!!') - 1)); }
   // `von` EINMAL rechnen (vorher zweimal — die Upstream-Warnung stand doppelt da).
   const b = brett(), von = vonFuerAbsicht('lage');
   const f = uebernahmePruefen(b, o._.map(k => finde(b, k).id), von, !!o.auch);
@@ -1228,22 +1272,22 @@ function sichern() {
   if (r.warnung) aus('- **Achtung:** ' + r.warnung);
   aus('- ' + r.refs + ' Remote-Refs gelesen · in diesem Lauf neu: ' + r.neu.length + (r.weitere.length ? ' · weitere Fassungen: ' + r.weitere.length : '') + ' · schon gesichert: ' + r.gleich + (r.unlesbar.length ? ' · unlesbar (nicht gesichert): ' + r.unlesbar.length : ''));
   if (o.gedaechtnis && !r.erstlauf) aus('- Gedaechtnis gelesen: nichts von dem, was zuletzt gesichert war, fehlte' + (r.fehlenInSicherung.length ? ' — AUSSER den oben genannten' : '') + '.');
-  r.neu.slice(0, 40).forEach(x => aus('  - ' + x.id + ' {' + x.quelle + '}'));
+  r.neu.slice(0, 40).forEach(x => aus('  - ' + x.id + ' {' + nameSicher(x.quelle) + '}'));
   if (r.neu.length > 40) aus('  - … +' + (r.neu.length - 40) + ' weitere');
-  if (r.weitere.length) aus('- **Weitere Fassung(en)** (umgeschrieben, oder auf zwei Branches verschieden — jede wird gesichert; unter eintraege/ liegt die, die fuer Leser gilt): ' + r.weitere.map(x => x.id + ' {' + x.quelle + '}').join(', '));
-  if (r.doppelt.length) aus('- **Doppelt** (zwei Dateien derselben id auf einem Branch — die zweite ist gesichert, unter fassungen/): ' + r.doppelt.map(x => x.id + ' {' + x.quelle + '}').join(', '));
+  if (r.weitere.length) aus('- **Weitere Fassung(en)** (umgeschrieben, oder auf zwei Branches verschieden — jede wird gesichert; unter eintraege/ liegt die, die fuer Leser gilt): ' + r.weitere.map(x => x.id + ' {' + nameSicher(x.quelle) + '}').join(', '));
+  if (r.doppelt.length) aus('- **Doppelt** (zwei Dateien derselben id auf einem Branch — die zweite ist gesichert, unter fassungen/): ' + r.doppelt.map(x => x.id + ' {' + nameSicher(x.quelle) + '}').join(', '));
   if (r.strittig.length) aus('- **Strittig** (verschiedene Fassungen, keine zuzuordnen — fuer Leser nicht gerechnet, hier jede gesichert): ' + r.strittig.join(', '));
   // Unlesbare werden nie mit Dateinamen genannt: der Name traegt den Titel, und dieser Bericht ist oeffentlich (Gegenpruefung 3).
-  const ul = (u) => (u.id || 'ohne id') + ' {' + u.quelle + '} Blob ' + String(u.blob).slice(0, 8);
+  const ul = (u) => (u.id || 'ohne id') + ' {' + nameSicher(u.quelle) + '} Blob ' + String(u.blob).slice(0, 8);
   if (r.unlesbar.length) aus('- **Unlesbar** (keine gueltigen Eintraege, nicht gesichert — verschwinden sie mit ihrem Branch, wird es gemeldet): ' + r.unlesbar.slice(0, 20).map(ul).join(', '));
   if (r.unlesbarEntfernt.length) aus('- Unlesbare Datei(en) entfernt, ihr Branch besteht (vom Schreiber entfernt oder ersetzt): ' + r.unlesbarEntfernt.map(ul).join(', '));
   if (r.verworfen.length) aus('- **In der Sicherung verworfen** (kein gueltiger Eintrag unter einem Namen der Sicherung, oder ein Geheimnis — der neue Stand traegt sie nicht): ' + r.verworfen.slice(0, 20).map(v => (v.id || 'fremde Datei') + ' Blob ' + String(v.blob).slice(0, 8) + ' (' + v.grund + ')').join(', '));
   if (r.umgelegt.length) aus('- Umgelegt (einmal gesichert, also bleibt es): ' + r.umgelegt.map(x => (x.id || 'ohne id') + ' Blob ' + String(x.blob).slice(0, 8) + ' — ' + x.grund).join(', '));
   if (r.uebersprungen.length) aus('- **Nicht gesichert**: ' + r.uebersprungen.map(x => x.id + ' {' + x.quelle + '} ' + x.grund).join(' · '));
   if (r.entfernt.length) aus('- Entfernt (Grabstein): ' + r.entfernt.join(', '));
-  if (r.vomSchreiber.length) aus('- Vom Schreiber zurueckgezogen (Grabstein auf seinem Branch; aus der Sicherung, sobald der Grabstein auf main liegt oder sein Branch weg ist): ' + r.vomSchreiber.map(x => x.id + ' {' + x.quelle + '}').join(', '));
-  if (r.zurueckgezogenWeg.length) aus('- Zurueckgezogen und sein Branch ist weg — aus der Sicherung genommen, nicht gerettet: ' + r.zurueckgezogenWeg.map(x => x.id + ' {' + x.quelle + '}').join(', '));
-  if (r.zurueckgezogenWieder && r.zurueckgezogenWieder.length) aus('- **Zurueckgezogen, aber wieder da** (der Schreiber hat sie zurueckgezogen, sein Branch ist weg oder neu angelegt — gesichert, solange sie auf einem Branch liegt; verschwindet sie, wird sie genommen, nicht gerettet): ' + r.zurueckgezogenWieder.map(x => x.id + ' {' + x.quelle + '}').join(', '));
+  if (r.vomSchreiber.length) aus('- Vom Schreiber zurueckgezogen (Grabstein auf seinem Branch; aus der Sicherung, sobald der Grabstein auf main liegt oder sein Branch weg ist): ' + r.vomSchreiber.map(x => x.id + ' {' + nameSicher(x.quelle) + '}').join(', '));
+  if (r.zurueckgezogenWeg.length) aus('- Zurueckgezogen und sein Branch ist weg — aus der Sicherung genommen, nicht gerettet: ' + r.zurueckgezogenWeg.map(x => x.id + ' {' + nameSicher(x.quelle) + '}').join(', '));
+  if (r.zurueckgezogenWieder && r.zurueckgezogenWieder.length) aus('- **Zurueckgezogen, aber wieder da** (der Schreiber hat sie zurueckgezogen, sein Branch ist weg oder neu angelegt — gesichert, solange sie auf einem Branch liegt; verschwindet sie, wird sie genommen, nicht gerettet): ' + r.zurueckgezogenWieder.map(x => x.id + ' {' + nameSicher(x.quelle) + '}').join(', '));
   if (r.abgelaufenWeg.length) aus('- Abgelaufene Lage/Halt nur noch hier (wirkt nicht mehr — kein Verlust; abgebaut nach ' + A.SICHERUNG_ABBAU_TAGE + ' Tagen): ' + ids(r.abgelaufenWeg).join(', '));
   if (r.neuAngelegt.length) aus('- **Neu angelegt** (verschwand und kam wieder — fuer Eintraege, die schon vorher gesichert waren, ist er nicht mehr der Branch ihres Schreibers: seine Fassung gilt nicht als Berichtigung, sein Grabstein zieht nichts zurueck): ' + r.neuAngelegt.join(', '));
   if (r.bewahrt.length) aus('- Bewahrt ohne Gedaechtnis (gefunden, als der Waechter kein Gedaechtnis hatte — der Name belegt den Inhalt, nicht den Schreiber; nie unter eintraege/ befoerdert, bis dieselbe Fassung beim Schreiber oder auf main liegt): ' + r.bewahrt.map(x => (x.id || 'ohne id') + ' Blob ' + String(x.blob).slice(0, 8)).join(', '));

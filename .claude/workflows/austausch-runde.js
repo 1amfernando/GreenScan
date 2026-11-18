@@ -181,23 +181,31 @@ const lebend = new Set(ueberlebt.map(f => f.schluessel))
 const istId = (s) => /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?$/.test(String(s))
 const bezug = (liste, art) => (liste || []).map(s => String(s).trim()).filter(s => istId(s) || lebend.has(s)).map(s => ({ art, id: istId(s) ? s : '@' + s }))
 const sauber = (o) => { const k = {}; for (const x of Object.keys(o)) { const v = o[x]; if (v == null || v === '' || (Array.isArray(v) && !v.length)) continue; k[x] = v } return k }
+// Was EINE Zeile ist (Titel, Stichwort, Empfaenger, Klasse, Anker-Datei), wird gefaltet, BEVOR es gekuerzt wird (Gegenpruefung 5b,
+// R5c-A1, ehrliche Nutzung): seit Runde 5b lehnt `einspielen` jede Fassung mit Zeilenumbruch oder Tabulator in einem einzeiligen
+// Feld ab — und weil ein Stapel alles oder nichts ist, scheiterte die GANZE Runde an einem Titel, den ein Unteragent ueber zwei
+// Zeilen schrieb. Gefaltet heisst: jeder Leerraum (auch U+2028, U+00A0, U+FEFF) wird EIN Leerzeichen, Rand weg; ein leeres
+// Stichwort entfaellt. Nicht gefaltet: was mehrzeilig sein darf (text, beleg, vorschlag, haengt_daran) und der Anker-TEXT (er
+// muss woertlich in der Datei stehen; einer mit Zeilenumbruch faellt wie bisher heraus).
+const zeile = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim()
+const zeilen = (l) => Array.isArray(l) ? l.map(zeile).filter(Boolean) : (l == null ? l : zeile(l))
 const stapel = []
 for (const f of ueberlebt) {
   const u = urteile.get(f.schluessel)
-  const basis = { schluessel: f.schluessel, art: f.art, von: 'runde/' + f.von, titel: String(f.titel || '').slice(0, 200), text: f.text, stichworte: f.stichworte }
+  const basis = { schluessel: f.schluessel, art: f.art, von: 'runde/' + f.von, titel: zeile(f.titel).slice(0, 200), text: f.text, stichworte: zeilen(f.stichworte) }
   if (f.art === 'befund' && f.sicherheit) {
     // Das Repo ist oeffentlich: von einem Sicherheitsbefund stehen NUR Titel und Stichworte auf dem
     // Brett. Was der Sichter gemessen und der Skeptiker nachgefahren hat, IST der Weg — es steht
     // im Ergebnis der Runde (nur_fuer_fernando) und nirgends sonst.
-    stapel.push(sauber({ schluessel: f.schluessel, art: 'befund', von: 'runde/' + f.von, titel: String(f.titel || '').slice(0, 200), stichworte: f.stichworte, sicherheit: true, details_bei: 'Fernando (Ergebnis der Runde, Feld nur_fuer_fernando)', bezug: istId(f.klasse) ? [{ art: 'gehoert_zu', id: f.klasse }] : [] }))
+    stapel.push(sauber({ schluessel: f.schluessel, art: 'befund', von: 'runde/' + f.von, titel: zeile(f.titel).slice(0, 200), stichworte: zeilen(f.stichworte), sicherheit: true, details_bei: 'Fernando (Ergebnis der Runde, Feld nur_fuer_fernando)', bezug: istId(zeile(f.klasse)) ? [{ art: 'gehoert_zu', id: zeile(f.klasse) }] : [] }))
   } else if (f.art === 'befund') {
-    const bz = istId(f.klasse) ? [{ art: 'gehoert_zu', id: f.klasse }] : []
-    const anker = (f.anker || []).filter(a => a && typeof a.datei === 'string' && typeof a.text === 'string' && a.text.length >= 8 && a.text.length <= 300 && a.text.indexOf('\n') < 0 && a.datei.indexOf('..') < 0)
+    const bz = istId(zeile(f.klasse)) ? [{ art: 'gehoert_zu', id: zeile(f.klasse) }] : []
+    const anker = (f.anker || []).map(a => a && typeof a.datei === 'string' ? Object.assign({}, a, { datei: zeile(a.datei) }) : a).filter(a => a && typeof a.datei === 'string' && typeof a.text === 'string' && a.text.length >= 8 && a.text.length <= 300 && a.text.indexOf('\n') < 0 && a.datei.indexOf('..') < 0)
     stapel.push(sauber(Object.assign(basis, { beleg: (f.beleg || []).concat(u && u.korrektur ? ['Gegenpruefung: ' + u.korrektur] : (u ? ['Gegengeprueft: ' + u.beleg] : [])), vorschlag: f.vorschlag, bezug: bz, anker })))
   } else if (f.art === 'idee') {
     stapel.push(sauber(Object.assign(basis, { nutzen: f.nutzen, pruefbar: f.pruefbar, bezug: bezug(f.baut_auf, 'baut_auf') })))
   } else {
-    stapel.push(sauber(Object.assign(basis, { an: f.an || 'alle', haengt_daran: f.haengt_daran })))
+    stapel.push(sauber(Object.assign(basis, { an: zeile(f.an) || 'alle', haengt_daran: f.haengt_daran })))
   }
 }
 const antwortenGefallen = []

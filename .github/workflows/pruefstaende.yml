@@ -78,7 +78,8 @@ jobs:
       # aus dem Schritt oben — zoege der Waechter dazwischen nach, kaeme der neue Stand hier mit dem Filter, und ein Verzeichnis
       # ueber 200 KB fehlte. Ihre Wurzel wird trotzdem vollstaendig (--unshallow ergaenzt jede Grenze, die der Klon meldet).
       # Gemessen 18.11.2026 am echten origin (PR 329): 3 s, 16 → 22 MB, danach `git rev-parse --is-shallow-repository` = false.
-      # Scheitert er, sagt A10 „nicht pruefbar" (nie still ok).
+      # Scheitert er, sagt A10 „nicht pruefbar" (nie still ok) — auch mit einem Verzeichnis in zz-sicherung: flach misst A10 eine
+      # Lage oder einen Halt nur, wo das Verzeichnis den Anspruch zu Hause UND diese Fassung kennt (Gegenpruefung 5b, R5c-I1).
       - name: Geschichte fuer das Brett (nur lesend)
         run: |
           if [ "$(git rev-parse --is-shallow-repository)" = true ]; then

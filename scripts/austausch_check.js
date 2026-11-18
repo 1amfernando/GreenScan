@@ -278,11 +278,52 @@ const FAELLE = [
       // dort nirgends angekommen. Gerechnet wird in der CI, weil pruefstaende.yml die Geschichte holt („Geschichte fuer das Brett").
       const flach = (A.git(WURZEL, ['rev-parse', '--is-shallow-repository']) || '').trim() === 'true';
       const ungerechnet = [];
-      const ankunftFehlt = (v) => {
+      const holeGit = 'lokal: git fetch --unshallow origin; in der CI der Schritt „Geschichte fuer das Brett" in pruefstaende.yml';
+      // Wessen Messung gilt fuer DIESE Fassung? brettLesen rechnet die Ankunft nur fuer die GELTENDE Fassung einer id.
+      //   · Gilt diese: sie selbst.
+      //   · Ist die id strittig: niemandes — „nicht pruefbar".
+      //   · Gilt eine ANDERE Fassung mit demselben Anspruch (anspruchKennung) UND demselben Zeitpunkt (Gegenpruefung 5b,
+      //     Skeptiker R5c-I2, F7): dann ist fuer diese nichts Neues zu messen — rueckdatiert ist eine Zeit gegen die Ankunft des
+      //     ANSPRUCHS, vordatiert gegen die erste Fassung; beides hat diese mit der geltenden gemein. Liegt die geltende auf main,
+      //     wurde sie in ihrem eigenen PR gemessen; sonst gilt deren Messung (sie liegt auf dem Branch ihres Schreibers oder
+      //     vertritt ihn dort — D2). Vorher hiess jede ehrliche Berichtigung eines Halts, der schon auf main lag (nur `bis`
+      //     verlaengert: der Anspruch eines Halts ist [id, von], D3), „nicht pruefbar" — eine Meldung, die man nach dem
+      //     zweiten Mal ueberliest.
+      //   · Sonst (Anspruch oder Zeit geaendert): „nicht pruefbar" — ihre Ankunft rechnet hier niemand, gemergt gilt sie.
+      const messziel = (v) => {
         const e = v.e;
-        if (b.eintraege.indexOf(e) < 0) { const s = (b.strittig || []).find(x => x.id === e.id); return s ? 'strittig' + (s.grund ? ' (' + kurz(s.grund, 100) + ')' : '') + ' — ihre Ankunft rechnet hier niemand' : 'eine andere Fassung derselben id gilt — die Ankunft DIESER rechnet hier niemand'; }
+        if (b.eintraege.indexOf(e) >= 0) return { e, quellen: v.quellen };
+        const s = (b.strittig || []).find(x => x.id === e.id);
+        if (s) return { offen: 'strittig' + (s.grund ? ' (' + kurz(s.grund, 100) + ')' : '') + ' — ihre Ankunft rechnet hier niemand' };
+        const gv = b.gilt && b.gilt.get(e.id), g = gv && gv.e;
+        const gleichA = !!g && g.art === e.art && A.anspruchKennung(g) === A.anspruchKennung(e);
+        const gleichZ = !!g && A.zeitpunkt(e) != null && A.zeitpunkt(g) === A.zeitpunkt(e);
+        if (gleichA && gleichZ) {
+          const gq = new Set(g._quellen || (gv && gv.quellen) || []);
+          if ([...gq].some(A.istMainRef)) return { nichts: true };
+          if ([...gq].some(q => A.istAutorRef(q, A.autorZweig(g))) || g._zuhauseVertreten) return { e: g, quellen: gq, wie: true };
+          return { offen: 'eine andere Fassung derselben id gilt (gleicher Anspruch, gleiche Zeit) und liegt nicht auf dem Branch ihres Schreibers — ihre Ankunft rechnet hier niemand' };
+        }
+        return { offen: 'eine andere Fassung derselben id gilt' + (g ? ' (' + (gleichA ? 'Zeitpunkt' : gleichZ ? 'Anspruch' : 'Anspruch und Zeitpunkt') + ' geaendert)' : '') + ' — die Ankunft DIESER rechnet hier niemand' };
+      };
+      // Ist die Ankunft des Messziels gerechnet — rueck- UND vordatiert? (Gegenpruefung 5b, Skeptiker R5c-I1, F6) Vorher reichte
+      // irgendeine Rueck-Grenze: im flachen Klon (der Schritt „Geschichte fuer das Brett" gescheitert, oder eine flache
+      // Sitzungs-Kopie) mit einem Verzeichnis in zz-sicherung, das den Anspruch zu Hause nicht kennt, war sie nur dessen `stand`
+      // (eine 7 h rueckdatierte Lage gegen einen 2 h alten Stand: still ok), und `_vorGrenze` fehlte ganz — ein um 6 h
+      // vordatierter Halt umging so die 72-h-Frist, und A10 sagte „Ankunft gerechnet". Jetzt „nicht pruefbar", wenn
+      //   (1) die Vor-Grenze fehlt (vordatiert nicht gemessen), oder
+      //   (2) die Rueck-Grenze nur der Stand des Verzeichnisses ist und git NICHT mitzaehlte (D4: es haette gesollt) — im flachen
+      //       Klon immer; gemessen auch in einem vollen Teilabruf (blob:none), dem eine aeltere Fassung derselben Lage fehlte: eine
+      //       7 h rueckdatierte Lage gegen einen 2 h alten Stand war dort ebenso still ok.
+      // Kennt das Verzeichnis den Anspruch zu Hause UND diese Fassung, misst es beides allein (D4) — dann auch flach ok.
+      const ankunftFehlt = (z) => {
+        const e = z.e;
         if (e._ankunftOffen) return 'Ankunft nicht rechenbar: ' + kurz(e._ankunftOffen, 140);
-        if (e._rueckGrenze == null && [...v.quellen].some(q => A.istAutorRef(q, A.autorZweig(e)))) return flach ? 'flacher Klon ohne Verzeichnis des Waechters — die Geschichte von origin/' + A.autorZweig(e) + ' fehlt (lokal: git fetch --unshallow origin; in der CI der Schritt „Geschichte fuer das Brett" in pruefstaende.yml)' : 'keine Grenze rechenbar (weder Geschichte noch Verzeichnis kennt diesen Anspruch)';
+        const aufBranch = [...z.quellen].some(q => A.istAutorRef(q, A.autorZweig(e))) || (z.wie && !!e._zuhauseVertreten);
+        if (!aufBranch) return null;
+        if (e._rueckGrenze == null) return flach ? 'flacher Klon ohne Verzeichnis des Waechters — die Geschichte von origin/' + A.autorZweig(e) + ' fehlt (' + holeGit + ')' : 'keine Grenze rechenbar (weder Geschichte noch Verzeichnis kennt diesen Anspruch)';
+        if (e._vorGrenze == null) return 'vordatiert nicht gemessen: ' + (flach ? 'flacher Klon, und das Verzeichnis des Waechters kennt diese Fassung nicht (' + holeGit + ')' : 'weder Geschichte noch Verzeichnis kennt die erste Ankunft dieser Fassung');
+        if (e._rueckQuelle === 'stand') return 'rueckdatiert nur gegen den Stand des Waechters gemessen: das Verzeichnis kennt diesen Anspruch zu Hause nicht, und ' + (flach ? 'im flachen Klon zaehlt git nicht mit (' + holeGit + ')' : 'git zaehlte nicht mit (Teilabruf ohne die aelteren Fassungen, oder ohne Geschichte — `node scripts/austausch.mjs holen` laedt sie nach)');
         return null;
       };
       for (const [id, liste] of b.fassungen) for (const v of liste) {
@@ -291,14 +332,15 @@ const FAELLE = [
         // Schreibers weiter mit — gemergt kippte eine fremde abgelaufene Lage dessen laufende Uebernahme (Gegenpruefung 4).
         if (A.eintragPruefen(v.e, v.e._datei).length) continue;
         n++;
-        const zf = zeitFehler(v.e);
-        if (zf) datiert.push(id + ' (' + v.e.art + ' von ' + v.e.von + ': ' + kurz(zf, 120) + ')');
+        const mz = messziel(v);
+        const zf = mz.e ? zeitFehler(mz.e) : null;
+        if (zf) datiert.push(id + ' (' + v.e.art + ' von ' + v.e.von + ': ' + (mz.wie ? 'wie die geltende Fassung derselben id — ' : '') + kurz(zf, 120) + ')');
         // Im PR gilt auch fuer den EIGENEN Namen: byte-gleich auf der Spitze seines Branches. Ein PR-Kopf auf einem alten Commit
         // trug sonst einen Halt, den der Schreiber laengst zurueckgezogen hatte (Gegenpruefung 5, R5-schwarm-5). Ausserhalb
         // eines PR ist der Arbeitsbaum der eigene (eine eigene Lage ist dort vor dem Push nirgends sonst).
         const aufSeinemBranch = [...v.quellen].some(q => A.istAutorRef(q, A.autorZweig(v.e)));
         if (aufSeinemBranch || (!imPR && namen.indexOf(v.e.von) >= 0)) {
-          const af = zf ? null : ankunftFehlt(v);
+          const af = zf || mz.nichts ? null : mz.offen ? mz.offen : ankunftFehlt(mz);
           if (af) ungerechnet.push(id + ' (' + v.e.art + ' von ' + v.e.von + ': ' + af + ')');
           continue;
         }
@@ -4487,7 +4529,7 @@ const FAELLE = [
     },
   },
   {
-    name: 'C32 · Leser Runde 5b (Gegenpruefung 5, Skeptiker) · als PROZESS in gebauten Welten: gesperrt („nicht entscheidbar") wird nur ein Ziel, das eine nicht gerechnete Lage JETZT naehme (abgelaufen, fertig, mithelfen, ungueltig sperren nicht, auch im tree:0-Klon; eine eigene nicht; `nehme --auch` nie; ein nachweislich zu grosser Blob in der CI nicht); eine gesicherte Fassung VERTRITT ihren Schreiber auf seinem neu angelegten Branch (ein berichtigter Halt wirkt weiter, im vollen wie im flachen Klon, und der Schreiber erfaehrt den Grund in DEIN EINTRAG und `zeige`), eine Lage dort misst nur das Verzeichnis; ein verlaengerter Halt bleibt wirksam ([id, von]); ein Squash nach einem Waechterlauf macht nichts rueckdatiert; ein Grabstein je Fassung auf main entscheidet nichts, auch fuer eine fehlende Fassung; ein zurueckgezogener Halt, byte-gleich auf den neu angelegten Branch gelegt, wirkt nicht (auch wenn er danach wieder gesichert ist und schon, bevor der Waechter das Neuanlegen sah), und dort zieht ein Grabstein nichts zurueck; ein strittiger Eintrag nur in der Sicherung steht in STRITTIG, ein strittiger Halt dort macht `naechste` und A8 nicht rechenbar (nicht nach Ablauf, im alten Format schon), eine bewahrte Fassung macht nichts strittig; eine fehlende Fassung beim Schreiber ist nicht entscheidbar',
+    name: 'C32 · Leser Runde 5b (Gegenpruefung 5, Skeptiker) · als PROZESS in gebauten Welten: gesperrt („nicht entscheidbar") wird nur ein Ziel, das eine nicht gerechnete Lage JETZT naehme (abgelaufen, fertig, mithelfen, ungueltig sperren nicht, auch im tree:0-Klon; eine eigene nicht; `nehme --auch` nie; ein nachweislich zu grosser Blob in der CI nicht); eine gesicherte Fassung VERTRITT ihren Schreiber auf seinem neu angelegten Branch (ein berichtigter Halt wirkt weiter, im vollen wie im flachen Klon, und der Schreiber erfaehrt den Grund in DEIN EINTRAG und `zeige`), eine Lage dort misst nur das Verzeichnis; ein verlaengerter Halt bleibt wirksam ([id, von]); ein Squash nach einem Waechterlauf macht nichts rueckdatiert; ein Grabstein je Fassung auf main entscheidet nichts, auch fuer eine fehlende Fassung; ein zurueckgezogener Halt, byte-gleich auf den neu angelegten Branch gelegt, wirkt nicht (auch wenn er danach wieder gesichert ist und schon, bevor der Waechter das Neuanlegen sah), und dort zieht ein Grabstein nichts zurueck; ein strittiger Eintrag nur in der Sicherung steht in STRITTIG, ein strittiger Halt dort macht `naechste` und A8 nicht rechenbar (nicht nach Ablauf, im alten Format schon), eine bewahrte Fassung macht nichts strittig; eine fehlende Fassung beim Schreiber ist nicht entscheidbar; Runde 5c: eine ehrliche Berichtigung nach dem Squash bleibt wirksam; strittig nur in der Sicherung endet mit einem Grabstein fuer die ganze id auf main (auch solange die Branches bestehen), zwei Fassungen eines Schreibers und lauter entfernte sind nicht strittig; legt der Schreiber einen zurueckgezogenen Halt auf seinem neu angelegten Branch wieder hin, sagen ihm `zeige` und DEIN EINTRAG, dass er fuer die anderen NICHT wirkt; ohne gelesenes Verzeichnis liest der Leser die Fassungen in der Sicherung selbst (sonst nicht rechenbar); eine Kopie auf einem dritten Branch gilt nicht still statt einer Heim-Fassung, die nur die Sicherung haelt',
     lauf: () => {
       const eltern = tmp('leser5b');
       // Ein Teilabruf laedt hier ausdruecklich nach (clone, checkout) — GIT_NO_LAZY_FETCH aus der CI wuerde das verhindern.
@@ -4663,7 +4705,16 @@ const FAELLE = [
           W.zz({ stand: iso(-7.4), verz: [vz(h, -7.5, -9, [-7.5, -9]), vz(l, -7.5, -9, [-7.5, -9])] });
           g(W.d, ['checkout', '-q', '-B', 'claude/s', 'origin/claude/s']); g(W.d, ['reset', '-q', '--soft', 'origin/main']); g(W.d, ['commit', '-q', '-m', 'squash']); g(W.d, ['push', '-q', '-f', 'origin', 'claude/s']); g(W.d, ['checkout', '-q', '-f', '--detach', 'origin/main']); W.holen();
           const L = lesen(W.d);
-          if (!wirkt(L, h) || haelt(L, Z[6]) !== 'sitzung/claude/s') f.push('T6 Squash nach dem Waechterlauf: der Halt ' + (wirkt(L, h) ? 'wirkt' : (unw(L, h) || '?')) + ', Z6 haelt ' + haelt(L, Z[6]) + ' (' + (unw(L, l) || '') + ') — erwartet beide wirksam'); }
+          if (!wirkt(L, h) || haelt(L, Z[6]) !== 'sitzung/claude/s') f.push('T6 Squash nach dem Waechterlauf: der Halt ' + (wirkt(L, h) ? 'wirkt' : (unw(L, h) || '?')) + ', Z6 haelt ' + haelt(L, Z[6]) + ' (' + (unw(L, l) || '') + ') — erwartet beide wirksam');
+          //    R5c-Le1 (Skeptiker a3): … und DANACH eine ehrliche Berichtigung nur von Text bzw. Titel (gleicher Anspruch, ein neuer Blob, den
+          //    das Verzeichnis nicht kennt — also rechnet git, und die Gewichtung `!heimBekannt` entscheidet: kennt das Verzeichnis den
+          //    Anspruch zu Hause, zaehlt der Commit des Squash nicht). Vorher liess sich die Gewichtung ausbauen, und die Suite blieb gruen.
+          g(W.d, ['checkout', '-q', '-B', 'claude/s', 'origin/claude/s']);
+          ablegen(W.d, Object.assign({}, h, { text: 'bitte nicht bumpen (genauer)' })); ablegen(W.d, Object.assign({}, l, { titel: 'nimmt Z6 (genauer)' }));
+          g(W.d, ['add', '-A']); g(W.d, ['commit', '-q', '-m', 'berichtigt']); g(W.d, ['push', '-q', '-f', 'origin', 'claude/s']); g(W.d, ['checkout', '-q', '-f', '--detach', 'origin/main']); W.holen();
+          { const L2 = lesen(W.d), eh = L2.b.eintraege.find(x => x.id === h.id), el = L2.b.eintraege.find(x => x.id === l.id);
+            if (!eh || eh.text !== 'bitte nicht bumpen (genauer)' || !el || el.titel !== 'nimmt Z6 (genauer)') f.push('T6 Aufbau: nach der Berichtigung gilt ' + (eh ? '„' + eh.text + '"' : 'kein Halt') + ' / ' + (el ? '„' + el.titel + '"' : 'keine Lage'));
+            if (!wirkt(L2, h) || haelt(L2, Z[6]) !== 'sitzung/claude/s') f.push('T6 Squash, danach eine Berichtigung von Text/Titel (gleicher Anspruch): der Halt ' + (wirkt(L2, h) ? 'wirkt' : (unw(L2, h) || '?')) + ', Z6 haelt ' + haelt(L2, Z[6]) + ' (' + (unw(L2, l) || '') + ') — erwartet beide wirksam (der Waechter kannte den Anspruch zu Hause)'); } }
 
         // ── T7. D5 (R5b-fassungen-5) und rc: ein Grabstein je Fassung auf main entscheidet nichts — auf das ORIGINAL bleibt die Faelschung
         //       strittig (auch so, wie der Waechter liest: ohne Verzeichnis); fehlt die entfernte Fassung (Teilabruf), zaehlt ihr `von`
@@ -4772,7 +4823,24 @@ const FAELLE = [
           lauf('bewahrt', { fassungen: [kBF], verz: [vz(kB, -0.9, -1.1, [-0.9, -1.1]), Object.assign(vz(kBF, -0.9, -1.1, null), { bewahrt: true })] }, (x) => {
             const e = x.L.b.eintraege.find(y => y.id === kB.id); if (!e || e.titel !== kB.titel) f.push('T9 eine bewahrte Fassung mit anderem `von`: ' + (e ? 'es gilt „' + e.titel + '"' : 'strittig: ' + ((strittig(x.L, kB) || {}).grund || '?')) + ' — sie zaehlt fuer den Schreiber nicht');
             const v = x.L.b.verzeichnis; if (!v || !v.vonsJeId || (v.vonsJeId.get(kB.id) || new Set()).has('sitzung/claude/b')) f.push('T9 verzeichnisPruefen zaehlt die bewahrte Fassung in vonsJeId');
-          }); }
+          });
+          // R5c-Le2 (Skeptiker a4, a6): die drei Enden von „nur in der Sicherung", die vorher kein Teilfall bewachte (je eine Zeile liess sich
+          // streichen, und die ganze Suite blieb gruen). (1)/(2) ein Grabstein fuer die GANZE id auf main beendet strittig (D5) — ob die
+          // Branches noch bestehen oder nicht; (3) zwei Fassungen EINES Schreibers sind nicht strittig; (4) ist JEDE Fassung per Grabstein
+          // je Fassung auf main entfernt, bleibt nichts, das gelten koennte.
+          const hG = halt(Object.assign({ id: s1.datum + '-c3290004', von: 'sitzung/claude/a', bis: bisIn(10), text: 'ganze id zurueck' }, s1)), hGF = Object.assign({}, hG, { von: 'sitzung/claude/b' });
+          const hE = halt(Object.assign({ id: s1.datum + '-c3290005', von: 'sitzung/claude/a', bis: bisIn(10), text: 'jede Fassung entfernt' }, s1)), hEF = Object.assign({}, hE, { von: 'sitzung/claude/b' });
+          const hV = halt(Object.assign({ id: s1.datum + '-c3290006', von: 'sitzung/claude/a', bis: bisIn(10), text: 'erste' }, s1)), hV2 = Object.assign({}, hV, { text: 'zweite (berichtigt)' });
+          W.zweig('claude/g4a', 'origin/main', [hG]); W.zweig('claude/g4b', 'origin/main', [hGF]);
+          W.mainGrab([{ id: hG.id, datum: hG.datum, grund: 'strittig — ganze id zurueckgezogen' }, { id: hE.id, blob: blobVon(hE), datum: hE.datum, grund: 'entfernt' }, { id: hE.id, blob: blobVon(hEF), datum: hE.datum, grund: 'entfernt' }]);
+          const nichtStrittig = (was, e) => (x) => {
+            if (strittig(x.L, e) || x.n.code !== 0 || (x.h8.strittig || []).indexOf(e.id) >= 0) f.push('T9 ' + was + ': ' + (strittig(x.L, e) ? 'strittig (' + kurz((strittig(x.L, e) || {}).grund || '', 120) + '), ' : '') + '`naechste` Exit ' + x.n.code + ' · ' + aus1(x.n) + ' — erwartet nicht strittig, Exit 0');
+          };
+          lauf('(2) ganze id auf main, Branches bestehen', { fassungen: [hG, hGF], verz: [vz(hG, -0.9, -1.1, [-0.9, -1.1], artBis(hG)), vz(hGF, -0.9, -1.1, null, artBis(hGF))] }, nichtStrittig('(2) strittiger Bump-Halt, Grabstein fuer die GANZE id auf main, beide Branches bestehen noch', hG));
+          g(W.d, ['push', '-q', 'origin', '--delete', 'claude/g4a', 'claude/g4b']); W.holen();
+          lauf('(1) ganze id auf main, nur in der Sicherung', { fassungen: [hG, hGF], verz: [vz(hG, -0.9, -1.1, [-0.9, -1.1], artBis(hG)), vz(hGF, -0.9, -1.1, null, artBis(hGF))] }, nichtStrittig('(1) strittiger Bump-Halt nur in der Sicherung, Grabstein fuer die GANZE id auf main', hG));
+          lauf('(3) ein Schreiber', { fassungen: [hV, hV2], verz: [vz(hV, -0.9, -1.1, [-0.9, -1.1], artBis(hV)), vz(hV2, -0.8, -0.9, [-0.8, -0.9], artBis(hV2))] }, nichtStrittig('(3) zwei Fassungen EINES Schreibers nur in der Sicherung', hV));
+          lauf('(4) jede Fassung entfernt', { fassungen: [hE, hEF], verz: [vz(hE, -0.9, -1.1, [-0.9, -1.1], artBis(hE)), vz(hEF, -0.9, -1.1, null, artBis(hEF))] }, nichtStrittig('(4) strittiger Bump-Halt nur in der Sicherung, JEDE Fassung per Grabstein je Fassung auf main entfernt', hE)); }
 
         // ── T10. rf: fehlt im Teilabruf die Fassung auf dem Branch des Schreibers (seine Berichtigung), ist nicht entscheidbar, was gilt —
         //        die gesicherte gilt dann nicht still.
@@ -4799,14 +4867,101 @@ const FAELLE = [
           { const L = lesen(W.d), e = L.b.eintraege.find(x => x.id === lV.id);
             if (!e || e.titel !== lV.titel || haelt(L, Z[8]) || !/rueckdatiert[^]*Waechter/.test(unw(L, lV) || '')) f.push('T11 rueckdatierte gesicherte Lage, die ihren Schreiber vertritt: es gilt ' + (e ? '„' + e.titel + '"' : 'nichts') + ', Z8 haelt ' + haelt(L, Z[8]) + ', ' + (unw(L, lV) || 'wirksam') + ' — erwartet die gesicherte, „rueckdatiert … Waechter"'); } }
 
+        // ── T12. R5c-Le3 (F4, Skeptiker n2w/a1): der SCHREIBER zieht seinen Halt zurueck, legt seinen Branch neu an und den Halt byte-gleich
+        //        wieder hin. Fuer die anderen wirkt er nicht (D6) — und der Schreiber erfaehrt es: `zeige` („Fuer die anderen wirkt er NICHT")
+        //        und DEIN EINTRAG (mit „neu angelegt" und dem Weg). Vorher: „Wirkt jetzt: ja", und kein Wort. Auch, wenn der Waechter ihn danach
+        //        wieder gesichert hat (dieselbe Fassung gilt fuer die anderen); Gegenrichtung ohne Rueckzug und Neuanlage: keine solche Zeile.
+        if (teil('T12')) { gefahren.push('T12'); const W = welt('t12');
+          const t3 = jetzt(-3), s3 = stamp(t3);
+          const H = halt(Object.assign({ id: s3.datum + '-c32c0001', von: 'sitzung/claude/w', bis: bisIn(20), text: 'Bitte nicht bumpen' }, s3));
+          W.zweig('claude/w', 'origin/main', [H], t3);
+          const rz = [{ id: H.id, blob: null, von: H.von, ref: 'origin/claude/w', seit: iso(-2) }];
+          const sch = W.klon('voll', 'schreiber'); g(sch, ['checkout', '-q', 'claude/w']);
+          const pruefe = (was, erwartet) => {
+            W.holen(sch);
+            const z = werkzeug(sch, ['zeige', H.id]), r = werkzeug(sch, []), dz = (r.aus.split('\n').find(x => /DEIN EINTRAG/.test(x) && x.indexOf(H.id) >= 0) || '');
+            if (erwartet) {
+              if (!/Wirkt jetzt: ja[^]*Fuer die anderen wirkt er NICHT[^\n]*neu angelegt/.test(z.aus)) f.push('T12 ' + was + ', `zeige` des Schreibers: ' + aus1(z) + ' — erwartet „Fuer die anderen wirkt er NICHT … neu angelegt"');
+              if (!/fuer die anderen wirkt er NICHT[^\n]*origin\/claude\/w wurde neu angelegt[^\n]*neue id[^\n]*ueber main/.test(dz)) f.push('T12 ' + was + ', DEIN EINTRAG: ' + kurz(dz || '(keine Zeile)', 300) + ' — erwartet „wirkt er NICHT … neu angelegt … neue id … ueber main"');
+            } else if (/wirkt er NICHT/.test(z.aus) || dz) f.push('T12 Gegenrichtung ' + was + ': ' + kurz(dz || z.aus, 200) + ' — ohne Rueckzug und Neuanlage wirkt der Halt fuer alle');
+            const L = lesen(W.d); if (erwartet === wirkt(L, H)) f.push('T12 ' + was + ', ein anderer Leser: der Halt ' + (wirkt(L, H) ? 'WIRKT' : 'wirkt nicht (' + unw(L, H) + ')') + ' — erwartet ' + (erwartet ? 'unwirksam (D6)' : 'wirksam'));
+          };
+          W.zz({ rueckzuege: rz, neuAngelegt: { 'origin/claude/w': iso(-1) } }); pruefe('neu angelegt', true);
+          W.zz({ eintraege: [H], verz: [vz(H, -0.5, -0.6, null)], rueckzuege: rz, neuAngelegt: { 'origin/claude/w': iso(-1) } }); pruefe('danach wieder gesichert', true);
+          W.zz({}); pruefe('ohne Rueckzug und Neuanlage', false); }
+
+        // ── T13. R5c-Le4 (F5, Skeptiker a7): ein strittiger Bump-Halt NUR in der Sicherung, und das Verzeichnis ist hier NICHT gelesen (Teilabruf:
+        //        alles nachgeladen ausser dem Verzeichnis). Der Leser liest die Fassungen unter fassungen/ selbst: strittig, `naechste --nur-lokal`
+        //        Exit 2, A8 nicht pruefbar (vorher Exit 0, „keiner beruehrt"). Fehlt auch eine Fassung dort: nicht rechenbar (Exit 2, A8 nicht
+        //        pruefbar). Gegenrichtung: ein Halt EINES Schreibers dort ist nicht strittig und nicht offen.
+        if (teil('T13')) { gefahren.push('T13'); const W = welt('t13');
+          const s1 = stamp(jetzt(-1));
+          const h = halt(Object.assign({ id: s1.datum + '-c32d0001', von: 'sitzung/claude/a', bis: bisIn(10), text: 'bitte nicht bumpen' }, s1)), hF = Object.assign({}, h, { von: 'sitzung/claude/b' });
+          const hOk = halt(Object.assign({ id: s1.datum + '-c32d0002', von: 'sitzung/claude/c', bis: bisIn(10), text: 'einer allein' }, s1)), hOk2 = Object.assign({}, hOk, { text: 'einer allein (berichtigt)' });
+          W.zz({ fassungen: [h, hF, hOk, hOk2], verz: [vz(h, -0.9, -1.1, [-0.9, -1.1], artBis(h)), vz(hF, -0.9, -1.1, null, artBis(hF)), vz(hOk, -0.9, -1.1, [-0.9, -1.1], artBis(hOk)), vz(hOk2, -0.8, -0.9, [-0.8, -0.9], artBis(hOk2))] });
+          const vb = g(W.d, ['rev-parse', 'origin/zz-sicherung:' + A.VERZEICHNIS]).trim();
+          const teilKlon = (name, ohne) => {
+            const k = W.klon('blob:none', name); g(k, ['checkout', '-q', '-b', 'claude/leser', 'origin/main']);
+            const blobs = [];
+            for (const ref of g(k, ['for-each-ref', '--format=%(refname)', 'refs/remotes/origin/']).split('\n').filter(x => x && !/HEAD$/.test(x))) for (const z of g(k, ['ls-tree', '-r', ref]).split('\n')) { const m = z.match(/^\d+ blob ([0-9a-f]+)\t/); if (m && ohne.indexOf(m[1]) < 0) blobs.push(m[1]); }
+            A.objekteNachladen(k, [...new Set(blobs)], { frist: 30000 });
+            return k;
+          };
+          const messe = (k) => {
+            const L = lesen(k), NL = { GIT_NO_LAZY_FETCH: '1' };
+            const n = werkzeug(k, ['naechste', '--json', '--nur-lokal'], NL), j = json(n);
+            fs.writeFileSync(path.join(k, 'index.html'), QUELLE.replace("var GS_VERSION = 'v1.00';", "var GS_VERSION = 'v1.01';"));
+            process.env.GIT_NO_LAZY_FETCH = '1'; let h8; try { h8 = A.haltsDiesesStands(k, {}); } finally { delete process.env.GIT_NO_LAZY_FETCH; }
+            g(k, ['checkout', '-q', '-f', 'claude/leser']);
+            return { L, n, j, h8 };
+          };
+          { const x = messe(teilKlon('teil', [vb]));
+            if (x.L.b.verzeichnisStatus !== 'unlesbar') f.push('T13 Aufbau: das Verzeichnis ist ' + x.L.b.verzeichnisStatus + ' — erwartet unlesbar');
+            const s = strittig(x.L, h);
+            if (!s || !s.nurSicherung) f.push('T13 Verzeichnis nicht gelesen, strittiger Halt nur in der Sicherung: ' + (s ? JSON.stringify(s).slice(0, 160) : 'nicht strittig — er fiel still weg'));
+            if (x.n.code !== 2 || !x.j || !(x.j.strittig || []).some(y => y.id === h.id)) f.push('T13 `naechste --json --nur-lokal`: Exit ' + x.n.code + ' · ' + aus1(x.n) + ' — erwartet 2 mit dem strittigen Halt');
+            if (!x.h8.nichtPruefbar || (x.h8.strittig || []).indexOf(h.id) < 0) f.push('T13 A8: ' + kurz(JSON.stringify(x.h8.grund || x.h8.treffer || null), 200) + ' — erwartet nicht pruefbar mit ' + h.id);
+            if (strittig(x.L, hOk) || (x.j && (x.j.strittig || []).some(y => y.id === hOk.id)) || (x.j && (x.j.fehlend || []).some(y => String(y.pfad).indexOf(hOk.id) >= 0))) f.push('T13 Gegenrichtung: zwei Fassungen EINES Schreibers nur in der Sicherung sind ' + (strittig(x.L, hOk) ? 'strittig' : 'offen') + ' — erwartet nichts'); }
+          { const x = messe(teilKlon('teil2', [vb, blobVon(hF)]));
+            const offen = (x.j && x.j.fehlend || []).some(y => /origin\/zz-sicherung/.test(y.quelle) && String(y.pfad).indexOf(h.id) >= 0);
+            if (x.n.code !== 2 || !offen) f.push('T13 Verzeichnis UND eine Fassung nicht gelesen: `naechste` Exit ' + x.n.code + ' · ' + aus1(x.n) + ' — erwartet 2, die Fassung unter fehlend (origin/zz-sicherung)');
+            if (!x.h8.nichtPruefbar) f.push('T13 Verzeichnis UND eine Fassung nicht gelesen: A8 ' + kurz(JSON.stringify(x.h8.grund || x.h8.treffer || null), 200) + ' — erwartet nicht pruefbar'); } }
+
+        // ── T14. Hinweis der Gruppe waechter (C34 N5): eine EINZELNE Fassung auf einem DRITTEN Branch (im Namen des Schreibers) gilt nicht
+        //        still, solange die Sicherung eine andere Fassung desselben Schreibers haelt, die der Waechter zu Hause sah und noch nicht
+        //        unter eintraege/ gelegt hat — nicht entscheidbar (vorher zeigte `zeige` die Kopie statt des kritischen Originals). Ebenso,
+        //        wenn die gesicherte Fassung im Teilabruf fehlt. Gegenrichtung: kennt das Verzeichnis keine andere Fassung zu Hause (nur die
+        //        Kopie, oder eine andere nie zu Hause gesehene), gilt die einzelne Fassung wie bisher.
+        if (teil('T14')) { gefahren.push('T14'); const W = welt('t14');
+          const s1 = stamp(jetzt(-1));
+          const O = mk('befund', Object.assign({ id: s1.datum + '-c32e0001', von: 'sitzung/claude/w5', dringlichkeit: 'kritisch', titel: 'Original von W5' }, s1));
+          const K = Object.assign({}, O, { titel: 'Faelschung im Namen von W5' }); delete K.dringlichkeit;
+          const K0 = Object.assign({}, K, { titel: 'Faelschung im Namen von W5 (aeltere Kopie)' });
+          W.zweig('claude/c5', 'origin/main', [K]);
+          W.zz({ fassungen: [O, K], verz: [vz(O, -2, -2.5, [-2, -2.5]), vz(K, -0.5, -0.6, null)] });
+          { const L = lesen(W.d), e = L.b.eintraege.find(x => x.id === O.id), s = strittig(L, O);
+            if (e || !s || !/andere Fassung[^]*zu Hause/.test(s.grund || '')) f.push('T14 Kopie auf einem dritten Branch, das Original nur unter fassungen/: ' + (e ? 'es gilt „' + e.titel + '" {' + [...e._quellen].join(',') + '}' : 'strittig: ' + ((s || {}).grund || '?')) + ' — erwartet nicht entscheidbar (eine andere Fassung zu Hause)');
+            const z = werkzeug(W.d, ['zeige', O.id]); if (!/STRITTIG/.test(z.aus)) f.push('T14 `zeige`: ' + aus1(z) + ' — erwartet STRITTIG'); }
+          W.zz({ fassungen: [K], verz: [vz(K, -0.5, -0.6, null)] });
+          { const L = lesen(W.d), e = L.b.eintraege.find(x => x.id === O.id); if (!e || e.titel !== K.titel) f.push('T14 Gegenrichtung, das Verzeichnis kennt nur die Kopie: ' + (e ? 'es gilt „' + e.titel + '"' : 'strittig: ' + ((strittig(L, O) || {}).grund || '?')) + ' — erwartet die einzelne Fassung'); }
+          W.zz({ fassungen: [K0, K], verz: [vz(K0, -0.7, -0.8, null), vz(K, -0.5, -0.6, null)] });
+          { const L = lesen(W.d), e = L.b.eintraege.find(x => x.id === O.id); if (!e || e.titel !== K.titel) f.push('T14 Gegenrichtung, eine andere Fassung, nie zu Hause gesehen: ' + (e ? 'es gilt „' + e.titel + '"' : 'strittig: ' + ((strittig(L, O) || {}).grund || '?')) + ' — erwartet die einzelne Fassung'); }
+          //    Teilabruf: das Original liegt unter eintraege/ (gesichert — hier nach der fruehesten Sichtung, nie zu Hause gesehen, damit nur
+          //    der fehlende Blob entscheidet), sein Blob fehlt: die Kopie gilt nicht still (der volle Klon zeigt das Original).
+          W.zz({ eintraege: [O], verz: [vz(O, -2, -2.5, null), vz(K, -0.5, -0.6, null)] });
+          { const L = lesen(W.d), e = L.b.eintraege.find(x => x.id === O.id); if (!e || e.titel !== O.titel) f.push('T14 Aufbau, voller Klon mit gesichertem Original: es gilt ' + (e ? '„' + e.titel + '"' : 'nichts')); }
+          const tc = W.klon('blob:none', 'teil'); g(tc, ['checkout', '-q', '-b', 'claude/leser', 'origin/main']); W.nachladenAusser(tc, [blobVon(O)]);
+          { const L = lesen(tc), e = L.b.eintraege.find(x => x.id === O.id), s = strittig(L, O);
+            if (e || !s || !/nicht gelesen[^]*zz-sicherung/.test(s.grund || '')) f.push('T14 Teilabruf, das gesicherte Original fehlt: ' + (e ? 'es gilt „' + e.titel + '" {' + [...e._quellen].join(',') + '}' : 'strittig: ' + ((s || {}).grund || '?')) + ' — erwartet nicht entscheidbar (nicht gelesen, origin/zz-sicherung)'); } }
+
         if (f.length) return { ok: false, warum: f.join(' · ') };
-        return { ok: true, info: 'gefahren ' + gefahren.join(',') + ' · D1: abgelaufen/fertig/mithelfen/ungueltig/eigen sperren nicht (strittig und tree:0), --auch nie, CI-Riese nicht · D2: gesicherte vertritt (voll = flach), Schreiber erfaehrt den Grund · D3: verlaengerter Halt wirkt, Lage nicht · D4: Squash bleibt wirksam · D5: Grabstein je Fassung entscheidet nichts (auch im Teilabruf) · D6: zurueckgezogener Halt auf neu angelegtem Branch (auch gesichert, auch nur weg) unwirksam, Grabstein dort zieht nichts zurueck · D7: nur in der Sicherung strittig, naechste/A8 nicht rechenbar, Ablauf/Befund/bewahrt nicht · rf · re' };
+        return { ok: true, info: 'gefahren ' + gefahren.join(',') + ' · D1: abgelaufen/fertig/mithelfen/ungueltig/eigen sperren nicht (strittig und tree:0), --auch nie, CI-Riese nicht · D2: gesicherte vertritt (voll = flach), Schreiber erfaehrt den Grund · D3: verlaengerter Halt wirkt, Lage nicht · D4: Squash bleibt wirksam · D5: Grabstein je Fassung entscheidet nichts (auch im Teilabruf) · D6: zurueckgezogener Halt auf neu angelegtem Branch (auch gesichert, auch nur weg) unwirksam, Grabstein dort zieht nichts zurueck · D7: nur in der Sicherung strittig, naechste/A8 nicht rechenbar, Ablauf/Befund/bewahrt nicht · rf · re · R5c: Squash + Berichtigung bleibt wirksam (Le1), strittig endet mit Grabstein fuer die ganze id auch nur in der Sicherung / ein Schreiber / jede Fassung entfernt (Le2), der Schreiber erfaehrt „wirkt NICHT" (Le3), D7 ohne Verzeichnis aus den Fassungen, sonst nicht rechenbar (Le4), keine Kopie vom dritten Branch statt der Heim-Fassung (N5)' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] + (f.length ? ' · bis dahin: ' + f.join(' · ') : '') }; }
       finally { if (altNl !== undefined) process.env.GIT_NO_LAZY_FETCH = altNl; weg(eltern); }
     },
   },
   {
-    name: 'C34 · Waechter Runde 5b (Gegenpruefung 5, Skeptiker) · der ECHTE Schritt aus brett-waechter.yml, mit und ohne Cache: befoerdert wird nur eine Fassung, die zu Hause war — eine Faelschung im Namen des Schreibers auf einem dritten oder neu angelegten Branch nicht, auch nach dem Rueckzug der eigenen Faelschung (das Original steht unter eintraege/, `holen` zeigt es KRITISCH), ein Eintrag ohne Branch-Zuhause (runde/…) aber schon; ein gemerkter Rueckzug gilt nur fuer den Branch seines `von` und, aus dem Verzeichnis ohne Cache, nur, wenn keine Fassung dieses Schreibers auf einem Branch liegt (sonst „unbelegt", nie benutzt); `weg` entsteht in jedem Lauf, auch wenn das Loeschen in eine Cache-Luecke fiel (nicht fuer Eintraege auf main); ein Grabstein je Fassung auf main entscheidet einen strittigen Eintrag nicht (nichts befoerdert, „Strittig", das `von` bleibt im Verzeichnis); das Verzeichnis traegt je Fassung art und bis',
+    name: 'C34 · Waechter Runde 5b (Gegenpruefung 5, Skeptiker) · der ECHTE Schritt aus brett-waechter.yml, mit und ohne Cache: befoerdert wird nur eine Fassung, die zu Hause war — eine Faelschung im Namen des Schreibers auf einem dritten oder neu angelegten Branch nicht, auch nach dem Rueckzug der eigenen Faelschung (das Original steht unter eintraege/, `holen` zeigt es KRITISCH), ein Eintrag ohne Branch-Zuhause (runde/…) aber schon; ein gemerkter Rueckzug gilt nur fuer den Branch seines `von` und, aus dem Verzeichnis ohne Cache, nur, wenn keine Fassung dieses Schreibers auf einem Branch liegt (sonst „unbelegt", nie benutzt); `weg` entsteht in jedem Lauf, auch wenn das Loeschen in eine Cache-Luecke fiel (nicht fuer Eintraege auf main); ein Grabstein je Fassung auf main entscheidet einen strittigen Eintrag nicht (nichts befoerdert, „Strittig", das `von` bleibt im Verzeichnis — bei einem Halt bis zu seinem Ablauf); das Verzeichnis traegt je Fassung art und bis. Runde 5c: „unbelegt" nur, wenn die Fassung auf dem Ref liegt, den der Rueckzug nennt (eine Kopie auf einem dritten Branch hebt einen ehrlichen Rueckzug nicht auf); befoerdert wird unter den Heim-Fassungen die ZULETZT zu Hause gesehene (Berichtigung, Force-Push zurueck — mit und ohne Cache), und das auch, wenn alle Fassungen im selben Lauf zuerst gesehen wurden; und als Integration: was der Waechter schreibt, lesen echte Leser (voll, blob:none) — rueckdatiert, vordatiert, ehrlich berichtigt, `naechste`, `nehme`',
     lauf: () => {
       const f = [], gefahren = [], welten = [];
       const yml = lies('.github/workflows/brett-waechter.yml');
@@ -4820,11 +4975,14 @@ const FAELLE = [
       const ohne = (e, k) => { const x = Object.assign({}, e); delete x[k]; return x; };
       const zeile = (aus, re) => kurz((String(aus).split('\n').filter(z => re.test(z))[0] || '(keine Zeile)').trim(), 220);
       // Eine Welt je Teilfall, gebaut wie in C28: ein bare-origin, ein Klon, ein Cache (RUNNER_TEMP bleibt zwischen den Laeufen
-      // wie actions/cache), jeder Lauf ein frischer flacher Klon mit dem woertlichen Schritt aus der yml.
+      // wie actions/cache), jeder Lauf ein frischer flacher Klon mit dem woertlichen Schritt aus der yml. Seit Runde 5c die Uhr der
+      // Action verschiebbar wie in C28 (`versatz`, ms; ein --import vor dem Werkzeug — git und date laufen echt), und das origin nimmt
+      // Teilabruf-Klone an (L: echte Leser mit --filter=blob:none).
+      const H = 36e5;
       const welt = (name) => {
         const eltern = tmp('waechter5b-' + name); welten.push(eltern);
         const bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon'), cache = path.join(eltern, 'cache');
-        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]); g(bare, ['config', 'uploadpack.allowFilter', 'true']);
         fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
         fs.mkdirSync(path.join(d, 'scripts'));
         for (const n of ['austausch.mjs', '_austausch.mjs']) fs.copyFileSync(path.join(__dirname, n), path.join(d, 'scripts', n));
@@ -4833,13 +4991,16 @@ const FAELLE = [
         g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'm0']); g(d, ['push', '-q', 'origin', 'main']);
         fs.mkdirSync(cache);
         const leer = path.join(eltern, 'gitconfig'); fs.writeFileSync(leer, '');
+        const uhr = path.join(eltern, 'uhr.mjs');
+        fs.writeFileSync(uhr, 'const off = Number(process.env.ZEIT_VERSATZ_MS || 0);\nif (off) { const D = Date; class FD extends D { constructor(...a) { if (a.length === 0) super(D.now() + off); else super(...a); } static now() { return D.now() + off; } } globalThis.Date = FD; }\n');
         let lauf = 0;
-        const W = { d };
+        const W = { d, bare, eltern };
         W.action = (o) => {
           o = o || {};
           if (o.ohneCache) fs.rmSync(path.join(cache, 'brett-stand'), { recursive: true, force: true });
           const ws = path.join(eltern, 'lauf' + (++lauf), 'ws'); fs.mkdirSync(ws, { recursive: true });
-          const env = Object.assign({}, process.env, { GIT_CONFIG_GLOBAL: leer, GIT_CONFIG_NOSYSTEM: '1', GH_TOKEN: 'unbenutzt', RUNNER_TEMP: cache, GITHUB_STEP_SUMMARY: path.join(eltern, 'zusammenfassung.md'), AUSTAUSCH_WURZEL: '', AUSTAUSCH_VON: '', NODE_OPTIONS: '' });
+          const env = Object.assign({}, process.env, { GIT_CONFIG_GLOBAL: leer, GIT_CONFIG_NOSYSTEM: '1', GH_TOKEN: 'unbenutzt', RUNNER_TEMP: cache, GITHUB_STEP_SUMMARY: path.join(eltern, 'zusammenfassung.md'), AUSTAUSCH_WURZEL: '', AUSTAUSCH_VON: '',
+            NODE_OPTIONS: o.versatz ? '--import ' + pathToFileURL(uhr).href : '', ZEIT_VERSATZ_MS: String(o.versatz || 0) });
           for (const a of [['init', '-q', '-b', 'main', '.'], ['remote', 'add', 'origin', 'file://' + bare], ['fetch', '-q', '--depth=1', 'origin', '+refs/heads/main:refs/remotes/origin/main'], ['checkout', '-q', '-B', 'main', 'refs/remotes/origin/main']]) cp.execFileSync('git', a, { cwd: ws, env, stdio: 'ignore' });
           const x = cp.spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', schritt], { cwd: ws, encoding: 'utf8', env });
           g(d, ['fetch', '-q', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
@@ -5016,14 +5177,160 @@ const FAELLE = [
           a = W.action({ ohneCache: true });
           if (W.primText(X).indexOf('Neu und allein') < 0 || new RegExp('Strittig[^\\n]*' + X.id).test(a.aus)) f.push('D5p · ein von Hand ins Verzeichnis gelegtes `von` (Blob eines Grabsteins fuer eine andere id) macht den neuen Eintrag ' + (W.primText(X).indexOf('Neu und allein') < 0 ? 'unbefoerdert' : '') + (new RegExp('Strittig[^\\n]*' + X.id).test(a.aus) ? ' strittig' : ''));
         });
+        // N7d (Gegenpruefung 5b, Skeptiker R5c-W1, Entscheidung F2) · Ein EHRLICHER Rueckzug (Grabstein auf dem eigenen Branch), eine
+        //     byte-gleiche Kopie liegt auf einem DRITTEN Branch (abgezweigt, oder `ernten`), der eigene Branch geht, dann faellt der Cache
+        //     aus, danach geht auch die Kopie. Vorher hiess der Rueckzug ohne Cache „unbelegt" (eine Fassung lag auf IRGENDEINEM Branch),
+        //     fiel aus dem Verzeichnis, und das Loeschen der Kopie gab ALARM — der zurueckgezogene kritische Eintrag stand bei jedem Leser
+        //     als KRITISCH und GERETTET. Jetzt zaehlt nur der Ref, den der Rueckzug nennt: er bleibt, die Kopie wird genommen, nicht gerettet.
+        teil('N7d', () => {
+          const W = welt('n7d'), X = befund('2026-03-05-7004', 'sitzung/claude/w7d', 'Falscher Alarm von W7d', { dringlichkeit: 'kritisch' });
+          W.zweig('claude/w7d', [X]); W.zweig('claude/z7d', [X]); let a = W.action();
+          W.auf('claude/w7d', () => { fs.unlinkSync(W.pfad(X)); W.grabstein([{ id: X.id, datum: '2026-03-05', grund: 'ich ziehe ihn zurueck' }]); }); a = W.action();
+          W.loesche('claude/w7d'); a = W.action();
+          if (!/Zurueckgezogen, aber wieder da[^\n]*2026-03-05-7004/.test(a.aus)) f.push('N7d Aufbau: der Rueckzug samt Kopie auf claude/z7d wird nicht genannt · ' + zeile(a.aus, /zurueck|ALARM/i));
+          a = W.action({ ohneCache: true });
+          if (/unbelegt[^\n]*2026-03-05-7004/.test(a.aus)) f.push('N7d (R5c-W1) · ohne Cache heisst der ehrliche Rueckzug „unbelegt", weil eine Kopie auf einem DRITTEN Branch liegt · ' + zeile(a.aus, /unbelegt/));
+          { const v = W.verz(); if (!((v && v.rueckzuege) || []).some(r => r.id === X.id && r.ref === 'origin/claude/w7d')) f.push('N7d (R5c-W1) · nach dem Lauf ohne Cache fehlt der ehrliche Rueckzug im Verzeichnis: ' + JSON.stringify((v && v.rueckzuege) || null)); }
+          a = W.action();
+          W.loesche('claude/z7d'); a = W.action();
+          const da = W.baum().indexOf(blobVon(X)) >= 0, h = holen(W, X.id);
+          if (a.code !== 0 || da || /GERETTET/.test(h.aus) || h.zeilen.indexOf('Falscher Alarm von W7d') >= 0) f.push('N7d (R5c-W1) · Kopie auf einem dritten Branch, Cache-Luecke, danach auch die Kopie geloescht: Exit ' + a.code + (da ? ', die zurueckgezogene Fassung liegt in der Sicherung' : '') + (/GERETTET/.test(h.aus) ? ', `holen` zeigt GERETTET' : '') + ' · ' + zeile(a.aus, /ALARM|Zurueckgezogen/) + ' · holen: ' + kurz(h.zeilen || '(nichts)', 160));
+        });
+        // N5g (Gegenpruefung 5b, Skeptiker R5c-W2) · Wie N5, aber Original (kritisch, claude/w5g), Faelschung mit fremdem `von` (claude/b5g)
+        //     und die Kopie im Namen des Schreibers (claude/c5g) liegen schon im ERSTEN Lauf vor (gleiche erste Sichtung), und der Blob der
+        //     Kopie sortiert VOR dem des Originals. In N5/N3 sah der Waechter das Original einen Lauf vor der Kopie: „die frueheste aller
+        //     Fassungen" waehlte zufaellig dasselbe wie „die Heim-Fassung" — zwei Regeln, ein Ergebnis, und keine war bewacht. Hier steht das
+        //     Original unter eintraege/ nur, weil es ZU HAUSE war (warHeim mit heimErst, die Wahl unter den Heim-Fassungen).
+        teil('N5g', () => {
+          const W = welt('n5g'), O = befund('2026-03-02-5002', 'sitzung/claude/w5g', 'Original von W5g', { dringlichkeit: 'kritisch' });
+          const F = Object.assign({}, O, { von: 'sitzung/claude/b5g', titel: 'Faelschung von B5g' });
+          let F2 = null;
+          for (let k = 0; k < 400 && !F2; k++) { const c = Object.assign(ohne(O, 'dringlichkeit'), { titel: 'Faelschung im Namen von W5g', beleg: ['grep -c x datei → ' + k] }); if (blobVon(c) < blobVon(O)) F2 = c; }
+          if (!F2) { f.push('N5g Aufbau: keine Kopie mit kleinerem Blob gefunden'); return; }
+          W.zweig('claude/w5g', [O]); W.zweig('claude/b5g', [F]); W.zweig('claude/c5g', [F2]); let a = W.action();
+          if (!/Strittig[^\n]*2026-03-02-5002/.test(a.aus)) f.push('N5g Aufbau: nicht strittig · ' + zeile(a.aus, /Strittig/));
+          W.loesche('claude/w5g'); a = W.action();
+          W.auf('claude/b5g', () => { fs.unlinkSync(W.pfad(F)); W.grabstein([{ id: O.id, datum: '2026-03-02', grund: 'meine Fassung zurueck' }]); }); a = W.action();
+          W.loesche('claude/b5g'); a = W.action(); a = W.action();
+          { const t = W.primText(O); if (t.indexOf('Original von W5g') < 0) f.push('N5g (R5c-W2) · gleiche erste Sichtung, die Kopie im Namen von W5g mit kleinerem Blob: unter eintraege/ liegt ' + (t.indexOf('Faelschung im Namen') >= 0 ? '„Faelschung im Namen von W5g"' : 'nichts')); }
+          W.loesche('claude/c5g'); a = W.action();
+          const h = holen(W, O.id);
+          if (!/KRITISCH/.test(h.aus) || h.zeilen.indexOf('Original von W5g') < 0 || h.zeilen.indexOf('Faelschung im Namen') >= 0) f.push('N5g · nach dem Loeschen auch von claude/c5g zeigt `holen`: ' + kurz(h.zeilen || '(nichts zu dieser id)', 220));
+        });
+        // D5h (Gegenpruefung 5b, Skeptiker R5c-W3a; D5 „Strittig endet mit dem Ablauf") · Ein strittiger HALT (Original auf claude/hx,
+        //     Faelschung mit fremdem `von` auf claude/hy), die Faelschung per Grabstein je Fassung auf main entfernt, ihr Branch geloescht:
+        //     ihr `von` bleibt im Verzeichnis (ohneDatei), solange der Halt laeuft. Mit gestellter Uhr nach seinem `bis` faellt es heraus,
+        //     und der Bericht nennt den Halt nicht mehr „Strittig". D5 baute nur Befunde — die Ablauf-Zeile liess sich ausbauen.
+        teil('D5h', () => {
+          const W = welt('d5h'), t = new Date(Date.now() - 10 * 60e3), dt = { datum: t.toISOString().slice(0, 10), zeit: t.toISOString().slice(11, 19) };
+          const Ha = Object.assign(mk('halt', { id: dt.datum + '-d5c1', von: 'sitzung/claude/hx', text: 'bitte nicht bumpen', geltung: ['bump'], bis: new Date(Date.now() + 2 * H).toISOString().replace(/\.\d{3}Z$/, 'Z') }), dt);
+          const Hf = Object.assign({}, Ha, { von: 'sitzung/claude/hy', text: 'Faelschung' });
+          const strittigIn = (aus) => new RegExp('Strittig[^\\n]*' + Ha.id).test(aus);
+          const ohneD = () => ((W.verz() || {}).fassungen || []).some(x => x.blob === blobVon(Hf) && x.ohneDatei === true);
+          W.zweig('claude/hx', [Ha]); W.zweig('claude/hy', [Hf]); let a = W.action();
+          if (!strittigIn(a.aus)) f.push('D5h Aufbau: der Halt ist nicht strittig · ' + zeile(a.aus, /Strittig/));
+          W.aufMain(() => W.grabstein([{ id: Ha.id, blob: blobVon(Hf), datum: dt.datum, grund: 'eine Kopie mit fremdem von' }]));
+          a = W.action(); W.loesche('claude/hy'); a = W.action();
+          if (!ohneD() || !strittigIn(a.aus)) f.push('D5h Aufbau: solange der Halt laeuft, ' + (ohneD() ? '' : 'fehlt das `von` der entfernten Fassung im Verzeichnis ') + (strittigIn(a.aus) ? '' : 'ist er nicht strittig'));
+          a = W.action({ versatz: 3 * H });
+          if (ohneD()) f.push('D5h (R5c-W3) · nach dem Ablauf des Halts (Uhr +3 h) steht das `von` der per Grabstein entfernten Fassung weiter im Verzeichnis (ohneDatei) — Strittig endet mit dem Ablauf');
+          a = W.action({ versatz: 3 * H });
+          if (strittigIn(a.aus)) f.push('D5h (R5c-W3) · nach dem Ablauf des Halts nennt der Bericht ihn weiter „Strittig" · ' + zeile(a.aus, /Strittig/));
+        });
+        // E4 / E4o / E4w (Gegenpruefung 5b, Skeptiker R5c-W4, Entscheidung F3) · Unter den Heim-Fassungen desselben `von` gilt die, die der
+        //    Schreiber ZULETZT zu Hause hatte. Strittig (Originale von claude/we, Faelschungen von claude/be); der Schreiber berichtigt E
+        //    (O1 → O2) und setzt K per Force-Push auf die erste Fassung zurueck (K1 → K2 → K1); sein Branch geht (ALARM), der Faelscher
+        //    zieht zurueck und loescht seinen. Vorher stand unter eintraege/ die FRUEHESTE Heim-Fassung (O1 — die Berichtigung nur unter
+        //    fassungen/, das kein Leser liest); mit der ersten Heim-Sichtung allein stuende K2 da. E4 mit Cache (Gedaechtnis); E4o: der
+        //    Lauf, der waehlt, laeuft ohne Cache (das Verzeichnis traegt heimZuletzt fuer jede Fassung, die nicht mehr zu Hause ist); E4w:
+        //    der Lauf, in dem claude/we verschwindet, laeuft ohne Cache (dann stand im Verzeichnis fuer O2 und K1 noch keine Zeit — sie
+        //    lagen bei seinem Stand zu Hause, und dieser Stand ist ihre letzte bekannte Heim-Zeit).
+        for (const modus of ['E4', 'E4o', 'E4w']) teil(modus, () => {
+          const oc = modus === 'E4o', ow = modus === 'E4w';
+          const W = welt(modus.toLowerCase()), n = String(['E4', 'E4o', 'E4w'].indexOf(modus) + 1), was = modus + (oc ? ' (ohne Cache beim Waehlen)' : ow ? ' (ohne Cache beim Loeschen)' : '');
+          const O1 = befund('2026-03-09-e40' + n, 'sitzung/claude/we', 'E, erste Fassung', { dringlichkeit: 'kritisch' }), O2 = Object.assign({}, O1, { titel: 'E, berichtigt', beleg: ['grep -c x datei → 4 (nachgezaehlt)'] });
+          const K1 = befund('2026-03-09-e41' + n, 'sitzung/claude/we', 'K, erste Fassung (gilt wieder)', { dringlichkeit: 'kritisch' }), K2 = Object.assign({}, K1, { titel: 'K, zweite Fassung (zurueckgesetzt)' });
+          const FE = Object.assign({}, O1, { von: 'sitzung/claude/be', titel: 'Faelschung E' }), FK = Object.assign({}, K1, { von: 'sitzung/claude/be', titel: 'Faelschung K' });
+          const titel = (e) => { const t = W.primText(e); try { return t ? JSON.parse(t).titel : '(nichts)'; } catch (_) { return '(unlesbar)'; } };
+          W.zweig('claude/we', [O1, K1]); W.zweig('claude/be', [FE, FK]); let a = W.action();
+          if (!new RegExp('Strittig[^\\n]*' + O1.id).test(a.aus) || !new RegExp('Strittig[^\\n]*' + K1.id).test(a.aus)) f.push(was + ' Aufbau: nicht beide strittig · ' + zeile(a.aus, /Strittig/));
+          W.auf('claude/we', () => { ablegen(W.d, O2); ablegen(W.d, K2); }); a = W.action();
+          W.auf('claude/we', () => { ablegen(W.d, K1); }); a = W.action();
+          W.loesche('claude/we'); a = W.action({ ohneCache: ow });
+          W.auf('claude/be', () => { fs.unlinkSync(W.pfad(FE)); fs.unlinkSync(W.pfad(FK)); W.grabstein([{ id: O1.id, datum: '2026-03-09', grund: 'meine Fassung zurueck' }, { id: K1.id, datum: '2026-03-09', grund: 'meine Fassung zurueck' }]); }); a = W.action();
+          if (W.prim().indexOf(O1.id) >= 0 || W.prim().indexOf(K1.id) >= 0) f.push(was + ' Aufbau: schon vor dem Loeschen von claude/be steht etwas unter eintraege/ — die Wahl faellt nicht im Lauf danach');
+          // Der Lauf nach dem Loeschen von claude/be waehlt (vorher strittig); in E4o laeuft genau er OHNE Cache — dann kennt nur das
+          // Verzeichnis die Reihenfolge (heimZuletzt).
+          W.loesche('claude/be'); a = W.action({ ohneCache: oc });
+          if (W.prim().indexOf(O1.id) < 0 && W.prim().indexOf(K1.id) < 0) a = W.action();
+          if (titel(O1) !== 'E, berichtigt') f.push(was + ' (R5c-W4) · nach Strittig, dem Rueckzug der Faelschung und dem Loeschen beider Branches steht unter eintraege/ „' + titel(O1) + '" — erwartet die Berichtigung');
+          if (titel(K1) !== 'K, erste Fassung (gilt wieder)') f.push(was + ' (R5c-W4) · der Schreiber setzte per Force-Push auf seine erste Fassung zurueck: unter eintraege/ steht „' + titel(K1) + '" — erwartet die zuletzt zu Hause gesehene');
+        });
+        // L (Integration, Runde 5c) · Der ECHTE Waechter schreibt das Verzeichnis, ECHTE Leser lesen es — die Luecke zwischen dem von Hand
+        //    gebauten Verzeichnis in C32 und dem, was der Waechter wirklich schreibt. Die Uhr der Action steht 3 h zurueck: ein Lauf VOR
+        //    dem Push (die Heim-Grenze), einer danach, einer nach den Berichtigungen; gelesen wird mit der echten Uhr, im vollen Klon und
+        //    im Klon mit --filter=blob:none (nach `holen`). Erwartet: eine um 10 h vor dem ersten Lauf datierte Lage „rueckdatiert … der
+        //    Waechter sah diese Lage …", eine, deren Zeitstempel 2½ h nach der Sichtung des Waechters liegt, „vordatiert … der Waechter
+        //    sah sie schon …"; eine ehrlich berichtigte Lage (Titel) und ein ehrlich berichtigter Halt (Text) — gleicher Anspruch —
+        //    wirken; `naechste --json` nennt den Halt (Exit 1), und `nehme` sagt dasselbe: das Ziel der berichtigten Lage ist
+        //    uebernommen, die Ziele der rueck- und der vordatierten sind frei. Dazu: zwei weitere Laeufe ohne Aenderung (mit und ohne
+        //    Cache) schreiben nichts — das Verzeichnis traegt keine Zeit, die sich je Lauf aendert.
+        teil('L', () => {
+          const nl = process.env.GIT_NO_LAZY_FETCH; delete process.env.GIT_NO_LAZY_FETCH;   // der Teilabruf-Klon laedt beim Auschecken nach
+          try {
+            const W = welt('l'), V = -3 * H, j0 = Date.now();
+            const stempel = (ms) => { const t = new Date(ms); return { datum: t.toISOString().slice(0, 10), zeit: t.toISOString().slice(11, 19) }; };
+            const bisAb = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
+            const Z = [0, 1, 2].map(i => befund('2026-03-10-1c0' + i, 'sitzung/claude/start', 'Ziel ' + i));
+            W.aufMain(() => { for (const z of Z) ablegen(W.d, z); fs.writeFileSync(path.join(W.d, 'sw.js'), "const VERSION = 'gs-v1.00';\n"); fs.writeFileSync(path.join(W.d, 'STATUS.md'), '# Status\n'); });
+            let a = W.action({ versatz: V });
+            const sR = stempel(j0 + V - 10 * H), sV = stempel(j0 - 20 * 60e3), sB = stempel(j0 + V - 10 * 60e3);
+            const Lr = Object.assign(mk('lage', { id: sR.datum + '-1c11', von: 'sitzung/claude/lr', titel: 'rueckdatiert', bis: bisAb(j0 + 8 * H), bezug: [bz('baut_auf', Z[0])] }), sR);
+            const Lv = Object.assign(mk('lage', { id: sV.datum + '-1c12', von: 'sitzung/claude/lv', titel: 'vordatiert', bis: bisAb(j0 + 4 * H), bezug: [bz('baut_auf', Z[1])] }), sV);
+            const Lb = Object.assign(mk('lage', { id: sB.datum + '-1c13', von: 'sitzung/claude/lb', titel: 'ehrlich', bis: bisAb(j0 + 8 * H), bezug: [bz('baut_auf', Z[2])] }), sB);
+            const Hb = Object.assign(mk('halt', { id: sB.datum + '-1c14', von: 'sitzung/claude/hb', titel: 'Halt, ehrlich', text: 'bitte nicht bumpen', geltung: ['bump'], bis: bisAb(j0 + 40 * H) }), sB);
+            const Lb2 = Object.assign({}, Lb, { titel: 'ehrlich, berichtigt' }), Hb2 = Object.assign({}, Hb, { text: 'bitte nicht bumpen (berichtigt)' });
+            W.zweig('claude/lr', [Lr]); W.zweig('claude/lv', [Lv]); W.zweig('claude/lb', [Lb]); W.zweig('claude/hb', [Hb]);
+            a = W.action({ versatz: V });
+            W.auf('claude/lb', () => ablegen(W.d, Lb2)); W.auf('claude/hb', () => ablegen(W.d, Hb2));
+            a = W.action({ versatz: V });
+            { const v = W.verz() || {}, z = (e) => (v.fassungen || []).find(x => x.blob === blobVon(e)) || {};
+              const ohneGrenze = [Lr, Lv, Lb, Hb, Lb2, Hb2].filter(e => !z(e).heimErst || !z(e).heimNichtVor);
+              if (ohneGrenze.length) f.push('L Aufbau: das Verzeichnis des Waechters kennt die Heim-Grenze nicht fuer ' + ohneGrenze.map(e => e.id + ' („' + (e.titel || e.text) + '")').join(', '));
+              if (!z(Lb).heimZuletzt || z(Lb2).heimZuletzt) f.push('L · heimZuletzt (R5c-W4) steht ' + (z(Lb).heimZuletzt ? '' : 'nicht bei der abgeloesten Fassung ') + (z(Lb2).heimZuletzt ? 'bei der Fassung, die zu Hause liegt' : '')); }
+            const stand0 = W.zz(['rev-parse', 'origin/zz-sicherung^{tree}']).trim();
+            a = W.action({ versatz: V }); const a2 = W.action({ versatz: V, ohneCache: true });
+            const stand1 = W.zz(['rev-parse', 'origin/zz-sicherung^{tree}']).trim();
+            if (stand0 !== stand1 || !/Nichts Neues zu sichern/.test(a.aus) || !/Nichts Neues zu sichern/.test(a2.aus)) f.push('L · zwei Laeufe ohne Aenderung (mit und ohne Cache) schreiben einen neuen Stand' + (stand0 !== stand1 ? ' (anderer Baum)' : '') + ' · ' + zeile(a.aus + '\n' + a2.aus, /Nichts Neues|Geschrieben/));
+            for (const art of ['voll', 'blob:none']) {
+              const k = path.join(W.eltern, 'leser-' + art.replace(/\W/g, ''));
+              cp.execFileSync('git', ['clone', '-q'].concat(art === 'voll' ? [] : ['--filter=' + art]).concat(['file://' + W.bare, k]), { stdio: 'ignore' });
+              g(k, ['checkout', '-q', '-B', 'claude/leser', 'origin/main']);
+              if (art !== 'voll') { const r = werkzeug(k, ['holen']); if (r.code !== 0) f.push('L ' + art + ' · `holen`: Exit ' + r.code + ' · ' + kurz(r.aus, 200)); }
+              const zeig = (e) => { const r = werkzeug(k, ['zeige', e.id]); return { wirkt: (r.aus.match(/Wirkt jetzt:[^\n]*/) || ['(keine Zeile „Wirkt jetzt")'])[0], aus: r.aus }; };
+              const zr = zeig(Lr), zv = zeig(Lv), zb = zeig(Lb), zh = zeig(Hb);
+              if (!/Wirkt jetzt: nein — rueckdatiert[^\n]*der Waechter sah diese Lage um/.test(zr.wirkt)) f.push('L ' + art + ' · rueckdatierte Lage: ' + kurz(zr.wirkt, 220));
+              if (!/Wirkt jetzt: nein — vordatiert[^\n]*der Waechter sah sie schon um/.test(zv.wirkt)) f.push('L ' + art + ' · vordatierte Lage: ' + kurz(zv.wirkt, 220));
+              if (!new RegExp('Wirkt jetzt: ja[^\\n]*uebernimmt[^\\n]*' + Z[2].id).test(zb.wirkt) || zb.aus.indexOf('ehrlich, berichtigt') < 0) f.push('L ' + art + ' · ehrlich berichtigte Lage (gleicher Anspruch): ' + kurz(zb.wirkt, 220) + (zb.aus.indexOf('ehrlich, berichtigt') < 0 ? ' — und es gilt nicht die Berichtigung' : ''));
+              if (!/Wirkt jetzt: ja/.test(zh.wirkt) || zh.aus.indexOf('(berichtigt)') < 0) f.push('L ' + art + ' · ehrlich berichtigter Halt (gleicher Anspruch): ' + kurz(zh.wirkt, 220) + (zh.aus.indexOf('(berichtigt)') < 0 ? ' — und es gilt nicht die Berichtigung' : ''));
+              const n = werkzeug(k, ['naechste', '--json']); let j = null; try { j = JSON.parse(n.aus); } catch (_) {}
+              if (n.code !== 1 || !j || !(j.bumpHalt || []).some(x => x.id === Hb.id)) f.push('L ' + art + ' · `naechste --json`: Exit ' + n.code + (j ? ', bumpHalt ' + JSON.stringify((j.bumpHalt || []).map(x => x.id)) + (j.nichtRechenbar && j.nichtRechenbar.length ? ', nicht rechenbar ' + kurz(JSON.stringify(j.nichtRechenbar), 120) : '') : ' · ' + kurz(n.aus, 160)) + ' — erwartet Exit 1 mit dem berichtigten Halt');
+              const nehme = (z) => { try { return werkzeug(k, ['nehme', z.id, '--bis', '2h']); } finally { g(k, ['clean', '-fdq', A.ORDNER]); } };
+              const n2 = nehme(Z[2]), n0 = nehme(Z[0]), n1 = nehme(Z[1]);
+              if (n2.code !== 1 || !/schon uebernommen: sitzung\/claude\/lb/.test(n2.aus)) f.push('L ' + art + ' · `nehme` auf das Ziel der berichtigten Lage: Exit ' + n2.code + ' · ' + kurz(n2.aus.replace(/\s+/g, ' '), 200));
+              if (n0.code !== 0) f.push('L ' + art + ' · `nehme` auf das Ziel der rueckdatierten Lage: Exit ' + n0.code + ' · ' + kurz(n0.aus.replace(/\s+/g, ' '), 200));
+              if (n1.code !== 0) f.push('L ' + art + ' · `nehme` auf das Ziel der vordatierten Lage: Exit ' + n1.code + ' · ' + kurz(n1.aus.replace(/\s+/g, ' '), 200));
+            }
+          } finally { if (nl != null) process.env.GIT_NO_LAZY_FETCH = nl; }
+        });
         if (!gefahren.length) return { ok: false, warum: 'AUSTAUSCH_TEILFALL=' + process.env.AUSTAUSCH_TEILFALL + ' trifft keinen Teilfall' };
         if (f.length) return { ok: false, warum: f.join(' · ') };
-        return { ok: true, info: 'Teilfaelle ' + gefahren.join(', ') + ' · befoerdert nur, was zu Hause war (dritter und neu angelegter Branch), runde/… ohne Zuhause trotzdem · Rueckzug nur auf dem Branch seines von (auch fuer eine Fassung nur noch in der Sicherung), ohne Cache unbelegt, wenn die Fassung auf einem Branch liegt · weg auch nach einer Cache-Luecke, nicht fuer main · Grabstein je Fassung auf main entscheidet nichts (beide Richtungen, nach dem Loeschen, ohne Cache), Strittig endet mit Grabstein der ganzen id oder einer Fassung auf main · art/bis je Fassung' };
+        return { ok: true, info: 'Teilfaelle ' + gefahren.join(', ') + ' · befoerdert nur, was zu Hause war (dritter und neu angelegter Branch), runde/… ohne Zuhause trotzdem · Rueckzug nur auf dem Branch seines von (auch fuer eine Fassung nur noch in der Sicherung), ohne Cache unbelegt, wenn die Fassung auf einem Branch liegt · weg auch nach einer Cache-Luecke, nicht fuer main · Grabstein je Fassung auf main entscheidet nichts (beide Richtungen, nach dem Loeschen, ohne Cache), Strittig endet mit Grabstein der ganzen id oder einer Fassung auf main, bei einem Halt mit dem Ablauf · art/bis je Fassung · unbelegt nur auf dem Ref des Rueckzugs · die zuletzt zu Hause gesehene Heim-Fassung gilt (Gedaechtnis und Verzeichnis) · echte Leser lesen, was der Waechter schreibt' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { for (const w of welten) weg(w); }
     },
   },
   {
-    name: 'C33 · Lesen Runde 5b (Gegenpruefung 5b) · als PROZESS gegen gebaute origins mit ext::-Helfern: haengt oder scheitert der Remote ab dem 3. Abruf (die aelteren Fassungen kommen nicht), wirkt ein ehrlich berichtigter Bump-Halt (`naechste --json` nennt ihn, Exit 1) und das Ziel einer berichtigten Lage ist „nicht entscheidbar" (`nehme` schreibt nichts); das Verzeichnis des Waechters kommt im SELBEN Abruf wie die Spitzen (ein Remote, der nach zwei Abrufen scheitert, gibt es trotzdem — eine rueckdatierte Lage stiehlt nichts); die aufgeblaehte Geschichte eines Fremden verbraucht nicht die Frist aller (je Branch ein Abruf mit gerechtem Anteil — die berichtigte Lage eines anderen bleibt rechenbar, und der Branch, dessen Fassungen nicht kamen, wird genannt); der Ersatzweg von eigeneAenderung (ungespeicherte Aenderung, nur `touch`) rechnet ohne Blob von main; `holen` laedt index.html und sw.js nur, wenn dieser Stand sie geaendert hat; Ref-Namen aus fremder Hand gehen durch knapp(); im CI-Nachbau (der Schritt aus pruefstaende.yml woertlich, der Waechter aus brett-waechter.yml echt) kommt ein Verzeichnis ueber 200 KB mit, und A8 trifft einen gesicherten, danach berichtigten Halt',
+    name: 'C33 · Lesen Runde 5b (Gegenpruefung 5b) · als PROZESS gegen gebaute origins mit ext::-Helfern: haengt oder scheitert der Remote ab dem 3. Abruf (die aelteren Fassungen kommen nicht), wirkt ein ehrlich berichtigter Bump-Halt (`naechste --json` nennt ihn, Exit 1) und das Ziel einer berichtigten Lage ist „nicht entscheidbar" (`nehme` schreibt nichts); das Verzeichnis des Waechters kommt im SELBEN Abruf wie die Spitzen (ein Remote, der nach zwei Abrufen scheitert, gibt es trotzdem — eine rueckdatierte Lage stiehlt nichts); die aufgeblaehte Geschichte eines Fremden verbraucht nicht die Frist aller (seit 5c: zuerst EIN Abruf mit hoechstens der halben Frist, nur bei Frist halbierend geteilt — die berichtigte Lage eines anderen bleibt rechenbar, und der Branch, dessen Fassungen nicht kamen, wird genannt); der Ersatzweg von eigeneAenderung (ungespeicherte Aenderung, nur `touch`) rechnet ohne Blob von main; `holen` laedt index.html und sw.js nur, wenn dieser Stand sie geaendert hat; Ref-Namen aus fremder Hand gehen durch knapp(); im CI-Nachbau (der Schritt aus pruefstaende.yml woertlich, der Waechter aus brett-waechter.yml echt) kommt ein Verzeichnis ueber 200 KB mit, und A8 trifft einen gesicherten, danach berichtigten Halt; seit Gegenpruefung 5c (Skeptiker R5c-L1/L2), mit der Standardfrist: 26 ehrliche Branches mit berichtigter Lage und berichtigtem Halt, 0,8 s je Abruf — `naechste` rechnet die Version, `nehme` sagt „schon uebernommen" (EIN Abruf fuer alle aelteren Fassungen, die Nummern davor); ein fremder Branch, dessen aeltere Fassung haengt, neben 12 ehrlichen — `naechste` rechnet, die aelteren Fassungen aller ehrlichen kommen (halbierend geteilt, log N Abrufe treffen den haengenden), der Rat ist zuerst `holen` (auch, wenn die Dateien der Nummern nicht kamen); haengt der Remote nach drei Abrufen, rechnet `naechste` trotzdem (die Nummern kommen vor den aelteren Fassungen)',
     lauf: () => {
       const eltern = tmp('lesen5b');
       const altNl = process.env.GIT_NO_LAZY_FETCH, altGa = process.env.GITHUB_ACTIONS;
@@ -5109,9 +5416,10 @@ const FAELLE = [
         }
         // ── T4 (R5b-lesen-0, gerecht) · ein Fremder (claude/a-evil, sortiert VOR claude/c) blaeht die Geschichte SEINER Lage auf:
         //    ein Abruf, der deren aeltere Fassung verlangt, haengt (nachgestellt mit einem Helfer, der die Kennung in der Anfrage
-        //    sieht — statt 150 MB). Je Branch ein Abruf mit gerechtem Anteil: die aeltere Fassung der berichtigten Lage auf
+        //    sieht — statt 150 MB). Seit 5c (R5c-L1): der eine Abruf fuer alle haengt bis zur halben Frist, danach wird halbierend
+        //    geteilt (5b: je Branch ein Abruf mit gerechtem Anteil) — die aeltere Fassung der berichtigten Lage auf
         //    claude/c kommt trotzdem, `nehme` sagt „schon uebernommen: sitzung/claude/c" und nennt den Branch, dessen Fassung nicht
-        //    kam. Vorher war es EIN Stapel: alle drei fehlten, und Ziel 2 hiess fuer jeden „nicht entscheidbar".
+        //    kam. Vor 5b war es EIN Stapel ohne Teilen: alle drei fehlten, und Ziel 2 hiess fuer jeden „nicht entscheidbar".
         if (fahre('T4')) {
           const lageE = mk('lage', Object.assign({ id: tn.datum + '-e5b10004', von: 'sitzung/claude/a-evil', titel: 'Fremde Lage', phase: 'laeuft', bis: bisIn(6), bezug: [{ art: 'baut_auf', id: ziel1.id }] }, tn));
           zweig(srcA, 'claude/a-evil', [[lageE]]);
@@ -5136,7 +5444,7 @@ const FAELLE = [
           const ae = zeileMit(r.aus, /aeltere Fassung\(en\) von Lagen und Halts kamen nicht/);
           if (!fs.existsSync(merk4)) f.push('Aufbau T4: kein Abruf verlangte die aeltere Fassung der fremden Lage — der Fall misst nichts · ' + fall(r.aus));
           else {
-            if (r.code !== 1 || /Geschrieben:/.test(r.aus) || !/schon uebernommen: sitzung\/claude\/c/.test(r.aus)) f.push('T4 (R5b-lesen-0) · ein Fremder blaeht die Geschichte SEINER Lage auf (der Abruf ihrer aelteren Fassung haengt): `nehme ' + ziel2.id.slice(-8) + '` Exit ' + r.code + ' — erwartet 1, „schon uebernommen: sitzung/claude/c" (je Branch ein eigener Abruf mit gerechtem Anteil an der Frist) · ' + fall(r.aus));
+            if (r.code !== 1 || /Geschrieben:/.test(r.aus) || !/schon uebernommen: sitzung\/claude\/c/.test(r.aus)) f.push('T4 (R5b-lesen-0) · ein Fremder blaeht die Geschichte SEINER Lage auf (der Abruf ihrer aelteren Fassung haengt): `nehme ' + ziel2.id.slice(-8) + '` Exit ' + r.code + ' — erwartet 1, „schon uebernommen: sitzung/claude/c" (nach dem haengenden Abruf fuer alle wird halbierend geteilt) · ' + fall(r.aus));
             if (!/\(auf origin\/claude\/a-evil\)/.test(ae) || /claude\/c\b/.test(ae)) f.push('T4 · `nehme` nennt nicht (nur) den Branch, dessen aeltere Fassungen nicht kamen: ' + kurz1(ae || '(keine Zeile)', 220));
           }
         }
@@ -5285,9 +5593,121 @@ const FAELLE = [
             }
           }
         }
+        // ── Welt L (Gegenpruefung 5c, Skeptiker R5c-L1/L2): viele ehrliche Branches, jeder mit eigener STATUS.md (wie jede Sitzung sie
+        //    aendert) und mit Lagen bzw. Halts, die vor 8 h geschrieben und JETZT ehrlich berichtigt wurden — ihre aelteren Fassungen
+        //    fehlen im blob:none-Klon und muessen nachgeladen werden. Gepusht wird alles in EINEM Push.
+        const weltL = (name, code, n, zusatz) => {
+          const bare = path.join(eltern, name + '.git'), src = path.join(eltern, name + '-src');
+          cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]); g(bare, ['config', 'uploadpack.allowFilter', 'true']); g(bare, ['config', 'uploadpack.allowAnySHA1InWant', 'true']);
+          fs.mkdirSync(src); g(src, ['init', '-q', '-b', 'main', '.']); g(src, ['remote', 'add', 'origin', 'file://' + bare]);
+          fs.writeFileSync(path.join(src, 'index.html'), QUELLE); fs.writeFileSync(path.join(src, 'sw.js'), "const VERSION = 'gs-v1.00';\n"); fs.writeFileSync(path.join(src, 'STATUS.md'), '# Status\n');
+          const ziele = []; for (let i = 0; i <= n; i++) { const z = mk('befund', Object.assign({ id: t0.datum + '-e5c' + code + '0' + i.toString(16).padStart(3, '0'), von: 'sitzung/start', titel: 'Ziel ' + i }, t0)); ziele.push(z); ablegen(src, z); }
+          g(src, ['add', '-A']); gz(src, ['commit', '-q', '-m', 'start'], jetzt(-30)); g(src, ['push', '-q', 'origin', 'main']);
+          const namen = []; for (let i = 0; i < n; i++) namen.push('claude/s' + String(i).padStart(2, '0'));
+          const alle = namen.concat(zusatz ? [zusatz] : []).sort(), alt = new Map(), lagen = new Map();
+          alle.forEach((nm, i) => {
+            const fremd1 = nm === zusatz, t = fremd1 ? tn : t8, dt = fremd1 ? jetzt(0) : jetzt(-8), hex = (i + 1).toString(16).padStart(3, '0');
+            const lage = mk('lage', Object.assign({ id: t.datum + '-e5c' + code + '1' + hex, von: 'sitzung/' + nm, titel: 'Nehme Ziel ' + i, phase: 'laeuft', bis: bisIn(6), bezug: [{ art: 'baut_auf', id: ziele[i].id }] }, t));
+            const halt = fremd1 ? null : mk('halt', Object.assign({ id: t.datum + '-e5c' + code + '2' + hex, von: 'sitzung/' + nm, titel: 'Halt ' + i, text: 'baue docs/x' + i + ' um', bis: bisIn(12), geltung: ['docs/x' + i + '/'] }, t));
+            g(src, ['checkout', '-q', '-B', nm, 'main']);
+            const pl = ablegen(src, lage); if (halt) ablegen(src, halt); lagen.set(nm, lage);
+            fs.writeFileSync(path.join(src, 'STATUS.md'), '# Status\n\n## ' + t.datum + ' (s' + i + ') Arbeit ' + i + '\n');
+            g(src, ['add', '-A']); gz(src, ['commit', '-q', '-m', nm], dt);
+            alt.set(nm, g(src, ['rev-parse', 'HEAD:' + path.relative(src, pl).split(path.sep).join('/')]).trim());
+            ablegen(src, Object.assign({}, lage, { titel: lage.titel + ' (Titel berichtigt)' })); if (halt) ablegen(src, Object.assign({}, halt, { text: halt.text + ' (Text berichtigt)' }));
+            g(src, ['add', '-A']); gz(src, ['commit', '-q', '-m', 'berichtigt']);
+          });
+          g(src, ['push', '-q', '-f', 'origin'].concat(alle.map(nm => nm + ':' + nm))); g(src, ['checkout', '-q', '-f', 'main']);
+          return { bare, ziele, alt, lagen };
+        };
+        // ── T9 (R5c-L1) · 26 ehrliche Branches, je eine berichtigte Lage und ein berichtigter Halt (Geltung ein Pfad, kein Bump), ein
+        //    Remote mit 0,8 s je Abruf (ext::-Helfer mit `sleep`), die STANDARDFRIST (still 20 s). `naechste` rechnet die Version
+        //    (Exit 0, ohne „!!"), `nehme` auf Ziel 0 sagt „schon uebernommen: sitzung/claude/s00". In 5b bekam jeder Branch einen
+        //    eigenen Abruf mit (Rest / offene) als Anteil — kuerzer als EIN Abruf: alle abgebrochen, `naechste` Exit 2 bei jedem Lauf,
+        //    `nehme` „nicht entscheidbar". Jetzt EIN Abruf fuer alle aelteren Fassungen, die Nummern davor.
+        let wL = null;   // die Welt fuer T9, T11 und T12 — einmal gebaut
+        if (fahre('T9')) {
+          const w = wL = wL || weltL('l', 'a', 26), langsam = (k, nm) => { const z = path.join(eltern, 'zaehler-' + nm); helfer(k, 'helfer-' + nm, 'n=$(cat "' + z + '" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "' + z + '"\nsleep 0.8\nexec git upload-pack "' + w.bare + '"'); return z; };
+          const kv = klon(w.bare, null, 'kt9v'), a = werkzeug(kv, ['zeige', w.lagen.get('claude/s00').id]);
+          const kN = klon(w.bare, 'blob:none', 'kt9n'), kH = klon(w.bare, 'blob:none', 'kt9h');
+          if (!new RegExp('Wirkt jetzt: ja[^\\n]*uebernimmt ' + w.ziele[0].id).test(a.aus) || !fehltDa(kN, w.alt.get('claude/s00'))) f.push('Aufbau T9: im VOLLEN Klon nimmt die berichtigte Lage von claude/s00 Ziel 0 nicht, oder ihre aeltere Fassung liegt im Teilabruf schon vor — der Fall misst nichts · ' + wirkt(a.aus));
+          else {
+            const zN = langsam(kN, 't9n'), zH = langsam(kH, 't9h');
+            let r = werkzeug(kN, ['naechste'], { AUSTAUSCH_HOLEN_FRIST_MS: '' });
+            if (r.code !== 0 || !/naechste freie Version: v1\.01/.test(r.aus) || /!!|Nicht rechenbar/.test(r.aus)) f.push('T9 (R5c-L1) · 26 ehrlich berichtigte Lagen und Halts auf eigenen Branches, 0,8 s je Abruf, Standardfrist: `naechste` Exit ' + r.code + ' nach ' + kurz1(fs.readFileSync(zN, 'utf8').trim(), 8) + ' Abrufen — erwartet 0 mit „naechste freie Version: v1.01" und ohne „!!" · ' + kurz1(zeileMit(r.aus, /!!|Nicht rechenbar/) || r.aus.slice(-200), 220));
+            r = werkzeug(kH, ['nehme', w.ziele[0].id, '--bis', '1h'], { AUSTAUSCH_HOLEN_FRIST_MS: '' });
+            if (r.code !== 1 || /Geschrieben:/.test(r.aus) || !/schon uebernommen: sitzung\/claude\/s00/.test(r.aus)) f.push('T9 (R5c-L1) · dieselbe Welt, `nehme ' + w.ziele[0].id.slice(-8) + '` nach ' + kurz1(fs.readFileSync(zH, 'utf8').trim(), 8) + ' Abrufen: Exit ' + r.code + ' — erwartet 1, „schon uebernommen: sitzung/claude/s00" (die berichtigte Lage ist ehrlich, ihre aeltere Fassung muss kommen) · ' + fall(r.aus));
+          }
+        }
+        // ── T11 (R5c-L1, der Rat) · dieselbe Welt, der Remote beantwortet Holen und Spitzen und HAENGT danach (Frist 3 s): die Dateien
+        //    der Nummern kommen nicht, `naechste` ist nicht rechenbar (Exit 2). Der Rat nennt ZUERST `holen` (laengere Frist) und erst
+        //    danach das ganze Repo — vorher „Mit Netz noch einmal: … naechste" (dieselbe Frist: im Kreis) und sofort das ganze Repo.
+        if (fahre('T11')) {
+          const w = wL = wL || weltL('l', 'a', 26), k = klon(w.bare, 'blob:none', 'kt11'), z = path.join(eltern, 'zaehler-T11'), m = marke();
+          helfer(k, 'helfer-T11', abN(w.bare, z, 2, 'exec sleep ' + m));
+          const r = werkzeug(k, ['naechste'], { AUSTAUSCH_HOLEN_FRIST_MS: '3000' }); toeten(m);
+          const nr = zeileMit(r.aus, /^Nicht rechenbar: \d+ Datei\(en\), die die Rechnung braucht/);
+          if (!nr) f.push('Aufbau T11: `naechste` sagt nicht, dass die Dateien der Nummern fehlen — der Fall misst nichts · Exit ' + r.code + ' · ' + kurz1(r.aus.slice(-200), 200));
+          else if (r.code !== 2 || !/Erst `holen` [^\n]*node scripts\/austausch\.mjs holen && node scripts\/austausch\.mjs naechste/.test(r.aus) || /Mit Netz noch einmal: node scripts\/austausch\.mjs naechste/.test(r.aus)) f.push('T11 (R5c-L1) · die Nummern kamen nicht (Frist abgelaufen): Exit ' + r.code + ' — erwartet 2 und als Rat ZUERST `holen` (laengere Frist), nie „Mit Netz noch einmal: … naechste" · ' + kurz1(zeileMit(r.aus, /holen|fetch --refetch/) || r.aus.slice(-200), 260));
+          const rest11 = prozesseMit(m); toeten(m);
+          if (rest11.length) f.push('T11 · danach liegen ' + rest11.length + ' Prozess(e) des haengenden Remote-Helfers');
+        }
+        // ── T12 (R5c-L1, die Reihenfolge) · dieselbe Welt, der Remote beantwortet Holen, Spitzen und EINEN weiteren Abruf und HAENGT
+        //    danach (Frist 4 s). Die Nummern kommen VOR den aelteren Fassungen — also in diesem dritten Abruf: `naechste` rechnet die
+        //    Version (Exit 0), und die aelteren Fassungen, die danach nicht mehr kamen, stehen mit dem Rat `holen` da. Vorher kamen
+        //    die aelteren Fassungen zuerst, ihr Abruf hing bis zur Frist, und `naechste` endete mit Exit 2 („… STATUS.md").
+        if (fahre('T12')) {
+          const w = wL = wL || weltL('l', 'a', 26), k = klon(w.bare, 'blob:none', 'kt12'), z = path.join(eltern, 'zaehler-T12'), m = marke();
+          helfer(k, 'helfer-T12', abN(w.bare, z, 3, 'exec sleep ' + m));
+          const r = werkzeug(k, ['naechste'], { AUSTAUSCH_HOLEN_FRIST_MS: '4000' }); toeten(m);
+          const ae = zeileMit(r.aus, /aeltere Fassung\(en\) von Lagen und Halts kamen nicht \(Frist abgelaufen\)/);
+          if (!ae && r.code === 0) f.push('Aufbau T12: die aelteren Fassungen kamen doch — der Fall misst die Reihenfolge nicht · ' + kurz1(r.aus.slice(-200), 200));
+          else if (r.code !== 0 || !/naechste freie Version: v1\.01/.test(r.aus) || /Nicht rechenbar/.test(r.aus)) f.push('T12 (R5c-L1) · der Remote beantwortet drei Abrufe und haengt danach: `naechste` Exit ' + r.code + ' — erwartet 0 mit „naechste freie Version: v1.01" (die Nummern kommen im dritten Abruf, VOR den aelteren Fassungen) · ' + kurz1(zeileMit(r.aus, /Nicht rechenbar/) || r.aus.slice(-200), 220));
+          const rest12 = prozesseMit(m); toeten(m);
+          if (rest12.length) f.push('T12 · danach liegen ' + rest12.length + ' Prozess(e) des haengenden Remote-Helfers');
+        }
+        // ── T10 (R5c-L1/L2) · 12 ehrliche Branches mit berichtigter Lage (Welt L) und EIN fremder (claude/s06x, sortiert in die Mitte),
+        //    dessen aeltere Fassung haengt (der Helfer sieht ihre Kennung in der Anfrage), 0,3 s je Abruf, Standardfrist. `naechste`
+        //    rechnet die Version (Exit 0): die Nummern kommen VOR den aelteren Fassungen (vorher danach — der haengende Abruf nahm ihnen
+        //    die Frist: Exit 2). Der eine Abruf haengt, danach wird halbierend geteilt: die aelteren Fassungen ALLER ehrlichen Branches
+        //    kommen (nur claude/s06x wird genannt), mit hoechstens 1 + ⌈log2 13⌉ + 1 Abrufen, die den haengenden treffen; und der Rat ist
+        //    zuerst `holen`. Bekam jeder Teil die Haelfte des Rests (statt Rest / noch noetige Abrufe), fehlten zwei ehrliche (81 ms).
+        if (fahre('T10')) {
+          const w = weltL('e', 'b', 12, 'claude/s06x'), evilAlt = w.alt.get('claude/s06x');
+          const kE = klon(w.bare, 'blob:none', 'kt10'), mE = marke(), merkE = path.join(eltern, 'evil10'), zE = path.join(eltern, 'zaehler-t10'), proxyE = path.join(eltern, 'proxy10.cjs');
+          fs.writeFileSync(proxyE, [
+            "const cp = require('child_process'), fs = require('fs');",
+            "const [bare, oid, marke, merk, z] = process.argv.slice(2);",
+            "const zaehl = (f) => { let n = 0; try { n = Number(fs.readFileSync(f, 'utf8')); } catch (_) {} fs.writeFileSync(f, String(n + 1)); };",
+            "zaehl(z);",
+            "setTimeout(() => {",
+            "  const c = cp.spawn('git', ['upload-pack', bare], { stdio: ['pipe', 'inherit', 'inherit'] });",
+            "  let haengt = false, rest = '';",
+            "  c.on('exit', (code) => { if (!haengt) process.exit(code == null ? 1 : code); });",
+            "  c.stdin.on('error', () => {});",
+            "  process.stdin.on('data', (d) => { if (haengt) return; const s = rest + d.toString('latin1');",
+            "    if (s.indexOf(oid) >= 0) { haengt = true; zaehl(merk); c.kill('SIGKILL'); setInterval(() => {}, 60000); return; }",
+            "    rest = s.slice(-oid.length); c.stdin.write(d); });",
+            "  process.stdin.on('end', () => { if (!haengt) c.stdin.end(); });",
+            "}, 300);",
+          ].join('\n') + '\n');
+          helfer(kE, 'helfer-T10', 'exec "' + process.execPath + '" "' + proxyE + '" "' + w.bare + '" "' + evilAlt + '" "' + mE + '" "' + merkE + '" "' + zE + '"');
+          const r = werkzeug(kE, ['naechste'], { AUSTAUSCH_HOLEN_FRIST_MS: '' }); toeten(mE);
+          let treffer = 0; try { treffer = Number(fs.readFileSync(merkE, 'utf8')); } catch (_) {}
+          const ae = zeileMit(r.aus, /aeltere Fassung\(en\) von Lagen und Halts kamen nicht/);
+          if (!treffer) f.push('Aufbau T10: kein Abruf verlangte die aeltere Fassung des fremden Branches — der Fall misst nichts · ' + kurz1(r.aus.slice(-200), 200));
+          else {
+            if (r.code !== 0 || !/naechste freie Version: v1\.01/.test(r.aus) || /Nicht rechenbar/.test(r.aus)) f.push('T10 (R5c-L1) · ein fremder Branch, dessen aeltere Fassung haengt, neben 12 ehrlichen: `naechste` Exit ' + r.code + ' — erwartet 0 mit „naechste freie Version: v1.01" (die Nummern kommen VOR den aelteren Fassungen) · ' + kurz1(zeileMit(r.aus, /Nicht rechenbar/) || r.aus.slice(-200), 220));
+            if (!/\(auf origin\/claude\/s06x\)/.test(ae) || /claude\/s\d\d(?!x)/.test(ae)) f.push('T10 (R5c-L1/L2) · nach dem haengenden Abruf wird halbierend geteilt — erwartet: die aelteren Fassungen aller 12 ehrlichen Branches kommen, genannt wird nur claude/s06x · ' + kurz1(ae || '(keine Zeile „aeltere Fassung(en) … kamen nicht")', 260));
+            if (treffer < 2 || treffer > 6) f.push('T10 (R5c-L1) · ' + treffer + ' Abruf(e) trafen den haengenden Branch — erwartet 2 bis 6 (der eine Abruf fuer alle, dann log N Runden: 1 + ⌈log2 13⌉ = 5)');
+            if (!/Erst `holen` \(Frist \d+ s statt \d+ s, es laedt nur, was fehlt\), dann noch einmal: node scripts\/austausch\.mjs holen && node scripts\/austausch\.mjs naechste/.test(r.aus)) f.push('T10 (R5c-L1) · die aelteren Fassungen kamen nicht (Frist abgelaufen), und der Rat nennt nicht zuerst `holen` (laengere Frist): ' + kurz1(zeileMit(r.aus, /fetch --refetch|holen/) || '(kein Rat)', 220));
+          }
+          const rest10 = prozesseMit(mE); toeten(mE);
+          if (rest10.length) f.push('T10 · danach liegen ' + rest10.length + ' Prozess(e) des haengenden Remote-Helfers');
+        }
         if (f.length) return { ok: false, warum: f.join(' · ') };
         if (t8offen) return { offen: true, warum: t8offen };
-        return { ok: true, info: 'haengender und scheiternder Remote ab dem 3. Abruf: naechste nennt den berichtigten Bump-Halt, nehme „nicht entscheidbar" · Verzeichnis mit den Spitzen: rueckdatierte Lage stiehlt nichts, ohne Verzeichnis „nicht entscheidbar" · aufgeblaehte fremde Geschichte: berichtigte Lage bleibt rechenbar, der Branch wird genannt · Ersatzweg von eigeneAenderung (ungespeichert, touch) ohne Nachladen · holen laedt index.html/sw.js nur bei eigener Aenderung · Ref-Namen gekuerzt · CI (' + (zzMass || 'T8 nicht gefahren') + '): A8 trifft den berichtigten Halt' };
+        return { ok: true, info: 'haengender und scheiternder Remote ab dem 3. Abruf: naechste nennt den berichtigten Bump-Halt, nehme „nicht entscheidbar" · Verzeichnis mit den Spitzen: rueckdatierte Lage stiehlt nichts, ohne Verzeichnis „nicht entscheidbar" · aufgeblaehte fremde Geschichte: berichtigte Lage bleibt rechenbar, der Branch wird genannt · Ersatzweg von eigeneAenderung (ungespeichert, touch) ohne Nachladen · holen laedt index.html/sw.js nur bei eigener Aenderung · Ref-Namen gekuerzt · CI (' + (zzMass || 'T8 nicht gefahren') + '): A8 trifft den berichtigten Halt · 26 ehrlich berichtigte Branches, 0,8 s je Abruf: naechste rechnet, nehme „schon uebernommen" · ein haengender fremder Branch neben 12 ehrlichen: naechste rechnet, alle ehrlichen aelteren Fassungen kommen, Rat zuerst holen · Remote haengt nach drei Abrufen: die Nummern kamen vorher' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; }
       finally {
         if (altNl == null) delete process.env.GIT_NO_LAZY_FETCH; else process.env.GIT_NO_LAZY_FETCH = altNl;
@@ -5298,7 +5718,7 @@ const FAELLE = [
     },
   },
   {
-    name: 'C35 · Identitaet Runde 5b (Gegenpruefung 5b, Skeptiker) · als PROZESS, gegen ein gebautes origin: im CI-Nachbau (actions/checkout eines PR-Merge-Refs mit Tiefe 2, danach die Schritte „Branches fuer das Brett" und „Geschichte fuer das Brett" aus pruefstaende.yml WOERTLICH) ist A10 ohne die Geschichte „nicht pruefbar" — nie still ok —, mit ihr ROT fuer eine um 15 h rueckdatierte eigene Lage und gruen fuer eine ehrliche; der Schritt macht das Repo vollstaendig und laesst den Ref von zz-sicherung stehen; ein Klon, der AELTER ist als ein fremder Branch (fetch: „storing head", alter Wert 0), haelt ihn nach `checkout -b` + `pull` bzw. + `reset --hard` und `git branch -m` fremd, ebenso nach einem eigenen ff-Push auf einen ungeloggt geklonten fremden Branch (alter Wert ≠ 0), und ein selbst gepushter Name bleibt eigen; „fehlt auf origin": ein `cherry-pick` von main als erster Commit eines nie gemergten, geloeschten Branches heisst „!!" mit Push-Befehl, ein Rebase-Merge und ein Squash-Merge mit danach umgeschriebenem Praefix bleiben „squash-gemergt?" ohne „!!"',
+    name: 'C35 · Identitaet Runde 5b (Gegenpruefung 5b, Skeptiker) · als PROZESS, gegen ein gebautes origin: im CI-Nachbau (actions/checkout eines PR-Merge-Refs mit Tiefe 2, danach die Schritte „Branches fuer das Brett" und „Geschichte fuer das Brett" aus pruefstaende.yml WOERTLICH) ist A10 ohne die Geschichte „nicht pruefbar" — nie still ok —, mit ihr ROT fuer eine um 15 h rueckdatierte eigene Lage und gruen fuer eine ehrliche; der Schritt macht das Repo vollstaendig und laesst den Ref von zz-sicherung stehen; ein Klon, der AELTER ist als ein fremder Branch (fetch: „storing head", alter Wert 0), haelt ihn nach `checkout -b` + `pull` bzw. + `reset --hard` und `git branch -m` fremd, ebenso nach einem eigenen ff-Push auf einen ungeloggt geklonten fremden Branch (alter Wert ≠ 0), und ein selbst gepushter Name bleibt eigen; „fehlt auf origin": ein `cherry-pick` von main als erster Commit eines nie gemergten, geloeschten Branches heisst „!!" mit Push-Befehl, ein Rebase-Merge und ein Squash-Merge mit danach umgeschriebenem Praefix bleiben „squash-gemergt?" ohne „!!"; und (Gegenpruefung 5b, Skeptiker, Runde 5c) eine Berichtigung mit GLEICHEM Anspruch und gleicher Zeit wie die geltende Fassung auf main (nur der Titel einer Lage, nur `bis` eines Halts) ist gruen, mit geaendertem Anspruch „nicht pruefbar"; eine strittige eigene Lage ist „nicht pruefbar" (strittig); im FLACHEN Nachbau mit einem Verzeichnis in zz-sicherung (echter Waechter, gestellte Uhr) misst A10 nur, was das Verzeichnis zu Hause UND als Fassung kennt — eine rueckdatierte Lage und ein vordatierter Halt, die es nicht kennt, eine Lage, deren Rueck-Grenze nur sein Stand ist, und ein Halt ohne Vor-Grenze sind „nicht pruefbar", mit der Geschichte ROT — ebenso in einem vollen Teilabruf (blob:none), dem die aeltere Fassung fehlt; und eine Berichtigung (gleicher Anspruch, gleiche Zeit) der gesicherten Fassung, die ihren Schreiber auf dem neu angelegten Branch vertritt, ist gruen',
     lauf: () => {
       const eltern = tmp('ident5b'), bare = path.join(eltern, 'origin.git'), F = path.join(eltern, 'fremd'), S = path.join(eltern, 'saat');
       const kurz1 = (s, n) => { s = String(s || '').replace(/\s*\n\s*/g, ' ⏎ '); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
@@ -5361,9 +5781,9 @@ const FAELLE = [
         g(S, ['checkout', '-q', 'main']);
         const leer = path.join(eltern, 'gitconfig'); fs.writeFileSync(leer, '');
         const sauber = Object.assign({}, process.env, { GIT_CONFIG_GLOBAL: leer, GIT_CONFIG_NOSYSTEM: '1' });
-        const ciCheckout = (name, pr) => {
+        const ciCheckout = (name, pr, b0) => {
           const ci = path.join(eltern, name); fs.mkdirSync(ci);
-          for (const a of [['init', '-q', '.'], ['remote', 'add', 'origin', 'file://' + bare], ['fetch', '-q', '--no-tags', '--depth=2', 'origin', '+refs/pull/' + pr + '/merge:refs/remotes/pull/' + pr + '/merge'], ['checkout', '-q', '--detach', 'refs/remotes/pull/' + pr + '/merge']]) cp.execFileSync('git', a, { cwd: ci, env: sauber, stdio: 'ignore' });
+          for (const a of [['init', '-q', '.'], ['remote', 'add', 'origin', 'file://' + (b0 || bare)], ['fetch', '-q', '--no-tags', '--depth=2', 'origin', '+refs/pull/' + pr + '/merge:refs/remotes/pull/' + pr + '/merge'], ['checkout', '-q', '--detach', 'refs/remotes/pull/' + pr + '/merge']]) cp.execFileSync('git', a, { cwd: ci, env: sauber, stdio: 'ignore' });
           return ci;
         };
         const schritt = (ci, s, wo) => { const x = cp.spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', s], { cwd: ci, encoding: 'utf8', env: sauber }); if (x.status !== 0 || /::warning::/.test(x.stdout + x.stderr)) f.push(wo + ': der Schritt laeuft im Nachbau nicht: Exit ' + x.status + ' · ' + kurz1(x.stdout + x.stderr, 200)); return x; };
@@ -5391,17 +5811,163 @@ const FAELLE = [
           if (x.code !== 1 || !/c3500001[^\n]*rueckdatiert/.test(x.aus)) f.push('A2 · A10 in der CI MIT der Geschichte laesst die um 15 h rueckdatierte eigene Lage durch: Exit ' + x.code + ' · ' + kurz1(x.zeile, 260));
           x = a10ci(ciG, 'claude/gut35');
           if (x.code !== 0) f.push('A2 Gegenrichtung · A10 in der CI MIT der Geschichte: die ehrliche eigene Lage ist nicht gruen (Exit ' + x.code + ') · ' + kurz1(x.zeile, 260));
-          // A3 · Eine Fassung, die GAR NICHT gilt (die Lage liegt schon auf main, der Branch traegt eine berichtigte): ihre Ankunft
-          //      rechnet niemand (brettLesen misst nur die geltende) — gemergt wuerde sie auf main gelten. „nicht pruefbar", nie still ok.
+          // A3 · Eine Fassung, die GAR NICHT gilt (die Lage liegt schon auf main, der Branch traegt eine berichtigte mit ANDEREM
+          //      Anspruch — `bis` verlaengert): ihre Ankunft rechnet niemand (brettLesen misst nur die geltende) — gemergt wuerde sie auf
+          //      main gelten. „nicht pruefbar", nie still ok. (Gegenpruefung 5b, Skeptiker R5c-I2, F7: vorher genuegte dafuer eine reine
+          //      Titelaenderung — der Fall hielt genau die erfundene Unsicherheit fest, die jede ehrliche Berichtigung traf.)
+          // Eine Lage bzw. ein Halt auf main, danach auf dem Branch berichtigt; der PR-Merge-Ref und der CI-Nachbau mit beiden Schritten.
+          const berichtigt = (b, e, aenderung, pr) => {
+            g(S, ['checkout', '-q', '-B', b, 'main']); const p = ablegen(S, e); g(S, ['add', '-A']); g(S, ['commit', '-q', '-m', b + ' v1']); gq(S, ['push', '-q', '-u', 'origin', b]);
+            g(S, ['checkout', '-q', 'main']); g(S, ['merge', '-q', '--ff-only', b]); gq(S, ['push', '-q', 'origin', 'main']);
+            g(S, ['checkout', '-q', b]); fs.writeFileSync(p, JSON.stringify(Object.assign({}, e, aenderung), null, 2) + '\n'); g(S, ['commit', '-q', '-am', b + ' v2']); gq(S, ['push', '-q', 'origin', b]);
+            g(S, ['checkout', '-q', '-B', 'pr-merge', 'main']); g(S, ['merge', '-q', '--no-ff', '--no-edit', b]); gq(S, ['push', '-q', '-f', 'origin', 'HEAD:refs/pull/' + pr + '/merge']); g(S, ['checkout', '-q', 'main']);
+            const ci = ciCheckout('ci-' + b.replace(/\//g, '-'), pr); schritt(ci, sBr, 'A3 „Branches fuer das Brett" (' + b + ')'); schritt(ci, sGe, 'A3 „Geschichte fuer das Brett" (' + b + ')');
+            return a10ci(ci, b);
+          };
           const tB = stamp(jetzt(-1)), ber = lage(Object.assign({ id: tB.datum + '-c3500003', von: 'sitzung/claude/ber35', bis: bisIn(3), titel: 'Erste Fassung' }, tB));
-          g(S, ['checkout', '-q', '-B', 'claude/ber35', 'main']); const pB = ablegen(S, ber); g(S, ['add', '-A']); g(S, ['commit', '-q', '-m', 'ber v1']); gq(S, ['push', '-q', '-u', 'origin', 'claude/ber35']);
-          g(S, ['checkout', '-q', 'main']); g(S, ['merge', '-q', '--ff-only', 'claude/ber35']); gq(S, ['push', '-q', 'origin', 'main']);
-          g(S, ['checkout', '-q', 'claude/ber35']); fs.writeFileSync(pB, JSON.stringify(Object.assign({}, ber, { titel: 'Berichtigte Fassung' }), null, 2) + '\n'); g(S, ['commit', '-q', '-am', 'ber v2']); gq(S, ['push', '-q', 'origin', 'claude/ber35']);
-          g(S, ['checkout', '-q', '-B', 'pr-merge', 'main']); g(S, ['merge', '-q', '--no-ff', '--no-edit', 'claude/ber35']); gq(S, ['push', '-q', '-f', 'origin', 'HEAD:refs/pull/3/merge']); g(S, ['checkout', '-q', 'main']);
-          const ciB = ciCheckout('ci-ber', 3); schritt(ciB, sBr, 'A3 „Branches fuer das Brett"'); schritt(ciB, sGe, 'A3 „Geschichte fuer das Brett"');
-          x = a10ci(ciB, 'claude/ber35');
-          if (x.code !== 2 || !/nicht pruefbar: [^\n]*c3500003[^\n]*andere Fassung derselben id gilt/.test(x.aus)) f.push('A3 · A10 mit einer berichtigten Fassung einer Lage, die schon auf main liegt: Exit ' + x.code + ' — erwartet 2 („eine andere Fassung derselben id gilt"), nie still ok · ' + kurz1(x.zeile, 260));
+          x = berichtigt('claude/ber35', ber, { titel: 'Berichtigte Fassung', bis: bisIn(4) }, 3);
+          if (x.code !== 2 || !/nicht pruefbar: [^\n]*c3500003[^\n]*andere Fassung derselben id gilt \(Anspruch geaendert\)/.test(x.aus)) f.push('A3 · A10 mit einer berichtigten Fassung (bis verlaengert: anderer Anspruch) einer Lage, die schon auf main liegt: Exit ' + x.code + ' — erwartet 2 („eine andere Fassung derselben id gilt (Anspruch geaendert)"), nie still ok · ' + kurz1(x.zeile, 260));
+          // A3b/A3c · Gegenrichtung (R5c-I2, F7): gleicher Anspruch, gleiche Zeit wie die geltende Fassung auf main — dort in ihrem
+          //      eigenen PR gemessen; fuer diese ist nichts Neues zu messen. Nur der Titel einer Lage bzw. nur `bis` eines Halts
+          //      (Anspruch eines Halts: [id, von], D3) → gruen. Vorher Exit 2 bei jeder solchen ehrlichen Berichtigung.
+          const tT = stamp(jetzt(-1)), tit = lage(Object.assign({ id: tT.datum + '-c3500004', von: 'sitzung/claude/tit35', bis: bisIn(3), titel: 'Erste Fassung' }, tT));
+          x = berichtigt('claude/tit35', tit, { titel: 'Nur der Titel ist neu' }, 4);
+          if (x.code !== 0) f.push('A3b Gegenrichtung · A10 mit einer Lage auf main, auf dem Branch nur der TITEL berichtigt (gleicher Anspruch, gleiche Zeit): Exit ' + x.code + ' — erwartet 0, die erfundene Unsicherheit ist weg · ' + kurz1(x.zeile, 260));
+          const tH = stamp(jetzt(-0.5)), hv = mk('halt', Object.assign({ id: tH.datum + '-c3500005', von: 'sitzung/claude/hv35', bis: bisIn(6), geltung: ['gsEins'], text: 'nicht anfassen' }, tH));
+          x = berichtigt('claude/hv35', hv, { bis: bisIn(10) }, 5);
+          if (x.code !== 0) f.push('A3c Gegenrichtung · A10 mit einem Halt auf main, auf dem Branch nur `bis` verlaengert (Anspruch [id, von] unveraendert, gleiche Zeit): Exit ' + x.code + ' — erwartet 0 · ' + kurz1(x.zeile, 260));
+          // A3d · Und der ZEITPUNKT zaehlt mit: derselbe Anspruch, aber auf dem Branch frueher gestempelt (00:00 desselben Tages) —
+          //       rueckdatiert misst eine Zeit, und die rechnet hier niemand: „nicht pruefbar", nie still ok.
+          const tZ = stamp(jetzt(-0.5)), hz = mk('halt', Object.assign({ id: tZ.datum + '-c3500007', von: 'sitzung/claude/hz35', bis: bisIn(6), geltung: ['gsEins'], text: 'nicht anfassen' }, tZ));
+          x = berichtigt('claude/hz35', hz, { zeit: '00:00:00' }, 7);
+          if (tZ.zeit !== '00:00:00' && (x.code !== 2 || !/nicht pruefbar: [^\n]*c3500007[^\n]*andere Fassung derselben id gilt \(Zeitpunkt geaendert\)/.test(x.aus))) f.push('A3d · A10 mit einem Halt auf main, auf dem Branch FRUEHER gestempelt (gleicher Anspruch, anderer Zeitpunkt): Exit ' + x.code + ' — erwartet 2 („Zeitpunkt geaendert"), nie still ok · ' + kurz1(x.zeile, 260));
+          // A4 · STRITTIG (Gegenpruefung 5b, Skeptiker R5c-I3): eine eigene, um 15 h rueckdatierte Lage auf claude/evil4, dieselbe id mit
+          //      FREMDEM `von` auf einem dritten Branch — keine Fassung gilt, niemand rechnet ihre Ankunft; gemergt gilt die von main
+          //      (D5), und die Rueckdatierung bliebe ungemessen. „nicht pruefbar" mit „strittig", nie still ok. Vorher bewachte den
+          //      Zweig kein Fall: ausgebaut blieb die ganze Suite gruen.
+          { const tS = stamp(jetzt(-15)), st = lage(Object.assign({ id: tS.datum + '-c3500006', von: 'sitzung/claude/evil4', bis: bisIn(3) }, tS));
+            g(S, ['checkout', '-q', '-B', 'claude/evil4', 'main']); const pS = ablegen(S, st); g(S, ['add', '-A']); g(S, ['commit', '-q', '-m', 'evil4']); gq(S, ['push', '-q', '-u', 'origin', 'claude/evil4']);
+            g(S, ['checkout', '-q', '-B', 'claude/dritt4', 'main']); fs.mkdirSync(path.dirname(pS), { recursive: true }); fs.writeFileSync(pS, JSON.stringify(Object.assign({}, st, { von: 'sitzung/claude/dritt4' }), null, 2) + '\n'); g(S, ['add', '-A']); g(S, ['commit', '-q', '-m', 'dritt4']); gq(S, ['push', '-q', '-u', 'origin', 'claude/dritt4']);
+            g(S, ['checkout', '-q', '-B', 'pr-merge', 'main']); g(S, ['merge', '-q', '--no-ff', '--no-edit', 'claude/evil4']); gq(S, ['push', '-q', '-f', 'origin', 'HEAD:refs/pull/6/merge']); g(S, ['checkout', '-q', 'main']);
+            const ciS = ciCheckout('ci-strittig', 6); schritt(ciS, sBr, 'A4 „Branches fuer das Brett"'); schritt(ciS, sGe, 'A4 „Geschichte fuer das Brett"');
+            x = a10ci(ciS, 'claude/evil4');
+            if (x.code !== 2 || !/nicht pruefbar: [^\n]*c3500006[^\n]*strittig/.test(x.aus)) f.push('A4 · A10 mit einer eigenen, 15 h rueckdatierten Lage, deren id ein dritter Branch mit fremdem `von` traegt (strittig): Exit ' + x.code + ' — erwartet 2 („strittig"), nie still ok · ' + kurz1(x.zeile, 260)); }
         }
+        }
+
+        // ── A5 · Ein VERALTETES Verzeichnis im flachen Klon (Gegenpruefung 5b, Skeptiker R5c-I1, F6). Scheitert der Schritt „Geschichte
+        //       fuer das Brett" (oder ist eine Sitzungs-Kopie flach), gibt es keine Geschichte — aber zz-sicherung traegt ein Verzeichnis.
+        //       Kennt es den Anspruch zu Hause nicht, war die Rueck-Grenze nur sein `stand`, und vordatiert mass niemand (keine
+        //       `_vorGrenze`): eine 7 h rueckdatierte Lage gegen einen 2 h alten Stand und ein 6 h vordatierter Halt (bis = Zeit + 70 h,
+        //       also 76 h nach der Ankunft: an der 72-h-Frist vorbei) waren in A10 „ok … Ankunft gerechnet". Eine EIGENE Welt mit einem
+        //       echten Waechter (A.sicherungSchreiben mit gestellter Uhr, Stand ohne Geschichte auf zz-sicherung — wie der Waechter).
+        if (ymlDa && sGe) {
+          const bare5 = path.join(eltern, 'origin5.git'), S5 = path.join(eltern, 'saat5'), W5 = path.join(eltern, 'waechter5');
+          cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare5]); g(bare5, ['config', 'uploadpack.allowFilter', 'true']);
+          fs.mkdirSync(S5); g(S5, ['init', '-q', '-b', 'main', '.']); g(S5, ['remote', 'add', 'origin', 'file://' + bare5]);
+          fs.writeFileSync(path.join(S5, 'index.html'), QUELLE); fs.writeFileSync(path.join(S5, 'sw.js'), "const VERSION = 'gs-v1.00';\n"); fs.writeFileSync(path.join(S5, 'STATUS.md'), '# Status\n');
+          g(S5, ['add', '-A']); g(S5, ['commit', '-q', '-m', 'start']); gq(S5, ['push', '-q', 'origin', 'main']);
+          cp.execFileSync('git', ['clone', '-q', 'file://' + bare5, W5], { stdio: 'ignore' });
+          // Ein Waechter-Lauf zur Zeit `ms`: alle Branches holen, sichern (das bisherige Verzeichnis als alt, das Gedaechtnis wie aus dem
+          // Actions-Cache — nur mit ihm kennt ein Lauf den vorigen, also heimNichtVor), den Stand ohne Geschichte pushen.
+          const ged5 = path.join(eltern, 'gedaechtnis5.json');
+          const waechter = (ms) => {
+            gq(W5, ['fetch', '-q', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
+            const alt = (A.git(W5, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/zz-sicherung']) || '').trim() || null;
+            const r = A.sicherungSchreiben(W5, { alt, jetzt: ms, stand: fs.existsSync(ged5) ? ged5 : null, standNeu: ged5 });
+            if (r.grund) throw new Error('A5 Aufbau: der Waechter sichert nicht: ' + r.grund);
+            gq(W5, ['push', '-q', '-f', 'origin', g(W5, ['commit-tree', r.baum, '-m', 'Brett-Sicherung']).trim() + ':refs/heads/zz-sicherung']);
+          };
+          const pr5 = (b, pr) => { g(S5, ['checkout', '-q', '-B', 'pr-merge', 'main']); g(S5, ['merge', '-q', '--no-ff', '--no-edit', b]); gq(S5, ['push', '-q', '-f', 'origin', 'HEAD:refs/pull/' + pr + '/merge']); g(S5, ['checkout', '-q', 'main']); };
+          const ab = (b, eintraege, zeiten) => { g(S5, ['checkout', '-q', '-B', b, 'main']); for (const e of eintraege) ablegen(S5, e); g(S5, ['add', '-A']); if (zeiten) gz(S5, ['commit', '-q', '-m', b], zeiten); else g(S5, ['commit', '-q', '-m', b]); gq(S5, ['push', '-q', '-f', '-u', 'origin', b]); g(S5, ['checkout', '-q', 'main']); };
+          const flachUndVoll = (wo, pr, kopf, flachErw, vollErw) => {
+            const ci = ciCheckout('ci5-' + pr, pr, bare5); schritt(ci, sBr, wo + ' „Branches fuer das Brett"');
+            if (flach(ci) !== 'true') f.push(wo + ' Aufbau: der Nachbau ist nach „Branches fuer das Brett" nicht flach');
+            if (!(A.git(ci, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/zz-sicherung']) || '').trim()) f.push(wo + ' Aufbau: zz-sicherung fehlt im Nachbau — der Fall misst nicht, was er nennt');
+            const pfeil = (y) => kurz1((y.aus.match(/→[^\n]*/) || [y.zeile])[0], 320);
+            let y = a10ci(ci, kopf); const m1 = flachErw(y); if (m1) f.push(wo + ' · flach (nur „Branches fuer das Brett", zz-sicherung mit Verzeichnis): ' + m1 + ' · ' + pfeil(y));
+            schritt(ci, sGe, wo + ' „Geschichte fuer das Brett"');
+            y = a10ci(ci, kopf); const m2 = vollErw(y); if (m2) f.push(wo + ' · mit „Geschichte fuer das Brett": ' + m2 + ' · ' + pfeil(y));
+          };
+          // Feste Zeiten fuer den Halt, der die Fassung wechselt (A5c/A5d): beide Fassungen tragen DIESELBE id, also dasselbe Datum —
+          // gestern 12:00 UTC (dort liegt keine Mitternacht dazwischen, gleich wann der Fall laeuft).
+          const B = Date.parse(new Date(Date.now() - 864e5).toISOString().slice(0, 10) + 'T12:00:00Z'), sek = (ms) => Math.round((ms - Date.now()) / 1000);
+          const st0 = (ms) => stamp(new Date(ms)), isoZ = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
+          const h1 = mk('halt', Object.assign({ id: st0(B).datum + '-c3500020', von: 'sitzung/claude/hh35', bis: isoZ(B + 2 * 36e5), geltung: ['gsEins'], text: 'nicht anfassen' }, st0(B)));
+          const h2 = Object.assign({}, h1, st0(B + 6 * 36e5), { bis: isoZ(B + 76 * 36e5) });
+          const tL = stamp(jetzt(-7)), lageA = lage(Object.assign({ id: tL.datum + '-c3500021', von: 'sitzung/claude/st35', bis: bisIn(3) }, tL));
+          const tV = stamp(jetzt(6)), haltA = mk('halt', Object.assign({ id: tV.datum + '-c3500022', von: 'sitzung/claude/st35', bis: new Date(jetzt(6).getTime() + 70 * 36e5).toISOString().replace(/\.\d{3}Z$/, 'Z'), geltung: ['gsEins'], text: 'kein Anfassen' }, tV));
+          const lageB = lage(Object.assign({ id: tL.datum + '-c3500023', von: 'sitzung/claude/st35b', bis: bisIn(3) }, tL));
+          waechter(B - 36e5);                                                        // Lauf 1: kennt nichts
+          ab('claude/hh35', [h1], { a: sek(B + 30e3), c: sek(B + 30e3) });           // der Halt, ehrlich, zu Hause
+          waechter(B + 60e3);                                                        // Lauf 2: sieht ihn zu Hause (heimNichtVor = Lauf 1)
+          ab('claude/vorrat35', [lageB]);                                            // eine Kopie von lageB, nur auf einem dritten Branch
+          waechter(Date.now() - 2 * 36e5);                                           // Lauf 3, 2 h alt: kennt lageA/haltA nicht, lageB nur auswaerts
+          // A5d · Gegenrichtung: der ehrliche Halt, den das Verzeichnis zu Hause UND als Fassung kennt, misst es allein (D4) — auch flach gruen.
+          pr5('claude/hh35', 51);
+          flachUndVoll('A5d Gegenrichtung', 51, 'claude/hh35', (y) => y.code !== 0 ? 'Exit ' + y.code + ' — erwartet 0: das Verzeichnis kennt Anspruch und Fassung' : null, (y) => y.code !== 0 ? 'Exit ' + y.code + ' — erwartet 0' : null);
+          // A5a · Lage −7 h und Halt +6 h (bis = Zeit + 70 h), das Verzeichnis kennt beide nicht: flach nicht pruefbar, voll ROT.
+          ab('claude/st35', [lageA, haltA]); pr5('claude/st35', 52);
+          flachUndVoll('A5a', 52, 'claude/st35',
+            (y) => y.code !== 2 || !/nicht pruefbar: [^\n]*c3500021/.test(y.aus) || !/nicht pruefbar: [^\n]*c3500022/.test(y.aus) ? 'Exit ' + y.code + ' — erwartet 2 („nicht pruefbar" fuer die rueckdatierte Lage UND den vordatierten Halt), nie still ok' : null,
+            (y) => y.code !== 1 || !/c3500021[^\n]*rueckdatiert/.test(y.aus) || !/c3500022[^\n]*vordatiert/.test(y.aus) ? 'Exit ' + y.code + ' — erwartet 1 (Lage rueckdatiert, Halt vordatiert)' : null);
+          // A5b · nur Bedingung (2): das Verzeichnis kennt die Fassung (sie lag auswaerts, `_vorGrenze` = ihre erste Sichtung), den Anspruch
+          //       zu Hause aber nicht — die Rueck-Grenze ist nur der Stand (2 h alt), die Lage 7 h rueckdatiert: flach nicht pruefbar.
+          ab('claude/st35b', [lageB]); pr5('claude/st35b', 53);
+          flachUndVoll('A5b', 53, 'claude/st35b',
+            (y) => y.code !== 2 || !/nicht pruefbar: [^\n]*c3500023[^\n]*nur gegen den Stand des Waechters/.test(y.aus) ? 'Exit ' + y.code + ' — erwartet 2 („rueckdatiert nur gegen den Stand des Waechters gemessen")' : null,
+            (y) => y.code !== 1 || !/c3500023[^\n]*rueckdatiert/.test(y.aus) ? 'Exit ' + y.code + ' — erwartet 1 (rueckdatiert)' : null);
+          // A5c · nur Bedingung (1): der Halt, zu Hause bekannt (Rueck-Grenze 'heim'), danach auf dem Branch um 6 h VORdatiert berichtigt
+          //       (Anspruch [id, von] gleich, bis = Zeit + 70 h) — diese Fassung kennt das Verzeichnis nicht: flach nicht pruefbar, voll ROT.
+          { g(S5, ['checkout', '-q', 'claude/hh35']); const p = ablegen(S5, h2); if (g(S5, ['status', '--porcelain']).trim().split('\n').length !== 1) f.push('A5c Aufbau: die zweite Fassung ersetzt nicht genau die Datei der ersten');
+            g(S5, ['add', '-A']); gz(S5, ['commit', '-q', '-m', 'hh35 v2'], { a: sek(B + 6e5), c: sek(B + 6e5) }); gq(S5, ['push', '-q', 'origin', 'claude/hh35']); g(S5, ['checkout', '-q', 'main']); void p; }
+          pr5('claude/hh35', 54);
+          flachUndVoll('A5c', 54, 'claude/hh35',
+            (y) => y.code !== 2 || !/nicht pruefbar: [^\n]*c3500020[^\n]*vordatiert nicht gemessen/.test(y.aus) ? 'Exit ' + y.code + ' — erwartet 2 („vordatiert nicht gemessen")' : null,
+            (y) => y.code !== 1 || !/c3500020[^\n]*vordatiert/.test(y.aus) ? 'Exit ' + y.code + ' — erwartet 1 (vordatiert)' : null);
+          // A5f · Dieselbe Luecke in einem NICHT flachen Teilabruf (blob:none — wie eine Sitzungs-Kopie, das Verzeichnis liegt da wie
+          //       nach `holen`): die Lage −7 h hat auf ihrem Branch eine aeltere Fassung (nur der Titel), deren Blob fehlt — git rechnet
+          //       nicht mit, die Rueck-Grenze ist nur der Stand (2 h alt). Gemessen am Stand von 5c-flach: still ok. „nicht pruefbar";
+          //       mit der aelteren Fassung (Gegenrichtung) ROT.
+          { const lageF = lage(Object.assign({ id: tL.datum + '-c3500025', von: 'sitzung/claude/st35f', bis: bisIn(3), titel: 'Erste' }, tL));
+            g(S5, ['checkout', '-q', '-B', 'claude/st35f', 'main']); const p = ablegen(S5, lageF); g(S5, ['add', '-A']); g(S5, ['commit', '-q', '-m', 'st35f v1']);
+            fs.writeFileSync(p, JSON.stringify(Object.assign({}, lageF, { titel: 'Zweite' }), null, 2) + '\n'); g(S5, ['commit', '-q', '-am', 'st35f v2']); gq(S5, ['push', '-q', '-u', 'origin', 'claude/st35f']); g(S5, ['checkout', '-q', 'main']);
+            const K = path.join(eltern, 'teilabruf5'), gk = (a) => cp.execFileSync('git', a, { cwd: K, env: sauber, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+            cp.execFileSync('git', ['clone', '-q', '--filter=blob:none', '-b', 'claude/st35f', 'file://' + bare5, K], { env: sauber, stdio: 'ignore' });
+            gk(['fetch', '-q', '--no-filter', '--refetch', 'origin', '+refs/heads/zz-sicherung:refs/remotes/origin/zz-sicherung']);
+            fs.mkdirSync(path.join(K, 'scripts'), { recursive: true });
+            for (const n of ['austausch.mjs', '_austausch.mjs', 'austausch_check.js']) fs.copyFileSync(path.join(__dirname, n), path.join(K, 'scripts', n));
+            const a10k = () => { const env = Object.assign({}, sauber, { AUSTAUSCH_FALL: 'A10', GITHUB_HEAD_REF: '', GIT_NO_LAZY_FETCH: '1' }); delete env.GITHUB_ACTIONS; delete env.GITHUB_EVENT_NAME;
+              const y = cp.spawnSync(process.execPath, [path.join(K, 'scripts', 'austausch_check.js')], { encoding: 'utf8', env }); return { code: y.status, aus: (y.stdout || '') + (y.stderr || ''), zeile: ((y.stdout || '').match(/→[^\n]*/) || [''])[0] }; };
+            const altBlob = gk(['rev-parse', 'origin/claude/st35f~1:' + path.relative(S5, p).split(path.sep).join('/')]).trim();
+            if (gk(['rev-parse', '--is-shallow-repository']).trim() !== 'false' || cp.spawnSync('git', ['cat-file', '-e', altBlob], { cwd: K, env: Object.assign({}, sauber, { GIT_NO_LAZY_FETCH: '1' }) }).status === 0) f.push('A5f Aufbau: der Teilabruf ist flach, oder die aeltere Fassung liegt schon da — der Fall misst nicht, was er nennt');
+            let y = a10k();
+            if (y.code !== 2 || !/nicht pruefbar: [^\n]*c3500025[^\n]*nur gegen den Stand des Waechters[^\n]*git zaehlte nicht mit/.test(y.aus)) f.push('A5f · A10 im vollen Teilabruf (blob:none, aeltere Fassung fehlt, Verzeichnis 2 h alt) mit einer 7 h rueckdatierten Lage: Exit ' + y.code + ' — erwartet 2 („nur gegen den Stand des Waechters", „git zaehlte nicht mit"), nie still ok · ' + kurz1(y.zeile, 280));
+            gk(['fetch', '-q', '--no-filter', '--refetch', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
+            y = a10k();
+            if (y.code !== 1 || !/c3500025[^\n]*rueckdatiert/.test(y.aus)) f.push('A5f Gegenrichtung · derselbe Klon mit der aelteren Fassung: Exit ' + y.code + ' — erwartet 1 (rueckdatiert) · ' + kurz1(y.zeile, 280)); }
+          // A5g · Gegenrichtung zu (2): git ZAEHLTE mit, war nur nicht strenger als der Stand — eine ehrliche Lage, vor 3 h committet
+          //       (Zeitstempel = Commit-Zeit) und erst nach dem Waechter-Lauf (2 h alt) gepusht. Im vollen Nachbau gruen; flach kennt das
+          //       Verzeichnis die Fassung nicht (keine Vor-Grenze): „nicht pruefbar".
+          { const t3 = jetzt(-3), lageG = lage(Object.assign({ id: stamp(t3).datum + '-c3500026', von: 'sitzung/claude/st35g', bis: bisIn(3) }, stamp(t3)));
+            ab('claude/st35g', [lageG], { a: -3 * 3600, c: -3 * 3600 }); pr5('claude/st35g', 56);
+            flachUndVoll('A5g Gegenrichtung', 56, 'claude/st35g',
+              (y) => y.code !== 2 || !/nicht pruefbar: [^\n]*c3500026[^\n]*vordatiert nicht gemessen/.test(y.aus) ? 'Exit ' + y.code + ' — erwartet 2 („vordatiert nicht gemessen")' : null,
+              (y) => y.code !== 0 ? 'Exit ' + y.code + ' — erwartet 0: git rechnete mit (Autor-Zeit vor dem Stand des Waechters), die Lage ist ehrlich' : null); }
+          // A5e · F7 jenseits von main (D2): ein Halt, gesichert, sein Branch geloescht und mit derselben Geschichte neu gepusht (neu
+          //       angelegt), danach nur `bis` berichtigt und ueber main gemergt — der Weg, den `zeige` dem Schreiber dann nennt. Es gilt
+          //       die GESICHERTE Fassung (sie vertritt ihn dort); gleicher Anspruch, gleiche Zeit: ihre Messung (das Verzeichnis kennt
+          //       beide Grenzen) gilt fuer diese. Gruen, flach wie voll — vorher Exit 2 („eine andere Fassung derselben id gilt").
+          { const tD = stamp(jetzt(-1.75)), hD = mk('halt', Object.assign({ id: tD.datum + '-c3500024', von: 'sitzung/claude/d35', bis: bisIn(20), geltung: ['gsEins'], text: 'Erste Fassung' }, tD));
+            ab('claude/d35', [hD]); const spitze = g(S5, ['rev-parse', 'claude/d35']).trim();
+            waechter(Date.now() - 1.5 * 36e5);                                         // sieht ihn zu Hause (heimNichtVor = Lauf 3)
+            gq(S5, ['push', '-q', 'origin', '--delete', 'claude/d35']); waechter(Date.now() - 36e5);                 // verschwunden
+            gq(S5, ['push', '-q', 'origin', spitze + ':refs/heads/claude/d35']); waechter(Date.now() - 0.5 * 36e5);  // neu angelegt
+            g(S5, ['checkout', '-q', 'claude/d35']); ablegen(S5, Object.assign({}, hD, { bis: bisIn(30) })); g(S5, ['commit', '-q', '-am', 'd35 v2']); gq(S5, ['push', '-q', 'origin', 'claude/d35']); g(S5, ['checkout', '-q', 'main']);
+            const zz = (A.git(W5, ['show', 'refs/remotes/origin/zz-sicherung:' + A.VERZEICHNIS]) || '');
+            if (!/"origin\/claude\/d35"/.test((zz.match(/"neuAngelegt"[^}]*}/) || [''])[0])) f.push('A5e Aufbau: das Verzeichnis fuehrt origin/claude/d35 nicht als neu angelegt — der Fall misst nicht, was er nennt');
+            pr5('claude/d35', 55);
+            flachUndVoll('A5e (D2)', 55, 'claude/d35', (y) => y.code !== 0 ? 'Exit ' + y.code + ' — erwartet 0: es gilt die gesicherte Fassung, gleicher Anspruch, gleiche Zeit, ihre Ankunft kennt das Verzeichnis' : null, (y) => y.code !== 0 ? 'Exit ' + y.code + ' — erwartet 0' : null); }
         }
 
         // ── B · Ein Klon, AELTER als der fremde Branch (R5b-identitaet-1): so stehen 141 von 142 Remote-Refs im echten Repo. `fetch`
@@ -5487,21 +6053,22 @@ const FAELLE = [
         }
         if (f.length) return { ok: false, warum: f.join(' · ') };
         if (offenA) return { offen: true, warum: offenA + ' · B (Eigentumsbeleg) und C (fehlt auf origin) sind gruen' };
-        return { ok: true, info: 'CI-Nachbau (Tiefe 2 + beide Schritte woertlich): ohne Geschichte A10 nicht pruefbar (rueckdatiert wie ehrlich), mit ihr rot bzw. gruen, eine nicht geltende Fassung nicht pruefbar, Repo vollstaendig · Klon aelter als der fremde Branch (storing head, alter Wert 0): pull, reset --hard → fremd; ungeloggt geklont + ff-Push (alter Wert ≠ 0) → fremd; selbst gepusht → eigen · fehlt auf origin: cherry-pick von main → „!!" mit Push; Rebase-Merge und Squash mit umgeschriebenem Praefix → „squash-gemergt?" · zz-sicherung bleibt stehen' };
+        return { ok: true, info: 'CI-Nachbau (Tiefe 2 + beide Schritte woertlich): ohne Geschichte A10 nicht pruefbar (rueckdatiert wie ehrlich), mit ihr rot bzw. gruen, eine nicht geltende Fassung mit anderem Anspruch nicht pruefbar, mit gleichem Anspruch und gleicher Zeit (Titel einer Lage, bis eines Halts) gruen, strittig nicht pruefbar, Repo vollstaendig · flach mit veraltetem Verzeichnis: unbekannte Lage/Halt, Rueck-Grenze nur Stand, keine Vor-Grenze → nicht pruefbar, mit Geschichte rot; bekannt zu Hause und als Fassung → gruen; git rechnete mit (Stand strenger) → gruen · blob:none ohne aeltere Fassung → nicht pruefbar, mit ihr rot · D2: Berichtigung der vertretenden Fassung → gruen · Klon aelter als der fremde Branch (storing head, alter Wert 0): pull, reset --hard → fremd; ungeloggt geklont + ff-Push (alter Wert ≠ 0) → fremd; selbst gepusht → eigen · fehlt auf origin: cherry-pick von main → „!!" mit Push; Rebase-Merge und Squash mit umgeschriebenem Praefix → „squash-gemergt?" · zz-sicherung bleibt stehen' };
       } catch (e) { return { ok: false, warum: f.concat('Ausnahme: ' + String(e.message).split('\n')[0]).join(' · ') }; } finally { weg(eltern); }
     },
   },
   {
-    name: 'C36 · Ausgabe Runde 5b (Gegenpruefung 5, Skeptiker) · was EINE Zeile ist (Titel, Geltung, Stichwort, Pfad, Kennung, Wort aus einem Vokabular, Feldname), traegt kein Steuer-, Format- oder Trennzeichen: das Werkzeug schreibt es nicht, und gelesen ist die Fassung UNLESBAR mit Grund — Mehrzeiliges (text, beleg, regel, suchmuster …) bleibt lesbar; kein Grund traegt einen fremden Wert roh; als PROZESS: weder ein Halt (HALT UND VETO, zeige, ernten) noch eine Fehlerklasse (`klasse`, FEHLERKLASSE?) schreibt einen gefaelschten GELIEFERT-Block; ZWJ-Emoji und weicher Trennstrich kommen unveraendert an, U+202E daneben sichtbar; der Pruefstand gibt keine Zeile aus, die auf GitHub ein Befehl ist (zwei Doppelpunkte am Zeilenanfang, auch die alte Form mit Raute), A8 fasst einen fremden Halttext in EINE Zeile; ein offener Halt nennt „Ankunft nicht rechenbar" (zeige, HALT-Zeile, HALT UND VETO), eine offene Lage steht unter NICHT GERECHNET; `naechste` sagt ohne STATUS-Kuerzel „nicht bestimmbar" statt „(null)"',
-    lauf: () => {
+    name: 'C36 · Ausgabe Runde 5b (Gegenpruefung 5, Skeptiker) · was EINE Zeile ist (Titel, Geltung, Stichwort, Pfad, Kennung, Wort aus einem Vokabular, Feldname), traegt kein Steuer-, Format- oder Trennzeichen: das Werkzeug schreibt es nicht, und gelesen ist die Fassung UNLESBAR mit Grund — Mehrzeiliges (text, beleg, regel, suchmuster …) bleibt lesbar; kein Grund traegt einen fremden Wert roh; als PROZESS: weder ein Halt (HALT UND VETO, zeige, ernten) noch eine Fehlerklasse (`klasse`, FEHLERKLASSE?) schreibt einen gefaelschten GELIEFERT-Block; ZWJ-Emoji und weicher Trennstrich (neben einem Nicht-ASCII-Zeichen) kommen unveraendert an, U+202E daneben sichtbar; der Pruefstand gibt keine Zeile aus, die auf GitHub ein Befehl ist (zwei Doppelpunkte am Zeilenanfang, auch die alte Form mit Raute), A8 fasst einen fremden Halttext in EINE Zeile; ein offener Halt nennt „Ankunft nicht rechenbar" (zeige, HALT-Zeile, HALT UND VETO), eine offene Lage steht unter NICHT GERECHNET; `naechste` sagt ohne STATUS-Kuerzel „nicht bestimmbar" statt „(null)"; R5c (Gegenpruefung 5b, Skeptiker): NAMEN STRENG, PROSA NACHSICHTIG — claude/ab, claude/a<ZWJ>b, claude/a<SHY>b, claude/grün, claude/grü<ZWJ>n und ein `von` mit U+034F stehen in `holen` und `zeige` unterscheidbar da (FRISCHE BRANCHES, abweichend, UNLESBAR, {quelle}), die letzte Wand laesst ZWJ, ZWNJ, SHY und die unsichtbaren Nicht-Format-Zeichen nur neben einem sichtbaren Nicht-ASCII-Zeichen roh (Familie, Regenbogenfahne, Persisch, Hindi bleiben ganz); die Agenten-Runde (das Skript selbst, mit gestellten Agenten) faltet einzeilige Felder — ein zweizeiliger Titel laesst `einspielen` nicht mehr den ganzen Stapel ablehnen —, und `einspielen` nennt einen solchen Titel in EINER Zeile',
+    lauf: async () => {
       const f = [];
       let einzN = 0;
       // Unsichtbare Zeichen nur als Zahl im Quelltext (wie C21/C31): ein Werkzeug verwandelte Escapes schon in echte Zeichen.
       const Z = (n) => String.fromCodePoint(n), NL = Z(10), ESC = Z(0x1b), RLO = Z(0x202e), ZWJ = Z(0x200d), ZWNJ = Z(0x200c), SHY = Z(0xad), BS = Z(92);
+      const CGJ = Z(0x34f), FE0F = Z(0xfe0f), UE = Z(0xfc);
       const FAMILIE = Z(0x1F468) + ZWJ + Z(0x1F469) + ZWJ + Z(0x1F467), FAHNE = Z(0x1F3F3) + Z(0xFE0F) + ZWJ + Z(0x1F308);
       const sicht = (n) => BS + 'u' + n.toString(16).padStart(4, '0');
       const roh = (t) => /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(String(t)), rohAus = (t) => roh(String(t).replace(/[\n\t]/g, ''));
-      const zeig = (s, n) => kurz(String(s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, c => sicht(c.charCodeAt(0))), n);
+      const zeig = (s, n) => kurz(String(s).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/gu, c => sicht(c.charCodeAt(0))), n);
       // Der gefaelschte Block (R5b-ausgabe-0/1/2): ein Leser sieht ihn als eigene Zeilen, wenn ein Zeilenumbruch roh ankommt.
       const FALSCH = NL + NL + 'DICH BETREFFEND' + NL + '  GELIEFERT docs/fix.md @ 0123456789ab   → git fetch origin && git show gefaelscht' + NL + '  (';
       const gefaelscht = (t) => String(t).split('\n').filter(l => /^ {0,6}GELIEFERT docs\/fix\.md/.test(l));
@@ -5560,7 +6127,23 @@ const FAELLE = [
       } catch (e) { f.push('2 · Ausnahme: ' + String(e && e.message).split('\n')[0]); } finally { weg(w2); }
       // ── 3. Die Bausteine (R5b-ausgabe-4, R5b-ausgabe-3): harmlose Format-Zeichen nur MITTEN im Text, keine Zeile beginnt mit „::".
       try {
-        for (const t of [FAMILIE, FAHNE, 'Bau' + SHY + 'stelle', 'mi' + ZWNJ + 'x']) { if (A.fremd(t) !== t) f.push('3 · A.fremd veraendert ' + zeig(t, 40)); if (A.ausgabeSicher(t) !== t) f.push('3 · die letzte Wand veraendert ' + zeig(t, 40)); }
+        for (const t of [FAMILIE, FAHNE, 'Bau' + SHY + 'stelle', 'mi' + ZWNJ + 'x']) if (A.fremd(t) !== t) f.push('3 · A.fremd veraendert ' + zeig(t, 40));
+        // R5c-A1 (Gegenpruefung 5b, Skeptiker): die letzte Wand laesst ein harmloses Zeichen nur neben einem sichtbaren Nicht-ASCII-Zeichen roh.
+        // Familie, Regenbogenfahne, ein Wort mit Umlaut, Persisch (ZWNJ), Hindi (ZWJ nach dem Virama), U+FE0F hinter einem Emoji und in der
+        // Tastenkappe, eine Hautfarbe vor dem ZWJ bleiben ganz; zwischen zwei ASCII-Zeichen (ein Ref-Name, ein `von`, den eine Stelle nicht
+        // streng druckt) wird es sichtbar — auch U+034F, U+FE0F und der Hangul-Fueller, die keine Format-Zeichen sind, und eine Kette davon.
+        const PERSISCH = Z(0x645) + Z(0x6cc) + ZWNJ + Z(0x62e) + Z(0x648) + Z(0x627) + Z(0x647) + Z(0x645), HINDI = Z(0x915) + Z(0x94d) + ZWJ + Z(0x937);
+        for (const t of [FAMILIE, FAHNE, 'B' + UE + SHY + 'cher', PERSISCH, HINDI, Z(0x2764) + FE0F + ' x', '1' + FE0F + Z(0x20e3), Z(0x1F469) + Z(0x1F3FD) + ZWJ + Z(0x1F4BB)]) if (A.ausgabeSicher(t) !== t) f.push('3 · die letzte Wand veraendert ' + zeig(t, 40));
+        for (const [t, soll] of [['Bau' + SHY + 'stelle', 'Bau' + sicht(0xad) + 'stelle'], ['mi' + ZWNJ + 'x', 'mi' + sicht(0x200c) + 'x'], ['origin/claude/a' + ZWJ + 'b', 'origin/claude/a' + sicht(0x200d) + 'b'],
+          ['sitzung/claude/a' + CGJ + 'b', 'sitzung/claude/a' + sicht(0x34f) + 'b'], ['a' + CGJ + CGJ + 'b', 'a' + sicht(0x34f) + sicht(0x34f) + 'b'], ['a' + FE0F, 'a' + sicht(0xfe0f)], ['x' + Z(0x3164) + 'y', 'x' + sicht(0x3164) + 'y']])
+          if (A.ausgabeSicher(t) !== soll) f.push('3 · die letzte Wand laesst ' + zeig(t, 40) + (A.ausgabeSicher(t) === t ? ' ROH stehen' : ' als ' + zeig(A.ausgabeSicher(t), 60) + ' stehen') + ' — erwartet ' + soll);
+        // Die strenge Variante fuer NAMEN: jedes unsichtbare Zeichen sichtbar — auch neben einem Nicht-ASCII-Zeichen (dort laesst die Wand es
+        // roh) und auch, wenn es kein Format-Zeichen ist (git nimmt jedes davon in einem Branch-Namen an); ein ehrlicher Name bleibt, wie er ist.
+        const su = (n) => n > 0xffff ? sicht(0xd800 + ((n - 0x10000) >> 10)) + sicht(0xdc00 + ((n - 0x10000) & 0x3ff)) : sicht(n);
+        for (const n of [0x200d, 0x200c, 0xad, 0x34f, 0xfe0f, 0xe0100, 0x3164, 0x115f, 0xa0, 0x2007, 0xe000, 0x200b, 0x202e])
+          for (const [vor, nach] of [['claude/a', 'b'], ['claude/gr' + UE, 'n']]) { const s = vor + Z(n) + nach, soll = vor + su(n) + nach; if (A.fremd(s, 0, { streng: true }) !== soll) f.push('3 · A.fremd streng laesst ' + zeig(s, 40) + (A.fremd(s, 0, { streng: true }) === s ? ' ROH stehen' : ' als ' + zeig(A.fremd(s, 0, { streng: true }), 60) + ' stehen') + ' — erwartet ' + soll); }
+        for (const s of ['origin/claude/ab', 'claude/gr' + UE + 'n', 'docs/a b.md', 'Arbeitsbaum']) if (A.fremd(s, 0, { streng: true }) !== s) f.push('3 · A.fremd streng veraendert einen ehrlichen Namen: ' + zeig(s, 40));
+        if (A.fremd('claude/' + 'x'.repeat(300), 20, { streng: true }) !== 'claude/' + 'x'.repeat(12) + '…') f.push('3 · A.fremd streng deckelt die Laenge nicht');
         if (A.fremd(FAMILIE + RLO + 'x') !== FAMILIE + sicht(0x202e) + 'x') f.push('3 · U+202E neben einem ZWJ-Emoji bleibt nicht sichtbar gemacht: ' + zeig(A.fremd(FAMILIE + RLO + 'x'), 60));
         for (const [t, soll] of [['a' + ZWJ + ZWJ + 'b', 'a' + sicht(0x200d) + sicht(0x200d) + 'b'], [ZWJ + 'a', sicht(0x200d) + 'a'], ['a' + ZWNJ, 'a' + sicht(0x200c)], ['a' + Z(0xE0041) + 'b', 'a' + sicht(0xdb40) + sicht(0xdc41) + 'b']]) if (A.fremd(t) !== soll) f.push('3 · A.fremd: ' + zeig(t, 30) + ' ergibt ' + zeig(A.fremd(t), 60) + ' — erwartet ' + soll);
         const cmd = A.ausgabeSicher('ok' + NL + '  ::error title=x::y' + NL + '##[warning]z' + NL + Z(9) + '::add-mask::w' + NL + Z(0xa0) + '::stop-commands::t' + NL + 'mitten ::kein Befehl');
@@ -5599,7 +6182,8 @@ const FAELLE = [
         push('claude/k', 'klasse');
         // claude/z: Titel mit ZWJ-Emoji und weichem Trennstrich (das Werkzeug), Text mit ZWJ-Emoji und U+202E.
         g(d, ['checkout', '-q', '-b', 'claude/z', 'main']);
-        const T_EMO = 'Beet fuer die Familie ' + FAMILIE + ' und Regenbogen ' + FAHNE + ' an der Bau' + SHY + 'stelle';
+        // Der weiche Trennstrich steht neben einem Nicht-ASCII-Zeichen (R5c-A1: zwischen zwei ASCII-Buchstaben macht die Wand ihn sichtbar, Teil 3).
+        const T_EMO = 'Beet fuer die Familie ' + FAMILIE + ' und Regenbogen ' + FAHNE + ' an der B' + UE + SHY + 'cherei';
         let r = werkzeug(d, ['neu', 'idee', '--titel', T_EMO, '--text', 'Familie ' + FAMILIE + ' ' + RLO + 'gedreht', '--nutzen', 'n', '--pruefbar', 'p']); const zId = id(r);
         if (!zId) f.push('4a · `neu idee` mit ZWJ-Emoji im Titel wird nicht geschrieben (Exit ' + r.code + '): ' + zeig(r.aus, 200));
         r = werkzeug(d, ['neu', 'idee', '--titel', 'Kette a' + ZWJ + ZWJ + 'b', '--nutzen', 'n', '--pruefbar', 'p']);
@@ -5673,8 +6257,105 @@ const FAELLE = [
           if (ng.indexOf(oLage) < 0 || ug.indexOf(oLage) >= 0) f.push('4h · die offene Lage steht nicht unter NICHT GERECHNET (oder unter „ungueltig"): ' + zeig(ng || ug || '(keine Zeile)', 300));
           const x = werkzeug(t0c, ['zeige', oHalt, '--nur-lokal']);
           if (!/Wirkt jetzt: ja, bis [^\n]*\[Ankunft nicht rechenbar \(/.test(x.aus)) f.push('4h · `zeige` des offenen Halts: ' + zeig((x.aus.match(/Wirkt jetzt:[^\n]*/) || [x.aus])[0], 240)); }
+        // ── 5. R5c-A1 (Gegenpruefung 5b, Skeptiker, nach gp5b-aus/spoof.cjs): Branches, die gleich AUSSEHEN, stehen in `holen` und `zeige`
+        //    UNTERSCHEIDBAR da. git nimmt jeden dieser Namen an. claude/ab, claude/a<ZWJ>b und claude/a<SHY>b (Kopien derselben Idee mit
+        //    anderem Titel): bis a93415d stand „origin/claude/ab" dreimal unter FRISCHE BRANCHES, und der Schreiber las „abweichend
+        //    origin/claude/ab" ueber seinen eigenen Branch. claude/grün und claude/grü<ZWJ>n: der Nachbar ist kein ASCII — das haelt nur
+        //    die strenge Variante (FRISCHE BRANCHES, abweichend, {quelle}, UNLESBAR-Dateiname und -Quelle). Ein `von` sitzung/claude/a<U+034F>b
+        //    (AN_SITZUNG nimmt ihn an, `von` druckt keine Stelle streng): das haelt nur die Wand.
+        { const bare5 = path.join(eltern, 'origin5.git'), d5 = path.join(eltern, 'klon5');
+          // In den Meldungen steht ein ROHES Zeichen als <roh U+XXXX> — so unterscheidet sich, was das Werkzeug sichtbar machte, von dem, was es roh liess.
+          const rz = (x, n) => kurz(String(x).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/gu, c => '<roh U+' + c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0') + '>'), n);
+          cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare5]);
+          fs.mkdirSync(d5); g(d5, ['init', '-q', '-b', 'main', '.']); g(d5, ['remote', 'add', 'origin', 'file://' + bare5]);
+          fs.writeFileSync(path.join(d5, 'index.html'), QUELLE); g(d5, ['add', '-A']); g(d5, ['commit', '-q', '-m', 'start']); g(d5, ['push', '-q', '-u', 'origin', 'main']);
+          const push5 = (zweig, msg) => { g(d5, ['add', '-A']); g(d5, ['commit', '-q', '--allow-empty', '-m', msg]); g(d5, ['push', '-q', '-u', 'origin', zweig]); };
+          const umtiteln = (xid, titel) => { const p = path.join(d5, A.ORDNER, xid.slice(0, 7)), n = fs.readdirSync(p).find(x => x.indexOf(xid) === 0), e = JSON.parse(fs.readFileSync(path.join(p, n), 'utf8')); e.titel = titel; fs.writeFileSync(path.join(p, n), JSON.stringify(e, null, 2) + '\n'); };
+          const N = { ab: 'claude/ab', zwj: 'claude/a' + ZWJ + 'b', shy: 'claude/a' + SHY + 'b', gruen: 'claude/gr' + UE + 'n', gruenZwj: 'claude/gr' + UE + ZWJ + 'n', cgj: 'claude/a' + CGJ + 'b' };
+          const ZEIGT = { ab: 'origin/claude/ab', zwj: 'origin/claude/a' + sicht(0x200d) + 'b', shy: 'origin/claude/a' + sicht(0xad) + 'b', gruen: 'origin/claude/gr' + UE + 'n', gruenZwj: 'origin/claude/gr' + UE + sicht(0x200d) + 'n', cgj: 'origin/claude/a' + sicht(0x34f) + 'b' };
+          g(d5, ['checkout', '-q', '-b', N.ab, 'main']);
+          let r5 = werkzeug(d5, ['neu', 'idee', '--titel', 'Die Wochenzeile auch in der Glocke', '--nutzen', 'n', '--pruefbar', 'p']); const xId = id(r5); push5(N.ab, 'Idee Glocke');
+          for (const k of ['zwj', 'shy']) { g(d5, ['checkout', '-q', '-b', N[k], N.ab]); if (xId) umtiteln(xId, 'Die Wochenzeile NICHT in die Glocke (' + k + ')'); push5(N[k], 'Idee Glocke'); }
+          g(d5, ['checkout', '-q', '-b', N.gruen, 'main']);
+          r5 = werkzeug(d5, ['neu', 'idee', '--titel', 'Ein gruenes Beet', '--nutzen', 'n', '--pruefbar', 'p']); const yId = id(r5); push5(N.gruen, 'Beet');
+          // Auf dem Doppelgaenger: die umgetitelte Kopie, eine Idee, die NUR dort liegt (von sitzung/claude/grün), und eine kaputte Datei.
+          g(d5, ['checkout', '-q', '-b', N.gruenZwj, N.gruen]); if (yId) umtiteln(yId, 'Kein gruenes Beet');
+          const vId = (yId || heute + '-0000').slice(0, 10) + '-c36a5c01';
+          { const dir = path.join(d5, A.ORDNER, vId.slice(0, 7)); fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(path.join(dir, vId + '-idee-hand.json'), JSON.stringify({ id: vId, art: 'idee', datum: vId.slice(0, 10), zeit: stempel.zeit, von: 'sitzung/' + N.gruen, titel: 'Nur auf dem Doppelgaenger', nutzen: 'n', pruefbar: 'p' }, null, 2) + '\n');
+            fs.writeFileSync(path.join(dir, 'kaputt-gr' + UE + ZWJ + 'n.json'), '{\n'); }
+          push5(N.gruenZwj, 'Beet');
+          g(d5, ['checkout', '-q', '-b', N.cgj, 'main']);
+          r5 = werkzeug(d5, ['neu', 'idee', '--titel', 'Idee von nebenan', '--nutzen', 'n', '--pruefbar', 'p']); const wId = id(r5); push5(N.cgj, 'nebenan');
+          if (!xId || !yId || !wId) return { ok: false, warum: f.concat('Aufbau 5: eine Idee ist nicht geschrieben — ' + zeig(r5.aus, 200)).join(' · ') };
+          // 5a. Der LESER (ein fremder Branch): FRISCHE BRANCHES nennt jeden der sechs Namen GENAU EINMAL und in seiner sichtbaren Form.
+          g(d5, ['checkout', '-q', '-b', 'claude/leser5', 'main']);
+          const H5 = werkzeug(d5, ['holen', '--alles']).aus, zl5 = H5.split('\n');
+          const frisch = (zl) => { const i = zl.findIndex(l => /^FRISCHE BRANCHES/.test(l)), l = []; if (i < 0) return l; for (let j = i + 1; j < zl.length && /^ {4}\S/.test(zl[j]); j++) l.push(zl[j].trim().split('   ')[0]); return l; };
+          const fr5 = frisch(zl5);
+          for (const k of Object.keys(N)) if (fr5.filter(x => x === ZEIGT[k]).length !== 1) f.push('5a · FRISCHE BRANCHES nennt ' + rz(N[k], 40) + ' nicht genau einmal als „' + ZEIGT[k] + '": ' + rz(fr5.join(' | '), 300));
+          if (new Set(fr5).size !== fr5.length) f.push('5a · FRISCHE BRANCHES zeigt zwei Branches mit demselben Namen: ' + rz(fr5.join(' | '), 300));
+          // 5b. abweichend, {quelle}, UNLESBAR — und nirgends ein solches Zeichen roh (kein Titel dieser Welt traegt eines).
+          const ab5 = zl5.find(l => /sehen auf einem Branch anders aus/.test(l)) || '';
+          for (const [g0, w] of [[ZEIGT.ab, ZEIGT.zwj], [ZEIGT.ab, ZEIGT.shy], [ZEIGT.gruen, ZEIGT.gruenZwj]]) if (ab5.indexOf('es gilt ' + g0 + ', abweichend ' + w) < 0) f.push('5b · „abweichend" nennt nicht „es gilt ' + g0 + ', abweichend ' + w + '": ' + rz(ab5 || '(keine Zeile)', 400));
+          const vz = zl5.find(l => l.indexOf(vId) >= 0 && /Nur auf dem Doppelgaenger/.test(l)) || '';
+          if (vz.indexOf('{' + ZEIGT.gruenZwj + '}') < 0) f.push('5b · die Idee, die nur auf ' + rz(N.gruenZwj, 40) + ' liegt, nennt ihre Quelle nicht als {' + ZEIGT.gruenZwj + '}: ' + rz(vz || '(keine Zeile)', 200));
+          const ul = zl5.find(l => /unlesbare Datei/.test(l)) || '';
+          if (ul.indexOf('kaputt-gr' + UE + sicht(0x200d) + 'n.json [' + ZEIGT.gruenZwj + ']') < 0) f.push('5b · UNLESBAR nennt Dateiname und Quelle nicht sichtbar: ' + rz(ul || '(keine Zeile)', 300));
+          if (/[\u00ad\u200c\u200d\u034f]/.test(H5)) f.push('5b · `holen` druckt ZWJ, ZWNJ, SHY oder U+034F roh: ' + rz((zl5.find(l => /[\u00ad\u200c\u200d\u034f]/.test(l)) || ''), 200));
+          // 5c. `zeige` der Idee von claude/a<U+034F>b: Quelle UND `von` sichtbar (das `von` haelt die Wand, die Quelle die strenge Variante).
+          const Zg5 = werkzeug(d5, ['zeige', wId]).aus;
+          if (Zg5.indexOf('{' + ZEIGT.cgj + '}') < 0 || Zg5.indexOf('sitzung/claude/a' + sicht(0x34f) + 'b') < 0 || /\u034f/.test(Zg5)) f.push('5c · `zeige` nennt Quelle oder `von` des Branches mit U+034F nicht sichtbar: ' + rz(Zg5, 300));
+          // … und die Quelle der Idee, die nur auf dem Doppelgaenger claude/grü<ZWJ>n liegt (dort laesst die Wand das ZWJ roh, der Nachbar ist ein ü).
+          const Zv5 = werkzeug(d5, ['zeige', vId]).aus;
+          if (Zv5.indexOf('{' + ZEIGT.gruenZwj + '}') < 0 || /\u200d/.test(Zv5)) f.push('5c · `zeige` nennt die Quelle {' + ZEIGT.gruenZwj + '} nicht sichtbar: ' + rz(Zv5, 300));
+          // 5d. Der SCHREIBER auf claude/ab: sein eigener Branch steht nicht unter FRISCHE BRANCHES, die zwei Doppelgaenger unterscheidbar.
+          g(d5, ['checkout', '-q', N.ab]);
+          const W5 = werkzeug(d5, ['holen']).aus, zw5 = W5.split('\n'), fw5 = frisch(zw5), aw5 = zw5.find(l => /sehen auf einem Branch anders aus/.test(l)) || '';
+          if (fw5.indexOf(ZEIGT.ab) >= 0 || fw5.indexOf(ZEIGT.zwj) < 0 || fw5.indexOf(ZEIGT.shy) < 0) f.push('5d · der Schreiber sieht unter FRISCHE BRANCHES seinen eigenen Namen oder die Doppelgaenger nicht unterscheidbar: ' + rz(fw5.join(' | '), 300));
+          if (aw5.indexOf('es gilt Arbeitsbaum, abweichend ' + ZEIGT.zwj) < 0 || aw5.indexOf('es gilt Arbeitsbaum, abweichend ' + ZEIGT.shy) < 0) f.push('5d · der Schreiber liest „abweichend" nicht mit sichtbarem Namen: ' + rz(aw5 || '(keine Zeile)', 300));
+        }
+        // ── 6. Die Agenten-Runde (R5c-A1, ehrliche Nutzung): .claude/workflows/austausch-runde.js SELBST, als Skript mit gestellten Agenten
+        //    (agent/parallel/phase/log wie im Workflow-Werkzeug, schreiben: false), baut den Stapel; der geht als PROZESS durch `einspielen`.
+        //    Ein Unteragent liefert einen Titel ueber zwei Zeilen, ein Stichwort mit Zeilenumbruch, einen Titel mit Tabulator, eine Anker-Datei
+        //    und einen Empfaenger mit Zeilenumbruch: bis a93415d lehnte `einspielen` deshalb den GANZEN Stapel ab (alles oder nichts).
+        // Fehlt das Skript (eine Kopie nur von scripts/), ist Teil 6 NICHT PRUEFBAR — nie still gruen (B3 verlangt die Datei im Repo).
+        const rundePfad = path.join(WURZEL, '.claude/workflows/austausch-runde.js'), rundeFehlt = !fs.existsSync(rundePfad);
+        if (!rundeFehlt) { const quelle = fs.readFileSync(rundePfad, 'utf8');
+          const Async = Object.getPrototypeOf(async function () {}).constructor;
+          const runde = new Async('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow', quelle.replace(/^export const meta/, 'const meta'));
+          const antwort = (prompt, o) => {
+            const l = (o && o.label) || '';
+            if (l === 'brett:lesen') return 'das Brett (gestellt)';
+            if (l === 'sichten:fehler') return { befunde: [{ titel: 'Zwei Zeilen' + NL + 'im Titel', beleg: ['grep -c gsEins index.html → 3'], stichworte: ['glocke' + NL, ' woche '], anker: [{ datei: 'index.html' + NL, text: 'function gsEins(){' }] }],
+              ideen: [{ titel: '  Idee mit Tab' + Z(9) + 'im Titel  ', nutzen: 'n', pruefbar: 'p', stichworte: ['a' + Z(9) + 'b'] }], fragen: [{ titel: 'Frage' + NL + 'ueber zwei Zeilen', an: ' alle' + NL, stichworte: ['x'] }] };
+            if (l.indexOf('sichten:') === 0) return { befunde: [], ideen: [], fragen: [] };
+            if (l.indexOf('kreuzen:') === 0) return { antworten: [], ideen: [] };
+            if (l.indexOf('gegenpruefen:') === 0) return { urteile: [...String(prompt).matchAll(/"schluessel": "([^"]+)"/g)].map(m => ({ schluessel: m[1], haelt: true, beleg: 'nachgefahren' })) };
+            return null;
+          };
+          const erg = await runde((p, o) => Promise.resolve(antwort(p, o)), (fns) => Promise.all(fns.map(x => x())), null, () => {}, () => {},
+            { thema: 'gestellt', schreiben: false, blickwinkel: [{ key: 'fehler', auftrag: 'a' }, { key: 'nutzersicht', auftrag: 'b' }] }, null, null);
+          const stapel = erg && erg.stapel;
+          if (!Array.isArray(stapel) || stapel.length !== 3) f.push('6 · die Runde baut keinen Stapel aus drei Eintraegen: ' + zeig(JSON.stringify(erg), 200));
+          else {
+            const d6 = repo('c36r'), st6 = path.join(eltern, 'stapel6.json'); fs.writeFileSync(st6, JSON.stringify(stapel, null, 1));
+            try {
+              const e6 = werkzeug(d6, ['einspielen', st6]), b6 = A.brettLesen(d6, { alleRefs: false }).eintraege;
+              const soll = ['Zwei Zeilen im Titel', 'Idee mit Tab im Titel', 'Frage ueber zwei Zeilen'];
+              if (e6.code !== 0 || soll.some(s => !b6.some(x => x.titel === s))) f.push('6 · `einspielen` nimmt den Stapel der Runde nicht an (Exit ' + e6.code + '): ' + zeig(e6.aus, 300));
+              else { const bf = b6.find(x => x.art === 'befund'), fq = b6.find(x => x.art === 'frage');
+                if (JSON.stringify(bf.stichworte) !== '["glocke","woche"]' || !bf.anker || bf.anker[0].datei !== 'index.html' || fq.an !== 'alle') f.push('6 · die Runde faltet Stichworte, Anker-Datei oder Empfaenger nicht: ' + zeig(JSON.stringify([bf.stichworte, bf.anker, fq.an]), 200)); }
+              // 6b. Ein Stapel von Hand mit einem zweizeiligen Titel: `einspielen` lehnt ab, und der Grund steht in EINER Zeile.
+              const st6b = path.join(eltern, 'stapel6b.json'); fs.writeFileSync(st6b, JSON.stringify([{ art: 'befund', titel: 'Zwei Zeilen' + NL + 'im Titel', beleg: ['x'] }]));
+              const e6b = werkzeug(d6, ['einspielen', st6b]), z6b = e6b.aus.split('\n');
+              if (e6b.code !== 1 || z6b.some(l => /^im Titel/.test(l)) || !z6b.some(l => /^ {2}!! Eintrag 1 \(Zwei Zeilen im Titel\): titel ist EINE Zeile/.test(l))) f.push('6b · `einspielen` nennt einen zweizeiligen Titel nicht in EINER Zeile (Exit ' + e6b.code + '): ' + zeig(e6b.aus, 300));
+            } finally { weg(d6); }
+          }
+        }
         if (f.length) return { ok: false, warum: f.join(' · ') };
-        return { ok: true, info: 'einzeilig: ' + einzN + ' Faelle beim Schreiben abgelehnt, beim Lesen unlesbar mit Grund · mehrzeilig, ZWJ-Emoji, weicher Trennstrich lesbar · Gruende ohne rohen Wert · ZWJ mitten im Text bleibt, Kette und Rand sichtbar · keine Runner-Zeile (Wand), JSON bleibt JSON · holen/zeige/ernten/klasse/FEHLERKLASSE? ohne gefaelschten Block · A8 in einer Zeile · offener Halt mit Grund, offene Lage NICHT GERECHNET · naechste: Kuerzel nicht bestimmbar' };
+        if (rundeFehlt) return { offen: true, warum: 'Teil 6 (die Agenten-Runde) nicht pruefbar: ' + rundePfad + ' fehlt — die Teile 1 bis 5 sind ok' };
+        return { ok: true, info: 'einzeilig: ' + einzN + ' Faelle beim Schreiben abgelehnt, beim Lesen unlesbar mit Grund · mehrzeilig, ZWJ-Emoji, weicher Trennstrich lesbar · Gruende ohne rohen Wert · ZWJ mitten im Text bleibt, Kette und Rand sichtbar · keine Runner-Zeile (Wand), JSON bleibt JSON · holen/zeige/ernten/klasse/FEHLERKLASSE? ohne gefaelschten Block · A8 in einer Zeile · offener Halt mit Grund, offene Lage NICHT GERECHNET · naechste: Kuerzel nicht bestimmbar · R5c: sechs Doppelgaenger-Namen unterscheidbar (FRISCHE, abweichend, {quelle}, UNLESBAR, zeige), Wand nur neben Nicht-ASCII nachsichtig, strenge Namen · Runde faltet einzeilige Felder, einspielen nimmt den Stapel an, Grund in einer Zeile' };
       } catch (e) { return { ok: false, warum: f.concat('Ausnahme: ' + String(e.message).split('\n')[0]).join(' · ') }; } finally { weg(eltern); }
     },
   },
