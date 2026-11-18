@@ -88,8 +88,9 @@ export const istSicherungsRef = (ref) => new RegExp('^(refs/remotes/)?' + REMOTE
 // „claude/main" (oder fork/main) trug dann Faelschungen, die fuer alle Leser galten — ein Halt im
 // fremden Namen wirkte, ein „ersetzt" versteckte einen kritischen Befund (Gegenpruefung 3).
 export const istMainRef = (ref) => new RegExp('^(refs/remotes/)?' + REMOTE + '/main$').test(String(ref || ''));
-// Der Branch des Schreibers als Ref: origin/<b> — nie derselbe Name auf einem anderen Remote.
-export const istAutorRef = (ref, b) => !!b && String(ref || '') === REMOTE + '/' + b;
+// Der Branch des Schreibers als Ref: origin/<b> — nie derselbe Name auf einem anderen Remote, und NIE die Sicherung:
+// ein Eintrag mit `von: sitzung/zz-sicherung` waere sonst, sobald der Waechter ihn kopiert hat, „von seinem Branch".
+export const istAutorRef = (ref, b) => !!b && !istSicherungsRef(ref) && String(ref || '') === REMOTE + '/' + b;
 export const FASSUNGEN = 'docs/austausch/fassungen';
 // Groesser ist kein Eintrag (der groesste vom 18.11.2026 hat 7 KB) — und eine 600-KB-Datei auf einem
 // fremden Branch legte `holen` fuer drei Minuten lahm (Gegenpruefung: quadratische Suche).

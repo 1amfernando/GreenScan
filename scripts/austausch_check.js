@@ -1029,6 +1029,9 @@ const FAELLE = [
           const v1 = mk('lage', { von: 'sitzung/v', zeit: '06:00:00', bis: '2026-01-01T07:30:00Z', bezug: z.slice(0, 3).map(x => bz('baut_auf', x)) }), v2 = mk('lage', { von: 'sitzung/v', zeit: '07:00:00', bezug: [bz('baut_auf', z[3])] });
           const st5 = A.schwarm(z.concat([v1, v2]), T);
           if (st5.uebernahme.has(z[3].id) || !st5.unwirksam.some(u => u.e === v2 && /mehr als 3/.test(u.grund))) f.push('eine Lage, die bei ihrem Schreiben ueber dem Deckel lag, gilt, sobald die aelteren ABGELAUFEN sind');
+          const e1 = mk('lage', { von: 'sitzung/e', zeit: '05:00:00', bis: '2026-01-01T06:00:00Z', bezug: z.slice(0, 3).map(x => bz('baut_auf', x)) }), e2 = mk('lage', { von: 'sitzung/e', zeit: '07:00:00', bezug: [bz('baut_auf', z[3])] });
+          const ue = A.schwarm(z.concat([e1, e2]), T).uebernahme.get(z[3].id);
+          if (!ue || ue.lage.e !== e2) f.push('drei Uebernahmen, die VOR der vierten abgelaufen waren, belegen bei ihr noch den Deckel');
           // Teilweise: von drei Zielen liegt nur eines ueber dem Deckel — die anderen zwei gelten.
           const p0 = mk('befund'), pz = [mk('befund'), mk('befund'), mk('befund')];
           const pa = mk('lage', { von: 'sitzung/p', zeit: '08:00:00', bezug: [bz('baut_auf', p0)] }), pb = mk('lage', { von: 'sitzung/p', zeit: '08:10:00', bezug: pz.map(x => bz('baut_auf', x)) });
@@ -1535,6 +1538,9 @@ const FAELLE = [
         w = A.geloeschtSeit(d, basis); if (w.fehlt.length !== 1) f.push('Waechter 1 sieht das geloeschte Eintragsfile nicht');
         fs.writeFileSync(path.join(d, A.GRABSTEINE), JSON.stringify([{ id: m1.id, datum: '2026-01-04', grund: 'enthielt einen Personennamen' }], null, 2) + '\n');
         w = A.geloeschtSeit(d, basis); if (w.fehlt.length) f.push('Waechter 1 meldet eine Loeschung, die auf der Grabstein-Liste steht');
+        fs.writeFileSync(path.join(d, A.GRABSTEINE), JSON.stringify([{ id: m1.id, blob: cp.execFileSync('git', ['hash-object', '--stdin'], { input: roh1, encoding: 'utf8' }).trim(), datum: '2026-01-04', grund: 'diese eine Fassung' }], null, 2) + '\n');
+        w = A.geloeschtSeit(d, basis); if (w.fehlt.length) f.push('Waechter 1 meldet die Loeschung einer Fassung, deren Grabstein (blob) auf der Liste steht');
+        if (A.grabsteinePruefen(JSON.stringify([{ id: m1.id, blob: 'abc', datum: '2026-01-04', grund: 'x' }])).fehler.length !== 1) f.push('ein Grabstein mit unvollstaendiger blob-Kennung wird angenommen');
         fs.writeFileSync(p1, roh1);
         if (!A.brettLesen(d, { alleRefs: false }).grabDateien.length || !A.brettPruefen(A.brettLesen(d, { alleRefs: false })).some(x => /Grabstein-Liste[^]*liegt noch hier/.test(x.grund))) f.push('eine Datei mit Grabstein, die noch im Baum liegt, ist kein Fehler');
         fs.unlinkSync(path.join(d, A.GRABSTEINE));
@@ -1790,9 +1796,19 @@ const FAELLE = [
         a = action();
         if (a.code !== 0) f.push('die Kopie verschwindet, das Original liegt auf main: Exit ' + a.code + ' — kein Alarm erwartet');
         const kopieBlob = blobVon(pbKopie);
+        // Ein ANDERER Schreiber (anderes von) mit derselben id auf main ist nicht „zu Hause" fuer den ersten: dessen Fassung ist verloren.
+        const fw = mk('idee', { id: '2026-02-11-1919', datum: '2026-02-11', von: 'sitzung/claude/fw', titel: 'Fassung des Schreibers' });
+        neuerZweig('claude/fw', [[fw]]); a = action();
+        aufMain(() => ablegen(d2, Object.assign({}, fw, { von: 'sitzung/claude/anders', titel: 'Ein anderer Schreiber, dieselbe id' })), 'fw anders');
+        loesche('claude/fw'); a = action();
+        if (a.code !== 3 || !/ALARM:[^\n]*2026-02-11-1919/.test(a.aus)) f.push('liegt dieselbe id von einem ANDEREN Schreiber auf main, verschwindet die Fassung des ersten still: Exit ' + a.code + ' · ' + kurz(a.aus, 200));
         aufMain(() => { const gp = path.join(d2, A.GRABSTEINE), l = fs.existsSync(gp) ? JSON.parse(fs.readFileSync(gp, 'utf8')) : []; l.push({ id: pb.id, blob: kopieBlob, datum: '2026-02-11', grund: 'eine Kopie mit einem Namen im Text' }); fs.writeFileSync(gp, JSON.stringify(l, null, 2) + '\n'); }, 'grabstein je fassung');
         a = action();
         const pruef17 = A.brettPruefen(A.brettLesen(d2, { alleRefs: false }));
+        neuerZweig('claude/pbk', [[pbKopie]]);   // dieselbe Kopie taucht wieder auf: fuer Leser zaehlt sie nicht
+        const bl17 = A.brettLesen(d, { alleRefs: true });
+        if (bl17.abweichend.some(x => x.id === pb.id) || (bl17.wo.get(pb.id) || new Set()).has('origin/claude/pbk')) f.push('eine Fassung mit Grabstein (blob) zaehlt fuer Leser weiter: ' + JSON.stringify(bl17.abweichend.filter(x => x.id === pb.id)));
+        loesche('claude/pbk');
         if (a.code !== 0 || baumZz().indexOf(kopieBlob) >= 0 || !/2026-02-11-1717/.test(gesichert()) || pruef17.some(x => /Grabstein/.test(x.grund))) f.push('Grabstein je Fassung: Exit ' + a.code + ', Kopie noch gesichert: ' + (baumZz().indexOf(kopieBlob) >= 0) + ', Original gesichert: ' + /1717/.test(gesichert()) + ', Pruefung: ' + pruef17.map(x => x.grund).join(' | '));
         // 18. Abbau: eine abgeloeste Fassung eines Eintrags auf main, SICHERUNG_ABBAU_TAGE ohne Branch, geht — still.
         const pbAlt = Object.assign({}, pb, { titel: 'Alte Fassung, laengst abgeloest' });
@@ -1855,6 +1871,14 @@ const FAELLE = [
         for (const e of [ziel].concat(freie)) ablegen(d, e);
         g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'start']); g(d, ['push', '-q', 'origin', 'main']);
         zweig('claude/opfer', 'origin/main', [[krit]]);
+        // 0. Der Arbeitsbaum gilt vor origin/main (dort liegt, was diese Sitzung gerade schreibt).
+        { const pz = path.join(d, A.ORDNER, ziel.id.slice(0, 7), ziel.id + '-befund-x.json'); g(d, ['checkout', '-q', '--detach', 'origin/main']); fs.writeFileSync(pz, JSON.stringify(Object.assign({}, ziel, { titel: 'Im Arbeitsbaum berichtigt' }), null, 2) + '\n');
+          const b0 = A.brettLesen(d, { alleRefs: true }), z0 = b0.eintraege.find(e => e.id === ziel.id);
+          if (!z0 || z0.titel !== 'Im Arbeitsbaum berichtigt' || !b0.abweichend.some(x => x.id === ziel.id && /origin\/main/.test(x.weichtAb))) f.push('der Arbeitsbaum gilt nicht vor origin/main: ' + (z0 ? '„' + z0.titel + '" {' + z0._quelle + '}' : 'nichts'));
+          g(d, ['checkout', '-q', '--', '.']); }
+        // … und die Sicherung ist NIE der Branch eines Schreibers: ein Halt mit von = sitzung/zz-sicherung, den der Waechter
+        // kopiert hat (hier: von Hand auf zz-sicherung gelegt), wirkt nicht.
+        zweig('zz-sicherung', 'origin/main', [[halt(Object.assign({ id: stamp(jetzt(-1)).datum + '-c0000040', von: 'sitzung/zz-sicherung', bis: bisIn(6) }, stamp(jetzt(-1))))]]);
         // 1. main ist GENAU origin/main.
         const h1 = halt(Object.assign({ id: stamp(jetzt(-1)).datum + '-c0000001', von: 'sitzung/claude/opfer', bis: bisIn(6) }, stamp(jetzt(-1))));
         zweig('claude/opfer', 'origin/claude/opfer', [[h1]]);
@@ -1863,6 +1887,7 @@ const FAELLE = [
         let L = lesen();
         if (!L.sw.halts.some(h => h.e.id === h1.id)) f.push('eine abgelaufene Kopie des Halts auf claude/main loescht den echten Halt (main ist nicht GENAU origin/main)');
         if (L.sw.halts.some(h => h.e.id.slice(-8) === 'c0000002')) f.push('ein Halt im fremden Namen auf claude/main wirkt');
+        if (L.sw.halts.some(h => h.e.id.slice(-8) === 'c0000040')) f.push('ein Halt mit von = sitzung/zz-sicherung auf der Sicherung wirkt — die Sicherung gilt als Branch eines Schreibers');
         if (L.abl.zustand.get(krit.id).z !== 'offen') f.push('ein „ersetzt" im Namen des Opfers auf claude/main versteckt dessen kritischen Befund');
         let r = werkzeug(d, ['naechste'], { AUSTAUSCH_VON: 'sitzung/claude/leser' });
         if (r.code !== 1) f.push('`naechste` sieht den Bump-Halt nicht (Exit ' + r.code + ') — die Kopie auf claude/main verdeckt ihn');
@@ -1949,7 +1974,7 @@ const FAELLE = [
         r = werkzeug(d, ['nehme', freie[5].id]); const w4 = id(r);
         if (r.code !== 0 || !w4) f.push('nach drei Mithelf-Zielen wird eine eigene Uebernahme abgewiesen (Exit ' + r.code + ') — Mithelfen belegt keinen Platz');
         r = werkzeug(d, ['zeige', String(w4)]); if (!/Wirkt jetzt: ja[^\n]*uebernimmt/.test(r.aus)) f.push('die Uebernahme neben drei Mithelf-Lagen wirkt nicht: ' + kurz((r.aus.match(/Wirkt jetzt:[^\n]*/) || [''])[0], 140));
-        r = werkzeug(d, ['nehme', ziel.id, '--auch']); if (r.code !== 0) f.push('`nehme --auch` auf ein von claude/ehrlich genommenes Ziel: Exit ' + r.code);
+        r = werkzeug(d, ['nehme', ziel.id, '--auch', '--titel', 'Ich schaue mir die Gegenprobe an']); if (r.code !== 0) f.push('`nehme --auch --titel …` auf ein von claude/ehrlich genommenes Ziel: Exit ' + r.code);
         r = werkzeug(d, ['nehme', freie[1].id, '--auch']); if (r.code !== 1 || !/ist frei/.test(r.aus)) f.push('`nehme --auch` auf ein FREIES Ziel: Exit ' + r.code + ' — erwartet 1 („ist frei — ohne --auch")');
         r = werkzeug(d, ['lage', '--bezug', 'baut_auf:' + freie[2].id]); if (r.code !== 1 || !/schon uebernommen/.test(r.aus)) f.push('`lage --bezug baut_auf:<genommen>` geht an der Pruefung von `nehme` vorbei (Exit ' + r.code + ')');
         g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'w']); g(d, ['push', '-q', '-u', 'origin', 'claude/w']);
